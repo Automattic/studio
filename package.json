@@ -1,0 +1,58 @@
+{
+	"name": "local-environment",
+	"author": "Automattic Inc.",
+	"private": true,
+	"productName": "local-environment",
+	"version": "1.0.0",
+	"description": "Local Environment",
+	"license": "GPL-2.0-or-later",
+	"main": ".webpack/main",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/Automattic/local-environment.git",
+		"directory": "/"
+	},
+	"scripts": {
+		"start": "PORT=3456 electron-forge start",
+		"package": "electron-forge package",
+		"make": "electron-forge make",
+		"publish": "electron-forge publish",
+		"lint": "eslint --ext .ts,.tsx ."
+	},
+	"devDependencies": {
+		"@electron-forge/cli": "^7.2.0",
+		"@electron-forge/maker-deb": "^7.2.0",
+		"@electron-forge/maker-rpm": "^7.2.0",
+		"@electron-forge/maker-squirrel": "^7.2.0",
+		"@electron-forge/maker-zip": "^7.2.0",
+		"@electron-forge/plugin-auto-unpack-natives": "^7.2.0",
+		"@electron-forge/plugin-webpack": "^7.2.0",
+		"@types/react": "^18.2.42",
+		"@types/react-dom": "^18.2.17",
+		"@typescript-eslint/eslint-plugin": "^5.0.0",
+		"@typescript-eslint/parser": "^5.0.0",
+		"@vercel/webpack-asset-relocator-loader": "1.7.3",
+		"autoprefixer": "^10.4.16",
+		"css-loader": "^6.0.0",
+		"electron": "28.0.0",
+		"eslint": "^8.0.1",
+		"eslint-config-prettier": "^9.1.0",
+		"eslint-plugin-import": "^2.25.0",
+		"eslint-plugin-prettier": "^5.0.1",
+		"fork-ts-checker-webpack-plugin": "^7.2.13",
+		"node-loader": "^2.0.0",
+		"postcss": "^8.4.32",
+		"postcss-loader": "^7.3.3",
+		"prettier": "npm:wp-prettier@3.0.3",
+		"style-loader": "^3.0.0",
+		"tailwindcss": "^3.3.6",
+		"ts-loader": "^9.2.2",
+		"ts-node": "^10.0.0",
+		"typescript": "~4.5.4"
+	},
+	"dependencies": {
+		"electron-squirrel-startup": "^1.0.0",
+		"react": "^18.2.0",
+		"react-dom": "^18.2.0"
+	}
+}

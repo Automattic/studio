@@ -4,7 +4,7 @@ export function CreateSiteButton() {
 	const { createSite } = useSiteDetails();
 
 	return (
-		<button type="button" onClick={ () => createSite( '~/site-path' ) }>
+		<button type="button" onClick={ () => createSite( '/Users/philip/dev/site-path' ) }>
 			Create site
 		</button>
 	);

@@ -90,3 +90,6 @@ typings/
 
 # Electron-Forge
 out/
+
+# The latest WordPress files downloaded from the web
+wp-files/

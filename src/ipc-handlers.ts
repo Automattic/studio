@@ -1,7 +1,6 @@
 import { type IpcMainInvokeEvent } from 'electron';
 import { loadUserData, saveUserData } from './storage/user-data';
-import crypto from 'crypto';
-import nodePath from 'path';
+import { createSiteServer } from './site-server';
 
 // IPC functions must accept an `event` as the first argument.
 /* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "event" }] */
@@ -21,14 +20,15 @@ export async function createSite(
 ): Promise< SiteDetails[] > {
 	const userData = await loadUserData();
 
-	userData.sites.push( {
-		id: crypto.randomUUID(),
-		name: nodePath.basename( path ),
-		path,
-		running: false,
-	} );
+	const server = await createSiteServer( path );
+	if ( ! server ) {
+		return userData.sites;
+	}
 
+	userData.sites.push( server.details );
 	await saveUserData( userData );
+
+	await server.start();
 
 	return userData.sites;
 }

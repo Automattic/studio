@@ -14,5 +14,11 @@
 		"plugin:prettier/recommended"
 	],
 	"parser": "@typescript-eslint/parser",
-	"plugins": [ "prettier" ]
+	"plugins": [ "prettier" ],
+	"rules": {
+		"@typescript-eslint/no-unused-vars": [
+			"warn",
+			{ "args": "after-used", "argsIgnorePattern": "^_", "vars": "all", "varsIgnorePattern": "^_" }
+		]
+	}
 }

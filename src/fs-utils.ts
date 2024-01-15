@@ -32,3 +32,12 @@ export async function recursiveCopyDirectory(
 		}
 	}
 }
+
+export async function isEmptyDir( directory: string ): Promise< boolean > {
+	const stats = await fs.stat( directory );
+	if ( ! stats.isDirectory() ) {
+		return false;
+	}
+	const files = await fs.readdir( directory );
+	return files.length === 0;
+}

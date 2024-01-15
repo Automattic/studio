@@ -1,12 +1,12 @@
 import nodePath from 'path';
-import { pathExists, recursiveCopyDirectory } from './fs-utils';
+import { pathExists, recursiveCopyDirectory, isEmptyDir } from './fs-utils';
 import { getWpNowConfig, startServer, type Server as WPNowServer } from '@wp-now/wp-now';
 import { portFinder } from './port-finder';
 
 const servers = new Map< string, SiteServer >();
 
 export async function createSiteWorkingDirectory( path: string ): Promise< boolean > {
-	if ( await pathExists( path ) ) {
+	if ( ( await pathExists( path ) ) && ! ( await isEmptyDir( path ) ) ) {
 		// We can only create into a clean directory
 		return false;
 	}

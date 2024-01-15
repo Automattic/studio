@@ -1,4 +1,4 @@
-import { type IpcMainInvokeEvent } from 'electron';
+import { type IpcMainInvokeEvent, dialog } from 'electron';
 import { loadUserData, saveUserData } from './storage/user-data';
 import { SiteServer, createSiteWorkingDirectory } from './site-server';
 import nodePath from 'path';
@@ -87,4 +87,22 @@ export async function stopServer(
 
 	await server.stop();
 	return server.details;
+}
+
+export async function showOpenFolderDialog(
+	event: IpcMainInvokeEvent,
+	title: string
+): Promise< string | null > {
+	const { canceled, filePaths } = await dialog.showOpenDialog( {
+		title,
+		properties: [
+			'openDirectory',
+			'createDirectory', // allow user to create new directories; macOS only
+		],
+	} );
+	if ( canceled ) {
+		return null;
+	}
+
+	return filePaths[ 0 ];
 }

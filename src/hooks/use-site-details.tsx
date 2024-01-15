@@ -2,13 +2,17 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { getIpcApi } from '../get-ipc-api';
 
 interface SiteDetailsContext {
-	data: SiteDetails[] | undefined;
+	data: SiteDetails[];
 	createSite: ( path: string ) => Promise< void >;
+	startServer: ( id: string ) => Promise< void >;
+	stopServer: ( id: string ) => Promise< void >;
 }
 
 const siteDetailsContext = createContext< SiteDetailsContext >( {
-	data: undefined,
+	data: [],
 	createSite: async () => undefined,
+	startServer: async () => undefined,
+	stopServer: async () => undefined,
 } );
 
 interface SiteDetailsProviderProps {
@@ -22,7 +26,7 @@ export function useSiteDetails() {
 export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	const { Provider } = siteDetailsContext;
 
-	const [ data, setData ] = useState< SiteDetails[] | undefined >( undefined );
+	const [ data, setData ] = useState< SiteDetails[] >( [] );
 
 	useEffect( () => {
 		let cancel = false;
@@ -44,10 +48,34 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		setData( data );
 	}, [] );
 
+	const startServer = useCallback(
+		async ( id: string ) => {
+			const updatedSite = await getIpcApi().startServer( id );
+			if ( updatedSite ) {
+				const newData = data.map( ( site ) => ( site.id === id ? updatedSite : site ) );
+				setData( newData );
+			}
+		},
+		[ data ]
+	);
+
+	const stopServer = useCallback(
+		async ( id: string ) => {
+			const updatedSite = await getIpcApi().stopServer( id );
+			if ( updatedSite ) {
+				const newData = data.map( ( site ) => ( site.id === id ? updatedSite : site ) );
+				setData( newData );
+			}
+		},
+		[ data ]
+	);
+
 	const context = useMemo(
 		() => ( {
 			data,
 			createSite,
+			startServer,
+			stopServer,
 		} ),
 		[ data ]
 	);

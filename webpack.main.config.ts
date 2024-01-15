@@ -17,4 +17,11 @@ export const mainConfig: Configuration = {
 	resolve: {
 		extensions: [ '.js', '.ts', '.jsx', '.tsx', '.css', '.json' ],
 	},
+	externals: {
+		/**
+		 * We need to add PHP Wasm as an external because it uses the __dirname
+		 * variable, and Webpack messes with it.
+		 */
+		'@php-wasm/node': '@php-wasm/node',
+	},
 };

@@ -1,4 +1,3 @@
-import crypto from 'crypto';
 import nodePath from 'path';
 import { pathExists, recursiveCopyDirectory } from './fs-utils';
 import { getWpNowConfig, startServer, type Server as WPNowServer } from '@wp-now/wp-now';
@@ -6,35 +5,31 @@ import { portFinder } from './port-finder';
 
 const servers = new Map< string, SiteServer >();
 
-export async function createSiteServer( path: string ): Promise< SiteServer | null > {
+export async function createSiteWorkingDirectory( path: string ): Promise< boolean > {
 	if ( await pathExists( path ) ) {
 		// We can only create into a clean directory
-		return null;
+		return false;
 	}
-
-	const details = {
-		id: crypto.randomUUID(),
-		name: nodePath.basename( path ),
-		path,
-		running: false,
-	} as const;
 
 	await recursiveCopyDirectory( nodePath.resolve( 'wp-files/latest/wordpress' ), path );
 
-	const server = new SiteServer( details );
-
-	servers.set( details.id, server );
-	return server;
-}
-
-export function getSiteServer( id: string ): SiteServer | undefined {
-	return servers.get( id );
+	return true;
 }
 
 export class SiteServer {
 	server?: WPNowServer;
 
-	constructor( public details: SiteDetails ) {}
+	private constructor( public details: SiteDetails ) {}
+
+	static get( id: string ): SiteServer | undefined {
+		return servers.get( id );
+	}
+
+	static create( details: StoppedSiteDetails ): SiteServer {
+		const server = new SiteServer( details );
+		servers.set( details.id, server );
+		return server;
+	}
 
 	async start() {
 		if ( this.details.running || this.server ) {
@@ -61,6 +56,7 @@ export class SiteServer {
 
 	async stop() {
 		this.server?.stopServer();
+		this.server = undefined;
 
 		if ( ! this.details.running ) {
 			return;

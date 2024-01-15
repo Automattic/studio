@@ -1,9 +1,19 @@
-interface SiteDetails {
+interface StoppedSiteDetails {
+	running: false;
+
 	id: string;
 	name: string;
 	path: string;
-	url?: string;
 }
+
+interface StartedSiteDetails extends StoppedSiteDetails {
+	running: true;
+
+	port: number;
+	url: string;
+}
+
+type SiteDetails = StartedSiteDetails | StoppedSiteDetails;
 
 type Tail< T extends any[] > = ( ( ...args: T ) => any ) extends ( _: any, ...tail: infer U ) => any
 	? U

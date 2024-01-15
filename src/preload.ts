@@ -5,6 +5,8 @@ import { contextBridge, ipcRenderer } from 'electron';
 import type * as ipcHandlers from './ipc-handlers';
 
 const api: Record< keyof typeof ipcHandlers, ( ...args: any[] ) => any > = {
+	createSite: ( path: string ) => ipcRenderer.invoke( 'createSite', path ),
+	getSiteDetails: () => ipcRenderer.invoke( 'getSiteDetails' ),
 	ping: ( message: string ) => ipcRenderer.invoke( 'ping', message ),
 };
 

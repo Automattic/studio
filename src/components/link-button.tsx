@@ -1,10 +1,10 @@
-import { type ButtonHTMLAttributes } from 'react';
+import { forwardRef, type ButtonHTMLAttributes } from 'react';
 import { cx } from '../cx';
 
-export default function LinkButton( {
-	type = 'button',
-	className,
-	...rest
-}: ButtonHTMLAttributes< HTMLButtonElement > ) {
-	return <button type={ type } className={ cx( 'underline', className ) } { ...rest } />;
-}
+export default forwardRef< HTMLButtonElement, ButtonHTMLAttributes< HTMLButtonElement > >(
+	function LinkButton( { type = 'button', className, ...rest }, ref ) {
+		return (
+			<button ref={ ref } type={ type } className={ cx( 'underline', className ) } { ...rest } />
+		);
+	}
+);

@@ -16,6 +16,12 @@ export async function createSiteWorkingDirectory( path: string ): Promise< boole
 	return true;
 }
 
+export async function stopAllServersOnQuit() {
+	// We're quitting so this doesn't have to be tidy, just stop the
+	// servers as directly as possible.
+	await Promise.all( [ ...servers.values() ].map( ( server ) => server.server?.stopServer() ) );
+}
+
 export class SiteServer {
 	server?: WPNowServer;
 

@@ -3,7 +3,7 @@
 	"author": "Automattic Inc.",
 	"private": true,
 	"productName": "local-environment",
-	"version": "1.0.0",
+	"version": "0.1.0",
 	"description": "Local Environment",
 	"license": "GPL-2.0-or-later",
 	"main": ".webpack/main",

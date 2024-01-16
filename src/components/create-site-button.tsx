@@ -1,7 +1,8 @@
 import { getIpcApi } from '../get-ipc-api';
 import { useSiteDetails } from '../hooks/use-site-details';
+import Button from './button';
 
-export function CreateSiteButton() {
+export default function CreateSiteButton() {
 	const { createSite } = useSiteDetails();
 
 	const handleClick = async () => {
@@ -11,9 +12,5 @@ export function CreateSiteButton() {
 		}
 	};
 
-	return (
-		<button type="button" className="border-2 px-2 rounded-lg" onClick={ handleClick }>
-			Create site
-		</button>
-	);
+	return <Button onClick={ handleClick }>Create site</Button>;
 }

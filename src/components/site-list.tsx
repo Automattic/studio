@@ -17,17 +17,15 @@ export function SiteList() {
 						<p className="text-sm font-semibold leading-6 text-gray-900">{ site.name }</p>
 						<p className="mt-1 truncate text-xs leading-5 text-gray-500">{ site.path }</p>
 					</div>
-					<div className="shrink-0 flex flex-col place-content-center">
-						<p className="text-sm leading-6 text-gray-900">
-							<div className="mt-1 flex items-center gap-x-1.5">
-								<StatusLed on={ site.running } />
-								{ site.running ? (
-									<LinkButton onClick={ () => stopServer( site.id ) }>Running</LinkButton>
-								) : (
-									<LinkButton onClick={ () => startServer( site.id ) }>Stopped</LinkButton>
-								) }
-							</div>
-						</p>
+					<div className="shrink-0 flex flex-col place-content-center text-sm leading-6 text-gray-900">
+						<div className="mt-1 flex items-center gap-x-1.5">
+							<StatusLed on={ site.running } />
+							{ site.running ? (
+								<LinkButton onClick={ () => stopServer( site.id ) }>Running</LinkButton>
+							) : (
+								<LinkButton onClick={ () => startServer( site.id ) }>Stopped</LinkButton>
+							) }
+						</div>
 					</div>
 				</li>
 			) ) }

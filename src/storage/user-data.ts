@@ -10,7 +10,7 @@ export async function loadUserData(): Promise< UserData > {
 		const asString = await fs.promises.readFile( filePath, 'utf-8' );
 		const parsed = JSON.parse( asString );
 		const data = fromDiskFormat( parsed );
-		console.log( `loaded user data from ${ filePath }: ${ JSON.stringify( data, null, 2 ) }` );
+		console.log( `Loaded user data from ${ filePath }` );
 		return data;
 	} catch ( err: any ) {
 		if ( err && 'code' in err && err.code === 'ENOENT' ) {
@@ -28,7 +28,7 @@ export async function saveUserData( data: UserData ): Promise< void > {
 
 	const asString = JSON.stringify( toDiskFormat( data ), null, 2 ) + '\n';
 	await fs.promises.writeFile( filePath, asString, 'utf-8' );
-	console.log( `saved user data to ${ filePath }: ${ asString }` );
+	console.log( `Saved user data to ${ filePath }` );
 }
 
 function toDiskFormat( { sites, ...rest }: UserData ): PersistedUserData {

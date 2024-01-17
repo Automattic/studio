@@ -4,15 +4,8 @@ import { SiteServer, createSiteWorkingDirectory } from './site-server';
 import nodePath from 'path';
 import crypto from 'crypto';
 
-declare const MAIN_WINDOW_WEBPACK_ENTRY: string;
-
-function validateIpcSender( event: IpcMainInvokeEvent ) {
-	if ( new URL( event.senderFrame.url ).origin === new URL( MAIN_WINDOW_WEBPACK_ENTRY ).origin ) {
-		return true;
-	}
-
-	throw new Error( 'Invalid IPC sender' );
-}
+// IPC functions must accept an `event` as the first argument.
+/* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "event" }] */
 
 async function mergeSiteDetailsWithRunningDetails(
 	sites: SiteDetails[]
@@ -27,9 +20,8 @@ async function mergeSiteDetailsWithRunningDetails(
 }
 
 export async function getSiteDetails( event: IpcMainInvokeEvent ): Promise< SiteDetails[] > {
-	validateIpcSender( event );
-
 	const { sites } = await loadUserData();
+	console.log( 'Loaded user data', sites );
 
 	// Ensure we have an instance of a server for each site we know about
 	for ( const site of sites ) {
@@ -45,8 +37,6 @@ export async function createSite(
 	event: IpcMainInvokeEvent,
 	path: string
 ): Promise< SiteDetails[] > {
-	validateIpcSender( event );
-
 	const userData = await loadUserData();
 
 	if ( ! ( await createSiteWorkingDirectory( path ) ) ) {
@@ -74,8 +64,6 @@ export async function startServer(
 	event: IpcMainInvokeEvent,
 	id: string
 ): Promise< SiteDetails | null > {
-	validateIpcSender( event );
-
 	const server = SiteServer.get( id );
 	if ( ! server ) {
 		return null;
@@ -89,8 +77,6 @@ export async function stopServer(
 	event: IpcMainInvokeEvent,
 	id: string
 ): Promise< SiteDetails | null > {
-	validateIpcSender( event );
-
 	const server = SiteServer.get( id );
 	if ( ! server ) {
 		return null;
@@ -104,8 +90,6 @@ export async function showOpenFolderDialog(
 	event: IpcMainInvokeEvent,
 	title: string
 ): Promise< string | null > {
-	validateIpcSender( event );
-
 	const { canceled, filePaths } = await dialog.showOpenDialog( {
 		title,
 		properties: [

@@ -48,8 +48,7 @@ export class SiteServer {
 			port,
 		} );
 
-		console.log( 'Starting server with options:' );
-		console.log( { options } );
+		console.log( 'Starting server with options', options );
 		this.server = await startServer( options );
 
 		this.details = {
@@ -61,6 +60,7 @@ export class SiteServer {
 	}
 
 	async stop() {
+		console.log( 'Stopping server with ID', this.details.id );
 		this.server?.stopServer();
 		this.server = undefined;
 

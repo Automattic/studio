@@ -36,7 +36,10 @@ export function setupLogging() {
 	// Set the logging path to the default for the platform.
 	app.setAppLogsPath();
 
-	const logDir = app.getPath( 'logs' ); // Resolves to ~/Library/Logs/$appName on macOS
+	// During development logs will be written to ~/Library/Logs/Electron/*.log because technically
+	// the app is still called Electron from the system's point of view (see `CFBundleDisplayName`)
+	// In the release build logs will be written to ~/Library/Logs/Local Environment/*.log
+	const logDir = app.getPath( 'logs' );
 	const logFilePath = path.join( logDir, 'local-environment.log' );
 
 	const logStream = fs.createWriteStream( logFilePath, { flags: 'a' } );

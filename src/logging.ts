@@ -1,10 +1,10 @@
 import { app } from 'electron';
 import path from 'path';
-import fs from 'fs';
+import * as FileStreamRotator from 'file-stream-rotator';
 
 const originalWarn = console.warn;
 const makeLogger =
-	( level: string, originalLogger: typeof console.log, logStream: fs.WriteStream ) =>
+	( level: string, originalLogger: typeof console.log, write: ( str: string ) => void ) =>
 	( ...args: Parameters< typeof console.log > ) => {
 		const [ message ] = args;
 
@@ -16,7 +16,7 @@ const makeLogger =
 
 		const stringifiedArgs = args.map( formatLogMessageArg ).join( ' ' );
 
-		logStream.write( `[${ new Date().toISOString() }][${ level }] ${ stringifiedArgs }\n` );
+		write( `[${ new Date().toISOString() }][${ level }] ${ stringifiedArgs }\n` );
 		originalLogger( ...args );
 	};
 
@@ -40,21 +40,31 @@ export function setupLogging() {
 	// the app is still called Electron from the system's point of view (see `CFBundleDisplayName`)
 	// In the release build logs will be written to ~/Library/Logs/Local Environment/*.log
 	const logDir = app.getPath( 'logs' );
-	const logFilePath = path.join( logDir, 'local-environment.log' );
 
-	const logStream = fs.createWriteStream( logFilePath, { flags: 'a' } );
+	const logStream = FileStreamRotator.getStream( {
+		filename: path.join( logDir, 'local-environment-%DATE%' ),
+		date_format: 'YYYYMMDD',
+		frequency: 'daily',
+		size: '5M',
+		max_logs: '10',
+		audit_file: path.join( logDir, 'log-rotator.json' ),
+		extension: '.log',
+		create_symlink: true,
+		audit_hash_type: 'sha256',
+		verbose: true, // file-stream-rotator itself will log to console too
+	} );
 
-	console.log = makeLogger( 'info', console.log, logStream );
-	console.warn = makeLogger( 'warn', console.warn, logStream );
-	console.error = makeLogger( 'erro', console.error, logStream ); // Intentional typo so it's the same char-length as the other log levels
+	console.log = makeLogger( 'info', console.log, logStream.write.bind( logStream ) );
+	console.warn = makeLogger( 'warn', console.warn, logStream.write.bind( logStream ) );
+	console.error = makeLogger( 'erro', console.error, logStream.write.bind( logStream ) ); // Intentional typo so it's the same char-length as the other log levels
 
 	process.on( 'exit', () => {
-		logStream.end();
+		logStream.end( 'App is terminating' );
 	} );
 
 	// Handle Ctrl+C (SIGINT) to gracefully close the log stream
 	process.on( 'SIGINT', () => {
-		logStream.end();
+		logStream.end( 'App was terminated by SIGINT' );
 		process.exit();
 	} );
 

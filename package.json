@@ -56,6 +56,7 @@
 		"@php-wasm/node": "^0.5.4",
 		"@wp-now/wp-now": "^0.1.63",
 		"electron-squirrel-startup": "^1.0.0",
+		"file-stream-rotator": "^1.0.0",
 		"react": "^18.2.0",
 		"react-dom": "^18.2.0"
 	}

@@ -3,9 +3,14 @@ import { loadUserData, saveUserData } from './storage/user-data';
 import { SiteServer, createSiteWorkingDirectory } from './site-server';
 import nodePath from 'path';
 import crypto from 'crypto';
+import fs from 'fs';
+import { execSync } from 'child_process';
+import archiver from 'archiver';
 
 // IPC functions must accept an `event` as the first argument.
 /* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "event" }] */
+
+const WPNOW_HOME = nodePath.join( process.env.HOME || '', '.wp-now' );
 
 async function mergeSiteDetailsWithRunningDetails(
 	sites: SiteDetails[]
@@ -102,4 +107,67 @@ export async function showOpenFolderDialog(
 	}
 
 	return filePaths[ 0 ];
+}
+
+function zipWordPressDirectory( {
+	source,
+	zipPath,
+	databasePath,
+}: {
+	source: string;
+	zipPath: string;
+	databasePath: string;
+} ) {
+	return new Promise( ( resolve, reject ) => {
+		const output = fs.createWriteStream( zipPath );
+		const archive = archiver( 'zip', {
+			zlib: { level: 9 }, // Sets the compression level.
+		} );
+
+		output.on( 'close', function () {
+			resolve( archive );
+		} );
+
+		archive.on( 'error', function ( err: Error ) {
+			reject( err );
+		} );
+
+		archive.pipe( output );
+		// Archive site wp-content
+		archive.directory( `${ source }/wp-content`, 'wp-content' );
+		archive.file( `${ source }/wp-config.php`, { name: 'wp-config.php' } );
+		// Archive SQLite plugin
+		archive.directory(
+			nodePath.join( WPNOW_HOME, 'sqlite-database-integration-main' ),
+			'wp-content/plugins/sqlite-database-integration'
+		);
+		archive.file( nodePath.join( WPNOW_HOME, 'sqlite-database-integration-main', 'db.copy' ), {
+			name: 'wp-content/db.php',
+		} );
+		// Archive SQLite database
+		console.log( 'Archiving database from', databasePath );
+		archive.directory( databasePath, 'wp-content/database' );
+		archive.finalize();
+	} );
+}
+
+export async function archiveSite( event: IpcMainInvokeEvent, id: string ) {
+	const site = SiteServer.get( id );
+	if ( ! site ) {
+		return;
+	}
+	if ( ! site.details.running ) {
+		await site.start();
+	}
+	if ( ! site.server ) {
+		return;
+	}
+	const sitePath = site.details.path;
+	const zipPath = `${ sitePath }.zip`;
+	await zipWordPressDirectory( {
+		source: sitePath,
+		zipPath,
+		databasePath: nodePath.join( site.server.options.wpContentPath, 'database' ),
+	} );
+	execSync( `open "${ nodePath.dirname( zipPath ) }"` );
 }

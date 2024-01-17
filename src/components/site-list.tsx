@@ -3,7 +3,7 @@ import LinkButton from './link-button';
 import StatusLed from './status-led';
 
 export function SiteList() {
-	const { data, startServer, stopServer } = useSiteDetails();
+	const { data, startServer, stopServer, archiveSite } = useSiteDetails();
 
 	if ( ! data?.length ) {
 		return <div>No sites found.</div>;
@@ -25,6 +25,7 @@ export function SiteList() {
 							) : (
 								<LinkButton onClick={ () => startServer( site.id ) }>Stopped</LinkButton>
 							) }
+							| <LinkButton onClick={ () => archiveSite( site.id ) }>Zip to share</LinkButton>
 						</div>
 					</div>
 				</li>

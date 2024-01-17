@@ -1,5 +1,6 @@
 export interface UserData {
 	sites: SiteDetails[];
+	devToolsOpen?: boolean;
 }
 
 export interface PersistedUserData extends Omit< UserData, 'sites' > {

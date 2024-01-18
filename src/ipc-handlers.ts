@@ -3,6 +3,7 @@ import { loadUserData, saveUserData } from './storage/user-data';
 import { SiteServer, createSiteWorkingDirectory } from './site-server';
 import nodePath from 'path';
 import crypto from 'crypto';
+import { writeLogToFile, type LogLevel } from './logging';
 
 // IPC functions must accept an `event` as the first argument.
 /* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "event" }] */
@@ -107,4 +108,14 @@ export async function showOpenFolderDialog(
 	}
 
 	return filePaths[ 0 ];
+}
+
+export function logRendererMessage(
+	event: IpcMainInvokeEvent,
+	level: LogLevel,
+	...args: any[]
+): void {
+	// 4 characters long so it aligns with the main process logs
+	const processId = `ren${ event.sender.id }`;
+	writeLogToFile( level, processId, ...args );
 }

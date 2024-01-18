@@ -82,7 +82,7 @@ function validateIpcSender( event: IpcMainInvokeEvent ) {
 
 function setupIpc() {
 	for ( const [ key, handler ] of Object.entries( ipcHandlers ) ) {
-		if ( typeof handler === 'function' ) {
+		if ( typeof handler === 'function' && key !== 'logRendererMessage' ) {
 			ipcMain.handle( key, function ( event, ...args ) {
 				try {
 					validateIpcSender( event );
@@ -90,6 +90,20 @@ function setupIpc() {
 					// Invoke the handler. Param types have already been type checked by code
 					// in ipc-types.d.ts, so we can ignore the handler function's param types here.
 					return ( handler as any )( event, ...args );
+				} catch ( error ) {
+					console.error( error );
+					throw error;
+				}
+			} );
+		}
+
+		// logRendererMessage is handled specially because it uses the (hopefully more efficient)
+		// fire-and-forget .send method instead of .invoke
+		if ( typeof handler === 'function' && key === 'logRendererMessage' ) {
+			ipcMain.on( key, function ( event, level, ...args ) {
+				try {
+					validateIpcSender( event );
+					handler( event, level, ...args );
 				} catch ( error ) {
 					console.error( error );
 					throw error;

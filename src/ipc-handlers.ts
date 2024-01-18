@@ -1,3 +1,4 @@
+import { getWpNowConfig } from '@wp-now/wp-now';
 import archiver from 'archiver';
 import { execSync } from 'child_process';
 import { type IpcMainInvokeEvent, dialog } from 'electron';
@@ -59,7 +60,6 @@ export async function createSite(
 		name: nodePath.basename( path ),
 		path,
 		running: false,
-		wpContentPath: '',
 	} as const;
 
 	const server = SiteServer.create( details );
@@ -162,15 +162,15 @@ export async function archiveSite( event: IpcMainInvokeEvent, id: string ) {
 	if ( ! site ) {
 		throw new Error( 'Site not found.' );
 	}
-	if ( ! site.details.wpContentPath ) {
-		await site.start();
-	}
+	const { wpContentPath } = await getWpNowConfig( {
+		path: site.details.path,
+	} );
 	const sitePath = site.details.path;
 	const zipPath = `${ sitePath }.zip`;
 	await zipWordPressDirectory( {
 		source: sitePath,
 		zipPath,
-		databasePath: nodePath.join( site.details.wpContentPath, 'database' ),
+		databasePath: nodePath.join( wpContentPath, 'database' ),
 	} );
 	execSync( `open "${ nodePath.dirname( zipPath ) }"` );
 }

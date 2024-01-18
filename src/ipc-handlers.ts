@@ -59,6 +59,7 @@ export async function createSite(
 		name: nodePath.basename( path ),
 		path,
 		running: false,
+		wpContentPath: '',
 	} as const;
 
 	const server = SiteServer.create( details );
@@ -151,7 +152,6 @@ function zipWordPressDirectory( {
 			name: 'wp-content/db.php',
 		} );
 		// Archive SQLite database
-		console.log( 'Archiving database from', databasePath );
 		archive.directory( databasePath, 'wp-content/database' );
 		archive.finalize();
 	} );
@@ -160,20 +160,17 @@ function zipWordPressDirectory( {
 export async function archiveSite( event: IpcMainInvokeEvent, id: string ) {
 	const site = SiteServer.get( id );
 	if ( ! site ) {
-		return;
+		throw new Error( 'Site not found.' );
 	}
-	if ( ! site.details.running ) {
+	if ( ! site.details.wpContentPath ) {
 		await site.start();
-	}
-	if ( ! site.server ) {
-		return;
 	}
 	const sitePath = site.details.path;
 	const zipPath = `${ sitePath }.zip`;
 	await zipWordPressDirectory( {
 		source: sitePath,
 		zipPath,
-		databasePath: nodePath.join( site.server.options.wpContentPath, 'database' ),
+		databasePath: nodePath.join( site.details.wpContentPath, 'database' ),
 	} );
 	execSync( `open "${ nodePath.dirname( zipPath ) }"` );
 }

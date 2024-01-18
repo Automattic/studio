@@ -4,6 +4,7 @@ interface StoppedSiteDetails {
 	id: string;
 	name: string;
 	path: string;
+	wpContentPath: string;
 }
 
 interface StartedSiteDetails extends StoppedSiteDetails {

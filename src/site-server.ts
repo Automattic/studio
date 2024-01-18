@@ -55,6 +55,7 @@ export class SiteServer {
 			...this.details,
 			url: this.server.url,
 			port: this.server.options.port,
+			wpContentPath: this.server.options.wpContentPath,
 			running: true,
 		};
 	}

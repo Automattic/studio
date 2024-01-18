@@ -29,7 +29,40 @@
 import { createRoot } from 'react-dom/client';
 import { createElement, StrictMode } from 'react';
 import App from './components/app';
+import { getIpcApi } from './get-ipc-api';
 import './index.css';
+
+const makeLogger =
+	( level: 'info' | 'warn' | 'erro', originalLogger: typeof console.log ) =>
+	( ...args: Parameters< typeof console.log > ) => {
+		// Map Error objects to strings so we can preserve their stack trace
+		const mappedErrors = args.map( ( arg ) =>
+			arg instanceof Error && arg.stack ? arg.stack : arg
+		);
+
+		getIpcApi().logRendererMessage( level, ...mappedErrors );
+		originalLogger( ...args );
+	};
+
+console.log = makeLogger( 'info', console.log.bind( console ) );
+console.warn = makeLogger( 'warn', console.warn.bind( console ) );
+console.error = makeLogger( 'erro', console.error.bind( console ) );
+
+window.onerror = ( message, source, lineno, colno, error ) => {
+	getIpcApi().logRendererMessage(
+		'erro',
+		'Uncaught error in window.onerror',
+		error?.stack || error
+	);
+};
+
+window.onunhandledrejection = ( event ) => {
+	getIpcApi().logRendererMessage(
+		'erro',
+		'Unhandled promise rejection in window.onunhandledrejection',
+		event.reason instanceof Error && event.reason.stack ? event.reason.stack : event.reason
+	);
+};
 
 const rootEl = document.getElementById( 'root' );
 if ( rootEl ) {

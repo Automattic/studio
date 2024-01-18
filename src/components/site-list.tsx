@@ -2,7 +2,7 @@ import { useSiteDetails } from '../hooks/use-site-details';
 import LinkButton from './link-button';
 import StatusLed from './status-led';
 
-export function SiteList() {
+export default function SiteList() {
 	const { data, startServer, stopServer, archiveSite } = useSiteDetails();
 
 	if ( ! data?.length ) {

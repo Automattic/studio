@@ -1,11 +1,12 @@
+import archiver from 'archiver';
+import { execSync } from 'child_process';
 import { type IpcMainInvokeEvent, dialog } from 'electron';
+import fs from 'fs';
 import { loadUserData, saveUserData } from './storage/user-data';
 import { SiteServer, createSiteWorkingDirectory } from './site-server';
 import nodePath from 'path';
 import crypto from 'crypto';
-import fs from 'fs';
-import { execSync } from 'child_process';
-import archiver from 'archiver';
+import { writeLogToFile, type LogLevel } from './logging';
 
 // IPC functions must accept an `event` as the first argument.
 /* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "event" }] */
@@ -25,8 +26,13 @@ async function mergeSiteDetailsWithRunningDetails(
 }
 
 export async function getSiteDetails( event: IpcMainInvokeEvent ): Promise< SiteDetails[] > {
-	const { sites } = await loadUserData();
-	console.log( 'Loaded user data', sites );
+	const userData = await loadUserData();
+
+	// This is probably one of the first times the user data is loaded. Take the opportunity
+	// to log for debugging purposes.
+	console.log( 'Loaded user data', userData );
+
+	const { sites } = userData;
 
 	// Ensure we have an instance of a server for each site we know about
 	for ( const site of sites ) {
@@ -170,4 +176,14 @@ export async function archiveSite( event: IpcMainInvokeEvent, id: string ) {
 		databasePath: nodePath.join( site.server.options.wpContentPath, 'database' ),
 	} );
 	execSync( `open "${ nodePath.dirname( zipPath ) }"` );
+}
+
+export function logRendererMessage(
+	event: IpcMainInvokeEvent,
+	level: LogLevel,
+	...args: any[]
+): void {
+	// 4 characters long so it aligns with the main process logs
+	const processId = `ren${ event.sender.id }`;
+	writeLogToFile( level, processId, ...args );
 }

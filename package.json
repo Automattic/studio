@@ -26,6 +26,7 @@
 		"@electron-forge/maker-zip": "^7.2.0",
 		"@electron-forge/plugin-auto-unpack-natives": "^7.2.0",
 		"@electron-forge/plugin-webpack": "^7.2.0",
+		"@timfish/forge-externals-plugin": "^0.2.1",
 		"@types/react": "^18.2.42",
 		"@types/react-dom": "^18.2.17",
 		"@typescript-eslint/eslint-plugin": "^5.0.0",
@@ -44,6 +45,8 @@
 		"postcss": "^8.4.32",
 		"postcss-loader": "^7.3.3",
 		"prettier": "npm:wp-prettier@3.0.3",
+		"react": "^18.2.0",
+		"react-dom": "^18.2.0",
 		"style-loader": "^3.0.0",
 		"tailwindcss": "^3.3.6",
 		"ts-loader": "^9.2.2",
@@ -54,8 +57,6 @@
 		"@php-wasm/node": "^0.5.4",
 		"@wp-now/wp-now": "^0.1.63",
 		"electron-squirrel-startup": "^1.0.0",
-		"file-stream-rotator": "^1.0.0",
-		"react": "^18.2.0",
-		"react-dom": "^18.2.0"
+		"file-stream-rotator": "^1.0.0"
 	}
 }

@@ -6,7 +6,6 @@ interface SiteDetailsContext {
 	createSite: ( path: string ) => Promise< void >;
 	startServer: ( id: string ) => Promise< void >;
 	stopServer: ( id: string ) => Promise< void >;
-	archiveSite: ( id: string ) => Promise< void >;
 }
 
 const siteDetailsContext = createContext< SiteDetailsContext >( {
@@ -14,7 +13,6 @@ const siteDetailsContext = createContext< SiteDetailsContext >( {
 	createSite: async () => undefined,
 	startServer: async () => undefined,
 	stopServer: async () => undefined,
-	archiveSite: async () => undefined,
 } );
 
 interface SiteDetailsProviderProps {
@@ -78,7 +76,6 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			createSite,
 			startServer,
 			stopServer,
-			archiveSite: getIpcApi().archiveSite,
 		} ),
 		[ data ]
 	);

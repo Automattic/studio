@@ -2,6 +2,7 @@ import nodePath from 'path';
 import { pathExists, recursiveCopyDirectory, isEmptyDir } from './fs-utils';
 import { getWpNowConfig, startServer, type Server as WPNowServer } from '@wp-now/wp-now';
 import { portFinder } from './port-finder';
+import { app } from 'electron';
 
 const servers = new Map< string, SiteServer >();
 
@@ -11,9 +12,25 @@ export async function createSiteWorkingDirectory( path: string ): Promise< boole
 		return false;
 	}
 
-	await recursiveCopyDirectory( nodePath.resolve( 'wp-files/latest/wordpress' ), path );
+	const wpFilesPath = nodePath.join( getResourcesPath(), 'wp-files', 'latest', 'wordpress' );
+
+	await recursiveCopyDirectory( wpFilesPath, path );
 
 	return true;
+}
+
+function getResourcesPath(): string {
+	if ( process.env.NODE_ENV === 'development' ) {
+		return process.cwd();
+	}
+
+	const exePath = nodePath.dirname( app.getPath( 'exe' ) );
+
+	if ( process.platform === 'darwin' ) {
+		return nodePath.resolve( exePath, '..', 'Resources' );
+	}
+
+	return nodePath.join( exePath, 'resources' );
 }
 
 export async function stopAllServersOnQuit() {

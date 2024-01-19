@@ -16,19 +16,18 @@
 		"start": "PORT=3456 electron-forge start",
 		"postinstall": "node ./scripts/download-wp.mjs",
 		"package": "electron-forge package",
-		"make": "electron-forge make",
+		"make": "electron-forge make --arch=universal",
 		"publish": "electron-forge publish",
 		"lint": "eslint --ext .ts,.tsx ."
 	},
 	"devDependencies": {
 		"@electron-forge/cli": "^7.2.0",
-		"@electron-forge/maker-deb": "^7.2.0",
-		"@electron-forge/maker-rpm": "^7.2.0",
-		"@electron-forge/maker-squirrel": "^7.2.0",
+		"@electron-forge/maker-dmg": "^7.2.0",
 		"@electron-forge/maker-zip": "^7.2.0",
 		"@electron-forge/plugin-auto-unpack-natives": "^7.2.0",
 		"@electron-forge/plugin-webpack": "^7.2.0",
 		"@types/archiver": "^6.0.2",
+		"@timfish/forge-externals-plugin": "^0.2.1",
 		"@types/react": "^18.2.42",
 		"@types/react-dom": "^18.2.17",
 		"@typescript-eslint/eslint-plugin": "^5.0.0",
@@ -47,6 +46,8 @@
 		"postcss": "^8.4.32",
 		"postcss-loader": "^7.3.3",
 		"prettier": "npm:wp-prettier@3.0.3",
+		"react": "^18.2.0",
+		"react-dom": "^18.2.0",
 		"style-loader": "^3.0.0",
 		"tailwindcss": "^3.3.6",
 		"ts-loader": "^9.2.2",
@@ -58,8 +59,6 @@
 		"@wp-now/wp-now": "^0.1.63",
 		"archiver": "^6.0.1",
 		"electron-squirrel-startup": "^1.0.0",
-		"file-stream-rotator": "^1.0.0",
-		"react": "^18.2.0",
-		"react-dom": "^18.2.0"
+		"file-stream-rotator": "^1.0.0"
 	}
 }

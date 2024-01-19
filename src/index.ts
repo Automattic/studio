@@ -130,8 +130,8 @@ app.on( 'ready', () => {
 		const policies = [
 			"default-src 'self'",
 			"script-src-attr 'none'",
+			"style-src 'self' 'unsafe-inline'", // unsafe-inline is used by tailwind
 			process.env.NODE_ENV === 'development' && "script-src 'self' 'unsafe-eval'", // unsafe-eval is used by hot reloading
-			process.env.NODE_ENV === 'development' && "style-src 'self' 'unsafe-inline'", // unsafe-inline is used by tailwind
 		];
 
 		callback( {

@@ -1,9 +1,10 @@
 import { useSiteDetails } from '../hooks/use-site-details';
 import LinkButton from './link-button';
+import ShareSiteButton from './share-site-button';
 import StatusLed from './status-led';
 
 export default function SiteList() {
-	const { data, startServer, stopServer, archiveSite } = useSiteDetails();
+	const { data, startServer, stopServer } = useSiteDetails();
 
 	if ( ! data?.length ) {
 		return <div>No sites found.</div>;
@@ -25,7 +26,7 @@ export default function SiteList() {
 							) : (
 								<LinkButton onClick={ () => startServer( site.id ) }>Stopped</LinkButton>
 							) }
-							| <LinkButton onClick={ () => archiveSite( site.id ) }>Zip to share</LinkButton>
+							| <ShareSiteButton siteId={ site.id } />
 						</div>
 					</div>
 				</li>

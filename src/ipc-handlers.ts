@@ -1,7 +1,6 @@
 import { getWpNowConfig } from '@wp-now/wp-now';
 import archiver from 'archiver';
-import { execSync } from 'child_process';
-import { type IpcMainInvokeEvent, dialog } from 'electron';
+import { type IpcMainInvokeEvent, dialog, shell } from 'electron';
 import fs from 'fs';
 import { loadUserData, saveUserData } from './storage/user-data';
 import { SiteServer, createSiteWorkingDirectory } from './site-server';
@@ -172,7 +171,7 @@ export async function archiveSite( event: IpcMainInvokeEvent, id: string ) {
 		zipPath,
 		databasePath: nodePath.join( wpContentPath, 'database' ),
 	} );
-	execSync( `open "${ nodePath.dirname( zipPath ) }"` );
+	shell.showItemInFolder( zipPath );
 }
 
 export function logRendererMessage(

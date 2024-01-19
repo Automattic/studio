@@ -4,6 +4,7 @@ declare module '@wp-now/wp-now' {
 		url: string;
 		options: {
 			port: number;
+			wpContentPath: string;
 		};
 		stopServer: () => Promise< void >;
 	};

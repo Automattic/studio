@@ -1,5 +1,6 @@
 import { useSiteDetails } from '../hooks/use-site-details';
 import LinkButton from './link-button';
+import ShareSiteButton from './share-site-button';
 import StatusLed from './status-led';
 
 export default function SiteList() {
@@ -25,6 +26,7 @@ export default function SiteList() {
 							) : (
 								<LinkButton onClick={ () => startServer( site.id ) }>Stopped</LinkButton>
 							) }
+							| <ShareSiteButton siteId={ site.id } />
 						</div>
 					</div>
 				</li>

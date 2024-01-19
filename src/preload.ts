@@ -6,6 +6,7 @@ import type { LogLevel } from './logging';
 import type * as ipcHandlers from './ipc-handlers';
 
 const api: Record< keyof typeof ipcHandlers, ( ...args: any[] ) => any > = {
+	archiveSite: ( id: string ) => ipcRenderer.invoke( 'archiveSite', id ),
 	createSite: ( path: string ) => ipcRenderer.invoke( 'createSite', path ),
 	getSiteDetails: () => ipcRenderer.invoke( 'getSiteDetails' ),
 	showOpenFolderDialog: ( title: string ) => ipcRenderer.invoke( 'showOpenFolderDialog', title ),

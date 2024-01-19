@@ -1,5 +1,6 @@
 import { getWpNowConfig } from '@wp-now/wp-now';
 import archiver from 'archiver';
+import { app } from 'electron';
 import { type IpcMainInvokeEvent, dialog, shell } from 'electron';
 import fs from 'fs';
 import { loadUserData, saveUserData } from './storage/user-data';
@@ -11,7 +12,7 @@ import { writeLogToFile, type LogLevel } from './logging';
 // IPC functions must accept an `event` as the first argument.
 /* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "event" }] */
 
-const WPNOW_HOME = nodePath.join( process.env.HOME || '', '.wp-now' );
+const WPNOW_HOME = nodePath.join( app.getPath( 'home' ) || '', '.wp-now' );
 
 async function mergeSiteDetailsWithRunningDetails(
 	sites: SiteDetails[]

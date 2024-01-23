@@ -9,6 +9,8 @@ const api: Record< keyof typeof ipcHandlers, ( ...args: any[] ) => any > = {
 	archiveSite: ( id: string ) => ipcRenderer.invoke( 'archiveSite', id ),
 	createSite: ( path: string ) => ipcRenderer.invoke( 'createSite', path ),
 	getSiteDetails: () => ipcRenderer.invoke( 'getSiteDetails' ),
+	openSiteURL: ( id: string, relativeURL = '' ) =>
+		ipcRenderer.invoke( 'openSiteURL', id, relativeURL ),
 	showOpenFolderDialog: ( title: string ) => ipcRenderer.invoke( 'showOpenFolderDialog', title ),
 	startServer: ( id: string ) => ipcRenderer.invoke( 'startServer', id ),
 	stopServer: ( id: string ) => ipcRenderer.invoke( 'stopServer', id ),

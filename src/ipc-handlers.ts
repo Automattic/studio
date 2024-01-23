@@ -184,3 +184,11 @@ export function logRendererMessage(
 	const processId = `ren${ event.sender.id }`;
 	writeLogToFile( level, processId, ...args );
 }
+
+export async function openSiteURL( event: IpcMainInvokeEvent, id: string, relativeURL = '' ) {
+	const site = SiteServer.get( id );
+	if ( ! site ) {
+		throw new Error( 'Site not found.' );
+	}
+	shell.openExternal( site.server?.url + relativeURL );
+}

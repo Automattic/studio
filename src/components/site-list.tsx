@@ -1,3 +1,5 @@
+import { Icon, external, wordpress } from '@wordpress/icons';
+import { getIpcApi } from '../get-ipc-api';
 import { useSiteDetails } from '../hooks/use-site-details';
 import LinkButton from './link-button';
 import ShareSiteButton from './share-site-button';
@@ -22,10 +24,24 @@ export default function SiteList() {
 						<div className="mt-1 flex items-center gap-x-1.5">
 							<StatusLed on={ site.running } />
 							{ site.running ? (
-								<LinkButton onClick={ () => stopServer( site.id ) }>Running</LinkButton>
+								<LinkButton onClick={ () => stopServer( site.id ) }>Stop</LinkButton>
 							) : (
-								<LinkButton onClick={ () => startServer( site.id ) }>Stopped</LinkButton>
+								<LinkButton onClick={ () => startServer( site.id ) }>Start</LinkButton>
 							) }
+							|
+							<LinkButton
+								disabled={ ! site.running }
+								onClick={ () => getIpcApi().openSiteURL( site.id ) }
+							>
+								<Icon icon={ external } /> Open site
+							</LinkButton>
+							|
+							<LinkButton
+								disabled={ ! site.running }
+								onClick={ () => getIpcApi().openSiteURL( site.id, '/wp-admin' ) }
+							>
+								<Icon icon={ wordpress } /> Open wp-admin
+							</LinkButton>
 							| <ShareSiteButton siteId={ site.id } />
 						</div>
 					</div>

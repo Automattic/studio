@@ -1,4 +1,5 @@
 import { getIpcApi } from '../get-ipc-api';
+import { Icon, plus } from '@wordpress/icons';
 import { useSiteDetails } from '../hooks/use-site-details';
 import Button from './button';
 
@@ -18,7 +19,7 @@ export default function CreateSiteButton( { className }: CreateSiteButtonProps )
 
 	return (
 		<Button className={ className } onClick={ handleClick }>
-			Create site
+			<Icon icon={ plus } />
 		</Button>
 	);
 }

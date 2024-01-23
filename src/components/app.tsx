@@ -8,7 +8,10 @@ export default function App() {
 		<div className="relative p-8 min-h-screen">
 			<ErrorBoundary>
 				<SiteDetailsProvider>
-					<CreateSiteButton className="mb-6" />
+					<div className="flex justify-between mb-4">
+						<h1 className="text-2xl font-semibold">Sites</h1>
+						<CreateSiteButton />
+					</div>
 					<SiteList />
 				</SiteDetailsProvider>
 			</ErrorBoundary>

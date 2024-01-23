@@ -20,6 +20,6 @@ Code formatting has been set up just to make merging PRs easier. It uses the sam
 
 ## Building Installers
 
-```bash```
+```bash
 $ npm run make
 ```

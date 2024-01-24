@@ -9,6 +9,10 @@ import type * as ipcHandlers from './ipc-handlers';
 const api: Record< keyof typeof ipcHandlers, ( ...args: any[] ) => any > = {
 	archiveSite: ( id: string ) => ipcRenderer.invoke( 'archiveSite', id ),
 	createSite: ( path: string ) => ipcRenderer.invoke( 'createSite', path ),
+	authenticate: () => ipcRenderer.invoke( 'authenticate' ),
+	isAuthenticated: () => ipcRenderer.invoke( 'isAuthenticated' ),
+	getAuthenticationToken: () => ipcRenderer.invoke( 'getAuthenticationToken' ),
+	clearAuthenticationToken: () => ipcRenderer.invoke( 'clearAuthenticationToken' ),
 	getSiteDetails: () => ipcRenderer.invoke( 'getSiteDetails' ),
 	openSiteURL: ( id: string, relativeURL = '' ) =>
 		ipcRenderer.invoke( 'openSiteURL', id, relativeURL ),

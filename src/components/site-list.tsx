@@ -1,3 +1,4 @@
+import useAuth from '../hooks/use-auth';
 import { Icon, external, wordpress } from '@wordpress/icons';
 import { getIpcApi } from '../get-ipc-api';
 import { useSiteDetails } from '../hooks/use-site-details';
@@ -6,6 +7,7 @@ import ShareSiteButton from './share-site-button';
 import StatusLed from './status-led';
 
 export default function SiteList() {
+	const { isAuthenticated } = useAuth();
 	const { data, startServer, stopServer } = useSiteDetails();
 
 	if ( ! data?.length ) {
@@ -42,7 +44,7 @@ export default function SiteList() {
 							>
 								<Icon icon={ wordpress } /> Open wp-admin
 							</LinkButton>
-							| <ShareSiteButton siteId={ site.id } />
+							| <ShareSiteButton disabled={ ! isAuthenticated } siteId={ site.id } />
 						</div>
 					</div>
 				</li>

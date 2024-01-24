@@ -22,6 +22,7 @@
 	},
 	"devDependencies": {
 		"@electron-forge/cli": "^7.2.0",
+		"@electron-forge/maker-deb": "^7.2.0",
 		"@electron-forge/maker-dmg": "^7.2.0",
 		"@electron-forge/maker-zip": "^7.2.0",
 		"@electron-forge/plugin-auto-unpack-natives": "^7.2.0",
@@ -62,6 +63,7 @@
 		"@wp-now/wp-now": "^0.1.63",
 		"archiver": "^6.0.1",
 		"electron-squirrel-startup": "^1.0.0",
-		"file-stream-rotator": "^1.0.0"
+		"file-stream-rotator": "^1.0.0",
+		"wpcom": "^5.4.2"
 	}
 }

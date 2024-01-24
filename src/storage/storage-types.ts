@@ -1,6 +1,9 @@
+import { StoredToken } from "../lib/oauth";
+
 export interface UserData {
 	sites: SiteDetails[];
 	devToolsOpen?: boolean;
+	authToken?: StoredToken; 
 }
 
 export interface PersistedUserData extends Omit< UserData, 'sites' > {

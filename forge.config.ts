@@ -6,6 +6,7 @@
 import type { ForgeConfig } from '@electron-forge/shared-types';
 import { MakerZIP } from '@electron-forge/maker-zip';
 import { MakerDMG } from '@electron-forge/maker-dmg';
+import { MakerDeb } from '@electron-forge/maker-deb';
 import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-natives';
 import { WebpackPlugin } from '@electron-forge/plugin-webpack';
 import ForgeExternalsPlugin from '@timfish/forge-externals-plugin';
@@ -17,9 +18,20 @@ const config: ForgeConfig = {
 	packagerConfig: {
 		asar: true,
 		extraResource: [ './wp-files' ],
+		executableName: process.platform !== 'darwin' ? 'local-environment' : undefined,
 	},
 	rebuildConfig: {},
-	makers: [ new MakerZIP( {}, [ 'darwin' ] ), new MakerDMG( {}, [ 'darwin' ] ) ],
+	makers: [
+		new MakerZIP( {}, [ 'darwin' ] ),
+		new MakerDMG( {}, [ 'darwin' ] ),
+		new MakerDeb( {
+			options: {
+				genericName: 'WordPress Local Dev',
+				categories: [ 'Utility' ],
+				name: 'local-environment',
+			},
+		} ),
+	],
 	plugins: [
 		new AutoUnpackNativesPlugin( {} ),
 		new WebpackPlugin( {

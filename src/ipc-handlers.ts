@@ -3,6 +3,7 @@ import archiver from 'archiver';
 import { app } from 'electron';
 import { type IpcMainInvokeEvent, dialog, shell } from 'electron';
 import fs from 'fs';
+import * as oauthClient from './lib/oauth';
 import { loadUserData, saveUserData } from './storage/user-data';
 import { SiteServer, createSiteWorkingDirectory } from './site-server';
 import nodePath from 'path';
@@ -183,6 +184,26 @@ export function logRendererMessage(
 	// 4 characters long so it aligns with the main process logs
 	const processId = `ren${ event.sender.id }`;
 	writeLogToFile( level, processId, ...args );
+}
+
+export async function authenticate(
+	event: IpcMainInvokeEvent
+): Promise< oauthClient.StoredToken | null > {
+	return await oauthClient.authenticate();
+}
+
+export async function getAuthenticationToken(
+	_event: IpcMainInvokeEvent
+): Promise< oauthClient.StoredToken | null > {
+	return oauthClient.getAuthenticationToken();
+}
+
+export async function isAuthenticated() {
+	return oauthClient.isAuthenticated();
+}
+
+export async function clearAuthenticationToken() {
+	return oauthClient.clearAuthenticationToken();
 }
 
 export async function openSiteURL( event: IpcMainInvokeEvent, id: string, relativeURL = '' ) {

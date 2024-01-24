@@ -28,7 +28,7 @@
 
 import { createRoot } from 'react-dom/client';
 import { createElement, StrictMode } from 'react';
-import App from './components/app';
+import Root from './components/root';
 import { getIpcApi } from './get-ipc-api';
 import * as Sentry from '@sentry/electron/renderer';
 import { init as reactInit } from '@sentry/react';
@@ -78,5 +78,5 @@ window.onunhandledrejection = ( event ) => {
 const rootEl = document.getElementById( 'root' );
 if ( rootEl ) {
 	const root = createRoot( rootEl );
-	root.render( createElement( StrictMode, null, createElement( App ) ) );
+	root.render( createElement( StrictMode, null, createElement( Root ) ) );
 }

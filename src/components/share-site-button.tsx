@@ -4,9 +4,10 @@ import LinkButton from './link-button';
 
 interface ShareSiteButtonProps {
 	siteId: string;
+	disabled?: boolean;
 }
 
-export default function ShareSiteButton( { siteId }: ShareSiteButtonProps ) {
+export default function ShareSiteButton( { siteId, disabled }: ShareSiteButtonProps ) {
 	const [ isLoading, setIsLoading ] = useState( false );
 	const archiveSite = async () => {
 		setIsLoading( true );
@@ -14,7 +15,7 @@ export default function ShareSiteButton( { siteId }: ShareSiteButtonProps ) {
 		setIsLoading( false );
 	};
 	return (
-		<LinkButton disabled={ isLoading } onClick={ () => archiveSite() }>
+		<LinkButton disabled={ isLoading || disabled } onClick={ () => archiveSite() }>
 			{ isLoading ? 'Sharing site...' : 'Share site' }
 		</LinkButton>
 	);

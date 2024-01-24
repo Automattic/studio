@@ -30,7 +30,11 @@ import { createRoot } from 'react-dom/client';
 import { createElement, StrictMode } from 'react';
 import App from './components/app';
 import { getIpcApi } from './get-ipc-api';
+import * as Sentry from '@sentry/electron/renderer';
+import { init as reactInit } from '@sentry/react';
 import './index.css';
+
+Sentry.init( { debug: true }, reactInit );
 
 const makeLogger =
 	( level: 'info' | 'warn' | 'erro', originalLogger: typeof console.log ) =>
@@ -48,7 +52,11 @@ console.log = makeLogger( 'info', console.log.bind( console ) );
 console.warn = makeLogger( 'warn', console.warn.bind( console ) );
 console.error = makeLogger( 'erro', console.error.bind( console ) );
 
-window.onerror = ( message, source, lineno, colno, error ) => {
+const originalOnerror = window.onerror?.bind( window );
+window.onerror = ( ...args ) => {
+	originalOnerror?.( ...args );
+
+	const [ , , , , error ] = args;
 	getIpcApi().logRendererMessage(
 		'erro',
 		'Uncaught error in window.onerror',
@@ -56,7 +64,10 @@ window.onerror = ( message, source, lineno, colno, error ) => {
 	);
 };
 
+const originalOnunhandledrejection = window.onunhandledrejection?.bind( window );
 window.onunhandledrejection = ( event ) => {
+	originalOnunhandledrejection?.( event );
+
 	getIpcApi().logRendererMessage(
 		'erro',
 		'Unhandled promise rejection in window.onunhandledrejection',

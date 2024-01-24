@@ -1,6 +1,7 @@
 // See the Electron documentation for details on how to use preload scripts:
 // https://www.electronjs.org/docs/latest/tutorial/process-model#preload-scripts
 
+import '@sentry/electron/preload';
 import { contextBridge, ipcRenderer } from 'electron';
 import type { LogLevel } from './logging';
 import type * as ipcHandlers from './ipc-handlers';
@@ -21,3 +22,22 @@ const api: Record< keyof typeof ipcHandlers, ( ...args: any[] ) => any > = {
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );
+
+const allowedChannels = [ 'test-render-failure' ] as const;
+
+contextBridge.exposeInMainWorld( 'ipcListener', {
+	on: ( channel: ( typeof allowedChannels )[ number ], listener: ( ...args: any[] ) => void ) => {
+		if ( allowedChannels.includes( channel ) ) {
+			ipcRenderer.on( channel, listener );
+		} else {
+			throw new Error( `Attempted to listen on disallowed IPC channel: ${ channel }` );
+		}
+	},
+	off: ( channel: ( typeof allowedChannels )[ number ], listener: ( ...args: any[] ) => void ) => {
+		if ( allowedChannels.includes( channel ) ) {
+			ipcRenderer.off( channel, listener );
+		} else {
+			throw new Error( `Attempted to remove listener on disallowed IPC channel: ${ channel }` );
+		}
+	},
+} );

@@ -16,7 +16,7 @@
 		"start": "PORT=3456 electron-forge start",
 		"postinstall": "node ./scripts/download-wp.mjs",
 		"package": "electron-forge package",
-		"make": "electron-forge make --arch=universal",
+		"make": "electron-forge make",
 		"publish": "electron-forge publish",
 		"lint": "eslint --ext .ts,.tsx ."
 	},

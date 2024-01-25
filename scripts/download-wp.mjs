@@ -4,6 +4,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import extract from 'extract-zip';
 
+const showDownloadProgress = typeof process.stdout.clearLine === 'function';
+
 const __dirname = path.dirname( fileURLToPath( import.meta.url ) );
 
 console.log( 'Downloading latest WordPress version ...' );
@@ -23,13 +25,15 @@ await new Promise( ( resolve, reject ) => {
 		const totalSize = parseInt( response.headers[ 'content-length' ], 10 );
 		let downloadedSize = 0;
 
-		response.on( 'data', ( chunk ) => {
-			downloadedSize += chunk.length;
-			const progress = ( ( downloadedSize / totalSize ) * 100 ).toFixed( 2 );
-			process.stdout.clearLine();
-			process.stdout.cursorTo( 0 );
-			process.stdout.write( `${ progress }%` );
-		} );
+		if ( showDownloadProgress ) {
+			response.on( 'data', ( chunk ) => {
+				downloadedSize += chunk.length;
+				const progress = ( ( downloadedSize / totalSize ) * 100 ).toFixed( 2 );
+				process.stdout.clearLine();
+				process.stdout.cursorTo( 0 );
+				process.stdout.write( `${ progress }%` );
+			} );
+		}
 
 		response.pipe( zipFile );
 		response.on( 'end', () => {

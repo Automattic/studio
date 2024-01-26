@@ -21,29 +21,29 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v2
+      - name: Checkout Repository
+        uses: actions/checkout@v2
 
-      # A workaround for an issue with building DMGs
-      # https://github.com/electron/forge/issues/2807
-    - uses: actions/setup-python@v4
-      with:
-        python-version: '3.10'
+        # A workaround for an issue with building DMGs
+        # https://github.com/electron/forge/issues/2807
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
 
-    - name: Set up Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: 20.8.1
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20.8.1
 
-    - name: Install Dependencies
-      run: npm ci
+      - name: Install Dependencies
+        run: npm ci
 
-    - name: Run Build Script
-      run: npm run make
+      - name: Run Build Script
+        run: npm run make
 
-    - name: Archive Artifact
-      uses: actions/upload-artifact@v2
-      with:
-        name: installers
-        path: out/make/${{ matrix.filename }}
-        if-no-files-found: error
+      - name: Archive Artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: installers
+          path: out/make/${{ matrix.filename }}
+          if-no-files-found: error

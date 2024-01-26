@@ -43,6 +43,7 @@
 		"@typescript-eslint/eslint-plugin": "^5.0.0",
 		"@typescript-eslint/parser": "^5.0.0",
 		"@vercel/webpack-asset-relocator-loader": "1.7.3",
+		"@wordpress/components": "^25.16.0",
 		"autoprefixer": "^10.4.16",
 		"css-loader": "^6.0.0",
 		"electron": "28.0.0",
@@ -78,5 +79,8 @@
 		"electron-squirrel-startup": "^1.0.0",
 		"file-stream-rotator": "^1.0.0",
 		"wpcom": "^5.4.2"
+	},
+	"optionalDependencies": {
+		"appdmg": "^0.6.6"
 	}
 }

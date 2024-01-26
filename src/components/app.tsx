@@ -9,13 +9,13 @@ export default function App() {
 	return (
 		<div className="relative p-8 min-h-screen">
 			<SiteDetailsProvider>
-					<div className="flex justify-between mb-4">
-						<h1 className="text-2xl font-semibold">Sites</h1>
-						<CreateSiteButton />
-					<Button onClick={ isAuthenticated ? logout : authenticate }>
+				<div className="flex justify-between mb-4 items-center">
+					<h1 className="text-2xl font-semibold">Sites</h1>
+					<CreateSiteButton />
+					<Button variant="primary" onClick={ isAuthenticated ? logout : authenticate }>
 						{ isAuthenticated ? 'Logout' : 'Connect' }
 					</Button>
-					</div>
+				</div>
 				<SiteList />
 			</SiteDetailsProvider>
 		</div>

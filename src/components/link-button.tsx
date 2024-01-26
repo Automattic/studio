@@ -1,15 +1,18 @@
-import { forwardRef, type ButtonHTMLAttributes } from 'react';
+import Button from './button';
+import { ComponentProps } from 'react';
 import { cx } from '../cx';
 
-export default forwardRef< HTMLButtonElement, ButtonHTMLAttributes< HTMLButtonElement > >(
-	function LinkButton( { type = 'button', className, ...rest }, ref ) {
-		return (
-			<button
-				ref={ ref }
-				type={ type }
-				className={ cx( 'flex gap-1 underline disabled:opacity-30', className ) }
-				{ ...rest }
-			/>
-		);
-	}
-);
+type ButtonProps = ComponentProps< typeof Button >;
+
+export default function LinkButtonComponent( { className, ...props }: ButtonProps ) {
+	return (
+		<Button
+			{ ...props }
+			variant="link"
+			className={ cx(
+				'px-3 py-2 text-sm font-semibold disabled:opacity-30 !text-gray-600',
+				className
+			) }
+		/>
+	);
+}

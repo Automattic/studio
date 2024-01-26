@@ -18,7 +18,7 @@ export default function CreateSiteButton( { className }: CreateSiteButtonProps )
 	};
 
 	return (
-		<Button className={ className } onClick={ handleClick } aria-label="Create site">
+		<Button variant="secondary" className={ className } onClick={ handleClick }>
 			<Icon icon={ plus } />
 		</Button>
 	);

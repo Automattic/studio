@@ -1,0 +1,53 @@
+name: Run Tests
+
+on:
+  pull_request:
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v2
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: 20.8.1
+
+    - name: Install Dependencies
+      run: npm ci
+
+    - name: Run Unit Tests
+      run: npm run test
+
+  e2e:
+    strategy:
+      matrix:
+        os:
+          - macos-latest
+          - ubuntu-latest
+          - windows-latest
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v2
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: 20.8.1
+
+    - name: Install Dependencies
+      run: npm ci
+
+    - name: Build App (without installer)
+      run: npm run package
+
+    - name: Run End-to-end Tests
+      uses: coactions/setup-xvfb@v1
+      with:
+        run: npm run e2e

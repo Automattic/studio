@@ -45,3 +45,9 @@ contextBridge.exposeInMainWorld( 'ipcListener', {
 		}
 	},
 } );
+
+const appGlobals: AppGlobals = {
+	platform: process.platform,
+};
+
+contextBridge.exposeInMainWorld( 'appGlobals', appGlobals );

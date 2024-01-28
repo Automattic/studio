@@ -26,3 +26,7 @@ type IpcApi = {
 		...args: Tail< Parameters< ( typeof import('./ipc-handlers') )[ K ] > >
 	) => ReturnType< ( typeof import('./ipc-handlers') )[ K ] >;
 };
+
+interface AppGlobals {
+	platform: NodeJS.Platform;
+}

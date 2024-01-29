@@ -4,7 +4,7 @@ import { userEvent } from '@testing-library/user-event';
 import CreateSiteButton from './create-site-button';
 
 const mockShowOpenFolderDialog = jest.fn< ( dialogTitle: string ) => Promise< string | null > >();
-jest.mock( '../get-ipc-api', () => ( {
+jest.mock( '../lib/get-ipc-api', () => ( {
 	__esModule: true,
 	default: jest.fn(),
 	getIpcApi: () => ( {

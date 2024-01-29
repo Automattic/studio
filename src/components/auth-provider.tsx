@@ -1,6 +1,6 @@
 import { createContext, useState, useEffect, useMemo, useCallback, ReactNode } from 'react';
 import WPCOM from 'wpcom';
-import { getIpcApi } from '../get-ipc-api';
+import { getIpcApi } from '../lib/get-ipc-api';
 
 export interface AuthContextType {
 	client: typeof WPCOM | undefined;
@@ -13,14 +13,14 @@ interface AuthProviderProps {
 	children: ReactNode;
 }
 
-const AuthContext = createContext< AuthContextType >( {
+export const AuthContext = createContext< AuthContextType >( {
 	client: undefined,
 	isAuthenticated: false,
 	authenticate: () => Promise.resolve(),
 	logout: () => Promise.resolve(),
 } );
 
-export const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
+const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 	const [ isAuthenticated, setIsAuthenticated ] = useState( false );
 	const [ client, setClient ] = useState< typeof WPCOM | undefined >( undefined );
 
@@ -80,4 +80,4 @@ export const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 	return <AuthContext.Provider value={ contextValue }>{ children }</AuthContext.Provider>;
 };
 
-export default AuthContext;
+export default AuthProvider;

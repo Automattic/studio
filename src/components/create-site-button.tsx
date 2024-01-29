@@ -1,4 +1,4 @@
-import { getIpcApi } from '../get-ipc-api';
+import { getIpcApi } from '../lib/get-ipc-api';
 import { Icon, plus } from '@wordpress/icons';
 import { useSiteDetails } from '../hooks/use-site-details';
 import Button from './button';

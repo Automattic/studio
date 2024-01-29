@@ -1,7 +1,7 @@
 import SiteList from './site-list';
 import CreateSiteButton from './create-site-button';
 import Button from './button';
-import useAuth from '../hooks/use-auth';
+import { useAuth } from '../hooks/use-auth';
 import {
 	__experimentalVStack as VStack,
 	__experimentalHStack as HStack,

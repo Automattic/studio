@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { getIpcApi } from '../get-ipc-api';
+import { getIpcApi } from '../lib/get-ipc-api';
 import LinkButton from './link-button';
 import { useI18n } from '@wordpress/react-i18n';
 

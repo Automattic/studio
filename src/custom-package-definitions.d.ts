@@ -28,4 +28,3 @@ declare module 'wpcom' {
 	const wpcom: WPCOM;
 	export default wpcom;
 }
-

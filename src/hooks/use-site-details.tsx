@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { getIpcApi } from '../get-ipc-api';
+import { getIpcApi } from '../lib/get-ipc-api';
 
 interface SiteDetailsContext {
 	data: SiteDetails[];

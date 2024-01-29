@@ -1,6 +1,6 @@
-import useAuth from '../hooks/use-auth';
+import { useAuth } from '../hooks/use-auth';
 import { Icon, external, wordpress } from '@wordpress/icons';
-import { getIpcApi } from '../get-ipc-api';
+import { getIpcApi } from '../lib/get-ipc-api';
 import { useSiteDetails } from '../hooks/use-site-details';
 import LinkButton from './link-button';
 import ShareSiteButton from './share-site-button';

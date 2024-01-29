@@ -26,12 +26,12 @@
  * ```
  */
 
-import { createRoot } from 'react-dom/client';
-import { createElement, StrictMode } from 'react';
-import Root from './components/root';
-import { getIpcApi } from './lib/get-ipc-api';
 import * as Sentry from '@sentry/electron/renderer';
 import { init as reactInit } from '@sentry/react';
+import { createElement, StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import Root from './components/root';
+import { getIpcApi } from './lib/get-ipc-api';
 import './index.css';
 
 Sentry.init( { debug: true }, reactInit );

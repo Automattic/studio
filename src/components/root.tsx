@@ -1,8 +1,8 @@
-import ErrorBoundary from './error-boundary';
+import { SiteDetailsProvider } from '../hooks/use-site-details';
+import App from './app';
 import AuthProvider from './auth-provider';
 import CrashTester from './crash-tester';
-import App from './app';
-import { SiteDetailsProvider } from '../hooks/use-site-details';
+import ErrorBoundary from './error-boundary';
 
 const Root = () => {
 	return (

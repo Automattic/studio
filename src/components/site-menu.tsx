@@ -1,5 +1,5 @@
-import { useSiteDetails } from '../hooks/use-site-details';
 import { TabPanel } from '@wordpress/components';
+import { useSiteDetails } from '../hooks/use-site-details';
 
 interface SiteMenuProps {
 	className?: string;

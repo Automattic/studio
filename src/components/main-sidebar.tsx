@@ -1,7 +1,7 @@
-import { cx } from '../lib/cx';
 import { __experimentalVStack as VStack } from '@wordpress/components';
-import SiteMenu from './site-menu';
 import { isMac } from '../lib/app-globals';
+import { cx } from '../lib/cx';
+import SiteMenu from './site-menu';
 
 interface MainSidebarProps {
 	className?: string;

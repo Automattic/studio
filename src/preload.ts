@@ -3,8 +3,8 @@
 
 import '@sentry/electron/preload';
 import { contextBridge, ipcRenderer } from 'electron';
-import type { LogLevel } from './logging';
 import type * as ipcHandlers from './ipc-handlers';
+import type { LogLevel } from './logging';
 
 const api: Record< keyof typeof ipcHandlers, ( ...args: any[] ) => any > = {
 	archiveSite: ( id: string ) => ipcRenderer.invoke( 'archiveSite', id ),

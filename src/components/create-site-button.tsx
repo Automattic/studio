@@ -1,8 +1,8 @@
-import { getIpcApi } from '../lib/get-ipc-api';
 import { Icon, plus } from '@wordpress/icons';
-import { useSiteDetails } from '../hooks/use-site-details';
-import Button from './button';
 import { useI18n } from '@wordpress/react-i18n';
+import { useSiteDetails } from '../hooks/use-site-details';
+import { getIpcApi } from '../lib/get-ipc-api';
+import Button from './button';
 
 interface CreateSiteButtonProps {
 	className?: string;

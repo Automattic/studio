@@ -1,6 +1,6 @@
+import { __experimentalVStack as VStack } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { useI18n } from '@wordpress/react-i18n';
-import { __experimentalVStack as VStack } from '@wordpress/components';
 import Button from './button';
 
 export default function DefaultErrorFallback() {

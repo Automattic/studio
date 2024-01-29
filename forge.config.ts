@@ -3,16 +3,15 @@
 // eslint-disable-next-line @typescript-eslint/triple-slash-reference
 /// <reference path="./src/custom-package-definitions.d.ts" />
 
-import type { ForgeConfig } from '@electron-forge/shared-types';
-import { MakerZIP } from '@electron-forge/maker-zip';
-import { MakerDMG } from '@electron-forge/maker-dmg';
 import { MakerDeb } from '@electron-forge/maker-deb';
+import { MakerDMG } from '@electron-forge/maker-dmg';
+import { MakerZIP } from '@electron-forge/maker-zip';
 import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-natives';
 import { WebpackPlugin } from '@electron-forge/plugin-webpack';
 import ForgeExternalsPlugin from '@timfish/forge-externals-plugin';
-
 import { mainConfig } from './webpack.main.config';
 import { rendererConfig } from './webpack.renderer.config';
+import type { ForgeConfig } from '@electron-forge/shared-types';
 
 const config: ForgeConfig = {
 	packagerConfig: {

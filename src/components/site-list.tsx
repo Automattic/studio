@@ -1,11 +1,11 @@
-import { useAuth } from '../hooks/use-auth';
 import { Icon, external, wordpress } from '@wordpress/icons';
-import { getIpcApi } from '../lib/get-ipc-api';
+import { useI18n } from '@wordpress/react-i18n';
+import { useAuth } from '../hooks/use-auth';
 import { useSiteDetails } from '../hooks/use-site-details';
+import { getIpcApi } from '../lib/get-ipc-api';
 import LinkButton from './link-button';
 import ShareSiteButton from './share-site-button';
 import StatusLed from './status-led';
-import { useI18n } from '@wordpress/react-i18n';
 
 export default function SiteList() {
 	const { __ } = useI18n();

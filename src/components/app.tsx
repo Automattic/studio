@@ -1,13 +1,13 @@
-import SiteList from './site-list';
-import CreateSiteButton from './create-site-button';
-import Button from './button';
-import { useAuth } from '../hooks/use-auth';
 import {
 	__experimentalVStack as VStack,
 	__experimentalHStack as HStack,
 } from '@wordpress/components';
-import MainSidebar from './main-sidebar';
 import { useI18n } from '@wordpress/react-i18n';
+import { useAuth } from '../hooks/use-auth';
+import Button from './button';
+import CreateSiteButton from './create-site-button';
+import MainSidebar from './main-sidebar';
+import SiteList from './site-list';
 
 export default function App() {
 	const { __ } = useI18n();

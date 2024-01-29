@@ -1,7 +1,7 @@
-import { _electron as electron, ElectronApplication, Page } from 'playwright';
-import packageJson from '../package.json';
 import { test, expect } from '@playwright/test';
 import { findLatestBuild, parseElectronApp } from 'electron-playwright-helpers';
+import { _electron as electron, ElectronApplication, Page } from 'playwright';
+import packageJson from '../package.json';
 
 test.describe( 'Electron app', () => {
 	let electronApp: ElectronApplication;

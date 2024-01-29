@@ -1,14 +1,14 @@
-import { getWpNowConfig } from '@wp-now/wp-now';
-import archiver from 'archiver';
+import crypto from 'crypto';
 import { app } from 'electron';
 import { type IpcMainInvokeEvent, dialog, shell } from 'electron';
 import fs from 'fs';
-import * as oauthClient from './lib/oauth';
-import { loadUserData, saveUserData } from './storage/user-data';
-import { SiteServer, createSiteWorkingDirectory } from './site-server';
 import nodePath from 'path';
-import crypto from 'crypto';
+import { getWpNowConfig } from '@wp-now/wp-now';
+import archiver from 'archiver';
+import * as oauthClient from './lib/oauth';
 import { writeLogToFile, type LogLevel } from './logging';
+import { SiteServer, createSiteWorkingDirectory } from './site-server';
+import { loadUserData, saveUserData } from './storage/user-data';
 
 // IPC functions must accept an `event` as the first argument.
 /* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "event" }] */

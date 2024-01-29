@@ -1,8 +1,8 @@
-import nodePath from 'path';
-import { pathExists, recursiveCopyDirectory, isEmptyDir } from './lib/fs-utils';
-import { getWpNowConfig, startServer, type Server as WPNowServer } from '@wp-now/wp-now';
-import { portFinder } from './lib/port-finder';
 import { app } from 'electron';
+import nodePath from 'path';
+import { getWpNowConfig, startServer, type Server as WPNowServer } from '@wp-now/wp-now';
+import { pathExists, recursiveCopyDirectory, isEmptyDir } from './lib/fs-utils';
+import { portFinder } from './lib/port-finder';
 
 const servers = new Map< string, SiteServer >();
 

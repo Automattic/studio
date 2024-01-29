@@ -6,6 +6,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 import type * as ipcHandlers from './ipc-handlers';
 import type { LogLevel } from './logging';
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const api: Record< keyof typeof ipcHandlers, ( ...args: any[] ) => any > = {
 	archiveSite: ( id: string ) => ipcRenderer.invoke( 'archiveSite', id ),
 	createSite: ( path: string ) => ipcRenderer.invoke( 'createSite', path ),

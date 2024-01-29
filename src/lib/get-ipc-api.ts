@@ -1,4 +1,4 @@
 export function getIpcApi(): IpcApi {
-	// Defined in preload.ts
-	return ( window as any ).ipcApi;
+	// The ipcApi global is defined in preload.ts
+	return ( window as any ).ipcApi; // eslint-disable-line @typescript-eslint/no-explicit-any
 }

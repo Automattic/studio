@@ -9,8 +9,31 @@ declare module '@wp-now/wp-now' {
 		stopServer: () => Promise< void >;
 	};
 
-	function getWpNowConfig( ...args: any[] ): Promise< any >;
-	function startServer( ...args: any[] ): Promise< Server >;
+	interface CliOptions {
+		php?: string;
+		path?: string;
+		wp?: string;
+		port?: number;
+		blueprint?: string;
+		reset?: boolean;
+	}
+
+	interface WPNowOptions {
+		phpVersion?: SupportedPHPVersion;
+		documentRoot?: string;
+		absoluteUrl?: string;
+		mode?: WPNowMode;
+		port?: number;
+		projectPath?: string;
+		wpContentPath?: string;
+		wordPressVersion?: string;
+		numberOfPhpInstances?: number;
+		blueprintObject?: Blueprint;
+		reset?: boolean;
+	}
+
+	function getWpNowConfig( args: CliOptions ): Promise< WPNowOptions >;
+	function startServer( args: WPNowOptions ): Promise< Server >;
 }
 
 declare module '@timfish/forge-externals-plugin' {

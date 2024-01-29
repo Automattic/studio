@@ -1,9 +1,8 @@
 export function getAppGlobals(): AppGlobals {
-	// Defined in preload.ts
-	return ( window as any ).appGlobals;
+	// The appGlobals global is defined in preload.ts
+	return ( window as any ).appGlobals; // eslint-disable-line @typescript-eslint/no-explicit-any
 }
 
 export function isMac() {
-	// return getAppGlobals().platform === 'darwin';
-	return false;
+	return getAppGlobals().platform === 'darwin';
 }

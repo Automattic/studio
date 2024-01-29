@@ -82,7 +82,7 @@ app.on( 'web-contents-created', ( _event, contents ) => {
 			event.preventDefault();
 		}
 	} );
-	contents.setWindowOpenHandler( ( { url } ) => {
+	contents.setWindowOpenHandler( () => {
 		return { action: 'deny' };
 	} );
 } );
@@ -102,9 +102,9 @@ function setupIpc() {
 				try {
 					validateIpcSender( event );
 
-					// Invoke the handler. Param types have already been type checked by code
-					// in ipc-types.d.ts, so we can ignore the handler function's param types here.
-					return ( handler as any )( event, ...args );
+					// Invoke the handler. Param types have already been type checked by code in ipc-types.d.ts,
+					// so we can safetly ignore the handler function's param types here.
+					return ( handler as any )( event, ...args ); // eslint-disable-line @typescript-eslint/no-explicit-any
 				} catch ( error ) {
 					console.error( error );
 					throw error;

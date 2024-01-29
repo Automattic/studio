@@ -163,7 +163,7 @@ export async function archiveSite( event: IpcMainInvokeEvent, id: string ) {
 	if ( ! site ) {
 		throw new Error( 'Site not found.' );
 	}
-	const { wpContentPath } = await getWpNowConfig( {
+	const { wpContentPath = '' } = await getWpNowConfig( {
 		path: site.details.path,
 	} );
 	const sitePath = site.details.path;

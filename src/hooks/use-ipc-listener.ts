@@ -1,8 +1,8 @@
 import { useEffect } from 'react';
 
 export function useIpcListener( channel: string, listener: ( ...args: any[] ) => void ) {
-	// Defined in preload.ts
-	const { ipcListener } = window as any;
+	// The ipcListener global is defined in preload.ts
+	const { ipcListener } = window as any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
 	useEffect( () => {
 		ipcListener.on( channel, listener );

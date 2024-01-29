@@ -1,5 +1,6 @@
 import fs from 'fs';
 import nodePath from 'path';
+import { isErrnoException } from '../lib/is-errno-exception';
 import { getUserDataFilePath } from './paths';
 import type { PersistedUserData, UserData } from './storage-types';
 
@@ -12,8 +13,8 @@ export async function loadUserData(): Promise< UserData > {
 		const data = fromDiskFormat( parsed );
 		console.log( `Loaded user data from ${ filePath }` );
 		return data;
-	} catch ( err: any ) {
-		if ( err && 'code' in err && err.code === 'ENOENT' ) {
+	} catch ( err: unknown ) {
+		if ( isErrnoException( err ) && err.code === 'ENOENT' ) {
 			return {
 				sites: [],
 			};

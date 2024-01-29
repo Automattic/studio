@@ -42,7 +42,7 @@ describe( 'CreateSiteButton', () => {
 		const user = userEvent.setup();
 
 		mockShowOpenFolderDialog.mockResolvedValue( null );
-		const { getByRole } = render( <CreateSiteButton /> );
+		render( <CreateSiteButton /> );
 
 		await user.click( screen.getByRole( 'button', { name: 'Create site' } ) );
 

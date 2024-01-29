@@ -1,12 +1,13 @@
 import { promises as fs } from 'fs';
 import path from 'path';
+import { isErrnoException } from './is-errno-exception';
 
 export async function pathExists( path: string ): Promise< boolean > {
 	try {
 		await fs.access( path );
 		return true;
-	} catch ( err: any ) {
-		if ( err && 'code' in err && err.code === 'ENOENT' ) {
+	} catch ( err: unknown ) {
+		if ( isErrnoException( err ) && err.code === 'ENOENT' ) {
 			return false;
 		}
 		throw err;

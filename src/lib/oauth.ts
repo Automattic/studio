@@ -1,7 +1,6 @@
 import { BrowserWindow, ipcMain } from 'electron';
 import { loadUserData, saveUserData } from '../storage/user-data';
 
-const secret = 'a-very-secret-key';
 export interface StoredToken {
 	accessToken?: string;
 	expiresIn?: number;

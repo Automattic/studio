@@ -44,6 +44,8 @@
 		"@typescript-eslint/parser": "^5.0.0",
 		"@vercel/webpack-asset-relocator-loader": "1.7.3",
 		"@wordpress/components": "^25.16.0",
+		"@wordpress/element": "^5.27.0",
+		"@wordpress/react-i18n": "^3.48.0",
 		"autoprefixer": "^10.4.16",
 		"css-loader": "^6.0.0",
 		"electron": "28.0.0",
@@ -73,6 +75,7 @@
 	"dependencies": {
 		"@php-wasm/node": "^0.5.4",
 		"@sentry/electron": "^4.17.0",
+		"@wordpress/i18n": "^4.50.0",
 		"@wordpress/icons": "^9.40.0",
 		"@wp-now/wp-now": "^0.1.63",
 		"archiver": "^6.0.1",

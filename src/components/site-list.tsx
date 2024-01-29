@@ -5,13 +5,15 @@ import { useSiteDetails } from '../hooks/use-site-details';
 import LinkButton from './link-button';
 import ShareSiteButton from './share-site-button';
 import StatusLed from './status-led';
+import { useI18n } from '@wordpress/react-i18n';
 
 export default function SiteList() {
+	const { __ } = useI18n();
 	const { isAuthenticated } = useAuth();
 	const { data, startServer, stopServer } = useSiteDetails();
 
 	if ( ! data?.length ) {
-		return <div>No sites found.</div>;
+		return <div>{ __( 'No sites found.' ) }</div>;
 	}
 
 	return (
@@ -26,23 +28,23 @@ export default function SiteList() {
 						<div className="mt-1 flex items-center gap-x-1.5">
 							<StatusLed on={ site.running } />
 							{ site.running ? (
-								<LinkButton onClick={ () => stopServer( site.id ) }>Stop</LinkButton>
+								<LinkButton onClick={ () => stopServer( site.id ) }>{ __( 'Stop' ) }</LinkButton>
 							) : (
-								<LinkButton onClick={ () => startServer( site.id ) }>Start</LinkButton>
+								<LinkButton onClick={ () => startServer( site.id ) }>{ __( 'Start' ) }</LinkButton>
 							) }
 							|
 							<LinkButton
 								disabled={ ! site.running }
 								onClick={ () => getIpcApi().openSiteURL( site.id ) }
 							>
-								<Icon icon={ external } /> Open site
+								<Icon icon={ external } /> { __( 'Open site' ) }
 							</LinkButton>
 							|
 							<LinkButton
 								disabled={ ! site.running }
 								onClick={ () => getIpcApi().openSiteURL( site.id, '/wp-admin' ) }
 							>
-								<Icon icon={ wordpress } /> Open wp-admin
+								<Icon icon={ wordpress } /> { __( 'Open wp-admin' ) }
 							</LinkButton>
 							| <ShareSiteButton disabled={ ! isAuthenticated } siteId={ site.id } />
 						</div>

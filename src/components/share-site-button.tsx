@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { getIpcApi } from '../get-ipc-api';
 import LinkButton from './link-button';
+import { useI18n } from '@wordpress/react-i18n';
 
 interface ShareSiteButtonProps {
 	siteId: string;
@@ -8,6 +9,7 @@ interface ShareSiteButtonProps {
 }
 
 export default function ShareSiteButton( { siteId, disabled }: ShareSiteButtonProps ) {
+	const { __ } = useI18n();
 	const [ isLoading, setIsLoading ] = useState( false );
 	const archiveSite = async () => {
 		setIsLoading( true );
@@ -16,7 +18,7 @@ export default function ShareSiteButton( { siteId, disabled }: ShareSiteButtonPr
 	};
 	return (
 		<LinkButton disabled={ isLoading || disabled } onClick={ () => archiveSite() }>
-			{ isLoading ? 'Sharing site...' : 'Share site' }
+			{ isLoading ? __( 'Sharing site…' ) : __( 'Share site' ) }
 		</LinkButton>
 	);
 }

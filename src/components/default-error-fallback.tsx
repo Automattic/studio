@@ -1,14 +1,27 @@
+import { createInterpolateElement } from '@wordpress/element';
+import { useI18n } from '@wordpress/react-i18n';
+import { __experimentalVStack as VStack } from '@wordpress/components';
 import Button from './button';
 
 export default function DefaultErrorFallback() {
+	const { __ } = useI18n();
+
 	return (
-		<div className="flex flex-col items-center gap-4 text-center">
-			<h1 className="text-2xl font-light">Something went wrong 😭</h1>
+		<VStack alignment="center" justify="stretch" className="text-center bg-white text-black">
+			<h1 className="text-2xl font-light">{ __( 'Something went wrong 😭' ) }</h1>
 			<p className="max-w-md">
-				We've logged the issue to help us track down the problem. Reloading <i>might</i> help in the
-				meantime.
+				{ createInterpolateElement(
+					__(
+						'Weʼve logged the issue to help us track down the problem. Reloading <i>might</i> help in the meantime.'
+					),
+					{
+						i: <em />,
+					}
+				) }
 			</p>
-			<Button onClick={ () => window.location.reload() }>Reload</Button>
-		</div>
+			<Button variant="secondary" onClick={ () => window.location.reload() }>
+				{ __( 'Reload' ) }
+			</Button>
+		</VStack>
 	);
 }

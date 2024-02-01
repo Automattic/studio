@@ -48,9 +48,8 @@ const config: ForgeConfig = {
 					},
 				],
 			},
-			...( process.env.PORT && {
-				port: parseInt( process.env.PORT, 10 ),
-			} ),
+			// By default the dev server uses the same port as calypso.localhost
+			port: 3456,
 		} ),
 		// This plugin bundles the externals defined in the Webpack config file.
 		new ForgeExternalsPlugin( { externals: Object.keys( mainConfig.externals ?? {} ) } ),

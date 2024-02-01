@@ -13,7 +13,7 @@
 		"directory": "/"
 	},
 	"scripts": {
-		"start": "PORT=3456 electron-forge start",
+		"start": "electron-forge start",
 		"postinstall": "node ./scripts/download-wp.mjs",
 		"package": "electron-forge package",
 		"make": "electron-forge make",

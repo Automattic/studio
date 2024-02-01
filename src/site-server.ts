@@ -54,16 +54,19 @@ export class SiteServer {
 		return server;
 	}
 
-	async start() {
+	async start( reset = false ) {
 		if ( this.details.running || this.server ) {
 			return;
 		}
 
-		const port = await portFinder.getOpenPort();
+		const port = await portFinder.getOpenPort( this.details.port );
 		const options = await getWpNowConfig( {
 			path: this.details.path,
 			port,
 		} );
+		const absoluteUrl = `http://localhost:${ port }`;
+		options.absoluteUrl = absoluteUrl;
+		options.reset = reset;
 
 		console.log( 'Starting server with options', options );
 		this.server = await startServer( options );
@@ -85,7 +88,7 @@ export class SiteServer {
 			return;
 		}
 
-		const { running: _running, port: _port, url: _url, ...rest } = this.details;
+		const { running: _running, url: _url, ...rest } = this.details;
 		this.details = { running: false, ...rest };
 	}
 }

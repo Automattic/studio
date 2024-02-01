@@ -11,7 +11,7 @@ import { SiteServer, createSiteWorkingDirectory } from './site-server';
 import { loadUserData, saveUserData } from './storage/user-data';
 
 // IPC functions must accept an `event` as the first argument.
-/* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "event" }] */
+/* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "event", "varsIgnorePattern": "^_" }] */
 
 const WPNOW_HOME = nodePath.join( app.getPath( 'home' ) || '', '.wp-now' );
 
@@ -55,7 +55,6 @@ export async function createSite(
 	if ( ! ( await createSiteWorkingDirectory( path ) ) ) {
 		return userData.sites;
 	}
-
 	const details = {
 		id: crypto.randomUUID(),
 		name: nodePath.basename( path ),
@@ -65,10 +64,10 @@ export async function createSite(
 
 	const server = SiteServer.create( details );
 
+	await server.start( true );
+
 	userData.sites.push( server.details );
 	await saveUserData( userData );
-
-	await server.start();
 
 	return mergeSiteDetailsWithRunningDetails( userData.sites );
 }

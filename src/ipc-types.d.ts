@@ -4,6 +4,7 @@ interface StoppedSiteDetails {
 	id: string;
 	name: string;
 	path: string;
+	port?: number;
 }
 
 interface StartedSiteDetails extends StoppedSiteDetails {

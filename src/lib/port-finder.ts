@@ -22,7 +22,7 @@ class PortFinder {
 	}
 
 	#incrementPort(): number {
-		return this.#searchPort++;
+		return ++this.#searchPort;
 	}
 
 	#isPortFree(): Promise< boolean > {
@@ -45,15 +45,16 @@ class PortFinder {
 	 *
 	 * @returns {Promise<number>} A promise that resolves to the open port number.
 	 */
-	public async getOpenPort(): Promise< number > {
-		this.#searchPort = this.#openPort ?? DEFAULT_PORT;
+	public async getOpenPort( portToStart?: number ): Promise< number > {
+		this.#searchPort = portToStart ? portToStart : this.#openPort ?? DEFAULT_PORT;
 
 		while ( ! ( await this.#isPortFree() ) ) {
 			this.#incrementPort();
 		}
 
-		this.#openPort = this.#searchPort;
-		return this.#openPort;
+		const port = this.#searchPort;
+		this.#openPort = this.#incrementPort();
+		return port;
 	}
 
 	public setPort( port: number ): void {

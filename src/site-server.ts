@@ -58,8 +58,8 @@ export class SiteServer {
 		if ( this.details.running || this.server ) {
 			return;
 		}
-
 		const port = await portFinder.getOpenPort( this.details.port );
+		portFinder.addUnavailablePort( this.details.port );
 		const options = await getWpNowConfig( {
 			path: this.details.path,
 			port,

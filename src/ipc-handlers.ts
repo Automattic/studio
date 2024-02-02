@@ -172,7 +172,8 @@ export async function archiveSite( event: IpcMainInvokeEvent, id: string ) {
 		zipPath,
 		databasePath: nodePath.join( wpContentPath, 'database' ),
 	} );
-	shell.showItemInFolder( zipPath );
+	const zipContent = fs.readFileSync( zipPath );
+	return { zipPath, zipContent };
 }
 
 export function logRendererMessage(
@@ -211,4 +212,8 @@ export async function openSiteURL( event: IpcMainInvokeEvent, id: string, relati
 		throw new Error( 'Site not found.' );
 	}
 	shell.openExternal( site.server?.url + relativeURL );
+}
+
+export async function openURL( event: IpcMainInvokeEvent, url: string ) {
+	return shell.openExternal( url );
 }

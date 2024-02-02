@@ -22,6 +22,13 @@ interface StartedSiteDetails extends StoppedSiteDetails {
 
 type SiteDetails = StartedSiteDetails | StoppedSiteDetails;
 
+interface Snapshot {
+	url: string;
+	atomicSiteId: number;
+	localSiteId: string;
+	date: number;
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Tail< T extends any[] > = ( ( ...args: T ) => any ) extends ( _: any, ...tail: infer U ) => any
 	? U

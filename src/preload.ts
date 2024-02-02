@@ -17,6 +17,7 @@ const api: Record< keyof typeof ipcHandlers, ( ...args: any[] ) => any > = {
 	getSiteDetails: () => ipcRenderer.invoke( 'getSiteDetails' ),
 	openSiteURL: ( id: string, relativeURL = '' ) =>
 		ipcRenderer.invoke( 'openSiteURL', id, relativeURL ),
+	openURL: ( url: string ) => ipcRenderer.invoke( 'openURL', url ),
 	showOpenFolderDialog: ( title: string ) => ipcRenderer.invoke( 'showOpenFolderDialog', title ),
 	startServer: ( id: string ) => ipcRenderer.invoke( 'startServer', id ),
 	stopServer: ( id: string ) => ipcRenderer.invoke( 'stopServer', id ),

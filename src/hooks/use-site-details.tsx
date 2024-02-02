@@ -3,8 +3,11 @@ import { getIpcApi } from '../lib/get-ipc-api';
 
 interface SiteDetailsContext {
 	selectedSite: SiteDetails | null;
-	setSelectedSiteId: ( selectedSiteId: string ) => void;
 	data: SiteDetails[];
+	snapshots: Snapshot[];
+	addSnapshot: ( snapshot: Snapshot ) => void;
+	removeSnapshot: ( snapshot: Snapshot ) => void;
+	setSelectedSiteId: ( selectedSiteId: string ) => void;
 	createSite: ( path: string ) => Promise< void >;
 	startServer: ( id: string ) => Promise< void >;
 	stopServer: ( id: string ) => Promise< void >;
@@ -13,8 +16,11 @@ interface SiteDetailsContext {
 
 const siteDetailsContext = createContext< SiteDetailsContext >( {
 	selectedSite: null,
-	setSelectedSiteId: () => undefined,
 	data: [],
+	snapshots: [],
+	addSnapshot: () => undefined,
+	removeSnapshot: () => undefined,
+	setSelectedSiteId: () => undefined,
 	createSite: async () => undefined,
 	startServer: async () => undefined,
 	stopServer: async () => undefined,
@@ -45,12 +51,33 @@ function useSelectedSite() {
 	};
 }
 
+function useSnapshots() {
+	const [ snapshots, setSnapshots ] = useState< Snapshot[] >( [] );
+	const addSnapshot = useCallback(
+		( snapshot: Snapshot ) => setSnapshots( ( snapshots ) => [ ...snapshots, snapshot ] ),
+		[]
+	);
+	const removeSnapshot = useCallback(
+		( snapshot: Snapshot ) =>
+			setSnapshots( ( snapshots ) =>
+				snapshots.filter( ( snapshotI ) => snapshotI.atomicSiteId !== snapshot.atomicSiteId )
+			),
+		[]
+	);
+	return {
+		snapshots,
+		addSnapshot,
+		removeSnapshot,
+	};
+}
+
 export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	const { Provider } = siteDetailsContext;
 
 	const [ data, setData ] = useState< SiteDetails[] >( [] );
 	const [ loading, setLoading ] = useState( false );
 	const { selectedSiteId, setSelectedSiteId } = useSelectedSite();
+	const { snapshots, addSnapshot, removeSnapshot } = useSnapshots();
 
 	useEffect( () => {
 		let cancel = false;
@@ -107,8 +134,11 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	const context = useMemo(
 		() => ( {
 			selectedSite: data.find( ( site ) => site.id === selectedSiteId ) || null,
-			setSelectedSiteId,
 			data,
+			snapshots,
+			addSnapshot,
+			removeSnapshot,
+			setSelectedSiteId,
 			createSite,
 			startServer,
 			stopServer,

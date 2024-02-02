@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - trunk
+  pull_request:
 
 jobs:
   build_installer:

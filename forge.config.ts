@@ -31,7 +31,12 @@ const config: ForgeConfig = {
 				name: 'local-environment',
 			},
 		} ),
-		new MakerSquirrel( {}, [ 'win32' ] ),
+		new MakerSquirrel(
+			{
+				loadingGif: './installers/loading.gif',
+			},
+			[ 'win32' ]
+		),
 	],
 	plugins: [
 		new AutoUnpackNativesPlugin( {} ),

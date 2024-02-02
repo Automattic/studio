@@ -37,7 +37,6 @@ function useSelectedSite() {
 	return {
 		selectedSiteId,
 		setSelectedSiteId: ( id: string ) => {
-			console.log( 'yay setSelectedSiteId', id );
 			setSelectedSiteId( id );
 			localStorage.setItem( SELECTED_SITE_ID_KEY, id );
 		},

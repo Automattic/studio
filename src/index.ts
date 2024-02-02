@@ -23,16 +23,16 @@ import { stopAllServersOnQuit } from './site-server';
 // whether you're running in development or production).
 declare const MAIN_WINDOW_WEBPACK_ENTRY: string;
 
+// Handle creating/removing shortcuts on Windows when installing/uninstalling.
+if ( require( 'electron-squirrel-startup' ) ) {
+	app.quit();
+}
+
 Sentry.init( {
 	dsn: 'https://97693275b2716fb95048c6d12f4318cf@o248881.ingest.sentry.io/4506612776501248',
 	debug: true,
 	enabled: process.env.NODE_ENV !== 'development',
 } );
-
-// Handle creating/removing shortcuts on Windows when installing/uninstalling.
-if ( require( 'electron-squirrel-startup' ) ) {
-	app.quit();
-}
 
 app.setName( packageJson.productName );
 

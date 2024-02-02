@@ -5,6 +5,7 @@
 
 import { MakerDeb } from '@electron-forge/maker-deb';
 import { MakerDMG } from '@electron-forge/maker-dmg';
+import { MakerSquirrel } from '@electron-forge/maker-squirrel';
 import { MakerZIP } from '@electron-forge/maker-zip';
 import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-natives';
 import { WebpackPlugin } from '@electron-forge/plugin-webpack';
@@ -17,7 +18,7 @@ const config: ForgeConfig = {
 	packagerConfig: {
 		asar: true,
 		extraResource: [ './wp-files' ],
-		executableName: process.platform !== 'darwin' ? 'local-environment' : undefined,
+		executableName: process.platform === 'linux' ? 'local-environment' : undefined,
 	},
 	rebuildConfig: {},
 	makers: [
@@ -30,6 +31,7 @@ const config: ForgeConfig = {
 				name: 'local-environment',
 			},
 		} ),
+		new MakerSquirrel( {}, [ 'win32' ] ),
 	],
 	plugins: [
 		new AutoUnpackNativesPlugin( {} ),

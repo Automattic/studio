@@ -12,11 +12,14 @@ jobs:
         os:
           - macos-latest # Intel
           - macos-latest-xlarge # Apple Silicon
+          - windows-latest
         include:
           - os: macos-latest
             filename: 'Local Environment-0.1.0-x64.dmg'
           - os: macos-latest-xlarge
             filename: 'Local Environment-0.1.0-arm64.dmg'
+          - os: windows-latest
+            filename: 'squirrel.windows/x64/Local Environment-0.1.0 Setup.exe'
 
     runs-on: ${{ matrix.os }}
 

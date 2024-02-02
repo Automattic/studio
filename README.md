@@ -1,8 +1,8 @@
 # Local Environment
 
-A desktop app experience for building a block themes.
+A desktop application for creating local WordPress environments powered by WordPress Playground.
 
-## Deving
+## Development
 
 ```bash
 $ nvm use
@@ -10,16 +10,19 @@ $ npm install
 $ npm start
 ```
 
-The app auto-opens and the Chromium developer tools are opened by default.
+The app automatically launches with the Chromium developer tools opened by default.
 
-`src/index.ts` is the entrypoint for the main process.
+`src/index.ts` is the entry point for the main process.
 
-`src/renderer.ts` is the entrypoint for the "renderer"—the code running in the Chromium window.
+`src/renderer.ts` is the entry point for the "renderer"—the code running in the Chromium window.
 
-Code formatting has been set up just to make merging PRs easier. It uses the same prettier/eslint mechanism as Calypso, see p4TIVU-9Lo-p2 for details on setting up your editor.
+Code formatting has been set up to make merging PRs easier. It uses the same prettier/eslint mechanism as Calypso, see p4TIVU-9Lo-p2 for details on setting up your editor.
 
 ## Building Installers
 
+Installers can currently be built on Mac (Intel or Apple Silicon) and Windows:
+
 ```bash
+$ npm install
 $ npm run make
 ```

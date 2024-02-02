@@ -2,6 +2,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { getIpcApi } from '../lib/get-ipc-api';
 
 interface SiteDetailsContext {
+	selectedSite: SiteDetails | null;
+	setSelectedSiteId: ( selectedSiteId: string ) => void;
 	data: SiteDetails[];
 	createSite: ( path: string ) => Promise< void >;
 	startServer: ( id: string ) => Promise< void >;
@@ -9,6 +11,8 @@ interface SiteDetailsContext {
 }
 
 const siteDetailsContext = createContext< SiteDetailsContext >( {
+	selectedSite: null,
+	setSelectedSiteId: () => undefined,
 	data: [],
 	createSite: async () => undefined,
 	startServer: async () => undefined,
@@ -23,10 +27,28 @@ export function useSiteDetails() {
 	return useContext( siteDetailsContext );
 }
 
+function useSelectedSite() {
+	const SELECTED_SITE_ID_KEY = 'selectedSiteId';
+	const selectedSiteIdFromLocal = localStorage.getItem( SELECTED_SITE_ID_KEY ) || null;
+	const [ selectedSiteId, setSelectedSiteId ] = useState< string | null >(
+		selectedSiteIdFromLocal
+	);
+
+	return {
+		selectedSiteId,
+		setSelectedSiteId: ( id: string ) => {
+			console.log( 'yay setSelectedSiteId', id );
+			setSelectedSiteId( id );
+			localStorage.setItem( SELECTED_SITE_ID_KEY, id );
+		},
+	};
+}
+
 export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	const { Provider } = siteDetailsContext;
 
 	const [ data, setData ] = useState< SiteDetails[] >( [] );
+	const { selectedSiteId, setSelectedSiteId } = useSelectedSite();
 
 	useEffect( () => {
 		let cancel = false;
@@ -46,6 +68,10 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	const createSite = useCallback( async ( path: string ) => {
 		const data = await getIpcApi().createSite( path );
 		setData( data );
+		const newSite = data.find( ( site ) => site.path === path );
+		if ( newSite?.id ) {
+			setSelectedSiteId( newSite.id );
+		}
 	}, [] );
 
 	const startServer = useCallback(
@@ -72,12 +98,14 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 	const context = useMemo(
 		() => ( {
+			selectedSite: data.find( ( site ) => site.id === selectedSiteId ) || null,
+			setSelectedSiteId,
 			data,
 			createSite,
 			startServer,
 			stopServer,
 		} ),
-		[ data ]
+		[ data, setSelectedSiteId ]
 	);
 
 	return <Provider value={ context }>{ children }</Provider>;

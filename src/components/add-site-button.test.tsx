@@ -1,7 +1,7 @@
 import { jest } from '@jest/globals';
 import { render, waitFor, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
-import CreateSiteButton from './create-site-button';
+import CreateSiteButton from './add-site-button';
 
 const mockShowOpenFolderDialog = jest.fn< ( dialogTitle: string ) => Promise< string | null > >();
 jest.mock( '../lib/get-ipc-api', () => ( {
@@ -30,7 +30,7 @@ describe( 'CreateSiteButton', () => {
 		mockShowOpenFolderDialog.mockResolvedValue( 'test' );
 		render( <CreateSiteButton /> );
 
-		await user.click( screen.getByRole( 'button', { name: 'Create site' } ) );
+		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 
 		expect( mockShowOpenFolderDialog ).toHaveBeenCalledWith( 'Choose folder for site' );
 		await waitFor( () => {
@@ -44,7 +44,7 @@ describe( 'CreateSiteButton', () => {
 		mockShowOpenFolderDialog.mockResolvedValue( null );
 		render( <CreateSiteButton /> );
 
-		await user.click( screen.getByRole( 'button', { name: 'Create site' } ) );
+		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 
 		expect( mockShowOpenFolderDialog ).toHaveBeenCalledWith( 'Choose folder for site' );
 		await waitFor( () => {

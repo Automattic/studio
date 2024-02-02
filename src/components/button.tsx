@@ -2,7 +2,7 @@ import { Button } from '@wordpress/components';
 import { ComponentProps } from 'react';
 import { cx } from '../lib/cx';
 
-type ButtonProps = ComponentProps< typeof Button > & {
+export type ButtonProps = ComponentProps< typeof Button > & {
 	addOutline?: boolean;
 };
 
@@ -13,7 +13,10 @@ export default function ButtonComponent( {
 	...props
 }: ButtonProps ) {
 	if ( variant === 'secondary' ) {
-		className = cx( 'shadom-sm !ring-1 !ring-inset ring-gray-300 !text-gray-900', className );
+		className = cx(
+			'shadom-sm !ring-1 !ring-inset hover:bg-gray-100 ring-gray-300 !text-gray-900',
+			className
+		);
 	}
 	if ( ! addOutline ) {
 		className = cx( 'focus:!shadow-none', className );
@@ -22,7 +25,10 @@ export default function ButtonComponent( {
 		<Button
 			{ ...props }
 			variant={ variant }
-			className={ cx( 'px-3 py-2 justify-center !rounded-sm', className ) }
+			className={ cx(
+				'px-3 py-2 !rounded-sm justify-center hover:cursor-pointer disabled:cursor-not-allowed',
+				className
+			) }
 		/>
 	);
 }

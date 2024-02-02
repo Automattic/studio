@@ -8,6 +8,7 @@ interface SiteDetailsContext {
 	createSite: ( path: string ) => Promise< void >;
 	startServer: ( id: string ) => Promise< void >;
 	stopServer: ( id: string ) => Promise< void >;
+	loading: boolean;
 }
 
 const siteDetailsContext = createContext< SiteDetailsContext >( {
@@ -17,6 +18,7 @@ const siteDetailsContext = createContext< SiteDetailsContext >( {
 	createSite: async () => undefined,
 	startServer: async () => undefined,
 	stopServer: async () => undefined,
+	loading: false,
 } );
 
 interface SiteDetailsProviderProps {
@@ -47,6 +49,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	const { Provider } = siteDetailsContext;
 
 	const [ data, setData ] = useState< SiteDetails[] >( [] );
+	const [ loading, setLoading ] = useState( false );
 	const { selectedSiteId, setSelectedSiteId } = useSelectedSite();
 
 	useEffect( () => {
@@ -75,13 +78,19 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 	const startServer = useCallback(
 		async ( id: string ) => {
+			if ( selectedSiteId === id ) {
+				setLoading( true );
+			}
 			const updatedSite = await getIpcApi().startServer( id );
 			if ( updatedSite ) {
 				const newData = data.map( ( site ) => ( site.id === id ? updatedSite : site ) );
 				setData( newData );
 			}
+			if ( selectedSiteId === id ) {
+				setLoading( false );
+			}
 		},
-		[ data ]
+		[ data, selectedSiteId ]
 	);
 
 	const stopServer = useCallback(
@@ -103,8 +112,9 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			createSite,
 			startServer,
 			stopServer,
+			loading,
 		} ),
-		[ data, setSelectedSiteId ]
+		[ data, setSelectedSiteId, loading ]
 	);
 
 	return <Provider value={ context }>{ children }</Provider>;

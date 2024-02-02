@@ -1,5 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { useSiteDetails } from '../hooks/use-site-details';
+import Header from './header';
 
 function NoSiteSelected() {
 	return (
@@ -18,12 +19,7 @@ export function SiteContentTabs() {
 
 	return (
 		<div className="flex w-full">
-			<div className="flex w-full justify-end gap-2.5">
-				<h1 className="text-black text-xl text-normal leading-7 capitalize mr-auto">
-					{ selectedSite.name }
-				</h1>
-				{ /* TODO: Add the header here */ }
-			</div>
+			<Header />
 		</div>
 	);
 }

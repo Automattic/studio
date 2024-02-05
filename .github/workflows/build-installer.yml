@@ -5,6 +5,14 @@ on:
     branches:
       - trunk
   pull_request:
+    paths:
+      - 'installers/**/*'
+      - 'scripts/**/*'
+      - 'forge.config.ts'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'postcss.config.js'
+      - 'webpack.*.ts'
 
 jobs:
   build_installer:

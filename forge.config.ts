@@ -19,11 +19,11 @@ const config: ForgeConfig = {
 		asar: true,
 		extraResource: [ './wp-files' ],
 		executableName: process.platform === 'linux' ? 'local-environment' : undefined,
+		osxSign: {},
 	},
 	rebuildConfig: {},
 	makers: [
 		new MakerZIP( {}, [ 'darwin' ] ),
-		new MakerDMG( {}, [ 'darwin' ] ),
 		new MakerDeb( {
 			options: {
 				genericName: 'WordPress Local Dev',
@@ -37,6 +37,7 @@ const config: ForgeConfig = {
 			},
 			[ 'win32' ]
 		),
+		...( process.env.SKIP_DMG ? [] : [ new MakerDMG( {}, [ 'darwin' ] ) ] ),
 	],
 	plugins: [
 		new AutoUnpackNativesPlugin( {} ),

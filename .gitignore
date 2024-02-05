@@ -93,3 +93,8 @@ out/
 
 # The latest WordPress files downloaded from the web
 wp-files/
+
+# Release Tooling
+vendor
+/fastlane/report.xml
+/fastlane/README.md

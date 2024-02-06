@@ -1,4 +1,5 @@
 import { BrowserWindow, type BrowserWindowConstructorOptions } from 'electron';
+import { MAIN_MIN_HEIGHT, MAIN_MIN_WIDTH } from './constants';
 import { portFinder } from './lib/port-finder';
 import { loadUserData, saveUserData } from './storage/user-data';
 
@@ -27,6 +28,8 @@ export function createMainWindow(): BrowserWindow {
 		height: 800,
 		width: 1200,
 		backgroundColor: 'rgba(30, 30, 30, 1)',
+		minHeight: MAIN_MIN_HEIGHT,
+		minWidth: MAIN_MIN_WIDTH,
 		webPreferences: {
 			preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
 		},

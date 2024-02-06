@@ -1,4 +1,5 @@
 import { BrowserWindow, ipcMain } from 'electron';
+import { AUTH_MIN_HEIGHT, AUTH_MIN_WIDTH } from '../constants';
 import { loadUserData, saveUserData } from '../storage/user-data';
 
 export interface StoredToken {
@@ -90,7 +91,14 @@ export async function authenticate(): Promise< StoredToken | null > {
 		const authUrl = `${ WP_AUTHORIZE_ENDPOINT }?response_type=token&client_id=${ CLIENT_ID }&redirect_uri=${ encodeURIComponent(
 			REDIRECT_URI
 		) }&scope=${ encodeURIComponent( SCOPES ) }`;
-		const authWindow = new BrowserWindow( { x: 60, y: 60, useContentSize: true, show: false } );
+		const authWindow = new BrowserWindow( {
+			x: 60,
+			y: 60,
+			useContentSize: true,
+			show: false,
+			minWidth: AUTH_MIN_WIDTH,
+			minHeight: AUTH_MIN_HEIGHT,
+		} );
 		authWindow.loadURL( authUrl );
 		authWindow.show();
 

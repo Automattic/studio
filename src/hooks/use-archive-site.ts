@@ -1,3 +1,4 @@
+import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useState } from 'react';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { useAuth } from './use-auth';
@@ -6,6 +7,7 @@ import { useSiteDetails } from './use-site-details';
 export function useArchiveSite() {
 	const [ isLoading, setIsLoading ] = useState( false );
 	const { client } = useAuth();
+	const { __ } = useI18n();
 	const { addSnapshot } = useSiteDetails();
 
 	const archiveSite = useCallback(
@@ -36,7 +38,7 @@ export function useArchiveSite() {
 					date: new Date().getTime(),
 				} );
 			} catch ( error ) {
-				alert( 'Error sharing site' );
+				alert( __( 'Error sharing site' ) );
 				throw error;
 			} finally {
 				setIsLoading( false );

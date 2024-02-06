@@ -26,3 +26,7 @@ Installers can currently be built on Mac (Intel or Apple Silicon) and Windows:
 $ npm install
 $ npm run make
 ```
+
+## Localization
+
+[See localisation docs](./docs/localization.md)

@@ -21,6 +21,7 @@ const api: Record< keyof typeof ipcHandlers, ( ...args: any[] ) => any > = {
 	showOpenFolderDialog: ( title: string ) => ipcRenderer.invoke( 'showOpenFolderDialog', title ),
 	startServer: ( id: string ) => ipcRenderer.invoke( 'startServer', id ),
 	stopServer: ( id: string ) => ipcRenderer.invoke( 'stopServer', id ),
+	getAppGlobals: () => ipcRenderer.invoke( 'getAppGlobals' ),
 
 	// Use .send instead of .invoke because logging is fire-and-forget
 	logRendererMessage: ( level: LogLevel, ...args: any[] ) =>
@@ -47,9 +48,3 @@ contextBridge.exposeInMainWorld( 'ipcListener', {
 		}
 	},
 } );
-
-const appGlobals: AppGlobals = {
-	platform: process.platform,
-};
-
-contextBridge.exposeInMainWorld( 'appGlobals', appGlobals );

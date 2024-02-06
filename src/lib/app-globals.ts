@@ -1,5 +1,5 @@
 export function getAppGlobals(): AppGlobals {
-	// The appGlobals global is defined in preload.ts
+	// The appGlobals global is set in renderer.ts
 	return ( window as any ).appGlobals; // eslint-disable-line @typescript-eslint/no-explicit-any
 }
 

@@ -28,6 +28,7 @@
 
 import * as Sentry from '@sentry/electron/renderer';
 import { init as reactInit } from '@sentry/react';
+import { defaultI18n } from '@wordpress/i18n';
 import { createElement, StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import Root from './components/root';
@@ -75,8 +76,17 @@ window.onunhandledrejection = ( event ) => {
 	);
 };
 
-const rootEl = document.getElementById( 'root' );
-if ( rootEl ) {
-	const root = createRoot( rootEl );
-	root.render( createElement( StrictMode, null, createElement( Root ) ) );
-}
+getIpcApi()
+	.getAppGlobals()
+	.then( ( appGlobals ) => {
+		// Ensure the app globals are available before any renderer code starts running
+		( window as any ).appGlobals = appGlobals; // eslint-disable-line @typescript-eslint/no-explicit-any
+
+		defaultI18n.setLocaleData( appGlobals.localeData?.locale_data?.messages );
+
+		const rootEl = document.getElementById( 'root' );
+		if ( rootEl ) {
+			const root = createRoot( rootEl );
+			root.render( createElement( StrictMode, null, createElement( Root ) ) );
+		}
+	} );

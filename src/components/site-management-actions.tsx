@@ -1,5 +1,5 @@
-import { useState } from 'react';
 import { useI18n } from '@wordpress/react-i18n';
+import { useState } from 'react';
 import { ActionButton } from './action-button';
 
 export interface SiteManagementActionProps {
@@ -20,7 +20,7 @@ export const SiteManagementActions = ( {
 
 	let controlText = __( 'Start' );
 	if ( loading ) {
-		controlText = __( 'Starting...' );
+		controlText = __( 'Starting…' );
 	} else if ( selectedSite?.running ) {
 		controlText = isHovered ? __( 'Stop' ) : __( 'Running' );
 	}

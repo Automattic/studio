@@ -44,4 +44,6 @@ type IpcApi = {
 
 interface AppGlobals {
 	platform: NodeJS.Platform;
+	locale: string;
+	localeData: LocaleData | null;
 }

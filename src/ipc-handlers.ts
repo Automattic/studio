@@ -5,6 +5,7 @@ import fs from 'fs';
 import nodePath from 'path';
 import { getWpNowConfig } from '@wp-now/wp-now';
 import archiver from 'archiver';
+import { getLocaleData, getSupportedLocale } from './lib/locale';
 import * as oauthClient from './lib/oauth';
 import { writeLogToFile, type LogLevel } from './logging';
 import { SiteServer, createSiteWorkingDirectory } from './site-server';
@@ -216,4 +217,15 @@ export async function openSiteURL( event: IpcMainInvokeEvent, id: string, relati
 
 export async function openURL( event: IpcMainInvokeEvent, url: string ) {
 	return shell.openExternal( url );
+}
+
+export async function getAppGlobals( event: IpcMainInvokeEvent ): Promise< AppGlobals > {
+	const locale = getSupportedLocale();
+	const localeData = await getLocaleData( locale );
+
+	return {
+		platform: process.platform,
+		locale,
+		localeData,
+	};
 }

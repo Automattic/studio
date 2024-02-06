@@ -2,12 +2,12 @@ import {
 	__experimentalVStack as VStack,
 	__experimentalHStack as HStack,
 } from '@wordpress/components';
-import { useI18n } from '@wordpress/react-i18n';
+import { useLocalizationSupport } from '../hooks/use-localization-support';
 import MainSidebar from './main-sidebar';
 import { SiteContentTabs } from './site-content-tabs';
 
 export default function App() {
-	const { __ } = useI18n();
+	useLocalizationSupport();
 
 	return (
 		<VStack

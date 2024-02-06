@@ -10,9 +10,10 @@ import {
 } from 'electron';
 import path from 'path';
 import * as Sentry from '@sentry/electron/main';
-import { __ } from '@wordpress/i18n';
+import { __, defaultI18n } from '@wordpress/i18n';
 import packageJson from '../package.json';
 import * as ipcHandlers from './ipc-handlers';
+import { getLocaleData, getSupportedLocale } from './lib/locale';
 import { PROTOCOL_PREFIX, handleAuthCallback } from './lib/oauth';
 import { setupLogging } from './logging';
 import { createMainWindow } from './main-window';
@@ -35,8 +36,12 @@ if ( gotTheLock && ! isInInstaller ) {
 	appBoot();
 }
 
-function appBoot() {
+async function appBoot() {
 	let mainWindow: BrowserWindow | null = null;
+
+	const locale = getSupportedLocale();
+	const localeData = await getLocaleData( locale );
+	defaultI18n.setLocaleData( localeData?.locale_data?.messages );
 
 	app.setName( packageJson.productName );
 
@@ -147,6 +152,8 @@ function appBoot() {
 		console.log( `Local timezone: ${ Intl.DateTimeFormat().resolvedOptions().timeZone }` );
 		console.log( `App locale: ${ app.getLocale() }` );
 		console.log( `System locale: ${ app.getSystemLocale() }` );
+		console.log( `Preferred languages: ${ app.getPreferredSystemLanguages() }` );
+		console.log( `Used language: ${ getSupportedLocale() }` );
 
 		// By default Electron automatically approves all permissions requests (e.g. notifications, webcam)
 		// We'll opt-in to permissions we specifically need instead.

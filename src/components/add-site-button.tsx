@@ -1,5 +1,6 @@
 import { useI18n } from '@wordpress/react-i18n';
 import { useSiteDetails } from '../hooks/use-site-details';
+import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
 
@@ -18,8 +19,13 @@ export default function AddSiteButton( { className }: AddSiteButtonProps ) {
 		}
 	};
 
+	className = cx(
+		'!ring-1 !ring-inset ring-white text-white hover:bg-gray-100 hover:text-black',
+		className
+	);
+
 	return (
-		<Button variant="primary" className={ className } onClick={ handleClick }>
+		<Button className={ className } onClick={ handleClick }>
 			{ __( 'Add site' ) }
 		</Button>
 	);

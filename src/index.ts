@@ -164,7 +164,8 @@ async function appBoot() {
 
 		session.defaultSession.webRequest.onHeadersReceived( ( details, callback ) => {
 			const policies = [
-				"default-src 'self' public-api.wordpress.com wordpress.com", // Allow resources from these domains
+				"default-src 'self' wordpress.com", // Allow resources from these domains
+				'connect-src https://public-api.wordpress.com',
 				"script-src-attr 'none'",
 				"style-src 'self' 'unsafe-inline' s0.wp.com",
 				"script-src 'self' 'unsafe-eval' 'unsafe-inline' s0.wp.com",

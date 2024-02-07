@@ -57,19 +57,22 @@ export const ActionButton = ( {
 	};
 
 	if ( isLoading ) {
-		buttonProps = { ...buttonProps, variant: 'tertiary', icon: undefined };
+		buttonProps = { ...buttonProps, icon: undefined };
 	} else if ( running ) {
 		if ( isHovered ) {
 			buttonProps = {
 				...buttonProps,
-				variant: 'primary',
 				icon: <StopIcon height={ iconSize } width={ iconSize } />,
-				className: cx( buttonProps.className, 'text-white !bg-a8c-red-50' ),
+				className: cx( buttonProps.className, 'ring-1 ring-inset ring-gray-300 !text-a8c-red-50' ),
+				variant: undefined,
 			};
 		} else {
 			buttonProps = {
 				...buttonProps,
-				className: cx( buttonProps.className, 'text-white bg-a8c-green-40 hover:text-white' ),
+				className: cx(
+					buttonProps.className,
+					'ring-1 ring-inset ring-gray-300 !text-a8c-green-50 '
+				),
 				icon: <CircleIcon height={ iconSize } width={ iconSize } />,
 				variant: undefined,
 			};

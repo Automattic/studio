@@ -27,6 +27,8 @@ interface Snapshot {
 	atomicSiteId: number;
 	localSiteId: string;
 	date: number;
+	deleted: boolean;
+	isLoading?: boolean;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

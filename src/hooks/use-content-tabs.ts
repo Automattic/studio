@@ -6,12 +6,12 @@ export function useContentTabs() {
 	return useMemo(
 		() => [
 			{
-				name: 'snapshots',
-				title: __( 'Snapshots' ),
-			},
-			{
 				name: 'launchpad',
 				title: __( 'Launchpad' ),
+			},
+			{
+				name: 'snapshots',
+				title: __( 'Snapshots' ),
 			},
 			{
 				name: 'publish',

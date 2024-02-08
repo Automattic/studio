@@ -2,6 +2,7 @@ import { StoredToken } from '../lib/oauth';
 
 export interface UserData {
 	sites: SiteDetails[];
+	snapshots: Snapshot[];
 	devToolsOpen?: boolean;
 	authToken?: StoredToken;
 }

@@ -16,6 +16,9 @@ const api: Record< keyof typeof ipcHandlers, ( ...args: any[] ) => any > = {
 	isAuthenticated: () => ipcRenderer.invoke( 'isAuthenticated' ),
 	getAuthenticationToken: () => ipcRenderer.invoke( 'getAuthenticationToken' ),
 	clearAuthenticationToken: () => ipcRenderer.invoke( 'clearAuthenticationToken' ),
+	saveSnapshotsToStorage: ( snapshots: Snapshot[] ) =>
+		ipcRenderer.invoke( 'saveSnapshotsToStorage', snapshots ),
+	getSnapshots: () => ipcRenderer.invoke( 'getSnapshots' ),
 	getSiteDetails: () => ipcRenderer.invoke( 'getSiteDetails' ),
 	openSiteURL: ( id: string, relativeURL = '' ) =>
 		ipcRenderer.invoke( 'openSiteURL', id, relativeURL ),
@@ -23,6 +26,7 @@ const api: Record< keyof typeof ipcHandlers, ( ...args: any[] ) => any > = {
 	showOpenFolderDialog: ( title: string ) => ipcRenderer.invoke( 'showOpenFolderDialog', title ),
 	startServer: ( id: string ) => ipcRenderer.invoke( 'startServer', id ),
 	stopServer: ( id: string ) => ipcRenderer.invoke( 'stopServer', id ),
+	copyText: ( text: string ) => ipcRenderer.invoke( 'copyText', text ),
 	getAppGlobals: () => ipcRenderer.invoke( 'getAppGlobals' ),
 
 	// Use .send instead of .invoke because logging is fire-and-forget

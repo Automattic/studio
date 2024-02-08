@@ -15,6 +15,7 @@ interface SiteDetailsContext {
 	data: SiteDetails[];
 	snapshots: Snapshot[];
 	addSnapshot: ( snapshot: Snapshot ) => void;
+	updateSnapshot: ( snapshot: Snapshot ) => void;
 	removeSnapshot: ( snapshot: Snapshot ) => void;
 	setSelectedSiteId: ( selectedSiteId: string ) => void;
 	createSite: ( path: string ) => Promise< void >;
@@ -31,6 +32,7 @@ const siteDetailsContext = createContext< SiteDetailsContext >( {
 	data: [],
 	snapshots: [],
 	addSnapshot: () => undefined,
+	updateSnapshot: () => undefined,
 	removeSnapshot: () => undefined,
 	setSelectedSiteId: () => undefined,
 	createSite: async () => undefined,
@@ -67,21 +69,57 @@ function useSelectedSite() {
 }
 
 function useSnapshots() {
+	const [ initiated, setInitiated ] = useState( false );
 	const [ snapshots, setSnapshots ] = useState< Snapshot[] >( [] );
-	const addSnapshot = useCallback(
-		( snapshot: Snapshot ) => setSnapshots( ( snapshots ) => [ ...snapshots, snapshot ] ),
-		[]
-	);
+
+	// Load snapshots from storage
+	useEffect( () => {
+		getIpcApi()
+			.getSnapshots()
+			.then( ( snapshots ) => {
+				setSnapshots( snapshots );
+				setInitiated( true );
+			} );
+	}, [] );
+
+	// Save snapshots to storage when they change
+	useEffect( () => {
+		if ( ! initiated ) {
+			return;
+		}
+		getIpcApi().saveSnapshotsToStorage( snapshots );
+	}, [ snapshots, initiated ] );
+
+	const addSnapshot = useCallback( ( snapshot: Snapshot ) => {
+		setSnapshots( ( _snapshots ) => [ snapshot, ..._snapshots ] );
+	}, [] );
+
+	const updateSnapshot = useCallback( ( snapshot: Snapshot ) => {
+		setSnapshots( ( snapshots ) => {
+			const index = snapshots.findIndex(
+				( snapshotI ) => snapshotI.atomicSiteId === snapshot.atomicSiteId
+			);
+			if ( index === -1 ) {
+				return snapshots;
+			}
+			const newSnapshots = [ ...snapshots ];
+			newSnapshots[ index ] = snapshot;
+			return newSnapshots;
+		} );
+	}, [] );
+
 	const removeSnapshot = useCallback(
 		( snapshot: Snapshot ) =>
-			setSnapshots( ( snapshots ) =>
-				snapshots.filter( ( snapshotI ) => snapshotI.atomicSiteId !== snapshot.atomicSiteId )
+			setSnapshots( ( _snapshots ) =>
+				_snapshots.filter( ( snapshotI ) => snapshotI.atomicSiteId !== snapshot.atomicSiteId )
 			),
 		[]
 	);
+
 	return {
 		snapshots,
 		addSnapshot,
+		updateSnapshot,
 		removeSnapshot,
 	};
 }
@@ -137,7 +175,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	const [ data, setData ] = useState< SiteDetails[] >( [] );
 	const [ loading, setLoading ] = useState( false );
 	const { selectedSiteId, setSelectedSiteId } = useSelectedSite();
-	const { snapshots, addSnapshot, removeSnapshot } = useSnapshots();
+	const { snapshots, addSnapshot, removeSnapshot, updateSnapshot } = useSnapshots();
 	const { deleteSite, isLoading: isDeleting, error: deleteError } = useDeleteSite();
 
 	useEffect( () => {
@@ -214,6 +252,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			data,
 			snapshots,
 			addSnapshot,
+			updateSnapshot,
 			removeSnapshot,
 			setSelectedSiteId,
 			createSite,
@@ -228,6 +267,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			data,
 			snapshots,
 			addSnapshot,
+			updateSnapshot,
 			onDeleteSite,
 			isDeleting,
 			deleteError,

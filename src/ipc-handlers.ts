@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { app } from 'electron';
+import { app, clipboard } from 'electron';
 import { type IpcMainInvokeEvent, dialog, shell } from 'electron';
 import fs from 'fs';
 import nodePath from 'path';
@@ -232,6 +232,20 @@ export async function clearAuthenticationToken() {
 	return oauthClient.clearAuthenticationToken();
 }
 
+export async function saveSnapshotsToStorage( event: IpcMainInvokeEvent, snapshots: Snapshot[] ) {
+	const userData = await loadUserData();
+	await saveUserData( {
+		...userData,
+		snapshots: snapshots.map( ( { isLoading, ...restSnapshots } ) => restSnapshots ),
+	} );
+}
+
+export async function getSnapshots( event: IpcMainInvokeEvent ): Promise< Snapshot[] > {
+	const userData = await loadUserData();
+	const { snapshots = [] } = userData;
+	return snapshots;
+}
+
 export async function openSiteURL( event: IpcMainInvokeEvent, id: string, relativeURL = '' ) {
 	const site = SiteServer.get( id );
 	if ( ! site ) {
@@ -242,6 +256,10 @@ export async function openSiteURL( event: IpcMainInvokeEvent, id: string, relati
 
 export async function openURL( event: IpcMainInvokeEvent, url: string ) {
 	return shell.openExternal( url );
+}
+
+export async function copyText( event: IpcMainInvokeEvent, text: string ) {
+	return clipboard.writeText( text );
 }
 
 export async function getAppGlobals( event: IpcMainInvokeEvent ): Promise< AppGlobals > {

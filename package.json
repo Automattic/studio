@@ -86,6 +86,7 @@
 		"@wordpress/icons": "^9.40.0",
 		"@wp-now/wp-now": "^0.1.63",
 		"archiver": "^6.0.1",
+		"date-fns": "^3.3.1",
 		"electron-squirrel-startup": "^1.0.0",
 		"file-stream-rotator": "^1.0.0",
 		"wpcom": "^5.4.2"

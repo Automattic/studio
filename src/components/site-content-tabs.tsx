@@ -24,13 +24,13 @@ export function SiteContentTabs() {
 	}
 
 	return (
-		<div className="flex flex-col w-full">
+		<div className="flex flex-col w-full h-full">
 			<Header />
-			<TabPanel className="mt-6" tabs={ tabs } orientation="horizontal">
+			<TabPanel className="mt-6 h-full flex flex-col" tabs={ tabs } orientation="horizontal">
 				{ ( { name } ) => (
-					<div className="pt-8">
-						{ name === 'settings' && <ContentTabSettings /> }
+					<div className="pt-8 h-full">
 						{ name === 'snapshots' && <ContentTabSnapshots selectedSite={ selectedSite } /> }
+						{ name === 'settings' && <ContentTabSettings /> }
 					</div>
 				) }
 			</TabPanel>

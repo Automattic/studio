@@ -143,6 +143,10 @@ module.exports = {
 			borderRadius: {
 				chrome: '5px',
 			},
+			fontSize: {
+				xxs: '0.6875rem',
+				body: '0.8125rem',
+			},
 		},
 	},
 	plugins: [

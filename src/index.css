@@ -25,3 +25,8 @@ ol,
 blockquote {
 	text-wrap: pretty;
 }
+
+/* Tabs */
+.components-tab-panel__tab-content {
+	flex: 1;
+}

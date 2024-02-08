@@ -17,6 +17,7 @@ export async function loadUserData(): Promise< UserData > {
 		if ( isErrnoException( err ) && err.code === 'ENOENT' ) {
 			return {
 				sites: [],
+				snapshots: [],
 			};
 		}
 		console.error( `Failed to load file ${ filePath }: ${ err }` );

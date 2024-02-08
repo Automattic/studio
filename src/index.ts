@@ -1,13 +1,4 @@
-import {
-	app,
-	BrowserWindow,
-	ipcMain,
-	session,
-	type IpcMainInvokeEvent,
-	protocol,
-	Menu,
-	MenuItem,
-} from 'electron';
+import { app, BrowserWindow, ipcMain, session, type IpcMainInvokeEvent, protocol } from 'electron';
 import path from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { __, defaultI18n } from '@wordpress/i18n';
@@ -17,6 +8,7 @@ import { getLocaleData, getSupportedLocale } from './lib/locale';
 import { PROTOCOL_PREFIX, handleAuthCallback } from './lib/oauth';
 import { setupLogging } from './logging';
 import { createMainWindow } from './main-window';
+import { setupMenu } from './menu';
 import { stopAllServersOnQuit } from './site-server'; // eslint-disable-line import/order
 
 Sentry.init( {
@@ -183,34 +175,10 @@ async function appBoot() {
 
 		setupIpc();
 		setupCustomProtocolHandler();
+		setupMenu();
 
 		mainWindow = createMainWindow();
 		mainWindow.on( 'closed', () => ( mainWindow = null ) );
-
-		if ( process.platform === 'darwin' && process.env.NODE_ENV === 'development' ) {
-			const appMenu = Menu.getApplicationMenu();
-
-			appMenu?.items?.[ 0 ].submenu?.insert(
-				4,
-				new MenuItem( {
-					label: __( 'Test Hard Crash (dev only)' ),
-					click: () => {
-						process.crash();
-					},
-				} )
-			);
-			appMenu?.items?.[ 0 ].submenu?.insert(
-				5,
-				new MenuItem( {
-					label: __( 'Test Render Failure (dev only)' ),
-					click: () => {
-						mainWindow?.webContents.send( 'test-render-failure' );
-					},
-				} )
-			);
-
-			Menu.setApplicationMenu( appMenu );
-		}
 	} );
 
 	// Quit when all windows are closed, except on macOS. There, it's common

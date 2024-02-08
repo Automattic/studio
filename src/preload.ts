@@ -36,21 +36,20 @@ const api: Record< keyof typeof ipcHandlers, ( ...args: any[] ) => any > = {
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );
 
-const allowedChannels = [ 'test-render-failure' ] as const;
+const allowedChannels = [ 'test-render-failure', 'add-site' ] as const;
 
 contextBridge.exposeInMainWorld( 'ipcListener', {
-	on: ( channel: ( typeof allowedChannels )[ number ], listener: ( ...args: any[] ) => void ) => {
+	subscribe: (
+		channel: ( typeof allowedChannels )[ number ],
+		listener: ( ...args: any[] ) => void
+	) => {
 		if ( allowedChannels.includes( channel ) ) {
 			ipcRenderer.on( channel, listener );
+			return () => {
+				ipcRenderer.off( channel, listener );
+			};
 		} else {
 			throw new Error( `Attempted to listen on disallowed IPC channel: ${ channel }` );
-		}
-	},
-	off: ( channel: ( typeof allowedChannels )[ number ], listener: ( ...args: any[] ) => void ) => {
-		if ( allowedChannels.includes( channel ) ) {
-			ipcRenderer.off( channel, listener );
-		} else {
-			throw new Error( `Attempted to remove listener on disallowed IPC channel: ${ channel }` );
 		}
 	},
 } );

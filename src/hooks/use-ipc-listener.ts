@@ -5,9 +5,6 @@ export function useIpcListener( channel: string, listener: ( ...args: any[] ) =>
 	const { ipcListener } = window as any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
 	useEffect( () => {
-		ipcListener.on( channel, listener );
-		return () => {
-			ipcListener.off( channel, listener );
-		};
+		return ipcListener.subscribe( channel, listener );
 	}, [ channel, listener ] );
 }

@@ -1,4 +1,5 @@
 import { useI18n } from '@wordpress/react-i18n';
+import { useIpcListener } from '../hooks/use-ipc-listener';
 import { useSiteDetails } from '../hooks/use-site-details';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
@@ -18,6 +19,8 @@ export default function AddSiteButton( { className }: AddSiteButtonProps ) {
 			createSite( selectedPath );
 		}
 	};
+
+	useIpcListener( 'add-site', handleClick );
 
 	className = cx(
 		'!ring-1 !ring-inset ring-white text-white hover:bg-gray-100 hover:text-black',

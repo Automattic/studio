@@ -80,7 +80,7 @@ getIpcApi()
 	.getAppGlobals()
 	.then( ( appGlobals ) => {
 		// Ensure the app globals are available before any renderer code starts running
-		( window as any ).appGlobals = appGlobals; // eslint-disable-line @typescript-eslint/no-explicit-any
+		window.appGlobals = appGlobals;
 
 		defaultI18n.setLocaleData( appGlobals.localeData?.locale_data?.messages );
 

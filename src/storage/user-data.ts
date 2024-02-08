@@ -52,7 +52,7 @@ function toDiskFormat( { sites, ...rest }: UserData ): PersistedUserData {
 	};
 }
 
-function fromDiskFormat( { version: _, sites, ...rest }: PersistedUserData ): UserData {
+function fromDiskFormat( { version, sites, ...rest }: PersistedUserData ): UserData {
 	return {
 		sites: sites
 			.filter( ( site ) => fs.existsSync( site.path ) ) // Remove sites the user has deleted from disk

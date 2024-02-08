@@ -11,9 +11,6 @@ import { writeLogToFile, type LogLevel } from './logging';
 import { SiteServer, createSiteWorkingDirectory } from './site-server';
 import { loadUserData, saveUserData } from './storage/user-data';
 
-// IPC functions must accept an `event` as the first argument.
-/* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "event", "varsIgnorePattern": "^_" }] */
-
 const WPNOW_HOME = nodePath.join( app.getPath( 'home' ) || '', '.wp-now' );
 
 async function mergeSiteDetailsWithRunningDetails(
@@ -28,7 +25,7 @@ async function mergeSiteDetailsWithRunningDetails(
 	} );
 }
 
-export async function getSiteDetails( event: IpcMainInvokeEvent ): Promise< SiteDetails[] > {
+export async function getSiteDetails( _event: IpcMainInvokeEvent ): Promise< SiteDetails[] > {
 	const userData = await loadUserData();
 
 	// This is probably one of the first times the user data is loaded. Take the opportunity
@@ -213,7 +210,7 @@ export function logRendererMessage(
 }
 
 export async function authenticate(
-	event: IpcMainInvokeEvent
+	_event: IpcMainInvokeEvent
 ): Promise< oauthClient.StoredToken | null > {
 	return await oauthClient.authenticate();
 }
@@ -240,7 +237,7 @@ export async function saveSnapshotsToStorage( event: IpcMainInvokeEvent, snapsho
 	} );
 }
 
-export async function getSnapshots( event: IpcMainInvokeEvent ): Promise< Snapshot[] > {
+export async function getSnapshots( _event: IpcMainInvokeEvent ): Promise< Snapshot[] > {
 	const userData = await loadUserData();
 	const { snapshots = [] } = userData;
 	return snapshots;
@@ -262,7 +259,7 @@ export async function copyText( event: IpcMainInvokeEvent, text: string ) {
 	return clipboard.writeText( text );
 }
 
-export async function getAppGlobals( event: IpcMainInvokeEvent ): Promise< AppGlobals > {
+export async function getAppGlobals( _event: IpcMainInvokeEvent ): Promise< AppGlobals > {
 	const locale = getSupportedLocale();
 	const localeData = await getLocaleData( locale );
 

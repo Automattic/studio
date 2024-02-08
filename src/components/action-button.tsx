@@ -79,7 +79,7 @@ export const ActionButton = ( {
 		}
 	}
 	if ( icon ) {
-		const { icon: _icon, iconSize: _iconSize, ...restProps } = buttonProps;
+		const { icon, iconSize, ...restProps } = buttonProps;
 		buttonProps = { ...restProps };
 	}
 	return (

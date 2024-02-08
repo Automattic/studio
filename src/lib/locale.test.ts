@@ -9,7 +9,7 @@ jest.mock( 'electron', () => ( {
 } ) );
 
 function mockPreferredLanguages( languages: string[] ) {
-	( app.getPreferredSystemLanguages as any ).mockReturnValue( languages );
+	( app.getPreferredSystemLanguages as jest.Mock ).mockReturnValue( languages );
 }
 
 describe( 'getSupportedLocale', () => {

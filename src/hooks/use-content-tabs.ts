@@ -26,6 +26,6 @@ export function useContentTabs() {
 				title: __( 'Settings' ),
 			},
 		],
-		[]
+		[ __ ]
 	);
 }

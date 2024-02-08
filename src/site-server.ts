@@ -93,7 +93,7 @@ export class SiteServer {
 			return;
 		}
 
-		const { running: _running, url: _url, ...rest } = this.details;
+		const { running, url, ...rest } = this.details;
 		this.details = { running: false, ...rest };
 	}
 }

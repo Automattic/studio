@@ -3,13 +3,11 @@
 
 import '@sentry/electron/preload';
 import { contextBridge, ipcRenderer } from 'electron';
-import type * as ipcHandlers from './ipc-handlers';
 import type { LogLevel } from './logging';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const api: Record< keyof typeof ipcHandlers, ( ...args: any[] ) => any > = {
+const api: IpcApi = {
 	archiveSite: ( id: string ) => ipcRenderer.invoke( 'archiveSite', id ),
-	deleteSite: ( id: string, deleteFiles: boolean ) =>
+	deleteSite: ( id: string, deleteFiles?: boolean ) =>
 		ipcRenderer.invoke( 'deleteSite', id, deleteFiles ),
 	createSite: ( path: string ) => ipcRenderer.invoke( 'createSite', path ),
 	authenticate: () => ipcRenderer.invoke( 'authenticate' ),

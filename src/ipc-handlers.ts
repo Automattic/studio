@@ -177,6 +177,31 @@ export async function archiveSite( event: IpcMainInvokeEvent, id: string ) {
 	return { zipPath, zipContent };
 }
 
+export async function deleteSite( event: IpcMainInvokeEvent, id: string, deleteFiles = false ) {
+	const server = SiteServer.get( id );
+	console.log( 'Deleting site', id );
+	if ( ! server ) {
+		throw new Error( 'Site not found.' );
+	}
+	const userData = await loadUserData();
+	await server.delete();
+	try {
+		// Equivalent to `rm -rf server.details.path`
+		if ( deleteFiles ) {
+			fs.rmSync( server.details.path, {
+				recursive: true,
+				force: true,
+			} );
+		}
+	} catch ( error ) {
+		/* We want to exit gracefully if the there is an error deleting the site files */
+	}
+	const newSites = userData.sites.filter( ( site ) => site.id !== id );
+	const newUserData = { ...userData, sites: newSites };
+	await saveUserData( newUserData );
+	return mergeSiteDetailsWithRunningDetails( newSites );
+}
+
 export function logRendererMessage(
 	event: IpcMainInvokeEvent,
 	level: LogLevel,

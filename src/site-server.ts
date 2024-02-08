@@ -54,6 +54,11 @@ export class SiteServer {
 		return server;
 	}
 
+	async delete() {
+		await this.stop();
+		servers.delete( this.details.id );
+	}
+
 	async start( reset = false ) {
 		if ( this.details.running || this.server ) {
 			return;

@@ -2,6 +2,7 @@ import { TabPanel } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { useContentTabs } from '../hooks/use-content-tabs';
 import { useSiteDetails } from '../hooks/use-site-details';
+import ContentTabSettings from './content-tab-settings';
 import { ContentTabSnapshots } from './content-tab-snapshots';
 import Header from './header';
 
@@ -28,7 +29,8 @@ export function SiteContentTabs() {
 			<TabPanel className="mt-6" tabs={ tabs } orientation="horizontal">
 				{ ( { name } ) => (
 					<div className="pt-8">
-						{ name === 'snapshots' ? <ContentTabSnapshots selectedSite={ selectedSite } /> : name }
+						{ name === 'settings' && <ContentTabSettings /> }
+						{ name === 'snapshots' && <ContentTabSnapshots selectedSite={ selectedSite } /> }
 					</div>
 				) }
 			</TabPanel>

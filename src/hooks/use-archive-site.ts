@@ -44,7 +44,7 @@ export function useArchiveSite() {
 				setIsLoading( false );
 			}
 		},
-		[ client ]
+		[ addSnapshot, client ]
 	);
 	return { archiveSite, isLoading };
 }

@@ -155,17 +155,24 @@ async function appBoot() {
 		} );
 
 		session.defaultSession.webRequest.onHeadersReceived( ( details, callback ) => {
+			// Only set a custom CSP header the main window UI. For other pages (like login) we should
+			// use the CSP provided by the server, which is more likely to be up-to-date and complete.
+			if ( details.url !== MAIN_WINDOW_WEBPACK_ENTRY ) {
+				callback( details );
+				return;
+			}
+
 			const policies = [
-				"default-src 'self' wordpress.com", // Allow resources from these domains
-				'connect-src https://public-api.wordpress.com',
+				"default-src 'self'", // Allow resources from these domains
+				"connect-src 'self' https://public-api.wordpress.com",
 				"script-src-attr 'none'",
-				"style-src 'self' 'unsafe-inline' s0.wp.com",
-				"script-src 'self' 'unsafe-eval' 'unsafe-inline' s0.wp.com",
-				"img-src 'self' *.wordpress.com *.gravatar.com *.wp.com",
-				process.env.NODE_ENV === 'development' && "script-src 'self' 'unsafe-eval'",
+				"img-src 'self' *.gravatar.com",
+				process.env.NODE_ENV === 'development' && "style-src 'self' 'unsafe-inline'", // unsafe-inline used by tailwindcss in development
+				process.env.NODE_ENV === 'development' && "script-src 'self' 'unsafe-eval'", // Webpack uses eval in development
 			];
 
 			callback( {
+				...details,
 				responseHeaders: {
 					...details.responseHeaders,
 					'Content-Security-Policy': [ policies.filter( Boolean ).join( '; ' ) ],

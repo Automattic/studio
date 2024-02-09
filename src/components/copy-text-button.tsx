@@ -41,7 +41,7 @@ export function CopyTextButton( {
 			onClick={ onClick }
 		>
 			<Icon className="mr-1" fill="currentColor" size={ 13 } icon={ copy } />
-			{ showCopied && copyConfirmation ? copyConfirmation : __( 'Copied' ) }
+			{ showCopied && copyConfirmation }
 		</button>
 	);
 }

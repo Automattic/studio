@@ -202,7 +202,7 @@ export async function deleteSite( event: IpcMainInvokeEvent, id: string, deleteF
 export function logRendererMessage(
 	event: IpcMainInvokeEvent,
 	level: LogLevel,
-	...args: any[]
+	...args: unknown[]
 ): void {
 	// 4 characters long so it aligns with the main process logs
 	const processId = `ren${ event.sender.id }`;

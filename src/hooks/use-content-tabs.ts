@@ -6,20 +6,8 @@ export function useContentTabs() {
 	return useMemo(
 		() => [
 			{
-				name: 'launchpad',
-				title: __( 'Launchpad' ),
-			},
-			{
 				name: 'snapshots',
 				title: __( 'Snapshots' ),
-			},
-			{
-				name: 'publish',
-				title: __( 'Publish' ),
-			},
-			{
-				name: 'export',
-				title: __( 'Export' ),
 			},
 			{
 				name: 'settings',

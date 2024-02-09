@@ -4,6 +4,7 @@
 		"es6": true,
 		"node": true
 	},
+	"ignorePatterns": [ "node_modules/", "out/", "wp-files/" ],
 	"extends": [
 		"eslint:recommended",
 		"plugin:@typescript-eslint/eslint-recommended",

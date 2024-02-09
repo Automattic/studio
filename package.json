@@ -20,7 +20,7 @@
 		"make": "electron-forge make",
 		"make:macos": "SKIP_DMG=true electron-forge make --arch=universal --platform=darwin",
 		"publish": "electron-forge publish",
-		"lint": "eslint --ext .ts,.tsx .",
+		"lint": "eslint --ext .ts,.tsx,.js,.jsx,.mjs .",
 		"test": "jest",
 		"test:watch": "jest --watch",
 		"e2e": "npx playwright test",

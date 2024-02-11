@@ -4,6 +4,7 @@ import * as Sentry from '@sentry/electron/main';
 import { __, defaultI18n } from '@wordpress/i18n';
 import packageJson from '../package.json';
 import * as ipcHandlers from './ipc-handlers';
+import { bumpAggregatedUniqueStat } from './lib/bump-stats';
 import { getLocaleData, getSupportedLocale } from './lib/locale';
 import { PROTOCOL_PREFIX, handleAuthCallback } from './lib/oauth';
 import { setupLogging } from './logging';
@@ -186,6 +187,8 @@ async function appBoot() {
 
 		mainWindow = createMainWindow();
 		mainWindow.on( 'closed', () => ( mainWindow = null ) );
+
+		bumpAggregatedUniqueStat( 'local-environment-launch-uniques', process.platform, 'weekly' );
 	} );
 
 	// Quit when all windows are closed, except on macOS. There, it's common

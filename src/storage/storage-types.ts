@@ -5,6 +5,11 @@ export interface UserData {
 	snapshots: Snapshot[];
 	devToolsOpen?: boolean;
 	authToken?: StoredToken;
+	lastBumpStats?: {
+		[ group: string ]: {
+			[ stat: string ]: number;
+		};
+	};
 }
 
 export interface PersistedUserData extends Omit< UserData, 'sites' > {

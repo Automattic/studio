@@ -3,6 +3,8 @@
 // eslint-disable-next-line @typescript-eslint/triple-slash-reference
 /// <reference path="./src/custom-package-definitions.d.ts" />
 
+import fs from 'fs';
+import path from 'path';
 import { MakerDeb } from '@electron-forge/maker-deb';
 import { MakerDMG } from '@electron-forge/maker-dmg';
 import { MakerSquirrel } from '@electron-forge/maker-squirrel';
@@ -10,6 +12,7 @@ import { MakerZIP } from '@electron-forge/maker-zip';
 import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-natives';
 import { WebpackPlugin } from '@electron-forge/plugin-webpack';
 import ForgeExternalsPlugin from '@timfish/forge-externals-plugin';
+import { isErrnoException } from './src/lib/is-errno-exception';
 import { mainConfig } from './webpack.main.config';
 import { rendererConfig } from './webpack.renderer.config';
 import type { ForgeConfig } from '@electron-forge/shared-types';
@@ -62,6 +65,18 @@ const config: ForgeConfig = {
 		// This plugin bundles the externals defined in the Webpack config file.
 		new ForgeExternalsPlugin( { externals: Object.keys( mainConfig.externals ?? {} ) } ),
 	],
+	hooks: {
+		prePackage: async () => {
+			console.log( "Ensuring latest WordPress zip isn't included in production build  ..." );
+
+			const zipPath = path.join( __dirname, 'wp-files', 'latest.zip' );
+			try {
+				fs.unlinkSync( zipPath );
+			} catch ( err ) {
+				if ( isErrnoException( err ) && err.code !== 'ENOENT' ) throw err;
+			}
+		},
+	},
 };
 
 export default config;

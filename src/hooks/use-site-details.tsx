@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { getIpcApi } from '../lib/get-ipc-api';
-import { useAuth } from './use-auth';
+import { useDeleteSnapshot } from './use-delete-snapshot';
 
 export interface DeleteSiteErrorResponse {
 	error: string;
@@ -127,7 +127,7 @@ function useSnapshots() {
 function useDeleteSite() {
 	const [ isLoading, setIsLoading ] = useState< Record< string, boolean > >( {} );
 	const [ error, setError ] = useState< Record< string, string > >( {} );
-	const { client } = useAuth();
+	const { deleteSnapshot } = useDeleteSnapshot( { displayAlert: false } );
 
 	const deleteSite = useCallback(
 		async (
@@ -139,21 +139,13 @@ function useDeleteSite() {
 				return;
 			}
 			const allSiteRemovePromises = Promise.allSettled(
-				snapshots.map( ( snapshot ) => {
-					return client.req.post( {
-						path: '/jurassic-ninja/delete',
-						apiNamespace: 'wpcom/v2',
-						body: { site_id: snapshot.atomicSiteId },
-					} );
-				} )
+				snapshots.map( ( snapshot ) => deleteSnapshot( snapshot ) )
 			);
 
 			try {
 				setError( ( errors ) => ( { ...errors, [ siteId ]: '' } ) );
 				setIsLoading( ( loading ) => ( { ...loading, [ siteId ]: true } ) );
 				const newSites = await getIpcApi().deleteSite( siteId, removeLocal );
-				// Don't put extra effort into handling per snapshot deletion failure.
-				// They will expire and be removed, eventually, in case any of them failed.
 				await allSiteRemovePromises;
 				return newSites;
 			} catch ( error ) {
@@ -164,7 +156,7 @@ function useDeleteSite() {
 				setIsLoading( ( loading ) => ( { ...loading, [ siteId ]: false } ) );
 			}
 		},
-		[ client ]
+		[ deleteSnapshot ]
 	);
 	return { deleteSite, isLoading, error };
 }
@@ -198,12 +190,11 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			const siteSnapshots = snapshots.filter( ( snapshot ) => snapshot.localSiteId === id );
 			const newSites = await deleteSite( id, removeLocal, siteSnapshots );
 			if ( newSites ) {
-				siteSnapshots.forEach( removeSnapshot );
 				setData( newSites );
 				setSelectedSiteId( newSites[ 0 ].id );
 			}
 		},
-		[ deleteSite, removeSnapshot, setSelectedSiteId, snapshots ]
+		[ deleteSite, setSelectedSiteId, snapshots ]
 	);
 
 	const createSite = useCallback(

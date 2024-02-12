@@ -4,7 +4,8 @@ import { useCallback, useState } from 'react';
 import { useAuth } from './use-auth';
 import { useSiteDetails } from './use-site-details';
 
-export function useDeleteSnapshot() {
+export function useDeleteSnapshot( options: { displayAlert?: boolean } = {} ) {
+	const { displayAlert = true } = options;
 	const [ isLoading, setIsLoading ] = useState( false );
 	const { client } = useAuth();
 	const { removeSnapshot } = useSiteDetails();
@@ -22,13 +23,15 @@ export function useDeleteSnapshot() {
 				removeSnapshot( snapshot );
 				return response;
 			} catch ( error ) {
-				alert( __( 'Error removing shared site.' ) );
+				if ( displayAlert ) {
+					alert( __( 'Error removing shared site.' ) );
+				}
 				Sentry.captureException( error );
 			} finally {
 				setIsLoading( false );
 			}
 		},
-		[ __, removeSnapshot, client ]
+		[ __, removeSnapshot, client, displayAlert ]
 	);
 	return { deleteSnapshot, isLoading };
 }

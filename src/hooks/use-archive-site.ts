@@ -66,7 +66,6 @@ export function useArchiveSite() {
 					atomicSiteId: response.atomic_site_id,
 					localSiteId: siteId,
 					date: new Date().getTime(),
-					deleted: false,
 					isLoading: true,
 				} );
 			} catch ( error ) {

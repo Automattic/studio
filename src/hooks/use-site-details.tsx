@@ -16,7 +16,7 @@ interface SiteDetailsContext {
 	snapshots: Snapshot[];
 	addSnapshot: ( snapshot: Snapshot ) => void;
 	updateSnapshot: ( snapshot: Snapshot ) => void;
-	removeSnapshot: ( snapshot: Snapshot ) => void;
+	removeSnapshot: ( snapshot: Pick< Snapshot, 'atomicSiteId' > ) => void;
 	setSelectedSiteId: ( selectedSiteId: string ) => void;
 	createSite: ( path: string ) => Promise< void >;
 	startServer: ( id: string ) => Promise< void >;
@@ -109,7 +109,7 @@ function useSnapshots() {
 	}, [] );
 
 	const removeSnapshot = useCallback(
-		( snapshot: Snapshot ) =>
+		( snapshot: Pick< Snapshot, 'atomicSiteId' > ) =>
 			setSnapshots( ( _snapshots ) =>
 				_snapshots.filter( ( snapshotI ) => snapshotI.atomicSiteId !== snapshot.atomicSiteId )
 			),

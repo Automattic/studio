@@ -1,12 +1,17 @@
 // To run tests, execute `npm run test -- src/components/content-tab-snapshots.test.tsx` from the root directory
 import { render, screen, fireEvent } from '@testing-library/react';
 import { useAuth } from '../hooks/use-auth';
+import { useDeleteSnapshot } from '../hooks/use-delete-snapshot';
 import { useSiteDetails } from '../hooks/use-site-details';
 import { ContentTabSnapshots } from './content-tab-snapshots';
 
 const authenticate = jest.fn();
 jest.mock( '../hooks/use-auth' );
 jest.mock( '../hooks/use-site-details' );
+
+jest.mock( '../hooks/use-delete-snapshot' );
+const deleteSnapshotMock = jest.fn();
+( useDeleteSnapshot as jest.Mock ).mockReturnValue( { deleteSnapshot: deleteSnapshotMock } );
 
 const archiveSite = jest.fn();
 jest.mock( '../hooks/use-archive-site', () => ( {
@@ -105,5 +110,34 @@ describe( 'ContentTabSnapshots', () => {
 		expect( createSnapshotButton ).toBeInTheDocument();
 		fireEvent.click( createSnapshotButton );
 		expect( archiveSite ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	test( 'test the delete snapshot button from the more menu when the list is displayed', () => {
+		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
+		( useSiteDetails as jest.Mock ).mockReturnValue( {
+			snapshots: [
+				{
+					url: 'fake-site.fake',
+					atomicSiteId: 150,
+					localSiteId: 'site-id-1',
+					date: 1707232820627,
+					deleted: false,
+				},
+			],
+		} );
+		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
+		const moreOptionsButton = screen.getByRole( 'button', { name: 'More options' } );
+		expect( moreOptionsButton ).toBeInTheDocument();
+		fireEvent.click( moreOptionsButton );
+		const deleteSnapshotButton = screen.getByRole( 'menuitem', { name: 'Delete snapshot' } );
+		expect( deleteSnapshotButton ).toBeInTheDocument();
+		fireEvent.click( deleteSnapshotButton );
+		expect( deleteSnapshotMock ).toHaveBeenCalledWith( {
+			url: 'fake-site.fake',
+			atomicSiteId: 150,
+			localSiteId: 'site-id-1',
+			date: 1707232820627,
+			deleted: false,
+		} );
 	} );
 } );

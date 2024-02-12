@@ -27,7 +27,6 @@ interface Snapshot {
 	atomicSiteId: number;
 	localSiteId: string;
 	date: number;
-	deleted: boolean;
 	isLoading?: boolean;
 }
 

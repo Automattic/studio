@@ -6,6 +6,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren } from 'react';
 import { useArchiveSite } from '../hooks/use-archive-site';
 import { useAuth } from '../hooks/use-auth';
+import { useDeleteSnapshot } from '../hooks/use-delete-snapshot';
 import { useExpirationDate } from '../hooks/use-expiration-date';
 import { useSiteDetails } from '../hooks/use-site-details';
 import { cx } from '../lib/cx';
@@ -35,6 +36,8 @@ function SnapshotRowLoading( { children }: PropsWithChildren ) {
 function SnapshotRow( { snapshot }: { snapshot: Snapshot } ) {
 	const { url, date, isLoading } = snapshot;
 	const { countDown, isExpired } = useExpirationDate( date );
+	const { deleteSnapshot } = useDeleteSnapshot();
+
 	if ( isLoading ) {
 		return <SnapshotRowLoading>{ __( 'Generating link…' ) }</SnapshotRowLoading>;
 	}
@@ -67,7 +70,13 @@ function SnapshotRow( { snapshot }: { snapshot: Snapshot } ) {
 			>
 				{ ( { onClose } ) => (
 					<MenuGroup>
-						<MenuItem className="text-red-600 hover:text-red-700" onClick={ onClose }>
+						<MenuItem
+							className="text-red-600 hover:text-red-700"
+							onClick={ () => {
+								deleteSnapshot( snapshot );
+								onClose();
+							} }
+						>
 							<Icon className="mr-2" icon={ trash } /> { __( 'Delete snapshot' ) }
 						</MenuItem>
 					</MenuGroup>

@@ -37,7 +37,7 @@ describe( 'getSupportedLocale', () => {
 		expect( getSupportedLocale() ).toBe( 'pt-br' );
 	} );
 
-	it( "prefers an exact language-region match, even if it's lower in the prefernce order", () => {
+	it( "prefers an exact language-region match, even if it's lower in the preference order", () => {
 		mockPreferredLanguages( [ 'mi-NZ', 'pt-PT', 'zh-CN' ] );
 
 		expect( getSupportedLocale() ).toBe( 'zh-cn' );
@@ -52,6 +52,21 @@ describe( 'getSupportedLocale', () => {
 	it( 'returns zh-tw variant', () => {
 		mockPreferredLanguages( [ 'zh-tw', 'zh-cn' ] );
 
+		expect( getSupportedLocale() ).toBe( 'zh-tw' );
+	} );
+
+	it( "prefers a language with a different region over an exact language _and_ region match which is further down the user's preference list", () => {
+		mockPreferredLanguages( [ 'fr-PL', 'pt-BR' ] );
+		expect( getSupportedLocale() ).toBe( 'fr' );
+	} );
+
+	it( 'returns the Simplified Chinese zh-cn option when the user preference is zh-Hans', () => {
+		mockPreferredLanguages( [ 'zh-NZ', 'zh-Hans' ] );
+		expect( getSupportedLocale() ).toBe( 'zh-cn' );
+	} );
+
+	it( 'returns the Traditional Chinese zh-tw option when the user preference is zh-Hant', () => {
+		mockPreferredLanguages( [ 'zh-Hant' ] );
 		expect( getSupportedLocale() ).toBe( 'zh-tw' );
 	} );
 } );

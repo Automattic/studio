@@ -1,4 +1,5 @@
 import { app } from 'electron';
+import { match } from '@formatjs/intl-localematcher';
 import type { LocaleData } from '@wordpress/i18n';
 
 const supportedLocales = [
@@ -22,29 +23,16 @@ const supportedLocales = [
 ];
 
 export function getSupportedLocale(): string {
+	if ( process.platform === 'linux' && process.env.NODE_ENV !== 'test' ) {
+		// app.getPreferredSystemLanguages() is implemented by g_get_language_names on Linux.
+		// See: https://developer-old.gnome.org/glib/unstable/glib-I18N.html#g-get-language-names
+		// The language tags returned by this system function are in a format like "en_US" or "en_US.utf8".
+		// When these sorts of tags are passed to Intl.getCanonicalLocales() it throws an error.
+		return 'en';
+	}
+
 	const preferredLanguages = app.getPreferredSystemLanguages();
-
-	// Look for exact matches (ignoring case)
-	for ( const language of preferredLanguages ) {
-		const locale = language.toLowerCase();
-
-		if ( supportedLocales.includes( locale ) ) {
-			return locale;
-		}
-	}
-
-	// Look for language-only matches
-	for ( const language of preferredLanguages ) {
-		const locale = language.toLowerCase().split( '-' )[ 0 ];
-
-		for ( const supportedLocale of supportedLocales ) {
-			if ( supportedLocale.startsWith( locale ) ) {
-				return supportedLocale;
-			}
-		}
-	}
-
-	return 'en';
+	return match( preferredLanguages, supportedLocales, 'en' );
 }
 
 export async function getLocaleData( locale: string ): Promise< LocaleData | null > {

@@ -17,7 +17,7 @@ const archiveSite = jest.fn();
 jest.mock( '../hooks/use-archive-site', () => ( {
 	useArchiveSite: () => ( {
 		archiveSite,
-		isLoading: false,
+		isUploadingSiteId: jest.fn(),
 	} ),
 } ) );
 

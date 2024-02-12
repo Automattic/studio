@@ -118,7 +118,8 @@ function NoAuth() {
 export function ContentTabSnapshots( { selectedSite }: ContentTabSnapshotsProps ) {
 	const { __, _n } = useI18n();
 	const { snapshots } = useSiteDetails();
-	const { archiveSite, isLoading } = useArchiveSite();
+	const { archiveSite, isUploadingSiteId } = useArchiveSite();
+	const isUploading = isUploadingSiteId( selectedSite.id );
 	const { isAuthenticated } = useAuth();
 	if ( ! isAuthenticated ) {
 		return <NoAuth />;
@@ -126,7 +127,7 @@ export function ContentTabSnapshots( { selectedSite }: ContentTabSnapshotsProps 
 	const snapshotsOnSite = snapshots.filter(
 		( snapshot ) => snapshot.localSiteId === selectedSite.id
 	);
-	const snapshotsOnSiteCount = snapshotsOnSite.length + ( isLoading ? 1 : 0 );
+	const snapshotsOnSiteCount = snapshotsOnSite.length + ( isUploading ? 1 : 0 );
 	return (
 		<div className="pb-10">
 			<div className="w-full justify-between items-center inline-flex">
@@ -139,10 +140,10 @@ export function ContentTabSnapshots( { selectedSite }: ContentTabSnapshotsProps 
 				</div>
 				<Button
 					variant="primary"
-					disabled={ isLoading || ! isAuthenticated }
+					disabled={ isUploading || ! isAuthenticated }
 					onClick={ () => archiveSite( selectedSite.id ) }
 				>
-					{ isLoading ? __( 'Creating snapshot…' ) : __( 'Create snapshot' ) }
+					{ isUploading ? __( 'Creating snapshot…' ) : __( 'Create snapshot' ) }
 				</Button>
 			</div>
 			<div className="w-full mt-8 rounded border border-zinc-300 text-xxs">
@@ -155,7 +156,7 @@ export function ContentTabSnapshots( { selectedSite }: ContentTabSnapshotsProps 
 					</span>
 					{ snapshotsOnSiteCount > 0 && <span className="flex-auto">{ __( 'EXPIRES' ) }</span> }
 				</div>
-				{ isLoading && <SnapshotRowLoading>{ __( 'Uploading files…' ) }</SnapshotRowLoading> }
+				{ isUploading && <SnapshotRowLoading>{ __( 'Uploading files…' ) }</SnapshotRowLoading> }
 				{ snapshotsOnSite.map( ( snapshot ) => (
 					<SnapshotRow snapshot={ snapshot } key={ snapshot.atomicSiteId } />
 				) ) }

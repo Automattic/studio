@@ -5,7 +5,13 @@ import { useAuth } from './use-auth';
 import { useSiteDetails } from './use-site-details';
 
 export function useArchiveSite() {
-	const [ isLoading, setIsLoading ] = useState( false );
+	const [ uploadingSites, setUploadingSites ] = useState< { [ localSiteId: string ]: boolean } >(
+		{}
+	);
+	const isUploadingSiteId = useCallback(
+		( localSiteId: string ) => uploadingSites[ localSiteId ] || false,
+		[ uploadingSites ]
+	);
 	const { client } = useAuth();
 	const { __ } = useI18n();
 	const { snapshots, addSnapshot, updateSnapshot } = useSiteDetails();
@@ -42,7 +48,7 @@ export function useArchiveSite() {
 
 	const archiveSite = useCallback(
 		async ( siteId: string ) => {
-			setIsLoading( true );
+			setUploadingSites( ( _uploadingSites ) => ( { ..._uploadingSites, [ siteId ]: true } ) );
 			const { zipContent } = await getIpcApi().archiveSite( siteId );
 			const file = new File( [ zipContent ], 'loca-env-site-1.zip', {
 				type: 'application/zip',
@@ -72,10 +78,10 @@ export function useArchiveSite() {
 				alert( __( 'Error sharing site' ) );
 				throw error;
 			} finally {
-				setIsLoading( false );
+				setUploadingSites( ( _uploadingSites ) => ( { ..._uploadingSites, [ siteId ]: false } ) );
 			}
 		},
 		[ __, addSnapshot, client ]
 	);
-	return { archiveSite, isLoading };
+	return { archiveSite, isUploadingSiteId };
 }

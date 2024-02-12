@@ -20,7 +20,7 @@ jest.mock( '../hooks/use-auth', () => ( {
 jest.mock( '../hooks/use-archive-site', () => ( {
 	useArchiveSite: () => ( {
 		archiveSite: jest.fn(),
-		isLoading: false,
+		isUploadingSiteId: jest.fn(),
 	} ),
 } ) );
 

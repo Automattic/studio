@@ -34,7 +34,7 @@ describe( 'SiteContentTabs', () => {
 		( useSiteDetails as jest.Mock ).mockReturnValue( { selectedSite, snapshots: [] } );
 		const { getByText, queryByText } = render( <SiteContentTabs /> );
 		expect( getByText( 'Settings' ) ).not.toBeNull();
-		expect( getByText( 'Snapshots' ) ).not.toBeNull();
+		expect( getByText( 'Preview' ) ).not.toBeNull();
 		expect( queryByText( 'Launchpad' ) ).toBeNull();
 		expect( queryByText( 'Publish' ) ).toBeNull();
 		expect( queryByText( 'Export' ) ).toBeNull();
@@ -43,7 +43,7 @@ describe( 'SiteContentTabs', () => {
 		( useSiteDetails as jest.Mock ).mockReturnValue( { undefined, snapshots: [] } );
 		const { queryByText } = render( <SiteContentTabs /> );
 		expect( queryByText( 'Settings' ) ).toBeNull();
-		expect( queryByText( 'Snapshots' ) ).toBeNull();
+		expect( queryByText( 'Preview' ) ).toBeNull();
 		expect( queryByText( 'Launchpad' ) ).toBeNull();
 		expect( queryByText( 'Publish' ) ).toBeNull();
 		expect( queryByText( 'Export' ) ).toBeNull();

@@ -45,17 +45,17 @@ describe( 'ContentTabSnapshots', () => {
 		expect( authenticate ).toHaveBeenCalledTimes( 1 );
 	} );
 
-	test( 'renders NoSnapshots component when authenticated with no snapshots', () => {
+	test( 'renders NoSnapshots component when authenticated with no preview links', () => {
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
 		( useSiteDetails as jest.Mock ).mockReturnValue( { snapshots: [] } );
 		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
-		const createSnapshotButton = screen.getByRole( 'button', { name: 'Create snapshot' } );
+		const createSnapshotButton = screen.getByRole( 'button', { name: 'Create preview link' } );
 		expect( createSnapshotButton ).toBeInTheDocument();
 		fireEvent.click( createSnapshotButton );
 		expect( archiveSite ).toHaveBeenCalledTimes( 1 );
 	} );
 
-	test( 'renders the list of snapshots for a given a selected site', () => {
+	test( 'renders the list of preview links for a given a selected site', () => {
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
 		( useSiteDetails as jest.Mock ).mockReturnValue( {
 			snapshots: [
@@ -69,11 +69,11 @@ describe( 'ContentTabSnapshots', () => {
 			],
 		} );
 		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
-		expect( screen.getByText( '1 SNAPSHOT LINK' ) ).toBeInTheDocument();
+		expect( screen.getByText( '1 PREVIEW LINK' ) ).toBeInTheDocument();
 		expect( screen.getByText( 'https://fake-site.fake' ) ).toBeInTheDocument();
 	} );
 
-	test( 'hide the list of snapshots that do not belong to the selected site', () => {
+	test( 'hide the list of preview links that do not belong to the selected site', () => {
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
 		( useSiteDetails as jest.Mock ).mockReturnValue( {
 			snapshots: [
@@ -91,7 +91,7 @@ describe( 'ContentTabSnapshots', () => {
 		expect( screen.queryByText( 'fake-site.fake' ) ).not.toBeInTheDocument();
 	} );
 
-	test( 'test the create snapshot button when the list is displayed', () => {
+	test( 'test the create preview link button when the list is displayed', () => {
 		archiveSite.mockClear();
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
 		( useSiteDetails as jest.Mock ).mockReturnValue( {
@@ -106,7 +106,7 @@ describe( 'ContentTabSnapshots', () => {
 			],
 		} );
 		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
-		const createSnapshotButton = screen.getByRole( 'button', { name: 'Create snapshot' } );
+		const createSnapshotButton = screen.getByRole( 'button', { name: 'Create preview link' } );
 		expect( createSnapshotButton ).toBeInTheDocument();
 		fireEvent.click( createSnapshotButton );
 		expect( archiveSite ).toHaveBeenCalledTimes( 1 );
@@ -129,7 +129,7 @@ describe( 'ContentTabSnapshots', () => {
 		const moreOptionsButton = screen.getByRole( 'button', { name: 'More options' } );
 		expect( moreOptionsButton ).toBeInTheDocument();
 		fireEvent.click( moreOptionsButton );
-		const deleteSnapshotButton = screen.getByRole( 'menuitem', { name: 'Delete snapshot' } );
+		const deleteSnapshotButton = screen.getByRole( 'menuitem', { name: 'Delete preview link' } );
 		expect( deleteSnapshotButton ).toBeInTheDocument();
 		fireEvent.click( deleteSnapshotButton );
 		expect( deleteSnapshotMock ).toHaveBeenCalledWith( {

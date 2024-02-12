@@ -29,7 +29,7 @@ export function SiteContentTabs() {
 			<TabPanel className="mt-6 h-full flex flex-col" tabs={ tabs } orientation="horizontal">
 				{ ( { name } ) => (
 					<div className="pt-8 h-full">
-						{ name === 'snapshots' && <ContentTabSnapshots selectedSite={ selectedSite } /> }
+						{ name === 'preview' && <ContentTabSnapshots selectedSite={ selectedSite } /> }
 						{ name === 'settings' && <ContentTabSettings /> }
 					</div>
 				) }

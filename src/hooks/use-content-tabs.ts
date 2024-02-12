@@ -6,8 +6,8 @@ export function useContentTabs() {
 	return useMemo(
 		() => [
 			{
-				name: 'snapshots',
-				title: __( 'Snapshots' ),
+				name: 'preview',
+				title: __( 'Preview' ),
 			},
 			{
 				name: 'settings',

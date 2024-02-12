@@ -77,7 +77,7 @@ function SnapshotRow( { snapshot }: { snapshot: Snapshot } ) {
 								onClose();
 							} }
 						>
-							<Icon className="mr-2" icon={ trash } /> { __( 'Delete snapshot' ) }
+							<Icon className="mr-2" icon={ trash } /> { __( 'Delete preview link' ) }
 						</MenuItem>
 					</MenuGroup>
 				) }
@@ -93,7 +93,7 @@ function NoAuth() {
 	return (
 		<EmptyLayout
 			footer={ createInterpolateElement(
-				__( 'Snapshots expire after 7 days. Powered by <a>WP Cloud</a>' ),
+				__( 'Preview links expire after 7 days. Powered by <a>WP Cloud</a>' ),
 				{
 					a: (
 						<button
@@ -104,7 +104,7 @@ function NoAuth() {
 				}
 			) }
 		>
-			<EmptyLayout.Title>{ __( 'Share a snapshot of your site' ) }</EmptyLayout.Title>
+			<EmptyLayout.Title>{ __( 'Share a preview of your site' ) }</EmptyLayout.Title>
 			<EmptyLayout.Description>
 				{ __( 'Create a hosted clone of your local site to get feedback from anyone, anywhere.' ) }
 			</EmptyLayout.Description>
@@ -134,7 +134,7 @@ export function ContentTabSnapshots( { selectedSite }: ContentTabSnapshotsProps 
 				<div className="flex-col justify-start items-start gap-1 inline-flex">
 					<div className="w-[45ch] text-zinc-700 text-body font-normal pr-2">
 						{ __(
-							'Get feedback on your local site with a public snapshot link. Snapshots expire after 7 days.'
+							'Get feedback on your local site with a preview link. Links expire after 7 days.'
 						) }
 					</div>
 				</div>
@@ -143,14 +143,14 @@ export function ContentTabSnapshots( { selectedSite }: ContentTabSnapshotsProps 
 					disabled={ isUploading || ! isAuthenticated }
 					onClick={ () => archiveSite( selectedSite.id ) }
 				>
-					{ isUploading ? __( 'Creating snapshot…' ) : __( 'Create snapshot' ) }
+					{ isUploading ? __( 'Creating preview link…' ) : __( 'Create preview link' ) }
 				</Button>
 			</div>
 			<div className="w-full mt-8 rounded border border-zinc-300 text-xxs">
 				<div className="px-4 py-3.5 text-gray-800 font-medium uppercase flex flex-row justify-between">
 					<span className="mr-1.5 w-8/12">
 						{ sprintf(
-							_n( '%d SNAPSHOT LINK', '%d SNAPSHOT LINKS', snapshotsOnSiteCount ),
+							_n( '%d PREVIEW LINK', '%d PREVIEW LINKS', snapshotsOnSiteCount ),
 							snapshotsOnSiteCount
 						) }
 					</span>

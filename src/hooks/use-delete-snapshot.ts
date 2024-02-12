@@ -24,7 +24,7 @@ export function useDeleteSnapshot( options: { displayAlert?: boolean } = {} ) {
 				return response;
 			} catch ( error ) {
 				if ( displayAlert ) {
-					alert( __( 'Error removing shared site.' ) );
+					alert( __( 'Error removing preview link.' ) );
 				}
 				Sentry.captureException( error );
 			} finally {

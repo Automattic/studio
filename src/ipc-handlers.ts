@@ -12,6 +12,11 @@ import { SiteServer, createSiteWorkingDirectory } from './site-server';
 import { loadUserData, saveUserData } from './storage/user-data';
 
 const WPNOW_HOME = nodePath.join( app.getPath( 'home' ) || '', '.wp-now' );
+const TEMP_DIR =
+	nodePath.join( app.getPath( 'temp' ), 'com.wordpress.local-environment' ) + nodePath.sep;
+if ( ! fs.existsSync( TEMP_DIR ) ) {
+	fs.mkdirSync( TEMP_DIR );
+}
 
 async function mergeSiteDetailsWithRunningDetails(
 	sites: SiteDetails[]
@@ -164,7 +169,7 @@ export async function archiveSite( event: IpcMainInvokeEvent, id: string ) {
 		path: site.details.path,
 	} );
 	const sitePath = site.details.path;
-	const zipPath = `${ sitePath }.zip`;
+	const zipPath = `${ TEMP_DIR }site_${ id }.zip`;
 	await zipWordPressDirectory( {
 		source: sitePath,
 		zipPath,
@@ -172,6 +177,13 @@ export async function archiveSite( event: IpcMainInvokeEvent, id: string ) {
 	} );
 	const zipContent = fs.readFileSync( zipPath );
 	return { zipPath, zipContent };
+}
+
+export function removeTemporalFile( event: IpcMainInvokeEvent, path: string ) {
+	if ( ! path.includes( TEMP_DIR ) ) {
+		throw new Error( 'The given path is not a temporal file' );
+	}
+	return fs.unlinkSync( path );
 }
 
 export async function deleteSite( event: IpcMainInvokeEvent, id: string, deleteFiles = false ) {

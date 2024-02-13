@@ -26,6 +26,7 @@ const api: IpcApi = {
 	stopServer: ( id: string ) => ipcRenderer.invoke( 'stopServer', id ),
 	copyText: ( text: string ) => ipcRenderer.invoke( 'copyText', text ),
 	getAppGlobals: () => ipcRenderer.invoke( 'getAppGlobals' ),
+	removeTemporalFile: ( path: string ) => ipcRenderer.invoke( 'removeTemporalFile', path ),
 	getWpVersion: ( wordPressPath: string ) => ipcRenderer.invoke( 'getWpVersion', wordPressPath ),
 	openLocalPath: ( path: string ) => ipcRenderer.invoke( 'openLocalPath', path ),
 

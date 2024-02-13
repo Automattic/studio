@@ -49,7 +49,7 @@ export function useArchiveSite() {
 	const archiveSite = useCallback(
 		async ( siteId: string ) => {
 			setUploadingSites( ( _uploadingSites ) => ( { ..._uploadingSites, [ siteId ]: true } ) );
-			const { zipContent } = await getIpcApi().archiveSite( siteId );
+			const { zipContent, zipPath } = await getIpcApi().archiveSite( siteId );
 			const file = new File( [ zipContent ], 'loca-env-site-1.zip', {
 				type: 'application/zip',
 			} );
@@ -79,6 +79,7 @@ export function useArchiveSite() {
 				throw error;
 			} finally {
 				setUploadingSites( ( _uploadingSites ) => ( { ..._uploadingSites, [ siteId ]: false } ) );
+				getIpcApi().removeTemporalFile( zipPath );
 			}
 		},
 		[ __, addSnapshot, client ]

@@ -6,16 +6,20 @@ import { getIpcApi } from '../lib/get-ipc-api';
 
 interface CopyTextButtonProps {
 	text: string;
+	label?: string;
 	className?: string;
 	copyConfirmation?: string;
 	timeoutConfirmation?: number;
+	children?: React.ReactNode;
 }
 
 export function CopyTextButton( {
 	text,
+	label,
 	className,
 	copyConfirmation,
 	timeoutConfirmation = 2000,
+	children,
 }: CopyTextButtonProps ) {
 	const { __ } = useI18n();
 	const [ showCopied, setShowCopied ] = useState( false );
@@ -33,14 +37,15 @@ export function CopyTextButton( {
 	return (
 		<button
 			className={ cx(
-				'ml-1.5 flex items-center cursor-default hover:text-blue-600',
+				'flex items-center cursor-default hover:text-blue-600',
 				showCopied && 'text-blue-600',
 				className
 			) }
-			aria-label={ __( 'copy to clipboard' ) }
+			aria-label={ label || __( 'copy to clipboard' ) }
 			onClick={ onClick }
 		>
-			<Icon className="mr-1" fill="currentColor" size={ 13 } icon={ copy } />
+			{ children }
+			<Icon className="ml-1.5 mr-1" fill="currentColor" size={ 13 } icon={ copy } />
 			{ showCopied && copyConfirmation }
 		</button>
 	);

@@ -26,6 +26,8 @@ const api: IpcApi = {
 	stopServer: ( id: string ) => ipcRenderer.invoke( 'stopServer', id ),
 	copyText: ( text: string ) => ipcRenderer.invoke( 'copyText', text ),
 	getAppGlobals: () => ipcRenderer.invoke( 'getAppGlobals' ),
+	getWpVersion: ( wordPressPath: string ) => ipcRenderer.invoke( 'getWpVersion', wordPressPath ),
+	openLocalPath: ( path: string ) => ipcRenderer.invoke( 'openLocalPath', path ),
 
 	// Use .send instead of .invoke because logging is fire-and-forget
 	logRendererMessage: ( level: LogLevel, ...args: any[] ) =>

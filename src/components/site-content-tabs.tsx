@@ -2,7 +2,7 @@ import { TabPanel } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { useContentTabs } from '../hooks/use-content-tabs';
 import { useSiteDetails } from '../hooks/use-site-details';
-import ContentTabSettings from './content-tab-settings';
+import { ContentTabSettings } from './content-tab-settings';
 import { ContentTabSnapshots } from './content-tab-snapshots';
 import Header from './header';
 
@@ -30,7 +30,7 @@ export function SiteContentTabs() {
 				{ ( { name } ) => (
 					<div className="pt-8 h-full">
 						{ name === 'preview' && <ContentTabSnapshots selectedSite={ selectedSite } /> }
-						{ name === 'settings' && <ContentTabSettings /> }
+						{ name === 'settings' && <ContentTabSettings selectedSite={ selectedSite } /> }
 					</div>
 				) }
 			</TabPanel>

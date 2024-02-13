@@ -269,3 +269,16 @@ export async function getAppGlobals( _event: IpcMainInvokeEvent ): Promise< AppG
 		localeData,
 	};
 }
+
+export async function getWpVersion( _event: IpcMainInvokeEvent, wordPressPath: string ) {
+	const versionFileContent = fs.readFileSync(
+		nodePath.join( wordPressPath, 'wp-includes', 'version.php' ),
+		'utf8'
+	);
+	const matches = versionFileContent.match( /\$wp_version = '([\d.]+)'/ );
+	return matches?.[ 1 ] || '-';
+}
+
+export async function openLocalPath( _event: IpcMainInvokeEvent, path: string ) {
+	shell.openPath( path );
+}

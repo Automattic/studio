@@ -18,5 +18,5 @@ export interface PersistedUserData extends Omit< UserData, 'sites' > {
 	// Users can edit the file system manually which would make UserData['name'] and UserData['path']
 	// get out of sync. `name` is redundant because it can be calculated from `path`, so we
 	// won't persist `name`.
-	sites: Omit< StoppedSiteDetails, 'name' | 'running' >[];
+	sites: Omit< StoppedSiteDetails, 'running' >[];
 }

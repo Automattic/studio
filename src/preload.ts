@@ -9,7 +9,7 @@ const api: IpcApi = {
 	archiveSite: ( id: string ) => ipcRenderer.invoke( 'archiveSite', id ),
 	deleteSite: ( id: string, deleteFiles?: boolean ) =>
 		ipcRenderer.invoke( 'deleteSite', id, deleteFiles ),
-	createSite: ( path: string ) => ipcRenderer.invoke( 'createSite', path ),
+	createSite: ( path: string, name?: string ) => ipcRenderer.invoke( 'createSite', path, name ),
 	authenticate: () => ipcRenderer.invoke( 'authenticate' ),
 	isAuthenticated: () => ipcRenderer.invoke( 'isAuthenticated' ),
 	getAuthenticationToken: () => ipcRenderer.invoke( 'getAuthenticationToken' ),

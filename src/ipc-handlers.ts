@@ -51,7 +51,8 @@ export async function getSiteDetails( _event: IpcMainInvokeEvent ): Promise< Sit
 
 export async function createSite(
 	event: IpcMainInvokeEvent,
-	path: string
+	path: string,
+	siteName?: string
 ): Promise< SiteDetails[] > {
 	const userData = await loadUserData();
 
@@ -60,7 +61,7 @@ export async function createSite(
 	}
 	const details = {
 		id: crypto.randomUUID(),
-		name: nodePath.basename( path ),
+		name: siteName || nodePath.basename( path ),
 		path,
 		running: false,
 	} as const;
@@ -101,10 +102,15 @@ export async function stopServer(
 	return server.details;
 }
 
+export interface FolderDialogResponse {
+	path: string;
+	name: string;
+}
+
 export async function showOpenFolderDialog(
 	event: IpcMainInvokeEvent,
 	title: string
-): Promise< string | null > {
+): Promise< FolderDialogResponse | null > {
 	const { canceled, filePaths } = await dialog.showOpenDialog( {
 		title,
 		properties: [
@@ -116,7 +122,7 @@ export async function showOpenFolderDialog(
 		return null;
 	}
 
-	return filePaths[ 0 ];
+	return { path: filePaths[ 0 ], name: nodePath.basename( filePaths[ 0 ] ) };
 }
 
 function zipWordPressDirectory( {

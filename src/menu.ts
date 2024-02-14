@@ -55,7 +55,7 @@ export function setupMenu() {
 			submenu: [
 				{
 					label: __( 'Add Site…' ),
-					accelerator: 'Cmd+N',
+					accelerator: 'CommandOrControl+N',
 					click: ( menuItem, browserWindow ) => {
 						browserWindow?.webContents.send( 'add-site' );
 					},

@@ -1,4 +1,12 @@
-import { app, BrowserWindow, ipcMain, session, type IpcMainInvokeEvent, protocol } from 'electron';
+import {
+	app,
+	BrowserWindow,
+	ipcMain,
+	session,
+	type IpcMainInvokeEvent,
+	protocol,
+	globalShortcut,
+} from 'electron';
 import path from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { __, defaultI18n } from '@wordpress/i18n';
@@ -195,6 +203,7 @@ async function appBoot() {
 
 		mainWindow = createMainWindow();
 		mainWindow.on( 'closed', () => ( mainWindow = null ) );
+		setupShortcuts( mainWindow );
 
 		bumpAggregatedUniqueStat( 'local-environment-launch-uniques', process.platform, 'weekly' );
 	} );
@@ -206,6 +215,10 @@ async function appBoot() {
 		if ( process.platform !== 'darwin' ) {
 			app.quit();
 		}
+	} );
+
+	app.on( 'will-quit', () => {
+		globalShortcut.unregisterAll();
 	} );
 
 	app.on( 'quit', () => {
@@ -226,5 +239,10 @@ async function appBoot() {
 			if ( mainWindow.isMinimized() ) mainWindow.restore();
 			mainWindow.focus();
 		}
+	} );
+}
+function setupShortcuts( browserWindow: BrowserWindow | null ) {
+	globalShortcut.register( 'CommandOrControl+N', () => {
+		browserWindow?.webContents.send( 'add-site' );
 	} );
 }

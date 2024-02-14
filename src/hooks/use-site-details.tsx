@@ -18,7 +18,7 @@ interface SiteDetailsContext {
 	updateSnapshot: ( snapshot: Snapshot ) => void;
 	removeSnapshot: ( snapshot: Pick< Snapshot, 'atomicSiteId' > ) => void;
 	setSelectedSiteId: ( selectedSiteId: string ) => void;
-	createSite: ( path: string ) => Promise< void >;
+	createSite: ( path: string, siteName?: string ) => Promise< void >;
 	startServer: ( id: string ) => Promise< void >;
 	stopServer: ( id: string ) => Promise< void >;
 	deleteSite: ( id: string, removeLocal: boolean ) => Promise< void >;
@@ -198,8 +198,8 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	);
 
 	const createSite = useCallback(
-		async ( path: string ) => {
-			const data = await getIpcApi().createSite( path );
+		async ( path: string, siteName?: string ) => {
+			const data = await getIpcApi().createSite( path, siteName );
 			setData( data );
 			const newSite = data.find( ( site ) => site.path === path );
 			if ( newSite?.id ) {

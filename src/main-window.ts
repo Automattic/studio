@@ -42,8 +42,8 @@ async function removeSitesWithEmptyDirectories( userData: UserData ) {
 
 export function createMainWindow(): BrowserWindow {
 	const mainWindow = new BrowserWindow( {
-		height: 800,
-		width: 1200,
+		height: MAIN_MIN_HEIGHT,
+		width: MAIN_MIN_WIDTH,
 		backgroundColor: 'rgba(30, 30, 30, 1)',
 		minHeight: MAIN_MIN_HEIGHT,
 		minWidth: MAIN_MIN_WIDTH,

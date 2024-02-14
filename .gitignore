@@ -95,6 +95,9 @@ out/
 wp-files/
 
 # Release Tooling
-vendor
+vendor/*
 /fastlane/report.xml
 /fastlane/README.md
+
+# Include the vendored copy of wp-now in our repo
+!vendor/wp-now

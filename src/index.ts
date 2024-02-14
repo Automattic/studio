@@ -10,6 +10,10 @@ import { PROTOCOL_PREFIX, handleAuthCallback } from './lib/oauth';
 import { setupLogging } from './logging';
 import { createMainWindow } from './main-window';
 import { setupMenu } from './menu';
+import {
+	migrateFromWpNowFolder,
+	needsToMigrateFromWpNowFolder,
+} from './migrations/migrate-from-wp-now-folder';
 import { stopAllServersOnQuit } from './site-server'; // eslint-disable-line import/order
 
 Sentry.init( {
@@ -140,7 +144,7 @@ async function appBoot() {
 		} );
 	}
 
-	app.on( 'ready', () => {
+	app.on( 'ready', async () => {
 		console.log( `App version: ${ app.getVersion() }` );
 		console.log( `Local timezone: ${ Intl.DateTimeFormat().resolvedOptions().timeZone }` );
 		console.log( `App locale: ${ app.getLocale() }` );
@@ -180,6 +184,10 @@ async function appBoot() {
 				},
 			} );
 		} );
+
+		if ( await needsToMigrateFromWpNowFolder() ) {
+			await migrateFromWpNowFolder();
+		}
 
 		setupIpc();
 		setupCustomProtocolHandler();

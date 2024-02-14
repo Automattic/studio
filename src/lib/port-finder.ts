@@ -1,6 +1,3 @@
-// Copy pasted drection from playground-tools
-// https://github.com/WordPress/playground-tools/blob/ef3c6d030bac39502664f1514acba3c21576d9b1/packages/wp-now/src/port-finder.ts#L1
-
 import http from 'http';
 
 const DEFAULT_PORT = 8881;

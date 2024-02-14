@@ -1,6 +1,6 @@
 import { app } from 'electron';
 import nodePath from 'path';
-import { getWpNowConfig, startServer, type Server as WPNowServer } from '@wp-now/wp-now';
+import { getWpNowConfig, startServer, type WPNowServer } from '../vendor/wp-now/src';
 import { pathExists, recursiveCopyDirectory, isEmptyDir } from './lib/fs-utils';
 import { portFinder } from './lib/port-finder';
 
@@ -75,6 +75,10 @@ export class SiteServer {
 
 		console.log( 'Starting server with options', options );
 		this.server = await startServer( options );
+
+		if ( this.server.options.port === undefined ) {
+			throw new Error( 'Server started with no port' );
+		}
 
 		this.details = {
 			...this.details,

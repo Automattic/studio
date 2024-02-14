@@ -1,0 +1,11 @@
+{
+	"steps": [
+		{
+			"step": "defineWpConfigConsts",
+			"consts": {
+				"WP_DEBUG_LOG": "/var/www/html/wp-content/themes/fake/example.log"
+			},
+			"method": "define-before-run"
+		}
+	]
+}

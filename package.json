@@ -83,15 +83,24 @@
 	"dependencies": {
 		"@formatjs/intl-localematcher": "^0.5.4",
 		"@php-wasm/node": "^0.5.4",
+		"@php-wasm/universal": "^0.5.4",
 		"@sentry/electron": "^4.17.0",
 		"@wordpress/i18n": "^4.50.0",
 		"@wordpress/icons": "^9.40.0",
-		"@wp-now/wp-now": "^0.1.63",
+		"@wp-playground/blueprints": "0.5.4",
 		"archiver": "^6.0.1",
+		"compressible": "2.0.18",
+		"compression": "1.7.4",
 		"date-fns": "^3.3.1",
 		"electron-squirrel-startup": "^1.0.0",
+		"express-fileupload": "1.4.0",
 		"file-stream-rotator": "^1.0.0",
-		"wpcom": "^5.4.2"
+		"follow-redirects": "1.15.2",
+		"fs-extra": "11.1.1",
+		"hpagent": "1.2.0",
+		"unzipper": "0.10.11",
+		"wpcom": "^5.4.2",
+		"yargs": "17.7.2"
 	},
 	"optionalDependencies": {
 		"appdmg": "^0.6.6"

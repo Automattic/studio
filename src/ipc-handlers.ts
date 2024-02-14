@@ -3,15 +3,15 @@ import { app, clipboard } from 'electron';
 import { type IpcMainInvokeEvent, dialog, shell } from 'electron';
 import fs from 'fs';
 import nodePath from 'path';
-import { getWpNowConfig } from '@wp-now/wp-now';
 import archiver from 'archiver';
+import { getWpNowConfig } from '../vendor/wp-now/src';
 import { getLocaleData, getSupportedLocale } from './lib/locale';
 import * as oauthClient from './lib/oauth';
 import { writeLogToFile, type LogLevel } from './logging';
 import { SiteServer, createSiteWorkingDirectory } from './site-server';
+import { getServerFilesPath } from './storage/paths';
 import { loadUserData, saveUserData } from './storage/user-data';
 
-const WPNOW_HOME = nodePath.join( app.getPath( 'home' ) || '', '.wp-now' );
 const TEMP_DIR =
 	nodePath.join( app.getPath( 'temp' ), 'com.wordpress.local-environment' ) + nodePath.sep;
 if ( ! fs.existsSync( TEMP_DIR ) ) {
@@ -148,12 +148,15 @@ function zipWordPressDirectory( {
 		archive.file( `${ source }/wp-config.php`, { name: 'wp-config.php' } );
 		// Archive SQLite plugin
 		archive.directory(
-			nodePath.join( WPNOW_HOME, 'sqlite-database-integration-main' ),
+			nodePath.join( getServerFilesPath(), 'sqlite-database-integration-main' ),
 			'wp-content/plugins/sqlite-database-integration'
 		);
-		archive.file( nodePath.join( WPNOW_HOME, 'sqlite-database-integration-main', 'db.copy' ), {
-			name: 'wp-content/db.php',
-		} );
+		archive.file(
+			nodePath.join( getServerFilesPath(), 'sqlite-database-integration-main', 'db.copy' ),
+			{
+				name: 'wp-content/db.php',
+			}
+		);
 		// Archive SQLite database
 		archive.directory( databasePath, 'wp-content/database' );
 		archive.finalize();

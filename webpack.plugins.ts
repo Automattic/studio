@@ -5,5 +5,10 @@ const ForkTsCheckerWebpackPlugin: typeof IForkTsCheckerWebpackPlugin = require( 
 export const plugins: WebpackPluginInstance[] = [
 	new ForkTsCheckerWebpackPlugin( {
 		logger: 'webpack-infrastructure',
+		issue: {
+			exclude: {
+				file: 'vendor/**/*',
+			},
+		},
 	} ),
 ];

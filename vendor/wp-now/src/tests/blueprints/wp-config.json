@@ -1,0 +1,12 @@
+{
+	"steps": [
+		{
+			"step": "defineWpConfigConsts",
+			"consts": {
+				"WP_HOME": "http://127.0.0.1",
+				"WP_SITEURL": "http://127.0.0.1"
+			},
+			"method": "define-before-run"
+		}
+	]
+}

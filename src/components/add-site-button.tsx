@@ -52,7 +52,7 @@ function FormPathInputComponent( {
 				<div
 					data-testid="select-path-button"
 					onClick={ onClick }
-					className="flex items-center py-[9px] px-2.5 border border-y-[#949494] border-r-[#949494] rounded-l-none rounded-r-sm cursor-pointer"
+					className="flex items-center py-[9px] px-2.5 border border-y-[#949494] border-r-[#949494] rounded-l-none rounded-r-sm"
 				>
 					{ folderIcon }
 				</div>

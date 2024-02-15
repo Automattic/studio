@@ -19,7 +19,7 @@ export default function Header() {
 					<div className="flex mt-1 gap-x-4">
 						<Button
 							disabled={ ! site.running }
-							className="text-[13px] text-a8c-gray-70 hover:text-a8c-gray-90 !px-0 h-0 leading-4"
+							className="cursor-pointer text-[13px] text-a8c-gray-70 hover:text-a8c-gray-90 !px-0 h-0 leading-4"
 							onClick={ () => getIpcApi().openSiteURL( site.id ) }
 						>
 							{ sprintf( __( '%s:%s' ), SITE_URL, site.port ) }
@@ -27,7 +27,7 @@ export default function Header() {
 						</Button>
 						<Button
 							disabled={ ! site.running }
-							className="text-[13px] text-a8c-gray-70 hover:text-a8c-gray-90 !px-0 h-0 leading-4"
+							className="cursor-pointer text-[13px] text-a8c-gray-70 hover:text-a8c-gray-90 !px-0 h-0 leading-4"
 							onClick={ () => getIpcApi().openSiteURL( site.id, '/wp-admin' ) }
 						>
 							{ __( 'WP Admin' ) }

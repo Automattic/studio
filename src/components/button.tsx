@@ -26,7 +26,7 @@ export default function ButtonComponent( {
 			{ ...props }
 			variant={ variant }
 			className={ cx(
-				'px-3 py-2 !rounded-sm justify-center hover:cursor-pointer disabled:cursor-not-allowed',
+				'cursor-default px-3 py-2 !rounded-sm justify-center disabled:cursor-not-allowed',
 				className
 			) }
 		/>

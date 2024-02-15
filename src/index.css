@@ -33,3 +33,12 @@ blockquote {
 .components-tab-panel__tabs-item {
 	height: 40px;
 }
+
+/* default cursor by default */
+button:enabled {
+	cursor: default !important;
+}
+
+button:enabled.cursor-pointer {
+	cursor: pointer !important;
+}

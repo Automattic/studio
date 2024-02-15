@@ -47,7 +47,7 @@ export function bumpAggregatedUniqueStat(
 
 // Returns true if we attempted to bump the stat
 export function bumpStat( group: string, stat: string, bumpInDev = false ) {
-	if ( process.env.NODE_ENV === 'development' && ! bumpInDev ) {
+	if ( process.env.E2E || ( process.env.NODE_ENV === 'development' && ! bumpInDev ) ) {
 		console.info( `Would have bumped stat: ${ group }=${ stat }` );
 		return false;
 	}

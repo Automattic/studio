@@ -15,6 +15,10 @@ test.describe( 'Electron app', () => {
 		electronApp = await electron.launch( {
 			args: [ appInfo.main ], // main file from package.json
 			executablePath: appInfo.executable, // path to the Electron executable
+			env: {
+				...process.env,
+				E2E: 'true', // allow app to determine whether it's running as an end-to-end test
+			},
 		} );
 		mainWindow = await electronApp.firstWindow();
 	} );

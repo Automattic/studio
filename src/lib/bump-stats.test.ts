@@ -5,11 +5,14 @@ import { bumpAggregatedUniqueStat, bumpStat } from './bump-stats';
 
 jest.mock( '../storage/user-data' );
 
+const originalEnv = { ...process.env };
 afterEach( () => {
 	jest.spyOn( Date, 'now' ).mockRestore();
+	jest.spyOn( console, 'info' ).mockRestore();
 	( loadUserData as jest.Mock ).mockRestore();
 	( saveUserData as jest.Mock ).mockRestore();
 	nock.cleanAll();
+	process.env = { ...originalEnv };
 } );
 
 function mockBumpStatRequest( group: string, stat: string ) {
@@ -32,6 +35,35 @@ describe( 'bumpStat', () => {
 
 		bumpStat( 'usage', 'launch' );
 
+		await waitFor( () => expect( nock.isDone() ).toBe( true ) );
+	} );
+
+	test( "don't record stat in e2e tests", () => {
+		process.env.E2E = 'true';
+		const logger = jest.spyOn( console, 'info' );
+
+		bumpStat( 'usage', 'launch' );
+
+		expect( logger ).toHaveBeenCalledWith( 'Would have bumped stat: usage=launch' );
+	} );
+
+	test( "don't record stat in development mode", () => {
+		process.env.NODE_ENV = 'development';
+		const logger = jest.spyOn( console, 'info' );
+
+		bumpStat( 'usage', 'launch' );
+
+		expect( logger ).toHaveBeenCalledWith( 'Would have bumped stat: usage=launch' );
+	} );
+
+	test( 'record stat in development mode if override arg is used', async () => {
+		process.env.NODE_ENV = 'development';
+		const logger = jest.spyOn( console, 'info' );
+		const nock = mockBumpStatRequest( 'usage', 'launch' );
+
+		bumpStat( 'usage', 'launch', true );
+
+		expect( logger ).not.toHaveBeenCalled();
 		await waitFor( () => expect( nock.isDone() ).toBe( true ) );
 	} );
 } );

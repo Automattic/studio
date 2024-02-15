@@ -73,7 +73,7 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 			) }
 		>
 			<button
-				className="p-2 text-xs whitespace-nowrap overflow-hidden text-ellipsis capitalize w-full text-left"
+				className="p-2 text-xs whitespace-nowrap overflow-hidden text-ellipsis w-full text-left"
 				onClick={ () => {
 					setSelectedSiteId( site.id );
 				} }

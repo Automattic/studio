@@ -5,6 +5,7 @@ import fs from 'fs';
 import nodePath from 'path';
 import archiver from 'archiver';
 import { getWpNowConfig } from '../vendor/wp-now/src';
+import { isEmptyDir, pathExists, isWordPressDirectory } from './lib/fs-utils';
 import { getLocaleData, getSupportedLocale } from './lib/locale';
 import * as oauthClient from './lib/oauth';
 import { writeLogToFile, type LogLevel } from './logging';
@@ -55,10 +56,19 @@ export async function createSite(
 	siteName?: string
 ): Promise< SiteDetails[] > {
 	const userData = await loadUserData();
+	if ( ! ( await isEmptyDir( path ) ) && ! isWordPressDirectory( path ) ) {
+		userData.sites;
+	}
 
-	if ( ! ( await createSiteWorkingDirectory( path ) ) ) {
+	const allPaths = userData?.sites?.map( ( site ) => site.path ) || [];
+	if ( allPaths.includes( path ) ) {
 		return userData.sites;
 	}
+
+	if ( ( await pathExists( path ) ) && ( await isEmptyDir( path ) ) ) {
+		await createSiteWorkingDirectory( path );
+	}
+
 	const details = {
 		id: crypto.randomUUID(),
 		name: siteName || nodePath.basename( path ),
@@ -67,6 +77,20 @@ export async function createSite(
 	} as const;
 
 	const server = SiteServer.create( details );
+
+	if ( isWordPressDirectory( path ) ) {
+		// If the directory contains a WordPress installation, let's rename the wp-config.php file
+		// to allow WP Now to create a new one
+		// and initialize things properly.
+		try {
+			fs.renameSync(
+				nodePath.join( path, 'wp-config.php' ),
+				nodePath.join( path, 'wp-config.php.wpbuild' )
+			);
+		} catch ( error ) {
+			/* Empty */
+		}
+	}
 
 	await server.start( true );
 
@@ -105,6 +129,8 @@ export async function stopServer(
 export interface FolderDialogResponse {
 	path: string;
 	name: string;
+	isEmpty: boolean;
+	isWordPress: boolean;
 }
 
 export async function showOpenFolderDialog(
@@ -122,7 +148,12 @@ export async function showOpenFolderDialog(
 		return null;
 	}
 
-	return { path: filePaths[ 0 ], name: nodePath.basename( filePaths[ 0 ] ) };
+	return {
+		path: filePaths[ 0 ],
+		name: nodePath.basename( filePaths[ 0 ] ),
+		isEmpty: await isEmptyDir( filePaths[ 0 ] ),
+		isWordPress: isWordPressDirectory( filePaths[ 0 ] ),
+	};
 }
 
 function zipWordPressDirectory( {

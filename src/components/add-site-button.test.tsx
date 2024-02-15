@@ -31,7 +31,12 @@ describe( 'CreateSiteButton', () => {
 	it( 'calls createSite with selected path when add site button is clicked', async () => {
 		const user = userEvent.setup();
 
-		mockShowOpenFolderDialog.mockResolvedValue( { path: 'test', name: 'test' } );
+		mockShowOpenFolderDialog.mockResolvedValue( {
+			path: 'test',
+			name: 'test',
+			isEmpty: true,
+			isWordPress: false,
+		} );
 		render( <CreateSiteButton /> );
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
@@ -61,6 +66,54 @@ describe( 'CreateSiteButton', () => {
 		await waitFor( () => {
 			expect( screen.getByTestId( 'add-site-button' ) ).toBeDisabled();
 			expect( mockCreateSite ).not.toHaveBeenCalled();
+		} );
+	} );
+
+	it( 'should display an error informing the user if the site does not contain a WordPress site', async () => {
+		const user = userEvent.setup();
+
+		mockShowOpenFolderDialog.mockResolvedValue( {
+			path: 'test',
+			name: 'test',
+			isEmpty: false,
+			isWordPress: false,
+		} );
+		render( <CreateSiteButton /> );
+
+		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+		expect( screen.getByRole( 'dialog' ) ).toBeVisible();
+		await user.click( screen.getByTestId( 'select-path-button' ) );
+
+		expect( mockShowOpenFolderDialog ).toHaveBeenCalledWith( 'Choose folder for site' );
+
+		await waitFor( () => {
+			expect( screen.getByTestId( 'add-site-button' ) ).toBeDisabled();
+			expect( screen.getByText( 'This path does not contain a WordPress site.' ) ).toBeVisible();
+		} );
+	} );
+
+	it( 'should display a warning informing the user that the folder is not empty', async () => {
+		const user = userEvent.setup();
+
+		mockShowOpenFolderDialog.mockResolvedValue( {
+			path: 'test',
+			name: 'test',
+			isEmpty: false,
+			isWordPress: true,
+		} );
+		render( <CreateSiteButton /> );
+
+		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+		expect( screen.getByRole( 'dialog' ) ).toBeVisible();
+		await user.click( screen.getByTestId( 'select-path-button' ) );
+
+		expect( mockShowOpenFolderDialog ).toHaveBeenCalledWith( 'Choose folder for site' );
+
+		await waitFor( () => {
+			expect( screen.getByTestId( 'add-site-button' ) ).not.toBeDisabled();
+			expect(
+				screen.getByText( 'The existing WordPress site at this path will be added.' )
+			).toBeVisible();
 		} );
 	} );
 } );

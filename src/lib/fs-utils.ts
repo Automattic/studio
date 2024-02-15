@@ -1,5 +1,6 @@
 import { promises as fs } from 'fs';
 import path from 'path';
+import { existsSync } from 'fs-extra';
 import { isErrnoException } from './is-errno-exception';
 
 export async function pathExists( path: string ): Promise< boolean > {
@@ -41,4 +42,12 @@ export async function isEmptyDir( directory: string ): Promise< boolean > {
 	}
 	const files = await fs.readdir( directory );
 	return files.length === 0;
+}
+
+export function isWordPressDirectory( projectPath: string ): boolean {
+	return (
+		existsSync( path.join( projectPath, 'wp-content' ) ) &&
+		existsSync( path.join( projectPath, 'wp-includes' ) ) &&
+		existsSync( path.join( projectPath, 'wp-load.php' ) )
+	);
 }

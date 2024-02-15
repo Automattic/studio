@@ -18,6 +18,7 @@ interface FormPathInputComponentProps {
 	value: string;
 	onClick: () => void;
 	error?: string;
+	doesPathContainWordPress: boolean;
 }
 
 export const folderIcon = (
@@ -31,7 +32,12 @@ export const folderIcon = (
 	</SVG>
 );
 
-function FormPathInputComponent( { value, onClick, error }: FormPathInputComponentProps ) {
+function FormPathInputComponent( {
+	value,
+	onClick,
+	error,
+	doesPathContainWordPress,
+}: FormPathInputComponentProps ) {
 	const { __ } = useI18n();
 	return (
 		<div className="flex flex-col">
@@ -51,11 +57,12 @@ function FormPathInputComponent( { value, onClick, error }: FormPathInputCompone
 					{ folderIcon }
 				</div>
 			</div>
-			{ error && (
+			{ ( error || doesPathContainWordPress ) && (
 				<div
 					className={ cx(
 						'flex flex-row items-center a8c-helper-text pt-1.5',
-						error ? 'text-red-500' : 'text-a8c-gray-70'
+						error ? 'text-red-500' : '',
+						doesPathContainWordPress ? 'text-a8c-gray-70' : ''
 					) }
 				>
 					<Icon className={ error ? 'fill-red-500' : '' } icon={ tip } width={ 14 } height={ 14 } />
@@ -74,11 +81,13 @@ export default function AddSiteButton( { className }: AddSiteButtonProps ) {
 	const [ isAddingSite, setIsAddingSite ] = useState( false );
 	const [ siteName, setSiteName ] = useState( '' );
 	const [ sitePath, setSitePath ] = useState( '' );
+	const [ doesPathContainWordPress, setDoesPathContainWordPress ] = useState( false );
 
 	const onSelectPath = useCallback( async () => {
 		const response = await getIpcApi().showOpenFolderDialog( __( 'Choose folder for site' ) );
 		if ( response?.path ) {
-			const { path, name } = response;
+			const { path, name, isEmpty: isEmptyPath, isWordPress } = response;
+			setDoesPathContainWordPress( false );
 			setAddSiteError( '' );
 			setSitePath( path );
 			const allPaths = data.map( ( site ) => site.path );
@@ -86,6 +95,11 @@ export default function AddSiteButton( { className }: AddSiteButtonProps ) {
 				setAddSiteError( __( 'Another site already exists at this path.' ) );
 				return;
 			}
+			if ( ! isEmptyPath && ! isWordPress ) {
+				setAddSiteError( __( 'This path does not contain a WordPress site.' ) );
+				return;
+			}
+			setDoesPathContainWordPress( ! isEmptyPath && isWordPress );
 			if ( ! siteName ) {
 				setSiteName( name ?? '' );
 			}
@@ -105,6 +119,8 @@ export default function AddSiteButton( { className }: AddSiteButtonProps ) {
 		setNeedsToAddSite( false );
 		setSiteName( '' );
 		setSitePath( '' );
+		setAddSiteError( '' );
+		setDoesPathContainWordPress( false );
 	}, [] );
 
 	const onSiteAdd = useCallback( async () => {
@@ -140,6 +156,7 @@ export default function AddSiteButton( { className }: AddSiteButtonProps ) {
 						<label className="flex flex-col gap-1.5 leading-4">
 							<span className="font-semibold">{ __( 'Local path' ) }</span>
 							<FormPathInputComponent
+								doesPathContainWordPress={ doesPathContainWordPress }
 								error={ addSiteError }
 								value={ sitePath }
 								onClick={ onSelectPath }

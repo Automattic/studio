@@ -1,6 +1,7 @@
 import fs from 'fs';
 import nodePath from 'path';
 import { isErrnoException } from '../lib/is-errno-exception';
+import { sortSites } from '../lib/sort-sites';
 import { getUserDataFilePath } from './paths';
 import type { PersistedUserData, UserData } from './storage-types';
 
@@ -11,6 +12,7 @@ export async function loadUserData(): Promise< UserData > {
 		const asString = await fs.promises.readFile( filePath, 'utf-8' );
 		const parsed = JSON.parse( asString );
 		const data = fromDiskFormat( parsed );
+		sortSites( data.sites );
 		console.log( `Loaded user data from ${ filePath }` );
 		return data;
 	} catch ( err: unknown ) {

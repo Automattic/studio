@@ -8,6 +8,7 @@ import { getWpNowConfig } from '../vendor/wp-now/src';
 import { isEmptyDir, pathExists, isWordPressDirectory } from './lib/fs-utils';
 import { getLocaleData, getSupportedLocale } from './lib/locale';
 import * as oauthClient from './lib/oauth';
+import { sortSites } from './lib/sort-sites';
 import { writeLogToFile, type LogLevel } from './logging';
 import { SiteServer, createSiteWorkingDirectory } from './site-server';
 import { getServerFilesPath } from './storage/paths';
@@ -95,6 +96,7 @@ export async function createSite(
 	await server.start( true );
 
 	userData.sites.push( server.details );
+	sortSites( userData.sites );
 	await saveUserData( userData );
 
 	return mergeSiteDetailsWithRunningDetails( userData.sites );

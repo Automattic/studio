@@ -32,7 +32,7 @@ const DeleteSite = () => {
 		<>
 			{ needsConfirmation && selectedSite?.id && (
 				<Modal
-					className="[&_h1]:!text-xl [&_h1]:!font-normal"
+					className="[&_h1]:!text-xl [&_h1]:!font-normal outline-0"
 					title={ sprintf( __( 'Delete %s' ), selectedSite.name ) }
 					closeButtonLabel={ __( 'Close' ) }
 					isDismissible

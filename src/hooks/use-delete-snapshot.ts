@@ -23,6 +23,10 @@ export function useDeleteSnapshot( options: { displayAlert?: boolean } = {} ) {
 				removeSnapshot( snapshot );
 				return response;
 			} catch ( error ) {
+				if ( ( error as WpcomNetworkError )?.code === 'rest_site_already_deleted' ) {
+					removeSnapshot( snapshot );
+					return;
+				}
 				if ( displayAlert ) {
 					alert( __( 'Error removing preview link.' ) );
 				}

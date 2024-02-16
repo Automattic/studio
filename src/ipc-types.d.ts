@@ -59,3 +59,9 @@ interface Window {
 	ipcApi: IpcApi;
 	appGlobals: AppGlobals;
 }
+
+// Network
+interface WpcomNetworkError extends Error {
+	code: string;
+	status: number;
+}

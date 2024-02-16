@@ -61,7 +61,7 @@ function FormPathInputComponent( {
 					// eslint-disable-next-line @typescript-eslint/no-empty-function
 					onClick={ isDisabled ? () => {} : onClick }
 					className={ cx(
-						'flex items-center py-[9px] px-2.5 border border-y-[#949494] border-r-[#949494] rounded-l-none rounded-r-sm',
+						'flex items-center py-[9px] px-2.5 border border-l-0 border-y-[#949494] border-r-[#949494] rounded-r-sm',
 						isDisabled ? 'cursor-not-allowed' : ''
 					) }
 				>

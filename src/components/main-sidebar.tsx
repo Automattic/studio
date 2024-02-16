@@ -3,7 +3,7 @@ import { Icon, commentAuthorAvatar, settings } from '@wordpress/icons';
 import { useAuth } from '../hooks/use-auth';
 import { isMac } from '../lib/app-globals';
 import { cx } from '../lib/cx';
-import AddSiteButton from './add-site-button';
+import AddSite from './add-site';
 import Button from './button';
 import SiteMenu from './site-menu';
 import { WordPressLogo } from './wordpress-logo';
@@ -57,7 +57,7 @@ export default function MainSidebar( { className }: MainSidebarProps ) {
 
 				<div className="mt-auto h-[103px] pt-5 border-white border-t border-opacity-10 app-no-drag-region">
 					<div className={ cx( isMac() ? 'mx-5' : 'mx-4' ) }>
-						<AddSiteButton className="w-full mb-3" />
+						<AddSite className="w-full mb-3" />
 						<SidebarAuthFooter />
 					</div>
 				</div>

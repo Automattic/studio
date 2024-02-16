@@ -10,6 +10,7 @@ const api: IpcApi = {
 	deleteSite: ( id: string, deleteFiles?: boolean ) =>
 		ipcRenderer.invoke( 'deleteSite', id, deleteFiles ),
 	createSite: ( path: string, name?: string ) => ipcRenderer.invoke( 'createSite', path, name ),
+	updateSite: ( updatedSite: SiteDetails ) => ipcRenderer.invoke( 'updateSite', updatedSite ),
 	authenticate: () => ipcRenderer.invoke( 'authenticate' ),
 	isAuthenticated: () => ipcRenderer.invoke( 'isAuthenticated' ),
 	getAuthenticationToken: () => ipcRenderer.invoke( 'getAuthenticationToken' ),

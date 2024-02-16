@@ -3,9 +3,9 @@ import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren } from 'react';
 import { useGetWpVersion } from '../hooks/use-get-wp-version';
 import { getIpcApi } from '../lib/get-ipc-api';
-import Button from './button';
 import { CopyTextButton } from './copy-text-button';
 import DeleteSite from './delete-site';
+import EditSite from './edit-site';
 
 interface ContentTabSettingsProps {
 	selectedSite: SiteDetails;
@@ -31,9 +31,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 				<div className="text-black text-sm font-semibold">Site details</div>
 				<SettingsRow label={ __( 'Site name' ) }>
 					{ selectedSite.name }
-					<Button className="h-4 text-blue-600" onClick={ () => alert( 'Open Modal' ) }>
-						{ __( 'Edit' ) }
-					</Button>
+					<EditSite />
 				</SettingsRow>
 				<SettingsRow label={ __( 'Local domain' ) }>
 					<CopyTextButton

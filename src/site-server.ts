@@ -88,6 +88,14 @@ export class SiteServer {
 		};
 	}
 
+	updateSiteDetails( site: SiteDetails ) {
+		this.details = {
+			...this.details,
+			name: site.name,
+			path: site.path,
+		};
+	}
+
 	async stop() {
 		console.log( 'Stopping server with ID', this.details.id );
 		this.server?.stopServer();

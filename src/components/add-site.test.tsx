@@ -3,7 +3,7 @@ import { jest } from '@jest/globals';
 import { render, waitFor, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { FolderDialogResponse } from '../ipc-handlers';
-import CreateSiteButton from './add-site-button';
+import AddSite from './add-site';
 
 const mockShowOpenFolderDialog =
 	jest.fn< ( dialogTitle: string ) => Promise< FolderDialogResponse | null > >();
@@ -37,14 +37,14 @@ describe( 'CreateSiteButton', () => {
 			isEmpty: true,
 			isWordPress: false,
 		} );
-		render( <CreateSiteButton /> );
+		render( <AddSite /> );
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 		expect( screen.getByRole( 'dialog' ) ).toBeVisible();
 		await user.click( screen.getByTestId( 'select-path-button' ) );
 
 		expect( mockShowOpenFolderDialog ).toHaveBeenCalledWith( 'Choose folder for site' );
-		await user.click( screen.getByTestId( 'add-site-button' ) );
+		await user.click( screen.getByTestId( 'site-action-button' ) );
 
 		await waitFor( () => {
 			expect( mockCreateSite ).toHaveBeenCalledWith( 'test', 'test' );
@@ -55,7 +55,7 @@ describe( 'CreateSiteButton', () => {
 		const user = userEvent.setup();
 
 		mockShowOpenFolderDialog.mockResolvedValue( null );
-		render( <CreateSiteButton /> );
+		render( <AddSite /> );
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 		expect( screen.getByRole( 'dialog' ) ).toBeVisible();
@@ -64,7 +64,7 @@ describe( 'CreateSiteButton', () => {
 		expect( mockShowOpenFolderDialog ).toHaveBeenCalledWith( 'Choose folder for site' );
 
 		await waitFor( () => {
-			expect( screen.getByTestId( 'add-site-button' ) ).toBeDisabled();
+			expect( screen.getByTestId( 'site-action-button' ) ).toBeDisabled();
 			expect( mockCreateSite ).not.toHaveBeenCalled();
 		} );
 	} );
@@ -78,7 +78,7 @@ describe( 'CreateSiteButton', () => {
 			isEmpty: false,
 			isWordPress: false,
 		} );
-		render( <CreateSiteButton /> );
+		render( <AddSite /> );
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 		expect( screen.getByRole( 'dialog' ) ).toBeVisible();
@@ -87,7 +87,7 @@ describe( 'CreateSiteButton', () => {
 		expect( mockShowOpenFolderDialog ).toHaveBeenCalledWith( 'Choose folder for site' );
 
 		await waitFor( () => {
-			expect( screen.getByTestId( 'add-site-button' ) ).toBeDisabled();
+			expect( screen.getByTestId( 'site-action-button' ) ).toBeDisabled();
 			expect( screen.getByText( 'This path does not contain a WordPress site.' ) ).toBeVisible();
 		} );
 	} );
@@ -101,7 +101,7 @@ describe( 'CreateSiteButton', () => {
 			isEmpty: false,
 			isWordPress: true,
 		} );
-		render( <CreateSiteButton /> );
+		render( <AddSite /> );
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 		expect( screen.getByRole( 'dialog' ) ).toBeVisible();
@@ -110,7 +110,7 @@ describe( 'CreateSiteButton', () => {
 		expect( mockShowOpenFolderDialog ).toHaveBeenCalledWith( 'Choose folder for site' );
 
 		await waitFor( () => {
-			expect( screen.getByTestId( 'add-site-button' ) ).not.toBeDisabled();
+			expect( screen.getByTestId( 'site-action-button' ) ).not.toBeDisabled();
 			expect(
 				screen.getByText( 'The existing WordPress site at this path will be added.' )
 			).toBeVisible();

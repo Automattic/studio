@@ -102,6 +102,24 @@ export async function createSite(
 	return mergeSiteDetailsWithRunningDetails( userData.sites );
 }
 
+export async function updateSite(
+	event: IpcMainInvokeEvent,
+	updatedSite: SiteDetails
+): Promise< SiteDetails[] > {
+	const userData = await loadUserData();
+	const updatedSites = userData.sites.map( ( site ) =>
+		site.id === updatedSite.id ? updatedSite : site
+	);
+	userData.sites = updatedSites;
+
+	const server = SiteServer.get( updatedSite.id );
+	if ( server ) {
+		server.updateSiteDetails( updatedSite );
+	}
+	await saveUserData( userData );
+	return mergeSiteDetailsWithRunningDetails( userData.sites );
+}
+
 export async function startServer(
 	event: IpcMainInvokeEvent,
 	id: string

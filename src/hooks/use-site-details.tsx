@@ -12,6 +12,7 @@ export interface DeleteSiteErrorResponse {
 
 interface SiteDetailsContext {
 	selectedSite: SiteDetails | null;
+	updateSite: ( site: SiteDetails ) => Promise< void >;
 	data: SiteDetails[];
 	snapshots: Snapshot[];
 	addSnapshot: ( snapshot: Snapshot ) => void;
@@ -31,6 +32,7 @@ const siteDetailsContext = createContext< SiteDetailsContext >( {
 	selectedSite: null,
 	data: [],
 	snapshots: [],
+	updateSite: async () => undefined,
 	addSnapshot: () => undefined,
 	updateSnapshot: () => undefined,
 	removeSnapshot: () => undefined,
@@ -209,6 +211,11 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		[ setSelectedSiteId ]
 	);
 
+	const updateSite = useCallback( async ( site: SiteDetails ) => {
+		const updatedSites = await getIpcApi().updateSite( site );
+		setData( updatedSites );
+	}, [] );
+
 	const startServer = useCallback(
 		async ( id: string ) => {
 			if ( selectedSiteId === id ) {
@@ -247,6 +254,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			removeSnapshot,
 			setSelectedSiteId,
 			createSite,
+			updateSite,
 			startServer,
 			stopServer,
 			loading,
@@ -265,6 +273,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			removeSnapshot,
 			setSelectedSiteId,
 			createSite,
+			updateSite,
 			startServer,
 			stopServer,
 			loading,

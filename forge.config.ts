@@ -20,8 +20,9 @@ import type { ForgeConfig } from '@electron-forge/shared-types';
 const config: ForgeConfig = {
 	packagerConfig: {
 		asar: true,
-		extraResource: [ './wp-files' ],
+		extraResource: [ './wp-files', './assets' ],
 		executableName: process.platform === 'linux' ? 'local-environment' : undefined,
+		icon: './assets/build-app-icon',
 		osxSign: {},
 	},
 	rebuildConfig: {},
@@ -37,10 +38,20 @@ const config: ForgeConfig = {
 		new MakerSquirrel(
 			{
 				loadingGif: './installers/loading.gif',
+				setupIcon: './assets/build-app-icon.ico',
 			},
 			[ 'win32' ]
 		),
-		...( process.env.SKIP_DMG ? [] : [ new MakerDMG( {}, [ 'darwin' ] ) ] ),
+		...( process.env.SKIP_DMG
+			? []
+			: [
+					new MakerDMG(
+						{
+							icon: './assets/build-app-icon.icns',
+						},
+						[ 'darwin' ]
+					),
+			  ] ),
 	],
 	plugins: [
 		new AutoUnpackNativesPlugin( {} ),

@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { app, clipboard } from 'electron';
+import { BrowserWindow, app, clipboard } from 'electron';
 import { type IpcMainInvokeEvent, dialog, shell } from 'electron';
 import fs from 'fs';
 import nodePath from 'path';
@@ -139,7 +139,14 @@ export async function showOpenFolderDialog(
 	event: IpcMainInvokeEvent,
 	title: string
 ): Promise< FolderDialogResponse | null > {
-	const { canceled, filePaths } = await dialog.showOpenDialog( {
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+	if ( ! parentWindow ) {
+		throw new Error(
+			`No window found for sender of showOpenFolderDialog message: ${ event.frameId }`
+		);
+	}
+
+	const { canceled, filePaths } = await dialog.showOpenDialog( parentWindow, {
 		title,
 		properties: [
 			'openDirectory',

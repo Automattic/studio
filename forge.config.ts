@@ -21,7 +21,7 @@ const config: ForgeConfig = {
 	packagerConfig: {
 		asar: true,
 		extraResource: [ './wp-files', './assets' ],
-		executableName: process.platform === 'linux' ? 'local-environment' : undefined,
+		executableName: process.platform === 'linux' ? 'build' : undefined,
 		icon: './assets/build-app-icon',
 		osxSign: {},
 	},
@@ -32,13 +32,12 @@ const config: ForgeConfig = {
 			options: {
 				genericName: 'WordPress Local Dev',
 				categories: [ 'Utility' ],
-				name: 'local-environment',
+				name: 'build',
 			},
 		} ),
 		new MakerSquirrel(
 			{
 				loadingGif: './installers/loading.gif',
-				setupIcon: './assets/build-app-icon.ico',
 			},
 			[ 'win32' ]
 		),

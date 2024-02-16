@@ -1,8 +1,8 @@
 {
-	"name": "local-environment",
+	"name": "build",
 	"author": "Automattic Inc.",
 	"private": true,
-	"productName": "Local Environment",
+	"productName": "Build",
 	"version": "0.1.0",
 	"description": "Local WordPress development environment using Playgrounds",
 	"license": "GPL-2.0-or-later",

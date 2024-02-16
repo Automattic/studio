@@ -8,7 +8,7 @@ const wpNowPath = path.join( app.getPath( 'home' ), '.wp-now' );
 
 // Database and server files are no longer stored in ~/.wp-now
 // In order to help our early adopters, we'll do a one-time migration from
-// ~/.wp-now to ~/Library/Application Support/Local Environment
+// ~/.wp-now to ~/Library/Application Support/Build
 export async function needsToMigrateFromWpNowFolder() {
 	if ( ! ( await pathExists( wpNowPath ) ) ) {
 		return false;

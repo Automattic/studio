@@ -1,3 +1,4 @@
+import { app } from 'electron';
 import fs from 'fs';
 import nodePath from 'path';
 import { isErrnoException } from '../lib/is-errno-exception';
@@ -5,7 +6,21 @@ import { sortSites } from '../lib/sort-sites';
 import { getUserDataFilePath } from './paths';
 import type { PersistedUserData, UserData } from './storage-types';
 
+// Temporary function to migrate old user data to the new location
+// This function will be removed in a future release
+function migrateUserDataOldName() {
+	const appDataPath = app.getPath( 'appData' );
+	const oldPath = nodePath.join( appDataPath, 'Local Environment', 'appdata-v1.json' );
+	const newPath = getUserDataFilePath();
+
+	if ( fs.existsSync( oldPath ) && ! fs.existsSync( newPath ) ) {
+		fs.renameSync( oldPath, newPath );
+		console.log( `Moved user data from ${ oldPath } to ${ newPath }` );
+	}
+}
+
 export async function loadUserData(): Promise< UserData > {
+	migrateUserDataOldName();
 	const filePath = getUserDataFilePath();
 
 	try {

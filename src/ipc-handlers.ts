@@ -14,8 +14,7 @@ import { SiteServer, createSiteWorkingDirectory } from './site-server';
 import { getServerFilesPath } from './storage/paths';
 import { loadUserData, saveUserData } from './storage/user-data';
 
-const TEMP_DIR =
-	nodePath.join( app.getPath( 'temp' ), 'com.wordpress.local-environment' ) + nodePath.sep;
+const TEMP_DIR = nodePath.join( app.getPath( 'temp' ), 'com.wordpress.build' ) + nodePath.sep;
 if ( ! fs.existsSync( TEMP_DIR ) ) {
 	fs.mkdirSync( TEMP_DIR );
 }

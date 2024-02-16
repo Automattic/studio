@@ -1,9 +1,10 @@
-import { Modal, FormToggle } from '@wordpress/components';
+import { FormToggle } from '@wordpress/components';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useState, useCallback } from 'react';
 import { useSiteDetails } from '../hooks/use-site-details';
 import Button from './button';
+import Modal from './modal';
 
 const DeleteSite = () => {
 	const { __ } = useI18n();
@@ -32,7 +33,6 @@ const DeleteSite = () => {
 		<>
 			{ needsConfirmation && selectedSite?.id && (
 				<Modal
-					className="[&_h1]:!text-xl [&_h1]:!font-normal outline-0"
 					title={ sprintf( __( 'Delete %s' ), selectedSite.name ) }
 					closeButtonLabel={ __( 'Close' ) }
 					isDismissible

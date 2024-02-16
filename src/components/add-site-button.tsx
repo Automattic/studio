@@ -1,4 +1,4 @@
-import { Icon, Modal } from '@wordpress/components';
+import { Icon } from '@wordpress/components';
 import { tip } from '@wordpress/icons';
 import { SVG, Path } from '@wordpress/primitives';
 import { useI18n } from '@wordpress/react-i18n';
@@ -8,6 +8,7 @@ import { useSiteDetails } from '../hooks/use-site-details';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
+import Modal from './modal';
 import TextControlComponent from './text-control';
 
 interface AddSiteButtonProps {
@@ -139,7 +140,7 @@ export default function AddSiteButton( { className }: AddSiteButtonProps ) {
 		<>
 			{ needsToAddSite && (
 				<Modal
-					className="[&_h1]:!text-xl [&_h1]:!font-normal min-w-[460px] max-w-full outline-0"
+					className="min-w-[460px]"
 					title={ __( 'Add a site' ) }
 					closeButtonLabel={ __( 'Add' ) }
 					isDismissible

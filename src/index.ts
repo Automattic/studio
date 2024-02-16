@@ -203,7 +203,6 @@ async function appBoot() {
 
 		mainWindow = createMainWindow();
 		mainWindow.on( 'closed', () => ( mainWindow = null ) );
-		setupShortcuts( mainWindow );
 
 		bumpAggregatedUniqueStat( 'local-environment-launch-uniques', process.platform, 'weekly' );
 	} );
@@ -239,10 +238,5 @@ async function appBoot() {
 			if ( mainWindow.isMinimized() ) mainWindow.restore();
 			mainWindow.focus();
 		}
-	} );
-}
-function setupShortcuts( browserWindow: BrowserWindow | null ) {
-	globalShortcut.register( 'CommandOrControl+N', () => {
-		browserWindow?.webContents.send( 'add-site' );
 	} );
 }

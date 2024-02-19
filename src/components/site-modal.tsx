@@ -140,7 +140,7 @@ export const SiteModal = ( {
 
 	return (
 		<Modal
-			className={ cx( 'min-w-[460px]', className ) }
+			className={ cx( 'w-[460px]', className ) }
 			title={ __( title ) }
 			isDismissible
 			onRequestClose={ onRequestClose }

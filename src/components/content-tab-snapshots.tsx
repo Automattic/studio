@@ -1,4 +1,4 @@
-import { DropdownMenu, MenuGroup, MenuItem, Spinner } from '@wordpress/components';
+import { MenuGroup, MenuItem, Spinner } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
 import { Icon, moreVertical, trash } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
@@ -12,6 +12,7 @@ import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
 import { CopyTextButton } from './copy-text-button';
+import { DropdownMenu } from './dropdown-menu';
 import { EmptyLayout } from './empty-layout';
 
 interface ContentTabSnapshotsProps {
@@ -64,10 +65,9 @@ function SnapshotRow( { snapshot }: { snapshot: Snapshot } ) {
 			<DropdownMenu
 				className="h-6 ml-auto flex items-center hover:text-blue-600"
 				icon={ moreVertical }
-				size={ 24 }
 				label={ __( 'More options' ) }
 			>
-				{ ( { onClose } ) => (
+				{ ( { onClose }: { onClose: () => void } ) => (
 					<MenuGroup>
 						<MenuItem
 							className="text-red-600 hover:text-red-700"

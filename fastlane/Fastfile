@@ -97,6 +97,11 @@ lane :distribute_binary do |_options|
     default_payloads: []
   )
 
+  buildkite_annotate(
+    context: 'cdn-link',
+    style: 'success',
+    message: '[Download build](#{download_url})'
+  )
 end
 
 def clear_cloudfront_cache(path:, commit_hash:)

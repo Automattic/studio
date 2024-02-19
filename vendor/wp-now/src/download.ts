@@ -126,6 +126,8 @@ async function downloadFileAndUnzip({
 			);
 		}
 
+		const entryPromises: Promise<unknown>[] = [];
+
 		/**
 		 * Using Parse because Extract is broken:
 		 * https://github.com/WordPress/wordpress-playground/issues/248
@@ -140,11 +142,22 @@ async function downloadFileAndUnzip({
 				 */
 				fs.ensureDirSync(path.dirname(filePath));
 
-				if (entry.type !== 'Directory') {
-					entry.pipe(fs.createWriteStream(filePath));
+				if (entry.type === 'Directory') {
+					entryPromises.push(entry.autodrain().promise());
+				} else {
+					const promise = new Promise((resolve, reject) => {
+						entry.pipe(fs.createWriteStream(filePath))
+							.on('close', resolve)
+							.on('error', reject);
+					});
+					entryPromises.push(promise);
 				}
 			})
 			.promise();
+
+		// Wait until all entries have been extracted before continuing
+		await Promise.all(entryPromises);
+
 		return { downloaded: true, statusCode };
 	} catch (err) {
 		output?.error(`Error downloading or unzipping ${itemName}:`, err);

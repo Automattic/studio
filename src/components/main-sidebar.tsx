@@ -18,13 +18,16 @@ function SidebarAuthFooter() {
 		return (
 			<div className="flex items-center justify-between w-full">
 				<Button
-					className="text-white !px-0 active:!text-white"
+					className="text-white h-6 !px-0 active:!text-white rounded hover:!text-white hover:bg-white hover:bg-opacity-10"
 					onClick={ logout }
 					aria-label={ __( 'Account' ) }
 				>
 					<Icon icon={ commentAuthorAvatar } />
 				</Button>
-				<Button className="text-white !px-0 active:!text-white" aria-label={ __( 'Settings' ) }>
+				<Button
+					className="text-white h-6 !px-0 active:!text-white rounded hover:!text-white hover:bg-white hover:bg-opacity-10"
+					aria-label={ __( 'Settings' ) }
+				>
 					<Icon icon={ settings } />
 				</Button>
 			</div>
@@ -33,7 +36,7 @@ function SidebarAuthFooter() {
 
 	return (
 		<Button
-			className="flex items-center justify-between w-full text-white !px-0 active:!text-white"
+			className="flex items-center justify-between w-full text-white rounded px-0 py-1 h-auto active:!text-white hover:!text-white hover:underline"
 			onClick={ authenticate }
 		>
 			<WordPressLogo />

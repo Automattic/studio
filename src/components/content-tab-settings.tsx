@@ -14,7 +14,7 @@ interface ContentTabSettingsProps {
 function SettingsRow( { children, label }: PropsWithChildren< { label: string } > ) {
 	return (
 		<div className="flex self-stretch justify-start items-center gap-1.5">
-			<div className="min-w-28 text-zinc-700">{ label }</div>
+			<div className="min-w-28 text-a8c-gray-50">{ label }</div>
 			<div className="justify-start items-center flex">{ children }</div>
 		</div>
 	);

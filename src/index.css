@@ -30,8 +30,16 @@ blockquote {
 .components-tab-panel__tab-content {
 	flex: 1;
 }
+.components-tab-panel__tabs {
+	margin: 0 calc(theme('spacing.8') * -1);
+	padding: 0 theme('spacing.4');
+	border-bottom: 1px solid theme('colors.a8c-gray.5');
+}
 .components-tab-panel__tabs-item {
 	height: 40px;
+}
+.components-tab-panel__tabs-item.is-active::after {
+	background: theme('colors.black');
 }
 
 /* default cursor by default */
@@ -41,4 +49,5 @@ button:enabled {
 
 button:enabled.cursor-pointer {
 	cursor: pointer !important;
+	margin-bottom: -1px;
 }

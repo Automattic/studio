@@ -1,5 +1,4 @@
 import { DropdownMenu, MenuGroup, MenuItem, Spinner } from '@wordpress/components';
-import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 import { Icon, moreVertical, trash } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
@@ -21,12 +20,12 @@ interface ContentTabSnapshotsProps {
 
 function SnapshotRowLoading( { children }: PropsWithChildren ) {
 	return (
-		<div className="self-stretch px-4 py-3 border-t border-zinc-300 flex items-center text-xs">
-			<div className={ cx( 'flex mr-1.5 w-8/12 items-center text-zinc-700' ) }>
+		<div className="self-stretch px-4 py-3 border-t border-a8c-gray-5 flex items-center text-xs">
+			<div className={ cx( 'flex mr-1.5 w-8/12 items-center text-a8c-gray-70' ) }>
 				<Spinner className="!mt-0 !ml-0 !mr-2" />
 				{ children }
 			</div>
-			<div className="w-28 pr-6 text-zinc-700 whitespace-nowrap overflow-hidden truncate flex-1">
+			<div className="w-28 pr-6 text-a8c-gray-70 whitespace-nowrap overflow-hidden truncate flex-1">
 				-
 			</div>
 		</div>
@@ -43,12 +42,12 @@ function SnapshotRow( { snapshot }: { snapshot: Snapshot } ) {
 	}
 	const urlWithHTTPS = `https://${ url }`;
 	return (
-		<div className="self-stretch px-4 py-3 border-t border-zinc-300 flex items-center text-body">
+		<div className="self-stretch px-4 py-3 border-t border-a8c-gray-5 flex items-center text-body">
 			<div className="flex mr-1.5 w-8/12 items-center text-black text-black">
 				<button
 					className={ cx(
 						'hover:text-blue-600 font-normal cursor-pointer leading-none',
-						isExpired && 'text-zinc-700 line-through cursor-not-allowed'
+						isExpired && 'text-a8c-gray-70 line-through cursor-not-allowed'
 					) }
 					disabled={ isExpired }
 					onClick={ () => getIpcApi().openURL( urlWithHTTPS ) }
@@ -59,7 +58,7 @@ function SnapshotRow( { snapshot }: { snapshot: Snapshot } ) {
 					<CopyTextButton text={ urlWithHTTPS } copyConfirmation={ __( 'Link copied' ) } />
 				) }
 			</div>
-			<div className="w-28 pr-6 text-zinc-700 whitespace-nowrap overflow-hidden truncate flex-1">
+			<div className="w-28 pr-6 text-a8c-gray-70 whitespace-nowrap overflow-hidden truncate flex-1">
 				{ countDown }
 			</div>
 			<DropdownMenu
@@ -91,19 +90,7 @@ function NoAuth() {
 	const { authenticate } = useAuth();
 
 	return (
-		<EmptyLayout
-			footer={ createInterpolateElement(
-				__( 'Preview links expire after 7 days. Powered by <a>WP Cloud</a>' ),
-				{
-					a: (
-						<button
-							className="text-blue-600 cursor-pointer"
-							onClick={ () => getIpcApi().openURL( 'https://wp.cloud' ) }
-						/>
-					),
-				}
-			) }
-		>
+		<EmptyLayout footer={ __( 'Preview links expire after 7 days.' ) }>
 			<EmptyLayout.Title>{ __( 'Share a preview of your site' ) }</EmptyLayout.Title>
 			<EmptyLayout.Description>
 				{ __( 'Create a hosted clone of your local site to get feedback from anyone, anywhere.' ) }
@@ -132,7 +119,7 @@ export function ContentTabSnapshots( { selectedSite }: ContentTabSnapshotsProps 
 		<div className="pb-10">
 			<div className="w-full justify-between items-center inline-flex">
 				<div className="flex-col justify-start items-start gap-1 inline-flex">
-					<div className="w-[45ch] text-zinc-700 text-body font-normal pr-2">
+					<div className="w-[45ch] text-a8c-gray-70 text-body font-normal pr-2">
 						{ __(
 							'Get feedback on your local site with a preview link. Links expire after 7 days.'
 						) }
@@ -146,7 +133,7 @@ export function ContentTabSnapshots( { selectedSite }: ContentTabSnapshotsProps 
 					{ isUploading ? __( 'Creating preview link…' ) : __( 'Create preview link' ) }
 				</Button>
 			</div>
-			<div className="w-full mt-8 rounded border border-zinc-300 text-xxs">
+			<div className="w-full mt-8 rounded border border-a8c-gray-5 text-xxs">
 				<div className="px-4 py-3.5 text-gray-800 font-medium uppercase flex flex-row justify-between">
 					<span className="mr-1.5 w-8/12">
 						{ sprintf(

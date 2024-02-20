@@ -54,15 +54,14 @@ export function useSiteDetails() {
 	return useContext( siteDetailsContext );
 }
 
-function useSelectedSite() {
+function useSelectedSite( firstSiteId: string | null ) {
 	const SELECTED_SITE_ID_KEY = 'selectedSiteId';
 	const selectedSiteIdFromLocal = localStorage.getItem( SELECTED_SITE_ID_KEY ) || null;
 	const [ selectedSiteId, setSelectedSiteId ] = useState< string | null >(
 		selectedSiteIdFromLocal
 	);
-
 	return {
-		selectedSiteId,
+		selectedSiteId: selectedSiteId || firstSiteId,
 		setSelectedSiteId: ( id: string ) => {
 			setSelectedSiteId( id );
 			localStorage.setItem( SELECTED_SITE_ID_KEY, id );
@@ -168,7 +167,8 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 	const [ data, setData ] = useState< SiteDetails[] >( [] );
 	const [ loading, setLoading ] = useState( false );
-	const { selectedSiteId, setSelectedSiteId } = useSelectedSite();
+	const firstSite = data[ 0 ] || null;
+	const { selectedSiteId, setSelectedSiteId } = useSelectedSite( firstSite?.id );
 	const { snapshots, addSnapshot, removeSnapshot, updateSnapshot } = useSnapshots();
 	const { deleteSite, isLoading: isDeleting, error: deleteError } = useDeleteSite();
 
@@ -246,7 +246,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 	const context = useMemo(
 		() => ( {
-			selectedSite: data.find( ( site ) => site.id === selectedSiteId ) || null,
+			selectedSite: data.find( ( site ) => site.id === selectedSiteId ) || firstSite,
 			data,
 			snapshots,
 			addSnapshot,
@@ -264,6 +264,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		} ),
 		[
 			data,
+			firstSite,
 			snapshots,
 			addSnapshot,
 			updateSnapshot,

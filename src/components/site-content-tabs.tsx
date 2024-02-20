@@ -6,11 +6,11 @@ import { ContentTabSettings } from './content-tab-settings';
 import { ContentTabSnapshots } from './content-tab-snapshots';
 import Header from './header';
 
-function NoSiteSelected() {
+function NoSites() {
 	const { __ } = useI18n();
 	return (
 		<div className="w-full h-full flex items-center justify-center text-2xl text-slate-400">
-			{ __( 'Select a site' ) }
+			{ __( 'Add a site' ) }
 		</div>
 	);
 }
@@ -20,7 +20,7 @@ export function SiteContentTabs() {
 	const tabs = useContentTabs();
 
 	if ( ! selectedSite ) {
-		return <NoSiteSelected />;
+		return <NoSites />;
 	}
 
 	return (

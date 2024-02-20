@@ -1,10 +1,11 @@
 import { __ } from '@wordpress/i18n';
-import { Icon, commentAuthorAvatar, settings } from '@wordpress/icons';
+import { Icon, settings } from '@wordpress/icons';
 import { useAuth } from '../hooks/use-auth';
 import { isMac } from '../lib/app-globals';
 import { cx } from '../lib/cx';
 import AddSite from './add-site';
 import Button from './button';
+import { Gravatar } from './gravatar';
 import SiteMenu from './site-menu';
 import { WordPressLogo } from './wordpress-logo';
 
@@ -22,7 +23,7 @@ function SidebarAuthFooter() {
 					onClick={ logout }
 					aria-label={ __( 'Account' ) }
 				>
-					<Icon icon={ commentAuthorAvatar } />
+					<Gravatar />
 				</Button>
 				<Button
 					className="text-white h-6 !px-0 active:!text-white rounded hover:!text-white hover:bg-white hover:bg-opacity-10"

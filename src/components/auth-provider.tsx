@@ -7,6 +7,7 @@ export interface AuthContextType {
 	isAuthenticated: boolean;
 	authenticate: () => Promise< void >; // Adjust based on the actual implementation
 	logout: () => Promise< void >; // Adjust based on the actual implementation
+	user?: { email: string; avatarUrl: string };
 }
 
 interface AuthProviderProps {
@@ -23,6 +24,9 @@ export const AuthContext = createContext< AuthContextType >( {
 const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 	const [ isAuthenticated, setIsAuthenticated ] = useState( false );
 	const [ client, setClient ] = useState< typeof WPCOM | undefined >( undefined );
+	const [ user, setUser ] = useState< { email: string; avatarUrl: string } | undefined >(
+		undefined
+	);
 
 	const authenticate = useCallback( async () => {
 		try {
@@ -32,6 +36,9 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 			}
 			setIsAuthenticated( true );
 			setClient( new WPCOM( token.accessToken ) );
+			if ( token.email && token.avatarUrl ) {
+				setUser( { email: token.email, avatarUrl: token.avatarUrl } );
+			}
 		} catch ( err ) {
 			console.log( err );
 		}
@@ -42,6 +49,7 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 			await getIpcApi().clearAuthenticationToken();
 			setIsAuthenticated( false );
 			setClient( undefined );
+			setUser( undefined );
 		} catch ( err ) {
 			console.log( err );
 		}
@@ -58,6 +66,9 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 						return;
 					}
 					setClient( new WPCOM( token.accessToken ) );
+					if ( token.email && token.avatarUrl ) {
+						setUser( { email: token.email, avatarUrl: token.avatarUrl } );
+					}
 				}
 			} catch ( err ) {
 				console.log( err );
@@ -73,8 +84,9 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 			isAuthenticated,
 			authenticate,
 			logout,
+			user,
 		} ),
-		[ client, isAuthenticated, authenticate, logout ]
+		[ client, isAuthenticated, authenticate, logout, user ]
 	);
 
 	return <AuthContext.Provider value={ contextValue }>{ children }</AuthContext.Provider>;

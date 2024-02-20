@@ -1,4 +1,6 @@
 import { BrowserWindow, ipcMain } from 'electron';
+import * as Sentry from '@sentry/electron/main';
+import wpcom from 'wpcom';
 import { AUTH_MIN_HEIGHT, AUTH_MIN_WIDTH } from '../constants';
 import { loadUserData, saveUserData } from '../storage/user-data';
 
@@ -6,6 +8,8 @@ export interface StoredToken {
 	accessToken?: string;
 	expiresIn?: number;
 	expirationTime?: number;
+	email?: string;
+	avatarUrl?: string;
 }
 
 export const PROTOCOL_PREFIX = 'wpcom-local-dev';
@@ -67,7 +71,7 @@ export async function isAuthenticated(): Promise< boolean > {
 	return !! token;
 }
 
-export function handleAuthCallback( hash: string ): Error | StoredToken {
+export async function handleAuthCallback( hash: string ): Promise< Error | StoredToken > {
 	const params = new URLSearchParams( hash.substring( 1 ) );
 	const error = params.get( 'error' );
 	if ( error ) {
@@ -79,10 +83,18 @@ export function handleAuthCallback( hash: string ): Error | StoredToken {
 	if ( isNaN( expiresIn ) || expiresIn === 0 || ! accessToken ) {
 		return new Error( 'Error while getting token' );
 	}
+	let response: { email?: string; avatar_URL?: string } = {};
+	try {
+		response = await new wpcom( accessToken ).req.get( '/me?fields=email,avatar_URL' );
+	} catch ( error ) {
+		Sentry.captureException( error );
+	}
 	return {
 		expiresIn,
 		expirationTime: new Date().getTime() + expiresIn * 1000,
 		accessToken,
+		email: response.email,
+		avatarUrl: response.avatar_URL,
 	};
 }
 

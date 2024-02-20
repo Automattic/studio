@@ -141,12 +141,13 @@ async function appBoot() {
 		protocol.handle( PROTOCOL_PREFIX, ( request ): Response => {
 			const { host, hash } = new URL( request.url );
 			if ( host === 'auth' ) {
-				const authResult = handleAuthCallback( hash );
-				if ( authResult instanceof Error ) {
-					ipcMain.emit( 'auth-callback', null, { error: authResult } );
-				} else {
-					ipcMain.emit( 'auth-callback', null, { token: authResult } );
-				}
+				handleAuthCallback( hash ).then( ( authResult ) => {
+					if ( authResult instanceof Error ) {
+						ipcMain.emit( 'auth-callback', null, { error: authResult } );
+					} else {
+						ipcMain.emit( 'auth-callback', null, { token: authResult } );
+					}
+				} );
 			}
 			return new Response();
 		} );

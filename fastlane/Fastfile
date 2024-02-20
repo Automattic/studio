@@ -90,11 +90,11 @@ lane :distribute_binary do |_options|
   slack(
     username: 'CI Bot',
     icon_url: 'https://octodex.github.com/images/jenktocat.jpg',
-    message: "macOS build for commit #{commit_hash[0...7]} is now [available here](#{download_url})",
+    message: "macOS build for commit `#{commit_hash[0...7]}` is now [available here](#{download_url})",
     channel: "#dotcom-hosting-local-playground",
     success: true,
     slack_url: get_required_env('SLACK_WEBHOOK'),
-    default_payloads: [:last_git_commit, :last_git_commit_hash]
+    default_payloads: [:last_git_commit]
   )
 
   buildkite_annotate(

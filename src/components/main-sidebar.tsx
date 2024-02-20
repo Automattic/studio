@@ -1,8 +1,9 @@
 import { __ } from '@wordpress/i18n';
-import { Icon, settings } from '@wordpress/icons';
+import { Icon, settings, help } from '@wordpress/icons';
 import { useAuth } from '../hooks/use-auth';
 import { isMac } from '../lib/app-globals';
 import { cx } from '../lib/cx';
+import { getIpcApi } from '../lib/get-ipc-api';
 import AddSite from './add-site';
 import Button from './button';
 import { Gravatar } from './gravatar';
@@ -15,9 +16,13 @@ interface MainSidebarProps {
 
 function SidebarAuthFooter() {
 	const { isAuthenticated, authenticate, logout } = useAuth();
+	const openLocalizedSupport = async () => {
+		const { locale } = await getIpcApi().getAppGlobals();
+		await getIpcApi().openURL( `https://wordpress.com/${ locale }/support` );
+	};
 	if ( isAuthenticated ) {
 		return (
-			<div className="flex items-center justify-between w-full">
+			<div className="flex items-center justify-start w-full">
 				<Button
 					className="text-white h-6 !px-0 active:!text-white rounded hover:!text-white hover:bg-white hover:bg-opacity-10"
 					onClick={ logout }
@@ -26,7 +31,14 @@ function SidebarAuthFooter() {
 					<Gravatar />
 				</Button>
 				<Button
-					className="text-white h-6 !px-0 active:!text-white rounded hover:!text-white hover:bg-white hover:bg-opacity-10"
+					className="text-white ml-1.5 cursor-pointer h-6 !px-0 active:!text-white rounded hover:!text-white hover:bg-white hover:bg-opacity-10"
+					onClick={ openLocalizedSupport }
+					aria-label={ __( 'Help' ) }
+				>
+					<Icon icon={ help } />
+				</Button>
+				<Button
+					className="text-white ml-auto h-6 !px-0 active:!text-white rounded hover:!text-white hover:bg-white hover:bg-opacity-10"
 					aria-label={ __( 'Settings' ) }
 				>
 					<Icon icon={ settings } />

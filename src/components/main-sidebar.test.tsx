@@ -1,9 +1,11 @@
-import { render, fireEvent } from '@testing-library/react';
+import { render, fireEvent, waitFor } from '@testing-library/react';
 import { useAuth } from '../hooks/use-auth';
+import { getIpcApi } from '../lib/get-ipc-api';
 import MainSidebar from './main-sidebar';
 
 jest.mock( '../hooks/use-auth' );
 jest.mock( '../lib/app-globals' );
+jest.mock( '../lib/get-ipc-api' );
 
 const site2 = {
 	name: 'test-2',
@@ -105,6 +107,25 @@ describe( 'MainSidebar Site Menu', () => {
 		fireEvent.click( greenDotFirstSite );
 		expect( siteDetailsMocked.stopServer ).toHaveBeenCalledWith(
 			'0e9e237b-335a-43fa-b439-9b078a613333'
+		);
+	} );
+
+	it( 'opens the support URL with the correct locale', async () => {
+		const mockOpenURL = jest.fn();
+		( getIpcApi as jest.Mock ).mockReturnValue( {
+			getAppGlobals: jest.fn().mockReturnValue( {
+				locale: 'zh-cn',
+			} ),
+			openURL: mockOpenURL,
+		} );
+		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
+
+		const { getByRole } = render( <MainSidebar /> );
+
+		const helpIconButton = getByRole( 'button', { name: 'Help' } );
+		fireEvent.click( helpIconButton );
+		await waitFor( () =>
+			expect( mockOpenURL ).toHaveBeenCalledWith( `https://wordpress.com/zh-cn/support` )
 		);
 	} );
 } );

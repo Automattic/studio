@@ -8,6 +8,7 @@ import { getWpNowConfig } from '../vendor/wp-now/src';
 import { isEmptyDir, pathExists, isWordPressDirectory } from './lib/fs-utils';
 import { getLocaleData, getSupportedLocale } from './lib/locale';
 import * as oauthClient from './lib/oauth';
+import { sanitizeForLogging } from './lib/sanitize-for-logging';
 import { sortSites } from './lib/sort-sites';
 import { writeLogToFile, type LogLevel } from './logging';
 import { SiteServer, createSiteWorkingDirectory } from './site-server';
@@ -36,7 +37,7 @@ export async function getSiteDetails( _event: IpcMainInvokeEvent ): Promise< Sit
 
 	// This is probably one of the first times the user data is loaded. Take the opportunity
 	// to log for debugging purposes.
-	console.log( 'Loaded user data', userData );
+	console.log( 'Loaded user data', sanitizeForLogging( userData ) );
 
 	const { sites } = userData;
 

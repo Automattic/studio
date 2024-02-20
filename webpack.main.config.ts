@@ -1,6 +1,6 @@
+import { type Configuration, DefinePlugin } from 'webpack';
 import { plugins } from './webpack.plugins';
 import { rules } from './webpack.rules';
-import type { Configuration } from 'webpack';
 
 export const mainConfig: Configuration = {
 	/**
@@ -12,7 +12,14 @@ export const mainConfig: Configuration = {
 	module: {
 		rules,
 	},
-	plugins,
+	plugins: [
+		...plugins,
+		new DefinePlugin( {
+			COMMIT_HASH: JSON.stringify(
+				process.env.GITHUB_SHA ?? process.env.BUILDKITE_COMMIT ?? undefined
+			),
+		} ),
+	],
 	resolve: {
 		extensions: [ '.js', '.ts', '.jsx', '.tsx', '.css', '.json' ],
 	},

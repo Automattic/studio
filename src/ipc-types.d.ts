@@ -4,6 +4,9 @@
 declare const MAIN_WINDOW_WEBPACK_ENTRY: string;
 declare const MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: string;
 
+// Defined in webpack.main.config.ts
+declare const COMMIT_HASH: string | undefined;
+
 interface StoppedSiteDetails {
 	running: false;
 

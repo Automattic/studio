@@ -28,6 +28,7 @@ Sentry.init( {
 	dsn: 'https://97693275b2716fb95048c6d12f4318cf@o248881.ingest.sentry.io/4506612776501248',
 	debug: true,
 	enabled: process.env.NODE_ENV !== 'development',
+	release: COMMIT_HASH,
 } );
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -155,6 +156,7 @@ async function appBoot() {
 
 	app.on( 'ready', async () => {
 		console.log( `App version: ${ app.getVersion() }` );
+		console.log( `Built from commit: ${ COMMIT_HASH ?? 'undefined' }` );
 		console.log( `Local timezone: ${ Intl.DateTimeFormat().resolvedOptions().timeZone }` );
 		console.log( `App locale: ${ app.getLocale() }` );
 		console.log( `System locale: ${ app.getSystemLocale() }` );

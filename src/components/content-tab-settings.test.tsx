@@ -18,12 +18,14 @@ const selectedSite: SiteDetails = {
 describe( 'ContentTabSettings', () => {
 	const copyText = jest.fn();
 	const openLocalPath = jest.fn();
+	const generateProposedSitePath = jest.fn();
 	beforeEach( () => {
 		jest.clearAllMocks();
 		( useGetWpVersion as jest.Mock ).mockReturnValue( '7.7.7' );
 		( getIpcApi as jest.Mock ).mockReturnValue( {
 			copyText,
 			openLocalPath,
+			generateProposedSitePath,
 		} );
 	} );
 

@@ -11,7 +11,7 @@ import * as oauthClient from './lib/oauth';
 import { sortSites } from './lib/sort-sites';
 import { writeLogToFile, type LogLevel } from './logging';
 import { SiteServer, createSiteWorkingDirectory } from './site-server';
-import { getServerFilesPath } from './storage/paths';
+import { DEFAULT_SITE_PATH, getServerFilesPath } from './storage/paths';
 import { loadUserData, saveUserData } from './storage/user-data';
 
 const TEMP_DIR = nodePath.join( app.getPath( 'temp' ), 'com.wordpress.build' ) + nodePath.sep;
@@ -56,6 +56,17 @@ export async function createSite(
 	siteName?: string
 ): Promise< SiteDetails[] > {
 	const userData = await loadUserData();
+
+	// We only try to create the directory recursively if the user has
+	// not selected a path from the dialog (and thus they use the "default" path)
+	if ( ! ( await pathExists( path ) ) && path.startsWith( DEFAULT_SITE_PATH ) ) {
+		try {
+			fs.mkdirSync( path, { recursive: true } );
+		} catch ( err ) {
+			return userData.sites;
+		}
+	}
+
 	if ( ! ( await isEmptyDir( path ) ) && ! isWordPressDirectory( path ) ) {
 		userData.sites;
 	}
@@ -355,6 +366,10 @@ export async function getWpVersion( _event: IpcMainInvokeEvent, wordPressPath: s
 	);
 	const matches = versionFileContent.match( /\$wp_version = '([\d.]+)'/ );
 	return matches?.[ 1 ] || '-';
+}
+
+export async function generateProposedSitePath( _event: IpcMainInvokeEvent, siteName: string ) {
+	return nodePath.join( DEFAULT_SITE_PATH, siteName );
 }
 
 export async function openLocalPath( _event: IpcMainInvokeEvent, path: string ) {

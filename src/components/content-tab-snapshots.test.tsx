@@ -24,6 +24,7 @@ jest.mock( '../hooks/use-archive-site', () => ( {
 jest.mock( '../lib/get-ipc-api', () => ( {
 	getIpcApi: () => ( {
 		openURL: jest.fn(),
+		generateProposedSitePath: jest.fn(),
 	} ),
 } ) );
 

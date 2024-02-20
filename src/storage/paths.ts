@@ -10,3 +10,5 @@ export function getServerFilesPath(): string {
 	const appDataPath = app.getPath( 'appData' ); // Resolves to ~/Library/Application Support on macOS
 	return path.join( appDataPath, app.getName(), 'server-files' );
 }
+
+export const DEFAULT_SITE_PATH = path.join( app?.getPath( 'home' ) || '', 'Build' );

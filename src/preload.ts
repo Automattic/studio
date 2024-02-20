@@ -29,6 +29,8 @@ const api: IpcApi = {
 	getAppGlobals: () => ipcRenderer.invoke( 'getAppGlobals' ),
 	removeTemporalFile: ( path: string ) => ipcRenderer.invoke( 'removeTemporalFile', path ),
 	getWpVersion: ( wordPressPath: string ) => ipcRenderer.invoke( 'getWpVersion', wordPressPath ),
+	generateProposedSitePath: ( siteName: string ) =>
+		ipcRenderer.invoke( 'generateProposedSitePath', siteName ),
 	openLocalPath: ( path: string ) => ipcRenderer.invoke( 'openLocalPath', path ),
 
 	// Use .send instead of .invoke because logging is fire-and-forget

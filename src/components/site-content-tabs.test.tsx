@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react';
+import { act, render } from '@testing-library/react';
 import { useSiteDetails } from '../hooks/use-site-details';
 import { SiteContentTabs } from './site-content-tabs';
 
@@ -30,18 +30,18 @@ describe( 'SiteContentTabs', () => {
 	beforeEach( () => {
 		jest.clearAllMocks(); // Clear mock call history between tests
 	} );
-	it( 'should render tabs correctly if selected site exists', () => {
+	it( 'should render tabs correctly if selected site exists', async () => {
 		( useSiteDetails as jest.Mock ).mockReturnValue( { selectedSite, snapshots: [] } );
-		const { getByText, queryByText } = render( <SiteContentTabs /> );
+		const { getByText, queryByText } = await act( async () => render( <SiteContentTabs /> ) );
 		expect( getByText( 'Settings' ) ).not.toBeNull();
 		expect( getByText( 'Preview' ) ).not.toBeNull();
 		expect( queryByText( 'Launchpad' ) ).toBeNull();
 		expect( queryByText( 'Publish' ) ).toBeNull();
 		expect( queryByText( 'Export' ) ).toBeNull();
 	} );
-	it( 'should render a "No Site" screen if selected site is absent', () => {
+	it( 'should render a "No Site" screen if selected site is absent', async () => {
 		( useSiteDetails as jest.Mock ).mockReturnValue( { undefined, snapshots: [] } );
-		const { queryByText } = render( <SiteContentTabs /> );
+		const { queryByText } = await act( async () => render( <SiteContentTabs /> ) );
 		expect( queryByText( 'Settings' ) ).toBeNull();
 		expect( queryByText( 'Preview' ) ).toBeNull();
 		expect( queryByText( 'Launchpad' ) ).toBeNull();

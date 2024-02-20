@@ -7,11 +7,13 @@ import AddSite from './add-site';
 
 const mockShowOpenFolderDialog =
 	jest.fn< ( dialogTitle: string ) => Promise< FolderDialogResponse | null > >();
+const mockGenerateProposedSitePath = jest.fn< ( siteName: string ) => Promise< string > >();
 jest.mock( '../lib/get-ipc-api', () => ( {
 	__esModule: true,
 	default: jest.fn(),
 	getIpcApi: () => ( {
 		showOpenFolderDialog: mockShowOpenFolderDialog,
+		generateProposedSitePath: mockGenerateProposedSitePath,
 	} ),
 } ) );
 
@@ -23,13 +25,14 @@ jest.mock( '../hooks/use-site-details', () => ( {
 	} ),
 } ) );
 
-describe( 'CreateSiteButton', () => {
+describe( 'CreateSite', () => {
 	beforeEach( () => {
 		jest.clearAllMocks(); // Clear mock call history between tests
 	} );
 
 	it( 'calls createSite with selected path when add site button is clicked', async () => {
 		const user = userEvent.setup();
+		mockGenerateProposedSitePath.mockResolvedValue( '/default_path/My Site' );
 
 		mockShowOpenFolderDialog.mockResolvedValue( {
 			path: 'test',
@@ -47,31 +50,13 @@ describe( 'CreateSiteButton', () => {
 		await user.click( screen.getByTestId( 'site-action-button' ) );
 
 		await waitFor( () => {
-			expect( mockCreateSite ).toHaveBeenCalledWith( 'test', 'test' );
+			expect( mockCreateSite ).toHaveBeenCalledWith( 'test', 'My Site' );
 		} );
 	} );
 
-	it( 'cannot not call createSite if no path is selected', async () => {
+	it( 'should display an error informing the user if the selected site folder does not contain a WordPress site', async () => {
 		const user = userEvent.setup();
-
-		mockShowOpenFolderDialog.mockResolvedValue( null );
-		render( <AddSite /> );
-
-		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
-		expect( screen.getByRole( 'dialog' ) ).toBeVisible();
-		await user.click( screen.getByTestId( 'select-path-button' ) );
-
-		expect( mockShowOpenFolderDialog ).toHaveBeenCalledWith( 'Choose folder for site' );
-
-		await waitFor( () => {
-			expect( screen.getByTestId( 'site-action-button' ) ).toBeDisabled();
-			expect( mockCreateSite ).not.toHaveBeenCalled();
-		} );
-	} );
-
-	it( 'should display an error informing the user if the site does not contain a WordPress site', async () => {
-		const user = userEvent.setup();
-
+		mockGenerateProposedSitePath.mockResolvedValue( '/default_path/My Site' );
 		mockShowOpenFolderDialog.mockResolvedValue( {
 			path: 'test',
 			name: 'test',
@@ -94,6 +79,7 @@ describe( 'CreateSiteButton', () => {
 
 	it( 'should display a warning informing the user that the folder is not empty', async () => {
 		const user = userEvent.setup();
+		mockGenerateProposedSitePath.mockResolvedValue( '/default_path/My Site' );
 
 		mockShowOpenFolderDialog.mockResolvedValue( {
 			path: 'test',

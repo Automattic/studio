@@ -107,7 +107,11 @@ export const ModalContent = ( {
 		<div className="flex flex-col gap-6">
 			<label className="flex flex-col gap-1.5 leading-4">
 				<span className="font-semibold">{ __( 'Site name' ) }</span>
-				<TextControlComponent onChange={ setSiteName } value={ siteName }></TextControlComponent>
+				<TextControlComponent
+					autoFocus
+					onChange={ setSiteName }
+					value={ siteName }
+				></TextControlComponent>
 			</label>
 			<label className="flex flex-col gap-1.5 leading-4">
 				<span className="font-semibold">{ __( 'Local path' ) }</span>

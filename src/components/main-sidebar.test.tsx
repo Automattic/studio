@@ -1,11 +1,23 @@
-import { render, fireEvent, waitFor } from '@testing-library/react';
+import { render, fireEvent, act, waitFor } from '@testing-library/react';
 import { useAuth } from '../hooks/use-auth';
 import { getIpcApi } from '../lib/get-ipc-api';
 import MainSidebar from './main-sidebar';
 
 jest.mock( '../hooks/use-auth' );
 jest.mock( '../lib/app-globals' );
-jest.mock( '../lib/get-ipc-api' );
+
+const mockOpenURL = jest.fn();
+const mockGetAppGlobals = jest.fn();
+jest.mock( '../lib/get-ipc-api', () => ( {
+	__esModule: true,
+	default: jest.fn(),
+	getIpcApi: () => ( {
+		showOpenFolderDialog: jest.fn(),
+		generateProposedSitePath: jest.fn(),
+		getAppGlobals: mockGetAppGlobals,
+		openURL: mockOpenURL,
+	} ),
+} ) );
 
 const site2 = {
 	name: 'test-2',
@@ -43,45 +55,50 @@ jest.mock( '../hooks/use-site-details', () => ( {
 } ) );
 
 describe( 'MainSidebar Footer', () => {
-	it( 'Has add site button', () => {
+	beforeEach( () => {
+		jest.clearAllMocks();
+	} );
+	it( 'Has add site button', async () => {
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: false } );
-		const { getByRole } = render( <MainSidebar /> );
+		const { getByRole } = await act( async () => render( <MainSidebar /> ) );
 		expect( getByRole( 'button', { name: 'Add site' } ) ).toBeInTheDocument();
 	} );
 
-	it( 'Test unauthenticated footer has the Log in button', () => {
+	it( 'Test unauthenticated footer has the Log in button', async () => {
 		const authenticate = jest.fn();
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: false, authenticate } );
-		const { getByRole } = render( <MainSidebar /> );
+		const { getByRole } = await act( async () => render( <MainSidebar /> ) );
 		expect( getByRole( 'button', { name: 'Log in' } ) ).toBeInTheDocument();
 		fireEvent.click( getByRole( 'button', { name: 'Log in' } ) );
 		expect( authenticate ).toHaveBeenCalledTimes( 1 );
 	} );
 
-	it( 'Test authenticated footer does not have the log in button and it has the settings and account buttons', () => {
+	it( 'Test authenticated footer does not have the log in button and it has the settings and account buttons', async () => {
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
-		const { queryByText, getByLabelText } = render( <MainSidebar /> );
+		const { queryByText, getByLabelText } = await act( async () => render( <MainSidebar /> ) );
 		expect( queryByText( 'Log in' ) ).not.toBeInTheDocument();
 		const settingsButton = getByLabelText( 'Settings' );
 		expect( settingsButton ).toBeInTheDocument();
 		expect( getByLabelText( 'Account' ) ).toBeInTheDocument();
 	} );
 
-	it( 'applies className prop', () => {
-		const { container } = render( <MainSidebar className={ 'test-class' } /> );
+	it( 'applies className prop', async () => {
+		const { container } = await act( async () =>
+			render( <MainSidebar className={ 'test-class' } /> )
+		);
 		expect( container.firstChild ).toHaveClass( 'test-class' );
 	} );
 } );
 describe( 'MainSidebar Site Menu', () => {
-	it( 'It renders the list of sites', () => {
-		const { getByText } = render( <MainSidebar /> );
+	it( 'It renders the list of sites', async () => {
+		const { getByText } = await act( async () => render( <MainSidebar /> ) );
 		expect( getByText( 'test-1' ) ).toBeInTheDocument();
 		expect( getByText( 'test-2' ) ).toBeInTheDocument();
 		expect( getByText( 'test-3' ) ).toBeInTheDocument();
 	} );
 
-	it( 'the sites are not running', () => {
-		const { getByText } = render( <MainSidebar /> );
+	it( 'the sites are not running', async () => {
+		const { getByText } = await act( async () => render( <MainSidebar /> ) );
 		expect(
 			getByText( 'test-1' ).parentElement?.querySelector( '[aria-label*="start site"]' )
 		).toBeInTheDocument();
@@ -90,8 +107,8 @@ describe( 'MainSidebar Site Menu', () => {
 		).toBeInTheDocument();
 	} );
 
-	it( 'start a site', () => {
-		const { getByRole } = render( <MainSidebar /> );
+	it( 'start a site', async () => {
+		const { getByRole } = await act( async () => render( <MainSidebar /> ) );
 		const greenDotFirstSite = getByRole( 'button', { name: 'start site test-1' } );
 		expect( greenDotFirstSite ).toBeInTheDocument();
 		fireEvent.click( greenDotFirstSite );
@@ -100,8 +117,8 @@ describe( 'MainSidebar Site Menu', () => {
 		);
 	} );
 
-	it( 'stop a site', () => {
-		const { getByRole } = render( <MainSidebar /> );
+	it( 'stop a site', async () => {
+		const { getByRole } = await act( async () => render( <MainSidebar /> ) );
 		const greenDotFirstSite = getByRole( 'button', { name: 'stop site test-3' } );
 		expect( greenDotFirstSite ).toBeInTheDocument();
 		fireEvent.click( greenDotFirstSite );
@@ -111,13 +128,7 @@ describe( 'MainSidebar Site Menu', () => {
 	} );
 
 	it( 'opens the support URL with the correct locale', async () => {
-		const mockOpenURL = jest.fn();
-		( getIpcApi as jest.Mock ).mockReturnValue( {
-			getAppGlobals: jest.fn().mockReturnValue( {
-				locale: 'zh-cn',
-			} ),
-			openURL: mockOpenURL,
-		} );
+		mockGetAppGlobals.mockResolvedValue( { locale: 'zh-cn' } );
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
 
 		const { getByRole } = render( <MainSidebar /> );

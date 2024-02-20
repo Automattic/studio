@@ -38,6 +38,7 @@ const config: ForgeConfig = {
 		new MakerSquirrel(
 			{
 				loadingGif: './installers/loading.gif',
+				setupIcon: './assets/build-app-icon.ico',
 			},
 			[ 'win32' ]
 		),

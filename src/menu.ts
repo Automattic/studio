@@ -1,5 +1,6 @@
 import { Menu, type MenuItemConstructorOptions, app } from 'electron';
 import { __ } from '@wordpress/i18n';
+import { manualCheckForUpdates } from './updates';
 
 export function setupMenu() {
 	// We only show a menu on macOS.
@@ -37,7 +38,7 @@ export function setupMenu() {
 			role: 'appMenu',
 			submenu: [
 				{ role: 'about' },
-				{ label: __( 'Check for Updates' ), enabled: false },
+				{ label: __( 'Check for Updates' ), click: manualCheckForUpdates },
 				{ type: 'separator' },
 				{ label: __( 'Settings…' ), enabled: false, accelerator: 'Cmd+,' },
 				{ type: 'separator' },

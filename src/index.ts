@@ -22,6 +22,7 @@ import {
 	migrateFromWpNowFolder,
 	needsToMigrateFromWpNowFolder,
 } from './migrations/migrate-from-wp-now-folder';
+import { setupUpdates } from './updates';
 import { stopAllServersOnQuit } from './site-server'; // eslint-disable-line import/order
 
 Sentry.init( {
@@ -52,6 +53,8 @@ async function appBoot() {
 	app.setName( packageJson.productName );
 
 	setupLogging();
+
+	setupUpdates();
 
 	if ( process.defaultApp ) {
 		if ( process.argv.length >= 2 ) {

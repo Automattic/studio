@@ -8,7 +8,7 @@ export function setupUpdates() {
 		return;
 	}
 
-	const url = new URL( 'https://public-api.wordpress.com/wpcom/v2/studio-app-updates' );
+	const url = new URL( 'https://public-api.wordpress.com/wpcom/v2/studio-app/updates' );
 	url.searchParams.append( 'platform', process.platform );
 	url.searchParams.append( 'arch', process.arch );
 	url.searchParams.append( 'version', app.getVersion() );

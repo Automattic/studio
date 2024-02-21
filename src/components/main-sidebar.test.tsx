@@ -1,6 +1,5 @@
 import { render, fireEvent, act, waitFor } from '@testing-library/react';
 import { useAuth } from '../hooks/use-auth';
-import { getIpcApi } from '../lib/get-ipc-api';
 import MainSidebar from './main-sidebar';
 
 jest.mock( '../hooks/use-auth' );

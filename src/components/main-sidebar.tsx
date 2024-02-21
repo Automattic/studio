@@ -49,7 +49,7 @@ function SidebarAuthFooter() {
 
 	return (
 		<Button
-			className="flex items-center justify-between w-full text-white rounded px-0 py-1 h-auto active:!text-white hover:!text-white hover:underline"
+			className="flex items-center justify-between w-full text-white rounded !px-0 py-1 h-auto active:!text-white hover:!text-white hover:underline"
 			onClick={ authenticate }
 		>
 			<WordPressLogo />

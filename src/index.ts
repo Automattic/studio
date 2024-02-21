@@ -185,7 +185,7 @@ async function appBoot() {
 				"default-src 'self'", // Allow resources from these domains
 				"connect-src 'self' https://public-api.wordpress.com",
 				"script-src-attr 'none'",
-				"img-src 'self' *.gravatar.com",
+				"img-src 'self' https://*.gravatar.com",
 				"style-src 'self' 'unsafe-inline'", // unsafe-inline used by tailwindcss in development, and also in production after the app rename
 				process.env.NODE_ENV === 'development' && "script-src 'self' 'unsafe-eval'", // Webpack uses eval in development
 			];

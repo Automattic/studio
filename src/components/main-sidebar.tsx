@@ -24,7 +24,7 @@ function SidebarAuthFooter() {
 		return (
 			<div className="flex items-center justify-start w-full">
 				<Button
-					className="text-white h-6 !px-0 active:!text-white rounded hover:!text-white hover:bg-white hover:bg-opacity-10"
+					className="text-white h-6 w-6 !px-0 active:!text-white rounded hover:!text-white hover:bg-white hover:bg-opacity-10"
 					onClick={ logout }
 					aria-label={ __( 'Account' ) }
 				>

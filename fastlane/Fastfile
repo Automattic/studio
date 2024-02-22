@@ -58,7 +58,10 @@ end
 
 desc 'Ship the binary to internal testers'
 lane :distribute_binary do |_options|
-  commit_hash = last_git_commit[:commit_hash]
+  commit_metadata = last_git_commit
+  commit_hash = commit_metadata[:commit_hash]
+  commit_message = commit_metadata[:message]
+
   binary_path = File.join(PROJECT_ROOT_FOLDER, 'out', 'Build-darwin-universal', 'Build.app.zip')
   hashed_filename = "wp-build-darwin-universal-#{commit_hash}.app.zip"
 
@@ -86,15 +89,18 @@ lane :distribute_binary do |_options|
   FileUtils.cp(binary_path, File.join(PROJECT_ROOT_FOLDER, 'out', hashed_filename))
 
   download_url = "https://cdn.a8c-ci.services/wp-build/#{hashed_filename}"
+  commit_link = "<https://github.com/Automattic/local-environment/commit/#{commit_hash}|#{commit_hash[0...7]}>"
+  commit_message_short = commit_message[/.*/].gsub(/#(\d+)\b/, '<https://github.com/Automattic/local-environment/pull/\1|#\1>')
 
   slack(
     username: 'CI Bot',
     icon_url: 'https://octodex.github.com/images/jenktocat.jpg',
-    message: "macOS build for commit `#{commit_hash[0...7]}` is now [available here](#{download_url})",
-    channel: "#dotcom-hosting-local-playground",
+    message: ":apple_logo: macOS build for commit #{commit_link} is now [available here](#{download_url})",
+    channel: '#dotcom-hosting-local-playground',
     success: true,
     slack_url: get_required_env('SLACK_WEBHOOK'),
-    default_payloads: [:last_git_commit]
+    payload: { 'Commit Message': commit_message_short },
+    default_payloads: []
   )
 
   buildkite_annotate(

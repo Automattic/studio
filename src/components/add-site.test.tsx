@@ -7,7 +7,8 @@ import AddSite from './add-site';
 
 const mockShowOpenFolderDialog =
 	jest.fn< ( dialogTitle: string ) => Promise< FolderDialogResponse | null > >();
-const mockGenerateProposedSitePath = jest.fn< ( siteName: string ) => Promise< string > >();
+const mockGenerateProposedSitePath =
+	jest.fn< ( siteName: string ) => Promise< FolderDialogResponse > >();
 jest.mock( '../lib/get-ipc-api', () => ( {
 	__esModule: true,
 	default: jest.fn(),
@@ -32,7 +33,12 @@ describe( 'CreateSite', () => {
 
 	it( 'calls createSite with selected path when add site button is clicked', async () => {
 		const user = userEvent.setup();
-		mockGenerateProposedSitePath.mockResolvedValue( '/default_path/My Site' );
+		mockGenerateProposedSitePath.mockResolvedValue( {
+			path: '/default_path/My Site',
+			name: 'My Site',
+			isEmpty: true,
+			isWordPress: false,
+		} );
 
 		mockShowOpenFolderDialog.mockResolvedValue( {
 			path: 'test',
@@ -56,7 +62,12 @@ describe( 'CreateSite', () => {
 
 	it( 'should display an error informing the user if the selected site folder does not contain a WordPress site', async () => {
 		const user = userEvent.setup();
-		mockGenerateProposedSitePath.mockResolvedValue( '/default_path/My Site' );
+		mockGenerateProposedSitePath.mockResolvedValue( {
+			path: '/default_path/My Site',
+			name: 'My Site',
+			isEmpty: true,
+			isWordPress: false,
+		} );
 		mockShowOpenFolderDialog.mockResolvedValue( {
 			path: 'test',
 			name: 'test',
@@ -79,7 +90,12 @@ describe( 'CreateSite', () => {
 
 	it( 'should display a warning informing the user that the folder is not empty', async () => {
 		const user = userEvent.setup();
-		mockGenerateProposedSitePath.mockResolvedValue( '/default_path/My Site' );
+		mockGenerateProposedSitePath.mockResolvedValue( {
+			path: '/default_path/My Site',
+			name: 'My Site',
+			isEmpty: true,
+			isWordPress: false,
+		} );
 
 		mockShowOpenFolderDialog.mockResolvedValue( {
 			path: 'test',

@@ -1,5 +1,5 @@
 import { useI18n } from '@wordpress/react-i18n';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useIpcListener } from '../hooks/use-ipc-listener';
 import { useSiteDetails } from '../hooks/use-site-details';
 import { cx } from '../lib/cx';
@@ -7,135 +7,140 @@ import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
 import { ModalContent, SiteModal } from './site-modal';
 
-const DEFAULT_SITE_NAME = 'My Site';
-
 interface AddSiteProps {
 	className?: string;
 }
 export default function AddSite( { className }: AddSiteProps ) {
 	const { __ } = useI18n();
-	const { createSite, data } = useSiteDetails();
-	const [ addSiteError, setAddSiteError ] = useState( '' );
-	const [ needsToAddSite, setNeedsToAddSite ] = useState( false );
+	const { createSite, data: sites } = useSiteDetails();
+	const [ error, setError ] = useState( '' );
+	const [ showModal, setShowModal ] = useState( false );
 	const [ isAddingSite, setIsAddingSite ] = useState( false );
 	const [ siteName, setSiteName ] = useState< string | null >( null );
 	const [ sitePath, setSitePath ] = useState( '' );
 	const [ proposedSitePath, setProposedSitePath ] = useState( '' );
 	const [ doesPathContainWordPress, setDoesPathContainWordPress ] = useState( false );
 
-	const setErrorIfPathExistsForSite = useCallback(
+	const defaultSiteName = __( 'My Site' );
+
+	const openModal = useCallback( async () => {
+		const { path, name, isWordPress } =
+			await getIpcApi().generateProposedSitePath( defaultSiteName );
+		setSiteName( name );
+		setProposedSitePath( path );
+		setSitePath( '' );
+		setError( '' );
+		setDoesPathContainWordPress( isWordPress );
+
+		setShowModal( true );
+	}, [ defaultSiteName ] );
+
+	const closeModal = useCallback( () => {
+		setShowModal( false );
+	}, [] );
+
+	const siteWithPathAlreadyExists = useCallback(
 		( path: string ) => {
-			const allPaths = data.map( ( site ) => site.path );
-			if ( allPaths.includes( path ) ) {
-				setAddSiteError( __( 'Another site already exists at this path.' ) );
-				return true;
-			}
-			return false;
+			return sites.some( ( site ) => site.path === path );
 		},
-		[ __, data ]
+		[ sites ]
 	);
 
-	useEffect( () => {
-		if ( siteName !== null ) {
-			return;
-		}
-		const setDefaultSiteValues = async () => {
-			const path = await getIpcApi().generateProposedSitePath( DEFAULT_SITE_NAME );
-			setSiteName( DEFAULT_SITE_NAME );
-			setProposedSitePath( path );
-			setErrorIfPathExistsForSite( path );
-		};
-		setDefaultSiteValues();
-	}, [ data, setErrorIfPathExistsForSite, siteName, sitePath, proposedSitePath ] );
-
-	const onSelectPath = useCallback( async () => {
+	const handlePathSelectorClick = useCallback( async () => {
 		const response = await getIpcApi().showOpenFolderDialog( __( 'Choose folder for site' ) );
 		if ( response?.path ) {
-			const { path, name, isEmpty: isEmptyPath, isWordPress } = response;
+			const { path, name, isEmpty, isWordPress } = response;
 			setDoesPathContainWordPress( false );
-			setAddSiteError( '' );
+			setError( '' );
 			setSitePath( path );
-			const isPathExists = setErrorIfPathExistsForSite( path );
-			if ( isPathExists ) {
+			if ( siteWithPathAlreadyExists( path ) ) {
 				return;
 			}
-			if ( ! isEmptyPath && ! isWordPress ) {
-				setAddSiteError( __( 'This path does not contain a WordPress site.' ) );
+			if ( ! isEmpty && ! isWordPress ) {
+				setError( __( 'This path does not contain a WordPress site.' ) );
 				return;
 			}
-			setDoesPathContainWordPress( ! isEmptyPath && isWordPress );
+			setDoesPathContainWordPress( ! isEmpty && isWordPress );
 			if ( ! siteName ) {
 				setSiteName( name ?? null );
 			}
 		}
-	}, [ __, setErrorIfPathExistsForSite, siteName ] );
+	}, [ __, siteWithPathAlreadyExists, siteName ] );
 
-	useIpcListener( 'add-site', () => {
-		setNeedsToAddSite( true );
-	} );
-
-	className = cx(
-		'!ring-1 !ring-inset ring-white text-white hover:bg-gray-100 hover:text-black',
-		className
-	);
-
-	const resetLocalState = useCallback( () => {
-		setNeedsToAddSite( false );
-		setSiteName( null );
-		setSitePath( '' );
-		setAddSiteError( '' );
-		setProposedSitePath( '' );
-		setDoesPathContainWordPress( false );
-	}, [] );
-
-	const onSiteAdd = useCallback( async () => {
+	const handleAddSiteClick = useCallback( async () => {
 		setIsAddingSite( true );
 		try {
 			const path = sitePath ? sitePath : proposedSitePath;
 			await createSite( path, siteName ?? '' );
-			setNeedsToAddSite( false );
-			resetLocalState();
+			setShowModal( false );
 		} catch ( e ) {
-			setAddSiteError( ( e as Error )?.message );
+			setError( ( e as Error )?.message );
 		}
 		setIsAddingSite( false );
-	}, [ createSite, proposedSitePath, resetLocalState, siteName, sitePath ] );
+	}, [ createSite, proposedSitePath, siteName, sitePath ] );
 
-	const onSetSiteName = useCallback(
+	const handleSiteNameChange = useCallback(
 		async ( name: string ) => {
-			setAddSiteError( '' );
 			setSiteName( name );
 			if ( sitePath ) {
 				return;
 			}
-			const defaultSitePath = await getIpcApi().generateProposedSitePath( name );
-			setErrorIfPathExistsForSite( defaultSitePath );
-			setProposedSitePath( defaultSitePath );
+			setError( '' );
+			const {
+				path: proposedPath,
+				isEmpty,
+				isWordPress,
+			} = await getIpcApi().generateProposedSitePath( name );
+			setProposedSitePath( proposedPath );
+
+			if ( siteWithPathAlreadyExists( proposedPath ) ) {
+				return;
+			}
+			if ( ! isEmpty && ! isWordPress ) {
+				setError( __( 'This path does not contain a WordPress site.' ) );
+				return;
+			}
+			setDoesPathContainWordPress( ! isEmpty && isWordPress );
 		},
-		[ setErrorIfPathExistsForSite, sitePath ]
+		[ __, sitePath, siteWithPathAlreadyExists ]
 	);
+
+	useIpcListener( 'add-site', () => {
+		openModal();
+	} );
+
+	const buttonClassName = cx(
+		'!ring-1 !ring-inset ring-white text-white hover:bg-gray-100 hover:text-black',
+		className
+	);
+
+	const displayedPath = sitePath ? sitePath : proposedSitePath;
+
+	const displayedError = siteWithPathAlreadyExists( displayedPath )
+		? __( 'Another site already exists at this path.' )
+		: error;
 
 	return (
 		<>
 			<SiteModal
-				isOpen={ needsToAddSite }
-				onRequestClose={ resetLocalState }
+				isOpen={ showModal }
+				onRequestClose={ closeModal }
 				title={ __( 'Add a Site' ) }
 				primaryButtonLabel={ __( 'Add Site' ) }
-				onPrimaryAction={ onSiteAdd }
-				isPrimaryButtonDisabled={ addSiteError !== '' || ! siteName }
+				onPrimaryAction={ handleAddSiteClick }
+				isPrimaryButtonDisabled={ !! displayedError || ! siteName }
 				isCancelDisabled={ isAddingSite }
 			>
 				<ModalContent
 					siteName={ siteName || '' }
-					setSiteName={ onSetSiteName }
-					sitePath={ sitePath ? sitePath : proposedSitePath }
-					onSelectPath={ onSelectPath }
-					error={ addSiteError }
+					setSiteName={ handleSiteNameChange }
+					sitePath={ displayedPath }
+					onSelectPath={ handlePathSelectorClick }
+					error={ displayedError }
 					doesPathContainWordPress={ doesPathContainWordPress }
 				/>
 			</SiteModal>
-			<Button className={ className } onClick={ () => setNeedsToAddSite( true ) }>
+			<Button className={ buttonClassName } onClick={ openModal }>
 				{ __( 'Add site' ) }
 			</Button>
 		</>

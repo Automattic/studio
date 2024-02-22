@@ -7,6 +7,7 @@ import * as Sentry from '@sentry/electron/main';
 import archiver from 'archiver';
 import { getWpNowConfig } from '../vendor/wp-now/src';
 import { isEmptyDir, pathExists, isWordPressDirectory } from './lib/fs-utils';
+import { isErrnoException } from './lib/is-errno-exception';
 import { getLocaleData, getSupportedLocale } from './lib/locale';
 import * as oauthClient from './lib/oauth';
 import { sanitizeForLogging } from './lib/sanitize-for-logging';
@@ -368,8 +369,30 @@ export async function getWpVersion( _event: IpcMainInvokeEvent, wordPressPath: s
 	return matches?.[ 1 ] || '-';
 }
 
-export async function generateProposedSitePath( _event: IpcMainInvokeEvent, siteName: string ) {
-	return nodePath.join( DEFAULT_SITE_PATH, siteName );
+export async function generateProposedSitePath(
+	_event: IpcMainInvokeEvent,
+	siteName: string
+): Promise< FolderDialogResponse > {
+	const path = nodePath.join( DEFAULT_SITE_PATH, siteName );
+
+	try {
+		return {
+			path,
+			name: nodePath.basename( path ),
+			isEmpty: await isEmptyDir( path ),
+			isWordPress: isWordPressDirectory( path ),
+		};
+	} catch ( err ) {
+		if ( isErrnoException( err ) && err.code === 'ENOENT' ) {
+			return {
+				path,
+				name: nodePath.basename( path ),
+				isEmpty: true,
+				isWordPress: false,
+			};
+		}
+		throw err;
+	}
 }
 
 export async function openLocalPath( _event: IpcMainInvokeEvent, path: string ) {

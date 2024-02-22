@@ -145,7 +145,7 @@ export const SiteModal = ( {
 	return (
 		<Modal
 			className={ cx( 'w-[460px]', className ) }
-			title={ __( title ) }
+			title={ title }
 			isDismissible
 			onRequestClose={ onRequestClose }
 		>
@@ -161,7 +161,7 @@ export const SiteModal = ( {
 					onClick={ onPrimaryAction }
 					disabled={ isPrimaryButtonDisabled }
 				>
-					{ __( primaryButtonLabel ) }
+					{ primaryButtonLabel }
 				</Button>
 			</div>
 		</Modal>

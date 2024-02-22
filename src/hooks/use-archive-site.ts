@@ -17,6 +17,11 @@ export function useArchiveSite() {
 	const { snapshots, addSnapshot, updateSnapshot } = useSiteDetails();
 
 	useEffect( () => {
+		if ( ! client ) {
+			// Can't poll for snapshots if logged out
+			return;
+		}
+
 		const loadingSnapshots = snapshots.filter( ( snapshot ) => snapshot.isLoading );
 		if ( loadingSnapshots.length === 0 ) {
 			return;
@@ -48,6 +53,11 @@ export function useArchiveSite() {
 
 	const archiveSite = useCallback(
 		async ( siteId: string ) => {
+			if ( ! client ) {
+				// No-op if logged out
+				return;
+			}
+
 			setUploadingSites( ( _uploadingSites ) => ( { ..._uploadingSites, [ siteId ]: true } ) );
 			const { zipContent, zipPath } = await getIpcApi().archiveSite( siteId );
 			const file = new File( [ zipContent ], 'loca-env-site-1.zip', {

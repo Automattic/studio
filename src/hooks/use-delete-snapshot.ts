@@ -13,6 +13,11 @@ export function useDeleteSnapshot( options: { displayAlert?: boolean } = {} ) {
 
 	const deleteSnapshot = useCallback(
 		async ( snapshot: Pick< Snapshot, 'atomicSiteId' > ) => {
+			if ( ! client ) {
+				// No-op if logged out
+				return;
+			}
+
 			setIsLoading( true );
 			try {
 				const response: { message: string } = await client.req.post( {

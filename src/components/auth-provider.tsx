@@ -1,9 +1,11 @@
+import * as Sentry from '@sentry/electron/renderer';
 import { createContext, useState, useEffect, useMemo, useCallback, ReactNode } from 'react';
 import WPCOM from 'wpcom';
+import { getAppGlobals } from '../lib/app-globals';
 import { getIpcApi } from '../lib/get-ipc-api';
 
 export interface AuthContextType {
-	client: typeof WPCOM | undefined;
+	client: WPCOM | undefined;
 	isAuthenticated: boolean;
 	authenticate: () => Promise< void >; // Adjust based on the actual implementation
 	logout: () => Promise< void >; // Adjust based on the actual implementation
@@ -23,7 +25,7 @@ export const AuthContext = createContext< AuthContextType >( {
 
 const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 	const [ isAuthenticated, setIsAuthenticated ] = useState( false );
-	const [ client, setClient ] = useState< typeof WPCOM | undefined >( undefined );
+	const [ client, setClient ] = useState< WPCOM | undefined >( undefined );
 	const [ user, setUser ] = useState< AuthContextType[ 'user' ] >( undefined );
 
 	const authenticate = useCallback( async () => {
@@ -33,12 +35,13 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 				return;
 			}
 			setIsAuthenticated( true );
-			setClient( new WPCOM( token.accessToken ) );
+			setClient( createWpcomClient( token.accessToken ) );
 			if ( token.email ) {
 				setUser( { email: token.email } );
 			}
 		} catch ( err ) {
-			console.log( err );
+			console.error( err );
+			Sentry.captureException( err );
 		}
 	}, [] );
 
@@ -49,7 +52,8 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 			setClient( undefined );
 			setUser( undefined );
 		} catch ( err ) {
-			console.log( err );
+			console.error( err );
+			Sentry.captureException( err );
 		}
 	}, [] );
 
@@ -63,13 +67,14 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 					if ( ! token ) {
 						return;
 					}
-					setClient( new WPCOM( token.accessToken ) );
+					setClient( createWpcomClient( token.accessToken ) );
 					if ( token.email ) {
 						setUser( { email: token.email } );
 					}
 				}
 			} catch ( err ) {
-				console.log( err );
+				console.error( err );
+				Sentry.captureException( err );
 			}
 		}
 		run();
@@ -89,5 +94,33 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 
 	return <AuthContext.Provider value={ contextValue }>{ children }</AuthContext.Provider>;
 };
+
+function createWpcomClient( token?: string ): WPCOM {
+	const locale = getAppGlobals().locale;
+	const wpcom = new WPCOM( token );
+
+	if ( ! locale || locale === 'en' ) {
+		return wpcom;
+	}
+
+	const originalRequestHandler = wpcom.request.bind( wpcom );
+
+	return Object.assign( wpcom, {
+		request: function ( params: object, callback: unknown ) {
+			const queryParams = new URLSearchParams(
+				'query' in params && typeof params.query === 'string' ? params.query : ''
+			);
+			const localeParamName =
+				'apiNamespace' in params && typeof params.apiNamespace === 'string' ? '_locale' : 'locale';
+			queryParams.set( localeParamName, locale );
+
+			Object.assign( params, {
+				query: queryParams.toString(),
+			} );
+
+			return originalRequestHandler( params, callback );
+		},
+	} );
+}
 
 export default AuthProvider;

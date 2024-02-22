@@ -59,7 +59,7 @@ export class SiteServer {
 		servers.delete( this.details.id );
 	}
 
-	async start( reset = false ) {
+	async start() {
 		if ( this.details.running || this.server ) {
 			return;
 		}
@@ -71,7 +71,6 @@ export class SiteServer {
 		} );
 		const absoluteUrl = `http://localhost:${ port }`;
 		options.absoluteUrl = absoluteUrl;
-		options.reset = reset;
 
 		console.log( 'Starting server with options', options );
 		this.server = await startServer( options );

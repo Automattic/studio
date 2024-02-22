@@ -3,6 +3,7 @@ import { BrowserWindow, app, clipboard } from 'electron';
 import { type IpcMainInvokeEvent, dialog, shell } from 'electron';
 import fs from 'fs';
 import nodePath from 'path';
+import * as Sentry from '@sentry/electron/main';
 import archiver from 'archiver';
 import { getWpNowConfig } from '../vendor/wp-now/src';
 import { isEmptyDir, pathExists, isWordPressDirectory } from './lib/fs-utils';
@@ -104,7 +105,7 @@ export async function createSite(
 		}
 	}
 
-	await server.start( true );
+	await server.start();
 
 	userData.sites.push( server.details );
 	sortSites( userData.sites );
@@ -273,15 +274,13 @@ export async function deleteSite( event: IpcMainInvokeEvent, id: string, deleteF
 	const userData = await loadUserData();
 	await server.delete();
 	try {
-		// Equivalent to `rm -rf server.details.path`
+		// Move files to trash
 		if ( deleteFiles ) {
-			fs.rmSync( server.details.path, {
-				recursive: true,
-				force: true,
-			} );
+			await shell.trashItem( server.details.path );
 		}
 	} catch ( error ) {
 		/* We want to exit gracefully if the there is an error deleting the site files */
+		Sentry.captureException( error );
 	}
 	const newSites = userData.sites.filter( ( site ) => site.id !== id );
 	const newUserData = { ...userData, sites: newSites };

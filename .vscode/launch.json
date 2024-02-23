@@ -10,6 +10,15 @@
 			},
 			"cwd": "${workspaceFolder}",
 			"console": "integratedTerminal"
+		},
+		{
+			"type": "node",
+			"request": "launch",
+			"name": "Jest All",
+			"program": "${workspaceFolder}/node_modules/.bin/jest",
+			"args": [ "--runInBand" ],
+			"console": "integratedTerminal",
+			"internalConsoleOptions": "neverOpen"
 		}
 	]
 }

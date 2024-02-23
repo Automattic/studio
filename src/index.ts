@@ -73,12 +73,7 @@ async function appBoot() {
 	app.on( 'web-contents-created', ( _event, contents ) => {
 		contents.on( 'will-navigate', ( event, navigationUrl ) => {
 			const { origin } = new URL( navigationUrl );
-			const allowedOrigins = [
-				new URL( MAIN_WINDOW_WEBPACK_ENTRY ).origin,
-				`${ PROTOCOL_PREFIX }://auth`,
-				'https://wordpress.com',
-				'https://public-api.wordpress.com',
-			];
+			const allowedOrigins = [ new URL( MAIN_WINDOW_WEBPACK_ENTRY ).origin ];
 			if ( ! allowedOrigins.includes( origin ) ) {
 				event.preventDefault();
 			}

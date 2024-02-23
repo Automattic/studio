@@ -1,5 +1,5 @@
 import { __ } from '@wordpress/i18n';
-import { Icon, settings, help } from '@wordpress/icons';
+import { Icon, help, settings } from '@wordpress/icons';
 import { useAuth } from '../hooks/use-auth';
 import { isMac } from '../lib/app-globals';
 import { cx } from '../lib/cx';
@@ -8,6 +8,7 @@ import AddSite from './add-site';
 import Button from './button';
 import { Gravatar } from './gravatar';
 import SiteMenu from './site-menu';
+import UserSettings from './user-settings';
 import { WordPressLogo } from './wordpress-logo';
 
 interface MainSidebarProps {
@@ -15,7 +16,7 @@ interface MainSidebarProps {
 }
 
 function SidebarAuthFooter() {
-	const { isAuthenticated, authenticate, logout } = useAuth();
+	const { isAuthenticated, authenticate } = useAuth();
 	const openLocalizedSupport = async () => {
 		const { locale } = await getIpcApi().getAppGlobals();
 		await getIpcApi().openURL( `https://wordpress.com/${ locale }/support` );
@@ -25,7 +26,7 @@ function SidebarAuthFooter() {
 			<div className="flex items-center justify-start w-full">
 				<Button
 					className="text-white h-6 w-6 !px-0 active:!text-white rounded hover:!text-white hover:bg-white hover:bg-opacity-10"
-					onClick={ logout }
+					onClick={ () => getIpcApi().showUserSettings() }
 					aria-label={ __( 'Account' ) }
 				>
 					<Gravatar />
@@ -38,7 +39,8 @@ function SidebarAuthFooter() {
 					<Icon icon={ help } />
 				</Button>
 				<Button
-					className="text-white ml-auto h-6 !px-0 active:!text-white rounded hover:!text-white hover:bg-white hover:bg-opacity-10"
+					onClick={ () => getIpcApi().showUserSettings() }
+					className="ml-auto text-white h-6 !px-0 active:!text-white rounded hover:!text-white hover:bg-white hover:bg-opacity-10"
 					aria-label={ __( 'Settings' ) }
 				>
 					<Icon icon={ settings } />
@@ -75,6 +77,7 @@ export default function MainSidebar( { className }: MainSidebarProps ) {
 					<div className={ cx( isMac() ? 'mx-5' : 'mx-4' ) }>
 						<AddSite className="w-full mb-3" />
 						<SidebarAuthFooter />
+						<UserSettings />
 					</div>
 				</div>
 			</div>

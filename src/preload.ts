@@ -23,6 +23,7 @@ const api: IpcApi = {
 		ipcRenderer.invoke( 'openSiteURL', id, relativeURL ),
 	openURL: ( url: string ) => ipcRenderer.invoke( 'openURL', url ),
 	showOpenFolderDialog: ( title: string ) => ipcRenderer.invoke( 'showOpenFolderDialog', title ),
+	showUserSettings: () => ipcRenderer.invoke( 'showUserSettings' ),
 	startServer: ( id: string ) => ipcRenderer.invoke( 'startServer', id ),
 	stopServer: ( id: string ) => ipcRenderer.invoke( 'stopServer', id ),
 	copyText: ( text: string ) => ipcRenderer.invoke( 'copyText', text ),
@@ -40,7 +41,7 @@ const api: IpcApi = {
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );
 
-const allowedChannels = [ 'test-render-failure', 'add-site' ] as const;
+const allowedChannels = [ 'test-render-failure', 'add-site', 'user-settings' ] as const;
 
 contextBridge.exposeInMainWorld( 'ipcListener', {
 	subscribe: (

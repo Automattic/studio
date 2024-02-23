@@ -9,7 +9,7 @@ export interface AuthContextType {
 	isAuthenticated: boolean;
 	authenticate: () => Promise< void >; // Adjust based on the actual implementation
 	logout: () => Promise< void >; // Adjust based on the actual implementation
-	user?: { email: string };
+	user?: { email: string; displayName: string };
 }
 
 interface AuthProviderProps {
@@ -41,8 +41,8 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 			}
 			setIsAuthenticated( true );
 			setClient( createWpcomClient( token.accessToken ) );
-			if ( token.email ) {
-				setUser( { email: token.email } );
+			if ( token.email && token.displayName ) {
+				setUser( { email: token.email, displayName: token.displayName } );
 			}
 		} catch ( err ) {
 			console.error( err );
@@ -73,8 +73,11 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 						return;
 					}
 					setClient( createWpcomClient( token.accessToken ) );
-					if ( token.email ) {
-						setUser( { email: token.email } );
+					if ( token.email && token.displayName ) {
+						setUser( {
+							email: token.email,
+							displayName: token.displayName,
+						} );
 					}
 				}
 			} catch ( err ) {

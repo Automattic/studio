@@ -13,6 +13,7 @@ export interface SnapshotStatusResponse {
 export function useDeleteSnapshot( options: { displayAlert?: boolean } = {} ) {
 	const { displayAlert = true } = options;
 	const [ isLoading, setIsLoading ] = useState( false );
+	const [ loadingDeletingAllSnapshots, setLoadingDeletingAllSnapshots ] = useState( false );
 	const { client } = useAuth();
 	const { removeSnapshot, snapshots, updateSnapshot } = useSiteDetails();
 	const { __ } = useI18n();
@@ -22,6 +23,7 @@ export function useDeleteSnapshot( options: { displayAlert?: boolean } = {} ) {
 		}
 		const deletingSnapshots = snapshots.filter( ( snapshot ) => snapshot.isDeleting );
 		if ( deletingSnapshots.length === 0 ) {
+			setLoadingDeletingAllSnapshots( false );
 			return;
 		}
 		const intervalId = setInterval( async () => {
@@ -67,14 +69,22 @@ export function useDeleteSnapshot( options: { displayAlert?: boolean } = {} ) {
 					return;
 				}
 				if ( displayAlert ) {
-					alert( __( 'Error removing preview link.' ) );
+					alert( __( 'Error removing preview link. Please try again or contact support.' ) );
 				}
 				Sentry.captureException( error );
 			} finally {
 				setIsLoading( false );
 			}
 		},
-		[ client?.req, updateSnapshot, displayAlert, removeSnapshot, __ ]
+		[ client, updateSnapshot, displayAlert, removeSnapshot, __ ]
 	);
-	return { deleteSnapshot, isLoading };
+
+	const deleteAllSnapshots = useCallback(
+		async ( snapshots: Pick< Snapshot, 'atomicSiteId' >[] ) => {
+			setLoadingDeletingAllSnapshots( true );
+			await Promise.allSettled( snapshots.map( deleteSnapshot ) );
+		},
+		[ deleteSnapshot ]
+	);
+	return { deleteSnapshot, deleteAllSnapshots, isLoading, loadingDeletingAllSnapshots };
 }

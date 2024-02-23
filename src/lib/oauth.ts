@@ -8,6 +8,7 @@ export interface StoredToken {
 	expiresIn?: number;
 	expirationTime?: number;
 	email?: string;
+	displayName?: string;
 }
 
 export const PROTOCOL_PREFIX = 'wpcom-local-dev';
@@ -81,9 +82,9 @@ export async function handleAuthCallback( hash: string ): Promise< Error | Store
 	if ( isNaN( expiresIn ) || expiresIn === 0 || ! accessToken ) {
 		return new Error( 'Error while getting token' );
 	}
-	let response: { email?: string } = {};
+	let response: { email?: string; display_name?: string } = {};
 	try {
-		response = await new wpcom( accessToken ).req.get( '/me?fields=email' );
+		response = await new wpcom( accessToken ).req.get( '/me?fields=email,display_name' );
 	} catch ( error ) {
 		Sentry.captureException( error );
 	}
@@ -92,6 +93,7 @@ export async function handleAuthCallback( hash: string ): Promise< Error | Store
 		expirationTime: new Date().getTime() + expiresIn * 1000,
 		accessToken,
 		email: response.email,
+		displayName: response.display_name,
 	};
 }
 

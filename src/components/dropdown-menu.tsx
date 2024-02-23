@@ -2,7 +2,10 @@ import { DropdownMenu as GBDropdownMenu, withFocusOutside } from '@wordpress/com
 import { moreVertical } from '@wordpress/icons';
 import { Component, ComponentProps } from 'react';
 
-type DropdownMenuProps = ComponentProps< typeof GBDropdownMenu >;
+type DropdownMenuProps = ComponentProps< typeof GBDropdownMenu > & {
+	isDisabled: boolean;
+};
+
 interface DropdownMenuState {
 	isDropdownOpen: boolean;
 }
@@ -18,6 +21,10 @@ export const DropdownMenu = withFocusOutside(
 		};
 
 		toggleDropdown = () => {
+			if ( this.props.isDisabled ) {
+				this.closeDropdown();
+				return;
+			}
 			this.setState( ( prevState ) => ( { isDropdownOpen: ! prevState.isDropdownOpen } ) );
 		};
 

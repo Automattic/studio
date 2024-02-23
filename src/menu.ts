@@ -40,7 +40,13 @@ export function setupMenu() {
 				{ role: 'about' },
 				{ label: __( 'Check for Updates' ), click: manualCheckForUpdates },
 				{ type: 'separator' },
-				{ label: __( 'Settings…' ), enabled: false, accelerator: 'Cmd+,' },
+				{
+					label: __( 'Settings…' ),
+					accelerator: 'CommandOrControl+,',
+					click: ( _menuItem, browserWindow ) => {
+						browserWindow?.webContents.send( 'user-settings' );
+					},
+				},
 				{ type: 'separator' },
 				{ role: 'services' },
 				{ type: 'separator' },

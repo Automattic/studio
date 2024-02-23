@@ -195,6 +195,13 @@ export async function showOpenFolderDialog(
 		isWordPress: isWordPressDirectory( filePaths[ 0 ] ),
 	};
 }
+export async function showUserSettings( event: IpcMainInvokeEvent ): Promise< void > {
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+	if ( ! parentWindow ) {
+		throw new Error( `No window found for sender of showUserSettings message: ${ event.frameId }` );
+	}
+	parentWindow.webContents.send( 'user-settings' );
+}
 
 function zipWordPressDirectory( {
 	source,

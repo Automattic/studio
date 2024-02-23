@@ -31,6 +31,7 @@ interface Snapshot {
 	localSiteId: string;
 	date: number;
 	isLoading?: boolean;
+	isDeleting?: boolean;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

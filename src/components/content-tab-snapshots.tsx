@@ -34,12 +34,16 @@ function SnapshotRowLoading( { children }: PropsWithChildren ) {
 }
 
 function SnapshotRow( { snapshot }: { snapshot: Snapshot } ) {
-	const { url, date, isLoading } = snapshot;
+	const { url, date, isLoading, isDeleting } = snapshot;
+
 	const { countDown, isExpired } = useExpirationDate( date );
 	const { deleteSnapshot } = useDeleteSnapshot();
 
 	if ( isLoading ) {
 		return <SnapshotRowLoading>{ __( 'Generating link…' ) }</SnapshotRowLoading>;
+	}
+	if ( isDeleting ) {
+		return <SnapshotRowLoading>{ __( 'Deleting link…' ) }</SnapshotRowLoading>;
 	}
 	const urlWithHTTPS = `https://${ url }`;
 	return (

@@ -2,6 +2,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useState } from 'react';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { useAuth } from './use-auth';
+import { SnapshotStatusResponse } from './use-delete-snapshot';
 import { useSiteDetails } from './use-site-details';
 
 export function useArchiveSite() {
@@ -29,11 +30,7 @@ export function useArchiveSite() {
 		const intervalId = setInterval( async () => {
 			for ( const snapshot of loadingSnapshots ) {
 				if ( snapshot.isLoading ) {
-					const response: {
-						domain_name: string;
-						atomic_site_id: number;
-						status: '1' | '2';
-					} = await client.req.get( '/jurassic-ninja/status', {
+					const response: SnapshotStatusResponse = await client.req.get( '/jurassic-ninja/status', {
 						apiNamespace: 'wpcom/v2',
 						site_id: snapshot.atomicSiteId,
 					} );

@@ -1,6 +1,9 @@
+import * as Sentry from '@sentry/electron/renderer';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useState } from 'react';
 import { getIpcApi } from '../lib/get-ipc-api';
+import { isWpcomNetworkError } from '../lib/is-wpcom-network-error';
+import { useArchiveErrorMessages } from './use-archive-error-messages';
 import { useAuth } from './use-auth';
 import { SnapshotStatusResponse } from './use-delete-snapshot';
 import { useSiteDetails } from './use-site-details';
@@ -48,6 +51,7 @@ export function useArchiveSite() {
 		};
 	}, [ client, snapshots, updateSnapshot ] );
 
+	const errorMessages = useArchiveErrorMessages();
 	const archiveSite = useCallback(
 		async ( siteId: string ) => {
 			if ( ! client ) {
@@ -82,14 +86,25 @@ export function useArchiveSite() {
 					isLoading: true,
 				} );
 			} catch ( error ) {
-				alert( __( 'Error sharing site' ) );
-				throw error;
+				if ( isWpcomNetworkError( error ) ) {
+					if ( error.code in errorMessages ) {
+						alert( errorMessages[ error.code as keyof typeof errorMessages ] );
+					} else {
+						alert( __( 'Error sharing site. Please try again.' ) );
+					}
+					if ( error.code !== 'rest_site_limit_reached' ) {
+						Sentry.captureException( error );
+					}
+				} else {
+					alert( __( 'Error sharing site. Please contact support.' ) );
+					Sentry.captureException( error );
+				}
 			} finally {
 				setUploadingSites( ( _uploadingSites ) => ( { ..._uploadingSites, [ siteId ]: false } ) );
 				getIpcApi().removeTemporalFile( zipPath );
 			}
 		},
-		[ __, addSnapshot, client ]
+		[ __, addSnapshot, client, errorMessages ]
 	);
 	return { archiveSite, isUploadingSiteId };
 }

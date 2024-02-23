@@ -4,7 +4,6 @@ import {
 	ipcMain,
 	session,
 	type IpcMainInvokeEvent,
-	protocol,
 	globalShortcut,
 } from 'electron';
 import path from 'path';
@@ -130,20 +129,9 @@ async function appBoot() {
 		}
 	}
 
-	protocol.registerSchemesAsPrivileged( [
-		{
-			scheme: PROTOCOL_PREFIX,
-			privileges: {
-				standard: true,
-				secure: true,
-				supportFetchAPI: true,
-			},
-		},
-	] );
-
 	function setupCustomProtocolHandler() {
-		protocol.handle( PROTOCOL_PREFIX, ( request ): Response => {
-			const { host, hash } = new URL( request.url );
+		app.on( 'open-url', ( event, url ) => {
+			const { host, hash } = new URL( url );
 			if ( host === 'auth' ) {
 				handleAuthCallback( hash ).then( ( authResult ) => {
 					if ( authResult instanceof Error ) {
@@ -153,7 +141,6 @@ async function appBoot() {
 					}
 				} );
 			}
-			return new Response();
 		} );
 	}
 

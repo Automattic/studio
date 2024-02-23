@@ -16,6 +16,11 @@ interface AuthProviderProps {
 	children: ReactNode;
 }
 
+interface WpcomParams extends Record< string, unknown > {
+	query?: string;
+	apiNamespace?: string;
+}
+
 export const AuthContext = createContext< AuthContextType >( {
 	client: undefined,
 	isAuthenticated: false,
@@ -106,7 +111,7 @@ function createWpcomClient( token?: string ): WPCOM {
 	const originalRequestHandler = wpcom.request.bind( wpcom );
 
 	return Object.assign( wpcom, {
-		request: function ( params: object, callback: unknown ) {
+		request: function ( params: WpcomParams, callback: unknown ) {
 			const queryParams = new URLSearchParams(
 				'query' in params && typeof params.query === 'string' ? params.query : ''
 			);

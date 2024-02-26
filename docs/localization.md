@@ -31,6 +31,7 @@ If you want to add support for another language you will need to add it to the
    2. Click the **Project actions** menu.
    3. Click **Bulk Export**.
    4. Click **Select WP.Com Priority Languages** to only the magnificent 16 languages.
+   4. Select **Polish** too.
    5. Change the format to `Jed 1.x (.json)`.
    6. Leave the other fields as default and click **Export**.
 

@@ -13,11 +13,11 @@ export function setupLogging() {
 
 	// During development logs will be written to ~/Library/Logs/Electron/*.log because technically
 	// the app is still called Electron from the system's point of view (see `CFBundleDisplayName`)
-	// In the release build logs will be written to ~/Library/Logs/Build/*.log
+	// In the release build logs will be written to ~/Library/Logs/Studio/*.log
 	const logDir = app.getPath( 'logs' );
 
 	logStream = FileStreamRotator.getStream( {
-		filename: path.join( logDir, 'local-environment-%DATE%' ),
+		filename: path.join( logDir, 'studio-%DATE%' ),
 		date_format: 'YYYYMMDD',
 		frequency: 'daily',
 		size: '5M',

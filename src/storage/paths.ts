@@ -11,4 +11,4 @@ export function getServerFilesPath(): string {
 	return path.join( appDataPath, app.getName(), 'server-files' );
 }
 
-export const DEFAULT_SITE_PATH = path.join( app?.getPath( 'home' ) || '', 'Build' );
+export const DEFAULT_SITE_PATH = path.join( app?.getPath( 'home' ) || '', 'Studio' );

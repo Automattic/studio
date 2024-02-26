@@ -1,4 +1,4 @@
-name: Build Installer
+name: Studio Installer
 
 on:
   push:
@@ -24,11 +24,11 @@ jobs:
           - windows-latest
         include:
           - os: macos-latest
-            filename: 'Build-0.1.0-x64.dmg'
+            filename: 'Studio-0.1.0-x64.dmg'
           - os: macos-latest-xlarge
-            filename: 'Build-0.1.0-arm64.dmg'
+            filename: 'Studio-0.1.0-arm64.dmg'
           - os: windows-latest
-            filename: 'squirrel.windows/x64/Build-0.1.0 Setup.exe'
+            filename: 'squirrel.windows/x64/Studio-0.1.0 Setup.exe'
 
     runs-on: ${{ matrix.os }}
 

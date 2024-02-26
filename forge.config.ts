@@ -21,8 +21,8 @@ const config: ForgeConfig = {
 	packagerConfig: {
 		asar: true,
 		extraResource: [ './wp-files', './assets' ],
-		executableName: process.platform === 'linux' ? 'build' : undefined,
-		icon: './assets/build-app-icon',
+		executableName: process.platform === 'linux' ? 'studio' : undefined,
+		icon: './assets/studio-app-icon',
 		osxSign: {},
 	},
 	rebuildConfig: {},
@@ -30,15 +30,15 @@ const config: ForgeConfig = {
 		new MakerZIP( {}, [ 'darwin' ] ),
 		new MakerDeb( {
 			options: {
-				genericName: 'WordPress Local Dev',
+				genericName: 'Studio by WordPress.com',
 				categories: [ 'Utility' ],
-				name: 'build',
+				name: 'studio',
 			},
 		} ),
 		new MakerSquirrel(
 			{
 				loadingGif: './installers/loading.gif',
-				setupIcon: './assets/build-app-icon.ico',
+				setupIcon: './assets/studio-app-icon.ico',
 			},
 			[ 'win32' ]
 		),
@@ -47,7 +47,7 @@ const config: ForgeConfig = {
 			: [
 					new MakerDMG(
 						{
-							icon: './assets/build-app-icon.icns',
+							icon: './assets/studio-app-icon.icns',
 						},
 						[ 'darwin' ]
 					),

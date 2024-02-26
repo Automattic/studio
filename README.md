@@ -1,4 +1,4 @@
-# Build by WordPress.com
+# Studio by WordPress.com
 
 A desktop application for creating local WordPress environments powered by WordPress Playground.
 

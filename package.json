@@ -1,8 +1,8 @@
 {
-	"name": "build",
+	"name": "studio",
 	"author": "Automattic Inc.",
 	"private": true,
-	"productName": "Build",
+	"productName": "Studio",
 	"version": "0.1.0",
 	"description": "Local WordPress development environment using Playgrounds",
 	"license": "GPL-2.0-or-later",

@@ -84,7 +84,11 @@ describe( 'CreateSite', () => {
 
 		await waitFor( () => {
 			expect( screen.getByTestId( 'site-action-button' ) ).toBeDisabled();
-			expect( screen.getByText( 'This path does not contain a WordPress site.' ) ).toBeVisible();
+			expect(
+				screen.getByText(
+					'This directory is not empty. Please select an empty directory or an existing WordPress folder.'
+				)
+			).toBeVisible();
 		} );
 	} );
 

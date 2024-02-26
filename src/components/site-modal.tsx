@@ -60,12 +60,12 @@ function FormPathInputComponent( {
 			{ ( error || doesPathContainWordPress ) && (
 				<div
 					className={ cx(
-						'flex flex-row items-center a8c-helper-text pt-1.5',
+						'flex flex-row items-start a8c-helper-text pt-1.5 gap-1',
 						error ? 'text-red-500' : '',
 						doesPathContainWordPress ? 'text-a8c-gray-70' : ''
 					) }
 				>
-					<Icon className={ error ? 'fill-red-500' : '' } icon={ tip } width={ 14 } height={ 14 } />
+					<Icon className={ error ? 'fill-red-500' : '' } icon={ tip } width={ 16 } height={ 16 } />
 					<p>{ error ? error : __( 'The existing WordPress site at this path will be added.' ) }</p>
 				</div>
 			) }

@@ -57,7 +57,11 @@ export default function AddSite( { className }: AddSiteProps ) {
 				return;
 			}
 			if ( ! isEmpty && ! isWordPress ) {
-				setError( __( 'This path does not contain a WordPress site.' ) );
+				setError(
+					__(
+						'This directory is not empty. Please select an empty directory or an existing WordPress folder.'
+					)
+				);
 				return;
 			}
 			setDoesPathContainWordPress( ! isEmpty && isWordPress );
@@ -97,7 +101,11 @@ export default function AddSite( { className }: AddSiteProps ) {
 				return;
 			}
 			if ( ! isEmpty && ! isWordPress ) {
-				setError( __( 'This path does not contain a WordPress site.' ) );
+				setError(
+					__(
+						'This directory is not empty. Please select an empty directory or an existing WordPress folder.'
+					)
+				);
 				return;
 			}
 			setDoesPathContainWordPress( ! isEmpty && isWordPress );
@@ -117,7 +125,9 @@ export default function AddSite( { className }: AddSiteProps ) {
 	const displayedPath = sitePath ? sitePath : proposedSitePath;
 
 	const displayedError = siteWithPathAlreadyExists( displayedPath )
-		? __( 'Another site already exists at this path.' )
+		? __(
+				'Another site already exists at this path. Please select an empty directory to create a site.'
+		  )
 		: error;
 
 	return (

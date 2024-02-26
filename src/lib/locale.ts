@@ -1,5 +1,6 @@
 import { app } from 'electron';
 import { match } from '@formatjs/intl-localematcher';
+import * as Sentry from '@sentry/electron/main';
 import type { LocaleData } from '@wordpress/i18n';
 
 const supportedLocales = [
@@ -35,15 +36,16 @@ export function getSupportedLocale(): string {
 	return match( preferredLanguages, supportedLocales, 'en' );
 }
 
-export async function getLocaleData( locale: string ): Promise< LocaleData | null > {
+export function getLocaleData( locale: string ): LocaleData | null {
 	if ( locale === 'en' || ! supportedLocales.includes( locale ) ) {
 		return null;
 	}
 
 	try {
-		return await import( `../translations/local-environment-${ locale }.jed.json` );
+		return require( `../translations/local-environment-${ locale }.jed.json` );
 	} catch ( err ) {
 		console.error( `Failed to load locale data for "${ locale }"`, err );
+		Sentry.captureException( err );
 		return null;
 	}
 }

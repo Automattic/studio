@@ -73,17 +73,17 @@ describe( 'getSupportedLocale', () => {
 
 describe( 'getLocaleData', () => {
 	it( 'returns null for unsupported locales', async () => {
-		const localeData = await getLocaleData( 'mi-NZ' );
+		const localeData = getLocaleData( 'mi-NZ' );
 		expect( localeData ).toBeNull();
 	} );
 
 	it( 'returns null for English', async () => {
-		const localeData = await getLocaleData( 'en' );
+		const localeData = getLocaleData( 'en' );
 		expect( localeData ).toBeNull();
 	} );
 
 	it( 'returns locale data for supported locales', async () => {
-		const localeData = await getLocaleData( 'ar' );
+		const localeData = getLocaleData( 'ar' );
 		expect( localeData ).not.toBeNull();
 
 		// Do some translating with the loaded data

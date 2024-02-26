@@ -46,7 +46,7 @@ async function appBoot() {
 	let mainWindow: BrowserWindow | null = null;
 
 	const locale = getSupportedLocale();
-	const localeData = await getLocaleData( locale );
+	const localeData = getLocaleData( locale );
 	defaultI18n.setLocaleData( localeData?.locale_data?.messages );
 
 	app.setName( packageJson.productName );

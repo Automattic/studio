@@ -358,7 +358,7 @@ export async function copyText( event: IpcMainInvokeEvent, text: string ) {
 
 export async function getAppGlobals( _event: IpcMainInvokeEvent ): Promise< AppGlobals > {
 	const locale = getSupportedLocale();
-	const localeData = await getLocaleData( locale );
+	const localeData = getLocaleData( locale );
 
 	return {
 		platform: process.platform,

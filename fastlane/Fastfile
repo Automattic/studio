@@ -51,7 +51,7 @@ end
 desc 'Notarize the compiled binary'
 lane :notarize_binary do |_options|
   notarize(
-    package: File.join(PROJECT_ROOT_FOLDER, 'out', 'Build-darwin-universal', 'Build.app'),
+    package: File.join(PROJECT_ROOT_FOLDER, 'out', 'Studio-darwin-universal', 'Studio.app'),
     api_key_path: APPLE_API_KEY_PATH
   )
 end
@@ -62,7 +62,7 @@ lane :distribute_binary do |_options|
   commit_hash = commit_metadata[:commit_hash]
   commit_message = commit_metadata[:message]
 
-  binary_path = File.join(PROJECT_ROOT_FOLDER, 'out', 'Build-darwin-universal', 'Build.app.zip')
+  binary_path = File.join(PROJECT_ROOT_FOLDER, 'out', 'Studio-darwin-universal', 'Studio.app.zip')
   hashed_filename = "wp-build-darwin-universal-#{commit_hash}.app.zip"
 
   upload_to_s3(

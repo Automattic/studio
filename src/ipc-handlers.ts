@@ -5,7 +5,8 @@ import fs from 'fs';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import archiver from 'archiver';
-import { getWpNowConfig } from '../vendor/wp-now/src';
+import { copySync } from 'fs-extra';
+import { downloadSqliteIntegrationPlugin } from '../vendor/wp-now/src/download';
 import { isEmptyDir, pathExists, isWordPressDirectory } from './lib/fs-utils';
 import { isErrnoException } from './lib/is-errno-exception';
 import { getLocaleData, getSupportedLocale } from './lib/locale';
@@ -93,14 +94,42 @@ export async function createSite(
 	const server = SiteServer.create( details );
 
 	if ( isWordPressDirectory( path ) ) {
-		// If the directory contains a WordPress installation, let's rename the wp-config.php file
-		// to allow WP Now to create a new one
-		// and initialize things properly.
 		try {
-			fs.renameSync(
-				nodePath.join( path, 'wp-config.php' ),
-				nodePath.join( path, 'wp-config.php.wpbuild' )
+			if ( await pathExists( nodePath.join( path, 'wp-config.php' ) ) ) {
+				// If the directory contains a WordPress installation, let's rename the wp-config.php file
+				// to allow WP Now to create a new one
+				// and initialize things properly.
+				fs.renameSync(
+					nodePath.join( path, 'wp-config.php' ),
+					nodePath.join( path, 'wp-config.php.wpbuild' )
+				);
+			}
+
+			// Use sqlite database and db.php file in situ
+			await downloadSqliteIntegrationPlugin();
+			const wpContentPath = nodePath.join( path, 'wp-content' );
+			const databasePath = nodePath.join( wpContentPath, 'database' );
+			if ( ! ( await pathExists( databasePath ) ) ) {
+				fs.mkdirSync( databasePath, { recursive: true } );
+			}
+			const dbPhpPath = nodePath.join( wpContentPath, 'db.php' );
+			if ( ! ( await pathExists( dbPhpPath ) ) ) {
+				fs.copyFileSync(
+					nodePath.join( getServerFilesPath(), 'sqlite-database-integration-main', 'db.copy' ),
+					dbPhpPath
+				);
+			}
+			const sqlitePluginPath = nodePath.join(
+				wpContentPath,
+				'plugins',
+				'sqlite-database-integration'
 			);
+			if ( ! ( await pathExists( sqlitePluginPath ) ) ) {
+				await copySync(
+					nodePath.join( getServerFilesPath(), 'sqlite-database-integration-main' ),
+					sqlitePluginPath
+				);
+			}
 		} catch ( error ) {
 			/* Empty */
 		}
@@ -203,15 +232,7 @@ export async function showUserSettings( event: IpcMainInvokeEvent ): Promise< vo
 	parentWindow.webContents.send( 'user-settings' );
 }
 
-function zipWordPressDirectory( {
-	source,
-	zipPath,
-	databasePath,
-}: {
-	source: string;
-	zipPath: string;
-	databasePath: string;
-} ) {
+function zipWordPressDirectory( { source, zipPath }: { source: string; zipPath: string } ) {
 	return new Promise( ( resolve, reject ) => {
 		const output = fs.createWriteStream( zipPath );
 		const archive = archiver( 'zip', {
@@ -230,19 +251,7 @@ function zipWordPressDirectory( {
 		// Archive site wp-content
 		archive.directory( `${ source }/wp-content`, 'wp-content' );
 		archive.file( `${ source }/wp-config.php`, { name: 'wp-config.php' } );
-		// Archive SQLite plugin
-		archive.directory(
-			nodePath.join( getServerFilesPath(), 'sqlite-database-integration-main' ),
-			'wp-content/plugins/sqlite-database-integration'
-		);
-		archive.file(
-			nodePath.join( getServerFilesPath(), 'sqlite-database-integration-main', 'db.copy' ),
-			{
-				name: 'wp-content/db.php',
-			}
-		);
-		// Archive SQLite database
-		archive.directory( databasePath, 'wp-content/database' );
+
 		archive.finalize();
 	} );
 }
@@ -252,15 +261,11 @@ export async function archiveSite( event: IpcMainInvokeEvent, id: string ) {
 	if ( ! site ) {
 		throw new Error( 'Site not found.' );
 	}
-	const { wpContentPath = '' } = await getWpNowConfig( {
-		path: site.details.path,
-	} );
 	const sitePath = site.details.path;
 	const zipPath = `${ TEMP_DIR }site_${ id }.zip`;
 	await zipWordPressDirectory( {
 		source: sitePath,
 		zipPath,
-		databasePath: nodePath.join( wpContentPath, 'database' ),
 	} );
 	const zipContent = fs.readFileSync( zipPath );
 	return { zipPath, zipContent };

@@ -16,7 +16,7 @@ import {
 	login,
 	runBlueprintSteps,
 } from '@wp-playground/blueprints';
-import { WPNowOptions, WPNowMode } from './config';
+import getWpNowConfig, { WPNowOptions, WPNowMode } from './config';
 import {
 	hasIndexFile,
 	isPluginDirectory,
@@ -192,20 +192,12 @@ async function runWordPressMode(
 ) {
 	php.mount(projectPath, documentRoot);
 
-	const { initializeDefaultDatabase } = await initWordPress(
+	await initWordPress(
 		php,
 		'user-provided',
 		documentRoot,
 		absoluteUrl
 	);
-
-	if (
-		initializeDefaultDatabase ||
-		fs.existsSync(path.join(wpContentPath, 'database'))
-	) {
-		mountSqlitePlugin(php, documentRoot);
-		mountSqliteDatabaseDirectory(php, documentRoot, wpContentPath);
-	}
 
 	mountMuPlugins(php, documentRoot);
 }
@@ -423,4 +415,29 @@ async function installationStep2(php: NodePHP) {
 			admin_email: 'admin@localhost.com',
 		},
 	});
+}
+
+export async function moveDatabasesInSitu( projectPath: string ) {
+		const dbPhpPath = path.join( projectPath, 'wp-content', 'db.php' );
+		const hasDbPhpInSitu = fs.existsSync( dbPhpPath ) && fs.lstatSync( dbPhpPath ).isFile();
+
+		const { wpContentPath } = await getWpNowConfig( { path: projectPath } );
+		if (
+			wpContentPath &&
+			fs.existsSync( path.join( wpContentPath, 'database' ) ) &&
+			! hasDbPhpInSitu
+		) {
+			// Do not mount but move the files to projectPath once
+			const databasePath = path.join( projectPath, 'wp-content', 'database' );
+			fs.rmdirSync( databasePath );
+			fs.moveSync( path.join( wpContentPath, 'database' ), databasePath );
+
+			const sqlitePath = path.join( projectPath, 'wp-content', 'plugins', SQLITE_FILENAME );
+			fs.rmdirSync( sqlitePath );
+			fs.copySync( path.join( getSqlitePath() ), sqlitePath );
+
+			fs.rmdirSync( dbPhpPath );
+			fs.copySync( path.join( getSqlitePath(), 'db.copy' ), dbPhpPath );
+			fs.rmSync( wpContentPath, { recursive: true, force: true } );
+		}
 }

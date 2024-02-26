@@ -1,4 +1,5 @@
 import { BrowserWindow, type BrowserWindowConstructorOptions } from 'electron';
+import { moveDatabasesInSitu } from '../vendor/wp-now/src';
 import { MAIN_MIN_HEIGHT, MAIN_MIN_WIDTH } from './constants';
 import { isEmptyDir } from './lib/fs-utils';
 import { portFinder } from './lib/port-finder';
@@ -61,7 +62,10 @@ export function createMainWindow(): BrowserWindow {
 		const { devToolsOpen, sites } = userData;
 		setupDevTools( mainWindow, devToolsOpen );
 		initializePortFinder( sites );
-		return removeSitesWithEmptyDirectories( userData );
+		removeSitesWithEmptyDirectories( userData );
+		for ( const site of sites ) {
+			moveDatabasesInSitu( site.path );
+		}
 	} );
 
 	mainWindow.webContents.on( 'devtools-opened', async () => {

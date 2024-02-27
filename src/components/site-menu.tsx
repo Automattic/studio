@@ -90,7 +90,7 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 	return (
 		<div
 			className={ cx(
-				'w-full overflow-y-auto flex flex-col gap-0.5 pb-4 app-no-drag-region',
+				'w-full overflow-y-auto flex flex-col gap-0.5 pb-4 app-no-drag-region sites-scrollbar',
 				className
 			) }
 		>

@@ -136,7 +136,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 				isOpen={ showModal }
 				onRequestClose={ closeModal }
 				title={ __( 'Add a Site' ) }
-				primaryButtonLabel={ __( 'Add Site' ) }
+				primaryButtonLabel={ __( 'Add site' ) }
 				onPrimaryAction={ handleAddSiteClick }
 				isPrimaryButtonDisabled={ !! displayedError || ! siteName }
 				isCancelDisabled={ isAddingSite }

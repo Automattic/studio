@@ -39,6 +39,7 @@ const config: ForgeConfig = {
 			{
 				loadingGif: './installers/loading.gif',
 				setupIcon: './assets/studio-app-icon.ico',
+				iconUrl: 'https://s0.wp.com/i/studio-app/studio-app-icon.ico', // This icon is shown in Control Panel -> Programs and Features
 			},
 			[ 'win32' ]
 		),

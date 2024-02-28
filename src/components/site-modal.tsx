@@ -103,7 +103,9 @@ export const ModalContent = ( {
 				></TextControlComponent>
 			</label>
 			<label className="flex flex-col gap-1.5 leading-4">
-				<span className="font-semibold">{ __( 'Local path' ) }</span>
+				<span onClick={ onSelectPath } className="font-semibold">
+					{ __( 'Local path' ) }
+				</span>
 				<FormPathInputComponent
 					isDisabled={ isPathInputDisabled }
 					doesPathContainWordPress={ doesPathContainWordPress }

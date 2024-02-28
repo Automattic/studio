@@ -40,12 +40,17 @@ describe( 'SiteContentTabs', () => {
 		expect( queryByText( 'Export' ) ).toBeNull();
 	} );
 	it( 'should render a "No Site" screen if selected site is absent', async () => {
-		( useSiteDetails as jest.Mock ).mockReturnValue( { undefined, snapshots: [] } );
+		( useSiteDetails as jest.Mock ).mockReturnValue( {
+			undefined,
+			snapshots: [],
+			data: [],
+		} );
 		const { queryByText } = await act( async () => render( <SiteContentTabs /> ) );
 		expect( queryByText( 'Settings' ) ).toBeNull();
 		expect( queryByText( 'Preview' ) ).toBeNull();
 		expect( queryByText( 'Launchpad' ) ).toBeNull();
 		expect( queryByText( 'Publish' ) ).toBeNull();
 		expect( queryByText( 'Export' ) ).toBeNull();
+		expect( queryByText( 'Add site' ) ).not.toBeNull();
 	} );
 } );

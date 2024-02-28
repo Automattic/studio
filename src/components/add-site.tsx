@@ -118,7 +118,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 	} );
 
 	const buttonClassName = cx(
-		'!ring-1 !ring-inset ring-white text-white hover:bg-gray-100 hover:text-black',
+		'!ring-1 !ring-inset ring-white text-white hover:text-black',
 		className
 	);
 

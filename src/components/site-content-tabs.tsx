@@ -2,6 +2,7 @@ import { TabPanel } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { useContentTabs } from '../hooks/use-content-tabs';
 import { useSiteDetails } from '../hooks/use-site-details';
+import AddSite from './add-site';
 import { ContentTabSettings } from './content-tab-settings';
 import { ContentTabSnapshots } from './content-tab-snapshots';
 import Header from './header';
@@ -9,8 +10,8 @@ import Header from './header';
 function NoSites() {
 	const { __ } = useI18n();
 	return (
-		<div className="w-full h-full flex items-center justify-center text-2xl text-slate-400">
-			{ __( 'Add a site' ) }
+		<div className="w-full h-full flex items-center justify-center">
+			<AddSite className="text-2xl !text-slate-400" />
 		</div>
 	);
 }

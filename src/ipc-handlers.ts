@@ -54,12 +54,39 @@ export async function getSiteDetails( _event: IpcMainInvokeEvent ): Promise< Sit
 	return mergeSiteDetailsWithRunningDetails( sites );
 }
 
+// Use sqlite database and db.php file in situ
+async function setupSqliteIntegration( path: string ) {
+	await downloadSqliteIntegrationPlugin();
+	const wpContentPath = nodePath.join( path, 'wp-content' );
+	const databasePath = nodePath.join( wpContentPath, 'database' );
+
+	if ( ! ( await pathExists( databasePath ) ) ) {
+		fs.mkdirSync( databasePath, { recursive: true } );
+	}
+
+	const dbPhpPath = nodePath.join( wpContentPath, 'db.php' );
+	if ( ! ( await pathExists( dbPhpPath ) ) ) {
+		fs.copyFileSync(
+			nodePath.join( getServerFilesPath(), 'sqlite-database-integration-main', 'db.copy' ),
+			dbPhpPath
+		);
+	}
+	const sqlitePluginPath = nodePath.join( wpContentPath, 'plugins', 'sqlite-database-integration' );
+	if ( ! ( await pathExists( sqlitePluginPath ) ) ) {
+		await copySync(
+			nodePath.join( getServerFilesPath(), 'sqlite-database-integration-main' ),
+			sqlitePluginPath
+		);
+	}
+}
+
 export async function createSite(
 	event: IpcMainInvokeEvent,
 	path: string,
 	siteName?: string
 ): Promise< SiteDetails[] > {
 	const userData = await loadUserData();
+	const forceSetupSqlite = false;
 
 	// We only try to create the directory recursively if the user has
 	// not selected a path from the dialog (and thus they use the "default" path)
@@ -95,40 +122,18 @@ export async function createSite(
 
 	if ( isWordPressDirectory( path ) ) {
 		try {
-			if ( await pathExists( nodePath.join( path, 'wp-config.php' ) ) ) {
-				// If the directory contains a WordPress installation, let's rename the wp-config.php file
-				// to allow WP Now to create a new one
-				// and initialize things properly.
+			// If the directory contains a WordPress installation, and user wants to force SQLite
+			// integration, let's rename the wp-config.php file to allow WP Now to create a new one
+			// and initialize things properly.
+			if ( forceSetupSqlite && ( await pathExists( nodePath.join( path, 'wp-config.php' ) ) ) ) {
 				fs.renameSync(
 					nodePath.join( path, 'wp-config.php' ),
-					nodePath.join( path, 'wp-config.php.wpbuild' )
+					nodePath.join( path, 'wp-config-studio.php' )
 				);
 			}
 
-			// Use sqlite database and db.php file in situ
-			await downloadSqliteIntegrationPlugin();
-			const wpContentPath = nodePath.join( path, 'wp-content' );
-			const databasePath = nodePath.join( wpContentPath, 'database' );
-			if ( ! ( await pathExists( databasePath ) ) ) {
-				fs.mkdirSync( databasePath, { recursive: true } );
-			}
-			const dbPhpPath = nodePath.join( wpContentPath, 'db.php' );
-			if ( ! ( await pathExists( dbPhpPath ) ) ) {
-				fs.copyFileSync(
-					nodePath.join( getServerFilesPath(), 'sqlite-database-integration-main', 'db.copy' ),
-					dbPhpPath
-				);
-			}
-			const sqlitePluginPath = nodePath.join(
-				wpContentPath,
-				'plugins',
-				'sqlite-database-integration'
-			);
-			if ( ! ( await pathExists( sqlitePluginPath ) ) ) {
-				await copySync(
-					nodePath.join( getServerFilesPath(), 'sqlite-database-integration-main' ),
-					sqlitePluginPath
-				);
+			if ( ! ( await pathExists( nodePath.join( path, 'wp-config.php' ) ) ) ) {
+				await setupSqliteIntegration( path );
 			}
 		} catch ( error ) {
 			/* Empty */

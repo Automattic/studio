@@ -44,6 +44,7 @@ const siteDetailsMocked = {
 			port: 8883,
 		},
 	],
+	snapshots: [],
 	setSelectedSiteId: jest.fn(),
 	createSite: jest.fn(),
 	startServer: jest.fn(),

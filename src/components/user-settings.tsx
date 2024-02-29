@@ -7,14 +7,13 @@ import { useAuth } from '../hooks/use-auth';
 import { useDeleteSnapshot } from '../hooks/use-delete-snapshot';
 import { useIpcListener } from '../hooks/use-ipc-listener';
 import { useSiteDetails } from '../hooks/use-site-details';
+import { useSiteUsage } from '../hooks/use-site-usage';
 import Button from './button';
 import { DropdownMenu } from './dropdown-menu';
 import { Gravatar } from './gravatar';
 import Modal from './modal';
 import ProgressBar from './progress-bar';
 import { WordPressLogo } from './wordpress-logo';
-
-const LIMIT_OF_ZIP_SITES_PER_USER = 10;
 
 const UserInfo = ( {
 	user,
@@ -41,13 +40,17 @@ const UserInfo = ( {
 };
 
 const SnapshotInfo = ( {
-	snapshots,
+	siteCount,
+	siteLimit,
 	onRemoveSnapshots,
-	loading = false,
+	isDeleting = false,
+	isLoadingSiteUsage = false,
 }: {
-	snapshots: Snapshot[];
+	siteCount: number;
+	siteLimit: number;
 	onRemoveSnapshots: () => void;
-	loading?: boolean;
+	isDeleting?: boolean;
+	isLoadingSiteUsage?: boolean;
 } ) => {
 	const { __ } = useI18n();
 	return (
@@ -59,29 +62,25 @@ const SnapshotInfo = ( {
 						<span>{ __( 'Preview Links' ) }</span>
 
 						<div className="flex flex-row items-center">
-							{ loading && <Spinner className="!mt-0 !ml-0 !mr-2" /> }
+							{ isDeleting && <Spinner className="!mt-0 !ml-0 !mr-2" /> }
 							<span className="text-a8c-gray-70">
-								{ sprintf(
-									__( '%1s of %2s active links' ),
-									snapshots?.length || 0,
-									LIMIT_OF_ZIP_SITES_PER_USER
-								) }
+								{ sprintf( __( '%1s of %2s active links' ), siteCount, siteLimit ) }
 							</span>
 						</div>
 					</div>
-					<ProgressBar value={ snapshots?.length || 0 } maxValue={ LIMIT_OF_ZIP_SITES_PER_USER } />
+					<ProgressBar value={ siteCount } maxValue={ siteLimit } />
 				</div>
 				<DropdownMenu
 					className={
 						'ml-auto flex items-center [&_button:first-child]:p-0 [&_button:first-child]:min-w-6 [&_button:first-child]:h-6'
 					}
-					isDisabled={ snapshots?.length === 0 || loading }
+					isDisabled={ siteCount === 0 || isDeleting || isLoadingSiteUsage }
 					popoverProps={ { position: 'bottom left', resize: true } }
 					icon={
 						<Icon
 							icon={ moreVertical }
 							className={
-								snapshots?.length === 0 || loading ? 'text-a8c-gray-20 cursor-not-allowed' : ''
+								siteCount === 0 || isDeleting ? 'text-a8c-gray-20 cursor-not-allowed' : ''
 							}
 						></Icon>
 					}
@@ -114,6 +113,7 @@ export default function UserSettings() {
 	const { __ } = useI18n();
 	const { isAuthenticated, authenticate, logout, user } = useAuth();
 	const { snapshots } = useSiteDetails();
+	const { siteLimit, siteCount, isLoading: isLoadingSiteUsage } = useSiteUsage();
 	const { deleteAllSnapshots, loadingDeletingAllSnapshots } = useDeleteSnapshot( {
 		displayAlert: true,
 	} );
@@ -156,8 +156,10 @@ export default function UserSettings() {
 							<UserInfo onLogout={ logout } user={ user } />
 							<div className="border border-[#F0F0F0] w-full"></div>
 							<SnapshotInfo
-								loading={ loadingDeletingAllSnapshots }
-								snapshots={ snapshots }
+								isDeleting={ loadingDeletingAllSnapshots }
+								isLoadingSiteUsage={ isLoadingSiteUsage }
+								siteCount={ siteCount }
+								siteLimit={ siteLimit }
 								onRemoveSnapshots={ onRemoveSnapshots }
 							/>
 						</div>

@@ -26,7 +26,7 @@ const UserInfo = ( {
 	return (
 		<div className="flex w-full gap-5">
 			<div className="flex w-full items-center gap-[15px]">
-				<Gravatar className="w-[32px] h-[32px] border border-[#757575]" />
+				<Gravatar isLarge={ true } isBlack />
 				<div className="flex flex-col">
 					<span className="overflow-ellipsis">{ user?.displayName }</span>
 					<span className="text-[#757575] text-[10px] leading-[10px]">{ user?.email }</span>

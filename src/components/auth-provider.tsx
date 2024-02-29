@@ -41,8 +41,8 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 			}
 			setIsAuthenticated( true );
 			setClient( createWpcomClient( token.accessToken ) );
-			if ( token.email && token.displayName ) {
-				setUser( { email: token.email, displayName: token.displayName } );
+			if ( token.email || token.displayName ) {
+				setUser( { email: token.email || '', displayName: token.displayName || '' } );
 			}
 		} catch ( err ) {
 			console.error( err );
@@ -73,10 +73,10 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 						return;
 					}
 					setClient( createWpcomClient( token.accessToken ) );
-					if ( token.email && token.displayName ) {
+					if ( token.email || token.displayName ) {
 						setUser( {
-							email: token.email,
-							displayName: token.displayName,
+							email: token.email || '',
+							displayName: token.displayName || '',
 						} );
 					}
 				}

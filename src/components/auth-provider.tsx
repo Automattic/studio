@@ -1,6 +1,7 @@
 import * as Sentry from '@sentry/electron/renderer';
 import { createContext, useState, useEffect, useMemo, useCallback, ReactNode } from 'react';
 import WPCOM from 'wpcom';
+import { useIpcListener } from '../hooks/use-ipc-listener';
 import { getAppGlobals } from '../lib/app-globals';
 import { getIpcApi } from '../lib/get-ipc-api';
 
@@ -33,22 +34,18 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 	const [ client, setClient ] = useState< WPCOM | undefined >( undefined );
 	const [ user, setUser ] = useState< AuthContextType[ 'user' ] >( undefined );
 
-	const authenticate = useCallback( async () => {
-		try {
-			const token = await getIpcApi().authenticate();
-			if ( ! token ) {
-				return;
-			}
-			setIsAuthenticated( true );
-			setClient( createWpcomClient( token.accessToken ) );
-			if ( token.email || token.displayName ) {
-				setUser( { email: token.email || '', displayName: token.displayName || '' } );
-			}
-		} catch ( err ) {
-			console.error( err );
-			Sentry.captureException( err );
+	const authenticate = getIpcApi().authenticate;
+	useIpcListener( 'auth-updated', ( _event, { token, error } ) => {
+		if ( error ) {
+			Sentry.captureException( error );
+			return;
 		}
-	}, [] );
+		setIsAuthenticated( true );
+		setClient( createWpcomClient( token.accessToken ) );
+		if ( token.email || token.displayName ) {
+			setUser( { email: token.email || '', displayName: token.displayName || '' } );
+		}
+	} );
 
 	const logout = useCallback( async () => {
 		try {

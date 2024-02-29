@@ -30,3 +30,21 @@ $ npm run make
 ## Localization
 
 [See localisation docs](./docs/localization.md)
+
+## [Linux] Authentication setup for local development
+In order for the authentication to work on Linux, you need to follow the next steps:
+- Run `npm run make` from the root of the project
+- Create a new `.desktop` file in `~/.local/share/applications/` with the following content:
+```
+[Desktop Entry]
+Name=Studio By WordPress.com dev
+Comment=Studio By WordPress.com dev
+Exec=<path_of_project>/out/Studio-linux-x64/studio %U
+Type=Application
+Terminal=false
+MimeType=x-scheme-handler/wpcom-local-dev;
+Categories=Development;
+```
+
+- Run `update-desktop-database ~/.local/share/applications/` to update the desktop database
+- Ensure that there is an new entry in `~/.config/mimeapps.list` for `x-scheme-handler/wpcom-local-dev` protocol.

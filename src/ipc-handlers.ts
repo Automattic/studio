@@ -317,10 +317,8 @@ export function logRendererMessage(
 	writeLogToFile( level, processId, ...args );
 }
 
-export async function authenticate(
-	_event: IpcMainInvokeEvent
-): Promise< oauthClient.StoredToken | null > {
-	return await oauthClient.authenticate();
+export async function authenticate( _event: IpcMainInvokeEvent ): Promise< void > {
+	return oauthClient.authenticate();
 }
 
 export async function getAuthenticationToken(

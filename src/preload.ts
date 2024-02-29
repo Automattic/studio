@@ -41,7 +41,12 @@ const api: IpcApi = {
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );
 
-const allowedChannels = [ 'test-render-failure', 'add-site', 'user-settings' ] as const;
+const allowedChannels = [
+	'test-render-failure',
+	'add-site',
+	'user-settings',
+	'auth-updated',
+] as const;
 
 contextBridge.exposeInMainWorld( 'ipcListener', {
 	subscribe: (

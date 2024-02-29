@@ -213,6 +213,7 @@ export async function showOpenFolderDialog(
 
 	const { canceled, filePaths } = await dialog.showOpenDialog( parentWindow, {
 		title,
+		defaultPath: DEFAULT_SITE_PATH,
 		properties: [
 			'openDirectory',
 			'createDirectory', // allow user to create new directories; macOS only

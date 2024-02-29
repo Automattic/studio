@@ -16,6 +16,7 @@ interface SiteModalProps {
 	onPrimaryAction: () => void;
 	isPrimaryButtonDisabled?: boolean;
 	isCancelDisabled?: boolean;
+	isLoading?: boolean;
 	children: React.ReactNode;
 }
 
@@ -126,6 +127,7 @@ export const SiteModal = ( {
 	onPrimaryAction,
 	isPrimaryButtonDisabled = false,
 	isCancelDisabled = false,
+	isLoading = false,
 	children,
 	className,
 }: SiteModalProps ) => {
@@ -149,6 +151,7 @@ export const SiteModal = ( {
 					data-testid="site-action-button"
 					className="bg-a8c-blueberry hover:text-white text-white"
 					variant="primary"
+					isBusy={ isLoading }
 					onClick={ onPrimaryAction }
 					disabled={ isPrimaryButtonDisabled }
 				>

@@ -1,13 +1,14 @@
-import { MenuGroup, MenuItem, Spinner } from '@wordpress/components';
+import { MenuGroup, MenuItem, Popover, Spinner } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
 import { Icon, moreVertical, trash } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { PropsWithChildren } from 'react';
+import { PropsWithChildren, useState } from 'react';
 import { useArchiveSite } from '../hooks/use-archive-site';
 import { useAuth } from '../hooks/use-auth';
 import { useDeleteSnapshot } from '../hooks/use-delete-snapshot';
 import { useExpirationDate } from '../hooks/use-expiration-date';
 import { useSiteDetails } from '../hooks/use-site-details';
+import { useSiteUsage } from '../hooks/use-site-usage';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
@@ -108,13 +109,16 @@ function NoAuth() {
 
 export function ContentTabSnapshots( { selectedSite }: ContentTabSnapshotsProps ) {
 	const { __, _n } = useI18n();
+	const [ showPopover, setShowPopover ] = useState( false );
 	const { snapshots } = useSiteDetails();
 	const { archiveSite, isUploadingSiteId } = useArchiveSite();
 	const isUploading = isUploadingSiteId( selectedSite.id );
+	const { siteLimit, siteCount } = useSiteUsage();
 	const { isAuthenticated } = useAuth();
 	if ( ! isAuthenticated ) {
 		return <NoAuth />;
 	}
+	const isLimitUsed = siteCount >= siteLimit;
 	const snapshotsOnSite = snapshots.filter(
 		( snapshot ) => snapshot.localSiteId === selectedSite.id
 	);
@@ -131,9 +135,34 @@ export function ContentTabSnapshots( { selectedSite }: ContentTabSnapshotsProps 
 				</div>
 				<Button
 					variant="primary"
-					disabled={ isUploading || ! isAuthenticated }
+					disabled={ isUploading || ! isAuthenticated || isLimitUsed }
+					onMouseOut={ () => setShowPopover( false ) }
+					onMouseOver={ () => {
+						if ( isLimitUsed ) {
+							setShowPopover( true );
+						}
+					} }
 					onClick={ () => archiveSite( selectedSite.id ) }
 				>
+					{ showPopover && (
+						<Popover
+							noArrow={ true }
+							position="top left"
+							offset={ 8 }
+							className="[&_div]:!shadow-none"
+						>
+							<div className="w-52 rounded-[4px] py-2 px-2.5 bg-[#101517] text-white leading-4 text-xs">
+								{ sprintf(
+									_n(
+										"You've used %s preview link available on your account.",
+										"You've used all %s preview links available on your account.",
+										siteLimit
+									),
+									siteLimit
+								) }
+							</div>
+						</Popover>
+					) }
 					{ isUploading ? __( 'Creating preview link…' ) : __( 'Create preview link' ) }
 				</Button>
 			</div>

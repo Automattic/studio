@@ -77,7 +77,6 @@ export function useArchiveSite() {
 					apiNamespace: 'wpcom/v2',
 					formData: [ [ 'import', file ] ],
 				} );
-				console.log( response );
 				addSnapshot( {
 					url: response.domain_name,
 					atomicSiteId: response.atomic_site_id,

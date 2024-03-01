@@ -67,7 +67,7 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 	return (
 		<div
 			className={ cx(
-				'flex flex-row w-auto max-w-full h-8 hover:bg-[#ffffff0C] rounded transition-all',
+				'flex flex-row min-w-[168px] h-8 hover:bg-[#ffffff0C] rounded transition-all',
 				isMac() ? 'mx-5' : 'mx-4',
 				isSelected && 'bg-[#ffffff19] hover:bg-[#ffffff19]'
 			) }
@@ -90,7 +90,7 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 	return (
 		<div
 			className={ cx(
-				'w-full overflow-y-auto flex flex-col gap-0.5 pb-4 app-no-drag-region sites-scrollbar',
+				'w-full overflow-y-auto overflow-x-hidden flex flex-col gap-0.5 pb-4 app-no-drag-region sites-scrollbar',
 				className
 			) }
 		>

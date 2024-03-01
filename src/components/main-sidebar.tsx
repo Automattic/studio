@@ -73,7 +73,7 @@ export default function MainSidebar( { className }: MainSidebarProps ) {
 			<div className="flex flex-col h-full">
 				<SiteMenu />
 
-				<div className="mt-auto h-[103px] pt-5 border-white border-t border-opacity-10 app-no-drag-region">
+				<div className="mt-auto min-h-[103px] pt-5 border-white border-t border-opacity-10 app-no-drag-region">
 					<div className={ cx( isMac() ? 'mx-5' : 'mx-4' ) }>
 						<AddSite className="w-full mb-3 hover:bg-gray-100" />
 						<SidebarAuthFooter />

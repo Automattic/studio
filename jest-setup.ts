@@ -6,7 +6,7 @@ window.ipcListener = { subscribe: jest.fn() };
 
 nock.disableNetConnect();
 
-// Jest runs in standard Node, not Electron. @sentry/electron doesn't seem to work.
+// Jest runs in standard Node, not Electron. @sentry/electron doesn't work in Node.
 jest.mock( '@sentry/electron/main', () => ( {
 	captureException: jest.fn(),
 } ) );

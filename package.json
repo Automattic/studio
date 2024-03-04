@@ -23,7 +23,7 @@
 		"lint": "eslint --ext .ts,.tsx,.js,.jsx,.mjs .",
 		"test": "jest",
 		"test:watch": "jest --watch",
-		"e2e": "npx playwright test",
+		"e2e": "npx playwright install && npx playwright test",
 		"make-pot": "wp-babel-makepot \"./src/**/*.{js,jsx,ts,tsx}\" --ignore \"**/*.d.ts\" --base \"./src\" --dir \"./out/pots\" --output \"./out/pots/bundle-strings.pot\""
 	},
 	"devDependencies": {

@@ -63,6 +63,7 @@ function SidebarAuthFooter() {
 export default function MainSidebar( { className }: MainSidebarProps ) {
 	return (
 		<div
+			data-testid="main-sidebar"
 			className={ cx(
 				'text-chrome-inverted',
 				isMac() && 'pt-[50px]',

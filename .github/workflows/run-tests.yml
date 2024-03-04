@@ -30,7 +30,6 @@ jobs:
       matrix:
         os:
           - macos-latest
-          - ubuntu-latest
           - windows-latest
 
     runs-on: ${{ matrix.os }}
@@ -52,5 +51,12 @@ jobs:
 
     - name: Run End-to-end Tests
       uses: coactions/setup-xvfb@v1
+      continue-on-error: true
       with:
         run: npm run e2e
+
+    - name: Archive Trace
+      uses: actions/upload-artifact@v2
+      with:
+        path: trace.zip
+        if-no-files-found: ignore

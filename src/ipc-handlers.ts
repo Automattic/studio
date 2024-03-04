@@ -211,6 +211,17 @@ export async function showOpenFolderDialog(
 		);
 	}
 
+	if ( process.env.E2E && process.env.E2E_OPEN_FOLDER_DIALOG ) {
+		// Playwright's filechooser event isn't working in our e2e tests.
+		// Use an environment variable to manually set which folder gets selected.
+		return {
+			path: process.env.E2E_OPEN_FOLDER_DIALOG,
+			name: nodePath.basename( process.env.E2E_OPEN_FOLDER_DIALOG ),
+			isEmpty: await isEmptyDir( process.env.E2E_OPEN_FOLDER_DIALOG ),
+			isWordPress: isWordPressDirectory( process.env.E2E_OPEN_FOLDER_DIALOG ),
+		};
+	}
+
 	const { canceled, filePaths } = await dialog.showOpenDialog( parentWindow, {
 		title,
 		defaultPath: DEFAULT_SITE_PATH,

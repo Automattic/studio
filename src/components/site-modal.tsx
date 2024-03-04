@@ -54,6 +54,7 @@ function FormPathInputComponent( {
 						'flex items-center py-[9px] px-2.5 border border-l-0 border-y-[#949494] border-r-[#949494] rounded-r-sm',
 						isDisabled ? 'cursor-not-allowed' : ''
 					) }
+					role="button"
 				>
 					<FolderIcon className="text-[#3C434A]" />
 				</div>

@@ -16,7 +16,10 @@ export default function App() {
 		>
 			<HStack spacing="0" alignment="left" className="flex-grow">
 				<MainSidebar className="basis-52 flex-shrink-0 h-full" />
-				<div className="p-8 bg-white overflow-y-auto h-full flex-grow rounded-chrome app-no-drag-region">
+				<div
+					data-testid="site-content"
+					className="p-8 bg-white overflow-y-auto h-full flex-grow rounded-chrome app-no-drag-region"
+				>
 					<SiteContentTabs />
 				</div>
 			</HStack>

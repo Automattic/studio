@@ -1,4 +1,4 @@
-name: Studio Installer
+name: Build Installer
 
 on:
   push:
@@ -24,11 +24,14 @@ jobs:
           - windows-latest
         include:
           - os: macos-latest
-            filename: 'Studio-0.1.0-x64.dmg'
+            file_prefix: 'Studio-'
+            file_suffix: '-x64.dmg'
           - os: macos-latest-xlarge
-            filename: 'Studio-0.1.0-arm64.dmg'
+            file_prefix: 'Studio-'
+            file_suffix: '-arm64.dmg'
           - os: windows-latest
-            filename: 'squirrel.windows/x64/Studio-0.1.0 Setup.exe'
+            file_prefix: 'squirrel.windows/x64/Studio-'
+            file_suffix: ' Setup.exe'
 
     runs-on: ${{ matrix.os }}
 
@@ -42,7 +45,7 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Set up Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 20.8.1
@@ -53,9 +56,14 @@ jobs:
       - name: Run Build Script
         run: npm run make
 
+      - name: Get Package Version
+        id: 'get-package-version'
+        shell: bash
+        run: echo "VERSION=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
       - name: Archive Artifact
         uses: actions/upload-artifact@v2
         with:
           name: installers
-          path: out/make/${{ matrix.filename }}
+          path: out/make/${{ matrix.file_prefix }}${{ steps.get-package-version.outputs.VERSION }}${{ matrix.file_suffix }}
           if-no-files-found: error

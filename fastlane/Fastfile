@@ -63,6 +63,7 @@ lane :distribute_binary do |_options|
   commit_message = commit_metadata[:message]
 
   binary_path = File.join(PROJECT_ROOT_FOLDER, 'out', 'Studio-darwin-universal', 'Studio.app.zip')
+  manifest_path = File.join(PROJECT_ROOT_FOLDER, 'out', 'releases.json')
   hashed_filename = "wp-build-darwin-universal-#{commit_hash}.app.zip"
 
   upload_to_s3(
@@ -73,17 +74,31 @@ lane :distribute_binary do |_options|
     auto_prefix: false
   )
 
+  # upload_to_s3(
+  #   bucket: 'a8c-apps-public-artifacts',
+  #   key: 'wp-build/wp-build-darwin-universal-latest.app.zip',
+  #   file: binary_path,
+  #   if_exists: :replace,
+  #   auto_prefix: false
+  # )
+
   upload_to_s3(
     bucket: 'a8c-apps-public-artifacts',
-    key: 'wp-build/wp-build-darwin-universal-latest.app.zip',
-    file: binary_path,
+    key: 'wp-build/releases.json',
+    file: manifest_path,
     if_exists: :replace,
     auto_prefix: false
   )
 
   # Because we distribute via Cloudfront, we need to invalidate the `latest` build after
   # each upload, otherwise it'll be stale.
-  clear_cloudfront_cache(path: '/wp-build/wp-build-darwin-universal-latest.app.zip', commit_hash:)
+  clear_cloudfront_cache(
+    paths: [
+      # '/wp-build/wp-build-darwin-universal-latest.app.zip',
+      '/wp-build/releases.json'
+    ],
+    commit_hash:
+  )
 
   # Copy the file into position to be picked up by the Buildkite agent and saved with the job
   FileUtils.cp(binary_path, File.join(PROJECT_ROOT_FOLDER, 'out', hashed_filename))
@@ -92,16 +107,16 @@ lane :distribute_binary do |_options|
   commit_link = "<https://github.com/Automattic/local-environment/commit/#{commit_hash}|#{commit_hash[0...7]}>"
   commit_message_short = commit_message[/.*/].gsub(/#(\d+)\b/, '<https://github.com/Automattic/local-environment/pull/\1|#\1>')
 
-  slack(
-    username: 'CI Bot',
-    icon_url: 'https://octodex.github.com/images/jenktocat.jpg',
-    message: ":apple_logo: macOS build for commit #{commit_link} is now [available here](#{download_url})",
-    channel: '#dotcom-hosting-local-playground',
-    success: true,
-    slack_url: get_required_env('SLACK_WEBHOOK'),
-    payload: { 'Commit Message': commit_message_short },
-    default_payloads: []
-  )
+  # slack(
+  #   username: 'CI Bot',
+  #   icon_url: 'https://octodex.github.com/images/jenktocat.jpg',
+  #   message: ":apple_logo: macOS build for commit #{commit_link} is now [available here](#{download_url})",
+  #   channel: '#dotcom-hosting-local-playground',
+  #   success: true,
+  #   slack_url: get_required_env('SLACK_WEBHOOK'),
+  #   payload: { 'Commit Message': commit_message_short },
+  #   default_payloads: []
+  # )
 
   buildkite_annotate(
     context: 'cdn-link',
@@ -110,15 +125,13 @@ lane :distribute_binary do |_options|
   )
 end
 
-def clear_cloudfront_cache(path:, commit_hash:)
+def clear_cloudfront_cache(paths:, commit_hash:)
   Aws::CloudFront::Client.new.create_invalidation(
     distribution_id: 'EF4A01YASGPY5',
     invalidation_batch: {
       paths: {
         quantity: 1,
-        items: [
-          path
-        ]
+        items: paths
       },
       caller_reference: commit_hash
     }

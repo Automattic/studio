@@ -18,7 +18,7 @@
 		"postinstall": "node ./scripts/download-wp.mjs",
 		"package": "electron-forge package",
 		"make": "electron-forge make",
-		"make:macos": "SKIP_DMG=true electron-forge make --arch=universal --platform=darwin",
+		"make:macos": "DEV_BUILD=true SKIP_DMG=true electron-forge make --arch=universal --platform=darwin",
 		"publish": "electron-forge publish",
 		"lint": "eslint --ext .ts,.tsx,.js,.jsx,.mjs .",
 		"test": "jest",

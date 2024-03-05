@@ -130,7 +130,7 @@ def clear_cloudfront_cache(paths:, commit_hash:)
     distribution_id: 'EF4A01YASGPY5',
     invalidation_batch: {
       paths: {
-        quantity: 1,
+        quantity: paths.length,
         items: paths
       },
       caller_reference: commit_hash

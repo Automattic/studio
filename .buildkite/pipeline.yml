@@ -44,4 +44,4 @@ steps:
       queue: "mac"
     artifact_paths:
       - "out/*.app.zip"
-    #if: "build.branch == 'trunk'"
+    if: "build.branch == 'trunk'"

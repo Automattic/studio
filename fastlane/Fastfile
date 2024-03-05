@@ -74,13 +74,13 @@ lane :distribute_binary do |_options|
     auto_prefix: false
   )
 
-  # upload_to_s3(
-  #   bucket: 'a8c-apps-public-artifacts',
-  #   key: 'wp-build/wp-build-darwin-universal-latest.app.zip',
-  #   file: binary_path,
-  #   if_exists: :replace,
-  #   auto_prefix: false
-  # )
+  upload_to_s3(
+    bucket: 'a8c-apps-public-artifacts',
+    key: 'wp-build/wp-build-darwin-universal-latest.app.zip',
+    file: binary_path,
+    if_exists: :replace,
+    auto_prefix: false
+  )
 
   upload_to_s3(
     bucket: 'a8c-apps-public-artifacts',
@@ -94,7 +94,7 @@ lane :distribute_binary do |_options|
   # each upload, otherwise it'll be stale.
   clear_cloudfront_cache(
     paths: [
-      # '/wp-build/wp-build-darwin-universal-latest.app.zip',
+      '/wp-build/wp-build-darwin-universal-latest.app.zip',
       '/wp-build/releases.json'
     ],
     commit_hash:
@@ -107,16 +107,16 @@ lane :distribute_binary do |_options|
   commit_link = "<https://github.com/Automattic/local-environment/commit/#{commit_hash}|#{commit_hash[0...7]}>"
   commit_message_short = commit_message[/.*/].gsub(/#(\d+)\b/, '<https://github.com/Automattic/local-environment/pull/\1|#\1>')
 
-  # slack(
-  #   username: 'CI Bot',
-  #   icon_url: 'https://octodex.github.com/images/jenktocat.jpg',
-  #   message: ":apple_logo: macOS build for commit #{commit_link} is now [available here](#{download_url})",
-  #   channel: '#dotcom-hosting-local-playground',
-  #   success: true,
-  #   slack_url: get_required_env('SLACK_WEBHOOK'),
-  #   payload: { 'Commit Message': commit_message_short },
-  #   default_payloads: []
-  # )
+  slack(
+    username: 'CI Bot',
+    icon_url: 'https://octodex.github.com/images/jenktocat.jpg',
+    message: ":apple_logo: macOS build for commit #{commit_link} is now [available here](#{download_url})",
+    channel: '#dotcom-hosting-local-playground',
+    success: true,
+    slack_url: get_required_env('SLACK_WEBHOOK'),
+    payload: { 'Commit Message': commit_message_short },
+    default_payloads: []
+  )
 
   buildkite_annotate(
     context: 'cdn-link',

@@ -5,3 +5,7 @@ export function getAppGlobals(): AppGlobals {
 export function isMac() {
 	return getAppGlobals().platform === 'darwin';
 }
+
+export function isWindows() {
+	return getAppGlobals().platform === 'win32';
+}

@@ -91,6 +91,17 @@ function getOSWindowOptions(): Partial< BrowserWindowConstructorOptions > {
 				titleBarStyle: 'hidden',
 				trafficLightPosition: { x: 20, y: 20 },
 			};
+
+		case 'win32':
+			return {
+				titleBarStyle: 'hidden',
+				titleBarOverlay: {
+					color: 'rgba(30, 30, 30, 1)',
+					symbolColor: 'white',
+					height: 32,
+				},
+			};
+
 		default:
 			return {};
 	}

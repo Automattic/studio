@@ -384,6 +384,7 @@ export async function getAppGlobals( _event: IpcMainInvokeEvent ): Promise< AppG
 		platform: process.platform,
 		locale,
 		localeData,
+		appName: app.name,
 	};
 }
 

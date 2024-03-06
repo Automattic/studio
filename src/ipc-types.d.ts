@@ -51,6 +51,7 @@ interface AppGlobals {
 	platform: NodeJS.Platform;
 	locale: string;
 	localeData: LocaleData | null;
+	appName: string;
 }
 
 interface IpcListener {

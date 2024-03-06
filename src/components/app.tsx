@@ -3,17 +3,25 @@ import {
 	__experimentalHStack as HStack,
 } from '@wordpress/components';
 import { useLocalizationSupport } from '../hooks/use-localization-support';
+import { isWindows } from '../lib/app-globals';
+import { cx } from '../lib/cx';
 import MainSidebar from './main-sidebar';
 import { SiteContentTabs } from './site-content-tabs';
+import WindowsTitlebar from './windows-titlebar';
 
 export default function App() {
 	useLocalizationSupport();
 
 	return (
 		<VStack
-			className="h-screen bg-chrome backdrop-blur-3xl py-chrome pr-chrome app-drag-region"
+			className={ cx(
+				'h-screen bg-chrome backdrop-blur-3xl pr-chrome app-drag-region',
+				isWindows() && 'pt-0 pb-chrome',
+				! isWindows() && 'py-chrome'
+			) }
 			spacing="0"
 		>
+			{ isWindows() && <WindowsTitlebar className="h-titlebar-win" /> }
 			<HStack spacing="0" alignment="left" className="flex-grow">
 				<MainSidebar className="basis-52 flex-shrink-0 h-full" />
 				<div

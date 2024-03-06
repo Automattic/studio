@@ -140,6 +140,7 @@ module.exports = {
 				chrome: '10px',
 				sidebar: '6px',
 				'sidebar-mac': '10px',
+				'titlebar-win': '32px',
 			},
 			borderRadius: {
 				chrome: '5px',

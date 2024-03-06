@@ -14,6 +14,12 @@ rules.push( {
 
 plugins.push( new MiniCssExtractPlugin() );
 
+// Encode imported images as base64 data URIs
+rules.push( {
+	test: /\.(png|jpe?g|gif)$/i,
+	type: 'asset/inline',
+} );
+
 export const rendererConfig: Configuration = {
 	module: {
 		rules,

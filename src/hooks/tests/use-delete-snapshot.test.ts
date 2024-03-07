@@ -1,11 +1,11 @@
 // To run tests, execute `npm run test -- src/hooks/use-delete-snapshot.test.ts` from the root directory
 import { renderHook, act } from '@testing-library/react';
-import { useAuth } from '../hooks/use-auth';
-import { useSiteDetails } from '../hooks/use-site-details';
-import { useDeleteSnapshot } from './use-delete-snapshot';
+import { useAuth } from '../../hooks/use-auth';
+import { useSiteDetails } from '../../hooks/use-site-details';
+import { useDeleteSnapshot } from '../use-delete-snapshot';
 
-jest.mock( '../hooks/use-site-details' );
-jest.mock( '../hooks/use-auth' );
+jest.mock( '../../hooks/use-site-details' );
+jest.mock( '../../hooks/use-auth' );
 
 describe( 'useDeleteSnapshot', () => {
 	// Mock data and responses

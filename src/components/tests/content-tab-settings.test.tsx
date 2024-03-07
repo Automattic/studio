@@ -1,11 +1,12 @@
 // To run tests, execute `npm run test -- src/components/content-tab-settings.test.tsx` from the root directory
-import { render, screen, fireEvent } from '@testing-library/react';
-import { useGetWpVersion } from '../hooks/use-get-wp-version';
-import { getIpcApi } from '../lib/get-ipc-api';
-import { ContentTabSettings } from './content-tab-settings';
+import { render, screen } from '@testing-library/react';
+import { userEvent } from '@testing-library/user-event';
+import { useGetWpVersion } from '../../hooks/use-get-wp-version';
+import { getIpcApi } from '../../lib/get-ipc-api';
+import { ContentTabSettings } from '../content-tab-settings';
 
-jest.mock( '../hooks/use-get-wp-version' );
-jest.mock( '../lib/get-ipc-api' );
+jest.mock( '../../hooks/use-get-wp-version' );
+jest.mock( '../../lib/get-ipc-api' );
 
 const selectedSite: SiteDetails = {
 	name: 'Test Site',
@@ -32,25 +33,30 @@ describe( 'ContentTabSettings', () => {
 	test( 'renders site details correctly', () => {
 		render( <ContentTabSettings selectedSite={ selectedSite } /> );
 
-		expect( screen.getByText( 'Site details' ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'heading', { name: 'Site details' } ) ).toBeInTheDocument();
 		expect( screen.getByText( 'Test Site' ) ).toBeInTheDocument();
-		expect( screen.getByText( 'localhost:8881' ) ).toBeInTheDocument();
-		expect( screen.getByText( '/path/to/site' ) ).toBeInTheDocument();
+		expect(
+			screen.getByRole( 'button', { name: 'Copy site url to clipboard' } )
+		).toHaveTextContent( 'localhost:8881' );
+		expect( screen.getByRole( 'button', { name: '/path/to/site' } ) ).toBeInTheDocument();
 		expect( screen.getByText( '7.7.7' ) ).toBeInTheDocument();
-		expect( screen.getByText( 'localhost:8881/wp-admin' ) ).toBeInTheDocument();
-		expect( screen.getByText( 'localhost:8881/wp-admin' ) ).toBeInTheDocument();
+		expect(
+			screen.getByRole( 'button', { name: 'Copy wp-admin url to clipboard' } )
+		).toHaveTextContent( 'localhost:8881/wp-admin' );
 	} );
 
-	test( 'button opens local path', () => {
+	test( 'button opens local path', async () => {
+		const user = userEvent.setup();
 		render( <ContentTabSettings selectedSite={ selectedSite } /> );
 
 		const pathButton = screen.getByRole( 'button', { name: '/path/to/site' } );
 		expect( pathButton ).toBeInTheDocument();
-		fireEvent.click( pathButton );
+		await user.click( pathButton );
 		expect( openLocalPath ).toHaveBeenCalledWith( '/path/to/site' );
 	} );
 
-	test( 'URL buttons work well when site is running', () => {
+	test( 'URL buttons work well when site is running', async () => {
+		const user = userEvent.setup();
 		const selectedSiteRunning: SiteDetails = {
 			...selectedSite,
 			port: 8881,
@@ -63,7 +69,7 @@ describe( 'ContentTabSettings', () => {
 			name: 'Copy site url to clipboard',
 		} );
 		expect( urlButton ).toBeInTheDocument();
-		fireEvent.click( urlButton );
+		await user.click( urlButton );
 		expect( copyText ).toHaveBeenCalledTimes( 1 );
 		expect( copyText ).toHaveBeenCalledWith( 'http://localhost:8881' );
 
@@ -71,7 +77,7 @@ describe( 'ContentTabSettings', () => {
 			name: 'Copy wp-admin url to clipboard',
 		} );
 		expect( wpAdminButton ).toBeInTheDocument();
-		fireEvent.click( wpAdminButton );
+		await user.click( wpAdminButton );
 		expect( copyText ).toHaveBeenCalledTimes( 2 );
 		expect( copyText ).toHaveBeenCalledWith( 'http://localhost:8881/wp-admin' );
 	} );

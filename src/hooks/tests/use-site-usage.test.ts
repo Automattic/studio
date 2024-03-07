@@ -1,14 +1,14 @@
 // To run tests, execute `npm run test -- src/hooks/use-site-usage.test.ts` from the root directory
 import * as Sentry from '@sentry/electron/renderer';
 import { waitFor, renderHook } from '@testing-library/react';
-import { LIMIT_OF_ZIP_SITES_PER_USER } from '../constants';
-import { useAuth } from './use-auth';
-import { useSiteDetails } from './use-site-details';
-import { useSiteUsage } from './use-site-usage';
+import { LIMIT_OF_ZIP_SITES_PER_USER } from '../../constants';
+import { useAuth } from '../use-auth';
+import { useSiteDetails } from '../use-site-details';
+import { useSiteUsage } from '../use-site-usage';
 
 jest.mock( '@sentry/electron/renderer' );
-jest.mock( './use-auth' );
-jest.mock( './use-site-details' );
+jest.mock( '../use-auth' );
+jest.mock( '../use-site-details' );
 
 describe( 'useSiteUsage', () => {
 	// Mock data and responses

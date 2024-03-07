@@ -1,7 +1,7 @@
 // To run tests, execute `npm run test -- src/hooks/use-expiration-date.test.ts` from the root directory
 import { renderHook } from '@testing-library/react';
 import { subDays, subHours } from 'date-fns';
-import { useExpirationDate } from './use-expiration-date';
+import { useExpirationDate } from '../use-expiration-date';
 
 describe( 'useExpirationDate', () => {
 	test( 'should indicate isExpired for dates more than 7 days', () => {

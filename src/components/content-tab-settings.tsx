@@ -28,7 +28,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 	return (
 		<div className="pb-4">
 			<div className="flex flex-col justify-start items-start gap-4 mb-8">
-				<div className="text-black text-sm font-semibold">Site details</div>
+				<h3 className="text-black text-sm font-semibold">{ __( 'Site details' ) }</h3>
 				<SettingsRow label={ __( 'Site name' ) }>
 					{ selectedSite.name }
 					<EditSite />
@@ -51,7 +51,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 					</button>
 				</SettingsRow>
 				<SettingsRow label={ __( 'WP Version' ) }>{ wpVersion }</SettingsRow>
-				<div className="text-black text-sm font-semibold mt-4">{ __( 'WP Admin' ) }</div>
+				<h3 className="text-black text-sm font-semibold mt-4">{ __( 'WP Admin' ) }</h3>
 				<SettingsRow label={ __( 'Username' ) }>
 					<CopyTextButton text={ username } copyConfirmation={ __( 'Copied!' ) }>
 						{ username }

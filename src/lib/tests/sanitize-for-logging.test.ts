@@ -1,4 +1,4 @@
-import { sanitizeForLogging } from './sanitize-for-logging';
+import { sanitizeForLogging } from '../sanitize-for-logging';
 
 test( 'redacts sensitive strings from objects', () => {
 	const sanitized = sanitizeForLogging( {

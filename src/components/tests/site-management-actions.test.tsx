@@ -1,5 +1,6 @@
-import { fireEvent, render } from '@testing-library/react';
-import { SiteManagementActionProps, SiteManagementActions } from './site-management-actions';
+import { render, screen } from '@testing-library/react';
+import { userEvent } from '@testing-library/user-event';
+import { SiteManagementActionProps, SiteManagementActions } from '../site-management-actions';
 
 const defaultProps = {
 	onStart: jest.fn(),
@@ -17,7 +18,7 @@ describe( 'SiteManagementActions', () => {
 		expect( container.firstChild ).toBeNull();
 	} );
 	it( 'should render correctly with a running site', () => {
-		const { getByText } = render(
+		render(
 			<SiteManagementActions
 				{ ...defaultProps }
 				selectedSite={
@@ -28,10 +29,11 @@ describe( 'SiteManagementActions', () => {
 				}
 			/>
 		);
-		expect( getByText( 'Running' ) ).not.toBeNull();
+		expect( screen.getByRole( 'button', { name: 'Running' } ) ).not.toBeNull();
 	} );
-	it( 'should change text to Stop when hovered over a running site', () => {
-		const { getByText } = render(
+	it( 'should change text to Stop when hovered over a running site', async () => {
+		const user = userEvent.setup();
+		render(
 			<SiteManagementActions
 				{ ...defaultProps }
 				selectedSite={
@@ -42,16 +44,17 @@ describe( 'SiteManagementActions', () => {
 				}
 			/>
 		);
-		fireEvent.mouseEnter( getByText( 'Running' ) );
-		expect( getByText( 'Stop' ) ).toBeInTheDocument();
+		const startStopButton = screen.getByRole( 'button', { name: 'Running' } );
+		await user.hover( startStopButton );
+		expect( startStopButton ).toHaveTextContent( 'Stop' );
 	} );
 	it( 'should render "Start" button when site is not running', () => {
-		const { getByText } = render(
+		render(
 			<SiteManagementActions
 				{ ...defaultProps }
 				selectedSite={ { running: false, id: 'site-1' } as SiteDetails }
 			/>
 		);
-		expect( getByText( 'Start' ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Start' } ) ).toBeInTheDocument();
 	} );
 } );

@@ -23,7 +23,7 @@ export function Gravatar( {
 	);
 
 	return gravatarUrl ? (
-		<img src={ gravatarUrl } alt={ __( 'Avatar' ) } className={ childClassName } />
+		<img src={ gravatarUrl } alt={ __( 'User avatar' ) } className={ childClassName } />
 	) : (
 		<Icon
 			icon={ commentAuthorAvatar }

@@ -1,11 +1,11 @@
 import { render, screen, waitFor } from '@testing-library/react';
-import { Gravatar } from './gravatar';
+import { Gravatar } from '../gravatar';
 
-jest.mock( '../hooks/use-auth', () => ( {
+jest.mock( '../../hooks/use-auth', () => ( {
 	useAuth: () => ( { user: { email: 'antonio.sejas@automattic.com' } } ),
 } ) );
 
-jest.mock( '../hooks/use-sha256', () => ( {
+jest.mock( '../../hooks/use-sha256', () => ( {
 	useSha256: () =>
 		jest
 			.fn()
@@ -16,7 +16,7 @@ describe( 'Gravatar', () => {
 	test( 'Gravatar renders the image when gravatarUrl is available', async () => {
 		render( <Gravatar /> );
 		await waitFor( () => {
-			const image = screen.getByAltText( 'Avatar' );
+			const image = screen.getByAltText( 'User avatar' );
 			expect( image ).toBeInTheDocument();
 			expect( image ).toHaveAttribute(
 				'src',
@@ -26,12 +26,12 @@ describe( 'Gravatar', () => {
 	} );
 
 	test( 'Gravatar does not render the image when there is no email', async () => {
-		jest.mock( '../hooks/use-auth', () => ( {
+		jest.mock( '../../hooks/use-auth', () => ( {
 			useAuth: () => ( { user: undefined } ),
 		} ) );
 		render( <Gravatar /> );
 		await waitFor( () => {
-			const image = screen.queryByAltText( 'Avatar' );
+			const image = screen.queryByAltText( 'User avatar' );
 			expect( image ).not.toBeInTheDocument();
 		} );
 	} );

@@ -146,6 +146,7 @@ export function ContentTabSnapshots( { selectedSite }: ContentTabSnapshotsProps 
 				>
 					{ showPopover && (
 						<Popover
+							role="tooltip"
 							noArrow={ true }
 							position="top left"
 							offset={ 8 }

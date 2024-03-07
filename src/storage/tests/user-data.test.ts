@@ -1,6 +1,6 @@
 // To run tests, execute `npm run test -- src/storage/user-data.test.ts` from the root directory
 import fs from 'fs';
-import { loadUserData } from './user-data';
+import { loadUserData } from '../user-data';
 
 const mockUserData = {
 	sites: [

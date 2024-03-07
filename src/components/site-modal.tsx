@@ -61,6 +61,8 @@ function FormPathInputComponent( {
 			</div>
 			{ ( error || doesPathContainWordPress ) && (
 				<div
+					role="alert"
+					aria-atomic="true"
 					className={ cx(
 						'flex flex-row items-start a8c-helper-text pt-1.5 gap-1',
 						error ? 'text-red-500' : '',
@@ -149,7 +151,6 @@ export const SiteModal = ( {
 					{ __( 'Cancel' ) }
 				</Button>
 				<Button
-					data-testid="site-action-button"
 					className="bg-a8c-blueberry hover:text-white text-white"
 					variant="primary"
 					isBusy={ isLoading }

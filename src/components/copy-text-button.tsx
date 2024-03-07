@@ -46,7 +46,11 @@ export function CopyTextButton( {
 		>
 			{ children }
 			<Icon className="ml-1.5 mr-1" fill="currentColor" size={ 13 } icon={ copy } />
-			{ showCopied && copyConfirmation }
+			{ showCopied && (
+				<span role="alert" aria-atomic="true">
+					{ copyConfirmation }
+				</span>
+			) }
 		</button>
 	);
 }

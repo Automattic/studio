@@ -2,14 +2,14 @@
 import { jest } from '@jest/globals';
 import { render, waitFor, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
-import { FolderDialogResponse } from '../ipc-handlers';
-import AddSite from './add-site';
+import { FolderDialogResponse } from '../../ipc-handlers';
+import AddSite from '../add-site';
 
 const mockShowOpenFolderDialog =
 	jest.fn< ( dialogTitle: string ) => Promise< FolderDialogResponse | null > >();
 const mockGenerateProposedSitePath =
 	jest.fn< ( siteName: string ) => Promise< FolderDialogResponse > >();
-jest.mock( '../lib/get-ipc-api', () => ( {
+jest.mock( '../../lib/get-ipc-api', () => ( {
 	__esModule: true,
 	default: jest.fn(),
 	getIpcApi: () => ( {
@@ -19,7 +19,7 @@ jest.mock( '../lib/get-ipc-api', () => ( {
 } ) );
 
 const mockCreateSite = jest.fn< ( path: string ) => void >();
-jest.mock( '../hooks/use-site-details', () => ( {
+jest.mock( '../../hooks/use-site-details', () => ( {
 	useSiteDetails: () => ( {
 		createSite: mockCreateSite,
 		data: [],
@@ -53,7 +53,7 @@ describe( 'CreateSite', () => {
 		await user.click( screen.getByTestId( 'select-path-button' ) );
 
 		expect( mockShowOpenFolderDialog ).toHaveBeenCalledWith( 'Choose folder for site' );
-		await user.click( screen.getByTestId( 'site-action-button' ) );
+		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 
 		await waitFor( () => {
 			expect( mockCreateSite ).toHaveBeenCalledWith( 'test', 'My Site' );
@@ -83,12 +83,10 @@ describe( 'CreateSite', () => {
 		expect( mockShowOpenFolderDialog ).toHaveBeenCalledWith( 'Choose folder for site' );
 
 		await waitFor( () => {
-			expect( screen.getByTestId( 'site-action-button' ) ).toBeDisabled();
-			expect(
-				screen.getByText(
-					'This directory is not empty. Please select an empty directory or an existing WordPress folder.'
-				)
-			).toBeVisible();
+			expect( screen.getByRole( 'button', { name: 'Add site' } ) ).toBeDisabled();
+			expect( screen.getByRole( 'alert' ) ).toHaveTextContent(
+				'This directory is not empty. Please select an empty directory or an existing WordPress folder.'
+			);
 		} );
 	} );
 
@@ -116,10 +114,10 @@ describe( 'CreateSite', () => {
 		expect( mockShowOpenFolderDialog ).toHaveBeenCalledWith( 'Choose folder for site' );
 
 		await waitFor( () => {
-			expect( screen.getByTestId( 'site-action-button' ) ).not.toBeDisabled();
-			expect(
-				screen.getByText( 'The existing WordPress site at this path will be added.' )
-			).toBeVisible();
+			expect( screen.getByRole( 'button', { name: 'Add site' } ) ).not.toBeDisabled();
+			expect( screen.getByRole( 'alert' ) ).toHaveTextContent(
+				'The existing WordPress site at this path will be added.'
+			);
 		} );
 	} );
 } );

@@ -29,7 +29,7 @@ $ npm run make
 
 ## Localization
 
-[See localisation docs](./docs/localization.md)
+[See localization docs](./docs/localization.md)
 
 ## Versioning and Updates
 

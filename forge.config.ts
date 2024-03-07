@@ -12,15 +12,10 @@ import { MakerZIP } from '@electron-forge/maker-zip';
 import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-natives';
 import { WebpackPlugin } from '@electron-forge/plugin-webpack';
 import ForgeExternalsPlugin from '@timfish/forge-externals-plugin';
-import packageJson from './package.json';
 import { isErrnoException } from './src/lib/is-errno-exception';
 import { mainConfig } from './webpack.main.config';
 import { rendererConfig } from './webpack.renderer.config';
 import type { ForgeConfig } from '@electron-forge/shared-types';
-
-const { version } = packageJson;
-const currentCommit = process.env.GITHUB_SHA ?? process.env.BUILDKITE_COMMIT;
-const isDevBuild = Boolean( process.env.DEV_BUILD );
 
 const config: ForgeConfig = {
 	packagerConfig: {
@@ -29,10 +24,6 @@ const config: ForgeConfig = {
 		executableName: process.platform === 'linux' ? 'studio' : undefined,
 		icon: './assets/studio-app-icon',
 		osxSign: {},
-		appVersion:
-			isDevBuild && currentCommit
-				? `${ version.split( '-' )[ 0 ] }-dev.${ currentCommit }`
-				: version,
 	},
 	rebuildConfig: {},
 	makers: [

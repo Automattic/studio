@@ -1,6 +1,7 @@
 import { app, autoUpdater, dialog } from 'electron';
 import * as Sentry from '@sentry/electron/main';
 import { __ } from '@wordpress/i18n';
+import { AUTO_UPDATE_INTERVAL_MS } from './constants';
 
 export function setupUpdates() {
 	if ( process.env.E2E ) {
@@ -20,6 +21,9 @@ export function setupUpdates() {
 	autoUpdater.on( 'error', ( err ) => {
 		console.error( err );
 		Sentry.captureException( err );
+
+		// Stop auto checking for updates if the server is having an issue
+		interval && clearInterval( interval );
 	} );
 
 	autoUpdater.on( 'update-available', () => {
@@ -46,10 +50,15 @@ export function setupUpdates() {
 		}
 	} );
 
-	if ( process.env.NODE_ENV !== 'production' || ! app.isPackaged ) {
+	if (
+		process.env.NODE_ENV !== 'production' ||
+		! app.isPackaged ||
+		app.getVersion().includes( '-dev.' )
+	) {
 		console.log( 'Skipping auto-updates', {
 			env: process.env.NODE_ENV,
 			isPackaged: app.isPackaged,
+			version: app.getVersion(),
 		} );
 		return;
 	}
@@ -57,7 +66,7 @@ export function setupUpdates() {
 	interval = setInterval( () => {
 		console.log( `Automatically checking for update: ${ autoUpdater.getFeedURL() }` );
 		autoUpdater.checkForUpdates();
-	}, 60000 );
+	}, AUTO_UPDATE_INTERVAL_MS );
 
 	console.log( `Checking for update on app launch: ${ autoUpdater.getFeedURL() }` );
 	autoUpdater.checkForUpdates();

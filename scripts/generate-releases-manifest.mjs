@@ -40,9 +40,11 @@ import fs from 'fs/promises';
 import https from 'https';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import packageJson from '../package.json' assert { type: 'json' };
 
 const currentCommit = process.env.GITHUB_SHA ?? process.env.BUILDKITE_COMMIT;
-const isDevBuild = process.argv.includes( '--dev-build' );
+const { version } = packageJson;
+const isDevBuild = version.includes( '-dev.' );
 
 const __dirname = path.dirname( fileURLToPath( import.meta.url ) );
 
@@ -53,6 +55,7 @@ if ( process.platform !== 'darwin' ) {
 	process.exit( 0 );
 }
 
+console.log( `Version: ${ version }` );
 console.log( `Is dev build: ${ isDevBuild }` );
 console.log( `Current commit: ${ currentCommit }` );
 

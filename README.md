@@ -31,6 +31,10 @@ $ npm run make
 
 [See localisation docs](./docs/localization.md)
 
+## Versioning and Updates
+
+[See versioning docs](./docs/versioning-and-updates.md)
+
 ## [Linux] Authentication setup for local development
 In order for the authentication to work on Linux, you need to follow the next steps:
 - Run `npm run make` from the root of the project

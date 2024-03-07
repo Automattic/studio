@@ -27,13 +27,14 @@ steps:
 
       echo "--- :node: Building Binary"
       npm install
+      node ./scripts/prepare-dev-build-version.mjs
       npm run make:macos
 
       echo "--- 📃 Notarizing Binary"
       bundle exec fastlane notarize_binary
 
       echo "--- :node: Generate Releases Manifest"
-      node ./scripts/generate-releases-manifest.mjs --dev-build
+      node ./scripts/generate-releases-manifest.mjs
 
       echo "--- 🚀 Distributing Binary"
       bundle exec fastlane distribute_binary

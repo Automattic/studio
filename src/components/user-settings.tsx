@@ -59,7 +59,7 @@ const SnapshotInfo = ( {
 			<div className="flex gap-4 flex-row items-center w-full">
 				<div className="flex w-full flex-col gap-2">
 					<div className="flex w-full flex-row justify-between">
-						<span>{ __( 'Preview Links' ) }</span>
+						<span>{ __( 'Preview links' ) }</span>
 
 						<div className="flex flex-row items-center">
 							{ isDeleting && <Spinner className="!mt-0 !ml-0 !mr-2" /> }

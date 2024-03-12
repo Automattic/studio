@@ -1,5 +1,5 @@
 import { __ } from '@wordpress/i18n';
-import { Icon, help, settings } from '@wordpress/icons';
+import { Icon, help } from '@wordpress/icons';
 import { useAuth } from '../hooks/use-auth';
 import { isMac } from '../lib/app-globals';
 import { cx } from '../lib/cx';
@@ -37,13 +37,6 @@ function SidebarAuthFooter() {
 					aria-label={ __( 'Help' ) }
 				>
 					<Icon icon={ help } />
-				</Button>
-				<Button
-					onClick={ () => getIpcApi().showUserSettings() }
-					className="ml-auto text-white h-6 !px-0 active:!text-white rounded hover:!text-white hover:bg-white hover:bg-opacity-10"
-					aria-label={ __( 'Settings' ) }
-				>
-					<Icon icon={ settings } />
 				</Button>
 			</div>
 		);

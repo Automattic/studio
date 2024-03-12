@@ -79,8 +79,6 @@ describe( 'MainSidebar Footer', () => {
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
 		await act( async () => render( <MainSidebar /> ) );
 		expect( screen.queryByRole( 'button', { name: 'Log in' } ) ).not.toBeInTheDocument();
-		const settingsButton = screen.getByRole( 'button', { name: 'Settings' } );
-		expect( settingsButton ).toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'Account' } ) ).toBeInTheDocument();
 	} );
 

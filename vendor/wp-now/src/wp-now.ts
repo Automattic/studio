@@ -188,7 +188,7 @@ async function runWordPressDevelopMode(
 
 async function runWordPressMode(
 	php: NodePHP,
-	{ documentRoot, wpContentPath, projectPath, absoluteUrl }: WPNowOptions
+	{ documentRoot, projectPath, absoluteUrl }: WPNowOptions
 ) {
 	php.mount(projectPath, documentRoot);
 
@@ -199,7 +199,7 @@ async function runWordPressMode(
 		absoluteUrl
 	);
 
-	mountMuPlugins(php, documentRoot);
+	downloadMuPlugins(path.join(projectPath, 'wp-content', 'mu-plugins'));
 }
 
 async function runPluginOrThemeMode(

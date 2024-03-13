@@ -6,6 +6,7 @@ import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import archiver from 'archiver';
 import { copySync } from 'fs-extra';
+import { SQLITE_FILENAME } from '../vendor/wp-now/src/constants';
 import { downloadSqliteIntegrationPlugin } from '../vendor/wp-now/src/download';
 import { isEmptyDir, pathExists, isWordPressDirectory } from './lib/fs-utils';
 import { isErrnoException } from './lib/is-errno-exception';
@@ -60,24 +61,20 @@ async function setupSqliteIntegration( path: string ) {
 	const wpContentPath = nodePath.join( path, 'wp-content' );
 	const databasePath = nodePath.join( wpContentPath, 'database' );
 
-	if ( ! ( await pathExists( databasePath ) ) ) {
-		fs.mkdirSync( databasePath, { recursive: true } );
-	}
+	fs.mkdirSync( databasePath, { recursive: true } );
 
 	const dbPhpPath = nodePath.join( wpContentPath, 'db.php' );
-	if ( ! ( await pathExists( dbPhpPath ) ) ) {
-		fs.copyFileSync(
-			nodePath.join( getServerFilesPath(), 'sqlite-database-integration-main', 'db.copy' ),
-			dbPhpPath
-		);
-	}
-	const sqlitePluginPath = nodePath.join( wpContentPath, 'plugins', 'sqlite-database-integration' );
-	if ( ! ( await pathExists( sqlitePluginPath ) ) ) {
-		await copySync(
-			nodePath.join( getServerFilesPath(), 'sqlite-database-integration-main' ),
-			sqlitePluginPath
-		);
-	}
+	fs.copyFileSync( nodePath.join( getServerFilesPath(), SQLITE_FILENAME, 'db.copy' ), dbPhpPath );
+	const dbCopyContent = fs.readFileSync( dbPhpPath ).toString();
+	fs.writeFileSync(
+		dbPhpPath,
+		dbCopyContent.replace(
+			"'{SQLITE_IMPLEMENTATION_FOLDER_PATH}'",
+			`realpath( __DIR__ . '/mu-plugins/${ SQLITE_FILENAME }' )`
+		)
+	);
+	const sqlitePluginPath = nodePath.join( wpContentPath, 'mu-plugins', SQLITE_FILENAME );
+	await copySync( nodePath.join( getServerFilesPath(), SQLITE_FILENAME ), sqlitePluginPath );
 }
 
 export async function createSite(
@@ -87,7 +84,7 @@ export async function createSite(
 ): Promise< SiteDetails[] > {
 	const userData = await loadUserData();
 	const forceSetupSqlite = false;
-
+	let wasPathEmpty = false;
 	// We only try to create the directory recursively if the user has
 	// not selected a path from the dialog (and thus they use the "default" path)
 	if ( ! ( await pathExists( path ) ) && path.startsWith( DEFAULT_SITE_PATH ) ) {
@@ -99,6 +96,7 @@ export async function createSite(
 	}
 
 	if ( ! ( await isEmptyDir( path ) ) && ! isWordPressDirectory( path ) ) {
+		wasPathEmpty = true;
 		userData.sites;
 	}
 
@@ -136,7 +134,12 @@ export async function createSite(
 				await setupSqliteIntegration( path );
 			}
 		} catch ( error ) {
-			/* Empty */
+			Sentry.captureException( error );
+			if ( wasPathEmpty ) {
+				// Clean the path to let the user try again
+				await shell.trashItem( path );
+			}
+			throw new Error( 'Error creating the site. Please contact support.' );
 		}
 	}
 

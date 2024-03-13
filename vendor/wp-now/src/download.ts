@@ -5,7 +5,7 @@ import { IncomingMessage } from 'http';
 import os from 'os';
 import path from 'path';
 import unzipper from 'unzipper';
-import { DEFAULT_WORDPRESS_VERSION, SQLITE_URL, WP_CLI_URL } from './constants';
+import { DEFAULT_WORDPRESS_VERSION, SQLITE_FILENAME, SQLITE_URL, WP_CLI_URL } from './constants';
 import getSqlitePath from './get-sqlite-path';
 import getWordpressVersionsPath from './get-wordpress-versions-path';
 import getWpCliPath from './get-wp-cli-path';
@@ -198,11 +198,12 @@ export async function downloadSqliteIntegrationPlugin() {
 	});
 }
 
-export async function downloadMuPlugins() {
-	fs.ensureDirSync(path.join(getWpNowPath(), 'mu-plugins'));
+export async function downloadMuPlugins(customMuPluginsPath = '') {
+	const muPluginsPath = customMuPluginsPath || path.join(getWpNowPath(), 'mu-plugins');
+	fs.ensureDirSync(muPluginsPath);
 
 	fs.writeFile(
-		path.join(getWpNowPath(), 'mu-plugins', '0-allow-wp-org.php'),
+		path.join(muPluginsPath, '0-allow-wp-org.php'),
 		`<?php
 	// Needed because gethostbyname( 'wordpress.org' ) returns
 	// a private network IP address for some reason.
@@ -216,7 +217,7 @@ export async function downloadMuPlugins() {
 	);
 
 	fs.writeFile(
-		path.join(getWpNowPath(), 'mu-plugins', '0-dns-functions.php'),
+		path.join(muPluginsPath, '0-dns-functions.php'),
 		`<?php
 		// Polyfill for DNS functions/features which are not currently supported by @php-wasm/node.
 		// See https://github.com/WordPress/wordpress-playground/issues/1042
@@ -228,6 +229,14 @@ export async function downloadMuPlugins() {
 		}
 		if ( ! defined( 'DNS_NS' ) ) {
 			define( 'DNS_NS', 2 );
+		}`
+	);
+
+	fs.writeFile(
+		path.join(muPluginsPath, '0-sqlite.php'),
+		`<?php
+		if ( file_exists( WP_CONTENT_DIR . "/db.php" ) && file_exists( __DIR__ . "/${SQLITE_FILENAME}/load.php" ) ) {
+			require_once __DIR__ . "/${SQLITE_FILENAME}/load.php";
 		}`
 	);
 }

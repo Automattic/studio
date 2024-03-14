@@ -1,8 +1,12 @@
 import { app } from 'electron';
+import fs from 'fs/promises';
 import nodePath from 'path';
+import * as Sentry from '@sentry/electron/main';
 import { getWpNowConfig, startServer, type WPNowServer } from '../vendor/wp-now/src';
 import { pathExists, recursiveCopyDirectory, isEmptyDir } from './lib/fs-utils';
 import { portFinder } from './lib/port-finder';
+import { createScreenshotWindow } from './screenshot-window';
+import { getSiteThumbnailPath } from './storage/paths';
 
 const servers = new Map< string, SiteServer >();
 
@@ -55,6 +59,8 @@ export class SiteServer {
 	}
 
 	async delete() {
+		const thumbnailPath = getSiteThumbnailPath( this.details.id );
+		await fs.unlink( thumbnailPath );
 		await this.stop();
 		servers.delete( this.details.id );
 	}
@@ -85,6 +91,8 @@ export class SiteServer {
 			port: this.server.options.port,
 			running: true,
 		};
+
+		await this.updateCachedThumbnail();
 	}
 
 	updateSiteDetails( site: SiteDetails ) {
@@ -106,5 +114,25 @@ export class SiteServer {
 
 		const { running, url, ...rest } = this.details;
 		this.details = { running: false, ...rest };
+	}
+
+	async updateCachedThumbnail() {
+		if ( ! this.details.running ) {
+			throw new Error( 'Cannot update thumbnail for a stopped server' );
+		}
+
+		const captureUrl = new URL( '/?studio-hide-adminbar', this.details.url );
+		const { window, waitForCapture } = createScreenshotWindow( captureUrl.href );
+
+		const outPath = getSiteThumbnailPath( this.details.id );
+		const outDir = nodePath.dirname( outPath );
+
+		// Continue taking the screenshot asynchronously so we don't prevent the
+		// UI from showing the server is now available.
+		fs.mkdir( outDir, { recursive: true } )
+			.then( waitForCapture )
+			.then( ( image ) => fs.writeFile( outPath, image.toPNG() ) )
+			.catch( Sentry.captureException )
+			.finally( () => window.destroy() );
 	}
 }

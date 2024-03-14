@@ -233,6 +233,16 @@ export async function downloadMuPlugins(customMuPluginsPath = '') {
 	);
 
 	fs.writeFile(
+		path.join(muPluginsPath, '0-thumbnails.php'),
+		`<?php
+		// Facilitates the taking of screenshots to be used as thumbnails.
+		if ( isset( $_GET['studio-hide-adminbar'] ) ) {
+			add_filter( 'show_admin_bar', '__return_false' );
+		}
+		`
+	)
+
+	fs.writeFile(
 		path.join(muPluginsPath, '0-sqlite.php'),
 		`<?php
 		if ( file_exists( WP_CONTENT_DIR . "/db.php" ) && file_exists( __DIR__ . "/${SQLITE_FILENAME}/load.php" ) ) {

@@ -12,3 +12,8 @@ export function getServerFilesPath(): string {
 }
 
 export const DEFAULT_SITE_PATH = path.join( app?.getPath( 'home' ) || '', 'Studio' );
+
+export function getSiteThumbnailPath( siteId: string ): string {
+	const appDataPath = app.getPath( 'appData' );
+	return path.join( appDataPath, app.getName(), 'thumbnails', `${ siteId }.png` );
+}

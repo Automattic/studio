@@ -69,3 +69,8 @@ button:enabled.cursor-pointer {
 .sites-scrollbar::-webkit-scrollbar-thumb:hover {
 	background:rgba(255, 255, 255, .5);
 }
+
+/* Avoid selecting text on dropdown menu, like preview links */
+.components-popover {
+	user-select: none;
+}

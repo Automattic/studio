@@ -15,7 +15,7 @@ export default function App() {
 	return (
 		<VStack
 			className={ cx(
-				'h-screen bg-chrome backdrop-blur-3xl pr-chrome app-drag-region',
+				'h-screen bg-chrome backdrop-blur-3xl pr-chrome app-drag-region select-none',
 				isWindows() && 'pt-0 pb-chrome',
 				! isWindows() && 'py-chrome'
 			) }

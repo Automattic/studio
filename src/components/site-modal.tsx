@@ -144,6 +144,11 @@ export const SiteModal = ( {
 			title={ title }
 			isDismissible
 			onRequestClose={ onRequestClose }
+			onKeyDown={ ( event ) => {
+				if ( event.key === 'Enter' && ! isPrimaryButtonDisabled && ! isLoading ) {
+					onPrimaryAction();
+				}
+			} }
 		>
 			{ children }
 			<div className="flex flex-row justify-end gap-x-5 mt-6">

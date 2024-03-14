@@ -220,9 +220,9 @@ async function appBoot() {
 
 		setupIpc();
 		setupCustomProtocolHandler();
-		setupMenu();
 
 		mainWindow = createMainWindow();
+		setupMenu( mainWindow );
 		setupAuthCallbackHandler( mainWindow );
 		handleAuthOnStartup();
 		mainWindow.on( 'closed', () => ( mainWindow = null ) );

@@ -1,15 +1,12 @@
-import { Menu, type MenuItemConstructorOptions, app } from 'electron';
+import { Menu, type MenuItemConstructorOptions, app, BrowserWindow } from 'electron';
 import { __ } from '@wordpress/i18n';
 import { manualCheckForUpdates } from './updates';
 
-export function setupMenu() {
-	// We only show a menu on macOS.
-	// Setting the application menu to null will remove it from all windows we create.
-	if ( process.platform !== 'darwin' ) {
+export function setupMenu( window: BrowserWindow | null ) {
+	if ( ! window && process.platform !== 'darwin' ) {
 		Menu.setApplicationMenu( null );
 		return;
 	}
-
 	const crashTestMenuItems: MenuItemConstructorOptions[] = [
 		{
 			label: __( 'Test Hard Crash (dev only)' ),
@@ -96,5 +93,14 @@ export function setupMenu() {
 		},
 	] );
 
-	Menu.setApplicationMenu( menu );
+	if ( process.platform === 'darwin' ) {
+		Menu.setApplicationMenu( menu );
+		return;
+	}
+	// Make menu accessible in development for non-macOS platforms
+	if ( process.env.NODE_ENV === 'development' ) {
+		window?.setMenu( menu );
+		return;
+	}
+	Menu.setApplicationMenu( null );
 }

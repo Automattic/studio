@@ -42,15 +42,15 @@ const UserInfo = ( {
 const SnapshotInfo = ( {
 	siteCount,
 	siteLimit,
+	isDisabled,
 	onRemoveSnapshots,
 	isDeleting = false,
-	isLoadingSiteUsage = false,
 }: {
 	siteCount: number;
 	siteLimit: number;
+	isDisabled?: boolean;
 	onRemoveSnapshots: () => void;
 	isDeleting?: boolean;
-	isLoadingSiteUsage?: boolean;
 } ) => {
 	const { __ } = useI18n();
 	return (
@@ -74,14 +74,12 @@ const SnapshotInfo = ( {
 					className={
 						'ml-auto flex items-center [&_button:first-child]:p-0 [&_button:first-child]:min-w-6 [&_button:first-child]:h-6'
 					}
-					isDisabled={ siteCount === 0 || isDeleting || isLoadingSiteUsage }
+					isDisabled={ isDisabled }
 					popoverProps={ { position: 'bottom left', resize: true } }
 					icon={
 						<Icon
 							icon={ moreVertical }
-							className={
-								siteCount === 0 || isDeleting ? 'text-a8c-gray-20 cursor-not-allowed' : ''
-							}
+							className={ isDisabled ? 'text-a8c-gray-20 cursor-not-allowed' : '' }
 						></Icon>
 					}
 					size={ 24 }
@@ -157,7 +155,12 @@ export default function UserSettings() {
 							<div className="border border-[#F0F0F0] w-full"></div>
 							<SnapshotInfo
 								isDeleting={ loadingDeletingAllSnapshots }
-								isLoadingSiteUsage={ isLoadingSiteUsage }
+								isDisabled={
+									siteCount === 0 ||
+									loadingDeletingAllSnapshots ||
+									isLoadingSiteUsage ||
+									snapshots.length === 0
+								}
 								siteCount={ siteCount }
 								siteLimit={ siteLimit }
 								onRemoveSnapshots={ onRemoveSnapshots }

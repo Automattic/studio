@@ -6,6 +6,10 @@ export function useContentTabs() {
 	return useMemo(
 		() => [
 			{
+				name: 'overview',
+				title: __( 'Overview' ),
+			},
+			{
 				name: 'preview',
 				title: __( 'Preview' ),
 			},

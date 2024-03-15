@@ -4,6 +4,7 @@ import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { getWpNowConfig, startServer, type WPNowServer } from '../vendor/wp-now/src';
 import { pathExists, recursiveCopyDirectory, isEmptyDir } from './lib/fs-utils';
+import { phpGetThemeDetails } from './lib/php-get-theme-details';
 import { portFinder } from './lib/port-finder';
 import { createScreenshotWindow } from './screenshot-window';
 import { getSiteThumbnailPath } from './storage/paths';
@@ -85,11 +86,14 @@ export class SiteServer {
 			throw new Error( 'Server started with no port' );
 		}
 
+		const themeDetails = await phpGetThemeDetails( this.server.php );
+
 		this.details = {
 			...this.details,
 			url: this.server.url,
 			port: this.server.options.port,
 			running: true,
+			themeDetails,
 		};
 
 		await this.updateCachedThumbnail();

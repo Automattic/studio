@@ -3,6 +3,9 @@ export function getAppGlobals(): AppGlobals {
 }
 
 export function isMac() {
+	if ( process.env.NODE_ENV === 'test' ) {
+		return true;
+	}
 	return getAppGlobals().platform === 'darwin';
 }
 

@@ -14,6 +14,12 @@ interface StoppedSiteDetails {
 	name: string;
 	path: string;
 	port?: number;
+	themeDetails?: {
+		name: string;
+		path: string;
+		slug: string;
+		isBlockTheme: boolean;
+	};
 }
 
 interface StartedSiteDetails extends StoppedSiteDetails {

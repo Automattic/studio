@@ -33,6 +33,8 @@ const api: IpcApi = {
 	generateProposedSitePath: ( siteName: string ) =>
 		ipcRenderer.invoke( 'generateProposedSitePath', siteName ),
 	openLocalPath: ( path: string ) => ipcRenderer.invoke( 'openLocalPath', path ),
+	getThemeDetails: ( id: string ) => ipcRenderer.invoke( 'getThemeDetails', id ),
+	getThumbnailData: ( id: string ) => ipcRenderer.invoke( 'getThumbnailData', id ),
 
 	// Use .send instead of .invoke because logging is fire-and-forget
 	logRendererMessage: ( level: LogLevel, ...args: any[] ) =>

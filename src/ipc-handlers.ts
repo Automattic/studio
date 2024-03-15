@@ -9,14 +9,16 @@ import { copySync } from 'fs-extra';
 import { SQLITE_FILENAME } from '../vendor/wp-now/src/constants';
 import { downloadSqliteIntegrationPlugin } from '../vendor/wp-now/src/download';
 import { isEmptyDir, pathExists, isWordPressDirectory } from './lib/fs-utils';
+import { getImageData } from './lib/get-image-data';
 import { isErrnoException } from './lib/is-errno-exception';
 import { getLocaleData, getSupportedLocale } from './lib/locale';
 import * as oauthClient from './lib/oauth';
+import { phpGetThemeDetails } from './lib/php-get-theme-details';
 import { sanitizeForLogging } from './lib/sanitize-for-logging';
 import { sortSites } from './lib/sort-sites';
 import { writeLogToFile, type LogLevel } from './logging';
 import { SiteServer, createSiteWorkingDirectory } from './site-server';
-import { DEFAULT_SITE_PATH, getServerFilesPath } from './storage/paths';
+import { DEFAULT_SITE_PATH, getServerFilesPath, getSiteThumbnailPath } from './storage/paths';
 import { loadUserData, saveUserData } from './storage/user-data';
 
 const TEMP_DIR = nodePath.join( app.getPath( 'temp' ), 'com.wordpress.studio' ) + nodePath.sep;
@@ -180,6 +182,7 @@ export async function startServer(
 	}
 
 	await server.start();
+	await updateSite( event, server.details );
 	return server.details;
 }
 
@@ -428,4 +431,33 @@ export async function generateProposedSitePath(
 
 export async function openLocalPath( _event: IpcMainInvokeEvent, path: string ) {
 	shell.openPath( path );
+}
+
+export async function getThemeDetails( event: IpcMainInvokeEvent, id: string ) {
+	const server = SiteServer.get( id );
+	if ( ! server ) {
+		throw new Error( 'Site not found.' );
+	}
+
+	if ( ! server.details.running || ! server.server ) {
+		return null;
+	}
+	const themeDetails = await phpGetThemeDetails( server.server.php );
+
+	if ( themeDetails?.path && themeDetails.path !== server.details.themeDetails?.path ) {
+		const updatedSite = {
+			...server.details,
+			themeDetails,
+		};
+		await server.updateCachedThumbnail();
+		server.details.themeDetails = themeDetails;
+		await updateSite( event, updatedSite );
+	}
+
+	return themeDetails;
+}
+
+export async function getThumbnailData( event: IpcMainInvokeEvent, id: string ) {
+	const path = getSiteThumbnailPath( id );
+	return getImageData( path );
 }

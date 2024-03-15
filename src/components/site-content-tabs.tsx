@@ -3,6 +3,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useContentTabs } from '../hooks/use-content-tabs';
 import { useSiteDetails } from '../hooks/use-site-details';
 import AddSite from './add-site';
+import { ContentTabOverview } from './content-tab-overview';
 import { ContentTabSettings } from './content-tab-settings';
 import { ContentTabSnapshots } from './content-tab-snapshots';
 import Header from './header';
@@ -30,6 +31,7 @@ export function SiteContentTabs() {
 			<TabPanel className="mt-6 h-full flex flex-col" tabs={ tabs } orientation="horizontal">
 				{ ( { name } ) => (
 					<div className="pt-8 h-full">
+						{ name === 'overview' && <ContentTabOverview selectedSite={ selectedSite } /> }
 						{ name === 'preview' && <ContentTabSnapshots selectedSite={ selectedSite } /> }
 						{ name === 'settings' && <ContentTabSettings selectedSite={ selectedSite } /> }
 					</div>

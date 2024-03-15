@@ -39,10 +39,11 @@ describe( 'SiteContentTabs', () => {
 		expect( screen.queryByRole( 'tab', { name: 'Publish' } ) ).toBeNull();
 		expect( screen.queryByRole( 'tab', { name: 'Export' } ) ).toBeNull();
 	} );
-	it( 'selects the preview tab by default', async () => {
+	it( 'selects the Overview tab by default', async () => {
 		( useSiteDetails as jest.Mock ).mockReturnValue( { selectedSite, snapshots: [] } );
 		await act( async () => render( <SiteContentTabs /> ) );
-		expect( screen.queryByRole( 'tab', { name: 'Preview', selected: true } ) ).toBeInTheDocument();
+		expect( screen.queryByRole( 'tab', { name: 'Overview', selected: true } ) ).toBeInTheDocument();
+		expect( screen.queryByRole( 'tab', { name: 'Preview', selected: false } ) ).toBeInTheDocument();
 		expect(
 			screen.queryByRole( 'tab', { name: 'Settings', selected: false } )
 		).toBeInTheDocument();

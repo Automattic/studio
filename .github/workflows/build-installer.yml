@@ -26,12 +26,15 @@ jobs:
           - os: macos-latest
             file_prefix: 'Studio-'
             file_suffix: '-x64.dmg'
+            platform_env: 'FILE_ARCHITECTURE=x64'
           - os: macos-latest-xlarge
             file_prefix: 'Studio-'
             file_suffix: '-arm64.dmg'
+            platform_env: 'FILE_ARCHITECTURE=arm64'
           - os: windows-latest
             file_prefix: 'squirrel.windows/x64/Studio-'
             file_suffix: ' Setup.exe'
+            platform_env: ''
 
     runs-on: ${{ matrix.os }}
 
@@ -54,7 +57,7 @@ jobs:
         run: npm ci
 
       - name: Run Build Script
-        run: npm run make
+        run: ${{ matrix.platform_env } npm run make
 
       - name: Get Package Version
         id: 'get-package-version'

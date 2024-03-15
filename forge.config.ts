@@ -48,7 +48,27 @@ const config: ForgeConfig = {
 			: [
 					new MakerDMG(
 						{
-							icon: './assets/studio-app-icon.icns',
+							icon: 'assets/studio-app-icon.icns',
+							background: 'assets/dmg-background.png',
+							contents: [
+								{
+									x: 533,
+									y: 122,
+									type: 'file',
+									path: `${ process.cwd() }/out/Studio-darwin-${
+										process.env.FILE_ARCHITECTURE || 'arm64'
+									}/Studio.app`,
+								},
+								{ x: 533, y: 354, type: 'link', path: '/Applications' },
+							],
+							additionalDMGOptions: {
+								window: {
+									size: {
+										width: 710,
+										height: 502,
+									},
+								},
+							},
 						},
 						[ 'darwin' ]
 					),

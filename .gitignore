@@ -101,3 +101,6 @@ vendor/*
 
 # Include the vendored copy of wp-now in our repo
 !vendor/wp-now
+
+# Build output
+dist

@@ -13,9 +13,11 @@
 		"directory": "/"
 	},
 	"scripts": {
+		"prestart": "node ./scripts/build-entry-html.mjs",
 		"start": "electron-forge start",
 		"start-wayland": "electron-forge start -- --enable-features=UseOzonePlatform --ozone-platform=wayland .",
 		"postinstall": "node ./scripts/download-wp.mjs",
+		"prepackage": "node ./scripts/build-entry-html.mjs",
 		"package": "electron-forge package",
 		"make": "electron-forge make",
 		"make:macos": "SKIP_DMG=true electron-forge make --arch=universal --platform=darwin",
@@ -54,6 +56,7 @@
 		"@wordpress/react-i18n": "^3.48.0",
 		"autoprefixer": "^10.4.16",
 		"css-loader": "^6.0.0",
+		"ejs": "^3.1.9",
 		"electron": "29.1.0",
 		"electron-playwright-helpers": "^1.7.0",
 		"eslint": "^8.0.1",

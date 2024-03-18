@@ -21,7 +21,7 @@ export default function App() {
 			) }
 			spacing="0"
 		>
-			{ isWindows() && <WindowsTitlebar className="h-titlebar-win" /> }
+			{ isWindows() && <WindowsTitlebar className="h-titlebar-win flex-shrink-0" /> }
 			<HStack spacing="0" alignment="left" className="flex-grow">
 				<MainSidebar className="basis-52 flex-shrink-0 h-full" />
 				<div

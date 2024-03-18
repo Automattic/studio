@@ -1,6 +1,6 @@
 import { BrowserWindow, type BrowserWindowConstructorOptions } from 'electron';
 import { moveDatabasesInSitu } from '../vendor/wp-now/src';
-import { MAIN_MIN_HEIGHT, MAIN_MIN_WIDTH } from './constants';
+import { MAIN_MIN_HEIGHT, MAIN_MIN_WIDTH, WINDOWS_TITLEBAR_HEIGHT } from './constants';
 import { isEmptyDir } from './lib/fs-utils';
 import { portFinder } from './lib/port-finder';
 import { UserData } from './storage/storage-types';
@@ -98,7 +98,7 @@ function getOSWindowOptions(): Partial< BrowserWindowConstructorOptions > {
 				titleBarOverlay: {
 					color: 'rgba(30, 30, 30, 1)',
 					symbolColor: 'white',
-					height: 32,
+					height: WINDOWS_TITLEBAR_HEIGHT,
 				},
 			};
 

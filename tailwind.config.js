@@ -1,6 +1,7 @@
 /** @type {import('tailwindcss').Config} */
 import palette from '@automattic/color-studio';
 import plugin from 'tailwindcss/plugin';
+import { WINDOWS_TITLEBAR_HEIGHT } from './src/constants.ts';
 
 const BASE_FONT_SIZE = 16; // 1 rem
 const pxToRem = ( px ) => `${ px / BASE_FONT_SIZE }rem`;
@@ -140,7 +141,7 @@ module.exports = {
 				chrome: '10px',
 				sidebar: '6px',
 				'sidebar-mac': '10px',
-				'titlebar-win': '32px',
+				'titlebar-win': `${ WINDOWS_TITLEBAR_HEIGHT }px`,
 			},
 			borderRadius: {
 				chrome: '5px',

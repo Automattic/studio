@@ -57,7 +57,7 @@ jobs:
         run: npm ci
 
       - name: Run Build Script
-        run: ${{ matrix.platform_env } npm run make
+        run: ${{ matrix.platform_env }} npm run make
 
       - name: Get Package Version
         id: 'get-package-version'

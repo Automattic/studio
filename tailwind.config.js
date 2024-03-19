@@ -129,7 +129,7 @@ for ( const [ key, value ] of Object.entries( palette.colors ) ) {
 a8cToTailwindColors[ `${ PREFIX }-blueberry` ] = '#3858E9';
 
 module.exports = {
-	content: [ './src/**/*.{html,js,jsx,ts,tsx}' ],
+	content: [ './src/**/*.{html,ejs,js,jsx,ts,tsx}' ],
 	theme: {
 		extend: {
 			colors: {

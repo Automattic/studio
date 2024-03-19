@@ -12,6 +12,7 @@ import { MakerZIP } from '@electron-forge/maker-zip';
 import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-natives';
 import { WebpackPlugin } from '@electron-forge/plugin-webpack';
 import ForgeExternalsPlugin from '@timfish/forge-externals-plugin';
+import ejs from 'ejs';
 import { isErrnoException } from './src/lib/is-errno-exception';
 import { mainConfig } from './webpack.main.config';
 import { rendererConfig } from './webpack.renderer.config';
@@ -98,6 +99,18 @@ const config: ForgeConfig = {
 		new ForgeExternalsPlugin( { externals: Object.keys( mainConfig.externals ?? {} ) } ),
 	],
 	hooks: {
+		generateAssets: async () => {
+			console.log( 'Building the HTML entry file ...' );
+
+			const REACT_DEV_TOOLS =
+				process.env.REACT_DEV_TOOLS === 'true' || process.env.REACT_DEV_TOOLS === '1';
+
+			const ejsTemplate = fs.readFileSync( './src/index.ejs', 'utf8' );
+			const data = { REACT_DEV_TOOLS };
+			const renderedHtml = ejs.render( ejsTemplate, data );
+			fs.mkdirSync( './dist', { recursive: true } );
+			fs.writeFileSync( './dist/index.html', renderedHtml );
+		},
 		prePackage: async () => {
 			console.log( "Ensuring latest WordPress zip isn't included in production build  ..." );
 

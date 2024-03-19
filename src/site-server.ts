@@ -1,5 +1,5 @@
 import { app } from 'electron';
-import fs from 'fs/promises';
+import fs from 'fs';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { getWpNowConfig, startServer, type WPNowServer } from '../vendor/wp-now/src';
@@ -61,7 +61,9 @@ export class SiteServer {
 
 	async delete() {
 		const thumbnailPath = getSiteThumbnailPath( this.details.id );
-		await fs.unlink( thumbnailPath );
+		if ( fs.existsSync( thumbnailPath ) ) {
+			await fs.promises.unlink( thumbnailPath );
+		}
 		await this.stop();
 		servers.delete( this.details.id );
 	}
@@ -133,9 +135,10 @@ export class SiteServer {
 
 		// Continue taking the screenshot asynchronously so we don't prevent the
 		// UI from showing the server is now available.
-		fs.mkdir( outDir, { recursive: true } )
+		fs.promises
+			.mkdir( outDir, { recursive: true } )
 			.then( waitForCapture )
-			.then( ( image ) => fs.writeFile( outPath, image.toPNG() ) )
+			.then( ( image ) => fs.promises.writeFile( outPath, image.toPNG() ) )
 			.catch( Sentry.captureException )
 			.finally( () => window.destroy() );
 	}

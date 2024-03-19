@@ -16,7 +16,7 @@ plugins.push( new MiniCssExtractPlugin() );
 
 // Encode imported images as base64 data URIs
 rules.push( {
-	test: /\.(png|jpe?g|gif)$/i,
+	test: /\.(png|jpe?g|gif|svg)$/i,
 	type: 'asset/inline',
 } );
 

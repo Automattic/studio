@@ -18,6 +18,11 @@ declare module '*.gif' {
 	export default dataUri;
 }
 
+declare module '*.svg' {
+	const dataUri: string;
+	export default dataUri;
+}
+
 declare module '@timfish/forge-externals-plugin' {
 	import type { PluginBase } from '@electron-forge/plugin-base';
 

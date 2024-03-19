@@ -60,7 +60,7 @@ export default function MainSidebar( { className }: MainSidebarProps ) {
 			className={ cx(
 				'text-chrome-inverted',
 				isMac() && 'pt-[50px]',
-				! isMac() && 'pt-[60px]',
+				! isMac() && 'pt-[38px]',
 				className
 			) }
 		>

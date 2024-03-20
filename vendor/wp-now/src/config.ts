@@ -45,6 +45,7 @@ export interface WPNowOptions {
 	numberOfPhpInstances?: number;
 	blueprintObject?: Blueprint;
 	reset?: boolean;
+	siteTitle?: string;
 }
 
 export const DEFAULT_OPTIONS: WPNowOptions = {
@@ -55,6 +56,7 @@ export const DEFAULT_OPTIONS: WPNowOptions = {
 	mode: WPNowMode.AUTO,
 	numberOfPhpInstances: 1,
 	reset: false,
+	siteTitle: 'My WordPress Website',
 };
 
 export interface WPEnvOptions {
@@ -101,7 +103,7 @@ function getWpContentHomePath(projectPath: string, mode: string) {
 }
 
 export default async function getWpNowConfig(
-	args: CliOptions
+	args: CliOptions & { siteTitle?: string }
 ): Promise<WPNowOptions> {
 	if (args.port) {
 		portFinder.setPort(args.port);
@@ -168,6 +170,9 @@ export default async function getWpNowConfig(
 			absoluteUrlFromBlueprint = siteUrl;
 		}
 	}
+	if (args.siteTitle) {
+		options.siteTitle = args.siteTitle;
+	}	
 	return options;
 }
 

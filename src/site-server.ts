@@ -77,6 +77,7 @@ export class SiteServer {
 		const options = await getWpNowConfig( {
 			path: this.details.path,
 			port,
+			siteTitle: this.details.name,
 		} );
 		const absoluteUrl = `http://localhost:${ port }`;
 		options.absoluteUrl = absoluteUrl;

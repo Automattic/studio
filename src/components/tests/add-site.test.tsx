@@ -34,8 +34,8 @@ describe( 'CreateSite', () => {
 	it( 'calls createSite with selected path when add site button is clicked', async () => {
 		const user = userEvent.setup();
 		mockGenerateProposedSitePath.mockResolvedValue( {
-			path: '/default_path/My Site',
-			name: 'My Site',
+			path: '/default_path/my-wordpress-website',
+			name: 'My WordPress Website',
 			isEmpty: true,
 			isWordPress: false,
 		} );
@@ -56,15 +56,15 @@ describe( 'CreateSite', () => {
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 
 		await waitFor( () => {
-			expect( mockCreateSite ).toHaveBeenCalledWith( 'test', 'My Site' );
+			expect( mockCreateSite ).toHaveBeenCalledWith( 'test', 'My WordPress Website' );
 		} );
 	} );
 
 	it( 'should display an error informing the user if the selected site folder does not contain a WordPress site', async () => {
 		const user = userEvent.setup();
 		mockGenerateProposedSitePath.mockResolvedValue( {
-			path: '/default_path/My Site',
-			name: 'My Site',
+			path: '/default_path/my-wordpress-website',
+			name: 'My WordPress Website',
 			isEmpty: true,
 			isWordPress: false,
 		} );
@@ -93,8 +93,8 @@ describe( 'CreateSite', () => {
 	it( 'should display a warning informing the user that the folder is not empty', async () => {
 		const user = userEvent.setup();
 		mockGenerateProposedSitePath.mockResolvedValue( {
-			path: '/default_path/My Site',
-			name: 'My Site',
+			path: '/default_path/my-wordpress-website',
+			name: 'My WordPress Website',
 			isEmpty: true,
 			isWordPress: false,
 		} );

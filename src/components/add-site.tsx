@@ -21,7 +21,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 	const [ proposedSitePath, setProposedSitePath ] = useState( '' );
 	const [ doesPathContainWordPress, setDoesPathContainWordPress ] = useState( false );
 
-	const defaultSiteName = __( 'My Site' );
+	const defaultSiteName = __( 'My WordPress Website' );
 
 	const openModal = useCallback( async () => {
 		const { path, name, isWordPress } =

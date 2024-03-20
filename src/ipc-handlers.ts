@@ -8,7 +8,7 @@ import archiver from 'archiver';
 import { copySync } from 'fs-extra';
 import { SQLITE_FILENAME } from '../vendor/wp-now/src/constants';
 import { downloadSqliteIntegrationPlugin } from '../vendor/wp-now/src/download';
-import { isEmptyDir, pathExists, isWordPressDirectory } from './lib/fs-utils';
+import { isEmptyDir, pathExists, isWordPressDirectory, sanitizeFolderName } from './lib/fs-utils';
 import { getImageData } from './lib/get-image-data';
 import { isErrnoException } from './lib/is-errno-exception';
 import { getLocaleData, getSupportedLocale } from './lib/locale';
@@ -407,12 +407,12 @@ export async function generateProposedSitePath(
 	_event: IpcMainInvokeEvent,
 	siteName: string
 ): Promise< FolderDialogResponse > {
-	const path = nodePath.join( DEFAULT_SITE_PATH, siteName );
+	const path = nodePath.join( DEFAULT_SITE_PATH, sanitizeFolderName( siteName ) );
 
 	try {
 		return {
 			path,
-			name: nodePath.basename( path ),
+			name: siteName,
 			isEmpty: await isEmptyDir( path ),
 			isWordPress: isWordPressDirectory( path ),
 		};
@@ -420,7 +420,7 @@ export async function generateProposedSitePath(
 		if ( isErrnoException( err ) && err.code === 'ENOENT' ) {
 			return {
 				path,
-				name: nodePath.basename( path ),
+				name: siteName,
 				isEmpty: true,
 				isWordPress: false,
 			};

@@ -7,6 +7,7 @@ import { getIpcApi } from '../lib/get-ipc-api';
 import AddSite from './add-site';
 import Button from './button';
 import { Gravatar } from './gravatar';
+import { RunningSites } from './running-sites';
 import SiteMenu from './site-menu';
 import UserSettings from './user-settings';
 import { WordPressLogo } from './wordpress-logo';
@@ -23,7 +24,7 @@ function SidebarAuthFooter() {
 	};
 	if ( isAuthenticated ) {
 		return (
-			<div className="flex items-center justify-start w-full">
+			<div className="flex items-start self-stretch w-full">
 				<Button
 					className="text-white h-6 w-6 !px-0 active:!text-white rounded hover:!text-white hover:bg-white hover:bg-opacity-10"
 					onClick={ () => getIpcApi().showUserSettings() }
@@ -66,11 +67,13 @@ export default function MainSidebar( { className }: MainSidebarProps ) {
 		>
 			<div className="flex flex-col h-full">
 				<SiteMenu />
-
-				<div className="mt-auto min-h-[103px] pt-5 border-white border-t border-opacity-10 app-no-drag-region">
+				<div className="flex flex-col gap-4 mt-auto min-h-[103px] border-white border-t border-opacity-10 app-no-drag-region">
+					<RunningSites />
 					<div className={ cx( isMac() ? 'mx-5' : 'mx-4' ) }>
-						<AddSite className="w-full mb-3 hover:bg-gray-100" />
-						<SidebarAuthFooter />
+						<AddSite className="w-full mb-4 hover:bg-gray-100" />
+						<div className="mb-[6px]">
+							<SidebarAuthFooter />
+						</div>
 						<UserSettings />
 					</div>
 				</div>

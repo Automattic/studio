@@ -22,6 +22,7 @@ interface SiteDetailsContext {
 	createSite: ( path: string, siteName?: string ) => Promise< void >;
 	startServer: ( id: string ) => Promise< void >;
 	stopServer: ( id: string ) => Promise< void >;
+	stopAllRunningSites: () => Promise< void >;
 	deleteSite: ( id: string, removeLocal: boolean ) => Promise< void >;
 	loading: boolean;
 	isDeleting: boolean;
@@ -40,6 +41,7 @@ const siteDetailsContext = createContext< SiteDetailsContext >( {
 	createSite: async () => undefined,
 	startServer: async () => undefined,
 	stopServer: async () => undefined,
+	stopAllRunningSites: async () => undefined,
 	deleteSite: async () => undefined,
 	isDeleting: false,
 	deleteError: '',
@@ -244,6 +246,14 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		[ data ]
 	);
 
+	const stopAllRunningSites = useCallback( async () => {
+		const runningSites = data.filter( ( site ) => site.running );
+		for ( const site of runningSites ) {
+			await getIpcApi().stopServer( site.id );
+		}
+		setData( data.map( ( site ) => ( site.running ? { ...site, running: false } : site ) ) );
+	}, [ data ] );
+
 	const context = useMemo(
 		() => ( {
 			selectedSite: data.find( ( site ) => site.id === selectedSiteId ) || firstSite,
@@ -257,6 +267,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			updateSite,
 			startServer,
 			stopServer,
+			stopAllRunningSites,
 			loading,
 			deleteSite: onDeleteSite,
 			isDeleting: selectedSiteId ? isDeleting[ selectedSiteId ] : false,
@@ -277,6 +288,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			updateSite,
 			startServer,
 			stopServer,
+			stopAllRunningSites,
 			loading,
 			selectedSiteId,
 		]

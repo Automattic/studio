@@ -77,7 +77,8 @@ function FormPathInputComponent( {
 	);
 }
 
-export const ModalContent = ( {
+export const SiteForm = ( {
+	className,
 	siteName,
 	setSiteName,
 	sitePath,
@@ -86,6 +87,7 @@ export const ModalContent = ( {
 	doesPathContainWordPress = false,
 	isPathInputDisabled = false,
 }: {
+	className?: string;
 	siteName: string;
 	setSiteName: ( name: string ) => void;
 	sitePath: string;
@@ -97,7 +99,7 @@ export const ModalContent = ( {
 	const { __ } = useI18n();
 
 	return (
-		<div className="flex flex-col gap-6">
+		<div className={ cx( 'flex flex-col gap-6', className ) }>
 			<label className="flex flex-col gap-1.5 leading-4">
 				<span className="font-semibold">{ __( 'Site name' ) }</span>
 				<TextControlComponent

@@ -35,6 +35,9 @@ const api: IpcApi = {
 	openLocalPath: ( path: string ) => ipcRenderer.invoke( 'openLocalPath', path ),
 	getThemeDetails: ( id: string ) => ipcRenderer.invoke( 'getThemeDetails', id ),
 	getThumbnailData: ( id: string ) => ipcRenderer.invoke( 'getThumbnailData', id ),
+	getOnboardingData: () => ipcRenderer.invoke( 'getOnboardingData' ),
+	saveOnboarding: ( onboardingCompleted: boolean ) =>
+		ipcRenderer.invoke( 'saveOnboarding', onboardingCompleted ),
 
 	// Use .send instead of .invoke because logging is fire-and-forget
 	logRendererMessage: ( level: LogLevel, ...args: any[] ) =>

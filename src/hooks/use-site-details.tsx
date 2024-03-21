@@ -25,6 +25,7 @@ interface SiteDetailsContext {
 	stopAllRunningSites: () => Promise< void >;
 	deleteSite: ( id: string, removeLocal: boolean ) => Promise< void >;
 	loading: boolean;
+	loadingSites: boolean;
 	isDeleting: boolean;
 	deleteError: string;
 }
@@ -46,6 +47,7 @@ const siteDetailsContext = createContext< SiteDetailsContext >( {
 	isDeleting: false,
 	deleteError: '',
 	loading: false,
+	loadingSites: true,
 } );
 
 interface SiteDetailsProviderProps {
@@ -169,6 +171,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 	const [ data, setData ] = useState< SiteDetails[] >( [] );
 	const [ loading, setLoading ] = useState( false );
+	const [ loadingSites, setLoadingSites ] = useState< boolean >( true );
 	const firstSite = data[ 0 ] || null;
 	const { selectedSiteId, setSelectedSiteId } = useSelectedSite( firstSite?.id );
 	const { snapshots, addSnapshot, removeSnapshot, updateSnapshot } = useSnapshots();
@@ -176,11 +179,13 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 	useEffect( () => {
 		let cancel = false;
+		setLoadingSites( true );
 		getIpcApi()
 			.getSiteDetails()
 			.then( ( data ) => {
 				if ( ! cancel ) {
 					setData( data );
+					setLoadingSites( false );
 				}
 			} );
 
@@ -272,6 +277,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			deleteSite: onDeleteSite,
 			isDeleting: selectedSiteId ? isDeleting[ selectedSiteId ] : false,
 			deleteError: selectedSiteId ? deleteError[ selectedSiteId ] : '',
+			loadingSites,
 		} ),
 		[
 			data,
@@ -290,6 +296,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			stopServer,
 			stopAllRunningSites,
 			loading,
+			loadingSites,
 			selectedSiteId,
 		]
 	);

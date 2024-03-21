@@ -457,7 +457,24 @@ export async function getThemeDetails( event: IpcMainInvokeEvent, id: string ) {
 	return themeDetails;
 }
 
-export async function getThumbnailData( event: IpcMainInvokeEvent, id: string ) {
+export async function getOnboardingData( _event: IpcMainInvokeEvent ): Promise< boolean > {
+	const userData = await loadUserData();
+	const { onboardingCompleted = false } = userData;
+	return onboardingCompleted;
+}
+
+export async function saveOnboarding(
+	_event: IpcMainInvokeEvent,
+	onboardingCompleted: boolean
+): Promise< void > {
+	const userData = await loadUserData();
+	await saveUserData( {
+		...userData,
+		onboardingCompleted,
+	} );
+}
+
+export async function getThumbnailData( _event: IpcMainInvokeEvent, id: string ) {
 	const path = getSiteThumbnailPath( id );
 	return getImageData( path );
 }

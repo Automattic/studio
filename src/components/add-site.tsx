@@ -1,27 +1,35 @@
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useState } from 'react';
+import { useAddSite } from '../hooks/use-add-site';
 import { useIpcListener } from '../hooks/use-ipc-listener';
-import { useSiteDetails } from '../hooks/use-site-details';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
-import { ModalContent, SiteModal } from './site-modal';
+import { SiteForm, SiteModal } from './site-modal';
 
 interface AddSiteProps {
 	className?: string;
 }
 export default function AddSite( { className }: AddSiteProps ) {
 	const { __ } = useI18n();
-	const { createSite, data: sites } = useSiteDetails();
-	const [ error, setError ] = useState( '' );
 	const [ showModal, setShowModal ] = useState( false );
-	const [ isAddingSite, setIsAddingSite ] = useState( false );
-	const [ siteName, setSiteName ] = useState< string | null >( null );
-	const [ sitePath, setSitePath ] = useState( '' );
-	const [ proposedSitePath, setProposedSitePath ] = useState( '' );
-	const [ doesPathContainWordPress, setDoesPathContainWordPress ] = useState( false );
 
-	const defaultSiteName = __( 'My WordPress Website' );
+	const {
+		handleAddSiteClick,
+		isAddingSite,
+		defaultSiteName,
+		siteName,
+		setSiteName,
+		setProposedSitePath,
+		sitePath,
+		setSitePath,
+		error,
+		setError,
+		doesPathContainWordPress,
+		setDoesPathContainWordPress,
+		handleSiteNameChange,
+		handlePathSelectorClick,
+	} = useAddSite();
 
 	const openModal = useCallback( async () => {
 		const { path, name, isWordPress } =
@@ -33,85 +41,27 @@ export default function AddSite( { className }: AddSiteProps ) {
 		setDoesPathContainWordPress( isWordPress );
 
 		setShowModal( true );
-	}, [ defaultSiteName ] );
+	}, [
+		defaultSiteName,
+		setDoesPathContainWordPress,
+		setError,
+		setProposedSitePath,
+		setSiteName,
+		setSitePath,
+	] );
 
 	const closeModal = useCallback( () => {
 		setShowModal( false );
 	}, [] );
 
-	const siteWithPathAlreadyExists = useCallback(
-		( path: string ) => {
-			return sites.some( ( site ) => site.path === path );
-		},
-		[ sites ]
-	);
-
-	const handlePathSelectorClick = useCallback( async () => {
-		const response = await getIpcApi().showOpenFolderDialog( __( 'Choose folder for site' ) );
-		if ( response?.path ) {
-			const { path, name, isEmpty, isWordPress } = response;
-			setDoesPathContainWordPress( false );
-			setError( '' );
-			setSitePath( path );
-			if ( siteWithPathAlreadyExists( path ) ) {
-				return;
-			}
-			if ( ! isEmpty && ! isWordPress ) {
-				setError(
-					__(
-						'This directory is not empty. Please select an empty directory or an existing WordPress folder.'
-					)
-				);
-				return;
-			}
-			setDoesPathContainWordPress( ! isEmpty && isWordPress );
-			if ( ! siteName ) {
-				setSiteName( name ?? null );
-			}
-		}
-	}, [ __, siteWithPathAlreadyExists, siteName ] );
-
-	const handleAddSiteClick = useCallback( async () => {
-		setIsAddingSite( true );
+	const onHandleAddSiteClick = useCallback( async () => {
 		try {
-			const path = sitePath ? sitePath : proposedSitePath;
-			await createSite( path, siteName ?? '' );
+			handleAddSiteClick();
 			setShowModal( false );
-		} catch ( e ) {
-			setError( ( e as Error )?.message );
+		} catch {
+			// No need to handle error here, it's already handled in handleAddSiteClick
 		}
-		setIsAddingSite( false );
-	}, [ createSite, proposedSitePath, siteName, sitePath ] );
-
-	const handleSiteNameChange = useCallback(
-		async ( name: string ) => {
-			setSiteName( name );
-			if ( sitePath ) {
-				return;
-			}
-			setError( '' );
-			const {
-				path: proposedPath,
-				isEmpty,
-				isWordPress,
-			} = await getIpcApi().generateProposedSitePath( name );
-			setProposedSitePath( proposedPath );
-
-			if ( siteWithPathAlreadyExists( proposedPath ) ) {
-				return;
-			}
-			if ( ! isEmpty && ! isWordPress ) {
-				setError(
-					__(
-						'This directory is not empty. Please select an empty directory or an existing WordPress folder.'
-					)
-				);
-				return;
-			}
-			setDoesPathContainWordPress( ! isEmpty && isWordPress );
-		},
-		[ __, sitePath, siteWithPathAlreadyExists ]
-	);
+	}, [ handleAddSiteClick ] );
 
 	useIpcListener( 'add-site', () => {
 		openModal();
@@ -122,14 +72,6 @@ export default function AddSite( { className }: AddSiteProps ) {
 		className
 	);
 
-	const displayedPath = sitePath ? sitePath : proposedSitePath;
-
-	const displayedError = siteWithPathAlreadyExists( displayedPath )
-		? __(
-				'Another site already exists at this path. Please select an empty directory to create a site.'
-		  )
-		: error;
-
 	return (
 		<>
 			<SiteModal
@@ -137,17 +79,17 @@ export default function AddSite( { className }: AddSiteProps ) {
 				onRequestClose={ closeModal }
 				title={ __( 'Add a site' ) }
 				primaryButtonLabel={ isAddingSite ? __( 'Adding site…' ) : __( 'Add site' ) }
-				onPrimaryAction={ handleAddSiteClick }
-				isPrimaryButtonDisabled={ !! displayedError || ! siteName }
+				onPrimaryAction={ onHandleAddSiteClick }
+				isPrimaryButtonDisabled={ !! error || ! siteName }
 				isCancelDisabled={ isAddingSite }
 				isLoading={ isAddingSite }
 			>
-				<ModalContent
+				<SiteForm
 					siteName={ siteName || '' }
 					setSiteName={ handleSiteNameChange }
-					sitePath={ displayedPath }
+					sitePath={ sitePath }
 					onSelectPath={ handlePathSelectorClick }
-					error={ displayedError }
+					error={ error }
 					doesPathContainWordPress={ doesPathContainWordPress }
 				/>
 			</SiteModal>

@@ -5,6 +5,7 @@ export interface UserData {
 	snapshots: Snapshot[];
 	devToolsOpen?: boolean;
 	authToken?: StoredToken;
+	onboardingCompleted?: boolean;
 	lastBumpStats?: {
 		[ group: string ]: {
 			[ stat: string ]: number;

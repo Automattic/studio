@@ -2,7 +2,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useState } from 'react';
 import { useSiteDetails } from '../hooks/use-site-details';
 import Button from './button';
-import { ModalContent, SiteModal } from './site-modal';
+import { SiteForm, SiteModal } from './site-modal';
 
 export default function EditSite() {
 	const { __ } = useI18n();
@@ -51,7 +51,7 @@ export default function EditSite() {
 				) }
 				isCancelDisabled={ isEditingSite }
 			>
-				<ModalContent
+				<SiteForm
 					siteName={ siteName }
 					setSiteName={ setSiteName }
 					sitePath={ sitePath }

@@ -3,14 +3,25 @@ import {
 	__experimentalHStack as HStack,
 } from '@wordpress/components';
 import { useLocalizationSupport } from '../hooks/use-localization-support';
+import { useOnboarding } from '../hooks/use-onboarding';
 import { isWindows } from '../lib/app-globals';
 import { cx } from '../lib/cx';
 import MainSidebar from './main-sidebar';
+import Onboarding from './onboarding';
 import { SiteContentTabs } from './site-content-tabs';
 import WindowsTitlebar from './windows-titlebar';
 
 export default function App() {
 	useLocalizationSupport();
+	const { needsOnboarding } = useOnboarding();
+
+	if ( needsOnboarding ) {
+		return (
+			<div className="h-screen backdrop-blur-3xl app-drag-region select-none flex flex-grow">
+				<Onboarding />
+			</div>
+		);
+	}
 
 	return (
 		<VStack

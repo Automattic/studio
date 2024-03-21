@@ -12,7 +12,7 @@ UI.user_error!('Please run fastlane via `bundle exec`') unless FastlaneCore::Hel
 # Constants and Environment Variables
 ########################################################################
 PROJECT_ROOT_FOLDER = File.dirname(File.expand_path(__dir__))
-SECRETS_FOLDER = File.join(Dir.home, '.configure', 'wp-build', 'secrets')
+SECRETS_FOLDER = File.join(Dir.home, '.configure', 'studio', 'secrets')
 
 APPLE_TEAM_ID = 'PZYM8XX95Q'
 APPLE_BUNDLE_IDENTIFIER = 'com.automattic.wp-build'

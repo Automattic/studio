@@ -37,6 +37,7 @@ blockquote {
 }
 .components-tab-panel__tabs-item {
 	height: 40px;
+	margin-bottom: -1px;
 }
 .components-tab-panel__tabs-item.is-active::after {
 	background: theme('colors.black');
@@ -49,7 +50,6 @@ button:enabled {
 
 button:enabled.cursor-pointer {
 	cursor: pointer !important;
-	margin-bottom: -1px;
 }
 
 /* Customize scrollbar area for the sites sidebar */

@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-# rubocop:disable Metrics/MethodLength
-
 fastlane_require 'digest'
 fastlane_require 'zip'
 fastlane_require 'aws-sdk-cloudfront'
@@ -15,7 +13,7 @@ PROJECT_ROOT_FOLDER = File.dirname(File.expand_path(__dir__))
 SECRETS_FOLDER = File.join(Dir.home, '.configure', 'studio', 'secrets')
 
 APPLE_TEAM_ID = 'PZYM8XX95Q'
-APPLE_BUNDLE_IDENTIFIER = 'com.automattic.wp-build'
+APPLE_BUNDLE_IDENTIFIER = 'com.automattic.studio'
 APPLE_API_KEY_PATH = File.join(SECRETS_FOLDER, 'app_store_connect_fastlane_api_key.json')
 
 # Use this instead of getting values from ENV directly
@@ -137,5 +135,3 @@ def clear_cloudfront_cache(paths:, commit_hash:)
     }
   )
 end
-
-# rubocop:enable Metrics/MethodLength

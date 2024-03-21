@@ -295,7 +295,6 @@ PLATFORMS
 
 DEPENDENCIES
   aws-sdk-cloudfront (~> 1.87)
-  aws-sdk-s3 (~> 1.119)
   fastlane (~> 2.212)
   fastlane-plugin-wpmreleasetoolkit (~> 9.3)
   rubocop (~> 1.42)

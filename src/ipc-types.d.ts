@@ -40,6 +40,11 @@ interface Snapshot {
 	isDeleting?: boolean;
 }
 
+type InstalledApps = {
+	vscode: boolean | null;
+	phpstorm: boolean | null;
+};
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Tail< T extends any[] > = ( ( ...args: T ) => any ) extends ( _: any, ...tail: infer U ) => any
 	? U

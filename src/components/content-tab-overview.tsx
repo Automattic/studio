@@ -1,6 +1,17 @@
-import { __ } from '@wordpress/i18n';
-import { archive, desktop, layout, navigation, page, styles, symbolFilled } from '@wordpress/icons';
+import * as Sentry from '@sentry/electron/renderer';
+import { __, sprintf } from '@wordpress/i18n';
+import {
+	archive,
+	code,
+	desktop,
+	layout,
+	navigation,
+	page,
+	styles,
+	symbolFilled,
+} from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
+import { useCheckInstalledApps } from '../hooks/use-check-installed-apps';
 import { useThemeDetails } from '../hooks/use-theme-details';
 import { isMac } from '../lib/app-globals';
 import { getIpcApi } from '../lib/get-ipc-api';
@@ -77,9 +88,10 @@ function CustomizeSection( {
 }
 
 function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'selectedSite' > ) {
+	const installedApps = useCheckInstalledApps();
 	const buttonsArray: ButtonsSectionProps[ 'buttonsArray' ] = [
 		{
-			label: isMac() ? __( 'Open in finder' ) : __( 'Open in file explorer' ),
+			label: isMac() ? __( 'Finder' ) : __( 'File explorer' ),
 			className: 'text-nowrap',
 			icon: archive,
 			onClick: () => {
@@ -87,9 +99,47 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 			},
 		},
 	];
-	return (
-		<ButtonsSection className="flex" buttonsArray={ buttonsArray } title={ __( 'Shortcuts' ) } />
-	);
+	if ( installedApps.vscode ) {
+		// Use VS Code as a default even if none of the editors are installed
+		buttonsArray.push( {
+			label: __( 'VS Code' ),
+			className: 'text-nowrap',
+			icon: code,
+			onClick: async () => {
+				try {
+					await getIpcApi().openURL( `vscode://file/${ selectedSite.path }?windowId=_blank` );
+				} catch ( error ) {
+					Sentry.captureException( error );
+					alert(
+						sprintf(
+							__( "Could not open the site code in %s. Please check if it's installed correctly." ),
+							'VS Code'
+						)
+					);
+				}
+			},
+		} );
+	} else if ( installedApps.phpstorm ) {
+		buttonsArray.push( {
+			label: __( 'PhpStorm' ),
+			className: 'text-nowrap',
+			icon: code,
+			onClick: async () => {
+				try {
+					await getIpcApi().openURL( `phpstorm://open?file=${ selectedSite.path }` );
+				} catch ( error ) {
+					Sentry.captureException( error );
+					alert(
+						sprintf(
+							__( "Could not open the site code in %s. Please check if it's installed correctly." ),
+							'PhpStorm'
+						)
+					);
+				}
+			},
+		} );
+	}
+	return <ButtonsSection buttonsArray={ buttonsArray } title={ __( 'Open in…' ) } />;
 }
 
 export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) {

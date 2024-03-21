@@ -35,6 +35,7 @@ const api: IpcApi = {
 	openLocalPath: ( path: string ) => ipcRenderer.invoke( 'openLocalPath', path ),
 	getThemeDetails: ( id: string ) => ipcRenderer.invoke( 'getThemeDetails', id ),
 	getThumbnailData: ( id: string ) => ipcRenderer.invoke( 'getThumbnailData', id ),
+	getInstalledApps: () => ipcRenderer.invoke( 'getInstalledApps' ),
 	getOnboardingData: () => ipcRenderer.invoke( 'getOnboardingData' ),
 	saveOnboarding: ( onboardingCompleted: boolean ) =>
 		ipcRenderer.invoke( 'saveOnboarding', onboardingCompleted ),

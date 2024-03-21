@@ -1,3 +1,4 @@
+import { InstalledAppsProvider } from '../hooks/use-check-installed-apps';
 import { OnboardingProvider } from '../hooks/use-onboarding';
 import { SiteDetailsProvider } from '../hooks/use-site-details';
 import App from './app';
@@ -11,9 +12,11 @@ const Root = () => {
 			<CrashTester />
 			<AuthProvider>
 				<SiteDetailsProvider>
-					<OnboardingProvider>
-						<App />
-					</OnboardingProvider>
+					<InstalledAppsProvider>
+						<OnboardingProvider>
+							<App />
+						</OnboardingProvider>
+					</InstalledAppsProvider>
 				</SiteDetailsProvider>
 			</AuthProvider>
 		</ErrorBoundary>

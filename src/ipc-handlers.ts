@@ -11,6 +11,7 @@ import { downloadSqliteIntegrationPlugin } from '../vendor/wp-now/src/download';
 import { isEmptyDir, pathExists, isWordPressDirectory, sanitizeFolderName } from './lib/fs-utils';
 import { getImageData } from './lib/get-image-data';
 import { isErrnoException } from './lib/is-errno-exception';
+import { isInstalled } from './lib/is-installed';
 import { getLocaleData, getSupportedLocale } from './lib/locale';
 import * as oauthClient from './lib/oauth';
 import { phpGetThemeDetails } from './lib/php-get-theme-details';
@@ -55,6 +56,13 @@ export async function getSiteDetails( _event: IpcMainInvokeEvent ): Promise< Sit
 	}
 
 	return mergeSiteDetailsWithRunningDetails( sites );
+}
+
+export async function getInstalledApps( _event: IpcMainInvokeEvent ): Promise< InstalledApps > {
+	return {
+		vscode: isInstalled( 'vscode' ),
+		phpstorm: isInstalled( 'phpstorm' ),
+	};
 }
 
 // Use sqlite database and db.php file in situ

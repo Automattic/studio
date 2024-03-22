@@ -56,7 +56,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 
 	const onHandleAddSiteClick = useCallback( async () => {
 		try {
-			handleAddSiteClick();
+			await handleAddSiteClick();
 			setShowModal( false );
 		} catch {
 			// No need to handle error here, it's already handled in handleAddSiteClick

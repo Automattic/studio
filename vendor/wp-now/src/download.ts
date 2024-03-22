@@ -202,17 +202,22 @@ export async function downloadMuPlugins(customMuPluginsPath = '') {
 	const muPluginsPath = customMuPluginsPath || path.join(getWpNowPath(), 'mu-plugins');
 	fs.ensureDirSync(muPluginsPath);
 
+	fs.removeSync(path.join(muPluginsPath, '0-allow-wp-org.php') );
+
 	fs.writeFile(
-		path.join(muPluginsPath, '0-allow-wp-org.php'),
+		path.join(muPluginsPath, '0-allowed-redirect-hosts.php'),
 		`<?php
-	// Needed because gethostbyname( 'wordpress.org' ) returns
+	// Needed because gethostbyname( <host> ) returns
 	// a private network IP address for some reason.
-	add_filter( 'allowed_redirect_hosts', function( $deprecated = '' ) {
-		return array(
+	add_filter( 'allowed_redirect_hosts', function( $hosts ) {
+		$redirect_hosts = array(
 			'wordpress.org',
 			'api.wordpress.org',
 			'downloads.wordpress.org',
+			'themes.svn.wordpress.org',
+			'fonts.gstatic.com',
 		);
+		return array_merge( $hosts, $redirect_hosts );
 	} );`
 	);
 

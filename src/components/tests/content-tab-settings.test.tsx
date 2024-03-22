@@ -36,12 +36,16 @@ describe( 'ContentTabSettings', () => {
 		expect( screen.getByRole( 'heading', { name: 'Site details' } ) ).toBeInTheDocument();
 		expect( screen.getByText( 'Test Site' ) ).toBeInTheDocument();
 		expect(
-			screen.getByRole( 'button', { name: 'Copy site url to clipboard' } )
+			screen.getByRole( 'button', { name: 'localhost:8881, Copy site url to clipboard' } )
 		).toHaveTextContent( 'localhost:8881' );
-		expect( screen.getByRole( 'button', { name: '/path/to/site' } ) ).toBeInTheDocument();
+		expect(
+			screen.getByRole( 'button', { name: '/path/to/site, Open local path' } )
+		).toBeInTheDocument();
 		expect( screen.getByText( '7.7.7' ) ).toBeInTheDocument();
 		expect(
-			screen.getByRole( 'button', { name: 'Copy wp-admin url to clipboard' } )
+			screen.getByRole( 'button', {
+				name: 'localhost:8881/wp-admin, Copy wp-admin url to clipboard',
+			} )
 		).toHaveTextContent( 'localhost:8881/wp-admin' );
 	} );
 
@@ -49,7 +53,7 @@ describe( 'ContentTabSettings', () => {
 		const user = userEvent.setup();
 		render( <ContentTabSettings selectedSite={ selectedSite } /> );
 
-		const pathButton = screen.getByRole( 'button', { name: '/path/to/site' } );
+		const pathButton = screen.getByRole( 'button', { name: '/path/to/site, Open local path' } );
 		expect( pathButton ).toBeInTheDocument();
 		await user.click( pathButton );
 		expect( openLocalPath ).toHaveBeenCalledWith( '/path/to/site' );
@@ -66,7 +70,7 @@ describe( 'ContentTabSettings', () => {
 		render( <ContentTabSettings selectedSite={ selectedSiteRunning } /> );
 
 		const urlButton = screen.getByRole( 'button', {
-			name: 'Copy site url to clipboard',
+			name: 'localhost:8881, Copy site url to clipboard',
 		} );
 		expect( urlButton ).toBeInTheDocument();
 		await user.click( urlButton );
@@ -74,7 +78,7 @@ describe( 'ContentTabSettings', () => {
 		expect( copyText ).toHaveBeenCalledWith( 'http://localhost:8881' );
 
 		const wpAdminButton = screen.getByRole( 'button', {
-			name: 'Copy wp-admin url to clipboard',
+			name: 'localhost:8881/wp-admin, Copy wp-admin url to clipboard',
 		} );
 		expect( wpAdminButton ).toBeInTheDocument();
 		await user.click( wpAdminButton );

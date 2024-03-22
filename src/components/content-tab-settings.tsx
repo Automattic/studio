@@ -36,7 +36,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 				<SettingsRow label={ __( 'Local domain' ) }>
 					<CopyTextButton
 						text={ `http://localhost:${ selectedSite.port }` }
-						label={ __( 'Copy site url to clipboard' ) }
+						label={ `localhost:${ selectedSite.port }, ${ __( 'Copy site url to clipboard' ) }` }
 						copyConfirmation={ __( 'Copied!' ) }
 					>
 						{ `localhost:${ selectedSite.port }` }
@@ -44,6 +44,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 				</SettingsRow>
 				<SettingsRow label={ __( 'Local path' ) }>
 					<button
+						aria-label={ `${ selectedSite.path }, ${ __( 'Open local path' ) }` }
 						className="flex items-center gap-1.5"
 						onClick={ () => getIpcApi().openLocalPath( selectedSite.path ) }
 					>
@@ -53,19 +54,29 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 				<SettingsRow label={ __( 'WP Version' ) }>{ wpVersion }</SettingsRow>
 				<h3 className="text-black text-sm font-semibold mt-4">{ __( 'WP Admin' ) }</h3>
 				<SettingsRow label={ __( 'Username' ) }>
-					<CopyTextButton text={ username } copyConfirmation={ __( 'Copied!' ) }>
+					<CopyTextButton
+						copyConfirmation={ __( 'Copied!' ) }
+						label={ `${ username }, ${ __( 'Copy admin username to clipboard' ) }` }
+						text={ username }
+					>
 						{ username }
 					</CopyTextButton>
 				</SettingsRow>
 				<SettingsRow label={ __( 'Password' ) }>
-					<CopyTextButton text={ password } copyConfirmation={ __( 'Copied!' ) }>
+					<CopyTextButton
+						copyConfirmation={ __( 'Copied!' ) }
+						label={ __( 'Copy admin password to clipboard' ) }
+						text={ password }
+					>
 						************
 					</CopyTextButton>
 				</SettingsRow>
 				<SettingsRow label={ __( 'Admin URL' ) }>
 					<CopyTextButton
 						text={ `http://localhost:${ selectedSite.port }/wp-admin` }
-						label={ __( 'Copy wp-admin url to clipboard' ) }
+						label={ `localhost:${ selectedSite.port }/wp-admin, ${ __(
+							'Copy wp-admin url to clipboard'
+						) }` }
 						copyConfirmation={ __( 'Copied!' ) }
 					>
 						{ `localhost:${ selectedSite.port }/wp-admin` }

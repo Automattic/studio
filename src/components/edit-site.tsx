@@ -71,6 +71,7 @@ export default function EditSite() {
 					}
 					setNeedsToEditSite( true );
 				} }
+				label={ __( 'Edit site name' ) }
 			>
 				{ __( 'Edit' ) }
 			</Button>

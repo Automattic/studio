@@ -17,6 +17,7 @@ import { useState } from 'react';
 import { useCheckInstalledApps } from '../hooks/use-check-installed-apps';
 import { useThemeDetails } from '../hooks/use-theme-details';
 import { isMac } from '../lib/app-globals';
+import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
 import { ButtonsSection, ButtonsSectionProps } from './buttons-section';
@@ -186,7 +187,12 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 		<div className="pb-10 flex">
 			<div className="w-52 mr-8 flex-col justify-start items-start gap-8">
 				<div className="mb-3 a8c-subtitle-small">{ __( 'Theme' ) }</div>
-				<div className="w-full h-60 rounded-sm border bg-a8c-gray-0 mb-2 flex items-center justify-center">
+				<div
+					className={ cx(
+						'w-full h-60 rounded-sm border border-a8c-gray-5 bg-a8c-gray-0 mb-2 flex items-center justify-center',
+						isThumbnailError && 'border-none'
+					) }
+				>
 					{ isThumbnailError && (
 						<div className="flex items-center justify-center w-full h-full leading-5 text-a8c-gray-50">
 							{ __( 'Preview unavailable' ) }

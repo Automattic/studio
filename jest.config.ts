@@ -7,4 +7,5 @@ module.exports = {
 	testRegex: '(/tests/.*|(\\.|/)(test|spec))\\.tsx?$',
 	moduleFileExtensions: [ 'ts', 'tsx', 'js', 'jsx', 'json', 'node' ],
 	setupFilesAfterEnv: [ '<rootDir>/jest-setup.ts' ],
+	watchPlugins: [ 'jest-watch-typeahead/filename', 'jest-watch-typeahead/testname' ],
 };

@@ -72,6 +72,8 @@ function toDiskFormat( { sites, ...rest }: UserData ): PersistedUserData {
 					path: themeDetails?.path || '',
 					slug: themeDetails?.slug || '',
 					isBlockTheme: themeDetails?.isBlockTheme || false,
+					supportsWidgets: themeDetails?.supportsWidgets || false,
+					supportsMenus: themeDetails?.supportsMenus || false,
 				},
 			};
 

@@ -4,11 +4,13 @@ import {
 	archive,
 	code,
 	desktop,
+	edit,
 	layout,
 	navigation,
 	page,
 	styles,
 	symbolFilled,
+	widget,
 } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCheckInstalledApps } from '../hooks/use-check-installed-apps';
@@ -28,7 +30,7 @@ function CustomizeSection( {
 }: Pick< ContentTabOverviewProps, 'selectedSite' > & {
 	themeDetails?: SiteDetails[ 'themeDetails' ];
 } ) {
-	const blockButtonsArray: ButtonsSectionProps[ 'buttonsArray' ] = [
+	const blockThemeButtons: ButtonsSectionProps[ 'buttonsArray' ] = [
 		{
 			label: __( 'Site Editor' ),
 			icon: desktop,
@@ -80,11 +82,43 @@ function CustomizeSection( {
 				getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/site-editor.php?path=%2Fpage' );
 			},
 		},
-	].map( ( button ) => ( {
+	];
+
+	const classicThemeButtons: ButtonsSectionProps[ 'buttonsArray' ] = [
+		{
+			label: __( 'Customizer' ),
+			icon: edit,
+			className: 'cursor-pointer',
+			onClick: () => getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/customize.php' ),
+		},
+	];
+
+	if ( themeDetails?.supportsMenus ) {
+		classicThemeButtons.push( {
+			label: __( 'Menus' ),
+			icon: navigation,
+			className: 'cursor-pointer',
+			onClick: () => getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/nav-menus.php' ),
+		} );
+	}
+
+	if ( themeDetails?.supportsWidgets ) {
+		classicThemeButtons.push( {
+			label: __( 'Widgets' ),
+			icon: widget,
+			className: 'cursor-pointer',
+			onClick: () => getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/widgets.php' ),
+		} );
+	}
+
+	const buttonsArray = themeDetails?.isBlockTheme ? blockThemeButtons : classicThemeButtons;
+
+	const processedButtons = buttonsArray.map( ( button ) => ( {
 		...button,
-		disabled: ! selectedSite.running || ! themeDetails?.isBlockTheme,
+		disabled: ! selectedSite.running,
 	} ) );
-	return <ButtonsSection buttonsArray={ blockButtonsArray } title={ __( 'Customize' ) } />;
+
+	return <ButtonsSection buttonsArray={ processedButtons } title={ __( 'Customize' ) } />;
 }
 
 function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'selectedSite' > ) {

@@ -14,6 +14,8 @@ export async function phpGetThemeDetails(
         'path' => $theme->get_stylesheet_directory(),
         'slug' => $theme->get_stylesheet(),
 		'isBlockTheme' => $theme->is_block_theme(),
+		'supportsWidgets' => current_theme_supports('widgets'),
+		'supportsMenus' => get_registered_nav_menus() || current_theme_supports('menus'),
     ]);
     `;
 	try {

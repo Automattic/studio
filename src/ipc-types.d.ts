@@ -19,6 +19,8 @@ interface StoppedSiteDetails {
 		path: string;
 		slug: string;
 		isBlockTheme: boolean;
+		supportsWidgets: boolean;
+		supportsMenus: boolean;
 	};
 }
 

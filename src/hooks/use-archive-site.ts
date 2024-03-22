@@ -33,11 +33,21 @@ export function useArchiveSite() {
 		const intervalId = setInterval( async () => {
 			for ( const snapshot of loadingSnapshots ) {
 				if ( snapshot.isLoading ) {
-					const response: SnapshotStatusResponse = await client.req.get( '/jurassic-ninja/status', {
-						apiNamespace: 'wpcom/v2',
-						site_id: snapshot.atomicSiteId,
-					} );
-					if ( parseInt( response.status ) === 2 ) {
+					try {
+						const response: SnapshotStatusResponse = await client.req.get(
+							'/jurassic-ninja/status',
+							{
+								apiNamespace: 'wpcom/v2',
+								site_id: snapshot.atomicSiteId,
+							}
+						);
+						if ( parseInt( response.status ) === 2 ) {
+							updateSnapshot( {
+								...snapshot,
+								isLoading: false,
+							} );
+						}
+					} catch ( error ) {
 						updateSnapshot( {
 							...snapshot,
 							isLoading: false,

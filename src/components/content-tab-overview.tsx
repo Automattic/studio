@@ -13,6 +13,7 @@ import {
 	widget,
 } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
+import { useState } from 'react';
 import { useCheckInstalledApps } from '../hooks/use-check-installed-apps';
 import { useThemeDetails } from '../hooks/use-theme-details';
 import { isMac } from '../lib/app-globals';
@@ -177,6 +178,7 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 }
 
 export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) {
+	const [ isThumbnailError, setIsThumbnailError ] = useState( false );
 	const { __ } = useI18n();
 	const themeDetails = useThemeDetails( selectedSite );
 
@@ -184,18 +186,25 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 		<div className="pb-10 flex">
 			<div className="w-52 mr-8 flex-col justify-start items-start gap-8">
 				<div className="mb-3 a8c-subtitle-small">{ __( 'Theme' ) }</div>
-				<div className="w-full h-60 bg-gray-100 mb-2 flex items-center justify-center">
-					{ themeDetails?.thumbnailData && (
-						<img
-							className="w-full h-full object-cover"
-							src={ themeDetails.thumbnailData }
-							alt={ themeDetails?.name }
-						/>
+				<div className="w-full h-60 rounded-sm border bg-a8c-gray-0 mb-2 flex items-center justify-center">
+					{ isThumbnailError && (
+						<div className="flex items-center justify-center w-full h-full leading-5 text-a8c-gray-50">
+							{ __( 'Preview unavailable' ) }
+						</div>
 					) }
+					<img
+						onError={ () => setIsThumbnailError( true ) }
+						onLoad={ () => setIsThumbnailError( false ) }
+						className={ ! isThumbnailError ? 'w-full h-full object-cover' : 'absolute invisible' }
+						src={ themeDetails?.thumbnailData || '' }
+						alt={ themeDetails?.name }
+					/>
 				</div>
-				<div className="flex justify-between items-center w-full">
-					<Button className="!px-0">{ themeDetails?.name }</Button>
-				</div>
+				{ ! isThumbnailError && (
+					<div className="flex justify-between items-center w-full">
+						<Button className="!px-0">{ themeDetails?.name }</Button>
+					</div>
+				) }
 			</div>
 			<div className="flex flex-1 flex-col justify-start items-start gap-8">
 				<CustomizeSection selectedSite={ selectedSite } themeDetails={ themeDetails } />

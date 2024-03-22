@@ -93,7 +93,7 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 				scrollbarGutter: 'stable',
 			} }
 			className={ cx(
-				'w-full overflow-y-auto overflow-x-hidden flex flex-col gap-0.5 pb-4 app-no-drag-region sites-scrollbar',
+				'w-full overflow-y-auto overflow-x-hidden flex flex-col gap-0.5 pb-4',
 				className
 			) }
 		>

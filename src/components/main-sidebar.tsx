@@ -66,8 +66,10 @@ export default function MainSidebar( { className }: MainSidebarProps ) {
 			) }
 		>
 			<div className="flex flex-col h-full">
-				<SiteMenu />
-				<div className="flex flex-col gap-4 mt-auto min-h-[103px] border-white border-t border-opacity-10 app-no-drag-region">
+				<div className="flex-1 overflow-y-auto sites-scrollbar app-no-drag-region">
+					<SiteMenu />
+				</div>
+				<div className="flex flex-col gap-4 min-h-[103px] border-white border-t border-opacity-10 app-no-drag-region">
 					<RunningSites />
 					<div className={ cx( isMac() ? 'mx-5' : 'mx-4' ) }>
 						<AddSite className="w-full mb-4 hover:bg-gray-100" />

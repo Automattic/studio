@@ -134,11 +134,12 @@ export default function Onboarding() {
 						</div>
 						<Button
 							onClick={ onHandleAddSiteClick }
+							isBusy={ isAddingSite }
 							disabled={ isAddingSite }
 							className="bg-a8c-blueberry hover:text-white text-white"
 							variant="primary"
 						>
-							{ __( 'Continue' ) }
+							{ isAddingSite ? __( 'Adding site…' ) : __( 'Continue' ) }
 						</Button>
 					</div>
 				) }

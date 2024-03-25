@@ -123,10 +123,10 @@ export default async function startWPNow(
 		await runBlueprintSteps(compiled, php);
 	}
 
-	await installationStep2(php, options.siteTitle);
+	await installationStep2(php, options);
 	await login(php, {
 		username: 'admin',
-		password: 'password',
+		password: options.adminPassword,
 	});
 
 	if (
@@ -399,17 +399,17 @@ export function inferMode(
 	return WPNowMode.PLAYGROUND;
 }
 
-async function installationStep2(php: NodePHP, siteTitle: string) {
+async function installationStep2(php: NodePHP, options: Partial<WPNowOptions> = {}) {
 	return php.request({
 		url: '/wp-admin/install.php?step=2',
 		method: 'POST',
 		body: {
 			language: 'en',
 			prefix: 'wp_',
-			weblog_title: siteTitle,
+			weblog_title: options.siteTitle,
 			user_name: 'admin',
-			admin_password: 'password',
-			admin_password2: 'password',
+			admin_password: options.adminPassword,
+			admin_password2: options.adminPassword,
 			Submit: 'Install WordPress',
 			pw_weak: '1',
 			admin_email: 'admin@localhost.com',

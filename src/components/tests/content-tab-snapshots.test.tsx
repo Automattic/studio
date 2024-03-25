@@ -37,6 +37,7 @@ const selectedSite = {
 	name: 'Test Site',
 	running: false as const,
 	path: '/test-site',
+	adminPassword: 'encrypted-password',
 };
 
 describe( 'ContentTabSnapshots', () => {

@@ -15,7 +15,7 @@
 	"scripts": {
 		"start": "electron-forge start",
 		"start-wayland": "electron-forge start -- --enable-features=UseOzonePlatform --ozone-platform=wayland .",
-		"postinstall": "node ./scripts/download-wp.mjs",
+		"postinstall": "patch-package && node ./scripts/download-wp.mjs",
 		"package": "electron-forge package",
 		"make": "electron-forge make",
 		"make:macos": "SKIP_DMG=true electron-forge make --arch=universal --platform=darwin",
@@ -72,6 +72,7 @@
 		"mini-css-extract-plugin": "^2.8.0",
 		"nock": "^13.5.1",
 		"node-loader": "^2.0.0",
+		"patch-package": "^8.0.0",
 		"postcss": "^8.4.32",
 		"postcss-loader": "^7.3.3",
 		"prettier": "npm:wp-prettier@3.0.3",
@@ -84,6 +85,7 @@
 		"typescript": "~5.3.2"
 	},
 	"dependencies": {
+		"@automattic/generate-password": "^0.1.0",
 		"@formatjs/intl-localematcher": "^0.5.4",
 		"@php-wasm/node": "^0.6.7",
 		"@php-wasm/universal": "^0.6.7",

@@ -4,8 +4,10 @@ import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { getWpNowConfig, startServer, type WPNowServer } from '../vendor/wp-now/src';
 import { pathExists, recursiveCopyDirectory, isEmptyDir } from './lib/fs-utils';
+import { decryptPassword } from './lib/passwords';
 import { phpGetThemeDetails } from './lib/php-get-theme-details';
 import { portFinder } from './lib/port-finder';
+import { sanitizeForLogging } from './lib/sanitize-for-logging';
 import { createScreenshotWindow } from './screenshot-window';
 import { getSiteThumbnailPath } from './storage/paths';
 
@@ -77,12 +79,13 @@ export class SiteServer {
 		const options = await getWpNowConfig( {
 			path: this.details.path,
 			port,
+			adminPassword: decryptPassword( this.details.adminPassword ?? '' ),
 			siteTitle: this.details.name,
 		} );
 		const absoluteUrl = `http://localhost:${ port }`;
 		options.absoluteUrl = absoluteUrl;
 
-		console.log( 'Starting server with options', options );
+		console.log( 'Starting server with options', sanitizeForLogging( options ) );
 		this.server = await startServer( options );
 
 		if ( this.server.options.port === undefined ) {

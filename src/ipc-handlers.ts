@@ -14,6 +14,7 @@ import { isErrnoException } from './lib/is-errno-exception';
 import { isInstalled } from './lib/is-installed';
 import { getLocaleData, getSupportedLocale } from './lib/locale';
 import * as oauthClient from './lib/oauth';
+import { createPassword, decryptPassword } from './lib/passwords';
 import { phpGetThemeDetails } from './lib/php-get-theme-details';
 import { sanitizeForLogging } from './lib/sanitize-for-logging';
 import { sortSites } from './lib/sort-sites';
@@ -123,6 +124,7 @@ export async function createSite(
 		id: crypto.randomUUID(),
 		name: siteName || nodePath.basename( path ),
 		path,
+		adminPassword: createPassword(),
 		running: false,
 	} as const;
 
@@ -485,4 +487,8 @@ export async function saveOnboarding(
 export async function getThumbnailData( _event: IpcMainInvokeEvent, id: string ) {
 	const path = getSiteThumbnailPath( id );
 	return getImageData( path );
+}
+
+export async function getDecryptedPassword( event: IpcMainInvokeEvent, encryptedPassword: string ) {
+	return decryptPassword( encryptedPassword );
 }

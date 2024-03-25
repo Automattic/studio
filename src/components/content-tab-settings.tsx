@@ -1,7 +1,6 @@
 import { Icon, file } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren } from 'react';
-import { useDecryptedPassword } from '../hooks/use-decrypted-password';
 import { useGetWpVersion } from '../hooks/use-get-wp-version';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { CopyTextButton } from './copy-text-button';
@@ -24,9 +23,7 @@ function SettingsRow( { children, label }: PropsWithChildren< { label: string } 
 export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) {
 	const { __ } = useI18n();
 	const username = 'admin';
-	// Empty strings account for legacy sites lacking a stored password.
-	const storedPassword = useDecryptedPassword( selectedSite.adminPassword ?? '' );
-	const password = storedPassword === '' ? 'password' : storedPassword;
+	const password = 'password';
 	const wpVersion = useGetWpVersion( selectedSite );
 	return (
 		<div className="pb-4">
@@ -69,7 +66,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 					<CopyTextButton
 						copyConfirmation={ __( 'Copied!' ) }
 						label={ __( 'Copy admin password to clipboard' ) }
-						text={ password || '' }
+						text={ password }
 					>
 						************
 					</CopyTextButton>

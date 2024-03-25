@@ -111,8 +111,6 @@ export async function runCli() {
 						port: argv.port as number,
 						blueprint: argv.blueprint as string,
 						reset: argv.reset as boolean,
-						adminPassword: argv.adminPassword as string,
-						siteTitle: argv.siteTitle as string,
 					});
 					portFinder.setPort(options.port as number);
 					const { url } = await startServer(options);

@@ -34,21 +34,15 @@ export function CopyTextButton( {
 		setTimeoutId( setTimeout( () => setShowCopied( false ), timeoutConfirmation ) );
 	}, [ text, timeoutConfirmation, timeoutId ] );
 
-	const disabled = ! text;
-
 	return (
 		<button
 			className={ cx(
-				'flex items-center',
+				'flex items-center cursor-default hover:text-blue-600',
 				showCopied && 'text-blue-600',
-				disabled
-					? 'text-a8c-gray-50 hover:text-a8c-gray-90 cursor-not-allowed'
-					: 'cursor-default hover:text-blue-600',
 				className
 			) }
 			aria-label={ label || __( 'copy to clipboard' ) }
 			onClick={ onClick }
-			disabled={ disabled }
 		>
 			{ children }
 			<Icon className="ml-1.5 mr-1" fill="currentColor" size={ 13 } icon={ copy } />

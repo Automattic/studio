@@ -32,11 +32,4 @@ describe( 'CopyTextButton', () => {
 		expect( screen.getByRole( 'alert' ) ).toHaveTextContent( 'Copied!' );
 		expect( mockCopyText ).toHaveBeenCalledWith( 'Sample Text' );
 	} );
-
-	test( 'should prevent copying empty values', () => {
-		const mockCopyText = jest.fn();
-		( getIpcApi as jest.Mock ).mockReturnValue( { copyText: mockCopyText } );
-		render( <CopyTextButton text="" copyConfirmation="Copied!" /> );
-		expect( screen.getByRole( 'button', { name: 'copy to clipboard' } ) ).toBeDisabled();
-	} );
 } );

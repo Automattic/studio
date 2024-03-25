@@ -1,5 +1,5 @@
 // To run tests, execute `npm run test -- src/components/content-tab-settings.test.tsx` from the root directory
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { useGetWpVersion } from '../../hooks/use-get-wp-version';
 import { getIpcApi } from '../../lib/get-ipc-api';
@@ -12,7 +12,6 @@ const selectedSite: SiteDetails = {
 	name: 'Test Site',
 	port: 8881,
 	path: '/path/to/site',
-	adminPassword: 'encrypted-password',
 	running: false,
 	id: 'site-id',
 };
@@ -21,7 +20,6 @@ describe( 'ContentTabSettings', () => {
 	const copyText = jest.fn();
 	const openLocalPath = jest.fn();
 	const generateProposedSitePath = jest.fn();
-	const getDecryptedPassword = jest.fn( () => Promise.resolve( 'decrypted-password' ) );
 	beforeEach( () => {
 		jest.clearAllMocks();
 		( useGetWpVersion as jest.Mock ).mockReturnValue( '7.7.7' );
@@ -29,17 +27,11 @@ describe( 'ContentTabSettings', () => {
 			copyText,
 			openLocalPath,
 			generateProposedSitePath,
-			getDecryptedPassword,
 		} );
 	} );
 
-	test( 'renders site details correctly', async () => {
+	test( 'renders site details correctly', () => {
 		render( <ContentTabSettings selectedSite={ selectedSite } /> );
-		await waitFor( () =>
-			expect(
-				screen.getByRole( 'button', { name: 'Copy admin password to clipboard' } )
-			).not.toBeDisabled()
-		);
 
 		expect( screen.getByRole( 'heading', { name: 'Site details' } ) ).toBeInTheDocument();
 		expect( screen.getByText( 'Test Site' ) ).toBeInTheDocument();
@@ -60,11 +52,6 @@ describe( 'ContentTabSettings', () => {
 	test( 'button opens local path', async () => {
 		const user = userEvent.setup();
 		render( <ContentTabSettings selectedSite={ selectedSite } /> );
-		await waitFor( () =>
-			expect(
-				screen.getByRole( 'button', { name: 'Copy admin password to clipboard' } )
-			).not.toBeDisabled()
-		);
 
 		const pathButton = screen.getByRole( 'button', { name: '/path/to/site, Open local path' } );
 		expect( pathButton ).toBeInTheDocument();
@@ -81,11 +68,6 @@ describe( 'ContentTabSettings', () => {
 			running: true,
 		};
 		render( <ContentTabSettings selectedSite={ selectedSiteRunning } /> );
-		await waitFor( () =>
-			expect(
-				screen.getByRole( 'button', { name: 'Copy admin password to clipboard' } )
-			).not.toBeDisabled()
-		);
 
 		const urlButton = screen.getByRole( 'button', {
 			name: 'localhost:8881, Copy site url to clipboard',
@@ -102,48 +84,5 @@ describe( 'ContentTabSettings', () => {
 		await user.click( wpAdminButton );
 		expect( copyText ).toHaveBeenCalledTimes( 2 );
 		expect( copyText ).toHaveBeenCalledWith( 'http://localhost:8881/wp-admin' );
-	} );
-
-	test( 'allows copying the site password', async () => {
-		const user = userEvent.setup();
-		render( <ContentTabSettings selectedSite={ selectedSite } /> );
-		await waitFor( () =>
-			expect(
-				screen.getByRole( 'button', { name: 'Copy admin password to clipboard' } )
-			).not.toBeDisabled()
-		);
-
-		const adminPasswordButton = screen.getByRole( 'button', {
-			name: 'Copy admin password to clipboard',
-		} );
-		expect( adminPasswordButton ).toBeInTheDocument();
-		await user.click( adminPasswordButton );
-		expect( copyText ).toHaveBeenCalledTimes( 1 );
-		expect( copyText ).toHaveBeenCalledWith( 'decrypted-password' );
-	} );
-
-	describe( 'when a legacy site lacks a stored password', () => {
-		beforeEach( () => {
-			getDecryptedPassword.mockResolvedValueOnce( Promise.resolve( 'password' ) );
-		} );
-
-		test( 'allows copying the default password', async () => {
-			const user = userEvent.setup();
-			const { adminPassword, ...selectedSiteLegacy }: SiteDetails = selectedSite;
-			render( <ContentTabSettings selectedSite={ selectedSiteLegacy } /> );
-			await waitFor( () =>
-				expect(
-					screen.getByRole( 'button', { name: 'Copy admin password to clipboard' } )
-				).not.toBeDisabled()
-			);
-
-			const adminPasswordButton = screen.getByRole( 'button', {
-				name: 'Copy admin password to clipboard',
-			} );
-			expect( adminPasswordButton ).toBeInTheDocument();
-			await user.click( adminPasswordButton );
-			expect( copyText ).toHaveBeenCalledTimes( 1 );
-			expect( copyText ).toHaveBeenCalledWith( 'password' );
-		} );
 	} );
 } );

@@ -39,8 +39,6 @@ const api: IpcApi = {
 	getOnboardingData: () => ipcRenderer.invoke( 'getOnboardingData' ),
 	saveOnboarding: ( onboardingCompleted: boolean ) =>
 		ipcRenderer.invoke( 'saveOnboarding', onboardingCompleted ),
-	getDecryptedPassword: ( encryptedPassword: string ) =>
-		ipcRenderer.invoke( 'getDecryptedPassword', encryptedPassword ),
 
 	// Use .send instead of .invoke because logging is fire-and-forget
 	logRendererMessage: ( level: LogLevel, ...args: any[] ) =>

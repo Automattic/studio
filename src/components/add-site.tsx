@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { useAddSite } from '../hooks/use-add-site';
 import { useIpcListener } from '../hooks/use-ipc-listener';
 import { cx } from '../lib/cx';
+import { generateSiteName } from '../lib/generate-site-name';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
 import { SiteForm, SiteModal } from './site-modal';
@@ -17,7 +18,6 @@ export default function AddSite( { className }: AddSiteProps ) {
 	const {
 		handleAddSiteClick,
 		isAddingSite,
-		defaultSiteName,
 		siteName,
 		setSiteName,
 		setProposedSitePath,
@@ -29,11 +29,13 @@ export default function AddSite( { className }: AddSiteProps ) {
 		setDoesPathContainWordPress,
 		handleSiteNameChange,
 		handlePathSelectorClick,
+		usedSiteNames,
 	} = useAddSite();
 
 	const openModal = useCallback( async () => {
-		const { path, name, isWordPress } =
-			await getIpcApi().generateProposedSitePath( defaultSiteName );
+		const { path, name, isWordPress } = await getIpcApi().generateProposedSitePath(
+			generateSiteName( usedSiteNames )
+		);
 		setSiteName( name );
 		setProposedSitePath( path );
 		setSitePath( '' );
@@ -42,12 +44,12 @@ export default function AddSite( { className }: AddSiteProps ) {
 
 		setShowModal( true );
 	}, [
-		defaultSiteName,
 		setDoesPathContainWordPress,
 		setError,
 		setProposedSitePath,
 		setSiteName,
 		setSitePath,
+		usedSiteNames,
 	] );
 
 	const closeModal = useCallback( () => {

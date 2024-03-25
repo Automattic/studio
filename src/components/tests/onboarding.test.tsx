@@ -45,7 +45,6 @@ describe( 'Onboarding Component', () => {
 			setSitePath: jest.fn(),
 			setError: jest.fn(),
 			setDoesPathContainWordPress: jest.fn(),
-			defaultSiteName: 'Default Site Name', // Adjust as needed
 			siteName: 'My Site', // Adjust as needed
 			sitePath: '/path/to/my/site', // Adjust as needed
 			error: '', // Adjust as needed or based on test scenarios

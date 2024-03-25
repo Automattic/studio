@@ -4,6 +4,7 @@ import { useCallback, useEffect } from 'react';
 import { useAddSite } from '../hooks/use-add-site';
 import { useOnboarding } from '../hooks/use-onboarding';
 import { isMac } from '../lib/app-globals';
+import { generateSiteName } from '../lib/generate-site-name';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
 import { MacPermissionCard, OtherOsPermissionCard } from './permission-cards';
@@ -64,7 +65,6 @@ export default function Onboarding() {
 		setSitePath,
 		setError,
 		setDoesPathContainWordPress,
-		defaultSiteName,
 		siteName,
 		sitePath,
 		error,
@@ -76,8 +76,9 @@ export default function Onboarding() {
 
 	useEffect( () => {
 		const run = async () => {
-			const { path, name, isWordPress } =
-				await getIpcApi().generateProposedSitePath( defaultSiteName );
+			const { path, name, isWordPress } = await getIpcApi().generateProposedSitePath(
+				generateSiteName( [] )
+			);
 			setSiteName( name );
 			setProposedSitePath( path );
 			setSitePath( '' );

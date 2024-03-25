@@ -13,7 +13,7 @@ export function useAddSite() {
 	const [ proposedSitePath, setProposedSitePath ] = useState( '' );
 	const [ doesPathContainWordPress, setDoesPathContainWordPress ] = useState( false );
 
-	const defaultSiteName = __( 'My WordPress Website' );
+	const usedSiteNames = sites.map( ( site ) => site.name );
 
 	const siteWithPathAlreadyExists = useCallback(
 		( path: string ) => {
@@ -103,7 +103,6 @@ export function useAddSite() {
 			sitePath: sitePath ? sitePath : proposedSitePath,
 			siteName,
 			doesPathContainWordPress,
-			defaultSiteName,
 			siteWithPathAlreadyExists,
 			setSiteName,
 			proposedSitePath,
@@ -111,10 +110,10 @@ export function useAddSite() {
 			setSitePath,
 			setError,
 			setDoesPathContainWordPress,
+			usedSiteNames,
 		} ),
 		[
 			__,
-			defaultSiteName,
 			doesPathContainWordPress,
 			error,
 			handleAddSiteClick,
@@ -125,6 +124,7 @@ export function useAddSite() {
 			siteName,
 			sitePath,
 			proposedSitePath,
+			usedSiteNames,
 		]
 	);
 }

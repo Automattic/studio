@@ -201,7 +201,7 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 					<img
 						onError={ () => setIsThumbnailError( true ) }
 						onLoad={ () => setIsThumbnailError( false ) }
-						className={ ! isThumbnailError ? 'w-full h-full object-cover' : 'absolute invisible' }
+						className={ ! isThumbnailError ? 'w-full h-full' : 'absolute invisible' }
 						src={ themeDetails?.thumbnailData || '' }
 						alt={ themeDetails?.name }
 					/>

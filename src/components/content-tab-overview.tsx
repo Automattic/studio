@@ -8,6 +8,7 @@ import {
 	layout,
 	navigation,
 	page,
+	preformatted,
 	styles,
 	symbolFilled,
 	widget,
@@ -175,6 +176,19 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 			},
 		} );
 	}
+	buttonsArray.push( {
+		label: __( 'Terminal' ),
+		className: 'text-nowrap',
+		icon: preformatted,
+		onClick: async () => {
+			try {
+				await getIpcApi().openTerminalAtPath( selectedSite.path );
+			} catch ( error ) {
+				Sentry.captureException( error );
+				alert( __( 'Could not open the terminal.' ) );
+			}
+		},
+	} );
 	return <ButtonsSection buttonsArray={ buttonsArray } title={ __( 'Open in…' ) } />;
 }
 

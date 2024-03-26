@@ -1,3 +1,4 @@
+import { exec } from 'child_process';
 import crypto from 'crypto';
 import { BrowserWindow, app, clipboard } from 'electron';
 import { type IpcMainInvokeEvent, dialog, shell } from 'electron';
@@ -485,4 +486,33 @@ export async function saveOnboarding(
 export async function getThumbnailData( _event: IpcMainInvokeEvent, id: string ) {
 	const path = getSiteThumbnailPath( id );
 	return getImageData( path );
+}
+
+export function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath: string ) {
+	return new Promise< void >( ( resolve, reject ) => {
+		const platform = process.platform;
+
+		let command: string;
+		if ( platform === 'win32' ) {
+			// Windows
+			command = `start cmd /K "cd /d ${ targetPath }"`;
+		} else if ( platform === 'darwin' ) {
+			// macOS
+			command = `open -a Terminal "${ targetPath }"`;
+		} else if ( platform === 'linux' ) {
+			// Linux
+			command = `gnome-terminal --working-directory=${ targetPath }`;
+		} else {
+			console.error( 'Unsupported platform:', platform );
+			return;
+		}
+
+		exec( command, ( error, _stdout, _stderr ) => {
+			if ( error ) {
+				reject( error );
+				return;
+			}
+			resolve();
+		} );
+	} );
 }

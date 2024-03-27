@@ -1,10 +1,21 @@
+import { app } from 'electron';
 import fs from 'fs';
+import path from 'path';
 
-const macAppPaths: Record< keyof InstalledApps, string > = {
-	vscode: '/Applications/Visual Studio Code.app',
-	phpstorm: '/Applications/PhpStorm.app',
-};
+const appPaths: Record< keyof InstalledApps, string > =
+	process.platform == 'win32'
+		? {
+				vscode: path.join( app.getPath( 'appData' ), 'Code' ),
+				phpstorm: '', // Disable phpSotrm for Windows
+		  }
+		: {
+				vscode: '/Applications/Visual Studio Code.app',
+				phpstorm: '/Applications/PhpStorm.app',
+		  };
 
-export function isInstalled( key: keyof typeof macAppPaths ): boolean {
-	return fs.existsSync( macAppPaths[ key ] );
+export function isInstalled( key: keyof typeof appPaths ): boolean {
+	if ( ! appPaths[ key ] ) {
+		return false;
+	}
+	return fs.existsSync( appPaths[ key ] );
 }

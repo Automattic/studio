@@ -74,7 +74,7 @@ describe( 'ShortcutsSection', () => {
 		);
 	} );
 
-	it( 'opens site in PhpStorm when PhpStorm is installed and the button is clicked', async () => {
+	it( 'opens site in PhpStorm when PhpStorm is installed and the button is clicked, only available on MacOS', async () => {
 		// Mock the `useCheckInstalledApps` hook to simulate PhpStorm being installed
 		( useCheckInstalledApps as jest.Mock ).mockReturnValue( {
 			vscode: false,

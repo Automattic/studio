@@ -1,5 +1,4 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { isMac } from '../lib/app-globals';
 import { getIpcApi } from '../lib/get-ipc-api';
 
 const initState = {
@@ -22,9 +21,6 @@ export function InstalledAppsProvider( { children }: InstalledAppsProviderProps 
 	const [ installedApps, setInstalledApps ] = useState< InstalledApps >( initState );
 	useEffect( () => {
 		let cancel = false;
-		if ( ! isMac() ) {
-			return;
-		}
 		getIpcApi()
 			.getInstalledApps()
 			.then( ( installedApps ) => {

@@ -10,31 +10,18 @@ import { NodePHP } from '@php-wasm/node';
 import startWPNow from './wp-now';
 import { output } from './output';
 import { addTrailingSlash } from './add-trailing-slash';
+import { encodeAsMultipart } from './encode-as-multipart';
 
-function requestBodyToMultipartFormData(json, boundary) {
-	let multipartData = '';
-	const eol = '\r\n';
-
-	for (const key in json) {
-		multipartData += `--${boundary}${eol}`;
-		multipartData += `Content-Disposition: form-data; name="${key}"${eol}${eol}`;
-		multipartData += `${json[key]}${eol}`;
-	}
-
-	multipartData += `--${boundary}--${eol}`;
-	return multipartData;
-}
-
-const requestBodyToString = async (req) =>
-	await new Promise((resolve) => {
-		let body = '';
-		req.on('data', (chunk) => {
-			body += chunk.toString(); // convert Buffer to string
-		});
-		req.on('end', () => {
-			resolve(body);
-		});
-	});
+const requestBodyToBytes = async ( req ): Promise< Uint8Array > =>
+	await new Promise( ( resolve ) => {
+		const body = [];
+		req.on( 'data', ( chunk ) => {
+			body.push( chunk );
+		} );
+		req.on( 'end', () => {
+			resolve( Buffer.concat( body ) );
+		} );
+	} );
 
 export interface WPNowServer {
 	url: string;
@@ -74,34 +61,19 @@ export async function startServer(
 				}
 			}
 
-			const body = requestHeaders['content-type']?.startsWith(
-				'multipart/form-data'
-			)
-				? requestBodyToMultipartFormData(
-						req.body,
-						requestHeaders['content-type'].split('; boundary=')[1]
-				  )
-				: await requestBodyToString(req);
-
+			let body: Uint8Array;
+			if ( requestHeaders[ 'content-type' ]?.startsWith( 'multipart/form-data' ) ) {
+				const multipart = await encodeAsMultipart( req );
+				body = multipart.bytes;
+				requestHeaders[ 'content-type' ] = multipart.contentType;
+			} else {
+				body = await requestBodyToBytes( req );
+			}
 			const data = {
 				url: req.url,
 				headers: requestHeaders,
 				method: req.method as HTTPMethod,
-				files: Object.fromEntries(
-					Object.entries((req as any).files || {}).map<any>(
-						([key, file]: any) => [
-							key,
-							{
-								key,
-								name: file.name,
-								size: file.size,
-								type: file.mimetype,
-								arrayBuffer: () => file.data.buffer,
-							},
-						]
-					)
-				),
-				body: body as string,
+				body,
 			};
 			const resp = await php.request(data);
 			res.statusCode = resp.httpStatusCode;

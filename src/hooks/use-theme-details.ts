@@ -2,9 +2,14 @@ import { useCallback, useEffect, useState } from 'react';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { useWindowListener } from './use-window-listener';
 
-export function useThemeDetails(
-	selectedSite: SiteDetails
-): ( SiteDetails[ 'themeDetails' ] & { thumbnailData: string | null } ) | undefined {
+interface UseThemeDetails {
+	loading: boolean;
+	details: ( SiteDetails[ 'themeDetails' ] & { thumbnailData: string | null } ) | undefined;
+}
+export function useThemeDetails( selectedSite: SiteDetails ): UseThemeDetails {
+	const [ loading, setLoading ] = useState< { [ siteId: string ]: boolean } >( {
+		[ selectedSite.id ]: true,
+	} );
 	const [ freshThemeDetails, setFreshThemeDetails ] = useState< {
 		[ siteId: string ]: SiteDetails[ 'themeDetails' ] & { thumbnailData: string | null };
 	} >( {} );
@@ -25,8 +30,15 @@ export function useThemeDetails(
 						},
 					} ) );
 				}
+				setLoading( ( loadingState ) => ( { ...loadingState, [ selectedSite.id ]: false } ) );
 			}, delayMS );
 		}
+		setLoading( ( loadingState ) => {
+			if ( loadingState[ selectedSite.id ] === undefined ) {
+				return { ...loadingState, [ selectedSite.id ]: true };
+			}
+			return loadingState;
+		} );
 
 		const newthemeDetails = await getIpcApi()?.getThemeDetails( selectedSite.id );
 		const latestThemeDetails =
@@ -47,6 +59,9 @@ export function useThemeDetails(
 					thumbnailData,
 				},
 			} ) );
+			if ( thumbnailData ) {
+				setLoading( ( loadingState ) => ( { ...loadingState, [ selectedSite.id ]: false } ) );
+			}
 			return () => {
 				clearTimeout( timerDownUpdateThumbnail );
 			};
@@ -59,5 +74,8 @@ export function useThemeDetails(
 
 	useWindowListener( 'focus', getThemeDetails );
 
-	return freshThemeDetails[ selectedSite.id ];
+	return {
+		details: freshThemeDetails[ selectedSite.id ],
+		loading: loading[ selectedSite.id ],
+	};
 }

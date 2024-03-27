@@ -192,10 +192,16 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 	return <ButtonsSection buttonsArray={ buttonsArray } title={ __( 'Open in…' ) } />;
 }
 
+const ThumbnailSkeleton = () => {
+	return (
+		<div className="w-full h-full min-h-4 animate-pulse bg-gradient-to-r from-[#F6F7F7] via-[#DCDCDE] to-[#F6F7F7]"></div>
+	);
+};
+
 export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) {
 	const [ isThumbnailError, setIsThumbnailError ] = useState( false );
 	const { __ } = useI18n();
-	const themeDetails = useThemeDetails( selectedSite );
+	const { details: themeDetails, loading } = useThemeDetails( selectedSite );
 
 	return (
 		<div className="pb-10 flex">
@@ -207,24 +213,32 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 						isThumbnailError && 'border-none'
 					) }
 				>
-					{ isThumbnailError && (
+					{ loading && <ThumbnailSkeleton /> }
+					{ isThumbnailError && ! loading && (
 						<div className="flex items-center justify-center w-full h-full leading-5 text-a8c-gray-50">
 							{ __( 'Preview unavailable' ) }
 						</div>
 					) }
-					<img
-						onError={ () => setIsThumbnailError( true ) }
-						onLoad={ () => setIsThumbnailError( false ) }
-						className={ ! isThumbnailError ? 'w-full h-full' : 'absolute invisible' }
-						src={ themeDetails?.thumbnailData || '' }
-						alt={ themeDetails?.name }
-					/>
+					{ ! loading && (
+						<img
+							onError={ () => setIsThumbnailError( true ) }
+							onLoad={ () => setIsThumbnailError( false ) }
+							className={ ! isThumbnailError ? 'w-full h-full' : 'absolute invisible' }
+							src={ themeDetails?.thumbnailData || '' }
+							alt={ themeDetails?.name }
+						/>
+					) }
 				</div>
-				{ ! isThumbnailError && (
-					<div className="flex justify-between items-center w-full">
+				<div className="flex justify-between items-center w-full">
+					{ loading && (
+						<div className="w-[100px]">
+							<ThumbnailSkeleton />
+						</div>
+					) }
+					{ ! loading && ! isThumbnailError && (
 						<Button className="!px-0">{ themeDetails?.name }</Button>
-					</div>
-				) }
+					) }
+				</div>
 			</div>
 			<div className="flex flex-1 flex-col justify-start items-start gap-8">
 				<CustomizeSection selectedSite={ selectedSite } themeDetails={ themeDetails } />

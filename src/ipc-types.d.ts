@@ -14,6 +14,7 @@ interface StoppedSiteDetails {
 	name: string;
 	path: string;
 	port?: number;
+	adminPassword?: string;
 	themeDetails?: {
 		name: string;
 		path: string;

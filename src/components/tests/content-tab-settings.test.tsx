@@ -12,6 +12,7 @@ const selectedSite: SiteDetails = {
 	name: 'Test Site',
 	port: 8881,
 	path: '/path/to/site',
+	adminPassword: btoa( 'test-password' ),
 	running: false,
 	id: 'site-id',
 };
@@ -84,5 +85,34 @@ describe( 'ContentTabSettings', () => {
 		await user.click( wpAdminButton );
 		expect( copyText ).toHaveBeenCalledTimes( 2 );
 		expect( copyText ).toHaveBeenCalledWith( 'http://localhost:8881/wp-admin' );
+	} );
+
+	test( 'allows copying the site password', async () => {
+		const user = userEvent.setup();
+		render( <ContentTabSettings selectedSite={ selectedSite } /> );
+
+		const adminPasswordButton = screen.getByRole( 'button', {
+			name: 'Copy admin password to clipboard',
+		} );
+		expect( adminPasswordButton ).toBeInTheDocument();
+		await user.click( adminPasswordButton );
+		expect( copyText ).toHaveBeenCalledTimes( 1 );
+		expect( copyText ).toHaveBeenCalledWith( 'test-password' );
+	} );
+
+	describe( 'when a legacy site lacks a stored password', () => {
+		test( 'allows copying the default password', async () => {
+			const user = userEvent.setup();
+			const { adminPassword, ...selectedSiteLegacy }: SiteDetails = selectedSite;
+			render( <ContentTabSettings selectedSite={ selectedSiteLegacy } /> );
+
+			const adminPasswordButton = screen.getByRole( 'button', {
+				name: 'Copy admin password to clipboard',
+			} );
+			expect( adminPasswordButton ).toBeInTheDocument();
+			await user.click( adminPasswordButton );
+			expect( copyText ).toHaveBeenCalledTimes( 1 );
+			expect( copyText ).toHaveBeenCalledWith( 'password' );
+		} );
 	} );
 } );

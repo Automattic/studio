@@ -15,6 +15,7 @@ import { isErrnoException } from './lib/is-errno-exception';
 import { isInstalled } from './lib/is-installed';
 import { getLocaleData, getSupportedLocale } from './lib/locale';
 import * as oauthClient from './lib/oauth';
+import { createPassword } from './lib/passwords';
 import { phpGetThemeDetails } from './lib/php-get-theme-details';
 import { sanitizeForLogging } from './lib/sanitize-for-logging';
 import { sortSites } from './lib/sort-sites';
@@ -124,6 +125,7 @@ export async function createSite(
 		id: crypto.randomUUID(),
 		name: siteName || nodePath.basename( path ),
 		path,
+		adminPassword: createPassword(),
 		running: false,
 	} as const;
 

@@ -417,7 +417,7 @@ export async function getWpVersion( _event: IpcMainInvokeEvent, wordPressPath: s
 		nodePath.join( wordPressPath, 'wp-includes', 'version.php' ),
 		'utf8'
 	);
-	const matches = versionFileContent.match( /\$wp_version = '([\d.]+)'/ );
+	const matches = versionFileContent.match( /\$wp_version\s*=\s*'([0-9a-zA-Z.-]+)'/ );
 	return matches?.[ 1 ] || '-';
 }
 

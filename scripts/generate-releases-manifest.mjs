@@ -1,22 +1,22 @@
 // This script creates a manifest file that gets uploaded to the CDN so the update API can check for new versions.
-// The file is uploaded to `https://cdn.a8c-ci.services/wp-build/releases.json` and looks like
+// The file is uploaded to `https://cdn.a8c-ci.services/studio/releases.json` and looks like
 //
 // {
 //   "dev": {
 //     "darwin": {
 //       "arm64": {
 //         "sha": "abcdef1234567890",
-//         "url": "https://cdn.a8c-ci.services/wp-build/wp-build-darwin-arm64-abcdef1234567890.app.zip"
+//         "url": "https://cdn.a8c-ci.services/studio/studio-darwin-arm64-abcdef1234567890.app.zip"
 //       },
 //       "x64": {
 //         "sha": "abcdef1234567890",
-//         "url": "https://cdn.a8c-ci.services/wp-build/wp-build-darwin-x64-abcdef1234567890.app.zip"
+//         "url": "https://cdn.a8c-ci.services/studio/studio-darwin-x64-abcdef1234567890.app.zip"
 //       }
 //     },
 //     "win32": {
 //       "x64": {
 //         "sha": "abcdef1234567890",
-//         "url": "https://cdn.a8c-ci.services/wp-build/wp-build-win32-x64-abcdef1234567890.exe.zip"
+//         "url": "https://cdn.a8c-ci.services/studio/studio-win32-x64-abcdef1234567890.exe.zip"
 //       }
 //     }
 //   },
@@ -24,7 +24,7 @@
 //     "darwin": {
 //       "universal": {
 //         "sha": "abcdef1234567890",
-//         "url": "https://cdn.a8c-ci.services/wp-build/wp-build-darwin-universal-1.0.0.app.zip"
+//         "url": "https://cdn.a8c-ci.services/studio/studio-darwin-universal-1.0.0.app.zip"
 //       }
 //     },
 //     ... etc.
@@ -71,7 +71,7 @@ try {
 const releasesFile = createWriteStream( releasesPath, { flags: 'w' } ); // 'w', we want to override any existing file
 
 const downloaded = await new Promise( ( resolve, reject ) => {
-	https.get( 'https://cdn.a8c-ci.services/wp-build/releases.json', ( response ) => {
+	https.get( 'https://cdn.a8c-ci.services/studio/releases.json', ( response ) => {
 		if ( response.statusCode === 404 || response.statusCode === 403 ) {
 			resolve( false );
 			return;
@@ -111,7 +111,7 @@ if ( isDevBuild ) {
 	// We're only building universal binaries on macOS for now
 	const arch = process.platform === 'darwin' ? 'universal' : process.arch;
 
-	const devVersionZipFilename = `https://cdn.a8c-ci.services/wp-build/wp-build-${ process.platform }-${ arch }-${ currentCommit }.app.zip`;
+	const devVersionZipFilename = `https://cdn.a8c-ci.services/studio/studio-${ process.platform }-${ arch }-${ currentCommit }.app.zip`;
 
 	releasesData[ 'dev' ] = releasesData[ 'dev' ] ?? {};
 	releasesData[ 'dev' ][ process.platform ] = releasesData[ 'dev' ][ process.platform ] ?? {};

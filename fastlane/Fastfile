@@ -62,11 +62,16 @@ lane :distribute_binary do |_options|
 
   binary_path = File.join(PROJECT_ROOT_FOLDER, 'out', 'Studio-darwin-universal', 'Studio.app.zip')
   manifest_path = File.join(PROJECT_ROOT_FOLDER, 'out', 'releases.json')
-  hashed_filename = "wp-build-darwin-universal-#{commit_hash}.app.zip"
+
+  filename_root = 'studio-darwin-universal'
+  hashed_filename = "#{filename_root}-#{commit_hash}.app.zip"
+  latest_filename = "#{filename_root}-latest.app.zip"
+
+  bucket_folder = 'studio'
 
   upload_to_s3(
     bucket: 'a8c-apps-public-artifacts',
-    key: "wp-build/#{hashed_filename}",
+    key: "#{bucket_folder}/#{hashed_filename}",
     file: binary_path,
     if_exists: :fail,
     auto_prefix: false
@@ -74,7 +79,7 @@ lane :distribute_binary do |_options|
 
   upload_to_s3(
     bucket: 'a8c-apps-public-artifacts',
-    key: 'wp-build/wp-build-darwin-universal-latest.app.zip',
+    key: "#{bucket_folder}/#{latest_filename}",
     file: binary_path,
     if_exists: :replace,
     auto_prefix: false
@@ -82,7 +87,7 @@ lane :distribute_binary do |_options|
 
   upload_to_s3(
     bucket: 'a8c-apps-public-artifacts',
-    key: 'wp-build/releases.json',
+    key: "#{bucket_folder}/releases.json",
     file: manifest_path,
     if_exists: :replace,
     auto_prefix: false
@@ -92,8 +97,8 @@ lane :distribute_binary do |_options|
   # each upload, otherwise it'll be stale.
   clear_cloudfront_cache(
     paths: [
-      '/wp-build/wp-build-darwin-universal-latest.app.zip',
-      '/wp-build/releases.json'
+      "/#{bucket_folder}/#{latest_filename}",
+      "/#{bucket_folder}/releases.json"
     ],
     commit_hash:
   )
@@ -101,7 +106,7 @@ lane :distribute_binary do |_options|
   # Copy the file into position to be picked up by the Buildkite agent and saved with the job
   FileUtils.cp(binary_path, File.join(PROJECT_ROOT_FOLDER, 'out', hashed_filename))
 
-  download_url = "https://cdn.a8c-ci.services/wp-build/#{hashed_filename}"
+  download_url = "https://cdn.a8c-ci.services/#{bucket_folder}/#{hashed_filename}"
   commit_link = "<https://github.com/Automattic/local-environment/commit/#{commit_hash}|#{commit_hash[0...7]}>"
   commit_message_short = commit_message[/.*/].gsub(/#(\d+)\b/, '<https://github.com/Automattic/local-environment/pull/\1|#\1>')
 

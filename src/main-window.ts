@@ -3,6 +3,7 @@ import { moveDatabasesInSitu } from '../vendor/wp-now/src';
 import { MAIN_MIN_HEIGHT, MAIN_MIN_WIDTH, WINDOWS_TITLEBAR_HEIGHT } from './constants';
 import { isEmptyDir } from './lib/fs-utils';
 import { portFinder } from './lib/port-finder';
+import { setupMenu } from './menu';
 import { UserData } from './storage/storage-types';
 import { loadUserData, saveUserData } from './storage/user-data';
 
@@ -12,7 +13,7 @@ import { loadUserData, saveUserData } from './storage/user-data';
 declare const MAIN_WINDOW_WEBPACK_ENTRY: string;
 declare const MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: string;
 
-function setupDevTools( mainWindow: BrowserWindow, devToolsOpen?: boolean ) {
+function setupDevTools( mainWindow: BrowserWindow | null, devToolsOpen?: boolean ) {
 	if ( devToolsOpen || ( process.env.NODE_ENV === 'development' && devToolsOpen === undefined ) ) {
 		mainWindow?.webContents.openDevTools();
 	}
@@ -42,7 +43,7 @@ async function removeSitesWithEmptyDirectories( userData: UserData ) {
 }
 
 export function createMainWindow(): BrowserWindow {
-	const mainWindow = new BrowserWindow( {
+	let mainWindow: BrowserWindow | null = new BrowserWindow( {
 		height: MAIN_MIN_HEIGHT,
 		width: MAIN_MIN_WIDTH,
 		backgroundColor: 'rgba(30, 30, 30, 1)',
@@ -79,6 +80,12 @@ export function createMainWindow(): BrowserWindow {
 		data.devToolsOpen = false;
 		await saveUserData( data );
 	} );
+
+	mainWindow.on( 'closed', () => {
+		setupMenu( null );
+		mainWindow = null;
+	} );
+	setupMenu( mainWindow );
 
 	return mainWindow;
 }

@@ -1,5 +1,6 @@
 import { Menu, type MenuItemConstructorOptions, app, BrowserWindow } from 'electron';
 import { __ } from '@wordpress/i18n';
+import { createMainWindow } from './main-window';
 import { manualCheckForUpdates } from './updates';
 
 export function setupMenu( window: BrowserWindow | null ) {
@@ -7,6 +8,8 @@ export function setupMenu( window: BrowserWindow | null ) {
 		Menu.setApplicationMenu( null );
 		return;
 	}
+
+	const withWindow = withMainWindow( window );
 	const crashTestMenuItems: MenuItemConstructorOptions[] = [
 		{
 			label: __( 'Test Hard Crash (dev only)' ),
@@ -40,8 +43,10 @@ export function setupMenu( window: BrowserWindow | null ) {
 				{
 					label: __( 'Settings…' ),
 					accelerator: 'CommandOrControl+,',
-					click: ( _menuItem, browserWindow ) => {
-						browserWindow?.webContents.send( 'user-settings' );
+					click: () => {
+						withWindow( ( browserWindow: BrowserWindow ) => {
+							browserWindow.webContents.send( 'user-settings' );
+						} );
 					},
 				},
 				{ type: 'separator' },
@@ -60,9 +65,20 @@ export function setupMenu( window: BrowserWindow | null ) {
 				{
 					label: __( 'Add Site…' ),
 					accelerator: 'CommandOrControl+N',
-					click: ( menuItem, browserWindow ) => {
-						browserWindow?.webContents.send( 'add-site' );
+					click: () => {
+						withWindow( ( browserWindow: BrowserWindow ) => {
+							browserWindow.webContents.send( 'add-site' );
+						} );
 					},
+				},
+				{
+					label: __( 'Close Window' ),
+					accelerator: 'CommandOrControl+W',
+					click: ( menuItem, browserWindow ) => {
+						browserWindow?.close();
+						setupMenu( null );
+					},
+					enabled: !! window,
 				},
 			],
 		},
@@ -103,4 +119,19 @@ export function setupMenu( window: BrowserWindow | null ) {
 		return;
 	}
 	Menu.setApplicationMenu( null );
+}
+
+function withMainWindow(
+	window: BrowserWindow | null
+): ( callback: ( window: BrowserWindow ) => void ) => void {
+	return function ( callback: ( window: BrowserWindow ) => void ) {
+		if ( window ) {
+			callback( window );
+			return;
+		}
+		const newWindow = createMainWindow();
+		newWindow.webContents.on( 'did-finish-load', () => {
+			callback( newWindow );
+		} );
+	};
 }

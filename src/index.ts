@@ -5,6 +5,7 @@ import {
 	session,
 	type IpcMainInvokeEvent,
 	globalShortcut,
+	Menu,
 } from 'electron';
 import path from 'path';
 import * as Sentry from '@sentry/electron/main';
@@ -16,7 +17,6 @@ import { getLocaleData, getSupportedLocale } from './lib/locale';
 import { PROTOCOL_PREFIX, handleAuthCallback, setupAuthCallbackHandler } from './lib/oauth';
 import { setupLogging } from './logging';
 import { createMainWindow } from './main-window';
-import { setupMenu } from './menu';
 import {
 	migrateFromWpNowFolder,
 	needsToMigrateFromWpNowFolder,
@@ -65,6 +65,8 @@ async function appBoot() {
 	defaultI18n.setLocaleData( localeData?.locale_data?.messages );
 
 	app.setName( packageJson.productName );
+
+	Menu.setApplicationMenu( null );
 
 	setupLogging();
 
@@ -231,10 +233,8 @@ async function appBoot() {
 		setupCustomProtocolHandler();
 
 		mainWindow = createMainWindow();
-		setupMenu( mainWindow );
 		setupAuthCallbackHandler( mainWindow );
 		handleAuthOnStartup();
-		mainWindow.on( 'closed', () => ( mainWindow = null ) );
 
 		bumpAggregatedUniqueStat( 'local-environment-launch-uniques', process.platform, 'weekly' );
 	} );

@@ -5,7 +5,7 @@ import { useSiteDetails } from './use-site-details';
 
 export function useAddSite() {
 	const { __ } = useI18n();
-	const { createSite, data: sites } = useSiteDetails();
+	const { createSite, data: sites, loadingSites } = useSiteDetails();
 	const [ error, setError ] = useState( '' );
 	const [ isAddingSite, setIsAddingSite ] = useState( false );
 	const [ siteName, setSiteName ] = useState< string | null >( null );
@@ -111,6 +111,7 @@ export function useAddSite() {
 			setError,
 			setDoesPathContainWordPress,
 			usedSiteNames,
+			loadingSites,
 		} ),
 		[
 			__,
@@ -125,6 +126,7 @@ export function useAddSite() {
 			sitePath,
 			proposedSitePath,
 			usedSiteNames,
+			loadingSites,
 		]
 	);
 }

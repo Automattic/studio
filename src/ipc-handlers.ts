@@ -309,7 +309,14 @@ export function removeTemporalFile( event: IpcMainInvokeEvent, path: string ) {
 	if ( ! path.includes( TEMP_DIR ) ) {
 		throw new Error( 'The given path is not a temporal file' );
 	}
-	return fs.unlinkSync( path );
+	try {
+		fs.unlinkSync( path );
+	} catch ( error ) {
+		if ( isErrnoException( error ) && error.code === 'ENOENT' ) {
+			// Silently ignore if the temporal file doesn't exist
+			Sentry.captureException( error );
+		}
+	}
 }
 
 export async function deleteSite( event: IpcMainInvokeEvent, id: string, deleteFiles = false ) {

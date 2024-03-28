@@ -56,7 +56,7 @@ describe( 'ContentTabSnapshots', () => {
 		expect( authenticate ).toHaveBeenCalledTimes( 1 );
 	} );
 
-	test( 'renders NoSnapshots component when authenticated with no preview links', async () => {
+	test( 'renders NoSnapshots component when authenticated with no demo sites', async () => {
 		const user = userEvent.setup();
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
 		( useSiteDetails as jest.Mock ).mockReturnValue( { snapshots: [] } );
@@ -65,13 +65,13 @@ describe( 'ContentTabSnapshots', () => {
 			siteCount: 1,
 		} );
 		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
-		const createSnapshotButton = screen.getByRole( 'button', { name: 'Create preview link' } );
+		const createSnapshotButton = screen.getByRole( 'button', { name: 'Add demo site' } );
 		expect( createSnapshotButton ).toBeInTheDocument();
 		await user.click( createSnapshotButton );
 		expect( archiveSite ).toHaveBeenCalledTimes( 1 );
 	} );
 
-	test( 'renders the list of preview links for a given a selected site', () => {
+	test( 'renders the list of demo sites for a given a selected site', () => {
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
 		( useSiteUsage as jest.Mock ).mockReturnValue( {
 			siteLimit: LIMIT_OF_ZIP_SITES_PER_USER,
@@ -89,11 +89,10 @@ describe( 'ContentTabSnapshots', () => {
 			],
 		} );
 		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
-		expect( screen.getByText( '1 PREVIEW LINK' ) ).toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'https://fake-site.fake' } ) ).toBeInTheDocument();
 	} );
 
-	test( 'hide the list of preview links that do not belong to the selected site', () => {
+	test( 'hide the list of demo sites that do not belong to the selected site', () => {
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
 		( useSiteUsage as jest.Mock ).mockReturnValue( {
 			siteLimit: LIMIT_OF_ZIP_SITES_PER_USER,
@@ -111,11 +110,15 @@ describe( 'ContentTabSnapshots', () => {
 			],
 		} );
 		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
-		expect( screen.getByText( 'Get feedback on ', { exact: false } ) ).toBeInTheDocument();
+		expect(
+			screen.getByText( 'Get feedback from anyone', {
+				exact: false,
+			} )
+		).toBeInTheDocument();
 		expect( screen.queryByText( 'fake-site.fake' ) ).not.toBeInTheDocument();
 	} );
 
-	test( 'test the create preview link button when the list is displayed', async () => {
+	test( 'test the Add demo site button when the list is displayed', async () => {
 		const user = userEvent.setup();
 		archiveSite.mockClear();
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
@@ -135,7 +138,7 @@ describe( 'ContentTabSnapshots', () => {
 			],
 		} );
 		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
-		const createSnapshotButton = screen.getByRole( 'button', { name: 'Create preview link' } );
+		const createSnapshotButton = screen.getByRole( 'button', { name: 'Add demo site' } );
 		expect( createSnapshotButton ).toBeInTheDocument();
 		await user.click( createSnapshotButton );
 		expect( archiveSite ).toHaveBeenCalledTimes( 1 );
@@ -161,14 +164,14 @@ describe( 'ContentTabSnapshots', () => {
 			],
 		} );
 		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
-		const createSnapshotButton = screen.getByRole( 'button', { name: 'Create preview link' } );
+		const createSnapshotButton = screen.getByRole( 'button', { name: 'Add demo site' } );
 		expect( createSnapshotButton ).toBeInTheDocument();
 		expect( createSnapshotButton ).toBeDisabled();
 		await user.click( createSnapshotButton );
 		expect( archiveSite ).toHaveBeenCalledTimes( 0 );
 		await user.hover( createSnapshotButton );
 		expect( screen.getByRole( 'tooltip' ) ).toHaveTextContent(
-			`You've used all ${ LIMIT_OF_ZIP_SITES_PER_USER } preview links available on your account.`
+			`You've used all ${ LIMIT_OF_ZIP_SITES_PER_USER } demo sites available on your account.`
 		);
 	} );
 
@@ -179,29 +182,27 @@ describe( 'ContentTabSnapshots', () => {
 			siteLimit: LIMIT_OF_ZIP_SITES_PER_USER,
 			siteCount: 1,
 		} );
+		const dateMS = new Date().getTime();
 		( useSiteDetails as jest.Mock ).mockReturnValue( {
 			snapshots: [
 				{
 					url: 'fake-site.fake',
 					atomicSiteId: 150,
 					localSiteId: 'site-id-1',
-					date: 1707232820627,
+					date: dateMS,
 					deleted: false,
 				},
 			],
 		} );
 		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
-		const moreOptionsButton = screen.getByRole( 'button', { name: 'More options' } );
-		expect( moreOptionsButton ).toBeInTheDocument();
-		await user.click( moreOptionsButton );
-		const deleteSnapshotButton = screen.getByRole( 'menuitem', { name: 'Delete preview link' } );
+		const deleteSnapshotButton = screen.getByRole( 'button', { name: 'Delete demo site' } );
 		expect( deleteSnapshotButton ).toBeInTheDocument();
 		await user.click( deleteSnapshotButton );
 		expect( deleteSnapshotMock ).toHaveBeenCalledWith( {
 			url: 'fake-site.fake',
 			atomicSiteId: 150,
 			localSiteId: 'site-id-1',
-			date: 1707232820627,
+			date: dateMS,
 			deleted: false,
 		} );
 	} );

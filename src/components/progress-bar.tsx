@@ -5,7 +5,7 @@ const ProgressBar = ( { value, maxValue }: { value: number; maxValue: number } )
 	return (
 		<div className="w-full flex h-1 self-stretch rounded-[4.5px] bg-a8c-gray-5">
 			<div
-				className="h-full bg-a8c-blueberry rounded-[4.5px]"
+				className="h-full bg-a8c-blueberry rounded-[4.5px] transition-all"
 				style={ {
 					width: `${ fillPercentage }%`,
 				} }

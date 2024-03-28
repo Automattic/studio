@@ -10,8 +10,8 @@ export function useContentTabs() {
 				title: __( 'Overview' ),
 			},
 			{
-				name: 'preview',
-				title: __( 'Preview' ),
+				name: 'share',
+				title: __( 'Share' ),
 			},
 			{
 				name: 'settings',

@@ -17,7 +17,7 @@ export function useThemeDetails( selectedSite: SiteDetails ): UseThemeDetails {
 	const getThemeDetails = useCallback( async () => {
 		function delayedThumbnailRefresh( delayMS = 2000 ) {
 			return setTimeout( async () => {
-				const thumbnailData = await getIpcApi()?.getThumbnailData( selectedSite.id );
+				const thumbnailData = await getIpcApi()?.getThumbnailData?.( selectedSite.id );
 				if (
 					thumbnailData &&
 					thumbnailData !== freshThemeDetails[ selectedSite.id ]?.thumbnailData
@@ -40,7 +40,7 @@ export function useThemeDetails( selectedSite: SiteDetails ): UseThemeDetails {
 			return loadingState;
 		} );
 
-		const newthemeDetails = await getIpcApi()?.getThemeDetails( selectedSite.id );
+		const newthemeDetails = await getIpcApi()?.getThemeDetails?.( selectedSite.id );
 		const latestThemeDetails =
 			newthemeDetails || freshThemeDetails[ selectedSite.id ] || selectedSite.themeDetails;
 		let timerDownUpdateThumbnail: NodeJS.Timeout;
@@ -50,7 +50,7 @@ export function useThemeDetails( selectedSite: SiteDetails ): UseThemeDetails {
 				latestThemeDetails.isBlockTheme !== freshThemeDetails[ selectedSite.id ]?.isBlockTheme )
 		) {
 			console.log( 'Setting fresh theme details' );
-			const thumbnailData = await getIpcApi()?.getThumbnailData( selectedSite.id );
+			const thumbnailData = await getIpcApi()?.getThumbnailData?.( selectedSite.id );
 			timerDownUpdateThumbnail = delayedThumbnailRefresh( 2000 );
 			setFreshThemeDetails( ( previousState ) => ( {
 				...previousState,

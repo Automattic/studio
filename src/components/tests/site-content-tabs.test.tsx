@@ -34,7 +34,7 @@ describe( 'SiteContentTabs', () => {
 		( useSiteDetails as jest.Mock ).mockReturnValue( { selectedSite, snapshots: [] } );
 		await act( async () => render( <SiteContentTabs /> ) );
 		expect( screen.getByRole( 'tab', { name: 'Settings' } ) ).not.toBeNull();
-		expect( screen.getByRole( 'tab', { name: 'Preview' } ) ).not.toBeNull();
+		expect( screen.getByRole( 'tab', { name: 'Share' } ) ).not.toBeNull();
 		expect( screen.queryByRole( 'tab', { name: 'Launchpad' } ) ).toBeNull();
 		expect( screen.queryByRole( 'tab', { name: 'Publish' } ) ).toBeNull();
 		expect( screen.queryByRole( 'tab', { name: 'Export' } ) ).toBeNull();
@@ -43,7 +43,7 @@ describe( 'SiteContentTabs', () => {
 		( useSiteDetails as jest.Mock ).mockReturnValue( { selectedSite, snapshots: [] } );
 		await act( async () => render( <SiteContentTabs /> ) );
 		expect( screen.queryByRole( 'tab', { name: 'Overview', selected: true } ) ).toBeInTheDocument();
-		expect( screen.queryByRole( 'tab', { name: 'Preview', selected: false } ) ).toBeInTheDocument();
+		expect( screen.queryByRole( 'tab', { name: 'Share', selected: false } ) ).toBeInTheDocument();
 		expect(
 			screen.queryByRole( 'tab', { name: 'Settings', selected: false } )
 		).toBeInTheDocument();
@@ -56,7 +56,7 @@ describe( 'SiteContentTabs', () => {
 		} );
 		await act( async () => render( <SiteContentTabs /> ) );
 		expect( screen.queryByRole( 'tab', { name: 'Settings' } ) ).toBeNull();
-		expect( screen.queryByRole( 'tab', { name: 'Preview' } ) ).toBeNull();
+		expect( screen.queryByRole( 'tab', { name: 'Share' } ) ).toBeNull();
 		expect( screen.queryByRole( 'tab', { name: 'Launchpad' } ) ).toBeNull();
 		expect( screen.queryByRole( 'tab', { name: 'Publish' } ) ).toBeNull();
 		expect( screen.queryByRole( 'tab', { name: 'Export' } ) ).toBeNull();

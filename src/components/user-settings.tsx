@@ -59,12 +59,12 @@ const SnapshotInfo = ( {
 			<div className="flex gap-4 flex-row items-center w-full">
 				<div className="flex w-full flex-col gap-2">
 					<div className="flex w-full flex-row justify-between">
-						<span>{ __( 'Preview links' ) }</span>
+						<span>{ __( 'Demo sites' ) }</span>
 
 						<div className="flex flex-row items-center">
 							{ isDeleting && <Spinner className="!mt-0 !ml-0 !mr-2" /> }
 							<span className="text-a8c-gray-70">
-								{ sprintf( __( '%1s of %2s active links' ), siteCount, siteLimit ) }
+								{ sprintf( __( '%1s of %2s active demo sites' ), siteCount, siteLimit ) }
 							</span>
 						</div>
 					</div>
@@ -96,7 +96,7 @@ const SnapshotInfo = ( {
 										onClose();
 									} }
 								>
-									<Icon className="mr-2" icon={ trash } /> { __( 'Delete all links' ) }
+									<Icon className="mr-2" icon={ trash } /> { __( 'Delete all demo sites' ) }
 								</MenuItem>
 							</MenuGroup>
 						);

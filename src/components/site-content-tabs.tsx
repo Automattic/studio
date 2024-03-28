@@ -32,7 +32,7 @@ export function SiteContentTabs() {
 				{ ( { name } ) => (
 					<div className="pt-8 h-full">
 						{ name === 'overview' && <ContentTabOverview selectedSite={ selectedSite } /> }
-						{ name === 'preview' && <ContentTabSnapshots selectedSite={ selectedSite } /> }
+						{ name === 'share' && <ContentTabSnapshots selectedSite={ selectedSite } /> }
 						{ name === 'settings' && <ContentTabSettings selectedSite={ selectedSite } /> }
 					</div>
 				) }

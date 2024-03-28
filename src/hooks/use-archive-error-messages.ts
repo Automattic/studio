@@ -10,7 +10,7 @@ export function useArchiveErrorMessages() {
 	return useMemo(
 		() =>
 			( {
-				rest_site_limit_reached: __( 'Preview links limit reached. Please, delete some links.' ),
+				rest_site_limit_reached: __( 'Demo sites limit reached. Please, delete some demo sites.' ),
 				no_file: __( "We didn't receive the zip file. Please try uploading it again." ),
 				invalid_file_size: sprintf(
 					__( 'The file size exceeds the limit of %d MB. Please try reducing the site size.' ),

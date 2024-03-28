@@ -1,6 +1,16 @@
 import { useI18n } from '@wordpress/react-i18n';
 import { intervalToDuration, formatDuration, addDays, Duration } from 'date-fns';
 
+function formatStringDate( ms: number ): string {
+	const { locale = 'en' } = window?.appGlobals || {};
+	const formatter = new Intl.DateTimeFormat( locale, {
+		day: 'numeric',
+		month: 'long',
+		year: 'numeric',
+	} );
+	return formatter.format( new Date( ms ) );
+}
+
 export function useExpirationDate( snapshotDate: number ) {
 	const { __ } = useI18n();
 	const MAX_DAYS = 7;
@@ -25,5 +35,6 @@ export function useExpirationDate( snapshotDate: number ) {
 	return {
 		isExpired,
 		countDown: isExpired ? __( 'Expired' ) : countDown,
+		dateString: formatStringDate( snapshotDate ),
 	};
 }

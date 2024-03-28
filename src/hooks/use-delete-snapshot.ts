@@ -69,7 +69,7 @@ export function useDeleteSnapshot( options: { displayAlert?: boolean } = {} ) {
 					return;
 				}
 				if ( displayAlert ) {
-					alert( __( 'Error removing preview link. Please try again or contact support.' ) );
+					alert( __( 'Error removing demo site. Please try again or contact support.' ) );
 				}
 				Sentry.captureException( error );
 			} finally {

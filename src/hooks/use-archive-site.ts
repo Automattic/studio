@@ -1,6 +1,6 @@
 import * as Sentry from '@sentry/electron/renderer';
 import { useI18n } from '@wordpress/react-i18n';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { isWpcomNetworkError } from '../lib/is-wpcom-network-error';
 import { useArchiveErrorMessages } from './use-archive-error-messages';
@@ -9,9 +9,7 @@ import { SnapshotStatusResponse } from './use-delete-snapshot';
 import { useSiteDetails } from './use-site-details';
 
 export function useArchiveSite() {
-	const [ uploadingSites, setUploadingSites ] = useState< { [ localSiteId: string ]: boolean } >(
-		{}
-	);
+	const { uploadingSites, setUploadingSites } = useSiteDetails();
 	const isUploadingSiteId = useCallback(
 		( localSiteId: string ) => uploadingSites[ localSiteId ] || false,
 		[ uploadingSites ]
@@ -113,7 +111,16 @@ export function useArchiveSite() {
 				getIpcApi().removeTemporalFile( zipPath );
 			}
 		},
-		[ __, addSnapshot, client, errorMessages ]
+		[ __, addSnapshot, client, errorMessages, setUploadingSites ]
 	);
-	return { archiveSite, isUploadingSiteId };
+	const isAnySiteArchiving = useMemo( () => {
+		const isAnySiteUploading = Object.values( uploadingSites ).some( ( uploading ) => uploading );
+		return isAnySiteUploading || snapshots.some( ( snapshot ) => snapshot.isLoading );
+	}, [ snapshots, uploadingSites ] );
+
+	return {
+		archiveSite,
+		isUploadingSiteId,
+		isAnySiteArchiving,
+	};
 }

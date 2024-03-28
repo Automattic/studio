@@ -28,6 +28,8 @@ interface SiteDetailsContext {
 	loadingSites: boolean;
 	isDeleting: boolean;
 	deleteError: string;
+	uploadingSites: { [ siteId: string ]: boolean };
+	setUploadingSites: React.Dispatch< React.SetStateAction< { [ siteId: string ]: boolean } > >;
 }
 
 const siteDetailsContext = createContext< SiteDetailsContext >( {
@@ -48,6 +50,8 @@ const siteDetailsContext = createContext< SiteDetailsContext >( {
 	deleteError: '',
 	loading: false,
 	loadingSites: true,
+	uploadingSites: {},
+	setUploadingSites: () => undefined,
 } );
 
 interface SiteDetailsProviderProps {
@@ -176,6 +180,9 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	const { selectedSiteId, setSelectedSiteId } = useSelectedSite( firstSite?.id );
 	const { snapshots, addSnapshot, removeSnapshot, updateSnapshot } = useSnapshots();
 	const { deleteSite, isLoading: isDeleting, error: deleteError } = useDeleteSite();
+	const [ uploadingSites, setUploadingSites ] = useState< SiteDetailsContext[ 'uploadingSites' ] >(
+		{}
+	);
 
 	useEffect( () => {
 		let cancel = false;
@@ -278,6 +285,8 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			isDeleting: selectedSiteId ? isDeleting[ selectedSiteId ] : false,
 			deleteError: selectedSiteId ? deleteError[ selectedSiteId ] : '',
 			loadingSites,
+			uploadingSites,
+			setUploadingSites,
 		} ),
 		[
 			data,
@@ -298,6 +307,8 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			loading,
 			loadingSites,
 			selectedSiteId,
+			uploadingSites,
+			setUploadingSites,
 		]
 	);
 

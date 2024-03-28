@@ -234,7 +234,7 @@ function AddDemoSiteWithProgress( {
 	tagline?: string;
 } ) {
 	const { __, _n } = useI18n();
-	const { archiveSite, isUploadingSiteId } = useArchiveSite();
+	const { archiveSite, isUploadingSiteId, isAnySiteArchiving } = useArchiveSite();
 	const isUploading = isUploadingSiteId( selectedSite.id );
 	const [ showPopover, setShowPopover ] = useState( false );
 	const { siteLimit, siteCount, isLoading: isFetchingUsage } = useSiteUsage();
@@ -261,10 +261,10 @@ function AddDemoSiteWithProgress( {
 			) : (
 				<Button
 					variant="primary"
-					disabled={ isUploading || isFetchingUsage || isLimitUsed }
+					disabled={ isAnySiteArchiving || isUploading || isFetchingUsage || isLimitUsed }
 					onMouseOut={ () => setShowPopover( false ) }
 					onMouseOver={ () => {
-						if ( isLimitUsed ) {
+						if ( isLimitUsed || isAnySiteArchiving ) {
 							setShowPopover( true );
 						}
 					} }
@@ -279,14 +279,19 @@ function AddDemoSiteWithProgress( {
 							className="[&_div]:!shadow-none [&>div]:bg-transparent"
 						>
 							<div className="w-52 rounded-[4px] py-2 px-2.5 bg-[#101517] text-white leading-4 text-xs">
-								{ sprintf(
-									_n(
-										"You've used %s demo site available on your account.",
-										"You've used all %s demo sites available on your account.",
+								{ isAnySiteArchiving &&
+									__(
+										'A different demo site is being created. Please wait for it to finish before creating another.'
+									) }
+								{ isLimitUsed &&
+									sprintf(
+										_n(
+											"You've used %s demo site available on your account.",
+											"You've used all %s demo sites available on your account.",
+											siteLimit
+										),
 										siteLimit
-									),
-									siteLimit
-								) }
+									) }
 							</div>
 						</Popover>
 					) }

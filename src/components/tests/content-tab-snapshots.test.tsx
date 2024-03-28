@@ -2,6 +2,7 @@
 import { render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { LIMIT_OF_ZIP_SITES_PER_USER } from '../../constants';
+import { useArchiveSite } from '../../hooks/use-archive-site';
 import { useAuth } from '../../hooks/use-auth';
 import { useDeleteSnapshot } from '../../hooks/use-delete-snapshot';
 import { useSiteDetails } from '../../hooks/use-site-details';
@@ -18,13 +19,11 @@ const deleteSnapshotMock = jest.fn();
 ( useDeleteSnapshot as jest.Mock ).mockReturnValue( { deleteSnapshot: deleteSnapshotMock } );
 
 const archiveSite = jest.fn();
-jest.mock( '../../hooks/use-archive-site', () => ( {
-	useArchiveSite: () => ( {
-		archiveSite,
-		isUploadingSiteId: jest.fn(),
-	} ),
-} ) );
-
+( useArchiveSite as jest.Mock ).mockReturnValue( {
+	archiveSite,
+	isUploadingSiteId: jest.fn().mockReturnValue( false ),
+} );
+jest.mock( '../../hooks/use-archive-site' );
 jest.mock( '../../lib/get-ipc-api', () => ( {
 	getIpcApi: () => ( {
 		openURL: jest.fn(),
@@ -44,7 +43,7 @@ describe( 'ContentTabSnapshots', () => {
 	test( 'renders NoAuth component when not authenticated and the log in button triggers the authenticate flow', async () => {
 		const user = userEvent.setup();
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: false, authenticate } );
-		( useSiteDetails as jest.Mock ).mockReturnValue( { snapshots: [] } );
+		( useSiteDetails as jest.Mock ).mockReturnValue( { snapshots: [], uploadingSites: {} } );
 		( useSiteUsage as jest.Mock ).mockReturnValue( {
 			siteLimit: LIMIT_OF_ZIP_SITES_PER_USER,
 			siteCount: 1,
@@ -59,7 +58,7 @@ describe( 'ContentTabSnapshots', () => {
 	test( 'renders NoSnapshots component when authenticated with no demo sites', async () => {
 		const user = userEvent.setup();
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
-		( useSiteDetails as jest.Mock ).mockReturnValue( { snapshots: [] } );
+		( useSiteDetails as jest.Mock ).mockReturnValue( { snapshots: [], uploadingSites: {} } );
 		( useSiteUsage as jest.Mock ).mockReturnValue( {
 			siteLimit: LIMIT_OF_ZIP_SITES_PER_USER,
 			siteCount: 1,
@@ -87,6 +86,7 @@ describe( 'ContentTabSnapshots', () => {
 					deleted: false,
 				},
 			],
+			uploadingSites: {},
 		} );
 		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
 		expect( screen.getByRole( 'button', { name: 'https://fake-site.fake' } ) ).toBeInTheDocument();
@@ -108,6 +108,7 @@ describe( 'ContentTabSnapshots', () => {
 					deleted: false,
 				},
 			],
+			uploadingSites: {},
 		} );
 		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
 		expect(
@@ -136,6 +137,7 @@ describe( 'ContentTabSnapshots', () => {
 					deleted: false,
 				},
 			],
+			uploadingSites: {},
 		} );
 		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
 		const createSnapshotButton = screen.getByRole( 'button', { name: 'Add demo site' } );
@@ -162,6 +164,7 @@ describe( 'ContentTabSnapshots', () => {
 					deleted: false,
 				},
 			],
+			uploadingSites: {},
 		} );
 		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
 		const createSnapshotButton = screen.getByRole( 'button', { name: 'Add demo site' } );
@@ -193,6 +196,7 @@ describe( 'ContentTabSnapshots', () => {
 					deleted: false,
 				},
 			],
+			uploadingSites: {},
 		} );
 		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
 		const deleteSnapshotButton = screen.getByRole( 'button', { name: 'Delete demo site' } );
@@ -205,5 +209,75 @@ describe( 'ContentTabSnapshots', () => {
 			date: dateMS,
 			deleted: false,
 		} );
+	} );
+} );
+
+describe( 'AddDemoSiteWithProgress', () => {
+	const archiveSite = jest.fn();
+	const isUploadingSiteId = jest.fn();
+	beforeEach( () => {
+		( useSiteDetails as jest.Mock ).mockReturnValue( {
+			snapshots: [
+				{
+					url: 'fake-site.fake',
+					atomicSiteId: 150,
+					localSiteId: 'site-id-1',
+					date: 1707232820627,
+					deleted: false,
+				},
+			],
+			uploadingSites: {},
+		} );
+		( useArchiveSite as jest.Mock ).mockReturnValue( {
+			archiveSite,
+			isUploadingSiteId,
+			isAnySiteArchiving: false,
+		} );
+	} );
+
+	test( 'Progressbar is present instead of the button', async () => {
+		( useSiteDetails as jest.Mock ).mockReturnValue( {
+			snapshots: [
+				{
+					url: 'fake-site.fake',
+					atomicSiteId: 150,
+					localSiteId: 'site-id-1',
+					date: 1707232820627,
+					deleted: false,
+					isLoading: true,
+				},
+			],
+			uploadingSites: {},
+		} );
+		isUploadingSiteId.mockReturnValue( true );
+		render( <ContentTabSnapshots selectedSite={ { ...selectedSite, id: 'site-id-1' } } /> );
+		const addDemoSiteButton = screen.queryByRole( 'button', { name: 'Add demo site' } );
+		expect( addDemoSiteButton ).not.toBeInTheDocument();
+		expect( screen.getByText( "We're creating your demo site." ) ).toBeInTheDocument();
+	} );
+
+	test( 'Progressbar is present when the second snapshot is being created', async () => {
+		isUploadingSiteId.mockReturnValue( true );
+		render( <ContentTabSnapshots selectedSite={ { ...selectedSite, id: 'site-id-1' } } /> );
+		const addDemoSiteButton = screen.queryByRole( 'button', { name: 'Add demo site' } );
+		expect( addDemoSiteButton ).not.toBeInTheDocument();
+		expect( screen.getByText( "We're creating your new demo site." ) ).toBeInTheDocument();
+	} );
+
+	test( 'Button is enabled when no snapshots and no other site is being archived', async () => {
+		isUploadingSiteId.mockReturnValue( false );
+		render( <ContentTabSnapshots selectedSite={ { ...selectedSite, id: 'site-id-1' } } /> );
+		const addDemoSiteButton = screen.getByRole( 'button', { name: 'Add demo site' } );
+		expect( addDemoSiteButton ).toBeEnabled();
+	} );
+	test( 'Button is disabled when another site is being archived', async () => {
+		( useArchiveSite as jest.Mock ).mockReturnValue( {
+			archiveSite,
+			isUploadingSiteId,
+			isAnySiteArchiving: true,
+		} );
+		render( <ContentTabSnapshots selectedSite={ { ...selectedSite, id: 'site-id-2' } } /> );
+		const addDemoSiteButton = screen.getByRole( 'button', { name: 'Add demo site' } );
+		expect( addDemoSiteButton ).toBeDisabled();
 	} );
 } );

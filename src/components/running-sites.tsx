@@ -2,6 +2,7 @@ import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useSiteDetails } from '../hooks/use-site-details';
 import { cx } from '../lib/cx';
+import Button from './button';
 
 export function RunningSites() {
 	const { __, _n } = useI18n();
@@ -17,16 +18,17 @@ export function RunningSites() {
 					runningSites.length
 				) }
 			</p>
-			<button
+			<Button
 				disabled={ runningSites.length === 0 }
 				className={ cx(
-					'text-white text-xxs leading-4 !mb-0',
+					'[&.is-link]:text-white [&.is-link:disabled]:hover:text-white [&.is-link:not(:disabled)]:hover:text-a8c-gray-10 text-xxs leading-4 !mb-0',
 					runningSites.length === 0 && 'cursor-not-allowed !mb-0'
 				) }
 				onClick={ stopAllRunningSites }
+				variant="link"
 			>
 				{ __( 'Stop all' ) }
-			</button>
+			</Button>
 		</div>
 	);
 }

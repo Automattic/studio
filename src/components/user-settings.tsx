@@ -1,4 +1,4 @@
-import { Icon, MenuGroup, MenuItem, Spinner } from '@wordpress/components';
+import { DropdownMenu, Icon, MenuGroup, MenuItem, Spinner } from '@wordpress/components';
 import { sprintf } from '@wordpress/i18n';
 import { moreVertical, trash } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
@@ -8,8 +8,8 @@ import { useDeleteSnapshot } from '../hooks/use-delete-snapshot';
 import { useIpcListener } from '../hooks/use-ipc-listener';
 import { useSiteDetails } from '../hooks/use-site-details';
 import { useSiteUsage } from '../hooks/use-site-usage';
+import { cx } from '../lib/cx';
 import Button from './button';
-import { DropdownMenu } from './dropdown-menu';
 import { Gravatar } from './gravatar';
 import Modal from './modal';
 import ProgressBar from './progress-bar';
@@ -53,6 +53,11 @@ const SnapshotInfo = ( {
 	isDeleting?: boolean;
 } ) => {
 	const { __ } = useI18n();
+	const menuItemStyles = cx(
+		'[&_span]:min-w-0 [&_span]:p-[1px]',
+		isDisabled &&
+			'[&_.components-button:disabled]:cursor-not-allowed [&_.components-button]aria-disabled:cursor-not-allowed'
+	);
 	return (
 		<div className="flex gap-5 flex-col">
 			<h2 className="a8c-subtitle-small">{ __( 'Usage' ) }</h2>
@@ -74,14 +79,8 @@ const SnapshotInfo = ( {
 					className={
 						'ml-auto flex items-center [&_button:first-child]:p-0 [&_button:first-child]:min-w-6 [&_button:first-child]:h-6'
 					}
-					isDisabled={ isDisabled }
 					popoverProps={ { position: 'bottom left', resize: true } }
-					icon={
-						<Icon
-							icon={ moreVertical }
-							className={ isDisabled ? 'text-a8c-gray-20 cursor-not-allowed' : '' }
-						></Icon>
-					}
+					icon={ <Icon icon={ moreVertical }></Icon> }
 					size={ 24 }
 					label={ __( 'More options' ) }
 				>
@@ -89,9 +88,21 @@ const SnapshotInfo = ( {
 						return (
 							<MenuGroup>
 								<MenuItem
+									/**
+									 * Because there is a single menu item, the `aria-disabled`
+									 * attribute is used rather than `disabled` so that screen
+									 * readers can focus the item to announce its disabled state.
+									 * Otherwise, dropdown toggle would toggle an empty menu.
+									 */
+									aria-disabled={ isDisabled }
 									iconPosition="right"
-									className="text-red-600 hover:text-red-700 [&_span]:min-w-0 [&_span]:p-[1px]"
+									isDestructive
+									className={ menuItemStyles }
 									onClick={ () => {
+										if ( isDisabled ) {
+											return;
+										}
+
 										onRemoveSnapshots();
 										onClose();
 									} }

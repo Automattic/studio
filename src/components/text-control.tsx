@@ -11,7 +11,7 @@ const TextControlComponent = ( props: TextControlProps ) => {
 			__next40pxDefaultSize={ true }
 			__nextHasNoMarginBottom={ true }
 			className={ cx(
-				'focus:[&_input]:!shadow-none focus:[&_input]:!outline-0 [&_input]:border [&_input]:!border-[#949494] [&_input]:!px-4 [&_input]:!py-3 [&_input]:!rounded-sm [&_input]:!self-stretch [&_input]:!align-center [&_input]:!gap-1 [&_input]:!flex',
+				'[&_input]:!px-4 [&_input]:!py-3 [&_input]:!rounded-sm [&_input]:!self-stretch [&_input]:!align-center [&_input]:!gap-1 [&_input]:!flex',
 				props.className
 			) }
 		/>

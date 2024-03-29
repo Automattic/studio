@@ -59,11 +59,12 @@ const DeleteSite = () => {
 						</Button>
 						<Button
 							disabled={ isDeleting }
-							className="bg-a8c-red-50 hover:bg-a8c-red-60 hover:text-white text-white"
 							onClick={ () => {
 								resetLocalState();
 								onSiteDelete( selectedSite.id, deleteLocalFiles );
 							} }
+							isDestructive
+							variant="primary"
 						>
 							{ __( 'Delete site' ) }
 						</Button>
@@ -72,8 +73,9 @@ const DeleteSite = () => {
 			) }
 			<Button
 				disabled={ ! selectedSite }
-				className="text-a8c-red-50 hover:text-a8c-red-70 !px-0 h-0"
 				onClick={ () => setNeedsConfirmation( true ) }
+				variant="link"
+				isDestructive
 			>
 				{ __( 'Delete site' ) }
 			</Button>

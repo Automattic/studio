@@ -1,7 +1,9 @@
+import { __ } from '@wordpress/i18n';
 import { useThemeDetails } from '../hooks/use-theme-details';
 
 const backgroundSvg = (
 	<svg
+		aria-hidden="true"
 		width="249"
 		height="260"
 		viewBox="0 0 249 260"
@@ -82,7 +84,7 @@ export function ScreenshotDemoSite( { site }: { site: SiteDetails } ) {
 			<div className="col-start-1 row-start-1">{ backgroundSvg }</div>
 			<div className="w-[245px] max-h-[192px] overflow-hidden ml-1 mt-[45px] col-start-1 row-start-1">
 				{ details?.thumbnailData && (
-					<img className="w-full" src={ details.thumbnailData } alt={ details.name } />
+					<img className="w-full" src={ details.thumbnailData } alt={ __( 'Site preview' ) } />
 				) }
 			</div>
 		</div>

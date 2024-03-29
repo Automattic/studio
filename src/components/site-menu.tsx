@@ -34,7 +34,7 @@ function ButtonToRun( { running, id, name }: Pick< SiteDetails, 'running' | 'id'
 	return (
 		<button
 			onClick={ () => ( running ? stopServer( id ) : startServer( id ) ) }
-			className="w-7 h-8 group grid"
+			className="w-7 h-8 rounded-tr rounded-br group grid focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-a8c-blueberry"
 			aria-label={ sprintf( running ? __( 'stop site %s' ) : __( 'start site %s' ), name ) }
 		>
 			{ /* Circle */ }
@@ -65,7 +65,7 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 	const { selectedSite, setSelectedSiteId } = useSiteDetails();
 	const isSelected = site === selectedSite;
 	return (
-		<div
+		<li
 			className={ cx(
 				'flex flex-row min-w-[168px] h-8 hover:bg-[#ffffff0C] rounded transition-all',
 				isMac() ? 'mx-5' : 'mx-4',
@@ -73,7 +73,7 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 			) }
 		>
 			<button
-				className="p-2 text-xs whitespace-nowrap overflow-hidden text-ellipsis w-full text-left"
+				className="p-2 text-xs rounded-tl rounded-bl whitespace-nowrap overflow-hidden text-ellipsis w-full text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-a8c-blueberry"
 				onClick={ () => {
 					setSelectedSiteId( site.id );
 				} }
@@ -81,14 +81,15 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 				{ site.name }
 			</button>
 			<ButtonToRun { ...site } />
-		</div>
+		</li>
 	);
 }
 
 export default function SiteMenu( { className }: SiteMenuProps ) {
 	const { data } = useSiteDetails();
 	return (
-		<div
+		<nav
+			aria-label="Sites"
 			style={ {
 				scrollbarGutter: 'stable',
 			} }
@@ -97,9 +98,11 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 				className
 			) }
 		>
-			{ data.map( ( site ) => (
-				<SiteItem key={ site.id } site={ site } />
-			) ) }
-		</div>
+			<ul className="pt-px">
+				{ data.map( ( site ) => (
+					<SiteItem key={ site.id } site={ site } />
+				) ) }
+			</ul>
+		</nav>
 	);
 }

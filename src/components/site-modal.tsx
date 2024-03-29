@@ -38,27 +38,31 @@ function FormPathInputComponent( {
 	const { __ } = useI18n();
 	return (
 		<div className="flex flex-col">
-			<div className="flex flex-row">
+			<button
+				aria-label={ `${ value }, ${ __( 'Select different local path' ) }` }
+				className="flex flex-row items-stretch rounded-sm border border-[#949494] focus:border-a8c-blueberry focus:shadow-[0_0_0_0.5px_black] focus:shadow-a8c-blueberry outline-none transition-shadow transition-linear duration-100 [&_.local-path-icon]:focus:border-l-a8c-blueberry"
+				data-testid="select-path-button"
+				disabled={ isDisabled }
+				onClick={ onClick }
+			>
 				<TextControlComponent
+					aria-hidden="true"
 					disabled={ true }
-					className="[&_input]:!rounded-l-sm [&_input]:!rounded-r-none [&_input]:!bg-white w-full"
+					className="[&_.components-text-control\_\_input]:bg-transparent [&_.components-text-control\_\_input]:border-none [&_input]:pointer-events-none w-full"
 					value={ value }
 					// eslint-disable-next-line @typescript-eslint/no-empty-function
 					onChange={ () => {} }
 				/>
 				<div
-					data-testid="select-path-button"
-					// eslint-disable-next-line @typescript-eslint/no-empty-function
-					onClick={ isDisabled ? () => {} : onClick }
+					aria-hidden="true"
 					className={ cx(
-						'flex items-center py-[9px] px-2.5 border border-l-0 border-y-[#949494] border-r-[#949494] rounded-r-sm',
+						'local-path-icon flex items-center py-[9px] px-2.5 border border-l-[#949494] border-t-0 border-r-0 border-b-0',
 						isDisabled ? 'cursor-not-allowed' : ''
 					) }
-					role="button"
 				>
 					<FolderIcon className="text-[#3C434A]" />
 				</div>
-			</div>
+			</button>
 			{ ( error || doesPathContainWordPress ) && (
 				<div
 					role="alert"
@@ -102,11 +106,7 @@ export const SiteForm = ( {
 		<div className={ cx( 'flex flex-col gap-6', className ) }>
 			<label className="flex flex-col gap-1.5 leading-4">
 				<span className="font-semibold">{ __( 'Site name' ) }</span>
-				<TextControlComponent
-					autoFocus
-					onChange={ setSiteName }
-					value={ siteName }
-				></TextControlComponent>
+				<TextControlComponent onChange={ setSiteName } value={ siteName }></TextControlComponent>
 			</label>
 			<label className="flex flex-col gap-1.5 leading-4">
 				<span onClick={ onSelectPath } className="font-semibold">
@@ -145,6 +145,7 @@ export const SiteModal = ( {
 			className={ cx( 'w-[460px]', className ) }
 			title={ title }
 			isDismissible
+			focusOnMount="firstContentElement"
 			onRequestClose={ onRequestClose }
 			onKeyDown={ ( event ) => {
 				if ( event.key === 'Enter' && ! isPrimaryButtonDisabled && ! isLoading ) {

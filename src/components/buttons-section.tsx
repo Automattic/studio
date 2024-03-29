@@ -16,19 +16,17 @@ export interface ButtonsSectionProps {
 export function ButtonsSection( { buttonsArray, title, className = '' }: ButtonsSectionProps ) {
 	return (
 		<div className="w-full max-w-96">
-			<div className="a8c-subtitle-small mb-3">{ title }</div>
+			<h2 className="a8c-subtitle-small mb-3">{ title }</h2>
 			<div className={ cx( 'gap-3', className || 'grid grid-cols-3' ) }>
 				{ buttonsArray.map( ( button, index ) => (
 					<Button
-						className={ cx(
-							'rounded-sm border border-solid border-a8c-gray-5 a8c-body-small text-black hover:border-a8c-blueberry disabled:border-a8c-gray-5',
-							button.className
-						) }
+						className={ button.className }
 						key={ index }
 						icon={ button.icon }
 						iconSize={ 18 }
 						onClick={ button.onClick }
 						disabled={ button.disabled }
+						variant="secondary"
 					>
 						{ button.label }
 					</Button>

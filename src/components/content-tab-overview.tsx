@@ -20,7 +20,6 @@ import { useThemeDetails } from '../hooks/use-theme-details';
 import { isMac } from '../lib/app-globals';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
-import Button from './button';
 import { ButtonsSection, ButtonsSectionProps } from './buttons-section';
 
 interface ContentTabOverviewProps {
@@ -206,7 +205,7 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 	return (
 		<div className="pb-10 flex">
 			<div className="w-52 mr-8 flex-col justify-start items-start gap-8">
-				<div className="mb-3 a8c-subtitle-small">{ __( 'Theme' ) }</div>
+				<h2 className="mb-3 a8c-subtitle-small">{ __( 'Theme' ) }</h2>
 				<div
 					className={ cx(
 						'w-full h-60 rounded-sm border border-a8c-gray-5 bg-a8c-gray-0 mb-2 flex items-center justify-center',
@@ -235,9 +234,7 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 							<ThumbnailSkeleton />
 						</div>
 					) }
-					{ ! loading && ! isThumbnailError && (
-						<Button className="!px-0">{ themeDetails?.name }</Button>
-					) }
+					{ ! loading && ! isThumbnailError && <p>{ themeDetails?.name }</p> }
 				</div>
 			</div>
 			<div className="flex flex-1 flex-col justify-start items-start gap-8">

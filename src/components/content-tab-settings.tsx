@@ -4,6 +4,7 @@ import { PropsWithChildren } from 'react';
 import { useGetWpVersion } from '../hooks/use-get-wp-version';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { decodePassword } from '../lib/passwords';
+import Button from './button';
 import { CopyTextButton } from './copy-text-button';
 import DeleteSite from './delete-site';
 import EditSite from './edit-site';
@@ -46,13 +47,14 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 					</CopyTextButton>
 				</SettingsRow>
 				<SettingsRow label={ __( 'Local path' ) }>
-					<button
+					<Button
 						aria-label={ `${ selectedSite.path }, ${ __( 'Open local path' ) }` }
-						className="flex items-center gap-1.5"
+						className="flex items-center gap-1.5 [&.is-link]:text-black [&.is-link]:hover:text-blue-600"
 						onClick={ () => getIpcApi().openLocalPath( selectedSite.path ) }
+						variant="link"
 					>
 						{ selectedSite.path } <Icon size={ 13 } icon={ file } />
-					</button>
+					</Button>
 				</SettingsRow>
 				<SettingsRow label={ __( 'WP Version' ) }>{ wpVersion }</SettingsRow>
 				<h3 className="text-black text-sm font-semibold mt-4">{ __( 'WP Admin' ) }</h3>

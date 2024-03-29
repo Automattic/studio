@@ -24,22 +24,28 @@ function SidebarAuthFooter() {
 	};
 	if ( isAuthenticated ) {
 		return (
-			<div className="flex items-start self-stretch w-full">
-				<Button
-					className="text-white h-6 w-6 !px-0 active:!text-white rounded hover:!text-white hover:bg-white hover:bg-opacity-10"
-					onClick={ () => getIpcApi().showUserSettings() }
-					aria-label={ __( 'Account' ) }
-				>
-					<Gravatar />
-				</Button>
-				<Button
-					className="text-white ml-1.5 cursor-pointer h-6 !px-0 active:!text-white rounded hover:!text-white hover:bg-white hover:bg-opacity-10"
-					onClick={ openLocalizedSupport }
-					aria-label={ __( 'Help' ) }
-				>
-					<Icon icon={ help } />
-				</Button>
-			</div>
+			<nav aria-label="Global">
+				<ul className="flex items-start self-stretch w-full">
+					<li>
+						<Button
+							className="text-white h-6 w-6 !px-0 active:!text-white rounded hover:!text-white hover:bg-white hover:bg-opacity-10"
+							onClick={ () => getIpcApi().showUserSettings() }
+							aria-label={ __( 'Account' ) }
+						>
+							<Gravatar />
+						</Button>
+					</li>
+					<li>
+						<Button
+							className="text-white ml-1.5 cursor-pointer h-6 !px-0 active:!text-white rounded hover:!text-white hover:bg-white hover:bg-opacity-10"
+							onClick={ openLocalizedSupport }
+							aria-label={ __( 'Help' ) }
+						>
+							<Icon icon={ help } />
+						</Button>
+					</li>
+				</ul>
+			</nav>
 		);
 	}
 

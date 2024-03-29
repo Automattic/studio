@@ -35,7 +35,7 @@ export default function App() {
 			{ isWindows() && <WindowsTitlebar className="h-titlebar-win flex-shrink-0" /> }
 			<HStack spacing="0" alignment="left" className="flex-grow">
 				<MainSidebar className="basis-52 flex-shrink-0 h-full" />
-				<div
+				<main
 					style={ {
 						scrollbarGutter: 'stable',
 					} }
@@ -43,7 +43,7 @@ export default function App() {
 					className="p-8 bg-white overflow-y-auto h-full flex-grow rounded-chrome app-no-drag-region"
 				>
 					<SiteContentTabs />
-				</div>
+				</main>
 			</HStack>
 		</VStack>
 	);

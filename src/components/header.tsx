@@ -16,16 +16,18 @@ export default function Header() {
 					<div className="flex mt-1 gap-x-4">
 						<Button
 							disabled={ ! site.running }
-							className="cursor-pointer text-[13px] text-a8c-gray-50 hover:text-a8c-gray-90 !px-0 h-0 leading-4"
+							className="cursor-pointer [&.is-link]:text-a8c-gray-50 [&.is-link]:hover:text-a8c-gray-90 !px-0 h-0 leading-4"
 							onClick={ () => getIpcApi().openSiteURL( site.id, '/wp-admin' ) }
+							variant="link"
 						>
 							{ __( 'WP Admin' ) }
 							<Icon icon={ external } className="ml-1" size={ 14 } />
 						</Button>
 						<Button
 							disabled={ ! site.running }
-							className="cursor-pointer text-[13px] text-a8c-gray-50 hover:text-a8c-gray-90 !px-0 h-0 leading-4"
+							className="cursor-pointer [&.is-link]:text-a8c-gray-50 [&.is-link]:hover:text-a8c-gray-90 !px-0 h-0 leading-4"
 							onClick={ () => getIpcApi().openSiteURL( site.id ) }
+							variant="link"
 						>
 							{ __( 'Open site' ) }
 							<Icon className="ml-1" icon={ external } size={ 14 } />

@@ -71,15 +71,13 @@ function SnapshotRow( {
 						</div>
 						<Badge>{ __( 'Demo site' ) }</Badge>
 					</div>
-					<button
-						className={ cx(
-							'mt-1 !p-0 h-auto',
-							'disabled:text-a8c-gray-50 disabled:cursor-not-allowed disabled:line-through'
-						) }
+					<Button
+						variant="link"
+						className={ cx( 'mt-1 !p-0 h-auto', '[&.is-link]:disabled:line-through' ) }
 						disabled
 					>
 						{ urlWithHTTPS }
-					</button>
+					</Button>
 				</div>
 				<div className="px-4 mt-4">
 					<div className="text-black a8c-subtitle-small demo-site-name">
@@ -105,12 +103,13 @@ function SnapshotRow( {
 				<div className="text-black a8c-subtitle-small demo-site-name">{ selectedSite.name }</div>
 				<Badge>{ __( 'Demo site' ) }</Badge>
 			</div>
-			<button
+			<Button
 				className="mt-1 !p-0 h-auto text-a8c-blueberry cursor-pointer"
 				onClick={ () => getIpcApi().openURL( urlWithHTTPS ) }
+				variant="link"
 			>
 				{ urlWithHTTPS }
-			</button>
+			</Button>
 			<div className="mt-2 text-a8c-gray-70 whitespace-nowrap overflow-hidden truncate flex-1">
 				{ sprintf( __( 'Expires in %s' ), countDown ) }
 			</div>
@@ -118,11 +117,7 @@ function SnapshotRow( {
 				<Button variant="primary" onClick={ () => alert( 'Not implemented yet!' ) }>
 					{ __( 'Update demo site' ) }
 				</Button>
-				<Button
-					variant="secondary"
-					className="!text-red-600 !hover:text-red-700"
-					onClick={ () => deleteSnapshot( snapshot ) }
-				>
+				<Button variant="secondary" isDestructive onClick={ () => deleteSnapshot( snapshot ) }>
 					{ __( 'Delete demo site' ) }
 				</Button>
 			</div>
@@ -147,7 +142,8 @@ function EmptyGeneric( {
 						{
 							a: (
 								<Button
-									className="cursor-pointer !p-0 text-a8c-blueberry hover:opacity-80 h-auto"
+									variant="link"
+									className="cursor-pointer"
 									onClick={ () => getIpcApi().openURL( 'https://wp.cloud/' ) }
 								/>
 							),

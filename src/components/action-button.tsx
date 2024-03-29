@@ -48,12 +48,15 @@ export const ActionButton = ( {
 	iconSize = 14,
 }: ActionButtonProps ) => {
 	let buttonProps: ButtonProps = {
-		onClick,
+		// eslint-disable-next-line @typescript-eslint/no-empty-function
+		onClick: isLoading ? () => {} : onClick,
 		icon: playIcon,
 		iconSize,
 		variant: 'secondary',
-		disabled: isLoading,
-		className: cx( 'text-[13px] !font-normal !gap-1.5', className ),
+		// `aria-disabled` used rather than `disabled` to prevent losing button
+		// focus while the button's asynchronous action is pending.
+		'aria-disabled': isLoading,
+		className: cx( 'gap-1.5', className ),
 	};
 
 	if ( isLoading ) {
@@ -63,16 +66,13 @@ export const ActionButton = ( {
 			buttonProps = {
 				...buttonProps,
 				icon: <StopIcon height={ iconSize } width={ iconSize } />,
-				className: cx( buttonProps.className, 'ring-1 ring-inset ring-gray-300 !text-a8c-red-50' ),
+				className: cx( buttonProps.className, '!text-a8c-red-50' ),
 				variant: undefined,
 			};
 		} else {
 			buttonProps = {
 				...buttonProps,
-				className: cx(
-					buttonProps.className,
-					'ring-1 ring-inset ring-gray-300 !text-a8c-green-50 '
-				),
+				className: cx( buttonProps.className, '!text-a8c-green-50' ),
 				icon: <CircleIcon height={ iconSize } width={ iconSize } />,
 				variant: undefined,
 			};
@@ -83,7 +83,7 @@ export const ActionButton = ( {
 		buttonProps = { ...restProps };
 	}
 	return (
-		<Button { ...buttonProps }>
+		<Button { ...buttonProps } variant="secondary">
 			<>
 				{ icon ? icon : null }
 				{ children }

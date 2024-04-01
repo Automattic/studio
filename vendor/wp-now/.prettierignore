@@ -1,0 +1,3 @@
+# NOTE: This file is only needed to prevent formatting when using PhpStorm.
+# Ignore patterns should be set in root's `.prettierignore` file.
+*

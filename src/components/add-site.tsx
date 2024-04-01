@@ -56,7 +56,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 		if ( showModal && ! nameSuggested && ! loadingSites ) {
 			initializeForm();
 		}
-	}, [ nameSuggested, loadingSites, initializeForm ] );
+	}, [ showModal, nameSuggested, loadingSites, initializeForm ] );
 
 	const openModal = useCallback( async () => {
 		setShowModal( true );
@@ -69,6 +69,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 	const onHandleAddSiteClick = useCallback( async () => {
 		try {
 			await handleAddSiteClick();
+			setNameSuggested( false );
 			closeModal();
 		} catch {
 			// No need to handle error here, it's already handled in handleAddSiteClick

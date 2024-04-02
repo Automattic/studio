@@ -13,7 +13,6 @@ import {
 	activateTheme,
 	compileBlueprint,
 	defineWpConfigConsts,
-	login,
 	runBlueprintSteps,
 } from '@wp-playground/blueprints';
 import getWpNowConfig, { WPNowOptions, WPNowMode } from './config';
@@ -124,10 +123,7 @@ export default async function startWPNow(
 	}
 
 	await installationStep2(php, options);
-	await login(php, {
-		username: 'admin',
-		password: options.adminPassword,
-	});
+	await login(php, options);
 
 	if (
 		isFirstTimeProject &&
@@ -274,6 +270,45 @@ async function runWpPlaygroundMode(
 
 	mountSqlitePlugin(php, documentRoot);
 	mountMuPlugins(php, documentRoot);
+}
+
+async function login(php: NodePHP, options: WPNowOptions = {}) {
+	const { documentRoot } = options;
+
+	await php.writeFile(
+		`${ documentRoot }/playground-login.php`,
+		`<?php
+		require_once( dirname( __FILE__ ) . '/wp-load.php' );
+
+		if ( is_user_logged_in() ) {
+			return;
+		}
+
+		$user = get_user_by( 'login', 'admin' );
+
+		if ( $user ) {
+			wp_set_password( '${ options.adminPassword }', $user->ID );
+		} else {
+			$user_data = array(
+				'user_login' => 'admin',
+				'user_pass' => '${ options.adminPassword }',
+				'user_email' => 'admin@localhost.com',
+				'role' => 'administrator',
+			);
+			$user_id = wp_insert_user( $user_data );
+			$user = get_user_by( 'id', $user_id );
+		}
+
+		wp_set_current_user( $user->ID, $user->user_login );
+		wp_set_auth_cookie( $user->ID );
+		do_action( 'wp_login', $user->user_login, $user );`
+	);
+
+	await php.request( {
+		url: '/playground-login.php',
+	} );
+
+	await php.unlink( `${documentRoot}/playground-login.php` );
 }
 
 /**

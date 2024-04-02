@@ -40,14 +40,14 @@ Studio checks for updates on launch and every hour after that.
 
 Release builds:
 
-* Check for updates on launch and every hour after that.
-* Ignore dev builds, will only update to another release build.
+- Check for updates on launch and every hour after that.
+- Ignore dev builds, will only update to another release build.
 
 Dev builds:
 
-* Do not automatically check for updates.
-* Check for updates if you use the “Check for Updates” menu item on Mac.
-* Ignore release builds, will only update to the latest dev build.
+- Do not automatically check for updates.
+- Check for updates if you use the “Check for Updates” menu item on Mac.
+- Ignore release builds, will only update to the latest dev build.
 
 ## Releases Manifest and CDN
 
@@ -55,5 +55,5 @@ CI uses the `generate-releases-manifest.json` script to genreate a
 `releases.json` file which acts as an authoritative source of update info for
 the update server.
 
-When CI has finished building installers it uploads installers *and* the
+When CI has finished building installers it uploads installers _and_ the
 releases manifest to the CDN for distribution.

@@ -15,7 +15,14 @@ body {
 	-webkit-app-region: no-drag;
 }
 
-h1, h2, h3, h4, h5, h6, caption, figcaption {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+caption,
+figcaption {
 	text-wrap: balance;
 }
 
@@ -31,16 +38,16 @@ blockquote {
 	flex: 1;
 }
 .components-tab-panel__tabs {
-	margin: 0 calc(theme('spacing.8') * -1);
-	padding: 0 theme('spacing.4');
-	border-bottom: 1px solid theme('colors.a8c-gray.5');
+	margin: 0 calc( theme( 'spacing.8' ) * -1 );
+	padding: 0 theme( 'spacing.4' );
+	border-bottom: 1px solid theme( 'colors.a8c-gray.5' );
 }
 .components-tab-panel__tabs-item {
 	height: 40px;
 	margin-bottom: -1px;
 }
 .components-tab-panel__tabs-item.is-active::after {
-	background: theme('colors.black');
+	background: theme( 'colors.black' );
 }
 
 /* default cursor by default */
@@ -54,20 +61,20 @@ button:enabled.cursor-pointer {
 
 /* Customize scrollbar area for the sites sidebar */
 .sites-scrollbar::-webkit-scrollbar {
-    background: transparent;
+	background: transparent;
 	width: 10px;
 }
 
 /* Customize srollbar thumb appearance for the sites sidebar */
 .sites-scrollbar::-webkit-scrollbar-thumb {
-    background: #ffffff26;
-    border-radius: 10px; 
-	border: 2px solid rgba(30, 30, 30, 1);
+	background: #ffffff26;
+	border-radius: 10px;
+	border: 2px solid rgba( 30, 30, 30, 1 );
 }
 
 /* Add hover effect to thumb appearance on the scrollbar */
 .sites-scrollbar::-webkit-scrollbar-thumb:hover {
-	background:rgba(255, 255, 255, .5);
+	background: rgba( 255, 255, 255, 0.5 );
 }
 
 /* Avoid selecting text on dropdown menu, like preview links */

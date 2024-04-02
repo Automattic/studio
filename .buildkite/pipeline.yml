@@ -13,8 +13,8 @@ steps:
   #################
   # Build and Test
   #################
-  - label: "🔨 Build"
-    key: "build"
+  - label: '🔨 Build'
+    key: 'build'
     command: |
       echo "--- :rubygems: Setting up Gems"
       install_gems
@@ -42,7 +42,7 @@ steps:
     env: *common_env
     plugins: *common_plugins
     agents:
-      queue: "mac"
+      queue: 'mac'
     artifact_paths:
-      - "out/*.app.zip"
+      - 'out/*.app.zip'
     if: "build.branch == 'trunk'"

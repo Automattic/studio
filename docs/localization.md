@@ -18,6 +18,7 @@ If you want to add support for another language you will need to add it to the
    of all translatable strings in `out/pots/bundle-strings.pot`.
 
 2. **GlotPress Import**
+
    1. Open [our project in GlotPress](https://translate.wordpress.com/projects/local-environment/).
    2. Click the **Project actions** menu.
    3. Click **Import Originals**.
@@ -27,13 +28,14 @@ If you want to add support for another language you will need to add it to the
    We will export the translations as Jed-formatted JSON, which is a format
    `@wordpress/i18n` can understand. It's ok if some translations are missing,
    they will be left as English in the app.
+
    1. Open [our project in GlotPress](https://translate.wordpress.com/projects/local-environment/).
    2. Click the **Project actions** menu.
    3. Click **Bulk Export**.
    4. Click **Select WP.Com Priority Languages** to only the magnificent 16 languages.
-   4. Select **Polish** too.
-   5. Change the format to `Jed 1.x (.json)`.
-   6. Leave the other fields as default and click **Export**.
+   5. Select **Polish** too.
+   6. Change the format to `Jed 1.x (.json)`.
+   7. Leave the other fields as default and click **Export**.
 
 4. **Add to Project**
    Unzip the exported strings and add them to the `src/translations`. Overwrite

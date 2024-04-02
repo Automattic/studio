@@ -8,22 +8,22 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v2
+      - name: Checkout Repository
+        uses: actions/checkout@v2
 
-    - name: Set up Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: 20.9.0
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20.9.0
 
-    - name: Install Dependencies
-      run: npm ci
+      - name: Install Dependencies
+        run: npm ci
 
-    - name: Run linter
-      run: npm run lint
+      - name: Run linter
+        run: npm run lint
 
-    - name: Run Unit Tests
-      run: npm run test
+      - name: Run Unit Tests
+        run: npm run test
 
   e2e:
     strategy:
@@ -35,28 +35,28 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v2
+      - name: Checkout Repository
+        uses: actions/checkout@v2
 
-    - name: Set up Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: 20.9.0
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20.9.0
 
-    - name: Install Dependencies
-      run: npm ci
+      - name: Install Dependencies
+        run: npm ci
 
-    - name: Build App (without installer)
-      run: npm run package
+      - name: Build App (without installer)
+        run: npm run package
 
-    - name: Run End-to-end Tests
-      uses: coactions/setup-xvfb@v1
-      continue-on-error: true
-      with:
-        run: npm run e2e
+      - name: Run End-to-end Tests
+        uses: coactions/setup-xvfb@v1
+        continue-on-error: true
+        with:
+          run: npm run e2e
 
-    - name: Archive Trace
-      uses: actions/upload-artifact@v2
-      with:
-        path: trace.zip
-        if-no-files-found: ignore
+      - name: Archive Trace
+        uses: actions/upload-artifact@v2
+        with:
+          path: trace.zip
+          if-no-files-found: ignore

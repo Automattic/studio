@@ -21,6 +21,7 @@
 		"make:macos": "SKIP_DMG=true electron-forge make --arch=universal --platform=darwin",
 		"publish": "electron-forge publish",
 		"lint": "eslint --ext .ts,.tsx,.js,.jsx,.mjs .",
+		"format": "prettier . --write",
 		"test": "jest",
 		"test:watch": "jest --watch",
 		"e2e": "npx playwright install && npx playwright test",

@@ -9,6 +9,7 @@ import archiver from 'archiver';
 import { copySync } from 'fs-extra';
 import { SQLITE_FILENAME } from '../vendor/wp-now/src/constants';
 import { downloadSqliteIntegrationPlugin } from '../vendor/wp-now/src/download';
+import { LIMIT_ARCHIVE_SIZE } from './constants';
 import { isEmptyDir, pathExists, isWordPressDirectory, sanitizeFolderName } from './lib/fs-utils';
 import { getImageData } from './lib/get-image-data';
 import { isErrnoException } from './lib/is-errno-exception';
@@ -301,8 +302,9 @@ export async function archiveSite( event: IpcMainInvokeEvent, id: string ) {
 		source: sitePath,
 		zipPath,
 	} );
+	const stats = fs.statSync( zipPath );
 	const zipContent = fs.readFileSync( zipPath );
-	return { zipPath, zipContent };
+	return { zipPath, zipContent, exceedsSizeLimit: stats.size > LIMIT_ARCHIVE_SIZE };
 }
 
 export function removeTemporalFile( event: IpcMainInvokeEvent, path: string ) {

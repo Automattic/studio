@@ -1,6 +1,8 @@
 import * as Sentry from '@sentry/electron/renderer';
+import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useMemo } from 'react';
+import { LIMIT_ARCHIVE_SIZE } from '../constants';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { isWpcomNetworkError } from '../lib/is-wpcom-network-error';
 import { useArchiveErrorMessages } from './use-archive-error-messages';
@@ -68,7 +70,21 @@ export function useArchiveSite() {
 			}
 
 			setUploadingSites( ( _uploadingSites ) => ( { ..._uploadingSites, [ siteId ]: true } ) );
-			const { zipContent, zipPath } = await getIpcApi().archiveSite( siteId );
+			const { zipContent, zipPath, exceedsSizeLimit } = await getIpcApi().archiveSite( siteId );
+			if ( exceedsSizeLimit ) {
+				alert(
+					sprintf(
+						__(
+							'The site exceeds the maximum size of %dMB. Please remove some files and try again.'
+						),
+						Math.floor( LIMIT_ARCHIVE_SIZE / 1024 / 1024 )
+					)
+				);
+				setUploadingSites( ( _uploadingSites ) => ( { ..._uploadingSites, [ siteId ]: false } ) );
+				getIpcApi().removeTemporalFile( zipPath );
+				return;
+			}
+
 			const file = new File( [ zipContent ], 'loca-env-site-1.zip', {
 				type: 'application/zip',
 			} );

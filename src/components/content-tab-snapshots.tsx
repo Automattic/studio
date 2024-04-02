@@ -232,7 +232,7 @@ function AddDemoSiteWithProgress( {
 	const { __, _n } = useI18n();
 	const { archiveSite, isUploadingSiteId, isAnySiteArchiving } = useArchiveSite();
 	const isUploading = isUploadingSiteId( selectedSite.id );
-	const [ showPopover, setShowPopover ] = useState( false );
+	const [ isPopoverVisible, setIsPopoverVisible ] = useState( false );
 	const { siteLimit, siteCount, isLoading: isFetchingUsage } = useSiteUsage();
 	const isLimitUsed = siteCount >= siteLimit;
 	const { progress, setProgress } = useProgressTimer( {
@@ -245,6 +245,37 @@ function AddDemoSiteWithProgress( {
 			setProgress( 80 );
 		}
 	}, [ isSnapshotLoading, setProgress ] );
+
+	const isDisabled = isAnySiteArchiving || isUploading || isFetchingUsage || isLimitUsed;
+	const siteArchivingMessage = __(
+		'A different demo site is being created. Please wait for it to finish before creating another.'
+	);
+	const allotmentConsumptionMessage = sprintf(
+		_n(
+			"You've used %s demo site available on your account.",
+			"You've used all %s demo sites available on your account.",
+			siteLimit
+		),
+		siteLimit
+	);
+	let buttonDescription = '';
+	if ( isLimitUsed ) {
+		buttonDescription = allotmentConsumptionMessage;
+	} else if ( isAnySiteArchiving ) {
+		buttonDescription = siteArchivingMessage;
+	}
+
+	const showPopover = () => {
+		if ( ! isLimitUsed && ! isAnySiteArchiving ) {
+			return;
+		}
+
+		setIsPopoverVisible( true );
+	};
+	const hidePopover = () => {
+		setIsPopoverVisible( false );
+	};
+
 	return (
 		<div className={ className }>
 			{ isUploading || isSnapshotLoading ? (
@@ -256,17 +287,27 @@ function AddDemoSiteWithProgress( {
 				</div>
 			) : (
 				<Button
+					aria-description={ buttonDescription }
 					variant="primary"
-					disabled={ isAnySiteArchiving || isUploading || isFetchingUsage || isLimitUsed }
-					onMouseOut={ () => setShowPopover( false ) }
-					onMouseOver={ () => {
-						if ( isLimitUsed || isAnySiteArchiving ) {
-							setShowPopover( true );
+					/**
+					 *`aria-disabled` is used rather than `disabled` so that the child
+					 * popover explaining the disabled state can be displayed by focusing
+					 * the button.
+					 */
+					aria-disabled={ isDisabled }
+					onFocus={ showPopover }
+					onBlur={ hidePopover }
+					onMouseOut={ hidePopover }
+					onMouseOver={ showPopover }
+					onClick={ () => {
+						if ( isDisabled ) {
+							return;
 						}
+
+						archiveSite( selectedSite.id );
 					} }
-					onClick={ () => archiveSite( selectedSite.id ) }
 				>
-					{ showPopover && (
+					{ isPopoverVisible && (
 						<Popover
 							role="tooltip"
 							noArrow={ true }
@@ -275,19 +316,8 @@ function AddDemoSiteWithProgress( {
 							className="[&_div]:!shadow-none [&>div]:bg-transparent"
 						>
 							<div className="w-52 rounded-[4px] py-2 px-2.5 bg-[#101517] text-white leading-4 text-xs">
-								{ isAnySiteArchiving &&
-									__(
-										'A different demo site is being created. Please wait for it to finish before creating another.'
-									) }
-								{ isLimitUsed &&
-									sprintf(
-										_n(
-											"You've used %s demo site available on your account.",
-											"You've used all %s demo sites available on your account.",
-											siteLimit
-										),
-										siteLimit
-									) }
+								{ isAnySiteArchiving && siteArchivingMessage }
+								{ isLimitUsed && allotmentConsumptionMessage }
 							</div>
 						</Popover>
 					) }

@@ -2,27 +2,22 @@ import { TabPanel } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { useContentTabs } from '../hooks/use-content-tabs';
 import { useSiteDetails } from '../hooks/use-site-details';
-import AddSite from './add-site';
 import { ContentTabOverview } from './content-tab-overview';
 import { ContentTabSettings } from './content-tab-settings';
 import { ContentTabSnapshots } from './content-tab-snapshots';
 import Header from './header';
 
-function NoSites() {
-	const { __ } = useI18n();
-	return (
-		<div className="w-full h-full flex items-center justify-center">
-			<AddSite className="text-2xl !text-slate-400" />
-		</div>
-	);
-}
-
 export function SiteContentTabs() {
 	const { selectedSite } = useSiteDetails();
 	const tabs = useContentTabs();
+	const { __ } = useI18n();
 
 	if ( ! selectedSite ) {
-		return <NoSites />;
+		return (
+			<div className="w-full h-full flex items-center justify-center">
+				<p className="text-lg text-gray-600">{ __( 'Select a site to view details.' ) }</p>
+			</div>
+		);
 	}
 
 	return (

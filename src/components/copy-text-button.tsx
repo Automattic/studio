@@ -38,8 +38,8 @@ export function CopyTextButton( {
 	return (
 		<Button
 			className={ cx(
-				'flex items-center cursor-default [&.is-link]:text-black [&.is-link]:hover:text-blue-600',
-				showCopied && '[&.is-link]:text-blue-600',
+				'flex items-center cursor-default [&.is-link]:text-black [&.is-link]:hover:text-[#2145e6]',
+				showCopied && '[&.is-link]:text-[#2145e6]',
 				className
 			) }
 			aria-label={ label || __( 'copy to clipboard' ) }
@@ -47,7 +47,7 @@ export function CopyTextButton( {
 			variant="link"
 		>
 			{ children }
-			<Icon className="ml-1.5 mr-1" fill="currentColor" size={ 13 } icon={ copy } />
+			<Icon className="ml-1 mr-1" fill="currentColor" size={ 13 } icon={ copy } />
 			{ showCopied && (
 				<span role="alert" aria-atomic="true">
 					{ copyConfirmation }

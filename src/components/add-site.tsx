@@ -11,6 +11,26 @@ import { SiteForm, SiteModal } from './site-modal';
 interface AddSiteProps {
 	className?: string;
 }
+
+/**
+ * The arbitrary Tailwind variants below (e.g., `[&.is-secondary]`) are used to
+ * achieve the specificity required to override the default button styles
+ * without `!important`, which often creates specificity collisions.
+ */
+const buttonStyles = `
+add-site
+text-white
+[&.components-button]:hover:text-black
+[&.components-button]:hover:bg-gray-100
+[&.components-button]:active:text-black
+[&.components-button]:active:bg-gray-100
+[&.components-button]:shadow-[inset_0_0_0_1px_white]
+[&.components-button.add-site]:focus:shadow-[inset_0_0_0_1px_white]
+[&.components-button]:focus-visible:outline-none
+[&.components-button.add-site]:focus-visible:shadow-[inset_0_0_0_1px_#3858E9]
+[&.components-button]:focus-visible:shadow-a8c-blueberry
+`.replace( /\n/g, ' ' );
+
 export default function AddSite( { className }: AddSiteProps ) {
 	const { __ } = useI18n();
 	const [ showModal, setShowModal ] = useState( false );
@@ -80,11 +100,6 @@ export default function AddSite( { className }: AddSiteProps ) {
 		openModal();
 	} );
 
-	const buttonClassName = cx(
-		'ring-1 ring-inset ring-white text-white hover:text-black',
-		className
-	);
-
 	return (
 		<>
 			<SiteModal
@@ -106,7 +121,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 					doesPathContainWordPress={ doesPathContainWordPress }
 				/>
 			</SiteModal>
-			<Button className={ buttonClassName } onClick={ openModal }>
+			<Button className={ cx( buttonStyles, className ) } onClick={ openModal }>
 				{ __( 'Add site' ) }
 			</Button>
 		</>

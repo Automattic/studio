@@ -78,7 +78,7 @@ export default function MainSidebar( { className }: MainSidebarProps ) {
 				<div className="flex flex-col gap-4 min-h-[103px] border-white border-t border-opacity-10 app-no-drag-region">
 					<RunningSites />
 					<div className={ cx( isMac() ? 'mx-5' : 'mx-4' ) }>
-						<AddSite className="w-full mb-4 hover:bg-gray-100" />
+						<AddSite className="w-full mb-4" />
 						<div className="mb-[6px]">
 							<SidebarAuthFooter />
 						</div>

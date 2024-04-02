@@ -169,7 +169,7 @@ describe( 'ContentTabSnapshots', () => {
 		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
 		const createSnapshotButton = screen.getByRole( 'button', { name: 'Add demo site' } );
 		expect( createSnapshotButton ).toBeInTheDocument();
-		expect( createSnapshotButton ).toBeDisabled();
+		expect( createSnapshotButton ).toHaveAttribute( 'aria-disabled', 'true' );
 		await user.click( createSnapshotButton );
 		expect( archiveSite ).toHaveBeenCalledTimes( 0 );
 		await user.hover( createSnapshotButton );
@@ -278,6 +278,6 @@ describe( 'AddDemoSiteWithProgress', () => {
 		} );
 		render( <ContentTabSnapshots selectedSite={ { ...selectedSite, id: 'site-id-2' } } /> );
 		const addDemoSiteButton = screen.getByRole( 'button', { name: 'Add demo site' } );
-		expect( addDemoSiteButton ).toBeDisabled();
+		expect( addDemoSiteButton ).toHaveAttribute( 'aria-disabled', 'true' );
 	} );
 } );

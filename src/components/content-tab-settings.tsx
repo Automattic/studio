@@ -49,7 +49,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 				<SettingsRow label={ __( 'Local path' ) }>
 					<Button
 						aria-label={ `${ selectedSite.path }, ${ __( 'Open local path' ) }` }
-						className="flex items-center gap-1.5 [&.is-link]:text-black [&.is-link]:hover:text-blue-600"
+						className="flex items-center gap-1.5 [&.is-link]:text-black [&.is-link]:hover:text-[#2145e6]"
 						onClick={ () => getIpcApi().openLocalPath( selectedSite.path ) }
 						variant="link"
 					>

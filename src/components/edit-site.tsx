@@ -63,7 +63,7 @@ export default function EditSite() {
 			</SiteModal>
 			<Button
 				disabled={ ! selectedSite }
-				className="h-4 text-blue-600"
+				className="!ml-4"
 				onClick={ () => {
 					if ( selectedSite ) {
 						setSiteName( selectedSite.name );
@@ -72,6 +72,7 @@ export default function EditSite() {
 					setNeedsToEditSite( true );
 				} }
 				label={ __( 'Edit site name' ) }
+				variant="link"
 			>
 				{ __( 'Edit' ) }
 			</Button>

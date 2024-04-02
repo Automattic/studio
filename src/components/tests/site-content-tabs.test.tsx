@@ -60,6 +60,6 @@ describe( 'SiteContentTabs', () => {
 		expect( screen.queryByRole( 'tab', { name: 'Launchpad' } ) ).toBeNull();
 		expect( screen.queryByRole( 'tab', { name: 'Publish' } ) ).toBeNull();
 		expect( screen.queryByRole( 'tab', { name: 'Export' } ) ).toBeNull();
-		expect( screen.getByRole( 'button', { name: 'Add site' } ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Select a site to view details.' ) ).toBeInTheDocument();
 	} );
 } );

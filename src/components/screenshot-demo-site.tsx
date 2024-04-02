@@ -1,4 +1,4 @@
-import { __ } from '@wordpress/i18n';
+import { sprintf } from '@wordpress/i18n';
 import { useThemeDetails } from '../hooks/use-theme-details';
 
 const backgroundSvg = (
@@ -84,7 +84,15 @@ export function ScreenshotDemoSite( { site }: { site: SiteDetails } ) {
 			<div className="col-start-1 row-start-1">{ backgroundSvg }</div>
 			<div className="w-[245px] max-h-[192px] overflow-hidden ml-1 mt-[45px] col-start-1 row-start-1">
 				{ details?.thumbnailData && (
-					<img className="w-full" src={ details.thumbnailData } alt={ __( 'Site preview' ) } />
+					<img
+						className="w-full"
+						src={ details.thumbnailData }
+						alt={ sprintf(
+							/* translators: %s: The name of the website */
+							'Preview of the %s site',
+							site.name
+						) }
+					/>
 				) }
 			</div>
 		</div>

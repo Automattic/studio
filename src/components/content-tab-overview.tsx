@@ -127,7 +127,11 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 	const installedApps = useCheckInstalledApps();
 	const buttonsArray: ButtonsSectionProps[ 'buttonsArray' ] = [
 		{
-			label: isMac() ? __( 'Finder' ) : __( 'File explorer' ),
+			label: isMac()
+				? // translators: name of app used to navigate files and folders on macOS
+				  __( 'Finder' )
+				: // translators: name of app used to navigate files and folders on Windows
+				  __( 'File explorer' ),
 			className: 'text-nowrap',
 			icon: archive,
 			onClick: () => {

@@ -40,7 +40,7 @@ const DeleteSite = () => {
 				>
 					<p>
 						{ __(
-							'The sites database along with all posts, pages, comments and media will be lost.'
+							"The site's database, along with all posts, pages, comments, and media, will be lost."
 						) }
 					</p>
 					<div className="my-6">

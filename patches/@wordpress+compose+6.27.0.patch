@@ -1,0 +1,54 @@
+diff --git a/node_modules/@wordpress/compose/build-module/hooks/use-focus-on-mount/index.js b/node_modules/@wordpress/compose/build-module/hooks/use-focus-on-mount/index.js
+index 5fd320d..3e7bdac 100644
+--- a/node_modules/@wordpress/compose/build-module/hooks/use-focus-on-mount/index.js
++++ b/node_modules/@wordpress/compose/build-module/hooks/use-focus-on-mount/index.js
+@@ -27,6 +27,7 @@ import { focus } from '@wordpress/dom';
+  */
+ export default function useFocusOnMount(focusOnMount = 'firstElement') {
+   const focusOnMountRef = useRef(focusOnMount);
++  const nodeRef = useRef();
+ 
+   /**
+    * Sets focus on a DOM element.
+@@ -43,15 +44,23 @@ export default function useFocusOnMount(focusOnMount = 'firstElement') {
+     });
+   };
+ 
+-  /** @type {import('react').MutableRefObject<ReturnType<setTimeout> | undefined>} */
+-  const timerId = useRef();
+   useEffect(() => {
+     focusOnMountRef.current = focusOnMount;
+   }, [focusOnMount]);
+   useEffect(() => {
++    /** @type {ReturnType<setTimeout>} */
++    let timerId;
++    if (nodeRef.current) {
++      timerId = setTimeout(() => {
++        const firstTabbable = focus.tabbable.find(nodeRef.current)[0];
++        if (firstTabbable) {
++          setFocus( /** @type {HTMLElement} */firstTabbable);
++        }
++      }, 0);
++    }
+     return () => {
+-      if (timerId.current) {
+-        clearTimeout(timerId.current);
++      if (timerId) {
++        clearTimeout(timerId);
+       }
+     };
+   }, []);
+@@ -64,12 +73,7 @@ export default function useFocusOnMount(focusOnMount = 'firstElement') {
+       return;
+     }
+     if (focusOnMountRef.current === 'firstElement') {
+-      timerId.current = setTimeout(() => {
+-        const firstTabbable = focus.tabbable.find(node)[0];
+-        if (firstTabbable) {
+-          setFocus( /** @type {HTMLElement} */firstTabbable);
+-        }
+-      }, 0);
++      nodeRef.current = node;
+       return;
+     }
+     setFocus(node);

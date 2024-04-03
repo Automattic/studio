@@ -88,9 +88,15 @@ describe( 'MainSidebar Footer', () => {
 		);
 		expect( container.firstChild ).toHaveClass( 'test-class' );
 	} );
+
+	it( 'shows a "Stop All" button when there are running sites', async () => {
+		await act( async () => render( <MainSidebar /> ) );
+		expect( screen.getByRole( 'button', { name: 'Stop all' } ) ).toBeInTheDocument();
+	} );
 } );
+
 describe( 'MainSidebar Site Menu', () => {
-	it( 'It renders the list of sites', async () => {
+	it( 'renders the list of sites', async () => {
 		await act( async () => render( <MainSidebar /> ) );
 		expect( screen.getByRole( 'button', { name: 'test-1' } ) ).toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'test-2' } ) ).toBeInTheDocument();
@@ -103,7 +109,7 @@ describe( 'MainSidebar Site Menu', () => {
 		expect( screen.getByRole( 'button', { name: 'start site test-2' } ) ).toBeInTheDocument();
 	} );
 
-	it( 'start a site', async () => {
+	it( 'starts a site', async () => {
 		const user = userEvent.setup();
 		await act( async () => render( <MainSidebar /> ) );
 		const greenDotFirstSite = screen.getByRole( 'button', { name: 'start site test-1' } );
@@ -114,7 +120,7 @@ describe( 'MainSidebar Site Menu', () => {
 		);
 	} );
 
-	it( 'stop a site', async () => {
+	it( 'stops a site', async () => {
 		const user = userEvent.setup();
 		await act( async () => render( <MainSidebar /> ) );
 		const greenDotFirstSite = screen.getByRole( 'button', { name: 'stop site test-3' } );

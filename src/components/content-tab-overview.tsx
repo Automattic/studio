@@ -26,11 +26,22 @@ interface ContentTabOverviewProps {
 	selectedSite: SiteDetails;
 }
 
+const ButtonSectionSkeleton = ( { title }: { title: string } ) => {
+	return (
+		<div className="w-full max-w-96">
+			<h2 className="a8c-subtitle-small mb-3">{ title }</h2>
+			<div className="w-full h-20 my-1 animate-pulse bg-gradient-to-r from-[#F6F7F7] via-[#DCDCDE] to-[#F6F7F7]"></div>
+		</div>
+	);
+};
+
 function CustomizeSection( {
 	selectedSite,
 	themeDetails,
+	loading,
 }: Pick< ContentTabOverviewProps, 'selectedSite' > & {
 	themeDetails?: SiteDetails[ 'themeDetails' ];
+	loading?: boolean;
 } ) {
 	const blockThemeButtons: ButtonsSectionProps[ 'buttonsArray' ] = [
 		{
@@ -120,7 +131,13 @@ function CustomizeSection( {
 		disabled: ! selectedSite.running,
 	} ) );
 
-	return <ButtonsSection buttonsArray={ processedButtons } title={ __( 'Customize' ) } />;
+	const sectionHeading = __( 'Customize' );
+
+	return loading ? (
+		<ButtonSectionSkeleton title={ sectionHeading } />
+	) : (
+		<ButtonsSection buttonsArray={ processedButtons } title={ sectionHeading } />
+	);
 }
 
 function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'selectedSite' > ) {
@@ -242,7 +259,11 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 				</div>
 			</div>
 			<div className="flex flex-1 flex-col justify-start items-start gap-8">
-				<CustomizeSection selectedSite={ selectedSite } themeDetails={ themeDetails } />
+				<CustomizeSection
+					selectedSite={ selectedSite }
+					themeDetails={ themeDetails }
+					loading={ loading }
+				/>
 				<ShortcutsSection selectedSite={ selectedSite } />
 			</div>
 		</div>

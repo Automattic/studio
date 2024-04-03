@@ -41,6 +41,8 @@ const api: IpcApi = {
 		ipcRenderer.invoke( 'saveOnboarding', onboardingCompleted ),
 	openTerminalAtPath: ( targetPath: string ) =>
 		ipcRenderer.invoke( 'openTerminalAtPath', targetPath ),
+	showMessageBox: ( options: Electron.MessageBoxOptions ) =>
+		ipcRenderer.invoke( 'showMessageBox', options ),
 
 	// Use .send instead of .invoke because logging is fire-and-forget
 	logRendererMessage: ( level: LogLevel, ...args: any[] ) =>

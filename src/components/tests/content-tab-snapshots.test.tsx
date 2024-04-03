@@ -24,10 +24,12 @@ const archiveSite = jest.fn();
 	isUploadingSiteId: jest.fn().mockReturnValue( false ),
 } );
 jest.mock( '../../hooks/use-archive-site' );
+const mockShowMessageBox = jest.fn();
 jest.mock( '../../lib/get-ipc-api', () => ( {
 	getIpcApi: () => ( {
 		openURL: jest.fn(),
 		generateProposedSitePath: jest.fn(),
+		showMessageBox: mockShowMessageBox,
 	} ),
 } ) );
 
@@ -38,6 +40,10 @@ const selectedSite = {
 	path: '/test-site',
 	adminPassword: btoa( 'test-password' ),
 };
+
+afterEach( () => {
+	jest.clearAllMocks();
+} );
 
 describe( 'ContentTabSnapshots', () => {
 	test( 'renders NoAuth component when not authenticated and the log in button triggers the authenticate flow', async () => {
@@ -178,7 +184,7 @@ describe( 'ContentTabSnapshots', () => {
 		);
 	} );
 
-	test( 'test the delete snapshot button from the more menu when the list is displayed', async () => {
+	test( 'should confirm snapshot deletion', async () => {
 		const user = userEvent.setup();
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
 		( useSiteUsage as jest.Mock ).mockReturnValue( {
@@ -198,10 +204,13 @@ describe( 'ContentTabSnapshots', () => {
 			],
 			uploadingSites: {},
 		} );
+		mockShowMessageBox.mockResolvedValueOnce( { response: 0 } );
 		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
+
 		const deleteSnapshotButton = screen.getByRole( 'button', { name: 'Delete demo site' } );
 		expect( deleteSnapshotButton ).toBeInTheDocument();
 		await user.click( deleteSnapshotButton );
+
 		expect( deleteSnapshotMock ).toHaveBeenCalledWith( {
 			url: 'fake-site.fake',
 			atomicSiteId: 150,
@@ -209,6 +218,36 @@ describe( 'ContentTabSnapshots', () => {
 			date: dateMS,
 			deleted: false,
 		} );
+	} );
+
+	test( 'should cancel snapshot deletion', async () => {
+		const user = userEvent.setup();
+		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
+		( useSiteUsage as jest.Mock ).mockReturnValue( {
+			siteLimit: LIMIT_OF_ZIP_SITES_PER_USER,
+			siteCount: 1,
+		} );
+		const dateMS = new Date().getTime();
+		( useSiteDetails as jest.Mock ).mockReturnValue( {
+			snapshots: [
+				{
+					url: 'fake-site.fake',
+					atomicSiteId: 150,
+					localSiteId: 'site-id-1',
+					date: dateMS,
+					deleted: false,
+				},
+			],
+			uploadingSites: {},
+		} );
+		mockShowMessageBox.mockResolvedValueOnce( { response: 1 } );
+		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
+
+		const deleteSnapshotButton = screen.getByRole( 'button', { name: 'Delete demo site' } );
+		expect( deleteSnapshotButton ).toBeInTheDocument();
+		await user.click( deleteSnapshotButton );
+
+		expect( deleteSnapshotMock ).not.toHaveBeenCalled();
 	} );
 } );
 

@@ -117,7 +117,25 @@ function SnapshotRow( {
 				<Button variant="primary" onClick={ () => alert( 'Not implemented yet!' ) }>
 					{ __( 'Update demo site' ) }
 				</Button>
-				<Button variant="secondary" isDestructive onClick={ () => deleteSnapshot( snapshot ) }>
+				<Button
+					variant="secondary"
+					isDestructive
+					onClick={ async () => {
+						const { response } = await getIpcApi().showMessageBox( {
+							type: 'warning',
+							message: __( 'Delete demo site' ),
+							detail: __(
+								'Your demo sites files and database along with all posts, pages, comments and media will be lost.'
+							),
+							buttons: [ __( 'Delete' ), __( 'Cancel' ) ],
+							cancelId: 1,
+						} );
+
+						if ( response === 0 ) {
+							deleteSnapshot( snapshot );
+						}
+					} }
+				>
 					{ __( 'Delete demo site' ) }
 				</Button>
 			</div>

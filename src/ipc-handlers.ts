@@ -1,7 +1,6 @@
 import { exec } from 'child_process';
 import crypto from 'crypto';
-import { BrowserWindow, app, clipboard } from 'electron';
-import { type IpcMainInvokeEvent, dialog, shell } from 'electron';
+import { BrowserWindow, app, clipboard, dialog, shell, type IpcMainInvokeEvent } from 'electron';
 import fs from 'fs';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
@@ -531,4 +530,11 @@ export function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath: stri
 			resolve();
 		} );
 	} );
+}
+
+export async function showMessageBox(
+	_event: IpcMainInvokeEvent,
+	options: Electron.MessageBoxOptions
+) {
+	return dialog.showMessageBox( options );
 }

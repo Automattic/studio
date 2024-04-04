@@ -1,48 +1,52 @@
 # Nodes with values to reuse in the pipeline.
 common_params:
   plugins: &common_plugins
-    - automattic/a8c-ci-toolkit#2.17.0
+    - automattic/a8c-ci-toolkit#3.1.0
     - automattic/nvm#0.3.0
 
-  # Common environment values to use with the `env` key.
-  env: &common_env
-    IMAGE_ID: xcode-15.2
+# All current steps use the same agent and environment; we can define them as top-level
+agents:
+  queue: mac
+env:
+  IMAGE_ID: xcode-15.2
 
-# This is the default pipeline – it will build the app
 steps:
-  #################
-  # Build and Test
-  #################
-  - label: '🔨 Build'
-    key: 'build'
+  - label: '🔨 Create Dev Build'
+    key: 'dev'
     command: |
-      echo "--- :rubygems: Setting up Gems"
-      install_gems
-
-      echo "--- :closed_lock_with_key: Installing Secrets"
-      bundle exec fastlane run configure_apply
-
-      echo "--- :testflight: Fetching Signing Certificates"
-      bundle exec fastlane set_up_signing
+      .buildkite/commands/prepare-environment.sh
 
       echo "--- :node: Building Binary"
       npm install
       node ./scripts/prepare-dev-build-version.mjs
       npm run make:macos
 
-      echo "--- 📃 Notarizing Binary"
-      bundle exec fastlane notarize_binary
-
-      echo "--- :node: Generate Releases Manifest"
-      node ./scripts/generate-releases-manifest.mjs
+      .buildkite/commands/post-process-binary-for-distribution.sh
 
       echo "--- 🚀 Distributing Binary"
-      bundle exec fastlane distribute_binary
+      bundle exec fastlane distribute_dev_build
 
-    env: *common_env
     plugins: *common_plugins
-    agents:
-      queue: 'mac'
     artifact_paths:
       - 'out/*.app.zip'
-    if: "build.branch == 'trunk'"
+    if: "build.branch == 'trunk' && build.tag !~ /^v[0-9]+/"
+
+  - label: '🔨 Create Release Build'
+    key: 'release'
+    command: |
+      .buildkite/commands/prepare-environment.sh
+
+      echo "--- :node: Building Binary"
+      npm install
+      node ./scripts/confirm-tag-matches-version.mjs
+      npm run make:macos
+
+      .buildkite/commands/post-process-binary-for-distribution.sh
+
+      echo "--- 🚀 Distributing Binary"
+      bundle exec fastlane distribute_release_build
+
+    plugins: *common_plugins
+    artifact_paths:
+      - 'out/*.app.zip'
+    if: "build.tag =~ /^v[0-9]+/"

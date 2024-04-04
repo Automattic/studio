@@ -2,7 +2,7 @@
 
 ## Version Numbers
 
-Studio uses [semver](https://href.li/?https://semver.org/)-style version numbers.
+Studio uses [semver](https://semver.org/)-style version numbers.
 
 `0.1.0` < `0.2.0` < `0.3.0-beta.1` < `0.3.0`
 
@@ -30,9 +30,9 @@ should be tagged (e.g. `v1.0.1-beta.1`). CI will pick this up automatically.
 duplicating the version number in the tag is still useful for comparing
 changesets in GitHub.
 
-Dev build versions do not need a change to be made to `package.json`. When
-building from `trunk`, CI uses logic in `forge.config.ts` to choose the first
-part of the version (before the hyphen) and append `-dev.abc123` automatically.
+To generate dev builds CI modifies `package.json`, using the first part of the
+version (before the hyphen) and appending `-dev.abc123`.
+See `scripts/prepare-dev-build-version.mjs`.
 
 ## Updating Logic
 

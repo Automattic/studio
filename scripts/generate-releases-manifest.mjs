@@ -98,6 +98,9 @@ if ( ! downloaded ) {
 console.log( 'Parsing current release info ...' );
 const releasesData = JSON.parse( await fs.readFile( releasesPath, 'utf8' ) );
 
+// We're only building universal binaries on macOS for now
+const arch = process.platform === 'darwin' ? 'universal' : process.arch;
+
 if ( isDevBuild ) {
 	console.log( 'Overriding latest dev release ...' );
 
@@ -107,9 +110,6 @@ if ( isDevBuild ) {
 		// You can develop locally by setting the GITHUB_SHA envvar before running this script.
 		throw new Error( 'Missing latest commit hash' );
 	}
-
-	// We're only building universal binaries on macOS for now
-	const arch = process.platform === 'darwin' ? 'universal' : process.arch;
 
 	const devVersionZipFilename = `https://cdn.a8c-ci.services/studio/studio-${ process.platform }-${ arch }-${ currentCommit }.app.zip`;
 
@@ -122,9 +122,21 @@ if ( isDevBuild ) {
 
 	await fs.writeFile( releasesPath, JSON.stringify( releasesData, null, 2 ) );
 	console.log( 'Overwrote latest dev release' );
-}
+} else {
+	console.log( 'Adding latest release ...' );
 
-// TODO: handle the case where the changeset is tagged as a release version.
+	const releaseVersionZipFilename = `https://cdn.a8c-ci.services/studio/studio-${ process.platform }-${ arch }-${ version }.app.zip`;
+
+	releasesData[ version ] = releasesData[ version ] ?? {};
+	releasesData[ version ][ process.platform ] = releasesData[ version ][ process.platform ] ?? {};
+	releasesData[ version ][ process.platform ][ arch ] = {
+		sha: currentCommit,
+		url: releaseVersionZipFilename,
+	};
+
+	await fs.writeFile( releasesPath, JSON.stringify( releasesData, null, 2 ) );
+	console.log( 'Added latest release' );
+}
 
 console.log( 'Done generating releases manifest.' );
 process.exit( 0 );

@@ -42,8 +42,13 @@ describe( 'getPreferredSiteLanguage', () => {
 			{ locale: 'en', expected: 'en' },
 			{ locale: 'en-US', expected: 'en' },
 			{ locale: 'es-ES', expected: 'es_ES' },
-			{ locale: 'es-419', expected: 'es_CO' },
-			{ locale: 'es-SV', expected: 'es_CO' },
+			// Seems `getPreferredSiteLanguage` can produce different results if locales order
+			// changes in the available languages. As an example, for Latin American Spanish and
+			// Spanish (El Salvador), it can result in Spanish (Mexico) or Spanish (Colombia)
+			// depending on which goes first. Available languages are bundled per version, so this
+			// case would only happen for very specific languages and when upgrading the version.
+			{ locale: 'es-419', expected: [ 'es_CO', 'es_MX' ] },
+			{ locale: 'es-SV', expected: [ 'es_CO', 'es_MX' ] },
 			{ locale: 'ca-ES', expected: 'ca' },
 			{ locale: 'en-ES', expected: 'en_GB' },
 			{ locale: 'en-IE', expected: 'en_GB' },
@@ -77,7 +82,11 @@ describe( 'getPreferredSiteLanguage', () => {
 			async ( { locale, expected } ) => {
 				mockPreferredLanguages( [ locale ] );
 
-				expect( await getPreferredSiteLanguage() ).toBe( expected );
+				if ( expected instanceof Array ) {
+					expect( expected ).toContain( await getPreferredSiteLanguage() );
+				} else {
+					expect( await getPreferredSiteLanguage() ).toBe( expected );
+				}
 			}
 		);
 	} );

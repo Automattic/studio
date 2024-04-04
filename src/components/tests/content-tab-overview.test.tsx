@@ -48,12 +48,12 @@ describe( 'ContentTabOverview', () => {
 		selectedSite?: SiteDetails;
 	} ) => {
 		( useThemeDetails as jest.Mock ).mockReturnValue( {
-			details: {
+			selectedThemeDetails: {
 				isBlockTheme,
 				supportsWidgets,
 				supportsMenus,
 			},
-			loading: false,
+			selectedLoadingThemeDetails: false,
 		} );
 		render( <ContentTabOverview selectedSite={ selectedSite } /> );
 	};

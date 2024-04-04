@@ -56,6 +56,9 @@ const allowedChannels = [
 	'add-site',
 	'user-settings',
 	'auth-updated',
+	'thumbnail-changed',
+	'theme-details-changed',
+	'theme-details-updating',
 ] as const;
 
 contextBridge.exposeInMainWorld( 'ipcListener', {

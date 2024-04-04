@@ -29,6 +29,14 @@ if ( ! fs.existsSync( TEMP_DIR ) ) {
 	fs.mkdirSync( TEMP_DIR );
 }
 
+async function sendThumbnailChangedEvent( event: IpcMainInvokeEvent, id: string ) {
+	const thumbnailData = await getThumbnailData( event, id );
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+	if ( parentWindow ) {
+		parentWindow.webContents.send( 'thumbnail-changed', id, thumbnailData );
+	}
+}
+
 async function mergeSiteDetailsWithRunningDetails(
 	sites: SiteDetails[]
 ): Promise< SiteDetails[] > {
@@ -156,7 +164,19 @@ export async function createSite(
 		}
 	}
 
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+	if ( parentWindow ) {
+		parentWindow.webContents.send( 'theme-details-updating', details.id );
+	}
 	await server.start();
+	if ( parentWindow ) {
+		parentWindow.webContents.send(
+			'theme-details-changed',
+			details.id,
+			server.details.themeDetails
+		);
+	}
+	server.updateCachedThumbnail().then( () => sendThumbnailChangedEvent( event, details.id ) );
 
 	userData.sites.push( server.details );
 	sortSites( userData.sites );
@@ -192,7 +212,14 @@ export async function startServer(
 		return null;
 	}
 
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	await server.start();
+	if ( parentWindow ) {
+		parentWindow.webContents.send( 'theme-details-changed', id, server.details.themeDetails );
+	}
+	server.updateCachedThumbnail().then( () => sendThumbnailChangedEvent( event, id ) );
+
+	console.log( 'Server started', server.details );
 	await updateSite( event, server.details );
 	return server.details;
 }
@@ -468,16 +495,23 @@ export async function getThemeDetails( event: IpcMainInvokeEvent, id: string ) {
 	}
 	const themeDetails = await phpGetThemeDetails( server.server.php );
 
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	if ( themeDetails?.path && themeDetails.path !== server.details.themeDetails?.path ) {
+		if ( parentWindow ) {
+			parentWindow.webContents.send( 'theme-details-updating', id );
+		}
 		const updatedSite = {
 			...server.details,
 			themeDetails,
 		};
-		await server.updateCachedThumbnail();
+		if ( parentWindow ) {
+			parentWindow.webContents.send( 'theme-details-changed', id, themeDetails );
+		}
+
+		server.updateCachedThumbnail().then( () => sendThumbnailChangedEvent( event, id ) );
 		server.details.themeDetails = themeDetails;
 		await updateSite( event, updatedSite );
 	}
-
 	return themeDetails;
 }
 

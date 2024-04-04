@@ -77,16 +77,16 @@ const backgroundSvg = (
 	</svg>
 );
 export function ScreenshotDemoSite( { site }: { site: SiteDetails } ) {
-	const { details } = useThemeDetails( site );
+	const { selectedThumbnail: thumbnailData } = useThemeDetails();
 
 	return (
 		<div className="grid grid-cols-1 grid-rows-1 ml-auto">
 			<div className="col-start-1 row-start-1">{ backgroundSvg }</div>
 			<div className="w-[245px] max-h-[192px] overflow-hidden ml-1 mt-[45px] col-start-1 row-start-1">
-				{ details?.thumbnailData && (
+				{ thumbnailData && (
 					<img
 						className="w-full"
-						src={ details.thumbnailData }
+						src={ thumbnailData }
 						alt={ sprintf(
 							/* translators: %s: The name of the website */
 							'Preview of the %s site',

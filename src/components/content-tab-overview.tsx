@@ -221,7 +221,14 @@ const ThumbnailSkeleton = () => {
 export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) {
 	const [ isThumbnailError, setIsThumbnailError ] = useState( false );
 	const { __ } = useI18n();
-	const { details: themeDetails, loading } = useThemeDetails( selectedSite );
+	const {
+		selectedThemeDetails: themeDetails,
+		selectedThumbnail: thumbnailData,
+		selectedLoadingThemeDetails: loadingThemeDetails,
+		selectedLoadingThumbnails: loadingThumbnails,
+		initialLoading,
+	} = useThemeDetails();
+	const loading = loadingThemeDetails || loadingThumbnails || initialLoading;
 
 	return (
 		<div className="pb-10 flex">
@@ -244,7 +251,7 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 							onError={ () => setIsThumbnailError( true ) }
 							onLoad={ () => setIsThumbnailError( false ) }
 							className={ ! isThumbnailError ? 'w-full h-full' : 'absolute invisible' }
-							src={ themeDetails?.thumbnailData || '' }
+							src={ thumbnailData || '' }
 							alt={ themeDetails?.name }
 						/>
 					) }

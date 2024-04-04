@@ -23,9 +23,11 @@ describe( 'ShortcutsSection', () => {
 	beforeEach( () => {
 		jest.clearAllMocks();
 		( useThemeDetails as jest.Mock ).mockReturnValue( {
-			isBlockTheme: true,
-			supportsWidgets: false,
-			supportsMenus: false,
+			selectedThemeDetails: {
+				isBlockTheme: true,
+				supportsWidgets: false,
+				supportsMenus: false,
+			},
 		} );
 	} );
 

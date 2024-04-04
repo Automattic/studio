@@ -32,7 +32,7 @@ interface SiteDetailsContext {
 	setUploadingSites: React.Dispatch< React.SetStateAction< { [ siteId: string ]: boolean } > >;
 }
 
-const siteDetailsContext = createContext< SiteDetailsContext >( {
+export const siteDetailsContext = createContext< SiteDetailsContext >( {
 	selectedSite: null,
 	data: [],
 	snapshots: [],

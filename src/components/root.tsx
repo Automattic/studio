@@ -1,6 +1,7 @@
 import { InstalledAppsProvider } from '../hooks/use-check-installed-apps';
 import { OnboardingProvider } from '../hooks/use-onboarding';
 import { SiteDetailsProvider } from '../hooks/use-site-details';
+import { ThemeDetailsProvider } from '../hooks/use-theme-details';
 import App from './app';
 import AuthProvider from './auth-provider';
 import CrashTester from './crash-tester';
@@ -12,11 +13,13 @@ const Root = () => {
 			<CrashTester />
 			<AuthProvider>
 				<SiteDetailsProvider>
-					<InstalledAppsProvider>
-						<OnboardingProvider>
-							<App />
-						</OnboardingProvider>
-					</InstalledAppsProvider>
+					<ThemeDetailsProvider>
+						<InstalledAppsProvider>
+							<OnboardingProvider>
+								<App />
+							</OnboardingProvider>
+						</InstalledAppsProvider>
+					</ThemeDetailsProvider>
 				</SiteDetailsProvider>
 			</AuthProvider>
 		</ErrorBoundary>

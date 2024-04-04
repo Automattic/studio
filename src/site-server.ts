@@ -103,8 +103,6 @@ export class SiteServer {
 			running: true,
 			themeDetails,
 		};
-
-		await this.updateCachedThumbnail();
 	}
 
 	updateSiteDetails( site: SiteDetails ) {
@@ -141,7 +139,7 @@ export class SiteServer {
 
 		// Continue taking the screenshot asynchronously so we don't prevent the
 		// UI from showing the server is now available.
-		fs.promises
+		return fs.promises
 			.mkdir( outDir, { recursive: true } )
 			.then( waitForCapture )
 			.then( ( image ) => fs.promises.writeFile( outPath, image.toPNG() ) )

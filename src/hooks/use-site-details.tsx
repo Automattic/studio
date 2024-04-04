@@ -1,3 +1,5 @@
+import * as Sentry from '@sentry/electron/renderer';
+import { __ } from '@wordpress/i18n';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { useDeleteSnapshot } from './use-delete-snapshot';
@@ -235,11 +237,29 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			if ( selectedSiteId === id ) {
 				setLoading( true );
 			}
-			const updatedSite = await getIpcApi().startServer( id );
+
+			let updatedSite: SiteDetails | null = null;
+
+			try {
+				updatedSite = await getIpcApi().startServer( id );
+			} catch ( error ) {
+				Sentry.captureException( error );
+				getIpcApi().showMessageBox( {
+					type: 'error',
+					message: __( 'Failed to start the site server' ),
+					detail: __(
+						"Please verify your site's local path directory contains the standard WordPress installation files and try again. If this problem persists, please contact support."
+					),
+				} );
+			}
+
 			if ( updatedSite ) {
-				const newData = data.map( ( site ) => ( site.id === id ? updatedSite : site ) );
+				const newData = data.map( ( site ) =>
+					site.id === id ? updatedSite : site
+				) as SiteDetails[];
 				setData( newData );
 			}
+
 			if ( selectedSiteId === id ) {
 				setLoading( false );
 			}

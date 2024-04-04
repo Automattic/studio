@@ -122,7 +122,7 @@ export default async function startWPNow(
 		await runBlueprintSteps(compiled, php);
 	}
 
-	await installationStep2(php, options);
+	await installationSteps(php, options);
 	await login(php, options);
 
 	if (
@@ -434,22 +434,37 @@ export function inferMode(
 	return WPNowMode.PLAYGROUND;
 }
 
-async function installationStep2(php: NodePHP, options: Partial<WPNowOptions> = {}) {
-	return php.request({
-		url: '/wp-admin/install.php?step=2',
-		method: 'POST',
-		body: {
-			language: 'en',
-			prefix: 'wp_',
-			weblog_title: options.siteTitle,
-			user_name: 'admin',
-			admin_password: options.adminPassword,
-			admin_password2: options.adminPassword,
-			Submit: 'Install WordPress',
-			pw_weak: '1',
-			admin_email: 'admin@localhost.com',
-		},
-	});
+async function installationSteps(php: NodePHP, options: WPNowOptions) {
+	const siteLanguage = options.siteLanguage;
+
+	const executeStep = async ( step: 0 | 1 | 2 ) => {
+		return php.request( {
+			url: `/wp-admin/install.php?step=${ step }`,
+			method: 'POST',
+			body:
+				step === 2
+					? {
+							language: siteLanguage,
+							prefix: 'wp_',
+							weblog_title: options.siteTitle,
+							user_name: 'admin',
+							admin_password: options.adminPassword,
+							admin_password2: options.adminPassword,
+							Submit: 'Install WordPress',
+							pw_weak: '1',
+							admin_email: 'admin@localhost.com',
+					}
+					: {
+							language: siteLanguage,
+					},
+		} );
+	};
+	// First two steps are needed to download and set translations
+	await executeStep( 0 );
+	await executeStep( 1 );
+
+	// Set up site details
+	await executeStep( 2 );
 }
 
 export async function moveDatabasesInSitu( projectPath: string ) {

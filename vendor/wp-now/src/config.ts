@@ -49,6 +49,7 @@ export interface WPNowOptions {
 	reset?: boolean;
 	adminPassword?: string;
 	siteTitle?: string;
+	siteLanguage?: string;
 }
 
 export const DEFAULT_OPTIONS: WPNowOptions = {
@@ -61,6 +62,7 @@ export const DEFAULT_OPTIONS: WPNowOptions = {
 	reset: false,
 	adminPassword: 'password',
 	siteTitle: 'My WordPress Website',
+	siteLanguage: 'en',
 };
 
 export interface WPEnvOptions {

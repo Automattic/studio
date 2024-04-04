@@ -8,6 +8,7 @@ import { decodePassword } from './lib/passwords';
 import { phpGetThemeDetails } from './lib/php-get-theme-details';
 import { portFinder } from './lib/port-finder';
 import { sanitizeForLogging } from './lib/sanitize-for-logging';
+import { getPreferredSiteLanguage } from './lib/site-language';
 import { createScreenshotWindow } from './screenshot-window';
 import { getSiteThumbnailPath } from './storage/paths';
 
@@ -84,6 +85,7 @@ export class SiteServer {
 		} );
 		const absoluteUrl = `http://localhost:${ port }`;
 		options.absoluteUrl = absoluteUrl;
+		options.siteLanguage = await getPreferredSiteLanguage( options.wordPressVersion );
 
 		console.log( 'Starting server with options', sanitizeForLogging( options ) );
 		this.server = await startServer( options );

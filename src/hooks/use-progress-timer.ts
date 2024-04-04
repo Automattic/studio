@@ -5,15 +5,21 @@ export function useProgressTimer( {
 	interval = 1000,
 	maxValue = 100,
 	step = 0.3,
+	paused = false,
 }: {
 	initialProgress: number;
 	interval?: number;
 	maxValue?: number;
 	step?: number;
+	paused?: boolean;
 } ) {
 	const [ progress, setProgress ] = useState( initialProgress );
 
 	useEffect( () => {
+		if ( paused ) {
+			return;
+		}
+
 		const timer = setInterval( () => {
 			setProgress( ( prevProgress ) => {
 				const newProgress = prevProgress + step;
@@ -24,7 +30,7 @@ export function useProgressTimer( {
 		return () => {
 			clearInterval( timer );
 		};
-	}, [ interval, maxValue, step ] );
+	}, [ interval, maxValue, step, paused ] );
 
 	return {
 		progress,

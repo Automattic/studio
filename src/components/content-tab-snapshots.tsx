@@ -254,6 +254,7 @@ function AddDemoSiteWithProgress( {
 	const { siteLimit, siteCount, isLoading: isFetchingUsage } = useSiteUsage();
 	const isLimitUsed = siteCount >= siteLimit;
 	const { progress, setProgress } = useProgressTimer( {
+		paused: ! isUploading && ! isSnapshotLoading,
 		initialProgress: 5,
 		interval: 1500,
 		maxValue: 95,

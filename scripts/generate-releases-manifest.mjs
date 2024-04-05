@@ -96,51 +96,7 @@ if ( ! downloaded ) {
 }
 
 console.log( 'Parsing current release info ...' );
-// const releasesData = JSON.parse( await fs.readFile( releasesPath, 'utf8' ) );
-
-// Temporary hack to fix paths to alphas
-const releasesData = {
-	dev: {
-		darwin: {
-			universal: {
-				sha: '94dbc8a633e65a5f9ed7374c56acf5d802ec8f4c',
-				url: 'https://cdn.a8c-ci.services/studio/studio-darwin-universal-94dbc8a633e65a5f9ed7374c56acf5d802ec8f4c.app.zip',
-			},
-		},
-	},
-	'0.1.0-alpha.1': {
-		darwin: {
-			universal: {
-				sha: '83208ea71b81058bb686dd8bc71adafe5a78e9b1',
-				url: 'https://cdn.a8c-ci.services/studio/studio-darwin-universal-v0.1.0-alpha.1.app.zip',
-			},
-		},
-	},
-	'0.1.0-alpha.2': {
-		darwin: {
-			universal: {
-				sha: '98146f2b613b3a937a5d200daa0ed0b8a14dc4bd',
-				url: 'https://cdn.a8c-ci.services/studio/studio-darwin-universal-v0.1.0-alpha.2.app.zip',
-			},
-		},
-	},
-	'0.1.0-alpha.4': {
-		darwin: {
-			universal: {
-				sha: '80791eacd8bdb3a30043a059273843779eec5a6e',
-				url: 'https://cdn.a8c-ci.services/studio/studio-darwin-universal-v0.1.0-alpha.4.app.zip',
-			},
-		},
-	},
-	'0.1.0-alpha.5': {
-		darwin: {
-			universal: {
-				sha: 'a1c70f3a3be5d28922a48f7f298f6152d6001516',
-				url: 'https://cdn.a8c-ci.services/studio/studio-darwin-universal-v0.1.0-alpha.5.app.zip',
-			},
-		},
-	},
-};
+const releasesData = JSON.parse( await fs.readFile( releasesPath, 'utf8' ) );
 
 // We're only building universal binaries on macOS for now
 const arch = process.platform === 'darwin' ? 'universal' : process.arch;

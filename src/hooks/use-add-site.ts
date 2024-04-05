@@ -54,6 +54,7 @@ export function useAddSite() {
 			await createSite( path, siteName ?? '' );
 		} catch ( e ) {
 			setError( ( e as Error )?.message );
+			setIsAddingSite( false );
 			throw e;
 		}
 		setIsAddingSite( false );

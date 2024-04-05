@@ -62,6 +62,7 @@ lane :distribute_dev_build do |_options|
 
   binary_path = File.join(PROJECT_ROOT_FOLDER, 'out', 'Studio-darwin-universal', 'Studio.app.zip')
   manifest_path = File.join(PROJECT_ROOT_FOLDER, 'out', 'releases.json')
+  build_number = get_required_env('BUILDKITE_BUILD_NUMBER')
 
   filename_root = 'studio-darwin-universal'
   hashed_filename = "#{filename_root}-#{commit_hash}.app.zip"
@@ -100,7 +101,7 @@ lane :distribute_dev_build do |_options|
       "/#{bucket_folder}/#{latest_filename}",
       "/#{bucket_folder}/releases.json"
     ],
-    commit_hash:
+    commit_hash: "#{commit_hash}-#{build_number}"
   )
 
   # Copy the file into position to be picked up by the Buildkite agent and saved with the job
@@ -136,6 +137,7 @@ lane :distribute_release_build do |_options|
   binary_path = File.join(PROJECT_ROOT_FOLDER, 'out', 'Studio-darwin-universal', 'Studio.app.zip')
   manifest_path = File.join(PROJECT_ROOT_FOLDER, 'out', 'releases.json')
   release_tag = get_required_env('BUILDKITE_TAG')
+  build_number = get_required_env('BUILDKITE_BUILD_NUMBER')
 
   filename_root = 'studio-darwin-universal'
   tagged_filename = "#{filename_root}-#{release_tag}.app.zip"
@@ -164,7 +166,7 @@ lane :distribute_release_build do |_options|
     paths: [
       "/#{bucket_folder}/releases.json"
     ],
-    commit_hash:
+    commit_hash: "#{commit_hash}-#{build_number}"
   )
 
   # Copy the file into position to be picked up by the Buildkite agent and saved with the job

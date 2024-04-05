@@ -115,7 +115,7 @@ lane :distribute_dev_build do |_options|
     username: 'CI Bot',
     icon_url: 'https://octodex.github.com/images/jenktocat.jpg',
     message: ":apple_logo: macOS build for commit #{commit_link} is now [available here](#{download_url})",
-    channel: '#dotcom-hosting-local-playground',
+    channel: '#dotcom-studio',
     success: true,
     slack_url: get_required_env('SLACK_WEBHOOK'),
     payload: { 'Commit Message': commit_message_short },

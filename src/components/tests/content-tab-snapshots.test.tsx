@@ -7,6 +7,7 @@ import { useAuth } from '../../hooks/use-auth';
 import { useDeleteSnapshot } from '../../hooks/use-delete-snapshot';
 import { useSiteDetails } from '../../hooks/use-site-details';
 import { useSiteUsage } from '../../hooks/use-site-usage';
+import { useUpdateDemoSite } from '../../hooks/use-update-demo-site';
 import { ContentTabSnapshots } from '../content-tab-snapshots';
 
 const authenticate = jest.fn();
@@ -17,6 +18,12 @@ jest.mock( '../../hooks/use-site-usage' );
 jest.mock( '../../hooks/use-delete-snapshot' );
 const deleteSnapshotMock = jest.fn();
 ( useDeleteSnapshot as jest.Mock ).mockReturnValue( { deleteSnapshot: deleteSnapshotMock } );
+jest.mock( '../../hooks/use-update-demo-site' );
+const updateDemoSiteMock = jest.fn();
+( useUpdateDemoSite as jest.Mock ).mockReturnValue( {
+	updateDemoSite: updateDemoSiteMock,
+	isDemoSiteUpdating: false,
+} );
 
 const archiveSite = jest.fn();
 ( useArchiveSite as jest.Mock ).mockReturnValue( {
@@ -182,6 +189,76 @@ describe( 'ContentTabSnapshots', () => {
 		expect( screen.getByRole( 'tooltip' ) ).toHaveTextContent(
 			`You've used all ${ LIMIT_OF_ZIP_SITES_PER_USER } demo sites available on your account.`
 		);
+	} );
+
+	test( 'should confirm demo site update', async () => {
+		const user = userEvent.setup();
+		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
+		const dateMS = new Date().getTime();
+		( useSiteDetails as jest.Mock ).mockReturnValue( {
+			snapshots: [
+				{
+					url: 'fake-site.fake',
+					atomicSiteId: 150,
+					localSiteId: 'site-id-1',
+					date: dateMS,
+					deleted: false,
+				},
+			],
+			uploadingSites: {},
+		} );
+		mockShowMessageBox.mockResolvedValueOnce( { response: 0, checkboxChecked: false } );
+		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
+
+		const updateButton = await screen.findByRole( 'button', { name: 'Update demo site' } );
+		expect( updateButton ).toBeInTheDocument();
+		await user.click( updateButton );
+
+		expect( updateDemoSiteMock ).toHaveBeenCalledTimes( 1 );
+		expect( mockShowMessageBox ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				type: 'info',
+				buttons: expect.arrayContaining( [ 'Update', 'Cancel' ] ),
+			} )
+		);
+	} );
+
+	test( 'should cancel demo site update', async () => {
+		const user = userEvent.setup();
+		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
+		const dateMS = new Date().getTime();
+		( useSiteDetails as jest.Mock ).mockReturnValue( {
+			snapshots: [
+				{
+					url: 'fake-site.fake',
+					atomicSiteId: 150,
+					localSiteId: 'site-id-1',
+					date: dateMS,
+					deleted: false,
+				},
+			],
+			uploadingSites: {},
+		} );
+		mockShowMessageBox.mockResolvedValueOnce( { response: 1 } );
+		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
+
+		const updateButton = await screen.findByRole( 'button', { name: 'Update demo site' } );
+		expect( updateButton ).toBeInTheDocument();
+		await user.click( updateButton );
+
+		expect( updateDemoSiteMock ).not.toHaveBeenCalled();
+	} );
+
+	test( 'should not show demo update warning if previously dismissed', async () => {
+		const user = userEvent.setup();
+		localStorage.setItem( 'dontShowUpdateWarning', 'true' );
+
+		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
+		const updateButton = await screen.findByRole( 'button', { name: 'Update demo site' } );
+		await user.click( updateButton );
+
+		expect( mockShowMessageBox ).not.toHaveBeenCalled();
+		expect( updateDemoSiteMock ).toHaveBeenCalledTimes( 1 );
 	} );
 
 	test( 'should confirm snapshot deletion', async () => {

@@ -11,6 +11,7 @@ import { useExpirationDate } from '../hooks/use-expiration-date';
 import { useProgressTimer } from '../hooks/use-progress-timer';
 import { useSiteDetails } from '../hooks/use-site-details';
 import { useSiteUsage } from '../hooks/use-site-usage';
+import { useUpdateDemoSite } from '../hooks/use-update-demo-site';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { Badge } from './badge';
@@ -49,11 +50,55 @@ function SnapshotRow( {
 		previousSnapshot && snapshot.isLoading ? previousSnapshot : snapshot;
 	const { countDown, isExpired, dateString } = useExpirationDate( date );
 	const { deleteSnapshot } = useDeleteSnapshot();
+	const { updateDemoSite, isDemoSiteUpdating } = useUpdateDemoSite();
+
+	const { progress, setProgress } = useProgressTimer( {
+		paused: ! isDemoSiteUpdating,
+		initialProgress: 5,
+		interval: 1500,
+		maxValue: 95,
+	} );
+
+	useEffect( () => {
+		if ( isDemoSiteUpdating ) {
+			setProgress( 80 );
+		}
+	}, [ isDemoSiteUpdating, setProgress ] );
 
 	if ( isDeleting ) {
 		return <SnapshotRowLoading>{ __( 'Deleting demo site…' ) }</SnapshotRowLoading>;
 	}
 	const urlWithHTTPS = `https://${ url }`;
+	const handleUpdateDemoSite = async () => {
+		const dontShowUpdateWarning = localStorage.getItem( 'dontShowUpdateWarning' );
+
+		if ( ! dontShowUpdateWarning ) {
+			const UPDATE_BUTTON_INDEX = 0;
+			const CANCEL_BUTTON_INDEX = 1;
+
+			const { response, checkboxChecked } = await getIpcApi().showMessageBox( {
+				type: 'info',
+				message: __( 'Overwrite demo site' ),
+				detail: __(
+					"Updating will replace the existing files and database with a copy from your local site. Any changes you've made to your demo site will be permanently lost."
+				),
+				buttons: [ __( 'Update' ), __( 'Cancel' ) ],
+				cancelId: CANCEL_BUTTON_INDEX,
+				checkboxLabel: __( "Don't ask again" ),
+				checkboxChecked: false,
+			} );
+
+			if ( checkboxChecked ) {
+				localStorage.setItem( 'dontShowUpdateWarning', 'true' );
+			}
+
+			if ( response === UPDATE_BUTTON_INDEX ) {
+				updateDemoSite( snapshot, selectedSite );
+			}
+		} else {
+			updateDemoSite( snapshot, selectedSite );
+		}
+	};
 	if ( isExpired ) {
 		return (
 			<div className="self-stretch flex-col">
@@ -114,30 +159,41 @@ function SnapshotRow( {
 				{ sprintf( __( 'Expires in %s' ), countDown ) }
 			</div>
 			<div className="mt-4 flex gap-4">
-				<Button variant="primary" onClick={ () => alert( 'Not implemented yet!' ) }>
-					{ __( 'Update demo site' ) }
-				</Button>
-				<Button
-					variant="secondary"
-					isDestructive
-					onClick={ async () => {
-						const { response } = await getIpcApi().showMessageBox( {
-							type: 'warning',
-							message: __( 'Delete demo site' ),
-							detail: __(
-								'Your demo sites files and database along with all posts, pages, comments and media will be lost.'
-							),
-							buttons: [ __( 'Delete' ), __( 'Cancel' ) ],
-							cancelId: 1,
-						} );
+				{ isDemoSiteUpdating ? (
+					<div className="w-[300px]">
+						<ProgressBar value={ progress } maxValue={ 100 } />
+						<div className="text-a8c-gray-70 a8c-body mt-4">
+							{ __( "We're updating your demo site." ) }
+						</div>
+					</div>
+				) : (
+					<>
+						<Button variant="primary" onClick={ handleUpdateDemoSite }>
+							{ __( 'Update demo site' ) }
+						</Button>
+						<Button
+							variant="secondary"
+							isDestructive
+							onClick={ async () => {
+								const { response } = await getIpcApi().showMessageBox( {
+									type: 'warning',
+									message: __( 'Delete demo site' ),
+									detail: __(
+										'Your demo sites files and database along with all posts, pages, comments and media will be lost.'
+									),
+									buttons: [ __( 'Delete' ), __( 'Cancel' ) ],
+									cancelId: 1,
+								} );
 
-						if ( response === 0 ) {
-							deleteSnapshot( snapshot );
-						}
-					} }
-				>
-					{ __( 'Delete demo site' ) }
-				</Button>
+								if ( response === 0 ) {
+									deleteSnapshot( snapshot );
+								}
+							} }
+						>
+							{ __( 'Delete demo site' ) }
+						</Button>
+					</>
+				) }
 			</div>
 		</div>
 	);

@@ -26,7 +26,7 @@ interface SiteDetailsContext {
 	stopServer: ( id: string ) => Promise< void >;
 	stopAllRunningSites: () => Promise< void >;
 	deleteSite: ( id: string, removeLocal: boolean ) => Promise< void >;
-	loading: boolean;
+	loadingServer: Record< string, boolean >;
 	loadingSites: boolean;
 	isDeleting: boolean;
 	deleteError: string;
@@ -50,7 +50,7 @@ export const siteDetailsContext = createContext< SiteDetailsContext >( {
 	deleteSite: async () => undefined,
 	isDeleting: false,
 	deleteError: '',
-	loading: false,
+	loadingServer: {},
 	loadingSites: true,
 	uploadingSites: {},
 	setUploadingSites: () => undefined,
@@ -176,15 +176,28 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	const { Provider } = siteDetailsContext;
 
 	const [ data, setData ] = useState< SiteDetails[] >( [] );
-	const [ loading, setLoading ] = useState( false );
 	const [ loadingSites, setLoadingSites ] = useState< boolean >( true );
 	const firstSite = data[ 0 ] || null;
+	const [ loadingServer, setLoadingServer ] = useState< Record< string, boolean > >(
+		firstSite?.id
+			? {
+					[ firstSite?.id ]: true,
+			  }
+			: {}
+	);
 	const { selectedSiteId, setSelectedSiteId } = useSelectedSite( firstSite?.id );
 	const { snapshots, addSnapshot, removeSnapshot, updateSnapshot } = useSnapshots();
 	const { deleteSite, isLoading: isDeleting, error: deleteError } = useDeleteSite();
 	const [ uploadingSites, setUploadingSites ] = useState< SiteDetailsContext[ 'uploadingSites' ] >(
 		{}
 	);
+
+	const toggleLoadingServerForSite = useCallback( ( siteId: string ) => {
+		setLoadingServer( ( currentLoading ) => ( {
+			...currentLoading,
+			[ siteId ]: ! currentLoading[ siteId ] || false,
+		} ) );
+	}, [] );
 
 	useEffect( () => {
 		let cancel = false;
@@ -234,10 +247,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 	const startServer = useCallback(
 		async ( id: string ) => {
-			if ( selectedSiteId === id ) {
-				setLoading( true );
-			}
-
+			toggleLoadingServerForSite( id );
 			let updatedSite: SiteDetails | null = null;
 
 			try {
@@ -260,22 +270,22 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 				setData( newData );
 			}
 
-			if ( selectedSiteId === id ) {
-				setLoading( false );
-			}
+			toggleLoadingServerForSite( id );
 		},
-		[ data, selectedSiteId ]
+		[ data, toggleLoadingServerForSite ]
 	);
 
 	const stopServer = useCallback(
 		async ( id: string ) => {
+			toggleLoadingServerForSite( id );
 			const updatedSite = await getIpcApi().stopServer( id );
 			if ( updatedSite ) {
 				const newData = data.map( ( site ) => ( site.id === id ? updatedSite : site ) );
 				setData( newData );
 			}
+			toggleLoadingServerForSite( id );
 		},
-		[ data ]
+		[ data, toggleLoadingServerForSite ]
 	);
 
 	const stopAllRunningSites = useCallback( async () => {
@@ -300,7 +310,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			startServer,
 			stopServer,
 			stopAllRunningSites,
-			loading,
+			loadingServer,
 			deleteSite: onDeleteSite,
 			isDeleting: selectedSiteId ? isDeleting[ selectedSiteId ] : false,
 			deleteError: selectedSiteId ? deleteError[ selectedSiteId ] : '',
@@ -314,9 +324,6 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			snapshots,
 			addSnapshot,
 			updateSnapshot,
-			onDeleteSite,
-			isDeleting,
-			deleteError,
 			removeSnapshot,
 			setSelectedSiteId,
 			createSite,
@@ -324,11 +331,13 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			startServer,
 			stopServer,
 			stopAllRunningSites,
-			loading,
-			loadingSites,
+			loadingServer,
+			onDeleteSite,
 			selectedSiteId,
+			isDeleting,
+			deleteError,
+			loadingSites,
 			uploadingSites,
-			setUploadingSites,
 		]
 	);
 

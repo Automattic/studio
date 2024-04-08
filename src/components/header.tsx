@@ -7,7 +7,7 @@ import { SiteManagementActions } from './site-management-actions';
 
 export default function Header() {
 	const { __ } = useI18n();
-	const { selectedSite: site, startServer, stopServer, loading } = useSiteDetails();
+	const { selectedSite: site, startServer, stopServer, loadingServer } = useSiteDetails();
 	return (
 		<div data-testid="site-content-header" className="flex justify-between items-center w-full">
 			{ site && (
@@ -37,7 +37,7 @@ export default function Header() {
 			) }
 			<SiteManagementActions
 				onStart={ startServer }
-				loading={ loading }
+				loading={ site?.id ? loadingServer[ site.id ] : false }
 				onStop={ stopServer }
 				selectedSite={ site }
 			/>

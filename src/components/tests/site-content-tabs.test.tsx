@@ -31,7 +31,11 @@ describe( 'SiteContentTabs', () => {
 		jest.clearAllMocks(); // Clear mock call history between tests
 	} );
 	it( 'should render tabs correctly if selected site exists', async () => {
-		( useSiteDetails as jest.Mock ).mockReturnValue( { selectedSite, snapshots: [] } );
+		( useSiteDetails as jest.Mock ).mockReturnValue( {
+			selectedSite,
+			snapshots: [],
+			loadingServer: {},
+		} );
 		await act( async () => render( <SiteContentTabs /> ) );
 		expect( screen.getByRole( 'tab', { name: 'Settings' } ) ).not.toBeNull();
 		expect( screen.getByRole( 'tab', { name: 'Share' } ) ).not.toBeNull();
@@ -40,7 +44,11 @@ describe( 'SiteContentTabs', () => {
 		expect( screen.queryByRole( 'tab', { name: 'Export' } ) ).toBeNull();
 	} );
 	it( 'selects the Overview tab by default', async () => {
-		( useSiteDetails as jest.Mock ).mockReturnValue( { selectedSite, snapshots: [] } );
+		( useSiteDetails as jest.Mock ).mockReturnValue( {
+			selectedSite,
+			snapshots: [],
+			loadingServer: {},
+		} );
 		await act( async () => render( <SiteContentTabs /> ) );
 		expect( screen.queryByRole( 'tab', { name: 'Overview', selected: true } ) ).toBeInTheDocument();
 		expect( screen.queryByRole( 'tab', { name: 'Share', selected: false } ) ).toBeInTheDocument();
@@ -53,6 +61,7 @@ describe( 'SiteContentTabs', () => {
 			undefined,
 			snapshots: [],
 			data: [],
+			loadingServer: {},
 		} );
 		await act( async () => render( <SiteContentTabs /> ) );
 		expect( screen.queryByRole( 'tab', { name: 'Settings' } ) ).toBeNull();

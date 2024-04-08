@@ -8,7 +8,7 @@ interface SiteMenuProps {
 }
 
 function ButtonToRun( { running, id, name }: Pick< SiteDetails, 'running' | 'id' | 'name' > ) {
-	const { startServer, stopServer } = useSiteDetails();
+	const { startServer, stopServer, loadingServer } = useSiteDetails();
 	const classCircle = `rounded-full`;
 	const triangle = (
 		<svg width="8" height="10" viewBox="0 0 8 10" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -33,7 +33,13 @@ function ButtonToRun( { running, id, name }: Pick< SiteDetails, 'running' | 'id'
 	);
 	return (
 		<button
-			onClick={ () => ( running ? stopServer( id ) : startServer( id ) ) }
+			aria-disabled={ loadingServer[ id ] }
+			onClick={ () => {
+				if ( loadingServer[ id ] ) {
+					return;
+				}
+				return running ? stopServer( id ) : startServer( id );
+			} }
 			className="w-7 h-8 rounded-tr rounded-br group grid focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-a8c-blueberry"
 			aria-label={ sprintf( running ? __( 'stop site %s' ) : __( 'start site %s' ), name ) }
 		>

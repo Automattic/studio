@@ -106,6 +106,7 @@
 		"follow-redirects": "1.15.5",
 		"fs-extra": "11.1.1",
 		"hpagent": "1.2.0",
+		"semver": "^7.6.0",
 		"unzipper": "0.10.11",
 		"wpcom": "^5.4.2",
 		"yargs": "17.7.2"

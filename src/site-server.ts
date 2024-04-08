@@ -1,8 +1,8 @@
-import { app } from 'electron';
 import fs from 'fs';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { getWpNowConfig, startServer, type WPNowServer } from '../vendor/wp-now/src';
+import { getWordPressVersionPath } from '../vendor/wp-now/src/download';
 import { pathExists, recursiveCopyDirectory, isEmptyDir } from './lib/fs-utils';
 import { decodePassword } from './lib/passwords';
 import { phpGetThemeDetails } from './lib/php-get-theme-details';
@@ -14,31 +14,18 @@ import { getSiteThumbnailPath } from './storage/paths';
 
 const servers = new Map< string, SiteServer >();
 
-export async function createSiteWorkingDirectory( path: string ): Promise< boolean > {
+export async function createSiteWorkingDirectory(
+	path: string,
+	wpVersion = 'latest'
+): Promise< boolean > {
 	if ( ( await pathExists( path ) ) && ! ( await isEmptyDir( path ) ) ) {
 		// We can only create into a clean directory
 		return false;
 	}
 
-	const wpFilesPath = nodePath.join( getResourcesPath(), 'wp-files', 'latest', 'wordpress' );
-
-	await recursiveCopyDirectory( wpFilesPath, path );
+	await recursiveCopyDirectory( getWordPressVersionPath( wpVersion ), path );
 
 	return true;
-}
-
-function getResourcesPath(): string {
-	if ( process.env.NODE_ENV === 'development' ) {
-		return process.cwd();
-	}
-
-	const exePath = nodePath.dirname( app.getPath( 'exe' ) );
-
-	if ( process.platform === 'darwin' ) {
-		return nodePath.resolve( exePath, '..', 'Resources' );
-	}
-
-	return nodePath.join( exePath, 'resources' );
 }
 
 export async function stopAllServersOnQuit() {

@@ -103,8 +103,9 @@ async function downloadFileAndUnzip({
 	destinationFolder,
 	checkFinalPath,
 	itemName,
+	overwrite = false,
 }): Promise<DownloadFileAndUnzipResult> {
-	if (fs.existsSync(checkFinalPath)) {
+	if (!overwrite && fs.existsSync(checkFinalPath)) {
 		output?.log(`${itemName} folder already exists. Skipping download.`);
 		return { downloaded: false, statusCode: 0 };
 	}
@@ -112,7 +113,7 @@ async function downloadFileAndUnzip({
 	let statusCode = 0;
 
 	try {
-		fs.ensureDirSync(path.dirname(destinationFolder));
+		await fs.ensureDir(path.dirname(destinationFolder));
 
 		output?.log(`Downloading ${itemName}...`);
 		const response = await new Promise<IncomingMessage>((resolve) =>
@@ -166,26 +167,27 @@ async function downloadFileAndUnzip({
 }
 
 export async function downloadWordPress(
-	wordPressVersion = DEFAULT_WORDPRESS_VERSION
+	wordPressVersion = DEFAULT_WORDPRESS_VERSION,
+	{overwrite}: {overwrite: boolean} = {overwrite: false}
 ) {
-	const finalFolder = path.join(getWordpressVersionsPath(), wordPressVersion);
+	const finalFolder = getWordPressVersionPath(wordPressVersion);
 	const tempFolder = os.tmpdir();
 	const { downloaded, statusCode } = await downloadFileAndUnzip({
 		url: getWordPressVersionUrl(wordPressVersion),
 		destinationFolder: tempFolder,
 		checkFinalPath: finalFolder,
 		itemName: `WordPress ${wordPressVersion}`,
+		overwrite,
 	});
 	if (downloaded) {
-		fs.ensureDirSync(path.dirname(finalFolder));
-		fs.moveSync(path.join(tempFolder, 'wordpress'), finalFolder, {
+		await fs.ensureDir(path.dirname(finalFolder));
+		await fs.move(path.join(tempFolder, 'wordpress'), finalFolder, {
 			overwrite: true,
 		});
 	} else if (404 === statusCode) {
 		output?.log(
 			`WordPress ${wordPressVersion} not found. Check https://wordpress.org/download/releases/ for available versions.`
 		);
-		process.exit(1);
 	}
 }
 
@@ -300,4 +302,8 @@ set_error_handler(function($severity, $message, $file, $line) {
 	add_action('after_setup_theme', 'check_current_theme_availability');
 `);
 
+}
+
+export function getWordPressVersionPath(wpVersion: string) {
+	return path.join(getWordpressVersionsPath(), wpVersion);
 }

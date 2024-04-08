@@ -21,6 +21,7 @@ import {
 	migrateFromWpNowFolder,
 	needsToMigrateFromWpNowFolder,
 } from './migrations/migrate-from-wp-now-folder';
+import setupWPVersions from './setup-wp-versions';
 import { setupUpdates } from './updates';
 import { stopAllServersOnQuit } from './site-server'; // eslint-disable-line import/order
 
@@ -71,6 +72,8 @@ async function appBoot() {
 	setupLogging();
 
 	setupUpdates();
+
+	setupWPVersions().catch( Sentry.captureException );
 
 	if ( process.defaultApp ) {
 		if ( process.argv.length >= 2 ) {

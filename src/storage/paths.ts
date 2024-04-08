@@ -17,3 +17,17 @@ export function getSiteThumbnailPath( siteId: string ): string {
 	const appDataPath = app.getPath( 'appData' );
 	return path.join( appDataPath, app.getName(), 'thumbnails', `${ siteId }.png` );
 }
+
+export function getResourcesPath(): string {
+	if ( process.env.NODE_ENV === 'development' ) {
+		return process.cwd();
+	}
+
+	const exePath = path.dirname( app.getPath( 'exe' ) );
+
+	if ( process.platform === 'darwin' ) {
+		return path.resolve( exePath, '..', 'Resources' );
+	}
+
+	return path.join( exePath, 'resources' );
+}

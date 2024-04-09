@@ -39,8 +39,8 @@ export function useUpdateDemoSite() {
 					date: new Date().getTime(),
 				} );
 				await getIpcApi().showNotification( {
-					title: __( 'Update successful' ),
-					body: sprintf( __( '%s has been updated' ), localSite.name ),
+					title: __( 'Update Successful' ),
+					body: sprintf( __( "Demo site for '%s' has been updated." ), localSite.name ),
 				} );
 				return response;
 			} catch ( error ) {

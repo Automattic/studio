@@ -43,7 +43,8 @@ const api: IpcApi = {
 		ipcRenderer.invoke( 'openTerminalAtPath', targetPath ),
 	showMessageBox: ( options: Electron.MessageBoxOptions ) =>
 		ipcRenderer.invoke( 'showMessageBox', options ),
-
+	showNotification: ( options: Electron.NotificationConstructorOptions ) =>
+		ipcRenderer.invoke( 'showNotification', options ),
 	// Use .send instead of .invoke because logging is fire-and-forget
 	logRendererMessage: ( level: LogLevel, ...args: any[] ) =>
 		ipcRenderer.send( 'logRendererMessage', level, ...args ),

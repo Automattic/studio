@@ -7,6 +7,10 @@ declare const MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: string;
 // Defined in webpack.main.config.ts
 declare const COMMIT_HASH: string | undefined;
 
+interface ShowNotificationOptions extends Electron.NotificationConstructorOptions {
+	showIcon: boolean;
+}
+
 interface StoppedSiteDetails {
 	running: false;
 

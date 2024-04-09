@@ -19,7 +19,8 @@ steps:
       echo "--- :node: Building Binary"
       npm install
       node ./scripts/prepare-dev-build-version.mjs
-      npm run make:macos
+      npm run make:macos-x64
+      npm run make:macos-arm64
 
       .buildkite/commands/post-process-binary-for-distribution.sh
 
@@ -39,7 +40,8 @@ steps:
       echo "--- :node: Building Binary"
       npm install
       node ./scripts/confirm-tag-matches-version.mjs
-      npm run make:macos
+      npm run make:macos-x64
+      npm run make:macos-arm64
 
       .buildkite/commands/post-process-binary-for-distribution.sh
 

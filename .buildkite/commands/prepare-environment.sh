@@ -1,7 +1,7 @@
 #!/bin/bash -eu
 
 # Prepares the CI environment to successfully build the macOS app.
-# Building the app is done via npm run make:macos.
+# Building the app is done via npm run make:macos-*.
 
 echo "--- :rubygems: Setting up Gems"
 install_gems

@@ -98,9 +98,6 @@ if ( ! downloaded ) {
 console.log( 'Parsing current release info ...' );
 const releasesData = JSON.parse( await fs.readFile( releasesPath, 'utf8' ) );
 
-// We're only building universal binaries on macOS for now
-const arch = process.platform === 'darwin' ? 'universal' : process.arch;
-
 if ( isDevBuild ) {
 	console.log( 'Overriding latest dev release ...' );
 
@@ -111,13 +108,18 @@ if ( isDevBuild ) {
 		throw new Error( 'Missing latest commit hash' );
 	}
 
-	const devVersionZipFilename = `https://cdn.a8c-ci.services/studio/studio-${ process.platform }-${ arch }-${ currentCommit }.app.zip`;
+	const devVersionZipFilename_x64 = `https://cdn.a8c-ci.services/studio/studio-${ process.platform }-x64-${ currentCommit }.app.zip`;
+	const devVersionZipFilename_arm64 = `https://cdn.a8c-ci.services/studio/studio-${ process.platform }-arm64-${ currentCommit }.app.zip`;
 
 	releasesData[ 'dev' ] = releasesData[ 'dev' ] ?? {};
 	releasesData[ 'dev' ][ process.platform ] = releasesData[ 'dev' ][ process.platform ] ?? {};
-	releasesData[ 'dev' ][ process.platform ][ arch ] = {
+	releasesData[ 'dev' ][ process.platform ][ 'x64' ] = {
 		sha: currentCommit,
-		url: devVersionZipFilename,
+		url: devVersionZipFilename_x64,
+	};
+	releasesData[ 'dev' ][ process.platform ][ 'arm64' ] = {
+		sha: currentCommit,
+		url: devVersionZipFilename_arm64,
 	};
 
 	await fs.writeFile( releasesPath, JSON.stringify( releasesData, null, 2 ) );
@@ -125,13 +127,18 @@ if ( isDevBuild ) {
 } else {
 	console.log( 'Adding latest release ...' );
 
-	const releaseVersionZipFilename = `https://cdn.a8c-ci.services/studio/studio-${ process.platform }-${ arch }-v${ version }.app.zip`;
+	const releaseVersionZipFilename_x64 = `https://cdn.a8c-ci.services/studio/studio-${ process.platform }-x64-v${ version }.app.zip`;
+	const releaseVersionZipFilename_arm64 = `https://cdn.a8c-ci.services/studio/studio-${ process.platform }-arm64-v${ version }.app.zip`;
 
 	releasesData[ version ] = releasesData[ version ] ?? {};
 	releasesData[ version ][ process.platform ] = releasesData[ version ][ process.platform ] ?? {};
-	releasesData[ version ][ process.platform ][ arch ] = {
+	releasesData[ version ][ process.platform ][ 'x64' ] = {
 		sha: currentCommit,
-		url: releaseVersionZipFilename,
+		url: releaseVersionZipFilename_x64,
+	};
+	releasesData[ version ][ process.platform ][ 'arm64' ] = {
+		sha: currentCommit,
+		url: releaseVersionZipFilename_arm64,
 	};
 
 	await fs.writeFile( releasesPath, JSON.stringify( releasesData, null, 2 ) );

@@ -49,7 +49,11 @@ end
 desc 'Notarize the compiled binary'
 lane :notarize_binary do |_options|
   notarize(
-    package: File.join(PROJECT_ROOT_FOLDER, 'out', 'Studio-darwin-universal', 'Studio.app'),
+    package: File.join(PROJECT_ROOT_FOLDER, 'out', 'Studio-darwin-x64', 'Studio.app'),
+    api_key_path: APPLE_API_KEY_PATH
+  )
+  notarize(
+    package: File.join(PROJECT_ROOT_FOLDER, 'out', 'Studio-darwin-arm64', 'Studio.app'),
     api_key_path: APPLE_API_KEY_PATH
   )
 end
@@ -60,28 +64,47 @@ lane :distribute_dev_build do |_options|
   commit_hash = commit_metadata[:commit_hash]
   commit_message = commit_metadata[:message]
 
-  binary_path = File.join(PROJECT_ROOT_FOLDER, 'out', 'Studio-darwin-universal', 'Studio.app.zip')
+  binary_path_x64 = File.join(PROJECT_ROOT_FOLDER, 'out', 'Studio-darwin-x64', 'Studio.app.zip')
+  binary_path_arm64 = File.join(PROJECT_ROOT_FOLDER, 'out', 'Studio-darwin-arm64', 'Studio.app.zip')
   manifest_path = File.join(PROJECT_ROOT_FOLDER, 'out', 'releases.json')
   build_number = get_required_env('BUILDKITE_BUILD_NUMBER')
 
-  filename_root = 'studio-darwin-universal'
-  hashed_filename = "#{filename_root}-#{commit_hash}.app.zip"
-  latest_filename = "#{filename_root}-latest.app.zip"
+  filename_root = 'studio-darwin'
+  hashed_filename_x64 = "#{filename_root}-x64-#{commit_hash}.app.zip"
+  hashed_filename_arm64 = "#{filename_root}-arm64-#{commit_hash}.app.zip"
+  latest_filename_x64 = "#{filename_root}-x64-latest.app.zip"
+  latest_filename_arm64 = "#{filename_root}-arm64-latest.app.zip"
 
   bucket_folder = 'studio'
 
   upload_to_s3(
     bucket: 'a8c-apps-public-artifacts',
-    key: "#{bucket_folder}/#{hashed_filename}",
-    file: binary_path,
+    key: "#{bucket_folder}/#{hashed_filename_x64}",
+    file: binary_path_x64,
     if_exists: :fail,
     auto_prefix: false
   )
 
   upload_to_s3(
     bucket: 'a8c-apps-public-artifacts',
-    key: "#{bucket_folder}/#{latest_filename}",
-    file: binary_path,
+    key: "#{bucket_folder}/#{hashed_filename_arm64}",
+    file: binary_path_arm64,
+    if_exists: :fail,
+    auto_prefix: false
+  )
+
+  upload_to_s3(
+    bucket: 'a8c-apps-public-artifacts',
+    key: "#{bucket_folder}/#{latest_filename_x64}",
+    file: binary_path_x64,
+    if_exists: :replace,
+    auto_prefix: false
+  )
+
+  upload_to_s3(
+    bucket: 'a8c-apps-public-artifacts',
+    key: "#{bucket_folder}/#{latest_filename_arm64}",
+    file: binary_path_arm64,
     if_exists: :replace,
     auto_prefix: false
   )
@@ -98,23 +121,26 @@ lane :distribute_dev_build do |_options|
   # each upload, otherwise it'll be stale.
   clear_cloudfront_cache(
     paths: [
-      "/#{bucket_folder}/#{latest_filename}",
+      "/#{bucket_folder}/#{latest_filename_x64}",
+      "/#{bucket_folder}/#{latest_filename_arm64}",
       "/#{bucket_folder}/releases.json"
     ],
     commit_hash: "#{commit_hash}-#{build_number}"
   )
 
   # Copy the file into position to be picked up by the Buildkite agent and saved with the job
-  FileUtils.cp(binary_path, File.join(PROJECT_ROOT_FOLDER, 'out', hashed_filename))
+  FileUtils.cp(binary_path_x64, File.join(PROJECT_ROOT_FOLDER, 'out', hashed_filename_x64))
+  FileUtils.cp(binary_path_arm64, File.join(PROJECT_ROOT_FOLDER, 'out', hashed_filename_arm64))
 
-  download_url = "https://cdn.a8c-ci.services/#{bucket_folder}/#{hashed_filename}"
+  download_url_x64 = "https://cdn.a8c-ci.services/#{bucket_folder}/#{hashed_filename_x64}"
+  download_url_arm64 = "https://cdn.a8c-ci.services/#{bucket_folder}/#{hashed_filename_arm64}"
   commit_link = "<https://github.com/Automattic/local-environment/commit/#{commit_hash}|#{commit_hash[0...7]}>"
   commit_message_short = commit_message[/.*/].gsub(/#(\d+)\b/, '<https://github.com/Automattic/local-environment/pull/\1|#\1>')
 
   slack(
     username: 'CI Bot',
     icon_url: 'https://octodex.github.com/images/jenktocat.jpg',
-    message: ":apple_logo: macOS build for commit #{commit_link} is now [available here](#{download_url})",
+    message: ":apple_logo: macOS build for commit #{commit_link} is now available for [Intel](#{download_url_x64}) and [Apple Silicon](#{download_url_arm64})",
     channel: '#dotcom-studio',
     success: true,
     slack_url: get_required_env('SLACK_WEBHOOK'),
@@ -125,7 +151,7 @@ lane :distribute_dev_build do |_options|
   buildkite_annotate(
     context: 'cdn-link',
     style: 'info',
-    message: "🔗 Build availble for download at [#{download_url}](#{download_url})"
+    message: "🔗 Build availble for download for [Intel](#{download_url_x64}) and [Apple Silicon](#{download_url_arm64})"
   )
 end
 
@@ -134,20 +160,30 @@ lane :distribute_release_build do |_options|
   commit_metadata = last_git_commit
   commit_hash = commit_metadata[:commit_hash]
 
-  binary_path = File.join(PROJECT_ROOT_FOLDER, 'out', 'Studio-darwin-universal', 'Studio.app.zip')
+  binary_path_x64 = File.join(PROJECT_ROOT_FOLDER, 'out', 'Studio-darwin-x64', 'Studio.app.zip')
+  binary_path_arm64 = File.join(PROJECT_ROOT_FOLDER, 'out', 'Studio-darwin-arm64', 'Studio.app.zip')
   manifest_path = File.join(PROJECT_ROOT_FOLDER, 'out', 'releases.json')
   release_tag = get_required_env('BUILDKITE_TAG')
   build_number = get_required_env('BUILDKITE_BUILD_NUMBER')
 
-  filename_root = 'studio-darwin-universal'
-  tagged_filename = "#{filename_root}-#{release_tag}.app.zip"
+  filename_root = 'studio-darwin'
+  tagged_filename_x64 = "#{filename_root}-x64-#{release_tag}.app.zip"
+  tagged_filename_arm64 = "#{filename_root}-arm64-#{release_tag}.app.zip"
 
   bucket_folder = 'studio'
 
   upload_to_s3(
     bucket: 'a8c-apps-public-artifacts',
-    key: "#{bucket_folder}/#{tagged_filename}",
-    file: binary_path,
+    key: "#{bucket_folder}/#{tagged_filename_x64}",
+    file: binary_path_x64,
+    if_exists: :fail,
+    auto_prefix: false
+  )
+
+  upload_to_s3(
+    bucket: 'a8c-apps-public-artifacts',
+    key: "#{bucket_folder}/#{tagged_filename_arm64}",
+    file: binary_path_arm64,
     if_exists: :fail,
     auto_prefix: false
   )
@@ -170,14 +206,16 @@ lane :distribute_release_build do |_options|
   )
 
   # Copy the file into position to be picked up by the Buildkite agent and saved with the job
-  FileUtils.cp(binary_path, File.join(PROJECT_ROOT_FOLDER, 'out', tagged_filename))
+  FileUtils.cp(binary_path_x64, File.join(PROJECT_ROOT_FOLDER, 'out', tagged_filename_x64))
+  FileUtils.cp(binary_path, File.join(PROJECT_ROOT_FOLDER, 'out', tagged_filename_arm64))
 
-  download_url = "https://cdn.a8c-ci.services/#{bucket_folder}/#{tagged_filename}"
+  download_url_x64 = "https://cdn.a8c-ci.services/#{bucket_folder}/#{tagged_filename_x64}"
+  download_url_arm64 = "https://cdn.a8c-ci.services/#{bucket_folder}/#{tagged_filename_arm64}"
 
   buildkite_annotate(
     context: 'cdn-link',
     style: 'info',
-    message: "🔗 Build availble for download at [#{download_url}](#{download_url})"
+    message: "🔗 Build availble for download for [Intel](#{download_url_x64}) and [Apple Silicon](#{download_url_arm64})"
   )
 end
 

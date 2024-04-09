@@ -50,11 +50,6 @@ blockquote {
 	background: theme( 'colors.black' );
 }
 
-/* default cursor by default */
-button:enabled {
-	cursor: default !important;
-}
-
 button:enabled.cursor-pointer {
 	cursor: pointer !important;
 }

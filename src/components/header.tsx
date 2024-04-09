@@ -16,7 +16,7 @@ export default function Header() {
 					<div className="flex mt-1 gap-x-4">
 						<Button
 							disabled={ ! site.running }
-							className="cursor-pointer [&.is-link]:text-a8c-gray-50 [&.is-link]:hover:text-a8c-gray-90 !px-0 h-0 leading-4"
+							className="[&.is-link]:text-a8c-gray-50 [&.is-link]:hover:text-a8c-gray-90 !px-0 h-0 leading-4"
 							onClick={ () => getIpcApi().openSiteURL( site.id, '/wp-admin' ) }
 							variant="link"
 						>
@@ -25,7 +25,7 @@ export default function Header() {
 						</Button>
 						<Button
 							disabled={ ! site.running }
-							className="cursor-pointer [&.is-link]:text-a8c-gray-50 [&.is-link]:hover:text-a8c-gray-90 !px-0 h-0 leading-4"
+							className="[&.is-link]:text-a8c-gray-50 [&.is-link]:hover:text-a8c-gray-90 !px-0 h-0 leading-4"
 							onClick={ () => getIpcApi().openSiteURL( site.id ) }
 							variant="link"
 						>

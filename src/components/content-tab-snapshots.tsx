@@ -149,7 +149,7 @@ function SnapshotRow( {
 				<Badge>{ __( 'Demo site' ) }</Badge>
 			</div>
 			<Button
-				className="mt-1 !p-0 h-auto text-a8c-blueberry cursor-pointer"
+				className="mt-1 !p-0 h-auto text-a8c-blueberry"
 				onClick={ () => getIpcApi().openURL( urlWithHTTPS ) }
 				variant="link"
 			>
@@ -217,7 +217,6 @@ function EmptyGeneric( {
 							a: (
 								<Button
 									variant="link"
-									className="cursor-pointer"
 									onClick={ () => getIpcApi().openURL( 'https://wp.cloud/' ) }
 								/>
 							),
@@ -264,7 +263,7 @@ function NoAuth( { selectedSite }: React.ComponentProps< typeof EmptyGeneric > )
 					{
 						a: (
 							<Button
-								className="cursor-pointer !p-0 text-a8c-blueberry hover:opacity-80 h-auto"
+								className="!p-0 text-a8c-blueberry hover:opacity-80 h-auto"
 								onClick={ () =>
 									getIpcApi().openURL( 'https://wordpress.com/start/account/user-social' )
 								}

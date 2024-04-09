@@ -44,7 +44,7 @@ const DeleteSite = () => {
 						) }
 					</p>
 					<div className="my-6">
-						<label className="flex items-center gap-x-chrome">
+						<label className="flex items-center gap-x-chrome cursor-pointer">
 							<FormToggle
 								checked={ deleteLocalFiles }
 								onChange={ () => setDeleteLocalFiles( ! deleteLocalFiles ) }

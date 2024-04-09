@@ -47,7 +47,6 @@ function CustomizeSection( {
 		{
 			label: __( 'Site Editor' ),
 			icon: desktop,
-			className: 'cursor-pointer',
 			onClick: () => {
 				getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/site-editor.php' );
 			},
@@ -55,7 +54,6 @@ function CustomizeSection( {
 		{
 			label: __( 'Styles' ),
 			icon: styles,
-			className: 'cursor-pointer',
 			onClick: () => {
 				getIpcApi().openSiteURL(
 					selectedSite.id,
@@ -66,7 +64,6 @@ function CustomizeSection( {
 		{
 			label: __( 'Patterns' ),
 			icon: symbolFilled,
-			className: 'cursor-pointer',
 			onClick: () => {
 				getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/site-editor.php?path=%2Fpatterns' );
 			},
@@ -74,7 +71,6 @@ function CustomizeSection( {
 		{
 			label: __( 'Navigation' ),
 			icon: navigation,
-			className: 'cursor-pointer',
 			onClick: () => {
 				getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/site-editor.php?path=%2Fnavigation' );
 			},
@@ -82,7 +78,6 @@ function CustomizeSection( {
 		{
 			label: __( 'Templates' ),
 			icon: layout,
-			className: 'cursor-pointer',
 			onClick: () => {
 				getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/site-editor.php?path=%2Fwp_template' );
 			},
@@ -90,7 +85,6 @@ function CustomizeSection( {
 		{
 			label: __( 'Pages' ),
 			icon: page,
-			className: 'cursor-pointer',
 			onClick: () => {
 				getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/site-editor.php?path=%2Fpage' );
 			},
@@ -101,7 +95,6 @@ function CustomizeSection( {
 		{
 			label: __( 'Customizer' ),
 			icon: edit,
-			className: 'cursor-pointer',
 			onClick: () => getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/customize.php' ),
 		},
 	];
@@ -110,7 +103,6 @@ function CustomizeSection( {
 		classicThemeButtons.push( {
 			label: __( 'Menus' ),
 			icon: navigation,
-			className: 'cursor-pointer',
 			onClick: () => getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/nav-menus.php' ),
 		} );
 	}
@@ -119,7 +111,6 @@ function CustomizeSection( {
 		classicThemeButtons.push( {
 			label: __( 'Widgets' ),
 			icon: widget,
-			className: 'cursor-pointer',
 			onClick: () => getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/widgets.php' ),
 		} );
 	}

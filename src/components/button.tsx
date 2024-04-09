@@ -14,7 +14,7 @@ export type ButtonProps = ComponentProps< typeof Button >;
  * additional styles.
  */
 const baseStyles = `
-cursor-default
+cursor-pointer
 px-3
 py-2
 rounded-sm

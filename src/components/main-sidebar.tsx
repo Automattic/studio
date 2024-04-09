@@ -37,7 +37,7 @@ function SidebarAuthFooter() {
 					</li>
 					<li>
 						<Button
-							className="text-white ml-1.5 cursor-pointer h-6 !px-0 active:!text-white rounded hover:!text-white hover:bg-white hover:bg-opacity-10"
+							className="text-white ml-1.5 h-6 !px-0 active:!text-white rounded hover:!text-white hover:bg-white hover:bg-opacity-10"
 							onClick={ openLocalizedSupport }
 							aria-label={ __( 'Help' ) }
 						>

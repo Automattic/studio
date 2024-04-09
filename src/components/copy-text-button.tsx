@@ -38,7 +38,7 @@ export function CopyTextButton( {
 	return (
 		<Button
 			className={ cx(
-				'flex items-center cursor-default [&.is-link]:text-black [&.is-link]:hover:text-[#2145e6]',
+				'flex items-center [&.is-link]:text-black [&.is-link]:hover:text-[#2145e6]',
 				showCopied && '[&.is-link]:text-[#2145e6]',
 				className
 			) }

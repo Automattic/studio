@@ -48,7 +48,7 @@ function FormPathInputComponent( {
 				<TextControlComponent
 					aria-hidden="true"
 					disabled={ true }
-					className="[&_.components-text-control\_\_input]:bg-transparent [&_.components-text-control\_\_input]:border-none [&_input]:pointer-events-none w-full"
+					className="[&_.components-text-control\_\_input]:bg-transparent [&_.components-text-control\_\_input]:border-none [&_input]:pointer-events-none w-full cursor-pointer"
 					value={ value }
 					// eslint-disable-next-line @typescript-eslint/no-empty-function
 					onChange={ () => {} }
@@ -56,7 +56,7 @@ function FormPathInputComponent( {
 				<div
 					aria-hidden="true"
 					className={ cx(
-						'local-path-icon flex items-center py-[9px] px-2.5 border border-l-[#949494] border-t-0 border-r-0 border-b-0',
+						'local-path-icon flex items-center py-[9px] px-2.5 border border-l-[#949494] border-t-0 border-r-0 border-b-0 cursor-pointer',
 						isDisabled ? 'cursor-not-allowed' : ''
 					) }
 				>

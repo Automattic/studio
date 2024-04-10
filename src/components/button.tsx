@@ -53,6 +53,7 @@ const destructiveStyles = `
 [&.is-destructive.is-primary]:text-white
 [&.is-destructive.is-primary]:bg-a8c-red-50
 [&.is-destructive.is-primary:not(:disabled)]:hover:bg-a8c-red-60
+[&.is-destructive.is-primary:not(:disabled)]:focus-visible:shadow-[inset_0_0_0_1px_white,0_0_0_1px_#d63638]
 `.replace( /\n/g, ' ' );
 
 const linkStyles = `

@@ -1,6 +1,6 @@
 import { Icon, check, wordpress } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { useCallback, useEffect } from 'react';
+import { FormEvent, useCallback, useEffect } from 'react';
 import { useAddSite } from '../hooks/use-add-site';
 import { useOnboarding } from '../hooks/use-onboarding';
 import { isMac } from '../lib/app-globals';
@@ -8,7 +8,7 @@ import { generateSiteName } from '../lib/generate-site-name';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
 import { MacPermissionCard, OtherOsPermissionCard } from './permission-cards';
-import { SiteForm } from './site-modal';
+import { SiteForm } from './site-form';
 
 const GradientBox = () => {
 	const { __ } = useI18n();
@@ -89,13 +89,17 @@ export default function Onboarding() {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [] );
 
-	const onHandleAddSiteClick = useCallback( async () => {
-		try {
-			await handleAddSiteClick();
-		} catch {
-			// No need to handle error here, it's already handled in handleAddSiteClick
-		}
-	}, [ handleAddSiteClick ] );
+	const handleSubmit = useCallback(
+		async ( event: FormEvent ) => {
+			event.preventDefault();
+			try {
+				await handleAddSiteClick();
+			} catch {
+				// No need to handle error here, it's already handled in handleAddSiteClick
+			}
+		},
+		[ handleAddSiteClick ]
+	);
 
 	return (
 		<div className="flex flex-row flex-grow">
@@ -131,17 +135,20 @@ export default function Onboarding() {
 								onSelectPath={ handlePathSelectorClick }
 								error={ error }
 								doesPathContainWordPress={ doesPathContainWordPress }
-							/>
+								onSubmit={ handleSubmit }
+							>
+								<div className="flex flex-row gap-x-5 mt-6">
+									<Button
+										type="submit"
+										isBusy={ isAddingSite }
+										disabled={ isAddingSite }
+										variant="primary"
+									>
+										{ isAddingSite ? __( 'Adding site…' ) : __( 'Continue' ) }
+									</Button>
+								</div>
+							</SiteForm>
 						</div>
-						<Button
-							onClick={ onHandleAddSiteClick }
-							isBusy={ isAddingSite }
-							disabled={ isAddingSite }
-							className="bg-a8c-blueberry hover:text-white text-white"
-							variant="primary"
-						>
-							{ isAddingSite ? __( 'Adding site…' ) : __( 'Continue' ) }
-						</Button>
 					</div>
 				) }
 				{ showNextStep && (

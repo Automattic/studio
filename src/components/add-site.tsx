@@ -1,12 +1,13 @@
 import { useI18n } from '@wordpress/react-i18n';
-import { useCallback, useEffect, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { useAddSite } from '../hooks/use-add-site';
 import { useIpcListener } from '../hooks/use-ipc-listener';
 import { cx } from '../lib/cx';
 import { generateSiteName } from '../lib/generate-site-name';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
-import { SiteForm, SiteModal } from './site-modal';
+import Modal from './modal';
+import { SiteForm } from './site-form';
 
 interface AddSiteProps {
 	className?: string;
@@ -86,15 +87,19 @@ export default function AddSite( { className }: AddSiteProps ) {
 		setShowModal( false );
 	}, [] );
 
-	const onHandleAddSiteClick = useCallback( async () => {
-		try {
-			await handleAddSiteClick();
-			setNameSuggested( false );
-			closeModal();
-		} catch {
-			// No need to handle error here, it's already handled in handleAddSiteClick
-		}
-	}, [ handleAddSiteClick, closeModal ] );
+	const handleSubmit = useCallback(
+		async ( event: FormEvent ) => {
+			event.preventDefault();
+			try {
+				await handleAddSiteClick();
+				setNameSuggested( false );
+				closeModal();
+			} catch {
+				// No need to handle error here, it's already handled in handleAddSiteClick
+			}
+		},
+		[ handleAddSiteClick, closeModal ]
+	);
 
 	useIpcListener( 'add-site', () => {
 		openModal();
@@ -102,25 +107,39 @@ export default function AddSite( { className }: AddSiteProps ) {
 
 	return (
 		<>
-			<SiteModal
-				isOpen={ showModal && ! loadingSites }
-				onRequestClose={ closeModal }
-				title={ __( 'Add a site' ) }
-				primaryButtonLabel={ isAddingSite ? __( 'Adding site…' ) : __( 'Add site' ) }
-				onPrimaryAction={ onHandleAddSiteClick }
-				isPrimaryButtonDisabled={ !! error || ! siteName }
-				isCancelDisabled={ isAddingSite }
-				isLoading={ isAddingSite }
-			>
-				<SiteForm
-					siteName={ siteName || '' }
-					setSiteName={ handleSiteNameChange }
-					sitePath={ sitePath }
-					onSelectPath={ handlePathSelectorClick }
-					error={ error }
-					doesPathContainWordPress={ doesPathContainWordPress }
-				/>
-			</SiteModal>
+			{ showModal && ! loadingSites && (
+				<Modal
+					className="w-[460px]"
+					title={ __( 'Add a site' ) }
+					isDismissible
+					focusOnMount="firstContentElement"
+					onRequestClose={ closeModal }
+				>
+					<SiteForm
+						siteName={ siteName || '' }
+						setSiteName={ handleSiteNameChange }
+						sitePath={ sitePath }
+						onSelectPath={ handlePathSelectorClick }
+						error={ error }
+						onSubmit={ handleSubmit }
+						doesPathContainWordPress={ doesPathContainWordPress }
+					>
+						<div className="flex flex-row justify-end gap-x-5 mt-6">
+							<Button onClick={ closeModal } disabled={ isAddingSite } variant="tertiary">
+								{ __( 'Cancel' ) }
+							</Button>
+							<Button
+								type="submit"
+								variant="primary"
+								isBusy={ isAddingSite }
+								disabled={ !! error || ! siteName }
+							>
+								{ isAddingSite ? __( 'Adding site…' ) : __( 'Add site' ) }
+							</Button>
+						</div>
+					</SiteForm>
+				</Modal>
+			) }
 			<Button className={ cx( buttonStyles, className ) } onClick={ openModal }>
 				{ __( 'Add site' ) }
 			</Button>

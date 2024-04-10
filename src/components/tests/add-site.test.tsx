@@ -26,9 +26,27 @@ jest.mock( '../../hooks/use-site-details', () => ( {
 	} ),
 } ) );
 
-describe( 'CreateSite', () => {
+describe( 'AddSite', () => {
 	beforeEach( () => {
 		jest.clearAllMocks(); // Clear mock call history between tests
+	} );
+
+	it( 'should dismiss the modal when the cancel button is activated via keyboard', async () => {
+		const user = userEvent.setup();
+		mockGenerateProposedSitePath.mockResolvedValue( {
+			path: '/default_path/my-wordpress-website',
+			name: 'My WordPress Website',
+			isEmpty: true,
+			isWordPress: false,
+		} );
+		render( <AddSite /> );
+
+		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+		await userEvent.tab();
+		await userEvent.keyboard( '{Enter}' );
+
+		expect( mockCreateSite ).not.toHaveBeenCalled();
+		expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'calls createSite with selected path when add site button is clicked', async () => {

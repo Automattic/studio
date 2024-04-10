@@ -49,21 +49,24 @@ function ButtonToRun( { running, id, name }: Pick< SiteDetails, 'running' | 'id'
 					'w-2.5 h-2.5 transition-opacity group-hover:opacity-0 border-[0.5px]',
 					'row-start-1 col-start-1 place-self-center',
 					classCircle,
-					running && 'border-[#00BA37] bg-[#1ED15A]',
-					! running && 'border-[#ffffff19] bg-[#ffffff26]'
+					loadingServer[ id ] && 'animate-pulse border-[#00BA3775] bg-[#1ED15A75] duration-100',
+					running && 'border-[#00BA37] bg-[#1ED15A] duration-100',
+					! running && ! loadingServer[ id ] && 'border-[#ffffff19] bg-[#ffffff26]'
 				) }
 			>
 				&nbsp;
 			</div>
 			{ /* Shapes on hover */ }
-			<div
-				className={ cx(
-					'opacity-0 transition-opacity group-hover:opacity-100',
-					'row-start-1 col-start-1 place-self-center'
-				) }
-			>
-				{ running ? rectangle : triangle }
-			</div>
+			{ ! loadingServer[ id ] && (
+				<div
+					className={ cx(
+						'opacity-0 transition-opacity group-hover:opacity-100',
+						'row-start-1 col-start-1 place-self-center'
+					) }
+				>
+					{ running ? rectangle : triangle }
+				</div>
+			) }
 		</button>
 	);
 }

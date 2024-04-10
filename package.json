@@ -15,7 +15,7 @@
 	"scripts": {
 		"start": "electron-forge start",
 		"start-wayland": "electron-forge start -- --enable-features=UseOzonePlatform --ozone-platform=wayland .",
-		"postinstall": "patch-package && node ./scripts/download-wp.mjs && node ./scripts/download-available-site-translations.mjs",
+		"postinstall": "patch-package && ts-node scripts/download-wp-server-files.ts && node ./scripts/download-available-site-translations.mjs",
 		"package": "electron-forge package",
 		"make": "electron-forge make",
 		"make:macos-x64": "SKIP_DMG=true FILE_ARCHITECTURE=x64 electron-forge make --arch=x64 --platform=darwin",

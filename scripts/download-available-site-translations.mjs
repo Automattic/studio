@@ -5,7 +5,9 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname( fileURLToPath( import.meta.url ) );
 
-console.log( 'Downloading information of available translations for latest WordPress version ...' );
+console.log(
+	'[available-site-translations] Downloading information of available translations for latest WordPress version ...'
+);
 
 const jsonFilePath = path.join(
 	__dirname,
@@ -25,7 +27,7 @@ await new Promise( ( resolve, reject ) => {
 	https.get( 'https://api.wordpress.org/translations/core/1.0/', ( response ) => {
 		response.pipe( jsonFile );
 		response.on( 'end', () => {
-			console.log( 'Download complete' );
+			console.log( '[available-site-translations] Download complete' );
 			jsonFile.close( () => resolve() );
 		} );
 		response.on( 'error', ( err ) => reject( err ) );

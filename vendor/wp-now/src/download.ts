@@ -192,12 +192,22 @@ export async function downloadWordPress(
 }
 
 export async function downloadSqliteIntegrationPlugin() {
-	return downloadFileAndUnzip({
+	const finalFolder = getSqlitePath();
+	const tempFolder = path.join(os.tmpdir(), SQLITE_FILENAME);
+	const { downloaded, statusCode } = await downloadFileAndUnzip({
 		url: SQLITE_URL,
-		destinationFolder: getWpNowPath(),
-		checkFinalPath: getSqlitePath(),
+		destinationFolder: tempFolder,
+		checkFinalPath: finalFolder,
 		itemName: 'SQLite',
 	});
+	if (downloaded) {
+		fs.ensureDirSync(path.dirname(finalFolder));
+		fs.moveSync(tempFolder, finalFolder, {
+			overwrite: true,
+		});
+	} else if(0 !== statusCode) {
+		throw Error('An error ocurred when download SQLite' );
+	}
 }
 
 export async function downloadMuPlugins(customMuPluginsPath = '') {

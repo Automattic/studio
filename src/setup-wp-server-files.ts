@@ -1,7 +1,9 @@
 import path from 'path';
 import fs from 'fs-extra';
 import semver from 'semver';
+import { SQLITE_FILENAME } from '../vendor/wp-now/src/constants';
 import { getWordPressVersionPath } from '../vendor/wp-now/src/download';
+import getSqlitePath from '../vendor/wp-now/src/get-sqlite-path';
 import { recursiveCopyDirectory } from './lib/fs-utils';
 import {
 	getWordPressVersionFromInstallation,
@@ -30,12 +32,23 @@ async function copyBundledLatestWPVersion() {
 				overwrite: true,
 			} );
 		}
-		console.log( `Copying embedded WP version ${ bundledWPVersion } as 'latest' version...` );
+		console.log( `Copying bundled WP version ${ bundledWPVersion } as 'latest' version...` );
 		await recursiveCopyDirectory( bundledWPVersionPath, latestWPVersionPath );
 	}
 }
 
-export default async function setupWPVersions() {
+async function copyBundledSqlite() {
+	const isSqliteInstalled = await fs.pathExists( getSqlitePath() );
+	if ( isSqliteInstalled ) {
+		return;
+	}
+	const bundledSqlitePath = path.join( getResourcesPath(), 'wp-files', SQLITE_FILENAME );
+	console.log( `Copying bundled SQLite...` );
+	await recursiveCopyDirectory( bundledSqlitePath, getSqlitePath() );
+}
+
+export default async function setupWPServerFiles() {
 	await copyBundledLatestWPVersion();
+	await copyBundledSqlite();
 	await updateLatestWordPressVersion();
 }

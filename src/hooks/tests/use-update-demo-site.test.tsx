@@ -1,9 +1,10 @@
 // To run tests, execute `npm test src/hooks/tests/use-update-demo-site.test.ts` from the root directory
 import { act, renderHook } from '@testing-library/react';
-import { useAuth } from '../../hooks/use-auth';
-import { useSiteDetails } from '../../hooks/use-site-details';
+import { ReactNode } from 'react';
 import { getIpcApi } from '../../lib/get-ipc-api';
-import { useUpdateDemoSite } from '../use-update-demo-site';
+import { useAuth } from '../use-auth';
+import { useSiteDetails } from '../use-site-details';
+import { useUpdateDemoSite, DemoSiteUpdateProvider } from '../use-update-demo-site';
 
 jest.mock( '../../hooks/use-site-details' );
 jest.mock( '../../hooks/use-auth' );
@@ -22,6 +23,10 @@ global.File = jest.fn().mockImplementation( ( blobParts, fileName, options ) => 
 	name: fileName,
 	type: options.type,
 } ) );
+
+const wrapper = ( { children }: { children: ReactNode } ) => (
+	<DemoSiteUpdateProvider>{ children }</DemoSiteUpdateProvider>
+);
 
 describe( 'useUpdateDemoSite', () => {
 	// Mock data and responses
@@ -65,7 +70,7 @@ describe( 'useUpdateDemoSite', () => {
 			data: 'success',
 		} );
 
-		const { result } = renderHook( () => useUpdateDemoSite() );
+		const { result } = renderHook( () => useUpdateDemoSite(), { wrapper } );
 
 		await act( async () => {
 			await result.current.updateDemoSite( mockSnapshot, mockLocalSite );
@@ -103,7 +108,7 @@ describe( 'useUpdateDemoSite', () => {
 	it( 'when an update fails, ensure an alert is triggered', async () => {
 		clientReqPost.mockRejectedValue( new Error( 'Update failed' ) );
 
-		const { result } = renderHook( () => useUpdateDemoSite() );
+		const { result } = renderHook( () => useUpdateDemoSite(), { wrapper } );
 
 		await act( async () => {
 			await result.current.updateDemoSite( mockSnapshot, mockLocalSite );

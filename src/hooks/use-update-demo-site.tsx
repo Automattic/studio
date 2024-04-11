@@ -1,12 +1,26 @@
 import * as Sentry from '@sentry/electron/renderer';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
-import { useCallback, useState } from 'react';
+import { useCallback, useState, createContext, useContext, useMemo, ReactNode } from 'react';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { useAuth } from './use-auth';
 import { useSiteDetails } from './use-site-details';
 
-export function useUpdateDemoSite() {
+interface DemoSiteUpdateContextType {
+	updateDemoSite: ( snapshot: Snapshot, localSite: SiteDetails ) => Promise< void >;
+	isDemoSiteUpdating: boolean;
+}
+
+const DemoSiteUpdateContext = createContext< DemoSiteUpdateContextType >( {
+	updateDemoSite: async () => undefined,
+	isDemoSiteUpdating: false,
+} );
+
+interface DemoSiteUpdateProviderProps {
+	children: ReactNode;
+}
+
+export const DemoSiteUpdateProvider: React.FC< DemoSiteUpdateProviderProps > = ( { children } ) => {
 	const { client } = useAuth();
 	const { __ } = useI18n();
 	const [ isDemoSiteUpdating, setDemoSiteUpdating ] = useState( false );
@@ -61,5 +75,25 @@ export function useUpdateDemoSite() {
 		[ __, client, updateSnapshot ]
 	);
 
-	return { updateDemoSite, isDemoSiteUpdating };
-}
+	const contextValue = useMemo(
+		() => ( {
+			updateDemoSite,
+			isDemoSiteUpdating,
+		} ),
+		[ updateDemoSite, isDemoSiteUpdating ]
+	);
+
+	return (
+		<DemoSiteUpdateContext.Provider value={ contextValue }>
+			{ children }
+		</DemoSiteUpdateContext.Provider>
+	);
+};
+
+export const useUpdateDemoSite = () => {
+	const context = useContext( DemoSiteUpdateContext );
+	if ( context === null ) {
+		throw new Error( 'useDemoSiteUpdate must be used within a DemoSiteUpdateProvider' );
+	}
+	return context;
+};

@@ -3,6 +3,8 @@ import { renderHook } from '@testing-library/react';
 import { subDays, subHours, subMinutes, subMilliseconds } from 'date-fns';
 import { useExpirationDate } from '../use-expiration-date';
 
+jest.useFakeTimers();
+
 describe( 'useExpirationDate', () => {
 	test( 'should indicate isExpired for dates more than 7 days', () => {
 		const snapshotDate = subDays( new Date(), 8 ).getTime(); // More than 7 days
@@ -12,7 +14,7 @@ describe( 'useExpirationDate', () => {
 	} );
 
 	test( 'should show correct countdown for dates within 7 days', () => {
-		const snapshotDate = subHours( subDays( new Date(), 2 ), 1 ).getTime();
+		const snapshotDate = subHours( subDays( new Date(), 2 ), 2 ).getTime();
 		const { result } = renderHook( () => useExpirationDate( snapshotDate ) );
 		expect( result.current.isExpired ).toBeFalsy();
 		expect( result.current.countDown ).toBe( '4 days, 23 hours' );

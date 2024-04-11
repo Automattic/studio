@@ -42,6 +42,7 @@ steps:
           .buildkite/commands/install-node-dependencies.sh
           node ./scripts/prepare-dev-build-version.mjs
           npm run make:macos-{{matrix}}
+          npm run make:dmg-{{matrix}}
 
           echo "--- 📃 Notarizing Binary"
           bundle exec fastlane notarize_binary
@@ -108,6 +109,7 @@ steps:
           .buildkite/commands/install-node-dependencies.sh
           node ./scripts/confirm-tag-matches-version.mjs
           npm run make:macos-{{matrix}}
+          npm run make:dmg-{{matrix}}
 
           echo "--- 📃 Notarizing Binary"
           bundle exec fastlane notarize_binary

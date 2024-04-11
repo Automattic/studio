@@ -19,14 +19,16 @@ export async function phpGetThemeDetails(
     ]);
     `;
 	try {
-		const currentTheme = (
+		themeDetails = (
 			await php.run( {
 				code: themeDetailsPhp,
 			} )
 		).text;
-		themeDetails = JSON.parse( currentTheme );
+		themeDetails = JSON.parse( themeDetails );
 	} catch ( error ) {
-		Sentry.captureException( error );
+		Sentry.captureException( error, {
+			extra: { themeDetails },
+		} );
 		themeDetails = null;
 	}
 	return themeDetails;

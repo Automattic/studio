@@ -207,7 +207,7 @@ lane :distribute_release_build do |_options|
 
   # Copy the file into position to be picked up by the Buildkite agent and saved with the job
   FileUtils.cp(binary_path_x64, File.join(PROJECT_ROOT_FOLDER, 'out', tagged_filename_x64))
-  FileUtils.cp(binary_path, File.join(PROJECT_ROOT_FOLDER, 'out', tagged_filename_arm64))
+  FileUtils.cp(binary_path_arm64, File.join(PROJECT_ROOT_FOLDER, 'out', tagged_filename_arm64))
 
   download_url_x64 = "https://cdn.a8c-ci.services/#{bucket_folder}/#{tagged_filename_x64}"
   download_url_arm64 = "https://cdn.a8c-ci.services/#{bucket_folder}/#{tagged_filename_arm64}"

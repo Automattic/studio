@@ -1,7 +1,7 @@
-import { Menu, type MenuItemConstructorOptions, app, BrowserWindow } from 'electron';
+import { Menu, type MenuItemConstructorOptions, app, BrowserWindow, autoUpdater } from 'electron';
 import { __ } from '@wordpress/i18n';
 import { createMainWindow } from './main-window';
-import { manualCheckForUpdates } from './updates';
+import { isUpdateReadyToInstall, manualCheckForUpdates } from './updates';
 
 export function setupMenu( window: BrowserWindow | null ) {
 	if ( ! window && process.platform !== 'darwin' ) {
@@ -38,7 +38,14 @@ export function setupMenu( window: BrowserWindow | null ) {
 			role: 'appMenu',
 			submenu: [
 				{ role: 'about' },
-				{ label: __( 'Check for Updates' ), click: manualCheckForUpdates },
+				...( isUpdateReadyToInstall()
+					? [
+							{
+								label: __( 'Restart to Apply Updates' ),
+								click: () => autoUpdater.quitAndInstall(),
+							},
+					  ]
+					: [ { label: __( 'Check for Updates' ), click: manualCheckForUpdates } ] ),
 				{ type: 'separator' },
 				{
 					label: __( 'Settings…' ),

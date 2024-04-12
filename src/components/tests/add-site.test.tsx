@@ -138,4 +138,33 @@ describe( 'AddSite', () => {
 			);
 		} );
 	} );
+
+	it( 'should discard prior mutations and generate a new proposed site path everytime the modal is opened', async () => {
+		const user = userEvent.setup();
+		mockGenerateProposedSitePath.mockImplementation( ( name ) => {
+			const path = `/default_path/${ name.replace( /\s/g, '-' ).toLowerCase() }`;
+			return Promise.resolve( {
+				path,
+				name,
+				isEmpty: true,
+				isWordPress: false,
+			} );
+		} );
+		render( <AddSite /> );
+
+		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+		await user.click( screen.getByDisplayValue( 'My WordPress Website' ) );
+		await user.type( screen.getByDisplayValue( 'My WordPress Website' ), ' mutated' );
+
+		expect( screen.getByDisplayValue( 'My WordPress Website mutated' ) ).toBeInTheDocument();
+		expect(
+			screen.getByDisplayValue( '/default_path/my-wordpress-website-mutated' )
+		).toBeInTheDocument();
+
+		await userEvent.keyboard( '{Escape}' );
+		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+
+		expect( screen.getByDisplayValue( 'My WordPress Website' ) ).toBeInTheDocument();
+		expect( screen.getByDisplayValue( '/default_path/my-wordpress-website' ) ).toBeInTheDocument();
+	} );
 } );

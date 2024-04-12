@@ -85,7 +85,10 @@ export default function AddSite( { className }: AddSiteProps ) {
 
 	const closeModal = useCallback( () => {
 		setShowModal( false );
-	}, [] );
+		setNameSuggested( false );
+		setSitePath( '' );
+		setDoesPathContainWordPress( false );
+	}, [ setSitePath, setDoesPathContainWordPress ] );
 
 	const handleSubmit = useCallback(
 		async ( event: FormEvent ) => {

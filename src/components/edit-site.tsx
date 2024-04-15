@@ -12,7 +12,6 @@ export default function EditSite() {
 	const [ needsToEditSite, setNeedsToEditSite ] = useState( false );
 	const [ isEditingSite, setIsEditingSite ] = useState( false );
 	const [ siteName, setSiteName ] = useState( selectedSite?.name ?? '' );
-	const [ sitePath, setSitePath ] = useState( selectedSite?.path ?? '' );
 
 	const resetLocalState = useCallback( () => {
 		setNeedsToEditSite( false );
@@ -31,7 +30,6 @@ export default function EditSite() {
 				await updateSite( {
 					...selectedSite,
 					name: siteName,
-					path: sitePath,
 				} );
 				setNeedsToEditSite( false );
 				resetLocalState();
@@ -40,7 +38,7 @@ export default function EditSite() {
 			}
 			setIsEditingSite( false );
 		},
-		[ updateSite, selectedSite, siteName, sitePath, resetLocalState ]
+		[ updateSite, selectedSite, siteName, resetLocalState ]
 	);
 
 	return (
@@ -56,10 +54,6 @@ export default function EditSite() {
 					<SiteForm
 						siteName={ siteName }
 						setSiteName={ setSiteName }
-						sitePath={ sitePath }
-						// eslint-disable-next-line @typescript-eslint/no-empty-function
-						onSelectPath={ () => {} }
-						isPathInputDisabled={ true }
 						error={ editSiteError }
 						onSubmit={ onSiteEdit }
 					>
@@ -90,7 +84,6 @@ export default function EditSite() {
 				onClick={ () => {
 					if ( selectedSite ) {
 						setSiteName( selectedSite.name );
-						setSitePath( selectedSite.path );
 					}
 					setNeedsToEditSite( true );
 				} }

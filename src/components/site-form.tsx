@@ -84,8 +84,8 @@ export const SiteForm = ( {
 	children?: React.ReactNode;
 	siteName: string;
 	setSiteName: ( name: string ) => void;
-	sitePath: string;
-	onSelectPath: () => void;
+	sitePath?: string;
+	onSelectPath?: () => void;
 	error: string;
 	doesPathContainWordPress?: boolean;
 	isPathInputDisabled?: boolean;
@@ -100,18 +100,20 @@ export const SiteForm = ( {
 					<span className="font-semibold">{ __( 'Site name' ) }</span>
 					<TextControlComponent onChange={ setSiteName } value={ siteName }></TextControlComponent>
 				</label>
-				<label className="flex flex-col gap-1.5 leading-4">
-					<span onClick={ onSelectPath } className="font-semibold">
-						{ __( 'Local path' ) }
-					</span>
-					<FormPathInputComponent
-						isDisabled={ isPathInputDisabled }
-						doesPathContainWordPress={ doesPathContainWordPress }
-						error={ error }
-						value={ sitePath }
-						onClick={ onSelectPath }
-					/>
-				</label>
+				{ sitePath && onSelectPath && (
+					<label className="flex flex-col gap-1.5 leading-4">
+						<span onClick={ onSelectPath } className="font-semibold">
+							{ __( 'Local path' ) }
+						</span>
+						<FormPathInputComponent
+							isDisabled={ isPathInputDisabled }
+							doesPathContainWordPress={ doesPathContainWordPress }
+							error={ error }
+							value={ sitePath }
+							onClick={ onSelectPath }
+						/>
+					</label>
+				) }
 			</div>
 			{ children }
 		</form>

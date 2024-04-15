@@ -1,4 +1,6 @@
+import { speak } from '@wordpress/a11y';
 import { __, sprintf } from '@wordpress/i18n';
+import { useEffect } from 'react';
 import { useSiteDetails } from '../hooks/use-site-details';
 import { isMac } from '../lib/app-globals';
 import { cx } from '../lib/cx';
@@ -9,6 +11,21 @@ interface SiteMenuProps {
 
 function ButtonToRun( { running, id, name }: Pick< SiteDetails, 'running' | 'id' | 'name' > ) {
 	const { startServer, stopServer, loadingServer } = useSiteDetails();
+	const siteStartedMessage = sprintf(
+		// translators: %s is the site name.
+		__( '%s site started.' ),
+		name
+	);
+	const siteStoppedMessage = sprintf(
+		// translators: %s is the site name.
+		__( '%s site stopped.' ),
+		name
+	);
+
+	useEffect( () => {
+		speak( running ? siteStartedMessage : siteStoppedMessage );
+	}, [ running, siteStartedMessage, siteStoppedMessage ] );
+
 	const classCircle = `rounded-full`;
 	const triangle = (
 		<svg width="8" height="10" viewBox="0 0 8 10" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -41,7 +58,7 @@ function ButtonToRun( { running, id, name }: Pick< SiteDetails, 'running' | 'id'
 				return running ? stopServer( id ) : startServer( id );
 			} }
 			className="w-7 h-8 rounded-tr rounded-br group grid focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-a8c-blueberry"
-			aria-label={ sprintf( running ? __( 'stop site %s' ) : __( 'start site %s' ), name ) }
+			aria-label={ sprintf( running ? __( 'stop %s site' ) : __( 'start %s site' ), name ) }
 		>
 			{ /* Circle */ }
 			<div

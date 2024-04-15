@@ -133,14 +133,14 @@ describe( 'MainSidebar Site Menu', () => {
 
 	it( 'has "start site" buttons when sites are not running', async () => {
 		await act( async () => render( <MainSidebar /> ) );
-		expect( screen.getByRole( 'button', { name: 'start site test-1' } ) ).toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: 'start site test-2' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'start test-1 site' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'start test-2 site' } ) ).toBeInTheDocument();
 	} );
 
 	it( 'starts a site', async () => {
 		const user = userEvent.setup();
 		await act( async () => render( <MainSidebar /> ) );
-		const greenDotFirstSite = screen.getByRole( 'button', { name: 'start site test-1' } );
+		const greenDotFirstSite = screen.getByRole( 'button', { name: 'start test-1 site' } );
 		expect( greenDotFirstSite ).toBeInTheDocument();
 		await user.click( greenDotFirstSite );
 		expect( siteDetailsMocked.startServer ).toHaveBeenCalledWith(
@@ -151,7 +151,7 @@ describe( 'MainSidebar Site Menu', () => {
 	it( 'stops a site', async () => {
 		const user = userEvent.setup();
 		await act( async () => render( <MainSidebar /> ) );
-		const greenDotFirstSite = screen.getByRole( 'button', { name: 'stop site test-3' } );
+		const greenDotFirstSite = screen.getByRole( 'button', { name: 'stop test-3 site' } );
 		expect( greenDotFirstSite ).toBeInTheDocument();
 		await user.click( greenDotFirstSite );
 		expect( siteDetailsMocked.stopServer ).toHaveBeenCalledWith(

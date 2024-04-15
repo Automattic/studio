@@ -1,3 +1,5 @@
+import { speak } from '@wordpress/a11y';
+import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { useAddSite } from '../hooks/use-add-site';
@@ -55,6 +57,12 @@ export default function AddSite( { className }: AddSiteProps ) {
 		loadingSites,
 	} = useAddSite();
 
+	const siteAddedMessage = sprintf(
+		// translators: %s is the site name.
+		__( '%s site added.' ),
+		siteName
+	);
+
 	const initializeForm = useCallback( async () => {
 		const { name, path, isWordPress } =
 			( await getIpcApi().generateProposedSitePath( generateSiteName( usedSiteNames ) ) ) || {};
@@ -95,13 +103,14 @@ export default function AddSite( { className }: AddSiteProps ) {
 			event.preventDefault();
 			try {
 				await handleAddSiteClick();
+				speak( siteAddedMessage );
 				setNameSuggested( false );
 				closeModal();
 			} catch {
 				// No need to handle error here, it's already handled in handleAddSiteClick
 			}
 		},
-		[ handleAddSiteClick, closeModal ]
+		[ handleAddSiteClick, closeModal, siteAddedMessage ]
 	);
 
 	useIpcListener( 'add-site', () => {

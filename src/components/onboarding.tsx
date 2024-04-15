@@ -1,3 +1,5 @@
+import { speak } from '@wordpress/a11y';
+import { sprintf } from '@wordpress/i18n';
 import { Icon, check, wordpress } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useCallback, useEffect } from 'react';
@@ -23,7 +25,10 @@ const GradientBox = () => {
 		</svg>
 	);
 	return (
-		<div className="gap-1 flex flex-col font-normal text-[42px] leading-[42px] text-white">
+		<div
+			aria-label={ __( 'Imagine, Create, Design, Code, Build' ) }
+			className="gap-1 flex flex-col font-normal text-[42px] leading-[42px] text-white"
+		>
 			<div className="flex flex-col gap-1 relative self-stretch">
 				<div className="absolute inset-0 bg-gradient-to-b from-[#3858E9] to-[#3858E9]/60"></div>
 				<p>{ __( 'Imagine' ) }</p>
@@ -74,6 +79,12 @@ export default function Onboarding() {
 		handlePathSelectorClick,
 	} = useAddSite();
 
+	const siteAddedMessage = sprintf(
+		// translators: %s is the site name.
+		__( '%s site added.' ),
+		siteName
+	);
+
 	useEffect( () => {
 		const run = async () => {
 			const { path, name, isWordPress } = await getIpcApi().generateProposedSitePath(
@@ -94,11 +105,12 @@ export default function Onboarding() {
 			event.preventDefault();
 			try {
 				await handleAddSiteClick();
+				speak( siteAddedMessage );
 			} catch {
 				// No need to handle error here, it's already handled in handleAddSiteClick
 			}
 		},
-		[ handleAddSiteClick ]
+		[ handleAddSiteClick, siteAddedMessage ]
 	);
 
 	return (
@@ -141,7 +153,7 @@ export default function Onboarding() {
 									<Button
 										type="submit"
 										isBusy={ isAddingSite }
-										disabled={ isAddingSite }
+										disabled={ !! error || isAddingSite }
 										variant="primary"
 									>
 										{ isAddingSite ? __( 'Adding site…' ) : __( 'Continue' ) }

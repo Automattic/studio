@@ -1,4 +1,4 @@
-import { sprintf } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { useThemeDetails } from '../hooks/use-theme-details';
 
 const backgroundSvg = (
@@ -89,7 +89,7 @@ export function ScreenshotDemoSite( { site }: { site: SiteDetails } ) {
 						src={ thumbnailData }
 						alt={ sprintf(
 							/* translators: %s: The name of the website */
-							'Preview of the %s site',
+							__( 'Preview of the %s site' ),
 							site.name
 						) }
 					/>

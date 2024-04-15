@@ -20,6 +20,7 @@ py-2
 rounded-sm
 justify-center
 disabled:cursor-not-allowed
+truncate
 [&.components-button]:focus:shadow-[inset_0_0_0_1px_transparent]
 [&.components-button]:focus-visible:shadow-[0_0_0_1px_#3858E9]
 [&.components-button]:focus-visible:shadow-a8c-blueberry

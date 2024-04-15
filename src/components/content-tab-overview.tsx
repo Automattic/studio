@@ -26,11 +26,13 @@ interface ContentTabOverviewProps {
 	selectedSite: SiteDetails;
 }
 
+const skeletonBg = 'animate-pulse bg-gradient-to-r from-[#F6F7F7] via-[#DCDCDE] to-[#F6F7F7]';
+
 const ButtonSectionSkeleton = ( { title }: { title: string } ) => {
 	return (
 		<div className="w-full max-w-96">
 			<h2 className="a8c-subtitle-small mb-3">{ title }</h2>
-			<div className="w-full h-20 my-1 animate-pulse bg-gradient-to-r from-[#F6F7F7] via-[#DCDCDE] to-[#F6F7F7]"></div>
+			<div className={ `w-full h-20 my-1 ${ skeletonBg }` }></div>
 		</div>
 	);
 };
@@ -203,12 +205,6 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 	return <ButtonsSection buttonsArray={ buttonsArray } title={ __( 'Open in…' ) } />;
 }
 
-const ThumbnailSkeleton = () => {
-	return (
-		<div className="w-full h-full min-h-4 animate-pulse bg-gradient-to-r from-[#F6F7F7] via-[#DCDCDE] to-[#F6F7F7]"></div>
-	);
-};
-
 export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) {
 	const [ isThumbnailError, setIsThumbnailError ] = useState( false );
 	const { __ } = useI18n();
@@ -219,6 +215,7 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 		selectedLoadingThumbnails: loadingThumbnails,
 		initialLoading,
 	} = useThemeDetails();
+
 	const loading = loadingThemeDetails || loadingThumbnails || initialLoading;
 
 	return (
@@ -227,11 +224,11 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 				<h2 className="mb-3 a8c-subtitle-small">{ __( 'Theme' ) }</h2>
 				<div
 					className={ cx(
-						'w-full h-60 rounded-sm border border-a8c-gray-5 bg-a8c-gray-0 mb-2 flex items-center justify-center',
+						'w-full min-h-40 max-h-60 overflow-hidden rounded-sm border border-a8c-gray-5 bg-a8c-gray-0 mb-2 flex items-center justify-center',
+						loading && skeletonBg,
 						isThumbnailError && 'border-none'
 					) }
 				>
-					{ loading && <ThumbnailSkeleton /> }
 					{ isThumbnailError && ! loading && (
 						<div className="flex items-center justify-center w-full h-full leading-5 text-a8c-gray-50">
 							{ __( 'Preview unavailable' ) }
@@ -248,11 +245,7 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 					) }
 				</div>
 				<div className="flex justify-between items-center w-full">
-					{ loading && (
-						<div className="w-[100px]">
-							<ThumbnailSkeleton />
-						</div>
-					) }
+					{ loading && <div className={ `w-[100px] min-h-4 ${ skeletonBg }` }></div> }
 					{ ! loading && ! isThumbnailError && <p>{ themeDetails?.name }</p> }
 				</div>
 			</div>

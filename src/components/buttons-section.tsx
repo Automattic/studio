@@ -17,7 +17,7 @@ export function ButtonsSection( { buttonsArray, title, className = '' }: Buttons
 	return (
 		<div className="w-full max-w-96">
 			<h2 className="a8c-subtitle-small mb-3">{ title }</h2>
-			<div className={ cx( 'gap-3', className || 'grid grid-cols-3' ) }>
+			<div className={ cx( 'gap-3', className || 'grid md:grid-cols-3' ) }>
 				{ buttonsArray.map( ( button, index ) => (
 					<Button
 						className={ button.className }

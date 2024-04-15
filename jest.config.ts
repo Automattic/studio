@@ -1,7 +1,14 @@
 module.exports = {
 	roots: [ '<rootDir>/src' ],
 	transform: {
-		'^.+\\.tsx?$': 'ts-jest',
+		'^.+\\.tsx?$': [
+			'ts-jest',
+			{
+				diagnostics: {
+					exclude: [ '**/vendor/wp-now/**/*' ],
+				},
+			},
+		],
 	},
 	testEnvironment: 'jsdom',
 	testRegex: '(/tests/.*|(\\.|/)(test|spec))\\.tsx?$',

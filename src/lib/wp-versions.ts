@@ -3,7 +3,7 @@ import fs from 'fs-extra';
 import semver from 'semver';
 import { DEFAULT_WORDPRESS_VERSION } from '../../vendor/wp-now/src/constants';
 import { downloadWordPress, getWordPressVersionPath } from '../../vendor/wp-now/src/download';
-import { recursiveCopyDirectory } from './fs-utils';
+import { pathExists, recursiveCopyDirectory } from './fs-utils';
 
 export const MINIMUM_SUPPORTED_WP_VERSION = 6;
 
@@ -73,4 +73,27 @@ export async function updateLatestWordPressVersion() {
 		}
 	}
 	await downloadWordPress( 'latest', { overwrite: shouldOverwrite } );
+}
+
+/**
+ * Deletes the wp-config.php file at the specified path.
+ *
+ * Prior to enforcing Playground's WordPress mode, it was possible to run
+ * alternative modes, which mutated Studio's bundled WordPress installation.
+ * To rectify the situation, we remove the erroneous wp-config.php file.
+ *
+ * If we are confident this situation is not a widespread issue, we can remove
+ * this function in the future.
+ *
+ * @param wpVersion - The WordPress version the wp-config.php file.
+ */
+export async function purgeWpConfig( wpVersion: string ) {
+	const wpVersionPath = getWordPressVersionPath( wpVersion );
+	const wpConfigPath = path.join( wpVersionPath, 'wp-config.php' );
+
+	if ( ! ( await pathExists( wpConfigPath ) ) ) {
+		return;
+	}
+
+	await fs.promises.unlink( wpConfigPath );
 }

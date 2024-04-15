@@ -1,8 +1,10 @@
 import '@testing-library/jest-dom';
 import nock from 'nock';
 
-// The ipcListener global is usually defined in preload.ts
-window.ipcListener = { subscribe: jest.fn() };
+if ( typeof window !== 'undefined' ) {
+	// The ipcListener global is usually defined in preload.ts
+	window.ipcListener = { subscribe: jest.fn() };
+}
 
 nock.disableNetConnect();
 

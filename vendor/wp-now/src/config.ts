@@ -181,7 +181,7 @@ export default async function getWpNowConfig(
 	}
 	if (args.siteTitle) {
 		options.siteTitle = args.siteTitle;
-	}	
+	}
 	return options;
 }
 

@@ -2,6 +2,7 @@ import fs from 'fs';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { getWpNowConfig, startServer, type WPNowServer } from '../vendor/wp-now/src';
+import { WPNowMode } from '../vendor/wp-now/src/config';
 import { getWordPressVersionPath } from '../vendor/wp-now/src/download';
 import { pathExists, recursiveCopyDirectory, isEmptyDir } from './lib/fs-utils';
 import { decodePassword } from './lib/passwords';
@@ -9,6 +10,7 @@ import { phpGetThemeDetails } from './lib/php-get-theme-details';
 import { portFinder } from './lib/port-finder';
 import { sanitizeForLogging } from './lib/sanitize-for-logging';
 import { getPreferredSiteLanguage } from './lib/site-language';
+import { purgeWpConfig } from './lib/wp-versions';
 import { createScreenshotWindow } from './screenshot-window';
 import { getSiteThumbnailPath } from './storage/paths';
 
@@ -23,6 +25,7 @@ export async function createSiteWorkingDirectory(
 		return false;
 	}
 
+	await purgeWpConfig( wpVersion );
 	await recursiveCopyDirectory( getWordPressVersionPath( wpVersion ), path );
 
 	return true;
@@ -73,6 +76,12 @@ export class SiteServer {
 		const absoluteUrl = `http://localhost:${ port }`;
 		options.absoluteUrl = absoluteUrl;
 		options.siteLanguage = await getPreferredSiteLanguage( options.wordPressVersion );
+
+		if ( options.mode !== WPNowMode.WORDPRESS ) {
+			throw new Error(
+				`Site server started with Playground's '${ options.mode }' mode. Studio only supports 'wordpress' mode.`
+			);
+		}
 
 		console.log( 'Starting server with options', sanitizeForLogging( options ) );
 		this.server = await startServer( options );

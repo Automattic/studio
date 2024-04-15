@@ -1,14 +1,17 @@
 import { __ } from '@wordpress/i18n';
 import { Icon, help } from '@wordpress/icons';
 import { useAuth } from '../hooks/use-auth';
+import { useOffline } from '../hooks/use-offline';
 import { isMac } from '../lib/app-globals';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import AddSite from './add-site';
 import Button from './button';
 import { Gravatar } from './gravatar';
+import offlineIcon from './offline-icon';
 import { RunningSites } from './running-sites';
 import SiteMenu from './site-menu';
+import Tooltip from './tooltip';
 import UserSettings from './user-settings';
 import { WordPressLogo } from './wordpress-logo';
 
@@ -18,6 +21,8 @@ interface MainSidebarProps {
 
 function SidebarAuthFooter() {
 	const { isAuthenticated, authenticate } = useAuth();
+	const isOffline = useOffline();
+	const offlineMessage = __( 'You’re currently offline.' );
 	const openLocalizedSupport = async () => {
 		const { locale } = await getIpcApi().getAppGlobals();
 		await getIpcApi().openURL( `https://wordpress.com/${ locale }/support` );
@@ -50,13 +55,65 @@ function SidebarAuthFooter() {
 	}
 
 	return (
-		<Button
-			className="flex items-center justify-between w-full text-white rounded !px-0 py-1 h-auto active:!text-white hover:!text-white hover:underline"
-			onClick={ authenticate }
+		<Tooltip
+			disabled={ ! isOffline }
+			icon={ offlineIcon }
+			text={ offlineMessage }
+			placement="right"
+			className="flex"
 		>
-			<WordPressLogo />
-			<div className="text-xs">{ __( 'Log in' ) }</div>
-		</Button>
+			<Button
+				aria-description={ isOffline ? offlineMessage : '' }
+				aria-disabled={ isOffline }
+				className="flex items-center justify-between w-full text-white rounded !px-0 py-1 h-auto active:!text-white hover:!text-white hover:underline"
+				onClick={ () => {
+					if ( isOffline ) {
+						return;
+					}
+					authenticate();
+				} }
+			>
+				<WordPressLogo />
+				<div className="text-xs">{ __( 'Log in' ) }</div>
+			</Button>
+		</Tooltip>
+	);
+}
+
+function SidebarToolbar() {
+	const isOffline = useOffline();
+	const offlineMessage = [
+		__( 'You’re currently offline.' ),
+		__( 'Some features will be unavailable.' ),
+	];
+	return (
+		<div
+			className={ cx(
+				'absolute right-4 app-no-drag-region',
+				isMac() && 'top-1',
+				! isMac() && 'top-0'
+			) }
+		>
+			{ isOffline && (
+				<Tooltip
+					text={
+						<span>
+							{ offlineMessage[ 0 ] }
+							<br />
+							{ offlineMessage[ 1 ] }
+						</span>
+					}
+				>
+					<button
+						aria-label="Offline indicator"
+						aria-description={ offlineMessage.join( ' ' ) }
+						className="hover:bg-[#ffffff0C] rounded p-2 cursor-default"
+					>
+						<Icon className="fill-white" size={ 16 } icon={ offlineIcon } />
+					</button>
+				</Tooltip>
+			) }
+		</div>
 	);
 }
 
@@ -65,12 +122,13 @@ export default function MainSidebar( { className }: MainSidebarProps ) {
 		<div
 			data-testid="main-sidebar"
 			className={ cx(
-				'text-chrome-inverted',
+				'text-chrome-inverted relative',
 				isMac() && 'pt-[50px]',
 				! isMac() && 'pt-[38px]',
 				className
 			) }
 		>
+			<SidebarToolbar />
 			<div className="flex flex-col h-full">
 				<div className="flex-1 overflow-y-auto sites-scrollbar app-no-drag-region">
 					<SiteMenu />

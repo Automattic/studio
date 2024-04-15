@@ -1,7 +1,8 @@
 // To run tests, execute `npm run test -- src/components/content-tab-settings.test.tsx` from the root directory
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { useGetWpVersion } from '../../hooks/use-get-wp-version';
+import { useOffline } from '../../hooks/use-offline';
 import { getIpcApi } from '../../lib/get-ipc-api';
 import { ContentTabSettings } from '../content-tab-settings';
 
@@ -98,6 +99,19 @@ describe( 'ContentTabSettings', () => {
 		await user.click( adminPasswordButton );
 		expect( copyText ).toHaveBeenCalledTimes( 1 );
 		expect( copyText ).toHaveBeenCalledWith( 'test-password' );
+	} );
+
+	it( 'disables delete site button when offline', async () => {
+		( useOffline as jest.Mock ).mockReturnValue( true );
+		render( <ContentTabSettings selectedSite={ selectedSite } /> );
+		const deleteSiteButton = await screen.findByRole( 'button', { name: 'Delete site' } );
+		expect( deleteSiteButton ).toHaveAttribute( 'aria-disabled', 'true' );
+		fireEvent.mouseOver( deleteSiteButton );
+		expect(
+			screen.getByRole( 'tooltip', {
+				name: 'This site has active demo sites that cannot be deleted without an internet connection.',
+			} )
+		).toBeVisible();
 	} );
 
 	describe( 'when a legacy site lacks a stored password', () => {

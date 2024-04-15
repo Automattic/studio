@@ -1,10 +1,11 @@
 // To run tests, execute `npm run test -- src/components/content-tab-snapshots.test.tsx` from the root directory
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { LIMIT_OF_ZIP_SITES_PER_USER } from '../../constants';
 import { useArchiveSite } from '../../hooks/use-archive-site';
 import { useAuth } from '../../hooks/use-auth';
 import { useDeleteSnapshot } from '../../hooks/use-delete-snapshot';
+import { useOffline } from '../../hooks/use-offline';
 import { useSiteDetails } from '../../hooks/use-site-details';
 import { useSiteUsage } from '../../hooks/use-site-usage';
 import { useUpdateDemoSite } from '../../hooks/use-update-demo-site';
@@ -326,12 +327,76 @@ describe( 'ContentTabSnapshots', () => {
 
 		expect( deleteSnapshotMock ).not.toHaveBeenCalled();
 	} );
+
+	test( 'update and delete buttons are disabled when offline', async () => {
+		( useOffline as jest.Mock ).mockReturnValue( true );
+		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
+		const dateMS = new Date().getTime();
+		( useSiteDetails as jest.Mock ).mockReturnValue( {
+			snapshots: [
+				{
+					url: 'fake-site.fake',
+					atomicSiteId: 150,
+					localSiteId: 'site-id-1',
+					date: dateMS,
+					deleted: false,
+				},
+			],
+			uploadingSites: {},
+		} );
+		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
+
+		const updateButton = await screen.findByRole( 'button', { name: 'Update demo site' } );
+		expect( updateButton ).toHaveAttribute( 'aria-disabled', 'true' );
+		fireEvent.mouseOver( updateButton );
+		expect(
+			screen.getByRole( 'tooltip', {
+				name: 'Updating a demo site requires an internet connection.',
+			} )
+		).toBeVisible();
+		fireEvent.mouseOut( updateButton );
+
+		const deleteSnapshotButton = screen.getByRole( 'button', { name: 'Delete demo site' } );
+		expect( deleteSnapshotButton ).toHaveAttribute( 'aria-disabled', 'true' );
+		fireEvent.mouseOver( deleteSnapshotButton );
+		expect(
+			screen.getByRole( 'tooltip', {
+				name: 'Deleting a demo site requires an internet connection.',
+			} )
+		).toBeVisible();
+	} );
+
+	test( 'log in button is disabled when offline', async () => {
+		( useOffline as jest.Mock ).mockReturnValue( true );
+		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: false } );
+		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
+
+		const loginButton = screen.getByRole( 'button', { name: 'Log in to WordPress.com' } );
+		expect( loginButton ).toHaveAttribute( 'aria-disabled', 'true' );
+		fireEvent.mouseOver( loginButton );
+		expect(
+			screen.getByRole( 'tooltip', {
+				name: 'You’re currently offline.',
+			} )
+		).toBeVisible();
+		fireEvent.mouseOut( loginButton );
+
+		const createAccountLink = screen.getByText( 'Create a free account' );
+		expect( createAccountLink ).toHaveAttribute( 'aria-disabled', 'true' );
+		fireEvent.mouseOver( createAccountLink );
+		expect(
+			screen.getByRole( 'tooltip', {
+				name: 'You’re currently offline.',
+			} )
+		).toBeVisible();
+	} );
 } );
 
 describe( 'AddDemoSiteWithProgress', () => {
 	const archiveSite = jest.fn();
 	const isUploadingSiteId = jest.fn();
 	beforeEach( () => {
+		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
 		( useSiteDetails as jest.Mock ).mockReturnValue( {
 			snapshots: [
 				{
@@ -386,6 +451,7 @@ describe( 'AddDemoSiteWithProgress', () => {
 		const addDemoSiteButton = screen.getByRole( 'button', { name: 'Add demo site' } );
 		expect( addDemoSiteButton ).toBeEnabled();
 	} );
+
 	test( 'Button is disabled when another site is being archived', async () => {
 		( useArchiveSite as jest.Mock ).mockReturnValue( {
 			archiveSite,
@@ -395,5 +461,17 @@ describe( 'AddDemoSiteWithProgress', () => {
 		render( <ContentTabSnapshots selectedSite={ { ...selectedSite, id: 'site-id-2' } } /> );
 		const addDemoSiteButton = screen.getByRole( 'button', { name: 'Add demo site' } );
 		expect( addDemoSiteButton ).toHaveAttribute( 'aria-disabled', 'true' );
+	} );
+
+	test( 'Button is disabled when offline', async () => {
+		( useOffline as jest.Mock ).mockReturnValue( true );
+		render( <ContentTabSnapshots selectedSite={ { ...selectedSite, id: 'site-id-1' } } /> );
+		const addDemoSiteButton = screen.getByRole( 'button', { name: 'Add demo site' } );
+		expect( addDemoSiteButton ).toHaveAttribute( 'aria-disabled', 'true' );
+		fireEvent.mouseOver( addDemoSiteButton );
+		const offlineTooltip = screen.getByRole( 'tooltip', {
+			name: 'Creating a demo site requires an internet connection.',
+		} );
+		expect( offlineTooltip ).toBeVisible();
 	} );
 } );

@@ -1,6 +1,7 @@
-import { render, act, waitFor, screen } from '@testing-library/react';
+import { fireEvent, render, act, waitFor, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { useAuth } from '../../hooks/use-auth';
+import { useOffline } from '../../hooks/use-offline';
 import MainSidebar from '../main-sidebar';
 
 jest.mock( '../../hooks/use-auth' );
@@ -95,6 +96,30 @@ describe( 'MainSidebar Footer', () => {
 	it( 'shows a "Stop All" button when there are running sites', async () => {
 		await act( async () => render( <MainSidebar /> ) );
 		expect( screen.getByRole( 'button', { name: 'Stop all' } ) ).toBeInTheDocument();
+	} );
+
+	it( 'disables log in button when offline', async () => {
+		( useOffline as jest.Mock ).mockReturnValue( true );
+		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: false } );
+		await act( async () => render( <MainSidebar /> ) );
+		const loginButton = screen.getByRole( 'button', { name: 'Log in' } );
+		expect( loginButton ).toHaveAttribute( 'aria-disabled', 'true' );
+		fireEvent.mouseOver( loginButton );
+		expect( screen.getByRole( 'tooltip', { name: 'You’re currently offline.' } ) ).toBeVisible();
+	} );
+
+	it( 'shows offline indicator', async () => {
+		( useOffline as jest.Mock ).mockReturnValue( true );
+		await act( async () => render( <MainSidebar /> ) );
+		const offlineIndicator = screen.getByRole( 'button', {
+			name: 'Offline indicator',
+		} );
+		fireEvent.mouseOver( offlineIndicator );
+		expect(
+			screen.getByRole( 'tooltip', {
+				name: 'You’re currently offline. Some features will be unavailable.',
+			} )
+		).toBeVisible();
 	} );
 } );
 

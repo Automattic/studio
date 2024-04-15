@@ -150,6 +150,12 @@ module.exports = {
 				xxs: '0.6875rem',
 				body: '0.8125rem',
 			},
+			keyframes: {
+				fade: {
+					from: { opacity: 0 },
+					to: { opacity: 1 },
+				},
+			},
 		},
 	},
 	plugins: [

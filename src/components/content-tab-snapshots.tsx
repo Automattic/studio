@@ -1,13 +1,14 @@
-import { Popover, Spinner } from '@wordpress/components';
+import { Spinner } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 import { Icon, check, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { PropsWithChildren, useEffect, useState } from 'react';
+import { PropsWithChildren, useEffect } from 'react';
 import { useArchiveSite } from '../hooks/use-archive-site';
 import { useAuth } from '../hooks/use-auth';
 import { useDeleteSnapshot } from '../hooks/use-delete-snapshot';
 import { useExpirationDate } from '../hooks/use-expiration-date';
+import { useOffline } from '../hooks/use-offline';
 import { useProgressTimer } from '../hooks/use-progress-timer';
 import { useSiteDetails } from '../hooks/use-site-details';
 import { useSiteUsage } from '../hooks/use-site-usage';
@@ -16,8 +17,10 @@ import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { Badge } from './badge';
 import Button from './button';
+import offlineIcon from './offline-icon';
 import ProgressBar from './progress-bar';
 import { ScreenshotDemoSite } from './screenshot-demo-site';
+import Tooltip from './tooltip';
 
 interface ContentTabSnapshotsProps {
 	selectedSite: SiteDetails;
@@ -51,6 +54,14 @@ function SnapshotRow( {
 	const { countDown, isExpired, dateString } = useExpirationDate( date );
 	const { deleteSnapshot } = useDeleteSnapshot();
 	const { updateDemoSite, isDemoSiteUpdating } = useUpdateDemoSite();
+
+	const isOffline = useOffline();
+	const updateDemoSiteOfflineMessage = __(
+		'Updating a demo site requires an internet connection.'
+	);
+	const deleteDemoSiteOfflineMessage = __(
+		'Deleting a demo site requires an internet connection.'
+	);
 
 	const { progress, setProgress } = useProgressTimer( {
 		paused: ! isDemoSiteUpdating,
@@ -168,30 +179,58 @@ function SnapshotRow( {
 					</div>
 				) : (
 					<>
-						<Button variant="primary" onClick={ handleUpdateDemoSite }>
-							{ __( 'Update demo site' ) }
-						</Button>
-						<Button
-							variant="secondary"
-							isDestructive
-							onClick={ async () => {
-								const { response } = await getIpcApi().showMessageBox( {
-									type: 'warning',
-									message: __( 'Delete demo site' ),
-									detail: __(
-										'Your demo sites files and database along with all posts, pages, comments and media will be lost.'
-									),
-									buttons: [ __( 'Delete' ), __( 'Cancel' ) ],
-									cancelId: 1,
-								} );
-
-								if ( response === 0 ) {
-									deleteSnapshot( snapshot );
-								}
-							} }
+						<Tooltip
+							disabled={ ! isOffline }
+							icon={ offlineIcon }
+							text={ updateDemoSiteOfflineMessage }
 						>
-							{ __( 'Delete demo site' ) }
-						</Button>
+							<Button
+								aria-description={ isOffline ? updateDemoSiteOfflineMessage : '' }
+								aria-disabled={ isOffline }
+								variant="primary"
+								onClick={ () => {
+									if ( isOffline ) {
+										return;
+									}
+									handleUpdateDemoSite();
+								} }
+							>
+								{ __( 'Update demo site' ) }
+							</Button>
+						</Tooltip>
+						<Tooltip
+							disabled={ ! isOffline }
+							icon={ offlineIcon }
+							text={ deleteDemoSiteOfflineMessage }
+						>
+							<Button
+								aria-description={ isOffline ? deleteDemoSiteOfflineMessage : '' }
+								aria-disabled={ isOffline }
+								variant="secondary"
+								isDestructive
+								onClick={ async () => {
+									if ( isOffline ) {
+										return;
+									}
+
+									const { response } = await getIpcApi().showMessageBox( {
+										type: 'warning',
+										message: __( 'Delete demo site' ),
+										detail: __(
+											'Your demo sites files and database along with all posts, pages, comments and media will be lost.'
+										),
+										buttons: [ __( 'Delete' ), __( 'Cancel' ) ],
+										cancelId: 1,
+									} );
+
+									if ( response === 0 ) {
+										deleteSnapshot( snapshot );
+									}
+								} }
+							>
+								{ __( 'Delete demo site' ) }
+							</Button>
+						</Tooltip>
 					</>
 				) }
 			</div>
@@ -244,33 +283,59 @@ function EmptyGeneric( {
 }
 
 function NoAuth( { selectedSite }: React.ComponentProps< typeof EmptyGeneric > ) {
+	const isOffline = useOffline();
 	const { __ } = useI18n();
 	const { authenticate } = useAuth();
+	const offlineMessage = __( 'You’re currently offline.' );
 
 	return (
 		<EmptyGeneric selectedSite={ selectedSite }>
 			<div className="mt-8">
-				<Button variant="primary" onClick={ authenticate }>
-					{ __( 'Log in to WordPress.com' ) }
-					<Icon className="ml-1" icon={ external } size={ 21 } />
-				</Button>
+				<Tooltip disabled={ ! isOffline } icon={ offlineIcon } text={ offlineMessage }>
+					<Button
+						aria-description={ isOffline ? offlineMessage : '' }
+						aria-disabled={ isOffline }
+						variant="primary"
+						onClick={ () => {
+							if ( isOffline ) {
+								return;
+							}
+							authenticate();
+						} }
+					>
+						{ __( 'Log in to WordPress.com' ) }
+						<Icon className="ml-1" icon={ external } size={ 21 } />
+					</Button>
+				</Tooltip>
 			</div>
 			<div className="mt-3 w-[40ch] text-a8c-gray-70 a8c-body">
-				{ createInterpolateElement(
-					__(
-						'A WordPress.com account is required to create demo sites. <a>Create a free account</a>'
-					),
-					{
-						a: (
-							<Button
-								className="!p-0 text-a8c-blueberry hover:opacity-80 h-auto"
-								onClick={ () =>
-									getIpcApi().openURL( 'https://wordpress.com/start/account/user-social' )
-								}
-							/>
+				<Tooltip
+					disabled={ ! isOffline }
+					icon={ offlineIcon }
+					text={ offlineMessage }
+					placement="bottom-start"
+				>
+					{ createInterpolateElement(
+						__(
+							'A WordPress.com account is required to create demo sites. <a>Create a free account</a>'
 						),
-					}
-				) }
+						{
+							a: (
+								<Button
+									aria-description={ isOffline ? offlineMessage : '' }
+									aria-disabled={ isOffline }
+									className="!p-0 text-a8c-blueberry hover:opacity-80 h-auto"
+									onClick={ () => {
+										if ( isOffline ) {
+											return;
+										}
+										getIpcApi().openURL( 'https://wordpress.com/start/account/user-social' );
+									} }
+								/>
+							),
+						}
+					) }
+				</Tooltip>
 			</div>
 		</EmptyGeneric>
 	);
@@ -305,9 +370,9 @@ function AddDemoSiteWithProgress( {
 	const { __, _n } = useI18n();
 	const { archiveSite, isUploadingSiteId, isAnySiteArchiving } = useArchiveSite();
 	const isUploading = isUploadingSiteId( selectedSite.id );
-	const [ isPopoverVisible, setIsPopoverVisible ] = useState( false );
 	const { siteLimit, siteCount, isLoading: isFetchingUsage } = useSiteUsage();
 	const isLimitUsed = siteCount >= siteLimit;
+	const isOffline = useOffline();
 	const { progress, setProgress } = useProgressTimer( {
 		paused: ! isUploading && ! isSnapshotLoading,
 		initialProgress: 5,
@@ -320,7 +385,8 @@ function AddDemoSiteWithProgress( {
 		}
 	}, [ isSnapshotLoading, setProgress ] );
 
-	const isDisabled = isAnySiteArchiving || isUploading || isFetchingUsage || isLimitUsed;
+	const isDisabled =
+		isAnySiteArchiving || isUploading || isFetchingUsage || isLimitUsed || isOffline;
 	const siteArchivingMessage = __(
 		'A different demo site is being created. Please wait for it to finish before creating another.'
 	);
@@ -332,23 +398,19 @@ function AddDemoSiteWithProgress( {
 		),
 		siteLimit
 	);
-	let buttonDescription = '';
-	if ( isLimitUsed ) {
-		buttonDescription = allotmentConsumptionMessage;
+	const offlineMessage = __( 'Creating a demo site requires an internet connection.' );
+
+	let tooltipContent;
+	if ( isOffline ) {
+		tooltipContent = {
+			icon: offlineIcon,
+			text: offlineMessage,
+		};
+	} else if ( isLimitUsed ) {
+		tooltipContent = { text: allotmentConsumptionMessage };
 	} else if ( isAnySiteArchiving ) {
-		buttonDescription = siteArchivingMessage;
+		tooltipContent = { text: siteArchivingMessage };
 	}
-
-	const showPopover = () => {
-		if ( ! isLimitUsed && ! isAnySiteArchiving ) {
-			return;
-		}
-
-		setIsPopoverVisible( true );
-	};
-	const hidePopover = () => {
-		setIsPopoverVisible( false );
-	};
 
 	return (
 		<div className={ className }>
@@ -360,43 +422,21 @@ function AddDemoSiteWithProgress( {
 					</div>
 				</div>
 			) : (
-				<Button
-					aria-description={ buttonDescription }
-					variant="primary"
-					/**
-					 *`aria-disabled` is used rather than `disabled` so that the child
-					 * popover explaining the disabled state can be displayed by focusing
-					 * the button.
-					 */
-					aria-disabled={ isDisabled }
-					onFocus={ showPopover }
-					onBlur={ hidePopover }
-					onMouseOut={ hidePopover }
-					onMouseOver={ showPopover }
-					onClick={ () => {
-						if ( isDisabled ) {
-							return;
-						}
-
-						archiveSite( selectedSite.id );
-					} }
-				>
-					{ isPopoverVisible && (
-						<Popover
-							role="tooltip"
-							noArrow={ true }
-							position="top right"
-							offset={ 8 }
-							className="[&_div]:!shadow-none [&>div]:bg-transparent"
-						>
-							<div className="w-52 rounded-[4px] py-2 px-2.5 bg-[#101517] text-white leading-4 text-xs">
-								{ isAnySiteArchiving && siteArchivingMessage }
-								{ isLimitUsed && allotmentConsumptionMessage }
-							</div>
-						</Popover>
-					) }
-					{ __( 'Add demo site' ) }
-				</Button>
+				<Tooltip disabled={ ! tooltipContent } { ...tooltipContent }>
+					<Button
+						aria-description={ tooltipContent?.text ?? '' }
+						aria-disabled={ isDisabled }
+						variant="primary"
+						onClick={ () => {
+							if ( isDisabled ) {
+								return;
+							}
+							archiveSite( selectedSite.id );
+						} }
+					>
+						{ __( 'Add demo site' ) }
+					</Button>
+				</Tooltip>
 			) }
 		</div>
 	);

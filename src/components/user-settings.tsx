@@ -6,13 +6,16 @@ import { useCallback, useState } from 'react';
 import { useAuth } from '../hooks/use-auth';
 import { useDeleteSnapshot } from '../hooks/use-delete-snapshot';
 import { useIpcListener } from '../hooks/use-ipc-listener';
+import { useOffline } from '../hooks/use-offline';
 import { useSiteDetails } from '../hooks/use-site-details';
 import { useSiteUsage } from '../hooks/use-site-usage';
 import { cx } from '../lib/cx';
 import Button from './button';
 import { Gravatar } from './gravatar';
 import Modal from './modal';
+import offlineIcon from './offline-icon';
 import ProgressBar from './progress-bar';
+import Tooltip from './tooltip';
 import { WordPressLogo } from './wordpress-logo';
 
 const UserInfo = ( {
@@ -58,6 +61,8 @@ const SnapshotInfo = ( {
 		isDisabled &&
 			'[&_.components-button:disabled]:cursor-not-allowed [&_.components-button]aria-disabled:cursor-not-allowed'
 	);
+	const isOffline = useOffline();
+	const offlineMessage = __( 'Deleting demo sites requires an internet connection.' );
 	return (
 		<div className="flex gap-5 flex-col">
 			<h2 className="a8c-subtitle-small">{ __( 'Usage' ) }</h2>
@@ -87,28 +92,36 @@ const SnapshotInfo = ( {
 					{ ( { onClose }: { onClose: () => void } ) => {
 						return (
 							<MenuGroup>
-								<MenuItem
-									/**
-									 * Because there is a single menu item, the `aria-disabled`
-									 * attribute is used rather than `disabled` so that screen
-									 * readers can focus the item to announce its disabled state.
-									 * Otherwise, dropdown toggle would toggle an empty menu.
-									 */
-									aria-disabled={ isDisabled }
-									iconPosition="right"
-									isDestructive
-									className={ menuItemStyles }
-									onClick={ () => {
-										if ( isDisabled ) {
-											return;
-										}
-
-										onRemoveSnapshots();
-										onClose();
-									} }
+								<Tooltip
+									disabled={ ! isOffline }
+									icon={ offlineIcon }
+									text={ offlineMessage }
+									placement="bottom"
 								>
-									<Icon className="mr-2" icon={ trash } /> { __( 'Delete all demo sites' ) }
-								</MenuItem>
+									<MenuItem
+										aria-description={ isOffline ? offlineMessage : '' }
+										/**
+										 * Because there is a single menu item, the `aria-disabled`
+										 * attribute is used rather than `disabled` so that screen
+										 * readers can focus the item to announce its disabled state.
+										 * Otherwise, dropdown toggle would toggle an empty menu.
+										 */
+										aria-disabled={ isDisabled }
+										iconPosition="right"
+										isDestructive
+										className={ menuItemStyles }
+										onClick={ () => {
+											if ( isDisabled ) {
+												return;
+											}
+
+											onRemoveSnapshots();
+											onClose();
+										} }
+									>
+										<Icon className="mr-2" icon={ trash } /> { __( 'Delete all demo sites' ) }
+									</MenuItem>
+								</Tooltip>
 							</MenuGroup>
 						);
 					} }
@@ -127,6 +140,9 @@ export default function UserSettings() {
 		displayAlert: true,
 	} );
 	const [ needsToOpenUserSettings, setNeedsToOpenUserSettings ] = useState( false );
+
+	const isOffline = useOffline();
+	const offlineMessage = __( 'You’re currently offline.' );
 
 	const resetLocalState = useCallback( () => {
 		setNeedsToOpenUserSettings( false );
@@ -155,9 +171,21 @@ export default function UserSettings() {
 					{ ! isAuthenticated && (
 						<div className="justify-between items-center w-full h-auto flex">
 							<WordPressLogo width={ 110 } />
-							<Button variant="primary" onClick={ authenticate }>
-								{ __( 'Log in' ) }
-							</Button>
+							<Tooltip disabled={ ! isOffline } icon={ offlineIcon } text={ offlineMessage }>
+								<Button
+									aria-description={ isOffline ? offlineMessage : '' }
+									aria-disabled={ isOffline }
+									variant="primary"
+									onClick={ () => {
+										if ( isOffline ) {
+											return;
+										}
+										authenticate();
+									} }
+								>
+									{ __( 'Log in' ) }
+								</Button>
+							</Tooltip>
 						</div>
 					) }
 					{ isAuthenticated && (
@@ -170,7 +198,8 @@ export default function UserSettings() {
 									siteCount === 0 ||
 									loadingDeletingAllSnapshots ||
 									isLoadingSiteUsage ||
-									snapshots.length === 0
+									snapshots.length === 0 ||
+									isOffline
 								}
 								siteCount={ siteCount }
 								siteLimit={ siteLimit }

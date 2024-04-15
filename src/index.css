@@ -76,3 +76,7 @@ button:enabled.cursor-pointer {
 .components-popover {
 	user-select: none;
 }
+
+.components-popover__content {
+	width: 100%;
+}

@@ -264,15 +264,14 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			}
 
 			if ( updatedSite ) {
-				const newData = data.map( ( site ) =>
-					site.id === id ? updatedSite : site
-				) as SiteDetails[];
-				setData( newData );
+				setData( ( prevData ) =>
+					prevData.map( ( site ) => ( site.id === id && updatedSite ? updatedSite : site ) )
+				);
 			}
 
 			toggleLoadingServerForSite( id );
 		},
-		[ data, toggleLoadingServerForSite ]
+		[ toggleLoadingServerForSite ]
 	);
 
 	const stopServer = useCallback(
@@ -280,12 +279,13 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			toggleLoadingServerForSite( id );
 			const updatedSite = await getIpcApi().stopServer( id );
 			if ( updatedSite ) {
-				const newData = data.map( ( site ) => ( site.id === id ? updatedSite : site ) );
-				setData( newData );
+				setData( ( prevData ) =>
+					prevData.map( ( site ) => ( site.id === id ? updatedSite : site ) )
+				);
 			}
 			toggleLoadingServerForSite( id );
 		},
-		[ data, toggleLoadingServerForSite ]
+		[ toggleLoadingServerForSite ]
 	);
 
 	const stopAllRunningSites = useCallback( async () => {

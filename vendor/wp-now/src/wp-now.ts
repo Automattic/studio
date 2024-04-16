@@ -55,6 +55,7 @@ export default async function startWPNow(
 		);
 	}
 	const php = phpInstances[0];
+	php.setPhpIniEntry('memory_limit', '256M');
 
 	phpInstances.forEach((_php) => {
 		_php.mkdirTree(documentRoot);

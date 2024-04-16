@@ -2,7 +2,16 @@ import { Button } from '@wordpress/components';
 import { ComponentProps } from 'react';
 import { cx } from '../lib/cx';
 
-export type ButtonProps = ComponentProps< typeof Button >;
+/**
+ * Sourced from https://stackoverflow.com/a/76616671/378228 to address
+ * unexpectedly missing `Button` properties when using `Omit` to overwrite the
+ * existing `variant` property.
+ */
+type MappedOmit< T, K extends PropertyKey > = { [ P in keyof T as Exclude< P, K > ]: T[ P ] };
+
+export type ButtonProps = MappedOmit< ComponentProps< typeof Button >, 'variant' > & {
+	variant?: 'primary' | 'secondary' | 'tertiary' | 'link' | 'icon';
+};
 
 /**
  * The arbitrary Tailwind variants below (e.g., `[&.is-secondary]`) are used to
@@ -14,7 +23,6 @@ export type ButtonProps = ComponentProps< typeof Button >;
  * additional styles.
  */
 const baseStyles = `
-cursor-pointer
 px-3
 py-2
 rounded-sm
@@ -64,16 +72,24 @@ const linkStyles = `
 [&.is-link]:disabled:text-a8c-gray-50
 `.replace( /\n/g, ' ' );
 
+const iconStyles = `
+[&.components-button]:p-0
+h-auto
+hover:bg-white
+hover:bg-opacity-10
+`.replace( /\n/g, ' ' );
+
 export default function ButtonComponent( { className, variant, ...props }: ButtonProps ) {
 	return (
 		<Button
 			{ ...props }
-			variant={ variant }
+			variant={ variant === 'icon' ? undefined : variant }
 			className={ cx(
 				baseStyles,
 				variant === 'primary' && primaryStyles,
 				variant === 'secondary' && secondaryStyles,
 				variant === 'link' && linkStyles,
+				variant === 'icon' && iconStyles,
 				props.isDestructive && destructiveStyles,
 				className
 			) }

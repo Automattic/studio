@@ -33,20 +33,16 @@ function SidebarAuthFooter() {
 				<ul className="flex items-start self-stretch w-full">
 					<li>
 						<Button
-							className="text-white h-6 w-6 !px-0 active:!text-white rounded hover:!text-white hover:bg-white hover:bg-opacity-10"
 							onClick={ () => getIpcApi().showUserSettings() }
 							aria-label={ __( 'Account' ) }
+							variant="icon"
 						>
-							<Gravatar />
+							<Gravatar className="m-1" />
 						</Button>
 					</li>
-					<li>
-						<Button
-							className="text-white ml-1.5 h-6 !px-0 active:!text-white rounded hover:!text-white hover:bg-white hover:bg-opacity-10"
-							onClick={ openLocalizedSupport }
-							aria-label={ __( 'Help' ) }
-						>
-							<Icon icon={ help } />
+					<li className="ml-1.5">
+						<Button onClick={ openLocalizedSupport } aria-label={ __( 'Help' ) } variant="icon">
+							<Icon size={ 22 } className="m-px text-white" icon={ help } />
 						</Button>
 					</li>
 				</ul>
@@ -104,13 +100,14 @@ function SidebarToolbar() {
 						</span>
 					}
 				>
-					<button
+					<Button
 						aria-label="Offline indicator"
 						aria-description={ offlineMessage.join( ' ' ) }
-						className="hover:bg-[#ffffff0C] rounded p-2 cursor-default"
+						className="cursor-default"
+						variant="icon"
 					>
-						<Icon className="fill-white" size={ 16 } icon={ offlineIcon } />
-					</button>
+						<Icon className="m-1 fill-white" size={ 16 } icon={ offlineIcon } />
+					</Button>
 				</Tooltip>
 			) }
 		</div>

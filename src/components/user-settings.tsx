@@ -57,7 +57,7 @@ const SnapshotInfo = ( {
 } ) => {
 	const { __ } = useI18n();
 	const menuItemStyles = cx(
-		'[&_span]:min-w-0 [&_span]:p-[1px] cursor-pointer',
+		'[&_span]:min-w-0 [&_span]:p-[1px]',
 		isDisabled &&
 			'[&_.components-button:disabled]:cursor-not-allowed [&_.components-button]aria-disabled:cursor-not-allowed'
 	);
@@ -85,7 +85,7 @@ const SnapshotInfo = ( {
 						'ml-auto flex items-center [&_button:first-child]:p-0 [&_button:first-child]:min-w-6 [&_button:first-child]:h-6'
 					}
 					popoverProps={ { position: 'bottom left', resize: true } }
-					icon={ <Icon className="cursor-pointer" icon={ moreVertical }></Icon> }
+					icon={ <Icon icon={ moreVertical }></Icon> }
 					size={ 24 }
 					label={ __( 'More options' ) }
 				>

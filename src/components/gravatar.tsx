@@ -24,7 +24,7 @@ export function Gravatar( {
 	const [ imageError, setImageError ] = useState( false );
 
 	const childClassName = cx(
-		isLarge ? 'w-[32px] h-[32px] rounded-full' : 'w-[18px] h-[18px] rounded-full',
+		isLarge ? 'w-[32px] h-[32px] rounded-full' : 'w-[16px] h-[16px] rounded-full',
 		className
 	);
 
@@ -32,7 +32,7 @@ export function Gravatar( {
 		<Icon
 			icon={ detailedFallbackImage ? noAvatar : commentAuthorAvatar }
 			viewBox={ detailedFallbackImage ? '0 0 32 33' : '4 4 16 16' }
-			size={ isLarge ? 32 : 18 }
+			size={ isLarge ? 32 : 16 }
 			className={ childClassName }
 		/>
 	);

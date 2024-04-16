@@ -50,10 +50,6 @@ blockquote {
 	background: theme( 'colors.black' );
 }
 
-button:enabled.cursor-pointer {
-	cursor: pointer !important;
-}
-
 /* Customize scrollbar area for the sites sidebar */
 .sites-scrollbar::-webkit-scrollbar {
 	background: transparent;

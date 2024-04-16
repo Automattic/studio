@@ -57,19 +57,33 @@ export function setupUpdates() {
 			return;
 		}
 
-		updaterState = 'polling';
-		timeout = setTimeout( () => {
-			console.log( `Automatically checking for update: ${ autoUpdater.getFeedURL() }` );
-			autoUpdater.checkForUpdates();
-		}, AUTO_UPDATE_INTERVAL_MS );
+		queueUpdateCheck();
 	} );
 
 	autoUpdater.on( 'error', ( err ) => {
-		console.error( err );
-		Sentry.captureException( err );
+		if ( 'code' in err && ( err.code === -1009 || err.code === -1005 ) ) {
+			// Corresponds to errors: "The Internet connection appears to be offline." and "The network connection was lost."
+			// We don't need to stop polling, the internet might come back.
+			queueUpdateCheck();
+			return;
+		}
 
 		// Doesn't re-queue an update after an error.
 		updaterState = 'done';
+
+		if ( 'code' in err && err.code === 8 ) {
+			// Corresponds to error: "Cannot update while running on a read-only volume."
+			// This appears to occur when the app is launched from the ~/Downloads folder.
+			showInstallLocationErrorNotice();
+			console.log( err );
+		} else {
+			console.error( err );
+			Sentry.captureException( err );
+		}
+	} );
+
+	autoUpdater.on( 'update-available', () => {
+		console.log( 'Update available' );
 	} );
 
 	autoUpdater.on( 'update-downloaded', async () => {
@@ -125,6 +139,14 @@ export function isUpdateReadyToInstall() {
 	return updaterState === 'waiting-for-restart';
 }
 
+function queueUpdateCheck() {
+	updaterState = 'polling';
+	timeout = setTimeout( () => {
+		console.log( `Automatically checking for update: ${ autoUpdater.getFeedURL() }` );
+		autoUpdater.checkForUpdates();
+	}, AUTO_UPDATE_INTERVAL_MS );
+}
+
 async function showUpdateAvailableNotice() {
 	showManualCheckDialogs = false;
 	await dialog.showMessageBox( {
@@ -157,5 +179,20 @@ async function showUpdateReadyToInstallNotice() {
 
 	if ( response === 0 ) {
 		autoUpdater.quitAndInstall();
+	}
+}
+
+async function showInstallLocationErrorNotice() {
+	if ( process.platform === 'darwin' ) {
+		await dialog.showMessageBox( {
+			type: 'warning',
+			buttons: [ __( 'OK' ) ],
+			title: __( 'Could Not Update Studio' ),
+			message:
+				// Translators: "Applications" is the name of the folder apps are installed to on macOS
+				__(
+					'Studio can only update automatically from the Applications folder. Please move Studio to Applications and try again.'
+				),
+		} );
 	}
 }

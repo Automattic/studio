@@ -5,22 +5,22 @@ import { useState } from 'react';
 import { useAuth } from '../hooks/use-auth';
 import { useGravatarUrl } from '../hooks/use-gravatar-url';
 import { cx } from '../lib/cx';
-import noAvatar from './no-avatar';
+import profileIconDetailed from './profile-icon-detailed';
 
 export function Gravatar( {
 	className,
 	isBlack = false,
 	isLarge = false,
-	detailedFallbackImage = false,
+	detailedDefaultImage = false,
 }: {
 	className?: string;
 	isBlack?: boolean;
 	isLarge?: boolean;
-	detailedFallbackImage?: boolean;
+	detailedDefaultImage?: boolean;
 } ) {
 	const { __ } = useI18n();
 	const { user } = useAuth();
-	const gravatarUrl = useGravatarUrl( user?.email, isBlack );
+	const gravatarUrl = useGravatarUrl( user?.email, isBlack, detailedDefaultImage );
 	const [ imageError, setImageError ] = useState( false );
 
 	const childClassName = cx(
@@ -30,8 +30,8 @@ export function Gravatar( {
 
 	const renderDefaultGravatarIcon = () => (
 		<Icon
-			icon={ detailedFallbackImage ? noAvatar : commentAuthorAvatar }
-			viewBox={ detailedFallbackImage ? '0 0 32 33' : '4 4 16 16' }
+			icon={ detailedDefaultImage ? profileIconDetailed : commentAuthorAvatar }
+			viewBox={ detailedDefaultImage ? '0 0 32 33' : '4 4 16 16' }
 			size={ isLarge ? 32 : 16 }
 			className={ childClassName }
 		/>

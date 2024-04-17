@@ -59,7 +59,7 @@ const SnapshotInfo = ( {
 	const menuItemStyles = cx(
 		'[&_span]:min-w-0 [&_span]:p-[1px]',
 		isDisabled &&
-			'[&_.components-button:disabled]:cursor-not-allowed [&_.components-button]aria-disabled:cursor-not-allowed'
+			'[&.components-button:disabled]:cursor-not-allowed [&.components-button]:aria-disabled:cursor-not-allowed'
 	);
 	const isOffline = useOffline();
 	const offlineMessage = __( 'Deleting demo sites requires an internet connection.' );

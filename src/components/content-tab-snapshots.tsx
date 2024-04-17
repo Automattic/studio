@@ -250,13 +250,17 @@ function EmptyGeneric( {
 				<div className="w-[40ch] text-a8c-gray-70 a8c-body pr-2">
 					{ createInterpolateElement(
 						__(
-							'Get feedback from anyone, anywhere with a free demo site powered by <a>WP Cloud</a>.'
+							'Get feedback from anyone, anywhere with a free demo site powered by <a>WordPress.com</a>.'
 						),
 						{
 							a: (
 								<Button
 									variant="link"
-									onClick={ () => getIpcApi().openURL( 'https://wp.cloud/' ) }
+									onClick={ () =>
+										getIpcApi().openURL(
+											'https://wordpress.com/?utm_source=studio&utm_medium=referral&utm_campaign=demo_sites_onboarding'
+										)
+									}
 								/>
 							),
 						}

@@ -575,9 +575,13 @@ export function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath: stri
 }
 
 export async function showMessageBox(
-	_event: IpcMainInvokeEvent,
+	event: IpcMainInvokeEvent,
 	options: Electron.MessageBoxOptions
 ) {
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+	if ( parentWindow ) {
+		return dialog.showMessageBox( parentWindow, options );
+	}
 	return dialog.showMessageBox( options );
 }
 

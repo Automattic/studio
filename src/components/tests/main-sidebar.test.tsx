@@ -5,17 +5,14 @@ import { useOffline } from '../../hooks/use-offline';
 import MainSidebar from '../main-sidebar';
 
 jest.mock( '../../hooks/use-auth' );
-jest.mock( '../../lib/app-globals' );
 
 const mockOpenURL = jest.fn();
-const mockGetAppGlobals = jest.fn();
 jest.mock( '../../lib/get-ipc-api', () => ( {
 	__esModule: true,
 	default: jest.fn(),
 	getIpcApi: () => ( {
 		showOpenFolderDialog: jest.fn(),
 		generateProposedSitePath: jest.fn(),
-		getAppGlobals: mockGetAppGlobals,
 		openURL: mockOpenURL,
 	} ),
 } ) );
@@ -159,9 +156,8 @@ describe( 'MainSidebar Site Menu', () => {
 		);
 	} );
 
-	it( 'opens the support URL with the correct locale', async () => {
+	it( 'opens the support URL', async () => {
 		const user = userEvent.setup();
-		mockGetAppGlobals.mockResolvedValue( { locale: 'zh-cn' } );
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
 
 		render( <MainSidebar /> );
@@ -169,7 +165,9 @@ describe( 'MainSidebar Site Menu', () => {
 		const helpIconButton = screen.getByRole( 'button', { name: 'Help' } );
 		await user.click( helpIconButton );
 		await waitFor( () =>
-			expect( mockOpenURL ).toHaveBeenCalledWith( `https://wordpress.com/zh-cn/support` )
+			expect( mockOpenURL ).toHaveBeenCalledWith(
+				`https://developer.wordpress.com/docs/developer-tools/studio/`
+			)
 		);
 	} );
 } );

@@ -23,9 +23,8 @@ function SidebarAuthFooter() {
 	const { isAuthenticated, authenticate } = useAuth();
 	const isOffline = useOffline();
 	const offlineMessage = __( 'You’re currently offline.' );
-	const openLocalizedSupport = async () => {
-		const { locale } = await getIpcApi().getAppGlobals();
-		await getIpcApi().openURL( `https://wordpress.com/${ locale }/support` );
+	const openDocs = async () => {
+		await getIpcApi().openURL( `https://developer.wordpress.com/docs/developer-tools/studio/` );
 	};
 	if ( isAuthenticated ) {
 		return (
@@ -41,7 +40,7 @@ function SidebarAuthFooter() {
 						</Button>
 					</li>
 					<li className="ml-1.5">
-						<Button onClick={ openLocalizedSupport } aria-label={ __( 'Help' ) } variant="icon">
+						<Button onClick={ openDocs } aria-label={ __( 'Help' ) } variant="icon">
 							<Icon size={ 22 } className="m-px text-white" icon={ help } />
 						</Button>
 					</li>

@@ -60,7 +60,7 @@ function SidebarAuthFooter() {
 			<Button
 				aria-description={ isOffline ? offlineMessage : '' }
 				aria-disabled={ isOffline }
-				className="flex items-center justify-between w-full text-white rounded !px-0 py-1 h-auto active:!text-white hover:!text-white hover:underline"
+				className="flex gap-x-2 items-center justify-between w-full text-white rounded !px-0 py-1 h-auto active:!text-white hover:!text-white hover:underline"
 				onClick={ () => {
 					if ( isOffline ) {
 						return;

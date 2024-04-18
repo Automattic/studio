@@ -4,6 +4,17 @@ A desktop application for creating local WordPress environments powered by WordP
 
 ## Development
 
+#### One Time Machine Setup
+
+The project includes native dependencies which require Python and it's `setuptools` module to build correctly.
+YMMV but if you manage packages with Homebrew you can do the following:
+
+```bash
+$ brew install python3 python-setuptools
+```
+
+#### Install Dependencies, Incrementally Build, and Run App
+
 ```bash
 $ nvm use
 $ npm install
@@ -24,7 +35,7 @@ The renderer process can be debugged using the Chromium developer tools. To open
 
 The React tree in the renderer process can be debugged with the standalone [React Developer Tools](https://react.dev/learn/react-developer-tools#safari-and-other-browsers). To do this, start the the React Developer Tools and then start the app with the `REACT_DEV_TOOLS=true` flag set.
 
-```
+```bash
 $ npx react-devtools
 $ REACT_DEV_TOOLS=true npm start
 ```

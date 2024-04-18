@@ -15,10 +15,10 @@ interface ContentTabSettingsProps {
 
 function SettingsRow( { children, label }: PropsWithChildren< { label: string } > ) {
 	return (
-		<div className="flex self-stretch justify-start items-center gap-1.5">
-			<div className="min-w-28 text-a8c-gray-50">{ label }</div>
-			<div className="justify-start items-center flex">{ children }</div>
-		</div>
+		<tr className="align-top">
+			<th className="text-nowrap text-a8c-gray-50 pb-4 pr-6 text-left font-normal">{ label }</th>
+			<td className="pb-4">{ children }</td>
+		</tr>
 	);
 }
 
@@ -31,63 +31,74 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 	const wpVersion = useGetWpVersion( selectedSite );
 	return (
 		<div className="pb-4">
-			<div className="flex flex-col justify-start items-start gap-4 mb-8">
-				<h3 className="text-black text-sm font-semibold">{ __( 'Site details' ) }</h3>
-				<SettingsRow label={ __( 'Site name' ) }>
-					{ selectedSite.name }
-					<EditSite />
-				</SettingsRow>
-				<SettingsRow label={ __( 'Local domain' ) }>
-					<CopyTextButton
-						text={ `http://localhost:${ selectedSite.port }` }
-						label={ `localhost:${ selectedSite.port }, ${ __( 'Copy site url to clipboard' ) }` }
-						copyConfirmation={ __( 'Copied!' ) }
-					>
-						{ `localhost:${ selectedSite.port }` }
-					</CopyTextButton>
-				</SettingsRow>
-				<SettingsRow label={ __( 'Local path' ) }>
-					<Button
-						aria-label={ `${ selectedSite.path }, ${ __( 'Open local path' ) }` }
-						className="flex items-center gap-1.5 [&.is-link]:text-black [&.is-link]:hover:text-[#2145e6]"
-						onClick={ () => getIpcApi().openLocalPath( selectedSite.path ) }
-						variant="link"
-					>
-						{ selectedSite.path } <Icon size={ 13 } icon={ file } />
-					</Button>
-				</SettingsRow>
-				<SettingsRow label={ __( 'WP Version' ) }>{ wpVersion }</SettingsRow>
-				<h3 className="text-black text-sm font-semibold mt-4">{ __( 'WP Admin' ) }</h3>
-				<SettingsRow label={ __( 'Username' ) }>
-					<CopyTextButton
-						copyConfirmation={ __( 'Copied!' ) }
-						label={ `${ username }, ${ __( 'Copy admin username to clipboard' ) }` }
-						text={ username }
-					>
-						{ username }
-					</CopyTextButton>
-				</SettingsRow>
-				<SettingsRow label={ __( 'Password' ) }>
-					<CopyTextButton
-						copyConfirmation={ __( 'Copied!' ) }
-						label={ __( 'Copy admin password to clipboard' ) }
-						text={ password || '' }
-					>
-						************
-					</CopyTextButton>
-				</SettingsRow>
-				<SettingsRow label={ __( 'Admin URL' ) }>
-					<CopyTextButton
-						text={ `http://localhost:${ selectedSite.port }/wp-admin` }
-						label={ `localhost:${ selectedSite.port }/wp-admin, ${ __(
-							'Copy wp-admin url to clipboard'
-						) }` }
-						copyConfirmation={ __( 'Copied!' ) }
-					>
-						{ `localhost:${ selectedSite.port }/wp-admin` }
-					</CopyTextButton>
-				</SettingsRow>
-			</div>
+			<table className="mb-2 m-w-full" cellPadding={ 0 } cellSpacing={ 0 }>
+				<tbody>
+					<tr>
+						<th colSpan={ 2 } className="pb-4 text-left">
+							<h3 className="text-black text-sm font-semibold">{ __( 'Site details' ) }</h3>
+						</th>
+					</tr>
+					<SettingsRow label={ __( 'Site name' ) }>
+						{ selectedSite.name }
+						<EditSite />
+					</SettingsRow>
+					<SettingsRow label={ __( 'Local domain' ) }>
+						<CopyTextButton
+							text={ `http://localhost:${ selectedSite.port }` }
+							label={ `localhost:${ selectedSite.port }, ${ __( 'Copy site url to clipboard' ) }` }
+							copyConfirmation={ __( 'Copied!' ) }
+						>
+							{ `localhost:${ selectedSite.port }` }
+						</CopyTextButton>
+					</SettingsRow>
+					<SettingsRow label={ __( 'Local path' ) }>
+						<Button
+							aria-label={ `${ selectedSite.path }, ${ __( 'Open local path' ) }` }
+							className="flex text-wrap items-center gap-1.5 [&.is-link]:text-black [&.is-link]:hover:text-[#2145e6]"
+							onClick={ () => getIpcApi().openLocalPath( selectedSite.path ) }
+							variant="link"
+						>
+							{ selectedSite.path } <Icon size={ 13 } icon={ file } className="shrink-0" />
+						</Button>
+					</SettingsRow>
+					<SettingsRow label={ __( 'WP Version' ) }>{ wpVersion }</SettingsRow>
+
+					<tr>
+						<th colSpan={ 2 } className="pb-4 text-left">
+							<h3 className="text-black text-sm font-semibold mt-4">{ __( 'WP Admin' ) }</h3>
+						</th>
+					</tr>
+					<SettingsRow label={ __( 'Username' ) }>
+						<CopyTextButton
+							copyConfirmation={ __( 'Copied!' ) }
+							label={ `${ username }, ${ __( 'Copy admin username to clipboard' ) }` }
+							text={ username }
+						>
+							{ username }
+						</CopyTextButton>
+					</SettingsRow>
+					<SettingsRow label={ __( 'Password' ) }>
+						<CopyTextButton
+							copyConfirmation={ __( 'Copied!' ) }
+							label={ __( 'Copy admin password to clipboard' ) }
+							text={ password || '' }
+						>
+							************
+						</CopyTextButton>
+					</SettingsRow>
+					<SettingsRow label={ __( 'Admin URL' ) }>
+						<CopyTextButton
+							text={ `http://localhost:${ selectedSite.port }/wp-admin` }
+							label={ `localhost:${ selectedSite.port }/wp-admin, ${ __(
+								'Copy wp-admin url to clipboard'
+							) }` }
+							copyConfirmation={ __( 'Copied!' ) }
+						>
+							{ `localhost:${ selectedSite.port }/wp-admin` }
+						</CopyTextButton>
+					</SettingsRow>
+				</tbody>
+			</table>
 			<DeleteSite />
 		</div>
 	);

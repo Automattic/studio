@@ -17,3 +17,5 @@ jest.mock( '@sentry/electron/main', () => ( {
 jest.mock( './src/hooks/use-offline', () => ( {
 	useOffline: jest.fn().mockReturnValue( false ),
 } ) );
+
+global.ResizeObserver = require( 'resize-observer-polyfill' );

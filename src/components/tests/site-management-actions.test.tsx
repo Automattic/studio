@@ -44,13 +44,9 @@ describe( 'SiteManagementActions', () => {
 				}
 			/>
 		);
-		const runningButton = screen.getByRole( 'button', { name: 'Running' } );
-		const stopButton = screen.getByRole( 'button', { name: 'Stop' } );
-		expect( runningButton ).toHaveClass( 'visible' );
-		expect( stopButton ).toHaveClass( 'invisible' );
-		await user.hover( runningButton );
-		expect( runningButton ).toHaveClass( 'invisible' );
-		expect( stopButton ).toHaveClass( 'visible' );
+		const startStopButton = screen.getByRole( 'button', { name: 'Running' } );
+		await user.hover( startStopButton );
+		expect( startStopButton ).toHaveTextContent( 'Stop' );
 	} );
 	it( 'should render "Start" button when site is not running', () => {
 		render(

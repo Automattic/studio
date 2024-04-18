@@ -1,3 +1,4 @@
+import { useResizeObserver } from '@wordpress/compose';
 import { SVG, Path } from '@wordpress/primitives';
 import { useI18n } from '@wordpress/react-i18n';
 import { useEffect, useRef, useState } from 'react';
@@ -52,6 +53,8 @@ export const ActionButton = ( {
 	const { __ } = useI18n();
 	const [ isHovered, setIsHovered ] = useState( false );
 	const containerRef = useRef< HTMLDivElement >( null );
+	const [ resizeListener, sizes ] = useResizeObserver();
+	const minSize = useRef( { width: MIN_WIDTH, height: 0 } );
 
 	let state: ActionButtonState = 'idle';
 	if ( isLoading ) {
@@ -64,47 +67,21 @@ export const ActionButton = ( {
 		}
 	}
 
-	// Set size of all buttons with maximum size to avoid visual glitches
-	// when hovering.
+	// Set the container's minimum size to match the maximum size previously
+	// used to prevent visual glitches during hover action.
 	// Reference: https://github.com/Automattic/dotcom-forge/issues/6422
 	useEffect( () => {
-		const adjustSize = () => {
-			if ( ! containerRef.current ) return;
-
-			const children = containerRef.current.children;
-			let maxWidth = MIN_WIDTH;
-			let maxHeight = 0;
-			for ( let index = 0; index < children.length; index++ ) {
-				const element = children.item( index );
-				const rect = element?.getBoundingClientRect();
-				if ( rect ) {
-					maxWidth = Math.max( maxWidth, rect.width );
-					maxHeight = Math.max( maxHeight, rect.height );
-				}
-			}
-
-			const widthValue = maxWidth + 'px';
-			const heightValue = maxHeight + 'px';
-			containerRef.current.style.width = widthValue;
-			containerRef.current.style.height = heightValue;
-			for ( let index = 0; index < children.length; index++ ) {
-				const element = children.item( index ) as HTMLElement;
-				const style = element?.style;
-				if ( style ) {
-					style.width = widthValue;
-					style.height = heightValue;
-				}
-			}
+		if ( ! containerRef.current || ! sizes.width || ! sizes.height ) {
+			return;
+		}
+		minSize.current = {
+			width: Math.max( minSize.current.width, sizes.width ),
+			height: Math.max( minSize.current.height, sizes.height ),
 		};
+		containerRef.current.style.minWidth = `${ minSize.current.width }px`;
+		containerRef.current.style.minHeight = `${ minSize.current.height }px`;
+	}, [ sizes ] );
 
-		window.addEventListener( 'resize', adjustSize );
-		adjustSize();
-		return () => {
-			window.removeEventListener( 'resize', adjustSize );
-		};
-	}, [] );
-
-	const visibilityState = ( target: string ) => ( state !== target ? 'invisible' : 'visible' );
 	const handleOnClick = () => {
 		if ( isLoading ) {
 			return;
@@ -112,16 +89,51 @@ export const ActionButton = ( {
 		onClick();
 	};
 
-	const defaultClassName = cx(
-		'gap-1.5 !grow !justify-center !leading-4',
-		buttonClassName,
-		'absolute'
+	const defaultButtonClassName = cx(
+		'gap-1.5 !grow !justify-center !leading-4 w-full',
+		buttonClassName
 	);
 	const defaultButtonProps: ButtonProps = {
 		onClick: handleOnClick,
 		iconSize,
 		variant: 'secondary',
 	};
+
+	let buttonLabel;
+	let buttonProps;
+	switch ( state ) {
+		case 'idle':
+			buttonLabel = __( 'Start' );
+			buttonProps = {
+				icon: playIcon,
+				className: defaultButtonClassName,
+			};
+			break;
+		case 'loading':
+			buttonLabel = __( 'Starting…' );
+			buttonProps = {
+				// `aria-disabled` used rather than `disabled` to prevent losing button
+				// focus while the button's asynchronous action is pending.
+				'aria-disabled': isLoading,
+				icon: undefined,
+				className: defaultButtonClassName,
+			};
+			break;
+		case 'stop':
+			buttonLabel = __( 'Stop' );
+			buttonProps = {
+				icon: <StopIcon height={ iconSize } width={ iconSize } />,
+				className: cx( defaultButtonClassName, '!text-a8c-red-50' ),
+			};
+			break;
+		case 'running':
+			buttonLabel = __( 'Running' );
+			buttonProps = {
+				icon: <CircleIcon height={ iconSize } width={ iconSize } />,
+				className: cx( defaultButtonClassName, '!text-a8c-green-50' ),
+			};
+			break;
+	}
 
 	return (
 		<div
@@ -130,39 +142,9 @@ export const ActionButton = ( {
 			onMouseEnter={ () => setIsHovered( true ) }
 			onMouseLeave={ () => setIsHovered( false ) }
 		>
-			<Button
-				{ ...defaultButtonProps }
-				aria-description="Click to start site."
-				icon={ playIcon }
-				className={ cx( defaultClassName, visibilityState( 'idle' ) ) }
-			>
-				{ __( 'Start' ) }
-			</Button>
-			<Button
-				{ ...defaultButtonProps }
-				// `aria-disabled` used rather than `disabled` to prevent losing button
-				// focus while the button's asynchronous action is pending.
-				aria-description="Site is starting."
-				aria-disabled={ isLoading }
-				className={ cx( defaultClassName, visibilityState( 'loading' ) ) }
-			>
-				{ __( 'Starting…' ) }
-			</Button>
-			<Button
-				{ ...defaultButtonProps }
-				aria-description="Click to stop site."
-				icon={ <StopIcon height={ iconSize } width={ iconSize } /> }
-				className={ cx( defaultClassName, '!text-a8c-red-50', visibilityState( 'stop' ) ) }
-			>
-				{ __( 'Stop' ) }
-			</Button>
-			<Button
-				{ ...defaultButtonProps }
-				aria-description="Click to stop site."
-				icon={ <CircleIcon height={ iconSize } width={ iconSize } /> }
-				className={ cx( defaultClassName, '!text-a8c-green-50', visibilityState( 'running' ) ) }
-			>
-				{ __( 'Running' ) }
+			{ resizeListener }
+			<Button { ...defaultButtonProps } { ...buttonProps }>
+				{ buttonLabel }
 			</Button>
 		</div>
 	);

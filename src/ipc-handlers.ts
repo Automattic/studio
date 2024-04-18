@@ -125,7 +125,7 @@ export async function createSite(
 
 	if ( ! ( await isEmptyDir( path ) ) && ! isWordPressDirectory( path ) ) {
 		wasPathEmpty = true;
-		userData.sites;
+		return userData.sites;
 	}
 
 	const allPaths = userData?.sites?.map( ( site ) => site.path ) || [];

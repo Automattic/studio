@@ -1,5 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { Icon, help } from '@wordpress/icons';
+import { STUDIO_DOCS_URL } from '../constants';
 import { useAuth } from '../hooks/use-auth';
 import { useOffline } from '../hooks/use-offline';
 import { isMac } from '../lib/app-globals';
@@ -24,7 +25,7 @@ function SidebarAuthFooter() {
 	const isOffline = useOffline();
 	const offlineMessage = __( 'You’re currently offline.' );
 	const openDocs = async () => {
-		await getIpcApi().openURL( `https://developer.wordpress.com/docs/developer-tools/studio/` );
+		await getIpcApi().openURL( STUDIO_DOCS_URL );
 	};
 	if ( isAuthenticated ) {
 		return (

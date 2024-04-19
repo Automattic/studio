@@ -1,5 +1,13 @@
-import { Menu, type MenuItemConstructorOptions, app, BrowserWindow, autoUpdater } from 'electron';
+import {
+	Menu,
+	type MenuItemConstructorOptions,
+	app,
+	BrowserWindow,
+	autoUpdater,
+	shell,
+} from 'electron';
 import { __ } from '@wordpress/i18n';
+import { STUDIO_DOCS_URL } from './constants';
 import { createMainWindow } from './main-window';
 import { isUpdateReadyToInstall, manualCheckForUpdates } from './updates';
 
@@ -112,7 +120,14 @@ export function setupMenu( window: BrowserWindow | null ) {
 		},
 		{
 			role: 'help',
-			submenu: [ { label: __( 'Support' ), enabled: false } ],
+			submenu: [
+				{
+					label: __( 'Studio Help' ),
+					click: () => {
+						shell.openExternal( STUDIO_DOCS_URL );
+					},
+				},
+			],
 		},
 	] );
 

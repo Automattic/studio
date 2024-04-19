@@ -117,9 +117,9 @@ export async function createSite(
 	if ( ! ( await pathExists( path ) ) && path.startsWith( DEFAULT_SITE_PATH ) ) {
 		try {
 			fs.mkdirSync( path, { recursive: true } );
-		} catch ( err ) {
-			Sentry.captureException( err );
-			throw err;
+		} catch ( error ) {
+			Sentry.captureException( error );
+			throw error;
 		}
 	}
 

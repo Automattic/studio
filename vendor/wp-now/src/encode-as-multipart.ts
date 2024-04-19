@@ -14,7 +14,7 @@ export async function encodeAsMultipart( req: Express.Request ) {
 		parts.push( `Content-Disposition: form-data; name="${ name }"` );
 		parts.push( `\r\n` );
 		parts.push( `\r\n` );
-		parts.push( value );
+		parts.push( textEncoder.encode(value) );
 		parts.push( `\r\n` );
 	}
 	const files = req.files;
@@ -22,9 +22,9 @@ export async function encodeAsMultipart( req: Express.Request ) {
 		if ( ! Array.isArray( value ) ) {
 			parts.push( `--${ boundary }\r\n` );
 			parts.push( `Content-Disposition: form-data; name="${ name }"` );
-			parts.push( `; filename="${ value.name }"` );
+			parts.push( ...['; filename="', textEncoder.encode(value.name), '"' ] );
 			parts.push( `\r\n` );
-			parts.push( `Content-Type: application/octet-stream` );
+			parts.push( `Content-Type: ${ value.mimetype }` );
 			parts.push( `\r\n` );
 			parts.push( `\r\n` );
 			parts.push( value.data );

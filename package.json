@@ -98,7 +98,7 @@
 		"@wordpress/compose": "^6.27.0",
 		"@wordpress/i18n": "^4.50.0",
 		"@wordpress/icons": "^9.40.0",
-		"@wp-playground/blueprints": "^0.6.14",
+		"@wp-playground/blueprints": "^0.6.16",
 		"archiver": "^6.0.1",
 		"compressible": "2.0.18",
 		"compression": "1.7.4",

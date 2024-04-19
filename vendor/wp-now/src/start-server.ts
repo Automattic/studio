@@ -45,7 +45,7 @@ export async function startServer(
 		);
 	}
 	const app = express();
-	app.use(fileUpload());
+	app.use(fileUpload({ defCharset: 'utf8', defParamCharset: 'utf8'}));
 	app.use(compression({ filter: shouldCompress }));
 	app.use(addTrailingSlash('/wp-admin'));
 	const port = await portFinder.getOpenPort();

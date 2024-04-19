@@ -118,7 +118,8 @@ export async function createSite(
 		try {
 			fs.mkdirSync( path, { recursive: true } );
 		} catch ( err ) {
-			return userData.sites;
+			Sentry.captureException( err );
+			throw err;
 		}
 	}
 

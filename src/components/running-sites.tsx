@@ -23,7 +23,7 @@ export function RunningSites() {
 					<Button
 						disabled={ runningSites.length === 0 }
 						className={ cx(
-							'[&.is-link]:text-white [&.is-link:disabled]:hover:text-white [&.is-link:not(:disabled)]:hover:text-a8c-gray-10 text-xxs leading-4 !mb-0'
+							'[&.is-link]:text-white [&.is-link:disabled]:hover:text-white [&.is-link:not(:disabled)]:hover:text-a8c-gray-10 text-xxs leading-4 !mb-0 shrink-0 items-start'
 						) }
 						onClick={ stopAllRunningSites }
 						variant="link"

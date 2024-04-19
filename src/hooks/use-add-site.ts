@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/electron/renderer';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useMemo, useState } from 'react';
 import { getIpcApi } from '../lib/get-ipc-api';
@@ -53,6 +54,7 @@ export function useAddSite() {
 			const path = sitePath ? sitePath : proposedSitePath;
 			await createSite( path, siteName ?? '' );
 		} catch ( e ) {
+			Sentry.captureException( e );
 			setError(
 				__(
 					'An error occurred while creating the site. Verify your selected local path is an empty directory or an existing WordPress folder and try again. If this problem persists, please contact support.'

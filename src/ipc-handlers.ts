@@ -112,24 +112,15 @@ export async function createSite(
 ): Promise< SiteDetails[] > {
 	const userData = await loadUserData();
 	const forceSetupSqlite = false;
-	// We only try to create the directory recursively if the user has
-	// not selected a path from the dialog (and thus they use the "default" path)
+	// We only recursively create the directory if the user has not selected a
+	// path from the dialog (and thus they use the "default" or suggested path).
 	if ( ! ( await pathExists( path ) ) && path.startsWith( DEFAULT_SITE_PATH ) ) {
-		try {
-			fs.mkdirSync( path, { recursive: true } );
-		} catch ( error ) {
-			Sentry.captureException( error );
-			throw error;
-		}
+		fs.mkdirSync( path, { recursive: true } );
 	}
 
 	if ( ! ( await isEmptyDir( path ) ) && ! isWordPressDirectory( path ) ) {
 		// Form validation should've prevented a non-empty directory from being selected
-		const error = new Error(
-			'The selected directory is not empty nor an existing WordPress site.'
-		);
-		Sentry.captureException( error );
-		throw error;
+		throw new Error( 'The selected directory is not empty nor an existing WordPress site.' );
 	}
 
 	const allPaths = userData?.sites?.map( ( site ) => site.path ) || [];
@@ -138,12 +129,7 @@ export async function createSite(
 	}
 
 	if ( ( await pathExists( path ) ) && ( await isEmptyDir( path ) ) ) {
-		try {
-			await createSiteWorkingDirectory( path );
-		} catch ( error ) {
-			Sentry.captureException( error );
-			throw error;
-		}
+		await createSiteWorkingDirectory( path );
 	}
 
 	const details = {
@@ -157,23 +143,18 @@ export async function createSite(
 	const server = SiteServer.create( details );
 
 	if ( isWordPressDirectory( path ) ) {
-		try {
-			// If the directory contains a WordPress installation, and user wants to force SQLite
-			// integration, let's rename the wp-config.php file to allow WP Now to create a new one
-			// and initialize things properly.
-			if ( forceSetupSqlite && ( await pathExists( nodePath.join( path, 'wp-config.php' ) ) ) ) {
-				fs.renameSync(
-					nodePath.join( path, 'wp-config.php' ),
-					nodePath.join( path, 'wp-config-studio.php' )
-				);
-			}
+		// If the directory contains a WordPress installation, and user wants to force SQLite
+		// integration, let's rename the wp-config.php file to allow WP Now to create a new one
+		// and initialize things properly.
+		if ( forceSetupSqlite && ( await pathExists( nodePath.join( path, 'wp-config.php' ) ) ) ) {
+			fs.renameSync(
+				nodePath.join( path, 'wp-config.php' ),
+				nodePath.join( path, 'wp-config-studio.php' )
+			);
+		}
 
-			if ( ! ( await pathExists( nodePath.join( path, 'wp-config.php' ) ) ) ) {
-				await setupSqliteIntegration( path );
-			}
-		} catch ( error ) {
-			Sentry.captureException( error );
-			throw error;
+		if ( ! ( await pathExists( nodePath.join( path, 'wp-config.php' ) ) ) ) {
+			await setupSqliteIntegration( path );
 		}
 	}
 

@@ -10,7 +10,7 @@ export function Badge( {
 	return (
 		<div
 			className={ cx(
-				'badge rounded-sm justify-center items-center a8c-body-small flex h-4 px-2',
+				'badge rounded-sm justify-center items-center a8c-body-small flex h-4 px-2 whitespace-nowrap',
 				className || 'text-a8c-yellow-80 bg-a8c-yellow-10'
 			) }
 		>

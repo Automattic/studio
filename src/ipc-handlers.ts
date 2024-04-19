@@ -112,7 +112,6 @@ export async function createSite(
 ): Promise< SiteDetails[] > {
 	const userData = await loadUserData();
 	const forceSetupSqlite = false;
-	let wasPathEmpty = false;
 	// We only try to create the directory recursively if the user has
 	// not selected a path from the dialog (and thus they use the "default" path)
 	if ( ! ( await pathExists( path ) ) && path.startsWith( DEFAULT_SITE_PATH ) ) {
@@ -124,8 +123,12 @@ export async function createSite(
 	}
 
 	if ( ! ( await isEmptyDir( path ) ) && ! isWordPressDirectory( path ) ) {
-		wasPathEmpty = true;
-		return userData.sites;
+		// Form validation should've prevented a non-empty directory from being selected
+		const error = new Error(
+			'The selected directory is not empty nor an existing WordPress site.'
+		);
+		Sentry.captureException( error );
+		throw error;
 	}
 
 	const allPaths = userData?.sites?.map( ( site ) => site.path ) || [];
@@ -164,10 +167,6 @@ export async function createSite(
 			}
 		} catch ( error ) {
 			Sentry.captureException( error );
-			if ( wasPathEmpty ) {
-				// Clean the path to let the user try again
-				await shell.trashItem( path );
-			}
 			throw new Error( 'Error creating the site. Please contact support.' );
 		}
 	}

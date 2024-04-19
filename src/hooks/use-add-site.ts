@@ -53,12 +53,16 @@ export function useAddSite() {
 			const path = sitePath ? sitePath : proposedSitePath;
 			await createSite( path, siteName ?? '' );
 		} catch ( e ) {
-			setError( ( e as Error )?.message );
+			setError(
+				__(
+					'An error occurred while creating the site. Verify your selected local path is an empty directory or an existing WordPress folder and try again. If this problem persists, please contact support.'
+				)
+			);
 			setIsAddingSite( false );
 			throw e;
 		}
 		setIsAddingSite( false );
-	}, [ createSite, proposedSitePath, siteName, sitePath ] );
+	}, [ createSite, proposedSitePath, siteName, sitePath, __ ] );
 
 	const handleSiteNameChange = useCallback(
 		async ( name: string ) => {

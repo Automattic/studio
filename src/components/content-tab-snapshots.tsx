@@ -140,7 +140,7 @@ function SnapshotRow( {
 						{ sprintf( __( 'Site expired on %s' ), dateString ) }
 					</div>
 					<div className="a8c-body mt-1">
-						{ __( 'Demo sites expire 7 days after they were last updated.' ) }
+						{ __( 'Demo sites are deleted 7 days after they were last updated.' ) }
 					</div>
 				</div>
 				<div className="px-4 pb-3 mt-4 flex gap-4">
@@ -270,7 +270,7 @@ function EmptyGeneric( {
 					{ [
 						__( 'Share a hosted clone of your local site.' ),
 						__( 'Push updates to your demo site at any time.' ),
-						__( 'Demo sites expire 7 days after the last update.' ),
+						__( 'Demo sites are deleted 7 days after the last update.' ),
 					].map( ( text ) => (
 						<div key={ text } className="text-a8c-gray-70 a8c-body flex items-center">
 							<Icon className="fill-a8c-blueberry mr-2" icon={ check } /> { text }

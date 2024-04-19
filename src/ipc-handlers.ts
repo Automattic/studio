@@ -137,7 +137,12 @@ export async function createSite(
 	}
 
 	if ( ( await pathExists( path ) ) && ( await isEmptyDir( path ) ) ) {
-		await createSiteWorkingDirectory( path );
+		try {
+			await createSiteWorkingDirectory( path );
+		} catch ( error ) {
+			Sentry.captureException( error );
+			throw error;
+		}
 	}
 
 	const details = {

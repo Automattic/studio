@@ -29,11 +29,13 @@ export function useAddSite() {
 			const { path, name, isEmpty, isWordPress } = response;
 			setDoesPathContainWordPress( false );
 			setError( '' );
-			setSitePath( path );
+			const pathResetToDefaultSitePath =
+				path === proposedSitePath.substring( 0, proposedSitePath.lastIndexOf( '/' ) );
+			setSitePath( pathResetToDefaultSitePath ? '' : path );
 			if ( siteWithPathAlreadyExists( path ) ) {
 				return;
 			}
-			if ( ! isEmpty && ! isWordPress ) {
+			if ( ! isEmpty && ! isWordPress && ! pathResetToDefaultSitePath ) {
 				setError(
 					__(
 						'This directory is not empty. Please select an empty directory or an existing WordPress folder.'
@@ -46,7 +48,7 @@ export function useAddSite() {
 				setSiteName( name ?? null );
 			}
 		}
-	}, [ __, siteWithPathAlreadyExists, siteName ] );
+	}, [ __, siteWithPathAlreadyExists, siteName, proposedSitePath ] );
 
 	const handleAddSiteClick = useCallback( async () => {
 		setIsAddingSite( true );

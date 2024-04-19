@@ -32,7 +32,9 @@ export function getPreferredSystemLanguages() {
 		// See: https://developer-old.gnome.org/glib/unstable/glib-I18N.html#g-get-language-names
 		// The language tags returned by this system function are in a format like "en_US" or "en_US.utf8".
 		// When these sorts of tags are passed to Intl.getCanonicalLocales() it throws an error.
-		return [ DEFAULT_LOCALE ];
+		return app
+			.getPreferredSystemLanguages()
+			.filter( ( lang ) => supportedLocales.includes( lang ) );
 	}
 
 	return app.getPreferredSystemLanguages();

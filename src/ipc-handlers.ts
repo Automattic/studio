@@ -173,7 +173,7 @@ export async function createSite(
 			}
 		} catch ( error ) {
 			Sentry.captureException( error );
-			throw new Error( 'Error creating the site. Please contact support.' );
+			throw error;
 		}
 	}
 

@@ -2,6 +2,8 @@
 
 A desktop application for creating local WordPress environments, powered by WordPress.com and WordPress Playground.
 
+![](https://raw.githubusercontent.com/Automattic/studio/trunk/demo.png)
+
 ## Getting started
 Studio is open source and is available to download for free!
 

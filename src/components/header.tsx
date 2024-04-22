@@ -20,7 +20,7 @@ export default function Header() {
 							onClick={ () => getIpcApi().openSiteURL( site.id, '/wp-admin' ) }
 							variant="link"
 						>
-							{ __( 'WP Admin' ) }
+							{ __( 'WP admin' ) }
 							<Icon icon={ external } className="ml-1" size={ 14 } />
 						</Button>
 						<Button

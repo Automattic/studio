@@ -45,7 +45,7 @@ export default function EditSite() {
 		<>
 			{ needsToEditSite && (
 				<Modal
-					className="w-[460px]"
+					size="medium"
 					title={ __( 'Edit site' ) }
 					isDismissible
 					focusOnMount="firstContentElement"

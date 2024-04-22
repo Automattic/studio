@@ -68,10 +68,10 @@ const SnapshotInfo = ( {
 			<h2 className="a8c-subtitle-small">{ __( 'Usage' ) }</h2>
 			<div className="flex gap-4 flex-row items-center w-full">
 				<div className="flex w-full flex-col gap-2">
-					<div className="flex w-full flex-row justify-between">
+					<div className="flex w-full flex-row justify-between gap-8 ">
 						<span>{ __( 'Demo sites' ) }</span>
 
-						<div className="flex flex-row items-center">
+						<div className="flex flex-row items-center text-right">
 							{ isDeleting && <Spinner className="!mt-0 !ml-0 !mr-2" /> }
 							<span className="text-a8c-gray-70">
 								{ sprintf( __( '%1s of %2s active demo sites' ), siteCount, siteLimit ) }
@@ -162,12 +162,7 @@ export default function UserSettings() {
 	return (
 		<>
 			{ needsToOpenUserSettings && (
-				<Modal
-					className="w-[400px]"
-					title={ __( 'Settings' ) }
-					isDismissible
-					onRequestClose={ resetLocalState }
-				>
+				<Modal title={ __( 'Settings' ) } isDismissible onRequestClose={ resetLocalState }>
 					{ ! isAuthenticated && (
 						<div className="justify-between items-center w-full h-auto flex">
 							<WordPressLogo width={ 110 } />

@@ -121,7 +121,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 		<>
 			{ showModal && ! loadingSites && (
 				<Modal
-					className="w-[460px]"
+					size="medium"
 					title={ __( 'Add a site' ) }
 					isDismissible
 					focusOnMount="firstContentElement"

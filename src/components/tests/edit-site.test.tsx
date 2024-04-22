@@ -5,6 +5,7 @@ import EditSite from '../edit-site';
 const mockUpdateSite = jest.fn();
 jest.mock( '../../hooks/use-site-details', () => ( {
 	useSiteDetails: () => ( {
+		selectedSite: { name: 'Test Site', path: '/path/to/site', id: 'site-id' },
 		updateSite: mockUpdateSite,
 		data: [],
 	} ),
@@ -16,6 +17,8 @@ describe( 'EditSite', () => {
 		render( <EditSite /> );
 
 		await user.click( screen.getByRole( 'button', { name: 'Edit site name' } ) );
+		expect( screen.queryByRole( 'dialog' ) ).toBeInTheDocument();
+
 		await userEvent.tab();
 		await userEvent.keyboard( '{Enter}' );
 

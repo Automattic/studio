@@ -23,8 +23,8 @@ We’d love to get your thoughts and feedback on your experience with Studio. If
 
 Studio is an open source project that welcomes all contributions. If you spot a bug or the feature you need is missing, open an issue or propose a Pull Request to implement it.
 
-- Reporting bugs: Open an issue in the repository.
-- Ideas or feature requests: Open an issue in the repository.
+- Reporting bugs: [Open an issue in the repository.](https://github.com/Automattic/studio/issues/new/choose)
+- Ideas or feature requests: [Open an issue in the repository.](https://github.com/Automattic/studio/issues/new/choose)
 - Code contributions: See the sections below.
 
 ### Start development

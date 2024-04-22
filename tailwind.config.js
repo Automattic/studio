@@ -1,7 +1,7 @@
 /** @type {import('tailwindcss').Config} */
 import palette from '@automattic/color-studio';
 import plugin from 'tailwindcss/plugin';
-import { WINDOWS_TITLEBAR_HEIGHT } from './src/constants.ts';
+import { WINDOWS_TITLEBAR_HEIGHT, MAIN_MIN_WIDTH } from './src/constants.ts';
 
 const BASE_FONT_SIZE = 16; // 1 rem
 const pxToRem = ( px ) => `${ px / BASE_FONT_SIZE }rem`;
@@ -155,6 +155,9 @@ module.exports = {
 					from: { opacity: 0 },
 					to: { opacity: 1 },
 				},
+			},
+			screens: {
+				sd: `${ MAIN_MIN_WIDTH }px`,
 			},
 		},
 	},

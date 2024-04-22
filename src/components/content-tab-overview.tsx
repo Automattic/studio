@@ -152,7 +152,7 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 	if ( installedApps.vscode ) {
 		// Use VS Code as a default even if none of the editors are installed
 		buttonsArray.push( {
-			label: __( 'VS Code' ),
+			label: 'VS Code',
 			className: 'text-nowrap',
 			icon: code,
 			onClick: async () => {
@@ -171,7 +171,7 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 		} );
 	} else if ( installedApps.phpstorm ) {
 		buttonsArray.push( {
-			label: __( 'PhpStorm' ),
+			label: 'PhpStorm',
 			className: 'text-nowrap',
 			icon: code,
 			onClick: async () => {

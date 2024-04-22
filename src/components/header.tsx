@@ -12,7 +12,7 @@ export default function Header() {
 		<div data-testid="site-content-header" className="flex justify-between items-center w-full">
 			{ site && (
 				<div className="flex flex-col">
-					<h1 className="text-xl font-normal">{ site ? __( site.name ) : null }</h1>
+					<h1 className="text-xl font-normal">{ site ? site.name : null }</h1>
 					<div className="flex mt-1 gap-x-4">
 						<Button
 							disabled={ ! site.running }

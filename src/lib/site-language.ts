@@ -2,7 +2,7 @@ import path from 'path';
 import { Locale } from '@formatjs/intl-locale';
 import { match } from '@formatjs/intl-localematcher';
 import fs from 'fs-extra';
-import { DEFAULT_LOCALE, getPreferredSystemLanguages } from './locale';
+import { DEFAULT_LOCALE, getSupportedLocale } from './locale';
 
 interface TranslationsData {
 	translations: Translation[];
@@ -75,7 +75,6 @@ async function getAvailableSiteTranslations( wpVersion: string ) {
 }
 
 export async function getPreferredSiteLanguage( wpVersion = 'latest' ) {
-	const preferredLanguages = getPreferredSystemLanguages();
 	const availableTranslations = await getAvailableSiteTranslations( wpVersion );
 	const availableLanguages: string[] = availableTranslations
 		// Change format to conform locale representation
@@ -92,5 +91,7 @@ export async function getPreferredSiteLanguage( wpVersion = 'latest' ) {
 		// Filter special locales
 		.filter( ( item ) => SKIP_LOCALE_TAGS.every( ( tagToSkip ) => ! item.endsWith( tagToSkip ) ) );
 
-	return match( preferredLanguages, availableLanguages, DEFAULT_LOCALE ).split( '-' ).join( '_' );
+	return match( [ getSupportedLocale() ], availableLanguages, DEFAULT_LOCALE )
+		.split( '-' )
+		.join( '_' );
 }

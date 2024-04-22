@@ -42,15 +42,15 @@ describe( 'getPreferredSiteLanguage', () => {
 			{ locale: 'en', expected: 'en' },
 			{ locale: 'en-US', expected: 'en' },
 			{ locale: 'es-ES', expected: 'es_ES' },
-			{ locale: 'ca-ES', expected: 'ca' },
-			{ locale: 'en-ES', expected: 'en_GB' },
-			{ locale: 'en-IE', expected: 'en_GB' },
+			{ locale: 'ca-ES', expected: 'es_ES' },
+			{ locale: 'en-ES', expected: 'en' },
+			{ locale: 'en-IE', expected: 'en' },
 			{ locale: 'de', expected: 'de_DE' },
 			{ locale: 'de-DE-x-formal', expected: 'de_DE' },
-			{ locale: 'gsw', expected: 'de_CH' },
+			{ locale: 'gsw', expected: 'de_DE' },
 			{ locale: 'it', expected: 'it_IT' },
 			{ locale: 'he', expected: 'he_IL' },
-			{ locale: 'fi-EN', expected: 'fi' },
+			{ locale: 'fi-EN', expected: 'en' },
 			{ locale: 'ja', expected: 'ja' },
 			{ locale: 'ko', expected: 'ko_KR' },
 			{ locale: 'nl', expected: 'nl_NL' },
@@ -59,7 +59,7 @@ describe( 'getPreferredSiteLanguage', () => {
 			{ locale: 'ru', expected: 'ru_RU' },
 			{ locale: 'sv', expected: 'sv_SE' },
 			{ locale: 'tr', expected: 'tr_TR' },
-			{ locale: 'zh-Hant-HK', expected: 'zh_HK' },
+			{ locale: 'zh-Hant-HK', expected: 'zh_TW' },
 			{ locale: 'zh-Hans', expected: 'zh_CN' },
 			{ locale: 'zh-Hant-TW', expected: 'zh_TW' },
 		];
@@ -80,8 +80,8 @@ describe( 'getPreferredSiteLanguage', () => {
 		);
 	} );
 
-	describe( 'specific WP version', () => {
-		const WP_VERSION = '5.0';
+	describe( 'WP version with fewer supported languages', () => {
+		const WP_VERSION = '1.0';
 		const AVAILABLE_LOCALES = [ 'en', 'en-US', 'en-GB', 'es-ES' ];
 		const WP_5_0_LOCALES = [
 			{ locale: 'en', expected: 'en' },
@@ -90,8 +90,8 @@ describe( 'getPreferredSiteLanguage', () => {
 			{ locale: 'es-419', expected: 'es_ES' },
 			{ locale: 'es-SV', expected: 'es_ES' },
 			{ locale: 'ca-ES', expected: 'es_ES' },
-			{ locale: 'en-ES', expected: 'en_GB' },
-			{ locale: 'en-IE', expected: 'en_GB' },
+			{ locale: 'en-ES', expected: 'en' },
+			{ locale: 'en-IE', expected: 'en' },
 			{ locale: 'de', expected: 'en' },
 			{ locale: 'de-DE-x-formal', expected: 'en' },
 			{ locale: 'gsw', expected: 'en' },
@@ -139,7 +139,7 @@ describe( 'getPreferredSiteLanguage', () => {
 			expect( await getPreferredSiteLanguage( WP_VERSION ) ).toBe( 'en' );
 
 			expect( error ).toHaveBeenCalledWith(
-				"An error ocurred when fetching available site translations for version '5.0':",
+				"An error ocurred when fetching available site translations for version '1.0':",
 				undefined
 			);
 

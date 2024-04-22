@@ -3,7 +3,7 @@
 A desktop application for creating local WordPress environments powered by WordPress Playground.
 
 ## Getting started
-Studio is open-source and is available to download for free!
+Studio is open source and is available to download for free!
 
 **Step 1: Download the App**
 
@@ -19,7 +19,7 @@ We’d love to get your thoughts and feedback on your experience with Studio. If
 
 ## Contributing
 
-Studio is an open-source project that welcomes all contributions. If you spot a bug or the feature you need is missing, open an issue or propose a Pull Request to implement it.
+Studio is an open source project that welcomes all contributions. If you spot a bug or the feature you need is missing, open an issue or propose a Pull Request to implement it.
 
 - Reporting bugs – open an issue in the repository.
 - Ideas or feature requests – open an issue in the repository.

@@ -21,6 +21,7 @@ rules.push( {
 } );
 
 export const rendererConfig: Configuration = {
+	devtool: 'source-map',
 	module: {
 		rules,
 	},

@@ -95,6 +95,7 @@
 		"@php-wasm/node": "^0.6.16",
 		"@php-wasm/universal": "^0.6.16",
 		"@sentry/electron": "^4.17.0",
+		"@sentry/webpack-plugin": "^2.16.1",
 		"@wordpress/compose": "^6.27.0",
 		"@wordpress/i18n": "^4.50.0",
 		"@wordpress/icons": "^9.40.0",

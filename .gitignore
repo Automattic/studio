@@ -104,3 +104,6 @@ vendor/*
 
 # Build output
 dist
+
+# Sentry Config File
+.env.sentry-build-plugin

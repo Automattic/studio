@@ -9,10 +9,15 @@ export default function Header() {
 	const { __ } = useI18n();
 	const { selectedSite: site, startServer, stopServer, loadingServer } = useSiteDetails();
 	return (
-		<div data-testid="site-content-header" className="flex justify-between items-center w-full">
+		<div
+			data-testid="site-content-header"
+			className="flex justify-between items-start w-full gap-5 "
+		>
 			{ site && (
 				<div className="flex flex-col">
-					<h1 className="text-xl font-normal">{ site ? site.name : null }</h1>
+					<h1 className="text-xl font-normal max-h-full line-clamp-1">
+						{ site ? site.name : null }
+					</h1>
 					<div className="flex mt-1 gap-x-4">
 						<Button
 							disabled={ ! site.running }

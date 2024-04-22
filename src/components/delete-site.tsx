@@ -9,12 +9,22 @@ import Modal from './modal';
 import offlineIcon from './offline-icon';
 import Tooltip from './tooltip';
 
+const MAX_LENGTH_SITE_TITLE = 35;
+
 const DeleteSite = () => {
 	const { __ } = useI18n();
 	const { selectedSite, deleteSite, isDeleting, deleteError } = useSiteDetails();
 	const isOffline = useOffline();
 	const [ needsConfirmation, setNeedsConfirmation ] = useState( false );
 	const [ deleteLocalFiles, setDeleteLocalFiles ] = useState( false );
+
+	let trimmedSiteTitle;
+	if ( selectedSite ) {
+		trimmedSiteTitle =
+			selectedSite.name.length > MAX_LENGTH_SITE_TITLE
+				? `${ selectedSite.name.substring( 0, MAX_LENGTH_SITE_TITLE - 3 ) }...`
+				: selectedSite.name;
+	}
 
 	const offlineMessage = __(
 		'This site has active demo sites that cannot be deleted without an internet connection.'
@@ -43,7 +53,7 @@ const DeleteSite = () => {
 			{ needsConfirmation && selectedSite?.id && (
 				<Modal
 					size="medium"
-					title={ sprintf( __( 'Delete %s' ), selectedSite.name ) }
+					title={ sprintf( __( 'Delete %s' ), trimmedSiteTitle ) }
 					closeButtonLabel={ __( 'Close' ) }
 					isDismissible
 					onRequestClose={ resetLocalState }

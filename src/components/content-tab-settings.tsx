@@ -39,8 +39,10 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 						</th>
 					</tr>
 					<SettingsRow label={ __( 'Site name' ) }>
-						{ selectedSite.name }
-						<EditSite />
+						<div className="flex">
+							<span className="line-clamp-1">{ selectedSite.name }</span>
+							<EditSite />
+						</div>
 					</SettingsRow>
 					<SettingsRow label={ __( 'Local domain' ) }>
 						<CopyTextButton
@@ -58,7 +60,8 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 							onClick={ () => getIpcApi().openLocalPath( selectedSite.path ) }
 							variant="link"
 						>
-							{ selectedSite.path } <Icon size={ 13 } icon={ file } className="shrink-0" />
+							<span className="line-clamp-1">{ selectedSite.path }</span>
+							<Icon size={ 13 } icon={ file } className="shrink-0" />
 						</Button>
 					</SettingsRow>
 					<SettingsRow label={ __( 'WP Version' ) }>{ wpVersion }</SettingsRow>

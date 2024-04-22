@@ -55,7 +55,7 @@ The app automatically launches with the Chromium developer tools opened by defau
 
 #### Code formatting
 
-Code formatting has been set up to make merging PRs easier. It uses the same prettier/eslint mechanism as Calypso, see p4TIVU-9Lo-p2 for details on setting up your editor.
+Code formatting has been set up to make merging PRs easier. It uses the same prettier/eslint mechanism as Calypso, see [JavaScript Coding Guidelines](https://github.com/Automattic/wp-calypso/blob/trunk/docs/coding-guidelines/javascript.md) for details on setting up your editor.
 
 ### Debugging
 

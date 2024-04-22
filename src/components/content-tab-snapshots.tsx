@@ -244,7 +244,7 @@ function EmptyGeneric( {
 }: PropsWithChildren< { selectedSite: SiteDetails } > ) {
 	const { __ } = useI18n();
 	return (
-		<div className="pb-10 flex justify-between max-w-2xl">
+		<div className="pb-10 flex justify-between max-w-2xl gap-4">
 			<div className="flex flex-col">
 				<div className="a8c-subtitle mb-1">{ __( 'Share a demo site' ) }</div>
 				<div className="w-[40ch] text-a8c-gray-70 a8c-body pr-2">
@@ -273,13 +273,13 @@ function EmptyGeneric( {
 						__( 'Demo sites are deleted 7 days after the last update.' ),
 					].map( ( text ) => (
 						<div key={ text } className="text-a8c-gray-70 a8c-body flex items-center">
-							<Icon className="fill-a8c-blueberry mr-2" icon={ check } /> { text }
+							<Icon className="fill-a8c-blueberry mr-2 shrink-0" icon={ check } /> { text }
 						</div>
 					) ) }
 				</div>
 				{ children }
 			</div>
-			<div className="flex flex-col items-end">
+			<div className="flex flex-col shrink-0 items-end">
 				<ScreenshotDemoSite site={ selectedSite } />
 			</div>
 		</div>

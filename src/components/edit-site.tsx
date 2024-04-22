@@ -69,6 +69,7 @@ export default function EditSite() {
 									isEditingSite ||
 										! selectedSite ||
 										selectedSite?.name === siteName ||
+										! siteName.trim() ||
 										editSiteError
 								) }
 							>

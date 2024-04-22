@@ -119,7 +119,7 @@ const SnapshotInfo = ( {
 											onClose();
 										} }
 									>
-										<Icon className="mr-2" icon={ trash } /> { __( 'Delete all demo sites' ) }
+										<Icon className="ltr:mr-2 rtl:ml-2" icon={ trash } /> { __( 'Delete all demo sites' ) }
 									</MenuItem>
 								</Tooltip>
 							</MenuGroup>

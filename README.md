@@ -3,7 +3,7 @@
 A desktop application for creating local WordPress environments powered by WordPress Playground.
 
 ## Getting started
-Studio is now available to download for free!
+Studio is open-source and is available to download for free!
 
 **Step 1: Download the App**
 
@@ -17,8 +17,8 @@ Studio is now available to download for free!
 
 We’d love to get your thoughts and feedback on your experience with Studio.
 
-Bug Reports and Feature Requests: Open an Issue in GitHub.
-General Help: If you have a question or suggestion, [reach out to our Happiness Engineers](https://developer.wordpress.com/contact/).
+- Bug Reports and Feature Requests: Open an Issue in GitHub.
+- General Help: If you have a question or suggestion, [reach out to our Happiness Engineers](https://developer.wordpress.com/contact/).
 
 ## Contributing
 

@@ -123,7 +123,10 @@ export const ActionButton = ( {
 			buttonLabel = __( 'Stop' );
 			buttonProps = {
 				icon: <StopIcon height={ iconSize } width={ iconSize } />,
-				className: cx( defaultButtonClassName, '!text-a8c-red-50' ),
+				className: cx(
+					defaultButtonClassName,
+					'!text-a8c-red-50 !shadow-[inset_0_0_0_1px_shadow-a8c-red-50] !shadow-a8c-red-50'
+				),
 			};
 			break;
 		case 'running':

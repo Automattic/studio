@@ -21,9 +21,9 @@ We’d love to get your thoughts and feedback on your experience with Studio. If
 
 Studio is an open source project that welcomes all contributions. If you spot a bug or the feature you need is missing, open an issue or propose a Pull Request to implement it.
 
-- Reporting bugs – open an issue in the repository.
-- Ideas or feature requests – open an issue in the repository.
-- Code contributions - see the sections below
+- Reporting bugs: Open an issue in the repository.
+- Ideas or feature Requests: open an issue in the repository.
+- Code contributions: See the sections below.
 
 ### Start development
 

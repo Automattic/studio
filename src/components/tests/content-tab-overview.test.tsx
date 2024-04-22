@@ -76,7 +76,7 @@ describe( 'ContentTabOverview', () => {
 			renderWithThemeDetails( { isBlockTheme: true, selectedSite: notRunningSite } );
 
 			blockThemeButtonLabels.forEach( ( label ) => {
-				const button = screen.getByText( label );
+				const button = screen.getByRole( 'button', { name: label } );
 				expect( button ).toBeDisabled();
 			} );
 		} );
@@ -147,9 +147,9 @@ describe( 'ContentTabOverview', () => {
 					selectedSite: notRunningSite,
 				} );
 
-				expect( screen.getByText( 'Customizer' ) ).toBeDisabled();
-				expect( screen.getByText( 'Menus' ) ).toBeDisabled();
-				expect( screen.getByText( 'Widgets' ) ).toBeDisabled();
+				expect( screen.getByRole( 'button', { name: 'Customizer' } ) ).toBeDisabled();
+				expect( screen.getByRole( 'button', { name: 'Menus' } ) ).toBeDisabled();
+				expect( screen.getByRole( 'button', { name: 'Widgets' } ) ).toBeDisabled();
 			} );
 		} );
 	} );

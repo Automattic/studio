@@ -219,7 +219,7 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 	const loading = loadingThemeDetails || loadingThumbnails || initialLoading;
 
 	return (
-		<div className="pb-10 flex">
+		<div className="pb-10 flex max-w-2xl">
 			<div className="w-52 mr-8 flex-col justify-start items-start gap-8">
 				<h2 className="mb-3 a8c-subtitle-small">{ __( 'Theme' ) }</h2>
 				<div

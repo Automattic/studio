@@ -15,7 +15,7 @@ export interface ButtonsSectionProps {
 
 export function ButtonsSection( { buttonsArray, title, className = '' }: ButtonsSectionProps ) {
 	return (
-		<div className="w-full max-w-96">
+		<div className="w-full">
 			<h2 className="a8c-subtitle-small mb-3">{ title }</h2>
 			<div className={ cx( 'gap-3', className || 'grid sd:grid-cols-3' ) }>
 				{ buttonsArray.map( ( button, index ) => (
@@ -27,6 +27,8 @@ export function ButtonsSection( { buttonsArray, title, className = '' }: Buttons
 						onClick={ button.onClick }
 						disabled={ button.disabled }
 						variant="secondary"
+						label={ button.label }
+						truncate
 					>
 						{ button.label }
 					</Button>

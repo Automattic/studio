@@ -1,5 +1,6 @@
 import { Button } from '@wordpress/components';
-import { ComponentProps } from 'react';
+import { useResizeObserver } from '@wordpress/compose';
+import { ComponentProps, useEffect, useRef, useState } from 'react';
 import { cx } from '../lib/cx';
 
 /**
@@ -11,6 +12,7 @@ type MappedOmit< T, K extends PropertyKey > = { [ P in keyof T as Exclude< P, K 
 
 export type ButtonProps = MappedOmit< ComponentProps< typeof Button >, 'variant' > & {
 	variant?: 'primary' | 'secondary' | 'tertiary' | 'link' | 'icon';
+	truncate?: boolean;
 };
 
 /**
@@ -28,11 +30,11 @@ py-2
 rounded-sm
 justify-center
 disabled:cursor-not-allowed
-truncate
 [&.components-button]:focus:shadow-[inset_0_0_0_1px_transparent]
 [&.components-button]:focus-visible:shadow-[0_0_0_1px_#3858E9]
 [&.components-button]:focus-visible:shadow-a8c-blueberry
 [&.components-button.is-destructive]:focus-visible:shadow-a8c-red-50
+[&_svg]:shrink-0
 `.replace( /\n/g, ' ' );
 
 const primaryStyles = `
@@ -79,7 +81,23 @@ hover:bg-white
 hover:bg-opacity-10
 `.replace( /\n/g, ' ' );
 
-export default function ButtonComponent( { className, variant, ...props }: ButtonProps ) {
+export default function ButtonComponent( {
+	className,
+	variant,
+	truncate,
+	children,
+	showTooltip,
+	...props
+}: ButtonProps ) {
+	const [ isTruncated, setIsTruncated ] = useState( false );
+	const element = useRef< HTMLSpanElement >( null );
+	const [ resizeListener, sizes ] = useResizeObserver();
+	useEffect( () => {
+		if ( ! element.current || ! truncate ) {
+			return;
+		}
+		setIsTruncated( element.current.offsetWidth < element.current.scrollWidth );
+	}, [ sizes, truncate ] );
 	return (
 		<Button
 			{ ...props }
@@ -93,6 +111,16 @@ export default function ButtonComponent( { className, variant, ...props }: Butto
 				props.isDestructive && destructiveStyles,
 				className
 			) }
-		/>
+			showTooltip={ showTooltip || ( truncate && isTruncated ) }
+		>
+			{ truncate
+				? [
+						<span ref={ element } className="truncate relative" key="content">
+							{ resizeListener }
+							{ children }
+						</span>,
+				  ]
+				: children }
+		</Button>
 	);
 }

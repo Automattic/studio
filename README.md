@@ -24,7 +24,7 @@ We’d love to get your thoughts and feedback on your experience with Studio. If
 Studio is an open source project that welcomes all contributions. If you spot a bug or the feature you need is missing, open an issue or propose a Pull Request to implement it.
 
 - Reporting bugs: Open an issue in the repository.
-- Ideas or feature Requests: Open an issue in the repository.
+- Ideas or feature requests: Open an issue in the repository.
 - Code contributions: See the sections below.
 
 ### Start development
@@ -55,7 +55,7 @@ The app automatically launches with the Chromium developer tools opened by defau
 
 #### Code formatting
 
-Code formatting has been set up to make merging PRs easier. It uses the same prettier/eslint mechanism as Calypso, see [JavaScript Coding Guidelines](https://github.com/Automattic/wp-calypso/blob/trunk/docs/coding-guidelines/javascript.md) for details on setting up your editor.
+Code formatting has been set up to make merging PRs easier. It uses the same prettier/eslint mechanism as Calypso. See [JavaScript Coding Guidelines](https://github.com/Automattic/wp-calypso/blob/trunk/docs/coding-guidelines/javascript.md) for details on setting up your editor.
 
 ### Debugging
 

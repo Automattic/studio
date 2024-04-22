@@ -36,7 +36,6 @@ jest.mock( '../../lib/get-ipc-api', () => ( {
 describe( 'Onboarding Component', () => {
 	beforeEach( () => {
 		( useOnboarding as jest.Mock ).mockReturnValue( {
-			showNextStep: false,
 			needsOnboarding: true,
 		} );
 		( useAddSite as jest.Mock ).mockReturnValue( {
@@ -55,7 +54,7 @@ describe( 'Onboarding Component', () => {
 		} );
 	} );
 
-	it( 'renders the first onboarding step correctly', () => {
+	it( 'renders onboarding screen correctly', () => {
 		const { getByText } = render( <Onboarding /> );
 		expect( getByText( 'Add your first site' ) ).toBeVisible();
 		expect( getByText( 'Continue' ) ).toBeVisible();
@@ -63,15 +62,13 @@ describe( 'Onboarding Component', () => {
 
 	it( 'completes onboarding when the final button is clicked', async () => {
 		const user = userEvent.setup();
-		const completeOnboarding = jest.fn();
-		( useOnboarding as jest.Mock ).mockReturnValue( {
-			completeOnboarding,
-			showNextStep: true,
-			needsOnboarding: true,
-		} );
+		const { handleAddSiteClick } = useAddSite();
+
 		const { getByText } = render( <Onboarding /> );
 
 		await user.click( getByText( 'Continue' ) );
-		await waitFor( () => expect( completeOnboarding ).toHaveBeenCalled() );
+
+		// Check if handleAddSiteClick has been called and the process to create a new site started
+		await waitFor( () => expect( handleAddSiteClick ).toHaveBeenCalled() );
 	} );
 } );

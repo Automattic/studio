@@ -15,10 +15,7 @@ Studio is open-source and is available to download for free!
 
 **Step 3: Give Feedback**
 
-We’d love to get your thoughts and feedback on your experience with Studio.
-
-- Bug Reports and Feature Requests: Open an Issue in GitHub.
-- General Help: If you have a question or suggestion, [reach out to our Happiness Engineers](https://developer.wordpress.com/contact/).
+We’d love to get your thoughts and feedback on your experience with Studio. See the Contributing section for more information on how to get in touch with us.
 
 ## Contributing
 
@@ -26,6 +23,7 @@ Studio is an open-source project that welcomes all contributions. If you spot a 
 
 - Reporting bugs – open an issue in the repository.
 - Ideas or feature requests – open an issue in the repository.
+- General Help: If you have a question or suggestion, [reach out to our Happiness Engineers](https://developer.wordpress.com/contact/).
 - Code contributions - see the sections below
 
 ### Start development

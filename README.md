@@ -1,6 +1,6 @@
 # Studio by WordPress.com
 
-A desktop application for creating local WordPress environments powered by WordPress Playground.
+A desktop application for creating local WordPress environments, powered by WordPress.com and WordPress Playground.
 
 ## Getting started
 Studio is open source and is available to download for free!
@@ -22,15 +22,16 @@ We’d love to get your thoughts and feedback on your experience with Studio. If
 Studio is an open source project that welcomes all contributions. If you spot a bug or the feature you need is missing, open an issue or propose a Pull Request to implement it.
 
 - Reporting bugs: Open an issue in the repository.
-- Ideas or feature Requests: open an issue in the repository.
+- Ideas or feature Requests: Open an issue in the repository.
 - Code contributions: See the sections below.
 
 ### Start development
 
 #### Initial setup
 
-The project includes native dependencies which require Python and it's `setuptools` module to build correctly.
-YMMV but if you manage packages with Homebrew you can do the following:
+The project includes native dependencies which require Python and its `setuptools` module to build correctly.
+
+If you manage packages with Homebrew you can do the following:
 
 ```bash
 $ brew install python3 python-setuptools

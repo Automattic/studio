@@ -91,7 +91,7 @@ getIpcApi()
 					detail:
 						window.appGlobals.platform === 'darwin'
 							? __(
-									'Downloading the Mac silicon version of Studio will provide better performance.'
+									'Downloading the Mac with Apple Silicon Chip version of Studio will provide better performance.'
 							  )
 							: __(
 									'Downloading the optimized version of Studio will provide better performance.'

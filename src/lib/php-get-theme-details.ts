@@ -1,12 +1,16 @@
 import * as Sentry from '@sentry/electron/main';
-import { WPNowServer } from '../../vendor/wp-now/src';
+import SiteServerProcess from './site-server-process';
 
 export async function phpGetThemeDetails(
-	php: WPNowServer[ 'php' ]
+	server: SiteServerProcess
 ): Promise< StartedSiteDetails[ 'themeDetails' ] > {
+	if ( ! server.php ) {
+		throw Error( 'PHP is not instantiated' );
+	}
+
 	let themeDetails = null;
 	const themeDetailsPhp = `<?php
-    require_once('${ php.documentRoot }/wp-load.php');
+    require_once('${ server.php.documentRoot }/wp-load.php');
     $theme = wp_get_theme();
     echo json_encode([
         'name' => $theme->get('Name'),
@@ -19,11 +23,9 @@ export async function phpGetThemeDetails(
     ]);
     `;
 	try {
-		themeDetails = (
-			await php.run( {
-				code: themeDetailsPhp,
-			} )
-		).text;
+		themeDetails = await server.runPhp( {
+			code: themeDetailsPhp,
+		} );
 		themeDetails = JSON.parse( themeDetails );
 	} catch ( error ) {
 		Sentry.captureException( error, {

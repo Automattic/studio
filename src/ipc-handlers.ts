@@ -502,7 +502,7 @@ export async function getThemeDetails( event: IpcMainInvokeEvent, id: string ) {
 	if ( ! server.details.running || ! server.server ) {
 		return null;
 	}
-	const themeDetails = await phpGetThemeDetails( server.server.php );
+	const themeDetails = await phpGetThemeDetails( server.server );
 
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	if ( themeDetails?.path && themeDetails.path !== server.details.themeDetails?.path ) {

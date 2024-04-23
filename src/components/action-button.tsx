@@ -19,7 +19,7 @@ interface ActionButtonProps {
 const MIN_WIDTH = 96;
 
 const playIcon = (
-	<SVG width="8" height="10" viewBox="0 0 8 10" fill="none">
+	<SVG width="8" height="10" viewBox="0 0 8 10" fill="none" className="rtl:scale-x-[-1]">
 		<Path d="M0 0L8 4.5L0 10V0Z" fill="currentColor" />
 	</SVG>
 );

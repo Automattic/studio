@@ -36,6 +36,8 @@ export function useExpirationDate( snapshotDate: number ) {
 	const countDown = formatDuration(
 		intervalToDuration( {
 			start: now,
+			// Add 1 hour to the end date serves us here, as for the last hour
+			// we show the minutes left.
 			end: addHours( endDate, 1 ),
 		} ),
 		{ format, delimiter: ', ' }

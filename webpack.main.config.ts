@@ -7,7 +7,13 @@ export const mainConfig: Configuration = {
 	 * This is the main entry point for your application, it's the first file
 	 * that runs in the main process.
 	 */
-	entry: './src/index.ts',
+	entry: {
+		index: './src/index.ts',
+		siteServerProcess: './src/lib/site-server-process-child.ts',
+	},
+	output: {
+		filename: '[name].js',
+	},
 	// Put your normal webpack config below here
 	module: {
 		rules,

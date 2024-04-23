@@ -28,7 +28,7 @@ export function useExpirationDate( snapshotDate: number ) {
 	const endDate = addDays( snapshotDate, MAX_DAYS );
 	const difference = endDate.getTime() - now.getTime();
 	let isExpired = false;
-	let format: ( keyof Duration )[] = [ DURATION_DAYS, DURATION_HOURS ]; // Keys for logic
+	let format: ( keyof Duration )[] = [ DURATION_DAYS, DURATION_HOURS ];
 	if ( difference < 0 ) {
 		isExpired = true;
 	} else if ( difference < HOUR ) {

@@ -28,7 +28,14 @@ function ButtonToRun( { running, id, name }: Pick< SiteDetails, 'running' | 'id'
 
 	const classCircle = `rounded-full`;
 	const triangle = (
-		<svg width="8" height="10" viewBox="0 0 8 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+		<svg
+			width="8"
+			height="10"
+			viewBox="0 0 8 10"
+			fill="none"
+			xmlns="http://www.w3.org/2000/svg"
+			className="rtl:scale-x-[-1]"
+		>
 			<path
 				d="M0.25 0.854923C0.25 0.663717 0.455914 0.543288 0.622565 0.63703L7.17821 4.32458C7.33948 4.41529 7.34975 4.64367 7.19728 4.74849L0.641632 9.2555C0.475757 9.36953 0.25 9.25078 0.25 9.04949V0.854923Z"
 				fill="#1ED15A"
@@ -93,13 +100,13 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 	return (
 		<li
 			className={ cx(
-				'flex flex-row min-w-[168px] h-8 hover:bg-[#ffffff0C] rounded transition-all',
+				'flex flex-row rtl:flex-row-reverse min-w-[168px] h-8 hover:bg-[#ffffff0C] rounded transition-all',
 				isMac() ? 'mx-5' : 'mx-4',
 				isSelected && 'bg-[#ffffff19] hover:bg-[#ffffff19]'
 			) }
 		>
 			<button
-				className="p-2 text-xs rounded-tl rounded-bl whitespace-nowrap overflow-hidden text-ellipsis w-full text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-a8c-blueberry"
+				className="p-2 text-xs rounded-tl rounded-bl whitespace-nowrap overflow-hidden text-ellipsis w-full text-left rtl:text-right focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-a8c-blueberry"
 				onClick={ () => {
 					setSelectedSiteId( site.id );
 				} }

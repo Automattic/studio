@@ -45,14 +45,22 @@ export function useExpirationDate( snapshotDate: number ) {
 		} ),
 		{ format, delimiter: ', ' }
 	);
-	// Translate here for display purposes, not in the logic configuration
-	const translatedCountDown = countDown
-		.replace( 'days', __( DURATION_DAYS ) )
-		.replace( 'day', __( DURATION_DAY ) )
-		.replace( 'hours', __( DURATION_HOURS ) )
-		.replace( 'hour', __( DURATION_HOUR ) )
-		.replace( 'minutes', __( DURATION_MINUTES ) )
-		.replace( 'minute', __( DURATION_MINUTE ) );
+
+	// Create static translation values
+
+	const countDownTranslated = [
+		{ key: 'days', value: __( DURATION_DAYS ) },
+		{ key: 'day', value: __( DURATION_DAY ) },
+		{ key: 'hours', value: __( DURATION_HOURS ) },
+		{ key: 'hour', value: __( DURATION_HOUR ) },
+		{ key: 'minutes', value: __( DURATION_MINUTES ) },
+		{ key: 'minute', value: __( DURATION_MINUTE ) },
+	];
+
+	// Map the translated values to the countDown string
+	const translatedCountDown = countDownTranslated.reduce( ( acc, { key, value } ) => {
+		return acc.replace( key, value );
+	}, countDown );
 
 	return {
 		isExpired,

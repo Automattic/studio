@@ -5,8 +5,11 @@ import { intervalToDuration, formatDuration, addDays, Duration, addHours } from 
 const HOUR = 1000 * 60 * 60;
 const DAY = HOUR * 24;
 const DURATION_DAYS = 'days';
+const DURATION_DAY = 'day';
 const DURATION_HOURS = 'hours';
+const DURATION_HOUR = 'hour';
 const DURATION_MINUTES = 'minutes';
+const DURATION_MINUTE = 'minute';
 
 function formatStringDate( ms: number ): string {
 	const { locale = 'en' } = window?.appGlobals || {};
@@ -45,8 +48,11 @@ export function useExpirationDate( snapshotDate: number ) {
 	// Translate here for display purposes, not in the logic configuration
 	const translatedCountDown = countDown
 		.replace( 'days', __( DURATION_DAYS ) )
+		.replace( 'day', __( DURATION_DAY ) )
 		.replace( 'hours', __( DURATION_HOURS ) )
-		.replace( 'minutes', __( DURATION_MINUTES ) );
+		.replace( 'hour', __( DURATION_HOUR ) )
+		.replace( 'minutes', __( DURATION_MINUTES ) )
+		.replace( 'minute', __( DURATION_MINUTE ) );
 
 	return {
 		isExpired,

@@ -445,6 +445,7 @@ export async function getAppGlobals( _event: IpcMainInvokeEvent ): Promise< AppG
 		locale,
 		localeData,
 		appName: app.name,
+		arm64Translation: app.runningUnderARM64Translation,
 	};
 }
 

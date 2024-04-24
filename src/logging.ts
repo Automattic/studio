@@ -7,14 +7,22 @@ let logStream: ReturnType< typeof FileStreamRotator.getStream > | null = null;
 // Intentional typo of 'erro' so all levels the same number of characters
 export type LogLevel = 'info' | 'warn' | 'erro';
 
-export function setupLogging() {
-	// Set the logging path to the default for the platform.
-	app.setAppLogsPath();
-
+export function setupLogging( {
+	isForkedProcess = false,
+	processId = 'main',
 	// During development logs will be written to ~/Library/Logs/Electron/*.log because technically
 	// the app is still called Electron from the system's point of view (see `CFBundleDisplayName`)
 	// In the release build logs will be written to ~/Library/Logs/Studio/*.log
-	const logDir = app.getPath( 'logs' );
+	logDir = app.getPath( 'logs' ),
+}: {
+	isForkedProcess?: boolean;
+	processId?: string;
+	logDir?: string;
+} = {} ) {
+	if ( ! isForkedProcess ) {
+		// Set the logging path to the default for the platform.
+		app.setAppLogsPath();
+	}
 
 	logStream = FileStreamRotator.getStream( {
 		filename: path.join( logDir, 'studio-%DATE%' ),
@@ -32,7 +40,7 @@ export function setupLogging() {
 	const makeLogger =
 		( level: LogLevel, originalLogger: typeof console.log ) =>
 		( ...args: Parameters< typeof console.log > ) => {
-			writeLogToFile( level, 'main', ...args );
+			writeLogToFile( level, processId, ...args );
 			originalLogger( ...args );
 		};
 
@@ -41,12 +49,14 @@ export function setupLogging() {
 	console.error = makeLogger( 'erro', console.error.bind( console ) );
 
 	process.on( 'exit', () => {
-		logStream?.end( `[${ new Date().toISOString() }][info][main] App is terminating` );
+		logStream?.end( `[${ new Date().toISOString() }][info][${ processId }] App is terminating` );
 	} );
 
 	// Handle Ctrl+C (SIGINT) to gracefully close the log stream
 	process.on( 'SIGINT', () => {
-		logStream?.end( `[${ new Date().toISOString() }][info][main] App was terminated by SIGINT` );
+		logStream?.end(
+			`[${ new Date().toISOString() }][info][${ processId }] App was terminated by SIGINT`
+		);
 		process.exit();
 	} );
 

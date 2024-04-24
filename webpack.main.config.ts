@@ -1,15 +1,50 @@
+import path from 'path';
 import { type Configuration, DefinePlugin } from 'webpack';
 import { plugins } from './webpack.plugins';
 import { rules } from './webpack.rules';
 
-export const mainConfig: Configuration = {
+// Extra entries are bundled separately from the main bundle. They are primarily used
+// for worker threads and forked processes, which need to be loaded independently.
+const extraEntries = [
+	{
+		name: 'siteServerProcess',
+		path: './src/lib/site-server-process-child.ts',
+		exportName: 'SITE_SERVER_PROCESS_MODULE_PATH',
+	},
+];
+
+export default function mainConfig( _env: unknown, args: Record< string, unknown > ) {
+	const isProduction = args.mode === 'production';
+
+	// Generates the necessary plugins to expose the module path of extra entries.
+	const definePlugins = extraEntries.map( ( entry ) => {
+		// The path calculation is based on how the Forge's webpack plugin generates the path for Electron files.
+		// Reference: https://github.com/electron/forge/blob/b298b2967bdc79bdc4e09681ea1ccc46a371635a/packages/plugin/webpack/src/WebpackConfig.ts#L113-L140
+		const modulePath = isProduction
+			? `require('path').resolve(__dirname, '..', 'main', '${ entry.name }.js')`
+			: JSON.stringify( path.resolve( __dirname, `.webpack/main/${ entry.name }.js` ) );
+		return new DefinePlugin( {
+			[ entry.exportName ]: modulePath,
+		} );
+	} );
+
+	return {
+		...mainBaseConfig,
+		plugins: [ ...( mainBaseConfig.plugins || [] ), ...definePlugins ],
+	};
+}
+
+export const mainBaseConfig: Configuration = {
 	/**
 	 * This is the main entry point for your application, it's the first file
 	 * that runs in the main process.
 	 */
 	entry: {
 		index: './src/index.ts',
-		siteServerProcess: './src/lib/site-server-process-child.ts',
+		// Inject extra entries into the webpack configuration
+		...extraEntries.reduce( ( accum, entry ) => {
+			return { ...accum, [ entry.name ]: entry.path };
+		}, {} ),
 	},
 	output: {
 		filename: '[name].js',

@@ -33,6 +33,7 @@ export default class SiteServerProcess {
 						STUDIO_SITE_SERVER_PROCESS: 'true',
 						STUDIO_APP_NAME: app.name,
 						STUDIO_APP_DATA_PATH: app.getPath( 'appData' ),
+						STUDIO_APP_LOGS_PATH: app.getPath( 'logs' ),
 					},
 				} )
 				.on( 'spawn', async () => {

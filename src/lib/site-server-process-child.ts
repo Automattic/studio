@@ -1,7 +1,17 @@
 import { PHPRunOptions } from '@php-wasm/universal';
 import { startServer, type WPNowServer } from '../../vendor/wp-now/src';
 import { WPNowOptions } from '../../vendor/wp-now/src/config';
+import { setupLogging } from '../logging';
 import type { MessageName } from './site-server-process';
+
+// Setup logging for the forked process
+if ( process.env.STUDIO_APP_LOGS_PATH ) {
+	setupLogging( {
+		processId: 'site-server-process',
+		isForkedProcess: true,
+		logDir: process.env.STUDIO_APP_LOGS_PATH,
+	} );
+}
 
 const options = JSON.parse( process.argv[ 2 ] ) as WPNowOptions;
 let server: WPNowServer;

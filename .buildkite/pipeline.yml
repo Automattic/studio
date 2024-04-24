@@ -1,7 +1,7 @@
 # Nodes with values to reuse in the pipeline.
 common_params:
   plugins: &common_plugins
-    - automattic/a8c-ci-toolkit#3.1.0
+    - automattic/a8c-ci-toolkit#3.3.0
     - automattic/nvm#0.3.0
 
 # All current steps use the same agent and environment; we can define them as top-level
@@ -11,6 +11,36 @@ env:
   IMAGE_ID: xcode-15.2
 
 steps:
+  - label: Lint
+    key: lint
+    command: |
+      .buildkite/commands/install-node-dependencies.sh
+      echo '--- :eslint: Lint'
+      npm run lint
+    agents:
+      queue: default
+    plugins: *common_plugins
+
+  - label: Unit Tests
+    key: unit_tests
+    command: |
+      .buildkite/commands/install-node-dependencies.sh
+      echo '--- :npm: Run Unit Tests'
+      npm run test
+    agents:
+      queue: default
+    plugins: *common_plugins
+
+  - label: End To End (macOS only)
+    key: e2e_macos
+    plugins: *common_plugins
+    command: |
+      .buildkite/commands/install-node-dependencies.sh
+      echo '--- :package: Build app'
+      npm run package
+      echo '--- Run E2E Tests'
+      npm run e2e
+
   - group: "📦 Build for Mac"
     key: 'dev-mac'
     steps:
@@ -57,7 +87,7 @@ steps:
       install_gems
       bundle exec fastlane distribute_dev_build
     agents:
-      queue: "mac" #
+      queue: "mac"
     depends_on:
       - step: "dev-mac"
       - step: "dev-windows"
@@ -68,9 +98,9 @@ steps:
     key: 'release-mac'
     command: |
       .buildkite/commands/prepare-environment.sh
+      .buildkite/commands/install-node-dependencies.sh
 
       echo "--- :node: Building Binary"
-      npm install
       node ./scripts/confirm-tag-matches-version.mjs
       npm run make:macos-x64
       npm run make:macos-arm64

@@ -51,7 +51,7 @@ export const ActionButton = ( {
 	iconSize = 10,
 }: ActionButtonProps ) => {
 	const { __ } = useI18n();
-	const [ isHovered, setIsHovered ] = useState( false );
+	const [ isUserHighlighting, setIsUserHighlighting ] = useState( false );
 	const containerRef = useRef< HTMLDivElement >( null );
 	const [ resizeListener, sizes ] = useResizeObserver();
 	const minSize = useRef( { width: MIN_WIDTH, height: 0 } );
@@ -60,7 +60,7 @@ export const ActionButton = ( {
 	if ( isLoading ) {
 		state = 'loading';
 	} else if ( isRunning ) {
-		if ( isHovered ) {
+		if ( isUserHighlighting ) {
 			state = 'stop';
 		} else {
 			state = 'running';
@@ -122,6 +122,7 @@ export const ActionButton = ( {
 		case 'stop':
 			buttonLabel = __( 'Stop' );
 			buttonProps = {
+				'aria-label': __( 'Server is running, click to stop.' ),
 				icon: <StopIcon height={ iconSize } width={ iconSize } />,
 				className: cx(
 					defaultButtonClassName,
@@ -142,8 +143,10 @@ export const ActionButton = ( {
 		<div
 			ref={ containerRef }
 			className={ cx( className, 'relative' ) }
-			onMouseEnter={ () => setIsHovered( true ) }
-			onMouseLeave={ () => setIsHovered( false ) }
+			onMouseEnter={ () => setIsUserHighlighting( true ) }
+			onMouseLeave={ () => setIsUserHighlighting( false ) }
+			onFocus={ () => setIsUserHighlighting( true ) }
+			onBlur={ () => setIsUserHighlighting( false ) }
 		>
 			{ resizeListener }
 			<Button { ...defaultButtonProps } { ...buttonProps }>

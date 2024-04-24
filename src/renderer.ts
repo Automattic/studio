@@ -28,7 +28,7 @@
 
 import * as Sentry from '@sentry/electron/renderer';
 import { init as reactInit } from '@sentry/react';
-import { defaultI18n } from '@wordpress/i18n';
+import { __, defaultI18n } from '@wordpress/i18n';
 import { createElement, StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import Root from './components/root';
@@ -81,6 +81,45 @@ getIpcApi()
 	.then( ( appGlobals ) => {
 		// Ensure the app globals are available before any renderer code starts running
 		window.appGlobals = appGlobals;
+
+		// Show warning if running an ARM64 translator
+		if ( appGlobals.arm64Translation && ! localStorage.getItem( 'dontShowARM64Warning' ) ) {
+			const showARM64MessageBox = async () => {
+				const { response, checkboxChecked } = await getIpcApi().showMessageBox( {
+					type: 'warning',
+					message: __( 'This version of Studio is not optimized for your computer' ),
+					detail:
+						window.appGlobals.platform === 'darwin'
+							? __(
+									'Downloading the Mac with Apple Silicon Chip version of Studio will provide better performance.'
+							  )
+							: __(
+									'Downloading the optimized version of Studio will provide better performance.'
+							  ),
+					checkboxLabel: __( "Don't show this warning again" ),
+					buttons: [ __( 'Download' ), __( 'Cancel' ) ],
+					cancelId: 1,
+				} );
+
+				if ( checkboxChecked ) {
+					localStorage.setItem( 'dontShowARM64Warning', 'true' );
+				}
+
+				switch ( response ) {
+					case 0:
+						// Open Download link
+						await getIpcApi().openURL( `https://developer.wordpress.com/studio/` );
+						break;
+					case 1:
+						// User clicked Cancel
+						break;
+					default:
+						break;
+				}
+			};
+
+			showARM64MessageBox();
+		}
 
 		defaultI18n.setLocaleData( appGlobals.localeData?.locale_data?.messages );
 

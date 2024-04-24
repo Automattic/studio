@@ -3,6 +3,7 @@ import { sprintf } from '@wordpress/i18n';
 import { moreVertical, trash } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useState } from 'react';
+import { WPCOM_PROFILE_URL } from '../constants';
 import { useAuth } from '../hooks/use-auth';
 import { useDeleteSnapshot } from '../hooks/use-delete-snapshot';
 import { useIpcListener } from '../hooks/use-ipc-listener';
@@ -10,6 +11,7 @@ import { useOffline } from '../hooks/use-offline';
 import { useSiteDetails } from '../hooks/use-site-details';
 import { useSiteUsage } from '../hooks/use-site-usage';
 import { cx } from '../lib/cx';
+import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
 import { Gravatar } from './gravatar';
 import Modal from './modal';
@@ -29,7 +31,13 @@ const UserInfo = ( {
 	return (
 		<div className="flex w-full gap-5">
 			<div className="flex w-full items-center gap-[15px]">
-				<Gravatar detailedDefaultImage isLarge={ true } isBlack />
+				<Button
+					onClick={ () => getIpcApi().openURL( WPCOM_PROFILE_URL ) }
+					aria-label={ __( 'Profile link' ) }
+					className="py-0 px-0"
+				>
+					<Gravatar detailedDefaultImage isLarge={ true } isBlack />
+				</Button>
 				<div className="flex flex-col">
 					<span className="overflow-ellipsis">{ user?.displayName }</span>
 					<span className="text-[#757575] text-[10px] leading-[10px]">{ user?.email }</span>

@@ -1,4 +1,3 @@
-import { __ } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { intervalToDuration, formatDuration, addDays, Duration, addHours } from 'date-fns';
 

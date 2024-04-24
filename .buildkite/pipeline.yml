@@ -32,8 +32,8 @@ steps:
       - 'out/*.app.zip'
     if: "build.branch == 'trunk' && build.tag !~ /^v[0-9]+/"
 
-  - label: '🔨 Create Release Build'
-    key: 'release'
+  - label: '🔨 Create Mac Release Build'
+    key: 'release-mac'
     command: |
       .buildkite/commands/prepare-environment.sh
 
@@ -52,3 +52,14 @@ steps:
     artifact_paths:
       - 'out/*.app.zip'
     if: "build.tag =~ /^v[0-9]+/"
+
+  - label: "🔨 Create Windows Dev Build"
+    key: "windows"
+    command: .buildkite/commands/build-windows-dev.ps1
+    artifact_paths:
+      - 'C:\ProgramData\chocolatey\logs\*'
+      - 'C:\build\out\Build-win32-x64\Build.exe'
+    agents:
+      queue: "windows"
+    env:
+      DEBUG: "*"

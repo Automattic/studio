@@ -51,7 +51,7 @@ export default class SiteServerProcess {
 				} )
 				.on( 'exit', ( code ) => {
 					if ( code !== 0 ) {
-						reject( code );
+						reject( new Error( `Site server process exited with code: ${ code }` ) );
 					}
 				} );
 		} );

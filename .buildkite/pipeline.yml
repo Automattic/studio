@@ -61,5 +61,3 @@ steps:
       - 'C:\build\out\Build-win32-x64\Build.exe'
     agents:
       queue: "windows"
-    env:
-      DEBUG: "*"

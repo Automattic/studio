@@ -1,6 +1,54 @@
 # Stop script execution when a non-terminating error occurs
 $ErrorActionPreference = "Stop"
 
+Write-Host "Enable long path behavior"
+# See https://docs.microsoft.com/en-us/windows/desktop/fileio/naming-a-file#maximum-path-length-limitation
+Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' -Name 'LongPathsEnabled' -Value 1
+
+# Disable Windows Defender before starting – otherwise our performance is terrible
+Write-Host "Disable Windows Defender..."
+$avPreference = @(
+    @{DisableArchiveScanning = $true}
+    @{DisableAutoExclusions = $true}
+    @{DisableBehaviorMonitoring = $true}
+    @{DisableBlockAtFirstSeen = $true}
+    @{DisableCatchupFullScan = $true}
+    @{DisableCatchupQuickScan = $true}
+    @{DisableIntrusionPreventionSystem = $true}
+    @{DisableIOAVProtection = $true}
+    @{DisablePrivacyMode = $true}
+    @{DisableScanningNetworkFiles = $true}
+    @{DisableScriptScanning = $true}
+    @{MAPSReporting = 0}
+    @{PUAProtection = 0}
+    @{SignatureDisableUpdateOnStartupWithoutEngine = $true}
+    @{SubmitSamplesConsent = 2}
+    @{ScanAvgCPULoadFactor = 5; ExclusionPath = @("D:\", "C:\")}
+    @{DisableRealtimeMonitoring = $true}
+    @{ScanScheduleDay = 8}
+)
+
+$avPreference += @(
+    @{EnableControlledFolderAccess = "Disable"}
+    @{EnableNetworkProtection = "Disabled"}
+)
+
+$avPreference | Foreach-Object {
+    $avParams = $_
+    Set-MpPreference @avParams
+}
+
+# https://github.com/actions/runner-images/issues/4277
+# https://docs.microsoft.com/en-us/microsoft-365/security/defender-endpoint/microsoft-defender-antivirus-compatibility?view=o365-worldwide
+$atpRegPath = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows Advanced Threat Protection'
+if (Test-Path $atpRegPath) {
+    Write-Host "Set Microsoft Defender Antivirus to passive mode"
+    Set-ItemProperty -Path $atpRegPath -Name 'ForceDefenderPassiveMode' -Value '1' -Type 'DWORD'
+}
+
+# Download the code signing certificate
+aws secretsmanager get-secret-value --secret-id windows-code-signing-certificate > raw-cert.json
+
 # From https://stackoverflow.com/a/46760714
 Write-Output "--- :windows: Setting up Package Manager"
 $env:ChocolateyInstall = Convert-Path "$((Get-Command choco).Path)\..\.."   
@@ -27,14 +75,11 @@ If ($LastExitCode -ne 0) { Exit $LastExitCode }
 
 Write-Output "--- :node: Building App"
 
-# Fix issues with paths being too long
-New-Item -Path C:\build -ItemType SymbolicLink -Value .\
+# # Fix issues with paths being too long
+# New-Item -Path C:\build -ItemType SymbolicLink -Value .\
 
-cd C:\build
 npm run make
+
+#cd C:\build
+#npm run make
 If ($LastExitCode -ne 0) { Exit $LastExitCode }
-
-aws secretsmanager get-secret-value --secret-id windows-code-signing-certificate > raw-cert.json
-jq -r '.SecretString' raw-cert.json > signing-cert.pfx
-
-ls

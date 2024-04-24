@@ -4,12 +4,6 @@ import { intervalToDuration, formatDuration, addDays, Duration, addHours } from 
 
 const HOUR = 1000 * 60 * 60;
 const DAY = HOUR * 24;
-const DURATION_DAYS = 'days';
-const DURATION_DAY = 'day';
-const DURATION_HOURS = 'hours';
-const DURATION_HOUR = 'hour';
-const DURATION_MINUTES = 'minutes';
-const DURATION_MINUTE = 'minute';
 
 function formatStringDate( ms: number ): string {
 	const { locale = 'en' } = window?.appGlobals || {};
@@ -28,13 +22,13 @@ export function useExpirationDate( snapshotDate: number ) {
 	const endDate = addDays( snapshotDate, MAX_DAYS );
 	const difference = endDate.getTime() - now.getTime();
 	let isExpired = false;
-	let format: ( keyof Duration )[] = [ DURATION_DAYS, DURATION_HOURS ];
+	let format: ( keyof Duration )[] = [ 'days', 'hours' ];
 	if ( difference < 0 ) {
 		isExpired = true;
 	} else if ( difference < HOUR ) {
-		format = [ DURATION_MINUTES ];
+		format = [ 'minutes' ];
 	} else if ( difference < DAY ) {
-		format = [ DURATION_HOURS, DURATION_MINUTES ];
+		format = [ 'hours', 'minutes' ];
 	}
 	const countDown = formatDuration(
 		intervalToDuration( {
@@ -49,12 +43,12 @@ export function useExpirationDate( snapshotDate: number ) {
 	// Create static translation values
 
 	const countDownTranslated = [
-		{ key: 'days', value: __( DURATION_DAYS ) },
-		{ key: 'day', value: __( DURATION_DAY ) },
-		{ key: 'hours', value: __( DURATION_HOURS ) },
-		{ key: 'hour', value: __( DURATION_HOUR ) },
-		{ key: 'minutes', value: __( DURATION_MINUTES ) },
-		{ key: 'minute', value: __( DURATION_MINUTE ) },
+		{ key: 'days', value: __( 'days' ) },
+		{ key: 'day', value: __( 'day' ) },
+		{ key: 'hours', value: __( 'hours' ) },
+		{ key: 'hour', value: __( 'hour' ) },
+		{ key: 'minutes', value: __( 'minutes' ) },
+		{ key: 'minute', value: __( 'minute' ) },
 	];
 
 	// Map the translated values to the countDown string

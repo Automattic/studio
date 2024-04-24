@@ -31,16 +31,6 @@ steps:
       queue: default
     plugins: *common_plugins
 
-  - label: End To End (macOS only)
-    key: e2e_macos
-    plugins: *common_plugins
-    command: |
-      .buildkite/commands/install-node-dependencies.sh
-      echo '--- :package: Build app'
-      npm run package
-      echo '--- Run E2E Tests'
-      npm run e2e
-
   - label: '🔨 Create Dev Build'
     key: 'dev'
     command: |

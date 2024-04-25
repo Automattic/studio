@@ -105,12 +105,12 @@ export default class SiteServerProcess {
 				if ( message !== originalMessage || messageId !== originalMessageId ) {
 					return;
 				}
+				process.removeListener( 'message', handler );
+				clearTimeout( timeoutId );
 				if ( typeof error !== 'undefined' ) {
 					reject( error );
 					return;
 				}
-				process.removeListener( 'message', handler );
-				clearTimeout( timeoutId );
 				resolve( data );
 			};
 

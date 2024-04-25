@@ -19,7 +19,7 @@ If you want to add support for another language you will need to add it to the
 
 2. **GlotPress Import**
 
-   1. Open [our project in GlotPress](https://translate.wordpress.com/projects/local-environment/).
+   1. Open [our project in GlotPress](https://translate.wordpress.com/projects/studio/).
    2. Click the **Project actions** menu.
    3. Click **Import Originals**.
    4. Import `out/pots/bundle-strings.pot` (auto-detecting the file format is fine).
@@ -29,7 +29,7 @@ If you want to add support for another language you will need to add it to the
    `@wordpress/i18n` can understand. It's ok if some translations are missing,
    they will be left as English in the app.
 
-   1. Open [our project in GlotPress](https://translate.wordpress.com/projects/local-environment/).
+   1. Open [our project in GlotPress](https://translate.wordpress.com/projects/studio/).
    2. Click the **Project actions** menu.
    3. Click **Bulk Export**.
    4. Click **Select WP.Com Priority Languages** to only the magnificent 16 languages.

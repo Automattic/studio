@@ -39,7 +39,7 @@ export default class SiteServerProcess {
 				.on( 'spawn', async () => {
 					const messageId = this.sendMessage( 'start-server' );
 					try {
-						const { php } = await this.waitForMessage< Pick< SiteServerProcess, 'php' > >(
+						const { php } = await this.waitForResponse< Pick< SiteServerProcess, 'php' > >(
 							'start-server',
 							messageId
 						);
@@ -60,13 +60,13 @@ export default class SiteServerProcess {
 	async stop() {
 		const message = 'stop-server';
 		const messageId = this.sendMessage( message );
-		await this.waitForMessage( message, messageId );
+		await this.waitForResponse( message, messageId );
 	}
 
 	async runPhp( data: PHPRunOptions ): Promise< string > {
 		const message = 'run-php';
 		const messageId = this.sendMessage( message, data );
-		return await this.waitForMessage( message, messageId );
+		return await this.waitForResponse( message, messageId );
 	}
 
 	sendMessage< T >( message: MessageName, data?: T ) {
@@ -80,7 +80,7 @@ export default class SiteServerProcess {
 		return messageId;
 	}
 
-	async waitForMessage< T = undefined >(
+	async waitForResponse< T = undefined >(
 		originalMessage: MessageName,
 		originalMessageId: number,
 		timeout = DEFAULT_RESPONSE_TIMEOUT

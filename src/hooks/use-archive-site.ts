@@ -89,6 +89,13 @@ export function useArchiveSite() {
 				type: 'application/zip',
 			} );
 
+			const formData = [ [ 'import', file ] ];
+			const wordpressVersion = await getIpcApi().getWpVersion( siteId );
+			if ( wordpressVersion.length >= 3 ) {
+				// Minimum version length is '6.0'
+				formData.push( [ 'wordpress_version', wordpressVersion ] );
+			}
+
 			try {
 				const response: {
 					atomic_site_id: number;
@@ -99,7 +106,7 @@ export function useArchiveSite() {
 				} = await client.req.post( {
 					path: '/jurassic-ninja/create-new-site-from-zip',
 					apiNamespace: 'wpcom/v2',
-					formData: [ [ 'import', file ] ],
+					formData,
 				} );
 				addSnapshot( {
 					url: response.domain_name,

@@ -39,7 +39,6 @@ const DeleteSite = () => {
 		} );
 
 		if ( response === DELETE_BUTTON_INDEX ) {
-			console.log( 'Delete site', selectedSite?.id, checkboxChecked );
 			try {
 				await deleteSite( selectedSite.id, checkboxChecked );
 			} catch ( e ) {

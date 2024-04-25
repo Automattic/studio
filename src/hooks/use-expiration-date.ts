@@ -1,5 +1,25 @@
 import { useI18n } from '@wordpress/react-i18n';
-import { intervalToDuration, formatDuration, addDays, Duration, addHours } from 'date-fns';
+import { intervalToDuration, formatDuration, addDays, Duration, addHours, Locale } from 'date-fns';
+import {
+	es,
+	ar,
+	de,
+	enUS,
+	fr,
+	he,
+	id,
+	it,
+	ja,
+	ko,
+	nl,
+	pl,
+	pt,
+	ru,
+	sv,
+	tr,
+	zhCN,
+	zhTW,
+} from 'date-fns/locale';
 
 const HOUR = 1000 * 60 * 60;
 const DAY = HOUR * 24;
@@ -12,6 +32,35 @@ function formatStringDate( ms: number ): string {
 		year: 'numeric',
 	} );
 	return formatter.format( new Date( ms ) );
+}
+
+interface LocaleMapping {
+	[ key: string ]: Locale;
+}
+
+const localeMapping: LocaleMapping = {
+	es: es,
+	ar: ar,
+	de: de,
+	en: enUS,
+	fr: fr,
+	he: he,
+	id: id,
+	it: it,
+	ja: ja,
+	ko: ko,
+	nl: nl,
+	pl: pl,
+	pt: pt,
+	ru: ru,
+	sv: sv,
+	tr: tr,
+	'zh-CN': zhCN,
+	'zh-TW': zhTW,
+};
+
+function selectDateFnsLocale( locale: string ) {
+	return localeMapping[ locale ] || enUS;
 }
 
 export function useExpirationDate( snapshotDate: number ) {
@@ -29,6 +78,9 @@ export function useExpirationDate( snapshotDate: number ) {
 	} else if ( difference < DAY ) {
 		format = [ 'hours', 'minutes' ];
 	}
+
+	const { locale } = window?.appGlobals || {};
+
 	const countDown = formatDuration(
 		intervalToDuration( {
 			start: now,
@@ -36,7 +88,7 @@ export function useExpirationDate( snapshotDate: number ) {
 			// we show the minutes left.
 			end: addHours( endDate, 1 ),
 		} ),
-		{ format, delimiter: ', ' }
+		{ format, delimiter: ', ', locale: selectDateFnsLocale( locale ) }
 	);
 	return {
 		isExpired,

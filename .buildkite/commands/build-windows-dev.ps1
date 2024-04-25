@@ -1,6 +1,8 @@
 # Stop script execution when a non-terminating error occurs
 $ErrorActionPreference = "Stop"
 
+Write-Output "--- :windows: Setting up Windows"
+
 Write-Host "Enable long path behavior"
 # See https://docs.microsoft.com/en-us/windows/desktop/fileio/naming-a-file#maximum-path-length-limitation
 Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' -Name 'LongPathsEnabled' -Value 1
@@ -46,8 +48,12 @@ if (Test-Path $atpRegPath) {
     Set-ItemProperty -Path $atpRegPath -Name 'ForceDefenderPassiveMode' -Value '1' -Type 'DWORD'
 }
 
+Write-Output "--- :lock_with_ink_pen: Downloading Code Signing Certificate"
 # Download the code signing certificate
-aws secretsmanager get-secret-value --secret-id windows-code-signing-certificate > raw-cert.json
+$EncodedText = aws secretsmanager get-secret-value --secret-id windows-code-signing-certificate | jq -r '.SecretString' | Out-File 'certificate.bin'
+certutil -decode certificate.bin certificate.pfx
+If ($LastExitCode -ne 0) { Exit $LastExitCode }
+# ---
 
 # From https://stackoverflow.com/a/46760714
 Write-Output "--- :windows: Setting up Package Manager"
@@ -74,12 +80,7 @@ npm ci
 If ($LastExitCode -ne 0) { Exit $LastExitCode }
 
 Write-Output "--- :node: Building App"
-
-# # Fix issues with paths being too long
-# New-Item -Path C:\build -ItemType SymbolicLink -Value .\
+node ./scripts/prepare-dev-build-version.mjs
 
 npm run make
-
-#cd C:\build
-#npm run make
 If ($LastExitCode -ne 0) { Exit $LastExitCode }

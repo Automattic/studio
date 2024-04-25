@@ -42,9 +42,9 @@ async function runPhp( message: string, messageId: number, data: PHPRunOptions )
 	process.parentPort.postMessage( { message, messageId, data: response.text } );
 }
 
-process.parentPort.on( 'message', async ( { data: messageData } ) => {
+process.parentPort.on( 'message', async ( { data: messagePayload } ) => {
 	const { message, messageId, data }: { message: MessageName; messageId: number; data: unknown } =
-		messageData;
+		messagePayload;
 	try {
 		switch ( message ) {
 			case 'start-server':

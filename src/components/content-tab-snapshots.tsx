@@ -308,7 +308,7 @@ function NoAuth( { selectedSite }: React.ComponentProps< typeof EmptyGeneric > )
 						} }
 					>
 						{ __( 'Log in to WordPress.com' ) }
-						<Icon className="ml-1" icon={ external } size={ 21 } />
+						<Icon className="ltr:ml-1 rtl:mr-1 rtl:scale-x-[-1]" icon={ external } size={ 21 } />
 					</Button>
 				</Tooltip>
 			</div>

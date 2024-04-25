@@ -35,13 +35,12 @@ export default function mainConfig( _env: unknown, args: Record< string, unknown
 }
 
 export const mainBaseConfig: Configuration = {
-	/**
-	 * This is the main entry point for your application, it's the first file
-	 * that runs in the main process.
-	 */
 	entry: {
+		// This is the main entry point for your application, it's the first file
+		// that runs in the main process.
 		index: './src/index.ts',
-		// Inject extra entries into the webpack configuration
+		// Inject extra entries into the webpack configuration.
+		// These entries are primarily used for worker threads and forked processes.
 		...extraEntries.reduce( ( accum, entry ) => {
 			return { ...accum, [ entry.name ]: entry.path };
 		}, {} ),

@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - trunk
+      - fix/ci-macos-build-installers # Added only for testing purpose
   pull_request:
     paths:
       - 'installers/**/*'

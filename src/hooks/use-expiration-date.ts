@@ -1,3 +1,4 @@
+import { _n, sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { intervalToDuration, formatDuration, addDays, Duration, addHours } from 'date-fns';
 
@@ -36,28 +37,32 @@ export function useExpirationDate( snapshotDate: number ) {
 			// we show the minutes left.
 			end: addHours( endDate, 1 ),
 		} ),
-		{ format, delimiter: ', ' }
+		{
+			format,
+			delimiter: ', ',
+			locale: {
+				formatDistance: ( token, count ) => {
+					let stringToFormat = '';
+					switch ( token ) {
+						case 'xDays':
+							stringToFormat = _n( '%d day', '%d days', count );
+							break;
+						case 'xHours':
+							stringToFormat = _n( '%d hour', '%d hours', count );
+							break;
+						case 'xMinutes':
+							stringToFormat = _n( '%d minute', '%d minutes', count );
+							break;
+					}
+					return sprintf( stringToFormat, count );
+				},
+			},
+		}
 	);
-
-	// Create static translation values
-
-	const countDownTranslated = [
-		{ key: 'days', value: __( 'days' ) },
-		{ key: 'day', value: __( 'day' ) },
-		{ key: 'hours', value: __( 'hours' ) },
-		{ key: 'hour', value: __( 'hour' ) },
-		{ key: 'minutes', value: __( 'minutes' ) },
-		{ key: 'minute', value: __( 'minute' ) },
-	];
-
-	// Map the translated values to the countDown string
-	const translatedCountDown = countDownTranslated.reduce( ( acc, { key, value } ) => {
-		return acc.replace( key, value );
-	}, countDown );
 
 	return {
 		isExpired,
-		countDown: isExpired ? __( 'Expired' ) : translatedCountDown,
+		countDown: isExpired ? __( 'Expired' ) : countDown,
 		dateString: formatStringDate( snapshotDate ),
 	};
 }

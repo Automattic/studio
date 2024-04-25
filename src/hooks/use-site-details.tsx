@@ -222,7 +222,8 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			const newSites = await deleteSite( id, removeLocal, siteSnapshots );
 			if ( newSites ) {
 				setData( newSites );
-				setSelectedSiteId( newSites[ 0 ].id );
+				const selectedSite = newSites.length ? newSites[ 0 ].id : '';
+				setSelectedSiteId( selectedSite );
 			}
 		},
 		[ deleteSite, setSelectedSiteId, snapshots ]

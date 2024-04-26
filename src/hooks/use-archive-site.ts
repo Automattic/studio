@@ -92,7 +92,6 @@ export function useArchiveSite() {
 			const formData = [ [ 'import', file ] ];
 			const wordpressVersion = await getIpcApi().getWpVersion( siteId );
 			if ( wordpressVersion.length >= 3 ) {
-				// Minimum version length is '6.0'
 				formData.push( [ 'wordpress_version', wordpressVersion ] );
 			}
 

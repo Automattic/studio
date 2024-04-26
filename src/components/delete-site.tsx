@@ -46,6 +46,7 @@ const DeleteSite = () => {
 				await deleteSite( selectedSite.id, checkboxChecked );
 			} catch ( error ) {
 				await showErrorMessageBox( error, trimmedSiteTitle );
+				Sentry.captureException( error );
 			}
 		}
 	};
@@ -57,7 +58,6 @@ const DeleteSite = () => {
 			detail: sprintf( __( "We couldn't delete the site '%s'. Please try again" ), siteTitle ),
 			buttons: [ __( 'OK' ) ],
 		} );
-		Sentry.captureException( error );
 	};
 
 	const getTrimmedSiteTitle = ( name: string ) =>

@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/electron/renderer';
 import { __, sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useOffline } from '../hooks/use-offline';
@@ -26,9 +27,11 @@ const DeleteSite = () => {
 		const DELETE_BUTTON_INDEX = 0;
 		const CANCEL_BUTTON_INDEX = 1;
 
+		const trimmedSiteTitle = getTrimmedSiteTitle( selectedSite.name );
+
 		const { response, checkboxChecked } = await getIpcApi().showMessageBox( {
 			type: 'warning',
-			message: sprintf( __( 'Delete %s' ), getTrimmedSiteTitle( selectedSite.name ) ),
+			message: sprintf( __( 'Delete %s' ), trimmedSiteTitle ),
 			detail: __(
 				"The site's database, along with all posts, pages, comments, and media, will be lost."
 			),
@@ -41,10 +44,20 @@ const DeleteSite = () => {
 		if ( response === DELETE_BUTTON_INDEX ) {
 			try {
 				await deleteSite( selectedSite.id, checkboxChecked );
-			} catch ( e ) {
-				/* empty */
+			} catch ( error ) {
+				await showErrorMessageBox( error, trimmedSiteTitle );
 			}
 		}
+	};
+
+	const showErrorMessageBox = async ( error: unknown, siteTitle: string ) => {
+		getIpcApi().showMessageBox( {
+			type: 'warning',
+			message: __( 'Deletion failed' ),
+			detail: sprintf( __( "We couldn't delete the site '%s'. Please try again" ), siteTitle ),
+			buttons: [ __( 'OK' ) ],
+		} );
+		Sentry.captureException( error );
 	};
 
 	const getTrimmedSiteTitle = ( name: string ) =>

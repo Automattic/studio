@@ -107,3 +107,6 @@ vendor/*
 
 # Build output
 dist
+
+# Playwright traces
+test-results

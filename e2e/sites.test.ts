@@ -6,6 +6,7 @@ import path from 'path';
 import { test, expect } from '@playwright/test';
 import { pathExists } from '../src/lib/fs-utils';
 import { launchApp } from './e2e-helpers';
+import Onboarding from './page-objects/onboarding';
 import MainSidebar from './page-objects/main-sidebar';
 import SiteContent from './page-objects/site-content';
 import type { ElectronApplication, Page } from 'playwright';
@@ -30,6 +31,12 @@ test.describe( 'Servers', () => {
 			// If the folder wasn't ever created, a test assertion will have caught this problem
 		}
 	} );
+
+  test( 'onboarding', async () => {
+    const onboarding = new Onboarding( mainWindow );
+    expect( await onboarding.locator ).not.toBeNull();
+    expect( await onboarding.siteNameInput.inputValue() ).toBe( 'My WordPress Website' );
+  } );
 
 	test( 'create a new site', async () => {
 		const sidebar = new MainSidebar( mainWindow );

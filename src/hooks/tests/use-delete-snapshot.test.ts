@@ -2,6 +2,7 @@
 import * as Sentry from '@sentry/electron/renderer';
 import { renderHook, act } from '@testing-library/react';
 import { useAuth } from '../../hooks/use-auth';
+import { useOffline } from '../../hooks/use-offline';
 import { useSiteDetails } from '../../hooks/use-site-details';
 import { useDeleteSnapshot } from '../use-delete-snapshot';
 
@@ -138,5 +139,22 @@ describe( 'useDeleteSnapshot', () => {
 			} ).not.toThrow();
 		} );
 		expect( Sentry.captureException ).toHaveBeenCalledTimes( mockSnapshots.length );
+	} );
+
+	it( 'should not check demo site statuses when lacking an internet connection', () => {
+		( useOffline as jest.Mock ).mockReturnValue( true );
+		( useSiteDetails as jest.Mock ).mockImplementation( () => ( {
+			snapshots: mockSnapshots.map( ( snapshot ) => ( { ...snapshot, isDeleting: true } ) ),
+			removeSnapshot: removeSnapshotMock,
+			updateSnapshot: updateSnapshotMock,
+		} ) );
+		renderHook( () => useDeleteSnapshot() );
+
+		// Advance the timer to trigger the interval
+		act( () => {
+			jest.advanceTimersByTime( 3000 );
+		} );
+
+		expect( clientReqGet ).not.toHaveBeenCalled();
 	} );
 } );

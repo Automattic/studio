@@ -2,6 +2,7 @@ import * as Sentry from '@sentry/electron/renderer';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from './use-auth';
+import { useOffline } from './use-offline';
 import { useSiteDetails } from './use-site-details';
 
 export interface SnapshotStatusResponse {
@@ -17,8 +18,9 @@ export function useDeleteSnapshot( options: { displayAlert?: boolean } = {} ) {
 	const { client } = useAuth();
 	const { removeSnapshot, snapshots, updateSnapshot } = useSiteDetails();
 	const { __ } = useI18n();
+	const isOffline = useOffline();
 	useEffect( () => {
-		if ( ! client?.req ) {
+		if ( ! client?.req || isOffline ) {
 			return;
 		}
 		const deletingSnapshots = snapshots.filter( ( snapshot ) => snapshot.isDeleting );
@@ -48,7 +50,7 @@ export function useDeleteSnapshot( options: { displayAlert?: boolean } = {} ) {
 		return () => {
 			clearInterval( intervalId );
 		};
-	}, [ client?.req, removeSnapshot, snapshots ] );
+	}, [ client?.req, isOffline, removeSnapshot, snapshots ] );
 
 	const deleteSnapshot = useCallback(
 		async ( snapshot: Pick< Snapshot, 'atomicSiteId' > ) => {

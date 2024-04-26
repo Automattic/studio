@@ -39,14 +39,21 @@ export const DemoSiteUpdateProvider: React.FC< DemoSiteUpdateProviderProps > = (
 				type: 'application/zip',
 			} );
 
+			const formData = [
+				[ 'site_id', snapshot.atomicSiteId ],
+				[ 'import', file ],
+			];
+
+			const wordpressVersion = await getIpcApi().getWpVersion( localSite.id );
+			if ( wordpressVersion.length >= 3 ) {
+				formData.push( [ 'wordpress_version', wordpressVersion ] );
+			}
+
 			try {
 				const response = await client.req.post( {
 					path: '/jurassic-ninja/update-site-from-zip',
 					apiNamespace: 'wpcom/v2',
-					formData: [
-						[ 'site_id', snapshot.atomicSiteId ],
-						[ 'import', file ],
-					],
+					formData,
 				} );
 				updateSnapshot( {
 					...snapshot,

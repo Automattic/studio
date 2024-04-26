@@ -42,6 +42,8 @@ steps:
       npm run package
       echo '--- :playwright: Run End 2 End Tests'
       npm run e2e
+    artifact_paths:
+      - test-results/**/*.zip
     plugins: *common_plugins
     agents:
       queue: "{{ matrix.queue }}"

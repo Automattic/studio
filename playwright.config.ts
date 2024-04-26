@@ -7,4 +7,8 @@ export default defineConfig( {
 	// The app only allows a single instance to be running at a time, so we can
 	// only run one test at a time.
 	workers: 1,
+
+  use: {
+    trace: 'retain-on-failure',
+  },
 } );

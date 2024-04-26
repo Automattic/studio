@@ -19,6 +19,7 @@ steps:
       echo "--- :node: Building Binary"
       npm install
       node ./scripts/prepare-dev-build-version.mjs
+      npm run make:macos-universal
       npm run make:macos-x64
       npm run make:macos-arm64
 

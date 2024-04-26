@@ -49,6 +49,10 @@ end
 desc 'Notarize the compiled binary'
 lane :notarize_binary do |_options|
   notarize(
+    package: File.join(PROJECT_ROOT_FOLDER, 'out', 'Studio-darwin-universal', 'Studio.app'),
+    api_key_path: APPLE_API_KEY_PATH
+  )
+  notarize(
     package: File.join(PROJECT_ROOT_FOLDER, 'out', 'Studio-darwin-x64', 'Studio.app'),
     api_key_path: APPLE_API_KEY_PATH
   )

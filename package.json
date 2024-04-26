@@ -18,6 +18,7 @@
 		"postinstall": "patch-package && ts-node scripts/download-wp-server-files.ts && node ./scripts/download-available-site-translations.mjs",
 		"package": "electron-forge package",
 		"make": "electron-forge make",
+		"make:macos-universal": "SKIP_DMG=true electron-forge make --arch=universal",
 		"make:macos-x64": "SKIP_DMG=true FILE_ARCHITECTURE=x64 electron-forge make --arch=x64 --platform=darwin",
 		"make:macos-arm64": "SKIP_DMG=true FILE_ARCHITECTURE=arm64 electron-forge make --arch=arm64 --platform=darwin",
 		"publish": "electron-forge publish",

@@ -33,7 +33,7 @@ steps:
 
   # FIXME: Tests are currently failing but that's not due to CI
   # See https://github.com/Automattic/studio/issues/37
-  - label: E2E Tests
+  - label: "E2E Tests {{ matrix.name }}"
     key: e2e_tests
     command: |
       # call with bash explicitly because we run this on Windows, too
@@ -47,6 +47,9 @@ steps:
       queue: "{{ matrix.queue }}"
     matrix:
       setup:
+        name:
+          - macOS
+          - Windows
         queue:
           - mac
           - windows

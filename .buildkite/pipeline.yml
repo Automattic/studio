@@ -31,6 +31,18 @@ steps:
       queue: default
     plugins: *common_plugins
 
+  # FIXME: Tests are currently failing but that's not due to CI
+  # See https://github.com/Automattic/studio/issues/37
+  - label: E2E Tests macOS
+    key: e2e_tests
+    command: |
+      .buildkite/commands/install-node-dependencies.sh
+      echo '--- :package: Package app for testing'
+      npm run package
+      echo '--- :playwright: Run End 2 End Tests'
+      npm run e2e
+    plugins: *common_plugins
+
   - group: "📦 Build for Mac"
     key: 'dev-mac'
     steps:

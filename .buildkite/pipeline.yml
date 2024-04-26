@@ -11,34 +11,60 @@ env:
   IMAGE_ID: xcode-15.2
 
 steps:
-  - label: '🔨 Create Dev Build'
-    key: 'dev'
-    command: |
-      .buildkite/commands/prepare-environment.sh
+  - group: "📦 Build for Mac"
+    key: 'dev-mac'
+    steps:
+      - label: '🔨 Mac Dev Build - {{matrix}}'
+        command: |
+          .buildkite/commands/prepare-environment.sh
 
-      echo "--- :node: Building Binary"
-      npm install
-      node ./scripts/prepare-dev-build-version.mjs
-      npm run make:macos-universal
-      npm run make:macos-x64
-      npm run make:macos-arm64
+          echo "--- :node: Building Binary"
+          install_npm_packages
+          node ./scripts/prepare-dev-build-version.mjs
+          npm run make:macos-{{matrix}}
 
-      echo "--- 📃 Notarizing Binary"
-      bundle exec fastlane notarize_binary
+          echo "--- 📃 Notarizing Binary"
+          bundle exec fastlane notarize_binary
 
-    plugins: *common_plugins
-    artifact_paths:
-      - 'out/**/*.app.zip'
-#    if: "build.branch == 'trunk' && build.tag !~ /^v[0-9]+/"
+        plugins: *common_plugins
+        artifact_paths:
+          - 'out/**/*.app.zip'
+        matrix:
+          - "universal"
+          - "x64"
+          - "arm64"
+    if: "build.branch == 'trunk' && build.tag !~ /^v[0-9]+/"
 
-  - label: "🔨 Create Windows Dev Build"
-    key: "windows"
+  - label: "🔨 Windows Dev Build"
+    key: "dev-windows"
     command: .buildkite/commands/build-windows-dev.ps1
     artifact_paths:
       - 'C:\ProgramData\chocolatey\logs\*'
       - 'out\**\*.exe'
     agents:
       queue: "windows"
+    if: "build.branch == 'trunk' && build.tag !~ /^v[0-9]+/"
+
+  - label: ':rocket: Distribute Dev Builds'
+    command: |
+      echo "--- :node: Downloading Binaries"
+      buildkite-agent artifact download "*.app.zip" .
+      buildkite-agent artifact download "*.exe" .
+
+      echo "--- :node: Generating Release Manifest"
+      install_npm_packages
+      node ./scripts/generate-releases-manifest.mjs
+
+      echo "--- :fastlane: Distributing Dev Build"
+      install_gems
+      bundle exec fastlane distribute_dev_build
+    agents:
+      queue: "mac" # 
+    depends_on:
+      - step: "dev-mac"
+      - step: "dev-windows"
+    plugins: *common_plugins
+    if: "build.branch == 'trunk' && build.tag !~ /^v[0-9]+/"
 
   - label: '🔨 Create Mac Release Build'
     key: 'release-mac'

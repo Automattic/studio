@@ -44,6 +44,8 @@ const config: ForgeConfig = {
 				// Windows Explorer caches the icon agressively; use the cache busting param when necessary.
 				iconUrl: 'https://s0.wp.com/i/studio-app/studio-app-icon.ico?v=2',
 
+				setupExe: 'studio-setup.exe',
+
 				certificateFile: 'certificate.pfx',
 				certificatePassword: process.env.WINDOWS_CODE_SIGNING_CERT_PASSWORD,
 			},

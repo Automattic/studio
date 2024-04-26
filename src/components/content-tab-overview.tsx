@@ -1,5 +1,5 @@
 import * as Sentry from '@sentry/electron/renderer';
-import { __, sprintf } from '@wordpress/i18n';
+import { __ } from '@wordpress/i18n';
 import {
 	archive,
 	code,
@@ -152,7 +152,7 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 	if ( installedApps.vscode ) {
 		// Use VS Code as a default even if none of the editors are installed
 		buttonsArray.push( {
-			label: 'VS Code',
+			label: __( 'VS Code' ),
 			className: 'text-nowrap',
 			icon: code,
 			onClick: async () => {
@@ -161,9 +161,8 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 				} catch ( error ) {
 					Sentry.captureException( error );
 					alert(
-						sprintf(
-							__( "Could not open the site code in %s. Please check if it's installed correctly." ),
-							'VS Code'
+						__(
+							"Could not open the site code in VS Code. Please check if it's installed correctly."
 						)
 					);
 				}
@@ -171,7 +170,7 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 		} );
 	} else if ( installedApps.phpstorm ) {
 		buttonsArray.push( {
-			label: 'PhpStorm',
+			label: __( 'PhpStorm' ),
 			className: 'text-nowrap',
 			icon: code,
 			onClick: async () => {
@@ -180,9 +179,8 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 				} catch ( error ) {
 					Sentry.captureException( error );
 					alert(
-						sprintf(
-							__( "Could not open the site code in %s. Please check if it's installed correctly." ),
-							'PhpStorm'
+						__(
+							"Could not open the site code in PhpStorm. Please check if it's installed correctly."
 						)
 					);
 				}

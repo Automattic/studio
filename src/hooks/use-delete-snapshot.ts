@@ -29,12 +29,18 @@ export function useDeleteSnapshot( options: { displayAlert?: boolean } = {} ) {
 		const intervalId = setInterval( async () => {
 			for ( const snapshot of deletingSnapshots ) {
 				if ( snapshot.isDeleting ) {
-					const resp: SnapshotStatusResponse = await client.req.get( '/jurassic-ninja/status', {
-						apiNamespace: 'wpcom/v2',
-						site_id: snapshot.atomicSiteId,
-					} );
-					if ( parseInt( resp.is_deleted ) === 1 ) {
-						removeSnapshot( snapshot );
+					try {
+						const resp: SnapshotStatusResponse = await client.req.get( '/jurassic-ninja/status', {
+							apiNamespace: 'wpcom/v2',
+							site_id: snapshot.atomicSiteId,
+						} );
+						if ( parseInt( resp.is_deleted ) === 1 ) {
+							removeSnapshot( snapshot );
+						}
+					} catch ( error ) {
+						// This error occurs in the background, so we report it but do not
+						// alert the user.
+						Sentry.captureException( error );
 					}
 				}
 			}

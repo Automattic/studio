@@ -115,7 +115,7 @@ const SnapshotInfo = ( {
 										 * Otherwise, dropdown toggle would toggle an empty menu.
 										 */
 										aria-disabled={ isDisabled }
-										icon={ <Icon icon={ trash } /> }
+										icon={ trash }
 										iconPosition="right"
 										isDestructive
 										className={ menuItemStyles }

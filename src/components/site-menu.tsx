@@ -115,7 +115,7 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 	const { data } = useSiteDetails();
 	return (
 		<nav
-			aria-label="Sites"
+			aria-label={ __( 'Sites' ) }
 			style={ {
 				scrollbarGutter: 'stable',
 			} }

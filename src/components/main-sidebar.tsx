@@ -29,7 +29,7 @@ function SidebarAuthFooter() {
 	};
 	if ( isAuthenticated ) {
 		return (
-			<nav aria-label="Global">
+			<nav aria-label={ __( 'Global' ) }>
 				<ul className="flex items-start self-stretch w-full">
 					<li>
 						<Button
@@ -101,7 +101,7 @@ function SidebarToolbar() {
 					}
 				>
 					<Button
-						aria-label="Offline indicator"
+						aria-label={ __( 'Offline indicator' ) }
 						aria-description={ offlineMessage.join( ' ' ) }
 						className="cursor-default"
 						variant="icon"

@@ -115,6 +115,7 @@ const SnapshotInfo = ( {
 										 * Otherwise, dropdown toggle would toggle an empty menu.
 										 */
 										aria-disabled={ isDisabled }
+										icon={ <Icon icon={ trash } /> }
 										iconPosition="right"
 										isDestructive
 										className={ menuItemStyles }
@@ -127,7 +128,7 @@ const SnapshotInfo = ( {
 											onClose();
 										} }
 									>
-										<Icon className="mr-2" icon={ trash } /> { __( 'Delete all demo sites' ) }
+										{ __( 'Delete all demo sites' ) }
 									</MenuItem>
 								</Tooltip>
 							</MenuGroup>

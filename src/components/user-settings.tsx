@@ -116,7 +116,7 @@ const SnapshotInfo = ( {
 										 */
 										aria-disabled={ isDisabled }
 										icon={ trash }
-										iconPosition="right"
+										iconPosition="left"
 										isDestructive
 										className={ menuItemStyles }
 										onClick={ () => {

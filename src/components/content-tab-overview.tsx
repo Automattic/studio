@@ -179,6 +179,7 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 				} catch ( error ) {
 					Sentry.captureException( error );
 					alert(
+// translators: "PhpStorm" is the brand name for an IDE and does not need to be translated
 						__(
 							"Could not open the site code in PhpStorm. Please check if it's installed correctly."
 						)

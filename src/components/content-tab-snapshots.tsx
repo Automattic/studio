@@ -160,20 +160,13 @@ function SnapshotRow( {
 				<div className="text-black a8c-subtitle-small demo-site-name">{ selectedSite.name }</div>
 				<Badge>{ __( 'Demo site' ) }</Badge>
 			</div>
-			<div className="flex">
-				<Button
-					className="mt-1 !p-0 h-auto text-a8c-blueberry"
-					onClick={ () => getIpcApi().openURL( urlWithHTTPS ) }
-					variant="link"
-				>
-					{ urlWithHTTPS }
-				</Button>
-				<CopyTextButton
-					text={ urlWithHTTPS }
-					label={ `${ urlWithHTTPS }, ${ __( 'Copy site url to clipboard' ) }` }
-					copyConfirmation={ __( 'Copied!' ) }
-				/>
-			</div>
+			<CopyTextButton
+				text={ urlWithHTTPS }
+				label={ `${ urlWithHTTPS }, ${ __( 'Copy site url to clipboard' ) }` }
+				copyConfirmation={ __( 'Copied!' ) }
+			>
+				{ urlWithHTTPS }
+			</CopyTextButton>
 			<div className="mt-2 text-a8c-gray-70 whitespace-nowrap overflow-hidden truncate flex-1">
 				{ sprintf( __( 'Expires in %s' ), countDown ) }
 			</div>

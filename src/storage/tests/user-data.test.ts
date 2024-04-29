@@ -18,13 +18,6 @@ jest.mock( 'fs', () => ( {
 	existsSync: () => true,
 } ) );
 
-jest.mock( 'electron', () => ( {
-	app: {
-		getFetch: jest.fn(),
-		getPath: jest.fn(),
-		getName: jest.fn(),
-	},
-} ) );
 jest.mock( 'path', () => ( {
 	join: jest.fn(),
 } ) );

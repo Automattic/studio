@@ -157,7 +157,9 @@ function SnapshotRow( {
 	return (
 		<div className="self-stretch flex-col px-4 py-3">
 			<div className="flex gap-2 items-center">
-				<div className="text-black a8c-subtitle-small demo-site-name line-clamp-1 break-all">{ selectedSite.name }</div>
+				<div className="text-black a8c-subtitle-small demo-site-name line-clamp-1 break-all">
+					{ selectedSite.name }
+				</div>
 				<Badge>{ __( 'Demo site' ) }</Badge>
 			</div>
 			<CopyTextButton

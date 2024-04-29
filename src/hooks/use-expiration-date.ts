@@ -1,3 +1,4 @@
+import { _n, sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { intervalToDuration, formatDuration, addDays, Duration, addHours } from 'date-fns';
 
@@ -36,8 +37,29 @@ export function useExpirationDate( snapshotDate: number ) {
 			// we show the minutes left.
 			end: addHours( endDate, 1 ),
 		} ),
-		{ format, delimiter: ', ' }
+		{
+			format,
+			delimiter: ', ',
+			locale: {
+				formatDistance: ( token, count ) => {
+					let stringToFormat = '';
+					switch ( token ) {
+						case 'xDays':
+							stringToFormat = _n( '%d day', '%d days', count );
+							break;
+						case 'xHours':
+							stringToFormat = _n( '%d hour', '%d hours', count );
+							break;
+						case 'xMinutes':
+							stringToFormat = _n( '%d minute', '%d minutes', count );
+							break;
+					}
+					return sprintf( stringToFormat, count );
+				},
+			},
+		}
 	);
+
 	return {
 		isExpired,
 		countDown: isExpired ? __( 'Expired' ) : countDown,

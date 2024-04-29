@@ -46,7 +46,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 							<EditSite />
 						</div>
 					</SettingsRow>
-					<SettingsRow label={ __( 'Local domain' ) }>
+					<SettingsRow label={ __( 'Local URL' ) }>
 						<CopyTextButton
 							text={ `http://localhost:${ selectedSite.port }` }
 							label={ `localhost:${ selectedSite.port }, ${ __( 'Copy site url to clipboard' ) }` }

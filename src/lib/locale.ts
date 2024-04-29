@@ -50,7 +50,7 @@ export function getLocaleData( locale: string ): LocaleData | null {
 	}
 
 	try {
-		return require( `../translations/local-environment-${ locale }.jed.json` );
+		return require( `../translations/studio-${ locale }.jed.json` );
 	} catch ( err ) {
 		console.error( `Failed to load locale data for "${ locale }"`, err );
 		Sentry.captureException( err );

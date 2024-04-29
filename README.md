@@ -21,11 +21,19 @@ We’d love to get your thoughts and feedback on your experience with Studio. If
 
 ## Contributing
 
-Studio is an open source project that welcomes all contributions. If you spot a bug or the feature you need is missing, open an issue or propose a Pull Request to implement it.
+Our mission is for Studio to be the fastest and simplest way for developers to build a WordPress site. We welcome all contributions in pursuit of this mission. Think fewer buttons, not more.
 
-- Reporting bugs: [Open an issue in the repository.](https://github.com/Automattic/studio/issues/new/choose)
-- Ideas or feature requests: [Open an issue in the repository.](https://github.com/Automattic/studio/issues/new/choose)
-- Code contributions: See the sections below.
+Feel free to [open an issue](https://github.com/Automattic/studio/issues/new/choose) to discuss your proposed improvement. Pull requests are welcome for bug fixes and enhancements. New features will need to go through our internal vetting process before they are accepted.
+
+### Contributions etiquette
+
+We are truly grateful for any PRs you open, and we assure you of our welcoming and respectful approach. We will review and consider all PRs, valuing the diverse contributions, but we don’t guarantee that all proposed changes will be merged into the core.
+
+The most desirable PRs are:
+- Bug fixes for existing features
+- Enhancements that improve compatibility with different system versions, browsers, PHP or WP versions, WordPress plugins, or environments in general.
+
+We recommend [adding an issue](https://github.com/Automattic/studio/issues/new/choose) for new features so we can review the plan before you start work on the PR.
 
 ### Start development
 

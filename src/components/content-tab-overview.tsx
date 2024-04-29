@@ -161,6 +161,7 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 				} catch ( error ) {
 					Sentry.captureException( error );
 					alert(
+// translators: "VS Code" is the brand name for an IDE and does not need to be translated
 						__(
 							"Could not open the site code in VS Code. Please check if it's installed correctly."
 						)

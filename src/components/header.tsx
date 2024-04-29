@@ -15,7 +15,7 @@ export default function Header() {
 		>
 			{ site && (
 				<div className="flex flex-col">
-					<h1 className="text-xl font-normal max-h-full line-clamp-1">
+					<h1 className="text-xl font-normal max-h-full line-clamp-1 break-all">
 						{ site ? site.name : null }
 					</h1>
 					<div className="flex mt-1 gap-x-4">

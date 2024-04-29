@@ -17,6 +17,7 @@ import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { Badge } from './badge';
 import Button from './button';
+import { CopyTextButton } from './copy-text-button';
 import offlineIcon from './offline-icon';
 import ProgressBar from './progress-bar';
 import { ScreenshotDemoSite } from './screenshot-demo-site';
@@ -159,13 +160,13 @@ function SnapshotRow( {
 				<div className="text-black a8c-subtitle-small demo-site-name">{ selectedSite.name }</div>
 				<Badge>{ __( 'Demo site' ) }</Badge>
 			</div>
-			<Button
-				className="mt-1 !p-0 h-auto text-a8c-blueberry"
-				onClick={ () => getIpcApi().openURL( urlWithHTTPS ) }
-				variant="link"
+			<CopyTextButton
+				text={ urlWithHTTPS }
+				label={ `${ urlWithHTTPS }, ${ __( 'Copy site url to clipboard' ) }` }
+				copyConfirmation={ __( 'Copied!' ) }
 			>
 				{ urlWithHTTPS }
-			</Button>
+			</CopyTextButton>
 			<div className="mt-2 text-a8c-gray-70 whitespace-nowrap overflow-hidden truncate flex-1">
 				{ sprintf( __( 'Expires in %s' ), countDown ) }
 			</div>

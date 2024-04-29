@@ -4,14 +4,6 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { getIpcApi } from '../lib/get-ipc-api';
 import { useDeleteSnapshot } from './use-delete-snapshot';
 
-export interface DeleteSiteErrorResponse {
-	error: string;
-	status: number;
-	statusCode: number;
-	name: string;
-	message: string;
-}
-
 interface SiteDetailsContext {
 	selectedSite: SiteDetails | null;
 	updateSite: ( site: SiteDetails ) => Promise< void >;
@@ -29,7 +21,6 @@ interface SiteDetailsContext {
 	loadingServer: Record< string, boolean >;
 	loadingSites: boolean;
 	isDeleting: boolean;
-	deleteError: string;
 	uploadingSites: { [ siteId: string ]: boolean };
 	setUploadingSites: React.Dispatch< React.SetStateAction< { [ siteId: string ]: boolean } > >;
 }
@@ -49,7 +40,6 @@ export const siteDetailsContext = createContext< SiteDetailsContext >( {
 	stopAllRunningSites: async () => undefined,
 	deleteSite: async () => undefined,
 	isDeleting: false,
-	deleteError: '',
 	loadingServer: {},
 	loadingSites: true,
 	uploadingSites: {},
@@ -137,7 +127,6 @@ function useSnapshots() {
 
 function useDeleteSite() {
 	const [ isLoading, setIsLoading ] = useState< Record< string, boolean > >( {} );
-	const [ error, setError ] = useState< Record< string, string > >( {} );
 	const { deleteSnapshot } = useDeleteSnapshot( { displayAlert: false } );
 
 	const deleteSite = useCallback(
@@ -154,22 +143,19 @@ function useDeleteSite() {
 			);
 
 			try {
-				setError( ( errors ) => ( { ...errors, [ siteId ]: '' } ) );
 				setIsLoading( ( loading ) => ( { ...loading, [ siteId ]: true } ) );
 				const newSites = await getIpcApi().deleteSite( siteId, removeLocal );
 				await allSiteRemovePromises;
 				return newSites;
 			} catch ( error ) {
-				const newError = new Error( 'Failed to delete local files' );
-				setError( ( errors ) => ( { ...errors, [ siteId ]: newError.message } ) );
-				throw newError;
+				throw new Error( 'Failed to delete local files' );
 			} finally {
 				setIsLoading( ( loading ) => ( { ...loading, [ siteId ]: false } ) );
 			}
 		},
 		[ deleteSnapshot ]
 	);
-	return { deleteSite, isLoading, error };
+	return { deleteSite, isLoading };
 }
 
 export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
@@ -187,7 +173,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	);
 	const { selectedSiteId, setSelectedSiteId } = useSelectedSite( firstSite?.id );
 	const { snapshots, addSnapshot, removeSnapshot, updateSnapshot } = useSnapshots();
-	const { deleteSite, isLoading: isDeleting, error: deleteError } = useDeleteSite();
+	const { deleteSite, isLoading: isDeleting } = useDeleteSite();
 	const [ uploadingSites, setUploadingSites ] = useState< SiteDetailsContext[ 'uploadingSites' ] >(
 		{}
 	);
@@ -222,7 +208,8 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			const newSites = await deleteSite( id, removeLocal, siteSnapshots );
 			if ( newSites ) {
 				setData( newSites );
-				setSelectedSiteId( newSites[ 0 ].id );
+				const selectedSite = newSites.length ? newSites[ 0 ].id : '';
+				setSelectedSiteId( selectedSite );
 			}
 		},
 		[ deleteSite, setSelectedSiteId, snapshots ]
@@ -313,7 +300,6 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			loadingServer,
 			deleteSite: onDeleteSite,
 			isDeleting: selectedSiteId ? isDeleting[ selectedSiteId ] : false,
-			deleteError: selectedSiteId ? deleteError[ selectedSiteId ] : '',
 			loadingSites,
 			uploadingSites,
 			setUploadingSites,
@@ -335,7 +321,6 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			onDeleteSite,
 			selectedSiteId,
 			isDeleting,
-			deleteError,
 			loadingSites,
 			uploadingSites,
 		]

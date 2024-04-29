@@ -152,7 +152,9 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 	if ( installedApps.vscode ) {
 		// Use VS Code as a default even if none of the editors are installed
 		buttonsArray.push( {
-			label: __( 'VS Code' ),
+			label:
+				// translators: "VS Code" is the brand name for an IDE and does not need to be translated
+				__( 'VS Code' ),
 			className: 'text-nowrap',
 			icon: code,
 			onClick: async () => {
@@ -171,7 +173,9 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 		} );
 	} else if ( installedApps.phpstorm ) {
 		buttonsArray.push( {
-			label: __( 'PhpStorm' ),
+			label:
+				// translators: "PhpStorm" is the brand name for an IDE and does not need to be translated
+				__( 'PhpStorm' ),
 			className: 'text-nowrap',
 			icon: code,
 			onClick: async () => {

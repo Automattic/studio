@@ -41,7 +41,10 @@ export function getPreferredSystemLanguages() {
 }
 
 export function getSupportedLocale(): string {
-	return match( getPreferredSystemLanguages(), supportedLocales, DEFAULT_LOCALE );
+	// `app.getLocale` returns the current application locale, acquired using
+	// Chromium's `l10n_util` library. This value is utilized to determine
+	// the best fit for supported locales.
+	return match( [ app.getLocale() ], supportedLocales, DEFAULT_LOCALE );
 }
 
 export function getLocaleData( locale: string ): LocaleData | null {

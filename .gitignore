@@ -61,6 +61,9 @@ typings/
 .env
 .env.test
 
+# Sentry Config File
+.env.sentry-build-plugin
+
 # parcel-bundler cache (https://parceljs.org/)
 .cache
 

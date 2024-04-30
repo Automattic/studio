@@ -1,11 +1,4 @@
-import {
-	DropdownMenu,
-	Icon,
-	MenuGroup,
-	MenuItem,
-	SelectControl,
-	Spinner,
-} from '@wordpress/components';
+import { DropdownMenu, Icon, MenuGroup, MenuItem, Spinner } from '@wordpress/components';
 import { sprintf } from '@wordpress/i18n';
 import { moreVertical, trash } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
@@ -22,54 +15,12 @@ import { getIpcApi } from '../lib/get-ipc-api';
 // import { namedLocales } from '../lib/locale';
 import Button from './button';
 import { Gravatar } from './gravatar';
+import { LanguagePicker } from './language-picker';
 import Modal from './modal';
 import offlineIcon from './offline-icon';
 import ProgressBar from './progress-bar';
 import Tooltip from './tooltip';
 import { WordPressLogo } from './wordpress-logo';
-
-// TODO - Move to locales.ts
-export const namedLocales = [
-	{ name: 'Arabic', locale: 'ar' },
-	{ name: 'German', locale: 'de' },
-	{ name: 'English', locale: 'en' },
-	{ name: 'Spanish', locale: 'es' },
-	{ name: 'French', locale: 'fr' },
-	{ name: 'Hebrew', locale: 'he' },
-	{ name: 'Indonesian', locale: 'id' },
-	{ name: 'Italian', locale: 'it' },
-	{ name: 'Japanese', locale: 'ja' },
-	{ name: 'Korean', locale: 'ko' },
-	{ name: 'Dutch', locale: 'nl' },
-	{ name: 'Polish', locale: 'pl' },
-	{ name: 'Portuguese (Brazil)', locale: 'pt-br' },
-	{ name: 'Russian', locale: 'ru' },
-	{ name: 'Swedish', locale: 'sv' },
-	{ name: 'Turkish', locale: 'tr' },
-	{ name: 'Chinese (Simplified)', locale: 'zh-cn' },
-	{ name: 'Chinese (Traditional)', locale: 'zh-tw' },
-];
-
-const LanguagePicker = () => {
-	const { __ } = useI18n();
-	const [ locale, setLocale ] = useState( '' );
-
-	return (
-		<div className="flex gap-5 flex-col">
-			<h2 className="a8c-subtitle-small">{ __( 'Language' ) }</h2>
-			<SelectControl
-				value={ locale || 'en' }
-				onChange={ ( value ) => {
-					setLocale( value );
-				} }
-				options={ namedLocales.map( ( { name, locale } ) => ( {
-					value: locale,
-					label: name,
-				} ) ) }
-			/>
-		</div>
-	);
-};
 
 const UserInfo = ( {
 	user,

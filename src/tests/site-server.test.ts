@@ -23,7 +23,7 @@ jest.mock( '../../vendor/wp-now/src', () => ( {
 
 jest.mock( 'electron', () => ( {
 	app: {
-		getPreferredSystemLanguages: jest.fn( () => [ 'en-US' ] ),
+		getLocale: jest.fn( () => 'en-US' ),
 		getPath: jest.fn( () => '/path/to/app' ),
 	},
 } ) );

@@ -1,211 +1,112 @@
 diff --git a/node_modules/@php-wasm/node/index.cjs b/node_modules/@php-wasm/node/index.cjs
-index 1be4252..2b92c13 100644
+index 1be4252..7f01cfd 100644
 --- a/node_modules/@php-wasm/node/index.cjs
 +++ b/node_modules/@php-wasm/node/index.cjs
-@@ -7515,6 +7515,11 @@ function init(RuntimeName, PHPLoader) {
-     }
-   }
-   function ___syscall_chmod(path, mode) {
-+    // `chmod` disabled in Windows due to having a different file permission model than Unix.
-+    // This will help avoid issues when WordPress invokes this function.
-+    if (NODEFS.isWindows) {
-+      return 0;
-+    }
-     try {
-       path = SYSCALLS.getStr(path);
-       FS.chmod(path, mode);
-@@ -7965,7 +7970,9 @@ function init(RuntimeName, PHPLoader) {
-       path = PATH.normalize(path);
-       if (path[path.length - 1] === "/")
-         path = path.substr(0, path.length - 1);
--      FS.mkdir(path, mode, 0);
-+      // PHP `mkdir` function ignores permissions on Windows.
-+      // Instead, we use the default value `777`.
-+      FS.mkdir(path, NODEFS.isWindows ? 0o777 : mode, 0);
-       return 0;
-     } catch (e) {
-       if (typeof FS == "undefined" || !(e.name === "ErrnoError"))
-@@ -15145,6 +15152,11 @@ function init2(RuntimeName, PHPLoader) {
-     }
-   }
-   function ___syscall_chmod(path, mode) {
-+    // `chmod` disabled in Windows due to having a different file permission model than Unix.
-+    // This will help avoid issues when WordPress invokes this function.
-+    if (NODEFS.isWindows) {
-+      return 0;
-+    }
-     try {
-       path = SYSCALLS.getStr(path);
-       FS.chmod(path, mode);
-@@ -15595,7 +15607,9 @@ function init2(RuntimeName, PHPLoader) {
-       path = PATH.normalize(path);
-       if (path[path.length - 1] === "/")
-         path = path.substr(0, path.length - 1);
--      FS.mkdir(path, mode, 0);
-+      // PHP `mkdir` function ignores permissions on Windows.
-+      // Instead, we use the default value `777`.
-+      FS.mkdir(path, NODEFS.isWindows ? 0o777 : mode, 0);
-       return 0;
-     } catch (e) {
-       if (typeof FS == "undefined" || !(e.name === "ErrnoError"))
-@@ -22775,6 +22789,11 @@ function init3(RuntimeName, PHPLoader) {
-     }
-   }
-   function ___syscall_chmod(path, mode) {
-+    // `chmod` disabled in Windows due to having a different file permission model than Unix.
-+    // This will help avoid issues when WordPress invokes this function.
-+    if (NODEFS.isWindows) {
-+      return 0;
-+    }
-     try {
-       path = SYSCALLS.getStr(path);
-       FS.chmod(path, mode);
-@@ -23225,7 +23244,9 @@ function init3(RuntimeName, PHPLoader) {
-       path = PATH.normalize(path);
-       if (path[path.length - 1] === "/")
-         path = path.substr(0, path.length - 1);
--      FS.mkdir(path, mode, 0);
-+      // PHP `mkdir` function ignores permissions on Windows.
-+      // Instead, we use the default value `777`.
-+      FS.mkdir(path, NODEFS.isWindows ? 0o777 : mode, 0);
-       return 0;
-     } catch (e) {
-       if (typeof FS == "undefined" || !(e.name === "ErrnoError"))
-@@ -30400,6 +30421,11 @@ function init4(RuntimeName, PHPLoader) {
-     }
-   }
-   function ___syscall_chmod(path, mode) {
-+    // `chmod` disabled in Windows due to having a different file permission model than Unix.
-+    // This will help avoid issues when WordPress invokes this function.
-+    if (NODEFS.isWindows) {
-+      return 0;
-+    }
-     try {
-       path = SYSCALLS.getStr(path);
-       FS.chmod(path, mode);
-@@ -30850,7 +30876,9 @@ function init4(RuntimeName, PHPLoader) {
-       path = PATH.normalize(path);
-       if (path[path.length - 1] === "/")
-         path = path.substr(0, path.length - 1);
--      FS.mkdir(path, mode, 0);
-+      // PHP `mkdir` function ignores permissions on Windows.
-+      // Instead, we use the default value `777`.
-+      FS.mkdir(path, NODEFS.isWindows ? 0o777 : mode, 0);
-       return 0;
-     } catch (e) {
-       if (typeof FS == "undefined" || !(e.name === "ErrnoError"))
-@@ -37998,6 +38026,11 @@ function init5(RuntimeName, PHPLoader) {
-     }
-   }
-   function ___syscall_chmod(path, mode) {
-+    // `chmod` disabled in Windows due to having a different file permission model than Unix.
-+    // This will help avoid issues when WordPress invokes this function.
-+    if (NODEFS.isWindows) {
-+      return 0;
-+    }
-     try {
-       path = SYSCALLS.getStr(path);
-       FS.chmod(path, mode);
-@@ -38448,7 +38481,9 @@ function init5(RuntimeName, PHPLoader) {
-       path = PATH.normalize(path);
-       if (path[path.length - 1] === "/")
-         path = path.substr(0, path.length - 1);
--      FS.mkdir(path, mode, 0);
-+      // PHP `mkdir` function ignores permissions on Windows.
-+      // Instead, we use the default value `777`.
-+      FS.mkdir(path, NODEFS.isWindows ? 0o777 : mode, 0);
-       return 0;
-     } catch (e) {
-       if (typeof FS == "undefined" || !(e.name === "ErrnoError"))
-@@ -45581,6 +45616,11 @@ function init6(RuntimeName, PHPLoader) {
-     }
-   }
-   function ___syscall_chmod(path, mode) {
-+    // `chmod` disabled in Windows due to having a different file permission model than Unix.
-+    // This will help avoid issues when WordPress invokes this function.
-+    if (NODEFS.isWindows) {
-+      return 0;
-+    }
-     try {
-       path = SYSCALLS.getStr(path);
-       FS.chmod(path, mode);
-@@ -46006,7 +46046,9 @@ function init6(RuntimeName, PHPLoader) {
-       path = PATH.normalize(path);
-       if (path[path.length - 1] === "/")
-         path = path.substr(0, path.length - 1);
--      FS.mkdir(path, mode, 0);
-+      // PHP `mkdir` function ignores permissions on Windows.
-+      // Instead, we use the default value `777`.
-+      FS.mkdir(path, NODEFS.isWindows ? 0o777 : mode, 0);
-       return 0;
-     } catch (e) {
-       if (typeof FS == "undefined" || !(e.name === "ErrnoError"))
-@@ -53159,6 +53201,11 @@ function init7(RuntimeName, PHPLoader) {
-     }
-   }
-   function ___syscall_chmod(path, mode) {
-+    // `chmod` disabled in Windows due to having a different file permission model than Unix.
-+    // This will help avoid issues when WordPress invokes this function.
-+    if (NODEFS.isWindows) {
-+      return 0;
-+    }
-     try {
-       path = SYSCALLS.getStr(path);
-       FS.chmod(path, mode);
-@@ -53584,7 +53631,9 @@ function init7(RuntimeName, PHPLoader) {
-       path = PATH.normalize(path);
-       if (path[path.length - 1] === "/")
-         path = path.substr(0, path.length - 1);
--      FS.mkdir(path, mode, 0);
-+      // PHP `mkdir` function ignores permissions on Windows.
-+      // Instead, we use the default value `777`.
-+      FS.mkdir(path, NODEFS.isWindows ? 0o777 : mode, 0);
-       return 0;
-     } catch (e) {
-       if (typeof FS == "undefined" || !(e.name === "ErrnoError"))
-@@ -60605,6 +60654,11 @@ function init8(RuntimeName, PHPLoader) {
-     }
-   }
-   function ___syscall_chmod(path, mode) {
-+    // `chmod` disabled in Windows due to having a different file permission model than Unix.
-+    // This will help avoid issues when WordPress invokes this function.
-+    if (NODEFS.isWindows) {
-+      return 0;
-+    }
-     try {
-       path = SYSCALLS.getStr(path);
-       FS.chmod(path, mode);
-@@ -61030,7 +61084,9 @@ function init8(RuntimeName, PHPLoader) {
-       path = PATH.normalize(path);
-       if (path[path.length - 1] === "/")
-         path = path.substr(0, path.length - 1);
--      FS.mkdir(path, mode, 0);
-+      // PHP `mkdir` function ignores permissions on Windows.
-+      // Instead, we use the default value `777`.
-+      FS.mkdir(path, NODEFS.isWindows ? 0o777 : mode, 0);
-       return 0;
-     } catch (e) {
-       if (typeof FS == "undefined" || !(e.name === "ErrnoError"))
-@@ -68036,6 +68092,11 @@ function init9(RuntimeName, PHPLoader) {
-     }
-   }
-   function ___syscall_chmod(path, mode) {
-+    // `chmod` disabled in Windows due to having a different file permission model than Unix.
-+    // This will help avoid issues when WordPress invokes this function.
-+    if (NODEFS.isWindows) {
-+      return 0;
-+    }
-     try {
-       path = SYSCALLS.getStr(path);
-       FS.chmod(path, mode);
-@@ -68461,7 +68522,9 @@ function init9(RuntimeName, PHPLoader) {
-       path = PATH.normalize(path);
-       if (path[path.length - 1] === "/")
-         path = path.substr(0, path.length - 1);
--      FS.mkdir(path, mode, 0);
-+      // PHP `mkdir` function ignores permissions on Windows.
-+      // Instead, we use the default value `777`.
-+      FS.mkdir(path, NODEFS.isWindows ? 0o777 : mode, 0);
-       return 0;
-     } catch (e) {
-       if (typeof FS == "undefined" || !(e.name === "ErrnoError"))
+@@ -6650,6 +6650,11 @@ function init(RuntimeName, PHPLoader) {
+     doStat: function(func, path, buf) {
+       try {
+         var stat = func(path);
++        if (NODEFS.isWindows) {
++          // Node.js on Windows never represents permission bit 'x', so
++          // propagate read bits to execute bits.
++          stat.mode = stat.mode | (stat.mode & 292) >> 2;
++        }
+       } catch (e) {
+         if (e && e.node && PATH.normalize(path) !== PATH.normalize(FS.getPath(e.node))) {
+           return -54;
+@@ -14280,6 +14285,11 @@ function init2(RuntimeName, PHPLoader) {
+     doStat: function(func, path, buf) {
+       try {
+         var stat = func(path);
++        if (NODEFS.isWindows) {
++          // Node.js on Windows never represents permission bit 'x', so
++          // propagate read bits to execute bits.
++          stat.mode = stat.mode | (stat.mode & 292) >> 2;
++        }
+       } catch (e) {
+         if (e && e.node && PATH.normalize(path) !== PATH.normalize(FS.getPath(e.node))) {
+           return -54;
+@@ -21910,6 +21920,11 @@ function init3(RuntimeName, PHPLoader) {
+     doStat: function(func, path, buf) {
+       try {
+         var stat = func(path);
++        if (NODEFS.isWindows) {
++          // Node.js on Windows never represents permission bit 'x', so
++          // propagate read bits to execute bits.
++          stat.mode = stat.mode | (stat.mode & 292) >> 2;
++        }
+       } catch (e) {
+         if (e && e.node && PATH.normalize(path) !== PATH.normalize(FS.getPath(e.node))) {
+           return -54;
+@@ -29535,6 +29550,11 @@ function init4(RuntimeName, PHPLoader) {
+     doStat: function(func, path, buf) {
+       try {
+         var stat = func(path);
++        if (NODEFS.isWindows) {
++          // Node.js on Windows never represents permission bit 'x', so
++          // propagate read bits to execute bits.
++          stat.mode = stat.mode | (stat.mode & 292) >> 2;
++        }
+       } catch (e) {
+         if (e && e.node && PATH.normalize(path) !== PATH.normalize(FS.getPath(e.node))) {
+           return -54;
+@@ -37133,6 +37153,11 @@ function init5(RuntimeName, PHPLoader) {
+     doStat: function(func, path, buf) {
+       try {
+         var stat = func(path);
++        if (NODEFS.isWindows) {
++          // Node.js on Windows never represents permission bit 'x', so
++          // propagate read bits to execute bits.
++          stat.mode = stat.mode | (stat.mode & 292) >> 2;
++        }
+       } catch (e) {
+         if (e && e.node && PATH.normalize(path) !== PATH.normalize(FS.getPath(e.node))) {
+           return -54;
+@@ -44716,6 +44741,11 @@ function init6(RuntimeName, PHPLoader) {
+     doStat: function(func, path, buf) {
+       try {
+         var stat = func(path);
++        if (NODEFS.isWindows) {
++          // Node.js on Windows never represents permission bit 'x', so
++          // propagate read bits to execute bits.
++          stat.mode = stat.mode | (stat.mode & 292) >> 2;
++        }
+       } catch (e) {
+         if (e && e.node && PATH.normalize(path) !== PATH.normalize(FS.getPath(e.node))) {
+           return -54;
+@@ -52294,6 +52324,11 @@ function init7(RuntimeName, PHPLoader) {
+     doStat: function(func, path, buf) {
+       try {
+         var stat = func(path);
++        if (NODEFS.isWindows) {
++          // Node.js on Windows never represents permission bit 'x', so
++          // propagate read bits to execute bits.
++          stat.mode = stat.mode | (stat.mode & 292) >> 2;
++        }
+       } catch (e) {
+         if (e && e.node && PATH.normalize(path) !== PATH.normalize(FS.getPath(e.node))) {
+           return -54;
+@@ -59740,6 +59775,11 @@ function init8(RuntimeName, PHPLoader) {
+     doStat: function(func, path, buf) {
+       try {
+         var stat = func(path);
++        if (NODEFS.isWindows) {
++          // Node.js on Windows never represents permission bit 'x', so
++          // propagate read bits to execute bits.
++          stat.mode = stat.mode | (stat.mode & 292) >> 2;
++        }
+       } catch (e) {
+         if (e && e.node && PATH.normalize(path) !== PATH.normalize(FS.getPath(e.node))) {
+           return -54;
+@@ -67171,6 +67211,11 @@ function init9(RuntimeName, PHPLoader) {
+     doStat: function(func, path, buf) {
+       try {
+         var stat = func(path);
++        if (NODEFS.isWindows) {
++          // Node.js on Windows never represents permission bit 'x', so
++          // propagate read bits to execute bits.
++          stat.mode = stat.mode | (stat.mode & 292) >> 2;
++        }
+       } catch (e) {
+         if (e && e.node && PATH.normalize(path) !== PATH.normalize(FS.getPath(e.node))) {
+           return -54;

@@ -1,3 +1,16 @@
+1.0.1
+=====
+* Linked user avatar in Settings to their WP.com profile #5
+* Added prompt for users to download correct app architecture version #15
+* Made a few remaining texts translatable #53, #48, #16
+* Improved support for long translations #12
+* Used the OS native dialog to confirm a site deletion #27
+* Added copy button to demo site URL #57
+* Fixed app crash when demo site status could not be checked #44
+* Ensured demo site uses WP version same as local site #36
+* Fixed overflow issue for extremely long site name #60
+* Improved UX for keyboard-only users  #13
+
 1.0.0
 =====
--   The initial release of the app.
+* The initial release of the app.

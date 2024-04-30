@@ -1,3 +1,6 @@
+/**
+ * @jest-environment node
+ */
 // To run tests, execute `npm run test -- src/lib/sort-sites.test.ts` from the root directory
 import { sortSites } from '../sort-sites';
 

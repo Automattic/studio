@@ -1,3 +1,6 @@
+/**
+ * @jest-environment node
+ */
 import { app } from 'electron';
 import { getPreferredSiteLanguage } from '../site-language';
 

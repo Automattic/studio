@@ -12,3 +12,8 @@ export const BrowserWindow = {
 		},
 	} ) ),
 };
+
+export const shell = {
+	openExternal: jest.fn(),
+	trashItem: jest.fn(),
+};

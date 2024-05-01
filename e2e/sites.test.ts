@@ -85,14 +85,45 @@ test.describe( 'Servers', () => {
 
 		// Check the site is running
 		const siteContent = new SiteContent( mainWindow, siteName );
+
+		await siteContent.navigateToTab( 'Settings' );
+
+		// expect( await siteContent.locator.getByLabel( 'Copy site url', { exact: false } ) ).toBeVisible();
 		expect( await siteContent.frontendButton ).toBeVisible();
 		const frontendUrl = await siteContent.frontendButton.textContent();
-		expect( frontendUrl ).toBeTruthy();
+		expect(frontendUrl).not.toBeNull();
 		const response = await new Promise< http.IncomingMessage >( ( resolve, reject ) => {
 			http.get( `http://${ frontendUrl }`, resolve ).on( 'error', reject );
 		} );
 		expect( response.statusCode ).toBe( 200 );
-		expect( response.headers[ 'content-type' ] ).toMatch( /text\/html/ );
+		expect(response.headers['content-type']).toMatch(/text\/html/);
+
+		/*
+		const { electron } = require('playwright');
+
+(async () => {
+  const browser = await electron.launch({
+    headless: false
+  });
+  const context = await browser.newContext();
+  await page.getByRole('button', { name: 'Add site' }).click();
+  await page.getByTestId('select-path-button').click();
+  await page.getByRole('button', { name: 'Add site' }).click();
+  const page1 = await context.newPage();
+  await page1.goto('http://localhost:8884/?studio-hide-adminbar');
+  await page1.close();
+  await page.getByRole('button', { name: 'My Fresh Website', exact: true }).click();
+  await page.getByRole('tab', { name: 'Settings' }).click();
+  await page.getByRole('cell', { name: 'Local domain' }).click({
+    button: 'right'
+  });
+  await page.getByLabel('localhost:8884, Copy site url').click();
+
+  // ---------------------
+  await context.close();
+  await browser.close();
+})();
+*/
 	} );
 
 	test( "edit site's settings in wp-admin", async ( { page } ) => {

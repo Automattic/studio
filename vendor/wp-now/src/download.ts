@@ -230,7 +230,18 @@ export async function downloadMuPlugins(customMuPluginsPath = '') {
 			'fonts.gstatic.com',
 		);
 		return array_merge( $hosts, $redirect_hosts );
-	} );`
+	} );
+	add_filter( 'http_request_host_is_external', function( $allow, $host, $url ) {
+		$external_hosts = array(
+			'www.youtube.com',
+			'soundcloud.com',
+		);
+		if ( in_array( $host, $external_hosts ) ) {
+			return true;
+		}
+		return false;
+	}, 20, 3 );
+	`
 	);
 
 	fs.writeFile(

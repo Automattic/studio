@@ -20,6 +20,13 @@ describe( 'UserSettings', () => {
 				callback();
 			}
 		} );
+
+		// Mock window.matchMedia
+		window.matchMedia = jest.fn().mockReturnValue( {
+			matches: false,
+			addListener: jest.fn(),
+			removeListener: jest.fn(),
+		} );
 	} );
 
 	it( 'logs in when not authenticated', async () => {

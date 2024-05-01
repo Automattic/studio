@@ -12,7 +12,6 @@ import { useSiteDetails } from '../hooks/use-site-details';
 import { useSiteUsage } from '../hooks/use-site-usage';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
-// import { namedLocales } from '../lib/locale';
 import Button from './button';
 import { Gravatar } from './gravatar';
 import { LanguagePicker } from './language-picker';

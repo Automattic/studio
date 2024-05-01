@@ -112,20 +112,15 @@ export async function createSite(
 ): Promise< SiteDetails[] > {
 	const userData = await loadUserData();
 	const forceSetupSqlite = false;
-	let wasPathEmpty = false;
-	// We only try to create the directory recursively if the user has
-	// not selected a path from the dialog (and thus they use the "default" path)
+	// We only recursively create the directory if the user has not selected a
+	// path from the dialog (and thus they use the "default" or suggested path).
 	if ( ! ( await pathExists( path ) ) && path.startsWith( DEFAULT_SITE_PATH ) ) {
-		try {
-			fs.mkdirSync( path, { recursive: true } );
-		} catch ( err ) {
-			return userData.sites;
-		}
+		fs.mkdirSync( path, { recursive: true } );
 	}
 
 	if ( ! ( await isEmptyDir( path ) ) && ! isWordPressDirectory( path ) ) {
-		wasPathEmpty = true;
-		userData.sites;
+		// Form validation should've prevented a non-empty directory from being selected
+		throw new Error( 'The selected directory is not empty nor an existing WordPress site.' );
 	}
 
 	const allPaths = userData?.sites?.map( ( site ) => site.path ) || [];
@@ -148,27 +143,18 @@ export async function createSite(
 	const server = SiteServer.create( details );
 
 	if ( isWordPressDirectory( path ) ) {
-		try {
-			// If the directory contains a WordPress installation, and user wants to force SQLite
-			// integration, let's rename the wp-config.php file to allow WP Now to create a new one
-			// and initialize things properly.
-			if ( forceSetupSqlite && ( await pathExists( nodePath.join( path, 'wp-config.php' ) ) ) ) {
-				fs.renameSync(
-					nodePath.join( path, 'wp-config.php' ),
-					nodePath.join( path, 'wp-config-studio.php' )
-				);
-			}
+		// If the directory contains a WordPress installation, and user wants to force SQLite
+		// integration, let's rename the wp-config.php file to allow WP Now to create a new one
+		// and initialize things properly.
+		if ( forceSetupSqlite && ( await pathExists( nodePath.join( path, 'wp-config.php' ) ) ) ) {
+			fs.renameSync(
+				nodePath.join( path, 'wp-config.php' ),
+				nodePath.join( path, 'wp-config-studio.php' )
+			);
+		}
 
-			if ( ! ( await pathExists( nodePath.join( path, 'wp-config.php' ) ) ) ) {
-				await setupSqliteIntegration( path );
-			}
-		} catch ( error ) {
-			Sentry.captureException( error );
-			if ( wasPathEmpty ) {
-				// Clean the path to let the user try again
-				await shell.trashItem( path );
-			}
-			throw new Error( 'Error creating the site. Please contact support.' );
+		if ( ! ( await pathExists( nodePath.join( path, 'wp-config.php' ) ) ) ) {
+			await setupSqliteIntegration( path );
 		}
 	}
 
@@ -449,7 +435,12 @@ export async function getAppGlobals( _event: IpcMainInvokeEvent ): Promise< AppG
 	};
 }
 
-export async function getWpVersion( _event: IpcMainInvokeEvent, wordPressPath: string ) {
+export async function getWpVersion( _event: IpcMainInvokeEvent, id: string ) {
+	const server = SiteServer.get( id );
+	if ( ! server ) {
+		return '-';
+	}
+	const wordPressPath = server.details.path;
 	let versionFileContent = '';
 	try {
 		versionFileContent = fs.readFileSync(

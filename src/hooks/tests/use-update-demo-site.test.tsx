@@ -12,6 +12,7 @@ jest.mock( '../../lib/get-ipc-api', () => ( {
 	getIpcApi: jest.fn().mockReturnValue( {
 		archiveSite: jest.fn().mockResolvedValue( { zipContent: new Blob( [ 'zipContent' ] ) } ),
 		showMessageBox: jest.fn().mockResolvedValue( { response: 1 } ), // Assuming '1' is the cancel button
+		getWpVersion: jest.fn().mockResolvedValue( '6.5' ),
 	} ),
 } ) );
 jest.mock( '@sentry/electron/renderer', () => ( {
@@ -90,6 +91,7 @@ describe( 'useUpdateDemoSite', () => {
 						type: 'application/zip',
 					} ),
 				],
+				[ 'wordpress_version', '6.5' ],
 			],
 		} );
 

@@ -42,7 +42,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 					</tr>
 					<SettingsRow label={ __( 'Site name' ) }>
 						<div className="flex">
-							<span className="line-clamp-1">{ selectedSite.name }</span>
+							<span className="line-clamp-1 break-all">{ selectedSite.name }</span>
 							<EditSite />
 						</div>
 					</SettingsRow>
@@ -62,7 +62,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 							onClick={ () => getIpcApi().openLocalPath( selectedSite.path ) }
 							variant="link"
 						>
-							<span className="line-clamp-1">{ selectedSite.path }</span>
+							<span className="line-clamp-1 break-all">{ selectedSite.path }</span>
 							<Icon size={ 13 } icon={ file } className="shrink-0" />
 						</Button>
 					</SettingsRow>

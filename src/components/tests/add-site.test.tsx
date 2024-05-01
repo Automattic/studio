@@ -167,4 +167,65 @@ describe( 'AddSite', () => {
 		expect( screen.getByDisplayValue( 'My WordPress Website' ) ).toBeInTheDocument();
 		expect( screen.getByDisplayValue( '/default_path/my-wordpress-website' ) ).toBeInTheDocument();
 	} );
+
+	it( 'should reset to the proposed path when the path is set to default app directory', async () => {
+		const user = userEvent.setup();
+		mockGenerateProposedSitePath.mockImplementation( ( name ) => {
+			const path = `/default_path/${ name.replace( /\s/g, '-' ).toLowerCase() }`;
+			return Promise.resolve( {
+				path,
+				name,
+				isEmpty: true,
+				isWordPress: false,
+			} );
+		} );
+		mockShowOpenFolderDialog.mockResolvedValue( {
+			path: 'populated-non-wordpress-directory',
+			name: 'My WordPress Website',
+			isEmpty: false,
+			isWordPress: false,
+		} );
+		render( <AddSite /> );
+
+		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+		await user.click( screen.getByTestId( 'select-path-button' ) );
+
+		mockShowOpenFolderDialog.mockResolvedValue( {
+			path: '/default_path',
+			name: 'My WordPress Website',
+			isEmpty: false,
+			isWordPress: false,
+		} );
+		await user.click( screen.getByTestId( 'select-path-button' ) );
+		await user.click( screen.getByDisplayValue( 'My WordPress Website' ) );
+		await user.type( screen.getByDisplayValue( 'My WordPress Website' ), ' mutated' );
+		// screen.debug( screen.getByRole( 'dialog' ) );
+
+		expect(
+			screen.getByDisplayValue( '/default_path/my-wordpress-website-mutated' )
+		).toBeInTheDocument();
+	} );
+
+	it( 'should display a helpful error message when an error occurs while creating the site', async () => {
+		const user = userEvent.setup();
+		mockGenerateProposedSitePath.mockResolvedValue( {
+			path: '/default_path/my-wordpress-website',
+			name: 'My WordPress Website',
+			isEmpty: true,
+			isWordPress: false,
+		} );
+		mockCreateSite.mockImplementation( () => {
+			throw new Error( 'Failed to create site' );
+		} );
+		render( <AddSite /> );
+
+		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+
+		await waitFor( () => {
+			expect( screen.getByRole( 'alert' ) ).toHaveTextContent(
+				'An error occurred while creating the site. Verify your selected local path is an empty directory or an existing WordPress folder and try again. If this problem persists, please contact support.'
+			);
+		} );
+	} );
 } );

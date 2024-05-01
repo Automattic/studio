@@ -233,13 +233,13 @@ export async function downloadMuPlugins(customMuPluginsPath = '') {
 	} );
 	add_filter( 'http_request_host_is_external', function( $allow, $host, $url ) {
 		$external_hosts = array(
-			'www.youtube.com',
-			'soundcloud.com',
+				'youtube.com',
+				'soundcloud.com',
 		);
-		if ( in_array( $host, $external_hosts ) ) {
-			return true;
-		}
-		return false;
+		$external_matches = array_filter($external_hosts, function ($allowed_host) use ($host) {
+				return str_ends_with($host, $allowed_host);
+		});
+		return !empty($external_matches);
 	}, 20, 3 );
 	`
 	);

@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/electron/renderer';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useMemo, useState } from 'react';
 import { getIpcApi } from '../lib/get-ipc-api';
@@ -28,11 +29,13 @@ export function useAddSite() {
 			const { path, name, isEmpty, isWordPress } = response;
 			setDoesPathContainWordPress( false );
 			setError( '' );
-			setSitePath( path );
+			const pathResetToDefaultSitePath =
+				path === proposedSitePath.substring( 0, proposedSitePath.lastIndexOf( '/' ) );
+			setSitePath( pathResetToDefaultSitePath ? '' : path );
 			if ( siteWithPathAlreadyExists( path ) ) {
 				return;
 			}
-			if ( ! isEmpty && ! isWordPress ) {
+			if ( ! isEmpty && ! isWordPress && ! pathResetToDefaultSitePath ) {
 				setError(
 					__(
 						'This directory is not empty. Please select an empty directory or an existing WordPress folder.'
@@ -45,7 +48,7 @@ export function useAddSite() {
 				setSiteName( name ?? null );
 			}
 		}
-	}, [ __, siteWithPathAlreadyExists, siteName ] );
+	}, [ __, siteWithPathAlreadyExists, siteName, proposedSitePath ] );
 
 	const handleAddSiteClick = useCallback( async () => {
 		setIsAddingSite( true );
@@ -53,12 +56,17 @@ export function useAddSite() {
 			const path = sitePath ? sitePath : proposedSitePath;
 			await createSite( path, siteName ?? '' );
 		} catch ( e ) {
-			setError( ( e as Error )?.message );
+			Sentry.captureException( e );
+			setError(
+				__(
+					'An error occurred while creating the site. Verify your selected local path is an empty directory or an existing WordPress folder and try again. If this problem persists, please contact support.'
+				)
+			);
 			setIsAddingSite( false );
 			throw e;
 		}
 		setIsAddingSite( false );
-	}, [ createSite, proposedSitePath, siteName, sitePath ] );
+	}, [ createSite, proposedSitePath, siteName, sitePath, __ ] );
 
 	const handleSiteNameChange = useCallback(
 		async ( name: string ) => {

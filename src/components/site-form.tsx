@@ -72,7 +72,7 @@ function FormPathInputComponent( {
 					) }
 				>
 					<Icon
-						className={ error ? 'fill-red-500' : '' }
+						className={ cx( 'shrink-0 basis-4', error ? 'fill-red-500' : '' ) }
 						icon={ error ? warning : tip }
 						width={ 16 }
 						height={ 16 }

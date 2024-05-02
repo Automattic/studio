@@ -1,4 +1,8 @@
-import { sanitizeForLogging, sanitizeUnstructuredData } from '../sanitize-for-logging';
+import {
+	sanitizeForLogging,
+	sanitizeUnstructuredData,
+	sanitizeUserpath,
+} from '../sanitize-for-logging';
 
 describe( 'sanitizeForLogging', () => {
 	test( 'redacts sensitive strings from objects', () => {
@@ -75,5 +79,19 @@ describe( 'sanitizeUnstructuredData', () => {
 			this line is safe
 			REDACTED
 ` );
+	} );
+} );
+
+describe( 'sanitizeUserpath', () => {
+	test( 'replaces user path with ~', () => {
+		const sanitized = sanitizeUserpath( '/Users/username/Library' );
+
+		expect( sanitized ).toEqual( '~/Library' );
+	} );
+
+	test( 'does nothing if path does not match', () => {
+		const sanitized = sanitizeUserpath( 'not a valid userpath' );
+
+		expect( sanitized ).toEqual( 'not a valid userpath' );
 	} );
 } );

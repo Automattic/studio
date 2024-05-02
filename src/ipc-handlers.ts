@@ -211,7 +211,7 @@ export async function startServer(
 
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	await server.start();
-	if ( parentWindow && ! parentWindow.isDestroyed() ) {
+	if ( parentWindow && ! parentWindow.isDestroyed() && ! event.sender.isDestroyed() ) {
 		parentWindow.webContents.send( 'theme-details-changed', id, server.details.themeDetails );
 	}
 	server.updateCachedThumbnail().then( () => sendThumbnailChangedEvent( event, id ) );

@@ -2,6 +2,7 @@ import * as Sentry from '@sentry/electron/renderer';
 import { useCallback, useEffect, useState } from 'react';
 import { LIMIT_OF_ZIP_SITES_PER_USER } from '../constants';
 import { useAuth } from './use-auth';
+import { useOffline } from './use-offline';
 import { useSiteDetails } from './use-site-details';
 
 export function useSiteUsage() {
@@ -10,9 +11,10 @@ export function useSiteUsage() {
 	const [ siteCount, setSiteCount ] = useState( snapshots.length );
 	const [ siteLimit, setSiteLimit ] = useState( LIMIT_OF_ZIP_SITES_PER_USER );
 	const { client } = useAuth();
+	const isOffline = useOffline();
 
 	const fetchSiteUsage = useCallback( async () => {
-		if ( ! client?.req ) {
+		if ( ! client?.req || isOffline ) {
 			return;
 		}
 		setIsLoading( true );
@@ -27,7 +29,7 @@ export function useSiteUsage() {
 		} finally {
 			setIsLoading( false );
 		}
-	}, [ client?.req ] );
+	}, [ client?.req, isOffline ] );
 
 	useEffect( () => {
 		// If client is not ready, fail early

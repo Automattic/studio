@@ -19,7 +19,7 @@ export function getSiteThumbnailPath( siteId: string ): string {
 }
 
 export function getResourcesPath(): string {
-	if ( process.env.NODE_ENV === 'development' ) {
+	if ( process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test' ) {
 		return process.cwd();
 	}
 

@@ -15,7 +15,9 @@ const migrateUserData = ( appName: string ) => {
 
 	if ( fs.existsSync( oldPath ) && ! fs.existsSync( newPath ) ) {
 		fs.renameSync( oldPath, newPath );
-		console.log( `Moved user data from ${ oldPath } to ${ newPath }` );
+		console.log(
+			`Moved user data from ${ sanitizeUserpath( oldPath ) } to ${ sanitizeUserpath( newPath ) }`
+		);
 	}
 };
 

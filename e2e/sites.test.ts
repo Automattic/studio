@@ -16,10 +16,42 @@ test.describe( 'Servers', () => {
 	let mainWindow: Page;
 	const siteName = `test-site-${ randomUUID() }`;
 	const tmpSiteDir = `${ tmpdir() }/${ siteName }`;
+	const defaultOnboardingSiteName = 'My WordPress Website';
+	const onboardingTmpSiteDir = `${ tmpdir() }/${ defaultOnboardingSiteName.replace( /\s/g, '-' ) }`;
 
 	test.beforeAll( async () => {
 		expect( await pathExists( tmpSiteDir ) ).toBe( false );
 		await fs.mkdir( tmpSiteDir, { recursive: true } );
+
+		// Especially in CI systems, the app will start with no sites.
+		// Hence, we'll see the onboarding screen.
+		// If that's the case, create a new site first to get the onboarding out of the way and enable the tests to proceed.
+		//
+		// FIXME: Add check to see if the onboarding screen is visible.
+		console.log( onboardingTmpSiteDir );
+		expect( await pathExists( onboardingTmpSiteDir ) ).toBe( false );
+		await fs.mkdir( onboardingTmpSiteDir, { recursive: true } );
+
+		let onboardingAppInstance: ElectronApplication;
+		let onboardingMainWindow: Page;
+		[ onboardingAppInstance, onboardingMainWindow ] = await launchApp( {
+			E2E_OPEN_FOLDER_DIALOG: onboardingTmpSiteDir,
+		} );
+
+		const onboarding = new Onboarding( onboardingMainWindow );
+		await expect( onboarding.siteNameInput ).toHaveValue( defaultOnboardingSiteName );
+		await expect( onboarding.sitePathInput ).toBeVisible();
+		await expect( onboarding.continueButton ).toBeVisible();
+
+		await onboarding.clickLocalPathButtonAndSelectFromEnv();
+		await onboarding.continueButton.click();
+
+		const siteContent = new SiteContent( onboardingMainWindow, defaultOnboardingSiteName );
+		await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 30_000 } );
+
+		await onboardingAppInstance.close();
+
+		// Reluanch the app but configured to use tmpSiteDir as the path for the local site.
 		[ electronApp, mainWindow ] = await launchApp( { E2E_OPEN_FOLDER_DIALOG: tmpSiteDir } );
 	} );
 
@@ -27,43 +59,10 @@ test.describe( 'Servers', () => {
 		await electronApp?.close();
 		try {
 			await fs.rm( tmpSiteDir, { recursive: true } );
+			await fs.rm( onboardingTmpSiteDir, { recursive: true } );
 		} catch {
 			// If the folder wasn't ever created, a test assertion will have caught this problem
 		}
-	} );
-
-	test('onboarding', async () => {
-		const onboarding = new Onboarding(mainWindow);
-		const siteName = 'My WordPress Website';
-		await expect(onboarding.siteNameInput).toHaveValue(siteName);
-		await expect(onboarding.sitePathInput).toBeVisible();
-		await expect(onboarding.continueButton).toBeVisible();
-
-		await onboarding.clickLocalPathButtonAndSelectFromEnv();
-		await onboarding.continueButton.click();
-		// expect( await onboarding.siteNameInput.inputValue() ).toBe( 'My WordPress Website' );
-
-		const siteContent = new SiteContent(mainWindow, siteName);
-
-		await expect(siteContent.siteNameHeading).toBeVisible({ timeout: 30_000 });
-	  await expect(siteContent.siteNameHeading).toHaveText(siteName);
-
-		// const page = mainWindow;
-
-		// const context = await electronApp.newContext();
-		// await page.getByLabel( 'Site name' ).dblclick();
-		// await page.getByLabel( 'Site name' ).press( 'Meta+a' );
-		// await page.getByLabel( 'Site name' ).fill( 'Test Site ' );
-		// await page.getByRole( 'button', { name: 'Continue' } ).click();
-		// const page1 = await context.newPage();
-		// await page1.goto( 'http://localhost:8881/?studio-hide-adminbar' );
-		// await page1.close();
-		// await page.getByRole( 'heading', { name: 'Test Site' } ).click();
-		// await expect(page.getByRole('heading', { name: 'Test Site' })).toBeVisible();
-
-		// ---------------------
-		// await context.close();
-		// await browser.close();
 	} );
 
 	test( 'create a new site', async () => {
@@ -78,7 +77,7 @@ test.describe( 'Servers', () => {
 		await modal.addSiteButton.click();
 
 		const sidebarButton = sidebar.getSiteNavButton( siteName );
-		await expect( sidebarButton ).toBeAttached({ timeout: 30_000 });
+		await expect( sidebarButton ).toBeAttached( { timeout: 30_000 } );
 
 		// Check a WordPress site has been created
 		expect( await pathExists( path.join( tmpSiteDir, 'wp-config.php' ) ) ).toBe( true );
@@ -91,12 +90,12 @@ test.describe( 'Servers', () => {
 		// expect( await siteContent.locator.getByLabel( 'Copy site url', { exact: false } ) ).toBeVisible();
 		expect( await siteContent.frontendButton ).toBeVisible();
 		const frontendUrl = await siteContent.frontendButton.textContent();
-		expect(frontendUrl).not.toBeNull();
+		expect( frontendUrl ).not.toBeNull();
 		const response = await new Promise< http.IncomingMessage >( ( resolve, reject ) => {
 			http.get( `http://${ frontendUrl }`, resolve ).on( 'error', reject );
 		} );
 		expect( response.statusCode ).toBe( 200 );
-		expect(response.headers['content-type']).toMatch(/text\/html/);
+		expect( response.headers[ 'content-type' ] ).toMatch( /text\/html/ );
 
 		/*
 		const { electron } = require('playwright');

@@ -59,7 +59,7 @@ export async function loadUserData(): Promise< UserData > {
 				snapshots: [],
 			};
 		}
-		console.error( `Failed to load file ${ filePath }: ${ err }` );
+		console.error( `Failed to load file ${ sanitizeUserpath( filePath ) }: ${ err }` );
 		throw err;
 	}
 }

@@ -11,6 +11,10 @@ export default class Onboarding {
 		return this.page;
 	}
 
+	get heading() {
+		return this.locator.getByRole('heading', { name: 'Add your first site' });
+	}
+
 	get siteNameInput() {
 		return this.locator.getByLabel( 'Site name' );
 	}

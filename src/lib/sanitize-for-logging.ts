@@ -32,9 +32,9 @@ export function sanitizeUnstructuredData( data: string ): string {
 // Attempts to sanitize a user path by replacing the user's home directory with a tilde.
 // Returns the original path if it does not match the pattern or if it is not a string.
 export function sanitizeUserpath( path: string ): string {
-	// Matches expected user path on macOS
-	if ( typeof path === 'string' && /\/Users\/[^/]+\/Library/.test( path ) ) {
-		return path.replace( /\/Users\/[^/]+(\/Library)/, '~$1' );
+	const userPathRegex = /^\/Users\/([^/]+)\//;
+	if ( typeof path === 'string' && userPathRegex.test( path ) ) {
+		return path.replace( userPathRegex, '~/' );
 	}
 
 	return path;

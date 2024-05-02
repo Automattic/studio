@@ -89,10 +89,10 @@ test.describe( 'Servers', () => {
 
 		// Check the site is running
 		const siteContent = new SiteContent( mainWindow, siteName );
+		expect( await siteContent.siteNameHeading ).toHaveText( siteName );
 
 		await siteContent.navigateToTab( 'Settings' );
 
-		// expect( await siteContent.locator.getByLabel( 'Copy site url', { exact: false } ) ).toBeVisible();
 		expect( await siteContent.frontendButton ).toBeVisible();
 		const frontendUrl = await siteContent.frontendButton.textContent();
 		expect( frontendUrl ).not.toBeNull();

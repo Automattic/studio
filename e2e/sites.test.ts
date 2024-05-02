@@ -6,8 +6,8 @@ import path from 'path';
 import { test, expect } from '@playwright/test';
 import { pathExists } from '../src/lib/fs-utils';
 import { launchApp } from './e2e-helpers';
-import Onboarding from './page-objects/onboarding';
 import MainSidebar from './page-objects/main-sidebar';
+import Onboarding from './page-objects/onboarding';
 import SiteContent from './page-objects/site-content';
 import type { ElectronApplication, Page } from 'playwright';
 
@@ -27,12 +27,13 @@ test.describe( 'Servers', () => {
 		// Especially in CI systems, the app will start with no sites.
 		// Hence, we'll see the onboarding screen.
 		// If that's the case, create a new site first to get the onboarding out of the way and enable the tests to proceed.
-		expect( await pathExists( onboardingTmpSiteDir ), `Path ${ onboardingTmpSiteDir } exists.` ).toBe( false );
+		expect(
+			await pathExists( onboardingTmpSiteDir ),
+			`Path ${ onboardingTmpSiteDir } exists.`
+		).toBe( false );
 		await fs.mkdir( onboardingTmpSiteDir, { recursive: true } );
 
-		let onboardingAppInstance: ElectronApplication;
-		let onboardingMainWindow: Page;
-		[ onboardingAppInstance, onboardingMainWindow ] = await launchApp( {
+		const [ onboardingAppInstance, onboardingMainWindow ] = await launchApp( {
 			E2E_OPEN_FOLDER_DIALOG: onboardingTmpSiteDir,
 		} );
 

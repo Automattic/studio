@@ -58,7 +58,7 @@
 		"@wordpress/react-i18n": "^3.48.0",
 		"autoprefixer": "^10.4.16",
 		"css-loader": "^6.0.0",
-		"ejs": "^3.1.9",
+		"ejs": "^3.1.10",
 		"electron": "29.1.0",
 		"electron-playwright-helpers": "^1.7.0",
 		"eslint": "^8.0.1",

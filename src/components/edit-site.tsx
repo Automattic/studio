@@ -81,7 +81,7 @@ export default function EditSite() {
 			) }
 			<Button
 				disabled={ ! selectedSite }
-				className="!ml-4 shrink-0"
+				className="!mx-4 shrink-0"
 				onClick={ () => {
 					if ( selectedSite ) {
 						setSiteName( selectedSite.name );

@@ -27,8 +27,7 @@ test.describe( 'Servers', () => {
 		// Hence, we'll see the onboarding screen.
 		// If that's the case, create a new site first to get the onboarding out of the way and enable the tests to proceed.
 		//
-		// FIXME: Add check to see if the onboarding screen is visible.
-		console.log( onboardingTmpSiteDir );
+		// FIXME: Add check to see if the onboarding screen is visible to run E2E tests locally without requiring no sites.
 		expect( await pathExists( onboardingTmpSiteDir ) ).toBe( false );
 		await fs.mkdir( onboardingTmpSiteDir, { recursive: true } );
 
@@ -102,33 +101,6 @@ test.describe( 'Servers', () => {
 		} );
 		expect( response.statusCode ).toBe( 200 );
 		expect( response.headers[ 'content-type' ] ).toMatch( /text\/html/ );
-
-		/*
-		const { electron } = require('playwright');
-
-(async () => {
-  const browser = await electron.launch({
-    headless: false
-  });
-  const context = await browser.newContext();
-  await page.getByRole('button', { name: 'Add site' }).click();
-  await page.getByTestId('select-path-button').click();
-  await page.getByRole('button', { name: 'Add site' }).click();
-  const page1 = await context.newPage();
-  await page1.goto('http://localhost:8884/?studio-hide-adminbar');
-  await page1.close();
-  await page.getByRole('button', { name: 'My Fresh Website', exact: true }).click();
-  await page.getByRole('tab', { name: 'Settings' }).click();
-  await page.getByRole('cell', { name: 'Local domain' }).click({
-    button: 'right'
-  });
-  await page.getByLabel('localhost:8884, Copy site url').click();
-
-  // ---------------------
-  await context.close();
-  await browser.close();
-})();
-*/
 	} );
 
 	test( "edit site's settings in wp-admin", async ( { page } ) => {

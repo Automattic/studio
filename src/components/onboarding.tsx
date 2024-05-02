@@ -94,10 +94,10 @@ export default function Onboarding() {
 	);
 
 	return (
-    <div
-      className="flex flex-row flex-grow"
-      data-testid="onboarding"
-    >
+		<div
+			className="flex flex-row flex-grow"
+			data-testid="onboarding"
+		>
 			<div className="w-1/2 bg-a8c-blueberry pb-[50px] pt-[46px] px-[50px] flex flex-col justify-between">
 				<div className="flex justify-end fill-white items-center gap-1">
 					<Icon size={ 24 } icon={ wordpress } />

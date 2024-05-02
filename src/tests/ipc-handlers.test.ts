@@ -31,7 +31,10 @@ const mockUserData = {
 	isDirectory: () => true,
 } );
 
-const mockIpcMainInvokeEvent = {} as IpcMainInvokeEvent;
+const mockIpcMainInvokeEvent = {
+	sender: { isDestroyed: jest.fn( () => false ) },
+	// Double assert the type with `unknown` to simplify mocking this value
+} as unknown as IpcMainInvokeEvent;
 
 describe( 'createSite', () => {
 	it( 'should create a site', async () => {

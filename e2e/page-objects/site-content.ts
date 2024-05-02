@@ -25,7 +25,7 @@ export default class SiteContent {
 		//
 		// Obtained via --debug and the locator tool.
 		// Less robust because uses label value which might change faster than the data-testid.
-		return this.locator.getByLabel('Copy site url', { exact: false });
+		return this.locator.getByLabel( 'Copy site url', { exact: false } );
 	}
 
 	getTabButton( tabName: 'Preview' | 'Settings' ) {

@@ -12,7 +12,7 @@ export default class Onboarding {
 	}
 
 	get heading() {
-		return this.locator.getByRole('heading', { name: 'Add your first site' });
+		return this.locator.getByRole( 'heading', { name: 'Add your first site' } );
 	}
 
 	get siteNameInput() {
@@ -24,7 +24,7 @@ export default class Onboarding {
 	}
 
 	get continueButton() {
-		return this.locator.getByRole('button', { name: 'Continue' });
+		return this.locator.getByRole( 'button', { name: 'Continue' } );
 	}
 
 	private get localPathButton() {

@@ -7,6 +7,7 @@ export const app = {
 
 export const BrowserWindow = {
 	fromWebContents: jest.fn( () => ( {
+		isDestroyed: jest.fn( () => false ),
 		webContents: {
 			send: jest.fn(),
 		},

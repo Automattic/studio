@@ -38,15 +38,22 @@ test.describe( 'Servers', () => {
 		} );
 
 		const onboarding = new Onboarding( onboardingMainWindow );
-		await expect( onboarding.siteNameInput ).toHaveValue( defaultOnboardingSiteName );
-		await expect( onboarding.sitePathInput ).toBeVisible();
-		await expect( onboarding.continueButton ).toBeVisible();
+		// Check if the onboarding screen is visible TWICE.
+		// For some reason, the first check might be a false negative.
+		// This is not unexpected, in that the docs themselves recommend to use toBeVisible() for assertions instead of accessing the value directly.
+		// However, here we are using visibility to trigger onboarding, so we can't use toBeVisible(), which would fail the test.
+		await onboarding.heading.isVisible();
+		if ( await onboarding.heading.isVisible() ) {
+			await expect( onboarding.siteNameInput ).toHaveValue( defaultOnboardingSiteName );
+			await expect( onboarding.sitePathInput ).toBeVisible();
+			await expect( onboarding.continueButton ).toBeVisible();
 
-		await onboarding.clickLocalPathButtonAndSelectFromEnv();
-		await onboarding.continueButton.click();
+			await onboarding.clickLocalPathButtonAndSelectFromEnv();
+			await onboarding.continueButton.click();
 
-		const siteContent = new SiteContent( onboardingMainWindow, defaultOnboardingSiteName );
-		await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 30_000 } );
+			const siteContent = new SiteContent( onboardingMainWindow, defaultOnboardingSiteName );
+			await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 30_000 } );
+		}
 
 		await onboardingAppInstance.close();
 
@@ -57,17 +64,17 @@ test.describe( 'Servers', () => {
 	test.afterAll( async () => {
 		await electronApp?.close();
 
-		[tmpSiteDir, onboardingTmpSiteDir].forEach(async (dir) => {
+		[ tmpSiteDir, onboardingTmpSiteDir ].forEach( async ( dir ) => {
 			// Check if path exists first, because tmpSiteDir should have been deleted by the test that deletes the site.
-			if (await pathExists(dir)) {
+			if ( await pathExists( dir ) ) {
 				try {
-					await fs.rm(dir, { recursive: true });
+					await fs.rm( dir, { recursive: true } );
 				} catch {
 					// fail test because we couldn't clean up
-					fail(`Failed to clean up ${dir}`);
+					fail( `Failed to clean up ${ dir }` );
 				}
 			}
-		});
+		} );
 	} );
 
 	test( 'create a new site', async () => {

@@ -20,15 +20,14 @@ test.describe( 'Servers', () => {
 	const onboardingTmpSiteDir = `${ tmpdir() }/${ defaultOnboardingSiteName.replace( /\s/g, '-' ) }`;
 
 	test.beforeAll( async () => {
-		expect( await pathExists( tmpSiteDir ) ).toBe( false );
+		// Print path in error so we can delete it manually if needed.
+		expect( await pathExists( tmpSiteDir ), `Path ${ tmpSiteDir } exists.` ).toBe( false );
 		await fs.mkdir( tmpSiteDir, { recursive: true } );
 
 		// Especially in CI systems, the app will start with no sites.
 		// Hence, we'll see the onboarding screen.
 		// If that's the case, create a new site first to get the onboarding out of the way and enable the tests to proceed.
-		//
-		// FIXME: Add check to see if the onboarding screen is visible to run E2E tests locally without requiring no sites.
-		expect( await pathExists( onboardingTmpSiteDir ) ).toBe( false );
+		expect( await pathExists( onboardingTmpSiteDir ), `Path ${ onboardingTmpSiteDir } exists.` ).toBe( false );
 		await fs.mkdir( onboardingTmpSiteDir, { recursive: true } );
 
 		let onboardingAppInstance: ElectronApplication;

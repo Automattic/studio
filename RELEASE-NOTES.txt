@@ -10,6 +10,8 @@
 * Ensured demo site uses WP version same as local site #36
 * Fixed overflow issue for extremely long site name #60
 * Improved UX for keyboard-only users  #13
+* Made drag triggers more consistent across the app #75
+* Improved site creation errors handling #4
 
 1.0.0
 =====

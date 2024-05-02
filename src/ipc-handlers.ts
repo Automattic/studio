@@ -132,7 +132,14 @@ export async function createSite(
 	}
 
 	if ( ( await pathExists( path ) ) && ( await isEmptyDir( path ) ) ) {
-		await createSiteWorkingDirectory( path );
+		try {
+			await createSiteWorkingDirectory( path );
+		} catch ( error ) {
+			// If site creation failed, remove the generated files and re-throw the
+			// error so it can be handled by the caller.
+			shell.trashItem( path );
+			throw error;
+		}
 	}
 
 	const details = {

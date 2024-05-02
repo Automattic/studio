@@ -1,3 +1,6 @@
+/**
+ * @jest-environment node
+ */
 import { createPassword, decodePassword } from '../passwords';
 
 describe( 'createPassword', () => {

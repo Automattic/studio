@@ -1,12 +1,8 @@
+/**
+ * @jest-environment node
+ */
 import { app } from 'electron';
 import { getPreferredSiteLanguage } from '../site-language';
-
-jest.mock( 'electron', () => ( {
-	app: {
-		getPreferredSystemLanguages: jest.fn( () => [ 'en' ] ),
-		getPath: jest.fn(),
-	},
-} ) );
 
 const originalFetch = global.fetch;
 

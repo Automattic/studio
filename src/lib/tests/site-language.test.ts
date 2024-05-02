@@ -3,7 +3,8 @@ import { getPreferredSiteLanguage } from '../site-language';
 
 jest.mock( 'electron', () => ( {
 	app: {
-		getPreferredSystemLanguages: jest.fn().mockReturnValue( [ 'en' ] ),
+		getPreferredSystemLanguages: jest.fn( () => [ 'en' ] ),
+		getPath: jest.fn(),
 	},
 } ) );
 

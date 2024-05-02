@@ -57,12 +57,18 @@ test.describe( 'Servers', () => {
 
 	test.afterAll( async () => {
 		await electronApp?.close();
-		try {
-			await fs.rm( tmpSiteDir, { recursive: true } );
-			await fs.rm( onboardingTmpSiteDir, { recursive: true } );
-		} catch {
-			// If the folder wasn't ever created, a test assertion will have caught this problem
-		}
+
+		[tmpSiteDir, onboardingTmpSiteDir].forEach(async (dir) => {
+			// Check if path exists first, because tmpSiteDir should have been deleted by the test that deletes the site.
+			if (await pathExists(dir)) {
+				try {
+					await fs.rm(dir, { recursive: true });
+				} catch {
+					// fail test because we couldn't clean up
+					fail(`Failed to clean up ${dir}`);
+				}
+			}
+		});
 	} );
 
 	test( 'create a new site', async () => {

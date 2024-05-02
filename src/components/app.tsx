@@ -40,7 +40,7 @@ export default function App() {
 						scrollbarGutter: 'stable',
 					} }
 					data-testid="site-content"
-					className="p-8 bg-white overflow-y-auto h-full flex-grow rounded-chrome app-no-drag-region"
+					className="p-8 bg-white overflow-y-auto h-full flex-grow rounded-chrome"
 				>
 					<SiteContentTabs />
 				</main>

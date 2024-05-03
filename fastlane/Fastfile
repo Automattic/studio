@@ -48,12 +48,12 @@ end
 
 desc 'Notarize the compiled binary'
 lane :notarize_binary do |_options|
-   Dir[File.join(PROJECT_ROOT_FOLDER, 'out', '**', 'Studio.app')].each { |path|
-      notarize(
-        package: path,
-        api_key_path: APPLE_API_KEY_PATH
-      )
-   }
+  Dir[File.join(PROJECT_ROOT_FOLDER, 'out', '**', 'Studio.app')].each do |path|
+    notarize(
+      package: path,
+      api_key_path: APPLE_API_KEY_PATH
+    )
+  end
 end
 
 desc 'Ship the binary to internal testers'

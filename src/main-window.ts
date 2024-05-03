@@ -120,22 +120,22 @@ function getOSWindowOptions(): Partial< BrowserWindowConstructorOptions > {
 	}
 }
 
-export function withMainWindow< T = void >(
-	callback: ( window: BrowserWindow ) => T | undefined
-): T | undefined {
+export function withMainWindow( callback: ( window: BrowserWindow ) => void ): void {
 	if ( mainWindow && ! mainWindow.isDestroyed() ) {
-		return callback( mainWindow );
+		callback( mainWindow );
+		return;
 	}
 
 	const windows = BrowserWindow.getAllWindows();
 	if ( windows.length > 0 ) {
 		mainWindow = BrowserWindow.getFocusedWindow() || windows[ 0 ];
-		return callback( mainWindow );
+		callback( mainWindow );
+		return;
 	}
 
 	const newWindow = createMainWindow();
 	mainWindow = newWindow;
 	newWindow.webContents.on( 'did-finish-load', () => {
-		return callback( newWindow );
+		callback( newWindow );
 	} );
 }

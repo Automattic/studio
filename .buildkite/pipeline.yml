@@ -33,7 +33,6 @@ steps:
           - "universal"
           - "x64"
           - "arm64"
-    if: "build.branch == 'trunk' && build.tag !~ /^v[0-9]+/"
 
   - label: "🔨 Windows Dev Build"
     key: "dev-windows"
@@ -43,7 +42,6 @@ steps:
       - 'out\**\*.exe'
     agents:
       queue: "windows"
-    if: "build.branch == 'trunk' && build.tag !~ /^v[0-9]+/"
 
   - label: ':rocket: Distribute Dev Builds'
     command: |

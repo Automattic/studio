@@ -36,7 +36,7 @@ export function sanitizeUserpath( path: string ): string {
 	// eslint-disable-next-line no-useless-escape
 	const userpathRegex = /^([A-Z]:)?([\\\/])Users\2([^\\\/]+)\2/i;
 
-	if ( typeof path === 'string' && process.env.NODE_ENV !== 'development' ) {
+	if ( process.env.NODE_ENV !== 'development' ) {
 		return path.replace( userpathRegex, '$1$2Users$2[REDACTED]$2' );
 	}
 	return path;

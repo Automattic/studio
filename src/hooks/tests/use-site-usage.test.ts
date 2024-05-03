@@ -2,6 +2,7 @@
 import * as Sentry from '@sentry/electron/renderer';
 import { waitFor, renderHook } from '@testing-library/react';
 import { LIMIT_OF_ZIP_SITES_PER_USER } from '../../constants';
+import { useOffline } from '../../hooks/use-offline';
 import { useAuth } from '../use-auth';
 import { useSiteDetails } from '../use-site-details';
 import { useSiteUsage } from '../use-site-usage';
@@ -65,5 +66,19 @@ describe( 'useSiteUsage', () => {
 			expect( result.current.siteCount ).toBe( 3 );
 			expect( result.current.siteLimit ).toBe( 15 );
 		} );
+	} );
+
+	it( 'should not check usage when lacking an internet connection', () => {
+		( useAuth as jest.Mock ).mockReturnValue( {
+			client: {
+				req: {
+					get: clientReqGet.mockResolvedValue( { site_count: 3, site_limit: 15 } ),
+				},
+			},
+		} );
+		( useOffline as jest.Mock ).mockReturnValue( true );
+		renderHook( () => useSiteUsage() );
+
+		expect( clientReqGet ).not.toHaveBeenCalled();
 	} );
 } );

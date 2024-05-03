@@ -80,7 +80,7 @@ const SnapshotInfo = ( {
 						<span>{ __( 'Demo sites' ) }</span>
 
 						<div className="flex flex-row items-center text-right">
-							{ isDeleting && <Spinner className="!mt-0 !ml-0 !mr-2" /> }
+							{ isDeleting && <Spinner className="!mt-0 !mx-2" /> }
 							<span className="text-a8c-gray-70">
 								{ sprintf( __( '%1s of %2s active demo sites' ), siteCount, siteLimit ) }
 							</span>

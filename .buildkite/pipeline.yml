@@ -39,7 +39,7 @@ steps:
     command: .buildkite/commands/build-windows-dev.ps1
     artifact_paths:
       - 'C:\ProgramData\chocolatey\logs\*'
-      - 'out\**\*.exe'
+      - 'out\**\studio-setup.exe'
     agents:
       queue: "windows"
 

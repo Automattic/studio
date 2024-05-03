@@ -29,13 +29,15 @@ export function sanitizeUnstructuredData( data: string ): string {
 	}, data );
 }
 
-// Attempts to sanitize a user path by replacing the user's home directory with a tilde.
-// Returns the original path if it does not match the pattern or if it is not a string.
+// Attempts to sanitize a user path by redacting the username from the path.
+// Returns the original path in development mode
 export function sanitizeUserpath( path: string ): string {
-	const userPathRegex = /^\/Users\/([^/]+)\//;
-	if ( typeof path === 'string' && userPathRegex.test( path ) ) {
-		return path.replace( userPathRegex, '~/' );
-	}
+	// Disable no-useless-escape to account for both Windows and Unix userpath slash formats
+	// eslint-disable-next-line no-useless-escape
+	const userpathRegex = /^([A-Z]:)?([\\\/])Users\2([^\\\/]+)\2/i;
 
+	if ( typeof path === 'string' && process.env.NODE_ENV !== 'development' ) {
+		return path.replace( userpathRegex, '$1$2Users$2[REDACTED]$2' );
+	}
 	return path;
 }

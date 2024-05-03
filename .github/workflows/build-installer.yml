@@ -33,8 +33,8 @@ jobs:
             file_suffix: '-arm64.dmg'
             platform_env: 'FILE_ARCHITECTURE=arm64'
           - os: windows-latest
-            file_prefix: 'squirrel.windows/x64/Studio-'
-            file_suffix: ' Setup.exe'
+            file_prefix: 'squirrel.windows/x64/studio'
+            file_suffix: 'setup.exe'
             platform_env: ''
 
     runs-on: ${{ matrix.os }}

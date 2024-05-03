@@ -139,3 +139,11 @@ export function withMainWindow( callback: ( window: BrowserWindow ) => void ): v
 		callback( newWindow );
 	} );
 }
+
+/**
+ * Reset the main window reference. Exported for testing as resetting modules
+ * with Jest while preserving manual Electron mocks proved quite difficult.
+ */
+export function __resetMainWindow() {
+	mainWindow = null;
+}

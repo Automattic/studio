@@ -1,13 +1,13 @@
 // Rewrites the version in package.json so it includes the `-dev.abcd` style suffix of dev builds.
 
+import * as child_process from 'child_process';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import * as child_process from 'child_process';
 
 const __dirname = path.dirname( fileURLToPath( import.meta.url ) );
 
-const currentCommit = child_process.execSync('git rev-parse --short HEAD').toString().trim()
+const currentCommit = child_process.execSync( 'git rev-parse --short HEAD' ).toString().trim();
 
 if ( ! currentCommit ) {
 	// Are you trying to dev on the build scripts outside of CI?

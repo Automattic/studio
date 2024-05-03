@@ -35,15 +35,15 @@
 //
 // The "dev" entry will be replaced with the latest build from trunk.
 
+import * as child_process from 'child_process';
 import { createWriteStream } from 'fs';
 import fs from 'fs/promises';
 import https from 'https';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import packageJson from '../package.json' assert { type: 'json' };
-import * as child_process from 'child_process';
 
-const currentCommit = child_process.execSync('git rev-parse --short HEAD').toString().trim()
+const currentCommit = child_process.execSync( 'git rev-parse --short HEAD' ).toString().trim();
 const { version } = packageJson;
 const isDevBuild = version.includes( '-dev.' );
 
@@ -127,8 +127,8 @@ if ( isDevBuild ) {
 	// Windows
 	releasesData[ 'dev' ][ 'win32' ] = {
 		sha: currentCommit,
-		url: devVersionZipFilename_win32
-	}
+		url: devVersionZipFilename_win32,
+	};
 
 	await fs.writeFile( releasesPath, JSON.stringify( releasesData, null, 2 ) );
 	console.log( 'Overwrote latest dev release' );
@@ -137,7 +137,7 @@ if ( isDevBuild ) {
 
 	const releaseVersionZipFilename_x64 = `https://cdn.a8c-ci.services/studio/studio-${ process.platform }-x64-v${ version }.app.zip`;
 	const releaseVersionZipFilename_arm64 = `https://cdn.a8c-ci.services/studio/studio-${ process.platform }-arm64-v${ version }.app.zip`;
-	const releaseVersionZipFilename_win32 = `https://cdn.a8c-ci.services/studio/studio-${ process.platform }-arm64-v${ version }.app.zip`;
+	// const releaseVersionZipFilename_win32 = `https://cdn.a8c-ci.services/studio/studio-${ process.platform }-arm64-v${ version }.app.zip`;
 
 	releasesData[ version ] = releasesData[ version ] ?? {};
 	releasesData[ version ][ process.platform ] = releasesData[ version ][ process.platform ] ?? {};

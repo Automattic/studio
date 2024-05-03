@@ -115,6 +115,6 @@ export function setupAuthCallbackHandler() {
 					mainWindow.webContents.send( 'auth-updated', { token } );
 				} );
 			}
-		} )();
+		} );
 	} );
 }

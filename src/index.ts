@@ -153,7 +153,7 @@ async function appBoot() {
 					if ( customProtocolParameter ) {
 						onAuthorizationCallback( customProtocolParameter );
 					}
-				} )();
+				} );
 			} );
 		}
 	}

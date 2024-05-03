@@ -60,7 +60,7 @@ export function setupMenu( mainWindow: BrowserWindow | null ) {
 					click: () => {
 						withMainWindow( ( window ) => {
 							window.webContents.send( 'user-settings' );
-						} )();
+						} );
 					},
 				},
 				{ type: 'separator' },
@@ -82,7 +82,7 @@ export function setupMenu( mainWindow: BrowserWindow | null ) {
 					click: () => {
 						withMainWindow( ( window ) => {
 							window.webContents.send( 'add-site' );
-						} )();
+						} );
 					},
 				},
 				{

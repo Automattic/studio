@@ -1,3 +1,6 @@
+/**
+ * @jest-environment node
+ */
 import { app } from 'electron';
 import { createI18n } from '@wordpress/i18n';
 import { getLocaleData, getSupportedLocale } from '../locale';

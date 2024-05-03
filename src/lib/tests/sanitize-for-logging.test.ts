@@ -1,3 +1,6 @@
+/**
+ * @jest-environment node
+ */
 import { sanitizeForLogging, sanitizeUnstructuredData } from '../sanitize-for-logging';
 
 describe( 'sanitizeForLogging', () => {

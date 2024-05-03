@@ -88,9 +88,8 @@ export function setupMenu( mainWindow: BrowserWindow | null ) {
 				{
 					label: __( 'Close Window' ),
 					accelerator: 'CommandOrControl+W',
-					click: ( menuItem, browserWindow ) => {
+					click: ( _menuItem, browserWindow ) => {
 						browserWindow?.close();
-						setupMenu( null );
 					},
 					enabled: !! mainWindow && ! mainWindow.isDestroyed(),
 				},

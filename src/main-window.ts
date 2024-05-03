@@ -13,6 +13,8 @@ import { loadUserData, saveUserData } from './storage/user-data';
 declare const MAIN_WINDOW_WEBPACK_ENTRY: string;
 declare const MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: string;
 
+let mainWindow: BrowserWindow | null;
+
 function setupDevTools( mainWindow: BrowserWindow | null, devToolsOpen?: boolean ) {
 	if ( devToolsOpen || ( process.env.NODE_ENV === 'development' && devToolsOpen === undefined ) ) {
 		mainWindow?.webContents.openDevTools();
@@ -43,7 +45,11 @@ async function removeSitesWithEmptyDirectories( userData: UserData ) {
 }
 
 export function createMainWindow(): BrowserWindow {
-	let mainWindow: BrowserWindow | null = new BrowserWindow( {
+	if ( mainWindow && ! mainWindow.isDestroyed() ) {
+		return mainWindow;
+	}
+
+	mainWindow = new BrowserWindow( {
 		height: MAIN_MIN_HEIGHT,
 		width: MAIN_MIN_WIDTH,
 		backgroundColor: 'rgba(30, 30, 30, 1)',
@@ -112,4 +118,26 @@ function getOSWindowOptions(): Partial< BrowserWindowConstructorOptions > {
 		default:
 			return {};
 	}
+}
+
+export function withMainWindow< T = void >(
+	callback: ( window: BrowserWindow ) => T | undefined
+): () => T | undefined {
+	return function (): T | undefined {
+		if ( mainWindow && ! mainWindow.isDestroyed() ) {
+			return callback( mainWindow );
+		}
+
+		const windows = BrowserWindow.getAllWindows();
+		if ( windows.length > 0 ) {
+			mainWindow = BrowserWindow.getFocusedWindow() || windows[ 0 ];
+			return callback( mainWindow );
+		}
+
+		const newWindow = createMainWindow();
+		mainWindow = newWindow;
+		newWindow.webContents.on( 'did-finish-load', () => {
+			return callback( newWindow );
+		} );
+	};
 }

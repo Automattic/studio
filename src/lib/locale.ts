@@ -5,47 +5,43 @@ import type { LocaleData } from '@wordpress/i18n';
 
 export const DEFAULT_LOCALE = 'en';
 
-const supportedLocales = [
-	'ar',
-	'de',
-	'en',
-	'es',
-	'fr',
-	'he',
-	'id',
-	'it',
-	'ja',
-	'ko',
-	'nl',
-	'pl',
-	'pt-br',
-	'ru',
-	'sv',
-	'tr',
-	'zh-cn',
-	'zh-tw',
-];
+export const supportedLocales = {
+	ar: 'العربية',
+	de: 'Deutsch',
+	en: 'English',
+	es: 'Español',
+	fr: 'Français',
+	he: 'עברית',
+	id: 'Bahasa Indonesia',
+	it: 'Italiano',
+	ja: '日本語',
+	ko: '한국어',
+	nl: 'Nederlands',
+	pl: 'Polski',
+	'pt-br': 'Português (Brasil)',
+	ru: 'Русский',
+	sv: 'Svenska',
+	tr: 'Türkçe',
+	'zh-cn': '简体中文',
+	'zh-tw': '繁體中文',
+};
 
 export function getPreferredSystemLanguages() {
 	if ( process.platform === 'linux' && process.env.NODE_ENV !== 'test' ) {
-		// app.getPreferredSystemLanguages() is implemented by g_get_language_names on Linux.
-		// See: https://developer-old.gnome.org/glib/unstable/glib-I18N.html#g-get-language-names
-		// The language tags returned by this system function are in a format like "en_US" or "en_US.utf8".
-		// When these sorts of tags are passed to Intl.getCanonicalLocales() it throws an error.
 		return app
 			.getPreferredSystemLanguages()
-			.filter( ( lang ) => supportedLocales.includes( lang ) );
+			.filter( ( lang ) => Object.keys( supportedLocales ).includes( lang ) );
 	}
 
 	return app.getPreferredSystemLanguages();
 }
 
 export function getSupportedLocale(): string {
-	return match( getPreferredSystemLanguages(), supportedLocales, DEFAULT_LOCALE );
+	return match( getPreferredSystemLanguages(), Object.keys( supportedLocales ), DEFAULT_LOCALE );
 }
 
 export function getLocaleData( locale: string ): LocaleData | null {
-	if ( locale === DEFAULT_LOCALE || ! supportedLocales.includes( locale ) ) {
+	if ( locale === DEFAULT_LOCALE || ! Object.keys( supportedLocales ).includes( locale ) ) {
 		return null;
 	}
 

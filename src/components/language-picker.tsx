@@ -1,27 +1,27 @@
 import { SelectControl } from '@wordpress/components';
 import { useState } from 'react';
 
-// TODO - Move to locales.ts
-export const namedLocales = [
-	{ name: 'Arabic', locale: 'ar' },
-	{ name: 'German', locale: 'de' },
-	{ name: 'English', locale: 'en' },
-	{ name: 'Spanish', locale: 'es' },
-	{ name: 'French', locale: 'fr' },
-	{ name: 'Hebrew', locale: 'he' },
-	{ name: 'Indonesian', locale: 'id' },
-	{ name: 'Italian', locale: 'it' },
-	{ name: 'Japanese', locale: 'ja' },
-	{ name: 'Korean', locale: 'ko' },
-	{ name: 'Dutch', locale: 'nl' },
-	{ name: 'Polish', locale: 'pl' },
-	{ name: 'Portuguese (Brazil)', locale: 'pt-br' },
-	{ name: 'Russian', locale: 'ru' },
-	{ name: 'Swedish', locale: 'sv' },
-	{ name: 'Turkish', locale: 'tr' },
-	{ name: 'Chinese (Simplified)', locale: 'zh-cn' },
-	{ name: 'Chinese (Traditional)', locale: 'zh-tw' },
-];
+// TODO: use supportedLocales from locale.ts
+export const supportedLocales = {
+	ar: 'العربية',
+	de: 'Deutsch',
+	en: 'English',
+	es: 'Español',
+	fr: 'Français',
+	he: 'עברית',
+	id: 'Bahasa Indonesia',
+	it: 'Italiano',
+	ja: '日本語',
+	ko: '한국어',
+	nl: 'Nederlands',
+	pl: 'Polski',
+	'pt-br': 'Português (Brasil)',
+	ru: 'Русский',
+	sv: 'Svenska',
+	tr: 'Türkçe',
+	'zh-cn': '简体中文',
+	'zh-tw': '繁體中文',
+};
 
 export const LanguagePicker = () => {
 	const [ locale, setLocale ] = useState( '' );
@@ -34,9 +34,9 @@ export const LanguagePicker = () => {
 				onChange={ ( value ) => {
 					setLocale( value );
 				} }
-				options={ namedLocales.map( ( { name, locale } ) => ( {
+				options={ Object.entries( supportedLocales ).map( ( [ locale, name ] ) => ( {
 					value: locale,
-					label: name,
+					label: name as string, // Cast 'name' to string
 				} ) ) }
 			/>
 		</div>

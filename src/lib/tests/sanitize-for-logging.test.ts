@@ -83,10 +83,18 @@ describe( 'sanitizeUnstructuredData', () => {
 } );
 
 describe( 'sanitizeUserpath', () => {
-	test( 'replaces user path with ~', () => {
+	test( 'redacts userpath on macOS when environment is not development', () => {
+		process.env.NODE_ENV = 'production';
 		const sanitized = sanitizeUserpath( '/Users/username/Library' );
 
-		expect( sanitized ).toEqual( '~/Library' );
+		expect( sanitized ).toEqual( '/Users/[REDACTED]/Library' );
+	} );
+
+	test( 'redacts userpath on Windows when environment is not development', () => {
+		process.env.NODE_ENV = 'production';
+		const sanitized = sanitizeUserpath( 'C:\\Users\\username\\AppData' );
+
+		expect( sanitized ).toEqual( 'C:\\Users\\[REDACTED]\\AppData' );
 	} );
 
 	test( 'does nothing if path does not match', () => {

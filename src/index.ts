@@ -61,6 +61,8 @@ async function appBoot() {
 
 	Menu.setApplicationMenu( null );
 
+	setupCustomProtocolHandler();
+
 	setupLogging();
 
 	setupUpdates();
@@ -158,16 +160,6 @@ async function appBoot() {
 		}
 	}
 
-	function handleAuthOnStartup() {
-		if ( process.argv.length > 1 ) {
-			const argv = process.argv;
-			const customProtocolParameter = argv?.find( ( arg ) => arg.startsWith( PROTOCOL_PREFIX ) );
-			if ( customProtocolParameter ) {
-				onAuthorizationCallback( customProtocolParameter );
-			}
-		}
-	}
-
 	app.on( 'ready', async () => {
 		// Set translations based on supported locale
 		const locale = getSupportedLocale();
@@ -228,11 +220,9 @@ async function appBoot() {
 		}
 
 		setupIpc();
-		setupCustomProtocolHandler();
 
 		createMainWindow();
 		setupAuthCallbackHandler();
-		handleAuthOnStartup();
 
 		bumpAggregatedUniqueStat( 'local-environment-launch-uniques', process.platform, 'weekly' );
 	} );

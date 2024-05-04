@@ -1,8 +1,21 @@
+export const ipcMain = {
+	emit: jest.fn(),
+	on: jest.fn(),
+};
+
 export const app = {
 	getFetch: jest.fn(),
 	getPath: jest.fn( ( name ) => `/path/to/app/${ name }` ),
 	getName: jest.fn( () => 'App Name' ),
 	getLocale: jest.fn( () => 'en-US' ),
+	setName: jest.fn(),
+	getVersion: jest.fn( () => '0.0.0' ),
+	getPreferredSystemLanguages: jest.fn( () => [ 'en-US' ] ),
+	requestSingleInstanceLock: jest.fn( () => true ),
+	on: jest.fn(),
+	setAppLogsPath: jest.fn(),
+	setAsDefaultProtocolClient: jest.fn(),
+	enableSandbox: jest.fn(),
 };
 
 // eslint-disable-next-line @typescript-eslint/no-empty-function
@@ -31,4 +44,9 @@ export const Menu = {
 export const shell = {
 	openExternal: jest.fn(),
 	trashItem: jest.fn(),
+};
+
+export const autoUpdater = {
+	setFeedURL: jest.fn(),
+	on: jest.fn(),
 };

@@ -12,6 +12,7 @@ module.exports = {
 	},
 	testEnvironment: 'jsdom',
 	globals: {
+		COMMIT_HASH: 'mock-hash',
 		MAIN_WINDOW_WEBPACK_ENTRY: 'main-window-webpack-entry',
 		MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: 'main-window-preload-webpack-entry',
 	},

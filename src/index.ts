@@ -63,6 +63,8 @@ async function appBoot() {
 
 	setupCustomProtocolHandler();
 
+	setUpAuthCallbackHandler();
+
 	setupLogging();
 
 	setupUpdates();
@@ -222,7 +224,6 @@ async function appBoot() {
 		setupIpc();
 
 		createMainWindow();
-		setUpAuthCallbackHandler();
 
 		bumpAggregatedUniqueStat( 'local-environment-launch-uniques', process.platform, 'weekly' );
 	} );

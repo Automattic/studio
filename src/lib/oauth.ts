@@ -105,7 +105,7 @@ export function authenticate(): void {
 	shell.openExternal( authUrl );
 }
 
-export function setupAuthCallbackHandler() {
+export function setUpAuthCallbackHandler() {
 	ipcMain.on( 'auth-callback', ( _event, { token, error } ) => {
 		withMainWindow( ( mainWindow ) => {
 			if ( error ) {

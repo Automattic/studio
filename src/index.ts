@@ -14,7 +14,7 @@ import packageJson from '../package.json';
 import * as ipcHandlers from './ipc-handlers';
 import { bumpAggregatedUniqueStat } from './lib/bump-stats';
 import { getLocaleData, getSupportedLocale } from './lib/locale';
-import { PROTOCOL_PREFIX, handleAuthCallback, setupAuthCallbackHandler } from './lib/oauth';
+import { PROTOCOL_PREFIX, handleAuthCallback, setUpAuthCallbackHandler } from './lib/oauth';
 import { setupLogging } from './logging';
 import { createMainWindow, withMainWindow } from './main-window';
 import {
@@ -222,7 +222,7 @@ async function appBoot() {
 		setupIpc();
 
 		createMainWindow();
-		setupAuthCallbackHandler();
+		setUpAuthCallbackHandler();
 
 		bumpAggregatedUniqueStat( 'local-environment-launch-uniques', process.platform, 'weekly' );
 	} );

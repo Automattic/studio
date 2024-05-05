@@ -55,7 +55,7 @@ it( 'should handle authentication deep links', () => {
 
 		const mockHash = '#access_token=1234&expires_in=1';
 		openUrl( {}, `wpcom-local-dev://auth${ mockHash }` );
-		await mockHandleAuthCallback;
+		await mockResolvedValue;
 
 		expect( mockHandleAuthCallback ).toHaveBeenCalledWith( mockHash );
 		expect( mockIpcMainEmit ).toHaveBeenCalledWith( 'auth-callback', null, {

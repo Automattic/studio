@@ -26,7 +26,7 @@ export default function App() {
 	return (
 		<VStack
 			className={ cx(
-				'h-screen bg-chrome backdrop-blur-3xl pr-chrome app-drag-region select-none',
+				'h-screen bg-chrome backdrop-blur-3xl ltr:pr-chrome rtl:pl-chrome app-drag-region select-none',
 				isWindows() && 'pt-0 pb-chrome',
 				! isWindows() && 'py-chrome'
 			) }
@@ -40,7 +40,7 @@ export default function App() {
 						scrollbarGutter: 'stable',
 					} }
 					data-testid="site-content"
-					className="p-8 bg-white overflow-y-auto h-full flex-grow rounded-chrome app-no-drag-region"
+					className="p-8 bg-white overflow-y-auto h-full flex-grow rounded-chrome"
 				>
 					<SiteContentTabs />
 				</main>

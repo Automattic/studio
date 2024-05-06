@@ -21,13 +21,6 @@ jest.mock( '../../vendor/wp-now/src', () => ( {
 	),
 } ) );
 
-jest.mock( 'electron', () => ( {
-	app: {
-		getLocale: jest.fn( () => 'en-US' ),
-		getPath: jest.fn( () => '/path/to/app' ),
-	},
-} ) );
-
 describe( 'SiteServer', () => {
 	describe( 'start', () => {
 		it( 'should throw if the server starts with a non-WordPress mode', async () => {

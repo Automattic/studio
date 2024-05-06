@@ -1,7 +1,7 @@
 # Stop script execution when a non-terminating error occurs
 $ErrorActionPreference = "Stop"
 
-Write-Output "--- :windows: Setting up Windows"
+Write-Host "--- :windows: Setting up Windows"
 
 Write-Host "Enable long path behavior"
 # See https://docs.microsoft.com/en-us/windows/desktop/fileio/naming-a-file#maximum-path-length-limitation
@@ -48,7 +48,7 @@ if (Test-Path $atpRegPath) {
     Set-ItemProperty -Path $atpRegPath -Name 'ForceDefenderPassiveMode' -Value '1' -Type 'DWORD'
 }
 
-Write-Output "--- :lock_with_ink_pen: Downloading Code Signing Certificate"
+Write-Host "--- :lock_with_ink_pen: Downloading Code Signing Certificate"
 # Download the code signing certificate
 $EncodedText = aws secretsmanager get-secret-value --secret-id windows-code-signing-certificate | jq -r '.SecretString' | Out-File 'certificate.bin'
 certutil -decode certificate.bin certificate.pfx
@@ -56,31 +56,33 @@ If ($LastExitCode -ne 0) { Exit $LastExitCode }
 # ---
 
 # From https://stackoverflow.com/a/46760714
-Write-Output "--- :windows: Setting up Package Manager"
+Write-Host "--- :windows: Setting up Package Manager"
 $env:ChocolateyInstall = Convert-Path "$((Get-Command choco).Path)\..\.."   
 Import-Module "$env:ChocolateyInstall\helpers\chocolateyProfile.psm1"
 
-Write-Output "--- :node: Installing NVM"
+Write-Host "--- :node: Installing NVM"
 choco install nvm.portable -y
 If ($LastExitCode -ne 0) { Exit $LastExitCode }
 
-Write-Output "Refreshing the current PowerShell session's environment"
+Write-Host "Refreshing the current PowerShell session's environment"
 refreshenv
 
-Write-Output "--- :node: Installing Node"
+Write-Host "--- :node: Installing Node"
 $nvmVersion=(Get-Content -Path .nvmrc -Total 1)
+Write-Host "Switching to nvm version defined in .nvmrc: $nvmVersion"
+
 nvm install $nvmVersion
 nvm use $nvmVersion
 If ($LastExitCode -ne 0) { Exit $LastExitCode }
 
-Write-Output "Refreshing the current PowerShell session's environment"
+Write-Host "Refreshing the current PowerShell session's environment"
 refreshenv
 
-Write-Output "--- :npm: Installing Dependencies"
+Write-Host "--- :npm: Installing Dependencies"
 npm ci
 If ($LastExitCode -ne 0) { Exit $LastExitCode }
 
-Write-Output "--- :node: Building App"
+Write-Host "--- :node: Building App"
 node ./scripts/prepare-dev-build-version.mjs
 
 npm run make

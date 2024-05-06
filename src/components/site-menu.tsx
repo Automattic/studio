@@ -100,9 +100,9 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 	return (
 		<li
 			className={ cx(
-				'flex flex-row min-w-[168px] h-8 hover:bg-[#ffffff0C] focus:bg-[#ffffff0C] rounded transition-all',
+				'flex flex-row min-w-[168px] h-8 hover:bg-[#ffffff0C] rounded transition-all',
 				isMac() ? 'mx-5' : 'mx-4',
-				isSelected && 'bg-[#ffffff19] hover:bg-[#ffffff19] focus:bg-[#ffffff19]'
+				isSelected && 'bg-[#ffffff19] hover:bg-[#ffffff19]'
 			) }
 		>
 			<button

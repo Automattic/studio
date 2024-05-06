@@ -23,6 +23,8 @@ it( 'should boot successfully', () => {
 
 it( 'should handle authentication deep links', () => {
 	jest.isolateModules( async () => {
+		const originalProcessPlatform = process.platform;
+		Object.defineProperty( process, 'platform', { value: 'darwin' } );
 		// eslint-disable-next-line @typescript-eslint/no-empty-function
 		let openUrl: ( ...args: any[] ) => void = () => {};
 		const mockIpcMainEmit = jest.fn();
@@ -61,5 +63,7 @@ it( 'should handle authentication deep links', () => {
 		expect( mockIpcMainEmit ).toHaveBeenCalledWith( 'auth-callback', null, {
 			token: mockAuthResult,
 		} );
+
+		Object.defineProperty( process, 'platform', { value: originalProcessPlatform } );
 	} );
 } );

@@ -26,22 +26,11 @@ const supportedLocales = [
 	'zh-tw',
 ];
 
-export function getPreferredSystemLanguages() {
-	if ( process.platform === 'linux' && process.env.NODE_ENV !== 'test' ) {
-		// app.getPreferredSystemLanguages() is implemented by g_get_language_names on Linux.
-		// See: https://developer-old.gnome.org/glib/unstable/glib-I18N.html#g-get-language-names
-		// The language tags returned by this system function are in a format like "en_US" or "en_US.utf8".
-		// When these sorts of tags are passed to Intl.getCanonicalLocales() it throws an error.
-		return app
-			.getPreferredSystemLanguages()
-			.filter( ( lang ) => supportedLocales.includes( lang ) );
-	}
-
-	return app.getPreferredSystemLanguages();
-}
-
 export function getSupportedLocale(): string {
-	return match( getPreferredSystemLanguages(), supportedLocales, DEFAULT_LOCALE );
+	// `app.getLocale` returns the current application locale, acquired using
+	// Chromium's `l10n_util` library. This value is utilized to determine
+	// the best fit for supported locales.
+	return match( [ app.getLocale() ], supportedLocales, DEFAULT_LOCALE );
 }
 
 export function getLocaleData( locale: string ): LocaleData | null {

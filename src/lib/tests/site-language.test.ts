@@ -6,8 +6,8 @@ import { getPreferredSiteLanguage } from '../site-language';
 
 const originalFetch = global.fetch;
 
-function mockPreferredLanguages( languages: string[] ) {
-	( app.getPreferredSystemLanguages as jest.Mock ).mockReturnValue( languages );
+function mockAppLocale( language: string ) {
+	( app.getLocale as jest.Mock ).mockReturnValue( language );
 }
 
 function mockFetchTranslations( wpVersion: string, translations: string[] ) {
@@ -62,7 +62,7 @@ describe( 'getPreferredSiteLanguage', () => {
 		];
 
 		it( "returns 'en' as default language", async () => {
-			mockPreferredLanguages( [] );
+			mockAppLocale( 'mi-NZ' );
 
 			expect( await getPreferredSiteLanguage() ).toBe( 'en' );
 		} );
@@ -70,7 +70,7 @@ describe( 'getPreferredSiteLanguage', () => {
 		it.each( LATEST_WP_VERSION_LOCALES )(
 			"returns '$expected' for language '$locale'",
 			async ( { locale, expected } ) => {
-				mockPreferredLanguages( [ locale ] );
+				mockAppLocale( locale );
 
 				expect( await getPreferredSiteLanguage() ).toBe( expected );
 			}
@@ -108,17 +108,10 @@ describe( 'getPreferredSiteLanguage', () => {
 			{ locale: 'zh-Hant-TW', expected: 'en' },
 		];
 
-		it( "returns 'en' as default language", async () => {
-			mockPreferredLanguages( [] );
-			mockFetchTranslations( WP_VERSION, AVAILABLE_LOCALES );
-
-			expect( await getPreferredSiteLanguage( WP_VERSION ) ).toBe( 'en' );
-		} );
-
 		it.each( WP_5_0_LOCALES )(
 			"returns '$expected' for language '$locale'",
 			async ( { locale, expected } ) => {
-				mockPreferredLanguages( [ locale ] );
+				mockAppLocale( locale );
 				mockFetchTranslations( WP_VERSION, AVAILABLE_LOCALES );
 
 				expect( await getPreferredSiteLanguage( WP_VERSION ) ).toBe( expected );
@@ -130,7 +123,7 @@ describe( 'getPreferredSiteLanguage', () => {
 				/* NOOP */
 			} );
 
-			mockPreferredLanguages( WP_5_0_LOCALES.map( ( item ) => item.locale ) );
+			mockAppLocale( WP_5_0_LOCALES[ 0 ].locale );
 			mockFetchTranslations( 'unknown', [] );
 
 			expect( await getPreferredSiteLanguage( WP_VERSION ) ).toBe( 'en' );

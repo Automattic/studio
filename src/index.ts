@@ -61,10 +61,6 @@ const onAuthorizationCallback = ( mainWindow: BrowserWindow | null, url: string 
 async function appBoot() {
 	let mainWindow: BrowserWindow | null = null;
 
-	const locale = getSupportedLocale();
-	const localeData = getLocaleData( locale );
-	defaultI18n.setLocaleData( localeData?.locale_data?.messages );
-
 	app.setName( packageJson.productName );
 
 	Menu.setApplicationMenu( null );
@@ -178,13 +174,17 @@ async function appBoot() {
 	}
 
 	app.on( 'ready', async () => {
+		// Set translations based on supported locale
+		const locale = getSupportedLocale();
+		const localeData = getLocaleData( locale );
+		defaultI18n.setLocaleData( localeData?.locale_data?.messages );
+
 		console.log( `App version: ${ app.getVersion() }` );
 		console.log( `Built from commit: ${ COMMIT_HASH ?? 'undefined' }` );
 		console.log( `Local timezone: ${ Intl.DateTimeFormat().resolvedOptions().timeZone }` );
 		console.log( `App locale: ${ app.getLocale() }` );
 		console.log( `System locale: ${ app.getSystemLocale() }` );
-		console.log( `Preferred languages: ${ app.getPreferredSystemLanguages() }` );
-		console.log( `Used language: ${ getSupportedLocale() }` );
+		console.log( `Used language: ${ locale }` );
 
 		// By default Electron automatically approves all permissions requests (e.g. notifications, webcam)
 		// We'll opt-in to permissions we specifically need instead.

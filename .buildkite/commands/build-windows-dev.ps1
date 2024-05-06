@@ -68,8 +68,9 @@ Write-Output "Refreshing the current PowerShell session's environment"
 refreshenv
 
 Write-Output "--- :node: Installing Node"
-nvm install 20.8.1
-nvm use 20.8.1
+$nvmVersion=(Get-Content -Path .nvmrc -Total 1)
+nvm install $nvmVersion
+nvm use $nvmVersion
 If ($LastExitCode -ne 0) { Exit $LastExitCode }
 
 Write-Output "Refreshing the current PowerShell session's environment"

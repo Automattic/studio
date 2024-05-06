@@ -36,7 +36,7 @@ steps:
 
   - label: "🔨 Windows Dev Build"
     key: "dev-windows"
-    command: .buildkite/commands/build-windows-dev.ps1
+    command: .buildkite/commands/build-for-windows-dev.ps1
     artifact_paths:
       - 'C:\ProgramData\chocolatey\logs\*'
       - 'out\**\studio-setup.exe'

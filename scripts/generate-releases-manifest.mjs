@@ -35,6 +35,7 @@
 //
 // The "dev" entry will be replaced with the latest build from trunk.
 
+import * as child_process from 'child_process';
 import { createWriteStream } from 'fs';
 import fs from 'fs/promises';
 import https from 'https';
@@ -42,18 +43,11 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import packageJson from '../package.json' assert { type: 'json' };
 
-const currentCommit = process.env.GITHUB_SHA ?? process.env.BUILDKITE_COMMIT;
+const currentCommit = child_process.execSync( 'git rev-parse --short HEAD' ).toString().trim();
 const { version } = packageJson;
 const isDevBuild = version.includes( '-dev.' );
 
 const __dirname = path.dirname( fileURLToPath( import.meta.url ) );
-
-if ( process.platform !== 'darwin' ) {
-	console.log(
-		'Skipping manifest generation on this platform; for now we only store release info for Mac builds'
-	);
-	process.exit( 0 );
-}
 
 console.log( `Version: ${ version }` );
 console.log( `Is dev build: ${ isDevBuild }` );
@@ -108,18 +102,32 @@ if ( isDevBuild ) {
 		throw new Error( 'Missing latest commit hash' );
 	}
 
-	const devVersionZipFilename_x64 = `https://cdn.a8c-ci.services/studio/studio-${ process.platform }-x64-${ currentCommit }.app.zip`;
-	const devVersionZipFilename_arm64 = `https://cdn.a8c-ci.services/studio/studio-${ process.platform }-arm64-${ currentCommit }.app.zip`;
+	const devVersionZipFilename_mac = `https://cdn.a8c-ci.services/studio/studio-darwin-${ currentCommit }.app.zip`;
+	const devVersionZipFilename_x64 = `https://cdn.a8c-ci.services/studio/studio-darwin-x64-${ currentCommit }.app.zip`;
+	const devVersionZipFilename_arm64 = `https://cdn.a8c-ci.services/studio/studio-darwin-arm64-${ currentCommit }.app.zip`;
+	const devVersionZipFilename_win32 = `https://cdn.a8c-ci.services/studio/studio-win32-${ currentCommit }.exe`;
 
 	releasesData[ 'dev' ] = releasesData[ 'dev' ] ?? {};
-	releasesData[ 'dev' ][ process.platform ] = releasesData[ 'dev' ][ process.platform ] ?? {};
-	releasesData[ 'dev' ][ process.platform ][ 'x64' ] = {
+
+	// macOS
+	releasesData[ 'dev' ][ 'darwin' ] = releasesData[ 'dev' ][ 'darwin' ] ?? {};
+	releasesData[ 'dev' ][ 'darwin' ][ 'universal' ] = {
+		sha: currentCommit,
+		url: devVersionZipFilename_mac,
+	};
+	releasesData[ 'dev' ][ 'darwin' ][ 'x64' ] = {
 		sha: currentCommit,
 		url: devVersionZipFilename_x64,
 	};
-	releasesData[ 'dev' ][ process.platform ][ 'arm64' ] = {
+	releasesData[ 'dev' ][ 'darwin' ][ 'arm64' ] = {
 		sha: currentCommit,
 		url: devVersionZipFilename_arm64,
+	};
+
+	// Windows
+	releasesData[ 'dev' ][ 'win32' ] = {
+		sha: currentCommit,
+		url: devVersionZipFilename_win32,
 	};
 
 	await fs.writeFile( releasesPath, JSON.stringify( releasesData, null, 2 ) );
@@ -129,6 +137,7 @@ if ( isDevBuild ) {
 
 	const releaseVersionZipFilename_x64 = `https://cdn.a8c-ci.services/studio/studio-${ process.platform }-x64-v${ version }.app.zip`;
 	const releaseVersionZipFilename_arm64 = `https://cdn.a8c-ci.services/studio/studio-${ process.platform }-arm64-v${ version }.app.zip`;
+	// const releaseVersionZipFilename_win32 = `https://cdn.a8c-ci.services/studio/studio-${ process.platform }-arm64-v${ version }.app.zip`;
 
 	releasesData[ version ] = releasesData[ version ] ?? {};
 	releasesData[ version ][ process.platform ] = releasesData[ version ][ process.platform ] ?? {};

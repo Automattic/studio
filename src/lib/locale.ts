@@ -26,18 +26,11 @@ export const supportedLocales = {
 	'zh-tw': '繁體中文',
 };
 
-export function getPreferredSystemLanguages() {
-	if ( process.platform === 'linux' && process.env.NODE_ENV !== 'test' ) {
-		return app
-			.getPreferredSystemLanguages()
-			.filter( ( lang ) => Object.keys( supportedLocales ).includes( lang ) );
-	}
-
-	return app.getPreferredSystemLanguages();
-}
-
 export function getSupportedLocale(): string {
-	return match( getPreferredSystemLanguages(), Object.keys( supportedLocales ), DEFAULT_LOCALE );
+	// `app.getLocale` returns the current application locale, acquired using
+	// Chromium's `l10n_util` library. This value is utilized to determine
+	// the best fit for supported locales.
+	return match( [ app.getLocale() ], supportedLocales, DEFAULT_LOCALE );
 }
 
 export function getLocaleData( locale: string ): LocaleData | null {

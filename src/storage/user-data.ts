@@ -3,7 +3,7 @@ import fs from 'fs';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { isErrnoException } from '../lib/is-errno-exception';
-import { sanitizeUnstructuredData } from '../lib/sanitize-for-logging';
+import { sanitizeUnstructuredData, sanitizeUserpath } from '../lib/sanitize-for-logging';
 import { sortSites } from '../lib/sort-sites';
 import { getUserDataFilePath } from './paths';
 import type { PersistedUserData, UserData } from './storage-types';
@@ -15,7 +15,9 @@ const migrateUserData = ( appName: string ) => {
 
 	if ( fs.existsSync( oldPath ) && ! fs.existsSync( newPath ) ) {
 		fs.renameSync( oldPath, newPath );
-		console.log( `Moved user data from ${ oldPath } to ${ newPath }` );
+		console.log(
+			`Moved user data from ${ sanitizeUserpath( oldPath ) } to ${ sanitizeUserpath( newPath ) }`
+		);
 	}
 };
 
@@ -36,7 +38,7 @@ export async function loadUserData(): Promise< UserData > {
 			const parsed = JSON.parse( asString );
 			const data = fromDiskFormat( parsed );
 			sortSites( data.sites );
-			console.log( `Loaded user data from ${ filePath }` );
+			console.log( `Loaded user data from ${ sanitizeUserpath( filePath ) }` );
 			return data;
 		} catch ( err ) {
 			// Awkward double try-catch needed to have access to the file contents
@@ -57,7 +59,7 @@ export async function loadUserData(): Promise< UserData > {
 				snapshots: [],
 			};
 		}
-		console.error( `Failed to load file ${ filePath }: ${ err }` );
+		console.error( `Failed to load file ${ sanitizeUserpath( filePath ) }: ${ err }` );
 		throw err;
 	}
 }
@@ -67,7 +69,7 @@ export async function saveUserData( data: UserData ): Promise< void > {
 
 	const asString = JSON.stringify( toDiskFormat( data ), null, 2 ) + '\n';
 	await fs.promises.writeFile( filePath, asString, 'utf-8' );
-	console.log( `Saved user data to ${ filePath }` );
+	console.log( `Saved user data to ${ sanitizeUserpath( filePath ) }` );
 }
 
 function toDiskFormat( { sites, ...rest }: UserData ): PersistedUserData {

@@ -247,7 +247,7 @@ function EmptyGeneric( {
 }: PropsWithChildren< { selectedSite: SiteDetails } > ) {
 	const { __ } = useI18n();
 	return (
-		<div className="pb-10 flex justify-between max-w-2xl gap-4">
+		<div className="pb-10 flex justify-between max-w-3xl gap-4">
 			<div className="flex flex-col">
 				<div className="a8c-subtitle mb-1">{ __( 'Share a demo site' ) }</div>
 				<div className="w-[40ch] text-a8c-gray-70 a8c-body pr-2">

@@ -127,7 +127,12 @@ export default function MainSidebar( { className }: MainSidebarProps ) {
 		>
 			<SidebarToolbar />
 			<div className="flex flex-col h-full">
-				<div className="flex-1 overflow-y-auto sites-scrollbar">
+				<div
+					className={ cx(
+						'flex-1 overflow-y-auto sites-scrollbar app-no-drag-region',
+						isMac() ? 'ml-5' : 'ml-4'
+					) }
+				>
 					<SiteMenu />
 				</div>
 				<div className="flex flex-col gap-4 pt-5 border-white border-t border-opacity-10 app-no-drag-region">

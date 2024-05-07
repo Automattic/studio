@@ -25,6 +25,27 @@ export default class SiteServerProcess {
 
 	async start(): Promise< void > {
 		return new Promise( ( resolve, reject ) => {
+			const spawnListener = async () => {
+				const messageId = this.sendMessage( 'start-server' );
+				try {
+					const { php } = await this.waitForResponse< Pick< SiteServerProcess, 'php' > >(
+						'start-server',
+						messageId
+					);
+					this.php = php;
+					// Removing exit listener as we only need it upon starting
+					this.process?.off( 'exit', exitListener );
+					resolve();
+				} catch ( error ) {
+					reject( error );
+				}
+			};
+			const exitListener = ( code: number ) => {
+				if ( code !== 0 ) {
+					reject( new Error( `Site server process exited with code ${ code } upon starting` ) );
+				}
+			};
+
 			this.process = utilityProcess
 				.fork( SITE_SERVER_PROCESS_MODULE_PATH, [ JSON.stringify( this.options ) ], {
 					serviceName: 'studio-site-server',
@@ -36,24 +57,8 @@ export default class SiteServerProcess {
 						STUDIO_APP_LOGS_PATH: app.getPath( 'logs' ),
 					},
 				} )
-				.on( 'spawn', async () => {
-					const messageId = this.sendMessage( 'start-server' );
-					try {
-						const { php } = await this.waitForResponse< Pick< SiteServerProcess, 'php' > >(
-							'start-server',
-							messageId
-						);
-						this.php = php;
-						resolve();
-					} catch ( error ) {
-						reject( error );
-					}
-				} )
-				.on( 'exit', ( code ) => {
-					if ( code !== 0 ) {
-						reject( new Error( `Site server process exited with code: ${ code }` ) );
-					}
-				} );
+				.on( 'spawn', spawnListener )
+				.on( 'exit', exitListener );
 		} );
 	}
 
@@ -61,6 +66,7 @@ export default class SiteServerProcess {
 		const message = 'stop-server';
 		const messageId = this.sendMessage( message );
 		await this.waitForResponse( message, messageId );
+		await this.#killProcess();
 	}
 
 	async runPhp( data: PHPRunOptions ): Promise< string > {
@@ -120,6 +126,24 @@ export default class SiteServerProcess {
 			}, timeout );
 
 			process.addListener( 'message', handler );
+		} );
+	}
+
+	async #killProcess(): Promise< void > {
+		const process = this.process;
+		if ( ! process ) {
+			throw Error( 'Server process is not running' );
+		}
+
+		return new Promise( ( resolve, reject ) => {
+			process.once( 'exit', ( code ) => {
+				if ( code !== 0 ) {
+					reject( new Error( `Site server process exited with code ${ code } upon stopping` ) );
+					return;
+				}
+				resolve();
+			} );
+			process.kill();
 		} );
 	}
 }

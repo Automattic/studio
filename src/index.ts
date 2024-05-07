@@ -14,9 +14,9 @@ import packageJson from '../package.json';
 import * as ipcHandlers from './ipc-handlers';
 import { bumpAggregatedUniqueStat } from './lib/bump-stats';
 import { getLocaleData, getSupportedLocale } from './lib/locale';
-import { PROTOCOL_PREFIX, handleAuthCallback, setupAuthCallbackHandler } from './lib/oauth';
+import { PROTOCOL_PREFIX, handleAuthCallback, setUpAuthCallbackHandler } from './lib/oauth';
 import { setupLogging } from './logging';
-import { createMainWindow } from './main-window';
+import { createMainWindow, withMainWindow } from './main-window';
 import {
 	migrateFromWpNowFolder,
 	needsToMigrateFromWpNowFolder,
@@ -43,27 +43,27 @@ if ( gotTheLock && ! isInInstaller ) {
 	appBoot();
 }
 
-const onAuthorizationCallback = ( mainWindow: BrowserWindow | null, url: string ) => {
-	if ( mainWindow ) {
-		const { host, hash } = new URL( url );
-		if ( host === 'auth' ) {
-			handleAuthCallback( hash ).then( ( authResult ) => {
-				if ( authResult instanceof Error ) {
-					ipcMain.emit( 'auth-callback', null, { error: authResult } );
-				} else {
-					ipcMain.emit( 'auth-callback', null, { token: authResult } );
-				}
-			} );
-		}
+const onAuthorizationCallback = ( url: string ) => {
+	const { host, hash } = new URL( url );
+	if ( host === 'auth' ) {
+		handleAuthCallback( hash ).then( ( authResult ) => {
+			if ( authResult instanceof Error ) {
+				ipcMain.emit( 'auth-callback', null, { error: authResult } );
+			} else {
+				ipcMain.emit( 'auth-callback', null, { token: authResult } );
+			}
+		} );
 	}
 };
 
 async function appBoot() {
-	let mainWindow: BrowserWindow | null = null;
-
 	app.setName( packageJson.productName );
 
 	Menu.setApplicationMenu( null );
+
+	setupCustomProtocolHandler();
+
+	setUpAuthCallbackHandler();
 
 	setupLogging();
 
@@ -143,33 +143,22 @@ async function appBoot() {
 	function setupCustomProtocolHandler() {
 		if ( process.platform === 'darwin' ) {
 			app.on( 'open-url', ( _event, url ) => {
-				onAuthorizationCallback( mainWindow, url );
+				onAuthorizationCallback( url );
 			} );
 		} else {
 			// Handle custom protocol links on Windows and Linux
 			app.on( 'second-instance', ( _event, argv ): void => {
-				if ( mainWindow ) {
+				withMainWindow( ( mainWindow ) => {
 					if ( mainWindow.isMinimized() ) mainWindow.restore();
 					mainWindow.focus();
-
 					const customProtocolParameter = argv?.find( ( arg ) =>
 						arg.startsWith( PROTOCOL_PREFIX )
 					);
 					if ( customProtocolParameter ) {
-						onAuthorizationCallback( mainWindow, customProtocolParameter );
+						onAuthorizationCallback( customProtocolParameter );
 					}
-				}
+				} );
 			} );
-		}
-	}
-
-	function handleAuthOnStartup() {
-		if ( process.argv.length > 1 ) {
-			const argv = process.argv;
-			const customProtocolParameter = argv?.find( ( arg ) => arg.startsWith( PROTOCOL_PREFIX ) );
-			if ( customProtocolParameter ) {
-				onAuthorizationCallback( mainWindow, customProtocolParameter );
-			}
 		}
 	}
 
@@ -233,11 +222,8 @@ async function appBoot() {
 		}
 
 		setupIpc();
-		setupCustomProtocolHandler();
 
-		mainWindow = createMainWindow();
-		setupAuthCallbackHandler( mainWindow );
-		handleAuthOnStartup();
+		createMainWindow();
 
 		bumpAggregatedUniqueStat( 'local-environment-launch-uniques', process.platform, 'weekly' );
 	} );
@@ -262,8 +248,8 @@ async function appBoot() {
 	app.on( 'activate', () => {
 		// On OS X it's common to re-create a window in the app when the
 		// dock icon is clicked and there are no other windows open.
-		if ( BrowserWindow.getAllWindows().length === 0 && app.isReady() ) {
-			mainWindow = createMainWindow();
+		if ( BrowserWindow.getAllWindows().length === 0 ) {
+			createMainWindow();
 		}
 	} );
 }

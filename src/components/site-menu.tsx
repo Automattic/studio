@@ -101,7 +101,7 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 		<li
 			className={ cx(
 				'flex flex-row min-w-[168px] h-8 hover:bg-[#ffffff0C] focus:bg-[#ffffff0C] rounded transition-all',
-				isMac() ? 'mx-5' : 'mx-4',
+				isMac() ? 'mr-5' : 'mr-4',
 				isSelected && 'bg-[#ffffff19] hover:bg-[#ffffff19] focus:bg-[#ffffff19]'
 			) }
 		>
@@ -127,7 +127,7 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 				scrollbarGutter: 'stable',
 			} }
 			className={ cx(
-				'w-full overflow-y-auto overflow-x-hidden flex flex-col gap-0.5 pb-4 app-no-drag-region',
+				'w-full overflow-y-auto overflow-x-hidden flex flex-col gap-0.5 pb-4',
 				className
 			) }
 		>

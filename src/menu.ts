@@ -8,16 +8,15 @@ import {
 } from 'electron';
 import { __ } from '@wordpress/i18n';
 import { STUDIO_DOCS_URL } from './constants';
-import { createMainWindow } from './main-window';
+import { withMainWindow } from './main-window';
 import { isUpdateReadyToInstall, manualCheckForUpdates } from './updates';
 
-export function setupMenu( window: BrowserWindow | null ) {
-	if ( ! window && process.platform !== 'darwin' ) {
+export function setupMenu( mainWindow: BrowserWindow | null ) {
+	if ( ! mainWindow && process.platform !== 'darwin' ) {
 		Menu.setApplicationMenu( null );
 		return;
 	}
 
-	const withWindow = withMainWindow( window );
 	const crashTestMenuItems: MenuItemConstructorOptions[] = [
 		{
 			label: __( 'Test Hard Crash (dev only)' ),
@@ -59,8 +58,8 @@ export function setupMenu( window: BrowserWindow | null ) {
 					label: __( 'Settings…' ),
 					accelerator: 'CommandOrControl+,',
 					click: () => {
-						withWindow( ( browserWindow: BrowserWindow ) => {
-							browserWindow.webContents.send( 'user-settings' );
+						withMainWindow( ( window ) => {
+							window.webContents.send( 'user-settings' );
 						} );
 					},
 				},
@@ -81,19 +80,18 @@ export function setupMenu( window: BrowserWindow | null ) {
 					label: __( 'Add Site…' ),
 					accelerator: 'CommandOrControl+N',
 					click: () => {
-						withWindow( ( browserWindow: BrowserWindow ) => {
-							browserWindow.webContents.send( 'add-site' );
+						withMainWindow( ( window ) => {
+							window.webContents.send( 'add-site' );
 						} );
 					},
 				},
 				{
 					label: __( 'Close Window' ),
 					accelerator: 'CommandOrControl+W',
-					click: ( menuItem, browserWindow ) => {
+					click: ( _menuItem, browserWindow ) => {
 						browserWindow?.close();
-						setupMenu( null );
 					},
-					enabled: !! window,
+					enabled: !! mainWindow && ! mainWindow.isDestroyed(),
 				},
 			],
 		},
@@ -137,23 +135,8 @@ export function setupMenu( window: BrowserWindow | null ) {
 	}
 	// Make menu accessible in development for non-macOS platforms
 	if ( process.env.NODE_ENV === 'development' ) {
-		window?.setMenu( menu );
+		mainWindow?.setMenu( menu );
 		return;
 	}
 	Menu.setApplicationMenu( null );
-}
-
-function withMainWindow(
-	window: BrowserWindow | null
-): ( callback: ( window: BrowserWindow ) => void ) => void {
-	return function ( callback: ( window: BrowserWindow ) => void ) {
-		if ( window ) {
-			callback( window );
-			return;
-		}
-		const newWindow = createMainWindow();
-		newWindow.webContents.on( 'did-finish-load', () => {
-			callback( newWindow );
-		} );
-	};
 }

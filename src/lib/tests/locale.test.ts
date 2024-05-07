@@ -5,71 +5,42 @@ import { app } from 'electron';
 import { createI18n } from '@wordpress/i18n';
 import { getLocaleData, getSupportedLocale } from '../locale';
 
-jest.mock( 'electron', () => ( {
-	app: {
-		getPreferredSystemLanguages: jest.fn().mockReturnValue( [ 'en-US' ] ),
-	},
-} ) );
-
-function mockPreferredLanguages( languages: string[] ) {
-	( app.getPreferredSystemLanguages as jest.Mock ).mockReturnValue( languages );
+function mockAppLocale( language: string ) {
+	( app.getLocale as jest.Mock ).mockReturnValue( language );
 }
 
 describe( 'getSupportedLocale', () => {
 	it( 'converts a language-region pair to a glotpress locale slug', () => {
-		mockPreferredLanguages( [ 'en-US' ] );
+		mockAppLocale( 'en-US' );
 
 		expect( getSupportedLocale() ).toBe( 'en' );
 	} );
 
-	it( 'returns English if preferred language is unsupported', () => {
-		mockPreferredLanguages( [ 'mi-NZ' ] );
+	it( 'returns English if app locale is unsupported', () => {
+		mockAppLocale( 'mi-NZ' );
 
 		expect( getSupportedLocale() ).toBe( 'en' );
-	} );
-
-	it( "falls back to lesser preferred languages if the most preferred isn't supported", () => {
-		mockPreferredLanguages( [ 'mi-NZ', 'fr-FR', 'en-US' ] );
-
-		expect( getSupportedLocale() ).toBe( 'fr' );
-	} );
-
-	it( 'ignores region if the best match is a matching language with a different region', () => {
-		mockPreferredLanguages( [ 'mi-NZ', 'pt-PT' ] );
-
-		expect( getSupportedLocale() ).toBe( 'pt-br' );
-	} );
-
-	it( "prefers an exact language-region match, even if it's lower in the preference order", () => {
-		mockPreferredLanguages( [ 'mi-NZ', 'pt-PT', 'zh-CN' ] );
-
-		expect( getSupportedLocale() ).toBe( 'zh-cn' );
 	} );
 
 	it( 'returns zh-cn variant', () => {
-		mockPreferredLanguages( [ 'zh-cn', 'zh-tw' ] );
+		mockAppLocale( 'zh-cn' );
 
 		expect( getSupportedLocale() ).toBe( 'zh-cn' );
 	} );
 
 	it( 'returns zh-tw variant', () => {
-		mockPreferredLanguages( [ 'zh-tw', 'zh-cn' ] );
+		mockAppLocale( 'zh-tw' );
 
 		expect( getSupportedLocale() ).toBe( 'zh-tw' );
 	} );
 
-	it( "prefers a language with a different region over an exact language _and_ region match which is further down the user's preference list", () => {
-		mockPreferredLanguages( [ 'fr-PL', 'pt-BR' ] );
-		expect( getSupportedLocale() ).toBe( 'fr' );
-	} );
-
 	it( 'returns the Simplified Chinese zh-cn option when the user preference is zh-Hans', () => {
-		mockPreferredLanguages( [ 'zh-NZ', 'zh-Hans' ] );
+		mockAppLocale( 'zh-Hans' );
 		expect( getSupportedLocale() ).toBe( 'zh-cn' );
 	} );
 
 	it( 'returns the Traditional Chinese zh-tw option when the user preference is zh-Hant', () => {
-		mockPreferredLanguages( [ 'zh-Hant' ] );
+		mockAppLocale( 'zh-Hant' );
 		expect( getSupportedLocale() ).toBe( 'zh-tw' );
 	} );
 } );

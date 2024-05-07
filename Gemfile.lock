@@ -209,6 +209,8 @@ GEM
     nanaimo (0.3.0)
     naturally (2.2.1)
     nkf (0.2.0)
+    nokogiri (1.16.3-aarch64-linux)
+      racc (~> 1.4)
     nokogiri (1.16.3-arm64-darwin)
       racc (~> 1.4)
     octokit (6.1.1)
@@ -294,6 +296,7 @@ GEM
       xcpretty (~> 0.2, >= 0.0.7)
 
 PLATFORMS
+  aarch64-linux
   arm64-darwin-22
 
 DEPENDENCIES
@@ -303,4 +306,4 @@ DEPENDENCIES
   rubocop (~> 1.42)
 
 BUNDLED WITH
-   2.3.23
+   2.4.10

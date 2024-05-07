@@ -14,9 +14,9 @@ import packageJson from '../package.json';
 import * as ipcHandlers from './ipc-handlers';
 import { bumpAggregatedUniqueStat } from './lib/bump-stats';
 import { getLocaleData, getSupportedLocale } from './lib/locale';
-import { PROTOCOL_PREFIX, handleAuthCallback, setupAuthCallbackHandler } from './lib/oauth';
+import { PROTOCOL_PREFIX, handleAuthCallback, setUpAuthCallbackHandler } from './lib/oauth';
 import { setupLogging } from './logging';
-import { createMainWindow } from './main-window';
+import { createMainWindow, withMainWindow } from './main-window';
 import {
 	migrateFromWpNowFolder,
 	needsToMigrateFromWpNowFolder,
@@ -43,31 +43,27 @@ if ( gotTheLock && ! isInInstaller ) {
 	appBoot();
 }
 
-const onAuthorizationCallback = ( mainWindow: BrowserWindow | null, url: string ) => {
-	if ( mainWindow ) {
-		const { host, hash } = new URL( url );
-		if ( host === 'auth' ) {
-			handleAuthCallback( hash ).then( ( authResult ) => {
-				if ( authResult instanceof Error ) {
-					ipcMain.emit( 'auth-callback', null, { error: authResult } );
-				} else {
-					ipcMain.emit( 'auth-callback', null, { token: authResult } );
-				}
-			} );
-		}
+const onAuthorizationCallback = ( url: string ) => {
+	const { host, hash } = new URL( url );
+	if ( host === 'auth' ) {
+		handleAuthCallback( hash ).then( ( authResult ) => {
+			if ( authResult instanceof Error ) {
+				ipcMain.emit( 'auth-callback', null, { error: authResult } );
+			} else {
+				ipcMain.emit( 'auth-callback', null, { token: authResult } );
+			}
+		} );
 	}
 };
 
 async function appBoot() {
-	let mainWindow: BrowserWindow | null = null;
-
-	const locale = getSupportedLocale();
-	const localeData = getLocaleData( locale );
-	defaultI18n.setLocaleData( localeData?.locale_data?.messages );
-
 	app.setName( packageJson.productName );
 
 	Menu.setApplicationMenu( null );
+
+	setupCustomProtocolHandler();
+
+	setUpAuthCallbackHandler();
 
 	setupLogging();
 
@@ -147,44 +143,37 @@ async function appBoot() {
 	function setupCustomProtocolHandler() {
 		if ( process.platform === 'darwin' ) {
 			app.on( 'open-url', ( _event, url ) => {
-				onAuthorizationCallback( mainWindow, url );
+				onAuthorizationCallback( url );
 			} );
 		} else {
 			// Handle custom protocol links on Windows and Linux
 			app.on( 'second-instance', ( _event, argv ): void => {
-				if ( mainWindow ) {
+				withMainWindow( ( mainWindow ) => {
 					if ( mainWindow.isMinimized() ) mainWindow.restore();
 					mainWindow.focus();
-
 					const customProtocolParameter = argv?.find( ( arg ) =>
 						arg.startsWith( PROTOCOL_PREFIX )
 					);
 					if ( customProtocolParameter ) {
-						onAuthorizationCallback( mainWindow, customProtocolParameter );
+						onAuthorizationCallback( customProtocolParameter );
 					}
-				}
+				} );
 			} );
 		}
 	}
 
-	function handleAuthOnStartup() {
-		if ( process.argv.length > 1 ) {
-			const argv = process.argv;
-			const customProtocolParameter = argv?.find( ( arg ) => arg.startsWith( PROTOCOL_PREFIX ) );
-			if ( customProtocolParameter ) {
-				onAuthorizationCallback( mainWindow, customProtocolParameter );
-			}
-		}
-	}
-
 	app.on( 'ready', async () => {
+		// Set translations based on supported locale
+		const locale = getSupportedLocale();
+		const localeData = getLocaleData( locale );
+		defaultI18n.setLocaleData( localeData?.locale_data?.messages );
+
 		console.log( `App version: ${ app.getVersion() }` );
 		console.log( `Built from commit: ${ COMMIT_HASH ?? 'undefined' }` );
 		console.log( `Local timezone: ${ Intl.DateTimeFormat().resolvedOptions().timeZone }` );
 		console.log( `App locale: ${ app.getLocale() }` );
 		console.log( `System locale: ${ app.getSystemLocale() }` );
-		console.log( `Preferred languages: ${ app.getPreferredSystemLanguages() }` );
-		console.log( `Used language: ${ getSupportedLocale() }` );
+		console.log( `Used language: ${ locale }` );
 
 		// By default Electron automatically approves all permissions requests (e.g. notifications, webcam)
 		// We'll opt-in to permissions we specifically need instead.
@@ -233,11 +222,8 @@ async function appBoot() {
 		}
 
 		setupIpc();
-		setupCustomProtocolHandler();
 
-		mainWindow = createMainWindow();
-		setupAuthCallbackHandler( mainWindow );
-		handleAuthOnStartup();
+		createMainWindow();
 
 		bumpAggregatedUniqueStat( 'local-environment-launch-uniques', process.platform, 'weekly' );
 	} );
@@ -263,7 +249,7 @@ async function appBoot() {
 		// On OS X it's common to re-create a window in the app when the
 		// dock icon is clicked and there are no other windows open.
 		if ( BrowserWindow.getAllWindows().length === 0 ) {
-			mainWindow = createMainWindow();
+			createMainWindow();
 		}
 	} );
 }

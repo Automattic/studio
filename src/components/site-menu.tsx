@@ -70,7 +70,7 @@ function ButtonToRun( { running, id, name }: Pick< SiteDetails, 'running' | 'id'
 			{ /* Circle */ }
 			<div
 				className={ cx(
-					'w-2.5 h-2.5 transition-opacity group-hover:opacity-0 group-focus:opacity-0 border-[0.5px]',
+					'w-2.5 h-2.5 transition-opacity group-hover:opacity-0 group-focus-visible:opacity-0 border-[0.5px]',
 					'row-start-1 col-start-1 place-self-center',
 					classCircle,
 					loadingServer[ id ] && 'animate-pulse border-[#00BA3775] bg-[#1ED15A75] duration-100',
@@ -84,7 +84,7 @@ function ButtonToRun( { running, id, name }: Pick< SiteDetails, 'running' | 'id'
 			{ ! loadingServer[ id ] && (
 				<div
 					className={ cx(
-						'opacity-0 transition-opacity group-hover:opacity-100 group-focus:opacity-100',
+						'opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100',
 						'row-start-1 col-start-1 place-self-center'
 					) }
 				>
@@ -100,9 +100,9 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 	return (
 		<li
 			className={ cx(
-				'flex flex-row min-w-[168px] h-8 hover:bg-[#ffffff0C] focus:bg-[#ffffff0C] rounded transition-all',
+				'flex flex-row min-w-[168px] h-8 hover:bg-[#ffffff0C] rounded transition-all',
 				isMac() ? 'mr-5' : 'mr-4',
-				isSelected && 'bg-[#ffffff19] hover:bg-[#ffffff19] focus:bg-[#ffffff19]'
+				isSelected && 'bg-[#ffffff19] hover:bg-[#ffffff19]'
 			) }
 		>
 			<button

@@ -46,7 +46,7 @@ export async function loadUserData(): Promise< UserData > {
 				Sentry.addBreadcrumb( {
 					data: {
 						fileContents: sanitizeUnstructuredData( asString ),
-						filePath,
+						filePath: sanitizeUserpath( filePath ),
 					},
 				} );
 			}

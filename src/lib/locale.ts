@@ -5,7 +5,7 @@ import type { LocaleData } from '@wordpress/i18n';
 
 export const DEFAULT_LOCALE = 'en';
 
-export const supportedLocales = {
+export const namedLocales = {
 	ar: 'العربية',
 	de: 'Deutsch',
 	en: 'English',
@@ -26,6 +26,27 @@ export const supportedLocales = {
 	'zh-tw': '繁體中文',
 };
 
+const supportedLocales = [
+	'ar',
+	'de',
+	'en',
+	'es',
+	'fr',
+	'he',
+	'id',
+	'it',
+	'ja',
+	'ko',
+	'nl',
+	'pl',
+	'pt-br',
+	'ru',
+	'sv',
+	'tr',
+	'zh-cn',
+	'zh-tw',
+];
+
 export function getSupportedLocale(): string {
 	// `app.getLocale` returns the current application locale, acquired using
 	// Chromium's `l10n_util` library. This value is utilized to determine
@@ -34,7 +55,7 @@ export function getSupportedLocale(): string {
 }
 
 export function getLocaleData( locale: string ): LocaleData | null {
-	if ( locale === DEFAULT_LOCALE || ! Object.keys( supportedLocales ).includes( locale ) ) {
+	if ( locale === DEFAULT_LOCALE || ! supportedLocales.includes( locale ) ) {
 		return null;
 	}
 

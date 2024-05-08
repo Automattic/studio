@@ -25,7 +25,7 @@ function openAboutWindow() {
 	aboutWindow = new BrowserWindow( {
 		width: 400,
 		height: 300,
-		title: 'About',
+		title: 'About Studio',
 		resizable: false,
 		minimizable: false,
 		maximizable: false,
@@ -74,7 +74,7 @@ export function setupMenu( mainWindow: BrowserWindow | null ) {
 			role: 'appMenu',
 			submenu: [
 				{
-					label: 'About',
+					label: 'About Studio',
 					click: openAboutWindow,
 				},
 				...( isUpdateReadyToInstall()

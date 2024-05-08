@@ -1,6 +1,7 @@
-import { ipcMain, shell, BrowserWindow } from 'electron';
+import { ipcMain, shell } from 'electron';
 import * as Sentry from '@sentry/electron/main';
 import wpcom from 'wpcom';
+import { withMainWindow } from '../main-window';
 import { loadUserData, saveUserData } from '../storage/user-data';
 
 export interface StoredToken {
@@ -104,14 +105,16 @@ export function authenticate(): void {
 	shell.openExternal( authUrl );
 }
 
-export function setupAuthCallbackHandler( mainWindow: BrowserWindow ) {
-	ipcMain.on( 'auth-callback', ( event, { token, error } ) => {
-		if ( error ) {
-			mainWindow?.webContents.send( 'auth-updated', { error: error } );
-		} else {
-			storeToken( token ).then( () => {
-				mainWindow?.webContents.send( 'auth-updated', { token } );
-			} );
-		}
+export function setUpAuthCallbackHandler() {
+	ipcMain.on( 'auth-callback', ( _event, { token, error } ) => {
+		withMainWindow( ( mainWindow ) => {
+			if ( error ) {
+				mainWindow.webContents.send( 'auth-updated', { error: error } );
+			} else {
+				storeToken( token ).then( () => {
+					mainWindow.webContents.send( 'auth-updated', { token } );
+				} );
+			}
+		} );
 	} );
 }

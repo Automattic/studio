@@ -48,7 +48,7 @@ export async function startServer(
 	app.use(fileUpload({ defCharset: 'utf8', defParamCharset: 'utf8'}));
 	app.use(compression({ filter: shouldCompress }));
 	app.use(addTrailingSlash('/wp-admin'));
-	const port = await portFinder.getOpenPort();
+	const port = options.port ?? await portFinder.getOpenPort();
 	const { php, options: wpNowOptions } = await startWPNow(options);
 
 	app.use('/', async (req, res) => {

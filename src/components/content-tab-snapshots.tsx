@@ -31,7 +31,7 @@ function SnapshotRowLoading( { children }: PropsWithChildren ) {
 	return (
 		<div className="self-stretch px-4 py-3 flex items-center text-xs">
 			<div className={ cx( 'flex mr-1.5 w-8/12 items-center text-a8c-gray-70' ) }>
-				<Spinner className="!mt-0 !ml-0 !mr-2" />
+				<Spinner className="!mt-0 !mx-2" />
 				{ children }
 			</div>
 			<div className="w-28 pr-6 text-a8c-gray-70 whitespace-nowrap overflow-hidden truncate flex-1">
@@ -247,7 +247,7 @@ function EmptyGeneric( {
 }: PropsWithChildren< { selectedSite: SiteDetails } > ) {
 	const { __ } = useI18n();
 	return (
-		<div className="pb-10 flex justify-between max-w-2xl gap-4">
+		<div className="pb-10 flex justify-between max-w-3xl gap-4">
 			<div className="flex flex-col">
 				<div className="a8c-subtitle mb-1">{ __( 'Share a demo site' ) }</div>
 				<div className="w-[40ch] text-a8c-gray-70 a8c-body pr-2">
@@ -311,7 +311,7 @@ function NoAuth( { selectedSite }: React.ComponentProps< typeof EmptyGeneric > )
 						} }
 					>
 						{ __( 'Log in to WordPress.com' ) }
-						<Icon className="ml-1" icon={ external } size={ 21 } />
+						<Icon className="ltr:ml-1 rtl:mr-1 rtl:scale-x-[-1]" icon={ external } size={ 21 } />
 					</Button>
 				</Tooltip>
 			</div>

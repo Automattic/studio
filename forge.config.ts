@@ -14,7 +14,7 @@ import { WebpackPlugin } from '@electron-forge/plugin-webpack';
 import ForgeExternalsPlugin from '@timfish/forge-externals-plugin';
 import ejs from 'ejs';
 import { isErrnoException } from './src/lib/is-errno-exception';
-import { mainConfig } from './webpack.main.config';
+import mainConfig, { mainBaseConfig } from './webpack.main.config';
 import { rendererConfig } from './webpack.renderer.config';
 import type { ForgeConfig } from '@electron-forge/shared-types';
 
@@ -43,6 +43,11 @@ const config: ForgeConfig = {
 				// This icon is shown in Control Panel -> Programs and Features
 				// Windows Explorer caches the icon agressively; use the cache busting param when necessary.
 				iconUrl: 'https://s0.wp.com/i/studio-app/studio-app-icon.ico?v=2',
+
+				setupExe: 'studio-setup.exe',
+
+				certificateFile: 'certificate.pfx',
+				certificatePassword: process.env.WINDOWS_CODE_SIGNING_CERT_PASSWORD,
 			},
 			[ 'win32' ]
 		),
@@ -98,7 +103,7 @@ const config: ForgeConfig = {
 			port: 3456,
 		} ),
 		// This plugin bundles the externals defined in the Webpack config file.
-		new ForgeExternalsPlugin( { externals: Object.keys( mainConfig.externals ?? {} ) } ),
+		new ForgeExternalsPlugin( { externals: Object.keys( mainBaseConfig.externals ?? {} ) } ),
 	],
 	hooks: {
 		generateAssets: async () => {

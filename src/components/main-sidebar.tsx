@@ -61,7 +61,7 @@ function SidebarAuthFooter() {
 			<Button
 				aria-description={ isOffline ? offlineMessage : '' }
 				aria-disabled={ isOffline }
-				className="flex gap-x-2 items-center justify-between w-full text-white rounded !px-0 py-1 h-auto active:!text-white hover:!text-white hover:underline"
+				className="flex gap-x-2 justify-between w-full text-white rounded !px-0 py-1 h-auto active:!text-white hover:!text-white hover:underline items-end"
 				onClick={ () => {
 					if ( isOffline ) {
 						return;
@@ -70,7 +70,8 @@ function SidebarAuthFooter() {
 				} }
 			>
 				<WordPressLogo />
-				<div className="text-xs">{ __( 'Log in' ) }</div>
+
+				<div className="text-xs text-right">{ __( 'Log in' ) }</div>
 			</Button>
 		</Tooltip>
 	);
@@ -127,7 +128,12 @@ export default function MainSidebar( { className }: MainSidebarProps ) {
 		>
 			<SidebarToolbar />
 			<div className="flex flex-col h-full">
-				<div className="flex-1 overflow-y-auto sites-scrollbar app-no-drag-region">
+				<div
+					className={ cx(
+						'flex-1 overflow-y-auto sites-scrollbar app-no-drag-region',
+						isMac() ? 'ml-5' : 'ml-4'
+					) }
+				>
 					<SiteMenu />
 				</div>
 				<div className="flex flex-col gap-4 pt-5 border-white border-t border-opacity-10 app-no-drag-region">

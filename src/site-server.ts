@@ -1,7 +1,7 @@
 import fs from 'fs';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
-import { getWpNowConfig, startServer, type WPNowServer } from '../vendor/wp-now/src';
+import { getWpNowConfig } from '../vendor/wp-now/src';
 import { WPNowMode } from '../vendor/wp-now/src/config';
 import { getWordPressVersionPath } from '../vendor/wp-now/src/download';
 import { pathExists, recursiveCopyDirectory, isEmptyDir } from './lib/fs-utils';
@@ -10,6 +10,7 @@ import { phpGetThemeDetails } from './lib/php-get-theme-details';
 import { portFinder } from './lib/port-finder';
 import { sanitizeForLogging } from './lib/sanitize-for-logging';
 import { getPreferredSiteLanguage } from './lib/site-language';
+import SiteServerProcess from './lib/site-server-process';
 import { purgeWpConfig } from './lib/wp-versions';
 import { createScreenshotWindow } from './screenshot-window';
 import { getSiteThumbnailPath } from './storage/paths';
@@ -34,11 +35,11 @@ export async function createSiteWorkingDirectory(
 export async function stopAllServersOnQuit() {
 	// We're quitting so this doesn't have to be tidy, just stop the
 	// servers as directly as possible.
-	await Promise.all( [ ...servers.values() ].map( ( server ) => server.server?.stopServer() ) );
+	await Promise.all( [ ...servers.values() ].map( ( server ) => server.server?.stop() ) );
 }
 
 export class SiteServer {
-	server?: WPNowServer;
+	server?: SiteServerProcess;
 
 	private constructor( public details: SiteDetails ) {}
 
@@ -84,13 +85,14 @@ export class SiteServer {
 		}
 
 		console.log( 'Starting server with options', sanitizeForLogging( options ) );
-		this.server = await startServer( options );
+		this.server = new SiteServerProcess( options );
+		await this.server.start();
 
 		if ( this.server.options.port === undefined ) {
 			throw new Error( 'Server started with no port' );
 		}
 
-		const themeDetails = await phpGetThemeDetails( this.server.php );
+		const themeDetails = await phpGetThemeDetails( this.server );
 
 		this.details = {
 			...this.details,
@@ -111,7 +113,7 @@ export class SiteServer {
 
 	async stop() {
 		console.log( 'Stopping server with ID', this.details.id );
-		this.server?.stopServer();
+		await this.server?.stop();
 		this.server = undefined;
 
 		if ( ! this.details.running ) {

@@ -26,7 +26,7 @@ export default function Header() {
 							variant="link"
 						>
 							{ __( 'WP admin' ) }
-							<Icon icon={ external } className="ml-1" size={ 14 } />
+							<Icon icon={ external } className="ltr:ml-1 rtl:mr-1 rtl:scale-x-[-1]" size={ 14 } />
 						</Button>
 						<Button
 							disabled={ ! site.running }
@@ -34,8 +34,11 @@ export default function Header() {
 							onClick={ () => getIpcApi().openSiteURL( site.id ) }
 							variant="link"
 						>
-							{ __( 'Open site' ) }
-							<Icon className="ml-1" icon={ external } size={ 14 } />
+							{
+								// translators: "Open site" refers to the action, like "to open site"
+								__( 'Open site' )
+							}
+							<Icon className="ltr:ml-1 rtl:mr-1 rtl:scale-x-[-1]" icon={ external } size={ 14 } />
 						</Button>
 					</div>
 				</div>

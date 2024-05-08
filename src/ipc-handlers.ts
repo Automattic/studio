@@ -38,9 +38,12 @@ if ( ! fs.existsSync( TEMP_DIR ) ) {
 }
 
 async function sendThumbnailChangedEvent( event: IpcMainInvokeEvent, id: string ) {
+	if ( event.sender.isDestroyed() ) {
+		return;
+	}
 	const thumbnailData = await getThumbnailData( event, id );
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	if ( parentWindow ) {
+	if ( parentWindow && ! parentWindow.isDestroyed() ) {
 		parentWindow.webContents.send( 'thumbnail-changed', id, thumbnailData );
 	}
 }
@@ -129,7 +132,14 @@ export async function createSite(
 	}
 
 	if ( ( await pathExists( path ) ) && ( await isEmptyDir( path ) ) ) {
-		await createSiteWorkingDirectory( path );
+		try {
+			await createSiteWorkingDirectory( path );
+		} catch ( error ) {
+			// If site creation failed, remove the generated files and re-throw the
+			// error so it can be handled by the caller.
+			shell.trashItem( path );
+			throw error;
+		}
 	}
 
 	const details = {
@@ -159,11 +169,11 @@ export async function createSite(
 	}
 
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	if ( parentWindow ) {
+	if ( parentWindow && ! parentWindow.isDestroyed() && ! event.sender.isDestroyed() ) {
 		parentWindow.webContents.send( 'theme-details-updating', details.id );
 	}
 	await server.start();
-	if ( parentWindow ) {
+	if ( parentWindow && ! parentWindow.isDestroyed() && ! event.sender.isDestroyed() ) {
 		parentWindow.webContents.send(
 			'theme-details-changed',
 			details.id,
@@ -208,7 +218,7 @@ export async function startServer(
 
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	await server.start();
-	if ( parentWindow ) {
+	if ( parentWindow && ! parentWindow.isDestroyed() && ! event.sender.isDestroyed() ) {
 		parentWindow.webContents.send( 'theme-details-changed', id, server.details.themeDetails );
 	}
 	server.updateCachedThumbnail().then( () => sendThumbnailChangedEvent( event, id ) );
@@ -493,18 +503,18 @@ export async function getThemeDetails( event: IpcMainInvokeEvent, id: string ) {
 	if ( ! server.details.running || ! server.server ) {
 		return null;
 	}
-	const themeDetails = await phpGetThemeDetails( server.server.php );
+	const themeDetails = await phpGetThemeDetails( server.server );
 
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	if ( themeDetails?.path && themeDetails.path !== server.details.themeDetails?.path ) {
-		if ( parentWindow ) {
+		if ( parentWindow && ! parentWindow.isDestroyed() && ! event.sender.isDestroyed() ) {
 			parentWindow.webContents.send( 'theme-details-updating', id );
 		}
 		const updatedSite = {
 			...server.details,
 			themeDetails,
 		};
-		if ( parentWindow ) {
+		if ( parentWindow && ! parentWindow.isDestroyed() && ! event.sender.isDestroyed() ) {
 			parentWindow.webContents.send( 'theme-details-changed', id, themeDetails );
 		}
 
@@ -571,7 +581,7 @@ export async function showMessageBox(
 	options: Electron.MessageBoxOptions
 ) {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	if ( parentWindow ) {
+	if ( parentWindow && ! parentWindow.isDestroyed() && ! event.sender.isDestroyed() ) {
 		return dialog.showMessageBox( parentWindow, options );
 	}
 	return dialog.showMessageBox( options );

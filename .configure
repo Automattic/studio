@@ -1,13 +1,8 @@
 {
   "project_name": "studio",
   "branch": "trunk",
-  "pinned_hash": "63d143bbd64075b163af1533b135c63a86a6c230",
+  "pinned_hash": "cebbd70d3c288204d569f967997e94ced351c604",
   "files_to_copy": [
-    {
-      "file": "shared/google_cloud_keys.json",
-      "destination": "~/.configure/studio/secrets/google_cloud_keys.json",
-      "encrypt": true
-    },
     {
       "file": "iOS/app_store_connect_fastlane_api_key.json",
       "destination": "~/.configure/studio/secrets/app_store_connect_fastlane_api_key.json",

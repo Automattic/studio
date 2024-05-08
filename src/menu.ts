@@ -25,13 +25,12 @@ function openAboutWindow() {
 	aboutWindow = new BrowserWindow( {
 		width: 284,
 		height: 292,
-		title: 'About Studio',
 		resizable: false,
 		minimizable: false,
 		maximizable: false,
 		modal: true,
 		webPreferences: {
-			contextIsolation: true, // Ensures the renderer is isolated
+			contextIsolation: true,
 		},
 	} );
 

@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html class="desktop-preferences">
 <head>
-  <title>About WordPress.com</title>
   <style type="text/css">
   /* Try to mimic native window styling */
   @font-face {
@@ -25,7 +24,7 @@
     -moz-user-select: none;
     -ms-user-select: none;
     user-select: none;
-    background: #ebebeb;
+    background: rgba(246, 246, 246, 0.84);
     cursor: default;
     margin: 0;
     height: 100vh;
@@ -37,7 +36,7 @@
 
   body {
     font-family: "Segoe UI", Segoe, Ubuntu, system, sans-serif;
-    font-size: 13px;
+    font-size: 12px;
     text-align: center;
   }
 
@@ -75,10 +74,13 @@
     font-size: 16px;
   }
 
-  svg {
-    fill: #21759b;
-    margin-bottom: 8px;
-  }
+  .demo-info {
+  border-top: 1px solid rgba(220, 220, 222, 1);
+  padding-top: 8px; 
+  padding-top: 10px;
+  padding-left: 24px;
+  padding-right: 24px;
+}
   </style>
 </head>
 <body>
@@ -98,15 +100,18 @@
     versionType = 'release';
 </script>
 
+<img src="../../assets/studio-app-icon.png" alt="Studio App Icon" width="64" height="64">
+<div>
 <p><strong>Studio by WordPress.com</strong></p>
 <p>Version</p>
+</div>
 <p class="links">
   <a href="https://github.com/Automattic/studio" target="_blank">GitHub</a>
   <span class="separator">&middot;</span>
   <a href="https://github.com/Automattic/studio" target="_blank">Report a bug</a>
 </p>
-
-<p>Demo sites powered by WordPress.com hosting</p>
-
+<div class="demo-info">
+<p>Demo sites powered by<br><a href="https://wordpress.com/hosting/" target="_blank">WordPress.com hosting</a></p>
+</div>
 </body>
 </html>

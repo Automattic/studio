@@ -23,17 +23,25 @@ function openAboutWindow() {
 	}
 
 	aboutWindow = new BrowserWindow( {
-		width: 400,
-		height: 300,
+		width: 284,
+		height: 292,
 		title: 'About Studio',
 		resizable: false,
 		minimizable: false,
 		maximizable: false,
 		modal: true,
+		webPreferences: {
+			contextIsolation: true, // Ensures the renderer is isolated
+		},
 	} );
 
 	aboutWindow.loadFile( aboutPath );
-	console.log( 'aboutPath', aboutPath );
+
+	// Open external links in the default browser
+	aboutWindow.webContents.setWindowOpenHandler( ( { url } ) => {
+		shell.openExternal( url );
+		return { action: 'deny' };
+	} );
 
 	aboutWindow.on( 'closed', () => {
 		aboutWindow = null;

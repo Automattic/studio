@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html class="desktop-preferences">
+<head>
+  <title>About WordPress.com</title>
+  <style type="text/css">
+  /* Try to mimic native window styling */
+  @font-face {
+    font-family: system;
+    font-style: normal;
+    font-weight: 400;
+    src: local("SFNSText-Regular"), local("HelveticaNeueDeskInterface-Regular"), local("LucidaGrandeUI");
+  }
+
+  @font-face {
+    font-family: system;
+    font-style: normal;
+    font-weight: 700;
+    src: local("SFNSText-Bold"), local("HelveticaNeueDeskInterface-Bold"), local("LucidaGrandeUI");
+  }
+
+  html, body {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    background: #ebebeb;
+    cursor: default;
+    margin: 0;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+  }
+
+  body {
+    font-family: "Segoe UI", Segoe, Ubuntu, system, sans-serif;
+    font-size: 13px;
+    text-align: center;
+  }
+
+  .options {
+    max-width: 600px;
+    width: 100%;
+    margin: 0 auto;
+    border-collapse: collapse;
+  }
+
+  .options td {
+    vertical-align: top;
+  }
+
+  .option-group span {
+    margin-right: 5px;
+  }
+
+  strong {
+    font-weight: bold;
+  }
+
+  p a {
+    text-decoration: underline;
+    color: #000;
+  }
+
+  .links {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .separator {
+    font-size: 16px;
+  }
+
+  svg {
+    fill: #21759b;
+    margin-bottom: 8px;
+  }
+  </style>
+</head>
+<body>
+
+<script type="text/javascript">
+  const config = window.electron.config;
+
+  const version = config.version;
+  const build = config.build;
+
+  let versionType = '';
+  if ( build === 'development' )
+    versionType = 'dev';
+  else if ( build === 'updater' )
+    versionType = 'updater';
+  else if ( build === 'release' )
+    versionType = 'release';
+</script>
+
+<p><strong>Studio by WordPress.com</strong></p>
+<p>Version</p>
+<p class="links">
+  <a href="https://github.com/Automattic/studio" target="_blank">GitHub</a>
+  <span class="separator">&middot;</span>
+  <a href="https://github.com/Automattic/studio" target="_blank">Report a bug</a>
+</p>
+
+<p>Demo sites powered by WordPress.com hosting</p>
+
+</body>
+</html>

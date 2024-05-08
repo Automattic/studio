@@ -6,10 +6,39 @@ import {
 	autoUpdater,
 	shell,
 } from 'electron';
+import path from 'path';
 import { __ } from '@wordpress/i18n';
 import { STUDIO_DOCS_URL } from './constants';
 import { withMainWindow } from './main-window';
 import { isUpdateReadyToInstall, manualCheckForUpdates } from './updates';
+
+let aboutWindow: BrowserWindow | null = null;
+
+function openAboutWindow() {
+	const aboutPath = path.join( __dirname, 'menu', 'about-menu.html' );
+
+	if ( aboutWindow ) {
+		aboutWindow.focus();
+		return;
+	}
+
+	aboutWindow = new BrowserWindow( {
+		width: 400,
+		height: 300,
+		title: 'About',
+		resizable: false,
+		minimizable: false,
+		maximizable: false,
+		modal: true,
+	} );
+
+	aboutWindow.loadFile( aboutPath );
+	console.log( 'aboutPath', aboutPath );
+
+	aboutWindow.on( 'closed', () => {
+		aboutWindow = null;
+	} );
+}
 
 export function setupMenu( mainWindow: BrowserWindow | null ) {
 	if ( ! mainWindow && process.platform !== 'darwin' ) {
@@ -44,7 +73,10 @@ export function setupMenu( mainWindow: BrowserWindow | null ) {
 			label: app.name, // macOS ignores this name and uses the name from the .plist
 			role: 'appMenu',
 			submenu: [
-				{ role: 'about' },
+				{
+					label: 'About',
+					click: openAboutWindow,
+				},
 				...( isUpdateReadyToInstall()
 					? [
 							{

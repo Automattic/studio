@@ -131,7 +131,7 @@ export default function MainSidebar( { className }: MainSidebarProps ) {
 				<div
 					className={ cx(
 						'flex-1 overflow-y-auto sites-scrollbar app-no-drag-region',
-						isMac() ? 'ml-5' : 'ml-4'
+						isMac() ? 'ml-4' : 'ml-3'
 					) }
 				>
 					<SiteMenu />

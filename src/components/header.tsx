@@ -15,22 +15,26 @@ export default function Header() {
 		>
 			{ site && (
 				<div className="flex flex-col">
-					<h1 className="text-xl font-normal max-h-full line-clamp-1 break-all">
+					<h1 className="text-xl font-medium max-h-full line-clamp-1 break-all">
 						{ site ? site.name : null }
 					</h1>
 					<div className="flex mt-1 gap-x-4">
 						<Button
 							disabled={ ! site.running }
-							className="[&.is-link]:text-a8c-gray-50 [&.is-link]:hover:text-a8c-gray-90 !px-0 h-0 leading-4"
+							className="[&.is-link]:text-a8c-gray-70 [&.is-link]:hover:text-a8c-blueberry !px-0 h-0 leading-4"
 							onClick={ () => getIpcApi().openSiteURL( site.id, '/wp-admin' ) }
 							variant="link"
 						>
 							{ __( 'WP admin' ) }
-							<Icon icon={ external } className="ltr:ml-1 rtl:mr-1 rtl:scale-x-[-1]" size={ 14 } />
+							<Icon
+								icon={ external }
+								className="ltr:ml-0.5 rtl:mr-0.5 rtl:scale-x-[-1]"
+								size={ 14 }
+							/>
 						</Button>
 						<Button
 							disabled={ ! site.running }
-							className="[&.is-link]:text-a8c-gray-50 [&.is-link]:hover:text-a8c-gray-90 !px-0 h-0 leading-4"
+							className="[&.is-link]:text-a8c-gray-70 [&.is-link]:hover:text-a8c-blueberry !px-0 h-0 leading-4"
 							onClick={ () => getIpcApi().openSiteURL( site.id ) }
 							variant="link"
 						>
@@ -38,7 +42,11 @@ export default function Header() {
 								// translators: "Open site" refers to the action, like "to open site"
 								__( 'Open site' )
 							}
-							<Icon className="ltr:ml-1 rtl:mr-1 rtl:scale-x-[-1]" icon={ external } size={ 14 } />
+							<Icon
+								className="ltr:ml-0.5 rtl:mr-0.5 rtl:scale-x-[-1]"
+								icon={ external }
+								size={ 14 }
+							/>
 						</Button>
 					</div>
 				</div>

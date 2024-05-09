@@ -22,8 +22,10 @@ const mockUserData = {
 describe( 'setUpAuthCallbackHandler', () => {
 	it( 'should set up auth callback handler', async () => {
 		let authCallback: ( ...args: any[] ) => void = jest.fn();
-		( ipcMain.on as jest.Mock ).mockImplementationOnce( ( _event, callback ) => {
-			authCallback = callback;
+		( ipcMain.on as jest.Mock ).mockImplementationOnce( ( event, callback ) => {
+			if ( event === 'auth-callback' ) {
+				authCallback = callback;
+			}
 		} );
 		const mockSend = jest.fn();
 		( withMainWindow as jest.Mock ).mockImplementationOnce( ( callback ) => {
@@ -33,18 +35,14 @@ describe( 'setUpAuthCallbackHandler', () => {
 				},
 			} );
 		} );
-		const loadData = Promise.resolve( {} );
-		( loadUserData as jest.Mock ).mockReturnValueOnce( loadData );
-		const saveData = Promise.resolve( {} );
-		( saveUserData as jest.Mock ).mockReturnValueOnce( saveData );
+		( loadUserData as jest.Mock ).mockResolvedValueOnce( {} );
+		( saveUserData as jest.Mock ).mockResolvedValueOnce( {} );
 
 		setUpAuthCallbackHandler();
 		const mockToken = { email: 'mock-email' };
 		authCallback( null, { token: mockToken, error: null } );
-		await ( async () => {
-			await loadData;
-			await saveData;
-		} )();
+		// Wait for the mocked promises to resolve
+		await new Promise( process.nextTick );
 
 		expect( mockSend ).toHaveBeenCalledWith( 'auth-updated', { token: mockToken } );
 	} );

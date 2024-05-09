@@ -22,8 +22,10 @@ const mockUserData = {
 describe( 'setUpAuthCallbackHandler', () => {
 	it( 'should set up auth callback handler', async () => {
 		let authCallback: ( ...args: any[] ) => void = jest.fn();
-		( ipcMain.on as jest.Mock ).mockImplementationOnce( ( _event, callback ) => {
-			authCallback = callback;
+		( ipcMain.on as jest.Mock ).mockImplementationOnce( ( event, callback ) => {
+			if ( event === 'auth-callback' ) {
+				authCallback = callback;
+			}
 		} );
 		const mockSend = jest.fn();
 		( withMainWindow as jest.Mock ).mockImplementationOnce( ( callback ) => {

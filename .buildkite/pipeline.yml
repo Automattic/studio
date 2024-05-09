@@ -57,7 +57,7 @@ steps:
       install_gems
       bundle exec fastlane distribute_dev_build
     agents:
-      queue: "mac" # 
+      queue: "mac" #
     depends_on:
       - step: "dev-mac"
       - step: "dev-windows"
@@ -74,6 +74,9 @@ steps:
       node ./scripts/confirm-tag-matches-version.mjs
       npm run make:macos-x64
       npm run make:macos-arm64
+
+      echo "--- 📃 Notarizing Binary"
+      bundle exec fastlane notarize_binary
 
       .buildkite/commands/post-process-binary-for-distribution.sh
 

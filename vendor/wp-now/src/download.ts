@@ -231,16 +231,7 @@ export async function downloadMuPlugins(customMuPluginsPath = '') {
 		);
 		return array_merge( $hosts, $redirect_hosts );
 	} );
-	add_filter( 'http_request_host_is_external', function( $allow, $host, $url ) {
-		$external_hosts = array(
-				'youtube.com',
-				'soundcloud.com',
-		);
-		$external_matches = array_filter($external_hosts, function ($allowed_host) use ($host) {
-				return str_ends_with($host, $allowed_host);
-		});
-		return !empty($external_matches);
-	}, 20, 3 );
+	add_filter('http_request_host_is_external', '__return_true', 20, 3 );
 	`
 	);
 

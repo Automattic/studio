@@ -17,7 +17,7 @@ export async function encodeAsMultipart( req: Express.Request ) {
 		parts.push( textEncoder.encode(value) );
 		parts.push( `\r\n` );
 	}
-	const files = req.files;
+	const files = req.files || {};
 	for ( const [ name, value ] of Object.entries( files ) ) {
 		if ( ! Array.isArray( value ) ) {
 			parts.push( `--${ boundary }\r\n` );

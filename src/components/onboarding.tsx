@@ -11,16 +11,6 @@ import { SiteForm } from './site-form';
 
 const GradientBox = () => {
 	const { __ } = useI18n();
-	const Arrow = () => (
-		<svg width="18" height="13" viewBox="0 0 18 13" fill="none">
-			<path
-				fillRule="evenodd"
-				clipRule="evenodd"
-				d="M11.8061 12.5L10.6181 11.3121L14.7841 7.14603L0.012085 7.14603L0.0120851 5.46603L14.7841 5.46603L10.6181 1.3L11.8061 0.112061L18 6.30603L11.8061 12.5Z"
-				fill="white"
-			/>
-		</svg>
-	);
 	return (
 		<div
 			aria-label={ __( 'Imagine, Create, Design, Code, Build' ) }
@@ -35,7 +25,6 @@ const GradientBox = () => {
 			</div>
 			<div className="text-white tracking-[-0.84px] flex justify-between items-baseline self-stretch">
 				<p>{ __( 'Build' ) }</p>
-				<Arrow />
 			</div>
 		</div>
 	);
@@ -123,7 +112,7 @@ export default function Onboarding() {
 									disabled={ !! error || isAddingSite }
 									variant="primary"
 								>
-									{ isAddingSite ? __( 'Adding site…' ) : __( 'Continue' ) }
+									{ isAddingSite ? __( 'Adding site…' ) : __( 'Add site' ) }
 								</Button>
 							</div>
 						</SiteForm>

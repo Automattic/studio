@@ -44,6 +44,16 @@ function openAboutWindow() {
 		return { action: 'deny' };
 	} );
 
+	// Read package.json and pass version to about window
+	const packageJson = app.getVersion();
+
+	aboutWindow.webContents.on( 'dom-ready', () => {
+		// Inject version into the about window's HTML
+		aboutWindow?.webContents.executeJavaScript(
+			`document.getElementById('version').innerText = '${ packageJson }'`
+		);
+	} );
+
 	aboutWindow.on( 'closed', () => {
 		aboutWindow = null;
 	} );

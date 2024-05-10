@@ -85,25 +85,18 @@
 </head>
 <body>
 
-<script type="text/javascript">
-  const config = window.electron.config;
+  <body>
+    <img src="./studio-app-icon.png" alt="Studio App Icon" width="64" height="64">
+    <div>
+        <p><strong>Studio by WordPress.com</strong></p>
+        <p>Version: <span id="version"></span></p>
+    </div>
 
-  const version = config.version;
-  const build = config.build;
-
-  let versionType = '';
-  if ( build === 'development' )
-    versionType = 'dev';
-  else if ( build === 'updater' )
-    versionType = 'updater';
-  else if ( build === 'release' )
-    versionType = 'release';
-</script>
-
-<img src="./studio-app-icon.png" alt="Studio App Icon" width="64" height="64">
-<div>
-<p><strong>Studio by WordPress.com</strong></p>
-<p>Version</p>
+    <script>
+        // Access the version from the injected JavaScript
+        const version = document.getElementById('version');
+        version.innerText = window.appVersion; 
+    </script>
 </div>
 <p class="links">
   <a href="https://github.com/Automattic/studio" target="_blank">GitHub</a>

@@ -57,7 +57,7 @@ describe( 'Onboarding Component', () => {
 	it( 'renders onboarding screen correctly', () => {
 		const { getByText } = render( <Onboarding /> );
 		expect( getByText( 'Add your first site' ) ).toBeVisible();
-		expect( getByText( 'Continue' ) ).toBeVisible();
+		expect( getByText( 'Add site' ) ).toBeVisible();
 	} );
 
 	it( 'completes onboarding when the final button is clicked', async () => {
@@ -66,7 +66,7 @@ describe( 'Onboarding Component', () => {
 
 		const { getByText } = render( <Onboarding /> );
 
-		await user.click( getByText( 'Continue' ) );
+		await user.click( getByText( 'Add site' ) );
 
 		// Check if handleAddSiteClick has been called and the process to create a new site started
 		await waitFor( () => expect( handleAddSiteClick ).toHaveBeenCalled() );

@@ -5,6 +5,7 @@ $ErrorActionPreference = "Stop"
 
 Write-Host "--- :node: Building App"
 node ./scripts/prepare-dev-build-version.mjs
+If ($LastExitCode -ne 0) { Exit $LastExitCode }
 
 npm run make
 If ($LastExitCode -ne 0) { Exit $LastExitCode }

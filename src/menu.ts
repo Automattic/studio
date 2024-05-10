@@ -23,8 +23,10 @@ function openAboutWindow() {
 	}
 
 	aboutWindow = new BrowserWindow( {
-		width: 284,
-		height: 292,
+		//width: 284,
+		//height: 292,
+		width: 600,
+		height: 600,
 		resizable: false,
 		minimizable: false,
 		maximizable: false,

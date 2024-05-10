@@ -68,6 +68,10 @@ export const mainBaseConfig: Configuration = {
 					from: path.resolve( __dirname, 'src/menu/about-menu.html' ),
 					to: path.resolve( __dirname, '.webpack/main/menu' ),
 				},
+				{
+					from: path.resolve( __dirname, 'src/menu/studio-app-icon.png' ),
+					to: path.resolve( __dirname, '.webpack/main/menu' ),
+				},
 			],
 		} ),
 	],

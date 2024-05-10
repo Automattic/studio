@@ -135,8 +135,8 @@ if ( isDevBuild ) {
 } else {
 	console.log( 'Adding latest release ...' );
 
-	const releaseVersionZipFilename_mac  = `https://cdn.a8c-ci.services/studio/studio-darwin-v${ version }.app.zip`;
-	const releaseVersionZipFilename_x64  = `https://cdn.a8c-ci.services/studio/studio-darwin-x64-v${ version }.app.zip`;
+	const releaseVersionZipFilename_mac = `https://cdn.a8c-ci.services/studio/studio-darwin-v${ version }.app.zip`;
+	const releaseVersionZipFilename_x64 = `https://cdn.a8c-ci.services/studio/studio-darwin-x64-v${ version }.app.zip`;
 	const releaseVersionZipFilename_arm64 = `https://cdn.a8c-ci.services/studio/studio-darwin-arm64-v${ version }.app.zip`;
 	const releaseVersionZipFilename_win32 = `https://cdn.a8c-ci.services/studio/studio-win32-v${ version }.exe`;
 

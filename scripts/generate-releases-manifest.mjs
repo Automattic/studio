@@ -135,19 +135,32 @@ if ( isDevBuild ) {
 } else {
 	console.log( 'Adding latest release ...' );
 
-	const releaseVersionZipFilename_x64 = `https://cdn.a8c-ci.services/studio/studio-${ process.platform }-x64-v${ version }.app.zip`;
-	const releaseVersionZipFilename_arm64 = `https://cdn.a8c-ci.services/studio/studio-${ process.platform }-arm64-v${ version }.app.zip`;
-	// const releaseVersionZipFilename_win32 = `https://cdn.a8c-ci.services/studio/studio-${ process.platform }-arm64-v${ version }.app.zip`;
+	const releaseVersionZipFilename_mac = `https://cdn.a8c-ci.services/studio/studio-darwin-v${ version }.app.zip`;
+	const releaseVersionZipFilename_x64 = `https://cdn.a8c-ci.services/studio/studio-darwin-x64-v${ version }.app.zip`;
+	const releaseVersionZipFilename_arm64 = `https://cdn.a8c-ci.services/studio/studio-darwin-arm64-v${ version }.app.zip`;
+	const releaseVersionZipFilename_win32 = `https://cdn.a8c-ci.services/studio/studio-win32-v${ version }.exe`;
 
 	releasesData[ version ] = releasesData[ version ] ?? {};
-	releasesData[ version ][ process.platform ] = releasesData[ version ][ process.platform ] ?? {};
-	releasesData[ version ][ process.platform ][ 'x64' ] = {
+
+	// macOS
+	releasesData[ version ][ 'darwin' ] = releasesData[ version ][ 'darwin' ] ?? {};
+	releasesData[ version ][ 'darwin' ][ 'universal' ] = {
+		sha: currentCommit,
+		url: releaseVersionZipFilename_mac,
+	};
+	releasesData[ version ][ 'darwin' ][ 'x64' ] = {
 		sha: currentCommit,
 		url: releaseVersionZipFilename_x64,
 	};
-	releasesData[ version ][ process.platform ][ 'arm64' ] = {
+	releasesData[ version ][ 'darwin' ][ 'arm64' ] = {
 		sha: currentCommit,
 		url: releaseVersionZipFilename_arm64,
+	};
+
+	// Windows
+	releasesData[ version ][ 'win32' ] = {
+		sha: currentCommit,
+		url: releaseVersionZipFilename_win32,
 	};
 
 	await fs.writeFile( releasesPath, JSON.stringify( releasesData, null, 2 ) );

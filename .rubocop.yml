@@ -20,4 +20,7 @@ Style/AsciiComments:
   Exclude: *fastlane
 
 Metrics/AbcSize:
-  Enabled: false
+  Exclude: *fastlane
+
+Metrics/CyclomaticComplexity:
+  Exclude: *fastlane

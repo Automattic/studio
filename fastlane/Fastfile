@@ -11,6 +11,7 @@ UI.user_error!('Please run fastlane via `bundle exec`') unless FastlaneCore::Hel
 ########################################################################
 PROJECT_ROOT_FOLDER = File.dirname(File.expand_path(__dir__))
 SECRETS_FOLDER = File.join(Dir.home, '.configure', 'studio', 'secrets')
+BUILDS_FOLDER = File.join(PROJECT_ROOT_FOLDER, 'out')
 
 APPLE_TEAM_ID = 'PZYM8XX95Q'
 APPLE_BUNDLE_IDENTIFIER = 'com.automattic.studio'
@@ -47,7 +48,7 @@ end
 
 desc 'Notarize the compiled binary'
 lane :notarize_binary do |_options|
-  Dir[File.join(PROJECT_ROOT_FOLDER, 'out', '**', 'Studio.app')].each do |path|
+  Dir[File.join(BUILDS_FOLDER, '**', 'Studio.app')].each do |path|
     notarize(
       package: path,
       api_key_path: APPLE_API_KEY_PATH
@@ -96,14 +97,12 @@ def distribute_builds(commit_hash:, build_number:, release_tag: nil)
   update_latest = release_tag.nil?
   suffix = release_tag.nil? ? commit_hash : release_tag
 
-  builds_folder = File.join(PROJECT_ROOT_FOLDER, 'out')
+  binary_path_mac = File.join(BUILDS_FOLDER, 'Studio-darwin-universal', 'Studio.app.zip')
+  binary_path_x64 = File.join(BUILDS_FOLDER, 'Studio-darwin-x64', 'Studio.app.zip')
+  binary_path_arm64 = File.join(BUILDS_FOLDER, 'Studio-darwin-arm64', 'Studio.app.zip')
+  binary_path_win32 = File.join(BUILDS_FOLDER, 'make', 'squirrel.windows', 'x64', 'studio-setup.exe')
 
-  binary_path_mac = File.join(builds_folder, 'out', 'Studio-darwin-universal', 'Studio.app.zip')
-  binary_path_x64 = File.join(builds_folder, 'Studio-darwin-x64', 'Studio.app.zip')
-  binary_path_arm64 = File.join(builds_folder, 'Studio-darwin-arm64', 'Studio.app.zip')
-  binary_path_win32 = File.join(builds_folder, 'make', 'squirrel.windows', 'x64', 'studio-setup.exe')
-
-  manifest_path = File.join(builds_folder, 'releases.json')
+  manifest_path = File.join(BUILDS_FOLDER, 'releases.json')
 
   filename_root = 'studio'
   filename_mac = "#{filename_root}-darwin-universal-#{commit_hash}.app.zip"
@@ -211,10 +210,10 @@ def distribute_builds(commit_hash:, build_number:, release_tag: nil)
   )
 
   # Copy the file into position to be picked up by the Buildkite agent and saved with the job
-  FileUtils.cp(binary_path_mac, File.join(builds_folder, filename_mac))
-  FileUtils.cp(binary_path_x64, File.join(builds_folder, filename_x64))
-  FileUtils.cp(binary_path_arm64, File.join(builds_folder, filename_arm64))
-  FileUtils.cp(binary_path_win32, File.join(builds_folder, filename_win32))
+  FileUtils.cp(binary_path_mac, File.join(BUILDS_FOLDER, filename_mac))
+  FileUtils.cp(binary_path_x64, File.join(BUILDS_FOLDER, filename_x64))
+  FileUtils.cp(binary_path_arm64, File.join(BUILDS_FOLDER, filename_arm64))
+  FileUtils.cp(binary_path_win32, File.join(BUILDS_FOLDER, filename_win32))
 
   download_url_mac = "#{CDN_URL}/#{bucket_folder}/#{filename_mac}"
   download_url_x64 = "#{CDN_URL}/#{bucket_folder}/#{filename_x64}"

@@ -42,8 +42,6 @@ lane :set_up_signing do |_options|
     api_key_path: APPLE_API_KEY_PATH,
     readonly: true
   )
-
-  puts lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING]
 end
 
 desc 'Notarize the compiled binary'

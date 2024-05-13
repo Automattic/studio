@@ -56,25 +56,12 @@ end
 
 desc 'Ship the binary to internal testers'
 lane :distribute_dev_build do |_options|
-  commit_metadata = last_git_commit
-  commit_hash = commit_metadata[:commit_hash]
-  build_number = get_required_env('BUILDKITE_BUILD_NUMBER')
-
-  distribute_builds(commit_hash:, build_number:)
+  distribute_builds
 end
 
 desc 'Ship release build'
 lane :distribute_release_build do |_options|
-  commit_metadata = last_git_commit
-  commit_hash = commit_metadata[:commit_hash]
-  release_tag = get_required_env('BUILDKITE_TAG')
-  build_number = get_required_env('BUILDKITE_BUILD_NUMBER')
-
-  urls = distribute_builds(
-    commit_hash:,
-    build_number:,
-    release_tag:
-  )
+  builds = distribute_builds(release_tag: get_required_env('BUILDKITE_TAG'))
 
   slack(
     username: 'CI Bot',
@@ -84,13 +71,17 @@ lane :distribute_release_build do |_options|
     success: true,
     slack_url: get_required_env('SLACK_WEBHOOK'),
     payload: {
-      ':studio-app-icon-mac: Release available for': "Available for Mac in [Intel](#{urls[:x64]}), [Apple Silicon](#{urls[:arm64]}) and [Universal](#{urls[:mac_universal]}) architectures, and for [Windows](#{urls[:windows]})."
+      ':studio-app-icon-mac: Release available for': builds.each_value.map { |b| "[#{b[:name]}](#{b[:cdn_url]})" }.join(', ')
     },
     default_payloads: []
   )
 end
 
-def distribute_builds(commit_hash:, build_number:, release_tag: nil)
+def distribute_builds(
+  commit_hash: last_git_commit[:commit_hash],
+  build_number: get_required_env('BUILDKITE_BUILD_NUMBER'),
+  release_tag: nil
+)
   # If we are distributing a build without a tag, i.e. a development build, we also want to update the latest build reference for distribution.
   update_latest = release_tag.nil?
   suffix = release_tag.nil? ? commit_hash : release_tag
@@ -186,7 +177,7 @@ def distribute_builds(commit_hash:, build_number:, release_tag: nil)
 
   # When publishing a relesea build, copy the file into position to be picked
   # up by the Buildkite agent and saved with the job.
-  builds.each do |build|
+  builds.each_value do |build|
     FileUtils.cp(build[:binary_path], File.join(BUILDS_FOLDER, "#{build[:filename]}-#{suffix}-#{build[:extension]}"))
   end
 
@@ -196,8 +187,8 @@ def distribute_builds(commit_hash:, build_number:, release_tag: nil)
     message: "🔗 Build available for #{builds.each_value.map { |build| "[#{build[:name]}](#{build[:cdn_url]})" }.join(', ')}"
   )
 
-  # Return the download URLs so callers can use them for further processing or messaging.
-  builds.map { |build| build[:cdn_url] }
+  # Return the builds data so callers can use them for further processing or messaging.
+  builds
 end
 
 def clear_cloudfront_cache(paths:, commit_hash:)

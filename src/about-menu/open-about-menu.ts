@@ -35,10 +35,14 @@ export function openAboutWindow() {
 	const packageJson = app.getVersion();
 
 	aboutWindow.webContents.on( 'dom-ready', () => {
-		// Inject version into the about window's HTML
-		aboutWindow?.webContents.executeJavaScript(
-			`document.getElementById('version').innerText = '${ packageJson }'`
-		);
+		if ( aboutWindow ) {
+			// Inject version into the about window's HTML
+			aboutWindow.webContents
+				.executeJavaScript( `document.getElementById('version').innerText = '${ packageJson }'` )
+				.catch( ( err ) => {
+					console.error( 'Error executing JavaScript:', err );
+				} );
+		}
 	} );
 
 	aboutWindow.on( 'closed', () => {

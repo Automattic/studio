@@ -201,8 +201,9 @@ def distribute_builds(commit_hash:, build_number:, release_tag: nil)
     ]
   end
 
-  # Because we distribute via Cloudfront, we need to invalidate the `latest` build after
-  # each upload, otherwise it'll be stale.
+  # Because we distribute via Cloudfront, we need to invalidate the manifest
+  # and the latest build (if building for release) after each upload, otherwise
+  # it'll be stale.
   clear_cloudfront_cache(
     paths: cache_paths_to_clear,
     commit_hash: "#{commit_hash}-#{build_number}"

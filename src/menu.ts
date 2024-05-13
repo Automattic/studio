@@ -6,56 +6,11 @@ import {
 	autoUpdater,
 	shell,
 } from 'electron';
-import path from 'path';
 import { __ } from '@wordpress/i18n';
 import { STUDIO_DOCS_URL } from './constants';
 import { withMainWindow } from './main-window';
+import { openAboutWindow } from './menu/open-about-menu';
 import { isUpdateReadyToInstall, manualCheckForUpdates } from './updates';
-
-let aboutWindow: BrowserWindow | null = null;
-
-function openAboutWindow() {
-	const aboutPath = path.join( __dirname, 'menu', 'about-menu.html' );
-
-	if ( aboutWindow ) {
-		aboutWindow.focus();
-		return;
-	}
-
-	aboutWindow = new BrowserWindow( {
-		width: 284,
-		height: 284,
-		resizable: false,
-		minimizable: false,
-		maximizable: false,
-		modal: true,
-		webPreferences: {
-			contextIsolation: true,
-		},
-	} );
-
-	aboutWindow.loadFile( aboutPath );
-
-	// Open external links in the default browser
-	aboutWindow.webContents.setWindowOpenHandler( ( { url } ) => {
-		shell.openExternal( url );
-		return { action: 'deny' };
-	} );
-
-	// Read package.json and pass version to about window
-	const packageJson = app.getVersion();
-
-	aboutWindow.webContents.on( 'dom-ready', () => {
-		// Inject version into the about window's HTML
-		aboutWindow?.webContents.executeJavaScript(
-			`document.getElementById('version').innerText = '${ packageJson }'`
-		);
-	} );
-
-	aboutWindow.on( 'closed', () => {
-		aboutWindow = null;
-	} );
-}
 
 export function setupMenu( mainWindow: BrowserWindow | null ) {
 	if ( ! mainWindow && process.platform !== 'darwin' ) {

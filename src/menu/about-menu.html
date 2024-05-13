@@ -27,36 +27,25 @@
     background: rgba(246, 246, 246, 0.84);
     cursor: default;
     margin: 0;
-    height: 100vh;
+    max-height: 284px;
     display: flex;
     justify-content: center;
     align-items: center;
     flex-direction: column;
+    padding: 10px;
+    gap: 8px;
   }
 
   body {
     font-family: "Segoe UI", Segoe, Ubuntu, system, sans-serif;
     font-size: 12px;
     text-align: center;
-  }
-
-  .options {
-    max-width: 600px;
-    width: 100%;
-    margin: 0 auto;
-    border-collapse: collapse;
-  }
-
-  .options td {
-    vertical-align: top;
-  }
-
-  .option-group span {
-    margin-right: 5px;
-  }
-
-  strong {
-    font-weight: bold;
+    line-height: 16px;
+  } 
+  
+  p {
+    margin-bottom: 8px;
+    margin-top: 0;
   }
 
   p a {
@@ -66,43 +55,43 @@
 
   .links {
     display: flex;
-    align-items: center;
+    justify-content: center;
     gap: 8px;
-  }
-
-  .separator {
-    font-size: 16px;
+    font-weight: 400;
+    margin-bottom: 14px;
   }
 
   .demo-info {
-  border-top: 1px solid rgba(220, 220, 222, 1);
-  padding-top: 8px; 
-  padding-top: 10px;
-  padding-left: 24px;
-  padding-right: 24px;
+    border-top: 1px solid rgba(220, 220, 222, 1);
+    padding-top: 16px;
 }
+
+  .studio-name {
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 20px;
+  }
+
   </style>
 </head>
-<body>
-
-  <body>
+<body> 
+  <div>  
     <img src="./studio-app-icon.png" alt="Studio App Icon" width="64" height="64">
-    <div>
-        <p><strong>Studio by WordPress.com</strong></p>
-        <p>Version: <span id="version"></span></p>
+        <p class="studio-name">Studio by WordPress.com</p>
+        <p class="version">Version <span id="version"></span></p>
+        <p class="links">
+          <a href="https://github.com/Automattic/studio" target="_blank">GitHub</a>
+          <span class="separator">&middot;</span>
+          <a href="https://github.com/Automattic/studio" target="_blank">Report a bug</a>
+        </p>
     </div>
-
     <script>
         // Access the version from the injected JavaScript
         const version = document.getElementById('version');
         version.innerText = window.appVersion; 
     </script>
 </div>
-<p class="links">
-  <a href="https://github.com/Automattic/studio" target="_blank">GitHub</a>
-  <span class="separator">&middot;</span>
-  <a href="https://github.com/Automattic/studio" target="_blank">Report a bug</a>
-</p>
+
 <div class="demo-info">
 <p>Demo sites powered by<br><a href="https://wordpress.com/hosting/" target="_blank">WordPress.com hosting ↗</a></p>
 </div>

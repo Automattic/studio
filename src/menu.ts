@@ -7,9 +7,9 @@ import {
 	shell,
 } from 'electron';
 import { __ } from '@wordpress/i18n';
+import { openAboutWindow } from './about-menu/open-about-menu';
 import { STUDIO_DOCS_URL } from './constants';
 import { withMainWindow } from './main-window';
-import { openAboutWindow } from './menu/open-about-menu';
 import { isUpdateReadyToInstall, manualCheckForUpdates } from './updates';
 
 export function setupMenu( mainWindow: BrowserWindow | null ) {

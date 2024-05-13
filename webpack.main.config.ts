@@ -65,11 +65,11 @@ export const mainBaseConfig: Configuration = {
 			patterns: [
 				// Copy about-menu.html into the main output directory
 				{
-					from: path.resolve( __dirname, 'src/menu/about-menu.html' ),
+					from: path.resolve( __dirname, 'src/about-menu/about-menu.html' ),
 					to: path.resolve( __dirname, '.webpack/main/menu' ),
 				},
 				{
-					from: path.resolve( __dirname, 'src/menu/studio-app-icon.png' ),
+					from: path.resolve( __dirname, 'src/about-menu/studio-app-icon.png' ),
 					to: path.resolve( __dirname, '.webpack/main/menu' ),
 				},
 			],

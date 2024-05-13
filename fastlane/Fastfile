@@ -108,10 +108,11 @@ def distribute_builds(commit_hash:, build_number:, release_tag: nil)
   filename_arm64 = "#{filename_root}-darwin-arm64-#{suffix}.app.zip"
   filename_win32 = "#{filename_root}-win32-#{suffix}.exe"
 
+  bucket_name = 'a8c-apps-public-artifacts'
   bucket_folder = 'studio'
 
   upload_to_s3(
-    bucket: 'a8c-apps-public-artifacts',
+    bucket: bucket_name,
     key: "#{bucket_folder}/#{filename_mac}",
     file: binary_path_mac,
     if_exists: :fail,
@@ -119,7 +120,7 @@ def distribute_builds(commit_hash:, build_number:, release_tag: nil)
   )
 
   upload_to_s3(
-    bucket: 'a8c-apps-public-artifacts',
+    bucket: bucket_name,
     key: "#{bucket_folder}/#{filename_x64}",
     file: binary_path_x64,
     if_exists: :fail,
@@ -127,7 +128,7 @@ def distribute_builds(commit_hash:, build_number:, release_tag: nil)
   )
 
   upload_to_s3(
-    bucket: 'a8c-apps-public-artifacts',
+    bucket: bucket_name,
     key: "#{bucket_folder}/#{filename_arm64}",
     file: binary_path_arm64,
     if_exists: :fail,
@@ -135,7 +136,7 @@ def distribute_builds(commit_hash:, build_number:, release_tag: nil)
   )
 
   upload_to_s3(
-    bucket: 'a8c-apps-public-artifacts',
+    bucket: bucket_name,
     key: "#{bucket_folder}/#{filename_win32}",
     file: binary_path_win32,
     if_exists: :fail,
@@ -143,7 +144,7 @@ def distribute_builds(commit_hash:, build_number:, release_tag: nil)
   )
 
   upload_to_s3(
-    bucket: 'a8c-apps-public-artifacts',
+    bucket: bucket_name,
     key: "#{bucket_folder}/releases.json",
     file: manifest_path,
     if_exists: :replace,
@@ -161,7 +162,7 @@ def distribute_builds(commit_hash:, build_number:, release_tag: nil)
     latest_filename_win32 = "#{filename_root}-win32-latest.exe"
 
     upload_to_s3(
-      bucket: 'a8c-apps-public-artifacts',
+      bucket: bucket_name,
       key: "#{bucket_folder}/#{latest_filename_mac}",
       file: binary_path_mac,
       if_exists: :replace,
@@ -169,7 +170,7 @@ def distribute_builds(commit_hash:, build_number:, release_tag: nil)
     )
 
     upload_to_s3(
-      bucket: 'a8c-apps-public-artifacts',
+      bucket: bucket_name,
       key: "#{bucket_folder}/#{latest_filename_x64}",
       file: binary_path_x64,
       if_exists: :replace,
@@ -177,7 +178,7 @@ def distribute_builds(commit_hash:, build_number:, release_tag: nil)
     )
 
     upload_to_s3(
-      bucket: 'a8c-apps-public-artifacts',
+      bucket: bucket_name,
       key: "#{bucket_folder}/#{latest_filename_arm64}",
       file: binary_path_arm64,
       if_exists: :replace,
@@ -185,7 +186,7 @@ def distribute_builds(commit_hash:, build_number:, release_tag: nil)
     )
 
     upload_to_s3(
-      bucket: 'a8c-apps-public-artifacts',
+      bucket: bucket_name,
       key: "#{bucket_folder}/#{latest_filename_win32}",
       file: binary_path_win32,
       if_exists: :replace,

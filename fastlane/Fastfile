@@ -16,6 +16,8 @@ APPLE_TEAM_ID = 'PZYM8XX95Q'
 APPLE_BUNDLE_IDENTIFIER = 'com.automattic.studio'
 APPLE_API_KEY_PATH = File.join(SECRETS_FOLDER, 'app_store_connect_fastlane_api_key.json')
 
+CDN_URL = 'https://cdn.a8c-ci.services'
+
 # Use this instead of getting values from ENV directly
 # It will throw an error if the requested value is missing
 def get_required_env(key)
@@ -52,204 +54,28 @@ lane :notarize_binary do |_options|
     )
   end
 end
+
 desc 'Ship the binary to internal testers'
 lane :distribute_dev_build do |_options|
   commit_metadata = last_git_commit
   commit_hash = commit_metadata[:commit_hash]
-
-  binary_path_mac   = File.join(PROJECT_ROOT_FOLDER, 'out', 'Studio-darwin-universal', 'Studio.app.zip')
-  binary_path_x64   = File.join(PROJECT_ROOT_FOLDER, 'out', 'Studio-darwin-x64', 'Studio.app.zip')
-  binary_path_arm64 = File.join(PROJECT_ROOT_FOLDER, 'out', 'Studio-darwin-arm64', 'Studio.app.zip')
-  binary_path_win32 = File.join(PROJECT_ROOT_FOLDER, 'out', 'make', 'squirrel.windows', 'x64', 'studio-setup.exe')
-
-  manifest_path = File.join(PROJECT_ROOT_FOLDER, 'out', 'releases.json')
   build_number = get_required_env('BUILDKITE_BUILD_NUMBER')
 
-  filename_root = 'studio'
-  hashed_filename_mac   = "#{filename_root}-darwin-universal-#{commit_hash}.app.zip"
-  hashed_filename_x64   = "#{filename_root}-darwin-x64-#{commit_hash}.app.zip"
-  hashed_filename_arm64 = "#{filename_root}-darwin-arm64-#{commit_hash}.app.zip"
-  hashed_filename_win32 = "#{filename_root}-win32-#{commit_hash}.exe"
-
-  latest_filename_mac   = "#{filename_root}-darwin-universal-latest.app.zip"
-  latest_filename_x64   = "#{filename_root}-darwin-x64-latest.app.zip"
-  latest_filename_arm64 = "#{filename_root}-darwin-arm64-latest.app.zip"
-  latest_filename_win32 = "#{filename_root}-win32-latest.exe"
-
-  bucket_folder = 'studio'
-
-  upload_to_s3(
-    bucket: 'a8c-apps-public-artifacts',
-    key: "#{bucket_folder}/#{hashed_filename_mac}",
-    file: binary_path_mac,
-    if_exists: :fail,
-    auto_prefix: false
-  )
-
-  upload_to_s3(
-    bucket: 'a8c-apps-public-artifacts',
-    key: "#{bucket_folder}/#{hashed_filename_x64}",
-    file: binary_path_x64,
-    if_exists: :fail,
-    auto_prefix: false
-  )
-
-  upload_to_s3(
-    bucket: 'a8c-apps-public-artifacts',
-    key: "#{bucket_folder}/#{hashed_filename_arm64}",
-    file: binary_path_arm64,
-    if_exists: :fail,
-    auto_prefix: false
-  )
-
-  upload_to_s3(
-    bucket: 'a8c-apps-public-artifacts',
-    key: "#{bucket_folder}/#{hashed_filename_win32}",
-    file: binary_path_win32,
-    if_exists: :fail,
-    auto_prefix: false
-  )
-
-  upload_to_s3(
-    bucket: 'a8c-apps-public-artifacts',
-    key: "#{bucket_folder}/#{latest_filename_mac}",
-    file: binary_path_mac,
-    if_exists: :replace,
-    auto_prefix: false
-  )
-
-  upload_to_s3(
-    bucket: 'a8c-apps-public-artifacts',
-    key: "#{bucket_folder}/#{latest_filename_x64}",
-    file: binary_path_x64,
-    if_exists: :replace,
-    auto_prefix: false
-  )
-
-  upload_to_s3(
-    bucket: 'a8c-apps-public-artifacts',
-    key: "#{bucket_folder}/#{latest_filename_arm64}",
-    file: binary_path_arm64,
-    if_exists: :replace,
-    auto_prefix: false
-  )
-
-  upload_to_s3(
-    bucket: 'a8c-apps-public-artifacts',
-    key: "#{bucket_folder}/#{latest_filename_win32}",
-    file: binary_path_win32,
-    if_exists: :replace,
-    auto_prefix: false
-  )
-
-  upload_to_s3(
-    bucket: 'a8c-apps-public-artifacts',
-    key: "#{bucket_folder}/releases.json",
-    file: manifest_path,
-    if_exists: :replace,
-    auto_prefix: false
-  )
-
-  # Because we distribute via Cloudfront, we need to invalidate the `latest` build after
-  # each upload, otherwise it'll be stale.
-  clear_cloudfront_cache(
-    paths: [
-      "/#{bucket_folder}/#{latest_filename_mac}",
-      "/#{bucket_folder}/#{latest_filename_x64}",
-      "/#{bucket_folder}/#{latest_filename_arm64}",
-      "/#{bucket_folder}/#{latest_filename_win32}",
-      "/#{bucket_folder}/releases.json"
-    ],
-    commit_hash: "#{commit_hash}-#{build_number}"
-  )
-
-  download_url_mac     = "https://cdn.a8c-ci.services/#{bucket_folder}/#{hashed_filename_mac}"
-  download_url_x64     = "https://cdn.a8c-ci.services/#{bucket_folder}/#{hashed_filename_x64}"
-  download_url_arm64   = "https://cdn.a8c-ci.services/#{bucket_folder}/#{hashed_filename_arm64}"
-  download_url_windows = "https://cdn.a8c-ci.services/#{bucket_folder}/#{hashed_filename_win32}"
-
-  buildkite_annotate(
-    context: 'cdn-link',
-    style: 'info',
-    message: "🔗 Build available for Mac in [Intel](#{download_url_x64}), [Apple Silicon](#{download_url_arm64}), and [Universal](#{download_url_universal}) flavors, and for [Windows](#{download_url_win32})"
-  )
+  distribute_builds(commit_hash:, build_number:)
 end
 
 desc 'Ship release build'
 lane :distribute_release_build do |_options|
   commit_metadata = last_git_commit
   commit_hash = commit_metadata[:commit_hash]
+  release_tag = get_required_env('BUILDKITE_TAG')
+  build_number = get_required_env('BUILDKITE_BUILD_NUMBER')
 
-  binary_path_mac   = File.join(PROJECT_ROOT_FOLDER, 'out', 'Studio-darwin-universal', 'Studio.app.zip')
-  binary_path_x64   = File.join(PROJECT_ROOT_FOLDER, 'out', 'Studio-darwin-x64', 'Studio.app.zip')
-  binary_path_arm64 = File.join(PROJECT_ROOT_FOLDER, 'out', 'Studio-darwin-arm64', 'Studio.app.zip')
-  binary_path_win32 = File.join(PROJECT_ROOT_FOLDER, 'out', 'make', 'squirrel.windows', 'x64', 'studio-setup.exe')
-
-  manifest_path     = File.join(PROJECT_ROOT_FOLDER, 'out', 'releases.json')
-  release_tag       = get_required_env('BUILDKITE_TAG')
-  build_number      = get_required_env('BUILDKITE_BUILD_NUMBER')
-
-  filename_root         = 'studio'
-  tagged_filename_mac   = "#{filename_root}-darwin-universal-#{release_tag}.app.zip"
-  tagged_filename_x64   = "#{filename_root}-darwin-x64-#{release_tag}.app.zip"
-  tagged_filename_arm64 = "#{filename_root}-darwin-arm64-#{release_tag}.app.zip"
-  tagged_filename_win32 = "#{filename_root}-win32-#{release_tag}.exe"
-
-  bucket_folder = 'studio'
-
-  upload_to_s3(
-    bucket: 'a8c-apps-public-artifacts',
-    key: "#{bucket_folder}/#{tagged_filename_mac}",
-    file: binary_path_mac,
-    if_exists: :fail,
-    auto_prefix: false
+  urls = distribute_builds(
+    commit_hash:,
+    build_number:,
+    release_tag:
   )
-
-  upload_to_s3(
-    bucket: 'a8c-apps-public-artifacts',
-    key: "#{bucket_folder}/#{tagged_filename_x64}",
-    file: binary_path_x64,
-    if_exists: :fail,
-    auto_prefix: false
-  )
-
-  upload_to_s3(
-    bucket: 'a8c-apps-public-artifacts',
-    key: "#{bucket_folder}/#{tagged_filename_arm64}",
-    file: binary_path_arm64,
-    if_exists: :fail,
-    auto_prefix: false
-  )
-
-  upload_to_s3(
-    bucket: 'a8c-apps-public-artifacts',
-    key: "#{bucket_folder}/#{tagged_filename_win32}",
-    file: binary_path_win32,
-    if_exists: :fail,
-    auto_prefix: false
-  )
-
-  upload_to_s3(
-    bucket: 'a8c-apps-public-artifacts',
-    key: "#{bucket_folder}/releases.json",
-    file: manifest_path,
-    if_exists: :replace,
-    auto_prefix: false
-  )
-
-  # Because we distribute via Cloudfront, we need to invalidate the manifest file after
-  # each upload, otherwise it'll be stale.
-  clear_cloudfront_cache(
-    paths: [
-      "/#{bucket_folder}/releases.json"
-    ],
-    commit_hash: "#{commit_hash}-#{build_number}"
-  )
-
-  download_url_mac   = "https://cdn.a8c-ci.services/#{bucket_folder}/#{tagged_filename_mac}"
-  download_url_x64   = "https://cdn.a8c-ci.services/#{bucket_folder}/#{tagged_filename_x64}"
-  download_url_arm64 = "https://cdn.a8c-ci.services/#{bucket_folder}/#{tagged_filename_arm64}"
-  download_url_win32 = "https://cdn.a8c-ci.services/#{bucket_folder}/#{tagged_filename_win32}"
 
   slack(
     username: 'CI Bot',
@@ -259,16 +85,155 @@ lane :distribute_release_build do |_options|
     success: true,
     slack_url: get_required_env('SLACK_WEBHOOK'),
     payload: {
-      ':wordpress-white: Studio by WordPress.com Release': "Available for Mac in [Intel](#{download_url_x64}), [Apple Silicon](#{download_url_arm64}), and [Universal](#{download_url_mac}) flavors, and for [Windows](#{download_url_win32})"
+      ':studio-app-icon-mac: Release available for': "Available for Mac in [Intel](#{urls[:x64]}), [Apple Silicon](#{urls[:arm64]}) and [Universal](#{urls[:mac_universal]}) architectures, and for [Windows](#{urls[:windows]})."
     },
     default_payloads: []
   )
+end
+
+def distribute_builds(commit_hash:, build_number:, release_tag: nil)
+  # If we are distributing a build without a tag, i.e. a development build, we also want to update the latest build reference for distribution.
+  update_latest = release_tag.nil?
+  suffix = release_tag.nil? ? commit_hash : release_tag
+
+  builds_folder = File.join(PROJECT_ROOT_FOLDER, 'out')
+
+  binary_path_mac = File.join(builds_folder, 'out', 'Studio-darwin-universal', 'Studio.app.zip')
+  binary_path_x64 = File.join(builds_folder, 'Studio-darwin-x64', 'Studio.app.zip')
+  binary_path_arm64 = File.join(builds_folder, 'Studio-darwin-arm64', 'Studio.app.zip')
+  binary_path_win32 = File.join(builds_folder, 'make', 'squirrel.windows', 'x64', 'studio-setup.exe')
+
+  manifest_path = File.join(builds_folder, 'releases.json')
+
+  filename_root = 'studio'
+  filename_mac = "#{filename_root}-darwin-universal-#{commit_hash}.app.zip"
+  filename_x64   = "#{filename_root}-darwin-x64-#{suffix}.app.zip"
+  filename_arm64 = "#{filename_root}-darwin-arm64-#{suffix}.app.zip"
+  filename_win32 = "#{filename_root}-win32-#{suffix}.exe"
+
+  bucket_folder = 'studio'
+
+  upload_to_s3(
+    bucket: 'a8c-apps-public-artifacts',
+    key: "#{bucket_folder}/#{filename_mac}",
+    file: binary_path_mac,
+    if_exists: :fail,
+    auto_prefix: false
+  )
+
+  upload_to_s3(
+    bucket: 'a8c-apps-public-artifacts',
+    key: "#{bucket_folder}/#{filename_x64}",
+    file: binary_path_x64,
+    if_exists: :fail,
+    auto_prefix: false
+  )
+
+  upload_to_s3(
+    bucket: 'a8c-apps-public-artifacts',
+    key: "#{bucket_folder}/#{filename_arm64}",
+    file: binary_path_arm64,
+    if_exists: :fail,
+    auto_prefix: false
+  )
+
+  upload_to_s3(
+    bucket: 'a8c-apps-public-artifacts',
+    key: "#{bucket_folder}/#{filename_win32}",
+    file: binary_path_win32,
+    if_exists: :fail,
+    auto_prefix: false
+  )
+
+  upload_to_s3(
+    bucket: 'a8c-apps-public-artifacts',
+    key: "#{bucket_folder}/releases.json",
+    file: manifest_path,
+    if_exists: :replace,
+    auto_prefix: false
+  )
+
+  cache_paths_to_clear = [
+    "/#{bucket_folder}/releases.json"
+  ]
+
+  if update_latest
+    latest_filename_mac = "#{filename_root}-darwin-universal-latest.app.zip"
+    latest_filename_x64 = "#{filename_root}-darwin-x64-latest.app.zip"
+    latest_filename_arm64 = "#{filename_root}-darwin-arm64-latest.app.zip"
+    latest_filename_win32 = "#{filename_root}-win32-latest.exe"
+
+    upload_to_s3(
+      bucket: 'a8c-apps-public-artifacts',
+      key: "#{bucket_folder}/#{latest_filename_mac}",
+      file: binary_path_mac,
+      if_exists: :replace,
+      auto_prefix: false
+    )
+
+    upload_to_s3(
+      bucket: 'a8c-apps-public-artifacts',
+      key: "#{bucket_folder}/#{latest_filename_x64}",
+      file: binary_path_x64,
+      if_exists: :replace,
+      auto_prefix: false
+    )
+
+    upload_to_s3(
+      bucket: 'a8c-apps-public-artifacts',
+      key: "#{bucket_folder}/#{latest_filename_arm64}",
+      file: binary_path_arm64,
+      if_exists: :replace,
+      auto_prefix: false
+    )
+
+    upload_to_s3(
+      bucket: 'a8c-apps-public-artifacts',
+      key: "#{bucket_folder}/#{latest_filename_win32}",
+      file: binary_path_win32,
+      if_exists: :replace,
+      auto_prefix: false
+    )
+
+    cache_paths_to_clear += [
+      "/#{bucket_folder}/#{latest_filename_mac}",
+      "/#{bucket_folder}/#{latest_filename_x64}",
+      "/#{bucket_folder}/#{latest_filename_arm64}",
+      "/#{bucket_folder}/#{latest_filename_win32}"
+    ]
+  end
+
+  # Because we distribute via Cloudfront, we need to invalidate the `latest` build after
+  # each upload, otherwise it'll be stale.
+  clear_cloudfront_cache(
+    paths: cache_paths_to_clear,
+    commit_hash: "#{commit_hash}-#{build_number}"
+  )
+
+  # Copy the file into position to be picked up by the Buildkite agent and saved with the job
+  FileUtils.cp(binary_path_mac, File.join(builds_folder, filename_mac))
+  FileUtils.cp(binary_path_x64, File.join(builds_folder, filename_x64))
+  FileUtils.cp(binary_path_arm64, File.join(builds_folder, filename_arm64))
+  FileUtils.cp(binary_path_win32, File.join(builds_folder, filename_win32))
+
+  download_url_mac = "#{CDN_URL}/#{bucket_folder}/#{filename_mac}"
+  download_url_x64 = "#{CDN_URL}/#{bucket_folder}/#{filename_x64}"
+  download_url_arm64 = "#{CDN_URL}/#{bucket_folder}/#{filename_arm64}"
+  download_url_windows = "#{CDN_URL}/#{bucket_folder}/#{filename_win32}"
 
   buildkite_annotate(
     context: 'cdn-link',
     style: 'info',
-    message: "🔗 Build available for Mac in [Intel](#{download_url_x64}), [Apple Silicon](#{download_url_arm64}), and [Universal](#{download_url_mac}) flavors, and for [Windows](#{download_url_win32})"
+    message: "🔗 Build available for Mac in [Intel](#{download_url_x64}), [Apple Silicon](#{download_url_arm64}), and [Universal](#{download_url_mac}) architectures, and for [Windows](#{download_url_win32})."
   )
+
+  # Return the download URLs so callers can use them for further processing or messaging.
+  {
+    mac_universal: download_url_mac,
+    x64: download_url_x64,
+    arm64: download_url_arm64,
+    windows: download_url_windows
+  }
 end
 
 def clear_cloudfront_cache(paths:, commit_hash:)

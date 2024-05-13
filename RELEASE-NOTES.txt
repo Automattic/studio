@@ -1,3 +1,18 @@
+1.0.2
+=====
+* Improved app draggable areas #82
+* Improved focus style consistency #92, #102
+* Used separate thread for Studio and site server processes #19
+* Increased site server process timeout for messages #108
+* Ensured non-destroyed window exists for authentication event handler #86
+* Addressed file permission issues in new directories created by WordPress on Windows #66
+* Fixed issue with sidebar layout breaking on specific languages #93
+* Update Studio Windows installer GIF and Windows app icon #97
+* Fixed resolving external hosts like YouTube or Soundcloud #73
+* Updated header styles #105
+* Removed arrow and improved button CTA on Onboarding screen #111
+* Improved Sentry error logging #91, #95, #96
+
 1.0.1
 =====
 * Linked user avatar in Settings to their WP.com profile #5

@@ -53,15 +53,16 @@ steps:
           - "universal"
           - "x64"
           - "arm64"
+    if: "build.tag !~ /^v[0-9]+/"
 
   - label: "🔨 Windows Dev Build"
     key: "dev-windows"
-    command: .buildkite/commands/build-windows-dev.ps1
+    command: .buildkite/commands/build-for-windows-dev.ps1
     artifact_paths:
-      - 'C:\ProgramData\chocolatey\logs\*'
       - 'out\**\studio-setup.exe'
     agents:
       queue: "windows"
+    if: "build.tag !~ /^v[0-9]+/"
 
   - label: ':rocket: Distribute Dev Builds'
     command: |
@@ -84,26 +85,56 @@ steps:
     plugins: *common_plugins
     if: "build.branch == 'trunk' && build.tag !~ /^v[0-9]+/"
 
-  - label: '🔨 Create Mac Release Build'
+  - group: "📦 Build for Mac"
     key: 'release-mac'
-    command: |
-      .buildkite/commands/prepare-environment.sh
-      .buildkite/commands/install-node-dependencies.sh
+    steps:
+      - label: '🔨 Mac Release Build - {{matrix}}'
+        command: |
+          .buildkite/commands/prepare-environment.sh
 
-      echo "--- :node: Building Binary"
-      node ./scripts/confirm-tag-matches-version.mjs
-      npm run make:macos-x64
-      npm run make:macos-arm64
+          echo "--- :node: Building Binary"
+          .buildkite/commands/install-node-dependencies.sh
+          node ./scripts/confirm-tag-matches-version.mjs
+          npm run make:macos-{{matrix}}
 
-      echo "--- 📃 Notarizing Binary"
-      bundle exec fastlane notarize_binary
+          echo "--- 📃 Notarizing Binary"
+          bundle exec fastlane notarize_binary
 
-      .buildkite/commands/post-process-binary-for-distribution.sh
+        plugins: *common_plugins
+        artifact_paths:
+          - 'out/**/*.app.zip'
+        matrix:
+          - "universal"
+          - "x64"
+          - "arm64"
+    if: "build.tag =~ /^v[0-9]+/"
 
-      echo "--- 🚀 Distributing Binary"
-      bundle exec fastlane distribute_release_build
-
-    plugins: *common_plugins
+  - label: '🔨 Windows Release Build'
+    key: 'release-windows'
+    command: .buildkite/commands/build-for-windows-release.ps1
+    agents:
+      queue: "windows"
     artifact_paths:
-      - 'out/*.app.zip'
+      - 'out\**\studio-setup.exe'
+    if: "build.tag =~ /^v[0-9]+/"
+
+  - label: ':rocket: Publish Release Builds'
+    command: |
+      echo "--- :node: Downloading Binaries"
+      buildkite-agent artifact download "*.zip" .
+      buildkite-agent artifact download "*.exe" .
+
+      echo "--- :node: Generating Release Manifest"
+      install_npm_packages
+      node ./scripts/generate-releases-manifest.mjs
+
+      echo "--- :fastlane: Distributing Dev Build"
+      install_gems
+      bundle exec fastlane distribute_release_build
+    agents:
+      queue: "mac" # 
+    depends_on:
+      - step: "release-mac"
+      - step: "release-windows"
+    plugins: *common_plugins
     if: "build.tag =~ /^v[0-9]+/"

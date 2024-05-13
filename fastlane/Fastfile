@@ -137,7 +137,7 @@ def distribute_builds(
     )
   end
 
-  manifest_name = 'release.json'
+  manifest_name = 'releases.json'
   upload_to_s3(
     bucket: bucket_name,
     key: "#{bucket_folder}/#{manifest_name}",

@@ -24,3 +24,6 @@ Metrics/AbcSize:
 
 Metrics/CyclomaticComplexity:
   Exclude: *fastlane
+
+Metrics/PerceivedComplexity:
+  Exclude: *fastlane

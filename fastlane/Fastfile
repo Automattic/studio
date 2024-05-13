@@ -125,12 +125,14 @@ def distribute_builds(commit_hash:, build_number:, release_tag: nil)
   }
 
   # Add computed fields
-  builds.each do |_, value|
-    value[:filename] = "#{filename_root}-#{value[:filename_core]}-#{suffix}-#{value[:extension]}"
-    value[:cdn_url] = "#{CDN_URL}/#{bucket_folder}/#{value[:filename]}"
+  assemble_filename = lambda do |build, filename_suffix|
+    "#{filename_root}-#{build[:filename_core]}-#{filename_suffix}.#{build[:extension]}"
+  end
+  builds.each_value do |build|
+    build[:filename] = assemble_filename.call(build, suffix)
+    build[:cdn_url] = "#{CDN_URL}/#{bucket_folder}/#{build[:filename]}"
   end
 
-  manifest_path = File.join(BUILDS_FOLDER, 'releases.json')
 
   bucket_name = 'a8c-apps-public-artifacts'
 
@@ -144,10 +146,11 @@ def distribute_builds(commit_hash:, build_number:, release_tag: nil)
     )
   end
 
+  manifest_name = 'release.json'
   upload_to_s3(
     bucket: bucket_name,
-    key: "#{bucket_folder}/releases.json",
-    file: manifest_path,
+    key: "#{bucket_folder}/#{manifest_name}",
+    file: File.join(BUILDS_FOLDER, manifest_name),
     if_exists: :replace,
     auto_prefix: false
   )
@@ -158,17 +161,18 @@ def distribute_builds(commit_hash:, build_number:, release_tag: nil)
 
   if update_latest
     builds.each_value do |build|
-      filename = "#{filename_root}-#{build[:filename]}-latest.#{build[:extension]}"
+      filename = assemble_filename.call(build, 'latest')
+      key = "#{bucket_folder}/#{filename}"
 
       upload_to_s3(
         bucket: bucket_name,
-        key: "#{bucket_folder}/#{filename}",
+        key:,
         file: build[:binary_path],
         if_exists: :replace,
         auto_prefix: false
       )
 
-      cache_paths_to_clear += ["/#{bucket_folder}/#{filename}"]
+      cache_paths_to_clear.append("/#{key}")
     end
   end
 

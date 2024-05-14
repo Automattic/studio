@@ -40,9 +40,6 @@ export default function App() {
 			<HStack spacing="0" alignment="left" className="flex-grow">
 				<MainSidebar className="basis-52 flex-shrink-0 h-full" />
 				<main
-					style={ {
-						scrollbarGutter: 'stable',
-					} }
 					data-testid="site-content"
 					className="py-8 pr-8 bg-white overflow-y-auto h-full flex-grow rounded-chrome"
 				>

@@ -4,13 +4,11 @@ import { HTTPMethod } from '@php-wasm/universal';
 import express from 'express';
 import compression from 'compression';
 import compressible from 'compressible';
-import fileUpload from 'express-fileupload';
 import { portFinder } from './port-finder';
 import { NodePHP } from '@php-wasm/node';
 import startWPNow from './wp-now';
 import { output } from './output';
 import { addTrailingSlash } from './add-trailing-slash';
-import { encodeAsMultipart } from './encode-as-multipart';
 
 const requestBodyToBytes = async ( req ): Promise< Uint8Array > =>
 	await new Promise( ( resolve ) => {
@@ -45,7 +43,6 @@ export async function startServer(
 		);
 	}
 	const app = express();
-	app.use(fileUpload({ defCharset: 'utf8', defParamCharset: 'utf8'}));
 	app.use(compression({ filter: shouldCompress }));
 	app.use(addTrailingSlash('/wp-admin'));
 	const port = options.port ?? await portFinder.getOpenPort();
@@ -61,19 +58,11 @@ export async function startServer(
 				}
 			}
 
-			let body: Uint8Array;
-			if ( requestHeaders[ 'content-type' ]?.startsWith( 'multipart/form-data' ) ) {
-				const multipart = await encodeAsMultipart( req );
-				body = multipart.bytes;
-				requestHeaders[ 'content-type' ] = multipart.contentType;
-			} else {
-				body = await requestBodyToBytes( req );
-			}
 			const data = {
 				url: req.url,
 				headers: requestHeaders,
 				method: req.method as HTTPMethod,
-				body,
+				body: await requestBodyToBytes( req ),
 			};
 			const resp = await php.request(data);
 			res.statusCode = resp.httpStatusCode;

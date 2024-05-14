@@ -15,6 +15,7 @@ import { useSiteUsage } from '../hooks/use-site-usage';
 import { useUpdateDemoSite } from '../hooks/use-update-demo-site';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
+import { CLIENT_ID, PROTOCOL_PREFIX, WP_AUTHORIZE_ENDPOINT, SCOPES } from '../lib/oauth';
 import { Badge } from './badge';
 import Button from './button';
 import { CopyTextButton } from './copy-text-button';
@@ -336,7 +337,12 @@ function NoAuth( { selectedSite }: React.ComponentProps< typeof EmptyGeneric > )
 										if ( isOffline ) {
 											return;
 										}
-										getIpcApi().openURL( 'https://wordpress.com/start/account/user-social' );
+										const baseURL = 'https://wordpress.com/log-in/link';
+										const authURL = encodeURIComponent(
+											`${ WP_AUTHORIZE_ENDPOINT }?response_type=token&client_id=${ CLIENT_ID }&redirect_uri=${ PROTOCOL_PREFIX }%3A%2F%2Fauth&scope=${ SCOPES }&from-calypso=1`
+										);
+										const finalURL = `${ baseURL }?redirect_to=${ authURL }&client_id=${ CLIENT_ID }`;
+										getIpcApi().openURL( finalURL );
 									} }
 								/>
 							),

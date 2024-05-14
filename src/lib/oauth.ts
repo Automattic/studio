@@ -14,11 +14,11 @@ export interface StoredToken {
 
 export const PROTOCOL_PREFIX = 'wpcom-local-dev';
 
-const WP_AUTHORIZE_ENDPOINT = 'https://public-api.wordpress.com/oauth2/authorize';
-const CLIENT_ID = '95109';
+export const WP_AUTHORIZE_ENDPOINT = 'https://public-api.wordpress.com/oauth2/authorize';
+export const CLIENT_ID = '95109';
 const REDIRECT_URI = `${ PROTOCOL_PREFIX }://auth`;
 
-const SCOPES = 'global';
+export const SCOPES = 'global';
 const TOKEN_KEY = 'authToken';
 
 async function getToken(): Promise< StoredToken | null > {

@@ -17,9 +17,13 @@ export default function App() {
 
 	if ( needsOnboarding ) {
 		return (
-			<div className="h-screen backdrop-blur-3xl app-drag-region select-none flex flex-grow">
+			<VStack
+				className={ cx( 'h-screen backdrop-blur-3xl app-drag-region select-none' ) }
+				spacing="0"
+			>
+				{ isWindows() && <WindowsTitlebar className="h-titlebar-win flex-shrink-0" /> }
 				<Onboarding />
-			</div>
+			</VStack>
 		);
 	}
 

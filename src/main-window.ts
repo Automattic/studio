@@ -113,6 +113,7 @@ function getOSWindowOptions(): Partial< BrowserWindowConstructorOptions > {
 					symbolColor: 'white',
 					height: WINDOWS_TITLEBAR_HEIGHT,
 				},
+				minHeight: MAIN_MIN_HEIGHT + WINDOWS_TITLEBAR_HEIGHT,
 			};
 
 		default:

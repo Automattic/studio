@@ -1,6 +1,7 @@
 import { ipcMain, shell } from 'electron';
 import * as Sentry from '@sentry/electron/main';
 import wpcom from 'wpcom';
+import { PROTOCOL_PREFIX, WP_AUTHORIZE_ENDPOINT, CLIENT_ID, SCOPES } from '../constants';
 import { withMainWindow } from '../main-window';
 import { loadUserData, saveUserData } from '../storage/user-data';
 
@@ -11,14 +12,7 @@ export interface StoredToken {
 	email?: string;
 	displayName?: string;
 }
-
-export const PROTOCOL_PREFIX = 'wpcom-local-dev';
-
-const WP_AUTHORIZE_ENDPOINT = 'https://public-api.wordpress.com/oauth2/authorize';
-const CLIENT_ID = '95109';
 const REDIRECT_URI = `${ PROTOCOL_PREFIX }://auth`;
-
-const SCOPES = 'global';
 const TOKEN_KEY = 'authToken';
 
 async function getToken(): Promise< StoredToken | null > {

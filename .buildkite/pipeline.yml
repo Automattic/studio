@@ -74,7 +74,7 @@ steps:
       install_npm_packages
       node ./scripts/generate-releases-manifest.mjs
 
-      echo "--- :fastlane: Distributing Dev Build"
+      echo "--- :fastlane: Distributing Dev Builds"
       install_gems
       bundle exec fastlane distribute_dev_build
     agents:
@@ -128,7 +128,7 @@ steps:
       install_npm_packages
       node ./scripts/generate-releases-manifest.mjs
 
-      echo "--- :fastlane: Distributing Dev Build"
+      echo "--- :fastlane: Distributing Release Builds"
       install_gems
       bundle exec fastlane distribute_release_build
     agents:

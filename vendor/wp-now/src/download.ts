@@ -191,18 +191,26 @@ export async function downloadWordPress(
 	}
 }
 
-export async function downloadSqliteIntegrationPlugin() {
+export async function downloadSqliteIntegrationPlugin(
+	version = '',
+	{overwrite}: {overwrite: boolean} = {overwrite: false}
+) {
 	const finalFolder = getSqlitePath();
 	const tempFolder = path.join(os.tmpdir(), SQLITE_FILENAME);
+	const url = !! version
+		? `https://codeload.github.com/WordPress/sqlite-database-integration/zip/refs/tags/v${ version }`
+		: SQLITE_URL;
 	const { downloaded, statusCode } = await downloadFileAndUnzip({
-		url: SQLITE_URL,
+		url,
 		destinationFolder: tempFolder,
 		checkFinalPath: finalFolder,
 		itemName: 'SQLite',
+		overwrite,
 	});
 	if (downloaded) {
-		fs.ensureDirSync(path.dirname(finalFolder));
-		fs.moveSync(tempFolder, finalFolder, {
+		const nestedFolder = SQLITE_FILENAME.replace(/main$/, version);
+		await fs.ensureDir(path.dirname(finalFolder));
+		await fs.move(path.join(tempFolder, nestedFolder), finalFolder, {
 			overwrite: true,
 		});
 	} else if(0 !== statusCode) {

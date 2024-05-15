@@ -1,4 +1,5 @@
 import path from 'path';
+// eslint-disable-next-line import/default
 import CopyWebpackPlugin from 'copy-webpack-plugin';
 import { type Configuration, DefinePlugin } from 'webpack';
 import { plugins } from './webpack.plugins';

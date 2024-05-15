@@ -20,7 +20,16 @@ export function createScreenshotWindow( captureUrl: string ) {
 
 	const waitForCapture = async () => {
 		await finishedLoading;
-		await window.webContents.insertCSS( '::-webkit-scrollbar { display: none; }' );
+		await window.webContents.insertCSS( `
+			body {
+				overflow: hidden;
+				height: 100vh;
+			}
+			::-webkit-scrollbar {
+				display: none;
+			}
+		` );
+
 		await new Promise( ( resolve ) => setTimeout( resolve, 500 ) );
 		return window.webContents.capturePage();
 	};

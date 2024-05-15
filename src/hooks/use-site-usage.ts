@@ -55,9 +55,7 @@ export function useSiteUsage() {
 				setSiteLimit( LIMIT_OF_ZIP_SITES_PER_USER );
 				return;
 			}
-			setAllSites(
-				response.sites.map( ( site ) => ( { atomicSiteId: site.atomic_site_id } ) )
-			);
+			setAllSites( response.sites.map( ( site ) => ( { atomicSiteId: site.atomic_site_id } ) ) );
 			setSiteCount( response.site_count );
 			setSiteLimit( response.site_limit );
 		};

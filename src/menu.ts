@@ -46,7 +46,7 @@ export function setupMenu( mainWindow: BrowserWindow | null ) {
 			role: 'appMenu',
 			submenu: [
 				{
-					label: 'About Studio',
+					label: __( 'About Studio' ),
 					click: openAboutWindow,
 				},
 				...( isUpdateReadyToInstall()

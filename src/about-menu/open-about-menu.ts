@@ -1,5 +1,6 @@
 import { BrowserWindow, app, shell } from 'electron';
 import path from 'path';
+import { ABOUT_WINDOW_HEIGHT, ABOUT_WINDOW_WIDTH } from '../constants';
 
 let aboutWindow: BrowserWindow | null = null;
 
@@ -12,8 +13,8 @@ export function openAboutWindow() {
 	}
 
 	aboutWindow = new BrowserWindow( {
-		width: 284,
-		height: 284,
+		width: ABOUT_WINDOW_WIDTH,
+		height: ABOUT_WINDOW_HEIGHT,
 		resizable: false,
 		minimizable: false,
 		maximizable: false,

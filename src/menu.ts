@@ -7,6 +7,7 @@ import {
 	shell,
 } from 'electron';
 import { __ } from '@wordpress/i18n';
+import { openAboutWindow } from './about-menu/open-about-menu';
 import { STUDIO_DOCS_URL } from './constants';
 import { withMainWindow } from './main-window';
 import { isUpdateReadyToInstall, manualCheckForUpdates } from './updates';
@@ -44,7 +45,10 @@ export function setupMenu( mainWindow: BrowserWindow | null ) {
 			label: app.name, // macOS ignores this name and uses the name from the .plist
 			role: 'appMenu',
 			submenu: [
-				{ role: 'about' },
+				{
+					label: __( 'About Studio' ),
+					click: openAboutWindow,
+				},
 				...( isUpdateReadyToInstall()
 					? [
 							{

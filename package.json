@@ -57,6 +57,7 @@
 		"@wordpress/element": "^5.27.0",
 		"@wordpress/react-i18n": "^3.48.0",
 		"autoprefixer": "^10.4.16",
+		"copy-webpack-plugin": "^12.0.2",
 		"css-loader": "^6.0.0",
 		"ejs": "^3.1.10",
 		"electron": "29.1.0",

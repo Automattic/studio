@@ -21,7 +21,7 @@
 		"make:macos-universal": "SKIP_DMG=true electron-forge make --arch=universal",
 		"make:macos-x64": "SKIP_DMG=true FILE_ARCHITECTURE=x64 electron-forge make --arch=x64 --platform=darwin",
 		"make:macos-arm64": "SKIP_DMG=true FILE_ARCHITECTURE=arm64 electron-forge make --arch=arm64 --platform=darwin",
-		"make:dmg-universal": "node ./scripts/make-dmg.mjs",
+		"make:dmg-universal": "FILE_ARCHITECTURE=universal node ./scripts/make-dmg.mjs",
 		"make:dmg-x64": "FILE_ARCHITECTURE=x64 node ./scripts/make-dmg.mjs",
 		"make:dmg-arm64": "FILE_ARCHITECTURE=arm64 node ./scripts/make-dmg.mjs",
 		"publish": "electron-forge publish",

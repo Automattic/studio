@@ -101,6 +101,11 @@ function useSnapshots() {
 				( snapshotI ) => snapshotI.atomicSiteId === snapshot.atomicSiteId
 			);
 			if ( index === -1 ) {
+				if ( snapshot.isDeleting ) {
+					const newSnapshots = [ ...snapshots ];
+					newSnapshots.push( snapshot as Snapshot );
+					return newSnapshots;
+				}
 				return snapshots;
 			}
 			const newSnapshots = [ ...snapshots ];

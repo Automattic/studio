@@ -8,7 +8,6 @@ import { useAuth } from '../hooks/use-auth';
 import { useDeleteSnapshot } from '../hooks/use-delete-snapshot';
 import { useIpcListener } from '../hooks/use-ipc-listener';
 import { useOffline } from '../hooks/use-offline';
-import { useSiteDetails } from '../hooks/use-site-details';
 import { useSiteUsage } from '../hooks/use-site-usage';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
@@ -143,8 +142,7 @@ const SnapshotInfo = ( {
 export default function UserSettings() {
 	const { __ } = useI18n();
 	const { isAuthenticated, authenticate, logout, user } = useAuth();
-	const { snapshots } = useSiteDetails();
-	const { siteLimit, siteCount, isLoading: isLoadingSiteUsage } = useSiteUsage();
+	const { siteLimit, siteCount, isLoading: isLoadingSiteUsage, allSites } = useSiteUsage();
 	const { deleteAllSnapshots, loadingDeletingAllSnapshots } = useDeleteSnapshot( {
 		displayAlert: true,
 	} );
@@ -162,11 +160,25 @@ export default function UserSettings() {
 	} );
 
 	const onRemoveSnapshots = useCallback( async () => {
-		if ( snapshots?.length === 0 ) {
+		if ( allSites?.length === 0 ) {
 			return;
 		}
-		await deleteAllSnapshots( snapshots );
-	}, [ snapshots, deleteAllSnapshots ] );
+
+		const DELETE_BUTTON_INDEX = 0;
+		const CANCEL_BUTTON_INDEX = 1;
+
+		const { response } = await getIpcApi().showMessageBox( {
+			type: 'warning',
+			message: __( 'Delete all demo sites.' ),
+			detail: __( 'All demo sites associated with your WordPress.com account will be deleted.' ),
+			buttons: [ __( 'Delete all demo sites' ), __( 'Cancel' ) ],
+			cancelId: CANCEL_BUTTON_INDEX,
+		} );
+
+		if ( response === DELETE_BUTTON_INDEX ) {
+			await deleteAllSnapshots( allSites );
+		}
+	}, [ allSites, deleteAllSnapshots, __ ] );
 
 	return (
 		<>
@@ -202,7 +214,7 @@ export default function UserSettings() {
 									siteCount === 0 ||
 									loadingDeletingAllSnapshots ||
 									isLoadingSiteUsage ||
-									snapshots.length === 0 ||
+									allSites.length === 0 ||
 									isOffline
 								}
 								siteCount={ siteCount }

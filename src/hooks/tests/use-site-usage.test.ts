@@ -1,4 +1,4 @@
-// To run tests, execute `npm run test -- src/hooks/use-site-usage.test.ts` from the root directory
+// To run tests, execute `npm run test -- src/hooks/tests/use-site-usage.test.ts` from the root directory
 import * as Sentry from '@sentry/electron/renderer';
 import { waitFor, renderHook } from '@testing-library/react';
 import { LIMIT_OF_ZIP_SITES_PER_USER } from '../../constants';
@@ -53,7 +53,21 @@ describe( 'useSiteUsage', () => {
 		( useAuth as jest.Mock ).mockReturnValue( {
 			client: {
 				req: {
-					get: clientReqGet.mockResolvedValue( { site_count: 3, site_limit: 15 } ),
+					get: clientReqGet.mockResolvedValue( {
+						site_count: 3,
+						site_limit: 15,
+						sites: [
+							{
+								atomic_site_id: 12345,
+							},
+							{
+								atomic_site_id: 67890,
+							},
+							{
+								atomic_site_id: 13579,
+							},
+						],
+					} ),
 				},
 			},
 		} );

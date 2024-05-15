@@ -8,7 +8,8 @@
 * Ensured non-destroyed window exists for authentication event handler #86
 * Addressed file permission issues in new directories created by WordPress on Windows #66
 * Fixed issue with sidebar layout breaking on specific languages #93
-* Update Studio Windows installer GIF, Windows app icon and minor UI fixes #97, #124
+* Update Studio Windows installer GIF and Windows app icon #97, #101
+* Minor UI fixes for Windows #124, #125, #128, #133
 * Fixed resolving external hosts like YouTube or Soundcloud #73
 * Updated header styles #105
 * Removed arrow and improved button CTA on Onboarding screen #111

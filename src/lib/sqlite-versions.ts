@@ -24,9 +24,8 @@ export async function isSqliteInstallationOutdated( installationPath: string ): 
 		const installedVersion = getSqliteVersionFromInstallation( installationPath );
 		const latestVersion = await getLatestSqliteVersion();
 		return semver.lt( installedVersion, latestVersion );
-	} catch ( error ) {
-		Sentry.captureException( error );
-		return true;
+	} catch ( _error ) {
+		return false;
 	}
 }
 

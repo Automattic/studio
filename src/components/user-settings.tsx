@@ -6,6 +6,7 @@ import { useCallback, useState } from 'react';
 import { WPCOM_PROFILE_URL } from '../constants';
 import { useAuth } from '../hooks/use-auth';
 import { useDeleteSnapshot } from '../hooks/use-delete-snapshot';
+import { useFetchSnapshots } from '../hooks/use-fetch-snaphsots';
 import { useIpcListener } from '../hooks/use-ipc-listener';
 import { useOffline } from '../hooks/use-offline';
 import { useSiteUsage } from '../hooks/use-site-usage';
@@ -142,7 +143,8 @@ const SnapshotInfo = ( {
 export default function UserSettings() {
 	const { __ } = useI18n();
 	const { isAuthenticated, authenticate, logout, user } = useAuth();
-	const { siteLimit, siteCount, isLoading: isLoadingSiteUsage, allSites } = useSiteUsage();
+	const { siteLimit, siteCount, isLoading: isLoadingSiteUsage } = useSiteUsage();
+	const { allSnapshots, isLoading: isLoadingAllSnapshots } = useFetchSnapshots();
 	const { deleteAllSnapshots, loadingDeletingAllSnapshots } = useDeleteSnapshot( {
 		displayAlert: true,
 	} );
@@ -160,7 +162,7 @@ export default function UserSettings() {
 	} );
 
 	const onRemoveSnapshots = useCallback( async () => {
-		if ( allSites?.length === 0 ) {
+		if ( allSnapshots?.length === 0 ) {
 			return;
 		}
 
@@ -170,15 +172,17 @@ export default function UserSettings() {
 		const { response } = await getIpcApi().showMessageBox( {
 			type: 'warning',
 			message: __( 'Delete all demo sites' ),
-			detail: __( "Any changes you've made to your demo sites will be lost." ),
+			detail: __(
+				'All demo sites databases that exist for your WordPress.com account, along with all posts, pages, comments, and media, will be lost.'
+			),
 			buttons: [ __( 'Cancel' ), __( 'Delete all' ) ],
 			cancelId: CANCEL_BUTTON_INDEX,
 		} );
 
 		if ( response === DELETE_BUTTON_INDEX ) {
-			await deleteAllSnapshots( allSites );
+			await deleteAllSnapshots( allSnapshots );
 		}
-	}, [ allSites, deleteAllSnapshots, __ ] );
+	}, [ allSnapshots, deleteAllSnapshots, __ ] );
 
 	return (
 		<>
@@ -213,8 +217,9 @@ export default function UserSettings() {
 								isDisabled={
 									siteCount === 0 ||
 									loadingDeletingAllSnapshots ||
+									isLoadingAllSnapshots ||
 									isLoadingSiteUsage ||
-									allSites.length === 0 ||
+									allSnapshots.length === 0 ||
 									isOffline
 								}
 								siteCount={ siteCount }

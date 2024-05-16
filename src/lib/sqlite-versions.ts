@@ -1,4 +1,5 @@
 import path from 'path';
+import * as Sentry from '@sentry/electron/main';
 import fs from 'fs-extra';
 import semver from 'semver';
 import { downloadSqliteIntegrationPlugin } from '../../vendor/wp-now/src/download';
@@ -12,11 +13,21 @@ export async function updateLatestSqliteVersion() {
 		: [];
 	const latestVersion = await getLatestSqliteVersion();
 	if ( installedFiles.length !== 0 ) {
-		const installedVersion = getSqliteVersionFromInstallation( installedPath );
-		shouldOverwrite = !! installedVersion && !! latestVersion && installedVersion !== latestVersion;
+		shouldOverwrite = await isSqliteInstallationOutdated( installedPath );
 	}
 
 	await downloadSqliteIntegrationPlugin( latestVersion, { overwrite: shouldOverwrite } );
+}
+
+export async function isSqliteInstallationOutdated( installationPath: string ): Promise< boolean > {
+	try {
+		const installedVersion = getSqliteVersionFromInstallation( installationPath );
+		const latestVersion = await getLatestSqliteVersion();
+		return semver.lt( installedVersion, latestVersion );
+	} catch ( error ) {
+		Sentry.captureException( error );
+		return true;
+	}
 }
 
 function getSqliteVersionFromInstallation( installationPath: string ): string {

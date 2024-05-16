@@ -1,7 +1,7 @@
+import child_process from 'child_process';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import packageJson from '../package.json' assert { type: 'json' };
-import child_process from "child_process";
 
 const __dirname = path.dirname( fileURLToPath( import.meta.url ) );
 
@@ -23,13 +23,13 @@ const backgroundPath = path.resolve( __dirname, '../assets/dmg-background.png' )
 
 child_process.execSync(
 	`create-dmg ` +
-	`--volname ${packageJson.productName}.app ` +
-	`--volicon ${volumeIconPath} ` +
-	'--window-size 710 502 ' +
-	`--background ${backgroundPath} ` +
-	`--icon ${packageJson.productName} 533 122 ` +
-	'--icon-size 80 ' +
-	'--app-drop-link 533 354 ' +
-	`${dmgPath} ` +
-	appPath
+		`--volname ${ packageJson.productName }.app ` +
+		`--volicon ${ volumeIconPath } ` +
+		'--window-size 710 502 ' +
+		`--background ${ backgroundPath } ` +
+		`--icon ${ packageJson.productName } 533 122 ` +
+		'--icon-size 80 ' +
+		'--app-drop-link 533 354 ' +
+		`${ dmgPath } ` +
+		appPath
 );

@@ -81,9 +81,3 @@ refreshenv
 Write-Host "--- :npm: Installing Dependencies"
 npm ci
 If ($LastExitCode -ne 0) { Exit $LastExitCode }
-
-Write-Host "--- :node: Building App"
-node ./scripts/prepare-dev-build-version.mjs
-
-npm run make
-If ($LastExitCode -ne 0) { Exit $LastExitCode }

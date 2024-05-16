@@ -11,10 +11,11 @@ import path from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { __, defaultI18n } from '@wordpress/i18n';
 import packageJson from '../package.json';
+import { PROTOCOL_PREFIX } from './constants';
 import * as ipcHandlers from './ipc-handlers';
 import { bumpAggregatedUniqueStat } from './lib/bump-stats';
 import { getLocaleData, getSupportedLocale } from './lib/locale';
-import { PROTOCOL_PREFIX, handleAuthCallback, setUpAuthCallbackHandler } from './lib/oauth';
+import { handleAuthCallback, setUpAuthCallbackHandler } from './lib/oauth';
 import { setupLogging } from './logging';
 import { createMainWindow, withMainWindow } from './main-window';
 import {
@@ -249,7 +250,7 @@ async function appBoot() {
 		// On OS X it's common to re-create a window in the app when the
 		// dock icon is clicked and there are no other windows open.
 		if ( BrowserWindow.getAllWindows().length === 0 ) {
-			createMainWindow();
+			app.whenReady().then( createMainWindow ).catch( Sentry.captureException );
 		}
 	} );
 }

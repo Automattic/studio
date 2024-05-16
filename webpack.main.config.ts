@@ -1,4 +1,6 @@
 import path from 'path';
+// eslint-disable-next-line import/default
+import CopyWebpackPlugin from 'copy-webpack-plugin';
 import { type Configuration, DefinePlugin } from 'webpack';
 import { plugins } from './webpack.plugins';
 import { rules } from './webpack.rules';
@@ -59,6 +61,19 @@ export const mainBaseConfig: Configuration = {
 			COMMIT_HASH: JSON.stringify(
 				process.env.GITHUB_SHA ?? process.env.BUILDKITE_COMMIT ?? undefined
 			),
+		} ),
+		new CopyWebpackPlugin( {
+			patterns: [
+				// Copy about-menu.html into the main output directory
+				{
+					from: path.resolve( __dirname, 'src/about-menu/about-menu.html' ),
+					to: path.resolve( __dirname, '.webpack/main/menu' ),
+				},
+				{
+					from: path.resolve( __dirname, 'src/about-menu/studio-app-icon.png' ),
+					to: path.resolve( __dirname, '.webpack/main/menu' ),
+				},
+			],
 		} ),
 	],
 	resolve: {

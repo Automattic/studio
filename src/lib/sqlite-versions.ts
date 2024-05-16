@@ -45,18 +45,30 @@ async function getLatestSqliteVersion() {
 	return sqliteVersions.latest;
 }
 
+// Cache version fetches for the duration of the app session
+let sqliteVersionsCache: { versions: ( semver.SemVer | null )[]; latest: string } = {
+	versions: [],
+	latest: '',
+};
+
 async function fetchSqliteVersions() {
+	if ( sqliteVersionsCache.versions.length ) {
+		return sqliteVersionsCache;
+	}
+
 	try {
 		const response = await fetch(
 			'https://api.github.com/repos/WordPress/sqlite-database-integration/releases'
 		);
 		const data: Record< string, string >[] = await response.json();
 		const versions = data.map( ( release ) => semver.coerce( release.tag_name ) );
-		return {
+		sqliteVersionsCache = {
 			versions,
 			latest: versions[ 0 ]?.version || '',
 		};
 	} catch ( _error ) {
-		return { versions: [], latest: '' };
+		// Discard the failed fetch, return the cache
 	}
+
+	return sqliteVersionsCache;
 }

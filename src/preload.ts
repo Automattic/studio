@@ -39,6 +39,7 @@ const api: IpcApi = {
 	getOnboardingData: () => ipcRenderer.invoke( 'getOnboardingData' ),
 	saveOnboarding: ( onboardingCompleted: boolean ) =>
 		ipcRenderer.invoke( 'saveOnboarding', onboardingCompleted ),
+	saveUserLocale: ( locale: string ) => ipcRenderer.invoke( 'saveUserLocale', locale ),
 	openTerminalAtPath: ( targetPath: string ) =>
 		ipcRenderer.invoke( 'openTerminalAtPath', targetPath ),
 	showMessageBox: ( options: Electron.MessageBoxOptions ) =>

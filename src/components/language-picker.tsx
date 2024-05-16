@@ -1,5 +1,6 @@
 import { SelectControl } from '@wordpress/components';
 import { useState } from 'react';
+import { getIpcApi } from '../lib/get-ipc-api';
 
 // TODO: use supportedLocales from locale.ts
 export const supportedLocales = {
@@ -26,17 +27,23 @@ export const supportedLocales = {
 export const LanguagePicker = () => {
 	const [ locale, setLocale ] = useState( '' );
 
+	const handleLocaleChange = ( value: string ) => {
+		console.log( `Switching to locale: ${ value }` );
+		setLocale( value );
+
+		// Save locale string to saveUserLocale
+		getIpcApi().saveUserLocale( value );
+	};
+
 	return (
 		<div className="flex gap-5 flex-col">
 			<h2 className="a8c-subtitle-small">Language</h2>
 			<SelectControl
 				value={ locale || 'en' }
-				onChange={ ( value ) => {
-					setLocale( value );
-				} }
+				onChange={ handleLocaleChange }
 				options={ Object.entries( supportedLocales ).map( ( [ locale, name ] ) => ( {
 					value: locale,
-					label: name as string, // Cast 'name' to string
+					label: name as string,
 				} ) ) }
 			/>
 		</div>

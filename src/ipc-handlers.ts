@@ -542,6 +542,14 @@ export async function saveOnboarding(
 	} );
 }
 
+export async function saveUserLocale( _event: IpcMainInvokeEvent, userLocale: string ) {
+	const userData = await loadUserData();
+	await saveUserData( {
+		...userData,
+		userLocale,
+	} );
+}
+
 export async function getThumbnailData( _event: IpcMainInvokeEvent, id: string ) {
 	const path = getSiteThumbnailPath( id );
 	return getImageData( path );

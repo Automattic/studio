@@ -6,6 +6,7 @@ export interface UserData {
 	devToolsOpen?: boolean;
 	authToken?: StoredToken;
 	onboardingCompleted?: boolean;
+	userLocale?: string;
 	lastBumpStats?: {
 		[ group: string ]: {
 			[ stat: string ]: number;

@@ -164,14 +164,14 @@ export default function UserSettings() {
 			return;
 		}
 
-		const DELETE_BUTTON_INDEX = 0;
-		const CANCEL_BUTTON_INDEX = 1;
+		const CANCEL_BUTTON_INDEX = 0;
+		const DELETE_BUTTON_INDEX = 1;
 
 		const { response } = await getIpcApi().showMessageBox( {
 			type: 'warning',
-			message: __( 'Delete all demo sites.' ),
-			detail: __( 'All demo sites associated with your WordPress.com account will be deleted.' ),
-			buttons: [ __( 'Delete all demo sites' ), __( 'Cancel' ) ],
+			message: __( 'Delete all demo sites' ),
+			detail: __( "Any changes you've made to your demo sites will be lost." ),
+			buttons: [  __( 'Cancel' ), __( 'Delete all' ) ],
 			cancelId: CANCEL_BUTTON_INDEX,
 		} );
 

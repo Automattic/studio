@@ -55,9 +55,10 @@ export function useSiteUsage() {
 				setSiteLimit( LIMIT_OF_ZIP_SITES_PER_USER );
 				return;
 			}
-			setAllSites( response.sites.map( ( site ) => ( { atomicSiteId: site.atomic_site_id } ) ) );
-			setSiteCount( response.site_count );
-			setSiteLimit( response.site_limit );
+			const { sites = [], site_count, site_limit } = response;
+			setAllSites( sites.map( ( site ) => ( { atomicSiteId: site.atomic_site_id } ) ) );
+			setSiteCount( site_count );
+			setSiteLimit( site_limit );
 		};
 		fetchStats();
 	}, [ fetchSiteUsage, snapshots.length, client ] );

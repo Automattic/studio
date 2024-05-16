@@ -1,7 +1,7 @@
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-import createDMG from 'electron-installer-dmg';
 import packageJson from '../package.json' assert { type: 'json' };
+import child_process from "child_process";
 
 const __dirname = path.dirname( fileURLToPath( import.meta.url ) );
 
@@ -18,27 +18,18 @@ const dmgPath = path.resolve(
 	`${ packageJson.productName }-darwin-${ process.env.FILE_ARCHITECTURE }.dmg`
 );
 
-await createDMG( {
-	appPath,
-	dmgPath,
-	name: packageJson.productName,
-	icon: path.resolve( __dirname, '../assets/studio-app-icon.icns' ),
-	background: path.resolve( __dirname, '../assets/dmg-background.png' ),
-	contents: [
-		{
-			x: 533,
-			y: 122,
-			type: 'file',
-			path: appPath,
-		},
-		{ x: 533, y: 354, type: 'link', path: '/Applications' },
-	],
-	additionalDMGOptions: {
-		window: {
-			size: {
-				width: 710,
-				height: 502,
-			},
-		},
-	},
-} );
+const volumeIconPath = path.resolve( __dirname, '../assets/studio-app-icon.icns' );
+const backgroundPath = path.resolve( __dirname, '../assets/dmg-background.png' );
+
+child_process.execSync(
+	`create-dmg ` +
+	`--volname ${packageJson.productName}.app ` +
+	`--volicon ${volumeIconPath} ` +
+	'--window-size 710 502 ' +
+	`--background ${backgroundPath} ` +
+	`--icon ${packageJson.productName} 533 122 ` +
+	'--icon-size 80 ' +
+	'--app-drop-link 533 354 ' +
+	`${dmgPath} ` +
+	appPath
+);

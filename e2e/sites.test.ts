@@ -126,7 +126,10 @@ test.describe( 'Servers', () => {
 		expect( await page.title() ).toBe( 'testing site title' );
 	} );
 
-	test( 'delete site', async () => {
+	test.fixme( 'delete site', async () => {
+		// Test doesn't work currently as we migrated from the in-app modal
+		// to native dialog, and native dialogs can't be tested by Playwright.
+		// See: https://github.com/microsoft/playwright/issues/21432
 		const siteContent = new SiteContent( mainWindow, siteName );
 		const settingsTab = await siteContent.navigateToTab( 'Settings' );
 

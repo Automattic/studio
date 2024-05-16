@@ -45,10 +45,10 @@ test.describe( 'Servers', () => {
 		await onboarding.heading.isVisible();
 		if ( await onboarding.heading.isVisible() ) {
 			await expect( onboarding.siteNameInput ).toHaveValue( defaultOnboardingSiteName );
-			await expect( onboarding.sitePathInput ).toBeVisible();
+			await expect( onboarding.localPathInput ).toBeVisible();
 			await expect( onboarding.continueButton ).toBeVisible();
 
-			await onboarding.clickLocalPathButtonAndSelectFromEnv();
+			await onboarding.selectLocalPathForTesting();
 			await onboarding.continueButton.click();
 
 			const siteContent = new SiteContent( onboardingMainWindow, defaultOnboardingSiteName );
@@ -81,7 +81,7 @@ test.describe( 'Servers', () => {
 		const modal = await sidebar.openAddSiteModal();
 
 		await modal.siteNameInput.fill( siteName );
-		await modal.clickLocalPathButtonAndSelectFromEnv();
+		await modal.selectLocalPathForTesting();
 		// Can't get the text out of this yet...
 		// expect( await modal.localPathInput.inputValue() ).toBe( tmpSiteDir );
 		// expect( await modal.localPathInput ).toHaveText( tmpSiteDir, { useInnerText: true } );

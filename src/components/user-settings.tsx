@@ -171,7 +171,7 @@ export default function UserSettings() {
 			type: 'warning',
 			message: __( 'Delete all demo sites' ),
 			detail: __( "Any changes you've made to your demo sites will be lost." ),
-			buttons: [  __( 'Cancel' ), __( 'Delete all' ) ],
+			buttons: [ __( 'Cancel' ), __( 'Delete all' ) ],
 			cancelId: CANCEL_BUTTON_INDEX,
 		} );
 

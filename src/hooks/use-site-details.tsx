@@ -17,7 +17,7 @@ interface SiteDetailsContext {
 	startServer: ( id: string ) => Promise< void >;
 	stopServer: ( id: string ) => Promise< void >;
 	stopAllRunningSites: () => Promise< void >;
-	deleteSite: ( id: string, removeLocal: boolean, deleteSnapshots?: boolean ) => Promise< void >;
+	deleteSite: ( id: string, removeLocal: boolean ) => Promise< void >;
 	loadingServer: Record< string, boolean >;
 	loadingSites: boolean;
 	isDeleting: boolean;
@@ -133,24 +133,15 @@ function useDeleteSite() {
 		async (
 			siteId: string,
 			removeLocal: boolean,
-			snapshots: Snapshot[],
-			deleteSnapshots?: boolean
+			snapshots: Snapshot[]
 		): Promise< SiteDetails[] | undefined > => {
 			if ( ! siteId ) {
 				return;
 			}
 
-			// Default deleteSnapshots to true
-			const shouldDeleteSnapshots = deleteSnapshots ?? true;
-
-			let allSiteRemovePromises;
-			if ( shouldDeleteSnapshots ) {
-				allSiteRemovePromises = Promise.allSettled(
-					snapshots.map( ( snapshot ) => deleteSnapshot( snapshot ) )
-				);
-			} else {
-				allSiteRemovePromises = Promise.resolve( [] );
-			}
+			const allSiteRemovePromises = Promise.allSettled(
+				snapshots.map( ( snapshot ) => deleteSnapshot( snapshot ) )
+			);
 
 			try {
 				setIsLoading( ( loading ) => ( { ...loading, [ siteId ]: true } ) );

@@ -138,7 +138,6 @@ function useDeleteSite() {
 			if ( ! siteId ) {
 				return;
 			}
-
 			const allSiteRemovePromises = Promise.allSettled(
 				snapshots.map( ( snapshot ) => deleteSnapshot( snapshot ) )
 			);

@@ -123,7 +123,6 @@ describe( 'ContentTabSettings', () => {
 			isDeleting: false,
 		} );
 		render( <ContentTabSettings selectedSite={ selectedSite } /> );
-		screen.debug();
 		const deleteSiteButton = await screen.findByRole( 'button', { name: 'Delete site' } );
 		expect( deleteSiteButton ).toHaveAttribute( 'aria-disabled', 'true' );
 		fireEvent.mouseOver( deleteSiteButton );

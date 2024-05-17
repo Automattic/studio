@@ -126,16 +126,20 @@ test.describe( 'Servers', () => {
 		expect( await page.title() ).toBe( 'testing site title' );
 	} );
 
-	test.fixme( 'delete site', async () => {
-		// Test doesn't work currently as we migrated from the in-app modal
-		// to native dialog, and native dialogs can't be tested by Playwright.
-		// See: https://github.com/microsoft/playwright/issues/21432
+	test( 'delete site', async () => {
 		const siteContent = new SiteContent( mainWindow, siteName );
 		const settingsTab = await siteContent.navigateToTab( 'Settings' );
 
-		const modal = await settingsTab.openDeleteSiteModal();
-		await modal.deleteFilesCheckbox.check();
-		modal.deleteSiteButton.click();
+		// Playwright lacks support for interacting with native dialogs, so we mock
+		// the dialog module to simulate the user clicking the "Delete site"
+		// confirmation button with "Delete site files from my computer" checked.
+		// See: https://github.com/microsoft/playwright/issues/21432
+		await electronApp.evaluate( ( { dialog } ) => {
+			dialog.showMessageBox = async () => {
+				return { response: 0, checkboxChecked: true };
+			};
+		} );
+		await settingsTab.openDeleteSiteModal();
 
 		await mainWindow.waitForTimeout( 200 ); // Short pause for site to delete.
 

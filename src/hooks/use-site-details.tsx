@@ -17,7 +17,7 @@ interface SiteDetailsContext {
 	startServer: ( id: string ) => Promise< void >;
 	stopServer: ( id: string ) => Promise< void >;
 	stopAllRunningSites: () => Promise< void >;
-	deleteSite: ( id: string, removeLocal: boolean ) => Promise< void >;
+	deleteSite: ( id: string, removeLocal: boolean, deleteSnapshots?: boolean ) => Promise< void >;
 	loadingServer: Record< string, boolean >;
 	loadingSites: boolean;
 	isDeleting: boolean;
@@ -134,7 +134,7 @@ function useDeleteSite() {
 			siteId: string,
 			removeLocal: boolean,
 			snapshots: Snapshot[],
-			deleteSnapshots?: boolean // Parameter without default value in the signature
+			deleteSnapshots?: boolean
 		): Promise< SiteDetails[] | undefined > => {
 			if ( ! siteId ) {
 				return;

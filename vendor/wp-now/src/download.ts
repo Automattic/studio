@@ -314,6 +314,12 @@ set_error_handler(function($severity, $message, $file, $line) {
 	add_action('after_setup_theme', 'check_current_theme_availability');
 `);
 
+	fs.writeFile(
+		path.join(muPluginsPath, '0-permalinks.php'),
+		`<?php
+			// Support permalinks without "index.php"
+			add_filter( 'got_url_rewrite', '__return_true' );
+	`);
 }
 
 export function getWordPressVersionPath(wpVersion: string) {

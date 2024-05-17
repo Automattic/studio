@@ -66,7 +66,11 @@ export default class SiteServerProcess {
 		const message = 'stop-server';
 		const messageId = this.sendMessage( message );
 		await this.waitForResponse( message, messageId );
-		await this.#killProcess();
+		try {
+			await this.#killProcess();
+		} catch ( error ) {
+			console.error( 'Error stopping site server process', error );
+		}
 	}
 
 	async runPhp( data: PHPRunOptions ): Promise< string > {

@@ -30,6 +30,7 @@ child_process.execSync(
 		`--icon ${ packageJson.productName } 533 122 ` +
 		'--icon-size 80 ' +
 		'--app-drop-link 533 354 ' +
+		'--skip-jenkins ' +
 		`${ dmgPath } ` +
 		appPath
 );

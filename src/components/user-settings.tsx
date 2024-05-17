@@ -162,7 +162,7 @@ export default function UserSettings() {
 	} );
 
 	const onRemoveSnapshots = useCallback( async () => {
-		if ( allSnapshots?.length === 0 ) {
+		if ( ! allSnapshots || allSnapshots.length === 0 ) {
 			return;
 		}
 
@@ -219,7 +219,7 @@ export default function UserSettings() {
 									loadingDeletingAllSnapshots ||
 									isLoadingAllSnapshots ||
 									isLoadingSiteUsage ||
-									allSnapshots.length === 0 ||
+									allSnapshots?.length === 0 ||
 									isOffline
 								}
 								siteCount={ siteCount }

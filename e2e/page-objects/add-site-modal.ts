@@ -1,4 +1,5 @@
 import { type Page } from '@playwright/test';
+import SiteForm from './site-form';
 
 export default class AddSiteModal {
 	constructor( private page: Page ) {}
@@ -7,25 +8,23 @@ export default class AddSiteModal {
 		return this.page.getByRole( 'dialog', { name: 'Add a site' } );
 	}
 
+	private get siteForm() {
+		return new SiteForm( this.page );
+	}
+
 	get siteNameInput() {
-		return this.locator.getByLabel( 'Site name' );
+		return this.siteForm.siteNameInput;
 	}
 
 	get localPathInput() {
-		return this.locator.getByLabel( 'Local path' );
-	}
-
-	get localPathButton() {
-		return this.locator.getByTestId( 'select-path-button' );
+		return this.siteForm.localPathInput;
 	}
 
 	get addSiteButton() {
 		return this.locator.getByRole( 'button', { name: 'Add site' } );
 	}
 
-	// This usually opens an OS folder dialog, except we can't interact with it in playwrite.
-	// In tests the dialog returns the value of the E2E_OPEN_FOLDER_DIALOG environment variable.
-	async clickLocalPathButtonAndSelectFromEnv() {
-		await this.localPathButton.click();
+	async selectLocalPathForTesting() {
+		await this.siteForm.clickLocalPathButtonAndSelectFromEnv();
 	}
 }

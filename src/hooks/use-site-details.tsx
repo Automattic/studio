@@ -133,14 +133,24 @@ function useDeleteSite() {
 		async (
 			siteId: string,
 			removeLocal: boolean,
-			snapshots: Snapshot[]
+			snapshots: Snapshot[],
+			deleteSnapshots?: boolean // Parameter without default value in the signature
 		): Promise< SiteDetails[] | undefined > => {
 			if ( ! siteId ) {
 				return;
 			}
-			const allSiteRemovePromises = Promise.allSettled(
-				snapshots.map( ( snapshot ) => deleteSnapshot( snapshot ) )
-			);
+
+			// Default deleteSnapshots to true
+			const shouldDeleteSnapshots = deleteSnapshots ?? true;
+
+			let allSiteRemovePromises;
+			if ( shouldDeleteSnapshots ) {
+				allSiteRemovePromises = Promise.allSettled(
+					snapshots.map( ( snapshot ) => deleteSnapshot( snapshot ) )
+				);
+			} else {
+				allSiteRemovePromises = Promise.resolve( [] );
+			}
 
 			try {
 				setIsLoading( ( loading ) => ( { ...loading, [ siteId ]: true } ) );

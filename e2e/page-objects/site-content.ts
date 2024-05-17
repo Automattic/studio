@@ -17,9 +17,15 @@ export default class SiteContent {
 	}
 
 	get frontendButton() {
-		return this.locator
-			.getByTestId( 'site-content-header' )
-			.getByRole( 'button', { name: 'localhost:', exact: false } );
+		// Original: No longer works.
+		//
+		// return this.locator
+		// 	.getByTestId( 'site-content-header' )
+		// 	.getByRole( 'button', { name: 'localhost:', exact: false } );
+		//
+		// Obtained via --debug and the locator tool.
+		// Less robust because uses label value which might change faster than the data-testid.
+		return this.locator.getByLabel( 'Copy site url', { exact: false } );
 	}
 
 	getTabButton( tabName: 'Preview' | 'Settings' ) {

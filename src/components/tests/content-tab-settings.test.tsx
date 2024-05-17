@@ -112,7 +112,7 @@ describe( 'ContentTabSettings', () => {
 		expect( copyText ).toHaveBeenCalledWith( 'test-password' );
 	} );
 
-	it( 'disables delete site button when offlin and there is at least one snapshot present for the site', async () => {
+	it( 'disables delete site button when offline and there is at least one snapshot present for the site', async () => {
 		( useOffline as jest.Mock ).mockReturnValue( true );
 
 		// Mock snapshots to include a snapshot for the selected site

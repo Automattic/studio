@@ -3,10 +3,12 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { useGetWpVersion } from '../../hooks/use-get-wp-version';
 import { useOffline } from '../../hooks/use-offline';
+import { useSiteDetails } from '../../hooks/use-site-details';
 import { getIpcApi } from '../../lib/get-ipc-api';
 import { ContentTabSettings } from '../content-tab-settings';
 
 jest.mock( '../../hooks/use-get-wp-version' );
+jest.mock( '../../hooks/use-site-details' );
 jest.mock( '../../lib/get-ipc-api' );
 
 const selectedSite: SiteDetails = {
@@ -29,6 +31,15 @@ describe( 'ContentTabSettings', () => {
 			copyText,
 			openLocalPath,
 			generateProposedSitePath,
+		} );
+
+		( useSiteDetails as jest.Mock ).mockReturnValue( {
+			selectedSite,
+			snapshots: [],
+			uploadingSites: {},
+			deleteSite: jest.fn(),
+			isDeleting: false,
+			updateSite: jest.fn(),
 		} );
 	} );
 
@@ -101,9 +112,18 @@ describe( 'ContentTabSettings', () => {
 		expect( copyText ).toHaveBeenCalledWith( 'test-password' );
 	} );
 
-	it( 'disables delete site button when offline', async () => {
+	it( 'disables delete site button when offlin and there is at least one snapshot present for the site', async () => {
 		( useOffline as jest.Mock ).mockReturnValue( true );
+
+		// Mock snapshots to include a snapshot for the selected site
+		( useSiteDetails as jest.Mock ).mockReturnValue( {
+			selectedSite: selectedSite,
+			snapshots: [ { localSiteId: selectedSite.id } ],
+			deleteSite: jest.fn(),
+			isDeleting: false,
+		} );
 		render( <ContentTabSettings selectedSite={ selectedSite } /> );
+		screen.debug();
 		const deleteSiteButton = await screen.findByRole( 'button', { name: 'Delete site' } );
 		expect( deleteSiteButton ).toHaveAttribute( 'aria-disabled', 'true' );
 		fireEvent.mouseOver( deleteSiteButton );

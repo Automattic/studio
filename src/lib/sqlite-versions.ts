@@ -1,5 +1,4 @@
 import path from 'path';
-import * as Sentry from '@sentry/electron/main';
 import fs from 'fs-extra';
 import semver from 'semver';
 import { downloadSqliteIntegrationPlugin } from '../../vendor/wp-now/src/download';

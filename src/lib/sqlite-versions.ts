@@ -10,19 +10,18 @@ export async function updateLatestSqliteVersion() {
 	const installedFiles = ( await fs.pathExists( installedPath ) )
 		? await fs.readdir( installedPath )
 		: [];
-	const latestVersion = await getLatestSqliteVersion();
 	if ( installedFiles.length !== 0 ) {
 		shouldOverwrite = await isSqliteInstallationOutdated( installedPath );
 	}
 
-	await downloadSqliteIntegrationPlugin( latestVersion, { overwrite: shouldOverwrite } );
+	await downloadSqliteIntegrationPlugin( { overwrite: shouldOverwrite } );
 }
 
 export async function isSqliteInstallationOutdated( installationPath: string ): Promise< boolean > {
 	try {
 		const installedVersion = getSqliteVersionFromInstallation( installationPath );
 		const latestVersion = await getLatestSqliteVersion();
-		return semver.lt( installedVersion, latestVersion );
+		return latestVersion ? semver.lt( installedVersion, latestVersion ) : false;
 	} catch ( _error ) {
 		return false;
 	}
@@ -39,35 +38,23 @@ function getSqliteVersionFromInstallation( installationPath: string ): string {
 	return matches?.[ 1 ] || '';
 }
 
+let latestSqliteVersionsCache: string | null = null;
+
 async function getLatestSqliteVersion() {
-	const sqliteVersions = await fetchSqliteVersions();
-	return sqliteVersions.latest;
-}
-
-// Cache version fetches for the duration of the app session
-let sqliteVersionsCache: { versions: ( semver.SemVer | null )[]; latest: string } = {
-	versions: [],
-	latest: '',
-};
-
-async function fetchSqliteVersions() {
-	if ( sqliteVersionsCache.versions.length ) {
-		return sqliteVersionsCache;
+	// Only fetch the latest version once per app session
+	if ( latestSqliteVersionsCache ) {
+		return latestSqliteVersionsCache;
 	}
 
 	try {
 		const response = await fetch(
-			'https://api.github.com/repos/WordPress/sqlite-database-integration/releases'
+			'https://api.wordpress.org/plugins/info/1.2/?action=plugin_information&slug=sqlite-database-integration'
 		);
-		const data: Record< string, string >[] = await response.json();
-		const versions = data.map( ( release ) => semver.coerce( release.tag_name ) );
-		sqliteVersionsCache = {
-			versions,
-			latest: versions[ 0 ]?.version || '',
-		};
+		const data: Record< string, string > = await response.json();
+		latestSqliteVersionsCache = data.version;
 	} catch ( _error ) {
 		// Discard the failed fetch, return the cache
 	}
 
-	return sqliteVersionsCache;
+	return latestSqliteVersionsCache;
 }

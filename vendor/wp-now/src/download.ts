@@ -192,25 +192,23 @@ export async function downloadWordPress(
 }
 
 export async function downloadSqliteIntegrationPlugin(
-	version = '',
 	{overwrite}: {overwrite: boolean} = {overwrite: false}
 ) {
 	const finalFolder = getSqlitePath();
 	const tempFolder = path.join(os.tmpdir(), SQLITE_FILENAME);
-	const url = !! version
-		? `https://codeload.github.com/WordPress/sqlite-database-integration/zip/refs/tags/v${ version }`
-		: SQLITE_URL;
 	const { downloaded, statusCode } = await downloadFileAndUnzip({
-		url,
+		url: SQLITE_URL,
 		destinationFolder: tempFolder,
 		checkFinalPath: finalFolder,
 		itemName: 'SQLite',
 		overwrite,
 	});
 	if (downloaded) {
-		const nestedFolder = SQLITE_FILENAME.replace(/main$/, version);
+		// Relocate files from the nested folder lacking the `-main` branch suffix
+		// now that we install release tags instead of the main branch.
+		const nestedFolder = path.join(tempFolder, SQLITE_FILENAME.replace('-main', ''));
 		await fs.ensureDir(path.dirname(finalFolder));
-		await fs.move(path.join(tempFolder, nestedFolder), finalFolder, {
+		await fs.move(nestedFolder, finalFolder, {
 			overwrite: true,
 		});
 	} else if(0 !== statusCode) {

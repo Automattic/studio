@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/electron/renderer';
 import { app, utilityProcess, UtilityProcess } from 'electron';
 import { PHPRunOptions } from '@php-wasm/universal';
 import { WPNowOptions } from '../../vendor/wp-now/src/config';
@@ -70,6 +71,7 @@ export default class SiteServerProcess {
 			await this.#killProcess();
 		} catch ( error ) {
 			console.error( 'Error stopping site server process', error );
+			Sentry.captureException( error );
 		}
 	}
 

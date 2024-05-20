@@ -24,9 +24,9 @@
 		"publish": "electron-forge publish",
 		"lint": "eslint --ext .ts,.tsx,.js,.jsx,.mjs .",
 		"format": "prettier . --write",
-		"test": "NODE_ENV=test jest",
-		"test:watch": "NODE_ENV=test jest --watch",
-		"e2e": "NODE_ENV=test npx playwright install && npx playwright test",
+		"test": "jest",
+		"test:watch": "jest --watch",
+		"e2e": "npx playwright install && npx playwright test",
 		"make-pot": "wp-babel-makepot \"./src/**/*.{js,jsx,ts,tsx}\" --ignore \"**/*.d.ts\" --base \"./src\" --dir \"./out/pots\" --output \"./out/pots/bundle-strings.pot\""
 	},
 	"devDependencies": {

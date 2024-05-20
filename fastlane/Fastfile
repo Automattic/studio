@@ -62,7 +62,7 @@ end
 desc 'Ship release build'
 lane :distribute_release_build do |_options|
   release_tag = get_required_env('BUILDKITE_TAG')
-  builds = distribute_builds(release_tag: release_tag)
+  builds = distribute_builds(release_tag:)
 
   slack(
     username: 'CI Bot',

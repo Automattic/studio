@@ -176,12 +176,6 @@ def distribute_builds(
     commit_hash: "#{commit_hash}-#{build_number}"
   )
 
-  # When publishing a relesea build, copy the file into position to be picked
-  # up by the Buildkite agent and saved with the job.
-  builds.each_value do |build|
-    FileUtils.cp(build[:binary_path], File.join(BUILDS_FOLDER, build[:filename]))
-  end
-
   buildkite_annotate(
     context: 'cdn-link',
     style: 'info',

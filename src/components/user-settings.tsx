@@ -173,7 +173,7 @@ export default function UserSettings() {
 			type: 'warning',
 			message: __( 'Delete all demo sites' ),
 			detail: __(
-				'All demo sites databases that exist for your WordPress.com account, along with all posts, pages, comments, and media, will be lost.'
+				'All demo sites that exist for your WordPress.com account, along with all posts, pages, comments, and media, will be lost.'
 			),
 			buttons: [ __( 'Cancel' ), __( 'Delete all' ) ],
 			cancelId: CANCEL_BUTTON_INDEX,

@@ -204,9 +204,7 @@ export async function downloadSqliteIntegrationPlugin(
 		overwrite,
 	});
 	if (downloaded) {
-		// Relocate files from the nested folder lacking the `-main` branch suffix
-		// now that we install release tags instead of the main branch.
-		const nestedFolder = path.join(tempFolder, SQLITE_FILENAME.replace('-main', ''));
+		const nestedFolder = path.join(tempFolder, SQLITE_FILENAME);
 		await fs.ensureDir(path.dirname(finalFolder));
 		await fs.move(nestedFolder, finalFolder, {
 			overwrite: true,

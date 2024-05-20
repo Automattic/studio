@@ -95,7 +95,7 @@ describe( 'startServer', () => {
 
 			expect( downloadSqliteIntegrationPlugin ).toHaveBeenCalledTimes( 1 );
 			expect( copySync ).toHaveBeenCalledWith(
-				`/path/to/app/appData/App Name/server-files/sqlite-database-integration-main`,
+				`/path/to/app/appData/App Name/server-files/sqlite-database-integration`,
 				`${ mockSitePath }/wp-content/mu-plugins/${ SQLITE_FILENAME }`
 			);
 		} );

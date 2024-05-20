@@ -27,7 +27,10 @@ import { createPassword } from './lib/passwords';
 import { phpGetThemeDetails } from './lib/php-get-theme-details';
 import { sanitizeForLogging } from './lib/sanitize-for-logging';
 import { sortSites } from './lib/sort-sites';
-import { isSqliteInstallationOutdated } from './lib/sqlite-versions';
+import {
+	isSqliteInstallationOutdated,
+	removeLegacySqliteIntegrationPlugin,
+} from './lib/sqlite-versions';
 import { writeLogToFile, type LogLevel } from './logging';
 import { SiteServer, createSiteWorkingDirectory } from './site-server';
 import { DEFAULT_SITE_PATH, getServerFilesPath, getSiteThumbnailPath } from './storage/paths';
@@ -107,6 +110,8 @@ async function setupSqliteIntegration( path: string ) {
 	);
 	const sqlitePluginPath = nodePath.join( wpContentPath, 'mu-plugins', SQLITE_FILENAME );
 	copySync( nodePath.join( getServerFilesPath(), SQLITE_FILENAME ), sqlitePluginPath );
+
+	await removeLegacySqliteIntegrationPlugin( sqlitePluginPath );
 }
 
 export async function createSite(

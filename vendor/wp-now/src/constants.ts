@@ -1,7 +1,7 @@
 /**
  * The file name for the SQLite plugin name.
  */
-export const SQLITE_FILENAME = 'sqlite-database-integration-main';
+export const SQLITE_FILENAME = 'sqlite-database-integration';
 
 /**
  * The URL for downloading the "SQLite database integration" WordPress Plugin.

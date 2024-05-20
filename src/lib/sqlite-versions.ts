@@ -1,4 +1,5 @@
 import path from 'path';
+import * as Sentry from '@sentry/electron/main';
 import fs from 'fs-extra';
 import semver from 'semver';
 import { downloadSqliteIntegrationPlugin } from '../../vendor/wp-now/src/download';
@@ -15,13 +16,24 @@ export async function updateLatestSqliteVersion() {
 	}
 
 	await downloadSqliteIntegrationPlugin( { overwrite: shouldOverwrite } );
+
+	await removeLegacySqliteIntegrationPlugin( installedPath );
 }
 
 export async function isSqliteInstallationOutdated( installationPath: string ): Promise< boolean > {
+	const installedVersion = getSqliteVersionFromInstallation( installationPath );
+	const latestVersion = await getLatestSqliteVersion();
+
+	if ( ! installedVersion ) {
+		return true;
+	}
+
+	if ( ! latestVersion ) {
+		return false;
+	}
+
 	try {
-		const installedVersion = getSqliteVersionFromInstallation( installationPath );
-		const latestVersion = await getLatestSqliteVersion();
-		return latestVersion ? semver.lt( installedVersion, latestVersion ) : false;
+		return semver.lt( installedVersion, latestVersion );
 	} catch ( _error ) {
 		return false;
 	}
@@ -57,4 +69,26 @@ async function getLatestSqliteVersion() {
 	}
 
 	return latestSqliteVersionsCache;
+}
+
+/**
+ * Removes legacy `sqlite-integration-plugin` installations from the specified
+ * installation path that including a `-main` branch suffix.
+ *
+ * @param installPath - The path where the plugin is installed.
+ *
+ * @returns A promise that resolves when the plugin is successfully removed.
+ *
+ * @todo Remove this function after a few releases.
+ */
+export async function removeLegacySqliteIntegrationPlugin( installPath: string ) {
+	try {
+		const legacySqlitePluginPath = `${ installPath }-main`;
+		if ( await fs.pathExists( legacySqlitePluginPath ) ) {
+			await fs.remove( legacySqlitePluginPath );
+		}
+	} catch ( error ) {
+		// If the removal fails, log the error but don't throw
+		Sentry.captureException( error );
+	}
 }

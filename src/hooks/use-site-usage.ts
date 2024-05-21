@@ -4,8 +4,6 @@ import { LIMIT_OF_ZIP_SITES_PER_USER } from '../constants';
 import { useAuth } from './use-auth';
 import { useOffline } from './use-offline';
 import { useSiteDetails } from './use-site-details';
-import { useFetchSnapshots } from './use-fetch-snaphsots';
-import ForgeExternalsPlugin from '@timfish/forge-externals-plugin';
 
 export interface UsageSite {
 	atomic_site_id: number;

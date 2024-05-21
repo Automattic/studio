@@ -12,3 +12,17 @@ export function isMac() {
 export function isWindows() {
 	return getAppGlobals().platform === 'win32';
 }
+
+export function getPlatformName() {
+	const platform = process ? process.platform : getAppGlobals().platform;
+	switch ( platform ) {
+		case 'darwin':
+			return 'macos';
+		case 'win32':
+			return 'windows';
+		case 'linux':
+			return 'linux';
+		default:
+			return 'other';
+	}
+}

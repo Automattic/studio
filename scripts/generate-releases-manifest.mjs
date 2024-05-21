@@ -103,32 +103,27 @@ if ( isDevBuild ) {
 		throw new Error( 'Missing latest commit hash' );
 	}
 
-	const devVersionZipFilenameMac = `${cdnURL}/${baseName}-darwin-${ currentCommit }.app.zip`;
-	const devVersionZipFilenameX64 = `${cdnURL}/${baseName}-darwin-x64-${ currentCommit }.app.zip`;
-	const devVersionZipFilenameArm64 = `${cdnURL}/${baseName}-darwin-arm64-${ currentCommit }.app.zip`;
-	const devVersionZipFilenameWin32 = `${cdnURL}/${baseName}-win32-${ currentCommit }.exe`;
-
 	releasesData[ 'dev' ] = releasesData[ 'dev' ] ?? {};
 
 	// macOS
 	releasesData[ 'dev' ][ 'darwin' ] = releasesData[ 'dev' ][ 'darwin' ] ?? {};
 	releasesData[ 'dev' ][ 'darwin' ][ 'universal' ] = {
 		sha: currentCommit,
-		url: devVersionZipFilenameMac,
+		url: `${cdnURL}/${baseName}-darwin-${ currentCommit }.app.zip`,
 	};
 	releasesData[ 'dev' ][ 'darwin' ][ 'x64' ] = {
 		sha: currentCommit,
-		url: devVersionZipFilenameX64,
+		url: `${cdnURL}/${baseName}-darwin-x64-${ currentCommit }.app.zip`,
 	};
 	releasesData[ 'dev' ][ 'darwin' ][ 'arm64' ] = {
 		sha: currentCommit,
-		url: devVersionZipFilenameArm64,
+		url: `${cdnURL}/${baseName}-darwin-arm64-${ currentCommit }.app.zip`,
 	};
 
 	// Windows
 	releasesData[ 'dev' ][ 'win32' ] = {
 		sha: currentCommit,
-		url: devVersionZipFilenameWin32,
+		url: `${cdnURL}/${baseName}-win32-${ currentCommit }.exe`,
 	};
 
 	await fs.writeFile( releasesPath, JSON.stringify( releasesData, null, 2 ) );
@@ -136,32 +131,27 @@ if ( isDevBuild ) {
 } else {
 	console.log( 'Adding latest release ...' );
 
-	const releaseVersionZipFilenameMac = `${cdnURL}/${baseName}-darwin-v${ version }.app.zip`;
-	const releaseVersionZipFilenameX64 = `${cdnURL}/${baseName}-darwin-x64-v${ version }.app.zip`;
-	const releaseVersionZipFilenameArm64 = `${cdnURL}/${baseName}-darwin-arm64-v${ version }.app.zip`;
-	const releaseVersionZipFilenameWin32 = `${cdnURL}/${baseName}-win32-v${ version }.exe`;
-
 	releasesData[ version ] = releasesData[ version ] ?? {};
 
 	// macOS
 	releasesData[ version ][ 'darwin' ] = releasesData[ version ][ 'darwin' ] ?? {};
 	releasesData[ version ][ 'darwin' ][ 'universal' ] = {
 		sha: currentCommit,
-		url: releaseVersionZipFilenameMac,
+		url: `${cdnURL}/${baseName}-darwin-v${ version }.app.zip`,
 	};
 	releasesData[ version ][ 'darwin' ][ 'x64' ] = {
 		sha: currentCommit,
-		url: releaseVersionZipFilenameX64,
+		url: `${cdnURL}/${baseName}-darwin-x64-v${ version }.app.zip`,
 	};
 	releasesData[ version ][ 'darwin' ][ 'arm64' ] = {
 		sha: currentCommit,
-		url: releaseVersionZipFilenameArm64,
+		url: `${cdnURL}/${baseName}-darwin-arm64-v${ version }.app.zip`,
 	};
 
 	// Windows
 	releasesData[ version ][ 'win32' ] = {
 		sha: currentCommit,
-		url: releaseVersionZipFilenameWin32,
+		url: `${cdnURL}/${baseName}-win32-v${ version }.exe`,
 	};
 
 	await fs.writeFile( releasesPath, JSON.stringify( releasesData, null, 2 ) );

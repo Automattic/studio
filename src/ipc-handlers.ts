@@ -27,6 +27,10 @@ import { createPassword } from './lib/passwords';
 import { phpGetThemeDetails } from './lib/php-get-theme-details';
 import { sanitizeForLogging } from './lib/sanitize-for-logging';
 import { sortSites } from './lib/sort-sites';
+import {
+	isSqliteInstallationOutdated,
+	removeLegacySqliteIntegrationPlugin,
+} from './lib/sqlite-versions';
 import { writeLogToFile, type LogLevel } from './logging';
 import { SiteServer, createSiteWorkingDirectory } from './site-server';
 import { DEFAULT_SITE_PATH, getServerFilesPath, getSiteThumbnailPath } from './storage/paths';
@@ -105,7 +109,9 @@ async function setupSqliteIntegration( path: string ) {
 		)
 	);
 	const sqlitePluginPath = nodePath.join( wpContentPath, 'mu-plugins', SQLITE_FILENAME );
-	await copySync( nodePath.join( getServerFilesPath(), SQLITE_FILENAME ), sqlitePluginPath );
+	copySync( nodePath.join( getServerFilesPath(), SQLITE_FILENAME ), sqlitePluginPath );
+
+	await removeLegacySqliteIntegrationPlugin( sqlitePluginPath );
 }
 
 export async function createSite(
@@ -214,6 +220,14 @@ export async function startServer(
 	const server = SiteServer.get( id );
 	if ( ! server ) {
 		return null;
+	}
+
+	if (
+		await isSqliteInstallationOutdated(
+			`${ server.details.path }/wp-content/mu-plugins/${ SQLITE_FILENAME }`
+		)
+	) {
+		await setupSqliteIntegration( server.details.path );
 	}
 
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );

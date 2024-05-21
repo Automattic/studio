@@ -25,6 +25,16 @@ fs.__setFileContents = ( path: string, fileContents: string | string[] ) => {
 	}
 );
 
+( fs.readFileSync as jest.Mock ).mockImplementation( ( path: string ): string => {
+	const fileContents = mockFiles[ path ];
+
+	if ( typeof fileContents === 'string' ) {
+		return fileContents;
+	}
+
+	return '';
+} );
+
 ( fs.promises.readdir as jest.Mock ).mockImplementation(
 	async ( path: string ): Promise< Array< string > > => {
 		const dirContents = mockFiles[ path ];

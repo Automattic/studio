@@ -1,13 +1,13 @@
 /**
  * The file name for the SQLite plugin name.
  */
-export const SQLITE_FILENAME = 'sqlite-database-integration-main';
+export const SQLITE_FILENAME = 'sqlite-database-integration';
 
 /**
  * The URL for downloading the "SQLite database integration" WordPress Plugin.
  */
 export const SQLITE_URL =
-	'https://github.com/WordPress/sqlite-database-integration/archive/refs/heads/main.zip';
+	'https://downloads.wordpress.org/plugin/sqlite-database-integration.zip';
 
 /**
  * The default starting port for running the WP Now server.

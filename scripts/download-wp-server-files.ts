@@ -15,7 +15,7 @@ const FILES_TO_DOWNLOAD = [
 	{
 		name: 'sqlite',
 		description: 'SQLite files',
-		url: 'https://codeload.github.com/WordPress/sqlite-database-integration/zip/refs/heads/main',
+		url: 'https://downloads.wordpress.org/plugin/sqlite-database-integration.zip',
 	},
 ];
 

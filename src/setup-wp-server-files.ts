@@ -5,6 +5,7 @@ import { SQLITE_FILENAME } from '../vendor/wp-now/src/constants';
 import { getWordPressVersionPath } from '../vendor/wp-now/src/download';
 import getSqlitePath from '../vendor/wp-now/src/get-sqlite-path';
 import { recursiveCopyDirectory } from './lib/fs-utils';
+import { updateLatestSqliteVersion } from './lib/sqlite-versions';
 import {
 	getWordPressVersionFromInstallation,
 	updateLatestWordPressVersion,
@@ -51,4 +52,5 @@ export default async function setupWPServerFiles() {
 	await copyBundledLatestWPVersion();
 	await copyBundledSqlite();
 	await updateLatestWordPressVersion();
+	await updateLatestSqliteVersion();
 }

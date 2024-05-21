@@ -191,7 +191,9 @@ export async function downloadWordPress(
 	}
 }
 
-export async function downloadSqliteIntegrationPlugin() {
+export async function downloadSqliteIntegrationPlugin(
+	{overwrite}: {overwrite: boolean} = {overwrite: false}
+) {
 	const finalFolder = getSqlitePath();
 	const tempFolder = path.join(os.tmpdir(), SQLITE_FILENAME);
 	const { downloaded, statusCode } = await downloadFileAndUnzip({
@@ -199,10 +201,12 @@ export async function downloadSqliteIntegrationPlugin() {
 		destinationFolder: tempFolder,
 		checkFinalPath: finalFolder,
 		itemName: 'SQLite',
+		overwrite,
 	});
 	if (downloaded) {
-		fs.ensureDirSync(path.dirname(finalFolder));
-		fs.moveSync(tempFolder, finalFolder, {
+		const nestedFolder = path.join(tempFolder, SQLITE_FILENAME);
+		await fs.ensureDir(path.dirname(finalFolder));
+		await fs.move(nestedFolder, finalFolder, {
 			overwrite: true,
 		});
 	} else if(0 !== statusCode) {

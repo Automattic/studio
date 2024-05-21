@@ -14,10 +14,8 @@
 //       }
 //     },
 //     "win32": {
-//       "x64": {
-//         "sha": "abcdef1234567890",
-//         "url": "https://cdn.a8c-ci.services/studio/studio-win32-x64-abcdef1234567890.exe.zip"
-//       }
+//       "sha": "abcdef1234567890",
+//       "url": "https://cdn.a8c-ci.services/studio/studio-win32-x64-abcdef1234567890.exe.zip"
 //     }
 //   },
 //   "1.0.0": {

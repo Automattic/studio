@@ -62,7 +62,7 @@ end
 desc 'Ship release build'
 lane :distribute_release_build do |_options|
   release_tag = get_required_env('BUILDKITE_TAG')
-  builds = distribute_builds(release_tag: release_tag)
+  builds = distribute_builds(release_tag:)
 
   slack(
     username: 'CI Bot',
@@ -175,12 +175,6 @@ def distribute_builds(
     paths: cache_paths_to_clear,
     commit_hash: "#{commit_hash}-#{build_number}"
   )
-
-  # When publishing a relesea build, copy the file into position to be picked
-  # up by the Buildkite agent and saved with the job.
-  builds.each_value do |build|
-    FileUtils.cp(build[:binary_path], File.join(BUILDS_FOLDER, "#{build[:filename]}-#{suffix}-#{build[:extension]}"))
-  end
 
   buildkite_annotate(
     context: 'cdn-link',

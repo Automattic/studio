@@ -13,6 +13,7 @@ import { __, defaultI18n } from '@wordpress/i18n';
 import packageJson from '../package.json';
 import { PROTOCOL_PREFIX } from './constants';
 import * as ipcHandlers from './ipc-handlers';
+import { getPlatformName } from './lib/app-globals';
 import { bumpAggregatedUniqueStat } from './lib/bump-stats';
 import { getLocaleData, getSupportedLocale } from './lib/locale';
 import { handleAuthCallback, setUpAuthCallbackHandler } from './lib/oauth';
@@ -29,8 +30,9 @@ import { stopAllServersOnQuit } from './site-server'; // eslint-disable-line imp
 Sentry.init( {
 	dsn: 'https://97693275b2716fb95048c6d12f4318cf@o248881.ingest.sentry.io/4506612776501248',
 	debug: true,
-	enabled: process.env.NODE_ENV !== 'development',
-	release: app.getVersion() ? app.getVersion() : COMMIT_HASH,
+	enabled:
+		process.env.NODE_ENV !== 'development' && process.env.NODE_ENV !== 'test' && ! process.env.E2E,
+	release: `${ app.getVersion() ? app.getVersion() : COMMIT_HASH }-${ getPlatformName() }`,
 } );
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.

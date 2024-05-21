@@ -2,13 +2,13 @@ import { DropdownMenu, Icon, MenuGroup, MenuItem, Spinner } from '@wordpress/com
 import { sprintf } from '@wordpress/i18n';
 import { moreVertical, trash } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { WPCOM_PROFILE_URL } from '../constants';
 import { useAuth } from '../hooks/use-auth';
 import { useDeleteSnapshot } from '../hooks/use-delete-snapshot';
+import { useFetchSnapshots } from '../hooks/use-fetch-snaphsots';
 import { useIpcListener } from '../hooks/use-ipc-listener';
 import { useOffline } from '../hooks/use-offline';
-import { useSiteDetails } from '../hooks/use-site-details';
 import { useSiteUsage } from '../hooks/use-site-usage';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
@@ -142,9 +142,10 @@ const SnapshotInfo = ( {
 
 export default function UserSettings() {
 	const { __ } = useI18n();
+	const [ deletedAllSnapshots, setDeletedAllSnapshots ] = useState( false );
 	const { isAuthenticated, authenticate, logout, user } = useAuth();
-	const { snapshots } = useSiteDetails();
 	const { siteLimit, siteCount, isLoading: isLoadingSiteUsage } = useSiteUsage();
+	const { allSnapshots, isLoading: isLoadingAllSnapshots } = useFetchSnapshots();
 	const { deleteAllSnapshots, loadingDeletingAllSnapshots } = useDeleteSnapshot( {
 		displayAlert: true,
 	} );
@@ -161,12 +162,39 @@ export default function UserSettings() {
 		setNeedsToOpenUserSettings( ! needsToOpenUserSettings );
 	} );
 
+	useEffect( () => {
+		if ( deletedAllSnapshots && ! loadingDeletingAllSnapshots ) {
+			setDeletedAllSnapshots( false );
+			getIpcApi().showNotification( {
+				title: __( 'Delete Successful' ),
+				body: __( 'All demo sites have been deleted.' ),
+			} );
+		}
+	}, [ __, loadingDeletingAllSnapshots, deletedAllSnapshots ] );
+
 	const onRemoveSnapshots = useCallback( async () => {
-		if ( snapshots?.length === 0 ) {
+		if ( ! allSnapshots || allSnapshots.length === 0 ) {
 			return;
 		}
-		await deleteAllSnapshots( snapshots );
-	}, [ snapshots, deleteAllSnapshots ] );
+
+		const CANCEL_BUTTON_INDEX = 0;
+		const DELETE_BUTTON_INDEX = 1;
+
+		const { response } = await getIpcApi().showMessageBox( {
+			type: 'warning',
+			message: __( 'Delete all demo sites' ),
+			detail: __(
+				'All demo sites that exist for your WordPress.com account, along with all posts, pages, comments, and media, will be lost.'
+			),
+			buttons: [ __( 'Cancel' ), __( 'Delete all' ) ],
+			cancelId: CANCEL_BUTTON_INDEX,
+		} );
+
+		if ( response === DELETE_BUTTON_INDEX ) {
+			await deleteAllSnapshots( allSnapshots );
+			setDeletedAllSnapshots( true );
+		}
+	}, [ allSnapshots, deleteAllSnapshots, __ ] );
 
 	return (
 		<>
@@ -201,8 +229,9 @@ export default function UserSettings() {
 								isDisabled={
 									siteCount === 0 ||
 									loadingDeletingAllSnapshots ||
+									isLoadingAllSnapshots ||
 									isLoadingSiteUsage ||
-									snapshots.length === 0 ||
+									allSnapshots?.length === 0 ||
 									isOffline
 								}
 								siteCount={ siteCount }

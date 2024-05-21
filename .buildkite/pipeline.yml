@@ -50,6 +50,7 @@ steps:
         plugins: *common_plugins
         artifact_paths:
           - 'out/**/*.app.zip'
+          - 'out/*.dmg'
         matrix:
           - "universal"
           - "x64"
@@ -117,6 +118,7 @@ steps:
         plugins: *common_plugins
         artifact_paths:
           - 'out/**/*.app.zip'
+          - 'out/*.dmg'
         matrix:
           - "universal"
           - "x64"

@@ -41,8 +41,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import packageJson from '../package.json' assert { type: 'json' };
 
-const cdnURL = "https://cdn.a8c-ci.services/studio";
-const baseName = "studio";
+const cdnURL = 'https://cdn.a8c-ci.services/studio';
+const baseName = 'studio';
 
 const currentCommit = child_process.execSync( 'git rev-parse --short HEAD' ).toString().trim();
 const { version } = packageJson;
@@ -66,7 +66,7 @@ try {
 const releasesFile = createWriteStream( releasesPath, { flags: 'w' } ); // 'w', we want to override any existing file
 
 const downloaded = await new Promise( ( resolve, reject ) => {
-	https.get( `${cdnURL}/releases.json`, ( response ) => {
+	https.get( `${ cdnURL }/releases.json`, ( response ) => {
 		if ( response.statusCode === 404 || response.statusCode === 403 ) {
 			resolve( false );
 			return;
@@ -109,21 +109,21 @@ if ( isDevBuild ) {
 	releasesData[ 'dev' ][ 'darwin' ] = releasesData[ 'dev' ][ 'darwin' ] ?? {};
 	releasesData[ 'dev' ][ 'darwin' ][ 'universal' ] = {
 		sha: currentCommit,
-		url: `${cdnURL}/${baseName}-darwin-${ currentCommit }.app.zip`,
+		url: `${ cdnURL }/${ baseName }-darwin-${ currentCommit }.app.zip`,
 	};
 	releasesData[ 'dev' ][ 'darwin' ][ 'x64' ] = {
 		sha: currentCommit,
-		url: `${cdnURL}/${baseName}-darwin-x64-${ currentCommit }.app.zip`,
+		url: `${ cdnURL }/${ baseName }-darwin-x64-${ currentCommit }.app.zip`,
 	};
 	releasesData[ 'dev' ][ 'darwin' ][ 'arm64' ] = {
 		sha: currentCommit,
-		url: `${cdnURL}/${baseName}-darwin-arm64-${ currentCommit }.app.zip`,
+		url: `${ cdnURL }/${ baseName }-darwin-arm64-${ currentCommit }.app.zip`,
 	};
 
 	// Windows
 	releasesData[ 'dev' ][ 'win32' ] = {
 		sha: currentCommit,
-		url: `${cdnURL}/${baseName}-win32-${ currentCommit }.exe`,
+		url: `${ cdnURL }/${ baseName }-win32-${ currentCommit }.exe`,
 	};
 
 	await fs.writeFile( releasesPath, JSON.stringify( releasesData, null, 2 ) );
@@ -137,21 +137,21 @@ if ( isDevBuild ) {
 	releasesData[ version ][ 'darwin' ] = releasesData[ version ][ 'darwin' ] ?? {};
 	releasesData[ version ][ 'darwin' ][ 'universal' ] = {
 		sha: currentCommit,
-		url: `${cdnURL}/${baseName}-darwin-v${ version }.app.zip`,
+		url: `${ cdnURL }/${ baseName }-darwin-v${ version }.app.zip`,
 	};
 	releasesData[ version ][ 'darwin' ][ 'x64' ] = {
 		sha: currentCommit,
-		url: `${cdnURL}/${baseName}-darwin-x64-v${ version }.app.zip`,
+		url: `${ cdnURL }/${ baseName }-darwin-x64-v${ version }.app.zip`,
 	};
 	releasesData[ version ][ 'darwin' ][ 'arm64' ] = {
 		sha: currentCommit,
-		url: `${cdnURL}/${baseName}-darwin-arm64-v${ version }.app.zip`,
+		url: `${ cdnURL }/${ baseName }-darwin-arm64-v${ version }.app.zip`,
 	};
 
 	// Windows
 	releasesData[ version ][ 'win32' ] = {
 		sha: currentCommit,
-		url: `${cdnURL}/${baseName}-win32-v${ version }.exe`,
+		url: `${ cdnURL }/${ baseName }-win32-v${ version }.exe`,
 	};
 
 	await fs.writeFile( releasesPath, JSON.stringify( releasesData, null, 2 ) );

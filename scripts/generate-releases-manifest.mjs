@@ -41,6 +41,9 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import packageJson from '../package.json' assert { type: 'json' };
 
+const cdnURL = "https://cdn.a8c-ci.services/studio";
+const baseName = "studio";
+
 const currentCommit = child_process.execSync( 'git rev-parse --short HEAD' ).toString().trim();
 const { version } = packageJson;
 const isDevBuild = version.includes( '-dev.' );
@@ -63,7 +66,7 @@ try {
 const releasesFile = createWriteStream( releasesPath, { flags: 'w' } ); // 'w', we want to override any existing file
 
 const downloaded = await new Promise( ( resolve, reject ) => {
-	https.get( 'https://cdn.a8c-ci.services/studio/releases.json', ( response ) => {
+	https.get( `${cdnURL}/releases.json`, ( response ) => {
 		if ( response.statusCode === 404 || response.statusCode === 403 ) {
 			resolve( false );
 			return;
@@ -100,10 +103,10 @@ if ( isDevBuild ) {
 		throw new Error( 'Missing latest commit hash' );
 	}
 
-	const devVersionZipFilenameMac = `https://cdn.a8c-ci.services/studio/studio-darwin-${ currentCommit }.app.zip`;
-	const devVersionZipFilenameX64 = `https://cdn.a8c-ci.services/studio/studio-darwin-x64-${ currentCommit }.app.zip`;
-	const devVersionZipFilenameArm64 = `https://cdn.a8c-ci.services/studio/studio-darwin-arm64-${ currentCommit }.app.zip`;
-	const devVersionZipFilenameWin32 = `https://cdn.a8c-ci.services/studio/studio-win32-${ currentCommit }.exe`;
+	const devVersionZipFilenameMac = `${cdnURL}/${baseName}-darwin-${ currentCommit }.app.zip`;
+	const devVersionZipFilenameX64 = `${cdnURL}/${baseName}-darwin-x64-${ currentCommit }.app.zip`;
+	const devVersionZipFilenameArm64 = `${cdnURL}/${baseName}-darwin-arm64-${ currentCommit }.app.zip`;
+	const devVersionZipFilenameWin32 = `${cdnURL}/${baseName}-win32-${ currentCommit }.exe`;
 
 	releasesData[ 'dev' ] = releasesData[ 'dev' ] ?? {};
 
@@ -133,10 +136,10 @@ if ( isDevBuild ) {
 } else {
 	console.log( 'Adding latest release ...' );
 
-	const releaseVersionZipFilenameMac = `https://cdn.a8c-ci.services/studio/studio-darwin-v${ version }.app.zip`;
-	const releaseVersionZipFilenameX64 = `https://cdn.a8c-ci.services/studio/studio-darwin-x64-v${ version }.app.zip`;
-	const releaseVersionZipFilenameArm64 = `https://cdn.a8c-ci.services/studio/studio-darwin-arm64-v${ version }.app.zip`;
-	const releaseVersionZipFilenameWin32 = `https://cdn.a8c-ci.services/studio/studio-win32-v${ version }.exe`;
+	const releaseVersionZipFilenameMac = `${cdnURL}/${baseName}-darwin-v${ version }.app.zip`;
+	const releaseVersionZipFilenameX64 = `${cdnURL}/${baseName}-darwin-x64-v${ version }.app.zip`;
+	const releaseVersionZipFilenameArm64 = `${cdnURL}/${baseName}-darwin-arm64-v${ version }.app.zip`;
+	const releaseVersionZipFilenameWin32 = `${cdnURL}/${baseName}-win32-v${ version }.exe`;
 
 	releasesData[ version ] = releasesData[ version ] ?? {};
 

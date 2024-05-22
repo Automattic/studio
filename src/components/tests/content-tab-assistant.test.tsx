@@ -1,4 +1,3 @@
-// To run tests, execute `npm run test -- src/components/tests/content-tab-overview.test.tsx` from the root directory
 import { render, screen } from '@testing-library/react';
 import { ContentTabAssistant } from '../content-tab-assistant';
 
@@ -21,7 +20,6 @@ describe( 'ContentTabAssistant', () => {
 	test( 'renders placeholder text input', () => {
 		render( <ContentTabAssistant selectedSite={ runningSite } /> );
 
-		// Get text input by placeholder "Ask Studio WordPress Assistant"
 		const textInput = screen.getByPlaceholderText( 'Ask Studio WordPress Assistant' );
 		expect( textInput ).toBeInTheDocument();
 	} );

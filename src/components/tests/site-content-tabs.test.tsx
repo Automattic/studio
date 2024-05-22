@@ -28,7 +28,7 @@ jest.mock( '../../lib/get-ipc-api' );
 
 jest.mock( '../../lib/app-globals', () => ( {
 	getAppGlobals: () => ( {
-		getAppGlobals: jest.fn(),
+		assistantEnabled: false,
 	} ),
 	isMac: jest.fn(),
 } ) );
@@ -78,5 +78,14 @@ describe( 'SiteContentTabs', () => {
 		expect( screen.queryByRole( 'tab', { name: 'Publish' } ) ).toBeNull();
 		expect( screen.queryByRole( 'tab', { name: 'Export' } ) ).toBeNull();
 		expect( screen.getByText( 'Select a site to view details.' ) ).toBeInTheDocument();
+	} );
+	it( 'should not render the Assistant tab if assistantEnabled is not enabled', async () => {
+		( useSiteDetails as jest.Mock ).mockReturnValue( {
+			selectedSite,
+			snapshots: [],
+			loadingServer: {},
+		} );
+		await act( async () => render( <SiteContentTabs /> ) );
+		expect( screen.queryByRole( 'tab', { name: 'Assistant' } ) ).toBeNull();
 	} );
 } );

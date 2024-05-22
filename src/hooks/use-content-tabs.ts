@@ -17,6 +17,10 @@ export function useContentTabs() {
 				name: 'settings',
 				title: __( 'Settings' ),
 			},
+			{
+				name: 'assistant',
+				title: __( 'Assistant' ),
+			},
 		],
 		[ __ ]
 	);

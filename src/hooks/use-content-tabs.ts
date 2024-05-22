@@ -20,7 +20,8 @@ export function useContentTabs() {
 			{
 				name: 'assistant',
 				title: __( 'Assistant' ),
-				className: 'components-tab-panel__tabs--assistant pl-8 ml-auto',
+				className:
+					'components-tab-panel__tabs--assistant ltr:pl-8 rtl:pr-8 ltr:ml-auto rtl:mr-auto',
 			},
 		],
 		[ __ ]

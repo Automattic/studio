@@ -55,6 +55,9 @@ describe( 'SiteContentTabs', () => {
 		expect(
 			screen.queryByRole( 'tab', { name: 'Settings', selected: false } )
 		).toBeInTheDocument();
+		expect(
+			screen.queryByRole( 'tab', { name: 'Assistant', selected: false } )
+		).toBeInTheDocument();
 	} );
 	it( 'should render a "No Site" screen if selected site is absent', async () => {
 		( useSiteDetails as jest.Mock ).mockReturnValue( {

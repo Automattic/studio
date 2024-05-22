@@ -45,7 +45,7 @@ import packageJson from '../package.json' assert { type: 'json' };
 
 const currentCommit = child_process.execSync( 'git rev-parse --short HEAD' ).toString().trim();
 const { version } = packageJson;
-const isDevBuild = version.includes( '-dev.' );
+const isDevBuild = process.env.IS_DEV_BUILD;
 
 const __dirname = path.dirname( fileURLToPath( import.meta.url ) );
 

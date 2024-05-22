@@ -14,10 +14,8 @@
 //       }
 //     },
 //     "win32": {
-//       "x64": {
-//         "sha": "abcdef1234567890",
-//         "url": "https://cdn.a8c-ci.services/studio/studio-win32-x64-abcdef1234567890.exe.zip"
-//       }
+//       "sha": "abcdef1234567890",
+//       "url": "https://cdn.a8c-ci.services/studio/studio-win32-abcdef1234567890.exe.zip"
 //     }
 //   },
 //   "1.0.0": {
@@ -43,6 +41,9 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import packageJson from '../package.json' assert { type: 'json' };
 
+const cdnURL = 'https://cdn.a8c-ci.services/studio';
+const baseName = 'studio';
+
 const currentCommit = child_process.execSync( 'git rev-parse --short HEAD' ).toString().trim();
 const { version } = packageJson;
 const isDevBuild = version.includes( '-dev.' );
@@ -65,7 +66,7 @@ try {
 const releasesFile = createWriteStream( releasesPath, { flags: 'w' } ); // 'w', we want to override any existing file
 
 const downloaded = await new Promise( ( resolve, reject ) => {
-	https.get( 'https://cdn.a8c-ci.services/studio/releases.json', ( response ) => {
+	https.get( `${ cdnURL }/releases.json`, ( response ) => {
 		if ( response.statusCode === 404 || response.statusCode === 403 ) {
 			resolve( false );
 			return;
@@ -102,32 +103,27 @@ if ( isDevBuild ) {
 		throw new Error( 'Missing latest commit hash' );
 	}
 
-	const devVersionZipFilenameMac = `https://cdn.a8c-ci.services/studio/studio-darwin-${ currentCommit }.app.zip`;
-	const devVersionZipFilenameX64 = `https://cdn.a8c-ci.services/studio/studio-darwin-x64-${ currentCommit }.app.zip`;
-	const devVersionZipFilenameArm64 = `https://cdn.a8c-ci.services/studio/studio-darwin-arm64-${ currentCommit }.app.zip`;
-	const devVersionZipFilenameWin32 = `https://cdn.a8c-ci.services/studio/studio-win32-${ currentCommit }.exe`;
-
 	releasesData[ 'dev' ] = releasesData[ 'dev' ] ?? {};
 
 	// macOS
 	releasesData[ 'dev' ][ 'darwin' ] = releasesData[ 'dev' ][ 'darwin' ] ?? {};
 	releasesData[ 'dev' ][ 'darwin' ][ 'universal' ] = {
 		sha: currentCommit,
-		url: devVersionZipFilenameMac,
+		url: `${ cdnURL }/${ baseName }-darwin-${ currentCommit }.app.zip`,
 	};
 	releasesData[ 'dev' ][ 'darwin' ][ 'x64' ] = {
 		sha: currentCommit,
-		url: devVersionZipFilenameX64,
+		url: `${ cdnURL }/${ baseName }-darwin-x64-${ currentCommit }.app.zip`,
 	};
 	releasesData[ 'dev' ][ 'darwin' ][ 'arm64' ] = {
 		sha: currentCommit,
-		url: devVersionZipFilenameArm64,
+		url: `${ cdnURL }/${ baseName }-darwin-arm64-${ currentCommit }.app.zip`,
 	};
 
 	// Windows
 	releasesData[ 'dev' ][ 'win32' ] = {
 		sha: currentCommit,
-		url: devVersionZipFilenameWin32,
+		url: `${ cdnURL }/${ baseName }-win32-${ currentCommit }.exe`,
 	};
 
 	await fs.writeFile( releasesPath, JSON.stringify( releasesData, null, 2 ) );
@@ -135,32 +131,27 @@ if ( isDevBuild ) {
 } else {
 	console.log( 'Adding latest release ...' );
 
-	const releaseVersionZipFilenameMac = `https://cdn.a8c-ci.services/studio/studio-darwin-v${ version }.app.zip`;
-	const releaseVersionZipFilenameX64 = `https://cdn.a8c-ci.services/studio/studio-darwin-x64-v${ version }.app.zip`;
-	const releaseVersionZipFilenameArm64 = `https://cdn.a8c-ci.services/studio/studio-darwin-arm64-v${ version }.app.zip`;
-	const releaseVersionZipFilenameWin32 = `https://cdn.a8c-ci.services/studio/studio-win32-v${ version }.exe`;
-
 	releasesData[ version ] = releasesData[ version ] ?? {};
 
 	// macOS
 	releasesData[ version ][ 'darwin' ] = releasesData[ version ][ 'darwin' ] ?? {};
 	releasesData[ version ][ 'darwin' ][ 'universal' ] = {
 		sha: currentCommit,
-		url: releaseVersionZipFilenameMac,
+		url: `${ cdnURL }/${ baseName }-darwin-v${ version }.app.zip`,
 	};
 	releasesData[ version ][ 'darwin' ][ 'x64' ] = {
 		sha: currentCommit,
-		url: releaseVersionZipFilenameX64,
+		url: `${ cdnURL }/${ baseName }-darwin-x64-v${ version }.app.zip`,
 	};
 	releasesData[ version ][ 'darwin' ][ 'arm64' ] = {
 		sha: currentCommit,
-		url: releaseVersionZipFilenameArm64,
+		url: `${ cdnURL }/${ baseName }-darwin-arm64-v${ version }.app.zip`,
 	};
 
 	// Windows
 	releasesData[ version ][ 'win32' ] = {
 		sha: currentCommit,
-		url: releaseVersionZipFilenameWin32,
+		url: `${ cdnURL }/${ baseName }-win32-v${ version }.exe`,
 	};
 
 	await fs.writeFile( releasesPath, JSON.stringify( releasesData, null, 2 ) );

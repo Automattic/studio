@@ -60,6 +60,8 @@ steps:
     command: .buildkite/commands/build-for-windows-dev.ps1
     artifact_paths:
       - 'out\**\studio-setup.exe'
+      - 'out\**\studio-update.nupkg'
+      - 'out\**\RELEASES'
     agents:
       queue: "windows"
     if: "build.tag !~ /^v[0-9]+/"
@@ -116,6 +118,8 @@ steps:
       queue: "windows"
     artifact_paths:
       - 'out\**\studio-setup.exe'
+      - 'out\**\studio-update.nupkg'
+      - 'out\**\RELEASES'
     if: "build.tag =~ /^v[0-9]+/"
 
   - label: ':rocket: Publish Release Builds'

@@ -127,6 +127,8 @@ steps:
       echo "--- :node: Downloading Binaries"
       buildkite-agent artifact download "*.zip" .
       buildkite-agent artifact download "*.exe" .
+      buildkite-agent artifact download "*.nupkg" .
+      buildkite-agent artifact download "RELEASES" .
 
       echo "--- :node: Generating Release Manifest"
       install_npm_packages

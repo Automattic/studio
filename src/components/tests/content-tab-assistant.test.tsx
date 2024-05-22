@@ -1,6 +1,5 @@
 // To run tests, execute `npm run test -- src/components/tests/content-tab-overview.test.tsx` from the root directory
 import { render, screen } from '@testing-library/react';
-import { useThemeDetails } from '../../hooks/use-theme-details';
 import { ContentTabAssistant } from '../content-tab-assistant';
 
 jest.mock( '../../hooks/use-theme-details' );

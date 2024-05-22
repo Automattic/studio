@@ -26,6 +26,13 @@ jest.mock( '../../hooks/use-archive-site', () => ( {
 
 jest.mock( '../../lib/get-ipc-api' );
 
+jest.mock( '../../lib/app-globals', () => ( {
+	getAppGlobals: () => ( {
+		getAppGlobals: jest.fn(),
+	} ),
+	isMac: jest.fn(),
+} ) );
+
 describe( 'SiteContentTabs', () => {
 	beforeEach( () => {
 		jest.clearAllMocks(); // Clear mock call history between tests
@@ -55,9 +62,7 @@ describe( 'SiteContentTabs', () => {
 		expect(
 			screen.queryByRole( 'tab', { name: 'Settings', selected: false } )
 		).toBeInTheDocument();
-		expect(
-			screen.queryByRole( 'tab', { name: 'Assistant', selected: false } )
-		).toBeInTheDocument();
+		expect( screen.queryByRole( 'tab', { name: 'Assistant', selected: false } ) ).toBeNull();
 	} );
 	it( 'should render a "No Site" screen if selected site is absent', async () => {
 		( useSiteDetails as jest.Mock ).mockReturnValue( {

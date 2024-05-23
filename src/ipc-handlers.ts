@@ -456,6 +456,7 @@ export async function getAppGlobals( _event: IpcMainInvokeEvent ): Promise< AppG
 		localeData,
 		appName: app.name,
 		arm64Translation: app.runningUnderARM64Translation,
+		assistantEnabled: process.env.STUDIO_AI === 'true',
 	};
 }
 

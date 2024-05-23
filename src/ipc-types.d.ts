@@ -71,6 +71,7 @@ interface AppGlobals {
 	localeData: LocaleData | null;
 	appName: string;
 	arm64Translation: boolean;
+	assistantEnabled: boolean;
 }
 
 interface IpcListener {

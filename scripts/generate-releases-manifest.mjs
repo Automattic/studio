@@ -59,10 +59,19 @@ console.log( 'Downloading current manifest ...' );
 const releasesPath = path.join( __dirname, '..', 'out', 'releases.json' );
 
 async function getWindowsReleaseInfo() {
-	const windowsReleaseInfo = await fs.readFile(
-		path.join( __dirname, '..', 'out', 'make', 'squirrel.windows', 'x64', 'RELEASES' ),
-		'utf8'
-	);
+	let windowsReleaseInfo = {};
+	try {
+		windowsReleaseInfo = await fs.readFile(
+			path.join( __dirname, '..', 'out', 'make', 'squirrel.windows', 'x64', 'RELEASES' ),
+			'utf8'
+		);
+	} catch ( error ) {
+		console.log(
+			`Couldn't read RELEASES file of Windows build, please ensure that the file exists to generate the release manifest.`
+		);
+		process.exit( 1 );
+	}
+
 	const [ _, sha1, filename, size ] = windowsReleaseInfo.match(
 		/([a-zA-Z\d]{40})\s(.*\.nupkg)\s(\d+)/
 	);

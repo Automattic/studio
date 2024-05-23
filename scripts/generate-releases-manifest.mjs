@@ -4,18 +4,22 @@
 // {
 //   "dev": {
 //     "darwin": {
+//       "universal": {
+//         "sha": "30a8251",
+//         "url": "https://cdn.a8c-ci.services/studio/studio-darwin-universal-30a8251.app.zip"
+//       },
 //       "arm64": {
-//         "sha": "abcdef1234567890",
-//         "url": "https://cdn.a8c-ci.services/studio/studio-darwin-arm64-abcdef1234567890.app.zip"
+//         "sha": "30a8251",
+//         "url": "https://cdn.a8c-ci.services/studio/studio-darwin-arm64-30a8251.app.zip"
 //       },
 //       "x64": {
-//         "sha": "abcdef1234567890",
-//         "url": "https://cdn.a8c-ci.services/studio/studio-darwin-x64-abcdef1234567890.app.zip"
+//         "sha": "30a8251",
+//         "url": "https://cdn.a8c-ci.services/studio/studio-darwin-x64-30a8251.app.zip"
 //       }
 //     },
 //     "win32": {
-//       "sha": "abcdef1234567890",
-//       "url": "https://cdn.a8c-ci.services/studio/studio-win32-abcdef1234567890.exe.zip"
+//       "sha": "30a8251",
+//       "url": "https://cdn.a8c-ci.services/studio/studio-win32-30a8251.exe.zip"
 //     }
 //   },
 //   "1.0.0": {
@@ -23,7 +27,8 @@
 //       "universal": {
 //         "sha": "abcdef1234567890",
 //         "url": "https://cdn.a8c-ci.services/studio/studio-darwin-universal-v1.0.0.app.zip"
-//       }
+//       },
+//       ... etc.
 //     },
 //     ... etc.
 //   },

@@ -125,7 +125,7 @@ def distribute_builds(
 
   # Add computed fields
   assemble_filename = lambda do |build, filename_suffix|
-    build_suffix = build[:suffix].to_s.empty? ? "" : "-#{build[:suffix]}"
+    build_suffix = build[:suffix].to_s.empty? ? '' : "-#{build[:suffix]}"
     "#{filename_root}-#{build[:filename_core]}-#{filename_suffix}#{build_suffix}.#{build[:extension]}"
   end
   builds.each_value do |build|

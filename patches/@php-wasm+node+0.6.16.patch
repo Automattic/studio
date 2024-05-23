@@ -2,6 +2,22 @@ diff --git a/node_modules/@php-wasm/node/index.cjs b/node_modules/@php-wasm/node
 index 1be4252..7f01cfd 100644
 --- a/node_modules/@php-wasm/node/index.cjs
 +++ b/node_modules/@php-wasm/node/index.cjs
+@@ -4447,7 +4447,6 @@ function init(RuntimeName, PHPLoader) {
+         old_node.name = new_name;
+         new_dir.contents[new_name] = old_node;
+         new_dir.timestamp = old_node.parent.timestamp;
+-        old_node.parent = new_dir;
+       },
+       unlink(parent, name) {
+         delete parent.contents[name];
+@@ -5736,6 +5735,7 @@ function init(RuntimeName, PHPLoader) {
+       FS.hashRemoveNode(old_node);
+       try {
+         old_dir.node_ops.rename(old_node, new_dir, new_name);
++        old_node.parent = new_dir;
+       } catch (e) {
+         throw e;
+       } finally {
 @@ -6650,6 +6650,11 @@ function init(RuntimeName, PHPLoader) {
      doStat: function(func, path, buf) {
        try {
@@ -14,6 +30,22 @@ index 1be4252..7f01cfd 100644
        } catch (e) {
          if (e && e.node && PATH.normalize(path) !== PATH.normalize(FS.getPath(e.node))) {
            return -54;
+@@ -12077,7 +12082,6 @@ function init2(RuntimeName, PHPLoader) {
+         old_node.name = new_name;
+         new_dir.contents[new_name] = old_node;
+         new_dir.timestamp = old_node.parent.timestamp;
+-        old_node.parent = new_dir;
+       },
+       unlink(parent, name) {
+         delete parent.contents[name];
+@@ -13366,6 +13370,7 @@ function init2(RuntimeName, PHPLoader) {
+       FS.hashRemoveNode(old_node);
+       try {
+         old_dir.node_ops.rename(old_node, new_dir, new_name);
++        old_node.parent = new_dir;
+       } catch (e) {
+         throw e;
+       } finally {
 @@ -14280,6 +14285,11 @@ function init2(RuntimeName, PHPLoader) {
      doStat: function(func, path, buf) {
        try {
@@ -26,6 +58,22 @@ index 1be4252..7f01cfd 100644
        } catch (e) {
          if (e && e.node && PATH.normalize(path) !== PATH.normalize(FS.getPath(e.node))) {
            return -54;
+@@ -19707,7 +19717,6 @@ function init3(RuntimeName, PHPLoader) {
+         old_node.name = new_name;
+         new_dir.contents[new_name] = old_node;
+         new_dir.timestamp = old_node.parent.timestamp;
+-        old_node.parent = new_dir;
+       },
+       unlink(parent, name) {
+         delete parent.contents[name];
+@@ -20996,6 +21005,7 @@ function init3(RuntimeName, PHPLoader) {
+       FS.hashRemoveNode(old_node);
+       try {
+         old_dir.node_ops.rename(old_node, new_dir, new_name);
++        old_node.parent = new_dir;
+       } catch (e) {
+         throw e;
+       } finally {
 @@ -21910,6 +21920,11 @@ function init3(RuntimeName, PHPLoader) {
      doStat: function(func, path, buf) {
        try {
@@ -38,6 +86,22 @@ index 1be4252..7f01cfd 100644
        } catch (e) {
          if (e && e.node && PATH.normalize(path) !== PATH.normalize(FS.getPath(e.node))) {
            return -54;
+@@ -27332,7 +27347,6 @@ function init4(RuntimeName, PHPLoader) {
+         old_node.name = new_name;
+         new_dir.contents[new_name] = old_node;
+         new_dir.timestamp = old_node.parent.timestamp;
+-        old_node.parent = new_dir;
+       },
+       unlink(parent, name) {
+         delete parent.contents[name];
+@@ -28621,6 +28635,7 @@ function init4(RuntimeName, PHPLoader) {
+       FS.hashRemoveNode(old_node);
+       try {
+         old_dir.node_ops.rename(old_node, new_dir, new_name);
++        old_node.parent = new_dir;
+       } catch (e) {
+         throw e;
+       } finally {
 @@ -29535,6 +29550,11 @@ function init4(RuntimeName, PHPLoader) {
      doStat: function(func, path, buf) {
        try {
@@ -50,6 +114,22 @@ index 1be4252..7f01cfd 100644
        } catch (e) {
          if (e && e.node && PATH.normalize(path) !== PATH.normalize(FS.getPath(e.node))) {
            return -54;
+@@ -34930,7 +34950,6 @@ function init5(RuntimeName, PHPLoader) {
+         old_node.name = new_name;
+         new_dir.contents[new_name] = old_node;
+         new_dir.timestamp = old_node.parent.timestamp;
+-        old_node.parent = new_dir;
+       },
+       unlink(parent, name) {
+         delete parent.contents[name];
+@@ -36219,6 +36238,7 @@ function init5(RuntimeName, PHPLoader) {
+       FS.hashRemoveNode(old_node);
+       try {
+         old_dir.node_ops.rename(old_node, new_dir, new_name);
++        old_node.parent = new_dir;
+       } catch (e) {
+         throw e;
+       } finally {
 @@ -37133,6 +37153,11 @@ function init5(RuntimeName, PHPLoader) {
      doStat: function(func, path, buf) {
        try {
@@ -62,6 +142,22 @@ index 1be4252..7f01cfd 100644
        } catch (e) {
          if (e && e.node && PATH.normalize(path) !== PATH.normalize(FS.getPath(e.node))) {
            return -54;
+@@ -42513,7 +42538,6 @@ function init6(RuntimeName, PHPLoader) {
+         old_node.name = new_name;
+         new_dir.contents[new_name] = old_node;
+         new_dir.timestamp = old_node.parent.timestamp;
+-        old_node.parent = new_dir;
+       },
+       unlink(parent, name) {
+         delete parent.contents[name];
+@@ -43802,6 +43826,7 @@ function init6(RuntimeName, PHPLoader) {
+       FS.hashRemoveNode(old_node);
+       try {
+         old_dir.node_ops.rename(old_node, new_dir, new_name);
++        old_node.parent = new_dir;
+       } catch (e) {
+         throw e;
+       } finally {
 @@ -44716,6 +44741,11 @@ function init6(RuntimeName, PHPLoader) {
      doStat: function(func, path, buf) {
        try {
@@ -74,6 +170,22 @@ index 1be4252..7f01cfd 100644
        } catch (e) {
          if (e && e.node && PATH.normalize(path) !== PATH.normalize(FS.getPath(e.node))) {
            return -54;
+@@ -50091,7 +50121,6 @@ function init7(RuntimeName, PHPLoader) {
+         old_node.name = new_name;
+         new_dir.contents[new_name] = old_node;
+         new_dir.timestamp = old_node.parent.timestamp;
+-        old_node.parent = new_dir;
+       },
+       unlink(parent, name) {
+         delete parent.contents[name];
+@@ -51380,6 +51409,7 @@ function init7(RuntimeName, PHPLoader) {
+       FS.hashRemoveNode(old_node);
+       try {
+         old_dir.node_ops.rename(old_node, new_dir, new_name);
++        old_node.parent = new_dir;
+       } catch (e) {
+         throw e;
+       } finally {
 @@ -52294,6 +52324,11 @@ function init7(RuntimeName, PHPLoader) {
      doStat: function(func, path, buf) {
        try {
@@ -86,6 +198,22 @@ index 1be4252..7f01cfd 100644
        } catch (e) {
          if (e && e.node && PATH.normalize(path) !== PATH.normalize(FS.getPath(e.node))) {
            return -54;
+@@ -57537,7 +57572,6 @@ function init8(RuntimeName, PHPLoader) {
+         old_node.name = new_name;
+         new_dir.contents[new_name] = old_node;
+         new_dir.timestamp = old_node.parent.timestamp;
+-        old_node.parent = new_dir;
+       },
+       unlink(parent, name) {
+         delete parent.contents[name];
+@@ -58826,6 +58860,7 @@ function init8(RuntimeName, PHPLoader) {
+       FS.hashRemoveNode(old_node);
+       try {
+         old_dir.node_ops.rename(old_node, new_dir, new_name);
++        old_node.parent = new_dir;
+       } catch (e) {
+         throw e;
+       } finally {
 @@ -59740,6 +59775,11 @@ function init8(RuntimeName, PHPLoader) {
      doStat: function(func, path, buf) {
        try {
@@ -98,6 +226,22 @@ index 1be4252..7f01cfd 100644
        } catch (e) {
          if (e && e.node && PATH.normalize(path) !== PATH.normalize(FS.getPath(e.node))) {
            return -54;
+@@ -64968,7 +65008,6 @@ function init9(RuntimeName, PHPLoader) {
+         old_node.name = new_name;
+         new_dir.contents[new_name] = old_node;
+         new_dir.timestamp = old_node.parent.timestamp;
+-        old_node.parent = new_dir;
+       },
+       unlink(parent, name) {
+         delete parent.contents[name];
+@@ -66257,6 +66296,7 @@ function init9(RuntimeName, PHPLoader) {
+       FS.hashRemoveNode(old_node);
+       try {
+         old_dir.node_ops.rename(old_node, new_dir, new_name);
++        old_node.parent = new_dir;
+       } catch (e) {
+         throw e;
+       } finally {
 @@ -67171,6 +67211,11 @@ function init9(RuntimeName, PHPLoader) {
      doStat: function(func, path, buf) {
        try {

@@ -109,7 +109,7 @@ if ( isDevBuild ) {
 	releasesData[ 'dev' ][ 'darwin' ] = releasesData[ 'dev' ][ 'darwin' ] ?? {};
 	releasesData[ 'dev' ][ 'darwin' ][ 'universal' ] = {
 		sha: currentCommit,
-		url: `${ cdnURL }/${ baseName }-darwin-${ currentCommit }.app.zip`,
+		url: `${ cdnURL }/${ baseName }-darwin-universal-${ currentCommit }.app.zip`,
 	};
 	releasesData[ 'dev' ][ 'darwin' ][ 'x64' ] = {
 		sha: currentCommit,
@@ -137,7 +137,7 @@ if ( isDevBuild ) {
 	releasesData[ version ][ 'darwin' ] = releasesData[ version ][ 'darwin' ] ?? {};
 	releasesData[ version ][ 'darwin' ][ 'universal' ] = {
 		sha: currentCommit,
-		url: `${ cdnURL }/${ baseName }-darwin-v${ version }.app.zip`,
+		url: `${ cdnURL }/${ baseName }-darwin-universal-v${ version }.app.zip`,
 	};
 	releasesData[ version ][ 'darwin' ][ 'x64' ] = {
 		sha: currentCommit,

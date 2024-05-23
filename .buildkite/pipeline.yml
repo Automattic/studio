@@ -71,9 +71,8 @@ steps:
       buildkite-agent artifact download "*.exe" .
 
       echo "--- :node: Generating Release Manifest"
-      export IS_DEV_BUILD=true
       install_npm_packages
-      node ./scripts/generate-releases-manifest.mjs
+      IS_DEV_BUILD=true node ./scripts/generate-releases-manifest.mjs
 
       echo "--- :fastlane: Distributing Dev Builds"
       install_gems

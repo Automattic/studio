@@ -19,12 +19,10 @@ const AssistantIcon = () => (
 );
 
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
-	console.log( selectedSite );
-
 	return (
 		<div className="h-full flex flex-col">
 			<div className="flex-1 p-4 bg-gray-100 rounded-lg mb-4 overflow-auto">
-				<div className="text-gray-500">Chat transcript</div>
+				<div className="text-gray-500">Chat transcript for { selectedSite.name } </div>
 			</div>
 			<div className="p-4 bg-gray-100 rounded-lg mb-4">
 				<div className="text-gray-500">Suggested prompts</div>

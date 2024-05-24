@@ -151,7 +151,7 @@ if ( isDevBuild ) {
 	const windowsReleaseInfo = await getWindowsReleaseInfo();
 	releasesData[ 'dev' ][ 'win32' ] = {
 		sha: windowsReleaseInfo.sha1,
-		url: `${ cdnURL }/${ baseName }-win32-v${ version }-${ currentCommit }-full.nupkg`,
+		url: `${ cdnURL }/${ baseName }-win32-${ currentCommit }-full.nupkg`,
 		size: windowsReleaseInfo.size,
 	};
 

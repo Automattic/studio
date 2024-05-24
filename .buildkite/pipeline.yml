@@ -72,7 +72,7 @@ steps:
       buildkite-agent artifact download "*.app.zip" .
       buildkite-agent artifact download "*.exe" .
       buildkite-agent artifact download "*.nupkg" .
-      buildkite-agent artifact download "*/RELEASES" .
+      buildkite-agent artifact download "*\\RELEASES" .
 
       echo "--- :node: Generating Release Manifest"
       install_npm_packages
@@ -130,7 +130,7 @@ steps:
       buildkite-agent artifact download "*.zip" .
       buildkite-agent artifact download "*.exe" .
       buildkite-agent artifact download "*.nupkg" .
-      buildkite-agent artifact download "*/RELEASES" .
+      buildkite-agent artifact download "*\\RELEASES" .
 
       echo "--- :node: Generating Release Manifest"
       install_npm_packages

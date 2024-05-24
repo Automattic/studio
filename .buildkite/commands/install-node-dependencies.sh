@@ -5,7 +5,13 @@ ARCHITECTURE=$(uname -m)
 NODE_VERSION=$(node --version)
 PACKAGE_HASH=$(hash_file package-lock.json)
 
-CACHEKEY="$BUILDKITE_PIPELINE_SLUG-npm-$PLATFORM-$ARCHITECTURE-node-$NODE_VERSION-$PACKAGE_HASH"
+if [ -d patches ]; then
+  PATCHES_HASH=$(hash_directory patches/)
+else
+  PATCHES_HASH=nopatch
+fi
+
+CACHEKEY="$BUILDKITE_PIPELINE_SLUG-npm-$PLATFORM-$ARCHITECTURE-node-$NODE_VERSION-$PACKAGE_HASH-$PATCHES_HASH"
 
 LOCAL_NPM_CACHE=./vendor/npm
 mkdir -p $LOCAL_NPM_CACHE

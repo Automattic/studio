@@ -3,7 +3,7 @@ import * as Sentry from '@sentry/electron/renderer';
 import { waitFor, renderHook } from '@testing-library/react';
 import { useOffline } from '../../hooks/use-offline';
 import { useAuth } from '../use-auth';
-import { useFetchSnapshots } from '../use-fetch-snaphsots';
+import { useFetchSnapshots } from '../use-fetch-snapshots';
 import { useSiteUsage } from '../use-site-usage';
 
 jest.mock( '@sentry/electron/renderer' );

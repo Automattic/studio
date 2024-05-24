@@ -6,7 +6,7 @@ import { useCallback, useState, useEffect } from 'react';
 import { WPCOM_PROFILE_URL } from '../constants';
 import { useAuth } from '../hooks/use-auth';
 import { useDeleteSnapshot } from '../hooks/use-delete-snapshot';
-import { useFetchSnapshots } from '../hooks/use-fetch-snaphsots';
+import { useFetchSnapshots } from '../hooks/use-fetch-snapshots';
 import { useIpcListener } from '../hooks/use-ipc-listener';
 import { useOffline } from '../hooks/use-offline';
 import { useSiteUsage } from '../hooks/use-site-usage';

@@ -113,12 +113,20 @@ def distribute_builds(
       filename_core: 'win32',
       extension: 'exe',
       name: 'Windows'
+    },
+    windows_update: {
+      binary_path: File.join(BUILDS_FOLDER, 'make', 'squirrel.windows', 'x64', "studio-update.nupkg"),
+      filename_core: 'win32',
+      suffix: 'full',
+      extension: 'nupkg',
+      name: 'Windows Update'
     }
   }
 
   # Add computed fields
   assemble_filename = lambda do |build, filename_suffix|
-    "#{filename_root}-#{build[:filename_core]}-#{filename_suffix}.#{build[:extension]}"
+    build_suffix = build[:suffix].to_s.empty? ? '' : "-#{build[:suffix]}"
+    "#{filename_root}-#{build[:filename_core]}-#{filename_suffix}#{build_suffix}.#{build[:extension]}"
   end
   builds.each_value do |build|
     build[:filename] = assemble_filename.call(build, suffix)

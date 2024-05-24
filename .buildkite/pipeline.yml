@@ -60,6 +60,8 @@ steps:
     command: .buildkite/commands/build-for-windows-dev.ps1
     artifact_paths:
       - 'out\**\studio-setup.exe'
+      - 'out\**\studio-update.nupkg'
+      - 'out\**\RELEASES'
     agents:
       queue: "windows"
     if: "build.tag !~ /^v[0-9]+/"
@@ -69,6 +71,8 @@ steps:
       echo "--- :node: Downloading Binaries"
       buildkite-agent artifact download "*.app.zip" .
       buildkite-agent artifact download "*.exe" .
+      buildkite-agent artifact download "*.nupkg" .
+      buildkite-agent artifact download "RELEASES" .
 
       echo "--- :node: Generating Release Manifest"
       install_npm_packages
@@ -116,6 +120,8 @@ steps:
       queue: "windows"
     artifact_paths:
       - 'out\**\studio-setup.exe'
+      - 'out\**\studio-update.nupkg'
+      - 'out\**\RELEASES'
     if: "build.tag =~ /^v[0-9]+/"
 
   - label: ':rocket: Publish Release Builds'
@@ -123,6 +129,8 @@ steps:
       echo "--- :node: Downloading Binaries"
       buildkite-agent artifact download "*.zip" .
       buildkite-agent artifact download "*.exe" .
+      buildkite-agent artifact download "*.nupkg" .
+      buildkite-agent artifact download "RELEASES" .
 
       echo "--- :node: Generating Release Manifest"
       install_npm_packages

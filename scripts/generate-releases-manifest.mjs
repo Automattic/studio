@@ -62,6 +62,28 @@ console.log( `Current commit: ${ currentCommit }` );
 console.log( 'Downloading current manifest ...' );
 
 const releasesPath = path.join( __dirname, '..', 'out', 'releases.json' );
+
+async function getWindowsReleaseInfo() {
+	let windowsReleaseInfo = {};
+	try {
+		windowsReleaseInfo = await fs.readFile(
+			path.join( __dirname, '..', 'out', 'make', 'squirrel.windows', 'x64', 'RELEASES' ),
+			'utf8'
+		);
+	} catch ( error ) {
+		console.log(
+			`Couldn't read RELEASES file of Windows build, please ensure that the file exists to generate the release manifest.`
+		);
+		process.exit( 1 );
+	}
+
+	const [ _, sha1, filename, size ] = windowsReleaseInfo.match(
+		/([a-zA-Z\d]{40})\s(.*\.nupkg)\s(\d+)/
+	);
+
+	return { sha1, filename, size };
+}
+
 try {
 	await fs.mkdir( path.dirname( releasesPath ) );
 } catch ( err ) {
@@ -126,9 +148,11 @@ if ( isDevBuild ) {
 	};
 
 	// Windows
+	const windowsReleaseInfo = await getWindowsReleaseInfo();
 	releasesData[ 'dev' ][ 'win32' ] = {
-		sha: currentCommit,
-		url: `${ cdnURL }/${ baseName }-win32-${ currentCommit }.exe`,
+		sha: windowsReleaseInfo.sha1,
+		url: `${ cdnURL }/${ baseName }-win32-v${ version }-${ currentCommit }-full.nupkg`,
+		size: windowsReleaseInfo.size,
 	};
 
 	await fs.writeFile( releasesPath, JSON.stringify( releasesData, null, 2 ) );
@@ -154,9 +178,11 @@ if ( isDevBuild ) {
 	};
 
 	// Windows
+	const windowsRelease = await getWindowsReleaseInfo();
 	releasesData[ version ][ 'win32' ] = {
-		sha: currentCommit,
-		url: `${ cdnURL }/${ baseName }-win32-v${ version }.exe`,
+		sha: windowsRelease.sha1,
+		url: `${ cdnURL }/${ baseName }-win32-v${ version }-full.nupkg`,
+		size: windowsRelease.size,
 	};
 
 	await fs.writeFile( releasesPath, JSON.stringify( releasesData, null, 2 ) );

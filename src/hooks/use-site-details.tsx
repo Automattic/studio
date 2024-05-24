@@ -3,7 +3,7 @@ import { __ } from '@wordpress/i18n';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { useDeleteSnapshot } from './use-delete-snapshot';
-import { useFetchSnapshots } from './use-fetch-snaphsots';
+import { useFetchSnapshots } from './use-fetch-snapshots';
 
 interface SiteDetailsContext {
 	selectedSite: SiteDetails | null;

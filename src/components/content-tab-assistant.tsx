@@ -5,15 +5,18 @@ import { MenuIcon } from './icons/menu';
 interface ContentTabAssistantProps {
 	selectedSite: SiteDetails;
 }
+
 export const UserMessage = ( { text }: { text: string } ) => (
 	<div className="flex justify-end mb-2 mt-2">
-		<div className="inline-block p-2 rounded-sm border border-gray-300 lg:max-w-max user-select-text">{ text }</div>
+		<div className="inline-block p-2 rounded-sm border border-gray-300 lg:max-w-[70%] user-select-text">
+			{ text }
+		</div>
 	</div>
 );
 
 export const ResponseMessage = ( { text }: { text: string } ) => (
 	<div className="flex justify-start mb-2 mt-2">
-		<div className="inline-block p-2 rounded-sm border border-gray-300 bg-white lg:max-w-max user-select-text">
+		<div className="inline-block p-2 rounded-sm border border-gray-300 bg-white lg:max-w-[70%] user-select-text">
 			{ text }
 		</div>
 	</div>
@@ -82,7 +85,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 
 	return (
 		<div className="h-full flex flex-col bg-gray-50">
-			<div className="flex-1 p-4 mb-4 overflow-auto">
+			<div data-testid="assistant-chat" className="flex-1 overflow-y-auto p-8">
 				<div className="text-gray-500 mb-4">
 					Welcome to the Studio assistant. I can help manage your site, debug issues, and navigate
 					your way around the WordPress ecosystem.
@@ -100,7 +103,11 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 					<div ref={ endOfMessagesRef } />
 				</div>
 			</div>
-			<div className="flex items-center mb-4">
+			<div
+				data-testid="assistant-input"
+				className="px-8 py-6 bg-white flex items-center border-t border-gray-200"
+				style={ { position: 'sticky', bottom: 0 } }
+			>
 				<div className="relative flex-1">
 					<input
 						type="text"

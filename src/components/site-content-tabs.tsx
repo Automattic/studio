@@ -25,7 +25,7 @@ export function SiteContentTabs() {
 	}
 
 	return (
-		<div className="flex flex-col w-full h-full app-no-drag-region pt-8">
+		<div className="flex flex-col w-full h-full app-no-drag-region pt-8 overflow-y-auto">
 			<Header />
 			<TabPanel className="mt-6 h-full flex flex-col" tabs={ tabs } orientation="horizontal">
 				{ ( { name } ) => (

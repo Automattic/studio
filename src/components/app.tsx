@@ -41,7 +41,7 @@ export default function App() {
 				<MainSidebar className="basis-52 flex-shrink-0 h-full" />
 				<main
 					data-testid="site-content"
-					className="bg-white overflow-y-auto h-full flex-grow rounded-chrome"
+					className="bg-white h-full flex-grow rounded-chrome overflow-hidden"
 				>
 					<SiteContentTabs />
 				</main>

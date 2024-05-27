@@ -17,7 +17,27 @@ export function setupMenu( mainWindow: BrowserWindow | null ) {
 		Menu.setApplicationMenu( null );
 		return;
 	}
+	const menu = getAppMenu( mainWindow );
+	if ( process.platform === 'darwin' ) {
+		Menu.setApplicationMenu( menu );
+		return;
+	}
+	// Make menu accessible in development for non-macOS platforms
+	if ( process.env.NODE_ENV === 'development' ) {
+		mainWindow?.setMenu( menu );
+		return;
+	}
+	Menu.setApplicationMenu( null );
+}
 
+export function popupMenu() {
+	withMainWindow( ( window ) => {
+		const menu = getAppMenu( window );
+		menu.popup();
+	} );
+}
+
+function getAppMenu( mainWindow: BrowserWindow | null ) {
 	const crashTestMenuItems: MenuItemConstructorOptions[] = [
 		{
 			label: __( 'Test Hard Crash (dev only)' ),
@@ -40,7 +60,7 @@ export function setupMenu( mainWindow: BrowserWindow | null ) {
 		{ type: 'separator' },
 	];
 
-	const menu = Menu.buildFromTemplate( [
+	return Menu.buildFromTemplate( [
 		{
 			label: app.name, // macOS ignores this name and uses the name from the .plist
 			role: 'appMenu',
@@ -132,15 +152,4 @@ export function setupMenu( mainWindow: BrowserWindow | null ) {
 			],
 		},
 	] );
-
-	if ( process.platform === 'darwin' ) {
-		Menu.setApplicationMenu( menu );
-		return;
-	}
-	// Make menu accessible in development for non-macOS platforms
-	if ( process.env.NODE_ENV === 'development' ) {
-		mainWindow?.setMenu( menu );
-		return;
-	}
-	Menu.setApplicationMenu( null );
 }

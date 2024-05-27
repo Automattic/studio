@@ -14,12 +14,12 @@ export default function WindowsTitlebar( { className }: { className?: string } )
 				onClick={ () => {
 					getIpcApi().popupAppMenu();
 				} }
-				className="!p-2"
+				className="!px-3 !py-2 app-no-drag-region"
 			>
-				<Icon icon={ menu } className="text-white" />
+				<Icon icon={ menu } className="text-white" size={ 18 } />
 			</Button>
 
-			<div className="flex gap-2">
+			<div className="flex gap-2 app-drag">
 				<img src={ appIcon } alt="" className="w-[16px] flex-shrink-0" />
 				<h1 className="text-xs">{ getAppGlobals().appName }</h1>
 			</div>

@@ -5,22 +5,17 @@ import { MenuIcon } from './icons/menu';
 interface ContentTabAssistantProps {
 	selectedSite: SiteDetails;
 }
-
 export const UserMessage = ( { text }: { text: string } ) => (
-	<div
-		className="mb-2 p-2 max-w-[80%] rounded-lg border border-gray-300 bg-white ml-auto"
-		style={ { whiteSpace: 'pre-wrap' } }
-	>
-		{ text }
+	<div className="flex justify-end mb-2 mt-2">
+		<div className="inline-block p-2 rounded-sm border border-gray-300 lg:max-w-max user-select-text">{ text }</div>
 	</div>
 );
 
 export const ResponseMessage = ( { text }: { text: string } ) => (
-	<div
-		className="mb-2 p-2 max-w-[80%] rounded-lg border border-gray-300 bg-gray-200 mr-auto"
-		style={ { whiteSpace: 'pre-wrap' } }
-	>
-		{ text }
+	<div className="flex justify-start mb-2 mt-2">
+		<div className="inline-block p-2 rounded-sm border border-gray-300 bg-white lg:max-w-max user-select-text">
+			{ text }
+		</div>
 	</div>
 );
 
@@ -86,11 +81,8 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	}, [ messages ] );
 
 	return (
-		<div className="h-full flex flex-col">
-			<div
-				className="flex-1 p-4 bg-gray-100 rounded-lg mb-4 overflow-auto border border-gray-300"
-				style={ { maxHeight: '400px' } }
-			>
+		<div className="h-full flex flex-col bg-gray-50">
+			<div className="flex-1 p-4 mb-4 overflow-auto">
 				<div className="text-gray-500 mb-4">
 					Welcome to the Studio assistant. I can help manage your site, debug issues, and navigate
 					your way around the WordPress ecosystem.
@@ -108,7 +100,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 					<div ref={ endOfMessagesRef } />
 				</div>
 			</div>
-			<div className="flex gap-2 items-center p-4">
+			<div className="flex items-center mb-4">
 				<div className="relative flex-1">
 					<input
 						type="text"
@@ -122,9 +114,9 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 						<AssistantIcon />
 					</div>
 				</div>
-				<div className="ml-2 cursor-pointer" onClick={ clearInput }>
-					<MenuIcon aria-label="menu" />
-				</div>
+				<button aria-label="menu" className="ml-2 cursor-pointer" onClick={ clearInput }>
+					<MenuIcon />
+				</button>
 			</div>
 		</div>
 	);

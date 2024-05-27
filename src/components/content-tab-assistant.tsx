@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useAssistant } from '../hooks/use-assistant';
 import { AssistantIcon } from './icons/assistant';
 import { MenuIcon } from './icons/menu';
 
@@ -23,7 +24,7 @@ export const ResponseMessage = ( { text }: { text: string } ) => (
 );
 
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
-	const [ messages, setMessages ] = useState< { text: string; isUser: boolean }[] >( [] );
+	const { messages, addMessage, clearMessages } = useAssistant( selectedSite.name );
 	const [ input, setInput ] = useState< string >( '' );
 	const endOfMessagesRef = useRef< HTMLDivElement >( null );
 
@@ -36,21 +37,14 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	];
 
 	useEffect( () => {
-		const savedMessages = localStorage.getItem( selectedSite.name );
-		if ( savedMessages ) {
-			setMessages( JSON.parse( savedMessages ) );
-		} else {
-			setMessages( [] );
+		if ( endOfMessagesRef.current ) {
+			endOfMessagesRef.current.scrollIntoView( { behavior: 'smooth' } );
 		}
-	}, [ selectedSite ] );
-
-	useEffect( () => {
-		localStorage.setItem( selectedSite.name, JSON.stringify( messages ) );
-	}, [ messages, selectedSite.name ] );
+	}, [ messages ] );
 
 	const handleSend = () => {
 		if ( input.trim() ) {
-			setMessages( [ ...messages, { text: input, isUser: true } ] );
+			addMessage( input, 'user' );
 			setInput( '' );
 			simulateResponse();
 		}
@@ -62,26 +56,13 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		}
 	};
 
-	const clearInput = () => {
-		setInput( '' );
-	};
-
 	const simulateResponse = () => {
 		const randomResponse =
 			simulatedResponses[ Math.floor( Math.random() * simulatedResponses.length ) ];
 		setTimeout( () => {
-			setMessages( ( prevMessages ) => [
-				...prevMessages,
-				{ text: randomResponse, isUser: false },
-			] );
+			addMessage( randomResponse, 'assistant' );
 		}, 1000 );
 	};
-
-	useEffect( () => {
-		if ( endOfMessagesRef.current ) {
-			endOfMessagesRef.current.scrollIntoView( { behavior: 'smooth' } );
-		}
-	}, [ messages ] );
 
 	return (
 		<div className="h-full flex flex-col bg-gray-50">
@@ -93,10 +74,10 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 				<div>
 					{ messages.map( ( message, index ) => (
 						<div key={ index }>
-							{ message.isUser ? (
-								<UserMessage text={ message.text } />
+							{ message.role === 'user' ? (
+								<UserMessage text={ message.content } />
 							) : (
-								<ResponseMessage text={ message.text } />
+								<ResponseMessage text={ message.content } />
 							) }
 						</div>
 					) ) }
@@ -121,7 +102,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 						<AssistantIcon />
 					</div>
 				</div>
-				<button aria-label="menu" className="ml-2 cursor-pointer" onClick={ clearInput }>
+				<button aria-label="menu" className="ml-2 cursor-pointer" onClick={ clearMessages }>
 					<MenuIcon />
 				</button>
 			</div>

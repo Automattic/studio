@@ -41,7 +41,7 @@ export default function App() {
 				<MainSidebar className="basis-52 flex-shrink-0 h-full" />
 				<main
 					data-testid="site-content"
-					className="py-8 pr-8 bg-white overflow-y-auto h-full flex-grow rounded-chrome"
+					className="bg-white overflow-y-auto h-full flex-grow rounded-chrome"
 				>
 					<SiteContentTabs />
 				</main>

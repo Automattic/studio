@@ -32,7 +32,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 	const password = storedPassword === '' ? 'password' : storedPassword;
 	const wpVersion = useGetWpVersion( selectedSite );
 	return (
-		<div className="pb-4">
+		<div className="p-8">
 			<table className="mb-2 m-w-full" cellPadding={ 0 } cellSpacing={ 0 }>
 				<tbody>
 					<tr>

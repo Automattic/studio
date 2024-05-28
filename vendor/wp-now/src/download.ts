@@ -53,10 +53,11 @@ async function downloadFile({
 	url,
 	destinationFilePath,
 	itemName,
+	overwrite = false,
 }): Promise<DownloadFileAndUnzipResult> {
 	let statusCode = 0;
 	try {
-		if (fs.existsSync(destinationFilePath)) {
+		if (fs.existsSync(destinationFilePath) && !overwrite ) {
 			return { downloaded: false, statusCode: 0 };
 		}
 		fs.ensureDirSync(path.dirname(destinationFilePath));
@@ -90,11 +91,12 @@ async function downloadFile({
 	}
 }
 
-export async function downloadWPCLI() {
+export async function downloadWPCLI( overwrite = false ) {
 	return downloadFile({
 		url: WP_CLI_URL,
 		destinationFilePath: getWpCliPath(),
 		itemName: 'wp-cli',
+		overwrite,
 	});
 }
 

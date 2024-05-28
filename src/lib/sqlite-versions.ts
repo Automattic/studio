@@ -5,14 +5,19 @@ import semver from 'semver';
 import { downloadSqliteIntegrationPlugin } from '../../vendor/wp-now/src/download';
 import getSqlitePath from '../../vendor/wp-now/src/get-sqlite-path';
 
+export async function isSqlLiteInstalled() {
+	const installPath = getSqlitePath();
+	const installedFiles = ( await fs.pathExists( installPath ) )
+		? await fs.readdir( installPath )
+		: [];
+	return installedFiles.length !== 0;
+}
+
 export async function updateLatestSqliteVersion() {
 	let shouldOverwrite = false;
 	const installedPath = getSqlitePath();
-	const installedFiles = ( await fs.pathExists( installedPath ) )
-		? await fs.readdir( installedPath )
-		: [];
-	if ( installedFiles.length !== 0 ) {
-		shouldOverwrite = await isSqliteInstallationOutdated( installedPath );
+	if ( await isSqlLiteInstalled() ) {
+		shouldOverwrite = await isSqliteInstallationOutdated();
 	}
 
 	await downloadSqliteIntegrationPlugin( { overwrite: shouldOverwrite } );
@@ -20,7 +25,8 @@ export async function updateLatestSqliteVersion() {
 	await removeLegacySqliteIntegrationPlugin( installedPath );
 }
 
-export async function isSqliteInstallationOutdated( installationPath: string ): Promise< boolean > {
+export async function isSqliteInstallationOutdated(): Promise< boolean > {
+	const installationPath = getSqlitePath();
 	const installedVersion = getSqliteVersionFromInstallation( installationPath );
 	const latestVersion = await getLatestSqliteVersion();
 

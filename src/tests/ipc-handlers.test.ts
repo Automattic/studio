@@ -118,4 +118,45 @@ describe( 'startServer', () => {
 			expect( copySync ).not.toHaveBeenCalled();
 		} );
 	} );
+
+	describe( 'when sqlite-database-integration plugin is not installed', () => {
+		it( 'should install sqlite-database-integration plugin if wp-config.php does not exist', async () => {
+			const mockSitePath = 'mock-site-path';
+			( isSqlLiteInstalled as jest.Mock ).mockResolvedValue( false );
+			( fs.existsSync as jest.Mock ).mockReturnValueOnce( false );
+			( SiteServer.get as jest.Mock ).mockReturnValue( {
+				details: { path: mockSitePath },
+				start: jest.fn(),
+				updateSiteDetails: jest.fn(),
+				updateCachedThumbnail: jest.fn( () => Promise.resolve() ),
+			} );
+
+			await startServer( mockIpcMainInvokeEvent, 'mock-site-id' );
+
+			expect( downloadSqliteIntegrationPlugin ).toHaveBeenCalledTimes( 1 );
+			expect( copySync ).toHaveBeenCalledWith(
+				`/path/to/app/appData/App Name/server-files/sqlite-database-integration`,
+				`${ mockSitePath }/wp-content/mu-plugins/${ SQLITE_FILENAME }`
+			);
+		} );
+
+		it( 'should not install sqlite-database-integration plugin if wp-config.php exists', async () => {
+			const mockSitePath = 'mock-site-path';
+			( isSqlLiteInstalled as jest.Mock ).mockResolvedValue( false );
+			( fs.existsSync as jest.Mock ).mockImplementationOnce(
+				( path: string ) => path === `${ mockSitePath }/wp-config.php`
+			);
+			( SiteServer.get as jest.Mock ).mockReturnValue( {
+				details: { path: mockSitePath },
+				start: jest.fn(),
+				updateSiteDetails: jest.fn(),
+				updateCachedThumbnail: jest.fn( () => Promise.resolve() ),
+			} );
+
+			await startServer( mockIpcMainInvokeEvent, 'mock-site-id' );
+
+			expect( downloadSqliteIntegrationPlugin ).not.toHaveBeenCalled();
+			expect( copySync ).not.toHaveBeenCalled();
+		} );
+	} );
 } );

@@ -2,7 +2,8 @@
 =====
 * Fixed plugin, theme, and WordPress core updates #156
 * Fixed Windows auto-updates and dev build updates #147, #149, #153, #157
-* Added automatic SQLite plugin upgrade #136
+* Added application menu on Windows #174
+* Added automatic SQLite plugin upgrade #136, #176
 * Added a way to delete all demo sites on user's account #131
 * Added a mu-plugin to enable permalinks without index.php in the URL #143
 * Fixed incorrect offline message displayed alongside "delete site" #141

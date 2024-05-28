@@ -36,12 +36,6 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		"After installing and activating Jetpack, you'll need to connect it to a WordPress.com account. \nThis is necessary because Jetpack uses the WordPress.com infrastructure to provide many of its features. You can do this from the Jetpack settings page in your WordPress admin dashboard.",
 	];
 
-	useEffect( () => {
-		if ( endOfMessagesRef.current ) {
-			endOfMessagesRef.current.scrollIntoView( { behavior: 'smooth' } );
-		}
-	}, [ messages ] );
-
 	const handleSend = () => {
 		if ( input.trim() ) {
 			addMessage( input, 'user' );
@@ -56,6 +50,11 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		}
 	};
 
+	const clearInput = () => {
+		setInput( '' );
+		clearMessages();
+	};
+
 	const simulateResponse = () => {
 		const randomResponse =
 			simulatedResponses[ Math.floor( Math.random() * simulatedResponses.length ) ];
@@ -63,6 +62,12 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 			addMessage( randomResponse, 'assistant' );
 		}, 1000 );
 	};
+
+	useEffect( () => {
+		if ( endOfMessagesRef.current ) {
+			endOfMessagesRef.current.scrollIntoView( { behavior: 'smooth' } );
+		}
+	}, [ messages ] );
 
 	return (
 		<div className="h-full flex flex-col bg-gray-50">
@@ -102,7 +107,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 						<AssistantIcon />
 					</div>
 				</div>
-				<button aria-label="menu" className="ml-2 cursor-pointer" onClick={ clearMessages }>
+				<button aria-label="menu" className="p-2 ml-2 cursor-pointer" onClick={ clearInput }>
 					<MenuIcon />
 				</button>
 			</div>

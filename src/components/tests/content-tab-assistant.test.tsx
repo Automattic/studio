@@ -3,7 +3,7 @@ import { ContentTabAssistant } from '../content-tab-assistant';
 
 jest.mock( '../../hooks/use-theme-details' );
 
-const runningSite: StartedSiteDetails = {
+const runningSite = {
 	name: 'Test Site',
 	port: 8881,
 	path: '/path/to/site',
@@ -13,8 +13,8 @@ const runningSite: StartedSiteDetails = {
 };
 
 const initialMessages = [
-	{ text: 'Initial message 1', isUser: true },
-	{ text: 'Initial message 2', isUser: false },
+	{ content: 'Initial message 1', role: 'user' },
+	{ content: 'Initial message 2', role: 'assistant' },
 ];
 
 describe( 'ContentTabAssistant', () => {
@@ -52,7 +52,7 @@ describe( 'ContentTabAssistant', () => {
 		} );
 	} );
 
-	test( 'clears input when MenuIcon is clicked', () => {
+	test( 'clears input and chat history when MenuIcon is clicked', () => {
 		render( <ContentTabAssistant selectedSite={ runningSite } /> );
 
 		const textInput = screen.getByPlaceholderText(
@@ -65,10 +65,13 @@ describe( 'ContentTabAssistant', () => {
 
 		fireEvent.click( menuIcon );
 		expect( textInput.value ).toBe( '' );
+
+		expect( screen.queryByText( 'Hello, Assistant!' ) ).not.toBeInTheDocument();
 	} );
 
 	test( 'saves and retrieves conversation from localStorage', async () => {
-		localStorage.setItem( runningSite.name, JSON.stringify( initialMessages ) );
+		const storageKey = `${ runningSite.name }`;
+		localStorage.setItem( storageKey, JSON.stringify( initialMessages ) );
 
 		render( <ContentTabAssistant selectedSite={ runningSite } /> );
 
@@ -93,9 +96,9 @@ describe( 'ContentTabAssistant', () => {
 		} );
 
 		await waitFor( () => {
-			const storedMessages = JSON.parse( localStorage.getItem( runningSite.name ) || '[]' );
-			expect( storedMessages ).toHaveLength( 4 );
-			expect( storedMessages[ 2 ].text ).toBe( 'New message' );
+			const storedMessages = JSON.parse( localStorage.getItem( storageKey ) || '[]' );
+			expect( storedMessages ).toHaveLength( 3 );
+			expect( storedMessages[ 2 ].content ).toBe( 'New message' );
 		} );
 	} );
 } );

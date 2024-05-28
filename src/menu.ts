@@ -17,7 +17,27 @@ export function setupMenu( mainWindow: BrowserWindow | null ) {
 		Menu.setApplicationMenu( null );
 		return;
 	}
+	const menu = getAppMenu( mainWindow );
+	if ( process.platform === 'darwin' ) {
+		Menu.setApplicationMenu( menu );
+		return;
+	}
+	// Make menu accessible in development for non-macOS platforms
+	if ( process.env.NODE_ENV === 'development' ) {
+		mainWindow?.setMenu( menu );
+		return;
+	}
+	Menu.setApplicationMenu( null );
+}
 
+export function popupMenu() {
+	withMainWindow( ( window ) => {
+		const menu = getAppMenu( window );
+		menu.popup();
+	} );
+}
+
+function getAppMenu( mainWindow: BrowserWindow | null ) {
 	const crashTestMenuItems: MenuItemConstructorOptions[] = [
 		{
 			label: __( 'Test Hard Crash (dev only)' ),
@@ -40,7 +60,7 @@ export function setupMenu( mainWindow: BrowserWindow | null ) {
 		{ type: 'separator' },
 	];
 
-	const menu = Menu.buildFromTemplate( [
+	return Menu.buildFromTemplate( [
 		{
 			label: app.name, // macOS ignores this name and uses the name from the .plist
 			role: 'appMenu',
@@ -68,9 +88,13 @@ export function setupMenu( mainWindow: BrowserWindow | null ) {
 					},
 				},
 				{ type: 'separator' },
-				{ role: 'services' },
+				...( process.platform === 'win32'
+					? []
+					: [ { role: 'services' } as MenuItemConstructorOptions ] ),
 				{ type: 'separator' },
-				{ role: 'hide' },
+				...( process.platform === 'win32'
+					? []
+					: [ { role: 'hide' } as MenuItemConstructorOptions ] ),
 				{ type: 'separator' },
 				...( process.env.NODE_ENV === 'development' ? crashTestMenuItems : [] ),
 				{ type: 'separator' },
@@ -89,19 +113,27 @@ export function setupMenu( mainWindow: BrowserWindow | null ) {
 						} );
 					},
 				},
-				{
-					label: __( 'Close Window' ),
-					accelerator: 'CommandOrControl+W',
-					click: ( _menuItem, browserWindow ) => {
-						browserWindow?.close();
-					},
-					enabled: !! mainWindow && ! mainWindow.isDestroyed(),
-				},
+				...( process.platform === 'win32'
+					? []
+					: [
+							{
+								label: __( 'Close Window' ),
+								accelerator: 'CommandOrControl+W',
+								click: ( _menuItem, browserWindow ) => {
+									browserWindow?.close();
+								},
+								enabled: !! mainWindow && ! mainWindow.isDestroyed(),
+							} as MenuItemConstructorOptions,
+					  ] ),
 			],
 		},
-		{
-			role: 'editMenu',
-		},
+		...( process.platform === 'win32'
+			? []
+			: [
+					{
+						role: 'editMenu',
+					} as MenuItemConstructorOptions,
+			  ] ),
 		{
 			role: 'viewMenu',
 			submenu: [
@@ -113,13 +145,17 @@ export function setupMenu( mainWindow: BrowserWindow | null ) {
 				{ role: 'togglefullscreen' },
 			],
 		},
-		{
-			role: 'windowMenu',
-			// We can't remove all of the items which aren't relevant to us (anything for
-			// managing multiple window instances), but this seems to remove as many of
-			// them as we can.
-			submenu: [ { role: 'minimize' }, { role: 'zoom' } ],
-		},
+		...( process.platform === 'win32'
+			? []
+			: [
+					{
+						role: 'windowMenu',
+						// We can't remove all of the items which aren't relevant to us (anything for
+						// managing multiple window instances), but this seems to remove as many of
+						// them as we can.
+						submenu: [ { role: 'minimize' }, { role: 'zoom' } ],
+					} as MenuItemConstructorOptions,
+			  ] ),
 		{
 			role: 'help',
 			submenu: [
@@ -132,15 +168,4 @@ export function setupMenu( mainWindow: BrowserWindow | null ) {
 			],
 		},
 	] );
-
-	if ( process.platform === 'darwin' ) {
-		Menu.setApplicationMenu( menu );
-		return;
-	}
-	// Make menu accessible in development for non-macOS platforms
-	if ( process.env.NODE_ENV === 'development' ) {
-		mainWindow?.setMenu( menu );
-		return;
-	}
-	Menu.setApplicationMenu( null );
 }

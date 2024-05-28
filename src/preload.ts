@@ -48,6 +48,7 @@ const api: IpcApi = {
 	// Use .send instead of .invoke because logging is fire-and-forget
 	logRendererMessage: ( level: LogLevel, ...args: any[] ) =>
 		ipcRenderer.send( 'logRendererMessage', level, ...args ),
+	popupAppMenu: () => ipcRenderer.invoke( 'popupAppMenu' ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

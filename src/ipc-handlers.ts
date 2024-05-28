@@ -32,6 +32,7 @@ import {
 	removeLegacySqliteIntegrationPlugin,
 } from './lib/sqlite-versions';
 import { writeLogToFile, type LogLevel } from './logging';
+import { popupMenu } from './menu';
 import { SiteServer, createSiteWorkingDirectory } from './site-server';
 import { DEFAULT_SITE_PATH, getServerFilesPath, getSiteThumbnailPath } from './storage/paths';
 import { loadUserData, saveUserData } from './storage/user-data';
@@ -607,4 +608,8 @@ export async function showNotification(
 	options: Electron.NotificationConstructorOptions
 ) {
 	new Notification( options ).show();
+}
+
+export function popupAppMenu( _event: IpcMainInvokeEvent ) {
+	popupMenu();
 }

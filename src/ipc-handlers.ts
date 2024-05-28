@@ -29,6 +29,7 @@ import { sanitizeForLogging } from './lib/sanitize-for-logging';
 import { sortSites } from './lib/sort-sites';
 import {
 	isSqliteInstallationOutdated,
+	isSqlLiteInstalled,
 	removeLegacySqliteIntegrationPlugin,
 } from './lib/sqlite-versions';
 import { writeLogToFile, type LogLevel } from './logging';
@@ -223,11 +224,12 @@ export async function startServer(
 		return null;
 	}
 
-	if (
-		await isSqliteInstallationOutdated(
-			`${ server.details.path }/wp-content/mu-plugins/${ SQLITE_FILENAME }`
-		)
-	) {
+	const SQLitePath = `${ server.details.path }/wp-content/mu-plugins/${ SQLITE_FILENAME }`;
+	const hasWpConfig = fs.existsSync( nodePath.join( server.details.path, 'wp-config.php' ) );
+	const sqliteInstalled = await isSqlLiteInstalled( SQLitePath );
+	const sqliteOutdated = sqliteInstalled && ( await isSqliteInstallationOutdated( SQLitePath ) );
+
+	if ( ( ! sqliteInstalled && ! hasWpConfig ) || sqliteOutdated ) {
 		await setupSqliteIntegration( server.details.path );
 	}
 

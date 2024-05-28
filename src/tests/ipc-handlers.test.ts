@@ -8,7 +8,7 @@ import { SQLITE_FILENAME } from '../../vendor/wp-now/src/constants';
 import { downloadSqliteIntegrationPlugin } from '../../vendor/wp-now/src/download';
 import { createSite, startServer } from '../ipc-handlers';
 import { isEmptyDir, pathExists } from '../lib/fs-utils';
-import { isSqliteInstallationOutdated } from '../lib/sqlite-versions';
+import { isSqliteInstallationOutdated, isSqlLiteInstalled } from '../lib/sqlite-versions';
 import { SiteServer, createSiteWorkingDirectory } from '../site-server';
 
 jest.mock( 'fs' );
@@ -84,6 +84,7 @@ describe( 'startServer', () => {
 		it( 'should update sqlite-database-integration plugin', async () => {
 			const mockSitePath = 'mock-site-path';
 			( isSqliteInstallationOutdated as jest.Mock ).mockResolvedValue( true );
+			( isSqlLiteInstalled as jest.Mock ).mockResolvedValue( true );
 			( SiteServer.get as jest.Mock ).mockReturnValue( {
 				details: { path: mockSitePath },
 				start: jest.fn(),

@@ -5,13 +5,17 @@ import semver from 'semver';
 import { downloadSqliteIntegrationPlugin } from '../../vendor/wp-now/src/download';
 import getSqlitePath from '../../vendor/wp-now/src/get-sqlite-path';
 
+export async function isSqlLiteInstalled( installPath: string ) {
+	const installedFiles = ( await fs.pathExists( installPath ) )
+		? await fs.readdir( installPath )
+		: [];
+	return installedFiles.length !== 0;
+}
+
 export async function updateLatestSqliteVersion() {
 	let shouldOverwrite = false;
 	const installedPath = getSqlitePath();
-	const installedFiles = ( await fs.pathExists( installedPath ) )
-		? await fs.readdir( installedPath )
-		: [];
-	if ( installedFiles.length !== 0 ) {
+	if ( await isSqlLiteInstalled( installedPath ) ) {
 		shouldOverwrite = await isSqliteInstallationOutdated( installedPath );
 	}
 

@@ -88,9 +88,13 @@ function getAppMenu( mainWindow: BrowserWindow | null ) {
 					},
 				},
 				{ type: 'separator' },
-				{ role: 'services' },
+				...( process.platform === 'win32'
+					? []
+					: [ { role: 'services' } as MenuItemConstructorOptions ] ),
 				{ type: 'separator' },
-				{ role: 'hide' },
+				...( process.platform === 'win32'
+					? []
+					: [ { role: 'hide' } as MenuItemConstructorOptions ] ),
 				{ type: 'separator' },
 				...( process.env.NODE_ENV === 'development' ? crashTestMenuItems : [] ),
 				{ type: 'separator' },
@@ -109,19 +113,27 @@ function getAppMenu( mainWindow: BrowserWindow | null ) {
 						} );
 					},
 				},
-				{
-					label: __( 'Close Window' ),
-					accelerator: 'CommandOrControl+W',
-					click: ( _menuItem, browserWindow ) => {
-						browserWindow?.close();
-					},
-					enabled: !! mainWindow && ! mainWindow.isDestroyed(),
-				},
+				...( process.platform === 'win32'
+					? []
+					: [
+							{
+								label: __( 'Close Window' ),
+								accelerator: 'CommandOrControl+W',
+								click: ( _menuItem, browserWindow ) => {
+									browserWindow?.close();
+								},
+								enabled: !! mainWindow && ! mainWindow.isDestroyed(),
+							} as MenuItemConstructorOptions,
+					  ] ),
 			],
 		},
-		{
-			role: 'editMenu',
-		},
+		...( process.platform === 'win32'
+			? []
+			: [
+					{
+						role: 'editMenu',
+					} as MenuItemConstructorOptions,
+			  ] ),
 		{
 			role: 'viewMenu',
 			submenu: [
@@ -133,13 +145,17 @@ function getAppMenu( mainWindow: BrowserWindow | null ) {
 				{ role: 'togglefullscreen' },
 			],
 		},
-		{
-			role: 'windowMenu',
-			// We can't remove all of the items which aren't relevant to us (anything for
-			// managing multiple window instances), but this seems to remove as many of
-			// them as we can.
-			submenu: [ { role: 'minimize' }, { role: 'zoom' } ],
-		},
+		...( process.platform === 'win32'
+			? []
+			: [
+					{
+						role: 'windowMenu',
+						// We can't remove all of the items which aren't relevant to us (anything for
+						// managing multiple window instances), but this seems to remove as many of
+						// them as we can.
+						submenu: [ { role: 'minimize' }, { role: 'zoom' } ],
+					} as MenuItemConstructorOptions,
+			  ] ),
 		{
 			role: 'help',
 			submenu: [

@@ -83,6 +83,9 @@ steps:
       bundle exec fastlane distribute_dev_build
     agents:
       queue: "mac" #
+    concurrency_group: 'studio/release-manifest-update'
+    concurrency: 1
+    concurrency_method: eager
     depends_on:
       - step: "dev-mac"
       - step: "dev-windows"
@@ -141,6 +144,9 @@ steps:
       bundle exec fastlane distribute_release_build
     agents:
       queue: "mac" # 
+    concurrency_group: 'studio/release-manifest-update'
+    concurrency: 1
+    concurrency_method: eager
     depends_on:
       - step: "release-mac"
       - step: "release-windows"

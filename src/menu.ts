@@ -8,7 +8,7 @@ import {
 } from 'electron';
 import { __ } from '@wordpress/i18n';
 import { openAboutWindow } from './about-menu/open-about-menu';
-import { BUG_REPORT_URL, FEATURE_REQUEST_URL, STUDIO_DOCS_URL} from './constants';
+import { BUG_REPORT_URL, FEATURE_REQUEST_URL, STUDIO_DOCS_URL } from './constants';
 import { withMainWindow } from './main-window';
 import { isUpdateReadyToInstall, manualCheckForUpdates } from './updates';
 

@@ -9,8 +9,10 @@ export const WINDOWS_TITLEBAR_HEIGHT = 32;
 export const ABOUT_WINDOW_WIDTH = 284;
 export const ABOUT_WINDOW_HEIGHT = 284;
 export const STUDIO_DOCS_URL = `https://developer.wordpress.com/docs/developer-tools/studio/`;
-export const BUG_REPORT_URL = 'https://github.com/Automattic/studio/issues/new?assignees=&labels=Needs+triage%2C%5BType%5D+Bug&projects=&template=bug_report.yml';
-export const FEATURE_REQUEST_URL = 'https://github.com/Automattic/studio/issues/new?assignees=&labels=%5BType%5D+Feature+Request&projects=&template=feature_request.yml&title=Feature+Request%3A';
+export const BUG_REPORT_URL =
+	'https://github.com/Automattic/studio/issues/new?assignees=&labels=Needs+triage%2C%5BType%5D+Bug&projects=&template=bug_report.yml';
+export const FEATURE_REQUEST_URL =
+	'https://github.com/Automattic/studio/issues/new?assignees=&labels=%5BType%5D+Feature+Request&projects=&template=feature_request.yml&title=Feature+Request%3A';
 export const WPCOM_PROFILE_URL = `https://wordpress.com/me`;
 // OAuth constants
 export const CLIENT_ID = '95109';

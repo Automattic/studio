@@ -91,8 +91,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 			</div>
 			<div
 				data-testid="assistant-input"
-				className="px-8 py-6 bg-white flex items-center border-t border-gray-200"
-				style={ { position: 'sticky', bottom: 0 } }
+				className="px-8 py-6 bg-white flex items-center border-t border-gray-200 sticky bottom-0"
 			>
 				<div className="relative flex-1">
 					<input

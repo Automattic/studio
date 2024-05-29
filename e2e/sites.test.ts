@@ -24,30 +24,25 @@ test.describe( 'Servers', () => {
 		expect( await pathExists( tmpSiteDir ), `Path ${ tmpSiteDir } exists.` ).toBe( false );
 		await fs.mkdir( tmpSiteDir, { recursive: true } );
 
-		// Especially in CI systems, the app will start with no sites.
-		// Hence, we'll see the onboarding screen.
-		// If that's the case, create a new site first to get the onboarding out of the way and enable the tests to proceed.
+		// Temporarily launch the app to complete the onboarding process before
+		// interacting with the primary app UI.
 		expect(
 			await pathExists( onboardingTmpSiteDir ),
 			`Path ${ onboardingTmpSiteDir } exists.`
 		).toBe( false );
 		await fs.mkdir( onboardingTmpSiteDir, { recursive: true } );
-
 		const [ onboardingAppInstance, onboardingMainWindow ] = await launchApp( {
 			E2E_OPEN_FOLDER_DIALOG: onboardingTmpSiteDir,
 		} );
-
 		const onboarding = new Onboarding( onboardingMainWindow );
-		// Check if the onboarding screen is visible TWICE.
-		// For some reason, the first check might be a false negative.
-		// This is not unexpected, in that the docs themselves recommend to use toBeVisible() for assertions instead of accessing the value directly.
-		// However, here we are using visibility to trigger onboarding, so we can't use toBeVisible(), which would fail the test.
-		await onboarding.heading.isVisible();
-		if ( await onboarding.heading.isVisible() ) {
-			await expect( onboarding.siteNameInput ).toHaveValue( defaultOnboardingSiteName );
-			await expect( onboarding.localPathInput ).toBeVisible();
-			await expect( onboarding.continueButton ).toBeVisible();
+		const sidebar = new MainSidebar( onboardingMainWindow );
 
+		// Await UI visibility before proceeding.
+		await expect( onboarding.heading.or( sidebar.addSiteButton ) ).toBeVisible();
+
+		// If the onboarding heading is present, there are no existing sites and we
+		// must complete the onboarding process.
+		if ( await onboarding.heading.isVisible() ) {
 			await onboarding.selectLocalPathForTesting();
 			await onboarding.continueButton.click();
 

@@ -5,11 +5,7 @@ export default class Onboarding {
 	constructor( private page: Page ) {}
 
 	private get locator() {
-		// This fails, not sure why...
-		// return this.page.getByTestId( 'onboarding' );
-		//
-		// Accessing the Page directly works even though it's confusing because Page is not a Locator
-		return this.page;
+		return this.page.getByTestId( 'onboarding' );
 	}
 
 	private get siteForm() {

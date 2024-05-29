@@ -29,7 +29,7 @@ export default class Onboarding {
 	}
 
 	get continueButton() {
-		return this.locator.getByRole( 'button', { name: 'Continue' } );
+		return this.locator.getByRole( 'button', { name: 'Add site' } );
 	}
 
 	async selectLocalPathForTesting() {

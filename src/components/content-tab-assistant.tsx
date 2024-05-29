@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAssistant } from '../hooks/use-assistant';
+import { cx } from '../lib/cx';
 import { AssistantIcon } from './icons/assistant';
 import { MenuIcon } from './icons/menu';
 
@@ -7,18 +8,20 @@ interface ContentTabAssistantProps {
 	selectedSite: SiteDetails;
 }
 
-export const UserMessage = ( { text }: { text: string } ) => (
-	<div className="flex justify-end mb-2 mt-2">
-		<div className="inline-block p-2 rounded-sm border border-gray-300 lg:max-w-[70%] user-select-text">
-			{ text }
-		</div>
-	</div>
-);
+interface MessageProps {
+	children: React.ReactNode;
+	isUser: boolean;
+}
 
-export const ResponseMessage = ( { text }: { text: string } ) => (
-	<div className="flex justify-start mb-2 mt-2">
-		<div className="inline-block p-2 rounded-sm border border-gray-300 bg-white lg:max-w-[70%] user-select-text">
-			{ text }
+export const Message = ( { children, isUser }: MessageProps ) => (
+	<div className={ cx( 'flex mb-2 mt-2', isUser ? 'justify-end' : 'justify-start' ) }>
+		<div
+			className={ cx(
+				'inline-block p-2 rounded-sm border border-gray-300 lg:max-w-[70%] user-select-text',
+				! isUser && 'bg-white'
+			) }
+		>
+			{ children }
 		</div>
 	</div>
 );
@@ -78,13 +81,9 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 				</div>
 				<div>
 					{ messages.map( ( message, index ) => (
-						<div key={ index }>
-							{ message.role === 'user' ? (
-								<UserMessage text={ message.content } />
-							) : (
-								<ResponseMessage text={ message.content } />
-							) }
-						</div>
+						<Message key={ index } isUser={ message.role === 'user' }>
+							{ message.content }
+						</Message>
 					) ) }
 					<div ref={ endOfMessagesRef } />
 				</div>

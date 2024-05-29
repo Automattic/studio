@@ -74,8 +74,9 @@ steps:
       buildkite-agent artifact download "*.nupkg" .
       buildkite-agent artifact download "*\\RELEASES" .
 
-      echo "--- :node: Generating Release Manifest"
       .buildkite/commands/install-node-dependencies.sh
+
+      echo "--- :node: Generating Release Manifest"
       IS_DEV_BUILD=true node ./scripts/generate-releases-manifest.mjs
 
       echo "--- :fastlane: Distributing Dev Builds"
@@ -132,8 +133,9 @@ steps:
       buildkite-agent artifact download "*.nupkg" .
       buildkite-agent artifact download "*\\RELEASES" .
 
-      echo "--- :node: Generating Release Manifest"
       .buildkite/commands/install-node-dependencies.sh
+
+      echo "--- :node: Generating Release Manifest"
       node ./scripts/generate-releases-manifest.mjs
 
       echo "--- :fastlane: Distributing Release Builds"

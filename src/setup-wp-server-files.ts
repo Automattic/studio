@@ -49,28 +49,9 @@ async function copyBundledSqlite() {
 	await recursiveCopyDirectory( bundledSqlitePath, getSqlitePath() );
 }
 
-async function copyBundledWPCLI() {
-	const bundledWPCLIInstalled = await fs.pathExists( getWpCliPath() );
-	console.log( `Copying bundled WP-CLI...` );
-	console.log( bundledWPCLIInstalled );
-	if ( bundledWPCLIInstalled ) {
-		return;
-	}
-	const bundledWPCLIPath = path.join( getResourcesPath(), 'wp-files', 'wp-cli', 'wp-cli.phar' );
-	await fs.copyFile( bundledWPCLIPath, getWpCliPath() );
-}
-
-async function updateLatestWPCLI() {
-	const shouldOverwrite = true;
-	const res = await downloadWPCLI( shouldOverwrite );
-	console.log( `WP-CLI downloaded:`, res );
-}
-
 export default async function setupWPServerFiles() {
 	await copyBundledLatestWPVersion();
 	await copyBundledSqlite();
-	await copyBundledWPCLI();
 	await updateLatestWordPressVersion();
 	await updateLatestSqliteVersion();
-	await updateLatestWPCLI();
 }

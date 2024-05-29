@@ -27,7 +27,11 @@ export function SiteContentTabs() {
 	return (
 		<div className="flex flex-col w-full h-full app-no-drag-region pt-8 overflow-y-auto">
 			<Header />
-			<TabPanel className="mt-6 h-full flex flex-col" tabs={ tabs } orientation="horizontal">
+			<TabPanel
+				className="mt-6 h-full flex flex-col overflow-hidden"
+				tabs={ tabs }
+				orientation="horizontal"
+			>
 				{ ( { name } ) => (
 					<div className="h-full">
 						{ name === 'overview' && <ContentTabOverview selectedSite={ selectedSite } /> }

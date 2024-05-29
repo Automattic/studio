@@ -36,7 +36,9 @@ blockquote {
 /* Tabs */
 .components-tab-panel__tab-content {
 	flex: 1;
+	overflow: auto;
 }
+
 .components-tab-panel__tabs {
 	padding: 0 theme( 'spacing.4' );
 	border-bottom: 1px solid theme( 'colors.a8c-gray.5' );

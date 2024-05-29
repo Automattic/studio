@@ -2,8 +2,9 @@ import path from 'path';
 import fs from 'fs-extra';
 import semver from 'semver';
 import { SQLITE_FILENAME } from '../vendor/wp-now/src/constants';
-import { getWordPressVersionPath } from '../vendor/wp-now/src/download';
+import { downloadWPCLI, getWordPressVersionPath } from '../vendor/wp-now/src/download';
 import getSqlitePath from '../vendor/wp-now/src/get-sqlite-path';
+import getWpCliPath from '../vendor/wp-now/src/get-wp-cli-path';
 import { recursiveCopyDirectory } from './lib/fs-utils';
 import { updateLatestSqliteVersion } from './lib/sqlite-versions';
 import {

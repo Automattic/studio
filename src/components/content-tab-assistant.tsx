@@ -19,7 +19,7 @@ export const Message = ( { children, isUser }: MessageProps ) => (
 	<div className={ cx( 'flex mb-2 mt-2', isUser ? 'justify-end' : 'justify-start' ) }>
 		<div
 			className={ cx(
-				'inline-block p-2 rounded-sm border border-gray-300 lg:max-w-[70%] user-select-text',
+				'inline-block p-2 rounded-sm border border-gray-300 lg:max-w-[70%] select-text',
 				! isUser && 'bg-white'
 			) }
 		>

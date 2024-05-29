@@ -84,8 +84,3 @@ blockquote {
 .components-popover__content {
 	width: 100%;
 }
-
-/* Allow user selected text on specified elements */
-.user-select-text {
-	user-select: text;
-}

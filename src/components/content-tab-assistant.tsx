@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAssistant } from '../hooks/use-assistant';
 import { cx } from '../lib/cx';
+import Button from './button';
 import { AssistantIcon } from './icons/assistant';
 import { MenuIcon } from './icons/menu';
+import TextControlComponent from './text-control';
 
 interface ContentTabAssistantProps {
 	selectedSite: SiteDetails;
@@ -96,7 +98,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 					<input
 						type="text"
 						placeholder="Ask Studio WordPress Assistant"
-						className="w-full p-2 rounded-lg border-black border ltr:pl-8 rtl:pr-8"
+						className="w-full p-3 rounded-sm border-black border ltr:pl-8 rtl:pr-8"
 						value={ input }
 						onChange={ ( e ) => setInput( e.target.value ) }
 						onKeyDown={ handleKeyDown }
@@ -105,9 +107,9 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 						<AssistantIcon />
 					</div>
 				</div>
-				<button aria-label="menu" className="p-2 ml-2 cursor-pointer" onClick={ clearInput }>
+				<Button aria-label="menu" className="p-2 ml-2 cursor-pointer" onClick={ clearInput }>
 					<MenuIcon />
-				</button>
+				</Button>
 			</div>
 		</div>
 	);

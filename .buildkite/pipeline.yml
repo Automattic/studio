@@ -74,15 +74,23 @@ steps:
       buildkite-agent artifact download "*.nupkg" .
       buildkite-agent artifact download "*\\RELEASES" .
 
-      echo "--- :node: Generating Release Manifest"
       .buildkite/commands/install-node-dependencies.sh
+
+      echo "--- :node: Generating Release Manifest"
       IS_DEV_BUILD=true node ./scripts/generate-releases-manifest.mjs
 
       echo "--- :fastlane: Distributing Dev Builds"
       install_gems
       bundle exec fastlane distribute_dev_build
+    artifact_paths:
+      - 'out/releases.json'
     agents:
       queue: "mac" #
+    # Using concurrency_group to ensure the CI builds from `trunk` & the git tag, which are likely to run at roughly the
+    # same time, don't run into a race condition when downloading+updating+uploading the `releases.json` file from/to S3
+    concurrency_group: 'studio/release-manifest-update'
+    concurrency: 1
+    concurrency_method: eager
     depends_on:
       - step: "dev-mac"
       - step: "dev-windows"
@@ -132,15 +140,23 @@ steps:
       buildkite-agent artifact download "*.nupkg" .
       buildkite-agent artifact download "*\\RELEASES" .
 
-      echo "--- :node: Generating Release Manifest"
       .buildkite/commands/install-node-dependencies.sh
+
+      echo "--- :node: Generating Release Manifest"
       node ./scripts/generate-releases-manifest.mjs
 
       echo "--- :fastlane: Distributing Release Builds"
       install_gems
       bundle exec fastlane distribute_release_build
+    artifact_paths:
+      - 'out/releases.json'
     agents:
       queue: "mac" # 
+    # Using concurrency_group to ensure the CI builds from `trunk` & the git tag, which are likely to run at roughly the
+    # same time, don't run into a race condition when downloading+updating+uploading the `releases.json` file from/to S3
+    concurrency_group: 'studio/release-manifest-update'
+    concurrency: 1
+    concurrency_method: eager
     depends_on:
       - step: "release-mac"
       - step: "release-windows"

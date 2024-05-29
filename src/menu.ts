@@ -8,7 +8,7 @@ import {
 } from 'electron';
 import { __ } from '@wordpress/i18n';
 import { openAboutWindow } from './about-menu/open-about-menu';
-import { STUDIO_DOCS_URL } from './constants';
+import { BUG_REPORT_URL, FEATURE_REQUEST_URL, STUDIO_DOCS_URL} from './constants';
 import { withMainWindow } from './main-window';
 import { isUpdateReadyToInstall, manualCheckForUpdates } from './updates';
 
@@ -163,6 +163,19 @@ function getAppMenu( mainWindow: BrowserWindow | null ) {
 					label: __( 'Studio Help' ),
 					click: () => {
 						shell.openExternal( STUDIO_DOCS_URL );
+					},
+				},
+				{ type: 'separator' },
+				{
+					label: __( 'Report an Issue' ),
+					click: () => {
+						shell.openExternal( BUG_REPORT_URL );
+					},
+				},
+				{
+					label: __( 'Propose a Feature' ),
+					click: () => {
+						shell.openExternal( FEATURE_REQUEST_URL );
 					},
 				},
 			],

@@ -57,7 +57,7 @@ test.describe( 'Servers', () => {
 
 		await onboardingAppInstance.close();
 
-		// Reluanch the app but configured to use tmpSiteDir as the path for the local site.
+		// Relaunch the app but configured to use tmpSiteDir as the path for the local site.
 		[ electronApp, mainWindow ] = await launchApp( { E2E_OPEN_FOLDER_DIALOG: tmpSiteDir } );
 	} );
 

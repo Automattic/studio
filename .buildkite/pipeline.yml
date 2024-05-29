@@ -82,6 +82,8 @@ steps:
       echo "--- :fastlane: Distributing Dev Builds"
       install_gems
       bundle exec fastlane distribute_dev_build
+    artifact_paths:
+      - 'out/releases.json'
     agents:
       queue: "mac" #
     depends_on:
@@ -141,6 +143,8 @@ steps:
       echo "--- :fastlane: Distributing Release Builds"
       install_gems
       bundle exec fastlane distribute_release_build
+    artifact_paths:
+      - 'out/releases.json'
     agents:
       queue: "mac" # 
     depends_on:

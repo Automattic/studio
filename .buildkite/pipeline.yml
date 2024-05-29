@@ -84,6 +84,11 @@ steps:
       bundle exec fastlane distribute_dev_build
     agents:
       queue: "mac" #
+    # Using concurrency_group to ensure the CI builds from `trunk` & the git tag, which are likely to run at roughly the
+    # same time, don't run into a race condition when downloading+updating+uploading the `releases.json` file from/to S3
+    concurrency_group: 'studio/release-manifest-update'
+    concurrency: 1
+    concurrency_method: eager
     depends_on:
       - step: "dev-mac"
       - step: "dev-windows"
@@ -143,6 +148,11 @@ steps:
       bundle exec fastlane distribute_release_build
     agents:
       queue: "mac" # 
+    # Using concurrency_group to ensure the CI builds from `trunk` & the git tag, which are likely to run at roughly the
+    # same time, don't run into a race condition when downloading+updating+uploading the `releases.json` file from/to S3
+    concurrency_group: 'studio/release-manifest-update'
+    concurrency: 1
+    concurrency_method: eager
     depends_on:
       - step: "release-mac"
       - step: "release-windows"

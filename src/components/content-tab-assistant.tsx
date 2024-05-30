@@ -57,7 +57,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 						getIpcApi().showMessageBox( {
 							type: 'warning',
 							message: __( 'Failed to send message' ),
-							detail: __( "We couldn't send the latest message. Please try again" ),
+							detail: __( "We couldn't send the latest message. Please try again." ),
 							buttons: [ __( 'OK' ) ],
 						} ),
 					100

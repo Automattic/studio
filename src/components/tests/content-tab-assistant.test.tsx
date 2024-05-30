@@ -55,11 +55,6 @@ describe( 'ContentTabAssistant', () => {
 		} ) );
 	} );
 
-	afterEach( () => {
-		jest.clearAllMocks();
-		jest.useRealTimers();
-	} );
-
 	test( 'renders placeholder text input', () => {
 		render( <ContentTabAssistant selectedSite={ runningSite } /> );
 

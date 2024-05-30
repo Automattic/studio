@@ -72,6 +72,12 @@ class PortFinder {
 			this.#unavailablePorts.push( port );
 		}
 	}
+
+	public reclaimUnavailablePort( port?: number ): void {
+		this.#unavailablePorts = this.#unavailablePorts.filter(
+			( unavailablePort ) => unavailablePort !== port
+		);
+	}
 }
 
 export const portFinder = PortFinder.getInstance();

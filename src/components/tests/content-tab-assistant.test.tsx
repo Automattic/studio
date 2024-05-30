@@ -1,7 +1,9 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { useAuth } from '../../hooks/use-auth';
 import { ContentTabAssistant } from '../content-tab-assistant';
 
 jest.mock( '../../hooks/use-theme-details' );
+jest.mock( '../../hooks/use-auth' );
 
 const runningSite = {
 	name: 'Test Site',
@@ -18,10 +20,44 @@ const initialMessages = [
 ];
 
 describe( 'ContentTabAssistant', () => {
+	const clientReqPost = jest.fn().mockResolvedValue( {
+		id: 'chatcmpl-9USNsuhHWYsPAUNiOhOG2970Hjwwb',
+		object: 'chat.completion',
+		created: 1717045976,
+		model: 'test',
+		choices: [
+			{
+				index: 0,
+				message: {
+					role: 'assistant',
+					content:
+						'Hello! How can I assist you today? Are you working on a WordPress project, or do you need help with something specific related to WordPress or WP-CLI?',
+				},
+				logprobs: null,
+				finish_reason: 'stop',
+			},
+		],
+		usage: { prompt_tokens: 980, completion_tokens: 36, total_tokens: 1016 },
+		system_fingerprint: 'fp_777',
+	} );
+
 	beforeEach( () => {
 		jest.clearAllMocks();
 		window.HTMLElement.prototype.scrollIntoView = jest.fn();
 		localStorage.clear();
+		jest.useFakeTimers();
+		( useAuth as jest.Mock ).mockImplementation( () => ( {
+			client: {
+				req: {
+					post: clientReqPost,
+				},
+			},
+		} ) );
+	} );
+
+	afterEach( () => {
+		jest.clearAllMocks();
+		jest.useRealTimers();
 	} );
 
 	test( 'renders placeholder text input', () => {

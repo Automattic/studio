@@ -11,7 +11,7 @@ export default function Header() {
 	return (
 		<div
 			data-testid="site-content-header"
-			className="flex justify-between items-start w-full gap-5 "
+			className="flex justify-between items-start w-full gap-5 px-8"
 		>
 			{ site && (
 				<div className="flex flex-col">

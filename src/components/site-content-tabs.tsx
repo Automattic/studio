@@ -25,11 +25,15 @@ export function SiteContentTabs() {
 	}
 
 	return (
-		<div className="flex flex-col w-full h-full pl-8 app-no-drag-region">
+		<div className="flex flex-col w-full h-full app-no-drag-region pt-8 overflow-y-auto">
 			<Header />
-			<TabPanel className="mt-6 h-full flex flex-col" tabs={ tabs } orientation="horizontal">
+			<TabPanel
+				className="mt-6 h-full flex flex-col overflow-hidden"
+				tabs={ tabs }
+				orientation="horizontal"
+			>
 				{ ( { name } ) => (
-					<div className="pt-8 h-full">
+					<div className="h-full">
 						{ name === 'overview' && <ContentTabOverview selectedSite={ selectedSite } /> }
 						{ name === 'share' && <ContentTabSnapshots selectedSite={ selectedSite } /> }
 						{ name === 'settings' && <ContentTabSettings selectedSite={ selectedSite } /> }

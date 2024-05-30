@@ -39,10 +39,7 @@ export default function App() {
 			{ isWindows() && <WindowsTitlebar className="h-titlebar-win flex-shrink-0" /> }
 			<HStack spacing="0" alignment="left" className="flex-grow">
 				<MainSidebar className="basis-52 flex-shrink-0 h-full" />
-				<main
-					data-testid="site-content"
-					className="py-8 pr-8 bg-white overflow-y-auto h-full flex-grow rounded-chrome"
-				>
+				<main data-testid="site-content" className="bg-white h-full flex-grow rounded-chrome">
 					<SiteContentTabs />
 				</main>
 			</HStack>

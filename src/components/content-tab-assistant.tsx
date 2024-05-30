@@ -1,3 +1,4 @@
+import { createInterpolateElement } from '@wordpress/element';
 import { Icon, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import React, { useState, useEffect, useRef } from 'react';
@@ -5,6 +6,7 @@ import { useAssistant } from '../hooks/use-assistant';
 import { useAuth } from '../hooks/use-auth';
 import { useOffline } from '../hooks/use-offline';
 import { cx } from '../lib/cx';
+import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
 import { AssistantIcon } from './icons/assistant';
 import { MenuIcon } from './icons/menu';
@@ -16,10 +18,11 @@ interface ContentTabAssistantProps {
 interface MessageProps {
 	children: React.ReactNode;
 	isUser: boolean;
+	className?: string;
 }
 
-export const Message = ( { children, isUser }: MessageProps ) => (
-	<div className={ cx( 'flex mb-2 mt-2', isUser ? 'justify-end' : 'justify-start' ) }>
+export const Message = ( { children, isUser, className }: MessageProps ) => (
+	<div className={ cx( 'flex mb-2 mt-2', isUser ? 'justify-end' : 'justify-start', className ) }>
 		<div
 			className={ cx(
 				'inline-block p-3 rounded-sm border border-gray-300 lg:max-w-[70%] select-text',
@@ -106,11 +109,26 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 						</div>
 					</>
 				) : (
-					<Message isUser={ false }>
+					<Message className="w-full" isUser={ false }>
 						<p className="mb-1.5 a8c-label-semibold">{ __( 'Hold up!' ) }</p>
+						<p>
+							{ __( 'You need to log in to your WordPress.com account to use the assistant.' ) }
+						</p>
 						<p className="mb-1.5">
-							{ __(
-								"You need to log in to your WordPress.com account to use the assistant. If you don't have an account yet, create one for free."
+							{ createInterpolateElement(
+								__( "If you don't have an account yet, <a>create one for free</a>" ),
+								{
+									a: (
+										<Button
+											variant="link"
+											onClick={ () =>
+												getIpcApi().openURL(
+													'https://wordpress.com/?utm_source=studio&utm_medium=referral&utm_campaign=assistant_onboarding'
+												)
+											}
+										/>
+									),
+								}
 							) }
 						</p>
 						<p className="mb-3">

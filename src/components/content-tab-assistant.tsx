@@ -90,7 +90,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		}
 	}, [ isAuthenticated ] );
 
-	const disabledInput = isOffline || ! isAuthenticated;
+	const disabled = isOffline || ! isAuthenticated;
 	return (
 		<div className="h-full flex flex-col bg-gray-50">
 			<div
@@ -155,7 +155,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 				<div className="relative flex-1">
 					<input
 						ref={ inputRef }
-						disabled={ disabledInput }
+						disabled={ disabled }
 						type="text"
 						placeholder="Ask Studio WordPress Assistant"
 						className="w-full p-3 rounded-sm border-black border ltr:pl-8 rtl:pr-8 disabled:border-gray-300 disabled:cursor-not-allowed"
@@ -167,7 +167,12 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 						<AssistantIcon />
 					</div>
 				</div>
-				<Button aria-label="menu" className="p-2 ml-2 cursor-pointer" onClick={ clearInput }>
+				<Button
+					disabled={ disabled }
+					aria-label="menu"
+					className="p-2 ml-2 cursor-pointer"
+					onClick={ clearInput }
+				>
 					<MenuIcon />
 				</Button>
 			</div>

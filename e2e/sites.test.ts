@@ -24,30 +24,25 @@ test.describe( 'Servers', () => {
 		expect( await pathExists( tmpSiteDir ), `Path ${ tmpSiteDir } exists.` ).toBe( false );
 		await fs.mkdir( tmpSiteDir, { recursive: true } );
 
-		// Especially in CI systems, the app will start with no sites.
-		// Hence, we'll see the onboarding screen.
-		// If that's the case, create a new site first to get the onboarding out of the way and enable the tests to proceed.
+		// Temporarily launch the app to complete the onboarding process before
+		// interacting with the primary app UI.
 		expect(
 			await pathExists( onboardingTmpSiteDir ),
 			`Path ${ onboardingTmpSiteDir } exists.`
 		).toBe( false );
 		await fs.mkdir( onboardingTmpSiteDir, { recursive: true } );
-
 		const [ onboardingAppInstance, onboardingMainWindow ] = await launchApp( {
 			E2E_OPEN_FOLDER_DIALOG: onboardingTmpSiteDir,
 		} );
-
 		const onboarding = new Onboarding( onboardingMainWindow );
-		// Check if the onboarding screen is visible TWICE.
-		// For some reason, the first check might be a false negative.
-		// This is not unexpected, in that the docs themselves recommend to use toBeVisible() for assertions instead of accessing the value directly.
-		// However, here we are using visibility to trigger onboarding, so we can't use toBeVisible(), which would fail the test.
-		await onboarding.heading.isVisible();
-		if ( await onboarding.heading.isVisible() ) {
-			await expect( onboarding.siteNameInput ).toHaveValue( defaultOnboardingSiteName );
-			await expect( onboarding.localPathInput ).toBeVisible();
-			await expect( onboarding.continueButton ).toBeVisible();
+		const sidebar = new MainSidebar( onboardingMainWindow );
 
+		// Await UI visibility before proceeding.
+		await expect( onboarding.heading.or( sidebar.addSiteButton ) ).toBeVisible();
+
+		// If the onboarding heading is present, there are no existing sites and we
+		// must complete the onboarding process.
+		if ( await onboarding.heading.isVisible() ) {
 			await onboarding.selectLocalPathForTesting();
 			await onboarding.continueButton.click();
 
@@ -57,7 +52,7 @@ test.describe( 'Servers', () => {
 
 		await onboardingAppInstance.close();
 
-		// Reluanch the app but configured to use tmpSiteDir as the path for the local site.
+		// Relaunch the app but configured to use tmpSiteDir as the path for the local site.
 		[ electronApp, mainWindow ] = await launchApp( { E2E_OPEN_FOLDER_DIALOG: tmpSiteDir } );
 	} );
 
@@ -126,16 +121,20 @@ test.describe( 'Servers', () => {
 		expect( await page.title() ).toBe( 'testing site title' );
 	} );
 
-	test.fixme( 'delete site', async () => {
-		// Test doesn't work currently as we migrated from the in-app modal
-		// to native dialog, and native dialogs can't be tested by Playwright.
-		// See: https://github.com/microsoft/playwright/issues/21432
+	test( 'delete site', async () => {
 		const siteContent = new SiteContent( mainWindow, siteName );
 		const settingsTab = await siteContent.navigateToTab( 'Settings' );
 
-		const modal = await settingsTab.openDeleteSiteModal();
-		await modal.deleteFilesCheckbox.check();
-		modal.deleteSiteButton.click();
+		// Playwright lacks support for interacting with native dialogs, so we mock
+		// the dialog module to simulate the user clicking the "Delete site"
+		// confirmation button with "Delete site files from my computer" checked.
+		// See: https://github.com/microsoft/playwright/issues/21432
+		await electronApp.evaluate( ( { dialog } ) => {
+			dialog.showMessageBox = async () => {
+				return { response: 0, checkboxChecked: true };
+			};
+		} );
+		await settingsTab.openDeleteSiteModal();
 
 		await mainWindow.waitForTimeout( 200 ); // Short pause for site to delete.
 

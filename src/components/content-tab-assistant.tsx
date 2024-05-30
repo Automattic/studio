@@ -1,5 +1,9 @@
+import { Icon, external } from '@wordpress/icons';
+import { useI18n } from '@wordpress/react-i18n';
 import React, { useState, useEffect, useRef } from 'react';
 import { useAssistant } from '../hooks/use-assistant';
+import { useAuth } from '../hooks/use-auth';
+import { useOffline } from '../hooks/use-offline';
 import { cx } from '../lib/cx';
 import Button from './button';
 import { AssistantIcon } from './icons/assistant';
@@ -18,7 +22,7 @@ export const Message = ( { children, isUser }: MessageProps ) => (
 	<div className={ cx( 'flex mb-2 mt-2', isUser ? 'justify-end' : 'justify-start' ) }>
 		<div
 			className={ cx(
-				'inline-block p-2 rounded-sm border border-gray-300 lg:max-w-[70%] select-text',
+				'inline-block p-3 rounded-sm border border-gray-300 lg:max-w-[70%] select-text',
 				! isUser && 'bg-white'
 			) }
 		>
@@ -31,6 +35,9 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const { messages, addMessage, clearMessages } = useAssistant( selectedSite.name );
 	const [ input, setInput ] = useState< string >( '' );
 	const endOfMessagesRef = useRef< HTMLDivElement >( null );
+	const { isAuthenticated, authenticate } = useAuth();
+	const isOffline = useOffline();
+	const { __ } = useI18n();
 
 	const simulatedResponses = [
 		'Welcome to the Studio assistant. I can help manage your site, debug issues, and navigate your way around the WordPress ecosystem.',
@@ -73,21 +80,48 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		}
 	}, [ messages ] );
 
+	const disabledInput = isOffline || ! isAuthenticated;
 	return (
 		<div className="h-full flex flex-col bg-gray-50">
-			<div data-testid="assistant-chat" className="flex-1 overflow-y-auto p-8">
-				<div className="text-gray-500 mb-4">
-					Welcome to the Studio assistant. I can help manage your site, debug issues, and navigate
-					your way around the WordPress ecosystem.
-				</div>
-				<div>
-					{ messages.map( ( message, index ) => (
-						<Message key={ index } isUser={ message.role === 'user' }>
-							{ message.content }
-						</Message>
-					) ) }
-					<div ref={ endOfMessagesRef } />
-				</div>
+			<div
+				data-testid="assistant-chat"
+				className={ cx(
+					'flex-1 overflow-y-auto px-8 py-4',
+					! isAuthenticated && 'flex items-end'
+				) }
+			>
+				{ isAuthenticated ? (
+					<>
+						<div className="text-gray-500 mb-4">
+							Welcome to the Studio assistant. I can help manage your site, debug issues, and
+							navigate your way around the WordPress ecosystem.
+						</div>
+						<div>
+							{ messages.map( ( message, index ) => (
+								<Message key={ index } isUser={ message.role === 'user' }>
+									{ message.content }
+								</Message>
+							) ) }
+							<div ref={ endOfMessagesRef } />
+						</div>
+					</>
+				) : (
+					<Message isUser={ false }>
+						<p className="mb-1.5 a8c-label-semibold">{ __( 'Hold up!' ) }</p>
+						<p className="mb-1.5">
+							{ __(
+								"You need to log in to your WordPress.com account to use the assistant. If you don't have an account yet, create one for free."
+							) }
+						</p>
+						<p className="mb-3">
+							{ __( 'Every account gets 200 prompts included for free each month.' ) }
+						</p>
+						<Button variant="primary" onClick={ () => authenticate() }>
+							{ __( 'Log in to WordPress.com' ) }
+							<Icon className="ltr:ml-1 rtl:mr-1 rtl:scale-x-[-1]" icon={ external } size={ 21 } />
+						</Button>
+					</Message>
+				) }
 			</div>
 			<div
 				data-testid="assistant-input"
@@ -95,9 +129,10 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 			>
 				<div className="relative flex-1">
 					<input
+						disabled={ disabledInput }
 						type="text"
 						placeholder="Ask Studio WordPress Assistant"
-						className="w-full p-3 rounded-sm border-black border ltr:pl-8 rtl:pr-8"
+						className="w-full p-3 rounded-sm border-black border ltr:pl-8 rtl:pr-8 disabled:border-gray-300 disabled:cursor-not-allowed"
 						value={ input }
 						onChange={ ( e ) => setInput( e.target.value ) }
 						onKeyDown={ handleKeyDown }

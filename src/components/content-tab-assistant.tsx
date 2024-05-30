@@ -1,6 +1,10 @@
+import { useI18n } from '@wordpress/react-i18n';
 import React, { useState, useEffect, useRef } from 'react';
 import { useAssistant } from '../hooks/use-assistant';
+import { useAssistantApi } from '../hooks/use-assistant-api';
 import { cx } from '../lib/cx';
+import { getIpcApi } from '../lib/get-ipc-api';
+import { MessageThinking } from './assistant-thinking';
 import Button from './button';
 import { AssistantIcon } from './icons/assistant';
 import { MenuIcon } from './icons/menu';
@@ -18,7 +22,7 @@ export const Message = ( { children, isUser }: MessageProps ) => (
 	<div className={ cx( 'flex mb-2 mt-2', isUser ? 'justify-end' : 'justify-start' ) }>
 		<div
 			className={ cx(
-				'inline-block p-2 rounded-sm border border-gray-300 lg:max-w-[70%] select-text',
+				'inline-block p-3 rounded-sm border border-gray-300 lg:max-w-[70%] select-text',
 				! isUser && 'bg-white'
 			) }
 		>
@@ -29,22 +33,36 @@ export const Message = ( { children, isUser }: MessageProps ) => (
 
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
 	const { messages, addMessage, clearMessages } = useAssistant( selectedSite.name );
+	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi();
 	const [ input, setInput ] = useState< string >( '' );
 	const endOfMessagesRef = useRef< HTMLDivElement >( null );
+	const { __ } = useI18n();
 
-	const simulatedResponses = [
-		'Welcome to the Studio assistant. I can help manage your site, debug issues, and navigate your way around the WordPress ecosystem.',
-		'What can I help you with today?',
-		"To install the Jetpack plugin in WordPress, you can follow these steps: \n\n1. Log in to your WordPress admin dashboard. \n2. Go to 'Plugins' > 'Add New'. \n3. In the search bar, type 'Jetpack' and press Enter. \n4. Find the Jetpack plugin in the search results (it should be the first one) and click 'Install Now'. \n5. After the plugin is installed, click 'Activate'.",
-		'If you prefer to install it via WP-CLI, you can do so with the following command: wp plugin install jetpack --activate',
-		"After installing and activating Jetpack, you'll need to connect it to a WordPress.com account. \nThis is necessary because Jetpack uses the WordPress.com infrastructure to provide many of its features. You can do this from the Jetpack settings page in your WordPress admin dashboard.",
-	];
-
-	const handleSend = () => {
+	const handleSend = async () => {
 		if ( input.trim() ) {
 			addMessage( input, 'user' );
 			setInput( '' );
-			simulateResponse();
+			try {
+				const { message } = await fetchAssistant( [
+					...messages,
+					{ content: input, role: 'user' },
+				] );
+				if ( message ) {
+					addMessage( message, 'assistant' );
+				}
+			} catch ( error ) {
+				// A delay is added to avoid the message box being closed by the previous keydown event
+				setTimeout(
+					() =>
+						getIpcApi().showMessageBox( {
+							type: 'warning',
+							message: __( 'Failed to send message' ),
+							detail: __( "We couldn't send the latest message. Please try again." ),
+							buttons: [ __( 'OK' ) ],
+						} ),
+					100
+				);
+			}
 		}
 	};
 
@@ -57,14 +75,6 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const clearInput = () => {
 		setInput( '' );
 		clearMessages();
-	};
-
-	const simulateResponse = () => {
-		const randomResponse =
-			simulatedResponses[ Math.floor( Math.random() * simulatedResponses.length ) ];
-		setTimeout( () => {
-			addMessage( randomResponse, 'assistant' );
-		}, 1000 );
 	};
 
 	useEffect( () => {
@@ -86,6 +96,11 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 							{ message.content }
 						</Message>
 					) ) }
+					{ isAssistantThinking && (
+						<Message isUser={ false }>
+							<MessageThinking />
+						</Message>
+					) }
 					<div ref={ endOfMessagesRef } />
 				</div>
 			</div>

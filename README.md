@@ -67,13 +67,15 @@ Code formatting has been set up to make merging PRs easier. It uses the same pre
 
 ### Testing
 
-#### Running tests
+#### Unit tests
 
 You can run tests with the following command:
 
 ```bash
 npm run test
 ```
+
+#### E2E tests
 
 There are also E2E tests available. They require a little bit more setup - clean the `out/` directory and build the app binary: 
 

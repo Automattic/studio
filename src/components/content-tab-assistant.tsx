@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAssistant } from '../hooks/use-assistant';
 import { useAssistantApi } from '../hooks/use-assistant-api';
 import { cx } from '../lib/cx';
+import { MessageThinking } from './assistant-thinking';
 import Button from './button';
 import { AssistantIcon } from './icons/assistant';
 import { MenuIcon } from './icons/menu';
@@ -19,7 +20,7 @@ export const Message = ( { children, isUser }: MessageProps ) => (
 	<div className={ cx( 'flex mb-2 mt-2', isUser ? 'justify-end' : 'justify-start' ) }>
 		<div
 			className={ cx(
-				'inline-block p-2 rounded-sm border border-gray-300 lg:max-w-[70%] select-text',
+				'inline-block p-3 rounded-sm border border-gray-300 lg:max-w-[70%] select-text',
 				! isUser && 'bg-white'
 			) }
 		>
@@ -30,7 +31,7 @@ export const Message = ( { children, isUser }: MessageProps ) => (
 
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
 	const { messages, addMessage, clearMessages } = useAssistant( selectedSite.name );
-	const { fetchAssistant } = useAssistantApi();
+	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi();
 	const [ input, setInput ] = useState< string >( '' );
 	const endOfMessagesRef = useRef< HTMLDivElement >( null );
 
@@ -75,6 +76,11 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 							{ message.content }
 						</Message>
 					) ) }
+					{ isAssistantThinking && (
+						<Message isUser={ false }>
+							<MessageThinking />
+						</Message>
+					) }
 					<div ref={ endOfMessagesRef } />
 				</div>
 			</div>

@@ -77,14 +77,13 @@ npm run test
 
 #### E2E tests
 
-There are also E2E tests available. They require a little bit more setup - clean the `out/` directory and build the app binary: 
+There are also E2E tests available. To run them, clean the `out/` directory and build the fresh app binary:
 
 ```bash
-rm -rf out/
 npm run make
 ```
 
-And then run tests:
+Then run tests:
 
 ```bash
 npm run e2e

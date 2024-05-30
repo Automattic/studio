@@ -4,7 +4,6 @@ import { cx } from '../lib/cx';
 import Button from './button';
 import { AssistantIcon } from './icons/assistant';
 import { MenuIcon } from './icons/menu';
-import TextControlComponent from './text-control';
 
 interface ContentTabAssistantProps {
 	selectedSite: SiteDetails;

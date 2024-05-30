@@ -1,7 +1,9 @@
+import { useI18n } from '@wordpress/react-i18n';
 import React, { useState, useEffect, useRef } from 'react';
 import { useAssistant } from '../hooks/use-assistant';
 import { useAssistantApi } from '../hooks/use-assistant-api';
 import { cx } from '../lib/cx';
+import { getIpcApi } from '../lib/get-ipc-api';
 import { MessageThinking } from './assistant-thinking';
 import Button from './button';
 import { AssistantIcon } from './icons/assistant';
@@ -34,14 +36,32 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi();
 	const [ input, setInput ] = useState< string >( '' );
 	const endOfMessagesRef = useRef< HTMLDivElement >( null );
+	const { __ } = useI18n();
 
 	const handleSend = async () => {
 		if ( input.trim() ) {
 			addMessage( input, 'user' );
 			setInput( '' );
-			const { message } = await fetchAssistant( [ ...messages, { content: input, role: 'user' } ] );
-			if ( message ) {
-				addMessage( message, 'assistant' );
+			try {
+				const { message } = await fetchAssistant( [
+					...messages,
+					{ content: input, role: 'user' },
+				] );
+				if ( message ) {
+					addMessage( message, 'assistant' );
+				}
+			} catch ( error ) {
+				// A delay is added to avoid the message box being closed by the previous keydown event
+				setTimeout(
+					() =>
+						getIpcApi().showMessageBox( {
+							type: 'warning',
+							message: __( 'Failed to send message' ),
+							detail: __( "We couldn't send the latest message. Please try again" ),
+							buttons: [ __( 'OK' ) ],
+						} ),
+					100
+				);
 			}
 		}
 	};

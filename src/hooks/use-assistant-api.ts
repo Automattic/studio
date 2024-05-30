@@ -22,8 +22,6 @@ export function useAssistantApi() {
 					apiNamespace: 'wpcom/v2',
 					body,
 				} );
-			} catch ( error ) {
-				throw new Error( 'Failed to fetch assistant' );
 			} finally {
 				setIsLoading( false );
 			}

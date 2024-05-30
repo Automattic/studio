@@ -62,7 +62,7 @@ describe( 'useAssistantApi', () => {
 	test( 'should throw an error if fetch fails', async () => {
 		const { result } = renderHook( () => useAssistantApi() );
 
-		clientReqPost.mockRejectedValue( new Error() );
+		clientReqPost.mockRejectedValue( new Error( 'Failed to fetch assistant' ) );
 
 		await act( async () => {
 			await expect(

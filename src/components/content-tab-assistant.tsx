@@ -38,6 +38,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const { messages, addMessage, clearMessages } = useAssistant( selectedSite.name );
 	const [ input, setInput ] = useState< string >( '' );
 	const endOfMessagesRef = useRef< HTMLDivElement >( null );
+	const inputRef = useRef< HTMLInputElement >( null );
 	const { isAuthenticated, authenticate } = useAuth();
 	const isOffline = useOffline();
 	const { __ } = useI18n();
@@ -82,6 +83,12 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 			endOfMessagesRef.current.scrollIntoView( { behavior: 'smooth' } );
 		}
 	}, [ messages ] );
+
+	useEffect( () => {
+		if ( isAuthenticated && inputRef.current ) {
+			inputRef.current.focus();
+		}
+	}, [ isAuthenticated ] );
 
 	const disabledInput = isOffline || ! isAuthenticated;
 	return (
@@ -147,6 +154,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 			>
 				<div className="relative flex-1">
 					<input
+						ref={ inputRef }
 						disabled={ disabledInput }
 						type="text"
 						placeholder="Ask Studio WordPress Assistant"

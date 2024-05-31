@@ -31,9 +31,6 @@ steps:
       queue: default
     plugins: *common_plugins
 
-  # FIXME: Tests are currently failing but that's not due to CI
-  # See https://github.com/Automattic/studio/issues/37
-  #
   # Notice that we use the queue name (matrix value) in the label.
   # We could have added values for queue and label, but that would have resulted in 'macOS + windows' and 'Windows + mac' combinations, which we don't want.
   # Buildkite offers an option to remove those combinations, but the overhead in code readability did not seem worth the visual effect in the build page.

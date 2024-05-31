@@ -137,10 +137,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		<div className="h-full flex flex-col bg-gray-50">
 			<div
 				data-testid="assistant-chat"
-				className={ cx(
-					'flex-1 overflow-y-auto px-8 py-4',
-					! isAuthenticated && 'flex items-end'
-				) }
+				className={ cx( 'flex-1 overflow-y-auto py-4', ! isAuthenticated && 'flex items-end' ) }
 			>
 				{ isAuthenticated ? (
 					<div data-testid="assistant-chat" className="flex-1 overflow-y-auto p-8">

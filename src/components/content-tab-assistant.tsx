@@ -123,7 +123,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 						</p>
 						<p className="mb-1.5">
 							{ createInterpolateElement(
-								__( "If you don't have an account yet, <a>create one for free</a>" ),
+								__( "If you don't have an account yet, <a>create one for free</a>." ),
 								{
 									a: (
 										<Button

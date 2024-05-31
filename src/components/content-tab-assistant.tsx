@@ -141,7 +141,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 						<p className="mb-3">
 							{ __( 'Every account gets 200 prompts included for free each month.' ) }
 						</p>
-						<Button variant="primary" onClick={ () => authenticate() }>
+						<Button variant="primary" onClick={ authenticate }>
 							{ __( 'Log in to WordPress.com' ) }
 							<Icon className="ltr:ml-1 rtl:mr-1 rtl:scale-x-[-1]" icon={ external } size={ 21 } />
 						</Button>

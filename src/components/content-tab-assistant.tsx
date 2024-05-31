@@ -32,7 +32,7 @@ const md = new Remarkable( {
 			console.error( 'Error highlighting automatically:', err );
 		}
 
-		// Fallback message indicating that syntax highlighting failed
+		// Fallback to inline code if syntax highlighting fails
 		return `<pre><code>${ str }</code></pre>`;
 	},
 } );

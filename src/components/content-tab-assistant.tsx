@@ -3,10 +3,12 @@ import { Icon, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import React, { useState, useEffect, useRef } from 'react';
 import { useAssistant } from '../hooks/use-assistant';
+import { useAssistantApi } from '../hooks/use-assistant-api';
 import { useAuth } from '../hooks/use-auth';
 import { useOffline } from '../hooks/use-offline';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
+import { MessageThinking } from './assistant-thinking';
 import Button from './button';
 import { AssistantIcon } from './icons/assistant';
 import { MenuIcon } from './icons/menu';
@@ -36,6 +38,7 @@ export const Message = ( { children, isUser, className }: MessageProps ) => (
 
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
 	const { messages, addMessage, clearMessages } = useAssistant( selectedSite.name );
+	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi();
 	const [ input, setInput ] = useState< string >( '' );
 	const endOfMessagesRef = useRef< HTMLDivElement >( null );
 	const inputRef = useRef< HTMLInputElement >( null );
@@ -43,19 +46,31 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const isOffline = useOffline();
 	const { __ } = useI18n();
 
-	const simulatedResponses = [
-		'Welcome to the Studio assistant. I can help manage your site, debug issues, and navigate your way around the WordPress ecosystem.',
-		'What can I help you with today?',
-		"To install the Jetpack plugin in WordPress, you can follow these steps: \n\n1. Log in to your WordPress admin dashboard. \n2. Go to 'Plugins' > 'Add New'. \n3. In the search bar, type 'Jetpack' and press Enter. \n4. Find the Jetpack plugin in the search results (it should be the first one) and click 'Install Now'. \n5. After the plugin is installed, click 'Activate'.",
-		'If you prefer to install it via WP-CLI, you can do so with the following command: wp plugin install jetpack --activate',
-		"After installing and activating Jetpack, you'll need to connect it to a WordPress.com account. \nThis is necessary because Jetpack uses the WordPress.com infrastructure to provide many of its features. You can do this from the Jetpack settings page in your WordPress admin dashboard.",
-	];
-
-	const handleSend = () => {
+	const handleSend = async () => {
 		if ( input.trim() ) {
 			addMessage( input, 'user' );
 			setInput( '' );
-			simulateResponse();
+			try {
+				const { message } = await fetchAssistant( [
+					...messages,
+					{ content: input, role: 'user' },
+				] );
+				if ( message ) {
+					addMessage( message, 'assistant' );
+				}
+			} catch ( error ) {
+				// A delay is added to avoid the message box being closed by the previous keydown event
+				setTimeout(
+					() =>
+						getIpcApi().showMessageBox( {
+							type: 'warning',
+							message: __( 'Failed to send message' ),
+							detail: __( "We couldn't send the latest message. Please try again." ),
+							buttons: [ __( 'OK' ) ],
+						} ),
+					100
+				);
+			}
 		}
 	};
 
@@ -68,14 +83,6 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const clearInput = () => {
 		setInput( '' );
 		clearMessages();
-	};
-
-	const simulateResponse = () => {
-		const randomResponse =
-			simulatedResponses[ Math.floor( Math.random() * simulatedResponses.length ) ];
-		setTimeout( () => {
-			addMessage( randomResponse, 'assistant' );
-		}, 1000 );
 	};
 
 	useEffect( () => {
@@ -101,7 +108,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 				) }
 			>
 				{ isAuthenticated ? (
-					<>
+					<div data-testid="assistant-chat" className="flex-1 overflow-y-auto p-8">
 						<div className="text-gray-500 mb-4">
 							Welcome to the Studio assistant. I can help manage your site, debug issues, and
 							navigate your way around the WordPress ecosystem.
@@ -112,9 +119,14 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 									{ message.content }
 								</Message>
 							) ) }
+							{ isAssistantThinking && (
+								<Message isUser={ false }>
+									<MessageThinking />
+								</Message>
+							) }
 							<div ref={ endOfMessagesRef } />
 						</div>
-					</>
+					</div>
 				) : (
 					<Message className="w-full" isUser={ false }>
 						<p className="mb-1.5 a8c-label-semibold">{ __( 'Hold up!' ) }</p>
@@ -123,7 +135,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 						</p>
 						<p className="mb-1.5">
 							{ createInterpolateElement(
-								__( "If you don't have an account yet, <a>create one for free</a>" ),
+								__( "If you don't have an account yet, <a>create one for free</a>." ),
 								{
 									a: (
 										<Button
@@ -141,7 +153,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 						<p className="mb-3">
 							{ __( 'Every account gets 200 prompts included for free each month.' ) }
 						</p>
-						<Button variant="primary" onClick={ () => authenticate() }>
+						<Button variant="primary" onClick={ authenticate }>
 							{ __( 'Log in to WordPress.com' ) }
 							<Icon className="ltr:ml-1 rtl:mr-1 rtl:scale-x-[-1]" icon={ external } size={ 21 } />
 						</Button>

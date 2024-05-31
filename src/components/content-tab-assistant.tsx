@@ -1,7 +1,9 @@
 import { createInterpolateElement } from '@wordpress/element';
 import { Icon, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
+import hljs from 'highlight.js';
 import React, { useState, useEffect, useRef } from 'react';
+import { Remarkable } from 'remarkable';
 import { useAssistant } from '../hooks/use-assistant';
 import { useAssistantApi } from '../hooks/use-assistant-api';
 import { useAuth } from '../hooks/use-auth';
@@ -12,6 +14,32 @@ import { MessageThinking } from './assistant-thinking';
 import Button from './button';
 import { AssistantIcon } from './icons/assistant';
 import { MenuIcon } from './icons/menu';
+import '../assistant-markdown.css';
+
+const md = new Remarkable( {
+	highlight: function ( str, lang ) {
+		if ( lang && hljs.getLanguage( lang ) ) {
+			try {
+				return hljs.highlight( lang, str ).value;
+			} catch ( err ) {
+				console.error( `Error highlighting with language ${ lang }:`, err );
+			}
+		}
+
+		try {
+			return hljs.highlightAuto( str ).value;
+		} catch ( err ) {
+			console.error( 'Error highlighting automatically:', err );
+		}
+
+		// Fallback message indicating that syntax highlighting failed
+		return `<pre><code>${ str }</code></pre>`;
+	},
+} );
+
+interface SiteDetails {
+	name: string;
+}
 
 interface ContentTabAssistantProps {
 	selectedSite: SiteDetails;
@@ -31,7 +59,14 @@ export const Message = ( { children, isUser, className }: MessageProps ) => (
 				! isUser && 'bg-white'
 			) }
 		>
-			{ children }
+			{ typeof children === 'string' ? (
+				<div
+					id="assistant-markdown"
+					dangerouslySetInnerHTML={ { __html: md.render( children ) } }
+				/>
+			) : (
+				children
+			) }
 		</div>
 	</div>
 );

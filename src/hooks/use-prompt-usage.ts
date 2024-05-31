@@ -1,4 +1,6 @@
+import * as Sentry from '@sentry/electron/renderer';
 import { useState, useEffect, useCallback } from 'react';
+import { LIMIT_OF_PROMPTS_PER_USER } from '../constants';
 import { useAuth } from './use-auth';
 
 interface Message {
@@ -7,7 +9,7 @@ interface Message {
 }
 
 export const usePromptUsage = () => {
-	const [ promptLimit, setPromptLimit ] = useState( 0 );
+	const [ promptLimit, setPromptLimit ] = useState( LIMIT_OF_PROMPTS_PER_USER );
 	const [ promptCount, setPromptCount ] = useState( 0 );
 	const { client } = useAuth();
 
@@ -16,7 +18,6 @@ export const usePromptUsage = () => {
 			return;
 		}
 		try {
-			console.log( 'fetching prompt usage' );
 			return new Promise( ( resolve, reject ) => {
 				client.req.get(
 					{
@@ -24,11 +25,18 @@ export const usePromptUsage = () => {
 						path: '/studio-app/ai-assistant/chat',
 						apiNamespace: 'wpcom/v2',
 					},
-					( _err, _data, headers ) => {
-						console.log( headers );
-						console.log( headers[ 'X-Ratelimit-Limit' ] );
-						console.log( headers[ 'X-Ratelimit-Remaining' ] );
-						console.log( headers[ 'X-Ratelimit-Reset' ] );
+					( error: Error, _data: unknown, headers: Record< string, string > ) => {
+						if ( error ) {
+							Sentry.captureException( error );
+							reject( error );
+						}
+						const limit = parseInt( headers[ 'x-ratelimit-limit' ] );
+						const remaining = parseInt( headers[ 'x-ratelimit-remaining' ] );
+						if ( isNaN( limit ) ||  isNaN( remaining ) ) {
+							reject( new Error( 'Error fetching limit response' ) );
+						}
+						setPromptLimit( limit );
+						setPromptCount( limit - remaining );
 						resolve( headers );
 					}
 				);
@@ -42,13 +50,7 @@ export const usePromptUsage = () => {
 		if ( ! client ) {
 			return;
 		}
-		const fetchStats = async () => {
-			const response = await fetchPromptUsage();
-			if ( ! response ) {
-				//
-			}
-		};
-		fetchStats();
+		fetchPromptUsage();
 	}, [ fetchPromptUsage, client ] );
 
 	return { promptLimit, promptCount };

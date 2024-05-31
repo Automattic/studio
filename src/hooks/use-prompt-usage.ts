@@ -18,7 +18,7 @@ export const usePromptUsage = () => {
 			return;
 		}
 		try {
-			return new Promise( ( resolve, reject ) => {
+			return await new Promise( ( resolve, reject ) => {
 				client.req.get(
 					{
 						method: 'HEAD',
@@ -27,12 +27,11 @@ export const usePromptUsage = () => {
 					},
 					( error: Error, _data: unknown, headers: Record< string, string > ) => {
 						if ( error ) {
-							Sentry.captureException( error );
 							reject( error );
 						}
 						const limit = parseInt( headers[ 'x-ratelimit-limit' ] );
 						const remaining = parseInt( headers[ 'x-ratelimit-remaining' ] );
-						if ( isNaN( limit ) ||  isNaN( remaining ) ) {
+						if ( isNaN( limit ) || isNaN( remaining ) ) {
 							reject( new Error( 'Error fetching limit response' ) );
 						}
 						setPromptLimit( limit );
@@ -42,6 +41,7 @@ export const usePromptUsage = () => {
 				);
 			} );
 		} catch ( error ) {
+			Sentry.captureException( error );
 			console.error( error );
 		}
 	}, [ client ] );

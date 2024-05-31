@@ -4,20 +4,22 @@
 // {
 //   "dev": {
 //     "darwin": {
+//       "universal": {
+//         "sha": "30a8251",
+//         "url": "https://cdn.a8c-ci.services/studio/studio-darwin-universal-30a8251.app.zip"
+//       },
 //       "arm64": {
-//         "sha": "abcdef1234567890",
-//         "url": "https://cdn.a8c-ci.services/studio/studio-darwin-arm64-abcdef1234567890.app.zip"
+//         "sha": "30a8251",
+//         "url": "https://cdn.a8c-ci.services/studio/studio-darwin-arm64-30a8251.app.zip"
 //       },
 //       "x64": {
-//         "sha": "abcdef1234567890",
-//         "url": "https://cdn.a8c-ci.services/studio/studio-darwin-x64-abcdef1234567890.app.zip"
+//         "sha": "30a8251",
+//         "url": "https://cdn.a8c-ci.services/studio/studio-darwin-x64-30a8251.app.zip"
 //       }
 //     },
 //     "win32": {
-//       "x64": {
-//         "sha": "abcdef1234567890",
-//         "url": "https://cdn.a8c-ci.services/studio/studio-win32-x64-abcdef1234567890.exe.zip"
-//       }
+//       "sha": "30a8251",
+//       "url": "https://cdn.a8c-ci.services/studio/studio-win32-30a8251.exe.zip"
 //     }
 //   },
 //   "1.0.0": {
@@ -25,7 +27,8 @@
 //       "universal": {
 //         "sha": "abcdef1234567890",
 //         "url": "https://cdn.a8c-ci.services/studio/studio-darwin-universal-v1.0.0.app.zip"
-//       }
+//       },
+//       ... etc.
 //     },
 //     ... etc.
 //   },
@@ -43,9 +46,12 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import packageJson from '../package.json' assert { type: 'json' };
 
+const cdnURL = 'https://cdn.a8c-ci.services/studio';
+const baseName = 'studio';
+
 const currentCommit = child_process.execSync( 'git rev-parse --short HEAD' ).toString().trim();
 const { version } = packageJson;
-const isDevBuild = version.includes( '-dev.' );
+const isDevBuild = process.env.IS_DEV_BUILD;
 
 const __dirname = path.dirname( fileURLToPath( import.meta.url ) );
 
@@ -56,6 +62,28 @@ console.log( `Current commit: ${ currentCommit }` );
 console.log( 'Downloading current manifest ...' );
 
 const releasesPath = path.join( __dirname, '..', 'out', 'releases.json' );
+
+async function getWindowsReleaseInfo() {
+	let windowsReleaseInfo = {};
+	try {
+		windowsReleaseInfo = await fs.readFile(
+			path.join( __dirname, '..', 'out', 'make', 'squirrel.windows', 'x64', 'RELEASES' ),
+			'utf8'
+		);
+	} catch ( error ) {
+		console.log(
+			`Couldn't read RELEASES file of Windows build, please ensure that the file exists to generate the release manifest.`
+		);
+		process.exit( 1 );
+	}
+
+	const [ _, sha1, filename, size ] = windowsReleaseInfo.match(
+		/([a-zA-Z\d]{40})\s(.*\.nupkg)\s(\d+)/
+	);
+
+	return { sha1, filename, size };
+}
+
 try {
 	await fs.mkdir( path.dirname( releasesPath ) );
 } catch ( err ) {
@@ -65,7 +93,7 @@ try {
 const releasesFile = createWriteStream( releasesPath, { flags: 'w' } ); // 'w', we want to override any existing file
 
 const downloaded = await new Promise( ( resolve, reject ) => {
-	https.get( 'https://cdn.a8c-ci.services/studio/releases.json', ( response ) => {
+	https.get( `${ cdnURL }/releases.json`, ( response ) => {
 		if ( response.statusCode === 404 || response.statusCode === 403 ) {
 			resolve( false );
 			return;
@@ -102,32 +130,29 @@ if ( isDevBuild ) {
 		throw new Error( 'Missing latest commit hash' );
 	}
 
-	const devVersionZipFilename_mac = `https://cdn.a8c-ci.services/studio/studio-darwin-${ currentCommit }.app.zip`;
-	const devVersionZipFilename_x64 = `https://cdn.a8c-ci.services/studio/studio-darwin-x64-${ currentCommit }.app.zip`;
-	const devVersionZipFilename_arm64 = `https://cdn.a8c-ci.services/studio/studio-darwin-arm64-${ currentCommit }.app.zip`;
-	const devVersionZipFilename_win32 = `https://cdn.a8c-ci.services/studio/studio-win32-${ currentCommit }.exe`;
-
 	releasesData[ 'dev' ] = releasesData[ 'dev' ] ?? {};
 
 	// macOS
 	releasesData[ 'dev' ][ 'darwin' ] = releasesData[ 'dev' ][ 'darwin' ] ?? {};
 	releasesData[ 'dev' ][ 'darwin' ][ 'universal' ] = {
 		sha: currentCommit,
-		url: devVersionZipFilename_mac,
+		url: `${ cdnURL }/${ baseName }-darwin-universal-${ currentCommit }.app.zip`,
 	};
 	releasesData[ 'dev' ][ 'darwin' ][ 'x64' ] = {
 		sha: currentCommit,
-		url: devVersionZipFilename_x64,
+		url: `${ cdnURL }/${ baseName }-darwin-x64-${ currentCommit }.app.zip`,
 	};
 	releasesData[ 'dev' ][ 'darwin' ][ 'arm64' ] = {
 		sha: currentCommit,
-		url: devVersionZipFilename_arm64,
+		url: `${ cdnURL }/${ baseName }-darwin-arm64-${ currentCommit }.app.zip`,
 	};
 
 	// Windows
+	const windowsReleaseInfo = await getWindowsReleaseInfo();
 	releasesData[ 'dev' ][ 'win32' ] = {
-		sha: currentCommit,
-		url: devVersionZipFilename_win32,
+		sha: windowsReleaseInfo.sha1,
+		url: `${ cdnURL }/${ baseName }-win32-${ currentCommit }-full.nupkg`,
+		size: windowsReleaseInfo.size,
 	};
 
 	await fs.writeFile( releasesPath, JSON.stringify( releasesData, null, 2 ) );
@@ -135,19 +160,29 @@ if ( isDevBuild ) {
 } else {
 	console.log( 'Adding latest release ...' );
 
-	const releaseVersionZipFilename_x64 = `https://cdn.a8c-ci.services/studio/studio-${ process.platform }-x64-v${ version }.app.zip`;
-	const releaseVersionZipFilename_arm64 = `https://cdn.a8c-ci.services/studio/studio-${ process.platform }-arm64-v${ version }.app.zip`;
-	// const releaseVersionZipFilename_win32 = `https://cdn.a8c-ci.services/studio/studio-${ process.platform }-arm64-v${ version }.app.zip`;
-
 	releasesData[ version ] = releasesData[ version ] ?? {};
-	releasesData[ version ][ process.platform ] = releasesData[ version ][ process.platform ] ?? {};
-	releasesData[ version ][ process.platform ][ 'x64' ] = {
+
+	// macOS
+	releasesData[ version ][ 'darwin' ] = releasesData[ version ][ 'darwin' ] ?? {};
+	releasesData[ version ][ 'darwin' ][ 'universal' ] = {
 		sha: currentCommit,
-		url: releaseVersionZipFilename_x64,
+		url: `${ cdnURL }/${ baseName }-darwin-universal-v${ version }.app.zip`,
 	};
-	releasesData[ version ][ process.platform ][ 'arm64' ] = {
+	releasesData[ version ][ 'darwin' ][ 'x64' ] = {
 		sha: currentCommit,
-		url: releaseVersionZipFilename_arm64,
+		url: `${ cdnURL }/${ baseName }-darwin-x64-v${ version }.app.zip`,
+	};
+	releasesData[ version ][ 'darwin' ][ 'arm64' ] = {
+		sha: currentCommit,
+		url: `${ cdnURL }/${ baseName }-darwin-arm64-v${ version }.app.zip`,
+	};
+
+	// Windows
+	const windowsRelease = await getWindowsReleaseInfo();
+	releasesData[ version ][ 'win32' ] = {
+		sha: windowsRelease.sha1,
+		url: `${ cdnURL }/${ baseName }-win32-v${ version }-full.nupkg`,
+		size: windowsRelease.size,
 	};
 
 	await fs.writeFile( releasesPath, JSON.stringify( releasesData, null, 2 ) );

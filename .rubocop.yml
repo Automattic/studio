@@ -18,3 +18,12 @@ Layout/EmptyLines:
 
 Style/AsciiComments:
   Exclude: *fastlane
+
+Metrics/AbcSize:
+  Exclude: *fastlane
+
+Metrics/CyclomaticComplexity:
+  Exclude: *fastlane
+
+Metrics/PerceivedComplexity:
+  Exclude: *fastlane

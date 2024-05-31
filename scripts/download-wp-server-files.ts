@@ -15,7 +15,13 @@ const FILES_TO_DOWNLOAD = [
 	{
 		name: 'sqlite',
 		description: 'SQLite files',
-		url: 'https://codeload.github.com/WordPress/sqlite-database-integration/zip/refs/heads/main',
+		url: 'https://downloads.wordpress.org/plugin/sqlite-database-integration.zip',
+	},
+	{
+		name: 'wp-cli',
+		description: 'WP-CLI phar file',
+		url: 'https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar',
+		destinationPath: path.join( WP_SERVER_FILES_PATH, 'wp-cli' ),
 	},
 ];
 
@@ -75,8 +81,13 @@ const downloadFile = async ( {
 		} );
 	} );
 
-	console.log( `[${ name }] Extracting files from zip ...` );
-	await extract( zipPath, { dir: extractedPath } );
+	if ( name === 'wp-cli' ) {
+		console.log( `[${ name }] Moving WP-CLI to destination ...` );
+		fs.moveSync( zipPath, path.join( extractedPath, 'wp-cli.phar' ), { overwrite: true } );
+	} else {
+		console.log( `[${ name }] Extracting files from zip ...` );
+		await extract( zipPath, { dir: extractedPath } );
+	}
 	console.log( `[${ name }] Files extracted` );
 };
 

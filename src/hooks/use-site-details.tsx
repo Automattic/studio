@@ -3,6 +3,7 @@ import { __ } from '@wordpress/i18n';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { useDeleteSnapshot } from './use-delete-snapshot';
+import { useFetchSnapshots } from './use-fetch-snapshots';
 
 interface SiteDetailsContext {
 	selectedSite: SiteDetails | null;
@@ -70,6 +71,7 @@ function useSelectedSite( firstSiteId: string | null ) {
 }
 
 function useSnapshots() {
+	const { allSnapshots, isLoading: loadingServerSnapshots } = useFetchSnapshots();
 	const [ initiated, setInitiated ] = useState( false );
 	const [ snapshots, setSnapshots ] = useState< Snapshot[] >( [] );
 
@@ -82,6 +84,25 @@ function useSnapshots() {
 				setInitiated( true );
 			} );
 	}, [] );
+
+	const clearFloatingSnapshots = useCallback( function clearFloatingSnapshots(
+		allSnapshots: Pick< Snapshot, 'atomicSiteId' >[]
+	) {
+		const siteIds = allSnapshots.map( ( snapshot ) => snapshot.atomicSiteId );
+		if ( ! siteIds.length ) {
+			setSnapshots( [] );
+			return;
+		}
+		setSnapshots( ( snapshots ) =>
+			snapshots.filter( ( snapshot ) => siteIds.includes( snapshot.atomicSiteId ) )
+		);
+	}, [] );
+
+	useEffect( () => {
+		if ( initiated && ! loadingServerSnapshots && allSnapshots ) {
+			clearFloatingSnapshots( allSnapshots );
+		}
+	}, [ allSnapshots, clearFloatingSnapshots, initiated, loadingServerSnapshots ] );
 
 	// Save snapshots to storage when they change
 	useEffect( () => {
@@ -101,6 +122,11 @@ function useSnapshots() {
 				( snapshotI ) => snapshotI.atomicSiteId === snapshot.atomicSiteId
 			);
 			if ( index === -1 ) {
+				if ( snapshot.isDeleting ) {
+					const newSnapshots = [ ...snapshots ];
+					newSnapshots.push( snapshot as Snapshot );
+					return newSnapshots;
+				}
 				return snapshots;
 			}
 			const newSnapshots = [ ...snapshots ];

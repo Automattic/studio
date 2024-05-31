@@ -4,6 +4,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { Icon, check, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren, useEffect } from 'react';
+import { CLIENT_ID, PROTOCOL_PREFIX, WP_AUTHORIZE_ENDPOINT, SCOPES } from '../constants';
 import { useArchiveSite } from '../hooks/use-archive-site';
 import { useAuth } from '../hooks/use-auth';
 import { useDeleteSnapshot } from '../hooks/use-delete-snapshot';
@@ -247,7 +248,7 @@ function EmptyGeneric( {
 }: PropsWithChildren< { selectedSite: SiteDetails } > ) {
 	const { __ } = useI18n();
 	return (
-		<div className="pb-10 flex justify-between max-w-3xl gap-4">
+		<div className="p-8 flex justify-between max-w-3xl gap-4">
 			<div className="flex flex-col">
 				<div className="a8c-subtitle mb-1">{ __( 'Share a demo site' ) }</div>
 				<div className="w-[40ch] text-a8c-gray-70 a8c-body pr-2">
@@ -336,7 +337,12 @@ function NoAuth( { selectedSite }: React.ComponentProps< typeof EmptyGeneric > )
 										if ( isOffline ) {
 											return;
 										}
-										getIpcApi().openURL( 'https://wordpress.com/start/account/user-social' );
+										const baseURL = 'https://wordpress.com/log-in/link';
+										const authURL = encodeURIComponent(
+											`${ WP_AUTHORIZE_ENDPOINT }?response_type=token&client_id=${ CLIENT_ID }&redirect_uri=${ PROTOCOL_PREFIX }%3A%2F%2Fauth&scope=${ SCOPES }&from-calypso=1`
+										);
+										const finalURL = `${ baseURL }?redirect_to=${ authURL }&client_id=${ CLIENT_ID }`;
+										getIpcApi().openURL( finalURL );
 									} }
 								/>
 							),
@@ -467,7 +473,7 @@ export function ContentTabSnapshots( { selectedSite }: ContentTabSnapshotsProps 
 		return <NoSnapshots selectedSite={ selectedSite } isSnapshotLoading={ snapshot?.isLoading } />;
 	}
 	return (
-		<div className="pb-10">
+		<div className="p-8">
 			<div className="w-full rounded border border-a8c-gray-5">
 				<SnapshotRow
 					snapshot={ snapshot }

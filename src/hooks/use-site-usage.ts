@@ -5,6 +5,10 @@ import { useAuth } from './use-auth';
 import { useOffline } from './use-offline';
 import { useSiteDetails } from './use-site-details';
 
+export interface UsageSite {
+	atomic_site_id: number;
+}
+
 export function useSiteUsage() {
 	const [ isLoading, setIsLoading ] = useState( false );
 	const { snapshots } = useSiteDetails();
@@ -49,8 +53,9 @@ export function useSiteUsage() {
 				setSiteLimit( LIMIT_OF_ZIP_SITES_PER_USER );
 				return;
 			}
-			setSiteCount( response.site_count );
-			setSiteLimit( response.site_limit );
+			const { site_count, site_limit } = response;
+			setSiteCount( site_count );
+			setSiteLimit( site_limit );
 		};
 		fetchStats();
 	}, [ fetchSiteUsage, snapshots.length, client ] );

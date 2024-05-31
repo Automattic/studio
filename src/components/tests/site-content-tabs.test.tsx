@@ -26,6 +26,13 @@ jest.mock( '../../hooks/use-archive-site', () => ( {
 
 jest.mock( '../../lib/get-ipc-api' );
 
+jest.mock( '../../lib/app-globals', () => ( {
+	getAppGlobals: () => ( {
+		assistantEnabled: false,
+	} ),
+	isMac: jest.fn(),
+} ) );
+
 describe( 'SiteContentTabs', () => {
 	beforeEach( () => {
 		jest.clearAllMocks(); // Clear mock call history between tests
@@ -55,6 +62,7 @@ describe( 'SiteContentTabs', () => {
 		expect(
 			screen.queryByRole( 'tab', { name: 'Settings', selected: false } )
 		).toBeInTheDocument();
+		expect( screen.queryByRole( 'tab', { name: 'Assistant', selected: false } ) ).toBeNull();
 	} );
 	it( 'should render a "No Site" screen if selected site is absent', async () => {
 		( useSiteDetails as jest.Mock ).mockReturnValue( {
@@ -70,5 +78,14 @@ describe( 'SiteContentTabs', () => {
 		expect( screen.queryByRole( 'tab', { name: 'Publish' } ) ).toBeNull();
 		expect( screen.queryByRole( 'tab', { name: 'Export' } ) ).toBeNull();
 		expect( screen.getByText( 'Select a site to view details.' ) ).toBeInTheDocument();
+	} );
+	it( 'should not render the Assistant tab if assistantEnabled is not enabled', async () => {
+		( useSiteDetails as jest.Mock ).mockReturnValue( {
+			selectedSite,
+			snapshots: [],
+			loadingServer: {},
+		} );
+		await act( async () => render( <SiteContentTabs /> ) );
+		expect( screen.queryByRole( 'tab', { name: 'Assistant' } ) ).toBeNull();
 	} );
 } );

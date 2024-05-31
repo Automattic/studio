@@ -27,7 +27,13 @@ import { createPassword } from './lib/passwords';
 import { phpGetThemeDetails } from './lib/php-get-theme-details';
 import { sanitizeForLogging } from './lib/sanitize-for-logging';
 import { sortSites } from './lib/sort-sites';
+import {
+	isSqliteInstallationOutdated,
+	isSqlLiteInstalled,
+	removeLegacySqliteIntegrationPlugin,
+} from './lib/sqlite-versions';
 import { writeLogToFile, type LogLevel } from './logging';
+import { popupMenu } from './menu';
 import { SiteServer, createSiteWorkingDirectory } from './site-server';
 import { DEFAULT_SITE_PATH, getServerFilesPath, getSiteThumbnailPath } from './storage/paths';
 import { loadUserData, saveUserData } from './storage/user-data';
@@ -105,7 +111,9 @@ async function setupSqliteIntegration( path: string ) {
 		)
 	);
 	const sqlitePluginPath = nodePath.join( wpContentPath, 'mu-plugins', SQLITE_FILENAME );
-	await copySync( nodePath.join( getServerFilesPath(), SQLITE_FILENAME ), sqlitePluginPath );
+	copySync( nodePath.join( getServerFilesPath(), SQLITE_FILENAME ), sqlitePluginPath );
+
+	await removeLegacySqliteIntegrationPlugin( sqlitePluginPath );
 }
 
 export async function createSite(
@@ -214,6 +222,15 @@ export async function startServer(
 	const server = SiteServer.get( id );
 	if ( ! server ) {
 		return null;
+	}
+
+	const SQLitePath = `${ server.details.path }/wp-content/mu-plugins/${ SQLITE_FILENAME }`;
+	const hasWpConfig = fs.existsSync( nodePath.join( server.details.path, 'wp-config.php' ) );
+	const sqliteInstalled = await isSqlLiteInstalled( SQLitePath );
+	const sqliteOutdated = sqliteInstalled && ( await isSqliteInstallationOutdated( SQLitePath ) );
+
+	if ( ( ! sqliteInstalled && ! hasWpConfig ) || sqliteOutdated ) {
+		await setupSqliteIntegration( server.details.path );
 	}
 
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
@@ -442,6 +459,7 @@ export async function getAppGlobals( _event: IpcMainInvokeEvent ): Promise< AppG
 		localeData,
 		appName: app.name,
 		arm64Translation: app.runningUnderARM64Translation,
+		assistantEnabled: process.env.STUDIO_AI === 'true',
 	};
 }
 
@@ -592,4 +610,8 @@ export async function showNotification(
 	options: Electron.NotificationConstructorOptions
 ) {
 	new Notification( options ).show();
+}
+
+export function popupAppMenu( _event: IpcMainInvokeEvent ) {
+	popupMenu();
 }

@@ -65,6 +65,30 @@ The app automatically launches with the Chromium developer tools opened by defau
 
 Code formatting has been set up to make merging PRs easier. It uses the same prettier/eslint mechanism as Calypso. See [JavaScript Coding Guidelines](https://github.com/Automattic/wp-calypso/blob/trunk/docs/coding-guidelines/javascript.md) for details on setting up your editor.
 
+### Testing
+
+#### Unit tests
+
+You can run tests with the following command:
+
+```bash
+npm run test
+```
+
+#### E2E tests
+
+There are also E2E tests available. To run them, clean the `out/` directory and build the fresh app binary:
+
+```bash
+npm run make
+```
+
+Then run tests:
+
+```bash
+npm run e2e
+```
+
 ### Debugging
 
 The renderer process can be debugged using the Chromium developer tools. To open the developer tools, press `Cmd+Option+I` on Mac or `Ctrl+Shift+I` on Windows.

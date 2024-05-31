@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html class="desktop-preferences">
+<head>
+  <style type="text/css">
+  /* Try to mimic native window styling */
+  @font-face {
+    font-family: system;
+    font-style: normal;
+    font-weight: 400;
+    src: local("SFNSText-Regular"), local("HelveticaNeueDeskInterface-Regular"), local("LucidaGrandeUI");
+  }
+
+  @font-face {
+    font-family: system;
+    font-style: normal;
+    font-weight: 700;
+    src: local("SFNSText-Bold"), local("HelveticaNeueDeskInterface-Bold"), local("LucidaGrandeUI");
+  }
+
+  html, body {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    background: rgba(246, 246, 246, 0.84);
+    cursor: default;
+    margin: 0;
+    max-height: 284px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    padding: 10px;
+    gap: 8px;
+  }
+
+  body {
+    font-family: "Segoe UI", Segoe, Ubuntu, system, sans-serif;
+    font-size: 12px;
+    text-align: center;
+    line-height: 16px;
+  } 
+  
+  p {
+    margin-bottom: 8px;
+    margin-top: 0;
+  }
+
+  p a {
+    text-decoration: underline;
+    color: #3858e9;
+  }
+
+  .links {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    font-weight: 400;
+    margin-bottom: 14px;
+  }
+
+  .demo-info {
+    border-top: 1px solid rgba(220, 220, 222, 1);
+    padding-top: 16px;
+    width: 236px;
+}
+
+  .studio-name {
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 20px;
+  }
+</style>
+
+</head>
+<body> 
+  <div>  
+    <img src="./studio-app-icon.png" alt="Studio App Icon" width="64" height="64">
+        <p class="studio-name">Studio by WordPress.com</p>
+        <p class="version">Version <span id="version"></span></p>
+        <p class="links">
+          <a href="https://github.com/Automattic/studio" target="_blank">GitHub</a>
+          <span class="separator">&middot;</span>
+          <a href="https://github.com/Automattic/studio/issues/new/choose" target="_blank">Share Feedback</a>
+        </p>
+  </div>
+    <script>
+        // Access the version from the injected JavaScript
+        const version = document.getElementById('version');
+        version.innerText = window.appVersion; 
+    </script>
+  <div class="demo-info">
+    <p>Demo sites powered by<br><a href="https://wordpress.com/hosting/?utm_source=studio&utm_medium=referral&utm_campaign=about_screen" target="_blank">WordPress.com hosting ↗</a></p>
+  </div>
+</body>
+</html>

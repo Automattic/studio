@@ -1,5 +1,4 @@
 import { type Page, type ElectronApplication, expect } from '@playwright/test';
-import DeleteSiteModal from './delete-site-modal';
 
 export default class SettingsTab {
 	constructor(
@@ -39,8 +38,5 @@ export default class SettingsTab {
 
 	async openDeleteSiteModal() {
 		await this.deleteButton.click();
-		const modal = new DeleteSiteModal( this.page, this.siteName );
-		await expect( modal.locator ).toBeVisible();
-		return modal;
 	}
 }

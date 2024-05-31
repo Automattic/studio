@@ -19,6 +19,11 @@ const DeleteSite = () => {
 		'This site has active demo sites that cannot be deleted without an internet connection.'
 	);
 
+	const { snapshots } = useSiteDetails();
+	const snapshotsOnSite = snapshots.filter(
+		( snapshot ) => snapshot.localSiteId === selectedSite?.id
+	);
+
 	const handleDeleteSite = async () => {
 		if ( ! selectedSite ) {
 			return;
@@ -65,12 +70,17 @@ const DeleteSite = () => {
 			? `${ name.substring( 0, MAX_LENGTH_SITE_TITLE - 3 ) }...`
 			: name;
 
-	const isSiteDeletionDisabled = ! selectedSite || isOffline || isDeleting;
+	const isSiteDeletionDisabled =
+		! selectedSite || ( isOffline && snapshotsOnSite.length > 0 ) || isDeleting;
 
 	return (
-		<Tooltip disabled={ ! isOffline } icon={ offlineIcon } text={ offlineMessage }>
+		<Tooltip
+			disabled={ ! ( isOffline && snapshotsOnSite.length > 0 ) }
+			icon={ offlineIcon }
+			text={ offlineMessage }
+		>
 			<Button
-				aria-description={ isOffline ? offlineMessage : '' }
+				aria-description={ isOffline && snapshotsOnSite.length > 0 ? offlineMessage : '' }
 				aria-disabled={ isSiteDeletionDisabled }
 				onClick={ () => {
 					if ( isSiteDeletionDisabled ) {

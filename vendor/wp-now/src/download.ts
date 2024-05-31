@@ -53,10 +53,11 @@ async function downloadFile({
 	url,
 	destinationFilePath,
 	itemName,
+	overwrite = false,
 }): Promise<DownloadFileAndUnzipResult> {
 	let statusCode = 0;
 	try {
-		if (fs.existsSync(destinationFilePath)) {
+		if (fs.existsSync(destinationFilePath) && !overwrite ) {
 			return { downloaded: false, statusCode: 0 };
 		}
 		fs.ensureDirSync(path.dirname(destinationFilePath));
@@ -90,11 +91,12 @@ async function downloadFile({
 	}
 }
 
-export async function downloadWPCLI() {
+export async function downloadWPCLI( overwrite = false ) {
 	return downloadFile({
 		url: WP_CLI_URL,
 		destinationFilePath: getWpCliPath(),
 		itemName: 'wp-cli',
+		overwrite,
 	});
 }
 
@@ -191,7 +193,9 @@ export async function downloadWordPress(
 	}
 }
 
-export async function downloadSqliteIntegrationPlugin() {
+export async function downloadSqliteIntegrationPlugin(
+	{overwrite}: {overwrite: boolean} = {overwrite: false}
+) {
 	const finalFolder = getSqlitePath();
 	const tempFolder = path.join(os.tmpdir(), SQLITE_FILENAME);
 	const { downloaded, statusCode } = await downloadFileAndUnzip({
@@ -199,10 +203,12 @@ export async function downloadSqliteIntegrationPlugin() {
 		destinationFolder: tempFolder,
 		checkFinalPath: finalFolder,
 		itemName: 'SQLite',
+		overwrite,
 	});
 	if (downloaded) {
-		fs.ensureDirSync(path.dirname(finalFolder));
-		fs.moveSync(tempFolder, finalFolder, {
+		const nestedFolder = path.join(tempFolder, SQLITE_FILENAME);
+		await fs.ensureDir(path.dirname(finalFolder));
+		await fs.move(nestedFolder, finalFolder, {
 			overwrite: true,
 		});
 	} else if(0 !== statusCode) {
@@ -314,6 +320,12 @@ set_error_handler(function($severity, $message, $file, $line) {
 	add_action('after_setup_theme', 'check_current_theme_availability');
 `);
 
+	fs.writeFile(
+		path.join(muPluginsPath, '0-permalinks.php'),
+		`<?php
+			// Support permalinks without "index.php"
+			add_filter( 'got_url_rewrite', '__return_true' );
+	`);
 }
 
 export function getWordPressVersionPath(wpVersion: string) {

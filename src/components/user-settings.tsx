@@ -9,6 +9,7 @@ import { useDeleteSnapshot } from '../hooks/use-delete-snapshot';
 import { useFetchSnapshots } from '../hooks/use-fetch-snapshots';
 import { useIpcListener } from '../hooks/use-ipc-listener';
 import { useOffline } from '../hooks/use-offline';
+import { usePromptUsage } from '../hooks/use-prompt-usage';
 import { useSiteUsage } from '../hooks/use-site-usage';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
@@ -72,13 +73,11 @@ const SnapshotInfo = ( {
 	const isOffline = useOffline();
 	const offlineMessage = __( 'Deleting demo sites requires an internet connection.' );
 	return (
-		<div className="flex gap-5 flex-col">
-			<h2 className="a8c-subtitle-small">{ __( 'Usage' ) }</h2>
-			<div className="flex gap-4 flex-row items-center w-full">
+		<div className="flex gap-3 flex-col">
+			<h2 className="a8c-label-semibold">{ __( 'Demo Sites' ) }</h2>
+			<div className="flex gap-3 flex-row items-center w-full">
 				<div className="flex w-full flex-col gap-2">
 					<div className="flex w-full flex-row justify-between gap-8 ">
-						<span>{ __( 'Demo sites' ) }</span>
-
 						<div className="flex flex-row items-center text-right">
 							{ isDeleting && <Spinner className="!mt-0 !mx-2" /> }
 							<span className="text-a8c-gray-70">
@@ -145,6 +144,7 @@ export default function UserSettings() {
 	const [ deletedAllSnapshots, setDeletedAllSnapshots ] = useState( false );
 	const { isAuthenticated, authenticate, logout, user } = useAuth();
 	const { siteLimit, siteCount, isLoading: isLoadingSiteUsage } = useSiteUsage();
+	const { promptCount = 0, promptLimit = 10 } = usePromptUsage();
 	const { allSnapshots, isLoading: isLoadingAllSnapshots } = useFetchSnapshots();
 	const { deleteAllSnapshots, loadingDeletingAllSnapshots } = useDeleteSnapshot( {
 		displayAlert: true,
@@ -224,20 +224,42 @@ export default function UserSettings() {
 						<div className="gap-6 flex flex-col">
 							<UserInfo onLogout={ logout } user={ user } />
 							<div className="border border-[#F0F0F0] w-full"></div>
-							<SnapshotInfo
-								isDeleting={ loadingDeletingAllSnapshots }
-								isDisabled={
-									siteCount === 0 ||
-									loadingDeletingAllSnapshots ||
-									isLoadingAllSnapshots ||
-									isLoadingSiteUsage ||
-									allSnapshots?.length === 0 ||
-									isOffline
-								}
-								siteCount={ siteCount }
-								siteLimit={ siteLimit }
-								onRemoveSnapshots={ onRemoveSnapshots }
-							/>
+							<div className="flex flex-col gap-6">
+								<SnapshotInfo
+									isDeleting={ loadingDeletingAllSnapshots }
+									isDisabled={
+										siteCount === 0 ||
+										loadingDeletingAllSnapshots ||
+										isLoadingAllSnapshots ||
+										isLoadingSiteUsage ||
+										allSnapshots?.length === 0 ||
+										isOffline
+									}
+									siteCount={ siteCount }
+									siteLimit={ siteLimit }
+									onRemoveSnapshots={ onRemoveSnapshots }
+								/>
+								<div className="flex gap-3 flex-col">
+									<h2 className="a8c-label-semibold">{ __( 'AI Assistant' ) }</h2>
+									<div className="flex gap-3 flex-row items-center w-full">
+										<div className="flex w-full flex-col gap-2">
+											<div className="flex w-full flex-row justify-between gap-8 ">
+												<div className="flex flex-row items-center text-right">
+													<span className="text-a8c-gray-70">
+														{ sprintf(
+															__( '%1s of %2s monthly prompts used' ),
+															promptCount,
+															promptLimit
+														) }
+													</span>
+												</div>
+											</div>
+											<ProgressBar value={ promptCount } maxValue={ promptLimit } />
+										</div>
+										<div className="h-6 w-6"></div>
+									</div>
+								</div>
+							</div>
 						</div>
 					) }
 				</Modal>

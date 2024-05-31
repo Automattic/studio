@@ -36,7 +36,12 @@ import {
 import { writeLogToFile, type LogLevel } from './logging';
 import { popupMenu } from './menu';
 import { SiteServer, createSiteWorkingDirectory } from './site-server';
-import { DEFAULT_SITE_PATH, getServerFilesPath, getSiteThumbnailPath } from './storage/paths';
+import {
+	DEFAULT_SITE_PATH,
+	getResourcesPath,
+	getServerFilesPath,
+	getSiteThumbnailPath,
+} from './storage/paths';
 import { loadUserData, saveUserData } from './storage/user-data';
 
 const TEMP_DIR = nodePath.join( app.getPath( 'temp' ), 'com.wordpress.studio' ) + nodePath.sep;
@@ -577,6 +582,8 @@ export async function getThumbnailData( _event: IpcMainInvokeEvent, id: string )
 export function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath: string ) {
 	return new Promise< void >( ( resolve, reject ) => {
 		const platform = process.platform;
+		const cliPath = nodePath.join( getResourcesPath(), 'bin' );
+		const envVars = `APP_PATH=${ app.getPath( 'exe' ) };PATH="${ cliPath }:$PATH"`;
 
 		let command: string;
 		if ( platform === 'win32' ) {
@@ -584,7 +591,7 @@ export function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath: stri
 			command = `start cmd /K "cd /d ${ targetPath }"`;
 		} else if ( platform === 'darwin' ) {
 			// macOS
-			command = `open -a Terminal "${ targetPath }"`;
+			command = `open -a Terminal "${ targetPath }" --env ${ envVars }`;
 		} else if ( platform === 'linux' ) {
 			// Linux
 			command = `gnome-terminal --working-directory=${ targetPath }`;

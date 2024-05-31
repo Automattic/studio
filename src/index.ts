@@ -11,10 +11,18 @@ import path from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { __, defaultI18n } from '@wordpress/i18n';
 import packageJson from '../package.json';
+import { executeWPCli } from '../vendor/wp-now/src/execute-wp-cli';
 import { PROTOCOL_PREFIX } from './constants';
 import * as ipcHandlers from './ipc-handlers';
 import { getPlatformName } from './lib/app-globals';
 import { bumpAggregatedUniqueStat } from './lib/bump-stats';
+import {
+	listenCLICommands,
+	getCLIDataForMainInstance,
+	isCLI,
+	processCLICommand,
+	executeCLICommand,
+} from './lib/cli';
 import { getLocaleData, getSupportedLocale } from './lib/locale';
 import { handleAuthCallback, setUpAuthCallbackHandler } from './lib/oauth';
 import { setupLogging } from './logging';
@@ -27,23 +35,37 @@ import setupWPServerFiles from './setup-wp-server-files';
 import { setupUpdates } from './updates';
 import { stopAllServersOnQuit } from './site-server'; // eslint-disable-line import/order
 
-Sentry.init( {
-	dsn: 'https://97693275b2716fb95048c6d12f4318cf@o248881.ingest.sentry.io/4506612776501248',
-	debug: true,
-	enabled:
-		process.env.NODE_ENV !== 'development' && process.env.NODE_ENV !== 'test' && ! process.env.E2E,
-	release: `${ app.getVersion() ? app.getVersion() : COMMIT_HASH }-${ getPlatformName() }`,
-} );
+if ( ! isCLI() ) {
+	Sentry.init( {
+		dsn: 'https://97693275b2716fb95048c6d12f4318cf@o248881.ingest.sentry.io/4506612776501248',
+		debug: true,
+		enabled:
+			process.env.NODE_ENV !== 'development' &&
+			process.env.NODE_ENV !== 'test' &&
+			! process.env.E2E,
+		release: `${ app.getVersion() ? app.getVersion() : COMMIT_HASH }-${ getPlatformName() }`,
+	} );
+}
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const isInInstaller = require( 'electron-squirrel-startup' );
 
 // Ensure we're the only instance of the app running
-const gotTheLock = app.requestSingleInstanceLock();
+const gotTheLock = app.requestSingleInstanceLock( getCLIDataForMainInstance() );
 
 if ( gotTheLock && ! isInInstaller ) {
-	appBoot();
+	if ( isCLI() ) {
+		processCLICommand( { mainInstance: true, appBoot } );
+	} else {
+		appBoot();
+	}
+} else if ( ! gotTheLock ) {
+	if ( isCLI() ) {
+		processCLICommand( { mainInstance: false } );
+	} else {
+		app.quit();
+	}
 }
 
 const onAuthorizationCallback = ( url: string ) => {
@@ -227,6 +249,16 @@ async function appBoot() {
 		setupIpc();
 
 		createMainWindow();
+
+		// Handle CLI commands
+		listenCLICommands();
+		executeCLICommand().then( ( executed ) => {
+			withMainWindow( ( mainWindow ) => {
+				if ( executed ) {
+					mainWindow.webContents.reload();
+				}
+			} );
+		} );
 
 		bumpAggregatedUniqueStat( 'local-environment-launch-uniques', process.platform, 'weekly' );
 	} );

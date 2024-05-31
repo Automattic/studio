@@ -41,6 +41,7 @@ describe( 'ContentTabAssistant', () => {
 		system_fingerprint: 'fp_777',
 	} );
 
+	const authenticate = jest.fn();
 	beforeEach( () => {
 		jest.clearAllMocks();
 		window.HTMLElement.prototype.scrollIntoView = jest.fn();
@@ -52,6 +53,8 @@ describe( 'ContentTabAssistant', () => {
 					post: clientReqPost,
 				},
 			},
+			isAuthenticated: true,
+			authenticate,
 		} ) );
 	} );
 
@@ -60,6 +63,7 @@ describe( 'ContentTabAssistant', () => {
 
 		const textInput = screen.getByPlaceholderText( 'Ask Studio WordPress Assistant' );
 		expect( textInput ).toBeInTheDocument();
+		expect( textInput ).toBeEnabled();
 	} );
 
 	test( 'sends message and receives a simulated response', async () => {
@@ -131,5 +135,71 @@ describe( 'ContentTabAssistant', () => {
 			expect( storedMessages ).toHaveLength( 3 );
 			expect( storedMessages[ 2 ].content ).toBe( 'New message' );
 		} );
+	} );
+
+	test( 'renders assistant chat when authenticated', () => {
+		render( <ContentTabAssistant selectedSite={ runningSite } /> );
+
+		expect(
+			screen.getByText(
+				'Welcome to the Studio assistant. I can help manage your site, debug issues, and navigate your way around the WordPress ecosystem.'
+			)
+		).toBeInTheDocument();
+	} );
+
+	test( 'renders default message when not authenticated', () => {
+		( useAuth as jest.Mock ).mockImplementation( () => ( {
+			client: {
+				req: {
+					post: clientReqPost,
+				},
+			},
+			isAuthenticated: false,
+			authenticate,
+		} ) );
+		render( <ContentTabAssistant selectedSite={ runningSite } /> );
+
+		expect( screen.getByText( 'Hold up!' ) ).toBeInTheDocument();
+		expect(
+			screen.getByText( 'You need to log in to your WordPress.com account to use the assistant.' )
+		).toBeInTheDocument();
+	} );
+
+	test( 'clicks login button when not authenticated', () => {
+		( useAuth as jest.Mock ).mockImplementation( () => ( {
+			client: {
+				req: {
+					post: clientReqPost,
+				},
+			},
+			isAuthenticated: false,
+			authenticate,
+		} ) );
+		render( <ContentTabAssistant selectedSite={ runningSite } /> );
+
+		const loginButton = screen.getByRole( 'button', { name: 'Log in to WordPress.com' } );
+		expect( loginButton ).toBeInTheDocument();
+
+		fireEvent.click( loginButton );
+		expect( authenticate ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	test( 'disables input and buttons when offline or not authenticated', () => {
+		( useAuth as jest.Mock ).mockImplementation( () => ( {
+			client: {
+				req: {
+					post: clientReqPost,
+				},
+			},
+			isAuthenticated: false,
+			authenticate,
+		} ) );
+		render( <ContentTabAssistant selectedSite={ runningSite } /> );
+
+		const textInput = screen.getByPlaceholderText( 'Ask Studio WordPress Assistant' );
+		const menuIcon = screen.getByLabelText( 'menu' );
+
+		expect( textInput ).toBeDisabled();
+		expect( menuIcon ).toBeDisabled();
 	} );
 } );

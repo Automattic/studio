@@ -8,10 +8,9 @@ import { useAuth } from '../hooks/use-auth';
 import { useOffline } from '../hooks/use-offline';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
+import { AIInput } from './ai-input';
 import { MessageThinking } from './assistant-thinking';
 import Button from './button';
-import { AssistantIcon } from './icons/assistant';
-import { MenuIcon } from './icons/menu';
 
 interface ContentTabAssistantProps {
 	selectedSite: SiteDetails;
@@ -41,7 +40,6 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi();
 	const [ input, setInput ] = useState< string >( '' );
 	const endOfMessagesRef = useRef< HTMLDivElement >( null );
-	const inputRef = useRef< HTMLInputElement >( null );
 	const { isAuthenticated, authenticate } = useAuth();
 	const isOffline = useOffline();
 	const { __ } = useI18n();
@@ -59,7 +57,6 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 					addMessage( message, 'assistant' );
 				}
 			} catch ( error ) {
-				// A delay is added to avoid the message box being closed by the previous keydown event
 				setTimeout(
 					() =>
 						getIpcApi().showMessageBox( {
@@ -91,13 +88,8 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		}
 	}, [ messages ] );
 
-	useEffect( () => {
-		if ( isAuthenticated && inputRef.current ) {
-			inputRef.current.focus();
-		}
-	}, [ isAuthenticated ] );
-
 	const disabled = isOffline || ! isAuthenticated;
+
 	return (
 		<div className="h-full flex flex-col bg-gray-50">
 			<div
@@ -160,34 +152,14 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 					</Message>
 				) }
 			</div>
-			<div
-				data-testid="assistant-input"
-				className="px-8 py-6 bg-white flex items-center border-t border-gray-200 sticky bottom-0"
-			>
-				<div className="relative flex-1">
-					<input
-						ref={ inputRef }
-						disabled={ disabled }
-						type="text"
-						placeholder="Ask Studio WordPress Assistant"
-						className="w-full p-3 rounded-sm border-black border ltr:pl-8 rtl:pr-8 disabled:border-gray-300 disabled:cursor-not-allowed"
-						value={ input }
-						onChange={ ( e ) => setInput( e.target.value ) }
-						onKeyDown={ handleKeyDown }
-					/>
-					<div className="absolute top-1/2 transform -translate-y-1/2 ltr:left-3 rtl:left-auto rtl:right-3 pointer-events-none">
-						<AssistantIcon />
-					</div>
-				</div>
-				<Button
-					disabled={ disabled }
-					aria-label="menu"
-					className="p-2 ml-2 cursor-pointer"
-					onClick={ clearInput }
-				>
-					<MenuIcon />
-				</Button>
-			</div>
+			<AIInput
+				input={ input }
+				setInput={ setInput }
+				handleSend={ handleSend }
+				handleKeyDown={ handleKeyDown }
+				clearInput={ clearInput }
+				isAssistantThinking={ isAssistantThinking }
+			/>
 		</div>
 	);
 }

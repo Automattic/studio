@@ -119,5 +119,8 @@
 	},
 	"optionalDependencies": {
 		"appdmg": "^0.6.6"
+	},
+	"overrides": {
+		"@electron/packager": "18.1.3"
 	}
 }

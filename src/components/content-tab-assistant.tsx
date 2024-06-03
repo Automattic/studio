@@ -1,9 +1,10 @@
 import { createInterpolateElement } from '@wordpress/element';
 import { Icon, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import hljs from 'highlight.js';
 import React, { useState, useEffect, useRef } from 'react';
-import { Remarkable } from 'remarkable';
+import ReactMarkdown from 'react-markdown';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { xonokai } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { useAssistant } from '../hooks/use-assistant';
 import { useAssistantApi } from '../hooks/use-assistant-api';
 import { useAuth } from '../hooks/use-auth';
@@ -15,27 +16,6 @@ import Button from './button';
 import { AssistantIcon } from './icons/assistant';
 import { MenuIcon } from './icons/menu';
 import '../assistant-markdown.css';
-
-const md = new Remarkable( {
-	highlight: function ( str, lang ) {
-		if ( lang && hljs.getLanguage( lang ) ) {
-			try {
-				return hljs.highlight( lang, str ).value;
-			} catch ( err ) {
-				console.error( `Error highlighting with language ${ lang }:`, err );
-			}
-		}
-
-		try {
-			return hljs.highlightAuto( str ).value;
-		} catch ( err ) {
-			console.error( 'Error highlighting automatically:', err );
-		}
-
-		// Fallback to inline code if syntax highlighting fails
-		return `<pre><code>${ str }</code></pre>`;
-	},
-} );
 
 interface SiteDetails {
 	name: string;
@@ -60,10 +40,31 @@ export const Message = ( { children, isUser, className }: MessageProps ) => (
 			) }
 		>
 			{ typeof children === 'string' ? (
-				<div
-					id="assistant-markdown"
-					dangerouslySetInnerHTML={ { __html: md.render( children ) } }
-				/>
+				<div id="assistant-markdown">
+					<ReactMarkdown
+						components={ {
+							code( { inline, className, children, ...props } ) {
+								const match = /language-(\w+)/.exec( className || '' );
+								return ! inline && match ? (
+									<SyntaxHighlighter
+										style={ xonokai }
+										language={ match[ 1 ] }
+										PreTag="div"
+										{ ...props }
+									>
+										{ String( children ).replace( /\n$/, '' ) }
+									</SyntaxHighlighter>
+								) : (
+									<code className={ className } { ...props }>
+										{ children }
+									</code>
+								);
+							},
+						} }
+					>
+						{ children }
+					</ReactMarkdown>
+				</div>
 			) : (
 				children
 			) }
@@ -94,7 +95,6 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 					addMessage( message, 'assistant' );
 				}
 			} catch ( error ) {
-				// A delay is added to avoid the message box being closed by the previous keydown event
 				setTimeout(
 					() =>
 						getIpcApi().showMessageBox( {

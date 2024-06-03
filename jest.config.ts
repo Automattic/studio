@@ -21,8 +21,4 @@ module.exports = {
 	globalSetup: '<rootDir>/jest-global-setup.ts',
 	setupFilesAfterEnv: [ '<rootDir>/jest-setup.ts' ],
 	watchPlugins: [ 'jest-watch-typeahead/filename', 'jest-watch-typeahead/testname' ],
-	moduleNameMapper: {
-		'\\.css$': 'identity-obj-proxy',
-	},
-	transformIgnorePatterns: [ 'node_modules/(?!(highlight.js)/)' ],
 };

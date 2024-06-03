@@ -1,12 +1,3 @@
-@import 'highlight.js/styles/github.css';
-
-:root {
-	--gh-bg-color: #f6f8fa;
-	--gh-text-color: #24292e;
-	--gh-border-color: #e1e4e8;
-	--gh-blockquote-border-color: #d1d5da;
-}
-
 #assistant-markdown {
 	line-height: 1.6;
 	word-wrap: break-word;
@@ -16,23 +7,17 @@
 	border-radius: 3px;
 	white-space: pre-wrap;
 	margin: 1rem 0 !important;
-	background-color: var(--gh-bg-color);
-	color: var(--gh-text-color);
 }
 
 #assistant-markdown pre {
-	padding: 1.5rem;
 	border-radius: 5px;
 	overflow-x: auto;
 	margin: 1rem 0;
-	background-color: var(--gh-bg-color);
-	color: var(--gh-text-color);
 }
 
 #assistant-markdown hr {
 	border: none;
 	margin: 1rem 0;
-	border-top: 1px solid var(--gh-border-color);
 }
 
 #assistant-markdown ul,
@@ -52,8 +37,6 @@
 #assistant-markdown blockquote {
 	margin: 1rem 0;
 	padding: 0.5rem 1rem;
-	background-color: var(--gh-bg-color);
-	border-left: 0.25rem solid var(--gh-blockquote-border-color);
 	color: var(--gh-text-color);
 	font-weight: bold;
 }
@@ -66,7 +49,6 @@
 #assistant-markdown h6 {
 	margin-top: 1.5rem;
 	margin-bottom: 0.5rem;
-	color: var(--gh-text-color);
 	font-weight: bold;
 }
 

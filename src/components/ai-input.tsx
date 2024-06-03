@@ -2,6 +2,7 @@ import React, { useRef, useEffect } from 'react';
 import Button from './button';
 import { AssistantIcon } from './icons/assistant';
 import { MenuIcon } from './icons/menu';
+import { ReturnIcon } from './icons/return';
 
 interface AIInputProps {
 	disabled: boolean;
@@ -91,6 +92,11 @@ export const AIInput: React.FC< AIInputProps > = ( {
 					rows={ 1 }
 					data-testid="ai-input-textarea"
 				/>
+				{ input.trim() !== '' && (
+					<div className="flex items-end py-4 mb-1">
+						<ReturnIcon />
+					</div>
+				) }
 				<div className="flex items-end p-2">
 					<Button
 						disabled={ disabled }

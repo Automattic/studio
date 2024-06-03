@@ -105,6 +105,7 @@
 		"archiver": "^6.0.1",
 		"compressible": "2.0.18",
 		"compression": "1.7.4",
+		"cross-port-killer": "^1.4.0",
 		"date-fns": "^3.3.1",
 		"electron-squirrel-startup": "^1.0.0",
 		"express": "4.19.2",

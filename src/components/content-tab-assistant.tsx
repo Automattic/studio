@@ -71,7 +71,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		}
 	};
 
-	const handleKeyDown = ( e: React.KeyboardEvent< HTMLInputElement > ) => {
+	const handleKeyDown = ( e: React.KeyboardEvent< HTMLTextAreaElement > ) => {
 		if ( e.key === 'Enter' ) {
 			handleSend();
 		}

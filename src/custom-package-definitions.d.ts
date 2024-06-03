@@ -49,3 +49,14 @@ declare module 'wpcom' {
 		token: string;
 	}
 }
+
+declare global {
+	interface Window {
+		wp: {
+			element: {
+				Component: React.ComponentType;
+				createElement: React.ReactElement;
+			};
+		};
+	}
+}

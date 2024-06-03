@@ -6,7 +6,6 @@ import {
 	useSimpleChat,
 	useSimpleAgentToolkit,
 	StandardAgent,
-	AgentUI,
 } from '@automattic/big-sky-agents';
 import { createInterpolateElement } from '@wordpress/element';
 import { Icon, external } from '@wordpress/icons';
@@ -46,7 +45,7 @@ export const Message = ( { children, isUser, className }: MessageProps ) => (
 
 export function ContentTabBigSkyAgent( { selectedSite }: ContentTabBigSkyAgentProps ) {
 	const { client, isAuthenticated, authenticate } = useAuth();
-	console.warn( 'client', client );
+	// console.warn( 'client', client );
 	const llm = useLLM( { token: client?.token, service: LLMService.WPCOM } );
 	const model = LLMModel.GPT_4O;
 	const temperature = 0.3;
@@ -60,6 +59,7 @@ export function ContentTabBigSkyAgent( { selectedSite }: ContentTabBigSkyAgentPr
 
 	// const { messages, addMessage, clearMessages } = useAssistant( selectedSite.name );
 	// const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi();
+	const isAssistantThinking = false;
 	const [ input, setInput ] = useState< string >( '' );
 	const endOfMessagesRef = useRef< HTMLDivElement >( null );
 	const inputRef = useRef< HTMLInputElement >( null );
@@ -67,7 +67,74 @@ export function ContentTabBigSkyAgent( { selectedSite }: ContentTabBigSkyAgentPr
 	const isOffline = useOffline();
 	const { __ } = useI18n();
 
-	return <AgentUI toolkit={ toolkit } agent={ agent } chat={ chat } />;
+	return (
+		<div className="h-full flex flex-col bg-gray-50">
+			<div
+				data-testid="assistant-chat"
+				className={ cx(
+					'flex-1 overflow-y-auto px-8 py-4',
+					! isAuthenticated && 'flex items-end'
+				) }
+			>
+				{ isAuthenticated ? (
+					<div data-testid="assistant-chat" className="flex-1 overflow-y-auto p-8">
+						<div className="text-gray-500 mb-4">
+							Welcome to the Studio assistant. I can help manage your site, debug issues, and
+							navigate your way around the WordPress ecosystem.
+						</div>
+						<div>
+							{ chat.history.map( ( message, index ) => (
+								<Message key={ index } isUser={ message.role === 'user' }>
+									{ Array.isArray( message.content )
+										? message.content.map( ( item, idx ) => <span key={ idx }>{ item.text }</span> )
+										: message.content }
+								</Message>
+							) ) }
+							{ isAssistantThinking && (
+								<Message isUser={ false }>
+									<MessageThinking />
+								</Message>
+							) }
+							<div ref={ endOfMessagesRef } />
+						</div>
+					</div>
+				) : (
+					<Message className="w-full" isUser={ false }>
+						<p className="mb-1.5 a8c-label-semibold">{ __( 'Hold up!' ) }</p>
+						<p>
+							{ __( 'You need to log in to your WordPress.com account to use the assistant.' ) }
+						</p>
+						<p className="mb-1.5">
+							{ createInterpolateElement(
+								__( "If you don't have an account yet, <a>create one for free</a>." ),
+								{
+									a: (
+										<Button
+											variant="link"
+											onClick={ () =>
+												getIpcApi().openURL(
+													'https://wordpress.com/?utm_source=studio&utm_medium=referral&utm_campaign=assistant_onboarding'
+												)
+											}
+										/>
+									),
+								}
+							) }
+						</p>
+						<p className="mb-3">
+							{ __( 'Every account gets 200 prompts included for free each month.' ) }
+						</p>
+						<Button variant="primary" onClick={ authenticate }>
+							{ __( 'Log in to WordPress.com' ) }
+							<Icon className="ltr:ml-1 rtl:mr-1 rtl:scale-x-[-1]" icon={ external } size={ 21 } />
+						</Button>
+					</Message>
+				) }
+			</div>
+		</div>
+	);
+
+	// return <AgentUI toolkit={ toolkit } agent={ agent } chat={ chat } />;
 
 	// const handleSend = async () => {
 	// 	if ( input.trim() ) {

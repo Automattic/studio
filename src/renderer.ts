@@ -29,13 +29,17 @@
 import * as Sentry from '@sentry/electron/renderer';
 import { init as reactInit } from '@sentry/react';
 import { __, defaultI18n } from '@wordpress/i18n';
-import { createElement, StrictMode } from 'react';
+import React, { createElement, StrictMode } from 'react';
+import ReactDOM from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import Root from './components/root';
 import { getIpcApi } from './lib/get-ipc-api';
 import './index.css';
 
 Sentry.init( { debug: true }, reactInit );
+
+window.React = React;
+window.ReactDOM = ReactDOM;
 
 const makeLogger =
 	( level: 'info' | 'warn' | 'erro', originalLogger: typeof console.log ) =>

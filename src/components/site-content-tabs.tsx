@@ -41,7 +41,7 @@ export function SiteContentTabs() {
 						{ assistantEnabled && name === 'assistant' && (
 							<ContentTabAssistant selectedSite={ selectedSite } />
 						) }
-						{ assistantEnabled && name === 'agent' && (
+						{ assistantEnabled && name === 'big-sky-agent' && (
 							<ContentTabBigSkyAgent selectedSite={ selectedSite } />
 						) }
 					</div>

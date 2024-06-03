@@ -83,5 +83,7 @@ export const mainBaseConfig: Configuration = {
 		// We need to add PHP Wasm as an external because it uses the __dirname
 		// variable, and Webpack messes with it.
 		'@php-wasm/node': '@php-wasm/node',
+		react: 'React',
+		'react-dom': 'ReactDOM',
 	},
 };

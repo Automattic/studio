@@ -1,14 +1,14 @@
 # Nodes with values to reuse in the pipeline.
 common_params:
   plugins: &common_plugins
-    - automattic/a8c-ci-toolkit#3.4.2
+    - $CI_TOOLKIT_PLUGIN
     - automattic/nvm#0.3.0
 
 # Most of steps use the same agent and environment; we can define them as top-level
 agents:
   queue: mac
 env:
-  IMAGE_ID: xcode-15.2
+  IMAGE_ID: $IMAGE_ID
 
 steps:
   - label: Lint

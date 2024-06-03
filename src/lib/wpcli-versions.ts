@@ -1,6 +1,6 @@
 import fs from 'fs-extra';
 import semver from 'semver';
-import { downloadWPCLI } from '../../vendor/wp-now/src/download';
+import { downloadWpCli } from '../../vendor/wp-now/src/download';
 import { executeWPCli } from '../../vendor/wp-now/src/execute-wp-cli';
 import getWpCliPath from '../../vendor/wp-now/src/get-wp-cli-path';
 
@@ -10,7 +10,7 @@ export async function updateLatestWPCliVersion() {
 	if ( pathExist ) {
 		shouldOverwrite = await isWPCliInstallationOutdated();
 	}
-	await downloadWPCLI( shouldOverwrite );
+	await downloadWpCli( shouldOverwrite );
 }
 
 export async function isWPCliInstallationOutdated(): Promise< boolean > {

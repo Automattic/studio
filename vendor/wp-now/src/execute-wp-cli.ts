@@ -1,5 +1,5 @@
 import startWPNow from './wp-now';
-import { downloadWPCLI } from './download';
+import { downloadWpCli } from './download';
 import { disableOutput } from './output';
 import getWpCliPath from './get-wp-cli-path';
 import getWpNowConfig from './config';
@@ -11,7 +11,7 @@ import { dirname } from 'path';
  * @param args The arguments to pass to wp-cli.
  */
 export async function executeWPCli(args: string[]) {
-	await downloadWPCLI();
+	await downloadWpCli();
 	disableOutput();
 	const options = await getWpNowConfig({
 		php: DEFAULT_PHP_VERSION,

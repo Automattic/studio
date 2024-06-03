@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# This file is `source`'d before calling `buildkite-agent pipeline upload`, and can be used
+# This file is `source`'d in CI before calling `buildkite-agent pipeline upload`, and can be used
 # to set up some variables that will be interpolated in the `.yml` pipeline before uploading it.
 
 # The ~> modifier is not currently used, but we check for it just in case

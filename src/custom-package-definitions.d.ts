@@ -46,5 +46,6 @@ declare module 'wpcom' {
 		constructor( token?: string );
 		request: ( params: object, callback: unknown ) => unknown;
 		req: Request;
+		token: string;
 	}
 }

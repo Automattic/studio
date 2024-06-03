@@ -77,7 +77,7 @@ export const mainBaseConfig: Configuration = {
 		} ),
 	],
 	resolve: {
-		extensions: [ '.js', '.ts', '.jsx', '.tsx', '.css', '.json' ],
+		extensions: [ '.js', '.ts', '.jsx', '.tsx', '.css', '.scss', '.json' ],
 	},
 	externals: {
 		// We need to add PHP Wasm as an external because it uses the __dirname

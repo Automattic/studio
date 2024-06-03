@@ -4,6 +4,7 @@ import { useContentTabs } from '../hooks/use-content-tabs';
 import { useSiteDetails } from '../hooks/use-site-details';
 import { getAppGlobals } from '../lib/app-globals';
 import { ContentTabAssistant } from './content-tab-assistant';
+import { ContentTabBigSkyAgent } from './content-tab-big-sky-agent';
 import { ContentTabOverview } from './content-tab-overview';
 import { ContentTabSettings } from './content-tab-settings';
 import { ContentTabSnapshots } from './content-tab-snapshots';
@@ -39,6 +40,9 @@ export function SiteContentTabs() {
 						{ name === 'settings' && <ContentTabSettings selectedSite={ selectedSite } /> }
 						{ assistantEnabled && name === 'assistant' && (
 							<ContentTabAssistant selectedSite={ selectedSite } />
+						) }
+						{ assistantEnabled && name === 'agent' && (
+							<ContentTabBigSkyAgent selectedSite={ selectedSite } />
 						) }
 					</div>
 				) }

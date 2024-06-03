@@ -31,6 +31,11 @@ export function useContentTabs() {
 				className:
 					'components-tab-panel__tabs--assistant ltr:pl-8 rtl:pr-8 ltr:ml-auto rtl:mr-auto',
 			} );
+			tabs.push( {
+				name: 'big-sky-agent',
+				title: __( 'Big Sky Agent' ),
+				className: 'components-tab-panel__tabs--big-sky-agent',
+			} );
 		}
 
 		return tabs;

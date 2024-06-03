@@ -12,6 +12,20 @@ rules.push( {
 	],
 } );
 
+rules.push( {
+	test: /\.(sc|sa)ss$/,
+	use: [
+		{ loader: MiniCssExtractPlugin.loader },
+		{ loader: 'css-loader' },
+		{
+			loader: require.resolve( 'sass-loader' ),
+			options: {
+				sourceMap: true,
+			},
+		},
+	],
+} );
+
 plugins.push( new MiniCssExtractPlugin() );
 
 // Encode imported images as base64 data URIs
@@ -27,6 +41,6 @@ export const rendererConfig: Configuration = {
 	},
 	plugins,
 	resolve: {
-		extensions: [ '.js', '.ts', '.jsx', '.tsx', '.css' ],
+		extensions: [ '.js', '.ts', '.jsx', '.tsx', '.scss', '.css' ],
 	},
 };

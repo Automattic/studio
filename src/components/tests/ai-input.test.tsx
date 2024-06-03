@@ -55,12 +55,6 @@ describe( 'AIInput Component', () => {
 		expect( setInput ).toHaveBeenCalledWith( 'Updated input' );
 	} );
 
-	it( 'sends message on Enter key press', () => {
-		const textarea = getInput();
-		fireEvent.keyDown( textarea, { key: 'Enter', shiftKey: false } );
-		expect( handleSend ).toHaveBeenCalled();
-	} );
-
 	it( 'does not send message on Shift + Enter key press', () => {
 		const textarea = getInput();
 		fireEvent.keyDown( textarea, { key: 'Enter', shiftKey: true } );

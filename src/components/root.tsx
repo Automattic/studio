@@ -1,3 +1,4 @@
+import { PromptUsageProvider } from '../hooks/use-prompt-usage';
 import { InstalledAppsProvider } from '../hooks/use-check-installed-apps';
 import { OnboardingProvider } from '../hooks/use-onboarding';
 import { SiteDetailsProvider } from '../hooks/use-site-details';
@@ -18,7 +19,9 @@ const Root = () => {
 						<ThemeDetailsProvider>
 							<InstalledAppsProvider>
 								<OnboardingProvider>
-									<App />
+									<PromptUsageProvider>
+										<App />
+									</PromptUsageProvider>
 								</OnboardingProvider>
 							</InstalledAppsProvider>
 						</ThemeDetailsProvider>

@@ -6,6 +6,7 @@ import { useAssistant } from '../hooks/use-assistant';
 import { useAssistantApi } from '../hooks/use-assistant-api';
 import { useAuth } from '../hooks/use-auth';
 import { useOffline } from '../hooks/use-offline';
+import { usePromptUsage } from '../hooks/use-prompt-usage';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { MessageThinking } from './assistant-thinking';
@@ -38,6 +39,7 @@ export const Message = ( { children, isUser, className }: MessageProps ) => (
 
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
 	const { messages, addMessage, clearMessages } = useAssistant( selectedSite.name );
+	const { fetchPromptUsage } = usePromptUsage();
 	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi();
 	const [ input, setInput ] = useState< string >( '' );
 	const endOfMessagesRef = useRef< HTMLDivElement >( null );
@@ -57,6 +59,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 				] );
 				if ( message ) {
 					addMessage( message, 'assistant' );
+					fetchPromptUsage();
 				}
 			} catch ( error ) {
 				// A delay is added to avoid the message box being closed by the previous keydown event

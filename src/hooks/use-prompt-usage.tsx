@@ -1,14 +1,32 @@
 import * as Sentry from '@sentry/electron/renderer';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, createContext, useContext } from 'react';
 import { LIMIT_OF_PROMPTS_PER_USER } from '../constants';
 import { useAuth } from './use-auth';
 
-interface Message {
-	content: string;
-	role: 'user' | 'assistant';
+type PromptUsage = {
+	promptLimit: number;
+	promptCount: number;
+	fetchPromptUsage: () => Promise< void >;
+};
+
+const initState = {
+	promptLimit: LIMIT_OF_PROMPTS_PER_USER,
+	promptCount: 0,
+	fetchPromptUsage: async () => undefined,
+};
+const promptUsageContext = createContext< PromptUsage >( initState );
+
+interface PromptUsageProps {
+	children?: React.ReactNode;
 }
 
-export const usePromptUsage = () => {
+export function usePromptUsage() {
+	return useContext( promptUsageContext );
+}
+
+export function PromptUsageProvider( { children }: PromptUsageProps ) {
+	const { Provider } = promptUsageContext;
+
 	const [ promptLimit, setPromptLimit ] = useState( LIMIT_OF_PROMPTS_PER_USER );
 	const [ promptCount, setPromptCount ] = useState( 0 );
 	const { client } = useAuth();
@@ -18,7 +36,7 @@ export const usePromptUsage = () => {
 			return;
 		}
 		try {
-			return await new Promise( ( resolve, reject ) => {
+			await new Promise( ( resolve, reject ) => {
 				client.req.get(
 					{
 						method: 'HEAD',
@@ -27,12 +45,17 @@ export const usePromptUsage = () => {
 					},
 					( error: Error, _data: unknown, headers: Record< string, string > ) => {
 						if ( error ) {
-							reject( error );
+							return reject( error );
+						}
+						if ( ! headers ) {
+							reject( new Error( 'No headers in response' ) );
+							return;
 						}
 						const limit = parseInt( headers[ 'x-ratelimit-limit' ] );
 						const remaining = parseInt( headers[ 'x-ratelimit-remaining' ] );
 						if ( isNaN( limit ) || isNaN( remaining ) ) {
 							reject( new Error( 'Error fetching limit response' ) );
+							return;
 						}
 						setPromptLimit( limit );
 						setPromptCount( limit - remaining );
@@ -53,5 +76,13 @@ export const usePromptUsage = () => {
 		fetchPromptUsage();
 	}, [ fetchPromptUsage, client ] );
 
-	return { promptLimit, promptCount };
-};
+	const contextValue = useMemo( () => {
+		return {
+			fetchPromptUsage,
+			promptLimit,
+			promptCount,
+		};
+	}, [ fetchPromptUsage, promptLimit, promptCount ] );
+
+	return <Provider value={ contextValue }>{ children }</Provider>;
+}

@@ -14,7 +14,6 @@ interface AIInputProps {
 }
 
 const MAX_ROWS = 10;
-const LINE_HEIGHT = 30;
 
 export const AIInput: React.FC< AIInputProps > = ( {
 	disabled,
@@ -40,8 +39,9 @@ export const AIInput: React.FC< AIInputProps > = ( {
 			// Reset the height of the textarea to auto to recalculate the height
 			inputRef.current.style.height = 'auto';
 
-			// Calculate the maximum height based on the maximum number of rows and the line height
-			const maxHeight = MAX_ROWS * LINE_HEIGHT;
+			// Calculate the maximum height based on the maximum number of rows
+			const lineHeight = parseInt( window.getComputedStyle( inputRef.current ).lineHeight, 10 );
+			const maxHeight = MAX_ROWS * lineHeight;
 
 			// Set the height of the textarea to the minimum of its scrollHeight and the maximum height
 			inputRef.current.style.height = `${ Math.min( inputRef.current.scrollHeight, maxHeight ) }px`;
@@ -52,20 +52,23 @@ export const AIInput: React.FC< AIInputProps > = ( {
 				inputRef.current.scrollHeight > maxHeight ? 'auto' : 'hidden';
 
 			// Scroll to the bottom if the content exceeds the maximum height
-			if ( inputRef.current.scrollHeight > maxHeight ) {
-				inputRef.current.scrollTop = inputRef.current.scrollHeight;
-			}
+			inputRef.current.scrollTop = inputRef.current.scrollHeight;
 		}
 	};
 
 	const handleKeyDownWrapper = ( e: React.KeyboardEvent< HTMLTextAreaElement > ) => {
 		if ( e.key === 'Enter' && ! e.shiftKey ) {
 			e.preventDefault();
-			handleSend();
-			if ( inputRef.current ) {
-				// Reset the input height to default when the user sends the message
-				inputRef.current.style.height = 'auto';
+			if ( input.trim() !== '' ) {
+				handleSend();
+				if ( inputRef.current ) {
+					// Reset the input height to default when the user sends the message
+					inputRef.current.style.height = 'auto';
+				}
 			}
+		} else if ( e.key === 'Enter' && e.shiftKey ) {
+			// Allow Shift + Enter to create a new line
+			return;
 		} else {
 			handleKeyDown( e );
 		}
@@ -81,12 +84,11 @@ export const AIInput: React.FC< AIInputProps > = ( {
 					ref={ inputRef }
 					disabled={ disabled }
 					placeholder="What would you like to learn?"
-					className="w-full px-2 py-3 rounded-sm border-none resize-none focus:outline-none"
+					className="w-full mt-1 px-2 py-3 rounded-sm border-none resize-none focus:outline-none"
 					value={ input }
 					onChange={ handleInput }
 					onKeyDown={ handleKeyDownWrapper }
 					rows={ 1 }
-					style={ { lineHeight: `${ LINE_HEIGHT }px` } }
 					data-testid="ai-input-textarea"
 				/>
 				<div className="flex items-end p-2">

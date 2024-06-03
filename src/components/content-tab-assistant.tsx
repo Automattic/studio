@@ -153,6 +153,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 				) }
 			</div>
 			<AIInput
+				disabled={ disabled }
 				input={ input }
 				setInput={ setInput }
 				handleSend={ handleSend }

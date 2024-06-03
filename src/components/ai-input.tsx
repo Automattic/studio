@@ -1,67 +1,87 @@
-import React, { useRef, useEffect } from 'react';
-import { useAuth } from '../hooks/use-auth';
-import { useOffline } from '../hooks/use-offline';
-import { cx } from '../lib/cx';
+import React, { useRef, useEffect, useState } from 'react';
 import Button from './button';
 import { AssistantIcon } from './icons/assistant';
 import { MenuIcon } from './icons/menu';
 
 interface AIInputProps {
+	disabled: boolean;
 	input: string;
 	setInput: ( input: string ) => void;
 	handleSend: () => void;
-	handleKeyDown: ( e: React.KeyboardEvent< HTMLInputElement > ) => void;
+	handleKeyDown: ( e: React.KeyboardEvent< HTMLTextAreaElement > ) => void;
 	clearInput: () => void;
 	isAssistantThinking: boolean;
 }
 
 export const AIInput: React.FC< AIInputProps > = ( {
+	disabled,
 	input,
 	setInput,
+	handleSend,
 	handleKeyDown,
 	clearInput,
 	isAssistantThinking,
 } ) => {
-	const inputRef = useRef< HTMLInputElement >( null );
-	const { isAuthenticated } = useAuth();
-	const isOffline = useOffline();
+	const inputRef = useRef< HTMLTextAreaElement >( null );
+	const [ height, setHeight ] = useState( 'auto' );
 
 	useEffect( () => {
-		if ( isAuthenticated && inputRef.current ) {
+		if ( ! disabled && inputRef.current ) {
 			inputRef.current.focus();
 		}
-	}, [ isAuthenticated ] );
+	}, [ disabled ] );
 
-	const disabled = isOffline || ! isAuthenticated;
+	useEffect( () => {
+		if ( inputRef.current ) {
+			inputRef.current.style.height = 'auto';
+			inputRef.current.style.height = `${ inputRef.current.scrollHeight }px`;
+			setHeight( `${ inputRef.current.scrollHeight }px` );
+		}
+	}, [ input ] );
+
+	const handleKeyDownWrapper = ( e: React.KeyboardEvent< HTMLTextAreaElement > ) => {
+		if ( e.key === 'Enter' && ! e.shiftKey ) {
+			e.preventDefault();
+			handleSend();
+			if ( input.trim().split( '\n' ).length === 1 ) {
+				setHeight( 'auto' );
+			}
+		} else {
+			handleKeyDown( e );
+		}
+	};
+
+	console.log( 'isAssistantThinking?', isAssistantThinking );
 
 	return (
 		<div
 			data-testid="assistant-input"
-			className="px-8 py-6 bg-white flex items-center border-t border-gray-200 sticky bottom-0"
+			className="px-8 py-5 bg-white flex items-center border border-gray-200"
 		>
-			<div className="relative flex-1">
-				<input
+			<div className="flex items-center w-full border border-gray-300 rounded-sm focus-within:border-blue-500">
+				<div className="p-2">
+					<AssistantIcon size={ 28 } />
+				</div>
+				<textarea
 					ref={ inputRef }
 					disabled={ disabled }
-					type="text"
-					placeholder="Ask Studio WordPress Assistant"
-					className="w-full p-3 rounded-sm border-black border ltr:pl-8 rtl:pr-8 disabled:border-gray-300 disabled:cursor-not-allowed"
+					placeholder="What would you like to learn?"
+					className="w-full px-1 py-3 rounded-sm border-none resize-none focus:outline-none"
 					value={ input }
 					onChange={ ( e ) => setInput( e.target.value ) }
-					onKeyDown={ handleKeyDown }
+					onKeyDown={ handleKeyDownWrapper }
+					style={ { height } }
+					rows={ 1 }
 				/>
-				<div className="absolute top-1/2 transform -translate-y-1/2 ltr:left-3 rtl:left-auto rtl:right-3 pointer-events-none">
-					<AssistantIcon />
-				</div>
+				<Button
+					disabled={ disabled }
+					aria-label="menu"
+					className="p-2 cursor-pointer"
+					onClick={ clearInput }
+				>
+					<MenuIcon />
+				</Button>
 			</div>
-			<Button
-				disabled={ disabled }
-				aria-label="menu"
-				className="p-2 ml-2 cursor-pointer"
-				onClick={ clearInput }
-			>
-				<MenuIcon />
-			</Button>
 		</div>
 	);
 };

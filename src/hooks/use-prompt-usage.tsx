@@ -2,6 +2,7 @@ import * as Sentry from '@sentry/electron/renderer';
 import { useState, useEffect, useCallback, useMemo, createContext, useContext } from 'react';
 import { LIMIT_OF_PROMPTS_PER_USER } from '../constants';
 import { useAuth } from './use-auth';
+import { getAppGlobals } from '../lib/app-globals';
 
 type PromptUsage = {
 	promptLimit: number;
@@ -26,13 +27,14 @@ export function usePromptUsage() {
 
 export function PromptUsageProvider( { children }: PromptUsageProps ) {
 	const { Provider } = promptUsageContext;
+	const assistantEnabled = getAppGlobals().assistantEnabled;
 
 	const [ promptLimit, setPromptLimit ] = useState( LIMIT_OF_PROMPTS_PER_USER );
 	const [ promptCount, setPromptCount ] = useState( 0 );
 	const { client } = useAuth();
 
 	const fetchPromptUsage = useCallback( async () => {
-		if ( ! client?.req ) {
+		if ( ! client?.req || ! assistantEnabled ) {
 			return;
 		}
 		try {

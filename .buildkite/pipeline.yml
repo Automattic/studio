@@ -49,6 +49,9 @@ steps:
     plugins: *common_plugins
     agents:
       queue: "{{ matrix }}"
+    env:
+      # See https://playwright.dev/docs/ci#debugging-browser-launches
+      DEBUG: 'pw:browser'
     matrix:
       - mac
       - windows

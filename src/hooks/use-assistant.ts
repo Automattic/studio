@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-interface Message {
+export interface Message {
 	content: string;
 	role: 'user' | 'assistant';
 }

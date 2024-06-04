@@ -3,16 +3,58 @@
 	word-wrap: break-word;
 }
 
-#assistant-markdown code {
-	border-radius: 3px;
-	white-space: pre-wrap;
-	margin: 1rem 0 !important;
+#assistant-markdown blockquote {
+	font-weight: bold;
+	margin: 1rem 0;
+	padding: 0.5rem 1rem;
 }
 
-#assistant-markdown pre {
-	border-radius: 5px;
-	overflow-x: auto;
-	margin: 1rem 0;
+#assistant-markdown code {
+	border-radius: 3px;
+	margin: 1rem 0 !important;
+	white-space: pre-wrap;
+}
+
+#assistant-markdown h1 {
+	font-size: 1.5rem;
+	font-weight: bold;
+	margin-bottom: 0.5rem;
+	margin-top: 1.5rem;
+}
+
+#assistant-markdown h2 {
+	font-size: 1.25rem;
+	font-weight: bold;
+	margin-bottom: 0.5rem;
+	margin-top: 1.5rem;
+}
+
+#assistant-markdown h3 {
+	font-size: 1.125rem;
+	font-weight: bold;
+	margin-bottom: 0.5rem;
+	margin-top: 1.5rem;
+}
+
+#assistant-markdown h4 {
+	font-size: 1rem;
+	font-weight: bold;
+	margin-bottom: 0.5rem;
+	margin-top: 1.5rem;
+}
+
+#assistant-markdown h5 {
+	font-size: 0.875rem;
+	font-weight: bold;
+	margin-bottom: 0.5rem;
+	margin-top: 1.5rem;
+}
+
+#assistant-markdown h6 {
+	font-size: 0.85rem;
+	font-weight: bold;
+	margin-bottom: 0.5rem;
+	margin-top: 1.5rem;
 }
 
 #assistant-markdown hr {
@@ -20,59 +62,25 @@
 	margin: 1rem 0;
 }
 
-#assistant-markdown ul,
 #assistant-markdown ol {
+	list-style-type: decimal;
 	margin: 1rem 0;
 	padding-left: 1.5rem;
 }
 
+#assistant-markdown pre {
+	background-color: #272822;
+	border-radius: 5px;
+	color: #f8f8f2;
+	font-family: 'Courier New', Courier, monospace;
+	font-size: 14px;
+	margin: 1rem 0;
+	overflow-x: auto;
+	padding: 1em;
+}
+
 #assistant-markdown ul {
 	list-style-type: disc;
-}
-
-#assistant-markdown ol {
-	list-style-type: decimal;
-}
-
-#assistant-markdown blockquote {
 	margin: 1rem 0;
-	padding: 0.5rem 1rem;
-	color: var(--gh-text-color);
-	font-weight: bold;
-}
-
-#assistant-markdown h1,
-#assistant-markdown h2,
-#assistant-markdown h3,
-#assistant-markdown h4,
-#assistant-markdown h5,
-#assistant-markdown h6 {
-	margin-top: 1.5rem;
-	margin-bottom: 0.5rem;
-	font-weight: bold;
-}
-
-#assistant-markdown h1 {
-	font-size: 1.5rem;
-}
-
-#assistant-markdown h2 {
-	font-size: 1.25rem;
-}
-
-#assistant-markdown h3 {
-	font-size: 1.125rem;
-}
-
-#assistant-markdown h4 {
-	font-size: 1rem;
-	margin-bottom: 0.5rem;
-}
-
-#assistant-markdown h5 {
-	font-size: 0.875rem;
-}
-
-#assistant-markdown h6 {
-	font-size: 0.85rem;
+	padding-left: 1.5rem;
 }

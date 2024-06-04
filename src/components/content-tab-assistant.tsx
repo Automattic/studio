@@ -100,7 +100,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 				) }
 			>
 				{ isAuthenticated ? (
-					<div data-testid="assistant-chat" className="flex-1 overflow-y-auto p-8">
+					<div className="flex-1 overflow-y-auto p-8">
 						<div className="text-gray-500 mb-4">
 							Welcome to the Studio assistant. I can help manage your site, debug issues, and
 							navigate your way around the WordPress ecosystem.

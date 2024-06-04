@@ -85,7 +85,7 @@ class PortFinder {
 				} )
 				.finally( () => {
 					// Ensure port finder cycles through newly reclaimed ports by removing
-					// from unavailable ports list and resetting #searchPort.
+					// from #unavailablePorts list and resetting #searchPort.
 					this.#unavailablePorts = this.#unavailablePorts.filter(
 						( unavailablePort ) => unavailablePort !== port
 					);

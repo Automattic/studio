@@ -7,6 +7,7 @@ describe( 'AIInput Component', () => {
 	let handleKeyDown: jest.Mock;
 	let setInput: jest.Mock;
 	let clearInput: jest.Mock;
+	let handleClearConversation: jest.Mock;
 
 	const defaultProps = {
 		disabled: false,
@@ -16,6 +17,7 @@ describe( 'AIInput Component', () => {
 		handleKeyDown: jest.fn(),
 		clearInput: jest.fn(),
 		isAssistantThinking: false,
+		handleClearConversation: jest.fn(),
 	};
 
 	const getInput = () => screen.getByTestId( 'ai-input-textarea' ) as HTMLTextAreaElement;
@@ -25,6 +27,7 @@ describe( 'AIInput Component', () => {
 		handleKeyDown = jest.fn();
 		setInput = jest.fn();
 		clearInput = jest.fn();
+		handleClearConversation = jest.fn();
 
 		jest.clearAllMocks();
 
@@ -74,5 +77,18 @@ describe( 'AIInput Component', () => {
 		fireEvent.change( textarea, { target: { value: longText } } );
 		expect( setInput ).toHaveBeenCalledWith( longText );
 		expect( textarea.scrollTop ).toBe( textarea.scrollHeight - textarea.clientHeight );
+	} );
+
+	it( 'clears input and chat history when clear conversation button is pressed', () => {
+		const textarea = getInput();
+		const longText = 'Line\n'.repeat( 100 );
+		fireEvent.change( textarea, { target: { value: longText } } );
+		const assistantMenu = screen.getByLabelText( 'Assistant Menu' );
+		fireEvent.click( assistantMenu );
+
+		const clearConversationButton = screen.getByTestId( 'clear-conversation-button' );
+		fireEvent.click( clearConversationButton );
+
+		expect( handleClearConversation ).toHaveBeenCalled();
 	} );
 } );

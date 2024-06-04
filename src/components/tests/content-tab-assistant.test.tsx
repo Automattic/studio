@@ -83,17 +83,6 @@ describe( 'ContentTabAssistant', () => {
 		} );
 	} );
 
-	test( 'clears input and chat history when MenuIcon is clicked', () => {
-		render( <ContentTabAssistant selectedSite={ runningSite } /> );
-		const textInput = getInput();
-		const menuIcon = screen.getByLabelText( 'menu' );
-		fireEvent.change( textInput, { target: { value: 'Hello, Assistant!' } } );
-		expect( textInput.value ).toBe( 'Hello, Assistant!' );
-		fireEvent.click( menuIcon );
-		expect( textInput.value ).toBe( '' );
-		expect( screen.queryByText( 'Hello, Assistant!' ) ).not.toBeInTheDocument();
-	} );
-
 	test( 'saves and retrieves conversation from localStorage', async () => {
 		const storageKey = `${ runningSite.name }`;
 		localStorage.setItem( storageKey, JSON.stringify( initialMessages ) );

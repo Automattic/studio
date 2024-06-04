@@ -108,7 +108,7 @@ export const AIInput: React.FC< AIInputProps > = ( {
 					{ () => (
 						<>
 							<MenuGroup>
-								<MenuItem onClick={ handleClearConversation }>
+								<MenuItem data-testid="clear-conversation-button" onClick={ handleClearConversation }>
 									<Icon className="text-red-600" icon={ reset } />
 									<span className="ltr:pl-2 rtl:pl-2 text-red-600">
 										{ __( 'Clear Conversation' ) }

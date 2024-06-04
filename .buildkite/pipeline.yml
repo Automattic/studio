@@ -31,6 +31,15 @@ steps:
       queue: default
     plugins: *common_plugins
 
+  - label: Experiment Windows Unit Tests
+    command: |
+      bash .buildkite/commands/install-node-dependencies.sh
+      echo '--- :npm: Run Unit Tests'
+      npm run test
+    agents:
+      queue: windows
+    plugins: *common_plugins
+
   # Notice that we use the queue name (matrix value) in the label.
   # We could have added values for queue and label, but that would have resulted in 'macOS + windows' and 'Windows + mac' combinations, which we don't want.
   # Buildkite offers an option to remove those combinations, but the overhead in code readability did not seem worth the visual effect in the build page.

@@ -68,7 +68,7 @@ test.describe( 'Servers', () => {
 				try {
 					await fs.rm( dir, { recursive: true } );
 				} catch {
-					fail( `Failed to clean up ${ dir }` );
+					throw new Error( `Failed to clean up ${ dir }` );
 				}
 			}
 		} );

@@ -70,6 +70,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 					addMessage( message, 'assistant' );
 				}
 			} catch ( error ) {
+				// A delay is added to avoid the message box being closed by the previous keydown event
 				setTimeout(
 					() =>
 						getIpcApi().showMessageBox( {

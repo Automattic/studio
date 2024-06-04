@@ -21,4 +21,7 @@ module.exports = {
 	globalSetup: '<rootDir>/jest-global-setup.ts',
 	setupFilesAfterEnv: [ '<rootDir>/jest-setup.ts' ],
 	watchPlugins: [ 'jest-watch-typeahead/filename', 'jest-watch-typeahead/testname' ],
+	moduleNameMapper: {
+		'^react-markdown$': '<rootDir>/src/__mocks__/react-markdown.tsx',
+	},
 };

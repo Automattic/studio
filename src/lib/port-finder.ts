@@ -74,7 +74,7 @@ class PortFinder {
 		}
 	}
 
-	public reclaimUnavailablePort( port?: number ): void {
+	public releasePort( port?: number ): void {
 		if ( port && this.#unavailablePorts.includes( port ) ) {
 			killPort( port )
 				.then( () => {

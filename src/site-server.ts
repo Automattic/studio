@@ -60,7 +60,7 @@ export class SiteServer {
 		}
 		await this.stop();
 		servers.delete( this.details.id );
-		portFinder.reclaimUnavailablePort( this.details.port );
+		portFinder.releasePort( this.details.port );
 	}
 
 	async start() {

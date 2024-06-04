@@ -1,4 +1,5 @@
 import { DropdownMenu, MenuItem, MenuGroup } from '@wordpress/components';
+import { __ } from '@wordpress/i18n';
 import { Icon, reset, moreVertical } from '@wordpress/icons';
 import React, { useRef, useEffect } from 'react';
 import { AssistantIcon } from './icons/assistant';
@@ -76,7 +77,7 @@ export const AIInput: React.FC< AIInputProps > = ( {
 	};
 
 	const handleClearConversation = () => {
-		if ( window.confirm( 'Are you sure you want to clear the conversation?' ) ) {
+		if ( window.confirm( __( 'Are you sure you want to clear the conversation?' ) ) ) {
 			clearInput();
 		}
 	};
@@ -109,7 +110,9 @@ export const AIInput: React.FC< AIInputProps > = ( {
 							<MenuGroup>
 								<MenuItem onClick={ handleClearConversation }>
 									<Icon className="text-red-600" icon={ reset } />
-									<span className="ltr:pl-2 rtl:pl-2 text-red-600">Clear Conversation</span>
+									<span className="ltr:pl-2 rtl:pl-2 text-red-600">
+										{ __( 'Clear Conversation' ) }
+									</span>
 								</MenuItem>
 							</MenuGroup>
 						</>
@@ -117,5 +120,5 @@ export const AIInput: React.FC< AIInputProps > = ( {
 				</DropdownMenu>
 			</div>
 		</div>
-	);	
+	);
 };

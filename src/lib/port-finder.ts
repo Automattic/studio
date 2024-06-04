@@ -85,11 +85,11 @@ class PortFinder {
 				} )
 				.finally( () => {
 					// Ensure port finder cycles through newly reclaimed ports by removing
-					// from #unavailablePorts list and resetting #searchPort.
+					// from #unavailablePorts list and resetting #openPort.
 					this.#unavailablePorts = this.#unavailablePorts.filter(
 						( unavailablePort ) => unavailablePort !== port
 					);
-					this.#searchPort = DEFAULT_PORT;
+					this.#openPort = DEFAULT_PORT;
 				} );
 		}
 	}

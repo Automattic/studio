@@ -13,7 +13,6 @@ import { MessageThinking } from './assistant-thinking';
 import Button from './button';
 import { AssistantIcon } from './icons/assistant';
 import { MenuIcon } from './icons/menu';
-import '../assistant-markdown.css';
 
 interface SiteDetails {
 	name: string;

@@ -176,7 +176,7 @@ steps:
     artifact_paths:
       - 'out/releases.json'
     agents:
-      queue: "mac" 
+      queue: "mac"
     # Using concurrency_group to ensure the CI builds from `trunk` & the git tag, which are likely to run at roughly the
     # same time, don't run into a race condition when downloading+updating+uploading the `releases.json` file from/to S3
     concurrency_group: 'studio/release-manifest-update'

@@ -2,7 +2,7 @@ import { createInterpolateElement } from '@wordpress/element';
 import { Icon, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import React, { useState, useEffect, useRef } from 'react';
-import ReactMarkdown from 'react-markdown';
+import Markdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { xonokai } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { useAssistant } from '../hooks/use-assistant';
@@ -41,29 +41,7 @@ export const Message = ( { children, isUser, className }: MessageProps ) => (
 		>
 			{ typeof children === 'string' ? (
 				<div id="assistant-markdown">
-					<ReactMarkdown
-						components={ {
-							code( { inline, className, children, ...props } ) {
-								const match = /language-(\w+)/.exec( className || '' );
-								return ! inline && match ? (
-									<SyntaxHighlighter
-										style={ xonokai }
-										language={ match[ 1 ] }
-										PreTag="div"
-										{ ...props }
-									>
-										{ String( children ).replace( /\n$/, '' ) }
-									</SyntaxHighlighter>
-								) : (
-									<code className={ className } { ...props }>
-										{ children }
-									</code>
-								);
-							},
-						} }
-					>
-						{ children }
-					</ReactMarkdown>
+					<Markdown>{ children }</Markdown>
 				</div>
 			) : (
 				children

@@ -46,7 +46,6 @@ export const Message = ( { children, isUser, className }: MessageProps ) => (
 
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
 	const { messages, addMessage, clearMessages } = useAssistant( selectedSite.name );
-	const { fetchPromptUsage } = usePromptUsage();
 	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi();
 	const [ input, setInput ] = useState< string >( '' );
 	const endOfMessagesRef = useRef< HTMLDivElement >( null );
@@ -66,7 +65,6 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 				] );
 				if ( message ) {
 					addMessage( message, 'assistant' );
-					fetchPromptUsage();
 				}
 			} catch ( error ) {
 				// A delay is added to avoid the message box being closed by the previous keydown event

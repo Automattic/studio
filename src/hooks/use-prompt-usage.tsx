@@ -8,12 +8,14 @@ type PromptUsage = {
 	promptLimit: number;
 	promptCount: number;
 	fetchPromptUsage: () => Promise< void >;
+	updatePromptUsage: ( headers: Record< string, string > ) => void;
 };
 
 const initState = {
 	promptLimit: LIMIT_OF_PROMPTS_PER_USER,
 	promptCount: 0,
 	fetchPromptUsage: async () => undefined,
+	updatePromptUsage: ( _headers: Record< string, string > ) => undefined,
 };
 const promptUsageContext = createContext< PromptUsage >( initState );
 
@@ -29,9 +31,26 @@ export function PromptUsageProvider( { children }: PromptUsageProps ) {
 	const { Provider } = promptUsageContext;
 	const assistantEnabled = getAppGlobals().assistantEnabled;
 
+	const [ initiated, setInitiated ] = useState( false );
 	const [ promptLimit, setPromptLimit ] = useState( LIMIT_OF_PROMPTS_PER_USER );
 	const [ promptCount, setPromptCount ] = useState( 0 );
 	const { client } = useAuth();
+
+	const updatePromptUsage = useCallback(
+		( headers: Record< string, string > ) => {
+			const limit = parseInt( headers[ 'x-ratelimit-limit' ] );
+			const remaining = parseInt( headers[ 'x-ratelimit-remaining' ] );
+			if ( isNaN( limit ) || isNaN( remaining ) ) {
+				return;
+			}
+			setPromptLimit( limit );
+			setPromptCount( limit - remaining );
+			if ( ! initiated ) {
+				setInitiated( true );
+			}
+		},
+		[ initiated ]
+	);
 
 	const fetchPromptUsage = useCallback( async () => {
 		if ( ! client?.req || ! assistantEnabled ) {
@@ -53,14 +72,7 @@ export function PromptUsageProvider( { children }: PromptUsageProps ) {
 							reject( new Error( 'No headers in response' ) );
 							return;
 						}
-						const limit = parseInt( headers[ 'x-ratelimit-limit' ] );
-						const remaining = parseInt( headers[ 'x-ratelimit-remaining' ] );
-						if ( isNaN( limit ) || isNaN( remaining ) ) {
-							reject( new Error( 'Error fetching limit response' ) );
-							return;
-						}
-						setPromptLimit( limit );
-						setPromptCount( limit - remaining );
+						updatePromptUsage( headers );
 						resolve( headers );
 					}
 				);
@@ -69,22 +81,23 @@ export function PromptUsageProvider( { children }: PromptUsageProps ) {
 			Sentry.captureException( error );
 			console.error( error );
 		}
-	}, [ client ] );
+	}, [ assistantEnabled, client, updatePromptUsage ] );
 
 	useEffect( () => {
-		if ( ! client ) {
+		if ( ! client || initiated ) {
 			return;
 		}
 		fetchPromptUsage();
-	}, [ fetchPromptUsage, client ] );
+	}, [ fetchPromptUsage, client, initiated ] );
 
 	const contextValue = useMemo( () => {
 		return {
 			fetchPromptUsage,
 			promptLimit,
 			promptCount,
+			updatePromptUsage,
 		};
-	}, [ fetchPromptUsage, promptLimit, promptCount ] );
+	}, [ fetchPromptUsage, promptLimit, promptCount, updatePromptUsage ] );
 
 	return <Provider value={ contextValue }>{ children }</Provider>;
 }

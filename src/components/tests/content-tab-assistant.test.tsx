@@ -43,7 +43,8 @@ describe( 'ContentTabAssistant', () => {
 
 	const authenticate = jest.fn();
 
-	const getInput = () => screen.getByTestId( 'ai-input-textarea' ) as HTMLInputElement;
+	const getInput = () =>
+		screen.getByPlaceholderText( 'What would you like to learn?' ) as HTMLTextAreaElement;
 
 	beforeEach( () => {
 		jest.clearAllMocks();

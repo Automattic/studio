@@ -32,7 +32,7 @@ export const Message = ( { children, isUser, className }: MessageProps ) => (
 			) }
 		>
 			{ typeof children === 'string' ? (
-				<div id="assistant-markdown">
+				<div className="assistant-markdown">
 					<Markdown>{ children }</Markdown>
 				</div>
 			) : (

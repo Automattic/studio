@@ -22,52 +22,51 @@ export async function executeWPCli(args: string[]): Promise<{ stdout: string; st
 	});
 	const [, php] = phpInstances;
 
-	const stdoutPath = join(tmpDir, 'stdout');
-	const stderrPath = join(tmpDir, 'stderr');
-	const phpScriptPath = join(tmpDir, 'run-cli.php');
-	const vfsWpCliPath = '/wp-cli/wp-cli.phar';
+	//Set the SAPI name to cli before running the script
+	await php.setSapiName('cli');
 
-	const phpScriptContent = `<?php
-		putenv('SHELL_PIPE=0');
-		\$argv = array_merge(["/wp-cli/wp-cli.phar", "--path=${wpNowOptions.documentRoot}"], ${JSON.stringify(args)});
+	php.mkdir('/tmp');
+	const stderrPath = '/tmp/stderr';
+	const wpCliPath = '/tmp/wp-cli.phar';
+	const runCliPath =  '/tmp/run-cli.php';
+	await php.writeFile(stderrPath, '');
+	php.mount(getWpCliPath(), wpCliPath);
+
+	await php.writeFile(
+		runCliPath,
+		`<?php
+		// Set up the environment to emulate a shell script
+		// call.
+
+		// Set SHELL_PIPE to 0 to ensure WP-CLI formats
+		// the output as ASCII tables.
+		// @see https://github.com/wp-cli/wp-cli/issues/1102
+		putenv( 'SHELL_PIPE=0' );
+
+		// Set the argv global.
+		$GLOBALS['argv'] = array_merge([
+		  "${wpCliPath}",
+		  "--path=${php.documentRoot}"
+		], ${phpVar(args)});
+
+		// Provide stdin, stdout, stderr streams outside of
+		// the CLI SAPI.
 		define('STDIN', fopen('php://stdin', 'rb'));
-		define('STDOUT', fopen('${stdoutPath}', 'wb'));
+		define('STDOUT', fopen('php://stdout', 'wb'));
 		define('STDERR', fopen('${stderrPath}', 'wb'));
-		if (!file_exists('/wp-cli/wp-cli.phar')) {
-			fwrite(STDERR, "Could not find wp-cli.phar at /wp-cli/wp-cli.phar\n");
-			exit(1);
-		}
-		require '/wp-cli/wp-cli.phar';
-	?>`;
 
-	fs.writeFileSync(phpScriptPath, phpScriptContent);
+		require( '${wpCliPath}' );`
+	);
 
-	fs.writeFileSync(stdoutPath, '');
-	fs.writeFileSync(stderrPath, '');
 
 	try {
-		php.mount(dirname(getWpCliPath()), '/wp-cli');
+		const result = await php.run({
+			scriptPath: runCliPath,
+		});
 
-		php.mount(tmpDir, '/tmp');
-
-		if (!fs.existsSync(phpScriptPath)) {
-			throw new Error(`PHP script file does not exist at ${phpScriptPath}`);
-		}
-
-		await php.cli([
-			'php',
-			'/tmp/run-cli.php',
-		]);
-
-		const stdoutOutput = fs.readFileSync(stdoutPath, 'utf8');
-		const stderrOutput = fs.readFileSync(stderrPath, 'utf8');
-
-		return { stdout: stdoutOutput, stderr: stderrOutput };
-	} catch (resultOrError) {
-		const success = resultOrError.name === 'ExitStatus' && resultOrError.status === 0;
-		if (!success) {
-			return { stdout: '', stderr: resultOrError.message || 'An unknown error occurred' };
-		}
-		return { stdout: '', stderr: '' };
+		return { stdout: result.text.replace('#!/usr/bin/env php', '').trim(), stderr: result.errors };
+	} catch (error) {
+		const errorContent = php.readFileAsText(stderrPath);
+		return { stdout: '', stderr: errorContent };
 	}
 }

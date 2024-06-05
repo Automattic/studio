@@ -49,26 +49,20 @@ export async function executeWPCli(args: string[]): Promise<{ stdout: string; st
 		require '/wp-cli/wp-cli.phar';
 	?>`;
 
-	console.log(`Writing PHP script to ${phpScriptPath}`);
 	fs.writeFileSync(phpScriptPath, phpScriptContent);
 
-	console.log(`Creating stdout and stderr files`);
 	fs.writeFileSync(stdoutPath, '');
 	fs.writeFileSync(stderrPath, '');
 
 	try {
-		console.log(`Mounting wp-cli path ${dirname(getWpCliPath())} to /wp-cli`);
 		php.mount(dirname(getWpCliPath()), '/wp-cli');
 
-		console.log(`Mounting temporary directory ${tmpDir} to /tmp`);
 		php.mount(tmpDir, '/tmp');
 
-		console.log(`Checking if PHP script file exists at ${phpScriptPath}`);
 		if (!fs.existsSync(phpScriptPath)) {
 			throw new Error(`PHP script file does not exist at ${phpScriptPath}`);
 		}
 
-		console.log(`Executing PHP script at ${phpScriptPath}`);
 		await php.cli([
 			'php',
 			'/tmp/run-cli.php',
@@ -79,7 +73,6 @@ export async function executeWPCli(args: string[]): Promise<{ stdout: string; st
 
 		return { stdout: stdoutOutput, stderr: stderrOutput };
 	} catch (resultOrError) {
-		console.error('Error during PHP execution:', resultOrError);
 		const success = resultOrError.name === 'ExitStatus' && resultOrError.status === 0;
 		if (!success) {
 			return { stdout: '', stderr: resultOrError.message || 'An unknown error occurred' };

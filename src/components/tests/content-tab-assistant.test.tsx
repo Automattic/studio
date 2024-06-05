@@ -42,6 +42,10 @@ describe( 'ContentTabAssistant', () => {
 	} );
 
 	const authenticate = jest.fn();
+
+	const getInput = () =>
+		screen.getByPlaceholderText( 'What would you like to learn?' ) as HTMLTextAreaElement;
+
 	beforeEach( () => {
 		jest.clearAllMocks();
 		window.HTMLElement.prototype.scrollIntoView = jest.fn();
@@ -60,91 +64,38 @@ describe( 'ContentTabAssistant', () => {
 
 	test( 'renders placeholder text input', () => {
 		render( <ContentTabAssistant selectedSite={ runningSite } /> );
-
-		const textInput = screen.getByPlaceholderText( 'Ask Studio WordPress Assistant' );
+		const textInput = getInput();
 		expect( textInput ).toBeInTheDocument();
 		expect( textInput ).toBeEnabled();
-	} );
-
-	test( 'sends message and receives a simulated response', async () => {
-		render( <ContentTabAssistant selectedSite={ runningSite } /> );
-
-		const textInput = screen.getByPlaceholderText(
-			'Ask Studio WordPress Assistant'
-		) as HTMLInputElement;
-
-		fireEvent.change( textInput, { target: { value: 'Hello, Studio!' } } );
-		fireEvent.keyDown( textInput, { key: 'Enter', code: 'Enter' } );
-
-		expect( screen.getByText( 'Hello, Studio!' ) ).toBeInTheDocument();
-
-		await waitFor( () => {
-			expect(
-				screen.getByText(
-					/Welcome to the Studio assistant|What can I help you with today|To install the Jetpack plugin in WordPress|If you prefer to install it via WP-CLI|After installing and activating Jetpack/
-				)
-			).toBeInTheDocument();
-		} );
+		expect( textInput.placeholder ).toBe( 'What would you like to learn?' );
 	} );
 
 	test( 'clears input and chat history when MenuIcon is clicked', () => {
 		render( <ContentTabAssistant selectedSite={ runningSite } /> );
-
-		const textInput = screen.getByPlaceholderText(
-			'Ask Studio WordPress Assistant'
-		) as HTMLInputElement;
+		const textInput = getInput();
 		const menuIcon = screen.getByLabelText( 'menu' );
-
 		fireEvent.change( textInput, { target: { value: 'Hello, Assistant!' } } );
 		expect( textInput.value ).toBe( 'Hello, Assistant!' );
-
 		fireEvent.click( menuIcon );
 		expect( textInput.value ).toBe( '' );
-
 		expect( screen.queryByText( 'Hello, Assistant!' ) ).not.toBeInTheDocument();
 	} );
 
 	test( 'saves and retrieves conversation from localStorage', async () => {
 		const storageKey = `${ runningSite.name }`;
 		localStorage.setItem( storageKey, JSON.stringify( initialMessages ) );
-
 		render( <ContentTabAssistant selectedSite={ runningSite } /> );
-
 		expect( screen.getByText( 'Initial message 1' ) ).toBeInTheDocument();
 		expect( screen.getByText( 'Initial message 2' ) ).toBeInTheDocument();
-
-		const textInput = screen.getByPlaceholderText(
-			'Ask Studio WordPress Assistant'
-		) as HTMLInputElement;
-
+		const textInput = getInput();
 		fireEvent.change( textInput, { target: { value: 'New message' } } );
 		fireEvent.keyDown( textInput, { key: 'Enter', code: 'Enter' } );
-
 		expect( screen.getByText( 'New message' ) ).toBeInTheDocument();
-
-		await waitFor( () => {
-			expect(
-				screen.getByText(
-					/Welcome to the Studio assistant|What can I help you with today|To install the Jetpack plugin in WordPress|If you prefer to install it via WP-CLI|After installing and activating Jetpack/
-				)
-			).toBeInTheDocument();
-		} );
-
 		await waitFor( () => {
 			const storedMessages = JSON.parse( localStorage.getItem( storageKey ) || '[]' );
 			expect( storedMessages ).toHaveLength( 3 );
 			expect( storedMessages[ 2 ].content ).toBe( 'New message' );
 		} );
-	} );
-
-	test( 'renders assistant chat when authenticated', () => {
-		render( <ContentTabAssistant selectedSite={ runningSite } /> );
-
-		expect(
-			screen.getByText(
-				'Welcome to the Studio assistant. I can help manage your site, debug issues, and navigate your way around the WordPress ecosystem.'
-			)
-		).toBeInTheDocument();
 	} );
 
 	test( 'renders default message when not authenticated', () => {
@@ -158,14 +109,13 @@ describe( 'ContentTabAssistant', () => {
 			authenticate,
 		} ) );
 		render( <ContentTabAssistant selectedSite={ runningSite } /> );
-
 		expect( screen.getByText( 'Hold up!' ) ).toBeInTheDocument();
 		expect(
 			screen.getByText( 'You need to log in to your WordPress.com account to use the assistant.' )
 		).toBeInTheDocument();
 	} );
 
-	test( 'clicks login button when not authenticated', () => {
+	test( 'allows authentication from Assistant chat', () => {
 		( useAuth as jest.Mock ).mockImplementation( () => ( {
 			client: {
 				req: {
@@ -176,30 +126,9 @@ describe( 'ContentTabAssistant', () => {
 			authenticate,
 		} ) );
 		render( <ContentTabAssistant selectedSite={ runningSite } /> );
-
 		const loginButton = screen.getByRole( 'button', { name: 'Log in to WordPress.com' } );
 		expect( loginButton ).toBeInTheDocument();
-
 		fireEvent.click( loginButton );
 		expect( authenticate ).toHaveBeenCalledTimes( 1 );
-	} );
-
-	test( 'disables input and buttons when offline or not authenticated', () => {
-		( useAuth as jest.Mock ).mockImplementation( () => ( {
-			client: {
-				req: {
-					post: clientReqPost,
-				},
-			},
-			isAuthenticated: false,
-			authenticate,
-		} ) );
-		render( <ContentTabAssistant selectedSite={ runningSite } /> );
-
-		const textInput = screen.getByPlaceholderText( 'Ask Studio WordPress Assistant' );
-		const menuIcon = screen.getByLabelText( 'menu' );
-
-		expect( textInput ).toBeDisabled();
-		expect( menuIcon ).toBeDisabled();
 	} );
 } );

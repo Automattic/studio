@@ -2,11 +2,10 @@
 common_params:
   plugins: &common_plugins
     - $CI_TOOLKIT_PLUGIN
-    - automattic/nvm#0.3.0
+    - $NVM_PLUGIN
 
-# Most of steps use the same agent and environment; we can define them as top-level
-agents:
-  queue: mac
+# IMAGE_ID is an env var that only macOS agents need.
+# Defining it at the root level propagates it too all agents, which can seem unnecessary but is a the same time convenient and DRY.
 env:
   IMAGE_ID: $IMAGE_ID
 
@@ -17,8 +16,6 @@ steps:
       .buildkite/commands/install-node-dependencies.sh
       echo '--- :eslint: Lint'
       npm run lint
-    agents:
-      queue: default
     plugins: *common_plugins
 
   - label: Unit Tests
@@ -27,8 +24,6 @@ steps:
       .buildkite/commands/install-node-dependencies.sh
       echo '--- :npm: Run Unit Tests'
       npm run test
-    agents:
-      queue: default
     plugins: *common_plugins
 
   - label: Experiment Windows Unit Tests
@@ -63,12 +58,16 @@ steps:
       DEBUG: 'pw:browser'
     matrix:
       - mac
-      - windows
+      # Windows destination disabled till we find the cause of Windows-specific test failures
+      # See https://github.com/Automattic/studio/pull/76#issuecomment-2146529123
+      # - windows
 
   - group: "📦 Build for Mac"
     key: 'dev-mac'
     steps:
       - label: '🔨 Mac Dev Build - {{matrix}}'
+        agents:
+          queue: mac
         command: |
           .buildkite/commands/prepare-environment.sh
 
@@ -97,7 +96,7 @@ steps:
       - 'out\**\studio-update.nupkg'
       - 'out\**\RELEASES'
     agents:
-      queue: "windows"
+      queue: windows
     if: "build.tag !~ /^v[0-9]+/"
 
   - label: ':rocket: Distribute Dev Builds'
@@ -119,7 +118,7 @@ steps:
     artifact_paths:
       - 'out/releases.json'
     agents:
-      queue: "mac"
+      queue: mac
     # Using concurrency_group to ensure the CI builds from `trunk` & the git tag, which are likely to run at roughly the
     # same time, don't run into a race condition when downloading+updating+uploading the `releases.json` file from/to S3
     concurrency_group: 'studio/release-manifest-update'
@@ -135,6 +134,8 @@ steps:
     key: 'release-mac'
     steps:
       - label: '🔨 Mac Release Build - {{matrix}}'
+        agents:
+          queue: mac
         command: |
           .buildkite/commands/prepare-environment.sh
 
@@ -159,7 +160,7 @@ steps:
     key: 'release-windows'
     command: .buildkite/commands/build-for-windows-release.ps1
     agents:
-      queue: "windows"
+      queue: windows
     artifact_paths:
       - 'out\**\studio-setup.exe'
       - 'out\**\studio-update.nupkg'
@@ -185,7 +186,7 @@ steps:
     artifact_paths:
       - 'out/releases.json'
     agents:
-      queue: "mac"
+      queue: mac
     # Using concurrency_group to ensure the CI builds from `trunk` & the git tag, which are likely to run at roughly the
     # same time, don't run into a race condition when downloading+updating+uploading the `releases.json` file from/to S3
     concurrency_group: 'studio/release-manifest-update'

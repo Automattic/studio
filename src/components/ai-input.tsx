@@ -1,3 +1,4 @@
+import { __ } from '@wordpress/i18n';
 import React, { useRef, useEffect } from 'react';
 import Button from './button';
 import { AssistantIcon } from './icons/assistant';
@@ -75,6 +76,10 @@ export const AIInput: React.FC< AIInputProps > = ( {
 		}
 	};
 
+	const getPlaceholderText = () => {
+		return isAssistantThinking ? __( 'Generating...' ) : __( 'What would you like to learn?' );
+	};
+
 	return (
 		<div className="px-8 py-5 bg-white flex items-center border border-gray-200">
 			<div className="flex w-full border border-gray-300 rounded-sm focus-within:border-blue-500">
@@ -84,7 +89,7 @@ export const AIInput: React.FC< AIInputProps > = ( {
 				<textarea
 					ref={ inputRef }
 					disabled={ disabled }
-					placeholder="What would you like to learn?"
+					placeholder={ getPlaceholderText() }
 					className="w-full mt-1 px-2 py-3 rounded-sm border-none resize-none focus:outline-none"
 					value={ input }
 					onChange={ handleInput }

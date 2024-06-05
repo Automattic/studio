@@ -4,6 +4,7 @@
 import '@sentry/electron/preload';
 import { contextBridge, ipcRenderer } from 'electron';
 import type { LogLevel } from './logging';
+import { promptWindowsSpeedUpSites } from './lib/windows-helpers';
 
 const api: IpcApi = {
 	archiveSite: ( id: string ) => ipcRenderer.invoke( 'archiveSite', id ),
@@ -49,6 +50,8 @@ const api: IpcApi = {
 	logRendererMessage: ( level: LogLevel, ...args: any[] ) =>
 		ipcRenderer.send( 'logRendererMessage', level, ...args ),
 	popupAppMenu: () => ipcRenderer.invoke( 'popupAppMenu' ),
+	promptWindowsSpeedUpSites: ( ...args: Parameters< typeof promptWindowsSpeedUpSites > ) =>
+		ipcRenderer.invoke( 'promptWindowsSpeedUpSites', ...args ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

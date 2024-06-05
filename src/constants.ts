@@ -9,6 +9,7 @@ export const WINDOWS_TITLEBAR_HEIGHT = 32;
 export const ABOUT_WINDOW_WIDTH = 284;
 export const ABOUT_WINDOW_HEIGHT = 284;
 export const STUDIO_DOCS_URL = `https://developer.wordpress.com/docs/developer-tools/studio/`;
+export const STUDIO_DOCS_WINDOWS_SPEED_UP_SITES_URL = `${ STUDIO_DOCS_URL }#15-how-can-i-make-studio-faster-on-windows-`;
 export const BUG_REPORT_URL =
 	'https://github.com/Automattic/studio/issues/new?assignees=&labels=Needs+triage%2C%5BType%5D+Bug&projects=&template=bug_report.yml';
 export const FEATURE_REQUEST_URL =

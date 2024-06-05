@@ -1,6 +1,6 @@
 import path from 'path';
 import getWpCliTmpPath from './get-wp-cli-tmp-path';
-import { getServerFilesPath } from '../storage/paths';
+import { getServerFilesPath } from '../../../src/storage/paths';
 
 /**
  * The path for wp-cli phar file within the WP Now folder.

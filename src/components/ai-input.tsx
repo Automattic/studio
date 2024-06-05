@@ -1,9 +1,8 @@
 import { __ } from '@wordpress/i18n';
+import { Icon, moreVertical, keyboardReturn } from '@wordpress/icons';
 import React, { useRef, useEffect } from 'react';
 import Button from './button';
 import { AssistantIcon } from './icons/assistant';
-import { MenuIcon } from './icons/menu';
-import { ReturnIcon } from './icons/return';
 
 interface AIInputProps {
 	disabled: boolean;
@@ -98,18 +97,18 @@ export const AIInput = ( {
 					data-testid="ai-input-textarea"
 				/>
 				{ input.trim() !== '' && (
-					<div className="flex items-end py-4 mb-1">
-						<ReturnIcon />
+					<div className="flex items-end py-4 mb-1 ">
+						<Icon icon={ keyboardReturn } size={ 13 } fill="#cccccc" />
 					</div>
 				) }
-				<div className="flex items-end p-2">
+				<div className="flex items-end py-2">
 					<Button
 						disabled={ disabled }
 						aria-label="menu"
 						className="p-2 cursor-pointer"
 						onClick={ clearInput }
 					>
-						<MenuIcon />
+						<Icon icon={ moreVertical } size={ 22 } />
 					</Button>
 				</div>
 			</div>

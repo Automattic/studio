@@ -14,10 +14,6 @@ import Button from './button';
 import { AssistantIcon } from './icons/assistant';
 import { MenuIcon } from './icons/menu';
 
-interface SiteDetails {
-	name: string;
-}
-
 interface ContentTabAssistantProps {
 	selectedSite: SiteDetails;
 }

@@ -36,6 +36,9 @@ export const useAssistant = ( selectedSiteId: string ) => {
 					chatId,
 				} )
 			);
+			if ( chatId ) {
+				setChatId( chatId );
+			}
 			return updatedMessages;
 		} );
 	};

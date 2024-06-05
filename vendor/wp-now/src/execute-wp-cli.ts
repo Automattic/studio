@@ -1,11 +1,9 @@
 import startWPNow from './wp-now';
 import { downloadWPCLI } from './download';
-import { disableOutput } from './output';
 import getWpCliPath from './get-wp-cli-path';
 import getWpNowConfig from './config';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from './constants';
-import { dirname, join } from 'path';
-import fs from 'fs';
+import { phpVar } from '@php-wasm/util';
 
 /**
  * This is an unstable API. Multiple wp-cli commands may not work due to a current limitation on php-wasm and pthreads.
@@ -13,7 +11,6 @@ import fs from 'fs';
  */
 export async function executeWPCli(args: string[]): Promise<{ stdout: string; stderr: string; }> {
 	await downloadWPCLI();
-	disableOutput();
 	const options = await getWpNowConfig({
 		php: DEFAULT_PHP_VERSION,
 		wp: DEFAULT_WORDPRESS_VERSION,
@@ -24,12 +21,6 @@ export async function executeWPCli(args: string[]): Promise<{ stdout: string; st
 		numberOfPhpInstances: 2,
 	});
 	const [, php] = phpInstances;
-
-	// Define a specific directory within the current working directory
-	const tmpDir = join(process.cwd(), 'wp-cli-temp');
-	if (!fs.existsSync(tmpDir)) {
-		fs.mkdirSync(tmpDir, { recursive: true });
-	}
 
 	const stdoutPath = join(tmpDir, 'stdout');
 	const stderrPath = join(tmpDir, 'stderr');

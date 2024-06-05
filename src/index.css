@@ -99,8 +99,10 @@ blockquote {
 }
 
 #assistant-markdown code {
-	border-radius: 3px;
-	margin: 1rem 0 !important;
+	color: #f8f8f2;
+	font-family: 'Courier New', Courier, monospace;
+	font-size: 13px;
+	margin: 1rem 0;
 	white-space: pre-wrap;
 }
 
@@ -158,11 +160,8 @@ blockquote {
 }
 
 #assistant-markdown pre {
-	background-color: #272822;
+	background-color: #1D2327;
 	border-radius: 5px;
-	color: #f8f8f2;
-	font-family: 'Courier New', Courier, monospace;
-	font-size: 14px;
 	margin: 1rem 0;
 	overflow-x: auto;
 	padding: 1em;

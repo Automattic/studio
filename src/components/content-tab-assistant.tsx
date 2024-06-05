@@ -37,7 +37,7 @@ export const Message = ( { children, isUser, className }: MessageProps ) => (
 );
 
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
-	const { messages, addMessage, clearMessages } = useAssistant( selectedSite.name );
+	const { messages, addMessage, chatId, clearMessages } = useAssistant( selectedSite.name );
 	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi();
 	const [ input, setInput ] = useState< string >( '' );
 	const endOfMessagesRef = useRef< HTMLDivElement >( null );
@@ -48,15 +48,15 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 
 	const handleSend = async () => {
 		if ( input.trim() ) {
-			addMessage( input, 'user' );
+			addMessage( input, 'user', chatId );
 			setInput( '' );
 			try {
-				const { message } = await fetchAssistant( [
+				const { message, chatId: newChatId } = await fetchAssistant( chatId, [
 					...messages,
 					{ content: input, role: 'user' },
 				] );
 				if ( message ) {
-					addMessage( message, 'assistant' );
+					addMessage( message, 'assistant', newChatId );
 				}
 			} catch ( error ) {
 				// A delay is added to avoid the message box being closed by the previous keydown event

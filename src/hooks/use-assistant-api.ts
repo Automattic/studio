@@ -7,13 +7,20 @@ export function useAssistantApi() {
 	const [ isLoading, setIsLoading ] = useState( false );
 
 	const fetchAssistant = useCallback(
-		async ( messages: Message[] ) => {
+		async ( chatId: string | null, messages: Message[] ) => {
 			if ( ! client ) {
 				throw new Error( 'WPcom client not initialized' );
 			}
 			setIsLoading( true );
 			const body = {
 				messages,
+				chat_id: chatId ?? undefined,
+				context: {
+					plugins: [ 'jetpack' ],
+					wp_version: '5.8.1',
+					php_version: '7.4.24',
+					number_of_sites: 4,
+				},
 			};
 			let response;
 			try {
@@ -25,9 +32,9 @@ export function useAssistantApi() {
 			} finally {
 				setIsLoading( false );
 			}
-			const message = response?.choices?.[ 0 ]?.message?.content;
+			const message = response?.messages?.[ 0 ]?.content;
 
-			return { message };
+			return { message, chatId: response?.chat_id };
 		},
 		[ client ]
 	);

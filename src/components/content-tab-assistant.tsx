@@ -108,23 +108,17 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 
 	const renderAuthenticatedView = () => (
 		<>
-			<div className="text-gray-500 mb-4">
-				Welcome to the Studio assistant. I can help manage your site, debug issues, and navigate
-				your way around the WordPress ecosystem.
-			</div>
-			<div>
-				{ messages.map( ( message, index ) => (
-					<Message key={ index } isUser={ message.role === 'user' }>
-						{ message.content }
-					</Message>
-				) ) }
-				{ isAssistantThinking && (
-					<Message isUser={ false }>
-						<MessageThinking />
-					</Message>
-				) }
-				<div ref={ endOfMessagesRef } />
-			</div>
+			{ messages.map( ( message, index ) => (
+				<Message key={ index } isUser={ message.role === 'user' }>
+					{ message.content }
+				</Message>
+			) ) }
+			{ isAssistantThinking && (
+				<Message isUser={ false }>
+					<MessageThinking />
+				</Message>
+			) }
+			<div ref={ endOfMessagesRef } />
 		</>
 	);
 

@@ -3,8 +3,8 @@
 
 import '@sentry/electron/preload';
 import { contextBridge, ipcRenderer } from 'electron';
-import type { LogLevel } from './logging';
 import { promptWindowsSpeedUpSites } from './lib/windows-helpers';
+import type { LogLevel } from './logging';
 
 const api: IpcApi = {
 	archiveSite: ( id: string ) => ipcRenderer.invoke( 'archiveSite', id ),

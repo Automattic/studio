@@ -9,9 +9,9 @@ import {
 import { __ } from '@wordpress/i18n';
 import { openAboutWindow } from './about-menu/open-about-menu';
 import { BUG_REPORT_URL, FEATURE_REQUEST_URL, STUDIO_DOCS_URL } from './constants';
+import { promptWindowsSpeedUpSites } from './lib/windows-helpers';
 import { withMainWindow } from './main-window';
 import { isUpdateReadyToInstall, manualCheckForUpdates } from './updates';
-import { promptWindowsSpeedUpSites } from './lib/windows-helpers';
 
 export function setupMenu( mainWindow: BrowserWindow | null ) {
 	if ( ! mainWindow && process.platform !== 'darwin' ) {

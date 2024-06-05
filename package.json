@@ -112,6 +112,7 @@
 		"follow-redirects": "1.15.6",
 		"fs-extra": "11.1.1",
 		"hpagent": "1.2.0",
+		"react-markdown": "^9.0.1",
 		"semver": "^7.6.0",
 		"unzipper": "0.10.11",
 		"wpcom": "^5.4.2",

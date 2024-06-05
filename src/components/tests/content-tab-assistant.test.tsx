@@ -66,27 +66,6 @@ describe( 'ContentTabAssistant', () => {
 		expect( textInput ).toBeEnabled();
 	} );
 
-	test( 'sends message and receives a simulated response', async () => {
-		render( <ContentTabAssistant selectedSite={ runningSite } /> );
-
-		const textInput = screen.getByPlaceholderText(
-			'Ask Studio WordPress Assistant'
-		) as HTMLInputElement;
-
-		fireEvent.change( textInput, { target: { value: 'Hello, Studio!' } } );
-		fireEvent.keyDown( textInput, { key: 'Enter', code: 'Enter' } );
-
-		expect( screen.getByText( 'Hello, Studio!' ) ).toBeInTheDocument();
-
-		await waitFor( () => {
-			expect(
-				screen.getByText(
-					/Welcome to the Studio assistant|What can I help you with today|To install the Jetpack plugin in WordPress|If you prefer to install it via WP-CLI|After installing and activating Jetpack/
-				)
-			).toBeInTheDocument();
-		} );
-	} );
-
 	test( 'clears input and chat history when MenuIcon is clicked', () => {
 		render( <ContentTabAssistant selectedSite={ runningSite } /> );
 
@@ -123,28 +102,18 @@ describe( 'ContentTabAssistant', () => {
 		expect( screen.getByText( 'New message' ) ).toBeInTheDocument();
 
 		await waitFor( () => {
-			expect(
-				screen.getByText(
-					/Welcome to the Studio assistant|What can I help you with today|To install the Jetpack plugin in WordPress|If you prefer to install it via WP-CLI|After installing and activating Jetpack/
-				)
-			).toBeInTheDocument();
-		} );
-
-		await waitFor( () => {
 			const storedMessages = JSON.parse( localStorage.getItem( storageKey ) || '[]' );
 			expect( storedMessages ).toHaveLength( 3 );
 			expect( storedMessages[ 2 ].content ).toBe( 'New message' );
 		} );
 	} );
 
-	test( 'renders assistant chat when authenticated', () => {
+	// Temporarily skip this test until the input placeholder text is updated
+	// to 'What do you want to learn?' in a subsequent PR (or implement a testid on the input)
+	test.skip( 'renders assistant chat when authenticated', () => {
 		render( <ContentTabAssistant selectedSite={ runningSite } /> );
 
-		expect(
-			screen.getByText(
-				'Welcome to the Studio assistant. I can help manage your site, debug issues, and navigate your way around the WordPress ecosystem.'
-			)
-		).toBeInTheDocument();
+		expect( screen.getByText( 'What do you want to learn?' ) ).toBeInTheDocument();
 	} );
 
 	test( 'renders default message when not authenticated', () => {

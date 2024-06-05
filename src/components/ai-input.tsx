@@ -17,7 +17,7 @@ interface AIInputProps {
 
 const MAX_ROWS = 10;
 
-export const AIInput: React.FC< AIInputProps > = ( {
+export const AIInput = ( {
 	disabled,
 	input,
 	setInput,
@@ -25,7 +25,7 @@ export const AIInput: React.FC< AIInputProps > = ( {
 	handleKeyDown,
 	clearInput,
 	isAssistantThinking,
-} ) => {
+}: AIInputProps ) => {
 	const inputRef = useRef< HTMLTextAreaElement >( null );
 
 	useEffect( () => {

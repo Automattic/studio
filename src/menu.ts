@@ -11,6 +11,7 @@ import { openAboutWindow } from './about-menu/open-about-menu';
 import { BUG_REPORT_URL, FEATURE_REQUEST_URL, STUDIO_DOCS_URL } from './constants';
 import { withMainWindow } from './main-window';
 import { isUpdateReadyToInstall, manualCheckForUpdates } from './updates';
+import { promptWindowsSpeedUpSites } from './lib/windows-helpers';
 
 export function setupMenu( mainWindow: BrowserWindow | null ) {
 	if ( ! mainWindow && process.platform !== 'darwin' ) {
@@ -165,6 +166,17 @@ function getAppMenu( mainWindow: BrowserWindow | null ) {
 						shell.openExternal( STUDIO_DOCS_URL );
 					},
 				},
+				{ type: 'separator' },
+				...( process.platform === 'win32'
+					? [
+							{
+								label: __( 'How can I make Studio faster?' ),
+								click: () => {
+									promptWindowsSpeedUpSites( { skipIfAlreadyPrompted: false } );
+								},
+							},
+					  ]
+					: [] ),
 				{ type: 'separator' },
 				{
 					label: __( 'Report an Issue' ),

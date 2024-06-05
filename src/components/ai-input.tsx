@@ -84,7 +84,7 @@ export const AIInput: React.FC< AIInputProps > = ( {
 		<div className="px-8 py-5 bg-white flex items-center border border-gray-200">
 			<div className="flex w-full border border-gray-300 rounded-sm focus-within:border-blue-500">
 				<div className="flex items-end p-3 ltr:pr-2 rtl:pl-2">
-					<AssistantIcon size={ 28 } />
+					<AssistantIcon size={ 28 } aria-hidden="true" />
 				</div>
 				<textarea
 					ref={ inputRef }

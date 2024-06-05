@@ -75,7 +75,7 @@ const SnapshotInfo = ( {
 	const offlineMessage = __( 'Deleting demo sites requires an internet connection.' );
 	return (
 		<div className="flex gap-3 flex-col">
-			<h2 className="a8c-label-semibold">{ __( 'Demo Sites' ) }</h2>
+			<h2 className="a8c-label-semibold">{ __( 'Demo sites' ) }</h2>
 			<div className="flex gap-3 flex-row items-center w-full">
 				<div className="flex w-full flex-col gap-2">
 					<div className="flex w-full flex-row justify-between gap-8 ">
@@ -149,7 +149,7 @@ function PromptInfo() {
 	}
 	return (
 		<div className="flex gap-3 flex-col">
-			<h2 className="a8c-label-semibold">{ __( 'AI Assistant' ) }</h2>
+			<h2 className="a8c-label-semibold">{ __( 'AI assistant' ) }</h2>
 			<div className="flex gap-3 flex-row items-center w-full">
 				<div className="flex w-full flex-col gap-2">
 					<div className="flex w-full flex-row justify-between gap-8 ">

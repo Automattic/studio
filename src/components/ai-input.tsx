@@ -97,7 +97,7 @@ export const AIInput = ( {
 					data-testid="ai-input-textarea"
 				/>
 				{ input.trim() !== '' && (
-					<div className="flex items-end py-4 mb-1 ">
+					<div className="flex items-end py-4 mb-1">
 						<Icon icon={ keyboardReturn } size={ 13 } fill="#cccccc" />
 					</div>
 				) }

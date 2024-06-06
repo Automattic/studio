@@ -592,6 +592,7 @@ export function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath: stri
 			// macOS
 			const script = `
 			tell application "Terminal"
+				if not application "Terminal" is running then launch
 				do script "clear && export PATH=${ cliPath }:$PATH && export APP_PATH=${ app.getPath(
 					'exe'
 				) } && cd ${ targetPath }"

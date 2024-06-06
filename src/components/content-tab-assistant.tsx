@@ -95,12 +95,12 @@ export const Message = ( { children, isUser, className }: MessageProps ) => {
 			const content = String( children ).trim();
 			return match ? (
 				<>
-					<pre className={ cx( 'p-3 bg-gray-800 text-white rounded' ) }>
+					<div className="p-3">
 						<code className={ className } { ...props }>
 							{ children }
 						</code>
-					</pre>
-					<div className="p-2 mt-1 flex justify-start">
+					</div>
+					<div className="p-3 mt-1 flex justify-start">
 						<ActionButton
 							label="Copy"
 							icon={ <Icon icon={ copy } size={ 16 } /> }

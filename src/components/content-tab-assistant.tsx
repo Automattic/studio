@@ -104,7 +104,7 @@ export const Message = ( { children, isUser, className }: MessageProps ) => {
 						<ActionButton
 							label="Copy"
 							icon={ <Icon icon={ copy } size={ 16 } /> }
-							onClick={ () => handleAction( 'copy', content ) }
+							onClick={ () => getIpcApi().copyText( content ) }
 						/>
 						<ActionButton
 							label="Run"

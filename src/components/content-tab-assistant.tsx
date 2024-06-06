@@ -118,9 +118,11 @@ export const Message = ( { children, isUser, className }: MessageProps ) => {
 					) }
 				</>
 			) : (
-				<code className={ className } { ...props }>
-					{ children }
-				</code>
+				<div className="p-3">
+					<code className={ className } { ...props }>
+						{ children }
+					</code>
+				</div>
 			);
 		},
 	};

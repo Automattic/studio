@@ -45,22 +45,42 @@ const InlineCLI = ( { output, status, time }: InlineCLIProps ) => (
 );
 
 const ActionButton = ( {
-	label,
+	initialLabel,
+	secondLabel,
 	icon,
 	onClick,
+	type,
+	timeout,
 }: {
-	label: string;
+	initialLabel: string;
+	secondLabel: string;
 	icon: JSX.Element;
 	onClick: () => void;
-} ) => (
-	<Button
-		onClick={ onClick }
-		className="mr-2 p-1 text-white rounded flex items-center bg-gray-700 hover:bg-gray-500 hover:text-white font-sans"
-	>
-		{ icon }
-		<span className="ml-1">{ label }</span>
-	</Button>
-);
+	type: 'copy' | 'run';
+	timeout?: number;
+} ) => {
+	const [ buttonLabel, setButtonLabel ] = useState( initialLabel );
+
+	const handleClick = () => {
+		onClick();
+		setButtonLabel( secondLabel );
+		if ( timeout ) {
+			setTimeout( () => {
+				setButtonLabel( initialLabel );
+			}, timeout );
+		}
+	};
+
+	return (
+		<Button
+			onClick={ handleClick }
+			className="mr-2 p-1 text-white rounded flex items-center bg-gray-700 hover:bg-gray-500 hover:text-white font-sans"
+		>
+			{ icon }
+			<span className="ml-1">{ buttonLabel }</span>
+		</Button>
+	);
+};
 
 export const Message = ( { children, isUser, className }: MessageProps ) => {
 	const [ cliOutput, setCliOutput ] = useState< string | null >( null );
@@ -102,15 +122,19 @@ export const Message = ( { children, isUser, className }: MessageProps ) => {
 					</div>
 					<div className="p-3 mt-1 flex justify-start">
 						<ActionButton
-							label="Copy"
+							initialLabel="Copy"
+							secondLabel="Copied"
 							icon={ <Icon icon={ copy } size={ 16 } /> }
 							onClick={ () => getIpcApi().copyText( content ) }
+							type="copy"
+							timeout={ 2000 }
 						/>
 						<ActionButton
-							label="Run"
-							// Todo: Update icon to terminal icon
+							initialLabel="Run"
+							secondLabel="Run Again"
 							icon={ <Icon icon={ details } size={ 16 } /> }
 							onClick={ () => handleAction( 'run', content ) }
+							type="run"
 						/>
 					</div>
 					{ cliOutput && cliStatus && cliTime && (

@@ -1,4 +1,5 @@
 import { app, dialog, shell } from 'electron';
+import path from 'path';
 import { __ } from '@wordpress/i18n';
 import sudo from 'sudo-prompt';
 import { STUDIO_DOCS_WINDOWS_SPEED_UP_SITES_URL } from '../constants';
@@ -61,9 +62,15 @@ export async function promptWindowsSpeedUpSites( {
 }
 
 export async function excludeProcessInWindowsDefender() {
-	const command = `PowerShell -NoProfile -ExecutionPolicy Bypass -Command "Add-MpPreference -ExclusionProcess ${ app.getPath(
-		'exe'
-	) }"`;
+	let exePath = app.getPath( 'exe' );
+	// When the app is packaged, the exe path points to "%appdata%\Local\studio\app-{app-version}\Studio.exe".
+	// To avoid updating this configuration on each update, we use a wilcard in the path to include all versions.
+	if ( app.isPackaged ) {
+		const exeFilename = path.basename( app.getPath( 'exe' ) );
+		const exeDir = path.dirname( app.getPath( 'exe' ) );
+		exePath = path.join( exeDir, '..', 'app-*', exeFilename );
+	}
+	const command = `PowerShell -NoProfile -ExecutionPolicy Bypass -Command "Add-MpPreference -ExclusionProcess ${ exePath }"`;
 	const options = {
 		name: 'Studio app',
 	};

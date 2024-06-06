@@ -112,7 +112,6 @@ blockquote {
 	border-radius: 5px;
 	margin: 1rem 0;
 	overflow-x: auto;
-	padding: 0.5em;
 }
 
 .assistant-markdown pre code {

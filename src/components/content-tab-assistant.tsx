@@ -1,5 +1,6 @@
 import { createInterpolateElement } from '@wordpress/element';
-import { Icon, external } from '@wordpress/icons';
+import { __ } from '@wordpress/i18n';
+import { Icon, external, copy, details } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import React, { useState, useEffect, useRef } from 'react';
 import Markdown from 'react-markdown';
@@ -23,24 +24,127 @@ interface MessageProps {
 	className?: string;
 }
 
-export const Message = ( { children, isUser, className }: MessageProps ) => (
-	<div className={ cx( 'flex mt-4', isUser ? 'justify-end' : 'justify-start', className ) }>
-		<div
-			className={ cx(
-				'inline-block p-3 rounded-sm border border-gray-300 lg:max-w-[70%] select-text whitespace-pre-wrap',
-				! isUser && 'bg-white'
-			) }
-		>
-			{ typeof children === 'string' ? (
-				<div className="assistant-markdown">
-					<Markdown>{ children }</Markdown>
-				</div>
-			) : (
-				children
-			) }
+interface InlineCLIProps {
+	output: string;
+	status: 'success' | 'error';
+	time: string;
+}
+
+const InlineCLI = ( { output, status, time }: InlineCLIProps ) => (
+	<div className="mt-1 p-4 bg-[#2D3337]">
+		<div className="flex justify-between mb-2 font-sans">
+			<span className={ status === 'success' ? 'text-[#63CE68]' : 'text-[#E66D6C]' }>
+				{ status === 'success' ? 'Success' : 'Error' }
+			</span>
+			<span className="text-gray-400">{ time }</span>
 		</div>
+		<pre className="text-white !bg-transparent !mx-0 !px-0">
+			<code className="!bg-transparent !mx-0 !px-0">{ output }</code>
+		</pre>
 	</div>
 );
+
+const ActionButton = ( {
+	label,
+	icon,
+	onClick,
+}: {
+	label: string;
+	icon: JSX.Element;
+	onClick: () => void;
+} ) => (
+	<Button
+		onClick={ onClick }
+		className="mr-2 p-1 text-white rounded flex items-center bg-gray-700 hover:bg-gray-500 hover:text-white font-sans"
+	>
+		{ icon }
+		<span className="ml-1">{ label }</span>
+	</Button>
+);
+
+export const Message = ( { children, isUser, className }: MessageProps ) => {
+	const [ cliOutput, setCliOutput ] = useState< string | null >( null );
+	const [ cliStatus, setCliStatus ] = useState< 'success' | 'error' | null >( null );
+	const [ cliTime, setCliTime ] = useState< string | null >( null );
+
+	const handleAction = ( action: 'copy' | 'run', content: string ) => {
+		if ( action === 'copy' ) {
+			// Todo: Implement copy to clipboard
+			console.log( 'copy', content );
+		} else if ( action === 'run' ) {
+			setCliOutput(
+				`Installing Jetpack...\nUnpacking the package...\nInstalling the plugin...\nPlugin installed successfully.\nActivating 'jetpack'...\nPlugin 'jetpack' activated.\nSuccess: Installed 1 of 1 plugins.`
+			);
+			setCliStatus( 'success' );
+			setCliTime( 'Completed in 2.3 seconds' );
+		}
+	};
+
+	const codeRenders = {
+		code( {
+			node,
+			inline,
+			className,
+			children,
+			...props
+		}: {
+			node: React.ReactNode;
+			inline: boolean;
+			className: string;
+			children: React.ReactNode;
+		} ) {
+			const match = /language-(\w+)/.exec( className || '' );
+			const content = String( children ).trim();
+			return ! inline && match ? (
+				<div>
+					<pre className={ cx( 'p-3 bg-gray-800 text-white rounded' ) }>
+						<code className={ className } { ...props }>
+							{ children }
+						</code>
+					</pre>
+					<div className="p-2 mt-1 flex justify-start">
+						<ActionButton
+							label="Copy"
+							icon={ <Icon icon={ copy } size={ 16 } /> }
+							onClick={ () => handleAction( 'copy', content ) }
+						/>
+						<ActionButton
+							label="Run"
+							icon={ <Icon icon={ details } size={ 16 } /> }
+							onClick={ () => handleAction( 'run', content ) }
+						/>
+					</div>
+					{ cliOutput && cliStatus && cliTime && (
+						<InlineCLI output={ cliOutput } status={ cliStatus } time={ cliTime } />
+					) }
+				</div>
+			) : (
+				<code className={ className } { ...props }>
+					{ children }
+				</code>
+			);
+		},
+	};
+
+	return (
+		<div className={ cx( 'flex mt-4', isUser ? 'justify-end' : 'justify-start', className ) }>
+			<div
+				className={ cx(
+					'inline-block p-3 rounded-sm border border-gray-300 lg:max-w-[70%] select-text whitespace-pre-wrap',
+					! isUser && 'bg-white'
+				) }
+			>
+				{ typeof children === 'string' ? (
+					<div className="assistant-markdown">
+						<Markdown components={ codeRenders }>{ children }</Markdown>
+					</div>
+				) : (
+					children
+				) }
+			</div>
+		</div>
+	);
+};
 
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
 	const { messages, addMessage, clearMessages } = useAssistant( selectedSite.name );

@@ -71,7 +71,12 @@ const commands = {
 		const projectPath =
 			args.find( ( arg ) => arg.startsWith( '--path=' ) )?.split( '=' )[ 1 ] || process.cwd();
 		const argsSansPath = args.filter( ( arg ) => ! arg.startsWith( '--path=' ) );
-		await executeWPCli( projectPath, argsSansPath );
+
+		try {
+			await executeWPCli( projectPath, argsSansPath );
+		} catch ( _error ) {
+			// `executeWPCli` will log the error for the user.
+		}
 	},
 };
 

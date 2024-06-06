@@ -36,7 +36,7 @@ export async function promptWindowsSpeedUpSites( {
 
 	switch ( response ) {
 		case buttons.indexOf( AUTOMATIC_UPDATE ):
-			//
+			// Update Windows Defender configuration
 			await saveUserData( {
 				...userData,
 				promptWindowsSpeedUpResult: 'yes',

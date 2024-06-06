@@ -3,7 +3,7 @@ import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 import { Icon, check, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { PropsWithChildren, useEffect } from 'react';
+import { PropsWithChildren, useEffect, useState } from 'react';
 import { CLIENT_ID, PROTOCOL_PREFIX, WP_AUTHORIZE_ENDPOINT, SCOPES } from '../constants';
 import { useArchiveSite } from '../hooks/use-archive-site';
 import { useAuth } from '../hooks/use-auth';
@@ -46,10 +46,12 @@ function SnapshotRow( {
 	snapshot,
 	previousSnapshot,
 	selectedSite,
+	onClearExpiredSite,
 }: {
 	snapshot: Snapshot;
 	previousSnapshot: Snapshot | null;
 	selectedSite: SiteDetails;
+	onClearExpiredSite: () => void;
 } ) {
 	const { url, date, isDeleting } =
 		previousSnapshot && snapshot.isLoading ? previousSnapshot : snapshot;
@@ -150,6 +152,8 @@ function SnapshotRow( {
 						selectedSite={ selectedSite }
 						isSnapshotLoading={ snapshot.isLoading }
 						tagline={ __( "We're creating your new demo site." ) }
+						isExpired
+						onClearExpiredSite={ onClearExpiredSite }
 					/>
 				</div>
 			</div>
@@ -374,11 +378,15 @@ function AddDemoSiteWithProgress( {
 	selectedSite,
 	className = '',
 	tagline = '',
+	isExpired,
+	onClearExpiredSite,
 }: {
 	isSnapshotLoading?: boolean;
 	selectedSite: SiteDetails;
 	className?: string;
 	tagline?: string;
+	isExpired?: boolean;
+	onClearExpiredSite?: () => void;
 } ) {
 	const { __, _n } = useI18n();
 	const { archiveSite, isUploadingSiteId, isAnySiteArchiving } = useArchiveSite();
@@ -449,6 +457,9 @@ function AddDemoSiteWithProgress( {
 					>
 						{ __( 'Add demo site' ) }
 					</Button>
+					{ isExpired && (
+						<Button onClick={ onClearExpiredSite }>{ __( 'Clear expired site' ) }</Button>
+					) }
 				</Tooltip>
 			) }
 		</div>
@@ -459,14 +470,20 @@ export function ContentTabSnapshots( { selectedSite }: ContentTabSnapshotsProps 
 	const { __, _n } = useI18n();
 	const { snapshots } = useSiteDetails();
 	const { isAuthenticated } = useAuth();
+	const [ currentSnapshots, setCurrentSnapshots ] = useState( snapshots );
+
+	const handleClearExpiredSite = () => {
+		setCurrentSnapshots( [] );
+	};
 
 	if ( ! isAuthenticated ) {
 		return <NoAuth selectedSite={ selectedSite } />;
 	}
 
-	const snapshotsOnSite = snapshots.filter(
+	const snapshotsOnSite = currentSnapshots.filter(
 		( snapshot ) => snapshot.localSiteId === selectedSite.id
 	);
+
 	const snapshot = snapshotsOnSite[ 0 ] || null;
 	const previousSnapshot = snapshotsOnSite[ 1 ] || null;
 	if ( ! snapshot || ( snapshotsOnSite.length === 1 && snapshotsOnSite[ 0 ].isLoading ) ) {
@@ -480,6 +497,7 @@ export function ContentTabSnapshots( { selectedSite }: ContentTabSnapshotsProps 
 					previousSnapshot={ previousSnapshot }
 					selectedSite={ selectedSite }
 					key={ snapshot.atomicSiteId }
+					onClearExpiredSite={ handleClearExpiredSite }
 				/>
 			</div>
 		</div>

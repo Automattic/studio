@@ -30,10 +30,9 @@ interface InlineCLIProps {
 	output: string;
 	status: 'success' | 'error';
 	time: string;
-	isRunning: boolean;
 }
 
-const InlineCLI = ( { output, status, time, isRunning }: InlineCLIProps ) => (
+const InlineCLI = ( { output, status, time }: InlineCLIProps ) => (
 	<div className="p-3 bg-[#2D3337]">
 		<div className="flex justify-between mb-2 font-sans">
 			<span className={ status === 'success' ? 'text-[#63CE68]' : 'text-[#E66D6C]' }>
@@ -41,16 +40,9 @@ const InlineCLI = ( { output, status, time, isRunning }: InlineCLIProps ) => (
 			</span>
 			<span className="text-gray-400">{ time }</span>
 		</div>
-		{ isRunning ? (
-			<div className="p-3 flex justify-start items-center bg-[#2D3337] text-white">
-				<Spinner />
-				<span className="ml-2">{ __( 'Running...' ) }</span>
-			</div>
-		) : (
-			<pre className="text-white !bg-transparent !m-0 !px-0">
-				<code className="!bg-transparent !mx-0 !px-0">{ output }</code>
-			</pre>
-		) }
+		<pre className="text-white !bg-transparent !m-0 !px-0">
+			<code className="!bg-transparent !mx-0 !px-0">{ output }</code>
+		</pre>
 	</div>
 );
 
@@ -60,12 +52,14 @@ const ActionButton = ( {
 	icon,
 	onClick,
 	timeout,
+	disabled,
 }: {
 	primaryLabel: string;
 	secondaryLabel: string;
 	icon: JSX.Element;
 	onClick: () => void;
 	timeout?: number;
+	disabled?: boolean;
 } ) => {
 	const [ buttonLabel, setButtonLabel ] = useState( primaryLabel );
 
@@ -80,7 +74,12 @@ const ActionButton = ( {
 	};
 
 	return (
-		<Button onClick={ handleClick } variant="tertiary" className="mr-2 font-sans select-none">
+		<Button
+			onClick={ handleClick }
+			variant="tertiary"
+			className="mr-2 font-sans select-none"
+			disabled={ disabled }
+		>
 			{ icon }
 			<span className="ml-1">{ buttonLabel }</span>
 		</Button>
@@ -139,6 +138,7 @@ export const Message = ( { children, isUser, className }: MessageProps ) => {
 							secondaryLabel={ __( 'Run Again' ) }
 							icon={ <ExecuteIcon /> }
 							onClick={ handleExecute }
+							disabled={ isRunning }
 						/>
 					</div>
 					{ isRunning && (
@@ -148,12 +148,7 @@ export const Message = ( { children, isUser, className }: MessageProps ) => {
 						</div>
 					) }
 					{ ! isRunning && cliOutput && cliStatus && cliTime && (
-						<InlineCLI
-							output={ cliOutput }
-							status={ cliStatus }
-							time={ cliTime }
-							isRunning={ isRunning }
-						/>
+						<InlineCLI output={ cliOutput } status={ cliStatus } time={ cliTime } />
 					) }
 				</>
 			) : (

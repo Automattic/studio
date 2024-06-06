@@ -83,19 +83,17 @@ export const Message = ( { children, isUser, className }: MessageProps ) => {
 	const codeRenders = {
 		code( {
 			node,
-			inline,
 			className,
 			children,
 			...props
 		}: {
 			node: React.ReactNode;
-			inline: boolean;
 			className: string;
 			children: React.ReactNode;
 		} ) {
 			const match = /language-(\w+)/.exec( className || '' );
 			const content = String( children ).trim();
-			return ! inline && match ? (
+			return match ? (
 				<>
 					<pre className={ cx( 'p-3 bg-gray-800 text-white rounded' ) }>
 						<code className={ className } { ...props }>

@@ -41,7 +41,17 @@ export async function promptWindowsSpeedUpSites( {
 				...userData,
 				promptWindowsSpeedUpResult: 'yes',
 			} );
-			await excludeProcessInWindowsDefender();
+			try {
+				await excludeProcessInWindowsDefender();
+			} catch ( _error ) {
+				await dialog.showMessageBox( {
+					type: 'error',
+					title: __( 'Something went wrong' ),
+					message: __(
+						'The configuration couldn\'t be changed to speed up sites.\n\nTo initiate this process again, please go to "Help > How can I make Studio faster?" in the application menu.'
+					),
+				} );
+			}
 			break;
 		case buttons.indexOf( MANUAL_UPDATE ):
 			// Will be done manually by the user

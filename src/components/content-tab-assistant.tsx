@@ -13,6 +13,7 @@ import { getIpcApi } from '../lib/get-ipc-api';
 import { AIInput } from './ai-input';
 import { MessageThinking } from './assistant-thinking';
 import Button from './button';
+import { ExecuteIcon } from './icons/execute';
 
 interface ContentTabAssistantProps {
 	selectedSite: SiteDetails;
@@ -31,56 +32,47 @@ interface InlineCLIProps {
 }
 
 const InlineCLI = ( { output, status, time }: InlineCLIProps ) => (
-	<div className="mt-1 p-4 bg-[#2D3337]">
+	<div className="p-3 bg-[#2D3337]">
 		<div className="flex justify-between mb-2 font-sans">
 			<span className={ status === 'success' ? 'text-[#63CE68]' : 'text-[#E66D6C]' }>
 				{ status === 'success' ? 'Success' : 'Error' }
 			</span>
 			<span className="text-gray-400">{ time }</span>
 		</div>
-		<pre className="text-white !bg-transparent !mx-0 !px-0">
+		<pre className="text-white !bg-transparent !m-0 !px-0">
 			<code className="!bg-transparent !mx-0 !px-0">{ output }</code>
 		</pre>
 	</div>
 );
 
 const ActionButton = ( {
-	initialLabel,
-	secondLabel,
-	initialIcon,
-	secondIcon,
+	primaryLabel,
+	secondaryLabel,
+	icon,
 	onClick,
 	timeout,
 }: {
-	initialLabel: string;
-	secondLabel: string;
-	initialIcon: JSX.Element;
-	secondIcon: JSX.Element;
+	primaryLabel: string;
+	secondaryLabel: string;
+	icon: JSX.Element;
 	onClick: () => void;
-	type: 'copy' | 'run';
 	timeout?: number;
 } ) => {
-	const [ buttonLabel, setButtonLabel ] = useState( initialLabel );
-	const [ buttonIcon, setButtonIcon ] = useState( initialIcon );
+	const [ buttonLabel, setButtonLabel ] = useState( primaryLabel );
 
 	const handleClick = () => {
 		onClick();
-		setButtonLabel( secondLabel );
-		setButtonIcon( secondIcon );
+		setButtonLabel( secondaryLabel );
 		if ( timeout ) {
 			setTimeout( () => {
-				setButtonLabel( initialLabel );
-				setButtonIcon( initialIcon );
+				setButtonLabel( primaryLabel );
 			}, timeout );
 		}
 	};
 
 	return (
-		<Button
-			onClick={ handleClick }
-			className="mr-2 p-1 text-white rounded flex items-center bg-gray-700 hover:bg-gray-500 hover:text-white font-sans"
-		>
-			{ buttonIcon }
+		<Button onClick={ handleClick } variant="tertiary" className="mr-2 font-sans select-none">
+			{ icon }
 			<span className="ml-1">{ buttonLabel }</span>
 		</Button>
 	);
@@ -122,22 +114,17 @@ export const Message = ( { children, isUser, className }: MessageProps ) => {
 					</div>
 					<div className="p-3 mt-1 flex justify-start">
 						<ActionButton
-							initialLabel={ __( 'Copy' ) }
-							secondLabel={ __( 'Copied' ) }
-							initialIcon={ <Icon icon={ copy } size={ 16 } /> }
-							secondIcon={ <Icon icon={ details } size={ 16 } /> }
+							primaryLabel={ __( 'Copy' ) }
+							secondaryLabel={ __( 'Copied' ) }
+							icon={ <Icon icon={ copy } size={ 16 } /> }
 							onClick={ () => getIpcApi().copyText( content ) }
-							type="copy"
 							timeout={ 2000 }
 						/>
 						<ActionButton
-							initialLabel={ __( 'Run' ) }
-							secondLabel={ __( 'Run Again' ) }
-							// Todo: update to actual icons
-							initialIcon={ <Icon icon={ details } size={ 16 } /> }
-							secondIcon={ <Icon icon={ backup } size={ 16 } /> }
-							onClick={ () => handleExecute() }
-							type="run"
+							primaryLabel={ __( 'Run' ) }
+							secondaryLabel={ __( 'Run Again' ) }
+							icon={ <ExecuteIcon /> }
+							onClick={ handleExecute }
 						/>
 					</div>
 					{ cliOutput && cliStatus && cliTime && (

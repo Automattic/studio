@@ -444,22 +444,26 @@ function AddDemoSiteWithProgress( {
 				</div>
 			) : (
 				<Tooltip disabled={ ! tooltipContent } { ...tooltipContent }>
-					<Button
-						aria-description={ tooltipContent?.text ?? '' }
-						aria-disabled={ isDisabled }
-						variant="primary"
-						onClick={ () => {
-							if ( isDisabled ) {
-								return;
-							}
-							archiveSite( selectedSite.id );
-						} }
-					>
-						{ __( 'Add demo site' ) }
-					</Button>
-					{ isExpired && (
-						<Button onClick={ onClearExpiredSite }>{ __( 'Clear expired site' ) }</Button>
-					) }
+					<div className="flex gap-4">
+						<Button
+							aria-description={ tooltipContent?.text ?? '' }
+							aria-disabled={ isDisabled }
+							variant="primary"
+							onClick={ () => {
+								if ( isDisabled ) {
+									return;
+								}
+								archiveSite( selectedSite.id );
+							} }
+						>
+							{ __( 'Add demo site' ) }
+						</Button>
+						{ isExpired && (
+							<Button isDestructive onClick={ onClearExpiredSite }>
+								{ __( 'Clear expired site' ) }
+							</Button>
+						) }
+					</div>
 				</Tooltip>
 			) }
 		</div>
@@ -470,7 +474,6 @@ export function ContentTabSnapshots( { selectedSite }: ContentTabSnapshotsProps 
 	const { __, _n } = useI18n();
 	const { snapshots } = useSiteDetails();
 	const { isAuthenticated } = useAuth();
-	const [ currentSnapshots, setCurrentSnapshots ] = useState( snapshots );
 
 	const handleClearExpiredSite = () => {
 		setCurrentSnapshots( [] );
@@ -480,7 +483,7 @@ export function ContentTabSnapshots( { selectedSite }: ContentTabSnapshotsProps 
 		return <NoAuth selectedSite={ selectedSite } />;
 	}
 
-	const snapshotsOnSite = currentSnapshots.filter(
+	const snapshotsOnSite = snapshots.filter(
 		( snapshot ) => snapshot.localSiteId === selectedSite.id
 	);
 

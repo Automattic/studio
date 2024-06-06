@@ -474,10 +474,15 @@ export function ContentTabSnapshots( { selectedSite }: ContentTabSnapshotsProps 
 	const { __, _n } = useI18n();
 	const { snapshots } = useSiteDetails();
 	const { isAuthenticated } = useAuth();
+	const [ snapshotsCleared, setSnapshotsCleared ] = useState( false );
 
 	const handleClearExpiredSite = () => {
-		setCurrentSnapshots( [] );
+		setSnapshotsCleared( true );
 	};
+
+	if ( snapshotsCleared ) {
+		return <NoSnapshots selectedSite={ selectedSite } />;
+	}
 
 	if ( ! isAuthenticated ) {
 		return <NoAuth selectedSite={ selectedSite } />;

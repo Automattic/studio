@@ -1,6 +1,6 @@
 import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
-import { Icon, external, copy, details } from '@wordpress/icons';
+import { Icon, external, copy, details, backup } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import React, { useState, useEffect, useRef } from 'react';
 import Markdown from 'react-markdown';
@@ -47,26 +47,30 @@ const InlineCLI = ( { output, status, time }: InlineCLIProps ) => (
 const ActionButton = ( {
 	initialLabel,
 	secondLabel,
-	icon,
+	initialIcon,
+	secondIcon,
 	onClick,
-	type,
 	timeout,
 }: {
 	initialLabel: string;
 	secondLabel: string;
-	icon: JSX.Element;
+	initialIcon: JSX.Element;
+	secondIcon: JSX.Element;
 	onClick: () => void;
 	type: 'copy' | 'run';
 	timeout?: number;
 } ) => {
 	const [ buttonLabel, setButtonLabel ] = useState( initialLabel );
+	const [ buttonIcon, setButtonIcon ] = useState( initialIcon );
 
 	const handleClick = () => {
 		onClick();
 		setButtonLabel( secondLabel );
+		setButtonIcon( secondIcon );
 		if ( timeout ) {
 			setTimeout( () => {
 				setButtonLabel( initialLabel );
+				setButtonIcon( initialIcon );
 			}, timeout );
 		}
 	};
@@ -76,7 +80,7 @@ const ActionButton = ( {
 			onClick={ handleClick }
 			className="mr-2 p-1 text-white rounded flex items-center bg-gray-700 hover:bg-gray-500 hover:text-white font-sans"
 		>
-			{ icon }
+			{ buttonIcon }
 			<span className="ml-1">{ buttonLabel }</span>
 		</Button>
 	);
@@ -122,17 +126,20 @@ export const Message = ( { children, isUser, className }: MessageProps ) => {
 					</div>
 					<div className="p-3 mt-1 flex justify-start">
 						<ActionButton
-							initialLabel="Copy"
-							secondLabel="Copied"
-							icon={ <Icon icon={ copy } size={ 16 } /> }
+							initialLabel={ __( 'Copy' ) }
+							secondLabel={ __( 'Copied' ) }
+							initialIcon={ <Icon icon={ copy } size={ 16 } /> }
+							secondIcon={ <Icon icon={ details } size={ 16 } /> }
 							onClick={ () => getIpcApi().copyText( content ) }
 							type="copy"
 							timeout={ 2000 }
 						/>
 						<ActionButton
-							initialLabel="Run"
-							secondLabel="Run Again"
-							icon={ <Icon icon={ details } size={ 16 } /> }
+							initialLabel={ __( 'Run' ) }
+							secondLabel={ __( 'Run Again' ) }
+							// Todo: update to actual icons
+							initialIcon={ <Icon icon={ details } size={ 16 } /> }
+							secondIcon={ <Icon icon={ backup } size={ 16 } /> }
 							onClick={ () => handleAction( 'run', content ) }
 							type="run"
 						/>

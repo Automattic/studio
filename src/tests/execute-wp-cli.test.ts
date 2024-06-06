@@ -14,10 +14,10 @@ jest.mock( '../../vendor/wp-now/src/get-wp-cli-path' );
 jest.mock( '../../vendor/wp-now/src/config' );
 
 const mockPhpInstance = {
-	setSapiName: jest.fn().mockResolvedValue( undefined ),
-	mkdir: jest.fn().mockResolvedValue( undefined ),
-	writeFile: jest.fn().mockResolvedValue( undefined ),
-	mount: jest.fn().mockResolvedValue( undefined ),
+	setSapiName: jest.fn(),
+	mkdir: jest.fn(),
+	writeFile: jest.fn(),
+	mount: jest.fn(),
 	run: jest.fn().mockResolvedValue( {
 		text: 'admin user yoda',
 		errors: 'serious error',
@@ -52,3 +52,4 @@ describe( 'executeWPCli', () => {
 		} );
 	} );
 } );
+

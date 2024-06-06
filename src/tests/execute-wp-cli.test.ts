@@ -37,8 +37,11 @@ describe( 'executeWPCli', () => {
 
 		const result = await executeWPCli( args );
 
+		//Asserr that the result is saved to stdout and stderr as expected
 		expect( result.stdout ).toBe( 'admin user yoda' );
 		expect( result.stderr ).toBe( 'serious error' );
+
+		//Assert that the mocked functions have been called as expected
 		expect( downloadWPCLI ).toHaveBeenCalled();
 		expect( mockPhpInstance.setSapiName ).toHaveBeenCalledWith( 'cli' );
 		expect( mockPhpInstance.mkdir ).toHaveBeenCalledWith( '/tmp' );

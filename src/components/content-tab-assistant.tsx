@@ -91,17 +91,13 @@ export const Message = ( { children, isUser, className }: MessageProps ) => {
 	const [ cliStatus, setCliStatus ] = useState< 'success' | 'error' | null >( null );
 	const [ cliTime, setCliTime ] = useState< string | null >( null );
 
-	const handleAction = ( action: 'copy' | 'run', content: string ) => {
-		if ( action === 'copy' ) {
-			// Todo: Implement copy to clipboard
-			console.log( 'copy', content );
-		} else if ( action === 'run' ) {
-			setCliOutput(
-				`Installing Jetpack...\nUnpacking the package...\nInstalling the plugin...\nPlugin installed successfully.\nActivating 'jetpack'...\nPlugin 'jetpack' activated.\nSuccess: Installed 1 of 1 plugins.`
-			);
-			setCliStatus( 'success' );
-			setCliTime( 'Completed in 2.3 seconds' );
-		}
+	// Temporary placeholder handler for future <CliExecuteButton />
+	const handleExecute = () => {
+		setCliOutput(
+			`Installing Jetpack...\nUnpacking the package...\nInstalling the plugin...\nPlugin installed successfully.\nActivating 'jetpack'...\nPlugin 'jetpack' activated.\nSuccess: Installed 1 of 1 plugins.`
+		);
+		setCliStatus( 'success' );
+		setCliTime( 'Completed in 2.3 seconds' );
 	};
 
 	const codeRenders = {
@@ -140,7 +136,7 @@ export const Message = ( { children, isUser, className }: MessageProps ) => {
 							// Todo: update to actual icons
 							initialIcon={ <Icon icon={ details } size={ 16 } /> }
 							secondIcon={ <Icon icon={ backup } size={ 16 } /> }
-							onClick={ () => handleAction( 'run', content ) }
+							onClick={ () => handleExecute() }
 							type="run"
 						/>
 					</div>

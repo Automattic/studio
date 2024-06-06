@@ -587,7 +587,7 @@ export function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath: stri
 		let command: string;
 		if ( platform === 'win32' ) {
 			// Windows
-			command = `start cmd /K "set PATH=C:${ cliPath };%PATH% && set APP_PATH=${ app.getPath(
+			command = `start cmd /K "set PATH=${ cliPath };%PATH% && set APP_PATH=${ app.getPath(
 				'exe'
 			) } && cd /d ${ targetPath }"`;
 		} else if ( platform === 'darwin' ) {

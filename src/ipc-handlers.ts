@@ -583,7 +583,6 @@ export function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath: stri
 	return new Promise< void >( ( resolve, reject ) => {
 		const platform = process.platform;
 		const cliPath = nodePath.join( getResourcesPath(), 'bin' );
-		const envVars = `APP_PATH=${ app.getPath( 'exe' ) };PATH="${ cliPath }:$PATH"`;
 
 		let command: string;
 		if ( platform === 'win32' ) {
@@ -591,7 +590,15 @@ export function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath: stri
 			command = `start cmd /K "cd /d ${ targetPath }"`;
 		} else if ( platform === 'darwin' ) {
 			// macOS
-			command = `open -a Terminal "${ targetPath }" --env ${ envVars }`;
+			const script = `
+			tell application "Terminal"
+				do script "clear && export PATH=$PATH:${ cliPath } && export APP_PATH=${ app.getPath(
+					'exe'
+				) } && cd ${ targetPath }"
+				activate
+			end tell
+			`;
+			command = `osascript -e '${ script }'`;
 		} else if ( platform === 'linux' ) {
 			// Linux
 			command = `gnome-terminal --working-directory=${ targetPath }`;

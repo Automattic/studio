@@ -101,11 +101,11 @@ export const AIInput = ( {
 						<Icon icon={ keyboardReturn } size={ 13 } fill="#cccccc" />
 					</div>
 				) }
-				<div className="flex items-end py-2">
+				<div className="flex items-end py-2 ltr:mr-2 rtl:ml-1">
 					<Button
 						disabled={ disabled }
 						aria-label="menu"
-						className="p-2 cursor-pointer"
+						className="py-2 px-1 cursor-pointer"
 						onClick={ clearInput }
 					>
 						<Icon icon={ moreVertical } size={ 22 } />

@@ -96,7 +96,7 @@ export const Message = ( { children, isUser, className }: MessageProps ) => {
 			const match = /language-(\w+)/.exec( className || '' );
 			const content = String( children ).trim();
 			return ! inline && match ? (
-				<div>
+				<>
 					<pre className={ cx( 'p-3 bg-gray-800 text-white rounded' ) }>
 						<code className={ className } { ...props }>
 							{ children }
@@ -110,6 +110,7 @@ export const Message = ( { children, isUser, className }: MessageProps ) => {
 						/>
 						<ActionButton
 							label="Run"
+							// Todo: Update icon to terminal icon
 							icon={ <Icon icon={ details } size={ 16 } /> }
 							onClick={ () => handleAction( 'run', content ) }
 						/>
@@ -117,7 +118,7 @@ export const Message = ( { children, isUser, className }: MessageProps ) => {
 					{ cliOutput && cliStatus && cliTime && (
 						<InlineCLI output={ cliOutput } status={ cliStatus } time={ cliTime } />
 					) }
-				</div>
+				</>
 			) : (
 				<code className={ className } { ...props }>
 					{ children }

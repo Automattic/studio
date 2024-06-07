@@ -67,15 +67,20 @@ export const executeCLICommand = async () => {
 
 const commands = {
 	wp: async () => {
+		disableConsole();
 		const { args } = cliCommand;
 		const projectPath =
 			args.find( ( arg ) => arg.startsWith( '--path=' ) )?.split( '=' )[ 1 ] || process.cwd();
 		const argsSansPath = args.filter( ( arg ) => ! arg.startsWith( '--path=' ) );
 
 		try {
-			await executeWPCli( projectPath, argsSansPath );
-		} catch ( _error ) {
-			// `executeWPCli` will log the error for the user.
+			const result = await executeWPCli( projectPath, argsSansPath );
+			if ( result.stderr ) {
+				systemLog( result.stderr );
+			}
+			systemLog( result.stdout );
+		} catch ( error ) {
+			systemLog( error );
 		}
 	},
 };

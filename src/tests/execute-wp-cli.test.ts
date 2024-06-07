@@ -26,8 +26,8 @@ describe( 'executeWPCli', () => {
 
 		const result = await executeWPCli( tmpPath, args );
 
-		expect( result.stdout ).toMatch( /WP-CLI \d+\.\d+\.\d+/ );
-		expect( result.stderr ).toBe( '' ); // Example: WP-CLI 2.10.0
+		expect( result.stdout ).toMatch( /WP-CLI \d+\.\d+\.\d+/ ); // Example: WP-CLI 2.10.0
+		expect( result.stderr ).toBe( '' );
 	} );
 
 	it( 'should return error if wp-cli command does not exist', async () => {

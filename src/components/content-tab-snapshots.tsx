@@ -504,7 +504,6 @@ export function ContentTabSnapshots( { selectedSite }: ContentTabSnapshotsProps 
 	const snapshotsOnSite = snapshots.filter(
 		( snapshot ) => snapshot.localSiteId === selectedSite.id
 	);
-
 	const snapshot = snapshotsOnSite[ 0 ] || null;
 	const previousSnapshot = snapshotsOnSite[ 1 ] || null;
 	if ( ! snapshot || ( snapshotsOnSite.length === 1 && snapshotsOnSite[ 0 ].isLoading ) ) {

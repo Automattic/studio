@@ -422,18 +422,29 @@ function AddDemoSiteWithProgress( {
 		),
 		siteLimit
 	);
-	const offlineMessage = __( 'Creating a demo site requires an internet connection.' );
+	const addingDemoSiteOfflineMessage = __(
+		'Creating a demo site requires an internet connection.'
+	);
+	const clearingExpiredSiteOfflineMessage = __(
+		'Clearing an expired demo site requires an internet connection.'
+	);
 
-	let tooltipContent;
+	let addTooltipContent;
+	let clearTooltipContent;
+
 	if ( isOffline ) {
-		tooltipContent = {
+		addTooltipContent = {
 			icon: offlineIcon,
-			text: offlineMessage,
+			text: addingDemoSiteOfflineMessage,
+		};
+		clearTooltipContent = {
+			icon: offlineIcon,
+			text: clearingExpiredSiteOfflineMessage,
 		};
 	} else if ( isLimitUsed ) {
-		tooltipContent = { text: allotmentConsumptionMessage };
+		addTooltipContent = { text: allotmentConsumptionMessage };
 	} else if ( isAnySiteArchiving ) {
-		tooltipContent = { text: siteArchivingMessage };
+		addTooltipContent = { text: siteArchivingMessage };
 	}
 
 	return (
@@ -446,10 +457,10 @@ function AddDemoSiteWithProgress( {
 					</div>
 				</div>
 			) : (
-				<Tooltip disabled={ ! tooltipContent } { ...tooltipContent }>
-					<div className="flex gap-4">
+				<div className="flex gap-4">
+					<Tooltip disabled={ ! addTooltipContent } { ...addTooltipContent }>
 						<Button
-							aria-description={ tooltipContent?.text ?? '' }
+							aria-description={ addTooltipContent?.text ?? '' }
 							aria-disabled={ isDisabled }
 							variant="primary"
 							onClick={ () => {
@@ -461,13 +472,21 @@ function AddDemoSiteWithProgress( {
 						>
 							{ __( 'Add demo site' ) }
 						</Button>
-						{ isExpired && (
-							<Button isDestructive onClick={ onClearExpiredSite }>
+					</Tooltip>
+					{ isExpired && (
+						<Tooltip disabled={ ! clearTooltipContent } { ...clearTooltipContent }>
+							<Button
+								aria-description={ clearTooltipContent?.text ?? '' }
+								disabled={ isOffline }
+								aria-disabled={ isOffline }
+								isDestructive
+								onClick={ onClearExpiredSite }
+							>
 								{ __( 'Clear expired site' ) }
 							</Button>
-						) }
-					</div>
-				</Tooltip>
+						</Tooltip>
+					) }
+				</div>
 			) }
 		</div>
 	);

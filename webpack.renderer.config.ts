@@ -43,8 +43,8 @@ export const rendererConfig: Configuration = {
 	resolve: {
 		extensions: [ '.js', '.ts', '.jsx', '.tsx', '.scss', '.css' ],
 	},
-	externals: {
-		react: 'React',
-		'react-dom': 'ReactDOM',
-	},
+	// externals: {
+	// 	react: 'React',
+	// 	'react-dom': 'ReactDOM',
+	// },
 };

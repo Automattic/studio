@@ -1,4 +1,8 @@
 {
-	"presets": [ "@wordpress/babel-preset-default" ],
+	"presets": [
+		"@babel/preset-react",
+		"@babel/preset-typescript",
+		"@babel/preset-env"
+	],
 	"plugins": [ "@babel/plugin-syntax-import-assertions" ]
 }

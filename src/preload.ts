@@ -3,17 +3,7 @@
 
 import '@sentry/electron/preload';
 import { contextBridge, ipcRenderer } from 'electron';
-// import { LLMModel } from '@automattic/big-sky-agents';
-import React from 'react';
-import ReactDOM from 'react-dom';
 import type { LogLevel } from './logging';
-
-window.React = React;
-window.ReactDOM = ReactDOM;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-// ( window as any ).LLMModel = LLMModel;
-
-// console.warn( 'LLM Model', LLMModel );
 
 const api: IpcApi = {
 	archiveSite: ( id: string ) => ipcRenderer.invoke( 'archiveSite', id ),

@@ -7,6 +7,7 @@ if ( typeof window !== 'undefined' ) {
 }
 
 nock.disableNetConnect();
+nock.enableNetConnect( 'raw.githubusercontent.com' );
 
 // We consider the app to be online by default.
 jest.mock( './src/hooks/use-offline', () => ( {

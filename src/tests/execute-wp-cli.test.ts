@@ -5,18 +5,15 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import nock from 'nock';
 import { executeWPCli } from '../../vendor/wp-now/src/execute-wp-cli';
 
 describe( 'executeWPCli', () => {
 	const tmpPath = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-test-wp-cli-site' ) );
 	beforeAll( async () => {
-		nock.enableNetConnect( 'raw.githubusercontent.com' );
 		// It sets mode index so we don't need to download the whole WordPress
 		fs.writeFileSync( path.join( tmpPath, 'index.php' ), '' );
 	} );
 	afterAll( () => {
-		nock.disableNetConnect();
 		fs.rmdirSync( tmpPath, { recursive: true } );
 	} );
 

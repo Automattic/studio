@@ -18,7 +18,10 @@ export default function CliExecuteButton( { projectPath }: CliExecuteButtonProps
 		setOutput( { stdout: '', stderr: '' } );
 
 		try {
-			const result = await getIpcApi().executeWPCLiInline( args.split( ' ' ), projectPath );
+			const result = await getIpcApi().executeWPCLiInline( {
+				projectPath,
+				args: args.split( ' ' ),
+			} );
 			setOutput( result );
 		} catch ( err ) {
 			if ( err instanceof Error ) {

@@ -563,10 +563,9 @@ export async function saveOnboarding(
 
 export async function executeWPCLiInline(
 	_event: IpcMainInvokeEvent,
-	args: string[],
-	projectPath: string
+	{ projectPath, args }: { projectPath: string; args: string[] }
 ) {
-	const { stdout, stderr } = await executeWPCli( args, projectPath );
+	const { stdout, stderr } = await executeWPCli( projectPath, args );
 	return { stdout, stderr };
 }
 

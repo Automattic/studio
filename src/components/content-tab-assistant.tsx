@@ -7,7 +7,6 @@ import { useAssistant } from '../hooks/use-assistant';
 import { useAssistantApi } from '../hooks/use-assistant-api';
 import { useAuth } from '../hooks/use-auth';
 import { useOffline } from '../hooks/use-offline';
-import { usePromptUsage } from '../hooks/use-prompt-usage';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { AIInput } from './ai-input';

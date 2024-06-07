@@ -87,87 +87,94 @@ blockquote {
 	width: 100%;
 }
 
-#assistant-markdown {
+.assistant-markdown {
 	line-height: 1.6;
 	word-wrap: break-word;
 }
 
-#assistant-markdown blockquote {
+.assistant-markdown blockquote {
 	font-weight: bold;
 	margin: 1rem 0;
 	padding: 0.5rem 1rem;
 }
 
-#assistant-markdown code {
-	color: #f8f8f2;
+.assistant-markdown code {
+	background-color: #f8f8f2;
+	color: #1D2327;
 	font-family: 'Courier New', Courier, monospace;
 	font-size: 13px;
-	margin: 1rem 0;
+	padding: 0.25rem;
 	white-space: pre-wrap;
 }
 
-#assistant-markdown h1 {
+.assistant-markdown pre {
+	background-color: #1D2327;
+	border-radius: 5px;
+	margin: 1rem 0;
+	overflow-x: auto;
+	padding: 0.5em;
+}
+
+.assistant-markdown pre code {
+	background-color: transparent;
+	color: #f8f8f2;
+	padding: 0;
+}
+
+.assistant-markdown h1 {
 	font-size: 1.5rem;
 	font-weight: bold;
 	margin-bottom: 0.5rem;
 	margin-top: 1.5rem;
 }
 
-#assistant-markdown h2 {
+.assistant-markdown h2 {
 	font-size: 1.25rem;
 	font-weight: bold;
 	margin-bottom: 0.5rem;
 	margin-top: 1.5rem;
 }
 
-#assistant-markdown h3 {
+.assistant-markdown h3 {
 	font-size: 1.125rem;
 	font-weight: bold;
 	margin-bottom: 0.5rem;
 	margin-top: 1.5rem;
 }
 
-#assistant-markdown h4 {
+.assistant-markdown h4 {
 	font-size: 1rem;
 	font-weight: bold;
 	margin-bottom: 0.5rem;
 	margin-top: 1.5rem;
 }
 
-#assistant-markdown h5 {
+.assistant-markdown h5 {
 	font-size: 0.875rem;
 	font-weight: bold;
 	margin-bottom: 0.5rem;
 	margin-top: 1.5rem;
 }
 
-#assistant-markdown h6 {
+.assistant-markdown h6 {
 	font-size: 0.85rem;
 	font-weight: bold;
 	margin-bottom: 0.5rem;
 	margin-top: 1.5rem;
 }
 
-#assistant-markdown hr {
+.assistant-markdown hr {
 	border: none;
 	margin: 1rem 0;
 }
 
-#assistant-markdown ol {
+.assistant-markdown ol {
 	list-style-type: decimal;
 	margin: 1rem 0;
 	padding-left: 1.5rem;
 }
 
-#assistant-markdown pre {
-	background-color: #1D2327;
-	border-radius: 5px;
-	margin: 1rem 0;
-	overflow-x: auto;
-	padding: 1em;
-}
-
-#assistant-markdown ul {
+.assistant-markdown ul {
 	list-style-type: disc;
 	margin: 1rem 0;
 	padding-left: 1.5rem;

@@ -16,6 +16,7 @@ import archiver from 'archiver';
 import { copySync } from 'fs-extra';
 import { SQLITE_FILENAME } from '../vendor/wp-now/src/constants';
 import { downloadSqliteIntegrationPlugin } from '../vendor/wp-now/src/download';
+import { executeWPCli } from '../vendor/wp-now/src/execute-wp-cli';
 import { LIMIT_ARCHIVE_SIZE } from './constants';
 import { isEmptyDir, pathExists, isWordPressDirectory, sanitizeFolderName } from './lib/fs-utils';
 import { getImageData } from './lib/get-image-data';
@@ -558,6 +559,14 @@ export async function saveOnboarding(
 		...userData,
 		onboardingCompleted,
 	} );
+}
+
+export async function executeWPCLiInline(
+	_event: IpcMainInvokeEvent,
+	{ projectPath, args }: { projectPath: string; args: string[] }
+) {
+	const { stdout, stderr } = await executeWPCli( projectPath, args );
+	return { stdout, stderr };
 }
 
 export async function getThumbnailData( _event: IpcMainInvokeEvent, id: string ) {

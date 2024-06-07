@@ -1,9 +1,8 @@
 import { __ } from '@wordpress/i18n';
+import { Icon, moreVertical, keyboardReturn } from '@wordpress/icons';
 import React, { useRef, useEffect } from 'react';
 import Button from './button';
 import { AssistantIcon } from './icons/assistant';
-import { MenuIcon } from './icons/menu';
-import { ReturnIcon } from './icons/return';
 
 interface AIInputProps {
 	disabled: boolean;
@@ -82,7 +81,7 @@ export const AIInput = ( {
 
 	return (
 		<div className="px-8 py-5 bg-white flex items-center border border-gray-200">
-			<div className="flex w-full border border-gray-300 rounded-sm focus-within:border-blue-500">
+			<div className="flex w-full border border-gray-300 rounded-sm focus-within:border-a8c-blueberry">
 				<div className="flex items-end p-3 ltr:pr-2 rtl:pl-2">
 					<AssistantIcon size={ 28 } aria-hidden="true" />
 				</div>
@@ -99,17 +98,17 @@ export const AIInput = ( {
 				/>
 				{ input.trim() !== '' && (
 					<div className="flex items-end py-4 mb-1">
-						<ReturnIcon />
+						<Icon icon={ keyboardReturn } size={ 13 } fill="#cccccc" />
 					</div>
 				) }
-				<div className="flex items-end p-2">
+				<div className="flex items-end py-2 ltr:mr-2 rtl:ml-1">
 					<Button
 						disabled={ disabled }
 						aria-label="menu"
-						className="p-2 cursor-pointer"
+						className="py-2 px-1 cursor-pointer"
 						onClick={ clearInput }
 					>
-						<MenuIcon />
+						<Icon icon={ moreVertical } size={ 22 } />
 					</Button>
 				</div>
 			</div>

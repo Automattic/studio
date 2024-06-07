@@ -1,30 +1,41 @@
 import { renderHook, act } from '@testing-library/react';
 import { useAssistantApi } from '../use-assistant-api';
 import { useAuth } from '../use-auth';
+import { usePromptUsage } from '../use-prompt-usage';
 
 jest.mock( '../use-auth' );
+jest.mock( '../use-prompt-usage' );
 
 describe( 'useAssistantApi', () => {
 	const clientReqPost = jest.fn();
 	beforeEach( () => {
-		clientReqPost.mockResolvedValue( {
-			id: 'chatcmpl-9USNsuhHWYsPAUNiOhOG2970Hjwwb',
-			object: 'chat.completion',
-			created: 1717045976,
-			model: 'test',
-			choices: [
+		( usePromptUsage as jest.Mock ).mockImplementation( () => {
+			return { updatePromptUsage: jest.fn() };
+		} );
+		clientReqPost.mockImplementation( ( body, callback ) => {
+			callback(
+				null,
 				{
-					index: 0,
-					message: {
-						role: 'assistant',
-						content: 'Hello! How can I assist you today?',
-					},
-					logprobs: null,
-					finish_reason: 'stop',
+					id: 'chatcmpl-9USNsuhHWYsPAUNiOhOG2970Hjwwb',
+					object: 'chat.completion',
+					created: 1717045976,
+					model: 'test',
+					choices: [
+						{
+							index: 0,
+							message: {
+								role: 'assistant',
+								content: 'Hello! How can I assist you today?',
+							},
+							logprobs: null,
+							finish_reason: 'stop',
+						},
+					],
+					usage: { prompt_tokens: 980, completion_tokens: 36, total_tokens: 1016 },
+					system_fingerprint: 'fp_777',
 				},
-			],
-			usage: { prompt_tokens: 980, completion_tokens: 36, total_tokens: 1016 },
-			system_fingerprint: 'fp_777',
+				{}
+			);
 		} );
 		( useAuth as jest.Mock ).mockImplementation( () => ( {
 			client: {
@@ -62,7 +73,9 @@ describe( 'useAssistantApi', () => {
 	test( 'should throw an error if fetch fails', async () => {
 		const { result } = renderHook( () => useAssistantApi() );
 
-		clientReqPost.mockRejectedValue( new Error( 'Failed to fetch assistant' ) );
+		clientReqPost.mockImplementation( ( body, callback ) => {
+			callback( new Error( 'Failed to fetch assistant' ), null );
+		} );
 
 		await act( async () => {
 			await expect(

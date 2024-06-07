@@ -2,53 +2,41 @@
  * @jest-environment node
  */
 
-import getWpNowConfig from '../../vendor/wp-now/src/config';
-import { downloadWPCLI } from '../../vendor/wp-now/src/download';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
+import nock from 'nock';
 import { executeWPCli } from '../../vendor/wp-now/src/execute-wp-cli';
-import getWpCliPath from '../../vendor/wp-now/src/get-wp-cli-path';
-import startWPNow from '../../vendor/wp-now/src/wp-now';
-
-jest.mock( '../../vendor/wp-now/src/download' );
-jest.mock( '../../vendor/wp-now/src/wp-now' );
-jest.mock( '../../vendor/wp-now/src/get-wp-cli-path' );
-jest.mock( '../../vendor/wp-now/src/config' );
-
-const mockPhpInstance = {
-	setSapiName: jest.fn(),
-	mkdir: jest.fn(),
-	writeFile: jest.fn(),
-	mount: jest.fn(),
-	run: jest.fn().mockResolvedValue( {
-		text: 'admin user yoda',
-		errors: 'serious error',
-	} ),
-	readFileAsText: jest.fn().mockResolvedValue( 'mocked stderr content' ),
-};
-( startWPNow as jest.Mock ).mockResolvedValue( {
-	phpInstances: [ null, mockPhpInstance ],
-	options: {},
-} );
-( getWpNowConfig as jest.Mock ).mockResolvedValue( {} );
-( getWpCliPath as jest.Mock ).mockReturnValue( '/mock/wp-cli.phar' );
 
 describe( 'executeWPCli', () => {
-	it( 'should execute wp-cli command and return stdout and stderr', async () => {
-		const args = [ 'user', 'list' ];
+	const tmpPath = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-test-wp-cli-site' ) );
+	beforeAll( async () => {
+		nock.enableNetConnect( 'raw.githubusercontent.com' );
+		// It sets mode index so we don't need to download the whole WordPress
+		fs.writeFileSync( path.join( tmpPath, 'index.php' ), '' );
+	} );
+	afterAll( () => {
+		nock.disableNetConnect();
+		fs.rmdirSync( tmpPath, { recursive: true } );
+	} );
 
-		const result = await executeWPCli( args );
+	it( 'should execute wp-cli version command and return stdout and stderr', async () => {
+		const args = [ '--version' ];
 
-		//Asserr that the result is saved to stdout and stderr as expected
-		expect( result.stdout ).toBe( 'admin user yoda' );
-		expect( result.stderr ).toBe( 'serious error' );
+		const result = await executeWPCli( args, tmpPath );
 
-		//Assert that the mocked functions have been called as expected
-		expect( downloadWPCLI ).toHaveBeenCalled();
-		expect( mockPhpInstance.setSapiName ).toHaveBeenCalledWith( 'cli' );
-		expect( mockPhpInstance.mkdir ).toHaveBeenCalledWith( '/tmp' );
-		expect( mockPhpInstance.writeFile ).toHaveBeenCalledTimes( 2 );
-		expect( mockPhpInstance.mount ).toHaveBeenCalledWith( '/mock/wp-cli.phar', '/tmp/wp-cli.phar' );
-		expect( mockPhpInstance.run ).toHaveBeenCalledWith( {
-			scriptPath: '/tmp/run-cli.php',
-		} );
+		expect( result.stdout ).toMatch( /WP-CLI \d+\.\d+\.\d+/ );
+		expect( result.stderr ).toBe( '' );
+	} );
+
+	it( 'should return error if wp-cli command does not exist', async () => {
+		const args = [ 'yoda' ];
+
+		const result = await executeWPCli( args, tmpPath );
+
+		expect( result.stdout ).toBe( '' );
+		expect( result.stderr ).toContain(
+			"'yoda' is not a registered wp command. See 'wp help' for available commands."
+		);
 	} );
 } );

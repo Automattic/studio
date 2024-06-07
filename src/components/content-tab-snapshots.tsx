@@ -46,12 +46,10 @@ function SnapshotRow( {
 	snapshot,
 	previousSnapshot,
 	selectedSite,
-	onClearExpiredSite,
 }: {
 	snapshot: Snapshot;
 	previousSnapshot: Snapshot | null;
 	selectedSite: SiteDetails;
-	onClearExpiredSite: () => void;
 } ) {
 	const { url, date, isDeleting } =
 		previousSnapshot && snapshot.isLoading ? previousSnapshot : snapshot;
@@ -114,6 +112,11 @@ function SnapshotRow( {
 			updateDemoSite( snapshot, selectedSite );
 		}
 	};
+
+	const handleClearExpiredSite = async () => {
+		await deleteSnapshot( snapshot );
+	};
+
 	if ( isExpired ) {
 		return (
 			<div className="self-stretch flex-col">
@@ -153,7 +156,7 @@ function SnapshotRow( {
 						isSnapshotLoading={ snapshot.isLoading }
 						tagline={ __( "We're creating your new demo site." ) }
 						isExpired
-						onClearExpiredSite={ onClearExpiredSite }
+						onClearExpiredSite={ handleClearExpiredSite }
 					/>
 				</div>
 			</div>
@@ -474,15 +477,6 @@ export function ContentTabSnapshots( { selectedSite }: ContentTabSnapshotsProps 
 	const { __, _n } = useI18n();
 	const { snapshots } = useSiteDetails();
 	const { isAuthenticated } = useAuth();
-	const [ snapshotsCleared, setSnapshotsCleared ] = useState( false );
-
-	const handleClearExpiredSite = () => {
-		setSnapshotsCleared( true );
-	};
-
-	if ( snapshotsCleared ) {
-		return <NoSnapshots selectedSite={ selectedSite } />;
-	}
 
 	if ( ! isAuthenticated ) {
 		return <NoAuth selectedSite={ selectedSite } />;
@@ -505,7 +499,6 @@ export function ContentTabSnapshots( { selectedSite }: ContentTabSnapshotsProps 
 					previousSnapshot={ previousSnapshot }
 					selectedSite={ selectedSite }
 					key={ snapshot.atomicSiteId }
-					onClearExpiredSite={ handleClearExpiredSite }
 				/>
 			</div>
 		</div>

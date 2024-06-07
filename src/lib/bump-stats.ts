@@ -20,7 +20,10 @@ export function bumpAggregatedUniqueStat(
 	getLastBump( group, stat )
 		.then( ( lastBump ) => {
 			if ( lastBump === null ) {
-				return bumpStat( group, stat, bumpInDev );
+				bumpStat( group, stat, bumpInDev );
+				// Track the first occurence of this stat separately
+				bumpStat( `${ group }-first`, stat, bumpInDev );
+				return true;
 			}
 
 			const now = Date.now();

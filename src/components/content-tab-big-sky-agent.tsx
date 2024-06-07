@@ -15,15 +15,13 @@ import {
 import { createInterpolateElement } from '@wordpress/element';
 import { Icon, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, Dispatch, SetStateAction } from 'react';
 import { useAuth } from '../hooks/use-auth';
 import { useOffline } from '../hooks/use-offline';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { MessageThinking } from './assistant-thinking';
 import Button from './button';
-import { AssistantIcon } from './icons/assistant';
-import { MenuIcon } from './icons/menu';
 
 interface ContentTabBigSkyAgentProps {
 	selectedSite: SiteDetails;
@@ -67,17 +65,7 @@ class DemoAgent extends StandardAgent {
 	onStart() {
 		this.askUser( {
 			question: 'What can I help you with?',
-			choices: [
-				// these more-or-less correspond to specific agents
-				'Help me finish my site',
-				'Copy fonts, colors, content or layout from another site',
-				'I want to change my site title or settings',
-				'I want to add, edit or remove pages',
-				'I want to change the color or fonts of my site',
-				'I want to learn about WordPress',
-				'I want to understand my stats',
-				'I want to build or modify a store',
-			],
+			choices: [ 'Help me build a plugin', 'Help me choose a theme' ],
 		} );
 	}
 }
@@ -96,9 +84,6 @@ export function ContentTabBigSkyAgent( { selectedSite }: ContentTabBigSkyAgentPr
 	const [ model, setModel ] = useState( LLMModel.GPT_4O );
 	const [ temperature, setTemperature ] = useState( TEMPERATURE );
 	const [ token, setToken ] = useState( client?.token );
-	// console.log( 'BigSky Agents', BigSkyAgents );
-	// console.log( 'BigSky', BigSky );
-	// console.warn( 'client', client );
 
 	// set the token value again when the client changes
 	useEffect( () => {
@@ -117,20 +102,6 @@ export function ContentTabBigSkyAgent( { selectedSite }: ContentTabBigSkyAgentPr
 	const agent = useMemo( () => new DemoAgent( chat, toolkit ), [ chat, toolkit ] );
 	useAgentExecutor( { agent, chat, toolkit } );
 
-	// const { messages, addMessage, clearMessages } = useAssistant( selectedSite.name );
-	// const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi();
-	const fakeChat = {
-		history: [
-			{ content: 'Hello', role: 'assistant' },
-			{ content: 'How can I help you?', role: 'assistant' },
-		],
-	};
-	const isAssistantThinking = false;
-	const [ input, setInput ] = useState< string >( '' );
-	const endOfMessagesRef = useRef< HTMLDivElement >( null );
-	const inputRef = useRef< HTMLInputElement >( null );
-
-	const isOffline = useOffline();
 	const { __ } = useI18n();
 
 	return (
@@ -144,25 +115,6 @@ export function ContentTabBigSkyAgent( { selectedSite }: ContentTabBigSkyAgentPr
 			>
 				{ isAuthenticated ? (
 					<div data-testid="assistant-chat" className="flex-1 overflow-y-auto p-8">
-						<div className="text-gray-500 mb-4">
-							Welcome to the Studio assistant. I can help manage your site, debug issues, and
-							navigate your way around the WordPress ecosystem.
-						</div>
-						<div>
-							{ fakeChat.history.map( ( message, index ) => (
-								<Message key={ index } isUser={ message.role === 'user' }>
-									{ Array.isArray( message.content )
-										? message.content.map( ( item, idx ) => <span key={ idx }>{ item.text }</span> )
-										: message.content }
-								</Message>
-							) ) }
-							{ isAssistantThinking && (
-								<Message isUser={ false }>
-									<MessageThinking />
-								</Message>
-							) }
-							<div ref={ endOfMessagesRef } />
-						</div>
 						<AgentUI toolkit={ toolkit } agent={ agent } chat={ chat } />
 						<AgentControls toolkit={ toolkit } agent={ agent } chat={ chat } />
 						<LLMControls
@@ -171,8 +123,8 @@ export function ContentTabBigSkyAgent( { selectedSite }: ContentTabBigSkyAgentPr
 							service={ service }
 							temperature={ temperature ?? TEMPERATURE }
 							onTokenChanged={ setToken }
-							onModelChanged={ setModel }
-							onServiceChanged={ setService }
+							onModelChanged={ setModel as Dispatch< SetStateAction< string > > }
+							onServiceChanged={ setService as Dispatch< SetStateAction< string > > }
 							onTemperatureChanged={ setTemperature }
 						/>
 					</div>

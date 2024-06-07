@@ -11,7 +11,6 @@ import path from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { __, defaultI18n } from '@wordpress/i18n';
 import packageJson from '../package.json';
-import { executeWPCli } from '../vendor/wp-now/src/execute-wp-cli';
 import { PROTOCOL_PREFIX } from './constants';
 import * as ipcHandlers from './ipc-handlers';
 import { getPlatformName } from './lib/app-globals';
@@ -252,13 +251,7 @@ async function appBoot() {
 
 		// Handle CLI commands
 		listenCLICommands();
-		executeCLICommand().then( ( executed ) => {
-			withMainWindow( ( mainWindow ) => {
-				if ( executed ) {
-					mainWindow.webContents.reload();
-				}
-			} );
-		} );
+		executeCLICommand();
 
 		bumpAggregatedUniqueStat( 'local-environment-launch-uniques', process.platform, 'weekly' );
 	} );

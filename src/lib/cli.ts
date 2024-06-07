@@ -1,6 +1,5 @@
 import { app } from 'electron';
 import { executeWPCli } from '../../vendor/wp-now/src/execute-wp-cli';
-import { withMainWindow } from '../main-window';
 
 type CommandAction = 'wp';
 interface Command {
@@ -25,14 +24,9 @@ export const getCLIDataForMainInstance = () => {
 
 export const listenCLICommands = () => {
 	app.on( 'second-instance', async ( event, commandLine, workingDirectory, additionalData ) => {
-		withMainWindow( async ( mainWindow ) => {
-			const data = additionalData as { cliCommand: string };
-			setCommand( data.cliCommand );
-			const commandExecuted = await executeCLICommand();
-			if ( commandExecuted ) {
-				mainWindow.webContents.reload();
-			}
-		} );
+		const data = additionalData as { cliCommand: string };
+		setCommand( data.cliCommand );
+		await executeCLICommand();
 	} );
 };
 

@@ -40,6 +40,7 @@ import { createRoot } from 'react-dom/client';
 import Root from './components/root';
 import { getIpcApi } from './lib/get-ipc-api';
 import './index.css';
+import './big-sky-agents.css';
 
 Sentry.init( { debug: true }, reactInit );
 

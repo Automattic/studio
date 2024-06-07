@@ -228,7 +228,9 @@ async function appBoot() {
 
 		createMainWindow();
 
+		// Bump a stat on each app launch
 		bumpStat( 'studio-app-launch', process.platform );
+		// Bump stat for unique weekly app launch, approximates weekly active users
 		bumpAggregatedUniqueStat( 'studio-app-launch-weekly-uniques', process.platform, 'weekly' );
 	} );
 

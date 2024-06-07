@@ -5,7 +5,6 @@ import { useGetWpVersion } from '../hooks/use-get-wp-version';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { decodePassword } from '../lib/passwords';
 import Button from './button';
-import CliExecuteButton from './cli-execute-button';
 import { CopyTextButton } from './copy-text-button';
 import DeleteSite from './delete-site';
 import EditSite from './edit-site';
@@ -106,7 +105,6 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 				</tbody>
 			</table>
 			<DeleteSite />
-			<CliExecuteButton projectPath={ selectedSite.path } />
 		</div>
 	);
 }

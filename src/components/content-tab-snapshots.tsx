@@ -113,8 +113,8 @@ function SnapshotRow( {
 		}
 	};
 
-	const handleClearExpiredSite = async () => {
-		await deleteSnapshot( snapshot );
+	const handleDeleteSnapshot = () => {
+		deleteSnapshot( snapshot );
 	};
 
 	if ( isExpired ) {
@@ -156,7 +156,7 @@ function SnapshotRow( {
 						isSnapshotLoading={ snapshot.isLoading }
 						tagline={ __( "We're creating your new demo site." ) }
 						isExpired
-						onClearExpiredSite={ handleClearExpiredSite }
+						onClearExpiredSite={ handleDeleteSnapshot }
 					/>
 				</div>
 			</div>
@@ -235,7 +235,7 @@ function SnapshotRow( {
 									} );
 
 									if ( response === 0 ) {
-										deleteSnapshot( snapshot );
+										handleDeleteSnapshot();
 									}
 								} }
 							>

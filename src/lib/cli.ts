@@ -94,4 +94,16 @@ const disableConsole = () => {
 	console.log = () => {
 		// NOOP
 	};
+	console.error = () => {
+		// NOOP
+	};
+	console.warn = () => {
+		// NOOP
+	};
+	console.info = () => {
+		// NOOP
+	};
+	console.debug = () => {
+		// NOOP
+	};
 };

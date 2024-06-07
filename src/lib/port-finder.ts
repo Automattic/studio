@@ -1,4 +1,5 @@
 import http from 'http';
+import killPort from 'cross-port-killer';
 
 const DEFAULT_PORT = 8881;
 
@@ -70,6 +71,26 @@ class PortFinder {
 	public addUnavailablePort( port?: number ): void {
 		if ( port && ! this.#unavailablePorts.includes( port ) ) {
 			this.#unavailablePorts.push( port );
+		}
+	}
+
+	public releasePort( port?: number ): void {
+		if ( port && this.#unavailablePorts.includes( port ) ) {
+			killPort( port )
+				.then( () => {
+					console.log( `Killed processes using port ${ port }` );
+				} )
+				.catch( ( err ) => {
+					console.error( `Failed to kill processes using port ${ port }: ${ err.message }` );
+				} )
+				.finally( () => {
+					// Ensure port finder cycles through newly reclaimed ports by removing
+					// from #unavailablePorts list and resetting #openPort.
+					this.#unavailablePorts = this.#unavailablePorts.filter(
+						( unavailablePort ) => unavailablePort !== port
+					);
+					this.#openPort = DEFAULT_PORT;
+				} );
 		}
 	}
 }

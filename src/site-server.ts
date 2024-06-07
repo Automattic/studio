@@ -60,6 +60,7 @@ export class SiteServer {
 		}
 		await this.stop();
 		servers.delete( this.details.id );
+		portFinder.releasePort( this.details.port );
 	}
 
 	async start() {

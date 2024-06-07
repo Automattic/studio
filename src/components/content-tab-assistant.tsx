@@ -10,10 +10,9 @@ import { useOffline } from '../hooks/use-offline';
 import { usePromptUsage } from '../hooks/use-prompt-usage';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
+import { AIInput } from './ai-input';
 import { MessageThinking } from './assistant-thinking';
 import Button from './button';
-import { AssistantIcon } from './icons/assistant';
-import { MenuIcon } from './icons/menu';
 
 interface ContentTabAssistantProps {
 	selectedSite: SiteDetails;
@@ -29,12 +28,12 @@ export const Message = ( { children, isUser, className }: MessageProps ) => (
 	<div className={ cx( 'flex mt-4', isUser ? 'justify-end' : 'justify-start', className ) }>
 		<div
 			className={ cx(
-				'inline-block p-3 rounded-sm border border-gray-300 lg:max-w-[70%] select-text',
+				'inline-block p-3 rounded-sm border border-gray-300 lg:max-w-[70%] select-text whitespace-pre-wrap',
 				! isUser && 'bg-white'
 			) }
 		>
 			{ typeof children === 'string' ? (
-				<div id="assistant-markdown">
+				<div className="assistant-markdown">
 					<Markdown>{ children }</Markdown>
 				</div>
 			) : (
@@ -49,7 +48,6 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi();
 	const [ input, setInput ] = useState< string >( '' );
 	const endOfMessagesRef = useRef< HTMLDivElement >( null );
-	const inputRef = useRef< HTMLInputElement >( null );
 	const { isAuthenticated, authenticate } = useAuth();
 	const isOffline = useOffline();
 	const { __ } = useI18n();
@@ -67,7 +65,6 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 					addMessage( message, 'assistant' );
 				}
 			} catch ( error ) {
-				// A delay is added to avoid the message box being closed by the previous keydown event
 				setTimeout(
 					() =>
 						getIpcApi().showMessageBox( {
@@ -82,7 +79,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		}
 	};
 
-	const handleKeyDown = ( e: React.KeyboardEvent< HTMLInputElement > ) => {
+	const handleKeyDown = ( e: React.KeyboardEvent< HTMLTextAreaElement > ) => {
 		if ( e.key === 'Enter' ) {
 			handleSend();
 		}
@@ -98,12 +95,6 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 			endOfMessagesRef.current.scrollIntoView( { behavior: 'smooth' } );
 		}
 	}, [ messages ] );
-
-	useEffect( () => {
-		if ( isAuthenticated && inputRef.current ) {
-			inputRef.current.focus();
-		}
-	}, [ isAuthenticated ] );
 
 	const disabled = isOffline || ! isAuthenticated;
 
@@ -158,40 +149,19 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		<div className="h-full flex flex-col bg-gray-50">
 			<div
 				data-testid="assistant-chat"
-				className={ cx( 'flex-1 overflow-y-auto py-4', ! isAuthenticated && 'flex items-end' ) }
+				className={ cx( 'flex-1 overflow-y-auto p-8', ! isAuthenticated && 'flex items-end' ) }
 			>
-				<div data-testid="assistant-chat" className="flex-1 overflow-y-auto px-8 py-4">
-					{ isAuthenticated ? renderAuthenticatedView() : renderUnauthenticatedView() }
-				</div>
+				{ isAuthenticated ? renderAuthenticatedView() : renderUnauthenticatedView() }
 			</div>
-			<div
-				data-testid="assistant-input"
-				className="px-8 py-6 bg-white flex items-center border-t border-gray-200 sticky bottom-0"
-			>
-				<div className="relative flex-1">
-					<input
-						ref={ inputRef }
-						disabled={ disabled }
-						type="text"
-						placeholder="Ask Studio WordPress Assistant"
-						className="w-full p-3 rounded-sm border-black border ltr:pl-8 rtl:pr-8 disabled:border-gray-300 disabled:cursor-not-allowed"
-						value={ input }
-						onChange={ ( e ) => setInput( e.target.value ) }
-						onKeyDown={ handleKeyDown }
-					/>
-					<div className="absolute top-1/2 transform -translate-y-1/2 ltr:left-3 rtl:left-auto rtl:right-3 pointer-events-none">
-						<AssistantIcon />
-					</div>
-				</div>
-				<Button
-					disabled={ disabled }
-					aria-label="menu"
-					className="p-2 ml-2 cursor-pointer"
-					onClick={ clearInput }
-				>
-					<MenuIcon />
-				</Button>
-			</div>
+			<AIInput
+				disabled={ disabled }
+				input={ input }
+				setInput={ setInput }
+				handleSend={ handleSend }
+				handleKeyDown={ handleKeyDown }
+				clearInput={ clearInput }
+				isAssistantThinking={ isAssistantThinking }
+			/>
 		</div>
 	);
 }

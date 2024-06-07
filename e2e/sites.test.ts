@@ -15,9 +15,12 @@ test.describe( 'Servers', () => {
 	let electronApp: ElectronApplication;
 	let mainWindow: Page;
 	const siteName = `test-site-${ randomUUID() }`;
-	const tmpSiteDir = `${ tmpdir() }/${ siteName }`;
+	const tmpSiteDir = path.join( tmpdir(), siteName );
 	const defaultOnboardingSiteName = 'My WordPress Website';
-	const onboardingTmpSiteDir = `${ tmpdir() }/${ defaultOnboardingSiteName.replace( /\s/g, '-' ) }`;
+	const onboardingTmpSiteDir = path.join(
+		tmpdir(),
+		defaultOnboardingSiteName.replace( /\s/g, '-' )
+	);
 
 	test.beforeAll( async () => {
 		// Print path in error so we can delete it manually if needed.
@@ -65,7 +68,7 @@ test.describe( 'Servers', () => {
 				try {
 					await fs.rm( dir, { recursive: true } );
 				} catch {
-					fail( `Failed to clean up ${ dir }` );
+					throw new Error( `Failed to clean up ${ dir }` );
 				}
 			}
 		} );

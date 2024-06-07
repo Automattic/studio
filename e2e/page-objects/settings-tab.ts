@@ -1,4 +1,4 @@
-import { type Page, type ElectronApplication, expect } from '@playwright/test';
+import { type Page, type ElectronApplication } from '@playwright/test';
 
 export default class SettingsTab {
 	constructor(

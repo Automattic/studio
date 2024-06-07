@@ -107,8 +107,7 @@ export function ContentTabBigSkyAgent( { selectedSite }: ContentTabBigSkyAgentPr
 		}
 	}, [ client ] );
 
-	const llm = useLLM( { token: client?.token, service: LLMService.WPCOM } );
-	console.warn( 'llm', llm );
+	const llm = useLLM( { token, service } );
 	const chat = useSimpleChat( {
 		llm,
 		model,

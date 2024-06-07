@@ -25,9 +25,6 @@ export async function isWPCliInstallationOutdated(): Promise< boolean > {
 		return false;
 	}
 
-	console.log( 'Installed WP-CLI version:', installedVersion );
-	console.log( 'Latest WP-CLI version:', latestVersion );
-	console.log( 'Is WP-CLI outdated:', semver.lt( installedVersion, latestVersion ) );
 	try {
 		return semver.lt( installedVersion, latestVersion );
 	} catch ( _error ) {
@@ -56,19 +53,10 @@ async function getLatestWPCliVersion() {
 	return latestWPCliVersionCache || '';
 }
 
-const getWPCliVersionFromInstallation = async () => {
-	const originalConsoleLog = console.log;
-	const logMessages: string[] = [];
-
-	console.log = function ( args ) {
-		logMessages.push( args ); // Capture the log message
-		originalConsoleLog.apply( console, [ args ] ); // Call the original console.log
-	};
-	await executeWPCli( [ '--version' ] );
-	console.log = originalConsoleLog;
-	const lastLogMessage = logMessages.pop();
-	if ( lastLogMessage?.startsWith( 'WP-CLI ' ) ) {
-		const version = lastLogMessage.split( ' ' )[ 1 ];
+export const getWPCliVersionFromInstallation = async () => {
+	const { stdout } = await executeWPCli( '.', [ '--version' ] );
+	if ( stdout?.startsWith( 'WP-CLI ' ) ) {
+		const version = stdout.split( ' ' )[ 1 ];
 		if ( ! version ) {
 			return '';
 		}

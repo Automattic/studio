@@ -72,7 +72,7 @@ export async function executeWPCli ( projectPath: string, args: string[] ): Prom
 
 		return { stdout: result.text.replace('#!/usr/bin/env php', '').trim(), stderr: result.errors };
 	} catch (error) {
-		const errorContent = php.readFileAsText(stderrPath);
+		const errorContent = php.readFileAsText(stderrPath).replace('PHP.run() output was: #!/usr/bin/env php', '').trim();
 		return { stdout: '', stderr: errorContent };
 	}
 }

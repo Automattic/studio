@@ -57,26 +57,22 @@ export function PromptUsageProvider( { children }: PromptUsageProps ) {
 			return;
 		}
 		try {
-			await new Promise( ( resolve, reject ) => {
-				client.req.get(
-					{
-						method: 'HEAD',
-						path: '/studio-app/ai-assistant/chat',
-						apiNamespace: 'wpcom/v2',
-					},
-					( error: Error, _data: unknown, headers: Record< string, string > ) => {
-						if ( error ) {
-							return reject( error );
-						}
-						if ( ! headers ) {
-							reject( new Error( 'No headers in response' ) );
-							return;
-						}
-						updatePromptUsage( headers );
-						resolve( headers );
+			await client.req.get(
+				{
+					method: 'HEAD',
+					path: '/studio-app/ai-assistant/chat',
+					apiNamespace: 'wpcom/v2',
+				},
+				( error: Error, _data: unknown, headers: Record< string, string > ) => {
+					if ( error ) {
+						return;
 					}
-				);
-			} );
+					if ( ! headers ) {
+						return;
+					}
+					updatePromptUsage( headers );
+				}
+			);
 		} catch ( error ) {
 			Sentry.captureException( error );
 			console.error( error );

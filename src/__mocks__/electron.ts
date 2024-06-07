@@ -16,6 +16,10 @@ export const app = {
 	setAppLogsPath: jest.fn(),
 	setAsDefaultProtocolClient: jest.fn(),
 	enableSandbox: jest.fn(),
+	commandLine: {
+		hasSwitch: jest.fn( () => false ),
+		getSwitchValue: jest.fn(),
+	},
 };
 
 // eslint-disable-next-line @typescript-eslint/no-empty-function

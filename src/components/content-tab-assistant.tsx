@@ -32,6 +32,12 @@ interface InlineCLIProps {
 	time: string;
 }
 
+interface CodeProps {
+	node?: React.ReactNode;
+	className?: string;
+	children?: React.ReactNode;
+}
+
 const InlineCLI = ( { output, status, time }: InlineCLIProps ) => (
 	<div className="p-3 bg-[#2D3337]">
 		<div className="flex justify-between mb-2 font-sans">
@@ -104,61 +110,50 @@ export const Message = ( { children, isUser, className }: MessageProps ) => {
 		}, 2300 );
 	};
 
-	const codeRenders = {
-		code( {
-			node,
-			className,
-			children,
-			...props
-		}: {
-			node: React.ReactNode;
-			className: string;
-			children: React.ReactNode;
-		} ) {
-			const match = /language-(\w+)/.exec( className || '' );
-			const content = String( children ).trim();
+	const CodeBlock = ( { node, className, children, ...props }: CodeProps ) => {
+		const match = /language-(\w+)/.exec( className || '' );
+		const content = String( children ).trim();
 
-			return match ? (
-				<>
-					<div className="p-3">
-						<code className={ className } { ...props }>
-							{ children }
-						</code>
-					</div>
-					<div className="p-3 mt-1 flex justify-start items-center">
-						<ActionButton
-							primaryLabel={ __( 'Copy' ) }
-							secondaryLabel={ __( 'Copied' ) }
-							icon={ <Icon icon={ copy } size={ 16 } /> }
-							onClick={ () => getIpcApi().copyText( content ) }
-							timeout={ 2000 }
-						/>
-						<ActionButton
-							primaryLabel={ __( 'Run' ) }
-							secondaryLabel={ __( 'Run Again' ) }
-							icon={ <ExecuteIcon /> }
-							onClick={ handleExecute }
-							disabled={ isRunning }
-						/>
-					</div>
-					{ isRunning && (
-						<div className="p-3 flex justify-start items-center bg-[#2D3337] text-white">
-							<Spinner />
-							<span className="ml-2 font-sans">{ __( 'Running...' ) }</span>
-						</div>
-					) }
-					{ ! isRunning && cliOutput && cliStatus && cliTime && (
-						<InlineCLI output={ cliOutput } status={ cliStatus } time={ cliTime } />
-					) }
-				</>
-			) : (
+		return match ? (
+			<>
 				<div className="p-3">
 					<code className={ className } { ...props }>
 						{ children }
 					</code>
 				</div>
-			);
-		},
+				<div className="p-3 mt-1 flex justify-start items-center">
+					<ActionButton
+						primaryLabel={ __( 'Copy' ) }
+						secondaryLabel={ __( 'Copied' ) }
+						icon={ <Icon icon={ copy } size={ 16 } /> }
+						onClick={ () => getIpcApi().copyText( content ) }
+						timeout={ 2000 }
+					/>
+					<ActionButton
+						primaryLabel={ __( 'Run' ) }
+						secondaryLabel={ __( 'Run Again' ) }
+						icon={ <ExecuteIcon /> }
+						onClick={ handleExecute }
+						disabled={ isRunning }
+					/>
+				</div>
+				{ isRunning && (
+					<div className="p-3 flex justify-start items-center bg-[#2D3337] text-white">
+						<Spinner />
+						<span className="ml-2 font-sans">{ __( 'Running...' ) }</span>
+					</div>
+				) }
+				{ ! isRunning && cliOutput && cliStatus && cliTime && (
+					<InlineCLI output={ cliOutput } status={ cliStatus } time={ cliTime } />
+				) }
+			</>
+		) : (
+			<div className="p-3">
+				<code className={ className } { ...props }>
+					{ children }
+				</code>
+			</div>
+		);
 	};
 
 	return (
@@ -171,7 +166,7 @@ export const Message = ( { children, isUser, className }: MessageProps ) => {
 			>
 				{ typeof children === 'string' ? (
 					<div className="assistant-markdown">
-						<Markdown components={ codeRenders }>{ children }</Markdown>
+						<Markdown components={ { code: CodeBlock } }>{ children }</Markdown>
 					</div>
 				) : (
 					children

@@ -171,10 +171,10 @@ export function ContentTabBigSkyAgent( { selectedSite }: ContentTabBigSkyAgentPr
 							model={ model }
 							service={ service }
 							temperature={ temperature }
-							setToken={ setToken }
-							setModel={ setModel }
-							setService={ setService }
-							setTemperature={ setTemperature }
+							onTokenChanged={ setToken }
+							onModelChanged={ setModel }
+							onServiceChanged={ setService }
+							onTemperatureChanged={ setTemperature }
 						/>
 					</div>
 				) : (

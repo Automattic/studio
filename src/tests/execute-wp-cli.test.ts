@@ -23,7 +23,7 @@ describe( 'executeWPCli', () => {
 	it( 'should execute wp-cli version command and return stdout and stderr', async () => {
 		const args = [ '--version' ];
 
-		const result = await executeWPCli( args, tmpPath );
+		const result = await executeWPCli( tmpPath, args );
 
 		expect( result.stdout ).toMatch( /WP-CLI \d+\.\d+\.\d+/ );
 		expect( result.stderr ).toBe( '' );
@@ -32,7 +32,7 @@ describe( 'executeWPCli', () => {
 	it( 'should return error if wp-cli command does not exist', async () => {
 		const args = [ 'yoda' ];
 
-		const result = await executeWPCli( args, tmpPath );
+		const result = await executeWPCli( tmpPath, args );
 
 		expect( result.stdout ).toBe( '' );
 		expect( result.stderr ).toContain(

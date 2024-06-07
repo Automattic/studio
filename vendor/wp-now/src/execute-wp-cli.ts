@@ -9,7 +9,7 @@ import { phpVar } from '@php-wasm/util';
  * This is an unstable API. Multiple wp-cli commands may not work due to a current limitation on php-wasm and pthreads.
  * @param args The arguments to pass to wp-cli.
  */
-export async function executeWPCli ( args: string[], projectPath: string ): Promise<{ stdout: string; stderr: string; }> {
+export async function executeWPCli ( projectPath: string, args: string[] ): Promise<{ stdout: string; stderr: string; }> {
 	await downloadWPCLI();
 	const options = await getWpNowConfig({
 		php: DEFAULT_PHP_VERSION,

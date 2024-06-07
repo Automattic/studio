@@ -47,6 +47,20 @@ If you manage packages with Homebrew you can do the following:
 $ brew install python3 python-setuptools
 ```
 
+This project depends on the private NPM package `@automattic/big-sky-agents`. To install it, you need to authenticate with Github.
+
+1. Create a Github [Personal Access Token](https://github.com/settings/tokens). Be sure to select a "Classic" token, not a fine-grained one. Select "No Expiration" unless you want your dev environment to break by surprise in the future.
+
+2. Select at least the "read:packages" scope. If you want to use this token to publish the package, then also select the "write:packages" scope.
+
+3. Log into NPM on the command line:
+
+```bash
+npm login --scope=@automattic --auth-type=legacy --registry=https://npm.pkg.github.com
+Username: yourgithubusername
+Password: # a spinner will appear here, just paste your token
+```
+
 #### Install dependencies, incrementally build, and run app
 
 ```bash

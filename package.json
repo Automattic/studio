@@ -30,7 +30,7 @@
 		"make-pot": "wp-babel-makepot \"./src/**/*.{js,jsx,ts,tsx}\" --ignore \"**/*.d.ts\" --base \"./src\" --dir \"./out/pots\" --output \"./out/pots/bundle-strings.pot\""
 	},
 	"devDependencies": {
-		"@automattic/big-sky-agents": "^1.0.9",
+		"@automattic/big-sky-agents": "^1.0.13",
 		"@automattic/color-studio": "^2.5.0",
 		"@automattic/wp-babel-makepot": "^1.2.0",
 		"@electron-forge/cli": "7.3.1",
@@ -104,7 +104,6 @@
 		"@wordpress/icons": "^9.40.0",
 		"@wp-playground/blueprints": "^0.6.16",
 		"archiver": "^6.0.1",
-		"babel-loader": "^9.1.3",
 		"compressible": "2.0.18",
 		"compression": "1.7.4",
 		"cross-port-killer": "^1.4.0",

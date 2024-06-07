@@ -204,7 +204,7 @@ async function appBoot() {
 				// Webpack uses eval in development, react-devtools uses localhost
 				"script-src 'self' 'unsafe-eval' 'unsafe-inline' data: http://localhost:*",
 				// react-devtools uses localhost
-				"connect-src 'self' https://public-api.wordpress.com ws://localhost:*",
+				"connect-src 'self' https://public-api.wordpress.com https://api.openai.com ws://localhost:*",
 			];
 			const policies = [
 				...basePolicies,

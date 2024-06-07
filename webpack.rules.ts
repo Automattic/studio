@@ -28,24 +28,4 @@ export const rules: Required< ModuleOptions >[ 'rules' ] = [
 			},
 		},
 	},
-	// {
-	// 	test: /\.jsx?$/,
-	// 	exclude: /node_modules/,
-	// 	use: [
-	// 		{
-	// 			loader: require.resolve( 'babel-loader' ),
-	// 			options: {
-	// 				cacheDirectory: process.env.BABEL_CACHE_DIRECTORY || true,
-	// 			},
-	// 		},
-	// 	],
-	// },
-	// {
-	// 	test: /\.riv$/,
-	// 	use: [
-	// 		{
-	// 			loader: 'url-loader',
-	// 		},
-	// 	],
-	// },
 ];

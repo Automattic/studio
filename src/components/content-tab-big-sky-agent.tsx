@@ -166,10 +166,10 @@ export function ContentTabBigSkyAgent( { selectedSite }: ContentTabBigSkyAgentPr
 						<AgentUI toolkit={ toolkit } agent={ agent } chat={ chat } />
 						<AgentControls toolkit={ toolkit } agent={ agent } chat={ chat } />
 						<LLMControls
-							token={ token }
+							token={ token ?? '' }
 							model={ model }
 							service={ service }
-							temperature={ temperature }
+							temperature={ temperature ?? TEMPERATURE }
 							onTokenChanged={ setToken }
 							onModelChanged={ setModel }
 							onServiceChanged={ setService }

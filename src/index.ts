@@ -14,7 +14,7 @@ import packageJson from '../package.json';
 import { PROTOCOL_PREFIX } from './constants';
 import * as ipcHandlers from './ipc-handlers';
 import { getPlatformName } from './lib/app-globals';
-import { bumpAggregatedUniqueStat } from './lib/bump-stats';
+import { bumpAggregatedUniqueStat, bumpStat } from './lib/bump-stats';
 import { getLocaleData, getSupportedLocale } from './lib/locale';
 import { handleAuthCallback, setUpAuthCallbackHandler } from './lib/oauth';
 import { setupLogging } from './logging';
@@ -229,6 +229,7 @@ async function appBoot() {
 		createMainWindow();
 
 		bumpAggregatedUniqueStat( 'local-environment-launch-uniques', process.platform, 'weekly' );
+		bumpStat( 'studio-app-launch', process.platform );
 	} );
 
 	// Quit when all windows are closed, except on macOS. There, it's common

@@ -561,8 +561,12 @@ export async function saveOnboarding(
 	} );
 }
 
-export async function executeWPCLiInline( _event: IpcMainInvokeEvent, args: string[] ) {
-	const { stdout, stderr } = await executeWPCli( args );
+export async function executeWPCLiInline(
+	_event: IpcMainInvokeEvent,
+	args: string[],
+	projectPath: string
+) {
+	const { stdout, stderr } = await executeWPCli( args, projectPath );
 	return { stdout, stderr };
 }
 

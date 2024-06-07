@@ -106,7 +106,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 				</tbody>
 			</table>
 			<DeleteSite />
-			<CliExecuteButton />
+			<CliExecuteButton projectPath={ selectedSite.path } />
 		</div>
 	);
 }

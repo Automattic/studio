@@ -2,7 +2,11 @@ import { useState } from 'react';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
 
-export default function CliExecuteButton() {
+interface CliExecuteButtonProps {
+	projectPath: string;
+}
+
+export default function CliExecuteButton( { projectPath }: CliExecuteButtonProps ) {
 	const [ args, setArgs ] = useState( '' );
 	const [ loading, setLoading ] = useState( false );
 	const [ output, setOutput ] = useState( { stdout: '', stderr: '' } );
@@ -14,7 +18,7 @@ export default function CliExecuteButton() {
 		setOutput( { stdout: '', stderr: '' } );
 
 		try {
-			const result = await getIpcApi().executeWPCLiInline( args.split( ' ' ) );
+			const result = await getIpcApi().executeWPCLiInline( args.split( ' ' ), projectPath );
 			setOutput( result );
 		} catch ( err ) {
 			if ( err instanceof Error ) {

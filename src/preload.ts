@@ -36,7 +36,8 @@ const api: IpcApi = {
 	getThemeDetails: ( id: string ) => ipcRenderer.invoke( 'getThemeDetails', id ),
 	getThumbnailData: ( id: string ) => ipcRenderer.invoke( 'getThumbnailData', id ),
 	getInstalledApps: () => ipcRenderer.invoke( 'getInstalledApps' ),
-	executeWPCLiInline: ( args: string[] ) => ipcRenderer.invoke( 'executeWPCLiInline', args ),
+	executeWPCLiInline: ( args: string[], projectPath: string ) =>
+		ipcRenderer.invoke( 'executeWPCLiInline', args, projectPath ),
 	getOnboardingData: () => ipcRenderer.invoke( 'getOnboardingData' ),
 	saveOnboarding: ( onboardingCompleted: boolean ) =>
 		ipcRenderer.invoke( 'saveOnboarding', onboardingCompleted ),

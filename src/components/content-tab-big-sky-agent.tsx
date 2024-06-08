@@ -1,19 +1,19 @@
 /** Big Sky Agent Dependencies **/
 import {
-	useLLM,
+	useChatModel,
 	useSimpleChat,
 	useSimpleAgentToolkit,
 	useAgentExecutor,
 	StandardAgent,
 	FStringPromptTemplate,
-	LLMModel,
-	LLMService,
+	ChatModelType,
+	ChatModelService,
 	AgentUI,
 	AgentControls,
-	LLMControls,
+	ChatModelControls,
 } from '@automattic/big-sky-agents';
 import { createInterpolateElement } from '@wordpress/element';
-import { Icon, external } from '@wordpress/icons';
+import { Icon, external, bug } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import React, { useState, useEffect, useRef, useMemo, Dispatch, SetStateAction } from 'react';
 import { useAuth } from '../hooks/use-auth';
@@ -79,9 +79,10 @@ const AGENTS = [
 ];
 
 export function ContentTabBigSkyAgent( { selectedSite }: ContentTabBigSkyAgentProps ) {
+	const [ controlsVisible, setControlsVisible ] = useState( false );
 	const { client, isAuthenticated, authenticate } = useAuth();
-	const [ service, setService ] = useState( LLMService.OPENAI );
-	const [ model, setModel ] = useState( LLMModel.GPT_4O );
+	const [ service, setService ] = useState( ChatModelService.WPCOM_OPENAI );
+	const [ model, setModel ] = useState( ChatModelType.GPT_4O );
 	const [ temperature, setTemperature ] = useState( TEMPERATURE );
 	const [ token, setToken ] = useState( client?.token );
 
@@ -92,11 +93,12 @@ export function ContentTabBigSkyAgent( { selectedSite }: ContentTabBigSkyAgentPr
 		}
 	}, [ client ] );
 
-	const llm = useLLM( { token, service } );
 	const chat = useSimpleChat( {
-		llm,
+		service,
+		token,
 		model,
 		temperature,
+		feature: 'studio-assistant',
 	} );
 	const toolkit = useSimpleAgentToolkit( { agents: AGENTS } );
 	const agent = useMemo( () => new DemoAgent( chat, toolkit ), [ chat, toolkit ] );
@@ -114,19 +116,31 @@ export function ContentTabBigSkyAgent( { selectedSite }: ContentTabBigSkyAgentPr
 				) }
 			>
 				{ isAuthenticated ? (
-					<div data-testid="assistant-chat" className="flex-1 overflow-y-auto p-8">
+					<div className="flex-1 overflow-y-auto p-8">
 						<AgentUI toolkit={ toolkit } agent={ agent } chat={ chat } />
-						<AgentControls toolkit={ toolkit } agent={ agent } chat={ chat } />
-						<LLMControls
-							token={ token ?? '' }
-							model={ model }
-							service={ service }
-							temperature={ temperature ?? TEMPERATURE }
-							onTokenChanged={ setToken }
-							onModelChanged={ setModel as Dispatch< SetStateAction< string > > }
-							onServiceChanged={ setService as Dispatch< SetStateAction< string > > }
-							onTemperatureChanged={ setTemperature }
-						/>
+						<div className="assistant-debug">
+							{ controlsVisible && (
+								<>
+									<AgentControls toolkit={ toolkit } agent={ agent } chat={ chat } />
+									<ChatModelControls
+										token={ token ?? '' }
+										model={ model }
+										service={ service }
+										temperature={ temperature ?? TEMPERATURE }
+										onTokenChanged={ setToken }
+										onModelChanged={ setModel as Dispatch< SetStateAction< string > > }
+										onServiceChanged={ setService as Dispatch< SetStateAction< string > > }
+										onTemperatureChanged={ setTemperature }
+									/>
+								</>
+							) }
+							<div style={ { textAlign: 'right' } }>
+								<Button
+									icon={ <Icon icon={ bug } /> }
+									onClick={ () => setControlsVisible( ( v ) => ! v ) }
+								/>
+							</div>
+						</div>
 					</div>
 				) : (
 					<Message className="w-full" isUser={ false }>

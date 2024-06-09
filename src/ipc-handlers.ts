@@ -17,7 +17,7 @@ import { copySync } from 'fs-extra';
 import { SQLITE_FILENAME } from '../vendor/wp-now/src/constants';
 import { downloadSqliteIntegrationPlugin } from '../vendor/wp-now/src/download';
 import { executeWPCli } from '../vendor/wp-now/src/execute-wp-cli';
-import { LIMIT_ARCHIVE_SIZE } from './constants';
+import { LIMIT_ARCHIVE_SIZE, DEFAULT_PHP_VERSION } from './constants';
 import { isEmptyDir, pathExists, isWordPressDirectory, sanitizeFolderName } from './lib/fs-utils';
 import { getImageData } from './lib/get-image-data';
 import { isErrnoException } from './lib/is-errno-exception';
@@ -157,6 +157,7 @@ export async function createSite(
 		path,
 		adminPassword: createPassword(),
 		running: false,
+		phpVersion: DEFAULT_PHP_VERSION,
 	} as const;
 
 	const server = SiteServer.create( details );
@@ -467,10 +468,9 @@ export async function getAppGlobals( _event: IpcMainInvokeEvent ): Promise< AppG
 export async function getPhpVersion( _event: IpcMainInvokeEvent, id: string ) {
 	const server = SiteServer.get( id );
 	if ( ! server ) {
-		return '-';
+		return DEFAULT_PHP_VERSION;
 	}
-	const phpVersion = ( await server.details.phpVersion ) || '-';
-	return phpVersion;
+	return server.details.phpVersion || DEFAULT_PHP_VERSION;
 }
 
 export async function getWpVersion( _event: IpcMainInvokeEvent, id: string ) {

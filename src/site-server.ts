@@ -4,6 +4,7 @@ import * as Sentry from '@sentry/electron/main';
 import { getWpNowConfig } from '../vendor/wp-now/src';
 import { WPNowMode } from '../vendor/wp-now/src/config';
 import { getWordPressVersionPath } from '../vendor/wp-now/src/download';
+import { DEFAULT_PHP_VERSION } from './constants';
 import { pathExists, recursiveCopyDirectory, isEmptyDir } from './lib/fs-utils';
 import { decodePassword } from './lib/passwords';
 import { phpGetThemeDetails } from './lib/php-get-theme-details';
@@ -74,6 +75,7 @@ export class SiteServer {
 			port,
 			adminPassword: decodePassword( this.details.adminPassword ?? '' ),
 			siteTitle: this.details.name,
+			php: this.details.phpVersion ?? DEFAULT_PHP_VERSION,
 		} );
 		const absoluteUrl = `http://localhost:${ port }`;
 		options.absoluteUrl = absoluteUrl;
@@ -99,7 +101,7 @@ export class SiteServer {
 			...this.details,
 			url: this.server.url,
 			port: this.server.options.port,
-			phpVersion: options.phpVersion,
+			phpVersion: this.server.options.phpVersion || DEFAULT_PHP_VERSION,
 			running: true,
 			themeDetails,
 		};

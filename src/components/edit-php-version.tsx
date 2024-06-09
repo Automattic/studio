@@ -1,19 +1,24 @@
 import { SelectControl } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
-import { FormEvent, useCallback, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { DEFAULT_PHP_VERSION } from '../constants';
 import { useSiteDetails } from '../hooks/use-site-details';
 import Button from './button';
 import Modal from './modal';
 
 export default function EditPhpVersion() {
 	const { __ } = useI18n();
-	const { updateSite, selectedSite } = useSiteDetails();
+	const { updateSite, selectedSite, stopServer, startServer } = useSiteDetails();
 	const [ editPhpVersionError, setEditPhpVersionError ] = useState( '' );
-	const [ selectedPhpVersion, setSelectedPhpVersion ] = useState(
-		selectedSite?.phpVersion ?? '8.0'
-	);
+	const [ selectedPhpVersion, setSelectedPhpVersion ] = useState( DEFAULT_PHP_VERSION );
 	const [ needsToEditPhpVersion, setNeedsToEditPhpVersion ] = useState( false );
 	const [ isEditingSite, setIsEditingSite ] = useState( false );
+
+	useEffect( () => {
+		if ( selectedSite ) {
+			setSelectedPhpVersion( selectedSite.phpVersion );
+		}
+	}, [ selectedSite ] );
 
 	const availablePhpVersions = [ '7.4', '8.0', '8.1', '8.2' ];
 
@@ -31,10 +36,15 @@ export default function EditPhpVersion() {
 			}
 			setIsEditingSite( true );
 			try {
+				const running = selectedSite.running;
 				await updateSite( {
 					...selectedSite,
 					phpVersion: selectedPhpVersion,
 				} );
+				if ( running ) {
+					await stopServer( selectedSite.id );
+					await startServer( selectedSite.id );
+				}
 				setNeedsToEditPhpVersion( false );
 				resetLocalState();
 			} catch ( e ) {
@@ -42,7 +52,7 @@ export default function EditPhpVersion() {
 			}
 			setIsEditingSite( false );
 		},
-		[ updateSite, selectedSite, selectedPhpVersion, resetLocalState ]
+		[ updateSite, selectedSite, selectedPhpVersion, resetLocalState, startServer, stopServer ]
 	);
 
 	return (
@@ -82,7 +92,7 @@ export default function EditPhpVersion() {
 										editPhpVersionError
 								) }
 							>
-								{ isEditingSite ? __( 'Saving…' ) : __( 'Save' ) }
+								{ isEditingSite ? __( 'Restarting server…' ) : __( 'Save' ) }
 							</Button>
 						</div>
 					</form>

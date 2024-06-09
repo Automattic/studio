@@ -29,6 +29,7 @@ const api: IpcApi = {
 	copyText: ( text: string ) => ipcRenderer.invoke( 'copyText', text ),
 	getAppGlobals: () => ipcRenderer.invoke( 'getAppGlobals' ),
 	removeTemporalFile: ( path: string ) => ipcRenderer.invoke( 'removeTemporalFile', path ),
+	getPhpVersion: ( id: string ) => ipcRenderer.invoke( 'getPhpVersion', id ),
 	getWpVersion: ( id: string ) => ipcRenderer.invoke( 'getWpVersion', id ),
 	generateProposedSitePath: ( siteName: string ) =>
 		ipcRenderer.invoke( 'generateProposedSitePath', siteName ),

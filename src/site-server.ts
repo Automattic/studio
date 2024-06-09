@@ -99,6 +99,7 @@ export class SiteServer {
 			...this.details,
 			url: this.server.url,
 			port: this.server.options.port,
+			phpVersion: options.phpVersion,
 			running: true,
 			themeDetails,
 		};

@@ -44,15 +44,15 @@ The project includes native dependencies which require Python and its `setuptool
 If you manage packages with Homebrew you can do the following:
 
 ```bash
-$ brew install python3 python-setuptools
+brew install python3 python-setuptools
 ```
 
 #### Install dependencies, incrementally build, and run app
 
 ```bash
-$ nvm use
-$ npm install
-$ npm start
+nvm use
+npm install
+npm start
 ```
 
 The app automatically launches with the Chromium developer tools opened by default.
@@ -96,14 +96,14 @@ The renderer process can be debugged using the Chromium developer tools. To open
 The React tree in the renderer process can be debugged with the standalone [React Developer Tools](https://react.dev/learn/react-developer-tools#safari-and-other-browsers). To do this, start the the React Developer Tools and then start the app with the `REACT_DEV_TOOLS=true` flag set.
 
 ```bash
-$ npx react-devtools
-$ REACT_DEV_TOOLS=true npm start
+npx react-devtools
+REACT_DEV_TOOLS=true npm start
 ```
 
 The main process can be debugged using the Node.js inspector. To do this, run the app with the `--inspect-brk-electron` flag:
 
 ```bash
-$ npm start -- --inspect-brk-electron
+npm start -- --inspect-brk-electron
 ```
 
 Then open `chrome://inspect` in a Chromium-based browser and click "inspect" next to the process you want to debug.
@@ -113,8 +113,8 @@ Then open `chrome://inspect` in a Chromium-based browser and click "inspect" nex
 Installers can currently be built on Mac (Intel or Apple Silicon) and Windows:
 
 ```bash
-$ npm install
-$ npm run make
+npm install
+npm run make
 ```
 
 ### Localization

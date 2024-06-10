@@ -50,7 +50,7 @@ export const processCLICommand = async ( {
 };
 
 export const executeCLICommand = async () => {
-	if ( cliCommand.executed ) {
+	if ( ! cliCommand || cliCommand.executed ) {
 		return false;
 	}
 	cliCommand.executed = true;

@@ -21,3 +21,4 @@ export const PROTOCOL_PREFIX = 'wpcom-local-dev';
 export const WP_AUTHORIZE_ENDPOINT = 'https://public-api.wordpress.com/oauth2/authorize';
 export const SCOPES = 'global';
 export const DEFAULT_PHP_VERSION = '8.0';
+export const AVAILABLE_PHP_VERSIONS = [ '7.4', '8.0', '8.1', '8.2' ];

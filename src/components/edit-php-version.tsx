@@ -1,7 +1,7 @@
 import { SelectControl } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
-import { DEFAULT_PHP_VERSION } from '../constants';
+import { DEFAULT_PHP_VERSION, AVAILABLE_PHP_VERSIONS } from '../constants';
 import { useSiteDetails } from '../hooks/use-site-details';
 import Button from './button';
 import Modal from './modal';
@@ -19,8 +19,6 @@ export default function EditPhpVersion() {
 			setSelectedPhpVersion( selectedSite.phpVersion );
 		}
 	}, [ selectedSite ] );
-
-	const availablePhpVersions = [ '7.4', '8.0', '8.1', '8.2' ];
 
 	const resetLocalState = useCallback( () => {
 		setNeedsToEditPhpVersion( false );
@@ -70,7 +68,7 @@ export default function EditPhpVersion() {
 							<span className="font-semibold">{ __( 'PHP version' ) }</span>
 							<SelectControl
 								value={ selectedPhpVersion }
-								options={ availablePhpVersions.map( ( version ) => ( {
+								options={ AVAILABLE_PHP_VERSIONS.map( ( version ) => ( {
 									label: version,
 									value: version,
 								} ) ) }

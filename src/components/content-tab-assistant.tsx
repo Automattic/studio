@@ -1,9 +1,9 @@
 import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
-import { Icon, external, copy, details, backup } from '@wordpress/icons';
+import { Icon, external, copy } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import React, { useState, useEffect, useRef } from 'react';
-import Markdown from 'react-markdown';
+import Markdown, { ExtraProps } from 'react-markdown';
 import { useAssistant } from '../hooks/use-assistant';
 import { useAssistantApi } from '../hooks/use-assistant-api';
 import { useAuth } from '../hooks/use-auth';
@@ -30,12 +30,6 @@ interface InlineCLIProps {
 	output: string;
 	status: 'success' | 'error';
 	time: string;
-}
-
-interface CodeProps {
-	node?: React.ReactNode;
-	className?: string;
-	children?: React.ReactNode;
 }
 
 const InlineCLI = ( { output, status, time }: InlineCLIProps ) => (
@@ -110,7 +104,8 @@ export const Message = ( { children, isUser, className }: MessageProps ) => {
 		}, 2300 );
 	};
 
-	const CodeBlock = ( { node, className, children, ...props }: CodeProps ) => {
+	const CodeBlock = ( props: JSX.IntrinsicElements[ 'code' ] & ExtraProps ) => {
+		const { children, className } = props;
 		const match = /language-(\w+)/.exec( className || '' );
 		const content = String( children ).trim();
 

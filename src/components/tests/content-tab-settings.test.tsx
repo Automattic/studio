@@ -1,6 +1,7 @@
 // To run tests, execute `npm run test -- src/components/content-tab-settings.test.tsx` from the root directory
 import { fireEvent, render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
+import { useGetPhpVersion } from '../../hooks/use-get-php-version';
 import { useGetWpVersion } from '../../hooks/use-get-wp-version';
 import { useOffline } from '../../hooks/use-offline';
 import { useSiteDetails } from '../../hooks/use-site-details';
@@ -8,6 +9,7 @@ import { getIpcApi } from '../../lib/get-ipc-api';
 import { ContentTabSettings } from '../content-tab-settings';
 
 jest.mock( '../../hooks/use-get-wp-version' );
+jest.mock( '../../hooks/use-get-php-version' );
 jest.mock( '../../hooks/use-site-details' );
 jest.mock( '../../lib/get-ipc-api' );
 
@@ -28,6 +30,7 @@ describe( 'ContentTabSettings', () => {
 	beforeEach( () => {
 		jest.clearAllMocks();
 		( useGetWpVersion as jest.Mock ).mockReturnValue( '7.7.7' );
+		( useGetPhpVersion as jest.Mock ).mockReturnValue( '8.0' );
 		( getIpcApi as jest.Mock ).mockReturnValue( {
 			copyText,
 			openLocalPath,

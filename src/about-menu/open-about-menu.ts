@@ -1,5 +1,6 @@
 import { BrowserWindow, app, shell } from 'electron';
 import path from 'path';
+import { __ } from '@wordpress/i18n';
 import { ABOUT_WINDOW_HEIGHT, ABOUT_WINDOW_WIDTH } from '../constants';
 
 let aboutWindow: BrowserWindow | null = null;
@@ -39,7 +40,14 @@ export function openAboutWindow() {
 		if ( aboutWindow ) {
 			// Inject version into the about window's HTML
 			aboutWindow.webContents
-				.executeJavaScript( `document.getElementById('version').innerText = '${ packageJson }'` )
+				.executeJavaScript(
+					`document.getElementById('version').innerText = '${ packageJson }'; 
+					document.getElementById('studio-by-wpcom').innerText = '${ __( 'Studio by WordPress.com' ) }';
+					document.getElementById('version-text').innerText = '${ __( 'Version' ) }'; 
+					document.getElementById('share-feedback').innerText = '${ __( 'Share Feedback' ) }';
+					document.getElementById('demo-sites').innerText = '${ __( 'Demo sites powered by' ) }';
+					document.getElementById('local-sites').innerText = '${ __( 'Local sites powered by' ) }';`
+				)
 				.catch( ( err ) => {
 					console.error( 'Error executing JavaScript:', err );
 				} );

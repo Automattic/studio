@@ -173,8 +173,13 @@ async function appBoot() {
 			// Handle custom protocol links on Windows and Linux
 			app.on( 'second-instance', ( _event, argv ): void => {
 				withMainWindow( ( mainWindow ) => {
-					if ( mainWindow.isMinimized() ) mainWindow.restore();
-					mainWindow.focus();
+					// CLI commands are likely invoked from other apps, so we need to avoid changing app focus.
+					const isCLI = argv?.find( ( arg ) => arg.startsWith( '--cli=' ) );
+					if ( ! isCLI ) {
+						if ( mainWindow.isMinimized() ) mainWindow.restore();
+						mainWindow.focus();
+					}
+
 					const customProtocolParameter = argv?.find( ( arg ) =>
 						arg.startsWith( PROTOCOL_PREFIX )
 					);

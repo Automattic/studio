@@ -23,7 +23,7 @@ export async function promptWindowsSpeedUpSites( {
 	const MANUAL_UPDATE = __( "I'll do it my own by following the documentation." );
 	const NOT_INTERESTED = __( "I'm not interested." );
 
-	const buttons = [ AUTOMATIC_UPDATE, NOT_INTERESTED, MANUAL_UPDATE ];
+	const buttons = [ AUTOMATIC_UPDATE, MANUAL_UPDATE, NOT_INTERESTED ];
 
 	const { response } = await dialog.showMessageBox( {
 		type: 'question',

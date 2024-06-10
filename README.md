@@ -4,7 +4,8 @@ A desktop application for creating local WordPress environments, powered by Word
 
 ![](https://raw.githubusercontent.com/Automattic/studio/trunk/demo.png)
 
-## Getting started
+## Getting Started
+
 Studio is open source and is available to download for free!
 
 **Step 1: Download the App**

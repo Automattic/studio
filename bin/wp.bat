@@ -4,5 +4,17 @@ IF "%APP_PATH%"=="" (
   EXIT /B 1
 )
 
-SET CLI=wp %*
-"%APP_PATH%" --cli="%CLI%"
+SET COMMAND=%*
+SET CLI=wp %COMMAND%
+
+IF "%COMMAND%"=="" (
+  REM Mimic core `wp-cli`'s behavior of using `more` for `help` output.
+  "%APP_PATH%" --cli="%CLI%" | more
+) ELSE (
+  IF "%COMMAND:~0,4%"=="help" (
+    REM Mimic core `wp-cli`'s behavior of using `more` for `help` output.
+    "%APP_PATH%" --cli="%CLI%" | more
+  ) ELSE (
+    "%APP_PATH%" --cli="%CLI%"
+  )
+)

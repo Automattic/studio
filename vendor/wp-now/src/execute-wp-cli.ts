@@ -1,7 +1,7 @@
 import startWPNow from './wp-now';
 import { downloadWpCli } from './download';
 import getWpCliPath from './get-wp-cli-path';
-import getWpNowConfig from './config';
+import getWpNowConfig, { WPNowMode } from './config';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from './constants';
 import { phpVar } from '@php-wasm/util';
 
@@ -15,8 +15,15 @@ export async function executeWPCli ( projectPath: string, args: string[] ): Prom
 		wp: DEFAULT_WORDPRESS_VERSION,
 		path: projectPath,
 	});
+	let mode = options.mode;
+	if (options.mode !== WPNowMode.WORDPRESS) {
+		// In case of not having the site projectPath,
+		// we use index mode to avoid other logic like downloading WordPress
+		mode = WPNowMode.INDEX;
+	}
 	const { phpInstances, options: wpNowOptions } = await startWPNow({
 		...options,
+		mode,
 		numberOfPhpInstances: 2,
 	});
 	const [, php] = phpInstances;

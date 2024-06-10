@@ -1,10 +1,9 @@
-import startWPNow from './wp-now';
 import { downloadWpCli } from './download';
 import getWpCliPath from './get-wp-cli-path';
 import getWpNowConfig, { WPNowMode } from './config';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from './constants';
 import { phpVar } from '@php-wasm/util';
-import { NodePHP, PHPLoaderOptions } from '@php-wasm/node';
+import { NodePHP } from '@php-wasm/node';
 
 /**
  * This is an unstable API. Multiple wp-cli commands may not work due to a current limitation on php-wasm and pthreads.

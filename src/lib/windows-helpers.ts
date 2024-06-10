@@ -19,11 +19,11 @@ export async function promptWindowsSpeedUpSites( {
 		return;
 	}
 
-	const NOT_INTERESTED = __( "I'm not interested." );
-	const MANUAL_UPDATE = __( "I'll do it my own by following the documentation." );
 	const AUTOMATIC_UPDATE = __( 'Sounds good, do it for me.' );
+	const MANUAL_UPDATE = __( "I'll do it my own by following the documentation." );
+	const NOT_INTERESTED = __( "I'm not interested." );
 
-	const buttons = [ NOT_INTERESTED, MANUAL_UPDATE, AUTOMATIC_UPDATE ];
+	const buttons = [ AUTOMATIC_UPDATE, NOT_INTERESTED, MANUAL_UPDATE ];
 
 	const { response } = await dialog.showMessageBox( {
 		type: 'question',
@@ -32,6 +32,7 @@ export async function promptWindowsSpeedUpSites( {
 		message: __(
 			"If the Real-Time Protection Service of Windows Defender is enabled on your machine, it may slow down the process of creating and starting a site.\n\nTo enhance site speed, it's recommended adjusting the configuration accordingly.\n\nThe app can do this automatically for you, or alternatively, you can follow the documentation."
 		),
+		cancelId: buttons.indexOf( NOT_INTERESTED ),
 	} );
 
 	switch ( response ) {

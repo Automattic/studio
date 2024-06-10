@@ -5,6 +5,8 @@ import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from './constants';
 import { phpVar } from '@php-wasm/util';
 import { NodePHP } from '@php-wasm/node';
 
+const isWindows = process.platform === 'win32';
+
 /**
  * This is an unstable API. Multiple wp-cli commands may not work due to a current limitation on php-wasm and pthreads.
  */
@@ -47,7 +49,7 @@ export async function executeWPCli ( projectPath: string, args: string[] ): Prom
 		// When running PHP on Playground, the value of constant PHP_OS is set to Linux.
 		// This implies that platform-specific logic won't work as expected. To solve this,
 		// we use an environment variable to ensure WP-CLI runs the Windows-specific logic.
-		putenv( 'WP_CLI_TEST_IS_WINDOWS=1' );
+		putenv( 'WP_CLI_TEST_IS_WINDOWS=${isWindows ? 1 : 0}' );
 
 		// Set the argv global.
 		$GLOBALS['argv'] = array_merge([

@@ -112,6 +112,7 @@ export class SiteServer {
 			...this.details,
 			name: site.name,
 			path: site.path,
+			phpVersion: site.phpVersion,
 		};
 	}
 

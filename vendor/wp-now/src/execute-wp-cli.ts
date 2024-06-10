@@ -48,6 +48,11 @@ export async function executeWPCli ( projectPath: string, args: string[] ): Prom
 		// the output as ASCII tables.
 		// @see https://github.com/wp-cli/wp-cli/issues/1102
 		putenv( 'SHELL_PIPE=0' );
+		
+		// When running PHP on Playground, the value of constant PHP_OS is set to Linux.
+		// This implies that platform-specific logic won't work as expected. To solve this,
+		// we use an environment variable to ensure WP-CLI runs the Windows-specific logic.
+		putenv( 'WP_CLI_TEST_IS_WINDOWS=1' );
 
 		// Set the argv global.
 		$GLOBALS['argv'] = array_merge([

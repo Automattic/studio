@@ -66,6 +66,11 @@ export async function executeWPCli ( projectPath: string, args: string[] ): Prom
 		define('STDOUT', fopen('php://stdout', 'wb'));
 		define('STDERR', fopen('${stderrPath}', 'wb'));
 
+		// WP-CLI uses this argument for checking updates. Seems it's not defined by Playground
+		// when running a script, so we explicitly set it.
+		// Reference: https://github.com/wp-cli/wp-cli/blob/main/php/WP_CLI/Runner.php#L1889
+		$_SERVER['argv'][0] = '${wpCliPath}';
+
 		require( '${wpCliPath}' );`
 	);
 

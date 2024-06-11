@@ -23,4 +23,4 @@ export interface PersistedUserData extends Omit< UserData, 'sites' > {
 	sites: Omit< StoppedSiteDetails, 'running' >[];
 }
 
-export type PromptWindowsSpeedUpResult = 'yes' | 'manual' | 'no';
+export type PromptWindowsSpeedUpResult = 'yes' | 'no';

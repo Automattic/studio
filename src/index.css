@@ -110,9 +110,8 @@ blockquote {
 .assistant-markdown pre {
 	background-color: #1D2327;
 	border-radius: 5px;
-	margin: 1rem 0;
+	margin: 0.5rem 0;
 	overflow-x: auto;
-	padding: 0.5em;
 }
 
 .assistant-markdown pre code {
@@ -124,43 +123,31 @@ blockquote {
 .assistant-markdown h1 {
 	font-size: 1.5rem;
 	font-weight: bold;
-	margin-bottom: 0.5rem;
-	margin-top: 1.5rem;
 }
 
 .assistant-markdown h2 {
 	font-size: 1.25rem;
 	font-weight: bold;
-	margin-bottom: 0.5rem;
-	margin-top: 1.5rem;
 }
 
 .assistant-markdown h3 {
 	font-size: 1.125rem;
 	font-weight: bold;
-	margin-bottom: 0.5rem;
-	margin-top: 1.5rem;
 }
 
 .assistant-markdown h4 {
 	font-size: 1rem;
 	font-weight: bold;
-	margin-bottom: 0.5rem;
-	margin-top: 1.5rem;
 }
 
 .assistant-markdown h5 {
 	font-size: 0.875rem;
 	font-weight: bold;
-	margin-bottom: 0.5rem;
-	margin-top: 1.5rem;
 }
 
 .assistant-markdown h6 {
 	font-size: 0.85rem;
 	font-weight: bold;
-	margin-bottom: 0.5rem;
-	margin-top: 1.5rem;
 }
 
 .assistant-markdown hr {

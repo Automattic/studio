@@ -96,6 +96,8 @@ export const Message = ( { children, isUser, className, projectPath }: MessagePr
 
 		const content = String( props.children ).trim();
 		const containsWPCommand = /\bwp\s/.test( content );
+		const wpCommandCount = ( content.match( /\bwp\s/g ) || [] ).length;
+		const containsSingleWPCommand = wpCommandCount === 1;
 
 		const handleExecute = async () => {
 			setIsRunning( true );
@@ -137,7 +139,7 @@ export const Message = ( { children, isUser, className, projectPath }: MessagePr
 						onClick={ () => getIpcApi().copyText( content ) }
 						timeout={ 2000 }
 					/>
-					{ containsWPCommand && (
+					{ containsWPCommand && containsSingleWPCommand && (
 						<ActionButton
 							primaryLabel={ __( 'Run' ) }
 							secondaryLabel={ __( 'Run Again' ) }

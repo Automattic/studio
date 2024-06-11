@@ -1,6 +1,6 @@
 import { Spinner } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { Icon, external, copy } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import React, { useState, useEffect, useRef } from 'react';
@@ -94,12 +94,14 @@ export const Message = ( { children, isUser, className }: MessageProps ) => {
 
 	const handleExecute = () => {
 		setIsRunning( true );
+		const startTime = Date.now();
 		setTimeout( () => {
+			const msTime = Date.now() - startTime;
 			setCliOutput(
 				`Installing Jetpack...\nUnpacking the package...\nInstalling the plugin...\nPlugin installed successfully.\nActivating 'jetpack'...\nPlugin 'jetpack' activated.\nSuccess: Installed 1 of 1 plugins.`
 			);
 			setCliStatus( 'success' );
-			setCliTime( 'Completed in 2.3 seconds' );
+			setCliTime( sprintf( __( 'Completed in %s seconds' ), ( msTime / 1000 ).toFixed( 2 ) ) );
 			setIsRunning( false );
 		}, 2300 );
 	};

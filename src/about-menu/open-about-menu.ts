@@ -1,7 +1,7 @@
 import { BrowserWindow, app, shell } from 'electron';
 import path from 'path';
 import * as Sentry from '@sentry/electron/renderer';
-import { __ } from '@wordpress/i18n';
+import { sprintf, __ } from '@wordpress/i18n';
 import { ABOUT_WINDOW_HEIGHT, ABOUT_WINDOW_WIDTH } from '../constants';
 
 let aboutWindow: BrowserWindow | null = null;
@@ -39,7 +39,7 @@ export function openAboutWindow() {
 
 	aboutWindow.webContents.on( 'dom-ready', () => {
 		if ( aboutWindow ) {
-			const versionText = `${ __( 'Version' ) } ${ packageJson }`;
+			const versionText = sprintf( __( 'Version %s' ), packageJson );
 
 			// Inject version into the about window's HTML
 			aboutWindow.webContents

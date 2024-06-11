@@ -68,8 +68,8 @@ it( 'should handle authentication deep links', () => {
 	} );
 } );
 
-it( 'should await the app ready state before creating a window for activate events', () => {
-	jest.isolateModules( async () => {
+it( 'should await the app ready state before creating a window for activate events', async () => {
+	await jest.isolateModulesAsync( async () => {
 		// eslint-disable-next-line @typescript-eslint/no-empty-function
 		let activate: ( ...args: any[] ) => void = () => {};
 		jest.doMock( 'electron', () => {
@@ -104,8 +104,8 @@ it( 'should await the app ready state before creating a window for activate even
 	} );
 } );
 
-it( 'should gracefully handle app ready failures when creating a window on activate', () => {
-	jest.isolateModules( async () => {
+it( 'should gracefully handle app ready failures when creating a window on activate', async () => {
+	await jest.isolateModulesAsync( async () => {
 		// eslint-disable-next-line @typescript-eslint/no-empty-function
 		let activate: ( ...args: any[] ) => void = () => {};
 		jest.doMock( 'electron', () => {
@@ -136,11 +136,8 @@ it( 'should gracefully handle app ready failures when creating a window on activ
 
 		activate();
 
-		expect( async () => {
-			// Await the mocked `whenReady` promise resolution
-			await new Promise( process.nextTick );
-			expect( createMainWindowMock ).not.toHaveBeenCalled();
-			expect( captureExceptionMock ).toHaveBeenCalled();
-		} ).not.toThrow();
+		await new Promise( process.nextTick );
+		expect( createMainWindowMock ).not.toHaveBeenCalled();
+		expect( captureExceptionMock ).toHaveBeenCalled();
 	} );
 } );

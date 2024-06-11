@@ -228,10 +228,10 @@ async function appBoot() {
 
 		createMainWindow();
 
-		// Bump a stat on each app launch
-		bumpStat( 'studio-app-launch', process.platform );
+		// Bump a stat on each app launch, approximates total app launches
+		bumpStat( 'studio-app-launch-total', process.platform );
 		// Bump stat for unique weekly app launch, approximates weekly active users
-		bumpAggregatedUniqueStat( 'studio-app-launch-weekly-uniques', process.platform, 'weekly' );
+		bumpAggregatedUniqueStat( 'local-environment-launch-uniques', process.platform, 'weekly' );
 	} );
 
 	// Quit when all windows are closed, except on macOS. There, it's common

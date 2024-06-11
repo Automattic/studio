@@ -124,13 +124,12 @@ export const Message = ( { children, isUser, className }: MessageProps ) => {
 						onClick={ () => getIpcApi().copyText( content ) }
 						timeout={ 2000 }
 					/>
-					<ActionButton
+					{ /* <ActionButton
 						primaryLabel={ __( 'Run' ) }
 						secondaryLabel={ __( 'Run Again' ) }
 						icon={ <ExecuteIcon /> }
 						onClick={ handleExecute }
-						disabled={ isRunning }
-					/>
+						disabled={ isRunning } */ }
 				</div>
 				{ isRunning && (
 					<div className="p-3 flex justify-start items-center bg-[#2D3337] text-white">

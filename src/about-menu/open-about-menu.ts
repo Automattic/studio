@@ -39,12 +39,15 @@ export function openAboutWindow() {
 
 	aboutWindow.webContents.on( 'dom-ready', () => {
 		if ( aboutWindow ) {
+			const versionText = `${ __( 'Version' ) } ${ packageJson }`;
+
 			// Inject version into the about window's HTML
 			aboutWindow.webContents
 				.executeJavaScript(
-					`document.getElementById('version').innerText = '${ packageJson }'; 
-					document.getElementById('studio-by-wpcom').innerText = '${ __( 'Studio by WordPress.com' ) }';
-					document.getElementById('version-text').innerText = '${ __( 'Version' ) }'; 
+					`document.getElementById('studio-by-wpcom').innerText = '${ __(
+						'Studio by WordPress.com'
+					) }';
+					document.getElementById('version-text').innerText = '${ versionText }'; 
 					document.getElementById('share-feedback').innerText = '${ __( 'Share Feedback' ) }';
 					document.getElementById('demo-sites').innerText = '${ __( 'Demo sites powered by' ) }';
 					document.getElementById('local-sites').innerText = '${ __( 'Local sites powered by' ) }';`

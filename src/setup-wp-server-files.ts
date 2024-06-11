@@ -4,12 +4,14 @@ import semver from 'semver';
 import { SQLITE_FILENAME } from '../vendor/wp-now/src/constants';
 import { getWordPressVersionPath } from '../vendor/wp-now/src/download';
 import getSqlitePath from '../vendor/wp-now/src/get-sqlite-path';
+import getWpCliPath from '../vendor/wp-now/src/get-wp-cli-path';
 import { recursiveCopyDirectory } from './lib/fs-utils';
 import { updateLatestSqliteVersion } from './lib/sqlite-versions';
 import {
 	getWordPressVersionFromInstallation,
 	updateLatestWordPressVersion,
 } from './lib/wp-versions';
+import { updateLatestWPCliVersion } from './lib/wpcli-versions';
 import { getResourcesPath } from './storage/paths';
 
 // Tries to copy the app's bundled WordPress version to `wp-now` WP versions if needed
@@ -48,9 +50,19 @@ async function copyBundledSqlite() {
 	await recursiveCopyDirectory( bundledSqlitePath, getSqlitePath() );
 }
 
+async function copyBundledWPCLI() {
+	const bundledWPCLIInstalled = await fs.pathExists( getWpCliPath() );
+	if ( bundledWPCLIInstalled ) {
+		return;
+	}
+	const bundledWPCLIPath = path.join( getResourcesPath(), 'wp-files', 'wp-cli', 'wp-cli.phar' );
+	await fs.copyFile( bundledWPCLIPath, getWpCliPath() );
+}
 export default async function setupWPServerFiles() {
 	await copyBundledLatestWPVersion();
 	await copyBundledSqlite();
+	await copyBundledWPCLI();
 	await updateLatestWordPressVersion();
 	await updateLatestSqliteVersion();
+	await updateLatestWPCliVersion();
 }

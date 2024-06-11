@@ -1,3 +1,4 @@
+import { Spinner } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { Icon, external, copy } from '@wordpress/icons';
@@ -14,7 +15,6 @@ import { AIInput } from './ai-input';
 import { MessageThinking } from './assistant-thinking';
 import Button from './button';
 import { ExecuteIcon } from './icons/execute';
-import { Spinner } from './icons/spinner';
 
 interface ContentTabAssistantProps {
 	selectedSite: SiteDetails;
@@ -133,7 +133,7 @@ export const Message = ( { children, isUser, className }: MessageProps ) => {
 				</div>
 				{ isRunning && (
 					<div className="p-3 flex justify-start items-center bg-[#2D3337] text-white">
-						<Spinner />
+						<Spinner className="!text-white [&>circle]:stroke-a8c-gray-60" />
 						<span className="ml-2 font-sans">{ __( 'Running...' ) }</span>
 					</div>
 				) }

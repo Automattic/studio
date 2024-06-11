@@ -26,9 +26,9 @@ export async function promptWindowsSpeedUpSites( {
 	const { response } = await dialog.showMessageBox( {
 		type: 'question',
 		buttons,
-		title: __( 'Want to speed up sites?' ),
+		title: __( 'Want to speed up site creation?' ),
 		message: __(
-			'If the Real-Time Protection Service of Microsoft Defender is enabled on your machine, it may slow down the process of creating and starting a site.\n\nFor optimal performance, we recommend excluding the Studio app from this service. The app can do this automatically for you.'
+			"Microsoft Defender's Real-time protection may slow site creation.\n\nTo create sites quickly, we recommend disabling Real-time protection for the Studio app."
 		),
 		cancelId: buttons.indexOf( NOT_INTERESTED ),
 	} );

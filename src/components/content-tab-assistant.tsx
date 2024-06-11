@@ -244,9 +244,11 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 
 	const renderUnauthenticatedView = () => (
 		<Message className="w-full" isUser={ false }>
-			<p className="mb-1.5 a8c-label-semibold">{ __( 'Hold up!' ) }</p>
-			<p>{ __( 'You need to log in to your WordPress.com account to use the assistant.' ) }</p>
-			<p className="mb-1.5">
+			<div className="mb-3 a8c-label-semibold">{ __( 'Hold up!' ) }</div>
+			<div className="mb-1">
+				{ __( 'You need to log in to your WordPress.com account to use the assistant.' ) }
+			</div>
+			<div className="mb-1">
 				{ createInterpolateElement(
 					__( "If you don't have an account yet, <a>create one for free</a>." ),
 					{
@@ -262,10 +264,10 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 						),
 					}
 				) }
-			</p>
-			<p className="mb-3">
+			</div>
+			<div className="mb-3">
 				{ __( 'Every account gets 200 prompts included for free each month.' ) }
-			</p>
+			</div>
 			<Button variant="primary" onClick={ authenticate }>
 				{ __( 'Log in to WordPress.com' ) }
 				<Icon className="ltr:ml-1 rtl:mr-1 rtl:scale-x-[-1]" icon={ external } size={ 21 } />

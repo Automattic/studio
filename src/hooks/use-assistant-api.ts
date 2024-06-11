@@ -9,19 +9,21 @@ export function useAssistantApi() {
 	const { updatePromptUsage } = usePromptUsage();
 
 	const fetchAssistant = useCallback(
-		async ( messages: Message[] ) => {
+		async ( chatId: string | undefined, message: Message ) => {
 			if ( ! client ) {
 				throw new Error( 'WPcom client not initialized' );
 			}
 			setIsLoading( true );
 			const body = {
-				messages,
+				message,
+				chat_id: chatId,
+				context: [],
 			};
 			let response;
 			let headers;
 			try {
 				const { data, response_headers } = await new Promise< {
-					data: { choices: { message: { content: string } }[] };
+					data: { choices: { message: { content: string } }[]; id: string };
 					response_headers: Record< string, string >;
 				} >( ( resolve, reject ) => {
 					client.req.post(
@@ -32,7 +34,7 @@ export function useAssistantApi() {
 						},
 						(
 							error: Error,
-							data: { choices: { message: { content: string } }[] },
+							data: { choices: { message: { content: string } }[]; id: string },
 							headers: Record< string, string >
 						) => {
 							if ( error ) {
@@ -47,9 +49,10 @@ export function useAssistantApi() {
 			} finally {
 				setIsLoading( false );
 			}
-			const message = response?.choices?.[ 0 ]?.message?.content;
+			const newMessage = response?.choices?.[ response?.choices.length - 1 ]?.message?.content;
+			console.log( 'chat_id', response );
 			updatePromptUsage( headers );
-			return { message };
+			return { message: newMessage, chatId: response?.id };
 		},
 		[ client, updatePromptUsage ]
 	);

@@ -1,8 +1,8 @@
 /** Big Sky Agent Dependencies **/
 import {
 	useChatModel,
-	useSimpleChat,
-	useSimpleAgentToolkit,
+	useReduxChat,
+	useReduxAgentToolkit,
 	useAgentExecutor,
 	StandardAgent,
 	FStringPromptTemplate,
@@ -93,14 +93,14 @@ export function ContentTabBigSkyAgent( { selectedSite }: ContentTabBigSkyAgentPr
 		}
 	}, [ client ] );
 
-	const chat = useSimpleChat( {
+	const chat = useReduxChat( {
 		service,
 		token,
 		model,
 		temperature,
 		feature: 'studio-assistant',
 	} );
-	const toolkit = useSimpleAgentToolkit( { agents: AGENTS } );
+	const toolkit = useReduxAgentToolkit( { agents: AGENTS } );
 	const agent = useMemo( () => new DemoAgent( chat, toolkit ), [ chat, toolkit ] );
 	useAgentExecutor( { agent, chat, toolkit } );
 

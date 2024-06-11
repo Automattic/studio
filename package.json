@@ -30,7 +30,7 @@
 		"make-pot": "wp-babel-makepot \"./src/**/*.{js,jsx,ts,tsx}\" --ignore \"**/*.d.ts\" --base \"./src\" --dir \"./out/pots\" --output \"./out/pots/bundle-strings.pot\""
 	},
 	"devDependencies": {
-		"@automattic/big-sky-agents": "^1.0.24",
+		"@automattic/big-sky-agents": "^1.1.3",
 		"@automattic/color-studio": "^2.5.0",
 		"@automattic/wp-babel-makepot": "^1.2.0",
 		"@electron-forge/cli": "7.3.1",

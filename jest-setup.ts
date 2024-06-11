@@ -1,4 +1,6 @@
 import '@testing-library/jest-dom';
+// eslint-disable-next-line import/no-unresolved
+import 'web-streams-polyfill/polyfill';
 import nock from 'nock';
 
 if ( typeof window !== 'undefined' ) {

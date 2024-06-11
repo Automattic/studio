@@ -1,5 +1,6 @@
 import { BrowserWindow, app, shell } from 'electron';
 import path from 'path';
+import * as Sentry from '@sentry/electron/renderer';
 import { __ } from '@wordpress/i18n';
 import { ABOUT_WINDOW_HEIGHT, ABOUT_WINDOW_WIDTH } from '../constants';
 
@@ -49,6 +50,7 @@ export function openAboutWindow() {
 					document.getElementById('local-sites').innerText = '${ __( 'Local sites powered by' ) }';`
 				)
 				.catch( ( err ) => {
+					Sentry.captureException( err );
 					console.error( 'Error executing JavaScript:', err );
 				} );
 		}

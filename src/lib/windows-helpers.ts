@@ -2,7 +2,6 @@ import { app, dialog, shell } from 'electron';
 import path from 'path';
 import { __ } from '@wordpress/i18n';
 import sudo from 'sudo-prompt';
-import { STUDIO_DOCS_WINDOWS_SPEED_UP_SITES_URL } from '../constants';
 import { loadUserData, saveUserData } from '../storage/user-data';
 
 export async function promptWindowsSpeedUpSites( {
@@ -20,17 +19,16 @@ export async function promptWindowsSpeedUpSites( {
 	}
 
 	const AUTOMATIC_UPDATE = __( 'Sounds good, do it for me.' );
-	const MANUAL_UPDATE = __( "I'll do it my own by following the documentation." );
 	const NOT_INTERESTED = __( "I'm not interested." );
 
-	const buttons = [ AUTOMATIC_UPDATE, MANUAL_UPDATE, NOT_INTERESTED ];
+	const buttons = [ AUTOMATIC_UPDATE, NOT_INTERESTED ];
 
 	const { response } = await dialog.showMessageBox( {
 		type: 'question',
 		buttons,
 		title: __( 'Want to speed up sites?' ),
 		message: __(
-			'If the Real-Time Protection Service of Windows Defender is enabled on your machine, it may slow down the process of creating and starting a site.\n\nFor optimal performance, we recommend excluding the Studio app from this service.\n\nThe app can do this automatically for you, or alternatively, you can follow the documentation.'
+			'If the Real-Time Protection Service of Windows Defender is enabled on your machine, it may slow down the process of creating and starting a site.\n\nFor optimal performance, we recommend excluding the Studio app from this service. The app can do this automatically for you.'
 		),
 		cancelId: buttons.indexOf( NOT_INTERESTED ),
 	} );
@@ -53,14 +51,6 @@ export async function promptWindowsSpeedUpSites( {
 					),
 				} );
 			}
-			break;
-		case buttons.indexOf( MANUAL_UPDATE ):
-			// Will be done manually by the user
-			await saveUserData( {
-				...userData,
-				promptWindowsSpeedUpResult: 'manual',
-			} );
-			await shell.openExternal( STUDIO_DOCS_WINDOWS_SPEED_UP_SITES_URL );
 			break;
 		case buttons.indexOf( NOT_INTERESTED ):
 			// Skip it, user is not interested

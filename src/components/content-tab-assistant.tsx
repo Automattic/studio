@@ -56,7 +56,10 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 			addMessage( input, 'user', chatId );
 			setInput( '' );
 			try {
-				const { message, chatId: fetchedChatId } = await fetchAssistant( chatId, { content: input, role: 'user' } );
+				const { message, chatId: fetchedChatId } = await fetchAssistant( chatId, {
+					content: input,
+					role: 'user',
+				} );
 				if ( message ) {
 					addMessage( message, 'assistant', chatId ?? fetchedChatId );
 				}

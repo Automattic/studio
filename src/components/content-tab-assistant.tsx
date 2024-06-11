@@ -94,10 +94,12 @@ export const Message = ( { children, isUser, className, projectPath }: MessagePr
 		const [ cliTime, setCliTime ] = useState< string | null >( null );
 		const [ isRunning, setIsRunning ] = useState( false );
 
+		const content = String( props.children ).trim();
+		const containsWPCommand = /\bwp\s/.test( content );
+
 		const handleExecute = async () => {
 			setIsRunning( true );
 			const startTime = Date.now();
-			const content = String( props.children ).trim();
 			const args = content.split( ' ' ).slice( 1 );
 			const result = await getIpcApi().executeWPCLiInline( {
 				projectPath: projectPath || '',
@@ -120,8 +122,6 @@ export const Message = ( { children, isUser, className, projectPath }: MessagePr
 
 		const { children, className } = props;
 		const match = /language-(\w+)/.exec( className || '' );
-		const content = String( children ).trim();
-
 		return match ? (
 			<>
 				<div className="p-3">
@@ -137,13 +137,15 @@ export const Message = ( { children, isUser, className, projectPath }: MessagePr
 						onClick={ () => getIpcApi().copyText( content ) }
 						timeout={ 2000 }
 					/>
-					<ActionButton
-						primaryLabel={ __( 'Run' ) }
-						secondaryLabel={ __( 'Run Again' ) }
-						icon={ <ExecuteIcon /> }
-						onClick={ handleExecute }
-						disabled={ isRunning }
-					/>
+					{ containsWPCommand && (
+						<ActionButton
+							primaryLabel={ __( 'Run' ) }
+							secondaryLabel={ __( 'Run Again' ) }
+							icon={ <ExecuteIcon /> }
+							onClick={ handleExecute }
+							disabled={ isRunning }
+						/>
+					) }
 				</div>
 				{ isRunning && (
 					<div className="p-3 flex justify-start items-center bg-[#2D3337] text-white">

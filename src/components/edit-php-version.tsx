@@ -1,7 +1,8 @@
+import { SupportedPHPVersions } from '@php-wasm/universal';
 import { SelectControl } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
-import { DEFAULT_PHP_VERSION, AVAILABLE_PHP_VERSIONS } from '../constants';
+import { DEFAULT_PHP_VERSION } from '../../vendor/wp-now/src/constants';
 import { useSiteDetails } from '../hooks/use-site-details';
 import Button from './button';
 import Modal from './modal';
@@ -68,7 +69,7 @@ export default function EditPhpVersion() {
 							<span className="font-semibold">{ __( 'PHP version' ) }</span>
 							<SelectControl
 								value={ selectedPhpVersion }
-								options={ AVAILABLE_PHP_VERSIONS.map( ( version ) => ( {
+								options={ SupportedPHPVersions.map( ( version ) => ( {
 									label: version,
 									value: version,
 								} ) ) }

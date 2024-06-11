@@ -36,7 +36,7 @@ const InlineCLI = ( { output, status, time }: InlineCLIProps ) => (
 	<div className="p-3 bg-[#2D3337]">
 		<div className="flex justify-between mb-2 font-sans">
 			<span className={ status === 'success' ? 'text-[#63CE68]' : 'text-[#E66D6C]' }>
-				{ status === 'success' ? 'Success' : 'Error' }
+				{ status === 'success' ? __( 'Success' ) : __( 'Error' ) }
 			</span>
 			<span className="text-gray-400">{ time }</span>
 		</div>

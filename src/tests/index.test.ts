@@ -3,10 +3,16 @@
  */
 import fs from 'fs';
 import { createMainWindow } from '../main-window';
+import setupWPServerFiles from '../setup-wp-server-files';
 
 jest.mock( 'fs' );
 jest.mock( 'file-stream-rotator' );
 jest.mock( '../main-window' );
+jest.mock( '../updates' );
+jest.mock( '../lib/bump-stats' );
+jest.mock( '../setup-wp-server-files', () =>
+	jest.fn( () => new Promise< void >( ( resolve ) => resolve() ) )
+);
 
 const mockUserData = {
 	sites: [],
@@ -135,5 +141,43 @@ it( 'should gracefully handle app ready failures when creating a window on activ
 		await new Promise( process.nextTick );
 		expect( createMainWindow ).not.toHaveBeenCalled();
 		expect( captureExceptionMock ).toHaveBeenCalled();
+	} );
+} );
+
+it( 'should setup server files before creating main window', async () => {
+	await jest.isolateModulesAsync( async () => {
+		// eslint-disable-next-line @typescript-eslint/no-empty-function
+		let ready: ( ...args: any[] ) => Promise< void > = async () => {};
+		jest.doMock( 'electron', () => {
+			const electron = jest.genMockFromModule( 'electron' ) as typeof import('electron');
+			return {
+				...electron,
+				app: {
+					...electron.app,
+					on: jest.fn( ( event, callback ) => {
+						if ( event === 'ready' ) {
+							ready = callback;
+						}
+					} ),
+				},
+			};
+		} );
+		require( '../index' );
+
+		// Add a mock function to check that `setupWPServerFiles` is resolved before
+		// creating the main window.
+		const resolveFn = jest.fn();
+		( setupWPServerFiles as jest.Mock ).mockImplementation( async () => {
+			await new Promise( process.nextTick );
+			resolveFn();
+		} );
+
+		await ready();
+
+		expect( resolveFn ).toHaveBeenCalled();
+		const setupWPServerFilesResolvedOrder = resolveFn.mock.invocationCallOrder[ 0 ];
+		const createMainWindowOrder = ( createMainWindow as jest.Mock ).mock.invocationCallOrder[ 0 ];
+
+		expect( setupWPServerFilesResolvedOrder ).toBeLessThan( createMainWindowOrder );
 	} );
 } );

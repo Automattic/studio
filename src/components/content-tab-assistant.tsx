@@ -87,26 +87,27 @@ const ActionButton = ( {
 };
 
 export const Message = ( { children, isUser, className }: MessageProps ) => {
-	const [ cliOutput, setCliOutput ] = useState< string | null >( null );
-	const [ cliStatus, setCliStatus ] = useState< 'success' | 'error' | null >( null );
-	const [ cliTime, setCliTime ] = useState< string | null >( null );
-	const [ isRunning, setIsRunning ] = useState( false );
-
-	const handleExecute = () => {
-		setIsRunning( true );
-		const startTime = Date.now();
-		setTimeout( () => {
-			const msTime = Date.now() - startTime;
-			setCliOutput(
-				`Installing Jetpack...\nUnpacking the package...\nInstalling the plugin...\nPlugin installed successfully.\nActivating 'jetpack'...\nPlugin 'jetpack' activated.\nSuccess: Installed 1 of 1 plugins.`
-			);
-			setCliStatus( 'success' );
-			setCliTime( sprintf( __( 'Completed in %s seconds' ), ( msTime / 1000 ).toFixed( 2 ) ) );
-			setIsRunning( false );
-		}, 2300 );
-	};
 
 	const CodeBlock = ( props: JSX.IntrinsicElements[ 'code' ] & ExtraProps ) => {
+		const [ cliOutput, setCliOutput ] = useState< string | null >( null );
+		const [ cliStatus, setCliStatus ] = useState< 'success' | 'error' | null >( null );
+		const [ cliTime, setCliTime ] = useState< string | null >( null );
+		const [ isRunning, setIsRunning ] = useState( false );
+
+		const handleExecute = () => {
+			setIsRunning( true );
+			const startTime = Date.now();
+			setTimeout( () => {
+				const msTime = Date.now() - startTime;
+				setCliOutput(
+					`Installing Jetpack...\nUnpacking the package...\nInstalling the plugin...\nPlugin installed successfully.\nActivating 'jetpack'...\nPlugin 'jetpack' activated.\nSuccess: Installed 1 of 1 plugins.`
+				);
+				setCliStatus( 'success' );
+				setCliTime( sprintf( __( 'Completed in %s seconds' ), ( msTime / 1000 ).toFixed( 2 ) ) );
+				setIsRunning( false );
+			}, 2300 );
+		};
+
 		const { children, className } = props;
 		const match = /language-(\w+)/.exec( className || '' );
 		const content = String( children ).trim();

@@ -2,9 +2,11 @@
  * @jest-environment node
  */
 import fs from 'fs';
+import { createMainWindow } from '../main-window';
 
 jest.mock( 'fs' );
 jest.mock( 'file-stream-rotator' );
+jest.mock( '../main-window' );
 
 const mockUserData = {
 	sites: [],
@@ -14,6 +16,10 @@ const mockUserData = {
 	JSON.stringify( mockUserData )
 );
 ( fs as MockedFs ).__setFileContents( '/path/to/app/temp/com.wordpress.studio/', '' );
+
+afterEach( () => {
+	jest.clearAllMocks();
+} );
 
 it( 'should boot successfully', () => {
 	jest.isolateModules( () => {
@@ -87,20 +93,14 @@ it( 'should await the app ready state before creating a window for activate even
 				},
 			};
 		} );
-		const createMainWindowMock = jest.fn();
-		jest.doMock( '../main-window', () => {
-			return {
-				createMainWindow: createMainWindowMock,
-			};
-		} );
 		require( '../index' );
 
 		activate();
 
-		expect( createMainWindowMock ).not.toHaveBeenCalled();
+		expect( createMainWindow ).not.toHaveBeenCalled();
 		// Await the mocked `whenReady` promise resolution
 		await new Promise( process.nextTick );
-		expect( createMainWindowMock ).toHaveBeenCalled();
+		expect( createMainWindow ).toHaveBeenCalled();
 	} );
 } );
 
@@ -123,10 +123,6 @@ it( 'should gracefully handle app ready failures when creating a window on activ
 				},
 			};
 		} );
-		const createMainWindowMock = jest.fn();
-		jest.doMock( '../main-window', () => ( {
-			createMainWindow: createMainWindowMock,
-		} ) );
 		const captureExceptionMock = jest.fn();
 		jest.doMock( '@sentry/electron/main', () => ( {
 			init: jest.fn(),
@@ -137,7 +133,7 @@ it( 'should gracefully handle app ready failures when creating a window on activ
 		activate();
 
 		await new Promise( process.nextTick );
-		expect( createMainWindowMock ).not.toHaveBeenCalled();
+		expect( createMainWindow ).not.toHaveBeenCalled();
 		expect( captureExceptionMock ).toHaveBeenCalled();
 	} );
 } );

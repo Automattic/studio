@@ -17,7 +17,7 @@ interface ContentTabSettingsProps {
 
 function SettingsRow( { children, label }: PropsWithChildren< { label: string } > ) {
 	return (
-		<tr className="align-top">
+		<tr className="align-top" aria-label={ label }>
 			<th className="text-nowrap text-a8c-gray-50 pb-4 ltr:pr-6 rtl:pl-6 ltr:text-left rtl:text-right font-normal">
 				{ label }
 			</th>

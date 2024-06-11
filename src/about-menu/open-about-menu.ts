@@ -37,28 +37,31 @@ export function openAboutWindow() {
 	// Read package.json and pass version to about window
 	const packageJson = app.getVersion();
 
+	function escapeSingleQuotes( str: string ) {
+		return str.replace( /'/g, "\\'" );
+	}
+
 	aboutWindow.webContents.on( 'dom-ready', () => {
 		if ( aboutWindow ) {
 			const versionText = sprintf( __( 'Version %s' ), packageJson );
+			const studioByWpcomText = escapeSingleQuotes( __( 'Studio by WordPress.com' ) );
+			const shareFeedbackText = escapeSingleQuotes( __( 'Share Feedback' ) );
+			const demoSitesText = escapeSingleQuotes( __( 'Demo sites powered by' ) );
+			const localSitesText = escapeSingleQuotes( __( 'Local sites powered by' ) );
 
-			// Inject version into the about window's HTML
-			aboutWindow.webContents
-				.executeJavaScript(
-					`document.getElementById('studio-by-wpcom').innerText = '${ __(
-						'Studio by WordPress.com'
-					) }';
-					document.getElementById('version-text').innerText = '${ versionText }'; 
-					document.getElementById('share-feedback').innerText = '${ __( 'Share Feedback' ) }';
-					document.getElementById('demo-sites').innerText = '${ __( 'Demo sites powered by' ) }';
-					document.getElementById('local-sites').innerText = '${ __( 'Local sites powered by' ) }';`
-				)
-				.catch( ( err ) => {
-					Sentry.captureException( err );
-					console.error( 'Error executing JavaScript:', err );
-				} );
+			const script = `
+				document.getElementById('studio-by-wpcom').innerText = '${ studioByWpcomText }';
+				document.getElementById('version-text').innerText = '${ versionText }';
+				document.getElementById('share-feedback').innerText = '${ shareFeedbackText }';
+				document.getElementById('demo-sites').innerText = '${ demoSitesText }';
+				document.getElementById('local-sites').innerText = '${ localSitesText }';
+			`;
+			aboutWindow.webContents.executeJavaScript( script ).catch( ( err ) => {
+				Sentry.captureException( err );
+				console.error( 'Error executing JavaScript:', err );
+			} );
 		}
 	} );
-
 	aboutWindow.on( 'closed', () => {
 		aboutWindow = null;
 	} );

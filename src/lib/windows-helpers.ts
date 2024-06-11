@@ -47,7 +47,7 @@ export async function promptWindowsSpeedUpSites( {
 					type: 'error',
 					title: __( 'Something went wrong' ),
 					message: __(
-						'The configuration couldn\'t be changed to speed up sites.\n\nTo initiate this process again, please go to "Help > How can I make Studio faster?" in the application menu.'
+						'The configuration couldn\'t be changed to speed up site creation.\n\nTo initiate this process again, please go to "Help > How can I make Studio faster?" in the application menu.'
 					),
 				} );
 			}

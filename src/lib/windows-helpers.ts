@@ -28,7 +28,7 @@ export async function promptWindowsSpeedUpSites( {
 		buttons,
 		title: __( 'Want to speed up sites?' ),
 		message: __(
-			'If the Real-Time Protection Service of Windows Defender is enabled on your machine, it may slow down the process of creating and starting a site.\n\nFor optimal performance, we recommend excluding the Studio app from this service. The app can do this automatically for you.'
+			'If the Real-Time Protection Service of Microsoft Defender is enabled on your machine, it may slow down the process of creating and starting a site.\n\nFor optimal performance, we recommend excluding the Studio app from this service. The app can do this automatically for you.'
 		),
 		cancelId: buttons.indexOf( NOT_INTERESTED ),
 	} );

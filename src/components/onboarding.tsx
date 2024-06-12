@@ -72,6 +72,14 @@ export default function Onboarding() {
 	const handleSubmit = useCallback(
 		async ( event: FormEvent ) => {
 			event.preventDefault();
+
+			// Prompt the user to enable optimizations on Windows
+			try {
+				await getIpcApi().promptWindowsSpeedUpSites( { skipIfAlreadyPrompted: true } );
+			} catch ( error ) {
+				console.error( error );
+			}
+
 			try {
 				await handleAddSiteClick();
 				speak( siteAddedMessage );

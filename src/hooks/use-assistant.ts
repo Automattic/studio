@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 
 export type Message = {
-	id: number;
+	id?: number;
 	content: string;
 	role: 'user' | 'assistant';
 	blocks?: {

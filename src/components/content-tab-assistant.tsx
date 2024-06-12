@@ -33,6 +33,13 @@ interface MessageProps {
 		cliTime?: string;
 		codeBlockContent?: string;
 	}[];
+	updateMessage?: (
+		id: string | number,
+		content: string,
+		output: string,
+		status: 'success' | 'error',
+		time: string
+	) => void;
 }
 
 interface InlineCLIProps {
@@ -152,13 +159,15 @@ export const Message = ( {
 				setCliTime( completedIn );
 				setIsRunning( false );
 
-				updateMessage(
-					id,
-					content,
-					result.stdout || result.stderr,
-					result.stderr ? 'error' : 'success',
-					completedIn || ''
-				);
+				if ( updateMessage ) {
+					updateMessage(
+						id,
+						content,
+						result.stdout || result.stderr,
+						result.stderr ? 'error' : 'success',
+						completedIn || ''
+					);
+				}
 			}, 2300 );
 		}, [ content ] );
 

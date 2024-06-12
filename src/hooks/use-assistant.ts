@@ -18,7 +18,6 @@ export const useAssistant = ( selectedSiteId: string ) => {
 	useEffect( () => {
 		const storedChat = localStorage.getItem( selectedSiteId );
 		if ( storedChat ) {
-			console.log( 'Stored chat localStorage:', JSON.parse( storedChat ) );
 			setMessages( JSON.parse( storedChat ) );
 		} else {
 			localStorage.setItem( selectedSiteId, JSON.stringify( [] ) );
@@ -29,7 +28,6 @@ export const useAssistant = ( selectedSiteId: string ) => {
 		( content: string, role: 'user' | 'assistant' ) => {
 			setMessages( ( prevMessages ) => {
 				const updatedMessages = [ ...prevMessages, { content, role, id: prevMessages.length } ];
-				console.log( 'Saving messages to localStorage:', updatedMessages );
 				localStorage.setItem( selectedSiteId, JSON.stringify( updatedMessages ) );
 				return updatedMessages;
 			} );
@@ -61,7 +59,6 @@ export const useAssistant = ( selectedSiteId: string ) => {
 					}
 					return { ...message, blocks: updatedBlocks };
 				} );
-				console.log( 'Saving messages to localStorage:', updatedMessages );
 				localStorage.setItem( selectedSiteId, JSON.stringify( updatedMessages ) );
 				return updatedMessages;
 			} );

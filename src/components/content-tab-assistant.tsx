@@ -331,8 +331,6 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 
 	const disabled = isOffline || ! isAuthenticated;
 
-	console.log( 'Messages:', messages );
-
 	const renderUnauthenticatedView = () => (
 		<Message className="w-full" isUser={ false }>
 			<div className="mb-3 a8c-label-semibold">{ __( 'Hold up!' ) }</div>

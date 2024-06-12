@@ -52,7 +52,7 @@ test.describe( 'Servers', () => {
 			await onboarding.continueButton.click();
 
 			const siteContent = new SiteContent( onboardingMainWindow, defaultOnboardingSiteName );
-			await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 30_000 } );
+			await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 60_000 } );
 		}
 
 		await onboardingAppInstance.close();

@@ -5,7 +5,7 @@ import { Icon, external, copy } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
 import Markdown, { ExtraProps } from 'react-markdown';
-import { useAssistant } from '../hooks/use-assistant';
+import { useAssistant, Message as MessageType } from '../hooks/use-assistant';
 import { useAssistantApi } from '../hooks/use-assistant-api';
 import { useAuth } from '../hooks/use-auth';
 import { useOffline } from '../hooks/use-offline';
@@ -238,7 +238,23 @@ export const Message = ( {
 };
 
 const RenderAuthenticatedView = memo(
-	( { messages, isAssistantThinking, updateMessage, path } ) => (
+	( {
+		messages,
+		isAssistantThinking,
+		updateMessage,
+		path,
+	}: {
+		messages: MessageType[];
+		isAssistantThinking: boolean;
+		updateMessage: (
+			id: number,
+			codeBlockContent: string,
+			cliOutput: string,
+			cliStatus: 'success' | 'error',
+			cliTime: string
+		) => void;
+		path: string;
+	} ) => (
 		<>
 			{ messages.map( ( message, index ) => (
 				<Message

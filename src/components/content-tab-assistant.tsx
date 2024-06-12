@@ -176,7 +176,13 @@ export const Message = ( { children, isUser, className }: MessageProps ) => {
 };
 
 const AuthenticatedView = memo(
-	( { messages, isAssistantThinking }: { messages: MessageType[]; isAuthenticated: boolean } ) => (
+	( {
+		messages,
+		isAssistantThinking,
+	}: {
+		messages: MessageType[];
+		isAssistantThinking: boolean;
+	} ) => (
 		<>
 			{ messages.map( ( message, index ) => (
 				<Message key={ index } isUser={ message.role === 'user' }>
@@ -192,7 +198,7 @@ const AuthenticatedView = memo(
 	)
 );
 
-const UnauthenticatedView = ( { onAuthenticate } ) => (
+const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void } ) => (
 	<Message className="w-full" isUser={ false }>
 		<div className="mb-3 a8c-label-semibold">{ __( 'Hold up!' ) }</div>
 		<div className="mb-1">

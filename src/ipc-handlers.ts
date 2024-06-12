@@ -465,14 +465,6 @@ export async function getAppGlobals( _event: IpcMainInvokeEvent ): Promise< AppG
 	};
 }
 
-export async function getPhpVersion( _event: IpcMainInvokeEvent, id: string ) {
-	const server = SiteServer.get( id );
-	if ( ! server ) {
-		return DEFAULT_PHP_VERSION;
-	}
-	return server.details.phpVersion || DEFAULT_PHP_VERSION;
-}
-
 export async function getWpVersion( _event: IpcMainInvokeEvent, id: string ) {
 	const server = SiteServer.get( id );
 	if ( ! server ) {

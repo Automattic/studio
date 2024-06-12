@@ -72,8 +72,6 @@ async function appBoot() {
 
 	setupUpdates();
 
-	setupWPServerFiles().catch( Sentry.captureException );
-
 	if ( process.defaultApp ) {
 		if ( process.argv.length >= 2 ) {
 			app.setAsDefaultProtocolClient( PROTOCOL_PREFIX, process.execPath, [
@@ -219,6 +217,8 @@ async function appBoot() {
 				},
 			} );
 		} );
+
+		await setupWPServerFiles().catch( Sentry.captureException );
 
 		if ( await needsToMigrateFromWpNowFolder() ) {
 			await migrateFromWpNowFolder();

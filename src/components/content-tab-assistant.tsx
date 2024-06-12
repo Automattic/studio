@@ -152,16 +152,18 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 				className={ cx( 'flex-1 overflow-y-auto p-8', ! isAuthenticated && 'flex items-end' ) }
 			>
 				{ isAuthenticated ? (
-					<AuthenticatedView
-						messages={ messages }
-						isAssistantThinking={ isAssistantThinking }
-						updateMessage={ updateMessage }
-						path={ selectedSite.path }
-					/>
+					<>
+						<AuthenticatedView
+							messages={ messages }
+							isAssistantThinking={ isAssistantThinking }
+							updateMessage={ updateMessage }
+							path={ selectedSite.path }
+						/>
+						<div ref={ endOfMessagesRef } />
+					</>
 				) : (
 					<UnauthenticatedView onAuthenticate={ authenticate } />
 				) }
-				<div ref={ endOfMessagesRef } />
 			</div>
 			<AIInput
 				disabled={ disabled }

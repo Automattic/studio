@@ -142,7 +142,7 @@ export const Message = ( { children, isUser, className }: MessageProps ) => {
 				) }
 			</>
 		) : (
-			<div className="p-3">
+			<div className="inline-block">
 				<code className={ className } { ...props }>
 					{ children }
 				</code>

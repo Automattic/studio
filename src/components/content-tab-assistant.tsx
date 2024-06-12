@@ -3,7 +3,7 @@ import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 import { Icon, external, copy } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
 import Markdown, { ExtraProps } from 'react-markdown';
 import { useAssistant } from '../hooks/use-assistant';
 import { useAssistantApi } from '../hooks/use-assistant-api';
@@ -23,14 +23,22 @@ interface ContentTabAssistantProps {
 interface MessageProps {
 	children: React.ReactNode;
 	isUser: boolean;
+	id?: number;
 	className?: string;
 	projectPath?: string;
+	siteId?: string;
+	blocks?: {
+		cliOutput?: string;
+		cliStatus?: 'success' | 'error';
+		cliTime?: string;
+		codeBlockContent?: string;
+	}[];
 }
 
 interface InlineCLIProps {
-	output: string;
-	status: 'success' | 'error';
-	time: string;
+	output?: string;
+	status?: 'success' | 'error';
+	time?: string;
 }
 
 const InlineCLI = ( { output, status, time }: InlineCLIProps ) => (
@@ -87,11 +95,20 @@ const ActionButton = ( {
 	);
 };
 
-export const Message = ( { children, isUser, className, projectPath }: MessageProps ) => {
+export const Message = ( {
+	children,
+	id,
+	isUser,
+	className,
+	projectPath,
+	blocks,
+	updateMessage,
+}: MessageProps ) => {
 	const CodeBlock = ( props: JSX.IntrinsicElements[ 'code' ] & ExtraProps ) => {
 		const [ cliOutput, setCliOutput ] = useState< string | null >( null );
 		const [ cliStatus, setCliStatus ] = useState< 'success' | 'error' | null >( null );
 		const [ cliTime, setCliTime ] = useState< string | null >( null );
+
 		const [ isRunning, setIsRunning ] = useState( false );
 
 		const content = String( props.children ).trim();
@@ -99,7 +116,18 @@ export const Message = ( { children, isUser, className, projectPath }: MessagePr
 		const wpCommandCount = ( content.match( /\bwp\s/g ) || [] ).length;
 		const containsSingleWPCommand = wpCommandCount === 1;
 
-		const handleExecute = async () => {
+		useEffect( () => {
+			if ( blocks ) {
+				const block = blocks?.find( ( block ) => block.codeBlockContent === content );
+				if ( block ) {
+					setCliOutput( block?.cliOutput ?? null );
+					setCliStatus( block?.cliStatus ?? null );
+					setCliTime( block?.cliTime ?? null );
+				}
+			}
+		}, [ content ] );
+
+		const handleExecute = useCallback( async () => {
 			setIsRunning( true );
 			const startTime = Date.now();
 			const args = content.split( ' ' ).slice( 1 );
@@ -117,10 +145,22 @@ export const Message = ( { children, isUser, className, projectPath }: MessagePr
 					setCliOutput( result.stdout );
 					setCliStatus( 'success' );
 				}
-				setCliTime( sprintf( __( 'Completed in %s seconds' ), ( msTime / 1000 ).toFixed( 2 ) ) );
+				const completedIn = sprintf(
+					__( 'Completed in %s seconds' ),
+					( msTime / 1000 ).toFixed( 2 )
+				);
+				setCliTime( completedIn );
 				setIsRunning( false );
+
+				updateMessage(
+					id,
+					content,
+					result.stdout || result.stderr,
+					result.stderr ? 'error' : 'success',
+					completedIn || ''
+				);
 			}, 2300 );
-		};
+		}, [ content ] );
 
 		const { children, className } = props;
 		const match = /language-(\w+)/.exec( className || '' );
@@ -155,7 +195,7 @@ export const Message = ( { children, isUser, className, projectPath }: MessagePr
 						<span className="ml-2 font-sans">{ __( 'Running...' ) }</span>
 					</div>
 				) }
-				{ ! isRunning && cliOutput && cliStatus && cliTime && (
+				{ ! isRunning && cliOutput && cliStatus && (
 					<InlineCLI output={ cliOutput } status={ cliStatus } time={ cliTime } />
 				) }
 			</>
@@ -188,8 +228,31 @@ export const Message = ( { children, isUser, className, projectPath }: MessagePr
 	);
 };
 
+const RenderAuthenticatedView = memo(
+	( { messages, isAssistantThinking, updateMessage, path } ) => (
+		<>
+			{ messages.map( ( message, index ) => (
+				<Message
+					key={ index }
+					isUser={ message.role === 'user' }
+					projectPath={ path }
+					updateMessage={ updateMessage }
+					id={ message.id }
+					blocks={ message.blocks }
+				>
+					{ message.content }
+				</Message>
+			) ) }
+			{ isAssistantThinking && (
+				<Message isUser={ false }>
+					<MessageThinking />
+				</Message>
+			) }
+		</>
+	)
+);
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
-	const { messages, addMessage, clearMessages } = useAssistant( selectedSite.name );
+	const { messages, addMessage, clearMessages, updateMessage } = useAssistant( selectedSite.name );
 	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi();
 	const [ input, setInput ] = useState< string >( '' );
 	const endOfMessagesRef = useRef< HTMLDivElement >( null );
@@ -197,7 +260,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const isOffline = useOffline();
 	const { __ } = useI18n();
 
-	const handleSend = async () => {
+	const handleSend = useCallback( async () => {
 		if ( input.trim() ) {
 			addMessage( input, 'user' );
 			setInput( '' );
@@ -222,7 +285,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 				);
 			}
 		}
-	};
+	}, [ __, addMessage, fetchAssistant, input, messages ] );
 
 	const handleKeyDown = ( e: React.KeyboardEvent< HTMLTextAreaElement > ) => {
 		if ( e.key === 'Enter' ) {
@@ -243,21 +306,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 
 	const disabled = isOffline || ! isAuthenticated;
 
-	const renderAuthenticatedView = () => (
-		<>
-			{ messages.map( ( message, index ) => (
-				<Message key={ index } isUser={ message.role === 'user' } projectPath={ selectedSite.path }>
-					{ message.content }
-				</Message>
-			) ) }
-			{ isAssistantThinking && (
-				<Message isUser={ false }>
-					<MessageThinking />
-				</Message>
-			) }
-			<div ref={ endOfMessagesRef } />
-		</>
-	);
+	console.log( 'Messages:', messages );
 
 	const renderUnauthenticatedView = () => (
 		<Message className="w-full" isUser={ false }>
@@ -298,7 +347,17 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 				data-testid="assistant-chat"
 				className={ cx( 'flex-1 overflow-y-auto p-8', ! isAuthenticated && 'flex items-end' ) }
 			>
-				{ isAuthenticated ? renderAuthenticatedView() : renderUnauthenticatedView() }
+				{ isAuthenticated ? (
+					<RenderAuthenticatedView
+						messages={ messages }
+						isAssistantThinking={ isAssistantThinking }
+						updateMessage={ updateMessage }
+						path={ selectedSite.path }
+					/>
+				) : (
+					renderUnauthenticatedView()
+				) }
+				<div ref={ endOfMessagesRef } />
 			</div>
 			<AIInput
 				disabled={ disabled }

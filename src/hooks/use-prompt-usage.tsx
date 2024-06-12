@@ -9,6 +9,7 @@ type PromptUsage = {
 	promptCount: number;
 	fetchPromptUsage: () => Promise< void >;
 	updatePromptUsage: ( data: { maxQuota: string; remainingQuota: string } ) => void;
+	userCanSendMessage: boolean;
 };
 
 const initState = {
@@ -16,6 +17,7 @@ const initState = {
 	promptCount: 0,
 	fetchPromptUsage: async () => undefined,
 	updatePromptUsage: ( _data: { maxQuota: string; remainingQuota: string } ) => undefined,
+	userCanSendMessage: true,
 };
 const promptUsageContext = createContext< PromptUsage >( initState );
 
@@ -85,6 +87,7 @@ export function PromptUsageProvider( { children }: PromptUsageProps ) {
 			promptLimit,
 			promptCount,
 			updatePromptUsage,
+			userCanSendMessage: promptCount < promptLimit,
 		};
 	}, [ fetchPromptUsage, promptLimit, promptCount, updatePromptUsage ] );
 

@@ -3,9 +3,9 @@ import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { Icon, external, copy } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, memo } from 'react';
 import Markdown, { ExtraProps } from 'react-markdown';
-import { useAssistant } from '../hooks/use-assistant';
+import { useAssistant, Message as MessageType } from '../hooks/use-assistant';
 import { useAssistantApi } from '../hooks/use-assistant-api';
 import { useAuth } from '../hooks/use-auth';
 import { useOffline } from '../hooks/use-offline';
@@ -14,7 +14,6 @@ import { getIpcApi } from '../lib/get-ipc-api';
 import { AIInput } from './ai-input';
 import { MessageThinking } from './assistant-thinking';
 import Button from './button';
-import { ExecuteIcon } from './icons/execute';
 
 interface ContentTabAssistantProps {
 	selectedSite: SiteDetails;
@@ -176,6 +175,56 @@ export const Message = ( { children, isUser, className }: MessageProps ) => {
 	);
 };
 
+const AuthenticatedView = memo(
+	( { messages, isAssistantThinking }: { messages: MessageType[]; isAuthenticated: boolean } ) => (
+		<>
+			{ messages.map( ( message, index ) => (
+				<Message key={ index } isUser={ message.role === 'user' }>
+					{ message.content }
+				</Message>
+			) ) }
+			{ isAssistantThinking && (
+				<Message isUser={ false }>
+					<MessageThinking />
+				</Message>
+			) }
+		</>
+	)
+);
+
+const UnauthenticatedView = ( { onAuthenticate } ) => (
+	<Message className="w-full" isUser={ false }>
+		<div className="mb-3 a8c-label-semibold">{ __( 'Hold up!' ) }</div>
+		<div className="mb-1">
+			{ __( 'You need to log in to your WordPress.com account to use the assistant.' ) }
+		</div>
+		<div className="mb-1">
+			{ createInterpolateElement(
+				__( "If you don't have an account yet, <a>create one for free</a>." ),
+				{
+					a: (
+						<Button
+							variant="link"
+							onClick={ () =>
+								getIpcApi().openURL(
+									'https://wordpress.com/?utm_source=studio&utm_medium=referral&utm_campaign=assistant_onboarding'
+								)
+							}
+						/>
+					),
+				}
+			) }
+		</div>
+		<div className="mb-3">
+			{ __( 'Every account gets 200 prompts included for free each month.' ) }
+		</div>
+		<Button variant="primary" onClick={ onAuthenticate }>
+			{ __( 'Log in to WordPress.com' ) }
+			<Icon className="ltr:ml-1 rtl:mr-1 rtl:scale-x-[-1]" icon={ external } size={ 21 } />
+		</Button>
+	</Message>
+);
+
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
 	const { messages, addMessage, clearMessages } = useAssistant( selectedSite.name );
 	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi();
@@ -231,62 +280,20 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 
 	const disabled = isOffline || ! isAuthenticated;
 
-	const renderAuthenticatedView = () => (
-		<>
-			{ messages.map( ( message, index ) => (
-				<Message key={ index } isUser={ message.role === 'user' }>
-					{ message.content }
-				</Message>
-			) ) }
-			{ isAssistantThinking && (
-				<Message isUser={ false }>
-					<MessageThinking />
-				</Message>
-			) }
-			<div ref={ endOfMessagesRef } />
-		</>
-	);
-
-	const renderUnauthenticatedView = () => (
-		<Message className="w-full" isUser={ false }>
-			<div className="mb-3 a8c-label-semibold">{ __( 'Hold up!' ) }</div>
-			<div className="mb-1">
-				{ __( 'You need to log in to your WordPress.com account to use the assistant.' ) }
-			</div>
-			<div className="mb-1">
-				{ createInterpolateElement(
-					__( "If you don't have an account yet, <a>create one for free</a>." ),
-					{
-						a: (
-							<Button
-								variant="link"
-								onClick={ () =>
-									getIpcApi().openURL(
-										'https://wordpress.com/?utm_source=studio&utm_medium=referral&utm_campaign=assistant_onboarding'
-									)
-								}
-							/>
-						),
-					}
-				) }
-			</div>
-			<div className="mb-3">
-				{ __( 'Every account gets 200 prompts included for free each month.' ) }
-			</div>
-			<Button variant="primary" onClick={ authenticate }>
-				{ __( 'Log in to WordPress.com' ) }
-				<Icon className="ltr:ml-1 rtl:mr-1 rtl:scale-x-[-1]" icon={ external } size={ 21 } />
-			</Button>
-		</Message>
-	);
-
 	return (
 		<div className="h-full flex flex-col bg-gray-50">
 			<div
 				data-testid="assistant-chat"
 				className={ cx( 'flex-1 overflow-y-auto p-8', ! isAuthenticated && 'flex items-end' ) }
 			>
-				{ isAuthenticated ? renderAuthenticatedView() : renderUnauthenticatedView() }
+				{ isAuthenticated ? (
+					<>
+						<AuthenticatedView messages={ messages } isAssistantThinking={ isAssistantThinking } />
+						<div ref={ endOfMessagesRef } />
+					</>
+				) : (
+					<UnauthenticatedView onAuthenticate={ authenticate } />
+				) }
 			</div>
 			<AIInput
 				disabled={ disabled }

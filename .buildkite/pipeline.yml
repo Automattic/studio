@@ -28,7 +28,7 @@ steps:
 
   - label: Experiment Windows Unit Tests
     # Reference: https://github.com/Automattic/studio/pull/76#issuecomment-2162689679
-    skip: "Unit tests are disabled on Windows until we managed to solve Windows-specific test failures"
+    skip: "Disabled till we solve Windows-specific test failures"
     command: |
       bash .buildkite/commands/install-node-dependencies.sh
       echo '--- :npm: Run Unit Tests'

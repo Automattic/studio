@@ -14,7 +14,7 @@ import packageJson from '../package.json';
 import { PROTOCOL_PREFIX } from './constants';
 import * as ipcHandlers from './ipc-handlers';
 import { getPlatformName } from './lib/app-globals';
-import { bumpAggregatedUniqueStat } from './lib/bump-stats';
+import { bumpAggregatedUniqueStat, bumpStat } from './lib/bump-stats';
 import { getLocaleData, getSupportedLocale } from './lib/locale';
 import { handleAuthCallback, setUpAuthCallbackHandler } from './lib/oauth';
 import { setupLogging } from './logging';
@@ -228,6 +228,9 @@ async function appBoot() {
 
 		createMainWindow();
 
+		// Bump a stat on each app launch, approximates total app launches
+		bumpStat( 'studio-app-launch-total', process.platform );
+		// Bump stat for unique weekly app launch, approximates weekly active users
 		bumpAggregatedUniqueStat( 'local-environment-launch-uniques', process.platform, 'weekly' );
 	} );
 

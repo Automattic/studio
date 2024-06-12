@@ -1,10 +1,16 @@
+import { ReactSVG, SVGProps } from 'react';
+
 interface AssistantIconProps {
 	size?: number;
 }
 
-export function AssistantIcon( { size = 14 }: AssistantIconProps ) {
+export function AssistantIcon( {
+	size = 14,
+	'aria-hidden': ariaHidden,
+}: AssistantIconProps & SVGProps< ReactSVG > ) {
 	return (
 		<svg
+			aria-hidden={ ariaHidden }
 			width={ size }
 			height={ size }
 			viewBox={ `0 0 14 14` }

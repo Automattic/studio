@@ -159,7 +159,7 @@ export const Message = ( {
 				setCliTime( completedIn );
 				setIsRunning( false );
 
-				if ( updateMessage ) {
+				if ( updateMessage && id !== undefined ) {
 					updateMessage(
 						id,
 						content,

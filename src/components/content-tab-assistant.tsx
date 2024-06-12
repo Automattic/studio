@@ -237,7 +237,7 @@ export const Message = ( {
 	);
 };
 
-const RenderAuthenticatedView = memo(
+const AuthenticatedView = memo(
 	( {
 		messages,
 		isAssistantThinking,
@@ -276,6 +276,39 @@ const RenderAuthenticatedView = memo(
 		</>
 	)
 );
+const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void } ) => (
+	<Message className="w-full" isUser={ false }>
+		<div className="mb-3 a8c-label-semibold">{ __( 'Hold up!' ) }</div>
+		<div className="mb-1">
+			{ __( 'You need to log in to your WordPress.com account to use the assistant.' ) }
+		</div>
+		<div className="mb-1">
+			{ createInterpolateElement(
+				__( "If you don't have an account yet, <a>create one for free</a>." ),
+				{
+					a: (
+						<Button
+							variant="link"
+							onClick={ () =>
+								getIpcApi().openURL(
+									'https://wordpress.com/?utm_source=studio&utm_medium=referral&utm_campaign=assistant_onboarding'
+								)
+							}
+						/>
+					),
+				}
+			) }
+		</div>
+		<div className="mb-3">
+			{ __( 'Every account gets 200 prompts included for free each month.' ) }
+		</div>
+		<Button variant="primary" onClick={ onAuthenticate }>
+			{ __( 'Log in to WordPress.com' ) }
+			<Icon className="ltr:ml-1 rtl:mr-1 rtl:scale-x-[-1]" icon={ external } size={ 21 } />
+		</Button>
+	</Message>
+);
+
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
 	const { messages, addMessage, clearMessages, updateMessage } = useAssistant( selectedSite.name );
 	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi();
@@ -331,39 +364,6 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 
 	const disabled = isOffline || ! isAuthenticated;
 
-	const renderUnauthenticatedView = () => (
-		<Message className="w-full" isUser={ false }>
-			<div className="mb-3 a8c-label-semibold">{ __( 'Hold up!' ) }</div>
-			<div className="mb-1">
-				{ __( 'You need to log in to your WordPress.com account to use the assistant.' ) }
-			</div>
-			<div className="mb-1">
-				{ createInterpolateElement(
-					__( "If you don't have an account yet, <a>create one for free</a>." ),
-					{
-						a: (
-							<Button
-								variant="link"
-								onClick={ () =>
-									getIpcApi().openURL(
-										'https://wordpress.com/?utm_source=studio&utm_medium=referral&utm_campaign=assistant_onboarding'
-									)
-								}
-							/>
-						),
-					}
-				) }
-			</div>
-			<div className="mb-3">
-				{ __( 'Every account gets 200 prompts included for free each month.' ) }
-			</div>
-			<Button variant="primary" onClick={ authenticate }>
-				{ __( 'Log in to WordPress.com' ) }
-				<Icon className="ltr:ml-1 rtl:mr-1 rtl:scale-x-[-1]" icon={ external } size={ 21 } />
-			</Button>
-		</Message>
-	);
-
 	return (
 		<div className="h-full flex flex-col bg-gray-50">
 			<div
@@ -371,14 +371,14 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 				className={ cx( 'flex-1 overflow-y-auto p-8', ! isAuthenticated && 'flex items-end' ) }
 			>
 				{ isAuthenticated ? (
-					<RenderAuthenticatedView
+					<AuthenticatedView
 						messages={ messages }
 						isAssistantThinking={ isAssistantThinking }
 						updateMessage={ updateMessage }
 						path={ selectedSite.path }
 					/>
 				) : (
-					renderUnauthenticatedView()
+					<UnauthenticatedView onAuthenticate={ authenticate } />
 				) }
 				<div ref={ endOfMessagesRef } />
 			</div>

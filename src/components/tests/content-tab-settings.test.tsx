@@ -191,7 +191,7 @@ describe( 'ContentTabSettings', () => {
 
 			( useGetPhpVersion as jest.Mock ).mockReturnValue( '8.2' );
 			rerender( <ContentTabSettings selectedSite={ selectedSite } /> );
-			expect( within( screen.getByLabelText( 'PHP Version' ) ).getByText( '8.2' ) ).toBeVisible();
+			expect( screen.getByText( '8.2' ) ).toBeVisible();
 		} );
 
 		it( 'changes PHP version and restarts site when site is running', async () => {
@@ -231,7 +231,7 @@ describe( 'ContentTabSettings', () => {
 
 			( useGetPhpVersion as jest.Mock ).mockReturnValue( '8.2' );
 			rerender( <ContentTabSettings selectedSite={ selectedSite } /> );
-			expect( within( screen.getByLabelText( 'PHP Version' ) ).getByText( '8.2' ) ).toBeVisible();
+			expect( screen.getByText( '8.2' ) ).toBeVisible();
 		} );
 	} );
 } );

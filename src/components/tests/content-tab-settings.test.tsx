@@ -1,7 +1,6 @@
 // To run tests, execute `npm run test -- src/components/content-tab-settings.test.tsx` from the root directory
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
-import { useGetPhpVersion } from '../../hooks/use-get-php-version';
 import { useGetWpVersion } from '../../hooks/use-get-wp-version';
 import { useOffline } from '../../hooks/use-offline';
 import { useSiteDetails } from '../../hooks/use-site-details';
@@ -9,7 +8,6 @@ import { getIpcApi } from '../../lib/get-ipc-api';
 import { ContentTabSettings } from '../content-tab-settings';
 
 jest.mock( '../../hooks/use-get-wp-version' );
-jest.mock( '../../hooks/use-get-php-version' );
 jest.mock( '../../hooks/use-site-details' );
 jest.mock( '../../lib/get-ipc-api' );
 
@@ -30,7 +28,6 @@ describe( 'ContentTabSettings', () => {
 	beforeEach( () => {
 		jest.clearAllMocks();
 		( useGetWpVersion as jest.Mock ).mockReturnValue( '7.7.7' );
-		( useGetPhpVersion as jest.Mock ).mockReturnValue( '8.0' );
 		( getIpcApi as jest.Mock ).mockReturnValue( {
 			copyText,
 			openLocalPath,
@@ -168,9 +165,9 @@ describe( 'ContentTabSettings', () => {
 				startServer,
 				stopServer,
 			} );
-			( useGetPhpVersion as jest.Mock ).mockReturnValue( '8.0' );
 
 			const { rerender } = render( <ContentTabSettings selectedSite={ selectedSite } /> );
+			expect( screen.getByText( '8.0' ) ).toBeVisible();
 			await user.click( screen.getByRole( 'button', { name: 'Edit PHP version' } ) );
 			const dialog = screen.getByRole( 'dialog' );
 			expect( dialog ).toBeVisible();
@@ -189,8 +186,7 @@ describe( 'ContentTabSettings', () => {
 			expect( stopServer ).not.toHaveBeenCalled();
 			expect( startServer ).not.toHaveBeenCalled();
 
-			( useGetPhpVersion as jest.Mock ).mockReturnValue( '8.2' );
-			rerender( <ContentTabSettings selectedSite={ selectedSite } /> );
+			rerender( <ContentTabSettings selectedSite={ { ...selectedSite, phpVersion: '8.2' } } /> );
 			expect( screen.getByText( '8.2' ) ).toBeVisible();
 		} );
 
@@ -208,9 +204,9 @@ describe( 'ContentTabSettings', () => {
 				startServer,
 				stopServer,
 			} );
-			( useGetPhpVersion as jest.Mock ).mockReturnValue( '8.0' );
 
 			const { rerender } = render( <ContentTabSettings selectedSite={ selectedSite } /> );
+			expect( screen.getByText( '8.0' ) ).toBeVisible();
 			await user.click( screen.getByRole( 'button', { name: 'Edit PHP version' } ) );
 			const dialog = screen.getByRole( 'dialog' );
 			expect( dialog ).toBeVisible();
@@ -229,8 +225,7 @@ describe( 'ContentTabSettings', () => {
 			expect( stopServer ).toHaveBeenCalled();
 			expect( startServer ).toHaveBeenCalled();
 
-			( useGetPhpVersion as jest.Mock ).mockReturnValue( '8.2' );
-			rerender( <ContentTabSettings selectedSite={ selectedSite } /> );
+			rerender( <ContentTabSettings selectedSite={ { ...selectedSite, phpVersion: '8.2' } } /> );
 			expect( screen.getByText( '8.2' ) ).toBeVisible();
 		} );
 	} );

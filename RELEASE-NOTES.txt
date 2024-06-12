@@ -1,3 +1,11 @@
+1.0.4
+=====
+* Added a modal allowing users to speed up sites on Windows #211
+* Added reclaiming unavailable port after site deletion  #195
+* Translated "About Studio" window #228
+* Added menu links to feature request and bug report forms #185
+* Fixed possible race conditions when adding site #229
+
 1.0.3
 =====
 * Fixed plugin, theme, and WordPress core updates #156

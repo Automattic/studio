@@ -34,7 +34,7 @@ interface MessageProps {
 		codeBlockContent?: string;
 	}[];
 	updateMessage?: (
-		id: string | number,
+		id: number,
 		content: string,
 		output: string,
 		status: 'success' | 'error',
@@ -45,7 +45,7 @@ interface MessageProps {
 interface InlineCLIProps {
 	output?: string;
 	status?: 'success' | 'error';
-	time?: string;
+	time?: string | null;
 }
 
 const InlineCLI = ( { output, status, time }: InlineCLIProps ) => (

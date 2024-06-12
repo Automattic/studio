@@ -1,9 +1,10 @@
 import { Spinner } from '@wordpress/components';
-import { __, sprintf } from '@wordpress/i18n';
+import { __ } from '@wordpress/i18n';
 import { Icon, copy } from '@wordpress/icons';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Markdown, { ExtraProps } from 'react-markdown';
 import stripAnsi from 'strip-ansi';
+import { useExecuteWPCLI } from '../hooks/use-execute-cli';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
@@ -101,16 +102,21 @@ export const Message = ( {
 	updateMessage,
 }: MessageProps ) => {
 	const CodeBlock = ( props: JSX.IntrinsicElements[ 'code' ] & ExtraProps ) => {
-		const [ cliOutput, setCliOutput ] = useState< string | null >( null );
-		const [ cliStatus, setCliStatus ] = useState< 'success' | 'error' | null >( null );
-		const [ cliTime, setCliTime ] = useState< string | null >( null );
-
-		const [ isRunning, setIsRunning ] = useState( false );
-
 		const content = String( props.children ).trim();
 		const containsWPCommand = /\bwp\s/.test( content );
 		const wpCommandCount = ( content.match( /\bwp\s/g ) || [] ).length;
 		const containsSingleWPCommand = wpCommandCount === 1;
+
+		const {
+			cliOutput,
+			cliStatus,
+			cliTime,
+			isRunning,
+			handleExecute,
+			setCliOutput,
+			setCliStatus,
+			setCliTime,
+		} = useExecuteWPCLI( content, projectPath, updateMessage, id );
 
 		useEffect( () => {
 			if ( blocks ) {
@@ -121,44 +127,7 @@ export const Message = ( {
 					setCliTime( block?.cliTime ?? null );
 				}
 			}
-		}, [ cliOutput, content ] );
-
-		const handleExecute = useCallback( async () => {
-			setIsRunning( true );
-			const startTime = Date.now();
-			const args = content.split( ' ' ).slice( 1 );
-			const result = await getIpcApi().executeWPCLiInline( {
-				projectPath: projectPath || '',
-				args,
-			} );
-
-			setTimeout( () => {
-				const msTime = Date.now() - startTime;
-				if ( result.stderr ) {
-					setCliOutput( result.stderr );
-					setCliStatus( 'error' );
-				} else {
-					setCliOutput( result.stdout );
-					setCliStatus( 'success' );
-				}
-				const completedIn = sprintf(
-					__( 'Completed in %s seconds' ),
-					( msTime / 1000 ).toFixed( 2 )
-				);
-				setCliTime( completedIn );
-				setIsRunning( false );
-
-				if ( updateMessage && id !== undefined ) {
-					updateMessage(
-						id,
-						content,
-						result.stdout || result.stderr,
-						result.stderr ? 'error' : 'success',
-						completedIn || ''
-					);
-				}
-			}, 2300 );
-		}, [ content ] );
+		}, [ cliOutput, content, setCliOutput, setCliStatus, setCliTime ] );
 
 		const { children, className } = props;
 		const match = /language-(\w+)/.exec( className || '' );

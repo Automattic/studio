@@ -116,7 +116,7 @@ export const Message = ( { children, isUser, className }: MessageProps ) => {
 						{ children }
 					</code>
 				</div>
-				<div className="p-3 mt-1 flex justify-start items-center">
+				<div className="p-3 pt-1 flex justify-start items-center">
 					<ActionButton
 						primaryLabel={ __( 'Copy' ) }
 						secondaryLabel={ __( 'Copied' ) }

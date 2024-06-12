@@ -59,6 +59,19 @@ const secondaryStyles = `
 [&.is-secondary:not(:focus)]:aria-disabled:hover:shadow-a8c-gray-5
 `.replace( /\n/g, ' ' );
 
+const tertiaryStyles = `
+[&.is-tertiary]:text-white
+[&.is-tertiary]:bg-gray-700
+[&.is-tertiary]:focus:bg-gray-600
+[&.is-tertiary]:focus:text-white
+[&.is-tertiary:not(.is-destructive,:disabled,[aria-disabled=true])]:hover:bg-gray-600
+[&.is-tertiary:not(.is-destructive,:disabled,[aria-disabled=true])]:hover:text-white
+[&.is-tertiary]:hover:bg-white
+[&.is-tertiary]:hover:text-white
+[&.is-tertiary]:disabled:bg-gray-700
+[&.is-tertiary]:disabled:text-a8c-gray-50
+`.replace( /\n/g, ' ' );
+
 const destructiveStyles = `
 [&.is-destructive:not(.is-primary)]:text-a8c-red-50
 [&.is-destructive:not(.is-primary)]:hover:text-a8c-red-70
@@ -107,6 +120,7 @@ export default function ButtonComponent( {
 				baseStyles,
 				variant === 'primary' && primaryStyles,
 				variant === 'secondary' && secondaryStyles,
+				variant === 'tertiary' && tertiaryStyles,
 				variant === 'link' && linkStyles,
 				variant === 'icon' && iconStyles,
 				props.isDestructive && destructiveStyles,

@@ -5,6 +5,13 @@ import { useIpcListener } from '../../hooks/use-ipc-listener';
 import { useOffline } from '../../hooks/use-offline';
 import UserSettings from '../user-settings';
 
+jest.mock( '../../lib/app-globals', () => ( {
+	getAppGlobals: () => ( {
+		assistantEnabled: false,
+	} ),
+	isMac: jest.fn(),
+} ) );
+
 jest.mock( '../../hooks/use-auth' );
 jest.mock( '../../hooks/use-ipc-listener' );
 

@@ -151,11 +151,17 @@ export const Message = ( { children, isUser, className }: MessageProps ) => {
 	};
 
 	return (
-		<div className={ cx( 'flex mt-4', isUser ? 'justify-end' : 'justify-start', className ) }>
+		<div
+			className={ cx(
+				'flex mt-4',
+				isUser ? 'justify-end md:ml-24' : 'justify-start md:mr-24',
+				className
+			) }
+		>
 			<div
 				className={ cx(
-					'inline-block p-3 rounded-sm border border-gray-300 lg:max-w-[70%] select-text',
-					! isUser && 'bg-white'
+					'inline-block p-3 rounded border border-gray-300 lg:max-w-[70%] select-text',
+					! isUser ? 'bg-white' : 'bg-white/45'
 				) }
 			>
 				{ typeof children === 'string' ? (

@@ -93,6 +93,16 @@ blockquote {
 	word-wrap: break-word;
 }
 
+.assistant-markdown a {
+	color: #3858E9;
+}
+
+.assistant-markdown a:hover,
+.assistant-markdown a:focus {
+	color: #2145E6;
+	text-decoration: underline;
+}
+
 .assistant-markdown blockquote {
 	background-color: theme( 'colors.a8c-gray.0' );
 	border-radius: 2px;

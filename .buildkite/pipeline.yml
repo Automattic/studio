@@ -58,9 +58,7 @@ steps:
       DEBUG: 'pw:browser'
     matrix:
       - mac
-      # Windows destination disabled till we find the cause of Windows-specific test failures
-      # See https://github.com/Automattic/studio/pull/76#issuecomment-2146529123
-      # - windows
+      - windows
 
   - group: "📦 Build for Mac"
     key: 'dev-mac'

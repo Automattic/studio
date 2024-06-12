@@ -180,7 +180,7 @@ export const Message = ( {
 						{ children }
 					</code>
 				</div>
-				<div className="p-3 mt-1 flex justify-start items-center">
+				<div className="p-3 pt-1 flex justify-start items-center">
 					<ActionButton
 						primaryLabel={ __( 'Copy' ) }
 						secondaryLabel={ __( 'Copied' ) }
@@ -209,7 +209,7 @@ export const Message = ( {
 				) }
 			</>
 		) : (
-			<div className="p-3">
+			<div className="inline-block">
 				<code className={ className } { ...props }>
 					{ children }
 				</code>
@@ -218,11 +218,17 @@ export const Message = ( {
 	};
 
 	return (
-		<div className={ cx( 'flex mt-4', isUser ? 'justify-end' : 'justify-start', className ) }>
+		<div
+			className={ cx(
+				'flex mt-4',
+				isUser ? 'justify-end md:ml-24' : 'justify-start md:mr-24',
+				className
+			) }
+		>
 			<div
 				className={ cx(
-					'inline-block p-3 rounded-sm border border-gray-300 lg:max-w-[70%] select-text whitespace-pre-wrap',
-					! isUser && 'bg-white'
+					'inline-block p-3 rounded border border-gray-300 lg:max-w-[70%] select-text',
+					! isUser ? 'bg-white' : 'bg-white/45'
 				) }
 			>
 				{ typeof children === 'string' ? (

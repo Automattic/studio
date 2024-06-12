@@ -3,6 +3,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { Icon, copy } from '@wordpress/icons';
 import { useCallback, useEffect, useState } from 'react';
 import Markdown, { ExtraProps } from 'react-markdown';
+import stripAnsi from 'strip-ansi';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
@@ -115,12 +116,12 @@ export const Message = ( {
 			if ( blocks ) {
 				const block = blocks?.find( ( block ) => block.codeBlockContent === content );
 				if ( block ) {
-					setCliOutput( block?.cliOutput ?? null );
+					setCliOutput( block?.cliOutput ? stripAnsi( block.cliOutput ) : null );
 					setCliStatus( block?.cliStatus ?? null );
 					setCliTime( block?.cliTime ?? null );
 				}
 			}
-		}, [ content ] );
+		}, [ cliOutput, content ] );
 
 		const handleExecute = useCallback( async () => {
 			setIsRunning( true );

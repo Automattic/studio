@@ -228,4 +228,25 @@ describe( 'AddSite', () => {
 			);
 		} );
 	} );
+
+	it( 'should disable submissions while the site is being added', async () => {
+		const user = userEvent.setup();
+		mockGenerateProposedSitePath.mockResolvedValue( {
+			path: '/default_path/my-wordpress-website',
+			name: 'My WordPress Website',
+			isEmpty: true,
+			isWordPress: false,
+		} );
+		mockCreateSite.mockImplementationOnce( () => {
+			return new Promise( () => {
+				// no-op
+			} );
+		} );
+		render( <AddSite /> );
+
+		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+
+		expect( screen.getByRole( 'button', { name: 'Adding site…' } ) ).toBeDisabled();
+	} );
 } );

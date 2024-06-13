@@ -124,7 +124,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 								type="submit"
 								variant="primary"
 								isBusy={ isAddingSite }
-								disabled={ !! error || ! siteName?.trim() }
+								disabled={ isAddingSite || !! error || ! siteName?.trim() }
 							>
 								{ isAddingSite ? __( 'Adding site…' ) : __( 'Add site' ) }
 							</Button>

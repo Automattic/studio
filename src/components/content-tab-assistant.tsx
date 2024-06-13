@@ -149,6 +149,8 @@ export const Message = ( { children, isUser, className }: MessageProps ) => {
 		);
 	};
 
+	const authorLabel = isUser ? __( 'Your message' ) : __( 'Studio Assistant' );
+
 	return (
 		<div
 			className={ cx(
@@ -158,6 +160,7 @@ export const Message = ( { children, isUser, className }: MessageProps ) => {
 			) }
 		>
 			<div
+				aria-label={ `${ authorLabel }, ${ children }` }
 				className={ cx(
 					'inline-block p-3 rounded border border-gray-300 lg:max-w-[70%] select-text',
 					! isUser ? 'bg-white' : 'bg-white/45'

@@ -288,10 +288,12 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	}, [ messages ] );
 
 	useEffect( () => {
-		if ( messages.length > 0 ) {
+		if ( messages.length === 0 ) {
+			setShowWelcome( true );
+		} else {
 			setShowWelcome( false );
 		}
-	}, [ messages ] );
+	}, [ selectedSite, messages ] );
 
 	const disabled = isOffline || ! isAuthenticated;
 

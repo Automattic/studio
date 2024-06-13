@@ -3,7 +3,7 @@
 	"author": "Automattic Inc.",
 	"private": true,
 	"productName": "Studio",
-	"version": "1.0.4-beta1",
+	"version": "1.0.4-beta2",
 	"description": "Local WordPress development environment using Playgrounds",
 	"license": "GPL-2.0-or-later",
 	"main": ".webpack/main",
@@ -115,6 +115,7 @@
 		"hpagent": "1.2.0",
 		"react-markdown": "^9.0.1",
 		"semver": "^7.6.0",
+		"sudo-prompt": "^9.2.1",
 		"unzipper": "0.10.11",
 		"wpcom": "^5.4.2",
 		"yargs": "17.7.2"

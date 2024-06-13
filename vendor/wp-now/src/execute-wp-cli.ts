@@ -1,23 +1,29 @@
 import startWPNow from './wp-now';
-import { downloadWPCLI } from './download';
+import { downloadWpCli } from './download';
 import getWpCliPath from './get-wp-cli-path';
-import getWpNowConfig from './config';
+import getWpNowConfig, { WPNowMode } from './config';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from './constants';
 import { phpVar } from '@php-wasm/util';
 
 /**
  * This is an unstable API. Multiple wp-cli commands may not work due to a current limitation on php-wasm and pthreads.
- * @param args The arguments to pass to wp-cli.
  */
 export async function executeWPCli ( projectPath: string, args: string[] ): Promise<{ stdout: string; stderr: string; }> {
-	await downloadWPCLI();
+	await downloadWpCli();
 	const options = await getWpNowConfig({
 		php: DEFAULT_PHP_VERSION,
 		wp: DEFAULT_WORDPRESS_VERSION,
 		path: projectPath,
 	});
+	let mode = options.mode;
+	if (options.mode !== WPNowMode.WORDPRESS) {
+		// In case of not having the site projectPath,
+		// we use index mode to avoid other logic like downloading WordPress
+		mode = WPNowMode.INDEX;
+	}
 	const { phpInstances, options: wpNowOptions } = await startWPNow({
 		...options,
+		mode,
 		numberOfPhpInstances: 2,
 	});
 	const [, php] = phpInstances;

@@ -235,6 +235,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const { messages, addMessage, clearMessages } = useAssistant( selectedSite.name );
 	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi();
 	const [ input, setInput ] = useState< string >( '' );
+	const [ showWelcome, setShowWelcome ] = useState( true );
 	const endOfMessagesRef = useRef< HTMLDivElement >( null );
 	const { isAuthenticated, authenticate } = useAuth();
 	const isOffline = useOffline();
@@ -244,6 +245,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		const message = messageToSend || input;
 		if ( message.trim() ) {
 			addMessage( message, 'user' );
+			setShowWelcome( false );
 			setInput( '' );
 			try {
 				const { message: assistantMessage } = await fetchAssistant( [
@@ -285,6 +287,12 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		}
 	}, [ messages ] );
 
+	useEffect( () => {
+		if ( messages.length > 0 ) {
+			setShowWelcome( false );
+		}
+	}, [ messages ] );
+
 	const disabled = isOffline || ! isAuthenticated;
 
 	return (
@@ -295,8 +303,14 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 			>
 				{ isAuthenticated ? (
 					<>
-						<WelcomeComponent onExampleClick={ ( prompt ) => handleSend( prompt ) } />
-						<AuthenticatedView messages={ messages } isAssistantThinking={ isAssistantThinking } />
+						{ showWelcome ? (
+							<WelcomeComponent onExampleClick={ ( prompt ) => handleSend( prompt ) } />
+						) : (
+							<AuthenticatedView
+								messages={ messages }
+								isAssistantThinking={ isAssistantThinking }
+							/>
+						) }
 						<div ref={ endOfMessagesRef } />
 					</>
 				) : (

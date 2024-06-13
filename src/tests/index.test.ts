@@ -2,9 +2,17 @@
  * @jest-environment node
  */
 import fs from 'fs';
+import { createMainWindow } from '../main-window';
+import setupWPServerFiles from '../setup-wp-server-files';
 
 jest.mock( 'fs' );
 jest.mock( 'file-stream-rotator' );
+jest.mock( '../main-window' );
+jest.mock( '../updates' );
+jest.mock( '../lib/bump-stats' );
+jest.mock( '../setup-wp-server-files', () =>
+	jest.fn( () => new Promise< void >( ( resolve ) => resolve() ) )
+);
 
 const mockUserData = {
 	sites: [],
@@ -14,6 +22,10 @@ const mockUserData = {
 	JSON.stringify( mockUserData )
 );
 ( fs as MockedFs ).__setFileContents( '/path/to/app/temp/com.wordpress.studio/', '' );
+
+afterEach( () => {
+	jest.clearAllMocks();
+} );
 
 it( 'should boot successfully', () => {
 	jest.isolateModules( () => {
@@ -68,8 +80,8 @@ it( 'should handle authentication deep links', () => {
 	} );
 } );
 
-it( 'should await the app ready state before creating a window for activate events', () => {
-	jest.isolateModules( async () => {
+it( 'should await the app ready state before creating a window for activate events', async () => {
+	await jest.isolateModulesAsync( async () => {
 		// eslint-disable-next-line @typescript-eslint/no-empty-function
 		let activate: ( ...args: any[] ) => void = () => {};
 		jest.doMock( 'electron', () => {
@@ -87,25 +99,19 @@ it( 'should await the app ready state before creating a window for activate even
 				},
 			};
 		} );
-		const createMainWindowMock = jest.fn();
-		jest.doMock( '../main-window', () => {
-			return {
-				createMainWindow: createMainWindowMock,
-			};
-		} );
 		require( '../index' );
 
 		activate();
 
-		expect( createMainWindowMock ).not.toHaveBeenCalled();
+		expect( createMainWindow ).not.toHaveBeenCalled();
 		// Await the mocked `whenReady` promise resolution
 		await new Promise( process.nextTick );
-		expect( createMainWindowMock ).toHaveBeenCalled();
+		expect( createMainWindow ).toHaveBeenCalled();
 	} );
 } );
 
-it( 'should gracefully handle app ready failures when creating a window on activate', () => {
-	jest.isolateModules( async () => {
+it( 'should gracefully handle app ready failures when creating a window on activate', async () => {
+	await jest.isolateModulesAsync( async () => {
 		// eslint-disable-next-line @typescript-eslint/no-empty-function
 		let activate: ( ...args: any[] ) => void = () => {};
 		jest.doMock( 'electron', () => {
@@ -123,10 +129,6 @@ it( 'should gracefully handle app ready failures when creating a window on activ
 				},
 			};
 		} );
-		const createMainWindowMock = jest.fn();
-		jest.doMock( '../main-window', () => ( {
-			createMainWindow: createMainWindowMock,
-		} ) );
 		const captureExceptionMock = jest.fn();
 		jest.doMock( '@sentry/electron/main', () => ( {
 			init: jest.fn(),
@@ -136,11 +138,46 @@ it( 'should gracefully handle app ready failures when creating a window on activ
 
 		activate();
 
-		expect( async () => {
-			// Await the mocked `whenReady` promise resolution
+		await new Promise( process.nextTick );
+		expect( createMainWindow ).not.toHaveBeenCalled();
+		expect( captureExceptionMock ).toHaveBeenCalled();
+	} );
+} );
+
+it( 'should setup server files before creating main window', async () => {
+	await jest.isolateModulesAsync( async () => {
+		// eslint-disable-next-line @typescript-eslint/no-empty-function
+		let ready: ( ...args: any[] ) => Promise< void > = async () => {};
+		jest.doMock( 'electron', () => {
+			const electron = jest.genMockFromModule( 'electron' ) as typeof import('electron');
+			return {
+				...electron,
+				app: {
+					...electron.app,
+					on: jest.fn( ( event, callback ) => {
+						if ( event === 'ready' ) {
+							ready = callback;
+						}
+					} ),
+				},
+			};
+		} );
+		require( '../index' );
+
+		// Add a mock function to check that `setupWPServerFiles` is resolved before
+		// creating the main window.
+		const resolveFn = jest.fn();
+		( setupWPServerFiles as jest.Mock ).mockImplementation( async () => {
 			await new Promise( process.nextTick );
-			expect( createMainWindowMock ).not.toHaveBeenCalled();
-			expect( captureExceptionMock ).toHaveBeenCalled();
-		} ).not.toThrow();
+			resolveFn();
+		} );
+
+		await ready();
+
+		expect( resolveFn ).toHaveBeenCalled();
+		const setupWPServerFilesResolvedOrder = resolveFn.mock.invocationCallOrder[ 0 ];
+		const createMainWindowOrder = ( createMainWindow as jest.Mock ).mock.invocationCallOrder[ 0 ];
+
+		expect( setupWPServerFilesResolvedOrder ).toBeLessThan( createMainWindowOrder );
 	} );
 } );

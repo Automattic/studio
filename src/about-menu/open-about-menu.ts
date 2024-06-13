@@ -1,5 +1,7 @@
 import { BrowserWindow, app, shell } from 'electron';
 import path from 'path';
+import * as Sentry from '@sentry/electron/renderer';
+import { sprintf, __ } from '@wordpress/i18n';
 import { ABOUT_WINDOW_HEIGHT, ABOUT_WINDOW_WIDTH } from '../constants';
 
 let aboutWindow: BrowserWindow | null = null;
@@ -35,17 +37,31 @@ export function openAboutWindow() {
 	// Read package.json and pass version to about window
 	const packageJson = app.getVersion();
 
+	function escapeSingleQuotes( str: string ) {
+		return str.replace( /'/g, "\\'" );
+	}
+
 	aboutWindow.webContents.on( 'dom-ready', () => {
 		if ( aboutWindow ) {
-			// Inject version into the about window's HTML
-			aboutWindow.webContents
-				.executeJavaScript( `document.getElementById('version').innerText = '${ packageJson }'` )
-				.catch( ( err ) => {
-					console.error( 'Error executing JavaScript:', err );
-				} );
+			const versionText = sprintf( __( 'Version %s' ), packageJson );
+			const studioByWpcomText = escapeSingleQuotes( __( 'Studio by WordPress.com' ) );
+			const shareFeedbackText = escapeSingleQuotes( __( 'Share Feedback' ) );
+			const demoSitesText = escapeSingleQuotes( __( 'Demo sites powered by' ) );
+			const localSitesText = escapeSingleQuotes( __( 'Local sites powered by' ) );
+
+			const script = `
+				document.getElementById('studio-by-wpcom').innerText = '${ studioByWpcomText }';
+				document.getElementById('version-text').innerText = '${ versionText }';
+				document.getElementById('share-feedback').innerText = '${ shareFeedbackText }';
+				document.getElementById('demo-sites').innerText = '${ demoSitesText }';
+				document.getElementById('local-sites').innerText = '${ localSitesText }';
+			`;
+			aboutWindow.webContents.executeJavaScript( script ).catch( ( err ) => {
+				Sentry.captureException( err );
+				console.error( 'Error executing JavaScript:', err );
+			} );
 		}
 	} );
-
 	aboutWindow.on( 'closed', () => {
 		aboutWindow = null;
 	} );

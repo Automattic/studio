@@ -14,7 +14,7 @@ import packageJson from '../package.json';
 import { PROTOCOL_PREFIX } from './constants';
 import * as ipcHandlers from './ipc-handlers';
 import { getPlatformName } from './lib/app-globals';
-import { bumpAggregatedUniqueStat } from './lib/bump-stats';
+import { bumpAggregatedUniqueStat, bumpStat } from './lib/bump-stats';
 import {
 	listenCLICommands,
 	getCLIDataForMainInstance,
@@ -92,8 +92,6 @@ async function appBoot() {
 	setupLogging();
 
 	setupUpdates();
-
-	setupWPServerFiles().catch( Sentry.captureException );
 
 	if ( process.defaultApp ) {
 		if ( process.argv.length >= 2 ) {
@@ -246,6 +244,8 @@ async function appBoot() {
 			} );
 		} );
 
+		await setupWPServerFiles().catch( Sentry.captureException );
+
 		if ( await needsToMigrateFromWpNowFolder() ) {
 			await migrateFromWpNowFolder();
 		}
@@ -258,6 +258,9 @@ async function appBoot() {
 		listenCLICommands();
 		executeCLICommand();
 
+		// Bump a stat on each app launch, approximates total app launches
+		bumpStat( 'studio-app-launch-total', process.platform );
+		// Bump stat for unique weekly app launch, approximates weekly active users
 		bumpAggregatedUniqueStat( 'local-environment-launch-uniques', process.platform, 'weekly' );
 	} );
 

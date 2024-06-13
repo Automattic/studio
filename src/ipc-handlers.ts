@@ -34,6 +34,7 @@ import {
 	isSqlLiteInstalled,
 	removeLegacySqliteIntegrationPlugin,
 } from './lib/sqlite-versions';
+import * as windowsHelpers from './lib/windows-helpers';
 import { writeLogToFile, type LogLevel } from './logging';
 import { popupMenu } from './menu';
 import { SiteServer, createSiteWorkingDirectory } from './site-server';
@@ -651,4 +652,11 @@ export async function showNotification(
 
 export function popupAppMenu( _event: IpcMainInvokeEvent ) {
 	popupMenu();
+}
+
+export async function promptWindowsSpeedUpSites(
+	_event: IpcMainInvokeEvent,
+	{ skipIfAlreadyPrompted }: { skipIfAlreadyPrompted: boolean }
+) {
+	await windowsHelpers.promptWindowsSpeedUpSites( { skipIfAlreadyPrompted } );
 }

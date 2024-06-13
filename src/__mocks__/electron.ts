@@ -1,6 +1,7 @@
 export const ipcMain = {
 	emit: jest.fn(),
 	on: jest.fn(),
+	handle: jest.fn(),
 };
 
 export const app = {
@@ -20,6 +21,7 @@ export const app = {
 		hasSwitch: jest.fn( () => false ),
 		getSwitchValue: jest.fn(),
 	},
+	getSystemLocale: jest.fn(),
 };
 
 // eslint-disable-next-line @typescript-eslint/no-empty-function
@@ -53,4 +55,13 @@ export const shell = {
 export const autoUpdater = {
 	setFeedURL: jest.fn(),
 	on: jest.fn(),
+};
+
+export const session = {
+	defaultSession: {
+		setPermissionRequestHandler: jest.fn(),
+		webRequest: {
+			onHeadersReceived: jest.fn(),
+		},
+	},
 };

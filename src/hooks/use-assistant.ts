@@ -39,7 +39,9 @@ export const useAssistant = ( selectedSiteId: string ) => {
 
 	const clearMessages = () => {
 		setMessages( [] );
+		setChatId( undefined );
 		localStorage.setItem( selectedSiteId, JSON.stringify( [] ) );
+		localStorage.setItem( 'chat_' + selectedSiteId, JSON.stringify( '' ) );
 	};
 
 	return { messages, addMessage, clearMessages, chatId };

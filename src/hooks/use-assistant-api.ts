@@ -9,13 +9,13 @@ export function useAssistantApi() {
 	const { updatePromptUsage } = usePromptUsage();
 
 	const fetchAssistant = useCallback(
-		async ( chatId: string | undefined, message: Message ) => {
+		async ( chatId: string | undefined, messages: Message[] ) => {
 			if ( ! client ) {
 				throw new Error( 'WPcom client not initialized' );
 			}
 			setIsLoading( true );
 			const body = {
-				message,
+				messages,
 				chat_id: chatId,
 				context: [],
 			};
@@ -49,8 +49,7 @@ export function useAssistantApi() {
 			} finally {
 				setIsLoading( false );
 			}
-			const newMessage = response?.choices?.[ response?.choices.length - 1 ]?.message?.content;
-			console.log( 'chat_id', response );
+			const newMessage = response?.choices?.[ 0 ]?.message?.content;
 			updatePromptUsage( headers );
 			return { message: newMessage, chatId: response?.id };
 		},

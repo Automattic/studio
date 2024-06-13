@@ -56,7 +56,7 @@ describe( 'useAssistantApi', () => {
 		const { result } = renderHook( () => useAssistantApi() );
 
 		await act( async () => {
-			await expect( result.current.fetchAssistant( chatId, {} as Message ) ).rejects.toThrow(
+			await expect( result.current.fetchAssistant( chatId, [] ) ).rejects.toThrow(
 				'WPcom client not initialized'
 			);
 		} );
@@ -67,7 +67,9 @@ describe( 'useAssistantApi', () => {
 
 		let response = { message: '' };
 		await act( async () => {
-			response = await result.current.fetchAssistant( chatId, { content: 'test', role: 'user' } );
+			response = await result.current.fetchAssistant( chatId, [
+				{ content: 'test', role: 'user' },
+			] );
 		} );
 
 		expect( response?.message ).toBe( 'Hello! How can I assist you today?' );
@@ -82,7 +84,7 @@ describe( 'useAssistantApi', () => {
 
 		await act( async () => {
 			await expect(
-				result.current.fetchAssistant( chatId, { content: 'test', role: 'user' } )
+				result.current.fetchAssistant( chatId, [ { content: 'test', role: 'user' } ] )
 			).rejects.toThrow( 'Failed to fetch assistant' );
 		} );
 	} );

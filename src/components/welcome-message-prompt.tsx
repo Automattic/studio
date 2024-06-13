@@ -1,3 +1,5 @@
+import { useEffect } from 'react';
+import { useFetchWelcomeMessages } from '../hooks/use-fetch-welcome-messages';
 import { cx } from '../lib/cx';
 
 interface WelcomeMessagePromptProps {
@@ -6,7 +8,7 @@ interface WelcomeMessagePromptProps {
 	className?: string;
 }
 
-interface ExampleMessahgePromptProps {
+interface ExampleMessagePromptProps {
 	onClick?: () => void;
 	children: React.ReactNode;
 	className?: string;
@@ -20,11 +22,55 @@ export const WelcomeMessagePrompt = ( {
 	<div className={ cx( 'flex mt-4' ) }>
 		<div
 			className={ cx(
-				'inline-block p-3 rounded border border-gray-300 lg:max-w-[70%] select-text'
+				'inline-block p-3 rounded border border-gray-300 lg:max-w-[70%] select-text',
+				className
 			) }
 			onClick={ onClick }
 		>
-			<p className="text-lg text-gray-600">Big burrito</p>
+			<p className="text-lg text-gray-600">{ children }</p>
 		</div>
 	</div>
 );
+
+export const ExampleMessagePrompt = ( {
+	onClick,
+	children,
+	className,
+}: ExampleMessagePromptProps ) => (
+	<div className={ cx( 'flex mt-4' ) }>
+		<div
+			className={ cx(
+				'inline-block p-3 rounded border border-gray-300 lg:max-w-[70%] select-text',
+				className
+			) }
+			onClick={ onClick }
+		>
+			<p className="text-lg text-gray-600">{ children }</p>
+		</div>
+	</div>
+);
+
+const WelcomeComponent = () => {
+	const { messages, examplePrompts, fetchWelcomeMessages } = useFetchWelcomeMessages();
+
+	useEffect( () => {
+		fetchWelcomeMessages();
+	}, [ fetchWelcomeMessages ] );
+
+	return (
+		<div>
+			{ messages.map( ( message, index ) => (
+				<WelcomeMessagePrompt key={ index } className="welcome-message">
+					{ message }
+				</WelcomeMessagePrompt>
+			) ) }
+			{ examplePrompts.map( ( prompt, index ) => (
+				<ExampleMessagePrompt key={ index } className="example-prompt">
+					{ prompt }
+				</ExampleMessagePrompt>
+			) ) }
+		</div>
+	);
+};
+
+export default WelcomeComponent;

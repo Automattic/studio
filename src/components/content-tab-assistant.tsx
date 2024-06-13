@@ -14,8 +14,7 @@ import { getIpcApi } from '../lib/get-ipc-api';
 import { AIInput } from './ai-input';
 import { MessageThinking } from './assistant-thinking';
 import Button from './button';
-import { WelcomeMessagePrompt } from './welcome-message-prompt';
-
+import WelcomeComponent from './welcome-message-prompt';
 interface ContentTabAssistantProps {
 	selectedSite: SiteDetails;
 }
@@ -295,7 +294,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 			>
 				{ isAuthenticated ? (
 					<>
-						<WelcomeMessagePrompt />
+						<WelcomeComponent />
 						<AuthenticatedView messages={ messages } isAssistantThinking={ isAssistantThinking } />
 						<div ref={ endOfMessagesRef } />
 					</>

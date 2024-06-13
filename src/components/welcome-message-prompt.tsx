@@ -22,12 +22,14 @@ export const WelcomeMessagePrompt = ( {
 	<div className={ cx( 'flex mt-4' ) }>
 		<div
 			className={ cx(
-				'inline-block p-3 rounded border border-gray-300 lg:max-w-[70%] select-text',
+				'inline-block p-3 rounded border border-gray-300 lg:max-w-[70%] select-text bg-white',
 				className
 			) }
 			onClick={ onClick }
 		>
-			<p className="text-lg text-gray-600">{ children }</p>
+			<div className="assistant-markdown">
+				<p>{ children }</p>
+			</div>
 		</div>
 	</div>
 );
@@ -45,7 +47,9 @@ export const ExampleMessagePrompt = ( {
 			) }
 			onClick={ onClick }
 		>
-			<p className="text-lg text-gray-600">{ children }</p>
+			<div className="assistant-markdown">
+				<p>{ children }</p>
+			</div>
 		</div>
 	</div>
 );

@@ -35,27 +35,42 @@ const AuthenticatedView = memo(
 			cliTime: string
 		) => void;
 		path: string;
-	} ) => (
-		<>
-			{ messages.map( ( message, index ) => (
-				<Message
-					key={ index }
-					isUser={ message.role === 'user' }
-					projectPath={ path }
-					updateMessage={ updateMessage }
-					id={ message.id }
-					blocks={ message.blocks }
-				>
-					{ message.content }
-				</Message>
-			) ) }
-			{ isAssistantThinking && (
-				<Message isUser={ false }>
-					<MessageThinking />
-				</Message>
-			) }
-		</>
-	)
+	} ) => {
+		const endOfMessagesRef = useRef< HTMLDivElement >( null );
+
+		useEffect( () => {
+			const timer = setTimeout( () => {
+				if ( endOfMessagesRef.current ) {
+					endOfMessagesRef.current.scrollIntoView( { behavior: 'smooth' } );
+				}
+			}, 100 ); // Slight delay to ensure DOM updates
+
+			return () => clearTimeout( timer );
+		}, [ messages ] );
+
+		return (
+			<>
+				{ messages.map( ( message, index ) => (
+					<Message
+						key={ index }
+						isUser={ message.role === 'user' }
+						projectPath={ path }
+						updateMessage={ updateMessage }
+						id={ message.id }
+						blocks={ message.blocks }
+					>
+						{ message.content }
+					</Message>
+				) ) }
+				{ isAssistantThinking && (
+					<Message isUser={ false }>
+						<MessageThinking />
+					</Message>
+				) }
+				<div ref={ endOfMessagesRef } />
+			</>
+		);
+	}
 );
 const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void } ) => (
 	<Message className="w-full" isUser={ false }>
@@ -94,7 +109,6 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const { messages, addMessage, clearMessages, updateMessage } = useAssistant( selectedSite.name );
 	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi();
 	const [ input, setInput ] = useState< string >( '' );
-	const endOfMessagesRef = useRef< HTMLDivElement >( null );
 	const { isAuthenticated, authenticate } = useAuth();
 	const isOffline = useOffline();
 	const { __ } = useI18n();
@@ -137,12 +151,6 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		clearMessages();
 	};
 
-	useEffect( () => {
-		if ( endOfMessagesRef.current ) {
-			endOfMessagesRef.current.scrollIntoView( { behavior: 'smooth' } );
-		}
-	}, [ messages ] );
-
 	const disabled = isOffline || ! isAuthenticated;
 
 	return (
@@ -159,7 +167,6 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 							updateMessage={ updateMessage }
 							path={ selectedSite.path }
 						/>
-						<div ref={ endOfMessagesRef } />
 					</>
 				) : (
 					<UnauthenticatedView onAuthenticate={ authenticate } />

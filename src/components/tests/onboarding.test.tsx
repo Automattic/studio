@@ -30,6 +30,7 @@ jest.mock( '../../lib/get-ipc-api', () => ( {
 			isEmpty: true,
 			isWordPress: false,
 		} ),
+		promptWindowsSpeedUpSites: jest.fn(),
 	} ),
 } ) );
 

@@ -1,9 +1,9 @@
+import { arrowRight } from '@wordpress/icons';
 import { useEffect } from 'react';
 import { useFetchWelcomeMessages } from '../hooks/use-fetch-welcome-messages';
 import { cx } from '../lib/cx';
 
 interface WelcomeMessagePromptProps {
-	onClick?: () => void;
 	children?: React.ReactNode;
 	className?: string;
 }
@@ -14,18 +14,13 @@ interface ExampleMessagePromptProps {
 	className?: string;
 }
 
-export const WelcomeMessagePrompt = ( {
-	onClick,
-	children,
-	className,
-}: WelcomeMessagePromptProps ) => (
+export const WelcomeMessagePrompt = ( { children, className }: WelcomeMessagePromptProps ) => (
 	<div className={ cx( 'flex mt-4' ) }>
 		<div
 			className={ cx(
 				'inline-block p-3 rounded border border-gray-300 lg:max-w-[70%] select-text bg-white',
 				className
 			) }
-			onClick={ onClick }
 		>
 			<div className="assistant-markdown">
 				<p>{ children }</p>
@@ -47,8 +42,11 @@ export const ExampleMessagePrompt = ( {
 			) }
 			onClick={ onClick }
 		>
-			<div className="assistant-markdown">
-				<p>{ children }</p>
+			<div className="assistant-markdown flex items-center">
+				<span className={ cx( 'mr-2', 'w-4 h-4 flex items-center justify-center' ) }>
+					{ arrowRight }
+				</span>
+				<p className="inline">{ children }</p>
 			</div>
 		</div>
 	</div>

@@ -1,10 +1,9 @@
-import { speak } from '@wordpress/a11y';
 import { Spinner } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { Icon, external, copy } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import React, { useState, useEffect, useRef, memo, useMemo } from 'react';
+import React, { useState, useEffect, useRef, memo } from 'react';
 import Markdown, { ExtraProps } from 'react-markdown';
 import { useAssistant, Message as MessageType } from '../hooks/use-assistant';
 import { useAssistantApi } from '../hooks/use-assistant-api';
@@ -293,16 +292,6 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 			endOfMessagesRef.current.scrollIntoView( { behavior: 'smooth' } );
 		}
 	}, [ messages ] );
-
-	const latestAssistantMessage = useMemo(
-		() => messages.filter( ( message ) => message.role === 'assistant' ).pop(),
-		[ messages ]
-	);
-	useEffect( () => {
-		if ( latestAssistantMessage ) {
-			speak( `New message, Studio Assistant, ${ latestAssistantMessage.content }` );
-		}
-	}, [ latestAssistantMessage ] );
 
 	const disabled = isOffline || ! isAuthenticated;
 

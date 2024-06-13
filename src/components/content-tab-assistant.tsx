@@ -240,17 +240,18 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const isOffline = useOffline();
 	const { __ } = useI18n();
 
-	const handleSend = async () => {
-		if ( input.trim() ) {
-			addMessage( input, 'user' );
+	const handleSend = async ( messageToSend?: string ) => {
+		const message = messageToSend || input;
+		if ( message.trim() ) {
+			addMessage( message, 'user' );
 			setInput( '' );
 			try {
-				const { message } = await fetchAssistant( [
+				const { message: assistantMessage } = await fetchAssistant( [
 					...messages,
-					{ content: input, role: 'user' },
+					{ content: message, role: 'user' },
 				] );
-				if ( message ) {
-					addMessage( message, 'assistant' );
+				if ( assistantMessage ) {
+					addMessage( assistantMessage, 'assistant' );
 				}
 			} catch ( error ) {
 				setTimeout(
@@ -294,7 +295,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 			>
 				{ isAuthenticated ? (
 					<>
-						<WelcomeComponent />
+						<WelcomeComponent onExampleClick={ ( prompt ) => handleSend( prompt ) } />
 						<AuthenticatedView messages={ messages } isAssistantThinking={ isAssistantThinking } />
 						<div ref={ endOfMessagesRef } />
 					</>
@@ -306,7 +307,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 				disabled={ disabled }
 				input={ input }
 				setInput={ setInput }
-				handleSend={ handleSend }
+				handleSend={ () => handleSend() }
 				handleKeyDown={ handleKeyDown }
 				clearInput={ clearInput }
 				isAssistantThinking={ isAssistantThinking }

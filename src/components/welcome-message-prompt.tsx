@@ -52,7 +52,7 @@ export const ExampleMessagePrompt = ( {
 	</div>
 );
 
-const WelcomeComponent = () => {
+const WelcomeComponent = ( { onExampleClick }: { onExampleClick: ( prompt: string ) => void } ) => {
 	const { messages, examplePrompts, fetchWelcomeMessages } = useFetchWelcomeMessages();
 
 	useEffect( () => {
@@ -67,12 +67,15 @@ const WelcomeComponent = () => {
 				</WelcomeMessagePrompt>
 			) ) }
 			{ examplePrompts.map( ( prompt, index ) => (
-				<ExampleMessagePrompt key={ index } className="example-prompt">
+				<ExampleMessagePrompt
+					key={ index }
+					className="example-prompt"
+					onClick={ () => onExampleClick( prompt ) }
+				>
 					{ prompt }
 				</ExampleMessagePrompt>
 			) ) }
 		</div>
 	);
 };
-
 export default WelcomeComponent;

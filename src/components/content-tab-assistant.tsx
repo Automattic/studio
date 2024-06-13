@@ -160,7 +160,7 @@ export const Message = ( { children, isUser, className }: MessageProps ) => {
 		>
 			<div
 				className={ cx(
-					'inline-block p-3 rounded border border-gray-300 lg:max-w-[70%] select-text',
+					'inline-block p-3 rounded border border-gray-300 lg:max-w-[70%] overflow-x-auto select-text',
 					! isUser ? 'bg-white' : 'bg-white/45'
 				) }
 			>

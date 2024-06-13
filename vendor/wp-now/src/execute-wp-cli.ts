@@ -71,6 +71,8 @@ export async function executeWPCli ( projectPath: string, args: string[] ): Prom
 		require( '${wpCliPath}' );`
 	);
 
+	// Set site's folder as the current working directory as the terminal will opened in that location.
+	php.chdir(options.documentRoot);
 
 	try {
 		const result = await php.run({

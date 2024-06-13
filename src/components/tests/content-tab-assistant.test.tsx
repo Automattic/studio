@@ -5,6 +5,12 @@ import { ContentTabAssistant } from '../content-tab-assistant';
 jest.mock( '../../hooks/use-theme-details' );
 jest.mock( '../../hooks/use-auth' );
 
+jest.mock( '../../lib/app-globals', () => ( {
+	getAppGlobals: () => ( {
+		locale: jest.fn,
+	} ),
+} ) );
+
 const runningSite = {
 	name: 'Test Site',
 	port: 8881,

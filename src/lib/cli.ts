@@ -1,4 +1,5 @@
 import { app } from 'electron';
+import { parse } from 'shell-quote';
 import { executeWPCli } from '../../vendor/wp-now/src/execute-wp-cli';
 
 type CommandAction = 'wp';
@@ -80,8 +81,15 @@ const commands = {
 };
 
 const setCommand = ( command: string ) => {
-	const [ action, ...rest ] = command.split( ' ' );
-	cliCommand = { action: action as CommandAction, args: rest, executed: false };
+	const [ action, ...args ] = parse( command );
+
+	// The parsing of arguments can include shell operators like `>` or `||` that the app don't support.
+	const isValidCommand = args.every( ( arg ) => typeof arg === 'string' || arg instanceof String );
+	if ( ! isValidCommand ) {
+		throw Error( `Can't execute command: ${ command }` );
+	}
+
+	cliCommand = { action: action as CommandAction, args: args as string[], executed: false };
 };
 
 const disableConsole = () => {

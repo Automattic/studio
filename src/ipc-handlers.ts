@@ -14,6 +14,7 @@ import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import archiver from 'archiver';
 import { copySync } from 'fs-extra';
+import { parse } from 'shell-quote';
 import { SQLITE_FILENAME } from '../vendor/wp-now/src/constants';
 import { downloadSqliteIntegrationPlugin } from '../vendor/wp-now/src/download';
 import { executeWPCli } from '../vendor/wp-now/src/execute-wp-cli';
@@ -568,9 +569,19 @@ export async function saveOnboarding(
 
 export async function executeWPCLiInline(
 	_event: IpcMainInvokeEvent,
-	{ projectPath, args }: { projectPath: string; args: string[] }
+	{ projectPath, args }: { projectPath: string; args: string }
 ) {
-	const { stdout, stderr } = await executeWPCli( projectPath, args );
+	const wpCliArgs = parse( args );
+
+	// The parsing of arguments can include shell operators like `>` or `||` that the app don't support.
+	const isValidCommand = wpCliArgs.every(
+		( arg ) => typeof arg === 'string' || arg instanceof String
+	);
+	if ( ! isValidCommand ) {
+		throw Error( `Can't execute wp-cli command with arguments: ${ args }` );
+	}
+
+	const { stdout, stderr } = await executeWPCli( projectPath, wpCliArgs as string[] );
 	return { stdout, stderr };
 }
 

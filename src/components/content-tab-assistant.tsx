@@ -75,8 +75,8 @@ const ActionButton = ( {
 	return (
 		<Button
 			onClick={ handleClick }
-			variant="tertiary"
-			className="mr-2 font-sans select-none"
+			variant="outlined"
+			className="h-auto mr-2 !px-2.5 py-0.5 font-sans select-none"
 			disabled={ disabled }
 		>
 			{ icon }

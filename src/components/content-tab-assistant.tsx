@@ -5,6 +5,7 @@ import { Icon, external, copy } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import React, { useState, useEffect, useRef, memo } from 'react';
 import Markdown, { ExtraProps } from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { useAssistant, Message as MessageType } from '../hooks/use-assistant';
 import { useAssistantApi } from '../hooks/use-assistant-api';
 import { useAuth } from '../hooks/use-auth';
@@ -165,7 +166,9 @@ export const Message = ( { children, isUser, className }: MessageProps ) => {
 			>
 				{ typeof children === 'string' ? (
 					<div className="assistant-markdown">
-						<Markdown components={ { code: CodeBlock } }>{ children }</Markdown>
+						<Markdown components={ { code: CodeBlock } } remarkPlugins={ [ remarkGfm ] }>
+							{ children }
+						</Markdown>
 					</div>
 				) : (
 					children

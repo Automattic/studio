@@ -204,3 +204,37 @@ blockquote {
 .assistant-markdown ul:last-child {
 	margin-bottom: 0;
 }
+
+.assistant-markdown table {
+	border-spacing: 0;
+	border-collapse: collapse;
+	display: block;
+	margin-top: 0;
+	margin-bottom: 16px;
+	width: max-content;
+	max-width: 100%;
+	overflow: auto;
+}
+
+.assistant-markdown tr {
+	background-color: theme( 'colors.a8c-white.DEFAULT' );
+	border-top: 1px solid theme( 'colors.a8c-gray.0' );
+}
+
+.assistant-markdown tr:nth-child( 2n ) {
+	background-color: theme( 'colors.a8c-gray.0' );
+}
+
+.assistant-markdown td,
+.assistant-markdown th {
+	padding: 6px 13px;
+	border: 1px solid theme( 'colors.a8c-gray.10' );
+}
+
+.assistant-markdown th {
+	font-weight: 600;
+}
+
+.assistant-markdown table img {
+	background-color: transparent;
+}

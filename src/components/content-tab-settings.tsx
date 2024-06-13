@@ -1,7 +1,7 @@
 import { Icon, file } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren } from 'react';
-import { useGetPhpVersion } from '../hooks/use-get-php-version';
+import { DEFAULT_PHP_VERSION } from '../../vendor/wp-now/src/constants';
 import { useGetWpVersion } from '../hooks/use-get-wp-version';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { decodePassword } from '../lib/passwords';
@@ -32,7 +32,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 	// Empty strings account for legacy sites lacking a stored password.
 	const storedPassword = decodePassword( selectedSite.adminPassword ?? '' );
 	const password = storedPassword === '' ? 'password' : storedPassword;
-	const phpVersion = useGetPhpVersion( selectedSite );
+	const phpVersion = selectedSite.phpVersion ?? DEFAULT_PHP_VERSION;
 	const wpVersion = useGetWpVersion( selectedSite );
 	return (
 		<div className="p-8">

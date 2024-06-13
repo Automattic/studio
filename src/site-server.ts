@@ -101,7 +101,7 @@ export class SiteServer {
 			...this.details,
 			url: this.server.url,
 			port: this.server.options.port,
-			phpVersion: this.server.options.phpVersion || DEFAULT_PHP_VERSION,
+			phpVersion: this.server.options.phpVersion ?? DEFAULT_PHP_VERSION,
 			running: true,
 			themeDetails,
 		};

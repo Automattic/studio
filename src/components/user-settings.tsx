@@ -3,7 +3,7 @@ import { sprintf } from '@wordpress/i18n';
 import { moreVertical, trash } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useState, useEffect } from 'react';
-import { WPCOM_PROFILE_URL } from '../constants';
+import { LIMIT_OF_PROMPTS_PER_USER, WPCOM_PROFILE_URL } from '../constants';
 import { useAuth } from '../hooks/use-auth';
 import { useDeleteSnapshot } from '../hooks/use-delete-snapshot';
 import { useFetchSnapshots } from '../hooks/use-fetch-snapshots';
@@ -142,7 +142,7 @@ const SnapshotInfo = ( {
 
 function PromptInfo() {
 	const { __ } = useI18n();
-	const { promptCount = 0, promptLimit = 10 } = usePromptUsage();
+	const { promptCount = 0, promptLimit = LIMIT_OF_PROMPTS_PER_USER } = usePromptUsage();
 	const assistantEnabled = getAppGlobals().assistantEnabled;
 	if ( ! assistantEnabled ) {
 		return null;

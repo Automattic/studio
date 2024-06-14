@@ -10,6 +10,7 @@ import { useAssistantApi } from '../hooks/use-assistant-api';
 import { useAuth } from '../hooks/use-auth';
 import { useFetchWelcomeMessages } from '../hooks/use-fetch-welcome-messages';
 import { useOffline } from '../hooks/use-offline';
+import { usePromptUsage } from '../hooks/use-prompt-usage';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { AIInput } from './ai-input';
@@ -76,8 +77,8 @@ const ActionButton = ( {
 	return (
 		<Button
 			onClick={ handleClick }
-			variant="tertiary"
-			className="mr-2 font-sans select-none"
+			variant="outlined"
+			className="h-auto mr-2 !px-2.5 py-0.5 font-sans select-none"
 			disabled={ disabled }
 		>
 			{ icon }
@@ -233,7 +234,8 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 );
 
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
-	const { messages, addMessage, clearMessages } = useAssistant( selectedSite.name );
+	const { messages, addMessage, chatId, clearMessages } = useAssistant( selectedSite.name );
+	const { userCanSendMessage } = usePromptUsage();
 	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi();
 	const {
 		messages: welcomeMessages,
@@ -246,37 +248,38 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const isOffline = useOffline();
 	const { __ } = useI18n();
 
+
 	useEffect( () => {
 		fetchWelcomeMessages();
 	}, [ fetchWelcomeMessages, selectedSite ] );
 
-	const handleSend = async ( messageToSend?: string ) => {
-		const message = messageToSend || input;
-		if ( message.trim() ) {
-			addMessage( message, 'user' );
-			setInput( '' );
-			try {
-				const { message: assistantMessage } = await fetchAssistant( [
-					...messages,
-					{ content: message, role: 'user' },
-				] );
-				if ( assistantMessage ) {
-					addMessage( assistantMessage, 'assistant' );
-				}
-			} catch ( error ) {
-				setTimeout(
-					() =>
-						getIpcApi().showMessageBox( {
-							type: 'warning',
-							message: __( 'Failed to send message' ),
-							detail: __( "We couldn't send the latest message. Please try again." ),
-							buttons: [ __( 'OK' ) ],
-						} ),
-					100
-				);
+const handleSend = async (messageToSend?: string) => {
+	const chatMessage = messageToSend || input;
+	if (chatMessage.trim()) {
+		addMessage(chatMessage, 'user', chatId);
+		setInput('');
+		try {
+			const { message, chatId: fetchedChatId } = await fetchAssistant(chatId, [
+				...messages,
+				{ content: chatMessage, role: 'user' },
+			]);
+			if (message) {
+				addMessage(message, 'assistant', chatId ?? fetchedChatId);
 			}
+		} catch (error) {
+			setTimeout(
+				() =>
+					getIpcApi().showMessageBox({
+						type: 'warning',
+						message: __('Failed to send message'),
+						detail: __("We couldn't send the latest message. Please try again."),
+						buttons: [__('OK')],
+					}),
+				100
+			);
 		}
-	};
+	}
+};
 
 	const handleKeyDown = ( e: React.KeyboardEvent< HTMLTextAreaElement > ) => {
 		if ( e.key === 'Enter' ) {
@@ -295,7 +298,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		}
 	}, [ messages ] );
 
-	const disabled = isOffline || ! isAuthenticated;
+	const disabled = isOffline || ! isAuthenticated || ! userCanSendMessage;
 
 	return (
 		<div className="h-full flex flex-col bg-gray-50">

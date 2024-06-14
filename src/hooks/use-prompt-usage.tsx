@@ -8,14 +8,16 @@ type PromptUsage = {
 	promptLimit: number;
 	promptCount: number;
 	fetchPromptUsage: () => Promise< void >;
-	updatePromptUsage: ( headers: Record< string, string > ) => void;
+	updatePromptUsage: ( data: { maxQuota: string; remainingQuota: string } ) => void;
+	userCanSendMessage: boolean;
 };
 
 const initState = {
 	promptLimit: LIMIT_OF_PROMPTS_PER_USER,
 	promptCount: 0,
 	fetchPromptUsage: async () => undefined,
-	updatePromptUsage: ( _headers: Record< string, string > ) => undefined,
+	updatePromptUsage: ( _data: { maxQuota: string; remainingQuota: string } ) => undefined,
+	userCanSendMessage: true,
 };
 const promptUsageContext = createContext< PromptUsage >( initState );
 
@@ -37,9 +39,9 @@ export function PromptUsageProvider( { children }: PromptUsageProps ) {
 	const { client } = useAuth();
 
 	const updatePromptUsage = useCallback(
-		( headers: Record< string, string > ) => {
-			const limit = parseInt( headers[ 'x-ratelimit-limit' ] );
-			const remaining = parseInt( headers[ 'x-ratelimit-remaining' ] );
+		( data: { maxQuota: string; remainingQuota: string } ) => {
+			const limit = parseInt( data.maxQuota as string );
+			const remaining = parseInt( data.remainingQuota as string );
 			if ( isNaN( limit ) || isNaN( remaining ) ) {
 				return;
 			}
@@ -57,22 +59,15 @@ export function PromptUsageProvider( { children }: PromptUsageProps ) {
 			return;
 		}
 		try {
-			await client.req.get(
-				{
-					method: 'HEAD',
-					path: '/studio-app/ai-assistant/chat',
-					apiNamespace: 'wpcom/v2',
-				},
-				( error: Error, _data: unknown, headers: Record< string, string > ) => {
-					if ( error ) {
-						return;
-					}
-					if ( ! headers ) {
-						return;
-					}
-					updatePromptUsage( headers );
-				}
-			);
+			const response = await client.req.get( {
+				method: 'GET',
+				path: '/studio-app/ai-assistant/quota',
+				apiNamespace: 'wpcom/v2',
+			} );
+			updatePromptUsage( {
+				maxQuota: response.max_quota || '',
+				remainingQuota: response.remaining_quota || '',
+			} );
 		} catch ( error ) {
 			Sentry.captureException( error );
 			console.error( error );
@@ -92,6 +87,7 @@ export function PromptUsageProvider( { children }: PromptUsageProps ) {
 			promptLimit,
 			promptCount,
 			updatePromptUsage,
+			userCanSendMessage: promptCount < promptLimit,
 		};
 	}, [ fetchPromptUsage, promptLimit, promptCount, updatePromptUsage ] );
 

@@ -2,6 +2,7 @@ import { DropdownMenu, MenuGroup, MenuItem } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { Icon, moreVertical, keyboardReturn, reset } from '@wordpress/icons';
 import React, { useRef, useEffect } from 'react';
+import { getIpcApi } from '../lib/get-ipc-api';
 import { AssistantIcon } from './icons/assistant';
 
 interface AIInputProps {
@@ -79,8 +80,17 @@ export const AIInput = ( {
 		return isAssistantThinking ? __( 'Generating...' ) : __( 'What would you like to learn?' );
 	};
 
-	const handleClearConversation = () => {
-		if ( window.confirm( __( 'Are you sure you want to clear the conversation?' ) ) ) {
+	const handleClearConversation = async () => {
+		const DELETE_CONVERSATION_BUTTON_INDEX = 0;
+		const CANCEL_DELETE_BUTTON_INDEX = 1;
+
+		const { response } = await getIpcApi().showMessageBox( {
+			message: __( 'Are you sure you want to clear the conversation?' ),
+			buttons: [ __( 'Ok' ), __( 'Cancel' ) ],
+			cancelId: CANCEL_DELETE_BUTTON_INDEX,
+		} );
+
+		if ( response === DELETE_CONVERSATION_BUTTON_INDEX ) {
 			clearInput();
 		}
 	};

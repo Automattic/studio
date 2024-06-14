@@ -1,6 +1,4 @@
 import { arrowRight } from '@wordpress/icons';
-import { useEffect } from 'react';
-import { useFetchWelcomeMessages } from '../hooks/use-fetch-welcome-messages';
 import { cx } from '../lib/cx';
 
 interface WelcomeMessagePromptProps {
@@ -12,6 +10,13 @@ interface ExampleMessagePromptProps {
 	onClick?: () => void;
 	children: React.ReactNode;
 	className?: string;
+}
+
+interface WelcomeComponentProps {
+	onExampleClick: ( prompt: string ) => void;
+	showExamplePrompts: boolean;
+	messages: string[];
+	examplePrompts: string[];
 }
 
 export const WelcomeMessagePrompt = ( { children, className }: WelcomeMessagePromptProps ) => (
@@ -53,13 +58,12 @@ export const ExampleMessagePrompt = ( {
 	</div>
 );
 
-const WelcomeComponent = ( { onExampleClick }: { onExampleClick: ( prompt: string ) => void } ) => {
-	const { messages, examplePrompts, fetchWelcomeMessages } = useFetchWelcomeMessages();
-
-	useEffect( () => {
-		fetchWelcomeMessages();
-	}, [ fetchWelcomeMessages ] );
-
+const WelcomeComponent = ( {
+	onExampleClick,
+	showExamplePrompts,
+	messages,
+	examplePrompts,
+}: WelcomeComponentProps ) => {
 	return (
 		<div>
 			{ messages.map( ( message, index ) => (
@@ -67,16 +71,18 @@ const WelcomeComponent = ( { onExampleClick }: { onExampleClick: ( prompt: strin
 					{ message }
 				</WelcomeMessagePrompt>
 			) ) }
-			{ examplePrompts.map( ( prompt, index ) => (
-				<ExampleMessagePrompt
-					key={ index }
-					className="example-prompt"
-					onClick={ () => onExampleClick( prompt ) }
-				>
-					{ prompt }
-				</ExampleMessagePrompt>
-			) ) }
+			{ showExamplePrompts &&
+				examplePrompts.map( ( prompt, index ) => (
+					<ExampleMessagePrompt
+						key={ index }
+						className="example-prompt"
+						onClick={ () => onExampleClick( prompt ) }
+					>
+						{ prompt }
+					</ExampleMessagePrompt>
+				) ) }
 		</div>
 	);
 };
+
 export default WelcomeComponent;

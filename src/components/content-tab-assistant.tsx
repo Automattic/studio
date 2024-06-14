@@ -8,6 +8,7 @@ import Markdown, { ExtraProps } from 'react-markdown';
 import { useAssistant, Message as MessageType } from '../hooks/use-assistant';
 import { useAssistantApi } from '../hooks/use-assistant-api';
 import { useAuth } from '../hooks/use-auth';
+import { useFetchWelcomeMessages } from '../hooks/use-fetch-welcome-messages';
 import { useOffline } from '../hooks/use-offline';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
@@ -234,19 +235,34 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
 	const { messages, addMessage, clearMessages } = useAssistant( selectedSite.name );
 	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi();
+	const {
+		messages: welcomeMessages,
+		examplePrompts,
+		fetchWelcomeMessages,
+	} = useFetchWelcomeMessages();
 	const [ input, setInput ] = useState< string >( '' );
-	const [ showWelcome, setShowWelcome ] = useState( true );
+	const [ examplePromptsVisible, setExamplePromptsVisible ] = useState( true );
 	const endOfMessagesRef = useRef< HTMLDivElement >( null );
 	const { isAuthenticated, authenticate } = useAuth();
 	const isOffline = useOffline();
 	const { __ } = useI18n();
 
+	useEffect( () => {
+		fetchWelcomeMessages();
+	}, [ fetchWelcomeMessages, selectedSite ] );
+
+	useEffect( () => {
+		if ( messages.length === 0 ) {
+			setExamplePromptsVisible( true );
+		}
+	}, [ selectedSite, messages ] );
+
 	const handleSend = async ( messageToSend?: string ) => {
 		const message = messageToSend || input;
 		if ( message.trim() ) {
 			addMessage( message, 'user' );
-			setShowWelcome( false );
 			setInput( '' );
+			setExamplePromptsVisible( false ); // Hide example prompts after one is clicked or a message is sent
 			try {
 				const { message: assistantMessage } = await fetchAssistant( [
 					...messages,
@@ -287,35 +303,23 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		}
 	}, [ messages ] );
 
-	useEffect( () => {
-		if ( messages.length === 0 ) {
-			setShowWelcome( true );
-		} else {
-			setShowWelcome( false );
-		}
-	}, [ selectedSite, messages ] );
-
 	const disabled = isOffline || ! isAuthenticated;
 
 	return (
 		<div className="h-full flex flex-col bg-gray-50">
 			<div
 				data-testid="assistant-chat"
-				className={ cx(
-					'flex-1 overflow-y-auto p-8',
-					( ! isAuthenticated || showWelcome ) && 'flex items-end'
-				) }
+				className={ cx( 'flex-1 overflow-y-auto p-8', ! isAuthenticated && 'flex items-end' ) }
 			>
 				{ isAuthenticated ? (
 					<>
-						{ showWelcome ? (
-							<WelcomeComponent onExampleClick={ ( prompt ) => handleSend( prompt ) } />
-						) : (
-							<AuthenticatedView
-								messages={ messages }
-								isAssistantThinking={ isAssistantThinking }
-							/>
-						) }
+						<WelcomeComponent
+							onExampleClick={ ( prompt ) => handleSend( prompt ) }
+							showExamplePrompts={ examplePromptsVisible }
+							messages={ welcomeMessages }
+							examplePrompts={ examplePrompts }
+						/>
+						<AuthenticatedView messages={ messages } isAssistantThinking={ isAssistantThinking } />
 						<div ref={ endOfMessagesRef } />
 					</>
 				) : (

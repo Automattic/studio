@@ -1,7 +1,7 @@
+import { DropdownMenu, MenuGroup, MenuItem } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
-import { Icon, moreVertical, keyboardReturn } from '@wordpress/icons';
+import { Icon, moreVertical, keyboardReturn, reset } from '@wordpress/icons';
 import React, { useRef, useEffect } from 'react';
-import Button from './button';
 import { AssistantIcon } from './icons/assistant';
 
 interface AIInputProps {
@@ -79,6 +79,12 @@ export const AIInput = ( {
 		return isAssistantThinking ? __( 'Generating...' ) : __( 'What would you like to learn?' );
 	};
 
+	const handleClearConversation = () => {
+		if ( window.confirm( __( 'Are you sure you want to clear the conversation?' ) ) ) {
+			clearInput();
+		}
+	};
+
 	return (
 		<div className="px-8 py-5 bg-white flex items-center border border-gray-200">
 			<div className="flex w-full border border-gray-300 rounded-sm focus-within:border-a8c-blueberry">
@@ -101,16 +107,23 @@ export const AIInput = ( {
 						<Icon icon={ keyboardReturn } size={ 13 } fill="#cccccc" />
 					</div>
 				) }
-				<div className="flex items-end py-2 ltr:mr-2 rtl:ml-1">
-					<Button
-						disabled={ disabled }
-						aria-label="menu"
-						className="py-2 px-1 cursor-pointer"
-						onClick={ clearInput }
-					>
-						<Icon icon={ moreVertical } size={ 22 } />
-					</Button>
-				</div>
+				<DropdownMenu icon={ moreVertical } label="Assistant Menu" className="p-2">
+					{ () => (
+						<>
+							<MenuGroup>
+								<MenuItem
+									data-testid="clear-conversation-button"
+									onClick={ handleClearConversation }
+								>
+									<Icon className="text-red-600" icon={ reset } />
+									<span className="ltr:pl-2 rtl:pl-2 text-red-600">
+										{ __( 'Clear Conversation' ) }
+									</span>
+								</MenuItem>
+							</MenuGroup>
+						</>
+					) }
+				</DropdownMenu>
 			</div>
 		</div>
 	);

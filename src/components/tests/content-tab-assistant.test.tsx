@@ -1,15 +1,23 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { useAuth } from '../../hooks/use-auth';
+import { useFetchWelcomeMessages } from '../../hooks/use-fetch-welcome-messages';
 import { ContentTabAssistant } from '../content-tab-assistant';
 
 jest.mock( '../../hooks/use-theme-details' );
 jest.mock( '../../hooks/use-auth' );
+jest.mock( '../../hooks/use-fetch-welcome-messages' );
 
 jest.mock( '../../lib/app-globals', () => ( {
 	getAppGlobals: () => ( {
 		locale: jest.fn,
 	} ),
 } ) );
+
+( useFetchWelcomeMessages as jest.Mock ).mockReturnValue( {
+	messages: [ 'Welcome to our service!', 'How can I help you today?' ],
+	examplePrompts: [ 'Create a WordPress site' ],
+	fetchWelcomeMessages: jest.fn(),
+} );
 
 const runningSite = {
 	name: 'Test Site',

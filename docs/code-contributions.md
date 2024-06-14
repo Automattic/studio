@@ -97,8 +97,15 @@ The renderer process can be debugged using the Chromium developer tools. To open
 
 The React tree in the renderer process can be debugged with the standalone [React Developer Tools](https://react.dev/learn/react-developer-tools#safari-and-other-browsers). To do this, start the the React Developer Tools and then start the app with the `REACT_DEV_TOOLS=true` flag set.
 
+First, install and run the React Developer Tools:
+
 ```bash
 npx react-devtools
+```
+
+Then start the app with the `REACT_DEV_TOOLS=true` flag:
+
+```bash
 REACT_DEV_TOOLS=true npm start
 ```
 

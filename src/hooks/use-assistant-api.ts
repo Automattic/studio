@@ -54,7 +54,7 @@ export function useAssistantApi() {
 				maxQuota: headers[ 'x-quota-max' ] || '',
 				remainingQuota: headers[ 'x-quota-remaining' ] || '',
 			} );
-			return { message , chatId: response?.id };
+			return { message, chatId: response?.id };
 		},
 		[ client, updatePromptUsage ]
 	);

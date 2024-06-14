@@ -49,9 +49,12 @@ export function useAssistantApi() {
 			} finally {
 				setIsLoading( false );
 			}
-			const newMessage = response?.choices?.[ 0 ]?.message?.content;
-			updatePromptUsage( headers );
-			return { message: newMessage, chatId: response?.id };
+			const message = response?.choices?.[ 0 ]?.message?.content;
+			updatePromptUsage( {
+				maxQuota: headers[ 'x-quota-max' ] || '',
+				remainingQuota: headers[ 'x-quota-remaining' ] || '',
+			} );
+			return { message , chatId: response?.id };
 		},
 		[ client, updatePromptUsage ]
 	);

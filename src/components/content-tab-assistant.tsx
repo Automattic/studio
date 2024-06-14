@@ -9,6 +9,7 @@ import { useAssistant, Message as MessageType } from '../hooks/use-assistant';
 import { useAssistantApi } from '../hooks/use-assistant-api';
 import { useAuth } from '../hooks/use-auth';
 import { useOffline } from '../hooks/use-offline';
+import { usePromptUsage } from '../hooks/use-prompt-usage';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { AIInput } from './ai-input';
@@ -233,6 +234,7 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
 	const { messages, addMessage, chatId, clearMessages } = useAssistant( selectedSite.name );
+	const { userCanSendMessage } = usePromptUsage();
 	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi();
 	const [ input, setInput ] = useState< string >( '' );
 	const endOfMessagesRef = useRef< HTMLDivElement >( null );
@@ -284,7 +286,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		}
 	}, [ messages ] );
 
-	const disabled = isOffline || ! isAuthenticated;
+	const disabled = isOffline || ! isAuthenticated || ! userCanSendMessage;
 
 	return (
 		<div className="h-full flex flex-col bg-gray-50">

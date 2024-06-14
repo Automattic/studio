@@ -27,3 +27,5 @@ Our mission is for Studio to be the fastest and simplest way for developers to b
 Feel free to [open an issue](https://github.com/Automattic/studio/issues/new/choose) to discuss your proposed improvement. Pull requests are welcome for bug fixes and enhancements. New features will need to go through our internal vetting process before they are accepted.
 
 To learn more about how to contribute, please read the [contributing guidelines](./CONTRIBUTING.md).
+
+For information on setting up your development environment for contributing code, see the [Code Contributions](./docs/code-contributions.md).

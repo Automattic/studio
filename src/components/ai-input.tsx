@@ -81,16 +81,16 @@ export const AIInput = ( {
 	};
 
 	const handleClearConversation = async () => {
-		const DELETE_CONVERSATION_BUTTON_INDEX = 0;
-		const CANCEL_DELETE_BUTTON_INDEX = 1;
+		const CLEAR_CONVERSATION_BUTTON_INDEX = 0;
+		const CANCEL_BUTTON_INDEX = 1;
 
 		const { response } = await getIpcApi().showMessageBox( {
 			message: __( 'Are you sure you want to clear the conversation?' ),
 			buttons: [ __( 'Ok' ), __( 'Cancel' ) ],
-			cancelId: CANCEL_DELETE_BUTTON_INDEX,
+			cancelId: CANCEL_BUTTON_INDEX,
 		} );
 
-		if ( response === DELETE_CONVERSATION_BUTTON_INDEX ) {
+		if ( response === CLEAR_CONVERSATION_BUTTON_INDEX ) {
 			clearInput();
 		}
 	};

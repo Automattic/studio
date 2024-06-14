@@ -20,7 +20,7 @@ interface WelcomeComponentProps {
 }
 
 export const WelcomeMessagePrompt = ( { children, className }: WelcomeMessagePromptProps ) => (
-	<div className={ cx( 'flex mt-4' ) }>
+	<div className={ cx( 'flex mt-2' ) }>
 		<div
 			className={ cx(
 				'inline-block p-3 rounded border border-gray-300 lg:max-w-[70%] select-text bg-white',
@@ -39,7 +39,7 @@ export const ExampleMessagePrompt = ( {
 	children,
 	className,
 }: ExampleMessagePromptProps ) => (
-	<div className={ cx( 'flex mt-4' ) }>
+	<div className={ cx( 'flex mt-2' ) }>
 		<div
 			className={ cx(
 				'inline-block p-3 rounded border border-gray-300 lg:max-w-[70%] select-text cursor-pointer',

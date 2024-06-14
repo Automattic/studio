@@ -241,7 +241,6 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		fetchWelcomeMessages,
 	} = useFetchWelcomeMessages();
 	const [ input, setInput ] = useState< string >( '' );
-	const [ examplePromptsVisible, setExamplePromptsVisible ] = useState( true );
 	const endOfMessagesRef = useRef< HTMLDivElement >( null );
 	const { isAuthenticated, authenticate } = useAuth();
 	const isOffline = useOffline();
@@ -251,18 +250,11 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		fetchWelcomeMessages();
 	}, [ fetchWelcomeMessages, selectedSite ] );
 
-	useEffect( () => {
-		if ( messages.length === 0 ) {
-			setExamplePromptsVisible( true );
-		}
-	}, [ selectedSite, messages ] );
-
 	const handleSend = async ( messageToSend?: string ) => {
 		const message = messageToSend || input;
 		if ( message.trim() ) {
 			addMessage( message, 'user' );
 			setInput( '' );
-			setExamplePromptsVisible( false ); // Hide example prompts after one is clicked or a message is sent
 			try {
 				const { message: assistantMessage } = await fetchAssistant( [
 					...messages,
@@ -315,7 +307,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 					<>
 						<WelcomeComponent
 							onExampleClick={ ( prompt ) => handleSend( prompt ) }
-							showExamplePrompts={ examplePromptsVisible }
+							showExamplePrompts={ messages.length === 0 }
 							messages={ welcomeMessages }
 							examplePrompts={ examplePrompts }
 						/>

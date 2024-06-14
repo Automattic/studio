@@ -118,12 +118,15 @@ export const AIInput = ( {
 					</div>
 				) }
 				<DropdownMenu icon={ moreVertical } label="Assistant Menu" className="p-2">
-					{ () => (
+					{ ( { onClose }: { onClose: () => void } ) => (
 						<>
 							<MenuGroup>
 								<MenuItem
 									data-testid="clear-conversation-button"
-									onClick={ handleClearConversation }
+									onClick={ () => {
+										handleClearConversation();
+										onClose();
+									} }
 								>
 									<Icon className="text-red-600" icon={ reset } />
 									<span className="ltr:pl-2 rtl:pl-2 text-red-600">

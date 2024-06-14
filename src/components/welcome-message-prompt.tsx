@@ -42,7 +42,7 @@ export const ExampleMessagePrompt = ( {
 	<div className={ cx( 'flex mt-2' ) }>
 		<div
 			className={ cx(
-				'inline-block p-3 rounded border border-gray-300 lg:max-w-[70%] select-text cursor-pointer',
+				'inline-block px-3 py-2 rounded border border-gray-300 lg:max-w-[70%] select-text cursor-pointer',
 				className
 			) }
 			onClick={ onClick }

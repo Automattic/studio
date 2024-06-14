@@ -248,38 +248,37 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const isOffline = useOffline();
 	const { __ } = useI18n();
 
-
 	useEffect( () => {
 		fetchWelcomeMessages();
 	}, [ fetchWelcomeMessages, selectedSite ] );
 
-const handleSend = async (messageToSend?: string) => {
-	const chatMessage = messageToSend || input;
-	if (chatMessage.trim()) {
-		addMessage(chatMessage, 'user', chatId);
-		setInput('');
-		try {
-			const { message, chatId: fetchedChatId } = await fetchAssistant(chatId, [
-				...messages,
-				{ content: chatMessage, role: 'user' },
-			]);
-			if (message) {
-				addMessage(message, 'assistant', chatId ?? fetchedChatId);
+	const handleSend = async ( messageToSend?: string ) => {
+		const chatMessage = messageToSend || input;
+		if ( chatMessage.trim() ) {
+			addMessage( chatMessage, 'user', chatId );
+			setInput( '' );
+			try {
+				const { message, chatId: fetchedChatId } = await fetchAssistant( chatId, [
+					...messages,
+					{ content: chatMessage, role: 'user' },
+				] );
+				if ( message ) {
+					addMessage( message, 'assistant', chatId ?? fetchedChatId );
+				}
+			} catch ( error ) {
+				setTimeout(
+					() =>
+						getIpcApi().showMessageBox( {
+							type: 'warning',
+							message: __( 'Failed to send message' ),
+							detail: __( "We couldn't send the latest message. Please try again." ),
+							buttons: [ __( 'OK' ) ],
+						} ),
+					100
+				);
 			}
-		} catch (error) {
-			setTimeout(
-				() =>
-					getIpcApi().showMessageBox({
-						type: 'warning',
-						message: __('Failed to send message'),
-						detail: __("We couldn't send the latest message. Please try again."),
-						buttons: [__('OK')],
-					}),
-				100
-			);
 		}
-	}
-};
+	};
 
 	const handleKeyDown = ( e: React.KeyboardEvent< HTMLTextAreaElement > ) => {
 		if ( e.key === 'Enter' ) {

@@ -48,7 +48,10 @@ export function useAssistantApi() {
 				setIsLoading( false );
 			}
 			const message = response?.choices?.[ 0 ]?.message?.content;
-			updatePromptUsage( headers );
+			updatePromptUsage( {
+				maxQuota: headers[ 'x-quota-max' ] || '',
+				remainingQuota: headers[ 'x-quota-remaining' ] || '',
+			} );
 			return { message };
 		},
 		[ client, updatePromptUsage ]

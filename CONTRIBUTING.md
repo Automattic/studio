@@ -4,15 +4,15 @@ We welcome contributions to Studio, whether they are bug reports, feature reques
 
 ## Expectations
 
-- We expect all contributors to follow our [Code of Conduct](../../CODE_OF_CONDUCT.md).
-- We expect all contributors to follow our [Security Policy](../../SECURITY.md).
-- By submitting a pull request, you agree to release your code under the project's [License](../../LICENSE.md).
+- We expect all contributors to follow our [Code of Conduct](./CODE_OF_CONDUCT.md).
+- We expect all contributors to follow our [Security Policy](./SECURITY.md).
+- By submitting a pull request, you agree to release your code under the project's [License](./LICENSE.md).
 
 ## How to Contribute
 
 ### Reporting Security Issues
 
-Please see our [security policy](../../SECURITY.md).
+Please see our [security policy](./SECURITY.md).
 
 ### Reporting General Issues
 

@@ -123,8 +123,8 @@ npm run make
 
 ## Localization
 
-See [Localization](./docs/localization.md) documentation.
+See [Localization](./localization.md) documentation.
 
 ## Versioning and Updates
 
-See [Versioning and Updates](./docs/versioning-and-updates.md) documentation.
+See [Versioning and Updates](./versioning-and-updates.md) documentation.

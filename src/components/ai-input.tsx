@@ -117,7 +117,7 @@ export const AIInput = ( {
 								>
 									<Icon className="text-red-600" icon={ reset } />
 									<span className="ltr:pl-2 rtl:pl-2 text-red-600">
-										{ __( 'Clear Conversation' ) }
+										{ __( 'Clear conversation' ) }
 									</span>
 								</MenuItem>
 							</MenuGroup>

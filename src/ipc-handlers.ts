@@ -25,7 +25,8 @@ import { isInstalled } from './lib/is-installed';
 import { getLocaleData, getSupportedLocale } from './lib/locale';
 import * as oauthClient from './lib/oauth';
 import { createPassword } from './lib/passwords';
-import { phpGetThemeDetails } from './lib/php-get-theme-details';
+import { phpGetAllPlugins, phpGetAllThemes } from './lib/php-get';
+import { phpGetThemeDetails } from './lib/php-get-theme-details'
 import { sanitizeForLogging } from './lib/sanitize-for-logging';
 import { sortSites } from './lib/sort-sites';
 import {
@@ -543,6 +544,35 @@ export async function getThemeDetails( event: IpcMainInvokeEvent, id: string ) {
 		await updateSite( event, updatedSite );
 	}
 	return themeDetails;
+}
+
+export async function getAllPlugins( event: IpcMainInvokeEvent, id: string ) {
+	const server = SiteServer.get( id );
+	if ( ! server ) {
+		throw new Error( 'Site not found.' );
+	}
+
+	if ( ! server.details.running || ! server.server ) {
+		return null;
+	}
+	const allPlugins = await phpGetAllPlugins( server.server );
+	console.log( 'All plugins', allPlugins );
+	return allPlugins;
+}
+
+export async function getAllThemes( event: IpcMainInvokeEvent, id: string ) {
+	const server = SiteServer.get( id );
+	if ( ! server ) {
+		throw new Error( 'Site not found.' );
+	}
+
+	if ( ! server.details.running || ! server.server ) {
+		return null;
+	}
+	console.log( 'Getting all themes' );
+	const allThemes = await phpGetAllThemes( server.server );
+	console.log( 'All themes', allThemes );
+	return allThemes;
 }
 
 export async function getOnboardingData( _event: IpcMainInvokeEvent ): Promise< boolean > {

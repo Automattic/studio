@@ -8,6 +8,7 @@ import Markdown, { ExtraProps } from 'react-markdown';
 import { useAssistant, Message as MessageType } from '../hooks/use-assistant';
 import { useAssistantApi } from '../hooks/use-assistant-api';
 import { useAuth } from '../hooks/use-auth';
+import { useChatContext } from '../hooks/use-chat-context';
 import { useFetchWelcomeMessages } from '../hooks/use-fetch-welcome-messages';
 import { useOffline } from '../hooks/use-offline';
 import { usePromptUsage } from '../hooks/use-prompt-usage';
@@ -234,6 +235,7 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 );
 
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
+	const siteContext = useChatContext( selectedSite );
 	const { messages, addMessage, chatId, clearMessages } = useAssistant( selectedSite.name );
 	const { userCanSendMessage } = usePromptUsage();
 	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi();
@@ -247,6 +249,9 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const { isAuthenticated, authenticate } = useAuth();
 	const isOffline = useOffline();
 	const { __ } = useI18n();
+	useEffect( () => {
+		console.log( 'context', siteContext );
+	}, [ siteContext ] );
 
 	useEffect( () => {
 		fetchWelcomeMessages();

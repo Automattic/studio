@@ -6,7 +6,7 @@ import { WPNowMode } from '../vendor/wp-now/src/config';
 import { getWordPressVersionPath } from '../vendor/wp-now/src/download';
 import { pathExists, recursiveCopyDirectory, isEmptyDir } from './lib/fs-utils';
 import { decodePassword } from './lib/passwords';
-import { phpGetThemeDetails } from './lib/php-get-theme-details';
+import { phpGetThemeDetails } from './lib/php-get';
 import { portFinder } from './lib/port-finder';
 import { sanitizeForLogging } from './lib/sanitize-for-logging';
 import { getPreferredSiteLanguage } from './lib/site-language';

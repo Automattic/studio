@@ -35,6 +35,8 @@ const api: IpcApi = {
 		ipcRenderer.invoke( 'generateProposedSitePath', siteName ),
 	openLocalPath: ( path: string ) => ipcRenderer.invoke( 'openLocalPath', path ),
 	getThemeDetails: ( id: string ) => ipcRenderer.invoke( 'getThemeDetails', id ),
+	getAllPlugins: ( id: string ) => ipcRenderer.invoke( 'getAllPlugins', id ),
+	getAllThemes: ( id: string ) => ipcRenderer.invoke( 'getAllThemes', id ),
 	getThumbnailData: ( id: string ) => ipcRenderer.invoke( 'getThumbnailData', id ),
 	getInstalledApps: () => ipcRenderer.invoke( 'getInstalledApps' ),
 	executeWPCLiInline: ( options: { projectPath: string; args: string[] } ) =>

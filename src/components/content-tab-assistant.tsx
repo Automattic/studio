@@ -8,6 +8,7 @@ import Markdown, { ExtraProps } from 'react-markdown';
 import { useAssistant, Message as MessageType } from '../hooks/use-assistant';
 import { useAssistantApi } from '../hooks/use-assistant-api';
 import { useAuth } from '../hooks/use-auth';
+import { useFetchWelcomeMessages } from '../hooks/use-fetch-welcome-messages';
 import { useOffline } from '../hooks/use-offline';
 import { usePromptUsage } from '../hooks/use-prompt-usage';
 import { cx } from '../lib/cx';
@@ -15,7 +16,7 @@ import { getIpcApi } from '../lib/get-ipc-api';
 import { AIInput } from './ai-input';
 import { MessageThinking } from './assistant-thinking';
 import Button from './button';
-
+import WelcomeComponent from './welcome-message-prompt';
 interface ContentTabAssistantProps {
 	selectedSite: SiteDetails;
 }
@@ -236,20 +237,30 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const { messages, addMessage, chatId, clearMessages } = useAssistant( selectedSite.name );
 	const { userCanSendMessage } = usePromptUsage();
 	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi();
+	const {
+		messages: welcomeMessages,
+		examplePrompts,
+		fetchWelcomeMessages,
+	} = useFetchWelcomeMessages();
 	const [ input, setInput ] = useState< string >( '' );
 	const endOfMessagesRef = useRef< HTMLDivElement >( null );
 	const { isAuthenticated, authenticate } = useAuth();
 	const isOffline = useOffline();
 	const { __ } = useI18n();
 
-	const handleSend = async () => {
-		if ( input.trim() ) {
-			addMessage( input, 'user', chatId );
+	useEffect( () => {
+		fetchWelcomeMessages();
+	}, [ fetchWelcomeMessages, selectedSite ] );
+
+	const handleSend = async ( messageToSend?: string ) => {
+		const chatMessage = messageToSend || input;
+		if ( chatMessage.trim() ) {
+			addMessage( chatMessage, 'user', chatId );
 			setInput( '' );
 			try {
 				const { message, chatId: fetchedChatId } = await fetchAssistant( chatId, [
 					...messages,
-					{ content: input, role: 'user' },
+					{ content: chatMessage, role: 'user' },
 				] );
 				if ( message ) {
 					addMessage( message, 'assistant', chatId ?? fetchedChatId );
@@ -296,6 +307,12 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 			>
 				{ isAuthenticated ? (
 					<>
+						<WelcomeComponent
+							onExampleClick={ ( prompt ) => handleSend( prompt ) }
+							showExamplePrompts={ messages.length === 0 }
+							messages={ welcomeMessages }
+							examplePrompts={ examplePrompts }
+						/>
 						<AuthenticatedView messages={ messages } isAssistantThinking={ isAssistantThinking } />
 						<div ref={ endOfMessagesRef } />
 					</>
@@ -307,7 +324,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 				disabled={ disabled }
 				input={ input }
 				setInput={ setInput }
-				handleSend={ handleSend }
+				handleSend={ () => handleSend() }
 				handleKeyDown={ handleKeyDown }
 				clearInput={ clearInput }
 				isAssistantThinking={ isAssistantThinking }

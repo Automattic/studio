@@ -5,6 +5,7 @@ import { Icon, external, copy } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import React, { useState, useEffect, useRef, memo } from 'react';
 import Markdown, { ExtraProps } from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { useAssistant, Message as MessageType } from '../hooks/use-assistant';
 import { useAssistantApi } from '../hooks/use-assistant-api';
 import { useAuth } from '../hooks/use-auth';
@@ -161,13 +162,15 @@ export const Message = ( { children, isUser, className }: MessageProps ) => {
 		>
 			<div
 				className={ cx(
-					'inline-block p-3 rounded border border-gray-300 lg:max-w-[70%] select-text',
+					'inline-block p-3 rounded border border-gray-300 lg:max-w-[70%] overflow-x-auto select-text',
 					! isUser ? 'bg-white' : 'bg-white/45'
 				) }
 			>
 				{ typeof children === 'string' ? (
 					<div className="assistant-markdown">
-						<Markdown components={ { code: CodeBlock } }>{ children }</Markdown>
+						<Markdown components={ { code: CodeBlock } } remarkPlugins={ [ remarkGfm ] }>
+							{ children }
+						</Markdown>
 					</div>
 				) : (
 					children

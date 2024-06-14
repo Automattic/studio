@@ -24,7 +24,7 @@ We are truly grateful for any pull requests you open, and we assure you of our w
 
 The most desirable pull requests are:
 
-- Bug fixes for existing features
+- Bug fixes for existing features.
 - Enhancements that improve compatibility with different system versions, browsers, PHP or WP versions, WordPress plugins, or environments in general.
 
 We recommend [adding an issue](https://github.com/Automattic/studio/issues/new/choose) for new features so we can review the plan before you start work on the pull request.

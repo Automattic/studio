@@ -51,6 +51,16 @@ The following represents notable pieces of project structure:
 
 Code formatting is set up to make merging pull requests easier. It uses the same Prettier/ESLint mechanism as Calypso. See [JavaScript Coding Guidelines](https://github.com/Automattic/wp-calypso/blob/trunk/docs/coding-guidelines/javascript.md) for guidance on setting up your editor for code formatting.
 
+### CLI Development
+
+The CLI relies upon a separate instance of the app to run. When developing the CLI, the CLI can be invoked with the following steps:
+
+- Run `npm start` to launch the first instance of the app.
+- Within the `forge.config.ts` file, change the `WebpackPlugin` ports used for the second instance:
+  - Set the development `port` to `3457`.
+  - Add a `loggerPort` property set to `9001`.
+- Run `npm start -- -- --cli"=<CLI-COMMAND>"` in separate terminal session.
+
 ## Testing
 
 ### Unit Tests

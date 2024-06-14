@@ -42,14 +42,14 @@ export const ExampleMessagePrompt = ( {
 	<div className={ cx( 'flex mt-2' ) }>
 		<div
 			className={ cx(
-				'inline-block px-3 py-2 rounded border border-gray-300 lg:max-w-[70%] select-text cursor-pointer focus:border-a8c-blueberry hover:border-a8c-blueberry',
+				'inline-block px-3 py-2 rounded border border-gray-300 lg:max-w-[70%] select-text cursor-pointer focus:border-a8c-blueberry hover:border-a8c-blueberry hover:text-a8c-blueberry hover:fill-a8c-blueberry',
 				className
 			) }
 			onClick={ onClick }
 			role="button"
 		>
 			<div className="assistant-markdown flex items-center">
-				<span className={ cx( 'mr-2', 'w-4 h-4 flex items-center justify-center' ) }>
+				<span className={ cx( 'mr-2 w-4 h-4 flex items-center justify-center' ) }>
 					{ arrowRight }
 				</span>
 				<p className="inline">{ children }</p>

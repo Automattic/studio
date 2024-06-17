@@ -7,6 +7,7 @@ import React, {
 	useCallback,
 	ReactNode,
 } from 'react';
+import { DEFAULT_PHP_VERSION } from '../../vendor/wp-now/src/constants';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { useGetWpVersion } from './use-get-wp-version';
 import { useSiteDetails } from './use-site-details';
@@ -140,16 +141,16 @@ export const ChatProvider: React.FC< ChatProviderProps > = ( { children } ) => {
 			themeList: selectedSite?.id ? themesList[ selectedSite.id ] || [] : [],
 			pluginList: selectedSite?.id ? pluginsList[ selectedSite.id ] || [] : [],
 			wpVersion,
-			// This will be fetched by a hook when php selection is merged
-			phpVersion: '8.0',
+			phpVersion: selectedSite?.phpVersion ?? DEFAULT_PHP_VERSION,
 			currentURL: `http://localhost:${ sitePort }`,
 			themeName: siteThemeDetails?.name,
 			isBlockTheme: siteThemeDetails?.isBlockTheme,
 		};
 	}, [
 		numberOfSites,
-		themesList,
 		selectedSite?.id,
+		selectedSite?.phpVersion,
+		themesList,
 		pluginsList,
 		wpVersion,
 		sitePort,

@@ -4,7 +4,7 @@ export type Message = {
 	id?: number;
 	content: string;
 	role: 'user' | 'assistant';
-    chatId?: string;
+	chatId?: string;
 	blocks?: {
 		cliOutput?: string;
 		cliStatus?: 'success' | 'error';
@@ -15,7 +15,7 @@ export type Message = {
 
 export const useAssistant = ( selectedSiteId: string ) => {
 	const [ messages, setMessages ] = useState< Message[] >( [] );
-    const [ chatId, setChatId ] = useState< string | undefined >( undefined );
+	const [ chatId, setChatId ] = useState< string | undefined >( undefined );
 
 	useEffect( () => {
 		const storedChat = localStorage.getItem( selectedSiteId );
@@ -31,19 +31,19 @@ export const useAssistant = ( selectedSiteId: string ) => {
 	}, [ selectedSiteId ] );
 
 	const addMessage = useCallback(
-		( content: string, role: 'user' | 'assistant', chatId?: string  ) => {
+		( content: string, role: 'user' | 'assistant', chatId?: string ) => {
 			setMessages( ( prevMessages ) => {
 				const updatedMessages = [ ...prevMessages, { content, role, id: prevMessages.length } ];
 				localStorage.setItem( selectedSiteId, JSON.stringify( updatedMessages ) );
 				return updatedMessages;
 			} );
 
-                    setChatId( ( prevChatId ) => {
-			if ( prevChatId !== chatId && chatId ) {
-				localStorage.setItem( `chat_${ selectedSiteId }`, JSON.stringify( chatId ) );
-			}
-			return chatId;
-		} );
+			setChatId( ( prevChatId ) => {
+				if ( prevChatId !== chatId && chatId ) {
+					localStorage.setItem( `chat_${ selectedSiteId }`, JSON.stringify( chatId ) );
+				}
+				return chatId;
+			} );
 		},
 		[ selectedSiteId ]
 	);
@@ -78,27 +78,21 @@ export const useAssistant = ( selectedSiteId: string ) => {
 		},
 		[ selectedSiteId ]
 	);
-	const clearMessages = () => {
+
+	const clearMessages = useCallback( () => {
 		setMessages( [] );
 		setChatId( undefined );
 		localStorage.setItem( selectedSiteId, JSON.stringify( [] ) );
 		localStorage.removeItem( `chat_${ selectedSiteId }` );
-	};
-
-    	const clearMessages = useCallback( () => {
-	setMessages( [] );
-		setChatId( undefined );
-		localStorage.setItem( selectedSiteId, JSON.stringify( [] ) );
-		localStorage.removeItem( `chat_${ selectedSiteId }` );
 	}, [ selectedSiteId ] );
-    
+
 	return useMemo(
 		() => ( {
 			messages,
 			addMessage,
 			updateMessage,
 			clearMessages,
-            chatId
+			chatId,
 		} ),
 		[ addMessage, clearMessages, messages, updateMessage, chatId ]
 	);

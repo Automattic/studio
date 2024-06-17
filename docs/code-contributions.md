@@ -27,11 +27,10 @@ npm install
 
 ### Running the App
 
-Once all required dependencies are installed[^1], you can run the app with the following command:
-
-[^1]: Whenever project dependencies are updated, you may need to run `npm install` again before running the app.
+Once all required dependencies are installed, you can run the app with the following command:
 
 ```bash
+npm install
 npm start
 ```
 
@@ -119,12 +118,11 @@ Then open `chrome://inspect` in a Chromium-based browser and click "inspect" nex
 
 ## Building Installers
 
-Once all required dependencies are installed[^2], you can build installers for the app.
+Once all required dependencies are installed, you can build installers for the app.
 Installers can currently be built on Mac (Intel or Apple Silicon) and Windows with the following command:
 
-[^2]: Whenever project dependencies are updated, you may need to run `npm install` again before building the installers.
-
 ```bash
+npm install
 npm run make
 ```
 

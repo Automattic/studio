@@ -97,7 +97,7 @@ export const Message = ( {
 						{ children }
 					</code>
 				</div>
-				<div className="p-3 pt-1 flex justify-start items-center font-sans">
+				<div className="p-3 pt-1 flex justify-start items-center font-sans space-x-2">
 					<CopyTextButton
 						text={ content }
 						label={ __( 'Copy' ) }
@@ -111,6 +111,7 @@ export const Message = ( {
 							onClick={ handleExecute }
 							disabled={ isRunning }
 							variant="outlined"
+							className="ml-2"
 						>
 							{ cliOutput ? __( 'Run again' ) : __( 'Run' ) }
 						</Button>

@@ -5,6 +5,7 @@
 * Translated "About Studio" window #228
 * Added menu links to feature request and bug report forms #185
 * Fixed possible race conditions when adding site #229
+* Added a way to change PHP version for a site and bumped default to 8.1 #225
 
 1.0.3
 =====

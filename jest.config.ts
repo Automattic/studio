@@ -16,7 +16,6 @@ module.exports = {
 		MAIN_WINDOW_WEBPACK_ENTRY: 'main-window-webpack-entry',
 		MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: 'main-window-preload-webpack-entry',
 	},
-	transformIgnorePatterns: [ '/node_modules/(?!(ansi-regex)/)' ],
 	testRegex: '(/tests/.*|(\\.|/)(test|spec))\\.tsx?$',
 	moduleFileExtensions: [ 'ts', 'tsx', 'js', 'jsx', 'json', 'node' ],
 	globalSetup: '<rootDir>/jest-global-setup.ts',

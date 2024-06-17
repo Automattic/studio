@@ -14,4 +14,8 @@ jest.mock( './src/hooks/use-offline', () => ( {
 	useOffline: jest.fn().mockReturnValue( false ),
 } ) );
 
+jest.mock( 'strip-ansi', () => ( {
+	default: jest.fn().mockImplementation( ( str: string ) => str ),
+} ) );
+
 global.ResizeObserver = require( 'resize-observer-polyfill' );

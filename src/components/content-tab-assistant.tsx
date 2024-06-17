@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/react';
 import { Spinner } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
@@ -18,6 +19,7 @@ import { AIInput } from './ai-input';
 import { MessageThinking } from './assistant-thinking';
 import Button from './button';
 import WelcomeComponent from './welcome-message-prompt';
+
 interface ContentTabAssistantProps {
 	selectedSite: SiteDetails;
 }
@@ -168,7 +170,7 @@ export const Message = ( { children, isUser, className }: MessageProps ) => {
 			>
 				{ typeof children === 'string' ? (
 					<div className="assistant-markdown">
-						<Markdown components={ { code: CodeBlock } } remarkPlugins={ [ remarkGfm ] }>
+						<Markdown components={ { a: Anchor, code: CodeBlock } } remarkPlugins={ [ remarkGfm ] }>
 							{ children }
 						</Markdown>
 					</div>
@@ -179,6 +181,34 @@ export const Message = ( { children, isUser, className }: MessageProps ) => {
 		</div>
 	);
 };
+
+function Anchor( props: JSX.IntrinsicElements[ 'a' ] & ExtraProps ) {
+	const { href } = props;
+
+	return (
+		<a
+			{ ...props }
+			onClick={ ( e ) => {
+				if ( ! href ) {
+					return;
+				}
+
+				e.preventDefault();
+				try {
+					getIpcApi().openURL( href );
+				} catch ( error ) {
+					getIpcApi().showMessageBox( {
+						type: 'error',
+						message: __( 'Failed to open link' ),
+						detail: __( 'We were unable to open the link. Please try again.' ),
+						buttons: [ __( 'OK' ) ],
+					} );
+					Sentry.captureException( error );
+				}
+			} }
+		/>
+	);
+}
 
 const AuthenticatedView = memo(
 	( {

@@ -65,6 +65,7 @@ export const Message = ( {
 		const containsWPCommand = /\bwp\s/.test( content );
 		const wpCommandCount = ( content.match( /\bwp\s/g ) || [] ).length;
 		const containsSingleWPCommand = wpCommandCount === 1;
+		const containsAngleBrackets = /<.*>/.test( content );
 
 		const {
 			cliOutput,
@@ -107,7 +108,7 @@ export const Message = ( {
 						className="h-auto mr-2 !px-2.5 py-0.5 !p-[6px] font-sans select-none"
 						iconSize={ 16 }
 					></CopyTextButton>
-					{ containsWPCommand && containsSingleWPCommand && (
+					{ containsWPCommand && containsSingleWPCommand && ! containsAngleBrackets && (
 						<Button
 							icon={ <ExecuteIcon /> }
 							onClick={ handleExecute }

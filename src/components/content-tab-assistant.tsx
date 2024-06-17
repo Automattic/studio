@@ -2,8 +2,7 @@ import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { Icon, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
-import Markdown, { ExtraProps } from 'react-markdown';
+import React, { useState, useEffect, useRef, memo } from 'react';
 import remarkGfm from 'remark-gfm';
 import { useAssistant, Message as MessageType } from '../hooks/use-assistant';
 import { useAssistantApi } from '../hooks/use-assistant-api';
@@ -111,10 +110,12 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 );
 
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
-	const { messages, addMessage, clearMessages, updateMessage, chatId } = useAssistant( selectedSite.name );
-    const { userCanSendMessage } = usePromptUsage();
+	const { messages, addMessage, clearMessages, updateMessage, chatId } = useAssistant(
+		selectedSite.name
+	);
+	const { userCanSendMessage } = usePromptUsage();
 	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi();
-    	const {
+	const {
 		messages: welcomeMessages,
 		examplePrompts,
 		fetchWelcomeMessages,
@@ -124,7 +125,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const isOffline = useOffline();
 	const { __ } = useI18n();
 
-    	useEffect( () => {
+	useEffect( () => {
 		fetchWelcomeMessages();
 	}, [ fetchWelcomeMessages, selectedSite ] );
 
@@ -167,7 +168,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		clearMessages();
 	};
 
-	const disabled = isOffline || ! isAuthenticated;
+	const disabled = isOffline || ! isAuthenticated || ! userCanSendMessage;
 
 	return (
 		<div className="h-full flex flex-col bg-gray-50">
@@ -177,8 +178,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 			>
 				{ isAuthenticated ? (
 					<>
-
-                    	<WelcomeComponent
+						<WelcomeComponent
 							onExampleClick={ ( prompt ) => handleSend( prompt ) }
 							showExamplePrompts={ messages.length === 0 }
 							messages={ welcomeMessages }

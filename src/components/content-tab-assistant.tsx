@@ -23,6 +23,7 @@ interface ContentTabAssistantProps {
 }
 
 interface MessageProps {
+	id: string;
 	children: React.ReactNode;
 	isUser: boolean;
 	className?: string;
@@ -88,7 +89,7 @@ const ActionButton = ( {
 	);
 };
 
-export const Message = ( { children, isUser, className }: MessageProps ) => {
+export const Message = ( { children, id, isUser, className }: MessageProps ) => {
 	const [ cliOutput, setCliOutput ] = useState< string | null >( null );
 	const [ cliStatus, setCliStatus ] = useState< 'success' | 'error' | null >( null );
 	const [ cliTime, setCliTime ] = useState< string | null >( null );
@@ -161,11 +162,19 @@ export const Message = ( { children, isUser, className }: MessageProps ) => {
 			) }
 		>
 			<div
+				id={ id }
+				role="group"
+				aria-labelledby={ id }
 				className={ cx(
 					'inline-block p-3 rounded border border-gray-300 lg:max-w-[70%] overflow-x-auto select-text',
 					! isUser ? 'bg-white' : 'bg-white/45'
 				) }
 			>
+				<div className="relative">
+					<span className="sr-only">
+						{ isUser ? __( 'Your message' ) : __( 'Studio Assistant' ) },
+					</span>
+				</div>
 				{ typeof children === 'string' ? (
 					<div className="assistant-markdown">
 						<Markdown components={ { code: CodeBlock } } remarkPlugins={ [ remarkGfm ] }>
@@ -190,12 +199,12 @@ const AuthenticatedView = memo(
 	} ) => (
 		<>
 			{ messages.map( ( message, index ) => (
-				<Message key={ index } isUser={ message.role === 'user' }>
+				<Message key={ index } id={ `message-${ index }` } isUser={ message.role === 'user' }>
 					{ message.content }
 				</Message>
 			) ) }
 			{ isAssistantThinking && (
-				<Message isUser={ false }>
+				<Message isUser={ false } id="message-thinking">
 					<MessageThinking />
 				</Message>
 			) }
@@ -204,7 +213,7 @@ const AuthenticatedView = memo(
 );
 
 const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void } ) => (
-	<Message className="w-full" isUser={ false }>
+	<Message id="message-unauthenticated" className="w-full" isUser={ false }>
 		<div className="mb-3 a8c-label-semibold">{ __( 'Hold up!' ) }</div>
 		<div className="mb-1">
 			{ __( 'You need to log in to your WordPress.com account to use the assistant.' ) }

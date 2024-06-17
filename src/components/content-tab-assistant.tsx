@@ -46,7 +46,7 @@ const AuthenticatedView = memo(
 			}, 100 ); // Slight delay to ensure DOM updates
 
 			return () => clearTimeout( timer );
-		}, [ messages ] );
+		}, [ messages?.length ] );
 
 		return (
 			<>

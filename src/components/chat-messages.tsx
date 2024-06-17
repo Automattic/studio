@@ -2,6 +2,7 @@ import { Spinner } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { useEffect } from 'react';
 import Markdown, { ExtraProps } from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import stripAnsi from 'strip-ansi';
 import { useExecuteWPCLI } from '../hooks/use-execute-cli';
 import { cx } from '../lib/cx';
@@ -149,13 +150,15 @@ export const Message = ( {
 		>
 			<div
 				className={ cx(
-					'inline-block p-3 rounded border border-gray-300 lg:max-w-[70%] select-text',
+					'inline-block p-3 rounded border border-gray-300 lg:max-w-[70%] overflow-x-auto select-text',
 					! isUser ? 'bg-white' : 'bg-white/45'
 				) }
 			>
 				{ typeof children === 'string' ? (
 					<div className="assistant-markdown">
-						<Markdown components={ { code: CodeBlock } }>{ children }</Markdown>
+						<Markdown components={ { code: CodeBlock } } remarkPlugins={ [ remarkGfm ] }>
+							{ children }
+						</Markdown>
 					</div>
 				) : (
 					children

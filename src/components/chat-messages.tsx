@@ -97,15 +97,21 @@ export const Message = ( {
 						{ children }
 					</code>
 				</div>
-				<div className="p-3 pt-1 flex justify-start items-center">
+				<div className="p-3 pt-1 flex justify-start items-center font-sans">
 					<CopyTextButton
 						text={ content }
-						label={ __( 'Copy site url to clipboard' ) }
+						label={ __( 'Copy' ) }
 						copyConfirmation={ __( 'Copied!' ) }
 						showText={ true }
+						variant="outlined"
 					></CopyTextButton>
 					{ containsWPCommand && containsSingleWPCommand && (
-						<Button icon={ <ExecuteIcon /> } onClick={ handleExecute } disabled={ isRunning }>
+						<Button
+							icon={ <ExecuteIcon /> }
+							onClick={ handleExecute }
+							disabled={ isRunning }
+							variant="outlined"
+						>
 							{ cliOutput ? __( 'Run again' ) : __( 'Run' ) }
 						</Button>
 					) }

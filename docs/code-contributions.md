@@ -49,7 +49,7 @@ The following represents notable pieces of project structure:
 
 ### Code Formatting
 
-Code formatting is set up to make merging pull requests easier. It uses the same Prettier/ESLint mechanism as Calypso. See [JavaScript Coding Guidelines](https://github.com/Automattic/wp-calypso/blob/trunk/docs/coding-guidelines/javascript.md) for guidance on setting up your editor for code formatting.
+Code formatting is set up to make merging pull requests easier. It uses the same Prettier/ESLint mechanism as Calypso, the front-end library that powers up the WordPress dashboard. See [JavaScript Coding Guidelines](https://github.com/Automattic/wp-calypso/blob/trunk/docs/coding-guidelines/javascript.md) for guidance on setting up your editor for code formatting.
 
 ### CLI Development
 

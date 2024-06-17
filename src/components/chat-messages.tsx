@@ -97,13 +97,15 @@ export const Message = ( {
 						{ children }
 					</code>
 				</div>
-				<div className="p-3 pt-1 flex justify-start items-center font-sans space-x-2">
+				<div className="p-3 pt-1 flex justify-start items-center">
 					<CopyTextButton
 						text={ content }
 						label={ __( 'Copy' ) }
 						copyConfirmation={ __( 'Copied!' ) }
 						showText={ true }
 						variant="outlined"
+						className="h-auto mr-2 !px-2.5 py-0.5 !p-[6px] font-sans select-none"
+						iconSize={ 16 }
 					></CopyTextButton>
 					{ containsWPCommand && containsSingleWPCommand && (
 						<Button
@@ -111,7 +113,7 @@ export const Message = ( {
 							onClick={ handleExecute }
 							disabled={ isRunning }
 							variant="outlined"
-							className="ml-2"
+							className="h-auto mr-2 !px-2.5 py-0.5 font-sans select-none"
 						>
 							{ cliOutput ? __( 'Run again' ) : __( 'Run' ) }
 						</Button>

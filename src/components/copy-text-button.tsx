@@ -12,6 +12,7 @@ interface CopyTextButtonProps {
 	copyConfirmation?: string;
 	timeoutConfirmation?: number;
 	children?: React.ReactNode;
+	showText?: boolean;
 }
 
 export function CopyTextButton( {
@@ -21,6 +22,7 @@ export function CopyTextButton( {
 	copyConfirmation,
 	timeoutConfirmation = 2000,
 	children,
+	showText = false,
 }: CopyTextButtonProps ) {
 	const { __ } = useI18n();
 	const [ showCopied, setShowCopied ] = useState( false );
@@ -48,8 +50,9 @@ export function CopyTextButton( {
 		>
 			{ children }
 			<Icon className="ml-1 mr-1" fill="currentColor" size={ 13 } icon={ copy } />
+			{ showText && ! showCopied && <span className="ml-1">{ __( 'Copy' ) }</span> }{ ' ' }
 			{ showCopied && (
-				<span role="alert" aria-atomic="true">
+				<span role="alert" aria-atomic="true" className="ml-1">
 					{ copyConfirmation }
 				</span>
 			) }

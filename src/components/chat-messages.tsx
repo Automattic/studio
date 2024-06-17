@@ -1,13 +1,12 @@
 import { Spinner } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
-import { Icon, copy } from '@wordpress/icons';
 import { useEffect, useState } from 'react';
 import Markdown, { ExtraProps } from 'react-markdown';
 import stripAnsi from 'strip-ansi';
 import { useExecuteWPCLI } from '../hooks/use-execute-cli';
 import { cx } from '../lib/cx';
-import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
+import { CopyTextButton } from './copy-text-button';
 import { ExecuteIcon } from './icons/execute';
 
 interface MessageProps {
@@ -139,13 +138,12 @@ export const Message = ( {
 					</code>
 				</div>
 				<div className="p-3 pt-1 flex justify-start items-center">
-					<ActionButton
-						primaryLabel={ __( 'Copy' ) }
-						secondaryLabel={ __( 'Copied' ) }
-						icon={ <Icon icon={ copy } size={ 16 } /> }
-						onClick={ () => getIpcApi().copyText( content ) }
-						timeout={ 2000 }
-					/>
+					<CopyTextButton
+						text={ content }
+						label={ __( 'Copy site url to clipboard' ) }
+						copyConfirmation={ __( 'Copied!' ) }
+						showText={ true }
+					></CopyTextButton>
 					{ containsWPCommand && containsSingleWPCommand && (
 						<ActionButton
 							primaryLabel={ __( 'Run' ) }

@@ -617,9 +617,12 @@ export function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath: stri
 			command = `osascript -e '${ script }'`;
 		} else if ( platform === 'linux' ) {
 			// Linux
-			command = `
-export PATH=${ cliPath }:$PATH && export EXE_PATH="${ exePath }" && export APP_DIRECTORY="${ appDirectory }" && export APP_PATH="${ appPath }" && cd ${ targetPath } &&
-gnome-terminal`;
+			command = `export PATH=${ cliPath }:$PATH && export APP_PATH="${ appPath }"`;
+			if ( process.env.NODE_ENV === 'development' ) {
+				command += ` && export EXE_PATH="${ exePath }" && export APP_DIRECTORY="${ appDirectory }"`;
+			}
+			command += ` && gnome-terminal -- bash -c 'cd ${ targetPath }; exec bash'`;
+			console.log( command, 'command' );
 		} else {
 			console.error( 'Unsupported platform:', platform );
 			return;

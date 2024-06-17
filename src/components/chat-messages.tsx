@@ -1,6 +1,6 @@
 import { Spinner } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import Markdown, { ExtraProps } from 'react-markdown';
 import stripAnsi from 'strip-ansi';
 import { useExecuteWPCLI } from '../hooks/use-execute-cli';
@@ -50,46 +50,6 @@ const InlineCLI = ( { output, status, time }: InlineCLIProps ) => (
 		</pre>
 	</div>
 );
-
-const ActionButton = ( {
-	primaryLabel,
-	secondaryLabel,
-	icon,
-	onClick,
-	timeout,
-	disabled,
-}: {
-	primaryLabel: string;
-	secondaryLabel: string;
-	icon: JSX.Element;
-	onClick: () => void;
-	timeout?: number;
-	disabled?: boolean;
-} ) => {
-	const [ buttonLabel, setButtonLabel ] = useState( primaryLabel );
-
-	const handleClick = () => {
-		onClick();
-		setButtonLabel( secondaryLabel );
-		if ( timeout ) {
-			setTimeout( () => {
-				setButtonLabel( primaryLabel );
-			}, timeout );
-		}
-	};
-
-	return (
-		<Button
-			onClick={ handleClick }
-			variant="tertiary"
-			className="mr-2 font-sans select-none"
-			disabled={ disabled }
-		>
-			{ icon }
-			<span className="ml-1">{ buttonLabel }</span>
-		</Button>
-	);
-};
 
 export const Message = ( {
 	children,
@@ -145,13 +105,9 @@ export const Message = ( {
 						showText={ true }
 					></CopyTextButton>
 					{ containsWPCommand && containsSingleWPCommand && (
-						<ActionButton
-							primaryLabel={ __( 'Run' ) }
-							secondaryLabel={ __( 'Run Again' ) }
-							icon={ <ExecuteIcon /> }
-							onClick={ handleExecute }
-							disabled={ isRunning }
-						/>
+						<Button icon={ <ExecuteIcon /> } onClick={ handleExecute } disabled={ isRunning }>
+							{ cliOutput ? __( 'Run again' ) : __( 'Run' ) }
+						</Button>
 					) }
 				</div>
 				{ isRunning && (

@@ -14,6 +14,7 @@ import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import archiver from 'archiver';
 import { copySync } from 'fs-extra';
+import { WPNowOptions } from '../vendor/wp-now/src/config';
 import { SQLITE_FILENAME } from '../vendor/wp-now/src/constants';
 import { downloadSqliteIntegrationPlugin } from '../vendor/wp-now/src/download';
 import { executeWPCli } from '../vendor/wp-now/src/execute-wp-cli';
@@ -25,8 +26,7 @@ import { isInstalled } from './lib/is-installed';
 import { getLocaleData, getSupportedLocale } from './lib/locale';
 import * as oauthClient from './lib/oauth';
 import { createPassword } from './lib/passwords';
-import { phpGetAllPlugins, phpGetAllThemes } from './lib/php-get';
-import { phpGetThemeDetails } from './lib/php-get-theme-details'
+import { phpGetThemeDetails } from './lib/php-get-theme-details';
 import { sanitizeForLogging } from './lib/sanitize-for-logging';
 import { sortSites } from './lib/sort-sites';
 import {
@@ -546,35 +546,6 @@ export async function getThemeDetails( event: IpcMainInvokeEvent, id: string ) {
 	return themeDetails;
 }
 
-export async function getAllPlugins( event: IpcMainInvokeEvent, id: string ) {
-	const server = SiteServer.get( id );
-	if ( ! server ) {
-		throw new Error( 'Site not found.' );
-	}
-
-	if ( ! server.details.running || ! server.server ) {
-		return null;
-	}
-	const allPlugins = await phpGetAllPlugins( server.server );
-	console.log( 'All plugins', allPlugins );
-	return allPlugins;
-}
-
-export async function getAllThemes( event: IpcMainInvokeEvent, id: string ) {
-	const server = SiteServer.get( id );
-	if ( ! server ) {
-		throw new Error( 'Site not found.' );
-	}
-
-	if ( ! server.details.running || ! server.server ) {
-		return null;
-	}
-	console.log( 'Getting all themes' );
-	const allThemes = await phpGetAllThemes( server.server );
-	console.log( 'All themes', allThemes );
-	return allThemes;
-}
-
 export async function getOnboardingData( _event: IpcMainInvokeEvent ): Promise< boolean > {
 	const userData = await loadUserData();
 	const { onboardingCompleted = false } = userData;
@@ -594,9 +565,13 @@ export async function saveOnboarding(
 
 export async function executeWPCLiInline(
 	_event: IpcMainInvokeEvent,
-	{ projectPath, args }: { projectPath: string; args: string[] }
+	{
+		projectPath,
+		args,
+		forcedWPNowOptions,
+	}: { projectPath: string; args: string[]; forcedWPNowOptions?: WPNowOptions }
 ) {
-	const { stdout, stderr } = await executeWPCli( projectPath, args );
+	const { stdout, stderr } = await executeWPCli( projectPath, args, forcedWPNowOptions );
 	return { stdout, stderr };
 }
 

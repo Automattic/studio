@@ -3,6 +3,7 @@
 
 import '@sentry/electron/preload';
 import { contextBridge, ipcRenderer } from 'electron';
+import { WPNowOptions } from '../vendor/wp-now/src/config';
 import { promptWindowsSpeedUpSites } from './lib/windows-helpers';
 import type { LogLevel } from './logging';
 
@@ -35,12 +36,13 @@ const api: IpcApi = {
 		ipcRenderer.invoke( 'generateProposedSitePath', siteName ),
 	openLocalPath: ( path: string ) => ipcRenderer.invoke( 'openLocalPath', path ),
 	getThemeDetails: ( id: string ) => ipcRenderer.invoke( 'getThemeDetails', id ),
-	getAllPlugins: ( id: string ) => ipcRenderer.invoke( 'getAllPlugins', id ),
-	getAllThemes: ( id: string ) => ipcRenderer.invoke( 'getAllThemes', id ),
 	getThumbnailData: ( id: string ) => ipcRenderer.invoke( 'getThumbnailData', id ),
 	getInstalledApps: () => ipcRenderer.invoke( 'getInstalledApps' ),
-	executeWPCLiInline: ( options: { projectPath: string; args: string[] } ) =>
-		ipcRenderer.invoke( 'executeWPCLiInline', options ),
+	executeWPCLiInline: ( options: {
+		projectPath: string;
+		args: string[];
+		forcedWPNowOptions?: WPNowOptions;
+	} ) => ipcRenderer.invoke( 'executeWPCLiInline', options ),
 	getOnboardingData: () => ipcRenderer.invoke( 'getOnboardingData' ),
 	saveOnboarding: ( onboardingCompleted: boolean ) =>
 		ipcRenderer.invoke( 'saveOnboarding', onboardingCompleted ),

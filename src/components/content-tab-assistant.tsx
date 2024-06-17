@@ -235,7 +235,7 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 );
 
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
-	const siteContext = useChatContext( selectedSite );
+	const currentSiteChatContext = useChatContext();
 	const { messages, addMessage, chatId, clearMessages } = useAssistant( selectedSite.name );
 	const { userCanSendMessage } = usePromptUsage();
 	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi();
@@ -249,9 +249,6 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const { isAuthenticated, authenticate } = useAuth();
 	const isOffline = useOffline();
 	const { __ } = useI18n();
-	useEffect( () => {
-		console.log( 'context', siteContext );
-	}, [ siteContext ] );
 
 	useEffect( () => {
 		fetchWelcomeMessages();
@@ -263,10 +260,11 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 			addMessage( chatMessage, 'user', chatId );
 			setInput( '' );
 			try {
-				const { message, chatId: fetchedChatId } = await fetchAssistant( chatId, [
-					...messages,
-					{ content: chatMessage, role: 'user' },
-				] );
+				const { message, chatId: fetchedChatId } = await fetchAssistant(
+					chatId,
+					[ ...messages, { content: chatMessage, role: 'user' } ],
+					currentSiteChatContext
+				);
 				if ( message ) {
 					addMessage( message, 'assistant', chatId ?? fetchedChatId );
 				}

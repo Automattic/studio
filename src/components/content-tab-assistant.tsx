@@ -3,16 +3,21 @@ import { __ } from '@wordpress/i18n';
 import { Icon, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
+import Markdown, { ExtraProps } from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { useAssistant, Message as MessageType } from '../hooks/use-assistant';
 import { useAssistantApi } from '../hooks/use-assistant-api';
 import { useAuth } from '../hooks/use-auth';
+import { useFetchWelcomeMessages } from '../hooks/use-fetch-welcome-messages';
 import { useOffline } from '../hooks/use-offline';
+import { usePromptUsage } from '../hooks/use-prompt-usage';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { AIInput } from './ai-input';
 import { MessageThinking } from './assistant-thinking';
 import Button from './button';
 import { Message } from './chat-messages';
+import WelcomeComponent from './welcome-message-prompt';
 
 interface ContentTabAssistantProps {
 	selectedSite: SiteDetails;
@@ -106,24 +111,35 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 );
 
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
-	const { messages, addMessage, clearMessages, updateMessage } = useAssistant( selectedSite.name );
+	const { messages, addMessage, clearMessages, updateMessage, chatId } = useAssistant( selectedSite.name );
+    const { userCanSendMessage } = usePromptUsage();
 	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi();
+    	const {
+		messages: welcomeMessages,
+		examplePrompts,
+		fetchWelcomeMessages,
+	} = useFetchWelcomeMessages();
 	const [ input, setInput ] = useState< string >( '' );
 	const { isAuthenticated, authenticate } = useAuth();
 	const isOffline = useOffline();
 	const { __ } = useI18n();
 
-	const handleSend = useCallback( async () => {
-		if ( input.trim() ) {
-			addMessage( input, 'user' );
+    	useEffect( () => {
+		fetchWelcomeMessages();
+	}, [ fetchWelcomeMessages, selectedSite ] );
+
+	const handleSend = async ( messageToSend?: string ) => {
+		const chatMessage = messageToSend || input;
+		if ( chatMessage.trim() ) {
+			addMessage( chatMessage, 'user', chatId );
 			setInput( '' );
 			try {
-				const { message } = await fetchAssistant( [
+				const { message, chatId: fetchedChatId } = await fetchAssistant( chatId, [
 					...messages,
-					{ content: input, role: 'user' },
+					{ content: chatMessage, role: 'user' },
 				] );
 				if ( message ) {
-					addMessage( message, 'assistant' );
+					addMessage( message, 'assistant', chatId ?? fetchedChatId );
 				}
 			} catch ( error ) {
 				setTimeout(
@@ -138,7 +154,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 				);
 			}
 		}
-	}, [ __, addMessage, fetchAssistant, input, messages ] );
+	};
 
 	const handleKeyDown = ( e: React.KeyboardEvent< HTMLTextAreaElement > ) => {
 		if ( e.key === 'Enter' ) {
@@ -161,6 +177,13 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 			>
 				{ isAuthenticated ? (
 					<>
+
+                    	<WelcomeComponent
+							onExampleClick={ ( prompt ) => handleSend( prompt ) }
+							showExamplePrompts={ messages.length === 0 }
+							messages={ welcomeMessages }
+							examplePrompts={ examplePrompts }
+						/>
 						<AuthenticatedView
 							messages={ messages }
 							isAssistantThinking={ isAssistantThinking }
@@ -176,7 +199,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 				disabled={ disabled }
 				input={ input }
 				setInput={ setInput }
-				handleSend={ handleSend }
+				handleSend={ () => handleSend() }
 				handleKeyDown={ handleKeyDown }
 				clearInput={ clearInput }
 				isAssistantThinking={ isAssistantThinking }

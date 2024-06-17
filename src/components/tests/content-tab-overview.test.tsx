@@ -9,6 +9,7 @@ const runningSite: StartedSiteDetails = {
 	name: 'Test Site',
 	port: 8881,
 	path: '/path/to/site',
+	phpVersion: '8.0',
 	running: true,
 	id: 'site-id',
 	url: 'http://example.com',
@@ -18,6 +19,7 @@ const notRunningSite: SiteDetails = {
 	name: 'Test Site',
 	port: 8881,
 	path: '/path/to/site',
+	phpVersion: '8.0',
 	running: false,
 	id: 'site-id',
 };

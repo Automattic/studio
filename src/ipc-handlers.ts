@@ -596,27 +596,30 @@ export function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath: stri
 		const platform = process.platform;
 		const cliPath = nodePath.join( getResourcesPath(), 'bin' );
 
+		const exePath = app.getPath( 'exe' );
+		const appDirectory = app.getAppPath();
+		const appPath =
+			process.env.NODE_ENV === 'development' ? `${ exePath } ${ appDirectory }` : exePath;
+
 		let command: string;
 		if ( platform === 'win32' ) {
 			// Windows
-			command = `start cmd /K "set PATH=${ cliPath };%PATH% && set APP_PATH=${ app.getPath(
-				'exe'
-			) } && cd /d ${ targetPath }"`;
+			command = `start cmd /K "set PATH=${ cliPath };%PATH% && set APP_PATH=${ exePath } && cd /d ${ targetPath }"`;
 		} else if ( platform === 'darwin' ) {
 			// macOS
 			const script = `
-			tell application "Terminal"
-				if not application "Terminal" is running then launch
-				do script "clear && export PATH=${ cliPath }:$PATH && export APP_PATH=${ app.getPath(
-					'exe'
-				) } && cd ${ targetPath }"
-				activate
-			end tell
-			`;
+	tell application "Terminal"
+		if not application "Terminal" is running then launch
+		do script "clear && export PATH=${ cliPath }:$PATH && export APP_PATH=${ exePath } && cd ${ targetPath }"
+		activate
+	end tell
+	`;
 			command = `osascript -e '${ script }'`;
 		} else if ( platform === 'linux' ) {
 			// Linux
-			command = `gnome-terminal --working-directory=${ targetPath }`;
+			command = `
+export PATH=${ cliPath }:$PATH && export EXE_PATH="${ exePath }" && export APP_DIRECTORY="${ appDirectory }" && export APP_PATH="${ appPath }" && cd ${ targetPath } &&
+gnome-terminal`;
 		} else {
 			console.error( 'Unsupported platform:', platform );
 			return;

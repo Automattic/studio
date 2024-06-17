@@ -1,12 +1,14 @@
 import { Icon, file } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren } from 'react';
+import { DEFAULT_PHP_VERSION } from '../../vendor/wp-now/src/constants';
 import { useGetWpVersion } from '../hooks/use-get-wp-version';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { decodePassword } from '../lib/passwords';
 import Button from './button';
 import { CopyTextButton } from './copy-text-button';
 import DeleteSite from './delete-site';
+import EditPhpVersion from './edit-php-version';
 import EditSite from './edit-site';
 
 interface ContentTabSettingsProps {
@@ -30,6 +32,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 	// Empty strings account for legacy sites lacking a stored password.
 	const storedPassword = decodePassword( selectedSite.adminPassword ?? '' );
 	const password = storedPassword === '' ? 'password' : storedPassword;
+	const phpVersion = selectedSite.phpVersion ?? DEFAULT_PHP_VERSION;
 	const wpVersion = useGetWpVersion( selectedSite );
 	return (
 		<div className="p-8">
@@ -67,6 +70,12 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 						</Button>
 					</SettingsRow>
 					<SettingsRow label={ __( 'WP Version' ) }>{ wpVersion }</SettingsRow>
+					<SettingsRow label={ __( 'PHP Version' ) }>
+						<div className="flex">
+							<span className="line-clamp-1 break-all">{ phpVersion }</span>
+							<EditPhpVersion />
+						</div>
+					</SettingsRow>
 
 					<tr>
 						<th colSpan={ 2 } className="pb-4 ltr:text-left rtl:text-right">

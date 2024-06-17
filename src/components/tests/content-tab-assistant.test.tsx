@@ -1,9 +1,11 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { useAuth } from '../../hooks/use-auth';
+import { useFetchWelcomeMessages } from '../../hooks/use-fetch-welcome-messages';
 import { ContentTabAssistant } from '../content-tab-assistant';
 
 jest.mock( '../../hooks/use-theme-details' );
 jest.mock( '../../hooks/use-auth' );
+jest.mock( '../../hooks/use-fetch-welcome-messages' );
 
 jest.mock( '../../lib/app-globals', () => ( {
 	getAppGlobals: () => ( {
@@ -11,11 +13,18 @@ jest.mock( '../../lib/app-globals', () => ( {
 	} ),
 } ) );
 
+( useFetchWelcomeMessages as jest.Mock ).mockReturnValue( {
+	messages: [ 'Welcome to our service!', 'How can I help you today?' ],
+	examplePrompts: [ 'Create a WordPress site' ],
+	fetchWelcomeMessages: jest.fn(),
+} );
+
 const runningSite = {
 	name: 'Test Site',
 	port: 8881,
 	path: '/path/to/site',
 	running: true,
+	phpVersion: '8.0',
 	id: 'site-id',
 	url: 'http://example.com',
 };
@@ -74,17 +83,6 @@ describe( 'ContentTabAssistant', () => {
 		expect( textInput ).toBeInTheDocument();
 		expect( textInput ).toBeEnabled();
 		expect( textInput.placeholder ).toBe( 'What would you like to learn?' );
-	} );
-
-	test( 'clears input and chat history when MenuIcon is clicked', () => {
-		render( <ContentTabAssistant selectedSite={ runningSite } /> );
-		const textInput = getInput();
-		const menuIcon = screen.getByLabelText( 'menu' );
-		fireEvent.change( textInput, { target: { value: 'Hello, Assistant!' } } );
-		expect( textInput.value ).toBe( 'Hello, Assistant!' );
-		fireEvent.click( menuIcon );
-		expect( textInput.value ).toBe( '' );
-		expect( screen.queryByText( 'Hello, Assistant!' ) ).not.toBeInTheDocument();
 	} );
 
 	test( 'saves and retrieves conversation from localStorage', async () => {

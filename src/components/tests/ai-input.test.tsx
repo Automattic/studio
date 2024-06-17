@@ -1,6 +1,14 @@
-import { render, screen, fireEvent } from '@testing-library/react';
-import React from 'react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { AIInput } from '../ai-input';
+
+const mockShowMessageBox = jest.fn();
+jest.mock( '../../lib/get-ipc-api', () => ( {
+	getIpcApi: () => ( {
+		openURL: jest.fn(),
+		generateProposedSitePath: jest.fn(),
+		showMessageBox: mockShowMessageBox,
+	} ),
+} ) );
 
 describe( 'AIInput Component', () => {
 	let handleSend: jest.Mock;
@@ -75,5 +83,22 @@ describe( 'AIInput Component', () => {
 		fireEvent.change( textarea, { target: { value: longText } } );
 		expect( setInput ).toHaveBeenCalledWith( longText );
 		expect( textarea.scrollTop ).toBe( textarea.scrollHeight - textarea.clientHeight );
+	} );
+
+	it( 'clears input and chat history when clear conversation button is pressed', async () => {
+		const textarea = getInput();
+		const longText = 'Line\n'.repeat( 100 );
+		fireEvent.change( textarea, { target: { value: longText } } );
+		const assistantMenu = screen.getByLabelText( 'Assistant Menu' );
+		fireEvent.click( assistantMenu );
+
+		const clearConversationButton = screen.getByTestId( 'clear-conversation-button' );
+		mockShowMessageBox.mockResolvedValueOnce( { response: 0 } );
+		fireEvent.click( clearConversationButton );
+
+		await waitFor( () => {
+			expect( mockShowMessageBox ).toHaveBeenCalled();
+			expect( clearInput ).toHaveBeenCalled();
+		} );
 	} );
 } );

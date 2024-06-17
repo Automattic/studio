@@ -40,6 +40,7 @@ describe( 'useUpdateDemoSite', () => {
 	const mockLocalSite: SiteDetails = {
 		name: 'Test Site',
 		running: false,
+		phpVersion: '8.0',
 		id: '54321',
 		path: '/path/to/site',
 	};

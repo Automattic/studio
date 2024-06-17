@@ -75,7 +75,7 @@ export async function saveUserData( data: UserData ): Promise< void > {
 function toDiskFormat( { sites, ...rest }: UserData ): PersistedUserData {
 	return {
 		version: 1,
-		sites: sites.map( ( { id, path, adminPassword, port, name, themeDetails } ) => {
+		sites: sites.map( ( { id, path, adminPassword, port, phpVersion, name, themeDetails } ) => {
 			// No object spreading allowed. TypeScript's structural typing is too permissive and
 			// will permit us to persist properties that aren't in the type definition.
 			// Add each property explicitly instead.
@@ -85,6 +85,7 @@ function toDiskFormat( { sites, ...rest }: UserData ): PersistedUserData {
 				path,
 				adminPassword,
 				port,
+				phpVersion,
 				themeDetails: {
 					name: themeDetails?.name || '',
 					path: themeDetails?.path || '',

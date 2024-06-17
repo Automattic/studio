@@ -75,7 +75,7 @@ export class SiteServer {
 			port,
 			adminPassword: decodePassword( this.details.adminPassword ?? '' ),
 			siteTitle: this.details.name,
-			php: this.details.phpVersion ?? DEFAULT_PHP_VERSION,
+			php: this.details.phpVersion,
 		} );
 		const absoluteUrl = `http://localhost:${ port }`;
 		options.absoluteUrl = absoluteUrl;

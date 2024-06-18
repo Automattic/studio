@@ -23,9 +23,9 @@ const contextMapper = ( context?: ChatContextType ) => {
 	};
 };
 
-export function useAssistantApi() {
+export function useAssistantApi( selectedSiteId: string ) {
 	const { client } = useAuth();
-	const [ isLoading, setIsLoading ] = useState( false );
+	const [ isLoading, setIsLoading ] = useState< Record< string, boolean > >( {} );
 	const { updatePromptUsage } = usePromptUsage();
 
 	const fetchAssistant = useCallback(
@@ -33,7 +33,7 @@ export function useAssistantApi() {
 			if ( ! client ) {
 				throw new Error( 'WPcom client not initialized' );
 			}
-			setIsLoading( true );
+			setIsLoading( ( prev ) => ( { ...prev, [ selectedSiteId ]: true } ) );
 			const body = {
 				messages,
 				chat_id: chatId,
@@ -67,7 +67,7 @@ export function useAssistantApi() {
 				response = data;
 				headers = response_headers;
 			} finally {
-				setIsLoading( false );
+				setIsLoading( ( prev ) => ( { ...prev, [ selectedSiteId ]: false } ) );
 			}
 			const message = response?.choices?.[ 0 ]?.message?.content;
 			updatePromptUsage( {
@@ -76,8 +76,8 @@ export function useAssistantApi() {
 			} );
 			return { message, chatId: response?.id };
 		},
-		[ client, updatePromptUsage ]
+		[ client, selectedSiteId, updatePromptUsage ]
 	);
 
-	return { fetchAssistant, isLoading };
+	return { fetchAssistant, isLoading: isLoading[ selectedSiteId ] };
 }

@@ -221,7 +221,7 @@ function Anchor( props: JSX.IntrinsicElements[ 'a' ] & ExtraProps ) {
 
 const UsageLimitReached = () => {
 	return (
-		<div className="flex items-center justify-center p-2">
+		<div className="flex items-center justify-center p-2 text-a8c-gray-70">
 			{ createInterpolateElement(
 				__(
 					"You've reached your <a>usage limit</a> for this month. Your limit will reset in 3 days."

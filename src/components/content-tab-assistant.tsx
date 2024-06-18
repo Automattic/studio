@@ -278,7 +278,7 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
 	const { messages, addMessage, chatId, clearMessages } = useAssistant( selectedSite.name );
 	const { userCanSendMessage } = usePromptUsage();
-	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi();
+	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi( selectedSite.name );
 	const {
 		messages: welcomeMessages,
 		examplePrompts,

@@ -228,11 +228,20 @@ const AuthenticatedView = memo(
 		isAssistantThinking: boolean;
 	} ) => (
 		<>
-			{ messages.map( ( message, index ) => (
-				<Message key={ index } id={ `message-${ index }` } isUser={ message.role === 'user' }>
-					{ message.content }
-				</Message>
-			) ) }
+			{ messages.map( ( message, index ) => {
+				const isLastAssistantMessage = index === messages.length - 1 && message.role !== 'user';
+				return (
+					<div
+						className={
+							isLastAssistantMessage ? 'animate-in slide-in-from-left zoom-in duration-300' : ''
+						}
+					>
+						<Message key={ index } id={ `message-${ index }` } isUser={ message.role === 'user' }>
+							{ message.content }
+						</Message>
+					</div>
+				);
+			} ) }
 			{ isAssistantThinking && (
 				<Message isUser={ false } id="message-thinking">
 					<MessageThinking />

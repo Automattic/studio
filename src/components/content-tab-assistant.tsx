@@ -370,18 +370,39 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		}
 	}, [ messages ] );
 
-	const disabled = isOffline || ! isAuthenticated || userCanSendMessage;
+	const disabled = isOffline || ! isAuthenticated || ! userCanSendMessage;
 
 	return (
 		<div className="h-full flex flex-col bg-gray-50">
 			<div
 				data-testid="assistant-chat"
-				className={ cx( 'flex-1 overflow-y-auto p-8', ! isAuthenticated && 'flex items-end' ) }
+				className={ cx(
+					'flex-1 overflow-y-auto p-8 flex flex-col-reverse',
+					! isAuthenticated && 'flex items-end'
+				) }
 			>
-				{ isAuthenticated ? (
-					<>
-						{ userCanSendMessage ? (
-							messages.length > 0 ? (
+				<div className="mt-auto">
+					{ isAuthenticated ? (
+						<>
+							{ ! userCanSendMessage ? (
+								messages.length > 0 ? (
+									<>
+										<WelcomeComponent
+											onExampleClick={ ( prompt ) => handleSend( prompt ) }
+											showExamplePrompts={ messages.length === 0 }
+											messages={ welcomeMessages }
+											examplePrompts={ examplePrompts }
+										/>
+										<AuthenticatedView
+											messages={ messages }
+											isAssistantThinking={ isAssistantThinking }
+										/>
+										<UsageLimitReached />
+									</>
+								) : (
+									<UsageLimitReached />
+								)
+							) : (
 								<>
 									<WelcomeComponent
 										onExampleClick={ ( prompt ) => handleSend( prompt ) }
@@ -393,30 +414,14 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 										messages={ messages }
 										isAssistantThinking={ isAssistantThinking }
 									/>
-									<UsageLimitReached />
+									<div ref={ endOfMessagesRef } />
 								</>
-							) : (
-								<UsageLimitReached />
-							)
-						) : (
-							<>
-								<WelcomeComponent
-									onExampleClick={ ( prompt ) => handleSend( prompt ) }
-									showExamplePrompts={ messages.length === 0 }
-									messages={ welcomeMessages }
-									examplePrompts={ examplePrompts }
-								/>
-								<AuthenticatedView
-									messages={ messages }
-									isAssistantThinking={ isAssistantThinking }
-								/>
-								<div ref={ endOfMessagesRef } />
-							</>
-						) }
-					</>
-				) : (
-					<UnauthenticatedView onAuthenticate={ authenticate } />
-				) }
+							) }
+						</>
+					) : (
+						<UnauthenticatedView onAuthenticate={ authenticate } />
+					) }
+				</div>
 			</div>
 			<AIInput
 				disabled={ disabled }

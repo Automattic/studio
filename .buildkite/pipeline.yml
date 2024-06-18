@@ -60,7 +60,7 @@ steps:
       DEBUG: 'pw:browser'
     matrix:
       - mac
-      - windows
+      #- windows
 
   - group: "📦 Build for Mac"
     key: 'dev-mac'

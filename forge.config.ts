@@ -21,7 +21,7 @@ import type { ForgeConfig } from '@electron-forge/shared-types';
 const config: ForgeConfig = {
 	packagerConfig: {
 		asar: true,
-		extraResource: [ './wp-files', './assets' ],
+		extraResource: [ './wp-files', './assets', './bin' ],
 		executableName: process.platform === 'linux' ? 'studio' : undefined,
 		icon: './assets/studio-app-icon',
 		osxSign: {},

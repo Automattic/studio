@@ -8,11 +8,7 @@ type PromptUsage = {
 	promptLimit: number;
 	promptCount: number;
 	fetchPromptUsage: () => Promise< void >;
-	updatePromptUsage: ( data: {
-		maxQuota: string;
-		remainingQuota: string;
-		quotaResetDate: string;
-	} ) => void;
+	updatePromptUsage: ( data: { maxQuota: string; remainingQuota: string } ) => void;
 	userCanSendMessage: boolean;
 	daysUntilReset: number;
 };
@@ -21,11 +17,7 @@ const initState: PromptUsage = {
 	promptLimit: LIMIT_OF_PROMPTS_PER_USER,
 	promptCount: 0,
 	fetchPromptUsage: async () => undefined,
-	updatePromptUsage: ( _data: {
-		maxQuota: string;
-		remainingQuota: string;
-		quotaResetDate: string;
-	} ) => undefined,
+	updatePromptUsage: ( _data: { maxQuota: string; remainingQuota: string } ) => undefined,
 	userCanSendMessage: true,
 	daysUntilReset: 0,
 };
@@ -59,7 +51,7 @@ export function PromptUsageProvider( { children }: PromptUsageProps ) {
 	const { client } = useAuth();
 
 	const updatePromptUsage = useCallback(
-		( data: { maxQuota: string; remainingQuota: string; quotaResetDate: string } ) => {
+		( data: { maxQuota: string; remainingQuota: string } ) => {
 			const limit = parseInt( data.maxQuota as string );
 			const remaining = parseInt( data.remainingQuota as string );
 			if ( isNaN( limit ) || isNaN( remaining ) ) {
@@ -67,7 +59,6 @@ export function PromptUsageProvider( { children }: PromptUsageProps ) {
 			}
 			setPromptLimit( limit );
 			setPromptCount( limit - remaining );
-			setQuotaResetDate( data.quotaResetDate );
 			if ( ! initiated ) {
 				setInitiated( true );
 			}
@@ -88,8 +79,8 @@ export function PromptUsageProvider( { children }: PromptUsageProps ) {
 			updatePromptUsage( {
 				maxQuota: response.max_quota || '',
 				remainingQuota: response.remaining_quota || '',
-				quotaResetDate: response.quota_reset_date || '',
 			} );
+			setQuotaResetDate( response.quota_reset_date || '' );
 		} catch ( error ) {
 			Sentry.captureException( error );
 			console.error( error );

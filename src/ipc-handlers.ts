@@ -604,22 +604,22 @@ export function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath: stri
 		let command: string;
 		if ( platform === 'win32' ) {
 			// Windows
-			command = `start cmd /K "set PATH=${ cliPath };%PATH% && set APP_PATH=${ exePath } && cd /d ${ targetPath }"`;
+			command = `start cmd /K "set PATH=${ cliPath };%PATH% && set STUDIO_APP_PATH=${ exePath } && cd /d ${ targetPath }"`;
 		} else if ( platform === 'darwin' ) {
 			// macOS
 			const script = `
-	tell application "Terminal"
-		if not application "Terminal" is running then launch
-		do script "clear && export PATH=${ cliPath }:$PATH && export APP_PATH=${ exePath } && cd ${ targetPath }"
-		activate
-	end tell
+			tell application "Terminal"
+				if not application "Terminal" is running then launch
+				do script "clear && export PATH=${ cliPath }:$PATH && export STUDIO_APP_PATH=${ exePath } && cd ${ targetPath }"
+				activate
+			end tell
 	`;
 			command = `osascript -e '${ script }'`;
 		} else if ( platform === 'linux' ) {
 			// Linux
-			command = `export PATH=${ cliPath }:$PATH && export APP_PATH="${ appPath }"`;
+			command = `export PATH=${ cliPath }:$PATH && export STUDIO_APP_PATH="${ appPath }"`;
 			if ( process.env.NODE_ENV === 'development' ) {
-				command += ` && export EXE_PATH="${ exePath }" && export APP_DIRECTORY="${ appDirectory }"`;
+				command += ` && export STUDIO_EXE_PATH="${ exePath }" && export STUDIO_APP_DIRECTORY="${ appDirectory }"`;
 			}
 			command += ` && gnome-terminal -- bash -c 'cd ${ targetPath }; exec bash'`;
 		} else {

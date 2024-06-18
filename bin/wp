@@ -1,5 +1,5 @@
-if [ -z "$APP_PATH" ]; then
-  echo "Error: APP_PATH is undefined; Studio's bundled \`wp-cli\` is only usable in shell sessions originating from Studio's \"Open in Terminal\" feature."
+if [ -z "$STUDIO_APP_PATH" ]; then
+  echo "Error: STUDIO_APP_PATH is undefined; Studio's bundled \`wp-cli\` is only usable in shell sessions originating from Studio's \"Open in Terminal\" feature."
   exit 1
 fi
 
@@ -12,8 +12,8 @@ CLI="wp $COMMAND"
 # Mimic core `wp-cli`'s behavior of using `less` for `help` output.
 PAGER=$(if [ -z "$COMMAND" ] || [[ "$COMMAND" == help* ]]; then echo "less -R"; else echo "cat"; fi)
 
-if [ -n "$APP_DIRECTORY" ] && [ -n "$EXE_PATH" ]; then
-  "$EXE_PATH" "$APP_DIRECTORY" --cli="$CLI" | $PAGER
+if [ -n "$STUDIO_APP_DIRECTORY" ] && [ -n "$STUDIO_EXE_PATH" ]; then
+  "$STUDIO_EXE_PATH" "$STUDIO_APP_DIRECTORY" --cli="$CLI" | $PAGER
 else
-  "$APP_PATH" --cli="$CLI" | $PAGER
+  "$STUDIO_APP_PATH" --cli="$CLI" | $PAGER
 fi

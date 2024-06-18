@@ -1,6 +1,6 @@
 @ECHO OFF
-IF "%APP_PATH%"=="" (
-  ECHO Error: APP_PATH is undefined; Studio's bundled 'wp-cli' is only usable in shell sessions originating from Studio's "Open in Terminal" feature.
+IF "%STUDIO_APP_PATH%"=="" (
+  ECHO Error: STUDIO_APP_PATH is undefined; Studio's bundled 'wp-cli' is only usable in shell sessions originating from Studio's "Open in Terminal" feature.
   EXIT /B 1
 )
 
@@ -9,12 +9,12 @@ SET CLI=wp %COMMAND%
 
 IF "%COMMAND%"=="" (
   REM Mimic core `wp-cli`'s behavior of using `more` for `help` output.
-  "%APP_PATH%" --cli="%CLI%" | more
+  "%STUDIO_APP_PATH%" --cli="%CLI%" | more
 ) ELSE (
   IF "%COMMAND:~0,4%"=="help" (
     REM Mimic core `wp-cli`'s behavior of using `more` for `help` output.
-    "%APP_PATH%" --cli="%CLI%" | more
+    "%STUDIO_APP_PATH%" --cli="%CLI%" | more
   ) ELSE (
-    "%APP_PATH%" --cli="%CLI%"
+    "%STUDIO_APP_PATH%" --cli="%CLI%"
   )
 )

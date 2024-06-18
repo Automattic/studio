@@ -370,15 +370,39 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 			>
 				{ isAuthenticated ? (
 					<>
-						<WelcomeComponent
-							onExampleClick={ ( prompt ) => handleSend( prompt ) }
-							showExamplePrompts={ messages.length === 0 }
-							messages={ welcomeMessages }
-							examplePrompts={ examplePrompts }
-						/>
-						<AuthenticatedView messages={ messages } isAssistantThinking={ isAssistantThinking } />
-						<UsageLimitReached />
-						<div ref={ endOfMessagesRef } />
+						{ userCanSendMessage ? (
+							messages.length > 0 ? (
+								<>
+									<WelcomeComponent
+										onExampleClick={ ( prompt ) => handleSend( prompt ) }
+										showExamplePrompts={ messages.length === 0 }
+										messages={ welcomeMessages }
+										examplePrompts={ examplePrompts }
+									/>
+									<AuthenticatedView
+										messages={ messages }
+										isAssistantThinking={ isAssistantThinking }
+									/>
+									<UsageLimitReached />
+								</>
+							) : (
+								<UsageLimitReached />
+							)
+						) : (
+							<>
+								<WelcomeComponent
+									onExampleClick={ ( prompt ) => handleSend( prompt ) }
+									showExamplePrompts={ messages.length === 0 }
+									messages={ welcomeMessages }
+									examplePrompts={ examplePrompts }
+								/>
+								<AuthenticatedView
+									messages={ messages }
+									isAssistantThinking={ isAssistantThinking }
+								/>
+								<div ref={ endOfMessagesRef } />
+							</>
+						) }
 					</>
 				) : (
 					<UnauthenticatedView onAuthenticate={ authenticate } />

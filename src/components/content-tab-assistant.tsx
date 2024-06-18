@@ -1,7 +1,7 @@
 import * as Sentry from '@sentry/react';
 import { Spinner } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
-import { __ } from '@wordpress/i18n';
+import { __, _n, sprintf } from '@wordpress/i18n';
 import { Icon, external, copy } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import React, { useState, useEffect, useRef, memo } from 'react';
@@ -221,22 +221,31 @@ function Anchor( props: JSX.IntrinsicElements[ 'a' ] & ExtraProps ) {
 
 const UsageLimitReached = () => {
 	const { daysUntilReset } = usePromptUsage();
+
+	// Determine if the reset is today
+	const resetMessage =
+		daysUntilReset <= 0
+			? __( "You've reached your <a>usage limit</a> for this month. Your limit will reset today." )
+			: sprintf(
+					_n(
+						"You've reached your <a>usage limit</a> for this month. Your limit will reset in %s day.",
+						"You've reached your <a>usage limit</a> for this month. Your limit will reset in %s days.",
+						daysUntilReset
+					),
+					daysUntilReset
+			  );
+
 	return (
 		<div className="flex items-center justify-center h-12 px-2 pt-4 text-a8c-gray-70">
-			{ createInterpolateElement(
-				__(
-					`You've reached your <a>usage limit</a> for this month. Your limit will reset in ${ daysUntilReset } days.`
+			{ createInterpolateElement( resetMessage, {
+				a: (
+					<Button
+						onClick={ () => getIpcApi().showUserSettings() }
+						className="!px-1"
+						variant="link"
+					/>
 				),
-				{
-					a: (
-						<Button
-							onClick={ () => getIpcApi().showUserSettings() }
-							className="!px-1"
-							variant="link"
-						/>
-					),
-				}
-			) }
+			} ) }
 		</div>
 	);
 };

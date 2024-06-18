@@ -11,6 +11,7 @@ interface Command {
 
 const STANDALONE_COMMANDS: [ CommandAction ] = [ 'wp' ];
 const systemLog = console.log;
+const systemError = console.error;
 let cliCommand: Command;
 
 export const isCLI = () => app.commandLine.hasSwitch( 'cli' );
@@ -75,7 +76,7 @@ const commands = {
 			}
 			systemLog( result.stdout );
 		} catch ( error ) {
-			systemLog( error );
+			systemError( error );
 		}
 	},
 };

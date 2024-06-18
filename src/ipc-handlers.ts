@@ -622,7 +622,6 @@ export function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath: stri
 				command += ` && export EXE_PATH="${ exePath }" && export APP_DIRECTORY="${ appDirectory }"`;
 			}
 			command += ` && gnome-terminal -- bash -c 'cd ${ targetPath }; exec bash'`;
-			console.log( command, 'command' );
 		} else {
 			console.error( 'Unsupported platform:', platform );
 			return;

@@ -3,7 +3,11 @@ if [ -z "$APP_PATH" ]; then
   exit 1
 fi
 
-COMMAND=$(printf '%q ' "$@")
+COMMAND=""
+for arg in "$@"; do
+    COMMAND+="'$arg' "
+done
+COMMAND=${COMMAND% }
 CLI="wp $COMMAND"
 # Mimic core `wp-cli`'s behavior of using `less` for `help` output.
 PAGER=$(if [ -z "$COMMAND" ] || [[ "$COMMAND" == help* ]]; then echo "less -R"; else echo "cat"; fi)

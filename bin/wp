@@ -10,7 +10,7 @@ done
 COMMAND=${COMMAND% }
 CLI="wp $COMMAND"
 # Mimic core `wp-cli`'s behavior of using `less` for `help` output.
-PAGER=$(if [ -z "$COMMAND" ] || [[ "$COMMAND" == help* ]]; then echo "less -R"; else echo "cat"; fi)
+PAGER=$(if [ -z "$COMMAND" ] || [[ "$COMMAND" == \'help* ]]; then echo "less -R"; else echo "cat"; fi)
 
 if [ -n "$STUDIO_APP_DIRECTORY" ] && [ -n "$STUDIO_EXE_PATH" ]; then
   "$STUDIO_EXE_PATH" "$STUDIO_APP_DIRECTORY" --cli="$CLI" | $PAGER

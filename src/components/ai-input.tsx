@@ -96,16 +96,30 @@ export const AIInput = ( {
 	};
 
 	return (
-		<div className="px-8 py-5 bg-white flex items-center border border-gray-200">
-			<div className="flex w-full border border-gray-300 rounded-sm focus-within:border-a8c-blueberry">
-				<div className="flex items-end p-3 ltr:pr-2 rtl:pl-2">
-					<AssistantIcon size={ 28 } aria-hidden="true" />
+		<div
+			className={ `px-8 py-5 flex items-center border ${
+				disabled ? 'bg-gray-100 border-gray-300' : 'bg-white border-gray-200'
+			}` }
+		>
+			<div
+				className={ `flex w-full border rounded-sm ${
+					disabled ? 'border-gray-300' : 'border-gray-300 focus-within:border-a8c-blueberry'
+				}` }
+			>
+				<div className={ `flex items-end p-3 ltr:pr-2 rtl:pl-2` }>
+					<AssistantIcon
+						size={ 28 }
+						aria-hidden="true"
+						className={ disabled ? 'fill-a8c-gray-30' : 'fill-a8c-blueberry' }
+					/>
 				</div>
 				<textarea
 					ref={ inputRef }
 					disabled={ disabled }
 					placeholder={ getPlaceholderText() }
-					className="w-full mt-1 px-2 py-3 rounded-sm border-none resize-none focus:outline-none"
+					className={ `w-full mt-1 px-2 py-3 rounded-sm border-none resize-none focus:outline-none ${
+						disabled ? 'bg-gray-100 cursor-not-allowed' : ''
+					}` }
 					value={ input }
 					onChange={ handleInput }
 					onKeyDown={ handleKeyDownWrapper }
@@ -117,7 +131,7 @@ export const AIInput = ( {
 						<Icon icon={ keyboardReturn } size={ 13 } fill="#cccccc" />
 					</div>
 				) }
-				<DropdownMenu icon={ moreVertical } label="Assistant Menu" className="p-2">
+				<DropdownMenu icon={ moreVertical } label={ 'Assistant Menu' } className="p-2">
 					{ ( { onClose }: { onClose: () => void } ) => (
 						<>
 							<MenuGroup>

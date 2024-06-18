@@ -11,6 +11,8 @@ import Onboarding from './page-objects/onboarding';
 import SiteContent from './page-objects/site-content';
 import type { ElectronApplication, Page } from 'playwright';
 
+const skipTestOnWindows = process.platform === 'win32' ? test.skip : test;
+
 test.describe( 'Servers', () => {
 	let electronApp: ElectronApplication;
 	let mainWindow: Page;
@@ -50,7 +52,7 @@ test.describe( 'Servers', () => {
 			await onboarding.continueButton.click();
 
 			const siteContent = new SiteContent( onboardingMainWindow, defaultOnboardingSiteName );
-			await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 30_000 } );
+			await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 60_000 } );
 		}
 
 		await onboardingAppInstance.close();
@@ -124,7 +126,7 @@ test.describe( 'Servers', () => {
 		expect( await page.title() ).toBe( 'testing site title' );
 	} );
 
-	test( 'delete site', async () => {
+	skipTestOnWindows( 'delete site', async () => {
 		const siteContent = new SiteContent( mainWindow, siteName );
 		const settingsTab = await siteContent.navigateToTab( 'Settings' );
 

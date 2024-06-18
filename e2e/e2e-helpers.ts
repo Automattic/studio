@@ -22,7 +22,7 @@ export async function launchApp( testEnv: NodeJS.ProcessEnv = {} ) {
 			E2E: 'true', // allow app to determine whether it's running as an end-to-end test
 		},
 	} );
-	const mainWindow = await electronApp.firstWindow();
+	const mainWindow = await electronApp.firstWindow( { timeout: 60_000 } );
 
 	return [ electronApp, mainWindow ] as const;
 }

@@ -58,7 +58,7 @@ export function PromptUsageProvider( { children }: PromptUsageProps ) {
 				return;
 			}
 			setPromptLimit( limit );
-			setPromptCount( limit - remaining );
+			setPromptCount( limit );
 			if ( ! initiated ) {
 				setInitiated( true );
 			}

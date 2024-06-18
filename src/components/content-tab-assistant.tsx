@@ -219,6 +219,27 @@ function Anchor( props: JSX.IntrinsicElements[ 'a' ] & ExtraProps ) {
 	);
 }
 
+const UsageLimitReached = () => {
+	return (
+		<div className="flex items-center justify-center p-2">
+			{ createInterpolateElement(
+				__(
+					"You've reached your <a>usage limit</a> for this month. Your limit will reset in 3 days."
+				),
+				{
+					a: (
+						<Button
+							onClick={ () => getIpcApi().showUserSettings() }
+							className="!px-1"
+							variant="link"
+						/>
+					),
+				}
+			) }
+		</div>
+	);
+};
+
 const AuthenticatedView = memo(
 	( {
 		messages,
@@ -339,7 +360,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		}
 	}, [ messages ] );
 
-	const disabled = isOffline || ! isAuthenticated || ! userCanSendMessage;
+	const disabled = isOffline || ! isAuthenticated || userCanSendMessage;
 
 	return (
 		<div className="h-full flex flex-col bg-gray-50">
@@ -356,6 +377,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 							examplePrompts={ examplePrompts }
 						/>
 						<AuthenticatedView messages={ messages } isAssistantThinking={ isAssistantThinking } />
+						<UsageLimitReached />
 						<div ref={ endOfMessagesRef } />
 					</>
 				) : (

@@ -2,16 +2,28 @@ import { app } from 'electron';
 import fs from 'fs';
 import path from 'path';
 
-const appPaths: Record< keyof InstalledApps, string > =
-	process.platform == 'win32'
-		? {
-				vscode: path.join( app.getPath( 'appData' ), 'Code' ),
-				phpstorm: '', // Disable phpSotrm for Windows
-		  }
-		: {
-				vscode: '/Applications/Visual Studio Code.app',
-				phpstorm: '/Applications/PhpStorm.app',
-		  };
+let appPaths: Record< keyof InstalledApps, string >;
+
+if ( process.platform === 'darwin' ) {
+	appPaths = {
+		vscode: '/Applications/Visual Studio Code.app',
+		phpstorm: '/Applications/PhpStorm.app',
+	};
+}
+
+if ( process.platform === 'linux' ) {
+	appPaths = {
+		vscode: '/usr/bin/code',
+		phpstorm: '/usr/bin/phpstorm',
+	};
+}
+
+if ( process.platform === 'win32' ) {
+	appPaths = {
+		vscode: path.join( app.getPath( 'appData' ), 'Code' ),
+		phpstorm: '', // Disable phpStorm for Windows
+	};
+}
 
 export function isInstalled( key: keyof typeof appPaths ): boolean {
 	if ( ! appPaths[ key ] ) {

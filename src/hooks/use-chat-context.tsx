@@ -9,6 +9,7 @@ import React, {
 } from 'react';
 import { DEFAULT_PHP_VERSION } from '../../vendor/wp-now/src/constants';
 import { getIpcApi } from '../lib/get-ipc-api';
+import { useCheckInstalledApps } from './use-check-installed-apps';
 import { useGetWpVersion } from './use-get-wp-version';
 import { useSiteDetails } from './use-site-details';
 import { useWindowListener } from './use-window-listener';
@@ -22,6 +23,9 @@ export interface ChatContextType {
 	wpVersion: string;
 	phpVersion: string;
 	isBlockTheme?: boolean;
+	os: string;
+	availableEditors: string[];
+	siteName?: string;
 }
 const ChatContext = createContext< ChatContextType >( {
 	currentURL: '',
@@ -32,6 +36,9 @@ const ChatContext = createContext< ChatContextType >( {
 	phpVersion: '',
 	isBlockTheme: false,
 	wpVersion: '',
+	availableEditors: [] as string[],
+	os: '',
+	siteName: '',
 } );
 
 interface ChatProviderProps {
@@ -50,6 +57,7 @@ const parseWpCliOutput = ( stdout: string, defaultValue: string[] ): string[] =>
 
 export const ChatProvider: React.FC< ChatProviderProps > = ( { children } ) => {
 	const [ initialLoad, setInitialLoad ] = useState< Record< string, boolean > >( {} );
+	const installedApps = useCheckInstalledApps();
 	const { data: sites, loadingSites, selectedSite } = useSiteDetails();
 	const wpVersion = useGetWpVersion( selectedSite || ( {} as SiteDetails ) );
 	const [ pluginsList, setPluginsList ] = useState< Record< string, string[] > >( {} );
@@ -58,6 +66,10 @@ export const ChatProvider: React.FC< ChatProviderProps > = ( { children } ) => {
 	const sitePath = selectedSite?.path || '';
 	const sitePort = selectedSite?.port || '';
 	const siteThemeDetails = selectedSite?.themeDetails;
+
+	const availableEditors = Object.keys( installedApps ).filter( ( app ) => {
+		return installedApps[ app as keyof InstalledApps ];
+	} );
 
 	const fetchPluginList = useCallback( async ( path: string ) => {
 		const { stdout, stderr } = await getIpcApi().executeWPCLiInline( {
@@ -145,17 +157,22 @@ export const ChatProvider: React.FC< ChatProviderProps > = ( { children } ) => {
 			currentURL: `http://localhost:${ sitePort }`,
 			themeName: siteThemeDetails?.name,
 			isBlockTheme: siteThemeDetails?.isBlockTheme,
+			availableEditors,
+			siteName: selectedSite?.name,
+			os: window.appGlobals.platform,
 		};
 	}, [
 		numberOfSites,
 		selectedSite?.id,
 		selectedSite?.phpVersion,
+		selectedSite?.name,
 		themesList,
 		pluginsList,
 		wpVersion,
 		sitePort,
 		siteThemeDetails?.name,
 		siteThemeDetails?.isBlockTheme,
+		availableEditors,
 	] );
 
 	return <ChatContext.Provider value={ contextValue }>{ children }</ChatContext.Provider>;

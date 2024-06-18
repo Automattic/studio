@@ -17,6 +17,9 @@ const contextMapper = ( context?: ChatContextType ) => {
 		themes: context.themeList,
 		current_theme: context.themeName,
 		is_block_theme: context.isBlockTheme,
+		ide: context.availableEditors,
+		site_name: context.siteName,
+		os: context.os,
 	};
 };
 

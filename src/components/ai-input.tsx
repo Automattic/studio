@@ -98,12 +98,12 @@ export const AIInput = ( {
 	return (
 		<div
 			className={ `px-8 py-5 flex items-center border ${
-				disabled ? 'bg-gray-100 border-gray-300' : 'bg-white border-gray-200'
+				disabled ? 'bg-gray-100 border-a8c-gray-10 opacity-30' : 'bg-white border-gray-200'
 			}` }
 		>
 			<div
 				className={ `flex w-full border rounded-sm ${
-					disabled ? 'border-gray-300' : 'border-gray-300 focus-within:border-a8c-blueberry'
+					disabled ? 'border-a8c-gray-10' : 'border-gray-300 focus-within:border-a8c-blueberry'
 				}` }
 			>
 				<div className={ `flex items-end p-3 ltr:pr-2 rtl:pl-2` }>
@@ -118,7 +118,7 @@ export const AIInput = ( {
 					disabled={ disabled }
 					placeholder={ getPlaceholderText() }
 					className={ `w-full mt-1 px-2 py-3 rounded-sm border-none resize-none focus:outline-none ${
-						disabled ? 'bg-gray-100 cursor-not-allowed' : ''
+						disabled ? 'bg-gray-100 text-a8c-gray-30 cursor-not-allowed' : ''
 					}` }
 					value={ input }
 					onChange={ handleInput }

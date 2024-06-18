@@ -118,7 +118,7 @@ export const AIInput = ( {
 					disabled={ disabled }
 					placeholder={ getPlaceholderText() }
 					className={ `w-full mt-1 px-2 py-3 rounded-sm border-none resize-none focus:outline-none ${
-						disabled ? 'bg-gray-100 text-a8c-gray-30 cursor-not-allowed' : ''
+						disabled ? 'cursor-not-allowed' : ''
 					}` }
 					value={ input }
 					onChange={ handleInput }

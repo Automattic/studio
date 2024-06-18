@@ -14,9 +14,10 @@ type PromptUsage = {
 		quotaResetDate: string;
 	} ) => void;
 	userCanSendMessage: boolean;
+	daysUntilReset: number;
 };
 
-const initState = {
+const initState: PromptUsage = {
 	promptLimit: LIMIT_OF_PROMPTS_PER_USER,
 	promptCount: 0,
 	fetchPromptUsage: async () => undefined,
@@ -26,7 +27,9 @@ const initState = {
 		quotaResetDate: string;
 	} ) => undefined,
 	userCanSendMessage: true,
+	daysUntilReset: 0,
 };
+
 const promptUsageContext = createContext< PromptUsage >( initState );
 
 interface PromptUsageProps {
@@ -37,6 +40,14 @@ export function usePromptUsage() {
 	return useContext( promptUsageContext );
 }
 
+const calculateDaysRemaining = ( quotaResetDate: string ): number => {
+	const resetDate = new Date( quotaResetDate );
+	const currentDate = new Date();
+	const timeDifference = resetDate.getTime() - currentDate.getTime();
+	const daysDifference = Math.ceil( timeDifference / ( 1000 * 3600 * 24 ) );
+	return daysDifference;
+};
+
 export function PromptUsageProvider( { children }: PromptUsageProps ) {
 	const { Provider } = promptUsageContext;
 	const assistantEnabled = getAppGlobals().assistantEnabled;
@@ -44,6 +55,7 @@ export function PromptUsageProvider( { children }: PromptUsageProps ) {
 	const [ initiated, setInitiated ] = useState( false );
 	const [ promptLimit, setPromptLimit ] = useState( LIMIT_OF_PROMPTS_PER_USER );
 	const [ promptCount, setPromptCount ] = useState( 0 );
+	const [ quotaResetDate, setQuotaResetDate ] = useState( '' );
 	const { client } = useAuth();
 
 	const updatePromptUsage = useCallback(
@@ -55,6 +67,7 @@ export function PromptUsageProvider( { children }: PromptUsageProps ) {
 			}
 			setPromptLimit( limit );
 			setPromptCount( limit - remaining );
+			setQuotaResetDate( data.quotaResetDate );
 			if ( ! initiated ) {
 				setInitiated( true );
 			}
@@ -90,6 +103,11 @@ export function PromptUsageProvider( { children }: PromptUsageProps ) {
 		fetchPromptUsage();
 	}, [ fetchPromptUsage, client, initiated ] );
 
+	const daysUntilReset = useMemo(
+		() => calculateDaysRemaining( quotaResetDate ),
+		[ quotaResetDate ]
+	);
+
 	const contextValue = useMemo( () => {
 		return {
 			fetchPromptUsage,
@@ -97,8 +115,9 @@ export function PromptUsageProvider( { children }: PromptUsageProps ) {
 			promptCount,
 			updatePromptUsage,
 			userCanSendMessage: promptCount < promptLimit,
+			daysUntilReset,
 		};
-	}, [ fetchPromptUsage, promptLimit, promptCount, updatePromptUsage ] );
+	}, [ fetchPromptUsage, promptLimit, promptCount, updatePromptUsage, daysUntilReset ] );
 
 	return <Provider value={ contextValue }>{ children }</Provider>;
 }

@@ -131,7 +131,7 @@ export const AIInput = ( {
 						<Icon icon={ keyboardReturn } size={ 13 } fill="#cccccc" />
 					</div>
 				) }
-				<DropdownMenu icon={ moreVertical } label={ 'Assistant Menu' } className="p-2">
+				<DropdownMenu icon={ moreVertical } label={ __( 'Assistant Menu' ) } className="p-2">
 					{ ( { onClose }: { onClose: () => void } ) => (
 						<>
 							<MenuGroup>

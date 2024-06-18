@@ -6,6 +6,9 @@ import { usePromptUsage } from '../use-prompt-usage';
 jest.mock( '../use-auth' );
 jest.mock( '../use-prompt-usage' );
 
+const chatId = 'test-chat-id';
+const siteId = 'test-site-id';
+
 describe( 'useAssistantApi', () => {
 	const clientReqPost = jest.fn();
 	beforeEach( () => {
@@ -50,28 +53,30 @@ describe( 'useAssistantApi', () => {
 		( useAuth as jest.Mock ).mockImplementation( () => ( {
 			client: null,
 		} ) );
-		const { result } = renderHook( () => useAssistantApi() );
+		const { result } = renderHook( () => useAssistantApi( siteId ) );
 
 		await act( async () => {
-			await expect( result.current.fetchAssistant( [] ) ).rejects.toThrow(
+			await expect( result.current.fetchAssistant( chatId, [] ) ).rejects.toThrow(
 				'WPcom client not initialized'
 			);
 		} );
 	} );
 
 	test( 'should return a message from the assistant', async () => {
-		const { result } = renderHook( () => useAssistantApi() );
+		const { result } = renderHook( () => useAssistantApi( siteId ) );
 
 		let response = { message: '' };
 		await act( async () => {
-			response = await result.current.fetchAssistant( [ { content: 'test', role: 'user' } ] );
+			response = await result.current.fetchAssistant( chatId, [
+				{ content: 'test', role: 'user' },
+			] );
 		} );
 
 		expect( response?.message ).toBe( 'Hello! How can I assist you today?' );
 	} );
 
 	test( 'should throw an error if fetch fails', async () => {
-		const { result } = renderHook( () => useAssistantApi() );
+		const { result } = renderHook( () => useAssistantApi( siteId ) );
 
 		clientReqPost.mockImplementation( ( body, callback ) => {
 			callback( new Error( 'Failed to fetch assistant' ), null );
@@ -79,7 +84,7 @@ describe( 'useAssistantApi', () => {
 
 		await act( async () => {
 			await expect(
-				result.current.fetchAssistant( [ { content: 'test', role: 'user' } ] )
+				result.current.fetchAssistant( chatId, [ { content: 'test', role: 'user' } ] )
 			).rejects.toThrow( 'Failed to fetch assistant' );
 		} );
 	} );

@@ -15,7 +15,7 @@ import * as Sentry from '@sentry/electron/main';
 import archiver from 'archiver';
 import { copySync } from 'fs-extra';
 import { parse } from 'shell-quote';
-import { SQLITE_FILENAME } from '../vendor/wp-now/src/constants';
+import { SQLITE_FILENAME, DEFAULT_PHP_VERSION } from '../vendor/wp-now/src/constants';
 import { downloadSqliteIntegrationPlugin } from '../vendor/wp-now/src/download';
 import { executeWPCli } from '../vendor/wp-now/src/execute-wp-cli';
 import { LIMIT_ARCHIVE_SIZE } from './constants';
@@ -164,6 +164,7 @@ export async function createSite(
 		path,
 		adminPassword: createPassword(),
 		running: false,
+		phpVersion: DEFAULT_PHP_VERSION,
 	} as const;
 
 	const server = SiteServer.create( details );

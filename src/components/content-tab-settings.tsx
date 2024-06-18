@@ -7,6 +7,7 @@ import { decodePassword } from '../lib/passwords';
 import Button from './button';
 import { CopyTextButton } from './copy-text-button';
 import DeleteSite from './delete-site';
+import EditPhpVersion from './edit-php-version';
 import EditSite from './edit-site';
 
 interface ContentTabSettingsProps {
@@ -67,6 +68,12 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 						</Button>
 					</SettingsRow>
 					<SettingsRow label={ __( 'WP Version' ) }>{ wpVersion }</SettingsRow>
+					<SettingsRow label={ __( 'PHP Version' ) }>
+						<div className="flex">
+							<span className="line-clamp-1 break-all">{ selectedSite.phpVersion }</span>
+							<EditPhpVersion />
+						</div>
+					</SettingsRow>
 
 					<tr>
 						<th colSpan={ 2 } className="pb-4 ltr:text-left rtl:text-right">

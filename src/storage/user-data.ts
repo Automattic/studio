@@ -1,12 +1,18 @@
 import { app } from 'electron';
 import fs from 'fs';
 import nodePath from 'path';
+import { SupportedPHPVersion, SupportedPHPVersions } from '@php-wasm/universal';
 import * as Sentry from '@sentry/electron/main';
 import { isErrnoException } from '../lib/is-errno-exception';
 import { sanitizeUnstructuredData, sanitizeUserpath } from '../lib/sanitize-for-logging';
 import { sortSites } from '../lib/sort-sites';
 import { getUserDataFilePath } from './paths';
 import type { PersistedUserData, UserData } from './storage-types';
+
+// Before persisting the PHP version of sites, the default PHP version used was 8.0.
+// In case we can't retrieve the PHP version from site details, we assume it was created
+// with version 8.0.
+export const DEFAULT_PHP_VERSION_WHEN_UNKNOWN: SupportedPHPVersion = '8.0';
 
 const migrateUserData = ( appName: string ) => {
 	const appDataPath = app.getPath( 'appData' );
@@ -28,6 +34,17 @@ function migrateUserDataOldName() {
 	migrateUserData( 'Build' );
 }
 
+function populatePhpVersion( sites: SiteDetails[] ) {
+	sites.forEach( ( site ) => {
+		if (
+			typeof site.phpVersion === 'undefined' ||
+			! SupportedPHPVersions.includes( site.phpVersion as SupportedPHPVersion )
+		) {
+			site.phpVersion = DEFAULT_PHP_VERSION_WHEN_UNKNOWN;
+		}
+	} );
+}
+
 export async function loadUserData(): Promise< UserData > {
 	migrateUserDataOldName();
 	const filePath = getUserDataFilePath();
@@ -38,6 +55,7 @@ export async function loadUserData(): Promise< UserData > {
 			const parsed = JSON.parse( asString );
 			const data = fromDiskFormat( parsed );
 			sortSites( data.sites );
+			populatePhpVersion( data.sites );
 			console.log( `Loaded user data from ${ sanitizeUserpath( filePath ) }` );
 			return data;
 		} catch ( err ) {
@@ -75,7 +93,7 @@ export async function saveUserData( data: UserData ): Promise< void > {
 function toDiskFormat( { sites, ...rest }: UserData ): PersistedUserData {
 	return {
 		version: 1,
-		sites: sites.map( ( { id, path, adminPassword, port, name, themeDetails } ) => {
+		sites: sites.map( ( { id, path, adminPassword, port, phpVersion, name, themeDetails } ) => {
 			// No object spreading allowed. TypeScript's structural typing is too permissive and
 			// will permit us to persist properties that aren't in the type definition.
 			// Add each property explicitly instead.
@@ -85,6 +103,7 @@ function toDiskFormat( { sites, ...rest }: UserData ): PersistedUserData {
 				path,
 				adminPassword,
 				port,
+				phpVersion,
 				themeDetails: {
 					name: themeDetails?.name || '',
 					path: themeDetails?.path || '',

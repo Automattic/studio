@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/react';
 import { Spinner } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
@@ -5,21 +6,26 @@ import { Icon, external, copy } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import React, { useState, useEffect, useRef, memo } from 'react';
 import Markdown, { ExtraProps } from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { useAssistant, Message as MessageType } from '../hooks/use-assistant';
 import { useAssistantApi } from '../hooks/use-assistant-api';
 import { useAuth } from '../hooks/use-auth';
+import { useFetchWelcomeMessages } from '../hooks/use-fetch-welcome-messages';
 import { useOffline } from '../hooks/use-offline';
+import { usePromptUsage } from '../hooks/use-prompt-usage';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { AIInput } from './ai-input';
 import { MessageThinking } from './assistant-thinking';
 import Button from './button';
+import WelcomeComponent from './welcome-message-prompt';
 
 interface ContentTabAssistantProps {
 	selectedSite: SiteDetails;
 }
 
 interface MessageProps {
+	id: string;
 	children: React.ReactNode;
 	isUser: boolean;
 	className?: string;
@@ -75,8 +81,8 @@ const ActionButton = ( {
 	return (
 		<Button
 			onClick={ handleClick }
-			variant="tertiary"
-			className="mr-2 font-sans select-none"
+			variant="outlined"
+			className="h-auto mr-2 !px-2.5 py-0.5 font-sans select-none"
 			disabled={ disabled }
 		>
 			{ icon }
@@ -85,7 +91,7 @@ const ActionButton = ( {
 	);
 };
 
-export const Message = ( { children, isUser, className }: MessageProps ) => {
+export const Message = ( { children, id, isUser, className }: MessageProps ) => {
 	const [ cliOutput, setCliOutput ] = useState< string | null >( null );
 	const [ cliStatus, setCliStatus ] = useState< 'success' | 'error' | null >( null );
 	const [ cliTime, setCliTime ] = useState< string | null >( null );
@@ -158,14 +164,24 @@ export const Message = ( { children, isUser, className }: MessageProps ) => {
 			) }
 		>
 			<div
+				id={ id }
+				role="group"
+				aria-labelledby={ id }
 				className={ cx(
-					'inline-block p-3 rounded border border-gray-300 lg:max-w-[70%] select-text',
+					'inline-block p-3 rounded border border-gray-300 lg:max-w-[70%] overflow-x-auto select-text',
 					! isUser ? 'bg-white' : 'bg-white/45'
 				) }
 			>
+				<div className="relative">
+					<span className="sr-only">
+						{ isUser ? __( 'Your message' ) : __( 'Studio Assistant' ) },
+					</span>
+				</div>
 				{ typeof children === 'string' ? (
 					<div className="assistant-markdown">
-						<Markdown components={ { code: CodeBlock } }>{ children }</Markdown>
+						<Markdown components={ { a: Anchor, code: CodeBlock } } remarkPlugins={ [ remarkGfm ] }>
+							{ children }
+						</Markdown>
 					</div>
 				) : (
 					children
@@ -174,6 +190,34 @@ export const Message = ( { children, isUser, className }: MessageProps ) => {
 		</div>
 	);
 };
+
+function Anchor( props: JSX.IntrinsicElements[ 'a' ] & ExtraProps ) {
+	const { href } = props;
+
+	return (
+		<a
+			{ ...props }
+			onClick={ ( e ) => {
+				if ( ! href ) {
+					return;
+				}
+
+				e.preventDefault();
+				try {
+					getIpcApi().openURL( href );
+				} catch ( error ) {
+					getIpcApi().showMessageBox( {
+						type: 'error',
+						message: __( 'Failed to open link' ),
+						detail: __( 'We were unable to open the link. Please try again.' ),
+						buttons: [ __( 'OK' ) ],
+					} );
+					Sentry.captureException( error );
+				}
+			} }
+		/>
+	);
+}
 
 const AuthenticatedView = memo(
 	( {
@@ -185,12 +229,12 @@ const AuthenticatedView = memo(
 	} ) => (
 		<>
 			{ messages.map( ( message, index ) => (
-				<Message key={ index } isUser={ message.role === 'user' }>
+				<Message key={ index } id={ `message-${ index }` } isUser={ message.role === 'user' }>
 					{ message.content }
 				</Message>
 			) ) }
 			{ isAssistantThinking && (
-				<Message isUser={ false }>
+				<Message isUser={ false } id="message-thinking">
 					<MessageThinking />
 				</Message>
 			) }
@@ -199,7 +243,7 @@ const AuthenticatedView = memo(
 );
 
 const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void } ) => (
-	<Message className="w-full" isUser={ false }>
+	<Message id="message-unauthenticated" className="w-full" isUser={ false }>
 		<div className="mb-3 a8c-label-semibold">{ __( 'Hold up!' ) }</div>
 		<div className="mb-1">
 			{ __( 'You need to log in to your WordPress.com account to use the assistant.' ) }
@@ -232,25 +276,36 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 );
 
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
-	const { messages, addMessage, clearMessages } = useAssistant( selectedSite.name );
-	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi();
+	const { messages, addMessage, chatId, clearMessages } = useAssistant( selectedSite.name );
+	const { userCanSendMessage } = usePromptUsage();
+	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi( selectedSite.name );
+	const {
+		messages: welcomeMessages,
+		examplePrompts,
+		fetchWelcomeMessages,
+	} = useFetchWelcomeMessages();
 	const [ input, setInput ] = useState< string >( '' );
 	const endOfMessagesRef = useRef< HTMLDivElement >( null );
 	const { isAuthenticated, authenticate } = useAuth();
 	const isOffline = useOffline();
 	const { __ } = useI18n();
 
-	const handleSend = async () => {
-		if ( input.trim() ) {
-			addMessage( input, 'user' );
+	useEffect( () => {
+		fetchWelcomeMessages();
+	}, [ fetchWelcomeMessages, selectedSite ] );
+
+	const handleSend = async ( messageToSend?: string ) => {
+		const chatMessage = messageToSend || input;
+		if ( chatMessage.trim() ) {
+			addMessage( chatMessage, 'user', chatId );
 			setInput( '' );
 			try {
-				const { message } = await fetchAssistant( [
+				const { message, chatId: fetchedChatId } = await fetchAssistant( chatId, [
 					...messages,
-					{ content: input, role: 'user' },
+					{ content: chatMessage, role: 'user' },
 				] );
 				if ( message ) {
-					addMessage( message, 'assistant' );
+					addMessage( message, 'assistant', chatId ?? fetchedChatId );
 				}
 			} catch ( error ) {
 				setTimeout(
@@ -284,7 +339,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		}
 	}, [ messages ] );
 
-	const disabled = isOffline || ! isAuthenticated;
+	const disabled = isOffline || ! isAuthenticated || ! userCanSendMessage;
 
 	return (
 		<div className="h-full flex flex-col bg-gray-50">
@@ -294,6 +349,12 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 			>
 				{ isAuthenticated ? (
 					<>
+						<WelcomeComponent
+							onExampleClick={ ( prompt ) => handleSend( prompt ) }
+							showExamplePrompts={ messages.length === 0 }
+							messages={ welcomeMessages }
+							examplePrompts={ examplePrompts }
+						/>
 						<AuthenticatedView messages={ messages } isAssistantThinking={ isAssistantThinking } />
 						<div ref={ endOfMessagesRef } />
 					</>
@@ -305,7 +366,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 				disabled={ disabled }
 				input={ input }
 				setInput={ setInput }
-				handleSend={ handleSend }
+				handleSend={ () => handleSend() }
 				handleKeyDown={ handleKeyDown }
 				clearInput={ clearInput }
 				isAssistantThinking={ isAssistantThinking }

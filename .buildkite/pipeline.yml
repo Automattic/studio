@@ -26,6 +26,17 @@ steps:
       npm run test
     plugins: *common_plugins
 
+  - label: Experiment Windows Unit Tests
+    # Reference: https://github.com/Automattic/studio/pull/76#issuecomment-2162689679
+    skip: "Disabled till we solve Windows-specific test failures"
+    command: |
+      bash .buildkite/commands/install-node-dependencies.sh
+      echo '--- :npm: Run Unit Tests'
+      npm run test
+    agents:
+      queue: windows
+    plugins: *common_plugins
+
   # Notice that we use the queue name (matrix value) in the label.
   # We could have added values for queue and label, but that would have resulted in 'macOS + windows' and 'Windows + mac' combinations, which we don't want.
   # Buildkite offers an option to remove those combinations, but the overhead in code readability did not seem worth the visual effect in the build page.
@@ -49,9 +60,7 @@ steps:
       DEBUG: 'pw:browser'
     matrix:
       - mac
-      # Windows destination disabled till we find the cause of Windows-specific test failures
-      # See https://github.com/Automattic/studio/pull/76#issuecomment-2146529123
-      # - windows
+      #- windows
 
   - group: "📦 Build for Mac"
     key: 'dev-mac'

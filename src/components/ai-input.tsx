@@ -1,7 +1,8 @@
+import { DropdownMenu, MenuGroup, MenuItem } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
-import { Icon, moreVertical, keyboardReturn } from '@wordpress/icons';
+import { Icon, moreVertical, keyboardReturn, reset } from '@wordpress/icons';
 import React, { useRef, useEffect } from 'react';
-import Button from './button';
+import { getIpcApi } from '../lib/get-ipc-api';
 import { AssistantIcon } from './icons/assistant';
 
 interface AIInputProps {
@@ -79,6 +80,21 @@ export const AIInput = ( {
 		return isAssistantThinking ? __( 'Generating...' ) : __( 'What would you like to learn?' );
 	};
 
+	const handleClearConversation = async () => {
+		const CLEAR_CONVERSATION_BUTTON_INDEX = 0;
+		const CANCEL_BUTTON_INDEX = 1;
+
+		const { response } = await getIpcApi().showMessageBox( {
+			message: __( 'Are you sure you want to clear the conversation?' ),
+			buttons: [ __( 'Ok' ), __( 'Cancel' ) ],
+			cancelId: CANCEL_BUTTON_INDEX,
+		} );
+
+		if ( response === CLEAR_CONVERSATION_BUTTON_INDEX ) {
+			clearInput();
+		}
+	};
+
 	return (
 		<div className="px-8 py-5 bg-white flex items-center border border-gray-200">
 			<div className="flex w-full border border-gray-300 rounded-sm focus-within:border-a8c-blueberry">
@@ -101,16 +117,26 @@ export const AIInput = ( {
 						<Icon icon={ keyboardReturn } size={ 13 } fill="#cccccc" />
 					</div>
 				) }
-				<div className="flex items-end py-2 ltr:mr-2 rtl:ml-1">
-					<Button
-						disabled={ disabled }
-						aria-label="menu"
-						className="py-2 px-1 cursor-pointer"
-						onClick={ clearInput }
-					>
-						<Icon icon={ moreVertical } size={ 22 } />
-					</Button>
-				</div>
+				<DropdownMenu icon={ moreVertical } label="Assistant Menu" className="p-2">
+					{ ( { onClose }: { onClose: () => void } ) => (
+						<>
+							<MenuGroup>
+								<MenuItem
+									data-testid="clear-conversation-button"
+									onClick={ () => {
+										handleClearConversation();
+										onClose();
+									} }
+								>
+									<Icon className="text-red-600" icon={ reset } />
+									<span className="ltr:pl-2 rtl:pl-2 text-red-600">
+										{ __( 'Clear conversation' ) }
+									</span>
+								</MenuItem>
+							</MenuGroup>
+						</>
+					) }
+				</DropdownMenu>
 			</div>
 		</div>
 	);

@@ -105,9 +105,11 @@ export const AIInput = ( {
 			) }
 		>
 			<div
-				className={ `flex w-full border rounded-sm ${
-					disabled ? 'border-a8c-gray-10' : 'border-gray-300 focus-within:border-a8c-blueberry'
-				}` }
+				className={ cx(
+					`flex w-full border rounded-sm ${
+						disabled ? 'border-a8c-gray-10' : 'border-gray-300 focus-within:border-a8c-blueberry'
+					}`
+				) }
 			>
 				<div className={ `flex items-end p-3 ltr:pr-2 rtl:pl-2` }>
 					<AssistantIcon

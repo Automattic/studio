@@ -118,6 +118,7 @@
 		"react-markdown": "^9.0.1",
 		"remark-gfm": "^4.0.0",
 		"semver": "^7.6.0",
+		"strip-ansi": "^7.1.0",
 		"shell-quote": "^1.8.1",
 		"sudo-prompt": "^9.2.1",
 		"unzipper": "0.10.11",

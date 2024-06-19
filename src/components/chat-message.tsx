@@ -1,25 +1,44 @@
 import * as Sentry from '@sentry/react';
 import { Spinner } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
-import { Icon, copy } from '@wordpress/icons';
-import React, { useState } from 'react';
+import { useEffect } from 'react';
 import Markdown, { ExtraProps } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import stripAnsi from 'strip-ansi';
+import { useExecuteWPCLI } from '../hooks/use-execute-cli';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
+import { CopyTextButton } from './copy-text-button';
+import { ExecuteIcon } from './icons/execute';
 
-interface MessageProps {
-	id: string;
+interface ChatMessageProps {
 	children: React.ReactNode;
 	isUser: boolean;
+	id?: string;
+	messageId?: number;
 	className?: string;
+	projectPath?: string;
+	siteId?: string;
+	blocks?: {
+		cliOutput?: string;
+		cliStatus?: 'success' | 'error';
+		cliTime?: string;
+		codeBlockContent?: string;
+	}[];
+	updateMessage?: (
+		id: number,
+		content: string,
+		output: string,
+		status: 'success' | 'error',
+		time: string
+	) => void;
 }
 
 interface InlineCLIProps {
-	output: string;
-	status: 'success' | 'error';
-	time: string;
+	output?: string;
+	status?: 'success' | 'error';
+	time?: string | null;
 }
 
 const InlineCLI = ( { output, status, time }: InlineCLIProps ) => (
@@ -36,69 +55,47 @@ const InlineCLI = ( { output, status, time }: InlineCLIProps ) => (
 	</div>
 );
 
-const ActionButton = ( {
-	primaryLabel,
-	secondaryLabel,
-	icon,
-	onClick,
-	timeout,
-	disabled,
-}: {
-	primaryLabel: string;
-	secondaryLabel: string;
-	icon: JSX.Element;
-	onClick: () => void;
-	timeout?: number;
-	disabled?: boolean;
-} ) => {
-	const [ buttonLabel, setButtonLabel ] = useState( primaryLabel );
-
-	const handleClick = () => {
-		onClick();
-		setButtonLabel( secondaryLabel );
-		if ( timeout ) {
-			setTimeout( () => {
-				setButtonLabel( primaryLabel );
-			}, timeout );
-		}
-	};
-
-	return (
-		<Button
-			onClick={ handleClick }
-			variant="outlined"
-			className="h-auto mr-2 !px-2.5 py-0.5 font-sans select-none"
-			disabled={ disabled }
-		>
-			{ icon }
-			<span className="ml-1">{ buttonLabel }</span>
-		</Button>
-	);
-};
-
-export const ChatMessage = ( { children, id, isUser, className }: MessageProps ) => {
-	const [ cliOutput, setCliOutput ] = useState< string | null >( null );
-	const [ cliStatus, setCliStatus ] = useState< 'success' | 'error' | null >( null );
-	const [ cliTime, setCliTime ] = useState< string | null >( null );
-	const [ isRunning, setIsRunning ] = useState( false );
-
-	const handleExecute = () => {
-		setIsRunning( true );
-		setTimeout( () => {
-			setCliOutput(
-				`Installing Jetpack...\nUnpacking the package...\nInstalling the plugin...\nPlugin installed successfully.\nActivating 'jetpack'...\nPlugin 'jetpack' activated.\nSuccess: Installed 1 of 1 plugins.`
-			);
-			setCliStatus( 'success' );
-			setCliTime( 'Completed in 2.3 seconds' );
-			setIsRunning( false );
-		}, 2300 );
-	};
-
+export const ChatMessage = ( {
+	children,
+	id,
+	messageId,
+	isUser,
+	className,
+	projectPath,
+	blocks,
+	updateMessage,
+}: ChatMessageProps ) => {
 	const CodeBlock = ( props: JSX.IntrinsicElements[ 'code' ] & ExtraProps ) => {
+		const content = String( props.children ).trim();
+		const containsWPCommand = /\bwp\s/.test( content );
+		const wpCommandCount = ( content.match( /\bwp\s/g ) || [] ).length;
+		const containsSingleWPCommand = wpCommandCount === 1;
+		const containsAngleBrackets = /<.*>/.test( content );
+
+		const {
+			cliOutput,
+			cliStatus,
+			cliTime,
+			isRunning,
+			handleExecute,
+			setCliOutput,
+			setCliStatus,
+			setCliTime,
+		} = useExecuteWPCLI( content, projectPath, updateMessage, messageId );
+
+		useEffect( () => {
+			if ( blocks ) {
+				const block = blocks?.find( ( block ) => block.codeBlockContent === content );
+				if ( block ) {
+					setCliOutput( block?.cliOutput ? stripAnsi( block.cliOutput ) : null );
+					setCliStatus( block?.cliStatus ?? null );
+					setCliTime( block?.cliTime ?? null );
+				}
+			}
+		}, [ cliOutput, content, setCliOutput, setCliStatus, setCliTime ] );
+
 		const { children, className } = props;
 		const match = /language-(\w+)/.exec( className || '' );
-		const content = String( children ).trim();
-
 		return match ? (
 			<>
 				<div className="p-3">
@@ -107,19 +104,26 @@ export const ChatMessage = ( { children, id, isUser, className }: MessageProps )
 					</code>
 				</div>
 				<div className="p-3 pt-1 flex justify-start items-center">
-					<ActionButton
-						primaryLabel={ __( 'Copy' ) }
-						secondaryLabel={ __( 'Copied' ) }
-						icon={ <Icon icon={ copy } size={ 16 } /> }
-						onClick={ () => getIpcApi().copyText( content ) }
-						timeout={ 2000 }
-					/>
-					{ /* <ActionButton
-						primaryLabel={ __( 'Run' ) }
-						secondaryLabel={ __( 'Run Again' ) }
-						icon={ <ExecuteIcon /> }
-						onClick={ handleExecute }
-						disabled={ isRunning } */ }
+					<CopyTextButton
+						text={ content }
+						label={ __( 'Copy' ) }
+						copyConfirmation={ __( 'Copied!' ) }
+						showText={ true }
+						variant="outlined"
+						className="h-auto mr-2 !px-2.5 py-0.5 !p-[6px] font-sans select-none"
+						iconSize={ 16 }
+					></CopyTextButton>
+					{ containsWPCommand && containsSingleWPCommand && ! containsAngleBrackets && (
+						<Button
+							icon={ <ExecuteIcon /> }
+							onClick={ handleExecute }
+							disabled={ isRunning }
+							variant="outlined"
+							className="h-auto mr-2 !px-2.5 py-0.5 font-sans select-none"
+						>
+							{ cliOutput ? __( 'Run again' ) : __( 'Run' ) }
+						</Button>
+					) }
 				</div>
 				{ isRunning && (
 					<div className="p-3 flex justify-start items-center bg-[#2D3337] text-white">
@@ -127,7 +131,7 @@ export const ChatMessage = ( { children, id, isUser, className }: MessageProps )
 						<span className="ml-2 font-sans">{ __( 'Running...' ) }</span>
 					</div>
 				) }
-				{ ! isRunning && cliOutput && cliStatus && cliTime && (
+				{ ! isRunning && cliOutput && cliStatus && (
 					<InlineCLI output={ cliOutput } status={ cliStatus } time={ cliTime } />
 				) }
 			</>

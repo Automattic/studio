@@ -1,7 +1,27 @@
 import { useCallback, useState } from 'react';
 import { Message } from './use-assistant';
 import { useAuth } from './use-auth';
+import { ChatContextType } from './use-chat-context';
 import { usePromptUsage } from './use-prompt-usage';
+
+const contextMapper = ( context?: ChatContextType ) => {
+	if ( ! context ) {
+		return {};
+	}
+	return {
+		current_url: context.currentURL,
+		number_of_sites: context.numberOfSites,
+		wp_version: context.wpVersion,
+		php_version: context.phpVersion,
+		plugins: context.pluginList,
+		themes: context.themeList,
+		current_theme: context.themeName,
+		is_block_theme: context.isBlockTheme,
+		ide: context.availableEditors,
+		site_name: context.siteName,
+		os: context.os,
+	};
+};
 
 export function useAssistantApi( selectedSiteId: string ) {
 	const { client } = useAuth();
@@ -9,7 +29,7 @@ export function useAssistantApi( selectedSiteId: string ) {
 	const { updatePromptUsage } = usePromptUsage();
 
 	const fetchAssistant = useCallback(
-		async ( chatId: string | undefined, messages: Message[] ) => {
+		async ( chatId: string | undefined, messages: Message[], context?: ChatContextType ) => {
 			if ( ! client ) {
 				throw new Error( 'WPcom client not initialized' );
 			}
@@ -17,7 +37,7 @@ export function useAssistantApi( selectedSiteId: string ) {
 			const body = {
 				messages,
 				chat_id: chatId,
-				context: [],
+				context: contextMapper( context ),
 			};
 			let response;
 			let headers;

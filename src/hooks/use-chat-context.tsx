@@ -98,14 +98,24 @@ export const ChatProvider: React.FC< ChatProviderProps > = ( { children } ) => {
 	useEffect( () => {
 		let isCurrent = true;
 		const run = async () => {
-			const result = await Promise.all( [
-				fetchPluginList( sitePath ),
-				fetchThemeList( sitePath ),
-			] );
-			if ( isCurrent && selectedSite?.id ) {
-				setInitialLoad( ( prev ) => ( { ...prev, [ selectedSite.id ]: true } ) );
-				setPluginsList( ( prev ) => ( { ...prev, [ selectedSite.id ]: result[ 0 ] } ) );
-				setThemesList( ( prev ) => ( { ...prev, [ selectedSite.id ]: result[ 1 ] } ) );
+			const siteId = selectedSite?.id;
+			if ( ! siteId ) {
+				return;
+			}
+			setInitialLoad( ( prev ) => ( { ...prev, [ siteId ]: true } ) );
+			try {
+				const result = await Promise.all( [
+					fetchPluginList( sitePath ),
+					fetchThemeList( sitePath ),
+				] );
+				if ( isCurrent ) {
+					setPluginsList( ( prev ) => ( { ...prev, [ siteId ]: result[ 0 ] } ) );
+					setThemesList( ( prev ) => ( { ...prev, [ siteId ]: result[ 1 ] } ) );
+				}
+			} catch ( error ) {
+				if ( isCurrent ) {
+					setInitialLoad( ( prev ) => ( { ...prev, [ siteId ]: false } ) );
+				}
 			}
 		};
 		if (

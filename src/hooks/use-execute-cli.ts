@@ -27,7 +27,7 @@ export function useExecuteWPCLI(
 		const args = content.split( ' ' ).slice( 1 );
 		const result = await getIpcApi().executeWPCLiInline( {
 			projectPath: projectPath || '',
-			args,
+			args: args.join( ' ' ),
 		} );
 
 		setTimeout( () => {

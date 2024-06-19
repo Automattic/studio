@@ -1,8 +1,10 @@
+import { __ } from '@wordpress/i18n';
 import { arrowRight } from '@wordpress/icons';
 import { cx } from '../lib/cx';
 
 interface WelcomeMessagePromptProps {
 	children?: React.ReactNode;
+	id: string;
 	className?: string;
 }
 
@@ -19,14 +21,20 @@ interface WelcomeComponentProps {
 	examplePrompts: string[];
 }
 
-export const WelcomeMessagePrompt = ( { children, className }: WelcomeMessagePromptProps ) => (
+export const WelcomeMessagePrompt = ( { id, children, className }: WelcomeMessagePromptProps ) => (
 	<div className={ cx( 'flex mt-2' ) }>
 		<div
+			id={ id }
+			role="group"
+			aria-labelledby={ id }
 			className={ cx(
 				'inline-block p-3 rounded border border-gray-300 lg:max-w-[70%] select-text bg-white',
 				className
 			) }
 		>
+			<div className="relative">
+				<span className="sr-only">{ __( 'Studio Assistant' ) },</span>
+			</div>
 			<div className="assistant-markdown">
 				<p>{ children }</p>
 			</div>
@@ -67,7 +75,11 @@ const WelcomeComponent = ( {
 	return (
 		<div>
 			{ messages.map( ( message, index ) => (
-				<WelcomeMessagePrompt key={ index } className="welcome-message">
+				<WelcomeMessagePrompt
+					key={ index }
+					id={ `message-welcome-${ index }` }
+					className="welcome-message"
+				>
 					{ message }
 				</WelcomeMessagePrompt>
 			) ) }

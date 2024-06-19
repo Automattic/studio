@@ -57,6 +57,7 @@ const AuthenticatedView = memo(
 				{ messages.map( ( message, index ) => (
 					<ChatMessage
 						key={ index }
+						id={ `message-chat-${ index }` }
 						isUser={ message.role === 'user' }
 						projectPath={ path }
 						updateMessage={ updateMessage }
@@ -67,7 +68,7 @@ const AuthenticatedView = memo(
 					</ChatMessage>
 				) ) }
 				{ isAssistantThinking && (
-					<ChatMessage isUser={ false }>
+					<ChatMessage isUser={ false } id="message-thinking">
 						<MessageThinking />
 					</ChatMessage>
 				) }

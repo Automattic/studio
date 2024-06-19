@@ -14,7 +14,7 @@ export function useExecuteWPCLI(
 				time: string
 		  ) => void )
 		| undefined,
-	id: number | undefined
+	messageId: number | undefined
 ) {
 	const [ cliOutput, setCliOutput ] = useState< string | null >( null );
 	const [ cliStatus, setCliStatus ] = useState< 'success' | 'error' | null >( null );
@@ -46,9 +46,9 @@ export function useExecuteWPCLI(
 			setCliTime( completedIn );
 			setIsRunning( false );
 
-			if ( updateMessage && id !== undefined ) {
+			if ( updateMessage && messageId !== undefined ) {
 				updateMessage(
-					id,
+					messageId,
 					content,
 					result.stdout || result.stderr,
 					result.stderr ? 'error' : 'success',
@@ -56,7 +56,7 @@ export function useExecuteWPCLI(
 				);
 			}
 		}, 2300 );
-	}, [ content, id, projectPath, updateMessage ] );
+	}, [ content, messageId, projectPath, updateMessage ] );
 
 	return {
 		cliOutput,

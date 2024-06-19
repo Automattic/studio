@@ -26,23 +26,55 @@ const AuthenticatedView = memo(
 	( {
 		messages,
 		isAssistantThinking,
+		updateMessage,
+		path,
 	}: {
 		messages: MessageType[];
 		isAssistantThinking: boolean;
-	} ) => (
-		<>
-			{ messages.map( ( message, index ) => (
-				<ChatMessage key={ index } id={ `message-${ index }` } isUser={ message.role === 'user' }>
-					{ message.content }
-				</ChatMessage>
-			) ) }
-			{ isAssistantThinking && (
-				<ChatMessage isUser={ false } id="message-thinking">
-					<MessageThinking />
-				</ChatMessage>
-			) }
-		</>
-	)
+		updateMessage: (
+			id: number,
+			codeBlockContent: string,
+			cliOutput: string,
+			cliStatus: 'success' | 'error',
+			cliTime: string
+		) => void;
+		path: string;
+	} ) => {
+		const endOfMessagesRef = useRef< HTMLDivElement >( null );
+
+		useEffect( () => {
+			const timer = setTimeout( () => {
+				if ( endOfMessagesRef.current ) {
+					endOfMessagesRef.current.scrollIntoView( { behavior: 'smooth' } );
+				}
+			}, 100 ); // Slight delay to ensure DOM updates
+
+			return () => clearTimeout( timer );
+		}, [ messages?.length ] );
+
+		return (
+			<>
+				{ messages.map( ( message, index ) => (
+					<ChatMessage
+						key={ index }
+						isUser={ message.role === 'user' }
+						projectPath={ path }
+						updateMessage={ updateMessage }
+						messageId={ message.id }
+						blocks={ message.blocks }
+					>
+						{ message.content }
+					</ChatMessage>
+				) ) }
+				{ isAssistantThinking && (
+					<ChatMessage isUser={ false }>
+						<MessageThinking />
+					</ChatMessage>
+				) }
+				<div ref={ endOfMessagesRef } />
+			</>
+		);
+	}
 );
 
 const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void } ) => (
@@ -80,7 +112,9 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
 	const currentSiteChatContext = useChatContext();
-	const { messages, addMessage, chatId, clearMessages } = useAssistant( selectedSite.name );
+	const { messages, addMessage, clearMessages, updateMessage, chatId } = useAssistant(
+		selectedSite.name
+	);
 	const { userCanSendMessage } = usePromptUsage();
 	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi( selectedSite.name );
 	const {
@@ -89,7 +123,6 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		fetchWelcomeMessages,
 	} = useFetchWelcomeMessages();
 	const [ input, setInput ] = useState< string >( '' );
-	const endOfMessagesRef = useRef< HTMLDivElement >( null );
 	const { isAuthenticated, authenticate } = useAuth();
 	const isOffline = useOffline();
 	const { __ } = useI18n();
@@ -137,13 +170,6 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		setInput( '' );
 		clearMessages();
 	};
-
-	useEffect( () => {
-		if ( endOfMessagesRef.current ) {
-			endOfMessagesRef.current.scrollIntoView( { behavior: 'smooth' } );
-		}
-	}, [ messages ] );
-
 	const disabled = isOffline || ! isAuthenticated || ! userCanSendMessage;
 
 	return (
@@ -160,8 +186,12 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 							messages={ welcomeMessages }
 							examplePrompts={ examplePrompts }
 						/>
-						<AuthenticatedView messages={ messages } isAssistantThinking={ isAssistantThinking } />
-						<div ref={ endOfMessagesRef } />
+						<AuthenticatedView
+							messages={ messages }
+							isAssistantThinking={ isAssistantThinking }
+							updateMessage={ updateMessage }
+							path={ selectedSite.path }
+						/>
 					</>
 				) : (
 					<UnauthenticatedView onAuthenticate={ authenticate } />

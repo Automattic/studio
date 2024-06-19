@@ -9,7 +9,7 @@ export function AssistantIcon( {
 	size = 14,
 	'aria-hidden': ariaHidden,
 	className,
-}: AssistantIconProps & SVGProps< ReactSVG > & { className?: string } ) {
+}: AssistantIconProps & SVGProps< ReactSVG > ) {
 	return (
 		<svg
 			aria-hidden={ ariaHidden }

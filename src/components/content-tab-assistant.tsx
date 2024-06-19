@@ -10,6 +10,7 @@ import remarkGfm from 'remark-gfm';
 import { useAssistant, Message as MessageType } from '../hooks/use-assistant';
 import { useAssistantApi } from '../hooks/use-assistant-api';
 import { useAuth } from '../hooks/use-auth';
+import { useChatContext } from '../hooks/use-chat-context';
 import { useFetchWelcomeMessages } from '../hooks/use-fetch-welcome-messages';
 import { useOffline } from '../hooks/use-offline';
 import { usePromptUsage } from '../hooks/use-prompt-usage';
@@ -276,6 +277,7 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 );
 
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
+	const currentSiteChatContext = useChatContext();
 	const { messages, addMessage, chatId, clearMessages } = useAssistant( selectedSite.name );
 	const { userCanSendMessage } = usePromptUsage();
 	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi( selectedSite.name );
@@ -300,10 +302,11 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 			addMessage( chatMessage, 'user', chatId );
 			setInput( '' );
 			try {
-				const { message, chatId: fetchedChatId } = await fetchAssistant( chatId, [
-					...messages,
-					{ content: chatMessage, role: 'user' },
-				] );
+				const { message, chatId: fetchedChatId } = await fetchAssistant(
+					chatId,
+					[ ...messages, { content: chatMessage, role: 'user' } ],
+					currentSiteChatContext
+				);
 				if ( message ) {
 					addMessage( message, 'assistant', chatId ?? fetchedChatId );
 				}

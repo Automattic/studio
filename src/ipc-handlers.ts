@@ -577,14 +577,13 @@ export async function executeWPCLiInline(
 
 	// The parsing of arguments can include shell operators like `>` or `||` that the app don't support.
 	const isValidCommand = wpCliArgs.every(
-		( arg ) => typeof arg === 'string' || arg instanceof String
+		( arg: unknown ) => typeof arg === 'string' || arg instanceof String
 	);
 	if ( ! isValidCommand ) {
 		throw Error( `Can't execute wp-cli command with arguments: ${ args }` );
 	}
 
-	const { stdout, stderr } = await executeWPCli( projectPath, wpCliArgs as string[] );
-	return { stdout, stderr };
+	return await executeWPCli( projectPath, wpCliArgs as string[] );
 }
 
 export async function getThumbnailData( _event: IpcMainInvokeEvent, id: string ) {

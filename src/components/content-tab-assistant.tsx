@@ -18,6 +18,7 @@ import { getIpcApi } from '../lib/get-ipc-api';
 import { AIInput } from './ai-input';
 import { MessageThinking } from './assistant-thinking';
 import Button from './button';
+import offlineIcon from './offline-icon';
 import WelcomeComponent from './welcome-message-prompt';
 
 interface ContentTabAssistantProps {
@@ -219,6 +220,18 @@ function Anchor( props: JSX.IntrinsicElements[ 'a' ] & ExtraProps ) {
 	);
 }
 
+const OfflineModeView = () => {
+	// Determine if the reset is today
+	const offlineMessage = __( 'The AI assistant requires an internet connection.' );
+
+	return (
+		<div className="flex items-center justify-center h-12 px-2 pt-4 text-a8c-gray-70">
+			<Icon className="m-1 fill-a8c-gray-70" size={ 24 } icon={ offlineIcon } />
+			<span className="text-[13px] leading-[16px]">{ offlineMessage }</span>
+		</div>
+	);
+};
+
 const AuthenticatedView = memo(
 	( {
 		messages,
@@ -357,6 +370,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 						/>
 						<AuthenticatedView messages={ messages } isAssistantThinking={ isAssistantThinking } />
 						<div ref={ endOfMessagesRef } />
+						<OfflineModeView />
 					</>
 				) : (
 					<UnauthenticatedView onAuthenticate={ authenticate } />

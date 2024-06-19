@@ -122,9 +122,11 @@ export const AIInput = ( {
 					ref={ inputRef }
 					disabled={ disabled }
 					placeholder={ getPlaceholderText() }
-					className={ `w-full mt-1 px-2 py-3 rounded-sm border-none resize-none focus:outline-none ${
-						disabled ? 'cursor-not-allowed' : ''
-					}` }
+					className={ cx(
+						`w-full mt-1 px-2 py-3 rounded-sm border-none resize-none focus:outline-none ${
+							disabled ? 'cursor-not-allowed' : ''
+						}`
+					) }
 					value={ input }
 					onChange={ handleInput }
 					onKeyDown={ handleKeyDownWrapper }

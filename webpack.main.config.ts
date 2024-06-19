@@ -13,6 +13,11 @@ const extraEntries = [
 		path: './src/lib/site-server-process-child.ts',
 		exportName: 'SITE_SERVER_PROCESS_MODULE_PATH',
 	},
+	{
+		name: 'wpCliProcess',
+		path: './src/lib/wp-cli-process-child.ts',
+		exportName: 'WP_CLI_PROCESS_MODULE_PATH',
+	},
 ];
 
 export default function mainConfig( _env: unknown, args: Record< string, unknown > ) {

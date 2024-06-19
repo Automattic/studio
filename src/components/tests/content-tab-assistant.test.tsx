@@ -136,4 +136,42 @@ describe( 'ContentTabAssistant', () => {
 		fireEvent.click( loginButton );
 		expect( authenticate ).toHaveBeenCalledTimes( 1 );
 	} );
+
+	test( 'it stores messages with user-unique keys', async () => {
+		const user1 = { id: 'mock-user-1' };
+		const user2 = { id: 'mock-user-2' };
+		( useAuth as jest.Mock ).mockImplementation( () => ( {
+			client: {
+				req: {
+					post: clientReqPost,
+				},
+			},
+			isAuthenticated: true,
+			authenticate,
+			user: user1,
+		} ) );
+		const { rerender } = render( <ContentTabAssistant selectedSite={ runningSite } /> );
+
+		const textInput = getInput();
+		fireEvent.change( textInput, { target: { value: 'New message' } } );
+		fireEvent.keyDown( textInput, { key: 'Enter', code: 'Enter' } );
+
+		expect( screen.getByText( 'New message' ) ).toBeVisible();
+
+		// Simulate user authentication change
+		( useAuth as jest.Mock ).mockImplementation( () => ( {
+			client: {
+				req: {
+					post: clientReqPost,
+				},
+			},
+			isAuthenticated: true,
+			authenticate,
+			user: user2,
+		} ) );
+
+		rerender( <ContentTabAssistant selectedSite={ runningSite } /> );
+
+		expect( screen.queryByText( 'New message' ) ).toBeNull();
+	} );
 } );

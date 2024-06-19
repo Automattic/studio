@@ -1,5 +1,5 @@
-import { createInterpolateElement } from '@wordpress/element';
 import { __unstableAnimatePresence as AnimatePresence } from '@wordpress/components';
+import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { Icon, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';

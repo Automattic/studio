@@ -1,8 +1,5 @@
 import * as Sentry from '@sentry/react';
-import {
-	__unstableMotion as motion,
-	Spinner,
-} from '@wordpress/components';
+import { __unstableMotion as motion, Spinner } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { useEffect } from 'react';
 import Markdown, { ExtraProps } from 'react-markdown';

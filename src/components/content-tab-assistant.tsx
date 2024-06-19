@@ -1,5 +1,9 @@
 import * as Sentry from '@sentry/react';
-import { Spinner } from '@wordpress/components';
+import {
+	__unstableAnimatePresence as AnimatePresence,
+	__unstableMotion as motion,
+	Spinner,
+} from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { Icon, external, copy } from '@wordpress/icons';
@@ -26,8 +30,9 @@ interface ContentTabAssistantProps {
 
 interface MessageProps {
 	id: string;
-	children: React.ReactNode;
-	isUser: boolean;
+	message: MessageType;
+	children?: React.ReactNode;
+	isAssistantThinking?: boolean;
 	className?: string;
 }
 
@@ -91,11 +96,18 @@ const ActionButton = ( {
 	);
 };
 
-export const Message = ( { children, id, isUser, className }: MessageProps ) => {
+export const Message = ( {
+	children,
+	id,
+	message,
+	className,
+	isAssistantThinking,
+}: MessageProps ) => {
 	const [ cliOutput, setCliOutput ] = useState< string | null >( null );
 	const [ cliStatus, setCliStatus ] = useState< 'success' | 'error' | null >( null );
 	const [ cliTime, setCliTime ] = useState< string | null >( null );
 	const [ isRunning, setIsRunning ] = useState( false );
+	const isUser = message.role === 'user';
 
 	const handleExecute = () => {
 		setIsRunning( true );
@@ -107,6 +119,18 @@ export const Message = ( { children, id, isUser, className }: MessageProps ) => 
 			setCliTime( 'Completed in 2.3 seconds' );
 			setIsRunning( false );
 		}, 2300 );
+	};
+
+	const exitAnimation = () => {
+		if ( isAssistantThinking ) {
+			return {
+				opacity: 0,
+				transition: { duration: 0.2 },
+				y: -10,
+			};
+		}
+
+		return { opacity: 0, transition: { duration: 0 } };
 	};
 
 	const CodeBlock = ( props: JSX.IntrinsicElements[ 'code' ] & ExtraProps ) => {
@@ -156,38 +180,58 @@ export const Message = ( { children, id, isUser, className }: MessageProps ) => 
 	};
 
 	return (
-		<div
-			className={ cx(
-				'flex mt-4',
-				isUser ? 'justify-end md:ml-24' : 'justify-start md:mr-24',
-				className
-			) }
-		>
-			<div
-				id={ id }
-				role="group"
-				aria-labelledby={ id }
-				className={ cx(
-					'inline-block p-3 rounded border border-gray-300 lg:max-w-[70%] overflow-x-auto select-text',
-					! isUser ? 'bg-white' : 'bg-white/45'
-				) }
+		<AnimatePresence>
+			<motion.div
+				layout="position"
+				initial={ {
+					y: 120,
+					opacity: 0,
+					transition: { duration: 0.3 },
+				} }
+				exit={ exitAnimation() }
+				animate={ {
+					y: 0,
+					opacity: 1,
+					transition: { duration: 0.3 },
+				} }
 			>
-				<div className="relative">
-					<span className="sr-only">
-						{ isUser ? __( 'Your message' ) : __( 'Studio Assistant' ) },
-					</span>
-				</div>
-				{ typeof children === 'string' ? (
-					<div className="assistant-markdown">
-						<Markdown components={ { a: Anchor, code: CodeBlock } } remarkPlugins={ [ remarkGfm ] }>
-							{ children }
-						</Markdown>
+				<div
+					className={ cx(
+						'flex mt-4',
+						isUser ? 'justify-end md:ml-24' : 'justify-start md:mr-24',
+						className
+					) }
+				>
+					<div
+						id={ id }
+						role="group"
+						aria-labelledby={ id }
+						className={ cx(
+							'inline-block p-3 rounded border border-gray-300 lg:max-w-[70%] overflow-x-auto select-text',
+							! isUser ? 'bg-white' : 'bg-white/45'
+						) }
+					>
+						<div className="relative">
+							<span className="sr-only">
+								{ isUser ? __( 'Your message' ) : __( 'Studio Assistant' ) },
+							</span>
+						</div>
+						{ ! isAssistantThinking ? (
+							<div className="assistant-markdown">
+								<Markdown
+									components={ { a: Anchor, code: CodeBlock } }
+									remarkPlugins={ [ remarkGfm ] }
+								>
+									{ message.content }
+								</Markdown>
+							</div>
+						) : (
+							children
+						) }
 					</div>
-				) : (
-					children
-				) }
-			</div>
-		</div>
+				</div>
+			</motion.div>
+		</AnimatePresence>
 	);
 };
 
@@ -226,33 +270,42 @@ const AuthenticatedView = memo(
 	}: {
 		messages: MessageType[];
 		isAssistantThinking: boolean;
-	} ) => (
-		<>
-			{ messages.map( ( message, index ) => {
-				const isLastAssistantMessage = index === messages.length - 1 && message.role !== 'user';
-				return (
-					<div
-						className={
-							isLastAssistantMessage ? 'animate-in slide-in-from-left zoom-in duration-300' : ''
+	} ) => {
+		return (
+			<>
+				{ messages.map( ( message, index ) => (
+					<Message id={ `message-${ index }` } message={ message }></Message>
+				) ) }
+				{ isAssistantThinking && (
+					<Message
+						isAssistantThinking={ isAssistantThinking }
+						message={
+							{
+								role: 'assistant',
+								content: '',
+							} as MessageType
 						}
+						id="message-thinking"
 					>
-						<Message key={ index } id={ `message-${ index }` } isUser={ message.role === 'user' }>
-							{ message.content }
-						</Message>
-					</div>
-				);
-			} ) }
-			{ isAssistantThinking && (
-				<Message isUser={ false } id="message-thinking">
-					<MessageThinking />
-				</Message>
-			) }
-		</>
-	)
+						<MessageThinking />
+					</Message>
+				) }
+			</>
+		);
+	}
 );
 
 const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void } ) => (
-	<Message id="message-unauthenticated" className="w-full" isUser={ false }>
+	<Message
+		id="message-unauthenticated"
+		className="w-full"
+		message={
+			{
+				role: 'user',
+				content: '',
+			} as MessageType
+		}
+	>
 		<div className="mb-3 a8c-label-semibold">{ __( 'Hold up!' ) }</div>
 		<div className="mb-1">
 			{ __( 'You need to log in to your WordPress.com account to use the assistant.' ) }
@@ -343,9 +396,13 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	};
 
 	useEffect( () => {
-		if ( endOfMessagesRef.current ) {
-			endOfMessagesRef.current.scrollIntoView( { behavior: 'smooth' } );
-		}
+		const timeoutID = setTimeout( () => {
+			endOfMessagesRef.current?.scrollIntoView( { behavior: 'smooth' } );
+		}, 100 );
+
+		return () => {
+			clearTimeout( timeoutID );
+		};
 	}, [ messages ] );
 
 	const disabled = isOffline || ! isAuthenticated || ! userCanSendMessage;
@@ -364,8 +421,15 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 							messages={ welcomeMessages }
 							examplePrompts={ examplePrompts }
 						/>
-						<AuthenticatedView messages={ messages } isAssistantThinking={ isAssistantThinking } />
-						<div ref={ endOfMessagesRef } />
+						<AnimatePresence>
+							<motion.div>
+								<AuthenticatedView
+									messages={ messages }
+									isAssistantThinking={ isAssistantThinking }
+								/>
+								<div ref={ endOfMessagesRef } />
+							</motion.div>
+						</AnimatePresence>
 					</>
 				) : (
 					<UnauthenticatedView onAuthenticate={ authenticate } />

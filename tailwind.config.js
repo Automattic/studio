@@ -162,7 +162,6 @@ module.exports = {
 		},
 	},
 	plugins: [
-		require( 'tailwindcss-animate' ),
 		plugin( function ( { addComponents, e } ) {
 			const newComponents = Object.entries( typographyStyles ).reduce( ( acc, [ key, value ] ) => {
 				const name = `.${ e( `${ PREFIX }-${ key }` ) }`; // e.g. .a8c-title-large

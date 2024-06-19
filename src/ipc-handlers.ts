@@ -17,7 +17,6 @@ import { copySync } from 'fs-extra';
 import { parse } from 'shell-quote';
 import { SQLITE_FILENAME, DEFAULT_PHP_VERSION } from '../vendor/wp-now/src/constants';
 import { downloadSqliteIntegrationPlugin } from '../vendor/wp-now/src/download';
-import { executeWPCli } from '../vendor/wp-now/src/execute-wp-cli';
 import { LIMIT_ARCHIVE_SIZE } from './constants';
 import { isEmptyDir, pathExists, isWordPressDirectory, sanitizeFolderName } from './lib/fs-utils';
 import { getImageData } from './lib/get-image-data';
@@ -35,6 +34,7 @@ import {
 	removeLegacySqliteIntegrationPlugin,
 } from './lib/sqlite-versions';
 import * as windowsHelpers from './lib/windows-helpers';
+import WpCliProcess from './lib/wp-cli-process';
 import { writeLogToFile, type LogLevel } from './logging';
 import { popupMenu } from './menu';
 import { SiteServer, createSiteWorkingDirectory } from './site-server';
@@ -583,7 +583,8 @@ export async function executeWPCLiInline(
 		throw Error( `Can't execute wp-cli command with arguments: ${ args }` );
 	}
 
-	return await executeWPCli( projectPath, wpCliArgs as string[] );
+	const process = new WpCliProcess();
+	return await process.execute( projectPath, wpCliArgs as string[] );
 }
 
 export async function getThumbnailData( _event: IpcMainInvokeEvent, id: string ) {

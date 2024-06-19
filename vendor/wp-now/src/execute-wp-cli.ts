@@ -1,9 +1,11 @@
-import startWPNow from './wp-now';
 import { downloadWpCli } from './download';
 import getWpCliPath from './get-wp-cli-path';
 import getWpNowConfig, { WPNowMode, WPNowOptions } from './config';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from './constants';
 import { phpVar } from '@php-wasm/util';
+import { NodePHP } from '@php-wasm/node';
+
+const isWindows = process.platform === 'win32';
 
 /**
  * This is an unstable API. Multiple wp-cli commands may not work due to a current limitation on php-wasm and pthreads.
@@ -15,16 +17,13 @@ export async function executeWPCli( projectPath: string, args: string[], forcedW
 		wp: DEFAULT_WORDPRESS_VERSION,
 		path: projectPath,
 	});
-	options.mode = options.mode !== WPNowMode.WORDPRESS ? WPNowMode.INDEX : options.mode;
-	if (forcedWPNowOptions) {
-		options = { ...options, ...forcedWPNowOptions };
-	}
-
-	const { phpInstances } = await startWPNow({
-		...options,
-		numberOfPhpInstances: 2,
+	const php: NodePHP = await NodePHP.load(options.phpVersion,{
+		requestHandler: {
+			documentRoot: options.documentRoot,
+			absoluteUrl: options.absoluteUrl,
+		}
 	});
-	const [, php] = phpInstances;
+	php.mount(projectPath, options.documentRoot);
 
 	//Set the SAPI name to cli before running the script
 	await php.setSapiName('cli');
@@ -47,6 +46,11 @@ export async function executeWPCli( projectPath: string, args: string[], forcedW
 		// @see https://github.com/wp-cli/wp-cli/issues/1102
 		putenv( 'SHELL_PIPE=0' );
 
+		// When running PHP on Playground, the value of constant PHP_OS is set to Linux.
+		// This implies that platform-specific logic won't work as expected. To solve this,
+		// we use an environment variable to ensure WP-CLI runs the Windows-specific logic.
+		putenv( 'WP_CLI_TEST_IS_WINDOWS=${isWindows ? 1 : 0}' );
+
 		// Set the argv global.
 		$GLOBALS['argv'] = array_merge([
 		  "${wpCliPath}",
@@ -59,9 +63,16 @@ export async function executeWPCli( projectPath: string, args: string[], forcedW
 		define('STDOUT', fopen('php://stdout', 'wb'));
 		define('STDERR', fopen('${stderrPath}', 'wb'));
 
+		// WP-CLI uses this argument for checking updates. Seems it's not defined by Playground
+		// when running a script, so we explicitly set it.
+		// Reference: https://github.com/wp-cli/wp-cli/blob/main/php/WP_CLI/Runner.php#L1889
+		$_SERVER['argv'][0] = '${wpCliPath}';
+
 		require( '${wpCliPath}' );`
 	);
 
+	// Set site's folder as the current working directory as the terminal will opened in that location.
+	php.chdir(options.documentRoot);
 
 	try {
 		const result = await php.run({
@@ -70,7 +81,7 @@ export async function executeWPCli( projectPath: string, args: string[], forcedW
 
 		return { stdout: result.text.replace('#!/usr/bin/env php', '').trim(), stderr: result.errors };
 	} catch (error) {
-		const errorContent = php.readFileAsText(stderrPath);
+		const errorContent = php.readFileAsText(stderrPath).replace('PHP.run() output was: #!/usr/bin/env php', '').trim();
 		return { stdout: '', stderr: errorContent };
 	}
 }

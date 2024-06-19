@@ -17,6 +17,10 @@ export const app = {
 	setAppLogsPath: jest.fn(),
 	setAsDefaultProtocolClient: jest.fn(),
 	enableSandbox: jest.fn(),
+	commandLine: {
+		hasSwitch: jest.fn( () => false ),
+		getSwitchValue: jest.fn(),
+	},
 	getSystemLocale: jest.fn(),
 };
 

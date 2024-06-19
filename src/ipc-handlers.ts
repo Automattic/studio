@@ -14,7 +14,7 @@ import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import archiver from 'archiver';
 import { copySync } from 'fs-extra';
-import { WPNowOptions } from '../vendor/wp-now/src/config';
+import { parse } from 'shell-quote';
 import { SQLITE_FILENAME, DEFAULT_PHP_VERSION } from '../vendor/wp-now/src/constants';
 import { downloadSqliteIntegrationPlugin } from '../vendor/wp-now/src/download';
 import { executeWPCli } from '../vendor/wp-now/src/execute-wp-cli';
@@ -38,7 +38,12 @@ import * as windowsHelpers from './lib/windows-helpers';
 import { writeLogToFile, type LogLevel } from './logging';
 import { popupMenu } from './menu';
 import { SiteServer, createSiteWorkingDirectory } from './site-server';
-import { DEFAULT_SITE_PATH, getServerFilesPath, getSiteThumbnailPath } from './storage/paths';
+import {
+	DEFAULT_SITE_PATH,
+	getResourcesPath,
+	getServerFilesPath,
+	getSiteThumbnailPath,
+} from './storage/paths';
 import { loadUserData, saveUserData } from './storage/user-data';
 
 const TEMP_DIR = nodePath.join( app.getPath( 'temp' ), 'com.wordpress.studio' ) + nodePath.sep;
@@ -566,14 +571,19 @@ export async function saveOnboarding(
 
 export async function executeWPCLiInline(
 	_event: IpcMainInvokeEvent,
-	{
-		projectPath,
-		args,
-		forcedWPNowOptions,
-	}: { projectPath: string; args: string[]; forcedWPNowOptions?: WPNowOptions }
+	{ projectPath, args }: { projectPath: string; args: string }
 ) {
-	const { stdout, stderr } = await executeWPCli( projectPath, args, forcedWPNowOptions );
-	return { stdout, stderr };
+	const wpCliArgs = parse( args );
+
+	// The parsing of arguments can include shell operators like `>` or `||` that the app don't support.
+	const isValidCommand = wpCliArgs.every(
+		( arg: unknown ) => typeof arg === 'string' || arg instanceof String
+	);
+	if ( ! isValidCommand ) {
+		throw Error( `Can't execute wp-cli command with arguments: ${ args }` );
+	}
+
+	return await executeWPCli( projectPath, wpCliArgs as string[] );
 }
 
 export async function getThumbnailData( _event: IpcMainInvokeEvent, id: string ) {
@@ -584,17 +594,34 @@ export async function getThumbnailData( _event: IpcMainInvokeEvent, id: string )
 export function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath: string ) {
 	return new Promise< void >( ( resolve, reject ) => {
 		const platform = process.platform;
+		const cliPath = nodePath.join( getResourcesPath(), 'bin' );
+
+		const exePath = app.getPath( 'exe' );
+		const appDirectory = app.getAppPath();
+		const appPath =
+			process.env.NODE_ENV === 'development' ? `${ exePath } ${ appDirectory }` : exePath;
 
 		let command: string;
 		if ( platform === 'win32' ) {
 			// Windows
-			command = `start cmd /K "cd /d ${ targetPath }"`;
+			command = `start cmd /K "set PATH=${ cliPath };%PATH% && set STUDIO_APP_PATH=${ exePath } && cd /d ${ targetPath }"`;
 		} else if ( platform === 'darwin' ) {
 			// macOS
-			command = `open -a Terminal "${ targetPath }"`;
+			const script = `
+			tell application "Terminal"
+				if not application "Terminal" is running then launch
+				do script "clear && export PATH=${ cliPath }:$PATH && export STUDIO_APP_PATH=${ exePath } && cd ${ targetPath }"
+				activate
+			end tell
+	`;
+			command = `osascript -e '${ script }'`;
 		} else if ( platform === 'linux' ) {
 			// Linux
-			command = `gnome-terminal --working-directory=${ targetPath }`;
+			command = `export PATH=${ cliPath }:$PATH && export STUDIO_APP_PATH="${ appPath }"`;
+			if ( process.env.NODE_ENV === 'development' ) {
+				command += ` && export STUDIO_EXE_PATH="${ exePath }" && export STUDIO_APP_DIRECTORY="${ appDirectory }"`;
+			}
+			command += ` && gnome-terminal -- bash -c 'cd ${ targetPath }; exec bash'`;
 		} else {
 			console.error( 'Unsupported platform:', platform );
 			return;

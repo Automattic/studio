@@ -52,7 +52,7 @@ export default class SiteServerProcess {
 					serviceName: 'studio-site-server',
 					env: {
 						...process.env,
-						STUDIO_SITE_SERVER_PROCESS: 'true',
+						STUDIO_IN_CHILD_PROCESS: 'true',
 						STUDIO_APP_NAME: app.name,
 						STUDIO_APP_DATA_PATH: app.getPath( 'appData' ),
 						STUDIO_APP_LOGS_PATH: app.getPath( 'logs' ),

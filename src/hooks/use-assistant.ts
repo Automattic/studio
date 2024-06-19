@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 
 export interface Message {
 	content: string;
-	role: 'user' | 'assistant';
+	role: 'user' | 'assistant' | 'thinking';
 	chatId?: string;
 }
 

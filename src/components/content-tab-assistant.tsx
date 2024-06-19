@@ -180,58 +180,57 @@ export const Message = ( {
 	};
 
 	return (
-		<AnimatePresence>
-			<motion.div
-				layout="position"
-				initial={ {
-					y: 120,
-					opacity: 0,
-					transition: { duration: 0.3 },
-				} }
-				exit={ exitAnimation() }
-				animate={ {
-					y: 0,
-					opacity: 1,
-					transition: { duration: 0.3 },
-				} }
+		<motion.div
+			layout="position"
+			initial={ {
+				y: 120,
+				opacity: 0,
+				transition: { duration: 0.3 },
+			} }
+			exit={ exitAnimation() }
+			animate={ {
+				y: 0,
+				opacity: 1,
+				transition: { duration: 0.3 },
+			} }
+		>
+			<div
+				className={ cx(
+					'flex mt-4',
+					isUser ? 'justify-end md:ml-24' : 'justify-start md:mr-24',
+					className
+				) }
 			>
 				<div
+					id={ id }
+					role="group"
+					aria-labelledby={ id }
 					className={ cx(
-						'flex mt-4',
-						isUser ? 'justify-end md:ml-24' : 'justify-start md:mr-24',
-						className
+						'inline-block p-3 rounded border border-gray-300 lg:max-w-[70%] overflow-x-auto select-text',
+						! isUser ? 'bg-white' : 'bg-white/45'
 					) }
 				>
-					<div
-						id={ id }
-						role="group"
-						aria-labelledby={ id }
-						className={ cx(
-							'inline-block p-3 rounded border border-gray-300 lg:max-w-[70%] overflow-x-auto select-text',
-							! isUser ? 'bg-white' : 'bg-white/45'
-						) }
-					>
-						<div className="relative">
-							<span className="sr-only">
-								{ isUser ? __( 'Your message' ) : __( 'Studio Assistant' ) },
-							</span>
-						</div>
-						{ ! isAssistantThinking ? (
-							<div className="assistant-markdown">
-								<Markdown
-									components={ { a: Anchor, code: CodeBlock } }
-									remarkPlugins={ [ remarkGfm ] }
-								>
-									{ message.content }
-								</Markdown>
-							</div>
-						) : (
-							children
-						) }
+					<div className="relative">
+						<span className="sr-only">
+							{ isUser ? __( 'Your message' ) : __( 'Studio Assistant' ) },
+						</span>
 					</div>
+
+					{ ! isAssistantThinking ? (
+						<div className="assistant-markdown">
+							<Markdown
+								components={ { a: Anchor, code: CodeBlock } }
+								remarkPlugins={ [ remarkGfm ] }
+							>
+								{ message.content }
+							</Markdown>
+						</div>
+					) : (
+						children
+					) }
 				</div>
-			</motion.div>
-		</AnimatePresence>
+			</div>
+		</motion.div>
 	);
 };
 
@@ -273,23 +272,28 @@ const AuthenticatedView = memo(
 	} ) => {
 		return (
 			<>
-				{ messages.map( ( message, index ) => (
-					<Message id={ `message-${ index }` } message={ message }></Message>
-				) ) }
-				{ isAssistantThinking && (
-					<Message
-						isAssistantThinking={ isAssistantThinking }
-						message={
-							{
-								role: 'assistant',
-								content: '',
-							} as MessageType
-						}
-						id="message-thinking"
-					>
-						<MessageThinking />
-					</Message>
-				) }
+				<AnimatePresence>
+					{ messages.map( ( message, index ) => (
+						<div key={ `message-${ index }-${ message.role }` }>
+							<Message id={ `message-${ index }` } message={ message }></Message>
+						</div>
+					) ) }
+					{ isAssistantThinking && (
+						<Message
+							isAssistantThinking={ isAssistantThinking }
+							key="message-thinking"
+							message={
+								{
+									role: '',
+									content: '',
+								} as MessageType
+							}
+							id="message-thinking"
+						>
+							<MessageThinking />
+						</Message>
+					) }
+				</AnimatePresence>
 			</>
 		);
 	}

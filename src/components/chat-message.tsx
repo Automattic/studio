@@ -1,5 +1,8 @@
 import * as Sentry from '@sentry/react';
-import { Spinner } from '@wordpress/components';
+import {
+	__unstableMotion as motion,
+	Spinner,
+} from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { useEffect } from 'react';
 import Markdown, { ExtraProps } from 'react-markdown';
@@ -16,6 +19,7 @@ interface ChatMessageProps {
 	children: React.ReactNode;
 	isUser: boolean;
 	id?: string;
+	isAssistantThinking?: boolean;
 	messageId?: number;
 	className?: string;
 	projectPath?: string;
@@ -58,6 +62,7 @@ const InlineCLI = ( { output, status, time }: InlineCLIProps ) => (
 export const ChatMessage = ( {
 	children,
 	id,
+	isAssistantThinking,
 	messageId,
 	isUser,
 	className,
@@ -144,39 +149,69 @@ export const ChatMessage = ( {
 		);
 	};
 
+	const exitAnimation = () => {
+		if ( isAssistantThinking ) {
+			return {
+				opacity: 0,
+				transition: { duration: 0.2 },
+				y: -10,
+			};
+		}
+
+		return { opacity: 0, transition: { duration: 0 } };
+	};
+
 	return (
-		<div
-			className={ cx(
-				'flex mt-4',
-				isUser ? 'justify-end md:ml-24' : 'justify-start md:mr-24',
-				className
-			) }
+		<motion.div
+			layout="position"
+			initial={ {
+				y: 120,
+				opacity: 0,
+				transition: { duration: 0.3 },
+			} }
+			exit={ exitAnimation() }
+			animate={ {
+				y: 0,
+				opacity: 1,
+				transition: { duration: 0.3 },
+			} }
 		>
 			<div
-				id={ id }
-				role="group"
-				aria-labelledby={ id }
 				className={ cx(
-					'inline-block p-3 rounded border border-gray-300 lg:max-w-[70%] overflow-x-auto select-text',
-					! isUser ? 'bg-white' : 'bg-white/45'
+					'flex mt-4',
+					isUser ? 'justify-end md:ml-24' : 'justify-start md:mr-24',
+					className
 				) }
 			>
-				<div className="relative">
-					<span className="sr-only">
-						{ isUser ? __( 'Your message' ) : __( 'Studio Assistant' ) },
-					</span>
-				</div>
-				{ typeof children === 'string' ? (
-					<div className="assistant-markdown">
-						<Markdown components={ { a: Anchor, code: CodeBlock } } remarkPlugins={ [ remarkGfm ] }>
-							{ children }
-						</Markdown>
+				<div
+					id={ id }
+					role="group"
+					aria-labelledby={ id }
+					className={ cx(
+						'inline-block p-3 rounded border border-gray-300 lg:max-w-[70%] overflow-x-auto select-text',
+						! isUser ? 'bg-white' : 'bg-white/45'
+					) }
+				>
+					<div className="relative">
+						<span className="sr-only">
+							{ isUser ? __( 'Your message' ) : __( 'Studio Assistant' ) },
+						</span>
 					</div>
-				) : (
-					children
-				) }
+					{ typeof children === 'string' ? (
+						<div className="assistant-markdown">
+							<Markdown
+								components={ { a: Anchor, code: CodeBlock } }
+								remarkPlugins={ [ remarkGfm ] }
+							>
+								{ children }
+							</Markdown>
+						</div>
+					) : (
+						children
+					) }
+				</div>
 			</div>
-		</div>
+		</motion.div>
 	);
 };
 

@@ -1,4 +1,5 @@
 import { createInterpolateElement } from '@wordpress/element';
+import { __unstableAnimatePresence as AnimatePresence } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { Icon, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
@@ -47,13 +48,13 @@ const AuthenticatedView = memo(
 				if ( endOfMessagesRef.current ) {
 					endOfMessagesRef.current.scrollIntoView( { behavior: 'smooth' } );
 				}
-			}, 100 ); // Slight delay to ensure DOM updates
+			}, 300 ); // Slight delay to ensure DOM updates
 
 			return () => clearTimeout( timer );
 		}, [ messages?.length ] );
 
 		return (
-			<>
+			<AnimatePresence>
 				{ messages.map( ( message, index ) => (
 					<ChatMessage
 						key={ index }
@@ -67,12 +68,12 @@ const AuthenticatedView = memo(
 					</ChatMessage>
 				) ) }
 				{ isAssistantThinking && (
-					<ChatMessage isUser={ false }>
+					<ChatMessage isAssistantThinking key="message-thinking" isUser={ false }>
 						<MessageThinking />
 					</ChatMessage>
 				) }
 				<div ref={ endOfMessagesRef } />
-			</>
+			</AnimatePresence>
 		);
 	}
 );

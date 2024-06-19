@@ -21,8 +21,6 @@ test.describe( 'Servers', () => {
 		// Complete onboarding before tests
 		const onboarding = new Onboarding( session.mainWindow );
 		await expect( onboarding.heading ).toBeVisible();
-		// Delay clicking the button to avoid errors due to creating the site too early
-		await session.mainWindow.waitForTimeout( 500 );
 		await onboarding.continueButton.click();
 		const siteContent = new SiteContent( session.mainWindow, defaultSiteName );
 		await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 60_000 } );

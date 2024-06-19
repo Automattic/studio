@@ -236,15 +236,9 @@ const UsageLimitReached = () => {
 			  );
 
 	return (
-		<div className="flex items-center justify-center h-12 px-2 pt-4 text-a8c-gray-70">
+		<div className="text-center h-12 px-2 pt-4 text-a8c-gray-70">
 			{ createInterpolateElement( resetMessage, {
-				a: (
-					<Button
-						onClick={ () => getIpcApi().showUserSettings() }
-						className="!px-1"
-						variant="link"
-					/>
-				),
+				a: <Button onClick={ () => getIpcApi().showUserSettings() } variant="link" />,
 			} ) }
 		</div>
 	);

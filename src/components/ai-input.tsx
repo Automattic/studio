@@ -100,14 +100,14 @@ export const AIInput = ( {
 		<div
 			className={ cx(
 				`px-8 py-5 flex items-center border ${
-					disabled ? 'bg-gray-100 border-a8c-gray-10 opacity-30' : 'bg-white border-gray-200'
+					disabled ? 'bg-gray-100 border-a8c-gray-10' : 'bg-white border-gray-200'
 				}`
 			) }
 		>
 			<div
 				className={ cx(
 					`flex w-full border rounded-sm ${
-						disabled ? 'border-a8c-gray-10' : 'border-gray-300 focus-within:border-a8c-blueberry'
+						disabled ? 'border-a8c-gray-5' : 'border-gray-300 focus-within:border-a8c-blueberry'
 					}`
 				) }
 			>
@@ -115,7 +115,7 @@ export const AIInput = ( {
 					<AssistantIcon
 						size={ 28 }
 						aria-hidden="true"
-						className={ disabled ? 'fill-a8c-gray-30' : 'fill-a8c-blueberry' }
+						className={ disabled ? 'fill-a8c-gray-30 opacity-30' : 'fill-a8c-blueberry' }
 					/>
 				</div>
 				<textarea
@@ -124,7 +124,7 @@ export const AIInput = ( {
 					placeholder={ getPlaceholderText() }
 					className={ cx(
 						`w-full mt-1 px-2 py-3 rounded-sm border-none resize-none focus:outline-none ${
-							disabled ? 'cursor-not-allowed' : ''
+							disabled ? 'cursor-not-allowed opacity-30' : ''
 						}`
 					) }
 					value={ input }

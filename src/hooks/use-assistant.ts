@@ -23,10 +23,12 @@ export const useAssistant = ( selectedSiteId: string ) => {
 		if ( storedChat ) {
 			setMessages( JSON.parse( storedChat ) );
 		} else {
-			localStorage.setItem( selectedSiteId, JSON.stringify( [] ) );
+			setMessages( [] );
 		}
 		if ( storedChatId ) {
 			setChatId( storedChatId );
+		} else {
+			setChatId( undefined );
 		}
 	}, [ selectedSiteId ] );
 

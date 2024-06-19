@@ -44,6 +44,8 @@ describe( 'useAssistant', () => {
 
 		act( () => {
 			result.current.addMessage( 'Hello', 'user' );
+		} );
+		act( () => {
 			result.current.clearMessages();
 		} );
 

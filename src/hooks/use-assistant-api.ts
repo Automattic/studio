@@ -1,23 +1,43 @@
 import { useCallback, useState } from 'react';
 import { Message } from './use-assistant';
 import { useAuth } from './use-auth';
+import { ChatContextType } from './use-chat-context';
 import { usePromptUsage } from './use-prompt-usage';
 
-export function useAssistantApi() {
+const contextMapper = ( context?: ChatContextType ) => {
+	if ( ! context ) {
+		return {};
+	}
+	return {
+		current_url: context.currentURL,
+		number_of_sites: context.numberOfSites,
+		wp_version: context.wpVersion,
+		php_version: context.phpVersion,
+		plugins: context.pluginList,
+		themes: context.themeList,
+		current_theme: context.themeName,
+		is_block_theme: context.isBlockTheme,
+		ide: context.availableEditors,
+		site_name: context.siteName,
+		os: context.os,
+	};
+};
+
+export function useAssistantApi( selectedSiteId: string ) {
 	const { client } = useAuth();
-	const [ isLoading, setIsLoading ] = useState( false );
+	const [ isLoading, setIsLoading ] = useState< Record< string, boolean > >( {} );
 	const { updatePromptUsage } = usePromptUsage();
 
 	const fetchAssistant = useCallback(
-		async ( chatId: string | undefined, messages: Message[] ) => {
+		async ( chatId: string | undefined, messages: Message[], context?: ChatContextType ) => {
 			if ( ! client ) {
 				throw new Error( 'WPcom client not initialized' );
 			}
-			setIsLoading( true );
+			setIsLoading( ( prev ) => ( { ...prev, [ selectedSiteId ]: true } ) );
 			const body = {
 				messages,
 				chat_id: chatId,
-				context: [],
+				context: contextMapper( context ),
 			};
 			let response;
 			let headers;
@@ -47,7 +67,7 @@ export function useAssistantApi() {
 				response = data;
 				headers = response_headers;
 			} finally {
-				setIsLoading( false );
+				setIsLoading( ( prev ) => ( { ...prev, [ selectedSiteId ]: false } ) );
 			}
 			const message = response?.choices?.[ 0 ]?.message?.content;
 			updatePromptUsage( {
@@ -56,8 +76,8 @@ export function useAssistantApi() {
 			} );
 			return { message, chatId: response?.id };
 		},
-		[ client, updatePromptUsage ]
+		[ client, selectedSiteId, updatePromptUsage ]
 	);
 
-	return { fetchAssistant, isLoading };
+	return { fetchAssistant, isLoading: isLoading[ selectedSiteId ] };
 }

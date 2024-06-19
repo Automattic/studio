@@ -1,5 +1,4 @@
 import { renderHook, act } from '@testing-library/react';
-import { Message } from '../use-assistant';
 import { useAssistantApi } from '../use-assistant-api';
 import { useAuth } from '../use-auth';
 import { usePromptUsage } from '../use-prompt-usage';
@@ -8,6 +7,7 @@ jest.mock( '../use-auth' );
 jest.mock( '../use-prompt-usage' );
 
 const chatId = 'test-chat-id';
+const siteId = 'test-site-id';
 
 describe( 'useAssistantApi', () => {
 	const clientReqPost = jest.fn();
@@ -53,7 +53,7 @@ describe( 'useAssistantApi', () => {
 		( useAuth as jest.Mock ).mockImplementation( () => ( {
 			client: null,
 		} ) );
-		const { result } = renderHook( () => useAssistantApi() );
+		const { result } = renderHook( () => useAssistantApi( siteId ) );
 
 		await act( async () => {
 			await expect( result.current.fetchAssistant( chatId, [] ) ).rejects.toThrow(
@@ -63,7 +63,7 @@ describe( 'useAssistantApi', () => {
 	} );
 
 	test( 'should return a message from the assistant', async () => {
-		const { result } = renderHook( () => useAssistantApi() );
+		const { result } = renderHook( () => useAssistantApi( siteId ) );
 
 		let response = { message: '' };
 		await act( async () => {
@@ -76,7 +76,7 @@ describe( 'useAssistantApi', () => {
 	} );
 
 	test( 'should throw an error if fetch fails', async () => {
-		const { result } = renderHook( () => useAssistantApi() );
+		const { result } = renderHook( () => useAssistantApi( siteId ) );
 
 		clientReqPost.mockImplementation( ( body, callback ) => {
 			callback( new Error( 'Failed to fetch assistant' ), null );

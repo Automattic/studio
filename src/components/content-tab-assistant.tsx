@@ -6,6 +6,7 @@ import React, { useState, useEffect, useRef, memo } from 'react';
 import { useAssistant, Message as MessageType } from '../hooks/use-assistant';
 import { useAssistantApi } from '../hooks/use-assistant-api';
 import { useAuth } from '../hooks/use-auth';
+import { useChatContext } from '../hooks/use-chat-context';
 import { useFetchWelcomeMessages } from '../hooks/use-fetch-welcome-messages';
 import { useOffline } from '../hooks/use-offline';
 import { usePromptUsage } from '../hooks/use-prompt-usage';
@@ -59,7 +60,7 @@ const AuthenticatedView = memo(
 						isUser={ message.role === 'user' }
 						projectPath={ path }
 						updateMessage={ updateMessage }
-						id={ message.id }
+						messageId={ message.id }
 						blocks={ message.blocks }
 					>
 						{ message.content }
@@ -75,8 +76,9 @@ const AuthenticatedView = memo(
 		);
 	}
 );
+
 const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void } ) => (
-	<ChatMessage className="w-full" isUser={ false }>
+	<ChatMessage id="message-unauthenticated" className="w-full" isUser={ false }>
 		<div className="mb-3 a8c-label-semibold">{ __( 'Hold up!' ) }</div>
 		<div className="mb-1">
 			{ __( 'You need to log in to your WordPress.com account to use the assistant.' ) }
@@ -109,11 +111,12 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 );
 
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
+	const currentSiteChatContext = useChatContext();
 	const { messages, addMessage, clearMessages, updateMessage, chatId } = useAssistant(
 		selectedSite.name
 	);
 	const { userCanSendMessage } = usePromptUsage();
-	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi();
+	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi( selectedSite.name );
 	const {
 		messages: welcomeMessages,
 		examplePrompts,
@@ -134,10 +137,11 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 			addMessage( chatMessage, 'user', chatId );
 			setInput( '' );
 			try {
-				const { message, chatId: fetchedChatId } = await fetchAssistant( chatId, [
-					...messages,
-					{ content: chatMessage, role: 'user' },
-				] );
+				const { message, chatId: fetchedChatId } = await fetchAssistant(
+					chatId,
+					[ ...messages, { content: chatMessage, role: 'user' } ],
+					currentSiteChatContext
+				);
 				if ( message ) {
 					addMessage( message, 'assistant', chatId ?? fetchedChatId );
 				}
@@ -166,7 +170,6 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		setInput( '' );
 		clearMessages();
 	};
-
 	const disabled = isOffline || ! isAuthenticated || ! userCanSendMessage;
 
 	return (

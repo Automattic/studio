@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/react';
 import { Spinner } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { useEffect } from 'react';
@@ -6,6 +7,7 @@ import remarkGfm from 'remark-gfm';
 import stripAnsi from 'strip-ansi';
 import { useExecuteWPCLI } from '../hooks/use-execute-cli';
 import { cx } from '../lib/cx';
+import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
 import { CopyTextButton } from './copy-text-button';
 import { ExecuteIcon } from './icons/execute';
@@ -13,7 +15,8 @@ import { ExecuteIcon } from './icons/execute';
 interface ChatMessageProps {
 	children: React.ReactNode;
 	isUser: boolean;
-	id?: number;
+	id?: string;
+	messageId?: number;
 	className?: string;
 	projectPath?: string;
 	siteId?: string;
@@ -55,6 +58,7 @@ const InlineCLI = ( { output, status, time }: InlineCLIProps ) => (
 export const ChatMessage = ( {
 	children,
 	id,
+	messageId,
 	isUser,
 	className,
 	projectPath,
@@ -77,7 +81,7 @@ export const ChatMessage = ( {
 			setCliOutput,
 			setCliStatus,
 			setCliTime,
-		} = useExecuteWPCLI( content, projectPath, updateMessage, id );
+		} = useExecuteWPCLI( content, projectPath, updateMessage, messageId );
 
 		useEffect( () => {
 			if ( blocks ) {
@@ -149,14 +153,22 @@ export const ChatMessage = ( {
 			) }
 		>
 			<div
+				id={ id }
+				role="group"
+				aria-labelledby={ id }
 				className={ cx(
 					'inline-block p-3 rounded border border-gray-300 lg:max-w-[70%] overflow-x-auto select-text',
 					! isUser ? 'bg-white' : 'bg-white/45'
 				) }
 			>
+				<div className="relative">
+					<span className="sr-only">
+						{ isUser ? __( 'Your message' ) : __( 'Studio Assistant' ) },
+					</span>
+				</div>
 				{ typeof children === 'string' ? (
 					<div className="assistant-markdown">
-						<Markdown components={ { code: CodeBlock } } remarkPlugins={ [ remarkGfm ] }>
+						<Markdown components={ { a: Anchor, code: CodeBlock } } remarkPlugins={ [ remarkGfm ] }>
 							{ children }
 						</Markdown>
 					</div>
@@ -167,3 +179,31 @@ export const ChatMessage = ( {
 		</div>
 	);
 };
+
+function Anchor( props: JSX.IntrinsicElements[ 'a' ] & ExtraProps ) {
+	const { href } = props;
+
+	return (
+		<a
+			{ ...props }
+			onClick={ ( e ) => {
+				if ( ! href ) {
+					return;
+				}
+
+				e.preventDefault();
+				try {
+					getIpcApi().openURL( href );
+				} catch ( error ) {
+					getIpcApi().showMessageBox( {
+						type: 'error',
+						message: __( 'Failed to open link' ),
+						detail: __( 'We were unable to open the link. Please try again.' ),
+						buttons: [ __( 'OK' ) ],
+					} );
+					Sentry.captureException( error );
+				}
+			} }
+		/>
+	);
+}

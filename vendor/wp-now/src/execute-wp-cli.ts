@@ -10,7 +10,7 @@ const isWindows = process.platform === 'win32';
 /**
  * This is an unstable API. Multiple wp-cli commands may not work due to a current limitation on php-wasm and pthreads.
  */
-export async function executeWPCli( projectPath: string, args: string[], forcedWPNowOptions?: WPNowOptions ): Promise<{ stdout: string; stderr: string; }> {
+export async function executeWPCli( projectPath: string, args: string[] ): Promise<{ stdout: string; stderr: string; }> {
 	await downloadWpCli();
 	let options = await getWpNowConfig({
 		php: DEFAULT_PHP_VERSION,

@@ -13,6 +13,7 @@ import { useCheckInstalledApps } from './use-check-installed-apps';
 import { useGetWpVersion } from './use-get-wp-version';
 import { useSiteDetails } from './use-site-details';
 import { useWindowListener } from './use-window-listener';
+import { useThemeDetails } from './use-theme-details';
 
 export interface ChatContextType {
 	currentURL: string;
@@ -29,8 +30,8 @@ export interface ChatContextType {
 }
 const ChatContext = createContext< ChatContextType >( {
 	currentURL: '',
-	pluginList: [] as string[],
-	themeList: [] as string[],
+	pluginList: [],
+	themeList: [],
 	numberOfSites: 0,
 	themeName: '',
 	phpVersion: '',
@@ -65,7 +66,8 @@ export const ChatProvider: React.FC< ChatProviderProps > = ( { children } ) => {
 	const numberOfSites = sites?.length || 0;
 	const sitePath = selectedSite?.path || '';
 	const sitePort = selectedSite?.port || '';
-	const siteThemeDetails = selectedSite?.themeDetails;
+
+	const { selectedThemeDetails: themeDetails } = useThemeDetails();
 
 	const availableEditors = Object.keys( installedApps ).filter( ( app ) => {
 		return installedApps[ app as keyof InstalledApps ];
@@ -95,7 +97,6 @@ export const ChatProvider: React.FC< ChatProviderProps > = ( { children } ) => {
 
 	useEffect( () => {
 		let isCurrent = true;
-		// Initial load. Prefetch all the plugins and themes for the sites.
 		const run = async () => {
 			const result = await Promise.all( [
 				fetchPluginList( sitePath ),
@@ -151,8 +152,8 @@ export const ChatProvider: React.FC< ChatProviderProps > = ( { children } ) => {
 			wpVersion,
 			phpVersion: selectedSite?.phpVersion ?? DEFAULT_PHP_VERSION,
 			currentURL: `http://localhost:${ sitePort }`,
-			themeName: siteThemeDetails?.name,
-			isBlockTheme: siteThemeDetails?.isBlockTheme,
+			themeName: themeDetails?.name,
+			isBlockTheme: themeDetails?.isBlockTheme,
 			availableEditors,
 			siteName: selectedSite?.name,
 			os: window.appGlobals.platform,
@@ -166,8 +167,8 @@ export const ChatProvider: React.FC< ChatProviderProps > = ( { children } ) => {
 		pluginsList,
 		wpVersion,
 		sitePort,
-		siteThemeDetails?.name,
-		siteThemeDetails?.isBlockTheme,
+		themeDetails?.name,
+		themeDetails?.isBlockTheme,
 		availableEditors,
 	] );
 

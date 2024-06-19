@@ -9,16 +9,12 @@ if ( process.platform === 'darwin' ) {
 		vscode: '/Applications/Visual Studio Code.app',
 		phpstorm: '/Applications/PhpStorm.app',
 	};
-}
-
-if ( process.platform === 'linux' ) {
+} else if ( process.platform === 'linux' ) {
 	appPaths = {
 		vscode: '/usr/bin/code',
 		phpstorm: '/usr/bin/phpstorm',
 	};
-}
-
-if ( process.platform === 'win32' ) {
+} else if ( process.platform === 'win32' ) {
 	appPaths = {
 		vscode: path.join( app.getPath( 'appData' ), 'Code' ),
 		phpstorm: '', // Disable phpStorm for Windows

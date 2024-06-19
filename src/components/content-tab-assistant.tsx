@@ -354,51 +354,53 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 
 	const disabled = isOffline || ! isAuthenticated || ! userCanSendMessage;
 
+	const renderChatContent = () => {
+		if ( ! isAuthenticated ) {
+			return isOffline ? (
+				<OfflineModeView />
+			) : (
+				<UnauthenticatedView onAuthenticate={ authenticate } />
+			);
+		}
+
+		if ( isOffline ) {
+			return messages.length > 0 ? (
+				<>
+					<WelcomeComponent
+						onExampleClick={ handleSend }
+						showExamplePrompts={ messages.length === 0 }
+						messages={ welcomeMessages }
+						examplePrompts={ examplePrompts }
+					/>
+					<AuthenticatedView messages={ messages } isAssistantThinking={ isAssistantThinking } />
+					<OfflineModeView />
+				</>
+			) : (
+				<OfflineModeView />
+			);
+		}
+
+		return (
+			<>
+				<WelcomeComponent
+					onExampleClick={ handleSend }
+					showExamplePrompts={ messages.length === 0 }
+					messages={ welcomeMessages }
+					examplePrompts={ examplePrompts }
+				/>
+				<AuthenticatedView messages={ messages } isAssistantThinking={ isAssistantThinking } />
+				<div ref={ endOfMessagesRef } />
+			</>
+		);
+	};
+
 	return (
 		<div className="h-full flex flex-col bg-gray-50">
 			<div
 				data-testid="assistant-chat"
 				className={ cx( 'flex-1 overflow-y-auto p-8', ! isAuthenticated && 'flex items-end' ) }
 			>
-				{ isAuthenticated ? (
-					isOffline ? (
-						messages.length > 0 ? (
-							<>
-								<WelcomeComponent
-									onExampleClick={ ( prompt ) => handleSend( prompt ) }
-									showExamplePrompts={ messages.length === 0 }
-									messages={ welcomeMessages }
-									examplePrompts={ examplePrompts }
-								/>
-								<AuthenticatedView
-									messages={ messages }
-									isAssistantThinking={ isAssistantThinking }
-								/>
-								<OfflineModeView />
-							</>
-						) : (
-							<OfflineModeView />
-						)
-					) : (
-						<>
-							<WelcomeComponent
-								onExampleClick={ ( prompt ) => handleSend( prompt ) }
-								showExamplePrompts={ messages.length === 0 }
-								messages={ welcomeMessages }
-								examplePrompts={ examplePrompts }
-							/>
-							<AuthenticatedView
-								messages={ messages }
-								isAssistantThinking={ isAssistantThinking }
-							/>
-							<div ref={ endOfMessagesRef } />
-						</>
-					)
-				) : isOffline ? (
-					<OfflineModeView />
-				) : (
-					<UnauthenticatedView onAuthenticate={ authenticate } />
-				) }
+				{ renderChatContent() }
 			</div>
 			<AIInput
 				disabled={ disabled }

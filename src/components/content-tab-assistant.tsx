@@ -14,7 +14,7 @@ import { getIpcApi } from '../lib/get-ipc-api';
 import { AIInput } from './ai-input';
 import { MessageThinking } from './assistant-thinking';
 import Button from './button';
-import { Message } from './chat-messages';
+import { ChatMessage } from './chat-message';
 import WelcomeComponent from './welcome-message-prompt';
 
 interface ContentTabAssistantProps {
@@ -54,7 +54,7 @@ const AuthenticatedView = memo(
 		return (
 			<>
 				{ messages.map( ( message, index ) => (
-					<Message
+					<ChatMessage
 						key={ index }
 						isUser={ message.role === 'user' }
 						projectPath={ path }
@@ -63,12 +63,12 @@ const AuthenticatedView = memo(
 						blocks={ message.blocks }
 					>
 						{ message.content }
-					</Message>
+					</ChatMessage>
 				) ) }
 				{ isAssistantThinking && (
-					<Message isUser={ false }>
+					<ChatMessage isUser={ false }>
 						<MessageThinking />
-					</Message>
+					</ChatMessage>
 				) }
 				<div ref={ endOfMessagesRef } />
 			</>
@@ -76,7 +76,7 @@ const AuthenticatedView = memo(
 	}
 );
 const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void } ) => (
-	<Message className="w-full" isUser={ false }>
+	<ChatMessage className="w-full" isUser={ false }>
 		<div className="mb-3 a8c-label-semibold">{ __( 'Hold up!' ) }</div>
 		<div className="mb-1">
 			{ __( 'You need to log in to your WordPress.com account to use the assistant.' ) }
@@ -105,7 +105,7 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 			{ __( 'Log in to WordPress.com' ) }
 			<Icon className="ltr:ml-1 rtl:mr-1 rtl:scale-x-[-1]" icon={ external } size={ 21 } />
 		</Button>
-	</Message>
+	</ChatMessage>
 );
 
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {

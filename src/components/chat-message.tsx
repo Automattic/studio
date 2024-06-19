@@ -10,7 +10,7 @@ import Button from './button';
 import { CopyTextButton } from './copy-text-button';
 import { ExecuteIcon } from './icons/execute';
 
-interface MessageProps {
+interface ChatMessageProps {
 	children: React.ReactNode;
 	isUser: boolean;
 	id?: number;
@@ -52,7 +52,7 @@ const InlineCLI = ( { output, status, time }: InlineCLIProps ) => (
 	</div>
 );
 
-export const Message = ( {
+export const ChatMessage = ( {
 	children,
 	id,
 	isUser,
@@ -60,7 +60,7 @@ export const Message = ( {
 	projectPath,
 	blocks,
 	updateMessage,
-}: MessageProps ) => {
+}: ChatMessageProps ) => {
 	const CodeBlock = ( props: JSX.IntrinsicElements[ 'code' ] & ExtraProps ) => {
 		const content = String( props.children ).trim();
 		const containsWPCommand = /\bwp\s/.test( content );

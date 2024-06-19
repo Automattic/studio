@@ -74,9 +74,7 @@ export const ChatProvider: React.FC< ChatProviderProps > = ( { children } ) => {
 	const fetchPluginList = useCallback( async ( path: string ) => {
 		const { stdout, stderr } = await getIpcApi().executeWPCLiInline( {
 			projectPath: path,
-			args: [ 'plugin', 'list', '--format=json', '--status=active' ],
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			forcedWPNowOptions: { mode: 'index' as any },
+			args: 'plugin list --format=json --status=active',
 		} );
 		if ( stderr ) {
 			return [];
@@ -87,9 +85,7 @@ export const ChatProvider: React.FC< ChatProviderProps > = ( { children } ) => {
 	const fetchThemeList = useCallback( async ( path: string ) => {
 		const { stdout, stderr } = await getIpcApi().executeWPCLiInline( {
 			projectPath: path,
-			args: [ 'theme', 'list', '--format=json' ],
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			forcedWPNowOptions: { mode: 'index' as any },
+			args: 'theme list --format=json',
 		} );
 		if ( stderr ) {
 			return [];

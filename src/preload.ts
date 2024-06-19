@@ -3,7 +3,6 @@
 
 import '@sentry/electron/preload';
 import { contextBridge, ipcRenderer } from 'electron';
-import { WPNowOptions } from '../vendor/wp-now/src/config';
 import { promptWindowsSpeedUpSites } from './lib/windows-helpers';
 import type { LogLevel } from './logging';
 
@@ -38,16 +37,8 @@ const api: IpcApi = {
 	getThemeDetails: ( id: string ) => ipcRenderer.invoke( 'getThemeDetails', id ),
 	getThumbnailData: ( id: string ) => ipcRenderer.invoke( 'getThumbnailData', id ),
 	getInstalledApps: () => ipcRenderer.invoke( 'getInstalledApps' ),
-<<<<<<< HEAD
-	executeWPCLiInline: ( options: {
-		projectPath: string;
-		args: string[];
-		forcedWPNowOptions?: WPNowOptions;
-	} ) => ipcRenderer.invoke( 'executeWPCLiInline', options ),
-=======
 	executeWPCLiInline: ( options: { projectPath: string; args: string } ) =>
 		ipcRenderer.invoke( 'executeWPCLiInline', options ),
->>>>>>> trunk
 	getOnboardingData: () => ipcRenderer.invoke( 'getOnboardingData' ),
 	saveOnboarding: ( onboardingCompleted: boolean ) =>
 		ipcRenderer.invoke( 'saveOnboarding', onboardingCompleted ),

@@ -12,8 +12,8 @@ import { getIpcApi } from '../lib/get-ipc-api';
 import { useCheckInstalledApps } from './use-check-installed-apps';
 import { useGetWpVersion } from './use-get-wp-version';
 import { useSiteDetails } from './use-site-details';
-import { useWindowListener } from './use-window-listener';
 import { useThemeDetails } from './use-theme-details';
+import { useWindowListener } from './use-window-listener';
 
 export interface ChatContextType {
 	currentURL: string;

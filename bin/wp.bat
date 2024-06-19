@@ -9,12 +9,12 @@ SET CLI=wp %COMMAND%
 
 IF "%COMMAND%"=="" (
   REM Mimic core `wp-cli`'s behavior of using `more` for `help` output.
-  "%STUDIO_APP_PATH%" --cli="%CLI%" | more
+  %STUDIO_APP_PATH% --cli="%CLI%" | more
 ) ELSE (
   IF "%COMMAND:~0,4%"=="help" (
     REM Mimic core `wp-cli`'s behavior of using `more` for `help` output.
-    "%STUDIO_APP_PATH%" --cli="%CLI%" | more
+    %STUDIO_APP_PATH% --cli="%CLI%" | more
   ) ELSE (
-    "%STUDIO_APP_PATH%" --cli="%CLI%"
+    %STUDIO_APP_PATH% --cli="%CLI%"
   )
 )

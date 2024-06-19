@@ -225,7 +225,7 @@ const OfflineModeView = () => {
 	const offlineMessage = __( 'The AI assistant requires an internet connection.' );
 
 	return (
-		<div className="flex items-center justify-center h-12 px-2 pt-4 text-a8c-gray-70">
+		<div className="flex items-center justify-center h-12 px-2 pt-4 text-a8c-gray-70 gap-1">
 			<Icon className="m-1 fill-a8c-gray-70" size={ 24 } icon={ offlineIcon } />
 			<span className="text-[13px] leading-[16px]">{ offlineMessage }</span>
 		</div>
@@ -361,17 +361,41 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 				className={ cx( 'flex-1 overflow-y-auto p-8', ! isAuthenticated && 'flex items-end' ) }
 			>
 				{ isAuthenticated ? (
-					<>
-						<WelcomeComponent
-							onExampleClick={ ( prompt ) => handleSend( prompt ) }
-							showExamplePrompts={ messages.length === 0 }
-							messages={ welcomeMessages }
-							examplePrompts={ examplePrompts }
-						/>
-						<AuthenticatedView messages={ messages } isAssistantThinking={ isAssistantThinking } />
-						<div ref={ endOfMessagesRef } />
-						<OfflineModeView />
-					</>
+					isOffline ? (
+						messages.length > 0 ? (
+							<>
+								<WelcomeComponent
+									onExampleClick={ ( prompt ) => handleSend( prompt ) }
+									showExamplePrompts={ messages.length === 0 }
+									messages={ welcomeMessages }
+									examplePrompts={ examplePrompts }
+								/>
+								<AuthenticatedView
+									messages={ messages }
+									isAssistantThinking={ isAssistantThinking }
+								/>
+								<OfflineModeView />
+							</>
+						) : (
+							<OfflineModeView />
+						)
+					) : (
+						<>
+							<WelcomeComponent
+								onExampleClick={ ( prompt ) => handleSend( prompt ) }
+								showExamplePrompts={ messages.length === 0 }
+								messages={ welcomeMessages }
+								examplePrompts={ examplePrompts }
+							/>
+							<AuthenticatedView
+								messages={ messages }
+								isAssistantThinking={ isAssistantThinking }
+							/>
+							<div ref={ endOfMessagesRef } />
+						</>
+					)
+				) : isOffline ? (
+					<OfflineModeView />
 				) : (
 					<UnauthenticatedView onAuthenticate={ authenticate } />
 				) }

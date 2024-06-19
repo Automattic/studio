@@ -40,7 +40,6 @@ export function CopyTextButton( {
 		}
 		setTimeoutId( setTimeout( () => setShowCopied( false ), timeoutConfirmation ) );
 	}, [ text, timeoutConfirmation, timeoutId ] );
-	console.log( 'Icon Size:', iconSize );
 
 	return (
 		<Button

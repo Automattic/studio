@@ -2,6 +2,7 @@ import { DropdownMenu, MenuGroup, MenuItem } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { Icon, moreVertical, keyboardReturn, reset } from '@wordpress/icons';
 import React, { useRef, useEffect } from 'react';
+import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { AssistantIcon } from './icons/assistant';
 
@@ -97,9 +98,11 @@ export const AIInput = ( {
 
 	return (
 		<div
-			className={ `px-8 py-5 flex items-center border ${
-				disabled ? 'bg-gray-100 border-a8c-gray-10 opacity-30' : 'bg-white border-gray-200'
-			}` }
+			className={ cx(
+				`px-8 py-5 flex items-center border ${
+					disabled ? 'bg-gray-100 border-a8c-gray-10 opacity-30' : 'bg-white border-gray-200'
+				}`
+			) }
 		>
 			<div
 				className={ `flex w-full border rounded-sm ${

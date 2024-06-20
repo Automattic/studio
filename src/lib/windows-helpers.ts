@@ -1,4 +1,4 @@
-import { app, dialog, shell } from 'electron';
+import { app, dialog } from 'electron';
 import path from 'path';
 import { __ } from '@wordpress/i18n';
 import sudo from 'sudo-prompt';

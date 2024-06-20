@@ -4,6 +4,7 @@ import { useAssistant } from '../use-assistant';
 interface Message {
 	content: string;
 	role: 'user' | 'assistant';
+	id?: number;
 }
 
 describe( 'useAssistant', () => {
@@ -32,9 +33,9 @@ describe( 'useAssistant', () => {
 			result.current.addMessage( 'Hello', 'user' );
 		} );
 
-		expect( result.current.messages ).toEqual( [ { content: 'Hello', role: 'user' } ] );
+		expect( result.current.messages ).toEqual( [ { content: 'Hello', role: 'user', id: 0 } ] );
 		expect( localStorage.getItem( selectedSiteId ) ).toEqual(
-			JSON.stringify( [ { content: 'Hello', role: 'user' } ] )
+			JSON.stringify( [ { content: 'Hello', role: 'user', id: 0 } ] )
 		);
 	} );
 
@@ -43,6 +44,8 @@ describe( 'useAssistant', () => {
 
 		act( () => {
 			result.current.addMessage( 'Hello', 'user' );
+		} );
+		act( () => {
 			result.current.clearMessages();
 		} );
 

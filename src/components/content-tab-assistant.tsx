@@ -3,6 +3,7 @@ import { __, _n, sprintf } from '@wordpress/i18n';
 import { Icon, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import React, { useState, useEffect, useRef, memo } from 'react';
+import { AI_GUIDELINES_URL } from '../constants';
 import { useAssistant, Message as MessageType } from '../hooks/use-assistant';
 import { useAssistantApi } from '../hooks/use-assistant-api';
 import { useAuth } from '../hooks/use-auth';
@@ -138,8 +139,9 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
 	const currentSiteChatContext = useChatContext();
+	const { isAuthenticated, authenticate, user } = useAuth();
 	const { messages, addMessage, clearMessages, updateMessage, chatId } = useAssistant(
-		selectedSite.name
+		user?.id ? `${ user.id }_${ selectedSite.name }` : selectedSite.name
 	);
 	const { userCanSendMessage } = usePromptUsage();
 	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi( selectedSite.name );
@@ -149,7 +151,6 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		fetchWelcomeMessages,
 	} = useFetchWelcomeMessages();
 	const [ input, setInput ] = useState< string >( '' );
-	const { isAuthenticated, authenticate } = useAuth();
 	const isOffline = useOffline();
 	const { __ } = useI18n();
 
@@ -199,7 +200,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const disabled = isOffline || ! isAuthenticated || ! userCanSendMessage;
 
 	return (
-		<div className="h-full flex flex-col bg-gray-50">
+		<div className="h-full flex flex-col bg-gray-50 relative">
 			<div
 				data-testid="assistant-chat"
 				className={ cx(
@@ -252,15 +253,33 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 					) }
 				</div>
 			</div>
-			<AIInput
-				disabled={ disabled }
-				input={ input }
-				setInput={ setInput }
-				handleSend={ () => handleSend() }
-				handleKeyDown={ handleKeyDown }
-				clearInput={ clearInput }
-				isAssistantThinking={ isAssistantThinking }
-			/>
+
+			<div
+				className={ cx(
+					`bg-gray-50 w-full px-8 pt-5 flex items-center border-0 border-t ${
+						disabled ? 'border-top-a8c-gray-10' : 'border-top-gray-200'
+					}`
+				) }
+			>
+				<div className="w-full flex flex-col items-center">
+					<AIInput
+						disabled={ disabled }
+						input={ input }
+						setInput={ setInput }
+						handleSend={ () => handleSend() }
+						handleKeyDown={ handleKeyDown }
+						clearInput={ clearInput }
+						isAssistantThinking={ isAssistantThinking }
+					/>
+					<div data-testid="guidelines-link" className="text-a8c-gray-50 self-end py-2">
+						{ createInterpolateElement( __( 'Powered by experimental AI. <a>Learn more</a>' ), {
+							a: (
+								<Button variant="link" onClick={ () => getIpcApi().openURL( AI_GUIDELINES_URL ) } />
+							),
+						} ) }
+					</div>
+				</div>
+			</div>
 		</div>
 	);
 }

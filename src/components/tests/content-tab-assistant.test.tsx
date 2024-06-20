@@ -62,6 +62,8 @@ describe( 'ContentTabAssistant', () => {
 	const getInput = () =>
 		screen.getByPlaceholderText( 'What would you like to learn?' ) as HTMLTextAreaElement;
 
+	const getGuidelinesLink = () => screen.getByTestId( 'guidelines-link' ) as HTMLAnchorElement;
+
 	beforeEach( () => {
 		jest.clearAllMocks();
 		window.HTMLElement.prototype.scrollIntoView = jest.fn();
@@ -84,6 +86,13 @@ describe( 'ContentTabAssistant', () => {
 		expect( textInput ).toBeInTheDocument();
 		expect( textInput ).toBeEnabled();
 		expect( textInput.placeholder ).toBe( 'What would you like to learn?' );
+	} );
+
+	test( 'renders guideline section', () => {
+		render( <ContentTabAssistant selectedSite={ runningSite } /> );
+		const guideLines = getGuidelinesLink();
+		expect( guideLines ).toBeInTheDocument();
+		expect( guideLines ).toHaveTextContent( 'Powered by experimental AI. Learn more' );
 	} );
 
 	test( 'saves and retrieves conversation from localStorage', async () => {
@@ -135,5 +144,43 @@ describe( 'ContentTabAssistant', () => {
 		expect( loginButton ).toBeInTheDocument();
 		fireEvent.click( loginButton );
 		expect( authenticate ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	test( 'it stores messages with user-unique keys', async () => {
+		const user1 = { id: 'mock-user-1' };
+		const user2 = { id: 'mock-user-2' };
+		( useAuth as jest.Mock ).mockImplementation( () => ( {
+			client: {
+				req: {
+					post: clientReqPost,
+				},
+			},
+			isAuthenticated: true,
+			authenticate,
+			user: user1,
+		} ) );
+		const { rerender } = render( <ContentTabAssistant selectedSite={ runningSite } /> );
+
+		const textInput = getInput();
+		fireEvent.change( textInput, { target: { value: 'New message' } } );
+		fireEvent.keyDown( textInput, { key: 'Enter', code: 'Enter' } );
+
+		expect( screen.getByText( 'New message' ) ).toBeVisible();
+
+		// Simulate user authentication change
+		( useAuth as jest.Mock ).mockImplementation( () => ( {
+			client: {
+				req: {
+					post: clientReqPost,
+				},
+			},
+			isAuthenticated: true,
+			authenticate,
+			user: user2,
+		} ) );
+
+		rerender( <ContentTabAssistant selectedSite={ runningSite } /> );
+
+		expect( screen.queryByText( 'New message' ) ).toBeNull();
 	} );
 } );

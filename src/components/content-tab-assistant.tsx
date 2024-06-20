@@ -39,7 +39,7 @@ const UsageLimitReached = () => {
 			  );
 
 	return (
-		<div className="text-center h-12 px-2 pt-4 text-a8c-gray-70">
+		<div className="text-center h-12 px-2 pt-6 text-a8c-gray-70">
 			{ createInterpolateElement( resetMessage, {
 				a: <Button onClick={ () => getIpcApi().showUserSettings() } variant="link" />,
 			} ) }

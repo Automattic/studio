@@ -1,6 +1,6 @@
 import { downloadWpCli } from './download';
 import getWpCliPath from './get-wp-cli-path';
-import getWpNowConfig, { WPNowMode, WPNowOptions } from './config';
+import getWpNowConfig from './config';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from './constants';
 import { phpVar } from '@php-wasm/util';
 import { NodePHP } from '@php-wasm/node';

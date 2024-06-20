@@ -9,9 +9,16 @@ interface Message {
 
 describe( 'useAssistant', () => {
 	const selectedSiteId = 'test-site';
+	const MOCKED_TIME = 1718882159928;
 
 	beforeEach( () => {
 		localStorage.clear();
+		jest.useFakeTimers();
+		jest.setSystemTime( MOCKED_TIME );
+	} );
+
+	afterEach( () => {
+		jest.useRealTimers();
 	} );
 
 	it( 'should initialize with messages from localStorage', () => {
@@ -33,9 +40,11 @@ describe( 'useAssistant', () => {
 			result.current.addMessage( 'Hello', 'user' );
 		} );
 
-		expect( result.current.messages ).toEqual( [ { content: 'Hello', role: 'user', id: 0 } ] );
+		expect( result.current.messages ).toEqual( [
+			{ content: 'Hello', role: 'user', id: 0, creationDate: MOCKED_TIME },
+		] );
 		expect( localStorage.getItem( selectedSiteId ) ).toEqual(
-			JSON.stringify( [ { content: 'Hello', role: 'user', id: 0 } ] )
+			JSON.stringify( [ { content: 'Hello', role: 'user', id: 0, creationDate: MOCKED_TIME } ] )
 		);
 	} );
 

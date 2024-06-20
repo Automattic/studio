@@ -1,5 +1,5 @@
 import { _n, sprintf } from '@wordpress/i18n';
-import { intervalToDuration, FormatDistanceFn, formatDuration } from 'date-fns';
+import { FormatDistanceFn } from 'date-fns';
 
 /**
  * This function is meant to be used mainly in date-fns function `formatDuration`

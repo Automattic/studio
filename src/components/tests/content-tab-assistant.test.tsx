@@ -92,7 +92,7 @@ describe( 'ContentTabAssistant', () => {
 		render( <ContentTabAssistant selectedSite={ runningSite } /> );
 		const guideLines = getGuidelinesLink();
 		expect( guideLines ).toBeInTheDocument();
-		expect( guideLines ).toHaveTextContent( 'Powered by exerimental AI. Learn More.' );
+		expect( guideLines ).toHaveTextContent( 'Powered by experimental AI. Learn More.' );
 	} );
 
 	test( 'saves and retrieves conversation from localStorage', async () => {

@@ -68,7 +68,7 @@ describe( 'useAssistantApi', () => {
 		let response = { message: '' };
 		await act( async () => {
 			response = await result.current.fetchAssistant( chatId, [
-				{ content: 'test', role: 'user' },
+				{ content: 'test', role: 'user', creationDate: 0 },
 			] );
 		} );
 
@@ -84,7 +84,9 @@ describe( 'useAssistantApi', () => {
 
 		await act( async () => {
 			await expect(
-				result.current.fetchAssistant( chatId, [ { content: 'test', role: 'user' } ] )
+				result.current.fetchAssistant( chatId, [
+					{ content: 'test', role: 'user', creationDate: 0 },
+				] )
 			).rejects.toThrow( 'Failed to fetch assistant' );
 		} );
 	} );

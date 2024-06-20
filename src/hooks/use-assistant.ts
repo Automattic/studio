@@ -11,6 +11,7 @@ export type Message = {
 		cliTime?: string;
 		codeBlockContent?: string;
 	}[];
+	creationDate: number; // Unix timestamp
 };
 
 export const useAssistant = ( selectedSiteId: string ) => {
@@ -35,7 +36,10 @@ export const useAssistant = ( selectedSiteId: string ) => {
 	const addMessage = useCallback(
 		( content: string, role: 'user' | 'assistant', chatId?: string ) => {
 			setMessages( ( prevMessages ) => {
-				const updatedMessages = [ ...prevMessages, { content, role, id: prevMessages.length } ];
+				const updatedMessages = [
+					...prevMessages,
+					{ content, role, id: prevMessages.length, creationDate: Date.now() },
+				];
 				localStorage.setItem( selectedSiteId, JSON.stringify( updatedMessages ) );
 				return updatedMessages;
 			} );

@@ -39,14 +39,14 @@ function inChildProcess() {
 }
 
 function getAppDataPath(): string {
-	if ( process.env.E2E && process.env.E2E_APP_DATA_PATH ) {
-		return path.join( process.env.E2E_APP_DATA_PATH, app.getName(), 'appdata-v1.json' );
-	}
 	if ( inChildProcess() ) {
 		if ( ! process.env.STUDIO_APP_DATA_PATH ) {
 			throw Error( 'STUDIO_APP_DATA_PATH environment variable not defined for child process' );
 		}
 		return process.env.STUDIO_APP_DATA_PATH;
+	}
+	if ( process.env.E2E && process.env.E2E_APP_DATA_PATH ) {
+		return path.join( process.env.E2E_APP_DATA_PATH, app.getName(), 'appdata-v1.json' );
 	}
 	return app.getPath( 'appData' ); // Resolves to ~/Library/Application Support on macOS
 }

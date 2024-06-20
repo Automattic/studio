@@ -25,3 +25,6 @@ export const SCOPES = 'global';
 // Time-related constants
 export const HOUR_MS = 1000 * 60 * 60;
 export const DAY_MS = HOUR_MS * 24;
+
+// AI Assistant constants
+export const CLEAR_HISTORY_REMINDER_TIME = 2 * HOUR_MS; // In milliseconds

@@ -12,6 +12,7 @@ import { useOffline } from '../hooks/use-offline';
 import { usePromptUsage } from '../hooks/use-prompt-usage';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
+import ClearHistoryReminder from './ai-clear-history-reminder';
 import { AIInput } from './ai-input';
 import { MessageThinking } from './assistant-thinking';
 import Button from './button';
@@ -126,6 +127,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const { isAuthenticated, authenticate } = useAuth();
 	const isOffline = useOffline();
 	const { __ } = useI18n();
+	const lastMessage = messages.length === 0 ? undefined : messages[ messages.length - 1 ];
 
 	useEffect( () => {
 		fetchWelcomeMessages();
@@ -192,6 +194,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 							updateMessage={ updateMessage }
 							path={ selectedSite.path }
 						/>
+						<ClearHistoryReminder lastMessage={ lastMessage } clearInput={ clearInput } />
 					</>
 				) : (
 					<UnauthenticatedView onAuthenticate={ authenticate } />

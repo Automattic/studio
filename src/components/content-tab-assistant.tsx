@@ -141,10 +141,10 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const currentSiteChatContext = useChatContext();
 	const { isAuthenticated, authenticate, user } = useAuth();
 	const { messages, addMessage, clearMessages, updateMessage, chatId } = useAssistant(
-		user?.id ? `${ user.id }_${ selectedSite.name }` : selectedSite.name
+		user?.id ? `${ user.id }_${ selectedSite.id }` : selectedSite.id
 	);
 	const { userCanSendMessage } = usePromptUsage();
-	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi( selectedSite.name );
+	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi( selectedSite.id );
 	const {
 		messages: welcomeMessages,
 		examplePrompts,

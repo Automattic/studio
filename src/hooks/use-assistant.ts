@@ -13,13 +13,16 @@ export type Message = {
 	}[];
 };
 
-export const useAssistant = ( storeKey: string ) => {
+const chatIdStoreKey = ( instanceId: string ) => `ai_chat_id_${ instanceId }`;
+const chatMessagesStoreKey = ( instanceId: string ) => `ai_chat_messages_${ instanceId }`;
+
+export const useAssistant = ( instanceId: string ) => {
 	const [ messages, setMessages ] = useState< Message[] >( [] );
 	const [ chatId, setChatId ] = useState< string | undefined >( undefined );
 
 	useEffect( () => {
-		const storedChat = localStorage.getItem( storeKey );
-		const storedChatId = localStorage.getItem( `chat_${ storeKey }` );
+		const storedChat = localStorage.getItem( chatMessagesStoreKey( instanceId ) );
+		const storedChatId = localStorage.getItem( chatIdStoreKey( instanceId ) );
 		if ( storedChat ) {
 			setMessages( JSON.parse( storedChat ) );
 		} else {
@@ -30,24 +33,27 @@ export const useAssistant = ( storeKey: string ) => {
 		} else {
 			setChatId( undefined );
 		}
-	}, [ storeKey ] );
+	}, [ instanceId ] );
 
 	const addMessage = useCallback(
 		( content: string, role: 'user' | 'assistant', chatId?: string ) => {
 			setMessages( ( prevMessages ) => {
 				const updatedMessages = [ ...prevMessages, { content, role, id: prevMessages.length } ];
-				localStorage.setItem( storeKey, JSON.stringify( updatedMessages ) );
+				localStorage.setItem(
+					chatMessagesStoreKey( instanceId ),
+					JSON.stringify( updatedMessages )
+				);
 				return updatedMessages;
 			} );
 
 			setChatId( ( prevChatId ) => {
 				if ( prevChatId !== chatId && chatId ) {
-					localStorage.setItem( `chat_${ storeKey }`, JSON.stringify( chatId ) );
+					localStorage.setItem( chatIdStoreKey( instanceId ), JSON.stringify( chatId ) );
 				}
 				return chatId;
 			} );
 		},
-		[ storeKey ]
+		[ instanceId ]
 	);
 
 	const updateMessage = useCallback(
@@ -74,19 +80,22 @@ export const useAssistant = ( storeKey: string ) => {
 					}
 					return { ...message, blocks: updatedBlocks };
 				} );
-				localStorage.setItem( storeKey, JSON.stringify( updatedMessages ) );
+				localStorage.setItem(
+					chatMessagesStoreKey( instanceId ),
+					JSON.stringify( updatedMessages )
+				);
 				return updatedMessages;
 			} );
 		},
-		[ storeKey ]
+		[ instanceId ]
 	);
 
 	const clearMessages = useCallback( () => {
 		setMessages( [] );
 		setChatId( undefined );
-		localStorage.setItem( storeKey, JSON.stringify( [] ) );
-		localStorage.removeItem( `chat_${ storeKey }` );
-	}, [ storeKey ] );
+		localStorage.setItem( chatMessagesStoreKey( instanceId ), JSON.stringify( [] ) );
+		localStorage.removeItem( chatIdStoreKey( instanceId ) );
+	}, [ instanceId ] );
 
 	return useMemo(
 		() => ( {

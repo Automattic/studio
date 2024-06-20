@@ -75,10 +75,10 @@ function AIClearHistoryReminder( {
 		<div ref={ elementRef } className="mt-8 text-center">
 			{ createInterpolateElement(
 				__(
-					'This conversation is over two hours old. <a>Clear the history</a> if you have something new to ask.'
+					'This conversation is over two hours old. <button>Clear the history</button> if you have something new to ask.'
 				),
 				{
-					a: <Button variant="link" onClick={ onClearHistory } />,
+					button: <Button variant="link" onClick={ onClearHistory } />,
 				}
 			) }
 		</div>

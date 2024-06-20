@@ -3,6 +3,7 @@ import { __ } from '@wordpress/i18n';
 import { Icon, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import React, { useState, useEffect, useRef, memo } from 'react';
+import { AI_GUIDELINES_URL } from '../constants';
 import { useAssistant, Message as MessageType } from '../hooks/use-assistant';
 import { useAssistantApi } from '../hooks/use-assistant-api';
 import { useAuth } from '../hooks/use-auth';
@@ -198,15 +199,23 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 					<UnauthenticatedView onAuthenticate={ authenticate } />
 				) }
 			</div>
-			<AIInput
-				disabled={ disabled }
-				input={ input }
-				setInput={ setInput }
-				handleSend={ () => handleSend() }
-				handleKeyDown={ handleKeyDown }
-				clearInput={ clearInput }
-				isAssistantThinking={ isAssistantThinking }
-			/>
+
+			<div className="bg-white flex flex-col">
+				<AIInput
+					disabled={ disabled }
+					input={ input }
+					setInput={ setInput }
+					handleSend={ () => handleSend() }
+					handleKeyDown={ handleKeyDown }
+					clearInput={ clearInput }
+					isAssistantThinking={ isAssistantThinking }
+				/>
+				<div className="text-gray-500 self-end p-2">
+					{ createInterpolateElement( __( 'Powered by exerimental AI. <a>Learn More.</a>' ), {
+						a: <Button variant="link" onClick={ () => getIpcApi().openURL( AI_GUIDELINES_URL ) } />,
+					} ) }
+				</div>
+			</div>
 		</div>
 	);
 }

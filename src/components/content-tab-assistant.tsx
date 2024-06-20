@@ -1,5 +1,5 @@
 import { createInterpolateElement } from '@wordpress/element';
-import { __ } from '@wordpress/i18n';
+import { __, _n, sprintf } from '@wordpress/i18n';
 import { Icon, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import React, { useState, useEffect, useRef, memo } from 'react';
@@ -21,6 +21,31 @@ import WelcomeComponent from './welcome-message-prompt';
 interface ContentTabAssistantProps {
 	selectedSite: SiteDetails;
 }
+
+const UsageLimitReached = () => {
+	const { daysUntilReset } = usePromptUsage();
+
+	// Determine if the reset is today
+	const resetMessage =
+		daysUntilReset <= 0
+			? __( "You've reached your <a>usage limit</a> for this month. Your limit will reset today." )
+			: sprintf(
+					_n(
+						"You've reached your <a>usage limit</a> for this month. Your limit will reset in %s day.",
+						"You've reached your <a>usage limit</a> for this month. Your limit will reset in %s days.",
+						daysUntilReset
+					),
+					daysUntilReset
+			  );
+
+	return (
+		<div className="text-center h-12 px-2 pt-6 text-a8c-gray-70">
+			{ createInterpolateElement( resetMessage, {
+				a: <Button onClick={ () => getIpcApi().showUserSettings() } variant="link" />,
+			} ) }
+		</div>
+	);
+};
 
 const AuthenticatedView = memo(
 	( {
@@ -177,26 +202,55 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		<div className="h-full flex flex-col bg-gray-50">
 			<div
 				data-testid="assistant-chat"
-				className={ cx( 'flex-1 overflow-y-auto p-8', ! isAuthenticated && 'flex items-end' ) }
-			>
-				{ isAuthenticated ? (
-					<>
-						<WelcomeComponent
-							onExampleClick={ ( prompt ) => handleSend( prompt ) }
-							showExamplePrompts={ messages.length === 0 }
-							messages={ welcomeMessages }
-							examplePrompts={ examplePrompts }
-						/>
-						<AuthenticatedView
-							messages={ messages }
-							isAssistantThinking={ isAssistantThinking }
-							updateMessage={ updateMessage }
-							path={ selectedSite.path }
-						/>
-					</>
-				) : (
-					<UnauthenticatedView onAuthenticate={ authenticate } />
+				className={ cx(
+					'flex-1 overflow-y-auto p-8 flex flex-col-reverse',
+					! isAuthenticated && 'flex items-end'
 				) }
+			>
+				<div className="mt-auto">
+					{ isAuthenticated ? (
+						<>
+							{ ! userCanSendMessage ? (
+								messages.length > 0 ? (
+									<>
+										<WelcomeComponent
+											onExampleClick={ ( prompt ) => handleSend( prompt ) }
+											showExamplePrompts={ messages.length === 0 }
+											messages={ welcomeMessages }
+											examplePrompts={ examplePrompts }
+										/>
+										<AuthenticatedView
+											messages={ messages }
+											isAssistantThinking={ isAssistantThinking }
+											updateMessage={ updateMessage }
+											path={ selectedSite.path }
+										/>
+										<UsageLimitReached />
+									</>
+								) : (
+									<UsageLimitReached />
+								)
+							) : (
+								<>
+									<WelcomeComponent
+										onExampleClick={ ( prompt ) => handleSend( prompt ) }
+										showExamplePrompts={ messages.length === 0 }
+										messages={ welcomeMessages }
+										examplePrompts={ examplePrompts }
+									/>
+									<AuthenticatedView
+										messages={ messages }
+										isAssistantThinking={ isAssistantThinking }
+										updateMessage={ updateMessage }
+										path={ selectedSite.path }
+									/>
+								</>
+							) }
+						</>
+					) : (
+						<UnauthenticatedView onAuthenticate={ authenticate } />
+					) }
+				</div>
 			</div>
 			<AIInput
 				disabled={ disabled }

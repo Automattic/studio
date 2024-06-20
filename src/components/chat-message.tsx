@@ -15,7 +15,7 @@ import { ExecuteIcon } from './icons/execute';
 interface ChatMessageProps {
 	children: React.ReactNode;
 	isUser: boolean;
-	id?: string;
+	id: string;
 	messageId?: number;
 	className?: string;
 	projectPath?: string;

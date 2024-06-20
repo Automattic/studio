@@ -1,8 +1,9 @@
 import { createInterpolateElement } from '@wordpress/element';
-import { __ } from '@wordpress/i18n';
+import { __, _n, sprintf } from '@wordpress/i18n';
 import { Icon, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import React, { useState, useEffect, useRef, memo } from 'react';
+import { AI_GUIDELINES_URL } from '../constants';
 import { useAssistant, Message as MessageType } from '../hooks/use-assistant';
 import { useAssistantApi } from '../hooks/use-assistant-api';
 import { useAuth } from '../hooks/use-auth';
@@ -21,6 +22,31 @@ import WelcomeComponent from './welcome-message-prompt';
 interface ContentTabAssistantProps {
 	selectedSite: SiteDetails;
 }
+
+const UsageLimitReached = () => {
+	const { daysUntilReset } = usePromptUsage();
+
+	// Determine if the reset is today
+	const resetMessage =
+		daysUntilReset <= 0
+			? __( "You've reached your <a>usage limit</a> for this month. Your limit will reset today." )
+			: sprintf(
+					_n(
+						"You've reached your <a>usage limit</a> for this month. Your limit will reset in %s day.",
+						"You've reached your <a>usage limit</a> for this month. Your limit will reset in %s days.",
+						daysUntilReset
+					),
+					daysUntilReset
+			  );
+
+	return (
+		<div className="text-center h-12 px-2 pt-6 text-a8c-gray-70">
+			{ createInterpolateElement( resetMessage, {
+				a: <Button onClick={ () => getIpcApi().showUserSettings() } variant="link" />,
+			} ) }
+		</div>
+	);
+};
 
 const AuthenticatedView = memo(
 	( {
@@ -57,6 +83,7 @@ const AuthenticatedView = memo(
 				{ messages.map( ( message, index ) => (
 					<ChatMessage
 						key={ index }
+						id={ `message-chat-${ index }` }
 						isUser={ message.role === 'user' }
 						projectPath={ path }
 						updateMessage={ updateMessage }
@@ -67,7 +94,7 @@ const AuthenticatedView = memo(
 					</ChatMessage>
 				) ) }
 				{ isAssistantThinking && (
-					<ChatMessage isUser={ false }>
+					<ChatMessage isUser={ false } id="message-thinking">
 						<MessageThinking />
 					</ChatMessage>
 				) }
@@ -112,8 +139,9 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
 	const currentSiteChatContext = useChatContext();
+	const { isAuthenticated, authenticate, user } = useAuth();
 	const { messages, addMessage, clearMessages, updateMessage, chatId } = useAssistant(
-		selectedSite.id
+		user?.id ? `${ user.id }_${ selectedSite.id }` : selectedSite.id
 	);
 	const { userCanSendMessage } = usePromptUsage();
 	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi( selectedSite.id );
@@ -123,7 +151,6 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		fetchWelcomeMessages,
 	} = useFetchWelcomeMessages();
 	const [ input, setInput ] = useState< string >( '' );
-	const { isAuthenticated, authenticate } = useAuth();
 	const isOffline = useOffline();
 	const { __ } = useI18n();
 
@@ -173,39 +200,86 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const disabled = isOffline || ! isAuthenticated || ! userCanSendMessage;
 
 	return (
-		<div className="h-full flex flex-col bg-gray-50">
+		<div className="h-full flex flex-col bg-gray-50 relative">
 			<div
 				data-testid="assistant-chat"
-				className={ cx( 'flex-1 overflow-y-auto p-8', ! isAuthenticated && 'flex items-end' ) }
-			>
-				{ isAuthenticated ? (
-					<>
-						<WelcomeComponent
-							onExampleClick={ ( prompt ) => handleSend( prompt ) }
-							showExamplePrompts={ messages.length === 0 }
-							messages={ welcomeMessages }
-							examplePrompts={ examplePrompts }
-						/>
-						<AuthenticatedView
-							messages={ messages }
-							isAssistantThinking={ isAssistantThinking }
-							updateMessage={ updateMessage }
-							path={ selectedSite.path }
-						/>
-					</>
-				) : (
-					<UnauthenticatedView onAuthenticate={ authenticate } />
+				className={ cx(
+					'flex-1 overflow-y-auto p-8 flex flex-col-reverse',
+					! isAuthenticated && 'flex items-end'
 				) }
+			>
+				<div className="mt-auto">
+					{ isAuthenticated ? (
+						<>
+							{ ! userCanSendMessage ? (
+								messages.length > 0 ? (
+									<>
+										<WelcomeComponent
+											onExampleClick={ ( prompt ) => handleSend( prompt ) }
+											showExamplePrompts={ messages.length === 0 }
+											messages={ welcomeMessages }
+											examplePrompts={ examplePrompts }
+										/>
+										<AuthenticatedView
+											messages={ messages }
+											isAssistantThinking={ isAssistantThinking }
+											updateMessage={ updateMessage }
+											path={ selectedSite.path }
+										/>
+										<UsageLimitReached />
+									</>
+								) : (
+									<UsageLimitReached />
+								)
+							) : (
+								<>
+									<WelcomeComponent
+										onExampleClick={ ( prompt ) => handleSend( prompt ) }
+										showExamplePrompts={ messages.length === 0 }
+										messages={ welcomeMessages }
+										examplePrompts={ examplePrompts }
+									/>
+									<AuthenticatedView
+										messages={ messages }
+										isAssistantThinking={ isAssistantThinking }
+										updateMessage={ updateMessage }
+										path={ selectedSite.path }
+									/>
+								</>
+							) }
+						</>
+					) : (
+						<UnauthenticatedView onAuthenticate={ authenticate } />
+					) }
+				</div>
 			</div>
-			<AIInput
-				disabled={ disabled }
-				input={ input }
-				setInput={ setInput }
-				handleSend={ () => handleSend() }
-				handleKeyDown={ handleKeyDown }
-				clearInput={ clearInput }
-				isAssistantThinking={ isAssistantThinking }
-			/>
+
+			<div
+				className={ cx(
+					`bg-gray-50 w-full px-8 pt-5 flex items-center border-0 border-t ${
+						disabled ? 'border-top-a8c-gray-10' : 'border-top-gray-200'
+					}`
+				) }
+			>
+				<div className="w-full flex flex-col items-center">
+					<AIInput
+						disabled={ disabled }
+						input={ input }
+						setInput={ setInput }
+						handleSend={ () => handleSend() }
+						handleKeyDown={ handleKeyDown }
+						clearInput={ clearInput }
+						isAssistantThinking={ isAssistantThinking }
+					/>
+					<div data-testid="guidelines-link" className="text-a8c-gray-50 self-end py-2">
+						{ createInterpolateElement( __( 'Powered by experimental AI. <a>Learn more</a>' ), {
+							a: (
+								<Button variant="link" onClick={ () => getIpcApi().openURL( AI_GUIDELINES_URL ) } />
+							),
+						} ) }
+					</div>
+				</div>
+			</div>
 		</div>
 	);
 }

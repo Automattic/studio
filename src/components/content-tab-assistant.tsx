@@ -22,7 +22,6 @@ interface ContentTabAssistantProps {
 	selectedSite: SiteDetails;
 }
 
-
 const UsageLimitReached = () => {
 	const { daysUntilReset } = usePromptUsage();
 
@@ -202,11 +201,11 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	return (
 		<div className="h-full flex flex-col bg-gray-50">
 			<div
-				data-testid="assistant-chat"d
+				data-testid="assistant-chat"
 				className={ cx(
 					'flex-1 overflow-y-auto p-8 flex flex-col-reverse',
 					! isAuthenticated && 'flex items-end'
-          ) }
+				) }
 			>
 				<div className="mt-auto">
 					{ isAuthenticated ? (
@@ -223,6 +222,8 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 										<AuthenticatedView
 											messages={ messages }
 											isAssistantThinking={ isAssistantThinking }
+											updateMessage={ updateMessage }
+											path={ selectedSite.path }
 										/>
 										<UsageLimitReached />
 									</>
@@ -240,8 +241,9 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 									<AuthenticatedView
 										messages={ messages }
 										isAssistantThinking={ isAssistantThinking }
+										updateMessage={ updateMessage }
+										path={ selectedSite.path }
 									/>
-									<div ref={ endOfMessagesRef } />
 								</>
 							) }
 						</>

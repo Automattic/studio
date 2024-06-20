@@ -13,21 +13,9 @@ const useRiveIcon = () => {
 		autoplay: false,
 	} );
 
-	const inactiveInput = useStateMachineInput( rive, stateMachineName, '00_inactive' );
-	const idleInput = useStateMachineInput( rive, stateMachineName, '01_idle' );
-	const typingInput = useStateMachineInput( rive, stateMachineName, '02_typing' );
-	const typingToIdleInput = useStateMachineInput(
-		rive,
-		stateMachineName,
-		'03_from_typing_to_idle'
-	);
-	const generateInput = useStateMachineInput( rive, stateMachineName, '04_generate' );
-	const doneInput = useStateMachineInput(
-		rive,
-		stateMachineName,
-		'05_( type 1 to inactive from gen )_( type 2 to idle from gen )',
-		0
-	);
+	const inactiveInput = useStateMachineInput( rive, stateMachineName, 'inactive', false );
+	const thinkingInput = useStateMachineInput( rive, stateMachineName, 'thinking', false );
+	const typingInput = useStateMachineInput( rive, stateMachineName, 'typing', false );
 
 	useEffect( () => {
 		if ( rive ) {
@@ -59,65 +47,12 @@ const useRiveIcon = () => {
 		}
 	}, [ rive, stateMachineName ] );
 
-	const playInactive = useCallback( () => {
-		console.log( 'Play inactive' );
-
-		if ( inactiveInput ) {
-			inactiveInput.fire();
-		}
-	}, [ inactiveInput ] );
-
-	const playIdle = useCallback( () => {
-		console.log( 'Play idle', idleInput );
-
-		if ( idleInput ) {
-			idleInput.fire();
-		}
-	}, [ idleInput ] );
-
-	const playTyping = useCallback( () => {
-		console.log( 'Play typing', typingInput );
-
-		if ( typingInput ) {
-			typingInput.fire();
-		}
-	}, [ typingInput ] );
-
-	const playTypingToIdle = useCallback( () => {
-		console.log( 'Play typing to idle', typingToIdleInput );
-
-		if ( typingToIdleInput ) {
-			typingToIdleInput.fire();
-		}
-	}, [ typingToIdleInput ] );
-
-	const playGenerate = useCallback( () => {
-		console.log( 'Play generate' );
-
-		if ( generateInput && doneInput ) {
-			doneInput.value = 2;
-			generateInput.fire();
-		}
-	}, [ generateInput ] );
-
-	const playDone = useCallback( () => {
-		console.log( 'Play done' );
-
-		if ( doneInput ) {
-			doneInput.value = 0;
-            idleInput.fire();
-		}
-	}, [ doneInput ] );
-
 	return {
 		rive,
 		RiveComponent,
-		playInactive,
-		playIdle,
-		playTyping,
-		playTypingToIdle,
-		playDone,
-		playGenerate,
+		inactiveInput,
+		typingInput,
+		thinkingInput,
 		startStateMachine,
 		pauseStateMachine,
 	};

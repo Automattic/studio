@@ -30,16 +30,13 @@ export const AIInput = ( {
 	const inputRef = useRef< HTMLTextAreaElement >( null );
 
 	const [ isTyping, setIsTyping ] = useState( false );
-	const [ isGenerating, setIsGenerating ] = useState( false );
 	const [ typingTimeout, setTypingTimeout ] = useState< NodeJS.Timeout | null >( null );
 
 	const {
 		RiveComponent,
-		playIdle,
-		playTyping,
-		playTypingToIdle,
-		playGenerate,
-		playDone,
+		inactiveInput,
+		thinkingInput,
+		typingInput,
 		startStateMachine,
 		pauseStateMachine,
 	} = useRiveIcon();
@@ -53,34 +50,25 @@ export const AIInput = ( {
 	useEffect( () => {
 		startStateMachine();
 
-		// if ( isAssistantThinking && ! isGenerating ) {
-		// 	setIsGenerating( true );
-		// 	return playGenerate();
-		// }
-
-		// if ( ! isAssistantThinking && isGenerating ) {
-		// 	setIsGenerating( false );
-		// 	return playDone();
-		// }
-
-		// if ( isTyping && ! isAssistantThinking && ! isGenerating ) {
-		// 	return playTyping();
-		// }
-
-		if ( isTyping ) {
-			return playTyping();
+		if ( inactiveInput ) {
+			inactiveInput.value = disabled;
 		}
 
-		return playTypingToIdle();
+		if ( thinkingInput ) {
+			thinkingInput.value = isAssistantThinking;
+		}
+
+		if ( typingInput ) {
+			typingInput.value = isTyping;
+		}
 	}, [
 		isAssistantThinking,
-		isGenerating,
 		isTyping,
-		playDone,
-		playGenerate,
-		playTyping,
-		playTypingToIdle,
+		disabled,
 		startStateMachine,
+		inactiveInput,
+		thinkingInput,
+		typingInput,
 	] );
 
 	const handleInput = ( e: React.ChangeEvent< HTMLTextAreaElement > ) => {
@@ -134,7 +122,6 @@ export const AIInput = ( {
 		setTypingTimeout(
 			setTimeout( () => {
 				setIsTyping( false );
-				playTypingToIdle();
 			}, 500 )
 		);
 	};

@@ -32,14 +32,8 @@ export const AIInput = ( {
 	const [ isTyping, setIsTyping ] = useState( false );
 	const [ typingTimeout, setTypingTimeout ] = useState< NodeJS.Timeout | null >( null );
 
-	const {
-		RiveComponent,
-		inactiveInput,
-		thinkingInput,
-		typingInput,
-		startStateMachine,
-		pauseStateMachine,
-	} = useRiveIcon();
+	const { RiveComponent, inactiveInput, thinkingInput, typingInput, startStateMachine } =
+		useRiveIcon();
 
 	useEffect( () => {
 		if ( ! disabled && inputRef.current ) {

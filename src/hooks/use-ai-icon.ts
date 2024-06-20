@@ -18,14 +18,6 @@ const useRiveIcon = () => {
 	const typingInput = useStateMachineInput( rive, stateMachineName, 'typing', false );
 
 	useEffect( () => {
-		if ( rive ) {
-			rive.on( 'statechange', ( event ) => {
-				console.log( 'statechange', event );
-			} );
-		}
-	}, [ rive ] );
-
-	useEffect( () => {
 		return () => {
 			if ( rive ) {
 				rive.cleanup();
@@ -40,8 +32,6 @@ const useRiveIcon = () => {
 	}, [ rive, stateMachineName ] );
 
 	const pauseStateMachine = useCallback( () => {
-		console.log( 'Pause state machine' );
-
 		if ( rive ) {
 			rive.pause( stateMachineName );
 		}

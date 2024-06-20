@@ -114,7 +114,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const currentSiteChatContext = useChatContext();
 	const { isAuthenticated, authenticate, user } = useAuth();
 	const { messages, addMessage, clearMessages, updateMessage, chatId } = useAssistant(
-		user?.id ? `${ user.id }-${ selectedSite.name }` : selectedSite.name
+		user?.id ? `${ user.id }_${ selectedSite.name }` : selectedSite.name
 	);
 	const { userCanSendMessage } = usePromptUsage();
 	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi( selectedSite.name );

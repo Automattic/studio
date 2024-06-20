@@ -1,3 +1,4 @@
+import { ChatProvider } from '../hooks/use-chat-context';
 import { InstalledAppsProvider } from '../hooks/use-check-installed-apps';
 import { OnboardingProvider } from '../hooks/use-onboarding';
 import { PromptUsageProvider } from '../hooks/use-prompt-usage';
@@ -20,7 +21,9 @@ const Root = () => {
 							<InstalledAppsProvider>
 								<OnboardingProvider>
 									<PromptUsageProvider>
-										<App />
+										<ChatProvider>
+											<App />
+										</ChatProvider>
 									</PromptUsageProvider>
 								</OnboardingProvider>
 							</InstalledAppsProvider>

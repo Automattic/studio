@@ -85,7 +85,9 @@ const setCommand = ( command: string ) => {
 	const [ action, ...args ] = parse( command );
 
 	// The parsing of arguments can include shell operators like `>` or `||` that the app don't support.
-	const isValidCommand = args.every( ( arg ) => typeof arg === 'string' || arg instanceof String );
+	const isValidCommand = args.every(
+		( arg: unknown ) => typeof arg === 'string' || arg instanceof String
+	);
 	if ( ! isValidCommand ) {
 		throw Error( `Can't execute command: ${ command }` );
 	}

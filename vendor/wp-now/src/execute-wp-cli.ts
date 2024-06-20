@@ -1,6 +1,6 @@
 import { downloadWpCli } from './download';
 import getWpCliPath from './get-wp-cli-path';
-import getWpNowConfig, { WPNowMode } from './config';
+import getWpNowConfig, { WPNowMode, WPNowOptions } from './config';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from './constants';
 import { phpVar } from '@php-wasm/util';
 import { NodePHP } from '@php-wasm/node';
@@ -10,9 +10,9 @@ const isWindows = process.platform === 'win32';
 /**
  * This is an unstable API. Multiple wp-cli commands may not work due to a current limitation on php-wasm and pthreads.
  */
-export async function executeWPCli ( projectPath: string, args: string[] ): Promise<{ stdout: string; stderr: string; }> {
+export async function executeWPCli( projectPath: string, args: string[] ): Promise<{ stdout: string; stderr: string; }> {
 	await downloadWpCli();
-	const options = await getWpNowConfig({
+	let options = await getWpNowConfig({
 		php: DEFAULT_PHP_VERSION,
 		wp: DEFAULT_WORDPRESS_VERSION,
 		path: projectPath,
@@ -32,10 +32,10 @@ export async function executeWPCli ( projectPath: string, args: string[] ): Prom
 	const stderrPath = '/tmp/stderr';
 	const wpCliPath = '/tmp/wp-cli.phar';
 	const runCliPath =  '/tmp/run-cli.php';
-	await php.writeFile(stderrPath, '');
+	php.writeFile(stderrPath, '');
 	php.mount(getWpCliPath(), wpCliPath);
 
-	await php.writeFile(
+	php.writeFile(
 		runCliPath,
 		`<?php
 		// Set up the environment to emulate a shell script

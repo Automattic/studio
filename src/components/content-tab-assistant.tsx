@@ -1,15 +1,12 @@
-import * as Sentry from '@sentry/react';
-import { Spinner } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
-import { __ } from '@wordpress/i18n';
-import { Icon, external, copy } from '@wordpress/icons';
+import { __, _n, sprintf } from '@wordpress/i18n';
+import { Icon, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import React, { useState, useEffect, useRef, memo } from 'react';
-import Markdown, { ExtraProps } from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import { useAssistant, Message as MessageType } from '../hooks/use-assistant';
 import { useAssistantApi } from '../hooks/use-assistant-api';
 import { useAuth } from '../hooks/use-auth';
+import { useChatContext } from '../hooks/use-chat-context';
 import { useFetchWelcomeMessages } from '../hooks/use-fetch-welcome-messages';
 import { useOffline } from '../hooks/use-offline';
 import { usePromptUsage } from '../hooks/use-prompt-usage';
@@ -18,6 +15,7 @@ import { getIpcApi } from '../lib/get-ipc-api';
 import { AIInput } from './ai-input';
 import { MessageThinking } from './assistant-thinking';
 import Button from './button';
+import { ChatMessage } from './chat-message';
 import offlineIcon from './offline-icon';
 import WelcomeComponent from './welcome-message-prompt';
 
@@ -25,200 +23,30 @@ interface ContentTabAssistantProps {
 	selectedSite: SiteDetails;
 }
 
-interface MessageProps {
-	id: string;
-	children: React.ReactNode;
-	isUser: boolean;
-	className?: string;
-}
+const UsageLimitReached = () => {
+	const { daysUntilReset } = usePromptUsage();
 
-interface InlineCLIProps {
-	output: string;
-	status: 'success' | 'error';
-	time: string;
-}
-
-const InlineCLI = ( { output, status, time }: InlineCLIProps ) => (
-	<div className="p-3 bg-[#2D3337]">
-		<div className="flex justify-between mb-2 font-sans">
-			<span className={ status === 'success' ? 'text-[#63CE68]' : 'text-[#E66D6C]' }>
-				{ status === 'success' ? __( 'Success' ) : __( 'Error' ) }
-			</span>
-			<span className="text-gray-400">{ time }</span>
-		</div>
-		<pre className="text-white !bg-transparent !m-0 !px-0">
-			<code className="!bg-transparent !mx-0 !px-0">{ output }</code>
-		</pre>
-	</div>
-);
-
-const ActionButton = ( {
-	primaryLabel,
-	secondaryLabel,
-	icon,
-	onClick,
-	timeout,
-	disabled,
-}: {
-	primaryLabel: string;
-	secondaryLabel: string;
-	icon: JSX.Element;
-	onClick: () => void;
-	timeout?: number;
-	disabled?: boolean;
-} ) => {
-	const [ buttonLabel, setButtonLabel ] = useState( primaryLabel );
-
-	const handleClick = () => {
-		onClick();
-		setButtonLabel( secondaryLabel );
-		if ( timeout ) {
-			setTimeout( () => {
-				setButtonLabel( primaryLabel );
-			}, timeout );
-		}
-	};
+	// Determine if the reset is today
+	const resetMessage =
+		daysUntilReset <= 0
+			? __( "You've reached your <a>usage limit</a> for this month. Your limit will reset today." )
+			: sprintf(
+					_n(
+						"You've reached your <a>usage limit</a> for this month. Your limit will reset in %s day.",
+						"You've reached your <a>usage limit</a> for this month. Your limit will reset in %s days.",
+						daysUntilReset
+					),
+					daysUntilReset
+			  );
 
 	return (
-		<Button
-			onClick={ handleClick }
-			variant="outlined"
-			className="h-auto mr-2 !px-2.5 py-0.5 font-sans select-none"
-			disabled={ disabled }
-		>
-			{ icon }
-			<span className="ml-1">{ buttonLabel }</span>
-		</Button>
-	);
-};
-
-export const Message = ( { children, id, isUser, className }: MessageProps ) => {
-	const [ cliOutput, setCliOutput ] = useState< string | null >( null );
-	const [ cliStatus, setCliStatus ] = useState< 'success' | 'error' | null >( null );
-	const [ cliTime, setCliTime ] = useState< string | null >( null );
-	const [ isRunning, setIsRunning ] = useState( false );
-
-	const handleExecute = () => {
-		setIsRunning( true );
-		setTimeout( () => {
-			setCliOutput(
-				`Installing Jetpack...\nUnpacking the package...\nInstalling the plugin...\nPlugin installed successfully.\nActivating 'jetpack'...\nPlugin 'jetpack' activated.\nSuccess: Installed 1 of 1 plugins.`
-			);
-			setCliStatus( 'success' );
-			setCliTime( 'Completed in 2.3 seconds' );
-			setIsRunning( false );
-		}, 2300 );
-	};
-
-	const CodeBlock = ( props: JSX.IntrinsicElements[ 'code' ] & ExtraProps ) => {
-		const { children, className } = props;
-		const match = /language-(\w+)/.exec( className || '' );
-		const content = String( children ).trim();
-
-		return match ? (
-			<>
-				<div className="p-3">
-					<code className={ className } { ...props }>
-						{ children }
-					</code>
-				</div>
-				<div className="p-3 pt-1 flex justify-start items-center">
-					<ActionButton
-						primaryLabel={ __( 'Copy' ) }
-						secondaryLabel={ __( 'Copied' ) }
-						icon={ <Icon icon={ copy } size={ 16 } /> }
-						onClick={ () => getIpcApi().copyText( content ) }
-						timeout={ 2000 }
-					/>
-					{ /* <ActionButton
-						primaryLabel={ __( 'Run' ) }
-						secondaryLabel={ __( 'Run Again' ) }
-						icon={ <ExecuteIcon /> }
-						onClick={ handleExecute }
-						disabled={ isRunning } */ }
-				</div>
-				{ isRunning && (
-					<div className="p-3 flex justify-start items-center bg-[#2D3337] text-white">
-						<Spinner className="!text-white [&>circle]:stroke-a8c-gray-60" />
-						<span className="ml-2 font-sans">{ __( 'Running...' ) }</span>
-					</div>
-				) }
-				{ ! isRunning && cliOutput && cliStatus && cliTime && (
-					<InlineCLI output={ cliOutput } status={ cliStatus } time={ cliTime } />
-				) }
-			</>
-		) : (
-			<div className="inline-block">
-				<code className={ className } { ...props }>
-					{ children }
-				</code>
-			</div>
-		);
-	};
-
-	return (
-		<div
-			className={ cx(
-				'flex mt-4',
-				isUser ? 'justify-end md:ml-24' : 'justify-start md:mr-24',
-				className
-			) }
-		>
-			<div
-				id={ id }
-				role="group"
-				aria-labelledby={ id }
-				className={ cx(
-					'inline-block p-3 rounded border border-gray-300 lg:max-w-[70%] overflow-x-auto select-text',
-					! isUser ? 'bg-white' : 'bg-white/45'
-				) }
-			>
-				<div className="relative">
-					<span className="sr-only">
-						{ isUser ? __( 'Your message' ) : __( 'Studio Assistant' ) },
-					</span>
-				</div>
-				{ typeof children === 'string' ? (
-					<div className="assistant-markdown">
-						<Markdown components={ { a: Anchor, code: CodeBlock } } remarkPlugins={ [ remarkGfm ] }>
-							{ children }
-						</Markdown>
-					</div>
-				) : (
-					children
-				) }
-			</div>
+		<div className="text-center h-12 px-2 pt-6 text-a8c-gray-70">
+			{ createInterpolateElement( resetMessage, {
+				a: <Button onClick={ () => getIpcApi().showUserSettings() } variant="link" />,
+			} ) }
 		</div>
 	);
 };
-
-function Anchor( props: JSX.IntrinsicElements[ 'a' ] & ExtraProps ) {
-	const { href } = props;
-
-	return (
-		<a
-			{ ...props }
-			onClick={ ( e ) => {
-				if ( ! href ) {
-					return;
-				}
-
-				e.preventDefault();
-				try {
-					getIpcApi().openURL( href );
-				} catch ( error ) {
-					getIpcApi().showMessageBox( {
-						type: 'error',
-						message: __( 'Failed to open link' ),
-						detail: __( 'We were unable to open the link. Please try again.' ),
-						buttons: [ __( 'OK' ) ],
-					} );
-					Sentry.captureException( error );
-				}
-			} }
-		/>
-	);
-}
 
 const OfflineModeView = () => {
 	// Determine if the reset is today
@@ -236,27 +64,60 @@ const AuthenticatedView = memo(
 	( {
 		messages,
 		isAssistantThinking,
+		updateMessage,
+		path,
 	}: {
 		messages: MessageType[];
 		isAssistantThinking: boolean;
-	} ) => (
-		<>
-			{ messages.map( ( message, index ) => (
-				<Message key={ index } id={ `message-${ index }` } isUser={ message.role === 'user' }>
-					{ message.content }
-				</Message>
-			) ) }
-			{ isAssistantThinking && (
-				<Message isUser={ false } id="message-thinking">
-					<MessageThinking />
-				</Message>
-			) }
-		</>
-	)
+		updateMessage: (
+			id: number,
+			codeBlockContent: string,
+			cliOutput: string,
+			cliStatus: 'success' | 'error',
+			cliTime: string
+		) => void;
+		path: string;
+	} ) => {
+		const endOfMessagesRef = useRef< HTMLDivElement >( null );
+
+		useEffect( () => {
+			const timer = setTimeout( () => {
+				if ( endOfMessagesRef.current ) {
+					endOfMessagesRef.current.scrollIntoView( { behavior: 'smooth' } );
+				}
+			}, 100 ); // Slight delay to ensure DOM updates
+
+			return () => clearTimeout( timer );
+		}, [ messages?.length ] );
+
+		return (
+			<>
+				{ messages.map( ( message, index ) => (
+					<ChatMessage
+						key={ index }
+						id={ `message-chat-${ index }` }
+						isUser={ message.role === 'user' }
+						projectPath={ path }
+						updateMessage={ updateMessage }
+						messageId={ message.id }
+						blocks={ message.blocks }
+					>
+						{ message.content }
+					</ChatMessage>
+				) ) }
+				{ isAssistantThinking && (
+					<ChatMessage isUser={ false } id="message-thinking">
+						<MessageThinking />
+					</ChatMessage>
+				) }
+				<div ref={ endOfMessagesRef } />
+			</>
+		);
+	}
 );
 
 const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void } ) => (
-	<Message id="message-unauthenticated" className="w-full" isUser={ false }>
+	<ChatMessage id="message-unauthenticated" className="w-full" isUser={ false }>
 		<div className="mb-3 a8c-label-semibold">{ __( 'Hold up!' ) }</div>
 		<div className="mb-1">
 			{ __( 'You need to log in to your WordPress.com account to use the assistant.' ) }
@@ -285,11 +146,14 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 			{ __( 'Log in to WordPress.com' ) }
 			<Icon className="ltr:ml-1 rtl:mr-1 rtl:scale-x-[-1]" icon={ external } size={ 21 } />
 		</Button>
-	</Message>
+	</ChatMessage>
 );
 
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
-	const { messages, addMessage, chatId, clearMessages } = useAssistant( selectedSite.name );
+	const currentSiteChatContext = useChatContext();
+	const { messages, addMessage, clearMessages, updateMessage, chatId } = useAssistant(
+		selectedSite.name
+	);
 	const { userCanSendMessage } = usePromptUsage();
 	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi( selectedSite.name );
 	const {
@@ -298,7 +162,6 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		fetchWelcomeMessages,
 	} = useFetchWelcomeMessages();
 	const [ input, setInput ] = useState< string >( '' );
-	const endOfMessagesRef = useRef< HTMLDivElement >( null );
 	const { isAuthenticated, authenticate } = useAuth();
 	const isOffline = useOffline();
 	const { __ } = useI18n();
@@ -313,10 +176,11 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 			addMessage( chatMessage, 'user', chatId );
 			setInput( '' );
 			try {
-				const { message, chatId: fetchedChatId } = await fetchAssistant( chatId, [
-					...messages,
-					{ content: chatMessage, role: 'user' },
-				] );
+				const { message, chatId: fetchedChatId } = await fetchAssistant(
+					chatId,
+					[ ...messages, { content: chatMessage, role: 'user' } ],
+					currentSiteChatContext
+				);
 				if ( message ) {
 					addMessage( message, 'assistant', chatId ?? fetchedChatId );
 				}
@@ -345,62 +209,81 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		setInput( '' );
 		clearMessages();
 	};
-
-	useEffect( () => {
-		if ( endOfMessagesRef.current ) {
-			endOfMessagesRef.current.scrollIntoView( { behavior: 'smooth' } );
-		}
-	}, [ messages ] );
-
 	const disabled = isOffline || ! isAuthenticated || ! userCanSendMessage;
-
-	const renderChatContent = () => {
-		if ( ! isAuthenticated ) {
-			return isOffline ? (
-				<OfflineModeView />
-			) : (
-				<UnauthenticatedView onAuthenticate={ authenticate } />
-			);
-		}
-
-		if ( isOffline ) {
-			return messages.length > 0 ? (
-				<>
-					<WelcomeComponent
-						onExampleClick={ handleSend }
-						showExamplePrompts={ messages.length === 0 }
-						messages={ welcomeMessages }
-						examplePrompts={ examplePrompts }
-					/>
-					<AuthenticatedView messages={ messages } isAssistantThinking={ isAssistantThinking } />
-					<OfflineModeView />
-				</>
-			) : (
-				<OfflineModeView />
-			);
-		}
-
-		return (
-			<>
-				<WelcomeComponent
-					onExampleClick={ handleSend }
-					showExamplePrompts={ messages.length === 0 }
-					messages={ welcomeMessages }
-					examplePrompts={ examplePrompts }
-				/>
-				<AuthenticatedView messages={ messages } isAssistantThinking={ isAssistantThinking } />
-				<div ref={ endOfMessagesRef } />
-			</>
-		);
-	};
 
 	return (
 		<div className="h-full flex flex-col bg-gray-50">
 			<div
 				data-testid="assistant-chat"
-				className={ cx( 'flex-1 overflow-y-auto p-8', ! isAuthenticated && 'flex items-end' ) }
+				className={ cx(
+					'flex-1 overflow-y-auto p-8 flex flex-col-reverse',
+					! isAuthenticated && 'flex items-end'
+				) }
 			>
-				{ renderChatContent() }
+				<div className="mt-auto">
+					{ isOffline ? (
+						<>
+							{ isAuthenticated ? (
+								messages.length > 0 ? (
+									<>
+										<AuthenticatedView
+											messages={ messages }
+											isAssistantThinking={ isAssistantThinking }
+											updateMessage={ updateMessage }
+											path={ selectedSite.path }
+										/>
+										<OfflineModeView />
+									</>
+								) : (
+									<OfflineModeView />
+								)
+							) : (
+								<OfflineModeView />
+							) }
+						</>
+					) : isAuthenticated ? (
+						<>
+							{ ! userCanSendMessage ? (
+								messages.length > 0 ? (
+									<>
+										<WelcomeComponent
+											onExampleClick={ ( prompt ) => handleSend( prompt ) }
+											showExamplePrompts={ messages.length === 0 }
+											messages={ welcomeMessages }
+											examplePrompts={ examplePrompts }
+										/>
+										<AuthenticatedView
+											messages={ messages }
+											isAssistantThinking={ isAssistantThinking }
+											updateMessage={ updateMessage }
+											path={ selectedSite.path }
+										/>
+										<UsageLimitReached />
+									</>
+								) : (
+									<UsageLimitReached />
+								)
+							) : (
+								<>
+									<WelcomeComponent
+										onExampleClick={ ( prompt ) => handleSend( prompt ) }
+										showExamplePrompts={ messages.length === 0 }
+										messages={ welcomeMessages }
+										examplePrompts={ examplePrompts }
+									/>
+									<AuthenticatedView
+										messages={ messages }
+										isAssistantThinking={ isAssistantThinking }
+										updateMessage={ updateMessage }
+										path={ selectedSite.path }
+									/>
+								</>
+							) }
+						</>
+					) : (
+						<UnauthenticatedView onAuthenticate={ authenticate } />
+					) }
+				</div>
 			</div>
 			<AIInput
 				disabled={ disabled }

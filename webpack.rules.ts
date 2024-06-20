@@ -28,4 +28,20 @@ export const rules: Required< ModuleOptions >[ 'rules' ] = [
 			},
 		},
 	},
+	{
+		test: /\.riv$/,
+		use: [
+			{
+				loader: 'url-loader',
+			},
+		],
+	},
+	{
+		test: /\.wasm$/,
+		use: [
+			{
+				loader: 'url-loader',
+			},
+		],
+	},
 ];

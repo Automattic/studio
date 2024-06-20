@@ -1,10 +1,10 @@
 import { DropdownMenu, MenuGroup, MenuItem } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { Icon, moreVertical, keyboardReturn, reset } from '@wordpress/icons';
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { cx } from '../lib/cx';
+import useRiveIcon from '../hooks/use-ai-icon';
 import { getIpcApi } from '../lib/get-ipc-api';
-import { AssistantIcon } from './icons/assistant';
 
 interface AIInputProps {
 	disabled: boolean;
@@ -29,11 +29,59 @@ export const AIInput = ( {
 }: AIInputProps ) => {
 	const inputRef = useRef< HTMLTextAreaElement >( null );
 
+	const [ isTyping, setIsTyping ] = useState( false );
+	const [ isGenerating, setIsGenerating ] = useState( false );
+	const [ typingTimeout, setTypingTimeout ] = useState< NodeJS.Timeout | null >( null );
+
+	const {
+		RiveComponent,
+		playIdle,
+		playTyping,
+		playTypingToIdle,
+		playGenerate,
+		playDone,
+		startStateMachine,
+		pauseStateMachine,
+	} = useRiveIcon();
+
 	useEffect( () => {
 		if ( ! disabled && inputRef.current ) {
 			inputRef.current.focus();
 		}
 	}, [ disabled ] );
+
+	useEffect( () => {
+		startStateMachine();
+
+		// if ( isAssistantThinking && ! isGenerating ) {
+		// 	setIsGenerating( true );
+		// 	return playGenerate();
+		// }
+
+		// if ( ! isAssistantThinking && isGenerating ) {
+		// 	setIsGenerating( false );
+		// 	return playDone();
+		// }
+
+		// if ( isTyping && ! isAssistantThinking && ! isGenerating ) {
+		// 	return playTyping();
+		// }
+
+		if ( isTyping ) {
+			return playTyping();
+		}
+
+		return playTypingToIdle();
+	}, [
+		isAssistantThinking,
+		isGenerating,
+		isTyping,
+		playDone,
+		playGenerate,
+		playTyping,
+		playTypingToIdle,
+		startStateMachine,
+	] );
 
 	const handleInput = ( e: React.ChangeEvent< HTMLTextAreaElement > ) => {
 		setInput( e.target.value );
@@ -73,12 +121,28 @@ export const AIInput = ( {
 			// Allow Shift + Enter to create a new line
 			return;
 		} else {
+			setIsTyping( true );
 			handleKeyDown( e );
 		}
 	};
 
+	const handleKeyUpWrapper = () => {
+		if ( typingTimeout ) {
+			clearTimeout( typingTimeout );
+		}
+
+		setTypingTimeout(
+			setTimeout( () => {
+				setIsTyping( false );
+				playTypingToIdle();
+			}, 500 )
+		);
+	};
+
 	const getPlaceholderText = () => {
-		return isAssistantThinking ? __( 'Generating...' ) : __( 'What would you like to learn?' );
+		return isAssistantThinking
+			? __( 'Thinking about that...' )
+			: __( 'What would you like to learn?' );
 	};
 
 	const handleClearConversation = async () => {
@@ -115,9 +179,9 @@ export const AIInput = ( {
 			) }
 		>
 			<div className={ `flex items-end p-3 ltr:pr-2 rtl:pl-2` }>
-				<AssistantIcon
-					size={ 28 }
+				<RiveComponent
 					aria-hidden="true"
+					style={ { width: 48, height: 48 } }
 					className={ disabled ? 'fill-a8c-gray-30 opacity-30' : 'fill-a8c-blueberry' }
 				/>
 			</div>

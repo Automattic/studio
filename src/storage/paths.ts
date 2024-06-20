@@ -9,7 +9,12 @@ export function getServerFilesPath(): string {
 	return path.join( getAppDataPath(), getAppName(), 'server-files' );
 }
 
-export const DEFAULT_SITE_PATH = path.join( app?.getPath( 'home' ) || '', 'Studio' );
+export const DEFAULT_SITE_PATH = path.join(
+	( process.env.E2E && process.env.E2E_HOME_PATH
+		? process.env.E2E_HOME_PATH
+		: app?.getPath( 'home' ) ) || '',
+	'Studio'
+);
 
 export function getSiteThumbnailPath( siteId: string ): string {
 	return path.join( getAppDataPath(), getAppName(), 'thumbnails', `${ siteId }.png` );
@@ -34,6 +39,9 @@ function inChildProcess() {
 }
 
 function getAppDataPath(): string {
+	if ( process.env.E2E && process.env.E2E_APP_DATA_PATH ) {
+		return path.join( process.env.E2E_APP_DATA_PATH, app.getName(), 'appdata-v1.json' );
+	}
 	if ( inChildProcess() ) {
 		if ( ! process.env.STUDIO_APP_DATA_PATH ) {
 			throw Error( 'STUDIO_APP_DATA_PATH environment variable not defined for child process' );

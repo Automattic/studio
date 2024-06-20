@@ -44,6 +44,7 @@ describe( 'ContentTabAssistant', () => {
 			{
 				index: 0,
 				message: {
+					id: 0,
 					role: 'assistant',
 					content:
 						'Hello! How can I assist you today? Are you working on a WordPress project, or do you need help with something specific related to WordPress or WP-CLI?',

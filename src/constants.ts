@@ -15,8 +15,13 @@ export const BUG_REPORT_URL =
 export const FEATURE_REQUEST_URL =
 	'https://github.com/Automattic/studio/issues/new?assignees=&labels=%5BType%5D+Feature+Request&projects=&template=feature_request.yml&title=Feature+Request%3A';
 export const WPCOM_PROFILE_URL = `https://wordpress.com/me`;
+
 // OAuth constants
 export const CLIENT_ID = '95109';
 export const PROTOCOL_PREFIX = 'wpcom-local-dev';
 export const WP_AUTHORIZE_ENDPOINT = 'https://public-api.wordpress.com/oauth2/authorize';
 export const SCOPES = 'global';
+
+// Time-related constants
+export const HOUR_MS = 1000 * 60 * 60;
+export const DAY_MS = HOUR_MS * 24;

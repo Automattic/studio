@@ -136,11 +136,9 @@ export const ChatMessage = ( {
 				) }
 			</>
 		) : (
-			<div className="inline-block">
-				<code className={ className } { ...props }>
-					{ children }
-				</code>
-			</div>
+			<code className={ className } { ...props }>
+				{ children }
+			</code>
 		);
 	};
 

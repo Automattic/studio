@@ -113,10 +113,10 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
 	const currentSiteChatContext = useChatContext();
 	const { messages, addMessage, clearMessages, updateMessage, chatId } = useAssistant(
-		selectedSite.name
+		selectedSite.id
 	);
 	const { userCanSendMessage } = usePromptUsage();
-	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi( selectedSite.name );
+	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi( selectedSite.id );
 	const {
 		messages: welcomeMessages,
 		examplePrompts,

@@ -30,7 +30,7 @@ function AIClearHistoryReminder( {
 			return;
 		}
 
-		const messageTime = Date.now() - lastMessage?.creationDate;
+		const messageTime = Date.now() - lastMessage?.createdAt;
 		const timeToRemind = CLEAR_HISTORY_REMINDER_TIME - messageTime;
 		if ( timeToRemind > 0 ) {
 			clearTimeout( timeoutId.current );

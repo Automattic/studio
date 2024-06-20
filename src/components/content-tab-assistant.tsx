@@ -141,7 +141,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 			try {
 				const { message, chatId: fetchedChatId } = await fetchAssistant(
 					chatId,
-					[ ...messages, { content: chatMessage, role: 'user', creationDate: Date.now() } ],
+					[ ...messages, { content: chatMessage, role: 'user', createdAt: Date.now() } ],
 					currentSiteChatContext
 				);
 				if ( message ) {

@@ -11,7 +11,7 @@ export type Message = {
 		cliTime?: string;
 		codeBlockContent?: string;
 	}[];
-	creationDate: number; // Unix timestamp
+	createdAt: number; // Unix timestamp
 };
 
 export const useAssistant = ( selectedSiteId: string ) => {
@@ -38,7 +38,7 @@ export const useAssistant = ( selectedSiteId: string ) => {
 			setMessages( ( prevMessages ) => {
 				const updatedMessages = [
 					...prevMessages,
-					{ content, role, id: prevMessages.length, creationDate: Date.now() },
+					{ content, role, id: prevMessages.length, createdAt: Date.now() },
 				];
 				localStorage.setItem( selectedSiteId, JSON.stringify( updatedMessages ) );
 				return updatedMessages;

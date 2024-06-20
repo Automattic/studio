@@ -41,10 +41,10 @@ describe( 'useAssistant', () => {
 		} );
 
 		expect( result.current.messages ).toEqual( [
-			{ content: 'Hello', role: 'user', id: 0, creationDate: MOCKED_TIME },
+			{ content: 'Hello', role: 'user', id: 0, createdAt: MOCKED_TIME },
 		] );
 		expect( localStorage.getItem( selectedSiteId ) ).toEqual(
-			JSON.stringify( [ { content: 'Hello', role: 'user', id: 0, creationDate: MOCKED_TIME } ] )
+			JSON.stringify( [ { content: 'Hello', role: 'user', id: 0, createdAt: MOCKED_TIME } ] )
 		);
 	} );
 

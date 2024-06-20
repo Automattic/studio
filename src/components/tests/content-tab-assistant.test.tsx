@@ -87,7 +87,7 @@ describe( 'ContentTabAssistant', () => {
 	} );
 
 	test( 'saves and retrieves conversation from localStorage', async () => {
-		const storageKey = `${ runningSite.name }`;
+		const storageKey = `ai_chat_messages_${ runningSite.id }`;
 		localStorage.setItem( storageKey, JSON.stringify( initialMessages ) );
 		render( <ContentTabAssistant selectedSite={ runningSite } /> );
 		expect( screen.getByText( 'Initial message 1' ) ).toBeInTheDocument();

@@ -19,7 +19,10 @@ describe( 'useAssistant', () => {
 			{ content: 'Hello', role: 'user' },
 			{ content: 'Hi there', role: 'assistant' },
 		];
-		localStorage.setItem( selectedSiteId, JSON.stringify( initialMessages ) );
+		localStorage.setItem(
+			`ai_chat_messages_${ selectedSiteId }`,
+			JSON.stringify( initialMessages )
+		);
 
 		const { result } = renderHook( () => useAssistant( selectedSiteId ) );
 
@@ -34,7 +37,7 @@ describe( 'useAssistant', () => {
 		} );
 
 		expect( result.current.messages ).toEqual( [ { content: 'Hello', role: 'user', id: 0 } ] );
-		expect( localStorage.getItem( selectedSiteId ) ).toEqual(
+		expect( localStorage.getItem( `ai_chat_messages_${ selectedSiteId }` ) ).toEqual(
 			JSON.stringify( [ { content: 'Hello', role: 'user', id: 0 } ] )
 		);
 	} );
@@ -50,6 +53,8 @@ describe( 'useAssistant', () => {
 		} );
 
 		expect( result.current.messages ).toEqual( [] );
-		expect( localStorage.getItem( selectedSiteId ) ).toEqual( JSON.stringify( [] ) );
+		expect( localStorage.getItem( `ai_chat_messages_${ selectedSiteId }` ) ).toEqual(
+			JSON.stringify( [] )
+		);
 	} );
 } );

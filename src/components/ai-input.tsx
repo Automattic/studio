@@ -99,7 +99,7 @@ export const AIInput = ( {
 	return (
 		<div
 			className={ cx(
-				`flex w-full border rounded-sm ${
+				`flex w-full border rounded-sm bg-white ${
 					disabled ? 'border-a8c-gray-5' : 'border-gray-300 focus-within:border-a8c-blueberry'
 				}`
 			) }

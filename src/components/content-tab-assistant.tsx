@@ -272,7 +272,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 						isAssistantThinking={ isAssistantThinking }
 					/>
 					<div data-testid="guidelines-link" className="text-a8c-gray-50 self-end p-2">
-						{ createInterpolateElement( __( 'Powered by experimental AI. <a>Learn More</a>' ), {
+						{ createInterpolateElement( __( 'Powered by experimental AI. <a>Learn more</a>' ), {
 							a: (
 								<Button variant="link" onClick={ () => getIpcApi().openURL( AI_GUIDELINES_URL ) } />
 							),

@@ -1,5 +1,5 @@
 import { createInterpolateElement } from '@wordpress/element';
-import { __, sprintf } from '@wordpress/i18n';
+import { __ } from '@wordpress/i18n';
 import { useCallback, useState, useEffect, useRef } from 'react';
 import { CLEAR_HISTORY_REMINDER_TIME } from '../constants';
 import { Message as MessageType } from '../hooks/use-assistant';
@@ -74,7 +74,7 @@ function AIClearHistoryReminder( {
 	return (
 		<div ref={ elementRef } className="mt-8 text-center">
 			{ createInterpolateElement(
-				sprintf(
+				__(
 					'This conversation is over two hours old. <a>Clear the history</a> if you have something new to ask.'
 				),
 				{

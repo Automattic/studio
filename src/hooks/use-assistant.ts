@@ -80,7 +80,10 @@ export const useAssistant = ( instanceId: string ) => {
 					}
 					return { ...message, blocks: updatedBlocks };
 				} );
-				localStorage.setItem( chatMessagesStoreKey( id ), JSON.stringify( updatedMessages ) );
+				localStorage.setItem(
+					chatMessagesStoreKey( instanceId ),
+					JSON.stringify( updatedMessages )
+				);
 				return updatedMessages;
 			} );
 		},

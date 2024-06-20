@@ -62,6 +62,8 @@ describe( 'ContentTabAssistant', () => {
 	const getInput = () =>
 		screen.getByPlaceholderText( 'What would you like to learn?' ) as HTMLTextAreaElement;
 
+	const getGuidelinesLink = () => screen.getByTestId( 'guidelines-link' ) as HTMLAnchorElement;
+
 	beforeEach( () => {
 		jest.clearAllMocks();
 		window.HTMLElement.prototype.scrollIntoView = jest.fn();
@@ -84,6 +86,13 @@ describe( 'ContentTabAssistant', () => {
 		expect( textInput ).toBeInTheDocument();
 		expect( textInput ).toBeEnabled();
 		expect( textInput.placeholder ).toBe( 'What would you like to learn?' );
+	} );
+
+	test( 'renders guideline section', () => {
+		render( <ContentTabAssistant selectedSite={ runningSite } /> );
+		const guideLines = getGuidelinesLink();
+		expect( guideLines ).toBeInTheDocument();
+		expect( guideLines ).toHaveTextContent( 'Powered by experimental AI. Learn more' );
 	} );
 
 	test( 'saves and retrieves conversation from localStorage', async () => {

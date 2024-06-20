@@ -175,7 +175,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const disabled = isOffline || ! isAuthenticated || ! userCanSendMessage;
 
 	return (
-		<div className="h-full flex flex-col bg-gray-50">
+		<div className="h-full flex flex-col bg-gray-50 relative">
 			<div
 				data-testid="assistant-chat"
 				className={ cx( 'flex-1 overflow-y-auto p-8', ! isAuthenticated && 'flex items-end' ) }
@@ -199,21 +199,25 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 					<UnauthenticatedView onAuthenticate={ authenticate } />
 				) }
 			</div>
-
-			<div className="bg-white flex flex-col">
-				<AIInput
-					disabled={ disabled }
-					input={ input }
-					setInput={ setInput }
-					handleSend={ () => handleSend() }
-					handleKeyDown={ handleKeyDown }
-					clearInput={ clearInput }
-					isAssistantThinking={ isAssistantThinking }
-				/>
-				<div data-testid="guidelines-link" className="text-gray-500 self-end p-2">
-					{ createInterpolateElement( __( 'Powered by exerimental AI. <a>Learn More.</a>' ), {
-						a: <Button variant="link" onClick={ () => getIpcApi().openURL( AI_GUIDELINES_URL ) } />,
-					} ) }
+			<div className="relative w-full flex flex-col items-center px-8 pt-5 border-0 border-t border-top-gray-200">
+				<div className="absolute inset-0 bg-opacity-90 backdrop-blur-sm border-t pointer-events-none z-0"></div>
+				<div className="relative w-full flex flex-col items-center z-10">
+					<AIInput
+						disabled={ disabled }
+						input={ input }
+						setInput={ setInput }
+						handleSend={ () => handleSend() }
+						handleKeyDown={ handleKeyDown }
+						clearInput={ clearInput }
+						isAssistantThinking={ isAssistantThinking }
+					/>
+					<div data-testid="guidelines-link" className="text-a8c-gray-50 self-end p-2">
+						{ createInterpolateElement( __( 'Powered by experimental AI. <a>Learn More</a>' ), {
+							a: (
+								<Button variant="link" onClick={ () => getIpcApi().openURL( AI_GUIDELINES_URL ) } />
+							),
+						} ) }
+					</div>
 				</div>
 			</div>
 		</div>

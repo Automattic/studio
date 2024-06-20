@@ -58,7 +58,7 @@ function AIClearHistoryReminder( {
 
 		const { response } = await getIpcApi().showMessageBox( {
 			message: __( 'Are you sure you want to clear the conversation?' ),
-			buttons: [ __( 'Ok' ), __( 'Cancel' ) ],
+			buttons: [ __( 'OK' ), __( 'Cancel' ) ],
 			cancelId: CANCEL_BUTTON_INDEX,
 		} );
 

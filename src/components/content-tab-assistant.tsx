@@ -57,7 +57,7 @@ const AuthenticatedView = memo(
 			<AnimatePresence>
 				{ messages.map( ( message, index ) => (
 					<ChatMessage
-						key={ index }
+						key={ `message-chat-${ index }` }
 						id={ `message-chat-${ index }` }
 						isUser={ message.role === 'user' }
 						projectPath={ path }
@@ -69,11 +69,12 @@ const AuthenticatedView = memo(
 					</ChatMessage>
 				) ) }
 				{ isAssistantThinking && (
-<<<<<<< HEAD
-					<ChatMessage isAssistantThinking key="message-thinking" isUser={ false }>
-=======
-					<ChatMessage isUser={ false } id="message-thinking">
->>>>>>> trunk
+					<ChatMessage
+						isAssistantThinking
+						key="message-thinking"
+						id="message-thinking"
+						isUser={ false }
+					>
 						<MessageThinking />
 					</ChatMessage>
 				) }

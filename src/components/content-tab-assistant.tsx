@@ -13,6 +13,7 @@ import { useOffline } from '../hooks/use-offline';
 import { usePromptUsage } from '../hooks/use-prompt-usage';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
+import ClearHistoryReminder from './ai-clear-history-reminder';
 import { AIInput } from './ai-input';
 import { MessageThinking } from './assistant-thinking';
 import Button from './button';
@@ -153,6 +154,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const [ input, setInput ] = useState< string >( '' );
 	const isOffline = useOffline();
 	const { __ } = useI18n();
+	const lastMessage = messages.length === 0 ? undefined : messages[ messages.length - 1 ];
 
 	useEffect( () => {
 		fetchWelcomeMessages();
@@ -166,7 +168,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 			try {
 				const { message, chatId: fetchedChatId } = await fetchAssistant(
 					chatId,
-					[ ...messages, { content: chatMessage, role: 'user' } ],
+					[ ...messages, { content: chatMessage, role: 'user', createdAt: Date.now() } ],
 					currentSiteChatContext
 				);
 				if ( message ) {
@@ -245,6 +247,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 										updateMessage={ updateMessage }
 										path={ selectedSite.path }
 									/>
+									<ClearHistoryReminder lastMessage={ lastMessage } clearInput={ clearInput } />
 								</>
 							) }
 						</>

@@ -11,6 +11,7 @@ export type Message = {
 		cliTime?: string;
 		codeBlockContent?: string;
 	}[];
+	createdAt: number; // Unix timestamp
 };
 
 const chatIdStoreKey = ( instanceId: string ) => `ai_chat_id_${ instanceId }`;
@@ -38,7 +39,10 @@ export const useAssistant = ( instanceId: string ) => {
 	const addMessage = useCallback(
 		( content: string, role: 'user' | 'assistant', chatId?: string ) => {
 			setMessages( ( prevMessages ) => {
-				const updatedMessages = [ ...prevMessages, { content, role, id: prevMessages.length } ];
+				const updatedMessages = [
+					...prevMessages,
+					{ content, role, id: prevMessages.length, createdAt: Date.now() },
+				];
 				localStorage.setItem(
 					chatMessagesStoreKey( instanceId ),
 					JSON.stringify( updatedMessages )

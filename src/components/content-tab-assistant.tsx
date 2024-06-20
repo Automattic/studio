@@ -1,5 +1,5 @@
 import { createInterpolateElement } from '@wordpress/element';
-import { __ } from '@wordpress/i18n';
+import { __, _n, sprintf } from '@wordpress/i18n';
 import { Icon, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import React, { useState, useEffect, useRef, memo } from 'react';
@@ -22,6 +22,31 @@ import WelcomeComponent from './welcome-message-prompt';
 interface ContentTabAssistantProps {
 	selectedSite: SiteDetails;
 }
+
+const UsageLimitReached = () => {
+	const { daysUntilReset } = usePromptUsage();
+
+	// Determine if the reset is today
+	const resetMessage =
+		daysUntilReset <= 0
+			? __( "You've reached your <a>usage limit</a> for this month. Your limit will reset today." )
+			: sprintf(
+					_n(
+						"You've reached your <a>usage limit</a> for this month. Your limit will reset in %s day.",
+						"You've reached your <a>usage limit</a> for this month. Your limit will reset in %s days.",
+						daysUntilReset
+					),
+					daysUntilReset
+			  );
+
+	return (
+		<div className="text-center h-12 px-2 pt-6 text-a8c-gray-70">
+			{ createInterpolateElement( resetMessage, {
+				a: <Button onClick={ () => getIpcApi().showUserSettings() } variant="link" />,
+			} ) }
+		</div>
+	);
+};
 
 const AuthenticatedView = memo(
 	( {
@@ -178,30 +203,65 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		<div className="h-full flex flex-col bg-gray-50 relative">
 			<div
 				data-testid="assistant-chat"
-				className={ cx( 'flex-1 overflow-y-auto p-8', ! isAuthenticated && 'flex items-end' ) }
-			>
-				{ isAuthenticated ? (
-					<>
-						<WelcomeComponent
-							onExampleClick={ ( prompt ) => handleSend( prompt ) }
-							showExamplePrompts={ messages.length === 0 }
-							messages={ welcomeMessages }
-							examplePrompts={ examplePrompts }
-						/>
-						<AuthenticatedView
-							messages={ messages }
-							isAssistantThinking={ isAssistantThinking }
-							updateMessage={ updateMessage }
-							path={ selectedSite.path }
-						/>
-					</>
-				) : (
-					<UnauthenticatedView onAuthenticate={ authenticate } />
+				className={ cx(
+					'flex-1 overflow-y-auto p-8 flex flex-col-reverse',
+					! isAuthenticated && 'flex items-end'
 				) }
+			>
+				<div className="mt-auto">
+					{ isAuthenticated ? (
+						<>
+							{ ! userCanSendMessage ? (
+								messages.length > 0 ? (
+									<>
+										<WelcomeComponent
+											onExampleClick={ ( prompt ) => handleSend( prompt ) }
+											showExamplePrompts={ messages.length === 0 }
+											messages={ welcomeMessages }
+											examplePrompts={ examplePrompts }
+										/>
+										<AuthenticatedView
+											messages={ messages }
+											isAssistantThinking={ isAssistantThinking }
+											updateMessage={ updateMessage }
+											path={ selectedSite.path }
+										/>
+										<UsageLimitReached />
+									</>
+								) : (
+									<UsageLimitReached />
+								)
+							) : (
+								<>
+									<WelcomeComponent
+										onExampleClick={ ( prompt ) => handleSend( prompt ) }
+										showExamplePrompts={ messages.length === 0 }
+										messages={ welcomeMessages }
+										examplePrompts={ examplePrompts }
+									/>
+									<AuthenticatedView
+										messages={ messages }
+										isAssistantThinking={ isAssistantThinking }
+										updateMessage={ updateMessage }
+										path={ selectedSite.path }
+									/>
+								</>
+							) }
+						</>
+					) : (
+						<UnauthenticatedView onAuthenticate={ authenticate } />
+					) }
+				</div>
 			</div>
-			<div className="relative w-full flex flex-col items-center px-8 pt-5 border-0 border-t border-top-gray-200">
-				<div className="absolute inset-0 bg-opacity-90 backdrop-blur-sm border-t pointer-events-none z-0"></div>
-				<div className="relative w-full flex flex-col items-center z-10">
+
+			<div
+				className={ cx(
+					`bg-gray-50 w-full px-8 pt-5 flex items-center border-0 border-t ${
+						disabled ? 'border-top-a8c-gray-10' : 'border-top-gray-200'
+					}`
+				) }
+			>
+				<div className="w-full flex flex-col items-center">
 					<AIInput
 						disabled={ disabled }
 						input={ input }

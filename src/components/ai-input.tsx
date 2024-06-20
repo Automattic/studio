@@ -2,6 +2,7 @@ import { DropdownMenu, MenuGroup, MenuItem } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { Icon, moreVertical, keyboardReturn, reset } from '@wordpress/icons';
 import React, { useRef, useEffect } from 'react';
+import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { AssistantIcon } from './icons/assistant';
 
@@ -96,15 +97,29 @@ export const AIInput = ( {
 	};
 
 	return (
-		<div className="flex w-full border bg-white border-gray-300 rounded-sm focus-within:border-a8c-blueberry">
-			<div className="flex items-end p-3 ltr:pr-2 rtl:pl-2">
-				<AssistantIcon size={ 28 } aria-hidden="true" />
+		<div
+			className={ cx(
+				`flex w-full border rounded-sm ${
+					disabled ? 'border-a8c-gray-5' : 'border-gray-300 focus-within:border-a8c-blueberry'
+				}`
+			) }
+		>
+			<div className={ `flex items-end p-3 ltr:pr-2 rtl:pl-2` }>
+				<AssistantIcon
+					size={ 28 }
+					aria-hidden="true"
+					className={ disabled ? 'fill-a8c-gray-30 opacity-30' : 'fill-a8c-blueberry' }
+				/>
 			</div>
 			<textarea
 				ref={ inputRef }
 				disabled={ disabled }
 				placeholder={ getPlaceholderText() }
-				className="w-full mt-1 px-2 py-3 rounded-sm border-none resize-none focus:outline-none"
+				className={ cx(
+					`w-full mt-1 px-2 py-3 rounded-sm border-none resize-none focus:outline-none ${
+						disabled ? 'cursor-not-allowed opacity-30' : ''
+					}`
+				) }
 				value={ input }
 				onChange={ handleInput }
 				onKeyDown={ handleKeyDownWrapper }
@@ -116,7 +131,7 @@ export const AIInput = ( {
 					<Icon icon={ keyboardReturn } size={ 13 } fill="#cccccc" />
 				</div>
 			) }
-			<DropdownMenu icon={ moreVertical } label="Assistant Menu" className="p-2">
+			<DropdownMenu icon={ moreVertical } label={ __( 'Assistant Menu' ) } className="p-2">
 				{ ( { onClose }: { onClose: () => void } ) => (
 					<>
 						<MenuGroup>

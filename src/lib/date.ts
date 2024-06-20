@@ -24,14 +24,3 @@ export const formatDistance: FormatDistanceFn = ( token, count ) => {
 	}
 	return sprintf( stringToFormat, count );
 };
-
-/**
- * Formats a millisecond duration to localized duration string
- *
- * @param milliseconds
- * @returns localized duration string
- */
-export const formatMilliseconds = ( milliseconds: number ): string =>
-	formatDuration( intervalToDuration( { start: 0, end: milliseconds } ), {
-		locale: { formatDistance },
-	} );

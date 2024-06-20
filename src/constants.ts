@@ -27,4 +27,6 @@ export const HOUR_MS = 1000 * 60 * 60;
 export const DAY_MS = HOUR_MS * 24;
 
 // AI Assistant constants
+// IMPORTANT: When updating this value, we need to update the string located in `AIClearHistoryReminder` component.
+// Reference: https://github.com/Automattic/studio/blob/b23c919a83040361646a64ee3a74c5952623a8ce/src/components/ai-clear-history-reminder.tsx#L79
 export const CLEAR_HISTORY_REMINDER_TIME = 2 * HOUR_MS; // In milliseconds

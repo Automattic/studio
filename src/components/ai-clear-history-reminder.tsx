@@ -3,7 +3,6 @@ import { __, sprintf } from '@wordpress/i18n';
 import { useCallback, useState, useEffect, useRef } from 'react';
 import { CLEAR_HISTORY_REMINDER_TIME } from '../constants';
 import { Message as MessageType } from '../hooks/use-assistant';
-import { formatMilliseconds } from '../lib/date';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
 
@@ -76,8 +75,7 @@ function AIClearHistoryReminder( {
 		<div ref={ elementRef } className="mt-8 text-center">
 			{ createInterpolateElement(
 				sprintf(
-					'This conversation is %s old. <a>Clear the history</a> if you have something new to ask.',
-					formatMilliseconds( CLEAR_HISTORY_REMINDER_TIME )
+					'This conversation is over two hours old. <a>Clear the history</a> if you have something new to ask.'
 				),
 				{
 					a: <Button variant="link" onClick={ onClearHistory } />,

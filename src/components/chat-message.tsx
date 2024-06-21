@@ -34,6 +34,7 @@ interface ChatMessageProps {
 		status: 'success' | 'error',
 		time: string
 	) => void;
+	isUnauthenticated?: boolean;
 }
 
 interface InlineCLIProps {
@@ -66,6 +67,7 @@ export const ChatMessage = ( {
 	projectPath,
 	blocks,
 	updateMessage,
+	isUnauthenticated,
 }: ChatMessageProps ) => {
 	const CodeBlock = ( props: JSX.IntrinsicElements[ 'code' ] & ExtraProps ) => {
 		const content = String( props.children ).trim();
@@ -98,10 +100,11 @@ export const ChatMessage = ( {
 
 		const { children, className } = props;
 		const match = /language-(\w+)/.exec( className || '' );
+		const { node, ...propsSansNode } = props;
 		return match ? (
 			<>
 				<div className="p-3">
-					<code className={ className } { ...props }>
+					<code className={ className } { ...propsSansNode }>
 						{ children }
 					</code>
 				</div>
@@ -138,11 +141,9 @@ export const ChatMessage = ( {
 				) }
 			</>
 		) : (
-			<div className="inline-block">
-				<code className={ className } { ...props }>
-					{ children }
-				</code>
-			</div>
+			<code className={ className } { ...propsSansNode }>
+				{ children }
+			</code>
 		);
 	};
 
@@ -174,9 +175,9 @@ export const ChatMessage = ( {
 		>
 			<div
 				className={ cx(
-					'flex mt-4',
-					isUser ? 'justify-end md:ml-24' : 'justify-start md:mr-24',
-					className
+					'inline-block p-3 rounded border border-gray-300 overflow-x-auto select-text',
+					isUnauthenticated ? 'lg:max-w-[90%]' : 'lg:max-w-[70%]', // Apply different max-width for unauthenticated view
+					! isUser ? 'bg-white' : 'bg-white/45'
 				) }
 			>
 				<div
@@ -213,10 +214,11 @@ export const ChatMessage = ( {
 
 function Anchor( props: JSX.IntrinsicElements[ 'a' ] & ExtraProps ) {
 	const { href } = props;
+	const { node, ...propsSansNode } = props;
 
 	return (
 		<a
-			{ ...props }
+			{ ...propsSansNode }
 			onClick={ ( e ) => {
 				if ( ! href ) {
 					return;

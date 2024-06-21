@@ -1,9 +1,10 @@
 import { __unstableAnimatePresence as AnimatePresence } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
-import { __ } from '@wordpress/i18n';
+import { __, _n, sprintf } from '@wordpress/i18n';
 import { Icon, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import React, { useState, useEffect, useRef, memo } from 'react';
+import { AI_GUIDELINES_URL } from '../constants';
 import { useAssistant, Message as MessageType } from '../hooks/use-assistant';
 import { useAssistantApi } from '../hooks/use-assistant-api';
 import { useAuth } from '../hooks/use-auth';
@@ -13,6 +14,7 @@ import { useOffline } from '../hooks/use-offline';
 import { usePromptUsage } from '../hooks/use-prompt-usage';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
+import ClearHistoryReminder from './ai-clear-history-reminder';
 import { AIInput } from './ai-input';
 import { MessageThinking } from './assistant-thinking';
 import Button from './button';
@@ -22,6 +24,31 @@ import WelcomeComponent from './welcome-message-prompt';
 interface ContentTabAssistantProps {
 	selectedSite: SiteDetails;
 }
+
+const UsageLimitReached = () => {
+	const { daysUntilReset } = usePromptUsage();
+
+	// Determine if the reset is today
+	const resetMessage =
+		daysUntilReset <= 0
+			? __( "You've reached your <a>usage limit</a> for this month. Your limit will reset today." )
+			: sprintf(
+					_n(
+						"You've reached your <a>usage limit</a> for this month. Your limit will reset in %s day.",
+						"You've reached your <a>usage limit</a> for this month. Your limit will reset in %s days.",
+						daysUntilReset
+					),
+					daysUntilReset
+			  );
+
+	return (
+		<div className="text-center h-12 px-2 pt-6 text-a8c-gray-70">
+			{ createInterpolateElement( resetMessage, {
+				a: <Button onClick={ () => getIpcApi().showUserSettings() } variant="link" />,
+			} ) }
+		</div>
+	);
+};
 
 const AuthenticatedView = memo(
 	( {
@@ -85,7 +112,12 @@ const AuthenticatedView = memo(
 );
 
 const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void } ) => (
-	<ChatMessage id="message-unauthenticated" className="w-full" isUser={ false }>
+	<ChatMessage
+		id="message-unauthenticated"
+		className="w-full"
+		isUser={ false }
+		isUnauthenticated={ true }
+	>
 		<div className="mb-3 a8c-label-semibold">{ __( 'Hold up!' ) }</div>
 		<div className="mb-1">
 			{ __( 'You need to log in to your WordPress.com account to use the assistant.' ) }
@@ -119,20 +151,21 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
 	const currentSiteChatContext = useChatContext();
+	const { isAuthenticated, authenticate, user } = useAuth();
 	const { messages, addMessage, clearMessages, updateMessage, chatId } = useAssistant(
-		selectedSite.name
+		user?.id ? `${ user.id }_${ selectedSite.id }` : selectedSite.id
 	);
 	const { userCanSendMessage } = usePromptUsage();
-	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi( selectedSite.name );
+	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi( selectedSite.id );
 	const {
 		messages: welcomeMessages,
 		examplePrompts,
 		fetchWelcomeMessages,
 	} = useFetchWelcomeMessages();
 	const [ input, setInput ] = useState< string >( '' );
-	const { isAuthenticated, authenticate } = useAuth();
 	const isOffline = useOffline();
 	const { __ } = useI18n();
+	const lastMessage = messages.length === 0 ? undefined : messages[ messages.length - 1 ];
 
 	useEffect( () => {
 		fetchWelcomeMessages();
@@ -146,7 +179,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 			try {
 				const { message, chatId: fetchedChatId } = await fetchAssistant(
 					chatId,
-					[ ...messages, { content: chatMessage, role: 'user' } ],
+					[ ...messages, { content: chatMessage, role: 'user', createdAt: Date.now() } ],
 					currentSiteChatContext
 				);
 				if ( message ) {
@@ -180,39 +213,87 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const disabled = isOffline || ! isAuthenticated || ! userCanSendMessage;
 
 	return (
-		<div className="h-full flex flex-col bg-gray-50">
+		<div className="h-full flex flex-col bg-gray-50 relative">
 			<div
 				data-testid="assistant-chat"
-				className={ cx( 'flex-1 overflow-y-auto p-8', ! isAuthenticated && 'flex items-end' ) }
-			>
-				{ isAuthenticated ? (
-					<>
-						<WelcomeComponent
-							onExampleClick={ ( prompt ) => handleSend( prompt ) }
-							showExamplePrompts={ messages.length === 0 }
-							messages={ welcomeMessages }
-							examplePrompts={ examplePrompts }
-						/>
-						<AuthenticatedView
-							messages={ messages }
-							isAssistantThinking={ isAssistantThinking }
-							updateMessage={ updateMessage }
-							path={ selectedSite.path }
-						/>
-					</>
-				) : (
-					<UnauthenticatedView onAuthenticate={ authenticate } />
+				className={ cx(
+					'flex-1 overflow-y-auto p-8 flex flex-col-reverse',
+					! isAuthenticated && 'flex items-start'
 				) }
+			>
+				<div className="mt-auto">
+					{ isAuthenticated ? (
+						<>
+							{ ! userCanSendMessage ? (
+								messages.length > 0 ? (
+									<>
+										<WelcomeComponent
+											onExampleClick={ ( prompt ) => handleSend( prompt ) }
+											showExamplePrompts={ messages.length === 0 }
+											messages={ welcomeMessages }
+											examplePrompts={ examplePrompts }
+										/>
+										<AuthenticatedView
+											messages={ messages }
+											isAssistantThinking={ isAssistantThinking }
+											updateMessage={ updateMessage }
+											path={ selectedSite.path }
+										/>
+										<UsageLimitReached />
+									</>
+								) : (
+									<UsageLimitReached />
+								)
+							) : (
+								<>
+									<WelcomeComponent
+										onExampleClick={ ( prompt ) => handleSend( prompt ) }
+										showExamplePrompts={ messages.length === 0 }
+										messages={ welcomeMessages }
+										examplePrompts={ examplePrompts }
+									/>
+									<AuthenticatedView
+										messages={ messages }
+										isAssistantThinking={ isAssistantThinking }
+										updateMessage={ updateMessage }
+										path={ selectedSite.path }
+									/>
+									<ClearHistoryReminder lastMessage={ lastMessage } clearInput={ clearInput } />
+								</>
+							) }
+						</>
+					) : (
+						<UnauthenticatedView onAuthenticate={ authenticate } />
+					) }
+				</div>
 			</div>
-			<AIInput
-				disabled={ disabled }
-				input={ input }
-				setInput={ setInput }
-				handleSend={ () => handleSend() }
-				handleKeyDown={ handleKeyDown }
-				clearInput={ clearInput }
-				isAssistantThinking={ isAssistantThinking }
-			/>
+
+			<div
+				className={ cx(
+					`bg-gray-50 w-full px-8 pt-5 flex items-center border-0 border-t ${
+						disabled ? 'border-top-a8c-gray-10' : 'border-top-gray-200'
+					}`
+				) }
+			>
+				<div className="w-full flex flex-col items-center">
+					<AIInput
+						disabled={ disabled }
+						input={ input }
+						setInput={ setInput }
+						handleSend={ () => handleSend() }
+						handleKeyDown={ handleKeyDown }
+						clearInput={ clearInput }
+						isAssistantThinking={ isAssistantThinking }
+					/>
+					<div data-testid="guidelines-link" className="text-a8c-gray-50 self-end py-2">
+						{ createInterpolateElement( __( 'Powered by experimental AI. <a>Learn more</a>' ), {
+							a: (
+								<Button variant="link" onClick={ () => getIpcApi().openURL( AI_GUIDELINES_URL ) } />
+							),
+						} ) }
+					</div>
+				</div>
+			</div>
 		</div>
 	);
 }

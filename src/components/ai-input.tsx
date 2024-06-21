@@ -2,6 +2,7 @@ import { DropdownMenu, MenuGroup, MenuItem } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { Icon, moreVertical, keyboardReturn, reset } from '@wordpress/icons';
 import React, { useRef, useEffect } from 'react';
+import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { AssistantIcon } from './icons/assistant';
 
@@ -86,7 +87,7 @@ export const AIInput = ( {
 
 		const { response } = await getIpcApi().showMessageBox( {
 			message: __( 'Are you sure you want to clear the conversation?' ),
-			buttons: [ __( 'Ok' ), __( 'Cancel' ) ],
+			buttons: [ __( 'OK' ), __( 'Cancel' ) ],
 			cancelId: CANCEL_BUTTON_INDEX,
 		} );
 
@@ -96,48 +97,60 @@ export const AIInput = ( {
 	};
 
 	return (
-		<div className="px-8 py-5 bg-white flex items-center border border-gray-200">
-			<div className="flex w-full border border-gray-300 rounded-sm focus-within:border-a8c-blueberry">
-				<div className="flex items-end p-3 ltr:pr-2 rtl:pl-2">
-					<AssistantIcon size={ 28 } aria-hidden="true" />
-				</div>
-				<textarea
-					ref={ inputRef }
-					disabled={ disabled }
-					placeholder={ getPlaceholderText() }
-					className="w-full mt-1 px-2 py-3 rounded-sm border-none resize-none focus:outline-none"
-					value={ input }
-					onChange={ handleInput }
-					onKeyDown={ handleKeyDownWrapper }
-					rows={ 1 }
-					data-testid="ai-input-textarea"
+		<div
+			className={ cx(
+				`flex w-full border rounded-sm bg-white ${
+					disabled ? 'border-a8c-gray-5' : 'border-gray-300 focus-within:border-a8c-blueberry'
+				}`
+			) }
+		>
+			<div className={ `flex items-end p-3 ltr:pr-2 rtl:pl-2` }>
+				<AssistantIcon
+					size={ 28 }
+					aria-hidden="true"
+					className={ disabled ? 'fill-a8c-gray-30 opacity-30' : 'fill-a8c-blueberry' }
 				/>
-				{ input.trim() !== '' && (
-					<div className="flex items-end py-4 mb-1">
-						<Icon icon={ keyboardReturn } size={ 13 } fill="#cccccc" />
-					</div>
-				) }
-				<DropdownMenu icon={ moreVertical } label="Assistant Menu" className="p-2">
-					{ ( { onClose }: { onClose: () => void } ) => (
-						<>
-							<MenuGroup>
-								<MenuItem
-									data-testid="clear-conversation-button"
-									onClick={ () => {
-										handleClearConversation();
-										onClose();
-									} }
-								>
-									<Icon className="text-red-600" icon={ reset } />
-									<span className="ltr:pl-2 rtl:pl-2 text-red-600">
-										{ __( 'Clear conversation' ) }
-									</span>
-								</MenuItem>
-							</MenuGroup>
-						</>
-					) }
-				</DropdownMenu>
 			</div>
+			<textarea
+				ref={ inputRef }
+				disabled={ disabled }
+				placeholder={ getPlaceholderText() }
+				className={ cx(
+					`w-full mt-1 px-2 py-3 rounded-sm border-none resize-none focus:outline-none ${
+						disabled ? 'cursor-not-allowed opacity-30' : ''
+					}`
+				) }
+				value={ input }
+				onChange={ handleInput }
+				onKeyDown={ handleKeyDownWrapper }
+				rows={ 1 }
+				data-testid="ai-input-textarea"
+			/>
+			{ input.trim() !== '' && (
+				<div className="flex items-end py-4 mb-1">
+					<Icon icon={ keyboardReturn } size={ 13 } fill="#cccccc" />
+				</div>
+			) }
+			<DropdownMenu icon={ moreVertical } label={ __( 'Assistant Menu' ) } className="p-2">
+				{ ( { onClose }: { onClose: () => void } ) => (
+					<>
+						<MenuGroup>
+							<MenuItem
+								data-testid="clear-conversation-button"
+								onClick={ () => {
+									handleClearConversation();
+									onClose();
+								} }
+							>
+								<Icon className="text-red-600" icon={ reset } />
+								<span className="ltr:pl-2 rtl:pl-2 text-red-600">
+									{ __( 'Clear conversation' ) }
+								</span>
+							</MenuItem>
+						</MenuGroup>
+					</>
+				) }
+			</DropdownMenu>
 		</div>
 	);
 };

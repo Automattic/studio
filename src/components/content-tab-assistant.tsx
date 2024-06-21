@@ -106,7 +106,12 @@ const AuthenticatedView = memo(
 );
 
 const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void } ) => (
-	<ChatMessage id="message-unauthenticated" className="w-full" isUser={ false }>
+	<ChatMessage
+		id="message-unauthenticated"
+		className="w-full"
+		isUser={ false }
+		isUnauthenticated={ true }
+	>
 		<div className="mb-3 a8c-label-semibold">{ __( 'Hold up!' ) }</div>
 		<div className="mb-1">
 			{ __( 'You need to log in to your WordPress.com account to use the assistant.' ) }
@@ -207,7 +212,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 				data-testid="assistant-chat"
 				className={ cx(
 					'flex-1 overflow-y-auto p-8 flex flex-col-reverse',
-					! isAuthenticated && 'flex items-end'
+					! isAuthenticated && 'flex items-start'
 				) }
 			>
 				<div className="mt-auto">

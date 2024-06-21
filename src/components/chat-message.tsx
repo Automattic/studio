@@ -47,7 +47,7 @@ export const ChatMessage = ( {
 		<div
 			className={ cx(
 				'flex mt-4',
-				isUser ? 'justify-end md:ml-24' : 'justify-start md:mr-24',
+				isUser ? 'justify-end ltr:md:ml-24 rtl:md:mr-24' : 'justify-start ltr:md:mr-24 rtl:md:ml-24',
 				className
 			) }
 		>

@@ -2,8 +2,8 @@ import { DropdownMenu, MenuGroup, MenuItem } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { Icon, moreVertical, keyboardReturn, reset } from '@wordpress/icons';
 import React, { useRef, useEffect, useState } from 'react';
-import { cx } from '../lib/cx';
 import useRiveIcon from '../hooks/use-ai-icon';
+import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 
 interface AIInputProps {
@@ -154,39 +154,40 @@ export const AIInput = ( {
 	return (
 		<div
 			className={ cx(
-				`flex w-full border rounded-sm bg-white/[0.9] ${
+				`flex items-end w-full border rounded-sm bg-white/[0.9] ${
 					disabled ? 'border-a8c-gray-5' : 'border-gray-300 focus-within:border-a8c-blueberry'
 				}`
 			) }
 		>
-			<div className={ `flex items-end p-3 ltr:pr-2 rtl:pl-2` }>
-				<RiveComponent
-					aria-hidden="true"
-					style={ { width: 48, height: 48 } }
-					className={ disabled ? 'fill-a8c-gray-30 opacity-30' : 'fill-a8c-blueberry' }
-				/>
+			<div className={ `flex items-center h-12 ${ disabled && 'opacity-20 grayscale' }` }>
+				<RiveComponent aria-hidden="true" style={ { width: 48, height: 48 } } />
 			</div>
 			<textarea
 				ref={ inputRef }
 				disabled={ disabled }
 				placeholder={ getPlaceholderText() }
 				className={ cx(
-					`w-full mt-1 px-2 py-3 rounded-sm border-none bg-transparent resize-none focus:outline-none assistant-textarea ${
+					`w-full px-2 py-3.5 rounded-sm border-none bg-transparent resize-none focus:outline-none assistant-textarea ${
 						disabled ? 'cursor-not-allowed opacity-30' : ''
 					}`
 				) }
 				value={ input }
 				onChange={ handleInput }
 				onKeyDown={ handleKeyDownWrapper }
+				onKeyUp={ handleKeyUpWrapper }
 				rows={ 1 }
 				data-testid="ai-input-textarea"
 			/>
 			{ input.trim() !== '' && (
-				<div className="flex items-end py-4 mb-1">
+				<div className="flex items-center h-12">
 					<Icon icon={ keyboardReturn } size={ 13 } fill="#cccccc" />
 				</div>
 			) }
-			<DropdownMenu icon={ moreVertical } label={ __( 'Assistant Menu' ) } className="p-2">
+			<DropdownMenu
+				icon={ moreVertical }
+				label={ __( 'Assistant Menu' ) }
+				className="p-1 flex items-center h-12"
+			>
 				{ ( { onClose }: { onClose: () => void } ) => (
 					<>
 						<MenuGroup>

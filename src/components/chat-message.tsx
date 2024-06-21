@@ -168,7 +168,10 @@ export const ChatMessage = ( {
 				</div>
 				{ typeof children === 'string' ? (
 					<div className="assistant-markdown">
-						<Markdown components={ { a: Anchor, code: CodeBlock } } remarkPlugins={ [ remarkGfm ] }>
+						<Markdown
+							components={ { a: Anchor, code: CodeBlock, img: () => null } }
+							remarkPlugins={ [ remarkGfm ] }
+						>
 							{ children }
 						</Markdown>
 					</div>

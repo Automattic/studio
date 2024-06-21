@@ -235,23 +235,15 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 				<div className="mt-auto">
 					{ isOffline ? (
 						<>
-							{ isAuthenticated ? (
-								messages.length > 0 ? (
-									<>
-										<AuthenticatedView
-											messages={ messages }
-											isAssistantThinking={ isAssistantThinking }
-											updateMessage={ updateMessage }
-											path={ selectedSite.path }
-										/>
-										<OfflineModeView />
-									</>
-								) : (
-									<OfflineModeView />
-								)
-							) : (
-								<OfflineModeView />
+							{ isAuthenticated && messages.length > 0 && (
+								<AuthenticatedView
+									messages={ messages }
+									isAssistantThinking={ isAssistantThinking }
+									updateMessage={ updateMessage }
+									path={ selectedSite.path }
+								/>
 							) }
+							<OfflineModeView />
 						</>
 					) : isAuthenticated ? (
 						<>

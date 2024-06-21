@@ -98,10 +98,11 @@ export const ChatMessage = ( {
 
 		const { children, className } = props;
 		const match = /language-(\w+)/.exec( className || '' );
+		const { node, ...propsSansNode } = props;
 		return match ? (
 			<>
 				<div className="p-3">
-					<code className={ className } { ...props }>
+					<code className={ className } { ...propsSansNode }>
 						{ children }
 					</code>
 				</div>
@@ -138,11 +139,9 @@ export const ChatMessage = ( {
 				) }
 			</>
 		) : (
-			<div className="inline-block">
-				<code className={ className } { ...props }>
-					{ children }
-				</code>
-			</div>
+			<code className={ className } { ...propsSansNode }>
+				{ children }
+			</code>
 		);
 	};
 
@@ -185,10 +184,11 @@ export const ChatMessage = ( {
 
 function Anchor( props: JSX.IntrinsicElements[ 'a' ] & ExtraProps ) {
 	const { href } = props;
+	const { node, ...propsSansNode } = props;
 
 	return (
 		<a
-			{ ...props }
+			{ ...propsSansNode }
 			onClick={ ( e ) => {
 				if ( ! href ) {
 					return;

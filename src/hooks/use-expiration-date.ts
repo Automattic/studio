@@ -1,9 +1,7 @@
-import { _n, sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { intervalToDuration, formatDuration, addDays, Duration, addHours } from 'date-fns';
-
-const HOUR = 1000 * 60 * 60;
-const DAY = HOUR * 24;
+import { HOUR_MS, DAY_MS } from '../constants';
+import { formatDistance } from '../lib/date';
 
 function formatStringDate( ms: number ): string {
 	const { locale = 'en' } = window?.appGlobals || {};
@@ -25,9 +23,9 @@ export function useExpirationDate( snapshotDate: number ) {
 	let format: ( keyof Duration )[] = [ 'days', 'hours' ];
 	if ( difference < 0 ) {
 		isExpired = true;
-	} else if ( difference < HOUR ) {
+	} else if ( difference < HOUR_MS ) {
 		format = [ 'minutes' ];
-	} else if ( difference < DAY ) {
+	} else if ( difference < DAY_MS ) {
 		format = [ 'hours', 'minutes' ];
 	}
 	const countDown = formatDuration(
@@ -40,23 +38,7 @@ export function useExpirationDate( snapshotDate: number ) {
 		{
 			format,
 			delimiter: ', ',
-			locale: {
-				formatDistance: ( token, count ) => {
-					let stringToFormat = '';
-					switch ( token ) {
-						case 'xDays':
-							stringToFormat = _n( '%d day', '%d days', count );
-							break;
-						case 'xHours':
-							stringToFormat = _n( '%d hour', '%d hours', count );
-							break;
-						case 'xMinutes':
-							stringToFormat = _n( '%d minute', '%d minutes', count );
-							break;
-					}
-					return sprintf( stringToFormat, count );
-				},
-			},
+			locale: { formatDistance },
 		}
 	);
 

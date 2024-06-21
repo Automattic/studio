@@ -87,7 +87,7 @@ export const AIInput = ( {
 
 		const { response } = await getIpcApi().showMessageBox( {
 			message: __( 'Are you sure you want to clear the conversation?' ),
-			buttons: [ __( 'Ok' ), __( 'Cancel' ) ],
+			buttons: [ __( 'OK' ), __( 'Cancel' ) ],
 			cancelId: CANCEL_BUTTON_INDEX,
 		} );
 
@@ -99,66 +99,58 @@ export const AIInput = ( {
 	return (
 		<div
 			className={ cx(
-				`px-8 py-5 flex items-center border ${
-					disabled ? 'bg-gray-100 border-a8c-gray-10' : 'bg-white border-gray-200'
+				`flex w-full border rounded-sm bg-white ${
+					disabled ? 'border-a8c-gray-5' : 'border-gray-300 focus-within:border-a8c-blueberry'
 				}`
 			) }
 		>
-			<div
+			<div className={ `flex items-end p-3 ltr:pr-2 rtl:pl-2` }>
+				<AssistantIcon
+					size={ 28 }
+					aria-hidden="true"
+					className={ disabled ? 'fill-a8c-gray-30 opacity-30' : 'fill-a8c-blueberry' }
+				/>
+			</div>
+			<textarea
+				ref={ inputRef }
+				disabled={ disabled }
+				placeholder={ getPlaceholderText() }
 				className={ cx(
-					`flex w-full border rounded-sm ${
-						disabled ? 'border-a8c-gray-5' : 'border-gray-300 focus-within:border-a8c-blueberry'
+					`w-full mt-1 px-2 py-3 rounded-sm border-none resize-none focus:outline-none ${
+						disabled ? 'cursor-not-allowed opacity-30' : ''
 					}`
 				) }
-			>
-				<div className={ `flex items-end p-3 ltr:pr-2 rtl:pl-2` }>
-					<AssistantIcon
-						size={ 28 }
-						aria-hidden="true"
-						className={ disabled ? 'fill-a8c-gray-30 opacity-30' : 'fill-a8c-blueberry' }
-					/>
+				value={ input }
+				onChange={ handleInput }
+				onKeyDown={ handleKeyDownWrapper }
+				rows={ 1 }
+				data-testid="ai-input-textarea"
+			/>
+			{ input.trim() !== '' && (
+				<div className="flex items-end py-4 mb-1">
+					<Icon icon={ keyboardReturn } size={ 13 } fill="#cccccc" />
 				</div>
-				<textarea
-					ref={ inputRef }
-					disabled={ disabled }
-					placeholder={ getPlaceholderText() }
-					className={ cx(
-						`w-full mt-1 px-2 py-3 rounded-sm border-none resize-none focus:outline-none ${
-							disabled ? 'cursor-not-allowed opacity-30' : ''
-						}`
-					) }
-					value={ input }
-					onChange={ handleInput }
-					onKeyDown={ handleKeyDownWrapper }
-					rows={ 1 }
-					data-testid="ai-input-textarea"
-				/>
-				{ input.trim() !== '' && (
-					<div className="flex items-end py-4 mb-1">
-						<Icon icon={ keyboardReturn } size={ 13 } fill="#cccccc" />
-					</div>
+			) }
+			<DropdownMenu icon={ moreVertical } label={ __( 'Assistant Menu' ) } className="p-2">
+				{ ( { onClose }: { onClose: () => void } ) => (
+					<>
+						<MenuGroup>
+							<MenuItem
+								data-testid="clear-conversation-button"
+								onClick={ () => {
+									handleClearConversation();
+									onClose();
+								} }
+							>
+								<Icon className="text-red-600" icon={ reset } />
+								<span className="ltr:pl-2 rtl:pl-2 text-red-600">
+									{ __( 'Clear conversation' ) }
+								</span>
+							</MenuItem>
+						</MenuGroup>
+					</>
 				) }
-				<DropdownMenu icon={ moreVertical } label={ __( 'Assistant Menu' ) } className="p-2">
-					{ ( { onClose }: { onClose: () => void } ) => (
-						<>
-							<MenuGroup>
-								<MenuItem
-									data-testid="clear-conversation-button"
-									onClick={ () => {
-										handleClearConversation();
-										onClose();
-									} }
-								>
-									<Icon className="text-red-600" icon={ reset } />
-									<span className="ltr:pl-2 rtl:pl-2 text-red-600">
-										{ __( 'Clear conversation' ) }
-									</span>
-								</MenuItem>
-							</MenuGroup>
-						</>
-					) }
-				</DropdownMenu>
-			</div>
+			</DropdownMenu>
 		</div>
 	);
 };

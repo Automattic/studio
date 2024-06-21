@@ -51,7 +51,7 @@ const InlineCLI = ( { output, status, time }: InlineCLIProps ) => (
 			<span className="text-gray-400">{ time }</span>
 		</div>
 		<pre className="text-white !bg-transparent !m-0 !px-0">
-			<code className="!bg-transparent !mx-0 !px-0">{ output }</code>
+			<code className="!bg-transparent !mx-0 !px-0 !text-nowrap">{ output }</code>
 		</pre>
 	</div>
 );

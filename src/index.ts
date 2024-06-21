@@ -220,7 +220,7 @@ async function appBoot() {
 			const basePolicies = [
 				"default-src 'self'", // Allow resources from these domains
 				"script-src-attr 'none'",
-				"img-src 'self' https://*.gravatar.com https://*.wp.com data: https://*.wordpress.com https://*.woocommerce.com",
+				"img-src 'self' https://*.gravatar.com https://*.wp.com data:",
 				"style-src 'self' 'unsafe-inline'", // unsafe-inline used by tailwindcss in development, and also in production after the app rename
 			];
 			const prodPolicies = [ "connect-src 'self' https://public-api.wordpress.com" ];

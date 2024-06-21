@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 export type Message = {
 	id?: number;
 	content: string;
-	role: 'user' | 'assistant' | 'thinking';
+	role: 'user' | 'assistant';
 	chatId?: string;
 	blocks?: {
 		cliOutput?: string;

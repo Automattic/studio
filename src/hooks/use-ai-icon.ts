@@ -5,7 +5,7 @@ import aiImage from '../../assets/ai-icon.riv';
 
 RuntimeLoader.setWasmUrl( riveWASMResource );
 
-const useRiveIcon = () => {
+const useAiIcon = () => {
 	const stateMachineName = 'State Machine A';
 	const { rive, RiveComponent } = useRive( {
 		src: aiImage,
@@ -48,4 +48,4 @@ const useRiveIcon = () => {
 	};
 };
 
-export default useRiveIcon;
+export default useAiIcon;

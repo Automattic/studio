@@ -2,7 +2,7 @@ import { DropdownMenu, MenuGroup, MenuItem } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { Icon, moreVertical, keyboardReturn, reset } from '@wordpress/icons';
 import React, { useRef, useEffect, useState } from 'react';
-import useRiveIcon from '../hooks/use-ai-icon';
+import useAiIcon from '../hooks/use-ai-icon';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 
@@ -33,7 +33,7 @@ export const AIInput = ( {
 	const [ typingTimeout, setTypingTimeout ] = useState< NodeJS.Timeout | null >( null );
 
 	const { RiveComponent, inactiveInput, thinkingInput, typingInput, startStateMachine } =
-		useRiveIcon();
+		useAiIcon();
 
 	useEffect( () => {
 		if ( ! disabled && inputRef.current ) {

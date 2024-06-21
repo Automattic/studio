@@ -167,7 +167,7 @@ export const AIInput = ( {
 				disabled={ disabled }
 				placeholder={ getPlaceholderText() }
 				className={ cx(
-					`w-full px-2 py-3.5 rounded-sm border-none bg-transparent resize-none focus:outline-none assistant-textarea ${
+					`w-full px-1 py-3.5 rounded-sm border-none bg-transparent resize-none focus:outline-none assistant-textarea ${
 						disabled ? 'cursor-not-allowed opacity-30' : ''
 					}`
 				) }

@@ -230,7 +230,6 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 						: ! isAuthenticated
 						? 'flex items-start'
 						: ''
-
 				) }
 			>
 				<div className="mt-auto">

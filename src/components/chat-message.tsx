@@ -6,6 +6,7 @@ import Markdown, { ExtraProps } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import stripAnsi from 'strip-ansi';
 import { useExecuteWPCLI } from '../hooks/use-execute-cli';
+import { useIsValidWpCliInline } from '../hooks/use-is-valid-wp-cli-inline';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
@@ -69,10 +70,7 @@ export const ChatMessage = ( {
 }: ChatMessageProps ) => {
 	const CodeBlock = ( props: JSX.IntrinsicElements[ 'code' ] & ExtraProps ) => {
 		const content = String( props.children ).trim();
-		const containsWPCommand = /\bwp\s/.test( content );
-		const wpCommandCount = ( content.match( /\bwp\s/g ) || [] ).length;
-		const containsSingleWPCommand = wpCommandCount === 1;
-		const containsAngleBrackets = /<.*>/.test( content );
+		const displayRunButton = useIsValidWpCliInline( content );
 
 		const {
 			cliOutput,
@@ -101,7 +99,7 @@ export const ChatMessage = ( {
 		return match ? (
 			<>
 				<div className="p-3">
-					<code className={ className } { ...props }>
+					<code className={ className } { ...props } contentEditable={ displayRunButton }>
 						{ children }
 					</code>
 				</div>
@@ -115,7 +113,7 @@ export const ChatMessage = ( {
 						className="h-auto mr-2 !px-2.5 py-0.5 !p-[6px] font-sans select-none"
 						iconSize={ 16 }
 					></CopyTextButton>
-					{ containsWPCommand && containsSingleWPCommand && ! containsAngleBrackets && (
+					{ displayRunButton && (
 						<Button
 							icon={ <ExecuteIcon /> }
 							onClick={ handleExecute }

@@ -22,8 +22,6 @@ export function bumpAggregatedUniqueStat(
 			if ( lastBump === null ) {
 				// Bump the stat the first time it's seen
 				bumpStat( group, stat, bumpInDev );
-				// Also, explicitly track the first occurrence by appending `-first`
-				bumpStat( `${ group }-first`, stat, bumpInDev );
 				return true;
 			}
 

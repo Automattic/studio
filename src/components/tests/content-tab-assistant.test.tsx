@@ -13,10 +13,15 @@ jest.mock( '../../lib/app-globals', () => ( {
 	} ),
 } ) );
 
+const mockFetchWelcomeMessages = jest.fn();
 ( useFetchWelcomeMessages as jest.Mock ).mockReturnValue( {
 	messages: [ 'Welcome to our service!', 'How can I help you today?' ],
-	examplePrompts: [ 'Create a WordPress site' ],
-	fetchWelcomeMessages: jest.fn(),
+	examplePrompts: [
+		'How to create a WordPress site',
+		'How to clear cache',
+		'How to install a plugin',
+	],
+	fetchWelcomeMessages: mockFetchWelcomeMessages,
 } );
 
 const runningSite = {
@@ -182,5 +187,29 @@ describe( 'ContentTabAssistant', () => {
 		rerender( <ContentTabAssistant selectedSite={ runningSite } /> );
 
 		expect( screen.queryByText( 'New message' ) ).toBeNull();
+	} );
+
+	test( 'does not render the Welcome messages and example prompts when not authenticated', () => {
+		( useAuth as jest.Mock ).mockImplementation( () => ( {
+			client: {
+				req: {
+					post: clientReqPost,
+				},
+			},
+			isAuthenticated: false,
+			authenticate,
+		} ) );
+		render( <ContentTabAssistant selectedSite={ runningSite } /> );
+		expect( screen.getByText( 'Hold up!' ) ).toBeInTheDocument();
+		expect( screen.queryByText( 'Welcome to our service!' ) ).not.toBeInTheDocument();
+	} );
+
+	test( 'confirm that Welcome messages and example prompts are present when the conversation is started', () => {
+		render( <ContentTabAssistant selectedSite={ runningSite } /> );
+		expect( mockFetchWelcomeMessages ).toHaveBeenCalledTimes( 1 );
+		expect( screen.getByText( 'Welcome to our service!' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'How to create a WordPress site' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'How to clear cache' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'How to install a plugin' ) ).toBeInTheDocument();
 	} );
 } );

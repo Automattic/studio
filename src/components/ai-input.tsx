@@ -82,14 +82,24 @@ export const AIInput = ( {
 	};
 
 	const handleClearConversation = async () => {
+		if ( localStorage.getItem( 'dontShowClearMessagesWarning' ) === 'true' ) {
+			clearInput();
+			return;
+		}
+
 		const CLEAR_CONVERSATION_BUTTON_INDEX = 0;
 		const CANCEL_BUTTON_INDEX = 1;
 
-		const { response } = await getIpcApi().showMessageBox( {
+		const { response, checkboxChecked } = await getIpcApi().showMessageBox( {
 			message: __( 'Are you sure you want to clear the conversation?' ),
+			checkboxLabel: __( "Don't show this warning again" ),
 			buttons: [ __( 'OK' ), __( 'Cancel' ) ],
 			cancelId: CANCEL_BUTTON_INDEX,
 		} );
+
+		if ( checkboxChecked ) {
+			localStorage.setItem( 'dontShowClearMessagesWarning', 'true' );
+		}
 
 		if ( response === CLEAR_CONVERSATION_BUTTON_INDEX ) {
 			clearInput();
@@ -136,6 +146,7 @@ export const AIInput = ( {
 					<>
 						<MenuGroup>
 							<MenuItem
+								isDestructive
 								data-testid="clear-conversation-button"
 								onClick={ () => {
 									handleClearConversation();
@@ -143,9 +154,7 @@ export const AIInput = ( {
 								} }
 							>
 								<Icon className="text-red-600" icon={ reset } />
-								<span className="ltr:pl-2 rtl:pl-2 text-red-600">
-									{ __( 'Clear conversation' ) }
-								</span>
+								<span className="ltr:pl-2 rtl:pl-2">{ __( 'Clear conversation' ) }</span>
 							</MenuItem>
 						</MenuGroup>
 					</>

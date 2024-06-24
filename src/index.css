@@ -42,7 +42,6 @@ blockquote {
 /* Ensure assistant tab has gray bg for scrollbar */
 .components-tab-panel__tab-content#tab-panel-1-assistant-view {
 	background-color: theme( 'colors.gray.50' );
-	border-radius: 0 0 5px 5px;
 }
 
 .components-tab-panel__tabs {

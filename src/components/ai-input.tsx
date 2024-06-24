@@ -109,7 +109,7 @@ export const AIInput = ( {
 	return (
 		<div
 			className={ cx(
-				`flex w-full border rounded-sm bg-white ${
+				`flex w-full border rounded-sm bg-white/[0.9] ${
 					disabled ? 'border-a8c-gray-5' : 'border-gray-300 focus-within:border-a8c-blueberry'
 				}`
 			) }
@@ -126,7 +126,7 @@ export const AIInput = ( {
 				disabled={ disabled }
 				placeholder={ getPlaceholderText() }
 				className={ cx(
-					`w-full mt-1 px-2 py-3 rounded-sm border-none resize-none focus:outline-none ${
+					`w-full mt-1 px-2 py-3 rounded-sm border-none bg-transparent resize-none focus:outline-none ${
 						disabled ? 'cursor-not-allowed opacity-30' : ''
 					}`
 				) }

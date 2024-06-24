@@ -463,7 +463,7 @@ function AddDemoSiteWithProgress( {
 					</Tooltip>
 					{ isExpired && (
 						<Button
-							aria-description={ __( 'Clear expired site' )}
+							aria-description={ __( 'Clear expired site' ) }
 							isDestructive
 							onClick={ onClearExpiredSite }
 						>

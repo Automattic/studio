@@ -224,10 +224,10 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 				data-testid="assistant-chat"
 				className={ cx(
 					'flex-1 overflow-y-auto p-8 flex flex-col-reverse',
-					isOffline && ! isAuthenticated
-						? 'flex items-center justify-center'
-						: ! isAuthenticated
-						? 'flex items-start'
+					! isAuthenticated
+						? isOffline
+							? 'flex items-center justify-center'
+							: 'flex items-start'
 						: ''
 				) }
 			>

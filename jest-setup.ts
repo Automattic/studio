@@ -36,7 +36,7 @@ jest.mock( './src/hooks/use-offline', () => ( {
 
 jest.mock( './src/hooks/use-ai-icon', () => ( {
 	__esModule: true,
-	default: jest.fn().mockReturnValue( {
+	default: () => ( {
 		rive: jest.fn(),
 		RiveComponent: jest.fn(),
 		inactiveInput: jest.fn(),

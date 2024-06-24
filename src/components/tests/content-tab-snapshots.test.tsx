@@ -474,4 +474,28 @@ describe( 'AddDemoSiteWithProgress', () => {
 		} );
 		expect( offlineTooltip ).toBeVisible();
 	} );
+
+	test( 'should confirm Clear expired site button is present when snapshot expires', async () => {
+		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
+
+		const dateMS = new Date().getTime() - 9 * 24 * 60 * 60 * 1000; // 9 days ago
+		( useSiteDetails as jest.Mock ).mockReturnValue( {
+			snapshots: [
+				{
+					url: 'fake-site.fake',
+					atomicSiteId: 150,
+					localSiteId: 'site-id-1',
+					date: dateMS,
+					deleted: false,
+				},
+			],
+			uploadingSites: {},
+		} );
+		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
+
+		const clearSnapshotsButton = await screen.findByRole( 'button', {
+			name: 'Clear expired site',
+		} );
+		expect( clearSnapshotsButton ).toBeInTheDocument();
+	} );
 } );

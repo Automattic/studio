@@ -219,11 +219,11 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const disabled = isOffline || ! isAuthenticated || ! userCanSendMessage;
 
 	return (
-		<div className="h-full flex flex-col bg-gray-50 relative">
+		<div className="relative min-h-full flex flex-col bg-gray-50 rounded-b-chrome">
 			<div
 				data-testid="assistant-chat"
 				className={ cx(
-					'flex-1 overflow-y-auto p-8 flex flex-col-reverse',
+					'min-h-full flex-1 overflow-y-auto p-8 flex flex-col-reverse',
 					! isAuthenticated
 						? isOffline
 							? 'flex items-center justify-center'
@@ -292,7 +292,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 
 			<div
 				className={ cx(
-					`bg-gray-50 w-full px-8 pt-5 flex items-center border-0 border-t ${
+					`sticky bottom-0 rounded-b-chrome bg-gray-50/[0.8] backdrop-blur-sm w-full px-8 pt-4 flex items-center border-0 border-t ${
 						disabled ? 'border-top-a8c-gray-10' : 'border-top-gray-200'
 					}`
 				) }

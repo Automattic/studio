@@ -56,6 +56,7 @@ function SnapshotRow( {
 	const { countDown, isExpired, dateString } = useExpirationDate( date );
 	const { deleteSnapshot } = useDeleteSnapshot();
 	const { updateDemoSite, isDemoSiteUpdating } = useUpdateDemoSite();
+	const { removeSnapshot } = useSiteDetails();
 
 	const isOffline = useOffline();
 	const updateDemoSiteOfflineMessage = __(
@@ -113,10 +114,6 @@ function SnapshotRow( {
 		}
 	};
 
-	const handleDeleteSnapshot = () => {
-		deleteSnapshot( snapshot );
-	};
-
 	if ( isExpired ) {
 		return (
 			<div className="self-stretch flex-col">
@@ -156,7 +153,7 @@ function SnapshotRow( {
 						isSnapshotLoading={ snapshot.isLoading }
 						tagline={ __( "We're creating your new demo site." ) }
 						isExpired
-						onClearExpiredSite={ handleDeleteSnapshot }
+						onClearExpiredSite={ () => removeSnapshot( snapshot ) }
 					/>
 				</div>
 			</div>
@@ -235,7 +232,7 @@ function SnapshotRow( {
 									} );
 
 									if ( response === 0 ) {
-										handleDeleteSnapshot();
+										deleteSnapshot( snapshot );
 									}
 								} }
 							>
@@ -422,29 +419,20 @@ function AddDemoSiteWithProgress( {
 		),
 		siteLimit
 	);
-	const addingDemoSiteOfflineMessage = __(
-		'Creating a demo site requires an internet connection.'
-	);
-	const clearingExpiredSiteOfflineMessage = __(
-		'Clearing an expired demo site requires an internet connection.'
-	);
 
-	let addTooltipContent;
-	let clearTooltipContent;
+	const offlineMessage = __( 'Creating a demo site requires an internet connection.' );
+
+	let tooltipContent;
 
 	if ( isOffline ) {
-		addTooltipContent = {
+		tooltipContent = {
 			icon: offlineIcon,
-			text: addingDemoSiteOfflineMessage,
-		};
-		clearTooltipContent = {
-			icon: offlineIcon,
-			text: clearingExpiredSiteOfflineMessage,
+			text: offlineMessage,
 		};
 	} else if ( isLimitUsed ) {
-		addTooltipContent = { text: allotmentConsumptionMessage };
+		tooltipContent = { text: allotmentConsumptionMessage };
 	} else if ( isAnySiteArchiving ) {
-		addTooltipContent = { text: siteArchivingMessage };
+		tooltipContent = { text: siteArchivingMessage };
 	}
 
 	return (
@@ -458,9 +446,9 @@ function AddDemoSiteWithProgress( {
 				</div>
 			) : (
 				<div className="flex gap-4">
-					<Tooltip disabled={ ! addTooltipContent } { ...addTooltipContent }>
+					<Tooltip disabled={ ! tooltipContent } { ...tooltipContent }>
 						<Button
-							aria-description={ addTooltipContent?.text ?? '' }
+							aria-description={ tooltipContent?.text ?? '' }
 							aria-disabled={ isDisabled }
 							variant="primary"
 							onClick={ () => {
@@ -474,17 +462,13 @@ function AddDemoSiteWithProgress( {
 						</Button>
 					</Tooltip>
 					{ isExpired && (
-						<Tooltip disabled={ ! clearTooltipContent } { ...clearTooltipContent }>
-							<Button
-								aria-description={ clearTooltipContent?.text ?? '' }
-								disabled={ isOffline }
-								aria-disabled={ isOffline }
-								isDestructive
-								onClick={ onClearExpiredSite }
-							>
-								{ __( 'Clear expired site' ) }
-							</Button>
-						</Tooltip>
+						<Button
+							aria-description={ __( 'Clear expired site' )}
+							isDestructive
+							onClick={ onClearExpiredSite }
+						>
+							{ __( 'Clear expired site' ) }
+						</Button>
 					) }
 				</div>
 			) }

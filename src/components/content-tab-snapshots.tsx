@@ -113,7 +113,6 @@ function SnapshotRow( {
 			updateDemoSite( snapshot, selectedSite );
 		}
 	};
-
 	if ( isExpired ) {
 		return (
 			<div className="self-stretch flex-col">
@@ -419,11 +418,9 @@ function AddDemoSiteWithProgress( {
 		),
 		siteLimit
 	);
-
 	const offlineMessage = __( 'Creating a demo site requires an internet connection.' );
 
 	let tooltipContent;
-
 	if ( isOffline ) {
 		tooltipContent = {
 			icon: offlineIcon,

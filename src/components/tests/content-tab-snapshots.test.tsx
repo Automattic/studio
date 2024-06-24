@@ -475,7 +475,7 @@ describe( 'AddDemoSiteWithProgress', () => {
 		expect( offlineTooltip ).toBeVisible();
 	} );
 
-	test( 'should confirm Clear expired site button is present and calls removeSnapshot when clicked', async () => {
+	test( 'confirms that Clear expired site button is present on expired snapshot and calls removeSnapshot when clicked', async () => {
 		const user = userEvent.setup();
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
 

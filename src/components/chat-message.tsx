@@ -6,6 +6,7 @@ import Markdown, { ExtraProps } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import stripAnsi from 'strip-ansi';
 import { useExecuteWPCLI } from '../hooks/use-execute-cli';
+import { useSiteDetails } from '../hooks/use-site-details';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
@@ -185,16 +186,24 @@ export const ChatMessage = ( {
 function Anchor( props: JSX.IntrinsicElements[ 'a' ] & ExtraProps ) {
 	const { href } = props;
 	const { node, ...propsSansNode } = props;
+	const { selectedSite, startServer } = useSiteDetails();
 
 	return (
 		<a
 			{ ...propsSansNode }
-			onClick={ ( e ) => {
+			onClick={ async ( e ) => {
 				if ( ! href ) {
 					return;
 				}
 
 				e.preventDefault();
+
+				const urlForStoppedSite =
+					/^https?:\/\/localhost/.test( href ) && selectedSite && ! selectedSite.running;
+				if ( urlForStoppedSite ) {
+					await startServer( selectedSite?.id );
+				}
+
 				try {
 					getIpcApi().openURL( href );
 				} catch ( error ) {

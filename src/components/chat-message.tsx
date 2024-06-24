@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/react';
+import { speak } from '@wordpress/a11y';
 import { Spinner } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { useEffect } from 'react';
@@ -185,12 +186,16 @@ export const ChatMessage = ( {
 
 function Anchor( props: JSX.IntrinsicElements[ 'a' ] & ExtraProps ) {
 	const { href } = props;
-	const { node, ...propsSansNode } = props;
-	const { selectedSite, startServer } = useSiteDetails();
+	const { node, className, ...filteredProps } = props;
+	const { selectedSite, startServer, loadingServer } = useSiteDetails();
 
 	return (
 		<a
-			{ ...propsSansNode }
+			{ ...filteredProps }
+			className={ cx(
+				className,
+				selectedSite && loadingServer[ selectedSite.id ] && 'animate-pulse duration-100 cursor-wait'
+			) }
 			onClick={ async ( e ) => {
 				if ( ! href ) {
 					return;
@@ -201,6 +206,7 @@ function Anchor( props: JSX.IntrinsicElements[ 'a' ] & ExtraProps ) {
 				const urlForStoppedSite =
 					/^https?:\/\/localhost/.test( href ) && selectedSite && ! selectedSite.running;
 				if ( urlForStoppedSite ) {
+					speak( __( 'Starting the server before opening the site link' ) );
 					await startServer( selectedSite?.id );
 				}
 

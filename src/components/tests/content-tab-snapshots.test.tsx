@@ -479,8 +479,8 @@ describe( 'AddDemoSiteWithProgress', () => {
 		const user = userEvent.setup();
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
 
-		const dateMS = new Date().getTime() - 9 * 24 * 60 * 60 * 1000; // 9 days ago
-		const removeSnapshot = jest.fn(); // Mock removeSnapshot function
+		const dateMS = new Date().getTime() - 9 * 24 * 60 * 60 * 1000; // Set the snapshot to be created 9 days ago
+		const removeSnapshot = jest.fn();
 		( useSiteDetails as jest.Mock ).mockReturnValue( {
 			snapshots: [
 				{
@@ -492,7 +492,7 @@ describe( 'AddDemoSiteWithProgress', () => {
 				},
 			],
 			uploadingSites: {},
-			removeSnapshot, // Add the mock removeSnapshot function here
+			removeSnapshot,
 		} );
 
 		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );

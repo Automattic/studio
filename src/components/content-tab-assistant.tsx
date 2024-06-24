@@ -51,7 +51,6 @@ const UsageLimitReached = () => {
 };
 
 const OfflineModeView = () => {
-	// Determine if the reset is today
 	const offlineMessage = __( 'The AI assistant requires an internet connection.' );
 
 	return (

@@ -68,7 +68,7 @@ export default class WpCliProcess {
 			throw Error( 'wp-cli process is not running' );
 		}
 
-		const messageId = +this.lastMessageId;
+		const messageId = this.lastMessageId++;
 		process.postMessage( { message, messageId, data } );
 		return messageId;
 	}

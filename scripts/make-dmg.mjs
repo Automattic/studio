@@ -32,5 +32,6 @@ child_process.execSync(
 		'--app-drop-link 533 354 ' +
 		'--skip-jenkins ' +
 		`${ dmgPath } ` +
-		appPath
+		appPath,
+  { stdio: 'inherit' }
 );

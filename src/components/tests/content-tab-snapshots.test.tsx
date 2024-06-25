@@ -46,6 +46,7 @@ const selectedSite = {
 	name: 'Test Site',
 	running: false as const,
 	path: '/test-site',
+	phpVersion: '8.0',
 	adminPassword: btoa( 'test-password' ),
 };
 

@@ -11,6 +11,7 @@ export interface UserData {
 			[ stat: string ]: number;
 		};
 	};
+	promptWindowsSpeedUpResult?: PromptWindowsSpeedUpResult;
 }
 
 export interface PersistedUserData extends Omit< UserData, 'sites' > {
@@ -21,3 +22,5 @@ export interface PersistedUserData extends Omit< UserData, 'sites' > {
 	// won't persist `name`.
 	sites: Omit< StoppedSiteDetails, 'running' >[];
 }
+
+export type PromptWindowsSpeedUpResult = 'yes' | 'no';

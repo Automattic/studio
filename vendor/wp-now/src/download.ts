@@ -91,7 +91,7 @@ async function downloadFile({
 	}
 }
 
-export async function downloadWPCLI( overwrite = false ) {
+export async function downloadWpCli( overwrite = false ) {
 	return downloadFile({
 		url: WP_CLI_URL,
 		destinationFilePath: getWpCliPath(),

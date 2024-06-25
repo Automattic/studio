@@ -1,34 +1,114 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 
-export interface Message {
+export type Message = {
+	id?: number;
 	content: string;
 	role: 'user' | 'assistant';
-}
+	chatId?: string;
+	blocks?: {
+		cliOutput?: string;
+		cliStatus?: 'success' | 'error';
+		cliTime?: string;
+		codeBlockContent?: string;
+	}[];
+	createdAt: number; // Unix timestamp
+};
 
-export const useAssistant = ( selectedSiteId: string ) => {
+const chatIdStoreKey = ( instanceId: string ) => `ai_chat_id_${ instanceId }`;
+const chatMessagesStoreKey = ( instanceId: string ) => `ai_chat_messages_${ instanceId }`;
+
+export const useAssistant = ( instanceId: string ) => {
 	const [ messages, setMessages ] = useState< Message[] >( [] );
+	const [ chatId, setChatId ] = useState< string | undefined >( undefined );
 
 	useEffect( () => {
-		const storedChat = localStorage.getItem( selectedSiteId );
+		const storedChat = localStorage.getItem( chatMessagesStoreKey( instanceId ) );
+		const storedChatId = localStorage.getItem( chatIdStoreKey( instanceId ) );
 		if ( storedChat ) {
 			setMessages( JSON.parse( storedChat ) );
 		} else {
-			localStorage.setItem( selectedSiteId, JSON.stringify( [] ) );
+			setMessages( [] );
 		}
-	}, [ selectedSiteId ] );
+		if ( storedChatId ) {
+			setChatId( storedChatId );
+		} else {
+			setChatId( undefined );
+		}
+	}, [ instanceId ] );
 
-	const addMessage = ( content: string, role: 'user' | 'assistant' ) => {
-		setMessages( ( prevMessages ) => {
-			const updatedMessages = [ ...prevMessages, { content, role } ];
-			localStorage.setItem( selectedSiteId, JSON.stringify( updatedMessages ) );
-			return updatedMessages;
-		} );
-	};
+	const addMessage = useCallback(
+		( content: string, role: 'user' | 'assistant', chatId?: string ) => {
+			setMessages( ( prevMessages ) => {
+				const updatedMessages = [
+					...prevMessages,
+					{ content, role, id: prevMessages.length, createdAt: Date.now() },
+				];
+				localStorage.setItem(
+					chatMessagesStoreKey( instanceId ),
+					JSON.stringify( updatedMessages )
+				);
+				return updatedMessages;
+			} );
 
-	const clearMessages = () => {
+			setChatId( ( prevChatId ) => {
+				if ( prevChatId !== chatId && chatId ) {
+					localStorage.setItem( chatIdStoreKey( instanceId ), JSON.stringify( chatId ) );
+				}
+				return chatId;
+			} );
+		},
+		[ instanceId ]
+	);
+
+	const updateMessage = useCallback(
+		(
+			id: number,
+			codeBlockContent: string,
+			cliOutput?: string,
+			cliStatus?: 'success' | 'error',
+			cliTime?: string
+		) => {
+			setMessages( ( prevMessages ) => {
+				const updatedMessages = prevMessages.map( ( message ) => {
+					if ( message.id !== id ) return message;
+					const updatedBlocks = ( message.blocks || [] ).map( ( block ) =>
+						block.codeBlockContent === codeBlockContent
+							? { ...block, cliOutput, cliStatus, cliTime }
+							: block
+					);
+					const isBlockUpdated = updatedBlocks.find(
+						( block ) => block.codeBlockContent === codeBlockContent
+					);
+					if ( ! isBlockUpdated ) {
+						updatedBlocks.push( { codeBlockContent, cliOutput, cliStatus, cliTime } );
+					}
+					return { ...message, blocks: updatedBlocks };
+				} );
+				localStorage.setItem(
+					chatMessagesStoreKey( instanceId ),
+					JSON.stringify( updatedMessages )
+				);
+				return updatedMessages;
+			} );
+		},
+		[ instanceId ]
+	);
+
+	const clearMessages = useCallback( () => {
 		setMessages( [] );
-		localStorage.setItem( selectedSiteId, JSON.stringify( [] ) );
-	};
+		setChatId( undefined );
+		localStorage.setItem( chatMessagesStoreKey( instanceId ), JSON.stringify( [] ) );
+		localStorage.removeItem( chatIdStoreKey( instanceId ) );
+	}, [ instanceId ] );
 
-	return { messages, addMessage, clearMessages };
+	return useMemo(
+		() => ( {
+			messages,
+			addMessage,
+			updateMessage,
+			clearMessages,
+			chatId,
+		} ),
+		[ addMessage, clearMessages, messages, updateMessage, chatId ]
+	);
 };

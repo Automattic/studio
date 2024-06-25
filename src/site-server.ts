@@ -3,6 +3,7 @@ import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { getWpNowConfig } from '../vendor/wp-now/src';
 import { WPNowMode } from '../vendor/wp-now/src/config';
+import { DEFAULT_PHP_VERSION } from '../vendor/wp-now/src/constants';
 import { getWordPressVersionPath } from '../vendor/wp-now/src/download';
 import { pathExists, recursiveCopyDirectory, isEmptyDir } from './lib/fs-utils';
 import { decodePassword } from './lib/passwords';
@@ -60,6 +61,7 @@ export class SiteServer {
 		}
 		await this.stop();
 		servers.delete( this.details.id );
+		portFinder.releasePort( this.details.port );
 	}
 
 	async start() {
@@ -73,6 +75,7 @@ export class SiteServer {
 			port,
 			adminPassword: decodePassword( this.details.adminPassword ?? '' ),
 			siteTitle: this.details.name,
+			php: this.details.phpVersion,
 		} );
 		const absoluteUrl = `http://localhost:${ port }`;
 		options.absoluteUrl = absoluteUrl;
@@ -98,6 +101,7 @@ export class SiteServer {
 			...this.details,
 			url: this.server.url,
 			port: this.server.options.port,
+			phpVersion: this.server.options.phpVersion ?? DEFAULT_PHP_VERSION,
 			running: true,
 			themeDetails,
 		};
@@ -108,6 +112,7 @@ export class SiteServer {
 			...this.details,
 			name: site.name,
 			path: site.path,
+			phpVersion: site.phpVersion,
 		};
 	}
 

@@ -1,65 +1,197 @@
 import { createInterpolateElement } from '@wordpress/element';
+import { __, _n, sprintf } from '@wordpress/i18n';
 import { Icon, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import React, { useState, useEffect, useRef } from 'react';
-import { useAssistant } from '../hooks/use-assistant';
+import React, { useState, useEffect, useRef, memo } from 'react';
+import { AI_GUIDELINES_URL } from '../constants';
+import { useAssistant, Message as MessageType } from '../hooks/use-assistant';
 import { useAssistantApi } from '../hooks/use-assistant-api';
 import { useAuth } from '../hooks/use-auth';
+import { useChatContext } from '../hooks/use-chat-context';
+import { useFetchWelcomeMessages } from '../hooks/use-fetch-welcome-messages';
 import { useOffline } from '../hooks/use-offline';
+import { usePromptUsage } from '../hooks/use-prompt-usage';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
+import ClearHistoryReminder from './ai-clear-history-reminder';
+import { AIInput } from './ai-input';
 import { MessageThinking } from './assistant-thinking';
 import Button from './button';
-import { AssistantIcon } from './icons/assistant';
-import { MenuIcon } from './icons/menu';
+import { ChatMessage } from './chat-message';
+import offlineIcon from './offline-icon';
+import WelcomeComponent from './welcome-message-prompt';
 
 interface ContentTabAssistantProps {
 	selectedSite: SiteDetails;
 }
 
-interface MessageProps {
-	children: React.ReactNode;
-	isUser: boolean;
-	className?: string;
-}
+const UsageLimitReached = () => {
+	const { daysUntilReset } = usePromptUsage();
 
-export const Message = ( { children, isUser, className }: MessageProps ) => (
-	<div className={ cx( 'flex mb-2 mt-2', isUser ? 'justify-end' : 'justify-start', className ) }>
-		<div
-			className={ cx(
-				'inline-block p-3 rounded-sm border border-gray-300 lg:max-w-[70%] select-text',
-				! isUser && 'bg-white'
-			) }
-		>
-			{ children }
+	// Determine if the reset is today
+	const resetMessage =
+		daysUntilReset <= 0
+			? __( "You've reached your <a>usage limit</a> for this month. Your limit will reset today." )
+			: sprintf(
+					_n(
+						"You've reached your <a>usage limit</a> for this month. Your limit will reset in %s day.",
+						"You've reached your <a>usage limit</a> for this month. Your limit will reset in %s days.",
+						daysUntilReset
+					),
+					daysUntilReset
+			  );
+
+	return (
+		<div className="text-center h-12 px-2 pt-6 text-a8c-gray-70">
+			{ createInterpolateElement( resetMessage, {
+				a: <Button onClick={ () => getIpcApi().showUserSettings() } variant="link" />,
+			} ) }
 		</div>
-	</div>
+	);
+};
+
+const OfflineModeView = () => {
+	const offlineMessage = __( 'The AI assistant requires an internet connection.' );
+
+	return (
+		<div className="flex items-center justify-center h-12 px-2 pt-4 text-a8c-gray-70 gap-1">
+			<Icon className="m-1 fill-a8c-gray-70" size={ 24 } icon={ offlineIcon } />
+			<span className="text-[13px] leading-[16px]">{ offlineMessage }</span>
+		</div>
+	);
+};
+
+const AuthenticatedView = memo(
+	( {
+		messages,
+		isAssistantThinking,
+		updateMessage,
+		path,
+	}: {
+		messages: MessageType[];
+		isAssistantThinking: boolean;
+		updateMessage: (
+			id: number,
+			codeBlockContent: string,
+			cliOutput: string,
+			cliStatus: 'success' | 'error',
+			cliTime: string
+		) => void;
+		path: string;
+	} ) => {
+		const endOfMessagesRef = useRef< HTMLDivElement >( null );
+
+		useEffect( () => {
+			const timer = setTimeout( () => {
+				if ( endOfMessagesRef.current ) {
+					endOfMessagesRef.current.scrollIntoView( { behavior: 'smooth' } );
+				}
+			}, 100 ); // Slight delay to ensure DOM updates
+
+			return () => clearTimeout( timer );
+		}, [ messages?.length ] );
+
+		return (
+			<>
+				{ messages.map( ( message, index ) => (
+					<ChatMessage
+						key={ index }
+						id={ `message-chat-${ index }` }
+						isUser={ message.role === 'user' }
+						projectPath={ path }
+						updateMessage={ updateMessage }
+						messageId={ message.id }
+						blocks={ message.blocks }
+					>
+						{ message.content }
+					</ChatMessage>
+				) ) }
+				{ isAssistantThinking && (
+					<ChatMessage isUser={ false } id="message-thinking">
+						<MessageThinking />
+					</ChatMessage>
+				) }
+				<div ref={ endOfMessagesRef } />
+			</>
+		);
+	}
+);
+
+const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void } ) => (
+	<ChatMessage
+		id="message-unauthenticated"
+		className="w-full"
+		isUser={ false }
+		isUnauthenticated={ true }
+	>
+		<div className="mb-3 a8c-label-semibold">{ __( 'Hold up!' ) }</div>
+		<div className="mb-1">
+			{ __( 'You need to log in to your WordPress.com account to use the assistant.' ) }
+		</div>
+		<div className="mb-1">
+			{ createInterpolateElement(
+				__( "If you don't have an account yet, <a>create one for free</a>." ),
+				{
+					a: (
+						<Button
+							variant="link"
+							onClick={ () =>
+								getIpcApi().openURL(
+									'https://wordpress.com/?utm_source=studio&utm_medium=referral&utm_campaign=assistant_onboarding'
+								)
+							}
+						/>
+					),
+				}
+			) }
+		</div>
+		<div className="mb-3">
+			{ __( 'Every account gets 200 prompts included for free each month.' ) }
+		</div>
+		<Button variant="primary" onClick={ onAuthenticate }>
+			{ __( 'Log in to WordPress.com' ) }
+			<Icon className="ltr:ml-1 rtl:mr-1 rtl:scale-x-[-1]" icon={ external } size={ 21 } />
+		</Button>
+	</ChatMessage>
 );
 
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
-	const { messages, addMessage, clearMessages } = useAssistant( selectedSite.name );
-	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi();
+	const currentSiteChatContext = useChatContext();
+	const { isAuthenticated, authenticate, user } = useAuth();
+	const { messages, addMessage, clearMessages, updateMessage, chatId } = useAssistant(
+		user?.id ? `${ user.id }_${ selectedSite.id }` : selectedSite.id
+	);
+	const { userCanSendMessage } = usePromptUsage();
+	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi( selectedSite.id );
+	const {
+		messages: welcomeMessages,
+		examplePrompts,
+		fetchWelcomeMessages,
+	} = useFetchWelcomeMessages();
 	const [ input, setInput ] = useState< string >( '' );
-	const endOfMessagesRef = useRef< HTMLDivElement >( null );
-	const inputRef = useRef< HTMLInputElement >( null );
-	const { isAuthenticated, authenticate } = useAuth();
 	const isOffline = useOffline();
 	const { __ } = useI18n();
+	const lastMessage = messages.length === 0 ? undefined : messages[ messages.length - 1 ];
 
-	const handleSend = async () => {
-		if ( input.trim() ) {
-			addMessage( input, 'user' );
+	useEffect( () => {
+		fetchWelcomeMessages();
+	}, [ fetchWelcomeMessages, selectedSite ] );
+
+	const handleSend = async ( messageToSend?: string ) => {
+		const chatMessage = messageToSend || input;
+		if ( chatMessage.trim() ) {
+			addMessage( chatMessage, 'user', chatId );
 			setInput( '' );
 			try {
-				const { message } = await fetchAssistant( [
-					...messages,
-					{ content: input, role: 'user' },
-				] );
+				const { message, chatId: fetchedChatId } = await fetchAssistant(
+					chatId,
+					[ ...messages, { content: chatMessage, role: 'user', createdAt: Date.now() } ],
+					currentSiteChatContext
+				);
 				if ( message ) {
-					addMessage( message, 'assistant' );
+					addMessage( message, 'assistant', chatId ?? fetchedChatId );
 				}
 			} catch ( error ) {
-				// A delay is added to avoid the message box being closed by the previous keydown event
 				setTimeout(
 					() =>
 						getIpcApi().showMessageBox( {
@@ -74,7 +206,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		}
 	};
 
-	const handleKeyDown = ( e: React.KeyboardEvent< HTMLInputElement > ) => {
+	const handleKeyDown = ( e: React.KeyboardEvent< HTMLTextAreaElement > ) => {
 		if ( e.key === 'Enter' ) {
 			handleSend();
 		}
@@ -84,109 +216,105 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		setInput( '' );
 		clearMessages();
 	};
+	const disabled = isOffline || ! isAuthenticated || ! userCanSendMessage;
 
-	useEffect( () => {
-		if ( endOfMessagesRef.current ) {
-			endOfMessagesRef.current.scrollIntoView( { behavior: 'smooth' } );
-		}
-	}, [ messages ] );
-
-	useEffect( () => {
-		if ( isAuthenticated && inputRef.current ) {
-			inputRef.current.focus();
-		}
-	}, [ isAuthenticated ] );
-
-	const disabled = isOffline || ! isAuthenticated;
 	return (
-		<div className="h-full flex flex-col bg-gray-50">
+		<div className="h-full flex flex-col bg-gray-50 relative">
 			<div
 				data-testid="assistant-chat"
 				className={ cx(
-					'flex-1 overflow-y-auto px-8 py-4',
-					! isAuthenticated && 'flex items-end'
+					'flex-1 overflow-y-auto p-8 flex flex-col-reverse',
+					! isAuthenticated
+						? isOffline
+							? 'flex items-center justify-center'
+							: 'flex items-start'
+						: ''
 				) }
 			>
-				{ isAuthenticated ? (
-					<div data-testid="assistant-chat" className="flex-1 overflow-y-auto p-8">
-						<div className="text-gray-500 mb-4">
-							Welcome to the Studio assistant. I can help manage your site, debug issues, and
-							navigate your way around the WordPress ecosystem.
-						</div>
-						<div>
-							{ messages.map( ( message, index ) => (
-								<Message key={ index } isUser={ message.role === 'user' }>
-									{ message.content }
-								</Message>
-							) ) }
-							{ isAssistantThinking && (
-								<Message isUser={ false }>
-									<MessageThinking />
-								</Message>
+				<div className="mt-auto">
+					{ isOffline ? (
+						<>
+							{ isAuthenticated && messages.length > 0 && (
+								<AuthenticatedView
+									messages={ messages }
+									isAssistantThinking={ isAssistantThinking }
+									updateMessage={ updateMessage }
+									path={ selectedSite.path }
+								/>
 							) }
-							<div ref={ endOfMessagesRef } />
-						</div>
-					</div>
-				) : (
-					<Message className="w-full" isUser={ false }>
-						<p className="mb-1.5 a8c-label-semibold">{ __( 'Hold up!' ) }</p>
-						<p>
-							{ __( 'You need to log in to your WordPress.com account to use the assistant.' ) }
-						</p>
-						<p className="mb-1.5">
-							{ createInterpolateElement(
-								__( "If you don't have an account yet, <a>create one for free</a>." ),
-								{
-									a: (
-										<Button
-											variant="link"
-											onClick={ () =>
-												getIpcApi().openURL(
-													'https://wordpress.com/?utm_source=studio&utm_medium=referral&utm_campaign=assistant_onboarding'
-												)
-											}
+							<OfflineModeView />
+						</>
+					) : isAuthenticated ? (
+						<>
+							{ ! userCanSendMessage ? (
+								messages.length > 0 ? (
+									<>
+										<WelcomeComponent
+											onExampleClick={ ( prompt ) => handleSend( prompt ) }
+											showExamplePrompts={ messages.length === 0 }
+											messages={ welcomeMessages }
+											examplePrompts={ examplePrompts }
 										/>
-									),
-								}
+										<AuthenticatedView
+											messages={ messages }
+											isAssistantThinking={ isAssistantThinking }
+											updateMessage={ updateMessage }
+											path={ selectedSite.path }
+										/>
+										<UsageLimitReached />
+									</>
+								) : (
+									<UsageLimitReached />
+								)
+							) : (
+								<>
+									<WelcomeComponent
+										onExampleClick={ ( prompt ) => handleSend( prompt ) }
+										showExamplePrompts={ messages.length === 0 }
+										messages={ welcomeMessages }
+										examplePrompts={ examplePrompts }
+									/>
+									<AuthenticatedView
+										messages={ messages }
+										isAssistantThinking={ isAssistantThinking }
+										updateMessage={ updateMessage }
+										path={ selectedSite.path }
+									/>
+									<ClearHistoryReminder lastMessage={ lastMessage } clearInput={ clearInput } />
+								</>
 							) }
-						</p>
-						<p className="mb-3">
-							{ __( 'Every account gets 200 prompts included for free each month.' ) }
-						</p>
-						<Button variant="primary" onClick={ authenticate }>
-							{ __( 'Log in to WordPress.com' ) }
-							<Icon className="ltr:ml-1 rtl:mr-1 rtl:scale-x-[-1]" icon={ external } size={ 21 } />
-						</Button>
-					</Message>
-				) }
+						</>
+					) : (
+						<UnauthenticatedView onAuthenticate={ authenticate } />
+					) }
+				</div>
 			</div>
+
 			<div
-				data-testid="assistant-input"
-				className="px-8 py-6 bg-white flex items-center border-t border-gray-200 sticky bottom-0"
+				className={ cx(
+					`bg-gray-50 w-full px-8 pt-5 flex items-center border-0 border-t ${
+						disabled ? 'border-top-a8c-gray-10' : 'border-top-gray-200'
+					}`
+				) }
 			>
-				<div className="relative flex-1">
-					<input
-						ref={ inputRef }
+				<div className="w-full flex flex-col items-center">
+					<AIInput
 						disabled={ disabled }
-						type="text"
-						placeholder="Ask Studio WordPress Assistant"
-						className="w-full p-3 rounded-sm border-black border ltr:pl-8 rtl:pr-8 disabled:border-gray-300 disabled:cursor-not-allowed"
-						value={ input }
-						onChange={ ( e ) => setInput( e.target.value ) }
-						onKeyDown={ handleKeyDown }
+						input={ input }
+						setInput={ setInput }
+						handleSend={ () => handleSend() }
+						handleKeyDown={ handleKeyDown }
+						clearInput={ clearInput }
+						isAssistantThinking={ isAssistantThinking }
 					/>
-					<div className="absolute top-1/2 transform -translate-y-1/2 ltr:left-3 rtl:left-auto rtl:right-3 pointer-events-none">
-						<AssistantIcon />
+					<div data-testid="guidelines-link" className="text-a8c-gray-50 self-end py-2">
+						{ createInterpolateElement( __( 'Powered by experimental AI. <a>Learn more</a>' ), {
+							a: (
+								<Button variant="link" onClick={ () => getIpcApi().openURL( AI_GUIDELINES_URL ) } />
+							),
+						} ) }
 					</div>
 				</div>
-				<Button
-					disabled={ disabled }
-					aria-label="menu"
-					className="p-2 ml-2 cursor-pointer"
-					onClick={ clearInput }
-				>
-					<MenuIcon />
-				</Button>
 			</div>
 		</div>
 	);

@@ -1,5 +1,5 @@
 // To run tests, execute `npm run test -- src/components/content-tab-settings.test.tsx` from the root directory
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { useGetWpVersion } from '../../hooks/use-get-wp-version';
 import { useOffline } from '../../hooks/use-offline';
@@ -17,6 +17,7 @@ const selectedSite: SiteDetails = {
 	path: '/path/to/site',
 	adminPassword: btoa( 'test-password' ),
 	running: false,
+	phpVersion: '8.0',
 	id: 'site-id',
 };
 
@@ -146,6 +147,86 @@ describe( 'ContentTabSettings', () => {
 			await user.click( adminPasswordButton );
 			expect( copyText ).toHaveBeenCalledTimes( 1 );
 			expect( copyText ).toHaveBeenCalledWith( 'password' );
+		} );
+	} );
+
+	describe( 'PHP version', () => {
+		it( 'changes PHP version when site is not running', async () => {
+			const user = userEvent.setup();
+
+			const updateSite = jest.fn();
+			const startServer = jest.fn();
+			const stopServer = jest.fn();
+			// Mock snapshots to include a snapshot for the selected site
+			( useSiteDetails as jest.Mock ).mockReturnValue( {
+				selectedSite: { ...selectedSite, running: false } as SiteDetails,
+				snapshots: [ { localSiteId: selectedSite.id } ],
+				updateSite,
+				startServer,
+				stopServer,
+			} );
+
+			const { rerender } = render( <ContentTabSettings selectedSite={ selectedSite } /> );
+			expect( screen.getByText( '8.0' ) ).toBeVisible();
+			await user.click( screen.getByRole( 'button', { name: 'Edit PHP version' } ) );
+			const dialog = screen.getByRole( 'dialog' );
+			expect( dialog ).toBeVisible();
+			await user.selectOptions(
+				within( dialog ).getByRole( 'combobox', {
+					name: 'PHP version',
+				} ),
+				'8.2'
+			);
+			await user.click(
+				within( dialog ).getByRole( 'button', {
+					name: 'Save',
+				} )
+			);
+			expect( updateSite ).toHaveBeenCalledWith( expect.objectContaining( { phpVersion: '8.2' } ) );
+			expect( stopServer ).not.toHaveBeenCalled();
+			expect( startServer ).not.toHaveBeenCalled();
+
+			rerender( <ContentTabSettings selectedSite={ { ...selectedSite, phpVersion: '8.2' } } /> );
+			expect( screen.getByText( '8.2' ) ).toBeVisible();
+		} );
+
+		it( 'changes PHP version and restarts site when site is running', async () => {
+			const user = userEvent.setup();
+
+			const updateSite = jest.fn();
+			const startServer = jest.fn();
+			const stopServer = jest.fn();
+			// Mock snapshots to include a snapshot for the selected site
+			( useSiteDetails as jest.Mock ).mockReturnValue( {
+				selectedSite: { ...selectedSite, running: true } as SiteDetails,
+				snapshots: [ { localSiteId: selectedSite.id } ],
+				updateSite,
+				startServer,
+				stopServer,
+			} );
+
+			const { rerender } = render( <ContentTabSettings selectedSite={ selectedSite } /> );
+			expect( screen.getByText( '8.0' ) ).toBeVisible();
+			await user.click( screen.getByRole( 'button', { name: 'Edit PHP version' } ) );
+			const dialog = screen.getByRole( 'dialog' );
+			expect( dialog ).toBeVisible();
+			await user.selectOptions(
+				within( dialog ).getByRole( 'combobox', {
+					name: 'PHP version',
+				} ),
+				'8.2'
+			);
+			await user.click(
+				within( dialog ).getByRole( 'button', {
+					name: 'Save',
+				} )
+			);
+			expect( updateSite ).toHaveBeenCalledWith( expect.objectContaining( { phpVersion: '8.2' } ) );
+			expect( stopServer ).toHaveBeenCalled();
+			expect( startServer ).toHaveBeenCalled();
+
+			rerender( <ContentTabSettings selectedSite={ { ...selectedSite, phpVersion: '8.2' } } /> );
+			expect( screen.getByText( '8.2' ) ).toBeVisible();
 		} );
 	} );
 } );

@@ -14,7 +14,8 @@ import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import archiver from 'archiver';
 import { copySync } from 'fs-extra';
-import { SQLITE_FILENAME } from '../vendor/wp-now/src/constants';
+import { parse } from 'shell-quote';
+import { SQLITE_FILENAME, DEFAULT_PHP_VERSION } from '../vendor/wp-now/src/constants';
 import { downloadSqliteIntegrationPlugin } from '../vendor/wp-now/src/download';
 import { LIMIT_ARCHIVE_SIZE } from './constants';
 import { isEmptyDir, pathExists, isWordPressDirectory, sanitizeFolderName } from './lib/fs-utils';
@@ -32,10 +33,17 @@ import {
 	isSqlLiteInstalled,
 	removeLegacySqliteIntegrationPlugin,
 } from './lib/sqlite-versions';
+import * as windowsHelpers from './lib/windows-helpers';
+import WpCliProcess from './lib/wp-cli-process';
 import { writeLogToFile, type LogLevel } from './logging';
 import { popupMenu } from './menu';
 import { SiteServer, createSiteWorkingDirectory } from './site-server';
-import { DEFAULT_SITE_PATH, getServerFilesPath, getSiteThumbnailPath } from './storage/paths';
+import {
+	DEFAULT_SITE_PATH,
+	getResourcesPath,
+	getServerFilesPath,
+	getSiteThumbnailPath,
+} from './storage/paths';
 import { loadUserData, saveUserData } from './storage/user-data';
 
 const TEMP_DIR = nodePath.join( app.getPath( 'temp' ), 'com.wordpress.studio' ) + nodePath.sep;
@@ -156,6 +164,7 @@ export async function createSite(
 		path,
 		adminPassword: createPassword(),
 		running: false,
+		phpVersion: DEFAULT_PHP_VERSION,
 	} as const;
 
 	const server = SiteServer.create( details );
@@ -560,6 +569,24 @@ export async function saveOnboarding(
 	} );
 }
 
+export async function executeWPCLiInline(
+	_event: IpcMainInvokeEvent,
+	{ projectPath, args }: { projectPath: string; args: string }
+) {
+	const wpCliArgs = parse( args );
+
+	// The parsing of arguments can include shell operators like `>` or `||` that the app don't support.
+	const isValidCommand = wpCliArgs.every(
+		( arg: unknown ) => typeof arg === 'string' || arg instanceof String
+	);
+	if ( ! isValidCommand ) {
+		throw Error( `Can't execute wp-cli command with arguments: ${ args }` );
+	}
+
+	const process = new WpCliProcess();
+	return await process.execute( projectPath, wpCliArgs as string[] );
+}
+
 export async function getThumbnailData( _event: IpcMainInvokeEvent, id: string ) {
 	const path = getSiteThumbnailPath( id );
 	return getImageData( path );
@@ -568,17 +595,29 @@ export async function getThumbnailData( _event: IpcMainInvokeEvent, id: string )
 export function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath: string ) {
 	return new Promise< void >( ( resolve, reject ) => {
 		const platform = process.platform;
+		const cliPath = nodePath.join( getResourcesPath(), 'bin' );
+
+		const exePath = app.getPath( 'exe' );
+		const appDirectory = app.getAppPath();
+		const appPath = ! app.isPackaged ? `${ exePath } ${ appDirectory }` : exePath;
 
 		let command: string;
 		if ( platform === 'win32' ) {
 			// Windows
-			command = `start cmd /K "cd /d ${ targetPath }"`;
+			command = `start cmd /K "set PATH=${ cliPath };%PATH% && set STUDIO_APP_PATH=${ appPath } && cd /d ${ targetPath }"`;
 		} else if ( platform === 'darwin' ) {
 			// macOS
-			command = `open -a Terminal "${ targetPath }"`;
+			const script = `
+			tell application "Terminal"
+				if not application "Terminal" is running then launch
+				do script "clear && export PATH=${ cliPath }:$PATH && export STUDIO_APP_PATH=\\"${ appPath }\\" && cd ${ targetPath }"
+				activate
+			end tell
+			`;
+			command = `osascript -e '${ script }'`;
 		} else if ( platform === 'linux' ) {
 			// Linux
-			command = `gnome-terminal --working-directory=${ targetPath }`;
+			command = `export PATH=${ cliPath }:$PATH && export STUDIO_APP_PATH="${ appPath }" && gnome-terminal -- bash -c 'cd ${ targetPath }; exec bash'`;
 		} else {
 			console.error( 'Unsupported platform:', platform );
 			return;
@@ -614,4 +653,11 @@ export async function showNotification(
 
 export function popupAppMenu( _event: IpcMainInvokeEvent ) {
 	popupMenu();
+}
+
+export async function promptWindowsSpeedUpSites(
+	_event: IpcMainInvokeEvent,
+	{ skipIfAlreadyPrompted }: { skipIfAlreadyPrompted: boolean }
+) {
+	await windowsHelpers.promptWindowsSpeedUpSites( { skipIfAlreadyPrompted } );
 }

@@ -1,5 +1,7 @@
+import { ChatProvider } from '../hooks/use-chat-context';
 import { InstalledAppsProvider } from '../hooks/use-check-installed-apps';
 import { OnboardingProvider } from '../hooks/use-onboarding';
+import { PromptUsageProvider } from '../hooks/use-prompt-usage';
 import { SiteDetailsProvider } from '../hooks/use-site-details';
 import { ThemeDetailsProvider } from '../hooks/use-theme-details';
 import { DemoSiteUpdateProvider } from '../hooks/use-update-demo-site';
@@ -18,7 +20,11 @@ const Root = () => {
 						<ThemeDetailsProvider>
 							<InstalledAppsProvider>
 								<OnboardingProvider>
-									<App />
+									<PromptUsageProvider>
+										<ChatProvider>
+											<App />
+										</ChatProvider>
+									</PromptUsageProvider>
 								</OnboardingProvider>
 							</InstalledAppsProvider>
 						</ThemeDetailsProvider>

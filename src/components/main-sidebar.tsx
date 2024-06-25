@@ -107,7 +107,7 @@ function SidebarToolbar() {
 						className="cursor-default"
 						variant="icon"
 					>
-						<Icon className="m-1 fill-white" size={ 16 } icon={ offlineIcon } />
+						<Icon className="m-1 text-white" size={ 16 } icon={ offlineIcon } />
 					</Button>
 				</Tooltip>
 			) }

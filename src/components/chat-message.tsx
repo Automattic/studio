@@ -52,7 +52,7 @@ const InlineCLI = ( { output, status, time }: InlineCLIProps ) => (
 			<span className="text-gray-400">{ time }</span>
 		</div>
 		<pre className="text-white !bg-transparent !m-0 !px-0">
-			<code className="!bg-transparent !mx-0 !px-0">{ output }</code>
+			<code className="!bg-transparent !mx-0 !px-0 !text-nowrap">{ output }</code>
 		</pre>
 	</div>
 );
@@ -195,7 +195,10 @@ export const ChatMessage = ( {
 				</div>
 				{ typeof children === 'string' ? (
 					<div className="assistant-markdown">
-						<Markdown components={ { a: Anchor, code: CodeBlock } } remarkPlugins={ [ remarkGfm ] }>
+						<Markdown
+							components={ { a: Anchor, code: CodeBlock, img: () => null } }
+							remarkPlugins={ [ remarkGfm ] }
+						>
 							{ children }
 						</Markdown>
 					</div>

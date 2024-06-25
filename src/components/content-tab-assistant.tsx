@@ -19,6 +19,7 @@ import { AIInput } from './ai-input';
 import { MessageThinking } from './assistant-thinking';
 import Button from './button';
 import { ChatMessage } from './chat-message';
+import offlineIcon from './offline-icon';
 import WelcomeComponent from './welcome-message-prompt';
 
 interface ContentTabAssistantProps {
@@ -46,6 +47,17 @@ const UsageLimitReached = () => {
 			{ createInterpolateElement( resetMessage, {
 				a: <Button onClick={ () => getIpcApi().showUserSettings() } variant="link" />,
 			} ) }
+		</div>
+	);
+};
+
+const OfflineModeView = () => {
+	const offlineMessage = __( 'The AI assistant requires an internet connection.' );
+
+	return (
+		<div className="flex items-center justify-center h-12 px-2 pt-4 text-a8c-gray-70 gap-1">
+			<Icon className="m-1 fill-a8c-gray-70" size={ 24 } icon={ offlineIcon } />
+			<span className="text-[13px] leading-[16px]">{ offlineMessage }</span>
 		</div>
 	);
 };
@@ -218,11 +230,27 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 				data-testid="assistant-chat"
 				className={ cx(
 					'flex-1 overflow-y-auto p-8 flex flex-col-reverse',
-					! isAuthenticated && 'flex items-start'
+					! isAuthenticated
+						? isOffline
+							? 'flex items-center justify-center'
+							: 'flex items-start'
+						: ''
 				) }
 			>
 				<div className="mt-auto">
-					{ isAuthenticated ? (
+					{ isOffline ? (
+						<>
+							{ isAuthenticated && messages.length > 0 && (
+								<AuthenticatedView
+									messages={ messages }
+									isAssistantThinking={ isAssistantThinking }
+									updateMessage={ updateMessage }
+									path={ selectedSite.path }
+								/>
+							) }
+							<OfflineModeView />
+						</>
+					) : isAuthenticated ? (
 						<>
 							{ ! userCanSendMessage ? (
 								messages.length > 0 ? (

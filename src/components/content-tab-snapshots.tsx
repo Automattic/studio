@@ -97,7 +97,7 @@ function SnapshotRow( {
 				),
 				buttons: [ __( 'Update' ), __( 'Cancel' ) ],
 				cancelId: CANCEL_BUTTON_INDEX,
-				checkboxLabel: __( "Don't ask again" ),
+				checkboxLabel: __( "Don't show this warning again" ),
 				checkboxChecked: false,
 			} );
 

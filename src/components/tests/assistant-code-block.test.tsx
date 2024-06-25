@@ -16,4 +16,32 @@ describe( 'createCodeComponent', () => {
 
 		expect( screen.getByText( 'Copy' ) ).toBeInTheDocument();
 	} );
+
+	it( 'should display the "run" button for elligble wp-cli commands without placeholder content', () => {
+		render( <CodeBlock className="language-bash" children="wp --version" /> );
+
+		expect( screen.getByText( 'Run' ) ).toBeInTheDocument();
+	} );
+
+	it( 'should hide the "run" button for inellible non-wp-cli code', () => {
+		render(
+			<CodeBlock className="language-bash" children="wp plugin activate <example-plugin>" />
+		);
+
+		expect( screen.queryByText( 'Run' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'should hide the "run" button for inellible wp-cli commands with placeholder content', () => {
+		render(
+			<CodeBlock className="language-bash" children="wp plugin activate <example-plugin>" />
+		);
+
+		expect( screen.queryByText( 'Run' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'should hide the "run" button for inellible wp-cli commands with multiple wp-cli invocations', () => {
+		render( <CodeBlock className="language-bash" children="wp --version wp --version" /> );
+
+		expect( screen.queryByText( 'Run' ) ).not.toBeInTheDocument();
+	} );
 } );

@@ -72,11 +72,17 @@ const ErrorNotice = ( {
 } ) => {
 	const { __ } = useI18n();
 	return (
-		<div className="text-a8c-gray-50 flex justify-end py-2">
+		<div className="text-a8c-gray-50 flex justify-end py-2 text-xs">
 			{ createInterpolateElement(
-				__( "Oops. We couldn't get a response from the assistant. <a>Try again</a>" ),
+				__( "Oops! We couldn't get a response from the assistant. <a>Try again</a>" ),
 				{
-					a: <Button variant="link" onClick={ () => handleSend( messageContent, messageId ) } />,
+					a: (
+						<Button
+							variant="link"
+							onClick={ () => handleSend( messageContent, messageId ) }
+							className="text-xs"
+						/>
+					),
 				}
 			) }
 		</div>

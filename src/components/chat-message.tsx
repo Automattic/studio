@@ -34,6 +34,7 @@ interface ChatMessageProps {
 		time: string
 	) => void;
 	isUnauthenticated?: boolean;
+	errorMessageId?: number | null;
 }
 
 interface InlineCLIProps {
@@ -66,6 +67,7 @@ export const ChatMessage = ( {
 	blocks,
 	updateMessage,
 	isUnauthenticated,
+	errorMessageId,
 }: ChatMessageProps ) => {
 	const CodeBlock = ( props: JSX.IntrinsicElements[ 'code' ] & ExtraProps ) => {
 		const content = String( props.children ).trim();
@@ -160,7 +162,10 @@ export const ChatMessage = ( {
 				className={ cx(
 					'inline-block p-3 rounded border border-gray-300 overflow-x-auto select-text',
 					isUnauthenticated ? 'lg:max-w-[90%]' : 'lg:max-w-[70%]', // Apply different max-width for unauthenticated view
-					! isUser ? 'bg-white' : 'bg-white/45'
+					! isUser ? 'bg-white' : 'bg-white/45',
+					id !== 'message-thinking' && messageId === errorMessageId //Ensure that the styling for error applies only to a message that fails to send
+						? 'text-red-500 bg-red-100 border border-red-500'
+						: ''
 				) }
 			>
 				<div className="relative">

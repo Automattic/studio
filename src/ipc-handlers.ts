@@ -571,8 +571,16 @@ export async function saveOnboarding(
 
 export async function executeWPCLiInline(
 	_event: IpcMainInvokeEvent,
-	{ projectPath, args }: { projectPath: string; args: string }
+	{ siteId, args }: { siteId: string; args: string }
 ) {
+	if ( SiteServer.isDeleted( siteId ) ) {
+		return { stdout: '', stderr: `can't execute command on deleted site ${ siteId }` };
+	}
+	const site = SiteServer.get( siteId );
+	if ( ! site ) {
+		throw new Error( 'Site not found.' );
+	}
+
 	const wpCliArgs = parse( args );
 
 	// The parsing of arguments can include shell operators like `>` or `||` that the app don't support.
@@ -584,7 +592,7 @@ export async function executeWPCLiInline(
 	}
 
 	const process = new WpCliProcess();
-	return await process.execute( projectPath, wpCliArgs as string[] );
+	return await process.execute( site.details.path, wpCliArgs as string[] );
 }
 
 export async function getThumbnailData( _event: IpcMainInvokeEvent, id: string ) {

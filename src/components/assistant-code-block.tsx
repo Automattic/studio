@@ -10,10 +10,7 @@ import { ChatMessageProps } from './chat-message';
 import { CopyTextButton } from './copy-text-button';
 import { ExecuteIcon } from './icons/execute';
 
-type ContextProps = Pick<
-	ChatMessageProps,
-	'blocks' | 'updateMessage' | 'projectPath' | 'messageId'
->;
+type ContextProps = Pick< ChatMessageProps, 'blocks' | 'updateMessage' | 'siteId' | 'messageId' >;
 
 type CodeBlockProps = JSX.IntrinsicElements[ 'code' ] & ExtraProps;
 
@@ -24,7 +21,7 @@ export default function createCodeComponent( contextProps: ContextProps ) {
 function CodeBlock( props: ContextProps & CodeBlockProps ) {
 	const content = String( props.children ).trim();
 	const isValidWpCliCommand = useIsValidWpCliInline( content );
-	const { node, blocks, updateMessage, projectPath, messageId, ...htmlAttributes } = props;
+	const { node, blocks, updateMessage, siteId, messageId, ...htmlAttributes } = props;
 	const {
 		cliOutput,
 		cliStatus,
@@ -34,7 +31,7 @@ function CodeBlock( props: ContextProps & CodeBlockProps ) {
 		setCliOutput,
 		setCliStatus,
 		setCliTime,
-	} = useExecuteWPCLI( content, projectPath, updateMessage, messageId );
+	} = useExecuteWPCLI( content, siteId, updateMessage, messageId );
 
 	useEffect( () => {
 		if ( blocks ) {

@@ -33,5 +33,5 @@ child_process.execSync(
 		'--skip-jenkins ' +
 		`${ dmgPath } ` +
 		appPath,
-  { stdio: 'inherit' }
+	{ stdio: 'inherit' }
 );

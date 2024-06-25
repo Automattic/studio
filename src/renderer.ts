@@ -97,7 +97,7 @@ getIpcApi()
 									'Downloading the optimized version of Studio will provide better performance.'
 							  ),
 					checkboxLabel: __( "Don't show this warning again" ),
-					buttons: [ __( 'Download' ), __( 'Cancel' ) ],
+					buttons: [ __( 'Download' ), __( 'Not now' ) ],
 					cancelId: 1,
 				} );
 

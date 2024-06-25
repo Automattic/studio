@@ -101,11 +101,11 @@ function SnapshotRow( {
 				checkboxChecked: false,
 			} );
 
-			if ( checkboxChecked ) {
-				localStorage.setItem( 'dontShowUpdateWarning', 'true' );
-			}
-
 			if ( response === UPDATE_BUTTON_INDEX ) {
+				if ( checkboxChecked ) {
+					localStorage.setItem( 'dontShowUpdateWarning', 'true' );
+				}
+
 				updateDemoSite( snapshot, selectedSite );
 			}
 		} else {

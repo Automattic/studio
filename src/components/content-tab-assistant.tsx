@@ -208,12 +208,11 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const lastMessage = messages.length === 0 ? undefined : messages[ messages.length - 1 ];
 
 	const [ errorMessageId, setErrorMessageId ] = useState< number | null >( null );
+	const [ isThinking, setIsThinking ] = useState( false );
 
 	useEffect( () => {
 		fetchWelcomeMessages();
 	}, [ fetchWelcomeMessages, selectedSite ] );
-
-	const [ isThinking, setIsThinking ] = useState( false ); // Add this line
 
 	const handleSend = async ( messageToSend?: string, messageId?: number ) => {
 		const chatMessage = messageToSend || input;
@@ -276,7 +275,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 							{ isAuthenticated && messages.length > 0 && (
 								<AuthenticatedView
 									messages={ messages }
-									isAssistantThinking={ isAssistantThinking }
+									isAssistantThinking={ isAssistantThinking || isThinking }
 									updateMessage={ updateMessage }
 									path={ selectedSite.path }
 									errorMessageId={ errorMessageId }
@@ -298,7 +297,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 										/>
 										<AuthenticatedView
 											messages={ messages }
-											isAssistantThinking={ isAssistantThinking }
+											isAssistantThinking={ isAssistantThinking || isThinking }
 											updateMessage={ updateMessage }
 											path={ selectedSite.path }
 											errorMessageId={ errorMessageId }
@@ -319,7 +318,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 									/>
 									<AuthenticatedView
 										messages={ messages }
-										isAssistantThinking={ isAssistantThinking }
+										isAssistantThinking={ isAssistantThinking || isThinking }
 										updateMessage={ updateMessage }
 										path={ selectedSite.path }
 										errorMessageId={ errorMessageId }

@@ -82,7 +82,7 @@ function AIClearHistoryReminder( {
 	}
 
 	return (
-		<div ref={ elementRef } className="mt-8 text-center">
+		<div ref={ elementRef } className="mt-8 mb-2 text-center">
 			{ createInterpolateElement(
 				__(
 					'This conversation is over two hours old. <button>Clear the history</button> if you have something new to ask.'

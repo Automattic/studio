@@ -72,7 +72,7 @@ const ErrorNotice = ( {
 } ) => {
 	const { __ } = useI18n();
 	return (
-		<div className="flex justify-end h-12 px-2 pt-6 text-a8c-gray-70">
+		<div className="text-a8c-gray-50 flex justify-end py-2">
 			{ createInterpolateElement(
 				__( "Oops. We couldn't get a response from the assistant. <a>Try again</a>" ),
 				{

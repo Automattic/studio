@@ -37,6 +37,7 @@ blockquote {
 .components-tab-panel__tab-content {
 	flex: 1;
 	overflow: auto;
+	scrollbar-width: thin;
 }
 
 /* Ensure assistant tab has gray bg for scrollbar */

@@ -71,10 +71,13 @@ steps:
         command: |
           .buildkite/commands/prepare-environment.sh
 
-          echo "--- :node: Building Binary"
           .buildkite/commands/install-node-dependencies.sh
           node ./scripts/prepare-dev-build-version.mjs
+
+          echo "--- :node: Building Binary"
           npm run make:macos-{{matrix}}
+
+          echo "--- :node: Packaging in DMG"
           npm run make:dmg-{{matrix}}
 
           echo "--- 📃 Notarizing Binary"
@@ -141,10 +144,13 @@ steps:
         command: |
           .buildkite/commands/prepare-environment.sh
 
-          echo "--- :node: Building Binary"
           .buildkite/commands/install-node-dependencies.sh
           node ./scripts/confirm-tag-matches-version.mjs
+
+          echo "--- :node: Building Binary"
           npm run make:macos-{{matrix}}
+
+          echo "--- :node: Packaging in DMG"
           npm run make:dmg-{{matrix}}
 
           echo "--- 📃 Notarizing Binary"

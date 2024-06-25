@@ -164,7 +164,7 @@ export const ChatMessage = ( {
 					isUnauthenticated ? 'lg:max-w-[90%]' : 'lg:max-w-[70%]', // Apply different max-width for unauthenticated view
 					! isUser ? 'bg-white' : 'bg-white/45',
 					id !== 'message-thinking' && messageId === errorMessageId //Ensure that the styling for error applies only to a message that fails to send
-						? 'text-red-500 bg-red-100 border border-red-500'
+						? 'border border-[#FACFD2] bg-[#F7EBEC]'
 						: ''
 				) }
 			>

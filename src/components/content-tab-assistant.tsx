@@ -61,12 +61,22 @@ const OfflineModeView = () => {
 	);
 };
 
+const ErrorNotice = () => {
+	const { __ } = useI18n();
+	return (
+		<div className="flex justify-end h-12 px-2 pt-6 text-a8c-gray-70">
+			{ __( "Oops. We couldn't get a response from the assistant. Try again" ) }
+		</div>
+	);
+};
+
 const AuthenticatedView = memo(
 	( {
 		messages,
 		isAssistantThinking,
 		updateMessage,
 		path,
+		errorMessageId,
 	}: {
 		messages: MessageType[];
 		isAssistantThinking: boolean;
@@ -78,6 +88,7 @@ const AuthenticatedView = memo(
 			cliTime: string
 		) => void;
 		path: string;
+		errorMessageId: number | null;
 	} ) => {
 		const endOfMessagesRef = useRef< HTMLDivElement >( null );
 
@@ -94,17 +105,19 @@ const AuthenticatedView = memo(
 		return (
 			<>
 				{ messages.map( ( message, index ) => (
-					<ChatMessage
-						key={ index }
-						id={ `message-chat-${ index }` }
-						isUser={ message.role === 'user' }
-						projectPath={ path }
-						updateMessage={ updateMessage }
-						messageId={ message.id }
-						blocks={ message.blocks }
-					>
-						{ message.content }
-					</ChatMessage>
+					<div key={ index }>
+						<ChatMessage
+							id={ `message-chat-${ index }` }
+							isUser={ message.role === 'user' }
+							projectPath={ path }
+							updateMessage={ updateMessage }
+							messageId={ message.id }
+							blocks={ message.blocks }
+						>
+							{ message.content }
+						</ChatMessage>
+						{ message.id === errorMessageId && <ErrorNotice /> }
+					</div>
 				) ) }
 				{ isAssistantThinking && (
 					<ChatMessage isUser={ false } id="message-thinking">
@@ -173,6 +186,8 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const { __ } = useI18n();
 	const lastMessage = messages.length === 0 ? undefined : messages[ messages.length - 1 ];
 
+	const [ errorMessageId, setErrorMessageId ] = useState< number | null >( null );
+
 	useEffect( () => {
 		fetchWelcomeMessages();
 	}, [ fetchWelcomeMessages, selectedSite ] );
@@ -180,28 +195,24 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const handleSend = async ( messageToSend?: string ) => {
 		const chatMessage = messageToSend || input;
 		if ( chatMessage.trim() ) {
+			const messageId = messages.length;
 			addMessage( chatMessage, 'user', chatId );
 			setInput( '' );
 			try {
 				const { message, chatId: fetchedChatId } = await fetchAssistant(
 					chatId,
-					[ ...messages, { content: chatMessage, role: 'user', createdAt: Date.now() } ],
+					[
+						...messages,
+						{ content: chatMessage, role: 'user', createdAt: Date.now(), id: messageId },
+					],
 					currentSiteChatContext
 				);
 				if ( message ) {
 					addMessage( message, 'assistant', chatId ?? fetchedChatId );
+					setErrorMessageId( null );
 				}
 			} catch ( error ) {
-				setTimeout(
-					() =>
-						getIpcApi().showMessageBox( {
-							type: 'warning',
-							message: __( 'Failed to send message' ),
-							detail: __( "We couldn't send the latest message. Please try again." ),
-							buttons: [ __( 'OK' ) ],
-						} ),
-					100
-				);
+				setErrorMessageId( messageId );
 			}
 		}
 	};
@@ -240,6 +251,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 									isAssistantThinking={ isAssistantThinking }
 									updateMessage={ updateMessage }
 									path={ selectedSite.path }
+									errorMessageId={ errorMessageId }
 								/>
 							) }
 							<OfflineModeView />
@@ -260,6 +272,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 											isAssistantThinking={ isAssistantThinking }
 											updateMessage={ updateMessage }
 											path={ selectedSite.path }
+											errorMessageId={ errorMessageId }
 										/>
 										<UsageLimitReached />
 									</>
@@ -279,6 +292,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 										isAssistantThinking={ isAssistantThinking }
 										updateMessage={ updateMessage }
 										path={ selectedSite.path }
+										errorMessageId={ errorMessageId }
 									/>
 									<ClearHistoryReminder lastMessage={ lastMessage } clearInput={ clearInput } />
 								</>

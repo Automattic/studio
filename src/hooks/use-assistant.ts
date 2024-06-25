@@ -1,9 +1,10 @@
+import { removeBug } from '@wordpress/icons';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 
 export type Message = {
 	id?: number;
 	content: string;
-	role: 'user' | 'assistant';
+	role: 'user' | 'assistant' | 'thinking';
 	chatId?: string;
 	blocks?: {
 		cliOutput?: string;
@@ -39,13 +40,27 @@ export const useAssistant = ( instanceId: string ) => {
 	const addMessage = useCallback(
 		( content: string, role: 'user' | 'assistant', chatId?: string ) => {
 			setMessages( ( prevMessages ) => {
-				const updatedMessages = [
-					...prevMessages,
-					{ content, role, id: prevMessages.length, createdAt: Date.now() },
-				];
+				const newMessage = { content, role, createdAt: Date.now(), id: prevMessages.length };
+				const newMessages = [ ...prevMessages ];
+				if ( newMessage.role === 'user' ) {
+					newMessages.push( newMessage );
+					newMessages.push( {
+						content: '',
+						role: 'thinking',
+						createdAt: Date.now(),
+						id: newMessages.length,
+					} );
+				}
+				if ( newMessage.role === 'assistant' ) {
+					newMessages.pop();
+					newMessages.push( { ...newMessage, id: newMessages.length } );
+				}
+				const updatedMessages = [ ...newMessages ];
+				const messagesToStore = newMessages.filter( ( message ) => message.role !== 'thinking' );
+
 				localStorage.setItem(
 					chatMessagesStoreKey( instanceId ),
-					JSON.stringify( updatedMessages )
+					JSON.stringify( messagesToStore )
 				);
 				return updatedMessages;
 			} );
@@ -59,6 +74,25 @@ export const useAssistant = ( instanceId: string ) => {
 		},
 		[ instanceId ]
 	);
+
+	const removeLastMessage = useCallback( () => {
+		setMessages( ( prevMessages ) => {
+			const lastMessage = prevMessages[ prevMessages.length - 1 ];
+			const newMessages = prevMessages.slice( 0, prevMessages.length - 1 );
+			if ( lastMessage.role === 'user' ) {
+				newMessages.pop();
+				newMessages.pop();
+			}
+			if ( lastMessage.role === 'assistant' ) {
+				newMessages.pop();
+			}
+			const updatedMessages = [ ...newMessages ];
+			const messagesToStore = newMessages.filter( ( message ) => message.role !== 'thinking' );
+
+			localStorage.setItem( chatMessagesStoreKey( instanceId ), JSON.stringify( messagesToStore ) );
+			return updatedMessages;
+		} );
+	}, [ instanceId ] );
 
 	const updateMessage = useCallback(
 		(
@@ -107,8 +141,9 @@ export const useAssistant = ( instanceId: string ) => {
 			addMessage,
 			updateMessage,
 			clearMessages,
+			removeLastMessage,
 			chatId,
 		} ),
-		[ addMessage, clearMessages, messages, updateMessage, chatId ]
+		[ addMessage, clearMessages, messages, updateMessage, removeLastMessage, chatId ]
 	);
 };

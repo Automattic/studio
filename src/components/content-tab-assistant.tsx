@@ -65,12 +65,10 @@ const OfflineModeView = () => {
 const AuthenticatedView = memo(
 	( {
 		messages,
-		isAssistantThinking,
 		updateMessage,
 		path,
 	}: {
 		messages: MessageType[];
-		isAssistantThinking: boolean;
 		updateMessage: (
 			id: number,
 			codeBlockContent: string,
@@ -104,19 +102,9 @@ const AuthenticatedView = memo(
 						messageId={ message.id }
 						blocks={ message.blocks }
 					>
-						{ message.content }
+						{ message.role === 'thinking' ? <MessageThinking /> : message.content }
 					</ChatMessage>
 				) ) }
-				{ isAssistantThinking && (
-					<ChatMessage
-						isAssistantThinking
-						key="message-thinking"
-						id="message-thinking"
-						isUser={ false }
-					>
-						<MessageThinking />
-					</ChatMessage>
-				) }
 				<div ref={ endOfMessagesRef } />
 			</AnimatePresence>
 		);
@@ -164,9 +152,8 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
 	const currentSiteChatContext = useChatContext();
 	const { isAuthenticated, authenticate, user } = useAuth();
-	const { messages, addMessage, clearMessages, updateMessage, chatId } = useAssistant(
-		user?.id ? `${ user.id }_${ selectedSite.id }` : selectedSite.id
-	);
+	const { messages, addMessage, clearMessages, updateMessage, removeLastMessage, chatId } =
+		useAssistant( user?.id ? `${ user.id }_${ selectedSite.id }` : selectedSite.id );
 	const { userCanSendMessage } = usePromptUsage();
 	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi( selectedSite.id );
 	const {
@@ -196,6 +183,8 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 				);
 				if ( message ) {
 					addMessage( message, 'assistant', chatId ?? fetchedChatId );
+				} else {
+					removeLastMessage();
 				}
 			} catch ( error ) {
 				setTimeout(
@@ -208,6 +197,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 						} ),
 					100
 				);
+				removeLastMessage();
 			}
 		}
 	};
@@ -243,7 +233,6 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 							{ isAuthenticated && messages.length > 0 && (
 								<AuthenticatedView
 									messages={ messages }
-									isAssistantThinking={ isAssistantThinking }
 									updateMessage={ updateMessage }
 									path={ selectedSite.path }
 								/>
@@ -263,7 +252,6 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 										/>
 										<AuthenticatedView
 											messages={ messages }
-											isAssistantThinking={ isAssistantThinking }
 											updateMessage={ updateMessage }
 											path={ selectedSite.path }
 										/>
@@ -282,7 +270,6 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 									/>
 									<AuthenticatedView
 										messages={ messages }
-										isAssistantThinking={ isAssistantThinking }
 										updateMessage={ updateMessage }
 										path={ selectedSite.path }
 									/>

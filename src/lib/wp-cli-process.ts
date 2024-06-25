@@ -8,34 +8,25 @@ import { executeWPCli } from '../../vendor/wp-now/src/execute-wp-cli';
 declare const WP_CLI_PROCESS_MODULE_PATH: string;
 
 export type MessageName = 'execute';
+export type WpCliResult = ReturnType< typeof executeWPCli >;
 
 const DEFAULT_RESPONSE_TIMEOUT = 120000;
 
 export default class WpCliProcess {
 	lastMessageId = 0;
 	process?: UtilityProcess;
+	projectPath: string;
 
-	async execute(
-		projectPath: string,
-		args: string[]
-	): Promise< ReturnType< typeof executeWPCli > > {
+	constructor( projectPath: string ) {
+		this.projectPath = projectPath;
+	}
+
+	async init(): Promise< void > {
 		return new Promise( ( resolve, reject ) => {
 			const spawnListener = async () => {
-				const messageId = this.sendMessage( 'execute', { projectPath, args } );
-				try {
-					const response = await this.waitForResponse< ReturnType< typeof executeWPCli > >(
-						'execute',
-						messageId
-					);
-					// Removing exit listener as we only need it upon starting
-					this.process?.off( 'exit', exitListener );
-					resolve( response );
-				} catch ( error ) {
-					reject( error );
-				} finally {
-					// The process is automatically killed after the execution
-					this.#killProcess();
-				}
+				// Removing exit listener as we only need it upon starting
+				this.process?.off( 'exit', exitListener );
+				resolve();
 			};
 			const exitListener = ( code: number ) => {
 				if ( code !== 0 ) {
@@ -57,6 +48,12 @@ export default class WpCliProcess {
 				.on( 'spawn', spawnListener )
 				.on( 'exit', exitListener );
 		} );
+	}
+
+	async execute( args: string[] ): Promise< WpCliResult > {
+		const message = 'execute';
+		const messageId = this.sendMessage( message, { projectPath: this.projectPath, args } );
+		return await this.waitForResponse( message, messageId );
 	}
 
 	async stop() {

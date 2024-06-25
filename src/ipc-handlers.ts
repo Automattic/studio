@@ -14,7 +14,6 @@ import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import archiver from 'archiver';
 import { copySync } from 'fs-extra';
-import { parse } from 'shell-quote';
 import { SQLITE_FILENAME, DEFAULT_PHP_VERSION } from '../vendor/wp-now/src/constants';
 import { downloadSqliteIntegrationPlugin } from '../vendor/wp-now/src/download';
 import { LIMIT_ARCHIVE_SIZE } from './constants';
@@ -34,7 +33,6 @@ import {
 	removeLegacySqliteIntegrationPlugin,
 } from './lib/sqlite-versions';
 import * as windowsHelpers from './lib/windows-helpers';
-import WpCliProcess from './lib/wp-cli-process';
 import { writeLogToFile, type LogLevel } from './logging';
 import { popupMenu } from './menu';
 import { SiteServer, createSiteWorkingDirectory } from './site-server';
@@ -45,6 +43,7 @@ import {
 	getSiteThumbnailPath,
 } from './storage/paths';
 import { loadUserData, saveUserData } from './storage/user-data';
+import type { WpCliResult } from './lib/wp-cli-process';
 
 const TEMP_DIR = nodePath.join( app.getPath( 'temp' ), 'com.wordpress.studio' ) + nodePath.sep;
 if ( ! fs.existsSync( TEMP_DIR ) ) {
@@ -572,27 +571,15 @@ export async function saveOnboarding(
 export async function executeWPCLiInline(
 	_event: IpcMainInvokeEvent,
 	{ siteId, args }: { siteId: string; args: string }
-) {
+): Promise< WpCliResult > {
 	if ( SiteServer.isDeleted( siteId ) ) {
 		return { stdout: '', stderr: `can't execute command on deleted site ${ siteId }` };
 	}
-	const site = SiteServer.get( siteId );
-	if ( ! site ) {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
 		throw new Error( 'Site not found.' );
 	}
-
-	const wpCliArgs = parse( args );
-
-	// The parsing of arguments can include shell operators like `>` or `||` that the app don't support.
-	const isValidCommand = wpCliArgs.every(
-		( arg: unknown ) => typeof arg === 'string' || arg instanceof String
-	);
-	if ( ! isValidCommand ) {
-		throw Error( `Can't execute wp-cli command with arguments: ${ args }` );
-	}
-
-	const process = new WpCliProcess();
-	return await process.execute( site.details.path, wpCliArgs as string[] );
+	return server.executeWpCliCommand( args );
 }
 
 export async function getThumbnailData( _event: IpcMainInvokeEvent, id: string ) {

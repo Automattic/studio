@@ -1,6 +1,7 @@
 import fs from 'fs';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
+import { parse } from 'shell-quote';
 import { getWpNowConfig } from '../vendor/wp-now/src';
 import { WPNowMode } from '../vendor/wp-now/src/config';
 import { DEFAULT_PHP_VERSION } from '../vendor/wp-now/src/constants';
@@ -12,6 +13,7 @@ import { portFinder } from './lib/port-finder';
 import { sanitizeForLogging } from './lib/sanitize-for-logging';
 import { getPreferredSiteLanguage } from './lib/site-language';
 import SiteServerProcess from './lib/site-server-process';
+import WpCliProcess, { WpCliResult } from './lib/wp-cli-process';
 import { purgeWpConfig } from './lib/wp-versions';
 import { createScreenshotWindow } from './screenshot-window';
 import { getSiteThumbnailPath } from './storage/paths';
@@ -42,6 +44,7 @@ export async function stopAllServersOnQuit() {
 
 export class SiteServer {
 	server?: SiteServerProcess;
+	wpCliExecutor?: WpCliProcess;
 
 	private constructor( public details: SiteDetails ) {}
 
@@ -65,6 +68,7 @@ export class SiteServer {
 			await fs.promises.unlink( thumbnailPath );
 		}
 		await this.stop();
+		await this.wpCliExecutor?.stop();
 		deletedServers.push( this.details.id );
 		servers.delete( this.details.id );
 		portFinder.releasePort( this.details.port );
@@ -154,5 +158,31 @@ export class SiteServer {
 			.then( ( image ) => fs.promises.writeFile( outPath, image.toPNG() ) )
 			.catch( Sentry.captureException )
 			.finally( () => window.destroy() );
+	}
+
+	async executeWpCliCommand( args: string ): Promise< WpCliResult > {
+		const projectPath = this.details.path;
+
+		if ( ! this.wpCliExecutor ) {
+			this.wpCliExecutor = new WpCliProcess( projectPath );
+			await this.wpCliExecutor.init();
+		}
+
+		const wpCliArgs = parse( args );
+
+		// The parsing of arguments can include shell operators like `>` or `||` that the app don't support.
+		const isValidCommand = wpCliArgs.every(
+			( arg: unknown ) => typeof arg === 'string' || arg instanceof String
+		);
+		if ( ! isValidCommand ) {
+			throw Error( `Can't execute wp-cli command with arguments: ${ args }` );
+		}
+
+		try {
+			return await this.wpCliExecutor.execute( wpCliArgs as string[] );
+		} catch ( error ) {
+			Sentry.captureException( error );
+			return { stdout: '', stderr: 'error when executing wp-cli command' };
+		}
 	}
 }

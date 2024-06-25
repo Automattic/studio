@@ -11,6 +11,3 @@ bundle exec fastlane run configure_apply
 
 echo "--- :testflight: Fetching Signing Certificates"
 bundle exec fastlane set_up_signing
-
-echo "--- :mac: Installing DMG tool"
-brew install create-dmg

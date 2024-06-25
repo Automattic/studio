@@ -17,6 +17,7 @@ import { createScreenshotWindow } from './screenshot-window';
 import { getSiteThumbnailPath } from './storage/paths';
 
 const servers = new Map< string, SiteServer >();
+const deletedServers: string[] = [];
 
 export async function createSiteWorkingDirectory(
 	path: string,
@@ -48,6 +49,10 @@ export class SiteServer {
 		return servers.get( id );
 	}
 
+	static isDeleted( id: string ) {
+		return deletedServers.includes( id );
+	}
+
 	static create( details: StoppedSiteDetails ): SiteServer {
 		const server = new SiteServer( details );
 		servers.set( details.id, server );
@@ -60,6 +65,7 @@ export class SiteServer {
 			await fs.promises.unlink( thumbnailPath );
 		}
 		await this.stop();
+		deletedServers.push( this.details.id );
 		servers.delete( this.details.id );
 		portFinder.releasePort( this.details.port );
 	}

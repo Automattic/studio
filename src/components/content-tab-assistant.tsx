@@ -290,13 +290,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 				</div>
 			</div>
 
-			<div
-				className={ cx(
-					`sticky bottom-0 bg-gray-50/[0.8] backdrop-blur-sm w-full px-8 pt-4 flex items-center border-0 ${
-						disabled ? 'border-top-a8c-gray-10' : 'border-top-gray-200'
-					}`
-				) }
-			>
+			<div className="sticky bottom-0 bg-gray-50/[0.8] backdrop-blur-sm w-full px-8 pt-4 flex items-center">
 				<div className="w-full flex flex-col items-center">
 					<AIInput
 						disabled={ disabled }
@@ -310,10 +304,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 					<div data-testid="guidelines-link" className="text-a8c-gray-50 self-end py-2">
 						{ createInterpolateElement( __( 'Powered by experimental AI. <a>Learn more</a>' ), {
 							a: (
-								<Button
-									variant="link"
-									onClick={ () => getIpcApi().openURL( AI_GUIDELINES_URL ) }
-								/>
+								<Button variant="link" onClick={ () => getIpcApi().openURL( AI_GUIDELINES_URL ) } />
 							),
 						} ) }
 					</div>

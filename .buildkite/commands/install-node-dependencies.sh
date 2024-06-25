@@ -43,7 +43,7 @@ npm ci \
   "$@"
 
 # Rebuid specific native modules to avoid failures due to using different architectures
-npm rebuild fs-xattr
+npm rebuild fs-xattr --verbose --cpu universal
 
 echo "--- :npm: Save cache if necessary"
 # Notice that we don't cache the local node_modules.

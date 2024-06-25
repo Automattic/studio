@@ -9,12 +9,14 @@ declare const WP_CLI_PROCESS_MODULE_PATH: string;
 
 export type MessageName = 'execute';
 export type WpCliResult = ReturnType< typeof executeWPCli >;
+export type MessageCanceled = { error: Error; canceled: boolean };
 
 const DEFAULT_RESPONSE_TIMEOUT = 120000;
 
 export default class WpCliProcess {
 	lastMessageId = 0;
 	process?: UtilityProcess;
+	ongoingMessages: Record< number, { cancelHandler: () => void } > = {};
 	projectPath: string;
 
 	constructor( projectPath: string ) {
@@ -80,6 +82,11 @@ export default class WpCliProcess {
 		if ( ! process ) {
 			throw Error( 'wp-cli process is not running' );
 		}
+		if ( this.ongoingMessages[ originalMessageId ] ) {
+			throw Error(
+				`The response for message ID ${ originalMessageId } from the message '${ originalMessage }' is already being awaited. Please use the 'waitForResponse' function only once per message ID..`
+			);
+		}
 
 		return new Promise( ( resolve, reject ) => {
 			const handler = ( {
@@ -98,6 +105,7 @@ export default class WpCliProcess {
 				}
 				process.removeListener( 'message', handler );
 				clearTimeout( timeoutId );
+				delete this.ongoingMessages[ originalMessageId ];
 				if ( typeof error !== 'undefined' ) {
 					reject( error );
 					return;
@@ -105,10 +113,20 @@ export default class WpCliProcess {
 				resolve( data );
 			};
 
-			const timeoutId = setTimeout( () => {
+			const timeoutHandler = () => {
 				reject( new Error( `Request for message ${ originalMessage } timed out` ) );
 				process.removeListener( 'message', handler );
-			}, timeout );
+			};
+			const timeoutId = setTimeout( timeoutHandler, timeout );
+			const cancelHandler = () => {
+				clearTimeout( timeoutId );
+				reject( {
+					error: new Error( `Request for message ${ originalMessage } was canceled` ),
+					canceled: true,
+				} as MessageCanceled );
+				process.removeListener( 'message', handler );
+			};
+			this.ongoingMessages[ originalMessageId ] = { cancelHandler };
 
 			process.addListener( 'message', handler );
 		} );
@@ -119,6 +137,8 @@ export default class WpCliProcess {
 		if ( ! process ) {
 			throw Error( 'wp-cli process is not running' );
 		}
+
+		this.#cancelOngoingMessages();
 
 		return new Promise< void >( ( resolve, reject ) => {
 			process.once( 'exit', ( code ) => {
@@ -131,6 +151,12 @@ export default class WpCliProcess {
 			process.kill();
 		} ).catch( ( error ) => {
 			Sentry.captureException( error );
+		} );
+	}
+
+	#cancelOngoingMessages() {
+		Object.values( this.ongoingMessages ).forEach( ( { cancelHandler } ) => {
+			cancelHandler();
 		} );
 	}
 }

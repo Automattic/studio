@@ -13,7 +13,7 @@ import { portFinder } from './lib/port-finder';
 import { sanitizeForLogging } from './lib/sanitize-for-logging';
 import { getPreferredSiteLanguage } from './lib/site-language';
 import SiteServerProcess from './lib/site-server-process';
-import WpCliProcess, { WpCliResult } from './lib/wp-cli-process';
+import WpCliProcess, { MessageCanceled, WpCliResult } from './lib/wp-cli-process';
 import { purgeWpConfig } from './lib/wp-versions';
 import { createScreenshotWindow } from './screenshot-window';
 import { getSiteThumbnailPath } from './storage/paths';
@@ -181,6 +181,10 @@ export class SiteServer {
 		try {
 			return await this.wpCliExecutor.execute( wpCliArgs as string[] );
 		} catch ( error ) {
+			if ( ( error as MessageCanceled )?.canceled ) {
+				return { stdout: '', stderr: 'wp-cli command canceled' };
+			}
+
 			Sentry.captureException( error );
 			return { stdout: '', stderr: 'error when executing wp-cli command' };
 		}

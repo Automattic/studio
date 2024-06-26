@@ -1,8 +1,12 @@
 import * as Sentry from '@sentry/react';
 import { speak } from '@wordpress/a11y';
-import { __unstableMotion as motion, Spinner } from '@wordpress/components';
+import {
+	__unstableMotion as motion,
+	Spinner,
+	__unstableAnimatePresence as AnimatePresence,
+} from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Markdown, { ExtraProps } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import stripAnsi from 'strip-ansi';
@@ -10,12 +14,13 @@ import { useExecuteWPCLI } from '../hooks/use-execute-cli';
 import { useSiteDetails } from '../hooks/use-site-details';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
+import { MessageThinking } from './assistant-thinking';
 import Button from './button';
 import { CopyTextButton } from './copy-text-button';
 import { ExecuteIcon } from './icons/execute';
 
 interface ChatMessageProps {
-	children: React.ReactNode;
+	children: React.ReactNode | string;
 	isUser: boolean;
 	isAssistantThinking?: boolean;
 	id: string;
@@ -60,7 +65,6 @@ const InlineCLI = ( { output, status, time }: InlineCLIProps ) => (
 );
 
 export const ChatMessage = ( {
-	children,
 	id,
 	isAssistantThinking,
 	messageId,
@@ -70,6 +74,7 @@ export const ChatMessage = ( {
 	blocks,
 	updateMessage,
 	isUnauthenticated,
+	children,
 }: ChatMessageProps ) => {
 	const CodeBlock = ( props: JSX.IntrinsicElements[ 'code' ] & ExtraProps ) => {
 		const content = String( props.children ).trim();
@@ -148,17 +153,10 @@ export const ChatMessage = ( {
 			</code>
 		);
 	};
-
-	const exitAnimation = () => {
-		if ( isAssistantThinking ) {
-			return {
-				opacity: 0,
-				transition: { duration: 0.2 },
-				y: -10,
-			};
-		}
-
-		return { opacity: 0, transition: { duration: 0 } };
+	const bubbleVariants = {
+		hidden: { opacity: 0, y: 20, scale: 0.95 },
+		visible: { opacity: 1, y: 0, scale: 1 },
+		exit: { opacity: 0, y: -20, scale: 0.95 },
 	};
 
 	return (
@@ -169,45 +167,46 @@ export const ChatMessage = ( {
 				className
 			) }
 			layout="position"
-			initial={ {
-				y: 120,
-				opacity: 0,
-			} }
-			exit={ exitAnimation() }
-			animate={ {
-				y: 0,
-				opacity: 1,
-				transition: { duration: 0.3, delay: 0.3 },
-			} }
 		>
-			<div
-				id={ id }
-				role="group"
-				aria-labelledby={ id }
-				className={ cx(
-					'inline-block p-3 rounded border border-gray-300 overflow-x-auto select-text',
-					isUnauthenticated ? 'lg:max-w-[90%]' : 'lg:max-w-[70%]', // Apply different max-width for unauthenticated view
-					! isUser ? 'bg-white' : 'bg-white/45'
-				) }
-			>
-				<div className="relative">
-					<span className="sr-only">
-						{ isUser ? __( 'Your message' ) : __( 'Studio Assistant' ) },
-					</span>
-				</div>
-				{ typeof children === 'string' ? (
-					<div className="assistant-markdown">
-						<Markdown
-							components={ { a: Anchor, code: CodeBlock, img: () => null } }
-							remarkPlugins={ [ remarkGfm ] }
-						>
-							{ children }
-						</Markdown>
-					</div>
-				) : (
-					children
-				) }
+			<div className="relative">
+				<span className="sr-only">
+					{ isUser ? __( 'Your message' ) : __( 'Studio Assistant' ) },
+				</span>
 			</div>
+			<AnimatePresence mode="wait">
+				<motion.div
+					key={ isAssistantThinking ? 'thinking' : 'content' }
+					variants={ bubbleVariants }
+					initial="hidden"
+					animate="visible"
+					exit="exit"
+					transition={ {
+						duration: 0.3,
+					} }
+					id={ id }
+					role="group"
+					aria-labelledby={ id }
+					className={ cx(
+						'inline-block p-3 rounded border border-gray-300 overflow-x-auto select-text',
+						isUnauthenticated ? 'lg:max-w-[90%]' : 'lg:max-w-[70%]',
+						! isUser ? 'bg-white' : 'bg-white/45'
+					) }
+				>
+					{ isAssistantThinking && <MessageThinking /> }
+					{ typeof children === 'string' ? (
+						<div className="assistant-markdown">
+							<Markdown
+								components={ { a: Anchor, code: CodeBlock, img: () => null } }
+								remarkPlugins={ [ remarkGfm ] }
+							>
+								{ children }
+							</Markdown>
+						</div>
+					) : (
+						children
+					) }
+				</motion.div>
+			</AnimatePresence>
 		</motion.div>
 	);
 };

@@ -3,7 +3,7 @@ import { createInterpolateElement } from '@wordpress/element';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { Icon, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import React, { useState, useEffect, useRef, memo } from 'react';
+import React, { useState, useEffect, useRef, memo, useCallback } from 'react';
 import { AI_GUIDELINES_URL } from '../constants';
 import { useAssistant, Message as MessageType } from '../hooks/use-assistant';
 import { useAssistantApi } from '../hooks/use-assistant-api';
@@ -62,6 +62,7 @@ const OfflineModeView = () => {
 	);
 };
 
+const MIMIC_CONVERSATION_DELAY = 2000;
 const AuthenticatedView = memo(
 	( {
 		messages,
@@ -79,6 +80,7 @@ const AuthenticatedView = memo(
 		path: string;
 	} ) => {
 		const endOfMessagesRef = useRef< HTMLDivElement >( null );
+		const [ displayedMessages, setDisplayedMessages ] = useState< MessageType[] >( [] );
 
 		useEffect( () => {
 			const timer = setTimeout( () => {
@@ -86,23 +88,51 @@ const AuthenticatedView = memo(
 					endOfMessagesRef.current.scrollIntoView( { behavior: 'smooth' } );
 				}
 			}, 300 ); // Slight delay to ensure DOM updates
+			return () => {
+				clearTimeout( timer );
+			};
+		}, [ displayedMessages ] );
 
-			return () => clearTimeout( timer );
-		}, [ messages?.length ] );
+		useEffect( () => {
+			const newMessages = [ ...messages ];
+			const lastMessage = newMessages[ messages.length - 1 ];
+			const secondLastMessage = newMessages[ messages.length - 2 ];
+			if ( ! lastMessage || ! secondLastMessage ) {
+				return;
+			}
+
+			if ( lastMessage.role === 'assistant' ) {
+				setDisplayedMessages( ( _prevMessages ) => newMessages );
+				return;
+			}
+			// When there is a user message, we'll always have a thinking message as well
+			if ( secondLastMessage.role === 'user' ) {
+				const thinkingMessage = newMessages[ newMessages.length - 1 ];
+				const messagesWithoutThinking = newMessages.filter(
+					( message ) => message.role !== 'thinking'
+				);
+				setDisplayedMessages( messagesWithoutThinking );
+				setTimeout( () => {
+					setDisplayedMessages( ( prevMessages ) => [ ...prevMessages, thinkingMessage ] );
+				}, MIMIC_CONVERSATION_DELAY );
+				return;
+			}
+		}, [ messages ] );
 
 		return (
-			<AnimatePresence>
-				{ messages.map( ( message, index ) => (
+			<AnimatePresence initial={ false }>
+				{ displayedMessages.map( ( message, index ) => (
 					<ChatMessage
-						key={ `message-chat-${ index }` }
+						key={ index }
 						id={ `message-chat-${ index }` }
 						isUser={ message.role === 'user' }
+						isAssistantThinking={ message.role === 'thinking' }
 						projectPath={ path }
 						updateMessage={ updateMessage }
 						messageId={ message.id }
 						blocks={ message.blocks }
 					>
-						{ message.role === 'thinking' ? <MessageThinking /> : message.content }
+						{ message.content }
 					</ChatMessage>
 				) ) }
 				<div ref={ endOfMessagesRef } />

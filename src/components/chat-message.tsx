@@ -2,7 +2,6 @@ import * as Sentry from '@sentry/react';
 import { speak } from '@wordpress/a11y';
 import {
 	__unstableMotion as motion,
-	__unstableAnimatePresence as AnimatePresence,
 } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import Markdown, { ExtraProps } from 'react-markdown';

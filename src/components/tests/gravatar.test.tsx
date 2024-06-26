@@ -17,7 +17,7 @@ describe( 'Gravatar', () => {
 		render( <Gravatar /> );
 		await waitFor( () => {
 			const image = screen.getByAltText( 'User avatar' );
-			expect( image ).toBeInTheDocument();
+			expect( image ).toBeVisible();
 			expect( image ).toHaveAttribute(
 				'src',
 				'https://www.gravatar.com/avatar/efc7b0f52253614d24531995d89c6d3dcf36bedcf6357a28f034c2597d84266b?d=https://s0.wp.com/i/studio-app/profile-icon.png'

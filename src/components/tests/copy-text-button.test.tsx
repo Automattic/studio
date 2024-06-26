@@ -18,7 +18,7 @@ describe( 'CopyTextButton', () => {
 
 	test( 'the button is present, and not the confirmation', () => {
 		render( <CopyTextButton text="Sample Text" copyConfirmation="Copied!" /> );
-		expect( screen.getByRole( 'button', { name: 'copy to clipboard' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'copy to clipboard' } ) ).toBeVisible();
 		expect( screen.queryByRole( 'alert' ) ).toBe( null );
 	} );
 
@@ -27,7 +27,7 @@ describe( 'CopyTextButton', () => {
 		const mockCopyText = jest.fn();
 		( getIpcApi as jest.Mock ).mockReturnValue( { copyText: mockCopyText } );
 		render( <CopyTextButton text="Sample Text" copyConfirmation="Copied!" /> );
-		expect( screen.getByRole( 'button', { name: 'copy to clipboard' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'copy to clipboard' } ) ).toBeVisible();
 		await user.click( screen.getByRole( 'button' ) );
 		expect( screen.getByRole( 'alert' ) ).toHaveTextContent( 'Copied!' );
 		expect( mockCopyText ).toHaveBeenCalledWith( 'Sample Text' );

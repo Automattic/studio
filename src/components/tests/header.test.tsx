@@ -48,7 +48,7 @@ describe( 'Header', () => {
 		await user.click( startButton );
 
 		expect( mockedGetIpcApi().startServer ).toHaveBeenCalledTimes( 1 );
-		expect( screen.getByText( 'Stop' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Stop' ) ).toBeVisible();
 	} );
 
 	describe( 'when starting a server fails', () => {
@@ -70,7 +70,7 @@ describe( 'Header', () => {
 			await user.click( startButton );
 
 			expect( mockedGetIpcApi().startServer ).toHaveBeenCalledTimes( 1 );
-			expect( screen.getByText( 'Start' ) ).toBeInTheDocument();
+			expect( screen.getByText( 'Start' ) ).toBeVisible();
 			expect( mockedGetIpcApi().showMessageBox ).toHaveBeenCalledTimes( 1 );
 			expect( mockedGetIpcApi().showMessageBox ).toHaveBeenCalledWith( {
 				type: 'error',

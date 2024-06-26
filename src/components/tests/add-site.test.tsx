@@ -156,16 +156,16 @@ describe( 'AddSite', () => {
 		await user.click( screen.getByDisplayValue( 'My WordPress Website' ) );
 		await user.type( screen.getByDisplayValue( 'My WordPress Website' ), ' mutated' );
 
-		expect( screen.getByDisplayValue( 'My WordPress Website mutated' ) ).toBeInTheDocument();
+		expect( screen.getByDisplayValue( 'My WordPress Website mutated' ) ).toBeVisible();
 		expect(
 			screen.getByDisplayValue( '/default_path/my-wordpress-website-mutated' )
-		).toBeInTheDocument();
+		).toBeVisible();
 
 		await userEvent.keyboard( '{Escape}' );
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 
-		expect( screen.getByDisplayValue( 'My WordPress Website' ) ).toBeInTheDocument();
-		expect( screen.getByDisplayValue( '/default_path/my-wordpress-website' ) ).toBeInTheDocument();
+		expect( screen.getByDisplayValue( 'My WordPress Website' ) ).toBeVisible();
+		expect( screen.getByDisplayValue( '/default_path/my-wordpress-website' ) ).toBeVisible();
 	} );
 
 	it( 'should reset to the proposed path when the path is set to default app directory', async () => {
@@ -203,7 +203,7 @@ describe( 'AddSite', () => {
 
 		expect(
 			screen.getByDisplayValue( '/default_path/my-wordpress-website-mutated' )
-		).toBeInTheDocument();
+		).toBeVisible();
 	} );
 
 	it( 'should display a helpful error message when an error occurs while creating the site', async () => {

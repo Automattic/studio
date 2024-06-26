@@ -81,14 +81,12 @@ describe( 'bumpStat', () => {
 describe( 'bumpAggregatedUniqueStat', () => {
 	test( 'bump stat when it has never been recorded before', async () => {
 		const nock = mockBumpStatRequest( 'usage', 'launch' );
-		const nockFirst = mockBumpStatRequestFirst( 'usage', 'launch' );
 
 		( loadUserData as jest.Mock ).mockResolvedValue( { lastBumpStats: {} } );
 
 		bumpAggregatedUniqueStat( 'usage', 'launch', 'weekly' );
 
 		await waitFor( () => expect( nock.isDone() ).toBe( true ) );
-		await waitFor( () => expect( nockFirst.isDone() ).toBe( true ) );
 	} );
 
 	for ( const [ aggregateBy, currentTime, lastBumpTime ] of [

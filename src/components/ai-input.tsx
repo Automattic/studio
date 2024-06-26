@@ -1,10 +1,10 @@
 import { DropdownMenu, MenuGroup, MenuItem } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { Icon, moreVertical, keyboardReturn, reset } from '@wordpress/icons';
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
+import useAiIcon from '../hooks/use-ai-icon';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
-import { AssistantIcon } from './icons/assistant';
 
 interface AIInputProps {
 	disabled: boolean;
@@ -29,11 +29,50 @@ export const AIInput = ( {
 }: AIInputProps ) => {
 	const inputRef = useRef< HTMLTextAreaElement >( null );
 
+	const [ isTyping, setIsTyping ] = useState( false );
+	const typingTimeout = useRef< NodeJS.Timeout >();
+
+	const { RiveComponent, inactiveInput, thinkingInput, typingInput, startStateMachine } =
+		useAiIcon();
+
 	useEffect( () => {
 		if ( ! disabled && inputRef.current ) {
 			inputRef.current.focus();
 		}
 	}, [ disabled ] );
+
+	useEffect( () => {
+		startStateMachine();
+
+		if ( inactiveInput ) {
+			inactiveInput.value = disabled;
+		}
+
+		if ( thinkingInput ) {
+			thinkingInput.value = isAssistantThinking;
+		}
+
+		if ( typingInput ) {
+			typingInput.value = isTyping;
+		}
+	}, [
+		isAssistantThinking,
+		isTyping,
+		disabled,
+		startStateMachine,
+		inactiveInput,
+		thinkingInput,
+		typingInput,
+	] );
+
+	useEffect(
+		() => () => {
+			if ( typingTimeout.current ) {
+				clearTimeout( typingTimeout.current );
+			}
+		},
+		[]
+	);
 
 	const handleInput = ( e: React.ChangeEvent< HTMLTextAreaElement > ) => {
 		setInput( e.target.value );
@@ -76,12 +115,25 @@ export const AIInput = ( {
 			// Allow Shift + Enter to create a new line
 			return;
 		} else {
+			setIsTyping( true );
 			handleKeyDown( e );
 		}
 	};
 
+	const handleKeyUpWrapper = () => {
+		if ( typingTimeout.current ) {
+			clearTimeout( typingTimeout.current );
+		}
+
+		typingTimeout.current = setTimeout( () => {
+			setIsTyping( false );
+		}, 400 );
+	};
+
 	const getPlaceholderText = () => {
-		return isAssistantThinking ? __( 'Generating...' ) : __( 'What would you like to learn?' );
+		return isAssistantThinking
+			? __( 'Thinking about that...' )
+			: __( 'What would you like to learn?' );
 	};
 
 	const handleClearConversation = async () => {
@@ -112,39 +164,40 @@ export const AIInput = ( {
 	return (
 		<div
 			className={ cx(
-				`flex w-full border rounded-sm bg-white ${
+				`flex items-end w-full border rounded-sm bg-white/[0.9] ${
 					disabled ? 'border-a8c-gray-5' : 'border-gray-300 focus-within:border-a8c-blueberry'
 				}`
 			) }
 		>
-			<div className={ `flex items-end p-3 ltr:pr-2 rtl:pl-2` }>
-				<AssistantIcon
-					size={ 28 }
-					aria-hidden="true"
-					className={ disabled ? 'fill-a8c-gray-30 opacity-30' : 'fill-a8c-blueberry' }
-				/>
+			<div className={ `flex items-center h-12 ${ disabled && 'opacity-20 grayscale' }` }>
+				<RiveComponent aria-hidden="true" style={ { width: 48, height: 48 } } />
 			</div>
 			<textarea
 				ref={ inputRef }
 				disabled={ disabled }
 				placeholder={ getPlaceholderText() }
 				className={ cx(
-					`w-full mt-1 px-2 py-3 rounded-sm border-none resize-none focus:outline-none ${
+					`w-full px-1 py-3.5 rounded-sm border-none bg-transparent resize-none focus:outline-none assistant-textarea ${
 						disabled ? 'cursor-not-allowed opacity-30' : ''
 					}`
 				) }
 				value={ input }
 				onChange={ handleInput }
 				onKeyDown={ handleKeyDownWrapper }
+				onKeyUp={ handleKeyUpWrapper }
 				rows={ 1 }
 				data-testid="ai-input-textarea"
 			/>
 			{ input.trim() !== '' && (
-				<div className="flex items-end py-4 mb-1">
+				<div className="flex items-center h-12">
 					<Icon icon={ keyboardReturn } size={ 13 } fill="#cccccc" />
 				</div>
 			) }
-			<DropdownMenu icon={ moreVertical } label={ __( 'Assistant Menu' ) } className="p-2">
+			<DropdownMenu
+				icon={ moreVertical }
+				label={ __( 'Assistant Menu' ) }
+				className="p-1 flex items-center h-12"
+			>
 				{ ( { onClose }: { onClose: () => void } ) => (
 					<>
 						<MenuGroup>

@@ -17,6 +17,8 @@ type ContextProps = Pick<
 
 type CodeBlockProps = JSX.IntrinsicElements[ 'code' ] & ExtraProps;
 
+const PLACEHOLDER_CHAR_BEGIN = [ '<', '[', '{' ];
+
 export default function createCodeComponent( contextProps: ContextProps ) {
 	return ( props: CodeBlockProps ) => <CodeBlock { ...contextProps } { ...props } />;
 }
@@ -24,12 +26,21 @@ export default function createCodeComponent( contextProps: ContextProps ) {
 function CodeBlock( props: ContextProps & CodeBlockProps ) {
 	const content = String( props.children ).trim();
 
-	const wpCliArgs = parse( content ).filter(
-		( arg: unknown ) => typeof arg === 'string' || arg instanceof String
-	) as string[];
+	const wpCliArgs = parse( content )
+		.map( ( arg ) => {
+			if ( typeof arg === 'string' || arg instanceof String ) {
+				return arg;
+			} else if ( 'op' in arg ) {
+				return arg.op;
+			} else {
+				return false;
+			}
+		} )
+		.filter( Boolean ) as string[];
 	const wpCommandCount = wpCliArgs.filter( ( arg ) => arg === 'wp' ).length;
-	// If an argument is wrapped with <>, [] or {}, we consider it a placeholder
-	const containsPlaceholderArgs = wpCliArgs.some( ( arg ) => /^[<[{].*[>}\]]$/.test( arg ) );
+	const containsPlaceholderArgs = wpCliArgs.some( ( arg ) =>
+		PLACEHOLDER_CHAR_BEGIN.includes( arg[ 0 ] )
+	);
 	const isValidWpCliCommand =
 		wpCliArgs.length > 0 &&
 		wpCliArgs[ 0 ] === 'wp' &&

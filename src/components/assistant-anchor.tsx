@@ -1,4 +1,4 @@
-import * as Sentry from '@sentry/react';
+import * as Sentry from '@sentry/electron/renderer';
 import { speak } from '@wordpress/a11y';
 import { __ } from '@wordpress/i18n';
 import { ExtraProps } from 'react-markdown';
@@ -33,7 +33,7 @@ export default function Anchor( props: JSX.IntrinsicElements[ 'a' ] & ExtraProps
 				}
 
 				try {
-					getIpcApi().openURL( href );
+					await getIpcApi().openURL( href );
 				} catch ( error ) {
 					getIpcApi().showMessageBox( {
 						type: 'error',

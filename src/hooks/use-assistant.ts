@@ -1,4 +1,3 @@
-import { removeBug } from '@wordpress/icons';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 
 export type Message = {

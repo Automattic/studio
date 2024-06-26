@@ -46,7 +46,6 @@ describe( 'useAssistant', () => {
 		expect( result.current.messages ).toEqual( [
 			{ content: 'Hello', role: 'user', id: 0, createdAt: MOCKED_TIME },
 			{ content: '', role: 'thinking', id: 1, createdAt: MOCKED_TIME },
-
 		] );
 		expect( localStorage.getItem( `ai_chat_messages_${ selectedSiteId }` ) ).toEqual(
 			JSON.stringify( [ { content: 'Hello', role: 'user', createdAt: MOCKED_TIME, id: 0 } ] )

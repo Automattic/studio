@@ -30,7 +30,7 @@ export const AIInput = ( {
 	const inputRef = useRef< HTMLTextAreaElement >( null );
 
 	const [ isTyping, setIsTyping ] = useState( false );
-	const [ typingTimeout, setTypingTimeout ] = useState< NodeJS.Timeout | null >( null );
+	const typingTimeout = useRef< NodeJS.Timeout >();
 
 	const { RiveComponent, inactiveInput, thinkingInput, typingInput, startStateMachine } =
 		useAiIcon();
@@ -43,9 +43,7 @@ export const AIInput = ( {
 
 	useEffect( () => {
 		startStateMachine();
-	} );
 
-	useEffect( () => {
 		if ( inactiveInput ) {
 			inactiveInput.value = disabled;
 		}
@@ -66,6 +64,12 @@ export const AIInput = ( {
 		thinkingInput,
 		typingInput,
 	] );
+
+	useEffect( () => () => {
+		if ( typingTimeout.current ) {
+			clearTimeout( typingTimeout.current );
+		}
+	} );
 
 	const handleInput = ( e: React.ChangeEvent< HTMLTextAreaElement > ) => {
 		setInput( e.target.value );
@@ -111,15 +115,13 @@ export const AIInput = ( {
 	};
 
 	const handleKeyUpWrapper = () => {
-		if ( typingTimeout ) {
-			clearTimeout( typingTimeout );
+		if ( typingTimeout.current ) {
+			clearTimeout( typingTimeout.current );
 		}
 
-		setTypingTimeout(
-			setTimeout( () => {
-				setIsTyping( false );
-			}, 500 )
-		);
+		typingTimeout.current = setTimeout( () => {
+			setIsTyping( false );
+		}, 300 );
 	};
 
 	const getPlaceholderText = () => {

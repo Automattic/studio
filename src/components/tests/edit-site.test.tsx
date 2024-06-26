@@ -24,7 +24,7 @@ describe( 'EditSite', () => {
 	it( 'should dismiss the modal when the cancel button is activated via keyboard', async () => {
 		const user = userEvent.setup();
 		await user.click( screen.getByRole( 'button', { name: 'Edit site name' } ) );
-		expect( screen.queryByRole( 'dialog' ) ).toBeInTheDocument();
+		expect( screen.queryByRole( 'dialog' ) ).toBeVisible();
 
 		await userEvent.tab();
 		await userEvent.keyboard( '{Enter}' );

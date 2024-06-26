@@ -67,7 +67,8 @@ blockquote {
 
 /* Customize scrollbar area for the sites sidebar and tab panel */
 .sites-scrollbar::-webkit-scrollbar,
-.components-tab-panel__tab-content::-webkit-scrollbar {
+.components-tab-panel__tab-content::-webkit-scrollbar,
+.assistant-textarea::-webkit-scrollbar {
 	background: transparent;
 	width: 10px;
 }
@@ -78,7 +79,8 @@ blockquote {
 	border-radius: 10px;
 	border: 2px solid rgba( 30, 30, 30, 1 );
 }
-.components-tab-panel__tab-content::-webkit-scrollbar-thumb {
+.components-tab-panel__tab-content::-webkit-scrollbar-thumb,
+.assistant-textarea::-webkit-scrollbar-thumb {
 	background: #7f7f7f;
 	border-radius: 10px;
 	border: 2px solid white;
@@ -88,7 +90,8 @@ blockquote {
 .sites-scrollbar::-webkit-scrollbar-thumb:hover {
 	background: rgba( 255, 255, 255, 0.5 );
 }
-.components-tab-panel__tab-content::-webkit-scrollbar-thumb:hover {
+.components-tab-panel__tab-content::-webkit-scrollbar-thumb:hover,
+.assistant-textarea::-webkit-scrollbar-thumb:hover {
 	background: #484848;
 }
 

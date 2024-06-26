@@ -216,9 +216,9 @@ describe( 'ContentTabAssistant', () => {
 	test( 'confirm that Welcome messages are present, the selected prompt is present, other prompts are removed', async () => {
 		render( <ContentTabAssistant selectedSite={ runningSite } /> );
 
-		expect( await screen.findByText( 'Welcome to our service!' ) ).toBeInTheDocument();
-		expect( await screen.findByText( 'How to create a WordPress site' ) ).toBeInTheDocument();
-		expect( await screen.findByText( 'How to install a plugin' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Welcome to our service!' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'How to create a WordPress site' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'How to install a plugin' ) ).toBeInTheDocument();
 
 		const samplePrompt = await screen.findByRole( 'button', {
 			name: 'How to create a WordPress site',

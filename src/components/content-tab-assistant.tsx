@@ -226,7 +226,6 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const { __ } = useI18n();
 	const lastMessage = messages.length === 0 ? undefined : messages[ messages.length - 1 ];
 
-	const [ isThinking, setIsThinking ] = useState( false );
 	const [ errorNotices, setErrorNotices ] = useState< Set< number > >( getErrorNoticesFromStorage );
 
 	useEffect( () => {
@@ -242,7 +241,6 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		if ( chatMessage.trim() ) {
 			addMessage( chatMessage, 'user', chatId );
 			setInput( '' );
-			setIsThinking( true );
 			try {
 				const { message, chatId: fetchedChatId } = await fetchAssistant(
 					chatId,
@@ -259,9 +257,6 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 				}
 			} catch ( error ) {
 				setErrorNotices( ( prev ) => new Set( prev ).add( messages.length ) );
-				setIsThinking( false );
-			} finally {
-				setIsThinking( false );
 			}
 		}
 	};
@@ -297,7 +292,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 							{ isAuthenticated && messages.length > 0 && (
 								<AuthenticatedView
 									messages={ messages }
-									isAssistantThinking={ isAssistantThinking || isThinking }
+									isAssistantThinking={ isAssistantThinking }
 									updateMessage={ updateMessage }
 									path={ selectedSite.path }
 									handleSend={ handleSend }
@@ -319,7 +314,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 										/>
 										<AuthenticatedView
 											messages={ messages }
-											isAssistantThinking={ isAssistantThinking || isThinking }
+											isAssistantThinking={ isAssistantThinking }
 											updateMessage={ updateMessage }
 											path={ selectedSite.path }
 											handleSend={ handleSend }
@@ -340,7 +335,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 									/>
 									<AuthenticatedView
 										messages={ messages }
-										isAssistantThinking={ isAssistantThinking || isThinking }
+										isAssistantThinking={ isAssistantThinking }
 										updateMessage={ updateMessage }
 										path={ selectedSite.path }
 										handleSend={ handleSend }

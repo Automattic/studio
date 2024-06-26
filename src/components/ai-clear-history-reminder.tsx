@@ -68,11 +68,11 @@ function AIClearHistoryReminder( {
 			cancelId: CANCEL_BUTTON_INDEX,
 		} );
 
-		if ( checkboxChecked ) {
-			localStorage.setItem( 'dontShowClearMessagesWarning', 'true' );
-		}
-
 		if ( response === CLEAR_CONVERSATION_BUTTON_INDEX ) {
+			if ( checkboxChecked ) {
+				localStorage.setItem( 'dontShowClearMessagesWarning', 'true' );
+			}
+
 			clearInput();
 		}
 	}, [ clearInput ] );

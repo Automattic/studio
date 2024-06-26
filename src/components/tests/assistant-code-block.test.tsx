@@ -34,9 +34,7 @@ describe( 'createCodeComponent', () => {
 	} );
 
 	it( 'should hide the "run" button for ineligible non-wp-cli code', () => {
-		render(
-			<CodeBlock className="language-bash" children="wp plugin activate <example-plugin>" />
-		);
+		render( <CodeBlock className="language-bash" children="echo 'Hello, World!'" /> );
 
 		expect( screen.queryByText( 'Run' ) ).not.toBeInTheDocument();
 	} );

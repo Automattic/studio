@@ -216,7 +216,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		setInput( '' );
 		clearMessages();
 	};
-	const disabled = isOffline || ! isAuthenticated || ! userCanSendMessage || isAssistantThinking;
+	const disabled = isOffline || ! isAuthenticated || ! userCanSendMessage;
 
 	return (
 		<div className="h-full flex flex-col bg-gray-50 relative">

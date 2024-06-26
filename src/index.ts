@@ -31,8 +31,9 @@ import {
 	needsToMigrateFromWpNowFolder,
 } from './migrations/migrate-from-wp-now-folder';
 import setupWPServerFiles from './setup-wp-server-files';
+import { stopAllServersOnQuit } from './site-server';
+import { loadUserData } from './storage/user-data'; // eslint-disable-next-line import/order
 import { setupUpdates } from './updates';
-import { stopAllServersOnQuit } from './site-server'; // eslint-disable-line import/order
 
 if ( ! isCLI() ) {
 	Sentry.init( {
@@ -257,6 +258,12 @@ async function appBoot() {
 		// Handle CLI commands
 		listenCLICommands();
 		executeCLICommand();
+
+		// Bump stats for the first time the app runs - this is when no lastBumpStats are available
+		const userData = await loadUserData();
+		if ( ! userData.lastBumpStats ) {
+			bumpStat( 'studio-app-launch-first', process.platform );
+		}
 
 		// Bump a stat on each app launch, approximates total app launches
 		bumpStat( 'studio-app-launch-total', process.platform );

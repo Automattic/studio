@@ -37,7 +37,7 @@ export const useAssistant = ( instanceId: string ) => {
 	}, [ instanceId ] );
 
 	const addMessage = useCallback(
-		( content: string, role: 'user' | 'assistant', chatId?: string ) => {
+		( content: string, role: 'user' | 'assistant', newChatId?: string ) => {
 			setMessages( ( prevMessages ) => {
 				const newMessage = { content, role, createdAt: Date.now(), id: prevMessages.length };
 				const newMessages = [ ...prevMessages ];
@@ -65,10 +65,11 @@ export const useAssistant = ( instanceId: string ) => {
 			} );
 
 			setChatId( ( prevChatId ) => {
-				if ( prevChatId !== chatId && chatId ) {
-					localStorage.setItem( chatIdStoreKey( instanceId ), JSON.stringify( chatId ) );
+				if ( prevChatId !== newChatId && newChatId ) {
+					localStorage.setItem( chatIdStoreKey( instanceId ), JSON.stringify( newChatId ) );
+					return newChatId;
 				}
-				return chatId;
+				return prevChatId;
 			} );
 		},
 		[ instanceId ]
@@ -76,20 +77,10 @@ export const useAssistant = ( instanceId: string ) => {
 
 	const removeLastMessage = useCallback( () => {
 		setMessages( ( prevMessages ) => {
-			const lastMessage = prevMessages[ prevMessages.length - 1 ];
-			const newMessages = prevMessages.slice( 0, prevMessages.length - 1 );
-			if ( lastMessage.role === 'user' ) {
-				newMessages.pop();
-				newMessages.pop();
-			}
-			if ( lastMessage.role === 'assistant' ) {
-				newMessages.pop();
-			}
-			const updatedMessages = [ ...newMessages ];
-			const messagesToStore = newMessages.filter( ( message ) => message.role !== 'thinking' );
-
+			const messagesToStore = prevMessages.filter( ( message ) => message.role !== 'thinking' );
+			messagesToStore.pop();
 			localStorage.setItem( chatMessagesStoreKey( instanceId ), JSON.stringify( messagesToStore ) );
-			return updatedMessages;
+			return messagesToStore;
 		} );
 	}, [ instanceId ] );
 

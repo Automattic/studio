@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { useAuth } from '../../hooks/use-auth';
 import { useFetchWelcomeMessages } from '../../hooks/use-fetch-welcome-messages';
 import { ContentTabAssistant } from '../content-tab-assistant';
@@ -64,8 +64,7 @@ describe( 'ContentTabAssistant', () => {
 
 	const authenticate = jest.fn();
 
-	const getInput = () =>
-		screen.getByPlaceholderText( 'What would you like to learn?' ) as HTMLTextAreaElement;
+	const getInput = () => screen.getByTestId( 'ai-input-textarea' );
 
 	const getGuidelinesLink = () => screen.getByTestId( 'guidelines-link' ) as HTMLAnchorElement;
 
@@ -90,7 +89,7 @@ describe( 'ContentTabAssistant', () => {
 		const textInput = getInput();
 		expect( textInput ).toBeInTheDocument();
 		expect( textInput ).toBeEnabled();
-		expect( textInput.placeholder ).toBe( 'What would you like to learn?' );
+		expect( textInput ).toHaveAttribute( 'placeholder', 'What would you like to learn?' );
 	} );
 
 	test( 'renders guideline section', () => {
@@ -128,7 +127,7 @@ describe( 'ContentTabAssistant', () => {
 			authenticate,
 		} ) );
 		render( <ContentTabAssistant selectedSite={ runningSite } /> );
-		expect( screen.getByText( 'Hold up!' ) ).toBeInTheDocument();
+		expect( screen.getByTestId( 'unauthenticated-header' ) ).toBeInTheDocument();
 		expect(
 			screen.getByText( 'You need to log in to your WordPress.com account to use the assistant.' )
 		).toBeInTheDocument();
@@ -167,26 +166,34 @@ describe( 'ContentTabAssistant', () => {
 		const { rerender } = render( <ContentTabAssistant selectedSite={ runningSite } /> );
 
 		const textInput = getInput();
-		fireEvent.change( textInput, { target: { value: 'New message' } } );
-		fireEvent.keyDown( textInput, { key: 'Enter', code: 'Enter' } );
+		act( () => {
+			fireEvent.change( textInput, { target: { value: 'New message' } } );
+			fireEvent.keyDown( textInput, { key: 'Enter', code: 'Enter' } );
+			jest.advanceTimersByTime( 10000 );
+		} );
+		expect( screen.getByText( 'New message' ) ).toBeInTheDocument();
 
-		expect( screen.getByText( 'New message' ) ).toBeVisible();
-
-		// Simulate user authentication change
-		( useAuth as jest.Mock ).mockImplementation( () => ( {
-			client: {
-				req: {
-					post: clientReqPost,
+		act( () => {
+			// Simulate user authentication change
+			( useAuth as jest.Mock ).mockImplementation( () => ( {
+				client: {
+					req: {
+						post: clientReqPost,
+					},
 				},
-			},
-			isAuthenticated: true,
-			authenticate,
-			user: user2,
-		} ) );
+				isAuthenticated: true,
+				authenticate,
+				user: user2,
+			} ) );
+		} );
 
 		rerender( <ContentTabAssistant selectedSite={ runningSite } /> );
-
-		expect( screen.queryByText( 'New message' ) ).toBeNull();
+		act( () => {
+			jest.advanceTimersByTime( 10000 );
+		} );
+		screen.debug(undefined, 10000);
+		rerender( <ContentTabAssistant selectedSite={ runningSite } /> );
+		expect( screen.getByText( 'New message' ) ).toBeNull();
 	} );
 
 	test( 'does not render the Welcome messages and example prompts when not authenticated', () => {
@@ -200,7 +207,9 @@ describe( 'ContentTabAssistant', () => {
 			authenticate,
 		} ) );
 		render( <ContentTabAssistant selectedSite={ runningSite } /> );
-		expect( screen.getByText( 'Hold up!' ) ).toBeVisible();
+
+		expect( screen.getByTestId( 'unauthenticated-header' ) ).toHaveTextContent( 'Hold up!' );
+
 		expect( screen.queryByText( 'Welcome to our service!' ) ).not.toBeInTheDocument();
 	} );
 

@@ -82,21 +82,22 @@ const AuthenticatedView = memo(
 		const [ displayedMessages, setDisplayedMessages ] = useState< MessageType[] >( [] );
 
 		useEffect( () => {
-			const timer = setTimeout( () => {
+			setTimeout( () => {
 				if ( endOfMessagesRef.current ) {
+					console.log( 'scrolling' );
 					endOfMessagesRef.current.scrollIntoView( { behavior: 'smooth' } );
 				}
-			}, 300 ); // Slight delay to ensure DOM updates
-			return () => {
-				clearTimeout( timer );
-			};
+			}, 300 );
 		}, [ displayedMessages ] );
 
 		useEffect( () => {
 			const newMessages = [ ...messages ];
+
 			const lastMessage = newMessages[ messages.length - 1 ];
 			const secondLastMessage = newMessages[ messages.length - 2 ];
+
 			if ( ! lastMessage || ! secondLastMessage ) {
+				setDisplayedMessages( ( _prevMessages ) => newMessages );
 				return;
 			}
 
@@ -105,7 +106,7 @@ const AuthenticatedView = memo(
 				return;
 			}
 			// When there is a user message, we'll always have a thinking message as well
-			if ( secondLastMessage.role === 'user' ) {
+			if ( secondLastMessage.role === 'user' && lastMessage.role === 'thinking' ) {
 				const thinkingMessage = newMessages[ newMessages.length - 1 ];
 				const messagesWithoutThinking = newMessages.filter(
 					( message ) => message.role !== 'thinking'
@@ -116,10 +117,13 @@ const AuthenticatedView = memo(
 				}, MIMIC_CONVERSATION_DELAY );
 				return;
 			}
+			setDisplayedMessages( ( _prevMessages ) => newMessages );
 		}, [ messages ] );
 
+		console.log( 'messages', messages );
+		console.log( displayedMessages );
 		return (
-			<AnimatePresence initial={ false }>
+			<>
 				{ displayedMessages.map( ( message, index ) => (
 					<ChatMessage
 						key={ index }
@@ -135,7 +139,7 @@ const AuthenticatedView = memo(
 					</ChatMessage>
 				) ) }
 				<div ref={ endOfMessagesRef } />
-			</AnimatePresence>
+			</>
 		);
 	}
 );
@@ -147,7 +151,9 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 		isUser={ false }
 		isUnauthenticated={ true }
 	>
-		<div className="mb-3 a8c-label-semibold">{ __( 'Hold up!' ) }</div>
+		<div data-testid="unauthenticated-header" className="mb-3 a8c-label-semibold">
+			{ __( 'Hold up!' ) }
+		</div>
 		<div className="mb-1">
 			{ __( 'You need to log in to your WordPress.com account to use the assistant.' ) }
 		</div>
@@ -226,10 +232,13 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 						} ),
 					100
 				);
-				removeLastMessage();
+				// Adding timeout to ensure that this will fire after, the artificial delay
+				// of thinking message is over.
+				setTimeout( () => removeLastMessage(), 2100 );
 			}
 		}
 	};
+	console.log( messages );
 
 	const handleKeyDown = ( e: React.KeyboardEvent< HTMLTextAreaElement > ) => {
 		if ( e.key === 'Enter' ) {

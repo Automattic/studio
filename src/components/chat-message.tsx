@@ -168,11 +168,6 @@ export const ChatMessage = ( {
 			) }
 			layout="position"
 		>
-			<div className="relative">
-				<span className="sr-only">
-					{ isUser ? __( 'Your message' ) : __( 'Studio Assistant' ) },
-				</span>
-			</div>
 			<AnimatePresence mode="wait">
 				<motion.div
 					key={ isAssistantThinking ? 'thinking' : 'content' }
@@ -185,6 +180,7 @@ export const ChatMessage = ( {
 					} }
 					id={ id }
 					role="group"
+					data-testid="chat-message"
 					aria-labelledby={ id }
 					className={ cx(
 						'inline-block p-3 rounded border border-gray-300 overflow-x-auto select-text',
@@ -192,6 +188,11 @@ export const ChatMessage = ( {
 						! isUser ? 'bg-white' : 'bg-white/45'
 					) }
 				>
+					<div className="relative">
+						<span className="sr-only">
+							{ isUser ? __( 'Your message' ) : __( 'Studio Assistant' ) },
+						</span>
+					</div>
 					{ isAssistantThinking && <MessageThinking /> }
 					{ typeof children === 'string' ? (
 						<div className="assistant-markdown">

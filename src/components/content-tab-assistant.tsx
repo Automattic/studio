@@ -18,6 +18,7 @@ import { AIInput } from './ai-input';
 import { MessageThinking } from './assistant-thinking';
 import Button from './button';
 import { ChatMessage } from './chat-message';
+import offlineIcon from './offline-icon';
 import WelcomeComponent from './welcome-message-prompt';
 
 interface ContentTabAssistantProps {
@@ -45,6 +46,17 @@ const UsageLimitReached = () => {
 			{ createInterpolateElement( resetMessage, {
 				a: <Button onClick={ () => getIpcApi().showUserSettings() } variant="link" />,
 			} ) }
+		</div>
+	);
+};
+
+const OfflineModeView = () => {
+	const offlineMessage = __( 'The AI assistant requires an internet connection.' );
+
+	return (
+		<div className="flex items-center justify-center h-12 px-2 pt-4 text-a8c-gray-70 gap-1">
+			<Icon className="m-1 fill-a8c-gray-70" size={ 24 } icon={ offlineIcon } />
+			<span className="text-[13px] leading-[16px]">{ offlineMessage }</span>
 		</div>
 	);
 };
@@ -207,16 +219,32 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const disabled = isOffline || ! isAuthenticated || ! userCanSendMessage;
 
 	return (
-		<div className="h-full flex flex-col bg-gray-50 relative">
+		<div className="relative min-h-full flex flex-col bg-gray-50">
 			<div
 				data-testid="assistant-chat"
 				className={ cx(
-					'flex-1 overflow-y-auto p-8 flex flex-col-reverse',
-					! isAuthenticated && 'flex items-start'
+					'min-h-full flex-1 overflow-y-auto p-8 pb-2 flex flex-col-reverse',
+					! isAuthenticated
+						? isOffline
+							? 'flex items-center justify-center'
+							: 'flex items-start'
+						: ''
 				) }
 			>
 				<div className="mt-auto">
-					{ isAuthenticated ? (
+					{ isOffline ? (
+						<>
+							{ isAuthenticated && messages.length > 0 && (
+								<AuthenticatedView
+									messages={ messages }
+									isAssistantThinking={ isAssistantThinking }
+									updateMessage={ updateMessage }
+									path={ selectedSite.path }
+								/>
+							) }
+							<OfflineModeView />
+						</>
+					) : isAuthenticated ? (
 						<>
 							{ ! userCanSendMessage ? (
 								messages.length > 0 ? (
@@ -262,13 +290,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 				</div>
 			</div>
 
-			<div
-				className={ cx(
-					`bg-gray-50 w-full px-8 pt-5 flex items-center border-0 border-t ${
-						disabled ? 'border-top-a8c-gray-10' : 'border-top-gray-200'
-					}`
-				) }
-			>
+			<div className="sticky bottom-0 bg-gray-50/[0.8] backdrop-blur-sm w-full px-8 pt-4 flex items-center">
 				<div className="w-full flex flex-col items-center">
 					<AIInput
 						disabled={ disabled }

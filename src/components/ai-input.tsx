@@ -82,16 +82,26 @@ export const AIInput = ( {
 	};
 
 	const handleClearConversation = async () => {
+		if ( localStorage.getItem( 'dontShowClearMessagesWarning' ) === 'true' ) {
+			clearInput();
+			return;
+		}
+
 		const CLEAR_CONVERSATION_BUTTON_INDEX = 0;
 		const CANCEL_BUTTON_INDEX = 1;
 
-		const { response } = await getIpcApi().showMessageBox( {
+		const { response, checkboxChecked } = await getIpcApi().showMessageBox( {
 			message: __( 'Are you sure you want to clear the conversation?' ),
+			checkboxLabel: __( "Don't show this warning again" ),
 			buttons: [ __( 'OK' ), __( 'Cancel' ) ],
 			cancelId: CANCEL_BUTTON_INDEX,
 		} );
 
 		if ( response === CLEAR_CONVERSATION_BUTTON_INDEX ) {
+			if ( checkboxChecked ) {
+				localStorage.setItem( 'dontShowClearMessagesWarning', 'true' );
+			}
+
 			clearInput();
 		}
 	};
@@ -99,7 +109,7 @@ export const AIInput = ( {
 	return (
 		<div
 			className={ cx(
-				`flex w-full border rounded-sm bg-white ${
+				`flex w-full border rounded-sm bg-white/[0.9] ${
 					disabled ? 'border-a8c-gray-5' : 'border-gray-300 focus-within:border-a8c-blueberry'
 				}`
 			) }
@@ -116,7 +126,7 @@ export const AIInput = ( {
 				disabled={ disabled }
 				placeholder={ getPlaceholderText() }
 				className={ cx(
-					`w-full mt-1 px-2 py-3 rounded-sm border-none resize-none focus:outline-none ${
+					`w-full mt-1 px-2 py-3 rounded-sm border-none bg-transparent resize-none focus:outline-none assistant-textarea ${
 						disabled ? 'cursor-not-allowed opacity-30' : ''
 					}`
 				) }
@@ -136,6 +146,7 @@ export const AIInput = ( {
 					<>
 						<MenuGroup>
 							<MenuItem
+								isDestructive
 								data-testid="clear-conversation-button"
 								onClick={ () => {
 									handleClearConversation();
@@ -143,9 +154,7 @@ export const AIInput = ( {
 								} }
 							>
 								<Icon className="text-red-600" icon={ reset } />
-								<span className="ltr:pl-2 rtl:pl-2 text-red-600">
-									{ __( 'Clear conversation' ) }
-								</span>
+								<span className="ltr:pl-2 rtl:pl-2">{ __( 'Clear conversation' ) }</span>
 							</MenuItem>
 						</MenuGroup>
 					</>

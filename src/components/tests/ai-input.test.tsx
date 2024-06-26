@@ -101,4 +101,20 @@ describe( 'AIInput Component', () => {
 			expect( clearInput ).toHaveBeenCalled();
 		} );
 	} );
+
+	it( 'should clear messages without warning if the warning was previously dismissed', async () => {
+		localStorage.setItem( 'dontShowClearMessagesWarning', 'true' );
+		const textarea = getInput();
+		const longText = 'Line\n'.repeat( 100 );
+		fireEvent.change( textarea, { target: { value: longText } } );
+
+		const assistantMenu = screen.getByLabelText( 'Assistant Menu' );
+		fireEvent.click( assistantMenu );
+		const clearConversationButton = screen.getByTestId( 'clear-conversation-button' );
+		mockShowMessageBox.mockResolvedValueOnce( { response: 0, checkboxChecked: true } );
+		fireEvent.click( clearConversationButton );
+
+		expect( mockShowMessageBox ).not.toHaveBeenCalled();
+		expect( clearInput ).toHaveBeenCalled();
+	} );
 } );

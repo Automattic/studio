@@ -53,16 +53,26 @@ function AIClearHistoryReminder( {
 	}, [ showReminder ] );
 
 	const onClearHistory = useCallback( async () => {
+		if ( localStorage.getItem( 'dontShowClearMessagesWarning' ) === 'true' ) {
+			clearInput();
+			return;
+		}
+
 		const CLEAR_CONVERSATION_BUTTON_INDEX = 0;
 		const CANCEL_BUTTON_INDEX = 1;
 
-		const { response } = await getIpcApi().showMessageBox( {
+		const { response, checkboxChecked } = await getIpcApi().showMessageBox( {
 			message: __( 'Are you sure you want to clear the conversation?' ),
+			checkboxLabel: __( "Don't show this warning again" ),
 			buttons: [ __( 'OK' ), __( 'Cancel' ) ],
 			cancelId: CANCEL_BUTTON_INDEX,
 		} );
 
 		if ( response === CLEAR_CONVERSATION_BUTTON_INDEX ) {
+			if ( checkboxChecked ) {
+				localStorage.setItem( 'dontShowClearMessagesWarning', 'true' );
+			}
+
 			clearInput();
 		}
 	}, [ clearInput ] );
@@ -72,7 +82,7 @@ function AIClearHistoryReminder( {
 	}
 
 	return (
-		<div ref={ elementRef } className="mt-8 text-center">
+		<div ref={ elementRef } className="mt-8 mb-2 text-center">
 			{ createInterpolateElement(
 				__(
 					'This conversation is over two hours old. <button>Clear the history</button> if you have something new to ask.'

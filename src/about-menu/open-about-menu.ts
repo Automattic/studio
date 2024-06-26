@@ -43,6 +43,7 @@ export function openAboutWindow() {
 
 	aboutWindow.webContents.on( 'dom-ready', () => {
 		if ( aboutWindow ) {
+			//When updating these strings, make sure to update the corresponding strings in the about-menu.html file
 			const versionText = sprintf( __( 'Version %s' ), packageJson );
 			const studioByWpcomText = escapeSingleQuotes( __( 'Studio by WordPress.com' ) );
 			const shareFeedbackText = escapeSingleQuotes( __( 'Share Feedback' ) );

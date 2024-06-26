@@ -97,15 +97,15 @@ function SnapshotRow( {
 				),
 				buttons: [ __( 'Update' ), __( 'Cancel' ) ],
 				cancelId: CANCEL_BUTTON_INDEX,
-				checkboxLabel: __( "Don't ask again" ),
+				checkboxLabel: __( "Don't show this warning again" ),
 				checkboxChecked: false,
 			} );
 
-			if ( checkboxChecked ) {
-				localStorage.setItem( 'dontShowUpdateWarning', 'true' );
-			}
-
 			if ( response === UPDATE_BUTTON_INDEX ) {
+				if ( checkboxChecked ) {
+					localStorage.setItem( 'dontShowUpdateWarning', 'true' );
+				}
+
 				updateDemoSite( snapshot, selectedSite );
 			}
 		} else {

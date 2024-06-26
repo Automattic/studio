@@ -43,7 +43,9 @@ export const AIInput = ( {
 
 	useEffect( () => {
 		startStateMachine();
+	} );
 
+	useEffect( () => {
 		if ( inactiveInput ) {
 			inactiveInput.value = disabled;
 		}

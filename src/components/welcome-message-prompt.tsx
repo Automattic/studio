@@ -12,6 +12,7 @@ interface ExampleMessagePromptProps {
 	onClick?: () => void;
 	children: React.ReactNode;
 	className?: string;
+	disabled?: boolean;
 }
 
 interface WelcomeComponentProps {
@@ -19,6 +20,7 @@ interface WelcomeComponentProps {
 	showExamplePrompts: boolean;
 	messages: string[];
 	examplePrompts: string[];
+	disabled?: boolean;
 }
 
 export const WelcomeMessagePrompt = ( { id, children, className }: WelcomeMessagePromptProps ) => (
@@ -46,14 +48,23 @@ export const ExampleMessagePrompt = ( {
 	onClick,
 	children,
 	className,
+	disabled,
 }: ExampleMessagePromptProps ) => (
 	<div className={ cx( 'flex mt-2' ) }>
 		<div
+			aria-disabled={ disabled }
 			className={ cx(
-				'inline-block px-3 py-2 rounded border border-gray-300 lg:max-w-[70%] select-text cursor-pointer focus:border-a8c-blueberry hover:border-a8c-blueberry hover:text-a8c-blueberry hover:fill-a8c-blueberry',
-				className
+				'inline-block px-3 py-2 rounded border border-gray-300 lg:max-w-[70%] ',
+				className,
+				disabled
+					? 'cursor-not-allowed opacity-30'
+					: 'select-text cursor-pointer focus:border-a8c-blueberry hover:border-a8c-blueberry hover:text-a8c-blueberry hover:fill-a8c-blueberry'
 			) }
-			onClick={ onClick }
+			onClick={ () => {
+				if ( onClick && ! disabled ) {
+					onClick();
+				}
+			} }
 			role="button"
 		>
 			<div className="assistant-markdown flex items-center">
@@ -71,6 +82,7 @@ const WelcomeComponent = ( {
 	showExamplePrompts,
 	messages,
 	examplePrompts,
+	disabled,
 }: WelcomeComponentProps ) => {
 	return (
 		<div>
@@ -89,6 +101,7 @@ const WelcomeComponent = ( {
 						key={ index }
 						className="example-prompt"
 						onClick={ () => onExampleClick( prompt ) }
+						disabled={ disabled }
 					>
 						{ prompt }
 					</ExampleMessagePrompt>

@@ -20,7 +20,7 @@ rules.push( {
 	type: 'asset/inline',
 } );
 
-// Encode Rive and WASM files as base64 data URIs
+// Exports a URL for Rive and WASM files
 // This is mainly used in Rive animations.
 rules.push( {
 	test: /\.(riv|wasm)$/i,

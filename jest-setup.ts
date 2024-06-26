@@ -34,4 +34,17 @@ jest.mock( './src/hooks/use-offline', () => ( {
 	useOffline: jest.fn().mockReturnValue( false ),
 } ) );
 
+jest.mock( './src/hooks/use-ai-icon', () => ( {
+	__esModule: true,
+	default: () => ( {
+		rive: jest.fn(),
+		RiveComponent: jest.fn(),
+		inactiveInput: jest.fn(),
+		typingInput: jest.fn(),
+		thinkingInput: jest.fn(),
+		startStateMachine: jest.fn(),
+		pauseStateMachine: jest.fn(),
+	} ),
+} ) );
+
 global.ResizeObserver = require( 'resize-observer-polyfill' );

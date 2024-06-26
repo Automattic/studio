@@ -23,6 +23,16 @@ declare module '*.svg' {
 	export default dataUri;
 }
 
+declare module '*.riv' {
+	const dataUri: string;
+	export default dataUri;
+}
+
+declare module '*.wasm' {
+	const dataUri: function;
+	export default dataUri;
+}
+
 declare module '@timfish/forge-externals-plugin' {
 	import type { PluginBase } from '@electron-forge/plugin-base';
 

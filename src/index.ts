@@ -223,6 +223,7 @@ async function appBoot() {
 				"script-src-attr 'none'",
 				"img-src 'self' https://*.gravatar.com https://*.wp.com data:",
 				"style-src 'self' 'unsafe-inline'", // unsafe-inline used by tailwindcss in development, and also in production after the app rename
+				"script-src 'self' 'wasm-unsafe-eval'", // allow WebAssembly to compile and instantiate
 			];
 			const prodPolicies = [ "connect-src 'self' https://public-api.wordpress.com" ];
 			const devPolicies = [

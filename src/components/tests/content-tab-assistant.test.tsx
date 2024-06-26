@@ -200,7 +200,7 @@ describe( 'ContentTabAssistant', () => {
 			authenticate,
 		} ) );
 		render( <ContentTabAssistant selectedSite={ runningSite } /> );
-		expect( screen.getByText( 'Hold up!' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Hold up!' ) ).toBeVisible();
 		expect( screen.queryByText( 'Welcome to our service!' ) ).not.toBeInTheDocument();
 	} );
 

@@ -2,6 +2,7 @@ import { Spinner } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { useEffect } from 'react';
 import { ExtraProps } from 'react-markdown';
+import { parse } from 'shell-quote';
 import stripAnsi from 'strip-ansi';
 import { useExecuteWPCLI } from '../hooks/use-execute-cli';
 import Button from './button';
@@ -22,10 +23,18 @@ export default function createCodeComponent( contextProps: ContextProps ) {
 
 function CodeBlock( props: ContextProps & CodeBlockProps ) {
 	const content = String( props.children ).trim();
-	const containsWPCommand = /\bwp\s/.test( content );
-	const wpCommandCount = ( content.match( /\bwp\s/g ) || [] ).length;
-	const containsSingleWPCommand = wpCommandCount === 1;
-	const containsAngleBrackets = /<.*>/.test( content );
+
+	const wpCliArgs = parse( content ).filter(
+		( arg: unknown ) => typeof arg === 'string' || arg instanceof String
+	) as string[];
+	const wpCommandCount = wpCliArgs.filter( ( arg ) => arg === 'wp' ).length;
+	// If an argument is wrapped with <>, [] or {}, we consider it a placeholder
+	const containsPlaceholderArgs = wpCliArgs.some( ( arg ) => /^[<[{].*[>}\]]$/.test( arg ) );
+	const isValidWpCliCommand =
+		wpCliArgs.length > 0 &&
+		wpCliArgs[ 0 ] === 'wp' &&
+		wpCommandCount === 1 &&
+		! containsPlaceholderArgs;
 
 	const { node, blocks, updateMessage, projectPath, messageId, ...htmlAttributes } = props;
 	const {
@@ -69,7 +78,7 @@ function CodeBlock( props: ContextProps & CodeBlockProps ) {
 					className="h-auto mr-2 !px-2.5 py-0.5 !p-[6px] font-sans select-none"
 					iconSize={ 16 }
 				></CopyTextButton>
-				{ containsWPCommand && containsSingleWPCommand && ! containsAngleBrackets && (
+				{ isValidWpCliCommand && ! containsPlaceholderArgs && (
 					<Button
 						icon={ <ExecuteIcon /> }
 						onClick={ handleExecute }

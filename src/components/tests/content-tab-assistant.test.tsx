@@ -1,11 +1,11 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { useAuth } from '../../hooks/use-auth';
-import { useFetchWelcomeMessages } from '../../hooks/use-fetch-welcome-messages';
+import { useWelcomeMessages } from '../../hooks/use-welcome-messages';
 import { ContentTabAssistant } from '../content-tab-assistant';
 
 jest.mock( '../../hooks/use-theme-details' );
 jest.mock( '../../hooks/use-auth' );
-jest.mock( '../../hooks/use-fetch-welcome-messages' );
+jest.mock( '../../hooks/use-welcome-messages' );
 
 jest.mock( '../../lib/app-globals', () => ( {
 	getAppGlobals: () => ( {
@@ -13,15 +13,13 @@ jest.mock( '../../lib/app-globals', () => ( {
 	} ),
 } ) );
 
-const mockFetchWelcomeMessages = jest.fn();
-( useFetchWelcomeMessages as jest.Mock ).mockReturnValue( {
+( useWelcomeMessages as jest.Mock ).mockReturnValue( {
 	messages: [ 'Welcome to our service!', 'How can I help you today?' ],
 	examplePrompts: [
 		'How to create a WordPress site',
 		'How to clear cache',
 		'How to install a plugin',
 	],
-	fetchWelcomeMessages: mockFetchWelcomeMessages,
 } );
 
 const runningSite = {
@@ -204,9 +202,8 @@ describe( 'ContentTabAssistant', () => {
 		expect( screen.queryByText( 'Welcome to our service!' ) ).not.toBeInTheDocument();
 	} );
 
-	test( 'renders Welcome messages and example prompts when the conversation is starte', () => {
+	test( 'renders Welcome messages and example prompts when the conversation is starts', () => {
 		render( <ContentTabAssistant selectedSite={ runningSite } /> );
-		expect( mockFetchWelcomeMessages ).toHaveBeenCalledTimes( 1 );
 		expect( screen.getByText( 'Welcome to our service!' ) ).toBeVisible();
 		expect( screen.getByText( 'How to create a WordPress site' ) ).toBeVisible();
 		expect( screen.getByText( 'How to clear cache' ) ).toBeVisible();

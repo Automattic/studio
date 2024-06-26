@@ -8,9 +8,9 @@ import { useAssistant, Message as MessageType } from '../hooks/use-assistant';
 import { useAssistantApi } from '../hooks/use-assistant-api';
 import { useAuth } from '../hooks/use-auth';
 import { useChatContext } from '../hooks/use-chat-context';
-import { useFetchWelcomeMessages } from '../hooks/use-fetch-welcome-messages';
 import { useOffline } from '../hooks/use-offline';
 import { usePromptUsage } from '../hooks/use-prompt-usage';
+import { useWelcomeMessages } from '../hooks/use-welcome-messages';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import ClearHistoryReminder from './ai-clear-history-reminder';
@@ -167,19 +167,11 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	);
 	const { userCanSendMessage } = usePromptUsage();
 	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi( selectedSite.id );
-	const {
-		messages: welcomeMessages,
-		examplePrompts,
-		fetchWelcomeMessages,
-	} = useFetchWelcomeMessages();
+	const { messages: welcomeMessages, examplePrompts } = useWelcomeMessages();
 	const [ input, setInput ] = useState< string >( '' );
 	const isOffline = useOffline();
 	const { __ } = useI18n();
 	const lastMessage = messages.length === 0 ? undefined : messages[ messages.length - 1 ];
-
-	useEffect( () => {
-		fetchWelcomeMessages();
-	}, [ fetchWelcomeMessages, selectedSite ] );
 
 	const handleSend = async ( messageToSend?: string ) => {
 		const chatMessage = messageToSend || input;

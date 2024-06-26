@@ -212,6 +212,18 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		setInput( '' );
 		clearMessages();
 	};
+
+	// We should render only one notice at a time in the bottom area
+	const renderNotice = () => {
+		if ( isOffline ) {
+			return <OfflineModeView />;
+		} else if ( isAuthenticated && ! userCanSendMessage ) {
+			return <UsageLimitReached />;
+		} else if ( isAuthenticated ) {
+			return <ClearHistoryReminder lastMessage={ lastMessage } clearInput={ clearInput } />;
+		}
+	};
+
 	const disabled = isOffline || ! isAuthenticated || ! userCanSendMessage;
 
 	return (
@@ -228,61 +240,26 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 				) }
 			>
 				<div className="mt-auto">
-					{ isOffline ? (
+					{ isAuthenticated ? (
 						<>
-							{ isAuthenticated && messages.length > 0 && (
-								<AuthenticatedView
-									messages={ messages }
-									isAssistantThinking={ isAssistantThinking }
-									updateMessage={ updateMessage }
-									path={ selectedSite.path }
-								/>
-							) }
-							<OfflineModeView />
-						</>
-					) : isAuthenticated ? (
-						<>
-							{ ! userCanSendMessage ? (
-								messages.length > 0 ? (
-									<>
-										<WelcomeComponent
-											onExampleClick={ ( prompt ) => handleSend( prompt ) }
-											showExamplePrompts={ messages.length === 0 }
-											messages={ welcomeMessages }
-											examplePrompts={ examplePrompts }
-										/>
-										<AuthenticatedView
-											messages={ messages }
-											isAssistantThinking={ isAssistantThinking }
-											updateMessage={ updateMessage }
-											path={ selectedSite.path }
-										/>
-										<UsageLimitReached />
-									</>
-								) : (
-									<UsageLimitReached />
-								)
-							) : (
-								<>
-									<WelcomeComponent
-										onExampleClick={ ( prompt ) => handleSend( prompt ) }
-										showExamplePrompts={ messages.length === 0 }
-										messages={ welcomeMessages }
-										examplePrompts={ examplePrompts }
-									/>
-									<AuthenticatedView
-										messages={ messages }
-										isAssistantThinking={ isAssistantThinking }
-										updateMessage={ updateMessage }
-										path={ selectedSite.path }
-									/>
-									<ClearHistoryReminder lastMessage={ lastMessage } clearInput={ clearInput } />
-								</>
-							) }
+							<WelcomeComponent
+								onExampleClick={ ( prompt ) => handleSend( prompt ) }
+								showExamplePrompts={ messages.length === 0 }
+								messages={ welcomeMessages }
+								examplePrompts={ examplePrompts }
+								disabled={ disabled }
+							/>
+							<AuthenticatedView
+								messages={ messages }
+								isAssistantThinking={ isAssistantThinking }
+								updateMessage={ updateMessage }
+								path={ selectedSite.path }
+							/>
 						</>
 					) : (
-						<UnauthenticatedView onAuthenticate={ authenticate } />
+						! isOffline && <UnauthenticatedView onAuthenticate={ authenticate } />
 					) }
+					{ renderNotice() }
 				</div>
 			</div>
 

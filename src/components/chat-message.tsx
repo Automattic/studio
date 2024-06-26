@@ -1,8 +1,6 @@
 import * as Sentry from '@sentry/react';
 import { speak } from '@wordpress/a11y';
-import {
-	__unstableMotion as motion,
-} from '@wordpress/components';
+import { __unstableMotion as motion } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import Markdown, { ExtraProps } from 'react-markdown';
 import remarkGfm from 'remark-gfm';

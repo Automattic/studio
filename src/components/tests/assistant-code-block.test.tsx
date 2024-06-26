@@ -16,7 +16,7 @@ describe( 'createCodeComponent', () => {
 	it( 'should render inline styles for language-generic code', () => {
 		render( <CodeBlock children="example-code" /> );
 
-		expect( screen.getByText( 'example-code' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'example-code' ) ).toBeVisible();
 		expect( screen.queryByText( 'Copy' ) ).not.toBeInTheDocument();
 		expect( screen.queryByText( 'Run' ) ).not.toBeInTheDocument();
 	} );
@@ -24,13 +24,13 @@ describe( 'createCodeComponent', () => {
 	it( 'should display a "copy" button for language-specific code', () => {
 		render( <CodeBlock className="language-bash" children="wp --version" /> );
 
-		expect( screen.getByText( 'Copy' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Copy' ) ).toBeVisible();
 	} );
 
 	it( 'should display the "run" button for eligible wp-cli commands without placeholder content', () => {
 		render( <CodeBlock className="language-bash" children="wp --version" /> );
 
-		expect( screen.getByText( 'Run' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Run' ) ).toBeVisible();
 	} );
 
 	it( 'should hide the "run" button for ineligible non-wp-cli code', () => {
@@ -67,7 +67,7 @@ describe( 'createCodeComponent', () => {
 
 			fireEvent.click( screen.getByText( 'Run' ) );
 
-			expect( screen.getByText( 'Running...' ) ).toBeInTheDocument();
+			expect( screen.getByText( 'Running...' ) ).toBeVisible();
 
 			// Run code execution measurement timer
 			await act( () => jest.runAllTimersAsync() );
@@ -86,8 +86,8 @@ describe( 'createCodeComponent', () => {
 			// Run code execution measurement timer
 			await act( () => jest.runAllTimersAsync() );
 
-			expect( screen.getByText( 'Success' ) ).toBeInTheDocument();
-			expect( screen.getByText( 'Mock success' ) ).toBeInTheDocument();
+			expect( screen.getByText( 'Success' ) ).toBeVisible();
+			expect( screen.getByText( 'Mock success' ) ).toBeVisible();
 		} );
 
 		it( 'should display the output of the failed code execution', async () => {
@@ -101,8 +101,8 @@ describe( 'createCodeComponent', () => {
 			// Run code execution measurement timer
 			await act( () => jest.runAllTimersAsync() );
 
-			expect( screen.getByText( 'Error' ) ).toBeInTheDocument();
-			expect( screen.getByText( 'Mock error' ) ).toBeInTheDocument();
+			expect( screen.getByText( 'Error' ) ).toBeVisible();
+			expect( screen.getByText( 'Mock error' ) ).toBeVisible();
 		} );
 	} );
 
@@ -138,8 +138,8 @@ describe( 'createCodeComponent', () => {
 			const CodeBlock = createCodeComponent( contextProps );
 			render( <CodeBlock className="language-bash" children="wp --version" /> );
 
-			expect( screen.getByText( 'Success' ) ).toBeInTheDocument();
-			expect( screen.getByText( 'Mock success' ) ).toBeInTheDocument();
+			expect( screen.getByText( 'Success' ) ).toBeVisible();
+			expect( screen.getByText( 'Mock success' ) ).toBeVisible();
 		} );
 	} );
 } );

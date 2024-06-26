@@ -21,6 +21,17 @@ import { ChatMessage } from './chat-message';
 import offlineIcon from './offline-icon';
 import WelcomeComponent from './welcome-message-prompt';
 
+const ERROR_NOTICES_KEY = 'errorNotices';
+
+const getErrorNoticesFromStorage = (): Set< number > => {
+	const errorNotices = localStorage.getItem( ERROR_NOTICES_KEY );
+	return errorNotices ? new Set< number >( JSON.parse( errorNotices ) ) : new Set< number >();
+};
+
+const saveErrorNoticesToStorage = ( errorNotices: Set< number > ) => {
+	localStorage.setItem( ERROR_NOTICES_KEY, JSON.stringify( [ ...errorNotices ] ) );
+};
+
 interface ContentTabAssistantProps {
 	selectedSite: SiteDetails;
 }
@@ -28,7 +39,6 @@ interface ContentTabAssistantProps {
 const UsageLimitReached = () => {
 	const { daysUntilReset } = usePromptUsage();
 
-	// Determine if the reset is today
 	const resetMessage =
 		daysUntilReset <= 0
 			? __( "You've reached your <a>usage limit</a> for this month. Your limit will reset today." )
@@ -98,7 +108,7 @@ const AuthenticatedView = memo(
 		updateMessage,
 		path,
 		handleSend,
-		errorMessages,
+		errorNotices,
 	}: {
 		messages: MessageType[];
 		isAssistantThinking: boolean;
@@ -111,7 +121,7 @@ const AuthenticatedView = memo(
 		) => void;
 		path: string;
 		handleSend: ( messageToSend?: string ) => void;
-		errorMessages: Set< number >;
+		errorNotices: Set< number >;
 	} ) => {
 		const endOfMessagesRef = useRef< HTMLDivElement >( null );
 
@@ -136,7 +146,7 @@ const AuthenticatedView = memo(
 							updateMessage={ updateMessage }
 							messageId={ message.id }
 							blocks={ message.blocks }
-							hasError={ message.id !== undefined ? errorMessages.has( message.id ) : false }
+							hasError={ message.id !== undefined ? errorNotices.has( message.id ) : false }
 						>
 							{ message.content }
 						</ChatMessage>
@@ -144,7 +154,7 @@ const AuthenticatedView = memo(
 							<ErrorNotice
 								handleSend={ handleSend }
 								messageContent={ message.content }
-								hasError={ errorMessages.has( message.id ) }
+								hasError={ errorNotices.has( message.id ) }
 							/>
 						) }
 					</div>
@@ -217,11 +227,15 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const lastMessage = messages.length === 0 ? undefined : messages[ messages.length - 1 ];
 
 	const [ isThinking, setIsThinking ] = useState( false );
-	const [ errorMessages, setErrorMessages ] = useState< Set< number > >( new Set() );
+	const [ errorNotices, setErrorNotices ] = useState< Set< number > >( getErrorNoticesFromStorage );
 
 	useEffect( () => {
 		fetchWelcomeMessages();
 	}, [ fetchWelcomeMessages, selectedSite ] );
+
+	useEffect( () => {
+		saveErrorNoticesToStorage( errorNotices );
+	}, [ errorNotices ] );
 
 	const handleSend = async ( messageToSend?: string ) => {
 		const chatMessage = messageToSend || input;
@@ -237,14 +251,14 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 				);
 				if ( message ) {
 					addMessage( message, 'assistant', chatId ?? fetchedChatId );
-					setErrorMessages( ( prev ) => {
+					setErrorNotices( ( prev ) => {
 						const newSet = new Set( prev );
 						newSet.delete( messages.length );
 						return newSet;
 					} );
 				}
 			} catch ( error ) {
-				setErrorMessages( ( prev ) => new Set( prev ).add( messages.length ) );
+				setErrorNotices( ( prev ) => new Set( prev ).add( messages.length ) );
 				setIsThinking( false );
 			} finally {
 				setIsThinking( false );
@@ -287,7 +301,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 									updateMessage={ updateMessage }
 									path={ selectedSite.path }
 									handleSend={ handleSend }
-									errorMessages={ errorMessages }
+									errorNotices={ errorNotices }
 								/>
 							) }
 							<OfflineModeView />
@@ -309,7 +323,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 											updateMessage={ updateMessage }
 											path={ selectedSite.path }
 											handleSend={ handleSend }
-											errorMessages={ errorMessages }
+											errorNotices={ errorNotices }
 										/>
 										<UsageLimitReached />
 									</>
@@ -330,7 +344,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 										updateMessage={ updateMessage }
 										path={ selectedSite.path }
 										handleSend={ handleSend }
-										errorMessages={ errorMessages }
+										errorNotices={ errorNotices }
 									/>
 									<ClearHistoryReminder lastMessage={ lastMessage } clearInput={ clearInput } />
 								</>

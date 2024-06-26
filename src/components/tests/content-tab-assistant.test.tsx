@@ -204,7 +204,7 @@ describe( 'ContentTabAssistant', () => {
 		expect( screen.queryByText( 'Welcome to our service!' ) ).not.toBeInTheDocument();
 	} );
 
-	test( 'confirm that Welcome messages and example prompts are present when the conversation is started', () => {
+	test( 'renders Welcome messages and example prompts when the conversation is starte', () => {
 		render( <ContentTabAssistant selectedSite={ runningSite } /> );
 		expect( mockFetchWelcomeMessages ).toHaveBeenCalledTimes( 1 );
 		expect( screen.getByText( 'Welcome to our service!' ) ).toBeInTheDocument();
@@ -213,7 +213,7 @@ describe( 'ContentTabAssistant', () => {
 		expect( screen.getByText( 'How to install a plugin' ) ).toBeInTheDocument();
 	} );
 
-	test( 'confirm that Welcome messages are present, the selected prompt is present, other prompts are removed', async () => {
+	test( 'renders the selected prompt of Welcome messages and confirms other prompts are removed', async () => {
 		render( <ContentTabAssistant selectedSite={ runningSite } /> );
 
 		expect( screen.getByText( 'Welcome to our service!' ) ).toBeInTheDocument();

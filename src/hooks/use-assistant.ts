@@ -37,7 +37,7 @@ export const useAssistant = ( instanceId: string ) => {
 	}, [ instanceId ] );
 
 	const addMessage = useCallback(
-		( content: string, role: 'user' | 'assistant', newChatId?: string ) => {
+		( content: string, role: 'user' | 'assistant', chatId?: string ) => {
 			setMessages( ( prevMessages ) => {
 				const updatedMessages = [
 					...prevMessages,
@@ -51,11 +51,10 @@ export const useAssistant = ( instanceId: string ) => {
 			} );
 
 			setChatId( ( prevChatId ) => {
-				if ( prevChatId !== newChatId && newChatId ) {
-					localStorage.setItem( chatIdStoreKey( instanceId ), JSON.stringify( newChatId ) );
-					return newChatId;
+				if ( prevChatId !== chatId && chatId ) {
+					localStorage.setItem( chatIdStoreKey( instanceId ), JSON.stringify( chatId ) );
 				}
-				return prevChatId;
+				return chatId;
 			} );
 		},
 		[ instanceId ]

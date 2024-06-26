@@ -106,7 +106,7 @@ const AuthenticatedView = memo(
 				scrollToBottom();
 				return;
 			}
-			// When there is a user message, we'll always have a thinking message as well
+
 			if ( lastMessage.role === 'user' ) {
 				setDisplayedMessages( ( prevMessages ) => [ ...prevMessages, lastMessage ] );
 				scrollToBottom();

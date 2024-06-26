@@ -43,7 +43,21 @@ describe( 'createCodeComponent', () => {
 		render(
 			<CodeBlock className="language-bash" children="wp plugin activate <example-plugin>" />
 		);
+		expect( screen.queryByText( 'Run' ) ).not.toBeInTheDocument();
 
+		render(
+			<CodeBlock className="language-bash" children="wp plugin activate [example-plugin]" />
+		);
+		expect( screen.queryByText( 'Run' ) ).not.toBeInTheDocument();
+
+		render(
+			<CodeBlock className="language-bash" children="wp plugin activate {example-plugin}" />
+		);
+		expect( screen.queryByText( 'Run' ) ).not.toBeInTheDocument();
+
+		render(
+			<CodeBlock className="language-bash" children="wp plugin activate (example-plugin)" />
+		);
 		expect( screen.queryByText( 'Run' ) ).not.toBeInTheDocument();
 	} );
 
@@ -51,6 +65,12 @@ describe( 'createCodeComponent', () => {
 		render( <CodeBlock className="language-bash" children="wp --version wp --version" /> );
 
 		expect( screen.queryByText( 'Run' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'should display the "run" button for elligble wp-cli commands that contain a placeholder char', () => {
+		render( <CodeBlock className="language-bash" children="wp eval 'var_dump(3 < 4);'" /> );
+
+		expect( screen.getByText( 'Run' ) ).toBeInTheDocument();
 	} );
 
 	describe( 'when the "run" button is clicked', () => {

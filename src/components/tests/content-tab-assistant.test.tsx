@@ -13,10 +13,15 @@ jest.mock( '../../lib/app-globals', () => ( {
 	} ),
 } ) );
 
+const mockFetchWelcomeMessages = jest.fn();
 ( useFetchWelcomeMessages as jest.Mock ).mockReturnValue( {
 	messages: [ 'Welcome to our service!', 'How can I help you today?' ],
-	examplePrompts: [ 'Create a WordPress site' ],
-	fetchWelcomeMessages: jest.fn(),
+	examplePrompts: [
+		'How to create a WordPress site',
+		'How to clear cache',
+		'How to install a plugin',
+	],
+	fetchWelcomeMessages: mockFetchWelcomeMessages,
 } );
 
 const runningSite = {
@@ -182,5 +187,49 @@ describe( 'ContentTabAssistant', () => {
 		rerender( <ContentTabAssistant selectedSite={ runningSite } /> );
 
 		expect( screen.queryByText( 'New message' ) ).toBeNull();
+	} );
+
+	test( 'does not render the Welcome messages and example prompts when not authenticated', () => {
+		( useAuth as jest.Mock ).mockImplementation( () => ( {
+			client: {
+				req: {
+					post: clientReqPost,
+				},
+			},
+			isAuthenticated: false,
+			authenticate,
+		} ) );
+		render( <ContentTabAssistant selectedSite={ runningSite } /> );
+		expect( screen.getByText( 'Hold up!' ) ).toBeVisible();
+		expect( screen.queryByText( 'Welcome to our service!' ) ).not.toBeInTheDocument();
+	} );
+
+	test( 'renders Welcome messages and example prompts when the conversation is starte', () => {
+		render( <ContentTabAssistant selectedSite={ runningSite } /> );
+		expect( mockFetchWelcomeMessages ).toHaveBeenCalledTimes( 1 );
+		expect( screen.getByText( 'Welcome to our service!' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'How to create a WordPress site' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'How to clear cache' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'How to install a plugin' ) ).toBeInTheDocument();
+	} );
+
+	test( 'renders the selected prompt of Welcome messages and confirms other prompts are removed', async () => {
+		render( <ContentTabAssistant selectedSite={ runningSite } /> );
+
+		expect( screen.getByText( 'Welcome to our service!' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'How to create a WordPress site' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'How to install a plugin' ) ).toBeInTheDocument();
+
+		const samplePrompt = await screen.findByRole( 'button', {
+			name: 'How to create a WordPress site',
+		} );
+		expect( samplePrompt ).toBeInTheDocument();
+		fireEvent.click( samplePrompt );
+
+		// Check if the selected prompt is still present and other prompts are removed
+		expect( screen.getByText( 'Welcome to our service!' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'How to create a WordPress site' ) ).toBeInTheDocument();
+		expect( screen.queryByText( 'How to clear cache' ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( 'How to install a plugin' ) ).not.toBeInTheDocument();
 	} );
 } );

@@ -58,6 +58,7 @@ export const ChatMessage = ( {
 
 	return (
 		<motion.div
+			key="container"
 			className={ cx(
 				'flex mt-4',
 				isUser
@@ -65,57 +66,58 @@ export const ChatMessage = ( {
 					: 'justify-start ltr:md:mr-24 rtl:md:ml-24',
 				className
 			) }
-			layout="position"
 		>
-			<AnimatePresence mode="wait">
-				<motion.div
-					key={ isAssistantThinking ? 'thinking' : 'content' }
-					variants={ bubbleVariants }
-					initial="hidden"
-					animate="visible"
-					exit="exit"
-					transition={ {
-						duration: 0.3,
-					} }
-					id={ id }
-					role="group"
-					data-testid="chat-message"
-					aria-labelledby={ id }
-					className={ cx(
-						'inline-block p-3 rounded border border-gray-300 overflow-x-auto select-text',
-						isUnauthenticated ? 'lg:max-w-[90%]' : 'lg:max-w-[70%]',
-						! isUser ? 'bg-white' : 'bg-white/45'
-					) }
-				>
-					<div className="relative">
-						<span className="sr-only">
-							{ isUser ? __( 'Your message' ) : __( 'Studio Assistant' ) },
-						</span>
-					</div>
-					{ isAssistantThinking && <MessageThinking /> }
-					{ typeof children === 'string' ? (
-						<div className="assistant-markdown">
-							<Markdown
-								components={ {
-									a: Anchor,
-									code: createCodeComponent( {
-										blocks,
-										messageId,
-										projectPath,
-										updateMessage,
-									} ),
-									img: () => null,
-								} }
-								remarkPlugins={ [ remarkGfm ] }
-							>
-								{ children }
-							</Markdown>
-						</div>
-					) : (
-						children
-					) }
-				</motion.div>
-			</AnimatePresence>
+			<motion.div
+				key={ isAssistantThinking ? `thinking` : `content` }
+				variants={ bubbleVariants }
+				initial="hidden"
+				animate="visible"
+				exit="exit"
+				transition={ {
+					duration: 0.3,
+				} }
+				id={ id }
+				role="group"
+				data-testid="chat-message"
+				aria-labelledby={ id }
+				className={ cx(
+					'inline-block p-3 rounded border border-gray-300 overflow-x-auto select-text',
+					isUnauthenticated ? 'lg:max-w-[90%]' : 'lg:max-w-[70%]',
+					! isUser ? 'bg-white' : 'bg-white/45'
+				) }
+			>
+				<div className="relative">
+					<span className="sr-only">
+						{ isUser ? __( 'Your message' ) : __( 'Studio Assistant' ) },
+					</span>
+				</div>
+				{ isAssistantThinking && (
+					<motion.div key="thinking-container">
+						<MessageThinking />
+					</motion.div>
+				) }
+				{ typeof children === 'string' ? (
+					<motion.div key="code" className="assistant-markdown">
+						<Markdown
+							components={ {
+								a: Anchor,
+								code: createCodeComponent( {
+									blocks,
+									messageId,
+									projectPath,
+									updateMessage,
+								} ),
+								img: () => null,
+							} }
+							remarkPlugins={ [ remarkGfm ] }
+						>
+							{ children }
+						</Markdown>
+					</motion.div>
+				) : (
+					children
+				) }
+			</motion.div>
 		</motion.div>
 	);
 };

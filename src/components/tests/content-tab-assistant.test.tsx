@@ -104,21 +104,23 @@ describe( 'ContentTabAssistant', () => {
 		localStorage.setItem( storageKey, JSON.stringify( initialMessages ) );
 		render( <ContentTabAssistant selectedSite={ runningSite } /> );
 
+		act( () => {
+			jest.advanceTimersByTime( MIMIC_CONVERSATION_DELAY + 1000 );
+		} );
 		await waitFor( () => {
-			expect( screen.getByText( 'Initial message 1' ) ).toBeInTheDocument();
-			expect( screen.getByText( 'Initial message 2' ) ).toBeInTheDocument();
+			expect( screen.getByText( 'Initial message 1' ) ).toBeVisible();
+			expect( screen.getByText( 'Initial message 2' ) ).toBeVisible();
 		} );
 
 		const textInput = getInput();
-		fireEvent.change( textInput, { target: { value: 'New message' } } );
-		fireEvent.keyDown( textInput, { key: 'Enter', code: 'Enter' } );
+		act( () => {
+			fireEvent.change( textInput, { target: { value: 'New message' } } );
+			fireEvent.keyDown( textInput, { key: 'Enter', code: 'Enter' } );
+		} );
 
-		await waitFor(
-			() => {
-				expect( screen.getByText( 'New message' ) ).toBeInTheDocument();
-			},
-			{ timeout: MIMIC_CONVERSATION_DELAY + 1000 }
-		);
+		await waitFor( () => {
+			expect( screen.getByText( 'New message' ) ).toBeInTheDocument();
+		} );
 
 		await waitFor( () => {
 			const storedMessages = JSON.parse( localStorage.getItem( storageKey ) || '[]' );
@@ -129,21 +131,31 @@ describe( 'ContentTabAssistant', () => {
 
 	test( 'renders default message when not authenticated', async () => {
 		( useAuth as jest.Mock ).mockImplementation( () => ( {
+			client: {
+				req: {
+					post: clientReqPost,
+				},
+			},
 			isAuthenticated: false,
 			authenticate,
 		} ) );
 		render( <ContentTabAssistant selectedSite={ runningSite } /> );
 
 		await waitFor( () => {
-			expect( screen.getByTestId( 'unauthenticated-header' ) ).toBeInTheDocument();
+			expect( screen.getByText( 'Hold up!' ) ).toBeVisible();
 			expect(
 				screen.getByText( 'You need to log in to your WordPress.com account to use the assistant.' )
-			).toBeInTheDocument();
+			).toBeVisible();
 		} );
 	} );
 
 	test( 'allows authentication from Assistant chat', async () => {
 		( useAuth as jest.Mock ).mockImplementation( () => ( {
+			client: {
+				req: {
+					post: clientReqPost,
+				},
+			},
 			isAuthenticated: false,
 			authenticate,
 		} ) );
@@ -163,6 +175,11 @@ describe( 'ContentTabAssistant', () => {
 		const user1 = { id: 'mock-user-1' };
 		const user2 = { id: 'mock-user-2' };
 		( useAuth as jest.Mock ).mockImplementation( () => ( {
+			client: {
+				req: {
+					post: clientReqPost,
+				},
+			},
 			isAuthenticated: true,
 			authenticate,
 			user: user1,
@@ -173,22 +190,23 @@ describe( 'ContentTabAssistant', () => {
 		act( () => {
 			fireEvent.change( textInput, { target: { value: 'New message' } } );
 			fireEvent.keyDown( textInput, { key: 'Enter', code: 'Enter' } );
+			jest.advanceTimersByTime( MIMIC_CONVERSATION_DELAY + 1000 );
 		} );
 
-		await waitFor(
-			() => {
-				expect( screen.getByText( 'New message' ) ).toBeInTheDocument();
+		await waitFor( () => {
+			expect( screen.getByText( 'New message' ) ).toBeVisible();
+		} );
+
+		( useAuth as jest.Mock ).mockImplementation( () => ( {
+			client: {
+				req: {
+					post: clientReqPost,
+				},
 			},
-			{ timeout: MIMIC_CONVERSATION_DELAY + 1000 }
-		);
-
-		act( () => {
-			( useAuth as jest.Mock ).mockImplementation( () => ( {
-				isAuthenticated: true,
-				authenticate,
-				user: user2,
-			} ) );
-		} );
+			isAuthenticated: true,
+			authenticate,
+			user: user2,
+		} ) );
 
 		rerender( <ContentTabAssistant selectedSite={ runningSite } /> );
 

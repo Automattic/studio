@@ -39,27 +39,13 @@ export const useAssistant = ( instanceId: string ) => {
 	const addMessage = useCallback(
 		( content: string, role: 'user' | 'assistant', newChatId?: string ) => {
 			setMessages( ( prevMessages ) => {
-				const newMessage = { content, role, createdAt: Date.now(), id: prevMessages.length };
-				const newMessages = [ ...prevMessages ];
-				if ( newMessage.role === 'user' ) {
-					newMessages.push( newMessage );
-					newMessages.push( {
-						content: '',
-						role: 'thinking',
-						createdAt: Date.now(),
-						id: newMessages.length,
-					} );
-				}
-				if ( newMessage.role === 'assistant' ) {
-					newMessages.pop();
-					newMessages.push( { ...newMessage, id: newMessages.length } );
-				}
-				const updatedMessages = [ ...newMessages ];
-				const messagesToStore = newMessages.filter( ( message ) => message.role !== 'thinking' );
-
+				const updatedMessages = [
+					...prevMessages,
+					{ content, role, id: prevMessages.length, createdAt: Date.now() },
+				];
 				localStorage.setItem(
 					chatMessagesStoreKey( instanceId ),
-					JSON.stringify( messagesToStore )
+					JSON.stringify( updatedMessages )
 				);
 				return updatedMessages;
 			} );
@@ -77,10 +63,10 @@ export const useAssistant = ( instanceId: string ) => {
 
 	const removeLastMessage = useCallback( () => {
 		setMessages( ( prevMessages ) => {
-			const messagesToStore = prevMessages.filter( ( message ) => message.role !== 'thinking' );
-			messagesToStore.pop();
-			localStorage.setItem( chatMessagesStoreKey( instanceId ), JSON.stringify( messagesToStore ) );
-			return messagesToStore;
+			const updatedMessages = [ ...prevMessages ];
+			updatedMessages.pop();
+			localStorage.setItem( chatMessagesStoreKey( instanceId ), JSON.stringify( updatedMessages ) );
+			return updatedMessages;
 		} );
 	}, [ instanceId ] );
 

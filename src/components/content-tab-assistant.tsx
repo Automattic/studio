@@ -3,7 +3,7 @@ import { createInterpolateElement } from '@wordpress/element';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { Icon, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import React, { useState, useEffect, useRef, memo } from 'react';
+import React, { useState, useEffect, useRef, memo, useCallback } from 'react';
 import { AI_GUIDELINES_URL } from '../constants';
 import { useAssistant, Message as MessageType } from '../hooks/use-assistant';
 import { useAssistantApi } from '../hooks/use-assistant-api';
@@ -82,61 +82,67 @@ const AuthenticatedView = memo(
 		const endOfMessagesRef = useRef< HTMLDivElement >( null );
 		const [ displayedMessages, setDisplayedMessages ] = useState< MessageType[] >( [] );
 
-		useEffect( () => {
+		const scrollToBottom = useCallback( ( delay = 300 ) => {
 			setTimeout( () => {
 				if ( endOfMessagesRef.current ) {
 					endOfMessagesRef.current.scrollIntoView( { behavior: 'smooth' } );
 				}
-			}, 300 );
-		}, [ displayedMessages ] );
+			}, delay );
+		}, [] );
 
 		useEffect( () => {
 			const newMessages = [ ...messages ];
 
 			const lastMessage = newMessages[ messages.length - 1 ];
-			const secondLastMessage = newMessages[ messages.length - 2 ];
 
-			if ( ! lastMessage || ! secondLastMessage ) {
+			if ( ! lastMessage ) {
 				setDisplayedMessages( ( _prevMessages ) => newMessages );
+				scrollToBottom();
 				return;
 			}
 
 			if ( lastMessage.role === 'assistant' ) {
 				setDisplayedMessages( ( _prevMessages ) => newMessages );
+				scrollToBottom();
 				return;
 			}
 			// When there is a user message, we'll always have a thinking message as well
-			if ( secondLastMessage.role === 'user' && lastMessage.role === 'thinking' ) {
-				const thinkingMessage = newMessages[ newMessages.length - 1 ];
-				const messagesWithoutThinking = newMessages.filter(
-					( message ) => message.role !== 'thinking'
-				);
-				setDisplayedMessages( messagesWithoutThinking );
-				setTimeout( () => {
-					setDisplayedMessages( ( prevMessages ) => [ ...prevMessages, thinkingMessage ] );
+			if ( lastMessage.role === 'user' ) {
+				setDisplayedMessages( ( prevMessages ) => [ ...prevMessages, lastMessage ] );
+				scrollToBottom();
+
+				const timeoutId = setTimeout( () => {
+					setDisplayedMessages( ( prevMessages ) => [
+						...prevMessages,
+						{ role: 'thinking', content: '', id: prevMessages.length, createdAt: Date.now() },
+					] );
+					scrollToBottom();
 				}, MIMIC_CONVERSATION_DELAY );
-				return;
+				return () => clearTimeout( timeoutId );
 			}
 			setDisplayedMessages( ( _prevMessages ) => newMessages );
-		}, [ messages ] );
+			scrollToBottom();
+		}, [ messages, scrollToBottom ] );
 
 		return (
 			<>
-				{ displayedMessages.map( ( message, index ) => (
-					<ChatMessage
-						key={ index }
-						id={ `message-chat-${ index }` }
-						isUser={ message.role === 'user' }
-						isAssistantThinking={ message.role === 'thinking' }
-						projectPath={ path }
-						updateMessage={ updateMessage }
-						messageId={ message.id }
-						blocks={ message.blocks }
-					>
-						{ message.content }
-					</ChatMessage>
-				) ) }
-				<div ref={ endOfMessagesRef } />
+				<AnimatePresence initial={ false }>
+					{ displayedMessages.map( ( message, index ) => (
+						<ChatMessage
+							key={ `${ message.role }-${ message.id || index }` }
+							id={ `message-chat-${ index }` }
+							isUser={ message.role === 'user' }
+							isAssistantThinking={ message.role === 'thinking' }
+							projectPath={ path }
+							updateMessage={ updateMessage }
+							messageId={ message.id ?? index }
+							blocks={ message.blocks }
+						>
+							{ message.content }
+						</ChatMessage>
+					) ) }
+					<div ref={ endOfMessagesRef } />
+				</AnimatePresence>
 			</>
 		);
 	}
@@ -230,9 +236,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 						} ),
 					100
 				);
-				// Adding timeout to ensure that this will fire after, the artificial delay
-				// of thinking message is over.
-				setTimeout( () => removeLastMessage(), MIMIC_CONVERSATION_DELAY + 100 );
+				removeLastMessage();
 			}
 		}
 	};

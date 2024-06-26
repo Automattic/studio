@@ -11,6 +11,14 @@ describe( 'createCodeComponent', () => {
 
 	const CodeBlock = createCodeComponent( contextProps );
 
+	it( 'should render inline styles for language-generic code', () => {
+		render( <CodeBlock children="example-code" /> );
+
+		expect( screen.getByText( 'example-code' ) ).toBeInTheDocument();
+		expect( screen.queryByText( 'Copy' ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( 'Run' ) ).not.toBeInTheDocument();
+	} );
+
 	it( 'should display a "copy" button for language-specific code', () => {
 		render( <CodeBlock className="language-bash" children="wp --version" /> );
 

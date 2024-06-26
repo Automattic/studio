@@ -121,7 +121,7 @@ export const AIInput = ( {
 
 		typingTimeout.current = setTimeout( () => {
 			setIsTyping( false );
-		}, 300 );
+		}, 400 );
 	};
 
 	const getPlaceholderText = () => {

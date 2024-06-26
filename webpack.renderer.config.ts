@@ -20,6 +20,13 @@ rules.push( {
 	type: 'asset/inline',
 } );
 
+// Encode Rive and WASM files as base64 data URIs
+// This is mainly used in Rive animations.
+rules.push( {
+	test: /\.(riv|wasm)$/i,
+	type: 'asset/resource',
+} );
+
 export const rendererConfig: Configuration = {
 	devtool: 'source-map',
 	module: {

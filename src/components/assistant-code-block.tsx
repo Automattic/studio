@@ -17,7 +17,7 @@ type ContextProps = Pick<
 
 type CodeBlockProps = JSX.IntrinsicElements[ 'code' ] & ExtraProps;
 
-const PLACEHOLDER_CHAR_BEGIN = [ '<', '[', '{' ];
+const PLACEHOLDER_CHAR_BEGIN = [ '<', '[', '{', '(' ];
 
 export default function createCodeComponent( contextProps: ContextProps ) {
 	return ( props: CodeBlockProps ) => <CodeBlock { ...contextProps } { ...props } />;

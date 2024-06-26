@@ -54,6 +54,11 @@ describe( 'createCodeComponent', () => {
 			<CodeBlock className="language-bash" children="wp plugin activate {example-plugin}" />
 		);
 		expect( screen.queryByText( 'Run' ) ).not.toBeInTheDocument();
+
+		render(
+			<CodeBlock className="language-bash" children="wp plugin activate (example-plugin)" />
+		);
+		expect( screen.queryByText( 'Run' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'should hide the "run" button for ineligible wp-cli commands with multiple wp-cli invocations', () => {

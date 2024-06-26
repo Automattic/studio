@@ -101,6 +101,9 @@ export const AIInput = ( {
 	const handleKeyDownWrapper = ( e: React.KeyboardEvent< HTMLTextAreaElement > ) => {
 		if ( e.key === 'Enter' && ! e.shiftKey ) {
 			e.preventDefault();
+			if ( isAssistantThinking ) {
+				return;
+			}
 			if ( input.trim() !== '' ) {
 				handleSend();
 				if ( inputRef.current ) {

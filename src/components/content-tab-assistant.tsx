@@ -296,7 +296,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 						disabled={ disabled }
 						input={ input }
 						setInput={ setInput }
-						handleSend={ () => handleSend() }
+						handleSend={ handleSend }
 						handleKeyDown={ handleKeyDown }
 						clearInput={ clearInput }
 						isAssistantThinking={ isAssistantThinking }

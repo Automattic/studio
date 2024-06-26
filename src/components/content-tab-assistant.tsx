@@ -21,6 +21,8 @@ import { ChatMessage } from './chat-message';
 import offlineIcon from './offline-icon';
 import WelcomeComponent from './welcome-message-prompt';
 
+export const MIMIC_CONVERSATION_DELAY = 2000;
+
 interface ContentTabAssistantProps {
 	selectedSite: SiteDetails;
 }
@@ -61,7 +63,6 @@ const OfflineModeView = () => {
 	);
 };
 
-const MIMIC_CONVERSATION_DELAY = 2000;
 const AuthenticatedView = memo(
 	( {
 		messages,
@@ -84,7 +85,6 @@ const AuthenticatedView = memo(
 		useEffect( () => {
 			setTimeout( () => {
 				if ( endOfMessagesRef.current ) {
-					console.log( 'scrolling' );
 					endOfMessagesRef.current.scrollIntoView( { behavior: 'smooth' } );
 				}
 			}, 300 );
@@ -120,8 +120,6 @@ const AuthenticatedView = memo(
 			setDisplayedMessages( ( _prevMessages ) => newMessages );
 		}, [ messages ] );
 
-		console.log( 'messages', messages );
-		console.log( displayedMessages );
 		return (
 			<>
 				{ displayedMessages.map( ( message, index ) => (
@@ -234,11 +232,10 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 				);
 				// Adding timeout to ensure that this will fire after, the artificial delay
 				// of thinking message is over.
-				setTimeout( () => removeLastMessage(), 2100 );
+				setTimeout( () => removeLastMessage(), MIMIC_CONVERSATION_DELAY + 100 );
 			}
 		}
 	};
-	console.log( messages );
 
 	const handleKeyDown = ( e: React.KeyboardEvent< HTMLTextAreaElement > ) => {
 		if ( e.key === 'Enter' ) {
@@ -301,7 +298,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 							) : (
 								<>
 									<WelcomeComponent
-										onExampleClick={ ( prompt ) => handleSend( prompt ) }
+										onExampleClick={ handleSend }
 										showExamplePrompts={ messages.length === 0 }
 										messages={ welcomeMessages }
 										examplePrompts={ examplePrompts }

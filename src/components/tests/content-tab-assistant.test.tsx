@@ -96,7 +96,7 @@ describe( 'ContentTabAssistant', () => {
 	test( 'renders guideline section', () => {
 		render( <ContentTabAssistant selectedSite={ runningSite } /> );
 		const guideLines = getGuidelinesLink();
-		expect( guideLines ).toBeInTheDocument();
+		expect( guideLines ).toBeVisible();
 		expect( guideLines ).toHaveTextContent( 'Powered by experimental AI. Learn more' );
 	} );
 
@@ -207,28 +207,28 @@ describe( 'ContentTabAssistant', () => {
 	test( 'renders Welcome messages and example prompts when the conversation is starte', () => {
 		render( <ContentTabAssistant selectedSite={ runningSite } /> );
 		expect( mockFetchWelcomeMessages ).toHaveBeenCalledTimes( 1 );
-		expect( screen.getByText( 'Welcome to our service!' ) ).toBeInTheDocument();
-		expect( screen.getByText( 'How to create a WordPress site' ) ).toBeInTheDocument();
-		expect( screen.getByText( 'How to clear cache' ) ).toBeInTheDocument();
-		expect( screen.getByText( 'How to install a plugin' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Welcome to our service!' ) ).toBeVisible();
+		expect( screen.getByText( 'How to create a WordPress site' ) ).toBeVisible();
+		expect( screen.getByText( 'How to clear cache' ) ).toBeVisible();
+		expect( screen.getByText( 'How to install a plugin' ) ).toBeVisible();
 	} );
 
 	test( 'renders the selected prompt of Welcome messages and confirms other prompts are removed', async () => {
 		render( <ContentTabAssistant selectedSite={ runningSite } /> );
 
-		expect( screen.getByText( 'Welcome to our service!' ) ).toBeInTheDocument();
-		expect( screen.getByText( 'How to create a WordPress site' ) ).toBeInTheDocument();
-		expect( screen.getByText( 'How to install a plugin' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Welcome to our service!' ) ).toBeVisible();
+		expect( screen.getByText( 'How to create a WordPress site' ) ).toBeVisible();
+		expect( screen.getByText( 'How to install a plugin' ) ).toBeVisible();
 
 		const samplePrompt = await screen.findByRole( 'button', {
 			name: 'How to create a WordPress site',
 		} );
-		expect( samplePrompt ).toBeInTheDocument();
+		expect( samplePrompt ).toBeVisible();
 		fireEvent.click( samplePrompt );
 
 		// Check if the selected prompt is still present and other prompts are removed
-		expect( screen.getByText( 'Welcome to our service!' ) ).toBeInTheDocument();
-		expect( screen.getByText( 'How to create a WordPress site' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Welcome to our service!' ) ).toBeVisible();
+		expect( screen.getByText( 'How to create a WordPress site' ) ).toBeVisible();
 		expect( screen.queryByText( 'How to clear cache' ) ).not.toBeInTheDocument();
 		expect( screen.queryByText( 'How to install a plugin' ) ).not.toBeInTheDocument();
 	} );

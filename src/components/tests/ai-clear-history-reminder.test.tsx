@@ -31,7 +31,7 @@ describe( 'AIClearHistoryReminder', () => {
 		};
 		render( <AIClearHistoryReminder lastMessage={ message } clearInput={ clearInput } /> );
 
-		expect( screen.getByText( /This conversation is over two hours old./ ) ).toBeInTheDocument();
+		expect( screen.getByText( /This conversation is over two hours old./ ) ).toBeVisible();
 	} );
 
 	it( 'should warn then clear conversations', async () => {

@@ -130,7 +130,7 @@ describe( 'ContentTabSnapshots', () => {
 			screen.getByText( 'Get feedback from anyone', {
 				exact: false,
 			} )
-		).toBeInTheDocument();
+		).toBeVisible();
 		expect( screen.queryByText( 'fake-site.fake' ) ).not.toBeInTheDocument();
 	} );
 

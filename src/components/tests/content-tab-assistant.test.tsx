@@ -230,5 +230,6 @@ describe( 'ContentTabAssistant', () => {
 		expect( screen.getByText( 'Welcome to our service!' ) ).toBeInTheDocument();
 		expect( screen.getByText( 'How to create a WordPress site' ) ).toBeInTheDocument();
 		expect( screen.queryByText( 'How to clear cache' ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( 'How to install a plugin' ) ).not.toBeInTheDocument();
 	} );
 } );

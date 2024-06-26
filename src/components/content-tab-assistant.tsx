@@ -91,6 +91,10 @@ const AuthenticatedView = memo(
 			return () => clearTimeout( timer );
 		}, [ messages?.length ] );
 
+		if ( messages.length === 0 ) {
+			return null;
+		}
+
 		return (
 			<>
 				{ messages.map( ( message, index ) => (

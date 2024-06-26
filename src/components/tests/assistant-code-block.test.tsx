@@ -108,4 +108,18 @@ describe( 'createCodeComponent', () => {
 			expect( screen.getByText( 'Mock error' ) ).toBeInTheDocument();
 		} );
 	} );
+
+	describe( 'when the "copy" button is clicked', () => {
+		it( 'should copy the code content to the clipboard', async () => {
+			const mockCopyText = jest.fn();
+			( getIpcApi as jest.Mock ).mockReturnValue( {
+				copyText: mockCopyText,
+			} );
+			render( <CodeBlock className="language-bash" children="wp --version" /> );
+
+			fireEvent.click( screen.getByText( 'Copy' ) );
+
+			expect( mockCopyText ).toHaveBeenCalledWith( 'wp --version' );
+		} );
+	} );
 } );

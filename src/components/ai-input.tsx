@@ -65,11 +65,14 @@ export const AIInput = ( {
 		typingInput,
 	] );
 
-	useEffect( () => () => {
-		if ( typingTimeout.current ) {
-			clearTimeout( typingTimeout.current );
-		}
-	} );
+	useEffect(
+		() => () => {
+			if ( typingTimeout.current ) {
+				clearTimeout( typingTimeout.current );
+			}
+		},
+		[]
+	);
 
 	const handleInput = ( e: React.ChangeEvent< HTMLTextAreaElement > ) => {
 		setInput( e.target.value );

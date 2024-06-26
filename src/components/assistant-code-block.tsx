@@ -48,7 +48,7 @@ function CodeBlock( props: ContextProps & CodeBlockProps ) {
 				setCliTime( block?.cliTime ?? null );
 			}
 		}
-	}, [ cliOutput, content, setCliOutput, setCliStatus, setCliTime ] );
+	}, [ blocks, cliOutput, content, setCliOutput, setCliStatus, setCliTime ] );
 
 	const { children, className } = props;
 	const match = /language-(\w+)/.exec( className || '' );

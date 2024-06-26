@@ -57,11 +57,9 @@ describe( 'SiteContentTabs', () => {
 			loadingServer: {},
 		} );
 		await act( async () => render( <SiteContentTabs /> ) );
-		expect( screen.queryByRole( 'tab', { name: 'Overview', selected: true } ) ).toBeInTheDocument();
-		expect( screen.queryByRole( 'tab', { name: 'Share', selected: false } ) ).toBeInTheDocument();
-		expect(
-			screen.queryByRole( 'tab', { name: 'Settings', selected: false } )
-		).toBeInTheDocument();
+		expect( screen.queryByRole( 'tab', { name: 'Overview', selected: true } ) ).toBeVisible();
+		expect( screen.queryByRole( 'tab', { name: 'Share', selected: false } ) ).toBeVisible();
+		expect( screen.queryByRole( 'tab', { name: 'Settings', selected: false } ) ).toBeVisible();
 		expect( screen.queryByRole( 'tab', { name: 'Assistant', selected: false } ) ).toBeNull();
 	} );
 	it( 'should render a "No Site" screen if selected site is absent', async () => {
@@ -77,7 +75,7 @@ describe( 'SiteContentTabs', () => {
 		expect( screen.queryByRole( 'tab', { name: 'Launchpad' } ) ).toBeNull();
 		expect( screen.queryByRole( 'tab', { name: 'Publish' } ) ).toBeNull();
 		expect( screen.queryByRole( 'tab', { name: 'Export' } ) ).toBeNull();
-		expect( screen.getByText( 'Select a site to view details.' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Select a site to view details.' ) ).toBeVisible();
 	} );
 	it( 'should not render the Assistant tab if assistantEnabled is not enabled', async () => {
 		( useSiteDetails as jest.Mock ).mockReturnValue( {

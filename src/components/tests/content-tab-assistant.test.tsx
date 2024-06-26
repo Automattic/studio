@@ -87,7 +87,7 @@ describe( 'ContentTabAssistant', () => {
 	test( 'renders placeholder text input', () => {
 		render( <ContentTabAssistant selectedSite={ runningSite } /> );
 		const textInput = getInput();
-		expect( textInput ).toBeInTheDocument();
+		expect( textInput ).toBeVisible();
 		expect( textInput ).toBeEnabled();
 		expect( textInput ).toHaveAttribute( 'placeholder', 'What would you like to learn?' );
 	} );
@@ -95,7 +95,7 @@ describe( 'ContentTabAssistant', () => {
 	test( 'renders guideline section', () => {
 		render( <ContentTabAssistant selectedSite={ runningSite } /> );
 		const guideLines = getGuidelinesLink();
-		expect( guideLines ).toBeInTheDocument();
+		expect( guideLines ).toBeVisible();
 		expect( guideLines ).toHaveTextContent( 'Powered by experimental AI. Learn more' );
 	} );
 
@@ -103,12 +103,12 @@ describe( 'ContentTabAssistant', () => {
 		const storageKey = `ai_chat_messages_${ runningSite.id }`;
 		localStorage.setItem( storageKey, JSON.stringify( initialMessages ) );
 		render( <ContentTabAssistant selectedSite={ runningSite } /> );
-		expect( screen.getByText( 'Initial message 1' ) ).toBeInTheDocument();
-		expect( screen.getByText( 'Initial message 2' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Initial message 1' ) ).toBeVisible();
+		expect( screen.getByText( 'Initial message 2' ) ).toBeVisible();
 		const textInput = getInput();
 		fireEvent.change( textInput, { target: { value: 'New message' } } );
 		fireEvent.keyDown( textInput, { key: 'Enter', code: 'Enter' } );
-		expect( screen.getByText( 'New message' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'New message' ) ).toBeVisible();
 		await waitFor( () => {
 			const storedMessages = JSON.parse( localStorage.getItem( storageKey ) || '[]' );
 			expect( storedMessages ).toHaveLength( 3 );
@@ -127,10 +127,10 @@ describe( 'ContentTabAssistant', () => {
 			authenticate,
 		} ) );
 		render( <ContentTabAssistant selectedSite={ runningSite } /> );
-		expect( screen.getByTestId( 'unauthenticated-header' ) ).toBeInTheDocument();
+		expect( screen.getByTestId( 'unauthenticated-header' ) ).toBeVisible();
 		expect(
 			screen.getByText( 'You need to log in to your WordPress.com account to use the assistant.' )
-		).toBeInTheDocument();
+		).toBeVisible();
 	} );
 
 	test( 'allows authentication from Assistant chat', () => {
@@ -145,7 +145,7 @@ describe( 'ContentTabAssistant', () => {
 		} ) );
 		render( <ContentTabAssistant selectedSite={ runningSite } /> );
 		const loginButton = screen.getByRole( 'button', { name: 'Log in to WordPress.com' } );
-		expect( loginButton ).toBeInTheDocument();
+		expect( loginButton ).toBeVisible();
 		fireEvent.click( loginButton );
 		expect( authenticate ).toHaveBeenCalledTimes( 1 );
 	} );
@@ -216,28 +216,28 @@ describe( 'ContentTabAssistant', () => {
 	test( 'renders Welcome messages and example prompts when the conversation is starte', () => {
 		render( <ContentTabAssistant selectedSite={ runningSite } /> );
 		expect( mockFetchWelcomeMessages ).toHaveBeenCalledTimes( 1 );
-		expect( screen.getByText( 'Welcome to our service!' ) ).toBeInTheDocument();
-		expect( screen.getByText( 'How to create a WordPress site' ) ).toBeInTheDocument();
-		expect( screen.getByText( 'How to clear cache' ) ).toBeInTheDocument();
-		expect( screen.getByText( 'How to install a plugin' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Welcome to our service!' ) ).toBeVisible();
+		expect( screen.getByText( 'How to create a WordPress site' ) ).toBeVisible();
+		expect( screen.getByText( 'How to clear cache' ) ).toBeVisible();
+		expect( screen.getByText( 'How to install a plugin' ) ).toBeVisible();
 	} );
 
 	test( 'renders the selected prompt of Welcome messages and confirms other prompts are removed', async () => {
 		render( <ContentTabAssistant selectedSite={ runningSite } /> );
 
-		expect( screen.getByText( 'Welcome to our service!' ) ).toBeInTheDocument();
-		expect( screen.getByText( 'How to create a WordPress site' ) ).toBeInTheDocument();
-		expect( screen.getByText( 'How to install a plugin' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Welcome to our service!' ) ).toBeVisible();
+		expect( screen.getByText( 'How to create a WordPress site' ) ).toBeVisible();
+		expect( screen.getByText( 'How to install a plugin' ) ).toBeVisible();
 
 		const samplePrompt = await screen.findByRole( 'button', {
 			name: 'How to create a WordPress site',
 		} );
-		expect( samplePrompt ).toBeInTheDocument();
+		expect( samplePrompt ).toBeVisible();
 		fireEvent.click( samplePrompt );
 
 		// Check if the selected prompt is still present and other prompts are removed
-		expect( screen.getByText( 'Welcome to our service!' ) ).toBeInTheDocument();
-		expect( screen.getByText( 'How to create a WordPress site' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Welcome to our service!' ) ).toBeVisible();
+		expect( screen.getByText( 'How to create a WordPress site' ) ).toBeVisible();
 		expect( screen.queryByText( 'How to clear cache' ) ).not.toBeInTheDocument();
 		expect( screen.queryByText( 'How to install a plugin' ) ).not.toBeInTheDocument();
 	} );

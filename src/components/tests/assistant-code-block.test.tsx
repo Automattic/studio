@@ -1,5 +1,8 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
+import { getIpcApi } from '../../lib/get-ipc-api';
 import createCodeComponent from '../assistant-code-block';
+
+jest.mock( '../../lib/get-ipc-api' );
 
 describe( 'createCodeComponent', () => {
 	const contextProps = {
@@ -51,5 +54,58 @@ describe( 'createCodeComponent', () => {
 		render( <CodeBlock className="language-bash" children="wp --version wp --version" /> );
 
 		expect( screen.queryByText( 'Run' ) ).not.toBeInTheDocument();
+	} );
+
+	describe( 'when the "run" button is clicked', () => {
+		beforeAll( () => {
+			jest.useFakeTimers();
+		} );
+
+		it( 'should display an activity indicator while running code', async () => {
+			( getIpcApi as jest.Mock ).mockReturnValue( {
+				executeWPCLiInline: jest.fn().mockResolvedValue( { stdout: 'Mock success', stderr: '' } ),
+			} );
+			render( <CodeBlock className="language-bash" children="wp --version" /> );
+			expect( screen.queryByText( 'Running...' ) ).not.toBeInTheDocument();
+
+			fireEvent.click( screen.getByText( 'Run' ) );
+
+			expect( screen.getByText( 'Running...' ) ).toBeInTheDocument();
+
+			// Run code execution measurement timer
+			await act( () => jest.runAllTimersAsync() );
+
+			expect( screen.queryByText( 'Running...' ) ).not.toBeInTheDocument();
+		} );
+
+		it( 'should display the output of the successfully executed code', async () => {
+			( getIpcApi as jest.Mock ).mockReturnValue( {
+				executeWPCLiInline: jest.fn().mockResolvedValue( { stdout: 'Mock success', stderr: '' } ),
+			} );
+			render( <CodeBlock className="language-bash" children="wp --version" /> );
+
+			fireEvent.click( screen.getByText( 'Run' ) );
+
+			// Run code execution measurement timer
+			await act( () => jest.runAllTimersAsync() );
+
+			expect( screen.getByText( 'Success' ) ).toBeInTheDocument();
+			expect( screen.getByText( 'Mock success' ) ).toBeInTheDocument();
+		} );
+
+		it( 'should display the output of the failed code execution', async () => {
+			( getIpcApi as jest.Mock ).mockReturnValue( {
+				executeWPCLiInline: jest.fn().mockResolvedValue( { stdout: '', stderr: 'Mock error' } ),
+			} );
+			render( <CodeBlock className="language-bash" children="wp --version" /> );
+
+			fireEvent.click( screen.getByText( 'Run' ) );
+
+			// Run code execution measurement timer
+			await act( () => jest.runAllTimersAsync() );
+
+			expect( screen.getByText( 'Error' ) ).toBeInTheDocument();
+			expect( screen.getByText( 'Mock error' ) ).toBeInTheDocument();
+		} );
 	} );
 } );

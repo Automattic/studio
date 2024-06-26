@@ -11,7 +11,6 @@ describe( 'createCodeComponent', () => {
 		projectPath: '/path/to/project',
 		messageId: 1,
 	};
-
 	const CodeBlock = createCodeComponent( contextProps );
 
 	it( 'should render inline styles for language-generic code', () => {
@@ -120,6 +119,29 @@ describe( 'createCodeComponent', () => {
 			fireEvent.click( screen.getByText( 'Copy' ) );
 
 			expect( mockCopyText ).toHaveBeenCalledWith( 'wp --version' );
+		} );
+	} );
+
+	describe( 'when past block execution output is present', () => {
+		it( 'should display the output of the previously executed code', async () => {
+			const contextProps = {
+				blocks: [
+					{
+						codeBlockContent: 'wp --version',
+						cliOutput: 'Mock success',
+						cliStatus: 'success' as const,
+						cliTime: '2.3s',
+					},
+				],
+				updateMessage: jest.fn(),
+				projectPath: '/path/to/project',
+				messageId: 1,
+			};
+			const CodeBlock = createCodeComponent( contextProps );
+			render( <CodeBlock className="language-bash" children="wp --version" /> );
+
+			expect( screen.getByText( 'Success' ) ).toBeInTheDocument();
+			expect( screen.getByText( 'Mock success' ) ).toBeInTheDocument();
 		} );
 	} );
 } );

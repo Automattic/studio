@@ -64,13 +64,15 @@ const OfflineModeView = () => {
 const ErrorNotice = ( {
 	handleSend,
 	messageContent,
-	messageId,
+	hasError,
 }: {
-	handleSend: ( messageToSend?: string, messageId?: number ) => void;
+	handleSend: ( messageToSend?: string ) => void;
 	messageContent: string;
-	messageId: number;
+	hasError: boolean;
 } ) => {
 	const { __ } = useI18n();
+	if ( ! hasError ) return null;
+
 	return (
 		<div className="text-a8c-gray-50 flex justify-end py-2 text-xs">
 			{ createInterpolateElement(
@@ -79,7 +81,7 @@ const ErrorNotice = ( {
 					a: (
 						<Button
 							variant="link"
-							onClick={ () => handleSend( messageContent, messageId ) }
+							onClick={ () => handleSend( messageContent ) }
 							className="text-xs"
 						/>
 					),
@@ -95,8 +97,8 @@ const AuthenticatedView = memo(
 		isAssistantThinking,
 		updateMessage,
 		path,
-		errorMessageId,
 		handleSend,
+		errorMessages,
 	}: {
 		messages: MessageType[];
 		isAssistantThinking: boolean;
@@ -108,8 +110,8 @@ const AuthenticatedView = memo(
 			cliTime: string
 		) => void;
 		path: string;
-		errorMessageId: number | null;
-		handleSend: ( messageToSend?: string, messageId?: number ) => void;
+		handleSend: ( messageToSend?: string ) => void;
+		errorMessages: Set< number >;
 	} ) => {
 		const endOfMessagesRef = useRef< HTMLDivElement >( null );
 
@@ -134,15 +136,14 @@ const AuthenticatedView = memo(
 							updateMessage={ updateMessage }
 							messageId={ message.id }
 							blocks={ message.blocks }
-							errorMessageId={ errorMessageId }
 						>
 							{ message.content }
 						</ChatMessage>
-						{ message.id === errorMessageId && (
+						{ message.id !== undefined && (
 							<ErrorNotice
 								handleSend={ handleSend }
 								messageContent={ message.content }
-								messageId={ message.id }
+								hasError={ errorMessages.has( message.id ) }
 							/>
 						) }
 					</div>
@@ -214,37 +215,36 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const { __ } = useI18n();
 	const lastMessage = messages.length === 0 ? undefined : messages[ messages.length - 1 ];
 
-	const [ errorMessageId, setErrorMessageId ] = useState< number | null >( null );
 	const [ isThinking, setIsThinking ] = useState( false );
+	const [ errorMessages, setErrorMessages ] = useState< Set< number > >( new Set() );
 
 	useEffect( () => {
 		fetchWelcomeMessages();
 	}, [ fetchWelcomeMessages, selectedSite ] );
 
-	const handleSend = async ( messageToSend?: string, messageId?: number ) => {
+	const handleSend = async ( messageToSend?: string ) => {
 		const chatMessage = messageToSend || input;
 		if ( chatMessage.trim() ) {
-			const newMessageId = messageId ?? messages.length;
-			if ( messageId === undefined ) {
-				addMessage( chatMessage, 'user', chatId );
-			}
+			addMessage( chatMessage, 'user', chatId );
 			setInput( '' );
 			setIsThinking( true );
-			setErrorMessageId( null );
 			try {
 				const { message, chatId: fetchedChatId } = await fetchAssistant(
 					chatId,
-					[
-						...messages,
-						{ content: chatMessage, role: 'user', createdAt: Date.now(), id: newMessageId },
-					],
+					[ ...messages, { content: chatMessage, role: 'user', createdAt: Date.now() } ],
 					currentSiteChatContext
 				);
 				if ( message ) {
 					addMessage( message, 'assistant', chatId ?? fetchedChatId );
+					setErrorMessages( ( prev ) => {
+						const newSet = new Set( prev );
+						newSet.delete( messages.length );
+						return newSet;
+					} );
 				}
 			} catch ( error ) {
-				setErrorMessageId( newMessageId );
+				setErrorMessages( ( prev ) => new Set( prev ).add( messages.length ) );
+				setIsThinking( false );
 			} finally {
 				setIsThinking( false );
 			}
@@ -285,8 +285,8 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 									isAssistantThinking={ isAssistantThinking || isThinking }
 									updateMessage={ updateMessage }
 									path={ selectedSite.path }
-									errorMessageId={ errorMessageId }
 									handleSend={ handleSend }
+									errorMessages={ errorMessages }
 								/>
 							) }
 							<OfflineModeView />
@@ -307,8 +307,8 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 											isAssistantThinking={ isAssistantThinking || isThinking }
 											updateMessage={ updateMessage }
 											path={ selectedSite.path }
-											errorMessageId={ errorMessageId }
 											handleSend={ handleSend }
+											errorMessages={ errorMessages }
 										/>
 										<UsageLimitReached />
 									</>
@@ -328,8 +328,8 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 										isAssistantThinking={ isAssistantThinking || isThinking }
 										updateMessage={ updateMessage }
 										path={ selectedSite.path }
-										errorMessageId={ errorMessageId }
 										handleSend={ handleSend }
+										errorMessages={ errorMessages }
 									/>
 									<ClearHistoryReminder lastMessage={ lastMessage } clearInput={ clearInput } />
 								</>

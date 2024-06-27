@@ -232,14 +232,10 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 				data-testid="assistant-chat"
 				className={ cx(
 					'min-h-full flex-1 overflow-y-auto p-8 pb-2 flex flex-col-reverse',
-					! isAuthenticated
-						? isOffline
-							? 'flex items-center justify-center'
-							: 'flex items-start'
-						: ''
+					! isAuthenticated && 'flex items-start'
 				) }
 			>
-				<div className="mt-auto">
+				<div className="mt-auto w-full">
 					{ isAuthenticated ? (
 						<>
 							<WelcomeComponent

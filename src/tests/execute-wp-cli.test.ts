@@ -18,7 +18,7 @@ describe( 'executeWPCli', () => {
 		fs.writeFileSync( path.join( tmpPath, 'index.php' ), '' );
 	} );
 	afterAll( () => {
-		fs.rmdirSync( tmpPath, { recursive: true } );
+		fs.rmSync( tmpPath, { recursive: true } );
 	} );
 
 	it( 'should execute wp-cli version command and return stdout and stderr', async () => {

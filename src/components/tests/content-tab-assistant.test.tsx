@@ -1,11 +1,15 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { useAuth } from '../../hooks/use-auth';
+import { useOffline } from '../../hooks/use-offline';
+import { usePromptUsage } from '../../hooks/use-prompt-usage';
 import { useWelcomeMessages } from '../../hooks/use-welcome-messages';
 import { ContentTabAssistant } from '../content-tab-assistant';
 
 jest.mock( '../../hooks/use-theme-details' );
 jest.mock( '../../hooks/use-auth' );
 jest.mock( '../../hooks/use-welcome-messages' );
+jest.mock( '../../hooks/use-offline' );
+jest.mock( '../../hooks/use-prompt-usage' );
 
 jest.mock( '../../lib/app-globals', () => ( {
 	getAppGlobals: () => ( {
@@ -81,6 +85,8 @@ describe( 'ContentTabAssistant', () => {
 			isAuthenticated: true,
 			authenticate,
 		} );
+		( useOffline as jest.Mock ).mockReturnValue( false );
+		( usePromptUsage as jest.Mock ).mockReturnValue( { userCanSendMessage: true } );
 	} );
 
 	test( 'renders placeholder text input', () => {
@@ -130,6 +136,26 @@ describe( 'ContentTabAssistant', () => {
 		expect(
 			screen.getByText( 'You need to log in to your WordPress.com account to use the assistant.' )
 		).toBeVisible();
+	} );
+
+	test( 'renders offline notice when not authenticated', () => {
+		( useAuth as jest.Mock ).mockReturnValue( {
+			client: {
+				req: {
+					post: clientReqPost,
+				},
+			},
+			isAuthenticated: false,
+			authenticate,
+		} );
+		( useOffline as jest.Mock ).mockReturnValue( true );
+
+		render( <ContentTabAssistant selectedSite={ runningSite } /> );
+		expect( screen.queryByText( 'Hold up!' ) ).not.toBeInTheDocument();
+		expect(
+			screen.queryByText( 'You need to log in to your WordPress.com account to use the assistant.' )
+		).not.toBeInTheDocument();
+		expect( screen.getByText( 'The AI assistant requires an internet connection.' ) ).toBeVisible();
 	} );
 
 	test( 'allows authentication from Assistant chat', () => {
@@ -210,6 +236,17 @@ describe( 'ContentTabAssistant', () => {
 		expect( screen.getByText( 'How to install a plugin' ) ).toBeVisible();
 	} );
 
+	test( 'renders Welcome messages and example prompts when offline', () => {
+		( useOffline as jest.Mock ).mockReturnValue( true );
+
+		render( <ContentTabAssistant selectedSite={ runningSite } /> );
+		expect( screen.getByText( 'Welcome to our service!' ) ).toBeVisible();
+		expect( screen.getByText( 'How to create a WordPress site' ) ).toBeVisible();
+		expect( screen.getByText( 'How to clear cache' ) ).toBeVisible();
+		expect( screen.getByText( 'How to install a plugin' ) ).toBeVisible();
+		expect( screen.getByText( 'The AI assistant requires an internet connection.' ) ).toBeVisible();
+	} );
+
 	test( 'renders the selected prompt of Welcome messages and confirms other prompts are removed', async () => {
 		render( <ContentTabAssistant selectedSite={ runningSite } /> );
 
@@ -228,5 +265,22 @@ describe( 'ContentTabAssistant', () => {
 		expect( screen.getByText( 'How to create a WordPress site' ) ).toBeVisible();
 		expect( screen.queryByText( 'How to clear cache' ) ).not.toBeInTheDocument();
 		expect( screen.queryByText( 'How to install a plugin' ) ).not.toBeInTheDocument();
+	} );
+
+	test( 'renders usage limit notice', () => {
+		const storageKey = `ai_chat_messages_${ runningSite.id }`;
+		localStorage.setItem( storageKey, JSON.stringify( initialMessages ) );
+		( usePromptUsage as jest.Mock ).mockReturnValue( {
+			userCanSendMessage: false,
+			daysUntilReset: 4,
+		} );
+
+		render( <ContentTabAssistant selectedSite={ runningSite } /> );
+		expect( screen.getByText( 'Welcome to our service!' ) ).toBeVisible();
+		expect( screen.getByText( 'Initial message 1' ) ).toBeVisible();
+		expect( screen.getByText( 'Initial message 2' ) ).toBeVisible();
+		expect(
+			screen.getByText( 'Your limit will reset in 4 days.', { exact: false } )
+		).toBeVisible();
 	} );
 } );

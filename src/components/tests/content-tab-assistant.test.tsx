@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { useAuth } from '../../hooks/use-auth';
 import { useFetchWelcomeMessages } from '../../hooks/use-fetch-welcome-messages';
 import { ContentTabAssistant } from '../content-tab-assistant';
@@ -101,8 +101,8 @@ describe( 'ContentTabAssistant', () => {
 	} );
 
 	test( 'saves and retrieves conversation from localStorage', async () => {
-		const storageKey = `ai_chat_messages_${ runningSite.id }`;
-		localStorage.setItem( storageKey, JSON.stringify( initialMessages ) );
+		const storageKey = 'ai_chat_messages';
+		localStorage.setItem( storageKey, JSON.stringify( { [ runningSite.id ]: initialMessages } ) );
 		render( <ContentTabAssistant selectedSite={ runningSite } /> );
 		expect( screen.getByText( 'Initial message 1' ) ).toBeVisible();
 		expect( screen.getByText( 'Initial message 2' ) ).toBeVisible();
@@ -112,8 +112,8 @@ describe( 'ContentTabAssistant', () => {
 		expect( screen.getByText( 'New message' ) ).toBeVisible();
 		await waitFor( () => {
 			const storedMessages = JSON.parse( localStorage.getItem( storageKey ) || '[]' );
-			expect( storedMessages ).toHaveLength( 3 );
-			expect( storedMessages[ 2 ].content ).toBe( 'New message' );
+			expect( storedMessages[ runningSite.id ] ).toHaveLength( 3 );
+			expect( storedMessages[ runningSite.id ][ 2 ].content ).toBe( 'New message' );
 		} );
 	} );
 

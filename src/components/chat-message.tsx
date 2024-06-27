@@ -27,6 +27,7 @@ export interface ChatMessageProps {
 		time: string
 	) => void;
 	isUnauthenticated?: boolean;
+	failedMessage?: boolean;
 }
 
 export const ChatMessage = ( {
@@ -39,6 +40,7 @@ export const ChatMessage = ( {
 	blocks,
 	updateMessage,
 	isUnauthenticated,
+	failedMessage,
 }: ChatMessageProps ) => {
 	return (
 		<div
@@ -55,9 +57,10 @@ export const ChatMessage = ( {
 				role="group"
 				aria-labelledby={ id }
 				className={ cx(
-					'inline-block p-3 rounded border border-gray-300 overflow-x-auto select-text',
+					'inline-block p-3 rounded border overflow-x-auto select-text',
 					isUnauthenticated ? 'lg:max-w-[90%]' : 'lg:max-w-[70%]', // Apply different max-width for unauthenticated view
-					! isUser ? 'bg-white' : 'bg-white/45'
+					! isUser ? 'bg-white' : 'bg-white/45',
+					failedMessage ? 'border-[#FACFD2] bg-[#F7EBEC]' : 'border-gray-300'
 				) }
 			>
 				<div className="relative">

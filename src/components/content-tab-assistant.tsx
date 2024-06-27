@@ -112,6 +112,7 @@ const AuthenticatedView = memo(
 							updateMessage={ updateMessage }
 							messageId={ message.id }
 							blocks={ message.blocks }
+							failedMessage={ message.failedMessage }
 						>
 							{ message.content }
 						</ChatMessage>

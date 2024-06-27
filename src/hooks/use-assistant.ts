@@ -101,14 +101,29 @@ export const useAssistant = ( instanceId: string ) => {
 		localStorage.removeItem( chatIdStoreKey( instanceId ) );
 	}, [ instanceId ] );
 
+	const removeLocalMessage = useCallback(
+		( id: number ) => {
+			setMessages( ( prevMessages ) => {
+				const updatedMessages = prevMessages.filter( ( message ) => message.id !== id );
+				localStorage.setItem(
+					chatMessagesStoreKey( instanceId ),
+					JSON.stringify( updatedMessages )
+				);
+				return updatedMessages;
+			} );
+		},
+		[ instanceId ]
+	);
+
 	return useMemo(
 		() => ( {
 			messages,
 			addMessage,
 			updateMessage,
 			clearMessages,
+			removeLocalMessage,
 			chatId,
 		} ),
-		[ addMessage, clearMessages, messages, updateMessage, chatId ]
+		[ addMessage, clearMessages, messages, updateMessage, removeLocalMessage, chatId ]
 	);
 };

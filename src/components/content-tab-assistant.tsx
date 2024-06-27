@@ -211,9 +211,8 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
 	const currentSiteChatContext = useChatContext();
 	const { isAuthenticated, authenticate, user } = useAuth();
-	const { messages, addMessage, clearMessages, updateMessage, chatId } = useAssistant(
-		user?.id ? `${ user.id }_${ selectedSite.id }` : selectedSite.id
-	);
+	const { messages, addMessage, clearMessages, updateMessage, removeLocalMessage, chatId } =
+		useAssistant( user?.id ? `${ user.id }_${ selectedSite.id }` : selectedSite.id );
 	const { userCanSendMessage } = usePromptUsage();
 	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi( selectedSite.id );
 	const {
@@ -236,9 +235,12 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		saveErrorNoticesToStorage( errorNotices );
 	}, [ errorNotices ] );
 
-	const handleSend = async ( messageToSend?: string ) => {
+	const handleSend = async ( messageToSend?: string, messageId?: number ) => {
 		const chatMessage = messageToSend || input;
 		if ( chatMessage.trim() ) {
+			if ( messageId !== undefined ) {
+				removeLocalMessage( messageId );
+			}
 			addMessage( chatMessage, 'user', chatId );
 			setInput( '' );
 			try {

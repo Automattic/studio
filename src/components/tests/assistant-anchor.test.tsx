@@ -22,7 +22,7 @@ describe( 'Anchor', () => {
 	it( 'should render an anchor element', () => {
 		render( <Anchor href="https://example.com" children="Example link" /> );
 
-		expect( screen.getByRole( 'link' ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'link' ) ).toBeVisible();
 	} );
 
 	it( 'should render an anchor element with a custom class', () => {

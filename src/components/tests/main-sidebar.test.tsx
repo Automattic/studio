@@ -63,7 +63,7 @@ describe( 'MainSidebar Footer', () => {
 	it( 'Has add site button', async () => {
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: false } );
 		await act( async () => render( <MainSidebar /> ) );
-		expect( screen.getByRole( 'button', { name: 'Add site' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Add site' } ) ).toBeVisible();
 	} );
 
 	it( 'Test unauthenticated footer has the Log in button', async () => {
@@ -71,7 +71,7 @@ describe( 'MainSidebar Footer', () => {
 		const authenticate = jest.fn();
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: false, authenticate } );
 		await act( async () => render( <MainSidebar /> ) );
-		expect( screen.getByRole( 'button', { name: 'Log in' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Log in' } ) ).toBeVisible();
 		await user.click( screen.getByRole( 'button', { name: 'Log in' } ) );
 		expect( authenticate ).toHaveBeenCalledTimes( 1 );
 	} );
@@ -80,7 +80,7 @@ describe( 'MainSidebar Footer', () => {
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
 		await act( async () => render( <MainSidebar /> ) );
 		expect( screen.queryByRole( 'button', { name: 'Log in' } ) ).not.toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: 'Account' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Account' } ) ).toBeVisible();
 	} );
 
 	it( 'applies className prop', async () => {
@@ -92,7 +92,7 @@ describe( 'MainSidebar Footer', () => {
 
 	it( 'shows a "Stop All" button when there are running sites', async () => {
 		await act( async () => render( <MainSidebar /> ) );
-		expect( screen.getByRole( 'button', { name: 'Stop all' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Stop all' } ) ).toBeVisible();
 	} );
 
 	it( 'disables log in button when offline', async () => {
@@ -123,22 +123,22 @@ describe( 'MainSidebar Footer', () => {
 describe( 'MainSidebar Site Menu', () => {
 	it( 'renders the list of sites', async () => {
 		await act( async () => render( <MainSidebar /> ) );
-		expect( screen.getByRole( 'button', { name: 'test-1' } ) ).toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: 'test-2' } ) ).toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: 'test-3' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'test-1' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'test-2' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'test-3' } ) ).toBeVisible();
 	} );
 
 	it( 'has "start site" buttons when sites are not running', async () => {
 		await act( async () => render( <MainSidebar /> ) );
-		expect( screen.getByRole( 'button', { name: 'start test-1 site' } ) ).toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: 'start test-2 site' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'start test-1 site' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'start test-2 site' } ) ).toBeVisible();
 	} );
 
 	it( 'starts a site', async () => {
 		const user = userEvent.setup();
 		await act( async () => render( <MainSidebar /> ) );
 		const greenDotFirstSite = screen.getByRole( 'button', { name: 'start test-1 site' } );
-		expect( greenDotFirstSite ).toBeInTheDocument();
+		expect( greenDotFirstSite ).toBeVisible();
 		await user.click( greenDotFirstSite );
 		expect( siteDetailsMocked.startServer ).toHaveBeenCalledWith(
 			'0e9e237b-335a-43fa-b439-9b078a618512'
@@ -149,7 +149,7 @@ describe( 'MainSidebar Site Menu', () => {
 		const user = userEvent.setup();
 		await act( async () => render( <MainSidebar /> ) );
 		const greenDotFirstSite = screen.getByRole( 'button', { name: 'stop test-3 site' } );
-		expect( greenDotFirstSite ).toBeInTheDocument();
+		expect( greenDotFirstSite ).toBeVisible();
 		await user.click( greenDotFirstSite );
 		expect( siteDetailsMocked.stopServer ).toHaveBeenCalledWith(
 			'0e9e237b-335a-43fa-b439-9b078a613333'

@@ -65,7 +65,7 @@ describe( 'ContentTabSnapshots', () => {
 		} );
 		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
 		const loginButton = screen.getByRole( 'button', { name: 'Log in to WordPress.com' } );
-		expect( loginButton ).toBeInTheDocument();
+		expect( loginButton ).toBeVisible();
 		await user.click( loginButton );
 		expect( authenticate ).toHaveBeenCalledTimes( 1 );
 	} );
@@ -80,7 +80,7 @@ describe( 'ContentTabSnapshots', () => {
 		} );
 		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
 		const createSnapshotButton = screen.getByRole( 'button', { name: 'Add demo site' } );
-		expect( createSnapshotButton ).toBeInTheDocument();
+		expect( createSnapshotButton ).toBeVisible();
 		await user.click( createSnapshotButton );
 		expect( archiveSite ).toHaveBeenCalledTimes( 1 );
 	} );
@@ -104,7 +104,7 @@ describe( 'ContentTabSnapshots', () => {
 			uploadingSites: {},
 		} );
 		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
-		expect( screen.getByRole( 'button', { name: 'https://fake-site.fake' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'https://fake-site.fake' } ) ).toBeVisible();
 	} );
 
 	test( 'hide the list of demo sites that do not belong to the selected site', () => {
@@ -130,7 +130,7 @@ describe( 'ContentTabSnapshots', () => {
 			screen.getByText( 'Get feedback from anyone', {
 				exact: false,
 			} )
-		).toBeInTheDocument();
+		).toBeVisible();
 		expect( screen.queryByText( 'fake-site.fake' ) ).not.toBeInTheDocument();
 	} );
 
@@ -156,7 +156,7 @@ describe( 'ContentTabSnapshots', () => {
 		} );
 		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
 		const createSnapshotButton = screen.getByRole( 'button', { name: 'Add demo site' } );
-		expect( createSnapshotButton ).toBeInTheDocument();
+		expect( createSnapshotButton ).toBeVisible();
 		await user.click( createSnapshotButton );
 		expect( archiveSite ).toHaveBeenCalledTimes( 1 );
 	} );
@@ -183,7 +183,7 @@ describe( 'ContentTabSnapshots', () => {
 		} );
 		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
 		const createSnapshotButton = screen.getByRole( 'button', { name: 'Add demo site' } );
-		expect( createSnapshotButton ).toBeInTheDocument();
+		expect( createSnapshotButton ).toBeVisible();
 		expect( createSnapshotButton ).toHaveAttribute( 'aria-disabled', 'true' );
 		await user.click( createSnapshotButton );
 		expect( archiveSite ).toHaveBeenCalledTimes( 0 );
@@ -213,7 +213,7 @@ describe( 'ContentTabSnapshots', () => {
 		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
 
 		const updateButton = await screen.findByRole( 'button', { name: 'Update demo site' } );
-		expect( updateButton ).toBeInTheDocument();
+		expect( updateButton ).toBeVisible();
 		await user.click( updateButton );
 
 		expect( updateDemoSiteMock ).toHaveBeenCalledTimes( 1 );
@@ -245,7 +245,7 @@ describe( 'ContentTabSnapshots', () => {
 		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
 
 		const updateButton = await screen.findByRole( 'button', { name: 'Update demo site' } );
-		expect( updateButton ).toBeInTheDocument();
+		expect( updateButton ).toBeVisible();
 		await user.click( updateButton );
 
 		expect( updateDemoSiteMock ).not.toHaveBeenCalled();
@@ -287,7 +287,7 @@ describe( 'ContentTabSnapshots', () => {
 		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
 
 		const deleteSnapshotButton = screen.getByRole( 'button', { name: 'Delete demo site' } );
-		expect( deleteSnapshotButton ).toBeInTheDocument();
+		expect( deleteSnapshotButton ).toBeVisible();
 		await user.click( deleteSnapshotButton );
 
 		expect( deleteSnapshotMock ).toHaveBeenCalledWith( {
@@ -323,7 +323,7 @@ describe( 'ContentTabSnapshots', () => {
 		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
 
 		const deleteSnapshotButton = screen.getByRole( 'button', { name: 'Delete demo site' } );
-		expect( deleteSnapshotButton ).toBeInTheDocument();
+		expect( deleteSnapshotButton ).toBeVisible();
 		await user.click( deleteSnapshotButton );
 
 		expect( deleteSnapshotMock ).not.toHaveBeenCalled();
@@ -435,7 +435,7 @@ describe( 'AddDemoSiteWithProgress', () => {
 		render( <ContentTabSnapshots selectedSite={ { ...selectedSite, id: 'site-id-1' } } /> );
 		const addDemoSiteButton = screen.queryByRole( 'button', { name: 'Add demo site' } );
 		expect( addDemoSiteButton ).not.toBeInTheDocument();
-		expect( screen.getByText( "We're creating your demo site." ) ).toBeInTheDocument();
+		expect( screen.getByText( "We're creating your demo site." ) ).toBeVisible();
 	} );
 
 	test( 'Progressbar is present when the second snapshot is being created', async () => {
@@ -443,7 +443,7 @@ describe( 'AddDemoSiteWithProgress', () => {
 		render( <ContentTabSnapshots selectedSite={ { ...selectedSite, id: 'site-id-1' } } /> );
 		const addDemoSiteButton = screen.queryByRole( 'button', { name: 'Add demo site' } );
 		expect( addDemoSiteButton ).not.toBeInTheDocument();
-		expect( screen.getByText( "We're creating your new demo site." ) ).toBeInTheDocument();
+		expect( screen.getByText( "We're creating your new demo site." ) ).toBeVisible();
 	} );
 
 	test( 'Button is enabled when no snapshots and no other site is being archived', async () => {

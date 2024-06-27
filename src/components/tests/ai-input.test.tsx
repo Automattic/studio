@@ -51,7 +51,7 @@ describe( 'AIInput Component', () => {
 	} );
 
 	it( 'renders the component', () => {
-		expect( screen.getByTestId( 'ai-input-textarea' ) ).toBeInTheDocument();
+		expect( screen.getByTestId( 'ai-input-textarea' ) ).toBeVisible();
 	} );
 
 	it( 'focuses on the textarea when not disabled', () => {

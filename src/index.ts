@@ -31,8 +31,9 @@ import {
 	needsToMigrateFromWpNowFolder,
 } from './migrations/migrate-from-wp-now-folder';
 import setupWPServerFiles from './setup-wp-server-files';
+import { stopAllServersOnQuit } from './site-server';
+import { loadUserData } from './storage/user-data'; // eslint-disable-next-line import/order
 import { setupUpdates } from './updates';
-import { stopAllServersOnQuit } from './site-server'; // eslint-disable-line import/order
 
 if ( ! isCLI() ) {
 	Sentry.init( {
@@ -222,6 +223,7 @@ async function appBoot() {
 				"script-src-attr 'none'",
 				"img-src 'self' https://*.gravatar.com https://*.wp.com data:",
 				"style-src 'self' 'unsafe-inline'", // unsafe-inline used by tailwindcss in development, and also in production after the app rename
+				"script-src 'self' 'wasm-unsafe-eval'", // allow WebAssembly to compile and instantiate
 			];
 			const prodPolicies = [ "connect-src 'self' https://public-api.wordpress.com" ];
 			const devPolicies = [
@@ -257,6 +259,12 @@ async function appBoot() {
 		// Handle CLI commands
 		listenCLICommands();
 		executeCLICommand();
+
+		// Bump stats for the first time the app runs - this is when no lastBumpStats are available
+		const userData = await loadUserData();
+		if ( ! userData.lastBumpStats ) {
+			bumpStat( 'studio-app-launch-first', process.platform );
+		}
 
 		// Bump a stat on each app launch, approximates total app launches
 		bumpStat( 'studio-app-launch-total', process.platform );

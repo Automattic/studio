@@ -3,6 +3,7 @@ import { useAuth } from '../../hooks/use-auth';
 import { useOffline } from '../../hooks/use-offline';
 import { usePromptUsage } from '../../hooks/use-prompt-usage';
 import { useWelcomeMessages } from '../../hooks/use-welcome-messages';
+import { getIpcApi } from '../../lib/get-ipc-api';
 import { ContentTabAssistant } from '../content-tab-assistant';
 
 jest.mock( '../../hooks/use-theme-details' );
@@ -10,6 +11,8 @@ jest.mock( '../../hooks/use-auth' );
 jest.mock( '../../hooks/use-welcome-messages' );
 jest.mock( '../../hooks/use-offline' );
 jest.mock( '../../hooks/use-prompt-usage' );
+jest.mock( '../../hooks/use-prompt-usage' );
+jest.mock( '../../lib/get-ipc-api' );
 
 jest.mock( '../../lib/app-globals', () => ( {
 	getAppGlobals: () => ( {
@@ -267,20 +270,82 @@ describe( 'ContentTabAssistant', () => {
 		expect( screen.queryByText( 'How to install a plugin' ) ).not.toBeInTheDocument();
 	} );
 
-	test( 'renders usage limit notice', () => {
+	test( 'clears history via reminder when last message is two hours old', async () => {
+		const MOCKED_TIME = 1718882159928;
+		const TWO_HOURS_DIFF = 2 * 60 * 60 * 1000;
+		jest.setSystemTime( MOCKED_TIME );
+
 		const storageKey = `ai_chat_messages_${ runningSite.id }`;
-		localStorage.setItem( storageKey, JSON.stringify( initialMessages ) );
-		( usePromptUsage as jest.Mock ).mockReturnValue( {
-			userCanSendMessage: false,
-			daysUntilReset: 4,
-		} );
+		localStorage.setItem(
+			storageKey,
+			JSON.stringify( [
+				{ id: 0, content: 'Initial message 1', role: 'user' },
+				{
+					id: 1,
+					content: 'Initial message 2',
+					role: 'assistant',
+					createdAt: MOCKED_TIME - TWO_HOURS_DIFF,
+				},
+			] )
+		);
 
 		render( <ContentTabAssistant selectedSite={ runningSite } /> );
 		expect( screen.getByText( 'Welcome to our service!' ) ).toBeVisible();
 		expect( screen.getByText( 'Initial message 1' ) ).toBeVisible();
 		expect( screen.getByText( 'Initial message 2' ) ).toBeVisible();
 		expect(
+			screen.getByText( 'This conversation is over two hours old.', { exact: false } )
+		).toBeVisible();
+
+		( getIpcApi as jest.Mock ).mockReturnValue( {
+			showMessageBox: jest.fn().mockResolvedValue( { response: 0, checkboxChecked: false } ),
+		} );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Clear the history' } ) );
+		await waitFor( () => {
+			expect( getIpcApi().showMessageBox ).toHaveBeenCalledTimes( 1 );
+			expect( screen.queryByText( 'Initial message 1' ) ).not.toBeInTheDocument();
+			expect( screen.queryByText( 'Initial message 2' ) ).not.toBeInTheDocument();
+		} );
+	} );
+
+	test( 'renders notices by importance', async () => {
+		const storageKey = `ai_chat_messages_${ runningSite.id }`;
+		localStorage.setItem(
+			storageKey,
+			JSON.stringify( [
+				{ id: 0, content: 'Initial message 1', role: 'user' },
+				{ id: 1, content: 'Initial message 2', role: 'assistant', createdAt: 0 },
+			] )
+		);
+
+		const { rerender } = render( <ContentTabAssistant selectedSite={ runningSite } /> );
+		expect( screen.getByText( 'Welcome to our service!' ) ).toBeVisible();
+		expect( screen.getByText( 'Initial message 1' ) ).toBeVisible();
+		expect( screen.getByText( 'Initial message 2' ) ).toBeVisible();
+		expect(
+			screen.getByText( 'This conversation is over two hours old.', { exact: false } )
+		).toBeVisible();
+
+		( usePromptUsage as jest.Mock ).mockReturnValue( {
+			userCanSendMessage: false,
+			daysUntilReset: 4,
+		} );
+		rerender( <ContentTabAssistant selectedSite={ runningSite } /> );
+		expect(
 			screen.getByText( 'Your limit will reset in 4 days.', { exact: false } )
 		).toBeVisible();
+		expect(
+			screen.queryByText( 'This conversation is over two hours old.', { exact: false } )
+		).not.toBeInTheDocument();
+
+		( useOffline as jest.Mock ).mockReturnValue( true );
+		rerender( <ContentTabAssistant selectedSite={ runningSite } /> );
+		expect( screen.getByText( 'The AI assistant requires an internet connection.' ) ).toBeVisible();
+		expect(
+			screen.queryByText( 'Your limit will reset in 4 days.', { exact: false } )
+		).not.toBeInTheDocument();
+		expect(
+			screen.queryByText( 'This conversation is over two hours old.', { exact: false } )
+		).not.toBeInTheDocument();
 	} );
 } );

@@ -15,9 +15,7 @@ export function useIsValidWpCliInline( command: string ) {
 		} )
 		.filter( Boolean ) as string[];
 	const wpCommandCount = wpCliArgs.filter( ( arg ) => arg === 'wp' ).length;
-	const containsPath = wpCliArgs.some(
-		( arg ) => /path/i.test( arg[ 0 ] ) || /\//.test( arg[ 0 ] )
-	);
+	const containsPath = wpCliArgs.some( ( arg ) => /path/i.test( arg ) || arg.startsWith( '/' ) );
 	const containsPlaceholderArgs = wpCliArgs.some( ( arg ) =>
 		PLACEHOLDER_CHAR_BEGIN.includes( arg[ 0 ] )
 	);

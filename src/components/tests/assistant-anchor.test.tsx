@@ -55,10 +55,6 @@ describe( 'Anchor', () => {
 			startServer: jest.fn( () => Promise.resolve() ),
 			loadingServer: {},
 		} );
-		( getIpcApi as jest.Mock ).mockReturnValue( {
-			openURL: jest.fn( () => Promise.resolve() ),
-			showMessageBox: jest.fn(),
-		} );
 		render( <Anchor href="http://localhost:3000" children="Local link" /> );
 
 		screen.getByRole( 'link' ).click();

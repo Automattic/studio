@@ -21,12 +21,12 @@ export function useIsValidWpCliInline( command: string ) {
 	const containsPlaceholderArgs = wpCliArgs.some( ( arg ) =>
 		PLACEHOLDER_CHAR_BEGIN.includes( arg[ 0 ] )
 	);
-	const isValidWpCliCommand =
+
+	return (
 		wpCliArgs.length > 0 &&
 		wpCliArgs[ 0 ] === 'wp' &&
 		wpCommandCount === 1 &&
 		! containsPath &&
-		! containsPlaceholderArgs;
-
-	return isValidWpCliCommand;
+		! containsPlaceholderArgs
+	);
 }

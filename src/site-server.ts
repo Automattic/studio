@@ -175,7 +175,7 @@ export class SiteServer {
 			( arg: unknown ) => typeof arg === 'string' || arg instanceof String
 		);
 		if ( ! isValidCommand ) {
-			throw Error( `Can't execute wp-cli command with arguments: ${ args }` );
+			throw Error( `Cannot execute wp-cli command with arguments: ${ args }` );
 		}
 
 		try {

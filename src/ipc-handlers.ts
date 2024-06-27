@@ -573,7 +573,7 @@ export async function executeWPCLiInline(
 	{ siteId, args }: { siteId: string; args: string }
 ): Promise< WpCliResult > {
 	if ( SiteServer.isDeleted( siteId ) ) {
-		return { stdout: '', stderr: `can't execute command on deleted site ${ siteId }` };
+		return { stdout: '', stderr: `Cannot execute command on deleted site ${ siteId }` };
 	}
 	const server = SiteServer.get( siteId );
 	if ( ! server ) {

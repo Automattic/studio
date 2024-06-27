@@ -72,7 +72,7 @@ describe( 'ContentTabAssistant', () => {
 		window.HTMLElement.prototype.scrollIntoView = jest.fn();
 		localStorage.clear();
 		jest.useFakeTimers();
-		( useAuth as jest.Mock ).mockImplementation( () => ( {
+		( useAuth as jest.Mock ).mockReturnValue( {
 			client: {
 				req: {
 					post: clientReqPost,
@@ -80,7 +80,7 @@ describe( 'ContentTabAssistant', () => {
 			},
 			isAuthenticated: true,
 			authenticate,
-		} ) );
+		} );
 	} );
 
 	test( 'renders placeholder text input', () => {
@@ -116,7 +116,7 @@ describe( 'ContentTabAssistant', () => {
 	} );
 
 	test( 'renders default message when not authenticated', () => {
-		( useAuth as jest.Mock ).mockImplementation( () => ( {
+		( useAuth as jest.Mock ).mockReturnValue( {
 			client: {
 				req: {
 					post: clientReqPost,
@@ -124,7 +124,7 @@ describe( 'ContentTabAssistant', () => {
 			},
 			isAuthenticated: false,
 			authenticate,
-		} ) );
+		} );
 		render( <ContentTabAssistant selectedSite={ runningSite } /> );
 		expect( screen.getByText( 'Hold up!' ) ).toBeVisible();
 		expect(
@@ -133,7 +133,7 @@ describe( 'ContentTabAssistant', () => {
 	} );
 
 	test( 'allows authentication from Assistant chat', () => {
-		( useAuth as jest.Mock ).mockImplementation( () => ( {
+		( useAuth as jest.Mock ).mockReturnValue( {
 			client: {
 				req: {
 					post: clientReqPost,
@@ -141,7 +141,7 @@ describe( 'ContentTabAssistant', () => {
 			},
 			isAuthenticated: false,
 			authenticate,
-		} ) );
+		} );
 		render( <ContentTabAssistant selectedSite={ runningSite } /> );
 		const loginButton = screen.getByRole( 'button', { name: 'Log in to WordPress.com' } );
 		expect( loginButton ).toBeVisible();
@@ -152,7 +152,7 @@ describe( 'ContentTabAssistant', () => {
 	test( 'it stores messages with user-unique keys', async () => {
 		const user1 = { id: 'mock-user-1' };
 		const user2 = { id: 'mock-user-2' };
-		( useAuth as jest.Mock ).mockImplementation( () => ( {
+		( useAuth as jest.Mock ).mockReturnValue( {
 			client: {
 				req: {
 					post: clientReqPost,
@@ -161,7 +161,7 @@ describe( 'ContentTabAssistant', () => {
 			isAuthenticated: true,
 			authenticate,
 			user: user1,
-		} ) );
+		} );
 		const { rerender } = render( <ContentTabAssistant selectedSite={ runningSite } /> );
 
 		const textInput = getInput();
@@ -171,7 +171,7 @@ describe( 'ContentTabAssistant', () => {
 		expect( screen.getByText( 'New message' ) ).toBeVisible();
 
 		// Simulate user authentication change
-		( useAuth as jest.Mock ).mockImplementation( () => ( {
+		( useAuth as jest.Mock ).mockReturnValue( {
 			client: {
 				req: {
 					post: clientReqPost,
@@ -180,7 +180,7 @@ describe( 'ContentTabAssistant', () => {
 			isAuthenticated: true,
 			authenticate,
 			user: user2,
-		} ) );
+		} );
 
 		rerender( <ContentTabAssistant selectedSite={ runningSite } /> );
 
@@ -188,7 +188,7 @@ describe( 'ContentTabAssistant', () => {
 	} );
 
 	test( 'does not render the Welcome messages and example prompts when not authenticated', () => {
-		( useAuth as jest.Mock ).mockImplementation( () => ( {
+		( useAuth as jest.Mock ).mockReturnValue( {
 			client: {
 				req: {
 					post: clientReqPost,
@@ -196,7 +196,7 @@ describe( 'ContentTabAssistant', () => {
 			},
 			isAuthenticated: false,
 			authenticate,
-		} ) );
+		} );
 		render( <ContentTabAssistant selectedSite={ runningSite } /> );
 		expect( screen.getByText( 'Hold up!' ) ).toBeVisible();
 		expect( screen.queryByText( 'Welcome to our service!' ) ).not.toBeInTheDocument();

@@ -25,6 +25,23 @@ interface ContentTabAssistantProps {
 	selectedSite: SiteDetails;
 }
 
+const ErrorNotice = ( {
+	hasError,
+}: {
+	handleSend: ( messageToSend?: string ) => void;
+	messageContent: string;
+	hasError: boolean;
+} ) => {
+	const { __ } = useI18n();
+	if ( ! hasError ) return null;
+
+	return (
+		<div className="text-a8c-gray-50 flex justify-end py-2 text-xs">
+			{ __( "Oops! We couldn't get a response from the assistant." ) }
+		</div>
+	);
+};
+
 const UsageLimitReached = () => {
 	const { daysUntilReset } = usePromptUsage();
 

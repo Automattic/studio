@@ -84,7 +84,7 @@ export default class WpCliProcess {
 		}
 		if ( this.ongoingMessages[ originalMessageId ] ) {
 			throw Error(
-				`The response for message ID ${ originalMessageId } from the message '${ originalMessage }' is already being awaited. Please use the 'waitForResponse' function only once per message ID..`
+				`The 'waitForResponse' function was already called for message ID ${ originalMessageId } from the message '${ originalMessage }'. 'waitForResponse' may only be called once per message ID.`
 			);
 		}
 

@@ -2,6 +2,7 @@ import { __unstableMotion as motion } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { Message } from '../hooks/use-assistant';
 import { cx } from '../lib/cx';
 import Anchor from './assistant-anchor';
 import createCodeComponent from './assistant-code-block';
@@ -9,19 +10,12 @@ import { MessageThinking } from './assistant-thinking';
 
 export interface ChatMessageProps {
 	children: React.ReactNode;
-	isUser: boolean;
-	isAssistantThinking?: boolean;
 	id: string;
 	messageId?: number;
 	className?: string;
 	projectPath?: string;
 	siteId?: string;
-	blocks?: {
-		cliOutput?: string;
-		cliStatus?: 'success' | 'error';
-		cliTime?: string;
-		codeBlockContent?: string;
-	}[];
+	message: Message;
 	updateMessage?: (
 		id: number,
 		content: string,
@@ -34,12 +28,10 @@ export interface ChatMessageProps {
 
 export const ChatMessage = ( {
 	id,
-	isAssistantThinking,
 	messageId,
-	isUser,
+	message,
 	className,
 	projectPath,
-	blocks,
 	updateMessage,
 	isUnauthenticated,
 	children,
@@ -55,14 +47,14 @@ export const ChatMessage = ( {
 			key="container"
 			className={ cx(
 				'flex mt-4',
-				isUser
+				message.role === 'user'
 					? 'justify-end ltr:md:ml-24 rtl:md:mr-24'
 					: 'justify-start ltr:md:mr-24 rtl:md:ml-24',
 				className
 			) }
 		>
 			<motion.div
-				key={ isAssistantThinking ? `thinking` : `content` }
+				key={ message.role === 'thinking' ? `thinking` : `content` }
 				variants={ bubbleVariants }
 				initial="hidden"
 				animate="visible"
@@ -77,15 +69,15 @@ export const ChatMessage = ( {
 				className={ cx(
 					'inline-block p-3 rounded border border-gray-300 overflow-x-auto select-text',
 					isUnauthenticated ? 'lg:max-w-[90%]' : 'lg:max-w-[70%]',
-					! isUser ? 'bg-white' : 'bg-white/45'
+					! ( message.role === 'user' ) ? 'bg-white' : 'bg-white/45'
 				) }
 			>
 				<div className="relative">
 					<span className="sr-only">
-						{ isUser ? __( 'Your message' ) : __( 'Studio Assistant' ) },
+						{ message.role === 'user' ? __( 'Your message' ) : __( 'Studio Assistant' ) },
 					</span>
 				</div>
-				{ isAssistantThinking && (
+				{ message.role === 'thinking' && (
 					<motion.div key="thinking-container">
 						<MessageThinking />
 					</motion.div>
@@ -96,7 +88,7 @@ export const ChatMessage = ( {
 							components={ {
 								a: Anchor,
 								code: createCodeComponent( {
-									blocks,
+									blocks: message?.blocks,
 									messageId,
 									projectPath,
 									updateMessage,

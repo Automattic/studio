@@ -4,16 +4,15 @@ import { useEffect } from 'react';
 import { ExtraProps } from 'react-markdown';
 import { parse } from 'shell-quote';
 import stripAnsi from 'strip-ansi';
+import { Message as MessageType } from '../hooks/use-assistant';
 import { useExecuteWPCLI } from '../hooks/use-execute-cli';
 import Button from './button';
 import { ChatMessageProps } from './chat-message';
 import { CopyTextButton } from './copy-text-button';
 import { ExecuteIcon } from './icons/execute';
 
-type ContextProps = Pick<
-	ChatMessageProps,
-	'blocks' | 'updateMessage' | 'projectPath' | 'messageId'
->;
+type ContextProps = Pick< MessageType, 'blocks' > &
+	Pick< ChatMessageProps, 'updateMessage' | 'projectPath' | 'messageId' >;
 
 type CodeBlockProps = JSX.IntrinsicElements[ 'code' ] & ExtraProps;
 

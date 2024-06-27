@@ -131,12 +131,10 @@ const AuthenticatedView = memo(
 						<ChatMessage
 							key={ `${ message.role }-${ message.id || index }` }
 							id={ `message-chat-${ index }` }
-							isUser={ message.role === 'user' }
-							isAssistantThinking={ message.role === 'thinking' }
+							message={ message }
 							projectPath={ path }
 							updateMessage={ updateMessage }
 							messageId={ message.id ?? index }
-							blocks={ message.blocks }
 						>
 							{ message.content }
 						</ChatMessage>
@@ -152,7 +150,7 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 	<ChatMessage
 		id="message-unauthenticated"
 		className="w-full"
-		isUser={ false }
+		message={ { role: 'user' } as MessageType }
 		isUnauthenticated={ true }
 	>
 		<div data-testid="unauthenticated-header" className="mb-3 a8c-label-semibold">

@@ -10,7 +10,7 @@ Studio is open source and is available to download for free!
 
 **Step 1: Download the App**
 
-[Download Studio for macOS (Intel or Silicon)](https://developer.wordpress.com/studio/) for free today, or get on [the waiting list for the Windows version of Studio](https://developer.wordpress.com/studio-for-windows/).
+[Download Studio for macOS (Intel or Silicon) or Windows](https://developer.wordpress.com/studio/) for free today.
 
 **Step 2: Explore the Documentation**
 

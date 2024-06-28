@@ -106,7 +106,7 @@ const AuthenticatedView = memo(
 			cliTime: string
 		) => void;
 		siteId: string;
-		handleSend?: ( messageToSend?: string, isRetry?: boolean ) => void;
+		handleSend: ( messageToSend?: string, isRetry?: boolean ) => void;
 	} ) => {
 		const endOfMessagesRef = useRef< HTMLDivElement >( null );
 
@@ -123,8 +123,9 @@ const AuthenticatedView = memo(
 		return (
 			<>
 				{ messages.map( ( message, index ) => (
-					<React.Fragment key={ index }>
+					<>
 						<ChatMessage
+							key={ `message-chat-${ index }` }
 							id={ `message-chat-${ index }` }
 							isUser={ message.role === 'user' }
 							siteId={ siteId }
@@ -138,7 +139,7 @@ const AuthenticatedView = memo(
 						{ message.failedMessage && (
 							<ErrorNotice handleSend={ handleSend } messageContent={ message.content } />
 						) }
-					</React.Fragment>
+					</>
 				) ) }
 				{ isAssistantThinking && (
 					<ChatMessage isUser={ false } id="message-thinking">
@@ -213,7 +214,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const handleSend = async ( messageToSend?: string, isRetry?: boolean ) => {
 		const chatMessage = messageToSend || input;
 		if ( chatMessage.trim() ) {
-			let messageId;
+			let messageId: number | undefined;
 
 			if ( isRetry ) {
 				// If retrying, find the message ID with failedMessage flag
@@ -222,7 +223,9 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 				);
 				if ( failedMessage ) {
 					messageId = failedMessage.id;
-					updateFailedMessage( messageId, false );
+					if ( messageId !== undefined ) {
+						updateFailedMessage( messageId, false );
+					}
 				}
 			} else {
 				// If not retrying, create a new message
@@ -243,7 +246,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 					addMessage( message, 'assistant', chatId ?? fetchedChatId );
 				}
 			} catch ( error ) {
-				if ( messageId ) {
+				if ( messageId !== undefined ) {
 					updateFailedMessage( messageId, true );
 				}
 			}
@@ -284,6 +287,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 									isAssistantThinking={ isAssistantThinking }
 									updateMessage={ updateMessage }
 									siteId={ selectedSite.id }
+									handleSend={ handleSend }
 								/>
 							) }
 							<OfflineModeView />

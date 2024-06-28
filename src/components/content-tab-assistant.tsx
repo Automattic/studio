@@ -172,7 +172,7 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
 	const currentSiteChatContext = useChatContext();
 	const { isAuthenticated, authenticate, user } = useAuth();
-	const { messages, addMessage, clearMessages, updateMessage, updateFailedMessage, chatId } =
+	const { messages, addMessage, clearMessages, updateMessage, markMessageAsFailed, chatId } =
 		useAssistant( user?.id ? `${ user.id }_${ selectedSite.id }` : selectedSite.id );
 	const { userCanSendMessage } = usePromptUsage();
 	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi( selectedSite.id );
@@ -210,7 +210,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 				}
 			} catch ( error ) {
 				if ( typeof messageId !== 'undefined' ) {
-					updateFailedMessage( messageId, true );
+					markMessageAsFailed( messageId, true );
 				}
 			}
 		}

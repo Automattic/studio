@@ -98,7 +98,7 @@ export const useAssistant = ( instanceId: string ) => {
 		[ instanceId ]
 	);
 
-	const updateFailedMessage = useCallback(
+	const markMessageAsFailed = useCallback(
 		( id: number, failedMessage: boolean ) => {
 			setMessages( ( prevMessages ) => {
 				const updatedMessages = prevMessages.map( ( message ) => {
@@ -128,9 +128,9 @@ export const useAssistant = ( instanceId: string ) => {
 			addMessage,
 			updateMessage,
 			clearMessages,
-			updateFailedMessage,
+			markMessageAsFailed,
 			chatId,
 		} ),
-		[ addMessage, clearMessages, messages, updateMessage, updateFailedMessage, chatId ]
+		[ addMessage, clearMessages, messages, updateMessage, markMessageAsFailed, chatId ]
 	);
 };

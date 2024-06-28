@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { useAuth } from '../../hooks/use-auth';
 import { useFetchWelcomeMessages } from '../../hooks/use-fetch-welcome-messages';
 import { ContentTabAssistant } from '../content-tab-assistant';

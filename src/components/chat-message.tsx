@@ -58,8 +58,8 @@ export const ChatMessage = ( {
 				className={ cx(
 					'inline-block p-3 rounded border overflow-x-auto select-text',
 					isUnauthenticated ? 'lg:max-w-[90%]' : 'lg:max-w-[70%]', // Apply different max-width for unauthenticated view
-					! isUser ? 'bg-white' : 'bg-white/45',
-					failedMessage ? 'border-[#FACFD2] bg-[#F7EBEC]' : 'border-gray-300'
+					failedMessage ? 'border-[#FACFD2] bg-[#F7EBEC]' : ! isUser ? 'bg-white' : 'bg-white/45',
+					! failedMessage && 'border-gray-300'
 				) }
 			>
 				<div className="relative">

@@ -13,7 +13,6 @@ export interface ChatMessageProps {
 	id: string;
 	messageId?: number;
 	className?: string;
-	projectPath?: string;
 	siteId?: string;
 	message: Message;
 	updateMessage?: (
@@ -31,7 +30,7 @@ export const ChatMessage = ( {
 	messageId,
 	message,
 	className,
-	projectPath,
+	siteId,
 	updateMessage,
 	isUnauthenticated,
 	children,
@@ -90,7 +89,7 @@ export const ChatMessage = ( {
 								code: createCodeComponent( {
 									blocks: message?.blocks,
 									messageId,
-									projectPath,
+									siteId,
 									updateMessage,
 								} ),
 								img: () => null,

@@ -67,7 +67,7 @@ const AuthenticatedView = memo(
 	( {
 		messages,
 		updateMessage,
-		path,
+		siteId,
 	}: {
 		messages: MessageType[];
 		updateMessage: (
@@ -77,7 +77,7 @@ const AuthenticatedView = memo(
 			cliStatus: 'success' | 'error',
 			cliTime: string
 		) => void;
-		path: string;
+		siteId: string;
 	} ) => {
 		const endOfMessagesRef = useRef< HTMLDivElement >( null );
 		const [ displayedMessages, setDisplayedMessages ] = useState< MessageType[] >( [] );
@@ -132,7 +132,7 @@ const AuthenticatedView = memo(
 							key={ `${ message.role }-${ message.id || index }` }
 							id={ `message-chat-${ index }` }
 							message={ message }
-							projectPath={ path }
+							siteId={ siteId }
 							updateMessage={ updateMessage }
 							messageId={ message.id ?? index }
 						>
@@ -271,7 +271,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 								<AuthenticatedView
 									messages={ messages }
 									updateMessage={ updateMessage }
-									path={ selectedSite.path }
+									siteId={ selectedSite.id }
 								/>
 							) }
 							<OfflineModeView />
@@ -290,7 +290,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 										<AuthenticatedView
 											messages={ messages }
 											updateMessage={ updateMessage }
-											path={ selectedSite.path }
+											siteId={ selectedSite.id }
 										/>
 										<UsageLimitReached />
 									</>
@@ -308,7 +308,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 									<AuthenticatedView
 										messages={ messages }
 										updateMessage={ updateMessage }
-										path={ selectedSite.path }
+										siteId={ selectedSite.id }
 									/>
 									<ClearHistoryReminder lastMessage={ lastMessage } clearInput={ clearInput } />
 								</>

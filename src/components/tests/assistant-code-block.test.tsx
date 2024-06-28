@@ -8,7 +8,7 @@ describe( 'createCodeComponent', () => {
 	const contextProps = {
 		blocks: [],
 		updateMessage: jest.fn(),
-		projectPath: '/path/to/project',
+		siteId: '1',
 		messageId: 1,
 	};
 	const CodeBlock = createCodeComponent( contextProps );
@@ -152,7 +152,7 @@ describe( 'createCodeComponent', () => {
 					},
 				],
 				updateMessage: jest.fn(),
-				projectPath: '/path/to/project',
+				siteId: '1',
 				messageId: 1,
 			};
 			const CodeBlock = createCodeComponent( contextProps );

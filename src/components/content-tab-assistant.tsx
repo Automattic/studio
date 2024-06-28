@@ -103,11 +103,10 @@ const AuthenticatedView = memo(
 
 		return (
 			<>
-				{ messages.map( ( message, index ) => (
-					<>
+				{ messages.map( ( message ) => (
+					<div key={ message.id }>
 						<ChatMessage
-							key={ index }
-							id={ `message-chat-${ index }` }
+							id={ `message-chat-${ message.id }` }
 							isUser={ message.role === 'user' }
 							siteId={ siteId }
 							updateMessage={ updateMessage }
@@ -118,7 +117,7 @@ const AuthenticatedView = memo(
 							{ message.content }
 						</ChatMessage>
 						{ message.failedMessage && <ErrorNotice /> }
-					</>
+					</div>
 				) ) }
 				{ isAssistantThinking && (
 					<ChatMessage isUser={ false } id="message-thinking">

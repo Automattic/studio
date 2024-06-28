@@ -1,23 +1,24 @@
 import React, { createContext, useContext, ReactNode, useState, useEffect } from 'react';
+import { getAppGlobals } from '../lib/app-globals';
 import { useAuth } from './use-auth';
 
 export interface FeatureFlagsContextType {
 	assistantEnabled: boolean;
 }
 
-const defaultFeatureFlags: FeatureFlagsContextType = {
+export const FeatureFlagsContext = createContext< FeatureFlagsContextType >( {
 	assistantEnabled: false,
-};
-
-export const FeatureFlagsContext = createContext< FeatureFlagsContextType >( defaultFeatureFlags );
+} );
 
 interface FeatureFlagsProviderProps {
 	children: ReactNode;
 }
 
 export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { children } ) => {
-	const [ featureFlags, setFeatureFlags ] =
-		useState< FeatureFlagsContextType >( defaultFeatureFlags );
+	const assistantEnabledFromGlobals = getAppGlobals().assistantEnabled;
+	const [ featureFlags, setFeatureFlags ] = useState< FeatureFlagsContextType >( {
+		assistantEnabled: assistantEnabledFromGlobals,
+	} );
 	const { isAuthenticated, client } = useAuth();
 
 	useEffect( () => {
@@ -35,7 +36,7 @@ export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { c
 					return;
 				}
 				setFeatureFlags( {
-					assistantEnabled: Boolean( flags?.assistantEnabled ),
+					assistantEnabled: Boolean( flags?.assistantEnabled ) || assistantEnabledFromGlobals,
 				} );
 			} catch ( error ) {
 				console.error( error );
@@ -45,7 +46,7 @@ export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { c
 		return () => {
 			cancel = true;
 		};
-	}, [ isAuthenticated, client ] );
+	}, [ isAuthenticated, client, assistantEnabledFromGlobals ] );
 
 	return (
 		<FeatureFlagsContext.Provider value={ featureFlags }>{ children }</FeatureFlagsContext.Provider>

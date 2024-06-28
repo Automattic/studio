@@ -12,6 +12,7 @@ export type Message = {
 		codeBlockContent?: string;
 	}[];
 	createdAt: number; // Unix timestamp
+	failedMessage?: boolean;
 };
 
 export type MessageDict = { [ key: string ]: Message[] };
@@ -38,11 +39,13 @@ export const useAssistant = ( instanceId: string ) => {
 
 	const addMessage = useCallback(
 		( content: string, role: 'user' | 'assistant', chatId?: string ) => {
-			setMessagesDict( ( prevDict ) => {
+			const messages = messagesDict[ instanceId ] || [];
+			const newMessageId = messages.length;
+			setMessageDict( ( prevDict ) => {
 				const prevMessages = prevDict[ instanceId ] || [];
 				const updatedMessages = [
 					...prevMessages,
-					{ content, role, id: prevMessages.length, createdAt: Date.now() },
+					{ content, role, id: newMessageId, createdAt: Date.now() },
 				];
 				const newDict = { ...prevDict, [ instanceId ]: updatedMessages };
 				localStorage.setItem( chatMessagesStoreKey, JSON.stringify( newDict ) );
@@ -57,8 +60,10 @@ export const useAssistant = ( instanceId: string ) => {
 				}
 				return prevDict;
 			} );
+
+			return newMessageId; // Return the new message ID
 		},
-		[ instanceId ]
+		[ instanceId, messagesDict ]
 	);
 
 	const updateMessage = useCallback(
@@ -94,6 +99,22 @@ export const useAssistant = ( instanceId: string ) => {
 		[ instanceId ]
 	);
 
+	const updateFailedMessage = useCallback(
+		( id: number, failedMessage: boolean ) => {
+			setMessagesDict( ( prevDict ) => {
+				const prevMessages = prevDict[ instanceId ] || [];
+				const updatedMessages = prevMessages.map( ( message ) => {
+					if ( message.id !== id ) return message;
+					return { ...message, failedMessage };
+				} );
+				const newDict = { ...prevDict, [ instanceId ]: updatedMessages };
+				localStorage.setItem( chatMessagesStoreKey, JSON.stringify( newDict ) );
+				return newDict;
+			} );
+		},
+		[ instanceId ]
+	);
+
 	const clearMessages = useCallback( () => {
 		setMessagesDict( ( prevDict ) => {
 			const { [ instanceId ]: _, ...rest } = prevDict;
@@ -115,7 +136,16 @@ export const useAssistant = ( instanceId: string ) => {
 			updateMessage,
 			clearMessages,
 			chatId: chatIdDict[ instanceId ],
+			updateFailedMessage,
 		} ),
-		[ messagesDict, instanceId, addMessage, updateMessage, clearMessages, chatIdDict ]
+		[
+			messagesDict,
+			instanceId,
+			addMessage,
+			updateMessage,
+			clearMessages,
+			chatIdDict,
+			updateFailedMessage,
+		]
 	);
 };

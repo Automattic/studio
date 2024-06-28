@@ -41,7 +41,7 @@ export const useAssistant = ( instanceId: string ) => {
 		( content: string, role: 'user' | 'assistant', chatId?: string ) => {
 			const messages = messagesDict[ instanceId ] || [];
 			const newMessageId = messages.length;
-			setMessageDict( ( prevDict ) => {
+			setMessagesDict( ( prevDict ) => {
 				const prevMessages = prevDict[ instanceId ] || [];
 				const updatedMessages = [
 					...prevMessages,

@@ -25,12 +25,29 @@ interface ContentTabAssistantProps {
 	selectedSite: SiteDetails;
 }
 
-const ErrorNotice = () => {
+const ErrorNotice = ( {
+	handleSend,
+	messageContent,
+}: {
+	handleSend: ( messageToSend?: string, isRetry?: boolean ) => void;
+	messageContent: string;
+} ) => {
 	const { __ } = useI18n();
 
 	return (
 		<div className="text-a8c-gray-50 flex justify-end py-2 text-xs">
-			{ __( "Oops! We couldn't get a response from the assistant." ) }
+			{ createInterpolateElement(
+				__( "Oops! We couldn't get a response from the assistant. <a>Try again</a>" ),
+				{
+					a: (
+						<Button
+							variant="link"
+							onClick={ () => handleSend( messageContent, true ) }
+							className="text-xs"
+						/>
+					),
+				}
+			) }
 		</div>
 	);
 };
@@ -77,6 +94,7 @@ const AuthenticatedView = memo(
 		isAssistantThinking,
 		updateMessage,
 		siteId,
+		handleSend,
 	}: {
 		messages: MessageType[];
 		isAssistantThinking: boolean;
@@ -88,6 +106,7 @@ const AuthenticatedView = memo(
 			cliTime: string
 		) => void;
 		siteId: string;
+		handleSend?: ( messageToSend?: string, isRetry?: boolean ) => void;
 	} ) => {
 		const endOfMessagesRef = useRef< HTMLDivElement >( null );
 
@@ -104,9 +123,8 @@ const AuthenticatedView = memo(
 		return (
 			<>
 				{ messages.map( ( message, index ) => (
-					<>
+					<React.Fragment key={ index }>
 						<ChatMessage
-							key={ index }
 							id={ `message-chat-${ index }` }
 							isUser={ message.role === 'user' }
 							siteId={ siteId }
@@ -117,8 +135,10 @@ const AuthenticatedView = memo(
 						>
 							{ message.content }
 						</ChatMessage>
-						{ message.failedMessage && <ErrorNotice /> }
-					</>
+						{ message.failedMessage && (
+							<ErrorNotice handleSend={ handleSend } messageContent={ message.content } />
+						) }
+					</React.Fragment>
 				) ) }
 				{ isAssistantThinking && (
 					<ChatMessage isUser={ false } id="message-thinking">
@@ -190,11 +210,26 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		fetchWelcomeMessages();
 	}, [ fetchWelcomeMessages, selectedSite ] );
 
-	const handleSend = async ( messageToSend?: string ) => {
+	const handleSend = async ( messageToSend?: string, isRetry?: boolean ) => {
 		const chatMessage = messageToSend || input;
 		if ( chatMessage.trim() ) {
-			const messageId = addMessage( chatMessage, 'user', chatId ); // Get the new message ID
-			setInput( '' );
+			let messageId;
+
+			if ( isRetry ) {
+				// If retrying, find the message ID with failedMessage flag
+				const failedMessage = messages.find(
+					( msg ) => msg.failedMessage && msg.content === chatMessage
+				);
+				if ( failedMessage ) {
+					messageId = failedMessage.id;
+					updateFailedMessage( messageId, false );
+				}
+			} else {
+				// If not retrying, create a new message
+				messageId = addMessage( chatMessage, 'user', chatId );
+				setInput( '' );
+			}
+
 			try {
 				const { message, chatId: fetchedChatId } = await fetchAssistant(
 					chatId,
@@ -269,6 +304,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 											isAssistantThinking={ isAssistantThinking }
 											updateMessage={ updateMessage }
 											siteId={ selectedSite.id }
+											handleSend={ handleSend }
 										/>
 										<UsageLimitReached />
 									</>
@@ -288,6 +324,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 										isAssistantThinking={ isAssistantThinking }
 										updateMessage={ updateMessage }
 										siteId={ selectedSite.id }
+										handleSend={ handleSend }
 									/>
 									<ClearHistoryReminder lastMessage={ lastMessage } clearInput={ clearInput } />
 								</>

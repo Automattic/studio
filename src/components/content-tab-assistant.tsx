@@ -192,8 +192,9 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 
 	const handleSend = async ( messageToSend?: string ) => {
 		const chatMessage = messageToSend || input;
+		let messageId;
 		if ( chatMessage.trim() ) {
-			const messageId = addMessage( chatMessage, 'user', chatId ); // Get the new message ID
+			messageId = addMessage( chatMessage, 'user', chatId ); // Get the new message ID
 			setInput( '' );
 			try {
 				const { message, chatId: fetchedChatId } = await fetchAssistant(
@@ -208,7 +209,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 					addMessage( message, 'assistant', chatId ?? fetchedChatId );
 				}
 			} catch ( error ) {
-				if ( messageId ) {
+				if ( typeof messageId !== 'undefined' ) {
 					updateFailedMessage( messageId, true );
 				}
 			}

@@ -39,9 +39,8 @@ export const useAssistant = ( instanceId: string ) => {
 
 	const addMessage = useCallback(
 		( content: string, role: 'user' | 'assistant', chatId?: string ) => {
-			let newMessageId;
+			const newMessageId = messages.length;
 			setMessages( ( prevMessages ) => {
-				newMessageId = prevMessages.length; // Calculate the new message ID
 				const updatedMessages = [
 					...prevMessages,
 					{ content, role, id: newMessageId, createdAt: Date.now() },
@@ -62,7 +61,7 @@ export const useAssistant = ( instanceId: string ) => {
 
 			return newMessageId; // Return the new message ID
 		},
-		[ instanceId ]
+		[ instanceId, messages.length ]
 	);
 
 	const updateMessage = useCallback(

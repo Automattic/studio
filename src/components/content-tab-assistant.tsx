@@ -104,8 +104,9 @@ const AuthenticatedView = memo(
 		return (
 			<>
 				{ messages.map( ( message, index ) => (
-					<React.Fragment key={ index }>
+					<>
 						<ChatMessage
+							key={ index }
 							id={ `message-chat-${ index }` }
 							isUser={ message.role === 'user' }
 							projectPath={ path }
@@ -117,7 +118,7 @@ const AuthenticatedView = memo(
 							{ message.content }
 						</ChatMessage>
 						{ message.failedMessage && <ErrorNotice /> }
-					</React.Fragment>
+					</>
 				) ) }
 				{ isAssistantThinking && (
 					<ChatMessage isUser={ false } id="message-thinking">

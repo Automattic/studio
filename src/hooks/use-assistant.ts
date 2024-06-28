@@ -12,6 +12,7 @@ export type Message = {
 		codeBlockContent?: string;
 	}[];
 	createdAt: number; // Unix timestamp
+	failedMessage?: boolean;
 };
 
 const chatIdStoreKey = ( instanceId: string ) => `ai_chat_id_${ instanceId }`;
@@ -38,10 +39,11 @@ export const useAssistant = ( instanceId: string ) => {
 
 	const addMessage = useCallback(
 		( content: string, role: 'user' | 'assistant', chatId?: string ) => {
+			const newMessageId = messages.length;
 			setMessages( ( prevMessages ) => {
 				const updatedMessages = [
 					...prevMessages,
-					{ content, role, id: prevMessages.length, createdAt: Date.now() },
+					{ content, role, id: newMessageId, createdAt: Date.now() },
 				];
 				localStorage.setItem(
 					chatMessagesStoreKey( instanceId ),
@@ -56,8 +58,10 @@ export const useAssistant = ( instanceId: string ) => {
 				}
 				return chatId;
 			} );
+
+			return newMessageId; // Return the new message ID
 		},
-		[ instanceId ]
+		[ instanceId, messages.length ]
 	);
 
 	const updateMessage = useCallback(
@@ -94,6 +98,23 @@ export const useAssistant = ( instanceId: string ) => {
 		[ instanceId ]
 	);
 
+	const updateFailedMessage = useCallback(
+		( id: number, failedMessage: boolean ) => {
+			setMessages( ( prevMessages ) => {
+				const updatedMessages = prevMessages.map( ( message ) => {
+					if ( message.id !== id ) return message;
+					return { ...message, failedMessage };
+				} );
+				localStorage.setItem(
+					chatMessagesStoreKey( instanceId ),
+					JSON.stringify( updatedMessages )
+				);
+				return updatedMessages;
+			} );
+		},
+		[ instanceId ]
+	);
+
 	const clearMessages = useCallback( () => {
 		setMessages( [] );
 		setChatId( undefined );
@@ -107,8 +128,9 @@ export const useAssistant = ( instanceId: string ) => {
 			addMessage,
 			updateMessage,
 			clearMessages,
+			updateFailedMessage,
 			chatId,
 		} ),
-		[ addMessage, clearMessages, messages, updateMessage, chatId ]
+		[ addMessage, clearMessages, messages, updateMessage, updateFailedMessage, chatId ]
 	);
 };

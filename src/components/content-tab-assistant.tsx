@@ -25,6 +25,16 @@ interface ContentTabAssistantProps {
 	selectedSite: SiteDetails;
 }
 
+const ErrorNotice = () => {
+	const { __ } = useI18n();
+
+	return (
+		<div className="text-a8c-gray-50 flex justify-end py-2 text-xs">
+			{ __( "Oops! We couldn't get a response from the assistant." ) }
+		</div>
+	);
+};
+
 const UsageLimitReached = () => {
 	const { daysUntilReset } = usePromptUsage();
 
@@ -94,17 +104,21 @@ const AuthenticatedView = memo(
 		return (
 			<>
 				{ messages.map( ( message, index ) => (
-					<ChatMessage
-						key={ index }
-						id={ `message-chat-${ index }` }
-						isUser={ message.role === 'user' }
-						siteId={ siteId }
-						updateMessage={ updateMessage }
-						messageId={ message.id }
-						blocks={ message.blocks }
-					>
-						{ message.content }
-					</ChatMessage>
+					<>
+						<ChatMessage
+							key={ index }
+							id={ `message-chat-${ index }` }
+							isUser={ message.role === 'user' }
+							siteId={ siteId }
+							updateMessage={ updateMessage }
+							messageId={ message.id }
+							blocks={ message.blocks }
+							failedMessage={ message.failedMessage }
+						>
+							{ message.content }
+						</ChatMessage>
+						{ message.failedMessage && <ErrorNotice /> }
+					</>
 				) ) }
 				{ isAssistantThinking && (
 					<ChatMessage isUser={ false } id="message-thinking">
@@ -158,9 +172,8 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
 	const currentSiteChatContext = useChatContext();
 	const { isAuthenticated, authenticate, user } = useAuth();
-	const { messages, addMessage, clearMessages, updateMessage, chatId } = useAssistant(
-		user?.id ? `${ user.id }_${ selectedSite.id }` : selectedSite.id
-	);
+	const { messages, addMessage, clearMessages, updateMessage, updateFailedMessage, chatId } =
+		useAssistant( user?.id ? `${ user.id }_${ selectedSite.id }` : selectedSite.id );
 	const { userCanSendMessage } = usePromptUsage();
 	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi( selectedSite.id );
 	const {
@@ -179,29 +192,26 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 
 	const handleSend = async ( messageToSend?: string ) => {
 		const chatMessage = messageToSend || input;
+		let messageId;
 		if ( chatMessage.trim() ) {
-			addMessage( chatMessage, 'user', chatId );
+			messageId = addMessage( chatMessage, 'user', chatId ); // Get the new message ID
 			setInput( '' );
 			try {
 				const { message, chatId: fetchedChatId } = await fetchAssistant(
 					chatId,
-					[ ...messages, { content: chatMessage, role: 'user', createdAt: Date.now() } ],
+					[
+						...messages,
+						{ id: messageId, content: chatMessage, role: 'user', createdAt: Date.now() },
+					],
 					currentSiteChatContext
 				);
 				if ( message ) {
 					addMessage( message, 'assistant', chatId ?? fetchedChatId );
 				}
 			} catch ( error ) {
-				setTimeout(
-					() =>
-						getIpcApi().showMessageBox( {
-							type: 'warning',
-							message: __( 'Failed to send message' ),
-							detail: __( "We couldn't send the latest message. Please try again." ),
-							buttons: [ __( 'OK' ) ],
-						} ),
-					100
-				);
+				if ( typeof messageId !== 'undefined' ) {
+					updateFailedMessage( messageId, true );
+				}
 			}
 		}
 	};

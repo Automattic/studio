@@ -66,7 +66,7 @@ const AuthenticatedView = memo(
 		messages,
 		isAssistantThinking,
 		updateMessage,
-		path,
+		siteId,
 	}: {
 		messages: MessageType[];
 		isAssistantThinking: boolean;
@@ -77,7 +77,7 @@ const AuthenticatedView = memo(
 			cliStatus: 'success' | 'error',
 			cliTime: string
 		) => void;
-		path: string;
+		siteId: string;
 	} ) => {
 		const endOfMessagesRef = useRef< HTMLDivElement >( null );
 
@@ -98,7 +98,7 @@ const AuthenticatedView = memo(
 						key={ index }
 						id={ `message-chat-${ index }` }
 						isUser={ message.role === 'user' }
-						projectPath={ path }
+						siteId={ siteId }
 						updateMessage={ updateMessage }
 						messageId={ message.id }
 						blocks={ message.blocks }
@@ -239,7 +239,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 									messages={ messages }
 									isAssistantThinking={ isAssistantThinking }
 									updateMessage={ updateMessage }
-									path={ selectedSite.path }
+									siteId={ selectedSite.id }
 								/>
 							) }
 							<OfflineModeView />
@@ -259,7 +259,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 											messages={ messages }
 											isAssistantThinking={ isAssistantThinking }
 											updateMessage={ updateMessage }
-											path={ selectedSite.path }
+											siteId={ selectedSite.id }
 										/>
 										<UsageLimitReached />
 									</>
@@ -278,7 +278,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 										messages={ messages }
 										isAssistantThinking={ isAssistantThinking }
 										updateMessage={ updateMessage }
-										path={ selectedSite.path }
+										siteId={ selectedSite.id }
 									/>
 									<ClearHistoryReminder lastMessage={ lastMessage } clearInput={ clearInput } />
 								</>

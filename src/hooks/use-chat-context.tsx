@@ -64,7 +64,6 @@ export const ChatProvider: React.FC< ChatProviderProps > = ( { children } ) => {
 	const [ pluginsList, setPluginsList ] = useState< Record< string, string[] > >( {} );
 	const [ themesList, setThemesList ] = useState< Record< string, string[] > >( {} );
 	const numberOfSites = sites?.length || 0;
-	const sitePath = selectedSite?.path || '';
 	const sitePort = selectedSite?.port || '';
 
 	const { selectedThemeDetails: themeDetails } = useThemeDetails();
@@ -73,9 +72,9 @@ export const ChatProvider: React.FC< ChatProviderProps > = ( { children } ) => {
 		return installedApps[ app as keyof InstalledApps ];
 	} );
 
-	const fetchPluginList = useCallback( async ( path: string ) => {
+	const fetchPluginList = useCallback( async ( siteId: string ) => {
 		const { stdout, stderr } = await getIpcApi().executeWPCLiInline( {
-			projectPath: path,
+			siteId,
 			args: 'plugin list --format=json --status=active',
 		} );
 		if ( stderr ) {
@@ -84,9 +83,9 @@ export const ChatProvider: React.FC< ChatProviderProps > = ( { children } ) => {
 		return parseWpCliOutput( stdout, [] );
 	}, [] );
 
-	const fetchThemeList = useCallback( async ( path: string ) => {
+	const fetchThemeList = useCallback( async ( siteId: string ) => {
 		const { stdout, stderr } = await getIpcApi().executeWPCLiInline( {
-			projectPath: path,
+			siteId,
 			args: 'theme list --format=json',
 		} );
 		if ( stderr ) {
@@ -104,10 +103,7 @@ export const ChatProvider: React.FC< ChatProviderProps > = ( { children } ) => {
 			}
 			setInitialLoad( ( prev ) => ( { ...prev, [ siteId ]: true } ) );
 			try {
-				const result = await Promise.all( [
-					fetchPluginList( sitePath ),
-					fetchThemeList( sitePath ),
-				] );
+				const result = await Promise.all( [ fetchPluginList( siteId ), fetchThemeList( siteId ) ] );
 				if ( isCurrent ) {
 					setPluginsList( ( prev ) => ( { ...prev, [ siteId ]: result[ 0 ] } ) );
 					setThemesList( ( prev ) => ( { ...prev, [ siteId ]: result[ 1 ] } ) );
@@ -140,7 +136,6 @@ export const ChatProvider: React.FC< ChatProviderProps > = ( { children } ) => {
 		selectedSite,
 		sites,
 		themesList,
-		sitePath,
 	] );
 
 	useWindowListener( 'focus', async () => {
@@ -148,8 +143,8 @@ export const ChatProvider: React.FC< ChatProviderProps > = ( { children } ) => {
 		if ( ! selectedSite?.id || selectedSite.running === false ) {
 			return;
 		}
-		const plugins = await fetchPluginList( sitePath );
-		const themes = await fetchThemeList( sitePath );
+		const plugins = await fetchPluginList( selectedSite.id );
+		const themes = await fetchThemeList( selectedSite.id );
 		setPluginsList( ( prev ) => ( { ...prev, [ selectedSite.id ]: plugins } ) );
 		setThemesList( ( prev ) => ( { ...prev, [ selectedSite.id ]: themes } ) );
 	} );

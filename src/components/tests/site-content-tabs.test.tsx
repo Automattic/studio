@@ -1,4 +1,5 @@
 import { act, render, screen } from '@testing-library/react';
+import { useFeatureFlags } from '../../hooks/use-feature-flags';
 import { useSiteDetails } from '../../hooks/use-site-details';
 import { SiteContentTabs } from '../site-content-tabs';
 
@@ -9,6 +10,7 @@ const selectedSite = {
 	path: '/test-site',
 };
 
+jest.mock( '../../hooks/use-feature-flags' );
 jest.mock( '../../hooks/use-site-details' );
 jest.mock( '../../hooks/use-auth', () => ( {
 	useAuth: () => ( {
@@ -26,12 +28,9 @@ jest.mock( '../../hooks/use-archive-site', () => ( {
 
 jest.mock( '../../lib/get-ipc-api' );
 
-jest.mock( '../../lib/app-globals', () => ( {
-	getAppGlobals: () => ( {
-		assistantEnabled: false,
-	} ),
-	isMac: jest.fn(),
-} ) );
+( useFeatureFlags as jest.Mock ).mockReturnValue( {
+	assistantEnabled: false,
+} );
 
 describe( 'SiteContentTabs', () => {
 	beforeEach( () => {
@@ -85,5 +84,18 @@ describe( 'SiteContentTabs', () => {
 		} );
 		await act( async () => render( <SiteContentTabs /> ) );
 		expect( screen.queryByRole( 'tab', { name: 'Assistant' } ) ).toBeNull();
+	} );
+
+	it( 'should render the Assistant tab if assistantEnabled is enabled', async () => {
+		( useSiteDetails as jest.Mock ).mockReturnValue( {
+			selectedSite,
+			snapshots: [],
+			loadingServer: {},
+		} );
+		( useFeatureFlags as jest.Mock ).mockReturnValue( {
+			assistantEnabled: true,
+		} );
+		await act( async () => render( <SiteContentTabs /> ) );
+		expect( screen.queryByRole( 'tab', { name: 'Assistant' } ) ).toBeVisible();
 	} );
 } );

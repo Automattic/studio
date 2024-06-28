@@ -1,4 +1,5 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import React from 'react';
 import { AIInput } from '../ai-input';
 
 const mockShowMessageBox = jest.fn();
@@ -34,11 +35,13 @@ describe( 'AIInput Component', () => {
 		handleKeyDown = jest.fn();
 		setInput = jest.fn();
 		clearInput = jest.fn();
+		const inputRef = React.createRef< HTMLTextAreaElement >();
 
 		jest.clearAllMocks();
 
 		render(
 			<AIInput
+				ref={ inputRef }
 				disabled={ defaultProps.disabled }
 				input={ defaultProps.input }
 				setInput={ setInput }

@@ -170,6 +170,7 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 );
 
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
+	const inputRef = useRef< HTMLTextAreaElement >( null );
 	const currentSiteChatContext = useChatContext();
 	const { isAuthenticated, authenticate, user } = useAuth();
 	const { messages, addMessage, clearMessages, updateMessage, updateFailedMessage, chatId } =
@@ -260,7 +261,10 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 								messages.length > 0 ? (
 									<>
 										<WelcomeComponent
-											onExampleClick={ ( prompt ) => handleSend( prompt ) }
+											onExampleClick={ ( prompt ) => {
+												handleSend( prompt );
+												inputRef.current?.focus();
+											} }
 											showExamplePrompts={ messages.length === 0 }
 											messages={ welcomeMessages }
 											examplePrompts={ examplePrompts }
@@ -279,7 +283,10 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 							) : (
 								<>
 									<WelcomeComponent
-										onExampleClick={ ( prompt ) => handleSend( prompt ) }
+										onExampleClick={ ( prompt ) => {
+											handleSend( prompt );
+											inputRef.current?.focus();
+										} }
 										showExamplePrompts={ messages.length === 0 }
 										messages={ welcomeMessages }
 										examplePrompts={ examplePrompts }
@@ -303,6 +310,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 			<div className="sticky bottom-0 bg-gray-50/[0.8] backdrop-blur-sm w-full px-8 pt-4 flex items-center">
 				<div className="w-full flex flex-col items-center">
 					<AIInput
+						ref={ inputRef }
 						disabled={ disabled }
 						input={ input }
 						setInput={ setInput }

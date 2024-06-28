@@ -1,4 +1,5 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { userEvent } from '@testing-library/user-event';
 import { useAuth } from '../../hooks/use-auth';
 import { useFetchWelcomeMessages } from '../../hooks/use-fetch-welcome-messages';
 import { ContentTabAssistant } from '../content-tab-assistant';
@@ -211,6 +212,25 @@ describe( 'ContentTabAssistant', () => {
 		expect( screen.getByText( 'How to create a WordPress site' ) ).toBeVisible();
 		expect( screen.getByText( 'How to clear cache' ) ).toBeVisible();
 		expect( screen.getByText( 'How to install a plugin' ) ).toBeVisible();
+	} );
+
+	test( 'should manage the focus state when selecting an example prompt', async () => {
+		jest.useRealTimers();
+		const user = userEvent.setup();
+		render( <ContentTabAssistant selectedSite={ runningSite } /> );
+
+		let textInput = getInput();
+		await user.type( textInput, '[Tab]' );
+		expect( textInput ).not.toHaveFocus();
+
+		const samplePrompt = await screen.findByRole( 'button', {
+			name: 'How to create a WordPress site',
+		} );
+		expect( samplePrompt ).toBeVisible();
+		fireEvent.click( samplePrompt );
+
+		textInput = screen.getByPlaceholderText( 'Thinking about that...' );
+		expect( textInput ).toHaveFocus();
 	} );
 
 	test( 'renders the selected prompt of Welcome messages and confirms other prompts are removed', async () => {

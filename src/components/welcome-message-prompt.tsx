@@ -1,6 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { arrowRight } from '@wordpress/icons';
 import { cx } from '../lib/cx';
+import Button from './button';
 
 interface WelcomeMessagePromptProps {
 	children?: React.ReactNode;
@@ -48,13 +49,10 @@ export const ExampleMessagePrompt = ( {
 	className,
 }: ExampleMessagePromptProps ) => (
 	<div className={ cx( 'flex mt-2' ) }>
-		<div
-			className={ cx(
-				'inline-block px-3 py-2 rounded border border-gray-300 lg:max-w-[70%] select-text cursor-pointer focus:border-a8c-blueberry hover:border-a8c-blueberry hover:text-a8c-blueberry hover:fill-a8c-blueberry',
-				className
-			) }
+		<Button
+			variant="secondary"
+			className={ cx( '!rounded lg:max-w-[70%]', className ) }
 			onClick={ onClick }
-			role="button"
 		>
 			<div className="assistant-markdown flex items-center">
 				<span className={ cx( 'mr-2 w-4 h-4 flex items-center justify-center' ) }>
@@ -62,7 +60,7 @@ export const ExampleMessagePrompt = ( {
 				</span>
 				<p className="inline">{ children }</p>
 			</div>
-		</div>
+		</Button>
 	</div>
 );
 

@@ -21,7 +21,7 @@ import { ChatMessage } from './chat-message';
 import offlineIcon from './offline-icon';
 import WelcomeComponent from './welcome-message-prompt';
 
-export const MIMIC_CONVERSATION_DELAY = 2000;
+export const MIMIC_CONVERSATION_DELAY = 600;
 
 interface ContentTabAssistantProps {
 	selectedSite: SiteDetails;

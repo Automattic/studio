@@ -21,19 +21,25 @@ export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { c
 	const { isAuthenticated, client } = useAuth();
 
 	useEffect( () => {
-		if ( ! isAuthenticated || ! client ) {
-			return;
-		}
 		let cancel = false;
 		async function loadFeatureFlags() {
-			setTimeout( () => {
+			if ( ! isAuthenticated || ! client ) {
+				return;
+			}
+			try {
+				const flags = await client.req.get( {
+					path: '/studio-app/feature-flags',
+					apiNamespace: 'wpcom/v2',
+				} );
 				if ( cancel ) {
 					return;
 				}
 				setFeatureFlags( {
-					assistantEnabled: true,
+					assistantEnabled: Boolean( flags?.assistantEnabled ),
 				} );
-			}, 1000 );
+			} catch ( error ) {
+				console.error( error );
+			}
 		}
 		loadFeatureFlags();
 		return () => {

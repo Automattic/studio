@@ -1,5 +1,6 @@
 import { ChatProvider } from '../hooks/use-chat-context';
 import { InstalledAppsProvider } from '../hooks/use-check-installed-apps';
+import { FeatureFlagsProvider } from '../hooks/use-feature-flags';
 import { OnboardingProvider } from '../hooks/use-onboarding';
 import { PromptUsageProvider } from '../hooks/use-prompt-usage';
 import { SiteDetailsProvider } from '../hooks/use-site-details';
@@ -16,19 +17,21 @@ const Root = () => {
 			<CrashTester />
 			<AuthProvider>
 				<SiteDetailsProvider>
-					<DemoSiteUpdateProvider>
-						<ThemeDetailsProvider>
-							<InstalledAppsProvider>
-								<OnboardingProvider>
-									<PromptUsageProvider>
-										<ChatProvider>
-											<App />
-										</ChatProvider>
-									</PromptUsageProvider>
-								</OnboardingProvider>
-							</InstalledAppsProvider>
-						</ThemeDetailsProvider>
-					</DemoSiteUpdateProvider>
+					<FeatureFlagsProvider>
+						<DemoSiteUpdateProvider>
+							<ThemeDetailsProvider>
+								<InstalledAppsProvider>
+									<OnboardingProvider>
+										<PromptUsageProvider>
+											<ChatProvider>
+												<App />
+											</ChatProvider>
+										</PromptUsageProvider>
+									</OnboardingProvider>
+								</InstalledAppsProvider>
+							</ThemeDetailsProvider>
+						</DemoSiteUpdateProvider>
+					</FeatureFlagsProvider>
 				</SiteDetailsProvider>
 			</AuthProvider>
 		</ErrorBoundary>

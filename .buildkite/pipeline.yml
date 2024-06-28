@@ -69,6 +69,11 @@ steps:
         agents:
           queue: mac
         command: |
+          echo "--- :macos: Install Rosetta to fix x64 xattr issue on arm64"
+          # Install Rosetta to try and address xattr architecture-based issue
+          # See https://buildkite.com/automattic/studio/builds/1543#01904ffb-8498-4d13-aa5a-e2b3c6dbb302
+          softwareupdate --install-rosetta --agree-to-license
+
           .buildkite/commands/prepare-environment.sh
 
           .buildkite/commands/install-node-dependencies.sh

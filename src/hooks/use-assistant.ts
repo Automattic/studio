@@ -100,11 +100,11 @@ export const useAssistant = ( instanceId: string ) => {
 	);
 
 	const updateFailedMessage = useCallback(
-		( id: number, failedMessage: boolean ) => {
+		( id: number, failedMessage: boolean, role: 'user' | 'assistant' = 'user' ) => {
 			setMessages( ( prevMessages ) => {
 				const updatedMessages = prevMessages.map( ( message ) => {
 					if ( message.id !== id ) return message;
-					return { ...message, failedMessage };
+					return { ...message, failedMessage, role };
 				} );
 				localStorage.setItem(
 					chatMessagesStoreKey( instanceId ),

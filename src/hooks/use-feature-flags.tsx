@@ -36,7 +36,8 @@ export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { c
 					return;
 				}
 				setFeatureFlags( {
-					assistantEnabled: Boolean( flags?.assistantEnabled ) || assistantEnabledFromGlobals,
+					assistantEnabled:
+						Boolean( flags?.[ 'assistant_enabled' ] ) || assistantEnabledFromGlobals,
 				} );
 			} catch ( error ) {
 				console.error( error );

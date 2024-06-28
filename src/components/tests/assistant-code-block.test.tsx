@@ -66,6 +66,21 @@ describe( 'createCodeComponent', () => {
 
 		expect( screen.queryByText( 'Run' ) ).not.toBeInTheDocument();
 	} );
+	it( 'should hide the "run" button for unsupported commands db', () => {
+		render( <CodeBlock className="language-bash" children="wp db export" /> );
+
+		expect( screen.queryByText( 'Run' ) ).not.toBeInTheDocument();
+	} );
+	it( 'should hide the "run" button for unsupported commands shell', () => {
+		render( <CodeBlock className="language-bash" children="wp shell" /> );
+
+		expect( screen.queryByText( 'Run' ) ).not.toBeInTheDocument();
+	} );
+	it( 'should hide the "run" button for unsupported commands server', () => {
+		render( <CodeBlock className="language-bash" children="wp server" /> );
+
+		expect( screen.queryByText( 'Run' ) ).not.toBeInTheDocument();
+	} );
 
 	it( 'should display the "run" button for elligble wp-cli commands that contain a placeholder char', () => {
 		render( <CodeBlock className="language-bash" children="wp eval 'var_dump(3 < 4);'" /> );

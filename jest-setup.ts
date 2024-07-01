@@ -50,7 +50,11 @@ function filteredConsole( level: ( ...args: any[] ) => void ) {
 	];
 
 	return ( ...args: any[] ) => {
-		if ( ignoredMessages.some( ( ignoredMessage ) => args[ 0 ].includes( ignoredMessage ) ) ) {
+		if (
+			ignoredMessages.some(
+				( ignoredMessage ) => typeof args[ 0 ] === 'string' && args[ 0 ].includes( ignoredMessage )
+			)
+		) {
 			return;
 		}
 

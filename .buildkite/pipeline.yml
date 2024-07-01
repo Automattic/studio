@@ -71,10 +71,31 @@ steps:
         command: |
           .buildkite/commands/prepare-environment.sh
 
-          echo "--- :node: Building Binary"
           .buildkite/commands/install-node-dependencies.sh
+
           node ./scripts/prepare-dev-build-version.mjs
+
+          echo "--- :node: Building Binary"
           npm run make:macos-{{matrix}}
+
+          # Local trial and error show this needs to run before the DMG generation (obviously) but after the binary has been built
+          echo "--- :hammer: Rebuild fs-attr if necessary before generating DMG"
+          case {{matrix}} in
+            universal | x64)
+              echo "Rebuilding fs-xattr for {{matrix}} architecture"
+              npm rebuild fs-xattr --cpu universal
+              ;;
+            arm64)
+              echo "No need to rebuild fs-xattr because it works out of the box on Apple Silicon"
+              ;;
+            *)
+              echo "^^^ +++ Unexpected architecture {{matrix}}"
+              exit 1
+              ;;
+          esac
+
+          echo "--- :node: Packaging in DMG"
+          npm run make:dmg-{{matrix}}
 
           echo "--- 📃 Notarizing Binary"
           bundle exec fastlane notarize_binary
@@ -82,6 +103,7 @@ steps:
         plugins: *common_plugins
         artifact_paths:
           - 'out/**/*.app.zip'
+          - 'out/*.dmg'
         matrix:
           - "universal"
           - "x64"
@@ -139,10 +161,30 @@ steps:
         command: |
           .buildkite/commands/prepare-environment.sh
 
-          echo "--- :node: Building Binary"
           .buildkite/commands/install-node-dependencies.sh
           node ./scripts/confirm-tag-matches-version.mjs
+
+          echo "--- :node: Building Binary"
           npm run make:macos-{{matrix}}
+
+          # Local trial and error show this needs to run before the DMG generation (obviously) but after the binary has been built
+          echo "--- :hammer: Rebuild fs-attr if necessary before generating DMG"
+          case {{matrix}} in
+            universal | x64)
+              echo "Rebuilding fs-xattr for {{matrix}} architecture"
+              npm rebuild fs-xattr --cpu universal
+              ;;
+            arm64)
+              echo "No need to rebuild fs-xattr because it works out of the box on Apple Silicon"
+              ;;
+            *)
+              echo "^^^ +++ Unexpected architecture {{matrix}}"
+              exit 1
+              ;;
+          esac
+
+          echo "--- :node: Packaging in DMG"
+          npm run make:dmg-{{matrix}}
 
           echo "--- 📃 Notarizing Binary"
           bundle exec fastlane notarize_binary
@@ -150,6 +192,7 @@ steps:
         plugins: *common_plugins
         artifact_paths:
           - 'out/**/*.app.zip'
+          - 'out/*.dmg'
         matrix:
           - "universal"
           - "x64"

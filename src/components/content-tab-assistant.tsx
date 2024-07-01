@@ -1,4 +1,7 @@
-import { __unstableAnimatePresence as AnimatePresence } from '@wordpress/components';
+import {
+	__unstableAnimatePresence as AnimatePresence,
+	__unstableMotion as motion,
+} from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { Icon, external } from '@wordpress/icons';
@@ -16,12 +19,13 @@ import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import ClearHistoryReminder from './ai-clear-history-reminder';
 import { AIInput } from './ai-input';
+import { MessageThinking } from './assistant-thinking';
 import Button from './button';
 import { ChatMessage } from './chat-message';
 import offlineIcon from './offline-icon';
 import WelcomeComponent from './welcome-message-prompt';
 
-export const MIMIC_CONVERSATION_DELAY = 600;
+export const MIMIC_CONVERSATION_DELAY = 500;
 
 interface ContentTabAssistantProps {
 	selectedSite: SiteDetails;
@@ -76,10 +80,12 @@ const OfflineModeView = () => {
 const AuthenticatedView = memo(
 	( {
 		messages,
+		isAssistantThinking,
 		updateMessage,
 		siteId,
 	}: {
 		messages: MessageType[];
+		isAssistantThinking: boolean;
 		updateMessage: (
 			id: number,
 			codeBlockContent: string,
@@ -90,53 +96,44 @@ const AuthenticatedView = memo(
 		siteId: string;
 	} ) => {
 		const endOfMessagesRef = useRef< HTMLDivElement >( null );
-		const [ displayedMessages, setDisplayedMessages ] = useState< MessageType[] >( [] );
+		const [ showThinking, setShowThinking ] = useState( false );
 
-		const scrollToBottom = useCallback( ( delay = 300 ) => {
-			setTimeout( () => {
+		useEffect( () => {
+			const timer = setTimeout( () => {
 				if ( endOfMessagesRef.current ) {
 					endOfMessagesRef.current.scrollIntoView( { behavior: 'smooth' } );
 				}
-			}, delay );
-		}, [] );
+			}, MIMIC_CONVERSATION_DELAY + 50 );
+			return () => clearTimeout( timer );
+		}, [ messages?.length, isAssistantThinking, showThinking ] );
 
 		useEffect( () => {
-			const newMessages = [ ...messages ];
-
-			const lastMessage = newMessages[ messages.length - 1 ];
-
-			if ( ! lastMessage ) {
-				setDisplayedMessages( ( _prevMessages ) => newMessages );
-				scrollToBottom();
-				return;
+			let timer: NodeJS.Timeout;
+			if ( isAssistantThinking ) {
+				timer = setTimeout( () => setShowThinking( true ), MIMIC_CONVERSATION_DELAY );
+			} else {
+				setShowThinking( false );
 			}
+			return () => clearTimeout( timer );
+		}, [ isAssistantThinking ] );
 
-			if ( lastMessage.role === 'assistant' ) {
-				setDisplayedMessages( ( _prevMessages ) => newMessages );
-				scrollToBottom();
-				return;
-			}
+		if ( messages.length === 0 ) {
+			return null;
+		}
+		let messagesToRender = [ ...messages ];
+		let lastMessage = messages[ messages.length - 1 ];
+		let showLastMessage = false;
 
-			if ( lastMessage.role === 'user' ) {
-				setDisplayedMessages( ( prevMessages ) => [ ...prevMessages, lastMessage ] );
-				scrollToBottom();
-
-				const timeoutId = setTimeout( () => {
-					setDisplayedMessages( ( prevMessages ) => [
-						...prevMessages,
-						{ role: 'thinking', content: '', id: prevMessages.length, createdAt: Date.now() },
-					] );
-					scrollToBottom();
-				}, MIMIC_CONVERSATION_DELAY );
-				return () => clearTimeout( timeoutId );
-			}
-			setDisplayedMessages( ( _prevMessages ) => newMessages );
-			scrollToBottom();
-		}, [ messages, scrollToBottom ] );
-
+		if ( lastMessage.role === 'assistant' ) {
+			messagesToRender = messages.slice( 0, -1 );
+			showLastMessage = true;
+		} else if ( showThinking ) {
+			lastMessage = { role: 'assistant', id: -1, createdAt: Date.now() } as MessageType;
+			showLastMessage = true;
+		}
 		return (
-			<AnimatePresence initial={ false }>
-				{ displayedMessages.map( ( message ) => (
+			<>
+				{ messagesToRender.map( ( message ) => (
 					<Fragment key={ message.id }>
 						<ChatMessage
 							id={ `message-chat-${ message.id }` }
@@ -149,8 +146,42 @@ const AuthenticatedView = memo(
 						{ message.failedMessage && <ErrorNotice /> }
 					</Fragment>
 				) ) }
+				{ showLastMessage && (
+					<div key={ lastMessage.id }>
+						<ChatMessage
+							id={ `message-chat-${ lastMessage.id }` }
+							message={ lastMessage }
+							siteId={ siteId }
+							updateMessage={ updateMessage }
+						>
+							<AnimatePresence mode="wait">
+								{ showThinking ? (
+									<motion.div
+										key="thinking"
+										initial={ { opacity: 0, y: 20 } }
+										animate={ { opacity: 1, y: 0 } }
+										exit={ { opacity: 0, y: -20 } }
+										transition={ { duration: 0.3 } }
+									>
+										<MessageThinking />
+									</motion.div>
+								) : (
+									<motion.div
+										key="content"
+										initial={ { opacity: 0, y: 20 } }
+										animate={ { opacity: 1, y: 0 } }
+										transition={ { duration: 0.1 } }
+									>
+										{ lastMessage.content }
+									</motion.div>
+								) }
+							</AnimatePresence>
+						</ChatMessage>
+						{ lastMessage.failedMessage && <ErrorNotice /> }
+					</div>
+				) }
 				<div ref={ endOfMessagesRef } />
-			</AnimatePresence>
+			</>
 		);
 	}
 );
@@ -273,6 +304,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 						<>
 							{ isAuthenticated && messages.length > 0 && (
 								<AuthenticatedView
+									isAssistantThinking={ isAssistantThinking }
 									messages={ messages }
 									updateMessage={ updateMessage }
 									siteId={ selectedSite.id }
@@ -295,6 +327,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 											examplePrompts={ examplePrompts }
 										/>
 										<AuthenticatedView
+											isAssistantThinking={ isAssistantThinking }
 											messages={ messages }
 											updateMessage={ updateMessage }
 											siteId={ selectedSite.id }
@@ -316,6 +349,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 										examplePrompts={ examplePrompts }
 									/>
 									<AuthenticatedView
+										isAssistantThinking={ isAssistantThinking }
 										messages={ messages }
 										updateMessage={ updateMessage }
 										siteId={ selectedSite.id }

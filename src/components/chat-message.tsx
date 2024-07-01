@@ -1,4 +1,3 @@
-import { __unstableMotion as motion } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -6,7 +5,6 @@ import { Message } from '../hooks/use-assistant';
 import { cx } from '../lib/cx';
 import Anchor from './assistant-anchor';
 import createCodeComponent from './assistant-code-block';
-import { MessageThinking } from './assistant-thinking';
 
 export interface ChatMessageProps {
 	children: React.ReactNode;
@@ -33,14 +31,8 @@ export const ChatMessage = ( {
 	children,
 	isUnauthenticated,
 }: ChatMessageProps ) => {
-	const bubbleVariants = {
-		hidden: { opacity: 0, y: 20, scale: 0.95 },
-		visible: { opacity: 1, y: 0, scale: 1 },
-		exit: { opacity: 0, y: -20, scale: 0.95 },
-	};
-
 	return (
-		<motion.div
+		<div
 			key="container"
 			className={ cx(
 				'flex mt-4',
@@ -50,15 +42,8 @@ export const ChatMessage = ( {
 				className
 			) }
 		>
-			<motion.div
-				key={ message.role === 'thinking' ? 'thinking' : 'content' }
-				variants={ bubbleVariants }
-				initial="hidden"
-				animate="visible"
-				exit="exit"
-				transition={ {
-					duration: 0.3,
-				} }
+			<div
+				key="content"
 				id={ id }
 				role="group"
 				data-testid="chat-message"
@@ -80,13 +65,8 @@ export const ChatMessage = ( {
 						{ message.role === 'user' ? __( 'Your message' ) : __( 'Studio Assistant' ) },
 					</span>
 				</div>
-				{ message.role === 'thinking' && (
-					<motion.div key="thinking-container">
-						<MessageThinking />
-					</motion.div>
-				) }
 				{ typeof children === 'string' ? (
-					<motion.div key="code" className="assistant-markdown">
+					<div key="code" className="assistant-markdown">
 						<Markdown
 							components={ {
 								a: Anchor,
@@ -102,11 +82,11 @@ export const ChatMessage = ( {
 						>
 							{ children }
 						</Markdown>
-					</motion.div>
+					</div>
 				) : (
 					children
 				) }
-			</motion.div>
-		</motion.div>
+			</div>
+		</div>
 	);
 };

@@ -41,8 +41,8 @@ const runningSite = {
 };
 
 const initialMessages = [
-	{ content: 'Initial message 1', role: 'user' },
-	{ content: 'Initial message 2', role: 'assistant' },
+	{ id: 0, content: 'Initial message 1', role: 'user' },
+	{ id: 1, content: 'Initial message 2', role: 'assistant' },
 ];
 
 describe( 'ContentTabAssistant', () => {
@@ -295,18 +295,20 @@ describe( 'ContentTabAssistant', () => {
 		const TWO_HOURS_DIFF = 2 * 60 * 60 * 1000;
 		jest.setSystemTime( MOCKED_TIME );
 
-		const storageKey = `ai_chat_messages_${ runningSite.id }`;
+		const storageKey = 'ai_chat_messages';
 		localStorage.setItem(
 			storageKey,
-			JSON.stringify( [
-				{ id: 0, content: 'Initial message 1', role: 'user' },
-				{
-					id: 1,
-					content: 'Initial message 2',
-					role: 'assistant',
-					createdAt: MOCKED_TIME - TWO_HOURS_DIFF,
-				},
-			] )
+			JSON.stringify( {
+				[ runningSite.id ]: [
+					{ id: 0, content: 'Initial message 1', role: 'user' },
+					{
+						id: 1,
+						content: 'Initial message 2',
+						role: 'assistant',
+						createdAt: MOCKED_TIME - TWO_HOURS_DIFF,
+					},
+				],
+			} )
 		);
 
 		render( <ContentTabAssistant selectedSite={ runningSite } /> );
@@ -329,13 +331,15 @@ describe( 'ContentTabAssistant', () => {
 	} );
 
 	test( 'renders notices by importance', async () => {
-		const storageKey = `ai_chat_messages_${ runningSite.id }`;
+		const storageKey = 'ai_chat_messages';
 		localStorage.setItem(
 			storageKey,
-			JSON.stringify( [
-				{ id: 0, content: 'Initial message 1', role: 'user' },
-				{ id: 1, content: 'Initial message 2', role: 'assistant', createdAt: 0 },
-			] )
+			JSON.stringify( {
+				[ runningSite.id ]: [
+					{ id: 0, content: 'Initial message 1', role: 'user' },
+					{ id: 1, content: 'Initial message 2', role: 'assistant', createdAt: 0 },
+				],
+			} )
 		);
 
 		const { rerender } = render( <ContentTabAssistant selectedSite={ runningSite } /> );

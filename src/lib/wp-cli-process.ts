@@ -8,34 +8,27 @@ import { executeWPCli } from '../../vendor/wp-now/src/execute-wp-cli';
 declare const WP_CLI_PROCESS_MODULE_PATH: string;
 
 export type MessageName = 'execute';
+export type WpCliResult = ReturnType< typeof executeWPCli >;
+export type MessageCanceled = { error: Error; canceled: boolean };
 
 const DEFAULT_RESPONSE_TIMEOUT = 120000;
 
 export default class WpCliProcess {
 	lastMessageId = 0;
 	process?: UtilityProcess;
+	ongoingMessages: Record< number, { cancelHandler: () => void } > = {};
+	projectPath: string;
 
-	async execute(
-		projectPath: string,
-		args: string[]
-	): Promise< ReturnType< typeof executeWPCli > > {
+	constructor( projectPath: string ) {
+		this.projectPath = projectPath;
+	}
+
+	async init(): Promise< void > {
 		return new Promise( ( resolve, reject ) => {
 			const spawnListener = async () => {
-				const messageId = this.sendMessage( 'execute', { projectPath, args } );
-				try {
-					const response = await this.waitForResponse< ReturnType< typeof executeWPCli > >(
-						'execute',
-						messageId
-					);
-					// Removing exit listener as we only need it upon starting
-					this.process?.off( 'exit', exitListener );
-					resolve( response );
-				} catch ( error ) {
-					reject( error );
-				} finally {
-					// The process is automatically killed after the execution
-					this.#killProcess();
-				}
+				// Removing exit listener as we only need it upon starting
+				this.process?.off( 'exit', exitListener );
+				resolve();
 			};
 			const exitListener = ( code: number ) => {
 				if ( code !== 0 ) {
@@ -59,6 +52,12 @@ export default class WpCliProcess {
 		} );
 	}
 
+	async execute( args: string[] ): Promise< WpCliResult > {
+		const message = 'execute';
+		const messageId = this.sendMessage( message, { projectPath: this.projectPath, args } );
+		return await this.waitForResponse( message, messageId );
+	}
+
 	async stop() {
 		await this.#killProcess();
 	}
@@ -69,7 +68,7 @@ export default class WpCliProcess {
 			throw Error( 'wp-cli process is not running' );
 		}
 
-		const messageId = +this.lastMessageId;
+		const messageId = this.lastMessageId++;
 		process.postMessage( { message, messageId, data } );
 		return messageId;
 	}
@@ -82,6 +81,11 @@ export default class WpCliProcess {
 		const process = this.process;
 		if ( ! process ) {
 			throw Error( 'wp-cli process is not running' );
+		}
+		if ( this.ongoingMessages[ originalMessageId ] ) {
+			throw Error(
+				`The 'waitForResponse' function was already called for message ID ${ originalMessageId } from the message '${ originalMessage }'. 'waitForResponse' may only be called once per message ID.`
+			);
 		}
 
 		return new Promise( ( resolve, reject ) => {
@@ -101,6 +105,7 @@ export default class WpCliProcess {
 				}
 				process.removeListener( 'message', handler );
 				clearTimeout( timeoutId );
+				delete this.ongoingMessages[ originalMessageId ];
 				if ( typeof error !== 'undefined' ) {
 					reject( error );
 					return;
@@ -108,10 +113,20 @@ export default class WpCliProcess {
 				resolve( data );
 			};
 
-			const timeoutId = setTimeout( () => {
+			const timeoutHandler = () => {
 				reject( new Error( `Request for message ${ originalMessage } timed out` ) );
 				process.removeListener( 'message', handler );
-			}, timeout );
+			};
+			const timeoutId = setTimeout( timeoutHandler, timeout );
+			const cancelHandler = () => {
+				clearTimeout( timeoutId );
+				reject( {
+					error: new Error( `Request for message ${ originalMessage } was canceled` ),
+					canceled: true,
+				} as MessageCanceled );
+				process.removeListener( 'message', handler );
+			};
+			this.ongoingMessages[ originalMessageId ] = { cancelHandler };
 
 			process.addListener( 'message', handler );
 		} );
@@ -122,6 +137,8 @@ export default class WpCliProcess {
 		if ( ! process ) {
 			throw Error( 'wp-cli process is not running' );
 		}
+
+		this.#cancelOngoingMessages();
 
 		return new Promise< void >( ( resolve, reject ) => {
 			process.once( 'exit', ( code ) => {
@@ -134,6 +151,12 @@ export default class WpCliProcess {
 			process.kill();
 		} ).catch( ( error ) => {
 			Sentry.captureException( error );
+		} );
+	}
+
+	#cancelOngoingMessages() {
+		Object.values( this.ongoingMessages ).forEach( ( { cancelHandler } ) => {
+			cancelHandler();
 		} );
 	}
 }

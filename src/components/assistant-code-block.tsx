@@ -2,22 +2,17 @@ import { Spinner } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { useEffect } from 'react';
 import { ExtraProps } from 'react-markdown';
-import { parse } from 'shell-quote';
 import stripAnsi from 'strip-ansi';
 import { useExecuteWPCLI } from '../hooks/use-execute-cli';
+import { useIsValidWpCliInline } from '../hooks/use-is-valid-wp-cli-inline';
 import Button from './button';
 import { ChatMessageProps } from './chat-message';
 import { CopyTextButton } from './copy-text-button';
 import { ExecuteIcon } from './icons/execute';
 
-type ContextProps = Pick<
-	ChatMessageProps,
-	'blocks' | 'updateMessage' | 'projectPath' | 'messageId'
->;
+type ContextProps = Pick< ChatMessageProps, 'blocks' | 'updateMessage' | 'siteId' | 'messageId' >;
 
 type CodeBlockProps = JSX.IntrinsicElements[ 'code' ] & ExtraProps;
-
-const PLACEHOLDER_CHAR_BEGIN = [ '<', '[', '{', '(' ];
 
 export default function createCodeComponent( contextProps: ContextProps ) {
 	return ( props: CodeBlockProps ) => <CodeBlock { ...contextProps } { ...props } />;
@@ -25,29 +20,8 @@ export default function createCodeComponent( contextProps: ContextProps ) {
 
 function CodeBlock( props: ContextProps & CodeBlockProps ) {
 	const content = String( props.children ).trim();
-
-	const wpCliArgs = parse( content )
-		.map( ( arg ) => {
-			if ( typeof arg === 'string' || arg instanceof String ) {
-				return arg;
-			} else if ( 'op' in arg ) {
-				return arg.op;
-			} else {
-				return false;
-			}
-		} )
-		.filter( Boolean ) as string[];
-	const wpCommandCount = wpCliArgs.filter( ( arg ) => arg === 'wp' ).length;
-	const containsPlaceholderArgs = wpCliArgs.some( ( arg ) =>
-		PLACEHOLDER_CHAR_BEGIN.includes( arg[ 0 ] )
-	);
-	const isValidWpCliCommand =
-		wpCliArgs.length > 0 &&
-		wpCliArgs[ 0 ] === 'wp' &&
-		wpCommandCount === 1 &&
-		! containsPlaceholderArgs;
-
-	const { node, blocks, updateMessage, projectPath, messageId, ...htmlAttributes } = props;
+	const isValidWpCliCommand = useIsValidWpCliInline( content );
+	const { node, blocks, updateMessage, siteId, messageId, ...htmlAttributes } = props;
 	const {
 		cliOutput,
 		cliStatus,
@@ -57,7 +31,7 @@ function CodeBlock( props: ContextProps & CodeBlockProps ) {
 		setCliOutput,
 		setCliStatus,
 		setCliTime,
-	} = useExecuteWPCLI( content, projectPath, updateMessage, messageId );
+	} = useExecuteWPCLI( content, siteId, updateMessage, messageId );
 
 	useEffect( () => {
 		if ( blocks ) {
@@ -89,7 +63,7 @@ function CodeBlock( props: ContextProps & CodeBlockProps ) {
 					className="h-auto mr-2 !px-2.5 py-0.5 !p-[6px] font-sans select-none"
 					iconSize={ 16 }
 				></CopyTextButton>
-				{ isValidWpCliCommand && ! containsPlaceholderArgs && (
+				{ isValidWpCliCommand && (
 					<Button
 						icon={ <ExecuteIcon /> }
 						onClick={ handleExecute }

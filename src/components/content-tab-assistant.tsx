@@ -2,7 +2,7 @@ import { createInterpolateElement } from '@wordpress/element';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { Icon, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import React, { useState, useEffect, useRef, memo } from 'react';
+import React, { useState, useEffect, useRef, memo, Fragment } from 'react';
 import { AI_GUIDELINES_URL } from '../constants';
 import { useAssistant, Message as MessageType } from '../hooks/use-assistant';
 import { useAssistantApi } from '../hooks/use-assistant-api';
@@ -24,6 +24,16 @@ import WelcomeComponent from './welcome-message-prompt';
 interface ContentTabAssistantProps {
 	selectedSite: SiteDetails;
 }
+
+const ErrorNotice = () => {
+	const { __ } = useI18n();
+
+	return (
+		<div className="text-a8c-gray-50 flex justify-end py-2 text-xs">
+			{ __( "Oops! We couldn't get a response from the assistant." ) }
+		</div>
+	);
+};
 
 const UsageLimitReached = () => {
 	const { daysUntilReset } = usePromptUsage();
@@ -66,7 +76,7 @@ const AuthenticatedView = memo(
 		messages,
 		isAssistantThinking,
 		updateMessage,
-		path,
+		siteId,
 	}: {
 		messages: MessageType[];
 		isAssistantThinking: boolean;
@@ -77,7 +87,7 @@ const AuthenticatedView = memo(
 			cliStatus: 'success' | 'error',
 			cliTime: string
 		) => void;
-		path: string;
+		siteId: string;
 	} ) => {
 		const endOfMessagesRef = useRef< HTMLDivElement >( null );
 
@@ -97,18 +107,21 @@ const AuthenticatedView = memo(
 
 		return (
 			<>
-				{ messages.map( ( message, index ) => (
-					<ChatMessage
-						key={ index }
-						id={ `message-chat-${ index }` }
-						isUser={ message.role === 'user' }
-						projectPath={ path }
-						updateMessage={ updateMessage }
-						messageId={ message.id }
-						blocks={ message.blocks }
-					>
-						{ message.content }
-					</ChatMessage>
+				{ messages.map( ( message ) => (
+					<Fragment key={ message.id }>
+						<ChatMessage
+							id={ `message-chat-${ message.id }` }
+							isUser={ message.role === 'user' }
+							siteId={ siteId }
+							updateMessage={ updateMessage }
+							messageId={ message.id }
+							blocks={ message.blocks }
+							failedMessage={ message.failedMessage }
+						>
+							{ message.content }
+						</ChatMessage>
+						{ message.failedMessage && <ErrorNotice /> }
+					</Fragment>
 				) ) }
 				{ isAssistantThinking && (
 					<ChatMessage isUser={ false } id="message-thinking">
@@ -160,11 +173,11 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 );
 
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
+	const inputRef = useRef< HTMLTextAreaElement >( null );
 	const currentSiteChatContext = useChatContext();
 	const { isAuthenticated, authenticate, user } = useAuth();
-	const { messages, addMessage, clearMessages, updateMessage, chatId } = useAssistant(
-		user?.id ? `${ user.id }_${ selectedSite.id }` : selectedSite.id
-	);
+	const { messages, addMessage, clearMessages, updateMessage, updateFailedMessage, chatId } =
+		useAssistant( user?.id ? `${ user.id }_${ selectedSite.id }` : selectedSite.id );
 	const { userCanSendMessage } = usePromptUsage();
 	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi( selectedSite.id );
 	const { messages: welcomeMessages, examplePrompts } = useWelcomeMessages();
@@ -175,29 +188,26 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 
 	const handleSend = async ( messageToSend?: string ) => {
 		const chatMessage = messageToSend || input;
+		let messageId;
 		if ( chatMessage.trim() ) {
-			addMessage( chatMessage, 'user', chatId );
+			messageId = addMessage( chatMessage, 'user', chatId ); // Get the new message ID
 			setInput( '' );
 			try {
 				const { message, chatId: fetchedChatId } = await fetchAssistant(
 					chatId,
-					[ ...messages, { content: chatMessage, role: 'user', createdAt: Date.now() } ],
+					[
+						...messages,
+						{ id: messageId, content: chatMessage, role: 'user', createdAt: Date.now() },
+					],
 					currentSiteChatContext
 				);
 				if ( message ) {
 					addMessage( message, 'assistant', chatId ?? fetchedChatId );
 				}
 			} catch ( error ) {
-				setTimeout(
-					() =>
-						getIpcApi().showMessageBox( {
-							type: 'warning',
-							message: __( 'Failed to send message' ),
-							detail: __( "We couldn't send the latest message. Please try again." ),
-							buttons: [ __( 'OK' ) ],
-						} ),
-					100
-				);
+				if ( typeof messageId !== 'undefined' ) {
+					updateFailedMessage( messageId, true );
+				}
 			}
 		}
 	};
@@ -239,7 +249,10 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 					{ isAuthenticated ? (
 						<>
 							<WelcomeComponent
-								onExampleClick={ ( prompt ) => handleSend( prompt ) }
+								onExampleClick={ ( prompt ) => {
+									handleSend( prompt );
+									inputRef.current?.focus();
+								} }
 								showExamplePrompts={ messages.length === 0 }
 								messages={ welcomeMessages }
 								examplePrompts={ examplePrompts }
@@ -249,7 +262,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 								messages={ messages }
 								isAssistantThinking={ isAssistantThinking }
 								updateMessage={ updateMessage }
-								path={ selectedSite.path }
+								siteId={ selectedSite.id }
 							/>
 						</>
 					) : (
@@ -262,6 +275,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 			<div className="sticky bottom-0 bg-gray-50/[0.8] backdrop-blur-sm w-full px-8 pt-4 flex items-center">
 				<div className="w-full flex flex-col items-center">
 					<AIInput
+						ref={ inputRef }
 						disabled={ disabled }
 						input={ input }
 						setInput={ setInput }

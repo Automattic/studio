@@ -1,11 +1,8 @@
-import * as Sentry from '@sentry/react';
-import { speak } from '@wordpress/a11y';
 import { __ } from '@wordpress/i18n';
-import Markdown, { ExtraProps } from 'react-markdown';
+import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { useSiteDetails } from '../hooks/use-site-details';
 import { cx } from '../lib/cx';
-import { getIpcApi } from '../lib/get-ipc-api';
+import Anchor from './assistant-anchor';
 import createCodeComponent from './assistant-code-block';
 
 export interface ChatMessageProps {
@@ -14,7 +11,6 @@ export interface ChatMessageProps {
 	id: string;
 	messageId?: number;
 	className?: string;
-	projectPath?: string;
 	siteId?: string;
 	blocks?: {
 		cliOutput?: string;
@@ -30,6 +26,7 @@ export interface ChatMessageProps {
 		time: string
 	) => void;
 	isUnauthenticated?: boolean;
+	failedMessage?: boolean;
 }
 
 export const ChatMessage = ( {
@@ -38,10 +35,11 @@ export const ChatMessage = ( {
 	messageId,
 	isUser,
 	className,
-	projectPath,
+	siteId,
 	blocks,
 	updateMessage,
 	isUnauthenticated,
+	failedMessage,
 }: ChatMessageProps ) => {
 	return (
 		<div
@@ -58,9 +56,10 @@ export const ChatMessage = ( {
 				role="group"
 				aria-labelledby={ id }
 				className={ cx(
-					'inline-block p-3 rounded border border-gray-300 overflow-x-auto select-text',
+					'inline-block p-3 rounded border overflow-x-auto select-text',
 					isUnauthenticated ? 'lg:max-w-[90%]' : 'lg:max-w-[70%]', // Apply different max-width for unauthenticated view
-					! isUser ? 'bg-white' : 'bg-white/45'
+					failedMessage ? 'border-[#FACFD2] bg-[#F7EBEC]' : ! isUser ? 'bg-white' : 'bg-white/45',
+					! failedMessage && 'border-gray-300'
 				) }
 			>
 				<div className="relative">
@@ -76,7 +75,7 @@ export const ChatMessage = ( {
 								code: createCodeComponent( {
 									blocks,
 									messageId,
-									projectPath,
+									siteId,
 									updateMessage,
 								} ),
 								img: () => null,
@@ -93,45 +92,3 @@ export const ChatMessage = ( {
 		</div>
 	);
 };
-
-function Anchor( props: JSX.IntrinsicElements[ 'a' ] & ExtraProps ) {
-	const { href } = props;
-	const { node, className, ...filteredProps } = props;
-	const { selectedSite, startServer, loadingServer } = useSiteDetails();
-
-	return (
-		<a
-			{ ...filteredProps }
-			className={ cx(
-				className,
-				selectedSite && loadingServer[ selectedSite.id ] && 'animate-pulse duration-100 cursor-wait'
-			) }
-			onClick={ async ( e ) => {
-				if ( ! href ) {
-					return;
-				}
-
-				e.preventDefault();
-
-				const urlForStoppedSite =
-					/^https?:\/\/localhost/.test( href ) && selectedSite && ! selectedSite.running;
-				if ( urlForStoppedSite ) {
-					speak( __( 'Starting the server before opening the site link' ) );
-					await startServer( selectedSite?.id );
-				}
-
-				try {
-					getIpcApi().openURL( href );
-				} catch ( error ) {
-					getIpcApi().showMessageBox( {
-						type: 'error',
-						message: __( 'Failed to open link' ),
-						detail: __( 'We were unable to open the link. Please try again.' ),
-						buttons: [ __( 'OK' ) ],
-					} );
-					Sentry.captureException( error );
-				}
-			} }
-		/>
-	);
-}

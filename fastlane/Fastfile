@@ -104,7 +104,7 @@ def distribute_builds(
       name: 'Mac Universal'
     },
     mac_universal_dmg: {
-      binary_path: File.join(BUILDS_FOLDER, 'Studio-darwin-universal', 'Studio.dmg'),
+      binary_path: File.join(BUILDS_FOLDER, 'Studio-darwin-universal.dmg'),
       filename_core: 'darwin-universal',
       extension: 'dmg',
       name: 'Mac Universal (DMG)'
@@ -116,7 +116,7 @@ def distribute_builds(
       name: 'Mac Intel'
     },
     x64_dmg: {
-      binary_path: File.join(BUILDS_FOLDER, 'Studio-darwin-x64', 'Studio.dmg'),
+      binary_path: File.join(BUILDS_FOLDER, 'Studio-darwin-x64.dmg'),
       filename_core: 'darwin-x64',
       extension: 'dmg',
       name: 'Mac Intel (DMG)'
@@ -128,7 +128,7 @@ def distribute_builds(
       name: 'Mac Apple Silicon'
     },
     arm64_dmg: {
-      binary_path: File.join(BUILDS_FOLDER, 'Studio-darwin-arm64', 'Studio.dmg'),
+      binary_path: File.join(BUILDS_FOLDER, 'Studio-darwin-arm64.dmg'),
       filename_core: 'darwin-arm64',
       extension: 'dmg',
       name: 'Mac Apple Silicon (DMG)'

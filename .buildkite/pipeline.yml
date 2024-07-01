@@ -83,7 +83,7 @@ steps:
           case {{matrix}} in
             universal | x64)
               echo "Rebuilding fs-xattr for {{matrix}} architecture"
-              npm rebuild fs-xattr --verbose --cpu universal
+              npm rebuild fs-xattr --cpu universal
               ;;
             arm64)
               echo "No need to rebuild fs-xattr because it works out of the box on Apple Silicon"

@@ -65,7 +65,6 @@
 		"css-loader": "^6.0.0",
 		"ejs": "^3.1.10",
 		"electron": "29.1.0",
-		"electron-installer-dmg": "^4.0.0",
 		"electron-playwright-helpers": "^1.7.0",
 		"eslint": "^8.0.1",
 		"eslint-config-prettier": "^9.1.0",

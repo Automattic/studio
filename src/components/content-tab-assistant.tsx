@@ -2,7 +2,7 @@ import { createInterpolateElement } from '@wordpress/element';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { Icon, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import React, { useState, useEffect, useRef, memo } from 'react';
+import React, { useState, useEffect, useRef, memo, Fragment } from 'react';
 import { AI_GUIDELINES_URL } from '../constants';
 import { useAssistant, Message as MessageType } from '../hooks/use-assistant';
 import { useAssistantApi } from '../hooks/use-assistant-api';
@@ -104,7 +104,7 @@ const AuthenticatedView = memo(
 		return (
 			<>
 				{ messages.map( ( message ) => (
-					<div key={ message.id }>
+					<Fragment key={ message.id }>
 						<ChatMessage
 							id={ `message-chat-${ message.id }` }
 							isUser={ message.role === 'user' }
@@ -117,7 +117,7 @@ const AuthenticatedView = memo(
 							{ message.content }
 						</ChatMessage>
 						{ message.failedMessage && <ErrorNotice /> }
-					</div>
+					</Fragment>
 				) ) }
 				{ isAssistantThinking && (
 					<ChatMessage isUser={ false } id="message-thinking">

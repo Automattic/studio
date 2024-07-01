@@ -135,8 +135,8 @@ const AuthenticatedView = memo(
 		}, [ messages, scrollToBottom ] );
 
 		return (
-				<AnimatePresence initial={ false }>
-					{ displayedMessages.map( ( message, index ) => (
+			<AnimatePresence initial={ false }>
+				{ displayedMessages.map( ( message ) => (
 					<Fragment key={ message.id }>
 						<ChatMessage
 							id={ `message-chat-${ message.id }` }
@@ -148,9 +148,9 @@ const AuthenticatedView = memo(
 						</ChatMessage>
 						{ message.failedMessage && <ErrorNotice /> }
 					</Fragment>
-					) ) }
-					<div ref={ endOfMessagesRef } />
-				</AnimatePresence>
+				) ) }
+				<div ref={ endOfMessagesRef } />
+			</AnimatePresence>
 		);
 	}
 );
@@ -234,8 +234,8 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 				);
 				if ( message ) {
 					addMessage( message, 'assistant', chatId ?? fetchedChatId );
-				}			
-				} catch ( error ) {
+				}
+			} catch ( error ) {
 				if ( typeof messageId !== 'undefined' ) {
 					updateFailedMessage( messageId, true );
 				}

@@ -1,4 +1,5 @@
 import child_process from 'child_process';
+import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import packageJson from '../package.json' assert { type: 'json' };
@@ -21,16 +22,25 @@ const dmgPath = path.resolve(
 const volumeIconPath = path.resolve( __dirname, '../assets/studio-app-icon.icns' );
 const backgroundPath = path.resolve( __dirname, '../assets/dmg-background.png' );
 
+const dmgSpecs = {
+	title: packageJson.productName,
+	icon: volumeIconPath,
+	'icon-size': 80,
+	background: backgroundPath,
+	window: { size: { width: 710, height: 502 } },
+	contents: [
+		{ type: 'file', path: appPath, x: 533, y: 122 },
+		{ type: 'link', path: '/Applications', x: 533, y: 354 },
+	],
+};
+
+if ( fs.existsSync( dmgPath ) ) {
+	fs.unlinkSync( dmgPath );
+}
+
+const specsFile = path.resolve( __dirname, '..', 'appdmg-specs.json' );
+fs.writeFileSync( specsFile, JSON.stringify( dmgSpecs ) );
 child_process.execSync(
-	`create-dmg ` +
-		`--volname ${ packageJson.productName }.app ` +
-		`--volicon ${ volumeIconPath } ` +
-		'--window-size 710 502 ' +
-		`--background ${ backgroundPath } ` +
-		`--icon ${ packageJson.productName } 533 122 ` +
-		'--icon-size 80 ' +
-		'--app-drop-link 533 354 ' +
-		'--skip-jenkins ' +
-		`${ dmgPath } ` +
-		appPath
+	[ path.join( __dirname, '..', 'node_modules', '.bin', `appdmg` ), specsFile, dmgPath ].join( ' ' )
 );
+fs.unlinkSync( specsFile );

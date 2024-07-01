@@ -13,6 +13,7 @@ interface ExampleMessagePromptProps {
 	onClick?: () => void;
 	children: React.ReactNode;
 	className?: string;
+	disabled?: boolean;
 }
 
 interface WelcomeComponentProps {
@@ -20,6 +21,7 @@ interface WelcomeComponentProps {
 	showExamplePrompts: boolean;
 	messages: string[];
 	examplePrompts: string[];
+	disabled?: boolean;
 }
 
 export const WelcomeMessagePrompt = ( { id, children, className }: WelcomeMessagePromptProps ) => (
@@ -47,12 +49,14 @@ export const ExampleMessagePrompt = ( {
 	onClick,
 	children,
 	className,
+	disabled,
 }: ExampleMessagePromptProps ) => (
 	<div className={ cx( 'flex mt-2' ) }>
 		<Button
 			variant="secondary"
 			className={ cx( '!rounded lg:max-w-[70%]', className ) }
 			onClick={ onClick }
+			disabled={ disabled }
 		>
 			<div className="assistant-markdown flex items-center">
 				<span className={ cx( 'mr-2 w-4 h-4 flex items-center justify-center' ) }>
@@ -69,6 +73,7 @@ const WelcomeComponent = ( {
 	showExamplePrompts,
 	messages,
 	examplePrompts,
+	disabled,
 }: WelcomeComponentProps ) => {
 	return (
 		<div>
@@ -87,6 +92,7 @@ const WelcomeComponent = ( {
 						key={ index }
 						className="example-prompt"
 						onClick={ () => onExampleClick( prompt ) }
+						disabled={ disabled }
 					>
 						{ prompt }
 					</ExampleMessagePrompt>

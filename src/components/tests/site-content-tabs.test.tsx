@@ -18,15 +18,16 @@ jest.mock( '../../hooks/use-auth', () => ( {
 		authenticate: jest.fn(),
 	} ),
 } ) );
-
 jest.mock( '../../hooks/use-archive-site', () => ( {
 	useArchiveSite: () => ( {
 		archiveSite: jest.fn(),
 		isUploadingSiteId: jest.fn(),
 	} ),
 } ) );
-
-jest.mock( '../../lib/get-ipc-api' );
+jest.mock( '../../lib/app-globals', () => ( {
+	...jest.requireActual( '../../lib/app-globals' ),
+	getAppGlobals: jest.fn().mockReturnValue( { locale: ' en' } ),
+} ) );
 
 ( useFeatureFlags as jest.Mock ).mockReturnValue( {
 	assistantEnabled: false,

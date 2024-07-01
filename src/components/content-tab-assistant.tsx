@@ -6,15 +6,15 @@ import { createInterpolateElement } from '@wordpress/element';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { Icon, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import React, { useState, useEffect, useRef, memo, useCallback, Fragment } from 'react';
+import React, { useState, useEffect, useRef, memo, Fragment } from 'react';
 import { AI_GUIDELINES_URL } from '../constants';
 import { useAssistant, Message as MessageType } from '../hooks/use-assistant';
 import { useAssistantApi } from '../hooks/use-assistant-api';
 import { useAuth } from '../hooks/use-auth';
 import { useChatContext } from '../hooks/use-chat-context';
-import { useFetchWelcomeMessages } from '../hooks/use-fetch-welcome-messages';
 import { useOffline } from '../hooks/use-offline';
 import { usePromptUsage } from '../hooks/use-prompt-usage';
+import { useWelcomeMessages } from '../hooks/use-welcome-messages';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import ClearHistoryReminder from './ai-clear-history-reminder';
@@ -234,19 +234,11 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		useAssistant( user?.id ? `${ user.id }_${ selectedSite.id }` : selectedSite.id );
 	const { userCanSendMessage } = usePromptUsage();
 	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi( selectedSite.id );
-	const {
-		messages: welcomeMessages,
-		examplePrompts,
-		fetchWelcomeMessages,
-	} = useFetchWelcomeMessages();
+	const { messages: welcomeMessages, examplePrompts } = useWelcomeMessages();
 	const [ input, setInput ] = useState< string >( '' );
 	const isOffline = useOffline();
 	const { __ } = useI18n();
 	const lastMessage = messages.length === 0 ? undefined : messages[ messages.length - 1 ];
-
-	useEffect( () => {
-		fetchWelcomeMessages();
-	}, [ fetchWelcomeMessages, selectedSite ] );
 
 	const handleSend = async ( messageToSend?: string ) => {
 		const chatMessage = messageToSend || input;
@@ -284,6 +276,18 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		setInput( '' );
 		clearMessages();
 	};
+
+	// We should render only one notice at a time in the bottom area
+	const renderNotice = () => {
+		if ( isOffline ) {
+			return <OfflineModeView />;
+		} else if ( isAuthenticated && ! userCanSendMessage ) {
+			return <UsageLimitReached />;
+		} else if ( isAuthenticated ) {
+			return <ClearHistoryReminder lastMessage={ lastMessage } clearInput={ clearInput } />;
+		}
+	};
+
 	const disabled = isOffline || ! isAuthenticated || ! userCanSendMessage;
 
 	return (
@@ -292,75 +296,33 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 				data-testid="assistant-chat"
 				className={ cx(
 					'min-h-full flex-1 overflow-y-auto p-8 pb-2 flex flex-col-reverse',
-					! isAuthenticated
-						? isOffline
-							? 'flex items-center justify-center'
-							: 'flex items-start'
-						: ''
+					! isAuthenticated && 'flex items-start'
 				) }
 			>
-				<div className="mt-auto">
-					{ isOffline ? (
+				<div className="mt-auto w-full">
+					{ isAuthenticated ? (
 						<>
-							{ isAuthenticated && messages.length > 0 && (
-								<AuthenticatedView
-									isAssistantThinking={ isAssistantThinking }
-									messages={ messages }
-									updateMessage={ updateMessage }
-									siteId={ selectedSite.id }
-								/>
-							) }
-							<OfflineModeView />
-						</>
-					) : isAuthenticated ? (
-						<>
-							{ ! userCanSendMessage ? (
-								messages.length > 0 ? (
-									<>
-										<WelcomeComponent
-											onExampleClick={ ( prompt ) => {
-												handleSend( prompt );
-												inputRef.current?.focus();
-											} }
-											showExamplePrompts={ messages.length === 0 }
-											messages={ welcomeMessages }
-											examplePrompts={ examplePrompts }
-										/>
-										<AuthenticatedView
-											isAssistantThinking={ isAssistantThinking }
-											messages={ messages }
-											updateMessage={ updateMessage }
-											siteId={ selectedSite.id }
-										/>
-										<UsageLimitReached />
-									</>
-								) : (
-									<UsageLimitReached />
-								)
-							) : (
-								<>
-									<WelcomeComponent
-										onExampleClick={ ( prompt ) => {
-											handleSend( prompt );
-											inputRef.current?.focus();
-										} }
-										showExamplePrompts={ messages.length === 0 }
-										messages={ welcomeMessages }
-										examplePrompts={ examplePrompts }
-									/>
-									<AuthenticatedView
-										isAssistantThinking={ isAssistantThinking }
-										messages={ messages }
-										updateMessage={ updateMessage }
-										siteId={ selectedSite.id }
-									/>
-									<ClearHistoryReminder lastMessage={ lastMessage } clearInput={ clearInput } />
-								</>
-							) }
+							<WelcomeComponent
+								onExampleClick={ ( prompt ) => {
+									handleSend( prompt );
+									inputRef.current?.focus();
+								} }
+								showExamplePrompts={ messages.length === 0 }
+								messages={ welcomeMessages }
+								examplePrompts={ examplePrompts }
+								disabled={ disabled }
+							/>
+							<AuthenticatedView
+								messages={ messages }
+								isAssistantThinking={ isAssistantThinking }
+								updateMessage={ updateMessage }
+								siteId={ selectedSite.id }
+							/>
 						</>
 					) : (
-						<UnauthenticatedView onAuthenticate={ authenticate } />
+						! isOffline && <UnauthenticatedView onAuthenticate={ authenticate } />
 					) }
+					{ renderNotice() }
 				</div>
 			</div>
 

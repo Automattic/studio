@@ -23,8 +23,12 @@ const chatMessagesStoreKey = 'ai_chat_messages';
 
 export const useAssistant = ( instanceId: string ) => {
 	const [ messagesDict, setMessagesDict ] = useState< MessageDict >( {} );
-	const [ chatIdDict, setChatIdDict ] = useState< ChatIdDict >( {} );
-	const nextMessageIdRef = useRef< { [ key: string ]: number } >( {} );
+	const [ chatIdDict, setChatIdDict ] = useState< ChatIdDict >( {
+		[ instanceId ]: undefined,
+	} );
+	const nextMessageIdRef = useRef< { [ key: string ]: number } >( {
+		[ instanceId ]: -1, // The first message should have id 0, as we do +1 when we add message
+	} );
 
 	useEffect( () => {
 		const storedMessages = localStorage.getItem( chatMessagesStoreKey );
@@ -51,7 +55,7 @@ export const useAssistant = ( instanceId: string ) => {
 				const prevMessages = prevDict[ instanceId ] || [];
 				const updatedMessages = [
 					...prevMessages,
-					{ id: newMessageId, content, role, chatId, createdAt: Date.now() },
+					{ content, role, id: newMessageId, chatId, createdAt: Date.now() },
 				];
 				const newDict = { ...prevDict, [ instanceId ]: updatedMessages };
 				localStorage.setItem( chatMessagesStoreKey, JSON.stringify( newDict ) );

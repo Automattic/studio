@@ -390,7 +390,6 @@ describe( 'ContentTabAssistant', () => {
 
 		const { rerender } = render( <ContentTabAssistant selectedSite={ runningSite } /> );
 		act( () => {
-			fireEvent.click( screen.getByRole( 'button', { name: 'Clear the history' } ) );
 			jest.advanceTimersByTime( MIMIC_CONVERSATION_DELAY + 1000 );
 		} );
 		await waitFor(

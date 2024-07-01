@@ -3,7 +3,7 @@ import { createInterpolateElement } from '@wordpress/element';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { Icon, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import React, { useState, useEffect, useRef, memo, useCallback } from 'react';
+import React, { useState, useEffect, useRef, memo, useCallback, Fragment } from 'react';
 import { AI_GUIDELINES_URL } from '../constants';
 import { useAssistant, Message as MessageType } from '../hooks/use-assistant';
 import { useAssistantApi } from '../hooks/use-assistant-api';
@@ -26,6 +26,16 @@ export const MIMIC_CONVERSATION_DELAY = 600;
 interface ContentTabAssistantProps {
 	selectedSite: SiteDetails;
 }
+
+const ErrorNotice = () => {
+	const { __ } = useI18n();
+
+	return (
+		<div className="text-a8c-gray-50 flex justify-end py-2 text-xs">
+			{ __( "Oops! We couldn't get a response from the assistant." ) }
+		</div>
+	);
+};
 
 const UsageLimitReached = () => {
 	const { daysUntilReset } = usePromptUsage();
@@ -125,23 +135,22 @@ const AuthenticatedView = memo(
 		}, [ messages, scrollToBottom ] );
 
 		return (
-			<>
 				<AnimatePresence initial={ false }>
 					{ displayedMessages.map( ( message, index ) => (
+					<Fragment key={ message.id }>
 						<ChatMessage
-							key={ `${ message.role }-${ message.id || index }` }
-							id={ `message-chat-${ index }` }
+							id={ `message-chat-${ message.id }` }
 							message={ message }
 							siteId={ siteId }
 							updateMessage={ updateMessage }
-							messageId={ message.id ?? index }
 						>
 							{ message.content }
 						</ChatMessage>
+						{ message.failedMessage && <ErrorNotice /> }
+					</Fragment>
 					) ) }
 					<div ref={ endOfMessagesRef } />
 				</AnimatePresence>
-			</>
 		);
 	}
 );
@@ -187,9 +196,10 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 );
 
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
+	const inputRef = useRef< HTMLTextAreaElement >( null );
 	const currentSiteChatContext = useChatContext();
 	const { isAuthenticated, authenticate, user } = useAuth();
-	const { messages, addMessage, clearMessages, updateMessage, removeLastMessage, chatId } =
+	const { messages, addMessage, clearMessages, updateMessage, updateFailedMessage, chatId } =
 		useAssistant( user?.id ? `${ user.id }_${ selectedSite.id }` : selectedSite.id );
 	const { userCanSendMessage } = usePromptUsage();
 	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi( selectedSite.id );
@@ -209,32 +219,26 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 
 	const handleSend = async ( messageToSend?: string ) => {
 		const chatMessage = messageToSend || input;
+		let messageId;
 		if ( chatMessage.trim() ) {
-			addMessage( chatMessage, 'user', chatId );
+			messageId = addMessage( chatMessage, 'user', chatId ); // Get the new message ID
 			setInput( '' );
 			try {
 				const { message, chatId: fetchedChatId } = await fetchAssistant(
 					chatId,
-					[ ...messages, { content: chatMessage, role: 'user', createdAt: Date.now() } ],
+					[
+						...messages,
+						{ id: messageId, content: chatMessage, role: 'user', createdAt: Date.now() },
+					],
 					currentSiteChatContext
 				);
 				if ( message ) {
 					addMessage( message, 'assistant', chatId ?? fetchedChatId );
-				} else {
-					removeLastMessage();
+				}			
+				} catch ( error ) {
+				if ( typeof messageId !== 'undefined' ) {
+					updateFailedMessage( messageId, true );
 				}
-			} catch ( error ) {
-				setTimeout(
-					() =>
-						getIpcApi().showMessageBox( {
-							type: 'warning',
-							message: __( 'Failed to send message' ),
-							detail: __( "We couldn't send the latest message. Please try again." ),
-							buttons: [ __( 'OK' ) ],
-						} ),
-					100
-				);
-				removeLastMessage();
 			}
 		}
 	};
@@ -282,7 +286,10 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 								messages.length > 0 ? (
 									<>
 										<WelcomeComponent
-											onExampleClick={ ( prompt ) => handleSend( prompt ) }
+											onExampleClick={ ( prompt ) => {
+												handleSend( prompt );
+												inputRef.current?.focus();
+											} }
 											showExamplePrompts={ messages.length === 0 }
 											messages={ welcomeMessages }
 											examplePrompts={ examplePrompts }
@@ -300,7 +307,10 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 							) : (
 								<>
 									<WelcomeComponent
-										onExampleClick={ handleSend }
+										onExampleClick={ ( prompt ) => {
+											handleSend( prompt );
+											inputRef.current?.focus();
+										} }
 										showExamplePrompts={ messages.length === 0 }
 										messages={ welcomeMessages }
 										examplePrompts={ examplePrompts }
@@ -323,6 +333,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 			<div className="sticky bottom-0 bg-gray-50/[0.8] backdrop-blur-sm w-full px-8 pt-4 flex items-center">
 				<div className="w-full flex flex-col items-center">
 					<AIInput
+						ref={ inputRef }
 						disabled={ disabled }
 						input={ input }
 						setInput={ setInput }

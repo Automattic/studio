@@ -12,7 +12,7 @@ import { CopyTextButton } from './copy-text-button';
 import { ExecuteIcon } from './icons/execute';
 
 type ContextProps = Pick< MessageType, 'blocks' > &
-	Pick< ChatMessageProps, 'updateMessage' | 'messageId' | 'siteId' >;
+	Pick< ChatMessageProps, 'updateMessage' | 'siteId' > & { messageId?: number };
 
 type CodeBlockProps = JSX.IntrinsicElements[ 'code' ] & ExtraProps;
 

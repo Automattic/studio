@@ -8,7 +8,7 @@ describe( 'createCodeComponent', () => {
 	const contextProps = {
 		blocks: [],
 		updateMessage: jest.fn(),
-		projectPath: '/path/to/project',
+		siteId: '1',
 		messageId: 1,
 	};
 	const CodeBlock = createCodeComponent( contextProps );
@@ -63,6 +63,21 @@ describe( 'createCodeComponent', () => {
 
 	it( 'should hide the "run" button for ineligible wp-cli commands with multiple wp-cli invocations', () => {
 		render( <CodeBlock className="language-bash" children="wp --version wp --version" /> );
+
+		expect( screen.queryByText( 'Run' ) ).not.toBeInTheDocument();
+	} );
+	it( 'should hide the "run" button for unsupported commands db', () => {
+		render( <CodeBlock className="language-bash" children="wp db export" /> );
+
+		expect( screen.queryByText( 'Run' ) ).not.toBeInTheDocument();
+	} );
+	it( 'should hide the "run" button for unsupported commands shell', () => {
+		render( <CodeBlock className="language-bash" children="wp shell" /> );
+
+		expect( screen.queryByText( 'Run' ) ).not.toBeInTheDocument();
+	} );
+	it( 'should hide the "run" button for unsupported commands server', () => {
+		render( <CodeBlock className="language-bash" children="wp server" /> );
 
 		expect( screen.queryByText( 'Run' ) ).not.toBeInTheDocument();
 	} );
@@ -152,7 +167,7 @@ describe( 'createCodeComponent', () => {
 					},
 				],
 				updateMessage: jest.fn(),
-				projectPath: '/path/to/project',
+				siteId: '1',
 				messageId: 1,
 			};
 			const CodeBlock = createCodeComponent( contextProps );

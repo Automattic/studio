@@ -1,4 +1,5 @@
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { userEvent } from '@testing-library/user-event';
 import { useAuth } from '../../hooks/use-auth';
 import { useFetchWelcomeMessages } from '../../hooks/use-fetch-welcome-messages';
 import { ContentTabAssistant, MIMIC_CONVERSATION_DELAY } from '../content-tab-assistant';
@@ -100,8 +101,8 @@ describe( 'ContentTabAssistant', () => {
 	} );
 
 	test( 'saves and retrieves conversation from localStorage', async () => {
-		const storageKey = `ai_chat_messages_${ runningSite.id }`;
-		localStorage.setItem( storageKey, JSON.stringify( initialMessages ) );
+		const storageKey = 'ai_chat_messages';
+		localStorage.setItem( storageKey, JSON.stringify( { [ runningSite.id ]: initialMessages } ) );
 		render( <ContentTabAssistant selectedSite={ runningSite } /> );
 
 		act( () => {
@@ -124,8 +125,8 @@ describe( 'ContentTabAssistant', () => {
 
 		await waitFor( () => {
 			const storedMessages = JSON.parse( localStorage.getItem( storageKey ) || '[]' );
-			expect( storedMessages ).toHaveLength( 3 );
-			expect( storedMessages[ 2 ].content ).toBe( 'New message' );
+			expect( storedMessages[ runningSite.id ] ).toHaveLength( 3 );
+			expect( storedMessages[ runningSite.id ][ 2 ].content ).toBe( 'New message' );
 		} );
 	} );
 
@@ -242,6 +243,25 @@ describe( 'ContentTabAssistant', () => {
 		expect( screen.getByText( 'How to create a WordPress site' ) ).toBeVisible();
 		expect( screen.getByText( 'How to clear cache' ) ).toBeVisible();
 		expect( screen.getByText( 'How to install a plugin' ) ).toBeVisible();
+	} );
+
+	test( 'should manage the focus state when selecting an example prompt', async () => {
+		jest.useRealTimers();
+		const user = userEvent.setup();
+		render( <ContentTabAssistant selectedSite={ runningSite } /> );
+
+		let textInput = getInput();
+		await user.type( textInput, '[Tab]' );
+		expect( textInput ).not.toHaveFocus();
+
+		const samplePrompt = await screen.findByRole( 'button', {
+			name: 'How to create a WordPress site',
+		} );
+		expect( samplePrompt ).toBeVisible();
+		fireEvent.click( samplePrompt );
+
+		textInput = screen.getByPlaceholderText( 'Thinking about that...' );
+		expect( textInput ).toHaveFocus();
 	} );
 
 	test( 'renders the selected prompt of Welcome messages and confirms other prompts are removed', async () => {

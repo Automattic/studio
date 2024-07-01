@@ -11,7 +11,6 @@ import { MessageThinking } from './assistant-thinking';
 export interface ChatMessageProps {
 	children: React.ReactNode;
 	id: string;
-	messageId?: number;
 	className?: string;
 	siteId?: string;
 	message: Message;
@@ -27,13 +26,12 @@ export interface ChatMessageProps {
 
 export const ChatMessage = ( {
 	id,
-	messageId,
 	message,
 	className,
 	siteId,
 	updateMessage,
-	isUnauthenticated,
 	children,
+	isUnauthenticated,
 }: ChatMessageProps ) => {
 	const bubbleVariants = {
 		hidden: { opacity: 0, y: 20, scale: 0.95 },
@@ -53,7 +51,7 @@ export const ChatMessage = ( {
 			) }
 		>
 			<motion.div
-				key={ message.role === 'thinking' ? `thinking` : `content` }
+				key={ message.role === 'thinking' ? 'thinking' : 'content' }
 				variants={ bubbleVariants }
 				initial="hidden"
 				animate="visible"
@@ -67,8 +65,14 @@ export const ChatMessage = ( {
 				aria-labelledby={ id }
 				className={ cx(
 					'inline-block p-3 rounded border border-gray-300 overflow-x-auto select-text',
+					'inline-block p-3 rounded border overflow-x-auto select-text',
 					isUnauthenticated ? 'lg:max-w-[90%]' : 'lg:max-w-[70%]',
-					! ( message.role === 'user' ) ? 'bg-white' : 'bg-white/45'
+					message.failedMessage
+						? 'border-[#FACFD2] bg-[#F7EBEC]'
+						: message.role === 'user'
+						? 'bg-white'
+						: 'bg-white/45',
+					! message.failedMessage && 'border-gray-300'
 				) }
 			>
 				<div className="relative">
@@ -88,7 +92,7 @@ export const ChatMessage = ( {
 								a: Anchor,
 								code: createCodeComponent( {
 									blocks: message?.blocks,
-									messageId,
+									messageId: message.id,
 									siteId,
 									updateMessage,
 								} ),

@@ -29,6 +29,39 @@ if ( typeof window !== 'undefined' ) {
 nock.disableNetConnect();
 nock.enableNetConnect( 'raw.githubusercontent.com' );
 
+/**
+ * TODO: Replace this manual filter with a more robust logger that can be
+ * disabled for the testing environment. Consider enabling a lint rule that
+ * discourages direct use of `console` methods.
+ */
+function filteredConsole( level: ( ...args: any[] ) => void ) {
+	const ignoredMessages = [
+		'Loaded user data from ',
+		'Saved user data to ',
+		'Server start',
+		'Would have bumped stat: ',
+		'Starting new session',
+		'App version: ',
+		'Built from commit: mock-hash',
+		'Local timezone: UTC',
+		'App locale: ',
+		'System locale: ',
+		'Used language: ',
+	];
+
+	return ( ...args: any[] ) => {
+		if ( ignoredMessages.some( ( ignoredMessage ) => args[ 0 ].includes( ignoredMessage ) ) ) {
+			return;
+		}
+
+		level( ...args );
+	};
+}
+console.log = filteredConsole( console.log );
+console.error = filteredConsole( console.error );
+console.warn = filteredConsole( console.warn );
+console.info = filteredConsole( console.info );
+
 // We consider the app to be online by default.
 jest.mock( './src/hooks/use-offline', () => ( {
 	useOffline: jest.fn().mockReturnValue( false ),

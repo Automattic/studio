@@ -6,12 +6,12 @@ import { useCallback, useState, useEffect } from 'react';
 import { LIMIT_OF_PROMPTS_PER_USER, WPCOM_PROFILE_URL } from '../constants';
 import { useAuth } from '../hooks/use-auth';
 import { useDeleteSnapshot } from '../hooks/use-delete-snapshot';
+import { useFeatureFlags } from '../hooks/use-feature-flags';
 import { useFetchSnapshots } from '../hooks/use-fetch-snapshots';
 import { useIpcListener } from '../hooks/use-ipc-listener';
 import { useOffline } from '../hooks/use-offline';
 import { usePromptUsage } from '../hooks/use-prompt-usage';
 import { useSiteUsage } from '../hooks/use-site-usage';
-import { getAppGlobals } from '../lib/app-globals';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
@@ -143,7 +143,8 @@ const SnapshotInfo = ( {
 function PromptInfo() {
 	const { __ } = useI18n();
 	const { promptCount = 0, promptLimit = LIMIT_OF_PROMPTS_PER_USER } = usePromptUsage();
-	const assistantEnabled = getAppGlobals().assistantEnabled;
+	const { assistantEnabled } = useFeatureFlags();
+
 	if ( ! assistantEnabled ) {
 		return null;
 	}

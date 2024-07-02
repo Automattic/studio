@@ -104,9 +104,7 @@ export const AuthenticatedView = memo(
 			[ messages, showThinking ]
 		);
 		const messagesToRender =
-			messages[ messages.length - 1 ]?.role === 'assistant'
-				? messages.slice( 0, -1 )
-				: [ ...messages ];
+			messages[ messages.length - 1 ]?.role === 'assistant' ? messages.slice( 0, -1 ) : messages;
 		const showLastMessage = useMemo(
 			() => showThinking || messages[ messages.length - 1 ]?.role === 'assistant',
 			[ messages, showThinking ]

@@ -346,7 +346,6 @@ describe( 'ContentTabAssistant', () => {
 
 		render( <ContentTabAssistant selectedSite={ runningSite } /> );
 
-		jest.advanceTimersByTime( MIMIC_CONVERSATION_DELAY + 1000 );
 		await waitFor(
 			() => {
 				expect( screen.getByText( 'Welcome to our service!' ) ).toBeVisible();
@@ -362,10 +361,7 @@ describe( 'ContentTabAssistant', () => {
 		( getIpcApi as jest.Mock ).mockReturnValue( {
 			showMessageBox: jest.fn().mockResolvedValue( { response: 0, checkboxChecked: false } ),
 		} );
-		act( () => {
-			fireEvent.click( screen.getByRole( 'button', { name: 'Clear the history' } ) );
-		} );
-		jest.advanceTimersByTime( MIMIC_CONVERSATION_DELAY + 1000 );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Clear the history' } ) );
 		await waitFor(
 			() => {
 				expect( getIpcApi().showMessageBox ).toHaveBeenCalledTimes( 1 );
@@ -389,9 +385,6 @@ describe( 'ContentTabAssistant', () => {
 		);
 
 		const { rerender } = render( <ContentTabAssistant selectedSite={ runningSite } /> );
-		act( () => {
-			jest.advanceTimersByTime( MIMIC_CONVERSATION_DELAY + 1000 );
-		} );
 		await waitFor(
 			() => {
 				expect( screen.getByText( 'Welcome to our service!' ) ).toBeVisible();
@@ -409,9 +402,6 @@ describe( 'ContentTabAssistant', () => {
 			daysUntilReset: 4,
 		} );
 		rerender( <ContentTabAssistant selectedSite={ runningSite } /> );
-		act( () => {
-			jest.advanceTimersByTime( MIMIC_CONVERSATION_DELAY + 1000 );
-		} );
 		expect(
 			screen.getByText( 'Your limit will reset in 4 days.', { exact: false } )
 		).toBeVisible();
@@ -421,9 +411,6 @@ describe( 'ContentTabAssistant', () => {
 
 		( useOffline as jest.Mock ).mockReturnValue( true );
 		rerender( <ContentTabAssistant selectedSite={ runningSite } /> );
-		act( () => {
-			jest.advanceTimersByTime( MIMIC_CONVERSATION_DELAY + 1000 );
-		} );
 		expect( screen.getByText( 'The AI assistant requires an internet connection.' ) ).toBeVisible();
 		expect(
 			screen.queryByText( 'Your limit will reset in 4 days.', { exact: false } )

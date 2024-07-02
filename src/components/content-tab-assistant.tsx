@@ -105,10 +105,7 @@ export const AuthenticatedView = memo(
 		);
 		const messagesToRender =
 			messages[ messages.length - 1 ]?.role === 'assistant' ? messages.slice( 0, -1 ) : messages;
-		const showLastMessage = useMemo(
-			() => showThinking || messages[ messages.length - 1 ]?.role === 'assistant',
-			[ messages, showThinking ]
-		);
+		const showLastMessage = showThinking || messages[ messages.length - 1 ]?.role === 'assistant';
 
 		useEffect( () => {
 			const timer = setTimeout( () => {

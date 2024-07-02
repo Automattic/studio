@@ -39,7 +39,7 @@ export const MarkDownWithCode = ( {
 		time: string
 	) => void;
 } ) => (
-	<div key="code" className="assistant-markdown">
+	<div className="assistant-markdown">
 		<Markdown
 			components={ {
 				a: Anchor,
@@ -69,7 +69,6 @@ export const ChatMessage = ( {
 }: ChatMessageProps ) => {
 	return (
 		<div
-			key="container"
 			className={ cx(
 				'flex mt-4',
 				message.role === 'user'
@@ -79,7 +78,6 @@ export const ChatMessage = ( {
 			) }
 		>
 			<div
-				key="content"
 				id={ id }
 				role="group"
 				data-testid="chat-message"

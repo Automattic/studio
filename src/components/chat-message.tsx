@@ -22,6 +22,42 @@ export interface ChatMessageProps {
 	isUnauthenticated?: boolean;
 }
 
+export const MarkDownWithCode = ( {
+	message,
+	updateMessage,
+	siteId,
+	content,
+}: {
+	siteId?: string;
+	content: string;
+	message: Message;
+	updateMessage?: (
+		id: number,
+		content: string,
+		output: string,
+		status: 'success' | 'error',
+		time: string
+	) => void;
+} ) => (
+	<div key="code" className="assistant-markdown">
+		<Markdown
+			components={ {
+				a: Anchor,
+				code: createCodeComponent( {
+					blocks: message?.blocks,
+					messageId: message.id,
+					siteId,
+					updateMessage,
+				} ),
+				img: () => null,
+			} }
+			remarkPlugins={ [ remarkGfm ] }
+		>
+			{ content }
+		</Markdown>
+	</div>
+);
+
 export const ChatMessage = ( {
 	id,
 	message,
@@ -66,23 +102,12 @@ export const ChatMessage = ( {
 					</span>
 				</div>
 				{ typeof children === 'string' ? (
-					<div key="code" className="assistant-markdown">
-						<Markdown
-							components={ {
-								a: Anchor,
-								code: createCodeComponent( {
-									blocks: message?.blocks,
-									messageId: message.id,
-									siteId,
-									updateMessage,
-								} ),
-								img: () => null,
-							} }
-							remarkPlugins={ [ remarkGfm ] }
-						>
-							{ children }
-						</Markdown>
-					</div>
+					<MarkDownWithCode
+						message={ message }
+						updateMessage={ updateMessage }
+						siteId={ siteId }
+						content={ children }
+					/>
 				) : (
 					children
 				) }

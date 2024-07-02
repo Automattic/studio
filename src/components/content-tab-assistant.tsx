@@ -21,7 +21,7 @@ import ClearHistoryReminder from './ai-clear-history-reminder';
 import { AIInput } from './ai-input';
 import { MessageThinking } from './assistant-thinking';
 import Button from './button';
-import { ChatMessage } from './chat-message';
+import { ChatMessage, MarkDownWithCode } from './chat-message';
 import offlineIcon from './offline-icon';
 import WelcomeComponent from './welcome-message-prompt';
 
@@ -197,7 +197,12 @@ export const AuthenticatedView = memo(
 										initial="initial"
 										animate="animate"
 									>
-										{ message.content }
+										<MarkDownWithCode
+											message={ message }
+											siteId={ siteId }
+											updateMessage={ updateMessage }
+											content={ message.content }
+										/>
 									</motion.div>
 								) }
 							</AnimatePresence>

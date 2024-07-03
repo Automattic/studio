@@ -1,7 +1,7 @@
 import { DropdownMenu, MenuGroup, MenuItem } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { Icon, moreVertical, keyboardReturn, reset } from '@wordpress/icons';
-import React, { useRef, useEffect, useState } from 'react';
+import React, { forwardRef, useRef, useEffect, useState } from 'react';
 import useAiIcon from '../hooks/use-ai-icon';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
@@ -18,17 +18,18 @@ interface AIInputProps {
 
 const MAX_ROWS = 10;
 
-export const AIInput = ( {
-	disabled,
-	input,
-	setInput,
-	handleSend,
-	handleKeyDown,
-	clearInput,
-	isAssistantThinking,
-}: AIInputProps ) => {
-	const inputRef = useRef< HTMLTextAreaElement >( null );
-
+const UnforwardedAIInput = (
+	{
+		disabled,
+		input,
+		setInput,
+		handleSend,
+		handleKeyDown,
+		clearInput,
+		isAssistantThinking,
+	}: AIInputProps,
+	inputRef: React.RefObject< HTMLTextAreaElement > | React.RefCallback< HTMLTextAreaElement > | null
+) => {
 	const [ isTyping, setIsTyping ] = useState( false );
 	const typingTimeout = useRef< NodeJS.Timeout >();
 
@@ -36,10 +37,10 @@ export const AIInput = ( {
 		useAiIcon();
 
 	useEffect( () => {
-		if ( ! disabled && inputRef.current ) {
-			inputRef.current.focus();
+		if ( ! disabled && inputRef && 'current' in inputRef && inputRef.current ) {
+			inputRef.current?.focus();
 		}
-	}, [ disabled ] );
+	}, [ disabled, inputRef ] );
 
 	useEffect( () => {
 		startStateMachine();
@@ -77,7 +78,7 @@ export const AIInput = ( {
 	const handleInput = ( e: React.ChangeEvent< HTMLTextAreaElement > ) => {
 		setInput( e.target.value );
 
-		if ( inputRef.current ) {
+		if ( inputRef && 'current' in inputRef && inputRef.current ) {
 			// Reset the height of the textarea to auto to recalculate the height
 			inputRef.current.style.height = 'auto';
 
@@ -106,7 +107,7 @@ export const AIInput = ( {
 			}
 			if ( input.trim() !== '' ) {
 				handleSend();
-				if ( inputRef.current ) {
+				if ( inputRef && 'current' in inputRef && inputRef.current ) {
 					// Reset the input height to default when the user sends the message
 					inputRef.current.style.height = 'auto';
 				}
@@ -219,3 +220,5 @@ export const AIInput = ( {
 		</div>
 	);
 };
+
+export const AIInput = forwardRef( UnforwardedAIInput );

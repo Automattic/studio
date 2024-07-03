@@ -18,7 +18,7 @@ describe( 'executeWPCli', () => {
 		fs.writeFileSync( path.join( tmpPath, 'index.php' ), '' );
 	} );
 	afterAll( () => {
-		fs.rmdirSync( tmpPath, { recursive: true } );
+		fs.rmSync( tmpPath, { recursive: true } );
 	} );
 
 	it( 'should execute wp-cli version command and return stdout and stderr', async () => {
@@ -31,6 +31,10 @@ describe( 'executeWPCli', () => {
 	} );
 
 	it( 'should return error if wp-cli command does not exist', async () => {
+		const originalConsoleError = console.error;
+		const originalConsoleWarn = console.warn;
+		console.error = jest.fn();
+		console.warn = jest.fn();
 		const args = [ 'yoda' ];
 
 		const result = await executeWPCli( tmpPath, args );
@@ -39,6 +43,9 @@ describe( 'executeWPCli', () => {
 		expect( result.stderr ).toContain(
 			"'yoda' is not a registered wp command. See 'wp help' for available commands."
 		);
+
+		console.error = originalConsoleError;
+		console.warn = originalConsoleWarn;
 	} );
 
 	it( 'should return the correct version of WP-CLI', async () => {

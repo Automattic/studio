@@ -1,11 +1,11 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { useAuth } from '../../hooks/use-auth';
 import { useOffline } from '../../hooks/use-offline';
 import { usePromptUsage } from '../../hooks/use-prompt-usage';
 import { useWelcomeMessages } from '../../hooks/use-welcome-messages';
 import { getIpcApi } from '../../lib/get-ipc-api';
-import { ContentTabAssistant } from '../content-tab-assistant';
+import { ContentTabAssistant, MIMIC_CONVERSATION_DELAY } from '../content-tab-assistant';
 
 jest.mock( '../../hooks/use-theme-details' );
 jest.mock( '../../hooks/use-auth' );
@@ -70,8 +70,7 @@ describe( 'ContentTabAssistant', () => {
 
 	const authenticate = jest.fn();
 
-	const getInput = () =>
-		screen.getByPlaceholderText( 'What would you like to learn?' ) as HTMLTextAreaElement;
+	const getInput = () => screen.getByTestId( 'ai-input-textarea' );
 
 	const getGuidelinesLink = () => screen.getByTestId( 'guidelines-link' ) as HTMLAnchorElement;
 
@@ -98,7 +97,7 @@ describe( 'ContentTabAssistant', () => {
 		const textInput = getInput();
 		expect( textInput ).toBeVisible();
 		expect( textInput ).toBeEnabled();
-		expect( textInput.placeholder ).toBe( 'What would you like to learn?' );
+		expect( textInput ).toHaveAttribute( 'placeholder', 'What would you like to learn?' );
 	} );
 
 	test( 'renders guideline section', () => {
@@ -112,12 +111,22 @@ describe( 'ContentTabAssistant', () => {
 		const storageKey = 'ai_chat_messages';
 		localStorage.setItem( storageKey, JSON.stringify( { [ runningSite.id ]: initialMessages } ) );
 		render( <ContentTabAssistant selectedSite={ runningSite } /> );
-		expect( screen.getByText( 'Initial message 1' ) ).toBeVisible();
-		expect( screen.getByText( 'Initial message 2' ) ).toBeVisible();
+		jest.advanceTimersByTime( MIMIC_CONVERSATION_DELAY + 1000 );
+		await waitFor( () => {
+			expect( screen.getByText( 'Initial message 1' ) ).toBeVisible();
+			expect( screen.getByText( 'Initial message 2' ) ).toBeVisible();
+		} );
+
 		const textInput = getInput();
-		fireEvent.change( textInput, { target: { value: 'New message' } } );
-		fireEvent.keyDown( textInput, { key: 'Enter', code: 'Enter' } );
-		expect( screen.getByText( 'New message' ) ).toBeVisible();
+		act( () => {
+			fireEvent.change( textInput, { target: { value: 'New message' } } );
+			fireEvent.keyDown( textInput, { key: 'Enter', code: 'Enter' } );
+		} );
+
+		await waitFor( () => {
+			expect( screen.getByText( 'New message' ) ).toBeInTheDocument();
+		} );
+
 		await waitFor( () => {
 			const storedMessages = JSON.parse( localStorage.getItem( storageKey ) || '[]' );
 			expect( storedMessages[ runningSite.id ] ).toHaveLength( 3 );
@@ -125,7 +134,7 @@ describe( 'ContentTabAssistant', () => {
 		} );
 	} );
 
-	test( 'renders default message when not authenticated', () => {
+	test( 'renders default message when not authenticated', async () => {
 		( useAuth as jest.Mock ).mockReturnValue( {
 			client: {
 				req: {
@@ -136,10 +145,13 @@ describe( 'ContentTabAssistant', () => {
 			authenticate,
 		} );
 		render( <ContentTabAssistant selectedSite={ runningSite } /> );
-		expect( screen.getByText( 'Hold up!' ) ).toBeVisible();
-		expect(
-			screen.getByText( 'You need to log in to your WordPress.com account to use the assistant.' )
-		).toBeVisible();
+
+		await waitFor( () => {
+			expect( screen.getByText( 'Hold up!' ) ).toBeVisible();
+			expect(
+				screen.getByText( 'You need to log in to your WordPress.com account to use the assistant.' )
+			).toBeVisible();
+		} );
 	} );
 
 	test( 'renders offline notice when not authenticated', () => {
@@ -162,7 +174,7 @@ describe( 'ContentTabAssistant', () => {
 		expect( screen.getByText( 'The AI assistant requires an internet connection.' ) ).toBeVisible();
 	} );
 
-	test( 'allows authentication from Assistant chat', () => {
+	test( 'allows authentication from Assistant chat', async () => {
 		( useAuth as jest.Mock ).mockReturnValue( {
 			client: {
 				req: {
@@ -173,8 +185,13 @@ describe( 'ContentTabAssistant', () => {
 			authenticate,
 		} );
 		render( <ContentTabAssistant selectedSite={ runningSite } /> );
+
+		await waitFor( () => {
+			const loginButton = screen.getByRole( 'button', { name: 'Log in to WordPress.com' } );
+			expect( loginButton ).toBeInTheDocument();
+		} );
+
 		const loginButton = screen.getByRole( 'button', { name: 'Log in to WordPress.com' } );
-		expect( loginButton ).toBeVisible();
 		fireEvent.click( loginButton );
 		expect( authenticate ).toHaveBeenCalledTimes( 1 );
 	} );
@@ -195,10 +212,14 @@ describe( 'ContentTabAssistant', () => {
 		const { rerender } = render( <ContentTabAssistant selectedSite={ runningSite } /> );
 
 		const textInput = getInput();
-		fireEvent.change( textInput, { target: { value: 'New message' } } );
-		fireEvent.keyDown( textInput, { key: 'Enter', code: 'Enter' } );
-
-		expect( screen.getByText( 'New message' ) ).toBeVisible();
+		act( () => {
+			fireEvent.change( textInput, { target: { value: 'New message' } } );
+			fireEvent.keyDown( textInput, { key: 'Enter', code: 'Enter' } );
+			jest.advanceTimersByTime( MIMIC_CONVERSATION_DELAY + 1000 );
+		} );
+		await waitFor( () => {
+			expect( screen.getByText( 'New message' ) ).toBeVisible();
+		} );
 
 		// Simulate user authentication change
 		( useAuth as jest.Mock ).mockReturnValue( {
@@ -214,7 +235,12 @@ describe( 'ContentTabAssistant', () => {
 
 		rerender( <ContentTabAssistant selectedSite={ runningSite } /> );
 
-		expect( screen.queryByText( 'New message' ) ).toBeNull();
+		await waitFor(
+			() => {
+				expect( screen.queryByText( 'New message' ) ).not.toBeInTheDocument();
+			},
+			{ timeout: MIMIC_CONVERSATION_DELAY + 1000 }
+		);
 	} );
 
 	test( 'does not render the Welcome messages and example prompts when not authenticated', () => {
@@ -228,7 +254,9 @@ describe( 'ContentTabAssistant', () => {
 			authenticate,
 		} );
 		render( <ContentTabAssistant selectedSite={ runningSite } /> );
-		expect( screen.getByText( 'Hold up!' ) ).toBeVisible();
+
+		expect( screen.getByTestId( 'unauthenticated-header' ) ).toHaveTextContent( 'Hold up!' );
+
 		expect( screen.queryByText( 'Welcome to our service!' ) ).not.toBeInTheDocument();
 	} );
 
@@ -273,21 +301,26 @@ describe( 'ContentTabAssistant', () => {
 	test( 'renders the selected prompt of Welcome messages and confirms other prompts are removed', async () => {
 		render( <ContentTabAssistant selectedSite={ runningSite } /> );
 
-		expect( screen.getByText( 'Welcome to our service!' ) ).toBeVisible();
-		expect( screen.getByText( 'How to create a WordPress site' ) ).toBeVisible();
-		expect( screen.getByText( 'How to install a plugin' ) ).toBeVisible();
+		await waitFor( () => {
+			expect( screen.getByText( 'Welcome to our service!' ) ).toBeInTheDocument();
+			expect( screen.getByText( 'How to create a WordPress site' ) ).toBeInTheDocument();
+			expect( screen.getByText( 'How to install a plugin' ) ).toBeInTheDocument();
+		} );
 
 		const samplePrompt = await screen.findByRole( 'button', {
 			name: 'How to create a WordPress site',
 		} );
-		expect( samplePrompt ).toBeVisible();
 		fireEvent.click( samplePrompt );
 
-		// Check if the selected prompt is still present and other prompts are removed
-		expect( screen.getByText( 'Welcome to our service!' ) ).toBeVisible();
-		expect( screen.getByText( 'How to create a WordPress site' ) ).toBeVisible();
-		expect( screen.queryByText( 'How to clear cache' ) ).not.toBeInTheDocument();
-		expect( screen.queryByText( 'How to install a plugin' ) ).not.toBeInTheDocument();
+		await waitFor(
+			() => {
+				expect( screen.getByText( 'Welcome to our service!' ) ).toBeInTheDocument();
+				expect( screen.getByText( 'How to create a WordPress site' ) ).toBeInTheDocument();
+				expect( screen.queryByText( 'How to clear cache' ) ).not.toBeInTheDocument();
+				expect( screen.queryByText( 'How to install a plugin' ) ).not.toBeInTheDocument();
+			},
+			{ timeout: MIMIC_CONVERSATION_DELAY + 1000 }
+		);
 	} );
 
 	test( 'clears history via reminder when last message is two hours old', async () => {
@@ -312,22 +345,31 @@ describe( 'ContentTabAssistant', () => {
 		);
 
 		render( <ContentTabAssistant selectedSite={ runningSite } /> );
-		expect( screen.getByText( 'Welcome to our service!' ) ).toBeVisible();
-		expect( screen.getByText( 'Initial message 1' ) ).toBeVisible();
-		expect( screen.getByText( 'Initial message 2' ) ).toBeVisible();
-		expect(
-			screen.getByText( 'This conversation is over two hours old.', { exact: false } )
-		).toBeVisible();
+
+		await waitFor(
+			() => {
+				expect( screen.getByText( 'Welcome to our service!' ) ).toBeVisible();
+				expect( screen.getByText( 'Initial message 1' ) ).toBeVisible();
+				expect( screen.getByText( 'Initial message 2' ) ).toBeVisible();
+				expect(
+					screen.getByText( 'This conversation is over two hours old.', { exact: false } )
+				).toBeVisible();
+			},
+			{ timeout: MIMIC_CONVERSATION_DELAY + 1000 }
+		);
 
 		( getIpcApi as jest.Mock ).mockReturnValue( {
 			showMessageBox: jest.fn().mockResolvedValue( { response: 0, checkboxChecked: false } ),
 		} );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Clear the history' } ) );
-		await waitFor( () => {
-			expect( getIpcApi().showMessageBox ).toHaveBeenCalledTimes( 1 );
-			expect( screen.queryByText( 'Initial message 1' ) ).not.toBeInTheDocument();
-			expect( screen.queryByText( 'Initial message 2' ) ).not.toBeInTheDocument();
-		} );
+		await waitFor(
+			() => {
+				expect( getIpcApi().showMessageBox ).toHaveBeenCalledTimes( 1 );
+				expect( screen.queryByText( 'Initial message 1' ) ).not.toBeInTheDocument();
+				expect( screen.queryByText( 'Initial message 2' ) ).not.toBeInTheDocument();
+			},
+			{ timeout: MIMIC_CONVERSATION_DELAY + 1000 }
+		);
 	} );
 
 	test( 'renders notices by importance', async () => {
@@ -343,12 +385,17 @@ describe( 'ContentTabAssistant', () => {
 		);
 
 		const { rerender } = render( <ContentTabAssistant selectedSite={ runningSite } /> );
-		expect( screen.getByText( 'Welcome to our service!' ) ).toBeVisible();
-		expect( screen.getByText( 'Initial message 1' ) ).toBeVisible();
-		expect( screen.getByText( 'Initial message 2' ) ).toBeVisible();
-		expect(
-			screen.getByText( 'This conversation is over two hours old.', { exact: false } )
-		).toBeVisible();
+		await waitFor(
+			() => {
+				expect( screen.getByText( 'Welcome to our service!' ) ).toBeVisible();
+				expect( screen.getByText( 'Initial message 1' ) ).toBeVisible();
+				expect( screen.getByText( 'Initial message 2' ) ).toBeVisible();
+				expect(
+					screen.getByText( 'This conversation is over two hours old.', { exact: false } )
+				).toBeVisible();
+			},
+			{ timeout: MIMIC_CONVERSATION_DELAY + 2000 }
+		);
 
 		( usePromptUsage as jest.Mock ).mockReturnValue( {
 			userCanSendMessage: false,

@@ -1,8 +1,12 @@
+import {
+	__unstableAnimatePresence as AnimatePresence,
+	__unstableMotion as motion,
+} from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { Icon, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import React, { useState, useEffect, useRef, memo, Fragment } from 'react';
+import React, { useState, useEffect, useRef, memo, useCallback, useMemo } from 'react';
 import { AI_GUIDELINES_URL } from '../constants';
 import { useAssistant, Message as MessageType } from '../hooks/use-assistant';
 import { useAssistantApi } from '../hooks/use-assistant-api';
@@ -17,9 +21,11 @@ import ClearHistoryReminder from './ai-clear-history-reminder';
 import { AIInput } from './ai-input';
 import { MessageThinking } from './assistant-thinking';
 import Button from './button';
-import { ChatMessage } from './chat-message';
+import { ChatMessage, MarkDownWithCode } from './chat-message';
 import offlineIcon from './offline-icon';
 import WelcomeComponent from './welcome-message-prompt';
+
+export const MIMIC_CONVERSATION_DELAY = 500;
 
 interface ContentTabAssistantProps {
 	selectedSite: SiteDetails;
@@ -71,35 +77,136 @@ const OfflineModeView = () => {
 	);
 };
 
-const AuthenticatedView = memo(
-	( {
-		messages,
-		isAssistantThinking,
-		updateMessage,
-		siteId,
-	}: {
-		messages: MessageType[];
-		isAssistantThinking: boolean;
-		updateMessage: (
-			id: number,
-			codeBlockContent: string,
-			cliOutput: string,
-			cliStatus: 'success' | 'error',
-			cliTime: string
-		) => void;
-		siteId: string;
-	} ) => {
+type OnUpdateMessageType = (
+	id: number,
+	codeBlockContent: string,
+	cliOutput: string,
+	cliStatus: 'success' | 'error',
+	cliTime: string
+) => void;
+
+interface AuthenticatedViewProps {
+	messages: MessageType[];
+	isAssistantThinking: boolean;
+	updateMessage: OnUpdateMessageType;
+	siteId: string;
+}
+
+export const AuthenticatedView = memo(
+	( { messages, isAssistantThinking, updateMessage, siteId }: AuthenticatedViewProps ) => {
 		const endOfMessagesRef = useRef< HTMLDivElement >( null );
+		const [ showThinking, setShowThinking ] = useState( false );
+		const lastMessage = useMemo(
+			() =>
+				showThinking
+					? ( { role: 'assistant', id: -1, createdAt: Date.now() } as MessageType )
+					: messages[ messages.length - 1 ],
+			[ messages, showThinking ]
+		);
+		const messagesToRender =
+			messages[ messages.length - 1 ]?.role === 'assistant' ? messages.slice( 0, -1 ) : messages;
+		const showLastMessage = showThinking || messages[ messages.length - 1 ]?.role === 'assistant';
 
 		useEffect( () => {
 			const timer = setTimeout( () => {
 				if ( endOfMessagesRef.current ) {
 					endOfMessagesRef.current.scrollIntoView( { behavior: 'smooth' } );
 				}
-			}, 100 ); // Slight delay to ensure DOM updates
-
+			}, 400 );
 			return () => clearTimeout( timer );
-		}, [ messages?.length ] );
+		}, [ messages?.length, isAssistantThinking, showThinking, showLastMessage ] );
+
+		useEffect( () => {
+			let timer: NodeJS.Timeout;
+			if ( isAssistantThinking ) {
+				timer = setTimeout( () => setShowThinking( true ), MIMIC_CONVERSATION_DELAY );
+			} else {
+				setShowThinking( false );
+			}
+			return () => clearTimeout( timer );
+		}, [ isAssistantThinking ] );
+
+		const RenderMessage = useCallback(
+			( { message }: { message: MessageType } ) => (
+				<>
+					<ChatMessage
+						id={ `message-chat-${ message.id }` }
+						message={ message }
+						siteId={ siteId }
+						updateMessage={ updateMessage }
+					>
+						{ message.content }
+					</ChatMessage>
+					{ message.failedMessage && <ErrorNotice /> }
+				</>
+			),
+			[ siteId, updateMessage ]
+		);
+
+		const RenderLastMessage = useCallback(
+			( {
+				showThinking,
+				siteId,
+				updateMessage,
+				message,
+			}: {
+				message: MessageType;
+				showThinking: boolean;
+				siteId: string;
+				updateMessage: OnUpdateMessageType;
+			} ) => {
+				const thinkingAnimation = {
+					initial: { opacity: 0, y: 20 },
+					animate: { opacity: 1, y: 0 },
+					exit: { opacity: 0, y: -20 },
+				};
+				const messageAnimation = {
+					initial: { opacity: 0, y: 20 },
+					animate: { opacity: 1, y: 0 },
+				};
+				return (
+					<>
+						<ChatMessage
+							id={ `message-chat-${ message.id }` }
+							message={ message }
+							siteId={ siteId }
+							updateMessage={ updateMessage }
+						>
+							<AnimatePresence mode="wait">
+								{ showThinking ? (
+									<motion.div
+										key="thinking"
+										initial="initial"
+										animate="animate"
+										exit="exit"
+										variants={ thinkingAnimation }
+										transition={ { duration: 0.3 } }
+									>
+										<MessageThinking />
+									</motion.div>
+								) : (
+									<motion.div
+										key="content"
+										variants={ messageAnimation }
+										transition={ { duration: 0.3 } }
+										initial="initial"
+										animate="animate"
+									>
+										<MarkDownWithCode
+											message={ message }
+											siteId={ siteId }
+											updateMessage={ updateMessage }
+											content={ message.content }
+										/>
+									</motion.div>
+								) }
+							</AnimatePresence>
+						</ChatMessage>
+					</>
+				);
+			},
+			[]
+		);
 
 		if ( messages.length === 0 ) {
 			return null;
@@ -107,26 +214,16 @@ const AuthenticatedView = memo(
 
 		return (
 			<>
-				{ messages.map( ( message ) => (
-					<Fragment key={ message.id }>
-						<ChatMessage
-							id={ `message-chat-${ message.id }` }
-							isUser={ message.role === 'user' }
-							siteId={ siteId }
-							updateMessage={ updateMessage }
-							messageId={ message.id }
-							blocks={ message.blocks }
-							failedMessage={ message.failedMessage }
-						>
-							{ message.content }
-						</ChatMessage>
-						{ message.failedMessage && <ErrorNotice /> }
-					</Fragment>
+				{ messagesToRender.map( ( message ) => (
+					<RenderMessage key={ message.id } message={ message } />
 				) ) }
-				{ isAssistantThinking && (
-					<ChatMessage isUser={ false } id="message-thinking">
-						<MessageThinking />
-					</ChatMessage>
+				{ showLastMessage && (
+					<RenderLastMessage
+						siteId={ siteId }
+						updateMessage={ updateMessage }
+						message={ lastMessage }
+						showThinking={ showThinking }
+					/>
 				) }
 				<div ref={ endOfMessagesRef } />
 			</>
@@ -138,10 +235,12 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 	<ChatMessage
 		id="message-unauthenticated"
 		className="w-full"
-		isUser={ false }
+		message={ { role: 'user' } as MessageType }
 		isUnauthenticated={ true }
 	>
-		<div className="mb-3 a8c-label-semibold">{ __( 'Hold up!' ) }</div>
+		<div data-testid="unauthenticated-header" className="mb-3 a8c-label-semibold">
+			{ __( 'Hold up!' ) }
+		</div>
 		<div className="mb-1">
 			{ __( 'You need to log in to your WordPress.com account to use the assistant.' ) }
 		</div>

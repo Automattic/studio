@@ -109,7 +109,7 @@ export const useAssistant = ( instanceId: string ) => {
 		[ instanceId ]
 	);
 
-	const updateFailedMessage = useCallback(
+	const markMessageAsFailed = useCallback(
 		( id: number, failedMessage: boolean ) => {
 			setMessagesDict( ( prevDict ) => {
 				const prevMessages = prevDict[ instanceId ] || [];
@@ -147,7 +147,7 @@ export const useAssistant = ( instanceId: string ) => {
 			updateMessage,
 			clearMessages,
 			chatId: chatIdDict[ instanceId ],
-			updateFailedMessage,
+			markMessageAsFailed,
 		} ),
 		[
 			messagesDict,
@@ -156,7 +156,7 @@ export const useAssistant = ( instanceId: string ) => {
 			updateMessage,
 			clearMessages,
 			chatIdDict,
-			updateFailedMessage,
+			markMessageAsFailed,
 		]
 	);
 };

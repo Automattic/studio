@@ -42,8 +42,8 @@ const api: IpcApi = {
 	getOnboardingData: () => ipcRenderer.invoke( 'getOnboardingData' ),
 	saveOnboarding: ( onboardingCompleted: boolean ) =>
 		ipcRenderer.invoke( 'saveOnboarding', onboardingCompleted ),
-	openTerminalAtPath: ( targetPath: string ) =>
-		ipcRenderer.invoke( 'openTerminalAtPath', targetPath ),
+	openTerminalAtPath: ( targetPath: string, extraParams: { wpCliEnabled?: boolean } = {} ) =>
+		ipcRenderer.invoke( 'openTerminalAtPath', targetPath, extraParams ),
 	showMessageBox: ( options: Electron.MessageBoxOptions ) =>
 		ipcRenderer.invoke( 'showMessageBox', options ),
 	showNotification: ( options: Electron.NotificationConstructorOptions ) =>

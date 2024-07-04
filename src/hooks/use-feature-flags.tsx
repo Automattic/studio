@@ -4,10 +4,12 @@ import { useAuth } from './use-auth';
 
 export interface FeatureFlagsContextType {
 	assistantEnabled: boolean;
+	terminalWpCliEnabled: boolean;
 }
 
 export const FeatureFlagsContext = createContext< FeatureFlagsContextType >( {
 	assistantEnabled: false,
+	terminalWpCliEnabled: false,
 } );
 
 interface FeatureFlagsProviderProps {
@@ -16,8 +18,10 @@ interface FeatureFlagsProviderProps {
 
 export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { children } ) => {
 	const assistantEnabledFromGlobals = getAppGlobals().assistantEnabled;
+	const terminalWpCliEnabledFromGlobals = getAppGlobals().terminalWpCliEnabled;
 	const [ featureFlags, setFeatureFlags ] = useState< FeatureFlagsContextType >( {
 		assistantEnabled: assistantEnabledFromGlobals,
+		terminalWpCliEnabled: terminalWpCliEnabledFromGlobals,
 	} );
 	const { isAuthenticated, client } = useAuth();
 
@@ -38,6 +42,8 @@ export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { c
 				setFeatureFlags( {
 					assistantEnabled:
 						Boolean( flags?.[ 'assistant_enabled' ] ) || assistantEnabledFromGlobals,
+					terminalWpCliEnabled:
+						Boolean( flags?.[ 'terminal_wp_cli_enabled' ] ) || terminalWpCliEnabledFromGlobals,
 				} );
 			} catch ( error ) {
 				console.error( error );
@@ -47,7 +53,7 @@ export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { c
 		return () => {
 			cancel = true;
 		};
-	}, [ isAuthenticated, client, assistantEnabledFromGlobals ] );
+	}, [ isAuthenticated, client, assistantEnabledFromGlobals, terminalWpCliEnabledFromGlobals ] );
 
 	return (
 		<FeatureFlagsContext.Provider value={ featureFlags }>{ children }</FeatureFlagsContext.Provider>

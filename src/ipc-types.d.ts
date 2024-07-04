@@ -73,6 +73,7 @@ interface AppGlobals {
 	appName: string;
 	arm64Translation: boolean;
 	assistantEnabled: boolean;
+	terminalWpCliEnabled: boolean;
 }
 
 interface IpcListener {

@@ -10,6 +10,7 @@ import MainSidebar from './main-sidebar';
 import Onboarding from './onboarding';
 import { SiteContentTabs } from './site-content-tabs';
 import WindowsTitlebar from './windows-titlebar';
+import UserSettings from './user-settings';
 
 export default function App() {
 	useLocalizationSupport();
@@ -45,6 +46,7 @@ export default function App() {
 				>
 					<SiteContentTabs />
 				</main>
+				<UserSettings />
 			</HStack>
 		</VStack>
 	);

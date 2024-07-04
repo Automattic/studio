@@ -1,6 +1,7 @@
 // To run tests, execute `npm run test -- src/components/tests/content-tab-overview-shortcuts-section.test.tsx` from the root directory
 import { fireEvent, render, waitFor } from '@testing-library/react';
 import { useCheckInstalledApps } from '../../hooks/use-check-installed-apps';
+import { useFeatureFlags } from '../../hooks/use-feature-flags';
 import { useThemeDetails } from '../../hooks/use-theme-details';
 import { getIpcApi } from '../../lib/get-ipc-api';
 import { ContentTabOverview } from '../content-tab-overview';
@@ -19,6 +20,7 @@ const mockGetIpcApi = getIpcApi as jest.Mock;
 jest.mock( '../../hooks/use-check-installed-apps' );
 jest.mock( '../../lib/get-ipc-api' );
 jest.mock( '../../hooks/use-theme-details' );
+jest.mock( '../../hooks/use-feature-flags' );
 
 describe( 'ShortcutsSection', () => {
 	beforeEach( () => {
@@ -29,6 +31,9 @@ describe( 'ShortcutsSection', () => {
 				supportsWidgets: false,
 				supportsMenus: false,
 			},
+		} );
+		( useFeatureFlags as jest.Mock ).mockReturnValue( {
+			terminalWpCliEnabled: false,
 		} );
 	} );
 
@@ -122,7 +127,41 @@ describe( 'ShortcutsSection', () => {
 
 		// Assert that the terminal was opened
 		await waitFor( () => {
-			expect( openTerminalAtPathMock ).toHaveBeenCalledWith( selectedSite.path );
+			expect( openTerminalAtPathMock ).toHaveBeenCalledWith( selectedSite.path, {
+				wpCliEnabled: false,
+			} );
+		} );
+	} );
+
+	it( 'opens terminal with wp-cli integration if feature flag is enabled', async () => {
+		// Mock the `useCheckInstalledApps` hook to simulate terminal being available
+		( useCheckInstalledApps as jest.Mock ).mockReturnValue( {
+			terminal: true,
+			vscode: false,
+			phpstorm: false,
+		} );
+		( useFeatureFlags as jest.Mock ).mockReturnValue( {
+			terminalWpCliEnabled: true,
+		} );
+
+		// Mock the IPC API
+		const openTerminalAtPathMock = jest.fn();
+		mockGetIpcApi.mockReturnValue( {
+			openTerminalAtPath: openTerminalAtPathMock,
+		} );
+
+		// Render the component
+		const { getByText } = render( <ContentTabOverview selectedSite={ selectedSite } /> );
+
+		// Find the terminal button and click it
+		const terminalButton = getByText( 'Terminal' );
+		fireEvent.click( terminalButton );
+
+		// Assert that the terminal was opened
+		await waitFor( () => {
+			expect( openTerminalAtPathMock ).toHaveBeenCalledWith( selectedSite.path, {
+				wpCliEnabled: true,
+			} );
 		} );
 	} );
 } );

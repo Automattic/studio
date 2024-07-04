@@ -122,7 +122,9 @@ describe( 'ShortcutsSection', () => {
 
 		// Assert that the terminal was opened
 		await waitFor( () => {
-			expect( openTerminalAtPathMock ).toHaveBeenCalledWith( selectedSite.path );
+			expect( openTerminalAtPathMock ).toHaveBeenCalledWith( selectedSite.path, {
+				wpCliEnabled: false,
+			} );
 		} );
 	} );
 } );

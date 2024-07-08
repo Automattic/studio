@@ -7,18 +7,25 @@ import { getIpcApi } from '../lib/get-ipc-api';
 import { isWpcomNetworkError } from '../lib/is-wpcom-network-error';
 import { useArchiveErrorMessages } from './use-archive-error-messages';
 import { useAuth } from './use-auth';
-import { SnapshotStatusResponse } from './use-delete-snapshot';
 import { useSiteDetails } from './use-site-details';
+import { useSnapshots } from './use-snapshots';
+
+interface SnapshotStatusResponse {
+	is_deleted: string;
+	domain_name: string;
+	atomic_site_id: string;
+	status: '1' | '2';
+}
 
 export function useArchiveSite() {
 	const { uploadingSites, setUploadingSites } = useSiteDetails();
+	const { snapshots, addSnapshot, updateSnapshot } = useSnapshots();
 	const isUploadingSiteId = useCallback(
 		( localSiteId: string ) => uploadingSites[ localSiteId ] || false,
 		[ uploadingSites ]
 	);
 	const { client } = useAuth();
 	const { __ } = useI18n();
-	const { snapshots, addSnapshot, updateSnapshot } = useSiteDetails();
 
 	useEffect( () => {
 		if ( ! client ) {

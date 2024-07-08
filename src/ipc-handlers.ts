@@ -524,7 +524,7 @@ export async function openLocalPath( _event: IpcMainInvokeEvent, path: string ) 
 export async function getThemeDetails( event: IpcMainInvokeEvent, id: string ) {
 	const server = SiteServer.get( id );
 	if ( ! server ) {
-		throw new Error( 'Site not found.' );
+		return null
 	}
 
 	if ( ! server.details.running || ! server.server ) {

@@ -38,7 +38,7 @@ export function SiteContentTabs() {
 							{ name === 'share' && <ContentTabSnapshots selectedSite={ selectedSite } /> }
 							{ name === 'settings' && <ContentTabSettings selectedSite={ selectedSite } /> }
 							{ name === 'assistant' && <ContentTabAssistant selectedSite={ selectedSite } /> }
-							{ name === 'backup' && <ContentTabImportExport selectedSite={ selectedSite } /> }
+							{ name === 'import-export' && <ContentTabImportExport selectedSite={ selectedSite } /> }
 						</div>
 					) }
 				</TabPanel>

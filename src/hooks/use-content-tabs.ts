@@ -5,7 +5,7 @@ import { useFeatureFlags } from './use-feature-flags';
 
 export function useContentTabs() {
 	const { __ } = useI18n();
-	const { assistantEnabled, backupEnabled } = useFeatureFlags();
+	const { assistantEnabled, importExportEnabled } = useFeatureFlags();
 
 	return useMemo( () => {
 		const tabs: React.ComponentProps< typeof TabPanel >[ 'tabs' ] = [
@@ -26,11 +26,11 @@ export function useContentTabs() {
 			},
 		];
 
-		if ( backupEnabled ) {
+		if ( importExportEnabled ) {
 			tabs.push( {
 				order: 3,
-				name: 'backup',
-				title: __( 'Backup' ),
+				name: 'import-export',
+				title: __( 'Import / Export' ),
 			} );
 		}
 
@@ -45,5 +45,5 @@ export function useContentTabs() {
 		}
 
 		return tabs.sort( ( a, b ) => a.order - b.order );
-	}, [ __, assistantEnabled, backupEnabled ] );
+	}, [ __, assistantEnabled, importExportEnabled ] );
 }

@@ -31,7 +31,7 @@ jest.mock( '../../lib/app-globals', () => ( {
 
 ( useFeatureFlags as jest.Mock ).mockReturnValue( {
 	assistantEnabled: false,
-	backupEnabled: false,
+	importExportEnabled: false,
 } );
 
 describe( 'SiteContentTabs', () => {
@@ -102,26 +102,26 @@ describe( 'SiteContentTabs', () => {
 		expect( screen.queryByRole( 'tab', { name: 'Assistant' } ) ).toBeVisible();
 	} );
 
-	it( 'should not render the Backup tab if backupEnabled is not enabled', async () => {
+	it( 'should not render the Import/Export tab if importExportEnabled is not enabled', async () => {
 		( useSiteDetails as jest.Mock ).mockReturnValue( {
 			selectedSite,
 			snapshots: [],
 			loadingServer: {},
 		} );
 		await act( async () => render( <SiteContentTabs /> ) );
-		expect( screen.queryByRole( 'tab', { name: 'Backup' } ) ).toBeNull();
+		expect( screen.queryByRole( 'tab', { name: 'Import / Export' } ) ).toBeNull();
 	} );
 
-	it( 'should render the Assistant tab if backupEnabled is enabled', async () => {
+	it( 'should render the Import/Export tab if importExportEnabled is enabled', async () => {
 		( useSiteDetails as jest.Mock ).mockReturnValue( {
 			selectedSite,
 			snapshots: [],
 			loadingServer: {},
 		} );
 		( useFeatureFlags as jest.Mock ).mockReturnValue( {
-			backupEnabled: true,
+			importExportEnabled: true,
 		} );
 		await act( async () => render( <SiteContentTabs /> ) );
-		expect( screen.queryByRole( 'tab', { name: 'Backup' } ) ).toBeVisible();
+		expect( screen.queryByRole( 'tab', { name: 'Import / Export' } ) ).toBeVisible();
 	} );
 } );

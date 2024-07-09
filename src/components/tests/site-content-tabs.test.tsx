@@ -31,6 +31,7 @@ jest.mock( '../../lib/app-globals', () => ( {
 
 ( useFeatureFlags as jest.Mock ).mockReturnValue( {
 	assistantEnabled: false,
+	backupEnabled: false,
 } );
 
 describe( 'SiteContentTabs', () => {
@@ -61,6 +62,7 @@ describe( 'SiteContentTabs', () => {
 		expect( screen.queryByRole( 'tab', { name: 'Share', selected: false } ) ).toBeVisible();
 		expect( screen.queryByRole( 'tab', { name: 'Settings', selected: false } ) ).toBeVisible();
 		expect( screen.queryByRole( 'tab', { name: 'Assistant', selected: false } ) ).toBeNull();
+		expect( screen.queryByRole( 'tab', { name: 'Backup', selected: false } ) ).toBeNull();
 	} );
 	it( 'should render a "No Site" screen if selected site is absent', async () => {
 		( useSiteDetails as jest.Mock ).mockReturnValue( {
@@ -98,5 +100,28 @@ describe( 'SiteContentTabs', () => {
 		} );
 		await act( async () => render( <SiteContentTabs /> ) );
 		expect( screen.queryByRole( 'tab', { name: 'Assistant' } ) ).toBeVisible();
+	} );
+
+	it( 'should not render the Backup tab if backupEnabled is not enabled', async () => {
+		( useSiteDetails as jest.Mock ).mockReturnValue( {
+			selectedSite,
+			snapshots: [],
+			loadingServer: {},
+		} );
+		await act( async () => render( <SiteContentTabs /> ) );
+		expect( screen.queryByRole( 'tab', { name: 'Backup' } ) ).toBeNull();
+	} );
+
+	it( 'should render the Assistant tab if backupEnabled is enabled', async () => {
+		( useSiteDetails as jest.Mock ).mockReturnValue( {
+			selectedSite,
+			snapshots: [],
+			loadingServer: {},
+		} );
+		( useFeatureFlags as jest.Mock ).mockReturnValue( {
+			backupEnabled: true,
+		} );
+		await act( async () => render( <SiteContentTabs /> ) );
+		expect( screen.queryByRole( 'tab', { name: 'Backup' } ) ).toBeVisible();
 	} );
 } );

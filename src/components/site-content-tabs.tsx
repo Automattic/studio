@@ -4,6 +4,7 @@ import { useContentTabs } from '../hooks/use-content-tabs';
 import { useSiteDetails } from '../hooks/use-site-details';
 import { WelcomeMessagesProvider } from '../hooks/use-welcome-messages';
 import { ContentTabAssistant } from './content-tab-assistant';
+import { ContentTabBackup } from './content-tab-backup';
 import { ContentTabOverview } from './content-tab-overview';
 import { ContentTabSettings } from './content-tab-settings';
 import { ContentTabSnapshots } from './content-tab-snapshots';
@@ -37,6 +38,7 @@ export function SiteContentTabs() {
 							{ name === 'share' && <ContentTabSnapshots selectedSite={ selectedSite } /> }
 							{ name === 'settings' && <ContentTabSettings selectedSite={ selectedSite } /> }
 							{ name === 'assistant' && <ContentTabAssistant selectedSite={ selectedSite } /> }
+							{ name === 'backup' && <ContentTabBackup selectedSite={ selectedSite } /> }
 						</div>
 					) }
 				</TabPanel>

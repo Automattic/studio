@@ -5,11 +5,13 @@ import { useAuth } from './use-auth';
 export interface FeatureFlagsContextType {
 	assistantEnabled: boolean;
 	terminalWpCliEnabled: boolean;
+	backupEnabled: boolean;
 }
 
 export const FeatureFlagsContext = createContext< FeatureFlagsContextType >( {
 	assistantEnabled: false,
 	terminalWpCliEnabled: false,
+	backupEnabled: false,
 } );
 
 interface FeatureFlagsProviderProps {
@@ -19,9 +21,11 @@ interface FeatureFlagsProviderProps {
 export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { children } ) => {
 	const assistantEnabledFromGlobals = getAppGlobals().assistantEnabled;
 	const terminalWpCliEnabledFromGlobals = getAppGlobals().terminalWpCliEnabled;
+	const backupEnabledFromGlobals = getAppGlobals().backupEnabled;
 	const [ featureFlags, setFeatureFlags ] = useState< FeatureFlagsContextType >( {
 		assistantEnabled: assistantEnabledFromGlobals,
 		terminalWpCliEnabled: terminalWpCliEnabledFromGlobals,
+		backupEnabled: backupEnabledFromGlobals,
 	} );
 	const { isAuthenticated, client } = useAuth();
 
@@ -39,11 +43,13 @@ export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { c
 				if ( cancel ) {
 					return;
 				}
+				console.log( flags );
 				setFeatureFlags( {
 					assistantEnabled:
 						Boolean( flags?.[ 'assistant_enabled' ] ) || assistantEnabledFromGlobals,
 					terminalWpCliEnabled:
 						Boolean( flags?.[ 'terminal_wp_cli_enabled' ] ) || terminalWpCliEnabledFromGlobals,
+					backupEnabled: Boolean( flags?.[ 'backup_enabled' ] ) || backupEnabledFromGlobals,
 				} );
 			} catch ( error ) {
 				console.error( error );
@@ -53,7 +59,13 @@ export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { c
 		return () => {
 			cancel = true;
 		};
-	}, [ isAuthenticated, client, assistantEnabledFromGlobals, terminalWpCliEnabledFromGlobals ] );
+	}, [
+		isAuthenticated,
+		client,
+		assistantEnabledFromGlobals,
+		terminalWpCliEnabledFromGlobals,
+		backupEnabledFromGlobals,
+	] );
 
 	return (
 		<FeatureFlagsContext.Provider value={ featureFlags }>{ children }</FeatureFlagsContext.Provider>

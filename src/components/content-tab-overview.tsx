@@ -16,6 +16,7 @@ import {
 import { useI18n } from '@wordpress/react-i18n';
 import { useState } from 'react';
 import { useCheckInstalledApps } from '../hooks/use-check-installed-apps';
+import { useFeatureFlags } from '../hooks/use-feature-flags';
 import { useThemeDetails } from '../hooks/use-theme-details';
 import { isMac } from '../lib/app-globals';
 import { cx } from '../lib/cx';
@@ -134,6 +135,7 @@ function CustomizeSection( {
 }
 
 function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'selectedSite' > ) {
+	const { terminalWpCliEnabled } = useFeatureFlags();
 	const installedApps = useCheckInstalledApps();
 	const buttonsArray: ButtonsSectionProps[ 'buttonsArray' ] = [
 		{
@@ -199,7 +201,9 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 		icon: preformatted,
 		onClick: async () => {
 			try {
-				await getIpcApi().openTerminalAtPath( selectedSite.path );
+				await getIpcApi().openTerminalAtPath( selectedSite.path, {
+					wpCliEnabled: terminalWpCliEnabled,
+				} );
 			} catch ( error ) {
 				Sentry.captureException( error );
 				alert( __( 'Could not open the terminal.' ) );

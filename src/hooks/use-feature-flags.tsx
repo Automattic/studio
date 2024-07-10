@@ -4,10 +4,14 @@ import { useAuth } from './use-auth';
 
 export interface FeatureFlagsContextType {
 	assistantEnabled: boolean;
+	terminalWpCliEnabled: boolean;
+	importExportEnabled: boolean;
 }
 
 export const FeatureFlagsContext = createContext< FeatureFlagsContextType >( {
 	assistantEnabled: false,
+	terminalWpCliEnabled: false,
+	importExportEnabled: false,
 } );
 
 interface FeatureFlagsProviderProps {
@@ -16,8 +20,12 @@ interface FeatureFlagsProviderProps {
 
 export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { children } ) => {
 	const assistantEnabledFromGlobals = getAppGlobals().assistantEnabled;
+	const terminalWpCliEnabledFromGlobals = getAppGlobals().terminalWpCliEnabled;
+	const importExportEnabledFromGlobals = getAppGlobals().importExportEnabled;
 	const [ featureFlags, setFeatureFlags ] = useState< FeatureFlagsContextType >( {
 		assistantEnabled: assistantEnabledFromGlobals,
+		terminalWpCliEnabled: terminalWpCliEnabledFromGlobals,
+		importExportEnabled: importExportEnabledFromGlobals,
 	} );
 	const { isAuthenticated, client } = useAuth();
 
@@ -38,6 +46,10 @@ export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { c
 				setFeatureFlags( {
 					assistantEnabled:
 						Boolean( flags?.[ 'assistant_enabled' ] ) || assistantEnabledFromGlobals,
+					terminalWpCliEnabled:
+						Boolean( flags?.[ 'terminal_wp_cli_enabled' ] ) || terminalWpCliEnabledFromGlobals,
+					importExportEnabled:
+						Boolean( flags?.[ 'import_export_enabled' ] ) || importExportEnabledFromGlobals,
 				} );
 			} catch ( error ) {
 				console.error( error );
@@ -47,7 +59,13 @@ export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { c
 		return () => {
 			cancel = true;
 		};
-	}, [ isAuthenticated, client, assistantEnabledFromGlobals ] );
+	}, [
+		isAuthenticated,
+		client,
+		assistantEnabledFromGlobals,
+		terminalWpCliEnabledFromGlobals,
+		importExportEnabledFromGlobals,
+	] );
 
 	return (
 		<FeatureFlagsContext.Provider value={ featureFlags }>{ children }</FeatureFlagsContext.Provider>

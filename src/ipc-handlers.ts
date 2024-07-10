@@ -468,6 +468,8 @@ export async function getAppGlobals( _event: IpcMainInvokeEvent ): Promise< AppG
 		appName: app.name,
 		arm64Translation: app.runningUnderARM64Translation,
 		assistantEnabled: process.env.STUDIO_AI === 'true',
+		terminalWpCliEnabled: process.env.STUDIO_TERMINAL_WP_CLI === 'true',
+		importExportEnabled: process.env.STUDIO_IMPORT_EXPORT === 'true',
 	};
 }
 
@@ -587,7 +589,11 @@ export async function getThumbnailData( _event: IpcMainInvokeEvent, id: string )
 	return getImageData( path );
 }
 
-export function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath: string ) {
+export function openTerminalAtPath(
+	_event: IpcMainInvokeEvent,
+	targetPath: string,
+	{ wpCliEnabled }: { wpCliEnabled?: boolean } = {}
+) {
 	return new Promise< void >( ( resolve, reject ) => {
 		const platform = process.platform;
 		const cliPath = nodePath.join( getResourcesPath(), 'bin' );
@@ -599,20 +605,32 @@ export function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath: stri
 		let command: string;
 		if ( platform === 'win32' ) {
 			// Windows
-			command = `start cmd /K "set PATH=${ cliPath };%PATH% && set STUDIO_APP_PATH=${ appPath } && cd /d ${ targetPath }"`;
+			if ( wpCliEnabled ) {
+				command = `start cmd /K "set PATH=${ cliPath };%PATH% && set STUDIO_APP_PATH=${ appPath } && cd /d ${ targetPath }"`;
+			} else {
+				command = `start cmd /K "cd /d ${ targetPath }"`;
+			}
 		} else if ( platform === 'darwin' ) {
 			// macOS
-			const script = `
+			if ( wpCliEnabled ) {
+				const script = `
 			tell application "Terminal"
 				if not application "Terminal" is running then launch
 				do script "clear && export PATH=${ cliPath }:$PATH && export STUDIO_APP_PATH=\\"${ appPath }\\" && cd ${ targetPath }"
 				activate
 			end tell
 			`;
-			command = `osascript -e '${ script }'`;
+				command = `osascript -e '${ script }'`;
+			} else {
+				command = `open -a Terminal "${ targetPath }"`;
+			}
 		} else if ( platform === 'linux' ) {
 			// Linux
-			command = `export PATH=${ cliPath }:$PATH && export STUDIO_APP_PATH="${ appPath }" && gnome-terminal -- bash -c 'cd ${ targetPath }; exec bash'`;
+			if ( wpCliEnabled ) {
+				command = `export PATH=${ cliPath }:$PATH && export STUDIO_APP_PATH="${ appPath }" && gnome-terminal -- bash -c 'cd ${ targetPath }; exec bash'`;
+			} else {
+				command = `gnome-terminal --working-directory=${ targetPath }`;
+			}
 		} else {
 			console.error( 'Unsupported platform:', platform );
 			return;

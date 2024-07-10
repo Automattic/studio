@@ -107,10 +107,17 @@ interface AuthenticatedViewProps {
 	isAssistantThinking: boolean;
 	updateMessage: OnUpdateMessageType;
 	siteId: string;
+	handleSend?: ( messageToSend?: string, isRetry?: boolean ) => void;
 }
 
 export const AuthenticatedView = memo(
-	( { messages, isAssistantThinking, updateMessage, siteId }: AuthenticatedViewProps ) => {
+	( {
+		messages,
+		isAssistantThinking,
+		updateMessage,
+		siteId,
+		handleSend,
+	}: AuthenticatedViewProps ) => {
 		const endOfMessagesRef = useRef< HTMLDivElement >( null );
 		const [ showThinking, setShowThinking ] = useState( false );
 		const lastMessage = useMemo(
@@ -154,10 +161,12 @@ export const AuthenticatedView = memo(
 					>
 						{ message.content }
 					</ChatMessage>
-					{ message.failedMessage && <ErrorNotice /> }
+					{ message.failedMessage && (
+						<ErrorNotice handleSend={ handleSend } messageContent={ message.content } />
+					) }
 				</>
 			),
-			[ siteId, updateMessage ]
+			[ handleSend, siteId, updateMessage ]
 		);
 
 		const RenderLastMessage = useCallback(
@@ -302,12 +311,25 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const { __ } = useI18n();
 	const lastMessage = messages.length === 0 ? undefined : messages[ messages.length - 1 ];
 
-	const handleSend = async ( messageToSend?: string ) => {
+	const handleSend = async ( messageToSend?: string, isRetry?: boolean ) => {
 		const chatMessage = messageToSend || input;
 		let messageId;
 		if ( chatMessage.trim() ) {
-			messageId = addMessage( chatMessage, 'user', chatId ); // Get the new message ID
-			setInput( '' );
+			if ( isRetry ) {
+				// If retrying, find the message ID with failedMessage flag
+				const failedMessage = messages.find(
+					( msg ) => msg.failedMessage && msg.content === chatMessage
+				);
+				if ( failedMessage ) {
+					messageId = failedMessage.id;
+					if ( typeof messageId !== 'undefined' ) {
+						markMessageAsFailed( messageId, false );
+					}
+				}
+			} else {
+				messageId = addMessage( chatMessage, 'user', chatId ); // Get the new message ID
+				setInput( '' );
+			}
 			try {
 				const { message, chatId: fetchedChatId } = await fetchAssistant(
 					chatId,
@@ -379,6 +401,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 								isAssistantThinking={ isAssistantThinking }
 								updateMessage={ updateMessage }
 								siteId={ selectedSite.id }
+								handleSend={ handleSend }
 							/>
 						</>
 					) : (

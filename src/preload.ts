@@ -3,6 +3,7 @@
 
 import '@sentry/electron/preload';
 import { contextBridge, ipcRenderer } from 'electron';
+import { FileInput } from './lib/import-export/import/types';
 import { promptWindowsSpeedUpSites } from './lib/windows-helpers';
 import type { LogLevel } from './logging';
 
@@ -54,6 +55,7 @@ const api: IpcApi = {
 	popupAppMenu: () => ipcRenderer.invoke( 'popupAppMenu' ),
 	promptWindowsSpeedUpSites: ( ...args: Parameters< typeof promptWindowsSpeedUpSites > ) =>
 		ipcRenderer.invoke( 'promptWindowsSpeedUpSites', ...args ),
+	importSite: ( id: string, file: FileInput ) => ipcRenderer.invoke( 'importSite', id, file ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

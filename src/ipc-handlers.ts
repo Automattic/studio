@@ -19,6 +19,10 @@ import { downloadSqliteIntegrationPlugin } from '../vendor/wp-now/src/download';
 import { LIMIT_ARCHIVE_SIZE } from './constants';
 import { isEmptyDir, pathExists, isWordPressDirectory, sanitizeFolderName } from './lib/fs-utils';
 import { getImageData } from './lib/get-image-data';
+import { importBackup } from './lib/import-export/import/importManager';
+import { allImporters } from './lib/import-export/import/importers';
+import { DbConfig, FileInput } from './lib/import-export/import/types';
+import { allValidators } from './lib/import-export/import/validators';
 import { isErrnoException } from './lib/is-errno-exception';
 import { isInstalled } from './lib/is-installed';
 import { getLocaleData, getSupportedLocale } from './lib/locale';
@@ -673,4 +677,17 @@ export async function promptWindowsSpeedUpSites(
 	{ skipIfAlreadyPrompted }: { skipIfAlreadyPrompted: boolean }
 ) {
 	await windowsHelpers.promptWindowsSpeedUpSites( { skipIfAlreadyPrompted } );
+}
+
+export async function importSite( _event: IpcMainInvokeEvent, id: string, file: FileInput ) {
+	const site = SiteServer.get( id );
+	if ( ! site ) {
+		throw new Error( 'Site not found.' );
+	}
+	const sitePath = site.details.path;
+	try {
+		await importBackup( file, sitePath, {} as DbConfig, allValidators, allImporters );
+	} catch ( e ) {
+		console.log( 'Error importing site', ( e as Error ).message );
+	}
 }

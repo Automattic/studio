@@ -310,6 +310,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const isOffline = useOffline();
 	const { __ } = useI18n();
 	const lastMessage = messages.length === 0 ? undefined : messages[ messages.length - 1 ];
+	const hasFailedMessage = messages.some( ( msg ) => msg.failedMessage );
 
 	const handleSend = async ( messageToSend?: string, isRetry?: boolean ) => {
 		const chatMessage = messageToSend || input;
@@ -372,7 +373,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		}
 	};
 
-	const disabled = isOffline || ! isAuthenticated || ! userCanSendMessage;
+	const disabled = isOffline || ! isAuthenticated || ! userCanSendMessage || hasFailedMessage;
 
 	return (
 		<div className="relative min-h-full flex flex-col bg-gray-50">

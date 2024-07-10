@@ -21,6 +21,12 @@ export class JetpackValidator implements Validator {
 				themes: [],
 			},
 		};
+		/* File rules:
+		 * - Ignore wp-config.php
+		 * - Accept .zip in addition to tar.gz ( Handled by backup handler )
+		 * - Do not reject the archive that includes core WP files in addition to files and directories required by Jetpack format, and ignore those instead.
+		 * - Support optional meta file, e.g., studio.json, that stores desired PHP and WP versions.
+		 * */
 
 		for ( const file of fileList ) {
 			// Ignore wp-config.php

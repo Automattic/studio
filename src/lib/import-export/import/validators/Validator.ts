@@ -1,6 +1,6 @@
-import { BackupContents } from "../types";
+import { BackupContents } from '../types';
 
 export interface Validator {
-  canHandle(allFiles: string[]): boolean;
-  getBackup(allFiles: string[], extractDir: string): BackupContents;
+	canHandle( allFiles: string[] ): boolean;
+	getBackup( allFiles: string[], extractDir: string ): BackupContents;
 }

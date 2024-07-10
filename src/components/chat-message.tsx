@@ -71,9 +71,9 @@ export const ChatMessage = ( {
 		<div
 			className={ cx(
 				'flex mt-4',
-				message.role === 'user'
-					? 'justify-end ltr:md:ml-24 rtl:md:mr-24'
-					: 'justify-start ltr:md:mr-24 rtl:md:ml-24',
+				isUnauthenticated || message.role !== 'user'
+					? 'justify-start ltr:md:mr-24 rtl:md:ml-24'
+					: 'justify-end ltr:md:ml-24 rtl:md:mr-24',
 				className
 			) }
 		>

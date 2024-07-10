@@ -107,7 +107,7 @@ interface AuthenticatedViewProps {
 	isAssistantThinking: boolean;
 	updateMessage: OnUpdateMessageType;
 	siteId: string;
-	handleSend?: ( messageToSend?: string, isRetry?: boolean ) => void;
+	handleSend: ( messageToSend?: string, isRetry?: boolean ) => void;
 }
 
 export const AuthenticatedView = memo(

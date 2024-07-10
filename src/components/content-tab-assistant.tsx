@@ -1,25 +1,31 @@
+import {
+	__unstableAnimatePresence as AnimatePresence,
+	__unstableMotion as motion,
+} from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { Icon, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import React, { useState, useEffect, useRef, memo } from 'react';
+import React, { useState, useEffect, useRef, memo, useCallback, useMemo } from 'react';
 import { AI_GUIDELINES_URL } from '../constants';
 import { useAssistant, Message as MessageType } from '../hooks/use-assistant';
 import { useAssistantApi } from '../hooks/use-assistant-api';
 import { useAuth } from '../hooks/use-auth';
 import { useChatContext } from '../hooks/use-chat-context';
-import { useFetchWelcomeMessages } from '../hooks/use-fetch-welcome-messages';
 import { useOffline } from '../hooks/use-offline';
 import { usePromptUsage } from '../hooks/use-prompt-usage';
+import { useWelcomeMessages } from '../hooks/use-welcome-messages';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import ClearHistoryReminder from './ai-clear-history-reminder';
 import { AIInput } from './ai-input';
 import { MessageThinking } from './assistant-thinking';
 import Button from './button';
-import { ChatMessage } from './chat-message';
+import { ChatMessage, MarkDownWithCode } from './chat-message';
 import offlineIcon from './offline-icon';
 import WelcomeComponent from './welcome-message-prompt';
+
+export const MIMIC_CONVERSATION_DELAY = 500;
 
 interface ContentTabAssistantProps {
 	selectedSite: SiteDetails;
@@ -88,63 +94,153 @@ const OfflineModeView = () => {
 	);
 };
 
-const AuthenticatedView = memo(
-	( {
-		messages,
-		isAssistantThinking,
-		updateMessage,
-		siteId,
-		handleSend,
-	}: {
-		messages: MessageType[];
-		isAssistantThinking: boolean;
-		updateMessage: (
-			id: number,
-			codeBlockContent: string,
-			cliOutput: string,
-			cliStatus: 'success' | 'error',
-			cliTime: string
-		) => void;
-		siteId: string;
-		handleSend: ( messageToSend?: string, isRetry?: boolean ) => void;
-	} ) => {
+type OnUpdateMessageType = (
+	id: number,
+	codeBlockContent: string,
+	cliOutput: string,
+	cliStatus: 'success' | 'error',
+	cliTime: string
+) => void;
+
+interface AuthenticatedViewProps {
+	messages: MessageType[];
+	isAssistantThinking: boolean;
+	updateMessage: OnUpdateMessageType;
+	siteId: string;
+}
+
+export const AuthenticatedView = memo(
+	( { messages, isAssistantThinking, updateMessage, siteId }: AuthenticatedViewProps ) => {
 		const endOfMessagesRef = useRef< HTMLDivElement >( null );
+		const [ showThinking, setShowThinking ] = useState( false );
+		const lastMessage = useMemo(
+			() =>
+				showThinking
+					? ( { role: 'assistant', id: -1, createdAt: Date.now() } as MessageType )
+					: messages[ messages.length - 1 ],
+			[ messages, showThinking ]
+		);
+		const messagesToRender =
+			messages[ messages.length - 1 ]?.role === 'assistant' ? messages.slice( 0, -1 ) : messages;
+		const showLastMessage = showThinking || messages[ messages.length - 1 ]?.role === 'assistant';
 
 		useEffect( () => {
 			const timer = setTimeout( () => {
 				if ( endOfMessagesRef.current ) {
 					endOfMessagesRef.current.scrollIntoView( { behavior: 'smooth' } );
 				}
-			}, 100 ); // Slight delay to ensure DOM updates
-
+			}, 400 );
 			return () => clearTimeout( timer );
-		}, [ messages?.length ] );
+		}, [ messages?.length, isAssistantThinking, showThinking, showLastMessage ] );
+
+		useEffect( () => {
+			let timer: NodeJS.Timeout;
+			if ( isAssistantThinking ) {
+				timer = setTimeout( () => setShowThinking( true ), MIMIC_CONVERSATION_DELAY );
+			} else {
+				setShowThinking( false );
+			}
+			return () => clearTimeout( timer );
+		}, [ isAssistantThinking ] );
+
+		const RenderMessage = useCallback(
+			( { message }: { message: MessageType } ) => (
+				<>
+					<ChatMessage
+						id={ `message-chat-${ message.id }` }
+						message={ message }
+						siteId={ siteId }
+						updateMessage={ updateMessage }
+					>
+						{ message.content }
+					</ChatMessage>
+					{ message.failedMessage && <ErrorNotice /> }
+				</>
+			),
+			[ siteId, updateMessage ]
+		);
+
+		const RenderLastMessage = useCallback(
+			( {
+				showThinking,
+				siteId,
+				updateMessage,
+				message,
+			}: {
+				message: MessageType;
+				showThinking: boolean;
+				siteId: string;
+				updateMessage: OnUpdateMessageType;
+			} ) => {
+				const thinkingAnimation = {
+					initial: { opacity: 0, y: 20 },
+					animate: { opacity: 1, y: 0 },
+					exit: { opacity: 0, y: -20 },
+				};
+				const messageAnimation = {
+					initial: { opacity: 0, y: 20 },
+					animate: { opacity: 1, y: 0 },
+				};
+				return (
+					<>
+						<ChatMessage
+							id={ `message-chat-${ message.id }` }
+							message={ message }
+							siteId={ siteId }
+							updateMessage={ updateMessage }
+						>
+							<AnimatePresence mode="wait">
+								{ showThinking ? (
+									<motion.div
+										key="thinking"
+										initial="initial"
+										animate="animate"
+										exit="exit"
+										variants={ thinkingAnimation }
+										transition={ { duration: 0.3 } }
+									>
+										<MessageThinking />
+									</motion.div>
+								) : (
+									<motion.div
+										key="content"
+										variants={ messageAnimation }
+										transition={ { duration: 0.3 } }
+										initial="initial"
+										animate="animate"
+									>
+										<MarkDownWithCode
+											message={ message }
+											siteId={ siteId }
+											updateMessage={ updateMessage }
+											content={ message.content }
+										/>
+									</motion.div>
+								) }
+							</AnimatePresence>
+						</ChatMessage>
+					</>
+				);
+			},
+			[]
+		);
+
+		if ( messages.length === 0 ) {
+			return null;
+		}
 
 		return (
 			<>
-				{ messages.map( ( message, index ) => (
-					<>
-						<ChatMessage
-							key={ `message-chat-${ index }` }
-							id={ `message-chat-${ index }` }
-							isUser={ message.role === 'user' }
-							siteId={ siteId }
-							updateMessage={ updateMessage }
-							messageId={ message.id }
-							blocks={ message.blocks }
-							failedMessage={ message.failedMessage }
-						>
-							{ message.content }
-						</ChatMessage>
-						{ message.failedMessage && (
-							<ErrorNotice handleSend={ handleSend } messageContent={ message.content } />
-						) }
-					</>
+				{ messagesToRender.map( ( message ) => (
+					<RenderMessage key={ message.id } message={ message } />
 				) ) }
-				{ isAssistantThinking && (
-					<ChatMessage isUser={ false } id="message-thinking">
-						<MessageThinking />
-					</ChatMessage>
+				{ showLastMessage && (
+					<RenderLastMessage
+						siteId={ siteId }
+						updateMessage={ updateMessage }
+						message={ lastMessage }
+						showThinking={ showThinking }
+					/>
 				) }
 				<div ref={ endOfMessagesRef } />
 			</>
@@ -156,10 +252,12 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 	<ChatMessage
 		id="message-unauthenticated"
 		className="w-full"
-		isUser={ false }
+		message={ { role: 'user' } as MessageType }
 		isUnauthenticated={ true }
 	>
-		<div className="mb-3 a8c-label-semibold">{ __( 'Hold up!' ) }</div>
+		<div data-testid="unauthenticated-header" className="mb-3 a8c-label-semibold">
+			{ __( 'Hold up!' ) }
+		</div>
 		<div className="mb-1">
 			{ __( 'You need to log in to your WordPress.com account to use the assistant.' ) }
 		</div>
@@ -191,48 +289,25 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 );
 
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
+	const inputRef = useRef< HTMLTextAreaElement >( null );
 	const currentSiteChatContext = useChatContext();
 	const { isAuthenticated, authenticate, user } = useAuth();
-	const { messages, addMessage, clearMessages, updateMessage, updateFailedMessage, chatId } =
+	const { messages, addMessage, clearMessages, updateMessage, markMessageAsFailed, chatId } =
 		useAssistant( user?.id ? `${ user.id }_${ selectedSite.id }` : selectedSite.id );
 	const { userCanSendMessage } = usePromptUsage();
 	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi( selectedSite.id );
-	const {
-		messages: welcomeMessages,
-		examplePrompts,
-		fetchWelcomeMessages,
-	} = useFetchWelcomeMessages();
+	const { messages: welcomeMessages, examplePrompts } = useWelcomeMessages();
 	const [ input, setInput ] = useState< string >( '' );
 	const isOffline = useOffline();
 	const { __ } = useI18n();
 	const lastMessage = messages.length === 0 ? undefined : messages[ messages.length - 1 ];
 
-	useEffect( () => {
-		fetchWelcomeMessages();
-	}, [ fetchWelcomeMessages, selectedSite ] );
-
-	const handleSend = async ( messageToSend?: string, isRetry?: boolean ) => {
+	const handleSend = async ( messageToSend?: string ) => {
 		const chatMessage = messageToSend || input;
+		let messageId;
 		if ( chatMessage.trim() ) {
-			let messageId: number | undefined;
-
-			if ( isRetry ) {
-				// If retrying, find the message ID with failedMessage flag
-				const failedMessage = messages.find(
-					( msg ) => msg.failedMessage && msg.content === chatMessage
-				);
-				if ( failedMessage ) {
-					messageId = failedMessage.id;
-					if ( messageId !== undefined ) {
-						updateFailedMessage( messageId, false );
-					}
-				}
-			} else {
-				// If not retrying, create a new message
-				messageId = addMessage( chatMessage, 'user', chatId );
-				setInput( '' );
-			}
-
+			messageId = addMessage( chatMessage, 'user', chatId ); // Get the new message ID
+			setInput( '' );
 			try {
 				const { message, chatId: fetchedChatId } = await fetchAssistant(
 					chatId,
@@ -246,8 +321,8 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 					addMessage( message, 'assistant', chatId ?? fetchedChatId );
 				}
 			} catch ( error ) {
-				if ( messageId !== undefined ) {
-					updateFailedMessage( messageId, true );
+				if ( typeof messageId !== 'undefined' ) {
+					markMessageAsFailed( messageId, true );
 				}
 			}
 		}
@@ -263,6 +338,18 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		setInput( '' );
 		clearMessages();
 	};
+
+	// We should render only one notice at a time in the bottom area
+	const renderNotice = () => {
+		if ( isOffline ) {
+			return <OfflineModeView />;
+		} else if ( isAuthenticated && ! userCanSendMessage ) {
+			return <UsageLimitReached />;
+		} else if ( isAuthenticated ) {
+			return <ClearHistoryReminder lastMessage={ lastMessage } clearInput={ clearInput } />;
+		}
+	};
+
 	const disabled = isOffline || ! isAuthenticated || ! userCanSendMessage;
 
 	return (
@@ -271,78 +358,40 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 				data-testid="assistant-chat"
 				className={ cx(
 					'min-h-full flex-1 overflow-y-auto p-8 pb-2 flex flex-col-reverse',
-					! isAuthenticated
-						? isOffline
-							? 'flex items-center justify-center'
-							: 'flex items-start'
-						: ''
+					! isAuthenticated && 'flex items-start'
 				) }
 			>
-				<div className="mt-auto">
-					{ isOffline ? (
+				<div className="mt-auto w-full">
+					{ isAuthenticated ? (
 						<>
-							{ isAuthenticated && messages.length > 0 && (
-								<AuthenticatedView
-									messages={ messages }
-									isAssistantThinking={ isAssistantThinking }
-									updateMessage={ updateMessage }
-									siteId={ selectedSite.id }
-									handleSend={ handleSend }
-								/>
-							) }
-							<OfflineModeView />
-						</>
-					) : isAuthenticated ? (
-						<>
-							{ ! userCanSendMessage ? (
-								messages.length > 0 ? (
-									<>
-										<WelcomeComponent
-											onExampleClick={ ( prompt ) => handleSend( prompt ) }
-											showExamplePrompts={ messages.length === 0 }
-											messages={ welcomeMessages }
-											examplePrompts={ examplePrompts }
-										/>
-										<AuthenticatedView
-											messages={ messages }
-											isAssistantThinking={ isAssistantThinking }
-											updateMessage={ updateMessage }
-											siteId={ selectedSite.id }
-											handleSend={ handleSend }
-										/>
-										<UsageLimitReached />
-									</>
-								) : (
-									<UsageLimitReached />
-								)
-							) : (
-								<>
-									<WelcomeComponent
-										onExampleClick={ ( prompt ) => handleSend( prompt ) }
-										showExamplePrompts={ messages.length === 0 }
-										messages={ welcomeMessages }
-										examplePrompts={ examplePrompts }
-									/>
-									<AuthenticatedView
-										messages={ messages }
-										isAssistantThinking={ isAssistantThinking }
-										updateMessage={ updateMessage }
-										siteId={ selectedSite.id }
-										handleSend={ handleSend }
-									/>
-									<ClearHistoryReminder lastMessage={ lastMessage } clearInput={ clearInput } />
-								</>
-							) }
+							<WelcomeComponent
+								onExampleClick={ ( prompt ) => {
+									handleSend( prompt );
+									inputRef.current?.focus();
+								} }
+								showExamplePrompts={ messages.length === 0 }
+								messages={ welcomeMessages }
+								examplePrompts={ examplePrompts }
+								disabled={ disabled }
+							/>
+							<AuthenticatedView
+								messages={ messages }
+								isAssistantThinking={ isAssistantThinking }
+								updateMessage={ updateMessage }
+								siteId={ selectedSite.id }
+							/>
 						</>
 					) : (
-						<UnauthenticatedView onAuthenticate={ authenticate } />
+						! isOffline && <UnauthenticatedView onAuthenticate={ authenticate } />
 					) }
+					{ renderNotice() }
 				</div>
 			</div>
 
 			<div className="sticky bottom-0 bg-gray-50/[0.8] backdrop-blur-sm w-full px-8 pt-4 flex items-center">
 				<div className="w-full flex flex-col items-center">
 					<AIInput
+						ref={ inputRef }
 						disabled={ disabled }
 						input={ input }
 						setInput={ setInput }

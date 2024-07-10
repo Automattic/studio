@@ -1,23 +1,17 @@
 import { __ } from '@wordpress/i18n';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { Message } from '../hooks/use-assistant';
 import { cx } from '../lib/cx';
 import Anchor from './assistant-anchor';
 import createCodeComponent from './assistant-code-block';
 
 export interface ChatMessageProps {
 	children: React.ReactNode;
-	isUser: boolean;
 	id: string;
-	messageId?: number;
 	className?: string;
 	siteId?: string;
-	blocks?: {
-		cliOutput?: string;
-		cliStatus?: 'success' | 'error';
-		cliTime?: string;
-		codeBlockContent?: string;
-	}[];
+	message: Message;
 	updateMessage?: (
 		id: number,
 		content: string,
@@ -29,23 +23,56 @@ export interface ChatMessageProps {
 	failedMessage?: boolean;
 }
 
+export const MarkDownWithCode = ( {
+	message,
+	updateMessage,
+	siteId,
+	content,
+}: {
+	siteId?: string;
+	content: string;
+	message: Message;
+	updateMessage?: (
+		id: number,
+		content: string,
+		output: string,
+		status: 'success' | 'error',
+		time: string
+	) => void;
+} ) => (
+	<div className="assistant-markdown">
+		<Markdown
+			components={ {
+				a: Anchor,
+				code: createCodeComponent( {
+					blocks: message?.blocks,
+					messageId: message.id,
+					siteId,
+					updateMessage,
+				} ),
+				img: () => null,
+			} }
+			remarkPlugins={ [ remarkGfm ] }
+		>
+			{ content }
+		</Markdown>
+	</div>
+);
+
 export const ChatMessage = ( {
-	children,
 	id,
-	messageId,
-	isUser,
+	message,
 	className,
 	siteId,
-	blocks,
 	updateMessage,
+	children,
 	isUnauthenticated,
-	failedMessage,
 }: ChatMessageProps ) => {
 	return (
 		<div
 			className={ cx(
 				'flex mt-4',
-				isUser
+				message.role === 'user'
 					? 'justify-end ltr:md:ml-24 rtl:md:mr-24'
 					: 'justify-start ltr:md:mr-24 rtl:md:ml-24',
 				className
@@ -54,37 +81,32 @@ export const ChatMessage = ( {
 			<div
 				id={ id }
 				role="group"
+				data-testid="chat-message"
 				aria-labelledby={ id }
 				className={ cx(
+					'inline-block p-3 rounded border border-gray-300 overflow-x-auto select-text',
 					'inline-block p-3 rounded border overflow-x-auto select-text',
-					isUnauthenticated ? 'lg:max-w-[90%]' : 'lg:max-w-[70%]', // Apply different max-width for unauthenticated view
-					failedMessage ? 'border-[#FACFD2] bg-[#F7EBEC]' : ! isUser ? 'bg-white' : 'bg-white/45',
-					! failedMessage && 'border-gray-300'
+					isUnauthenticated ? 'lg:max-w-[90%]' : 'lg:max-w-[70%]',
+					message.failedMessage
+						? 'border-[#FACFD2] bg-[#F7EBEC]'
+						: message.role === 'user'
+						? 'bg-white'
+						: 'bg-white/45',
+					! message.failedMessage && 'border-gray-300'
 				) }
 			>
 				<div className="relative">
 					<span className="sr-only">
-						{ isUser ? __( 'Your message' ) : __( 'Studio Assistant' ) },
+						{ message.role === 'user' ? __( 'Your message' ) : __( 'Studio Assistant' ) },
 					</span>
 				</div>
 				{ typeof children === 'string' ? (
-					<div className="assistant-markdown">
-						<Markdown
-							components={ {
-								a: Anchor,
-								code: createCodeComponent( {
-									blocks,
-									messageId,
-									siteId,
-									updateMessage,
-								} ),
-								img: () => null,
-							} }
-							remarkPlugins={ [ remarkGfm ] }
-						>
-							{ children }
-						</Markdown>
-					</div>
+					<MarkDownWithCode
+						message={ message }
+						updateMessage={ updateMessage }
+						siteId={ siteId }
+						content={ children }
+					/>
 				) : (
 					children
 				) }

@@ -25,7 +25,9 @@ const contextMapper = ( context?: ChatContextType ) => {
 
 export function useAssistantApi( selectedSiteId: string ) {
 	const { client } = useAuth();
-	const [ isLoading, setIsLoading ] = useState< Record< string, boolean > >( {} );
+	const [ isLoading, setIsLoading ] = useState< Record< string, boolean > >( {
+		[ selectedSiteId ]: false,
+	} );
 	const { updatePromptUsage } = usePromptUsage();
 
 	const fetchAssistant = useCallback(

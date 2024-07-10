@@ -1,3 +1,10 @@
+1.0.5
+=====
+* Fixed crash when deleting a site #300
+* Improved dialog messaging consistency and clarity #291, #292
+* Minimized site form layout shift #295
+* Refactored E2E tests initialization, improved test output #270, #316, #323
+
 1.0.4
 =====
 * Added a modal allowing users to speed up sites on Windows #211

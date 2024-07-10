@@ -1,6 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { arrowRight } from '@wordpress/icons';
 import { cx } from '../lib/cx';
+import Button from './button';
 
 interface WelcomeMessagePromptProps {
 	children?: React.ReactNode;
@@ -12,6 +13,7 @@ interface ExampleMessagePromptProps {
 	onClick?: () => void;
 	children: React.ReactNode;
 	className?: string;
+	disabled?: boolean;
 }
 
 interface WelcomeComponentProps {
@@ -19,6 +21,7 @@ interface WelcomeComponentProps {
 	showExamplePrompts: boolean;
 	messages: string[];
 	examplePrompts: string[];
+	disabled?: boolean;
 }
 
 export const WelcomeMessagePrompt = ( { id, children, className }: WelcomeMessagePromptProps ) => (
@@ -46,15 +49,14 @@ export const ExampleMessagePrompt = ( {
 	onClick,
 	children,
 	className,
+	disabled,
 }: ExampleMessagePromptProps ) => (
 	<div className={ cx( 'flex mt-2' ) }>
-		<div
-			className={ cx(
-				'inline-block px-3 py-2 rounded border border-gray-300 lg:max-w-[70%] select-text cursor-pointer focus:border-a8c-blueberry hover:border-a8c-blueberry hover:text-a8c-blueberry hover:fill-a8c-blueberry',
-				className
-			) }
+		<Button
+			variant="secondary"
+			className={ cx( '!rounded lg:max-w-[70%]', className ) }
 			onClick={ onClick }
-			role="button"
+			disabled={ disabled }
 		>
 			<div className="assistant-markdown flex items-center">
 				<span className={ cx( 'mr-2 w-4 h-4 flex items-center justify-center' ) }>
@@ -62,7 +64,7 @@ export const ExampleMessagePrompt = ( {
 				</span>
 				<p className="inline">{ children }</p>
 			</div>
-		</div>
+		</Button>
 	</div>
 );
 
@@ -71,6 +73,7 @@ const WelcomeComponent = ( {
 	showExamplePrompts,
 	messages,
 	examplePrompts,
+	disabled,
 }: WelcomeComponentProps ) => {
 	return (
 		<div>
@@ -89,6 +92,7 @@ const WelcomeComponent = ( {
 						key={ index }
 						className="example-prompt"
 						onClick={ () => onExampleClick( prompt ) }
+						disabled={ disabled }
 					>
 						{ prompt }
 					</ExampleMessagePrompt>

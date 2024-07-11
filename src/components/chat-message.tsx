@@ -71,9 +71,9 @@ export const ChatMessage = ( {
 		<div
 			className={ cx(
 				'flex mt-4',
-				message.role === 'user'
-					? 'justify-end ltr:md:ml-24 rtl:md:mr-24'
-					: 'justify-start ltr:md:mr-24 rtl:md:ml-24',
+				isUnauthenticated || message.role !== 'user'
+					? 'justify-start ltr:md:mr-24 rtl:md:ml-24'
+					: 'justify-end ltr:md:ml-24 rtl:md:mr-24',
 				className
 			) }
 		>
@@ -83,7 +83,6 @@ export const ChatMessage = ( {
 				data-testid="chat-message"
 				aria-labelledby={ id }
 				className={ cx(
-					'inline-block p-3 rounded border border-gray-300 overflow-x-auto select-text',
 					'inline-block p-3 rounded border overflow-x-auto select-text',
 					isUnauthenticated ? 'lg:max-w-[90%]' : 'lg:max-w-[70%]',
 					message.failedMessage

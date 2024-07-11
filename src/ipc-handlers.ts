@@ -679,7 +679,11 @@ export async function promptWindowsSpeedUpSites(
 	await windowsHelpers.promptWindowsSpeedUpSites( { skipIfAlreadyPrompted } );
 }
 
-export async function importSite( _event: IpcMainInvokeEvent, id: string, file: BackupArchieveInfo ) {
+export async function importSite(
+	_event: IpcMainInvokeEvent,
+	id: string,
+	file: BackupArchieveInfo
+) {
 	const site = SiteServer.get( id );
 	if ( ! site ) {
 		throw new Error( 'Site not found.' );

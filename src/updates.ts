@@ -108,6 +108,9 @@ export function setupUpdates() {
 export async function manualCheckForUpdates() {
 	if ( updaterState === 'waiting-for-restart' ) {
 		// Not a valid state to check for updatees, user should be manually restarting instead
+		// However, let's open the dialog to let them easily restart
+		console.log( 'Update has been already downloaded, proposing to restart again' );
+		await showUpdateReadyToInstallNotice();
 		return;
 	}
 

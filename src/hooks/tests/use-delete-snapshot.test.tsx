@@ -88,7 +88,7 @@ describe( 'useSnapshots (delete functionality)', () => {
 		const initialSnapshotsLength = result.current.snapshots.length;
 
 		await act( async () => {
-			await result.current.deleteSnapshot( mockSnapshots[ 0 ] );
+			await result.current.deleteSnapshot( mockSnapshots[ 0 ], false );
 		} );
 
 		await waitFor( () => {
@@ -143,7 +143,7 @@ describe( 'useSnapshots (delete functionality)', () => {
 		await waitFor( () => expect( result.current.initiated ).toBeTruthy() );
 
 		await act( async () => {
-			await result.current.deleteSnapshot( mockSnapshot );
+			await result.current.deleteSnapshot( mockSnapshot, false );
 		} );
 
 		act( () => {
@@ -159,7 +159,7 @@ describe( 'useSnapshots (delete functionality)', () => {
 		await waitFor( () => expect( result.current.initiated ).toBeTruthy() );
 
 		await act( async () => {
-			await result.current.deleteSnapshot( mockSnapshot );
+			await result.current.deleteSnapshot( mockSnapshot, false );
 			jest.advanceTimersByTime( 3000 );
 		} );
 

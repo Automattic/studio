@@ -7,7 +7,7 @@ export interface BackupContents {
 	metaFile?: string;
 }
 
-export interface BackupArchieveInfo {
+export interface BackupArchiveInfo {
 	path: string;
 	type: string;
 }

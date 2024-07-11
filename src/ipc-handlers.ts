@@ -21,7 +21,7 @@ import { isEmptyDir, pathExists, isWordPressDirectory, sanitizeFolderName } from
 import { getImageData } from './lib/get-image-data';
 import { importBackup } from './lib/import-export/import/importManager';
 import { allImporters } from './lib/import-export/import/importers';
-import { DbConfig, BackupArchieveInfo } from './lib/import-export/import/types';
+import { DbConfig, BackupArchiveInfo } from './lib/import-export/import/types';
 import { allValidators } from './lib/import-export/import/validators';
 import { isErrnoException } from './lib/is-errno-exception';
 import { isInstalled } from './lib/is-installed';
@@ -682,7 +682,7 @@ export async function promptWindowsSpeedUpSites(
 export async function importSite(
 	_event: IpcMainInvokeEvent,
 	id: string,
-	file: BackupArchieveInfo
+	file: BackupArchiveInfo
 ) {
 	const site = SiteServer.get( id );
 	if ( ! site ) {

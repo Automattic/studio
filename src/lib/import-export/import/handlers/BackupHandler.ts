@@ -4,15 +4,15 @@ import path from 'path';
 import zlib from 'zlib';
 import AdmZip from 'adm-zip';
 import * as tar from 'tar';
-import { BackupArchieveInfo } from '../types';
+import { BackupArchiveInfo } from '../types';
 
 export interface IBackupHandler {
-	listFiles( file: BackupArchieveInfo ): Promise< string[] >;
-	extractFiles( file: BackupArchieveInfo, extractionDirectory: string ): Promise< void >;
+	listFiles( file: BackupArchiveInfo ): Promise< string[] >;
+	extractFiles( file: BackupArchiveInfo, extractionDirectory: string ): Promise< void >;
 }
 
 export class BackupHandler implements IBackupHandler {
-	async listFiles( file: BackupArchieveInfo ): Promise< string[] > {
+	async listFiles( file: BackupArchiveInfo ): Promise< string[] > {
 		const ext = path.extname( file.path ).toLowerCase();
 		if ( file.type === 'application/gzip' && ext === '.gz' ) {
 			console.log( 'listing tar files' );
@@ -38,7 +38,7 @@ export class BackupHandler implements IBackupHandler {
 		return zip.getEntries().map( ( entry ) => entry.entryName );
 	}
 
-	async extractFiles( file: BackupArchieveInfo, extractionDirectory: string ): Promise< void > {
+	async extractFiles( file: BackupArchiveInfo, extractionDirectory: string ): Promise< void > {
 		await fsPromises.mkdir( extractionDirectory, { recursive: true } );
 
 		const ext = path.extname( file.path ).toLowerCase();

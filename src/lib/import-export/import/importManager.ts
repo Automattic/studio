@@ -23,7 +23,7 @@ function selectImporter(
 }
 
 export async function importBackup(
-	file: BackupArchieveInfo,
+	file: BackupArchiveInfo,
 	rootPath: string,
 	dbConfig: DbConfig,
 	validators: Validator[],

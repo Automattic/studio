@@ -151,9 +151,14 @@ function SnapshotRow( {
 						selectedSite={ selectedSite }
 						isSnapshotLoading={ snapshot.isLoading }
 						tagline={ __( "We're creating your new demo site." ) }
-						isExpired
-						onClearExpiredSite={ () => removeSnapshot( snapshot ) }
 					/>
+					<Button
+						aria-description={ __( 'Clear expired site' ) }
+						isDestructive
+						onClick={ () => removeSnapshot( snapshot ) }
+					>
+						{ __( 'Clear expired site' ) }
+					</Button>
 				</div>
 			</div>
 		);
@@ -377,8 +382,6 @@ function AddDemoSiteWithProgress( {
 	selectedSite,
 	className = '',
 	tagline = '',
-	isExpired,
-	onClearExpiredSite,
 }: {
 	isSnapshotLoading?: boolean;
 	selectedSite: SiteDetails;
@@ -458,15 +461,6 @@ function AddDemoSiteWithProgress( {
 							{ __( 'Add demo site' ) }
 						</Button>
 					</Tooltip>
-					{ isExpired && (
-						<Button
-							aria-description={ __( 'Clear expired site' ) }
-							isDestructive
-							onClick={ onClearExpiredSite }
-						>
-							{ __( 'Clear expired site' ) }
-						</Button>
-					) }
 				</div>
 			) }
 		</div>
@@ -477,7 +471,6 @@ export function ContentTabSnapshots( { selectedSite }: ContentTabSnapshotsProps 
 	const { __, _n } = useI18n();
 	const { snapshots } = useSiteDetails();
 	const { isAuthenticated } = useAuth();
-
 	if ( ! isAuthenticated ) {
 		return <NoAuth selectedSite={ selectedSite } />;
 	}

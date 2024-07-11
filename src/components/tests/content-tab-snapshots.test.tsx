@@ -390,6 +390,48 @@ describe( 'ContentTabSnapshots', () => {
 			} )
 		).toBeVisible();
 	} );
+
+	test( 'confirms that Clear expired site button is present on expired snapshot and calls removeSnapshot when clicked', async () => {
+		const user = userEvent.setup();
+		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
+
+		const dateMS = new Date().getTime() - 9 * 24 * 60 * 60 * 1000; // Set the snapshot to be created 9 days ago
+		const snapshot = {
+			url: 'fake-site.fake',
+			atomicSiteId: 150,
+			localSiteId: 'site-id-1',
+			date: dateMS,
+			deleted: false,
+		};
+		const removeSnapshot = jest.fn();
+		( useSiteDetails as jest.Mock ).mockReturnValue( {
+			snapshots: [ snapshot ],
+			uploadingSites: {},
+			removeSnapshot,
+		} );
+
+		const { rerender } = render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
+
+		const clearSnapshotsButton = await screen.findByRole( 'button', {
+			name: 'Clear expired site',
+		} );
+		expect( clearSnapshotsButton ).toBeInTheDocument();
+
+		await user.click( clearSnapshotsButton );
+		expect( removeSnapshot ).toHaveBeenCalledWith( snapshot );
+
+		( useSiteDetails as jest.Mock ).mockReturnValueOnce( {
+			snapshots: [],
+			uploadingSites: {},
+			removeSnapshot,
+		} );
+
+		rerender( <ContentTabSnapshots selectedSite={ selectedSite } /> );
+
+		await waitFor( () => {
+			expect( clearSnapshotsButton ).not.toBeInTheDocument();
+		} );
+	} );
 } );
 
 describe( 'AddDemoSiteWithProgress', () => {
@@ -473,47 +515,5 @@ describe( 'AddDemoSiteWithProgress', () => {
 			name: 'Creating a demo site requires an internet connection.',
 		} );
 		expect( offlineTooltip ).toBeVisible();
-	} );
-
-	test( 'confirms that Clear expired site button is present on expired snapshot and calls removeSnapshot when clicked', async () => {
-		const user = userEvent.setup();
-		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
-
-		const dateMS = new Date().getTime() - 9 * 24 * 60 * 60 * 1000; // Set the snapshot to be created 9 days ago
-		const snapshot = {
-			url: 'fake-site.fake',
-			atomicSiteId: 150,
-			localSiteId: 'site-id-1',
-			date: dateMS,
-			deleted: false,
-		};
-		const removeSnapshot = jest.fn();
-		( useSiteDetails as jest.Mock ).mockReturnValue( {
-			snapshots: [ snapshot ],
-			uploadingSites: {},
-			removeSnapshot,
-		} );
-
-		const { rerender } = render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
-
-		const clearSnapshotsButton = await screen.findByRole( 'button', {
-			name: 'Clear expired site',
-		} );
-		expect( clearSnapshotsButton ).toBeInTheDocument();
-
-		await user.click( clearSnapshotsButton );
-		expect( removeSnapshot ).toHaveBeenCalledWith( snapshot );
-
-		( useSiteDetails as jest.Mock ).mockReturnValueOnce( {
-			snapshots: [],
-			uploadingSites: {},
-			removeSnapshot,
-		} );
-
-		rerender( <ContentTabSnapshots selectedSite={ selectedSite } /> );
-
-		await waitFor( () => {
-			expect( clearSnapshotsButton ).not.toBeInTheDocument();
-		} );
 	} );
 } );

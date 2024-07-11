@@ -1,5 +1,5 @@
 // To run tests, execute `npm run test -- src/components/content-tab-snapshots.test.tsx` from the root directory
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { LIMIT_OF_ZIP_SITES_PER_USER } from '../../constants';
 import { useArchiveSite } from '../../hooks/use-archive-site';
@@ -480,22 +480,21 @@ describe( 'AddDemoSiteWithProgress', () => {
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
 
 		const dateMS = new Date().getTime() - 9 * 24 * 60 * 60 * 1000; // Set the snapshot to be created 9 days ago
+		const snapshot = {
+			url: 'fake-site.fake',
+			atomicSiteId: 150,
+			localSiteId: 'site-id-1',
+			date: dateMS,
+			deleted: false,
+		};
 		const removeSnapshot = jest.fn();
 		( useSiteDetails as jest.Mock ).mockReturnValue( {
-			snapshots: [
-				{
-					url: 'fake-site.fake',
-					atomicSiteId: 150,
-					localSiteId: 'site-id-1',
-					date: dateMS,
-					deleted: false,
-				},
-			],
+			snapshots: [ snapshot ],
 			uploadingSites: {},
 			removeSnapshot,
 		} );
 
-		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
+		const { rerender } = render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
 
 		const clearSnapshotsButton = await screen.findByRole( 'button', {
 			name: 'Clear expired site',
@@ -503,12 +502,18 @@ describe( 'AddDemoSiteWithProgress', () => {
 		expect( clearSnapshotsButton ).toBeInTheDocument();
 
 		await user.click( clearSnapshotsButton );
-		expect( removeSnapshot ).toHaveBeenCalledWith( {
-			url: 'fake-site.fake',
-			atomicSiteId: 150,
-			localSiteId: 'site-id-1',
-			date: dateMS,
-			deleted: false,
+		expect( removeSnapshot ).toHaveBeenCalledWith( snapshot );
+
+		( useSiteDetails as jest.Mock ).mockReturnValueOnce( {
+			snapshots: [],
+			uploadingSites: {},
+			removeSnapshot,
+		} );
+
+		rerender( <ContentTabSnapshots selectedSite={ selectedSite } /> );
+
+		await waitFor( () => {
+			expect( clearSnapshotsButton ).not.toBeInTheDocument();
 		} );
 	} );
 } );

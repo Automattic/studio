@@ -33,14 +33,17 @@ export class JetpackImporter implements Importer {
 		}
 	}
 
-	private async handleMetaFile(): Promise< void > {
+	private async handleMetaFile(): Promise< unknown > {
 		const metaFilePath = this.backup.metaFile;
 		if ( ! metaFilePath ) {
 			return;
 		}
-		const metaContent = await fsPromises.readFile( metaFilePath, 'utf-8' );
-		const meta = JSON.parse( metaContent );
-		console.log( 'Desired PHP version:', meta.phpVersion );
-		console.log( 'Desired WordPress version:', meta.wpVersion );
+		try {
+			const metaContent = await fsPromises.readFile( metaFilePath, 'utf-8' );
+			const meta = JSON.parse( metaContent );
+			return meta;
+		} catch ( e ) {
+			return {};
+		}
 	}
 }

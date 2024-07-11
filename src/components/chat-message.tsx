@@ -20,6 +20,7 @@ export interface ChatMessageProps {
 		time: string
 	) => void;
 	isUnauthenticated?: boolean;
+	failedMessage?: boolean;
 }
 
 export const MarkDownWithCode = ( {

@@ -126,6 +126,77 @@ npm install
 npm run make
 ```
 
+### Linux
+
+While not officially supported yet, Linux builds can be created using the instructions provided above. Here's a more detailed guide for Linux users:
+
+1. **Building the Application**
+
+   Follow these steps to build the application on Linux:
+
+   ```bash
+   npm install
+   npm run make
+   ```
+
+   After the build process completes, you'll find a folder named `Studio-linux-x64` under the `out/` directory.
+
+2. **Running the Application**
+
+   To run the executable, navigate to the `Studio-linux-x64` directory and use the following command:
+
+   ```bash
+   ./studio
+   ```
+
+3. **Creating a Desktop Entry**
+
+   To integrate the application with your Linux desktop environment, you can create a desktop entry file. This allows you to launch the application from your system's application menu and associate it with specific file types or protocols.
+
+   Create a new file named `studio.desktop` in the `~/.local/share/applications/` directory:
+
+   ```bash
+   mkdir -p ~/.local/share/applications
+   nano ~/.local/share/applications/studio.desktop
+   ```
+
+   Paste the following content into the file, making sure to replace `<absolute-path-to-repo>` with the actual path to your project repository:
+
+   ```
+   [Desktop Entry]
+   Name=Studio By WordPress.com
+   Comment=WordPress.com Studio Development Version
+   Exec=<absolute-path-to-repo>/out/Studio-linux-x64/studio %U
+   Icon=<absolute-path-to-repo>/assets/icon.png
+   Type=Application
+   Terminal=false
+   MimeType=x-scheme-handler/wpcom-local-dev;
+   Categories=Development;
+   ```
+
+   Save the file and exit the text editor.
+
+4. **Updating the Desktop Database**
+
+   After creating the desktop entry, update the desktop database to ensure the new entry is recognized:
+
+   ```bash
+   update-desktop-database ~/.local/share/applications
+   ```
+
+5. **Troubleshooting**
+
+   - For systems using Wayland, you may need to set the `--enable-features=UseOzonePlatform --ozone-platform=wayland`
+     flag when running the application.
+
+6. **Known Limitations**
+
+   - Some features may not work as expected on Linux due to platform-specific implementations.
+   - The auto-update feature is not currently supported on Linux builds.
+
+Please note that while these instructions should work for most Linux distributions, you
+may need to adjust them based on your specific setup or distribution.
+
 ## Localization
 
 See [Localization](./localization.md) documentation.

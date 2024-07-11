@@ -4,7 +4,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useState, createContext, useContext, useMemo, ReactNode } from 'react';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { useAuth } from './use-auth';
-import { useSiteDetails } from './use-site-details';
+import { useSnapshots } from './use-snapshots';
 
 interface DemoSiteUpdateContextType {
 	updateDemoSite: ( snapshot: Snapshot, localSite: SiteDetails ) => Promise< void >;
@@ -24,7 +24,7 @@ export const DemoSiteUpdateProvider: React.FC< DemoSiteUpdateProviderProps > = (
 	const { client } = useAuth();
 	const { __ } = useI18n();
 	const [ isDemoSiteUpdating, setDemoSiteUpdating ] = useState( false );
-	const { updateSnapshot } = useSiteDetails();
+	const { updateSnapshot } = useSnapshots();
 
 	const updateDemoSite = useCallback(
 		async ( snapshot: Snapshot, localSite: SiteDetails ) => {

@@ -1,13 +1,15 @@
-// To run tests, execute `npm run test -- src/components/content-tab-settings.test.tsx` from the root directory
+// To run tests, execute `npm run test -- src/components/tests/content-tab-settings.test.tsx` from the root directory
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { useGetWpVersion } from '../../hooks/use-get-wp-version';
 import { useOffline } from '../../hooks/use-offline';
 import { useSiteDetails } from '../../hooks/use-site-details';
+import { useSnapshots } from '../../hooks/use-snapshots';
 import { getIpcApi } from '../../lib/get-ipc-api';
 import { ContentTabSettings } from '../content-tab-settings';
 
 jest.mock( '../../hooks/use-get-wp-version' );
+jest.mock( '../../hooks/use-snapshots' );
 jest.mock( '../../hooks/use-site-details' );
 jest.mock( '../../lib/get-ipc-api' );
 
@@ -34,9 +36,12 @@ describe( 'ContentTabSettings', () => {
 			generateProposedSitePath,
 		} );
 
+		( useSnapshots as jest.Mock ).mockReturnValue( {
+			snapshots: [],
+		} );
+
 		( useSiteDetails as jest.Mock ).mockReturnValue( {
 			selectedSite,
-			snapshots: [],
 			uploadingSites: {},
 			deleteSite: jest.fn(),
 			isDeleting: false,
@@ -117,9 +122,11 @@ describe( 'ContentTabSettings', () => {
 		( useOffline as jest.Mock ).mockReturnValue( true );
 
 		// Mock snapshots to include a snapshot for the selected site
+		( useSnapshots as jest.Mock ).mockReturnValue( {
+			snapshots: [ { localSiteId: selectedSite.id } ],
+		} );
 		( useSiteDetails as jest.Mock ).mockReturnValue( {
 			selectedSite: selectedSite,
-			snapshots: [ { localSiteId: selectedSite.id } ],
 			deleteSite: jest.fn(),
 			isDeleting: false,
 		} );
@@ -157,10 +164,14 @@ describe( 'ContentTabSettings', () => {
 			const updateSite = jest.fn();
 			const startServer = jest.fn();
 			const stopServer = jest.fn();
+
+			( useSnapshots as jest.Mock ).mockReturnValue( {
+				snapshots: [ { localSiteId: selectedSite.id } ],
+			} );
+
 			// Mock snapshots to include a snapshot for the selected site
 			( useSiteDetails as jest.Mock ).mockReturnValue( {
 				selectedSite: { ...selectedSite, running: false } as SiteDetails,
-				snapshots: [ { localSiteId: selectedSite.id } ],
 				updateSite,
 				startServer,
 				stopServer,
@@ -197,9 +208,11 @@ describe( 'ContentTabSettings', () => {
 			const startServer = jest.fn();
 			const stopServer = jest.fn();
 			// Mock snapshots to include a snapshot for the selected site
+			( useSnapshots as jest.Mock ).mockReturnValue( {
+				snapshots: [ { localSiteId: selectedSite.id } ],
+			} );
 			( useSiteDetails as jest.Mock ).mockReturnValue( {
 				selectedSite: { ...selectedSite, running: true } as SiteDetails,
-				snapshots: [ { localSiteId: selectedSite.id } ],
 				updateSite,
 				startServer,
 				stopServer,

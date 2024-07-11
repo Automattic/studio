@@ -1,7 +1,7 @@
 import * as Sentry from '@sentry/electron/renderer';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { LIMIT_ARCHIVE_SIZE } from '../constants';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { isWpcomNetworkError } from '../lib/is-wpcom-network-error';
@@ -19,6 +19,7 @@ export function useArchiveSite() {
 	);
 	const { client } = useAuth();
 	const { __ } = useI18n();
+	const [ archiveError, setArchiveError ] = useState< string | null >( null );
 
 	useEffect( () => {
 		if ( ! client ) {
@@ -114,6 +115,7 @@ export function useArchiveSite() {
 					date: new Date().getTime(),
 					isLoading: true,
 				} );
+				setArchiveError( null );
 			} catch ( error ) {
 				if ( isWpcomNetworkError( error ) ) {
 					if ( error.code in errorMessages ) {
@@ -124,9 +126,11 @@ export function useArchiveSite() {
 					if ( error.code !== 'rest_site_limit_reached' ) {
 						Sentry.captureException( error );
 					}
+					setArchiveError( error.code );
 				} else {
 					alert( __( 'Error sharing site. Please contact support.' ) );
 					Sentry.captureException( error );
+					setArchiveError( 'error' );
 				}
 			} finally {
 				setUploadingSites( ( _uploadingSites ) => ( { ..._uploadingSites, [ siteId ]: false } ) );
@@ -144,5 +148,6 @@ export function useArchiveSite() {
 		archiveSite,
 		isUploadingSiteId,
 		isAnySiteArchiving,
+		archiveError,
 	};
 }

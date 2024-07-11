@@ -15,7 +15,6 @@ export class BackupHandler implements IBackupHandler {
 	async listFiles( file: BackupArchiveInfo ): Promise< string[] > {
 		const ext = path.extname( file.path ).toLowerCase();
 		if ( file.type === 'application/gzip' && ext === '.gz' ) {
-			console.log( 'listing tar files' );
 			return this.listTarGzContents( file.path );
 		} else if ( file.type === 'application/zip' && ext === '.zip' ) {
 			return this.listZipContents( file.path );

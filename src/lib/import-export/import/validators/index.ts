@@ -1,5 +1,5 @@
-import { JetpackValidator } from './jetpack-validator';
 import { Validator } from './Validator';
+import { JetpackValidator } from './jetpack-validator';
 
 export * from './Validator';
 export * from './jetpack-validator';

@@ -1,10 +1,10 @@
 import path from 'path';
 import { BackupHandler } from './handlers/BackupHandler';
 import { Importer } from './importers/Importer';
-import { BackupArchieveInfo, DbConfig, BackupContents } from './types';
+import { BackupArchiveInfo, DbConfig, BackupContents } from './types';
 import { Validator } from './validators/Validator';
 
-function selectImporter(
+export function selectImporter(
 	allFiles: string[],
 	extractionDirectory: string,
 	validators: Validator[],

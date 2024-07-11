@@ -1,5 +1,5 @@
 import path from 'path';
-import { BackupHandler } from './handlers/BackupHandler';
+import { BackupHandler } from './handlers/backup-handler';
 import { Importer } from './importers/Importer';
 import { BackupArchiveInfo, DbConfig, BackupContents } from './types';
 import { Validator } from './validators/Validator';

@@ -38,8 +38,8 @@ const api: IpcApi = {
 	getThemeDetails: ( id: string ) => ipcRenderer.invoke( 'getThemeDetails', id ),
 	getThumbnailData: ( id: string ) => ipcRenderer.invoke( 'getThumbnailData', id ),
 	getInstalledApps: () => ipcRenderer.invoke( 'getInstalledApps' ),
-	importSite: ( id: string, backupFile: BackupArchiveInfo ) =>
-		ipcRenderer.invoke( 'importSite', id, backupFile ),
+	importSite: ( { id, backupFile }: { id: string; backupFile: BackupArchiveInfo } ) =>
+		ipcRenderer.invoke( 'importSite', { id, backupFile } ),
 	executeWPCLiInline: ( options: { siteId: string; args: string } ) =>
 		ipcRenderer.invoke( 'executeWPCLiInline', options ),
 	getOnboardingData: () => ipcRenderer.invoke( 'getOnboardingData' ),

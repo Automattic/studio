@@ -1,5 +1,5 @@
 // To run tests, execute `npm run test -- src/lib/tests/import-export/import/validators/jetpack-validator.test.ts
-import { JetpackValidator } from '../../../../import-export/import/validators/JetpackValidator';
+import { JetpackValidator } from '../../../../import-export/import/validators/jetpack-validator';
 
 describe( 'JetpackValidator', () => {
 	const validator = new JetpackValidator();

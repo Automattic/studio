@@ -1,12 +1,12 @@
 // To run tests, execute `npm run test -- src/lib/tests/import-export/import/import-manager.test.ts``
 import path from 'path';
-import { BackupHandler } from '../../../import-export/import/handlers/BackupHandler';
-import { selectImporter, importBackup } from '../../../import-export/import/importManager';
+import { BackupHandler } from '../../../import-export/import/handlers/backup-handler';
+import { selectImporter, importBackup } from '../../../import-export/import/import-manager';
 import { Importer } from '../../../import-export/import/importers/Importer';
 import { BackupContents, BackupArchiveInfo, DbConfig } from '../../../import-export/import/types';
 import { Validator } from '../../../import-export/import/validators/Validator';
 
-jest.mock( '../../../import-export/import/handlers/BackupHandler' );
+jest.mock( '../../../import-export/import/handlers/backup-handler' );
 jest.mock( 'path' );
 
 describe( 'importManager', () => {

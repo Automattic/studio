@@ -22,6 +22,7 @@ const supportedLocales = [
 	'ru',
 	'sv',
 	'tr',
+	'vi',
 	'zh-cn',
 	'zh-tw',
 ];

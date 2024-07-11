@@ -5,13 +5,11 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useState, useEffect } from 'react';
 import { LIMIT_OF_PROMPTS_PER_USER, WPCOM_PROFILE_URL } from '../constants';
 import { useAuth } from '../hooks/use-auth';
-import { useDeleteSnapshot } from '../hooks/use-delete-snapshot';
 import { useFeatureFlags } from '../hooks/use-feature-flags';
-import { useFetchSnapshots } from '../hooks/use-fetch-snapshots';
 import { useIpcListener } from '../hooks/use-ipc-listener';
 import { useOffline } from '../hooks/use-offline';
 import { usePromptUsage } from '../hooks/use-prompt-usage';
-import { useSiteUsage } from '../hooks/use-site-usage';
+import { useSnapshots } from '../hooks/use-snapshots';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
@@ -172,11 +170,15 @@ export default function UserSettings() {
 	const { __ } = useI18n();
 	const [ deletedAllSnapshots, setDeletedAllSnapshots ] = useState( false );
 	const { isAuthenticated, authenticate, logout, user } = useAuth();
-	const { siteLimit, siteCount, isLoading: isLoadingSiteUsage } = useSiteUsage();
-	const { allSnapshots, isLoading: isLoadingAllSnapshots } = useFetchSnapshots();
-	const { deleteAllSnapshots, loadingDeletingAllSnapshots } = useDeleteSnapshot( {
-		displayAlert: true,
-	} );
+	const {
+		allSnapshots,
+		activeSnapshotCount,
+		snapshotQuota,
+		isLoadingSnapshotUsage,
+		loadingDeletingAllSnapshots,
+		deleteAllSnapshots,
+		loadingServerSnapshots: isLoadingAllSnapshots,
+	} = useSnapshots();
 	const [ needsToOpenUserSettings, setNeedsToOpenUserSettings ] = useState( false );
 
 	const isOffline = useOffline();
@@ -256,15 +258,15 @@ export default function UserSettings() {
 								<SnapshotInfo
 									isDeleting={ loadingDeletingAllSnapshots }
 									isDisabled={
-										siteCount === 0 ||
+										activeSnapshotCount === 0 ||
 										loadingDeletingAllSnapshots ||
 										isLoadingAllSnapshots ||
-										isLoadingSiteUsage ||
+										isLoadingSnapshotUsage ||
 										allSnapshots?.length === 0 ||
 										isOffline
 									}
-									siteCount={ siteCount }
-									siteLimit={ siteLimit }
+									siteCount={ activeSnapshotCount }
+									siteLimit={ snapshotQuota }
 									onRemoveSnapshots={ onRemoveSnapshots }
 								/>
 								<PromptInfo />

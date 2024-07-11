@@ -3,10 +3,10 @@ import { act, renderHook } from '@testing-library/react';
 import { ReactNode } from 'react';
 import { getIpcApi } from '../../lib/get-ipc-api';
 import { useAuth } from '../use-auth';
-import { useSiteDetails } from '../use-site-details';
+import { useSnapshots } from '../use-snapshots';
 import { useUpdateDemoSite, DemoSiteUpdateProvider } from '../use-update-demo-site';
 
-jest.mock( '../../hooks/use-site-details' );
+jest.mock( '../../hooks/use-snapshots' );
 jest.mock( '../../hooks/use-auth' );
 jest.mock( '../../lib/get-ipc-api', () => ( {
 	getIpcApi: jest.fn().mockReturnValue( {
@@ -61,8 +61,7 @@ describe( 'useUpdateDemoSite', () => {
 			},
 		} ) );
 
-		( useSiteDetails as jest.Mock ).mockImplementation( () => ( {
-			snapshots: [ mockSnapshot ],
+		( useSnapshots as jest.Mock ).mockImplementation( () => ( {
 			updateSnapshot: updateSnapshotMock,
 		} ) );
 	} );

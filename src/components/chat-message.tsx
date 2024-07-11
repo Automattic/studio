@@ -83,7 +83,6 @@ export const ChatMessage = ( {
 				data-testid="chat-message"
 				aria-labelledby={ id }
 				className={ cx(
-					'inline-block p-3 rounded border border-gray-300 overflow-x-auto select-text',
 					'inline-block p-3 rounded border overflow-x-auto select-text',
 					isUnauthenticated ? 'lg:max-w-[90%]' : 'lg:max-w-[70%]',
 					message.failedMessage

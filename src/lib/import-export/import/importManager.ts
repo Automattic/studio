@@ -1,12 +1,12 @@
 import path from 'path';
 import { BackupHandler } from './handlers/BackupHandler';
 import { Importer } from './importers/Importer';
-import { FileInput, DbConfig, BackupContents } from './types';
+import { BackupArchieveInfo, DbConfig, BackupContents } from './types';
 import { Validator } from './validators/Validator';
 
 function selectImporter(
 	allFiles: string[],
-	extractDir: string,
+	extractionDirectory: string,
 	validators: Validator[],
 	importers: { [ key: string ]: new ( backup: BackupContents ) => Importer }
 ): Importer | null {
@@ -14,7 +14,7 @@ function selectImporter(
 		if ( validator.canHandle( allFiles ) ) {
 			const importerClass = importers[ validator.constructor.name ];
 			if ( importerClass ) {
-				const files = validator.getBackup( allFiles, extractDir );
+				const files = validator.parseBackupContents( allFiles, extractionDirectory );
 				return new importerClass( files );
 			}
 		}
@@ -23,7 +23,7 @@ function selectImporter(
 }
 
 export async function importBackup(
-	file: FileInput,
+	file: BackupArchieveInfo,
 	rootPath: string,
 	dbConfig: DbConfig,
 	validators: Validator[],

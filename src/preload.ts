@@ -3,7 +3,7 @@
 
 import '@sentry/electron/preload';
 import { contextBridge, ipcRenderer } from 'electron';
-import { FileInput } from './lib/import-export/import/types';
+import { BackupArchieveInfo } from './lib/import-export/import/types';
 import { promptWindowsSpeedUpSites } from './lib/windows-helpers';
 import type { LogLevel } from './logging';
 
@@ -38,6 +38,8 @@ const api: IpcApi = {
 	getThemeDetails: ( id: string ) => ipcRenderer.invoke( 'getThemeDetails', id ),
 	getThumbnailData: ( id: string ) => ipcRenderer.invoke( 'getThumbnailData', id ),
 	getInstalledApps: () => ipcRenderer.invoke( 'getInstalledApps' ),
+	importSite: ( id: string, backupFile: BackupArchieveInfo ) =>
+		ipcRenderer.invoke( 'importSite', id, backupFile ),
 	executeWPCLiInline: ( options: { siteId: string; args: string } ) =>
 		ipcRenderer.invoke( 'executeWPCLiInline', options ),
 	getOnboardingData: () => ipcRenderer.invoke( 'getOnboardingData' ),
@@ -55,7 +57,6 @@ const api: IpcApi = {
 	popupAppMenu: () => ipcRenderer.invoke( 'popupAppMenu' ),
 	promptWindowsSpeedUpSites: ( ...args: Parameters< typeof promptWindowsSpeedUpSites > ) =>
 		ipcRenderer.invoke( 'promptWindowsSpeedUpSites', ...args ),
-	importSite: ( id: string, file: FileInput ) => ipcRenderer.invoke( 'importSite', id, file ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

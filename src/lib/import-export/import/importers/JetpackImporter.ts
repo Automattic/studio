@@ -19,13 +19,13 @@ export class JetpackImporter implements Importer {
 	}
 
 	private async importWpContent( rootPath: string ): Promise< void > {
-		const extractedPath = this.backup.extractedPath;
+		const extractionDirectory = this.backup.extractionDirectory;
 		const wpContent = this.backup.wpContent;
 		const wpContentDir = path.join( rootPath, 'wp-content' );
 
 		for ( const files of Object.values( wpContent ) ) {
 			for ( const file of files ) {
-				const relativePath = path.relative( path.join( extractedPath, 'wp-content' ), file );
+				const relativePath = path.relative( path.join( extractionDirectory, 'wp-content' ), file );
 				const destPath = path.join( wpContentDir, relativePath );
 				await fsPromises.mkdir( path.dirname( destPath ), { recursive: true } );
 				await fsPromises.copyFile( file, destPath );

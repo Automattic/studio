@@ -1,5 +1,5 @@
 export interface BackupContents {
-	extractedPath: string;
+	extractionDirectory: string;
 	sqlFiles: string[];
 	wpContent: {
 		[ key: string ]: string[]; // 'uploads', 'plugins', 'themes'
@@ -7,7 +7,7 @@ export interface BackupContents {
 	metaFile?: string;
 }
 
-export interface FileInput {
+export interface BackupArchieveInfo {
 	path: string;
 	type: string;
 }

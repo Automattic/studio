@@ -11,9 +11,9 @@ export class JetpackValidator implements Validator {
 		);
 	}
 
-	getBackup( fileList: string[], extractedDir: string ): BackupContents {
+	parseBackupContents( fileList: string[], extractionDirectory: string ): BackupContents {
 		const extractedBackup: BackupContents = {
-			extractedPath: extractedDir,
+			extractionDirectory: extractionDirectory,
 			sqlFiles: [],
 			wpContent: {
 				uploads: [],
@@ -32,7 +32,7 @@ export class JetpackValidator implements Validator {
 			// Ignore wp-config.php
 			if ( file === 'wp-config.php' ) continue;
 
-			const fullPath = path.join( extractedDir, file );
+			const fullPath = path.join( extractionDirectory, file );
 
 			if ( file.startsWith( 'sql/' ) && file.endsWith( '.sql' ) ) {
 				extractedBackup.sqlFiles.push( fullPath );

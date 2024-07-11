@@ -4,15 +4,15 @@ import path from 'path';
 import zlib from 'zlib';
 import AdmZip from 'adm-zip';
 import * as tar from 'tar';
-import { FileInput } from '../types';
+import { BackupArchieveInfo } from '../types';
 
 export interface IBackupHandler {
-	listFiles( file: FileInput ): Promise< string[] >;
-	extractFiles( file: FileInput, extractDir: string ): Promise< void >;
+	listFiles( file: BackupArchieveInfo ): Promise< string[] >;
+	extractFiles( file: BackupArchieveInfo, extractionDirectory: string ): Promise< void >;
 }
 
 export class BackupHandler implements IBackupHandler {
-	async listFiles( file: FileInput ): Promise< string[] > {
+	async listFiles( file: BackupArchieveInfo ): Promise< string[] > {
 		const ext = path.extname( file.path ).toLowerCase();
 		if ( file.type === 'application/gzip' && ext === '.gz' ) {
 			console.log( 'listing tar files' );
@@ -38,31 +38,31 @@ export class BackupHandler implements IBackupHandler {
 		return zip.getEntries().map( ( entry ) => entry.entryName );
 	}
 
-	async extractFiles( file: FileInput, extractDir: string ): Promise< void > {
-		await fsPromises.mkdir( extractDir, { recursive: true } );
+	async extractFiles( file: BackupArchieveInfo, extractionDirectory: string ): Promise< void > {
+		await fsPromises.mkdir( extractionDirectory, { recursive: true } );
 
 		const ext = path.extname( file.path ).toLowerCase();
 		if ( file.type === 'application/gzip' && ext === '.gz' ) {
-			await this.extractTarGz( file.path, extractDir );
+			await this.extractTarGz( file.path, extractionDirectory );
 		} else if ( file.type === 'application/zip' && ext === '.zip' ) {
-			await this.extractZip( file.path, extractDir );
+			await this.extractZip( file.path, extractionDirectory );
 		}
 	}
 
-	private async extractTarGz( filePath: string, extractDir: string ): Promise< void > {
+	private async extractTarGz( filePath: string, extractionDirectory: string ): Promise< void > {
 		return new Promise< void >( ( resolve, reject ) => {
 			fs.createReadStream( filePath )
 				.pipe( zlib.createGunzip() )
-				.pipe( tar.extract( { cwd: extractDir } ) )
+				.pipe( tar.extract( { cwd: extractionDirectory } ) )
 				.on( 'finish', resolve )
 				.on( 'error', reject );
 		} );
 	}
 
-	private extractZip( filePath: string, extractDir: string ): Promise< void > {
+	private extractZip( filePath: string, extractionDirectory: string ): Promise< void > {
 		return new Promise( ( resolve, reject ) => {
 			const zip = new AdmZip( filePath );
-			zip.extractAllToAsync( extractDir, true, undefined, ( error?: Error ) => {
+			zip.extractAllToAsync( extractionDirectory, true, undefined, ( error?: Error ) => {
 				if ( error ) {
 					reject( error );
 				}

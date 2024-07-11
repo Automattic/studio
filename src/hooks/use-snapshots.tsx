@@ -36,6 +36,7 @@ interface SnapshotContextType {
 	fetchSnapshotUsage: () => Promise< { site_limit: number; site_count: number } | undefined >;
 	isLoadingSnapshotUsage: boolean;
 	initiated: boolean;
+	snapshotCreationBlocked: boolean;
 }
 
 export enum SnapshotStatus {
@@ -76,6 +77,7 @@ export const SnapshotContext = createContext< SnapshotContextType >( {
 	fetchSnapshotUsage: async () => undefined,
 	isLoadingSnapshotUsage: false,
 	initiated: false,
+	snapshotCreationBlocked: false,
 } );
 
 export const SnapshotProvider: React.FC< { children: ReactNode } > = ( { children } ) => {
@@ -90,6 +92,8 @@ export const SnapshotProvider: React.FC< { children: ReactNode } > = ( { childre
 	);
 	const [ snapshotQuota, setSnapshotQuota ] = useState( LIMIT_OF_ZIP_SITES_PER_USER );
 	const [ isLoadingSnapshotUsage, setIsLoadingSnapshotUsage ] = useState( false );
+	const [ snapshotCreationBlocked, setSnapshotCreationBlocked ] = useState( false );
+
 	const { client } = useAuth();
 	const isOffline = useOffline();
 	const { __ } = useI18n();
@@ -280,10 +284,11 @@ export const SnapshotProvider: React.FC< { children: ReactNode } > = ( { childre
 		}
 		setIsLoading( true );
 		try {
-			const response: { site_count: number; site_limit: number } = await client.req.get( {
-				path: '/jurassic-ninja/usage',
-				apiNamespace: 'wpcom/v2',
-			} );
+			const response: { site_count: number; site_limit: number; site_creation_blocked: boolean } =
+				await client.req.get( {
+					path: '/jurassic-ninja/usage',
+					apiNamespace: 'wpcom/v2',
+				} );
 			return response;
 		} catch ( error ) {
 			Sentry.captureException( error );
@@ -313,9 +318,10 @@ export const SnapshotProvider: React.FC< { children: ReactNode } > = ( { childre
 				setSnapshotQuota( LIMIT_OF_ZIP_SITES_PER_USER );
 				return;
 			}
-			const { site_count, site_limit } = response;
+			const { site_count, site_limit, site_creation_blocked } = response;
 			setActiveSnapshotCount( site_count );
 			setSnapshotQuota( site_limit );
+			setSnapshotCreationBlocked( site_creation_blocked );
 		};
 		fetchStats();
 	}, [ client, fetchSnapshotUsage, initiated, snapshots.length ] );
@@ -339,25 +345,27 @@ export const SnapshotProvider: React.FC< { children: ReactNode } > = ( { childre
 			fetchSnapshotUsage,
 			isLoadingSnapshotUsage,
 			initiated,
+			snapshotCreationBlocked,
 		} ),
 		[
-			activeSnapshotCount,
-			addSnapshot,
-			clearFloatingSnapshots,
-			deleteAllSnapshots,
-			deleteSnapshot,
-			fetchAllSnapshots,
-			fetchSnapshotUsage,
-			isLoading,
-			isLoadingSnapshotUsage,
-			loadingDeletingAllSnapshots,
-			loadingServerSnapshots,
-			removeSnapshot,
-			snapshotQuota,
 			snapshots,
 			allSnapshots,
+			addSnapshot,
 			updateSnapshot,
+			removeSnapshot,
+			fetchAllSnapshots,
+			deleteSnapshot,
+			deleteAllSnapshots,
+			clearFloatingSnapshots,
+			isLoading,
+			loadingDeletingAllSnapshots,
+			loadingServerSnapshots,
+			activeSnapshotCount,
+			snapshotQuota,
+			fetchSnapshotUsage,
+			isLoadingSnapshotUsage,
 			initiated,
+			snapshotCreationBlocked,
 		]
 	);
 

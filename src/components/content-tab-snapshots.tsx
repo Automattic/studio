@@ -379,9 +379,10 @@ function AddDemoSiteWithProgress( {
 	tagline?: string;
 } ) {
 	const { __, _n } = useI18n();
-	const { archiveSite, isUploadingSiteId, isAnySiteArchiving, archiveError } = useArchiveSite();
+	const { archiveSite, isUploadingSiteId, isAnySiteArchiving } = useArchiveSite();
 	const isUploading = isUploadingSiteId( selectedSite.id );
-	const { activeSnapshotCount, snapshotQuota, isLoadingSnapshotUsage } = useSnapshots();
+	const { activeSnapshotCount, snapshotQuota, isLoadingSnapshotUsage, snapshotCreationBlocked } =
+		useSnapshots();
 	const isLimitUsed = activeSnapshotCount >= snapshotQuota;
 	const isOffline = useOffline();
 	const { progress, setProgress } = useProgressTimer( {
@@ -396,15 +397,13 @@ function AddDemoSiteWithProgress( {
 		}
 	}, [ isSnapshotLoading, setProgress ] );
 
-	const isUserBlocked = archiveError === 'rest_site_creation_blocked';
-
 	const isDisabled =
 		isAnySiteArchiving ||
 		isUploading ||
 		isLoadingSnapshotUsage ||
 		isLimitUsed ||
 		isOffline ||
-		isUserBlocked;
+		snapshotCreationBlocked;
 	const siteArchivingMessage = __(
 		'A different demo site is being created. Please wait for it to finish before creating another.'
 	);
@@ -429,7 +428,7 @@ function AddDemoSiteWithProgress( {
 		tooltipContent = { text: allotmentConsumptionMessage };
 	} else if ( isAnySiteArchiving ) {
 		tooltipContent = { text: siteArchivingMessage };
-	} else if ( isUserBlocked ) {
+	} else if ( snapshotCreationBlocked ) {
 		tooltipContent = { text: userBlockedMessage };
 	}
 

@@ -8,14 +8,7 @@ import { isWpcomNetworkError } from '../lib/is-wpcom-network-error';
 import { useArchiveErrorMessages } from './use-archive-error-messages';
 import { useAuth } from './use-auth';
 import { useSiteDetails } from './use-site-details';
-import { useSnapshots } from './use-snapshots';
-
-interface SnapshotStatusResponse {
-	is_deleted: string;
-	domain_name: string;
-	atomic_site_id: string;
-	status: '1' | '2';
-}
+import { SnapshotStatus, SnapshotStatusResponse, useSnapshots } from './use-snapshots';
 
 export function useArchiveSite() {
 	const { uploadingSites, setUploadingSites } = useSiteDetails();
@@ -48,7 +41,7 @@ export function useArchiveSite() {
 								site_id: snapshot.atomicSiteId,
 							}
 						);
-						if ( parseInt( response.status ) === 2 ) {
+						if ( response.status === SnapshotStatus.Active ) {
 							updateSnapshot( {
 								...snapshot,
 								isLoading: false,

@@ -38,11 +38,16 @@ interface SnapshotContextType {
 	initiated: boolean;
 }
 
+export enum SnapshotStatus {
+	Deleted = '1',
+	Active = '2',
+}
+
 export interface SnapshotStatusResponse {
 	is_deleted: string;
 	domain_name: string;
 	atomic_site_id: string;
-	status: '1' | '2';
+	status: SnapshotStatus;
 }
 
 interface FetchSnapshotResponse {
@@ -129,7 +134,7 @@ export const SnapshotProvider: React.FC< { children: ReactNode } > = ( { childre
 							apiNamespace: 'wpcom/v2',
 							site_id: snapshot.atomicSiteId,
 						} );
-						if ( parseInt( resp.is_deleted ) === 1 ) {
+						if ( resp.is_deleted === SnapshotStatus.Deleted ) {
 							removeSnapshot( snapshot );
 						}
 					} catch ( error ) {
@@ -187,14 +192,6 @@ export const SnapshotProvider: React.FC< { children: ReactNode } > = ( { childre
 			clearFloatingSnapshots( allSnapshots );
 		}
 	}, [ allSnapshots, clearFloatingSnapshots, initiated, loadingServerSnapshots ] );
-
-	// Save snapshots to storage when they change
-	useEffect( () => {
-		if ( ! initiated ) {
-			return;
-		}
-		getIpcApi().saveSnapshotsToStorage( snapshots );
-	}, [ snapshots, initiated ] );
 
 	const fetchAllSnapshots = useCallback( async () => {
 		if ( ! client?.req || isOffline || ! initiated ) {

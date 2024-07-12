@@ -235,7 +235,7 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 				<h2 className="mb-3 a8c-subtitle-small">{ __( 'Theme' ) }</h2>
 				<div
 					className={ cx(
-						'w-full min-h-40 max-h-60 overflow-hidden rounded-sm border border-a8c-gray-5 bg-a8c-gray-0 mb-2 flex items-center justify-center',
+						'w-full min-h-40 max-h-64 rounded-sm border border-a8c-gray-5 bg-a8c-gray-0 mb-2 flex justify-center',
 						loading && skeletonBg,
 						isThumbnailError && 'border-none',
 						siteRunning && 'hover:border-a8c-blueberry duration-300'
@@ -249,7 +249,7 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 					{ ! loading && siteRunning && (
 						<button
 							aria-label={ __( 'Open Site' ) }
-							className={ cx( `relative group` ) }
+							className={ cx( `relative group focus-visible:outline-a8c-blueberry` ) }
 							onClick={ () => getIpcApi().openSiteURL( selectedSite.id ) }
 						>
 							<div

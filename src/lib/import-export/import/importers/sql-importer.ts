@@ -1,7 +1,7 @@
 import { BackupContents } from '../types';
 import { DefaultImporter } from './Importer';
 
-export class JetpackImporter extends DefaultImporter {
+export class SqlImporter extends DefaultImporter {
 	constructor( backup: BackupContents ) {
 		super( backup );
 	}

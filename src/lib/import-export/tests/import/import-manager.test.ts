@@ -2,16 +2,15 @@
 import fsPromises from 'fs/promises';
 import os from 'os';
 import path from 'path';
-import { BackupHandler } from '../../import/handlers/backup-handler';
+import { BackupHandlerFactory } from '../../import/handlers/backup-handler-factory';
 import { selectImporter, importBackup } from '../../import/import-manager';
 import { Importer } from '../../import/importers/Importer';
 import { BackupContents, BackupArchiveInfo } from '../../import/types';
 import { Validator } from '../../import/validators/Validator';
 
-jest.mock( '../../import/handlers/backup-handler' );
+jest.mock( '../../import/handlers/backup-handler-factory' );
 jest.mock( 'fs/promises' );
 jest.mock( 'os' );
-
 jest.mock( 'path' );
 
 describe( 'importManager', () => {
@@ -81,7 +80,7 @@ describe( 'importManager', () => {
 				parseBackupContents: jest.fn().mockReturnValue( {} as BackupContents ),
 			};
 			const mockImporter: Importer = {
-				import: jest.fn().mockResolvedValue( undefined ),
+				import: jest.fn().mockResolvedValue( {} ),
 			};
 			const MockImporterClass = jest.fn().mockImplementation( () => mockImporter );
 
@@ -89,7 +88,7 @@ describe( 'importManager', () => {
 				listFiles: jest.fn().mockResolvedValue( [ 'file1.txt', 'file2.txt' ] ),
 				extractFiles: jest.fn().mockResolvedValue( undefined ),
 			};
-			( BackupHandler as jest.Mock ).mockImplementation( () => mockBackupHandler );
+			( BackupHandlerFactory.create as jest.Mock ).mockReturnValue( mockBackupHandler );
 
 			await importBackup( mockFile, mockSitePath, [ mockValidator ], {
 				[ mockValidator.constructor.name ]: MockImporterClass,
@@ -99,7 +98,9 @@ describe( 'importManager', () => {
 			expect( mockBackupHandler.listFiles ).toHaveBeenCalledWith( mockFile );
 			expect( mockBackupHandler.extractFiles ).toHaveBeenCalledWith( mockFile, mockExtractDir );
 			expect( mockImporter.import ).toHaveBeenCalledWith( mockSitePath );
-			expect( fsPromises.rmdir ).toHaveBeenCalledWith( mockExtractDir, { recursive: true } );
+			expect( fsPromises.rm ).toHaveBeenCalledWith( mockExtractDir, {
+				recursive: true,
+			} );
 		} );
 
 		it( 'should throw an error if no suitable importer is found', async () => {
@@ -111,14 +112,16 @@ describe( 'importManager', () => {
 			const mockBackupHandler = {
 				listFiles: jest.fn().mockResolvedValue( [ 'file1.txt', 'file2.txt' ] ),
 			};
-			( BackupHandler as jest.Mock ).mockImplementation( () => mockBackupHandler );
+			( BackupHandlerFactory.create as jest.Mock ).mockReturnValue( mockBackupHandler );
 
 			await expect( importBackup( mockFile, mockSitePath, [ mockValidator ], {} ) ).rejects.toThrow(
 				'No suitable importer found for the given backup file'
 			);
 
 			expect( fsPromises.mkdtemp ).toHaveBeenCalledWith( '/tmp/studio_backup' );
-			expect( fsPromises.rmdir ).toHaveBeenCalledWith( mockExtractDir, { recursive: true } );
+			expect( fsPromises.rm ).toHaveBeenCalledWith( mockExtractDir, {
+				recursive: true,
+			} );
 		} );
 	} );
 } );

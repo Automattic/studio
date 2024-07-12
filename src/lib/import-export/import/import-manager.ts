@@ -1,7 +1,7 @@
 import fsPromises from 'fs/promises';
 import os from 'os';
 import path from 'path';
-import { BackupHandler } from './handlers/backup-handler';
+import { BackupHandlerFactory } from './handlers/backup-handler-factory';
 import { Importer, ImporterResult } from './importers/Importer';
 import { BackupArchiveInfo, BackupContents } from './types';
 import { Validator } from './validators/Validator';
@@ -32,7 +32,7 @@ export async function importBackup(
 ): Promise< ImporterResult > {
 	const extractionDirectory = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio_backup' ) );
 	try {
-		const backupHandler = new BackupHandler();
+		const backupHandler = BackupHandlerFactory.create( backupFile );
 		const fileList = await backupHandler.listFiles( backupFile );
 		const importer = selectImporter( fileList, extractionDirectory, validators, importers );
 
@@ -46,6 +46,6 @@ export async function importBackup(
 		console.error( 'Backup import failed:', ( error as Error ).message );
 		throw error;
 	} finally {
-		await fsPromises.rmdir( extractionDirectory, { recursive: true } );
+		await fsPromises.rm( extractionDirectory, { recursive: true } );
 	}
 }

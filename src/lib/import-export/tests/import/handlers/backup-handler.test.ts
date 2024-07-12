@@ -4,8 +4,8 @@ import path from 'path';
 import zlib from 'zlib';
 import AdmZip from 'adm-zip';
 import * as tar from 'tar';
-import { BackupHandler } from '../../../../import-export/import/handlers/backup-handler';
-import { BackupArchiveInfo } from '../../../../import-export/import/types';
+import { BackupHandler } from '../../../import/handlers/backup-handler';
+import { BackupArchiveInfo } from '../../../import/types';
 
 jest.mock( 'fs' );
 jest.mock( 'fs/promises' );

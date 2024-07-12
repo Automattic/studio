@@ -1,7 +1,7 @@
 // To run tests, execute `npm run test -- src/lib/tests/import-export/import/importer/jetpack-importer.test.ts``
 import * as fs from 'fs/promises';
-import { JetpackImporter } from '../../../../import-export/import/importers/jetpack-importer';
-import { BackupContents } from '../../../../import-export/import/types';
+import { JetpackImporter } from '../../../import/importers/jetpack-importer';
+import { BackupContents } from '../../../import/types';
 
 jest.mock( 'fs/promises' );
 

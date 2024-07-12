@@ -39,7 +39,7 @@ const DeleteSite = () => {
 			type: 'warning',
 			message: sprintf( __( 'Delete %s' ), trimmedSiteTitle ),
 			detail: __(
-				"The site’s database will be lost, along with all posts, pages, comments, and media."
+				'The site’s database will be lost. Including all posts, pages, comments, and media.'
 			),
 			buttons: [ __( 'Delete site' ), __( 'Cancel' ) ],
 			cancelId: CANCEL_BUTTON_INDEX,

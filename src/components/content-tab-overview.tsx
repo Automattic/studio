@@ -5,6 +5,8 @@ import {
 	code,
 	desktop,
 	edit,
+	external,
+	Icon,
 	layout,
 	navigation,
 	page,
@@ -225,6 +227,7 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 	} = useThemeDetails();
 
 	const loading = loadingThemeDetails || loadingThumbnails || initialLoading;
+	const siteRunning = selectedSite.running;
 
 	return (
 		<div className="p-8 flex max-w-3xl">
@@ -234,7 +237,8 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 					className={ cx(
 						'w-full min-h-40 max-h-60 overflow-hidden rounded-sm border border-a8c-gray-5 bg-a8c-gray-0 mb-2 flex items-center justify-center',
 						loading && skeletonBg,
-						isThumbnailError && 'border-none'
+						isThumbnailError && 'border-none',
+						siteRunning && 'hover:border-a8c-blueberry duration-300'
 					) }
 				>
 					{ isThumbnailError && ! loading && (
@@ -242,7 +246,34 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 							{ __( 'Preview unavailable' ) }
 						</div>
 					) }
-					{ ! loading && (
+					{ ! loading && siteRunning && (
+						<button
+							aria-label={ __( 'Open WP Admin' ) }
+							className={ cx( `relative group` ) }
+							onClick={ () => getIpcApi().openSiteURL( selectedSite.id, '/wp-admin' ) }
+						>
+							<div
+								className={ cx(
+									`opacity-0 group-hover:opacity-90 group-hover:bg-white duration-300 absolute size-full flex justify-center items-center bg-white text-a8c-blueberry`
+								) }
+							>
+								{ __( 'Open Site' ) }
+								<Icon
+									icon={ external }
+									className="ltr:ml-0.5 rtl:mr-0.5 rtl:scale-x-[-1] fill-a8c-blueberry"
+									size={ 14 }
+								/>
+							</div>
+							<img
+								onError={ () => setIsThumbnailError( true ) }
+								onLoad={ () => setIsThumbnailError( false ) }
+								className={ ! isThumbnailError ? 'w-full h-full' : 'absolute invisible' }
+								src={ thumbnailData || '' }
+								alt={ themeDetails?.name }
+							/>
+						</button>
+					) }
+					{ ! loading && ! siteRunning && (
 						<img
 							onError={ () => setIsThumbnailError( true ) }
 							onLoad={ () => setIsThumbnailError( false ) }

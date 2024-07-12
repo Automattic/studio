@@ -1,5 +1,4 @@
 import fs from 'fs';
-import fsPromises from 'fs/promises';
 import path from 'path';
 import zlib from 'zlib';
 import AdmZip from 'adm-zip';
@@ -12,45 +11,43 @@ export interface IBackupHandler {
 }
 
 export class BackupHandler implements IBackupHandler {
-	async listFiles( file: BackupArchiveInfo ): Promise< string[] > {
-		const ext = path.extname( file.path ).toLowerCase();
-		if ( file.type === 'application/gzip' && ext === '.gz' ) {
-			return this.listTarGzContents( file.path );
-		} else if ( file.type === 'application/zip' && ext === '.zip' ) {
-			return this.listZipContents( file.path );
+	async listFiles( backup: BackupArchiveInfo ): Promise< string[] > {
+		const backupFileExtension = path.extname( backup.path ).toLowerCase();
+		if ( backup.type === 'application/gzip' && backupFileExtension === '.gz' ) {
+			return this.listTarGzContents( backup.path );
+		} else if ( backup.type === 'application/zip' && backupFileExtension === '.zip' ) {
+			return this.listZipContents( backup.path );
 		} else {
 			throw new Error( 'Unsupported file format. Only .gz and .zip files are supported.' );
 		}
 	}
 
-	private async listTarGzContents( filePath: string ): Promise< string[] > {
+	private async listTarGzContents( backupPath: string ): Promise< string[] > {
 		const files: string[] = [];
 		await tar.t( {
-			file: filePath,
+			file: backupPath,
 			onReadEntry: ( entry ) => files.push( entry.path ),
 		} );
 		return files;
 	}
 
-	private listZipContents( filePath: string ): string[] {
-		const zip = new AdmZip( filePath );
+	private listZipContents( backupPath: string ): string[] {
+		const zip = new AdmZip( backupPath );
 		return zip.getEntries().map( ( entry ) => entry.entryName );
 	}
 
 	async extractFiles( file: BackupArchiveInfo, extractionDirectory: string ): Promise< void > {
-		await fsPromises.mkdir( extractionDirectory, { recursive: true } );
-
-		const ext = path.extname( file.path ).toLowerCase();
-		if ( file.type === 'application/gzip' && ext === '.gz' ) {
+		const backupFileExtension = path.extname( file.path ).toLowerCase();
+		if ( file.type === 'application/gzip' && backupFileExtension === '.gz' ) {
 			await this.extractTarGz( file.path, extractionDirectory );
-		} else if ( file.type === 'application/zip' && ext === '.zip' ) {
+		} else if ( file.type === 'application/zip' && backupFileExtension === '.zip' ) {
 			await this.extractZip( file.path, extractionDirectory );
 		}
 	}
 
-	private async extractTarGz( filePath: string, extractionDirectory: string ): Promise< void > {
+	private async extractTarGz( backupPath: string, extractionDirectory: string ): Promise< void > {
 		return new Promise< void >( ( resolve, reject ) => {
-			fs.createReadStream( filePath )
+			fs.createReadStream( backupPath )
 				.pipe( zlib.createGunzip() )
 				.pipe( tar.extract( { cwd: extractionDirectory } ) )
 				.on( 'finish', resolve )
@@ -58,9 +55,9 @@ export class BackupHandler implements IBackupHandler {
 		} );
 	}
 
-	private extractZip( filePath: string, extractionDirectory: string ): Promise< void > {
+	private extractZip( backupPath: string, extractionDirectory: string ): Promise< void > {
 		return new Promise( ( resolve, reject ) => {
-			const zip = new AdmZip( filePath );
+			const zip = new AdmZip( backupPath );
 			zip.extractAllToAsync( extractionDirectory, true, undefined, ( error?: Error ) => {
 				if ( error ) {
 					reject( error );

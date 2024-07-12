@@ -65,7 +65,6 @@ describe( 'BackupHandler', () => {
 			const extractionDirectory = '/tmp/extracted';
 
 			( path.extname as jest.Mock ).mockReturnValue( '.gz' );
-			( fsPromises.mkdir as jest.Mock ).mockResolvedValue( undefined );
 			( fs.createReadStream as jest.Mock ).mockReturnValue( {
 				pipe: jest.fn().mockReturnThis(),
 				on: jest.fn().mockImplementation( ( event, callback ) => {
@@ -100,7 +99,6 @@ describe( 'BackupHandler', () => {
 			const extractionDirectory = '/tmp/extracted';
 
 			( path.extname as jest.Mock ).mockReturnValue( '.zip' );
-			( fsPromises.mkdir as jest.Mock ).mockResolvedValue( undefined );
 
 			const mockExtractAllToAsync = jest
 				.fn()

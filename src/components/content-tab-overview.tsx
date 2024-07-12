@@ -236,7 +236,7 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 				<div
 					className={ cx(
 						'w-full min-h-40 max-h-64 rounded-sm border border-a8c-gray-5 bg-a8c-gray-0 mb-2 flex justify-center',
-						loading && skeletonBg,
+						loading && `h-64 ${ skeletonBg }`,
 						isThumbnailError && 'border-none',
 						siteRunning && 'hover:border-a8c-blueberry duration-300'
 					) }

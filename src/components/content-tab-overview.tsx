@@ -248,7 +248,7 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 					) }
 					{ ! loading && siteRunning && (
 						<button
-							aria-label={ __( 'Open Site' ) }
+							aria-label={ __( 'Open site' ) }
 							className={ cx( `relative group focus-visible:outline-a8c-blueberry` ) }
 							onClick={ () => getIpcApi().openSiteURL( selectedSite.id ) }
 						>
@@ -257,7 +257,7 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 									`opacity-0 group-hover:opacity-90 group-hover:bg-white duration-300 absolute size-full flex justify-center items-center bg-white text-a8c-blueberry`
 								) }
 							>
-								{ __( 'Open Site' ) }
+								{ __( 'Open site' ) }
 								<Icon
 									icon={ external }
 									className="ltr:ml-0.5 rtl:mr-0.5 rtl:scale-x-[-1] fill-a8c-blueberry"

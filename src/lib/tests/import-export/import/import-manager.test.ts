@@ -66,28 +66,20 @@ describe( 'importManager', () => {
 			type: 'application/gzip',
 		};
 		const mockSitePath = '/path/to/site';
-		const mockExtractDir = '/tmp/backup';
+		const mockExtractDir = '/tmp/studio_backup_123456';
 
 		beforeEach( () => {
 			jest.clearAllMocks();
 			( os.tmpdir as jest.Mock ).mockReturnValue( '/tmp' );
 			( path.join as jest.Mock ).mockImplementation( ( ...args ) => args.join( '/' ) );
-			( path.basename as jest.Mock ).mockReturnValue( 'backup' );
 			( fsPromises.mkdtemp as jest.Mock ).mockResolvedValue( mockExtractDir );
 		} );
 
 		it( 'should successfully import a backup', async () => {
-			const archiveInfo: BackupArchiveInfo = {
-				path: '/path/to/backup.tar.gz',
-				type: 'application/gzip',
+			const mockValidator: Validator = {
+				canHandle: jest.fn().mockReturnValue( true ),
+				parseBackupContents: jest.fn().mockReturnValue( {} as BackupContents ),
 			};
-
-			class MockValidator implements Validator {
-				canHandle = jest.fn().mockReturnValue( true );
-				parseBackupContents = jest.fn().mockReturnValue( {} as BackupContents );
-			}
-			const mockValidator = new MockValidator();
-
 			const mockImporter: Importer = {
 				import: jest.fn().mockResolvedValue( undefined ),
 			};
@@ -99,39 +91,34 @@ describe( 'importManager', () => {
 			};
 			( BackupHandler as jest.Mock ).mockImplementation( () => mockBackupHandler );
 
-			await importBackup( archiveInfo, mockSitePath, [ mockValidator ], {
-				MockValidator: MockImporterClass,
+			await importBackup( mockFile, mockSitePath, [ mockValidator ], {
+				[ mockValidator.constructor.name ]: MockImporterClass,
 			} );
 
-			expect( fsPromises.mkdtemp ).toHaveBeenCalledWith( '/tmp/backup' );
+			expect( fsPromises.mkdtemp ).toHaveBeenCalledWith( '/tmp/studio_backup' );
 			expect( mockBackupHandler.listFiles ).toHaveBeenCalledWith( mockFile );
 			expect( mockBackupHandler.extractFiles ).toHaveBeenCalledWith( mockFile, mockExtractDir );
 			expect( mockImporter.import ).toHaveBeenCalledWith( mockSitePath );
-			expect( fsPromises.rmdir ).toHaveBeenCalledWith( mockExtractDir );
+			expect( fsPromises.rmdir ).toHaveBeenCalledWith( mockExtractDir, { recursive: true } );
 		} );
 
 		it( 'should throw an error if no suitable importer is found', async () => {
-			const archiveInfo: BackupArchiveInfo = {
-				path: '/path/to/backup.tar.gz',
-				type: 'application/gzip',
+			const mockValidator: Validator = {
+				canHandle: jest.fn().mockReturnValue( false ),
+				parseBackupContents: jest.fn(),
 			};
-
-			class MockValidator implements Validator {
-				canHandle = jest.fn().mockReturnValue( false );
-				parseBackupContents = jest.fn();
-			}
-			const mockValidator = new MockValidator();
 
 			const mockBackupHandler = {
 				listFiles: jest.fn().mockResolvedValue( [ 'file1.txt', 'file2.txt' ] ),
-				extractFiles: jest.fn().mockResolvedValue( undefined ),
 			};
 			( BackupHandler as jest.Mock ).mockImplementation( () => mockBackupHandler );
 
-			await expect(
-				importBackup( archiveInfo, mockSitePath, [ mockValidator ], {} )
-			).rejects.toThrow( 'No suitable importer found for the given backup file' );
-			expect( fsPromises.rmdir ).toHaveBeenCalledWith( mockExtractDir );
+			await expect( importBackup( mockFile, mockSitePath, [ mockValidator ], {} ) ).rejects.toThrow(
+				'No suitable importer found for the given backup file'
+			);
+
+			expect( fsPromises.mkdtemp ).toHaveBeenCalledWith( '/tmp/studio_backup' );
+			expect( fsPromises.rmdir ).toHaveBeenCalledWith( mockExtractDir, { recursive: true } );
 		} );
 	} );
 } );

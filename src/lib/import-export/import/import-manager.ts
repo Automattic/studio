@@ -24,20 +24,13 @@ export function selectImporter(
 	return null;
 }
 
-function getExtractionDirectoryNameFromBackup( filePath: string ): string {
-	const fileName = path.basename( filePath, path.extname( filePath ) );
-	return path.join( os.tmpdir(), fileName );
-}
-
 export async function importBackup(
 	backupFile: BackupArchiveInfo,
 	sitePath: string,
 	validators: Validator[],
 	importers: { [ key: string ]: new ( backup: BackupContents ) => Importer }
 ): Promise< void > {
-	const extractionDirectory = await fsPromises.mkdtemp(
-		getExtractionDirectoryNameFromBackup( backupFile.path )
-	);
+	const extractionDirectory = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio_backup' ) );
 	try {
 		const backupHandler = new BackupHandler();
 		const fileList = await backupHandler.listFiles( backupFile );
@@ -53,6 +46,6 @@ export async function importBackup(
 		console.error( 'Backup import failed:', ( error as Error ).message );
 		throw error;
 	} finally {
-		await fsPromises.rmdir( extractionDirectory );
+		await fsPromises.rmdir( extractionDirectory, { recursive: true } );
 	}
 }

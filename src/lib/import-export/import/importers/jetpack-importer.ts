@@ -22,10 +22,6 @@ export class JetpackImporter implements Importer {
 		};
 	}
 
-	public getBackupContents(): BackupContents {
-		return this.backup;
-	}
-
 	private async importDatabase(): Promise< void > {
 		//empty
 	}

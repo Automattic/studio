@@ -11,5 +11,4 @@ export interface ImporterResult extends Omit< BackupContents, 'metaFile' > {
 
 export interface Importer {
 	import( rootPath: string ): Promise< ImporterResult >;
-	getBackupContents(): BackupContents;
 }

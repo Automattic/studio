@@ -38,8 +38,7 @@ export async function importBackup(
 
 		if ( importer ) {
 			await backupHandler.extractFiles( backupFile, extractionDirectory );
-			await importer.import( sitePath );
-			return importer.getBackupContents();
+			return await importer.import( sitePath );
 		} else {
 			throw new Error( 'No suitable importer found for the given backup file' );
 		}

@@ -82,7 +82,6 @@ describe( 'importManager', () => {
 			};
 			const mockImporter: Importer = {
 				import: jest.fn().mockResolvedValue( undefined ),
-				getBackupContents: jest.fn().mockResolvedValue( undefined ),
 			};
 			const MockImporterClass = jest.fn().mockImplementation( () => mockImporter );
 

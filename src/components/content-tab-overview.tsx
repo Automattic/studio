@@ -242,7 +242,7 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 					) }
 				>
 					{ isThumbnailError && ! loading && (
-						<div className="flex items-center justify-center w-full h-full leading-5 text-a8c-gray-50">
+						<div className="flex items-center justify-center w-full h-64 leading-5 text-a8c-gray-50">
 							{ __( 'Preview unavailable' ) }
 						</div>
 					) }

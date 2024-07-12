@@ -11,10 +11,3 @@ export interface BackupArchiveInfo {
 	path: string;
 	type: string;
 }
-
-export interface DbConfig {
-	host: string;
-	user: string;
-	password: string;
-	database: string;
-}

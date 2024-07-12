@@ -1,7 +1,7 @@
 // To run tests, execute `npm run test -- src/lib/tests/import-export/import/importer/jetpack-importer.test.ts``
 import * as fs from 'fs/promises';
 import { JetpackImporter } from '../../../../import-export/import/importers/jetpack-importer';
-import { BackupContents, DbConfig } from '../../../../import-export/import/types';
+import { BackupContents } from '../../../../import-export/import/types';
 
 jest.mock( 'fs/promises' );
 
@@ -18,12 +18,6 @@ describe( 'JetpackImporter', () => {
 	};
 
 	const mockStudioSitePath = '/path/to/studio/site';
-	const mockDbConfig: DbConfig = {
-		host: 'localhost',
-		user: 'root',
-		password: 'password',
-		database: 'wordpress',
-	};
 
 	beforeEach( () => {
 		jest.clearAllMocks();
@@ -41,7 +35,7 @@ describe( 'JetpackImporter', () => {
 				} )
 			);
 
-			await importer.import( mockStudioSitePath, mockDbConfig );
+			await importer.import( mockStudioSitePath );
 
 			expect( fs.mkdir ).toHaveBeenCalled();
 			expect( fs.copyFile ).toHaveBeenCalledTimes( 3 ); // One for each wp-content file
@@ -53,7 +47,7 @@ describe( 'JetpackImporter', () => {
 			( fs.mkdir as jest.Mock ).mockResolvedValue( undefined );
 			( fs.copyFile as jest.Mock ).mockResolvedValue( undefined );
 
-			await importer.import( mockStudioSitePath, mockDbConfig );
+			await importer.import( mockStudioSitePath );
 
 			expect( fs.mkdir ).toHaveBeenCalled();
 			expect( fs.copyFile ).toHaveBeenCalledTimes( 3 );
@@ -66,7 +60,7 @@ describe( 'JetpackImporter', () => {
 			( fs.copyFile as jest.Mock ).mockResolvedValue( undefined );
 			( fs.readFile as jest.Mock ).mockResolvedValue( 'Invalid JSON' );
 
-			await expect( importer.import( mockStudioSitePath, mockDbConfig ) ).resolves.not.toThrow();
+			await expect( importer.import( mockStudioSitePath ) ).resolves.not.toThrow();
 
 			expect( fs.mkdir ).toHaveBeenCalled();
 			expect( fs.copyFile ).toHaveBeenCalledTimes( 3 );

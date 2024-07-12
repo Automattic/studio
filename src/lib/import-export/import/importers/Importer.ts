@@ -1,5 +1,3 @@
-import { DbConfig } from '../types';
-
 export interface Importer {
-	import( rootPath: string, dbConfig: DbConfig ): Promise< void >;
+	import( rootPath: string ): Promise< void >;
 }

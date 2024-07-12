@@ -1,20 +1,20 @@
 import fsPromises from 'fs/promises';
 import path from 'path';
-import { BackupContents, DbConfig } from '../types';
+import { BackupContents } from '../types';
 import { Importer } from './Importer';
 
 export class JetpackImporter implements Importer {
 	constructor( private backup: BackupContents ) {}
 
-	async import( rootPath: string, dbConfig: DbConfig ): Promise< void > {
-		await this.importDatabase( dbConfig );
+	async import( rootPath: string ): Promise< void > {
+		await this.importDatabase();
 		await this.importWpContent( rootPath );
 		if ( this.backup.metaFile ) {
 			await this.handleMetaFile();
 		}
 	}
 
-	private async importDatabase( _dbConfig: DbConfig ): Promise< void > {
+	private async importDatabase(): Promise< void > {
 		//empty
 	}
 

@@ -21,7 +21,7 @@ import { isEmptyDir, pathExists, isWordPressDirectory, sanitizeFolderName } from
 import { getImageData } from './lib/get-image-data';
 import { importBackup } from './lib/import-export/import/import-manager';
 import { allImporters } from './lib/import-export/import/importers';
-import { DbConfig, BackupArchiveInfo } from './lib/import-export/import/types';
+import { BackupArchiveInfo } from './lib/import-export/import/types';
 import { allValidators } from './lib/import-export/import/validators';
 import { isErrnoException } from './lib/is-errno-exception';
 import { isInstalled } from './lib/is-installed';
@@ -113,7 +113,7 @@ export async function importSite(
 	}
 	const sitePath = site.details.path;
 	try {
-		await importBackup( backupFile, sitePath, {} as DbConfig, allValidators, allImporters );
+		await importBackup( backupFile, sitePath, allValidators, allImporters );
 	} catch ( e ) {
 		console.log( 'Error importing site', ( e as Error ).message );
 	}

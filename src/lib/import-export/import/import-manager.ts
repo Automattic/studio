@@ -1,7 +1,7 @@
 import path from 'path';
 import { BackupHandler } from './handlers/backup-handler';
 import { Importer } from './importers/Importer';
-import { BackupArchiveInfo, DbConfig, BackupContents } from './types';
+import { BackupArchiveInfo, BackupContents } from './types';
 import { Validator } from './validators/Validator';
 
 export function selectImporter(
@@ -25,7 +25,6 @@ export function selectImporter(
 export async function importBackup(
 	file: BackupArchiveInfo,
 	rootPath: string,
-	dbConfig: DbConfig,
 	validators: Validator[],
 	importers: { [ key: string ]: new ( backup: BackupContents ) => Importer }
 ): Promise< void > {
@@ -37,7 +36,7 @@ export async function importBackup(
 
 		if ( importer ) {
 			await backupHandler.extractFiles( file, extractDir );
-			await importer.import( rootPath, dbConfig );
+			await importer.import( rootPath );
 			console.log( 'Backup imported successfully' );
 		} else {
 			throw new Error( 'No suitable importer found for the given backup file' );

@@ -3,7 +3,7 @@ import path from 'path';
 import { BackupHandler } from '../../../import-export/import/handlers/backup-handler';
 import { selectImporter, importBackup } from '../../../import-export/import/import-manager';
 import { Importer } from '../../../import-export/import/importers/Importer';
-import { BackupContents, BackupArchiveInfo, DbConfig } from '../../../import-export/import/types';
+import { BackupContents, BackupArchiveInfo } from '../../../import-export/import/types';
 import { Validator } from '../../../import-export/import/validators/Validator';
 
 jest.mock( '../../../import-export/import/handlers/backup-handler' );
@@ -62,12 +62,6 @@ describe( 'importManager', () => {
 				type: 'application/gzip',
 			};
 			const rootPath = '/path/to/studio/site';
-			const dbConfig: DbConfig = {
-				host: 'localhost',
-				user: 'user',
-				password: 'password',
-				database: 'wordpress',
-			};
 
 			class MockValidator implements Validator {
 				canHandle = jest.fn().mockReturnValue( true );
@@ -89,7 +83,7 @@ describe( 'importManager', () => {
 			( path.dirname as jest.Mock ).mockReturnValue( '/path/to' );
 			( path.join as jest.Mock ).mockReturnValue( '/path/to/extracted' );
 
-			await importBackup( archiveInfo, rootPath, dbConfig, [ mockValidator ], {
+			await importBackup( archiveInfo, rootPath, [ mockValidator ], {
 				MockValidator: MockImporterClass,
 			} );
 
@@ -98,7 +92,7 @@ describe( 'importManager', () => {
 				archiveInfo,
 				'/path/to/extracted'
 			);
-			expect( mockImporter.import ).toHaveBeenCalledWith( rootPath, dbConfig );
+			expect( mockImporter.import ).toHaveBeenCalledWith( rootPath );
 		} );
 
 		it( 'should throw an error if no suitable importer is found', async () => {
@@ -107,12 +101,6 @@ describe( 'importManager', () => {
 				type: 'application/gzip',
 			};
 			const rootPath = '/path/to/studio/site';
-			const dbConfig: DbConfig = {
-				host: 'localhost',
-				user: 'user',
-				password: 'password',
-				database: 'wordpress',
-			};
 
 			class MockValidator implements Validator {
 				canHandle = jest.fn().mockReturnValue( false );
@@ -129,9 +117,9 @@ describe( 'importManager', () => {
 			( path.dirname as jest.Mock ).mockReturnValue( '/path/to' );
 			( path.join as jest.Mock ).mockReturnValue( '/path/to/extracted' );
 
-			await expect(
-				importBackup( archiveInfo, rootPath, dbConfig, [ mockValidator ], {} )
-			).rejects.toThrow( 'No suitable importer found for the given backup file' );
+			await expect( importBackup( archiveInfo, rootPath, [ mockValidator ], {} ) ).rejects.toThrow(
+				'No suitable importer found for the given backup file'
+			);
 		} );
 	} );
 } );

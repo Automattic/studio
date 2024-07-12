@@ -104,7 +104,7 @@ export async function getInstalledApps( _event: IpcMainInvokeEvent ): Promise< I
 }
 
 export async function importSite(
-	_event: IpcMainInvokeEvent,
+	event: IpcMainInvokeEvent,
 	{ id, backupFile }: { id: string; backupFile: BackupArchiveInfo }
 ) {
 	const site = SiteServer.get( id );
@@ -113,7 +113,13 @@ export async function importSite(
 	}
 	const sitePath = site.details.path;
 	try {
-		await importBackup( backupFile, sitePath, allValidators, allImporters );
+		const result = await importBackup( backupFile, sitePath, allValidators, allImporters );
+		if ( result?.meta?.phpVersion ) {
+			await updateSite( event, {
+				...site.details,
+				phpVersion: result.meta.phpVersion,
+			} );
+		}
 	} catch ( e ) {
 		console.log( 'Error importing site', ( e as Error ).message );
 	}

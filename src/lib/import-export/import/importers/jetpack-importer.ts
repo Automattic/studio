@@ -1,17 +1,29 @@
 import fsPromises from 'fs/promises';
 import path from 'path';
 import { BackupContents } from '../types';
-import { Importer } from './Importer';
+import { Importer, ImporterResult, MetaFileData } from './Importer';
 
 export class JetpackImporter implements Importer {
 	constructor( private backup: BackupContents ) {}
 
-	async import( rootPath: string ): Promise< void > {
+	async import( rootPath: string ): Promise< ImporterResult > {
 		await this.importDatabase();
 		await this.importWpContent( rootPath );
+		let meta: MetaFileData | undefined;
 		if ( this.backup.metaFile ) {
-			await this.handleMetaFile();
+			meta = await this.handleMetaFile();
 		}
+
+		return {
+			extractionDirectory: this.backup.extractionDirectory,
+			sqlFiles: this.backup.sqlFiles,
+			wpContent: this.backup.wpContent,
+			meta,
+		};
+	}
+
+	public getBackupContents(): BackupContents {
+		return this.backup;
 	}
 
 	private async importDatabase(): Promise< void > {
@@ -33,7 +45,7 @@ export class JetpackImporter implements Importer {
 		}
 	}
 
-	private async handleMetaFile(): Promise< unknown > {
+	private async handleMetaFile(): Promise< MetaFileData | undefined > {
 		const metaFilePath = this.backup.metaFile;
 		if ( ! metaFilePath ) {
 			return;
@@ -43,7 +55,7 @@ export class JetpackImporter implements Importer {
 			const meta = JSON.parse( metaContent );
 			return meta;
 		} catch ( e ) {
-			return {};
+			return;
 		}
 	}
 }

@@ -1,3 +1,7 @@
+export interface MetaFileData {
+	phpVersion: string;
+	wordpressVersion: string;
+}
 export interface BackupContents {
 	extractionDirectory: string;
 	sqlFiles: string[];

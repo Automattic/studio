@@ -1,6 +1,5 @@
 // To run tests, execute `npm run test -- src/lib/tests/import-export/import/handlers/backup-handler.test.ts``
 import fs from 'fs';
-import fsPromises from 'fs/promises';
 import path from 'path';
 import zlib from 'zlib';
 import AdmZip from 'adm-zip';

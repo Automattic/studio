@@ -2,7 +2,7 @@ import fsPromises from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import { BackupHandler } from './handlers/backup-handler';
-import { Importer } from './importers/Importer';
+import { Importer, ImporterResult } from './importers/Importer';
 import { BackupArchiveInfo, BackupContents } from './types';
 import { Validator } from './validators/Validator';
 
@@ -29,7 +29,7 @@ export async function importBackup(
 	sitePath: string,
 	validators: Validator[],
 	importers: { [ key: string ]: new ( backup: BackupContents ) => Importer }
-): Promise< void > {
+): Promise< ImporterResult > {
 	const extractionDirectory = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio_backup' ) );
 	try {
 		const backupHandler = new BackupHandler();
@@ -39,6 +39,7 @@ export async function importBackup(
 		if ( importer ) {
 			await backupHandler.extractFiles( backupFile, extractionDirectory );
 			await importer.import( sitePath );
+			return importer.getBackupContents();
 		} else {
 			throw new Error( 'No suitable importer found for the given backup file' );
 		}

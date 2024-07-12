@@ -248,9 +248,9 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 					) }
 					{ ! loading && siteRunning && (
 						<button
-							aria-label={ __( 'Open WP Admin' ) }
+							aria-label={ __( 'Open Site' ) }
 							className={ cx( `relative group` ) }
-							onClick={ () => getIpcApi().openSiteURL( selectedSite.id, '/wp-admin' ) }
+							onClick={ () => getIpcApi().openSiteURL( selectedSite.id ) }
 						>
 							<div
 								className={ cx(

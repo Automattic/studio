@@ -44,7 +44,7 @@ const DeleteSite = () => {
 			buttons: [ __( 'Delete site' ), __( 'Cancel' ) ],
 			cancelId: CANCEL_BUTTON_INDEX,
 			checkboxLabel: __( 'Delete site files from my computer' ),
-			checkboxChecked: false,
+			checkboxChecked: true,
 		} );
 
 		if ( response === DELETE_BUTTON_INDEX ) {

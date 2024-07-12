@@ -126,7 +126,7 @@ npm install
 npm run make
 ```
 
-After the build process completes, you can find the executables in the `out` directory.
+After the build process completes, you can find the executables in the `out/` directory.
 
 ### Linux
 

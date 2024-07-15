@@ -83,10 +83,10 @@ export default function AddSite( { className }: AddSiteProps ) {
 		async ( event: FormEvent ) => {
 			event.preventDefault();
 			try {
+				closeModal();
 				await handleAddSiteClick();
 				speak( siteAddedMessage );
 				setNameSuggested( false );
-				closeModal();
 			} catch {
 				// No need to handle error here, it's already handled in handleAddSiteClick
 			}

@@ -616,7 +616,7 @@ export function openTerminalAtPath(
 				const script = `
 			tell application "Terminal"
 				if not application "Terminal" is running then launch
-				do script "clear && export PATH=${ cliPath }:$PATH && export STUDIO_APP_PATH=\\"${ appPath }\\" && cd ${ targetPath }"
+				do script "clear && export PATH=\\"${ cliPath }\\":$PATH && export STUDIO_APP_PATH=\\"${ appPath }\\" && cd ${ targetPath }"
 				activate
 			end tell
 			`;

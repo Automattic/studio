@@ -8,7 +8,6 @@ export function useAddSite() {
 	const { __ } = useI18n();
 	const { createSite, data: sites, loadingSites } = useSiteDetails();
 	const [ error, setError ] = useState( '' );
-	const [ isAddingSite, setIsAddingSite ] = useState( false );
 	const [ siteName, setSiteName ] = useState< string | null >( null );
 	const [ sitePath, setSitePath ] = useState( '' );
 	const [ proposedSitePath, setProposedSitePath ] = useState( '' );
@@ -51,7 +50,6 @@ export function useAddSite() {
 	}, [ __, siteWithPathAlreadyExists, siteName, proposedSitePath ] );
 
 	const handleAddSiteClick = useCallback( async () => {
-		setIsAddingSite( true );
 		try {
 			const path = sitePath ? sitePath : proposedSitePath;
 			await createSite( path, siteName ?? '' );
@@ -62,10 +60,8 @@ export function useAddSite() {
 					'An error occurred while creating the site. Verify your selected local path is an empty directory or an existing WordPress folder and try again. If this problem persists, please contact support.'
 				)
 			);
-			setIsAddingSite( false );
 			throw e;
 		}
-		setIsAddingSite( false );
 	}, [ createSite, proposedSitePath, siteName, sitePath, __ ] );
 
 	const handleSiteNameChange = useCallback(
@@ -103,7 +99,6 @@ export function useAddSite() {
 			handleAddSiteClick,
 			handlePathSelectorClick,
 			handleSiteNameChange,
-			isAddingSite,
 			error: siteWithPathAlreadyExists( sitePath ? sitePath : proposedSitePath )
 				? __(
 						'Another site already exists at this path. Please select an empty directory to create a site.'
@@ -130,7 +125,6 @@ export function useAddSite() {
 			handlePathSelectorClick,
 			siteWithPathAlreadyExists,
 			handleSiteNameChange,
-			isAddingSite,
 			siteName,
 			sitePath,
 			proposedSitePath,

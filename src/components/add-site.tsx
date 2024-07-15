@@ -4,6 +4,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { useAddSite } from '../hooks/use-add-site';
 import { useIpcListener } from '../hooks/use-ipc-listener';
+import { useSiteDetails } from '../hooks/use-site-details';
 import { generateSiteName } from '../lib/generate-site-name';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
@@ -18,10 +19,10 @@ export default function AddSite( { className }: AddSiteProps ) {
 	const { __ } = useI18n();
 	const [ showModal, setShowModal ] = useState( false );
 	const [ nameSuggested, setNameSuggested ] = useState( false );
+	const { selectedSite } = useSiteDetails();
 
 	const {
 		handleAddSiteClick,
-		isAddingSite,
 		siteName,
 		setSiteName,
 		setProposedSitePath,
@@ -117,16 +118,20 @@ export default function AddSite( { className }: AddSiteProps ) {
 						doesPathContainWordPress={ doesPathContainWordPress }
 					>
 						<div className="flex flex-row justify-end gap-x-5 mt-6">
-							<Button onClick={ closeModal } disabled={ isAddingSite } variant="tertiary">
+							<Button
+								onClick={ closeModal }
+								disabled={ selectedSite?.isAddingSite }
+								variant="tertiary"
+							>
 								{ __( 'Cancel' ) }
 							</Button>
 							<Button
 								type="submit"
 								variant="primary"
-								isBusy={ isAddingSite }
-								disabled={ isAddingSite || !! error || ! siteName?.trim() }
+								isBusy={ selectedSite?.isAddingSite }
+								disabled={ selectedSite?.isAddingSite || !! error || ! siteName?.trim() }
 							>
-								{ isAddingSite ? __( 'Adding site…' ) : __( 'Add site' ) }
+								{ __( 'Add site' ) }
 							</Button>
 						</div>
 					</SiteForm>

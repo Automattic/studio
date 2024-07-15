@@ -160,11 +160,12 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 	const createSite = useCallback(
 		async ( path: string, siteName?: string ) => {
+			const tempSiteId = 'adding-new-site';
 			setData( ( prevData ) =>
 				sortSites( [
 					...prevData,
 					{
-						id: 'adding-new-site',
+						id: tempSiteId,
 						name: siteName || path,
 						path,
 						running: false,
@@ -173,11 +174,12 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					},
 				] )
 			);
+			setSelectedSiteId( tempSiteId ); // Set the temporary ID as the selected site
 			const data = await getIpcApi().createSite( path, siteName );
 			setData( data );
 			const newSite = data.find( ( site ) => site.path === path );
 			if ( newSite?.id ) {
-				setSelectedSiteId( newSite.id );
+				setSelectedSiteId( newSite.id ); // Update the selected site to the new site's ID
 			}
 		},
 		[ setSelectedSiteId ]

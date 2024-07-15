@@ -39,12 +39,12 @@ const DeleteSite = () => {
 			type: 'warning',
 			message: sprintf( __( 'Delete %s' ), trimmedSiteTitle ),
 			detail: __(
-				"The site's database, along with all posts, pages, comments, and media, will be lost."
+				'The site’s database will be lost. Including all posts, pages, comments, and media.'
 			),
 			buttons: [ __( 'Delete site' ), __( 'Cancel' ) ],
 			cancelId: CANCEL_BUTTON_INDEX,
 			checkboxLabel: __( 'Delete site files from my computer' ),
-			checkboxChecked: false,
+			checkboxChecked: true,
 		} );
 
 		if ( response === DELETE_BUTTON_INDEX ) {

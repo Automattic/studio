@@ -1,6 +1,6 @@
 // To run tests, execute `npm run test -- src/lib/import-export/tests/import/importer/jetpack-importer.test.ts`
 import * as fs from 'fs/promises';
-import { JetpackImporter } from '../../../import/importers/jetpack-importer';
+import { DefaultImporter } from '../../../import/importers';
 import { BackupContents } from '../../../import/types';
 
 jest.mock( 'fs/promises' );
@@ -25,7 +25,7 @@ describe( 'JetpackImporter', () => {
 
 	describe( 'import', () => {
 		it( 'should copy wp-content files and read meta file', async () => {
-			const importer = new JetpackImporter( mockBackupContents );
+			const importer = new DefaultImporter( mockBackupContents );
 			( fs.mkdir as jest.Mock ).mockResolvedValue( undefined );
 			( fs.copyFile as jest.Mock ).mockResolvedValue( undefined );
 			( fs.readFile as jest.Mock ).mockResolvedValue(
@@ -43,7 +43,7 @@ describe( 'JetpackImporter', () => {
 		} );
 
 		it( 'should handle missing meta file', async () => {
-			const importer = new JetpackImporter( { ...mockBackupContents, metaFile: undefined } );
+			const importer = new DefaultImporter( { ...mockBackupContents, metaFile: undefined } );
 			( fs.mkdir as jest.Mock ).mockResolvedValue( undefined );
 			( fs.copyFile as jest.Mock ).mockResolvedValue( undefined );
 
@@ -55,7 +55,7 @@ describe( 'JetpackImporter', () => {
 		} );
 
 		it( 'should handle JSON parse error in meta file', async () => {
-			const importer = new JetpackImporter( mockBackupContents );
+			const importer = new DefaultImporter( mockBackupContents );
 			( fs.mkdir as jest.Mock ).mockResolvedValue( undefined );
 			( fs.copyFile as jest.Mock ).mockResolvedValue( undefined );
 			( fs.readFile as jest.Mock ).mockResolvedValue( 'Invalid JSON' );

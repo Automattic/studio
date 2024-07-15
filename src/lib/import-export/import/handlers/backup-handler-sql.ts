@@ -1,9 +1,9 @@
 import fs from 'fs';
 import path from 'path';
 import { BackupArchiveInfo } from '../types';
-import { IBackupHandler } from './backup-handler-factory';
+import { BackupHandler } from './backup-handler-factory';
 
-export class BackupHandlerSql implements IBackupHandler {
+export class BackupHandlerSql implements BackupHandler {
 	async listFiles( backup: BackupArchiveInfo ): Promise< string[] > {
 		return [ path.basename( backup.path ) ];
 	}

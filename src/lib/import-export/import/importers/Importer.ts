@@ -34,7 +34,7 @@ export class DefaultImporter implements Importer {
 	}
 
 	protected async importDatabase(): Promise< void > {
-		// empty in DefaultImporter
+		// will implement in a different ticket
 	}
 
 	protected async importWpContent( rootPath: string ): Promise< void > {

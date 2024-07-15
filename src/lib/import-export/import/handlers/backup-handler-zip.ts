@@ -1,8 +1,8 @@
 import AdmZip from 'adm-zip';
 import { BackupArchiveInfo } from '../types';
-import { IBackupHandler } from './backup-handler-factory';
+import { BackupHandler } from './backup-handler-factory';
 
-export class BackupHandlerZip implements IBackupHandler {
+export class BackupHandlerZip implements BackupHandler {
 	async listFiles( backup: BackupArchiveInfo ): Promise< string[] > {
 		const zip = new AdmZip( backup.path );
 		return zip.getEntries().map( ( entry ) => entry.entryName );

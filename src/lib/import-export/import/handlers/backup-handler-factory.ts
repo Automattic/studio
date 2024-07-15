@@ -4,7 +4,7 @@ import { BackupHandlerSql } from './backup-handler-sql';
 import { BackupHandlerTarGz } from './backup-handler-tar-gz';
 import { BackupHandlerZip } from './backup-handler-zip';
 
-export interface IBackupHandler {
+export interface BackupHandler {
 	listFiles( file: BackupArchiveInfo ): Promise< string[] >;
 	extractFiles( file: BackupArchiveInfo, extractionDirectory: string ): Promise< void >;
 }
@@ -37,7 +37,7 @@ export class BackupHandlerFactory {
 	];
 	private static sqlExtensions = [ '.sql' ];
 
-	static create( file: BackupArchiveInfo ): IBackupHandler {
+	static create( file: BackupArchiveInfo ): BackupHandler {
 		if ( this.isZip( file ) ) {
 			return new BackupHandlerZip();
 		} else if ( this.isTarGz( file ) ) {

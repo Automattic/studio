@@ -1,4 +1,5 @@
 import { speak } from '@wordpress/a11y';
+import { Spinner } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
 import { useEffect } from 'react';
 import { useSiteDetails } from '../hooks/use-site-details';
@@ -113,7 +114,11 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 			>
 				{ site.name }
 			</button>
-			<ButtonToRun { ...site } />
+			{ site.isAddingSite ? (
+				<Spinner className="!w-2.5 !h-2.5 !top-[6px] !mr-2" />
+			) : (
+				<ButtonToRun { ...site } />
+			) }
 		</li>
 	);
 }

@@ -1,4 +1,4 @@
-// To run tests, execute `npm run test -- src/lib/import-export/tests/import/validators/jetpack-validator.test.ts
+// To run tests, execute `npm run test -- src/lib/import-export/tests/import/validators/sql-validator.test.ts`
 import { SqlValidator } from '../../../import/validators/sql-validator';
 
 describe( 'SqlValidator', () => {

@@ -1,4 +1,4 @@
-// To run tests, execute `npm run test -- src/lib/tests/import-export/import/import-manager.test.ts``
+// To run tests, execute `npm run test -- src/lib/tests/import-export/tests/import-manager.test.ts`
 import fsPromises from 'fs/promises';
 import os from 'os';
 import path from 'path';

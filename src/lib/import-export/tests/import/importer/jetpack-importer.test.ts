@@ -1,4 +1,4 @@
-// To run tests, execute `npm run test -- src/lib/tests/import-export/import/importer/jetpack-importer.test.ts``
+// To run tests, execute `npm run test -- src/lib/import-export/tests/import/importer/jetpack-importer.test.ts`
 import * as fs from 'fs/promises';
 import { JetpackImporter } from '../../../import/importers/jetpack-importer';
 import { BackupContents } from '../../../import/types';

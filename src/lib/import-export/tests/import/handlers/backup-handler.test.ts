@@ -1,8 +1,6 @@
-// To run tests, execute `npm run test -- src/lib/import-export/tests/import/import/handlers/backup-handler-factory.test.ts`
-// To run tests, execute `npm run test -- src/lib/import-export/tests/import/import/handlers/backup-handler-factory.test.ts`
+// To run tests, execute `npm run test -- src/lib/import-export/tests/import/handlers/backup-handler-factory.test.ts`
 import fs from 'fs';
 import path from 'path';
-import { Writable, Readable } from 'stream';
 import zlib from 'zlib';
 import AdmZip from 'adm-zip';
 import * as tar from 'tar';

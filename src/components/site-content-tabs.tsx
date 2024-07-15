@@ -25,7 +25,7 @@ export function SiteContentTabs() {
 	}
 
 	if ( selectedSite?.isAddingSite ) {
-		return <SiteLoadingIndicator />;
+		return <SiteLoadingIndicator selectedSiteName={ selectedSite.name } />;
 	}
 
 	return (

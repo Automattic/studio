@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 import { useProgressTimer } from '../hooks/use-progress-timer';
 import ProgressBar from './progress-bar';
 
-export function SiteLoadingIndicator() {
+export function SiteLoadingIndicator( { selectedSiteName }: { selectedSiteName?: string } ) {
 	const { __ } = useI18n();
 
 	const { progress, setProgress } = useProgressTimer( {
@@ -19,6 +19,7 @@ export function SiteLoadingIndicator() {
 	return (
 		<div className="flex flex-col w-full h-full app-no-drag-region pt-8 overflow-y-auto justify-center items-center">
 			<div className="w-[300px] text-center">
+				<div className="text-black a8c-subtitle-small mb-4">{ selectedSiteName }</div>
 				<ProgressBar value={ progress } maxValue={ 100 } />
 				<div className="text-a8c-gray-70 a8c-body mt-4">{ __( 'Creating site...' ) }</div>
 			</div>

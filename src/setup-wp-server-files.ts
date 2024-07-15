@@ -58,10 +58,13 @@ async function copyBundledWPCLI() {
 	const bundledWPCLIPath = path.join( getResourcesPath(), 'wp-files', 'wp-cli', 'wp-cli.phar' );
 	await fs.copyFile( bundledWPCLIPath, getWpCliPath() );
 }
-export default async function setupWPServerFiles() {
+export async function setupWPServerFiles() {
 	await copyBundledLatestWPVersion();
 	await copyBundledSqlite();
 	await copyBundledWPCLI();
+}
+
+export async function updateWPServerFiles() {
 	await updateLatestWordPressVersion();
 	await updateLatestSqliteVersion();
 	await updateLatestWPCliVersion();

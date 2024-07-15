@@ -10,6 +10,7 @@ import {
 	useState,
 } from 'react';
 import { getIpcApi } from '../lib/get-ipc-api';
+import { sortSites } from '../lib/sort-sites';
 import { useSnapshots } from './use-snapshots';
 
 interface SiteDetailsContext {
@@ -159,6 +160,19 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 	const createSite = useCallback(
 		async ( path: string, siteName?: string ) => {
+			setData( ( prevData ) =>
+				sortSites( [
+					...prevData,
+					{
+						id: 'adding-new-site',
+						name: siteName || path,
+						path,
+						running: false,
+						isAddingSite: true,
+						phpVersion: '',
+					},
+				] )
+			);
 			const data = await getIpcApi().createSite( path, siteName );
 			setData( data );
 			const newSite = data.find( ( site ) => site.path === path );

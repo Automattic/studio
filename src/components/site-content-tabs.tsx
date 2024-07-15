@@ -9,6 +9,7 @@ import { ContentTabOverview } from './content-tab-overview';
 import { ContentTabSettings } from './content-tab-settings';
 import { ContentTabSnapshots } from './content-tab-snapshots';
 import Header from './header';
+import { SiteLoadingIndicator } from './site-loading-indicator';
 
 export function SiteContentTabs() {
 	const { selectedSite } = useSiteDetails();
@@ -21,6 +22,10 @@ export function SiteContentTabs() {
 				<p className="text-lg text-gray-600">{ __( 'Select a site to view details.' ) }</p>
 			</div>
 		);
+	}
+
+	if ( selectedSite.isAddingSite ) {
+		return <SiteLoadingIndicator />;
 	}
 
 	return (

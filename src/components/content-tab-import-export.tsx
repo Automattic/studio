@@ -73,7 +73,12 @@ export const ExportSite = ( {
 export function ContentTabImportExport( { selectedSite }: ContentTabImportExportProps ) {
 	return (
 		<div className="flex flex-col p-8">
-			<ExportSite onExport={ async ( _options ) => {} } selectedSite={ selectedSite }></ExportSite>
+			<ExportSite
+				onExport={ async ( options ) => {
+					await getIpcApi().exportSite( options );
+				} }
+				selectedSite={ selectedSite }
+			></ExportSite>
 		</div>
 	);
 }

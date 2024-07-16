@@ -19,6 +19,8 @@ import { downloadSqliteIntegrationPlugin } from '../vendor/wp-now/src/download';
 import { LIMIT_ARCHIVE_SIZE } from './constants';
 import { isEmptyDir, pathExists, isWordPressDirectory, sanitizeFolderName } from './lib/fs-utils';
 import { getImageData } from './lib/get-image-data';
+import { exportBackup } from './lib/import-export/export/export-manager';
+import { ExportOptions } from './lib/import-export/export/types';
 import { isErrnoException } from './lib/is-errno-exception';
 import { isInstalled } from './lib/is-installed';
 import { getLocaleData, getSupportedLocale } from './lib/locale';
@@ -425,6 +427,13 @@ export async function isAuthenticated() {
 
 export async function clearAuthenticationToken() {
 	return oauthClient.clearAuthenticationToken();
+}
+
+export async function exportSite(
+	_event: IpcMainInvokeEvent,
+	options: ExportOptions
+): Promise< void > {
+	await exportBackup( options );
 }
 
 export async function saveSnapshotsToStorage( event: IpcMainInvokeEvent, snapshots: Snapshot[] ) {

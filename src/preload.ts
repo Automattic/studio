@@ -3,6 +3,7 @@
 
 import '@sentry/electron/preload';
 import { contextBridge, ipcRenderer } from 'electron';
+import { ExportOptions } from './lib/import-export/export/types';
 import { promptWindowsSpeedUpSites } from './lib/windows-helpers';
 import type { LogLevel } from './logging';
 
@@ -13,6 +14,7 @@ const api: IpcApi = {
 	createSite: ( path: string, name?: string ) => ipcRenderer.invoke( 'createSite', path, name ),
 	updateSite: ( updatedSite: SiteDetails ) => ipcRenderer.invoke( 'updateSite', updatedSite ),
 	authenticate: () => ipcRenderer.invoke( 'authenticate' ),
+	exportSite: ( options: ExportOptions ) => ipcRenderer.invoke( 'exportSite', options ),
 	isAuthenticated: () => ipcRenderer.invoke( 'isAuthenticated' ),
 	getAuthenticationToken: () => ipcRenderer.invoke( 'getAuthenticationToken' ),
 	clearAuthenticationToken: () => ipcRenderer.invoke( 'clearAuthenticationToken' ),

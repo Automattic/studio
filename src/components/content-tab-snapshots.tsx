@@ -152,11 +152,7 @@ function SnapshotRow( {
 						isSnapshotLoading={ snapshot.isLoading }
 						tagline={ __( "We're creating your new demo site." ) }
 					/>
-					<Button
-						aria-description={ __( 'Clear expired site' ) }
-						isDestructive
-						onClick={ () => removeSnapshot( snapshot ) }
-					>
+					<Button isDestructive onClick={ () => removeSnapshot( snapshot ) }>
 						{ __( 'Clear expired site' ) }
 					</Button>
 				</div>

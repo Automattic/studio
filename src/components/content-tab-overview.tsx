@@ -264,7 +264,7 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 						>
 							<div
 								className={
-									'opacity-0 group-hover:opacity-90 group-hover:bg-white duration-300 absolute size-full flex justify-center items-center bg-white text-a8c-blueberry'
+									'opacity-0 group-hover:opacity-90 group-hover:bg-white group-focus:opacity-90 group-focus:bg-white duration-300 absolute size-full flex justify-center items-center bg-white text-a8c-blueberry'
 								}
 							>
 								{ __( 'Open site' ) }

@@ -160,7 +160,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 	const createSite = useCallback(
 		async ( path: string, siteName?: string ) => {
-			const tempSiteId = 'adding-new-site';
+			const tempSiteId = crypto.randomUUID();
 			setData( ( prevData ) =>
 				sortSites( [
 					...prevData,

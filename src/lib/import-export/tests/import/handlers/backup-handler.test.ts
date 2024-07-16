@@ -67,6 +67,15 @@ describe( 'BackupHandlerFactory', () => {
 	describe( 'listFiles', () => {
 		const archiveFiles = [
 			'index.php',
+			'.hidden-file',
+			'wp-content/.hidden-file',
+			'wp-content/plugins/hello.php',
+			'wp-content/themes/twentytwentyfour/theme.json',
+			'wp-content/uploads/2024/07/image.png',
+			'__MACOSX/meta-file',
+		];
+		const expectedArchiveFiles = [
+			'index.php',
 			'wp-content/plugins/hello.php',
 			'wp-content/themes/twentytwentyfour/theme.json',
 			'wp-content/uploads/2024/07/image.png',
@@ -83,7 +92,7 @@ describe( 'BackupHandlerFactory', () => {
 				archiveFiles.forEach( ( path ) => onReadEntry?.( { path } as tar.ReadEntry ) );
 			} );
 
-			await expect( handler.listFiles( archiveInfo ) ).resolves.toEqual( archiveFiles );
+			await expect( handler.listFiles( archiveInfo ) ).resolves.toEqual( expectedArchiveFiles );
 		} );
 
 		it( 'should list files from a zip archive', async () => {
@@ -99,7 +108,7 @@ describe( 'BackupHandlerFactory', () => {
 					.mockReturnValue( archiveFiles.map( ( file ) => ( { entryName: file } ) ) ),
 			} );
 
-			await expect( handler.listFiles( archiveInfo ) ).resolves.toEqual( archiveFiles );
+			await expect( handler.listFiles( archiveInfo ) ).resolves.toEqual( expectedArchiveFiles );
 		} );
 
 		it( 'should list a single SQL file', async () => {

@@ -1,4 +1,4 @@
-import { Importer } from "./importers";
+import { Importer } from './importers';
 
 export interface MetaFileData {
 	phpVersion: string;
@@ -23,4 +23,4 @@ export interface BackupArchiveInfo {
 	type: string;
 }
 
-export type NewImporter = new ( backup: BackupContents ) => Importer
+export type NewImporter = new ( backup: BackupContents ) => Importer;

@@ -229,6 +229,16 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 	const loading = loadingThemeDetails || loadingThumbnails || initialLoading;
 	const siteRunning = selectedSite.running;
 
+	const thumbnailImage = (
+		<img
+			onError={ () => setIsThumbnailError( true ) }
+			onLoad={ () => setIsThumbnailError( false ) }
+			className={ ! isThumbnailError ? 'w-full h-full' : 'absolute invisible' }
+			src={ thumbnailData || '' }
+			alt={ themeDetails?.name }
+		/>
+	);
+
 	return (
 		<div className="p-8 flex max-w-3xl">
 			<div className="w-52 ltr:mr-8 rtl:ml-8 flex-col justify-start items-start gap-8">
@@ -264,24 +274,10 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 									size={ 14 }
 								/>
 							</div>
-							<img
-								onError={ () => setIsThumbnailError( true ) }
-								onLoad={ () => setIsThumbnailError( false ) }
-								className={ ! isThumbnailError ? 'w-full h-full' : 'absolute invisible' }
-								src={ thumbnailData || '' }
-								alt={ themeDetails?.name }
-							/>
+							{ thumbnailImage }
 						</button>
 					) }
-					{ ! loading && ! siteRunning && (
-						<img
-							onError={ () => setIsThumbnailError( true ) }
-							onLoad={ () => setIsThumbnailError( false ) }
-							className={ ! isThumbnailError ? 'w-full h-full' : 'absolute invisible' }
-							src={ thumbnailData || '' }
-							alt={ themeDetails?.name }
-						/>
-					) }
+					{ ! loading && ! siteRunning && thumbnailImage }
 				</div>
 				<div className="flex justify-between items-center w-full">
 					{ loading && <div className={ `w-[100px] min-h-4 ${ skeletonBg }` }></div> }

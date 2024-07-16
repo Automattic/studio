@@ -1,7 +1,6 @@
 // To run tests, execute `npm run test -- src/lib/import-export/tests/import/handlers/backup-handler-factory.test.ts`
 import fs from 'fs';
 import path from 'path';
-import zlib from 'zlib';
 import AdmZip from 'adm-zip';
 import * as tar from 'tar';
 import { BackupHandlerFactory } from '../../../import/handlers/backup-handler-factory';
@@ -66,71 +65,41 @@ describe( 'BackupHandlerFactory', () => {
 	} );
 
 	describe( 'listFiles', () => {
-		it( 'should extract files from a gzip archive', async () => {
+		const archiveFiles = [
+			'index.php',
+			'wp-content/plugins/hello.php',
+			'wp-content/themes/twentytwentyfour/theme.json',
+			'wp-content/uploads/2024/07/image.png',
+		];
+
+		it( 'should list files from a gzip archive', async () => {
 			const archiveInfo: BackupArchiveInfo = {
 				path: '/path/to/backup.tar.gz',
 				type: 'application/gzip',
 			};
 			const handler = BackupHandlerFactory.create( archiveInfo );
-			const extractionDirectory = '/tmp/extracted';
 
-			( path.extname as jest.Mock ).mockReturnValue( '.gz' );
-			( fs.createReadStream as jest.Mock ).mockReturnValue( {
-				pipe: jest.fn().mockReturnThis(),
-				on: jest.fn().mockImplementation( ( event, callback ) => {
-					if ( event === 'finish' ) {
-						callback();
-					}
-					return this;
-				} ),
-			} );
-			( zlib.createGunzip as jest.Mock ).mockReturnValue( {
-				pipe: jest.fn().mockReturnThis(),
-			} );
-			( tar.extract as unknown as jest.Mock ).mockReturnValue( {
-				on: jest.fn().mockImplementation( ( event, callback ) => {
-					if ( event === 'finish' ) {
-						callback();
-					}
-					return this;
-				} ),
+			jest.spyOn( tar, 't' ).mockImplementation( ( { onReadEntry } ) => {
+				archiveFiles.forEach( ( path ) => onReadEntry?.( { path } as tar.ReadEntry ) );
 			} );
 
-			await expect(
-				handler.extractFiles( archiveInfo, extractionDirectory )
-			).resolves.not.toThrow();
+			await expect( handler.listFiles( archiveInfo ) ).resolves.toEqual( archiveFiles );
 		} );
 
-		it( 'should extract files from a zip archive', async () => {
+		it( 'should list files from a zip archive', async () => {
 			const archiveInfo: BackupArchiveInfo = {
 				path: '/path/to/backup.zip',
 				type: 'application/zip',
 			};
 			const handler = BackupHandlerFactory.create( archiveInfo );
-			const extractionDirectory = '/tmp/extracted';
 
-			( path.extname as jest.Mock ).mockReturnValue( '.zip' );
+			( AdmZip as jest.Mock ).mockReturnValue( {
+				getEntries: jest
+					.fn()
+					.mockReturnValue( archiveFiles.map( ( file ) => ( { entryName: file } ) ) ),
+			} );
 
-			const mockExtractAllToAsync = jest
-				.fn()
-				.mockImplementation( ( _path, _overwrite, _keepOriginalPermission, callback ) => {
-					callback();
-				} );
-
-			( AdmZip as jest.Mock ).mockImplementation( () => ( {
-				extractAllToAsync: mockExtractAllToAsync,
-			} ) );
-
-			await expect(
-				handler.extractFiles( archiveInfo, extractionDirectory )
-			).resolves.not.toThrow();
-
-			expect( mockExtractAllToAsync ).toHaveBeenCalledWith(
-				extractionDirectory,
-				true,
-				undefined,
-				expect.any( Function )
-			);
+			await expect( handler.listFiles( archiveInfo ) ).resolves.toEqual( archiveFiles );
 		} );
 
 		it( 'should list a single SQL file', async () => {
@@ -139,7 +108,6 @@ describe( 'BackupHandlerFactory', () => {
 				type: 'application/sql',
 			};
 			const handler = BackupHandlerFactory.create( archiveInfo );
-			( path.extname as jest.Mock ).mockReturnValue( '.sql' );
 			( path.basename as jest.Mock ).mockReturnValue( 'backup.sql' );
 			const result = await handler.listFiles( archiveInfo );
 			expect( result ).toEqual( [ 'backup.sql' ] );
@@ -154,9 +122,16 @@ describe( 'BackupHandlerFactory', () => {
 			};
 			const handler = BackupHandlerFactory.create( archiveInfo );
 			const extractionDirectory = '/tmp/extracted';
-			( path.extname as jest.Mock ).mockReturnValue( '.gz' );
 
-			( tar.x as unknown as jest.Mock ).mockResolvedValue( undefined );
+			( fs.createReadStream as jest.Mock ).mockReturnValue( {
+				pipe: jest.fn().mockReturnThis(),
+				on: jest.fn().mockImplementation( ( event, callback ) => {
+					if ( event === 'finish' ) {
+						callback();
+					}
+					return this;
+				} ),
+			} );
 
 			await expect(
 				handler.extractFiles( archiveInfo, extractionDirectory )
@@ -173,7 +148,6 @@ describe( 'BackupHandlerFactory', () => {
 			};
 			const handler = BackupHandlerFactory.create( archiveInfo );
 			const extractionDirectory = '/tmp/extracted';
-			( path.extname as jest.Mock ).mockReturnValue( '.zip' );
 			const mockExtractAllToAsync = jest
 				.fn()
 				.mockImplementation( ( path, overwrite, keepOriginalPermission, callback ) => {
@@ -200,7 +174,6 @@ describe( 'BackupHandlerFactory', () => {
 			};
 			const handler = BackupHandlerFactory.create( archiveInfo );
 			const extractionDirectory = '/tmp/extracted';
-			( path.extname as jest.Mock ).mockReturnValue( '.sql' );
 			( path.basename as jest.Mock ).mockReturnValue( 'backup.sql' );
 			( fs.promises.copyFile as jest.Mock ).mockResolvedValue( undefined );
 

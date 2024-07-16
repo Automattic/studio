@@ -3,12 +3,12 @@ import os from 'os';
 import path from 'path';
 import { BackupHandlerFactory } from './handlers/backup-handler-factory';
 import { Importer, ImporterResult } from './importers/importer';
-import { BackupArchiveInfo, BackupContents } from './types';
+import { BackupArchiveInfo, NewImporter } from './types';
 import { Validator } from './validators/validator';
 
 export interface ImporterOption {
 	validator: Validator;
-	importer: new ( backup: BackupContents ) => Importer;
+	importer: NewImporter;
 }
 
 export function selectImporter(

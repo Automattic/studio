@@ -64,7 +64,7 @@ export class BackupHandlerFactory {
 
 	private static isSql( file: BackupArchiveInfo ): boolean {
 		return (
-			this.sqlTypes.includes( file.type ) &&
+			( this.sqlTypes.includes( file.type ) || ! file.type ) &&
 			this.sqlExtensions.some( ( ext ) => file.path.endsWith( ext ) )
 		);
 	}

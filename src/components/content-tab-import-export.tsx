@@ -99,8 +99,18 @@ export const ExportSite = ( {
 
 export function ContentTabImportExport( { selectedSite }: ContentTabImportExportProps ) {
 	return (
+<<<<<<< HEAD
 		<div className="flex flex-col p-8 gap-8">
 			<ExportSite onExport={ getIpcApi().exportSite } selectedSite={ selectedSite }></ExportSite>
+=======
+		<div className="flex flex-col p-8">
+			<ExportSite
+				onExport={ async ( options ) => {
+					await getIpcApi().exportSite( options );
+				} }
+				selectedSite={ selectedSite }
+			></ExportSite>
+>>>>>>> 33090046 (Update: Add export site function)
 		</div>
 	);
 }

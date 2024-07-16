@@ -1,11 +1,14 @@
 import AdmZip from 'adm-zip';
 import { BackupArchiveInfo } from '../types';
-import { BackupHandler } from './backup-handler-factory';
+import { BackupHandler, isFileAllowed } from './backup-handler-factory';
 
 export class BackupHandlerZip implements BackupHandler {
 	async listFiles( backup: BackupArchiveInfo ): Promise< string[] > {
 		const zip = new AdmZip( backup.path );
-		return zip.getEntries().map( ( entry ) => entry.entryName );
+		return zip
+			.getEntries()
+			.map( ( entry ) => entry.entryName )
+			.filter( isFileAllowed );
 	}
 
 	async extractFiles( file: BackupArchiveInfo, extractionDirectory: string ): Promise< void > {

@@ -8,6 +8,16 @@ export interface BackupHandler {
 	extractFiles( file: BackupArchiveInfo, extractionDirectory: string ): Promise< void >;
 }
 
+const EXCLUDED_FILES_PATTERNS = [
+	/^__MACOSX\/.*/, // MacOS meta folder
+	/^\..*/, // Unix hidden files at root
+	/\/\..*/, // Unix hidden files at subfolders
+];
+
+export function isFileAllowed( filePath: string ) {
+	return EXCLUDED_FILES_PATTERNS.every( ( pattern ) => ! pattern.test( filePath ) );
+}
+
 export class BackupHandlerFactory {
 	private static zipTypes = [
 		'application/zip',

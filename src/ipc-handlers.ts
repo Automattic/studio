@@ -19,6 +19,10 @@ import { downloadSqliteIntegrationPlugin } from '../vendor/wp-now/src/download';
 import { LIMIT_ARCHIVE_SIZE } from './constants';
 import { isEmptyDir, pathExists, isWordPressDirectory, sanitizeFolderName } from './lib/fs-utils';
 import { getImageData } from './lib/get-image-data';
+import { ImporterOption, importBackup } from './lib/import-export/import/import-manager';
+import { DefaultImporter } from './lib/import-export/import/importers';
+import { BackupArchiveInfo } from './lib/import-export/import/types';
+import { JetpackValidator, SqlValidator } from './lib/import-export/import/validators';
 import { isErrnoException } from './lib/is-errno-exception';
 import { isInstalled } from './lib/is-installed';
 import { getLocaleData, getSupportedLocale } from './lib/locale';
@@ -97,6 +101,34 @@ export async function getInstalledApps( _event: IpcMainInvokeEvent ): Promise< I
 		vscode: isInstalled( 'vscode' ),
 		phpstorm: isInstalled( 'phpstorm' ),
 	};
+}
+
+const defaultImporterOptions: ImporterOption[] = [
+	{ validator: new JetpackValidator(), importer: DefaultImporter },
+	{ validator: new SqlValidator(), importer: DefaultImporter },
+];
+
+export async function importSite(
+	event: IpcMainInvokeEvent,
+	{ id, backupFile }: { id: string; backupFile: BackupArchiveInfo }
+) {
+	const site = SiteServer.get( id );
+	if ( ! site ) {
+		throw new Error( 'Site not found.' );
+	}
+	const sitePath = site.details.path;
+	try {
+		const result = await importBackup( backupFile, sitePath, defaultImporterOptions );
+		if ( result?.meta?.phpVersion ) {
+			await updateSite( event, {
+				...site.details,
+				phpVersion: result.meta.phpVersion,
+			} );
+		}
+	} catch ( e ) {
+		Sentry.captureException( e );
+		throw e;
+	}
 }
 
 // Use sqlite database and db.php file in situ

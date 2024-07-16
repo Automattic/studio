@@ -387,8 +387,6 @@ function AddDemoSiteWithProgress( {
 	selectedSite: SiteDetails;
 	className?: string;
 	tagline?: string;
-	isExpired?: boolean;
-	onClearExpiredSite?: () => void;
 } ) {
 	const { __, _n } = useI18n();
 	const { archiveSite, isUploadingSiteId, isAnySiteArchiving } = useArchiveSite();

@@ -249,13 +249,13 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 					{ ! loading && siteRunning && (
 						<button
 							aria-label={ __( 'Open site' ) }
-							className={ cx( `relative group focus-visible:outline-a8c-blueberry` ) }
+							className={ 'relative group focus-visible:outline-a8c-blueberry' }
 							onClick={ () => getIpcApi().openSiteURL( selectedSite.id ) }
 						>
 							<div
-								className={ cx(
-									`opacity-0 group-hover:opacity-90 group-hover:bg-white duration-300 absolute size-full flex justify-center items-center bg-white text-a8c-blueberry`
-								) }
+								className={
+									'opacity-0 group-hover:opacity-90 group-hover:bg-white duration-300 absolute size-full flex justify-center items-center bg-white text-a8c-blueberry'
+								}
 							>
 								{ __( 'Open site' ) }
 								<Icon

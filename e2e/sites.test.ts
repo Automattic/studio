@@ -37,17 +37,18 @@ test.describe( 'Servers', () => {
 		await modal.siteNameInput.fill( siteName );
 		await modal.addSiteButton.click();
 
-		const sidebarButton = sidebar.getSiteNavButton( siteName );
-		await expect( sidebarButton ).toBeAttached( { timeout: 30_000 } );
+		const siteTitle = sidebar.getSiteNavButton( siteName );
+		await expect( siteTitle ).toHaveText( siteName );
+
+		// Check the site is running
+		const siteContent = new SiteContent( session.mainWindow, siteName );
+		await expect( siteContent.siteNameHeading ).toBeAttached( { timeout: 30_000 } );
+		expect( await siteContent.siteNameHeading ).toHaveText( siteName );
 
 		// Check a WordPress site has been created
 		expect(
 			await pathExists( path.join( session.homePath, 'Studio', siteName, 'wp-config.php' ) )
 		).toBe( true );
-
-		// Check the site is running
-		const siteContent = new SiteContent( session.mainWindow, siteName );
-		expect( await siteContent.siteNameHeading ).toHaveText( siteName );
 
 		await siteContent.navigateToTab( 'Settings' );
 

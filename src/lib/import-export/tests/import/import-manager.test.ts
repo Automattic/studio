@@ -4,9 +4,9 @@ import os from 'os';
 import path from 'path';
 import { BackupHandlerFactory } from '../../import/handlers/backup-handler-factory';
 import { selectImporter, importBackup } from '../../import/import-manager';
-import { Importer } from '../../import/importers/Importer';
+import { Importer } from '../../import/importers/importer';
 import { BackupContents, BackupArchiveInfo } from '../../import/types';
-import { Validator } from '../../import/validators/Validator';
+import { Validator } from '../../import/validators/validator';
 
 jest.mock( '../../import/handlers/backup-handler-factory' );
 jest.mock( 'fs/promises' );
@@ -22,16 +22,14 @@ describe( 'importManager', () => {
 			}
 			const mockValidator = new MockValidator();
 			const MockImporter = jest.fn();
-			const importers = {
-				MockValidator: MockImporter,
-			};
 
-			const result = selectImporter(
-				[ 'file1.txt', 'file2.txt' ],
-				'/tmp/extracted',
-				[ mockValidator ],
-				importers
-			);
+			const options = [
+				{
+					validator: mockValidator,
+					importer: MockImporter,
+				},
+			];
+			const result = selectImporter( [ 'file1.txt', 'file2.txt' ], '/tmp/extracted', options );
 
 			expect( result ).toBeInstanceOf( MockImporter );
 			expect( mockValidator.canHandle ).toHaveBeenCalledWith( [ 'file1.txt', 'file2.txt' ] );
@@ -48,12 +46,13 @@ describe( 'importManager', () => {
 			}
 			const mockValidator = new MockValidator();
 
-			const result = selectImporter(
-				[ 'file1.txt', 'file2.txt' ],
-				'/tmp/extracted',
-				[ mockValidator ],
-				{}
-			);
+			const options = [
+				{
+					validator: mockValidator,
+					importer: jest.fn(),
+				},
+			];
+			const result = selectImporter( [ 'file1.txt', 'file2.txt' ], '/tmp/extracted', options );
 
 			expect( result ).toBeNull();
 		} );
@@ -90,9 +89,13 @@ describe( 'importManager', () => {
 			};
 			( BackupHandlerFactory.create as jest.Mock ).mockReturnValue( mockBackupHandler );
 
-			await importBackup( mockFile, mockSitePath, [ mockValidator ], {
-				[ mockValidator.constructor.name ]: MockImporterClass,
-			} );
+			const options = [
+				{
+					validator: mockValidator,
+					importer: MockImporterClass,
+				},
+			];
+			await importBackup( mockFile, mockSitePath, options );
 
 			expect( fsPromises.mkdtemp ).toHaveBeenCalledWith( '/tmp/studio_backup' );
 			expect( mockBackupHandler.listFiles ).toHaveBeenCalledWith( mockFile );
@@ -114,9 +117,14 @@ describe( 'importManager', () => {
 			};
 			( BackupHandlerFactory.create as jest.Mock ).mockReturnValue( mockBackupHandler );
 
-			await expect( importBackup( mockFile, mockSitePath, [ mockValidator ], {} ) ).rejects.toThrow(
-				'No suitable importer found for the given backup file'
-			);
+			await expect(
+				importBackup( mockFile, mockSitePath, [
+					{
+						validator: mockValidator,
+						importer: jest.fn(),
+					},
+				] )
+			).rejects.toThrow( 'No suitable importer found for the given backup file' );
 
 			expect( fsPromises.mkdtemp ).toHaveBeenCalledWith( '/tmp/studio_backup' );
 			expect( fsPromises.rm ).toHaveBeenCalledWith( mockExtractDir, {

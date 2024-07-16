@@ -1,6 +1,6 @@
 import path from 'path';
 import { BackupContents } from '../types';
-import { Validator } from './Validator';
+import { Validator } from './validator';
 
 export class SqlValidator implements Validator {
 	canHandle( fileList: string[] ): boolean {

@@ -2,12 +2,17 @@ export interface MetaFileData {
 	phpVersion: string;
 	wordpressVersion: string;
 }
+
+export interface WpContent {
+	uploads: string[];
+	plugins: string[];
+	themes: string[];
+}
+
 export interface BackupContents {
 	extractionDirectory: string;
 	sqlFiles: string[];
-	wpContent: {
-		[ key: string ]: string[]; // 'uploads', 'plugins', 'themes'
-	};
+	wpContent: WpContent;
 	metaFile?: string;
 }
 

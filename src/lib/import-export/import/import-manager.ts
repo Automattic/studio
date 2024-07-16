@@ -2,23 +2,24 @@ import fsPromises from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import { BackupHandlerFactory } from './handlers/backup-handler-factory';
-import { Importer, ImporterResult } from './importers/Importer';
+import { Importer, ImporterResult } from './importers/importer';
 import { BackupArchiveInfo, BackupContents } from './types';
-import { Validator } from './validators/Validator';
+import { Validator } from './validators/validator';
+
+export interface ImporterOption {
+	validator: Validator;
+	importer: new ( backup: BackupContents ) => Importer;
+}
 
 export function selectImporter(
 	allFiles: string[],
 	extractionDirectory: string,
-	validators: Validator[],
-	importers: { [ key: string ]: new ( backup: BackupContents ) => Importer }
+	options: ImporterOption[]
 ): Importer | null {
-	for ( const validator of validators ) {
+	for ( const { validator, importer } of options ) {
 		if ( validator.canHandle( allFiles ) ) {
-			const importerClass = importers[ validator.constructor.name ];
-			if ( importerClass ) {
-				const files = validator.parseBackupContents( allFiles, extractionDirectory );
-				return new importerClass( files );
-			}
+			const files = validator.parseBackupContents( allFiles, extractionDirectory );
+			return new importer( files );
 		}
 	}
 	return null;
@@ -27,14 +28,13 @@ export function selectImporter(
 export async function importBackup(
 	backupFile: BackupArchiveInfo,
 	sitePath: string,
-	validators: Validator[],
-	importers: { [ key: string ]: new ( backup: BackupContents ) => Importer }
+	options: ImporterOption[]
 ): Promise< ImporterResult > {
 	const extractionDirectory = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio_backup' ) );
 	try {
 		const backupHandler = BackupHandlerFactory.create( backupFile );
 		const fileList = await backupHandler.listFiles( backupFile );
-		const importer = selectImporter( fileList, extractionDirectory, validators, importers );
+		const importer = selectImporter( fileList, extractionDirectory, options );
 
 		if ( importer ) {
 			await backupHandler.extractFiles( backupFile, extractionDirectory );

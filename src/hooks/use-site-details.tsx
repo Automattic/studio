@@ -175,11 +175,35 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 				] )
 			);
 			setSelectedSiteId( tempSiteId ); // Set the temporary ID as the selected site
-			const data = await getIpcApi().createSite( path, siteName );
-			setData( data );
-			const newSite = data.find( ( site ) => site.path === path );
-			if ( newSite?.id ) {
-				setSelectedSiteId( newSite.id ); // Update the selected site to the new site's ID
+
+			try {
+				const data = await getIpcApi().createSite( path, siteName );
+				const newSite = data.find( ( site ) => site.path === path );
+				if ( newSite?.id ) {
+					setSelectedSiteId( newSite.id ); // Update the selected site to the new site's ID
+				}
+				setData( ( prevData ) =>
+					sortSites(
+						prevData.map( ( site ) =>
+							site.id === tempSiteId ? { ...site, ...newSite, isAddingSite: false } : site
+						)
+					)
+				);
+			} catch ( error ) {
+				console.error( 'Failed to create site:', error );
+				getIpcApi().showMessageBox( {
+					type: 'error',
+					message: __( 'Failed to create site' ),
+					detail: __(
+						'An error occurred while creating the site. Verify your selected local path is an empty directory or an existing WordPress folder and try again. If this problem persists, please contact support.'
+					),
+					buttons: [ __( 'OK' ) ],
+				} );
+				setTimeout( () => {
+					setData( ( prevData ) =>
+						sortSites( prevData.filter( ( site ) => site.id !== tempSiteId ) )
+					);
+				}, 3000 ); // Delay before removing the temporary site; otherwise, it gets a weird glitch because removed too quickly
 			}
 		},
 		[ setSelectedSiteId ]

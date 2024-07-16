@@ -55,16 +55,8 @@ export function useAddSite() {
 			await createSite( path, siteName ?? '' );
 		} catch ( e ) {
 			Sentry.captureException( e );
-			getIpcApi().showMessageBox( {
-				type: 'error',
-				message: __( 'Failed to create site' ),
-				detail: __(
-					'An error occurred while creating the site. Verify your selected local path is an empty directory or an existing WordPress folder and try again. If this problem persists, please contact support.'
-				),
-				buttons: [ __( 'OK' ) ],
-			} );
 		}
-	}, [ createSite, proposedSitePath, siteName, sitePath, __ ] );
+	}, [ createSite, proposedSitePath, siteName, sitePath ] );
 
 	const handleSiteNameChange = useCallback(
 		async ( name: string ) => {

@@ -1,11 +1,8 @@
 import fs from 'fs';
-import { promisify } from 'util';
 import zlib from 'zlib';
 import * as tar from 'tar';
 import { BackupArchiveInfo } from '../types';
 import { BackupHandler } from './backup-handler-factory';
-
-const unzip = promisify( zlib.unzip );
 
 export class BackupHandlerTarGz implements BackupHandler {
 	async listFiles( backup: BackupArchiveInfo ): Promise< string[] > {

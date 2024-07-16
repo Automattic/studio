@@ -122,7 +122,7 @@ export async function importSite(
 		}
 	} catch ( e ) {
 		Sentry.captureException( e );
-		throw e
+		throw e;
 	}
 }
 

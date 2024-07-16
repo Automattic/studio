@@ -121,7 +121,8 @@ export async function importSite(
 			} );
 		}
 	} catch ( e ) {
-		console.log( 'Error importing site', ( e as Error ).message );
+		Sentry.captureException( e );
+		throw e
 	}
 }
 

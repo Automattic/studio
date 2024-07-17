@@ -122,7 +122,7 @@ export default function Onboarding() {
 									disabled={ !! error || selectedSite?.isAddingSite }
 									variant="primary"
 								>
-									{ selectedSite?.isAddingSite ? __( 'Adding site…' ) : __( 'Add site' ) }
+									{ 'Add site' }
 								</Button>
 							</div>
 						</SiteForm>

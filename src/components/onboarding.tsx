@@ -4,7 +4,6 @@ import { Icon, wordpress } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useCallback, useEffect } from 'react';
 import { useAddSite } from '../hooks/use-add-site';
-import { useSiteDetails } from '../hooks/use-site-details';
 import { generateSiteName } from '../lib/generate-site-name';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
@@ -47,8 +46,6 @@ export default function Onboarding() {
 		handleSiteNameChange,
 		handlePathSelectorClick,
 	} = useAddSite();
-
-	const { selectedSite } = useSiteDetails();
 
 	const siteAddedMessage = sprintf(
 		// translators: %s is the site name.
@@ -116,12 +113,7 @@ export default function Onboarding() {
 							onSubmit={ handleSubmit }
 						>
 							<div className="flex flex-row gap-x-5 mt-6">
-								<Button
-									type="submit"
-									isBusy={ selectedSite?.isAddingSite }
-									disabled={ !! error || selectedSite?.isAddingSite }
-									variant="primary"
-								>
+								<Button type="submit" variant="primary">
 									{ __( 'Add site' ) }
 								</Button>
 							</div>

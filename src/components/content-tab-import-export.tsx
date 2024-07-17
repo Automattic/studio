@@ -4,7 +4,7 @@ import { sprintf, __ } from '@wordpress/i18n';
 import { Icon, download } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { format } from 'date-fns';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { STUDIO_DOCS_URL } from '../constants';
 import { useConfirmationDialog } from '../hooks/use-confirmation-dialog';
 import { useDragAndDropFile } from '../hooks/use-drag-and-drop-file';
@@ -14,6 +14,7 @@ import { cx } from '../lib/cx';
 import { sanitizeFolderName } from '../lib/generate-site-name';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { ExportOptions } from '../lib/import-export/export/types';
+import { BackupArchiveInfo } from '../lib/import-export/import/types';
 import Button from './button';
 import { ProgressBarWithAutoIncrement } from './progress-bar';
 
@@ -268,6 +269,34 @@ const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 };
 
 export function ContentTabImportExport( { selectedSite }: ContentTabImportExportProps ) {
+	/* TODO: Remove before merge*/
+	const [ file, setFile ] = useState< File | null >( null );
+
+	/* TODO: Remove before merge*/
+	const handleFileChange = ( e: React.ChangeEvent< HTMLInputElement > ) => {
+		const selectedFile = e.target.files ? e.target.files[ 0 ] : null;
+		if ( selectedFile ) {
+			setFile( selectedFile );
+		}
+	};
+
+	/* TODO: Remove handleImport before merge*/
+	const handleImport = () => {
+		if ( file ) {
+			try {
+				const backupFile: BackupArchiveInfo = {
+					type: file.type,
+					path: file.path,
+				};
+				getIpcApi().importSite( { id: selectedSite.id, backupFile } );
+			} catch ( error ) {
+				console.error( 'Error importing site:', error );
+			}
+		} else {
+			console.warn( 'No file selected for import' );
+		}
+	};
+
 	useIpcListener( 'on-import', ( _evt, data: unknown ) => {
 		// This listener will be used to track progress of import when the UI is finished.
 	} );

@@ -293,6 +293,7 @@ export const SnapshotProvider: React.FC< { children: ReactNode } > = ( { childre
 			return response;
 		} catch ( error ) {
 			Sentry.captureException( error );
+			setSnapshotCreationBlocked( false ); // Default the site creation to enabled
 		} finally {
 			setIsLoading( false );
 		}

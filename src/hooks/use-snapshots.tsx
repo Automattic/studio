@@ -289,6 +289,7 @@ export const SnapshotProvider: React.FC< { children: ReactNode } > = ( { childre
 					path: '/jurassic-ninja/usage',
 					apiNamespace: 'wpcom/v2',
 				} );
+			setSnapshotCreationBlocked( response.site_creation_blocked );
 			return response;
 		} catch ( error ) {
 			Sentry.captureException( error );
@@ -318,10 +319,9 @@ export const SnapshotProvider: React.FC< { children: ReactNode } > = ( { childre
 				setSnapshotQuota( LIMIT_OF_ZIP_SITES_PER_USER );
 				return;
 			}
-			const { site_count, site_limit, site_creation_blocked } = response;
+			const { site_count, site_limit } = response;
 			setActiveSnapshotCount( site_count );
 			setSnapshotQuota( site_limit );
-			setSnapshotCreationBlocked( site_creation_blocked );
 		};
 		fetchStats();
 	}, [ client, fetchSnapshotUsage, initiated, snapshots.length ] );

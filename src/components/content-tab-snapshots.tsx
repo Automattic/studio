@@ -381,8 +381,13 @@ function AddDemoSiteWithProgress( {
 	const { __, _n } = useI18n();
 	const { archiveSite, isUploadingSiteId, isAnySiteArchiving } = useArchiveSite();
 	const isUploading = isUploadingSiteId( selectedSite.id );
-	const { activeSnapshotCount, snapshotQuota, isLoadingSnapshotUsage, snapshotCreationBlocked } =
-		useSnapshots();
+	const {
+		activeSnapshotCount,
+		snapshotQuota,
+		isLoadingSnapshotUsage,
+		snapshotCreationBlocked,
+		fetchSnapshotUsage,
+	} = useSnapshots();
 	const isLimitUsed = activeSnapshotCount >= snapshotQuota;
 	const isOffline = useOffline();
 	const { progress, setProgress } = useProgressTimer( {
@@ -391,6 +396,15 @@ function AddDemoSiteWithProgress( {
 		interval: 1500,
 		maxValue: 95,
 	} );
+
+	useEffect( () => {
+		const intervalId = setInterval( () => {
+			fetchSnapshotUsage(); // Function to fetch the latest data from the endpoint
+		}, 10000 );
+
+		return () => clearInterval( intervalId ); // Cleanup the interval on component unmount
+	}, [ fetchSnapshotUsage ] );
+
 	useEffect( () => {
 		if ( isSnapshotLoading ) {
 			setProgress( 80 );

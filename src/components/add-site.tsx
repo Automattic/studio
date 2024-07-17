@@ -19,7 +19,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 	const { __ } = useI18n();
 	const [ showModal, setShowModal ] = useState( false );
 	const [ nameSuggested, setNameSuggested ] = useState( false );
-	const { selectedSite } = useSiteDetails();
+	const { data } = useSiteDetails();
 
 	const {
 		handleAddSiteClick,
@@ -37,6 +37,8 @@ export default function AddSite( { className }: AddSiteProps ) {
 		usedSiteNames,
 		loadingSites,
 	} = useAddSite();
+
+	const isSiteAdding = data.some( ( site ) => site.isAddingSite );
 
 	const siteAddedMessage = sprintf(
 		// translators: %s is the site name.
@@ -118,18 +120,14 @@ export default function AddSite( { className }: AddSiteProps ) {
 						doesPathContainWordPress={ doesPathContainWordPress }
 					>
 						<div className="flex flex-row justify-end gap-x-5 mt-6">
-							<Button
-								onClick={ closeModal }
-								disabled={ selectedSite?.isAddingSite }
-								variant="tertiary"
-							>
+							<Button onClick={ closeModal } disabled={ isSiteAdding } variant="tertiary">
 								{ __( 'Cancel' ) }
 							</Button>
 							<Button
 								type="submit"
 								variant="primary"
-								isBusy={ selectedSite?.isAddingSite }
-								disabled={ selectedSite?.isAddingSite || !! error || ! siteName?.trim() }
+								isBusy={ isSiteAdding }
+								disabled={ isSiteAdding || !! error || ! siteName?.trim() }
 							>
 								{ __( 'Add site' ) }
 							</Button>

@@ -22,11 +22,8 @@ import { isEmptyDir, pathExists, isWordPressDirectory, sanitizeFolderName } from
 import { getImageData } from './lib/get-image-data';
 import { exportBackup } from './lib/import-export/export/export-manager';
 import { ExportOptions } from './lib/import-export/export/types';
-<<<<<<< HEAD
 import { defaultImporterOptions, importBackup } from './lib/import-export/import/import-manager';
 import { BackupArchiveInfo } from './lib/import-export/import/types';
-=======
->>>>>>> 33090046 (Update: Add export site function)
 import { isErrnoException } from './lib/is-errno-exception';
 import { isInstalled } from './lib/is-installed';
 import { getLocaleData, getSupportedLocale } from './lib/locale';
@@ -478,16 +475,12 @@ export async function exportSite(
 	_event: IpcMainInvokeEvent,
 	options: ExportOptions
 ): Promise< void > {
-<<<<<<< HEAD
 	try {
 		await exportBackup( options );
 	} catch ( e ) {
 		Sentry.captureException( e );
 		throw e;
 	}
-=======
-	await exportBackup( options );
->>>>>>> 33090046 (Update: Add export site function)
 }
 
 export async function saveSnapshotsToStorage( event: IpcMainInvokeEvent, snapshots: Snapshot[] ) {

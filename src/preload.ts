@@ -7,6 +7,7 @@ import { ExportOptions } from './lib/import-export/export/types';
 import { BackupArchiveInfo } from './lib/import-export/import/types';
 import { promptWindowsSpeedUpSites } from './lib/windows-helpers';
 import type { LogLevel } from './logging';
+import { SaveDialogOptions } from 'electron/common';
 
 const api: IpcApi = {
 	archiveSite: ( id: string ) => ipcRenderer.invoke( 'archiveSite', id ),
@@ -27,8 +28,12 @@ const api: IpcApi = {
 		ipcRenderer.invoke( 'openSiteURL', id, relativeURL ),
 	openURL: ( url: string ) => ipcRenderer.invoke( 'openURL', url ),
 	showOpenFolderDialog: ( title: string ) => ipcRenderer.invoke( 'showOpenFolderDialog', title ),
+<<<<<<< HEAD
 	showSaveAsDialog: ( options: SaveDialogOptions ) =>
 		ipcRenderer.invoke( 'showSaveAsDialog', options ),
+=======
+	showSaveAsDialog: ( options: SaveDialogOptions ) => ipcRenderer.invoke( 'showSaveAsDialog', options ),
+>>>>>>> 8880648b (Update: Fix exporting)
 	showUserSettings: () => ipcRenderer.invoke( 'showUserSettings' ),
 	startServer: ( id: string ) => ipcRenderer.invoke( 'startServer', id ),
 	stopServer: ( id: string ) => ipcRenderer.invoke( 'stopServer', id ),

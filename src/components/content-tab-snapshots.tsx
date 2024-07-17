@@ -55,6 +55,8 @@ function SnapshotRow( {
 		previousSnapshot && snapshot.isLoading ? previousSnapshot : snapshot;
 	const { countDown, isExpired, dateString } = useExpirationDate( date );
 	const { deleteSnapshot } = useDeleteSnapshot();
+	const { isUploadingSiteId } = useArchiveSite();
+	const isUploading = isUploadingSiteId( selectedSite.id );
 	const { updateDemoSite, isDemoSiteUpdating } = useUpdateDemoSite();
 	const { removeSnapshot } = useSiteDetails();
 
@@ -152,9 +154,11 @@ function SnapshotRow( {
 						isSnapshotLoading={ snapshot.isLoading }
 						tagline={ __( "We're creating your new demo site." ) }
 					/>
-					<Button isDestructive onClick={ () => removeSnapshot( snapshot ) }>
-						{ __( 'Clear expired site' ) }
-					</Button>
+					{ ! snapshot.isLoading && ! isUploading && (
+						<Button isDestructive onClick={ () => removeSnapshot( snapshot ) }>
+							{ __( 'Clear expired site' ) }
+						</Button>
+					) }
 				</div>
 			</div>
 		);

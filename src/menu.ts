@@ -9,6 +9,7 @@ import {
 import { __ } from '@wordpress/i18n';
 import { openAboutWindow } from './about-menu/open-about-menu';
 import { BUG_REPORT_URL, FEATURE_REQUEST_URL, STUDIO_DOCS_URL } from './constants';
+import { promptWindowsSpeedUpSites } from './lib/windows-helpers';
 import { withMainWindow } from './main-window';
 import { isUpdateReadyToInstall, manualCheckForUpdates } from './updates';
 
@@ -165,6 +166,17 @@ function getAppMenu( mainWindow: BrowserWindow | null ) {
 						shell.openExternal( STUDIO_DOCS_URL );
 					},
 				},
+				{ type: 'separator' },
+				...( process.platform === 'win32'
+					? [
+							{
+								label: __( 'How can I make Studio faster?' ),
+								click: () => {
+									promptWindowsSpeedUpSites( { skipIfAlreadyPrompted: false } );
+								},
+							},
+					  ]
+					: [] ),
 				{ type: 'separator' },
 				{
 					label: __( 'Report an Issue' ),

@@ -12,7 +12,7 @@ import {
 } from '../wp-playground-wordpress';
 import {
 	downloadSqliteIntegrationPlugin,
-	downloadWPCLI,
+	downloadWpCli,
 	downloadWordPress,
 } from '../download';
 import os from 'os';
@@ -844,7 +844,7 @@ describe('wp-cli command', () => {
 	});
 
 	beforeAll(async () => {
-		await downloadWithTimer('wp-cli', downloadWPCLI);
+		await downloadWithTimer('wp-cli', downloadWpCli);
 	});
 
 	afterAll(() => {

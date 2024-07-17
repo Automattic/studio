@@ -14,7 +14,14 @@ import packageJson from '../package.json';
 import { PROTOCOL_PREFIX } from './constants';
 import * as ipcHandlers from './ipc-handlers';
 import { getPlatformName } from './lib/app-globals';
-import { bumpAggregatedUniqueStat } from './lib/bump-stats';
+import { bumpAggregatedUniqueStat, bumpStat } from './lib/bump-stats';
+import {
+	listenCLICommands,
+	getCLIDataForMainInstance,
+	isCLI,
+	processCLICommand,
+	executeCLICommand,
+} from './lib/cli';
 import { getLocaleData, getSupportedLocale } from './lib/locale';
 import { handleAuthCallback, setUpAuthCallbackHandler } from './lib/oauth';
 import { setupLogging } from './logging';
@@ -23,27 +30,44 @@ import {
 	migrateFromWpNowFolder,
 	needsToMigrateFromWpNowFolder,
 } from './migrations/migrate-from-wp-now-folder';
-import setupWPServerFiles from './setup-wp-server-files';
+import { setupWPServerFiles, updateWPServerFiles } from './setup-wp-server-files';
+import { stopAllServersOnQuit } from './site-server';
+import { loadUserData } from './storage/user-data'; // eslint-disable-next-line import/order
 import { setupUpdates } from './updates';
-import { stopAllServersOnQuit } from './site-server'; // eslint-disable-line import/order
 
-Sentry.init( {
-	dsn: 'https://97693275b2716fb95048c6d12f4318cf@o248881.ingest.sentry.io/4506612776501248',
-	debug: true,
-	enabled:
-		process.env.NODE_ENV !== 'development' && process.env.NODE_ENV !== 'test' && ! process.env.E2E,
-	release: `${ app.getVersion() ? app.getVersion() : COMMIT_HASH }-${ getPlatformName() }`,
-} );
+if ( ! isCLI() ) {
+	Sentry.init( {
+		dsn: 'https://97693275b2716fb95048c6d12f4318cf@o248881.ingest.sentry.io/4506612776501248',
+		debug: true,
+		enabled:
+			process.env.NODE_ENV !== 'development' &&
+			process.env.NODE_ENV !== 'test' &&
+			! process.env.E2E,
+		release: `${ app.getVersion() ? app.getVersion() : COMMIT_HASH }-${ getPlatformName() }`,
+	} );
+}
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const isInInstaller = require( 'electron-squirrel-startup' );
 
 // Ensure we're the only instance of the app running
-const gotTheLock = app.requestSingleInstanceLock();
+const gotTheLock = app.requestSingleInstanceLock( getCLIDataForMainInstance() );
+
+let finishedInitialization = false;
 
 if ( gotTheLock && ! isInInstaller ) {
-	appBoot();
+	if ( isCLI() ) {
+		processCLICommand( { mainInstance: true, appBoot } );
+	} else {
+		appBoot();
+	}
+} else if ( ! gotTheLock ) {
+	if ( isCLI() ) {
+		processCLICommand( { mainInstance: false } );
+	} else {
+		app.quit();
+	}
 }
 
 const onAuthorizationCallback = ( url: string ) => {
@@ -71,8 +95,6 @@ async function appBoot() {
 	setupLogging();
 
 	setupUpdates();
-
-	setupWPServerFiles().catch( Sentry.captureException );
 
 	if ( process.defaultApp ) {
 		if ( process.argv.length >= 2 ) {
@@ -151,9 +173,18 @@ async function appBoot() {
 		} else {
 			// Handle custom protocol links on Windows and Linux
 			app.on( 'second-instance', ( _event, argv ): void => {
+				if ( ! finishedInitialization ) {
+					return;
+				}
+
 				withMainWindow( ( mainWindow ) => {
-					if ( mainWindow.isMinimized() ) mainWindow.restore();
-					mainWindow.focus();
+					// CLI commands are likely invoked from other apps, so we need to avoid changing app focus.
+					const isCLI = argv?.find( ( arg ) => arg.startsWith( '--cli=' ) );
+					if ( ! isCLI ) {
+						if ( mainWindow.isMinimized() ) mainWindow.restore();
+						mainWindow.focus();
+					}
+
 					const customProtocolParameter = argv?.find( ( arg ) =>
 						arg.startsWith( PROTOCOL_PREFIX )
 					);
@@ -198,6 +229,7 @@ async function appBoot() {
 				"script-src-attr 'none'",
 				"img-src 'self' https://*.gravatar.com https://*.wp.com data:",
 				"style-src 'self' 'unsafe-inline'", // unsafe-inline used by tailwindcss in development, and also in production after the app rename
+				"script-src 'self' 'wasm-unsafe-eval'", // allow WebAssembly to compile and instantiate
 			];
 			const prodPolicies = [ "connect-src 'self' https://public-api.wordpress.com" ];
 			const devPolicies = [
@@ -220,15 +252,34 @@ async function appBoot() {
 			} );
 		} );
 
+		setupIpc();
+
+		await setupWPServerFiles().catch( Sentry.captureException );
+		// WordPress server files are updated asynchronously to avoid delaying app initialization
+		updateWPServerFiles().catch( Sentry.captureException );
+
 		if ( await needsToMigrateFromWpNowFolder() ) {
 			await migrateFromWpNowFolder();
 		}
 
-		setupIpc();
-
 		createMainWindow();
 
+		// Handle CLI commands
+		listenCLICommands();
+		executeCLICommand();
+
+		// Bump stats for the first time the app runs - this is when no lastBumpStats are available
+		const userData = await loadUserData();
+		if ( ! userData.lastBumpStats ) {
+			bumpStat( 'studio-app-launch-first', process.platform );
+		}
+
+		// Bump a stat on each app launch, approximates total app launches
+		bumpStat( 'studio-app-launch-total', process.platform );
+		// Bump stat for unique weekly app launch, approximates weekly active users
 		bumpAggregatedUniqueStat( 'local-environment-launch-uniques', process.platform, 'weekly' );
+
+		finishedInitialization = true;
 	} );
 
 	// Quit when all windows are closed, except on macOS. There, it's common
@@ -249,10 +300,14 @@ async function appBoot() {
 	} );
 
 	app.on( 'activate', () => {
-		// On OS X it's common to re-create a window in the app when the
-		// dock icon is clicked and there are no other windows open.
+		if ( ! finishedInitialization ) {
+			return;
+		}
+
 		if ( BrowserWindow.getAllWindows().length === 0 ) {
-			app.whenReady().then( createMainWindow ).catch( Sentry.captureException );
+			// On OS X it's common to re-create a window in the app when the
+			// dock icon is clicked and there are no other windows open.
+			createMainWindow();
 		}
 	} );
 }

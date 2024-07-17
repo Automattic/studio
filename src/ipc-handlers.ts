@@ -14,11 +14,15 @@ import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import archiver from 'archiver';
 import { copySync } from 'fs-extra';
-import { SQLITE_FILENAME } from '../vendor/wp-now/src/constants';
+import { SQLITE_FILENAME, DEFAULT_PHP_VERSION } from '../vendor/wp-now/src/constants';
 import { downloadSqliteIntegrationPlugin } from '../vendor/wp-now/src/download';
 import { LIMIT_ARCHIVE_SIZE } from './constants';
 import { isEmptyDir, pathExists, isWordPressDirectory, sanitizeFolderName } from './lib/fs-utils';
 import { getImageData } from './lib/get-image-data';
+import { ImporterOption, importBackup } from './lib/import-export/import/import-manager';
+import { DefaultImporter } from './lib/import-export/import/importers';
+import { BackupArchiveInfo } from './lib/import-export/import/types';
+import { JetpackValidator, SqlValidator } from './lib/import-export/import/validators';
 import { isErrnoException } from './lib/is-errno-exception';
 import { isInstalled } from './lib/is-installed';
 import { getLocaleData, getSupportedLocale } from './lib/locale';
@@ -32,11 +36,18 @@ import {
 	isSqlLiteInstalled,
 	removeLegacySqliteIntegrationPlugin,
 } from './lib/sqlite-versions';
+import * as windowsHelpers from './lib/windows-helpers';
 import { writeLogToFile, type LogLevel } from './logging';
 import { popupMenu } from './menu';
 import { SiteServer, createSiteWorkingDirectory } from './site-server';
-import { DEFAULT_SITE_PATH, getServerFilesPath, getSiteThumbnailPath } from './storage/paths';
+import {
+	DEFAULT_SITE_PATH,
+	getResourcesPath,
+	getServerFilesPath,
+	getSiteThumbnailPath,
+} from './storage/paths';
 import { loadUserData, saveUserData } from './storage/user-data';
+import type { WpCliResult } from './lib/wp-cli-process';
 
 const TEMP_DIR = nodePath.join( app.getPath( 'temp' ), 'com.wordpress.studio' ) + nodePath.sep;
 if ( ! fs.existsSync( TEMP_DIR ) ) {
@@ -90,6 +101,34 @@ export async function getInstalledApps( _event: IpcMainInvokeEvent ): Promise< I
 		vscode: isInstalled( 'vscode' ),
 		phpstorm: isInstalled( 'phpstorm' ),
 	};
+}
+
+const defaultImporterOptions: ImporterOption[] = [
+	{ validator: new JetpackValidator(), importer: DefaultImporter },
+	{ validator: new SqlValidator(), importer: DefaultImporter },
+];
+
+export async function importSite(
+	event: IpcMainInvokeEvent,
+	{ id, backupFile }: { id: string; backupFile: BackupArchiveInfo }
+) {
+	const site = SiteServer.get( id );
+	if ( ! site ) {
+		throw new Error( 'Site not found.' );
+	}
+	const sitePath = site.details.path;
+	try {
+		const result = await importBackup( backupFile, sitePath, defaultImporterOptions );
+		if ( result?.meta?.phpVersion ) {
+			await updateSite( event, {
+				...site.details,
+				phpVersion: result.meta.phpVersion,
+			} );
+		}
+	} catch ( e ) {
+		Sentry.captureException( e );
+		throw e;
+	}
 }
 
 // Use sqlite database and db.php file in situ
@@ -156,6 +195,7 @@ export async function createSite(
 		path,
 		adminPassword: createPassword(),
 		running: false,
+		phpVersion: DEFAULT_PHP_VERSION,
 	} as const;
 
 	const server = SiteServer.create( details );
@@ -460,6 +500,8 @@ export async function getAppGlobals( _event: IpcMainInvokeEvent ): Promise< AppG
 		appName: app.name,
 		arm64Translation: app.runningUnderARM64Translation,
 		assistantEnabled: process.env.STUDIO_AI === 'true',
+		terminalWpCliEnabled: process.env.STUDIO_TERMINAL_WP_CLI === 'true',
+		importExportEnabled: process.env.STUDIO_IMPORT_EXPORT === 'true',
 	};
 }
 
@@ -560,25 +602,67 @@ export async function saveOnboarding(
 	} );
 }
 
+export async function executeWPCLiInline(
+	_event: IpcMainInvokeEvent,
+	{ siteId, args }: { siteId: string; args: string }
+): Promise< WpCliResult > {
+	if ( SiteServer.isDeleted( siteId ) ) {
+		return { stdout: '', stderr: `Cannot execute command on deleted site ${ siteId }` };
+	}
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( 'Site not found.' );
+	}
+	return server.executeWpCliCommand( args );
+}
+
 export async function getThumbnailData( _event: IpcMainInvokeEvent, id: string ) {
 	const path = getSiteThumbnailPath( id );
 	return getImageData( path );
 }
 
-export function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath: string ) {
+export function openTerminalAtPath(
+	_event: IpcMainInvokeEvent,
+	targetPath: string,
+	{ wpCliEnabled }: { wpCliEnabled?: boolean } = {}
+) {
 	return new Promise< void >( ( resolve, reject ) => {
 		const platform = process.platform;
+		const cliPath = nodePath.join( getResourcesPath(), 'bin' );
+
+		const exePath = app.getPath( 'exe' );
+		const appDirectory = app.getAppPath();
+		const appPath = ! app.isPackaged ? `${ exePath } ${ appDirectory }` : exePath;
 
 		let command: string;
 		if ( platform === 'win32' ) {
 			// Windows
-			command = `start cmd /K "cd /d ${ targetPath }"`;
+			if ( wpCliEnabled ) {
+				command = `start cmd /K "set PATH=${ cliPath };%PATH% && set STUDIO_APP_PATH=${ appPath } && cd /d ${ targetPath }"`;
+			} else {
+				command = `start cmd /K "cd /d ${ targetPath }"`;
+			}
 		} else if ( platform === 'darwin' ) {
 			// macOS
-			command = `open -a Terminal "${ targetPath }"`;
+			if ( wpCliEnabled ) {
+				const script = `
+			tell application "Terminal"
+				if not application "Terminal" is running then launch
+				do script "clear && export PATH=\\"${ cliPath }\\":$PATH && export STUDIO_APP_PATH=\\"${ appPath }\\" && cd ${ targetPath }"
+				activate
+			end tell
+			`;
+				command = `osascript -e '${ script }'`;
+			} else {
+				command = `open -a Terminal "${ targetPath }"`;
+			}
 		} else if ( platform === 'linux' ) {
 			// Linux
-			command = `gnome-terminal --working-directory=${ targetPath }`;
+			if ( wpCliEnabled ) {
+				command = `export PATH=${ cliPath }:$PATH && export STUDIO_APP_PATH="${ appPath }" && gnome-terminal -- bash -c 'cd ${ targetPath }; exec bash'`;
+			} else {
+				command = `gnome-terminal --working-directory=${ targetPath }`;
+			}
 		} else {
 			console.error( 'Unsupported platform:', platform );
 			return;
@@ -614,4 +698,11 @@ export async function showNotification(
 
 export function popupAppMenu( _event: IpcMainInvokeEvent ) {
 	popupMenu();
+}
+
+export async function promptWindowsSpeedUpSites(
+	_event: IpcMainInvokeEvent,
+	{ skipIfAlreadyPrompted }: { skipIfAlreadyPrompted: boolean }
+) {
+	await windowsHelpers.promptWindowsSpeedUpSites( { skipIfAlreadyPrompted } );
 }

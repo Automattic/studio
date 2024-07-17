@@ -1,34 +1,162 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 
-export interface Message {
+export type Message = {
+	id?: number;
 	content: string;
 	role: 'user' | 'assistant';
-}
+	chatId?: string;
+	blocks?: {
+		cliOutput?: string;
+		cliStatus?: 'success' | 'error';
+		cliTime?: string;
+		codeBlockContent?: string;
+	}[];
+	createdAt: number; // Unix timestamp
+	failedMessage?: boolean;
+};
 
-export const useAssistant = ( selectedSiteId: string ) => {
-	const [ messages, setMessages ] = useState< Message[] >( [] );
+export type MessageDict = { [ key: string ]: Message[] };
+export type ChatIdDict = { [ key: string ]: string | undefined };
+
+const chatIdStoreKey = 'ai_chat_ids';
+const chatMessagesStoreKey = 'ai_chat_messages';
+
+export const useAssistant = ( instanceId: string ) => {
+	const [ messagesDict, setMessagesDict ] = useState< MessageDict >( {} );
+	const [ chatIdDict, setChatIdDict ] = useState< ChatIdDict >( {
+		[ instanceId ]: undefined,
+	} );
+	const nextMessageIdRef = useRef< { [ key: string ]: number } >( {
+		[ instanceId ]: -1, // The first message should have id 0, as we do +1 when we add message
+	} );
 
 	useEffect( () => {
-		const storedChat = localStorage.getItem( selectedSiteId );
-		if ( storedChat ) {
-			setMessages( JSON.parse( storedChat ) );
-		} else {
-			localStorage.setItem( selectedSiteId, JSON.stringify( [] ) );
+		const storedMessages = localStorage.getItem( chatMessagesStoreKey );
+		const storedChatIds = localStorage.getItem( chatIdStoreKey );
+
+		if ( storedMessages ) {
+			const parsedMessages: MessageDict = JSON.parse( storedMessages );
+			setMessagesDict( parsedMessages );
+			Object.entries( parsedMessages ).forEach( ( [ key, messages ] ) => {
+				nextMessageIdRef.current[ key ] = messages.length;
+			} );
 		}
-	}, [ selectedSiteId ] );
+		if ( storedChatIds ) {
+			setChatIdDict( JSON.parse( storedChatIds ) );
+		}
+	}, [] );
 
-	const addMessage = ( content: string, role: 'user' | 'assistant' ) => {
-		setMessages( ( prevMessages ) => {
-			const updatedMessages = [ ...prevMessages, { content, role } ];
-			localStorage.setItem( selectedSiteId, JSON.stringify( updatedMessages ) );
-			return updatedMessages;
+	const addMessage = useCallback(
+		( content: string, role: 'user' | 'assistant', chatId?: string ) => {
+			const newMessageId = nextMessageIdRef.current[ instanceId ] + 1;
+			nextMessageIdRef.current[ instanceId ] = newMessageId;
+
+			setMessagesDict( ( prevDict ) => {
+				const prevMessages = prevDict[ instanceId ] || [];
+				const updatedMessages = [
+					...prevMessages,
+					{ content, role, id: newMessageId, chatId, createdAt: Date.now() },
+				];
+				const newDict = { ...prevDict, [ instanceId ]: updatedMessages };
+				localStorage.setItem( chatMessagesStoreKey, JSON.stringify( newDict ) );
+				return newDict;
+			} );
+
+			setChatIdDict( ( prevDict ) => {
+				if ( prevDict[ instanceId ] !== chatId && chatId ) {
+					const newDict = { ...prevDict, [ instanceId ]: chatId };
+					localStorage.setItem( chatIdStoreKey, JSON.stringify( newDict ) );
+					return newDict;
+				}
+				return prevDict;
+			} );
+
+			return newMessageId; // Return the new message ID
+		},
+		[ instanceId ]
+	);
+
+	const updateMessage = useCallback(
+		(
+			id: number,
+			codeBlockContent: string,
+			cliOutput?: string,
+			cliStatus?: 'success' | 'error',
+			cliTime?: string
+		) => {
+			setMessagesDict( ( prevDict ) => {
+				const prevMessages = prevDict[ instanceId ] || [];
+				const updatedMessages = prevMessages.map( ( message ) => {
+					if ( message.id !== id ) return message;
+					const updatedBlocks = ( message.blocks || [] ).map( ( block ) =>
+						block.codeBlockContent === codeBlockContent
+							? { ...block, cliOutput, cliStatus, cliTime }
+							: block
+					);
+					const isBlockUpdated = updatedBlocks.find(
+						( block ) => block.codeBlockContent === codeBlockContent
+					);
+					if ( ! isBlockUpdated ) {
+						updatedBlocks.push( { codeBlockContent, cliOutput, cliStatus, cliTime } );
+					}
+					return { ...message, blocks: updatedBlocks };
+				} );
+				const newDict = { ...prevDict, [ instanceId ]: updatedMessages };
+				localStorage.setItem( chatMessagesStoreKey, JSON.stringify( newDict ) );
+				return newDict;
+			} );
+		},
+		[ instanceId ]
+	);
+
+	const markMessageAsFailed = useCallback(
+		( id: number, failedMessage: boolean ) => {
+			setMessagesDict( ( prevDict ) => {
+				const prevMessages = prevDict[ instanceId ] || [];
+				const updatedMessages = prevMessages.map( ( message ) => {
+					if ( message.id !== id ) return message;
+					return { ...message, failedMessage };
+				} );
+				const newDict = { ...prevDict, [ instanceId ]: updatedMessages };
+				localStorage.setItem( chatMessagesStoreKey, JSON.stringify( newDict ) );
+				return newDict;
+			} );
+		},
+		[ instanceId ]
+	);
+
+	const clearMessages = useCallback( () => {
+		setMessagesDict( ( prevDict ) => {
+			const { [ instanceId ]: _, ...rest } = prevDict;
+			localStorage.setItem( chatMessagesStoreKey, JSON.stringify( rest ) );
+			return rest;
 		} );
-	};
 
-	const clearMessages = () => {
-		setMessages( [] );
-		localStorage.setItem( selectedSiteId, JSON.stringify( [] ) );
-	};
+		setChatIdDict( ( prevDict ) => {
+			const { [ instanceId ]: _, ...rest } = prevDict;
+			localStorage.setItem( chatIdStoreKey, JSON.stringify( rest ) );
+			return rest;
+		} );
+		nextMessageIdRef.current[ instanceId ] = 0;
+	}, [ instanceId ] );
 
-	return { messages, addMessage, clearMessages };
+	return useMemo(
+		() => ( {
+			messages: messagesDict[ instanceId ] || [],
+			addMessage,
+			updateMessage,
+			clearMessages,
+			chatId: chatIdDict[ instanceId ],
+			markMessageAsFailed,
+		} ),
+		[
+			messagesDict,
+			instanceId,
+			addMessage,
+			updateMessage,
+			clearMessages,
+			chatIdDict,
+			markMessageAsFailed,
+		]
+	);
 };

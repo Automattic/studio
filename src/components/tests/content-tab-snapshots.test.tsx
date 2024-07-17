@@ -4,21 +4,16 @@ import { userEvent } from '@testing-library/user-event';
 import { LIMIT_OF_ZIP_SITES_PER_USER } from '../../constants';
 import { useArchiveSite } from '../../hooks/use-archive-site';
 import { useAuth } from '../../hooks/use-auth';
-import { useDeleteSnapshot } from '../../hooks/use-delete-snapshot';
 import { useOffline } from '../../hooks/use-offline';
-import { useSiteDetails } from '../../hooks/use-site-details';
-import { useSiteUsage } from '../../hooks/use-site-usage';
+import { useSnapshots } from '../../hooks/use-snapshots';
 import { useUpdateDemoSite } from '../../hooks/use-update-demo-site';
 import { ContentTabSnapshots } from '../content-tab-snapshots';
 
 const authenticate = jest.fn();
 jest.mock( '../../hooks/use-auth' );
-jest.mock( '../../hooks/use-site-details' );
-jest.mock( '../../hooks/use-site-usage' );
+jest.mock( '../../hooks/use-snapshots' );
+jest.mock( '../../hooks/use-offline' );
 
-jest.mock( '../../hooks/use-delete-snapshot' );
-const deleteSnapshotMock = jest.fn();
-( useDeleteSnapshot as jest.Mock ).mockReturnValue( { deleteSnapshot: deleteSnapshotMock } );
 jest.mock( '../../hooks/use-update-demo-site' );
 const updateDemoSiteMock = jest.fn();
 ( useUpdateDemoSite as jest.Mock ).mockReturnValue( {
@@ -32,6 +27,7 @@ const archiveSite = jest.fn();
 	isUploadingSiteId: jest.fn().mockReturnValue( false ),
 } );
 jest.mock( '../../hooks/use-archive-site' );
+
 const mockShowMessageBox = jest.fn();
 jest.mock( '../../lib/get-ipc-api', () => ( {
 	getIpcApi: () => ( {
@@ -46,6 +42,7 @@ const selectedSite = {
 	name: 'Test Site',
 	running: false as const,
 	path: '/test-site',
+	phpVersion: '8.0',
 	adminPassword: btoa( 'test-password' ),
 };
 
@@ -57,40 +54,41 @@ describe( 'ContentTabSnapshots', () => {
 	test( 'renders NoAuth component when not authenticated and the log in button triggers the authenticate flow', async () => {
 		const user = userEvent.setup();
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: false, authenticate } );
-		( useSiteDetails as jest.Mock ).mockReturnValue( { snapshots: [], uploadingSites: {} } );
-		( useSiteUsage as jest.Mock ).mockReturnValue( {
-			siteLimit: LIMIT_OF_ZIP_SITES_PER_USER,
-			siteCount: 1,
+		( useSnapshots as jest.Mock ).mockReturnValue( {
+			snapshots: [],
+			activeSnapshotCount: 0,
+			snapshotQuota: LIMIT_OF_ZIP_SITES_PER_USER,
+			isLoadingSnapshotUsage: false,
 		} );
+		( useOffline as jest.Mock ).mockReturnValue( false );
+
 		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
 		const loginButton = screen.getByRole( 'button', { name: 'Log in to WordPress.com' } );
-		expect( loginButton ).toBeInTheDocument();
+		expect( loginButton ).toBeVisible();
 		await user.click( loginButton );
 		expect( authenticate ).toHaveBeenCalledTimes( 1 );
 	} );
-
 	test( 'renders NoSnapshots component when authenticated with no demo sites', async () => {
 		const user = userEvent.setup();
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
-		( useSiteDetails as jest.Mock ).mockReturnValue( { snapshots: [], uploadingSites: {} } );
-		( useSiteUsage as jest.Mock ).mockReturnValue( {
-			siteLimit: LIMIT_OF_ZIP_SITES_PER_USER,
-			siteCount: 1,
+		( useSnapshots as jest.Mock ).mockReturnValue( {
+			snapshots: [],
+			activeSnapshotCount: 0,
+			snapshotQuota: LIMIT_OF_ZIP_SITES_PER_USER,
+			isLoadingSnapshotUsage: false,
 		} );
+		( useOffline as jest.Mock ).mockReturnValue( false );
+
 		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
 		const createSnapshotButton = screen.getByRole( 'button', { name: 'Add demo site' } );
-		expect( createSnapshotButton ).toBeInTheDocument();
+		expect( createSnapshotButton ).toBeVisible();
 		await user.click( createSnapshotButton );
 		expect( archiveSite ).toHaveBeenCalledTimes( 1 );
 	} );
 
 	test( 'renders the list of demo sites for a given a selected site', () => {
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
-		( useSiteUsage as jest.Mock ).mockReturnValue( {
-			siteLimit: LIMIT_OF_ZIP_SITES_PER_USER,
-			siteCount: 1,
-		} );
-		( useSiteDetails as jest.Mock ).mockReturnValue( {
+		( useSnapshots as jest.Mock ).mockReturnValue( {
 			snapshots: [
 				{
 					url: 'fake-site.fake',
@@ -100,19 +98,23 @@ describe( 'ContentTabSnapshots', () => {
 					deleted: false,
 				},
 			],
-			uploadingSites: {},
+			activeSnapshotCount: 1,
+			snapshotQuota: LIMIT_OF_ZIP_SITES_PER_USER,
+			isLoadingSnapshotUsage: false,
 		} );
+		( useOffline as jest.Mock ).mockReturnValue( false );
+
 		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
-		expect( screen.getByRole( 'button', { name: 'https://fake-site.fake' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'https://fake-site.fake' } ) ).toBeVisible();
 	} );
 
 	test( 'hide the list of demo sites that do not belong to the selected site', () => {
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
-		( useSiteUsage as jest.Mock ).mockReturnValue( {
-			siteLimit: LIMIT_OF_ZIP_SITES_PER_USER,
-			siteCount: 1,
+		( useSnapshots as jest.Mock ).mockReturnValue( {
+			snapshotQuota: LIMIT_OF_ZIP_SITES_PER_USER,
+			activeSnapshotCount: 1,
 		} );
-		( useSiteDetails as jest.Mock ).mockReturnValue( {
+		( useSnapshots as jest.Mock ).mockReturnValue( {
 			snapshots: [
 				{
 					url: 'fake-site.fake',
@@ -122,14 +124,13 @@ describe( 'ContentTabSnapshots', () => {
 					deleted: false,
 				},
 			],
-			uploadingSites: {},
 		} );
 		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
 		expect(
 			screen.getByText( 'Get feedback from anyone', {
 				exact: false,
 			} )
-		).toBeInTheDocument();
+		).toBeVisible();
 		expect( screen.queryByText( 'fake-site.fake' ) ).not.toBeInTheDocument();
 	} );
 
@@ -137,11 +138,11 @@ describe( 'ContentTabSnapshots', () => {
 		const user = userEvent.setup();
 		archiveSite.mockClear();
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
-		( useSiteUsage as jest.Mock ).mockReturnValue( {
-			siteLimit: LIMIT_OF_ZIP_SITES_PER_USER,
-			siteCount: 1,
+		( useSnapshots as jest.Mock ).mockReturnValue( {
+			snapshotQuota: LIMIT_OF_ZIP_SITES_PER_USER,
+			activeSnapshotCount: 1,
 		} );
-		( useSiteDetails as jest.Mock ).mockReturnValue( {
+		( useSnapshots as jest.Mock ).mockReturnValue( {
 			snapshots: [
 				{
 					url: 'fake-site.fake',
@@ -151,11 +152,10 @@ describe( 'ContentTabSnapshots', () => {
 					deleted: false,
 				},
 			],
-			uploadingSites: {},
 		} );
 		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
 		const createSnapshotButton = screen.getByRole( 'button', { name: 'Add demo site' } );
-		expect( createSnapshotButton ).toBeInTheDocument();
+		expect( createSnapshotButton ).toBeVisible();
 		await user.click( createSnapshotButton );
 		expect( archiveSite ).toHaveBeenCalledTimes( 1 );
 	} );
@@ -164,11 +164,9 @@ describe( 'ContentTabSnapshots', () => {
 		const user = userEvent.setup();
 		archiveSite.mockClear();
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
-		( useSiteUsage as jest.Mock ).mockReturnValue( {
-			siteLimit: LIMIT_OF_ZIP_SITES_PER_USER,
-			siteCount: LIMIT_OF_ZIP_SITES_PER_USER,
-		} );
-		( useSiteDetails as jest.Mock ).mockReturnValue( {
+		( useSnapshots as jest.Mock ).mockReturnValue( {
+			snapshotQuota: LIMIT_OF_ZIP_SITES_PER_USER,
+			activeSnapshotCount: LIMIT_OF_ZIP_SITES_PER_USER,
 			snapshots: [
 				{
 					url: 'fake-site.fake',
@@ -178,11 +176,10 @@ describe( 'ContentTabSnapshots', () => {
 					deleted: false,
 				},
 			],
-			uploadingSites: {},
 		} );
 		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
 		const createSnapshotButton = screen.getByRole( 'button', { name: 'Add demo site' } );
-		expect( createSnapshotButton ).toBeInTheDocument();
+		expect( createSnapshotButton ).toBeVisible();
 		expect( createSnapshotButton ).toHaveAttribute( 'aria-disabled', 'true' );
 		await user.click( createSnapshotButton );
 		expect( archiveSite ).toHaveBeenCalledTimes( 0 );
@@ -196,7 +193,7 @@ describe( 'ContentTabSnapshots', () => {
 		const user = userEvent.setup();
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
 		const dateMS = new Date().getTime();
-		( useSiteDetails as jest.Mock ).mockReturnValue( {
+		( useSnapshots as jest.Mock ).mockReturnValue( {
 			snapshots: [
 				{
 					url: 'fake-site.fake',
@@ -206,13 +203,12 @@ describe( 'ContentTabSnapshots', () => {
 					deleted: false,
 				},
 			],
-			uploadingSites: {},
 		} );
 		mockShowMessageBox.mockResolvedValueOnce( { response: 0, checkboxChecked: false } );
 		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
 
 		const updateButton = await screen.findByRole( 'button', { name: 'Update demo site' } );
-		expect( updateButton ).toBeInTheDocument();
+		expect( updateButton ).toBeVisible();
 		await user.click( updateButton );
 
 		expect( updateDemoSiteMock ).toHaveBeenCalledTimes( 1 );
@@ -228,7 +224,7 @@ describe( 'ContentTabSnapshots', () => {
 		const user = userEvent.setup();
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
 		const dateMS = new Date().getTime();
-		( useSiteDetails as jest.Mock ).mockReturnValue( {
+		( useSnapshots as jest.Mock ).mockReturnValue( {
 			snapshots: [
 				{
 					url: 'fake-site.fake',
@@ -238,13 +234,12 @@ describe( 'ContentTabSnapshots', () => {
 					deleted: false,
 				},
 			],
-			uploadingSites: {},
 		} );
 		mockShowMessageBox.mockResolvedValueOnce( { response: 1 } );
 		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
 
 		const updateButton = await screen.findByRole( 'button', { name: 'Update demo site' } );
-		expect( updateButton ).toBeInTheDocument();
+		expect( updateButton ).toBeVisible();
 		await user.click( updateButton );
 
 		expect( updateDemoSiteMock ).not.toHaveBeenCalled();
@@ -265,12 +260,11 @@ describe( 'ContentTabSnapshots', () => {
 	test( 'should confirm snapshot deletion', async () => {
 		const user = userEvent.setup();
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
-		( useSiteUsage as jest.Mock ).mockReturnValue( {
-			siteLimit: LIMIT_OF_ZIP_SITES_PER_USER,
-			siteCount: 1,
-		} );
 		const dateMS = new Date().getTime();
-		( useSiteDetails as jest.Mock ).mockReturnValue( {
+		const mockDeleteSnapshot = jest.fn();
+		( useSnapshots as jest.Mock ).mockReturnValue( {
+			snapshotQuota: LIMIT_OF_ZIP_SITES_PER_USER,
+			activeSnapshotCount: 1,
 			snapshots: [
 				{
 					url: 'fake-site.fake',
@@ -280,16 +274,16 @@ describe( 'ContentTabSnapshots', () => {
 					deleted: false,
 				},
 			],
-			uploadingSites: {},
+			deleteSnapshot: mockDeleteSnapshot,
 		} );
 		mockShowMessageBox.mockResolvedValueOnce( { response: 0 } );
 		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
 
 		const deleteSnapshotButton = screen.getByRole( 'button', { name: 'Delete demo site' } );
-		expect( deleteSnapshotButton ).toBeInTheDocument();
+		expect( deleteSnapshotButton ).toBeVisible();
 		await user.click( deleteSnapshotButton );
 
-		expect( deleteSnapshotMock ).toHaveBeenCalledWith( {
+		expect( mockDeleteSnapshot ).toHaveBeenCalledWith( {
 			url: 'fake-site.fake',
 			atomicSiteId: 150,
 			localSiteId: 'site-id-1',
@@ -300,13 +294,12 @@ describe( 'ContentTabSnapshots', () => {
 
 	test( 'should cancel snapshot deletion', async () => {
 		const user = userEvent.setup();
+		const deleteSnapshotMock = jest.fn();
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
-		( useSiteUsage as jest.Mock ).mockReturnValue( {
-			siteLimit: LIMIT_OF_ZIP_SITES_PER_USER,
-			siteCount: 1,
-		} );
 		const dateMS = new Date().getTime();
-		( useSiteDetails as jest.Mock ).mockReturnValue( {
+		( useSnapshots as jest.Mock ).mockReturnValue( {
+			snapshotQuota: LIMIT_OF_ZIP_SITES_PER_USER,
+			activeSnapshotCount: 1,
 			snapshots: [
 				{
 					url: 'fake-site.fake',
@@ -316,13 +309,13 @@ describe( 'ContentTabSnapshots', () => {
 					deleted: false,
 				},
 			],
-			uploadingSites: {},
+			deleteSnapshot: deleteSnapshotMock,
 		} );
 		mockShowMessageBox.mockResolvedValueOnce( { response: 1 } );
 		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
 
 		const deleteSnapshotButton = screen.getByRole( 'button', { name: 'Delete demo site' } );
-		expect( deleteSnapshotButton ).toBeInTheDocument();
+		expect( deleteSnapshotButton ).toBeVisible();
 		await user.click( deleteSnapshotButton );
 
 		expect( deleteSnapshotMock ).not.toHaveBeenCalled();
@@ -332,7 +325,7 @@ describe( 'ContentTabSnapshots', () => {
 		( useOffline as jest.Mock ).mockReturnValue( true );
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
 		const dateMS = new Date().getTime();
-		( useSiteDetails as jest.Mock ).mockReturnValue( {
+		( useSnapshots as jest.Mock ).mockReturnValue( {
 			snapshots: [
 				{
 					url: 'fake-site.fake',
@@ -342,7 +335,6 @@ describe( 'ContentTabSnapshots', () => {
 					deleted: false,
 				},
 			],
-			uploadingSites: {},
 		} );
 		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
 
@@ -404,9 +396,8 @@ describe( 'ContentTabSnapshots', () => {
 			deleted: false,
 		};
 		const removeSnapshot = jest.fn();
-		( useSiteDetails as jest.Mock ).mockReturnValue( {
+		( useSnapshots as jest.Mock ).mockReturnValue( {
 			snapshots: [ snapshot ],
-			uploadingSites: {},
 			removeSnapshot,
 		} );
 
@@ -420,9 +411,8 @@ describe( 'ContentTabSnapshots', () => {
 		await user.click( clearSnapshotsButton );
 		expect( removeSnapshot ).toHaveBeenCalledWith( snapshot );
 
-		( useSiteDetails as jest.Mock ).mockReturnValueOnce( {
+		( useSnapshots as jest.Mock ).mockReturnValueOnce( {
 			snapshots: [],
-			uploadingSites: {},
 			removeSnapshot,
 		} );
 
@@ -439,7 +429,7 @@ describe( 'AddDemoSiteWithProgress', () => {
 	const isUploadingSiteId = jest.fn();
 	beforeEach( () => {
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
-		( useSiteDetails as jest.Mock ).mockReturnValue( {
+		( useSnapshots as jest.Mock ).mockReturnValue( {
 			snapshots: [
 				{
 					url: 'fake-site.fake',
@@ -449,7 +439,6 @@ describe( 'AddDemoSiteWithProgress', () => {
 					deleted: false,
 				},
 			],
-			uploadingSites: {},
 		} );
 		( useArchiveSite as jest.Mock ).mockReturnValue( {
 			archiveSite,
@@ -459,7 +448,7 @@ describe( 'AddDemoSiteWithProgress', () => {
 	} );
 
 	test( 'Progressbar is present instead of the button', async () => {
-		( useSiteDetails as jest.Mock ).mockReturnValue( {
+		( useSnapshots as jest.Mock ).mockReturnValue( {
 			snapshots: [
 				{
 					url: 'fake-site.fake',
@@ -470,13 +459,12 @@ describe( 'AddDemoSiteWithProgress', () => {
 					isLoading: true,
 				},
 			],
-			uploadingSites: {},
 		} );
 		isUploadingSiteId.mockReturnValue( true );
 		render( <ContentTabSnapshots selectedSite={ { ...selectedSite, id: 'site-id-1' } } /> );
 		const addDemoSiteButton = screen.queryByRole( 'button', { name: 'Add demo site' } );
 		expect( addDemoSiteButton ).not.toBeInTheDocument();
-		expect( screen.getByText( "We're creating your demo site." ) ).toBeInTheDocument();
+		expect( screen.getByText( "We're creating your demo site." ) ).toBeVisible();
 	} );
 
 	test( 'Progressbar is present when the second snapshot is being created', async () => {
@@ -484,7 +472,7 @@ describe( 'AddDemoSiteWithProgress', () => {
 		render( <ContentTabSnapshots selectedSite={ { ...selectedSite, id: 'site-id-1' } } /> );
 		const addDemoSiteButton = screen.queryByRole( 'button', { name: 'Add demo site' } );
 		expect( addDemoSiteButton ).not.toBeInTheDocument();
-		expect( screen.getByText( "We're creating your new demo site." ) ).toBeInTheDocument();
+		expect( screen.getByText( "We're creating your new demo site." ) ).toBeVisible();
 	} );
 
 	test( 'Button is enabled when no snapshots and no other site is being archived', async () => {

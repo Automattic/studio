@@ -13,7 +13,6 @@ import offlineIcon from './offline-icon';
 import { RunningSites } from './running-sites';
 import SiteMenu from './site-menu';
 import Tooltip from './tooltip';
-import UserSettings from './user-settings';
 import { WordPressLogo } from './wordpress-logo';
 
 interface MainSidebarProps {
@@ -107,7 +106,7 @@ function SidebarToolbar() {
 						className="cursor-default"
 						variant="icon"
 					>
-						<Icon className="m-1 fill-white" size={ 16 } icon={ offlineIcon } />
+						<Icon className="m-1 text-white" size={ 16 } icon={ offlineIcon } />
 					</Button>
 				</Tooltip>
 			) }
@@ -143,7 +142,6 @@ export default function MainSidebar( { className }: MainSidebarProps ) {
 						<div className="mb-[6px]">
 							<SidebarAuthFooter />
 						</div>
-						<UserSettings />
 					</div>
 				</div>
 			</div>

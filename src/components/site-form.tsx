@@ -89,7 +89,7 @@ export const SiteForm = ( {
 	children,
 	siteName,
 	setSiteName,
-	sitePath,
+	sitePath = '',
 	onSelectPath,
 	error,
 	doesPathContainWordPress = false,
@@ -116,7 +116,7 @@ export const SiteForm = ( {
 					<span className="font-semibold">{ __( 'Site name' ) }</span>
 					<TextControlComponent onChange={ setSiteName } value={ siteName }></TextControlComponent>
 				</label>
-				{ sitePath && onSelectPath && (
+				{ onSelectPath && (
 					<label className="flex flex-col gap-1.5 leading-4">
 						<span onClick={ onSelectPath } className="font-semibold">
 							{ __( 'Local path' ) }

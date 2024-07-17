@@ -1,4 +1,5 @@
 import { act, render, screen } from '@testing-library/react';
+import { useFeatureFlags } from '../../hooks/use-feature-flags';
 import { useSiteDetails } from '../../hooks/use-site-details';
 import { SiteContentTabs } from '../site-content-tabs';
 
@@ -9,6 +10,7 @@ const selectedSite = {
 	path: '/test-site',
 };
 
+jest.mock( '../../hooks/use-feature-flags' );
 jest.mock( '../../hooks/use-site-details' );
 jest.mock( '../../hooks/use-auth', () => ( {
 	useAuth: () => ( {
@@ -16,22 +18,21 @@ jest.mock( '../../hooks/use-auth', () => ( {
 		authenticate: jest.fn(),
 	} ),
 } ) );
-
 jest.mock( '../../hooks/use-archive-site', () => ( {
 	useArchiveSite: () => ( {
 		archiveSite: jest.fn(),
 		isUploadingSiteId: jest.fn(),
 	} ),
 } ) );
-
-jest.mock( '../../lib/get-ipc-api' );
-
 jest.mock( '../../lib/app-globals', () => ( {
-	getAppGlobals: () => ( {
-		assistantEnabled: false,
-	} ),
-	isMac: jest.fn(),
+	...jest.requireActual( '../../lib/app-globals' ),
+	getAppGlobals: jest.fn().mockReturnValue( { locale: ' en' } ),
 } ) );
+
+( useFeatureFlags as jest.Mock ).mockReturnValue( {
+	assistantEnabled: false,
+	importExportEnabled: false,
+} );
 
 describe( 'SiteContentTabs', () => {
 	beforeEach( () => {
@@ -57,12 +58,11 @@ describe( 'SiteContentTabs', () => {
 			loadingServer: {},
 		} );
 		await act( async () => render( <SiteContentTabs /> ) );
-		expect( screen.queryByRole( 'tab', { name: 'Overview', selected: true } ) ).toBeInTheDocument();
-		expect( screen.queryByRole( 'tab', { name: 'Share', selected: false } ) ).toBeInTheDocument();
-		expect(
-			screen.queryByRole( 'tab', { name: 'Settings', selected: false } )
-		).toBeInTheDocument();
+		expect( screen.queryByRole( 'tab', { name: 'Overview', selected: true } ) ).toBeVisible();
+		expect( screen.queryByRole( 'tab', { name: 'Share', selected: false } ) ).toBeVisible();
+		expect( screen.queryByRole( 'tab', { name: 'Settings', selected: false } ) ).toBeVisible();
 		expect( screen.queryByRole( 'tab', { name: 'Assistant', selected: false } ) ).toBeNull();
+		expect( screen.queryByRole( 'tab', { name: 'Backup', selected: false } ) ).toBeNull();
 	} );
 	it( 'should render a "No Site" screen if selected site is absent', async () => {
 		( useSiteDetails as jest.Mock ).mockReturnValue( {
@@ -77,7 +77,7 @@ describe( 'SiteContentTabs', () => {
 		expect( screen.queryByRole( 'tab', { name: 'Launchpad' } ) ).toBeNull();
 		expect( screen.queryByRole( 'tab', { name: 'Publish' } ) ).toBeNull();
 		expect( screen.queryByRole( 'tab', { name: 'Export' } ) ).toBeNull();
-		expect( screen.getByText( 'Select a site to view details.' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Select a site to view details.' ) ).toBeVisible();
 	} );
 	it( 'should not render the Assistant tab if assistantEnabled is not enabled', async () => {
 		( useSiteDetails as jest.Mock ).mockReturnValue( {
@@ -87,5 +87,41 @@ describe( 'SiteContentTabs', () => {
 		} );
 		await act( async () => render( <SiteContentTabs /> ) );
 		expect( screen.queryByRole( 'tab', { name: 'Assistant' } ) ).toBeNull();
+	} );
+
+	it( 'should render the Assistant tab if assistantEnabled is enabled', async () => {
+		( useSiteDetails as jest.Mock ).mockReturnValue( {
+			selectedSite,
+			snapshots: [],
+			loadingServer: {},
+		} );
+		( useFeatureFlags as jest.Mock ).mockReturnValue( {
+			assistantEnabled: true,
+		} );
+		await act( async () => render( <SiteContentTabs /> ) );
+		expect( screen.queryByRole( 'tab', { name: 'Assistant' } ) ).toBeVisible();
+	} );
+
+	it( 'should not render the Import/Export tab if importExportEnabled is not enabled', async () => {
+		( useSiteDetails as jest.Mock ).mockReturnValue( {
+			selectedSite,
+			snapshots: [],
+			loadingServer: {},
+		} );
+		await act( async () => render( <SiteContentTabs /> ) );
+		expect( screen.queryByRole( 'tab', { name: 'Import / Export' } ) ).toBeNull();
+	} );
+
+	it( 'should render the Import/Export tab if importExportEnabled is enabled', async () => {
+		( useSiteDetails as jest.Mock ).mockReturnValue( {
+			selectedSite,
+			snapshots: [],
+			loadingServer: {},
+		} );
+		( useFeatureFlags as jest.Mock ).mockReturnValue( {
+			importExportEnabled: true,
+		} );
+		await act( async () => render( <SiteContentTabs /> ) );
+		expect( screen.queryByRole( 'tab', { name: 'Import / Export' } ) ).toBeVisible();
 	} );
 } );

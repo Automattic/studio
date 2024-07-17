@@ -20,7 +20,9 @@ export function bumpAggregatedUniqueStat(
 	getLastBump( group, stat )
 		.then( ( lastBump ) => {
 			if ( lastBump === null ) {
-				return bumpStat( group, stat, bumpInDev );
+				// Bump the stat the first time it's seen
+				bumpStat( group, stat, bumpInDev );
+				return true;
 			}
 
 			const now = Date.now();
@@ -35,6 +37,7 @@ export function bumpAggregatedUniqueStat(
 				return false;
 			}
 
+			// Bump the stat for subsequent occurrences within the time interval
 			return bumpStat( group, stat, bumpInDev );
 		} )
 		.then( ( didBump ) => {

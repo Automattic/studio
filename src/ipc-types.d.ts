@@ -18,6 +18,7 @@ interface StoppedSiteDetails {
 	name: string;
 	path: string;
 	port?: number;
+	phpVersion: string;
 	adminPassword?: string;
 	themeDetails?: {
 		name: string;
@@ -72,6 +73,8 @@ interface AppGlobals {
 	appName: string;
 	arm64Translation: boolean;
 	assistantEnabled: boolean;
+	terminalWpCliEnabled: boolean;
+	importExportEnabled: boolean;
 }
 
 interface IpcListener {

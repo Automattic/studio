@@ -61,7 +61,7 @@
     margin-bottom: 14px;
   }
 
-  .demo-info {
+  .info {
     border-top: 1px solid rgba(220, 220, 222, 1);
     padding-top: 16px;
     width: 236px;
@@ -73,26 +73,25 @@
     line-height: 20px;
   }
 </style>
-
 </head>
 <body> 
-  <div>  
+  <div>
+    <!-- These strings are placeholders replaced by the strings in open-about-menu.ts.
+    Please make sure to update the corresponding strings in the open-about-menu.ts file -->
     <img src="./studio-app-icon.png" alt="Studio App Icon" width="64" height="64">
-        <p class="studio-name">Studio by WordPress.com</p>
-        <p class="version">Version <span id="version"></span></p>
+        <p class="studio-name" id="studio-by-wpcom">Studio by WordPress.com</p>
+        <p class="version"><span id="version-text">Version x.y.z</span></p>
         <p class="links">
           <a href="https://github.com/Automattic/studio" target="_blank">GitHub</a>
           <span class="separator">&middot;</span>
-          <a href="https://github.com/Automattic/studio/issues/new/choose" target="_blank">Share Feedback</a>
+          <a id="share-feedback" href="https://github.com/Automattic/studio/issues/new/choose" target="_blank">Share Feedback</a>
         </p>
   </div>
-    <script>
-        // Access the version from the injected JavaScript
-        const version = document.getElementById('version');
-        version.innerText = window.appVersion; 
-    </script>
-  <div class="demo-info">
-    <p>Demo sites powered by<br><a href="https://wordpress.com/hosting/?utm_source=studio&utm_medium=referral&utm_campaign=about_screen" target="_blank">WordPress.com hosting ↗</a></p>
+  <div class="info">
+    <p><span id="demo-sites">Demo sites powered by</span><br><a href="https://wordpress.com/hosting/?utm_source=studio&utm_medium=referral&utm_campaign=about_screen" target="_blank">WordPress.com hosting ↗</a></p>
+  </div>
+  <div class="info">
+    <p><span id="local-sites">Local sites powered by</span><br><a href="https://wordpress.org/playground/" target="_blank">WordPress Playground ↗</a></p>
   </div>
 </body>
 </html>

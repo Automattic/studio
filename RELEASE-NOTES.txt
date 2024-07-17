@@ -1,3 +1,19 @@
+1.0.5
+=====
+* Fixed crash when deleting a site #300
+* Improved dialog messaging consistency and clarity #291, #292
+* Minimized site form layout shift #295
+* Refactored E2E tests initialization, improved test output #270, #316, #323
+
+1.0.4
+=====
+* Added a modal allowing users to speed up sites on Windows #211
+* Added reclaiming unavailable port after site deletion  #195
+* Translated "About Studio" window #228
+* Added menu links to the feature request and bug report forms #185
+* Fixed possible race conditions when adding site #229
+* Added a way to change PHP version for a site and bumped default to 8.1 #225
+
 1.0.3
 =====
 * Fixed plugin, theme, and WordPress core updates #156

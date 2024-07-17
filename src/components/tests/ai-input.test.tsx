@@ -1,6 +1,15 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import React from 'react';
 import { AIInput } from '../ai-input';
+
+const mockShowMessageBox = jest.fn();
+jest.mock( '../../lib/get-ipc-api', () => ( {
+	getIpcApi: () => ( {
+		openURL: jest.fn(),
+		generateProposedSitePath: jest.fn(),
+		showMessageBox: mockShowMessageBox,
+	} ),
+} ) );
 
 describe( 'AIInput Component', () => {
 	let handleSend: jest.Mock;
@@ -26,11 +35,13 @@ describe( 'AIInput Component', () => {
 		handleKeyDown = jest.fn();
 		setInput = jest.fn();
 		clearInput = jest.fn();
+		const inputRef = React.createRef< HTMLTextAreaElement >();
 
 		jest.clearAllMocks();
 
 		render(
 			<AIInput
+				ref={ inputRef }
 				disabled={ defaultProps.disabled }
 				input={ defaultProps.input }
 				setInput={ setInput }
@@ -43,7 +54,7 @@ describe( 'AIInput Component', () => {
 	} );
 
 	it( 'renders the component', () => {
-		expect( screen.getByTestId( 'ai-input-textarea' ) ).toBeInTheDocument();
+		expect( screen.getByTestId( 'ai-input-textarea' ) ).toBeVisible();
 	} );
 
 	it( 'focuses on the textarea when not disabled', () => {
@@ -75,5 +86,38 @@ describe( 'AIInput Component', () => {
 		fireEvent.change( textarea, { target: { value: longText } } );
 		expect( setInput ).toHaveBeenCalledWith( longText );
 		expect( textarea.scrollTop ).toBe( textarea.scrollHeight - textarea.clientHeight );
+	} );
+
+	it( 'clears input and chat history when clear conversation button is pressed', async () => {
+		const textarea = getInput();
+		const longText = 'Line\n'.repeat( 100 );
+		fireEvent.change( textarea, { target: { value: longText } } );
+		const assistantMenu = screen.getByLabelText( 'Assistant Menu' );
+		fireEvent.click( assistantMenu );
+
+		const clearConversationButton = screen.getByTestId( 'clear-conversation-button' );
+		mockShowMessageBox.mockResolvedValueOnce( { response: 0 } );
+		fireEvent.click( clearConversationButton );
+
+		await waitFor( () => {
+			expect( mockShowMessageBox ).toHaveBeenCalled();
+			expect( clearInput ).toHaveBeenCalled();
+		} );
+	} );
+
+	it( 'should clear messages without warning if the warning was previously dismissed', async () => {
+		localStorage.setItem( 'dontShowClearMessagesWarning', 'true' );
+		const textarea = getInput();
+		const longText = 'Line\n'.repeat( 100 );
+		fireEvent.change( textarea, { target: { value: longText } } );
+
+		const assistantMenu = screen.getByLabelText( 'Assistant Menu' );
+		fireEvent.click( assistantMenu );
+		const clearConversationButton = screen.getByTestId( 'clear-conversation-button' );
+		mockShowMessageBox.mockResolvedValueOnce( { response: 0, checkboxChecked: true } );
+		fireEvent.click( clearConversationButton );
+
+		expect( mockShowMessageBox ).not.toHaveBeenCalled();
+		expect( clearInput ).toHaveBeenCalled();
 	} );
 } );

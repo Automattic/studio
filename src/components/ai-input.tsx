@@ -1,8 +1,10 @@
+import { DropdownMenu, MenuGroup, MenuItem } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
-import { Icon, moreVertical, keyboardReturn } from '@wordpress/icons';
-import React, { useRef, useEffect } from 'react';
-import Button from './button';
-import { AssistantIcon } from './icons/assistant';
+import { Icon, moreVertical, keyboardReturn, reset } from '@wordpress/icons';
+import React, { forwardRef, useRef, useEffect, useState } from 'react';
+import useAiIcon from '../hooks/use-ai-icon';
+import { cx } from '../lib/cx';
+import { getIpcApi } from '../lib/get-ipc-api';
 
 interface AIInputProps {
 	disabled: boolean;
@@ -16,27 +18,67 @@ interface AIInputProps {
 
 const MAX_ROWS = 10;
 
-export const AIInput = ( {
-	disabled,
-	input,
-	setInput,
-	handleSend,
-	handleKeyDown,
-	clearInput,
-	isAssistantThinking,
-}: AIInputProps ) => {
-	const inputRef = useRef< HTMLTextAreaElement >( null );
+const UnforwardedAIInput = (
+	{
+		disabled,
+		input,
+		setInput,
+		handleSend,
+		handleKeyDown,
+		clearInput,
+		isAssistantThinking,
+	}: AIInputProps,
+	inputRef: React.RefObject< HTMLTextAreaElement > | React.RefCallback< HTMLTextAreaElement > | null
+) => {
+	const [ isTyping, setIsTyping ] = useState( false );
+	const typingTimeout = useRef< NodeJS.Timeout >();
+
+	const { RiveComponent, inactiveInput, thinkingInput, typingInput, startStateMachine } =
+		useAiIcon();
 
 	useEffect( () => {
-		if ( ! disabled && inputRef.current ) {
-			inputRef.current.focus();
+		if ( ! disabled && inputRef && 'current' in inputRef && inputRef.current ) {
+			inputRef.current?.focus();
 		}
-	}, [ disabled ] );
+	}, [ disabled, inputRef ] );
+
+	useEffect( () => {
+		startStateMachine();
+
+		if ( inactiveInput ) {
+			inactiveInput.value = disabled;
+		}
+
+		if ( thinkingInput ) {
+			thinkingInput.value = isAssistantThinking;
+		}
+
+		if ( typingInput ) {
+			typingInput.value = isTyping;
+		}
+	}, [
+		isAssistantThinking,
+		isTyping,
+		disabled,
+		startStateMachine,
+		inactiveInput,
+		thinkingInput,
+		typingInput,
+	] );
+
+	useEffect(
+		() => () => {
+			if ( typingTimeout.current ) {
+				clearTimeout( typingTimeout.current );
+			}
+		},
+		[]
+	);
 
 	const handleInput = ( e: React.ChangeEvent< HTMLTextAreaElement > ) => {
 		setInput( e.target.value );
 
-		if ( inputRef.current ) {
+		if ( inputRef && 'current' in inputRef && inputRef.current ) {
 			// Reset the height of the textarea to auto to recalculate the height
 			inputRef.current.style.height = 'auto';
 
@@ -60,9 +102,12 @@ export const AIInput = ( {
 	const handleKeyDownWrapper = ( e: React.KeyboardEvent< HTMLTextAreaElement > ) => {
 		if ( e.key === 'Enter' && ! e.shiftKey ) {
 			e.preventDefault();
+			if ( isAssistantThinking ) {
+				return;
+			}
 			if ( input.trim() !== '' ) {
 				handleSend();
-				if ( inputRef.current ) {
+				if ( inputRef && 'current' in inputRef && inputRef.current ) {
 					// Reset the input height to default when the user sends the message
 					inputRef.current.style.height = 'auto';
 				}
@@ -71,47 +116,109 @@ export const AIInput = ( {
 			// Allow Shift + Enter to create a new line
 			return;
 		} else {
+			setIsTyping( true );
 			handleKeyDown( e );
 		}
 	};
 
+	const handleKeyUpWrapper = () => {
+		if ( typingTimeout.current ) {
+			clearTimeout( typingTimeout.current );
+		}
+
+		typingTimeout.current = setTimeout( () => {
+			setIsTyping( false );
+		}, 400 );
+	};
+
 	const getPlaceholderText = () => {
-		return isAssistantThinking ? __( 'Generating...' ) : __( 'What would you like to learn?' );
+		return isAssistantThinking
+			? __( 'Thinking about that...' )
+			: __( 'What would you like to learn?' );
+	};
+
+	const handleClearConversation = async () => {
+		if ( localStorage.getItem( 'dontShowClearMessagesWarning' ) === 'true' ) {
+			clearInput();
+			return;
+		}
+
+		const CLEAR_CONVERSATION_BUTTON_INDEX = 0;
+		const CANCEL_BUTTON_INDEX = 1;
+
+		const { response, checkboxChecked } = await getIpcApi().showMessageBox( {
+			message: __( 'Are you sure you want to clear the conversation?' ),
+			checkboxLabel: __( "Don't show this warning again" ),
+			buttons: [ __( 'OK' ), __( 'Cancel' ) ],
+			cancelId: CANCEL_BUTTON_INDEX,
+		} );
+
+		if ( response === CLEAR_CONVERSATION_BUTTON_INDEX ) {
+			if ( checkboxChecked ) {
+				localStorage.setItem( 'dontShowClearMessagesWarning', 'true' );
+			}
+
+			clearInput();
+		}
 	};
 
 	return (
-		<div className="px-8 py-5 bg-white flex items-center border border-gray-200">
-			<div className="flex w-full border border-gray-300 rounded-sm focus-within:border-a8c-blueberry">
-				<div className="flex items-end p-3 ltr:pr-2 rtl:pl-2">
-					<AssistantIcon size={ 28 } aria-hidden="true" />
-				</div>
-				<textarea
-					ref={ inputRef }
-					disabled={ disabled }
-					placeholder={ getPlaceholderText() }
-					className="w-full mt-1 px-2 py-3 rounded-sm border-none resize-none focus:outline-none"
-					value={ input }
-					onChange={ handleInput }
-					onKeyDown={ handleKeyDownWrapper }
-					rows={ 1 }
-					data-testid="ai-input-textarea"
-				/>
-				{ input.trim() !== '' && (
-					<div className="flex items-end py-4 mb-1">
-						<Icon icon={ keyboardReturn } size={ 13 } fill="#cccccc" />
-					</div>
-				) }
-				<div className="flex items-end py-2 ltr:mr-2 rtl:ml-1">
-					<Button
-						disabled={ disabled }
-						aria-label="menu"
-						className="py-2 px-1 cursor-pointer"
-						onClick={ clearInput }
-					>
-						<Icon icon={ moreVertical } size={ 22 } />
-					</Button>
-				</div>
+		<div
+			className={ cx(
+				`flex items-end w-full border rounded-sm bg-white/[0.9] ${
+					disabled ? 'border-a8c-gray-5' : 'border-gray-300 focus-within:border-a8c-blueberry'
+				}`
+			) }
+		>
+			<div className={ `flex items-center h-12 ${ disabled && 'opacity-20 grayscale' }` }>
+				<RiveComponent aria-hidden="true" style={ { width: 48, height: 48 } } />
 			</div>
+			<textarea
+				ref={ inputRef }
+				disabled={ disabled }
+				placeholder={ getPlaceholderText() }
+				className={ cx(
+					`w-full px-1 py-3.5 rounded-sm border-none bg-transparent resize-none focus:outline-none assistant-textarea ${
+						disabled ? 'cursor-not-allowed opacity-30' : ''
+					}`
+				) }
+				value={ input }
+				onChange={ handleInput }
+				onKeyDown={ handleKeyDownWrapper }
+				onKeyUp={ handleKeyUpWrapper }
+				rows={ 1 }
+				data-testid="ai-input-textarea"
+			/>
+			{ input.trim() !== '' && (
+				<div className="flex items-center h-12">
+					<Icon icon={ keyboardReturn } size={ 13 } fill="#cccccc" />
+				</div>
+			) }
+			<DropdownMenu
+				icon={ moreVertical }
+				label={ __( 'Assistant Menu' ) }
+				className="p-1 flex items-center h-12"
+			>
+				{ ( { onClose }: { onClose: () => void } ) => (
+					<>
+						<MenuGroup>
+							<MenuItem
+								isDestructive
+								data-testid="clear-conversation-button"
+								onClick={ () => {
+									handleClearConversation();
+									onClose();
+								} }
+							>
+								<Icon className="text-red-600" icon={ reset } />
+								<span className="ltr:pl-2 rtl:pl-2">{ __( 'Clear conversation' ) }</span>
+							</MenuItem>
+						</MenuGroup>
+					</>
+				) }
+			</DropdownMenu>
 		</div>
 	);
 };
+
+export const AIInput = forwardRef( UnforwardedAIInput );

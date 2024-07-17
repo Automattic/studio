@@ -11,9 +11,11 @@ import { cx } from '../lib/cx';
 type MappedOmit< T, K extends PropertyKey > = { [ P in keyof T as Exclude< P, K > ]: T[ P ] };
 
 export type ButtonProps = MappedOmit< ComponentProps< typeof Button >, 'variant' > & {
-	variant?: 'primary' | 'secondary' | 'tertiary' | 'link' | 'icon';
+	variant?: ButtonVariant;
 	truncate?: boolean;
 };
+
+type ButtonVariant = 'primary' | 'secondary' | 'tertiary' | 'outlined' | 'link' | 'icon';
 
 /**
  * The arbitrary Tailwind variants below (e.g., `[&.is-secondary]`) are used to
@@ -59,6 +61,20 @@ const secondaryStyles = `
 [&.is-secondary:not(:focus)]:aria-disabled:hover:shadow-a8c-gray-5
 `.replace( /\n/g, ' ' );
 
+const outlinedStyles = `
+outlined
+text-white
+[&.components-button]:hover:text-black
+[&.components-button]:hover:bg-gray-100
+[&.components-button]:active:text-black
+[&.components-button]:active:bg-gray-100
+[&.components-button]:shadow-[inset_0_0_0_1px_white]
+[&.components-button.outlined]:focus:shadow-[inset_0_0_0_1px_white]
+[&.components-button]:focus-visible:outline-none
+[&.components-button.outlined]:focus-visible:shadow-[inset_0_0_0_1px_#3858E9]
+[&.components-button]:focus-visible:shadow-a8c-blueberry
+`.replace( /\n/g, ' ' );
+
 const destructiveStyles = `
 [&.is-destructive:not(.is-primary)]:text-a8c-red-50
 [&.is-destructive:not(.is-primary)]:hover:text-a8c-red-70
@@ -82,6 +98,19 @@ hover:bg-white
 hover:bg-opacity-10
 `.replace( /\n/g, ' ' );
 
+/**
+ * Filter out custom values from the `variant` prop to avoid passing invalid
+ * values to the core WordPress components.
+ *
+ * @param variant - The button variant.
+ * @returns The variant value or, if the value is a Studio-specific, `undefined`.
+ */
+function sansCustomValues( variant: ButtonVariant | undefined ) {
+	return !! variant && [ 'outlined', 'icon' ].includes( variant )
+		? undefined
+		: ( variant as Exclude< ButtonVariant, 'outlined' | 'icon' > | undefined );
+}
+
 export default function ButtonComponent( {
 	className,
 	variant,
@@ -102,11 +131,12 @@ export default function ButtonComponent( {
 	return (
 		<Button
 			{ ...props }
-			variant={ variant === 'icon' ? undefined : variant }
+			variant={ sansCustomValues( variant ) }
 			className={ cx(
 				baseStyles,
 				variant === 'primary' && primaryStyles,
 				variant === 'secondary' && secondaryStyles,
+				variant === 'outlined' && outlinedStyles,
 				variant === 'link' && linkStyles,
 				variant === 'icon' && iconStyles,
 				props.isDestructive && destructiveStyles,

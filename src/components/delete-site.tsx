@@ -3,6 +3,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useOffline } from '../hooks/use-offline';
 import { useSiteDetails } from '../hooks/use-site-details';
+import { useSnapshots } from '../hooks/use-snapshots';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
 import offlineIcon from './offline-icon';
@@ -19,7 +20,7 @@ const DeleteSite = () => {
 		'This site has active demo sites that cannot be deleted without an internet connection.'
 	);
 
-	const { snapshots } = useSiteDetails();
+	const { snapshots } = useSnapshots();
 	const snapshotsOnSite = snapshots.filter(
 		( snapshot ) => snapshot.localSiteId === selectedSite?.id
 	);
@@ -38,12 +39,12 @@ const DeleteSite = () => {
 			type: 'warning',
 			message: sprintf( __( 'Delete %s' ), trimmedSiteTitle ),
 			detail: __(
-				"The site's database, along with all posts, pages, comments, and media, will be lost."
+				'The site’s database will be lost. Including all posts, pages, comments, and media.'
 			),
 			buttons: [ __( 'Delete site' ), __( 'Cancel' ) ],
 			cancelId: CANCEL_BUTTON_INDEX,
 			checkboxLabel: __( 'Delete site files from my computer' ),
-			checkboxChecked: false,
+			checkboxChecked: true,
 		} );
 
 		if ( response === DELETE_BUTTON_INDEX ) {

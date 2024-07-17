@@ -60,7 +60,9 @@ export function setupLogging( {
 		process.exit();
 	} );
 
-	console.log( 'Starting new session' );
+	if ( ! isForkedProcess ) {
+		console.log( 'Starting new session' );
+	}
 }
 
 const originalWarningLog = console.warn;

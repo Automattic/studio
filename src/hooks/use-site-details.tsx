@@ -180,7 +180,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					setData( ( prevData ) =>
 						sortSites( prevData.filter( ( site ) => site.id !== tempSiteId ) )
 					);
-				}, 3000 );
+				}, 2000 );
 			};
 
 			const tempSiteId = crypto.randomUUID();

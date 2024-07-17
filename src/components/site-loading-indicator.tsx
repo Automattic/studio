@@ -7,13 +7,23 @@ export function SiteLoadingIndicator( { selectedSiteName }: { selectedSiteName?:
 	const { __ } = useI18n();
 
 	const { progress, setProgress } = useProgressTimer( {
-		initialProgress: 5,
+		initialProgress: 20,
 		interval: 1500,
 		maxValue: 95,
 	} );
 
 	useEffect( () => {
-		setProgress( 80 );
+		const updateProgress = () => {
+			setProgress( ( prev ) => {
+				const increment = Math.random() * 10 + 5;
+				return Math.min( prev + increment, 95 );
+			} );
+		};
+
+		setProgress( 50 );
+		const interval = setInterval( updateProgress, 1000 );
+
+		return () => clearInterval( interval );
 	}, [ setProgress ] );
 
 	return (

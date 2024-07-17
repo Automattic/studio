@@ -8,6 +8,7 @@ import {
 	shell,
 	type IpcMainInvokeEvent,
 	Notification,
+	SaveDialogOptions,
 } from 'electron';
 import fs from 'fs';
 import nodePath from 'path';
@@ -307,6 +308,22 @@ export interface FolderDialogResponse {
 	isWordPress: boolean;
 }
 
+export async function showSaveAsDialog( event: IpcMainInvokeEvent, options: SaveDialogOptions ) {
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+	if ( ! parentWindow ) {
+		throw new Error( `No window found for sender of showSaveAsDialog message: ${ event.frameId }` );
+	}
+
+	const { canceled, filePath } = await dialog.showSaveDialog( parentWindow, {
+		defaultPath: `${ DEFAULT_SITE_PATH }/${ options.defaultPath }`,
+		...options,
+	} );
+	if ( canceled ) {
+		return '';
+	}
+	return filePath;
+}
+
 export async function showOpenFolderDialog(
 	event: IpcMainInvokeEvent,
 	title: string
@@ -465,7 +482,11 @@ export async function exportSite(
 	_event: IpcMainInvokeEvent,
 	options: ExportOptions
 ): Promise< void > {
-	await exportBackup( options );
+	try {
+		await exportBackup( options );
+	} catch ( e ) {
+		console.log( e );
+	}
 }
 
 export async function saveSnapshotsToStorage( event: IpcMainInvokeEvent, snapshots: Snapshot[] ) {

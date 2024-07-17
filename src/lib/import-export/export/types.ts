@@ -1,6 +1,6 @@
 export interface ExportOptions {
 	sitePath: string;
-	backupPath: string;
+	backupFile: string;
 	includes: {
 		database: boolean;
 		uploads: boolean;
@@ -11,7 +11,7 @@ export interface ExportOptions {
 
 // Let's use the importer types when merged
 export interface BackupContents {
-	extractionDirectory: string;
+	backupFile: string;
 	sqlFiles: string[];
 	wpContent: {
 		uploads: string[];
@@ -27,15 +27,12 @@ export interface ExportValidator {
 }
 
 export interface Exporter {
-	canHandle( options: ExportOptions ): boolean;
-	export(
-		backupContents: BackupContents,
-		options: ExportOptions,
-		progressCallback: ( progress: number ) => void
-	): Promise< void >;
+	export( options: ExportOptions ): Promise< void >;
 }
+
+export type NewExporter = new ( backup: BackupContents ) => Exporter;
 
 export interface ExporterOption {
 	validator: ExportValidator;
-	exporter: new () => Exporter;
+	exporter: NewExporter;
 }

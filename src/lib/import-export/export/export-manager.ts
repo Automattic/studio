@@ -1,11 +1,12 @@
 import fsPromises from 'fs/promises';
 import path from 'node:path';
-import { ExportOptions } from './types';
+import { JetpackExporter, SqlExporter } from './exporters';
+import { ExportOptions, ExporterOption } from './types';
+import { WordPressExportValidator } from './validators/wordpress-validator';
 
 export async function exportBackup(
 	exportOptions: ExportOptions,
-	_validators = [],
-	_importers = []
+	options: ExporterOption[] = defaultExporterOptions
 ): Promise< void > {
 	const directoryContents = await fsPromises.readdir( exportOptions.sitePath, {
 		recursive: true,
@@ -17,5 +18,19 @@ export async function exportBackup(
 		}
 		return files;
 	}, [] as string[] );
-	console.log( allFiles );
+
+	for ( const { validator, exporter } of options ) {
+		if ( validator.canHandle( allFiles ) ) {
+			const backupContents = validator.filterFiles( allFiles, exportOptions );
+			const ExporterClass = exporter;
+			const exporterInstance = new ExporterClass( backupContents );
+			await exporterInstance.export( exportOptions );
+			break;
+		}
+	}
 }
+
+export const defaultExporterOptions: ExporterOption[] = [
+	{ validator: new WordPressExportValidator(), exporter: JetpackExporter },
+	{ validator: new WordPressExportValidator(), exporter: SqlExporter },
+];

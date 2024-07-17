@@ -163,6 +163,26 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 	const createSite = useCallback(
 		async ( path: string, siteName?: string ) => {
+			// Function to handle error messages and cleanup
+			const showError = () => {
+				console.error( 'Failed to create site' );
+				getIpcApi().showMessageBox( {
+					type: 'error',
+					message: __( 'Failed to create site' ),
+					detail: __(
+						'An error occurred while creating the site. Verify your selected local path is an empty directory or an existing WordPress folder and try again. If this problem persists, please contact support.'
+					),
+					buttons: [ __( 'OK' ) ],
+				} );
+
+				// Remove the temporary site immediately, but with a minor delay to ensure state updates properly
+				setTimeout( () => {
+					setData( ( prevData ) =>
+						sortSites( prevData.filter( ( site ) => site.id !== tempSiteId ) )
+					);
+				}, 3000 );
+			};
+
 			const tempSiteId = crypto.randomUUID();
 			setData( ( prevData ) =>
 				sortSites( [
@@ -183,7 +203,8 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 				const data = await getIpcApi().createSite( path, siteName );
 				const newSite = data.find( ( site ) => site.path === path );
 				if ( ! newSite ) {
-					throw new Error( 'Failed to create site' );
+					showError();
+					return;
 				}
 				// Update the selected site to the new site's ID if the user didn't change it
 				setSelectedSiteId( ( prevSelectedSiteId ) => {
@@ -196,20 +217,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					prevData.map( ( site ) => ( site.id === tempSiteId ? newSite : site ) )
 				);
 			} catch ( error ) {
-				console.error( 'Failed to create site:', error );
-				getIpcApi().showMessageBox( {
-					type: 'error',
-					message: __( 'Failed to create site' ),
-					detail: __(
-						'An error occurred while creating the site. Verify your selected local path is an empty directory or an existing WordPress folder and try again. If this problem persists, please contact support.'
-					),
-					buttons: [ __( 'OK' ) ],
-				} );
-				setTimeout( () => {
-					setData( ( prevData ) =>
-						sortSites( prevData.filter( ( site ) => site.id !== tempSiteId ) )
-					);
-				}, 3000 ); // Delay before removing the temporary site; otherwise, it gets a weird glitch because removed too quickly
+				showError();
 			}
 		},
 		[ setSelectedSiteId ]

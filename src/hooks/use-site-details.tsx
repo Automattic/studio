@@ -65,12 +65,15 @@ function useSelectedSite( firstSiteId: string | null ) {
 	const [ selectedSiteId, setSelectedSiteId ] = useState< string | null >(
 		selectedSiteIdFromLocal
 	);
+	useEffect( () => {
+		if ( selectedSiteId ) {
+			localStorage.setItem( SELECTED_SITE_ID_KEY, selectedSiteId );
+		}
+	} );
+
 	return {
 		selectedSiteId: selectedSiteId || firstSiteId,
-		setSelectedSiteId: ( id: string ) => {
-			setSelectedSiteId( id );
-			localStorage.setItem( SELECTED_SITE_ID_KEY, id );
-		},
+		setSelectedSiteId,
 	};
 }
 
@@ -179,15 +182,18 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			try {
 				const data = await getIpcApi().createSite( path, siteName );
 				const newSite = data.find( ( site ) => site.path === path );
-				if ( newSite?.id ) {
-					setSelectedSiteId( newSite.id ); // Update the selected site to the new site's ID
+				if ( ! newSite ) {
+					throw new Error( 'Failed to create site' );
 				}
+				// Update the selected site to the new site's ID if the user didn't change it
+				setSelectedSiteId( ( prevSelectedSiteId ) => {
+					if ( prevSelectedSiteId === tempSiteId ) {
+						return newSite.id;
+					}
+					return prevSelectedSiteId;
+				} );
 				setData( ( prevData ) =>
-					sortSites(
-						prevData.map( ( site ) =>
-							site.id === tempSiteId ? { ...site, ...newSite, isAddingSite: false } : site
-						)
-					)
+					prevData.map( ( site ) => ( site.id === tempSiteId ? newSite : site ) )
 				);
 			} catch ( error ) {
 				console.error( 'Failed to create site:', error );

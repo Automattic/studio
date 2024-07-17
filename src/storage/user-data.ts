@@ -8,6 +8,7 @@ import { sanitizeUnstructuredData, sanitizeUserpath } from '../lib/sanitize-for-
 import { sortSites } from '../lib/sort-sites';
 import { getUserDataFilePath } from './paths';
 import type { PersistedUserData, UserData } from './storage-types';
+import * as atomically from 'atomically';
 
 // Before persisting the PHP version of sites, the default PHP version used was 8.0.
 // In case we can't retrieve the PHP version from site details, we assume it was created
@@ -86,7 +87,17 @@ export async function saveUserData( data: UserData ): Promise< void > {
 	const filePath = getUserDataFilePath();
 
 	const asString = JSON.stringify( toDiskFormat( data ), null, 2 ) + '\n';
-	await fs.promises.writeFile( filePath, asString, 'utf-8' );
+	try {
+		await atomically.writeFile( filePath, asString, 'utf-8' );
+	} catch ( error ) {
+		// Fall back to FS function in case the writing fails with EXDEV error.
+		// This issue might happen on Windows when renaming a file.
+		// Reference: https://github.com/sindresorhus/electron-store/issues/106
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		if ( ( error as any )?.code === 'EXDEV' ) {
+			await fs.promises.writeFile( filePath, asString, 'utf-8' );
+		}
+	}
 	console.log( `Saved user data to ${ sanitizeUserpath( filePath ) }` );
 }
 

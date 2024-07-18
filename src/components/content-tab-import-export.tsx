@@ -71,12 +71,14 @@ export const ExportSite = ( {
 	};
 
 	return (
-		<div className="flex flex-col">
-			<h4 className="a8c-subtitle-small">{ __( 'Export' ) }</h4>
-			<p className="text-a8c-gray-70 text-body-small leading-[140%]">
-				{ __( 'Create a backup of your entire database.' ) }
-			</p>
-			<div className="mt-4 flex flex-row gap-5">
+		<div className="flex flex-col gap-4">
+			<div>
+				<h4 className="a8c-subtitle-small leading-5">{ __( 'Export' ) }</h4>
+				<p className="text-a8c-gray-70 leading-[140%] a8c-helper-text text-[13px]">
+					{ __( 'Create a backup of your entire database.' ) }
+				</p>
+			</div>
+			<div className="gap-4 flex flex-row">
 				<Button onClick={ onExportFullSite } variant="primary">
 					{ __( 'Backup entire site' ) }
 				</Button>
@@ -118,9 +120,10 @@ export function ContentTabImportExport( { selectedSite }: ContentTabImportExport
 	};
 
 	return (
-		<div className="flex flex-col p-8">
+		<div className="flex flex-col p-8 gap-8">
 			{ /* TODO: Remove before div before merge*/ }
 			<div>
+				<h4 className="a8c-subtitle-small">{ __( 'Import' ) }</h4>
 				<input type="file" onChange={ handleFileChange } />
 				<button onClick={ handleImport }>Submit</button>
 			</div>

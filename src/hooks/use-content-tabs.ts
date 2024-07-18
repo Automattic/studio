@@ -28,7 +28,7 @@ export function useContentTabs() {
 
 		if ( importExportEnabled ) {
 			tabs.push( {
-				order: 3,
+				order: 0,
 				name: 'import-export',
 				title: __( 'Import / Export' ),
 			} );

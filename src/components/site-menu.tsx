@@ -115,7 +115,7 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 				{ site.name }
 			</button>
 			{ site.isAddingSite ? (
-				<Spinner className="!w-2.5 !h-2.5 !top-[6px] !mr-2" />
+				<Spinner className="!w-2.5 !h-2.5 !top-[6px] !mr-2 [&>circle]:stroke-a8c-gray-70" />
 			) : (
 				<ButtonToRun { ...site } />
 			) }

@@ -9,7 +9,6 @@ export interface ExportOptions {
 	};
 }
 
-// Let's use the importer types when merged
 export interface BackupContents {
 	backupFile: string;
 	sqlFiles: string[];

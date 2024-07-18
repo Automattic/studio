@@ -23,6 +23,8 @@ export function useDragAndDropFile< T extends HTMLElement >( {
 		const handleDrop = ( event: DragEvent ) => {
 			event.preventDefault();
 			event.stopPropagation();
+			setIsDraggingOver( false );
+
 			if ( ! event.dataTransfer ) {
 				return;
 			}

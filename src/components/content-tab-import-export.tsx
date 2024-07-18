@@ -19,7 +19,6 @@ export function ContentTabImportExport( props: ContentTabImportExportProps ) {
 			importFile( file, props.selectedSite );
 		},
 	} );
-	console.log( 'isDraggingOver', isDraggingOver );
 	return (
 		<div className="p-8 flex flex-col justify-between gap-8">
 			<div className="flex flex-col w-full">

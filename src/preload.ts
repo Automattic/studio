@@ -7,7 +7,6 @@ import { ExportOptions } from './lib/import-export/export/types';
 import { BackupArchiveInfo } from './lib/import-export/import/types';
 import { promptWindowsSpeedUpSites } from './lib/windows-helpers';
 import type { LogLevel } from './logging';
-import { SaveDialogOptions } from 'electron/common';
 
 const api: IpcApi = {
 	archiveSite: ( id: string ) => ipcRenderer.invoke( 'archiveSite', id ),

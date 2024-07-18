@@ -8,7 +8,6 @@ import { DefaultImporter, Importer, ImporterResult } from './importers/importer'
 import { BackupArchiveInfo, NewImporter } from './types';
 import { JetpackValidator, SqlValidator } from './validators';
 import { Validator } from './validators/validator';
-import { JetpackValidator, SqlValidator } from './validators';
 
 export interface ImporterOption {
 	validator: Validator;

@@ -4,7 +4,7 @@ import { sprintf, __ } from '@wordpress/i18n';
 import { Icon, download } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { format } from 'date-fns';
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
 import { STUDIO_DOCS_URL } from '../constants';
 import { useConfirmationDialog } from '../hooks/use-confirmation-dialog';
 import { useDragAndDropFile } from '../hooks/use-drag-and-drop-file';
@@ -14,7 +14,6 @@ import { cx } from '../lib/cx';
 import { sanitizeFolderName } from '../lib/generate-site-name';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { ExportOptions } from '../lib/import-export/export/types';
-import { BackupArchiveInfo } from '../lib/import-export/import/types';
 import Button from './button';
 import { ProgressBarWithAutoIncrement } from './progress-bar';
 

@@ -2,7 +2,6 @@ import fs from 'fs';
 import fsPromises from 'fs/promises';
 import os from 'os';
 import path from 'path';
-import zlib from 'zlib';
 import archiver from 'archiver';
 import { ExportOptions, BackupContents, Exporter } from '../types';
 

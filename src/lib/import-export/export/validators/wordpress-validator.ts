@@ -26,6 +26,7 @@ export class WordPressExportValidator extends EventEmitter implements ExportVali
 
 		files.forEach( ( file ) => {
 			const relativePath = path.relative( options.sitePath, file );
+			console.log(relativePath)
 			if ( path.basename( file ) === 'wp-config.php' ) {
 				backupContents.wpConfigFile = file;
 			} else if ( relativePath.startsWith( 'wp-content/uploads/' ) && options.includes.uploads ) {

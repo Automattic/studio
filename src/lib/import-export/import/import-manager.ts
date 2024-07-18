@@ -4,8 +4,8 @@ import path from 'path';
 import { BackupHandlerFactory } from './handlers/backup-handler-factory';
 import { DefaultImporter, Importer, ImporterResult } from './importers/importer';
 import { BackupArchiveInfo, NewImporter } from './types';
-import { Validator } from './validators/validator';
 import { JetpackValidator, SqlValidator } from './validators';
+import { Validator } from './validators/validator';
 
 export interface ImporterOption {
 	validator: Validator;

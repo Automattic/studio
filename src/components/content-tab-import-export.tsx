@@ -1,6 +1,6 @@
 import { Button } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { ExportOptions } from '../lib/import-export/export/types';
 import { BackupArchiveInfo } from '../lib/import-export/import/types';

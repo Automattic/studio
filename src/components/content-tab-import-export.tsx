@@ -2,29 +2,24 @@ import { createInterpolateElement } from '@wordpress/element';
 import { Icon, download } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useDragAndDropFile } from '../hooks/use-drag-and-drop-file';
+import { useSiteDetails } from '../hooks/use-site-details';
 import { getIpcApi } from '../lib/get-ipc-api';
-import { BackupArchiveInfo } from '../lib/import-export/import/types';
 import Button from './button';
 
 interface ContentTabImportExportProps {
 	selectedSite: SiteDetails;
 }
+
 export function ContentTabImportExport( props: ContentTabImportExportProps ) {
 	const { __ } = useI18n();
+	const { importFile } = useSiteDetails();
 	const { dropRef, isDraggingOver } = useDragAndDropFile< HTMLDivElement >( {
-		onFileDrop: async ( file: File ) => {
-			try {
-				const backupFile: BackupArchiveInfo = {
-					type: file.type,
-					path: file.path,
-				};
-				await getIpcApi().importSite( { id: props.selectedSite.id, backupFile } );
-				alert( 'Site imported successfully' );
-			} catch ( error ) {
-				console.error( 'Error importing site:', error );
-			}
+		onFileDrop: ( file: File ) => {
+			console.log( 'importing file', file.path );
+			importFile( file, props.selectedSite );
 		},
 	} );
+	console.log( 'isDraggingOver', isDraggingOver );
 	return (
 		<div className="p-8 flex flex-col justify-between gap-8">
 			<div className="flex flex-col w-full">

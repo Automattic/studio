@@ -29,6 +29,7 @@ interface StoppedSiteDetails {
 		supportsMenus: boolean;
 	};
 	isAddingSite?: boolean;
+	isImporting?: boolean;
 }
 
 interface StartedSiteDetails extends StoppedSiteDetails {

@@ -8,8 +8,6 @@ export function useDragAndDropFile< T extends HTMLElement >( {
 	const dropRef = useRef< T >( null );
 	const [ isDraggingOver, setIsDraggingOver ] = useState( false );
 
-	console.log( 'rendering', { isDraggingOver } );
-
 	useEffect( () => {
 		if ( ! dropRef.current ) {
 			return;
@@ -46,7 +44,7 @@ export function useDragAndDropFile< T extends HTMLElement >( {
 			dropRef.current.removeEventListener( 'drop', handleDrop );
 		}
 		return cleanup;
-	}, [] );
+	}, [ onFileDrop ] );
 
 	return { dropRef, isDraggingOver };
 }

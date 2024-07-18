@@ -3,6 +3,7 @@
  */
 // To run tests, execute `npm run test -- src/storage/user-data.test.ts` from the root directory
 import fs from 'fs';
+import * as atomically from 'atomically';
 import { getUserDataFilePath } from '../paths';
 import { UserData } from '../storage-types';
 import { loadUserData, saveUserData } from '../user-data';
@@ -81,6 +82,28 @@ describe( 'loadUserData', () => {
 describe( 'saveUserData', () => {
 	test( 'saves user data correctly', async () => {
 		await saveUserData( mockedUserData as UserData );
+		expect( atomically.writeFile ).toHaveBeenCalledWith(
+			'/path/to/app/appData/App Name/appdata-v1.json',
+			JSON.stringify(
+				{
+					version: 1,
+					sites: mockedUserData.sites?.map( ( site ) => ( {
+						...site,
+						themeDetails: defaultThemeDetails,
+					} ) ),
+					snapshots: [],
+				},
+				null,
+				2
+			) + '\n',
+			'utf-8'
+		);
+	} );
+
+	test( 'falls back to FS when receiving EXDEV error', async () => {
+		( atomically.writeFile as jest.Mock ).mockRejectedValue( { code: 'EXDEV' } );
+		await saveUserData( mockedUserData as UserData );
+		expect( atomically.writeFile ).toHaveBeenCalled();
 		expect( fs.promises.writeFile ).toHaveBeenCalledWith(
 			'/path/to/app/appData/App Name/appdata-v1.json',
 			JSON.stringify(

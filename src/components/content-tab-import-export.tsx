@@ -91,42 +91,8 @@ export const ExportSite = ( {
 };
 
 export function ContentTabImportExport( { selectedSite }: ContentTabImportExportProps ) {
-	/* TODO: Remove before merge*/
-	const [ file, setFile ] = useState< File | null >( null );
-
-	/* TODO: Remove before merge*/
-	const handleFileChange = ( e: React.ChangeEvent< HTMLInputElement > ) => {
-		const selectedFile = e.target.files ? e.target.files[ 0 ] : null;
-		if ( selectedFile ) {
-			setFile( selectedFile );
-		}
-	};
-
-	/* TODO: Remove handleImport before merge*/
-	const handleImport = () => {
-		if ( file ) {
-			try {
-				const backupFile: BackupArchiveInfo = {
-					type: file.type,
-					path: file.path,
-				};
-				getIpcApi().importSite( { id: selectedSite.id, backupFile } );
-			} catch ( error ) {
-				console.error( 'Error importing site:', error );
-			}
-		} else {
-			console.warn( 'No file selected for import' );
-		}
-	};
-
 	return (
 		<div className="flex flex-col p-8 gap-8">
-			{ /* TODO: Remove before div before merge*/ }
-			<div>
-				<h4 className="a8c-subtitle-small">{ __( 'Import' ) }</h4>
-				<input type="file" onChange={ handleFileChange } />
-				<button onClick={ handleImport }>Submit</button>
-			</div>
 			<ExportSite
 				onExport={ async ( options ) => {
 					await getIpcApi().exportSite( options );

@@ -1,8 +1,10 @@
+import { EventEmitter } from 'events';
 import path from 'path';
+import { ImportEvents } from '../events';
 import { BackupContents } from '../types';
 import { Validator } from './validator';
 
-export class JetpackValidator implements Validator {
+export class JetpackValidator extends EventEmitter implements Validator {
 	canHandle( fileList: string[] ): boolean {
 		const requiredDirs = [ 'sql', 'wp-content/uploads', 'wp-content/plugins', 'wp-content/themes' ];
 		return (
@@ -12,6 +14,7 @@ export class JetpackValidator implements Validator {
 	}
 
 	parseBackupContents( fileList: string[], extractionDirectory: string ): BackupContents {
+		this.emit( ImportEvents.IMPORT_VALIDATION_START );
 		const extractedBackup: BackupContents = {
 			extractionDirectory: extractionDirectory,
 			sqlFiles: [],
@@ -50,6 +53,7 @@ export class JetpackValidator implements Validator {
 			path.basename( a ).localeCompare( path.basename( b ) )
 		);
 
+		this.emit( ImportEvents.IMPORT_VALIDATION_COMPLETE );
 		return extractedBackup;
 	}
 }

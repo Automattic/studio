@@ -46,15 +46,19 @@ describe( 'exportBackup', () => {
 		const mockValidator = {
 			canHandle: jest.fn().mockReturnValue( true ),
 			filterFiles: jest.fn().mockReturnValue( {} as BackupContents ),
+			on: jest.fn(),
+			emit: jest.fn(),
 		};
 		const mockExportMethod = jest.fn().mockResolvedValue( undefined );
 
 		const MockExporter = jest.fn().mockImplementation( () => ( {
 			export: mockExportMethod,
+			on: jest.fn(),
+			emit: jest.fn(),
 		} ) );
 		const options: ExporterOption[] = [ { validator: mockValidator, exporter: MockExporter } ];
 
-		await exportBackup( mockExportOptions, options );
+		await exportBackup( mockExportOptions, jest.fn, options );
 
 		expect( mockValidator.canHandle ).toHaveBeenCalledWith( expectedFiles );
 		expect( mockValidator.filterFiles ).toHaveBeenCalledWith( expectedFiles, mockExportOptions );
@@ -66,13 +70,17 @@ describe( 'exportBackup', () => {
 		const mockValidator = {
 			canHandle: jest.fn().mockReturnValue( false ),
 			filterFiles: jest.fn(),
+			on: jest.fn(),
+			emit: jest.fn(),
 		};
 		const MockExporter = jest.fn().mockImplementation( () => ( {
 			export: jest.fn(),
+			on: jest.fn(),
+			emit: jest.fn(),
 		} ) );
 		const options: ExporterOption[] = [ { validator: mockValidator, exporter: MockExporter } ];
 
-		await exportBackup( mockExportOptions, options );
+		await exportBackup( mockExportOptions, jest.fn, options );
 
 		expect( mockValidator.canHandle ).toHaveBeenCalledWith( expectedFiles );
 		expect( mockValidator.filterFiles ).not.toHaveBeenCalled();
@@ -83,6 +91,6 @@ describe( 'exportBackup', () => {
 		const fsError = new Error( 'File system error' );
 		( fs.readdir as jest.Mock ).mockRejectedValue( fsError );
 
-		await expect( exportBackup( mockExportOptions ) ).rejects.toThrow( fsError );
+		await expect( exportBackup( mockExportOptions, jest.fn ) ).rejects.toThrow( fsError );
 	} );
 } );

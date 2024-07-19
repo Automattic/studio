@@ -1,6 +1,7 @@
 import { Button } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { format } from 'date-fns';
+import { useIpcListener } from '../hooks/use-ipc-listener';
 import { sanitizeFolderName } from '../lib/generate-site-name';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { ExportOptions } from '../lib/import-export/export/types';
@@ -98,6 +99,13 @@ export const ExportSite = ( {
 };
 
 export function ContentTabImportExport( { selectedSite }: ContentTabImportExportProps ) {
+	useIpcListener( 'on-import', ( _evt, data: unknown ) => {
+		console.log( 'on-import-events', data );
+	} );
+	useIpcListener( 'on-export', ( _evt, data: unknown ) => {
+		console.log( 'on-export-events', data );
+	} );
+
 	return (
 		<div className="flex flex-col p-8 gap-8">
 			<ExportSite onExport={ getIpcApi().exportSite } selectedSite={ selectedSite }></ExportSite>

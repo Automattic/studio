@@ -24,6 +24,7 @@ import { exportBackup } from './lib/import-export/export/export-manager';
 import { ExportOptions } from './lib/import-export/export/types';
 import { defaultImporterOptions, importBackup } from './lib/import-export/import/import-manager';
 import { BackupArchiveInfo } from './lib/import-export/import/types';
+import { ImportExportEventData } from './lib/import-export/types';
 import { isErrnoException } from './lib/is-errno-exception';
 import { isInstalled } from './lib/is-installed';
 import { getLocaleData, getSupportedLocale } from './lib/locale';
@@ -114,7 +115,13 @@ export async function importSite(
 	}
 	const sitePath = site.details.path;
 	try {
-		const result = await importBackup( backupFile, sitePath, defaultImporterOptions );
+		const onEvent = ( data: ImportExportEventData ) => {
+			const parentWindow = BrowserWindow.fromWebContents( event.sender );
+			if ( parentWindow && ! parentWindow.isDestroyed() && ! event.sender.isDestroyed() ) {
+				parentWindow.webContents.send( 'on-import', data );
+			}
+		};
+		const result = await importBackup( backupFile, sitePath, onEvent, defaultImporterOptions );
 		if ( result?.meta?.phpVersion ) {
 			await updateSite( event, {
 				...site.details,
@@ -472,11 +479,17 @@ export async function clearAuthenticationToken() {
 }
 
 export async function exportSite(
-	_event: IpcMainInvokeEvent,
+	event: IpcMainInvokeEvent,
 	options: ExportOptions
 ): Promise< void > {
 	try {
-		await exportBackup( options );
+		const onEvent = ( data: ImportExportEventData ) => {
+			const parentWindow = BrowserWindow.fromWebContents( event.sender );
+			if ( parentWindow && ! parentWindow.isDestroyed() && ! event.sender.isDestroyed() ) {
+				parentWindow.webContents.send( 'on-export', data );
+			}
+		};
+		await exportBackup( options, onEvent );
 	} catch ( e ) {
 		Sentry.captureException( e );
 <<<<<<< HEAD

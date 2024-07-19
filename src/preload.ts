@@ -73,6 +73,8 @@ const allowedChannels = [
 	'thumbnail-changed',
 	'theme-details-changed',
 	'theme-details-updating',
+	'on-import',
+	'on-export',
 ] as const;
 
 contextBridge.exposeInMainWorld( 'ipcListener', {

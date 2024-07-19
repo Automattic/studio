@@ -1,16 +1,22 @@
+import { EventEmitter } from 'events';
 import fs from 'fs';
 import fsPromises from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import archiver from 'archiver';
+import { ExportEvents } from '../events';
 import { ExportOptions, BackupContents, Exporter } from '../types';
 
-export class DefaultExporter implements Exporter {
+export class DefaultExporter extends EventEmitter implements Exporter {
 	private archive!: archiver.Archiver;
 
-	constructor( protected backup: BackupContents ) {}
+	constructor( protected backup: BackupContents ) {
+		super();
+	}
 
 	async export( options: ExportOptions ): Promise< void > {
+		this.emit( ExportEvents.EXPORT_START );
+
 		const output = fs.createWriteStream( options.backupFile );
 		this.archive = this.createArchive( options );
 
@@ -23,9 +29,12 @@ export class DefaultExporter implements Exporter {
 			this.addWpContent( options );
 			await this.addDatabase( options );
 			await this.archive.finalize();
+			this.emit( ExportEvents.BACKUP_CREATE_COMPLETE );
 			await archiveClosedPromise;
+			this.emit( ExportEvents.EXPORT_COMPLETE );
 		} catch ( error ) {
 			this.archive.abort();
+			this.emit( ExportEvents.EXPORT_ERROR );
 			throw error;
 		} finally {
 			if ( options.includes.database ) {
@@ -35,6 +44,7 @@ export class DefaultExporter implements Exporter {
 	}
 
 	private createArchive( options: ExportOptions ): archiver.Archiver {
+		this.emit( ExportEvents.BACKUP_CREATE_START );
 		const isZip = options.backupFile.endsWith( '.zip' );
 		return archiver( isZip ? 'zip' : 'tar', {
 			gzip: ! isZip,
@@ -73,13 +83,20 @@ export class DefaultExporter implements Exporter {
 				for ( const file of this.backup.wpContent[ category ] ) {
 					const relativePath = path.relative( options.sitePath, file );
 					this.archive.file( file, { name: relativePath } );
+					this.emit( ExportEvents.WP_CONTENT_EXPORT_PROGRESS, { file: relativePath } );
 				}
 			}
 		}
+		this.emit( ExportEvents.WP_CONTENT_EXPORT_COMPLETE, {
+			uploads: this.backup.wpContent.uploads.length,
+			plugins: this.backup.wpContent.plugins.length,
+			themes: this.backup.wpContent.themes.length,
+		} );
 	}
 
 	private async addDatabase( options: ExportOptions ): Promise< void > {
 		if ( options.includes.database ) {
+			this.emit( ExportEvents.DATABASE_EXPORT_START );
 			// Add a toy sql file here, to make importer validation pass
 			// This will be implemented in a different ticket
 			const tmpFolder = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio_export' ) );
@@ -88,6 +105,7 @@ export class DefaultExporter implements Exporter {
 			await fsPromises.writeFile( sqlDumpPath, '--test' );
 			this.archive.file( sqlDumpPath, { name: `sql/${ fileName }` } );
 			this.backup.sqlFiles.push( sqlDumpPath );
+			this.emit( ExportEvents.DATABASE_EXPORT_COMPLETE );
 		}
 	}
 

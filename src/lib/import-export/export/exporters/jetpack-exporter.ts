@@ -70,7 +70,6 @@ export class JetpackExporter implements Exporter {
 			if ( options.includes[ category ] ) {
 				for ( const file of this.backup.wpContent[ category ] ) {
 					const relativePath = path.relative( options.sitePath, file );
-					console.log( relativePath, 'relative' );
 					this.archive.file( file, { name: relativePath } );
 				}
 			}

@@ -1,6 +1,7 @@
 import { createInterpolateElement } from '@wordpress/element';
 import { Icon, download } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
+import { useRef } from 'react';
 import { useDragAndDropFile } from '../hooks/use-drag-and-drop-file';
 import { useSiteDetails } from '../hooks/use-site-details';
 import { getIpcApi } from '../lib/get-ipc-api';
@@ -19,6 +20,17 @@ export function ContentTabImportExport( props: ContentTabImportExportProps ) {
 			importFile( file, props.selectedSite );
 		},
 	} );
+	const inputFileRef = useRef< HTMLInputElement >( null );
+	const openFileSelector = async () => {
+		inputFileRef.current?.click();
+	};
+	const onFileSelected = async ( e: React.ChangeEvent< HTMLInputElement > ) => {
+		const file = e?.target?.files?.[ 0 ];
+		if ( ! file ) {
+			return;
+		}
+		importFile( file, props.selectedSite );
+	};
 	return (
 		<div className="p-8 flex flex-col justify-between gap-8">
 			<div className="flex flex-col w-full">
@@ -49,7 +61,7 @@ export function ContentTabImportExport( props: ContentTabImportExportProps ) {
 					</div>
 				) : (
 					<div ref={ dropRef } className="w-full">
-						<Button variant="icon" className="w-full">
+						<Button variant="icon" className="w-full" onClick={ openFileSelector }>
 							<div className="h-48 w-full rounded-sm border border-zinc-300 flex-col justify-center items-center inline-flex">
 								<Icon className="fill-a8c-gray-70" icon={ download } />
 								<span className="text-a8c-gray-70 a8c-body-small mt-1">
@@ -61,6 +73,14 @@ export function ContentTabImportExport( props: ContentTabImportExportProps ) {
 						</Button>
 					</div>
 				) }
+				<input
+					ref={ inputFileRef }
+					className="hidden"
+					type="file"
+					id="backup-file"
+					accept=".zip,.sql,.tar,.gz"
+					onChange={ onFileSelected }
+				/>
 			</div>
 			<div className="flex flex-col w-full">
 				<div className="a8c-subtitle-small mb-1">{ __( 'Export' ) }</div>

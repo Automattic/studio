@@ -1,14 +1,9 @@
 import { Button } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
-<<<<<<< HEAD
 import { format } from 'date-fns';
 import { sanitizeFolderName } from '../lib/generate-site-name';
-=======
-import { useState } from 'react';
->>>>>>> 0438e3f6 (Update: fix lint errors)
 import { getIpcApi } from '../lib/get-ipc-api';
 import { ExportOptions } from '../lib/import-export/export/types';
-import { BackupArchiveInfo } from '../lib/import-export/import/types';
 
 interface ContentTabImportExportProps {
 	selectedSite: SiteDetails;

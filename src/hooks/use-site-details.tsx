@@ -10,7 +10,7 @@ import {
 	useState,
 } from 'react';
 import { getIpcApi } from '../lib/get-ipc-api';
-import { BackupArchiveInfo } from '../lib/import-export/import/types';
+import { BackupArchiveInfo, ImportState } from '../lib/import-export/import/types';
 import { sortSites } from '../lib/sort-sites';
 import { useSnapshots } from './use-snapshots';
 
@@ -230,7 +230,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		try {
 			setData( ( prevSites ) =>
 				prevSites.map( ( site ) =>
-					site.id === selectedSite.id ? { ...site, isImporting: true } : site
+					site.id === selectedSite.id ? { ...site, importState: ImportState.Importing } : site
 				)
 			);
 			const backupFile: BackupArchiveInfo = {
@@ -255,7 +255,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		} finally {
 			setData( ( prevSites ) =>
 				prevSites.map( ( site ) =>
-					site.id === selectedSite.id ? { ...site, isImporting: false } : site
+					site.id === selectedSite.id ? { ...site, importState: ImportState.Imported } : site
 				)
 			);
 		}
@@ -286,7 +286,9 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 			if ( updatedSite ) {
 				setData( ( prevData ) =>
-					prevData.map( ( site ) => ( site.id === id && updatedSite ? updatedSite : site ) )
+					prevData.map( ( site ) =>
+						site.id === id && updatedSite ? { ...site, ...updatedSite } : site
+					)
 				);
 			}
 
@@ -301,7 +303,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			const updatedSite = await getIpcApi().stopServer( id );
 			if ( updatedSite ) {
 				setData( ( prevData ) =>
-					prevData.map( ( site ) => ( site.id === id ? updatedSite : site ) )
+					prevData.map( ( site ) => ( site.id === id ? { ...site, ...updatedSite } : site ) )
 				);
 			}
 			toggleLoadingServerForSite( id );

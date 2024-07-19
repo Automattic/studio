@@ -11,6 +11,12 @@ interface ShowNotificationOptions extends Electron.NotificationConstructorOption
 	showIcon: boolean;
 }
 
+enum ImportState {
+	Initial = 0,
+	Importing = 1,
+	Imported = 2,
+}
+
 interface StoppedSiteDetails {
 	running: false;
 
@@ -29,7 +35,7 @@ interface StoppedSiteDetails {
 		supportsMenus: boolean;
 	};
 	isAddingSite?: boolean;
-	isImporting?: boolean;
+	importState?: ImportState;
 }
 
 interface StartedSiteDetails extends StoppedSiteDetails {

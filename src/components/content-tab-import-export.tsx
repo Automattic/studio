@@ -5,6 +5,7 @@ import { useRef } from 'react';
 import { useDragAndDropFile } from '../hooks/use-drag-and-drop-file';
 import { useSiteDetails } from '../hooks/use-site-details';
 import { getIpcApi } from '../lib/get-ipc-api';
+import { ImportState } from '../lib/import-export/import/types';
 import Button from './button';
 import { ProgressBarWithAutoIncrement } from './progress-bar';
 
@@ -14,7 +15,7 @@ interface ContentTabImportExportProps {
 
 export function ContentTabImportExport( props: ContentTabImportExportProps ) {
 	const { __ } = useI18n();
-	const { importFile } = useSiteDetails();
+	const { importFile, updateSite, startServer } = useSiteDetails();
 	const { dropRef, isDraggingOver } = useDragAndDropFile< HTMLDivElement >( {
 		onFileDrop: ( file: File ) => {
 			importFile( file, props.selectedSite );
@@ -31,6 +32,14 @@ export function ContentTabImportExport( props: ContentTabImportExportProps ) {
 		}
 		importFile( file, props.selectedSite );
 	};
+	const openSite = async () => {
+		if ( ! props.selectedSite.running ) {
+			await startServer( props.selectedSite.id );
+		}
+		getIpcApi().openSiteURL( props.selectedSite.id );
+	};
+	const clearImportState = () =>
+		updateSite( { ...props.selectedSite, importState: ImportState.Initial } );
 	return (
 		<div className="p-8 flex flex-col justify-between gap-8">
 			<div className="flex flex-col w-full">
@@ -52,14 +61,28 @@ export function ContentTabImportExport( props: ContentTabImportExportProps ) {
 						}
 					) }
 				</div>
-				{ props.selectedSite.isImporting ? (
+				{ props.selectedSite.importState === ImportState.Importing && (
 					<div className="h-48 w-full rounded-sm border border-zinc-300 flex-col justify-center items-center inline-flex">
 						<div className="w-[240px]">
 							<ProgressBarWithAutoIncrement initialValue={ 50 } maxValue={ 95 } increment={ 5 } />
 						</div>
 						<div className="text-a8c-gray-70 a8c-body mt-4">{ __( 'Importing backup…' ) }</div>
 					</div>
-				) : (
+				) }
+				{ props.selectedSite.importState === ImportState.Imported && (
+					<div className="h-48 w-full rounded-sm border border-zinc-300 flex-col justify-center items-center inline-flex">
+						<span className="text-balck a8c-body">{ __( 'Import complete!' ) }</span>
+						<div className="flex gap-2 mt-4">
+							<Button variant="primary" onClick={ openSite }>
+								{ __( 'Open site' ) }
+							</Button>
+							<Button variant="link" className="!px-2.5 !py-2" onClick={ clearImportState }>
+								{ __( 'Start again' ) }
+							</Button>
+						</div>
+					</div>
+				) }
+				{ ! props.selectedSite.importState && (
 					<div ref={ dropRef } className="w-full">
 						<Button variant="icon" className="w-full" onClick={ openFileSelector }>
 							<div className="h-48 w-full rounded-sm border border-zinc-300 flex-col justify-center items-center inline-flex">

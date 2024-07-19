@@ -1,13 +1,20 @@
 import { Button } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
-import { useState } from 'react';
+import { format } from 'date-fns';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { ExportOptions } from '../lib/import-export/export/types';
-import { BackupArchiveInfo } from '../lib/import-export/import/types';
 
 interface ContentTabImportExportProps {
 	selectedSite: SiteDetails;
 }
+
+const getFileName = ( selectedSite: SiteDetails ) => {
+	const timestamp = format( new Date(), 'yyyy-MM-dd-HH-mm-ss' );
+	return `studio-backup-${ selectedSite.name
+		.toLocaleLowerCase()
+		.split( ' ' )
+		.join( '-' ) }-${ timestamp }`;
+};
 
 export const ExportSite = ( {
 	selectedSite,
@@ -17,9 +24,10 @@ export const ExportSite = ( {
 	onExport: ( options: ExportOptions ) => Promise< void >;
 } ) => {
 	const onExportFullSite = async () => {
+		const fileName = getFileName( selectedSite );
 		const path = await getIpcApi().showSaveAsDialog( {
 			title: __( 'Save backup file' ),
-			defaultPath: `${ selectedSite.name.split( ' ' ).join( '_' ).toLowerCase() }.tar.gz`,
+			defaultPath: `${ fileName }.tar.gz`,
 			filters: [
 				{
 					name: '*.tar.gz, *.tzg *.zip',
@@ -44,9 +52,10 @@ export const ExportSite = ( {
 	};
 
 	const onExportDatabase = async () => {
+		const fileName = getFileName( selectedSite );
 		const path = await getIpcApi().showSaveAsDialog( {
 			title: __( 'Save database file' ),
-			defaultPath: `${ selectedSite.name.split( ' ' ).join( '_' ).toLowerCase() }.sql`,
+			defaultPath: `${ fileName }.sql`,
 			filters: [
 				{
 					name: '*.sql',

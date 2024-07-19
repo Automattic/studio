@@ -226,40 +226,43 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		[ setSelectedSiteId ]
 	);
 
-	const importFile = useCallback( async ( file: File, selectedSite: SiteDetails ) => {
-		try {
-			setData( ( prevSites ) =>
-				prevSites.map( ( site ) =>
-					site.id === selectedSite.id ? { ...site, isImporting: true } : site
-				)
-			);
-			const backupFile: BackupArchiveInfo = {
-				type: file.type,
-				path: file.path,
-			};
-			await getIpcApi().importSite( { id: selectedSite.id, backupFile } );
-			getIpcApi().showNotification( {
-				title: selectedSite.name,
-				body: __( 'Import complete' ),
-			} );
-		} catch ( error ) {
-			getIpcApi().showMessageBox( {
-				type: 'error',
-				message: __( 'Failed importing site' ),
-				detail: __(
-					'An error occurred while importing the site. Verify the file is a valid Jetpack backup or .sql database file and try again. If this problem persists, please contact support.'
-				),
-				buttons: [ __( 'OK' ) ],
-			} );
-			console.error( error );
-		} finally {
-			setData( ( prevSites ) =>
-				prevSites.map( ( site ) =>
-					site.id === selectedSite.id ? { ...site, isImporting: false } : site
-				)
-			);
-		}
-	}, [] );
+	const importFile = useCallback(
+		async ( file: Pick< File, 'path' | 'type' >, selectedSite: SiteDetails ) => {
+			try {
+				setData( ( prevSites ) =>
+					prevSites.map( ( site ) =>
+						site.id === selectedSite.id ? { ...site, isImporting: true } : site
+					)
+				);
+				const backupFile: BackupArchiveInfo = {
+					type: file.type,
+					path: file.path,
+				};
+				await getIpcApi().importSite( { id: selectedSite.id, backupFile } );
+				getIpcApi().showNotification( {
+					title: selectedSite.name,
+					body: __( 'Import complete' ),
+				} );
+			} catch ( error ) {
+				getIpcApi().showMessageBox( {
+					type: 'error',
+					message: __( 'Failed importing site' ),
+					detail: __(
+						'An error occurred while importing the site. Verify the file is a valid Jetpack backup or .sql database file and try again. If this problem persists, please contact support.'
+					),
+					buttons: [ __( 'OK' ) ],
+				} );
+				console.error( error );
+			} finally {
+				setData( ( prevSites ) =>
+					prevSites.map( ( site ) =>
+						site.id === selectedSite.id ? { ...site, isImporting: false } : site
+					)
+				);
+			}
+		},
+		[]
+	);
 
 	const updateSite = useCallback( async ( site: SiteDetails ) => {
 		const updatedSites = await getIpcApi().updateSite( site );

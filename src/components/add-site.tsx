@@ -97,6 +97,9 @@ export default function AddSite( { className }: AddSiteProps ) {
 	);
 
 	useIpcListener( 'add-site', () => {
+		if ( isSiteAdding ) {
+			return;
+		}
 		openModal();
 	} );
 

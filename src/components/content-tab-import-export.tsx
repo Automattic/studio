@@ -4,6 +4,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useRef } from 'react';
 import { useDragAndDropFile } from '../hooks/use-drag-and-drop-file';
 import { useSiteDetails } from '../hooks/use-site-details';
+import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { ImportState } from '../lib/import-export/import/types';
 import Button from './button';
@@ -85,7 +86,12 @@ export function ContentTabImportExport( props: ContentTabImportExportProps ) {
 				{ ! props.selectedSite.importState && (
 					<div ref={ dropRef } className="w-full">
 						<Button variant="icon" className="w-full" onClick={ openFileSelector }>
-							<div className="h-48 w-full rounded-sm border border-zinc-300 flex-col justify-center items-center inline-flex">
+							<div
+								className={ cx(
+									'h-48 w-full rounded-sm border border-zinc-300 hover:border-a8c-blueberry flex-col justify-center items-center inline-flex',
+									isDraggingOver && 'border-a8c-blueberry bg-a8c-gray-0'
+								) }
+							>
 								<Icon className="fill-a8c-gray-70" icon={ download } />
 								<span className="text-a8c-gray-70 a8c-body-small mt-1">
 									{ isDraggingOver

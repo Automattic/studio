@@ -5,7 +5,7 @@ import path from 'path';
 import archiver from 'archiver';
 import { ExportOptions, BackupContents, Exporter } from '../types';
 
-export class JetpackExporter implements Exporter {
+export class DefaultExporter implements Exporter {
 	private archive!: archiver.Archiver;
 
 	constructor( protected backup: BackupContents ) {}

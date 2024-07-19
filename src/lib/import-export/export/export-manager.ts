@@ -1,6 +1,6 @@
 import fsPromises from 'fs/promises';
 import path from 'node:path';
-import { JetpackExporter, SqlExporter } from './exporters';
+import { DefaultExporter, SqlExporter } from './exporters';
 import { ExportOptions, ExporterOption } from './types';
 import { WordPressExportValidator } from './validators/wordpress-validator';
 
@@ -31,6 +31,6 @@ export async function exportBackup(
 }
 
 export const defaultExporterOptions: ExporterOption[] = [
-	{ validator: new WordPressExportValidator(), exporter: JetpackExporter },
+	{ validator: new WordPressExportValidator(), exporter: DefaultExporter },
 	{ validator: new WordPressExportValidator(), exporter: SqlExporter },
 ];

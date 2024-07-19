@@ -135,7 +135,12 @@ export default function AddSite( { className }: AddSiteProps ) {
 					</SiteForm>
 				</Modal>
 			) }
-			<Button variant="outlined" className={ className } onClick={ openModal }>
+			<Button
+				variant="outlined"
+				className={ className }
+				onClick={ openModal }
+				disabled={ isSiteAdding }
+			>
 				{ __( 'Add site' ) }
 			</Button>
 		</>

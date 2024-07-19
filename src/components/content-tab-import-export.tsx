@@ -1,6 +1,7 @@
 import { Button } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { format } from 'date-fns';
+import { sanitizeFolderName } from '../lib/generate-site-name';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { ExportOptions } from '../lib/import-export/export/types';
 
@@ -10,10 +11,7 @@ interface ContentTabImportExportProps {
 
 const getFileName = ( selectedSite: SiteDetails ) => {
 	const timestamp = format( new Date(), 'yyyy-MM-dd-HH-mm-ss' );
-	return `studio-backup-${ selectedSite.name
-		.toLocaleLowerCase()
-		.split( ' ' )
-		.join( '-' ) }-${ timestamp }`;
+	return sanitizeFolderName( `studio-backup-${ selectedSite.name }-${ timestamp }` );
 };
 
 export const ExportSite = ( {

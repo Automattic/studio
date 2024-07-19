@@ -3,8 +3,6 @@ import path from 'node:path';
 import { DefaultExporter, SqlExporter } from './exporters';
 import { ExportOptions, ExporterOption } from './types';
 import { WordPressExportValidator } from './validators/wordpress-validator';
-import { ExportOptions, ExporterOption } from './types';
-import { WordPressExportValidator } from './validators/wordpress-validator';
 
 export async function exportBackup(
 	exportOptions: ExportOptions,

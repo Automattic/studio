@@ -2,7 +2,7 @@ import fs from 'fs';
 import fsPromises from 'fs/promises';
 import os from 'os';
 import archiver from 'archiver';
-import { JetpackExporter } from '../../../export/exporters/jetpack-exporter';
+import { DefaultExporter } from '../../../export/exporters/default-exporter';
 import { ExportOptions, BackupContents } from '../../../export/types';
 
 jest.mock( 'fs' );
@@ -32,7 +32,7 @@ jest.mock( 'archiver', () => {
 } );
 
 describe( 'JetpackExporter', () => {
-	let exporter: JetpackExporter;
+	let exporter: DefaultExporter;
 	let mockBackup: BackupContents;
 	let mockOptions: ExportOptions;
 	let mockArchiver: jest.Mocked< PartialArchiver >;
@@ -80,7 +80,7 @@ describe( 'JetpackExporter', () => {
 
 		mockArchiver.finalize.mockReturnValue( Promise.resolve() );
 
-		exporter = new JetpackExporter( mockBackup );
+		exporter = new DefaultExporter( mockBackup );
 	} );
 
 	it( 'should create a tar.gz archive', async () => {

@@ -1,7 +1,9 @@
 import { createInterpolateElement } from '@wordpress/element';
+import { sprintf } from '@wordpress/i18n';
 import { Icon, download } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useRef } from 'react';
+import { useConfirmationDialog } from '../hooks/use-confirmation-dialog';
 import { useDragAndDropFile } from '../hooks/use-drag-and-drop-file';
 import { useSiteDetails } from '../hooks/use-site-details';
 import { cx } from '../lib/cx';
@@ -17,9 +19,17 @@ interface ContentTabImportExportProps {
 export function ContentTabImportExport( props: ContentTabImportExportProps ) {
 	const { __ } = useI18n();
 	const { importFile, updateSite, startServer } = useSiteDetails();
+	const importConfirmation = useConfirmationDialog( {
+		message: sprintf( __( 'Overwite %s?' ), props.selectedSite.name ),
+		checkboxLabel: __( 'Don’t show this message again' ),
+		detail: __( 'Importing a backup will replace the existing files and database for your site.' ),
+		confirmButtonLabel: __( 'Import' ),
+		localStorageKey: 'dontShowImportConfirmation',
+	} );
+
 	const { dropRef, isDraggingOver } = useDragAndDropFile< HTMLDivElement >( {
 		onFileDrop: ( file: File ) => {
-			importFile( file, props.selectedSite );
+			importConfirmation( () => importFile( file, props.selectedSite ) );
 		},
 	} );
 	const inputFileRef = useRef< HTMLInputElement >( null );
@@ -31,7 +41,7 @@ export function ContentTabImportExport( props: ContentTabImportExportProps ) {
 		if ( ! file ) {
 			return;
 		}
-		importFile( file, props.selectedSite );
+		importConfirmation( () => importFile( file, props.selectedSite ) );
 	};
 	const openSite = async () => {
 		if ( ! props.selectedSite.running ) {

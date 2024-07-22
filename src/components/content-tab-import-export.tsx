@@ -65,7 +65,6 @@ export const ExportSite = ( {
 				setProgress( 30 );
 				break;
 			case ExportEvents.BACKUP_CREATE_PROGRESS: {
-				console.log( eventData, 'eventDta' );
 				const { entries } = eventData.data.progress;
 				const entriesProgress = ( entries.processed / entries.total ) * 70; // Scale to remaining 70%
 				setProgress( Math.min( 100, 30 + entriesProgress ) ); // Start from 30% and go up to 100%

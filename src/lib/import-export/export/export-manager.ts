@@ -12,12 +12,12 @@ export async function exportBackup(
 		recursive: true,
 		withFileTypes: true,
 	} );
-	const allFiles = directoryContents.reduce( ( files: string[], directoryContent ) => {
+	const allFiles = directoryContents.reduce< string[] >( ( files: string[], directoryContent ) => {
 		if ( directoryContent.isFile() ) {
 			files.push( path.join( directoryContent.path, directoryContent.name ) );
 		}
 		return files;
-	}, [] as string[] );
+	}, [] );
 
 	for ( const { validator, exporter } of options ) {
 		if ( validator.canHandle( allFiles ) ) {

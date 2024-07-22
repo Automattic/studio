@@ -15,8 +15,8 @@ export class DefaultExporter implements Exporter {
 		this.archive = this.createArchive( output, options );
 
 		try {
-			await this.addWpConfig();
-			await this.addWpContent( options );
+			this.addWpConfig();
+			this.addWpContent( options );
 			await this.addDatabase( options );
 			await this.finalizeArchive();
 		} catch ( error ) {
@@ -57,15 +57,15 @@ export class DefaultExporter implements Exporter {
 		return archive;
 	}
 
-	private async addWpConfig(): Promise< void > {
+	private addWpConfig(): void {
 		if ( this.backup.wpConfigFile ) {
-			this.archive = this.archive.file( this.backup.wpConfigFile || '', {
+			this.archive.file( this.backup.wpConfigFile || '', {
 				name: 'wp-config.php',
 			} );
 		}
 	}
 
-	private async addWpContent( options: ExportOptions ): Promise< void > {
+	private addWpContent( options: ExportOptions ): void {
 		for ( const category of [ 'uploads', 'plugins', 'themes' ] as const ) {
 			if ( options.includes[ category ] ) {
 				for ( const file of this.backup.wpContent[ category ] ) {

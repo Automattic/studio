@@ -56,7 +56,7 @@ export const ExportSite = ( {
 			defaultPath: `${ fileName }.sql`,
 			filters: [
 				{
-					name: '*.sql',
+					name: 'SQL dump file',
 					extensions: [ 'sql' ],
 				},
 			],

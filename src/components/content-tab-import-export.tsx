@@ -101,9 +101,7 @@ export function ContentTabImportExport( { selectedSite }: ContentTabImportExport
 	return (
 		<div className="flex flex-col p-8 gap-8">
 			<ExportSite
-				onExport={ async ( options ) => {
-					await getIpcApi().exportSite( options );
-				} }
+				onExport={ getIpcApi().exportSite }
 				selectedSite={ selectedSite }
 			></ExportSite>
 		</div>

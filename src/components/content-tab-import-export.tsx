@@ -1,3 +1,4 @@
+import { speak } from '@wordpress/a11y';
 import { Button as CoreButton } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { sprintf, __ } from '@wordpress/i18n';
@@ -111,7 +112,7 @@ export const ExportSite = ( {
 
 const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 	const { __ } = useI18n();
-	const { importFile, updateSite, startServer } = useSiteDetails();
+	const { importFile, updateSite, startServer, loadingServer } = useSiteDetails();
 	const importConfirmation = useConfirmationDialog( {
 		message: sprintf( __( 'Overwite %s?' ), props.selectedSite.name ),
 		checkboxLabel: __( 'Don’t show this message again' ),
@@ -138,14 +139,22 @@ const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 	};
 	const openSite = async () => {
 		if ( ! props.selectedSite.running ) {
+			speak( __( 'Starting the server before opening the site link' ) );
 			await startServer( props.selectedSite.id );
 		}
 		getIpcApi().openSiteURL( props.selectedSite.id );
 	};
 	const clearImportState = () =>
 		updateSite( { ...props.selectedSite, importState: ImportState.Initial } );
+
+	const startLoadingCursorClassName =
+		loadingServer[ props.selectedSite.id ] && 'animate-pulse duration-100 cursor-wait';
+
+	const isImporting = props.selectedSite.importState === ImportState.Importing;
+	const isImported = props.selectedSite.importState === ImportState.Imported || true;
+	const isInitial = ! isImporting && ! isImported;
 	return (
-		<div className="flex flex-col w-full">
+		<div className={ cx( 'flex flex-col w-full', startLoadingCursorClassName ) }>
 			<div className="a8c-subtitle-small mb-1">{ __( 'Import' ) }</div>
 			<div className="text-a8c-gray-70 a8c-body mb-4">
 				{ createInterpolateElement(
@@ -157,7 +166,7 @@ const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 					}
 				) }
 			</div>
-			{ props.selectedSite.importState === ImportState.Importing && (
+			{ isImporting && (
 				<div className="h-48 w-full rounded-sm border border-zinc-300 flex-col justify-center items-center inline-flex">
 					<div className="w-[240px]">
 						<ProgressBarWithAutoIncrement initialValue={ 50 } maxValue={ 95 } increment={ 5 } />
@@ -165,11 +174,15 @@ const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 					<div className="text-a8c-gray-70 a8c-body mt-4">{ __( 'Importing backup…' ) }</div>
 				</div>
 			) }
-			{ props.selectedSite.importState === ImportState.Imported && (
+			{ isImported && (
 				<div className="h-48 w-full rounded-sm border border-zinc-300 flex-col justify-center items-center inline-flex">
 					<span className="text-balck a8c-body">{ __( 'Import complete!' ) }</span>
 					<div className="flex gap-2 mt-4">
-						<Button variant="primary" onClick={ openSite }>
+						<Button
+							className={ cx( startLoadingCursorClassName ) }
+							variant="primary"
+							onClick={ openSite }
+						>
 							{ __( 'Open site ↗' ) }
 						</Button>
 						<Button variant="link" className="!px-2.5 !py-2" onClick={ clearImportState }>
@@ -178,7 +191,7 @@ const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 					</div>
 				</div>
 			) }
-			{ ! props.selectedSite.importState && (
+			{ isInitial && (
 				<div ref={ dropRef } className="w-full">
 					<Button variant="icon" className="w-full" onClick={ openFileSelector }>
 						<div

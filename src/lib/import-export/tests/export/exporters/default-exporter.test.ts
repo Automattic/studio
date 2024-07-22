@@ -31,7 +31,7 @@ jest.mock( 'archiver', () => {
 	return jest.fn().mockImplementation( () => createMockArchiver() );
 } );
 
-describe( 'JetpackExporter', () => {
+describe( 'DefaultExporter', () => {
 	let exporter: DefaultExporter;
 	let mockBackup: BackupContents;
 	let mockOptions: ExportOptions;
@@ -78,8 +78,15 @@ describe( 'JetpackExporter', () => {
 		( fsPromises.writeFile as jest.Mock ).mockResolvedValue( undefined );
 		( os.tmpdir as jest.Mock ).mockReturnValue( '/tmp' );
 
-		mockArchiver.finalize.mockReturnValue( Promise.resolve() );
-
+		mockArchiver.finalize.mockImplementation( () => {
+			return new Promise< void >( ( resolve ) => {
+				// Simulate async finalize
+				setTimeout( () => {
+					mockWriteStream.on.mock.calls.find( ( call ) => call[ 0 ] === 'close' )[ 1 ]();
+					resolve();
+				}, 0 );
+			} );
+		} );
 		exporter = new DefaultExporter( mockBackup );
 	} );
 

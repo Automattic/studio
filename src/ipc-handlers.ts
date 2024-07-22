@@ -479,6 +479,7 @@ export async function exportSite(
 		await exportBackup( options );
 	} catch ( e ) {
 		Sentry.captureException( e );
+		throw e
 	}
 }
 

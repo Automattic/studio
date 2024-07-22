@@ -28,7 +28,7 @@ const createMockArchiver = (): jest.Mocked< PartialArchiver > => {
 
 // Mock archiver module
 jest.mock( 'archiver', () => {
-	return jest.fn().mockImplementation( () => createMockArchiver() );
+	return jest.fn( () => createMockArchiver() );
 } );
 
 describe( 'DefaultExporter', () => {

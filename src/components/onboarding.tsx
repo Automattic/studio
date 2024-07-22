@@ -34,7 +34,6 @@ export default function Onboarding() {
 	const { __ } = useI18n();
 	const {
 		setSiteName,
-		isAddingSite,
 		setProposedSitePath,
 		setSitePath,
 		setError,
@@ -114,13 +113,8 @@ export default function Onboarding() {
 							onSubmit={ handleSubmit }
 						>
 							<div className="flex flex-row gap-x-5 mt-6">
-								<Button
-									type="submit"
-									isBusy={ isAddingSite }
-									disabled={ !! error || isAddingSite }
-									variant="primary"
-								>
-									{ isAddingSite ? __( 'Adding site…' ) : __( 'Add site' ) }
+								<Button type="submit" variant="primary">
+									{ __( 'Add site' ) }
 								</Button>
 							</div>
 						</SiteForm>

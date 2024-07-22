@@ -4,6 +4,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { useAddSite } from '../hooks/use-add-site';
 import { useIpcListener } from '../hooks/use-ipc-listener';
+import { useSiteDetails } from '../hooks/use-site-details';
 import { generateSiteName } from '../lib/generate-site-name';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
@@ -18,10 +19,10 @@ export default function AddSite( { className }: AddSiteProps ) {
 	const { __ } = useI18n();
 	const [ showModal, setShowModal ] = useState( false );
 	const [ nameSuggested, setNameSuggested ] = useState( false );
+	const { data } = useSiteDetails();
 
 	const {
 		handleAddSiteClick,
-		isAddingSite,
 		siteName,
 		setSiteName,
 		setProposedSitePath,
@@ -36,6 +37,8 @@ export default function AddSite( { className }: AddSiteProps ) {
 		usedSiteNames,
 		loadingSites,
 	} = useAddSite();
+
+	const isSiteAdding = data.some( ( site ) => site.isAddingSite );
 
 	const siteAddedMessage = sprintf(
 		// translators: %s is the site name.
@@ -82,10 +85,10 @@ export default function AddSite( { className }: AddSiteProps ) {
 		async ( event: FormEvent ) => {
 			event.preventDefault();
 			try {
+				closeModal();
 				await handleAddSiteClick();
 				speak( siteAddedMessage );
 				setNameSuggested( false );
-				closeModal();
 			} catch {
 				// No need to handle error here, it's already handled in handleAddSiteClick
 			}
@@ -94,6 +97,9 @@ export default function AddSite( { className }: AddSiteProps ) {
 	);
 
 	useIpcListener( 'add-site', () => {
+		if ( isSiteAdding ) {
+			return;
+		}
 		openModal();
 	} );
 
@@ -117,22 +123,27 @@ export default function AddSite( { className }: AddSiteProps ) {
 						doesPathContainWordPress={ doesPathContainWordPress }
 					>
 						<div className="flex flex-row justify-end gap-x-5 mt-6">
-							<Button onClick={ closeModal } disabled={ isAddingSite } variant="tertiary">
+							<Button onClick={ closeModal } disabled={ isSiteAdding } variant="tertiary">
 								{ __( 'Cancel' ) }
 							</Button>
 							<Button
 								type="submit"
 								variant="primary"
-								isBusy={ isAddingSite }
-								disabled={ isAddingSite || !! error || ! siteName?.trim() }
+								isBusy={ isSiteAdding }
+								disabled={ isSiteAdding || !! error || ! siteName?.trim() }
 							>
-								{ isAddingSite ? __( 'Adding site…' ) : __( 'Add site' ) }
+								{ __( 'Add site' ) }
 							</Button>
 						</div>
 					</SiteForm>
 				</Modal>
 			) }
-			<Button variant="outlined" className={ className } onClick={ openModal }>
+			<Button
+				variant="outlined"
+				className={ className }
+				onClick={ openModal }
+				disabled={ isSiteAdding }
+			>
 				{ __( 'Add site' ) }
 			</Button>
 		</>

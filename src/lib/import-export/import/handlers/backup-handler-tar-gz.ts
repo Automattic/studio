@@ -2,14 +2,14 @@ import fs from 'fs';
 import zlib from 'zlib';
 import * as tar from 'tar';
 import { BackupArchiveInfo } from '../types';
-import { BackupHandler } from './backup-handler-factory';
+import { BackupHandler, isFileAllowed } from './backup-handler-factory';
 
 export class BackupHandlerTarGz implements BackupHandler {
 	async listFiles( backup: BackupArchiveInfo ): Promise< string[] > {
 		const files: string[] = [];
 		await tar.t( {
 			file: backup.path,
-			onReadEntry: ( entry ) => files.push( entry.path ),
+			onReadEntry: ( entry ) => isFileAllowed( entry.path ) && files.push( entry.path ),
 		} );
 		return files;
 	}

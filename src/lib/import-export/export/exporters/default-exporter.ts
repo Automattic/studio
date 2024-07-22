@@ -66,6 +66,9 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 					reject( err );
 				}
 			} );
+			this.archive.on( 'progress', ( progress ) => {
+				this.emit( ExportEvents.BACKUP_CREATE_PROGRESS, { progress } );
+			} );
 
 			this.archive.on( 'error', reject );
 		} );

@@ -4,7 +4,7 @@ import { sprintf, __ } from '@wordpress/i18n';
 import { Icon, download } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { format } from 'date-fns';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { STUDIO_DOCS_URL } from '../constants';
 import { useConfirmationDialog } from '../hooks/use-confirmation-dialog';
 import { useDragAndDropFile } from '../hooks/use-drag-and-drop-file';
@@ -13,9 +13,10 @@ import { useSiteDetails } from '../hooks/use-site-details';
 import { cx } from '../lib/cx';
 import { sanitizeFolderName } from '../lib/generate-site-name';
 import { getIpcApi } from '../lib/get-ipc-api';
+import { ExportEvents } from '../lib/import-export/export/events';
 import { ExportOptions } from '../lib/import-export/export/types';
 import Button from './button';
-import { ProgressBarWithAutoIncrement } from './progress-bar';
+import ProgressBar, { ProgressBarWithAutoIncrement } from './progress-bar';
 
 interface ContentTabImportExportProps {
 	selectedSite: SiteDetails;
@@ -33,6 +34,64 @@ export const ExportSite = ( {
 	selectedSite: SiteDetails;
 	onExport: ( options: ExportOptions ) => Promise< void >;
 } ) => {
+	const [ isExporting, setIsExporting ] = useState( false );
+	const [ progress, setProgress ] = useState( 0 );
+	const [ statusMessage, setStatusMessage ] = useState( '' );
+	useIpcListener( 'on-export', ( _evt, data: unknown ) => {
+		const eventData = data as { event: string; data: unknown };
+
+		switch ( eventData.event ) {
+			case ExportEvents.EXPORT_VALIDATION_START:
+				setIsExporting( true );
+				setStatusMessage( __( 'Validating site structure...' ) );
+				setProgress( 5 );
+				break;
+			case ExportEvents.EXPORT_VALIDATION_COMPLETE:
+				setProgress( 10 );
+				break;
+			case ExportEvents.EXPORT_START:
+				setStatusMessage( __( 'Starting export...' ) );
+				setProgress( 15 );
+				break;
+			case ExportEvents.BACKUP_CREATE_START:
+				setStatusMessage( __( 'Creating backup...' ) );
+				setProgress( 20 );
+				break;
+			case ExportEvents.CONFIG_EXPORT_START:
+				setStatusMessage( __( 'Exporting configuration...' ) );
+				setProgress( 25 );
+				break;
+			case ExportEvents.CONFIG_EXPORT_COMPLETE:
+				setProgress( 30 );
+				break;
+			case ExportEvents.BACKUP_CREATE_PROGRESS: {
+				console.log( eventData, 'eventDta' );
+				const { entries } = eventData.data.progress;
+				const entriesProgress = ( entries.processed / entries.total ) * 70; // Scale to remaining 70%
+				setProgress( Math.min( 100, 30 + entriesProgress ) ); // Start from 30% and go up to 100%
+				setStatusMessage( __( `Backing up files...` ) );
+				break;
+			}
+			case ExportEvents.EXPORT_COMPLETE:
+				setProgress( 100 );
+				setStatusMessage( __( 'Export completed' ) );
+				setTimeout( () => {
+					setIsExporting( false );
+					setProgress( 0 );
+					setStatusMessage( '' );
+					getIpcApi().showNotification( {
+						title: __( 'Export completed.' ),
+						body: __( 'Export completed.' ),
+					} );
+				}, 2000 );
+				break;
+			case ExportEvents.EXPORT_ERROR:
+			case ExportEvents.EXPORT_VALIDATION_ERROR:
+				setIsExporting( false );
+				setStatusMessage( __( 'Export failed. Please try again.' ) );
+				break;
+		}
+	} );
 	const onExportFullSite = async () => {
 		const fileName = getFileName( selectedSite );
 		const path = await getIpcApi().showSaveAsDialog( {
@@ -97,19 +156,26 @@ export const ExportSite = ( {
 					{ __( 'Export your entire site or only the database.' ) }
 				</p>
 			</div>
-			<div className="gap-4 flex flex-row">
-				<Button onClick={ onExportFullSite } variant="primary">
-					{ __( 'Export entire site' ) }
-				</Button>
-				<Button
-					onClick={ onExportDatabase }
-					type="submit"
-					variant="secondary"
-					className="!text-a8c-blueberry !shadow-a8c-blueberry"
-				>
-					{ __( 'Export database' ) }
-				</Button>
-			</div>
+			{ isExporting ? (
+				<div className="flex flex-col gap-4">
+					<ProgressBar value={ progress } maxValue={ 100 } />
+					<div className="text-a8c-gray-70 a8c-body">{ statusMessage }</div>
+				</div>
+			) : (
+				<div className="flex flex-row gap-4">
+					<Button onClick={ onExportFullSite } variant="primary">
+						{ __( 'Export entire site' ) }
+					</Button>
+					<Button
+						onClick={ onExportDatabase }
+						type="submit"
+						variant="secondary"
+						className="!text-a8c-blueberry !shadow-a8c-blueberry"
+					>
+						{ __( 'Export database' ) }
+					</Button>
+				</div>
+			) }
 		</div>
 	);
 };
@@ -270,9 +336,6 @@ const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 export function ContentTabImportExport( { selectedSite }: ContentTabImportExportProps ) {
 	useIpcListener( 'on-import', ( _evt, data: unknown ) => {
 		// This listener will be used to track progress of import when the UI is finished.
-	} );
-	useIpcListener( 'on-export', ( _evt, data: unknown ) => {
-		// This listener will be used to track progress of export when the UI is finished.
 	} );
 
 	return (

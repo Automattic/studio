@@ -12,13 +12,18 @@ export class DefaultExporter implements Exporter {
 
 	async export( options: ExportOptions ): Promise< void > {
 		const output = fs.createWriteStream( options.backupFile );
-		this.archive = this.createArchive( output, options );
+		this.archive = this.createArchive( options );
+
+		const archiveClosedPromise = this.setupArchiveListeners( output );
+
+		this.archive.pipe( output );
 
 		try {
 			this.addWpConfig();
 			this.addWpContent( options );
 			await this.addDatabase( options );
-			await this.finalizeArchive();
+			await this.archive.finalize();
+			await archiveClosedPromise;
 		} catch ( error ) {
 			this.archive.abort();
 			throw error;
@@ -29,39 +34,36 @@ export class DefaultExporter implements Exporter {
 		}
 	}
 
-	private createArchive( output: fs.WriteStream, options: ExportOptions ): archiver.Archiver {
+	private createArchive( options: ExportOptions ): archiver.Archiver {
 		const isZip = options.backupFile.endsWith( '.zip' );
-		const archive = archiver( isZip ? 'zip' : 'tar', {
+		return archiver( isZip ? 'zip' : 'tar', {
 			gzip: ! isZip,
 			gzipOptions: isZip ? undefined : { level: 9 },
 		} );
+	}
 
-		output.on( 'close', () => {
-			console.log( `Backup created at: ${ output.path }` );
+	private setupArchiveListeners( output: fs.WriteStream ): Promise< void > {
+		return new Promise( ( resolve, reject ) => {
+			output.on( 'close', () => {
+				console.log( `Backup created at: ${ output.path }` );
+				resolve();
+			} );
+
+			this.archive.on( 'warning', ( err ) => {
+				if ( err.code === 'ENOENT' ) {
+					console.warn( 'Archiver warning:', err );
+				} else {
+					reject( err );
+				}
+			} );
+
+			this.archive.on( 'error', reject );
 		} );
-
-		archive.on( 'warning', ( err ) => {
-			if ( err.code === 'ENOENT' ) {
-				console.warn( 'Archiver warning:', err );
-			} else {
-				throw err;
-			}
-		} );
-
-		archive.on( 'error', ( err ) => {
-			throw err;
-		} );
-
-		archive.pipe( output );
-
-		return archive;
 	}
 
 	private addWpConfig(): void {
 		if ( this.backup.wpConfigFile ) {
-			this.archive.file( this.backup.wpConfigFile || '', {
-				name: 'wp-config.php',
-			} );
+			this.archive.file( this.backup.wpConfigFile, { name: 'wp-config.php' } );
 		}
 	}
 
@@ -79,6 +81,7 @@ export class DefaultExporter implements Exporter {
 	private async addDatabase( options: ExportOptions ): Promise< void > {
 		if ( options.includes.database ) {
 			// Add a toy sql file here, to make importer validation pass
+			// This will be implemented in a different ticket
 			const tmpFolder = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio_export' ) );
 			const fileName = 'file.sql';
 			const sqlDumpPath = path.join( tmpFolder, fileName );
@@ -86,10 +89,6 @@ export class DefaultExporter implements Exporter {
 			this.archive.file( sqlDumpPath, { name: `sql/${ fileName }` } );
 			this.backup.sqlFiles.push( sqlDumpPath );
 		}
-	}
-
-	private async finalizeArchive(): Promise< void > {
-		await this.archive.finalize();
 	}
 
 	private async cleanupTempFiles(): Promise< void > {

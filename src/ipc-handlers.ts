@@ -8,6 +8,7 @@ import {
 	shell,
 	type IpcMainInvokeEvent,
 	Notification,
+	SaveDialogOptions,
 } from 'electron';
 import fs from 'fs';
 import nodePath from 'path';
@@ -19,10 +20,10 @@ import { downloadSqliteIntegrationPlugin } from '../vendor/wp-now/src/download';
 import { LIMIT_ARCHIVE_SIZE } from './constants';
 import { isEmptyDir, pathExists, isWordPressDirectory, sanitizeFolderName } from './lib/fs-utils';
 import { getImageData } from './lib/get-image-data';
-import { ImporterOption, importBackup } from './lib/import-export/import/import-manager';
-import { DefaultImporter } from './lib/import-export/import/importers';
+import { exportBackup } from './lib/import-export/export/export-manager';
+import { ExportOptions } from './lib/import-export/export/types';
+import { defaultImporterOptions, importBackup } from './lib/import-export/import/import-manager';
 import { BackupArchiveInfo } from './lib/import-export/import/types';
-import { JetpackValidator, SqlValidator } from './lib/import-export/import/validators';
 import { isErrnoException } from './lib/is-errno-exception';
 import { isInstalled } from './lib/is-installed';
 import { getLocaleData, getSupportedLocale } from './lib/locale';
@@ -102,11 +103,6 @@ export async function getInstalledApps( _event: IpcMainInvokeEvent ): Promise< I
 		phpstorm: isInstalled( 'phpstorm' ),
 	};
 }
-
-const defaultImporterOptions: ImporterOption[] = [
-	{ validator: new JetpackValidator(), importer: DefaultImporter },
-	{ validator: new SqlValidator(), importer: DefaultImporter },
-];
 
 export async function importSite(
 	event: IpcMainInvokeEvent,
@@ -305,6 +301,22 @@ export interface FolderDialogResponse {
 	isWordPress: boolean;
 }
 
+export async function showSaveAsDialog( event: IpcMainInvokeEvent, options: SaveDialogOptions ) {
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+	if ( ! parentWindow ) {
+		throw new Error( `No window found for sender of showSaveAsDialog message: ${ event.frameId }` );
+	}
+
+	const { canceled, filePath } = await dialog.showSaveDialog( parentWindow, {
+		defaultPath: `${ DEFAULT_SITE_PATH }/${ options.defaultPath }`,
+		...options,
+	} );
+	if ( canceled ) {
+		return '';
+	}
+	return filePath;
+}
+
 export async function showOpenFolderDialog(
 	event: IpcMainInvokeEvent,
 	title: string
@@ -457,6 +469,18 @@ export async function isAuthenticated() {
 
 export async function clearAuthenticationToken() {
 	return oauthClient.clearAuthenticationToken();
+}
+
+export async function exportSite(
+	_event: IpcMainInvokeEvent,
+	options: ExportOptions
+): Promise< void > {
+	try {
+		await exportBackup( options );
+	} catch ( e ) {
+		Sentry.captureException( e );
+		throw e;
+	}
 }
 
 export async function saveSnapshotsToStorage( event: IpcMainInvokeEvent, snapshots: Snapshot[] ) {

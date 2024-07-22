@@ -2,8 +2,9 @@ import fsPromises from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import { BackupHandlerFactory } from './handlers/backup-handler-factory';
-import { Importer, ImporterResult } from './importers/importer';
+import { DefaultImporter, Importer, ImporterResult } from './importers/importer';
 import { BackupArchiveInfo, NewImporter } from './types';
+import { JetpackValidator, SqlValidator } from './validators';
 import { Validator } from './validators/validator';
 
 export interface ImporterOption {
@@ -49,3 +50,8 @@ export async function importBackup(
 		await fsPromises.rm( extractionDirectory, { recursive: true } );
 	}
 }
+
+export const defaultImporterOptions: ImporterOption[] = [
+	{ validator: new JetpackValidator(), importer: DefaultImporter },
+	{ validator: new SqlValidator(), importer: DefaultImporter },
+];

@@ -28,7 +28,7 @@ export const ExportSite = ( {
 			defaultPath: `${ fileName }.tar.gz`,
 			filters: [
 				{
-					name: '*.tar.gz, *.tzg *.zip',
+					name: 'Compressed Backup Files',
 					extensions: [ 'tar.gz', 'tzg', 'zip' ],
 				},
 			],

@@ -29,7 +29,12 @@ describe( 'importManager', () => {
 					importer: MockImporter,
 				},
 			];
-			const result = selectImporter( [ 'file1.txt', 'file2.txt' ], '/tmp/extracted', jest.fn, options );
+			const result = selectImporter(
+				[ 'file1.txt', 'file2.txt' ],
+				'/tmp/extracted',
+				jest.fn,
+				options
+			);
 
 			expect( result ).toBeInstanceOf( MockImporter );
 			expect( mockValidator.canHandle ).toHaveBeenCalledWith( [ 'file1.txt', 'file2.txt' ] );

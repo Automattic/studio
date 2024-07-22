@@ -27,7 +27,7 @@ export interface ExportValidator extends Partial< EventEmitter > {
 	filterFiles( files: string[], options: ExportOptions ): BackupContents;
 }
 
-export interface Exporter extends Partial<EventEmitter> {
+export interface Exporter extends Partial< EventEmitter > {
 	export( options: ExportOptions ): Promise< void >;
 }
 

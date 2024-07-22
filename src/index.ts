@@ -30,9 +30,10 @@ import {
 	migrateFromWpNowFolder,
 	needsToMigrateFromWpNowFolder,
 } from './migrations/migrate-from-wp-now-folder';
-import setupWPServerFiles from './setup-wp-server-files';
+import { setupWPServerFiles, updateWPServerFiles } from './setup-wp-server-files';
+import { stopAllServersOnQuit } from './site-server';
+import { loadUserData } from './storage/user-data'; // eslint-disable-next-line import/order
 import { setupUpdates } from './updates';
-import { stopAllServersOnQuit } from './site-server'; // eslint-disable-line import/order
 
 if ( ! isCLI() ) {
 	Sentry.init( {
@@ -52,6 +53,8 @@ const isInInstaller = require( 'electron-squirrel-startup' );
 
 // Ensure we're the only instance of the app running
 const gotTheLock = app.requestSingleInstanceLock( getCLIDataForMainInstance() );
+
+let finishedInitialization = false;
 
 if ( gotTheLock && ! isInInstaller ) {
 	if ( isCLI() ) {
@@ -170,6 +173,10 @@ async function appBoot() {
 		} else {
 			// Handle custom protocol links on Windows and Linux
 			app.on( 'second-instance', ( _event, argv ): void => {
+				if ( ! finishedInitialization ) {
+					return;
+				}
+
 				withMainWindow( ( mainWindow ) => {
 					// CLI commands are likely invoked from other apps, so we need to avoid changing app focus.
 					const isCLI = argv?.find( ( arg ) => arg.startsWith( '--cli=' ) );
@@ -222,6 +229,7 @@ async function appBoot() {
 				"script-src-attr 'none'",
 				"img-src 'self' https://*.gravatar.com https://*.wp.com data:",
 				"style-src 'self' 'unsafe-inline'", // unsafe-inline used by tailwindcss in development, and also in production after the app rename
+				"script-src 'self' 'wasm-unsafe-eval'", // allow WebAssembly to compile and instantiate
 			];
 			const prodPolicies = [ "connect-src 'self' https://public-api.wordpress.com" ];
 			const devPolicies = [
@@ -244,13 +252,15 @@ async function appBoot() {
 			} );
 		} );
 
+		setupIpc();
+
 		await setupWPServerFiles().catch( Sentry.captureException );
+		// WordPress server files are updated asynchronously to avoid delaying app initialization
+		updateWPServerFiles().catch( Sentry.captureException );
 
 		if ( await needsToMigrateFromWpNowFolder() ) {
 			await migrateFromWpNowFolder();
 		}
-
-		setupIpc();
 
 		createMainWindow();
 
@@ -258,10 +268,18 @@ async function appBoot() {
 		listenCLICommands();
 		executeCLICommand();
 
+		// Bump stats for the first time the app runs - this is when no lastBumpStats are available
+		const userData = await loadUserData();
+		if ( ! userData.lastBumpStats ) {
+			bumpStat( 'studio-app-launch-first', process.platform );
+		}
+
 		// Bump a stat on each app launch, approximates total app launches
 		bumpStat( 'studio-app-launch-total', process.platform );
 		// Bump stat for unique weekly app launch, approximates weekly active users
 		bumpAggregatedUniqueStat( 'local-environment-launch-uniques', process.platform, 'weekly' );
+
+		finishedInitialization = true;
 	} );
 
 	// Quit when all windows are closed, except on macOS. There, it's common
@@ -282,10 +300,14 @@ async function appBoot() {
 	} );
 
 	app.on( 'activate', () => {
-		// On OS X it's common to re-create a window in the app when the
-		// dock icon is clicked and there are no other windows open.
+		if ( ! finishedInitialization ) {
+			return;
+		}
+
 		if ( BrowserWindow.getAllWindows().length === 0 ) {
-			app.whenReady().then( createMainWindow ).catch( Sentry.captureException );
+			// On OS X it's common to re-create a window in the app when the
+			// dock icon is clicked and there are no other windows open.
+			createMainWindow();
 		}
 	} );
 }

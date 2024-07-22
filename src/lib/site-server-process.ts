@@ -82,7 +82,7 @@ export default class SiteServerProcess {
 			throw Error( 'Server process is not running' );
 		}
 
-		const messageId = +this.lastMessageId;
+		const messageId = this.lastMessageId++;
 		process.postMessage( { message, messageId, data } );
 		return messageId;
 	}

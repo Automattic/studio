@@ -3,6 +3,7 @@
 
 import '@sentry/electron/preload';
 import { contextBridge, ipcRenderer } from 'electron';
+import { BackupArchiveInfo } from './lib/import-export/import/types';
 import { promptWindowsSpeedUpSites } from './lib/windows-helpers';
 import type { LogLevel } from './logging';
 
@@ -37,13 +38,15 @@ const api: IpcApi = {
 	getThemeDetails: ( id: string ) => ipcRenderer.invoke( 'getThemeDetails', id ),
 	getThumbnailData: ( id: string ) => ipcRenderer.invoke( 'getThumbnailData', id ),
 	getInstalledApps: () => ipcRenderer.invoke( 'getInstalledApps' ),
-	executeWPCLiInline: ( options: { projectPath: string; args: string } ) =>
+	importSite: ( { id, backupFile }: { id: string; backupFile: BackupArchiveInfo } ) =>
+		ipcRenderer.invoke( 'importSite', { id, backupFile } ),
+	executeWPCLiInline: ( options: { siteId: string; args: string } ) =>
 		ipcRenderer.invoke( 'executeWPCLiInline', options ),
 	getOnboardingData: () => ipcRenderer.invoke( 'getOnboardingData' ),
 	saveOnboarding: ( onboardingCompleted: boolean ) =>
 		ipcRenderer.invoke( 'saveOnboarding', onboardingCompleted ),
-	openTerminalAtPath: ( targetPath: string ) =>
-		ipcRenderer.invoke( 'openTerminalAtPath', targetPath ),
+	openTerminalAtPath: ( targetPath: string, extraParams: { wpCliEnabled?: boolean } = {} ) =>
+		ipcRenderer.invoke( 'openTerminalAtPath', targetPath, extraParams ),
 	showMessageBox: ( options: Electron.MessageBoxOptions ) =>
 		ipcRenderer.invoke( 'showMessageBox', options ),
 	showNotification: ( options: Electron.NotificationConstructorOptions ) =>

@@ -156,16 +156,16 @@ describe( 'AddSite', () => {
 		await user.click( screen.getByDisplayValue( 'My WordPress Website' ) );
 		await user.type( screen.getByDisplayValue( 'My WordPress Website' ), ' mutated' );
 
-		expect( screen.getByDisplayValue( 'My WordPress Website mutated' ) ).toBeInTheDocument();
+		expect( screen.getByDisplayValue( 'My WordPress Website mutated' ) ).toBeVisible();
 		expect(
 			screen.getByDisplayValue( '/default_path/my-wordpress-website-mutated' )
-		).toBeInTheDocument();
+		).toBeVisible();
 
 		await userEvent.keyboard( '{Escape}' );
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 
-		expect( screen.getByDisplayValue( 'My WordPress Website' ) ).toBeInTheDocument();
-		expect( screen.getByDisplayValue( '/default_path/my-wordpress-website' ) ).toBeInTheDocument();
+		expect( screen.getByDisplayValue( 'My WordPress Website' ) ).toBeVisible();
+		expect( screen.getByDisplayValue( '/default_path/my-wordpress-website' ) ).toBeVisible();
 	} );
 
 	it( 'should reset to the proposed path when the path is set to default app directory', async () => {
@@ -203,50 +203,6 @@ describe( 'AddSite', () => {
 
 		expect(
 			screen.getByDisplayValue( '/default_path/my-wordpress-website-mutated' )
-		).toBeInTheDocument();
-	} );
-
-	it( 'should display a helpful error message when an error occurs while creating the site', async () => {
-		const user = userEvent.setup();
-		mockGenerateProposedSitePath.mockResolvedValue( {
-			path: '/default_path/my-wordpress-website',
-			name: 'My WordPress Website',
-			isEmpty: true,
-			isWordPress: false,
-		} );
-		mockCreateSite.mockImplementation( () => {
-			throw new Error( 'Failed to create site' );
-		} );
-		render( <AddSite /> );
-
-		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
-		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
-
-		await waitFor( () => {
-			expect( screen.getByRole( 'alert' ) ).toHaveTextContent(
-				'An error occurred while creating the site. Verify your selected local path is an empty directory or an existing WordPress folder and try again. If this problem persists, please contact support.'
-			);
-		} );
-	} );
-
-	it( 'should disable submissions while the site is being added', async () => {
-		const user = userEvent.setup();
-		mockGenerateProposedSitePath.mockResolvedValue( {
-			path: '/default_path/my-wordpress-website',
-			name: 'My WordPress Website',
-			isEmpty: true,
-			isWordPress: false,
-		} );
-		mockCreateSite.mockImplementationOnce( () => {
-			return new Promise( () => {
-				// no-op
-			} );
-		} );
-		render( <AddSite /> );
-
-		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
-		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
-
-		expect( screen.getByRole( 'button', { name: 'Adding site…' } ) ).toBeDisabled();
+		).toBeVisible();
 	} );
 } );

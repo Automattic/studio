@@ -1,13 +1,15 @@
-// To run tests, execute `npm run test -- src/components/content-tab-settings.test.tsx` from the root directory
+// To run tests, execute `npm run test -- src/components/tests/content-tab-settings.test.tsx` from the root directory
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { useGetWpVersion } from '../../hooks/use-get-wp-version';
 import { useOffline } from '../../hooks/use-offline';
 import { useSiteDetails } from '../../hooks/use-site-details';
+import { useSnapshots } from '../../hooks/use-snapshots';
 import { getIpcApi } from '../../lib/get-ipc-api';
 import { ContentTabSettings } from '../content-tab-settings';
 
 jest.mock( '../../hooks/use-get-wp-version' );
+jest.mock( '../../hooks/use-snapshots' );
 jest.mock( '../../hooks/use-site-details' );
 jest.mock( '../../lib/get-ipc-api' );
 
@@ -34,9 +36,12 @@ describe( 'ContentTabSettings', () => {
 			generateProposedSitePath,
 		} );
 
+		( useSnapshots as jest.Mock ).mockReturnValue( {
+			snapshots: [],
+		} );
+
 		( useSiteDetails as jest.Mock ).mockReturnValue( {
 			selectedSite,
-			snapshots: [],
 			uploadingSites: {},
 			deleteSite: jest.fn(),
 			isDeleting: false,
@@ -47,15 +52,15 @@ describe( 'ContentTabSettings', () => {
 	test( 'renders site details correctly', () => {
 		render( <ContentTabSettings selectedSite={ selectedSite } /> );
 
-		expect( screen.getByRole( 'heading', { name: 'Site details' } ) ).toBeInTheDocument();
-		expect( screen.getByText( 'Test Site' ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'heading', { name: 'Site details' } ) ).toBeVisible();
+		expect( screen.getByText( 'Test Site' ) ).toBeVisible();
 		expect(
 			screen.getByRole( 'button', { name: 'localhost:8881, Copy site url to clipboard' } )
 		).toHaveTextContent( 'localhost:8881' );
 		expect(
 			screen.getByRole( 'button', { name: '/path/to/site, Open local path' } )
-		).toBeInTheDocument();
-		expect( screen.getByText( '7.7.7' ) ).toBeInTheDocument();
+		).toBeVisible();
+		expect( screen.getByText( '7.7.7' ) ).toBeVisible();
 		expect(
 			screen.getByRole( 'button', {
 				name: 'localhost:8881/wp-admin, Copy wp-admin url to clipboard',
@@ -68,7 +73,7 @@ describe( 'ContentTabSettings', () => {
 		render( <ContentTabSettings selectedSite={ selectedSite } /> );
 
 		const pathButton = screen.getByRole( 'button', { name: '/path/to/site, Open local path' } );
-		expect( pathButton ).toBeInTheDocument();
+		expect( pathButton ).toBeVisible();
 		await user.click( pathButton );
 		expect( openLocalPath ).toHaveBeenCalledWith( '/path/to/site' );
 	} );
@@ -86,7 +91,7 @@ describe( 'ContentTabSettings', () => {
 		const urlButton = screen.getByRole( 'button', {
 			name: 'localhost:8881, Copy site url to clipboard',
 		} );
-		expect( urlButton ).toBeInTheDocument();
+		expect( urlButton ).toBeVisible();
 		await user.click( urlButton );
 		expect( copyText ).toHaveBeenCalledTimes( 1 );
 		expect( copyText ).toHaveBeenCalledWith( 'http://localhost:8881' );
@@ -94,7 +99,7 @@ describe( 'ContentTabSettings', () => {
 		const wpAdminButton = screen.getByRole( 'button', {
 			name: 'localhost:8881/wp-admin, Copy wp-admin url to clipboard',
 		} );
-		expect( wpAdminButton ).toBeInTheDocument();
+		expect( wpAdminButton ).toBeVisible();
 		await user.click( wpAdminButton );
 		expect( copyText ).toHaveBeenCalledTimes( 2 );
 		expect( copyText ).toHaveBeenCalledWith( 'http://localhost:8881/wp-admin' );
@@ -107,7 +112,7 @@ describe( 'ContentTabSettings', () => {
 		const adminPasswordButton = screen.getByRole( 'button', {
 			name: 'Copy admin password to clipboard',
 		} );
-		expect( adminPasswordButton ).toBeInTheDocument();
+		expect( adminPasswordButton ).toBeVisible();
 		await user.click( adminPasswordButton );
 		expect( copyText ).toHaveBeenCalledTimes( 1 );
 		expect( copyText ).toHaveBeenCalledWith( 'test-password' );
@@ -117,9 +122,11 @@ describe( 'ContentTabSettings', () => {
 		( useOffline as jest.Mock ).mockReturnValue( true );
 
 		// Mock snapshots to include a snapshot for the selected site
+		( useSnapshots as jest.Mock ).mockReturnValue( {
+			snapshots: [ { localSiteId: selectedSite.id } ],
+		} );
 		( useSiteDetails as jest.Mock ).mockReturnValue( {
 			selectedSite: selectedSite,
-			snapshots: [ { localSiteId: selectedSite.id } ],
 			deleteSite: jest.fn(),
 			isDeleting: false,
 		} );
@@ -143,7 +150,7 @@ describe( 'ContentTabSettings', () => {
 			const adminPasswordButton = screen.getByRole( 'button', {
 				name: 'Copy admin password to clipboard',
 			} );
-			expect( adminPasswordButton ).toBeInTheDocument();
+			expect( adminPasswordButton ).toBeVisible();
 			await user.click( adminPasswordButton );
 			expect( copyText ).toHaveBeenCalledTimes( 1 );
 			expect( copyText ).toHaveBeenCalledWith( 'password' );
@@ -157,10 +164,14 @@ describe( 'ContentTabSettings', () => {
 			const updateSite = jest.fn();
 			const startServer = jest.fn();
 			const stopServer = jest.fn();
+
+			( useSnapshots as jest.Mock ).mockReturnValue( {
+				snapshots: [ { localSiteId: selectedSite.id } ],
+			} );
+
 			// Mock snapshots to include a snapshot for the selected site
 			( useSiteDetails as jest.Mock ).mockReturnValue( {
 				selectedSite: { ...selectedSite, running: false } as SiteDetails,
-				snapshots: [ { localSiteId: selectedSite.id } ],
 				updateSite,
 				startServer,
 				stopServer,
@@ -197,9 +208,11 @@ describe( 'ContentTabSettings', () => {
 			const startServer = jest.fn();
 			const stopServer = jest.fn();
 			// Mock snapshots to include a snapshot for the selected site
+			( useSnapshots as jest.Mock ).mockReturnValue( {
+				snapshots: [ { localSiteId: selectedSite.id } ],
+			} );
 			( useSiteDetails as jest.Mock ).mockReturnValue( {
 				selectedSite: { ...selectedSite, running: true } as SiteDetails,
-				snapshots: [ { localSiteId: selectedSite.id } ],
 				updateSite,
 				startServer,
 				stopServer,

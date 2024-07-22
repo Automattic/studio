@@ -7,12 +7,10 @@ import { PropsWithChildren, useEffect } from 'react';
 import { CLIENT_ID, PROTOCOL_PREFIX, WP_AUTHORIZE_ENDPOINT, SCOPES } from '../constants';
 import { useArchiveSite } from '../hooks/use-archive-site';
 import { useAuth } from '../hooks/use-auth';
-import { useDeleteSnapshot } from '../hooks/use-delete-snapshot';
 import { useExpirationDate } from '../hooks/use-expiration-date';
 import { useOffline } from '../hooks/use-offline';
 import { useProgressTimer } from '../hooks/use-progress-timer';
-import { useSiteDetails } from '../hooks/use-site-details';
-import { useSiteUsage } from '../hooks/use-site-usage';
+import { useSnapshots } from '../hooks/use-snapshots';
 import { useUpdateDemoSite } from '../hooks/use-update-demo-site';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
@@ -54,8 +52,10 @@ function SnapshotRow( {
 	const { url, date, isDeleting } =
 		previousSnapshot && snapshot.isLoading ? previousSnapshot : snapshot;
 	const { countDown, isExpired, dateString } = useExpirationDate( date );
-	const { deleteSnapshot } = useDeleteSnapshot();
+	const { isUploadingSiteId } = useArchiveSite();
+	const isUploading = isUploadingSiteId( selectedSite.id );
 	const { updateDemoSite, isDemoSiteUpdating } = useUpdateDemoSite();
+	const { removeSnapshot, deleteSnapshot } = useSnapshots();
 
 	const isOffline = useOffline();
 	const updateDemoSiteOfflineMessage = __(
@@ -151,6 +151,11 @@ function SnapshotRow( {
 						isSnapshotLoading={ snapshot.isLoading }
 						tagline={ __( "We're creating your new demo site." ) }
 					/>
+					{ ! snapshot.isLoading && ! isUploading && (
+						<Button isDestructive onClick={ () => removeSnapshot( snapshot ) }>
+							{ __( 'Clear expired site' ) }
+						</Button>
+					) }
 				</div>
 			</div>
 		);
@@ -383,8 +388,8 @@ function AddDemoSiteWithProgress( {
 	const { __, _n } = useI18n();
 	const { archiveSite, isUploadingSiteId, isAnySiteArchiving } = useArchiveSite();
 	const isUploading = isUploadingSiteId( selectedSite.id );
-	const { siteLimit, siteCount, isLoading: isFetchingUsage } = useSiteUsage();
-	const isLimitUsed = siteCount >= siteLimit;
+	const { activeSnapshotCount, snapshotQuota, isLoadingSnapshotUsage } = useSnapshots();
+	const isLimitUsed = activeSnapshotCount >= snapshotQuota;
 	const isOffline = useOffline();
 	const { progress, setProgress } = useProgressTimer( {
 		paused: ! isUploading && ! isSnapshotLoading,
@@ -399,7 +404,7 @@ function AddDemoSiteWithProgress( {
 	}, [ isSnapshotLoading, setProgress ] );
 
 	const isDisabled =
-		isAnySiteArchiving || isUploading || isFetchingUsage || isLimitUsed || isOffline;
+		isAnySiteArchiving || isUploading || isLoadingSnapshotUsage || isLimitUsed || isOffline;
 	const siteArchivingMessage = __(
 		'A different demo site is being created. Please wait for it to finish before creating another.'
 	);
@@ -407,9 +412,9 @@ function AddDemoSiteWithProgress( {
 		_n(
 			"You've used %s demo site available on your account.",
 			"You've used all %s demo sites available on your account.",
-			siteLimit
+			snapshotQuota
 		),
-		siteLimit
+		snapshotQuota
 	);
 	const offlineMessage = __( 'Creating a demo site requires an internet connection.' );
 
@@ -435,31 +440,31 @@ function AddDemoSiteWithProgress( {
 					</div>
 				</div>
 			) : (
-				<Tooltip disabled={ ! tooltipContent } { ...tooltipContent }>
-					<Button
-						aria-description={ tooltipContent?.text ?? '' }
-						aria-disabled={ isDisabled }
-						variant="primary"
-						onClick={ () => {
-							if ( isDisabled ) {
-								return;
-							}
-							archiveSite( selectedSite.id );
-						} }
-					>
-						{ __( 'Add demo site' ) }
-					</Button>
-				</Tooltip>
+				<div className="flex gap-4">
+					<Tooltip disabled={ ! tooltipContent } { ...tooltipContent }>
+						<Button
+							aria-description={ tooltipContent?.text ?? '' }
+							aria-disabled={ isDisabled }
+							variant="primary"
+							onClick={ () => {
+								if ( isDisabled ) {
+									return;
+								}
+								archiveSite( selectedSite.id );
+							} }
+						>
+							{ __( 'Add demo site' ) }
+						</Button>
+					</Tooltip>
+				</div>
 			) }
 		</div>
 	);
 }
 
 export function ContentTabSnapshots( { selectedSite }: ContentTabSnapshotsProps ) {
-	const { __, _n } = useI18n();
-	const { snapshots } = useSiteDetails();
+	const { snapshots } = useSnapshots();
 	const { isAuthenticated } = useAuth();
-
 	if ( ! isAuthenticated ) {
 		return <NoAuth selectedSite={ selectedSite } />;
 	}

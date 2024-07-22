@@ -1,3 +1,21 @@
+1.0.6
+=====
+* Fixed update snapshot counter when site is deleted #344
+* Fixed settings menu not opening from onboarding page #340
+* Added support for Vietnamese language #348
+* Added restart nudge on check for update #353
+* Added hover state for site thumbnail #357
+* Made 'Delete site files' checkbox checked by default #352
+* Improved loading indicator when adding new site #362 #367
+* Disabled add site button while site is being created #371
+
+1.0.5
+=====
+* Fixed crash when deleting a site #300
+* Improved dialog messaging consistency and clarity #291, #292
+* Minimized site form layout shift #295
+* Refactored E2E tests initialization, improved test output #270, #316, #323
+
 1.0.4
 =====
 * Added a modal allowing users to speed up sites on Windows #211

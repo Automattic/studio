@@ -28,6 +28,7 @@ interface StoppedSiteDetails {
 		supportsWidgets: boolean;
 		supportsMenus: boolean;
 	};
+	isAddingSite?: boolean;
 }
 
 interface StartedSiteDetails extends StoppedSiteDetails {
@@ -73,6 +74,8 @@ interface AppGlobals {
 	appName: string;
 	arm64Translation: boolean;
 	assistantEnabled: boolean;
+	terminalWpCliEnabled: boolean;
+	importExportEnabled: boolean;
 }
 
 interface IpcListener {

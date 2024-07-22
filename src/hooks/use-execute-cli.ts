@@ -4,7 +4,7 @@ import { getIpcApi } from '../lib/get-ipc-api';
 
 export function useExecuteWPCLI(
 	content: string,
-	projectPath: string | undefined,
+	siteId: string | undefined,
 	updateMessage:
 		| ( (
 				id: number,
@@ -26,7 +26,7 @@ export function useExecuteWPCLI(
 		const startTime = Date.now();
 		const args = content.split( ' ' ).slice( 1 );
 		const result = await getIpcApi().executeWPCLiInline( {
-			projectPath: projectPath || '',
+			siteId: siteId || '',
 			args: args.join( ' ' ),
 		} );
 
@@ -51,7 +51,7 @@ export function useExecuteWPCLI(
 				completedIn || ''
 			);
 		}
-	}, [ content, messageId, projectPath, updateMessage ] );
+	}, [ content, messageId, siteId, updateMessage ] );
 
 	return {
 		cliOutput,

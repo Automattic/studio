@@ -1,18 +1,22 @@
 import * as Sentry from '@sentry/electron/renderer';
 import { __ } from '@wordpress/i18n';
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import {
+	ReactNode,
+	createContext,
+	useCallback,
+	useContext,
+	useEffect,
+	useMemo,
+	useState,
+} from 'react';
 import { getIpcApi } from '../lib/get-ipc-api';
-import { useDeleteSnapshot } from './use-delete-snapshot';
-import { useFetchSnapshots } from './use-fetch-snapshots';
+import { sortSites } from '../lib/sort-sites';
+import { useSnapshots } from './use-snapshots';
 
 interface SiteDetailsContext {
 	selectedSite: SiteDetails | null;
 	updateSite: ( site: SiteDetails ) => Promise< void >;
 	data: SiteDetails[];
-	snapshots: Snapshot[];
-	addSnapshot: ( snapshot: Snapshot ) => void;
-	updateSnapshot: ( snapshot: Partial< Snapshot > ) => void;
-	removeSnapshot: ( snapshot: Pick< Snapshot, 'atomicSiteId' > ) => void;
 	setSelectedSiteId: ( selectedSiteId: string ) => void;
 	createSite: ( path: string, siteName?: string ) => Promise< void >;
 	startServer: ( id: string ) => Promise< void >;
@@ -29,11 +33,7 @@ interface SiteDetailsContext {
 export const siteDetailsContext = createContext< SiteDetailsContext >( {
 	selectedSite: null,
 	data: [],
-	snapshots: [],
 	updateSite: async () => undefined,
-	addSnapshot: () => undefined,
-	updateSnapshot: () => undefined,
-	removeSnapshot: () => undefined,
 	setSelectedSiteId: () => undefined,
 	createSite: async () => undefined,
 	startServer: async () => undefined,
@@ -48,11 +48,15 @@ export const siteDetailsContext = createContext< SiteDetailsContext >( {
 } );
 
 interface SiteDetailsProviderProps {
-	children?: React.ReactNode;
+	children?: ReactNode;
 }
 
 export function useSiteDetails() {
-	return useContext( siteDetailsContext );
+	const context = useContext( siteDetailsContext );
+	if ( ! context ) {
+		throw new Error( 'useSiteDetails must be used within a SiteDetailsProvider' );
+	}
+	return context;
 }
 
 function useSelectedSite( firstSiteId: string | null ) {
@@ -61,111 +65,31 @@ function useSelectedSite( firstSiteId: string | null ) {
 	const [ selectedSiteId, setSelectedSiteId ] = useState< string | null >(
 		selectedSiteIdFromLocal
 	);
+	useEffect( () => {
+		if ( selectedSiteId ) {
+			localStorage.setItem( SELECTED_SITE_ID_KEY, selectedSiteId );
+		}
+	} );
+
 	return {
 		selectedSiteId: selectedSiteId || firstSiteId,
-		setSelectedSiteId: ( id: string ) => {
-			setSelectedSiteId( id );
-			localStorage.setItem( SELECTED_SITE_ID_KEY, id );
-		},
-	};
-}
-
-function useSnapshots() {
-	const { allSnapshots, isLoading: loadingServerSnapshots } = useFetchSnapshots();
-	const [ initiated, setInitiated ] = useState( false );
-	const [ snapshots, setSnapshots ] = useState< Snapshot[] >( [] );
-
-	// Load snapshots from storage
-	useEffect( () => {
-		getIpcApi()
-			.getSnapshots()
-			.then( ( snapshots ) => {
-				setSnapshots( snapshots );
-				setInitiated( true );
-			} );
-	}, [] );
-
-	const clearFloatingSnapshots = useCallback( function clearFloatingSnapshots(
-		allSnapshots: Pick< Snapshot, 'atomicSiteId' >[]
-	) {
-		const siteIds = allSnapshots.map( ( snapshot ) => snapshot.atomicSiteId );
-		if ( ! siteIds.length ) {
-			setSnapshots( [] );
-			return;
-		}
-		setSnapshots( ( snapshots ) =>
-			snapshots.filter( ( snapshot ) => siteIds.includes( snapshot.atomicSiteId ) )
-		);
-	}, [] );
-
-	useEffect( () => {
-		if ( initiated && ! loadingServerSnapshots && allSnapshots ) {
-			clearFloatingSnapshots( allSnapshots );
-		}
-	}, [ allSnapshots, clearFloatingSnapshots, initiated, loadingServerSnapshots ] );
-
-	// Save snapshots to storage when they change
-	useEffect( () => {
-		if ( ! initiated ) {
-			return;
-		}
-		getIpcApi().saveSnapshotsToStorage( snapshots );
-	}, [ snapshots, initiated ] );
-
-	const addSnapshot = useCallback( ( snapshot: Snapshot ) => {
-		setSnapshots( ( _snapshots ) => [ snapshot, ..._snapshots ] );
-	}, [] );
-
-	const updateSnapshot = useCallback( ( snapshot: Partial< Snapshot > ) => {
-		setSnapshots( ( snapshots ) => {
-			const index = snapshots.findIndex(
-				( snapshotI ) => snapshotI.atomicSiteId === snapshot.atomicSiteId
-			);
-			if ( index === -1 ) {
-				if ( snapshot.isDeleting ) {
-					const newSnapshots = [ ...snapshots ];
-					newSnapshots.push( snapshot as Snapshot );
-					return newSnapshots;
-				}
-				return snapshots;
-			}
-			const newSnapshots = [ ...snapshots ];
-			newSnapshots[ index ] = { ...snapshots[ index ], ...snapshot };
-			return newSnapshots;
-		} );
-	}, [] );
-
-	const removeSnapshot = useCallback(
-		( snapshot: Pick< Snapshot, 'atomicSiteId' > ) =>
-			setSnapshots( ( _snapshots ) =>
-				_snapshots.filter( ( snapshotI ) => snapshotI.atomicSiteId !== snapshot.atomicSiteId )
-			),
-		[]
-	);
-
-	return {
-		snapshots,
-		addSnapshot,
-		updateSnapshot,
-		removeSnapshot,
+		setSelectedSiteId,
 	};
 }
 
 function useDeleteSite() {
 	const [ isLoading, setIsLoading ] = useState< Record< string, boolean > >( {} );
-	const { deleteSnapshot } = useDeleteSnapshot( { displayAlert: false } );
+	const { deleteSnapshot, snapshots } = useSnapshots();
 
 	const deleteSite = useCallback(
-		async (
-			siteId: string,
-			removeLocal: boolean,
-			snapshots: Snapshot[]
-		): Promise< SiteDetails[] | undefined > => {
+		async ( siteId: string, removeLocal: boolean ): Promise< SiteDetails[] | undefined > => {
+			const siteSnapshots = snapshots.filter( ( snapshot ) => snapshot.localSiteId === siteId );
+
 			if ( ! siteId ) {
 				return;
 			}
 			const allSiteRemovePromises = Promise.allSettled(
-				snapshots.map( ( snapshot ) => deleteSnapshot( snapshot ) )
+				siteSnapshots.map( ( snapshot ) => deleteSnapshot( snapshot, removeLocal ) )
 			);
 
 			try {
@@ -179,7 +103,7 @@ function useDeleteSite() {
 				setIsLoading( ( loading ) => ( { ...loading, [ siteId ]: false } ) );
 			}
 		},
-		[ deleteSnapshot ]
+		[ deleteSnapshot, snapshots ]
 	);
 	return { deleteSite, isLoading };
 }
@@ -198,11 +122,8 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			: {}
 	);
 	const { selectedSiteId, setSelectedSiteId } = useSelectedSite( firstSite?.id );
-	const { snapshots, addSnapshot, removeSnapshot, updateSnapshot } = useSnapshots();
+	const [ uploadingSites, setUploadingSites ] = useState< { [ siteId: string ]: boolean } >( {} );
 	const { deleteSite, isLoading: isDeleting } = useDeleteSite();
-	const [ uploadingSites, setUploadingSites ] = useState< SiteDetailsContext[ 'uploadingSites' ] >(
-		{}
-	);
 
 	const toggleLoadingServerForSite = useCallback( ( siteId: string ) => {
 		setLoadingServer( ( currentLoading ) => ( {
@@ -230,24 +151,73 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 	const onDeleteSite = useCallback(
 		async ( id: string, removeLocal: boolean ) => {
-			const siteSnapshots = snapshots.filter( ( snapshot ) => snapshot.localSiteId === id );
-			const newSites = await deleteSite( id, removeLocal, siteSnapshots );
+			const newSites = await deleteSite( id, removeLocal );
 			if ( newSites ) {
 				setData( newSites );
 				const selectedSite = newSites.length ? newSites[ 0 ].id : '';
 				setSelectedSiteId( selectedSite );
 			}
 		},
-		[ deleteSite, setSelectedSiteId, snapshots ]
+		[ deleteSite, setSelectedSiteId ]
 	);
 
 	const createSite = useCallback(
 		async ( path: string, siteName?: string ) => {
-			const data = await getIpcApi().createSite( path, siteName );
-			setData( data );
-			const newSite = data.find( ( site ) => site.path === path );
-			if ( newSite?.id ) {
-				setSelectedSiteId( newSite.id );
+			// Function to handle error messages and cleanup
+			const showError = () => {
+				console.error( 'Failed to create site' );
+				getIpcApi().showMessageBox( {
+					type: 'error',
+					message: __( 'Failed to create site' ),
+					detail: __(
+						'An error occurred while creating the site. Verify your selected local path is an empty directory or an existing WordPress folder and try again. If this problem persists, please contact support.'
+					),
+					buttons: [ __( 'OK' ) ],
+				} );
+
+				// Remove the temporary site immediately, but with a minor delay to ensure state updates properly
+				setTimeout( () => {
+					setData( ( prevData ) =>
+						sortSites( prevData.filter( ( site ) => site.id !== tempSiteId ) )
+					);
+				}, 2000 );
+			};
+
+			const tempSiteId = crypto.randomUUID();
+			setData( ( prevData ) =>
+				sortSites( [
+					...prevData,
+					{
+						id: tempSiteId,
+						name: siteName || path,
+						path,
+						running: false,
+						isAddingSite: true,
+						phpVersion: '',
+					},
+				] )
+			);
+			setSelectedSiteId( tempSiteId ); // Set the temporary ID as the selected site
+
+			try {
+				const data = await getIpcApi().createSite( path, siteName );
+				const newSite = data.find( ( site ) => site.path === path );
+				if ( ! newSite ) {
+					showError();
+					return;
+				}
+				// Update the selected site to the new site's ID if the user didn't change it
+				setSelectedSiteId( ( prevSelectedSiteId ) => {
+					if ( prevSelectedSiteId === tempSiteId ) {
+						return newSite.id;
+					}
+					return prevSelectedSiteId;
+				} );
+				setData( ( prevData ) =>
+					prevData.map( ( site ) => ( site.id === tempSiteId ? newSite : site ) )
+				);
+			} catch ( error ) {
+				showError();
 			}
 		},
 		[ setSelectedSiteId ]
@@ -313,10 +283,6 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		() => ( {
 			selectedSite: data.find( ( site ) => site.id === selectedSiteId ) || firstSite,
 			data,
-			snapshots,
-			addSnapshot,
-			updateSnapshot,
-			removeSnapshot,
 			setSelectedSiteId,
 			createSite,
 			updateSite,
@@ -333,10 +299,6 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		[
 			data,
 			firstSite,
-			snapshots,
-			addSnapshot,
-			updateSnapshot,
-			removeSnapshot,
 			setSelectedSiteId,
 			createSite,
 			updateSite,

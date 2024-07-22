@@ -6,7 +6,8 @@ into the app is somewhat manual at the moment.
 
 ## Supported Languages
 
-We currently support the magnificent 16 languages defined in `src/lib/locale.ts`.
+We currently support the magnificent 16 languages defined in `src/lib/locale.ts`, 
+as well as Polish and Vietnamese.
 If you want to add support for another language you will need to add it to the
 `supportedLocales` array.
 
@@ -33,7 +34,7 @@ If you want to add support for another language you will need to add it to the
    2. Click the **Project actions** menu.
    3. Click **Bulk Export**.
    4. Click **Select WP.Com Priority Languages** to only the magnificent 16 languages.
-   5. Select **Polish** too.
+   5. Select **Polish** and **Vietnamese**, too.
    6. Change the format to `Jed 1.x (.json)`.
    7. Leave the other fields as default and click **Export**.
 

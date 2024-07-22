@@ -55,6 +55,6 @@ describe( 'SiteManagementActions', () => {
 				selectedSite={ { running: false, id: 'site-1' } as SiteDetails }
 			/>
 		);
-		expect( screen.getByRole( 'button', { name: 'Start' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Start' } ) ).toBeVisible();
 	} );
 } );

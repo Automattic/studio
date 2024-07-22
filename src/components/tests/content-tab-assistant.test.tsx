@@ -78,7 +78,6 @@ describe( 'ContentTabAssistant', () => {
 		jest.clearAllMocks();
 		window.HTMLElement.prototype.scrollIntoView = jest.fn();
 		localStorage.clear();
-		jest.useFakeTimers();
 		( useAuth as jest.Mock ).mockReturnValue( {
 			client: {
 				req: {

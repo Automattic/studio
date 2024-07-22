@@ -3,6 +3,7 @@ import { sprintf } from '@wordpress/i18n';
 import { Icon, download } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useRef } from 'react';
+import { STUDIO_DOCS_URL } from '../constants';
 import { useConfirmationDialog } from '../hooks/use-confirmation-dialog';
 import { useDragAndDropFile } from '../hooks/use-drag-and-drop-file';
 import { useSiteDetails } from '../hooks/use-site-details';
@@ -60,14 +61,7 @@ export function ContentTabImportExport( props: ContentTabImportExportProps ) {
 						__( 'Import a Jetpack backup or a .sql database file. <button>Learn more</button>.' ),
 						{
 							button: (
-								<Button
-									variant="link"
-									onClick={ () =>
-										getIpcApi().openURL(
-											'https://developer.wordpress.com/docs/developer-tools/studio/'
-										)
-									}
-								/>
+								<Button variant="link" onClick={ () => getIpcApi().openURL( STUDIO_DOCS_URL ) } />
 							),
 						}
 					) }

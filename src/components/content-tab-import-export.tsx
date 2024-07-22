@@ -85,7 +85,7 @@ export function ContentTabImportExport( props: ContentTabImportExportProps ) {
 						<span className="text-balck a8c-body">{ __( 'Import complete!' ) }</span>
 						<div className="flex gap-2 mt-4">
 							<Button variant="primary" onClick={ openSite }>
-								{ __( 'Open site' ) }
+								{ __( 'Open site ↗' ) }
 							</Button>
 							<Button variant="link" className="!px-2.5 !py-2" onClick={ clearImportState }>
 								{ __( 'Start again' ) }

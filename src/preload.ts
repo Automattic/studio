@@ -2,7 +2,8 @@
 // https://www.electronjs.org/docs/latest/tutorial/process-model#preload-scripts
 
 import '@sentry/electron/preload';
-import { contextBridge, ipcRenderer } from 'electron';
+import { SaveDialogOptions, contextBridge, ipcRenderer } from 'electron';
+import { ExportOptions } from './lib/import-export/export/types';
 import { BackupArchiveInfo } from './lib/import-export/import/types';
 import { promptWindowsSpeedUpSites } from './lib/windows-helpers';
 import type { LogLevel } from './logging';
@@ -14,6 +15,7 @@ const api: IpcApi = {
 	createSite: ( path: string, name?: string ) => ipcRenderer.invoke( 'createSite', path, name ),
 	updateSite: ( updatedSite: SiteDetails ) => ipcRenderer.invoke( 'updateSite', updatedSite ),
 	authenticate: () => ipcRenderer.invoke( 'authenticate' ),
+	exportSite: ( options: ExportOptions ) => ipcRenderer.invoke( 'exportSite', options ),
 	isAuthenticated: () => ipcRenderer.invoke( 'isAuthenticated' ),
 	getAuthenticationToken: () => ipcRenderer.invoke( 'getAuthenticationToken' ),
 	clearAuthenticationToken: () => ipcRenderer.invoke( 'clearAuthenticationToken' ),
@@ -25,6 +27,8 @@ const api: IpcApi = {
 		ipcRenderer.invoke( 'openSiteURL', id, relativeURL ),
 	openURL: ( url: string ) => ipcRenderer.invoke( 'openURL', url ),
 	showOpenFolderDialog: ( title: string ) => ipcRenderer.invoke( 'showOpenFolderDialog', title ),
+	showSaveAsDialog: ( options: SaveDialogOptions ) =>
+		ipcRenderer.invoke( 'showSaveAsDialog', options ),
 	showUserSettings: () => ipcRenderer.invoke( 'showUserSettings' ),
 	startServer: ( id: string ) => ipcRenderer.invoke( 'startServer', id ),
 	stopServer: ( id: string ) => ipcRenderer.invoke( 'stopServer', id ),

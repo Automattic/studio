@@ -97,6 +97,9 @@ export default function AddSite( { className }: AddSiteProps ) {
 	);
 
 	useIpcListener( 'add-site', () => {
+		if ( isSiteAdding ) {
+			return;
+		}
 		openModal();
 	} );
 
@@ -135,7 +138,12 @@ export default function AddSite( { className }: AddSiteProps ) {
 					</SiteForm>
 				</Modal>
 			) }
-			<Button variant="outlined" className={ className } onClick={ openModal }>
+			<Button
+				variant="outlined"
+				className={ className }
+				onClick={ openModal }
+				disabled={ isSiteAdding }
+			>
 				{ __( 'Add site' ) }
 			</Button>
 		</>

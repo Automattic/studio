@@ -1,14 +1,18 @@
+import { Button as CoreButton } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
-import { sprintf } from '@wordpress/i18n';
+import { sprintf, __ } from '@wordpress/i18n';
 import { Icon, download } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
+import { format } from 'date-fns';
 import { useRef } from 'react';
 import { STUDIO_DOCS_URL } from '../constants';
 import { useConfirmationDialog } from '../hooks/use-confirmation-dialog';
 import { useDragAndDropFile } from '../hooks/use-drag-and-drop-file';
 import { useSiteDetails } from '../hooks/use-site-details';
 import { cx } from '../lib/cx';
+import { sanitizeFolderName } from '../lib/generate-site-name';
 import { getIpcApi } from '../lib/get-ipc-api';
+import { ExportOptions } from '../lib/import-export/export/types';
 import { ImportState } from '../lib/import-export/import/types';
 import Button from './button';
 import { ProgressBarWithAutoIncrement } from './progress-bar';
@@ -17,7 +21,95 @@ interface ContentTabImportExportProps {
 	selectedSite: SiteDetails;
 }
 
-export function ContentTabImportExport( props: ContentTabImportExportProps ) {
+const getFileName = ( selectedSite: SiteDetails ) => {
+	const timestamp = format( new Date(), 'yyyy-MM-dd-HH-mm-ss' );
+	return sanitizeFolderName( `studio-backup-${ selectedSite.name }-${ timestamp }` );
+};
+
+export const ExportSite = ( {
+	selectedSite,
+	onExport,
+}: {
+	selectedSite: SiteDetails;
+	onExport: ( options: ExportOptions ) => Promise< void >;
+} ) => {
+	const onExportFullSite = async () => {
+		const fileName = getFileName( selectedSite );
+		const path = await getIpcApi().showSaveAsDialog( {
+			title: __( 'Save backup file' ),
+			defaultPath: `${ fileName }.tar.gz`,
+			filters: [
+				{
+					name: 'Compressed Backup Files',
+					extensions: [ 'tar.gz', 'tzg', 'zip' ],
+				},
+			],
+		} );
+		if ( ! path ) {
+			return;
+		}
+		const options: ExportOptions = {
+			sitePath: selectedSite.path,
+			backupFile: path,
+			includes: {
+				database: true,
+				uploads: true,
+				plugins: true,
+				themes: true,
+			},
+		};
+		onExport( options );
+	};
+
+	const onExportDatabase = async () => {
+		const fileName = getFileName( selectedSite );
+		const path = await getIpcApi().showSaveAsDialog( {
+			title: __( 'Save database file' ),
+			defaultPath: `${ fileName }.sql`,
+			filters: [
+				{
+					name: 'SQL dump file',
+					extensions: [ 'sql' ],
+				},
+			],
+		} );
+		if ( ! path ) {
+			return;
+		}
+		const options: ExportOptions = {
+			sitePath: selectedSite.path,
+			backupFile: path,
+			includes: {
+				database: true,
+				uploads: false,
+				plugins: false,
+				themes: false,
+			},
+		};
+		onExport( options );
+	};
+
+	return (
+		<div className="flex flex-col gap-4">
+			<div>
+				<h4 className="a8c-subtitle-small leading-5">{ __( 'Export' ) }</h4>
+				<p className="text-a8c-gray-70 leading-[140%] a8c-helper-text text-[13px]">
+					{ __( 'Create a backup of your entire site or export the database.' ) }
+				</p>
+			</div>
+			<div className="gap-4 flex flex-row">
+				<CoreButton onClick={ onExportFullSite } variant="primary">
+					{ __( 'Backup entire site' ) }
+				</CoreButton>
+				<CoreButton onClick={ onExportDatabase } type="submit" variant="secondary">
+					{ __( 'Backup database' ) }
+				</CoreButton>
+			</div>
+		</div>
+	);
+};
+
+const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 	const { __ } = useI18n();
 	const { importFile, updateSite, startServer } = useSiteDetails();
 	const importConfirmation = useConfirmationDialog( {
@@ -53,74 +145,75 @@ export function ContentTabImportExport( props: ContentTabImportExportProps ) {
 	const clearImportState = () =>
 		updateSite( { ...props.selectedSite, importState: ImportState.Initial } );
 	return (
-		<div className="p-8 flex flex-col justify-between gap-8">
-			<div className="flex flex-col w-full">
-				<div className="a8c-subtitle-small mb-1">{ __( 'Import' ) }</div>
-				<div className="text-a8c-gray-70 a8c-body mb-4">
-					{ createInterpolateElement(
-						__( 'Import a Jetpack backup or a .sql database file. <button>Learn more</button>.' ),
-						{
-							button: (
-								<Button variant="link" onClick={ () => getIpcApi().openURL( STUDIO_DOCS_URL ) } />
-							),
-						}
-					) }
+		<div className="flex flex-col w-full">
+			<div className="a8c-subtitle-small mb-1">{ __( 'Import' ) }</div>
+			<div className="text-a8c-gray-70 a8c-body mb-4">
+				{ createInterpolateElement(
+					__( 'Import a Jetpack backup or a .sql database file. <button>Learn more</button>.' ),
+					{
+						button: (
+							<Button variant="link" onClick={ () => getIpcApi().openURL( STUDIO_DOCS_URL ) } />
+						),
+					}
+				) }
+			</div>
+			{ props.selectedSite.importState === ImportState.Importing && (
+				<div className="h-48 w-full rounded-sm border border-zinc-300 flex-col justify-center items-center inline-flex">
+					<div className="w-[240px]">
+						<ProgressBarWithAutoIncrement initialValue={ 50 } maxValue={ 95 } increment={ 5 } />
+					</div>
+					<div className="text-a8c-gray-70 a8c-body mt-4">{ __( 'Importing backup…' ) }</div>
 				</div>
-				{ props.selectedSite.importState === ImportState.Importing && (
-					<div className="h-48 w-full rounded-sm border border-zinc-300 flex-col justify-center items-center inline-flex">
-						<div className="w-[240px]">
-							<ProgressBarWithAutoIncrement initialValue={ 50 } maxValue={ 95 } increment={ 5 } />
-						</div>
-						<div className="text-a8c-gray-70 a8c-body mt-4">{ __( 'Importing backup…' ) }</div>
-					</div>
-				) }
-				{ props.selectedSite.importState === ImportState.Imported && (
-					<div className="h-48 w-full rounded-sm border border-zinc-300 flex-col justify-center items-center inline-flex">
-						<span className="text-balck a8c-body">{ __( 'Import complete!' ) }</span>
-						<div className="flex gap-2 mt-4">
-							<Button variant="primary" onClick={ openSite }>
-								{ __( 'Open site ↗' ) }
-							</Button>
-							<Button variant="link" className="!px-2.5 !py-2" onClick={ clearImportState }>
-								{ __( 'Start again' ) }
-							</Button>
-						</div>
-					</div>
-				) }
-				{ ! props.selectedSite.importState && (
-					<div ref={ dropRef } className="w-full">
-						<Button variant="icon" className="w-full" onClick={ openFileSelector }>
-							<div
-								className={ cx(
-									'h-48 w-full rounded-sm border border-zinc-300 hover:border-a8c-blueberry flex-col justify-center items-center inline-flex',
-									isDraggingOver && 'border-a8c-blueberry bg-a8c-gray-0'
-								) }
-							>
-								<Icon className="fill-a8c-gray-70" icon={ download } />
-								<span className="text-a8c-gray-70 a8c-body-small mt-1">
-									{ isDraggingOver
-										? __( 'Drop file' )
-										: __( 'Drag a file here, or click to select a file' ) }
-								</span>
-							</div>
+			) }
+			{ props.selectedSite.importState === ImportState.Imported && (
+				<div className="h-48 w-full rounded-sm border border-zinc-300 flex-col justify-center items-center inline-flex">
+					<span className="text-balck a8c-body">{ __( 'Import complete!' ) }</span>
+					<div className="flex gap-2 mt-4">
+						<Button variant="primary" onClick={ openSite }>
+							{ __( 'Open site ↗' ) }
+						</Button>
+						<Button variant="link" className="!px-2.5 !py-2" onClick={ clearImportState }>
+							{ __( 'Start again' ) }
 						</Button>
 					</div>
-				) }
-				<input
-					ref={ inputFileRef }
-					className="hidden"
-					type="file"
-					id="backup-file"
-					accept=".zip,.sql,.tar,.gz"
-					onChange={ onFileSelected }
-				/>
-			</div>
-			<div className="flex flex-col w-full">
-				<div className="a8c-subtitle-small mb-1">{ __( 'Export' ) }</div>
-				<div className="text-a8c-gray-70 a8c-body mb-4">
-					{ __( 'Create a backup of your entire site or export the database.' ) }
 				</div>
-			</div>
+			) }
+			{ ! props.selectedSite.importState && (
+				<div ref={ dropRef } className="w-full">
+					<Button variant="icon" className="w-full" onClick={ openFileSelector }>
+						<div
+							className={ cx(
+								'h-48 w-full rounded-sm border border-zinc-300 hover:border-a8c-blueberry flex-col justify-center items-center inline-flex',
+								isDraggingOver && 'border-a8c-blueberry bg-a8c-gray-0'
+							) }
+						>
+							<Icon className="fill-a8c-gray-70" icon={ download } />
+							<span className="text-a8c-gray-70 a8c-body-small mt-1">
+								{ isDraggingOver
+									? __( 'Drop file' )
+									: __( 'Drag a file here, or click to select a file' ) }
+							</span>
+						</div>
+					</Button>
+				</div>
+			) }
+			<input
+				ref={ inputFileRef }
+				className="hidden"
+				type="file"
+				id="backup-file"
+				accept=".zip,.sql,.tar,.gz"
+				onChange={ onFileSelected }
+			/>
+		</div>
+	);
+};
+
+export function ContentTabImportExport( { selectedSite }: ContentTabImportExportProps ) {
+	return (
+		<div className="flex flex-col p-8 gap-8">
+			<ImportSite selectedSite={ selectedSite } />
+			<ExportSite onExport={ getIpcApi().exportSite } selectedSite={ selectedSite }></ExportSite>
 		</div>
 	);
 }

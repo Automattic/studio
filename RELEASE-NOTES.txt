@@ -1,12 +1,13 @@
 1.0.6
 =====
 * Fixed update snapshot counter when site is deleted #344
+* Fixed settings menu not opening from onboarding page #340
 * Added support for Vietnamese language #348
 * Added restart nudge on check for update #353
 * Added hover state for site thumbnail #357
-* Delete site files checkbox checked by default #352
-* Improve loading indicator when adding new site #362 #367
-* Disable add site button while site is being created #371
+* Made 'Delete site files' checkbox checked by default #352
+* Improved loading indicator when adding new site #362 #367
+* Disabled add site button while site is being created #371
 
 1.0.5
 =====

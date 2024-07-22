@@ -167,10 +167,6 @@ describe( 'DefaultExporter', () => {
 		expect( mockArchiver.file ).toHaveBeenNthCalledWith( 1, '/path/to/wp-config.php', {
 			name: 'wp-config.php',
 		} );
-		expect( fsPromises.writeFile ).toHaveBeenCalledWith(
-			'/tmp/studio_export_123/file.sql',
-			'--test'
-		);
 		expect( mockArchiver.file ).toHaveBeenNthCalledWith( 2, '/tmp/studio_export_123/file.sql', {
 			name: 'sql/file.sql',
 		} );

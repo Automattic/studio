@@ -147,6 +147,9 @@ const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 
 	const { dropRef, isDraggingOver } = useDragAndDropFile< HTMLDivElement >( {
 		onFileDrop: ( file: File ) => {
+			if ( isImporting ) {
+				return;
+			}
 			importConfirmation( () => importFile( file, props.selectedSite ) );
 		},
 	} );
@@ -185,7 +188,7 @@ const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 	const startLoadingCursorClassName =
 		loadingServer[ props.selectedSite.id ] && 'animate-pulse duration-100 cursor-wait';
 
-	const isImporting = props.selectedSite.importState === 'importing' && ! isDraggingOver;
+	const isImporting = props.selectedSite.importState === 'importing';
 	const isImported = props.selectedSite.importState === 'imported' && ! isDraggingOver;
 	const isInitial = ! isImporting && ! isImported;
 	return (
@@ -206,7 +209,7 @@ const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 					<div
 						className={ cx(
 							'h-48 w-full rounded-sm border border-zinc-300 flex-col justify-center items-center inline-flex',
-							isDraggingOver && 'border-a8c-blueberry bg-a8c-gray-0'
+							isDraggingOver && ! isImporting && 'border-a8c-blueberry bg-a8c-gray-0'
 						) }
 					>
 						{ isImporting && (

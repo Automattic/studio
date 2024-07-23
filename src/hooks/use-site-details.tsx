@@ -228,6 +228,9 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 	const importFile = useCallback( async ( file: BackupArchiveInfo, selectedSite: SiteDetails ) => {
 		let finalImportState: ImportSiteState;
+		if ( selectedSite.importState === 'importing' ) {
+			return;
+		}
 		try {
 			setData( ( prevSites ) =>
 				prevSites.map( ( site ) =>

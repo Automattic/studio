@@ -110,6 +110,27 @@ export const ExportSite = ( {
 	);
 };
 
+const InitialImportButton = ( {
+	children,
+	isInitial,
+	openFileSelector,
+}: {
+	children: React.ReactNode;
+	isInitial: boolean;
+	openFileSelector: () => void;
+} ) =>
+	isInitial ? (
+		<Button
+			variant="icon"
+			className="w-full [&>div.border-zinc-300]:hover:border-a8c-blueberry"
+			onClick={ openFileSelector }
+		>
+			{ children }
+		</Button>
+	) : (
+		<div className="w-full">{ children }</div>
+	);
+
 const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 	const { __ } = useI18n();
 	const { importFile, updateSite, startServer, loadingServer } = useSiteDetails();
@@ -150,8 +171,8 @@ const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 	const startLoadingCursorClassName =
 		loadingServer[ props.selectedSite.id ] && 'animate-pulse duration-100 cursor-wait';
 
-	const isImporting = props.selectedSite.importState === ImportState.Importing;
-	const isImported = props.selectedSite.importState === ImportState.Imported || true;
+	const isImporting = props.selectedSite.importState === ImportState.Importing && ! isDraggingOver;
+	const isImported = props.selectedSite.importState === ImportState.Imported && ! isDraggingOver;
 	const isInitial = ! isImporting && ! isImported;
 	return (
 		<div className={ cx( 'flex flex-col w-full', startLoadingCursorClassName ) }>
@@ -166,50 +187,56 @@ const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 					}
 				) }
 			</div>
-			{ isImporting && (
-				<div className="h-48 w-full rounded-sm border border-zinc-300 flex-col justify-center items-center inline-flex">
-					<div className="w-[240px]">
-						<ProgressBarWithAutoIncrement initialValue={ 50 } maxValue={ 95 } increment={ 5 } />
+			<div ref={ dropRef } className="w-full">
+				<InitialImportButton isInitial={ isInitial } openFileSelector={ openFileSelector }>
+					<div
+						className={ cx(
+							'h-48 w-full rounded-sm border border-zinc-300 flex-col justify-center items-center inline-flex',
+							isDraggingOver && 'border-a8c-blueberry bg-a8c-gray-0'
+						) }
+					>
+						{ isImporting && (
+							<>
+								<div className="w-[240px]">
+									<ProgressBarWithAutoIncrement
+										initialValue={ 50 }
+										maxValue={ 95 }
+										increment={ 5 }
+									/>
+								</div>
+								<div className="text-a8c-gray-70 a8c-body mt-4">{ __( 'Importing backup…' ) }</div>
+							</>
+						) }
+						{ isImported && (
+							<>
+								<span className="text-balck a8c-body">{ __( 'Import complete!' ) }</span>
+								<div className="flex gap-2 mt-4">
+									<Button
+										className={ cx( startLoadingCursorClassName ) }
+										variant="primary"
+										onClick={ openSite }
+									>
+										{ __( 'Open site ↗' ) }
+									</Button>
+									<Button variant="link" className="!px-2.5 !py-2" onClick={ clearImportState }>
+										{ __( 'Start again' ) }
+									</Button>
+								</div>
+							</>
+						) }
+						{ isInitial && (
+							<>
+								<Icon className="fill-a8c-gray-70" icon={ download } />
+								<span className="text-a8c-gray-70 a8c-body-small mt-1">
+									{ isDraggingOver
+										? __( 'Drop file' )
+										: __( 'Drag a file here, or click to select a file' ) }
+								</span>
+							</>
+						) }
 					</div>
-					<div className="text-a8c-gray-70 a8c-body mt-4">{ __( 'Importing backup…' ) }</div>
-				</div>
-			) }
-			{ isImported && (
-				<div className="h-48 w-full rounded-sm border border-zinc-300 flex-col justify-center items-center inline-flex">
-					<span className="text-balck a8c-body">{ __( 'Import complete!' ) }</span>
-					<div className="flex gap-2 mt-4">
-						<Button
-							className={ cx( startLoadingCursorClassName ) }
-							variant="primary"
-							onClick={ openSite }
-						>
-							{ __( 'Open site ↗' ) }
-						</Button>
-						<Button variant="link" className="!px-2.5 !py-2" onClick={ clearImportState }>
-							{ __( 'Start again' ) }
-						</Button>
-					</div>
-				</div>
-			) }
-			{ isInitial && (
-				<div ref={ dropRef } className="w-full">
-					<Button variant="icon" className="w-full" onClick={ openFileSelector }>
-						<div
-							className={ cx(
-								'h-48 w-full rounded-sm border border-zinc-300 hover:border-a8c-blueberry flex-col justify-center items-center inline-flex',
-								isDraggingOver && 'border-a8c-blueberry bg-a8c-gray-0'
-							) }
-						>
-							<Icon className="fill-a8c-gray-70" icon={ download } />
-							<span className="text-a8c-gray-70 a8c-body-small mt-1">
-								{ isDraggingOver
-									? __( 'Drop file' )
-									: __( 'Drag a file here, or click to select a file' ) }
-							</span>
-						</div>
-					</Button>
-				</div>
-			) }
+				</InitialImportButton>
+			</div>
 			<input
 				ref={ inputFileRef }
 				className="hidden"

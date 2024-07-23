@@ -23,6 +23,7 @@ interface FormImportComponentProps {
 	value?: string;
 	onClick?: () => void;
 	error?: string;
+	placeholder?: string;
 }
 
 function FormPathInputComponent( {
@@ -95,7 +96,7 @@ function FormPathInputComponent( {
 	);
 }
 
-function FormImportComponent( { value, onClick, error }: FormImportComponentProps ) {
+function FormImportComponent( { value, onClick, error, placeholder }: FormImportComponentProps ) {
 	return (
 		<div className="flex flex-col">
 			<button
@@ -111,7 +112,8 @@ function FormImportComponent( { value, onClick, error }: FormImportComponentProp
 				<TextControlComponent
 					aria-hidden="true"
 					disabled={ true }
-					className="[&_.components-text-control\_\_input]:bg-transparent [&_.components-text-control\_\_input]:border-none [&_input]:pointer-events-none w-full"
+					placeholder={ placeholder }
+					className="[&_.components-text-control\_\_input]:bg-transparent [&_.components-text-control\_\_input]:border-none [&_input]:pointer-events-none [&_.components-text-control\_\_input]:text-sm w-full"
 					value={ value }
 					// eslint-disable-next-line @typescript-eslint/no-empty-function
 					onChange={ () => {} }
@@ -192,7 +194,7 @@ export const SiteForm = ( {
 							}
 						) }
 					</span>
-					<FormImportComponent />
+					<FormImportComponent placeholder={ __( 'Select or drop a file' ) } />
 				</label>
 			</div>
 			{ children }

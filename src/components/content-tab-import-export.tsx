@@ -82,7 +82,7 @@ export const ExportSite = ( {
 			<div>
 				<h4 className="a8c-subtitle-small leading-5">{ __( 'Export' ) }</h4>
 				<p className="text-a8c-gray-70 leading-[140%] a8c-helper-text text-[13px]">
-					{ __( 'Export your entire site or just the database.' ) }
+					{ __( 'Export your entire site or only the database.' ) }
 				</p>
 			</div>
 			<div className="gap-4 flex flex-row">

@@ -189,7 +189,7 @@ const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 			<div className="a8c-subtitle-small mb-1">{ __( 'Import' ) }</div>
 			<div className="text-a8c-gray-70 a8c-body mb-4">
 				{ createInterpolateElement(
-					__( 'Import a Jetpack backup or a .sql database file. <button>Learn more</button>.' ),
+					__( 'Import a Jetpack backup or a .sql database file. <button>Learn more</button>' ),
 					{
 						button: (
 							<Button variant="link" onClick={ () => getIpcApi().openURL( STUDIO_DOCS_URL ) } />

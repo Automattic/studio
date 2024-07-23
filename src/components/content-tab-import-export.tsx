@@ -251,7 +251,7 @@ const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 				ref={ inputFileRef }
 				className="hidden"
 				type="file"
-				id="backup-file"
+				data-testid="backup-file"
 				accept=".zip,.sql,.tar,.gz"
 				onChange={ onFileSelected }
 			/>

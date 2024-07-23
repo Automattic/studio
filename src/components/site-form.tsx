@@ -1,7 +1,7 @@
 import { Icon } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
-import { tip, warning } from '@wordpress/icons';
+import { tip, warning, trash } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent } from 'react';
 import { STUDIO_DOCS_URL } from '../constants';
@@ -124,7 +124,11 @@ function FormImportComponent( { value, onClick, error, placeholder }: FormImport
 					aria-hidden="true"
 					className="local-path-icon flex items-center py-[9px] px-2.5 border border-l-0 border-t-0 border-r-0 border-b-0"
 				>
-					<FolderIcon className="text-[#3C434A]" />
+					{ fileName ? (
+						<Icon size={ 20 } icon={ trash } />
+					) : (
+						<FolderIcon className="text-[#3C434A]" />
+					) }
 				</div>
 			</button>
 		</div>

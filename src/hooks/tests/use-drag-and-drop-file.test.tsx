@@ -34,7 +34,7 @@ describe( 'useDragAndDropFile', () => {
 		expect( getByText( 'Dragging Over' ) ).toBeInTheDocument();
 	} );
 
-	test( 'should set isDraggingOver to false on dragleave event', () => {
+	test( 'should set isDraggingOver to false on drag leave event', () => {
 		jest.useFakeTimers();
 		const { getByTestId, getByText } = render( <DragComponent onFileDrop={ onFileDrop } /> );
 		const dropZone = getByTestId( 'test-drop-zone' );

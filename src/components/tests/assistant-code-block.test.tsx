@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { getIpcApi } from '../../lib/get-ipc-api';
 import createCodeComponent from '../assistant-code-block';
 
@@ -100,10 +100,9 @@ describe( 'createCodeComponent', () => {
 
 			expect( screen.getByText( 'Running...' ) ).toBeVisible();
 
-			// Run code execution measurement timer
-			await act( () => jest.runAllTimersAsync() );
-
-			expect( screen.queryByText( 'Running...' ) ).not.toBeInTheDocument();
+			await waitFor( () => {
+				expect( screen.queryByText( 'Running...' ) ).not.toBeInTheDocument();
+			} );
 		} );
 
 		it( 'should display the output of the successfully executed code', async () => {
@@ -114,11 +113,10 @@ describe( 'createCodeComponent', () => {
 
 			fireEvent.click( screen.getByText( 'Run' ) );
 
-			// Run code execution measurement timer
-			await act( () => jest.runAllTimersAsync() );
-
-			expect( screen.getByText( 'Success' ) ).toBeVisible();
-			expect( screen.getByText( 'Mock success' ) ).toBeVisible();
+			await waitFor( () => {
+				expect( screen.getByText( 'Success' ) ).toBeVisible();
+				expect( screen.getByText( 'Mock success' ) ).toBeVisible();
+			} );
 		} );
 
 		it( 'should display the output of the failed code execution', async () => {
@@ -129,11 +127,10 @@ describe( 'createCodeComponent', () => {
 
 			fireEvent.click( screen.getByText( 'Run' ) );
 
-			// Run code execution measurement timer
-			await act( () => jest.runAllTimersAsync() );
-
-			expect( screen.getByText( 'Error' ) ).toBeVisible();
-			expect( screen.getByText( 'Mock error' ) ).toBeVisible();
+			await waitFor( () => {
+				expect( screen.getByText( 'Error' ) ).toBeVisible();
+				expect( screen.getByText( 'Mock error' ) ).toBeVisible();
+			} );
 		} );
 	} );
 

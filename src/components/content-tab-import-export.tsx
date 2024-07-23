@@ -1,5 +1,4 @@
 import { speak } from '@wordpress/a11y';
-import { Button as CoreButton } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { sprintf, __ } from '@wordpress/i18n';
 import { Icon, download } from '@wordpress/icons';
@@ -98,12 +97,17 @@ export const ExportSite = ( {
 				</p>
 			</div>
 			<div className="gap-4 flex flex-row">
-				<CoreButton onClick={ onExportFullSite } variant="primary">
+				<Button onClick={ onExportFullSite } variant="primary">
 					{ __( 'Export entire site' ) }
-				</CoreButton>
-				<CoreButton onClick={ onExportDatabase } type="submit" variant="secondary">
+				</Button>
+				<Button
+					onClick={ onExportDatabase }
+					type="submit"
+					variant="secondary"
+					className="!text-a8c-blueberry !shadow-a8c-blueberry"
+				>
 					{ __( 'Export database' ) }
-				</CoreButton>
+				</Button>
 			</div>
 		</div>
 	);

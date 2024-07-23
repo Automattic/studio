@@ -7,17 +7,21 @@ export function useDragAndDropFile< T extends HTMLElement >( {
 } ) {
 	const dropRef = useRef< T >( null );
 	const [ isDraggingOver, setIsDraggingOver ] = useState( false );
-
 	useEffect( () => {
 		if ( ! dropRef.current ) {
 			return;
 		}
+		let dragLeaveTimeout: NodeJS.Timeout | undefined;
 		const handleDragLeave = ( event: DragEvent ) => {
 			event.preventDefault();
-			setIsDraggingOver( false );
+			clearTimeout( dragLeaveTimeout );
+			dragLeaveTimeout = setTimeout( () => {
+				setIsDraggingOver( false );
+			}, 100 );
 		};
 		const handleDragOver = ( event: DragEvent ) => {
 			event.preventDefault();
+			clearTimeout( dragLeaveTimeout );
 			setIsDraggingOver( true );
 		};
 		const handleDrop = ( event: DragEvent ) => {
@@ -44,6 +48,7 @@ export function useDragAndDropFile< T extends HTMLElement >( {
 			dropRef.current.removeEventListener( 'dragover', handleDragOver );
 			dropRef.current.removeEventListener( 'dragleave', handleDragLeave );
 			dropRef.current.removeEventListener( 'drop', handleDrop );
+			clearTimeout( dragLeaveTimeout );
 		}
 		return cleanup;
 	}, [ onFileDrop ] );

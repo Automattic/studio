@@ -32,21 +32,27 @@ export function useDragAndDropFile< T extends HTMLElement >( {
 			if ( event.dataTransfer.files.length === 1 ) {
 				onFileDrop( event.dataTransfer.files[ 0 ] );
 			}
+			setIsDraggingOver( false );
 		};
-		dropRef.current.addEventListener( 'dragover', handleDragOver );
-		dropRef.current.addEventListener( 'dragleave', handleDragLeave );
-		dropRef.current.addEventListener( 'drop', handleDrop );
+		const handleDragEnd = ( event: DragEvent ) => {
+			event.preventDefault();
+			setIsDraggingOver( false );
+		};
 
-		function cleanup() {
-			if ( ! dropRef.current ) {
-				return;
-			}
-			dropRef.current.removeEventListener( 'dragenter', handleDragOver );
-			dropRef.current.removeEventListener( 'dragleave', handleDragLeave );
-			dropRef.current.removeEventListener( 'drop', handleDrop );
-		}
-		return cleanup;
-	}, [] );
+		const node = dropRef.current;
+
+		node.addEventListener( 'dragover', handleDragOver );
+		node.addEventListener( 'dragleave', handleDragLeave );
+		node.addEventListener( 'drop', handleDrop );
+		node.addEventListener( 'dragend', handleDragEnd );
+
+		return () => {
+			node.removeEventListener( 'dragover', handleDragOver );
+			node.removeEventListener( 'dragleave', handleDragLeave );
+			node.removeEventListener( 'drop', handleDrop );
+			node.removeEventListener( 'dragend', handleDragEnd );
+		};
+	}, [ onFileDrop ] );
 
 	return { dropRef, isDraggingOver };
 }

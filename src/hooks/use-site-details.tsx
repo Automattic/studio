@@ -227,6 +227,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	);
 
 	const importFile = useCallback( async ( file: BackupArchiveInfo, selectedSite: SiteDetails ) => {
+		let finalImportState = ImportState.Imported;
 		try {
 			setData( ( prevSites ) =>
 				prevSites.map( ( site ) =>
@@ -242,6 +243,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 				title: selectedSite.name,
 				body: __( 'Import complete' ),
 			} );
+			finalImportState = ImportState.Imported;
 		} catch ( error ) {
 			getIpcApi().showMessageBox( {
 				type: 'error',
@@ -251,11 +253,11 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 				),
 				buttons: [ __( 'OK' ) ],
 			} );
-			console.error( error );
+			finalImportState = ImportState.Initial;
 		} finally {
 			setData( ( prevSites ) =>
 				prevSites.map( ( site ) =>
-					site.id === selectedSite.id ? { ...site, importState: ImportState.Imported } : site
+					site.id === selectedSite.id ? { ...site, importState: finalImportState } : site
 				)
 			);
 		}

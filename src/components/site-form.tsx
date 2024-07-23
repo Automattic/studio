@@ -22,6 +22,7 @@ interface FormPathInputComponentProps {
 interface FormImportComponentProps {
 	value?: File | null;
 	onClick?: () => void;
+	onClear?: () => void;
 	error?: string;
 	placeholder?: string;
 }
@@ -96,8 +97,21 @@ function FormPathInputComponent( {
 	);
 }
 
-function FormImportComponent( { value, onClick, error, placeholder }: FormImportComponentProps ) {
+function FormImportComponent( {
+	value,
+	onClick,
+	onClear,
+	error,
+	placeholder,
+}: FormImportComponentProps ) {
 	const fileName = value ? value.name : '';
+
+	const handleIconClick = ( event: FormEvent ) => {
+		event.stopPropagation();
+		if ( onClear ) {
+			onClear();
+		}
+	};
 
 	return (
 		<div className="flex flex-col">
@@ -120,16 +134,22 @@ function FormImportComponent( { value, onClick, error, placeholder }: FormImport
 					// eslint-disable-next-line @typescript-eslint/no-empty-function
 					onChange={ () => {} }
 				/>
-				<div
-					aria-hidden="true"
-					className="local-path-icon flex items-center py-[9px] px-2.5 border border-l-0 border-t-0 border-r-0 border-b-0"
-				>
-					{ fileName ? (
+				{ fileName ? (
+					<div
+						aria-hidden="true"
+						className="local-path-icon flex items-center py-[9px] px-2.5 border border-l-0 border-t-0 border-r-0 border-b-0"
+						onClick={ handleIconClick }
+					>
 						<Icon size={ 20 } icon={ trash } />
-					) : (
+					</div>
+				) : (
+					<div
+						aria-hidden="true"
+						className="local-path-icon flex items-center py-[9px] px-2.5 border border-l-0 border-t-0 border-r-0 border-b-0"
+					>
 						<FolderIcon className="text-[#3C434A]" />
-					) }
-				</div>
+					</div>
+				) }
 			</button>
 		</div>
 	);
@@ -208,6 +228,7 @@ export const SiteForm = ( {
 						placeholder={ __( 'Select or drop a file' ) }
 						value={ importFile }
 						onChange={ setImportFile }
+						onClear={ () => setImportFile( null ) }
 					/>
 				</label>
 			</div>

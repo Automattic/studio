@@ -18,7 +18,7 @@ const selectedSite: SiteDetails = {
 	importState: ImportState.Initial,
 };
 
-describe( 'ContentTabImportExport', () => {
+describe( 'ContentTabImportExport Import', () => {
 	const mockImportFile = jest.fn();
 	const mockUpdateSite = jest.fn();
 	const mockStartServer = jest.fn();
@@ -94,5 +94,43 @@ describe( 'ContentTabImportExport', () => {
 		await userEvent.upload( fileInput, file );
 
 		expect( mockImportFile ).toHaveBeenCalledWith( file, selectedSite );
+	} );
+} );
+
+describe( 'ContentTabImportExport Export', () => {
+	test( 'should export full site', async () => {
+		const mockShowSaveAsDialog = getIpcApi().showSaveAsDialog as jest.Mock;
+		mockShowSaveAsDialog.mockResolvedValue( '/path/to/exported-site.tar.gz' );
+		render( <ContentTabImportExport selectedSite={ selectedSite } /> );
+
+		const exportButton = screen.getByRole( 'button', { name: /Backup entire site/i } );
+		fireEvent.click( exportButton );
+
+		await waitFor( () =>
+			expect( getIpcApi().exportSite ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					sitePath: selectedSite.path,
+					backupFile: '/path/to/exported-site.tar.gz',
+				} )
+			)
+		);
+	} );
+
+	test( 'should export database', async () => {
+		const mockShowSaveAsDialog = getIpcApi().showSaveAsDialog as jest.Mock;
+		mockShowSaveAsDialog.mockResolvedValue( '/path/to/exported-database.sql' );
+		render( <ContentTabImportExport selectedSite={ selectedSite } /> );
+
+		const exportButton = screen.getByRole( 'button', { name: /Backup database/i } );
+		fireEvent.click( exportButton );
+
+		await waitFor( () =>
+			expect( getIpcApi().exportSite ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					sitePath: selectedSite.path,
+					backupFile: '/path/to/exported-database.sql',
+				} )
+			)
+		);
 	} );
 } );

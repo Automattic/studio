@@ -156,7 +156,10 @@ const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 		if ( ! file ) {
 			return;
 		}
-		importConfirmation( () => importFile( file, props.selectedSite ) );
+		importConfirmation( async () => {
+			await importFile( file, props.selectedSite );
+			clearImportFileInput();
+		} );
 	};
 	const openSite = async () => {
 		if ( ! props.selectedSite.running ) {
@@ -165,8 +168,15 @@ const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 		}
 		getIpcApi().openSiteURL( props.selectedSite.id );
 	};
-	const clearImportState = () =>
+	const clearImportFileInput = () => {
+		if ( inputFileRef.current ) {
+			inputFileRef.current.value = '';
+		}
+	};
+	const clearImportState = () => {
 		updateSite( { ...props.selectedSite, importState: ImportState.Initial } );
+		clearImportFileInput();
+	};
 
 	const startLoadingCursorClassName =
 		loadingServer[ props.selectedSite.id ] && 'animate-pulse duration-100 cursor-wait';

@@ -41,7 +41,7 @@ export function useDragAndDropFile< T extends HTMLElement >( {
 			if ( ! dropRef.current ) {
 				return;
 			}
-			dropRef.current.removeEventListener( 'dragenter', handleDragOver );
+			dropRef.current.removeEventListener( 'dragover', handleDragOver );
 			dropRef.current.removeEventListener( 'dragleave', handleDragLeave );
 			dropRef.current.removeEventListener( 'drop', handleDrop );
 		}

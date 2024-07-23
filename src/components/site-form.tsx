@@ -1,8 +1,13 @@
 import { Icon } from '@wordpress/components';
+import { createInterpolateElement } from '@wordpress/element';
+import { __ } from '@wordpress/i18n';
 import { tip, warning } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent } from 'react';
+import { STUDIO_DOCS_URL } from '../constants';
 import { cx } from '../lib/cx';
+import { getIpcApi } from '../lib/get-ipc-api';
+import Button from './button';
 import FolderIcon from './folder-icon';
 import TextControlComponent from './text-control';
 
@@ -12,6 +17,12 @@ interface FormPathInputComponentProps {
 	error?: string;
 	doesPathContainWordPress: boolean;
 	isDisabled: boolean;
+}
+
+interface FormImportComponentProps {
+	value?: string;
+	onClick?: () => void;
+	error?: string;
 }
 
 function FormPathInputComponent( {
@@ -84,6 +95,38 @@ function FormPathInputComponent( {
 	);
 }
 
+function FormImportComponent( { value, onClick, error }: FormImportComponentProps ) {
+	return (
+		<div className="flex flex-col">
+			<button
+				aria-invalid={ !! error }
+				type="button"
+				aria-label={ `${ value }, ${ __( 'Select different file' ) }` }
+				className={ cx(
+					'flex flex-row items-stretch rounded-sm border border-[#949494] focus:border-a8c-blueberry focus:shadow-[0_0_0_0.5px_black] focus:shadow-a8c-blueberry outline-none transition-shadow transition-linear duration-100 [&_.local-path-icon]:focus:border-l-a8c-blueberry [&:disabled]:cursor-not-allowed',
+					error ? 'border-red-500 [&_.local-path-icon]:border-l-red-500' : ''
+				) }
+				onClick={ onClick }
+			>
+				<TextControlComponent
+					aria-hidden="true"
+					disabled={ true }
+					className="[&_.components-text-control\_\_input]:bg-transparent [&_.components-text-control\_\_input]:border-none [&_input]:pointer-events-none w-full"
+					value={ value }
+					// eslint-disable-next-line @typescript-eslint/no-empty-function
+					onChange={ () => {} }
+				/>
+				<div
+					aria-hidden="true"
+					className="local-path-icon flex items-center py-[9px] px-2.5 border border-l-0 border-t-0 border-r-0 border-b-0"
+				>
+					<FolderIcon className="text-[#3C434A]" />
+				</div>
+			</button>
+		</div>
+	);
+}
+
 export const SiteForm = ( {
 	className,
 	children,
@@ -130,6 +173,27 @@ export const SiteForm = ( {
 						/>
 					</label>
 				) }
+				<label className="flex flex-col gap-1.5 leading-4">
+					<span className="font-semibold">
+						{ __( 'Import a backup' ) }
+						<span className="font-normal">{ __( ' (optional)' ) }</span>
+					</span>
+					<span className="text-a8c-gray-50 text-xs">
+						{ createInterpolateElement(
+							__( 'Jetpack and WordPress backups supported. <button>Learn more</button>' ),
+							{
+								button: (
+									<Button
+										variant="link"
+										className="text-xs"
+										onClick={ () => getIpcApi().openURL( STUDIO_DOCS_URL ) }
+									/>
+								),
+							}
+						) }
+					</span>
+					<FormImportComponent />
+				</label>
 			</div>
 			{ children }
 		</form>

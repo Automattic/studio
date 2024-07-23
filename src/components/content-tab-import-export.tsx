@@ -82,15 +82,15 @@ export const ExportSite = ( {
 			<div>
 				<h4 className="a8c-subtitle-small leading-5">{ __( 'Export' ) }</h4>
 				<p className="text-a8c-gray-70 leading-[140%] a8c-helper-text text-[13px]">
-					{ __( 'Create a backup of your entire site or export the database.' ) }
+					{ __( 'Export your entire site or just the database.' ) }
 				</p>
 			</div>
 			<div className="gap-4 flex flex-row">
 				<Button onClick={ onExportFullSite } variant="primary">
-					{ __( 'Backup entire site' ) }
+					{ __( 'Export entire site' ) }
 				</Button>
 				<Button onClick={ onExportDatabase } type="submit" variant="secondary">
-					{ __( 'Backup database' ) }
+					{ __( 'Export database' ) }
 				</Button>
 			</div>
 		</div>

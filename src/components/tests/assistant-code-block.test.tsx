@@ -89,10 +89,6 @@ describe( 'createCodeComponent', () => {
 	} );
 
 	describe( 'when the "run" button is clicked', () => {
-		beforeAll( () => {
-			jest.useFakeTimers();
-		} );
-
 		it( 'should display an activity indicator while running code', async () => {
 			( getIpcApi as jest.Mock ).mockReturnValue( {
 				executeWPCLiInline: jest.fn().mockResolvedValue( { stdout: 'Mock success', stderr: '' } ),

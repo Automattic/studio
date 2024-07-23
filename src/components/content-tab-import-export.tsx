@@ -243,7 +243,7 @@ const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 						) }
 						{ isInitial && (
 							<>
-								<Icon className="fill-a8c-gray-70" icon={ download } />
+								<Icon className="!fill-a8c-gray-70" icon={ download } />
 								<span className="text-a8c-gray-70 a8c-body-small mt-1">
 									{ isDraggingOver
 										? __( 'Drop file' )

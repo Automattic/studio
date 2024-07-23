@@ -20,7 +20,7 @@ interface FormPathInputComponentProps {
 }
 
 interface FormImportComponentProps {
-	value?: string;
+	value?: File | null;
 	onClick?: () => void;
 	error?: string;
 	placeholder?: string;
@@ -97,6 +97,8 @@ function FormPathInputComponent( {
 }
 
 function FormImportComponent( { value, onClick, error, placeholder }: FormImportComponentProps ) {
+	const fileName = value ? value.name : '';
+
 	return (
 		<div className="flex flex-col">
 			<button
@@ -114,7 +116,7 @@ function FormImportComponent( { value, onClick, error, placeholder }: FormImport
 					disabled={ true }
 					placeholder={ placeholder }
 					className="[&_.components-text-control\_\_input]:bg-transparent [&_.components-text-control\_\_input]:border-none [&_input]:pointer-events-none [&_.components-text-control\_\_input]:text-sm w-full"
-					value={ value }
+					value={ fileName }
 					// eslint-disable-next-line @typescript-eslint/no-empty-function
 					onChange={ () => {} }
 				/>
@@ -140,6 +142,8 @@ export const SiteForm = ( {
 	doesPathContainWordPress = false,
 	isPathInputDisabled = false,
 	onSubmit,
+	importFile,
+	setImportFile,
 }: {
 	className?: string;
 	children?: React.ReactNode;
@@ -151,6 +155,8 @@ export const SiteForm = ( {
 	doesPathContainWordPress?: boolean;
 	isPathInputDisabled?: boolean;
 	onSubmit: ( event: FormEvent ) => void;
+	importFile: File | null;
+	setImportFile: ( file: File | null ) => void;
 } ) => {
 	const { __ } = useI18n();
 
@@ -194,7 +200,11 @@ export const SiteForm = ( {
 							}
 						) }
 					</span>
-					<FormImportComponent placeholder={ __( 'Select or drop a file' ) } />
+					<FormImportComponent
+						placeholder={ __( 'Select or drop a file' ) }
+						value={ importFile }
+						onChange={ setImportFile }
+					/>
 				</label>
 			</div>
 			{ children }

@@ -2,8 +2,9 @@ import { speak } from '@wordpress/a11y';
 import { sprintf } from '@wordpress/i18n';
 import { Icon, wordpress } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { FormEvent, useCallback, useEffect } from 'react';
+import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { useAddSite } from '../hooks/use-add-site';
+import { useDragAndDropFile } from '../hooks/use-drag-and-drop-file';
 import { generateSiteName } from '../lib/generate-site-name';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
@@ -53,6 +54,14 @@ export default function Onboarding() {
 		siteName
 	);
 
+	const [ importFile, setImportFile ] = useState< File | null >( null );
+
+	const { dropRef, isDraggingOver } = useDragAndDropFile< HTMLDivElement >( {
+		onFileDrop: ( file: File ) => {
+			setImportFile( file );
+		},
+	} );
+
 	useEffect( () => {
 		const run = async () => {
 			const { path, name, isWordPress } = await getIpcApi().generateProposedSitePath(
@@ -98,7 +107,12 @@ export default function Onboarding() {
 				<GradientBox />
 			</div>
 
-			<div className="w-1/2 bg-white p-[50px] flex flex-col">
+			<div
+				className={ `w-1/2 bg-white p-[50px] flex flex-col ${
+					isDraggingOver ? 'drag-over-class' : ''
+				}` }
+				ref={ dropRef }
+			>
 				<div className="h-[569px] flex flex-col justify-center items-start flex-[1_0_0%] gap-8">
 					<div className="flex flex-col items-start self-stretch gap-6 app-no-drag-region">
 						<h1 className="font-normal text-xl leading-5">{ __( 'Add your first site' ) }</h1>
@@ -111,6 +125,8 @@ export default function Onboarding() {
 							error={ error }
 							doesPathContainWordPress={ doesPathContainWordPress }
 							onSubmit={ handleSubmit }
+							importFile={ importFile }
+							setImportFile={ setImportFile }
 						>
 							<div className="flex flex-row gap-x-5 mt-6">
 								<Button type="submit" variant="primary">

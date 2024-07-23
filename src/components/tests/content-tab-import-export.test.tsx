@@ -103,7 +103,7 @@ describe( 'ContentTabImportExport Export', () => {
 		mockShowSaveAsDialog.mockResolvedValue( '/path/to/exported-site.tar.gz' );
 		render( <ContentTabImportExport selectedSite={ selectedSite } /> );
 
-		const exportButton = screen.getByRole( 'button', { name: /Backup entire site/i } );
+		const exportButton = screen.getByRole( 'button', { name: /Export entire site/i } );
 		fireEvent.click( exportButton );
 
 		await waitFor( () =>
@@ -121,7 +121,7 @@ describe( 'ContentTabImportExport Export', () => {
 		mockShowSaveAsDialog.mockResolvedValue( '/path/to/exported-database.sql' );
 		render( <ContentTabImportExport selectedSite={ selectedSite } /> );
 
-		const exportButton = screen.getByRole( 'button', { name: /Backup database/i } );
+		const exportButton = screen.getByRole( 'button', { name: /Export database/i } );
 		fireEvent.click( exportButton );
 
 		await waitFor( () =>

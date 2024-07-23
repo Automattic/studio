@@ -2,7 +2,6 @@ import { render, fireEvent, waitFor, screen, createEvent, act } from '@testing-l
 import { userEvent } from '@testing-library/user-event';
 import { useSiteDetails } from '../../hooks/use-site-details';
 import { getIpcApi } from '../../lib/get-ipc-api';
-import { ImportState } from '../../lib/import-export/import/types';
 import { ContentTabImportExport } from '../content-tab-import-export';
 
 jest.mock( '../../lib/get-ipc-api' );
@@ -15,7 +14,6 @@ const selectedSite: SiteDetails = {
 	path: '/test-site',
 	phpVersion: '8.0',
 	adminPassword: btoa( 'test-password' ),
-	importState: ImportState.Initial,
 };
 
 describe( 'ContentTabImportExport Import', () => {

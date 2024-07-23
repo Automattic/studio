@@ -14,7 +14,6 @@ import { cx } from '../lib/cx';
 import { sanitizeFolderName } from '../lib/generate-site-name';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { ExportOptions } from '../lib/import-export/export/types';
-import { ImportState } from '../lib/import-export/import/types';
 import Button from './button';
 import { ProgressBarWithAutoIncrement } from './progress-bar';
 
@@ -174,15 +173,16 @@ const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 		}
 	};
 	const clearImportState = () => {
-		updateSite( { ...props.selectedSite, importState: ImportState.Initial } );
+		delete props.selectedSite.importState;
+		updateSite( props.selectedSite );
 		clearImportFileInput();
 	};
 
 	const startLoadingCursorClassName =
 		loadingServer[ props.selectedSite.id ] && 'animate-pulse duration-100 cursor-wait';
 
-	const isImporting = props.selectedSite.importState === ImportState.Importing && ! isDraggingOver;
-	const isImported = props.selectedSite.importState === ImportState.Imported && ! isDraggingOver;
+	const isImporting = props.selectedSite.importState === 'importing' && ! isDraggingOver;
+	const isImported = props.selectedSite.importState === 'imported' && ! isDraggingOver;
 	const isInitial = ! isImporting && ! isImported;
 	return (
 		<div className={ cx( 'flex flex-col w-full', startLoadingCursorClassName ) }>

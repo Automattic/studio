@@ -23,10 +23,4 @@ export interface BackupArchiveInfo {
 	type: string;
 }
 
-export enum ImportState {
-	Initial = 0,
-	Importing = 1,
-	Imported = 2,
-}
-
 export type NewImporter = new ( backup: BackupContents ) => Importer;

@@ -10,7 +10,7 @@ import {
 	useState,
 } from 'react';
 import { getIpcApi } from '../lib/get-ipc-api';
-import { BackupArchiveInfo, ImportState } from '../lib/import-export/import/types';
+import { BackupArchiveInfo } from '../lib/import-export/import/types';
 import { sortSites } from '../lib/sort-sites';
 import { useSnapshots } from './use-snapshots';
 
@@ -227,11 +227,11 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	);
 
 	const importFile = useCallback( async ( file: BackupArchiveInfo, selectedSite: SiteDetails ) => {
-		let finalImportState = ImportState.Imported;
+		let finalImportState: ImportSiteState;
 		try {
 			setData( ( prevSites ) =>
 				prevSites.map( ( site ) =>
-					site.id === selectedSite.id ? { ...site, importState: ImportState.Importing } : site
+					site.id === selectedSite.id ? { ...site, importState: 'importing' } : site
 				)
 			);
 			const backupFile: BackupArchiveInfo = {
@@ -243,7 +243,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 				title: selectedSite.name,
 				body: __( 'Import complete' ),
 			} );
-			finalImportState = ImportState.Imported;
+			finalImportState = 'imported';
 		} catch ( error ) {
 			getIpcApi().showMessageBox( {
 				type: 'error',
@@ -253,7 +253,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 				),
 				buttons: [ __( 'OK' ) ],
 			} );
-			finalImportState = ImportState.Initial;
+			finalImportState = undefined;
 		} finally {
 			setData( ( prevSites ) =>
 				prevSites.map( ( site ) =>

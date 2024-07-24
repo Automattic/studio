@@ -15,7 +15,7 @@ If you want to add support for another language you will need to add it to the
 
 ### Extract and Import
 
-#### 1 - Extract Strings:
+#### Step 1: Extract Strings:
 
    1. Run `npm run make-pot` to get the text out of the source
    files.
@@ -23,7 +23,7 @@ If you want to add support for another language you will need to add it to the
    This will create a `*.pot` file for each module, as well as a bundle
    of all translatable strings in `out/pots/bundle-strings.pot`.
 
-#### 2 - Import to GlotPress:
+#### Step 2: Import to GlotPress:
 
    1. Open [our project in GlotPress](https://translate.wordpress.com/projects/studio/).
    2. Click the **Project actions** menu.
@@ -32,7 +32,7 @@ If you want to add support for another language you will need to add it to the
 
 ### Export and Add
 
-#### 1 - Export from GlotPress:
+#### Step 1: Export from GlotPress:
 
 We will export the translations as Jed-formatted JSON, which is a format
 `@wordpress/i18n` can understand. It's ok if some translations are missing,
@@ -46,6 +46,6 @@ they will be left as English in the app.
    6. Change the format to `Jed 1.x (.json)`.
    7. Leave the other fields as default and click **Export**.
 
-#### 2 - Add Translations to Project:
+#### Step 2: Add Translations to Project:
    1. Unzip the exported strings and add them to the `src/translations`. Overwrite
    the files in there with your new files.

@@ -115,7 +115,7 @@ function FormImportComponent( {
 	};
 
 	return (
-		<div className="flex flex-col">
+		<div className="flex flex-col relative">
 			<button
 				aria-invalid={ !! error }
 				type="button"
@@ -135,15 +135,7 @@ function FormImportComponent( {
 					// eslint-disable-next-line @typescript-eslint/no-empty-function
 					onChange={ () => {} }
 				/>
-				{ fileName ? (
-					<div
-						aria-hidden="true"
-						className="local-path-icon flex items-center py-[9px] px-2.5 border border-l-0 border-t-0 border-r-0 border-b-0"
-						onClick={ handleIconClick }
-					>
-						<Icon size={ 20 } icon={ trash } />
-					</div>
-				) : (
+				{ ! fileName && (
 					<div
 						aria-hidden="true"
 						className="local-path-icon flex items-center py-[9px] px-2.5 border border-l-0 border-t-0 border-r-0 border-b-0"
@@ -152,6 +144,17 @@ function FormImportComponent( {
 					</div>
 				) }
 			</button>
+			{ fileName && (
+				<Button variant="icon" className="absolute right-0">
+					<div
+						aria-hidden="true"
+						className="local-path-icon flex items-center py-[9px] px-2.5 border border-l-0 border-t-0 border-r-0 border-b-0"
+						onClick={ handleIconClick }
+					>
+						<Icon size={ 20 } icon={ trash } />
+					</div>
+				</Button>
+			) }
 		</div>
 	);
 }

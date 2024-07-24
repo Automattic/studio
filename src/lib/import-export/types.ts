@@ -2,18 +2,17 @@ import { EventEmitter } from 'events';
 import { ExportEventType } from './export/events';
 import { ImportEventType } from './import/events';
 
+export type ImportExportEventType = ImportEventType | ExportEventType;
+
 export interface ImportExportEventData {
-	event: ImportEventType | ExportEventType;
+	event: ImportExportEventType;
 	data: unknown;
 }
 
-export const handleEvents = <
-	T extends Record< string, string >,
-	K extends ImportEventType | ExportEventType,
->(
+export const handleEvents = (
 	emitter: Partial< EventEmitter >,
 	onEvent: ( data: ImportExportEventData ) => void,
-	events: T
+	events: Record< string, string >
 ) => {
 	Object.values( events ).forEach( ( eventName ) => {
 		if ( ! emitter.on ) {
@@ -21,7 +20,7 @@ export const handleEvents = <
 		}
 		emitter.on( eventName, ( data: unknown ) => {
 			onEvent( {
-				event: eventName as K,
+				event: eventName as ImportExportEventType,
 				data,
 			} );
 		} );

@@ -2,7 +2,7 @@ import fsPromises from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import { ImportExportEventData, handleEvents } from '../types';
-import { HandlerEvents, ImportEventType, ImporterEvents, ValidatorEvents } from './events';
+import { HandlerEvents, ImporterEvents, ValidatorEvents } from './events';
 import { BackupHandlerFactory } from './handlers/backup-handler-factory';
 import { DefaultImporter, Importer, ImporterResult } from './importers/importer';
 import { BackupArchiveInfo, NewImporter } from './types';
@@ -22,11 +22,7 @@ export function selectImporter(
 ): Importer | null {
 	for ( const { validator, importer } of options ) {
 		if ( validator.canHandle( allFiles ) ) {
-			handleEvents< typeof ValidatorEvents, ImportEventType >(
-				validator,
-				onEvent,
-				ValidatorEvents
-			);
+			handleEvents( validator, onEvent, ValidatorEvents );
 			const files = validator.parseBackupContents( allFiles, extractionDirectory );
 			return new importer( files );
 		}
@@ -47,12 +43,8 @@ export async function importBackup(
 		const importer = selectImporter( fileList, extractionDirectory, onEvent, options );
 
 		if ( importer ) {
-			handleEvents< typeof HandlerEvents, ImportEventType >(
-				backupHandler,
-				onEvent,
-				HandlerEvents
-			);
-			handleEvents< typeof ImporterEvents, ImportEventType >( importer, onEvent, ImporterEvents );
+			handleEvents( backupHandler, onEvent, HandlerEvents );
+			handleEvents( importer, onEvent, ImporterEvents );
 			await backupHandler.extractFiles( backupFile, extractionDirectory );
 			return await importer.import( sitePath );
 		} else {

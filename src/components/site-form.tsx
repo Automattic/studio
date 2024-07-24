@@ -23,6 +23,7 @@ interface FormImportComponentProps {
 	value?: File | null;
 	onClick?: () => void;
 	onClear?: () => void;
+	onChange: ( file: File | null ) => void;
 	error?: string;
 	placeholder?: string;
 }

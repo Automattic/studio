@@ -3,6 +3,7 @@ import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { useAddSite } from '../hooks/use-add-site';
+import { useDragAndDropFile } from '../hooks/use-drag-and-drop-file';
 import { useIpcListener } from '../hooks/use-ipc-listener';
 import { useSiteDetails } from '../hooks/use-site-details';
 import { generateSiteName } from '../lib/generate-site-name';
@@ -36,6 +37,8 @@ export default function AddSite( { className }: AddSiteProps ) {
 		handlePathSelectorClick,
 		usedSiteNames,
 		loadingSites,
+		fileForImport,
+		setFileForImport,
 	} = useAddSite();
 
 	const isSiteAdding = data.some( ( site ) => site.isAddingSite );
@@ -96,6 +99,18 @@ export default function AddSite( { className }: AddSiteProps ) {
 		[ handleAddSiteClick, closeModal, siteAddedMessage ]
 	);
 
+	const handleImportFile = useCallback(
+		async ( file: File ) => {
+			setFileForImport( file );
+		},
+		[ setFileForImport ]
+	);
+	const { dropRef, isDraggingOver } = useDragAndDropFile< HTMLDivElement >( {
+		onFileDrop: ( file: File ) => {
+			setFileForImport( file );
+		},
+	} );
+
 	useIpcListener( 'add-site', () => {
 		if ( isSiteAdding ) {
 			return;
@@ -113,29 +128,34 @@ export default function AddSite( { className }: AddSiteProps ) {
 					focusOnMount="firstContentElement"
 					onRequestClose={ closeModal }
 				>
-					<SiteForm
-						siteName={ siteName || '' }
-						setSiteName={ handleSiteNameChange }
-						sitePath={ sitePath }
-						onSelectPath={ handlePathSelectorClick }
-						error={ error }
-						onSubmit={ handleSubmit }
-						doesPathContainWordPress={ doesPathContainWordPress }
-					>
-						<div className="flex flex-row justify-end gap-x-5 mt-6">
-							<Button onClick={ closeModal } disabled={ isSiteAdding } variant="tertiary">
-								{ __( 'Cancel' ) }
-							</Button>
-							<Button
-								type="submit"
-								variant="primary"
-								isBusy={ isSiteAdding }
-								disabled={ isSiteAdding || !! error || ! siteName?.trim() }
-							>
-								{ __( 'Add site' ) }
-							</Button>
-						</div>
-					</SiteForm>
+					<div ref={ dropRef }>
+						<SiteForm
+							siteName={ siteName || '' }
+							setSiteName={ handleSiteNameChange }
+							sitePath={ sitePath }
+							onSelectPath={ handlePathSelectorClick }
+							error={ error }
+							onSubmit={ handleSubmit }
+							doesPathContainWordPress={ doesPathContainWordPress }
+							fileForImport={ fileForImport }
+							setFileForImport={ setFileForImport }
+							onFileSelected={ handleImportFile }
+						>
+							<div className="flex flex-row justify-end gap-x-5 mt-6">
+								<Button onClick={ closeModal } disabled={ isSiteAdding } variant="tertiary">
+									{ __( 'Cancel' ) }
+								</Button>
+								<Button
+									type="submit"
+									variant="primary"
+									isBusy={ isSiteAdding }
+									disabled={ isSiteAdding || !! error || ! siteName?.trim() }
+								>
+									{ __( 'Add site' ) }
+								</Button>
+							</div>
+						</SiteForm>
+					</div>
 				</Modal>
 			) }
 			<Button

@@ -201,11 +201,11 @@ export const SiteForm = ( {
 					<span className="font-semibold">{ __( 'Site name' ) }</span>
 					<TextControlComponent onChange={ setSiteName } value={ siteName }></TextControlComponent>
 				</label>
-				<label className="flex flex-col gap-1.5 leading-4">
-					<span className="font-semibold">
+				<div className="flex flex-col gap-1.5 leading-4">
+					<label className="font-semibold">
 						{ __( 'Import a backup' ) }
 						<span className="font-normal">{ __( ' (optional)' ) }</span>
-					</span>
+					</label>
 					<span className="text-a8c-gray-50 text-xs">
 						{ createInterpolateElement(
 							__( 'Jetpack and WordPress backups supported. <button>Learn more</button>' ),
@@ -226,7 +226,7 @@ export const SiteForm = ( {
 						onChange={ setImportFile }
 						onClear={ () => setImportFile( null ) }
 					/>
-				</label>
+				</div>
 				<div className="flex flex-row">
 					<Button className="pl-0" onClick={ handleAdvancedSettingsClick }>
 						<Icon size={ 24 } icon={ isAdvancedSettingsVisible ? chevronDown : chevronRight } />

@@ -2,7 +2,7 @@ import { speak } from '@wordpress/a11y';
 import { sprintf } from '@wordpress/i18n';
 import { Icon, wordpress, download } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { FormEvent, useCallback, useEffect } from 'react';
 import { useAddSite } from '../hooks/use-add-site';
 import { useDragAndDropFile } from '../hooks/use-drag-and-drop-file';
 import { generateSiteName } from '../lib/generate-site-name';
@@ -46,6 +46,8 @@ export default function Onboarding() {
 		handleAddSiteClick,
 		handleSiteNameChange,
 		handlePathSelectorClick,
+		setFileForImport,
+		fileForImport,
 	} = useAddSite();
 
 	const siteAddedMessage = sprintf(
@@ -54,11 +56,9 @@ export default function Onboarding() {
 		siteName
 	);
 
-	const [ importFile, setImportFile ] = useState< File | null >( null );
-
 	const { dropRef, isDraggingOver } = useDragAndDropFile< HTMLDivElement >( {
 		onFileDrop: ( file: File ) => {
-			setImportFile( file );
+			setFileForImport( file );
 		},
 	} );
 
@@ -98,9 +98,12 @@ export default function Onboarding() {
 		[ handleAddSiteClick, siteAddedMessage ]
 	);
 
-	const handleImportFile = useCallback( async ( file: File ) => {
-		setImportFile( file );
-	}, [] );
+	const handleImportFile = useCallback(
+		async ( file: File ) => {
+			setFileForImport( file );
+		},
+		[ setFileForImport ]
+	);
 
 	return (
 		<div className="flex flex-row flex-grow" data-testid="onboarding">
@@ -132,8 +135,8 @@ export default function Onboarding() {
 							error={ error }
 							doesPathContainWordPress={ doesPathContainWordPress }
 							onSubmit={ handleSubmit }
-							importFile={ importFile }
-							setImportFile={ setImportFile }
+							fileForImport={ fileForImport }
+							setFileForImport={ setFileForImport }
 							onFileSelected={ handleImportFile }
 						>
 							<div className="flex flex-row gap-x-5 mt-6">

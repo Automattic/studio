@@ -6,12 +6,13 @@ import { useSiteDetails } from './use-site-details';
 
 export function useAddSite() {
 	const { __ } = useI18n();
-	const { createSite, data: sites, loadingSites } = useSiteDetails();
+	const { createSite, data: sites, loadingSites, importFile } = useSiteDetails();
 	const [ error, setError ] = useState( '' );
 	const [ siteName, setSiteName ] = useState< string | null >( null );
 	const [ sitePath, setSitePath ] = useState( '' );
 	const [ proposedSitePath, setProposedSitePath ] = useState( '' );
 	const [ doesPathContainWordPress, setDoesPathContainWordPress ] = useState( false );
+	const [ fileForImport, setFileForImport ] = useState< File | null >( null );
 
 	const usedSiteNames = sites.map( ( site ) => site.name );
 
@@ -52,11 +53,17 @@ export function useAddSite() {
 	const handleAddSiteClick = useCallback( async () => {
 		try {
 			const path = sitePath ? sitePath : proposedSitePath;
-			await createSite( path, siteName ?? '' );
+			const newSite = await createSite( path, siteName ?? '' );
+			if ( newSite && fileForImport ) {
+				// Assuming 'file' is a file object available in the current scope
+				await importFile( fileForImport, newSite );
+			} else {
+				console.error( 'Failed to create the site' );
+			}
 		} catch ( e ) {
 			Sentry.captureException( e );
 		}
-	}, [ createSite, proposedSitePath, siteName, sitePath ] );
+	}, [ createSite, fileForImport, importFile, proposedSitePath, siteName, sitePath ] );
 
 	const handleSiteNameChange = useCallback(
 		async ( name: string ) => {
@@ -110,20 +117,23 @@ export function useAddSite() {
 			setDoesPathContainWordPress,
 			usedSiteNames,
 			loadingSites,
+			fileForImport,
+			setFileForImport,
 		} ),
 		[
-			__,
-			doesPathContainWordPress,
-			error,
 			handleAddSiteClick,
 			handlePathSelectorClick,
-			siteWithPathAlreadyExists,
 			handleSiteNameChange,
-			siteName,
+			siteWithPathAlreadyExists,
 			sitePath,
 			proposedSitePath,
+			__,
+			error,
+			siteName,
+			doesPathContainWordPress,
 			usedSiteNames,
 			loadingSites,
+			fileForImport,
 		]
 	);
 }

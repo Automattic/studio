@@ -187,8 +187,8 @@ export const SiteForm = ( {
 	doesPathContainWordPress = false,
 	isPathInputDisabled = false,
 	onSubmit,
-	importFile,
-	setImportFile,
+	fileForImport,
+	setFileForImport,
 	onFileSelected,
 }: {
 	className?: string;
@@ -201,8 +201,8 @@ export const SiteForm = ( {
 	doesPathContainWordPress?: boolean;
 	isPathInputDisabled?: boolean;
 	onSubmit: ( event: FormEvent ) => void;
-	importFile: File | null;
-	setImportFile: ( file: File | null ) => void;
+	fileForImport: File | null;
+	setFileForImport: ( file: File | null ) => void;
 	onFileSelected?: ( file: File ) => void;
 } ) => {
 	const { __ } = useI18n();
@@ -241,9 +241,9 @@ export const SiteForm = ( {
 					</span>
 					<FormImportComponent
 						placeholder={ __( 'Select or drop a file' ) }
-						value={ importFile }
-						onChange={ setImportFile }
-						onClear={ () => setImportFile( null ) }
+						value={ fileForImport }
+						onChange={ setFileForImport }
+						onClear={ () => setFileForImport( null ) }
 						onFileSelected={ onFileSelected }
 					/>
 				</div>

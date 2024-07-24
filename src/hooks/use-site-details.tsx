@@ -19,7 +19,7 @@ interface SiteDetailsContext {
 	updateSite: ( site: SiteDetails ) => Promise< void >;
 	data: SiteDetails[];
 	setSelectedSiteId: ( selectedSiteId: string ) => void;
-	createSite: ( path: string, siteName?: string ) => Promise< void >;
+	createSite: ( path: string, siteName?: string ) => Promise< SiteDetails | void >;
 	startServer: ( id: string ) => Promise< void >;
 	stopServer: ( id: string ) => Promise< void >;
 	stopAllRunningSites: () => Promise< void >;
@@ -219,6 +219,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 				setData( ( prevData ) =>
 					prevData.map( ( site ) => ( site.id === tempSiteId ? newSite : site ) )
 				);
+				return newSite;
 			} catch ( error ) {
 				showError();
 			}

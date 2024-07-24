@@ -1,7 +1,7 @@
 import fsPromises from 'fs/promises';
 import os from 'os';
 import path from 'path';
-import { ImportExportEventData, handleEvents } from '../types';
+import { ImportExportEventData, handleEvents } from '../handle-events';
 import { HandlerEvents, ImporterEvents, ValidatorEvents } from './events';
 import { BackupHandlerFactory } from './handlers/backup-handler-factory';
 import { DefaultImporter, Importer, ImporterResult } from './importers/importer';

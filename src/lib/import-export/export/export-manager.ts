@@ -1,6 +1,6 @@
 import fsPromises from 'fs/promises';
 import path from 'node:path';
-import { ImportExportEventData, handleEvents } from '../types';
+import { ImportExportEventData, handleEvents } from '../handle-events';
 import { ExportValidatorEvents, ExporterEvents } from './events';
 import { DefaultExporter, SqlExporter } from './exporters';
 import { ExportOptions, ExporterOption } from './types';

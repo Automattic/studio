@@ -22,9 +22,9 @@ import { isEmptyDir, pathExists, isWordPressDirectory, sanitizeFolderName } from
 import { getImageData } from './lib/get-image-data';
 import { exportBackup } from './lib/import-export/export/export-manager';
 import { ExportOptions } from './lib/import-export/export/types';
+import { ImportExportEventData } from './lib/import-export/handle-events';
 import { defaultImporterOptions, importBackup } from './lib/import-export/import/import-manager';
 import { BackupArchiveInfo } from './lib/import-export/import/types';
-import { ImportExportEventData } from './lib/import-export/handle-events';
 import { isErrnoException } from './lib/is-errno-exception';
 import { isInstalled } from './lib/is-installed';
 import { getLocaleData, getSupportedLocale } from './lib/locale';

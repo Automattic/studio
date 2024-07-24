@@ -1,9 +1,9 @@
 import { Icon } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
-import { tip, warning, trash } from '@wordpress/icons';
+import { tip, warning, trash, chevronRight, chevronDown } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { FormEvent } from 'react';
+import { FormEvent, useState } from 'react';
 import { STUDIO_DOCS_URL } from '../constants';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
@@ -184,6 +184,12 @@ export const SiteForm = ( {
 } ) => {
 	const { __ } = useI18n();
 
+	const [ isAdvancedSettingsVisible, setAdvancedSettingsVisible ] = useState( false );
+
+	const handleAdvancedSettingsClick = () => {
+		setAdvancedSettingsVisible( ! isAdvancedSettingsVisible );
+	};
+
 	return (
 		<form className={ className } onSubmit={ onSubmit }>
 			<div className="flex flex-col gap-6">
@@ -191,20 +197,6 @@ export const SiteForm = ( {
 					<span className="font-semibold">{ __( 'Site name' ) }</span>
 					<TextControlComponent onChange={ setSiteName } value={ siteName }></TextControlComponent>
 				</label>
-				{ onSelectPath && (
-					<label className="flex flex-col gap-1.5 leading-4">
-						<span onClick={ onSelectPath } className="font-semibold">
-							{ __( 'Local path' ) }
-						</span>
-						<FormPathInputComponent
-							isDisabled={ isPathInputDisabled }
-							doesPathContainWordPress={ doesPathContainWordPress }
-							error={ error }
-							value={ sitePath }
-							onClick={ onSelectPath }
-						/>
-					</label>
-				) }
 				<label className="flex flex-col gap-1.5 leading-4">
 					<span className="font-semibold">
 						{ __( 'Import a backup' ) }
@@ -231,6 +223,26 @@ export const SiteForm = ( {
 						onClear={ () => setImportFile( null ) }
 					/>
 				</label>
+				<div className="flex flex-row">
+					<Button className="pl-0" onClick={ handleAdvancedSettingsClick }>
+						<Icon size={ 24 } icon={ isAdvancedSettingsVisible ? chevronDown : chevronRight } />
+						<div className="text-[13px] leading-[16px] ml-2">{ __( 'Advanced settings' ) }</div>
+					</Button>
+				</div>
+				{ onSelectPath && isAdvancedSettingsVisible && (
+					<label className="flex flex-col gap-1.5 leading-4">
+						<span onClick={ onSelectPath } className="font-semibold">
+							{ __( 'Local path' ) }
+						</span>
+						<FormPathInputComponent
+							isDisabled={ isPathInputDisabled }
+							doesPathContainWordPress={ doesPathContainWordPress }
+							error={ error }
+							value={ sitePath }
+							onClick={ onSelectPath }
+						/>
+					</label>
+				) }
 			</div>
 			{ children }
 		</form>

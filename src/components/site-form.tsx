@@ -126,14 +126,15 @@ function FormImportComponent( {
 	};
 
 	return (
-		<div className="flex flex-col relative">
+		<div className="flex items-center">
 			<button
 				aria-invalid={ !! error }
 				type="button"
 				aria-label={ `${ value }, ${ __( 'Select different file' ) }` }
 				className={ cx(
-					'flex flex-row items-stretch rounded-sm border border-[#949494] focus:border-a8c-blueberry focus:shadow-[0_0_0_0.5px_black] focus:shadow-a8c-blueberry outline-none transition-shadow transition-linear duration-100 [&_.local-path-icon]:focus:border-l-a8c-blueberry [&:disabled]:cursor-not-allowed',
-					error ? 'border-red-500 [&_.local-path-icon]:border-l-red-500' : ''
+					'flex items-center flex-grow rounded-sm border border-[#949494] focus:border-a8c-blueberry focus:shadow-[0_0_0_0.5px_black] focus:shadow-a8c-blueberry outline-none transition-shadow transition-linear duration-100 [&_.local-path-icon]:focus:border-l-a8c-blueberry [&:disabled]:cursor-not-allowed',
+					error ? 'border-red-500 [&_.local-path-icon]:border-l-red-500' : '',
+					fileName ? 'border-r-0 rounded-r-none' : ''
 				) }
 				onClick={ () => inputFileRef.current?.click() }
 			>
@@ -141,7 +142,7 @@ function FormImportComponent( {
 					aria-hidden="true"
 					disabled={ true }
 					placeholder={ placeholder }
-					className="[&_.components-text-control\_\_input]:bg-transparent [&_.components-text-control\_\_input]:border-none [&_input]:pointer-events-none [&_.components-text-control\_\_input]:text-sm w-full"
+					className="flex-grow [&_.components-text-control\_\_input]:bg-transparent [&_.components-text-control\_\_input]:border-none [&_input]:pointer-events-none [&_.components-text-control\_\_input]:text-sm w-full"
 					value={ fileName }
 					// eslint-disable-next-line @typescript-eslint/no-empty-function
 					onChange={ () => {} }
@@ -156,11 +157,10 @@ function FormImportComponent( {
 				) }
 			</button>
 			{ fileName && (
-				<Button variant="icon" className="absolute right-0">
+				<Button variant="icon" onClick={ handleIconClick }>
 					<div
 						aria-hidden="true"
-						className="local-path-icon flex items-center py-[9px] px-2.5 border border-l-0 border-t-0 border-r-0 border-b-0"
-						onClick={ handleIconClick }
+						className="flex items-center py-[10px] px-2.5 rounded-tr-sm rounded-br-sm border border-[#949494] border-l-0"
 					>
 						<Icon size={ 20 } icon={ trash } />
 					</div>

@@ -1,8 +1,8 @@
-export const HandlerEvents = {
-	BACKUP_HANDLER_START: 'handler_start',
-	BACKUP_HANDLER_PROGRESS: 'handler_progress',
-	BACKUP_HANDLER_COMPLETE: 'handler_complete',
-	BACKUP_HANDLER_ERROR: 'handler_error',
+export const BackupExtractEvents = {
+	BACKUP_EXTRACT_START: 'backup_extract_start',
+	BACKUP_EXTRACT_PROGRESS: 'backup_extract_progress',
+	BACKUP_EXTRACT_COMPLETE: 'backup_extract_complete',
+	BACKUP_EXTRACT_ERROR: 'backup_extract_error',
 } as const;
 
 export const ValidatorEvents = {
@@ -24,7 +24,7 @@ export const ImporterEvents = {
 } as const;
 
 export const ImportEvents = {
-	...HandlerEvents,
+	...BackupExtractEvents,
 	...ValidatorEvents,
 	...ImporterEvents,
 } as const;

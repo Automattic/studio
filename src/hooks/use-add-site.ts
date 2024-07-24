@@ -53,12 +53,9 @@ export function useAddSite() {
 	const handleAddSiteClick = useCallback( async () => {
 		try {
 			const path = sitePath ? sitePath : proposedSitePath;
-			const newSite = await createSite( path, siteName ?? '' );
+			const newSite = await createSite( path, siteName ?? '', !! fileForImport ); // Pass true to indicate new site importing
 			if ( newSite && fileForImport ) {
-				// Assuming 'file' is a file object available in the current scope
 				await importFile( fileForImport, newSite );
-			} else {
-				console.error( 'Failed to create the site' );
 			}
 		} catch ( e ) {
 			Sentry.captureException( e );

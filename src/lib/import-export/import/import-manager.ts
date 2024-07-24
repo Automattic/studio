@@ -22,8 +22,9 @@ export function selectImporter(
 ): Importer | null {
 	for ( const { validator, importer } of options ) {
 		if ( validator.canHandle( allFiles ) ) {
-			handleEvents( validator, onEvent, ValidatorEvents );
+			const removeValidatorListeners = handleEvents( validator, onEvent, ValidatorEvents );
 			const files = validator.parseBackupContents( allFiles, extractionDirectory );
+			removeValidatorListeners();
 			return new importer( files );
 		}
 	}
@@ -37,21 +38,28 @@ export async function importBackup(
 	options: ImporterOption[]
 ): Promise< ImporterResult > {
 	const extractionDirectory = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio_backup' ) );
+	let removeBackupListeners;
+	let removeImportListeners;
 	try {
 		const backupHandler = BackupHandlerFactory.create( backupFile );
 		const fileList = await backupHandler.listFiles( backupFile );
 		const importer = selectImporter( fileList, extractionDirectory, onEvent, options );
 
 		if ( importer ) {
-			handleEvents( backupHandler, onEvent, HandlerEvents );
-			handleEvents( importer, onEvent, ImporterEvents );
+			removeBackupListeners = handleEvents( backupHandler, onEvent, HandlerEvents );
+			removeImportListeners = handleEvents( importer, onEvent, ImporterEvents );
 			await backupHandler.extractFiles( backupFile, extractionDirectory );
-			return await importer.import( sitePath );
+			removeBackupListeners();
+			const result = await importer.import( sitePath );
+			removeImportListeners();
+			return result;
 		} else {
 			throw new Error( 'No suitable importer found for the given backup file' );
 		}
 	} catch ( error ) {
 		console.error( 'Backup import failed:', ( error as Error ).message );
+		removeBackupListeners?.();
+		removeImportListeners?.();
 		throw error;
 	} finally {
 		await fsPromises.rm( extractionDirectory, { recursive: true } );

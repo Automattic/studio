@@ -14,15 +14,18 @@ export const handleEvents = (
 	onEvent: ( data: ImportExportEventData ) => void,
 	events: Record< string, string >
 ) => {
+	const removeListeners: ( () => void )[] = [];
 	Object.values( events ).forEach( ( eventName ) => {
-		if ( ! emitter.on ) {
-			return;
-		}
-		emitter.on( eventName, ( data: unknown ) => {
+		const listener = ( data: unknown ) => {
 			onEvent( {
 				event: eventName as ImportExportEventType,
 				data,
 			} );
-		} );
+		};
+		emitter.on?.( eventName, listener );
+		removeListeners.push( () => emitter.off?.( eventName, listener ) );
 	} );
+	return () => {
+		removeListeners.forEach( ( remove ) => remove() );
+	};
 };

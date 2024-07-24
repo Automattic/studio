@@ -269,10 +269,10 @@ const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 
 export function ContentTabImportExport( { selectedSite }: ContentTabImportExportProps ) {
 	useIpcListener( 'on-import', ( _evt, data: unknown ) => {
-		console.log( 'on-import-events', data );
+		// This listener will be used to track progress of import when the UI is finished.
 	} );
 	useIpcListener( 'on-export', ( _evt, data: unknown ) => {
-		console.log( 'on-export-events', data );
+		// This listener will be used to track progress of export when the UI is finished.
 	} );
 
 	return (

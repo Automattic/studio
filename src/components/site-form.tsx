@@ -204,8 +204,8 @@ export const SiteForm = ( {
 	doesPathContainWordPress?: boolean;
 	isPathInputDisabled?: boolean;
 	onSubmit: ( event: FormEvent ) => void;
-	fileForImport: File | null;
-	setFileForImport: ( file: File | null ) => void;
+	fileForImport?: File | null;
+	setFileForImport?: ( file: File | null ) => void;
 	onFileSelected?: ( file: File ) => void;
 } ) => {
 	const { __ } = useI18n();
@@ -223,52 +223,56 @@ export const SiteForm = ( {
 					<span className="font-semibold">{ __( 'Site name' ) }</span>
 					<TextControlComponent onChange={ setSiteName } value={ siteName }></TextControlComponent>
 				</label>
-				<div className="flex flex-col gap-1.5 leading-4">
-					<label className="font-semibold">
-						{ __( 'Import a backup' ) }
-						<span className="font-normal">{ __( ' (optional)' ) }</span>
-					</label>
-					<span className="text-a8c-gray-50 text-xs">
-						{ createInterpolateElement(
-							__( 'Jetpack and WordPress backups supported. <button>Learn more</button>' ),
-							{
-								button: (
-									<Button
-										variant="link"
-										className="text-xs"
-										onClick={ () => getIpcApi().openURL( STUDIO_DOCS_URL ) }
-									/>
-								),
-							}
+				{ setFileForImport && (
+					<>
+						<div className="flex flex-col gap-1.5 leading-4">
+							<label className="font-semibold">
+								{ __( 'Import a backup' ) }
+								<span className="font-normal">{ __( ' (optional)' ) }</span>
+							</label>
+							<span className="text-a8c-gray-50 text-xs">
+								{ createInterpolateElement(
+									__( 'Jetpack and WordPress backups supported. <button>Learn more</button>' ),
+									{
+										button: (
+											<Button
+												variant="link"
+												className="text-xs"
+												onClick={ () => getIpcApi().openURL( STUDIO_DOCS_URL ) }
+											/>
+										),
+									}
+								) }
+							</span>
+							<FormImportComponent
+								placeholder={ __( 'Select or drop a file' ) }
+								value={ fileForImport }
+								onChange={ ( file ) => setFileForImport( file ) }
+								onClear={ () => setFileForImport( null ) }
+								onFileSelected={ onFileSelected }
+							/>
+						</div>
+						<div className="flex flex-row">
+							<Button className="pl-0" onClick={ handleAdvancedSettingsClick }>
+								<Icon size={ 24 } icon={ isAdvancedSettingsVisible ? chevronDown : chevronRight } />
+								<div className="text-[13px] leading-[16px] ml-2">{ __( 'Advanced settings' ) }</div>
+							</Button>
+						</div>
+						{ onSelectPath && isAdvancedSettingsVisible && (
+							<label className="flex flex-col gap-1.5 leading-4">
+								<span onClick={ onSelectPath } className="font-semibold">
+									{ __( 'Local path' ) }
+								</span>
+								<FormPathInputComponent
+									isDisabled={ isPathInputDisabled }
+									doesPathContainWordPress={ doesPathContainWordPress }
+									error={ error }
+									value={ sitePath }
+									onClick={ onSelectPath }
+								/>
+							</label>
 						) }
-					</span>
-					<FormImportComponent
-						placeholder={ __( 'Select or drop a file' ) }
-						value={ fileForImport }
-						onChange={ ( file ) => setFileForImport( file ) }
-						onClear={ () => setFileForImport( null ) }
-						onFileSelected={ onFileSelected }
-					/>
-				</div>
-				<div className="flex flex-row">
-					<Button className="pl-0" onClick={ handleAdvancedSettingsClick }>
-						<Icon size={ 24 } icon={ isAdvancedSettingsVisible ? chevronDown : chevronRight } />
-						<div className="text-[13px] leading-[16px] ml-2">{ __( 'Advanced settings' ) }</div>
-					</Button>
-				</div>
-				{ onSelectPath && isAdvancedSettingsVisible && (
-					<label className="flex flex-col gap-1.5 leading-4">
-						<span onClick={ onSelectPath } className="font-semibold">
-							{ __( 'Local path' ) }
-						</span>
-						<FormPathInputComponent
-							isDisabled={ isPathInputDisabled }
-							doesPathContainWordPress={ doesPathContainWordPress }
-							error={ error }
-							value={ sitePath }
-							onClick={ onSelectPath }
-						/>
-					</label>
+					</>
 				) }
 			</div>
 			{ children }

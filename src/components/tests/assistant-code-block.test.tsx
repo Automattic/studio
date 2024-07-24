@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { act, render, screen, fireEvent } from '@testing-library/react';
 import { getIpcApi } from '../../lib/get-ipc-api';
 import createCodeComponent from '../assistant-code-block';
 
@@ -89,6 +89,14 @@ describe( 'createCodeComponent', () => {
 	} );
 
 	describe( 'when the "run" button is clicked', () => {
+		beforeEach( () => {
+			jest.useFakeTimers();
+		} );
+
+		afterEach( () => {
+			jest.useRealTimers();
+		} );
+
 		it( 'should display an activity indicator while running code', async () => {
 			( getIpcApi as jest.Mock ).mockReturnValue( {
 				executeWPCLiInline: jest.fn().mockResolvedValue( { stdout: 'Mock success', stderr: '' } ),
@@ -100,9 +108,9 @@ describe( 'createCodeComponent', () => {
 
 			expect( screen.getByText( 'Running...' ) ).toBeVisible();
 
-			await waitFor( () => {
-				expect( screen.queryByText( 'Running...' ) ).not.toBeInTheDocument();
-			} );
+			await act( () => jest.runOnlyPendingTimersAsync() );
+
+			expect( screen.queryByText( 'Running...' ) ).not.toBeInTheDocument();
 		} );
 
 		it( 'should display the output of the successfully executed code', async () => {
@@ -113,10 +121,10 @@ describe( 'createCodeComponent', () => {
 
 			fireEvent.click( screen.getByText( 'Run' ) );
 
-			await waitFor( () => {
-				expect( screen.getByText( 'Success' ) ).toBeVisible();
-				expect( screen.getByText( 'Mock success' ) ).toBeVisible();
-			} );
+			await act( () => jest.runOnlyPendingTimersAsync() );
+
+			expect( screen.getByText( 'Success' ) ).toBeVisible();
+			expect( screen.getByText( 'Mock success' ) ).toBeVisible();
 		} );
 
 		it( 'should display the output of the failed code execution', async () => {
@@ -127,10 +135,10 @@ describe( 'createCodeComponent', () => {
 
 			fireEvent.click( screen.getByText( 'Run' ) );
 
-			await waitFor( () => {
-				expect( screen.getByText( 'Error' ) ).toBeVisible();
-				expect( screen.getByText( 'Mock error' ) ).toBeVisible();
-			} );
+			await act( () => jest.runOnlyPendingTimersAsync() );
+
+			expect( screen.getByText( 'Error' ) ).toBeVisible();
+			expect( screen.getByText( 'Mock error' ) ).toBeVisible();
 		} );
 	} );
 

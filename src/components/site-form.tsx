@@ -117,6 +117,9 @@ function FormImportComponent( {
 	};
 
 	const handleFileChange = ( event: React.ChangeEvent< HTMLInputElement > ) => {
+		if ( ! onFileSelected ) {
+			return;
+		}
 		if ( event.target.files && event.target.files[ 0 ] ) {
 			onFileSelected( event.target.files[ 0 ] );
 		}
@@ -242,7 +245,7 @@ export const SiteForm = ( {
 					<FormImportComponent
 						placeholder={ __( 'Select or drop a file' ) }
 						value={ fileForImport }
-						onChange={ setFileForImport }
+						onChange={ ( file ) => setFileForImport( file ) }
 						onClear={ () => setFileForImport( null ) }
 						onFileSelected={ onFileSelected }
 					/>

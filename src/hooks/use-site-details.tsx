@@ -208,7 +208,6 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 			try {
 				const data = await getIpcApi().createSite( path, siteName );
-				console.log( 'Site created:', data );
 				const newSite = data.find( ( site ) => site.path === path );
 				if ( ! newSite ) {
 					showError();
@@ -232,7 +231,6 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 							: site
 					)
 				);
-				console.log( 'Site created:', newSite );
 				return newSite;
 			} catch ( error ) {
 				showError();

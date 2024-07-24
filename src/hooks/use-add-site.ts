@@ -53,7 +53,7 @@ export function useAddSite() {
 	const handleAddSiteClick = useCallback( async () => {
 		try {
 			const path = sitePath ? sitePath : proposedSitePath;
-			const newSite = await createSite( path, siteName ?? '', !! fileForImport ); // Pass true to indicate new site importing
+			const newSite = await createSite( path, siteName ?? '', !! fileForImport );
 			if ( newSite && fileForImport ) {
 				await importFile( fileForImport, newSite );
 			}

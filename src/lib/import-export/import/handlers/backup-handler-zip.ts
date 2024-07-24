@@ -14,16 +14,16 @@ export class BackupHandlerZip extends EventEmitter implements BackupHandler {
 	}
 
 	async extractFiles( file: BackupArchiveInfo, extractionDirectory: string ): Promise< void > {
-		this.emit( ImportEvents.BACKUP_HANDLER_START );
+		this.emit( ImportEvents.BACKUP_EXTRACT_START );
 		return new Promise( ( resolve, reject ) => {
-			this.emit( ImportEvents.BACKUP_HANDLER_PROGRESS );
+			this.emit( ImportEvents.BACKUP_EXTRACT_PROGRESS );
 			const zip = new AdmZip( file.path );
 			zip.extractAllToAsync( extractionDirectory, true, undefined, ( error?: Error ) => {
 				if ( error ) {
-					this.emit( ImportEvents.BACKUP_HANDLER_ERROR, { error } );
+					this.emit( ImportEvents.BACKUP_EXTRACT_ERROR, { error } );
 					reject( error );
 				}
-				this.emit( ImportEvents.BACKUP_HANDLER_COMPLETE );
+				this.emit( ImportEvents.BACKUP_EXTRACT_COMPLETE );
 				resolve();
 			} );
 		} );

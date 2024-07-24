@@ -2,7 +2,7 @@ import fsPromises from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import { ImportExportEventData, handleEvents } from '../types';
-import { HandlerEvents, ImporterEvents, ValidatorEvents } from './events';
+import { BackupExtractEvents, ImporterEvents, ValidatorEvents } from './events';
 import { BackupHandlerFactory } from './handlers/backup-handler-factory';
 import { DefaultImporter, Importer, ImporterResult } from './importers/importer';
 import { BackupArchiveInfo, NewImporter } from './types';
@@ -43,7 +43,7 @@ export async function importBackup(
 		const importer = selectImporter( fileList, extractionDirectory, onEvent, options );
 
 		if ( importer ) {
-			handleEvents( backupHandler, onEvent, HandlerEvents );
+			handleEvents( backupHandler, onEvent, BackupExtractEvents );
 			handleEvents( importer, onEvent, ImporterEvents );
 			await backupHandler.extractFiles( backupFile, extractionDirectory );
 			return await importer.import( sitePath );

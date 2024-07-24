@@ -18,19 +18,19 @@ export class BackupHandlerTarGz extends EventEmitter implements BackupHandler {
 
 	async extractFiles( file: BackupArchiveInfo, extractionDirectory: string ): Promise< void > {
 		return new Promise< void >( ( resolve, reject ) => {
-			this.emit( ImportEvents.BACKUP_HANDLER_START );
+			this.emit( ImportEvents.BACKUP_EXTRACT_START );
 			fs.createReadStream( file.path )
 				.pipe( zlib.createGunzip() )
 				.pipe( tar.extract( { cwd: extractionDirectory } ) )
 				.on( 'finish', () => {
-					this.emit( ImportEvents.BACKUP_HANDLER_COMPLETE );
+					this.emit( ImportEvents.BACKUP_EXTRACT_COMPLETE );
 					resolve();
 				} )
 				.on( 'data', () => {
-					this.emit( ImportEvents.BACKUP_HANDLER_PROGRESS );
+					this.emit( ImportEvents.BACKUP_EXTRACT_PROGRESS );
 				} )
 				.on( 'error', ( error ) => {
-					this.emit( ImportEvents.BACKUP_HANDLER_ERROR, { error } );
+					this.emit( ImportEvents.BACKUP_EXTRACT_ERROR, { error } );
 					reject( error );
 				} );
 		} );

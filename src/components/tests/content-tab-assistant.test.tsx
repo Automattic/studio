@@ -110,7 +110,6 @@ describe( 'ContentTabAssistant', () => {
 		const storageKey = 'ai_chat_messages';
 		localStorage.setItem( storageKey, JSON.stringify( { [ runningSite.id ]: initialMessages } ) );
 		render( <ContentTabAssistant selectedSite={ runningSite } /> );
-		jest.advanceTimersByTime( MIMIC_CONVERSATION_DELAY + 1000 );
 		await waitFor( () => {
 			expect( screen.getByText( 'Initial message 1' ) ).toBeVisible();
 			expect( screen.getByText( 'Initial message 2' ) ).toBeVisible();
@@ -214,7 +213,6 @@ describe( 'ContentTabAssistant', () => {
 		act( () => {
 			fireEvent.change( textInput, { target: { value: 'New message' } } );
 			fireEvent.keyDown( textInput, { key: 'Enter', code: 'Enter' } );
-			jest.advanceTimersByTime( MIMIC_CONVERSATION_DELAY + 1000 );
 		} );
 		await waitFor( () => {
 			expect( screen.getByText( 'New message' ) ).toBeVisible();
@@ -325,6 +323,7 @@ describe( 'ContentTabAssistant', () => {
 	test( 'clears history via reminder when last message is two hours old', async () => {
 		const MOCKED_TIME = 1718882159928;
 		const TWO_HOURS_DIFF = 2 * 60 * 60 * 1000;
+		jest.useFakeTimers();
 		jest.setSystemTime( MOCKED_TIME );
 
 		const storageKey = 'ai_chat_messages';
@@ -369,6 +368,7 @@ describe( 'ContentTabAssistant', () => {
 			},
 			{ timeout: MIMIC_CONVERSATION_DELAY + 1000 }
 		);
+		jest.useRealTimers();
 	} );
 
 	test( 'renders notices by importance', async () => {

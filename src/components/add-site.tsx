@@ -1,5 +1,7 @@
 import { speak } from '@wordpress/a11y';
+import { Icon } from '@wordpress/components';
 import { sprintf } from '@wordpress/i18n';
+import { download } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { useAddSite } from '../hooks/use-add-site';
@@ -131,6 +133,14 @@ export default function AddSite( { className }: AddSiteProps ) {
 					onRequestClose={ closeModal }
 				>
 					<div ref={ dropRef }>
+						{ isDraggingOver && (
+							<div className="absolute inset-0 bg-white bg-opacity-80 z-10 backdrop-blur-sm flex flex-col items-center justify-center">
+								<Icon width={ 32 } height={ 34 } icon={ download } className="fill-a8c-blueberry" />
+								<span className="text-[13px] leading-[16px] text-black mt-4">
+									{ __( 'Drop backup to import' ) }
+								</span>
+							</div>
+						) }
 						<SiteForm
 							siteName={ siteName || '' }
 							setSiteName={ handleSiteNameChange }

@@ -3,7 +3,7 @@ import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { tip, warning, trash, chevronRight, chevronDown } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { FormEvent, useState } from 'react';
+import { FormEvent, useRef, useState } from 'react';
 import { STUDIO_DOCS_URL } from '../constants';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
@@ -98,14 +98,10 @@ function FormPathInputComponent( {
 	);
 }
 
-function FormImportComponent( {
-	value,
-	onClick,
-	onClear,
-	error,
-	placeholder,
-}: FormImportComponentProps ) {
+function FormImportComponent( { value, onClear, error, placeholder }: FormImportComponentProps ) {
 	const fileName = value ? value.name : '';
+
+	const inputFileRef = useRef< HTMLInputElement >( null );
 
 	const handleIconClick = ( event: FormEvent ) => {
 		event.stopPropagation();
@@ -124,7 +120,7 @@ function FormImportComponent( {
 					'flex flex-row items-stretch rounded-sm border border-[#949494] focus:border-a8c-blueberry focus:shadow-[0_0_0_0.5px_black] focus:shadow-a8c-blueberry outline-none transition-shadow transition-linear duration-100 [&_.local-path-icon]:focus:border-l-a8c-blueberry [&:disabled]:cursor-not-allowed',
 					error ? 'border-red-500 [&_.local-path-icon]:border-l-red-500' : ''
 				) }
-				onClick={ onClick }
+				onClick={ () => inputFileRef.current?.click() }
 			>
 				<TextControlComponent
 					aria-hidden="true"
@@ -155,6 +151,14 @@ function FormImportComponent( {
 					</div>
 				</Button>
 			) }
+			<input
+				id="backup-file"
+				ref={ inputFileRef }
+				className="hidden"
+				type="file"
+				data-testid="backup-file"
+				accept=".zip,.sql,.tar,.gz"
+			/>
 		</div>
 	);
 }

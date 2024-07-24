@@ -98,6 +98,10 @@ export default function Onboarding() {
 		[ handleAddSiteClick, siteAddedMessage ]
 	);
 
+	const handleImportFile = useCallback( async ( file: File ) => {
+		setImportFile( file );
+	}, [] );
+
 	return (
 		<div className="flex flex-row flex-grow" data-testid="onboarding">
 			<div className="w-1/2 bg-a8c-blueberry pb-[50px] pt-[46px] px-[50px] flex flex-col justify-between">
@@ -130,6 +134,7 @@ export default function Onboarding() {
 							onSubmit={ handleSubmit }
 							importFile={ importFile }
 							setImportFile={ setImportFile }
+							onFileSelected={ handleImportFile }
 						>
 							<div className="flex flex-row gap-x-5 mt-6">
 								<Button type="submit" variant="primary">

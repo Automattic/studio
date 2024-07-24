@@ -21,7 +21,7 @@ interface FormPathInputComponentProps {
 
 interface FormImportComponentProps {
 	value?: File | null;
-	onClick?: () => void;
+	onFileSelected?: ( file: File ) => void;
 	onClear?: () => void;
 	onChange: ( file: File | null ) => void;
 	error?: string;
@@ -98,7 +98,13 @@ function FormPathInputComponent( {
 	);
 }
 
-function FormImportComponent( { value, onClear, error, placeholder }: FormImportComponentProps ) {
+function FormImportComponent( {
+	value,
+	onFileSelected,
+	onClear,
+	error,
+	placeholder,
+}: FormImportComponentProps ) {
 	const fileName = value ? value.name : '';
 
 	const inputFileRef = useRef< HTMLInputElement >( null );
@@ -107,6 +113,12 @@ function FormImportComponent( { value, onClear, error, placeholder }: FormImport
 		event.stopPropagation();
 		if ( onClear ) {
 			onClear();
+		}
+	};
+
+	const handleFileChange = ( event: React.ChangeEvent< HTMLInputElement > ) => {
+		if ( event.target.files && event.target.files[ 0 ] ) {
+			onFileSelected( event.target.files[ 0 ] );
 		}
 	};
 
@@ -158,6 +170,7 @@ function FormImportComponent( { value, onClear, error, placeholder }: FormImport
 				type="file"
 				data-testid="backup-file"
 				accept=".zip,.sql,.tar,.gz"
+				onChange={ handleFileChange }
 			/>
 		</div>
 	);
@@ -176,6 +189,7 @@ export const SiteForm = ( {
 	onSubmit,
 	importFile,
 	setImportFile,
+	onFileSelected,
 }: {
 	className?: string;
 	children?: React.ReactNode;
@@ -189,6 +203,7 @@ export const SiteForm = ( {
 	onSubmit: ( event: FormEvent ) => void;
 	importFile: File | null;
 	setImportFile: ( file: File | null ) => void;
+	onFileSelected?: ( file: File ) => void;
 } ) => {
 	const { __ } = useI18n();
 
@@ -229,6 +244,7 @@ export const SiteForm = ( {
 						value={ importFile }
 						onChange={ setImportFile }
 						onClear={ () => setImportFile( null ) }
+						onFileSelected={ onFileSelected }
 					/>
 				</div>
 				<div className="flex flex-row">

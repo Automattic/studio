@@ -32,7 +32,7 @@ describe( 'importManager', () => {
 			const result = selectImporter(
 				[ 'file1.txt', 'file2.txt' ],
 				'/tmp/extracted',
-				jest.fn,
+				jest.fn(),
 				options
 			);
 
@@ -60,7 +60,7 @@ describe( 'importManager', () => {
 			const result = selectImporter(
 				[ 'file1.txt', 'file2.txt' ],
 				'/tmp/extracted',
-				jest.fn,
+				jest.fn(),
 				options
 			);
 
@@ -107,7 +107,7 @@ describe( 'importManager', () => {
 					importer: MockImporterClass,
 				},
 			];
-			await importBackup( mockFile, mockSitePath, jest.fn, options );
+			await importBackup( mockFile, mockSitePath, jest.fn(), options );
 
 			expect( fsPromises.mkdtemp ).toHaveBeenCalledWith( '/tmp/studio_backup' );
 			expect( mockBackupHandler.listFiles ).toHaveBeenCalledWith( mockFile );
@@ -130,7 +130,7 @@ describe( 'importManager', () => {
 			( BackupHandlerFactory.create as jest.Mock ).mockReturnValue( mockBackupHandler );
 
 			await expect(
-				importBackup( mockFile, mockSitePath, jest.fn, [
+				importBackup( mockFile, mockSitePath, jest.fn(), [
 					{
 						validator: mockValidator,
 						importer: jest.fn(),

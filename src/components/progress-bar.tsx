@@ -1,4 +1,13 @@
-const ProgressBar = ( { value, maxValue }: { value: number; maxValue: number } ) => {
+import { useEffect, useState } from 'react';
+
+const ProgressBar = ( {
+	value,
+	maxValue,
+}: {
+	value: number;
+	maxValue: number;
+	autoProgress?: boolean;
+} ) => {
 	// Calculate width percentage of the filled part
 	const fillPercentage = Math.max( 0, Math.min( 100, ( value / maxValue ) * 100 ) );
 
@@ -15,3 +24,27 @@ const ProgressBar = ( { value, maxValue }: { value: number; maxValue: number } )
 };
 
 export default ProgressBar;
+
+export function ProgressBarWithAutoIncrement( {
+	maxValue,
+	initialValue,
+	increment = 2,
+}: {
+	maxValue: number;
+	initialValue: number;
+	increment?: number;
+} ) {
+	const [ value, setValue ] = useState( initialValue );
+
+	useEffect( () => {
+		const interval = setInterval( () => {
+			if ( value < maxValue ) {
+				setValue( value + increment );
+			}
+		}, 1000 );
+
+		return () => clearInterval( interval );
+	}, [ value, maxValue, increment ] );
+
+	return <ProgressBar value={ value } maxValue={ maxValue } />;
+}

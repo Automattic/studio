@@ -30,32 +30,27 @@ export function useExecuteWPCLI(
 			args: args.join( ' ' ),
 		} );
 
-		setTimeout( () => {
-			const msTime = Date.now() - startTime;
-			if ( result.stderr ) {
-				setCliOutput( result.stderr );
-				setCliStatus( 'error' );
-			} else {
-				setCliOutput( result.stdout );
-				setCliStatus( 'success' );
-			}
-			const completedIn = sprintf(
-				__( 'Completed in %s seconds' ),
-				( msTime / 1000 ).toFixed( 2 )
-			);
-			setCliTime( completedIn );
-			setIsRunning( false );
+		const msTime = Date.now() - startTime;
+		if ( result.stderr ) {
+			setCliOutput( result.stderr );
+			setCliStatus( 'error' );
+		} else {
+			setCliOutput( result.stdout );
+			setCliStatus( 'success' );
+		}
+		const completedIn = sprintf( __( 'Completed in %s seconds' ), ( msTime / 1000 ).toFixed( 2 ) );
+		setCliTime( completedIn );
+		setIsRunning( false );
 
-			if ( updateMessage && messageId !== undefined ) {
-				updateMessage(
-					messageId,
-					content,
-					result.stdout || result.stderr,
-					result.stderr ? 'error' : 'success',
-					completedIn || ''
-				);
-			}
-		}, 2300 );
+		if ( updateMessage && messageId !== undefined ) {
+			updateMessage(
+				messageId,
+				content,
+				result.stdout || result.stderr,
+				result.stderr ? 'error' : 'success',
+				completedIn || ''
+			);
+		}
 	}, [ content, messageId, siteId, updateMessage ] );
 
 	return {

@@ -82,7 +82,8 @@ export default function AddSite( { className }: AddSiteProps ) {
 		setNameSuggested( false );
 		setSitePath( '' );
 		setDoesPathContainWordPress( false );
-	}, [ setSitePath, setDoesPathContainWordPress ] );
+		setFileForImport( null );
+	}, [ setSitePath, setDoesPathContainWordPress, setFileForImport ] );
 
 	const handleSubmit = useCallback(
 		async ( event: FormEvent ) => {
@@ -92,11 +93,12 @@ export default function AddSite( { className }: AddSiteProps ) {
 				await handleAddSiteClick();
 				speak( siteAddedMessage );
 				setNameSuggested( false );
+				setFileForImport( null );
 			} catch {
 				// No need to handle error here, it's already handled in handleAddSiteClick
 			}
 		},
-		[ handleAddSiteClick, closeModal, siteAddedMessage ]
+		[ closeModal, setFileForImport, handleAddSiteClick, siteAddedMessage ]
 	);
 
 	const handleImportFile = useCallback(

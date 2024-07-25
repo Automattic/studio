@@ -102,6 +102,7 @@ describe( 'ContentTabSnapshots', () => {
 			activeSnapshotCount: 1,
 			snapshotQuota: LIMIT_OF_ZIP_SITES_PER_USER,
 			isLoadingSnapshotUsage: false,
+			fetchSnapshotUsage: jest.fn(),
 		} );
 		( useOffline as jest.Mock ).mockReturnValue( false );
 
@@ -336,6 +337,7 @@ describe( 'ContentTabSnapshots', () => {
 					deleted: false,
 				},
 			],
+			fetchSnapshotUsage: jest.fn(),
 		} );
 		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
 

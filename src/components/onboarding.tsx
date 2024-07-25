@@ -3,7 +3,7 @@ import { sprintf } from '@wordpress/i18n';
 import { Icon, wordpress } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
-import { ACCEPTED_FILE_TYPES } from '../constants';
+import { ACCEPTED_IMPORT_FILE_TYPES } from '../constants';
 import { useAddSite } from '../hooks/use-add-site';
 import { useDragAndDropFile } from '../hooks/use-drag-and-drop-file';
 import { generateSiteName } from '../lib/generate-site-name';
@@ -61,7 +61,7 @@ export default function Onboarding() {
 
 	const { dropRef, isDraggingOver } = useDragAndDropFile< HTMLDivElement >( {
 		onFileDrop: ( file: File ) => {
-			if ( ACCEPTED_FILE_TYPES.includes( file.type ) ) {
+			if ( ACCEPTED_IMPORT_FILE_TYPES.includes( file.type ) ) {
 				setFileForImport( file );
 				setFileError( '' );
 			} else {

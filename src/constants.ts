@@ -19,7 +19,7 @@ export const WPCOM_PROFILE_URL = `https://wordpress.com/me`;
 
 //Import file constants
 
-export const ACCEPTED_FILE_TYPES = [
+export const ACCEPTED_IMPORT_FILE_TYPES = [
 	'application/zip',
 	'application/x-gzip',
 	'application/sql',

@@ -2,7 +2,7 @@ import { speak } from '@wordpress/a11y';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
-import { ACCEPTED_FILE_TYPES } from '../constants';
+import { ACCEPTED_IMPORT_FILE_TYPES } from '../constants';
 import { useAddSite } from '../hooks/use-add-site';
 import { useDragAndDropFile } from '../hooks/use-drag-and-drop-file';
 import { useIpcListener } from '../hooks/use-ipc-listener';
@@ -116,7 +116,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 
 	const { dropRef, isDraggingOver } = useDragAndDropFile< HTMLDivElement >( {
 		onFileDrop: ( file: File ) => {
-			if ( ACCEPTED_FILE_TYPES.includes( file.type ) ) {
+			if ( ACCEPTED_IMPORT_FILE_TYPES.includes( file.type ) ) {
 				setFileForImport( file );
 				setFileError( '' );
 			} else {

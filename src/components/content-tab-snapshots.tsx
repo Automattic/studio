@@ -21,7 +21,7 @@ import { CopyTextButton } from './copy-text-button';
 import offlineIcon from './offline-icon';
 import ProgressBar from './progress-bar';
 import { ScreenshotDemoSite } from './screenshot-demo-site';
-import Tooltip from './tooltip';
+import Tooltip, { TooltipProps } from './tooltip';
 
 interface ContentTabSnapshotsProps {
 	selectedSite: SiteDetails;
@@ -164,6 +164,18 @@ function SnapshotRow( {
 			</div>
 		);
 	}
+
+	let tooltipContent: Partial< TooltipProps & { text?: string } > = {};
+	if ( isOffline ) {
+		tooltipContent = {
+			icon: offlineIcon,
+			text: updateDemoSiteOfflineMessage,
+		};
+	} else if ( snapshotCreationBlocked ) {
+		tooltipContent = { text: blockedUserMessage };
+	}
+	const isUpdateDisabled = isOffline || snapshotCreationBlocked;
+
 	return (
 		<div className="self-stretch flex-col px-4 py-3">
 			<div className="flex gap-2 items-center">
@@ -192,23 +204,13 @@ function SnapshotRow( {
 					</div>
 				) : (
 					<>
-						<Tooltip
-							disabled={ ! ( isOffline || snapshotCreationBlocked ) }
-							{ ...( isOffline && { icon: offlineIcon } ) }
-							text={ isOffline ? updateDemoSiteOfflineMessage : blockedUserMessage }
-						>
+						<Tooltip disabled={ ! isUpdateDisabled } { ...tooltipContent }>
 							<Button
-								aria-description={
-									snapshotCreationBlocked
-										? blockedUserMessage
-										: isOffline
-										? updateDemoSiteOfflineMessage
-										: ''
-								}
-								aria-disabled={ isOffline || snapshotCreationBlocked }
+								aria-description={ tooltipContent?.text || '' }
+								aria-disabled={ isUpdateDisabled }
 								variant="primary"
 								onClick={ () => {
-									if ( isOffline || snapshotCreationBlocked ) {
+									if ( isUpdateDisabled ) {
 										return;
 									}
 									handleUpdateDemoSite();

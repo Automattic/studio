@@ -110,6 +110,7 @@ export default function Onboarding() {
 	const handleImportFile = useCallback(
 		async ( file: File ) => {
 			setFileForImport( file );
+			setFileError( '' );
 		},
 		[ setFileForImport ]
 	);

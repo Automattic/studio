@@ -109,6 +109,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 	const handleImportFile = useCallback(
 		async ( file: File ) => {
 			setFileForImport( file );
+			setFileError( '' );
 		},
 		[ setFileForImport ]
 	);

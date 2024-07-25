@@ -3,19 +3,13 @@ import { sprintf } from '@wordpress/i18n';
 import { Icon, wordpress, download } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { ACCEPTED_FILE_TYPES } from '../constants';
 import { useAddSite } from '../hooks/use-add-site';
 import { useDragAndDropFile } from '../hooks/use-drag-and-drop-file';
 import { generateSiteName } from '../lib/generate-site-name';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
 import { SiteForm } from './site-form';
-
-const acceptedFileTypes = [
-	'application/zip',
-	'application/x-gzip',
-	'application/sql',
-	'application/x-tar',
-];
 
 const GradientBox = () => {
 	const { __ } = useI18n();
@@ -66,7 +60,7 @@ export default function Onboarding() {
 
 	const { dropRef, isDraggingOver } = useDragAndDropFile< HTMLDivElement >( {
 		onFileDrop: ( file: File ) => {
-			if ( acceptedFileTypes.includes( file.type ) ) {
+			if ( ACCEPTED_FILE_TYPES.includes( file.type ) ) {
 				setFileForImport( file );
 				setFileError( '' );
 			} else {

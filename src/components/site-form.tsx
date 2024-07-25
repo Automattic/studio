@@ -267,7 +267,7 @@ export const SiteForm = ( {
 							<FormImportComponent
 								placeholder={ __( 'Select or drop a file' ) }
 								value={ fileForImport }
-								onChange={ ( file ) => setFileForImport( file ) }
+								onChange={ setFileForImport }
 								onClear={ () => setFileForImport( null ) }
 								onFileSelected={ onFileSelected }
 								error={ fileError }

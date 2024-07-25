@@ -126,59 +126,76 @@ function FormImportComponent( {
 	};
 
 	return (
-		<div className="flex items-center">
-			<button
-				aria-invalid={ !! error }
-				type="button"
-				aria-label={ `${ value }, ${ __( 'Select different file' ) }` }
-				className={ cx(
-					'flex items-center flex-grow rounded-sm border border-[#949494] focus:border-a8c-blueberry focus:shadow-[0_0_0_0.5px_black] focus:shadow-a8c-blueberry outline-none transition-shadow transition-linear duration-100 [&_.local-path-icon]:focus:border-l-a8c-blueberry [&:disabled]:cursor-not-allowed',
-					error ? 'border-red-500 [&_.local-path-icon]:border-l-red-500' : '',
-					fileName ? 'border-r-0 rounded-r-none' : ''
+		<>
+			<div className="flex items-center">
+				<button
+					aria-invalid={ !! error }
+					type="button"
+					aria-label={ `${ value }, ${ __( 'Select different file' ) }` }
+					className={ cx(
+						'flex items-center flex-grow rounded-sm border border-[#949494] focus:border-a8c-blueberry focus:shadow-[0_0_0_0.5px_black] focus:shadow-a8c-blueberry outline-none transition-shadow transition-linear duration-100 [&_.local-path-icon]:focus:border-l-a8c-blueberry [&:disabled]:cursor-not-allowed',
+						error ? 'border-red-500 [&_.local-path-icon]:border-l-red-500' : '',
+						fileName ? 'border-r-0 rounded-r-none' : ''
+					) }
+					onClick={ () => inputFileRef.current?.click() }
+				>
+					<TextControlComponent
+						aria-hidden="true"
+						disabled={ true }
+						placeholder={ placeholder }
+						className="flex-grow [&_.components-text-control\_\_input]:bg-transparent [&_.components-text-control\_\_input]:border-none [&_input]:pointer-events-none [&_.components-text-control\_\_input]:text-sm w-full"
+						value={ fileName }
+						// eslint-disable-next-line @typescript-eslint/no-empty-function
+						onChange={ () => {} }
+					/>
+					{ ! fileName && (
+						<div
+							aria-hidden="true"
+							className="local-path-icon flex items-center py-[9px] px-2.5 border border-l-0 border-t-0 border-r-0 border-b-0"
+						>
+							<FolderIcon className="text-[#3C434A]" />
+						</div>
+					) }
+				</button>
+				{ fileName && (
+					<Button variant="icon" onClick={ handleIconClick }>
+						<div
+							aria-hidden="true"
+							className="flex items-center py-[10px] px-2.5 rounded-tr-sm rounded-br-sm border border-[#949494] border-l-0"
+						>
+							<Icon size={ 20 } icon={ trash } />
+						</div>
+					</Button>
 				) }
-				onClick={ () => inputFileRef.current?.click() }
-			>
-				<TextControlComponent
-					aria-hidden="true"
-					disabled={ true }
-					placeholder={ placeholder }
-					className="flex-grow [&_.components-text-control\_\_input]:bg-transparent [&_.components-text-control\_\_input]:border-none [&_input]:pointer-events-none [&_.components-text-control\_\_input]:text-sm w-full"
-					value={ fileName }
-					// eslint-disable-next-line @typescript-eslint/no-empty-function
-					onChange={ () => {} }
+				<input
+					id="backup-file"
+					ref={ inputFileRef }
+					className="hidden"
+					type="file"
+					data-testid="backup-file"
+					accept=".zip,.sql,.tar,.gz"
+					onChange={ handleFileChange }
 				/>
-				{ ! fileName && (
-					<div
-						aria-hidden="true"
-						className="local-path-icon flex items-center py-[9px] px-2.5 border border-l-0 border-t-0 border-r-0 border-b-0"
-					>
-						<FolderIcon className="text-[#3C434A]" />
-					</div>
-				) }
-			</button>
-			{ fileName && (
-				<Button variant="icon" onClick={ handleIconClick }>
-					<div
-						aria-hidden="true"
-						className="flex items-center py-[10px] px-2.5 rounded-tr-sm rounded-br-sm border border-[#949494] border-l-0"
-					>
-						<Icon size={ 20 } icon={ trash } />
-					</div>
-				</Button>
+			</div>
+			{ error && (
+				<div
+					id="file-error"
+					role="alert"
+					aria-atomic="true"
+					className="flex items-start text-red-500"
+				>
+					<Icon
+						className="shrink-0 basis-4 fill-red-500"
+						icon={ warning }
+						width={ 16 }
+						height={ 16 }
+					/>
+					<p>{ error }</p>
+				</div>
 			) }
-			<input
-				id="backup-file"
-				ref={ inputFileRef }
-				className="hidden"
-				type="file"
-				data-testid="backup-file"
-				accept=".zip,.sql,.tar,.gz"
-				onChange={ handleFileChange }
-			/>
-		</div>
+		</>
 	);
 }
-
 export const SiteForm = ( {
 	className,
 	children,
@@ -193,6 +210,7 @@ export const SiteForm = ( {
 	fileForImport,
 	setFileForImport,
 	onFileSelected,
+	fileError,
 }: {
 	className?: string;
 	children?: React.ReactNode;
@@ -207,6 +225,7 @@ export const SiteForm = ( {
 	fileForImport?: File | null;
 	setFileForImport?: ( file: File | null ) => void;
 	onFileSelected?: ( file: File ) => void;
+	fileError?: string;
 } ) => {
 	const { __ } = useI18n();
 
@@ -250,6 +269,7 @@ export const SiteForm = ( {
 								onChange={ ( file ) => setFileForImport( file ) }
 								onClear={ () => setFileForImport( null ) }
 								onFileSelected={ onFileSelected }
+								error={ fileError }
 							/>
 						</div>
 						<div className="flex flex-row">

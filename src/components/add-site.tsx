@@ -18,10 +18,19 @@ interface AddSiteProps {
 	className?: string;
 }
 
+const acceptedFileTypes = [
+	'application/zip',
+	'application/x-gzip',
+	'application/sql',
+	'application/x-tar',
+];
+
 export default function AddSite( { className }: AddSiteProps ) {
 	const { __ } = useI18n();
 	const [ showModal, setShowModal ] = useState( false );
 	const [ nameSuggested, setNameSuggested ] = useState( false );
+	const [ fileError, setFileError ] = useState( '' );
+
 	const { data } = useSiteDetails();
 
 	const {
@@ -85,6 +94,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 		setSitePath( '' );
 		setDoesPathContainWordPress( false );
 		setFileForImport( null );
+		setFileError( '' );
 	}, [ setSitePath, setDoesPathContainWordPress, setFileForImport ] );
 
 	const handleSubmit = useCallback(
@@ -109,9 +119,16 @@ export default function AddSite( { className }: AddSiteProps ) {
 		},
 		[ setFileForImport ]
 	);
+
 	const { dropRef, isDraggingOver } = useDragAndDropFile< HTMLDivElement >( {
 		onFileDrop: ( file: File ) => {
-			setFileForImport( file );
+			if ( acceptedFileTypes.includes( file.type ) ) {
+				setFileForImport( file );
+				setFileError( '' );
+			} else {
+				setFileError( __( 'Invalid file type. Please select a valid backup file.' ) );
+				setFileForImport( null );
+			}
 		},
 	} );
 
@@ -152,6 +169,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 							fileForImport={ fileForImport }
 							setFileForImport={ setFileForImport }
 							onFileSelected={ handleImportFile }
+							fileError={ fileError }
 						>
 							<div className="flex flex-row justify-end gap-x-5 mt-6">
 								<Button onClick={ closeModal } disabled={ isSiteAdding } variant="tertiary">

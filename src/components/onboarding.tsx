@@ -2,13 +2,20 @@ import { speak } from '@wordpress/a11y';
 import { sprintf } from '@wordpress/i18n';
 import { Icon, wordpress, download } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { FormEvent, useCallback, useEffect } from 'react';
+import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { useAddSite } from '../hooks/use-add-site';
 import { useDragAndDropFile } from '../hooks/use-drag-and-drop-file';
 import { generateSiteName } from '../lib/generate-site-name';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
 import { SiteForm } from './site-form';
+
+const acceptedFileTypes = [
+	'application/zip',
+	'application/x-gzip',
+	'application/sql',
+	'application/x-tar',
+];
 
 const GradientBox = () => {
 	const { __ } = useI18n();
@@ -49,6 +56,7 @@ export default function Onboarding() {
 		setFileForImport,
 		fileForImport,
 	} = useAddSite();
+	const [ fileError, setFileError ] = useState( '' );
 
 	const siteAddedMessage = sprintf(
 		// translators: %s is the site name.
@@ -58,7 +66,13 @@ export default function Onboarding() {
 
 	const { dropRef, isDraggingOver } = useDragAndDropFile< HTMLDivElement >( {
 		onFileDrop: ( file: File ) => {
-			setFileForImport( file );
+			if ( acceptedFileTypes.includes( file.type ) ) {
+				setFileForImport( file );
+				setFileError( '' );
+			} else {
+				setFileError( __( 'Invalid file type. Please select a valid backup file.' ) );
+				setFileForImport( null );
+			}
 		},
 	} );
 
@@ -138,6 +152,7 @@ export default function Onboarding() {
 							fileForImport={ fileForImport }
 							setFileForImport={ setFileForImport }
 							onFileSelected={ handleImportFile }
+							fileError={ fileError }
 						>
 							<div className="flex flex-row gap-x-5 mt-6">
 								<Button type="submit" variant="primary">

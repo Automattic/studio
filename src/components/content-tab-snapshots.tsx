@@ -55,7 +55,6 @@ function SnapshotRow( {
 	const { countDown, isExpired, dateString } = useExpirationDate( date );
 	const { deleteSnapshot, fetchSnapshotUsage, snapshotCreationBlocked } = useSnapshots();
 	const { updateDemoSite, isDemoSiteUpdating } = useUpdateDemoSite();
-	const errorMessages = useArchiveErrorMessages();
 
 	const isOffline = useOffline();
 	const updateDemoSiteOfflineMessage = __(
@@ -64,7 +63,7 @@ function SnapshotRow( {
 	const deleteDemoSiteOfflineMessage = __(
 		'Deleting a demo site requires an internet connection.'
 	);
-	const blockedUserMessage = errorMessages.rest_site_creation_blocked;
+	const blockedUserMessage = __( 'Demo sites are not available for your account.' );
 
 	const { progress, setProgress } = useProgressTimer( {
 		paused: ! isDemoSiteUpdating,

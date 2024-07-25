@@ -1,6 +1,6 @@
 import { speak } from '@wordpress/a11y';
 import { sprintf } from '@wordpress/i18n';
-import { Icon, wordpress, download } from '@wordpress/icons';
+import { Icon, wordpress } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { ACCEPTED_FILE_TYPES } from '../constants';
@@ -9,6 +9,7 @@ import { useDragAndDropFile } from '../hooks/use-drag-and-drop-file';
 import { generateSiteName } from '../lib/generate-site-name';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
+import DragAndDropOverlay from './drag-and-drop-overlay';
 import { SiteForm } from './site-form';
 
 const GradientBox = () => {
@@ -123,14 +124,7 @@ export default function Onboarding() {
 			</div>
 
 			<div className="w-1/2 bg-white p-[50px] flex flex-col relative" ref={ dropRef }>
-				{ isDraggingOver && (
-					<div className="absolute inset-0 bg-white bg-opacity-80 z-10 backdrop-blur-sm flex flex-col items-center justify-center">
-						<Icon width={ 32 } height={ 34 } icon={ download } className="fill-a8c-blueberry" />
-						<span className="text-[13px] leading-[16px] text-black mt-4">
-							{ __( 'Drop backup to import' ) }
-						</span>
-					</div>
-				) }
+				{ isDraggingOver && <DragAndDropOverlay /> }
 				<div className="h-[569px] flex flex-col justify-center items-start flex-[1_0_0%] gap-8">
 					<div className="flex flex-col items-start self-stretch gap-6 app-no-drag-region">
 						<h1 className="font-normal text-xl leading-5">{ __( 'Add your first site' ) }</h1>

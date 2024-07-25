@@ -33,7 +33,9 @@ interface SnapshotContextType {
 	loadingServerSnapshots: boolean;
 	activeSnapshotCount: number;
 	snapshotQuota: number;
-	fetchSnapshotUsage: () => Promise< { site_limit: number; site_count: number } | undefined >;
+	fetchSnapshotUsage: () => Promise<
+		{ site_limit: number; site_count: number; site_creation_blocked: boolean } | undefined
+	>;
 	isLoadingSnapshotUsage: boolean;
 	initiated: boolean;
 	snapshotCreationBlocked: boolean;

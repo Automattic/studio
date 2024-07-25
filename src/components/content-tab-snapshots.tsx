@@ -72,11 +72,7 @@ function SnapshotRow( {
 	} );
 
 	useEffect( () => {
-		const intervalId = setInterval( () => {
-			fetchSnapshotUsage(); // Function to fetch the latest data from the endpoint
-		}, 10000 );
-
-		return () => clearInterval( intervalId ); // Cleanup the interval on component unmount
+		fetchSnapshotUsage();
 	}, [ fetchSnapshotUsage ] );
 
 	useEffect( () => {

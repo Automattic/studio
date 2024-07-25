@@ -169,7 +169,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	);
 
 	const createSite = useCallback(
-		async ( path: string, siteName?: string, isImportingNewSite?: boolean ) => {
+		async ( path: string, siteName?: string, isImportingNewSite = false ) => {
 			// Function to handle error messages and cleanup
 			const showError = () => {
 				console.error( 'Failed to create site' );

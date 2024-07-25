@@ -28,6 +28,36 @@ interface FormImportComponentProps {
 	placeholder?: string;
 }
 
+interface SiteFormErrorProps {
+	error?: string;
+	tipMessage?: string;
+	className?: string;
+}
+
+const SiteFormError = ( { error, tipMessage = '', className = '' }: SiteFormErrorProps ) => {
+	return (
+		( error || tipMessage ) && (
+			<div
+				id={ error ? 'error-message' : 'tip-message' }
+				role="alert"
+				aria-atomic="true"
+				className={ cx(
+					'flex items-start gap-1',
+					error ? 'text-red-500' : 'text-a8c-gray-70',
+					className
+				) }
+			>
+				<Icon
+					className={ cx( 'shrink-0 basis-4', error ? 'fill-red-500' : '' ) }
+					icon={ error ? warning : tip }
+					width={ 16 }
+					height={ 16 }
+				/>
+				<p>{ error ? error : __( tipMessage ) }</p>
+			</div>
+		)
+	);
+};
 function FormPathInputComponent( {
 	value,
 	onClick,
@@ -74,26 +104,12 @@ function FormPathInputComponent( {
 					<FolderIcon className="text-[#3C434A]" />
 				</div>
 			</button>
-			{ ( error || doesPathContainWordPress ) && (
-				<div
-					id="site-path-error"
-					role="alert"
-					aria-atomic="true"
-					className={ cx(
-						'flex flex-row items-start a8c-helper-text pt-1.5 gap-1',
-						error ? 'text-red-500' : '',
-						doesPathContainWordPress ? 'text-a8c-gray-70' : ''
-					) }
-				>
-					<Icon
-						className={ cx( 'shrink-0 basis-4', error ? 'fill-red-500' : '' ) }
-						icon={ error ? warning : tip }
-						width={ 16 }
-						height={ 16 }
-					/>
-					<p>{ error ? error : __( 'The existing WordPress site at this path will be added.' ) }</p>
-				</div>
-			) }
+			<SiteFormError
+				error={ error }
+				tipMessage={
+					doesPathContainWordPress ? 'The existing WordPress site at this path will be added.' : ''
+				}
+			/>
 		</div>
 	);
 }
@@ -177,22 +193,7 @@ function FormImportComponent( {
 					onChange={ handleFileChange }
 				/>
 			</div>
-			{ error && (
-				<div
-					id="file-error"
-					role="alert"
-					aria-atomic="true"
-					className="flex items-start text-red-500"
-				>
-					<Icon
-						className="shrink-0 basis-4 fill-red-500"
-						icon={ warning }
-						width={ 16 }
-						height={ 16 }
-					/>
-					<p>{ error }</p>
-				</div>
-			) }
+			<SiteFormError error={ error } className="pt-0" />
 		</>
 	);
 }

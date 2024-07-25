@@ -5,6 +5,7 @@ import { Icon, check, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren, useEffect } from 'react';
 import { CLIENT_ID, PROTOCOL_PREFIX, WP_AUTHORIZE_ENDPOINT, SCOPES } from '../constants';
+import { useArchiveErrorMessages } from '../hooks/use-archive-error-messages';
 import { useArchiveSite } from '../hooks/use-archive-site';
 import { useAuth } from '../hooks/use-auth';
 import { useExpirationDate } from '../hooks/use-expiration-date';
@@ -52,8 +53,9 @@ function SnapshotRow( {
 	const { url, date, isDeleting } =
 		previousSnapshot && snapshot.isLoading ? previousSnapshot : snapshot;
 	const { countDown, isExpired, dateString } = useExpirationDate( date );
-	const { deleteSnapshot } = useSnapshots();
+	const { deleteSnapshot, fetchSnapshotUsage, snapshotCreationBlocked } = useSnapshots();
 	const { updateDemoSite, isDemoSiteUpdating } = useUpdateDemoSite();
+	const errorMessages = useArchiveErrorMessages();
 
 	const isOffline = useOffline();
 	const updateDemoSiteOfflineMessage = __(
@@ -62,6 +64,7 @@ function SnapshotRow( {
 	const deleteDemoSiteOfflineMessage = __(
 		'Deleting a demo site requires an internet connection.'
 	);
+	const blockedUserMessage = errorMessages.rest_site_creation_blocked;
 
 	const { progress, setProgress } = useProgressTimer( {
 		paused: ! isDemoSiteUpdating,
@@ -69,6 +72,14 @@ function SnapshotRow( {
 		interval: 1500,
 		maxValue: 95,
 	} );
+
+	useEffect( () => {
+		const intervalId = setInterval( () => {
+			fetchSnapshotUsage(); // Function to fetch the latest data from the endpoint
+		}, 10000 );
+
+		return () => clearInterval( intervalId ); // Cleanup the interval on component unmount
+	}, [ fetchSnapshotUsage ] );
 
 	useEffect( () => {
 		if ( isDemoSiteUpdating ) {
@@ -182,16 +193,22 @@ function SnapshotRow( {
 				) : (
 					<>
 						<Tooltip
-							disabled={ ! isOffline }
-							icon={ offlineIcon }
-							text={ updateDemoSiteOfflineMessage }
+							disabled={ ! ( isOffline || snapshotCreationBlocked ) }
+							{ ...( isOffline && { icon: offlineIcon } ) }
+							text={ isOffline ? updateDemoSiteOfflineMessage : blockedUserMessage }
 						>
 							<Button
-								aria-description={ isOffline ? updateDemoSiteOfflineMessage : '' }
-								aria-disabled={ isOffline }
+								aria-description={
+									snapshotCreationBlocked
+										? blockedUserMessage
+										: isOffline
+										? updateDemoSiteOfflineMessage
+										: ''
+								}
+								aria-disabled={ isOffline || snapshotCreationBlocked }
 								variant="primary"
 								onClick={ () => {
-									if ( isOffline ) {
+									if ( isOffline || snapshotCreationBlocked ) {
 										return;
 									}
 									handleUpdateDemoSite();
@@ -380,14 +397,10 @@ function AddDemoSiteWithProgress( {
 } ) {
 	const { __, _n } = useI18n();
 	const { archiveSite, isUploadingSiteId, isAnySiteArchiving } = useArchiveSite();
+	const errorMessages = useArchiveErrorMessages();
 	const isUploading = isUploadingSiteId( selectedSite.id );
-	const {
-		activeSnapshotCount,
-		snapshotQuota,
-		isLoadingSnapshotUsage,
-		snapshotCreationBlocked,
-		fetchSnapshotUsage,
-	} = useSnapshots();
+	const { activeSnapshotCount, snapshotQuota, isLoadingSnapshotUsage, snapshotCreationBlocked } =
+		useSnapshots();
 	const isLimitUsed = activeSnapshotCount >= snapshotQuota;
 	const isOffline = useOffline();
 	const { progress, setProgress } = useProgressTimer( {
@@ -396,14 +409,6 @@ function AddDemoSiteWithProgress( {
 		interval: 1500,
 		maxValue: 95,
 	} );
-
-	useEffect( () => {
-		const intervalId = setInterval( () => {
-			fetchSnapshotUsage(); // Function to fetch the latest data from the endpoint
-		}, 10000 );
-
-		return () => clearInterval( intervalId ); // Cleanup the interval on component unmount
-	}, [ fetchSnapshotUsage ] );
 
 	useEffect( () => {
 		if ( isSnapshotLoading ) {
@@ -430,7 +435,7 @@ function AddDemoSiteWithProgress( {
 		snapshotQuota
 	);
 	const offlineMessage = __( 'Creating a demo site requires an internet connection.' );
-	const userBlockedMessage = __( 'Demo sites are not available for your account.' );
+	const userBlockedMessage = errorMessages.rest_site_creation_blocked;
 
 	let tooltipContent;
 	if ( isOffline ) {

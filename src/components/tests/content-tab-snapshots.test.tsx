@@ -154,6 +154,7 @@ describe( 'ContentTabSnapshots', () => {
 					deleted: false,
 				},
 			],
+			fetchSnapshotUsage: jest.fn(),
 		} );
 		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
 		const createSnapshotButton = screen.getByRole( 'button', { name: 'Add demo site' } );
@@ -178,6 +179,7 @@ describe( 'ContentTabSnapshots', () => {
 					deleted: false,
 				},
 			],
+			fetchSnapshotUsage: jest.fn(),
 		} );
 		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
 		const createSnapshotButton = screen.getByRole( 'button', { name: 'Add demo site' } );
@@ -278,6 +280,7 @@ describe( 'ContentTabSnapshots', () => {
 					deleted: false,
 				},
 			],
+			fetchSnapshotUsage: jest.fn(),
 			deleteSnapshot: mockDeleteSnapshot,
 		} );
 		mockShowMessageBox.mockResolvedValueOnce( { response: 0 } );
@@ -313,6 +316,7 @@ describe( 'ContentTabSnapshots', () => {
 					deleted: false,
 				},
 			],
+			fetchSnapshotUsage: jest.fn(),
 			deleteSnapshot: deleteSnapshotMock,
 		} );
 		mockShowMessageBox.mockResolvedValueOnce( { response: 1 } );

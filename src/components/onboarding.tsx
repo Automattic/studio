@@ -143,7 +143,7 @@ export default function Onboarding() {
 							onFileSelected={ handleImportFile }
 							fileError={ fileError }
 						>
-							<div className="flex flex-row gap-x-5 mt-6">
+							<div className="flex flex-row gap-x-5 mt-6 justify-end">
 								<Button type="submit" variant="primary">
 									{ __( 'Add site' ) }
 								</Button>

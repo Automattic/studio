@@ -25,6 +25,11 @@ jest.mock( '../../hooks/use-site-details', () => ( {
 		data: [],
 	} ),
 } ) );
+jest.mock( '../../hooks/use-feature-flags', () => ( {
+	useFeatureFlags: () => ( {
+		importExportEnabled: true,
+	} ),
+} ) );
 
 describe( 'AddSite', () => {
 	beforeEach( () => {
@@ -68,13 +73,15 @@ describe( 'AddSite', () => {
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 		expect( screen.getByRole( 'dialog' ) ).toBeVisible();
+		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 		await user.click( screen.getByTestId( 'select-path-button' ) );
 
 		expect( mockShowOpenFolderDialog ).toHaveBeenCalledWith( 'Choose folder for site' );
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 
+		//Expect the createSite function to be called with the selected path and no import file
 		await waitFor( () => {
-			expect( mockCreateSite ).toHaveBeenCalledWith( 'test', 'My WordPress Website' );
+			expect( mockCreateSite ).toHaveBeenCalledWith( 'test', 'My WordPress Website', false );
 		} );
 	} );
 
@@ -96,6 +103,7 @@ describe( 'AddSite', () => {
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 		expect( screen.getByRole( 'dialog' ) ).toBeVisible();
+		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 		await user.click( screen.getByTestId( 'select-path-button' ) );
 
 		expect( mockShowOpenFolderDialog ).toHaveBeenCalledWith( 'Choose folder for site' );
@@ -127,6 +135,7 @@ describe( 'AddSite', () => {
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 		expect( screen.getByRole( 'dialog' ) ).toBeVisible();
+		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 		await user.click( screen.getByTestId( 'select-path-button' ) );
 
 		expect( mockShowOpenFolderDialog ).toHaveBeenCalledWith( 'Choose folder for site' );
@@ -157,6 +166,7 @@ describe( 'AddSite', () => {
 		await user.type( screen.getByDisplayValue( 'My WordPress Website' ), ' mutated' );
 
 		expect( screen.getByDisplayValue( 'My WordPress Website mutated' ) ).toBeVisible();
+		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 		expect(
 			screen.getByDisplayValue( '/default_path/my-wordpress-website-mutated' )
 		).toBeVisible();
@@ -165,6 +175,7 @@ describe( 'AddSite', () => {
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 
 		expect( screen.getByDisplayValue( 'My WordPress Website' ) ).toBeVisible();
+		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 		expect( screen.getByDisplayValue( '/default_path/my-wordpress-website' ) ).toBeVisible();
 	} );
 
@@ -188,6 +199,7 @@ describe( 'AddSite', () => {
 		render( <AddSite /> );
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 		await user.click( screen.getByTestId( 'select-path-button' ) );
 
 		mockShowOpenFolderDialog.mockResolvedValue( {

@@ -5,6 +5,7 @@ import { Icon, check, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren, useEffect } from 'react';
 import { CLIENT_ID, PROTOCOL_PREFIX, WP_AUTHORIZE_ENDPOINT, SCOPES } from '../constants';
+import { useArchiveErrorMessages } from '../hooks/use-archive-error-messages';
 import { useArchiveSite } from '../hooks/use-archive-site';
 import { useAuth } from '../hooks/use-auth';
 import { useExpirationDate } from '../hooks/use-expiration-date';
@@ -57,6 +58,7 @@ function SnapshotRow( {
 	const { isUploadingSiteId } = useArchiveSite();
 	const isUploading = isUploadingSiteId( selectedSite.id );
 	const { updateDemoSite, isDemoSiteUpdating } = useUpdateDemoSite();
+	const errorMessages = useArchiveErrorMessages();
 
 	const isOffline = useOffline();
 	const updateDemoSiteOfflineMessage = __(
@@ -65,7 +67,7 @@ function SnapshotRow( {
 	const deleteDemoSiteOfflineMessage = __(
 		'Deleting a demo site requires an internet connection.'
 	);
-	const userBlockedMessage = __( 'Demo sites are not available for your account.' );
+	const userBlockedMessage = errorMessages.rest_site_creation_blocked;
 
 	const { progress, setProgress } = useProgressTimer( {
 		paused: ! isDemoSiteUpdating,
@@ -412,6 +414,7 @@ function AddDemoSiteWithProgress( {
 		interval: 1500,
 		maxValue: 95,
 	} );
+	const errorMessages = useArchiveErrorMessages();
 
 	useEffect( () => {
 		if ( isSnapshotLoading ) {
@@ -438,7 +441,7 @@ function AddDemoSiteWithProgress( {
 		snapshotQuota
 	);
 	const offlineMessage = __( 'Creating a demo site requires an internet connection.' );
-	const userBlockedMessage = __( 'Demo sites are not available for your account.' );
+	const userBlockedMessage = errorMessages.rest_site_creation_blocked;
 
 	let tooltipContent;
 	if ( isOffline ) {

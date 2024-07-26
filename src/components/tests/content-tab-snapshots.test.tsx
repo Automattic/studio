@@ -407,6 +407,7 @@ describe( 'ContentTabSnapshots', () => {
 		( useSnapshots as jest.Mock ).mockReturnValue( {
 			snapshots: [ snapshot ],
 			removeSnapshot,
+			fetchSnapshotUsage: jest.fn(),
 		} );
 
 		const { rerender } = render( <ContentTabSnapshots selectedSite={ selectedSite } /> );

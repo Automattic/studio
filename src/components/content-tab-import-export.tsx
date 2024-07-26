@@ -50,6 +50,7 @@ export const ExportSite = ( {
 		}
 		const options: ExportOptions = {
 			sitePath: selectedSite.path,
+			siteId: selectedSite.id,
 			backupFile: path,
 			includes: {
 				database: true,

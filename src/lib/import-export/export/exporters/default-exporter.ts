@@ -9,16 +9,47 @@ import { ExportOptions, BackupContents, Exporter } from '../types';
 
 export class DefaultExporter extends EventEmitter implements Exporter {
 	private archive!: archiver.Archiver;
+	private backup: BackupContents;
+	private readonly options: ExportOptions;
+	private siteFiles: string[];
 
-	constructor( protected backup: BackupContents ) {
+	constructor( options: ExportOptions ) {
 		super();
+		this.options = options;
+		this.siteFiles = [];
+		this.backup = {
+			backupFile: options.backupFile,
+			sqlFiles: [],
+			wpContent: {
+				uploads: [],
+				plugins: [],
+				themes: [],
+			},
+		};
+	}
+	async canHandle(): Promise< boolean > {
+		// Check for supported extension
+		const supported_extension = [ 'tar.gz', 'tzg', 'zip' ].find( ( ext ) =>
+			this.options.backupFile.endsWith( ext )
+		);
+
+		if ( ! supported_extension ) {
+			return false;
+		}
+
+		const requiredPaths = [ 'wp-content', 'wp-includes', 'wp-load.php', 'wp-config.php' ];
+
+		this.siteFiles = await this.getSiteFiles();
+
+		return requiredPaths.every( ( requiredPath ) =>
+			this.siteFiles.some( ( file ) => file.includes( requiredPath ) )
+		);
 	}
 
-	async export( options: ExportOptions ): Promise< void > {
-		this.emit( ExportEvents.EXPORT_START );
-
-		const output = fs.createWriteStream( options.backupFile );
-		this.archive = this.createArchive( options );
+	async export(): Promise< void > {
+		this.backup = await this.getBackupContents();
+		const output = fs.createWriteStream( this.options.backupFile );
+		this.archive = this.createArchive( this.options );
 
 		const archiveClosedPromise = this.setupArchiveListeners( output );
 
@@ -26,8 +57,8 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 
 		try {
 			this.addWpConfig();
-			this.addWpContent( options );
-			await this.addDatabase( options );
+			this.addWpContent( this.options );
+			await this.addDatabase( this.options );
 			await this.archive.finalize();
 			this.emit( ExportEvents.BACKUP_CREATE_COMPLETE );
 			await archiveClosedPromise;
@@ -37,7 +68,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 			this.emit( ExportEvents.EXPORT_ERROR );
 			throw error;
 		} finally {
-			if ( options.includes.database ) {
+			if ( this.options.includes.database ) {
 				await this.cleanupTempFiles();
 			}
 		}
@@ -118,5 +149,52 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 				.unlink( sqlFile )
 				.catch( ( err ) => console.error( `Failed to delete temporary file ${ sqlFile }:`, err ) );
 		}
+	}
+
+	private async getSiteFiles(): Promise< string[] > {
+		if ( this.siteFiles.length ) {
+			return this.siteFiles;
+		}
+
+		const directoryContents = await fsPromises.readdir( this.options.sitePath, {
+			recursive: true,
+			withFileTypes: true,
+		} );
+
+		return directoryContents.reduce< string[] >( ( files: string[], directoryContent ) => {
+			if ( directoryContent.isFile() ) {
+				files.push( path.join( directoryContent.path, directoryContent.name ) );
+			}
+			return files;
+		}, [] );
+	}
+
+	private async getBackupContents(): Promise< BackupContents > {
+		const options = this.options;
+		const backupContents: BackupContents = {
+			backupFile: options.backupFile,
+			sqlFiles: [],
+			wpContent: {
+				uploads: [],
+				plugins: [],
+				themes: [],
+			},
+		};
+
+		const siteFiles = await this.getSiteFiles();
+		siteFiles.forEach( ( file ) => {
+			const relativePath = path.relative( options.sitePath, file );
+			if ( path.basename( file ) === 'wp-config.php' ) {
+				backupContents.wpConfigFile = file;
+			} else if ( relativePath.startsWith( 'wp-content/uploads/' ) && options.includes.uploads ) {
+				backupContents.wpContent.uploads.push( file );
+			} else if ( relativePath.startsWith( 'wp-content/plugins/' ) && options.includes.plugins ) {
+				backupContents.wpContent.plugins.push( file );
+			} else if ( relativePath.startsWith( 'wp-content/themes/' ) && options.includes.themes ) {
+				backupContents.wpContent.themes.push( file );
+			}
+		} );
+
+		return backupContents;
 	}
 }

@@ -38,6 +38,17 @@ describe( 'DefaultExporter', () => {
 	let mockArchiver: jest.Mocked< PartialArchiver >;
 	let mockWriteStream: { on: jest.Mock; path: string };
 
+	const mockFiles = [
+		{ path: '/path/to/site/wp-content/uploads', name: 'file1.jpg', isFile: () => true },
+		{ path: '/path/to/site', name: 'wp-config.php', isFile: () => true },
+		{ path: '/path/to/site/wp-content/plugins/plugin1', name: 'plugin1.php', isFile: () => true },
+		{ path: '/path/to/site/wp-content/themes/theme1', name: 'index.php', isFile: () => true },
+		{ path: '/path/to/site/wp-includes/index.php', name: 'index.php', isFile: () => true },
+		{ path: '/path/to/site/wp-load.php', name: 'wp-load.php', isFile: () => true },
+	];
+
+	( fsPromises.readdir as jest.Mock ).mockResolvedValue( mockFiles );
+
 	beforeEach( () => {
 		mockBackup = {
 			backupFile: '/path/to/backup.tar.gz',
@@ -87,18 +98,18 @@ describe( 'DefaultExporter', () => {
 				}, 0 );
 			} );
 		} );
-		exporter = new DefaultExporter( mockBackup );
+		exporter = new DefaultExporter( mockOptions );
 	} );
 
 	it( 'should create a tar.gz archive', async () => {
-		await exporter.export( mockOptions );
+		await exporter.export();
 
 		expect( archiver ).toHaveBeenCalledWith( 'tar', { gzip: true, gzipOptions: { level: 9 } } );
 	} );
 
 	it( 'should create a zip archive when the backup file ends with .zip', async () => {
 		mockOptions.backupFile = '/path/to/backup.zip';
-		await exporter.export( mockOptions );
+		await exporter.export();
 
 		expect( archiver ).toHaveBeenCalledWith( 'zip', { gzip: false, gzipOptions: undefined } );
 	} );
@@ -113,9 +124,11 @@ describe( 'DefaultExporter', () => {
 				database: false,
 			},
 		};
-		await exporter.export( options );
 
-		expect( mockArchiver.file ).toHaveBeenCalledWith( '/path/to/wp-config.php', {
+		const exporter = new DefaultExporter( options );
+		await exporter.export();
+
+		expect( mockArchiver.file ).toHaveBeenCalledWith( '/path/to/site/wp-config.php', {
 			name: 'wp-config.php',
 		} );
 	} );
@@ -130,24 +143,28 @@ describe( 'DefaultExporter', () => {
 				database: false,
 			},
 		};
-		await exporter.export( options );
 
-		expect( mockArchiver.file ).toHaveBeenNthCalledWith( 1, '/path/to/wp-config.php', {
+		const exporter = new DefaultExporter( options );
+		await exporter.export();
+		// Check each expected call individually
+		expect( mockArchiver.file ).toHaveBeenNthCalledWith( 1, '/path/to/site/wp-config.php', {
 			name: 'wp-config.php',
 		} );
 		expect( mockArchiver.file ).toHaveBeenNthCalledWith(
 			2,
-			'/path/to/wp-content/uploads/file1.jpg',
-			{
-				name: '../wp-content/uploads/file1.jpg',
-			}
+			'/path/to/site/wp-content/uploads/file1.jpg',
+			{ name: 'wp-content/uploads/file1.jpg' }
 		);
-		expect( mockArchiver.file ).toHaveBeenNthCalledWith( 3, '/path/to/wp-content/plugins/plugin1', {
-			name: '../wp-content/plugins/plugin1',
-		} );
-		expect( mockArchiver.file ).toHaveBeenNthCalledWith( 4, '/path/to/wp-content/themes/theme1', {
-			name: '../wp-content/themes/theme1',
-		} );
+		expect( mockArchiver.file ).toHaveBeenNthCalledWith(
+			3,
+			'/path/to/site/wp-content/plugins/plugin1/plugin1.php',
+			{ name: 'wp-content/plugins/plugin1/plugin1.php' }
+		);
+		expect( mockArchiver.file ).toHaveBeenNthCalledWith(
+			4,
+			'/path/to/site/wp-content/themes/theme1/index.php',
+			{ name: 'wp-content/themes/theme1/index.php' }
+		);
 	} );
 
 	it( 'should add a database file to the archive when database is included', async () => {
@@ -162,9 +179,10 @@ describe( 'DefaultExporter', () => {
 		};
 		( fsPromises.mkdtemp as jest.Mock ).mockResolvedValue( '/tmp/studio_export_123' );
 
-		await exporter.export( options );
+		const exporter = new DefaultExporter( options );
+		await exporter.export();
 
-		expect( mockArchiver.file ).toHaveBeenNthCalledWith( 1, '/path/to/wp-config.php', {
+		expect( mockArchiver.file ).toHaveBeenNthCalledWith( 1, '/path/to/site/wp-config.php', {
 			name: 'wp-config.php',
 		} );
 		expect( mockArchiver.file ).toHaveBeenNthCalledWith( 2, '/tmp/studio_export_123/file.sql', {
@@ -173,7 +191,7 @@ describe( 'DefaultExporter', () => {
 	} );
 
 	it( 'should finalize the archive', async () => {
-		await exporter.export( mockOptions );
+		await exporter.export();
 
 		expect( mockArchiver.finalize ).toHaveBeenCalled();
 	} );
@@ -181,7 +199,7 @@ describe( 'DefaultExporter', () => {
 	it( 'should cleanup temporary files when database is included', async () => {
 		mockBackup.sqlFiles = [ '/tmp/studio_export_123/file.sql' ];
 
-		await exporter.export( mockOptions );
+		await exporter.export();
 
 		expect( fsPromises.unlink ).toHaveBeenCalledWith( '/tmp/studio_export_123/file.sql' );
 	} );
@@ -191,7 +209,12 @@ describe( 'DefaultExporter', () => {
 		mockArchiver.file.mockImplementationOnce( () => {
 			throw error;
 		} );
-		await expect( exporter.export( mockOptions ) ).rejects.toThrow( 'Archive error' );
+		await expect( exporter.export() ).rejects.toThrow( 'Archive error' );
 		expect( mockArchiver.abort ).toHaveBeenCalled();
+	} );
+
+	it( 'should return true when canHandle is called', async () => {
+		const canHandle = await exporter.canHandle();
+		expect( canHandle ).toBe( true );
 	} );
 } );

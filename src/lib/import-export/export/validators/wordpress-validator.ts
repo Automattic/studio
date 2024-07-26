@@ -1,7 +1,9 @@
+import { EventEmitter } from 'events';
 import path from 'path';
+import { ExportEvents } from '../events';
 import { BackupContents, ExportValidator, ExportOptions } from '../types';
 
-export class WordPressExportValidator implements ExportValidator {
+export class WordPressExportValidator extends EventEmitter implements ExportValidator {
 	canHandle( files: string[] ): boolean {
 		const requiredPaths = [ 'wp-content', 'wp-includes', 'wp-load.php', 'wp-config.php' ];
 
@@ -11,6 +13,7 @@ export class WordPressExportValidator implements ExportValidator {
 	}
 
 	filterFiles( files: string[], options: ExportOptions ): BackupContents {
+		this.emit( ExportEvents.EXPORT_VALIDATION_START );
 		const backupContents: BackupContents = {
 			backupFile: options.backupFile,
 			sqlFiles: [],
@@ -34,6 +37,7 @@ export class WordPressExportValidator implements ExportValidator {
 			}
 		} );
 
+		this.emit( ExportEvents.EXPORT_VALIDATION_COMPLETE );
 		return backupContents;
 	}
 }

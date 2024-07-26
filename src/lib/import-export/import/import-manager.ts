@@ -1,6 +1,8 @@
 import fsPromises from 'fs/promises';
 import os from 'os';
 import path from 'path';
+import { ImportExportEventData, handleEvents } from '../types';
+import { BackupExtractEvents, ImporterEvents, ValidatorEvents } from './events';
 import { BackupHandlerFactory } from './handlers/backup-handler-factory';
 import { DefaultImporter, Importer, ImporterResult } from './importers/importer';
 import { BackupArchiveInfo, NewImporter } from './types';
@@ -15,10 +17,12 @@ export interface ImporterOption {
 export function selectImporter(
 	allFiles: string[],
 	extractionDirectory: string,
+	onEvent: ( data: ImportExportEventData ) => void,
 	options: ImporterOption[]
 ): Importer | null {
 	for ( const { validator, importer } of options ) {
 		if ( validator.canHandle( allFiles ) ) {
+			handleEvents( validator, onEvent, ValidatorEvents );
 			const files = validator.parseBackupContents( allFiles, extractionDirectory );
 			return new importer( files );
 		}
@@ -29,15 +33,18 @@ export function selectImporter(
 export async function importBackup(
 	backupFile: BackupArchiveInfo,
 	sitePath: string,
+	onEvent: ( data: ImportExportEventData ) => void,
 	options: ImporterOption[]
 ): Promise< ImporterResult > {
 	const extractionDirectory = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio_backup' ) );
 	try {
 		const backupHandler = BackupHandlerFactory.create( backupFile );
 		const fileList = await backupHandler.listFiles( backupFile );
-		const importer = selectImporter( fileList, extractionDirectory, options );
+		const importer = selectImporter( fileList, extractionDirectory, onEvent, options );
 
 		if ( importer ) {
+			handleEvents( backupHandler, onEvent, BackupExtractEvents );
+			handleEvents( importer, onEvent, ImporterEvents );
 			await backupHandler.extractFiles( backupFile, extractionDirectory );
 			return await importer.import( sitePath );
 		} else {

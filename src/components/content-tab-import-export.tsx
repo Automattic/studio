@@ -8,6 +8,7 @@ import { useRef } from 'react';
 import { STUDIO_DOCS_URL } from '../constants';
 import { useConfirmationDialog } from '../hooks/use-confirmation-dialog';
 import { useDragAndDropFile } from '../hooks/use-drag-and-drop-file';
+import { useIpcListener } from '../hooks/use-ipc-listener';
 import { useSiteDetails } from '../hooks/use-site-details';
 import { cx } from '../lib/cx';
 import { sanitizeFolderName } from '../lib/generate-site-name';
@@ -267,6 +268,13 @@ const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 };
 
 export function ContentTabImportExport( { selectedSite }: ContentTabImportExportProps ) {
+	useIpcListener( 'on-import', ( _evt, data: unknown ) => {
+		// This listener will be used to track progress of import when the UI is finished.
+	} );
+	useIpcListener( 'on-export', ( _evt, data: unknown ) => {
+		// This listener will be used to track progress of export when the UI is finished.
+	} );
+
 	return (
 		<div className="flex flex-col p-8 gap-8">
 			<ImportSite selectedSite={ selectedSite } />

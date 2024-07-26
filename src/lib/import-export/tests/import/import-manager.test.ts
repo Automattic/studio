@@ -29,7 +29,12 @@ describe( 'importManager', () => {
 					importer: MockImporter,
 				},
 			];
-			const result = selectImporter( [ 'file1.txt', 'file2.txt' ], '/tmp/extracted', options );
+			const result = selectImporter(
+				[ 'file1.txt', 'file2.txt' ],
+				'/tmp/extracted',
+				jest.fn(),
+				options
+			);
 
 			expect( result ).toBeInstanceOf( MockImporter );
 			expect( mockValidator.canHandle ).toHaveBeenCalledWith( [ 'file1.txt', 'file2.txt' ] );
@@ -52,7 +57,12 @@ describe( 'importManager', () => {
 					importer: jest.fn(),
 				},
 			];
-			const result = selectImporter( [ 'file1.txt', 'file2.txt' ], '/tmp/extracted', options );
+			const result = selectImporter(
+				[ 'file1.txt', 'file2.txt' ],
+				'/tmp/extracted',
+				jest.fn(),
+				options
+			);
 
 			expect( result ).toBeNull();
 		} );
@@ -80,6 +90,8 @@ describe( 'importManager', () => {
 			};
 			const mockImporter: Importer = {
 				import: jest.fn().mockResolvedValue( {} ),
+				on: jest.fn(),
+				emit: jest.fn(),
 			};
 			const MockImporterClass = jest.fn().mockImplementation( () => mockImporter );
 
@@ -95,7 +107,7 @@ describe( 'importManager', () => {
 					importer: MockImporterClass,
 				},
 			];
-			await importBackup( mockFile, mockSitePath, options );
+			await importBackup( mockFile, mockSitePath, jest.fn(), options );
 
 			expect( fsPromises.mkdtemp ).toHaveBeenCalledWith( '/tmp/studio_backup' );
 			expect( mockBackupHandler.listFiles ).toHaveBeenCalledWith( mockFile );
@@ -118,7 +130,7 @@ describe( 'importManager', () => {
 			( BackupHandlerFactory.create as jest.Mock ).mockReturnValue( mockBackupHandler );
 
 			await expect(
-				importBackup( mockFile, mockSitePath, [
+				importBackup( mockFile, mockSitePath, jest.fn(), [
 					{
 						validator: mockValidator,
 						importer: jest.fn(),

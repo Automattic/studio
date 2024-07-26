@@ -1,3 +1,5 @@
+import { EventEmitter } from 'events';
+
 export interface ExportOptions {
 	sitePath: string;
 	backupFile: string;
@@ -20,12 +22,12 @@ export interface BackupContents {
 	wpConfigFile?: string;
 }
 
-export interface ExportValidator {
+export interface ExportValidator extends Partial< EventEmitter > {
 	canHandle( files: string[] ): boolean;
 	filterFiles( files: string[], options: ExportOptions ): BackupContents;
 }
 
-export interface Exporter {
+export interface Exporter extends Partial< EventEmitter > {
 	export( options: ExportOptions ): Promise< void >;
 }
 

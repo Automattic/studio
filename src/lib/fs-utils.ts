@@ -2,6 +2,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { existsSync } from 'fs-extra';
 import { isErrnoException } from './is-errno-exception';
+export { sanitizeFolderName } from './generate-site-name';
 
 export async function pathExists( path: string ): Promise< boolean > {
 	try {
@@ -51,16 +52,3 @@ export function isWordPressDirectory( projectPath: string ): boolean {
 		existsSync( path.join( projectPath, 'wp-load.php' ) )
 	);
 }
-
-export const sanitizeFolderName = ( filename: string ) => {
-	return String( filename )
-		.replace( /ł/g, 'l' )
-		.replace( /Ł/g, 'L' )
-		.normalize( 'NFKD' )
-		.replace( /[\u0300-\u036f]/g, '' )
-		.toLowerCase()
-		.replace( /[^a-z0-9 -]/g, '' )
-		.trim()
-		.replace( /\s+/g, '-' )
-		.replace( /-+/g, '-' );
-};

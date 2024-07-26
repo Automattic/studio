@@ -34,3 +34,16 @@ export function generateSiteName( usedSiteNames: string[] ): string {
 
 	return proposedName;
 }
+
+export const sanitizeFolderName = ( filename: string ) => {
+	return String( filename )
+		.replace( /ł/g, 'l' )
+		.replace( /Ł/g, 'L' )
+		.normalize( 'NFKD' )
+		.replace( /[\u0300-\u036f]/g, '' )
+		.toLowerCase()
+		.replace( /[^a-z0-9 -]/g, '' )
+		.trim()
+		.replace( /\s+/g, '-' )
+		.replace( /-+/g, '-' );
+};

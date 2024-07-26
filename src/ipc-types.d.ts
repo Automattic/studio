@@ -11,6 +11,8 @@ interface ShowNotificationOptions extends Electron.NotificationConstructorOption
 	showIcon: boolean;
 }
 
+type ImportSiteState = 'importing' | 'imported' | undefined;
+
 interface StoppedSiteDetails {
 	running: false;
 
@@ -28,6 +30,8 @@ interface StoppedSiteDetails {
 		supportsWidgets: boolean;
 		supportsMenus: boolean;
 	};
+	isAddingSite?: boolean;
+	importState?: ImportSiteState;
 }
 
 interface StartedSiteDetails extends StoppedSiteDetails {

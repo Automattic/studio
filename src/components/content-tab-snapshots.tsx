@@ -52,7 +52,10 @@ function SnapshotRow( {
 	const { url, date, isDeleting } =
 		previousSnapshot && snapshot.isLoading ? previousSnapshot : snapshot;
 	const { countDown, isExpired, dateString } = useExpirationDate( date );
-	const { deleteSnapshot, fetchSnapshotUsage, snapshotCreationBlocked } = useSnapshots();
+	const { deleteSnapshot, fetchSnapshotUsage, snapshotCreationBlocked, removeSnapshot } =
+		useSnapshots();
+	const { isUploadingSiteId } = useArchiveSite();
+	const isUploading = isUploadingSiteId( selectedSite.id );
 	const { updateDemoSite, isDemoSiteUpdating } = useUpdateDemoSite();
 
 	const isOffline = useOffline();
@@ -154,6 +157,11 @@ function SnapshotRow( {
 						isSnapshotLoading={ snapshot.isLoading }
 						tagline={ __( "We're creating your new demo site." ) }
 					/>
+					{ ! snapshot.isLoading && ! isUploading && (
+						<Button isDestructive onClick={ () => removeSnapshot( snapshot ) }>
+							{ __( 'Clear expired site' ) }
+						</Button>
+					) }
 				</div>
 			</div>
 		);
@@ -456,21 +464,23 @@ function AddDemoSiteWithProgress( {
 					</div>
 				</div>
 			) : (
-				<Tooltip disabled={ ! tooltipContent } { ...tooltipContent }>
-					<Button
-						aria-description={ tooltipContent?.text ?? '' }
-						aria-disabled={ isDisabled }
-						variant="primary"
-						onClick={ () => {
-							if ( isDisabled ) {
-								return;
-							}
-							archiveSite( selectedSite.id );
-						} }
-					>
-						{ __( 'Add demo site' ) }
-					</Button>
-				</Tooltip>
+				<div className="flex gap-4">
+					<Tooltip disabled={ ! tooltipContent } { ...tooltipContent }>
+						<Button
+							aria-description={ tooltipContent?.text ?? '' }
+							aria-disabled={ isDisabled }
+							variant="primary"
+							onClick={ () => {
+								if ( isDisabled ) {
+									return;
+								}
+								archiveSite( selectedSite.id );
+							} }
+						>
+							{ __( 'Add demo site' ) }
+						</Button>
+					</Tooltip>
+				</div>
 			) }
 		</div>
 	);
@@ -479,7 +489,6 @@ function AddDemoSiteWithProgress( {
 export function ContentTabSnapshots( { selectedSite }: ContentTabSnapshotsProps ) {
 	const { snapshots } = useSnapshots();
 	const { isAuthenticated } = useAuth();
-
 	if ( ! isAuthenticated ) {
 		return <NoAuth selectedSite={ selectedSite } />;
 	}

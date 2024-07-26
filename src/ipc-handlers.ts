@@ -8,6 +8,7 @@ import {
 	shell,
 	type IpcMainInvokeEvent,
 	Notification,
+	SaveDialogOptions,
 } from 'electron';
 import fs from 'fs';
 import nodePath from 'path';
@@ -19,6 +20,11 @@ import { downloadSqliteIntegrationPlugin } from '../vendor/wp-now/src/download';
 import { LIMIT_ARCHIVE_SIZE } from './constants';
 import { isEmptyDir, pathExists, isWordPressDirectory, sanitizeFolderName } from './lib/fs-utils';
 import { getImageData } from './lib/get-image-data';
+import { exportBackup } from './lib/import-export/export/export-manager';
+import { ExportOptions } from './lib/import-export/export/types';
+import { defaultImporterOptions, importBackup } from './lib/import-export/import/import-manager';
+import { BackupArchiveInfo } from './lib/import-export/import/types';
+import { ImportExportEventData } from './lib/import-export/types';
 import { isErrnoException } from './lib/is-errno-exception';
 import { isInstalled } from './lib/is-installed';
 import { getLocaleData, getSupportedLocale } from './lib/locale';
@@ -97,6 +103,35 @@ export async function getInstalledApps( _event: IpcMainInvokeEvent ): Promise< I
 		vscode: isInstalled( 'vscode' ),
 		phpstorm: isInstalled( 'phpstorm' ),
 	};
+}
+
+export async function importSite(
+	event: IpcMainInvokeEvent,
+	{ id, backupFile }: { id: string; backupFile: BackupArchiveInfo }
+) {
+	const site = SiteServer.get( id );
+	if ( ! site ) {
+		throw new Error( 'Site not found.' );
+	}
+	const sitePath = site.details.path;
+	try {
+		const onEvent = ( data: ImportExportEventData ) => {
+			const parentWindow = BrowserWindow.fromWebContents( event.sender );
+			if ( parentWindow && ! parentWindow.isDestroyed() && ! event.sender.isDestroyed() ) {
+				parentWindow.webContents.send( 'on-import', data );
+			}
+		};
+		const result = await importBackup( backupFile, sitePath, onEvent, defaultImporterOptions );
+		if ( result?.meta?.phpVersion ) {
+			await updateSite( event, {
+				...site.details,
+				phpVersion: result.meta.phpVersion,
+			} );
+		}
+	} catch ( e ) {
+		Sentry.captureException( e );
+		throw e;
+	}
 }
 
 // Use sqlite database and db.php file in situ
@@ -273,6 +308,22 @@ export interface FolderDialogResponse {
 	isWordPress: boolean;
 }
 
+export async function showSaveAsDialog( event: IpcMainInvokeEvent, options: SaveDialogOptions ) {
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+	if ( ! parentWindow ) {
+		throw new Error( `No window found for sender of showSaveAsDialog message: ${ event.frameId }` );
+	}
+
+	const { canceled, filePath } = await dialog.showSaveDialog( parentWindow, {
+		defaultPath: `${ DEFAULT_SITE_PATH }/${ options.defaultPath }`,
+		...options,
+	} );
+	if ( canceled ) {
+		return '';
+	}
+	return filePath;
+}
+
 export async function showOpenFolderDialog(
 	event: IpcMainInvokeEvent,
 	title: string
@@ -425,6 +476,24 @@ export async function isAuthenticated() {
 
 export async function clearAuthenticationToken() {
 	return oauthClient.clearAuthenticationToken();
+}
+
+export async function exportSite(
+	event: IpcMainInvokeEvent,
+	options: ExportOptions
+): Promise< void > {
+	try {
+		const onEvent = ( data: ImportExportEventData ) => {
+			const parentWindow = BrowserWindow.fromWebContents( event.sender );
+			if ( parentWindow && ! parentWindow.isDestroyed() && ! event.sender.isDestroyed() ) {
+				parentWindow.webContents.send( 'on-export', data );
+			}
+		};
+		await exportBackup( options, onEvent );
+	} catch ( e ) {
+		Sentry.captureException( e );
+		throw e;
+	}
 }
 
 export async function saveSnapshotsToStorage( event: IpcMainInvokeEvent, snapshots: Snapshot[] ) {
@@ -616,7 +685,7 @@ export function openTerminalAtPath(
 				const script = `
 			tell application "Terminal"
 				if not application "Terminal" is running then launch
-				do script "clear && export PATH=${ cliPath }:$PATH && export STUDIO_APP_PATH=\\"${ appPath }\\" && cd ${ targetPath }"
+				do script "clear && export PATH=\\"${ cliPath }\\":$PATH && export STUDIO_APP_PATH=\\"${ appPath }\\" && cd ${ targetPath }"
 				activate
 			end tell
 			`;

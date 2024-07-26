@@ -119,12 +119,23 @@ Then open `chrome://inspect` in a Chromium-based browser and click "inspect" nex
 ## Building Installers
 
 Once all required dependencies are installed, you can build installers for the app.
-Installers can currently be built on Mac (Intel or Apple Silicon) and Windows with the following command:
+Installers can currently be built on Mac (Intel or Apple Silicon), Windows, and experimentally for Linux using the following commands:
 
 ```bash
 npm install
 npm run make
 ```
+
+After the build process completes, you can find the executables in the `out/` directory.
+
+### Linux
+
+Linux support is currently in an experimental phase and comes with certain limitations:
+- For systems using Wayland, you may need to set the `--enable-features=UseOzonePlatform --ozone-platform=wayland`
+  flag when running the application.
+- Some features may not work as expected on Linux due to platform-specific implementations.
+- The auto-update feature is not currently supported on Linux builds.
+- While these instructions should work for most Linux distributions, you may need to adjust them based on your specific setup or distribution.
 
 ## Localization
 

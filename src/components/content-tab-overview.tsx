@@ -5,6 +5,8 @@ import {
 	code,
 	desktop,
 	edit,
+	external,
+	Icon,
 	layout,
 	navigation,
 	page,
@@ -225,6 +227,17 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 	} = useThemeDetails();
 
 	const loading = loadingThemeDetails || loadingThumbnails || initialLoading;
+	const siteRunning = selectedSite.running;
+
+	const thumbnailImage = (
+		<img
+			onError={ () => setIsThumbnailError( true ) }
+			onLoad={ () => setIsThumbnailError( false ) }
+			className={ ! isThumbnailError ? 'w-full h-full' : 'absolute invisible' }
+			src={ thumbnailData || '' }
+			alt={ themeDetails?.name }
+		/>
+	);
 
 	return (
 		<div className="p-8 flex max-w-3xl">
@@ -232,25 +245,39 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 				<h2 className="mb-3 a8c-subtitle-small">{ __( 'Theme' ) }</h2>
 				<div
 					className={ cx(
-						'w-full min-h-40 max-h-60 overflow-hidden rounded-sm border border-a8c-gray-5 bg-a8c-gray-0 mb-2 flex items-center justify-center',
-						loading && skeletonBg,
-						isThumbnailError && 'border-none'
+						'w-full min-h-40 max-h-64 rounded-sm border border-a8c-gray-5 bg-a8c-gray-0 mb-2 flex justify-center',
+						loading && `h-64 ${ skeletonBg }`,
+						isThumbnailError && 'border-none',
+						! loading && siteRunning && 'hover:border-a8c-blueberry duration-300'
 					) }
 				>
 					{ isThumbnailError && ! loading && (
-						<div className="flex items-center justify-center w-full h-full leading-5 text-a8c-gray-50">
+						<div className="flex items-center justify-center w-full h-64 leading-5 text-a8c-gray-50">
 							{ __( 'Preview unavailable' ) }
 						</div>
 					) }
-					{ ! loading && (
-						<img
-							onError={ () => setIsThumbnailError( true ) }
-							onLoad={ () => setIsThumbnailError( false ) }
-							className={ ! isThumbnailError ? 'w-full h-full' : 'absolute invisible' }
-							src={ thumbnailData || '' }
-							alt={ themeDetails?.name }
-						/>
+					{ ! loading && siteRunning && (
+						<button
+							aria-label={ __( 'Open site' ) }
+							className={ 'relative group focus-visible:outline-a8c-blueberry' }
+							onClick={ () => getIpcApi().openSiteURL( selectedSite.id ) }
+						>
+							<div
+								className={
+									'opacity-0 group-hover:opacity-90 group-hover:bg-white group-focus:opacity-90 group-focus:bg-white duration-300 absolute size-full flex justify-center items-center bg-white text-a8c-blueberry'
+								}
+							>
+								{ __( 'Open site' ) }
+								<Icon
+									icon={ external }
+									className="ltr:ml-0.5 rtl:mr-0.5 rtl:scale-x-[-1] fill-a8c-blueberry"
+									size={ 14 }
+								/>
+							</div>
+							{ thumbnailImage }
+						</button>
 					) }
+					{ ! loading && ! siteRunning && thumbnailImage }
 				</div>
 				<div className="flex justify-between items-center w-full">
 					{ loading && <div className={ `w-[100px] min-h-4 ${ skeletonBg }` }></div> }

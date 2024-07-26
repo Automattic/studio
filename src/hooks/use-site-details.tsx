@@ -10,6 +10,8 @@ import {
 	useState,
 } from 'react';
 import { getIpcApi } from '../lib/get-ipc-api';
+import { BackupArchiveInfo } from '../lib/import-export/import/types';
+import { sortSites } from '../lib/sort-sites';
 import { useSnapshots } from './use-snapshots';
 
 interface SiteDetailsContext {
@@ -27,6 +29,7 @@ interface SiteDetailsContext {
 	isDeleting: boolean;
 	uploadingSites: { [ siteId: string ]: boolean };
 	setUploadingSites: React.Dispatch< React.SetStateAction< { [ siteId: string ]: boolean } > >;
+	importFile: ( file: File, selectedSite: SiteDetails ) => Promise< void >;
 }
 
 export const siteDetailsContext = createContext< SiteDetailsContext >( {
@@ -44,6 +47,7 @@ export const siteDetailsContext = createContext< SiteDetailsContext >( {
 	loadingSites: true,
 	uploadingSites: {},
 	setUploadingSites: () => undefined,
+	importFile: async () => undefined,
 } );
 
 interface SiteDetailsProviderProps {
@@ -64,12 +68,15 @@ function useSelectedSite( firstSiteId: string | null ) {
 	const [ selectedSiteId, setSelectedSiteId ] = useState< string | null >(
 		selectedSiteIdFromLocal
 	);
+	useEffect( () => {
+		if ( selectedSiteId ) {
+			localStorage.setItem( SELECTED_SITE_ID_KEY, selectedSiteId );
+		}
+	} );
+
 	return {
 		selectedSiteId: selectedSiteId || firstSiteId,
-		setSelectedSiteId: ( id: string ) => {
-			setSelectedSiteId( id );
-			localStorage.setItem( SELECTED_SITE_ID_KEY, id );
-		},
+		setSelectedSiteId,
 	};
 }
 
@@ -159,15 +166,105 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 	const createSite = useCallback(
 		async ( path: string, siteName?: string ) => {
-			const data = await getIpcApi().createSite( path, siteName );
-			setData( data );
-			const newSite = data.find( ( site ) => site.path === path );
-			if ( newSite?.id ) {
-				setSelectedSiteId( newSite.id );
+			// Function to handle error messages and cleanup
+			const showError = () => {
+				console.error( 'Failed to create site' );
+				getIpcApi().showMessageBox( {
+					type: 'error',
+					message: __( 'Failed to create site' ),
+					detail: __(
+						'An error occurred while creating the site. Verify your selected local path is an empty directory or an existing WordPress folder and try again. If this problem persists, please contact support.'
+					),
+					buttons: [ __( 'OK' ) ],
+				} );
+
+				// Remove the temporary site immediately, but with a minor delay to ensure state updates properly
+				setTimeout( () => {
+					setData( ( prevData ) =>
+						sortSites( prevData.filter( ( site ) => site.id !== tempSiteId ) )
+					);
+				}, 2000 );
+			};
+
+			const tempSiteId = crypto.randomUUID();
+			setData( ( prevData ) =>
+				sortSites( [
+					...prevData,
+					{
+						id: tempSiteId,
+						name: siteName || path,
+						path,
+						running: false,
+						isAddingSite: true,
+						phpVersion: '',
+					},
+				] )
+			);
+			setSelectedSiteId( tempSiteId ); // Set the temporary ID as the selected site
+
+			try {
+				const data = await getIpcApi().createSite( path, siteName );
+				const newSite = data.find( ( site ) => site.path === path );
+				if ( ! newSite ) {
+					showError();
+					return;
+				}
+				// Update the selected site to the new site's ID if the user didn't change it
+				setSelectedSiteId( ( prevSelectedSiteId ) => {
+					if ( prevSelectedSiteId === tempSiteId ) {
+						return newSite.id;
+					}
+					return prevSelectedSiteId;
+				} );
+				setData( ( prevData ) =>
+					prevData.map( ( site ) => ( site.id === tempSiteId ? newSite : site ) )
+				);
+			} catch ( error ) {
+				showError();
 			}
 		},
 		[ setSelectedSiteId ]
 	);
+
+	const importFile = useCallback( async ( file: BackupArchiveInfo, selectedSite: SiteDetails ) => {
+		let finalImportState: ImportSiteState;
+		if ( selectedSite.importState === 'importing' ) {
+			return;
+		}
+		try {
+			setData( ( prevSites ) =>
+				prevSites.map( ( site ) =>
+					site.id === selectedSite.id ? { ...site, importState: 'importing' } : site
+				)
+			);
+			const backupFile: BackupArchiveInfo = {
+				type: file.type,
+				path: file.path,
+			};
+			await getIpcApi().importSite( { id: selectedSite.id, backupFile } );
+			getIpcApi().showNotification( {
+				title: selectedSite.name,
+				body: __( 'Import complete' ),
+			} );
+			finalImportState = 'imported';
+		} catch ( error ) {
+			getIpcApi().showMessageBox( {
+				type: 'error',
+				message: __( 'Failed importing site' ),
+				detail: __(
+					'An error occurred while importing the site. Verify the file is a valid Jetpack backup or .sql database file and try again. If this problem persists, please contact support.'
+				),
+				buttons: [ __( 'OK' ) ],
+			} );
+			finalImportState = undefined;
+		} finally {
+			setData( ( prevSites ) =>
+				prevSites.map( ( site ) =>
+					site.id === selectedSite.id ? { ...site, importState: finalImportState } : site
+				)
+			);
+		}
+	}, [] );
 
 	const updateSite = useCallback( async ( site: SiteDetails ) => {
 		const updatedSites = await getIpcApi().updateSite( site );
@@ -194,7 +291,9 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 			if ( updatedSite ) {
 				setData( ( prevData ) =>
-					prevData.map( ( site ) => ( site.id === id && updatedSite ? updatedSite : site ) )
+					prevData.map( ( site ) =>
+						site.id === id && updatedSite ? { ...site, ...updatedSite } : site
+					)
 				);
 			}
 
@@ -209,7 +308,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			const updatedSite = await getIpcApi().stopServer( id );
 			if ( updatedSite ) {
 				setData( ( prevData ) =>
-					prevData.map( ( site ) => ( site.id === id ? updatedSite : site ) )
+					prevData.map( ( site ) => ( site.id === id ? { ...site, ...updatedSite } : site ) )
 				);
 			}
 			toggleLoadingServerForSite( id );
@@ -241,6 +340,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			loadingSites,
 			uploadingSites,
 			setUploadingSites,
+			importFile,
 		} ),
 		[
 			data,
@@ -257,6 +357,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			isDeleting,
 			loadingSites,
 			uploadingSites,
+			importFile,
 		]
 	);
 

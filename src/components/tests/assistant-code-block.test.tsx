@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { act, render, screen, fireEvent } from '@testing-library/react';
 import { getIpcApi } from '../../lib/get-ipc-api';
 import createCodeComponent from '../assistant-code-block';
 
@@ -89,8 +89,12 @@ describe( 'createCodeComponent', () => {
 	} );
 
 	describe( 'when the "run" button is clicked', () => {
-		beforeAll( () => {
+		beforeEach( () => {
 			jest.useFakeTimers();
+		} );
+
+		afterEach( () => {
+			jest.useRealTimers();
 		} );
 
 		it( 'should display an activity indicator while running code', async () => {
@@ -104,8 +108,7 @@ describe( 'createCodeComponent', () => {
 
 			expect( screen.getByText( 'Running...' ) ).toBeVisible();
 
-			// Run code execution measurement timer
-			await act( () => jest.runAllTimersAsync() );
+			await act( () => jest.runOnlyPendingTimersAsync() );
 
 			expect( screen.queryByText( 'Running...' ) ).not.toBeInTheDocument();
 		} );
@@ -118,8 +121,7 @@ describe( 'createCodeComponent', () => {
 
 			fireEvent.click( screen.getByText( 'Run' ) );
 
-			// Run code execution measurement timer
-			await act( () => jest.runAllTimersAsync() );
+			await act( () => jest.runOnlyPendingTimersAsync() );
 
 			expect( screen.getByText( 'Success' ) ).toBeVisible();
 			expect( screen.getByText( 'Mock success' ) ).toBeVisible();
@@ -133,8 +135,7 @@ describe( 'createCodeComponent', () => {
 
 			fireEvent.click( screen.getByText( 'Run' ) );
 
-			// Run code execution measurement timer
-			await act( () => jest.runAllTimersAsync() );
+			await act( () => jest.runOnlyPendingTimersAsync() );
 
 			expect( screen.getByText( 'Error' ) ).toBeVisible();
 			expect( screen.getByText( 'Mock error' ) ).toBeVisible();

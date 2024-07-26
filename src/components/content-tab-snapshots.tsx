@@ -5,6 +5,7 @@ import { Icon, check, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren, useEffect } from 'react';
 import { CLIENT_ID, PROTOCOL_PREFIX, WP_AUTHORIZE_ENDPOINT, SCOPES } from '../constants';
+import { useArchiveErrorMessages } from '../hooks/use-archive-error-messages';
 import { useArchiveSite } from '../hooks/use-archive-site';
 import { useAuth } from '../hooks/use-auth';
 import { useExpirationDate } from '../hooks/use-expiration-date';
@@ -20,7 +21,7 @@ import { CopyTextButton } from './copy-text-button';
 import offlineIcon from './offline-icon';
 import ProgressBar from './progress-bar';
 import { ScreenshotDemoSite } from './screenshot-demo-site';
-import Tooltip from './tooltip';
+import Tooltip, { TooltipProps } from './tooltip';
 
 interface ContentTabSnapshotsProps {
 	selectedSite: SiteDetails;
@@ -52,10 +53,12 @@ function SnapshotRow( {
 	const { url, date, isDeleting } =
 		previousSnapshot && snapshot.isLoading ? previousSnapshot : snapshot;
 	const { countDown, isExpired, dateString } = useExpirationDate( date );
+	const { deleteSnapshot, fetchSnapshotUsage, snapshotCreationBlocked, removeSnapshot } =
+		useSnapshots();
 	const { isUploadingSiteId } = useArchiveSite();
 	const isUploading = isUploadingSiteId( selectedSite.id );
 	const { updateDemoSite, isDemoSiteUpdating } = useUpdateDemoSite();
-	const { removeSnapshot, deleteSnapshot } = useSnapshots();
+	const errorMessages = useArchiveErrorMessages();
 
 	const isOffline = useOffline();
 	const updateDemoSiteOfflineMessage = __(
@@ -64,6 +67,7 @@ function SnapshotRow( {
 	const deleteDemoSiteOfflineMessage = __(
 		'Deleting a demo site requires an internet connection.'
 	);
+	const userBlockedMessage = errorMessages.rest_site_creation_blocked;
 
 	const { progress, setProgress } = useProgressTimer( {
 		paused: ! isDemoSiteUpdating,
@@ -71,6 +75,10 @@ function SnapshotRow( {
 		interval: 1500,
 		maxValue: 95,
 	} );
+
+	useEffect( () => {
+		fetchSnapshotUsage();
+	}, [ fetchSnapshotUsage ] );
 
 	useEffect( () => {
 		if ( isDemoSiteUpdating ) {
@@ -160,6 +168,18 @@ function SnapshotRow( {
 			</div>
 		);
 	}
+
+	let tooltipContent: Partial< TooltipProps & { text?: string } > = {};
+	if ( isOffline ) {
+		tooltipContent = {
+			icon: offlineIcon,
+			text: updateDemoSiteOfflineMessage,
+		};
+	} else if ( snapshotCreationBlocked ) {
+		tooltipContent = { text: userBlockedMessage };
+	}
+	const isUpdateDisabled = isOffline || snapshotCreationBlocked;
+
 	return (
 		<div className="self-stretch flex-col px-4 py-3">
 			<div className="flex gap-2 items-center">
@@ -188,17 +208,13 @@ function SnapshotRow( {
 					</div>
 				) : (
 					<>
-						<Tooltip
-							disabled={ ! isOffline }
-							icon={ offlineIcon }
-							text={ updateDemoSiteOfflineMessage }
-						>
+						<Tooltip disabled={ ! isUpdateDisabled } { ...tooltipContent }>
 							<Button
-								aria-description={ isOffline ? updateDemoSiteOfflineMessage : '' }
-								aria-disabled={ isOffline }
+								aria-description={ tooltipContent?.text || '' }
+								aria-disabled={ isUpdateDisabled }
 								variant="primary"
 								onClick={ () => {
-									if ( isOffline ) {
+									if ( isUpdateDisabled ) {
 										return;
 									}
 									handleUpdateDemoSite();
@@ -388,7 +404,8 @@ function AddDemoSiteWithProgress( {
 	const { __, _n } = useI18n();
 	const { archiveSite, isUploadingSiteId, isAnySiteArchiving } = useArchiveSite();
 	const isUploading = isUploadingSiteId( selectedSite.id );
-	const { activeSnapshotCount, snapshotQuota, isLoadingSnapshotUsage } = useSnapshots();
+	const { activeSnapshotCount, snapshotQuota, isLoadingSnapshotUsage, snapshotCreationBlocked } =
+		useSnapshots();
 	const isLimitUsed = activeSnapshotCount >= snapshotQuota;
 	const isOffline = useOffline();
 	const { progress, setProgress } = useProgressTimer( {
@@ -397,6 +414,8 @@ function AddDemoSiteWithProgress( {
 		interval: 1500,
 		maxValue: 95,
 	} );
+	const errorMessages = useArchiveErrorMessages();
+
 	useEffect( () => {
 		if ( isSnapshotLoading ) {
 			setProgress( 80 );
@@ -404,7 +423,12 @@ function AddDemoSiteWithProgress( {
 	}, [ isSnapshotLoading, setProgress ] );
 
 	const isDisabled =
-		isAnySiteArchiving || isUploading || isLoadingSnapshotUsage || isLimitUsed || isOffline;
+		isAnySiteArchiving ||
+		isUploading ||
+		isLoadingSnapshotUsage ||
+		isLimitUsed ||
+		isOffline ||
+		snapshotCreationBlocked;
 	const siteArchivingMessage = __(
 		'A different demo site is being created. Please wait for it to finish before creating another.'
 	);
@@ -417,6 +441,7 @@ function AddDemoSiteWithProgress( {
 		snapshotQuota
 	);
 	const offlineMessage = __( 'Creating a demo site requires an internet connection.' );
+	const userBlockedMessage = errorMessages.rest_site_creation_blocked;
 
 	let tooltipContent;
 	if ( isOffline ) {
@@ -428,6 +453,8 @@ function AddDemoSiteWithProgress( {
 		tooltipContent = { text: allotmentConsumptionMessage };
 	} else if ( isAnySiteArchiving ) {
 		tooltipContent = { text: siteArchivingMessage };
+	} else if ( snapshotCreationBlocked ) {
+		tooltipContent = { text: userBlockedMessage };
 	}
 
 	return (

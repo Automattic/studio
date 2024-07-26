@@ -12,7 +12,7 @@ import { SnapshotStatus, SnapshotStatusResponse, useSnapshots } from './use-snap
 
 export function useArchiveSite() {
 	const { uploadingSites, setUploadingSites } = useSiteDetails();
-	const { snapshots, addSnapshot, updateSnapshot } = useSnapshots();
+	const { snapshots, addSnapshot, updateSnapshot, fetchSnapshotUsage } = useSnapshots();
 	const isUploadingSiteId = useCallback(
 		( localSiteId: string ) => uploadingSites[ localSiteId ] || false,
 		[ uploadingSites ]
@@ -70,6 +70,13 @@ export function useArchiveSite() {
 			}
 
 			setUploadingSites( ( _uploadingSites ) => ( { ..._uploadingSites, [ siteId ]: true } ) );
+
+			const snapshotUsage = await fetchSnapshotUsage();
+			if ( snapshotUsage?.site_creation_blocked ) {
+				alert( errorMessages.rest_site_creation_blocked );
+				setUploadingSites( ( _uploadingSites ) => ( { ..._uploadingSites, [ siteId ]: false } ) );
+				return;
+			}
 			const { zipContent, zipPath, exceedsSizeLimit } = await getIpcApi().archiveSite( siteId );
 			if ( exceedsSizeLimit ) {
 				alert(
@@ -133,7 +140,7 @@ export function useArchiveSite() {
 				getIpcApi().removeTemporalFile( zipPath );
 			}
 		},
-		[ __, addSnapshot, client, errorMessages, setUploadingSites ]
+		[ __, addSnapshot, client, errorMessages, fetchSnapshotUsage, setUploadingSites ]
 	);
 	const isAnySiteArchiving = useMemo( () => {
 		const isAnySiteUploading = Object.values( uploadingSites ).some( ( uploading ) => uploading );

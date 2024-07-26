@@ -20,6 +20,7 @@ export function useArchiveErrorMessages() {
 				rest_cannot_view: __(
 					"There's been an authentication error. Please log in again before sharing a site."
 				),
+				rest_site_creation_blocked: __( 'Demo sites are not available for your account.' ),
 			} ) as const,
 		[ __ ]
 	);

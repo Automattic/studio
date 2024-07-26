@@ -38,24 +38,10 @@ export function useDragAndDropFile< T extends HTMLElement >( {
 			}
 			setIsDraggingOver( false );
 		};
-		const handleDragEnd = ( event: DragEvent ) => {
-			event.preventDefault();
-			setIsDraggingOver( false );
-		};
 
-		const node = dropRef.current;
-
-		node.addEventListener( 'dragover', handleDragOver );
-		node.addEventListener( 'dragleave', handleDragLeave );
-		node.addEventListener( 'drop', handleDrop );
-		node.addEventListener( 'dragend', handleDragEnd );
-
-		return () => {
-			node.removeEventListener( 'dragover', handleDragOver );
-			node.removeEventListener( 'dragleave', handleDragLeave );
-			node.removeEventListener( 'drop', handleDrop );
-			node.removeEventListener( 'dragend', handleDragEnd );
-		};
+		dropRef.current.addEventListener( 'dragover', handleDragOver );
+		dropRef.current.addEventListener( 'dragleave', handleDragLeave );
+		dropRef.current.addEventListener( 'drop', handleDrop );
 
 		function cleanup() {
 			if ( ! dropRef.current ) {

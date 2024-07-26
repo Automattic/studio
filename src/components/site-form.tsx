@@ -273,25 +273,34 @@ export const SiteForm = ( {
 								error={ fileError }
 							/>
 						</div>
-						<div className="flex flex-row">
-							<Button className="pl-0" onClick={ handleAdvancedSettingsClick }>
-								<Icon size={ 24 } icon={ isAdvancedSettingsVisible ? chevronDown : chevronRight } />
-								<div className="text-[13px] leading-[16px] ml-2">{ __( 'Advanced settings' ) }</div>
-							</Button>
-						</div>
-						{ onSelectPath && isAdvancedSettingsVisible && (
-							<label className="flex flex-col gap-1.5 leading-4">
-								<span onClick={ onSelectPath } className="font-semibold">
-									{ __( 'Local path' ) }
-								</span>
-								<FormPathInputComponent
-									isDisabled={ isPathInputDisabled }
-									doesPathContainWordPress={ doesPathContainWordPress }
-									error={ error }
-									value={ sitePath }
-									onClick={ onSelectPath }
-								/>
-							</label>
+						{ onSelectPath && (
+							<>
+								<div className="flex flex-row">
+									<Button className="pl-0" onClick={ handleAdvancedSettingsClick }>
+										<Icon
+											size={ 24 }
+											icon={ isAdvancedSettingsVisible ? chevronDown : chevronRight }
+										/>
+										<div className="text-[13px] leading-[16px] ml-2">
+											{ __( 'Advanced settings' ) }
+										</div>
+									</Button>
+								</div>
+								{ isAdvancedSettingsVisible && (
+									<label className="flex flex-col gap-1.5 leading-4">
+										<span onClick={ onSelectPath } className="font-semibold">
+											{ __( 'Local path' ) }
+										</span>
+										<FormPathInputComponent
+											isDisabled={ isPathInputDisabled }
+											doesPathContainWordPress={ doesPathContainWordPress }
+											error={ error }
+											value={ sitePath }
+											onClick={ onSelectPath }
+										/>
+									</label>
+								) }
+							</>
 						) }
 					</>
 				) }

@@ -205,6 +205,7 @@ describe( 'ContentTabSnapshots', () => {
 					deleted: false,
 				},
 			],
+			fetchSnapshotUsage: jest.fn(),
 		} );
 		mockShowMessageBox.mockResolvedValueOnce( { response: 0, checkboxChecked: false } );
 		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
@@ -236,6 +237,7 @@ describe( 'ContentTabSnapshots', () => {
 					deleted: false,
 				},
 			],
+			fetchSnapshotUsage: jest.fn(),
 		} );
 		mockShowMessageBox.mockResolvedValueOnce( { response: 1 } );
 		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );

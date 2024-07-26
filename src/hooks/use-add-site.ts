@@ -6,7 +6,7 @@ import { useSiteDetails } from './use-site-details';
 
 export function useAddSite() {
 	const { __ } = useI18n();
-	const { createSite, data: sites, loadingSites, importFile } = useSiteDetails();
+	const { createSite, data: sites, loadingSites, importFile, updateSite } = useSiteDetails();
 	const [ error, setError ] = useState( '' );
 	const [ siteName, setSiteName ] = useState< string | null >( null );
 	const [ sitePath, setSitePath ] = useState( '' );
@@ -56,11 +56,12 @@ export function useAddSite() {
 			const newSite = await createSite( path, siteName ?? '', !! fileForImport );
 			if ( newSite && fileForImport ) {
 				await importFile( fileForImport, newSite );
+				updateSite( { ...newSite, importState: undefined } );
 			}
 		} catch ( e ) {
 			Sentry.captureException( e );
 		}
-	}, [ createSite, fileForImport, importFile, proposedSitePath, siteName, sitePath ] );
+	}, [ createSite, fileForImport, importFile, proposedSitePath, siteName, sitePath, updateSite ] );
 
 	const handleSiteNameChange = useCallback(
 		async ( name: string ) => {

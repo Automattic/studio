@@ -434,6 +434,18 @@ describe( 'AddDemoSiteWithProgress', () => {
 
 	test( 'Progressbar is present when the second snapshot is being created', async () => {
 		isUploadingSiteId.mockReturnValue( true );
+		( useSnapshots as jest.Mock ).mockReturnValue( {
+			snapshots: [
+				{
+					url: 'fake-site.fake',
+					atomicSiteId: 150,
+					localSiteId: 'site-id-1',
+					date: 1707232820627,
+					deleted: false,
+				},
+			],
+			fetchSnapshotUsage: jest.fn(),
+		} );
 		render( <ContentTabSnapshots selectedSite={ { ...selectedSite, id: 'site-id-1' } } /> );
 		const addDemoSiteButton = screen.queryByRole( 'button', { name: 'Add demo site' } );
 		expect( addDemoSiteButton ).not.toBeInTheDocument();
@@ -442,6 +454,18 @@ describe( 'AddDemoSiteWithProgress', () => {
 
 	test( 'Button is enabled when no snapshots and no other site is being archived', async () => {
 		isUploadingSiteId.mockReturnValue( false );
+		( useSnapshots as jest.Mock ).mockReturnValue( {
+			snapshots: [
+				{
+					url: 'fake-site.fake',
+					atomicSiteId: 150,
+					localSiteId: 'site-id-1',
+					date: 1707232820627,
+					deleted: false,
+				},
+			],
+			fetchSnapshotUsage: jest.fn(),
+		} );
 		render( <ContentTabSnapshots selectedSite={ { ...selectedSite, id: 'site-id-1' } } /> );
 		const addDemoSiteButton = screen.getByRole( 'button', { name: 'Add demo site' } );
 		expect( addDemoSiteButton ).toBeEnabled();
@@ -460,6 +484,18 @@ describe( 'AddDemoSiteWithProgress', () => {
 
 	test( 'Button is disabled when offline', async () => {
 		( useOffline as jest.Mock ).mockReturnValue( true );
+		( useSnapshots as jest.Mock ).mockReturnValue( {
+			snapshots: [
+				{
+					url: 'fake-site.fake',
+					atomicSiteId: 150,
+					localSiteId: 'site-id-1',
+					date: 1707232820627,
+					deleted: false,
+				},
+			],
+			fetchSnapshotUsage: jest.fn(),
+		} );
 		render( <ContentTabSnapshots selectedSite={ { ...selectedSite, id: 'site-id-1' } } /> );
 		const addDemoSiteButton = screen.getByRole( 'button', { name: 'Add demo site' } );
 		expect( addDemoSiteButton ).toHaveAttribute( 'aria-disabled', 'true' );

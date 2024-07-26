@@ -36,9 +36,7 @@ export function useDragAndDropFile< T extends HTMLElement >( {
 			if ( event.dataTransfer.files.length === 1 ) {
 				onFileDrop( event.dataTransfer.files[ 0 ] );
 			}
-			setIsDraggingOver( false );
 		};
-
 		dropRef.current.addEventListener( 'dragover', handleDragOver );
 		dropRef.current.addEventListener( 'dragleave', handleDragLeave );
 		dropRef.current.addEventListener( 'drop', handleDrop );

@@ -241,8 +241,8 @@ export const SiteForm = ( {
 	if ( importExportEnabled ) {
 		return (
 			<form className={ className } onSubmit={ onSubmit }>
-				<div className="flex flex-col gap-6">
-					<label className="flex flex-col gap-1.5 leading-4">
+				<div className="flex flex-col">
+					<label className="flex flex-col gap-1.5 leading-4 mb-6">
 						<span className="font-semibold">{ __( 'Site name' ) }</span>
 						<TextControlComponent
 							onChange={ setSiteName }
@@ -251,7 +251,7 @@ export const SiteForm = ( {
 					</label>
 					{ setFileForImport && (
 						<>
-							<div className="flex flex-col gap-1.5 leading-4">
+							<div className="flex flex-col gap-1.5 leading-4 mb-6">
 								<label className="font-semibold">
 									{ __( 'Import a backup' ) }
 									<span className="font-normal">{ __( ' (optional)' ) }</span>
@@ -281,7 +281,7 @@ export const SiteForm = ( {
 							</div>
 							{ onSelectPath && (
 								<>
-									<div className="flex flex-row">
+									<div className="flex flex-row items-center mb-0">
 										<Button className="pl-0" onClick={ handleAdvancedSettingsClick }>
 											<Icon
 												size={ 24 }
@@ -292,20 +292,29 @@ export const SiteForm = ( {
 											</div>
 										</Button>
 									</div>
-									{ isAdvancedSettingsVisible && (
-										<label className="flex flex-col gap-1.5 leading-4">
-											<span onClick={ onSelectPath } className="font-semibold">
-												{ __( 'Local path' ) }
-											</span>
-											<FormPathInputComponent
-												isDisabled={ isPathInputDisabled }
-												doesPathContainWordPress={ doesPathContainWordPress }
-												error={ error }
-												value={ sitePath }
-												onClick={ onSelectPath }
-											/>
-										</label>
-									) }
+									<div
+										className={ cx(
+											'transition-all duration-500 ease-in-out overflow-hidden',
+											isAdvancedSettingsVisible
+												? 'max-h-96 opacity-100 mb-6'
+												: 'max-h-0 opacity-0 mb-0'
+										) }
+									>
+										{ isAdvancedSettingsVisible && (
+											<label className="flex flex-col gap-1.5 leading-4 p-2">
+												<span onClick={ onSelectPath } className="font-semibold">
+													{ __( 'Local path' ) }
+												</span>
+												<FormPathInputComponent
+													isDisabled={ isPathInputDisabled }
+													doesPathContainWordPress={ doesPathContainWordPress }
+													error={ error }
+													value={ sitePath }
+													onClick={ onSelectPath }
+												/>
+											</label>
+										) }
+									</div>
 								</>
 							) }
 						</>

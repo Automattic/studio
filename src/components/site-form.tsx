@@ -5,6 +5,7 @@ import { tip, warning, trash, chevronRight, chevronDown } from '@wordpress/icons
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useRef, useState } from 'react';
 import { STUDIO_DOCS_URL } from '../constants';
+import { useFeatureFlags } from '../hooks/use-feature-flags';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
@@ -229,6 +230,7 @@ export const SiteForm = ( {
 	fileError?: string;
 } ) => {
 	const { __ } = useI18n();
+	const { importExportEnabled } = useFeatureFlags();
 
 	const [ isAdvancedSettingsVisible, setAdvancedSettingsVisible ] = useState( false );
 
@@ -236,76 +238,110 @@ export const SiteForm = ( {
 		setAdvancedSettingsVisible( ! isAdvancedSettingsVisible );
 	};
 
-	return (
-		<form className={ className } onSubmit={ onSubmit }>
-			<div className="flex flex-col gap-6">
-				<label className="flex flex-col gap-1.5 leading-4">
-					<span className="font-semibold">{ __( 'Site name' ) }</span>
-					<TextControlComponent onChange={ setSiteName } value={ siteName }></TextControlComponent>
-				</label>
-				{ setFileForImport && (
-					<>
-						<div className="flex flex-col gap-1.5 leading-4">
-							<label className="font-semibold">
-								{ __( 'Import a backup' ) }
-								<span className="font-normal">{ __( ' (optional)' ) }</span>
-							</label>
-							<span className="text-a8c-gray-50 text-xs">
-								{ createInterpolateElement(
-									__( 'Jetpack and WordPress backups supported. <button>Learn more</button>' ),
-									{
-										button: (
-											<Button
-												variant="link"
-												className="text-xs"
-												onClick={ () => getIpcApi().openURL( STUDIO_DOCS_URL ) }
+	if ( importExportEnabled ) {
+		return (
+			<form className={ className } onSubmit={ onSubmit }>
+				<div className="flex flex-col gap-6">
+					<label className="flex flex-col gap-1.5 leading-4">
+						<span className="font-semibold">{ __( 'Site name' ) }</span>
+						<TextControlComponent
+							onChange={ setSiteName }
+							value={ siteName }
+						></TextControlComponent>
+					</label>
+					{ setFileForImport && (
+						<>
+							<div className="flex flex-col gap-1.5 leading-4">
+								<label className="font-semibold">
+									{ __( 'Import a backup' ) }
+									<span className="font-normal">{ __( ' (optional)' ) }</span>
+								</label>
+								<span className="text-a8c-gray-50 text-xs">
+									{ createInterpolateElement(
+										__( 'Jetpack and WordPress backups supported. <button>Learn more</button>' ),
+										{
+											button: (
+												<Button
+													variant="link"
+													className="text-xs"
+													onClick={ () => getIpcApi().openURL( STUDIO_DOCS_URL ) }
+												/>
+											),
+										}
+									) }
+								</span>
+								<FormImportComponent
+									placeholder={ __( 'Select or drop a file' ) }
+									value={ fileForImport }
+									onChange={ setFileForImport }
+									onClear={ () => setFileForImport( null ) }
+									onFileSelected={ onFileSelected }
+									error={ fileError }
+								/>
+							</div>
+							{ onSelectPath && (
+								<>
+									<div className="flex flex-row">
+										<Button className="pl-0" onClick={ handleAdvancedSettingsClick }>
+											<Icon
+												size={ 24 }
+												icon={ isAdvancedSettingsVisible ? chevronDown : chevronRight }
 											/>
-										),
-									}
-								) }
+											<div className="text-[13px] leading-[16px] ml-2">
+												{ __( 'Advanced settings' ) }
+											</div>
+										</Button>
+									</div>
+									{ isAdvancedSettingsVisible && (
+										<label className="flex flex-col gap-1.5 leading-4">
+											<span onClick={ onSelectPath } className="font-semibold">
+												{ __( 'Local path' ) }
+											</span>
+											<FormPathInputComponent
+												isDisabled={ isPathInputDisabled }
+												doesPathContainWordPress={ doesPathContainWordPress }
+												error={ error }
+												value={ sitePath }
+												onClick={ onSelectPath }
+											/>
+										</label>
+									) }
+								</>
+							) }
+						</>
+					) }
+				</div>
+				{ children }
+			</form>
+		);
+	} else {
+		return (
+			<form className={ className } onSubmit={ onSubmit }>
+				<div className="flex flex-col gap-6">
+					<label className="flex flex-col gap-1.5 leading-4">
+						<span className="font-semibold">{ __( 'Site name' ) }</span>
+						<TextControlComponent
+							onChange={ setSiteName }
+							value={ siteName }
+						></TextControlComponent>
+					</label>
+					{ onSelectPath && (
+						<label className="flex flex-col gap-1.5 leading-4">
+							<span onClick={ onSelectPath } className="font-semibold">
+								{ __( 'Local path' ) }
 							</span>
-							<FormImportComponent
-								placeholder={ __( 'Select or drop a file' ) }
-								value={ fileForImport }
-								onChange={ setFileForImport }
-								onClear={ () => setFileForImport( null ) }
-								onFileSelected={ onFileSelected }
-								error={ fileError }
+							<FormPathInputComponent
+								isDisabled={ isPathInputDisabled }
+								doesPathContainWordPress={ doesPathContainWordPress }
+								error={ error }
+								value={ sitePath }
+								onClick={ onSelectPath }
 							/>
-						</div>
-						{ onSelectPath && (
-							<>
-								<div className="flex flex-row">
-									<Button className="pl-0" onClick={ handleAdvancedSettingsClick }>
-										<Icon
-											size={ 24 }
-											icon={ isAdvancedSettingsVisible ? chevronDown : chevronRight }
-										/>
-										<div className="text-[13px] leading-[16px] ml-2">
-											{ __( 'Advanced settings' ) }
-										</div>
-									</Button>
-								</div>
-								{ isAdvancedSettingsVisible && (
-									<label className="flex flex-col gap-1.5 leading-4">
-										<span onClick={ onSelectPath } className="font-semibold">
-											{ __( 'Local path' ) }
-										</span>
-										<FormPathInputComponent
-											isDisabled={ isPathInputDisabled }
-											doesPathContainWordPress={ doesPathContainWordPress }
-											error={ error }
-											value={ sitePath }
-											onClick={ onSelectPath }
-										/>
-									</label>
-								) }
-							</>
-						) }
-					</>
-				) }
-			</div>
-			{ children }
-		</form>
-	);
+						</label>
+					) }
+				</div>
+				{ children }
+			</form>
+		);
+	}
 };

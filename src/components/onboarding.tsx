@@ -6,6 +6,7 @@ import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { ACCEPTED_IMPORT_FILE_TYPES } from '../constants';
 import { useAddSite } from '../hooks/use-add-site';
 import { useDragAndDropFile } from '../hooks/use-drag-and-drop-file';
+import { useFeatureFlags } from '../hooks/use-feature-flags';
 import { generateSiteName } from '../lib/generate-site-name';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
@@ -52,6 +53,7 @@ export default function Onboarding() {
 		fileForImport,
 	} = useAddSite();
 	const [ fileError, setFileError ] = useState( '' );
+	const { importExportEnabled } = useFeatureFlags();
 
 	const siteAddedMessage = sprintf(
 		// translators: %s is the site name.
@@ -115,43 +117,80 @@ export default function Onboarding() {
 		[ setFileForImport ]
 	);
 
-	return (
-		<div className="flex flex-row flex-grow" data-testid="onboarding">
-			<div className="w-1/2 bg-a8c-blueberry pb-[50px] pt-[46px] px-[50px] flex flex-col justify-between">
-				<div className="flex justify-end fill-white items-center gap-1">
-					<Icon size={ 24 } icon={ wordpress } />
+	if ( importExportEnabled ) {
+		return (
+			<div className="flex flex-row flex-grow" data-testid="onboarding">
+				<div className="w-1/2 bg-a8c-blueberry pb-[50px] pt-[46px] px-[50px] flex flex-col justify-between">
+					<div className="flex justify-end fill-white items-center gap-1">
+						<Icon size={ 24 } icon={ wordpress } />
+					</div>
+					<GradientBox />
 				</div>
-				<GradientBox />
-			</div>
 
-			<div className="w-1/2 bg-white p-[50px] flex flex-col relative" ref={ dropRef }>
-				{ isDraggingOver && <DragAndDropOverlay /> }
-				<div className="h-[569px] flex flex-col justify-center items-start flex-[1_0_0%] gap-8">
-					<div className="flex flex-col items-start self-stretch gap-6 app-no-drag-region">
-						<h1 className="font-normal text-xl leading-5">{ __( 'Add your first site' ) }</h1>
-						<SiteForm
-							className="self-stretch"
-							siteName={ siteName || '' }
-							setSiteName={ handleSiteNameChange }
-							sitePath={ sitePath }
-							onSelectPath={ handlePathSelectorClick }
-							error={ error }
-							doesPathContainWordPress={ doesPathContainWordPress }
-							onSubmit={ handleSubmit }
-							fileForImport={ fileForImport }
-							setFileForImport={ setFileForImport }
-							onFileSelected={ handleImportFile }
-							fileError={ fileError }
-						>
-							<div className="flex flex-row gap-x-5 mt-6 justify-end">
-								<Button type="submit" variant="primary">
-									{ __( 'Add site' ) }
-								</Button>
-							</div>
-						</SiteForm>
+				<div className="w-1/2 bg-white p-[50px] flex flex-col relative" ref={ dropRef }>
+					{ isDraggingOver && <DragAndDropOverlay /> }
+					<div className="h-[569px] flex flex-col justify-center items-start flex-[1_0_0%] gap-8">
+						<div className="flex flex-col items-start self-stretch gap-6 app-no-drag-region">
+							<h1 className="font-normal text-xl leading-5">{ __( 'Add your first site' ) }</h1>
+							<SiteForm
+								className="self-stretch"
+								siteName={ siteName || '' }
+								setSiteName={ handleSiteNameChange }
+								sitePath={ sitePath }
+								onSelectPath={ handlePathSelectorClick }
+								error={ error }
+								doesPathContainWordPress={ doesPathContainWordPress }
+								onSubmit={ handleSubmit }
+								fileForImport={ fileForImport }
+								setFileForImport={ setFileForImport }
+								onFileSelected={ handleImportFile }
+								fileError={ fileError }
+							>
+								<div className="flex flex-row gap-x-5 mt-6 justify-end">
+									<Button type="submit" variant="primary">
+										{ __( 'Add site' ) }
+									</Button>
+								</div>
+							</SiteForm>
+						</div>
 					</div>
 				</div>
 			</div>
-		</div>
-	);
+		);
+	} else {
+		return (
+			<div className="flex flex-row flex-grow" data-testid="onboarding">
+				<div className="w-1/2 bg-a8c-blueberry pb-[50px] pt-[46px] px-[50px] flex flex-col justify-between">
+					<div className="flex justify-end fill-white items-center gap-1">
+						<Icon size={ 24 } icon={ wordpress } />
+					</div>
+					<GradientBox />
+				</div>
+
+				<div className="w-1/2 bg-white p-[50px] flex flex-col">
+					<div className="h-[569px] flex flex-col justify-center items-start flex-[1_0_0%] gap-8">
+						<div className="flex flex-col items-start self-stretch gap-6 app-no-drag-region">
+							<h1 className="font-normal text-xl leading-5">{ __( 'Add your first site' ) }</h1>
+							<SiteForm
+								className="self-stretch"
+								siteName={ siteName || '' }
+								setSiteName={ handleSiteNameChange }
+								sitePath={ sitePath }
+								onSelectPath={ handlePathSelectorClick }
+								error={ error }
+								doesPathContainWordPress={ doesPathContainWordPress }
+								onSubmit={ handleSubmit }
+							>
+								<div className="flex flex-row gap-x-5 mt-6">
+									<Button type="submit" variant="primary">
+										{ __( 'Add site' ) }
+									</Button>
+								</div>
+							</SiteForm>
+						</div>
+					</div>
+				</div>
+			</div>
+		);
+	}
 }

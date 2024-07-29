@@ -49,19 +49,17 @@ export async function importBackup(
 			removeBackupListeners = handleEvents( backupHandler, onEvent, HandlerEvents );
 			removeImportListeners = handleEvents( importer, onEvent, ImporterEvents );
 			await backupHandler.extractFiles( backupFile, extractionDirectory );
-			removeBackupListeners();
 			const result = await importer.import( sitePath );
-			removeImportListeners();
 			return result;
 		} else {
 			throw new Error( 'No suitable importer found for the given backup file' );
 		}
 	} catch ( error ) {
 		console.error( 'Backup import failed:', ( error as Error ).message );
-		removeBackupListeners?.();
-		removeImportListeners?.();
 		throw error;
 	} finally {
+		removeBackupListeners?.();
+		removeImportListeners?.();
 		await fsPromises.rm( extractionDirectory, { recursive: true } );
 	}
 }

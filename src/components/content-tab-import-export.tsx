@@ -15,6 +15,7 @@ import { sanitizeFolderName } from '../lib/generate-site-name';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { ExportEvents } from '../lib/import-export/export/events';
 import { BackupCreateProgressEventData, ExportOptions } from '../lib/import-export/export/types';
+import { ImportExportEventData } from '../lib/import-export/handle-events';
 import Button from './button';
 import ProgressBar, { ProgressBarWithAutoIncrement } from './progress-bar';
 
@@ -37,10 +38,8 @@ export const ExportSite = ( {
 	const [ isExporting, setIsExporting ] = useState( false );
 	const [ progress, setProgress ] = useState( 0 );
 	const [ statusMessage, setStatusMessage ] = useState( '' );
-	useIpcListener( 'on-export', ( _evt, data: unknown ) => {
-		const eventData = data as { event: string; data: unknown };
-
-		switch ( eventData.event ) {
+	useIpcListener( 'on-export', ( _, { event, data }: ImportExportEventData ) => {
+		switch ( event ) {
 			case ExportEvents.EXPORT_VALIDATION_START:
 				setIsExporting( true );
 				setStatusMessage( __( 'Validating site structure...' ) );
@@ -65,9 +64,9 @@ export const ExportSite = ( {
 				setProgress( 30 );
 				break;
 			case ExportEvents.BACKUP_CREATE_PROGRESS: {
-				const { entries } = ( eventData.data as BackupCreateProgressEventData ).progress;
 				const entriesProgress = ( entries.processed / entries.total ) * 70; // Scale to remaining 70%
 				setProgress( Math.min( 100, 30 + entriesProgress ) ); // Start from 30% and go up to 100%
+				const { entries } = ( data as BackupCreateProgressEventData ).progress;
 				setStatusMessage( __( `Backing up files...` ) );
 				break;
 			}

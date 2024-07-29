@@ -2,7 +2,6 @@ import { EventEmitter } from 'events';
 
 export interface ExportOptions {
 	sitePath: string;
-	siteId?: string;
 	backupFile: string;
 	includes: {
 		database: boolean;

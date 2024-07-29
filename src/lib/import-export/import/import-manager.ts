@@ -1,7 +1,7 @@
 import fsPromises from 'fs/promises';
 import os from 'os';
 import path from 'path';
-import { ImportExportEventData, handleEvents } from '../types';
+import { ImportExportEventData, handleEvents } from '../handle-events';
 import { BackupExtractEvents, ImporterEvents, ValidatorEvents } from './events';
 import { BackupHandlerFactory } from './handlers/backup-handler-factory';
 import { DefaultImporter, Importer, ImporterResult } from './importers/importer';
@@ -22,8 +22,9 @@ export function selectImporter(
 ): Importer | null {
 	for ( const { validator, importer } of options ) {
 		if ( validator.canHandle( allFiles ) ) {
-			handleEvents( validator, onEvent, ValidatorEvents );
+			const removeValidatorListeners = handleEvents( validator, onEvent, ValidatorEvents );
 			const files = validator.parseBackupContents( allFiles, extractionDirectory );
+			removeValidatorListeners();
 			return new importer( files );
 		}
 	}
@@ -37,14 +38,16 @@ export async function importBackup(
 	options: ImporterOption[]
 ): Promise< ImporterResult > {
 	const extractionDirectory = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio_backup' ) );
+	let removeBackupListeners;
+	let removeImportListeners;
 	try {
 		const backupHandler = BackupHandlerFactory.create( backupFile );
 		const fileList = await backupHandler.listFiles( backupFile );
 		const importer = selectImporter( fileList, extractionDirectory, onEvent, options );
 
 		if ( importer ) {
-			handleEvents( backupHandler, onEvent, BackupExtractEvents );
-			handleEvents( importer, onEvent, ImporterEvents );
+			removeBackupListeners = handleEvents( backupHandler, onEvent, BackupExtractEvents );
+			removeImportListeners = handleEvents( importer, onEvent, ImporterEvents );
 			await backupHandler.extractFiles( backupFile, extractionDirectory );
 			return await importer.import( sitePath );
 		} else {
@@ -54,6 +57,8 @@ export async function importBackup(
 		console.error( 'Backup import failed:', ( error as Error ).message );
 		throw error;
 	} finally {
+		removeBackupListeners?.();
+		removeImportListeners?.();
 		await fsPromises.rm( extractionDirectory, { recursive: true } );
 	}
 }

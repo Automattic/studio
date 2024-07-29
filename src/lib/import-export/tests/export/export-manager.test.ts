@@ -5,7 +5,7 @@ describe( 'exportBackup', () => {
 	let mockExportOptions: ExportOptions;
 	beforeEach( () => {
 		mockExportOptions = {} as ExportOptions;
-		console.log = jest.fn(); // Mock console.log
+		console.log = jest.fn();
 	} );
 
 	it( 'should call export on the first exporter that can handle the options', async () => {

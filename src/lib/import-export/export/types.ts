@@ -1,4 +1,5 @@
-import { EventEmitter } from 'events';
+import type { ProgressData } from 'archiver';
+import type { EventEmitter } from 'events';
 
 export interface ExportOptions {
 	sitePath: string;
@@ -36,4 +37,8 @@ export type NewExporter = new ( backup: BackupContents ) => Exporter;
 export interface ExporterOption {
 	validator: ExportValidator;
 	exporter: NewExporter;
+}
+
+export interface BackupCreateProgressEventData {
+	progress: ProgressData;
 }

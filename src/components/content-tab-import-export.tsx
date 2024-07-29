@@ -14,7 +14,7 @@ import { cx } from '../lib/cx';
 import { sanitizeFolderName } from '../lib/generate-site-name';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { ExportEvents } from '../lib/import-export/export/events';
-import { ExportOptions } from '../lib/import-export/export/types';
+import { BackupCreateProgressEventData, ExportOptions } from '../lib/import-export/export/types';
 import Button from './button';
 import ProgressBar, { ProgressBarWithAutoIncrement } from './progress-bar';
 
@@ -65,7 +65,7 @@ export const ExportSite = ( {
 				setProgress( 30 );
 				break;
 			case ExportEvents.BACKUP_CREATE_PROGRESS: {
-				const { entries } = eventData.data.progress;
+				const { entries } = ( eventData.data as BackupCreateProgressEventData ).progress;
 				const entriesProgress = ( entries.processed / entries.total ) * 70; // Scale to remaining 70%
 				setProgress( Math.min( 100, 30 + entriesProgress ) ); // Start from 30% and go up to 100%
 				setStatusMessage( __( `Backing up files...` ) );

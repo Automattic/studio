@@ -5,7 +5,7 @@ import os from 'os';
 import path from 'path';
 import archiver from 'archiver';
 import { ExportEvents } from '../events';
-import { ExportOptions, BackupContents, Exporter } from '../types';
+import { ExportOptions, BackupContents, Exporter, BackupCreateProgressEventData } from '../types';
 
 export class DefaultExporter extends EventEmitter implements Exporter {
 	private archive!: archiver.Archiver;
@@ -67,7 +67,9 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 				}
 			} );
 			this.archive.on( 'progress', ( progress ) => {
-				this.emit( ExportEvents.BACKUP_CREATE_PROGRESS, { progress } );
+				this.emit( ExportEvents.BACKUP_CREATE_PROGRESS, {
+					progress,
+				} as BackupCreateProgressEventData );
 			} );
 
 			this.archive.on( 'error', reject );

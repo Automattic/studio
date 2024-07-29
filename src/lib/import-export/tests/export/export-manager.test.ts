@@ -27,7 +27,7 @@ describe( 'exportBackup', () => {
 		} ) );
 
 		const exporters: NewExporter[] = [ MockExporter1, MockExporter2 ];
-		await exportBackup( mockExportOptions, exporters );
+		await exportBackup( mockExportOptions, jest.fn(), exporters );
 
 		expect( MockExporter1 ).toHaveBeenCalledWith( mockExportOptions );
 		expect( mockCanHandle ).toHaveBeenCalled();
@@ -53,7 +53,7 @@ describe( 'exportBackup', () => {
 		} ) );
 
 		const exporters: NewExporter[] = [ MockExporter1, MockExporter2 ];
-		await exportBackup( mockExportOptions, exporters );
+		await exportBackup( mockExportOptions, jest.fn(), exporters );
 
 		expect( MockExporter1 ).toHaveBeenCalledWith( mockExportOptions );
 		expect( ExportMethod1 ).not.toHaveBeenCalled();

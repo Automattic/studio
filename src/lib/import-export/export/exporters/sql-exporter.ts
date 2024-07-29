@@ -1,7 +1,7 @@
 import * as console from 'console';
-import { ExportOptions, Exporter } from '../types';
 import { EventEmitter } from 'events';
 import { ExportEvents } from '../events';
+import { ExportOptions, Exporter } from '../types';
 
 export class SqlExporter extends EventEmitter implements Exporter  {
 	constructor( private options: ExportOptions ) {

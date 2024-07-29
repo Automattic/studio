@@ -54,13 +54,19 @@ export function useAddSite() {
 		try {
 			const path = sitePath ? sitePath : proposedSitePath;
 			const newSite = await createSite( path, siteName ?? '', !! fileForImport );
-			if ( newSite && fileForImport ) {
-				await importFile( fileForImport, newSite );
+			if ( newSite ) {
+				if ( fileForImport ) {
+					await importFile( fileForImport, newSite, false );
+				}
+				getIpcApi().showNotification( {
+					title: newSite.name,
+					body: __( 'Your new site is up and running' ),
+				} );
 			}
 		} catch ( e ) {
 			Sentry.captureException( e );
 		}
-	}, [ createSite, fileForImport, importFile, proposedSitePath, siteName, sitePath ] );
+	}, [ __, createSite, fileForImport, importFile, proposedSitePath, siteName, sitePath ] );
 
 	const handleSiteNameChange = useCallback(
 		async ( name: string ) => {

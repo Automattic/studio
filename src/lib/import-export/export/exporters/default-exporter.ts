@@ -47,9 +47,10 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 	}
 
 	async export(): Promise< void > {
+		this.emit( ExportEvents.EXPORT_START );
 		this.backup = await this.getBackupContents();
 		const output = fs.createWriteStream( this.options.backupFile );
-		this.archive = this.createArchive( this.options );
+		this.archive = this.createArchive();
 
 		const archiveClosedPromise = this.setupArchiveListeners( output );
 
@@ -74,9 +75,9 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		}
 	}
 
-	private createArchive( options: ExportOptions ): archiver.Archiver {
+	private createArchive(): archiver.Archiver {
 		this.emit( ExportEvents.BACKUP_CREATE_START );
-		const isZip = options.backupFile.endsWith( '.zip' );
+		const isZip = this.options.backupFile.endsWith( '.zip' );
 		return archiver( isZip ? 'zip' : 'tar', {
 			gzip: ! isZip,
 			gzipOptions: isZip ? undefined : { level: 9 },

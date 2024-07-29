@@ -60,8 +60,8 @@ export const ExportSite = ( {
 			case ExportEvents.BACKUP_CREATE_PROGRESS: {
 				const { entries } = ( data as BackupCreateProgressEventData ).progress;
 				const entriesProgress = entries.processed / entries.total;
-				setProgress( Math.min( 100, 20 + entriesProgress * 80 ) ); // Backup creation takes progress from 20 to 100%
-				setStatusMessage( __( `Backing up files...` ) );
+				setProgress( Math.min( 100, 20 + entriesProgress * 80 ) ); // Backup creation takes progress from 20% to 100%
+				setStatusMessage( __( 'Backing up files...' ) );
 				break;
 			}
 			case ExportEvents.EXPORT_COMPLETE:

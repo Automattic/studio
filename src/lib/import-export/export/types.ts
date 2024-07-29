@@ -4,24 +4,19 @@ import type { EventEmitter } from 'events';
 export interface ExportOptions {
 	sitePath: string;
 	backupFile: string;
-	includes: {
-		database: boolean;
-		uploads: boolean;
-		plugins: boolean;
-		themes: boolean;
-	};
+	includes: { [ index in ExportOptionsIncludes ]: boolean };
 }
+
+export type ExportOptionsIncludes = BackupContentsCategory | 'database';
 
 export interface BackupContents {
 	backupFile: string;
 	sqlFiles: string[];
-	wpContent: {
-		uploads: string[];
-		plugins: string[];
-		themes: string[];
-	};
+	wpContent: { [ index in BackupContentsCategory ]: string[] };
 	wpConfigFile?: string;
 }
+
+export type BackupContentsCategory = 'uploads' | 'plugins' | 'themes';
 
 export interface ExportValidator extends Partial< EventEmitter > {
 	canHandle( files: string[] ): boolean;

@@ -122,7 +122,7 @@ function FormImportComponent( {
 	error,
 	placeholder,
 }: FormImportComponentProps ) {
-	const fileName = value?.name || '';
+	const fileName = value ? value.name : '';
 
 	const inputFileRef = useRef< HTMLInputElement >( null );
 

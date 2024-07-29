@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/electron/renderer';
 import { speak } from '@wordpress/a11y';
 import { createInterpolateElement } from '@wordpress/element';
 import { sprintf, __ } from '@wordpress/i18n';
@@ -78,7 +79,6 @@ export const ExportSite = ( {
 				break;
 			case ExportEvents.EXPORT_ERROR:
 			case ExportEvents.EXPORT_VALIDATION_ERROR:
-				setIsExporting( false );
 				setStatusMessage( __( 'Export failed. Please try again.' ) );
 				break;
 		}
@@ -108,7 +108,20 @@ export const ExportSite = ( {
 				themes: true,
 			},
 		};
-		onExport( options );
+		try {
+			await onExport( options );
+		} catch ( error ) {
+			Sentry.captureException( error );
+			await getIpcApi().showMessageBox( {
+				type: 'error',
+				message: __( 'Failed exporting site' ),
+				detail: __(
+					'An error occurred while exporting the site. If this problem persists, please contact support.'
+				),
+				buttons: [ __( 'OK' ) ],
+			} );
+			setIsExporting( false );
+		}
 	};
 
 	const onExportDatabase = async () => {
@@ -136,7 +149,20 @@ export const ExportSite = ( {
 				themes: false,
 			},
 		};
-		onExport( options );
+		try {
+			await onExport( options );
+		} catch ( error ) {
+			Sentry.captureException( error );
+			await getIpcApi().showMessageBox( {
+				type: 'error',
+				message: __( 'Failed exporting site' ),
+				detail: __(
+					'An error occurred while exporting the site. If this problem persists, please contact support.'
+				),
+				buttons: [ __( 'OK' ) ],
+			} );
+			setIsExporting( false );
+		}
 	};
 
 	return (

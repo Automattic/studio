@@ -17,6 +17,15 @@ export const FEATURE_REQUEST_URL =
 	'https://github.com/Automattic/studio/issues/new?assignees=&labels=%5BType%5D+Feature+Request&projects=&template=feature_request.yml&title=Feature+Request%3A';
 export const WPCOM_PROFILE_URL = `https://wordpress.com/me`;
 
+//Import file constants
+
+export const ACCEPTED_IMPORT_FILE_TYPES = [
+	'application/zip',
+	'application/x-gzip',
+	'application/sql',
+	'application/x-tar',
+];
+
 // OAuth constants
 export const CLIENT_ID = '95109';
 export const PROTOCOL_PREFIX = 'wpcom-local-dev';

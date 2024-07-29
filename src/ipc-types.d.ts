@@ -11,7 +11,7 @@ interface ShowNotificationOptions extends Electron.NotificationConstructorOption
 	showIcon: boolean;
 }
 
-type ImportSiteState = 'importing' | 'imported' | undefined;
+type ImportSiteState = 'importing' | 'imported' | 'new-site-importing' | undefined;
 
 interface StoppedSiteDetails {
 	running: false;

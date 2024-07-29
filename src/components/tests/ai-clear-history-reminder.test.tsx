@@ -14,6 +14,7 @@ describe( 'AIClearHistoryReminder', () => {
 		window.HTMLElement.prototype.scrollIntoView = jest.fn();
 		clearInput = jest.fn();
 		jest.clearAllMocks();
+		jest.useFakeTimers();
 		jest.setSystemTime( MOCKED_TIME );
 	} );
 

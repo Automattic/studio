@@ -2,12 +2,16 @@ import { speak } from '@wordpress/a11y';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { ACCEPTED_IMPORT_FILE_TYPES } from '../constants';
 import { useAddSite } from '../hooks/use-add-site';
+import { useDragAndDropFile } from '../hooks/use-drag-and-drop-file';
+import { useFeatureFlags } from '../hooks/use-feature-flags';
 import { useIpcListener } from '../hooks/use-ipc-listener';
 import { useSiteDetails } from '../hooks/use-site-details';
 import { generateSiteName } from '../lib/generate-site-name';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
+import DragAndDropOverlay from './drag-and-drop-overlay';
 import Modal from './modal';
 import { SiteForm } from './site-form';
 
@@ -19,7 +23,10 @@ export default function AddSite( { className }: AddSiteProps ) {
 	const { __ } = useI18n();
 	const [ showModal, setShowModal ] = useState( false );
 	const [ nameSuggested, setNameSuggested ] = useState( false );
+	const [ fileError, setFileError ] = useState( '' );
+
 	const { data } = useSiteDetails();
+	const { importExportEnabled } = useFeatureFlags();
 
 	const {
 		handleAddSiteClick,
@@ -36,6 +43,8 @@ export default function AddSite( { className }: AddSiteProps ) {
 		handlePathSelectorClick,
 		usedSiteNames,
 		loadingSites,
+		fileForImport,
+		setFileForImport,
 	} = useAddSite();
 
 	const isSiteAdding = data.some( ( site ) => site.isAddingSite );
@@ -79,7 +88,9 @@ export default function AddSite( { className }: AddSiteProps ) {
 		setNameSuggested( false );
 		setSitePath( '' );
 		setDoesPathContainWordPress( false );
-	}, [ setSitePath, setDoesPathContainWordPress ] );
+		setFileForImport( null );
+		setFileError( '' );
+	}, [ setSitePath, setDoesPathContainWordPress, setFileForImport ] );
 
 	const handleSubmit = useCallback(
 		async ( event: FormEvent ) => {
@@ -89,12 +100,33 @@ export default function AddSite( { className }: AddSiteProps ) {
 				await handleAddSiteClick();
 				speak( siteAddedMessage );
 				setNameSuggested( false );
+				setFileForImport( null );
 			} catch {
 				// No need to handle error here, it's already handled in handleAddSiteClick
 			}
 		},
-		[ handleAddSiteClick, closeModal, siteAddedMessage ]
+		[ closeModal, setFileForImport, handleAddSiteClick, siteAddedMessage ]
 	);
+
+	const handleImportFile = useCallback(
+		async ( file: File ) => {
+			setFileForImport( file );
+			setFileError( '' );
+		},
+		[ setFileForImport ]
+	);
+
+	const { dropRef, isDraggingOver } = useDragAndDropFile< HTMLDivElement >( {
+		onFileDrop: ( file: File ) => {
+			if ( ACCEPTED_IMPORT_FILE_TYPES.includes( file.type ) ) {
+				setFileForImport( file );
+				setFileError( '' );
+			} else {
+				setFileError( __( 'Invalid file type. Please select a valid backup file.' ) );
+				setFileForImport( null );
+			}
+		},
+	} );
 
 	useIpcListener( 'add-site', () => {
 		if ( isSiteAdding ) {
@@ -103,49 +135,104 @@ export default function AddSite( { className }: AddSiteProps ) {
 		openModal();
 	} );
 
-	return (
-		<>
-			{ showModal && ! loadingSites && (
-				<Modal
-					size="medium"
-					title={ __( 'Add a site' ) }
-					isDismissible
-					focusOnMount="firstContentElement"
-					onRequestClose={ closeModal }
-				>
-					<SiteForm
-						siteName={ siteName || '' }
-						setSiteName={ handleSiteNameChange }
-						sitePath={ sitePath }
-						onSelectPath={ handlePathSelectorClick }
-						error={ error }
-						onSubmit={ handleSubmit }
-						doesPathContainWordPress={ doesPathContainWordPress }
+	if ( importExportEnabled ) {
+		return (
+			<>
+				{ showModal && ! loadingSites && (
+					<Modal
+						size="medium"
+						title={ __( 'Add a site' ) }
+						isDismissible
+						focusOnMount="firstContentElement"
+						onRequestClose={ closeModal }
 					>
-						<div className="flex flex-row justify-end gap-x-5 mt-6">
-							<Button onClick={ closeModal } disabled={ isSiteAdding } variant="tertiary">
-								{ __( 'Cancel' ) }
-							</Button>
-							<Button
-								type="submit"
-								variant="primary"
-								isBusy={ isSiteAdding }
-								disabled={ isSiteAdding || !! error || ! siteName?.trim() }
+						<div ref={ dropRef }>
+							{ isDraggingOver && <DragAndDropOverlay /> }
+							<SiteForm
+								siteName={ siteName || '' }
+								setSiteName={ handleSiteNameChange }
+								sitePath={ sitePath }
+								onSelectPath={ handlePathSelectorClick }
+								error={ error }
+								onSubmit={ handleSubmit }
+								doesPathContainWordPress={ doesPathContainWordPress }
+								fileForImport={ fileForImport }
+								setFileForImport={ setFileForImport }
+								onFileSelected={ handleImportFile }
+								fileError={ fileError }
 							>
-								{ __( 'Add site' ) }
-							</Button>
+								<div className="flex flex-row justify-end gap-x-5 mt-6">
+									<Button onClick={ closeModal } disabled={ isSiteAdding } variant="tertiary">
+										{ __( 'Cancel' ) }
+									</Button>
+									<Button
+										type="submit"
+										variant="primary"
+										isBusy={ isSiteAdding }
+										disabled={ isSiteAdding || !! error || ! siteName?.trim() }
+									>
+										{ __( 'Add site' ) }
+									</Button>
+								</div>
+							</SiteForm>
 						</div>
-					</SiteForm>
-				</Modal>
-			) }
-			<Button
-				variant="outlined"
-				className={ className }
-				onClick={ openModal }
-				disabled={ isSiteAdding }
-			>
-				{ __( 'Add site' ) }
-			</Button>
-		</>
-	);
+					</Modal>
+				) }
+				<Button
+					variant="outlined"
+					className={ className }
+					onClick={ openModal }
+					disabled={ isSiteAdding }
+				>
+					{ __( 'Add site' ) }
+				</Button>
+			</>
+		);
+	} else {
+		return (
+			<>
+				{ showModal && ! loadingSites && (
+					<Modal
+						size="medium"
+						title={ __( 'Add a site' ) }
+						isDismissible
+						focusOnMount="firstContentElement"
+						onRequestClose={ closeModal }
+					>
+						<SiteForm
+							siteName={ siteName || '' }
+							setSiteName={ handleSiteNameChange }
+							sitePath={ sitePath }
+							onSelectPath={ handlePathSelectorClick }
+							error={ error }
+							onSubmit={ handleSubmit }
+							doesPathContainWordPress={ doesPathContainWordPress }
+						>
+							<div className="flex flex-row justify-end gap-x-5 mt-6">
+								<Button onClick={ closeModal } disabled={ isSiteAdding } variant="tertiary">
+									{ __( 'Cancel' ) }
+								</Button>
+								<Button
+									type="submit"
+									variant="primary"
+									isBusy={ isSiteAdding }
+									disabled={ isSiteAdding || !! error || ! siteName?.trim() }
+								>
+									{ __( 'Add site' ) }
+								</Button>
+							</div>
+						</SiteForm>
+					</Modal>
+				) }
+				<Button
+					variant="outlined"
+					className={ className }
+					onClick={ openModal }
+					disabled={ isSiteAdding }
+				>
+					{ __( 'Add site' ) }
+				</Button>
+			</>
+		);
+	}
 }

@@ -19,7 +19,11 @@ interface SiteDetailsContext {
 	updateSite: ( site: SiteDetails ) => Promise< void >;
 	data: SiteDetails[];
 	setSelectedSiteId: ( selectedSiteId: string ) => void;
-	createSite: ( path: string, siteName?: string ) => Promise< void >;
+	createSite: (
+		path: string,
+		siteName?: string,
+		isImportingNewSite?: boolean
+	) => Promise< SiteDetails | void >;
 	startServer: ( id: string ) => Promise< void >;
 	stopServer: ( id: string ) => Promise< void >;
 	stopAllRunningSites: () => Promise< void >;
@@ -165,7 +169,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	);
 
 	const createSite = useCallback(
-		async ( path: string, siteName?: string ) => {
+		async ( path: string, siteName?: string, isImportingNewSite = false ) => {
 			// Function to handle error messages and cleanup
 			const showError = () => {
 				console.error( 'Failed to create site' );
@@ -217,8 +221,17 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					return prevSelectedSiteId;
 				} );
 				setData( ( prevData ) =>
-					prevData.map( ( site ) => ( site.id === tempSiteId ? newSite : site ) )
+					prevData.map( ( site ) =>
+						site.id === tempSiteId
+							? {
+									...newSite,
+									isAddingSite: false,
+									importState: isImportingNewSite ? 'new-site-importing' : undefined,
+							  }
+							: site
+					)
 				);
+				return newSite;
 			} catch ( error ) {
 				showError();
 			}
@@ -228,7 +241,10 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 	const importFile = useCallback( async ( file: BackupArchiveInfo, selectedSite: SiteDetails ) => {
 		let finalImportState: ImportSiteState;
-		if ( selectedSite.importState === 'importing' ) {
+		if (
+			selectedSite.importState === 'importing' ||
+			selectedSite.importState === 'new-site-importing'
+		) {
 			return;
 		}
 		try {

@@ -294,26 +294,29 @@ export const SiteForm = ( {
 									</div>
 									<div
 										className={ cx(
-											'transition-all duration-500 ease-in-out overflow-hidden',
+											'transition-height duration-500 ease-in-out overflow-hidden',
 											isAdvancedSettingsVisible
 												? 'max-h-96 opacity-100 mb-6'
 												: 'max-h-0 opacity-0 mb-0'
 										) }
 									>
-										{ isAdvancedSettingsVisible && (
-											<label className="flex flex-col gap-1.5 leading-4 p-2">
-												<span onClick={ onSelectPath } className="font-semibold">
-													{ __( 'Local path' ) }
-												</span>
-												<FormPathInputComponent
-													isDisabled={ isPathInputDisabled }
-													doesPathContainWordPress={ doesPathContainWordPress }
-													error={ error }
-													value={ sitePath }
-													onClick={ onSelectPath }
-												/>
-											</label>
-										) }
+										<label
+											className={ cx(
+												'flex flex-col gap-1.5 leading-4 p-2',
+												! isAdvancedSettingsVisible && 'hidden'
+											) }
+										>
+											<span onClick={ onSelectPath } className="font-semibold">
+												{ __( 'Local path' ) }
+											</span>
+											<FormPathInputComponent
+												isDisabled={ isPathInputDisabled }
+												doesPathContainWordPress={ doesPathContainWordPress }
+												error={ error }
+												value={ sitePath }
+												onClick={ onSelectPath }
+											/>
+										</label>
 									</div>
 								</>
 							) }

@@ -49,8 +49,7 @@ export async function importBackup(
 			removeBackupListeners = handleEvents( backupHandler, onEvent, BackupExtractEvents );
 			removeImportListeners = handleEvents( importer, onEvent, ImporterEvents );
 			await backupHandler.extractFiles( backupFile, extractionDirectory );
-			const result = await importer.import( sitePath );
-			return result;
+			return await importer.import( sitePath );
 		} else {
 			throw new Error( 'No suitable importer found for the given backup file' );
 		}

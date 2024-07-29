@@ -57,8 +57,8 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 
 		try {
 			this.addWpConfig();
-			this.addWpContent( this.options );
-			await this.addDatabase( this.options );
+			this.addWpContent();
+			await this.addDatabase();
 			await this.archive.finalize();
 			this.emit( ExportEvents.BACKUP_CREATE_COMPLETE );
 			await archiveClosedPromise;
@@ -111,11 +111,11 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		}
 	}
 
-	private addWpContent( options: ExportOptions ): void {
+	private addWpContent(): void {
 		for ( const category of [ 'uploads', 'plugins', 'themes' ] as const ) {
-			if ( options.includes[ category ] ) {
+			if ( this.options.includes[ category ] ) {
 				for ( const file of this.backup.wpContent[ category ] ) {
-					const relativePath = path.relative( options.sitePath, file );
+					const relativePath = path.relative( this.options.sitePath, file );
 					this.archive.file( file, { name: relativePath } );
 					this.emit( ExportEvents.WP_CONTENT_EXPORT_PROGRESS, { file: relativePath } );
 				}
@@ -128,8 +128,8 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		} );
 	}
 
-	private async addDatabase( options: ExportOptions ): Promise< void > {
-		if ( options.includes.database ) {
+	private async addDatabase(): Promise< void > {
+		if ( this.options.includes.database ) {
 			this.emit( ExportEvents.DATABASE_EXPORT_START );
 			// Add a toy sql file here, to make importer validation pass
 			// This will be implemented in a different ticket

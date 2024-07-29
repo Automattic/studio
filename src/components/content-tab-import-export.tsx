@@ -79,8 +79,8 @@ export const ExportSite = ( {
 					setProgress( 0 );
 					setStatusMessage( '' );
 					getIpcApi().showNotification( {
-						title: __( 'Export completed.' ),
-						body: __( 'Export completed.' ),
+						title: selectedSite.name,
+						body: __( 'Export completed' ),
 					} );
 				}, 2000 );
 				break;

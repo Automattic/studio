@@ -29,11 +29,11 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 	}
 	async canHandle(): Promise< boolean > {
 		// Check for supported extension
-		const supported_extension = [ 'tar.gz', 'tzg', 'zip' ].find( ( ext ) =>
+		const supportedExtension = [ 'tar.gz', 'tzg', 'zip' ].find( ( ext ) =>
 			this.options.backupFile.endsWith( ext )
 		);
 
-		if ( ! supported_extension ) {
+		if ( ! supportedExtension ) {
 			return false;
 		}
 

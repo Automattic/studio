@@ -122,7 +122,7 @@ function FormImportComponent( {
 	error,
 	placeholder,
 }: FormImportComponentProps ) {
-	const fileName = value ? value.name : '';
+	const fileName = value?.name || '';
 
 	const inputFileRef = useRef< HTMLInputElement >( null );
 
@@ -160,7 +160,7 @@ function FormImportComponent( {
 						aria-hidden="true"
 						disabled={ true }
 						placeholder={ placeholder }
-						className="flex-grow [&_.components-text-control\_\_input]:bg-transparent [&_.components-text-control\_\_input]:border-none [&_input]:pointer-events-none [&_.components-text-control\_\_input]:text-sm w-full"
+						className="flex-grow [&_.components-text-control\_\_input]:bg-transparent [&_.components-text-control\_\_input]:border-none [&_input]:pointer-events-none [&_.components-text-control\_\_input]:text-sm w-full [&_.components-text-control\_\_input]:truncate"
 						value={ fileName }
 						// eslint-disable-next-line @typescript-eslint/no-empty-function
 						onChange={ () => {} }

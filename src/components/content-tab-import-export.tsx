@@ -40,48 +40,41 @@ export const ExportSite = ( {
 	const [ statusMessage, setStatusMessage ] = useState( '' );
 	useIpcListener( 'on-export', ( _, { event, data }: ImportExportEventData ) => {
 		switch ( event ) {
-			case ExportEvents.EXPORT_VALIDATION_START:
-				setIsExporting( true );
-				setStatusMessage( __( 'Validating site structure...' ) );
-				setProgress( 5 );
-				break;
-			case ExportEvents.EXPORT_VALIDATION_COMPLETE:
-				setProgress( 10 );
-				break;
 			case ExportEvents.EXPORT_START:
+				setIsExporting( true );
 				setStatusMessage( __( 'Starting export...' ) );
-				setProgress( 15 );
+				setProgress( 5 );
 				break;
 			case ExportEvents.BACKUP_CREATE_START:
 				setStatusMessage( __( 'Creating backup...' ) );
-				setProgress( 20 );
+				setProgress( 10 );
 				break;
 			case ExportEvents.CONFIG_EXPORT_START:
 				setStatusMessage( __( 'Exporting configuration...' ) );
-				setProgress( 25 );
+				setProgress( 15 );
 				break;
 			case ExportEvents.CONFIG_EXPORT_COMPLETE:
-				setProgress( 30 );
+				setProgress( 20 );
 				break;
 			case ExportEvents.BACKUP_CREATE_PROGRESS: {
-				const entriesProgress = ( entries.processed / entries.total ) * 70; // Scale to remaining 70%
-				setProgress( Math.min( 100, 30 + entriesProgress ) ); // Start from 30% and go up to 100%
 				const { entries } = ( data as BackupCreateProgressEventData ).progress;
+				const entriesProgress = entries.processed / entries.total;
+				setProgress( Math.min( 100, 20 + entriesProgress * 80 ) ); // Backup creation takes progress from 20 to 100%
 				setStatusMessage( __( `Backing up files...` ) );
 				break;
 			}
 			case ExportEvents.EXPORT_COMPLETE:
 				setProgress( 100 );
 				setStatusMessage( __( 'Export completed' ) );
+				getIpcApi().showNotification( {
+					title: selectedSite.name,
+					body: __( 'Export completed' ),
+				} );
 				setTimeout( () => {
 					setIsExporting( false );
 					setProgress( 0 );
 					setStatusMessage( '' );
-					getIpcApi().showNotification( {
-						title: selectedSite.name,
-						body: __( 'Export completed' ),
-					} );
-				}, 2000 );
+				}, 500 );
 				break;
 			case ExportEvents.EXPORT_ERROR:
 			case ExportEvents.EXPORT_VALIDATION_ERROR:

@@ -5,7 +5,13 @@ import os from 'os';
 import path from 'path';
 import archiver from 'archiver';
 import { ExportEvents } from '../events';
-import { ExportOptions, BackupContents, Exporter, BackupCreateProgressEventData } from '../types';
+import {
+	ExportOptions,
+	BackupContents,
+	Exporter,
+	BackupCreateProgressEventData,
+	BackupContentsCategory,
+} from '../types';
 
 export class DefaultExporter extends EventEmitter implements Exporter {
 	private archive!: archiver.Archiver;
@@ -83,13 +89,15 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 	}
 
 	private addWpContent( options: ExportOptions ): void {
-		for ( const category of [ 'uploads', 'plugins', 'themes' ] as const ) {
-			if ( options.includes[ category ] ) {
-				for ( const file of this.backup.wpContent[ category ] ) {
-					const relativePath = path.relative( options.sitePath, file );
-					this.archive.file( file, { name: relativePath } );
-					this.emit( ExportEvents.WP_CONTENT_EXPORT_PROGRESS, { file: relativePath } );
-				}
+		const categories = ( [ 'uploads', 'plugins', 'themes' ] as BackupContentsCategory[] ).filter(
+			( category ) => options.includes[ category ]
+		);
+		this.emit( ExportEvents.WP_CONTENT_EXPORT_START );
+		for ( const category of categories ) {
+			for ( const file of this.backup.wpContent[ category ] ) {
+				const relativePath = path.relative( options.sitePath, file );
+				this.archive.file( file, { name: relativePath } );
+				this.emit( ExportEvents.WP_CONTENT_EXPORT_PROGRESS, { file: relativePath } );
 			}
 		}
 		this.emit( ExportEvents.WP_CONTENT_EXPORT_COMPLETE, {

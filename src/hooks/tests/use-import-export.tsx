@@ -1,6 +1,6 @@
 import { renderHook, act } from '@testing-library/react';
 import { getIpcApi } from '../../lib/get-ipc-api';
-import { ExportEventType, ExporterEvents } from '../../lib/import-export/export/events';
+import { ExportEventType, ExportEvents } from '../../lib/import-export/export/events';
 import { ImportExportProvider, useImportExport } from '../use-import-export';
 import { useIpcListener } from '../use-ipc-listener';
 
@@ -81,7 +81,7 @@ describe( 'useImportExport hook', () => {
 
 		const { result } = renderHook( () => useImportExport(), { wrapper } );
 
-		emitExportEvent( SITE_ID, ExporterEvents.EXPORT_START );
+		emitExportEvent( SITE_ID, ExportEvents.EXPORT_START );
 		expect( result.current.exportState ).toEqual( {
 			[ SITE_ID ]: {
 				statusMessage: 'Starting export...',
@@ -89,7 +89,7 @@ describe( 'useImportExport hook', () => {
 			},
 		} );
 
-		emitExportEvent( SITE_ID, ExporterEvents.BACKUP_CREATE_START );
+		emitExportEvent( SITE_ID, ExportEvents.BACKUP_CREATE_START );
 		expect( result.current.exportState ).toEqual( {
 			[ SITE_ID ]: {
 				statusMessage: 'Creating backup...',
@@ -97,7 +97,7 @@ describe( 'useImportExport hook', () => {
 			},
 		} );
 
-		emitExportEvent( SITE_ID, ExporterEvents.CONFIG_EXPORT_START );
+		emitExportEvent( SITE_ID, ExportEvents.CONFIG_EXPORT_START );
 		expect( result.current.exportState ).toEqual( {
 			[ SITE_ID ]: {
 				statusMessage: 'Exporting configuration...',
@@ -105,7 +105,7 @@ describe( 'useImportExport hook', () => {
 			},
 		} );
 
-		emitExportEvent( SITE_ID, ExporterEvents.CONFIG_EXPORT_COMPLETE );
+		emitExportEvent( SITE_ID, ExportEvents.CONFIG_EXPORT_COMPLETE );
 		expect( result.current.exportState ).toEqual( {
 			[ SITE_ID ]: {
 				statusMessage: 'Exporting configuration...',
@@ -113,7 +113,7 @@ describe( 'useImportExport hook', () => {
 			},
 		} );
 
-		emitExportEvent( SITE_ID, ExporterEvents.BACKUP_CREATE_PROGRESS, {
+		emitExportEvent( SITE_ID, ExportEvents.BACKUP_CREATE_PROGRESS, {
 			progress: { entries: { processed: 0, total: 4 } },
 		} );
 		expect( result.current.exportState ).toEqual( {
@@ -123,7 +123,7 @@ describe( 'useImportExport hook', () => {
 			},
 		} );
 
-		emitExportEvent( SITE_ID, ExporterEvents.BACKUP_CREATE_PROGRESS, {
+		emitExportEvent( SITE_ID, ExportEvents.BACKUP_CREATE_PROGRESS, {
 			progress: { entries: { processed: 2, total: 4 } },
 		} );
 		expect( result.current.exportState ).toEqual( {
@@ -133,7 +133,7 @@ describe( 'useImportExport hook', () => {
 			},
 		} );
 
-		emitExportEvent( SITE_ID, ExporterEvents.BACKUP_CREATE_PROGRESS, {
+		emitExportEvent( SITE_ID, ExportEvents.BACKUP_CREATE_PROGRESS, {
 			progress: { entries: { processed: 4, total: 4 } },
 		} );
 		expect( result.current.exportState ).toEqual( {

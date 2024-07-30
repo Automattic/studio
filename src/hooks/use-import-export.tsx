@@ -188,7 +188,6 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 				break;
 			}
 			case ExportEvents.EXPORT_ERROR:
-			case ExportEvents.EXPORT_VALIDATION_ERROR:
 				setExportState( ( { [ siteId ]: currentProgress, ...rest } ) => ( {
 					...rest,
 					[ siteId ]: {

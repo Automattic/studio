@@ -18,22 +18,13 @@ export interface BackupContents {
 
 export type BackupContentsCategory = 'uploads' | 'plugins' | 'themes';
 
-export interface ExportValidator extends Partial< EventEmitter > {
-	canHandle( files: string[] ): boolean;
-	filterFiles( files: string[], options: ExportOptions ): BackupContents;
-}
-
 export interface Exporter extends Partial< EventEmitter > {
-	export( options: ExportOptions ): Promise< void >;
-}
-
-export type NewExporter = new ( backup: BackupContents ) => Exporter;
-
-export interface ExporterOption {
-	validator: ExportValidator;
-	exporter: NewExporter;
+	canHandle(): Promise< boolean >;
+	export(): Promise< void >;
 }
 
 export interface BackupCreateProgressEventData {
 	progress: ProgressData;
 }
+
+export type NewExporter = new ( options: ExportOptions ) => Exporter;

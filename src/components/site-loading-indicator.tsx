@@ -7,7 +7,7 @@ export function SiteLoadingIndicator( { selectedSiteName }: { selectedSiteName?:
 	const { __ } = useI18n();
 
 	const { progress, setProgress } = useProgressTimer( {
-		initialProgress: 20,
+		initialProgress: 10,
 		interval: 1500,
 		maxValue: 95,
 	} );
@@ -20,7 +20,7 @@ export function SiteLoadingIndicator( { selectedSiteName }: { selectedSiteName?:
 			} );
 		};
 
-		setProgress( 50 );
+		setProgress( 20 );
 		const interval = setInterval( updateProgress, 1000 );
 
 		return () => clearInterval( interval );

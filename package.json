@@ -111,6 +111,7 @@
 		"@wp-playground/blueprints": "^0.6.16",
 		"adm-zip": "^0.5.14",
 		"archiver": "^6.0.1",
+		"atomically": "^2.0.3",
 		"compressible": "2.0.18",
 		"compression": "1.7.4",
 		"cross-port-killer": "^1.4.0",

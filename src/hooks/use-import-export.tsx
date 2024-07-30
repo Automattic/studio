@@ -38,38 +38,41 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 	const [ importState, setImportState ] = useState< ProgressState >( {} );
 	const [ exportState, setExportState ] = useState< ProgressState >( {} );
 
-	const exportSite = useCallback( async ( selectedSite: SiteDetails, options: ExportOptions ) => {
-		if ( selectedSite.isExporting ) {
-			return;
-		}
+	const exportSite = useCallback(
+		async ( selectedSite: SiteDetails, options: ExportOptions ) => {
+			if ( exportState[ selectedSite.id ] ) {
+				return;
+			}
 
-		setExportState( ( prevState ) => ( {
-			...prevState,
-			[ selectedSite.id ]: DEFAULT_STATE,
-		} ) );
-
-		try {
-			await getIpcApi().exportSite( options, selectedSite.id );
-			getIpcApi().showNotification( {
-				title: selectedSite.name,
-				body: __( 'Export completed' ),
-			} );
-		} catch ( error ) {
-			Sentry.captureException( error );
-			await getIpcApi().showMessageBox( {
-				type: 'error',
-				message: __( 'Failed exporting site' ),
-				detail: __(
-					'An error occurred while exporting the site. If this problem persists, please contact support.'
-				),
-				buttons: [ __( 'OK' ) ],
-			} );
-		} finally {
-			setExportState( ( { [ selectedSite.id ]: currentProgress, ...rest } ) => ( {
-				...rest,
+			setExportState( ( prevState ) => ( {
+				...prevState,
+				[ selectedSite.id ]: DEFAULT_STATE,
 			} ) );
-		}
-	}, [] );
+
+			try {
+				await getIpcApi().exportSite( options, selectedSite.id );
+				getIpcApi().showNotification( {
+					title: selectedSite.name,
+					body: __( 'Export completed' ),
+				} );
+			} catch ( error ) {
+				Sentry.captureException( error );
+				await getIpcApi().showMessageBox( {
+					type: 'error',
+					message: __( 'Failed exporting site' ),
+					detail: __(
+						'An error occurred while exporting the site. If this problem persists, please contact support.'
+					),
+					buttons: [ __( 'OK' ) ],
+				} );
+			} finally {
+				setExportState( ( { [ selectedSite.id ]: currentProgress, ...rest } ) => ( {
+					...rest,
+				} ) );
+			}
+		},
+		[ exportState ]
+	);
 
 	const exportFullSite = useCallback(
 		async ( selectedSite: SiteDetails ) => {

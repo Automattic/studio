@@ -1,22 +1,17 @@
-import * as Sentry from '@sentry/electron/renderer';
 import { speak } from '@wordpress/a11y';
 import { createInterpolateElement } from '@wordpress/element';
 import { sprintf, __ } from '@wordpress/i18n';
 import { Icon, download } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { format } from 'date-fns';
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
 import { STUDIO_DOCS_URL } from '../constants';
 import { useConfirmationDialog } from '../hooks/use-confirmation-dialog';
 import { useDragAndDropFile } from '../hooks/use-drag-and-drop-file';
+import { useImportExport } from '../hooks/use-import-export';
 import { useIpcListener } from '../hooks/use-ipc-listener';
 import { useSiteDetails } from '../hooks/use-site-details';
 import { cx } from '../lib/cx';
-import { sanitizeFolderName } from '../lib/generate-site-name';
 import { getIpcApi } from '../lib/get-ipc-api';
-import { ExportEvents } from '../lib/import-export/export/events';
-import { BackupCreateProgressEventData, ExportOptions } from '../lib/import-export/export/types';
-import { ImportExportEventData } from '../lib/import-export/handle-events';
 import Button from './button';
 import ProgressBar, { ProgressBarWithAutoIncrement } from './progress-bar';
 
@@ -24,147 +19,10 @@ interface ContentTabImportExportProps {
 	selectedSite: SiteDetails;
 }
 
-const getFileName = ( selectedSite: SiteDetails ) => {
-	const timestamp = format( new Date(), 'yyyy-MM-dd-HH-mm-ss' );
-	return sanitizeFolderName( `studio-backup-${ selectedSite.name }-${ timestamp }` );
-};
-
-export const ExportSite = ( {
-	selectedSite,
-	onExport,
-}: {
-	selectedSite: SiteDetails;
-	onExport: ( options: ExportOptions ) => Promise< void >;
-} ) => {
-	const [ isExporting, setIsExporting ] = useState( false );
-	const [ progress, setProgress ] = useState( 0 );
-	const [ statusMessage, setStatusMessage ] = useState( '' );
-	useIpcListener( 'on-export', ( _, { event, data }: ImportExportEventData ) => {
-		switch ( event ) {
-			case ExportEvents.EXPORT_START:
-				setIsExporting( true );
-				setStatusMessage( __( 'Starting export...' ) );
-				setProgress( 5 );
-				break;
-			case ExportEvents.BACKUP_CREATE_START:
-				setStatusMessage( __( 'Creating backup...' ) );
-				setProgress( 10 );
-				break;
-			case ExportEvents.CONFIG_EXPORT_START:
-				setStatusMessage( __( 'Exporting configuration...' ) );
-				setProgress( 15 );
-				break;
-			case ExportEvents.CONFIG_EXPORT_COMPLETE:
-				setProgress( 20 );
-				break;
-			case ExportEvents.BACKUP_CREATE_PROGRESS: {
-				const { entries } = ( data as BackupCreateProgressEventData ).progress;
-				const entriesProgress = entries.processed / entries.total;
-				setProgress( Math.min( 100, 20 + entriesProgress * 80 ) ); // Backup creation takes progress from 20% to 100%
-				setStatusMessage( __( 'Backing up files...' ) );
-				break;
-			}
-			case ExportEvents.EXPORT_COMPLETE:
-				setProgress( 100 );
-				setStatusMessage( __( 'Export completed' ) );
-				getIpcApi().showNotification( {
-					title: selectedSite.name,
-					body: __( 'Export completed' ),
-				} );
-				setTimeout( () => {
-					setIsExporting( false );
-					setProgress( 0 );
-					setStatusMessage( '' );
-				}, 500 );
-				break;
-			case ExportEvents.EXPORT_ERROR:
-			case ExportEvents.EXPORT_VALIDATION_ERROR:
-				setStatusMessage( __( 'Export failed. Please try again.' ) );
-				break;
-		}
-	} );
-	const onExportFullSite = async () => {
-		const fileName = getFileName( selectedSite );
-		const path = await getIpcApi().showSaveAsDialog( {
-			title: __( 'Save backup file' ),
-			defaultPath: `${ fileName }.tar.gz`,
-			filters: [
-				{
-					name: 'Compressed Backup Files',
-					extensions: [ 'tar.gz', 'tzg', 'zip' ],
-				},
-			],
-		} );
-		if ( ! path ) {
-			return;
-		}
-		const options: ExportOptions = {
-			sitePath: selectedSite.path,
-			backupFile: path,
-			includes: {
-				database: true,
-				uploads: true,
-				plugins: true,
-				themes: true,
-			},
-		};
-		try {
-			await onExport( options );
-		} catch ( error ) {
-			Sentry.captureException( error );
-			await getIpcApi().showMessageBox( {
-				type: 'error',
-				message: __( 'Failed exporting site' ),
-				detail: __(
-					'An error occurred while exporting the site. If this problem persists, please contact support.'
-				),
-				buttons: [ __( 'OK' ) ],
-			} );
-			setIsExporting( false );
-		}
-	};
-
-	const onExportDatabase = async () => {
-		const fileName = getFileName( selectedSite );
-		const path = await getIpcApi().showSaveAsDialog( {
-			title: __( 'Save database file' ),
-			defaultPath: `${ fileName }.sql`,
-			filters: [
-				{
-					name: 'SQL dump file',
-					extensions: [ 'sql' ],
-				},
-			],
-		} );
-		if ( ! path ) {
-			return;
-		}
-		const options: ExportOptions = {
-			sitePath: selectedSite.path,
-			backupFile: path,
-			includes: {
-				database: true,
-				uploads: false,
-				plugins: false,
-				themes: false,
-			},
-		};
-		try {
-			await onExport( options );
-		} catch ( error ) {
-			Sentry.captureException( error );
-			await getIpcApi().showMessageBox( {
-				type: 'error',
-				message: __( 'Failed exporting site' ),
-				detail: __(
-					'An error occurred while exporting the site. If this problem persists, please contact support.'
-				),
-				buttons: [ __( 'OK' ) ],
-			} );
-			setIsExporting( false );
-		}
-	};
-
+export const ExportSite = ( { selectedSite }: { selectedSite: SiteDetails } ) => {
+	const { exportState } = useImportExport();
+	const { exportFullSite, exportDatabase } = useImportExport();
+	const { [ selectedSite.id ]: currentProgress } = exportState;
 	return (
 		<div className="flex flex-col gap-4">
 			<div>
@@ -173,18 +31,18 @@ export const ExportSite = ( {
 					{ __( 'Export your entire site or only the database.' ) }
 				</p>
 			</div>
-			{ isExporting ? (
+			{ currentProgress ? (
 				<div className="flex flex-col gap-4">
-					<ProgressBar value={ progress } maxValue={ 100 } />
-					<div className="text-a8c-gray-70 a8c-body">{ statusMessage }</div>
+					<ProgressBar value={ currentProgress.progress } maxValue={ 100 } />
+					<div className="text-a8c-gray-70 a8c-body">{ currentProgress.statusMessage }</div>
 				</div>
 			) : (
 				<div className="flex flex-row gap-4">
-					<Button onClick={ onExportFullSite } variant="primary">
+					<Button onClick={ () => exportFullSite( selectedSite ) } variant="primary">
 						{ __( 'Export entire site' ) }
 					</Button>
 					<Button
-						onClick={ onExportDatabase }
+						onClick={ () => exportDatabase( selectedSite ) }
 						type="submit"
 						variant="secondary"
 						className="!text-a8c-blueberry !shadow-a8c-blueberry"
@@ -358,7 +216,7 @@ export function ContentTabImportExport( { selectedSite }: ContentTabImportExport
 	return (
 		<div className="flex flex-col p-8 gap-8">
 			<ImportSite selectedSite={ selectedSite } />
-			<ExportSite onExport={ getIpcApi().exportSite } selectedSite={ selectedSite }></ExportSite>
+			<ExportSite selectedSite={ selectedSite }></ExportSite>
 		</div>
 	);
 }

@@ -49,7 +49,36 @@ describe( 'useImportExport hook', () => {
 			},
 			SITE_ID
 		);
+		expect( getIpcApi().showNotification ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				body: 'Export completed',
+			} )
+		);
 	} );
+
+	it( 'shows error message when export fails', async () => {
+		const mockShowSaveAsDialog = getIpcApi().showSaveAsDialog as jest.Mock;
+		mockShowSaveAsDialog.mockResolvedValue( '/path/to/exported-site.tar.gz' );
+
+		( getIpcApi().exportSite as jest.Mock ).mockRejectedValue( 'error' );
+
+		const { result } = renderHook( () => useImportExport(), { wrapper } );
+		await act( () => result.current.exportFullSite( selectedSite ) );
+
+		expect( result.current.exportState ).toEqual( {} );
+		expect( getIpcApi().exportSite ).toHaveBeenCalledWith(
+			{
+				sitePath: '/test-site',
+				backupFile: '/path/to/exported-site.tar.gz',
+				includes: { database: true, uploads: true, plugins: true, themes: true },
+			},
+			SITE_ID
+		);
+		expect( getIpcApi().showMessageBox ).toHaveBeenCalledWith(
+			expect.objectContaining( { type: 'error', message: 'Failed exporting site' } )
+		);
+	} );
+
 	it( 'exports database', async () => {
 		const mockShowSaveAsDialog = getIpcApi().showSaveAsDialog as jest.Mock;
 		mockShowSaveAsDialog.mockResolvedValue( '/path/to/exported-database.sql' );
@@ -65,6 +94,11 @@ describe( 'useImportExport hook', () => {
 				includes: { database: true, uploads: false, plugins: false, themes: false },
 			},
 			SITE_ID
+		);
+		expect( getIpcApi().showNotification ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				body: 'Export completed',
+			} )
 		);
 	} );
 

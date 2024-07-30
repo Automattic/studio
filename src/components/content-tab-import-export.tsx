@@ -20,8 +20,7 @@ interface ContentTabImportExportProps {
 }
 
 export const ExportSite = ( { selectedSite }: { selectedSite: SiteDetails } ) => {
-	const { exportState } = useImportExport();
-	const { exportFullSite, exportDatabase } = useImportExport();
+	const { exportState, exportFullSite, exportDatabase } = useImportExport();
 	const { [ selectedSite.id ]: currentProgress } = exportState;
 	return (
 		<div className="flex flex-col gap-4">

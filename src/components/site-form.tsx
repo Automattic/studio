@@ -152,7 +152,7 @@ function FormImportComponent( {
 					className={ cx(
 						'flex items-center flex-grow rounded-sm border border-[#949494] focus:border-a8c-blueberry focus:shadow-[0_0_0_0.5px_black] focus:shadow-a8c-blueberry outline-none transition-shadow transition-linear duration-100 [&_.local-path-icon]:focus:border-l-a8c-blueberry [&:disabled]:cursor-not-allowed',
 						error ? 'border-red-500 [&_.local-path-icon]:border-l-red-500' : '',
-						fileName ? 'border-r-0 rounded-r-none' : ''
+						fileName ? 'border-r-0 rounded-r-none focus:border' : ''
 					) }
 					onClick={ () => inputFileRef.current?.click() }
 				>

@@ -2,7 +2,7 @@ import type { ProgressData } from 'archiver';
 import type { EventEmitter } from 'events';
 
 export interface ExportOptions {
-	sitePath: string;
+	site: SiteDetails;
 	backupFile: string;
 	includes: { [ index in ExportOptionsIncludes ]: boolean };
 }

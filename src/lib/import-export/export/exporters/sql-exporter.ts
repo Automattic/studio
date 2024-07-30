@@ -1,8 +1,8 @@
 import * as console from 'console';
 import { EventEmitter } from 'events';
+import { SiteServer } from '../../../../site-server';
 import { ExportEvents } from '../events';
 import { ExportOptions, Exporter } from '../types';
-import { getIpcApi } from '../../../get-ipc-api';
 
 export class SqlExporter extends EventEmitter implements Exporter {
 	constructor( private options: ExportOptions ) {
@@ -13,16 +13,19 @@ export class SqlExporter extends EventEmitter implements Exporter {
 		console.log( `Database backup created at: ${ this.options.backupFile }` );
 		console.log( 'Database backup options:', this.options );
 
-		const { stdout, stderr } = await getIpcApi().executeWPCLiInline( {
-			siteId: this.options.site.id,
-			args: 'db export',
-		} );
+		const server = SiteServer.get( this.options.site.id );
+
+		if ( ! server ) {
+			throw new Error( 'Site not found.' );
+		}
+
+		const { stdout, stderr } = await server.executeWpCliCommand( 'db export' );
+
 		if ( stderr ) {
-			console.log( "ERROR", stderr );
+			console.log( 'ERROR db export', stderr );
 		}
 
 		console.log( stdout );
-
 
 		this.emit( ExportEvents.EXPORT_COMPLETE );
 	}

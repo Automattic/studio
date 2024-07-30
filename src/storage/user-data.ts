@@ -3,6 +3,7 @@ import fs from 'fs';
 import nodePath from 'path';
 import { SupportedPHPVersion, SupportedPHPVersions } from '@php-wasm/universal';
 import * as Sentry from '@sentry/electron/main';
+import * as atomically from 'atomically';
 import { isErrnoException } from '../lib/is-errno-exception';
 import { sanitizeUnstructuredData, sanitizeUserpath } from '../lib/sanitize-for-logging';
 import { sortSites } from '../lib/sort-sites';
@@ -86,7 +87,17 @@ export async function saveUserData( data: UserData ): Promise< void > {
 	const filePath = getUserDataFilePath();
 
 	const asString = JSON.stringify( toDiskFormat( data ), null, 2 ) + '\n';
-	await fs.promises.writeFile( filePath, asString, 'utf-8' );
+	try {
+		await atomically.writeFile( filePath, asString, 'utf-8' );
+	} catch ( error ) {
+		// Fall back to FS function in case the writing fails with EXDEV error.
+		// This issue might happen on Windows when renaming a file.
+		// Reference: https://github.com/sindresorhus/electron-store/issues/106
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		if ( ( error as any )?.code === 'EXDEV' ) {
+			await fs.promises.writeFile( filePath, asString, 'utf-8' );
+		}
+	}
 	console.log( `Saved user data to ${ sanitizeUserpath( filePath ) }` );
 }
 

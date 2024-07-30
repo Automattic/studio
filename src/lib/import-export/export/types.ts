@@ -22,18 +22,9 @@ export interface BackupContents {
 	wpConfigFile?: string;
 }
 
-export interface ExportValidator extends Partial< EventEmitter > {
-	canHandle( files: string[] ): boolean;
-	filterFiles( files: string[], options: ExportOptions ): BackupContents;
-}
-
 export interface Exporter extends Partial< EventEmitter > {
-	export( options: ExportOptions ): Promise< void >;
+	canHandle(): Promise< boolean >;
+	export(): Promise< void >;
 }
 
-export type NewExporter = new ( backup: BackupContents ) => Exporter;
-
-export interface ExporterOption {
-	validator: ExportValidator;
-	exporter: NewExporter;
-}
+export type NewExporter = new ( options: ExportOptions ) => Exporter;

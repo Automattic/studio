@@ -62,7 +62,13 @@ describe( 'DefaultExporter', () => {
 		};
 
 		mockOptions = {
-			sitePath: '/path/to/site',
+			site: {
+				running: false,
+				id: 'site-id',
+				name: 'site-name',
+				path: '/path/to/site',
+				phpVersion: '7.4',
+			},
 			backupFile: '/path/to/backup.tar.gz',
 			includes: {
 				uploads: true,

@@ -49,7 +49,7 @@ export const ExportSite = ( {
 			return;
 		}
 		const options: ExportOptions = {
-			sitePath: selectedSite.path,
+			site: selectedSite,
 			backupFile: path,
 			includes: {
 				database: true,
@@ -77,7 +77,7 @@ export const ExportSite = ( {
 			return;
 		}
 		const options: ExportOptions = {
-			sitePath: selectedSite.path,
+			site: selectedSite,
 			backupFile: path,
 			includes: {
 				database: true,

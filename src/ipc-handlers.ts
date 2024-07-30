@@ -480,13 +480,14 @@ export async function clearAuthenticationToken() {
 
 export async function exportSite(
 	event: IpcMainInvokeEvent,
-	options: ExportOptions
+	options: ExportOptions,
+	siteId: string
 ): Promise< void > {
 	try {
 		const onEvent = ( data: ImportExportEventData ) => {
 			const parentWindow = BrowserWindow.fromWebContents( event.sender );
 			if ( parentWindow && ! parentWindow.isDestroyed() && ! event.sender.isDestroyed() ) {
-				parentWindow.webContents.send( 'on-export', data );
+				parentWindow.webContents.send( 'on-export', data, siteId );
 			}
 		};
 		await exportBackup( options, onEvent );

@@ -5,6 +5,7 @@ export interface ExportOptions {
 	sitePath: string;
 	backupFile: string;
 	includes: { [ index in ExportOptionsIncludes ]: boolean };
+	phpVersion: string;
 }
 
 export type ExportOptionsIncludes = BackupContentsCategory | 'database';

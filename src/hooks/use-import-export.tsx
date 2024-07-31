@@ -55,6 +55,8 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 					title: selectedSite.name,
 					body: __( 'Export completed' ),
 				} );
+				// Delay function resolution to ensure complete export message is displayed
+				await new Promise< void >( ( resolve ) => setTimeout( resolve, 500 ) );
 			} catch ( error ) {
 				Sentry.captureException( error );
 				await getIpcApi().showMessageBox( {
@@ -187,6 +189,16 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 				} ) );
 				break;
 			}
+			case ExportEvents.EXPORT_COMPLETE:
+				setExportState( ( { [ siteId ]: currentProgress, ...rest } ) => ( {
+					...rest,
+					[ siteId ]: {
+						...currentProgress,
+						statusMessage: __( 'Export completed' ),
+						progress: 100,
+					},
+				} ) );
+				break;
 			case ExportEvents.EXPORT_ERROR:
 				setExportState( ( { [ siteId ]: currentProgress, ...rest } ) => ( {
 					...rest,

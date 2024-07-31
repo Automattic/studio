@@ -176,5 +176,13 @@ describe( 'useImportExport hook', () => {
 				progress: 100,
 			},
 		} );
+
+		emitExportEvent( SITE_ID, ExportEvents.EXPORT_COMPLETE );
+		expect( result.current.exportState ).toEqual( {
+			[ SITE_ID ]: {
+				statusMessage: 'Export completed',
+				progress: 100,
+			},
+		} );
 	} );
 } );

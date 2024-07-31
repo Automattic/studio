@@ -2,6 +2,7 @@ import * as Sentry from '@sentry/electron/renderer';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useMemo, useState } from 'react';
 import { getIpcApi } from '../lib/get-ipc-api';
+import { BackupArchiveInfo } from '../lib/import-export/import/types';
 import { useSiteDetails } from './use-site-details';
 
 export function useAddSite() {
@@ -53,7 +54,19 @@ export function useAddSite() {
 	const handleAddSiteClick = useCallback( async () => {
 		try {
 			const path = sitePath ? sitePath : proposedSitePath;
-			const newSite = await createSite( path, siteName ?? '', !! fileForImport );
+			let phpVersion = '';
+
+			if ( fileForImport ) {
+				const backupFile: BackupArchiveInfo = {
+					type: fileForImport.type,
+					path: fileForImport.path,
+				};
+
+				const meta = await getIpcApi().getMetaFromBackup( backupFile );
+				phpVersion = meta.phpVersion;
+			}
+
+			const newSite = await createSite( path, siteName ?? '', !! fileForImport, phpVersion );
 			if ( newSite ) {
 				if ( fileForImport ) {
 					await importFile( fileForImport, newSite, false );

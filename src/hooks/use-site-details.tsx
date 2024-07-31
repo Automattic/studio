@@ -22,7 +22,8 @@ interface SiteDetailsContext {
 	createSite: (
 		path: string,
 		siteName?: string,
-		isImportingNewSite?: boolean
+		isImportingNewSite?: boolean,
+		phpVersion?: string
 	) => Promise< SiteDetails | void >;
 	startServer: ( id: string ) => Promise< void >;
 	stopServer: ( id: string ) => Promise< void >;
@@ -173,7 +174,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	);
 
 	const createSite = useCallback(
-		async ( path: string, siteName?: string, isImportingNewSite = false ) => {
+		async ( path: string, siteName?: string, isImportingNewSite = false, phpVersion = '' ) => {
 			// Function to handle error messages and cleanup
 			const showError = () => {
 				console.error( 'Failed to create site' );
@@ -204,14 +205,14 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 						path,
 						running: false,
 						isAddingSite: true,
-						phpVersion: '',
+						phpVersion,
 					},
 				] )
 			);
 			setSelectedSiteId( tempSiteId ); // Set the temporary ID as the selected site
 
 			try {
-				const data = await getIpcApi().createSite( path, siteName );
+				const data = await getIpcApi().createSite( path, { siteName, phpVersion } );
 				const newSite = data.find( ( site ) => site.path === path );
 				if ( ! newSite ) {
 					showError();

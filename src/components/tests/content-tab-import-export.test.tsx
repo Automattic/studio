@@ -95,6 +95,19 @@ describe( 'ContentTabImportExport Import', () => {
 
 		expect( useImportExport().importFile ).toHaveBeenCalledWith( file, selectedSite );
 	} );
+
+	test( 'should display progress when importing', async () => {
+		( useImportExport as jest.Mock ).mockReturnValue( {
+			importState: {
+				'site-id-1': { progress: 5, statusMessage: 'Extracting backup…', isNewSite: false },
+			},
+			exportState: {},
+		} );
+
+		render( <ContentTabImportExport selectedSite={ selectedSite } /> );
+		expect( screen.getByText( 'Extracting backup…' ) ).toBeVisible();
+		expect( screen.getByRole( 'progressbar', { value: { now: 5 } } ) ).toBeVisible();
+	} );
 } );
 
 describe( 'ContentTabImportExport Export', () => {

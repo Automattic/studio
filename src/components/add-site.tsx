@@ -166,7 +166,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 								<div className="sticky bottom-0 bg-white -mx-8">
 									<div
 										className={ cx(
-											'border-t border-gray-300 py-4 flex flex-row justify-end gap-x-5 mt-6 px-4'
+											'border-t border-gray-300 py-4 flex flex-row justify-end gap-x-5 mt-6 px-8'
 										) }
 									>
 										<Button onClick={ closeModal } disabled={ isSiteAdding } variant="tertiary">

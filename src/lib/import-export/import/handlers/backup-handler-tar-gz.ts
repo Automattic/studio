@@ -3,7 +3,7 @@ import fs from 'fs';
 import zlib from 'zlib';
 import * as tar from 'tar';
 import { ImportEvents } from '../events';
-import { BackupArchiveInfo } from '../types';
+import { BackupArchiveInfo, BackupExtractProgressEventData } from '../types';
 import { BackupHandler, isFileAllowed } from './backup-handler-factory';
 
 export class BackupHandlerTarGz extends EventEmitter implements BackupHandler {
@@ -17,17 +17,23 @@ export class BackupHandlerTarGz extends EventEmitter implements BackupHandler {
 	}
 
 	async extractFiles( file: BackupArchiveInfo, extractionDirectory: string ): Promise< void > {
+		const totalSize = fs.statSync( file.path ).size;
+		let processedSize = 0;
+
 		return new Promise< void >( ( resolve, reject ) => {
 			this.emit( ImportEvents.BACKUP_EXTRACT_START );
 			fs.createReadStream( file.path )
+				.on( 'data', ( chunk ) => {
+					processedSize += chunk.length;
+					this.emit( ImportEvents.BACKUP_EXTRACT_PROGRESS, {
+						progress: processedSize / totalSize,
+					} as BackupExtractProgressEventData );
+				} )
 				.pipe( zlib.createGunzip() )
 				.pipe( tar.extract( { cwd: extractionDirectory } ) )
 				.on( 'finish', () => {
 					this.emit( ImportEvents.BACKUP_EXTRACT_COMPLETE );
 					resolve();
-				} )
-				.on( 'data', () => {
-					this.emit( ImportEvents.BACKUP_EXTRACT_PROGRESS );
 				} )
 				.on( 'error', ( error ) => {
 					this.emit( ImportEvents.BACKUP_EXTRACT_ERROR, { error } );

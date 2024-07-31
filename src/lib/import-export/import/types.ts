@@ -24,3 +24,7 @@ export interface BackupArchiveInfo {
 }
 
 export type NewImporter = new ( backup: BackupContents ) => Importer;
+
+export interface BackupExtractProgressEventData {
+	progress: number;
+}

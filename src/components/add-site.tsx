@@ -8,6 +8,7 @@ import { useDragAndDropFile } from '../hooks/use-drag-and-drop-file';
 import { useFeatureFlags } from '../hooks/use-feature-flags';
 import { useIpcListener } from '../hooks/use-ipc-listener';
 import { useSiteDetails } from '../hooks/use-site-details';
+import { cx } from '../lib/cx';
 import { generateSiteName } from '../lib/generate-site-name';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
@@ -145,6 +146,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 						isDismissible
 						focusOnMount="firstContentElement"
 						onRequestClose={ closeModal }
+						className="max-h-[90%] md:max-h-[90%]"
 					>
 						<div ref={ dropRef }>
 							{ isDraggingOver && <DragAndDropOverlay /> }
@@ -161,18 +163,24 @@ export default function AddSite( { className }: AddSiteProps ) {
 								onFileSelected={ handleImportFile }
 								fileError={ fileError }
 							>
-								<div className="sticky bottom-0 bg-white py-4 flex flex-row justify-end gap-x-5">
-									<Button onClick={ closeModal } disabled={ isSiteAdding } variant="tertiary">
-										{ __( 'Cancel' ) }
-									</Button>
-									<Button
-										type="submit"
-										variant="primary"
-										isBusy={ isSiteAdding }
-										disabled={ isSiteAdding || !! error || ! siteName?.trim() }
+								<div className="sticky bottom-0 bg-white -mx-8">
+									<div
+										className={ cx(
+											'border-t border-gray-300 py-4 flex flex-row justify-end gap-x-5 mt-6 px-4'
+										) }
 									>
-										{ __( 'Add site' ) }
-									</Button>
+										<Button onClick={ closeModal } disabled={ isSiteAdding } variant="tertiary">
+											{ __( 'Cancel' ) }
+										</Button>
+										<Button
+											type="submit"
+											variant="primary"
+											isBusy={ isSiteAdding }
+											disabled={ isSiteAdding || !! error || ! siteName?.trim() }
+										>
+											{ __( 'Add site' ) }
+										</Button>
+									</div>
 								</div>
 							</SiteForm>
 						</div>

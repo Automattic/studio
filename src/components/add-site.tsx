@@ -161,7 +161,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 								onFileSelected={ handleImportFile }
 								fileError={ fileError }
 							>
-								<div className="flex flex-row justify-end gap-x-5 mt-6">
+								<div className="sticky bottom-0 bg-white py-4 flex flex-row justify-end gap-x-5">
 									<Button onClick={ closeModal } disabled={ isSiteAdding } variant="tertiary">
 										{ __( 'Cancel' ) }
 									</Button>

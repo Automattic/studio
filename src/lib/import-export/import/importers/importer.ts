@@ -10,6 +10,7 @@ export interface ImporterResult extends Omit< BackupContents, 'metaFile' > {
 
 export interface Importer extends Partial< EventEmitter > {
 	import( rootPath: string ): Promise< ImporterResult >;
+	parseMetaFile(): Promise< MetaFileData | undefined >;
 }
 
 export class DefaultImporter extends EventEmitter implements Importer {
@@ -57,7 +58,7 @@ export class DefaultImporter extends EventEmitter implements Importer {
 		this.emit( ImportEvents.IMPORT_WP_CONTENT_COMPLETE );
 	}
 
-	protected async parseMetaFile(): Promise< MetaFileData | undefined > {
+	async parseMetaFile(): Promise< MetaFileData | undefined > {
 		const metaFilePath = this.backup.metaFile;
 		if ( ! metaFilePath ) {
 			return;

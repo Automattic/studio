@@ -23,7 +23,11 @@ import { getImageData } from './lib/get-image-data';
 import { exportBackup } from './lib/import-export/export/export-manager';
 import { ExportOptions } from './lib/import-export/export/types';
 import { ImportExportEventData } from './lib/import-export/handle-events';
-import { defaultImporterOptions, importBackup } from './lib/import-export/import/import-manager';
+import {
+	defaultImporterOptions,
+	getMetaFromBackupFile,
+	importBackup,
+} from './lib/import-export/import/import-manager';
 import { BackupArchiveInfo } from './lib/import-export/import/types';
 import { isErrnoException } from './lib/is-errno-exception';
 import { isInstalled } from './lib/is-installed';
@@ -134,6 +138,13 @@ export async function importSite(
 	}
 }
 
+export async function getMetaFromBackup(
+	event: IpcMainInvokeEvent,
+	backupFile: BackupArchiveInfo
+) {
+	return await getMetaFromBackupFile( backupFile );
+}
+
 // Use sqlite database and db.php file in situ
 async function setupSqliteIntegration( path: string ) {
 	await downloadSqliteIntegrationPlugin();
@@ -161,8 +172,12 @@ async function setupSqliteIntegration( path: string ) {
 export async function createSite(
 	event: IpcMainInvokeEvent,
 	path: string,
-	siteName?: string
+	options: {
+		siteName?: string;
+		phpVersion?: string;
+	}
 ): Promise< SiteDetails[] > {
+	const { siteName, phpVersion = DEFAULT_PHP_VERSION } = options;
 	const userData = await loadUserData();
 	const forceSetupSqlite = false;
 	// We only recursively create the directory if the user has not selected a
@@ -198,7 +213,7 @@ export async function createSite(
 		path,
 		adminPassword: createPassword(),
 		running: false,
-		phpVersion: DEFAULT_PHP_VERSION,
+		phpVersion,
 	} as const;
 
 	const server = SiteServer.create( details );

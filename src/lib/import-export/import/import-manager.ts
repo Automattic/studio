@@ -63,6 +63,37 @@ export async function importBackup(
 	}
 }
 
+export async function getMetaFromBackupFile( backupFile: BackupArchiveInfo ) {
+	const extractionDirectory = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio_backup' ) );
+	// eslint-disable-next-line @typescript-eslint/no-empty-function
+	const onEvent = () => {};
+	let phpVersion = '';
+	let wordpressVersion = '';
+
+	try {
+		const backupHandler = BackupHandlerFactory.create( backupFile );
+		const fileList = await backupHandler.listFiles( backupFile );
+		const importer = selectImporter(
+			fileList,
+			extractionDirectory,
+			onEvent,
+			defaultImporterOptions
+		);
+		if ( importer ) {
+			await backupHandler.extractFiles( backupFile, extractionDirectory );
+			const studioJsonObject = await importer.parseMetaFile();
+			phpVersion = studioJsonObject?.phpVersion || '';
+			wordpressVersion = studioJsonObject?.wordpressVersion || '';
+		}
+	} finally {
+		await fsPromises.rm( extractionDirectory, { recursive: true } );
+	}
+	return {
+		phpVersion,
+		wordpressVersion,
+	};
+}
+
 export const defaultImporterOptions: ImporterOption[] = [
 	{ validator: new JetpackValidator(), importer: DefaultImporter },
 	{ validator: new SqlValidator(), importer: DefaultImporter },

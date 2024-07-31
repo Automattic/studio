@@ -36,15 +36,15 @@ export class BackupHandlerTarGz extends EventEmitter implements BackupHandler {
 						progress: processedSize / totalSize,
 					} as BackupExtractProgressEventData );
 				} )
+				.on( 'error', ( error ) => {
+					this.emit( ImportEvents.BACKUP_EXTRACT_ERROR, { error } );
+					reject( error );
+				} )
 				.pipe( zlib.createGunzip() )
 				.pipe( tar.extract( { cwd: extractionDirectory } ) )
 				.on( 'finish', () => {
 					this.emit( ImportEvents.BACKUP_EXTRACT_COMPLETE );
 					resolve();
-				} )
-				.on( 'error', ( error ) => {
-					this.emit( ImportEvents.BACKUP_EXTRACT_ERROR, { error } );
-					reject( error );
 				} );
 		} );
 	}

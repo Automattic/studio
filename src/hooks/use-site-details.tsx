@@ -10,7 +10,6 @@ import {
 	useState,
 } from 'react';
 import { getIpcApi } from '../lib/get-ipc-api';
-import { BackupArchiveInfo } from '../lib/import-export/import/types';
 import { sortSites } from '../lib/sort-sites';
 import { useSnapshots } from './use-snapshots';
 
@@ -33,11 +32,6 @@ interface SiteDetailsContext {
 	isDeleting: boolean;
 	uploadingSites: { [ siteId: string ]: boolean };
 	setUploadingSites: React.Dispatch< React.SetStateAction< { [ siteId: string ]: boolean } > >;
-	importFile: (
-		file: File,
-		selectedSite: SiteDetails,
-		showImportNotification?: boolean
-	) => Promise< void >;
 }
 
 export const siteDetailsContext = createContext< SiteDetailsContext >( {
@@ -55,7 +49,6 @@ export const siteDetailsContext = createContext< SiteDetailsContext >( {
 	loadingSites: true,
 	uploadingSites: {},
 	setUploadingSites: () => undefined,
-	importFile: async () => undefined,
 } );
 
 interface SiteDetailsProviderProps {
@@ -243,55 +236,6 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		[ setSelectedSiteId ]
 	);
 
-	const importFile = useCallback(
-		async ( file: BackupArchiveInfo, selectedSite: SiteDetails, showImportNotification = true ) => {
-			let finalImportState: ImportSiteState;
-			if (
-				selectedSite.importState === 'importing' ||
-				selectedSite.importState === 'new-site-importing'
-			) {
-				return;
-			}
-			try {
-				setData( ( prevSites ) =>
-					prevSites.map( ( site ) =>
-						site.id === selectedSite.id ? { ...site, importState: 'importing' } : site
-					)
-				);
-				const backupFile: BackupArchiveInfo = {
-					type: file.type,
-					path: file.path,
-				};
-				await getIpcApi().importSite( { id: selectedSite.id, backupFile } );
-
-				if ( showImportNotification ) {
-					getIpcApi().showNotification( {
-						title: selectedSite.name,
-						body: __( 'Import complete' ),
-					} );
-				}
-				finalImportState = 'imported';
-			} catch ( error ) {
-				getIpcApi().showMessageBox( {
-					type: 'error',
-					message: __( 'Failed importing site' ),
-					detail: __(
-						'An error occurred while importing the site. Verify the file is a valid Jetpack backup or .sql database file and try again. If this problem persists, please contact support.'
-					),
-					buttons: [ __( 'OK' ) ],
-				} );
-				finalImportState = undefined;
-			} finally {
-				setData( ( prevSites ) =>
-					prevSites.map( ( site ) =>
-						site.id === selectedSite.id ? { ...site, importState: finalImportState } : site
-					)
-				);
-			}
-		},
-		[]
-	);
-
 	const updateSite = useCallback( async ( site: SiteDetails ) => {
 		const updatedSites = await getIpcApi().updateSite( site );
 		setData( updatedSites );
@@ -366,7 +310,6 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			loadingSites,
 			uploadingSites,
 			setUploadingSites,
-			importFile,
 		} ),
 		[
 			data,
@@ -383,7 +326,6 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			isDeleting,
 			loadingSites,
 			uploadingSites,
-			importFile,
 		]
 	);
 

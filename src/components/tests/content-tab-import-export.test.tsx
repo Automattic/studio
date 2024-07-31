@@ -21,7 +21,6 @@ const selectedSite: SiteDetails = {
 beforeEach( () => {
 	jest.clearAllMocks();
 	( useSiteDetails as jest.Mock ).mockReturnValue( {
-		importFile: jest.fn(),
 		updateSite: jest.fn(),
 		startServer: jest.fn(),
 		loadingServer: {},
@@ -30,6 +29,8 @@ beforeEach( () => {
 		showMessageBox: jest.fn().mockResolvedValue( { response: 0, checkboxChecked: false } ), // Mock showMessageBox
 	} );
 	( useImportExport as jest.Mock ).mockReturnValue( {
+		importFile: jest.fn(),
+		importState: {},
 		exportFullSite: jest.fn(),
 		exportDatabase: jest.fn(),
 		exportState: {},
@@ -81,7 +82,7 @@ describe( 'ContentTabImportExport Import', () => {
 		fireEvent( dropZone, dropEvent );
 
 		await waitFor( () =>
-			expect( useSiteDetails().importFile ).toHaveBeenCalledWith( file, selectedSite )
+			expect( useImportExport().importFile ).toHaveBeenCalledWith( file, selectedSite )
 		);
 	} );
 
@@ -92,7 +93,7 @@ describe( 'ContentTabImportExport Import', () => {
 
 		await userEvent.upload( fileInput, file );
 
-		expect( useSiteDetails().importFile ).toHaveBeenCalledWith( file, selectedSite );
+		expect( useImportExport().importFile ).toHaveBeenCalledWith( file, selectedSite );
 	} );
 } );
 
@@ -117,6 +118,7 @@ describe( 'ContentTabImportExport Export', () => {
 
 	test( 'should display progress when exporting', async () => {
 		( useImportExport as jest.Mock ).mockReturnValue( {
+			importState: {},
 			exportState: { 'site-id-1': { progress: 5, statusMessage: 'Starting export...' } },
 		} );
 

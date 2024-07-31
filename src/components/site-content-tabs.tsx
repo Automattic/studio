@@ -1,6 +1,7 @@
 import { TabPanel } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { useContentTabs } from '../hooks/use-content-tabs';
+import { useImportExport } from '../hooks/use-import-export';
 import { useSiteDetails } from '../hooks/use-site-details';
 import { WelcomeMessagesProvider } from '../hooks/use-welcome-messages';
 import { ContentTabAssistant } from './content-tab-assistant';
@@ -13,6 +14,7 @@ import { SiteLoadingIndicator } from './site-loading-indicator';
 
 export function SiteContentTabs() {
 	const { selectedSite } = useSiteDetails();
+	const { importState } = useImportExport();
 	const tabs = useContentTabs();
 	const { __ } = useI18n();
 
@@ -24,7 +26,7 @@ export function SiteContentTabs() {
 		);
 	}
 
-	if ( selectedSite?.isAddingSite || selectedSite?.importState === 'new-site-importing' ) {
+	if ( selectedSite?.isAddingSite || importState[ selectedSite?.id ]?.isNewSite ) {
 		return <SiteLoadingIndicator selectedSiteName={ selectedSite.name } />;
 	}
 

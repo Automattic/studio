@@ -17,8 +17,15 @@ export class BackupHandlerTarGz extends EventEmitter implements BackupHandler {
 	}
 
 	async extractFiles( file: BackupArchiveInfo, extractionDirectory: string ): Promise< void > {
-		const totalSize = fs.statSync( file.path ).size;
+		let totalSize: number;
 		let processedSize = 0;
+
+		try {
+			totalSize = fs.statSync( file.path ).size;
+		} catch ( error ) {
+			this.emit( ImportEvents.BACKUP_EXTRACT_ERROR, { error } );
+			throw error;
+		}
 
 		return new Promise< void >( ( resolve, reject ) => {
 			this.emit( ImportEvents.BACKUP_EXTRACT_START );

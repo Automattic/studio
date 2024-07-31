@@ -2,7 +2,8 @@ import fs from 'fs';
 import fsPromises from 'fs/promises';
 import os from 'os';
 import archiver from 'archiver';
-import { DefaultExporter } from '../../../export/exporters/default-exporter';
+import { SiteServer } from '../../../../../site-server';
+import { DefaultExporter } from '../../../export/exporters';
 import { ExportOptions, BackupContents } from '../../../export/types';
 
 jest.mock( 'fs' );
@@ -29,6 +30,13 @@ const createMockArchiver = (): jest.Mocked< PartialArchiver > => {
 // Mock archiver module
 jest.mock( 'archiver', () => {
 	return jest.fn( () => createMockArchiver() );
+} );
+
+// Mock SiteServer
+jest.mock( '../../../../../site-server' );
+( SiteServer.get as jest.Mock ).mockReturnValue( {
+	details: { path: '/path/to/site' },
+	executeWpCliCommand: jest.fn().mockReturnValue( { stderr: null } ),
 } );
 
 describe( 'DefaultExporter', () => {
@@ -64,8 +72,8 @@ describe( 'DefaultExporter', () => {
 		mockOptions = {
 			site: {
 				running: false,
-				id: 'site-id',
-				name: 'site-name',
+				id: '123',
+				name: '123',
 				path: '/path/to/site',
 				phpVersion: '7.4',
 			},

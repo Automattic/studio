@@ -155,7 +155,7 @@ async function appBoot() {
 				ipcMain.on( key, function ( event, level, ...args ) {
 					try {
 						validateIpcSender( event );
-						handler( event, level as never, ...args );
+						( handler as typeof ipcHandlers.logRendererMessage )( event, level as never, ...args );
 					} catch ( error ) {
 						console.error( error );
 						throw error;

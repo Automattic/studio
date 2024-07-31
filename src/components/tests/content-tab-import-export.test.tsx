@@ -1,11 +1,13 @@
 import { render, fireEvent, waitFor, screen, createEvent, act } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
+import { useImportExport } from '../../hooks/use-import-export';
 import { useSiteDetails } from '../../hooks/use-site-details';
 import { getIpcApi } from '../../lib/get-ipc-api';
 import { ContentTabImportExport } from '../content-tab-import-export';
 
 jest.mock( '../../lib/get-ipc-api' );
 jest.mock( '../../hooks/use-site-details' );
+jest.mock( '../../hooks/use-import-export' );
 
 const selectedSite: SiteDetails = {
 	id: 'site-id-1',
@@ -16,28 +18,25 @@ const selectedSite: SiteDetails = {
 	adminPassword: btoa( 'test-password' ),
 };
 
-describe( 'ContentTabImportExport Import', () => {
-	const mockImportFile = jest.fn();
-	const mockUpdateSite = jest.fn();
-	const mockStartServer = jest.fn();
-
-	beforeEach( () => {
-		jest.clearAllMocks();
-		( useSiteDetails as jest.Mock ).mockReturnValue( {
-			importFile: mockImportFile,
-			updateSite: mockUpdateSite,
-			startServer: mockStartServer,
-			loadingServer: {},
-		} );
-		( getIpcApi as jest.Mock ).mockReturnValue( {
-			showSaveAsDialog: jest.fn(),
-			showMessageBox: jest.fn().mockResolvedValue( { response: 0, checkboxChecked: false } ), // Mock showMessageBox
-			openURL: jest.fn(),
-			openSiteURL: jest.fn(),
-			exportSite: jest.fn(),
-		} );
+beforeEach( () => {
+	jest.clearAllMocks();
+	( useSiteDetails as jest.Mock ).mockReturnValue( {
+		importFile: jest.fn(),
+		updateSite: jest.fn(),
+		startServer: jest.fn(),
+		loadingServer: {},
 	} );
+	( getIpcApi as jest.Mock ).mockReturnValue( {
+		showMessageBox: jest.fn().mockResolvedValue( { response: 0, checkboxChecked: false } ), // Mock showMessageBox
+	} );
+	( useImportExport as jest.Mock ).mockReturnValue( {
+		exportFullSite: jest.fn(),
+		exportDatabase: jest.fn(),
+		exportState: {},
+	} );
+} );
 
+describe( 'ContentTabImportExport Import', () => {
 	test( 'should display drop text on file over', () => {
 		render( <ContentTabImportExport selectedSite={ selectedSite } /> );
 
@@ -81,7 +80,9 @@ describe( 'ContentTabImportExport Import', () => {
 		const dropEvent = createEvent.drop( dropZone, { dataTransfer: { files: [ file ] } } );
 		fireEvent( dropZone, dropEvent );
 
-		await waitFor( () => expect( mockImportFile ).toHaveBeenCalledWith( file, selectedSite ) );
+		await waitFor( () =>
+			expect( useSiteDetails().importFile ).toHaveBeenCalledWith( file, selectedSite )
+		);
 	} );
 
 	test( 'should import a site via file selection', async () => {
@@ -91,44 +92,36 @@ describe( 'ContentTabImportExport Import', () => {
 
 		await userEvent.upload( fileInput, file );
 
-		expect( mockImportFile ).toHaveBeenCalledWith( file, selectedSite );
+		expect( useSiteDetails().importFile ).toHaveBeenCalledWith( file, selectedSite );
 	} );
 } );
 
 describe( 'ContentTabImportExport Export', () => {
 	test( 'should export full site', async () => {
-		const mockShowSaveAsDialog = getIpcApi().showSaveAsDialog as jest.Mock;
-		mockShowSaveAsDialog.mockResolvedValue( '/path/to/exported-site.tar.gz' );
 		render( <ContentTabImportExport selectedSite={ selectedSite } /> );
 
 		const exportButton = screen.getByRole( 'button', { name: /Export entire site/i } );
 		fireEvent.click( exportButton );
 
-		await waitFor( () =>
-			expect( getIpcApi().exportSite ).toHaveBeenCalledWith(
-				expect.objectContaining( {
-					sitePath: selectedSite.path,
-					backupFile: '/path/to/exported-site.tar.gz',
-				} )
-			)
-		);
+		expect( useImportExport().exportFullSite ).toHaveBeenCalledWith( selectedSite );
 	} );
 
 	test( 'should export database', async () => {
-		const mockShowSaveAsDialog = getIpcApi().showSaveAsDialog as jest.Mock;
-		mockShowSaveAsDialog.mockResolvedValue( '/path/to/exported-database.sql' );
 		render( <ContentTabImportExport selectedSite={ selectedSite } /> );
 
 		const exportButton = screen.getByRole( 'button', { name: /Export database/i } );
 		fireEvent.click( exportButton );
 
-		await waitFor( () =>
-			expect( getIpcApi().exportSite ).toHaveBeenCalledWith(
-				expect.objectContaining( {
-					sitePath: selectedSite.path,
-					backupFile: '/path/to/exported-database.sql',
-				} )
-			)
-		);
+		expect( useImportExport().exportDatabase ).toHaveBeenCalledWith( selectedSite );
+	} );
+
+	test( 'should display progress when exporting', async () => {
+		( useImportExport as jest.Mock ).mockReturnValue( {
+			exportState: { 'site-id-1': { progress: 5, statusMessage: 'Starting export...' } },
+		} );
+
+		render( <ContentTabImportExport selectedSite={ selectedSite } /> );
+		expect( screen.getByText( 'Starting export...' ) ).toBeVisible();
+		expect( screen.getByRole( 'progressbar', { value: { now: 5 } } ) ).toBeVisible();
 	} );
 } );

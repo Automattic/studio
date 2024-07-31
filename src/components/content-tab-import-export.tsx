@@ -3,92 +3,25 @@ import { createInterpolateElement } from '@wordpress/element';
 import { sprintf, __ } from '@wordpress/i18n';
 import { Icon, download } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { format } from 'date-fns';
 import { useRef } from 'react';
 import { STUDIO_DOCS_URL } from '../constants';
 import { useConfirmationDialog } from '../hooks/use-confirmation-dialog';
 import { useDragAndDropFile } from '../hooks/use-drag-and-drop-file';
+import { useImportExport } from '../hooks/use-import-export';
 import { useIpcListener } from '../hooks/use-ipc-listener';
 import { useSiteDetails } from '../hooks/use-site-details';
 import { cx } from '../lib/cx';
-import { sanitizeFolderName } from '../lib/generate-site-name';
 import { getIpcApi } from '../lib/get-ipc-api';
-import { ExportOptions } from '../lib/import-export/export/types';
 import Button from './button';
-import { ProgressBarWithAutoIncrement } from './progress-bar';
+import ProgressBar, { ProgressBarWithAutoIncrement } from './progress-bar';
 
 interface ContentTabImportExportProps {
 	selectedSite: SiteDetails;
 }
 
-const getFileName = ( selectedSite: SiteDetails ) => {
-	const timestamp = format( new Date(), 'yyyy-MM-dd-HH-mm-ss' );
-	return sanitizeFolderName( `studio-backup-${ selectedSite.name }-${ timestamp }` );
-};
-
-export const ExportSite = ( {
-	selectedSite,
-	onExport,
-}: {
-	selectedSite: SiteDetails;
-	onExport: ( options: ExportOptions ) => Promise< void >;
-} ) => {
-	const onExportFullSite = async () => {
-		const fileName = getFileName( selectedSite );
-		const path = await getIpcApi().showSaveAsDialog( {
-			title: __( 'Save backup file' ),
-			defaultPath: `${ fileName }.tar.gz`,
-			filters: [
-				{
-					name: 'Compressed Backup Files',
-					extensions: [ 'tar.gz', 'tzg', 'zip' ],
-				},
-			],
-		} );
-		if ( ! path ) {
-			return;
-		}
-		const options: ExportOptions = {
-			sitePath: selectedSite.path,
-			backupFile: path,
-			includes: {
-				database: true,
-				uploads: true,
-				plugins: true,
-				themes: true,
-			},
-		};
-		onExport( options );
-	};
-
-	const onExportDatabase = async () => {
-		const fileName = getFileName( selectedSite );
-		const path = await getIpcApi().showSaveAsDialog( {
-			title: __( 'Save database file' ),
-			defaultPath: `${ fileName }.sql`,
-			filters: [
-				{
-					name: 'SQL dump file',
-					extensions: [ 'sql' ],
-				},
-			],
-		} );
-		if ( ! path ) {
-			return;
-		}
-		const options: ExportOptions = {
-			sitePath: selectedSite.path,
-			backupFile: path,
-			includes: {
-				database: true,
-				uploads: false,
-				plugins: false,
-				themes: false,
-			},
-		};
-		onExport( options );
-	};
-
+export const ExportSite = ( { selectedSite }: { selectedSite: SiteDetails } ) => {
+	const { exportState, exportFullSite, exportDatabase } = useImportExport();
+	const { [ selectedSite.id ]: currentProgress } = exportState;
 	return (
 		<div className="flex flex-col gap-4">
 			<div>
@@ -97,19 +30,26 @@ export const ExportSite = ( {
 					{ __( 'Export your entire site or only the database.' ) }
 				</p>
 			</div>
-			<div className="gap-4 flex flex-row">
-				<Button onClick={ onExportFullSite } variant="primary">
-					{ __( 'Export entire site' ) }
-				</Button>
-				<Button
-					onClick={ onExportDatabase }
-					type="submit"
-					variant="secondary"
-					className="!text-a8c-blueberry !shadow-a8c-blueberry"
-				>
-					{ __( 'Export database' ) }
-				</Button>
-			</div>
+			{ currentProgress ? (
+				<div className="flex flex-col gap-4">
+					<ProgressBar value={ currentProgress.progress } maxValue={ 100 } />
+					<div className="text-a8c-gray-70 a8c-body">{ currentProgress.statusMessage }</div>
+				</div>
+			) : (
+				<div className="flex flex-row gap-4">
+					<Button onClick={ () => exportFullSite( selectedSite ) } variant="primary">
+						{ __( 'Export entire site' ) }
+					</Button>
+					<Button
+						onClick={ () => exportDatabase( selectedSite ) }
+						type="submit"
+						variant="secondary"
+						className="!text-a8c-blueberry !shadow-a8c-blueberry"
+					>
+						{ __( 'Export database' ) }
+					</Button>
+				</div>
+			) }
 		</div>
 	);
 };
@@ -271,14 +211,11 @@ export function ContentTabImportExport( { selectedSite }: ContentTabImportExport
 	useIpcListener( 'on-import', ( _evt, data: unknown ) => {
 		// This listener will be used to track progress of import when the UI is finished.
 	} );
-	useIpcListener( 'on-export', ( _evt, data: unknown ) => {
-		// This listener will be used to track progress of export when the UI is finished.
-	} );
 
 	return (
 		<div className="flex flex-col p-8 gap-8">
 			<ImportSite selectedSite={ selectedSite } />
-			<ExportSite onExport={ getIpcApi().exportSite } selectedSite={ selectedSite }></ExportSite>
+			<ExportSite selectedSite={ selectedSite }></ExportSite>
 		</div>
 	);
 }

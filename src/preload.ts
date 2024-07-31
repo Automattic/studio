@@ -15,7 +15,8 @@ const api: IpcApi = {
 	createSite: ( path: string, name?: string ) => ipcRenderer.invoke( 'createSite', path, name ),
 	updateSite: ( updatedSite: SiteDetails ) => ipcRenderer.invoke( 'updateSite', updatedSite ),
 	authenticate: () => ipcRenderer.invoke( 'authenticate' ),
-	exportSite: ( options: ExportOptions ) => ipcRenderer.invoke( 'exportSite', options ),
+	exportSite: ( options: ExportOptions, siteId: string ) =>
+		ipcRenderer.invoke( 'exportSite', options, siteId ),
 	isAuthenticated: () => ipcRenderer.invoke( 'isAuthenticated' ),
 	getAuthenticationToken: () => ipcRenderer.invoke( 'getAuthenticationToken' ),
 	clearAuthenticationToken: () => ipcRenderer.invoke( 'clearAuthenticationToken' ),

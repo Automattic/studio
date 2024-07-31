@@ -4,7 +4,9 @@ import fsPromises from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import archiver from 'archiver';
+import { format } from 'date-fns';
 import { ExportEvents } from '../events';
+import { exportDatabaseToFile } from '../export-database';
 import {
 	ExportOptions,
 	BackupContents,
@@ -142,12 +144,19 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 	private async addDatabase(): Promise< void > {
 		if ( this.options.includes.database ) {
 			this.emit( ExportEvents.DATABASE_EXPORT_START );
-			// Add a toy sql file here, to make importer validation pass
-			// This will be implemented in a different ticket
+
 			const tmpFolder = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio_export' ) );
-			const fileName = 'file.sql';
+			const timestamp = format( new Date(), 'yyyy-MM-dd-HH-mm-ss' );
+			const fileName = `db-export-${ timestamp }.sql`;
 			const sqlDumpPath = path.join( tmpFolder, fileName );
-			await fsPromises.writeFile( sqlDumpPath, '--test' );
+
+			try {
+				await exportDatabaseToFile( this.options.site, sqlDumpPath );
+			} catch ( error ) {
+				console.error( 'ERROR db export', error );
+				this.emit( ExportEvents.EXPORT_ERROR, error );
+			}
+
 			this.archive.file( sqlDumpPath, { name: `sql/${ fileName }` } );
 			this.backup.sqlFiles.push( sqlDumpPath );
 			this.emit( ExportEvents.DATABASE_EXPORT_COMPLETE );

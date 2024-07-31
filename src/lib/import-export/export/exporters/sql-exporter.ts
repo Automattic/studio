@@ -1,7 +1,7 @@
 import * as console from 'console';
 import { EventEmitter } from 'events';
-import { SiteServer } from '../../../../site-server';
 import { ExportEvents } from '../events';
+import { exportDatabaseToFile } from '../export-database';
 import { ExportOptions, Exporter } from '../types';
 
 export class SqlExporter extends EventEmitter implements Exporter {
@@ -10,24 +10,13 @@ export class SqlExporter extends EventEmitter implements Exporter {
 	}
 	async export(): Promise< void > {
 		this.emit( ExportEvents.EXPORT_START );
-		console.log( `Database backup created at: ${ this.options.backupFile }` );
-		console.log( 'Database backup options:', this.options );
-
-		const server = SiteServer.get( this.options.site.id );
-
-		if ( ! server ) {
-			throw new Error( 'Site not found.' );
+		try {
+			await exportDatabaseToFile( this.options.site, this.options.backupFile );
+			this.emit( ExportEvents.EXPORT_COMPLETE );
+		} catch ( error ) {
+			console.error( 'ERROR db export', error );
+			this.emit( ExportEvents.EXPORT_ERROR, error );
 		}
-
-		const { stdout, stderr } = await server.executeWpCliCommand( 'db export' );
-
-		if ( stderr ) {
-			console.log( 'ERROR db export', stderr );
-		}
-
-		console.log( stdout );
-
-		this.emit( ExportEvents.EXPORT_COMPLETE );
 	}
 
 	async canHandle(): Promise< boolean > {

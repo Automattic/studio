@@ -2,12 +2,7 @@ import { EventEmitter } from 'events';
 import fsPromises from 'fs/promises';
 import path from 'path';
 import { ImportEvents } from '../events';
-import { BackupContents } from '../types';
-
-export interface MetaFileData {
-	phpVersion: string;
-	wordpressVersion: string;
-}
+import { BackupContents, MetaFileData } from '../types';
 
 export interface ImporterResult extends Omit< BackupContents, 'metaFile' > {
 	meta?: MetaFileData;

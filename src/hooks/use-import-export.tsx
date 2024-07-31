@@ -128,7 +128,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 
 		switch ( event ) {
 			case BackupExtractEvents.BACKUP_EXTRACT_PROGRESS: {
-				const progress = ( data as BackupExtractProgressEventData ).progress;
+				const progress = ( data as BackupExtractProgressEventData )?.progress ?? 0;
 				setImportState( ( { [ siteId ]: currentProgress, ...rest } ) => ( {
 					...rest,
 					[ siteId ]: {

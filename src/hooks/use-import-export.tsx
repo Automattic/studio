@@ -95,7 +95,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 				if ( showImportNotification ) {
 					getIpcApi().showNotification( {
 						title: selectedSite.name,
-						body: __( 'Import complete' ),
+						body: __( 'Import completed' ),
 					} );
 				}
 			} catch ( error ) {

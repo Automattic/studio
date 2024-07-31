@@ -2,12 +2,14 @@ import fs from 'fs';
 import fsPromises from 'fs/promises';
 import os from 'os';
 import archiver from 'archiver';
+import { getWordPressVersionFromInstallation } from '../../../../../lib/wp-versions';
 import { DefaultExporter } from '../../../export/exporters/default-exporter';
 import { ExportOptions, BackupContents } from '../../../export/types';
 
 jest.mock( 'fs' );
 jest.mock( 'fs/promises' );
 jest.mock( 'os' );
+jest.mock( '../../../../../lib/wp-versions' );
 
 // Create a partial mock of the Archiver interface
 type PartialArchiver = Pick<
@@ -48,6 +50,7 @@ describe( 'DefaultExporter', () => {
 	];
 
 	( fsPromises.readdir as jest.Mock ).mockResolvedValue( mockFiles );
+	( getWordPressVersionFromInstallation as jest.Mock ).mockResolvedValue( '6.6.1' );
 
 	beforeEach( () => {
 		mockBackup = {
@@ -70,6 +73,7 @@ describe( 'DefaultExporter', () => {
 				themes: true,
 				database: true,
 			},
+			phpVersion: '8.4',
 		};
 
 		// Reset all mock implementations
@@ -105,6 +109,8 @@ describe( 'DefaultExporter', () => {
 		await exporter.export();
 
 		expect( archiver ).toHaveBeenCalledWith( 'tar', { gzip: true, gzipOptions: { level: 9 } } );
+		expect( getWordPressVersionFromInstallation ).toHaveBeenCalledTimes( 1 );
+		expect( getWordPressVersionFromInstallation ).toHaveBeenCalledWith( '/path/to/site' );
 	} );
 
 	it( 'should create a zip archive when the backup file ends with .zip', async () => {
@@ -112,6 +118,8 @@ describe( 'DefaultExporter', () => {
 		await exporter.export();
 
 		expect( archiver ).toHaveBeenCalledWith( 'zip', { gzip: false, gzipOptions: undefined } );
+		expect( getWordPressVersionFromInstallation ).toHaveBeenCalledTimes( 1 );
+		expect( getWordPressVersionFromInstallation ).toHaveBeenCalledWith( '/path/to/site' );
 	} );
 
 	it( 'should add wp-config.php to the archive', async () => {
@@ -131,6 +139,8 @@ describe( 'DefaultExporter', () => {
 		expect( mockArchiver.file ).toHaveBeenCalledWith( '/path/to/site/wp-config.php', {
 			name: 'wp-config.php',
 		} );
+		expect( getWordPressVersionFromInstallation ).toHaveBeenCalledTimes( 1 );
+		expect( getWordPressVersionFromInstallation ).toHaveBeenCalledWith( '/path/to/site' );
 	} );
 
 	it( 'should add wp-content files to the archive', async () => {
@@ -165,6 +175,8 @@ describe( 'DefaultExporter', () => {
 			'/path/to/site/wp-content/themes/theme1/index.php',
 			{ name: 'wp-content/themes/theme1/index.php' }
 		);
+		expect( getWordPressVersionFromInstallation ).toHaveBeenCalledTimes( 1 );
+		expect( getWordPressVersionFromInstallation ).toHaveBeenCalledWith( '/path/to/site' );
 	} );
 
 	it( 'should add a database file to the archive when database is included', async () => {
@@ -188,12 +200,16 @@ describe( 'DefaultExporter', () => {
 		expect( mockArchiver.file ).toHaveBeenNthCalledWith( 2, '/tmp/studio_export_123/file.sql', {
 			name: 'sql/file.sql',
 		} );
+		expect( getWordPressVersionFromInstallation ).toHaveBeenCalledTimes( 1 );
+		expect( getWordPressVersionFromInstallation ).toHaveBeenCalledWith( '/path/to/site' );
 	} );
 
 	it( 'should finalize the archive', async () => {
 		await exporter.export();
 
 		expect( mockArchiver.finalize ).toHaveBeenCalled();
+		expect( getWordPressVersionFromInstallation ).toHaveBeenCalledTimes( 1 );
+		expect( getWordPressVersionFromInstallation ).toHaveBeenCalledWith( '/path/to/site' );
 	} );
 
 	it( 'should cleanup temporary files when database is included', async () => {
@@ -202,6 +218,8 @@ describe( 'DefaultExporter', () => {
 		await exporter.export();
 
 		expect( fsPromises.unlink ).toHaveBeenCalledWith( '/tmp/studio_export_123/file.sql' );
+		expect( getWordPressVersionFromInstallation ).toHaveBeenCalledTimes( 1 );
+		expect( getWordPressVersionFromInstallation ).toHaveBeenCalledWith( '/path/to/site' );
 	} );
 
 	it( 'should abort the archive and throw an error when an error occurs', async () => {
@@ -211,6 +229,7 @@ describe( 'DefaultExporter', () => {
 		} );
 		await expect( exporter.export() ).rejects.toThrow( 'Archive error' );
 		expect( mockArchiver.abort ).toHaveBeenCalled();
+		expect( getWordPressVersionFromInstallation ).toHaveBeenCalledTimes( 0 );
 	} );
 
 	it( 'should return true when canHandle is called', async () => {

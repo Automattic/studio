@@ -2,6 +2,7 @@ import fs from 'fs';
 import fsPromises from 'fs/promises';
 import os from 'os';
 import archiver from 'archiver';
+import { format } from 'date-fns';
 import { SiteServer } from '../../../../../site-server';
 import { DefaultExporter } from '../../../export/exporters';
 import { ExportOptions, BackupContents } from '../../../export/types';
@@ -9,6 +10,10 @@ import { ExportOptions, BackupContents } from '../../../export/types';
 jest.mock( 'fs' );
 jest.mock( 'fs/promises' );
 jest.mock( 'os' );
+jest.mock( 'fs-extra' );
+jest.mock( 'date-fns', () => ( {
+	format: jest.fn(),
+} ) );
 
 // Create a partial mock of the Archiver interface
 type PartialArchiver = Pick<
@@ -102,6 +107,7 @@ describe( 'DefaultExporter', () => {
 		( fsPromises.mkdtemp as jest.Mock ).mockResolvedValue( '/tmp/studio_export_123' );
 		( fsPromises.writeFile as jest.Mock ).mockResolvedValue( undefined );
 		( os.tmpdir as jest.Mock ).mockReturnValue( '/tmp' );
+		( format as jest.Mock ).mockReturnValue( '2023-07-31-12-00-00' );
 
 		mockArchiver.finalize.mockImplementation( () => {
 			return new Promise< void >( ( resolve ) => {
@@ -199,9 +205,13 @@ describe( 'DefaultExporter', () => {
 		expect( mockArchiver.file ).toHaveBeenNthCalledWith( 1, '/path/to/site/wp-config.php', {
 			name: 'wp-config.php',
 		} );
-		expect( mockArchiver.file ).toHaveBeenNthCalledWith( 2, '/tmp/studio_export_123/file.sql', {
-			name: 'sql/file.sql',
-		} );
+		expect( mockArchiver.file ).toHaveBeenNthCalledWith(
+			2,
+			'/tmp/studio_export_123/db-export-2023-07-31-12-00-00.sql',
+			{
+				name: 'sql/db-export-2023-07-31-12-00-00.sql',
+			}
+		);
 	} );
 
 	it( 'should finalize the archive', async () => {
@@ -215,7 +225,9 @@ describe( 'DefaultExporter', () => {
 
 		await exporter.export();
 
-		expect( fsPromises.unlink ).toHaveBeenCalledWith( '/tmp/studio_export_123/file.sql' );
+		expect( fsPromises.unlink ).toHaveBeenCalledWith(
+			'/tmp/studio_export_123/db-export-2023-07-31-12-00-00.sql'
+		);
 	} );
 
 	it( 'should abort the archive and throw an error when an error occurs', async () => {

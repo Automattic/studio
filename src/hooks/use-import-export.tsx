@@ -93,7 +93,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 				return;
 			}
 			const options: ExportOptions = {
-				sitePath: selectedSite.path,
+				site: selectedSite,
 				backupFile: path,
 				includes: {
 					database: true,
@@ -124,7 +124,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 				return;
 			}
 			const options: ExportOptions = {
-				sitePath: selectedSite.path,
+				site: selectedSite,
 				backupFile: path,
 				includes: {
 					database: true,

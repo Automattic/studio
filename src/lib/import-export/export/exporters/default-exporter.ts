@@ -4,9 +4,9 @@ import fsPromises from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import archiver from 'archiver';
-import { format } from 'date-fns';
 import { ExportEvents } from '../events';
 import { exportDatabaseToFile } from '../export-database';
+import { generateBackupFilename } from '../generate-backup-filename';
 import {
 	ExportOptions,
 	BackupContents,
@@ -14,7 +14,6 @@ import {
 	BackupCreateProgressEventData,
 	BackupContentsCategory,
 } from '../types';
-import { generateBackupFilename } from '../generate-backup-filename';
 
 export class DefaultExporter extends EventEmitter implements Exporter {
 	private archive!: archiver.Archiver;

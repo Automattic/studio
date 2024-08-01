@@ -2,10 +2,10 @@ import fs from 'fs';
 import fsPromises from 'fs/promises';
 import os from 'os';
 import archiver from 'archiver';
+import { format } from 'date-fns';
 import { SiteServer } from '../../../../../site-server';
 import { DefaultExporter } from '../../../export/exporters';
 import { ExportOptions, BackupContents } from '../../../export/types';
-import { format } from 'date-fns';
 
 jest.mock( 'fs' );
 jest.mock( 'fs/promises' );

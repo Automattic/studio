@@ -1,6 +1,6 @@
 import { rename } from 'fs-extra';
 import { SiteServer } from '../../../../../site-server';
-import { DefaultExporter, SqlExporter } from '../../../export/exporters';
+import { SqlExporter } from '../../../export/exporters';
 import { ExportOptions } from '../../../export/types';
 
 jest.mock( 'fs' );

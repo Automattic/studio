@@ -50,7 +50,12 @@ export const ExportSite = ( { selectedSite }: { selectedSite: SiteDetails } ) =>
 						{ __( 'Export entire site' ) }
 					</Button>
 					<Button
-						onClick={ () => exportDatabase( selectedSite ) }
+						onClick={ async () => {
+							const exportPath = await exportDatabase( selectedSite );
+							if ( exportPath ) {
+								getIpcApi().showItemInFolder( exportPath );
+							}
+						} }
 						type="submit"
 						variant="secondary"
 						className="!text-a8c-blueberry !shadow-a8c-blueberry"

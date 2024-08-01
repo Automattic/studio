@@ -5,7 +5,6 @@ import { executeWPCli } from '../../vendor/wp-now/src/execute-wp-cli';
 import getWpCliPath from '../../vendor/wp-now/src/get-wp-cli-path';
 
 export async function updateLatestWPCliVersion() {
-	return;
 	let shouldOverwrite = false;
 	const pathExist = await fs.pathExists( getWpCliPath() );
 	if ( pathExist ) {

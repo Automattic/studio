@@ -38,17 +38,17 @@ describe( 'SqlExporter', () => {
 
 		( SiteServer.get as jest.Mock ).mockReturnValue( {
 			details: { path: '/path/to/site' },
-			executeWpCliCommand: jest.fn().mockReturnValue( { stderr: null } ),
+			executeWpCliCommand: jest.fn().mockResolvedValue( { stderr: null } ),
 		} );
-
-		// mock rename
 		( rename as jest.Mock ).mockResolvedValue( null );
+
 		jest.useFakeTimers();
 		jest.setSystemTime( new Date( '2024-08-01T12:00:00Z' ) );
+
 		exporter = new SqlExporter( mockOptions );
 	} );
 
-	afterAll( () => {
+	afterEach( () => {
 		jest.useRealTimers();
 	} );
 

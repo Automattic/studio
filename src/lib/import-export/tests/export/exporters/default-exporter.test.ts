@@ -91,7 +91,7 @@ describe( 'DefaultExporter', () => {
 		jest.clearAllMocks();
 		( SiteServer.get as jest.Mock ).mockReturnValue( {
 			details: { path: '/path/to/site' },
-			executeWpCliCommand: jest.fn().mockReturnValue( { stderr: null } ),
+			executeWpCliCommand: jest.fn().mockResolvedValue( { stderr: null } ),
 		} );
 
 		mockArchiver = createMockArchiver();

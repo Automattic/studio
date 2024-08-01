@@ -1,3 +1,10 @@
+1.0.7
+=====
+* Update instructions of translation process #381
+* Remove test timers related to code block #380
+* Avoid data corruption due to writing concurrently in the user data file #366
+* Allow blocking user from adding demo sites #354
+
 1.0.6
 =====
 * Fixed update snapshot counter when site is deleted #344

@@ -8,20 +8,23 @@ export async function exportBackup(
 	onEvent: ( data: ImportExportEventData ) => void,
 	exporters: NewExporter[] = defaultExporterOptions
 ): Promise< void > {
+	let foundValidExporter;
 	for ( const Exporter of exporters ) {
 		const exporterInstance = new Exporter( exportOptions );
 		const removeExportListeners = handleEvents( exporterInstance, onEvent, ExportEvents );
-		if ( await exporterInstance.canHandle() ) {
+		foundValidExporter = await exporterInstance.canHandle();
+		if ( foundValidExporter ) {
 			try {
 				await exporterInstance.export();
 			} finally {
 				removeExportListeners();
 			}
 			break;
-		} else {
-			onEvent( { event: ExportEvents.EXPORT_ERROR, data: null } );
-			throw new Error( 'No suitable exporter found for the site' );
 		}
+	}
+	if ( ! foundValidExporter ) {
+		onEvent( { event: ExportEvents.EXPORT_ERROR, data: null } );
+		throw new Error( 'No suitable exporter found for the site' );
 	}
 }
 

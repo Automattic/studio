@@ -591,6 +591,10 @@ export async function openLocalPath( _event: IpcMainInvokeEvent, path: string ) 
 	shell.openPath( path );
 }
 
+export async function showItemInFolder( _event: IpcMainInvokeEvent, path: string ) {
+	shell.showItemInFolder( path );
+}
+
 export async function getThemeDetails( event: IpcMainInvokeEvent, id: string ) {
 	const server = SiteServer.get( id );
 	if ( ! server ) {

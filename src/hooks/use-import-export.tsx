@@ -18,8 +18,8 @@ type ProgressState = {
 interface ImportExportContext {
 	importState: ProgressState;
 	exportState: ProgressState;
-	exportFullSite: ( selectedSite: SiteDetails ) => Promise< void >;
-	exportDatabase: ( selectedSite: SiteDetails ) => Promise< void >;
+	exportFullSite: ( selectedSite: SiteDetails ) => Promise< string | undefined >;
+	exportDatabase: ( selectedSite: SiteDetails ) => Promise< string | undefined >;
 }
 
 const DEFAULT_STATE = {
@@ -39,7 +39,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 	const [ exportState, setExportState ] = useState< ProgressState >( {} );
 
 	const exportSite = useCallback(
-		async ( selectedSite: SiteDetails, options: ExportOptions ) => {
+		async ( selectedSite: SiteDetails, options: ExportOptions ): Promise< string | undefined > => {
 			if ( exportState[ selectedSite.id ] ) {
 				return;
 			}
@@ -57,6 +57,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 				} );
 				// Delay function resolution to ensure complete export message is displayed
 				await new Promise< void >( ( resolve ) => setTimeout( resolve, 500 ) );
+				return options.backupFile;
 			} catch ( error ) {
 				Sentry.captureException( error );
 				await getIpcApi().showMessageBox( {
@@ -77,7 +78,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 	);
 
 	const exportFullSite = useCallback(
-		async ( selectedSite: SiteDetails ) => {
+		async ( selectedSite: SiteDetails ): Promise< string | undefined > => {
 			const fileName = generateBackupFilename( selectedSite.name );
 			const path = await getIpcApi().showSaveAsDialog( {
 				title: __( 'Save backup file' ),
@@ -93,7 +94,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 				return;
 			}
 			const options: ExportOptions = {
-				sitePath: selectedSite.path,
+				site: selectedSite,
 				backupFile: path,
 				includes: {
 					database: true,
@@ -108,7 +109,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 	);
 
 	const exportDatabase = useCallback(
-		async ( selectedSite: SiteDetails ) => {
+		async ( selectedSite: SiteDetails ): Promise< string | undefined > => {
 			const fileName = generateBackupFilename( selectedSite.name );
 			const path = await getIpcApi().showSaveAsDialog( {
 				title: __( 'Save database file' ),
@@ -124,7 +125,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 				return;
 			}
 			const options: ExportOptions = {
-				sitePath: selectedSite.path,
+				site: selectedSite,
 				backupFile: path,
 				includes: {
 					database: true,

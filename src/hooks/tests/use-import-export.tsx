@@ -43,7 +43,7 @@ describe( 'useImportExport hook', () => {
 		expect( result.current.exportState ).toEqual( {} );
 		expect( getIpcApi().exportSite ).toHaveBeenCalledWith(
 			{
-				sitePath: '/test-site',
+				site: selectedSite,
 				backupFile: '/path/to/exported-site.tar.gz',
 				includes: { database: true, uploads: true, plugins: true, themes: true },
 			},
@@ -68,7 +68,7 @@ describe( 'useImportExport hook', () => {
 		expect( result.current.exportState ).toEqual( {} );
 		expect( getIpcApi().exportSite ).toHaveBeenCalledWith(
 			{
-				sitePath: '/test-site',
+				site: selectedSite,
 				backupFile: '/path/to/exported-site.tar.gz',
 				includes: { database: true, uploads: true, plugins: true, themes: true },
 			},
@@ -89,7 +89,7 @@ describe( 'useImportExport hook', () => {
 		expect( result.current.exportState ).toEqual( {} );
 		expect( getIpcApi().exportSite ).toHaveBeenCalledWith(
 			{
-				sitePath: '/test-site',
+				site: selectedSite,
 				backupFile: '/path/to/exported-database.sql',
 				includes: { database: true, uploads: false, plugins: false, themes: false },
 			},

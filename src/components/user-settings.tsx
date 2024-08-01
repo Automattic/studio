@@ -64,6 +64,8 @@ const SnapshotInfo = ( {
 	isDeleting?: boolean;
 } ) => {
 	const { __ } = useI18n();
+
+	const { snapshotCreationBlocked } = useSnapshots();
 	const menuItemStyles = cx(
 		'[&_span]:min-w-0 [&_span]:p-[1px]',
 		isDisabled &&
@@ -75,69 +77,76 @@ const SnapshotInfo = ( {
 		<div className="flex gap-3 flex-col">
 			<h2 className="a8c-label-semibold">{ __( 'Demo sites' ) }</h2>
 			<div className="flex gap-3 flex-row items-center w-full">
-				<div className="flex w-full flex-col gap-2">
-					<div className="flex w-full flex-row justify-between gap-8 ">
-						<div className="flex flex-row items-center text-right">
-							{ isDeleting && <Spinner className="!mt-0 !mx-2" /> }
-							<span className="text-a8c-gray-70">
-								{ sprintf( __( '%1s of %2s active demo sites' ), siteCount, siteLimit ) }
-							</span>
-						</div>
+				{ snapshotCreationBlocked ? (
+					<div className="text-a8c-gray-70">
+						{ __( 'Demo sites are not available for your account' ) }
 					</div>
-					<ProgressBar value={ siteCount } maxValue={ siteLimit } />
-				</div>
-				<DropdownMenu
-					className={
-						'ml-auto flex items-center [&_button:first-child]:p-0 [&_button:first-child]:min-w-6 [&_button:first-child]:h-6'
-					}
-					popoverProps={ { position: 'bottom left', resize: true } }
-					icon={ <Icon icon={ moreVertical }></Icon> }
-					size={ 24 }
-					label={ __( 'More options' ) }
-				>
-					{ ( { onClose }: { onClose: () => void } ) => {
-						return (
-							<MenuGroup>
-								<Tooltip
-									disabled={ ! isOffline }
-									icon={ offlineIcon }
-									text={ offlineMessage }
-									placement="bottom"
-								>
-									<MenuItem
-										aria-description={ isOffline ? offlineMessage : '' }
-										/**
-										 * Because there is a single menu item, the `aria-disabled`
-										 * attribute is used rather than `disabled` so that screen
-										 * readers can focus the item to announce its disabled state.
-										 * Otherwise, dropdown toggle would toggle an empty menu.
-										 */
-										aria-disabled={ isDisabled }
-										icon={ trash }
-										iconPosition="left"
-										isDestructive
-										className={ menuItemStyles }
-										onClick={ () => {
-											if ( isDisabled ) {
-												return;
-											}
+				) : (
+					<>
+						<div className="flex w-full flex-col gap-2">
+							<div className="flex w-full flex-row justify-between gap-8">
+								<div className="flex flex-row items-center text-right">
+									{ isDeleting && <Spinner className="!mt-0 !mx-2" /> }
+									<span className="text-a8c-gray-70">
+										{ sprintf( __( '%1s of %2s active demo sites' ), siteCount, siteLimit ) }
+									</span>
+								</div>
+							</div>
+							<ProgressBar value={ siteCount } maxValue={ siteLimit } />
+						</div>
+						<DropdownMenu
+							className={
+								'ml-auto flex items-center [&_button:first-child]:p-0 [&_button:first-child]:min-w-6 [&_button:first-child]:h-6'
+							}
+							popoverProps={ { position: 'bottom left', resize: true } }
+							icon={ <Icon icon={ moreVertical }></Icon> }
+							size={ 24 }
+							label={ __( 'More options' ) }
+						>
+							{ ( { onClose }: { onClose: () => void } ) => {
+								return (
+									<MenuGroup>
+										<Tooltip
+											disabled={ ! isOffline }
+											icon={ offlineIcon }
+											text={ offlineMessage }
+											placement="bottom"
+										>
+											<MenuItem
+												aria-description={ isOffline ? offlineMessage : '' }
+												/**
+												 * Because there is a single menu item, the `aria-disabled`
+												 * attribute is used rather than `disabled` so that screen
+												 * readers can focus the item to announce its disabled state.
+												 * Otherwise, dropdown toggle would toggle an empty menu.
+												 */
+												aria-disabled={ isDisabled }
+												icon={ trash }
+												iconPosition="left"
+												isDestructive
+												className={ menuItemStyles }
+												onClick={ () => {
+													if ( isDisabled ) {
+														return;
+													}
 
-											onRemoveSnapshots();
-											onClose();
-										} }
-									>
-										{ __( 'Delete all demo sites' ) }
-									</MenuItem>
-								</Tooltip>
-							</MenuGroup>
-						);
-					} }
-				</DropdownMenu>
+													onRemoveSnapshots();
+													onClose();
+												} }
+											>
+												{ __( 'Delete all demo sites' ) }
+											</MenuItem>
+										</Tooltip>
+									</MenuGroup>
+								);
+							} }
+						</DropdownMenu>
+					</>
+				) }
 			</div>
 		</div>
 	);
 };
-
 function PromptInfo() {
 	const { __ } = useI18n();
 	const { promptCount = 0, promptLimit = LIMIT_OF_PROMPTS_PER_USER } = usePromptUsage();

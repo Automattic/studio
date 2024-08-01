@@ -5,6 +5,8 @@ import os from 'os';
 import path from 'path';
 import archiver from 'archiver';
 import { ExportEvents } from '../events';
+import { exportDatabaseToFile } from '../export-database';
+import { generateBackupFilename } from '../generate-backup-filename';
 import {
 	ExportOptions,
 	BackupContents,
@@ -127,7 +129,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		this.emit( ExportEvents.WP_CONTENT_EXPORT_START );
 		for ( const category of categories ) {
 			for ( const file of this.backup.wpContent[ category ] ) {
-				const relativePath = path.relative( this.options.sitePath, file );
+				const relativePath = path.relative( this.options.site.path, file );
 				this.archive.file( file, { name: relativePath } );
 				this.emit( ExportEvents.WP_CONTENT_EXPORT_PROGRESS, { file: relativePath } );
 			}
@@ -142,12 +144,10 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 	private async addDatabase(): Promise< void > {
 		if ( this.options.includes.database ) {
 			this.emit( ExportEvents.DATABASE_EXPORT_START );
-			// Add a toy sql file here, to make importer validation pass
-			// This will be implemented in a different ticket
 			const tmpFolder = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio_export' ) );
-			const fileName = 'file.sql';
+			const fileName = `${ generateBackupFilename( 'db-export' ) }.sql`;
 			const sqlDumpPath = path.join( tmpFolder, fileName );
-			await fsPromises.writeFile( sqlDumpPath, '--test' );
+			await exportDatabaseToFile( this.options.site, sqlDumpPath );
 			this.archive.file( sqlDumpPath, { name: `sql/${ fileName }` } );
 			this.backup.sqlFiles.push( sqlDumpPath );
 			this.emit( ExportEvents.DATABASE_EXPORT_COMPLETE );
@@ -167,7 +167,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 			return this.siteFiles;
 		}
 
-		const directoryContents = await fsPromises.readdir( this.options.sitePath, {
+		const directoryContents = await fsPromises.readdir( this.options.site.path, {
 			recursive: true,
 			withFileTypes: true,
 		} );
@@ -194,7 +194,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 
 		const siteFiles = await this.getSiteFiles();
 		siteFiles.forEach( ( file ) => {
-			const relativePath = path.relative( options.sitePath, file );
+			const relativePath = path.relative( options.site.path, file );
 			if ( path.basename( file ) === 'wp-config.php' ) {
 				backupContents.wpConfigFile = file;
 			} else if ( relativePath.startsWith( 'wp-content/uploads/' ) && options.includes.uploads ) {

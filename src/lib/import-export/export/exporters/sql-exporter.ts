@@ -1,6 +1,6 @@
-import * as console from 'console';
 import { EventEmitter } from 'events';
 import { ExportEvents } from '../events';
+import { exportDatabaseToFile } from '../export-database';
 import { ExportOptions, Exporter } from '../types';
 
 export class SqlExporter extends EventEmitter implements Exporter {
@@ -9,9 +9,13 @@ export class SqlExporter extends EventEmitter implements Exporter {
 	}
 	async export(): Promise< void > {
 		this.emit( ExportEvents.EXPORT_START );
-		console.log( `Database backup created at: ${ this.options.backupFile }` );
-		console.log( 'Database backup options:', this.options );
-		this.emit( ExportEvents.EXPORT_COMPLETE );
+		try {
+			await exportDatabaseToFile( this.options.site, this.options.backupFile );
+			this.emit( ExportEvents.EXPORT_COMPLETE );
+		} catch ( error ) {
+			this.emit( ExportEvents.EXPORT_ERROR );
+			throw error;
+		}
 	}
 
 	async canHandle(): Promise< boolean > {

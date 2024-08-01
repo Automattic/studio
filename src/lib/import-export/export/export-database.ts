@@ -1,6 +1,7 @@
 import path from 'path';
 import { rename } from 'fs-extra';
 import { SiteServer } from '../../../site-server';
+import { generateBackupFilename } from './generate-backup-filename';
 
 export async function exportDatabaseToFile(
 	site: SiteDetails,
@@ -13,7 +14,7 @@ export async function exportDatabaseToFile(
 	}
 
 	// Generate a temporary file name in the project directory
-	const tempFileName = `temp_export_${ Date.now() }.sql`;
+	const tempFileName = `${ generateBackupFilename( 'db-export' ) }.sql`;
 	const tempFilePath = path.join( site.path, tempFileName );
 
 	// Execute the command to export directly to the temp file
@@ -21,7 +22,7 @@ export async function exportDatabaseToFile(
 
 	if ( stderr ) {
 		console.error( 'Error during export:', stderr );
-		throw new Error( 'Database export failed' );
+		throw new Error( `Database export failed: ${ stderr }` );
 	}
 
 	// Move the file to its final destination

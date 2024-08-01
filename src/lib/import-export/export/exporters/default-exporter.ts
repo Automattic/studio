@@ -14,6 +14,7 @@ import {
 	BackupCreateProgressEventData,
 	BackupContentsCategory,
 } from '../types';
+import { generateBackupFilename } from '../generate-backup-filename';
 
 export class DefaultExporter extends EventEmitter implements Exporter {
 	private archive!: archiver.Archiver;
@@ -144,14 +145,10 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 	private async addDatabase(): Promise< void > {
 		if ( this.options.includes.database ) {
 			this.emit( ExportEvents.DATABASE_EXPORT_START );
-
 			const tmpFolder = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio_export' ) );
-			const timestamp = format( new Date(), 'yyyy-MM-dd-HH-mm-ss' );
-			const fileName = `db-export-${ timestamp }.sql`;
+			const fileName = generateBackupFilename( 'db-export' );
 			const sqlDumpPath = path.join( tmpFolder, fileName );
-
 			await exportDatabaseToFile( this.options.site, sqlDumpPath );
-
 			this.archive.file( sqlDumpPath, { name: `sql/${ fileName }` } );
 			this.backup.sqlFiles.push( sqlDumpPath );
 			this.emit( ExportEvents.DATABASE_EXPORT_COMPLETE );

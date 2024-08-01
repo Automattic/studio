@@ -2,10 +2,10 @@ import fs from 'fs';
 import fsPromises from 'fs/promises';
 import os from 'os';
 import archiver from 'archiver';
-import { format } from 'date-fns';
 import { SiteServer } from '../../../../../site-server';
 import { DefaultExporter } from '../../../export/exporters';
 import { ExportOptions, BackupContents } from '../../../export/types';
+import { format } from 'date-fns';
 
 jest.mock( 'fs' );
 jest.mock( 'fs/promises' );
@@ -39,10 +39,6 @@ jest.mock( 'archiver', () => {
 
 // Mock SiteServer
 jest.mock( '../../../../../site-server' );
-( SiteServer.get as jest.Mock ).mockReturnValue( {
-	details: { path: '/path/to/site' },
-	executeWpCliCommand: jest.fn().mockReturnValue( { stderr: null } ),
-} );
 
 describe( 'DefaultExporter', () => {
 	let exporter: DefaultExporter;
@@ -93,6 +89,10 @@ describe( 'DefaultExporter', () => {
 
 		// Reset all mock implementations
 		jest.clearAllMocks();
+		( SiteServer.get as jest.Mock ).mockReturnValue( {
+			details: { path: '/path/to/site' },
+			executeWpCliCommand: jest.fn().mockReturnValue( { stderr: null } ),
+		} );
 
 		mockArchiver = createMockArchiver();
 		( archiver as jest.MockedFunction< typeof archiver > ).mockReturnValue(
@@ -207,9 +207,9 @@ describe( 'DefaultExporter', () => {
 		} );
 		expect( mockArchiver.file ).toHaveBeenNthCalledWith(
 			2,
-			'/tmp/studio_export_123/db-export-2023-07-31-12-00-00.sql',
+			'/tmp/studio_export_123/studio-backup-db-export-2023-07-31-12-00-00',
 			{
-				name: 'sql/db-export-2023-07-31-12-00-00.sql',
+				name: 'sql/studio-backup-db-export-2023-07-31-12-00-00',
 			}
 		);
 	} );
@@ -226,7 +226,7 @@ describe( 'DefaultExporter', () => {
 		await exporter.export();
 
 		expect( fsPromises.unlink ).toHaveBeenCalledWith(
-			'/tmp/studio_export_123/db-export-2023-07-31-12-00-00.sql'
+			'/tmp/studio_export_123/studio-backup-db-export-2023-07-31-12-00-00'
 		);
 	} );
 
@@ -242,5 +242,15 @@ describe( 'DefaultExporter', () => {
 	it( 'should return true when canHandle is called', async () => {
 		const canHandle = await exporter.canHandle();
 		expect( canHandle ).toBe( true );
+	} );
+
+	it( 'should return false when canHandle is called with invalid options', async () => {
+		const exporter = new DefaultExporter( {
+			...mockOptions,
+			backupFile: '/path/to/backup.sql',
+		} );
+
+		const canHandle = await exporter.canHandle();
+		expect( canHandle ).toBe( false );
 	} );
 } );

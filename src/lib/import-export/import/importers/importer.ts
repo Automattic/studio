@@ -3,6 +3,8 @@ import fsPromises from 'fs/promises';
 import path from 'path';
 import { ImportEvents } from '../events';
 import { BackupContents } from '../types';
+import { rename } from 'fs-extra';
+import { SiteServer } from '../../../../site-server';
 
 export interface MetaFileData {
 	phpVersion: string;
@@ -14,7 +16,7 @@ export interface ImporterResult extends Omit< BackupContents, 'metaFile' > {
 }
 
 export interface Importer extends Partial< EventEmitter > {
-	import( rootPath: string ): Promise< ImporterResult >;
+	import( rootPath: string, siteId: string ): Promise< ImporterResult >;
 }
 
 export class DefaultImporter extends EventEmitter implements Importer {
@@ -22,10 +24,10 @@ export class DefaultImporter extends EventEmitter implements Importer {
 		super();
 	}
 
-	async import( rootPath: string ): Promise< ImporterResult > {
+	async import( rootPath: string, siteId: string ): Promise< ImporterResult > {
 		this.emit( ImportEvents.IMPORT_START );
 
-		await this.importDatabase();
+		await this.importDatabase( rootPath, siteId );
 		await this.importWpContent( rootPath );
 		let meta: MetaFileData | undefined;
 		if ( this.backup.metaFile ) {
@@ -40,9 +42,35 @@ export class DefaultImporter extends EventEmitter implements Importer {
 		};
 	}
 
-	protected async importDatabase(): Promise< void > {
+	protected async importDatabase( rootPath: string, siteId: string ): Promise< void > {
+		if ( ! this.backup.sqlFiles.length ) {
+			return;
+		}
+
+		const server = SiteServer.get( siteId );
+
+		if ( ! server ) {
+			throw new Error( 'Site not found.' );
+		}
+
 		this.emit( ImportEvents.IMPORT_DATABASE_START );
-		// will implement in a different ticket
+
+		for ( const sqlFile of this.backup.sqlFiles ) {
+			const sqlTempFile = `tmp_${ Date.now() }.sql`;
+			const tmpPath = path.join( rootPath, sqlTempFile );
+			await rename( sqlFile, tmpPath );
+
+			// Execute the command to export directly to the temp file
+			const { stderr } = await server.executeWpCliCommand( `db import ${ sqlTempFile }` );
+
+			if ( stderr ) {
+				console.error( 'Error during import:', stderr );
+				throw new Error( 'Database import failed' );
+			}
+
+			await fsPromises.unlink( tmpPath );
+		}
+
 		this.emit( ImportEvents.IMPORT_DATABASE_COMPLETE );
 	}
 

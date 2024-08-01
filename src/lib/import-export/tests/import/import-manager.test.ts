@@ -73,7 +73,14 @@ describe( 'importManager', () => {
 			path: '/path/to/backup.tar.gz',
 			type: 'application/gzip',
 		};
-		const mockSitePath = '/path/to/site';
+		const mockSite: SiteDetails = {
+			id: '123',
+			name: 'Site Name',
+			path: '/path/to/site',
+			phpVersion: '7.4',
+			running: false,
+		};
+
 		const mockExtractDir = '/tmp/studio_backup_123456';
 
 		beforeEach( () => {
@@ -107,12 +114,12 @@ describe( 'importManager', () => {
 					importer: MockImporterClass,
 				},
 			];
-			await importBackup( mockFile, mockSitePath, jest.fn(), options );
+			await importBackup( mockFile, mockSite, jest.fn(), options );
 
 			expect( fsPromises.mkdtemp ).toHaveBeenCalledWith( '/tmp/studio_backup' );
 			expect( mockBackupHandler.listFiles ).toHaveBeenCalledWith( mockFile );
 			expect( mockBackupHandler.extractFiles ).toHaveBeenCalledWith( mockFile, mockExtractDir );
-			expect( mockImporter.import ).toHaveBeenCalledWith( mockSitePath );
+			expect( mockImporter.import ).toHaveBeenCalledWith( mockSite.path );
 			expect( fsPromises.rm ).toHaveBeenCalledWith( mockExtractDir, {
 				recursive: true,
 			} );
@@ -130,7 +137,7 @@ describe( 'importManager', () => {
 			( BackupHandlerFactory.create as jest.Mock ).mockReturnValue( mockBackupHandler );
 
 			await expect(
-				importBackup( mockFile, mockSitePath, jest.fn(), [
+				importBackup( mockFile, mockSite, jest.fn(), [
 					{
 						validator: mockValidator,
 						importer: jest.fn(),

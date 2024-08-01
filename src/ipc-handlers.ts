@@ -113,7 +113,6 @@ export async function importSite(
 	if ( ! site ) {
 		throw new Error( 'Site not found.' );
 	}
-	const sitePath = site.details.path;
 	try {
 		const onEvent = ( data: ImportExportEventData ) => {
 			const parentWindow = BrowserWindow.fromWebContents( event.sender );
@@ -121,7 +120,7 @@ export async function importSite(
 				parentWindow.webContents.send( 'on-import', data );
 			}
 		};
-		const result = await importBackup( backupFile, sitePath, onEvent, defaultImporterOptions );
+		const result = await importBackup( backupFile, site.details, onEvent, defaultImporterOptions );
 		if ( result?.meta?.phpVersion ) {
 			await updateSite( event, {
 				...site.details,

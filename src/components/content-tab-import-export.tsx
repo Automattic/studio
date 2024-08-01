@@ -21,6 +21,7 @@ interface ContentTabImportExportProps {
 export const ExportSite = ( { selectedSite }: { selectedSite: SiteDetails } ) => {
 	const { exportState, exportFullSite, exportDatabase } = useImportExport();
 	const { [ selectedSite.id ]: currentProgress } = exportState;
+
 	return (
 		<div className="flex flex-col gap-4">
 			<div>
@@ -36,7 +37,15 @@ export const ExportSite = ( { selectedSite }: { selectedSite: SiteDetails } ) =>
 				</div>
 			) : (
 				<div className="flex flex-row gap-4">
-					<Button onClick={ () => exportFullSite( selectedSite ) } variant="primary">
+					<Button
+						onClick={ async () => {
+							const exportPath = await exportFullSite( selectedSite );
+							if ( exportPath ) {
+								getIpcApi().showItemInFolder( exportPath );
+							}
+						} }
+						variant="primary"
+					>
 						{ __( 'Export entire site' ) }
 					</Button>
 					<Button

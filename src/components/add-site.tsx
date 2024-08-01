@@ -145,6 +145,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 						isDismissible
 						focusOnMount="firstContentElement"
 						onRequestClose={ closeModal }
+						className="max-h-[90%] md:max-h-[90%]"
 					>
 						<div ref={ dropRef }>
 							{ isDraggingOver && <DragAndDropOverlay /> }

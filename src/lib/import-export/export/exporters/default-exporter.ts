@@ -150,12 +150,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 			const fileName = `db-export-${ timestamp }.sql`;
 			const sqlDumpPath = path.join( tmpFolder, fileName );
 
-			try {
-				await exportDatabaseToFile( this.options.site, sqlDumpPath );
-			} catch ( error ) {
-				console.error( 'ERROR db export', error );
-				this.emit( ExportEvents.EXPORT_ERROR, error );
-			}
+			await exportDatabaseToFile( this.options.site, sqlDumpPath );
 
 			this.archive.file( sqlDumpPath, { name: `sql/${ fileName }` } );
 			this.backup.sqlFiles.push( sqlDumpPath );

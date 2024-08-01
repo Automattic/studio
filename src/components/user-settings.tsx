@@ -74,11 +74,11 @@ const SnapshotInfo = ( {
 	const isOffline = useOffline();
 	const offlineMessage = __( 'Deleting demo sites requires an internet connection.' );
 	return (
-		<div className="flex gap-3 flex-col">
+		<div className={ cx( 'flex flex-col', ! snapshotCreationBlocked && 'gap-3' ) }>
 			<h2 className="a8c-label-semibold">{ __( 'Demo sites' ) }</h2>
 			<div className="flex gap-3 flex-row items-center w-full">
 				{ snapshotCreationBlocked ? (
-					<div className="text-a8c-gray-70">
+					<div className="text-[#757575]">
 						{ __( 'Demo sites are not available for your account.' ) }
 					</div>
 				) : (

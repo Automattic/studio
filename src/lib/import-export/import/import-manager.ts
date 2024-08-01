@@ -33,7 +33,7 @@ export function selectImporter(
 
 export async function importBackup(
 	backupFile: BackupArchiveInfo,
-	sitePath: string,
+	site: SiteDetails,
 	onEvent: ( data: ImportExportEventData ) => void,
 	options: ImporterOption[]
 ): Promise< ImporterResult > {
@@ -49,7 +49,7 @@ export async function importBackup(
 			removeBackupListeners = handleEvents( backupHandler, onEvent, BackupExtractEvents );
 			removeImportListeners = handleEvents( importer, onEvent, ImporterEvents );
 			await backupHandler.extractFiles( backupFile, extractionDirectory );
-			return await importer.import( sitePath );
+			return await importer.import( site.path, site.id );
 		} else {
 			throw new Error( 'No suitable importer found for the given backup file' );
 		}

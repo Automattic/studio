@@ -18,6 +18,7 @@ describe( 'JetpackImporter', () => {
 	};
 
 	const mockStudioSitePath = '/path/to/studio/site';
+	const mockStudioSiteId = '123';
 
 	beforeEach( () => {
 		jest.clearAllMocks();
@@ -35,7 +36,7 @@ describe( 'JetpackImporter', () => {
 				} )
 			);
 
-			await importer.import( mockStudioSitePath );
+			await importer.import( mockStudioSitePath, mockStudioSiteId );
 
 			expect( fs.mkdir ).toHaveBeenCalled();
 			expect( fs.copyFile ).toHaveBeenCalledTimes( 3 ); // One for each wp-content file
@@ -47,7 +48,7 @@ describe( 'JetpackImporter', () => {
 			( fs.mkdir as jest.Mock ).mockResolvedValue( undefined );
 			( fs.copyFile as jest.Mock ).mockResolvedValue( undefined );
 
-			await importer.import( mockStudioSitePath );
+			await importer.import( mockStudioSitePath, mockStudioSiteId );
 
 			expect( fs.mkdir ).toHaveBeenCalled();
 			expect( fs.copyFile ).toHaveBeenCalledTimes( 3 );
@@ -60,7 +61,9 @@ describe( 'JetpackImporter', () => {
 			( fs.copyFile as jest.Mock ).mockResolvedValue( undefined );
 			( fs.readFile as jest.Mock ).mockResolvedValue( 'Invalid JSON' );
 
-			await expect( importer.import( mockStudioSitePath ) ).resolves.not.toThrow();
+			await expect(
+				importer.import( mockStudioSitePath, mockStudioSiteId )
+			).resolves.not.toThrow();
 
 			expect( fs.mkdir ).toHaveBeenCalled();
 			expect( fs.copyFile ).toHaveBeenCalledTimes( 3 );

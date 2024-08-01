@@ -1,10 +1,11 @@
 import { EventEmitter } from 'events';
 import fsPromises from 'fs/promises';
 import path from 'path';
-import { ImportEvents } from '../events';
-import { BackupContents } from '../types';
 import { rename } from 'fs-extra';
 import { SiteServer } from '../../../../site-server';
+import { generateBackupFilename } from '../../export/generate-backup-filename';
+import { ImportEvents } from '../events';
+import { BackupContents } from '../types';
 
 export interface MetaFileData {
 	phpVersion: string;
@@ -53,26 +54,20 @@ export class DefaultImporter extends EventEmitter implements Importer {
 		}
 
 		const server = SiteServer.get( siteId );
-
 		if ( ! server ) {
 			throw new Error( 'Site not found.' );
 		}
 
 		this.emit( ImportEvents.IMPORT_DATABASE_START );
-
 		for ( const sqlFile of this.backup.sqlFiles ) {
-			const sqlTempFile = `tmp_${ Date.now() }.sql`;
+			const sqlTempFile = `${ generateBackupFilename( 'sql' ) }.sql`;
 			const tmpPath = path.join( rootPath, sqlTempFile );
 			await rename( sqlFile, tmpPath );
-
 			// Execute the command to export directly to the temp file
 			const { stderr } = await server.executeWpCliCommand( `db import ${ sqlTempFile }` );
-
 			if ( stderr ) {
-				console.error( 'Error during import:', stderr );
 				throw new Error( 'Database import failed' );
 			}
-
 			await fsPromises.unlink( tmpPath );
 		}
 
@@ -103,8 +98,7 @@ export class DefaultImporter extends EventEmitter implements Importer {
 		this.emit( ImportEvents.IMPORT_META_START );
 		try {
 			const metaContent = await fsPromises.readFile( metaFilePath, 'utf-8' );
-			const meta = JSON.parse( metaContent );
-			return meta;
+			return JSON.parse( metaContent );
 		} catch ( e ) {
 			return;
 		} finally {

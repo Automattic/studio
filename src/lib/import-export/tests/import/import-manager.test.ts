@@ -119,7 +119,7 @@ describe( 'importManager', () => {
 			expect( fsPromises.mkdtemp ).toHaveBeenCalledWith( '/tmp/studio_backup' );
 			expect( mockBackupHandler.listFiles ).toHaveBeenCalledWith( mockFile );
 			expect( mockBackupHandler.extractFiles ).toHaveBeenCalledWith( mockFile, mockExtractDir );
-			expect( mockImporter.import ).toHaveBeenCalledWith( mockSite.path );
+			expect( mockImporter.import ).toHaveBeenCalledWith( mockSite.path, mockSite.id );
 			expect( fsPromises.rm ).toHaveBeenCalledWith( mockExtractDir, {
 				recursive: true,
 			} );

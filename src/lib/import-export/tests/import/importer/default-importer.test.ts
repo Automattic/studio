@@ -1,9 +1,13 @@
 // To run tests, execute `npm run test -- src/lib/import-export/tests/import/importer/jetpack-importer.test.ts`
 import * as fs from 'fs/promises';
+import { rename } from 'fs-extra';
+import { SiteServer } from '../../../../../site-server';
 import { DefaultImporter } from '../../../import/importers';
 import { BackupContents } from '../../../import/types';
 
 jest.mock( 'fs/promises' );
+jest.mock( '../../../../../site-server' );
+jest.mock( 'fs-extra' );
 
 describe( 'JetpackImporter', () => {
 	const mockBackupContents: BackupContents = {
@@ -22,6 +26,21 @@ describe( 'JetpackImporter', () => {
 
 	beforeEach( () => {
 		jest.clearAllMocks();
+
+		( SiteServer.get as jest.Mock ).mockReturnValue( {
+			details: { path: '/path/to/site' },
+			executeWpCliCommand: jest.fn().mockReturnValue( { stderr: null } ),
+		} );
+
+		// mock rename
+		( rename as jest.Mock ).mockResolvedValue( null );
+
+		jest.useFakeTimers();
+		jest.setSystemTime( new Date( '2024-08-01T12:00:00Z' ) );
+	} );
+
+	afterAll( () => {
+		jest.useRealTimers();
 	} );
 
 	describe( 'import', () => {
@@ -41,6 +60,21 @@ describe( 'JetpackImporter', () => {
 			expect( fs.mkdir ).toHaveBeenCalled();
 			expect( fs.copyFile ).toHaveBeenCalledTimes( 3 ); // One for each wp-content file
 			expect( fs.readFile ).toHaveBeenCalledWith( '/tmp/extracted/studio.json', 'utf-8' );
+		} );
+
+		it( 'should handle sql files and call wp db import cli command', async () => {
+			const importer = new DefaultImporter( mockBackupContents );
+			await importer.import( mockStudioSitePath, mockStudioSiteId );
+
+			const siteServer = SiteServer.get( mockStudioSiteId );
+
+			const expectedCommand = 'db import studio-backup-sql-2024-08-01-12-00-00.sql';
+			expect( siteServer?.executeWpCliCommand ).toHaveBeenNthCalledWith( 1, expectedCommand );
+			expect( siteServer?.executeWpCliCommand ).toHaveBeenNthCalledWith( 2, expectedCommand );
+
+			const expectedUnlinkPath = '/path/to/studio/site/studio-backup-sql-2024-08-01-12-00-00.sql';
+			expect( fs.unlink ).toHaveBeenNthCalledWith( 1, expectedUnlinkPath );
+			expect( fs.unlink ).toHaveBeenNthCalledWith( 2, expectedUnlinkPath );
 		} );
 
 		it( 'should handle missing meta file', async () => {

@@ -18,6 +18,9 @@ export async function exportBackup(
 				removeExportListeners();
 			}
 			break;
+		} else {
+			onEvent( { event: ExportEvents.EXPORT_ERROR, data: null } );
+			throw new Error( 'No suitable exporter found for the site' );
 		}
 	}
 }

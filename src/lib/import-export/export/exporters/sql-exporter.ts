@@ -1,4 +1,3 @@
-import * as console from 'console';
 import { EventEmitter } from 'events';
 import { ExportEvents } from '../events';
 import { exportDatabaseToFile } from '../export-database';
@@ -14,7 +13,6 @@ export class SqlExporter extends EventEmitter implements Exporter {
 			await exportDatabaseToFile( this.options.site, this.options.backupFile );
 			this.emit( ExportEvents.EXPORT_COMPLETE );
 		} catch ( error ) {
-			console.error( 'ERROR db export', error );
 			this.emit( ExportEvents.EXPORT_ERROR );
 			throw error;
 		}

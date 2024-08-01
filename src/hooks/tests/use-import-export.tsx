@@ -89,9 +89,7 @@ describe( 'useImportExport hook', () => {
 		expect( result.current.exportState ).toEqual( {} );
 		expect( getIpcApi().exportSite ).toHaveBeenCalledWith(
 			{
-				site: {
-					...selectedSite,
-				},
+				site: selectedSite,
 				backupFile: '/path/to/exported-database.sql',
 				includes: { database: true, uploads: false, plugins: false, themes: false },
 			},

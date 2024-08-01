@@ -1,10 +1,11 @@
 import { EventEmitter } from 'events';
 import fsPromises from 'fs/promises';
 import path from 'path';
-import { ImportEvents } from '../events';
-import { BackupContents } from '../types';
 import { rename } from 'fs-extra';
 import { SiteServer } from '../../../../site-server';
+import { generateBackupFilename } from '../../export/generate-backup-filename';
+import { ImportEvents } from '../events';
+import { BackupContents } from '../types';
 
 export interface MetaFileData {
 	phpVersion: string;
@@ -27,19 +28,25 @@ export class DefaultImporter extends EventEmitter implements Importer {
 	async import( rootPath: string, siteId: string ): Promise< ImporterResult > {
 		this.emit( ImportEvents.IMPORT_START );
 
-		await this.importDatabase( rootPath, siteId );
-		await this.importWpContent( rootPath );
-		let meta: MetaFileData | undefined;
-		if ( this.backup.metaFile ) {
-			meta = await this.parseMetaFile();
+		try {
+			await this.importDatabase( rootPath, siteId );
+			await this.importWpContent( rootPath );
+			let meta: MetaFileData | undefined;
+			if ( this.backup.metaFile ) {
+				meta = await this.parseMetaFile();
+			}
+
+			this.emit( ImportEvents.IMPORT_COMPLETE );
+			return {
+				extractionDirectory: this.backup.extractionDirectory,
+				sqlFiles: this.backup.sqlFiles,
+				wpContent: this.backup.wpContent,
+				meta,
+			};
+		} catch ( error ) {
+			this.emit( ImportEvents.IMPORT_ERROR, error );
+			throw error;
 		}
-		this.emit( ImportEvents.IMPORT_COMPLETE );
-		return {
-			extractionDirectory: this.backup.extractionDirectory,
-			sqlFiles: this.backup.sqlFiles,
-			wpContent: this.backup.wpContent,
-			meta,
-		};
 	}
 
 	protected async importDatabase( rootPath: string, siteId: string ): Promise< void > {
@@ -48,26 +55,20 @@ export class DefaultImporter extends EventEmitter implements Importer {
 		}
 
 		const server = SiteServer.get( siteId );
-
 		if ( ! server ) {
 			throw new Error( 'Site not found.' );
 		}
 
 		this.emit( ImportEvents.IMPORT_DATABASE_START );
-
 		for ( const sqlFile of this.backup.sqlFiles ) {
-			const sqlTempFile = `tmp_${ Date.now() }.sql`;
+			const sqlTempFile = `${ generateBackupFilename( 'sql' ) }.sql`;
 			const tmpPath = path.join( rootPath, sqlTempFile );
 			await rename( sqlFile, tmpPath );
-
 			// Execute the command to export directly to the temp file
 			const { stderr } = await server.executeWpCliCommand( `db import ${ sqlTempFile }` );
-
 			if ( stderr ) {
-				console.error( 'Error during import:', stderr );
 				throw new Error( 'Database import failed' );
 			}
-
 			await fsPromises.unlink( tmpPath );
 		}
 
@@ -98,8 +99,7 @@ export class DefaultImporter extends EventEmitter implements Importer {
 		this.emit( ImportEvents.IMPORT_META_START );
 		try {
 			const metaContent = await fsPromises.readFile( metaFilePath, 'utf-8' );
-			const meta = JSON.parse( metaContent );
-			return meta;
+			return JSON.parse( metaContent );
 		} catch ( e ) {
 			return;
 		} finally {

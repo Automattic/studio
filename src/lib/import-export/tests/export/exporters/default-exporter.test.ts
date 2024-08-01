@@ -207,9 +207,9 @@ describe( 'DefaultExporter', () => {
 		} );
 		expect( mockArchiver.file ).toHaveBeenNthCalledWith(
 			2,
-			'/tmp/studio_export_123/studio-backup-db-export-2023-07-31-12-00-00',
+			'/tmp/studio_export_123/studio-backup-db-export-2023-07-31-12-00-00.sql',
 			{
-				name: 'sql/studio-backup-db-export-2023-07-31-12-00-00',
+				name: 'sql/studio-backup-db-export-2023-07-31-12-00-00.sql',
 			}
 		);
 	} );
@@ -226,7 +226,7 @@ describe( 'DefaultExporter', () => {
 		await exporter.export();
 
 		expect( fsPromises.unlink ).toHaveBeenCalledWith(
-			'/tmp/studio_export_123/studio-backup-db-export-2023-07-31-12-00-00'
+			'/tmp/studio_export_123/studio-backup-db-export-2023-07-31-12-00-00.sql'
 		);
 	} );
 

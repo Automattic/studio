@@ -145,7 +145,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		if ( this.options.includes.database ) {
 			this.emit( ExportEvents.DATABASE_EXPORT_START );
 			const tmpFolder = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio_export' ) );
-			const fileName = generateBackupFilename( 'db-export' );
+			const fileName = `${ generateBackupFilename( 'db-export' ) }.sql`;
 			const sqlDumpPath = path.join( tmpFolder, fileName );
 			await exportDatabaseToFile( this.options.site, sqlDumpPath );
 			this.archive.file( sqlDumpPath, { name: `sql/${ fileName }` } );

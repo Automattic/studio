@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events';
 import fsPromises from 'fs/promises';
 import path from 'path';
-import { rename } from 'fs-extra';
+import { lstat, rename } from 'fs-extra';
 import { SiteServer } from '../../../../site-server';
 import { generateBackupFilename } from '../../export/generate-backup-filename';
 import { ImportEvents } from '../events';
@@ -59,7 +59,6 @@ export class DefaultImporter extends EventEmitter implements Importer {
 		}
 
 		this.emit( ImportEvents.IMPORT_DATABASE_START );
-
 		const sortedSqlFiles = [ ...this.backup.sqlFiles ].sort( ( a, b ) => a.localeCompare( b ) );
 		for ( const sqlFile of sortedSqlFiles ) {
 			const sqlTempFile = `${ generateBackupFilename( 'sql' ) }.sql`;
@@ -90,7 +89,6 @@ export class DefaultImporter extends EventEmitter implements Importer {
 				}
 			}
 		}
-
 		this.emit( ImportEvents.IMPORT_DATABASE_COMPLETE );
 	}
 
@@ -101,6 +99,11 @@ export class DefaultImporter extends EventEmitter implements Importer {
 		const wpContentDir = path.join( rootPath, 'wp-content' );
 		for ( const files of Object.values( wpContent ) ) {
 			for ( const file of files ) {
+				const stats = await lstat( file );
+				// Skip if it's a directory
+				if ( stats.isDirectory() ) {
+					continue;
+				}
 				const relativePath = path.relative( path.join( extractionDirectory, 'wp-content' ), file );
 				const destPath = path.join( wpContentDir, relativePath );
 				await fsPromises.mkdir( path.dirname( destPath ), { recursive: true } );

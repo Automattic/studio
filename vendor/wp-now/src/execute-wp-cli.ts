@@ -10,7 +10,7 @@ const isWindows = process.platform === 'win32';
 /**
  * This is an unstable API. Multiple wp-cli commands may not work due to a current limitation on php-wasm and pthreads.
  */
-export async function executeWPCli( projectPath: string, args: string[] ): Promise<{ stdout: string; stderr: string; }> {
+export async function executeWPCli( projectPath: string, args: string[] ): Promise<{ stdout: string; stderr: string; exitCode: number; }> {
 	await downloadWpCli();
 	let options = await getWpNowConfig({
 		php: DEFAULT_PHP_VERSION,
@@ -79,9 +79,11 @@ export async function executeWPCli( projectPath: string, args: string[] ): Promi
 			scriptPath: runCliPath,
 		});
 
-		return { stdout: result.text.replace('#!/usr/bin/env php', '').trim(), stderr: result.errors };
+		const stderr = php.readFileAsText(stderrPath).replace('PHP.run() output was: #!/usr/bin/env php', '').trim();
+
+		return { stdout: result.text.replace('#!/usr/bin/env php', '').trim(), stderr, exitCode: result.exitCode };
 	} catch (error) {
-		const errorContent = php.readFileAsText(stderrPath).replace('PHP.run() output was: #!/usr/bin/env php', '').trim();
-		return { stdout: '', stderr: errorContent };
+		const stderr = php.readFileAsText(stderrPath).replace('PHP.run() output was: #!/usr/bin/env php', '').trim();
+		return { stdout: '', stderr, exitCode: 1 };
 	}
 }

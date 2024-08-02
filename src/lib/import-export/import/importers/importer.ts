@@ -64,8 +64,10 @@ export class DefaultImporter extends EventEmitter implements Importer {
 			const tmpPath = path.join( rootPath, sqlTempFile );
 			await rename( sqlFile, tmpPath );
 			// Execute the command to export directly to the temp file
-			const { stderr } = await server.executeWpCliCommand( `db import ${ sqlTempFile }` );
-			if ( stderr ) {
+			const { stderr, exitCode } = await server.executeWpCliCommand( `db import ${ sqlTempFile }` );
+			console.error( stderr );
+
+			if ( exitCode ) {
 				throw new Error( 'Database import failed' );
 			}
 			await fsPromises.unlink( tmpPath );

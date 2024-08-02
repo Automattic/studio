@@ -60,4 +60,32 @@ describe( 'exportBackup', () => {
 		expect( MockExporter2 ).toHaveBeenCalledWith( mockExportOptions );
 		expect( ExportMethod2 ).toHaveBeenCalled();
 	} );
+
+	it( 'fails if no exporter is found', async () => {
+		const ExportMethod1 = jest.fn();
+		const MockExporter1 = jest.fn( () => ( {
+			canHandle: jest.fn().mockResolvedValue( false ),
+			export: ExportMethod1,
+			on: jest.fn(),
+			emit: jest.fn(),
+		} ) );
+
+		const ExportMethod2 = jest.fn();
+		const MockExporter2 = jest.fn( () => ( {
+			canHandle: jest.fn().mockResolvedValue( false ),
+			export: ExportMethod2,
+			on: jest.fn(),
+			emit: jest.fn(),
+		} ) );
+
+		const exporters: NewExporter[] = [ MockExporter1, MockExporter2 ];
+		await expect( exportBackup( mockExportOptions, jest.fn(), exporters ) ).rejects.toThrow(
+			'No suitable exporter found for the site'
+		);
+
+		expect( MockExporter1 ).toHaveBeenCalledWith( mockExportOptions );
+		expect( ExportMethod1 ).not.toHaveBeenCalled();
+		expect( MockExporter2 ).toHaveBeenCalledWith( mockExportOptions );
+		expect( ExportMethod2 ).not.toHaveBeenCalled();
+	} );
 } );

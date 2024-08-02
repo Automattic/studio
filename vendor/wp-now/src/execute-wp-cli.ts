@@ -74,15 +74,15 @@ export async function executeWPCli( projectPath: string, args: string[] ): Promi
 	// Set site's folder as the current working directory as the terminal will opened in that location.
 	php.chdir(options.documentRoot);
 
-	const stderr = php.readFileAsText(stderrPath).replace('PHP.run() output was: #!/usr/bin/env php', '').trim();
-
 	try {
 		const result = await php.run({
 			scriptPath: runCliPath,
 		});
 
+		const stderr = php.readFileAsText(stderrPath).replace('PHP.run() output was: #!/usr/bin/env php', '').trim();
+
 		return { stdout: result.text.replace('#!/usr/bin/env php', '').trim(), stderr, exitCode: result.exitCode };
 	} catch (error) {
-		return { stdout: '', stderr, exitCode: 1 };
+		return { stdout: '', stderr: error.stderr, exitCode: 1 };
 	}
 }

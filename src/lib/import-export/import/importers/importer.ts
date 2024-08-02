@@ -59,18 +59,36 @@ export class DefaultImporter extends EventEmitter implements Importer {
 		}
 
 		this.emit( ImportEvents.IMPORT_DATABASE_START );
-		for ( const sqlFile of this.backup.sqlFiles ) {
+
+		const sortedSqlFiles = [ ...this.backup.sqlFiles ].sort( ( a, b ) => a.localeCompare( b ) );
+		for ( const sqlFile of sortedSqlFiles ) {
 			const sqlTempFile = `${ generateBackupFilename( 'sql' ) }.sql`;
 			const tmpPath = path.join( rootPath, sqlTempFile );
-			await rename( sqlFile, tmpPath );
-			// Execute the command to export directly to the temp file
-			const { stderr, exitCode } = await server.executeWpCliCommand( `db import ${ sqlTempFile }` );
-			console.error( stderr );
 
-			if ( exitCode ) {
-				throw new Error( 'Database import failed' );
+			try {
+				await rename( sqlFile, tmpPath );
+				// Execute the command to export directly to the temp file
+				const { stderr, exitCode } = await server.executeWpCliCommand(
+					`db import ${ sqlTempFile }`
+				);
+
+				if ( stderr ) {
+					console.error( `Warning during import of ${ sqlFile }:`, stderr );
+				}
+
+				if ( exitCode ) {
+					throw new Error( 'Database import failed' );
+				}
+			} catch ( error ) {
+				console.error( `Error processing ${ sqlFile }:`, error );
+				throw error;
+			} finally {
+				try {
+					await fsPromises.unlink( tmpPath );
+				} catch ( unlinkError ) {
+					console.error( `Failed to delete temporary file ${ tmpPath }:`, unlinkError );
+				}
 			}
-			await fsPromises.unlink( tmpPath );
 		}
 
 		this.emit( ImportEvents.IMPORT_DATABASE_COMPLETE );

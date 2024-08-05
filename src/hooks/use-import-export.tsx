@@ -6,9 +6,26 @@ import { ExportEvents } from '../lib/import-export/export/events';
 import { generateBackupFilename } from '../lib/import-export/export/generate-backup-filename';
 import { BackupCreateProgressEventData, ExportOptions } from '../lib/import-export/export/types';
 import { ImportExportEventData } from '../lib/import-export/handle-events';
+import {
+	ImporterEvents,
+	BackupExtractEvents,
+	ValidatorEvents,
+} from '../lib/import-export/import/events';
+import {
+	BackupArchiveInfo,
+	BackupExtractProgressEventData,
+} from '../lib/import-export/import/types';
 import { useIpcListener } from './use-ipc-listener';
 
-type ProgressState = {
+type ImportProgressState = {
+	[ siteId: string ]: {
+		statusMessage: string;
+		progress: number;
+		isNewSite?: boolean;
+	};
+};
+
+type ExportProgressState = {
 	[ siteId: string ]: {
 		statusMessage: string;
 		progress: number;
@@ -16,27 +33,182 @@ type ProgressState = {
 };
 
 interface ImportExportContext {
-	importState: ProgressState;
-	exportState: ProgressState;
+	importState: ImportProgressState;
+	importFile: (
+		file: BackupArchiveInfo,
+		selectedSite: SiteDetails,
+		options?: { showImportNotification?: boolean; isNewSite?: boolean }
+	) => Promise< void >;
+	clearImportState: ( siteId: string ) => void;
+	exportState: ExportProgressState;
 	exportFullSite: ( selectedSite: SiteDetails ) => Promise< string | undefined >;
 	exportDatabase: ( selectedSite: SiteDetails ) => Promise< string | undefined >;
 }
 
-const DEFAULT_STATE = {
+const INITIAL_EXPORT_STATE = {
 	statusMessage: __( 'Starting export...' ),
+	progress: 5,
+};
+const INITIAL_IMPORT_STATE = {
+	statusMessage: __( 'Extracting backup…' ),
 	progress: 5,
 };
 
 const ImportExportContext = createContext< ImportExportContext >( {
 	importState: {},
+	importFile: async () => undefined,
+	clearImportState: () => undefined,
 	exportState: {},
 	exportFullSite: async () => undefined,
 	exportDatabase: async () => undefined,
 } );
 
 export const ImportExportProvider = ( { children }: { children: React.ReactNode } ) => {
-	const [ importState, setImportState ] = useState< ProgressState >( {} );
-	const [ exportState, setExportState ] = useState< ProgressState >( {} );
+	const [ importState, setImportState ] = useState< ImportProgressState >( {} );
+	const [ exportState, setExportState ] = useState< ExportProgressState >( {} );
+
+	const importFile = useCallback(
+		async (
+			file: BackupArchiveInfo,
+			selectedSite: SiteDetails,
+			{
+				showImportNotification = true,
+				isNewSite = false,
+			}: { showImportNotification?: boolean; isNewSite?: boolean } = {}
+		) => {
+			if ( importState[ selectedSite.id ]?.progress < 100 ) {
+				return;
+			}
+
+			setImportState( ( prevState ) => ( {
+				...prevState,
+				[ selectedSite.id ]: { ...INITIAL_IMPORT_STATE, isNewSite },
+			} ) );
+
+			try {
+				const backupFile: BackupArchiveInfo = {
+					type: file.type,
+					path: file.path,
+				};
+				await getIpcApi().importSite( { id: selectedSite.id, backupFile } );
+
+				if ( showImportNotification ) {
+					getIpcApi().showNotification( {
+						title: selectedSite.name,
+						body: __( 'Import completed' ),
+					} );
+				}
+			} catch ( error ) {
+				await getIpcApi().showMessageBox( {
+					type: 'error',
+					message: __( 'Failed importing site' ),
+					detail: __(
+						'An error occurred while importing the site. Verify the file is a valid Jetpack backup or .sql database file and try again. If this problem persists, please contact support.'
+					),
+					buttons: [ __( 'OK' ) ],
+				} );
+				setImportState( ( { [ selectedSite.id ]: currentProgress, ...rest } ) => ( {
+					...rest,
+				} ) );
+			}
+		},
+		[ importState ]
+	);
+
+	const clearImportState = useCallback( ( siteId: string ) => {
+		setImportState( ( { [ siteId ]: currentProgress, ...rest } ) => ( {
+			...rest,
+		} ) );
+	}, [] );
+
+	useIpcListener( 'on-import', ( _, { event, data }: ImportExportEventData, siteId: string ) => {
+		if ( ! siteId ) {
+			return;
+		}
+
+		switch ( event ) {
+			case BackupExtractEvents.BACKUP_EXTRACT_PROGRESS: {
+				const progress = ( data as BackupExtractProgressEventData )?.progress ?? 0;
+				setImportState( ( { [ siteId ]: currentProgress, ...rest } ) => ( {
+					...rest,
+					[ siteId ]: {
+						...currentProgress,
+						statusMessage: __( 'Extracting backup files…' ),
+						progress: 5 + progress * 45, // Backup extraction takes progress from 5% to 50%
+					},
+				} ) );
+				break;
+			}
+			case ImporterEvents.IMPORT_START:
+				setImportState( ( { [ siteId ]: currentProgress, ...rest } ) => ( {
+					...rest,
+					[ siteId ]: {
+						...currentProgress,
+						statusMessage: __( 'Importing backup…' ),
+						progress: 55,
+					},
+				} ) );
+				break;
+			case ImporterEvents.IMPORT_DATABASE_START:
+				setImportState( ( { [ siteId ]: currentProgress, ...rest } ) => ( {
+					...rest,
+					[ siteId ]: {
+						...currentProgress,
+						statusMessage: __( 'Importing database…' ),
+						progress: 60,
+					},
+				} ) );
+				break;
+			case ImporterEvents.IMPORT_DATABASE_COMPLETE:
+				setImportState( ( { [ siteId ]: currentProgress, ...rest } ) => ( {
+					...rest,
+					[ siteId ]: {
+						...currentProgress,
+						progress: 80,
+					},
+				} ) );
+				break;
+			case ImporterEvents.IMPORT_WP_CONTENT_START:
+				setImportState( ( { [ siteId ]: currentProgress, ...rest } ) => ( {
+					...rest,
+					[ siteId ]: {
+						...currentProgress,
+						statusMessage: __( 'Importing WordPress content…' ),
+					},
+				} ) );
+				break;
+			case ImporterEvents.IMPORT_WP_CONTENT_COMPLETE:
+				setImportState( ( { [ siteId ]: currentProgress, ...rest } ) => ( {
+					...rest,
+					[ siteId ]: {
+						...currentProgress,
+						progress: 95,
+					},
+				} ) );
+				break;
+			case ImporterEvents.IMPORT_COMPLETE:
+				setImportState( ( { [ siteId ]: currentProgress, ...rest } ) => ( {
+					...rest,
+					[ siteId ]: {
+						...currentProgress,
+						statusMessage: __( 'Importing completed' ),
+						progress: 100,
+					},
+				} ) );
+				break;
+			case ImporterEvents.IMPORT_ERROR:
+			case BackupExtractEvents.BACKUP_EXTRACT_ERROR:
+			case ValidatorEvents.IMPORT_VALIDATION_ERROR:
+				setImportState( ( { [ siteId ]: currentProgress, ...rest } ) => ( {
+					...rest,
+					[ siteId ]: {
+						...currentProgress,
+						statusMessage: __( 'Import failed. Please try again.' ),
+					},
+				} ) );
+				break;
+		}
+	} );
 
 	const exportSite = useCallback(
 		async ( selectedSite: SiteDetails, options: ExportOptions ): Promise< string | undefined > => {
@@ -46,7 +218,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 
 			setExportState( ( prevState ) => ( {
 				...prevState,
-				[ selectedSite.id ]: DEFAULT_STATE,
+				[ selectedSite.id ]: INITIAL_EXPORT_STATE,
 			} ) );
 
 			try {
@@ -146,7 +318,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 
 		switch ( event ) {
 			case ExportEvents.EXPORT_START:
-				setExportState( ( prevState ) => ( { ...prevState, [ siteId ]: DEFAULT_STATE } ) );
+				setExportState( ( prevState ) => ( { ...prevState, [ siteId ]: INITIAL_EXPORT_STATE } ) );
 				break;
 			case ExportEvents.BACKUP_CREATE_START:
 				setExportState( ( { [ siteId ]: currentProgress, ...rest } ) => ( {
@@ -215,11 +387,13 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 	const context = useMemo< ImportExportContext >(
 		() => ( {
 			importState,
+			importFile,
+			clearImportState,
 			exportState,
 			exportFullSite,
 			exportDatabase,
 		} ),
-		[ importState, exportState, exportFullSite, exportDatabase ]
+		[ importState, importFile, clearImportState, exportState, exportFullSite, exportDatabase ]
 	);
 
 	return (

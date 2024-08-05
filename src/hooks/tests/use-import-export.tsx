@@ -1,6 +1,7 @@
 import { renderHook, act } from '@testing-library/react';
 import { getIpcApi } from '../../lib/get-ipc-api';
 import { ExportEventType, ExportEvents } from '../../lib/import-export/export/events';
+import { ImportEventType, ImportEvents } from '../../lib/import-export/import/events';
 import { ImportExportProvider, useImportExport } from '../use-import-export';
 import { useIpcListener } from '../use-ipc-listener';
 
@@ -29,6 +30,7 @@ beforeEach( () => {
 		showMessageBox: jest.fn().mockResolvedValue( { response: 0, checkboxChecked: false } ),
 		showNotification: jest.fn(),
 		exportSite: jest.fn(),
+		importSite: jest.fn(),
 	} );
 } );
 
@@ -182,6 +184,155 @@ describe( 'useImportExport hook', () => {
 			[ SITE_ID ]: {
 				statusMessage: 'Export completed',
 				progress: 100,
+			},
+		} );
+	} );
+
+	it( 'imports site', async () => {
+		const { result } = renderHook( () => useImportExport(), { wrapper } );
+		const file = { path: 'backup.zip', type: 'application/zip' };
+		await act( () => result.current.importFile( file, selectedSite ) );
+		await act( () => result.current.clearImportState( selectedSite.id ) );
+
+		expect( result.current.importState ).toEqual( {} );
+		expect( getIpcApi().importSite ).toHaveBeenCalledWith( {
+			id: SITE_ID,
+			backupFile: {
+				type: 'application/zip',
+				path: 'backup.zip',
+			},
+		} );
+		expect( getIpcApi().showNotification ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				body: 'Import completed',
+			} )
+		);
+	} );
+
+	it( 'shows error message when import fails', async () => {
+		( getIpcApi().importSite as jest.Mock ).mockRejectedValue( 'error' );
+
+		const { result } = renderHook( () => useImportExport(), { wrapper } );
+		const file = { path: 'backup.zip', type: 'application/zip' };
+		await act( () => result.current.importFile( file, selectedSite ) );
+
+		expect( result.current.exportState ).toEqual( {} );
+		expect( getIpcApi().importSite ).toHaveBeenCalledWith( {
+			id: SITE_ID,
+			backupFile: {
+				type: 'application/zip',
+				path: 'backup.zip',
+			},
+		} );
+		expect( getIpcApi().showMessageBox ).toHaveBeenCalledWith(
+			expect.objectContaining( { type: 'error', message: 'Failed importing site' } )
+		);
+	} );
+
+	it( 'does not import if another import is running', async () => {
+		let onEvent: ( ...args: any[] ) => void = jest.fn();
+		( useIpcListener as jest.Mock ).mockImplementation( ( event, callback ) => {
+			if ( event === 'on-import' ) {
+				onEvent = callback;
+			}
+		} );
+		const emitImportEvent = ( siteId: string, event: ImportEventType, data: unknown = {} ) =>
+			act( () => onEvent( null, { event, data }, siteId ) );
+
+		const { result } = renderHook( () => useImportExport(), { wrapper } );
+		const file = { path: 'backup.zip', type: 'application/zip' };
+		await act( () => result.current.importFile( file, selectedSite ) );
+		// Mock import state of selected site
+		emitImportEvent( SITE_ID, ImportEvents.BACKUP_EXTRACT_PROGRESS, { progress: 0.5 } );
+
+		await act( () => result.current.importFile( file, selectedSite ) );
+
+		expect( getIpcApi().importSite ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	it( 'updates the import state when receiving import events', async () => {
+		let onEvent: ( ...args: any[] ) => void = jest.fn();
+		( useIpcListener as jest.Mock ).mockImplementation( ( event, callback ) => {
+			if ( event === 'on-import' ) {
+				onEvent = callback;
+			}
+		} );
+		const emitImportEvent = ( siteId: string, event: ImportEventType, data: unknown = {} ) =>
+			act( () => onEvent( null, { event, data }, siteId ) );
+
+		const { result } = renderHook( () => useImportExport(), { wrapper } );
+		const file = { path: 'backup.zip', type: 'application/zip' };
+		await act( () => result.current.importFile( file, selectedSite ) );
+
+		emitImportEvent( SITE_ID, ImportEvents.BACKUP_EXTRACT_START );
+		expect( result.current.importState ).toEqual( {
+			[ SITE_ID ]: {
+				statusMessage: 'Extracting backup…',
+				progress: 5,
+				isNewSite: false,
+			},
+		} );
+
+		emitImportEvent( SITE_ID, ImportEvents.BACKUP_EXTRACT_PROGRESS, { progress: 0.5 } );
+		expect( result.current.importState ).toEqual( {
+			[ SITE_ID ]: {
+				statusMessage: 'Extracting backup files…',
+				progress: 27.5,
+				isNewSite: false,
+			},
+		} );
+
+		emitImportEvent( SITE_ID, ImportEvents.IMPORT_START );
+		expect( result.current.importState ).toEqual( {
+			[ SITE_ID ]: {
+				statusMessage: 'Importing backup…',
+				progress: 55,
+				isNewSite: false,
+			},
+		} );
+
+		emitImportEvent( SITE_ID, ImportEvents.IMPORT_DATABASE_START );
+		expect( result.current.importState ).toEqual( {
+			[ SITE_ID ]: {
+				statusMessage: 'Importing database…',
+				progress: 60,
+				isNewSite: false,
+			},
+		} );
+
+		emitImportEvent( SITE_ID, ImportEvents.IMPORT_DATABASE_COMPLETE );
+		expect( result.current.importState ).toEqual( {
+			[ SITE_ID ]: {
+				statusMessage: 'Importing database…',
+				progress: 80,
+				isNewSite: false,
+			},
+		} );
+
+		emitImportEvent( SITE_ID, ImportEvents.IMPORT_WP_CONTENT_START );
+		expect( result.current.importState ).toEqual( {
+			[ SITE_ID ]: {
+				statusMessage: 'Importing WordPress content…',
+				progress: 80,
+				isNewSite: false,
+			},
+		} );
+
+		emitImportEvent( SITE_ID, ImportEvents.IMPORT_WP_CONTENT_COMPLETE );
+		expect( result.current.importState ).toEqual( {
+			[ SITE_ID ]: {
+				statusMessage: 'Importing WordPress content…',
+				progress: 95,
+				isNewSite: false,
+			},
+		} );
+
+		emitImportEvent( SITE_ID, ImportEvents.IMPORT_COMPLETE );
+		expect( result.current.importState ).toEqual( {
+			[ SITE_ID ]: {
+				statusMessage: 'Importing completed',
+				progress: 100,
+				isNewSite: false,
 			},
 		} );
 	} );

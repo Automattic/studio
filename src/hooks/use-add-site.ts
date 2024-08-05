@@ -2,11 +2,13 @@ import * as Sentry from '@sentry/electron/renderer';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useMemo, useState } from 'react';
 import { getIpcApi } from '../lib/get-ipc-api';
+import { useImportExport } from './use-import-export';
 import { useSiteDetails } from './use-site-details';
 
 export function useAddSite() {
 	const { __ } = useI18n();
-	const { createSite, data: sites, loadingSites, importFile, updateSite } = useSiteDetails();
+	const { createSite, data: sites, loadingSites } = useSiteDetails();
+	const { importFile, clearImportState } = useImportExport();
 	const [ error, setError ] = useState( '' );
 	const [ siteName, setSiteName ] = useState< string | null >( null );
 	const [ sitePath, setSitePath ] = useState( '' );
@@ -56,8 +58,11 @@ export function useAddSite() {
 			const newSite = await createSite( path, siteName ?? '', !! fileForImport );
 			if ( newSite ) {
 				if ( fileForImport ) {
-					await importFile( fileForImport, newSite, false );
-					updateSite( { ...newSite, importState: undefined } );
+					await importFile( fileForImport, newSite, {
+						showImportNotification: false,
+						isNewSite: true,
+					} );
+					clearImportState( newSite.id );
 				}
 				getIpcApi().showNotification( {
 					title: newSite.name,
@@ -69,13 +74,13 @@ export function useAddSite() {
 		}
 	}, [
 		__,
+		clearImportState,
 		createSite,
 		fileForImport,
 		importFile,
 		proposedSitePath,
 		siteName,
 		sitePath,
-		updateSite,
 	] );
 
 	const handleSiteNameChange = useCallback(

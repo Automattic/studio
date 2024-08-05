@@ -30,7 +30,9 @@ export async function updateLatestSqliteVersion() {
  * @returns True if there's a new version available.
  */
 async function isNewSqliteVersionAvailable() {
-	const installedVersion = semver.coerce( getSqliteVersionFromInstallation( getSqlitePath() ) );
+	const installedVersion = semver.coerce(
+		await getSqliteVersionFromInstallation( getSqlitePath() )
+	);
 	const latestVersion = semver.coerce( await getLatestSqliteVersion() );
 	if ( ! installedVersion ) {
 		return true;
@@ -50,8 +52,10 @@ async function isNewSqliteVersionAvailable() {
  * @returns True if the SQLite integration is outdated.
  */
 export async function isSqliteInstallationOutdated( sitePath: string ): Promise< boolean > {
-	const serverFilesVerion = semver.coerce( getSqliteVersionFromInstallation( getSqlitePath() ) );
-	const siteVersion = semver.coerce( getSqliteVersionFromInstallation( sitePath ) );
+	const serverFilesVerion = semver.coerce(
+		await getSqliteVersionFromInstallation( getSqlitePath() )
+	);
+	const siteVersion = semver.coerce( await getSqliteVersionFromInstallation( sitePath ) );
 
 	if ( ! siteVersion ) {
 		return true;
@@ -64,10 +68,12 @@ export async function isSqliteInstallationOutdated( sitePath: string ): Promise<
 	return semver.lt( siteVersion, serverFilesVerion );
 }
 
-export function getSqliteVersionFromInstallation( installationPath: string ): string {
+export async function getSqliteVersionFromInstallation(
+	installationPath: string
+): Promise< string > {
 	let versionFileContent = '';
 	try {
-		versionFileContent = fs.readFileSync( path.join( installationPath, 'load.php' ), 'utf8' );
+		versionFileContent = await fs.readFile( path.join( installationPath, 'load.php' ), 'utf8' );
 	} catch ( err ) {
 		return '';
 	}
@@ -129,7 +135,7 @@ export async function removeLegacySqliteIntegrationPlugin( installPath: string )
  */
 export async function keepSqliteIntegrationUpdated( sitePath: string ) {
 	const sqlitePath = path.join( sitePath, 'wp-content', 'mu-plugins', SQLITE_FILENAME );
-	const hasWpConfig = fs.existsSync( path.join( sitePath, 'wp-config.php' ) );
+	const hasWpConfig = await fs.pathExists( path.join( sitePath, 'wp-config.php' ) );
 	const sqliteInstalled = await isSqlLiteInstalled( sqlitePath );
 	const sqliteOutdated = sqliteInstalled && ( await isSqliteInstallationOutdated( sqlitePath ) );
 

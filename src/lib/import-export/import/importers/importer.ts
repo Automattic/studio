@@ -49,6 +49,41 @@ export class DefaultImporter extends EventEmitter implements Importer {
 		}
 	}
 
+	protected async isFullBackupSite( sqlFiles: string[] ): Promise< boolean > {
+		const wpUsersSql = sqlFiles.find( ( file ) => file.endsWith( 'wp_users.sql' ) );
+		if ( ! wpUsersSql ) {
+			return false;
+		}
+
+		try {
+			const content = await fsPromises.readFile( wpUsersSql, 'utf-8' );
+			return content.includes( 'CREATE TABLE' ) && ! content.includes( 'DROP TABLE' );
+		} catch ( error ) {
+			console.error( `Error reading wp_users.sql:`, error );
+			return false;
+		}
+	}
+
+	protected async backupAndCreateNewDatabase( rootPath: string ): Promise< void > {
+		const databaseDir = path.join( rootPath, 'wp-content', 'database' );
+		const existingDbPath = path.join( databaseDir, '.ht.sqlite' );
+		const backupDbPath = path.join( databaseDir, `.${ Date.now() }-backup.ht.sqlite` );
+
+		try {
+			await fsPromises.mkdir( databaseDir, { recursive: true } );
+			await fsPromises.rename( existingDbPath, backupDbPath );
+		} catch ( error ) {
+			console.error( 'Error backing up existing database:', error );
+		}
+
+		try {
+			await fsPromises.writeFile( existingDbPath, '' );
+		} catch ( error ) {
+			console.error( 'Error creating new database:', error );
+			throw error;
+		}
+	}
+
 	protected async importDatabase( rootPath: string, siteId: string ): Promise< void > {
 		if ( ! this.backup.sqlFiles.length ) {
 			return;
@@ -61,13 +96,29 @@ export class DefaultImporter extends EventEmitter implements Importer {
 
 		this.emit( ImportEvents.IMPORT_DATABASE_START );
 		const sortedSqlFiles = [ ...this.backup.sqlFiles ].sort( ( a, b ) => a.localeCompare( b ) );
-		for ( const sqlFile of sortedSqlFiles ) {
+
+		const isFullBackupSite = await this.isFullBackupSite( sortedSqlFiles );
+
+		if ( isFullBackupSite ) {
+			await this.backupAndCreateNewDatabase( rootPath );
+		}
+
+		await this.importSqlFiles( rootPath, server, sortedSqlFiles );
+
+		this.emit( ImportEvents.IMPORT_DATABASE_COMPLETE );
+	}
+
+	protected async importSqlFiles(
+		rootPath: string,
+		server: SiteServer,
+		sqlFiles: string[]
+	): Promise< void > {
+		for ( const sqlFile of sqlFiles ) {
 			const sqlTempFile = `${ generateBackupFilename( 'sql' ) }.sql`;
 			const tmpPath = path.join( rootPath, sqlTempFile );
 
 			try {
 				await rename( sqlFile, tmpPath );
-				// Execute the command to export directly to the temp file
 				const { stderr, exitCode } = await server.executeWpCliCommand(
 					`db import ${ sqlTempFile }`
 				);
@@ -90,7 +141,6 @@ export class DefaultImporter extends EventEmitter implements Importer {
 				}
 			}
 		}
-		this.emit( ImportEvents.IMPORT_DATABASE_COMPLETE );
 	}
 
 	protected async importWpContent( rootPath: string ): Promise< void > {

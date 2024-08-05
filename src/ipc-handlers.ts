@@ -122,7 +122,7 @@ export async function importSite(
 		const onEvent = ( data: ImportExportEventData ) => {
 			const parentWindow = BrowserWindow.fromWebContents( event.sender );
 			if ( parentWindow && ! parentWindow.isDestroyed() && ! event.sender.isDestroyed() ) {
-				parentWindow.webContents.send( 'on-import', data );
+				parentWindow.webContents.send( 'on-import', data, id );
 			}
 		};
 		const result = await importBackup( backupFile, sitePath, onEvent, defaultImporterOptions );

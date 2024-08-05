@@ -132,15 +132,17 @@ describe( 'BackupHandlerFactory', () => {
 			const handler = BackupHandlerFactory.create( archiveInfo );
 			const extractionDirectory = '/tmp/extracted';
 
-			( fs.createReadStream as jest.Mock ).mockReturnValue( {
-				pipe: jest.fn().mockReturnThis(),
-				on: jest.fn().mockImplementation( ( event, callback ) => {
+			const createReadStreamMock: unknown = {
+				on: jest.fn( ( event, callback ) => {
 					if ( event === 'finish' ) {
 						callback();
 					}
-					return this;
+					return createReadStreamMock;
 				} ),
-			} );
+				pipe: jest.fn().mockReturnThis(),
+			};
+			( fs.createReadStream as jest.Mock ).mockReturnValue( createReadStreamMock );
+			( fs.statSync as jest.Mock ).mockResolvedValueOnce( 1000 );
 
 			await expect(
 				handler.extractFiles( archiveInfo, extractionDirectory )

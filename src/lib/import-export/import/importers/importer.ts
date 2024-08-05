@@ -21,19 +21,24 @@ export class DefaultImporter extends EventEmitter implements Importer {
 	async import( rootPath: string ): Promise< ImporterResult > {
 		this.emit( ImportEvents.IMPORT_START );
 
-		await this.importDatabase();
-		await this.importWpContent( rootPath );
-		let meta: MetaFileData | undefined;
-		if ( this.backup.metaFile ) {
-			meta = await this.parseMetaFile();
+		try {
+			await this.importDatabase();
+			await this.importWpContent( rootPath );
+			let meta: MetaFileData | undefined;
+			if ( this.backup.metaFile ) {
+				meta = await this.parseMetaFile();
+			}
+			this.emit( ImportEvents.IMPORT_COMPLETE );
+			return {
+				extractionDirectory: this.backup.extractionDirectory,
+				sqlFiles: this.backup.sqlFiles,
+				wpContent: this.backup.wpContent,
+				meta,
+			};
+		} catch ( error ) {
+			this.emit( ImportEvents.IMPORT_ERROR );
+			throw error;
 		}
-		this.emit( ImportEvents.IMPORT_COMPLETE );
-		return {
-			extractionDirectory: this.backup.extractionDirectory,
-			sqlFiles: this.backup.sqlFiles,
-			wpContent: this.backup.wpContent,
-			meta,
-		};
 	}
 
 	protected async importDatabase(): Promise< void > {

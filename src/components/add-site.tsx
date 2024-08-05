@@ -47,7 +47,19 @@ export default function AddSite( { className }: AddSiteProps ) {
 		setFileForImport,
 	} = useAddSite();
 
-	const isSiteAdding = data.some( ( site ) => site.isAddingSite );
+	let isSiteAdding = false;
+	let isSiteImporting = false;
+
+	//Check if a new site is being added or there is a new site import in progress
+	data.some( ( site ) => {
+		if ( site.isAddingSite ) {
+			isSiteAdding = true;
+		}
+		if ( site.importState === 'importing' ) {
+			isSiteImporting = true;
+		}
+		return isSiteAdding && isSiteImporting;
+	} );
 
 	const siteAddedMessage = sprintf(
 		// translators: %s is the site name.
@@ -183,7 +195,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 					variant="outlined"
 					className={ className }
 					onClick={ openModal }
-					disabled={ isSiteAdding }
+					disabled={ isSiteAdding || isSiteImporting }
 				>
 					{ __( 'Add site' ) }
 				</Button>

@@ -31,67 +31,87 @@ export function selectImporter(
 	return null;
 }
 
+async function extractBackupFile(
+	backupFile: BackupArchiveInfo,
+	extractionDirectory: string,
+	onEvent: ( data: ImportExportEventData ) => void,
+	options: ImporterOption[]
+) {
+	const backupHandler = BackupHandlerFactory.create( backupFile );
+	const fileList = await backupHandler.listFiles( backupFile );
+	const importer = selectImporter( fileList, extractionDirectory, onEvent, options );
+	if ( importer ) {
+		await backupHandler.extractFiles( backupFile, extractionDirectory );
+	}
+
+	return { importer, backupHandler };
+}
+
+async function createTempDirectory(): Promise< string > {
+	return await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio_backup' ) );
+}
+
 export async function importBackup(
 	backupFile: BackupArchiveInfo,
 	sitePath: string,
 	onEvent: ( data: ImportExportEventData ) => void,
 	options: ImporterOption[]
 ): Promise< ImporterResult > {
-	const extractionDirectory = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio_backup' ) );
-	let removeBackupListeners;
-	let removeImportListeners;
-	try {
-		const backupHandler = BackupHandlerFactory.create( backupFile );
-		const fileList = await backupHandler.listFiles( backupFile );
-		const importer = selectImporter( fileList, extractionDirectory, onEvent, options );
+	const extractionDirectory = await createTempDirectory();
+	let removeBackupListeners: ( () => void ) | undefined;
+	let removeImportListeners: ( () => void ) | undefined;
 
-		if ( importer ) {
-			removeBackupListeners = handleEvents( backupHandler, onEvent, BackupExtractEvents );
-			removeImportListeners = handleEvents( importer, onEvent, ImporterEvents );
-			await backupHandler.extractFiles( backupFile, extractionDirectory );
-			return await importer.import( sitePath );
-		} else {
+	try {
+		const { importer, backupHandler } = await extractBackupFile(
+			backupFile,
+			extractionDirectory,
+			onEvent,
+			options
+		);
+
+		if ( ! importer ) {
 			throw new Error( 'No suitable importer found for the given backup file' );
 		}
+
+		removeBackupListeners = handleEvents( backupHandler, onEvent, BackupExtractEvents );
+		removeImportListeners = handleEvents( importer, onEvent, ImporterEvents );
+
+		return await importer.import( sitePath );
 	} catch ( error ) {
 		console.error( 'Backup import failed:', ( error as Error ).message );
 		throw error;
 	} finally {
 		removeBackupListeners?.();
 		removeImportListeners?.();
-		await fsPromises.rm( extractionDirectory, { recursive: true } );
+		await fsPromises.rm( extractionDirectory, { recursive: true, force: true } );
 	}
 }
 
 export async function getMetaFromBackupFile( backupFile: BackupArchiveInfo ) {
-	const extractionDirectory = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio_backup' ) );
+	const extractionDirectory = await createTempDirectory();
 	// eslint-disable-next-line @typescript-eslint/no-empty-function
-	const onEvent = () => {};
-	let phpVersion = '';
-	let wordpressVersion = '';
+	const silentOnEvent = () => {};
 
 	try {
-		const backupHandler = BackupHandlerFactory.create( backupFile );
-		const fileList = await backupHandler.listFiles( backupFile );
-		const importer = selectImporter(
-			fileList,
+		const { importer } = await extractBackupFile(
+			backupFile,
 			extractionDirectory,
-			onEvent,
+			silentOnEvent,
 			defaultImporterOptions
 		);
-		if ( importer ) {
-			await backupHandler.extractFiles( backupFile, extractionDirectory );
-			const studioJsonObject = await importer.parseMetaFile();
-			phpVersion = studioJsonObject?.phpVersion || '';
-			wordpressVersion = studioJsonObject?.wordpressVersion || '';
+
+		if ( ! importer ) {
+			return { phpVersion: '', wordpressVersion: '' };
 		}
+
+		const studioJsonObject = await importer.parseMetaFile();
+		return {
+			phpVersion: studioJsonObject?.phpVersion || '',
+			wordpressVersion: studioJsonObject?.wordpressVersion || '',
+		};
 	} finally {
-		await fsPromises.rm( extractionDirectory, { recursive: true } );
+		await fsPromises.rm( extractionDirectory, { recursive: true, force: true } );
 	}
-	return {
-		phpVersion,
-		wordpressVersion,
-	};
 }
 
 export const defaultImporterOptions: ImporterOption[] = [

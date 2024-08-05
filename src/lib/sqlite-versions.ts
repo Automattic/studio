@@ -25,7 +25,7 @@ export async function updateLatestSqliteVersion() {
 }
 
 /**
- *	Checks if there's a new version of the SQLite integration available.
+ * Checks if there's a new version of the SQLite integration available.
  *
  * @returns True if there's a new version available.
  */
@@ -128,8 +128,8 @@ export async function removeLegacySqliteIntegrationPlugin( installPath: string )
  * Updates the SQLite integration in a site if it's outdated compared to the version
  * located in the server files.
  *
- * In case the SQLite integration is not installed, it install it if the site doesn't
- * provide a configuration via `wp-config.php`.
+ * If the SQLite integration is not installed, it will be installed if the site
+ * doesn't provide the configuration file `wp-config.php`.
  *
  * @param sitePath Path of the site.
  */

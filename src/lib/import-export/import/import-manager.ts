@@ -47,8 +47,12 @@ async function extractBackupFile(
 	return { importer, backupHandler };
 }
 
-async function createTempDirectory(): Promise< string > {
-	return await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio_backup' ) );
+async function createExtractionDirectory() {
+	const extractionDirectory = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio_backup' ) );
+	const removeExtractionDirectory = async () => {
+		await fsPromises.rm( extractionDirectory, { recursive: true } );
+	};
+	return { extractionDirectory, removeExtractionDirectory };
 }
 
 export async function importBackup(
@@ -57,7 +61,7 @@ export async function importBackup(
 	onEvent: ( data: ImportExportEventData ) => void,
 	options: ImporterOption[]
 ): Promise< ImporterResult > {
-	const extractionDirectory = await createTempDirectory();
+	const { extractionDirectory, removeExtractionDirectory } = await createExtractionDirectory();
 	let removeBackupListeners: ( () => void ) | undefined;
 	let removeImportListeners: ( () => void ) | undefined;
 
@@ -83,12 +87,12 @@ export async function importBackup(
 	} finally {
 		removeBackupListeners?.();
 		removeImportListeners?.();
-		await fsPromises.rm( extractionDirectory, { recursive: true, force: true } );
+		await removeExtractionDirectory();
 	}
 }
 
 export async function getMetaFromBackupFile( backupFile: BackupArchiveInfo ) {
-	const extractionDirectory = await createTempDirectory();
+	const { extractionDirectory, removeExtractionDirectory } = await createExtractionDirectory();
 	// eslint-disable-next-line @typescript-eslint/no-empty-function
 	const silentOnEvent = () => {};
 
@@ -110,7 +114,7 @@ export async function getMetaFromBackupFile( backupFile: BackupArchiveInfo ) {
 			wordpressVersion: studioJsonObject?.wordpressVersion || '',
 		};
 	} finally {
-		await fsPromises.rm( extractionDirectory, { recursive: true, force: true } );
+		await removeExtractionDirectory();
 	}
 }
 

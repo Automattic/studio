@@ -329,8 +329,12 @@ export async function showSaveAsDialog( event: IpcMainInvokeEvent, options: Save
 		throw new Error( `No window found for sender of showSaveAsDialog message: ${ event.frameId }` );
 	}
 
+	const defaultPath =
+		options.defaultPath === nodePath.basename( options.defaultPath ?? '' )
+			? nodePath.join( DEFAULT_SITE_PATH, options.defaultPath )
+			: options.defaultPath;
 	const { canceled, filePath } = await dialog.showSaveDialog( parentWindow, {
-		defaultPath: `${ DEFAULT_SITE_PATH }/${ options.defaultPath }`,
+		defaultPath,
 		...options,
 	} );
 	if ( canceled ) {
@@ -605,6 +609,10 @@ export async function generateProposedSitePath(
 
 export async function openLocalPath( _event: IpcMainInvokeEvent, path: string ) {
 	shell.openPath( path );
+}
+
+export async function showItemInFolder( _event: IpcMainInvokeEvent, path: string ) {
+	shell.showItemInFolder( path );
 }
 
 export async function getThemeDetails( event: IpcMainInvokeEvent, id: string ) {

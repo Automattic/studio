@@ -43,7 +43,7 @@ describe( 'useImportExport hook', () => {
 		expect( result.current.exportState ).toEqual( {} );
 		expect( getIpcApi().exportSite ).toHaveBeenCalledWith(
 			{
-				sitePath: '/test-site',
+				site: selectedSite,
 				backupFile: '/path/to/exported-site.tar.gz',
 				includes: { database: true, uploads: true, plugins: true, themes: true },
 				phpVersion: '8.0',
@@ -69,7 +69,7 @@ describe( 'useImportExport hook', () => {
 		expect( result.current.exportState ).toEqual( {} );
 		expect( getIpcApi().exportSite ).toHaveBeenCalledWith(
 			{
-				sitePath: '/test-site',
+				site: selectedSite,
 				backupFile: '/path/to/exported-site.tar.gz',
 				includes: { database: true, uploads: true, plugins: true, themes: true },
 				phpVersion: '8.0',
@@ -91,7 +91,7 @@ describe( 'useImportExport hook', () => {
 		expect( result.current.exportState ).toEqual( {} );
 		expect( getIpcApi().exportSite ).toHaveBeenCalledWith(
 			{
-				sitePath: '/test-site',
+				site: selectedSite,
 				backupFile: '/path/to/exported-database.sql',
 				includes: { database: true, uploads: false, plugins: false, themes: false },
 				phpVersion: '8.0',
@@ -176,6 +176,14 @@ describe( 'useImportExport hook', () => {
 		expect( result.current.exportState ).toEqual( {
 			[ SITE_ID ]: {
 				statusMessage: 'Backing up files...',
+				progress: 100,
+			},
+		} );
+
+		emitExportEvent( SITE_ID, ExportEvents.EXPORT_COMPLETE );
+		expect( result.current.exportState ).toEqual( {
+			[ SITE_ID ]: {
+				statusMessage: 'Export completed',
 				progress: 100,
 			},
 		} );

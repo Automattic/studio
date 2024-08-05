@@ -22,6 +22,14 @@ interface ContentTabImportExportProps {
 export const ExportSite = ( { selectedSite }: { selectedSite: SiteDetails } ) => {
 	const { exportState, exportFullSite, exportDatabase } = useImportExport();
 	const { [ selectedSite.id ]: currentProgress } = exportState;
+
+	const handleExport = async ( exportFunction: typeof exportFullSite | typeof exportDatabase ) => {
+		const exportPath = await exportFunction( selectedSite );
+		if ( exportPath ) {
+			getIpcApi().showItemInFolder( exportPath );
+		}
+	};
+
 	return (
 		<div className="flex flex-col gap-4">
 			<div>
@@ -37,11 +45,11 @@ export const ExportSite = ( { selectedSite }: { selectedSite: SiteDetails } ) =>
 				</div>
 			) : (
 				<div className="flex flex-row gap-4">
-					<Button onClick={ () => exportFullSite( selectedSite ) } variant="primary">
+					<Button onClick={ () => handleExport( exportFullSite ) } variant="primary">
 						{ __( 'Export entire site' ) }
 					</Button>
 					<Button
-						onClick={ () => exportDatabase( selectedSite ) }
+						onClick={ () => handleExport( exportDatabase ) }
 						type="submit"
 						variant="secondary"
 						className="!text-a8c-blueberry !shadow-a8c-blueberry"

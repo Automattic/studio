@@ -2,13 +2,19 @@ import fs from 'fs';
 import fsPromises from 'fs/promises';
 import os from 'os';
 import archiver from 'archiver';
+import { format } from 'date-fns';
 import { getWordPressVersionFromInstallation } from '../../../../../lib/wp-versions';
-import { DefaultExporter } from '../../../export/exporters/default-exporter';
+import { SiteServer } from '../../../../../site-server';
+import { DefaultExporter } from '../../../export/exporters';
 import { ExportOptions, BackupContents } from '../../../export/types';
 
 jest.mock( 'fs' );
 jest.mock( 'fs/promises' );
 jest.mock( 'os' );
+jest.mock( 'fs-extra' );
+jest.mock( 'date-fns', () => ( {
+	format: jest.fn(),
+} ) );
 jest.mock( '../../../../../lib/wp-versions' );
 
 // Create a partial mock of the Archiver interface
@@ -33,6 +39,9 @@ jest.mock( 'archiver', () => {
 	return jest.fn( () => createMockArchiver() );
 } );
 
+// Mock SiteServer
+jest.mock( '../../../../../site-server' );
+
 describe( 'DefaultExporter', () => {
 	let exporter: DefaultExporter;
 	let mockBackup: BackupContents;
@@ -46,7 +55,7 @@ describe( 'DefaultExporter', () => {
 		{ path: '/path/to/site/wp-content/plugins/plugin1', name: 'plugin1.php', isFile: () => true },
 		{ path: '/path/to/site/wp-content/themes/theme1', name: 'index.php', isFile: () => true },
 		{ path: '/path/to/site/wp-includes/index.php', name: 'index.php', isFile: () => true },
-		{ path: '/path/to/site/wp-load.php', name: 'wp-load.php', isFile: () => true },
+		{ path: '/path/to/site', name: 'wp-load.php', isFile: () => true },
 	];
 
 	( fsPromises.readdir as jest.Mock ).mockResolvedValue( mockFiles );
@@ -65,7 +74,13 @@ describe( 'DefaultExporter', () => {
 		};
 
 		mockOptions = {
-			sitePath: '/path/to/site',
+			site: {
+				running: false,
+				id: '123',
+				name: '123',
+				path: '/path/to/site',
+				phpVersion: '7.4',
+			},
 			backupFile: '/path/to/backup.tar.gz',
 			includes: {
 				uploads: true,
@@ -78,6 +93,10 @@ describe( 'DefaultExporter', () => {
 
 		// Reset all mock implementations
 		jest.clearAllMocks();
+		( SiteServer.get as jest.Mock ).mockReturnValue( {
+			details: { path: '/path/to/site' },
+			executeWpCliCommand: jest.fn().mockResolvedValue( { stderr: null } ),
+		} );
 
 		mockArchiver = createMockArchiver();
 		( archiver as jest.MockedFunction< typeof archiver > ).mockReturnValue(
@@ -92,6 +111,7 @@ describe( 'DefaultExporter', () => {
 		( fsPromises.mkdtemp as jest.Mock ).mockResolvedValue( '/tmp/studio_export_123' );
 		( fsPromises.writeFile as jest.Mock ).mockResolvedValue( undefined );
 		( os.tmpdir as jest.Mock ).mockReturnValue( '/tmp' );
+		( format as jest.Mock ).mockReturnValue( '2023-07-31-12-00-00' );
 
 		mockArchiver.finalize.mockImplementation( () => {
 			return new Promise< void >( ( resolve ) => {
@@ -197,11 +217,13 @@ describe( 'DefaultExporter', () => {
 		expect( mockArchiver.file ).toHaveBeenNthCalledWith( 1, '/path/to/site/wp-config.php', {
 			name: 'wp-config.php',
 		} );
-		expect( mockArchiver.file ).toHaveBeenNthCalledWith( 2, '/tmp/studio_export_123/file.sql', {
-			name: 'sql/file.sql',
-		} );
-		expect( getWordPressVersionFromInstallation ).toHaveBeenCalledTimes( 1 );
-		expect( getWordPressVersionFromInstallation ).toHaveBeenCalledWith( '/path/to/site' );
+		expect( mockArchiver.file ).toHaveBeenNthCalledWith(
+			2,
+			'/tmp/studio_export_123/studio-backup-db-export-2023-07-31-12-00-00.sql',
+			{
+				name: 'sql/studio-backup-db-export-2023-07-31-12-00-00.sql',
+			}
+		);
 	} );
 
 	it( 'should finalize the archive', async () => {
@@ -217,9 +239,9 @@ describe( 'DefaultExporter', () => {
 
 		await exporter.export();
 
-		expect( fsPromises.unlink ).toHaveBeenCalledWith( '/tmp/studio_export_123/file.sql' );
-		expect( getWordPressVersionFromInstallation ).toHaveBeenCalledTimes( 1 );
-		expect( getWordPressVersionFromInstallation ).toHaveBeenCalledWith( '/path/to/site' );
+		expect( fsPromises.unlink ).toHaveBeenCalledWith(
+			'/tmp/studio_export_123/studio-backup-db-export-2023-07-31-12-00-00.sql'
+		);
 	} );
 
 	it( 'should abort the archive and throw an error when an error occurs', async () => {
@@ -235,5 +257,15 @@ describe( 'DefaultExporter', () => {
 	it( 'should return true when canHandle is called', async () => {
 		const canHandle = await exporter.canHandle();
 		expect( canHandle ).toBe( true );
+	} );
+
+	it( 'should return false when canHandle is called with invalid options', async () => {
+		const exporter = new DefaultExporter( {
+			...mockOptions,
+			backupFile: '/path/to/backup.sql',
+		} );
+
+		const canHandle = await exporter.canHandle();
+		expect( canHandle ).toBe( false );
 	} );
 } );

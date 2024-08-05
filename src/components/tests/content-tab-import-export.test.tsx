@@ -97,6 +97,11 @@ describe( 'ContentTabImportExport Import', () => {
 } );
 
 describe( 'ContentTabImportExport Export', () => {
+	beforeEach( () => {
+		// Reset all mocks before each test
+		jest.clearAllMocks();
+	} );
+
 	test( 'should export full site', async () => {
 		render( <ContentTabImportExport selectedSite={ selectedSite } /> );
 

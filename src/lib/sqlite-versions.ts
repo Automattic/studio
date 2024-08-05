@@ -14,35 +14,54 @@ export async function isSqlLiteInstalled( installPath: string ) {
 	return installedFiles.length !== 0;
 }
 
+/**
+ * Updates the local SQLite integration located in server files to the latest version.
+ */
 export async function updateLatestSqliteVersion() {
-	let shouldOverwrite = false;
 	const installedPath = getSqlitePath();
-	if ( await isSqlLiteInstalled( installedPath ) ) {
-		shouldOverwrite = await isSqliteInstallationOutdated( installedPath );
-	}
-
+	const shouldOverwrite = await isNewSqliteVersionAvailable();
 	await downloadSqliteIntegrationPlugin( { overwrite: shouldOverwrite } );
-
 	await removeLegacySqliteIntegrationPlugin( installedPath );
 }
 
-export async function isSqliteInstallationOutdated( installationPath: string ): Promise< boolean > {
-	const installedVersion = getSqliteVersionFromInstallation( installationPath );
-	const latestVersion = await getLatestSqliteVersion();
-
+/**
+ *	Checks if there's a new version of the SQLite integration available.
+ *
+ * @returns True if there's a new version available.
+ */
+async function isNewSqliteVersionAvailable() {
+	const installedVersion = semver.coerce( getSqliteVersionFromInstallation( getSqlitePath() ) );
+	const latestVersion = semver.coerce( await getLatestSqliteVersion() );
 	if ( ! installedVersion ) {
 		return true;
 	}
-
 	if ( ! latestVersion ) {
 		return false;
 	}
+	return semver.lt( installedVersion, latestVersion );
+}
 
-	try {
-		return semver.lt( installedVersion, latestVersion );
-	} catch ( _error ) {
+/**
+ * Checks if the SQLite integration version installed in a site is outdated compared to the version
+ * installed locally in the server files.
+ *
+ * @param sitePath Path of the site.
+ *
+ * @returns True if the SQLite integration is outdated.
+ */
+export async function isSqliteInstallationOutdated( sitePath: string ): Promise< boolean > {
+	const serverFilesVerion = semver.coerce( getSqliteVersionFromInstallation( getSqlitePath() ) );
+	const siteVersion = semver.coerce( getSqliteVersionFromInstallation( sitePath ) );
+
+	if ( ! siteVersion ) {
+		return true;
+	}
+
+	if ( ! serverFilesVerion ) {
 		return false;
 	}
+
+	return semver.lt( siteVersion, serverFilesVerion );
 }
 
 function getSqliteVersionFromInstallation( installationPath: string ): string {
@@ -81,7 +100,7 @@ async function getLatestSqliteVersion() {
  * Removes legacy `sqlite-integration-plugin` installations from the specified
  * installation path that including a `-main` branch suffix.
  *
- * @param installPath - The path where the plugin is installed.
+ * @param installPath The path where the plugin is installed.
  *
  * @returns A promise that resolves when the plugin is successfully removed.
  *

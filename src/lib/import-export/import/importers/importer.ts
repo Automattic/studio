@@ -49,7 +49,7 @@ export class DefaultImporter extends EventEmitter implements Importer {
 		}
 	}
 
-	protected async isFullBackupSite( sqlFiles: string[] ): Promise< boolean > {
+	protected async hasCreateWithoutDrop( sqlFiles: string[] ): Promise< boolean > {
 		const wpUsersSql = sqlFiles.find( ( file ) => file.endsWith( 'wp_users.sql' ) );
 		if ( ! wpUsersSql ) {
 			return false;
@@ -59,7 +59,7 @@ export class DefaultImporter extends EventEmitter implements Importer {
 			const content = await fsPromises.readFile( wpUsersSql, 'utf-8' );
 			return content.includes( 'CREATE TABLE' ) && ! content.includes( 'DROP TABLE' );
 		} catch ( error ) {
-			console.error( `Error reading wp_users.sql:`, error );
+			console.error( 'Error reading wp_users.sql:', error );
 			return false;
 		}
 	}
@@ -72,15 +72,10 @@ export class DefaultImporter extends EventEmitter implements Importer {
 		try {
 			await fsPromises.mkdir( databaseDir, { recursive: true } );
 			await fsPromises.rename( existingDbPath, backupDbPath );
-		} catch ( error ) {
-			console.error( 'Error backing up existing database:', error );
-		}
-
-		try {
 			await fsPromises.writeFile( existingDbPath, '' );
 		} catch ( error ) {
-			console.error( 'Error creating new database:', error );
-			throw error;
+			console.error( 'Error handling database:', error );
+			throw new Error( 'Failed to backup or create new database' );
 		}
 	}
 
@@ -97,9 +92,7 @@ export class DefaultImporter extends EventEmitter implements Importer {
 		this.emit( ImportEvents.IMPORT_DATABASE_START );
 		const sortedSqlFiles = [ ...this.backup.sqlFiles ].sort( ( a, b ) => a.localeCompare( b ) );
 
-		const isFullBackupSite = await this.isFullBackupSite( sortedSqlFiles );
-
-		if ( isFullBackupSite ) {
+		if ( await this.hasCreateWithoutDrop( sortedSqlFiles ) ) {
 			await this.backupAndCreateNewDatabase( rootPath );
 		}
 
@@ -134,12 +127,16 @@ export class DefaultImporter extends EventEmitter implements Importer {
 				console.error( `Error processing ${ sqlFile }:`, error );
 				throw error;
 			} finally {
-				try {
-					await fsPromises.unlink( tmpPath );
-				} catch ( unlinkError ) {
-					console.error( `Failed to delete temporary file ${ tmpPath }:`, unlinkError );
-				}
+				await this.safelyDeleteFile( tmpPath );
 			}
+		}
+	}
+
+	protected async safelyDeleteFile( filePath: string ): Promise< void > {
+		try {
+			await fsPromises.unlink( filePath );
+		} catch ( error ) {
+			console.error( `Failed to delete temporary file ${ filePath }:`, error );
 		}
 	}
 

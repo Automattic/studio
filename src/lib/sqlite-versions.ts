@@ -2,8 +2,10 @@ import path from 'path';
 import * as Sentry from '@sentry/electron/main';
 import fs from 'fs-extra';
 import semver from 'semver';
+import { SQLITE_FILENAME } from '../../vendor/wp-now/src/constants';
 import { downloadSqliteIntegrationPlugin } from '../../vendor/wp-now/src/download';
 import getSqlitePath from '../../vendor/wp-now/src/get-sqlite-path';
+import { getServerFilesPath } from '../storage/paths';
 
 export async function isSqlLiteInstalled( installPath: string ) {
 	const installedFiles = ( await fs.pathExists( installPath ) )
@@ -95,4 +97,53 @@ export async function removeLegacySqliteIntegrationPlugin( installPath: string )
 		// If the removal fails, log the error but don't throw
 		Sentry.captureException( error );
 	}
+}
+
+/**
+ * Updates the SQLite integration in a site if it's outdated compared to the version
+ * located in the server files.
+ *
+ * In case the SQLite integration is not installed, it install it if the site doesn't
+ * provide a configuration via `wp-config.php`.
+ *
+ * @param sitePath Path of the site.
+ */
+export async function keepSqliteIntegrationUpdated( sitePath: string ) {
+	const sqlitePath = path.join( sitePath, 'wp-content', 'mu-plugins', SQLITE_FILENAME );
+	const hasWpConfig = fs.existsSync( path.join( sitePath, 'wp-config.php' ) );
+	const sqliteInstalled = await isSqlLiteInstalled( sqlitePath );
+	const sqliteOutdated = sqliteInstalled && ( await isSqliteInstallationOutdated( sqlitePath ) );
+
+	if ( ( ! sqliteInstalled && ! hasWpConfig ) || sqliteOutdated ) {
+		await installSqliteIntegration( sitePath );
+	}
+}
+
+/**
+ * Installs the SQLite integration in a site. This includes the must-used plugin
+ * and the database file.
+ *
+ * @param sitePath Path of the site.
+ */
+export async function installSqliteIntegration( sitePath: string ) {
+	await downloadSqliteIntegrationPlugin();
+	const wpContentPath = path.join( sitePath, 'wp-content' );
+	const databasePath = path.join( wpContentPath, 'database' );
+
+	await fs.mkdir( databasePath, { recursive: true } );
+
+	const dbPhpPath = path.join( wpContentPath, 'db.php' );
+	await fs.copyFile( path.join( getServerFilesPath(), SQLITE_FILENAME, 'db.copy' ), dbPhpPath );
+	const dbCopyContent = ( await fs.readFile( dbPhpPath ) ).toString();
+	await fs.writeFile(
+		dbPhpPath,
+		dbCopyContent.replace(
+			"'{SQLITE_IMPLEMENTATION_FOLDER_PATH}'",
+			`realpath( __DIR__ . '/mu-plugins/${ SQLITE_FILENAME }' )`
+		)
+	);
+	const sqlitePluginPath = path.join( wpContentPath, 'mu-plugins', SQLITE_FILENAME );
+	await fs.copy( path.join( getServerFilesPath(), SQLITE_FILENAME ), sqlitePluginPath );
+
+	await removeLegacySqliteIntegrationPlugin( sqlitePluginPath );
 }

@@ -64,7 +64,7 @@ export async function isSqliteInstallationOutdated( sitePath: string ): Promise<
 	return semver.lt( siteVersion, serverFilesVerion );
 }
 
-function getSqliteVersionFromInstallation( installationPath: string ): string {
+export function getSqliteVersionFromInstallation( installationPath: string ): string {
 	let versionFileContent = '';
 	try {
 		versionFileContent = fs.readFileSync( path.join( installationPath, 'load.php' ), 'utf8' );

@@ -6,7 +6,7 @@ import { getWordPressVersionPath } from '../vendor/wp-now/src/download';
 import getSqlitePath from '../vendor/wp-now/src/get-sqlite-path';
 import getWpCliPath from '../vendor/wp-now/src/get-wp-cli-path';
 import { recursiveCopyDirectory } from './lib/fs-utils';
-import { updateLatestSqliteVersion } from './lib/sqlite-versions';
+import { getSqliteVersionFromInstallation, updateLatestSqliteVersion } from './lib/sqlite-versions';
 import {
 	getWordPressVersionFromInstallation,
 	updateLatestWordPressVersion,
@@ -41,13 +41,24 @@ async function copyBundledLatestWPVersion() {
 }
 
 async function copyBundledSqlite() {
-	const isSqliteInstalled = await fs.pathExists( getSqlitePath() );
-	if ( isSqliteInstalled ) {
+	const bundledSqlitePath = path.join( getResourcesPath(), 'wp-files', SQLITE_FILENAME );
+	const bundledSqliteVersion = semver.coerce(
+		await getSqliteVersionFromInstallation( bundledSqlitePath )
+	);
+	if ( ! bundledSqliteVersion ) {
 		return;
 	}
-	const bundledSqlitePath = path.join( getResourcesPath(), 'wp-files', SQLITE_FILENAME );
-	console.log( `Copying bundled SQLite...` );
-	await recursiveCopyDirectory( bundledSqlitePath, getSqlitePath() );
+	const installedSqlitePath = getSqlitePath();
+	const isSqliteInstalled = await fs.pathExists( installedSqlitePath );
+	const installedSqliteVersion = semver.coerce(
+		await getSqliteVersionFromInstallation( installedSqlitePath )
+	);
+	const isBundledVersionNewer =
+		installedSqliteVersion && semver.gt( bundledSqliteVersion, installedSqliteVersion );
+	if ( ! isSqliteInstalled || isBundledVersionNewer ) {
+		console.log( `Copying bundled SQLite version ${ bundledSqliteVersion }...` );
+		await recursiveCopyDirectory( bundledSqlitePath, getSqlitePath() );
+	}
 }
 
 async function copyBundledWPCLI() {

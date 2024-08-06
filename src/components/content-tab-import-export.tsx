@@ -22,7 +22,7 @@ interface ContentTabImportExportProps {
 export const ExportSite = ( { selectedSite }: { selectedSite: SiteDetails } ) => {
 	const { exportState, exportFullSite, exportDatabase, importState } = useImportExport();
 	const { [ selectedSite.id ]: currentProgress } = exportState;
-	const isSiteImporting = importState[ selectedSite?.id ]?.isNewSite;
+	const isSiteImporting = importState[ selectedSite.id ]?.progress < 100;
 	const siteNotReadyForExportMessage = __(
 		'This site is being imported. Please wait for the import to finish before you export it.'
 	);

@@ -13,14 +13,19 @@ import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
 import ProgressBar from './progress-bar';
+import Tooltip from './tooltip';
 
 interface ContentTabImportExportProps {
 	selectedSite: SiteDetails;
 }
 
 export const ExportSite = ( { selectedSite }: { selectedSite: SiteDetails } ) => {
-	const { exportState, exportFullSite, exportDatabase } = useImportExport();
+	const { exportState, exportFullSite, exportDatabase, importState } = useImportExport();
 	const { [ selectedSite.id ]: currentProgress } = exportState;
+	const isSiteImporting = importState[ selectedSite?.id ]?.isNewSite;
+	const siteNotReadyForExportMessage = __(
+		'This site is being imported. Please wait for the import to finish before you export it.'
+	);
 
 	const handleExport = async ( exportFunction: typeof exportFullSite | typeof exportDatabase ) => {
 		const exportPath = await exportFunction( selectedSite );
@@ -44,17 +49,21 @@ export const ExportSite = ( { selectedSite }: { selectedSite: SiteDetails } ) =>
 				</div>
 			) : (
 				<div className="flex flex-row gap-4">
-					<Button onClick={ () => handleExport( exportFullSite ) } variant="primary">
-						{ __( 'Export entire site' ) }
-					</Button>
-					<Button
-						onClick={ () => handleExport( exportDatabase ) }
-						type="submit"
-						variant="secondary"
-						className="!text-a8c-blueberry !shadow-a8c-blueberry"
-					>
-						{ __( 'Export database' ) }
-					</Button>
+					<Tooltip text={ siteNotReadyForExportMessage } disabled={ ! isSiteImporting }>
+						<Button onClick={ () => handleExport( exportFullSite ) } variant="primary">
+							{ __( 'Export entire site' ) }
+						</Button>
+					</Tooltip>
+					<Tooltip text={ siteNotReadyForExportMessage } disabled={ ! isSiteImporting }>
+						<Button
+							onClick={ () => handleExport( exportDatabase ) }
+							type="submit"
+							variant="secondary"
+							className="!text-a8c-blueberry !shadow-a8c-blueberry"
+						>
+							{ __( 'Export database' ) }
+						</Button>
+					</Tooltip>
 				</div>
 			) }
 		</div>

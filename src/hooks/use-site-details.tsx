@@ -36,7 +36,8 @@ interface SiteDetailsContext {
 	importFile: (
 		file: File,
 		selectedSite: SiteDetails,
-		showImportNotification?: boolean
+		showImportNotification?: boolean,
+		isNewSiteImport?: boolean
 	) => Promise< void >;
 }
 
@@ -244,7 +245,12 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	);
 
 	const importFile = useCallback(
-		async ( file: BackupArchiveInfo, selectedSite: SiteDetails, showImportNotification = true ) => {
+		async (
+			file: BackupArchiveInfo,
+			selectedSite: SiteDetails,
+			showImportNotification = true,
+			isImportingNewSite = false
+		) => {
 			let finalImportState: ImportSiteState;
 			if (
 				selectedSite.importState === 'importing' ||
@@ -255,7 +261,9 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			try {
 				setData( ( prevSites ) =>
 					prevSites.map( ( site ) =>
-						site.id === selectedSite.id ? { ...site, importState: 'importing' } : site
+						site.id === selectedSite.id
+							? { ...site, importState: isImportingNewSite ? 'new-site-importing' : 'importing' }
+							: site
 					)
 				);
 				const backupFile: BackupArchiveInfo = {

@@ -24,6 +24,8 @@ export function SiteContentTabs() {
 		);
 	}
 
+	console.log( selectedSite );
+
 	if ( selectedSite?.isAddingSite || selectedSite?.importState === 'new-site-importing' ) {
 		return <SiteLoadingIndicator selectedSiteName={ selectedSite.name } />;
 	}

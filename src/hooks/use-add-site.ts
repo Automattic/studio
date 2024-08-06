@@ -56,7 +56,7 @@ export function useAddSite() {
 			const newSite = await createSite( path, siteName ?? '', !! fileForImport );
 			if ( newSite ) {
 				if ( fileForImport ) {
-					await importFile( fileForImport, newSite, false );
+					await importFile( fileForImport, newSite, false, !! fileForImport );
 					updateSite( { ...newSite, importState: undefined } );
 				}
 				getIpcApi().showNotification( {

@@ -127,6 +127,16 @@ export async function importSite(
 				phpVersion: result.meta.phpVersion,
 			} );
 		}
+
+		const parentWindow = BrowserWindow.fromWebContents( event.sender );
+
+		if ( parentWindow && ! parentWindow.isDestroyed() && ! event.sender.isDestroyed() ) {
+			parentWindow.webContents.send( 'theme-details-changed', id, site.details.themeDetails );
+		}
+
+		await site
+			.updateCachedThumbnail()
+			.then( () => sendThumbnailChangedEvent( event, site.details.id ) );
 	} catch ( e ) {
 		Sentry.captureException( e );
 		throw e;

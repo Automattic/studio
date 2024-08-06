@@ -6,6 +6,7 @@ import { ACCEPTED_IMPORT_FILE_TYPES } from '../constants';
 import { useAddSite } from '../hooks/use-add-site';
 import { useDragAndDropFile } from '../hooks/use-drag-and-drop-file';
 import { useFeatureFlags } from '../hooks/use-feature-flags';
+import { useImportExport } from '../hooks/use-import-export';
 import { useIpcListener } from '../hooks/use-ipc-listener';
 import { useSiteDetails } from '../hooks/use-site-details';
 import { generateSiteName } from '../lib/generate-site-name';
@@ -46,8 +47,13 @@ export default function AddSite( { className }: AddSiteProps ) {
 		fileForImport,
 		setFileForImport,
 	} = useAddSite();
+	const { importState } = useImportExport();
 
-	const isSiteAdding = data.some( ( site ) => site.isAddingSite );
+	const isAnySiteProcessing = data.some(
+		( site ) =>
+			site.isAddingSite ||
+			( importState[ site.id ]?.progress < 100 && importState[ site.id ]?.isNewSite )
+	);
 
 	const siteAddedMessage = sprintf(
 		// translators: %s is the site name.
@@ -129,7 +135,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 	} );
 
 	useIpcListener( 'add-site', () => {
-		if ( isSiteAdding ) {
+		if ( isAnySiteProcessing ) {
 			return;
 		}
 		openModal();
@@ -163,14 +169,18 @@ export default function AddSite( { className }: AddSiteProps ) {
 								fileError={ fileError }
 							>
 								<div className="flex flex-row justify-end gap-x-5 mt-6">
-									<Button onClick={ closeModal } disabled={ isSiteAdding } variant="tertiary">
+									<Button
+										onClick={ closeModal }
+										disabled={ isAnySiteProcessing }
+										variant="tertiary"
+									>
 										{ __( 'Cancel' ) }
 									</Button>
 									<Button
 										type="submit"
 										variant="primary"
-										isBusy={ isSiteAdding }
-										disabled={ isSiteAdding || !! error || ! siteName?.trim() }
+										isBusy={ isAnySiteProcessing }
+										disabled={ isAnySiteProcessing || !! error || ! siteName?.trim() }
 									>
 										{ __( 'Add site' ) }
 									</Button>
@@ -183,7 +193,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 					variant="outlined"
 					className={ className }
 					onClick={ openModal }
-					disabled={ isSiteAdding }
+					disabled={ isAnySiteProcessing }
 				>
 					{ __( 'Add site' ) }
 				</Button>
@@ -210,14 +220,14 @@ export default function AddSite( { className }: AddSiteProps ) {
 							doesPathContainWordPress={ doesPathContainWordPress }
 						>
 							<div className="flex flex-row justify-end gap-x-5 mt-6">
-								<Button onClick={ closeModal } disabled={ isSiteAdding } variant="tertiary">
+								<Button onClick={ closeModal } disabled={ isAnySiteProcessing } variant="tertiary">
 									{ __( 'Cancel' ) }
 								</Button>
 								<Button
 									type="submit"
 									variant="primary"
-									isBusy={ isSiteAdding }
-									disabled={ isSiteAdding || !! error || ! siteName?.trim() }
+									isBusy={ isAnySiteProcessing }
+									disabled={ isAnySiteProcessing || !! error || ! siteName?.trim() }
 								>
 									{ __( 'Add site' ) }
 								</Button>
@@ -229,7 +239,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 					variant="outlined"
 					className={ className }
 					onClick={ openModal }
-					disabled={ isSiteAdding }
+					disabled={ isAnySiteProcessing }
 				>
 					{ __( 'Add site' ) }
 				</Button>

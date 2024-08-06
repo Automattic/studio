@@ -31,10 +31,7 @@ export function getSqliteCommandPath() {
 }
 
 export async function updateLatestSQLiteCommandVersion() {
-	const distributionCheck = await checkForUpdate(
-		getSqliteCommandPath(),
-		path.join( getSqliteCommandPath(), 'version' )
-	);
+	const distributionCheck = await checkForUpdate();
 
 	if ( distributionCheck.error ) {
 		console.error( distributionCheck.error );
@@ -60,12 +57,11 @@ export async function updateLatestSQLiteCommandVersion() {
 	}
 }
 
-async function checkForUpdate(
-	distributionPath: string,
-	versionFilePath: string
-): Promise< DistributionCheckResult > {
+async function checkForUpdate(): Promise< DistributionCheckResult > {
 	let currentVersion: string | null = null;
 	let distributionExists = false;
+	const distributionPath = getSqliteCommandPath();
+	const versionFilePath = path.join( distributionPath, 'version' );
 
 	if ( await fs.pathExists( distributionPath ) ) {
 		distributionExists = true;

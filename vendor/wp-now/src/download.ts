@@ -227,7 +227,7 @@ export async function downloadSQLiteCommand( downloadUrl: string, targetPath: st
 	} );
 
 	if (!downloaded) {
-			throw new Error(`Failed to download SQLite CLI command. Status code: ${statusCode}`);
+		throw new Error(`Failed to download SQLite CLI command. Status code: ${statusCode}`);
 	}
 
 	await fs.ensureDir(path.dirname(targetPath));

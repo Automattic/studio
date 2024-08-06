@@ -1,0 +1,12 @@
+diff --git a/node_modules/@types/follow-redirects/index.d.ts b/node_modules/@types/follow-redirects/index.d.ts
+index 845862e..a7d0587 100644
+--- a/node_modules/@types/follow-redirects/index.d.ts
++++ b/node_modules/@types/follow-redirects/index.d.ts
+@@ -145,3 +145,6 @@ export function wrap<T extends { [key: string]: Scheme<any, any, any> }>(
+ ): {
+     [K in keyof T]: WrappedScheme<T[K]>;
+ };
++
++
++export let maxRedirects: number;
+\ No newline at end of file

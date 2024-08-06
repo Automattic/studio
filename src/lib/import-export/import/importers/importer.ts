@@ -91,7 +91,7 @@ export class JetpackImporter extends BaseImporter {
 			const databaseDir = path.join( rootPath, 'wp-content', 'database' );
 			const dbPath = path.join( databaseDir, '.ht.sqlite' );
 
-			await this.moveExistingDatabaseToTrash( dbPath, siteId );
+			await this.moveExistingDatabaseToTrash( dbPath );
 			await this.createEmptyDatabase( dbPath );
 			await this.importDatabase( rootPath, siteId, this.backup.sqlFiles );
 			await this.importWpContent( rootPath );
@@ -117,14 +117,11 @@ export class JetpackImporter extends BaseImporter {
 		await fsPromises.writeFile( dbPath, '' );
 	}
 
-	protected async moveExistingDatabaseToTrash( dbPath: string, siteId: string ): Promise< void > {
+	protected async moveExistingDatabaseToTrash( dbPath: string ): Promise< void > {
 		if ( ! fs.existsSync( dbPath ) ) {
 			return;
 		}
-		const newDbName = `${ siteId }-${ Date.now() }.ht.sqlite`;
-		const renamedDbPath = path.join( path.dirname( dbPath ), newDbName );
-		await fsPromises.rename( dbPath, renamedDbPath );
-		await shell.trashItem( renamedDbPath );
+		await shell.trashItem( dbPath );
 	}
 
 	protected async importWpContent( rootPath: string ): Promise< void > {

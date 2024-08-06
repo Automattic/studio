@@ -50,7 +50,11 @@ export const ExportSite = ( { selectedSite }: { selectedSite: SiteDetails } ) =>
 			) : (
 				<div className="flex flex-row gap-4">
 					<Tooltip text={ siteNotReadyForExportMessage } disabled={ ! isSiteImporting }>
-						<Button onClick={ () => handleExport( exportFullSite ) } variant="primary">
+						<Button
+							onClick={ () => handleExport( exportFullSite ) }
+							variant="primary"
+							disabled={ isSiteImporting }
+						>
 							{ __( 'Export entire site' ) }
 						</Button>
 					</Tooltip>
@@ -60,6 +64,7 @@ export const ExportSite = ( { selectedSite }: { selectedSite: SiteDetails } ) =>
 							type="submit"
 							variant="secondary"
 							className="!text-a8c-blueberry !shadow-a8c-blueberry"
+							disabled={ isSiteImporting }
 						>
 							{ __( 'Export database' ) }
 						</Button>

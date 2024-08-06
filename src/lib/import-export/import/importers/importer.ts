@@ -78,7 +78,7 @@ export abstract class BaseImporter extends EventEmitter implements Importer {
 		try {
 			await fsPromises.unlink( filePath );
 		} catch ( error ) {
-			console.error( `Failed to delete temporary file ${ filePath }:`, error );
+			console.error( `Failed to safely delete file ${ filePath }:`, error );
 		}
 	}
 }

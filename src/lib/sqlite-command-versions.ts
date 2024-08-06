@@ -1,9 +1,8 @@
+import os from 'os';
 import path from 'path';
 import fs from 'fs-extra';
 import { downloadSQLiteCommand } from '../../vendor/wp-now/src/download';
 import { getServerFilesPath } from '../storage/paths';
-import getWpCliTmpPath from '../../vendor/wp-now/src/get-wp-cli-tmp-path';
-import os from 'os';
 
 interface GithubRelease {
 	tag_name: string;
@@ -93,7 +92,7 @@ async function checkForUpdate(
 			! distributionExists || ! currentVersion || latestVersion > currentVersion;
 
 		let downloadUrl;
-		if ( needsDownload && latestRelease.assets?.length ) {
+		if ( latestRelease.assets?.length ) {
 			downloadUrl = latestRelease.assets[ 0 ].browser_download_url;
 		}
 

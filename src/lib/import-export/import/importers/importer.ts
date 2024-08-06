@@ -1,3 +1,4 @@
+import { shell } from 'electron';
 import { EventEmitter } from 'events';
 import fsPromises from 'fs/promises';
 import path from 'path';
@@ -64,7 +65,7 @@ export class DefaultImporter extends EventEmitter implements Importer {
 		}
 	}
 
-	protected async backupAndCreateNewDatabase( rootPath: string ): Promise< void > {
+	protected async backupExistingAndCreateNewDatabase( rootPath: string ): Promise< string > {
 		const databaseDir = path.join( rootPath, 'wp-content', 'database' );
 		const existingDbPath = path.join( databaseDir, '.ht.sqlite' );
 		const backupDbPath = path.join( databaseDir, `.${ Date.now() }-backup.ht.sqlite` );
@@ -73,9 +74,10 @@ export class DefaultImporter extends EventEmitter implements Importer {
 			await fsPromises.mkdir( databaseDir, { recursive: true } );
 			await fsPromises.rename( existingDbPath, backupDbPath );
 			await fsPromises.writeFile( existingDbPath, '' );
+			return backupDbPath;
 		} catch ( error ) {
 			console.error( 'Error handling database:', error );
-			throw new Error( 'Failed to backup or create new database' );
+			throw new Error( 'Failed to backup existing and create new database' );
 		}
 	}
 
@@ -92,11 +94,17 @@ export class DefaultImporter extends EventEmitter implements Importer {
 		this.emit( ImportEvents.IMPORT_DATABASE_START );
 		const sortedSqlFiles = [ ...this.backup.sqlFiles ].sort( ( a, b ) => a.localeCompare( b ) );
 
-		if ( await this.hasCreateWithoutDrop( sortedSqlFiles ) ) {
-			await this.backupAndCreateNewDatabase( rootPath );
+		let backupDbPath = '';
+		const hasCreateWithoutDrop = await this.hasCreateWithoutDrop( sortedSqlFiles );
+		if ( hasCreateWithoutDrop ) {
+			backupDbPath = await this.backupExistingAndCreateNewDatabase( rootPath );
 		}
 
 		await this.importSqlFiles( rootPath, server, sortedSqlFiles );
+
+		if ( backupDbPath ) {
+			await shell.trashItem( backupDbPath );
+		}
 
 		this.emit( ImportEvents.IMPORT_DATABASE_COMPLETE );
 	}

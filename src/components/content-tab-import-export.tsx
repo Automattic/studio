@@ -14,6 +14,7 @@ import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
 import ProgressBar, { ProgressBarWithAutoIncrement } from './progress-bar';
+import Tooltip from './tooltip';
 
 interface ContentTabImportExportProps {
 	selectedSite: SiteDetails;
@@ -22,6 +23,10 @@ interface ContentTabImportExportProps {
 export const ExportSite = ( { selectedSite }: { selectedSite: SiteDetails } ) => {
 	const { exportState, exportFullSite, exportDatabase } = useImportExport();
 	const { [ selectedSite.id ]: currentProgress } = exportState;
+	const isSiteImporting = selectedSite?.importState === 'importing';
+	const importProgressMessage = __(
+		'This site is being imported. Please wait for the import to finish.'
+	);
 
 	return (
 		<div className="flex flex-col gap-4">
@@ -38,25 +43,31 @@ export const ExportSite = ( { selectedSite }: { selectedSite: SiteDetails } ) =>
 				</div>
 			) : (
 				<div className="flex flex-row gap-4">
-					<Button
-						onClick={ async () => {
-							const exportPath = await exportFullSite( selectedSite );
-							if ( exportPath ) {
-								getIpcApi().showItemInFolder( exportPath );
-							}
-						} }
-						variant="primary"
-					>
-						{ __( 'Export entire site' ) }
-					</Button>
-					<Button
-						onClick={ () => exportDatabase( selectedSite ) }
-						type="submit"
-						variant="secondary"
-						className="!text-a8c-blueberry !shadow-a8c-blueberry"
-					>
-						{ __( 'Export database' ) }
-					</Button>
+					<Tooltip text={ importProgressMessage } disabled={ ! isSiteImporting }>
+						<Button
+							onClick={ async () => {
+								const exportPath = await exportFullSite( selectedSite );
+								if ( exportPath ) {
+									getIpcApi().showItemInFolder( exportPath );
+								}
+							} }
+							variant="primary"
+							disabled={ isSiteImporting }
+						>
+							{ __( 'Export entire site' ) }
+						</Button>
+					</Tooltip>
+					<Tooltip text={ importProgressMessage } disabled={ ! isSiteImporting }>
+						<Button
+							onClick={ () => exportDatabase( selectedSite ) }
+							type="submit"
+							variant="secondary"
+							className="!text-a8c-blueberry !shadow-a8c-blueberry"
+							disabled={ isSiteImporting }
+						>
+							{ __( 'Export database' ) }
+						</Button>
+					</Tooltip>
 				</div>
 			) }
 		</div>

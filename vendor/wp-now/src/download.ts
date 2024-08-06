@@ -13,7 +13,9 @@ import getWpNowPath from './get-wp-now-path';
 import { output } from './output';
 import { isValidWordPressVersion } from './wp-playground-wordpress';
 
-function httpsGet(url: string, callback: Function) {
+type GetRequestCallback = Parameters<typeof https.get>[2];
+
+function httpsGet(url: string, callback: GetRequestCallback) {
 	const proxy =
 		process.env.https_proxy ||
 		process.env.HTTPS_PROXY ||

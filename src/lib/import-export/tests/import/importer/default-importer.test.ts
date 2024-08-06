@@ -2,7 +2,7 @@
 import * as fs from 'fs/promises';
 import { lstat, rename } from 'fs-extra';
 import { SiteServer } from '../../../../../site-server';
-import { DefaultImporter } from '../../../import/importers';
+import { JetpackImporter, SQLImporter } from '../../../import/importers';
 import { BackupContents } from '../../../import/types';
 
 jest.mock( 'fs/promises' );
@@ -49,7 +49,7 @@ describe( 'JetpackImporter', () => {
 
 	describe( 'import', () => {
 		it( 'should copy wp-content files and read meta file', async () => {
-			const importer = new DefaultImporter( mockBackupContents );
+			const importer = new JetpackImporter( mockBackupContents );
 			( fs.mkdir as jest.Mock ).mockResolvedValue( undefined );
 			( fs.copyFile as jest.Mock ).mockResolvedValue( undefined );
 			( fs.readFile as jest.Mock ).mockResolvedValue(
@@ -67,7 +67,7 @@ describe( 'JetpackImporter', () => {
 		} );
 
 		it( 'should handle sql files and call wp db import cli command', async () => {
-			const importer = new DefaultImporter( mockBackupContents );
+			const importer = new SQLImporter( mockBackupContents );
 			await importer.import( mockStudioSitePath, mockStudioSiteId );
 
 			const siteServer = SiteServer.get( mockStudioSiteId );
@@ -82,7 +82,7 @@ describe( 'JetpackImporter', () => {
 		} );
 
 		it( 'should handle missing meta file', async () => {
-			const importer = new DefaultImporter( { ...mockBackupContents, metaFile: undefined } );
+			const importer = new JetpackImporter( { ...mockBackupContents, metaFile: undefined } );
 			( fs.mkdir as jest.Mock ).mockResolvedValue( undefined );
 			( fs.copyFile as jest.Mock ).mockResolvedValue( undefined );
 
@@ -94,7 +94,7 @@ describe( 'JetpackImporter', () => {
 		} );
 
 		it( 'should handle JSON parse error in meta file', async () => {
-			const importer = new DefaultImporter( mockBackupContents );
+			const importer = new JetpackImporter( mockBackupContents );
 			( fs.mkdir as jest.Mock ).mockResolvedValue( undefined );
 			( fs.copyFile as jest.Mock ).mockResolvedValue( undefined );
 			( fs.readFile as jest.Mock ).mockResolvedValue( 'Invalid JSON' );

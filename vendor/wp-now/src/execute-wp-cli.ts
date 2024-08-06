@@ -4,6 +4,7 @@ import getWpNowConfig from './config';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from './constants';
 import { phpVar } from '@php-wasm/util';
 import { NodePHP } from '@php-wasm/node';
+import { getSqliteCommandPath } from '../../../src/lib/sqlite-command-versions';
 
 const isWindows = process.platform === 'win32';
 
@@ -31,9 +32,11 @@ export async function executeWPCli( projectPath: string, args: string[] ): Promi
 	php.mkdir('/tmp');
 	const stderrPath = '/tmp/stderr';
 	const wpCliPath = '/tmp/wp-cli.phar';
+	const sqliteCommandPath = '/tmp/sqlite-command';
 	const runCliPath =  '/tmp/run-cli.php';
 	php.writeFile(stderrPath, '');
 	php.mount(getWpCliPath(), wpCliPath);
+	php.mount(getSqliteCommandPath(), sqliteCommandPath);
 
 	php.writeFile(
 		runCliPath,

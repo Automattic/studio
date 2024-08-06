@@ -216,6 +216,27 @@ export async function downloadSqliteIntegrationPlugin(
 	}
 }
 
+export async function downloadSQLiteCommand( downloadUrl: string, targetPath: string ) {
+	const tempFolder = path.join( os.tmpdir(), 'wp-cli-sqlite-command' );
+	const { downloaded, statusCode } = await downloadFileAndUnzip( {
+		url: downloadUrl,
+		destinationFolder: tempFolder,
+		checkFinalPath: targetPath,
+		itemName: 'SQLite Command',
+		overwrite: true,
+	} );
+
+	if (!downloaded) {
+			throw new Error(`Failed to download SQLite CLI command. Status code: ${statusCode}`);
+	}
+
+	await fs.ensureDir(path.dirname(targetPath));
+
+	await fs.move(path.join( tempFolder ), targetPath, {
+		overwrite: true,
+	});
+}
+
 export async function downloadMuPlugins(customMuPluginsPath = '') {
 	const muPluginsPath = customMuPluginsPath || path.join(getWpNowPath(), 'mu-plugins');
 	fs.ensureDirSync(muPluginsPath);

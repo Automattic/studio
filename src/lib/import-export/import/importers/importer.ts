@@ -53,7 +53,7 @@ export abstract class BaseImporter extends EventEmitter implements Importer {
 			try {
 				await rename( sqlFile, tmpPath );
 				const { stderr, exitCode } = await server.executeWpCliCommand(
-					`db import ${ sqlTempFile }`
+					`sqlite import ${ sqlTempFile } --require=/tmp/sqlite-command/command.php`
 				);
 
 				if ( stderr ) {

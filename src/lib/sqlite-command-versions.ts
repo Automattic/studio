@@ -1,6 +1,7 @@
 import os from 'os';
 import path from 'path';
 import fs from 'fs-extra';
+import semver from 'semver';
 import { downloadSQLiteCommand } from '../../vendor/wp-now/src/download';
 import { getServerFilesPath } from '../storage/paths';
 import { getLatestSQLiteCommandRelease } from './sqlite-command-release';
@@ -75,7 +76,7 @@ async function checkForUpdate(
 		const latestRelease = await getLatestSQLiteCommandRelease();
 		const latestVersion = latestRelease.tag_name.replace( 'v', '' );
 		const needsDownload =
-			! distributionExists || ! currentVersion || latestVersion > currentVersion;
+			! distributionExists || ! currentVersion || semver.lt( currentVersion, latestVersion );
 
 		let downloadUrl;
 		if ( latestRelease.assets?.length ) {

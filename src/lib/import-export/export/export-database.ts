@@ -28,7 +28,7 @@ export async function exportDatabaseToFile(
 	}
 
 	if ( exitCode ) {
-		throw new Error( 'Database import failed' );
+		throw new Error( 'Database export failed' );
 	}
 
 	// Move the file to its final destination

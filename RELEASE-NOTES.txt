@@ -1,3 +1,9 @@
+1.0.7
+=====
+* Improve test timers handling #380
+* Avoid data corruption due to writing concurrently in the user data file #366
+* Display a message for users who don't have demo sites available for their account #354
+
 1.0.6
 =====
 * Fixed update snapshot counter when site is deleted #344

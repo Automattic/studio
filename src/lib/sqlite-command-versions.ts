@@ -1,6 +1,7 @@
 import os from 'os';
 import path from 'path';
 import fs from 'fs-extra';
+import semver from 'semver';
 import { downloadSQLiteCommand } from '../../vendor/wp-now/src/download';
 import { getServerFilesPath } from '../storage/paths';
 import { getLatestSQLiteCommandRelease } from './sqlite-command-release';
@@ -10,7 +11,6 @@ interface DistributionCheckResult {
 	latestVersion: string;
 	currentVersion: string | null;
 	downloadUrl?: string;
-	isUpdate: boolean;
 	error?: string;
 }
 
@@ -30,10 +30,7 @@ export function getSqliteCommandPath() {
 }
 
 export async function updateLatestSQLiteCommandVersion() {
-	const distributionCheck = await checkForUpdate(
-		getSqliteCommandPath(),
-		path.join( getSqliteCommandPath(), 'version' )
-	);
+	const distributionCheck = await checkForUpdate();
 
 	if ( distributionCheck.error ) {
 		console.error( distributionCheck.error );
@@ -59,12 +56,11 @@ export async function updateLatestSQLiteCommandVersion() {
 	}
 }
 
-async function checkForUpdate(
-	distributionPath: string,
-	versionFilePath: string
-): Promise< DistributionCheckResult > {
+async function checkForUpdate(): Promise< DistributionCheckResult > {
 	let currentVersion: string | null = null;
 	let distributionExists = false;
+	const distributionPath = getSqliteCommandPath();
+	const versionFilePath = path.join( distributionPath, 'version' );
 
 	if ( await fs.pathExists( distributionPath ) ) {
 		distributionExists = true;
@@ -75,26 +71,21 @@ async function checkForUpdate(
 		const latestRelease = await getLatestSQLiteCommandRelease();
 		const latestVersion = latestRelease.tag_name.replace( 'v', '' );
 		const needsDownload =
-			! distributionExists || ! currentVersion || latestVersion > currentVersion;
+			! distributionExists || ! currentVersion || semver.lt( currentVersion, latestVersion );
 
-		let downloadUrl;
-		if ( latestRelease.assets?.length ) {
-			downloadUrl = latestRelease.assets[ 0 ].browser_download_url;
-		}
+		const downloadUrl = latestRelease.assets?.[ 0 ].browser_download_url;
 
 		return {
 			needsDownload,
 			latestVersion,
 			currentVersion,
 			downloadUrl,
-			isUpdate: distributionExists && needsDownload,
 		};
 	} catch ( error ) {
 		return {
 			needsDownload: false,
 			latestVersion: '',
 			currentVersion,
-			isUpdate: false,
 			error: `Failed to check for distribution: ${ error }`,
 		};
 	}

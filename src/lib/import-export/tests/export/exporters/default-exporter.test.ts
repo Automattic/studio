@@ -53,7 +53,7 @@ describe( 'DefaultExporter', () => {
 		{ path: '/path/to/site/wp-content/plugins/plugin1', name: 'plugin1.php', isFile: () => true },
 		{ path: '/path/to/site/wp-content/themes/theme1', name: 'index.php', isFile: () => true },
 		{ path: '/path/to/site/wp-includes/index.php', name: 'index.php', isFile: () => true },
-		{ path: '/path/to/site/wp-load.php', name: 'wp-load.php', isFile: () => true },
+		{ path: '/path/to/site', name: 'wp-load.php', isFile: () => true },
 	];
 
 	( fsPromises.readdir as jest.Mock ).mockResolvedValue( mockFiles );

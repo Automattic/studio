@@ -45,12 +45,22 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 			return false;
 		}
 
-		const requiredPaths = [ 'wp-content', 'wp-includes', 'wp-load.php', 'wp-config.php' ];
+		const requiredPaths = [
+			{ path: 'wp-content', isDir: true },
+			{ path: 'wp-includes', isDir: true },
+			{ path: 'wp-load.php', isDir: false },
+			{ path: 'wp-config.php', isDir: false },
+		];
 
 		this.siteFiles = await this.getSiteFiles();
 
 		return requiredPaths.every( ( requiredPath ) =>
-			this.siteFiles.some( ( file ) => file.includes( requiredPath ) )
+			this.siteFiles.some( ( file ) => {
+				const relativePath = path.relative( this.options.site.path, file );
+				return requiredPath.isDir
+					? relativePath.startsWith( requiredPath.path )
+					: relativePath === requiredPath.path;
+			} )
 		);
 	}
 

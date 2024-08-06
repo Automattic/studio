@@ -1,4 +1,4 @@
-import followRedirects from 'follow-redirects';
+import followRedirects, { FollowResponse } from 'follow-redirects';
 import fs from 'fs-extra';
 import { HttpProxyAgent, HttpsProxyAgent } from 'hpagent';
 import { IncomingMessage } from 'http';
@@ -13,7 +13,7 @@ import getWpNowPath from './get-wp-now-path';
 import { output } from './output';
 import { isValidWordPressVersion } from './wp-playground-wordpress';
 
-function httpsGet(url: string, callback: Function) {
+function httpsGet(url: string, callback: (res: IncomingMessage & FollowResponse) => void) {
 	const proxy =
 		process.env.https_proxy ||
 		process.env.HTTPS_PROXY ||
@@ -46,7 +46,6 @@ interface DownloadFileAndUnzipResult {
 	statusCode: number;
 }
 
-followRedirects.maxRedirects = 5;
 const { https } = followRedirects;
 
 async function downloadFile({
@@ -227,7 +226,7 @@ export async function downloadSQLiteCommand( downloadUrl: string, targetPath: st
 	} );
 
 	if (!downloaded) {
-			throw new Error(`Failed to download SQLite CLI command. Status code: ${statusCode}`);
+		throw new Error(`Failed to download SQLite CLI command. Status code: ${statusCode}`);
 	}
 
 	await fs.ensureDir(path.dirname(targetPath));

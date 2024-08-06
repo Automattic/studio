@@ -1,4 +1,3 @@
-import { IncomingMessage } from 'http';
 import os from 'os';
 import path from 'path';
 import extract from 'extract-zip';

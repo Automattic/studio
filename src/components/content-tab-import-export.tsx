@@ -8,12 +8,11 @@ import { STUDIO_DOCS_URL } from '../constants';
 import { useConfirmationDialog } from '../hooks/use-confirmation-dialog';
 import { useDragAndDropFile } from '../hooks/use-drag-and-drop-file';
 import { useImportExport } from '../hooks/use-import-export';
-import { useIpcListener } from '../hooks/use-ipc-listener';
 import { useSiteDetails } from '../hooks/use-site-details';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
-import ProgressBar, { ProgressBarWithAutoIncrement } from './progress-bar';
+import ProgressBar from './progress-bar';
 
 interface ContentTabImportExportProps {
 	selectedSite: SiteDetails;
@@ -22,6 +21,13 @@ interface ContentTabImportExportProps {
 export const ExportSite = ( { selectedSite }: { selectedSite: SiteDetails } ) => {
 	const { exportState, exportFullSite, exportDatabase } = useImportExport();
 	const { [ selectedSite.id ]: currentProgress } = exportState;
+
+	const handleExport = async ( exportFunction: typeof exportFullSite | typeof exportDatabase ) => {
+		const exportPath = await exportFunction( selectedSite );
+		if ( exportPath ) {
+			getIpcApi().showItemInFolder( exportPath );
+		}
+	};
 
 	return (
 		<div className="flex flex-col gap-4">
@@ -38,19 +44,11 @@ export const ExportSite = ( { selectedSite }: { selectedSite: SiteDetails } ) =>
 				</div>
 			) : (
 				<div className="flex flex-row gap-4">
-					<Button
-						onClick={ async () => {
-							const exportPath = await exportFullSite( selectedSite );
-							if ( exportPath ) {
-								getIpcApi().showItemInFolder( exportPath );
-							}
-						} }
-						variant="primary"
-					>
+					<Button onClick={ () => handleExport( exportFullSite ) } variant="primary">
 						{ __( 'Export entire site' ) }
 					</Button>
 					<Button
-						onClick={ () => exportDatabase( selectedSite ) }
+						onClick={ () => handleExport( exportDatabase ) }
 						type="submit"
 						variant="secondary"
 						className="!text-a8c-blueberry !shadow-a8c-blueberry"
@@ -86,7 +84,9 @@ const InitialImportButton = ( {
 
 const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 	const { __ } = useI18n();
-	const { importFile, updateSite, startServer, loadingServer } = useSiteDetails();
+	const { startServer, loadingServer } = useSiteDetails();
+	const { importState, importFile, clearImportState } = useImportExport();
+	const { [ props.selectedSite.id ]: currentProgress } = importState;
 	const importConfirmation = useConfirmationDialog( {
 		message: sprintf( __( 'Overwrite %s?' ), props.selectedSite.name ),
 		checkboxLabel: __( "Don't ask again" ),
@@ -129,17 +129,16 @@ const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 			inputFileRef.current.value = '';
 		}
 	};
-	const clearImportState = () => {
-		delete props.selectedSite.importState;
-		updateSite( props.selectedSite );
+	const onStartAgain = () => {
+		clearImportState( props.selectedSite.id );
 		clearImportFileInput();
 	};
 
 	const startLoadingCursorClassName =
 		loadingServer[ props.selectedSite.id ] && 'animate-pulse duration-100 cursor-wait';
 
-	const isImporting = props.selectedSite.importState === 'importing';
-	const isImported = props.selectedSite.importState === 'imported' && ! isDraggingOver;
+	const isImporting = currentProgress?.progress < 100;
+	const isImported = currentProgress?.progress === 100 && ! isDraggingOver;
 	const isInitial = ! isImporting && ! isImported;
 	return (
 		<div className={ cx( 'flex flex-col w-full', startLoadingCursorClassName ) }>
@@ -165,13 +164,11 @@ const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 						{ isImporting && (
 							<>
 								<div className="w-[240px]">
-									<ProgressBarWithAutoIncrement
-										initialValue={ 50 }
-										maxValue={ 95 }
-										increment={ 5 }
-									/>
+									<ProgressBar value={ currentProgress.progress } maxValue={ 100 } />
 								</div>
-								<div className="text-a8c-gray-70 a8c-body mt-4">{ __( 'Importing backup…' ) }</div>
+								<div className="text-a8c-gray-70 a8c-body mt-4">
+									{ currentProgress.statusMessage }
+								</div>
 							</>
 						) }
 						{ isImported && (
@@ -185,7 +182,7 @@ const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 									>
 										{ __( 'Open site ↗' ) }
 									</Button>
-									<Button variant="link" className="!px-2.5 !py-2" onClick={ clearImportState }>
+									<Button variant="link" className="!px-2.5 !py-2" onClick={ onStartAgain }>
 										{ __( 'Start again' ) }
 									</Button>
 								</div>
@@ -217,10 +214,6 @@ const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 };
 
 export function ContentTabImportExport( { selectedSite }: ContentTabImportExportProps ) {
-	useIpcListener( 'on-import', ( _evt, data: unknown ) => {
-		// This listener will be used to track progress of import when the UI is finished.
-	} );
-
 	return (
 		<div className="flex flex-col p-8 gap-8">
 			<ImportSite selectedSite={ selectedSite } />

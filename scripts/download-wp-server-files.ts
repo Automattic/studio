@@ -1,8 +1,8 @@
 import { IncomingMessage } from 'http';
-import https from 'https';
 import os from 'os';
 import path from 'path';
 import extract from 'extract-zip';
+import { https } from 'follow-redirects';
 import fs from 'fs-extra';
 import { getLatestSQLiteCommandRelease } from '../src/lib/sqlite-command-release';
 
@@ -58,8 +58,8 @@ const downloadFile = async ( file: FileToDownload ) => {
 	}
 	const zipFile = fs.createWriteStream( zipPath );
 
-	await httpsGetWithRedirects( url ).then( ( response ) => {
-		return new Promise< void >( ( resolve, reject ) => {
+	await new Promise< void >( ( resolve, reject ) => {
+		https.get( url, ( response ) => {
 			if ( response.statusCode !== 200 ) {
 				reject( new Error( `Request failed with status code: ${ response.statusCode }` ) );
 				return;
@@ -115,36 +115,5 @@ const downloadFiles = async () => {
 		}
 	}
 };
-
-function httpsGetWithRedirects( url: string, maxRedirects = 5 ): Promise< IncomingMessage > {
-	return new Promise( ( resolve, reject ) => {
-		const get = ( urlToFetch: string, redirectCount = 0 ) => {
-			https
-				.get( urlToFetch, ( response ) => {
-					if (
-						response.statusCode &&
-						response.statusCode >= 300 &&
-						response.statusCode < 400 &&
-						response.headers.location
-					) {
-						// Redirect status
-						if ( redirectCount >= maxRedirects ) {
-							reject( new Error( `Too many redirects (${ redirectCount })` ) );
-							return;
-						}
-
-						const redirectUrl = new URL( response.headers.location, urlToFetch ).toString();
-						get( redirectUrl, redirectCount + 1 );
-					} else {
-						// Non-redirect status
-						resolve( response );
-					}
-				} )
-				.on( 'error', reject );
-		};
-
-		get( url );
-	} );
-}
 
 downloadFiles();

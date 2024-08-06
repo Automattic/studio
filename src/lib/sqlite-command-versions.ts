@@ -11,7 +11,6 @@ interface DistributionCheckResult {
 	latestVersion: string;
 	currentVersion: string | null;
 	downloadUrl?: string;
-	isUpdate: boolean;
 	error?: string;
 }
 
@@ -74,24 +73,19 @@ async function checkForUpdate(): Promise< DistributionCheckResult > {
 		const needsDownload =
 			! distributionExists || ! currentVersion || semver.lt( currentVersion, latestVersion );
 
-		let downloadUrl;
-		if ( latestRelease.assets?.length ) {
-			downloadUrl = latestRelease.assets[ 0 ].browser_download_url;
-		}
+		const downloadUrl = latestRelease.assets?.[ 0 ].browser_download_url;
 
 		return {
 			needsDownload,
 			latestVersion,
 			currentVersion,
 			downloadUrl,
-			isUpdate: distributionExists && needsDownload,
 		};
 	} catch ( error ) {
 		return {
 			needsDownload: false,
 			latestVersion: '',
 			currentVersion,
-			isUpdate: false,
 			error: `Failed to check for distribution: ${ error }`,
 		};
 	}

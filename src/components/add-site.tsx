@@ -50,9 +50,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 	const { importState } = useImportExport();
 
 	const isAnySiteProcessing = data.some(
-		( site ) =>
-			site.isAddingSite ||
-			( importState[ site.id ]?.progress < 100 && importState[ site.id ]?.isNewSite )
+		( site ) => site.isAddingSite || importState[ site.id ]?.isNewSite
 	);
 
 	const siteAddedMessage = sprintf(

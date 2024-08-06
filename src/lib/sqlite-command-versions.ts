@@ -2,6 +2,8 @@ import path from 'path';
 import fs from 'fs-extra';
 import { downloadSQLiteCommand } from '../../vendor/wp-now/src/download';
 import { getServerFilesPath } from '../storage/paths';
+import getWpCliTmpPath from '../../vendor/wp-now/src/get-wp-cli-tmp-path';
+import os from 'os';
 
 interface GithubRelease {
 	tag_name: string;
@@ -26,7 +28,13 @@ const VERSION_FILE = 'version';
  * The path for wp-cli phar file within the WP Now folder.
  */
 export function getSqliteCommandPath() {
-	return path.join( getServerFilesPath(), 'sqlite-command' );
+	if ( process.env.NODE_ENV !== 'test' ) {
+		return path.join( getServerFilesPath(), 'sqlite-command' );
+	}
+
+	const tmpPath = path.join( os.tmpdir(), `wp-now-tests-wp-sqlite-command-hidden-folder` );
+	fs.ensureDirSync( tmpPath );
+	return tmpPath;
 }
 
 // Check if library exists

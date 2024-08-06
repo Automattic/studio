@@ -3,14 +3,7 @@ import path from 'path';
 import fs from 'fs-extra';
 import { downloadSQLiteCommand } from '../../vendor/wp-now/src/download';
 import { getServerFilesPath } from '../storage/paths';
-
-interface GithubRelease {
-	tag_name: string;
-	assets?: {
-		name: string;
-		browser_download_url: string;
-	}[];
-}
+import { getLatestSQLiteCommandRelease } from './sqlite-command-release';
 
 interface DistributionCheckResult {
 	needsDownload: boolean;
@@ -35,13 +28,6 @@ export function getSqliteCommandPath() {
 	fs.ensureDirSync( tmpPath );
 	return tmpPath;
 }
-
-// Check if library exists
-// Get the latest release
-// Check if the library is outdated
-// Download the latest release
-// Extract the release
-// Update the version file
 
 export async function updateLatestSQLiteCommandVersion() {
 	const distributionCheck = await checkForUpdate(
@@ -120,13 +106,6 @@ async function getCurrentSQLiteCommandVersion( versionFilePath: string ) {
 	} catch ( _error ) {
 		return null;
 	}
-}
-
-async function getLatestSQLiteCommandRelease(): Promise< GithubRelease > {
-	const response = await fetch(
-		`https://api.github.com/repos/automattic/wp-cli-sqlite-command/releases/latest`
-	);
-	return ( await response.json() ) as GithubRelease;
 }
 
 async function createVersionFile( CommandPath: string, version: string ): Promise< void > {

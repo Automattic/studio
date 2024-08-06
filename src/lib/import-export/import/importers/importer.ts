@@ -69,7 +69,7 @@ export class DefaultImporter extends EventEmitter implements Importer {
 				await rename( sqlFile, tmpPath );
 				// Execute the command to export directly to the temp file
 				const { stderr, exitCode } = await server.executeWpCliCommand(
-					`db import ${ sqlTempFile }`
+					`sqlite import ${ sqlTempFile } --require=/tmp/sqlite-command/command.php`
 				);
 
 				if ( stderr ) {

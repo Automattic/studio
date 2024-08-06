@@ -6,6 +6,7 @@ import { getWordPressVersionPath } from '../vendor/wp-now/src/download';
 import getSqlitePath from '../vendor/wp-now/src/get-sqlite-path';
 import getWpCliPath from '../vendor/wp-now/src/get-wp-cli-path';
 import { recursiveCopyDirectory } from './lib/fs-utils';
+import { updateLatestSQLiteCommandVersion } from './lib/sqlite-command-versions';
 import { updateLatestSqliteVersion } from './lib/sqlite-versions';
 import {
 	getWordPressVersionFromInstallation,
@@ -68,4 +69,5 @@ export async function updateWPServerFiles() {
 	await updateLatestWordPressVersion();
 	await updateLatestSqliteVersion();
 	await updateLatestWPCliVersion();
+	await updateLatestSQLiteCommandVersion();
 }

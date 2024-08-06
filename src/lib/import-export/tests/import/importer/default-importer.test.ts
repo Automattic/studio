@@ -66,13 +66,14 @@ describe( 'JetpackImporter', () => {
 			expect( fs.readFile ).toHaveBeenCalledWith( '/tmp/extracted/studio.json', 'utf-8' );
 		} );
 
-		it( 'should handle sql files and call wp db import cli command', async () => {
+		it( 'should handle sql files and call wp sqlite import cli command', async () => {
 			const importer = new DefaultImporter( mockBackupContents );
 			await importer.import( mockStudioSitePath, mockStudioSiteId );
 
 			const siteServer = SiteServer.get( mockStudioSiteId );
 
-			const expectedCommand = 'db import studio-backup-sql-2024-08-01-12-00-00.sql';
+			const expectedCommand =
+				'sqlite import studio-backup-sql-2024-08-01-12-00-00.sql --require=/tmp/sqlite-command/command.php';
 			expect( siteServer?.executeWpCliCommand ).toHaveBeenNthCalledWith( 1, expectedCommand );
 			expect( siteServer?.executeWpCliCommand ).toHaveBeenNthCalledWith( 2, expectedCommand );
 

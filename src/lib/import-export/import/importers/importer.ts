@@ -65,10 +65,13 @@ export class DefaultImporter extends EventEmitter implements Importer {
 		}
 	}
 
-	protected async backupExistingAndCreateNewDatabase( rootPath: string ): Promise< string > {
+	protected async backupExistingAndCreateNewDatabase(
+		rootPath: string,
+		siteId: string
+	): Promise< string > {
 		const databaseDir = path.join( rootPath, 'wp-content', 'database' );
 		const existingDbPath = path.join( databaseDir, '.ht.sqlite' );
-		const backupDbPath = path.join( databaseDir, `.${ Date.now() }-backup.ht.sqlite` );
+		const backupDbPath = path.join( databaseDir, `${ siteId }-${ Date.now() }-backup.ht.sqlite` );
 
 		try {
 			await fsPromises.mkdir( databaseDir, { recursive: true } );
@@ -97,7 +100,7 @@ export class DefaultImporter extends EventEmitter implements Importer {
 		let backupDbPath = '';
 		const hasCreateWithoutDrop = await this.hasCreateWithoutDrop( sortedSqlFiles );
 		if ( hasCreateWithoutDrop ) {
-			backupDbPath = await this.backupExistingAndCreateNewDatabase( rootPath );
+			backupDbPath = await this.backupExistingAndCreateNewDatabase( rootPath, siteId );
 		}
 
 		await this.importSqlFiles( rootPath, server, sortedSqlFiles );

@@ -42,7 +42,7 @@ test.describe( 'Servers', () => {
 
 		// Check the site is running
 		const siteContent = new SiteContent( session.mainWindow, siteName );
-		await expect( siteContent.siteNameHeading ).toBeAttached( { timeout: 30_000 } );
+		await expect( siteContent.runningButton ).toBeAttached( { timeout: 30_000 } );
 		expect( await siteContent.siteNameHeading ).toHaveText( siteName );
 
 		// Check a WordPress site has been created

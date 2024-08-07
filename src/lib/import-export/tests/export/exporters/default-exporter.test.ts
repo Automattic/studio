@@ -163,6 +163,17 @@ describe( 'DefaultExporter', () => {
 		expect( getWordPressVersionFromInstallation ).toHaveBeenCalledWith( '/path/to/site' );
 	} );
 
+	it( 'should add studio.json to the archive', async () => {
+		const exporter = new DefaultExporter( mockOptions );
+		await exporter.export();
+
+		expect( getWordPressVersionFromInstallation ).toHaveBeenCalledTimes( 1 );
+		expect( getWordPressVersionFromInstallation ).toHaveBeenCalledWith( '/path/to/site' );
+		expect( mockArchiver.file ).toHaveBeenCalledWith( '/tmp/studio_export_123/studio.json', {
+			name: 'studio.json',
+		} );
+	} );
+
 	it( 'should add wp-content files to the archive', async () => {
 		const options = {
 			...mockOptions,

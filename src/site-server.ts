@@ -182,11 +182,11 @@ export class SiteServer {
 			return await this.wpCliExecutor.execute( wpCliArgs as string[] );
 		} catch ( error ) {
 			if ( ( error as MessageCanceled )?.canceled ) {
-				return { stdout: '', stderr: 'wp-cli command canceled' };
+				return { stdout: '', stderr: 'wp-cli command canceled', exitCode: 1 };
 			}
 
 			Sentry.captureException( error );
-			return { stdout: '', stderr: 'error when executing wp-cli command' };
+			return { stdout: '', stderr: 'error when executing wp-cli command', exitCode: 1 };
 		}
 	}
 }

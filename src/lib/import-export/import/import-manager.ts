@@ -4,7 +4,7 @@ import path from 'path';
 import { ImportExportEventData, handleEvents } from '../handle-events';
 import { BackupExtractEvents, ImporterEvents, ValidatorEvents } from './events';
 import { BackupHandlerFactory } from './handlers/backup-handler-factory';
-import { DefaultImporter, Importer, ImporterResult } from './importers/importer';
+import { Importer, ImporterResult, JetpackImporter, SQLImporter } from './importers/importer';
 import { BackupArchiveInfo, NewImporter } from './types';
 import { JetpackValidator, SqlValidator } from './validators';
 import { Validator } from './validators/validator';
@@ -57,7 +57,7 @@ async function createExtractionDirectory() {
 
 export async function importBackup(
 	backupFile: BackupArchiveInfo,
-	sitePath: string,
+	site: SiteDetails,
 	onEvent: ( data: ImportExportEventData ) => void,
 	options: ImporterOption[]
 ): Promise< ImporterResult > {
@@ -76,11 +76,10 @@ export async function importBackup(
 		if ( ! importer ) {
 			throw new Error( 'No suitable importer found for the given backup file' );
 		}
-
 		removeBackupListeners = handleEvents( backupHandler, onEvent, BackupExtractEvents );
 		removeImportListeners = handleEvents( importer, onEvent, ImporterEvents );
-
-		return await importer.import( sitePath );
+		await backupHandler.extractFiles( backupFile, extractionDirectory );
+		return await importer.import( site.path, site.id );
 	} catch ( error ) {
 		console.error( 'Backup import failed:', ( error as Error ).message );
 		throw error;
@@ -108,7 +107,7 @@ export async function getMetaFromBackupFile( backupFile: BackupArchiveInfo ) {
 			return { phpVersion: '', wordpressVersion: '' };
 		}
 
-		const studioJsonObject = await importer.parseMetaFile();
+		const studioJsonObject = await importer.parseMetaFile?.();
 		return {
 			phpVersion: studioJsonObject?.phpVersion || '',
 			wordpressVersion: studioJsonObject?.wordpressVersion || '',
@@ -119,6 +118,6 @@ export async function getMetaFromBackupFile( backupFile: BackupArchiveInfo ) {
 }
 
 export const defaultImporterOptions: ImporterOption[] = [
-	{ validator: new JetpackValidator(), importer: DefaultImporter },
-	{ validator: new SqlValidator(), importer: DefaultImporter },
+	{ validator: new JetpackValidator(), importer: JetpackImporter },
+	{ validator: new SqlValidator(), importer: SQLImporter },
 ];

@@ -8,7 +8,7 @@ import { useSiteDetails } from './use-site-details';
 
 export function useAddSite() {
 	const { __ } = useI18n();
-	const { createSite, data: sites, loadingSites } = useSiteDetails();
+	const { createSite, data: sites, loadingSites, startServer } = useSiteDetails();
 	const { importFile, clearImportState } = useImportExport();
 	const [ error, setError ] = useState( '' );
 	const [ siteName, setSiteName ] = useState< string | null >( null );
@@ -77,6 +77,7 @@ export function useAddSite() {
 					} );
 					clearImportState( newSite.id );
 				}
+				await startServer( newSite.id );
 				getIpcApi().showNotification( {
 					title: newSite.name,
 					body: __( 'Your new site is up and running' ),
@@ -94,6 +95,7 @@ export function useAddSite() {
 		proposedSitePath,
 		siteName,
 		sitePath,
+		startServer,
 	] );
 
 	const handleSiteNameChange = useCallback(

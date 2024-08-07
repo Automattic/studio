@@ -31,6 +31,7 @@ describe( 'SqlExporter', () => {
 				themes: false,
 				database: true,
 			},
+			phpVersion: '7.4',
 		};
 
 		// Reset all mock implementations

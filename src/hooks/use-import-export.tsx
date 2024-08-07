@@ -274,6 +274,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 					plugins: true,
 					themes: true,
 				},
+				phpVersion: selectedSite.phpVersion,
 			};
 			return exportSite( selectedSite, options );
 		},
@@ -305,6 +306,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 					plugins: false,
 					themes: false,
 				},
+				phpVersion: selectedSite.phpVersion,
 			};
 			return exportSite( selectedSite, options );
 		},

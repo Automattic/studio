@@ -24,7 +24,11 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 
 	abstract import( rootPath: string, siteId: string ): Promise< ImporterResult >;
 
-	async importDatabase( rootPath: string, siteId: string, sqlFiles: string[] ): Promise< void > {
+	protected async importDatabase(
+		rootPath: string,
+		siteId: string,
+		sqlFiles: string[]
+	): Promise< void > {
 		if ( ! sqlFiles.length ) {
 			return;
 		}

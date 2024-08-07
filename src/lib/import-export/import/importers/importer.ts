@@ -23,6 +23,55 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 	}
 
 	abstract import( rootPath: string, siteId: string ): Promise< ImporterResult >;
+
+	async importDatabase( rootPath: string, siteId: string, sqlFiles: string[] ): Promise< void > {
+		if ( ! sqlFiles.length ) {
+			return;
+		}
+
+		const server = SiteServer.get( siteId );
+		if ( ! server ) {
+			throw new Error( 'Site not found.' );
+		}
+
+		this.emit( ImportEvents.IMPORT_DATABASE_START );
+
+		const sortedSqlFiles = sqlFiles.sort( ( a, b ) => a.localeCompare( b ) );
+		for ( const sqlFile of sortedSqlFiles ) {
+			const sqlTempFile = `${ generateBackupFilename( 'sql' ) }.sql`;
+			const tmpPath = path.join( rootPath, sqlTempFile );
+
+			try {
+				await rename( sqlFile, tmpPath );
+				const { stderr, exitCode } = await server.executeWpCliCommand(
+					`sqlite import ${ sqlTempFile } --require=/tmp/sqlite-command/command.php`
+				);
+
+				if ( stderr ) {
+					console.error( `Warning during import of ${ sqlFile }:`, stderr );
+				}
+
+				if ( exitCode ) {
+					throw new Error( 'Database import failed' );
+				}
+			} catch ( error ) {
+				console.error( `Error processing ${ sqlFile }:`, error );
+				throw error;
+			} finally {
+				await this.safelyDeleteFile( tmpPath );
+			}
+		}
+
+		this.emit( ImportEvents.IMPORT_DATABASE_COMPLETE );
+	}
+
+	protected async safelyDeleteFile( filePath: string ): Promise< void > {
+		try {
+			await fsPromises.unlink( filePath );
+		} catch ( error ) {
+			console.error( `Failed to safely delete file ${ filePath }:`, error );
+		}
+	}
 }
 
 export abstract class BaseBackupImporter extends BaseImporter implements Importer {
@@ -32,11 +81,10 @@ export abstract class BaseBackupImporter extends BaseImporter implements Importe
 		try {
 			const databaseDir = path.join( rootPath, 'wp-content', 'database' );
 			const dbPath = path.join( databaseDir, '.ht.sqlite' );
-			const dbImporter = new DatabaseImporter();
 
 			await this.moveExistingDatabaseToTrash( dbPath );
 			await this.createEmptyDatabase( dbPath );
-			await dbImporter.importDatabase( rootPath, siteId, this.backup.sqlFiles );
+			await this.importDatabase( rootPath, siteId, this.backup.sqlFiles );
 			await this.importWpContent( rootPath );
 			let meta: MetaFileData | undefined;
 			if ( this.backup.metaFile ) {
@@ -90,61 +138,6 @@ export abstract class BaseBackupImporter extends BaseImporter implements Importe
 	}
 }
 
-export class DatabaseImporter extends EventEmitter {
-	constructor() {
-		super();
-	}
-
-	async importDatabase( rootPath: string, siteId: string, sqlFiles: string[] ): Promise< void > {
-		if ( ! sqlFiles.length ) {
-			return;
-		}
-
-		const server = SiteServer.get( siteId );
-		if ( ! server ) {
-			throw new Error( 'Site not found.' );
-		}
-
-		this.emit( ImportEvents.IMPORT_DATABASE_START );
-
-		const sortedSqlFiles = sqlFiles.sort( ( a, b ) => a.localeCompare( b ) );
-		for ( const sqlFile of sortedSqlFiles ) {
-			const sqlTempFile = `${ generateBackupFilename( 'sql' ) }.sql`;
-			const tmpPath = path.join( rootPath, sqlTempFile );
-
-			try {
-				await rename( sqlFile, tmpPath );
-				const { stderr, exitCode } = await server.executeWpCliCommand(
-					`sqlite import ${ sqlTempFile } --require=/tmp/sqlite-command/command.php`
-				);
-
-				if ( stderr ) {
-					console.error( `Warning during import of ${ sqlFile }:`, stderr );
-				}
-
-				if ( exitCode ) {
-					throw new Error( 'Database import failed' );
-				}
-			} catch ( error ) {
-				console.error( `Error processing ${ sqlFile }:`, error );
-				throw error;
-			} finally {
-				await this.safelyDeleteFile( tmpPath );
-			}
-		}
-
-		this.emit( ImportEvents.IMPORT_DATABASE_COMPLETE );
-	}
-
-	protected async safelyDeleteFile( filePath: string ): Promise< void > {
-		try {
-			await fsPromises.unlink( filePath );
-		} catch ( error ) {
-			console.error( `Failed to safely delete file ${ filePath }:`, error );
-		}
-	}
-}
-
 export class JetpackImporter extends BaseBackupImporter {
 	protected async parseMetaFile(): Promise< MetaFileData | undefined > {
 		const metaFilePath = this.backup.metaFile;
@@ -192,11 +185,10 @@ export class SQLImporter extends BaseImporter {
 	}
 
 	async import( rootPath: string, siteId: string ): Promise< ImporterResult > {
-		const dbImporter = new DatabaseImporter();
 		this.emit( ImportEvents.IMPORT_START );
 
 		try {
-			await dbImporter.importDatabase( rootPath, siteId, this.backup.sqlFiles );
+			await this.importDatabase( rootPath, siteId, this.backup.sqlFiles );
 
 			this.emit( ImportEvents.IMPORT_COMPLETE );
 			return {

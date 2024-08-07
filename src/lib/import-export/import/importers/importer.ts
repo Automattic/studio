@@ -185,10 +185,6 @@ export class LocalImporter extends BaseBackupImporter {
 }
 
 export class SQLImporter extends BaseImporter {
-	constructor( protected backup: BackupContents ) {
-		super( backup );
-	}
-
 	async import( rootPath: string, siteId: string ): Promise< ImporterResult > {
 		this.emit( ImportEvents.IMPORT_START );
 

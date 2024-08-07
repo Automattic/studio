@@ -90,6 +90,7 @@ export abstract class BaseBackupImporter extends BaseImporter implements Importe
 			if ( this.backup.metaFile ) {
 				meta = await this.parseMetaFile();
 			}
+
 			this.emit( ImportEvents.IMPORT_COMPLETE );
 			return {
 				extractionDirectory: this.backup.extractionDirectory,

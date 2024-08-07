@@ -63,7 +63,7 @@ export const ExportSite = ( { selectedSite }: { selectedSite: SiteDetails } ) =>
 							onClick={ () => handleExport( exportDatabase ) }
 							type="submit"
 							variant="secondary"
-							className="!text-a8c-blueberry !shadow-a8c-blueberry"
+							className={ cx( isSiteImporting ? '' : '!text-a8c-blueberry !shadow-a8c-blueberry' ) }
 							disabled={ isSiteImporting }
 						>
 							{ __( 'Export database' ) }

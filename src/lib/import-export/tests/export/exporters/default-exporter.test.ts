@@ -129,8 +129,6 @@ describe( 'DefaultExporter', () => {
 		await exporter.export();
 
 		expect( archiver ).toHaveBeenCalledWith( 'tar', { gzip: true, gzipOptions: { level: 9 } } );
-		expect( getWordPressVersionFromInstallation ).toHaveBeenCalledTimes( 1 );
-		expect( getWordPressVersionFromInstallation ).toHaveBeenCalledWith( '/path/to/site' );
 	} );
 
 	it( 'should create a zip archive when the backup file ends with .zip', async () => {
@@ -138,8 +136,6 @@ describe( 'DefaultExporter', () => {
 		await exporter.export();
 
 		expect( archiver ).toHaveBeenCalledWith( 'zip', { gzip: false, gzipOptions: undefined } );
-		expect( getWordPressVersionFromInstallation ).toHaveBeenCalledTimes( 1 );
-		expect( getWordPressVersionFromInstallation ).toHaveBeenCalledWith( '/path/to/site' );
 	} );
 
 	it( 'should add wp-config.php to the archive', async () => {
@@ -159,8 +155,6 @@ describe( 'DefaultExporter', () => {
 		expect( mockArchiver.file ).toHaveBeenCalledWith( '/path/to/site/wp-config.php', {
 			name: 'wp-config.php',
 		} );
-		expect( getWordPressVersionFromInstallation ).toHaveBeenCalledTimes( 1 );
-		expect( getWordPressVersionFromInstallation ).toHaveBeenCalledWith( '/path/to/site' );
 	} );
 
 	it( 'should add studio.json to the archive', async () => {
@@ -206,8 +200,6 @@ describe( 'DefaultExporter', () => {
 			'/path/to/site/wp-content/themes/theme1/index.php',
 			{ name: 'wp-content/themes/theme1/index.php' }
 		);
-		expect( getWordPressVersionFromInstallation ).toHaveBeenCalledTimes( 1 );
-		expect( getWordPressVersionFromInstallation ).toHaveBeenCalledWith( '/path/to/site' );
 	} );
 
 	it( 'should add a database file to the archive when database is included', async () => {
@@ -241,8 +233,6 @@ describe( 'DefaultExporter', () => {
 		await exporter.export();
 
 		expect( mockArchiver.finalize ).toHaveBeenCalled();
-		expect( getWordPressVersionFromInstallation ).toHaveBeenCalledTimes( 1 );
-		expect( getWordPressVersionFromInstallation ).toHaveBeenCalledWith( '/path/to/site' );
 	} );
 
 	it( 'should cleanup temporary files when database is included', async () => {

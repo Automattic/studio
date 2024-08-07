@@ -99,7 +99,6 @@ describe( 'importManager', () => {
 				import: jest.fn().mockResolvedValue( {} ),
 				on: jest.fn(),
 				emit: jest.fn(),
-				parseMetaFile: jest.fn().mockResolvedValue( {} ),
 			};
 			const MockImporterClass = jest.fn().mockImplementation( () => mockImporter );
 

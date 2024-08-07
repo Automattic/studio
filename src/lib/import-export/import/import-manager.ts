@@ -6,7 +6,7 @@ import { BackupExtractEvents, ImporterEvents, ValidatorEvents } from './events';
 import { BackupHandlerFactory } from './handlers/backup-handler-factory';
 import { Importer, ImporterResult, JetpackImporter, SQLImporter } from './importers/importer';
 import { BackupArchiveInfo, NewImporter } from './types';
-import { JetpackValidator, SqlValidator } from './validators';
+import { JetpackValidator, SqlValidator, LocalValidator } from './validators';
 import { Validator } from './validators/validator';
 
 export interface ImporterOption {
@@ -65,5 +65,6 @@ export async function importBackup(
 
 export const defaultImporterOptions: ImporterOption[] = [
 	{ validator: new JetpackValidator(), importer: JetpackImporter },
+	{ validator: new LocalValidator(), importer: JetpackImporter },
 	{ validator: new SqlValidator(), importer: SQLImporter },
 ];

@@ -167,19 +167,10 @@ export default function AddSite( { className }: AddSiteProps ) {
 								fileError={ fileError }
 							>
 								<div className="flex flex-row justify-end gap-x-5 mt-6">
-									<Button
-										onClick={ closeModal }
-										disabled={ isAnySiteProcessing }
-										variant="tertiary"
-									>
+									<Button onClick={ closeModal } variant="tertiary">
 										{ __( 'Cancel' ) }
 									</Button>
-									<Button
-										type="submit"
-										variant="primary"
-										isBusy={ isAnySiteProcessing }
-										disabled={ isAnySiteProcessing || !! error || ! siteName?.trim() }
-									>
+									<Button type="submit" variant="primary">
 										{ __( 'Add site' ) }
 									</Button>
 								</div>
@@ -218,15 +209,10 @@ export default function AddSite( { className }: AddSiteProps ) {
 							doesPathContainWordPress={ doesPathContainWordPress }
 						>
 							<div className="flex flex-row justify-end gap-x-5 mt-6">
-								<Button onClick={ closeModal } disabled={ isAnySiteProcessing } variant="tertiary">
+								<Button onClick={ closeModal } variant="tertiary">
 									{ __( 'Cancel' ) }
 								</Button>
-								<Button
-									type="submit"
-									variant="primary"
-									isBusy={ isAnySiteProcessing }
-									disabled={ isAnySiteProcessing || !! error || ! siteName?.trim() }
-								>
+								<Button type="submit" variant="primary">
 									{ __( 'Add site' ) }
 								</Button>
 							</div>

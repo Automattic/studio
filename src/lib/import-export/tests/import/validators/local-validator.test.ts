@@ -7,7 +7,7 @@ describe( 'LocalValidator', () => {
 	describe( 'canHandle', () => {
 		it( 'should return true for valid Local backup structure', () => {
 			const fileList = [
-				'app/sql/wp_options.sql',
+				'app/sql/local.sql',
 				'app/public/wp-content/uploads/2023/image.jpg',
 				'app/public/wp-content/plugins/jetpack/jetpack.php',
 				'app/public/wp-content/themes/twentytwentyone/style.css',
@@ -17,7 +17,7 @@ describe( 'LocalValidator', () => {
 
 		it( 'should not fail if core files exists.', () => {
 			const fileList = [
-				'app/sql/wp_options.sql',
+				'app/sql/local.sql',
 				'app/public/wp-admin/wp-admin.php',
 				'app/public/wp-admin/about.php',
 				'app/public/wp-includes/test.php',
@@ -37,7 +37,7 @@ describe( 'LocalValidator', () => {
 	describe( 'parseBackupContents', () => {
 		it( 'should correctly parse backup contents', () => {
 			const fileList = [
-				'app/sql/wp_options.sql',
+				'app/sql/local.sql',
 				'app/public/wp-content/uploads/2023/image.jpg',
 				'app/public/wp-content/plugins/jetpack/jetpack.php',
 				'app/public/wp-content/themes/twentytwentyone/style.css',
@@ -48,7 +48,7 @@ describe( 'LocalValidator', () => {
 
 			expect( result ).toEqual( {
 				extractionDirectory,
-				sqlFiles: [ '/tmp/extracted/app/sql/wp_options.sql' ],
+				sqlFiles: [ '/tmp/extracted/app/sql/local.sql' ],
 				wpContent: {
 					uploads: [ '/tmp/extracted/app/public/wp-content/uploads/2023/image.jpg' ],
 					plugins: [ '/tmp/extracted/app/public/wp-content/plugins/jetpack/jetpack.php' ],
@@ -60,7 +60,7 @@ describe( 'LocalValidator', () => {
 
 		it( 'should ignore files that not needed', () => {
 			const fileList = [
-				'app/sql/wp_options.sql',
+				'app/sql/local.sql',
 				'app/public/wp-admin/wp-admin.php',
 				'app/public/wp-admin/about.php',
 				'app/public/wp-includes/test.php',
@@ -75,7 +75,7 @@ describe( 'LocalValidator', () => {
 
 			expect( result ).toEqual( {
 				extractionDirectory,
-				sqlFiles: [ '/tmp/extracted/app/sql/wp_options.sql' ],
+				sqlFiles: [ '/tmp/extracted/app/sql/local.sql' ],
 				wpContent: {
 					uploads: [ '/tmp/extracted/app/public/wp-content/uploads/2023/image.jpg' ],
 					plugins: [ '/tmp/extracted/app/public/wp-content/plugins/jetpack/jetpack.php' ],

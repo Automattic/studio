@@ -4,7 +4,7 @@ import path from 'path';
 import { ImportExportEventData, handleEvents } from '../handle-events';
 import { BackupExtractEvents, ImporterEvents, ValidatorEvents } from './events';
 import { BackupHandlerFactory } from './handlers/backup-handler-factory';
-import { DefaultImporter, Importer, ImporterResult } from './importers/importer';
+import { Importer, ImporterResult, JetpackImporter, SQLImporter } from './importers/importer';
 import { BackupArchiveInfo, NewImporter } from './types';
 import { JetpackValidator, SqlValidator } from './validators';
 import { Validator } from './validators/validator';
@@ -33,7 +33,7 @@ export function selectImporter(
 
 export async function importBackup(
 	backupFile: BackupArchiveInfo,
-	sitePath: string,
+	site: SiteDetails,
 	onEvent: ( data: ImportExportEventData ) => void,
 	options: ImporterOption[]
 ): Promise< ImporterResult > {
@@ -49,7 +49,7 @@ export async function importBackup(
 			removeBackupListeners = handleEvents( backupHandler, onEvent, BackupExtractEvents );
 			removeImportListeners = handleEvents( importer, onEvent, ImporterEvents );
 			await backupHandler.extractFiles( backupFile, extractionDirectory );
-			return await importer.import( sitePath );
+			return await importer.import( site.path, site.id );
 		} else {
 			throw new Error( 'No suitable importer found for the given backup file' );
 		}
@@ -64,6 +64,6 @@ export async function importBackup(
 }
 
 export const defaultImporterOptions: ImporterOption[] = [
-	{ validator: new JetpackValidator(), importer: DefaultImporter },
-	{ validator: new SqlValidator(), importer: DefaultImporter },
+	{ validator: new JetpackValidator(), importer: JetpackImporter },
+	{ validator: new SqlValidator(), importer: SQLImporter },
 ];

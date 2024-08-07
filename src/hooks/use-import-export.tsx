@@ -16,6 +16,7 @@ import {
 	BackupExtractProgressEventData,
 } from '../lib/import-export/import/types';
 import { useIpcListener } from './use-ipc-listener';
+import { useSiteDetails } from './use-site-details';
 
 type ImportProgressState = {
 	[ siteId: string ]: {
@@ -66,6 +67,7 @@ const ImportExportContext = createContext< ImportExportContext >( {
 export const ImportExportProvider = ( { children }: { children: React.ReactNode } ) => {
 	const [ importState, setImportState ] = useState< ImportProgressState >( {} );
 	const [ exportState, setExportState ] = useState< ExportProgressState >( {} );
+	const { updateSiteState } = useSiteDetails();
 
 	const importFile = useCallback(
 		async (
@@ -90,7 +92,11 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 					type: file.type,
 					path: file.path,
 				};
-				await getIpcApi().importSite( { id: selectedSite.id, backupFile } );
+				const importedSite = await getIpcApi().importSite( {
+					id: selectedSite.id,
+					backupFile,
+				} );
+				updateSiteState( importedSite );
 
 				if ( showImportNotification ) {
 					getIpcApi().showNotification( {
@@ -112,7 +118,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 				} ) );
 			}
 		},
-		[ importState ]
+		[ importState, updateSiteState ]
 	);
 
 	const clearImportState = useCallback( ( siteId: string ) => {

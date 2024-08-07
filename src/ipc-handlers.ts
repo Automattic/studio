@@ -122,11 +122,10 @@ export async function importSite(
 		};
 		const result = await importBackup( backupFile, site.details, onEvent, defaultImporterOptions );
 		if ( result?.meta?.phpVersion ) {
-			await updateSite( event, {
-				...site.details,
-				phpVersion: result.meta.phpVersion,
-			} );
+			site.details.phpVersion = result.meta.phpVersion;
+			await updateSite( event, site.details );
 		}
+		return site.details;
 	} catch ( e ) {
 		Sentry.captureException( e );
 		throw e;

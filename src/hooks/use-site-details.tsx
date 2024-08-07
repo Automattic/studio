@@ -16,6 +16,7 @@ import { useSnapshots } from './use-snapshots';
 interface SiteDetailsContext {
 	selectedSite: SiteDetails | null;
 	updateSite: ( site: SiteDetails ) => Promise< void >;
+	updateSiteState: ( site: SiteDetails ) => void;
 	data: SiteDetails[];
 	setSelectedSiteId: ( selectedSiteId: string ) => void;
 	createSite: (
@@ -38,6 +39,7 @@ export const siteDetailsContext = createContext< SiteDetailsContext >( {
 	selectedSite: null,
 	data: [],
 	updateSite: async () => undefined,
+	updateSiteState: () => undefined,
 	setSelectedSiteId: () => undefined,
 	createSite: async () => undefined,
 	startServer: async () => undefined,
@@ -241,6 +243,14 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		setData( updatedSites );
 	}, [] );
 
+	const updateSiteState = useCallback( ( updatedSite: SiteDetails ) => {
+		setData( ( prevData ) =>
+			prevData.map( ( site ) =>
+				site.id === updatedSite.id ? { ...site, ...updatedSite } : site
+			)
+		);
+	}, [] );
+
 	const startServer = useCallback(
 		async ( id: string ) => {
 			toggleLoadingServerForSite( id );
@@ -301,6 +311,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			setSelectedSiteId,
 			createSite,
 			updateSite,
+			updateSiteState,
 			startServer,
 			stopServer,
 			stopAllRunningSites,
@@ -317,6 +328,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			setSelectedSiteId,
 			createSite,
 			updateSite,
+			updateSiteState,
 			startServer,
 			stopServer,
 			stopAllRunningSites,

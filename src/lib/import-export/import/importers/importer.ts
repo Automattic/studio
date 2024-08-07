@@ -15,11 +15,6 @@ export interface ImporterResult extends Omit< BackupContents, 'metaFile' > {
 
 export interface Importer extends Partial< EventEmitter > {
 	import( rootPath: string, siteId: string ): Promise< ImporterResult >;
-	parseMetaFile?(): Promise< MetaFileData | undefined >;
-}
-
-export interface JetpackImporter extends BaseImporter {
-	parseMetaFile(): Promise< MetaFileData | undefined >;
 }
 
 abstract class BaseImporter extends EventEmitter implements Importer {
@@ -83,7 +78,7 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 	}
 }
 
-export class JetpackImporter extends BaseImporter implements JetpackImporter {
+export class JetpackImporter extends BaseImporter {
 	async import( rootPath: string, siteId: string ): Promise< ImporterResult > {
 		this.emit( ImportEvents.IMPORT_START );
 
@@ -145,7 +140,7 @@ export class JetpackImporter extends BaseImporter implements JetpackImporter {
 		this.emit( ImportEvents.IMPORT_WP_CONTENT_COMPLETE );
 	}
 
-	async parseMetaFile(): Promise< MetaFileData | undefined > {
+	protected async parseMetaFile(): Promise< MetaFileData | undefined > {
 		const metaFilePath = this.backup.metaFile;
 		if ( ! metaFilePath ) {
 			return;

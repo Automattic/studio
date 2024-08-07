@@ -2,7 +2,6 @@ import * as Sentry from '@sentry/electron/renderer';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useMemo, useState } from 'react';
 import { getIpcApi } from '../lib/get-ipc-api';
-import { BackupArchiveInfo } from '../lib/import-export/import/types';
 import { useImportExport } from './use-import-export';
 import { useSiteDetails } from './use-site-details';
 

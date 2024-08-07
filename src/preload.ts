@@ -12,8 +12,7 @@ const api: IpcApi = {
 	archiveSite: ( id: string ) => ipcRenderer.invoke( 'archiveSite', id ),
 	deleteSite: ( id: string, deleteFiles?: boolean ) =>
 		ipcRenderer.invoke( 'deleteSite', id, deleteFiles ),
-	createSite: ( path: string, siteName?: string ) =>
-		ipcRenderer.invoke( 'createSite', path, siteName ),
+	createSite: ( path: string, name?: string ) => ipcRenderer.invoke( 'createSite', path, name ),
 	updateSite: ( updatedSite: SiteDetails ) => ipcRenderer.invoke( 'updateSite', updatedSite ),
 	authenticate: () => ipcRenderer.invoke( 'authenticate' ),
 	exportSite: ( options: ExportOptions, siteId: string ) =>
@@ -47,8 +46,6 @@ const api: IpcApi = {
 	getInstalledApps: () => ipcRenderer.invoke( 'getInstalledApps' ),
 	importSite: ( { id, backupFile }: { id: string; backupFile: BackupArchiveInfo } ) =>
 		ipcRenderer.invoke( 'importSite', { id, backupFile } ),
-	getMetaFromBackup: ( backupFile: BackupArchiveInfo ) =>
-		ipcRenderer.invoke( 'getMetaFromBackup', backupFile ),
 	executeWPCLiInline: ( options: { siteId: string; args: string } ) =>
 		ipcRenderer.invoke( 'executeWPCLiInline', options ),
 	getOnboardingData: () => ipcRenderer.invoke( 'getOnboardingData' ),

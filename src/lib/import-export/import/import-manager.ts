@@ -31,89 +31,35 @@ export function selectImporter(
 	return null;
 }
 
-async function extractBackupFile(
-	backupFile: BackupArchiveInfo,
-	extractionDirectory: string,
-	onEvent: ( data: ImportExportEventData ) => void,
-	options: ImporterOption[]
-) {
-	const backupHandler = BackupHandlerFactory.create( backupFile );
-	const fileList = await backupHandler.listFiles( backupFile );
-	const importer = selectImporter( fileList, extractionDirectory, onEvent, options );
-	if ( importer ) {
-		await backupHandler.extractFiles( backupFile, extractionDirectory );
-	}
-
-	return { importer, backupHandler };
-}
-
-async function createExtractionDirectory() {
-	const extractionDirectory = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio_backup' ) );
-	const removeExtractionDirectory = async () => {
-		await fsPromises.rm( extractionDirectory, { recursive: true } );
-	};
-	return { extractionDirectory, removeExtractionDirectory };
-}
-
 export async function importBackup(
 	backupFile: BackupArchiveInfo,
 	site: SiteDetails,
 	onEvent: ( data: ImportExportEventData ) => void,
 	options: ImporterOption[]
 ): Promise< ImporterResult > {
-	const { extractionDirectory, removeExtractionDirectory } = await createExtractionDirectory();
-	let removeBackupListeners: ( () => void ) | undefined;
-	let removeImportListeners: ( () => void ) | undefined;
-
+	const extractionDirectory = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio_backup' ) );
+	let removeBackupListeners;
+	let removeImportListeners;
 	try {
-		const { importer, backupHandler } = await extractBackupFile(
-			backupFile,
-			extractionDirectory,
-			onEvent,
-			options
-		);
+		const backupHandler = BackupHandlerFactory.create( backupFile );
+		const fileList = await backupHandler.listFiles( backupFile );
+		const importer = selectImporter( fileList, extractionDirectory, onEvent, options );
 
-		if ( ! importer ) {
+		if ( importer ) {
+			removeBackupListeners = handleEvents( backupHandler, onEvent, BackupExtractEvents );
+			removeImportListeners = handleEvents( importer, onEvent, ImporterEvents );
+			await backupHandler.extractFiles( backupFile, extractionDirectory );
+			return await importer.import( site.path, site.id );
+		} else {
 			throw new Error( 'No suitable importer found for the given backup file' );
 		}
-		removeBackupListeners = handleEvents( backupHandler, onEvent, BackupExtractEvents );
-		removeImportListeners = handleEvents( importer, onEvent, ImporterEvents );
-		await backupHandler.extractFiles( backupFile, extractionDirectory );
-		return await importer.import( site.path, site.id );
 	} catch ( error ) {
 		console.error( 'Backup import failed:', ( error as Error ).message );
 		throw error;
 	} finally {
 		removeBackupListeners?.();
 		removeImportListeners?.();
-		await removeExtractionDirectory();
-	}
-}
-
-export async function getMetaFromBackupFile( backupFile: BackupArchiveInfo ) {
-	const { extractionDirectory, removeExtractionDirectory } = await createExtractionDirectory();
-	// eslint-disable-next-line @typescript-eslint/no-empty-function
-	const silentOnEvent = () => {};
-
-	try {
-		const { importer } = await extractBackupFile(
-			backupFile,
-			extractionDirectory,
-			silentOnEvent,
-			defaultImporterOptions
-		);
-
-		if ( ! importer ) {
-			return { phpVersion: '', wordpressVersion: '' };
-		}
-
-		const studioJsonObject = await importer.parseMetaFile?.();
-		return {
-			phpVersion: studioJsonObject?.phpVersion || '',
-			wordpressVersion: studioJsonObject?.wordpressVersion || '',
-		};
-	} finally {
-		await removeExtractionDirectory();
+		await fsPromises.rm( extractionDirectory, { recursive: true } );
 	}
 }
 

@@ -23,11 +23,7 @@ import { getImageData } from './lib/get-image-data';
 import { exportBackup } from './lib/import-export/export/export-manager';
 import { ExportOptions } from './lib/import-export/export/types';
 import { ImportExportEventData } from './lib/import-export/handle-events';
-import {
-	defaultImporterOptions,
-	getMetaFromBackupFile,
-	importBackup,
-} from './lib/import-export/import/import-manager';
+import { defaultImporterOptions, importBackup } from './lib/import-export/import/import-manager';
 import { BackupArchiveInfo } from './lib/import-export/import/types';
 import { isErrnoException } from './lib/is-errno-exception';
 import { isInstalled } from './lib/is-installed';
@@ -135,13 +131,6 @@ export async function importSite(
 		Sentry.captureException( e );
 		throw e;
 	}
-}
-
-export async function getMetaFromBackup(
-	event: IpcMainInvokeEvent,
-	backupFile: BackupArchiveInfo
-) {
-	return await getMetaFromBackupFile( backupFile );
 }
 
 // Use sqlite database and db.php file in situ

@@ -222,15 +222,6 @@ export async function createSite(
 	if ( parentWindow && ! parentWindow.isDestroyed() && ! event.sender.isDestroyed() ) {
 		parentWindow.webContents.send( 'theme-details-updating', details.id );
 	}
-	await server.start();
-	if ( parentWindow && ! parentWindow.isDestroyed() && ! event.sender.isDestroyed() ) {
-		parentWindow.webContents.send(
-			'theme-details-changed',
-			details.id,
-			server.details.themeDetails
-		);
-	}
-	server.updateCachedThumbnail().then( () => sendThumbnailChangedEvent( event, details.id ) );
 
 	userData.sites.push( server.details );
 	sortSites( userData.sites );

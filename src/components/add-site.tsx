@@ -170,7 +170,11 @@ export default function AddSite( { className }: AddSiteProps ) {
 									<Button onClick={ closeModal } variant="tertiary">
 										{ __( 'Cancel' ) }
 									</Button>
-									<Button type="submit" variant="primary">
+									<Button
+										type="submit"
+										variant="primary"
+										disabled={ !! error || ! siteName?.trim() }
+									>
 										{ __( 'Add site' ) }
 									</Button>
 								</div>
@@ -212,7 +216,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 								<Button onClick={ closeModal } variant="tertiary">
 									{ __( 'Cancel' ) }
 								</Button>
-								<Button type="submit" variant="primary">
+								<Button type="submit" variant="primary" disabled={ !! error || ! siteName?.trim() }>
 									{ __( 'Add site' ) }
 								</Button>
 							</div>

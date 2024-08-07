@@ -14,6 +14,8 @@ interface DistributionCheckResult {
 	error?: string;
 }
 
+const VERSION_FILENAME = 'version';
+
 /**
  * The path for wp-cli phar file within the WP Now folder.
  */
@@ -57,11 +59,10 @@ async function checkForUpdate(): Promise< DistributionCheckResult > {
 	let currentVersion: string | null = null;
 	let distributionExists = false;
 	const distributionPath = getSqliteCommandPath();
-	const versionFilePath = path.join( distributionPath, 'version' );
 
 	if ( await fs.pathExists( distributionPath ) ) {
 		distributionExists = true;
-		currentVersion = await getCurrentSQLiteCommandVersion( versionFilePath );
+		currentVersion = await getSQLiteCommandVersion( distributionPath );
 	}
 
 	try {
@@ -88,9 +89,11 @@ async function checkForUpdate(): Promise< DistributionCheckResult > {
 	}
 }
 
-async function getCurrentSQLiteCommandVersion( versionFilePath: string ) {
+export async function getSQLiteCommandVersion( distributionPath: string ) {
 	try {
-		return ( await fs.readFile( versionFilePath, 'utf8' ) ).trim().replace( 'v', '' );
+		return ( await fs.readFile( path.join( distributionPath, VERSION_FILENAME ), 'utf8' ) )
+			.trim()
+			.replace( 'v', '' );
 	} catch ( _error ) {
 		return null;
 	}

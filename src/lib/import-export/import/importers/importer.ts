@@ -42,7 +42,6 @@ export abstract class BaseBackupImporter extends BaseImporter implements Importe
 			if ( this.backup.metaFile ) {
 				meta = await this.parseMetaFile();
 			}
-
 			this.emit( ImportEvents.IMPORT_COMPLETE );
 			return {
 				extractionDirectory: this.backup.extractionDirectory,
@@ -173,7 +172,12 @@ export class LocalImporter extends BaseBackupImporter {
 		this.emit( ImportEvents.IMPORT_META_START );
 		try {
 			const metaContent = await fsPromises.readFile( metaFilePath, 'utf-8' );
-			return JSON.parse( metaContent );
+			const meta = JSON.parse( metaContent );
+			const phpVersion = meta?.services?.php?.version;
+			return {
+				phpVersion: phpVersion.split( '.' ).slice( 0, 2 ).join( '.' ) ?? '8.1',
+				wordpressVersion: '',
+			};
 		} catch ( e ) {
 			return;
 		} finally {

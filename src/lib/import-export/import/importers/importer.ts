@@ -7,12 +7,7 @@ import { lstat, rename } from 'fs-extra';
 import { SiteServer } from '../../../../site-server';
 import { generateBackupFilename } from '../../export/generate-backup-filename';
 import { ImportEvents } from '../events';
-import { BackupContents } from '../types';
-
-export interface MetaFileData {
-	phpVersion: string;
-	wordpressVersion: string;
-}
+import { BackupContents, MetaFileData } from '../types';
 
 export interface ImporterResult extends Omit< BackupContents, 'metaFile' > {
 	meta?: MetaFileData;
@@ -22,7 +17,7 @@ export interface Importer extends Partial< EventEmitter > {
 	import( rootPath: string, siteId: string ): Promise< ImporterResult >;
 }
 
-export abstract class BaseImporter extends EventEmitter implements Importer {
+abstract class BaseImporter extends EventEmitter implements Importer {
 	constructor( protected backup: BackupContents ) {
 		super();
 	}

@@ -3,6 +3,7 @@ import fsPromises from 'fs/promises';
 import os from 'os';
 import archiver from 'archiver';
 import { format } from 'date-fns';
+import { getWordPressVersionFromInstallation } from '../../../../../lib/wp-versions';
 import { SiteServer } from '../../../../../site-server';
 import { DefaultExporter } from '../../../export/exporters';
 import { ExportOptions, BackupContents } from '../../../export/types';
@@ -14,6 +15,7 @@ jest.mock( 'fs-extra' );
 jest.mock( 'date-fns', () => ( {
 	format: jest.fn(),
 } ) );
+jest.mock( '../../../../../lib/wp-versions' );
 
 // Create a partial mock of the Archiver interface
 type PartialArchiver = Pick<
@@ -57,6 +59,7 @@ describe( 'DefaultExporter', () => {
 	];
 
 	( fsPromises.readdir as jest.Mock ).mockResolvedValue( mockFiles );
+	( getWordPressVersionFromInstallation as jest.Mock ).mockResolvedValue( '6.6.1' );
 
 	beforeEach( () => {
 		mockBackup = {
@@ -85,6 +88,7 @@ describe( 'DefaultExporter', () => {
 				themes: true,
 				database: true,
 			},
+			phpVersion: '8.4',
 		};
 
 		// Reset all mock implementations
@@ -150,6 +154,17 @@ describe( 'DefaultExporter', () => {
 
 		expect( mockArchiver.file ).toHaveBeenCalledWith( '/path/to/site/wp-config.php', {
 			name: 'wp-config.php',
+		} );
+	} );
+
+	it( 'should add studio.json to the archive', async () => {
+		const exporter = new DefaultExporter( mockOptions );
+		await exporter.export();
+
+		expect( getWordPressVersionFromInstallation ).toHaveBeenCalledTimes( 1 );
+		expect( getWordPressVersionFromInstallation ).toHaveBeenCalledWith( '/path/to/site' );
+		expect( mockArchiver.file ).toHaveBeenCalledWith( '/tmp/studio_export_123/studio.json', {
+			name: 'studio.json',
 		} );
 	} );
 
@@ -237,6 +252,7 @@ describe( 'DefaultExporter', () => {
 		} );
 		await expect( exporter.export() ).rejects.toThrow( 'Archive error' );
 		expect( mockArchiver.abort ).toHaveBeenCalled();
+		expect( getWordPressVersionFromInstallation ).toHaveBeenCalledTimes( 0 );
 	} );
 
 	it( 'should return true when canHandle is called', async () => {

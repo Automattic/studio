@@ -12,8 +12,8 @@ const api: IpcApi = {
 	archiveSite: ( id: string ) => ipcRenderer.invoke( 'archiveSite', id ),
 	deleteSite: ( id: string, deleteFiles?: boolean ) =>
 		ipcRenderer.invoke( 'deleteSite', id, deleteFiles ),
-	createSite: ( path: string, options: { siteName?: string; phpVersion?: string } ) =>
-		ipcRenderer.invoke( 'createSite', path, options ),
+	createSite: ( path: string, siteName?: string ) =>
+		ipcRenderer.invoke( 'createSite', path, siteName ),
 	updateSite: ( updatedSite: SiteDetails ) => ipcRenderer.invoke( 'updateSite', updatedSite ),
 	authenticate: () => ipcRenderer.invoke( 'authenticate' ),
 	exportSite: ( options: ExportOptions, siteId: string ) =>

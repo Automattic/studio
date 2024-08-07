@@ -171,12 +171,8 @@ async function setupSqliteIntegration( path: string ) {
 export async function createSite(
 	event: IpcMainInvokeEvent,
 	path: string,
-	options: {
-		siteName?: string;
-		phpVersion?: string;
-	}
+	siteName?: string
 ): Promise< SiteDetails[] > {
-	const { siteName, phpVersion = DEFAULT_PHP_VERSION } = options;
 	const userData = await loadUserData();
 	const forceSetupSqlite = false;
 	// We only recursively create the directory if the user has not selected a
@@ -212,7 +208,7 @@ export async function createSite(
 		path,
 		adminPassword: createPassword(),
 		running: false,
-		phpVersion,
+		phpVersion: DEFAULT_PHP_VERSION,
 	} as const;
 
 	const server = SiteServer.create( details );

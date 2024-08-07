@@ -81,7 +81,7 @@ describe( 'AddSite', () => {
 
 		//Expect the createSite function to be called with the selected path and no import file
 		await waitFor( () => {
-			expect( mockCreateSite ).toHaveBeenCalledWith( 'test', 'My WordPress Website', false, '' );
+			expect( mockCreateSite ).toHaveBeenCalledWith( 'test', 'My WordPress Website', false );
 		} );
 	} );
 

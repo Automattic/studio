@@ -56,19 +56,7 @@ export function useAddSite() {
 	const handleAddSiteClick = useCallback( async () => {
 		try {
 			const path = sitePath ? sitePath : proposedSitePath;
-			let phpVersion = '';
-
-			if ( fileForImport ) {
-				const backupFile: BackupArchiveInfo = {
-					type: fileForImport.type,
-					path: fileForImport.path,
-				};
-
-				const meta = await getIpcApi().getMetaFromBackup( backupFile );
-				phpVersion = meta.phpVersion;
-			}
-
-			const newSite = await createSite( path, siteName ?? '', !! fileForImport, phpVersion );
+			const newSite = await createSite( path, siteName ?? '', !! fileForImport );
 			if ( newSite ) {
 				if ( fileForImport ) {
 					await importFile( fileForImport, newSite, {

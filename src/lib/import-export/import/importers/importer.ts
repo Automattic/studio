@@ -1,4 +1,6 @@
+import { shell } from 'electron';
 import { EventEmitter } from 'events';
+import fs from 'fs';
 import fsPromises from 'fs/promises';
 import path from 'path';
 import { lstat, rename } from 'fs-extra';
@@ -20,36 +22,19 @@ export interface Importer extends Partial< EventEmitter > {
 	import( rootPath: string, siteId: string ): Promise< ImporterResult >;
 }
 
-export class DefaultImporter extends EventEmitter implements Importer {
+export abstract class BaseImporter extends EventEmitter implements Importer {
 	constructor( protected backup: BackupContents ) {
 		super();
 	}
 
-	async import( rootPath: string, siteId: string ): Promise< ImporterResult > {
-		this.emit( ImportEvents.IMPORT_START );
+	abstract import( rootPath: string, siteId: string ): Promise< ImporterResult >;
 
-		try {
-			await this.importDatabase( rootPath, siteId );
-			await this.importWpContent( rootPath );
-			let meta: MetaFileData | undefined;
-			if ( this.backup.metaFile ) {
-				meta = await this.parseMetaFile();
-			}
-			this.emit( ImportEvents.IMPORT_COMPLETE );
-			return {
-				extractionDirectory: this.backup.extractionDirectory,
-				sqlFiles: this.backup.sqlFiles,
-				wpContent: this.backup.wpContent,
-				meta,
-			};
-		} catch ( error ) {
-			this.emit( ImportEvents.IMPORT_ERROR );
-			throw error;
-		}
-	}
-
-	protected async importDatabase( rootPath: string, siteId: string ): Promise< void > {
-		if ( ! this.backup.sqlFiles.length ) {
+	protected async importDatabase(
+		rootPath: string,
+		siteId: string,
+		sqlFiles: string[]
+	): Promise< void > {
+		if ( ! sqlFiles.length ) {
 			return;
 		}
 
@@ -59,14 +44,14 @@ export class DefaultImporter extends EventEmitter implements Importer {
 		}
 
 		this.emit( ImportEvents.IMPORT_DATABASE_START );
-		const sortedSqlFiles = [ ...this.backup.sqlFiles ].sort( ( a, b ) => a.localeCompare( b ) );
+
+		const sortedSqlFiles = sqlFiles.sort( ( a, b ) => a.localeCompare( b ) );
 		for ( const sqlFile of sortedSqlFiles ) {
 			const sqlTempFile = `${ generateBackupFilename( 'sql' ) }.sql`;
 			const tmpPath = path.join( rootPath, sqlTempFile );
 
 			try {
 				await rename( sqlFile, tmpPath );
-				// Execute the command to export directly to the temp file
 				const { stderr, exitCode } = await server.executeWpCliCommand(
 					`sqlite import ${ sqlTempFile } --require=/tmp/sqlite-command/command.php`
 				);
@@ -82,14 +67,61 @@ export class DefaultImporter extends EventEmitter implements Importer {
 				console.error( `Error processing ${ sqlFile }:`, error );
 				throw error;
 			} finally {
-				try {
-					await fsPromises.unlink( tmpPath );
-				} catch ( unlinkError ) {
-					console.error( `Failed to delete temporary file ${ tmpPath }:`, unlinkError );
-				}
+				await this.safelyDeleteFile( tmpPath );
 			}
 		}
+
 		this.emit( ImportEvents.IMPORT_DATABASE_COMPLETE );
+	}
+
+	protected async safelyDeleteFile( filePath: string ): Promise< void > {
+		try {
+			await fsPromises.unlink( filePath );
+		} catch ( error ) {
+			console.error( `Failed to safely delete file ${ filePath }:`, error );
+		}
+	}
+}
+
+export class JetpackImporter extends BaseImporter {
+	async import( rootPath: string, siteId: string ): Promise< ImporterResult > {
+		this.emit( ImportEvents.IMPORT_START );
+
+		try {
+			const databaseDir = path.join( rootPath, 'wp-content', 'database' );
+			const dbPath = path.join( databaseDir, '.ht.sqlite' );
+
+			await this.moveExistingDatabaseToTrash( dbPath );
+			await this.createEmptyDatabase( dbPath );
+			await this.importDatabase( rootPath, siteId, this.backup.sqlFiles );
+			await this.importWpContent( rootPath );
+			let meta: MetaFileData | undefined;
+			if ( this.backup.metaFile ) {
+				meta = await this.parseMetaFile();
+			}
+
+			this.emit( ImportEvents.IMPORT_COMPLETE );
+			return {
+				extractionDirectory: this.backup.extractionDirectory,
+				sqlFiles: this.backup.sqlFiles,
+				wpContent: this.backup.wpContent,
+				meta,
+			};
+		} catch ( error ) {
+			this.emit( ImportEvents.IMPORT_ERROR, error );
+			throw error;
+		}
+	}
+
+	protected async createEmptyDatabase( dbPath: string ): Promise< void > {
+		await fsPromises.writeFile( dbPath, '' );
+	}
+
+	protected async moveExistingDatabaseToTrash( dbPath: string ): Promise< void > {
+		if ( ! fs.existsSync( dbPath ) ) {
+			return;
+		}
+		await shell.trashItem( dbPath );
 	}
 
 	protected async importWpContent( rootPath: string ): Promise< void > {
@@ -126,6 +158,26 @@ export class DefaultImporter extends EventEmitter implements Importer {
 			return;
 		} finally {
 			this.emit( ImportEvents.IMPORT_META_COMPLETE );
+		}
+	}
+}
+
+export class SQLImporter extends BaseImporter {
+	async import( rootPath: string, siteId: string ): Promise< ImporterResult > {
+		this.emit( ImportEvents.IMPORT_START );
+
+		try {
+			await this.importDatabase( rootPath, siteId, this.backup.sqlFiles );
+
+			this.emit( ImportEvents.IMPORT_COMPLETE );
+			return {
+				extractionDirectory: this.backup.extractionDirectory,
+				sqlFiles: this.backup.sqlFiles,
+				wpContent: this.backup.wpContent,
+			};
+		} catch ( error ) {
+			this.emit( ImportEvents.IMPORT_ERROR, error );
+			throw error;
 		}
 	}
 }

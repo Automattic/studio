@@ -16,6 +16,10 @@ export default class SiteContent {
 		return this.locator.getByRole( 'heading', { name: this.siteName } );
 	}
 
+	get runningButton() {
+		return this.locator.getByRole( 'button', { name: 'Running' } );
+	}
+
 	get frontendButton() {
 		// Original: No longer works.
 		//

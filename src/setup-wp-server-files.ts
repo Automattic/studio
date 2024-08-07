@@ -9,6 +9,7 @@ import { recursiveCopyDirectory } from './lib/fs-utils';
 import {
 	getSqliteCommandPath,
 	updateLatestSQLiteCommandVersion,
+	getSQLiteCommandVersion,
 } from './lib/sqlite-command-versions';
 import { updateLatestSqliteVersion } from './lib/sqlite-versions';
 import {
@@ -64,13 +65,27 @@ async function copyBundledWPCLI() {
 }
 
 async function copyBundledSQLiteCommand() {
-	const isSqliteCommandInstalled = await fs.pathExists( getSqliteCommandPath() );
-	if ( isSqliteCommandInstalled ) {
+	const bundledSqliteCommandPath = path.join( getResourcesPath(), 'wp-files', 'sqlite-command' );
+	const bundledSqliteCommandVersion = semver.coerce(
+		await getSQLiteCommandVersion( bundledSqliteCommandPath )
+	);
+
+	if ( ! bundledSqliteCommandVersion ) {
 		return;
 	}
-	const bundledSqliteCommandPath = path.join( getResourcesPath(), 'wp-files', 'sqlite-command' );
+	const installedSqliteCommandPath = getSqliteCommandPath();
+	const isSqliteCommandInstalled = await fs.pathExists( installedSqliteCommandPath );
 
-	await recursiveCopyDirectory( bundledSqliteCommandPath, getSqliteCommandPath() );
+	const installedSqliteCommandVersion = semver.coerce(
+		await getSQLiteCommandVersion( installedSqliteCommandPath )
+	);
+	const isBundledVersionNewer =
+		installedSqliteCommandVersion &&
+		semver.gt( bundledSqliteCommandVersion, installedSqliteCommandVersion );
+	if ( ! isSqliteCommandInstalled || isBundledVersionNewer ) {
+		console.log( `Copying bundled SQLite command version ${ bundledSqliteCommandVersion }...` );
+		await recursiveCopyDirectory( bundledSqliteCommandPath, installedSqliteCommandPath );
+	}
 }
 
 export async function setupWPServerFiles() {

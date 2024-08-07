@@ -1,3 +1,5 @@
+![Crash Free Sessions Rate](https://img.shields.io/badge/Crash_Free_Session_Rate-91.631%25-blue?link=https%3A%2F%2Fa8c.sentry.io%2Fprojects%2Fstudio%2F%3Fproject%3D4506612776501248)
+
 # Studio by WordPress.com
 
 A desktop application for creating local WordPress environments, powered by WordPress.com and WordPress Playground.

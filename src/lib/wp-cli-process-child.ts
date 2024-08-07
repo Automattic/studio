@@ -37,14 +37,10 @@ function createHandler< T >( handler: ( data: unknown ) => T ) {
 			} );
 		} catch ( error ) {
 			const errorObj = error as Error;
-			if ( ! errorObj ) {
-				process.parentPort.postMessage( { message, messageId, error: Error( 'Unknown Error' ) } );
-				return;
-			}
 			process.parentPort.postMessage( {
 				message,
 				messageId,
-				error: errorObj,
+				error: errorObj?.message || 'Unknown Error',
 			} );
 		}
 	};

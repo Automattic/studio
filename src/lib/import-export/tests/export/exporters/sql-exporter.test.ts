@@ -53,12 +53,12 @@ describe( 'SqlExporter', () => {
 		jest.useRealTimers();
 	} );
 
-	it( 'should call db export command on the site server', async () => {
+	it( 'should call sqlite export command on the site server', async () => {
 		await exporter.export();
 
 		const siteServer = SiteServer.get( '123' );
 		expect( siteServer?.executeWpCliCommand ).toHaveBeenCalledWith(
-			'db export studio-backup-db-export-2024-08-01-12-00-00.sql'
+			'sqlite export studio-backup-db-export-2024-08-01-12-00-00.sql --require=/tmp/sqlite-command/command.php'
 		);
 	} );
 

@@ -1,11 +1,20 @@
-import https from 'https';
 import os from 'os';
 import path from 'path';
 import extract from 'extract-zip';
+import { https } from 'follow-redirects';
 import fs from 'fs-extra';
+import { getLatestSQLiteCommandRelease } from '../src/lib/sqlite-command-release';
 
 const WP_SERVER_FILES_PATH = path.join( __dirname, '..', 'wp-files' );
-const FILES_TO_DOWNLOAD = [
+
+interface FileToDownload {
+	name: string;
+	description: string;
+	url: string | ( () => Promise< string > );
+	destinationPath?: string;
+}
+
+const FILES_TO_DOWNLOAD: FileToDownload[] = [
 	{
 		name: 'wordpress',
 		description: 'latest WordPress version',
@@ -23,21 +32,21 @@ const FILES_TO_DOWNLOAD = [
 		url: 'https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar',
 		destinationPath: path.join( WP_SERVER_FILES_PATH, 'wp-cli' ),
 	},
+	{
+		name: 'sqlite-command',
+		description: 'SQLite command',
+		url: async () => {
+			const latestRelease = await getLatestSQLiteCommandRelease();
+			return latestRelease.assets?.[ 0 ].browser_download_url ?? '';
+		},
+		destinationPath: path.join( WP_SERVER_FILES_PATH, 'sqlite-command' ),
+	},
 ];
 
-const downloadFile = async ( {
-	name,
-	description,
-	url,
-	destinationPath,
-}: {
-	name: string;
-	description: string;
-	url: string;
-	destinationPath?: string;
-} ) => {
+const downloadFile = async ( file: FileToDownload ) => {
+	const { name, description, destinationPath } = file;
+	const url = await getUrl( file.url );
 	console.log( `[${ name }] Downloading ${ description } ...` );
-
 	const zipPath = path.join( os.tmpdir(), `${ name }.zip` );
 	const extractedPath = destinationPath ?? WP_SERVER_FILES_PATH;
 	try {
@@ -91,6 +100,10 @@ const downloadFile = async ( {
 	console.log( `[${ name }] Files extracted` );
 };
 
+async function getUrl( url: string | ( () => Promise< string > ) ): Promise< string > {
+	return typeof url === 'function' ? await url() : url;
+}
+
 const downloadFiles = async () => {
 	for ( const file of FILES_TO_DOWNLOAD ) {
 		try {
@@ -101,4 +114,5 @@ const downloadFiles = async () => {
 		}
 	}
 };
+
 downloadFiles();

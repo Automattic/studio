@@ -18,11 +18,17 @@ export async function exportDatabaseToFile(
 	const tempFilePath = path.join( site.path, tempFileName );
 
 	// Execute the command to export directly to the temp file
-	const { stderr } = await server.executeWpCliCommand( `db export ${ tempFileName }` );
+	const { stderr, exitCode } = await server.executeWpCliCommand(
+		`sqlite export ${ tempFileName } --require=/tmp/sqlite-command/command.php`
+	);
 
 	if ( stderr ) {
 		console.error( 'Error during export:', stderr );
 		throw new Error( `Database export failed: ${ stderr }` );
+	}
+
+	if ( exitCode ) {
+		throw new Error( 'Database export failed' );
 	}
 
 	// Move the file to its final destination

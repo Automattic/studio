@@ -4,13 +4,14 @@ import getWpNowConfig from './config';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from './constants';
 import { phpVar } from '@php-wasm/util';
 import { NodePHP } from '@php-wasm/node';
+import { getSqliteCommandPath } from '../../../src/lib/sqlite-command-versions';
 
 const isWindows = process.platform === 'win32';
 
 /**
  * This is an unstable API. Multiple wp-cli commands may not work due to a current limitation on php-wasm and pthreads.
  */
-export async function executeWPCli( projectPath: string, args: string[] ): Promise<{ stdout: string; stderr: string; }> {
+export async function executeWPCli( projectPath: string, args: string[] ): Promise<{ stdout: string; stderr: string; exitCode: number; }> {
 	await downloadWpCli();
 	let options = await getWpNowConfig({
 		php: DEFAULT_PHP_VERSION,
@@ -31,9 +32,11 @@ export async function executeWPCli( projectPath: string, args: string[] ): Promi
 	php.mkdir('/tmp');
 	const stderrPath = '/tmp/stderr';
 	const wpCliPath = '/tmp/wp-cli.phar';
+	const sqliteCommandPath = '/tmp/sqlite-command';
 	const runCliPath =  '/tmp/run-cli.php';
 	php.writeFile(stderrPath, '');
 	php.mount(getWpCliPath(), wpCliPath);
+	php.mount(getSqliteCommandPath(), sqliteCommandPath);
 
 	php.writeFile(
 		runCliPath,
@@ -79,9 +82,11 @@ export async function executeWPCli( projectPath: string, args: string[] ): Promi
 			scriptPath: runCliPath,
 		});
 
-		return { stdout: result.text.replace('#!/usr/bin/env php', '').trim(), stderr: result.errors };
+		const stderr = php.readFileAsText(stderrPath).replace('PHP.run() output was: #!/usr/bin/env php', '').trim();
+
+		return { stdout: result.text.replace('#!/usr/bin/env php', '').trim(), stderr, exitCode: result.exitCode };
 	} catch (error) {
-		const errorContent = php.readFileAsText(stderrPath).replace('PHP.run() output was: #!/usr/bin/env php', '').trim();
-		return { stdout: '', stderr: errorContent };
+		const stderr = php.readFileAsText(stderrPath).replace('PHP.run() output was: #!/usr/bin/env php', '').trim();
+		return { stdout: '', stderr: stderr, exitCode: 1 };
 	}
 }

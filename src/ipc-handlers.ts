@@ -223,6 +223,7 @@ export async function createSite(
 		parentWindow.webContents.send( 'theme-details-updating', details.id );
 	}
 	await server.start();
+	await server.stop();
 	if ( parentWindow && ! parentWindow.isDestroyed() && ! event.sender.isDestroyed() ) {
 		parentWindow.webContents.send(
 			'theme-details-changed',

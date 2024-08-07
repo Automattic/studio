@@ -78,7 +78,7 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 	}
 }
 
-export abstract class BaseBackupImporter extends BaseImporter {
+abstract class BaseBackupImporter extends BaseImporter {
 	async import( rootPath: string, siteId: string ): Promise< ImporterResult > {
 		this.emit( ImportEvents.IMPORT_START );
 

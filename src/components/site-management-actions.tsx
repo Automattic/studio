@@ -27,7 +27,7 @@ export const SiteManagementActions = ( {
 	return (
 		<Tooltip
 			disabled={ ! isImporting }
-			text={ __( 'Starting and stopping a site is disabled during import.' ) }
+			text={ __( 'A site can't be stopped or started during import.' ) }
 			placement="left"
 		>
 			<ActionButton

@@ -3,7 +3,8 @@ import { EventEmitter } from 'events';
 import fs from 'fs';
 import fsPromises from 'fs/promises';
 import path from 'path';
-import { lstat, rename } from 'fs-extra';
+import { lstat, move, rename } from 'fs-extra';
+import { isLinux } from '../../../../lib/app-globals';
 import { SiteServer } from '../../../../site-server';
 import { generateBackupFilename } from '../../export/generate-backup-filename';
 import { ImportEvents } from '../events';
@@ -51,7 +52,11 @@ export abstract class BaseImporter extends EventEmitter implements Importer {
 			const tmpPath = path.join( rootPath, sqlTempFile );
 
 			try {
-				await rename( sqlFile, tmpPath );
+				if ( isLinux() ) {
+					await move( sqlFile, tmpPath );
+				} else {
+					await rename( sqlFile, tmpPath );
+				}
 				const { stderr, exitCode } = await server.executeWpCliCommand(
 					`sqlite import ${ sqlTempFile } --require=/tmp/sqlite-command/command.php`
 				);
@@ -71,7 +76,47 @@ export abstract class BaseImporter extends EventEmitter implements Importer {
 			}
 		}
 
+		this.fixSiteUrl( siteId );
 		this.emit( ImportEvents.IMPORT_DATABASE_COMPLETE );
+	}
+
+	private async fixSiteUrl( siteId: string ) {
+		const server = SiteServer.get( siteId );
+		if ( ! server ) {
+			throw new Error( 'Site not found.' );
+		}
+
+		// Step 1: Fetch the current site URL
+		const { stdout: currentSiteUrl } = await server.executeWpCliCommand(
+			`option get siteurl --require=/tmp/sqlite-command/command.php`
+		);
+
+		if ( ! currentSiteUrl ) {
+			console.error( 'Failed to fetch site URL after import' );
+			return;
+		}
+
+		const studioUrl = `http://localhost:${ server.details.port }`;
+		console.log( `Current Site URL: ${ currentSiteUrl }` );
+		console.log( `New Studio URL: ${ studioUrl }` );
+
+		const { stdout, stderr, exitCode } = await server.executeWpCliCommand(
+			`search-replace '${ currentSiteUrl.trim() }' '${ studioUrl.trim() }' --require=/tmp/sqlite-command/command.php`
+		);
+
+		console.log( stdout );
+
+		if ( stderr ) {
+			console.error(
+				`Warning during replacing siteUrl ${ currentSiteUrl } -> ${ studioUrl }: ${ stderr }`
+			);
+		}
+
+		if ( exitCode ) {
+			console.error(
+				`Error during replacing siteUrl ${ currentSiteUrl } -> ${ studioUrl }, Exit Code: ${ exitCode }`
+			);
+		}
 	}
 
 	protected async safelyDeleteFile( filePath: string ): Promise< void > {

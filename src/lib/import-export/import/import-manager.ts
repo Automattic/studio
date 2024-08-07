@@ -4,7 +4,13 @@ import path from 'path';
 import { ImportExportEventData, handleEvents } from '../handle-events';
 import { BackupExtractEvents, ImporterEvents, ValidatorEvents } from './events';
 import { BackupHandlerFactory } from './handlers/backup-handler-factory';
-import { Importer, ImporterResult, JetpackImporter, LocalImporter, SQLImporter } from './importers/importer';
+import {
+	Importer,
+	ImporterResult,
+	JetpackImporter,
+	LocalImporter,
+	SQLImporter,
+} from './importers/importer';
 import { BackupArchiveInfo, NewImporter } from './types';
 import { JetpackValidator, SqlValidator, LocalValidator } from './validators';
 import { Validator } from './validators/validator';

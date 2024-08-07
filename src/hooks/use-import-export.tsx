@@ -41,6 +41,7 @@ interface ImportExportContext {
 		options?: { showImportNotification?: boolean; isNewSite?: boolean }
 	) => Promise< void >;
 	clearImportState: ( siteId: string ) => void;
+	isSiteImporting: ( siteId: string ) => boolean;
 	exportState: ExportProgressState;
 	exportFullSite: ( selectedSite: SiteDetails ) => Promise< string | undefined >;
 	exportDatabase: ( selectedSite: SiteDetails ) => Promise< string | undefined >;
@@ -59,6 +60,7 @@ const ImportExportContext = createContext< ImportExportContext >( {
 	importState: {},
 	importFile: async () => undefined,
 	clearImportState: () => undefined,
+	isSiteImporting: () => false,
 	exportState: {},
 	exportFullSite: async () => undefined,
 	exportDatabase: async () => undefined,
@@ -130,6 +132,11 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 			...rest,
 		} ) );
 	}, [] );
+
+	const isSiteImporting = useCallback(
+		( siteId: string ) => !! importState[ siteId ] && importState[ siteId ].progress < 100,
+		[ importState ]
+	);
 
 	useIpcListener( 'on-import', ( _, { event, data }: ImportExportEventData, siteId: string ) => {
 		if ( ! siteId ) {
@@ -399,11 +406,20 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 			importState,
 			importFile,
 			clearImportState,
+			isSiteImporting,
 			exportState,
 			exportFullSite,
 			exportDatabase,
 		} ),
-		[ importState, importFile, clearImportState, exportState, exportFullSite, exportDatabase ]
+		[
+			importState,
+			importFile,
+			clearImportState,
+			isSiteImporting,
+			exportState,
+			exportFullSite,
+			exportDatabase,
+		]
 	);
 
 	return (

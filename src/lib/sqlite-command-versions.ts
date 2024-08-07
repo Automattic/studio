@@ -48,7 +48,6 @@ export async function updateLatestSQLiteCommandVersion() {
 	}
 
 	try {
-		console.log( `Downloading SQLite Command ${ distributionCheck.latestVersion }...` );
 		await downloadSQLiteCommand( distributionCheck.downloadUrl, getSqliteCommandPath() );
 	} catch ( error ) {
 		console.error( `Failed to download SQLite Command: ${ error }` );

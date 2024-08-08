@@ -1,4 +1,4 @@
-import followRedirects from 'follow-redirects';
+import followRedirects, { FollowResponse } from 'follow-redirects';
 import fs from 'fs-extra';
 import { HttpProxyAgent, HttpsProxyAgent } from 'hpagent';
 import { IncomingMessage } from 'http';
@@ -13,7 +13,7 @@ import getWpNowPath from './get-wp-now-path';
 import { output } from './output';
 import { isValidWordPressVersion } from './wp-playground-wordpress';
 
-function httpsGet(url: string, callback: Function) {
+function httpsGet(url: string, callback: (res: IncomingMessage & FollowResponse) => void) {
 	const proxy =
 		process.env.https_proxy ||
 		process.env.HTTPS_PROXY ||
@@ -46,7 +46,6 @@ interface DownloadFileAndUnzipResult {
 	statusCode: number;
 }
 
-followRedirects.maxRedirects = 5;
 const { https } = followRedirects;
 
 async function downloadFile({
@@ -214,6 +213,27 @@ export async function downloadSqliteIntegrationPlugin(
 	} else if(0 !== statusCode) {
 		throw Error('An error ocurred when download SQLite' );
 	}
+}
+
+export async function downloadSQLiteCommand( downloadUrl: string, targetPath: string ) {
+	const tempFolder = path.join( os.tmpdir(), 'wp-cli-sqlite-command' );
+	const { downloaded, statusCode } = await downloadFileAndUnzip( {
+		url: downloadUrl,
+		destinationFolder: tempFolder,
+		checkFinalPath: targetPath,
+		itemName: 'SQLite Command',
+		overwrite: true,
+	} );
+
+	if (!downloaded) {
+		throw new Error(`Failed to download SQLite CLI command. Status code: ${statusCode}`);
+	}
+
+	await fs.ensureDir(path.dirname(targetPath));
+
+	await fs.move(path.join( tempFolder ), targetPath, {
+		overwrite: true,
+	});
 }
 
 export async function downloadMuPlugins(customMuPluginsPath = '') {

@@ -6,6 +6,10 @@ import { getWordPressVersionPath } from '../vendor/wp-now/src/download';
 import getSqlitePath from '../vendor/wp-now/src/get-sqlite-path';
 import getWpCliPath from '../vendor/wp-now/src/get-wp-cli-path';
 import { recursiveCopyDirectory } from './lib/fs-utils';
+import {
+	getSqliteCommandPath,
+	updateLatestSQLiteCommandVersion,
+} from './lib/sqlite-command-versions';
 import { getSqliteVersionFromInstallation, updateLatestSqliteVersion } from './lib/sqlite-versions';
 import {
 	getWordPressVersionFromInstallation,
@@ -69,14 +73,27 @@ async function copyBundledWPCLI() {
 	const bundledWPCLIPath = path.join( getResourcesPath(), 'wp-files', 'wp-cli', 'wp-cli.phar' );
 	await fs.copyFile( bundledWPCLIPath, getWpCliPath() );
 }
+
+async function copyBundledSQLiteCommand() {
+	const isSqliteCommandInstalled = await fs.pathExists( getSqliteCommandPath() );
+	if ( isSqliteCommandInstalled ) {
+		return;
+	}
+	const bundledSqliteCommandPath = path.join( getResourcesPath(), 'wp-files', 'sqlite-command' );
+
+	await recursiveCopyDirectory( bundledSqliteCommandPath, getSqliteCommandPath() );
+}
+
 export async function setupWPServerFiles() {
 	await copyBundledLatestWPVersion();
 	await copyBundledSqlite();
 	await copyBundledWPCLI();
+	await copyBundledSQLiteCommand();
 }
 
 export async function updateWPServerFiles() {
 	await updateLatestWordPressVersion();
 	await updateLatestSqliteVersion();
 	await updateLatestWPCliVersion();
+	await updateLatestSQLiteCommandVersion();
 }

@@ -98,7 +98,7 @@ export default class WpCliProcess {
 				message: MessageName;
 				messageId: number;
 				data: T;
-				error?: Error;
+				error?: string;
 			} ) => {
 				if ( message !== originalMessage || messageId !== originalMessageId ) {
 					return;
@@ -107,7 +107,8 @@ export default class WpCliProcess {
 				clearTimeout( timeoutId );
 				delete this.ongoingMessages[ originalMessageId ];
 				if ( typeof error !== 'undefined' ) {
-					reject( error );
+					console.error( error );
+					reject( new Error( error ) );
 					return;
 				}
 				resolve( data );

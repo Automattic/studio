@@ -4,6 +4,7 @@ import fsPromises from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import archiver from 'archiver';
+import { getWordPressVersionFromInstallation } from '../../../../lib/wp-versions';
 import { ExportEvents } from '../events';
 import { exportDatabaseToFile } from '../export-database';
 import { generateBackupFilename } from '../generate-backup-filename';
@@ -78,6 +79,8 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 			this.addWpConfig();
 			this.addWpContent();
 			await this.addDatabase();
+			const studioJsonPath = await this.createStudioJsonFile();
+			this.archive.file( studioJsonPath, { name: 'studio.json' } );
 			await this.archive.finalize();
 			this.emit( ExportEvents.BACKUP_CREATE_COMPLETE );
 			await archiveClosedPromise;
@@ -217,5 +220,19 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		} );
 
 		return backupContents;
+	}
+
+	private async createStudioJsonFile(): Promise< string > {
+		const wpVersion = await getWordPressVersionFromInstallation( this.options.site.path );
+		const studioJson: { phpVersion: string; wordpressVersion?: string } = {
+			phpVersion: this.options.phpVersion,
+		};
+		if ( wpVersion ) {
+			studioJson.wordpressVersion = wpVersion;
+		}
+		const tempDir = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio-export-' ) );
+		const studioJsonPath = path.join( tempDir, 'studio.json' );
+		await fsPromises.writeFile( studioJsonPath, JSON.stringify( studioJson, null, 2 ) );
+		return studioJsonPath;
 	}
 }

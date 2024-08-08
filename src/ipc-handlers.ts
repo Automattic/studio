@@ -102,15 +102,14 @@ export async function importSite(
 	if ( ! site ) {
 		throw new Error( 'Site not found.' );
 	}
-	const sitePath = site.details.path;
 	try {
 		const onEvent = ( data: ImportExportEventData ) => {
 			const parentWindow = BrowserWindow.fromWebContents( event.sender );
 			if ( parentWindow && ! parentWindow.isDestroyed() && ! event.sender.isDestroyed() ) {
-				parentWindow.webContents.send( 'on-import', data );
+				parentWindow.webContents.send( 'on-import', data, id );
 			}
 		};
-		const result = await importBackup( backupFile, sitePath, onEvent, defaultImporterOptions );
+		const result = await importBackup( backupFile, site.details, onEvent, defaultImporterOptions );
 		if ( result?.meta?.phpVersion ) {
 			await updateSite( event, {
 				...site.details,
@@ -188,15 +187,6 @@ export async function createSite(
 	if ( parentWindow && ! parentWindow.isDestroyed() && ! event.sender.isDestroyed() ) {
 		parentWindow.webContents.send( 'theme-details-updating', details.id );
 	}
-	await server.start();
-	if ( parentWindow && ! parentWindow.isDestroyed() && ! event.sender.isDestroyed() ) {
-		parentWindow.webContents.send(
-			'theme-details-changed',
-			details.id,
-			server.details.themeDetails
-		);
-	}
-	server.updateCachedThumbnail().then( () => sendThumbnailChangedEvent( event, details.id ) );
 
 	userData.sites.push( server.details );
 	sortSites( userData.sites );
@@ -611,7 +601,11 @@ export async function executeWPCLiInline(
 	{ siteId, args }: { siteId: string; args: string }
 ): Promise< WpCliResult > {
 	if ( SiteServer.isDeleted( siteId ) ) {
-		return { stdout: '', stderr: `Cannot execute command on deleted site ${ siteId }` };
+		return {
+			stdout: '',
+			stderr: `Cannot execute command on deleted site ${ siteId }`,
+			exitCode: 1,
+		};
 	}
 	const server = SiteServer.get( siteId );
 	if ( ! server ) {

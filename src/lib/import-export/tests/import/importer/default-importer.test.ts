@@ -1,9 +1,13 @@
 // To run tests, execute `npm run test -- src/lib/import-export/tests/import/importer/jetpack-importer.test.ts`
 import * as fs from 'fs/promises';
-import { DefaultImporter } from '../../../import/importers';
+import { lstat, rename } from 'fs-extra';
+import { SiteServer } from '../../../../../site-server';
+import { JetpackImporter, SQLImporter } from '../../../import/importers';
 import { BackupContents } from '../../../import/types';
 
 jest.mock( 'fs/promises' );
+jest.mock( '../../../../../site-server' );
+jest.mock( 'fs-extra' );
 
 describe( 'JetpackImporter', () => {
 	const mockBackupContents: BackupContents = {
@@ -18,14 +22,34 @@ describe( 'JetpackImporter', () => {
 	};
 
 	const mockStudioSitePath = '/path/to/studio/site';
+	const mockStudioSiteId = '123';
 
 	beforeEach( () => {
 		jest.clearAllMocks();
+
+		( SiteServer.get as jest.Mock ).mockReturnValue( {
+			details: { path: '/path/to/site' },
+			executeWpCliCommand: jest.fn().mockReturnValue( { stderr: null } ),
+		} );
+
+		// mock rename
+		( rename as jest.Mock ).mockResolvedValue( null );
+
+		jest.useFakeTimers();
+		jest.setSystemTime( new Date( '2024-08-01T12:00:00Z' ) );
+
+		( lstat as jest.Mock ).mockResolvedValue( {
+			isDirectory: jest.fn().mockReturnValue( false ),
+		} );
+	} );
+
+	afterAll( () => {
+		jest.useRealTimers();
 	} );
 
 	describe( 'import', () => {
 		it( 'should copy wp-content files and read meta file', async () => {
-			const importer = new DefaultImporter( mockBackupContents );
+			const importer = new JetpackImporter( mockBackupContents );
 			( fs.mkdir as jest.Mock ).mockResolvedValue( undefined );
 			( fs.copyFile as jest.Mock ).mockResolvedValue( undefined );
 			( fs.readFile as jest.Mock ).mockResolvedValue(
@@ -35,19 +59,35 @@ describe( 'JetpackImporter', () => {
 				} )
 			);
 
-			await importer.import( mockStudioSitePath );
+			await importer.import( mockStudioSitePath, mockStudioSiteId );
 
 			expect( fs.mkdir ).toHaveBeenCalled();
 			expect( fs.copyFile ).toHaveBeenCalledTimes( 3 ); // One for each wp-content file
 			expect( fs.readFile ).toHaveBeenCalledWith( '/tmp/extracted/studio.json', 'utf-8' );
 		} );
 
+		it( 'should handle sql files and call wp sqlite import cli command', async () => {
+			const importer = new SQLImporter( mockBackupContents );
+			await importer.import( mockStudioSitePath, mockStudioSiteId );
+
+			const siteServer = SiteServer.get( mockStudioSiteId );
+
+			const expectedCommand =
+				'sqlite import studio-backup-sql-2024-08-01-12-00-00.sql --require=/tmp/sqlite-command/command.php';
+			expect( siteServer?.executeWpCliCommand ).toHaveBeenNthCalledWith( 1, expectedCommand );
+			expect( siteServer?.executeWpCliCommand ).toHaveBeenNthCalledWith( 2, expectedCommand );
+
+			const expectedUnlinkPath = '/path/to/studio/site/studio-backup-sql-2024-08-01-12-00-00.sql';
+			expect( fs.unlink ).toHaveBeenNthCalledWith( 1, expectedUnlinkPath );
+			expect( fs.unlink ).toHaveBeenNthCalledWith( 2, expectedUnlinkPath );
+		} );
+
 		it( 'should handle missing meta file', async () => {
-			const importer = new DefaultImporter( { ...mockBackupContents, metaFile: undefined } );
+			const importer = new JetpackImporter( { ...mockBackupContents, metaFile: undefined } );
 			( fs.mkdir as jest.Mock ).mockResolvedValue( undefined );
 			( fs.copyFile as jest.Mock ).mockResolvedValue( undefined );
 
-			await importer.import( mockStudioSitePath );
+			await importer.import( mockStudioSitePath, mockStudioSiteId );
 
 			expect( fs.mkdir ).toHaveBeenCalled();
 			expect( fs.copyFile ).toHaveBeenCalledTimes( 3 );
@@ -55,12 +95,14 @@ describe( 'JetpackImporter', () => {
 		} );
 
 		it( 'should handle JSON parse error in meta file', async () => {
-			const importer = new DefaultImporter( mockBackupContents );
+			const importer = new JetpackImporter( mockBackupContents );
 			( fs.mkdir as jest.Mock ).mockResolvedValue( undefined );
 			( fs.copyFile as jest.Mock ).mockResolvedValue( undefined );
 			( fs.readFile as jest.Mock ).mockResolvedValue( 'Invalid JSON' );
 
-			await expect( importer.import( mockStudioSitePath ) ).resolves.not.toThrow();
+			await expect(
+				importer.import( mockStudioSitePath, mockStudioSiteId )
+			).resolves.not.toThrow();
 
 			expect( fs.mkdir ).toHaveBeenCalled();
 			expect( fs.copyFile ).toHaveBeenCalledTimes( 3 );

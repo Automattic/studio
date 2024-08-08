@@ -4,6 +4,8 @@ import fs from 'fs';
 import fsPromises from 'fs/promises';
 import path from 'path';
 import { lstat, rename } from 'fs-extra';
+import semver from 'semver';
+import { DEFAULT_PHP_VERSION } from '../../../../../vendor/wp-now/src/constants';
 import { SiteServer } from '../../../../site-server';
 import { generateBackupFilename } from '../../export/generate-backup-filename';
 import { ImportEvents } from '../events';
@@ -171,9 +173,11 @@ export class LocalImporter extends BaseBackupImporter {
 		try {
 			const metaContent = await fsPromises.readFile( metaFilePath, 'utf-8' );
 			const meta = JSON.parse( metaContent );
-			const phpVersion = meta?.services?.php?.version;
+			const phpVersion = semver.coerce( meta?.services?.php?.version );
 			return {
-				phpVersion: phpVersion.split( '.' ).slice( 0, 2 ).join( '.' ) ?? '8.1',
+				phpVersion: phpVersion
+					? `${ phpVersion.major }.${ phpVersion.minor }`
+					: DEFAULT_PHP_VERSION,
 				wordpressVersion: '',
 			};
 		} catch ( e ) {

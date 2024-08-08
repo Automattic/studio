@@ -3,7 +3,7 @@ import { EventEmitter } from 'events';
 import fs from 'fs';
 import fsPromises from 'fs/promises';
 import path from 'path';
-import { lstat, move, rename } from 'fs-extra';
+import { lstat, rename } from 'fs-extra';
 import { SiteServer } from '../../../../site-server';
 import { generateBackupFilename } from '../../export/generate-backup-filename';
 import { ImportEvents } from '../events';

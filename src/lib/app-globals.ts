@@ -13,11 +13,6 @@ export function isWindows() {
 	return getAppGlobals().platform === 'win32';
 }
 
-export function isLinux() {
-	const platform = process ? process.platform : getAppGlobals().platform;
-	return platform === 'linux';
-}
-
 export function getPlatformName() {
 	const platform = process ? process.platform : getAppGlobals().platform;
 	switch ( platform ) {

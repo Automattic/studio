@@ -42,6 +42,9 @@ export async function importBackup(
 	let removeImportListeners;
 	try {
 		const backupHandler = BackupHandlerFactory.create( backupFile );
+		if ( ! backupHandler ) {
+			return;
+		}
 		const fileList = await backupHandler.listFiles( backupFile );
 		const importer = selectImporter( fileList, extractionDirectory, onEvent, options );
 

@@ -47,15 +47,13 @@ export class BackupHandlerFactory {
 	];
 	private static sqlExtensions = [ '.sql' ];
 
-	static create( file: BackupArchiveInfo ): BackupHandler {
+	static create( file: BackupArchiveInfo ): BackupHandler | undefined {
 		if ( this.isZip( file ) ) {
 			return new BackupHandlerZip();
 		} else if ( this.isTarGz( file ) ) {
 			return new BackupHandlerTarGz();
 		} else if ( this.isSql( file ) ) {
 			return new BackupHandlerSql();
-		} else {
-			throw new Error( 'Unsupported file format. Only zip, tar.gz, and sql files are supported.' );
 		}
 	}
 

@@ -4,7 +4,7 @@ import { __ } from '@wordpress/i18n';
 import { tip, warning, trash, chevronRight, chevronDown } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useRef, useState } from 'react';
-import { STUDIO_DOCS_URL } from '../constants';
+import { STUDIO_DOCS_URL_IMPORT_EXPORT } from '../constants';
 import { useFeatureFlags } from '../hooks/use-feature-flags';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
@@ -264,7 +264,7 @@ export const SiteForm = ( {
 												<Button
 													variant="link"
 													className="text-xs"
-													onClick={ () => getIpcApi().openURL( STUDIO_DOCS_URL ) }
+													onClick={ () => getIpcApi().openURL( STUDIO_DOCS_URL_IMPORT_EXPORT ) }
 												/>
 											),
 										}

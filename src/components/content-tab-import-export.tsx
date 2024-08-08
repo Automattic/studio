@@ -79,16 +79,19 @@ const InitialImportButton = ( {
 	children,
 	isInitial,
 	openFileSelector,
+	disabled,
 }: {
 	children: React.ReactNode;
 	isInitial: boolean;
 	openFileSelector: () => void;
+	disabled?: boolean;
 } ) =>
 	isInitial ? (
 		<Button
 			variant="icon"
 			className="w-full [&>div.border-zinc-300]:hover:border-a8c-blueberry"
 			onClick={ openFileSelector }
+			disabled={ disabled }
 		>
 			{ children }
 		</Button>
@@ -99,8 +102,11 @@ const InitialImportButton = ( {
 const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 	const { __ } = useI18n();
 	const { startServer, loadingServer } = useSiteDetails();
-	const { importState, importFile, clearImportState } = useImportExport();
+	const { importState, importFile, clearImportState, exportState } = useImportExport();
 	const { [ props.selectedSite.id ]: currentProgress } = importState;
+	const isSiteExporting =
+		exportState[ props.selectedSite?.id ] && exportState[ props.selectedSite?.id ].progress < 100;
+
 	const importConfirmation = useConfirmationDialog( {
 		message: sprintf( __( 'Overwrite %s?' ), props.selectedSite.name ),
 		checkboxLabel: __( "Don't ask again" ),
@@ -168,7 +174,11 @@ const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 				) }
 			</div>
 			<div ref={ dropRef } className="w-full">
-				<InitialImportButton isInitial={ isInitial } openFileSelector={ openFileSelector }>
+				<InitialImportButton
+					isInitial={ isInitial }
+					openFileSelector={ openFileSelector }
+					disabled={ isSiteExporting }
+				>
 					<div
 						className={ cx(
 							'h-48 w-full rounded-sm border border-zinc-300 flex-col justify-center items-center inline-flex',

@@ -1,8 +1,8 @@
 import path from 'path';
 import { move, rename } from 'fs-extra';
+import { isLinux } from '../../../lib/app-globals';
 import { SiteServer } from '../../../site-server';
 import { generateBackupFilename } from './generate-backup-filename';
-import { isLinux } from '../../../lib/app-globals';
 
 export async function exportDatabaseToFile(
 	site: SiteDetails,

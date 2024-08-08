@@ -1,6 +1,5 @@
 import path from 'path';
-import { move, rename } from 'fs-extra';
-import { isLinux } from '../../../lib/app-globals';
+import { move } from 'fs-extra';
 import { SiteServer } from '../../../site-server';
 import { generateBackupFilename } from './generate-backup-filename';
 
@@ -33,11 +32,7 @@ export async function exportDatabaseToFile(
 	}
 
 	// Move the file to its final destination
-	if ( isLinux() ) {
-		await move( tempFilePath, finalDestination );
-	} else {
-		await rename( tempFilePath, finalDestination );
-	}
+	await move( tempFilePath, finalDestination );
 
 	console.log( `Database export saved to ${ finalDestination }` );
 }

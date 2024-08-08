@@ -3,7 +3,8 @@ import { EventEmitter } from 'events';
 import fs from 'fs';
 import fsPromises from 'fs/promises';
 import path from 'path';
-import { lstat, rename } from 'fs-extra';
+import { lstat, move, rename } from 'fs-extra';
+import { isLinux } from '../../../..//lib/app-globals';
 import { SiteServer } from '../../../../site-server';
 import { generateBackupFilename } from '../../export/generate-backup-filename';
 import { ImportEvents } from '../events';
@@ -51,7 +52,11 @@ export abstract class BaseImporter extends EventEmitter implements Importer {
 			const tmpPath = path.join( rootPath, sqlTempFile );
 
 			try {
-				await rename( sqlFile, tmpPath );
+				if ( isLinux() ) {
+					await move( sqlFile, tmpPath );
+				} else {
+					await rename( sqlFile, tmpPath );
+				}
 				const { stderr, exitCode } = await server.executeWpCliCommand(
 					`sqlite import ${ sqlTempFile } --require=/tmp/sqlite-command/command.php`
 				);

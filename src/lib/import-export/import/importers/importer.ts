@@ -81,7 +81,6 @@ export abstract class BaseImporter extends EventEmitter implements Importer {
 			throw new Error( 'Site not found.' );
 		}
 
-		// Step 1: Fetch the current site URL
 		const { stdout: currentSiteUrl } = await server.executeWpCliCommand( `option get siteurl` );
 
 		if ( ! currentSiteUrl ) {

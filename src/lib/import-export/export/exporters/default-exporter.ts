@@ -47,8 +47,8 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		}
 
 		const requiredPaths = [
-			{ path: 'wp-content', isDir: true },
-			{ path: 'wp-includes', isDir: true },
+			{ path: [ 'wp-content' ], isDir: true },
+			{ path: [ 'wp-includes' ], isDir: true },
 			{ path: 'wp-load.php', isDir: false },
 			{ path: 'wp-config.php', isDir: false },
 		];
@@ -58,8 +58,11 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		return requiredPaths.every( ( requiredPath ) =>
 			this.siteFiles.some( ( file ) => {
 				const relativePath = path.relative( this.options.site.path, file );
+				const relativePathItems = relativePath.split( path.sep );
 				return requiredPath.isDir
-					? relativePath.startsWith( requiredPath.path )
+					? ( requiredPath.path as string[] ).every(
+							( path, index ) => path === relativePathItems[ index ]
+					  )
 					: relativePath === requiredPath.path;
 			} )
 		);
@@ -208,13 +211,26 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		const siteFiles = await this.getSiteFiles();
 		siteFiles.forEach( ( file ) => {
 			const relativePath = path.relative( options.site.path, file );
+			const relativePathItems = relativePath.split( path.sep );
 			if ( path.basename( file ) === 'wp-config.php' ) {
 				backupContents.wpConfigFile = file;
-			} else if ( relativePath.startsWith( 'wp-content/uploads/' ) && options.includes.uploads ) {
+			} else if (
+				relativePathItems[ 0 ] === 'wp-content' &&
+				relativePathItems[ 1 ] === 'uploads' &&
+				options.includes.uploads
+			) {
 				backupContents.wpContent.uploads.push( file );
-			} else if ( relativePath.startsWith( 'wp-content/plugins/' ) && options.includes.plugins ) {
+			} else if (
+				relativePathItems[ 0 ] === 'wp-content' &&
+				relativePathItems[ 1 ] === 'plugins' &&
+				options.includes.plugins
+			) {
 				backupContents.wpContent.plugins.push( file );
-			} else if ( relativePath.startsWith( 'wp-content/themes/' ) && options.includes.themes ) {
+			} else if (
+				relativePathItems[ 0 ] === 'wp-content' &&
+				relativePathItems[ 1 ] === 'themes' &&
+				options.includes.themes
+			) {
 				backupContents.wpContent.themes.push( file );
 			}
 		} );

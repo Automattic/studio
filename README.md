@@ -1,4 +1,4 @@
-![Crash Free Sessions Rate](https://img.shields.io/badge/Crash_Free_Session_Rate-91.631%25-blue?link=https%3A%2F%2Fa8c.sentry.io%2Fprojects%2Fstudio%2F%3Fproject%3D4506612776501248)
+[![Crash Free Sessions Rate](https://img.shields.io/badge/Crash_Free_Session_Rate-91.631%25-blue)](https://a8c.sentry.io/projects/studio/?project=4506612776501248&statsPeriod=7d)
 
 # Studio by WordPress.com
 

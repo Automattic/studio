@@ -14,6 +14,9 @@ export function isWindows() {
 }
 
 export function isLinux() {
+	if ( process.env.NODE_ENV === 'test' ) {
+		return false;
+	}
 	const platform = process ? process.platform : getAppGlobals().platform;
 	return platform === 'linux';
 }

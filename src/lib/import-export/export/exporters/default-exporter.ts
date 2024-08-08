@@ -212,26 +212,17 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		siteFiles.forEach( ( file ) => {
 			const relativePath = path.relative( options.site.path, file );
 			const relativePathItems = relativePath.split( path.sep );
+			const [ wpContent, category ] = relativePathItems;
+			const contentCategory = category as BackupContentsCategory;
+
 			if ( path.basename( file ) === 'wp-config.php' ) {
 				backupContents.wpConfigFile = file;
 			} else if (
-				relativePathItems[ 0 ] === 'wp-content' &&
-				relativePathItems[ 1 ] === 'uploads' &&
-				options.includes.uploads
+				wpContent === 'wp-content' &&
+				options.includes[ contentCategory ] &&
+				( contentCategory as string ) !== 'database'
 			) {
-				backupContents.wpContent.uploads.push( file );
-			} else if (
-				relativePathItems[ 0 ] === 'wp-content' &&
-				relativePathItems[ 1 ] === 'plugins' &&
-				options.includes.plugins
-			) {
-				backupContents.wpContent.plugins.push( file );
-			} else if (
-				relativePathItems[ 0 ] === 'wp-content' &&
-				relativePathItems[ 1 ] === 'themes' &&
-				options.includes.themes
-			) {
-				backupContents.wpContent.themes.push( file );
+				backupContents.wpContent[ contentCategory ].push( file );
 			}
 		} );
 

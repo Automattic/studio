@@ -71,20 +71,18 @@ export abstract class BaseImporter extends EventEmitter implements Importer {
 			}
 		}
 
-		this.fixSiteUrl( siteId );
+		this.replaceSiteUrl( siteId );
 		this.emit( ImportEvents.IMPORT_DATABASE_COMPLETE );
 	}
 
-	private async fixSiteUrl( siteId: string ) {
+	private async replaceSiteUrl( siteId: string ) {
 		const server = SiteServer.get( siteId );
 		if ( ! server ) {
 			throw new Error( 'Site not found.' );
 		}
 
 		// Step 1: Fetch the current site URL
-		const { stdout: currentSiteUrl } = await server.executeWpCliCommand(
-			`option get siteurl --require=/tmp/sqlite-command/command.php`
-		);
+		const { stdout: currentSiteUrl } = await server.executeWpCliCommand( `option get siteurl` );
 
 		if ( ! currentSiteUrl ) {
 			console.error( 'Failed to fetch site URL after import' );
@@ -94,7 +92,7 @@ export abstract class BaseImporter extends EventEmitter implements Importer {
 		const studioUrl = `http://localhost:${ server.details.port }`;
 
 		const { stderr, exitCode } = await server.executeWpCliCommand(
-			`search-replace '${ currentSiteUrl.trim() }' '${ studioUrl.trim() }' --require=/tmp/sqlite-command/command.php`
+			`search-replace '${ currentSiteUrl.trim() }' '${ studioUrl.trim() }'`
 		);
 
 		if ( stderr ) {

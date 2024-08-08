@@ -11,6 +11,8 @@ import {
 	isWPCliInstallationOutdated,
 } from '../lib/wpcli-versions';
 
+jest.unmock( 'fs-extra' );
+
 describe( 'executeWPCli', () => {
 	const tmpPath = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-test-wp-cli-site' ) );
 	beforeAll( async () => {

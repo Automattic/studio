@@ -44,7 +44,7 @@ describe( 'JetpackImporter', () => {
 		} );
 	} );
 
-	afterAll( () => {
+	afterEach( () => {
 		jest.useRealTimers();
 	} );
 

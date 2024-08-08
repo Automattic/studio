@@ -44,7 +44,7 @@ describe( 'localImporter', () => {
 		} );
 	} );
 
-	afterAll( () => {
+	afterEach( () => {
 		jest.useRealTimers();
 	} );
 

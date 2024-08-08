@@ -69,7 +69,7 @@ const ImportExportContext = createContext< ImportExportContext >( {
 export const ImportExportProvider = ( { children }: { children: React.ReactNode } ) => {
 	const [ importState, setImportState ] = useState< ImportProgressState >( {} );
 	const [ exportState, setExportState ] = useState< ExportProgressState >( {} );
-	const { startServer, stopServer, updateSiteState } = useSiteDetails();
+	const { startServer, stopServer, updateSite } = useSiteDetails();
 
 	const importFile = useCallback(
 		async (
@@ -102,7 +102,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 					id: selectedSite.id,
 					backupFile,
 				} );
-				updateSiteState( importedSite );
+				await updateSite( importedSite );
 
 				if ( showImportNotification ) {
 					getIpcApi().showNotification( {
@@ -128,7 +128,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 				}
 			}
 		},
-		[ importState, startServer, stopServer, updateSiteState ]
+		[ importState, startServer, stopServer, updateSite ]
 	);
 
 	const clearImportState = useCallback( ( siteId: string ) => {

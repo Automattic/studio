@@ -23,6 +23,7 @@ export class JetpackValidator extends EventEmitter implements Validator {
 				plugins: [],
 				themes: [],
 			},
+			wpContentDirectory: 'wp-content',
 		};
 		/* File rules:
 		 * - Ignore wp-config.php

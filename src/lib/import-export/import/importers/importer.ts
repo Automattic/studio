@@ -102,6 +102,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 				extractionDirectory: this.backup.extractionDirectory,
 				sqlFiles: this.backup.sqlFiles,
 				wpContent: this.backup.wpContent,
+				wpContentDirectory: this.backup.wpContentDirectory,
 				meta,
 			};
 		} catch ( error ) {
@@ -127,7 +128,8 @@ abstract class BaseBackupImporter extends BaseImporter {
 		this.emit( ImportEvents.IMPORT_WP_CONTENT_START );
 		const extractionDirectory = this.backup.extractionDirectory;
 		const wpContent = this.backup.wpContent;
-		const wpContentDir = path.join( rootPath, 'wp-content' );
+		const wpContentSourceDir = this.backup.wpContentDirectory;
+		const wpContentDestDir = path.join( rootPath, 'wp-content' );
 		for ( const files of Object.values( wpContent ) ) {
 			for ( const file of files ) {
 				const stats = await lstat( file );
@@ -135,8 +137,11 @@ abstract class BaseBackupImporter extends BaseImporter {
 				if ( stats.isDirectory() ) {
 					continue;
 				}
-				const relativePath = path.relative( path.join( extractionDirectory, 'wp-content' ), file );
-				const destPath = path.join( wpContentDir, relativePath );
+				const relativePath = path.relative(
+					path.join( extractionDirectory, wpContentSourceDir ),
+					file
+				);
+				const destPath = path.join( wpContentDestDir, relativePath );
 				await fsPromises.mkdir( path.dirname( destPath ), { recursive: true } );
 				await fsPromises.copyFile( file, destPath );
 			}
@@ -200,6 +205,7 @@ export class SQLImporter extends BaseImporter {
 				extractionDirectory: this.backup.extractionDirectory,
 				sqlFiles: this.backup.sqlFiles,
 				wpContent: this.backup.wpContent,
+				wpContentDirectory: this.backup.wpContentDirectory,
 			};
 		} catch ( error ) {
 			this.emit( ImportEvents.IMPORT_ERROR, error );

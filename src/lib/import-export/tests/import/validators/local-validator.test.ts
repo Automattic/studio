@@ -54,6 +54,7 @@ describe( 'LocalValidator', () => {
 					plugins: [ '/tmp/extracted/app/public/wp-content/plugins/jetpack/jetpack.php' ],
 					themes: [ '/tmp/extracted/app/public/wp-content/themes/twentytwentyone/style.css' ],
 				},
+				wpContentDirectory: 'app/public/wp-content',
 				metaFile: '/tmp/extracted/local-site.json',
 			} );
 		} );
@@ -81,6 +82,7 @@ describe( 'LocalValidator', () => {
 					plugins: [ '/tmp/extracted/app/public/wp-content/plugins/jetpack/jetpack.php' ],
 					themes: [ '/tmp/extracted/app/public/wp-content/themes/twentytwentyone/style.css' ],
 				},
+				wpContentDirectory: 'app/public/wp-content',
 				metaFile: '/tmp/extracted/local-site.json',
 			} );
 		} );

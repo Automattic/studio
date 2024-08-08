@@ -28,6 +28,7 @@ export class LocalValidator extends EventEmitter implements Validator {
 				plugins: [],
 				themes: [],
 			},
+			wpContentDirectory: 'app/public/wp-content',
 		};
 		/* File rules:
 		 * - Ignore wp-config.php

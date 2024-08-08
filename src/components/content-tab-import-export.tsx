@@ -168,7 +168,10 @@ const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 					__( 'Import a Jetpack backup or a .sql database file. <button>Learn more</button>' ),
 					{
 						button: (
-							<Button variant="link" onClick={ () => getIpcApi().openURL( STUDIO_DOCS_URL_IMPORT_EXPORT ) } />
+							<Button
+								variant="link"
+								onClick={ () => getIpcApi().openURL( STUDIO_DOCS_URL_IMPORT_EXPORT ) }
+							/>
 						),
 					}
 				) }

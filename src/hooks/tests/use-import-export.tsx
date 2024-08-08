@@ -8,7 +8,7 @@ import { useSiteDetails } from '../use-site-details';
 
 jest.mock( '../../lib/get-ipc-api' );
 jest.mock( '../../hooks/use-ipc-listener' );
-jest.mock( '../use-site-details' );
+jest.mock( '../../hooks/use-site-details' );
 
 const SITE_ID = 'site-id-1';
 
@@ -35,7 +35,8 @@ beforeEach( () => {
 		importSite: jest.fn(),
 	} );
 	( useSiteDetails as jest.Mock ).mockReturnValue( {
-		updateSiteState: jest.fn(),
+		updateSite: jest.fn(),
+		stopServer: jest.fn(),
 	} );
 } );
 
@@ -349,14 +350,10 @@ describe( 'useImportExport hook', () => {
 		const importedSite = { ...selectedSite, phpVersion: '7.4' };
 		( getIpcApi().importSite as jest.Mock ).mockResolvedValue( importedSite );
 
-		const mockUpdateSiteState = jest.fn();
-		( useSiteDetails as jest.Mock ).mockReturnValue( { updateSiteState: mockUpdateSiteState } );
-
 		const { result } = renderHook( () => useImportExport(), { wrapper } );
 		const file = { path: 'backup.zip', type: 'application/zip' };
 		await act( () => result.current.importFile( file, selectedSite ) );
 
-		expect( mockUpdateSiteState ).toHaveBeenCalledTimes( 1 );
-		expect( mockUpdateSiteState ).toHaveBeenCalledWith( importedSite );
+		expect( useSiteDetails().updateSite ).toHaveBeenCalledWith( importedSite );
 	} );
 } );

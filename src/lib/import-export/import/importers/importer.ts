@@ -93,7 +93,7 @@ export abstract class BaseImporter extends EventEmitter implements Importer {
 
 		const studioUrl = `http://localhost:${ server.details.port }`;
 
-		const { stdout, stderr, exitCode } = await server.executeWpCliCommand(
+		const { stderr, exitCode } = await server.executeWpCliCommand(
 			`search-replace '${ currentSiteUrl.trim() }' '${ studioUrl.trim() }' --require=/tmp/sqlite-command/command.php`
 		);
 

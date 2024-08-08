@@ -1,8 +1,7 @@
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useMemo } from 'react';
-
-const SIZE_LIMIT_MB = 100;
+import { SIZE_LIMIT_MB} from "../constants";
 
 export function useArchiveErrorMessages() {
 	const { __ } = useI18n();

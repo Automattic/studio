@@ -78,7 +78,7 @@ const SnapshotInfo = ( {
 			<h2 className="a8c-label-semibold">{ __( 'Demo sites' ) }</h2>
 			<div className="flex gap-3 flex-row items-center w-full">
 				{ snapshotCreationBlocked ? (
-					<div className="text-[#757575]">
+					<div className="text-a8c-gray-70">
 						{ __( 'Demo sites are not available for your account.' ) }
 					</div>
 				) : (

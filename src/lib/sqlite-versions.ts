@@ -159,7 +159,7 @@ export async function installSqliteIntegration( sitePath: string ) {
 
 	const dbPhpPath = path.join( wpContentPath, 'db.php' );
 	await fs.copyFile( path.join( getServerFilesPath(), SQLITE_FILENAME, 'db.copy' ), dbPhpPath );
-	const dbCopyContent = ( await fs.readFile( dbPhpPath ) ).toString();
+	const dbCopyContent = ( await fs.readFile( dbPhpPath, 'utf8' ) ).toString();
 	await fs.writeFile(
 		dbPhpPath,
 		dbCopyContent.replace(

@@ -53,9 +53,6 @@ export async function importBackup(
 		} else {
 			return;
 		}
-	} catch ( error ) {
-		console.error( 'Backup import failed:', ( error as Error ).message );
-		throw error;
 	} finally {
 		removeBackupListeners?.();
 		removeImportListeners?.();

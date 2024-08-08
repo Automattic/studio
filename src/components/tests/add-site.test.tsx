@@ -25,11 +25,6 @@ jest.mock( '../../hooks/use-site-details', () => ( {
 		data: [],
 	} ),
 } ) );
-jest.mock( '../../hooks/use-feature-flags', () => ( {
-	useFeatureFlags: () => ( {
-		importExportEnabled: true,
-	} ),
-} ) );
 
 describe( 'AddSite', () => {
 	beforeEach( () => {

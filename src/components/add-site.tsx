@@ -5,7 +5,6 @@ import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { ACCEPTED_IMPORT_FILE_TYPES } from '../constants';
 import { useAddSite } from '../hooks/use-add-site';
 import { useDragAndDropFile } from '../hooks/use-drag-and-drop-file';
-import { useFeatureFlags } from '../hooks/use-feature-flags';
 import { useImportExport } from '../hooks/use-import-export';
 import { useIpcListener } from '../hooks/use-ipc-listener';
 import { useSiteDetails } from '../hooks/use-site-details';
@@ -27,7 +26,6 @@ export default function AddSite( { className }: AddSiteProps ) {
 	const [ fileError, setFileError ] = useState( '' );
 
 	const { data } = useSiteDetails();
-	const { importExportEnabled } = useFeatureFlags();
 
 	const {
 		handleAddSiteClick,
@@ -139,70 +137,19 @@ export default function AddSite( { className }: AddSiteProps ) {
 		openModal();
 	} );
 
-	if ( importExportEnabled ) {
-		return (
-			<>
-				{ showModal && ! loadingSites && (
-					<Modal
-						size="medium"
-						title={ __( 'Add a site' ) }
-						isDismissible
-						focusOnMount="firstContentElement"
-						onRequestClose={ closeModal }
-						className="max-h-[90%]"
-					>
-						<div ref={ dropRef }>
-							{ isDraggingOver && <DragAndDropOverlay /> }
-							<SiteForm
-								siteName={ siteName || '' }
-								setSiteName={ handleSiteNameChange }
-								sitePath={ sitePath }
-								onSelectPath={ handlePathSelectorClick }
-								error={ error }
-								onSubmit={ handleSubmit }
-								doesPathContainWordPress={ doesPathContainWordPress }
-								fileForImport={ fileForImport }
-								setFileForImport={ setFileForImport }
-								onFileSelected={ handleImportFile }
-								fileError={ fileError }
-							>
-								<div className="flex flex-row justify-end gap-x-5 mt-6">
-									<Button onClick={ closeModal } variant="tertiary">
-										{ __( 'Cancel' ) }
-									</Button>
-									<Button
-										type="submit"
-										variant="primary"
-										disabled={ !! error || ! siteName?.trim() }
-									>
-										{ __( 'Add site' ) }
-									</Button>
-								</div>
-							</SiteForm>
-						</div>
-					</Modal>
-				) }
-				<Button
-					variant="outlined"
-					className={ className }
-					onClick={ openModal }
-					disabled={ isAnySiteProcessing }
+	return (
+		<>
+			{ showModal && ! loadingSites && (
+				<Modal
+					size="medium"
+					title={ __( 'Add a site' ) }
+					isDismissible
+					focusOnMount="firstContentElement"
+					onRequestClose={ closeModal }
+					className="max-h-[90%]"
 				>
-					{ __( 'Add site' ) }
-				</Button>
-			</>
-		);
-	} else {
-		return (
-			<>
-				{ showModal && ! loadingSites && (
-					<Modal
-						size="medium"
-						title={ __( 'Add a site' ) }
-						isDismissible
-						focusOnMount="firstContentElement"
-						onRequestClose={ closeModal }
-					>
+					<div ref={ dropRef }>
+						{ isDraggingOver && <DragAndDropOverlay /> }
 						<SiteForm
 							siteName={ siteName || '' }
 							setSiteName={ handleSiteNameChange }
@@ -211,6 +158,10 @@ export default function AddSite( { className }: AddSiteProps ) {
 							error={ error }
 							onSubmit={ handleSubmit }
 							doesPathContainWordPress={ doesPathContainWordPress }
+							fileForImport={ fileForImport }
+							setFileForImport={ setFileForImport }
+							onFileSelected={ handleImportFile }
+							fileError={ fileError }
 						>
 							<div className="flex flex-row justify-end gap-x-5 mt-6">
 								<Button onClick={ closeModal } variant="tertiary">
@@ -221,17 +172,17 @@ export default function AddSite( { className }: AddSiteProps ) {
 								</Button>
 							</div>
 						</SiteForm>
-					</Modal>
-				) }
-				<Button
-					variant="outlined"
-					className={ className }
-					onClick={ openModal }
-					disabled={ isAnySiteProcessing }
-				>
-					{ __( 'Add site' ) }
-				</Button>
-			</>
-		);
-	}
+					</div>
+				</Modal>
+			) }
+			<Button
+				variant="outlined"
+				className={ className }
+				onClick={ openModal }
+				disabled={ isAnySiteProcessing }
+			>
+				{ __( 'Add site' ) }
+			</Button>
+		</>
+	);
 }

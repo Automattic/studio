@@ -492,7 +492,6 @@ export async function getAppGlobals( _event: IpcMainInvokeEvent ): Promise< AppG
 		arm64Translation: app.runningUnderARM64Translation,
 		assistantEnabled: process.env.STUDIO_AI === 'true',
 		terminalWpCliEnabled: process.env.STUDIO_TERMINAL_WP_CLI === 'true',
-		importExportEnabled: process.env.STUDIO_IMPORT_EXPORT === 'true',
 	};
 }
 

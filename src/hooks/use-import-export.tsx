@@ -90,23 +90,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 			} ) );
 
 			const wasSiteRunning = selectedSite.running;
-
-			try {
-				await stopServer( selectedSite.id );
-
-				const backupFile: BackupArchiveInfo = {
-					type: file.type,
-					path: file.path,
-				};
-				await getIpcApi().importSite( { id: selectedSite.id, backupFile } );
-
-				if ( showImportNotification ) {
-					getIpcApi().showNotification( {
-						title: selectedSite.name,
-						body: __( 'Import completed' ),
-					} );
-				}
-			} catch ( error ) {
+			const handleImportError = async () => {
 				await getIpcApi().showMessageBox( {
 					type: 'error',
 					message: __( 'Failed importing site' ),
@@ -118,6 +102,30 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 				setImportState( ( { [ selectedSite.id ]: currentProgress, ...rest } ) => ( {
 					...rest,
 				} ) );
+			};
+
+			try {
+				await stopServer( selectedSite.id );
+
+				const backupFile: BackupArchiveInfo = {
+					type: file.type,
+					path: file.path,
+				};
+				const importSuccess = await getIpcApi().importSite( { id: selectedSite.id, backupFile } );
+
+				if ( ! importSuccess ) {
+					await handleImportError();
+					return;
+				}
+
+				if ( showImportNotification ) {
+					getIpcApi().showNotification( {
+						title: selectedSite.name,
+						body: __( 'Import completed' ),
+					} );
+				}
+			} catch ( error ) {
+				await handleImportError();
 			} finally {
 				if ( wasSiteRunning ) {
 					startServer( selectedSite.id );

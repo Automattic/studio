@@ -108,7 +108,7 @@ export async function getInstalledApps( _event: IpcMainInvokeEvent ): Promise< I
 export async function importSite(
 	event: IpcMainInvokeEvent,
 	{ id, backupFile }: { id: string; backupFile: BackupArchiveInfo }
-) {
+): Promise< boolean > {
 	const site = SiteServer.get( id );
 	if ( ! site ) {
 		throw new Error( 'Site not found.' );
@@ -121,12 +121,16 @@ export async function importSite(
 			}
 		};
 		const result = await importBackup( backupFile, site.details, onEvent, defaultImporterOptions );
+		if ( ! result ) {
+			return false;
+		}
 		if ( result?.meta?.phpVersion ) {
 			await updateSite( event, {
 				...site.details,
 				phpVersion: result.meta.phpVersion,
 			} );
 		}
+		return true;
 	} catch ( e ) {
 		Sentry.captureException( e );
 		throw e;

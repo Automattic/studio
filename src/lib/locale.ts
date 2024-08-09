@@ -23,6 +23,7 @@ const supportedLocales = [
 	'sv',
 	'tr',
 	'vi',
+	'uk',
 	'zh-cn',
 	'zh-tw',
 ];

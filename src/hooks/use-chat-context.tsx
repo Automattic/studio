@@ -98,7 +98,7 @@ export const ChatProvider: React.FC< ChatProviderProps > = ( { children } ) => {
 		let isCurrent = true;
 		const run = async () => {
 			const siteId = selectedSite?.id;
-			if ( ! siteId ) {
+			if ( ! siteId || selectedSite.isAddingSite ) {
 				return;
 			}
 			setInitialLoad( ( prev ) => ( { ...prev, [ siteId ]: true } ) );
@@ -120,9 +120,7 @@ export const ChatProvider: React.FC< ChatProviderProps > = ( { children } ) => {
 			! initialLoad[ selectedSite.id ] &&
 			isCurrent &&
 			! pluginsList[ selectedSite.id ] &&
-			! themesList[ selectedSite.id ] &&
-			selectedSite.running === true &&
-			selectedSite.isAddingSite === false
+			! themesList[ selectedSite.id ]
 		) {
 			run();
 		}
@@ -142,11 +140,7 @@ export const ChatProvider: React.FC< ChatProviderProps > = ( { children } ) => {
 
 	useWindowListener( 'focus', async () => {
 		// When the window is focused, we need to kick off a request to refetch the theme details, if server is running.
-		if (
-			! selectedSite?.id ||
-			selectedSite.running === false ||
-			selectedSite?.isAddingSite === true
-		) {
+		if ( ! selectedSite?.id || selectedSite.running === false || ! selectedSite?.isAddingSite ) {
 			return;
 		}
 		const plugins = await fetchPluginList( selectedSite.id );

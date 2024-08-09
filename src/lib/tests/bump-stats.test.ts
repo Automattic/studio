@@ -25,16 +25,6 @@ function mockBumpStatRequest( group: string, stat: string ) {
 		.reply( 200 );
 }
 
-function mockBumpStatRequestFirst( group: string, stat: string ) {
-	return nock( 'https://pixel.wp.com' )
-		.get( '/b.gif' )
-		.query( {
-			v: 'wpcom-no-pv',
-			[ `x_${ group }-first` ]: stat,
-		} )
-		.reply( 200 );
-}
-
 function mockCurrentTime( timestamp: number ) {
 	jest.spyOn( Date, 'now' ).mockReturnValue( timestamp );
 }

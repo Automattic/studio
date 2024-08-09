@@ -1,25 +1,25 @@
-// To run tests, execute `npm run test -- src/lib/import-export/tests/import/importer/jetpack-importer.test.ts`
+// To run tests, execute `npm run test -- src/lib/import-export/tests/import/importer/local-importer.test.ts`
 import * as fs from 'fs/promises';
 import { lstat, rename } from 'fs-extra';
 import { SiteServer } from '../../../../../site-server';
-import { JetpackImporter, SQLImporter } from '../../../import/importers';
+import { LocalImporter } from '../../../import/importers';
 import { BackupContents } from '../../../import/types';
 
 jest.mock( 'fs/promises' );
 jest.mock( '../../../../../site-server' );
 jest.mock( 'fs-extra' );
 
-describe( 'JetpackImporter', () => {
+describe( 'localImporter', () => {
 	const mockBackupContents: BackupContents = {
 		extractionDirectory: '/tmp/extracted',
-		sqlFiles: [ '/tmp/extracted/sql/wp_options.sql', '/tmp/extracted/sql/wp_posts.sql' ],
+		sqlFiles: [ '/tmp/extracted/app/sql/local.sql', '/tmp/extracted/app/sql/local.sql' ],
 		wpContent: {
-			uploads: [ '/tmp/extracted/wp-content/uploads/2023/image.jpg' ],
-			plugins: [ '/tmp/extracted/wp-content/plugins/jetpack/jetpack.php' ],
-			themes: [ '/tmp/extracted/wp-content/themes/twentytwentyone/style.css' ],
+			uploads: [ '/tmp/extracted/app/public/wp-content/uploads/2023/image.jpg' ],
+			plugins: [ '/tmp/extracted/app/public/wp-content/plugins/jetpack/jetpack.php' ],
+			themes: [ '/tmp/extracted/app/public/wp-content/themes/twentytwentyone/style.css' ],
 		},
-		wpContentDirectory: 'wp-content',
-		metaFile: '/tmp/extracted/studio.json',
+		wpContentDirectory: 'app/public/wp-content',
+		metaFile: '/tmp/extracted/local-site.json',
 	};
 
 	const mockStudioSitePath = '/path/to/studio/site';
@@ -50,45 +50,36 @@ describe( 'JetpackImporter', () => {
 
 	describe( 'import', () => {
 		it( 'should copy wp-content files and read meta file', async () => {
-			const importer = new JetpackImporter( mockBackupContents );
+			const importer = new LocalImporter( mockBackupContents );
 			( fs.mkdir as jest.Mock ).mockResolvedValue( undefined );
 			( fs.copyFile as jest.Mock ).mockResolvedValue( undefined );
 			( fs.readFile as jest.Mock ).mockResolvedValue(
 				JSON.stringify( {
-					phpVersion: '7.4',
-					wordpressVersion: '5.8',
+					services: {
+						php: {
+							version: '8.2.23',
+						},
+					},
 				} )
 			);
 
-			await importer.import( mockStudioSitePath, mockStudioSiteId );
+			const result = await importer.import( mockStudioSitePath, mockStudioSiteId );
+
+			expect( result?.meta?.phpVersion ).toBe( '8.2' );
 
 			expect( fs.mkdir ).toHaveBeenCalled();
 			expect( fs.copyFile ).toHaveBeenCalledTimes( 3 ); // One for each wp-content file
-			expect( fs.readFile ).toHaveBeenCalledWith( '/tmp/extracted/studio.json', 'utf-8' );
-		} );
-
-		it( 'should handle sql files and call wp sqlite import cli command', async () => {
-			const importer = new SQLImporter( mockBackupContents );
-			await importer.import( mockStudioSitePath, mockStudioSiteId );
-
-			const siteServer = SiteServer.get( mockStudioSiteId );
-
-			const expectedCommand =
-				'sqlite import studio-backup-sql-2024-08-01-12-00-00.sql --require=/tmp/sqlite-command/command.php';
-			expect( siteServer?.executeWpCliCommand ).toHaveBeenNthCalledWith( 1, expectedCommand );
-			expect( siteServer?.executeWpCliCommand ).toHaveBeenNthCalledWith( 2, expectedCommand );
-
-			const expectedUnlinkPath = '/path/to/studio/site/studio-backup-sql-2024-08-01-12-00-00.sql';
-			expect( fs.unlink ).toHaveBeenNthCalledWith( 1, expectedUnlinkPath );
-			expect( fs.unlink ).toHaveBeenNthCalledWith( 2, expectedUnlinkPath );
+			expect( fs.readFile ).toHaveBeenCalledWith( '/tmp/extracted/local-site.json', 'utf-8' );
 		} );
 
 		it( 'should handle missing meta file', async () => {
-			const importer = new JetpackImporter( { ...mockBackupContents, metaFile: undefined } );
+			const importer = new LocalImporter( { ...mockBackupContents, metaFile: undefined } );
 			( fs.mkdir as jest.Mock ).mockResolvedValue( undefined );
 			( fs.copyFile as jest.Mock ).mockResolvedValue( undefined );
 
-			await importer.import( mockStudioSitePath, mockStudioSiteId );
+			const result = await importer.import( mockStudioSitePath, mockStudioSiteId );
+
+			expect( result?.meta?.phpVersion ).toBe( undefined );
 
 			expect( fs.mkdir ).toHaveBeenCalled();
 			expect( fs.copyFile ).toHaveBeenCalledTimes( 3 );
@@ -96,7 +87,7 @@ describe( 'JetpackImporter', () => {
 		} );
 
 		it( 'should handle JSON parse error in meta file', async () => {
-			const importer = new JetpackImporter( mockBackupContents );
+			const importer = new LocalImporter( mockBackupContents );
 			( fs.mkdir as jest.Mock ).mockResolvedValue( undefined );
 			( fs.copyFile as jest.Mock ).mockResolvedValue( undefined );
 			( fs.readFile as jest.Mock ).mockResolvedValue( 'Invalid JSON' );
@@ -107,7 +98,7 @@ describe( 'JetpackImporter', () => {
 
 			expect( fs.mkdir ).toHaveBeenCalled();
 			expect( fs.copyFile ).toHaveBeenCalledTimes( 3 );
-			expect( fs.readFile ).toHaveBeenCalledWith( '/tmp/extracted/studio.json', 'utf-8' );
+			expect( fs.readFile ).toHaveBeenCalledWith( '/tmp/extracted/local-site.json', 'utf-8' );
 		} );
 	} );
 } );

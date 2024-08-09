@@ -16,6 +16,7 @@ import {
 	BackupExtractProgressEventData,
 } from '../lib/import-export/import/types';
 import { useIpcListener } from './use-ipc-listener';
+import { useSiteDetails } from './use-site-details';
 
 type ImportProgressState = {
 	[ siteId: string ]: {
@@ -40,6 +41,7 @@ interface ImportExportContext {
 		options?: { showImportNotification?: boolean; isNewSite?: boolean }
 	) => Promise< void >;
 	clearImportState: ( siteId: string ) => void;
+	isSiteImporting: ( siteId: string ) => boolean;
 	exportState: ExportProgressState;
 	exportFullSite: ( selectedSite: SiteDetails ) => Promise< string | undefined >;
 	exportDatabase: ( selectedSite: SiteDetails ) => Promise< string | undefined >;
@@ -58,6 +60,7 @@ const ImportExportContext = createContext< ImportExportContext >( {
 	importState: {},
 	importFile: async () => undefined,
 	clearImportState: () => undefined,
+	isSiteImporting: () => false,
 	exportState: {},
 	exportFullSite: async () => undefined,
 	exportDatabase: async () => undefined,
@@ -66,6 +69,7 @@ const ImportExportContext = createContext< ImportExportContext >( {
 export const ImportExportProvider = ( { children }: { children: React.ReactNode } ) => {
 	const [ importState, setImportState ] = useState< ImportProgressState >( {} );
 	const [ exportState, setExportState ] = useState< ExportProgressState >( {} );
+	const { startServer, stopServer, updateSite } = useSiteDetails();
 
 	const importFile = useCallback(
 		async (
@@ -85,12 +89,20 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 				[ selectedSite.id ]: { ...INITIAL_IMPORT_STATE, isNewSite },
 			} ) );
 
+			const wasSiteRunning = selectedSite.running;
+
 			try {
+				await stopServer( selectedSite.id );
+
 				const backupFile: BackupArchiveInfo = {
 					type: file.type,
 					path: file.path,
 				};
-				await getIpcApi().importSite( { id: selectedSite.id, backupFile } );
+				const importedSite = await getIpcApi().importSite( {
+					id: selectedSite.id,
+					backupFile,
+				} );
+				await updateSite( importedSite );
 
 				if ( showImportNotification ) {
 					getIpcApi().showNotification( {
@@ -110,9 +122,13 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 				setImportState( ( { [ selectedSite.id ]: currentProgress, ...rest } ) => ( {
 					...rest,
 				} ) );
+			} finally {
+				if ( wasSiteRunning ) {
+					startServer( selectedSite.id );
+				}
 			}
 		},
-		[ importState ]
+		[ importState, startServer, stopServer, updateSite ]
 	);
 
 	const clearImportState = useCallback( ( siteId: string ) => {
@@ -120,6 +136,11 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 			...rest,
 		} ) );
 	}, [] );
+
+	const isSiteImporting = useCallback(
+		( siteId: string ) => !! importState[ siteId ] && importState[ siteId ].progress < 100,
+		[ importState ]
+	);
 
 	useIpcListener( 'on-import', ( _, { event, data }: ImportExportEventData, siteId: string ) => {
 		if ( ! siteId ) {
@@ -391,11 +412,20 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 			importState,
 			importFile,
 			clearImportState,
+			isSiteImporting,
 			exportState,
 			exportFullSite,
 			exportDatabase,
 		} ),
-		[ importState, importFile, clearImportState, exportState, exportFullSite, exportDatabase ]
+		[
+			importState,
+			importFile,
+			clearImportState,
+			isSiteImporting,
+			exportState,
+			exportFullSite,
+			exportDatabase,
+		]
 	);
 
 	return (

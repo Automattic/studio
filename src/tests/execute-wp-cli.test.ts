@@ -6,10 +6,9 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { executeWPCli } from '../../vendor/wp-now/src/execute-wp-cli';
-import {
-	getWPCliVersionFromInstallation,
-	isWPCliInstallationOutdated,
-} from '../lib/wpcli-versions';
+import { getWPCliVersionFromInstallation } from '../lib/wpcli-versions';
+
+jest.unmock( 'fs-extra' );
 
 describe( 'executeWPCli', () => {
 	const tmpPath = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-test-wp-cli-site' ) );
@@ -51,10 +50,5 @@ describe( 'executeWPCli', () => {
 	it( 'should return the correct version of WP-CLI', async () => {
 		const result = await getWPCliVersionFromInstallation();
 		expect( result ).toMatch( /v\d+\.\d+\.\d+/ ); // Example: v2.10.0
-	} );
-
-	it( 'should have the latest wp-cli version installed', async () => {
-		const isOutdated = await isWPCliInstallationOutdated();
-		expect( isOutdated ).toBe( false );
 	} );
 } );

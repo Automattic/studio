@@ -4,15 +4,12 @@ import fs from 'fs';
 import fsPromises from 'fs/promises';
 import path from 'path';
 import { lstat, move } from 'fs-extra';
+import semver from 'semver';
+import { DEFAULT_PHP_VERSION } from '../../../../../vendor/wp-now/src/constants';
 import { SiteServer } from '../../../../site-server';
 import { generateBackupFilename } from '../../export/generate-backup-filename';
 import { ImportEvents } from '../events';
-import { BackupContents } from '../types';
-
-export interface MetaFileData {
-	phpVersion: string;
-	wordpressVersion: string;
-}
+import { BackupContents, MetaFileData } from '../types';
 
 export interface ImporterResult extends Omit< BackupContents, 'metaFile' > {
 	meta?: MetaFileData;
@@ -22,7 +19,7 @@ export interface Importer extends Partial< EventEmitter > {
 	import( rootPath: string, siteId: string ): Promise< ImporterResult >;
 }
 
-export abstract class BaseImporter extends EventEmitter implements Importer {
+abstract class BaseImporter extends EventEmitter implements Importer {
 	constructor( protected backup: BackupContents ) {
 		super();
 	}
@@ -83,7 +80,7 @@ export abstract class BaseImporter extends EventEmitter implements Importer {
 	}
 }
 
-export class JetpackImporter extends BaseImporter {
+abstract class BaseBackupImporter extends BaseImporter {
 	async import( rootPath: string, siteId: string ): Promise< ImporterResult > {
 		this.emit( ImportEvents.IMPORT_START );
 
@@ -105,6 +102,7 @@ export class JetpackImporter extends BaseImporter {
 				extractionDirectory: this.backup.extractionDirectory,
 				sqlFiles: this.backup.sqlFiles,
 				wpContent: this.backup.wpContent,
+				wpContentDirectory: this.backup.wpContentDirectory,
 				meta,
 			};
 		} catch ( error ) {
@@ -112,6 +110,8 @@ export class JetpackImporter extends BaseImporter {
 			throw error;
 		}
 	}
+
+	protected abstract parseMetaFile(): Promise< MetaFileData | undefined >;
 
 	protected async createEmptyDatabase( dbPath: string ): Promise< void > {
 		await fsPromises.writeFile( dbPath, '' );
@@ -128,7 +128,8 @@ export class JetpackImporter extends BaseImporter {
 		this.emit( ImportEvents.IMPORT_WP_CONTENT_START );
 		const extractionDirectory = this.backup.extractionDirectory;
 		const wpContent = this.backup.wpContent;
-		const wpContentDir = path.join( rootPath, 'wp-content' );
+		const wpContentSourceDir = this.backup.wpContentDirectory;
+		const wpContentDestDir = path.join( rootPath, 'wp-content' );
 		for ( const files of Object.values( wpContent ) ) {
 			for ( const file of files ) {
 				const stats = await lstat( file );
@@ -136,15 +137,20 @@ export class JetpackImporter extends BaseImporter {
 				if ( stats.isDirectory() ) {
 					continue;
 				}
-				const relativePath = path.relative( path.join( extractionDirectory, 'wp-content' ), file );
-				const destPath = path.join( wpContentDir, relativePath );
+				const relativePath = path.relative(
+					path.join( extractionDirectory, wpContentSourceDir ),
+					file
+				);
+				const destPath = path.join( wpContentDestDir, relativePath );
 				await fsPromises.mkdir( path.dirname( destPath ), { recursive: true } );
 				await fsPromises.copyFile( file, destPath );
 			}
 		}
 		this.emit( ImportEvents.IMPORT_WP_CONTENT_COMPLETE );
 	}
+}
 
+export class JetpackImporter extends BaseBackupImporter {
 	protected async parseMetaFile(): Promise< MetaFileData | undefined > {
 		const metaFilePath = this.backup.metaFile;
 		if ( ! metaFilePath ) {
@@ -154,6 +160,31 @@ export class JetpackImporter extends BaseImporter {
 		try {
 			const metaContent = await fsPromises.readFile( metaFilePath, 'utf-8' );
 			return JSON.parse( metaContent );
+		} catch ( e ) {
+			return;
+		} finally {
+			this.emit( ImportEvents.IMPORT_META_COMPLETE );
+		}
+	}
+}
+
+export class LocalImporter extends BaseBackupImporter {
+	protected async parseMetaFile(): Promise< MetaFileData | undefined > {
+		const metaFilePath = this.backup.metaFile;
+		if ( ! metaFilePath ) {
+			return;
+		}
+		this.emit( ImportEvents.IMPORT_META_START );
+		try {
+			const metaContent = await fsPromises.readFile( metaFilePath, 'utf-8' );
+			const meta = JSON.parse( metaContent );
+			const phpVersion = semver.coerce( meta?.services?.php?.version );
+			return {
+				phpVersion: phpVersion
+					? `${ phpVersion.major }.${ phpVersion.minor }`
+					: DEFAULT_PHP_VERSION,
+				wordpressVersion: '',
+			};
 		} catch ( e ) {
 			return;
 		} finally {
@@ -174,6 +205,7 @@ export class SQLImporter extends BaseImporter {
 				extractionDirectory: this.backup.extractionDirectory,
 				sqlFiles: this.backup.sqlFiles,
 				wpContent: this.backup.wpContent,
+				wpContentDirectory: this.backup.wpContentDirectory,
 			};
 		} catch ( error ) {
 			this.emit( ImportEvents.IMPORT_ERROR, error );

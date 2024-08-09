@@ -71,7 +71,7 @@ export abstract class BaseImporter extends EventEmitter implements Importer {
 			}
 		}
 
-		this.replaceSiteUrl( siteId );
+		await this.replaceSiteUrl( siteId );
 		this.emit( ImportEvents.IMPORT_DATABASE_COMPLETE );
 	}
 

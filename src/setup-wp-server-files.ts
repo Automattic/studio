@@ -66,19 +66,14 @@ async function copyBundledWPCLI() {
 
 async function copyBundledSQLiteCommand() {
 	const bundledSqliteCommandPath = path.join( getResourcesPath(), 'wp-files', 'sqlite-command' );
-	const bundledSqliteCommandVersion = semver.coerce(
-		await getSQLiteCommandVersion( bundledSqliteCommandPath )
-	);
-
+	const bundledSqliteCommandVersion = await getSQLiteCommandVersion( bundledSqliteCommandPath );
 	if ( ! bundledSqliteCommandVersion ) {
 		return;
 	}
 	const installedSqliteCommandPath = getSqliteCommandPath();
 	const isSqliteCommandInstalled = await fs.pathExists( installedSqliteCommandPath );
 
-	const installedSqliteCommandVersion = semver.coerce(
-		await getSQLiteCommandVersion( installedSqliteCommandPath )
-	);
+	const installedSqliteCommandVersion = await getSQLiteCommandVersion( installedSqliteCommandPath );
 	const isBundledVersionNewer =
 		installedSqliteCommandVersion &&
 		semver.gt( bundledSqliteCommandVersion, installedSqliteCommandVersion );

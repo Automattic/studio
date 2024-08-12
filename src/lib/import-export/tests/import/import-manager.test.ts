@@ -114,8 +114,9 @@ describe( 'importManager', () => {
 					importer: MockImporterClass,
 				},
 			];
-			await importBackup( mockFile, mockSite, jest.fn(), options );
+			const result = await importBackup( mockFile, mockSite, jest.fn(), options );
 
+			expect( result ).toBeTruthy();
 			expect( fsPromises.mkdtemp ).toHaveBeenCalledWith( '/tmp/studio_backup' );
 			expect( mockBackupHandler.listFiles ).toHaveBeenCalledWith( mockFile );
 			expect( mockBackupHandler.extractFiles ).toHaveBeenCalledWith( mockFile, mockExtractDir );
@@ -125,7 +126,7 @@ describe( 'importManager', () => {
 			} );
 		} );
 
-		it( 'should throw an error if no suitable importer is found', async () => {
+		it( 'should return false if no suitable importer is found', async () => {
 			const mockValidator: Validator = {
 				canHandle: jest.fn().mockReturnValue( false ),
 				parseBackupContents: jest.fn(),
@@ -136,15 +137,14 @@ describe( 'importManager', () => {
 			};
 			( BackupHandlerFactory.create as jest.Mock ).mockReturnValue( mockBackupHandler );
 
-			await expect(
-				importBackup( mockFile, mockSite, jest.fn(), [
-					{
-						validator: mockValidator,
-						importer: jest.fn(),
-					},
-				] )
-			).rejects.toThrow( 'No suitable importer found for the given backup file' );
+			const result = await importBackup( mockFile, mockSite, jest.fn(), [
+				{
+					validator: mockValidator,
+					importer: jest.fn(),
+				},
+			] );
 
+			expect( result ).toBeFalsy();
 			expect( fsPromises.mkdtemp ).toHaveBeenCalledWith( '/tmp/studio_backup' );
 			expect( fsPromises.rm ).toHaveBeenCalledWith( mockExtractDir, {
 				recursive: true,

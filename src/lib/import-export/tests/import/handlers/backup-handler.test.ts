@@ -52,15 +52,14 @@ describe( 'BackupHandlerFactory', () => {
 			expect( handler ).toBeInstanceOf( BackupHandlerSql );
 		} );
 
-		it( 'should throw an error for unsupported file types', () => {
+		it( 'should return undefined handler for unsupported file types', () => {
 			const archiveInfo: BackupArchiveInfo = {
 				path: '/path/to/backup.unknown',
 				type: 'application/unknown',
 			};
 			( path.extname as jest.Mock ).mockReturnValue( '.unknown' );
-			expect( () => BackupHandlerFactory.create( archiveInfo ) ).toThrow(
-				'Unsupported file format'
-			);
+			const handler = BackupHandlerFactory.create( archiveInfo );
+			expect( handler ).toBeUndefined();
 		} );
 	} );
 
@@ -92,7 +91,7 @@ describe( 'BackupHandlerFactory', () => {
 				archiveFiles.forEach( ( path ) => onReadEntry?.( { path } as tar.ReadEntry ) );
 			} );
 
-			await expect( handler.listFiles( archiveInfo ) ).resolves.toEqual( expectedArchiveFiles );
+			await expect( handler?.listFiles( archiveInfo ) ).resolves.toEqual( expectedArchiveFiles );
 		} );
 
 		it( 'should list files from a zip archive', async () => {
@@ -108,7 +107,7 @@ describe( 'BackupHandlerFactory', () => {
 					.mockReturnValue( archiveFiles.map( ( file ) => ( { entryName: file } ) ) ),
 			} );
 
-			await expect( handler.listFiles( archiveInfo ) ).resolves.toEqual( expectedArchiveFiles );
+			await expect( handler?.listFiles( archiveInfo ) ).resolves.toEqual( expectedArchiveFiles );
 		} );
 
 		it( 'should list a single SQL file', async () => {
@@ -118,7 +117,7 @@ describe( 'BackupHandlerFactory', () => {
 			};
 			const handler = BackupHandlerFactory.create( archiveInfo );
 			( path.basename as jest.Mock ).mockReturnValue( 'backup.sql' );
-			const result = await handler.listFiles( archiveInfo );
+			const result = await handler?.listFiles( archiveInfo );
 			expect( result ).toEqual( [ 'backup.sql' ] );
 		} );
 	} );
@@ -145,7 +144,7 @@ describe( 'BackupHandlerFactory', () => {
 			( fs.statSync as jest.Mock ).mockResolvedValueOnce( 1000 );
 
 			await expect(
-				handler.extractFiles( archiveInfo, extractionDirectory )
+				handler?.extractFiles( archiveInfo, extractionDirectory )
 			).resolves.not.toThrow();
 			expect( tar.x ).toHaveBeenCalledWith( {
 				cwd: extractionDirectory,
@@ -168,7 +167,7 @@ describe( 'BackupHandlerFactory', () => {
 				extractAllToAsync: mockExtractAllToAsync,
 			} ) );
 			await expect(
-				handler.extractFiles( archiveInfo, extractionDirectory )
+				handler?.extractFiles( archiveInfo, extractionDirectory )
 			).resolves.not.toThrow();
 			expect( mockExtractAllToAsync ).toHaveBeenCalledWith(
 				extractionDirectory,
@@ -189,7 +188,7 @@ describe( 'BackupHandlerFactory', () => {
 			( fs.promises.copyFile as jest.Mock ).mockResolvedValue( undefined );
 
 			await expect(
-				handler.extractFiles( archiveInfo, extractionDirectory )
+				handler?.extractFiles( archiveInfo, extractionDirectory )
 			).resolves.not.toThrow();
 			expect( fs.promises.copyFile ).toHaveBeenCalledWith(
 				archiveInfo.path,

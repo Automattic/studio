@@ -246,8 +246,24 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 				[ selectedSite.id ]: INITIAL_EXPORT_STATE,
 			} ) );
 
+			const handleExportError = async () =>
+				getIpcApi().showMessageBox( {
+					type: 'error',
+					message: __( 'Failed exporting site' ),
+					detail: __(
+						'An error occurred while exporting the site. If this problem persists, please contact support.'
+					),
+					buttons: [ __( 'OK' ) ],
+				} );
+
 			try {
-				await getIpcApi().exportSite( options, selectedSite.id );
+				const exportResult = await getIpcApi().exportSite( options, selectedSite.id );
+
+				if ( ! exportResult ) {
+					await handleExportError();
+					return;
+				}
+
 				getIpcApi().showNotification( {
 					title: selectedSite.name,
 					body: __( 'Export completed' ),
@@ -257,14 +273,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 				return options.backupFile;
 			} catch ( error ) {
 				Sentry.captureException( error );
-				await getIpcApi().showMessageBox( {
-					type: 'error',
-					message: __( 'Failed exporting site' ),
-					detail: __(
-						'An error occurred while exporting the site. If this problem persists, please contact support.'
-					),
-					buttons: [ __( 'OK' ) ],
-				} );
+				await handleExportError();
 			} finally {
 				setExportState( ( { [ selectedSite.id ]: currentProgress, ...rest } ) => ( {
 					...rest,

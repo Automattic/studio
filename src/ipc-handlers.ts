@@ -480,7 +480,7 @@ export async function exportSite(
 	event: IpcMainInvokeEvent,
 	options: ExportOptions,
 	siteId: string
-): Promise< void > {
+): Promise< boolean > {
 	try {
 		const onEvent = ( data: ImportExportEventData ) => {
 			const parentWindow = BrowserWindow.fromWebContents( event.sender );
@@ -488,7 +488,7 @@ export async function exportSite(
 				parentWindow.webContents.send( 'on-export', data, siteId );
 			}
 		};
-		await exportBackup( options, onEvent );
+		return await exportBackup( options, onEvent );
 	} catch ( e ) {
 		Sentry.captureException( e );
 		throw e;

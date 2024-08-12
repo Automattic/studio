@@ -1,15 +1,15 @@
 import os from 'os';
 import path from 'path';
 import fs from 'fs-extra';
-import semver from 'semver';
+import semver, { SemVer } from 'semver';
 import { downloadSQLiteCommand } from '../../vendor/wp-now/src/download';
 import { getServerFilesPath } from '../storage/paths';
 import { getLatestSQLiteCommandRelease } from './sqlite-command-release';
 
 interface DistributionCheckResult {
 	needsDownload: boolean;
-	latestVersion: string;
-	currentVersion: string | null;
+	latestVersion: SemVer | null;
+	currentVersion: SemVer | null;
 	downloadUrl?: string;
 	error?: string;
 }
@@ -55,7 +55,7 @@ export async function updateLatestSQLiteCommandVersion() {
 }
 
 async function checkForUpdate(): Promise< DistributionCheckResult > {
-	let currentVersion: string | null = null;
+	let currentVersion: SemVer | null = null;
 	let distributionExists = false;
 	const distributionPath = getSqliteCommandPath();
 
@@ -66,9 +66,11 @@ async function checkForUpdate(): Promise< DistributionCheckResult > {
 
 	try {
 		const latestRelease = await getLatestSQLiteCommandRelease();
-		const latestVersion = latestRelease.tag_name.replace( 'v', '' );
+		const latestVersion = semver.coerce( latestRelease.tag_name );
 		const needsDownload =
-			! distributionExists || ! currentVersion || semver.lt( currentVersion, latestVersion );
+			! distributionExists ||
+			! currentVersion ||
+			( !! latestVersion && semver.lt( currentVersion, latestVersion ) );
 
 		const downloadUrl = latestRelease.assets?.[ 0 ].browser_download_url;
 
@@ -81,7 +83,7 @@ async function checkForUpdate(): Promise< DistributionCheckResult > {
 	} catch ( error ) {
 		return {
 			needsDownload: false,
-			latestVersion: '',
+			latestVersion: null,
 			currentVersion,
 			error: `Failed to check for distribution: ${ error }`,
 		};
@@ -90,9 +92,11 @@ async function checkForUpdate(): Promise< DistributionCheckResult > {
 
 export async function getSQLiteCommandVersion( distributionPath: string ) {
 	try {
-		return ( await fs.readFile( path.join( distributionPath, VERSION_FILENAME ), 'utf8' ) )
-			.trim()
-			.replace( 'v', '' );
+		const versionValue = await fs.readFile(
+			path.join( distributionPath, VERSION_FILENAME ),
+			'utf8'
+		);
+		return semver.coerce( versionValue );
 	} catch ( _error ) {
 		return null;
 	}

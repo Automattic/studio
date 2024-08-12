@@ -3,7 +3,7 @@ import { EventEmitter } from 'events';
 import fs from 'fs';
 import fsPromises from 'fs/promises';
 import path from 'path';
-import { lstat, rename } from 'fs-extra';
+import { lstat, move } from 'fs-extra';
 import semver from 'semver';
 import { DEFAULT_PHP_VERSION } from '../../../../../vendor/wp-now/src/constants';
 import { SiteServer } from '../../../../site-server';
@@ -48,7 +48,7 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 			const tmpPath = path.join( rootPath, sqlTempFile );
 
 			try {
-				await rename( sqlFile, tmpPath );
+				await move( sqlFile, tmpPath );
 				const { stderr, exitCode } = await server.executeWpCliCommand(
 					`sqlite import ${ sqlTempFile } --require=/tmp/sqlite-command/command.php`
 				);

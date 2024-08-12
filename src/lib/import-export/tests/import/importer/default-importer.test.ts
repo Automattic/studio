@@ -1,6 +1,6 @@
 // To run tests, execute `npm run test -- src/lib/import-export/tests/import/importer/jetpack-importer.test.ts`
 import * as fs from 'fs/promises';
-import { lstat, rename } from 'fs-extra';
+import { lstat, move } from 'fs-extra';
 import { SiteServer } from '../../../../../site-server';
 import { JetpackImporter, SQLImporter } from '../../../import/importers';
 import { BackupContents } from '../../../import/types';
@@ -33,8 +33,8 @@ describe( 'JetpackImporter', () => {
 			executeWpCliCommand: jest.fn().mockReturnValue( { stderr: null } ),
 		} );
 
-		// mock rename
-		( rename as jest.Mock ).mockResolvedValue( null );
+		// mock move
+		( move as jest.Mock ).mockResolvedValue( null );
 
 		jest.useFakeTimers();
 		jest.setSystemTime( new Date( '2024-08-01T12:00:00Z' ) );

@@ -5,7 +5,7 @@ Once the release is on the CDN the auto-update process will start downloading th
 
 ## Creating a Release
 
-These instructions are for creating version 0.1.0-alpha.5, but the steps are the same for releases with no pre-release tag.
+These instructions are for creating version 0.1.0-alpha5, but the steps are the same for releases with no pre-release tag.
 
 1. Create a PR which updates the `version` field in `package.json` to `'0.1.0-alpha5'`.
    - Remember to run `npm install` so the version in `package-lock.json` gets updated too.

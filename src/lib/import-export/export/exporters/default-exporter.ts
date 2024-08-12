@@ -213,16 +213,14 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 			const relativePath = path.relative( options.site.path, file );
 			const relativePathItems = relativePath.split( path.sep );
 			const [ wpContent, category ] = relativePathItems;
-			const contentCategory = category as BackupContentsCategory;
 
 			if ( path.basename( file ) === 'wp-config.php' ) {
 				backupContents.wpConfigFile = file;
 			} else if (
 				wpContent === 'wp-content' &&
-				options.includes[ contentCategory ] &&
-				( contentCategory as string ) !== 'database'
+				( category === 'uploads' || category === 'plugins' || category === 'themes' )
 			) {
-				backupContents.wpContent[ contentCategory ].push( file );
+				backupContents.wpContent[ category ].push( file );
 			}
 		} );
 

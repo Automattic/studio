@@ -23,7 +23,6 @@ export async function exportDatabaseToFile(
 	);
 
 	if ( stderr ) {
-		console.error( 'Error during export:', stderr );
 		throw new Error( `Database export failed: ${ stderr }` );
 	}
 

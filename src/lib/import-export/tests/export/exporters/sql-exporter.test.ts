@@ -1,4 +1,4 @@
-import { rename } from 'fs-extra';
+import { move } from 'fs-extra';
 import { SiteServer } from '../../../../../site-server';
 import { SqlExporter } from '../../../export/exporters';
 import { ExportOptions } from '../../../export/types';
@@ -41,7 +41,7 @@ describe( 'SqlExporter', () => {
 			details: { path: '/path/to/site' },
 			executeWpCliCommand: jest.fn().mockResolvedValue( { stderr: null } ),
 		} );
-		( rename as jest.Mock ).mockResolvedValue( null );
+		( move as jest.Mock ).mockResolvedValue( null );
 
 		jest.useFakeTimers();
 		jest.setSystemTime( new Date( '2024-08-01T12:00:00Z' ) );
@@ -62,9 +62,9 @@ describe( 'SqlExporter', () => {
 		);
 	} );
 
-	it( 'should call rename on the temporary file', async () => {
+	it( 'should call move on the temporary file', async () => {
 		await exporter.export();
-		expect( rename ).toHaveBeenCalledWith(
+		expect( move ).toHaveBeenCalledWith(
 			'/path/to/site/studio-backup-db-export-2024-08-01-12-00-00.sql',
 			mockOptions.backupFile
 		);

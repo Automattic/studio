@@ -14,9 +14,7 @@ import fs from 'fs';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import archiver from 'archiver';
-import { copySync } from 'fs-extra';
-import { SQLITE_FILENAME, DEFAULT_PHP_VERSION } from '../vendor/wp-now/src/constants';
-import { downloadSqliteIntegrationPlugin } from '../vendor/wp-now/src/download';
+import { DEFAULT_PHP_VERSION } from '../vendor/wp-now/src/constants';
 import { LIMIT_ARCHIVE_SIZE } from './constants';
 import { isEmptyDir, pathExists, isWordPressDirectory, sanitizeFolderName } from './lib/fs-utils';
 import { getImageData } from './lib/get-image-data';
@@ -33,21 +31,12 @@ import { createPassword } from './lib/passwords';
 import { phpGetThemeDetails } from './lib/php-get-theme-details';
 import { sanitizeForLogging } from './lib/sanitize-for-logging';
 import { sortSites } from './lib/sort-sites';
-import {
-	isSqliteInstallationOutdated,
-	isSqlLiteInstalled,
-	removeLegacySqliteIntegrationPlugin,
-} from './lib/sqlite-versions';
+import { installSqliteIntegration, keepSqliteIntegrationUpdated } from './lib/sqlite-versions';
 import * as windowsHelpers from './lib/windows-helpers';
 import { writeLogToFile, type LogLevel } from './logging';
 import { popupMenu } from './menu';
 import { SiteServer, createSiteWorkingDirectory } from './site-server';
-import {
-	DEFAULT_SITE_PATH,
-	getResourcesPath,
-	getServerFilesPath,
-	getSiteThumbnailPath,
-} from './storage/paths';
+import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from './storage/paths';
 import { loadUserData, saveUserData } from './storage/user-data';
 import type { WpCliResult } from './lib/wp-cli-process';
 
@@ -108,7 +97,7 @@ export async function getInstalledApps( _event: IpcMainInvokeEvent ): Promise< I
 export async function importSite(
 	event: IpcMainInvokeEvent,
 	{ id, backupFile }: { id: string; backupFile: BackupArchiveInfo }
-): Promise< boolean > {
+): Promise< SiteDetails | undefined > {
 	const site = SiteServer.get( id );
 	if ( ! site ) {
 		throw new Error( 'Site not found.' );
@@ -122,43 +111,16 @@ export async function importSite(
 		};
 		const result = await importBackup( backupFile, site.details, onEvent, defaultImporterOptions );
 		if ( ! result ) {
-			return false;
+			return;
 		}
 		if ( result?.meta?.phpVersion ) {
-			await updateSite( event, {
-				...site.details,
-				phpVersion: result.meta.phpVersion,
-			} );
+			site.details.phpVersion = result.meta.phpVersion;
 		}
-		return true;
+		return site.details;
 	} catch ( e ) {
 		Sentry.captureException( e );
 		throw e;
 	}
-}
-
-// Use sqlite database and db.php file in situ
-async function setupSqliteIntegration( path: string ) {
-	await downloadSqliteIntegrationPlugin();
-	const wpContentPath = nodePath.join( path, 'wp-content' );
-	const databasePath = nodePath.join( wpContentPath, 'database' );
-
-	fs.mkdirSync( databasePath, { recursive: true } );
-
-	const dbPhpPath = nodePath.join( wpContentPath, 'db.php' );
-	fs.copyFileSync( nodePath.join( getServerFilesPath(), SQLITE_FILENAME, 'db.copy' ), dbPhpPath );
-	const dbCopyContent = fs.readFileSync( dbPhpPath ).toString();
-	fs.writeFileSync(
-		dbPhpPath,
-		dbCopyContent.replace(
-			"'{SQLITE_IMPLEMENTATION_FOLDER_PATH}'",
-			`realpath( __DIR__ . '/mu-plugins/${ SQLITE_FILENAME }' )`
-		)
-	);
-	const sqlitePluginPath = nodePath.join( wpContentPath, 'mu-plugins', SQLITE_FILENAME );
-	copySync( nodePath.join( getServerFilesPath(), SQLITE_FILENAME ), sqlitePluginPath );
-
-	await removeLegacySqliteIntegrationPlugin( sqlitePluginPath );
 }
 
 export async function createSite(
@@ -218,7 +180,7 @@ export async function createSite(
 		}
 
 		if ( ! ( await pathExists( nodePath.join( path, 'wp-config.php' ) ) ) ) {
-			await setupSqliteIntegration( path );
+			await installSqliteIntegration( path );
 		}
 	}
 
@@ -261,14 +223,7 @@ export async function startServer(
 		return null;
 	}
 
-	const SQLitePath = `${ server.details.path }/wp-content/mu-plugins/${ SQLITE_FILENAME }`;
-	const hasWpConfig = fs.existsSync( nodePath.join( server.details.path, 'wp-config.php' ) );
-	const sqliteInstalled = await isSqlLiteInstalled( SQLitePath );
-	const sqliteOutdated = sqliteInstalled && ( await isSqliteInstallationOutdated( SQLitePath ) );
-
-	if ( ( ! sqliteInstalled && ! hasWpConfig ) || sqliteOutdated ) {
-		await setupSqliteIntegration( server.details.path );
-	}
+	await keepSqliteIntegrationUpdated( server.details.path );
 
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	await server.start();

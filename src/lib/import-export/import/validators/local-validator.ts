@@ -4,12 +4,17 @@ import { ImportEvents } from '../events';
 import { BackupContents } from '../types';
 import { Validator } from './validator';
 
-export class JetpackValidator extends EventEmitter implements Validator {
+export class LocalValidator extends EventEmitter implements Validator {
 	canHandle( fileList: string[] ): boolean {
-		const requiredDirs = [ 'sql', 'wp-content/uploads', 'wp-content/plugins', 'wp-content/themes' ];
+		const requiredDirs = [
+			'app/sql',
+			'app/public/wp-content/uploads',
+			'app/public/wp-content/plugins',
+			'app/public/wp-content/themes',
+		];
 		return (
 			requiredDirs.some( ( dir ) => fileList.some( ( file ) => file.startsWith( dir + '/' ) ) ) &&
-			fileList.some( ( file ) => file.startsWith( 'sql/' ) && file.endsWith( '.sql' ) )
+			fileList.some( ( file ) => file.startsWith( 'app/sql/' ) && file.endsWith( '.sql' ) )
 		);
 	}
 
@@ -23,30 +28,30 @@ export class JetpackValidator extends EventEmitter implements Validator {
 				plugins: [],
 				themes: [],
 			},
-			wpContentDirectory: 'wp-content',
+			wpContentDirectory: 'app/public/wp-content',
 		};
 		/* File rules:
 		 * - Ignore wp-config.php
-		 * - Accept .zip in addition to tar.gz ( Handled by backup handler )
-		 * - Do not reject the archive that includes core WP files in addition to files and directories required by Jetpack format, and ignore those instead.
-		 * - Support optional meta file, e.g., studio.json, that stores desired PHP and WP versions.
+		 * - Accept .zip
+		 * - Do not reject the archive that includes core WP files, and ignore those instead.
+		 * - Support optional meta file, local-site.json, that stores desired PHP and WP versions.
 		 * */
 
 		for ( const file of fileList ) {
 			// Ignore wp-config.php
-			if ( file === 'wp-config.php' ) continue;
+			if ( file === 'app/public/wp-config.php' ) continue;
 
 			const fullPath = path.join( extractionDirectory, file );
 
-			if ( file.startsWith( 'sql/' ) && file.endsWith( '.sql' ) ) {
+			if ( file.startsWith( 'app/sql/' ) && file.endsWith( '.sql' ) ) {
 				extractedBackup.sqlFiles.push( fullPath );
-			} else if ( file.startsWith( 'wp-content/uploads/' ) ) {
+			} else if ( file.startsWith( 'app/public/wp-content/uploads/' ) ) {
 				extractedBackup.wpContent.uploads.push( fullPath );
-			} else if ( file.startsWith( 'wp-content/plugins/' ) ) {
+			} else if ( file.startsWith( 'app/public/wp-content/plugins/' ) ) {
 				extractedBackup.wpContent.plugins.push( fullPath );
-			} else if ( file.startsWith( 'wp-content/themes/' ) ) {
+			} else if ( file.startsWith( 'app/public/wp-content/themes/' ) ) {
 				extractedBackup.wpContent.themes.push( fullPath );
-			} else if ( file === 'studio.json' ) {
+			} else if ( file === 'local-site.json' ) {
 				extractedBackup.metaFile = fullPath;
 			}
 		}

@@ -4,7 +4,7 @@ import { sprintf, __ } from '@wordpress/i18n';
 import { Icon, download } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useRef } from 'react';
-import { STUDIO_DOCS_URL } from '../constants';
+import { STUDIO_DOCS_URL_IMPORT_EXPORT } from '../constants';
 import { useConfirmationDialog } from '../hooks/use-confirmation-dialog';
 import { useDragAndDropFile } from '../hooks/use-drag-and-drop-file';
 import { useImportExport } from '../hooks/use-import-export';
@@ -168,7 +168,10 @@ const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 					__( 'Import a Jetpack backup or a .sql database file. <button>Learn more</button>' ),
 					{
 						button: (
-							<Button variant="link" onClick={ () => getIpcApi().openURL( STUDIO_DOCS_URL ) } />
+							<Button
+								variant="link"
+								onClick={ () => getIpcApi().openURL( STUDIO_DOCS_URL_IMPORT_EXPORT ) }
+							/>
 						),
 					}
 				) }

@@ -4,9 +4,11 @@ import { ExportEventType, ExportEvents } from '../../lib/import-export/export/ev
 import { ImportEventType, ImportEvents } from '../../lib/import-export/import/events';
 import { ImportExportProvider, useImportExport } from '../use-import-export';
 import { useIpcListener } from '../use-ipc-listener';
+import { useSiteDetails } from '../use-site-details';
 
 jest.mock( '../../lib/get-ipc-api' );
 jest.mock( '../../hooks/use-ipc-listener' );
+jest.mock( '../../hooks/use-site-details' );
 
 const SITE_ID = 'site-id-1';
 
@@ -31,6 +33,10 @@ beforeEach( () => {
 		showNotification: jest.fn(),
 		exportSite: jest.fn().mockReturnValue( true ),
 		importSite: jest.fn().mockReturnValue( true ),
+	} );
+	( useSiteDetails as jest.Mock ).mockReturnValue( {
+		updateSite: jest.fn(),
+		stopServer: jest.fn(),
 	} );
 } );
 
@@ -338,5 +344,16 @@ describe( 'useImportExport hook', () => {
 				isNewSite: false,
 			},
 		} );
+	} );
+
+	it( 'imports site with given studio.json PHP version', async () => {
+		const importedSite = { ...selectedSite, phpVersion: '7.4' };
+		( getIpcApi().importSite as jest.Mock ).mockResolvedValue( importedSite );
+
+		const { result } = renderHook( () => useImportExport(), { wrapper } );
+		const file = { path: 'backup.zip', type: 'application/zip' };
+		await act( () => result.current.importFile( file, selectedSite ) );
+
+		expect( useSiteDetails().updateSite ).toHaveBeenCalledWith( importedSite );
 	} );
 } );

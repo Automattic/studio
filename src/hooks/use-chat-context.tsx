@@ -140,7 +140,7 @@ export const ChatProvider: React.FC< ChatProviderProps > = ( { children } ) => {
 
 	useWindowListener( 'focus', async () => {
 		// When the window is focused, we need to kick off a request to refetch the theme details, if server is running.
-		if ( ! selectedSite?.id || selectedSite.running === false || ! selectedSite?.isAddingSite ) {
+		if ( ! selectedSite?.id || selectedSite.running === false || selectedSite?.isAddingSite ) {
 			return;
 		}
 		const plugins = await fetchPluginList( selectedSite.id );

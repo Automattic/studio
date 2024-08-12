@@ -32,7 +32,7 @@ beforeEach( () => {
 		showMessageBox: jest.fn().mockResolvedValue( { response: 0, checkboxChecked: false } ),
 		showNotification: jest.fn(),
 		exportSite: jest.fn().mockReturnValue( true ),
-		importSite: jest.fn().mockReturnValue( true ),
+		importSite: jest.fn().mockReturnValue( selectedSite ),
 	} );
 	( useSiteDetails as jest.Mock ).mockReturnValue( {
 		updateSite: jest.fn(),

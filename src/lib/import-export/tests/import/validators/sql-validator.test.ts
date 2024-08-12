@@ -40,6 +40,7 @@ describe( 'SqlValidator', () => {
 					plugins: [],
 					themes: [],
 				},
+				wpContentDirectory: '',
 			} );
 		} );
 	} );

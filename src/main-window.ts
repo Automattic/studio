@@ -3,6 +3,7 @@ import { moveDatabasesInSitu } from '../vendor/wp-now/src';
 import { MAIN_MIN_HEIGHT, MAIN_MIN_WIDTH, WINDOWS_TITLEBAR_HEIGHT } from './constants';
 import { isEmptyDir } from './lib/fs-utils';
 import { portFinder } from './lib/port-finder';
+import { keepSqliteIntegrationUpdated } from './lib/sqlite-versions';
 import { setupMenu } from './menu';
 import { UserData } from './storage/storage-types';
 import { loadUserData, saveUserData } from './storage/user-data';
@@ -71,7 +72,9 @@ export function createMainWindow(): BrowserWindow {
 		initializePortFinder( sites );
 		removeSitesWithEmptyDirectories( userData );
 		for ( const site of sites ) {
-			moveDatabasesInSitu( site.path );
+			moveDatabasesInSitu( site.path ).then( () => {
+				keepSqliteIntegrationUpdated( site.path );
+			} );
 		}
 	} );
 

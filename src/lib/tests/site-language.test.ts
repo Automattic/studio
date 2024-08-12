@@ -4,6 +4,8 @@
 import { app } from 'electron';
 import { getPreferredSiteLanguage } from '../site-language';
 
+jest.unmock( 'fs-extra' );
+
 const originalFetch = global.fetch;
 
 function mockAppLocale( language: string ) {

@@ -15,6 +15,7 @@ export interface BackupContents {
 	extractionDirectory: string;
 	sqlFiles: string[];
 	wpContent: WpContent;
+	wpContentDirectory: string;
 	metaFile?: string;
 }
 

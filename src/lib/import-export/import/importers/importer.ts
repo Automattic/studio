@@ -68,7 +68,40 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 			}
 		}
 
+		await this.replaceSiteUrl( siteId );
 		this.emit( ImportEvents.IMPORT_DATABASE_COMPLETE );
+	}
+
+	private async replaceSiteUrl( siteId: string ) {
+		const server = SiteServer.get( siteId );
+		if ( ! server ) {
+			throw new Error( 'Site not found.' );
+		}
+
+		const { stdout: currentSiteUrl } = await server.executeWpCliCommand( `option get siteurl` );
+
+		if ( ! currentSiteUrl ) {
+			console.error( 'Failed to fetch site URL after import' );
+			return;
+		}
+
+		const studioUrl = `http://localhost:${ server.details.port }`;
+
+		const { stderr, exitCode } = await server.executeWpCliCommand(
+			`search-replace '${ currentSiteUrl.trim() }' '${ studioUrl.trim() }'`
+		);
+
+		if ( stderr ) {
+			console.error(
+				`Warning during replacing siteUrl ${ currentSiteUrl } -> ${ studioUrl }: ${ stderr }`
+			);
+		}
+
+		if ( exitCode ) {
+			console.error(
+				`Error during replacing siteUrl ${ currentSiteUrl } -> ${ studioUrl }, Exit Code: ${ exitCode }`
+			);
+		}
 	}
 
 	protected async safelyDeleteFile( filePath: string ): Promise< void > {

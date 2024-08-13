@@ -7,7 +7,7 @@ import { useSiteDetails } from './use-site-details';
 
 export function useAddSite() {
 	const { __ } = useI18n();
-	const { createSite, data: sites, loadingSites, startServer, updateSite } = useSiteDetails();
+	const { createSite, data: sites, loadingSites, startServer } = useSiteDetails();
 	const { importFile, clearImportState } = useImportExport();
 	const [ error, setError ] = useState( '' );
 	const [ siteName, setSiteName ] = useState< string | null >( null );
@@ -55,22 +55,22 @@ export function useAddSite() {
 	const handleAddSiteClick = useCallback( async () => {
 		try {
 			const path = sitePath ? sitePath : proposedSitePath;
-			const newSite = await createSite( path, siteName ?? '' );
-			if ( newSite ) {
-				if ( fileForImport ) {
-					await importFile( fileForImport, newSite, {
-						showImportNotification: false,
-						isNewSite: true,
+			await createSite( path, siteName ?? '', async ( newSite ) => {
+				if ( newSite ) {
+					if ( fileForImport ) {
+						await importFile( fileForImport, newSite, {
+							showImportNotification: false,
+							isNewSite: true,
+						} );
+						clearImportState( newSite.id );
+					}
+					await startServer( newSite.id );
+					getIpcApi().showNotification( {
+						title: newSite.name,
+						body: __( 'Your new site is up and running' ),
 					} );
-					clearImportState( newSite.id );
 				}
-				await startServer( newSite.id );
-				updateSite( { ...newSite, isAddingSite: false } );
-				getIpcApi().showNotification( {
-					title: newSite.name,
-					body: __( 'Your new site is up and running' ),
-				} );
-			}
+			} );
 		} catch ( e ) {
 			Sentry.captureException( e );
 		}
@@ -84,7 +84,6 @@ export function useAddSite() {
 		siteName,
 		sitePath,
 		startServer,
-		updateSite,
 	] );
 
 	const handleSiteNameChange = useCallback(

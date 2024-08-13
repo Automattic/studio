@@ -4,7 +4,7 @@
 
 Studio uses [semver](https://semver.org/)-style version numbers.
 
-`0.1.0` < `0.2.0` < `0.3.0-beta.1` < `0.3.0`
+`0.1.0` < `0.2.0` < `0.3.0-beta1` < `0.3.0`
 
 ## “Dev Builds” and “Release Builds”
 
@@ -14,7 +14,7 @@ changeset it was built from.
 
 A **release build** is version of the app built from a specific changeset that
 was chosen by a member of the team by applying a tag to the changeset. It has
-version numbers that look like `1.2.3` and `0.1.0-beta.3`. Notice a beta is
+version numbers that look like `1.2.3` and `0.1.0-beta3`. Notice a beta is
 still considered a release build. They’re built using the same mechanism and are
 out in the wild, generating entries in Sentry etc. From the team’s point of view
 there’s no real difference between a beta and a non-beta build.
@@ -23,8 +23,8 @@ there’s no real difference between a beta and a non-beta build.
 
 Studio’s version is defined in `package.json`. When it’s time to bump to the next
 version the new version number should be committed in `package.json`
-(e.g. `"version": "1.0.1-beta.1"`). To run the release build in CI the changeset
-should be tagged (e.g. `v1.0.1-beta.1`). CI will pick this up automatically.
+(e.g. `"version": "1.0.1-beta1"`). To run the release build in CI the changeset
+should be tagged (e.g. `v1.0.1-beta1`). CI will pick this up automatically.
 
 `package.json` is the authoritative source of the version info, not the tag. But
 duplicating the version number in the tag is still useful for comparing

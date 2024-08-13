@@ -3,12 +3,9 @@
  */
 import { shell, IpcMainInvokeEvent } from 'electron';
 import fs from 'fs';
-import { copySync } from 'fs-extra';
-import { SQLITE_FILENAME } from '../../vendor/wp-now/src/constants';
-import { downloadSqliteIntegrationPlugin } from '../../vendor/wp-now/src/download';
 import { createSite, startServer } from '../ipc-handlers';
 import { isEmptyDir, pathExists } from '../lib/fs-utils';
-import { isSqliteInstallationOutdated, isSqlLiteInstalled } from '../lib/sqlite-versions';
+import { keepSqliteIntegrationUpdated } from '../lib/sqlite-versions';
 import { SiteServer, createSiteWorkingDirectory } from '../site-server';
 
 jest.mock( 'fs' );
@@ -81,83 +78,18 @@ describe( 'createSite', () => {
 } );
 
 describe( 'startServer', () => {
-	describe( 'when sqlite-database-integration plugin is outdated', () => {
-		it( 'should update sqlite-database-integration plugin', async () => {
-			const mockSitePath = 'mock-site-path';
-			( isSqliteInstallationOutdated as jest.Mock ).mockResolvedValue( true );
-			( isSqlLiteInstalled as jest.Mock ).mockResolvedValue( true );
-			( SiteServer.get as jest.Mock ).mockReturnValue( {
-				details: { path: mockSitePath },
-				start: jest.fn(),
-				updateSiteDetails: jest.fn(),
-				updateCachedThumbnail: jest.fn( () => Promise.resolve() ),
-			} );
-
-			await startServer( mockIpcMainInvokeEvent, 'mock-site-id' );
-
-			expect( downloadSqliteIntegrationPlugin ).toHaveBeenCalledTimes( 1 );
-			expect( copySync ).toHaveBeenCalledWith(
-				`/path/to/app/appData/App Name/server-files/sqlite-database-integration`,
-				`${ mockSitePath }/wp-content/mu-plugins/${ SQLITE_FILENAME }`
-			);
-		} );
-	} );
-
-	describe( 'when sqlite-database-integration plugin is up-to-date', () => {
-		it( 'should not update sqlite-database-integration plugin', async () => {
-			( isSqliteInstallationOutdated as jest.Mock ).mockResolvedValue( false );
-			( SiteServer.get as jest.Mock ).mockReturnValue( {
-				details: { path: 'mock-site-path' },
-				start: jest.fn(),
-				updateSiteDetails: jest.fn(),
-				updateCachedThumbnail: jest.fn( () => Promise.resolve() ),
-			} );
-
-			await startServer( mockIpcMainInvokeEvent, 'mock-site-id' );
-
-			expect( downloadSqliteIntegrationPlugin ).not.toHaveBeenCalled();
-			expect( copySync ).not.toHaveBeenCalled();
-		} );
-	} );
-
-	describe( 'when sqlite-database-integration plugin is not installed', () => {
-		it( 'should install sqlite-database-integration plugin if wp-config.php does not exist', async () => {
-			const mockSitePath = 'mock-site-path';
-			( isSqlLiteInstalled as jest.Mock ).mockResolvedValue( false );
-			( fs.existsSync as jest.Mock ).mockReturnValueOnce( false );
-			( SiteServer.get as jest.Mock ).mockReturnValue( {
-				details: { path: mockSitePath },
-				start: jest.fn(),
-				updateSiteDetails: jest.fn(),
-				updateCachedThumbnail: jest.fn( () => Promise.resolve() ),
-			} );
-
-			await startServer( mockIpcMainInvokeEvent, 'mock-site-id' );
-
-			expect( downloadSqliteIntegrationPlugin ).toHaveBeenCalledTimes( 1 );
-			expect( copySync ).toHaveBeenCalledWith(
-				`/path/to/app/appData/App Name/server-files/sqlite-database-integration`,
-				`${ mockSitePath }/wp-content/mu-plugins/${ SQLITE_FILENAME }`
-			);
+	it( 'should keep SQLite integration up-to-date', async () => {
+		const mockSitePath = 'mock-site-path';
+		( keepSqliteIntegrationUpdated as jest.Mock ).mockResolvedValue( undefined );
+		( SiteServer.get as jest.Mock ).mockReturnValue( {
+			details: { path: mockSitePath },
+			start: jest.fn(),
+			updateSiteDetails: jest.fn(),
+			updateCachedThumbnail: jest.fn( () => Promise.resolve() ),
 		} );
 
-		it( 'should not install sqlite-database-integration plugin if wp-config.php exists', async () => {
-			const mockSitePath = 'mock-site-path';
-			( isSqlLiteInstalled as jest.Mock ).mockResolvedValue( false );
-			( fs.existsSync as jest.Mock ).mockImplementationOnce(
-				( path: string ) => path === `${ mockSitePath }/wp-config.php`
-			);
-			( SiteServer.get as jest.Mock ).mockReturnValue( {
-				details: { path: mockSitePath },
-				start: jest.fn(),
-				updateSiteDetails: jest.fn(),
-				updateCachedThumbnail: jest.fn( () => Promise.resolve() ),
-			} );
+		await startServer( mockIpcMainInvokeEvent, 'mock-site-id' );
 
-			await startServer( mockIpcMainInvokeEvent, 'mock-site-id' );
-
-			expect( downloadSqliteIntegrationPlugin ).not.toHaveBeenCalled();
-			expect( copySync ).not.toHaveBeenCalled();
-		} );
+		expect( keepSqliteIntegrationUpdated ).toHaveBeenCalledWith( mockSitePath );
 	} );
 } );

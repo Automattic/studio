@@ -1,5 +1,5 @@
 import path from 'path';
-import { rename } from 'fs-extra';
+import { move } from 'fs-extra';
 import { SiteServer } from '../../../site-server';
 import { generateBackupFilename } from './generate-backup-filename';
 
@@ -32,7 +32,7 @@ export async function exportDatabaseToFile(
 	}
 
 	// Move the file to its final destination
-	await rename( tempFilePath, finalDestination );
+	await move( tempFilePath, finalDestination );
 
 	console.log( `Database export saved to ${ finalDestination }` );
 }

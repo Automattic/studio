@@ -54,6 +54,7 @@ describe( 'JetpackValidator', () => {
 					plugins: [ '/tmp/extracted/wp-content/plugins/jetpack/jetpack.php' ],
 					themes: [ '/tmp/extracted/wp-content/themes/twentytwentyone/style.css' ],
 				},
+				wpContentDirectory: 'wp-content',
 				metaFile: '/tmp/extracted/studio.json',
 			} );
 		} );
@@ -81,6 +82,7 @@ describe( 'JetpackValidator', () => {
 					plugins: [ '/tmp/extracted/wp-content/plugins/jetpack/jetpack.php' ],
 					themes: [ '/tmp/extracted/wp-content/themes/twentytwentyone/style.css' ],
 				},
+				wpContentDirectory: 'wp-content',
 				metaFile: '/tmp/extracted/studio.json',
 			} );
 		} );

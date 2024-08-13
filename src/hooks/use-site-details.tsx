@@ -232,9 +232,10 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					await callback( newSite );
 				}
 
-				newSite.isAddingSite = false;
 				setData( ( prevData ) =>
-					prevData.map( ( site ) => ( site.id === newSite.id ? newSite : site ) )
+					prevData.map( ( site ) =>
+						site.id === newSite.id ? { ...site, isAddingSite: false } : site
+					)
 				);
 
 				return newSite;

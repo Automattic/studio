@@ -11,6 +11,7 @@ import { DEFAULT_PHP_VERSION } from '../../vendor/wp-now/src/constants';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { useCheckInstalledApps } from './use-check-installed-apps';
 import { useGetWpVersion } from './use-get-wp-version';
+import { useImportExport } from './use-import-export';
 import { useSiteDetails } from './use-site-details';
 import { useThemeDetails } from './use-theme-details';
 import { useWindowListener } from './use-window-listener';
@@ -65,6 +66,8 @@ export const ChatProvider: React.FC< ChatProviderProps > = ( { children } ) => {
 	const [ themesList, setThemesList ] = useState< Record< string, string[] > >( {} );
 	const numberOfSites = sites?.length || 0;
 	const sitePort = selectedSite?.port || '';
+	const { isSiteImporting } = useImportExport();
+	const isImporting = isSiteImporting( selectedSite?.id || '' );
 
 	const { selectedThemeDetails: themeDetails } = useThemeDetails();
 
@@ -98,7 +101,7 @@ export const ChatProvider: React.FC< ChatProviderProps > = ( { children } ) => {
 		let isCurrent = true;
 		const run = async () => {
 			const siteId = selectedSite?.id;
-			if ( ! siteId || selectedSite.isAddingSite ) {
+			if ( ! siteId || selectedSite.isAddingSite || isImporting ) {
 				return;
 			}
 			setInitialLoad( ( prev ) => ( { ...prev, [ siteId ]: true } ) );
@@ -131,6 +134,7 @@ export const ChatProvider: React.FC< ChatProviderProps > = ( { children } ) => {
 		fetchPluginList,
 		fetchThemeList,
 		initialLoad,
+		isImporting,
 		loadingSites,
 		pluginsList,
 		selectedSite,

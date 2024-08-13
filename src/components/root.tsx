@@ -26,11 +26,11 @@ const Root = () => {
 									<InstalledAppsProvider>
 										<OnboardingProvider>
 											<PromptUsageProvider>
-												<ChatProvider>
-													<ImportExportProvider>
+												<ImportExportProvider>
+													<ChatProvider>
 														<App />
-													</ImportExportProvider>
-												</ChatProvider>
+													</ChatProvider>
+												</ImportExportProvider>
 											</PromptUsageProvider>
 										</OnboardingProvider>
 									</InstalledAppsProvider>

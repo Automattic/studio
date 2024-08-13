@@ -15,7 +15,7 @@ import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import archiver from 'archiver';
 import { DEFAULT_PHP_VERSION } from '../vendor/wp-now/src/constants';
-import { LIMIT_ARCHIVE_SIZE } from './constants';
+import { SIZE_LIMIT_BYTES } from './constants';
 import { isEmptyDir, pathExists, isWordPressDirectory, sanitizeFolderName } from './lib/fs-utils';
 import { getImageData } from './lib/get-image-data';
 import { exportBackup } from './lib/import-export/export/export-manager';
@@ -363,7 +363,7 @@ export async function archiveSite( event: IpcMainInvokeEvent, id: string ) {
 	} );
 	const stats = fs.statSync( zipPath );
 	const zipContent = fs.readFileSync( zipPath );
-	return { zipPath, zipContent, exceedsSizeLimit: stats.size > LIMIT_ARCHIVE_SIZE };
+	return { zipPath, zipContent, exceedsSizeLimit: stats.size > SIZE_LIMIT_BYTES };
 }
 
 export function removeTemporalFile( event: IpcMainInvokeEvent, path: string ) {

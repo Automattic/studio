@@ -234,7 +234,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 				newSite.isAddingSite = false;
 				setData( ( prevData ) =>
-					prevData.map( ( site ) => ( site.id === tempSiteId ? newSite : site ) )
+					prevData.map( ( site ) => ( site.id === newSite.id ? newSite : site ) )
 				);
 
 				return newSite;

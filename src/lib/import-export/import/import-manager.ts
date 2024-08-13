@@ -54,14 +54,14 @@ export async function importBackup(
 		const fileList = await backupHandler.listFiles( backupFile );
 		const importer = selectImporter( fileList, extractionDirectory, onEvent, options );
 
-		if ( importer ) {
-			removeBackupListeners = handleEvents( backupHandler, onEvent, BackupExtractEvents );
-			removeImportListeners = handleEvents( importer, onEvent, ImporterEvents );
-			await backupHandler.extractFiles( backupFile, extractionDirectory );
-			return await importer.import( site.path, site.id );
-		} else {
+		if ( ! importer ) {
 			return;
 		}
+
+		removeBackupListeners = handleEvents( backupHandler, onEvent, BackupExtractEvents );
+		removeImportListeners = handleEvents( importer, onEvent, ImporterEvents );
+		await backupHandler.extractFiles( backupFile, extractionDirectory );
+		return await importer.import( site.path, site.id );
 	} finally {
 		removeBackupListeners?.();
 		removeImportListeners?.();

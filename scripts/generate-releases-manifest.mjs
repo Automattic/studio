@@ -32,8 +32,8 @@
 //     },
 //     ... etc.
 //   },
-//   "1.0.1-beta.1": { ... },
-//   "1.2.1-rc.3": { ... },
+//   "1.0.1-beta1": { ... },
+//   "1.2.1-rc3": { ... },
 // }
 //
 // The "dev" entry will be replaced with the latest build from trunk.

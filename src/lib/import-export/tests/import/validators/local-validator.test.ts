@@ -49,6 +49,7 @@ describe( 'LocalValidator', () => {
 			expect( result ).toEqual( {
 				extractionDirectory,
 				sqlFiles: [ '/tmp/extracted/app/sql/local.sql' ],
+				wpConfig: '',
 				wpContent: {
 					uploads: [ '/tmp/extracted/app/public/wp-content/uploads/2023/image.jpg' ],
 					plugins: [ '/tmp/extracted/app/public/wp-content/plugins/jetpack/jetpack.php' ],
@@ -65,7 +66,7 @@ describe( 'LocalValidator', () => {
 				'app/public/wp-admin/wp-admin.php',
 				'app/public/wp-admin/about.php',
 				'app/public/wp-includes/test.php',
-				'app/public/wp-content/wp-config.php',
+				'app/public/wp-config.php',
 				'app/public/wp-content/uploads/2023/image.jpg',
 				'app/public/wp-content/plugins/jetpack/jetpack.php',
 				'app/public/wp-content/themes/twentytwentyone/style.css',
@@ -77,6 +78,7 @@ describe( 'LocalValidator', () => {
 			expect( result ).toEqual( {
 				extractionDirectory,
 				sqlFiles: [ '/tmp/extracted/app/sql/local.sql' ],
+				wpConfig: '/tmp/extracted/app/public/wp-config.php',
 				wpContent: {
 					uploads: [ '/tmp/extracted/app/public/wp-content/uploads/2023/image.jpg' ],
 					plugins: [ '/tmp/extracted/app/public/wp-content/plugins/jetpack/jetpack.php' ],

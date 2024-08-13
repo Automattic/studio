@@ -121,6 +121,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 			await this.moveExistingDatabaseToTrash( dbPath );
 			await this.createEmptyDatabase( dbPath );
 			await this.importDatabase( rootPath, siteId, this.backup.sqlFiles );
+			await this.importWpConfig( rootPath );
 			await this.importWpContent( rootPath );
 			let meta: MetaFileData | undefined;
 			if ( this.backup.metaFile ) {
@@ -133,6 +134,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 				sqlFiles: this.backup.sqlFiles,
 				wpContent: this.backup.wpContent,
 				wpContentDirectory: this.backup.wpContentDirectory,
+				wpConfig: this.backup.wpConfig,
 				meta,
 			};
 		} catch ( error ) {
@@ -152,6 +154,13 @@ abstract class BaseBackupImporter extends BaseImporter {
 			return;
 		}
 		await shell.trashItem( dbPath );
+	}
+
+	protected async importWpConfig( rootPath: string ): Promise< void > {
+		if ( ! this.backup.wpConfig ) {
+			return;
+		}
+		await fsPromises.copyFile( this.backup.wpConfig, `${ rootPath }/wp-config.php` );
 	}
 
 	protected async importWpContent( rootPath: string ): Promise< void > {
@@ -234,6 +243,7 @@ export class SQLImporter extends BaseImporter {
 			return {
 				extractionDirectory: this.backup.extractionDirectory,
 				sqlFiles: this.backup.sqlFiles,
+				wpConfig: this.backup.wpConfig,
 				wpContent: this.backup.wpContent,
 				wpContentDirectory: this.backup.wpContentDirectory,
 			};

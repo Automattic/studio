@@ -18,6 +18,7 @@ export class JetpackValidator extends EventEmitter implements Validator {
 		const extractedBackup: BackupContents = {
 			extractionDirectory: extractionDirectory,
 			sqlFiles: [],
+			wpConfig: '',
 			wpContent: {
 				uploads: [],
 				plugins: [],
@@ -26,17 +27,17 @@ export class JetpackValidator extends EventEmitter implements Validator {
 			wpContentDirectory: 'wp-content',
 		};
 		/* File rules:
-		 * - Ignore wp-config.php
 		 * - Accept .zip in addition to tar.gz ( Handled by backup handler )
 		 * - Do not reject the archive that includes core WP files in addition to files and directories required by Jetpack format, and ignore those instead.
 		 * - Support optional meta file, e.g., studio.json, that stores desired PHP and WP versions.
 		 * */
 
 		for ( const file of fileList ) {
-			// Ignore wp-config.php
-			if ( file === 'wp-config.php' ) continue;
-
 			const fullPath = path.join( extractionDirectory, file );
+			if ( file === 'wp-config.php' ) {
+				extractedBackup.wpConfig = fullPath;
+				continue;
+			}
 
 			if ( file.startsWith( 'sql/' ) && file.endsWith( '.sql' ) ) {
 				extractedBackup.sqlFiles.push( fullPath );

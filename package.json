@@ -55,6 +55,7 @@
 		"@types/react": "^18.2.42",
 		"@types/react-dom": "^18.2.17",
 		"@types/shell-quote": "^1.7.5",
+		"@types/unzipper": "^0.10.10",
 		"@typescript-eslint/eslint-plugin": "^5.0.0",
 		"@typescript-eslint/parser": "^5.0.0",
 		"@vercel/webpack-asset-relocator-loader": "1.7.3",

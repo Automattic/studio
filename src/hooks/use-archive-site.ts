@@ -84,7 +84,7 @@ export function useArchiveSite() {
 						__(
 							'The site exceeds the maximum size of %dMB. Please remove some files and try again.'
 						),
-						Math.floor( SIZE_LIMIT_MB )
+						SIZE_LIMIT_MB
 					)
 				);
 				setUploadingSites( ( _uploadingSites ) => ( { ..._uploadingSites, [ siteId ]: false } ) );

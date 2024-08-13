@@ -13,6 +13,7 @@ describe( 'localImporter', () => {
 	const mockBackupContents: BackupContents = {
 		extractionDirectory: '/tmp/extracted',
 		sqlFiles: [ '/tmp/extracted/app/sql/local.sql', '/tmp/extracted/app/sql/local.sql' ],
+		wpConfig: '/tmp/extracted/app/wp-config.php',
 		wpContent: {
 			uploads: [ '/tmp/extracted/app/public/wp-content/uploads/2023/image.jpg' ],
 			plugins: [ '/tmp/extracted/app/public/wp-content/plugins/jetpack/jetpack.php' ],
@@ -68,7 +69,7 @@ describe( 'localImporter', () => {
 			expect( result?.meta?.phpVersion ).toBe( '8.2' );
 
 			expect( fs.mkdir ).toHaveBeenCalled();
-			expect( fs.copyFile ).toHaveBeenCalledTimes( 3 ); // One for each wp-content file
+			expect( fs.copyFile ).toHaveBeenCalledTimes( 4 ); // One for each wp-content file + wp-config
 			expect( fs.readFile ).toHaveBeenCalledWith( '/tmp/extracted/local-site.json', 'utf-8' );
 		} );
 
@@ -82,7 +83,7 @@ describe( 'localImporter', () => {
 			expect( result?.meta?.phpVersion ).toBe( undefined );
 
 			expect( fs.mkdir ).toHaveBeenCalled();
-			expect( fs.copyFile ).toHaveBeenCalledTimes( 3 );
+			expect( fs.copyFile ).toHaveBeenCalledTimes( 4 );
 			expect( fs.readFile ).not.toHaveBeenCalled();
 		} );
 
@@ -97,7 +98,7 @@ describe( 'localImporter', () => {
 			).resolves.not.toThrow();
 
 			expect( fs.mkdir ).toHaveBeenCalled();
-			expect( fs.copyFile ).toHaveBeenCalledTimes( 3 );
+			expect( fs.copyFile ).toHaveBeenCalledTimes( 4 );
 			expect( fs.readFile ).toHaveBeenCalledWith( '/tmp/extracted/local-site.json', 'utf-8' );
 		} );
 	} );

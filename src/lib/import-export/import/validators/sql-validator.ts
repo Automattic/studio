@@ -14,6 +14,7 @@ export class SqlValidator extends EventEmitter implements Validator {
 		const extractedBackup: BackupContents = {
 			extractionDirectory: extractionDirectory,
 			sqlFiles: [],
+			wpConfig: '',
 			wpContent: {
 				uploads: [],
 				plugins: [],

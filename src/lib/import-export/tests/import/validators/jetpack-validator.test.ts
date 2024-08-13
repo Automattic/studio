@@ -49,6 +49,7 @@ describe( 'JetpackValidator', () => {
 			expect( result ).toEqual( {
 				extractionDirectory,
 				sqlFiles: [ '/tmp/extracted/sql/wp_options.sql' ],
+				wpConfig: '',
 				wpContent: {
 					uploads: [ '/tmp/extracted/wp-content/uploads/2023/image.jpg' ],
 					plugins: [ '/tmp/extracted/wp-content/plugins/jetpack/jetpack.php' ],
@@ -65,7 +66,9 @@ describe( 'JetpackValidator', () => {
 				'wp-admin/wp-admin.php',
 				'wp-admin/about.php',
 				'wp-includes/test.php',
-				'wp-content/wp-config.php',
+				'wp-config.php',
+				'wp-load.php',
+				'wp-admin/wp-admin.php',
 				'wp-content/uploads/2023/image.jpg',
 				'wp-content/plugins/jetpack/jetpack.php',
 				'wp-content/themes/twentytwentyone/style.css',
@@ -77,6 +80,7 @@ describe( 'JetpackValidator', () => {
 			expect( result ).toEqual( {
 				extractionDirectory,
 				sqlFiles: [ '/tmp/extracted/sql/wp_options.sql' ],
+				wpConfig: '/tmp/extracted/wp-config.php',
 				wpContent: {
 					uploads: [ '/tmp/extracted/wp-content/uploads/2023/image.jpg' ],
 					plugins: [ '/tmp/extracted/wp-content/plugins/jetpack/jetpack.php' ],

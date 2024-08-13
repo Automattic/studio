@@ -13,6 +13,7 @@ describe( 'JetpackImporter', () => {
 	const mockBackupContents: BackupContents = {
 		extractionDirectory: '/tmp/extracted',
 		sqlFiles: [ '/tmp/extracted/sql/wp_options.sql', '/tmp/extracted/sql/wp_posts.sql' ],
+		wpConfig: '/tmp/extraced/wp-config.php',
 		wpContent: {
 			uploads: [ '/tmp/extracted/wp-content/uploads/2023/image.jpg' ],
 			plugins: [ '/tmp/extracted/wp-content/plugins/jetpack/jetpack.php' ],
@@ -49,7 +50,7 @@ describe( 'JetpackImporter', () => {
 	} );
 
 	describe( 'import', () => {
-		it( 'should copy wp-content files and read meta file', async () => {
+		it( 'should copy wp-cofnig, wp-content files and read meta file', async () => {
 			const importer = new JetpackImporter( mockBackupContents );
 			( fs.mkdir as jest.Mock ).mockResolvedValue( undefined );
 			( fs.copyFile as jest.Mock ).mockResolvedValue( undefined );
@@ -63,7 +64,7 @@ describe( 'JetpackImporter', () => {
 			await importer.import( mockStudioSitePath, mockStudioSiteId );
 
 			expect( fs.mkdir ).toHaveBeenCalled();
-			expect( fs.copyFile ).toHaveBeenCalledTimes( 3 ); // One for each wp-content file
+			expect( fs.copyFile ).toHaveBeenCalledTimes( 4 ); // One for each wp-content file + wp-config
 			expect( fs.readFile ).toHaveBeenCalledWith( '/tmp/extracted/studio.json', 'utf-8' );
 		} );
 
@@ -91,7 +92,7 @@ describe( 'JetpackImporter', () => {
 			await importer.import( mockStudioSitePath, mockStudioSiteId );
 
 			expect( fs.mkdir ).toHaveBeenCalled();
-			expect( fs.copyFile ).toHaveBeenCalledTimes( 3 );
+			expect( fs.copyFile ).toHaveBeenCalledTimes( 4 );
 			expect( fs.readFile ).not.toHaveBeenCalled();
 		} );
 
@@ -106,7 +107,7 @@ describe( 'JetpackImporter', () => {
 			).resolves.not.toThrow();
 
 			expect( fs.mkdir ).toHaveBeenCalled();
-			expect( fs.copyFile ).toHaveBeenCalledTimes( 3 );
+			expect( fs.copyFile ).toHaveBeenCalledTimes( 4 );
 			expect( fs.readFile ).toHaveBeenCalledWith( '/tmp/extracted/studio.json', 'utf-8' );
 		} );
 	} );

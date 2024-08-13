@@ -35,6 +35,7 @@ describe( 'SqlValidator', () => {
 			expect( result ).toEqual( {
 				extractionDirectory,
 				sqlFiles: [ '/tmp/extracted/backup.sql' ],
+				wpConfig: '',
 				wpContent: {
 					uploads: [],
 					plugins: [],

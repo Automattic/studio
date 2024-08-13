@@ -23,6 +23,7 @@ export class LocalValidator extends EventEmitter implements Validator {
 		const extractedBackup: BackupContents = {
 			extractionDirectory: extractionDirectory,
 			sqlFiles: [],
+			wpConfig: '',
 			wpContent: {
 				uploads: [],
 				plugins: [],
@@ -31,17 +32,17 @@ export class LocalValidator extends EventEmitter implements Validator {
 			wpContentDirectory: 'app/public/wp-content',
 		};
 		/* File rules:
-		 * - Ignore wp-config.php
 		 * - Accept .zip
 		 * - Do not reject the archive that includes core WP files, and ignore those instead.
 		 * - Support optional meta file, local-site.json, that stores desired PHP and WP versions.
 		 * */
 
 		for ( const file of fileList ) {
-			// Ignore wp-config.php
-			if ( file === 'app/public/wp-config.php' ) continue;
-
 			const fullPath = path.join( extractionDirectory, file );
+			if ( file.startsWith( 'app/public/' ) && file.endsWith( 'wp-config.php' ) ) {
+				extractedBackup.wpConfig = fullPath;
+				continue;
+			}
 
 			if ( file.startsWith( 'app/sql/' ) && file.endsWith( '.sql' ) ) {
 				extractedBackup.sqlFiles.push( fullPath );

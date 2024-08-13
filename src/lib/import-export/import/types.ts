@@ -13,6 +13,7 @@ export interface WpContent {
 
 export interface BackupContents {
 	extractionDirectory: string;
+	wpConfig: string;
 	sqlFiles: string[];
 	wpContent: WpContent;
 	wpContentDirectory: string;

@@ -97,7 +97,7 @@ export async function getInstalledApps( _event: IpcMainInvokeEvent ): Promise< I
 export async function importSite(
 	event: IpcMainInvokeEvent,
 	{ id, backupFile }: { id: string; backupFile: BackupArchiveInfo }
-) {
+): Promise< SiteDetails | undefined > {
 	const site = SiteServer.get( id );
 	if ( ! site ) {
 		throw new Error( 'Site not found.' );
@@ -110,6 +110,9 @@ export async function importSite(
 			}
 		};
 		const result = await importBackup( backupFile, site.details, onEvent, defaultImporterOptions );
+		if ( ! result ) {
+			return;
+		}
 		if ( result?.meta?.phpVersion ) {
 			site.details.phpVersion = result.meta.phpVersion;
 		}
@@ -432,7 +435,7 @@ export async function exportSite(
 	event: IpcMainInvokeEvent,
 	options: ExportOptions,
 	siteId: string
-): Promise< void > {
+): Promise< boolean > {
 	try {
 		const onEvent = ( data: ImportExportEventData ) => {
 			const parentWindow = BrowserWindow.fromWebContents( event.sender );
@@ -440,7 +443,7 @@ export async function exportSite(
 				parentWindow.webContents.send( 'on-export', data, siteId );
 			}
 		};
-		await exportBackup( options, onEvent );
+		return await exportBackup( options, onEvent );
 	} catch ( e ) {
 		Sentry.captureException( e );
 		throw e;

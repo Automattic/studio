@@ -7,7 +7,7 @@ export async function exportBackup(
 	exportOptions: ExportOptions,
 	onEvent: ( data: ImportExportEventData ) => void,
 	exporters: NewExporter[] = defaultExporterOptions
-): Promise< void > {
+): Promise< boolean > {
 	let foundValidExporter;
 	for ( const Exporter of exporters ) {
 		const exporterInstance = new Exporter( exportOptions );
@@ -24,8 +24,9 @@ export async function exportBackup(
 	}
 	if ( ! foundValidExporter ) {
 		onEvent( { event: ExportEvents.EXPORT_ERROR, data: null } );
-		throw new Error( 'No suitable exporter found for the site' );
+		return false;
 	}
+	return true;
 }
 
 export const defaultExporterOptions: NewExporter[] = [ DefaultExporter, SqlExporter ];

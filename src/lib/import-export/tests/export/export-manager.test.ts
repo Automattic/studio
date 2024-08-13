@@ -27,8 +27,9 @@ describe( 'exportBackup', () => {
 		} ) );
 
 		const exporters: NewExporter[] = [ MockExporter1, MockExporter2 ];
-		await exportBackup( mockExportOptions, jest.fn(), exporters );
+		const result = await exportBackup( mockExportOptions, jest.fn(), exporters );
 
+		expect( result ).toBeTruthy();
 		expect( MockExporter1 ).toHaveBeenCalledWith( mockExportOptions );
 		expect( mockCanHandle ).toHaveBeenCalled();
 		expect( mockExport ).toHaveBeenCalled();
@@ -53,15 +54,16 @@ describe( 'exportBackup', () => {
 		} ) );
 
 		const exporters: NewExporter[] = [ MockExporter1, MockExporter2 ];
-		await exportBackup( mockExportOptions, jest.fn(), exporters );
+		const result = await exportBackup( mockExportOptions, jest.fn(), exporters );
 
+		expect( result ).toBeTruthy();
 		expect( MockExporter1 ).toHaveBeenCalledWith( mockExportOptions );
 		expect( ExportMethod1 ).not.toHaveBeenCalled();
 		expect( MockExporter2 ).toHaveBeenCalledWith( mockExportOptions );
 		expect( ExportMethod2 ).toHaveBeenCalled();
 	} );
 
-	it( 'fails if no exporter is found', async () => {
+	it( 'returns false if no exporter is found', async () => {
 		const ExportMethod1 = jest.fn();
 		const MockExporter1 = jest.fn( () => ( {
 			canHandle: jest.fn().mockResolvedValue( false ),
@@ -79,10 +81,9 @@ describe( 'exportBackup', () => {
 		} ) );
 
 		const exporters: NewExporter[] = [ MockExporter1, MockExporter2 ];
-		await expect( exportBackup( mockExportOptions, jest.fn(), exporters ) ).rejects.toThrow(
-			'No suitable exporter found for the site'
-		);
+		const result = await exportBackup( mockExportOptions, jest.fn(), exporters );
 
+		expect( result ).toBeFalsy();
 		expect( MockExporter1 ).toHaveBeenCalledWith( mockExportOptions );
 		expect( ExportMethod1 ).not.toHaveBeenCalled();
 		expect( MockExporter2 ).toHaveBeenCalledWith( mockExportOptions );

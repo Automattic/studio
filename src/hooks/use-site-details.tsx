@@ -221,8 +221,8 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					}
 					return prevSelectedSiteId;
 				} );
-				// It replace the temporary site created in React
-				// with the new site generated in the backend, but keep isAddingSite to true
+				// It replaces the temporary site created in React
+				// with the new site generated in the backend, but keeps isAddingSite to true
 				newSite.isAddingSite = true;
 				setData( ( prevData ) =>
 					prevData.map( ( site ) => ( site.id === tempSiteId ? newSite : site ) )

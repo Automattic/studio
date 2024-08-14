@@ -1,9 +1,10 @@
 import { speak } from '@wordpress/a11y';
+import { Notice } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { sprintf, __ } from '@wordpress/i18n';
 import { Icon, download } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { STUDIO_DOCS_URL_IMPORT_EXPORT } from '../constants';
 import { useConfirmationDialog } from '../hooks/use-confirmation-dialog';
 import { useDragAndDropFile } from '../hooks/use-drag-and-drop-file';
@@ -241,6 +242,28 @@ const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 };
 
 export function ContentTabImportExport( { selectedSite }: ContentTabImportExportProps ) {
+	const [ isSupported, setIsSupported ] = useState( true );
+
+	useEffect( () => {
+		getIpcApi()
+			.isImportExportSupported( selectedSite.id )
+			.then( ( result ) => {
+				setIsSupported( result );
+			} );
+	}, [ selectedSite.id ] );
+
+	if ( ! isSupported ) {
+		return (
+			<div className="flex flex-col p-8">
+				<Notice status="warning" isDismissible={ false }>
+					{ __(
+						"Currently, the app doesn't support Import/Export for sites not using SQLite integration."
+					) }
+				</Notice>
+			</div>
+		);
+	}
+
 	return (
 		<div className="flex flex-col p-8 gap-8">
 			<ImportSite selectedSite={ selectedSite } />

@@ -65,6 +65,9 @@ export async function executeWPCli( projectPath: string, args: string[] ): Promi
 		define('STDIN', fopen('php://stdin', 'rb'));
 		define('STDOUT', fopen('php://stdout', 'wb'));
 		define('STDERR', fopen('${stderrPath}', 'wb'));
+		
+		// Filter out errors below ERROR level to avoid parsing issues of WP-CLI command result
+		error_reporting(E_ERROR);
 
 		// WP-CLI uses this argument for checking updates. Seems it's not defined by Playground
 		// when running a script, so we explicitly set it.

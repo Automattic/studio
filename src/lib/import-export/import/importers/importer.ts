@@ -121,8 +121,8 @@ abstract class BaseBackupImporter extends BaseImporter {
 			await this.moveExistingDatabaseToTrash( dbPath );
 			await this.createEmptyDatabase( dbPath );
 			await this.importWpConfig( rootPath );
-			await this.importDatabase( rootPath, siteId, this.backup.sqlFiles );
 			await this.importWpContent( rootPath );
+			await this.importDatabase( rootPath, siteId, this.backup.sqlFiles );
 			let meta: MetaFileData | undefined;
 			if ( this.backup.metaFile ) {
 				meta = await this.parseMetaFile();

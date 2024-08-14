@@ -66,6 +66,8 @@ export async function executeWPCli( projectPath: string, args: string[] ): Promi
 		define('STDOUT', fopen('php://stdout', 'wb'));
 		define('STDERR', fopen('${stderrPath}', 'wb'));
 		
+		// Force disabling WordPress debugging mode to avoid parsing issues of WP-CLI command result
+		define('WP_DEBUG', false);
 		// Filter out errors below ERROR level to avoid parsing issues of WP-CLI command result
 		error_reporting(E_ERROR);
 

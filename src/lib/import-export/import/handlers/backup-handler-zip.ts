@@ -9,7 +9,12 @@ export class BackupHandlerZip extends EventEmitter implements BackupHandler {
 		const zip = new AdmZip( backup.path );
 		return zip
 			.getEntries()
-			.map( ( entry ) => entry.entryName )
+			.map( ( entry ) => {
+				if ( entry.entryName.startsWith( '/' ) ) {
+					return entry.entryName.slice( 1 );
+				}
+				return entry.entryName;
+			} )
 			.filter( isFileAllowed );
 	}
 

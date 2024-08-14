@@ -11,7 +11,15 @@ export class BackupHandlerTarGz extends EventEmitter implements BackupHandler {
 		const files: string[] = [];
 		await tar.t( {
 			file: backup.path,
-			onReadEntry: ( entry ) => isFileAllowed( entry.path ) && files.push( entry.path ),
+			onReadEntry: ( entry ) => {
+				if ( isFileAllowed( entry.path ) ) {
+					let path = entry.path;
+					if ( entry.path.startsWith( '/' ) ) {
+						path = path.slice( 1 );
+					}
+					files.push( path );
+				}
+			},
 		} );
 		return files;
 	}

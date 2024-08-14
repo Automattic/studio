@@ -50,7 +50,7 @@ describe( 'JetpackImporter', () => {
 	} );
 
 	describe( 'import', () => {
-		it( 'should copy wp-cofnig, wp-content files and read meta file', async () => {
+		it( 'should copy wp-config, wp-content files and read meta file', async () => {
 			const importer = new JetpackImporter( mockBackupContents );
 			( fs.mkdir as jest.Mock ).mockResolvedValue( undefined );
 			( fs.copyFile as jest.Mock ).mockResolvedValue( undefined );

@@ -9,10 +9,11 @@ import {
 	ImporterResult,
 	JetpackImporter,
 	LocalImporter,
+	PlaygroundImporter,
 	SQLImporter,
 } from './importers/importer';
 import { BackupArchiveInfo, NewImporter } from './types';
-import { JetpackValidator, SqlValidator, LocalValidator } from './validators';
+import { JetpackValidator, SqlValidator, LocalValidator, PlaygroundValidator } from './validators';
 import { Validator } from './validators/validator';
 
 export interface ImporterOption {
@@ -73,4 +74,5 @@ export const defaultImporterOptions: ImporterOption[] = [
 	{ validator: new JetpackValidator(), importer: JetpackImporter },
 	{ validator: new LocalValidator(), importer: LocalImporter },
 	{ validator: new SqlValidator(), importer: SQLImporter },
+	{ validator: new PlaygroundValidator(), importer: PlaygroundImporter },
 ];

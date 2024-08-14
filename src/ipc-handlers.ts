@@ -798,3 +798,11 @@ export async function openFileInIDE(
 		await shell.openExternal( `phpstorm://open?file=${ path }` );
 	}
 }
+
+export async function isImportExportSupported( _event: IpcMainInvokeEvent, siteId: string ) {
+	const site = SiteServer.get( siteId );
+	if ( ! site ) {
+		throw new Error( 'Site not found.' );
+	}
+	return site.isSQLiteInstalled();
+}

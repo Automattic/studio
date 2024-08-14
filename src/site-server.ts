@@ -1,10 +1,11 @@
 import fs from 'fs';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
+import fsExtra from 'fs-extra';
 import { parse } from 'shell-quote';
 import { getWpNowConfig } from '../vendor/wp-now/src';
 import { WPNowMode } from '../vendor/wp-now/src/config';
-import { DEFAULT_PHP_VERSION } from '../vendor/wp-now/src/constants';
+import { DEFAULT_PHP_VERSION, SQLITE_FILENAME } from '../vendor/wp-now/src/constants';
 import { getWordPressVersionPath } from '../vendor/wp-now/src/download';
 import { pathExists, recursiveCopyDirectory, isEmptyDir } from './lib/fs-utils';
 import { decodePassword } from './lib/passwords';
@@ -196,5 +197,27 @@ export class SiteServer {
 			Sentry.captureException( error );
 			return { stdout: '', stderr: 'error when executing wp-cli command', exitCode: 1 };
 		}
+	}
+
+	async isSQLiteInstalled(): Promise< boolean > {
+		const sqlitePath = nodePath.join(
+			this.details.path,
+			'wp-content',
+			'mu-plugins',
+			SQLITE_FILENAME
+		);
+		const wpConfigPath = nodePath.join( this.details.path, 'wp-config.php' );
+		const databaseIndexPath = nodePath.join( this.details.path, 'wp-content', 'db.php' );
+		const databasePath = nodePath.join( this.details.path, 'wp-content', 'database', '.ht.sqlite' );
+
+		const results = await Promise.all( [
+			fsExtra.pathExists( sqlitePath ),
+			fsExtra.pathExists( wpConfigPath ),
+			fsExtra.pathExists( sqlitePath ),
+			fsExtra.pathExists( databaseIndexPath ),
+			fsExtra.pathExists( databasePath ),
+		] );
+
+		return results.every( Boolean );
 	}
 }

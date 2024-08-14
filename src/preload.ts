@@ -79,6 +79,8 @@ const api: IpcApi = {
 		ipcRenderer.invoke( 'getAbsolutePathFromSite', siteId, relativePath ),
 	openFileInIDE: ( relativePath: string, siteId: string ) =>
 		ipcRenderer.invoke( 'openFileInIDE', relativePath, siteId ),
+	isImportExportSupported: ( siteId: string ) =>
+		ipcRenderer.invoke( 'isImportExportSupported', siteId ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

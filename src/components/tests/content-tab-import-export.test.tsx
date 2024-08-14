@@ -27,6 +27,7 @@ beforeEach( () => {
 	} );
 	( getIpcApi as jest.Mock ).mockReturnValue( {
 		showMessageBox: jest.fn().mockResolvedValue( { response: 0, checkboxChecked: false } ), // Mock showMessageBox
+		isImportExportSupported: jest.fn().mockResolvedValue( true ),
 	} );
 	( useImportExport as jest.Mock ).mockReturnValue( {
 		importFile: jest.fn(),

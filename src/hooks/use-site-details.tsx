@@ -21,7 +21,7 @@ interface SiteDetailsContext {
 	createSite: (
 		path: string,
 		siteName?: string,
-		isImportingNewSite?: boolean
+		callback?: ( site: SiteDetails | void ) => Promise< void >
 	) => Promise< SiteDetails | void >;
 	startServer: ( id: string ) => Promise< void >;
 	stopServer: ( id: string ) => Promise< void >;
@@ -166,7 +166,11 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	);
 
 	const createSite = useCallback(
-		async ( path: string, siteName?: string, isImportingNewSite = false ) => {
+		async (
+			path: string,
+			siteName?: string,
+			callback?: ( site: SiteDetails | void ) => Promise< void >
+		) => {
 			// Function to handle error messages and cleanup
 			const showError = () => {
 				console.error( 'Failed to create site' );
@@ -217,17 +221,23 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					}
 					return prevSelectedSiteId;
 				} );
+				// It replaces the temporary site created in React
+				// with the new site generated in the backend, but keeps isAddingSite to true
+				newSite.isAddingSite = true;
+				setData( ( prevData ) =>
+					prevData.map( ( site ) => ( site.id === tempSiteId ? newSite : site ) )
+				);
+
+				if ( callback ) {
+					await callback( newSite );
+				}
+
 				setData( ( prevData ) =>
 					prevData.map( ( site ) =>
-						site.id === tempSiteId
-							? {
-									...newSite,
-									isAddingSite: false,
-									importState: isImportingNewSite ? 'new-site-importing' : undefined,
-							  }
-							: site
+						site.id === newSite.id ? { ...site, isAddingSite: false } : site
 					)
 				);
+
 				return newSite;
 			} catch ( error ) {
 				showError();

@@ -55,21 +55,22 @@ export function useAddSite() {
 	const handleAddSiteClick = useCallback( async () => {
 		try {
 			const path = sitePath ? sitePath : proposedSitePath;
-			const newSite = await createSite( path, siteName ?? '', !! fileForImport );
-			if ( newSite ) {
-				if ( fileForImport ) {
-					await importFile( fileForImport, newSite, {
-						showImportNotification: false,
-						isNewSite: true,
+			await createSite( path, siteName ?? '', async ( newSite ) => {
+				if ( newSite ) {
+					if ( fileForImport ) {
+						await importFile( fileForImport, newSite, {
+							showImportNotification: false,
+							isNewSite: true,
+						} );
+						clearImportState( newSite.id );
+					}
+					await startServer( newSite.id );
+					getIpcApi().showNotification( {
+						title: newSite.name,
+						body: __( 'Your new site is up and running' ),
 					} );
-					clearImportState( newSite.id );
 				}
-				await startServer( newSite.id );
-				getIpcApi().showNotification( {
-					title: newSite.name,
-					body: __( 'Your new site is up and running' ),
-				} );
-			}
+			} );
 		} catch ( e ) {
 			Sentry.captureException( e );
 		}

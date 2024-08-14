@@ -79,9 +79,12 @@ describe( 'AddSite', () => {
 		expect( mockShowOpenFolderDialog ).toHaveBeenCalledWith( 'Choose folder for site' );
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 
-		//Expect the createSite function to be called with the selected path and no import file
 		await waitFor( () => {
-			expect( mockCreateSite ).toHaveBeenCalledWith( 'test', 'My WordPress Website', false );
+			expect( mockCreateSite ).toHaveBeenCalledWith(
+				'test',
+				'My WordPress Website',
+				expect.any( Function )
+			);
 		} );
 	} );
 

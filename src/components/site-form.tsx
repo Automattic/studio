@@ -302,7 +302,8 @@ export const SiteForm = ( {
 									>
 										<label
 											className={ cx(
-												'flex flex-col gap-1.5 leading-4 p-2',
+												'flex flex-col gap-1.5 leading-4',
+												isAdvancedSettingsVisible ? 'py-2' : 'p-2',
 												! isAdvancedSettingsVisible && 'hidden'
 											) }
 										>

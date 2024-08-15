@@ -130,6 +130,9 @@ function FormImportComponent( {
 		event.stopPropagation();
 		if ( onClear ) {
 			onClear();
+			if ( inputFileRef.current ) {
+				inputFileRef.current.value = '';
+			}
 		}
 	};
 

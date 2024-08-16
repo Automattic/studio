@@ -205,6 +205,46 @@ export class JetpackImporter extends BaseBackupImporter {
 			this.emit( ImportEvents.IMPORT_META_COMPLETE );
 		}
 	}
+
+	protected async importDatabase(
+		rootPath: string,
+		siteId: string,
+		sqlFiles: string[]
+	): Promise< void > {
+		await super.importDatabase( rootPath, siteId, sqlFiles );
+		await this.removeWpAttachmentMetadata( rootPath, siteId );
+	}
+
+	protected async removeWpAttachmentMetadata( rootPath: string, siteId: string ): Promise< void > {
+		const server = SiteServer.get( siteId );
+		if ( ! server ) {
+			throw new Error( 'Site not found.' );
+		}
+
+		const sqlTempFile = `${ generateBackupFilename( 'sql' ) }.sql`;
+		const tmpPath = path.join( rootPath, sqlTempFile );
+
+		try {
+			await fsPromises.writeFile(
+				tmpPath,
+				"DELETE FROM wp_postmeta WHERE meta_key = '_wp_attachment_metadata';"
+			);
+
+			const { stderr, exitCode } = await server.executeWpCliCommand(
+				`sqlite import ${ sqlTempFile } --require=/tmp/sqlite-command/command.php`
+			);
+
+			if ( stderr ) {
+				console.error( 'Warning during removal of _wp_attachment_metadata:', stderr );
+			}
+
+			if ( exitCode ) {
+				throw new Error( 'Failed to remove _wp_attachment_metadata' );
+			}
+		} finally {
+			await this.safelyDeleteFile( tmpPath );
+		}
+	}
 }
 
 export class LocalImporter extends BaseBackupImporter {

@@ -130,6 +130,9 @@ function FormImportComponent( {
 		event.stopPropagation();
 		if ( onClear ) {
 			onClear();
+			if ( inputFileRef.current ) {
+				inputFileRef.current.value = '';
+			}
 		}
 	};
 
@@ -168,7 +171,7 @@ function FormImportComponent( {
 					{ ! fileName && (
 						<div
 							aria-hidden="true"
-							className="local-path-icon flex items-center py-[9px] px-2.5 border border-l-0 border-t-0 border-r-0 border-b-0"
+							className="local-path-icon flex items-center py-[12px] px-2.5 border border-l-[#949494] border-t-0 border-r-0 border-b-0"
 						>
 							<FolderIcon className="text-[#3C434A]" />
 						</div>
@@ -302,7 +305,8 @@ export const SiteForm = ( {
 									>
 										<label
 											className={ cx(
-												'flex flex-col gap-1.5 leading-4 p-2',
+												'flex flex-col gap-1.5 leading-4',
+												isAdvancedSettingsVisible ? 'py-2' : 'p-2',
 												! isAdvancedSettingsVisible && 'hidden'
 											) }
 										>

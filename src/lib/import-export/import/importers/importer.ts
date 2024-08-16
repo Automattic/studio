@@ -69,7 +69,7 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 		this.emit( ImportEvents.IMPORT_DATABASE_COMPLETE );
 	}
 
-	private async replaceSiteUrl( siteId: string ) {
+	protected async replaceSiteUrl( siteId: string ) {
 		const server = SiteServer.get( siteId );
 		if ( ! server ) {
 			throw new Error( 'Site not found.' );
@@ -229,6 +229,37 @@ export class LocalImporter extends BaseBackupImporter {
 		} finally {
 			this.emit( ImportEvents.IMPORT_META_COMPLETE );
 		}
+	}
+}
+
+export class PlaygroundImporter extends BaseBackupImporter {
+	protected async importDatabase(
+		rootPath: string,
+		siteId: string,
+		sqlFiles: string[]
+	): Promise< void > {
+		if ( ! sqlFiles.length ) {
+			return;
+		}
+		const server = SiteServer.get( siteId );
+		if ( ! server ) {
+			throw new Error( 'Site not found.' );
+		}
+
+		this.emit( ImportEvents.IMPORT_DATABASE_START );
+
+		for ( const sqlFile of sqlFiles ) {
+			await move( sqlFile, path.join( rootPath, 'wp-content', 'database', '.ht.sqlite' ), {
+				overwrite: true,
+			} );
+		}
+		await this.replaceSiteUrl( siteId );
+
+		this.emit( ImportEvents.IMPORT_DATABASE_COMPLETE );
+	}
+
+	protected async parseMetaFile(): Promise< MetaFileData | undefined > {
+		return undefined;
 	}
 }
 

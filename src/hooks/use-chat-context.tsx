@@ -2,6 +2,7 @@ import React, {
 	createContext,
 	useContext,
 	useMemo,
+	useRef,
 	useState,
 	useEffect,
 	useCallback,
@@ -57,7 +58,7 @@ const parseWpCliOutput = ( stdout: string, defaultValue: string[] ): string[] =>
 };
 
 export const ChatProvider: React.FC< ChatProviderProps > = ( { children } ) => {
-	const [ initialLoad, setInitialLoad ] = useState< Record< string, boolean > >( {} );
+	const initialLoad = useRef< Record< string, boolean > >( {} );
 	const installedApps = useCheckInstalledApps();
 	const { data: sites, loadingSites, selectedSite } = useSiteDetails();
 	const wpVersion = useGetWpVersion( selectedSite || ( {} as SiteDetails ) );
@@ -95,42 +96,33 @@ export const ChatProvider: React.FC< ChatProviderProps > = ( { children } ) => {
 	}, [] );
 
 	useEffect( () => {
-		let isCurrent = true;
 		const run = async () => {
 			const siteId = selectedSite?.id;
 			if ( ! siteId || selectedSite.isAddingSite ) {
 				return;
 			}
-			setInitialLoad( ( prev ) => ( { ...prev, [ siteId ]: true } ) );
-			try {
-				const result = await Promise.all( [ fetchPluginList( siteId ), fetchThemeList( siteId ) ] );
-				if ( isCurrent ) {
+			initialLoad.current[ siteId ] = true;
+			Promise.all( [ fetchPluginList( siteId ), fetchThemeList( siteId ) ] )
+				.then( ( result ) => {
 					setPluginsList( ( prev ) => ( { ...prev, [ siteId ]: result[ 0 ] } ) );
 					setThemesList( ( prev ) => ( { ...prev, [ siteId ]: result[ 1 ] } ) );
-				}
-			} catch ( error ) {
-				if ( isCurrent ) {
-					setInitialLoad( ( prev ) => ( { ...prev, [ siteId ]: false } ) );
-				}
-			}
+				} )
+				.catch( ( _error ) => {
+					initialLoad.current[ siteId ] = false;
+				} );
 		};
 		if (
 			selectedSite &&
 			! loadingSites &&
-			! initialLoad[ selectedSite.id ] &&
-			isCurrent &&
+			! initialLoad.current[ selectedSite.id ] &&
 			! pluginsList[ selectedSite.id ] &&
 			! themesList[ selectedSite.id ]
 		) {
 			run();
 		}
-		return () => {
-			isCurrent = false;
-		};
 	}, [
 		fetchPluginList,
 		fetchThemeList,
-		initialLoad,
 		loadingSites,
 		pluginsList,
 		selectedSite,

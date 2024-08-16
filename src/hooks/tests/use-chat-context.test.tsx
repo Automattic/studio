@@ -77,7 +77,6 @@ beforeEach( () => {
 		arm64Translation: false,
 		assistantEnabled: false,
 		terminalWpCliEnabled: false,
-		importExportEnabled: false,
 	} );
 	setupWpCliResult( { themes: [], plugins: [] } );
 } );

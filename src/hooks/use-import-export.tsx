@@ -293,7 +293,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 			const fileName = generateBackupFilename( selectedSite.name );
 			const path = await getIpcApi().showSaveAsDialog( {
 				title: __( 'Save backup file' ),
-				defaultPath: `${ fileName }.tar.gz`,
+				defaultPath: `${ fileName }.zip`,
 				filters: [
 					{
 						name: 'Compressed Backup Files',

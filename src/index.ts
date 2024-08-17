@@ -22,7 +22,7 @@ import {
 	processCLICommand,
 	executeCLICommand,
 } from './lib/cli';
-import { getUserLocaleWithFallback } from './lib/locale';
+import { getUserLocaleWithFallback } from './lib/locale-node';
 import { handleAuthCallback, setUpAuthCallbackHandler } from './lib/oauth';
 import { setupLogging } from './logging';
 import { createMainWindow, withMainWindow } from './main-window';

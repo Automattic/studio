@@ -1,7 +1,7 @@
 import { SelectControl } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { useI18nData } from '../hooks/use-i18n-data';
-import { SupportedLocale, supportedLocaleNames } from '../lib/supported-locales';
+import { SupportedLocale, supportedLocaleNames } from '../lib/locale';
 
 export const LanguagePicker = () => {
 	const { __ } = useI18n();

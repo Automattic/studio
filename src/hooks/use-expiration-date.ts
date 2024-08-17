@@ -2,7 +2,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { intervalToDuration, formatDuration, addDays, Duration, addHours } from 'date-fns';
 import { HOUR_MS, DAY_MS } from '../constants';
 import { formatDistance } from '../lib/date';
-import { SupportedLocale } from '../lib/supported-locales';
+import { SupportedLocale } from '../lib/locale';
 import { useI18nData } from './use-i18n-data';
 
 function formatStringDate( ms: number, locale: SupportedLocale ): string {

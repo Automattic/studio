@@ -1,5 +1,3 @@
-import { LocaleData } from '@wordpress/i18n';
-import { SupportedLocale } from '../lib/supported-locales';
 import { locale_data as ar } from './studio-ar.jed.json';
 import { locale_data as de } from './studio-de.jed.json';
 import { locale_data as es } from './studio-es.jed.json';
@@ -20,32 +18,25 @@ import { locale_data as vi } from './studio-vi.jed.json';
 import { locale_data as zhCN } from './studio-zh-cn.jed.json';
 import { locale_data as zhTW } from './studio-zh-tw.jed.json';
 
-const localeDataDictionary: Record< SupportedLocale, LocaleData | null > = {
-	ar,
-	de,
-	en: null,
-	es,
-	fr,
-	he,
-	id,
-	it,
-	ja,
-	ko,
-	nl,
-	pl,
-	'pt-br': ptBR,
-	ru,
-	sv,
-	tr,
-	uk,
-	vi,
-	'zh-cn': zhCN,
-	'zh-tw': zhTW,
-};
-
-export function getLocaleData( locale: string ) {
-	if ( locale in localeDataDictionary ) {
-		return localeDataDictionary[ locale as SupportedLocale ];
-	}
-	return null;
-}
+export const localeDataDictionary = {
+    ar,
+    de,
+    en: null,
+    es,
+    fr,
+    he,
+    id,
+    it,
+    ja,
+    ko,
+    nl,
+    pl,
+    'pt-br': ptBR,
+    ru,
+    sv,
+    tr,
+    uk,
+    vi,
+    'zh-cn': zhCN,
+    'zh-tw': zhTW,
+} as const;

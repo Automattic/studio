@@ -2,8 +2,7 @@ import { createI18n, I18n } from '@wordpress/i18n';
 import { I18nProvider } from '@wordpress/react-i18n';
 import { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
 import { getIpcApi } from '../lib/get-ipc-api';
-import { SupportedLocale } from '../lib/supported-locales';
-import { getLocaleData } from '../translations';
+import { SupportedLocale, getLocaleData } from '../lib/locale';
 
 interface I18nDataContext {
 	setLocale: ( localeKey: SupportedLocale ) => void;

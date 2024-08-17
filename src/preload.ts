@@ -30,6 +30,8 @@ const api: IpcApi = {
 	showOpenFolderDialog: ( title: string ) => ipcRenderer.invoke( 'showOpenFolderDialog', title ),
 	showSaveAsDialog: ( options: SaveDialogOptions ) =>
 		ipcRenderer.invoke( 'showSaveAsDialog', options ),
+	saveUserLocale: ( locale: string ) => ipcRenderer.invoke( 'saveUserLocale', locale ),
+	getUserLocale: () => ipcRenderer.invoke( 'getUserLocale' ),
 	showUserSettings: () => ipcRenderer.invoke( 'showUserSettings' ),
 	startServer: ( id: string ) => ipcRenderer.invoke( 'startServer', id ),
 	stopServer: ( id: string ) => ipcRenderer.invoke( 'stopServer', id ),

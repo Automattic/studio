@@ -32,6 +32,7 @@ import { phpGetThemeDetails } from './lib/php-get-theme-details';
 import { sanitizeForLogging } from './lib/sanitize-for-logging';
 import { sortSites } from './lib/sort-sites';
 import { installSqliteIntegration, keepSqliteIntegrationUpdated } from './lib/sqlite-versions';
+import { isSupportedLocale, SupportedLocale } from './lib/supported-locales';
 import * as windowsHelpers from './lib/windows-helpers';
 import { writeLogToFile, type LogLevel } from './logging';
 import { popupMenu } from './menu';
@@ -318,6 +319,23 @@ export async function showOpenFolderDialog(
 		isWordPress: isWordPressDirectory( filePaths[ 0 ] ),
 	};
 }
+
+export async function saveUserLocale( _event: IpcMainInvokeEvent, locale: string ) {
+	const userData = await loadUserData();
+	await saveUserData( {
+		...userData,
+		locale,
+	} );
+}
+
+export async function getUserLocale( _event: IpcMainInvokeEvent ): Promise< SupportedLocale > {
+	const { locale } = await loadUserData();
+	if ( ! locale || ! isSupportedLocale( locale ) ) {
+		return 'en';
+	}
+	return locale;
+}
+
 export async function showUserSettings( event: IpcMainInvokeEvent ): Promise< void > {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	if ( ! parentWindow ) {

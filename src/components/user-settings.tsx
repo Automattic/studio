@@ -14,6 +14,7 @@ import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
 import { Gravatar } from './gravatar';
+import { LanguagePicker } from './language-picker';
 import Modal from './modal';
 import offlineIcon from './offline-icon';
 import ProgressBar from './progress-bar';
@@ -264,6 +265,7 @@ export default function UserSettings() {
 							<UserInfo onLogout={ logout } user={ user } />
 							<div className="border border-[#F0F0F0] w-full"></div>
 							<div className="flex flex-col gap-6">
+								<LanguagePicker />
 								<SnapshotInfo
 									isDeleting={ loadingDeletingAllSnapshots }
 									isDisabled={

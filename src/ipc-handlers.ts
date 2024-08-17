@@ -25,7 +25,7 @@ import { defaultImporterOptions, importBackup } from './lib/import-export/import
 import { BackupArchiveInfo } from './lib/import-export/import/types';
 import { isErrnoException } from './lib/is-errno-exception';
 import { isInstalled } from './lib/is-installed';
-import { getLocaleData, getSupportedLocale, getUserLocaleWithFallback } from './lib/locale';
+import { getUserLocaleWithFallback } from './lib/locale';
 import * as oauthClient from './lib/oauth';
 import { createPassword } from './lib/passwords';
 import { phpGetThemeDetails } from './lib/php-get-theme-details';
@@ -495,13 +495,8 @@ export async function copyText( event: IpcMainInvokeEvent, text: string ) {
 }
 
 export async function getAppGlobals( _event: IpcMainInvokeEvent ): Promise< AppGlobals > {
-	const locale = getSupportedLocale();
-	const localeData = getLocaleData( locale );
-
 	return {
 		platform: process.platform,
-		locale,
-		localeData,
 		appName: app.name,
 		arm64Translation: app.runningUnderARM64Translation,
 		assistantEnabled: process.env.STUDIO_AI === 'true',

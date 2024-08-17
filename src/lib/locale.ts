@@ -1,16 +1,25 @@
 import { app } from 'electron';
 import { match } from '@formatjs/intl-localematcher';
+import { loadUserData } from '../storage/user-data';
 import { localeDataDictionary } from '../translations';
-import { supportedLocales } from './supported-locales';
+import { isSupportedLocale, SupportedLocale, supportedLocales } from './supported-locales';
 import type { LocaleData } from '@wordpress/i18n';
 
 export const DEFAULT_LOCALE = 'en';
 
-export function getSupportedLocale(): string {
+export function getSupportedLocale() {
 	// `app.getLocale` returns the current application locale, acquired using
 	// Chromium's `l10n_util` library. This value is utilized to determine
 	// the best fit for supported locales.
-	return match( [ app.getLocale() ], supportedLocales, DEFAULT_LOCALE );
+	return match( [ app.getLocale() ], supportedLocales, DEFAULT_LOCALE ) as SupportedLocale;
+}
+
+export async function getUserLocaleWithFallback() {
+	const { locale } = await loadUserData();
+	if ( ! locale || ! isSupportedLocale( locale ) ) {
+		return getSupportedLocale();
+	}
+	return locale;
 }
 
 function isLocaleSupported( locale: string ): locale is keyof typeof localeDataDictionary {

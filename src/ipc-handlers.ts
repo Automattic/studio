@@ -25,14 +25,14 @@ import { defaultImporterOptions, importBackup } from './lib/import-export/import
 import { BackupArchiveInfo } from './lib/import-export/import/types';
 import { isErrnoException } from './lib/is-errno-exception';
 import { isInstalled } from './lib/is-installed';
-import { getLocaleData, getSupportedLocale } from './lib/locale';
+import { getLocaleData, getSupportedLocale, getUserLocaleWithFallback } from './lib/locale';
 import * as oauthClient from './lib/oauth';
 import { createPassword } from './lib/passwords';
 import { phpGetThemeDetails } from './lib/php-get-theme-details';
 import { sanitizeForLogging } from './lib/sanitize-for-logging';
 import { sortSites } from './lib/sort-sites';
 import { installSqliteIntegration, keepSqliteIntegrationUpdated } from './lib/sqlite-versions';
-import { isSupportedLocale, SupportedLocale } from './lib/supported-locales';
+import { SupportedLocale } from './lib/supported-locales';
 import * as windowsHelpers from './lib/windows-helpers';
 import { writeLogToFile, type LogLevel } from './logging';
 import { popupMenu } from './menu';
@@ -329,11 +329,7 @@ export async function saveUserLocale( _event: IpcMainInvokeEvent, locale: string
 }
 
 export async function getUserLocale( _event: IpcMainInvokeEvent ): Promise< SupportedLocale > {
-	const { locale } = await loadUserData();
-	if ( ! locale || ! isSupportedLocale( locale ) ) {
-		return 'en';
-	}
-	return locale;
+	return getUserLocaleWithFallback();
 }
 
 export async function showUserSettings( event: IpcMainInvokeEvent ): Promise< void > {

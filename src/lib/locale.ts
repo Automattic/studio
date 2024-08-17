@@ -1,9 +1,7 @@
 import { app } from 'electron';
 import { match } from '@formatjs/intl-localematcher';
 import { loadUserData } from '../storage/user-data';
-import { localeDataDictionary } from '../translations';
 import { isSupportedLocale, SupportedLocale, supportedLocales } from './supported-locales';
-import type { LocaleData } from '@wordpress/i18n';
 
 export const DEFAULT_LOCALE = 'en';
 
@@ -20,16 +18,4 @@ export async function getUserLocaleWithFallback() {
 		return getSupportedLocale();
 	}
 	return locale;
-}
-
-function isLocaleSupported( locale: string ): locale is keyof typeof localeDataDictionary {
-	return locale in localeDataDictionary;
-}
-
-export function getLocaleData( locale: string ): LocaleData | null {
-	if ( locale === DEFAULT_LOCALE || ! isLocaleSupported( locale ) ) {
-		return null;
-	}
-
-	return localeDataDictionary[ locale ];
 }

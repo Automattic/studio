@@ -3,7 +3,7 @@ import { I18nProvider } from '@wordpress/react-i18n';
 import { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { SupportedLocale } from '../lib/supported-locales';
-import { localeDataDictionary } from '../translations';
+import { getLocaleData } from '../translations';
 
 interface I18nDataContext {
 	setLocale: ( localeKey: SupportedLocale ) => void;
@@ -22,7 +22,7 @@ export const I18nDataProvider = ( { children }: { children: React.ReactNode } ) 
 	const [ locale, setLocale ] = useState< SupportedLocale >( 'en' );
 
 	const initI18n = useCallback( async ( localeKey: SupportedLocale ) => {
-		const newI18n = createI18n( localeDataDictionary?.[ localeKey ]?.locale_data?.messages );
+		const newI18n = createI18n( getLocaleData( localeKey )?.messages );
 		setI18n( newI18n );
 	}, [] );
 

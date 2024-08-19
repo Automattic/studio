@@ -192,7 +192,7 @@ function FormImportComponent( {
 					className="hidden"
 					type="file"
 					data-testid="backup-file"
-					accept=".zip,.sql,.tar,.gz"
+					accept=".zip,.tar,.gz"
 					onChange={ handleFileChange }
 				/>
 			</div>

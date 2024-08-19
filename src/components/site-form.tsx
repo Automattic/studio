@@ -1,7 +1,7 @@
 import { Icon } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
-import { tip, warning, trash, chevronRight, chevronDown } from '@wordpress/icons';
+import { tip, warning, trash, chevronRight, chevronDown, chevronLeft } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useRef, useState } from 'react';
 import { STUDIO_DOCS_URL_IMPORT_EXPORT } from '../constants';
@@ -231,7 +231,7 @@ export const SiteForm = ( {
 	onFileSelected?: ( file: File ) => void;
 	fileError?: string;
 } ) => {
-	const { __ } = useI18n();
+	const { __, isRTL } = useI18n();
 
 	const [ isAdvancedSettingsVisible, setAdvancedSettingsVisible ] = useState( false );
 
@@ -282,7 +282,13 @@ export const SiteForm = ( {
 									<Button className="pl-0" onClick={ handleAdvancedSettingsClick }>
 										<Icon
 											size={ 24 }
-											icon={ isAdvancedSettingsVisible ? chevronDown : chevronRight }
+											icon={
+												isAdvancedSettingsVisible
+													? chevronDown
+													: isRTL()
+													? chevronLeft
+													: chevronRight
+											}
 										/>
 										<div className="text-[13px] leading-[16px] ml-2">
 											{ __( 'Advanced settings' ) }

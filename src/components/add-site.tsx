@@ -120,7 +120,11 @@ export default function AddSite( { className }: AddSiteProps ) {
 
 	const { dropRef, isDraggingOver } = useDragAndDropFile< HTMLDivElement >( {
 		onFileDrop: ( file: File ) => {
-			if ( ACCEPTED_IMPORT_FILE_TYPES.includes( file.type ) ) {
+			const isAccepted = ACCEPTED_IMPORT_FILE_TYPES.some( ( ext ) =>
+				file.name.toLowerCase().endsWith( ext )
+			);
+
+			if ( isAccepted ) {
 				setFileForImport( file );
 				setFileError( '' );
 			} else {

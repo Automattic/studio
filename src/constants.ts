@@ -22,7 +22,7 @@ export const WPCOM_PROFILE_URL = `https://wordpress.com/me`;
 
 //Import file constants
 
-export const ACCEPTED_IMPORT_FILE_TYPES = [ '.zip', '.gz', '.gzip', '.sql', '.tar', '.tar.gz' ];
+export const ACCEPTED_IMPORT_FILE_TYPES = [ '.zip', '.gz', '.gzip', '.tar', '.tar.gz' ];
 
 // OAuth constants
 export const CLIENT_ID = '95109';

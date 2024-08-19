@@ -3,7 +3,7 @@
 * Introduced a new feature to export and import sites
 * Translated the tooltip for the close button on the modal #454
 * Added support for Ukrainian language #452
-* Increased space limit to 250 MB #446
+* Increased demo sites space limit to 250 MB #446
 * Added badge to readme with crash free session rate #441
 
 1.0.7

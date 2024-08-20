@@ -93,5 +93,7 @@ export async function executeWPCli( projectPath: string, args: string[] ): Promi
 	} catch (error) {
 		const stderr = php.readFileAsText(stderrPath).replace('PHP.run() output was: #!/usr/bin/env php', '').trim();
 		return { stdout: '', stderr: stderr, exitCode: 1 };
+	} finally {
+		php.exit();
 	}
 }

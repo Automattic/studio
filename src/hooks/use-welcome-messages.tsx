@@ -43,11 +43,9 @@ export const WelcomeMessagesProvider = ( { children }: { children: React.ReactNo
 		isFetchingMessages.current = true;
 		try {
 			const response = await client.req.get( {
-				path: '/studio-app/ai-assistant/welcome',
+				path: `/studio-app/ai-assistant/welcome?locale=${ encodeURIComponent( locale ) }`,
 				apiNamespace: 'wpcom/v2',
-				params: { locale },
 			} );
-
 			const data = response as WelcomeMessageResponse;
 			if ( data ) {
 				setMessages( data.messages );

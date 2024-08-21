@@ -239,6 +239,16 @@ export const SiteForm = ( {
 		setAdvancedSettingsVisible( ! isAdvancedSettingsVisible );
 	};
 
+	let chevronIcon;
+
+	if ( isAdvancedSettingsVisible ) {
+		chevronIcon = chevronDown;
+	} else if ( isRTL() ) {
+		chevronIcon = chevronLeft;
+	} else {
+		chevronIcon = chevronRight;
+	}
+
 	return (
 		<form className={ className } onSubmit={ onSubmit }>
 			<div className="flex flex-col">
@@ -280,16 +290,7 @@ export const SiteForm = ( {
 							<>
 								<div className="flex flex-row items-center mb-0">
 									<Button className="pl-0" onClick={ handleAdvancedSettingsClick }>
-										<Icon
-											size={ 24 }
-											icon={
-												isAdvancedSettingsVisible
-													? chevronDown
-													: isRTL()
-													? chevronLeft
-													: chevronRight
-											}
-										/>
+										<Icon size={ 24 } icon={ chevronIcon } />
 										<div className="text-[13px] leading-[16px] ml-2">
 											{ __( 'Advanced settings' ) }
 										</div>

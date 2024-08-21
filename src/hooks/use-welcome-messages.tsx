@@ -8,7 +8,6 @@ import {
 	useCallback,
 	useContext,
 } from 'react';
-import { getAppGlobals } from '../lib/app-globals';
 import { useAuth } from './use-auth';
 import { useOffline } from './use-offline';
 import { useWindowListener } from './use-window-listener';
@@ -31,7 +30,6 @@ const WelcomeMessagesContext = createContext< WelcomeMessagesContext >( {
 export const WelcomeMessagesProvider = ( { children }: { children: React.ReactNode } ) => {
 	const { client } = useAuth();
 	const isOffline = useOffline();
-	const locale = getAppGlobals().locale;
 	const [ messages, setMessages ] = useState< string[] >( [] );
 	const [ examplePrompts, setExamplePrompts ] = useState< string[] >( [] );
 	const isFetchingMessages = useRef( false );
@@ -45,9 +43,7 @@ export const WelcomeMessagesProvider = ( { children }: { children: React.ReactNo
 			const response = await client.req.get( {
 				path: '/studio-app/ai-assistant/welcome',
 				apiNamespace: 'wpcom/v2',
-				params: { locale },
 			} );
-
 			const data = response as WelcomeMessageResponse;
 			if ( data ) {
 				setMessages( data.messages );
@@ -59,7 +55,7 @@ export const WelcomeMessagesProvider = ( { children }: { children: React.ReactNo
 		} finally {
 			isFetchingMessages.current = false;
 		}
-	}, [ client, isOffline, locale ] );
+	}, [ client, isOffline ] );
 
 	useEffect( () => {
 		fetchMessages();

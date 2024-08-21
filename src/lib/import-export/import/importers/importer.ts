@@ -177,7 +177,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 				await shell.trashItem( contentPath );
 			}
 		} catch {
-			return
+			return;
 		}
 	}
 

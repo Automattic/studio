@@ -1,6 +1,6 @@
 import fs from 'fs-extra';
 import { loadNodeRuntime } from '@php-wasm/node';
-import { MountHandler, PHP, PHPRequestHandler, setPhpIniEntries } from '@php-wasm/universal';
+import { MountHandler, PHP, PHPRequestHandler, rotatePHPRuntime, setPhpIniEntries } from '@php-wasm/universal';
 import path from 'path';
 import { SQLITE_FILENAME } from './constants';
 import {
@@ -40,14 +40,16 @@ async function applyToInstances(phpInstances: PHP[], callback: Function) {
 
 export default async function startWPNow(
 	options: Partial<WPNowOptions> = {}
-): Promise<{ php: PHP; phpInstances: PHP[]; options: WPNowOptions }> {
+): Promise<{ php: PHP; phpInstances: PHP[]; options: WPNowOptions, requestHandler: PHPRequestHandler }> {
 	const { documentRoot } = options;
 	const requestHandler = new PHPRequestHandler({
 		phpFactory: async ({ isPrimary }) => {
 			const id = await loadNodeRuntime( options.phpVersion );
 			const php = new PHP(id)
 			await setPhpIniEntries(php, {
-				'memory_limit': '256M'
+				'memory_limit': '256M',
+				'disable_functions': '',
+				'allow_url_fopen': '1'
 			});
 			return php;
 		},
@@ -133,10 +135,20 @@ export default async function startWPNow(
 		await activatePluginOrTheme(php, options);
 	}
 
+	rotatePHPRuntime({
+		php,
+		cwd: requestHandler.documentRoot,
+		recreateRuntime: async () => {
+			return await loadNodeRuntime(options.phpVersion)
+		},
+		maxRequests: 400,
+	});
+
 	return {
 		php,
 		phpInstances: [php],
 		options,
+		requestHandler,
 	};
 }
 

@@ -1,5 +1,5 @@
 import fs from 'fs-extra';
-import { loadNodeRuntime,createNodeFsMountHandler } from '@php-wasm/node';
+import { loadNodeRuntime } from '@php-wasm/node';
 import { MountHandler, PHP, PHPRequestHandler, setPhpIniEntries } from '@php-wasm/universal';
 import path from 'path';
 import { SQLITE_FILENAME } from './constants';
@@ -42,8 +42,6 @@ export default async function startWPNow(
 	options: Partial<WPNowOptions> = {}
 ): Promise<{ php: PHP; phpInstances: PHP[]; options: WPNowOptions }> {
 	const { documentRoot } = options;
-
-
 	const requestHandler = new PHPRequestHandler({
 		phpFactory: async ({ isPrimary }) => {
 			const id = await loadNodeRuntime( options.phpVersion );
@@ -59,7 +57,6 @@ export default async function startWPNow(
 	});
 
 	const php = await requestHandler.getPrimaryPhp()
-
 
 	php.mkdir(documentRoot);
 	php.chdir(documentRoot);
@@ -148,6 +145,15 @@ async function runIndexMode(
 	{ documentRoot, projectPath }: WPNowOptions
 ) {
 	php.mount(projectPath, createNodeFsMountHandler( documentRoot ) );
+}
+
+function createNodeFsMountHandler( localPath: string ): MountHandler {
+	return async function (php, FS, vfsMountPoint) {
+		FS.mount(FS.filesystems['NODEFS'], { root: localPath }, vfsMountPoint);
+		return () => {
+			FS!.unmount(localPath);
+		};
+	};
 }
 
 async function runWpContentMode(
@@ -392,7 +398,7 @@ function mountMuPlugins(php: PHP, vfsDocumentRoot: string) {
 function mountSqlitePlugin(php: PHP, vfsDocumentRoot: string) {
 	const sqlitePluginPath = `${vfsDocumentRoot}/wp-content/plugins/${SQLITE_FILENAME}`;
 	if (php.listFiles(sqlitePluginPath).length === 0) {
-		php.mount(getSqlitePath(), sqlitePluginPath);
+		php.mount(getSqlitePath(), createNodeFsMountHandler(sqlitePluginPath));
 		php.mount(
 			path.join(getSqlitePath(), 'db.copy'),
 			createNodeFsMountHandler( `${vfsDocumentRoot}/wp-content/db.php`)

@@ -1,9 +1,21 @@
 import path from 'path';
 // eslint-disable-next-line import/default
 import CopyWebpackPlugin from 'copy-webpack-plugin';
+import * as fs from 'fs-extra';
 import { type Configuration, DefinePlugin } from 'webpack';
 import { plugins } from './webpack.plugins';
 import { rules } from './webpack.rules';
+
+function getWasmDirs( dir: string ) {
+	return fs
+		.readdirSync( dir, { withFileTypes: true } )
+		.filter( ( dirent: fs.Dirent ) => dirent.isDirectory() )
+		.map( ( dirent: fs.Dirent ) => dirent.name )
+		.filter( ( name: string ) => name !== 'node_modules' );
+}
+
+const phpWasmDir = path.resolve( __dirname, 'node_modules/@php-wasm/node' );
+const wasmDirs = getWasmDirs( phpWasmDir );
 
 // Extra entries are bundled separately from the main bundle. They are primarily used
 // for worker threads and forked processes, which need to be loaded independently.
@@ -78,6 +90,11 @@ export const mainBaseConfig: Configuration = {
 					from: path.resolve( __dirname, 'src/about-menu/studio-app-icon.png' ),
 					to: path.resolve( __dirname, '.webpack/main/menu' ),
 				},
+
+				...wasmDirs.map( ( dir ) => ( {
+					from: path.join( phpWasmDir, dir ),
+					to: path.resolve( __dirname, `.webpack/main/${ dir }` ),
+				} ) ),
 			],
 		} ),
 	],

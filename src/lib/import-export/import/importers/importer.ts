@@ -173,8 +173,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 				if ( contentToKeep.includes( content ) ) {
 					continue;
 				}
-
-				await shell.trashItem( contentPath );
+				await this.safelyDeleteFile( contentPath );
 			}
 		} catch {
 			return;

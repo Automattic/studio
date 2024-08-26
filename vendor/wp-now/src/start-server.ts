@@ -1,6 +1,6 @@
 import fs from 'fs';
 import { WPNowOptions } from './config';
-import { HTTPMethod } from '@php-wasm/universal';
+import { HTTPMethod, PHPRequestHandler } from '@php-wasm/universal';
 import express from 'express';
 import compression from 'compression';
 import compressible from 'compressible';
@@ -47,7 +47,7 @@ export async function startServer(
 	app.use(compression({ filter: shouldCompress }));
 	app.use(addTrailingSlash('/wp-admin'));
 	const port = options.port ?? await portFinder.getOpenPort();
-	const { php, options: wpNowOptions, requestHandler } = await startWPNow(options);
+	const { php, options: wpNowOptions } = await startWPNow(options);
 	app.use('/', async (req, res) => {
 		try {
 			const requestHeaders = {};
@@ -64,7 +64,7 @@ export async function startServer(
 				method: req.method as HTTPMethod,
 				body: await requestBodyToBytes( req ),
 			};
-			const resp = await requestHandler.request(data);
+			const resp = await php.requestHandler.request(data);
 			res.statusCode = resp.httpStatusCode;
 			Object.keys(resp.headers).forEach((key) => {
 				res.setHeader(key, resp.headers[key]);

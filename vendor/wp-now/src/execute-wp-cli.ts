@@ -3,8 +3,10 @@ import getWpCliPath from './get-wp-cli-path';
 import getWpNowConfig from './config';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from './constants';
 import { phpVar } from '@php-wasm/util';
-import { NodePHP } from '@php-wasm/node';
+import { createNodeFsMountHandler, loadNodeRuntime } from '@php-wasm/node';
 import { getSqliteCommandPath } from '../../../src/lib/sqlite-command-versions';
+import { PHP, PHPRequestHandler, MountHandler, writeFiles } from '@php-wasm/universal';
+import { readFileSync } from 'fs';
 
 const isWindows = process.platform === 'win32';
 
@@ -18,29 +20,35 @@ export async function executeWPCli( projectPath: string, args: string[] ): Promi
 		wp: DEFAULT_WORDPRESS_VERSION,
 		path: projectPath,
 	});
-	const php: NodePHP = await NodePHP.load(options.phpVersion,{
-		requestHandler: {
-			documentRoot: options.documentRoot,
-			absoluteUrl: options.absoluteUrl,
-		}
+
+	const requestHandler = new PHPRequestHandler({
+		phpFactory: async ({ isPrimary, requestHandler:reqHandler }) => {
+			const id = await loadNodeRuntime( options.phpVersion );
+			const php = new PHP(id);
+			return php;
+		},
+		documentRoot: options.documentRoot,
+		absoluteUrl: options.absoluteUrl,
+		rewriteRules: []
 	});
-	php.mount(projectPath, options.documentRoot);
+
+	const php = await requestHandler.getPrimaryPhp()
+
+	php.mount(projectPath, createNodeFsMountHandler(options.documentRoot) as unknown as MountHandler);
 
 	//Set the SAPI name to cli before running the script
 	await php.setSapiName('cli');
 
 	php.mkdir('/tmp');
-	const stderrPath = '/tmp/stderr';
+
 	const wpCliPath = '/tmp/wp-cli.phar';
+	const stderrPath = '/tmp/stderr';
 	const sqliteCommandPath = '/tmp/sqlite-command';
 	const runCliPath =  '/tmp/run-cli.php';
-	php.writeFile(stderrPath, '');
-	php.mount(getWpCliPath(), wpCliPath);
-	php.mount(getSqliteCommandPath(), sqliteCommandPath);
-
-	php.writeFile(
-		runCliPath,
-		`<?php
+	const createFiles = {
+			[wpCliPath]: readFileSync(getWpCliPath()),
+				[stderrPath]: '',
+ [runCliPath]: `<?php
 		// Set up the environment to emulate a shell script
 		// call.
 
@@ -57,7 +65,7 @@ export async function executeWPCli( projectPath: string, args: string[] ): Promi
 		// Set the argv global.
 		$GLOBALS['argv'] = array_merge([
 		  "${wpCliPath}",
-		  "--path=${php.documentRoot}"
+		  "--path=${php.requestHandler.documentRoot}"
 		], ${phpVar(args)});
 
 		// Provide stdin, stdout, stderr streams outside of
@@ -77,7 +85,22 @@ export async function executeWPCli( projectPath: string, args: string[] ): Promi
 		$_SERVER['argv'][0] = '${wpCliPath}';
 
 		require( '${wpCliPath}' );`
-	);
+	}
+
+	
+	await writeFiles(php, '/', createFiles);
+
+	try{
+		php.mkdir(sqliteCommandPath);
+		console.log('before cli')
+		await php.mount(wpCliPath, createNodeFsMountHandler(getWpCliPath()) as unknown as MountHandler)
+		console.log('after cli')
+		console.log('before sqlite')
+		await php.mount(sqliteCommandPath, createNodeFsMountHandler(getSqliteCommandPath()) as unknown as MountHandler)
+		console.log('after sqlite')
+	}catch(e){
+		console.log(e)
+	}
 
 	// Set site's folder as the current working directory as the terminal will opened in that location.
 	php.chdir(options.documentRoot);

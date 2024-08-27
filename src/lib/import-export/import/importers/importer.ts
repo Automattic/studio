@@ -58,7 +58,6 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 				}
 
 				if ( exitCode ) {
-					console.log(tmpPath)
 					throw new Error( 'Database import failed: ' + stdout );
 				}
 			} finally {

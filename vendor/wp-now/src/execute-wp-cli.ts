@@ -100,6 +100,7 @@ export async function executeWPCli( projectPath: string, args: string[] ): Promi
 	}
 
 	try {
+		php.chdir(options.documentRoot);
 		const result = await php.run({
 			scriptPath: runCliPath,
 		});

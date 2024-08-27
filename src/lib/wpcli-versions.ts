@@ -55,6 +55,7 @@ async function getLatestWPCliVersion() {
 
 export const getWPCliVersionFromInstallation = async () => {
 	const { stdout } = await executeWPCli( '.', [ '--version' ] );
+	console.log( stdout );
 	if ( stdout?.startsWith( 'WP-CLI ' ) ) {
 		const version = stdout.split( ' ' )[ 1 ];
 		if ( ! version ) {

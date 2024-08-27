@@ -35,7 +35,9 @@ export async function executeWPCli( projectPath: string, args: string[] ): Promi
 
 	const php = await requestHandler.getPrimaryPhp()
 
-	php.mount(options.documentRoot, createNodeFsMountHandler(projectPath) as unknown as MountHandler);
+
+	php.mkdir(options.documentRoot);
+	await php.mount(options.documentRoot, createNodeFsMountHandler(projectPath) as unknown as MountHandler);
 
 	//Set the SAPI name to cli before running the script
 	await php.setSapiName('cli');

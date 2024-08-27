@@ -73,7 +73,7 @@ export default async function startWPNow(
 		`<?php echo 'Hello wp-now!';`
 	);
 	php.writeFile(
-		'/internal/shared/ca-bundle.crt': rootCertificates.join('\n')
+		'/internal/shared/ca-bundle.crt', rootCertificates.join('\n')
 	)
 
 	output?.log(`directory: ${options.projectPath}`);

@@ -22,9 +22,10 @@ export async function executeWPCli( projectPath: string, args: string[] ): Promi
 	});
 
 	const requestHandler = new PHPRequestHandler({
-		phpFactory: async ({ isPrimary, requestHandler:reqHandler }) => {
+		phpFactory: async ({ requestHandler:reqHandler }) => {
 			const id = await loadNodeRuntime( options.phpVersion );
 			const php = new PHP(id);
+			php.requestHandler = reqHandler;
 			return php;
 		},
 		documentRoot: options.documentRoot,
@@ -87,15 +88,11 @@ export async function executeWPCli( projectPath: string, args: string[] ): Promi
 		require( '${wpCliPath}' );`
 	}
 
-	
 	await writeFiles(php, '/', createFiles);
 
 	try{
 		php.mkdir(sqliteCommandPath);
 		console.log('before cli')
-		await php.mount(wpCliPath, createNodeFsMountHandler(getWpCliPath()) as unknown as MountHandler)
-		console.log('after cli')
-		console.log('before sqlite')
 		await php.mount(sqliteCommandPath, createNodeFsMountHandler(getSqliteCommandPath()) as unknown as MountHandler)
 		console.log('after sqlite')
 	}catch(e){

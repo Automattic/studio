@@ -1,11 +1,12 @@
 import { downloadWpCli } from './download';
+import { rootCertificates } from 'tls';
 import getWpCliPath from './get-wp-cli-path';
 import getWpNowConfig from './config';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from './constants';
 import { phpVar } from '@php-wasm/util';
-import { createNodeFsMountHandler, loadNodeRuntime } from '@php-wasm/node';
+import { createNodeFsMountHandler, getPHPLoaderModule, withNetworking } from '@php-wasm/node';
 import { getSqliteCommandPath } from '../../../src/lib/sqlite-command-versions';
-import { PHP, PHPRequestHandler, MountHandler, writeFiles } from '@php-wasm/universal';
+import { PHP, PHPRequestHandler, MountHandler, writeFiles, setPhpIniEntries, loadPHPRuntime } from '@php-wasm/universal';
 import { readFileSync } from 'fs';
 
 const isWindows = process.platform === 'win32';
@@ -21,19 +22,24 @@ export async function executeWPCli( projectPath: string, args: string[] ): Promi
 		path: projectPath,
 	});
 
-	const requestHandler = new PHPRequestHandler({
-		phpFactory: async ({ requestHandler:reqHandler }) => {
-			const id = await loadNodeRuntime( options.phpVersion );
-			const php = new PHP(id);
-			php.requestHandler = reqHandler;
-			return php;
-		},
-		documentRoot: options.documentRoot,
-		absoluteUrl: options.absoluteUrl,
-		rewriteRules: []
-	});
-
-	const php = await requestHandler.getPrimaryPhp()
+	const id =  await loadPHPRuntime(
+		await getPHPLoaderModule(options.phpVersion),
+		await withNetworking({})
+	);
+	const php = new PHP(id);
+	// const requestHandler = new PHPRequestHandler({
+	// 	phpFactory: async ({ requestHandler:reqHandler }) => {
+	// 		const id = await loadNodeRuntime( options.phpVersion );
+	// 		const php = new PHP(id);
+	// 		php.requestHandler = reqHandler;
+	// 		return php;
+	// 	},
+	// 	documentRoot: options.documentRoot,
+	// 	absoluteUrl: options.absoluteUrl,
+	// 	rewriteRules: []
+	// });
+	//
+	// const php = await requestHandler.getPrimaryPhp()
 
 
 	php.mkdir(options.documentRoot);
@@ -50,48 +56,52 @@ export async function executeWPCli( projectPath: string, args: string[] ): Promi
 	const runCliPath =  '/tmp/run-cli.php';
 	const createFiles = {
 			[wpCliPath]: readFileSync(getWpCliPath()),
-				[stderrPath]: '',
- [runCliPath]: `<?php
-		// Set up the environment to emulate a shell script
-		// call.
+			[stderrPath]: '',
+			[runCliPath]: `<?php
+			// Set up the environment to emulate a shell script
+			// call.
 
-		// Set SHELL_PIPE to 0 to ensure WP-CLI formats
-		// the output as ASCII tables.
-		// @see https://github.com/wp-cli/wp-cli/issues/1102
-		putenv( 'SHELL_PIPE=0' );
+			// Set SHELL_PIPE to 0 to ensure WP-CLI formats
+			// the output as ASCII tables.
+			// @see https://github.com/wp-cli/wp-cli/issues/1102
+			putenv( 'SHELL_PIPE=0' );
 
-		// When running PHP on Playground, the value of constant PHP_OS is set to Linux.
-		// This implies that platform-specific logic won't work as expected. To solve this,
-		// we use an environment variable to ensure WP-CLI runs the Windows-specific logic.
-		putenv( 'WP_CLI_TEST_IS_WINDOWS=${isWindows ? 1 : 0}' );
+			// When running PHP on Playground, the value of constant PHP_OS is set to Linux.
+			// This implies that platform-specific logic won't work as expected. To solve this,
+			// we use an environment variable to ensure WP-CLI runs the Windows-specific logic.
+			putenv( 'WP_CLI_TEST_IS_WINDOWS=${isWindows ? 1 : 0}' );
 
-		// Set the argv global.
-		$GLOBALS['argv'] = array_merge([
-		  "${wpCliPath}",
-		  "--path=${php.requestHandler.documentRoot}"
-		], ${phpVar(args)});
+			// Set the argv global.
+			$GLOBALS['argv'] = array_merge([
+				"${wpCliPath}",
+				"--path=${options.documentRoot}"
+			], ${phpVar(args)});
 
-		// Provide stdin, stdout, stderr streams outside of
-		// the CLI SAPI.
-		define('STDIN', fopen('php://stdin', 'rb'));
-		define('STDOUT', fopen('php://stdout', 'wb'));
-		define('STDERR', fopen('${stderrPath}', 'wb'));
-		
-		// Force disabling WordPress debugging mode to avoid parsing issues of WP-CLI command result
-		define('WP_DEBUG', false);
-		// Filter out errors below ERROR level to avoid parsing issues of WP-CLI command result
-		error_reporting(E_ERROR);
+			// Provide stdin, stdout, stderr streams outside of
+			// the CLI SAPI.
+			define('STDIN', fopen('php://stdin', 'rb'));
+			define('STDOUT', fopen('php://stdout', 'wb'));
+			define('STDERR', fopen('${stderrPath}', 'wb'));
+			
+			// Force disabling WordPress debugging mode to avoid parsing issues of WP-CLI command result
+			define('WP_DEBUG', false);
+			// Filter out errors below ERROR level to avoid parsing issues of WP-CLI command result
+			error_reporting(E_ERROR);
 
-		// WP-CLI uses this argument for checking updates. Seems it's not defined by Playground
-		// when running a script, so we explicitly set it.
-		// Reference: https://github.com/wp-cli/wp-cli/blob/main/php/WP_CLI/Runner.php#L1889
-		$_SERVER['argv'][0] = '${wpCliPath}';
+			// WP-CLI uses this argument for checking updates. Seems it's not defined by Playground
+			// when running a script, so we explicitly set it.
+			// Reference: https://github.com/wp-cli/wp-cli/blob/main/php/WP_CLI/Runner.php#L1889
+			$_SERVER['argv'][0] = '${wpCliPath}';
 
-		require( '${wpCliPath}' );`
+			require( '${wpCliPath}' );`,
+			['/internal/shared/ca-bundle.crt']: rootCertificates.join('\n')
 	}
 
 	await writeFiles(php, '/', createFiles);
 
+	await setPhpIniEntries(php, {
+		'openssl.cafile': '/internal/shared/ca-bundle.crt'
+	});
 	try{
 		php.mkdir(sqliteCommandPath);
 		await php.mount(sqliteCommandPath, createNodeFsMountHandler(getSqliteCommandPath()) as unknown as MountHandler)
@@ -110,6 +120,6 @@ export async function executeWPCli( projectPath: string, args: string[] ): Promi
 		const stderr = php.readFileAsText(stderrPath).replace('PHP.run() output was: #!/usr/bin/env php', '').trim();
 		return { stdout: '', stderr: stderr, exitCode: 1 };
 	} finally {
-		php.exit();
+		php.exit()
 	}
 }

@@ -27,20 +27,6 @@ export async function executeWPCli( projectPath: string, args: string[] ): Promi
 		await withNetworking({})
 	);
 	const php = new PHP(id);
-	// const requestHandler = new PHPRequestHandler({
-	// 	phpFactory: async ({ requestHandler:reqHandler }) => {
-	// 		const id = await loadNodeRuntime( options.phpVersion );
-	// 		const php = new PHP(id);
-	// 		php.requestHandler = reqHandler;
-	// 		return php;
-	// 	},
-	// 	documentRoot: options.documentRoot,
-	// 	absoluteUrl: options.absoluteUrl,
-	// 	rewriteRules: []
-	// });
-	//
-	// const php = await requestHandler.getPrimaryPhp()
-
 	php.mkdir(options.documentRoot);
 	await php.mount(options.documentRoot, createNodeFsMountHandler(projectPath) as unknown as MountHandler);
 

@@ -49,7 +49,7 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 
 			try {
 				await move( sqlFile, tmpPath );
-				const { stderr, exitCode, stdout } = await server.executeWpCliCommand(
+				const { stderr, exitCode } = await server.executeWpCliCommand(
 					`sqlite import ${ sqlTempFile } --require=/tmp/sqlite-command/command.php`
 				);
 
@@ -58,7 +58,7 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 				}
 
 				if ( exitCode ) {
-					throw new Error( 'Database import failed: ' + stdout );
+					throw new Error( 'Database import failed');
 				}
 			} finally {
 				await this.safelyDeleteFile( tmpPath );

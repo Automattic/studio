@@ -58,7 +58,7 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 				}
 
 				if ( exitCode ) {
-					throw new Error( 'Database import failed');
+					throw new Error( 'Database import failed' );
 				}
 			} finally {
 				await this.safelyDeleteFile( tmpPath );

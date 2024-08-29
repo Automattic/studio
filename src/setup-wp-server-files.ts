@@ -1,7 +1,6 @@
 import path from 'path';
 import fs from 'fs-extra';
 import semver from 'semver';
-import { executeWPCli } from '../vendor/wp-now/src/execute-wp-cli';
 import { SQLITE_FILENAME } from '../vendor/wp-now/src/constants';
 import { getWordPressVersionPath } from '../vendor/wp-now/src/download';
 import getSqlitePath from '../vendor/wp-now/src/get-sqlite-path';

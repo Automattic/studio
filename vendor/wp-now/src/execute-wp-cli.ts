@@ -6,7 +6,7 @@ import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from './constants';
 import { phpVar } from '@php-wasm/util';
 import { createNodeFsMountHandler, getPHPLoaderModule, withNetworking } from '@php-wasm/node';
 import { getSqliteCommandPath } from '../../../src/lib/sqlite-command-versions';
-import { PHP, PHPRequestHandler, MountHandler, writeFiles, setPhpIniEntries, loadPHPRuntime } from '@php-wasm/universal';
+import { PHP, MountHandler, writeFiles, setPhpIniEntries, loadPHPRuntime } from '@php-wasm/universal';
 import { readFileSync } from 'fs';
 
 const isWindows = process.platform === 'win32';
@@ -40,7 +40,6 @@ export async function executeWPCli( projectPath: string, args: string[] ): Promi
 	// });
 	//
 	// const php = await requestHandler.getPrimaryPhp()
-
 
 	php.mkdir(options.documentRoot);
 	await php.mount(options.documentRoot, createNodeFsMountHandler(projectPath) as unknown as MountHandler);

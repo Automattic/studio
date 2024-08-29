@@ -4,7 +4,7 @@ import getWpCliPath from './get-wp-cli-path';
 import getWpNowConfig from './config';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from './constants';
 import { phpVar } from '@php-wasm/util';
-import { createNodeFsMountHandler, getPHPLoaderModule, withNetworking } from '@php-wasm/node';
+import { createNodeFsMountHandler, loadNodeRuntime } from '@php-wasm/node';
 import { getSqliteCommandPath } from '../../../src/lib/sqlite-command-versions';
 import { PHP, MountHandler, writeFiles, setPhpIniEntries, loadPHPRuntime } from '@php-wasm/universal';
 import { readFileSync } from 'fs';
@@ -22,10 +22,7 @@ export async function executeWPCli( projectPath: string, args: string[] ): Promi
 		path: projectPath,
 	});
 
-	const id =  await loadPHPRuntime(
-		await getPHPLoaderModule(options.phpVersion),
-		await withNetworking({})
-	);
+	const id =  await loadNodeRuntime(options.phpVersion);
 	const php = new PHP(id);
 	php.mkdir(options.documentRoot);
 	await php.mount(options.documentRoot, createNodeFsMountHandler(projectPath) as unknown as MountHandler);

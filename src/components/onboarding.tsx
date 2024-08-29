@@ -101,12 +101,7 @@ export default function Onboarding() {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [] );
 
-	const preventEventAndHandleSubmit = async ( event: FormEvent ) => {
-		event.preventDefault();
-		await handleSubmit();
-	};
-
-	const handleSubmit = useCallback( async () => {
+	const onAddSite = useCallback( async () => {
 		// Prompt the user to enable optimizations on Windows
 		try {
 			await getIpcApi().promptWindowsSpeedUpSites( { skipIfAlreadyPrompted: true } );
@@ -134,7 +129,7 @@ export default function Onboarding() {
 		if ( isAnySiteProcessing || ! needsOnboarding ) {
 			return;
 		}
-		handleSubmit();
+		onAddSite();
 	} );
 
 	return (
@@ -159,7 +154,10 @@ export default function Onboarding() {
 							onSelectPath={ handlePathSelectorClick }
 							error={ error }
 							doesPathContainWordPress={ doesPathContainWordPress }
-							onSubmit={ preventEventAndHandleSubmit }
+							onSubmit={ async ( event: FormEvent ) => {
+								event.preventDefault();
+								await onAddSite();
+							} }
 							fileForImport={ fileForImport }
 							setFileForImport={ setFileForImport }
 							onFileSelected={ handleImportFile }

@@ -59,6 +59,7 @@ function SnapshotRow( {
 	const isUploading = isUploadingSiteId( selectedSite.id );
 	const { updateDemoSite, isDemoSiteUpdating } = useUpdateDemoSite();
 	const errorMessages = useArchiveErrorMessages();
+	const isSiteDemoUpdating = isDemoSiteUpdating( snapshot.localSiteId );
 
 	const isOffline = useOffline();
 	const updateDemoSiteOfflineMessage = __(
@@ -70,7 +71,7 @@ function SnapshotRow( {
 	const userBlockedMessage = errorMessages.rest_site_creation_blocked;
 
 	const { progress, setProgress } = useProgressTimer( {
-		paused: ! isDemoSiteUpdating,
+		paused: ! isSiteDemoUpdating,
 		initialProgress: 5,
 		interval: 1500,
 		maxValue: 95,
@@ -81,10 +82,10 @@ function SnapshotRow( {
 	}, [ fetchSnapshotUsage ] );
 
 	useEffect( () => {
-		if ( isDemoSiteUpdating ) {
+		if ( isSiteDemoUpdating ) {
 			setProgress( 80 );
 		}
-	}, [ isDemoSiteUpdating, setProgress ] );
+	}, [ isSiteDemoUpdating, setProgress ] );
 
 	if ( isDeleting ) {
 		return <SnapshotRowLoading>{ __( 'Deleting demo site…' ) }</SnapshotRowLoading>;
@@ -199,7 +200,7 @@ function SnapshotRow( {
 				{ sprintf( __( 'Expires in %s' ), countDown ) }
 			</div>
 			<div className="mt-4 flex gap-4">
-				{ isDemoSiteUpdating ? (
+				{ isSiteDemoUpdating ? (
 					<div className="w-[300px]">
 						<ProgressBar value={ progress } maxValue={ 100 } />
 						<div className="text-a8c-gray-70 a8c-body mt-4">

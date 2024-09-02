@@ -95,7 +95,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 					type: 'error',
 					message: __( 'Failed importing site' ),
 					detail: __(
-						'An error occurred while importing the site. Verify the file is a valid Jetpack backup, Local, Playground or .sql database file and try again. If this problem persists, please contact support.'
+						'An error occurred while importing the site. Verify the file is a valid Jetpack backup, Local, Playground, .wpress, or .sql database file and try again. If this problem persists, please contact support.'
 					),
 					buttons: [ __( 'OK' ) ],
 				} );

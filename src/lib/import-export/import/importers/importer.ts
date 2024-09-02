@@ -1,10 +1,12 @@
-import { shell } from 'electron';
 import { EventEmitter } from 'events';
-import fs from 'fs';
+import fs, { createReadStream, createWriteStream } from 'fs';
 import fsPromises from 'fs/promises';
 import path from 'path';
+import { createInterface } from 'readline';
 import { lstat, move } from 'fs-extra';
 import semver from 'semver';
+import { shell } from 'electron';
+
 import { DEFAULT_PHP_VERSION } from '../../../../../vendor/wp-now/src/constants';
 import { SiteServer } from '../../../../site-server';
 import { generateBackupFilename } from '../../export/generate-backup-filename';
@@ -49,6 +51,7 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 
 			try {
 				await move( sqlFile, tmpPath );
+				await this.prepareSqlFile( tmpPath );
 				const { stderr, exitCode } = await server.executeWpCliCommand(
 					`sqlite import ${ sqlTempFile } --require=/tmp/sqlite-command/command.php`
 				);
@@ -67,6 +70,10 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 
 		await this.replaceSiteUrl( siteId );
 		this.emit( ImportEvents.IMPORT_DATABASE_COMPLETE );
+	}
+
+	protected async prepareSqlFile( _tmpPath: string ): Promise< void > {
+		// This method can be overridden by subclasses to prepare the SQL file before import.
 	}
 
 	protected async replaceSiteUrl( siteId: string ) {
@@ -282,5 +289,38 @@ export class SQLImporter extends BaseImporter {
 			this.emit( ImportEvents.IMPORT_ERROR, error );
 			throw error;
 		}
+	}
+}
+
+export class WpressImporter extends BaseBackupImporter {
+	protected async parseMetaFile(): Promise< MetaFileData | undefined > {
+		return undefined;
+	}
+
+	protected async prepareSqlFile( tmpPath: string ): Promise< void > {
+		const tempOutputPath = `${ tmpPath }.tmp`;
+		const readStream = createReadStream( tmpPath, 'utf8' );
+		const writeStream = createWriteStream( tempOutputPath, 'utf8' );
+
+		const rl = createInterface( {
+			input: readStream,
+			crlfDelay: Infinity,
+		} );
+
+		rl.on( 'line', ( line: string ) => {
+			writeStream.write( line.replace( /SERVMASK_PREFIX/g, 'wp' ) + '\n' );
+		} );
+
+		await new Promise( ( resolve, reject ) => {
+			rl.on( 'close', resolve );
+			rl.on( 'error', reject );
+		} );
+
+		await new Promise( ( resolve, reject ) => {
+			writeStream.end( resolve );
+			writeStream.on( 'error', reject );
+		} );
+
+		await fsPromises.rename( tempOutputPath, tmpPath );
 	}
 }

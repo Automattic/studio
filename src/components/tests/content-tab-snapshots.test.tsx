@@ -16,9 +16,10 @@ jest.mock( '../../hooks/use-offline' );
 
 jest.mock( '../../hooks/use-update-demo-site' );
 const updateDemoSiteMock = jest.fn();
+const isDemoSiteUpdating = jest.fn();
 ( useUpdateDemoSite as jest.Mock ).mockReturnValue( {
 	updateDemoSite: updateDemoSiteMock,
-	isDemoSiteUpdating: false,
+	isDemoSiteUpdating: isDemoSiteUpdating,
 } );
 
 const archiveSite = jest.fn();

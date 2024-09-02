@@ -71,8 +71,6 @@ beforeEach( () => {
 	window.appGlobals = window.appGlobals ?? {};
 	jest.replaceProperty( window, 'appGlobals', {
 		platform: 'darwin',
-		locale: 'en',
-		localeData: undefined,
 		appName: '',
 		arm64Translation: false,
 		assistantEnabled: false,

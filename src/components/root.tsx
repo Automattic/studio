@@ -1,6 +1,7 @@
 import { ChatProvider } from '../hooks/use-chat-context';
 import { InstalledAppsProvider } from '../hooks/use-check-installed-apps';
 import { FeatureFlagsProvider } from '../hooks/use-feature-flags';
+import { I18nDataProvider } from '../hooks/use-i18n-data';
 import { ImportExportProvider } from '../hooks/use-import-export';
 import { OnboardingProvider } from '../hooks/use-onboarding';
 import { PromptUsageProvider } from '../hooks/use-prompt-usage';
@@ -17,29 +18,31 @@ const Root = () => {
 	return (
 		<ErrorBoundary>
 			<CrashTester />
-			<AuthProvider>
-				<SnapshotProvider>
-					<SiteDetailsProvider>
-						<FeatureFlagsProvider>
-							<DemoSiteUpdateProvider>
-								<ThemeDetailsProvider>
-									<InstalledAppsProvider>
-										<OnboardingProvider>
-											<PromptUsageProvider>
-												<ChatProvider>
-													<ImportExportProvider>
-														<App />
-													</ImportExportProvider>
-												</ChatProvider>
-											</PromptUsageProvider>
-										</OnboardingProvider>
-									</InstalledAppsProvider>
-								</ThemeDetailsProvider>
-							</DemoSiteUpdateProvider>
-						</FeatureFlagsProvider>
-					</SiteDetailsProvider>
-				</SnapshotProvider>
-			</AuthProvider>
+			<I18nDataProvider>
+				<AuthProvider>
+					<SnapshotProvider>
+						<SiteDetailsProvider>
+							<FeatureFlagsProvider>
+								<DemoSiteUpdateProvider>
+									<ThemeDetailsProvider>
+										<InstalledAppsProvider>
+											<OnboardingProvider>
+												<PromptUsageProvider>
+													<ChatProvider>
+														<ImportExportProvider>
+															<App />
+														</ImportExportProvider>
+													</ChatProvider>
+												</PromptUsageProvider>
+											</OnboardingProvider>
+										</InstalledAppsProvider>
+									</ThemeDetailsProvider>
+								</DemoSiteUpdateProvider>
+							</FeatureFlagsProvider>
+						</SiteDetailsProvider>
+					</SnapshotProvider>
+				</AuthProvider>
+			</I18nDataProvider>
 		</ErrorBoundary>
 	);
 };

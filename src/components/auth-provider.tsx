@@ -1,8 +1,8 @@
 import * as Sentry from '@sentry/electron/renderer';
 import { createContext, useState, useEffect, useMemo, useCallback, ReactNode } from 'react';
 import WPCOM from 'wpcom';
+import { useI18nData } from '../hooks/use-i18n-data';
 import { useIpcListener } from '../hooks/use-ipc-listener';
-import { getAppGlobals } from '../lib/app-globals';
 import { getIpcApi } from '../lib/get-ipc-api';
 
 export interface AuthContextType {
@@ -33,6 +33,7 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 	const [ isAuthenticated, setIsAuthenticated ] = useState( false );
 	const [ client, setClient ] = useState< WPCOM | undefined >( undefined );
 	const [ user, setUser ] = useState< AuthContextType[ 'user' ] >( undefined );
+	const { locale } = useI18nData();
 
 	const authenticate = getIpcApi().authenticate;
 	useIpcListener( 'auth-updated', ( _event, { token, error } ) => {
@@ -41,7 +42,7 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 			return;
 		}
 		setIsAuthenticated( true );
-		setClient( createWpcomClient( token.accessToken ) );
+		setClient( createWpcomClient( token.accessToken, locale ) );
 		if ( token.id || token.email || token.displayName ) {
 			setUser( {
 				id: token.id || null,
@@ -73,7 +74,7 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 					if ( ! token ) {
 						return;
 					}
-					setClient( createWpcomClient( token.accessToken ) );
+					setClient( createWpcomClient( token.accessToken, locale ) );
 					if ( token.id || token.email || token.displayName ) {
 						setUser( {
 							id: token.id || null,
@@ -88,7 +89,7 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 			}
 		}
 		run();
-	}, [] );
+	}, [ locale ] );
 
 	// Memoize the context value to avoid unnecessary renders
 	const contextValue: AuthContextType = useMemo(
@@ -105,8 +106,7 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 	return <AuthContext.Provider value={ contextValue }>{ children }</AuthContext.Provider>;
 };
 
-function createWpcomClient( token?: string ): WPCOM {
-	const locale = getAppGlobals().locale;
+function createWpcomClient( token?: string, locale?: string ): WPCOM {
 	const wpcom = new WPCOM( token );
 
 	if ( ! locale || locale === 'en' ) {

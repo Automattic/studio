@@ -9,7 +9,7 @@ import {
 } from 'electron';
 import path from 'path';
 import * as Sentry from '@sentry/electron/main';
-import { __, defaultI18n } from '@wordpress/i18n';
+import { __ } from '@wordpress/i18n';
 import packageJson from '../package.json';
 import { PROTOCOL_PREFIX } from './constants';
 import * as ipcHandlers from './ipc-handlers';
@@ -22,7 +22,7 @@ import {
 	processCLICommand,
 	executeCLICommand,
 } from './lib/cli';
-import { getLocaleData, getSupportedLocale } from './lib/locale';
+import { getUserLocaleWithFallback } from './lib/locale-node';
 import { handleAuthCallback, setUpAuthCallbackHandler } from './lib/oauth';
 import { setupLogging } from './logging';
 import { createMainWindow, withMainWindow } from './main-window';
@@ -197,10 +197,7 @@ async function appBoot() {
 	}
 
 	app.on( 'ready', async () => {
-		// Set translations based on supported locale
-		const locale = getSupportedLocale();
-		const localeData = getLocaleData( locale );
-		defaultI18n.setLocaleData( localeData?.locale_data?.messages );
+		const locale = await getUserLocaleWithFallback();
 
 		console.log( `App version: ${ app.getVersion() }` );
 		console.log( `Built from commit: ${ COMMIT_HASH ?? 'undefined' }` );

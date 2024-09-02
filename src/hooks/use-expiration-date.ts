@@ -2,9 +2,10 @@ import { useI18n } from '@wordpress/react-i18n';
 import { intervalToDuration, formatDuration, addDays, Duration, addHours } from 'date-fns';
 import { HOUR_MS, DAY_MS } from '../constants';
 import { formatDistance } from '../lib/date';
+import { SupportedLocale } from '../lib/locale';
+import { useI18nData } from './use-i18n-data';
 
-function formatStringDate( ms: number ): string {
-	const { locale = 'en' } = window?.appGlobals || {};
+function formatStringDate( ms: number, locale: SupportedLocale ): string {
 	const formatter = new Intl.DateTimeFormat( locale, {
 		day: 'numeric',
 		month: 'long',
@@ -15,6 +16,7 @@ function formatStringDate( ms: number ): string {
 
 export function useExpirationDate( snapshotDate: number ) {
 	const { __ } = useI18n();
+	const { locale } = useI18nData();
 	const MAX_DAYS = 7;
 	const now = new Date();
 	const endDate = addDays( snapshotDate, MAX_DAYS );
@@ -45,6 +47,6 @@ export function useExpirationDate( snapshotDate: number ) {
 	return {
 		isExpired,
 		countDown: isExpired ? __( 'Expired' ) : countDown,
-		dateString: formatStringDate( snapshotDate ),
+		dateString: formatStringDate( snapshotDate, locale ),
 	};
 }

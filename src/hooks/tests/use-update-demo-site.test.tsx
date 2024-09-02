@@ -96,7 +96,7 @@ describe( 'useUpdateDemoSite', () => {
 		} );
 
 		// Assert that 'isDemoSiteUpdating' is set back to false
-		expect( result.current.isDemoSiteUpdating ).toBe( false );
+		expect( result.current.isDemoSiteUpdating( mockLocalSite.id ) ).toBe( false );
 
 		// Assert that demo site is updated with a new expiration date
 		expect( updateSnapshotMock ).toHaveBeenCalledWith(
@@ -125,7 +125,7 @@ describe( 'useUpdateDemoSite', () => {
 		);
 
 		// Assert that 'isDemoSiteUpdating' is set back to false
-		expect( result.current.isDemoSiteUpdating ).toBe( false );
+		expect( result.current.isDemoSiteUpdating( mockLocalSite.id ) ).toBe( false );
 	} );
 
 	afterEach( () => {

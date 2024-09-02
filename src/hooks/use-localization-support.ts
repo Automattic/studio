@@ -1,10 +1,10 @@
 import { useI18n } from '@wordpress/react-i18n';
 import { useEffect } from 'react';
-import { getAppGlobals } from '../lib/app-globals';
+import { useI18nData } from './use-i18n-data';
 
 export function useLocalizationSupport() {
 	const { __, _x, isRTL } = useI18n();
-	const locale = getAppGlobals().locale;
+	const { locale } = useI18nData();
 
 	// Some languages may need to set an html lang attribute that is different from their slug
 	let lang = __( 'html_lang_attribute' );

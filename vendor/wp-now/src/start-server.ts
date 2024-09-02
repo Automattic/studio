@@ -1,11 +1,11 @@
 import fs from 'fs';
 import { WPNowOptions } from './config';
-import { HTTPMethod } from '@php-wasm/universal';
+import { HTTPMethod, PHPRequestHandler } from '@php-wasm/universal';
 import express from 'express';
 import compression from 'compression';
 import compressible from 'compressible';
 import { portFinder } from './port-finder';
-import { NodePHP } from '@php-wasm/node';
+import { PHP } from '@php-wasm/universal';
 import startWPNow from './wp-now';
 import { output } from './output';
 import { addTrailingSlash } from './add-trailing-slash';
@@ -23,7 +23,7 @@ const requestBodyToBytes = async ( req ): Promise< Uint8Array > =>
 
 export interface WPNowServer {
 	url: string;
-	php: NodePHP;
+	php: PHP;
 	options: WPNowOptions;
 	stopServer: () => Promise<void>;
 }
@@ -42,12 +42,12 @@ export async function startServer(
 			`The given path "${options.projectPath}" does not exist.`
 		);
 	}
+
 	const app = express();
 	app.use(compression({ filter: shouldCompress }));
 	app.use(addTrailingSlash('/wp-admin'));
 	const port = options.port ?? await portFinder.getOpenPort();
 	const { php, options: wpNowOptions } = await startWPNow(options);
-
 	app.use('/', async (req, res) => {
 		try {
 			const requestHeaders = {};
@@ -64,7 +64,7 @@ export async function startServer(
 				method: req.method as HTTPMethod,
 				body: await requestBodyToBytes( req ),
 			};
-			const resp = await php.request(data);
+			const resp = await php.requestHandler.request(data);
 			res.statusCode = resp.httpStatusCode;
 			Object.keys(resp.headers).forEach((key) => {
 				res.setHeader(key, resp.headers[key]);

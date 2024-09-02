@@ -1,14 +1,24 @@
 module.exports = {
 	roots: [ '<rootDir>/src' ],
+	preset: 'ts-jest',
 	transform: {
-		'^.+\\.tsx?$': [
+		'^.+\\.(ts|tsx)$': [
 			'ts-jest',
 			{
 				diagnostics: {
 					exclude: [ '**/vendor/wp-now/**/*' ],
 				},
+				useESM: true,
+				tsconfig: {
+					module: 'esnext',
+				},
 			},
 		],
+		'^.+\\.m?js$': [ 'babel-jest', { presets: [ '@babel/preset-env' ] } ],
+	},
+	transformIgnorePatterns: [ 'node_modules/(?!(@php-wasm|@wp-playground)/)' ],
+	moduleNameMapper: {
+		'^(\\.{1,2}/.*)\\.js$': '$1',
 	},
 	testEnvironment: 'jsdom',
 	globals: {

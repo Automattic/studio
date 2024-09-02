@@ -19,6 +19,10 @@ export const rules: Required< ModuleOptions >[ 'rules' ] = [
 		},
 	},
 	{
+		test: /\.wasm$/,
+		type: 'asset/inline',
+	},
+	{
 		test: /\.tsx?$/,
 		exclude: /(node_modules|\.webpack)/,
 		use: {

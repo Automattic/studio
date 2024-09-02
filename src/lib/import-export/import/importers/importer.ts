@@ -119,6 +119,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 			const dbPath = path.join( databaseDir, '.ht.sqlite' );
 
 			await this.moveExistingDatabaseToTrash( dbPath );
+			await this.moveExistingWpContentToTrash( rootPath );
 			await this.createEmptyDatabase( dbPath );
 			await this.importWpConfig( rootPath );
 			await this.importWpContent( rootPath );
@@ -154,6 +155,29 @@ abstract class BaseBackupImporter extends BaseImporter {
 			return;
 		}
 		await shell.trashItem( dbPath );
+	}
+
+	protected async moveExistingWpContentToTrash( rootPath: string ): Promise< void > {
+		const wpContentDir = path.join( rootPath, 'wp-content' );
+		try {
+			if ( ! fs.existsSync( wpContentDir ) ) {
+				return;
+			}
+			const contentToKeep = [ 'mu-plugins', 'database', 'db.php' ];
+
+			const contents = await fsPromises.readdir( wpContentDir );
+
+			for ( const content of contents ) {
+				const contentPath = path.join( wpContentDir, content );
+
+				if ( contentToKeep.includes( content ) ) {
+					continue;
+				}
+				await this.safelyDeleteFile( contentPath );
+			}
+		} catch {
+			return;
+		}
 	}
 
 	protected async importWpConfig( rootPath: string ): Promise< void > {

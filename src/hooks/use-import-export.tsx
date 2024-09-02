@@ -47,15 +47,6 @@ interface ImportExportContext {
 	exportDatabase: ( selectedSite: SiteDetails ) => Promise< string | undefined >;
 }
 
-const INITIAL_EXPORT_STATE = {
-	statusMessage: __( 'Starting export...' ),
-	progress: 5,
-};
-const INITIAL_IMPORT_STATE = {
-	statusMessage: __( 'Extracting backup…' ),
-	progress: 5,
-};
-
 const ImportExportContext = createContext< ImportExportContext >( {
 	importState: {},
 	importFile: async () => undefined,
@@ -70,6 +61,15 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 	const [ importState, setImportState ] = useState< ImportProgressState >( {} );
 	const [ exportState, setExportState ] = useState< ExportProgressState >( {} );
 	const { startServer, stopServer, updateSite } = useSiteDetails();
+
+	const INITIAL_EXPORT_STATE = {
+		statusMessage: __( 'Starting export...' ),
+		progress: 5,
+	};
+	const INITIAL_IMPORT_STATE = {
+		statusMessage: __( 'Extracting backup…' ),
+		progress: 5,
+	};
 
 	const importFile = useCallback(
 		async (

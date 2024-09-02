@@ -1,7 +1,7 @@
 import { Icon } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
-import { tip, warning, trash, chevronRight, chevronDown } from '@wordpress/icons';
+import { tip, warning, trash, chevronRight, chevronDown, chevronLeft } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useRef, useState } from 'react';
 import { STUDIO_DOCS_URL_IMPORT_EXPORT } from '../constants';
@@ -192,7 +192,7 @@ function FormImportComponent( {
 					className="hidden"
 					type="file"
 					data-testid="backup-file"
-					accept=".zip,.sql,.tar,.gz"
+					accept=".zip,.tar,.gz"
 					onChange={ handleFileChange }
 				/>
 			</div>
@@ -231,13 +231,23 @@ export const SiteForm = ( {
 	onFileSelected?: ( file: File ) => void;
 	fileError?: string;
 } ) => {
-	const { __ } = useI18n();
+	const { __, isRTL } = useI18n();
 
 	const [ isAdvancedSettingsVisible, setAdvancedSettingsVisible ] = useState( false );
 
 	const handleAdvancedSettingsClick = () => {
 		setAdvancedSettingsVisible( ! isAdvancedSettingsVisible );
 	};
+
+	let chevronIcon;
+
+	if ( isAdvancedSettingsVisible ) {
+		chevronIcon = chevronDown;
+	} else if ( isRTL() ) {
+		chevronIcon = chevronLeft;
+	} else {
+		chevronIcon = chevronRight;
+	}
 
 	return (
 		<form className={ className } onSubmit={ onSubmit }>
@@ -280,10 +290,7 @@ export const SiteForm = ( {
 							<>
 								<div className="flex flex-row items-center mb-0">
 									<Button className="pl-0" onClick={ handleAdvancedSettingsClick }>
-										<Icon
-											size={ 24 }
-											icon={ isAdvancedSettingsVisible ? chevronDown : chevronRight }
-										/>
+										<Icon size={ 24 } icon={ chevronIcon } />
 										<div className="text-[13px] leading-[16px] ml-2">
 											{ __( 'Advanced settings' ) }
 										</div>

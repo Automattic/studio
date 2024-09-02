@@ -3,7 +3,8 @@
  */
 import { app } from 'electron';
 import { createI18n } from '@wordpress/i18n';
-import { getLocaleData, getSupportedLocale } from '../locale';
+import { getLocaleData } from '../locale';
+import { getSupportedLocale } from '../locale-node';
 
 function mockAppLocale( language: string ) {
 	( app.getLocale as jest.Mock ).mockReturnValue( language );
@@ -61,7 +62,7 @@ describe( 'getLocaleData', () => {
 		expect( localeData ).not.toBeNull();
 
 		// Do some translating with the loaded data
-		const i18n = createI18n( localeData?.locale_data?.messages );
+		const i18n = createI18n( localeData?.messages );
 		expect( i18n._x( 'ltr', 'text direction' ) ).toBe( 'rtl' );
 	} );
 } );

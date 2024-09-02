@@ -3,7 +3,8 @@ import { Locale } from '@formatjs/intl-locale';
 import { match } from '@formatjs/intl-localematcher';
 import fs from 'fs-extra';
 import { getResourcesPath } from '../storage/paths';
-import { DEFAULT_LOCALE, getSupportedLocale } from './locale';
+import { DEFAULT_LOCALE } from './locale';
+import { getSupportedLocale } from './locale-node';
 
 interface TranslationsData {
 	translations: Translation[];

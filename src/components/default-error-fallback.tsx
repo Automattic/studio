@@ -3,6 +3,7 @@ import {
 	__experimentalHStack as HStack,
 } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
+import { useI18nData } from '../hooks/use-i18n-data';
 import { isMac, isWindows } from '../lib/app-globals';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
@@ -47,8 +48,8 @@ const GravatarSkeleton = () => {
 
 const RightPanel = () => {
 	const { __ } = useI18n();
+	const { locale } = useI18nData();
 	const openLocalizedSupport = async () => {
-		const { locale } = await getIpcApi().getAppGlobals();
 		await getIpcApi().openURL( `https://wordpress.com/${ locale }/support` );
 	};
 	return (

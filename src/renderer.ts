@@ -28,7 +28,7 @@
 
 import * as Sentry from '@sentry/electron/renderer';
 import { init as reactInit } from '@sentry/react';
-import { __, defaultI18n } from '@wordpress/i18n';
+import { __ } from '@wordpress/i18n';
 import { createElement, StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import Root from './components/root';
@@ -120,8 +120,6 @@ getIpcApi()
 
 			showARM64MessageBox();
 		}
-
-		defaultI18n.setLocaleData( appGlobals.localeData?.locale_data?.messages );
 
 		const rootEl = document.getElementById( 'root' );
 		if ( rootEl ) {

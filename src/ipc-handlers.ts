@@ -25,7 +25,8 @@ import { defaultImporterOptions, importBackup } from './lib/import-export/import
 import { BackupArchiveInfo } from './lib/import-export/import/types';
 import { isErrnoException } from './lib/is-errno-exception';
 import { isInstalled } from './lib/is-installed';
-import { getLocaleData, getSupportedLocale } from './lib/locale';
+import { SupportedLocale } from './lib/locale';
+import { getUserLocaleWithFallback } from './lib/locale-node';
 import * as oauthClient from './lib/oauth';
 import { createPassword } from './lib/passwords';
 import { phpGetThemeDetails } from './lib/php-get-theme-details';
@@ -318,6 +319,19 @@ export async function showOpenFolderDialog(
 		isWordPress: isWordPressDirectory( filePaths[ 0 ] ),
 	};
 }
+
+export async function saveUserLocale( _event: IpcMainInvokeEvent, locale: string ) {
+	const userData = await loadUserData();
+	await saveUserData( {
+		...userData,
+		locale,
+	} );
+}
+
+export async function getUserLocale( _event: IpcMainInvokeEvent ): Promise< SupportedLocale > {
+	return getUserLocaleWithFallback();
+}
+
 export async function showUserSettings( event: IpcMainInvokeEvent ): Promise< void > {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	if ( ! parentWindow ) {
@@ -481,13 +495,8 @@ export async function copyText( event: IpcMainInvokeEvent, text: string ) {
 }
 
 export async function getAppGlobals( _event: IpcMainInvokeEvent ): Promise< AppGlobals > {
-	const locale = getSupportedLocale();
-	const localeData = getLocaleData( locale );
-
 	return {
 		platform: process.platform,
-		locale,
-		localeData,
 		appName: app.name,
 		arm64Translation: app.runningUnderARM64Translation,
 		assistantEnabled: process.env.STUDIO_AI === 'true',

@@ -8,12 +8,12 @@ import { useSnapshots } from './use-snapshots';
 
 interface DemoSiteUpdateContextType {
 	updateDemoSite: ( snapshot: Snapshot, localSite: SiteDetails ) => Promise< void >;
-	isDemoSiteUpdating: boolean;
+	isDemoSiteUpdating: ( siteId: string ) => boolean;
 }
 
 const DemoSiteUpdateContext = createContext< DemoSiteUpdateContextType >( {
 	updateDemoSite: async () => undefined,
-	isDemoSiteUpdating: false,
+	isDemoSiteUpdating: () => false,
 } );
 
 interface DemoSiteUpdateProviderProps {
@@ -23,7 +23,7 @@ interface DemoSiteUpdateProviderProps {
 export const DemoSiteUpdateProvider: React.FC< DemoSiteUpdateProviderProps > = ( { children } ) => {
 	const { client } = useAuth();
 	const { __ } = useI18n();
-	const [ isDemoSiteUpdating, setDemoSiteUpdating ] = useState( false );
+	const [ updatingSites, setUpdatingSites ] = useState< Set< string > >( new Set() );
 	const { updateSnapshot } = useSnapshots();
 
 	const updateDemoSite = useCallback(
@@ -32,7 +32,7 @@ export const DemoSiteUpdateProvider: React.FC< DemoSiteUpdateProviderProps > = (
 				// No-op if logged out
 				return;
 			}
-			setDemoSiteUpdating( true );
+			setUpdatingSites( ( prev ) => new Set( prev ).add( localSite.id ) );
 
 			const { zipContent } = await getIpcApi().archiveSite( localSite.id );
 			const file = new File( [ zipContent ], 'loca-env-site-1.zip', {
@@ -76,10 +76,19 @@ export const DemoSiteUpdateProvider: React.FC< DemoSiteUpdateProviderProps > = (
 				} );
 				Sentry.captureException( error );
 			} finally {
-				setDemoSiteUpdating( false );
+				setUpdatingSites( ( prev ) => {
+					const newSet = new Set( prev );
+					newSet.delete( localSite.id );
+					return newSet;
+				} );
 			}
 		},
 		[ __, client, updateSnapshot ]
+	);
+
+	const isDemoSiteUpdating = useCallback(
+		( siteId: string ) => updatingSites.has( siteId ),
+		[ updatingSites ]
 	);
 
 	const contextValue = useMemo(

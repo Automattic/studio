@@ -241,23 +241,27 @@ export default function UserSettings() {
 			{ needsToOpenUserSettings && (
 				<Modal title={ __( 'Settings' ) } isDismissible onRequestClose={ resetLocalState }>
 					{ ! isAuthenticated && (
-						<div className="justify-between items-center w-full h-auto flex">
-							<WordPressLogo width={ 110 } />
-							<Tooltip disabled={ ! isOffline } icon={ offlineIcon } text={ offlineMessage }>
-								<Button
-									aria-description={ isOffline ? offlineMessage : '' }
-									aria-disabled={ isOffline }
-									variant="primary"
-									onClick={ () => {
-										if ( isOffline ) {
-											return;
-										}
-										authenticate();
-									} }
-								>
-									{ __( 'Log in' ) }
-								</Button>
-							</Tooltip>
+						<div className="flex flex-col gap-6">
+							<div className="justify-between items-center w-full h-auto flex">
+								<WordPressLogo width={ 110 } />
+								<Tooltip disabled={ ! isOffline } icon={ offlineIcon } text={ offlineMessage }>
+									<Button
+										aria-description={ isOffline ? offlineMessage : '' }
+										aria-disabled={ isOffline }
+										variant="primary"
+										onClick={ () => {
+											if ( isOffline ) {
+												return;
+											}
+											authenticate();
+										} }
+									>
+										{ __( 'Log in' ) }
+									</Button>
+								</Tooltip>
+							</div>
+							<div className="border border-[#F0F0F0] w-full"></div>
+							<LanguagePicker />
 						</div>
 					) }
 					{ isAuthenticated && (

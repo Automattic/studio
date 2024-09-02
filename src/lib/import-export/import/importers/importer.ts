@@ -1,3 +1,4 @@
+import { shell } from 'electron';
 import { EventEmitter } from 'events';
 import fs, { createReadStream, createWriteStream } from 'fs';
 import fsPromises from 'fs/promises';
@@ -5,8 +6,6 @@ import path from 'path';
 import { createInterface } from 'readline';
 import { lstat, move } from 'fs-extra';
 import semver from 'semver';
-import { shell } from 'electron';
-
 import { DEFAULT_PHP_VERSION } from '../../../../../vendor/wp-now/src/constants';
 import { SiteServer } from '../../../../site-server';
 import { generateBackupFilename } from '../../export/generate-backup-filename';

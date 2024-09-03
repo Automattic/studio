@@ -1,4 +1,4 @@
-import { createI18n, defaultI18n, I18n } from '@wordpress/i18n';
+import { createI18n, I18n } from '@wordpress/i18n';
 import { I18nProvider } from '@wordpress/react-i18n';
 import { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
 import { getIpcApi } from '../lib/get-ipc-api';
@@ -22,7 +22,6 @@ export const I18nDataProvider = ( { children }: { children: React.ReactNode } ) 
 
 	const initI18n = useCallback( async ( localeKey: SupportedLocale ) => {
 		const newI18n = createI18n( getLocaleData( localeKey )?.messages );
-		defaultI18n.setLocaleData( getLocaleData( localeKey )?.messages );
 		setI18n( newI18n );
 	}, [] );
 

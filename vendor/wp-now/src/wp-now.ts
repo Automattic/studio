@@ -1,6 +1,7 @@
 import fs from 'fs-extra';
 import { createNodeFsMountHandler, loadNodeRuntime } from '@php-wasm/node';
 import { MountHandler, PHP, PHPRequestHandler, proxyFileSystem, rotatePHPRuntime, setPhpIniEntries } from '@php-wasm/universal';
+import { wordPressRewriteRules, getFileNotFoundActionForWordPress } from '@wp-playground/wordpress';
 import path from 'path';
 import { SQLITE_FILENAME } from './constants';
 import { rootCertificates } from 'tls';
@@ -61,7 +62,8 @@ export default async function startWPNow(
 		},
 		documentRoot: documentRoot || '/wordpress',
 		absoluteUrl: options.absoluteUrl,
-		rewriteRules: []
+		rewriteRules:wordPressRewriteRules,
+		getFileNotFoundAction: getFileNotFoundActionForWordPress,
 	});
 
 	const php = await requestHandler.getPrimaryPhp()

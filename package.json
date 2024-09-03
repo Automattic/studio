@@ -112,6 +112,7 @@
 		"@wordpress/i18n": "^4.50.0",
 		"@wordpress/icons": "^9.40.0",
 		"@wp-playground/blueprints": "^0.9.35",
+		"@wp-playground/wordpress": "^0.9.35",
 		"adm-zip": "^0.5.14",
 		"archiver": "^6.0.1",
 		"atomically": "^2.0.3",

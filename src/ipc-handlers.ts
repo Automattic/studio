@@ -13,6 +13,7 @@ import {
 import fs from 'fs';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
+import { LocaleData, defaultI18n } from '@wordpress/i18n';
 import archiver from 'archiver';
 import { DEFAULT_PHP_VERSION } from '../vendor/wp-now/src/constants';
 import { SIZE_LIMIT_BYTES } from './constants';
@@ -712,4 +713,8 @@ export async function promptWindowsSpeedUpSites(
 	{ skipIfAlreadyPrompted }: { skipIfAlreadyPrompted: boolean }
 ) {
 	await windowsHelpers.promptWindowsSpeedUpSites( { skipIfAlreadyPrompted } );
+}
+
+export function setDefaultLocaleData( _event: IpcMainInvokeEvent, locale?: LocaleData ) {
+	defaultI18n.setLocaleData( locale );
 }

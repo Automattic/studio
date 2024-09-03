@@ -3,6 +3,7 @@
 
 import '@sentry/electron/preload';
 import { SaveDialogOptions, contextBridge, ipcRenderer } from 'electron';
+import { LocaleData } from '@wordpress/i18n';
 import { ExportOptions } from './lib/import-export/export/types';
 import { BackupArchiveInfo } from './lib/import-export/import/types';
 import { promptWindowsSpeedUpSites } from './lib/windows-helpers';
@@ -65,6 +66,8 @@ const api: IpcApi = {
 	popupAppMenu: () => ipcRenderer.invoke( 'popupAppMenu' ),
 	promptWindowsSpeedUpSites: ( ...args: Parameters< typeof promptWindowsSpeedUpSites > ) =>
 		ipcRenderer.invoke( 'promptWindowsSpeedUpSites', ...args ),
+	setDefaultLocaleData: ( locale?: LocaleData ) =>
+		ipcRenderer.invoke( 'setDefaultLocaleData', locale ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

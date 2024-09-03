@@ -26,7 +26,9 @@ export const I18nDataProvider = ( { children }: { children: React.ReactNode } ) 
 		setI18n( newI18n );
 		// Update default I18n data to reflect language change when using
 		// I18n functions from `@wordpress/i18n` package.
+		// Note we need to update this in both the renderer and main processes.
 		defaultI18n.setLocaleData( translations );
+		getIpcApi().setDefaultLocaleData( translations );
 	}, [] );
 
 	useEffect( () => {

@@ -33,7 +33,6 @@ export const I18nDataProvider = ( { children }: { children: React.ReactNode } ) 
 		} else {
 			// In case we don't find translations, we reset the locale data to
 			// fallback to the default translations.
-			defaultI18n.resetLocaleData();
 			getIpcApi().resetDefaultLocaleData();
 		}
 		// App menu is reloaded to ensure the items show the translated strings.

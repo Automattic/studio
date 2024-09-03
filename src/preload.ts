@@ -69,6 +69,7 @@ const api: IpcApi = {
 		ipcRenderer.invoke( 'promptWindowsSpeedUpSites', ...args ),
 	setDefaultLocaleData: ( locale?: LocaleData ) =>
 		ipcRenderer.invoke( 'setDefaultLocaleData', locale ),
+	resetDefaultLocaleData: () => ipcRenderer.invoke( 'resetDefaultLocaleData' ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

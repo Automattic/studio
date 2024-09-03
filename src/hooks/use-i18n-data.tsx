@@ -27,8 +27,15 @@ export const I18nDataProvider = ( { children }: { children: React.ReactNode } ) 
 		// Update default I18n data to reflect language change when using
 		// I18n functions from `@wordpress/i18n` package.
 		// Note we need to update this in both the renderer and main processes.
-		defaultI18n.setLocaleData( translations );
-		getIpcApi().setDefaultLocaleData( translations );
+		if ( translations ) {
+			defaultI18n.setLocaleData( translations );
+			getIpcApi().setDefaultLocaleData( translations );
+		} else {
+			// In case we don't find translations, we reset the locale data to
+			// fallback to the default translations.
+			defaultI18n.resetLocaleData();
+			getIpcApi().resetDefaultLocaleData();
+		}
 		// App menu is reloaded to ensure the items show the translated strings.
 		getIpcApi().setupAppMenu();
 	}, [] );

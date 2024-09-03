@@ -722,3 +722,7 @@ export async function promptWindowsSpeedUpSites(
 export function setDefaultLocaleData( _event: IpcMainInvokeEvent, locale?: LocaleData ) {
 	defaultI18n.setLocaleData( locale );
 }
+
+export function resetDefaultLocaleData( _event: IpcMainInvokeEvent ) {
+	defaultI18n.resetLocaleData();
+}

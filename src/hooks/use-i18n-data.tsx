@@ -29,6 +29,8 @@ export const I18nDataProvider = ( { children }: { children: React.ReactNode } ) 
 		// Note we need to update this in both the renderer and main processes.
 		defaultI18n.setLocaleData( translations );
 		getIpcApi().setDefaultLocaleData( translations );
+		// App menu is reloaded to ensure the items show the translated strings.
+		getIpcApi().setupAppMenu();
 	}, [] );
 
 	useEffect( () => {

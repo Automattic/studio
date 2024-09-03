@@ -4,7 +4,7 @@ import { MAIN_MIN_HEIGHT, MAIN_MIN_WIDTH, WINDOWS_TITLEBAR_HEIGHT } from './cons
 import { isEmptyDir } from './lib/fs-utils';
 import { portFinder } from './lib/port-finder';
 import { keepSqliteIntegrationUpdated } from './lib/sqlite-versions';
-import { setupMenu } from './menu';
+import { removeMenu } from './menu';
 import { UserData } from './storage/storage-types';
 import { loadUserData, saveUserData } from './storage/user-data';
 
@@ -91,10 +91,9 @@ export function createMainWindow(): BrowserWindow {
 	} );
 
 	mainWindow.on( 'closed', () => {
-		setupMenu( null );
+		removeMenu();
 		mainWindow = null;
 	} );
-	setupMenu( mainWindow );
 
 	return mainWindow;
 }

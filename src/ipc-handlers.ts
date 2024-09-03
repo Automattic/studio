@@ -36,7 +36,7 @@ import { sortSites } from './lib/sort-sites';
 import { installSqliteIntegration, keepSqliteIntegrationUpdated } from './lib/sqlite-versions';
 import * as windowsHelpers from './lib/windows-helpers';
 import { writeLogToFile, type LogLevel } from './logging';
-import { popupMenu } from './menu';
+import { popupMenu, setupMenu } from './menu';
 import { SiteServer, createSiteWorkingDirectory } from './site-server';
 import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from './storage/paths';
 import { loadUserData, saveUserData } from './storage/user-data';
@@ -702,6 +702,10 @@ export async function showNotification(
 	options: Electron.NotificationConstructorOptions
 ) {
 	new Notification( options ).show();
+}
+
+export function setupAppMenu( _event: IpcMainInvokeEvent ) {
+	setupMenu();
 }
 
 export function popupAppMenu( _event: IpcMainInvokeEvent ) {

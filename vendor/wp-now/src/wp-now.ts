@@ -62,7 +62,7 @@ export default async function startWPNow(
 		},
 		documentRoot: documentRoot || '/wordpress',
 		absoluteUrl: options.absoluteUrl,
-		rewriteRules:wordPressRewriteRules,
+		rewriteRules: wordPressRewriteRules,
 		getFileNotFoundAction: getFileNotFoundActionForWordPress,
 	});
 

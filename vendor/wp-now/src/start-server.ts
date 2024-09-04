@@ -1,6 +1,6 @@
 import fs from 'fs';
 import { WPNowOptions } from './config';
-import { HTTPMethod, PHPRequestHandler } from '@php-wasm/universal';
+import { HTTPMethod } from '@php-wasm/universal';
 import express from 'express';
 import compression from 'compression';
 import compressible from 'compressible';
@@ -82,6 +82,7 @@ export async function startServer( options: WPNowOptions = {} ): Promise< WPNowS
 			new Promise( ( res ) => {
 				server.close( () => {
 					output?.log( `Server stopped` );
+					php.exit();
 					res();
 				} );
 			} ),

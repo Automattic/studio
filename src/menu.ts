@@ -150,6 +150,16 @@ function getAppMenu( mainWindow: BrowserWindow | null ) {
 				{ role: 'zoomOut' },
 				{ type: 'separator' },
 				{ role: 'togglefullscreen' },
+				{ type: 'separator' },
+				{
+					label: __( 'Float on Top of All Other Windows' ),
+					type: 'checkbox',
+					click: ( menuItem, browserWindow ) => {
+						if ( browserWindow ) {
+							browserWindow.setAlwaysOnTop( menuItem.checked, 'floating' );
+						}
+					},
+				},
 			],
 		},
 		...( process.platform === 'win32'

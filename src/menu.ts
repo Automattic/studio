@@ -154,9 +154,10 @@ function getAppMenu( mainWindow: BrowserWindow | null ) {
 				{
 					label: __( 'Float on Top of All Other Windows' ),
 					type: 'checkbox',
-					click: ( menuItem, browserWindow ) => {
+					checked: mainWindow?.isAlwaysOnTop(),
+					click: ( _menuItem, browserWindow ) => {
 						if ( browserWindow ) {
-							browserWindow.setAlwaysOnTop( menuItem.checked, 'floating' );
+							browserWindow.setAlwaysOnTop( ! browserWindow.isAlwaysOnTop(), 'floating' );
 						}
 					},
 				},

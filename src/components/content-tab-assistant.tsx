@@ -314,8 +314,6 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const lastMessage = messages.length === 0 ? undefined : messages[ messages.length - 1 ];
 	const hasFailedMessage = messages.some( ( msg ) => msg.failedMessage );
 
-	console.log( randomizedPrompts );
-
 	const handleSend = async ( messageToSend?: string, isRetry?: boolean ) => {
 		const chatMessage = messageToSend || input;
 		let messageId;

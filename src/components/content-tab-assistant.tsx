@@ -14,7 +14,7 @@ import { useAuth } from '../hooks/use-auth';
 import { useChatContext } from '../hooks/use-chat-context';
 import { useOffline } from '../hooks/use-offline';
 import { usePromptUsage } from '../hooks/use-prompt-usage';
-import { useRotateWelcomeMessages } from '../hooks/use-rotate-promp-messages';
+import { useRotatePromptMessages } from '../hooks/use-rotate-promp-messages';
 import { useWelcomeMessages } from '../hooks/use-welcome-messages';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
@@ -307,7 +307,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const { userCanSendMessage } = usePromptUsage();
 	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi( selectedSite.id );
 	const { messages: welcomeMessages } = useWelcomeMessages();
-	const { randomizedPrompts } = useRotateWelcomeMessages( selectedSite.id );
+	const { randomizedPrompts } = useRotatePromptMessages( selectedSite.id );
 	const [ input, setInput ] = useState< string >( '' );
 	const isOffline = useOffline();
 	const { __ } = useI18n();

@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useWelcomeMessages } from '../hooks/use-welcome-messages';
 
-export function useRotateWelcomeMessages( siteId: string ) {
+export function useRotatePromptMessages( siteId: string ) {
 	const { examplePrompts } = useWelcomeMessages();
 
 	//Limit to 3 and shuffle initial prompts

@@ -8,6 +8,7 @@ export function useRotateWelcomeMessages( siteId: string ) {
 	const randomizedPrompts = useMemo( () => {
 		const shuffled = [ ...examplePrompts ].sort( () => 0.5 - Math.random() );
 		return shuffled.slice( 0, 3 );
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [ examplePrompts, siteId ] );
 
 	return { randomizedPrompts };

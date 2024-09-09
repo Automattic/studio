@@ -307,7 +307,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const { userCanSendMessage } = usePromptUsage();
 	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi( selectedSite.id );
 	const { messages: welcomeMessages } = useWelcomeMessages();
-	const { randomizedPrompts } = useRotateWelcomeMessages();
+	const { randomizedPrompts } = useRotateWelcomeMessages( selectedSite.id );
 	const [ input, setInput ] = useState< string >( '' );
 	const isOffline = useOffline();
 	const { __ } = useI18n();

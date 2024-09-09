@@ -14,6 +14,7 @@ import { useAuth } from '../hooks/use-auth';
 import { useChatContext } from '../hooks/use-chat-context';
 import { useOffline } from '../hooks/use-offline';
 import { usePromptUsage } from '../hooks/use-prompt-usage';
+import { useRotateWelcomeMessages } from '../hooks/use-rotate-promp-messages';
 import { useWelcomeMessages } from '../hooks/use-welcome-messages';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
@@ -305,12 +306,15 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		useAssistant( user?.id ? `${ user.id }_${ selectedSite.id }` : selectedSite.id );
 	const { userCanSendMessage } = usePromptUsage();
 	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi( selectedSite.id );
-	const { messages: welcomeMessages, examplePrompts } = useWelcomeMessages();
+	const { messages: welcomeMessages } = useWelcomeMessages();
+	const { randomizedPrompts } = useRotateWelcomeMessages();
 	const [ input, setInput ] = useState< string >( '' );
 	const isOffline = useOffline();
 	const { __ } = useI18n();
 	const lastMessage = messages.length === 0 ? undefined : messages[ messages.length - 1 ];
 	const hasFailedMessage = messages.some( ( msg ) => msg.failedMessage );
+
+	console.log( randomizedPrompts );
 
 	const handleSend = async ( messageToSend?: string, isRetry?: boolean ) => {
 		const chatMessage = messageToSend || input;
@@ -394,7 +398,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 								} }
 								showExamplePrompts={ messages.length === 0 }
 								messages={ welcomeMessages }
-								examplePrompts={ examplePrompts }
+								examplePrompts={ randomizedPrompts }
 								disabled={ disabled }
 							/>
 							<AuthenticatedView

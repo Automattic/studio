@@ -155,7 +155,7 @@ function prepareDocumentRoot( php: PHP, options: WPNowOptions ) {
 	)
 }
 
-async function prepareWordPress( php: PHP, options: WPNowOptions 	) {
+async function prepareWordPress( php: PHP, options: WPNowOptions ) {
 	switch (options.mode) {
 		case WPNowMode.WP_CONTENT:
 			await runWpContentMode(php, options);

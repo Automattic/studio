@@ -41,14 +41,13 @@ export default async function startWPNow(
 	const requestHandler = new PHPRequestHandler({
 		phpFactory: async ({ isPrimary, requestHandler:reqHandler }) => {
 			const { php } = await getPHPInstance( options, isPrimary, reqHandler );
-			// CHeck if we need this?
-			// if(!isPrimary) {
-			// 	proxyFileSystem(await requestHandler.getPrimaryPhp(), php, [
-			// 		'/tmp',
-			// 		requestHandler.documentRoot,
-			// 		'/internal/shared',
-			// 	]);
-			// }
+			if(!isPrimary) {
+				proxyFileSystem(await requestHandler.getPrimaryPhp(), php, [
+					'/tmp',
+					requestHandler.documentRoot,
+					'/internal/shared',
+				]);
+			}
 			if( reqHandler ) {
 				php.requestHandler = reqHandler
 			}

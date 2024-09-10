@@ -13,21 +13,27 @@ import { promptWindowsSpeedUpSites } from './lib/windows-helpers';
 import { withMainWindow } from './main-window';
 import { isUpdateReadyToInstall, manualCheckForUpdates } from './updates';
 
-export function setupMenu( mainWindow: BrowserWindow | null ) {
-	if ( ! mainWindow && process.platform !== 'darwin' ) {
+export function setupMenu() {
+	withMainWindow( ( mainWindow ) => {
+		if ( ! mainWindow && process.platform !== 'darwin' ) {
+			Menu.setApplicationMenu( null );
+			return;
+		}
+		const menu = getAppMenu( mainWindow );
+		if ( process.platform === 'darwin' ) {
+			Menu.setApplicationMenu( menu );
+			return;
+		}
+		// Make menu accessible in development for non-macOS platforms
+		if ( process.env.NODE_ENV === 'development' ) {
+			mainWindow?.setMenu( menu );
+			return;
+		}
 		Menu.setApplicationMenu( null );
-		return;
-	}
-	const menu = getAppMenu( mainWindow );
-	if ( process.platform === 'darwin' ) {
-		Menu.setApplicationMenu( menu );
-		return;
-	}
-	// Make menu accessible in development for non-macOS platforms
-	if ( process.env.NODE_ENV === 'development' ) {
-		mainWindow?.setMenu( menu );
-		return;
-	}
+	} );
+}
+
+export function removeMenu() {
 	Menu.setApplicationMenu( null );
 }
 
@@ -144,6 +150,17 @@ function getAppMenu( mainWindow: BrowserWindow | null ) {
 				{ role: 'zoomOut' },
 				{ type: 'separator' },
 				{ role: 'togglefullscreen' },
+				{ type: 'separator' },
+				{
+					label: __( 'Float on Top of All Other Windows' ),
+					type: 'checkbox',
+					checked: mainWindow?.isAlwaysOnTop(),
+					click: ( _menuItem, browserWindow ) => {
+						if ( browserWindow ) {
+							browserWindow.setAlwaysOnTop( ! browserWindow.isAlwaysOnTop(), 'floating' );
+						}
+					},
+				},
 			],
 		},
 		...( process.platform === 'win32'

@@ -128,7 +128,11 @@ export class SiteServer {
 
 	async stop() {
 		console.log( 'Stopping server with ID', this.details.id );
-		await this.server?.stop();
+		try {
+			await this.server?.stop();
+		} catch ( error ) {
+			console.error( error );
+		}
 		this.server = undefined;
 
 		if ( ! this.details.running ) {

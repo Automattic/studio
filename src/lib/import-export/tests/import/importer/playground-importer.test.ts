@@ -30,7 +30,9 @@ describe( 'localImporter', () => {
 
 		( SiteServer.get as jest.Mock ).mockReturnValue( {
 			details: { path: '/path/to/site' },
-			executeWpCliCommand: jest.fn().mockReturnValue( { stderr: null } ),
+			executeWpCliCommand: jest.fn( ( command: string ) =>
+				command === 'option get siteurl' ? { stdout: 'http://localhost:8881' } : { stderr: null }
+			),
 		} );
 
 		// mock rename

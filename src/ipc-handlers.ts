@@ -13,6 +13,7 @@ import {
 import fs from 'fs';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
+import { LocaleData, defaultI18n } from '@wordpress/i18n';
 import archiver from 'archiver';
 import { DEFAULT_PHP_VERSION } from '../vendor/wp-now/src/constants';
 import { SIZE_LIMIT_BYTES } from './constants';
@@ -35,7 +36,7 @@ import { sortSites } from './lib/sort-sites';
 import { installSqliteIntegration, keepSqliteIntegrationUpdated } from './lib/sqlite-versions';
 import * as windowsHelpers from './lib/windows-helpers';
 import { writeLogToFile, type LogLevel } from './logging';
-import { popupMenu } from './menu';
+import { popupMenu, setupMenu } from './menu';
 import { SiteServer, createSiteWorkingDirectory } from './site-server';
 import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from './storage/paths';
 import { loadUserData, saveUserData } from './storage/user-data';
@@ -703,6 +704,10 @@ export async function showNotification(
 	new Notification( options ).show();
 }
 
+export function setupAppMenu( _event: IpcMainInvokeEvent ) {
+	setupMenu();
+}
+
 export function popupAppMenu( _event: IpcMainInvokeEvent ) {
 	popupMenu();
 }
@@ -712,4 +717,12 @@ export async function promptWindowsSpeedUpSites(
 	{ skipIfAlreadyPrompted }: { skipIfAlreadyPrompted: boolean }
 ) {
 	await windowsHelpers.promptWindowsSpeedUpSites( { skipIfAlreadyPrompted } );
+}
+
+export function setDefaultLocaleData( _event: IpcMainInvokeEvent, locale?: LocaleData ) {
+	defaultI18n.setLocaleData( locale );
+}
+
+export function resetDefaultLocaleData( _event: IpcMainInvokeEvent ) {
+	defaultI18n.resetLocaleData();
 }

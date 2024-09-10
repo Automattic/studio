@@ -57,22 +57,14 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 						</CopyTextButton>
 					</SettingsRow>
 					<SettingsRow label={ __( 'Local path' ) }>
-						<div className="flex items-center">
-							<Button
-								aria-label={ `${ selectedSite.path }, ${ __( 'Open local path' ) }` }
-								className="flex text-wrap items-center gap-1.5 [&.is-link]:text-black [&.is-link]:hover:text-[#2145e6]"
-								onClick={ () => getIpcApi().openLocalPath( selectedSite.path ) }
-								variant="link"
-							>
-								<span className="line-clamp-1 break-all">{ selectedSite.path }</span>
-								<Icon size={ 13 } icon={ file } className="shrink-0" />
-							</Button>
+						<div className="flex">
 							<CopyTextButton
 								text={ selectedSite.path }
 								label={ __( 'Copy local path to clipboard' ) }
 								copyConfirmation={ __( 'Copied!' ) }
-								className="ml-2"
-							/>
+							>
+								<span className="line-clamp-1 break-all">{ selectedSite.path }</span>
+							</CopyTextButton>
 						</div>
 					</SettingsRow>
 					<SettingsRow label={ __( 'WP Version' ) }>{ wpVersion }</SettingsRow>

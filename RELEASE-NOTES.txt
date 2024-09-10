@@ -1,3 +1,13 @@
+1.1.1
+=====
+* Updated wp-now to fix missing curl, webp issues and Woo compatibility #491, #509, #512, #519
+* Added missing translations and minor UI improvements #483, 495, 480
+* Added language switcher in user settings modal #476, #504
+* Resolved server stop issue by adjusting force-stop functionality #514
+* Added menu item to make the Studio to float on top of other windows #511
+* Fixed Playground rewrite rules #505
+* Added wp-content cleanup on import #489
+
 1.1.0
 =====
 * Introduced a new feature to export and import sites

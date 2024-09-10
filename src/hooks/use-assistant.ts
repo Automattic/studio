@@ -130,12 +130,19 @@ export const useAssistant = ( instanceId: string ) => {
 		( id: number, feedbackReceived: boolean ) => {
 			setMessagesDict( ( prevDict ) => {
 				const prevMessages = prevDict[ instanceId ] || [];
+
+				// Add logging to debug
+				console.log( 'Clicked message id: ', id );
+				prevMessages.forEach( ( message ) => {
+					console.log( 'Message being checked id: ', message.id );
+				} );
+
 				const updatedMessages = prevMessages.map( ( message ) => {
 					if ( message.id !== id ) return message;
 					return { ...message, feedbackReceived };
 				} );
+
 				const newDict = { ...prevDict, [ instanceId ]: updatedMessages };
-				console.log( updatedMessages );
 				localStorage.setItem( chatMessagesStoreKey, JSON.stringify( newDict ) );
 				return newDict;
 			} );

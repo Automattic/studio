@@ -23,6 +23,7 @@ import { AIInput } from './ai-input';
 import { MessageThinking } from './assistant-thinking';
 import Button from './button';
 import { ChatMessage, MarkDownWithCode } from './chat-message';
+import { ChatRating } from './chat-rating';
 import offlineIcon from './offline-icon';
 import WelcomeComponent from './welcome-message-prompt';
 
@@ -225,6 +226,7 @@ export const AuthenticatedView = memo(
 											updateMessage={ updateMessage }
 											content={ message.content }
 										/>
+										<ChatRating />
 									</motion.div>
 								) }
 							</AnimatePresence>

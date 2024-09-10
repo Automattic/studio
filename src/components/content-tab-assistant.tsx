@@ -109,6 +109,7 @@ interface AuthenticatedViewProps {
 	updateMessage: OnUpdateMessageType;
 	siteId: string;
 	handleSend: ( messageToSend?: string, isRetry?: boolean ) => void;
+	instanceId: string;
 }
 
 export const AuthenticatedView = memo(
@@ -118,6 +119,7 @@ export const AuthenticatedView = memo(
 		updateMessage,
 		siteId,
 		handleSend,
+		instanceId,
 	}: AuthenticatedViewProps ) => {
 		const endOfMessagesRef = useRef< HTMLDivElement >( null );
 		const [ showThinking, setShowThinking ] = useState( false );
@@ -161,6 +163,11 @@ export const AuthenticatedView = memo(
 						updateMessage={ updateMessage }
 					>
 						{ message.content }
+						{ message.feedbackReceived && (
+							<div className="text-a8c-gray-70 italic text-xs flex justify-end">
+								{ __( 'Thanks for the feedback!' ) }
+							</div>
+						) }
 					</ChatMessage>
 					{ message.failedMessage && (
 						<ErrorNotice handleSend={ handleSend } messageContent={ message.content } />
@@ -226,7 +233,14 @@ export const AuthenticatedView = memo(
 											content={ message.content }
 										/>
 										<div className="flex justify-end">
-											<ChatRating />
+											{ ! message.feedbackReceived && (
+												<ChatRating messageId={ message.id } instanceId={ instanceId } />
+											) }
+											{ message.feedbackReceived && (
+												<div className="text-a8c-gray-70 italic text-xs flex justify-end">
+													{ __( 'Thanks for the feedback!' ) }
+												</div>
+											) }
 										</div>
 									</motion.div>
 								) }
@@ -305,8 +319,9 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const inputRef = useRef< HTMLTextAreaElement >( null );
 	const currentSiteChatContext = useChatContext();
 	const { isAuthenticated, authenticate, user } = useAuth();
+	const instanceId = user?.id ? `${ user.id }_${ selectedSite.id }` : selectedSite.id;
 	const { messages, addMessage, clearMessages, updateMessage, markMessageAsFailed, chatId } =
-		useAssistant( user?.id ? `${ user.id }_${ selectedSite.id }` : selectedSite.id );
+		useAssistant( instanceId );
 	const { userCanSendMessage } = usePromptUsage();
 	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi( selectedSite.id );
 	const { messages: welcomeMessages, examplePrompts } = useWelcomeMessages();
@@ -407,6 +422,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 								updateMessage={ updateMessage }
 								siteId={ selectedSite.id }
 								handleSend={ handleSend }
+								instanceId={ instanceId }
 							/>
 						</>
 					) : (

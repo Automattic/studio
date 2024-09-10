@@ -13,6 +13,7 @@ export type Message = {
 	}[];
 	createdAt: number; // Unix timestamp
 	failedMessage?: boolean;
+	feedbackReceived?: boolean;
 };
 
 export type MessageDict = { [ key: string ]: Message[] };
@@ -125,6 +126,23 @@ export const useAssistant = ( instanceId: string ) => {
 		[ instanceId ]
 	);
 
+	const markMessageAsFeedbackReceived = useCallback(
+		( id: number, feedbackReceived: boolean ) => {
+			setMessagesDict( ( prevDict ) => {
+				const prevMessages = prevDict[ instanceId ] || [];
+				const updatedMessages = prevMessages.map( ( message ) => {
+					if ( message.id !== id ) return message;
+					return { ...message, feedbackReceived };
+				} );
+				const newDict = { ...prevDict, [ instanceId ]: updatedMessages };
+				console.log( updatedMessages );
+				localStorage.setItem( chatMessagesStoreKey, JSON.stringify( newDict ) );
+				return newDict;
+			} );
+		},
+		[ instanceId ]
+	);
+
 	const clearMessages = useCallback( () => {
 		setMessagesDict( ( prevDict ) => {
 			const { [ instanceId ]: _, ...rest } = prevDict;
@@ -148,6 +166,7 @@ export const useAssistant = ( instanceId: string ) => {
 			clearMessages,
 			chatId: chatIdDict[ instanceId ],
 			markMessageAsFailed,
+			markMessageAsFeedbackReceived,
 		} ),
 		[
 			messagesDict,
@@ -157,6 +176,7 @@ export const useAssistant = ( instanceId: string ) => {
 			clearMessages,
 			chatIdDict,
 			markMessageAsFailed,
+			markMessageAsFeedbackReceived,
 		]
 	);
 };

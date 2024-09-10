@@ -225,7 +225,9 @@ export const AuthenticatedView = memo(
 											updateMessage={ updateMessage }
 											content={ message.content }
 										/>
-										<ChatRating />
+										<div className="flex justify-end">
+											<ChatRating />
+										</div>
 									</motion.div>
 								) }
 							</AnimatePresence>

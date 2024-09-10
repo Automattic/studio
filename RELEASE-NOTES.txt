@@ -1,3 +1,9 @@
+1.1.1
+=====
+* Updated wp-now to fix missing curl and webp issues
+* Improved translation support and updated translations for multiple languages
+* Resolved server stop issue by adjusting force-stop functionality.
+
 1.1.0
 =====
 * Introduced a new feature to export and import sites

@@ -1,36 +1,21 @@
 import { __ } from '@wordpress/i18n';
 import { thumbsUp, thumbsDown, Icon } from '@wordpress/icons';
-import { useState } from 'react';
-import { CHAT_MESSAGES_STORE_KEY } from '../constants';
-import { useAssistant } from '../hooks/use-assistant';
 import Button from './button';
 
 interface ChatRatingProps {
 	messageId: number;
-	instanceId: string;
+	feedbackReceived: boolean;
+	markMessageAsFeedbackReceived: ( id: number ) => void;
 	className?: string;
 }
 
-export const ChatRating = ( { messageId, instanceId }: ChatRatingProps ) => {
-	// Pass the instanceId to the useAssistant hook
-	const { markMessageAsFeedbackReceived } = useAssistant( instanceId );
-	const [ feedbackReceived, setFeedbackReceived ] = useState( () => {
-		const storedMessages = localStorage.getItem( CHAT_MESSAGES_STORE_KEY );
-		if ( storedMessages ) {
-			const messagesDict = JSON.parse( storedMessages );
-			const messages = messagesDict[ instanceId ] || [];
-			const message = messages.find( ( m ) => m.id === messageId );
-			return message ? message.feedbackReceived : false;
-		}
-		return false;
-	} );
-
-	// const [ feedbackReceived, setFeedbackReceived ] = useState( false );
-
-	const handleRatingClick = ( feedback: boolean ) => {
-		markMessageAsFeedbackReceived( messageId, feedback );
-		setFeedbackReceived( true ); // Update state to indicate feedback is received
-		localStorage.setItem( `feedback_${ messageId }`, 'true' );
+export const ChatRating = ( {
+	messageId,
+	markMessageAsFeedbackReceived,
+	feedbackReceived,
+}: ChatRatingProps ) => {
+	const handleRatingClick = ( feedback: number ) => {
+		markMessageAsFeedbackReceived( messageId );
 		console.log( feedback );
 		console.log( 'messageId', messageId );
 	};
@@ -47,7 +32,7 @@ export const ChatRating = ( { messageId, instanceId }: ChatRatingProps ) => {
 					<Button
 						variant="icon"
 						className="text-a8c-green-50 flex items-center gap-1"
-						onClick={ () => handleRatingClick( true ) }
+						onClick={ () => handleRatingClick( 1 ) }
 					>
 						<Icon size={ 18 } icon={ thumbsUp } />
 						<span className="text-xs">{ __( 'Yes' ) }</span>
@@ -55,7 +40,7 @@ export const ChatRating = ( { messageId, instanceId }: ChatRatingProps ) => {
 					<Button
 						variant="icon"
 						className="text-a8c-red-50 flex items-center gap-1"
-						onClick={ () => handleRatingClick( true ) }
+						onClick={ () => handleRatingClick( 0 ) }
 					>
 						<Icon size={ 18 } icon={ thumbsDown } />
 						<span className="text-xs">{ __( 'No' ) }</span>

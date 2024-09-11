@@ -134,7 +134,7 @@ export const useAssistant = ( instanceId: string ) => {
 	);
 
 	const markMessageAsFeedbackReceived = useCallback(
-		( id: number, feedbackReceived: boolean ) => {
+		( id: number ) => {
 			setMessagesDict( ( prevDict ) => {
 				const prevMessages = prevDict[ instanceId ] || [];
 
@@ -143,7 +143,7 @@ export const useAssistant = ( instanceId: string ) => {
 
 				const updatedMessages = prevMessages.map( ( message ) => {
 					if ( message.id === id ) {
-						return { ...message, feedbackReceived };
+						return { ...message, feedbackReceived: true };
 					}
 					return message;
 				} );
@@ -153,7 +153,6 @@ export const useAssistant = ( instanceId: string ) => {
 				const newDict = { ...prevDict, [ instanceId ]: updatedMessages };
 				localStorage.setItem( CHAT_MESSAGES_STORE_KEY, JSON.stringify( newDict ) );
 
-				console.log( 'newDict: ', newDict );
 				return newDict;
 			} );
 		},
@@ -175,25 +174,15 @@ export const useAssistant = ( instanceId: string ) => {
 		nextMessageIdRef.current[ instanceId ] = 0;
 	}, [ instanceId ] );
 
-	return useMemo(
-		() => ( {
-			messages: messagesDict[ instanceId ] || [],
-			addMessage,
-			updateMessage,
-			clearMessages,
-			chatId: chatIdDict[ instanceId ],
-			markMessageAsFailed,
-			markMessageAsFeedbackReceived,
-		} ),
-		[
-			messagesDict,
-			instanceId,
-			addMessage,
-			updateMessage,
-			clearMessages,
-			chatIdDict,
-			markMessageAsFailed,
-			markMessageAsFeedbackReceived,
-		]
-	);
+	console.log( 'returning messages -->', messagesDict[ instanceId ] );
+
+	return {
+		messages: messagesDict[ instanceId ] || [],
+		addMessage,
+		updateMessage,
+		clearMessages,
+		chatId: chatIdDict[ instanceId ],
+		markMessageAsFailed,
+		markMessageAsFeedbackReceived,
+	};
 };

@@ -19,11 +19,15 @@ const handlers: Handlers = {
 };
 
 async function execute( data: unknown ) {
-	const { projectPath, args } = data as { projectPath: string; args: string[] };
+	const { projectPath, args, phpVersion } = data as {
+		projectPath: string;
+		args: string[];
+		phpVersion: string;
+	};
 	if ( ! projectPath || ! args ) {
 		throw Error( 'Command execution needs project path and arguments' );
 	}
-	return await executeWPCli( projectPath, args );
+	return await executeWPCli( projectPath, args, { phpVersion } );
 }
 
 function createHandler< T >( handler: ( data: unknown ) => T ) {

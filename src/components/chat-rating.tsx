@@ -1,7 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { thumbsUp, thumbsDown, Icon } from '@wordpress/icons';
 import { useState } from 'react';
-import { useAssistant } from '../hooks/use-assistant';
+import { useAssistant, chatMessagesStoreKey } from '../hooks/use-assistant';
 import Button from './button';
 
 interface ChatRatingProps {
@@ -13,13 +13,22 @@ interface ChatRatingProps {
 export const ChatRating = ( { messageId, instanceId }: ChatRatingProps ) => {
 	// Pass the instanceId to the useAssistant hook
 	const { markMessageAsFeedbackReceived } = useAssistant( instanceId );
-
-	// State to track if feedback has been received
-	const [ feedbackReceived, setFeedbackReceived ] = useState( false );
+	// Read feedback state from localStorage
+	const [ feedbackReceived, setFeedbackReceived ] = useState( () => {
+		const storedMessages = localStorage.getItem( chatMessagesStoreKey );
+		if ( storedMessages ) {
+			const messagesDict = JSON.parse( storedMessages );
+			const messages = messagesDict[ instanceId ] || [];
+			const message = messages.find( ( m ) => m.id === messageId );
+			return message ? message.feedbackReceived : false;
+		}
+		return false;
+	} );
 
 	const handleRatingClick = ( feedback: boolean ) => {
 		markMessageAsFeedbackReceived( messageId, feedback );
 		setFeedbackReceived( true ); // Update state to indicate feedback is received
+		localStorage.setItem( `feedback_${ messageId }`, 'true' );
 		console.log( feedback );
 		console.log( messageId );
 	};

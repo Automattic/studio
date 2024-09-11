@@ -109,7 +109,7 @@ interface AuthenticatedViewProps {
 	updateMessage: OnUpdateMessageType;
 	siteId: string;
 	handleSend: ( messageToSend?: string, isRetry?: boolean ) => void;
-	instanceId: string;
+	markMessageAsFeedbackReceived: ( id: number ) => void;
 }
 
 export const AuthenticatedView = memo(
@@ -119,7 +119,7 @@ export const AuthenticatedView = memo(
 		updateMessage,
 		siteId,
 		handleSend,
-		instanceId,
+		markMessageAsFeedbackReceived,
 	}: AuthenticatedViewProps ) => {
 		const endOfMessagesRef = useRef< HTMLDivElement >( null );
 		const [ showThinking, setShowThinking ] = useState( false );
@@ -228,8 +228,12 @@ export const AuthenticatedView = memo(
 											content={ message.content }
 										/>
 										<div className="flex justify-end">
-											{ ! message.feedbackReceived && (
-												<ChatRating messageId={ message.id } instanceId={ instanceId } />
+											{ message.id && ! message.feedbackReceived && (
+												<ChatRating
+													messageId={ message.id }
+													markMessageAsFeedbackReceived={ markMessageAsFeedbackReceived }
+													feedbackReceived={ !! message?.feedbackReceived }
+												/>
 											) }
 											{ message.feedbackReceived && (
 												<div className="text-a8c-gray-70 italic text-xs flex justify-end">
@@ -244,13 +248,12 @@ export const AuthenticatedView = memo(
 					</>
 				);
 			},
-			[]
+			[ markMessageAsFeedbackReceived ]
 		);
 
 		if ( messages.length === 0 ) {
 			return null;
 		}
-
 		return (
 			<>
 				{ messagesToRender.map( ( message ) => (
@@ -315,8 +318,15 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const currentSiteChatContext = useChatContext();
 	const { isAuthenticated, authenticate, user } = useAuth();
 	const instanceId = user?.id ? `${ user.id }_${ selectedSite.id }` : selectedSite.id;
-	const { messages, addMessage, clearMessages, updateMessage, markMessageAsFailed, chatId } =
-		useAssistant( instanceId );
+	const {
+		messages,
+		addMessage,
+		clearMessages,
+		updateMessage,
+		markMessageAsFailed,
+		chatId,
+		markMessageAsFeedbackReceived,
+	} = useAssistant( instanceId );
 	const { userCanSendMessage } = usePromptUsage();
 	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi( selectedSite.id );
 	const { messages: welcomeMessages, examplePrompts } = useWelcomeMessages();
@@ -415,6 +425,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 								messages={ messages }
 								isAssistantThinking={ isAssistantThinking }
 								updateMessage={ updateMessage }
+								markMessageAsFeedbackReceived={ markMessageAsFeedbackReceived }
 								siteId={ selectedSite.id }
 								handleSend={ handleSend }
 								instanceId={ instanceId }

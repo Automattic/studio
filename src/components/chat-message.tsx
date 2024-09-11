@@ -101,12 +101,19 @@ export const ChatMessage = ( {
 					</span>
 				</div>
 				{ typeof children === 'string' ? (
-					<MarkDownWithCode
-						message={ message }
-						updateMessage={ updateMessage }
-						siteId={ siteId }
-						content={ children }
-					/>
+					<>
+						<MarkDownWithCode
+							message={ message }
+							updateMessage={ updateMessage }
+							siteId={ siteId }
+							content={ children }
+						/>
+						{ message.feedbackReceived && (
+							<div className="text-a8c-gray-70 italic text-xs flex justify-end">
+								{ __( 'Thanks for the feedback!' ) }
+							</div>
+						) }
+					</>
 				) : (
 					children
 				) }

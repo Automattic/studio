@@ -164,11 +164,6 @@ export const AuthenticatedView = memo(
 						updateMessage={ updateMessage }
 					>
 						{ message.content }
-						{ message.feedbackReceived && (
-							<div className="text-a8c-gray-70 italic text-xs flex justify-end">
-								{ __( 'Thanks for the feedback!' ) }
-							</div>
-						) }
 					</ChatMessage>
 					{ message.failedMessage && (
 						<ErrorNotice handleSend={ handleSend } messageContent={ message.content } />

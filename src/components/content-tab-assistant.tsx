@@ -234,11 +234,7 @@ export const AuthenticatedView = memo(
 										/>
 										<div className="flex justify-end">
 											{ ! message.feedbackReceived && (
-												<ChatRating
-													//messageId={ `message-chat-${ message.id }` }
-													messageId={ message.id }
-													instanceId={ instanceId }
-												/>
+												<ChatRating messageId={ message.id } instanceId={ instanceId } />
 											) }
 											{ message.feedbackReceived && (
 												<div className="text-a8c-gray-70 italic text-xs flex justify-end">

@@ -56,7 +56,14 @@ export const useAssistant = ( instanceId: string ) => {
 				const prevMessages = prevDict[ instanceId ] || [];
 				const updatedMessages = [
 					...prevMessages,
-					{ content, role, id: newMessageId, chatId, createdAt: Date.now() },
+					{
+						content,
+						role,
+						id: newMessageId,
+						chatId,
+						createdAt: Date.now(),
+						feedbackReceived: false,
+					},
 				];
 				const newDict = { ...prevDict, [ instanceId ]: updatedMessages };
 				localStorage.setItem( CHAT_MESSAGES_STORE_KEY, JSON.stringify( newDict ) );
@@ -132,16 +139,13 @@ export const useAssistant = ( instanceId: string ) => {
 				const prevMessages = prevDict[ instanceId ] || [];
 
 				console.log( 'prevMessages: ', prevMessages );
-
-				// Add logging to debug
 				console.log( 'Clicked message id: ', id );
-				prevMessages.forEach( ( message ) => {
-					console.log( 'Message being checked id: ', message.id );
-				} );
 
 				const updatedMessages = prevMessages.map( ( message ) => {
-					if ( message.id !== id ) return message;
-					return { ...message, feedbackReceived };
+					if ( message.id === id ) {
+						return { ...message, feedbackReceived };
+					}
+					return message;
 				} );
 
 				console.log( 'updatedMessages: ', updatedMessages );

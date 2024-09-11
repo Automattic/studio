@@ -25,12 +25,14 @@ export const ChatRating = ( { messageId, instanceId }: ChatRatingProps ) => {
 		return false;
 	} );
 
+	// const [ feedbackReceived, setFeedbackReceived ] = useState( false );
+
 	const handleRatingClick = ( feedback: boolean ) => {
 		markMessageAsFeedbackReceived( messageId, feedback );
 		setFeedbackReceived( true ); // Update state to indicate feedback is received
 		localStorage.setItem( `feedback_${ messageId }`, 'true' );
 		console.log( feedback );
-		console.log( messageId );
+		console.log( 'messageId', messageId );
 	};
 
 	return (

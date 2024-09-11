@@ -108,6 +108,7 @@ interface AuthenticatedViewProps {
 	isAssistantThinking: boolean;
 	updateMessage: OnUpdateMessageType;
 	siteId: string;
+	chatId: string;
 	handleSend: ( messageToSend?: string, isRetry?: boolean ) => void;
 	markMessageAsFeedbackReceived: ( id: number ) => void;
 }
@@ -118,6 +119,7 @@ export const AuthenticatedView = memo(
 		isAssistantThinking,
 		updateMessage,
 		siteId,
+		chatId,
 		handleSend,
 		markMessageAsFeedbackReceived,
 	}: AuthenticatedViewProps ) => {
@@ -230,6 +232,7 @@ export const AuthenticatedView = memo(
 										<div className="flex justify-end">
 											{ !! message.id && ! message.feedbackReceived && (
 												<ChatRating
+													chatId={ chatId }
 													messageId={ message.id }
 													markMessageAsFeedbackReceived={ markMessageAsFeedbackReceived }
 													feedbackReceived={ !! message?.feedbackReceived }
@@ -248,7 +251,7 @@ export const AuthenticatedView = memo(
 					</>
 				);
 			},
-			[ markMessageAsFeedbackReceived ]
+			[ chatId, markMessageAsFeedbackReceived ]
 		);
 
 		if ( messages.length === 0 ) {
@@ -427,8 +430,8 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 								updateMessage={ updateMessage }
 								markMessageAsFeedbackReceived={ markMessageAsFeedbackReceived }
 								siteId={ selectedSite.id }
+								chatId={ chatId }
 								handleSend={ handleSend }
-								instanceId={ instanceId }
 							/>
 						</>
 					) : (

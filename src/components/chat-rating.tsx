@@ -1,9 +1,11 @@
 import { __ } from '@wordpress/i18n';
 import { thumbsUp, thumbsDown, Icon } from '@wordpress/icons';
+import { useSendFeedback } from '../hooks/use-send-feedback';
 import Button from './button';
 
 interface ChatRatingProps {
 	messageId: number;
+	chatId: string;
 	feedbackReceived: boolean;
 	markMessageAsFeedbackReceived: ( id: number ) => void;
 	className?: string;
@@ -13,11 +15,22 @@ export const ChatRating = ( {
 	messageId,
 	markMessageAsFeedbackReceived,
 	feedbackReceived,
+	chatId,
 }: ChatRatingProps ) => {
-	const handleRatingClick = ( feedback: number ) => {
+	const sendFeedback = useSendFeedback();
+
+	const handleRatingClick = async ( feedback: number ) => {
 		markMessageAsFeedbackReceived( messageId );
-		console.log( feedback );
-		console.log( 'messageId', messageId );
+
+		try {
+			await sendFeedback( {
+				chatId,
+				messageId,
+				ratingValue: feedback,
+			} );
+		} catch ( error ) {
+			console.error( 'Failed to submit feedback:', error );
+		}
 	};
 
 	return (

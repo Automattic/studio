@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { CHAT_MESSAGES_STORE_KEY } from '../constants';
 
 export type Message = {
 	id?: number;
@@ -20,7 +21,6 @@ export type MessageDict = { [ key: string ]: Message[] };
 export type ChatIdDict = { [ key: string ]: string | undefined };
 
 const chatIdStoreKey = 'ai_chat_ids';
-const chatMessagesStoreKey = 'ai_chat_messages';
 
 export const useAssistant = ( instanceId: string ) => {
 	const [ messagesDict, setMessagesDict ] = useState< MessageDict >( {} );
@@ -32,7 +32,7 @@ export const useAssistant = ( instanceId: string ) => {
 	} );
 
 	useEffect( () => {
-		const storedMessages = localStorage.getItem( chatMessagesStoreKey );
+		const storedMessages = localStorage.getItem( CHAT_MESSAGES_STORE_KEY );
 		const storedChatIds = localStorage.getItem( chatIdStoreKey );
 
 		if ( storedMessages ) {
@@ -59,7 +59,7 @@ export const useAssistant = ( instanceId: string ) => {
 					{ content, role, id: newMessageId, chatId, createdAt: Date.now() },
 				];
 				const newDict = { ...prevDict, [ instanceId ]: updatedMessages };
-				localStorage.setItem( chatMessagesStoreKey, JSON.stringify( newDict ) );
+				localStorage.setItem( CHAT_MESSAGES_STORE_KEY, JSON.stringify( newDict ) );
 				return newDict;
 			} );
 
@@ -103,7 +103,7 @@ export const useAssistant = ( instanceId: string ) => {
 					return { ...message, blocks: updatedBlocks };
 				} );
 				const newDict = { ...prevDict, [ instanceId ]: updatedMessages };
-				localStorage.setItem( chatMessagesStoreKey, JSON.stringify( newDict ) );
+				localStorage.setItem( CHAT_MESSAGES_STORE_KEY, JSON.stringify( newDict ) );
 				return newDict;
 			} );
 		},
@@ -119,7 +119,7 @@ export const useAssistant = ( instanceId: string ) => {
 					return { ...message, failedMessage };
 				} );
 				const newDict = { ...prevDict, [ instanceId ]: updatedMessages };
-				localStorage.setItem( chatMessagesStoreKey, JSON.stringify( newDict ) );
+				localStorage.setItem( CHAT_MESSAGES_STORE_KEY, JSON.stringify( newDict ) );
 				return newDict;
 			} );
 		},
@@ -130,6 +130,8 @@ export const useAssistant = ( instanceId: string ) => {
 		( id: number, feedbackReceived: boolean ) => {
 			setMessagesDict( ( prevDict ) => {
 				const prevMessages = prevDict[ instanceId ] || [];
+
+				console.log( 'prevMessages: ', prevMessages );
 
 				// Add logging to debug
 				console.log( 'Clicked message id: ', id );
@@ -142,8 +144,12 @@ export const useAssistant = ( instanceId: string ) => {
 					return { ...message, feedbackReceived };
 				} );
 
+				console.log( 'updatedMessages: ', updatedMessages );
+
 				const newDict = { ...prevDict, [ instanceId ]: updatedMessages };
-				localStorage.setItem( chatMessagesStoreKey, JSON.stringify( newDict ) );
+				localStorage.setItem( CHAT_MESSAGES_STORE_KEY, JSON.stringify( newDict ) );
+
+				console.log( 'newDict: ', newDict );
 				return newDict;
 			} );
 		},
@@ -153,7 +159,7 @@ export const useAssistant = ( instanceId: string ) => {
 	const clearMessages = useCallback( () => {
 		setMessagesDict( ( prevDict ) => {
 			const { [ instanceId ]: _, ...rest } = prevDict;
-			localStorage.setItem( chatMessagesStoreKey, JSON.stringify( rest ) );
+			localStorage.setItem( CHAT_MESSAGES_STORE_KEY, JSON.stringify( rest ) );
 			return rest;
 		} );
 

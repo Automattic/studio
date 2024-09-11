@@ -55,7 +55,7 @@ export const ChatRating = ( { messageId, instanceId }: ChatRatingProps ) => {
 					<Button
 						variant="icon"
 						className="text-a8c-red-50 flex items-center gap-1"
-						onClick={ () => handleRatingClick( false ) }
+						onClick={ () => handleRatingClick( true ) }
 					>
 						<Icon size={ 18 } icon={ thumbsDown } />
 						<span className="text-xs">{ __( 'No' ) }</span>

@@ -1,7 +1,8 @@
 import { __ } from '@wordpress/i18n';
 import { thumbsUp, thumbsDown, Icon } from '@wordpress/icons';
 import { useState } from 'react';
-import { useAssistant, chatMessagesStoreKey } from '../hooks/use-assistant';
+import { CHAT_MESSAGES_STORE_KEY } from '../constants';
+import { useAssistant } from '../hooks/use-assistant';
 import Button from './button';
 
 interface ChatRatingProps {
@@ -13,9 +14,8 @@ interface ChatRatingProps {
 export const ChatRating = ( { messageId, instanceId }: ChatRatingProps ) => {
 	// Pass the instanceId to the useAssistant hook
 	const { markMessageAsFeedbackReceived } = useAssistant( instanceId );
-	// Read feedback state from localStorage
 	const [ feedbackReceived, setFeedbackReceived ] = useState( () => {
-		const storedMessages = localStorage.getItem( chatMessagesStoreKey );
+		const storedMessages = localStorage.getItem( CHAT_MESSAGES_STORE_KEY );
 		if ( storedMessages ) {
 			const messagesDict = JSON.parse( storedMessages );
 			const messages = messagesDict[ instanceId ] || [];

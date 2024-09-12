@@ -201,7 +201,6 @@ export const AuthenticatedView = memo(
 					animate: { opacity: 1, y: 0 },
 				};
 
-				console.log( 'from lastMessage', messageApiId );
 				return (
 					<>
 						<ChatMessage

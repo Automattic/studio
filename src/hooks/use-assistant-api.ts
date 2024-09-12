@@ -74,7 +74,6 @@ export function useAssistantApi( selectedSiteId: string ) {
 
 			const message = response?.choices?.[ 0 ]?.message?.content;
 			const messageApiId = response?.choices?.[ 0 ]?.message?.id;
-			console.log( messageApiId );
 
 			updatePromptUsage( {
 				maxQuota: headers[ 'x-quota-max' ] || '',

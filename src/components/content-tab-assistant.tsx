@@ -22,7 +22,7 @@ import { AIInput } from './ai-input';
 import { MessageThinking } from './assistant-thinking';
 import Button from './button';
 import { ChatMessage, MarkDownWithCode } from './chat-message';
-import { ChatRating } from './chat-rating';
+import { ChatRating, FeedbackThanks } from './chat-rating';
 import offlineIcon from './offline-icon';
 import WelcomeComponent from './welcome-message-prompt';
 
@@ -244,11 +244,7 @@ export const AuthenticatedView = memo(
 													feedbackReceived={ !! message?.feedbackReceived }
 												/>
 											) }
-											{ message.feedbackReceived && (
-												<div className="text-a8c-gray-70 italic text-xs flex justify-end">
-													{ __( 'Thanks for the feedback!' ) }
-												</div>
-											) }
+											{ message.feedbackReceived && <FeedbackThanks /> }
 										</div>
 									</motion.div>
 								) }

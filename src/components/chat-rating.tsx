@@ -12,6 +12,14 @@ interface ChatRatingProps {
 	className?: string;
 }
 
+export const FeedbackThanks = () => {
+	return (
+		<div className="text-a8c-gray-70 italic text-xs flex justify-end">
+			{ __( 'Thanks for the feedback!' ) }
+		</div>
+	);
+};
+
 export const ChatRating = ( {
 	messageId,
 	messageApiId,

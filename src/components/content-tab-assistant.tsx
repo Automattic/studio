@@ -259,14 +259,13 @@ export const AuthenticatedView = memo(
 						showThinking={ showThinking }
 					>
 						<div className="flex justify-end">
-							{ !! lastMessage.messageApiId && ! lastMessage.feedbackReceived && (
+							{ !! lastMessage.messageApiId && (
 								<ChatRating
 									messageApiId={ lastMessage.messageApiId }
 									markMessageAsFeedbackReceived={ markMessageAsFeedbackReceived }
 									feedbackReceived={ !! lastMessage.feedbackReceived }
 								/>
 							) }
-							{ lastMessage.feedbackReceived && <FeedbackThanks /> }
 						</div>
 					</RenderLastMessage>
 				) }

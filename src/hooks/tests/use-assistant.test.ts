@@ -44,11 +44,29 @@ describe( 'useAssistant', () => {
 		} );
 
 		expect( result.current.messages ).toEqual( [
-			{ content: 'Hello', role: 'user', id: 0, createdAt: MOCKED_TIME },
+			{
+				chatId: undefined,
+				content: 'Hello',
+				role: 'user',
+				id: 0,
+				createdAt: MOCKED_TIME,
+				feedbackReceived: false,
+				messageApiId: undefined,
+			},
 		] );
 		expect( localStorage.getItem( `ai_chat_messages` ) ).toEqual(
 			JSON.stringify( {
-				[ selectedSiteId ]: [ { content: 'Hello', role: 'user', id: 0, createdAt: MOCKED_TIME } ],
+				[ selectedSiteId ]: [
+					{
+						chatId: undefined,
+						content: 'Hello',
+						role: 'user',
+						id: 0,
+						createdAt: MOCKED_TIME,
+						feedbackReceived: false,
+						messageApiId: undefined,
+					},
+				],
 			} )
 		);
 	} );

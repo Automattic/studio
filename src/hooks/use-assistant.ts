@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { CHAT_MESSAGES_STORE_KEY } from '../constants';
+import { useSendFeedback } from './use-send-feedback';
 
 export type Message = {
 	id?: number;
+	messageApiId?: number;
 	content: string;
 	role: 'user' | 'assistant';
 	chatId?: string;
@@ -27,6 +29,7 @@ export const useAssistant = ( instanceId: string ) => {
 	const [ chatIdDict, setChatIdDict ] = useState< ChatIdDict >( {
 		[ instanceId ]: undefined,
 	} );
+	const chatId = chatIdDict[ instanceId ];
 	const nextMessageIdRef = useRef< { [ key: string ]: number } >( {
 		[ instanceId ]: -1, // The first message should have id 0, as we do +1 when we add message
 	} );
@@ -48,7 +51,7 @@ export const useAssistant = ( instanceId: string ) => {
 	}, [] );
 
 	const addMessage = useCallback(
-		( content: string, role: 'user' | 'assistant', chatId?: string ) => {
+		( content: string, role: 'user' | 'assistant', chatId?: string, messageApiId?: number ) => {
 			const newMessageId = nextMessageIdRef.current[ instanceId ] + 1;
 			nextMessageIdRef.current[ instanceId ] = newMessageId;
 
@@ -63,6 +66,7 @@ export const useAssistant = ( instanceId: string ) => {
 						chatId,
 						createdAt: Date.now(),
 						feedbackReceived: false,
+						messageApiId,
 					},
 				];
 				const newDict = { ...prevDict, [ instanceId ]: updatedMessages };
@@ -133,16 +137,18 @@ export const useAssistant = ( instanceId: string ) => {
 		[ instanceId ]
 	);
 
+	const sendFeedback = useSendFeedback();
+
 	const markMessageAsFeedbackReceived = useCallback(
-		( id: number ) => {
+		async ( messageRemoteId: number, feedback: number ) => {
+			if ( ! messageRemoteId || ! chatId ) {
+				return;
+			}
 			setMessagesDict( ( prevDict ) => {
 				const prevMessages = prevDict[ instanceId ] || [];
 
-				console.log( 'prevMessages: ', prevMessages );
-				console.log( 'Clicked message id: ', id );
-
 				const updatedMessages = prevMessages.map( ( message ) => {
-					if ( message.id === id ) {
+					if ( message.messageApiId === messageRemoteId ) {
 						return { ...message, feedbackReceived: true };
 					}
 					return message;
@@ -155,8 +161,18 @@ export const useAssistant = ( instanceId: string ) => {
 
 				return newDict;
 			} );
+
+			try {
+				await sendFeedback( {
+					chatId,
+					messageId: messageRemoteId,
+					ratingValue: feedback,
+				} );
+			} catch ( error ) {
+				console.error( 'Failed to submit feedback:', error );
+			}
 		},
-		[ instanceId ]
+		[ chatId, instanceId, sendFeedback ]
 	);
 
 	const clearMessages = useCallback( () => {

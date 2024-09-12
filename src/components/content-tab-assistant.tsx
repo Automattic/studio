@@ -109,10 +109,10 @@ interface AuthenticatedViewProps {
 	isAssistantThinking: boolean;
 	updateMessage: OnUpdateMessageType;
 	siteId: string;
-	chatId: string;
 	handleSend: ( messageToSend?: string, isRetry?: boolean ) => void;
-	markMessageAsFeedbackReceived: ( id: number ) => void;
-	messageApiId: number;
+	markMessageAsFeedbackReceived: ReturnType<
+		typeof useAssistant
+	>[ 'markMessageAsFeedbackReceived' ];
 }
 
 export const AuthenticatedView = memo(
@@ -121,10 +121,8 @@ export const AuthenticatedView = memo(
 		isAssistantThinking,
 		updateMessage,
 		siteId,
-		chatId,
 		handleSend,
 		markMessageAsFeedbackReceived,
-		messageApiId,
 	}: AuthenticatedViewProps ) => {
 		const endOfMessagesRef = useRef< HTMLDivElement >( null );
 		const [ showThinking, setShowThinking ] = useState( false );
@@ -183,13 +181,13 @@ export const AuthenticatedView = memo(
 				siteId,
 				updateMessage,
 				message,
-				messageApiId,
+				children,
 			}: {
 				message: MessageType;
 				showThinking: boolean;
 				siteId: string;
 				updateMessage: OnUpdateMessageType;
-				messageApiId: number;
+				children: React.ReactNode;
 			} ) => {
 				const thinkingAnimation = {
 					initial: { opacity: 0, y: 20 },
@@ -235,18 +233,7 @@ export const AuthenticatedView = memo(
 											updateMessage={ updateMessage }
 											content={ message.content }
 										/>
-										<div className="flex justify-end">
-											{ !! message.id && ! message.feedbackReceived && (
-												<ChatRating
-													chatId={ chatId }
-													messageId={ message.id }
-													messageApiId={ messageApiId }
-													markMessageAsFeedbackReceived={ markMessageAsFeedbackReceived }
-													feedbackReceived={ !! message?.feedbackReceived }
-												/>
-											) }
-											{ message.feedbackReceived && <FeedbackThanks /> }
-										</div>
+										{ children }
 									</motion.div>
 								) }
 							</AnimatePresence>
@@ -254,7 +241,7 @@ export const AuthenticatedView = memo(
 					</>
 				);
 			},
-			[ chatId, markMessageAsFeedbackReceived ]
+			[]
 		);
 
 		if ( messages.length === 0 ) {
@@ -271,8 +258,17 @@ export const AuthenticatedView = memo(
 						updateMessage={ updateMessage }
 						message={ lastMessage }
 						showThinking={ showThinking }
-						messageApiId={ messageApiId }
-					/>
+					>
+						<div className="flex justify-end">
+							{ !! lastMessage.messageApiId && (
+								<ChatRating
+									messageApiId={ lastMessage.messageApiId }
+									markMessageAsFeedbackReceived={ markMessageAsFeedbackReceived }
+									feedbackReceived={ !! lastMessage.feedbackReceived }
+								/>
+							) }
+						</div>
+					</RenderLastMessage>
 				) }
 				<div ref={ endOfMessagesRef } />
 			</>
@@ -339,7 +335,6 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const { messages: welcomeMessages } = useWelcomeMessages();
 	const { randomizedPrompts } = useRotatePromptMessages( selectedSite.id );
 	const [ input, setInput ] = useState< string >( '' );
-	const [ lastMessageApiId, setLastMessageApiId ] = useState< number | null >( null );
 	const isOffline = useOffline();
 	const { __ } = useI18n();
 	const lastMessage = messages.length === 0 ? undefined : messages[ messages.length - 1 ];
@@ -368,7 +363,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 				const {
 					message,
 					chatId: fetchedChatId,
-					messageApiId: messageApiId,
+					messageApiId,
 				} = await fetchAssistant(
 					chatId,
 					[
@@ -378,8 +373,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 					currentSiteChatContext
 				);
 				if ( message ) {
-					addMessage( message, 'assistant', chatId ?? fetchedChatId );
-					setLastMessageApiId( messageApiId );
+					addMessage( message, 'assistant', chatId ?? fetchedChatId, messageApiId );
 				}
 			} catch ( error ) {
 				if ( typeof messageId !== 'undefined' ) {
@@ -435,16 +429,16 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 								examplePrompts={ randomizedPrompts }
 								disabled={ disabled }
 							/>
-							<AuthenticatedView
-								messages={ messages }
-								isAssistantThinking={ isAssistantThinking }
-								updateMessage={ updateMessage }
-								markMessageAsFeedbackReceived={ markMessageAsFeedbackReceived }
-								siteId={ selectedSite.id }
-								chatId={ chatId }
-								handleSend={ handleSend }
-								messageApiId={ lastMessageApiId }
-							/>
+							{
+								<AuthenticatedView
+									messages={ messages }
+									isAssistantThinking={ isAssistantThinking }
+									updateMessage={ updateMessage }
+									markMessageAsFeedbackReceived={ markMessageAsFeedbackReceived }
+									siteId={ selectedSite.id }
+									handleSend={ handleSend }
+								/>
+							}
 						</>
 					) : (
 						! isOffline && <UnauthenticatedView onAuthenticate={ authenticate } />

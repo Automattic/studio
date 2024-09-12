@@ -14,7 +14,7 @@ import { useAuth } from '../hooks/use-auth';
 import { useChatContext } from '../hooks/use-chat-context';
 import { useOffline } from '../hooks/use-offline';
 import { usePromptUsage } from '../hooks/use-prompt-usage';
-import { useRotatePromptMessages } from '../hooks/use-rotate-promp-messages';
+import { useRotatePromptMessages } from '../hooks/use-rotate-prompt-messages';
 import { useWelcomeMessages } from '../hooks/use-welcome-messages';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';

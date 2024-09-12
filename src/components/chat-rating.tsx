@@ -5,6 +5,7 @@ import Button from './button';
 
 interface ChatRatingProps {
 	messageId: number;
+	messageApiId: number;
 	chatId: string;
 	feedbackReceived: boolean;
 	markMessageAsFeedbackReceived: ( id: number ) => void;
@@ -13,6 +14,7 @@ interface ChatRatingProps {
 
 export const ChatRating = ( {
 	messageId,
+	messageApiId,
 	markMessageAsFeedbackReceived,
 	feedbackReceived,
 	chatId,
@@ -21,11 +23,13 @@ export const ChatRating = ( {
 
 	const handleRatingClick = async ( feedback: number ) => {
 		markMessageAsFeedbackReceived( messageId );
+		console.log( 'from chatRating', messageApiId );
+		console.log( 'messageId', messageId );
 
 		try {
 			await sendFeedback( {
 				chatId,
-				messageId,
+				messageId: messageApiId,
 				ratingValue: feedback,
 			} );
 		} catch ( error ) {

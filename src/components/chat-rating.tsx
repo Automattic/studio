@@ -23,8 +23,6 @@ export const ChatRating = ( {
 
 	const handleRatingClick = async ( feedback: number ) => {
 		markMessageAsFeedbackReceived( messageId );
-		console.log( 'from chatRating', messageApiId );
-		console.log( 'messageId', messageId );
 
 		try {
 			await sendFeedback( {

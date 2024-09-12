@@ -54,7 +54,7 @@ export const ChatRating = ( {
 					<span className="text-a8c-gray-70 text-xs">{ __( 'Was this helpful?' ) }</span>
 					<Button
 						variant="icon"
-						className="text-a8c-green-50 flex items-center gap-1"
+						className="text-a8c-green-50 hover:!text-a8c-green-50 flex items-center gap-1"
 						onClick={ () => handleRatingClick( 1 ) }
 					>
 						<Icon size={ 18 } icon={ thumbsUp } />
@@ -62,7 +62,7 @@ export const ChatRating = ( {
 					</Button>
 					<Button
 						variant="icon"
-						className="text-a8c-red-50 flex items-center gap-1"
+						className="text-a8c-red-50 hover:!text-a8c-red-50 flex items-center gap-1"
 						onClick={ () => handleRatingClick( 0 ) }
 					>
 						<Icon size={ 18 } icon={ thumbsDown } />

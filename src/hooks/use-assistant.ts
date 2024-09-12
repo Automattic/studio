@@ -139,19 +139,19 @@ export const useAssistant = ( instanceId: string ) => {
 	const sendFeedback = useSendFeedback();
 
 	const markMessageAsFeedbackReceived = useCallback(
-		async ( id: number, feedback: number ) => {
+		async ( messageRemoteId: number, feedback: number ) => {
 			const chatId = chatIdDict[ instanceId ];
-			if ( ! chatId ) {
+			if ( ! messageRemoteId || ! chatId ) {
 				return;
 			}
 			setMessagesDict( ( prevDict ) => {
 				const prevMessages = prevDict[ instanceId ] || [];
 
 				console.log( 'prevMessages: ', prevMessages );
-				console.log( 'Clicked message id: ', id );
+				console.log( 'Clicked message id: ', messageRemoteId );
 
 				const updatedMessages = prevMessages.map( ( message ) => {
-					if ( message.id === id ) {
+					if ( message.messageApiId === messageRemoteId ) {
 						return { ...message, feedbackReceived: true };
 					}
 					return message;
@@ -165,22 +165,17 @@ export const useAssistant = ( instanceId: string ) => {
 				return newDict;
 			} );
 
-			const messageApiId = messagesDict[ instanceId ][ id ].messageApiId;
-			if ( ! messageApiId ) {
-				return;
-			}
-
 			try {
 				await sendFeedback( {
 					chatId,
-					messageId: messageApiId,
+					messageId: messageRemoteId,
 					ratingValue: feedback,
 				} );
 			} catch ( error ) {
 				console.error( 'Failed to submit feedback:', error );
 			}
 		},
-		[ chatIdDict, instanceId, messagesDict, sendFeedback ]
+		[ chatIdDict, instanceId, sendFeedback ]
 	);
 
 	const clearMessages = useCallback( () => {

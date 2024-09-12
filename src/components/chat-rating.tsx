@@ -4,7 +4,7 @@ import { useAssistant } from '../hooks/use-assistant';
 import Button from './button';
 
 interface ChatRatingProps {
-	messageId: number;
+	messageApiId: number;
 	feedbackReceived: boolean;
 	markMessageAsFeedbackReceived: ReturnType<
 		typeof useAssistant
@@ -21,12 +21,12 @@ export const FeedbackThanks = () => {
 };
 
 export const ChatRating = ( {
-	messageId,
+	messageApiId,
 	markMessageAsFeedbackReceived,
 	feedbackReceived,
 }: ChatRatingProps ) => {
 	const handleRatingClick = async ( feedback: number ) => {
-		markMessageAsFeedbackReceived( messageId, feedback );
+		markMessageAsFeedbackReceived( messageApiId, feedback );
 	};
 
 	return (

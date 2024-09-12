@@ -231,9 +231,9 @@ export const AuthenticatedView = memo(
 											content={ message.content }
 										/>
 										<div className="flex justify-end">
-											{ !! message.id && !! message.messageApiId && ! message.feedbackReceived && (
+											{ !! message.messageApiId && ! message.feedbackReceived && (
 												<ChatRating
-													messageId={ message.id }
+													messageApiId={ message.messageApiId }
 													markMessageAsFeedbackReceived={ ( id, feedback ) =>
 														markMessageAsFeedbackReceived( id, feedback )
 													}

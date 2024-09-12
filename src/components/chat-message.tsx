@@ -5,6 +5,7 @@ import { Message } from '../hooks/use-assistant';
 import { cx } from '../lib/cx';
 import Anchor from './assistant-anchor';
 import createCodeComponent from './assistant-code-block';
+import { FeedbackThanks } from './chat-rating';
 
 export interface ChatMessageProps {
 	children: React.ReactNode;
@@ -21,6 +22,7 @@ export interface ChatMessageProps {
 	) => void;
 	isUnauthenticated?: boolean;
 	failedMessage?: boolean;
+	feedbackReceived?: boolean;
 }
 
 export const MarkDownWithCode = ( {
@@ -100,12 +102,15 @@ export const ChatMessage = ( {
 					</span>
 				</div>
 				{ typeof children === 'string' ? (
-					<MarkDownWithCode
-						message={ message }
-						updateMessage={ updateMessage }
-						siteId={ siteId }
-						content={ children }
-					/>
+					<>
+						<MarkDownWithCode
+							message={ message }
+							updateMessage={ updateMessage }
+							siteId={ siteId }
+							content={ children }
+						/>
+						{ message.feedbackReceived && <FeedbackThanks /> }
+					</>
 				) : (
 					children
 				) }

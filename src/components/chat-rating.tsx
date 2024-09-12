@@ -1,14 +1,14 @@
 import { __ } from '@wordpress/i18n';
 import { thumbsUp, thumbsDown, Icon } from '@wordpress/icons';
-import { useSendFeedback } from '../hooks/use-send-feedback';
+import { useAssistant } from '../hooks/use-assistant';
 import Button from './button';
 
 interface ChatRatingProps {
 	messageId: number;
-	messageApiId: number;
-	chatId: string;
 	feedbackReceived: boolean;
-	markMessageAsFeedbackReceived: ( id: number ) => void;
+	markMessageAsFeedbackReceived: ReturnType<
+		typeof useAssistant
+	>[ 'markMessageAsFeedbackReceived' ];
 	className?: string;
 }
 
@@ -22,25 +22,11 @@ export const FeedbackThanks = () => {
 
 export const ChatRating = ( {
 	messageId,
-	messageApiId,
 	markMessageAsFeedbackReceived,
 	feedbackReceived,
-	chatId,
 }: ChatRatingProps ) => {
-	const sendFeedback = useSendFeedback();
-
 	const handleRatingClick = async ( feedback: number ) => {
-		markMessageAsFeedbackReceived( messageId );
-
-		try {
-			await sendFeedback( {
-				chatId,
-				messageId: messageApiId,
-				ratingValue: feedback,
-			} );
-		} catch ( error ) {
-			console.error( 'Failed to submit feedback:', error );
-		}
+		markMessageAsFeedbackReceived( messageId, feedback );
 	};
 
 	return (

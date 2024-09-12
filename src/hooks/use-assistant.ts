@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { CHAT_MESSAGES_STORE_KEY } from '../constants';
+import { useSendFeedback } from './use-send-feedback';
 
 export type Message = {
 	id?: number;
+	messageApiId?: number;
 	content: string;
 	role: 'user' | 'assistant';
 	chatId?: string;
@@ -48,7 +50,7 @@ export const useAssistant = ( instanceId: string ) => {
 	}, [] );
 
 	const addMessage = useCallback(
-		( content: string, role: 'user' | 'assistant', chatId?: string ) => {
+		( content: string, role: 'user' | 'assistant', chatId?: string, messageApiId?: number ) => {
 			const newMessageId = nextMessageIdRef.current[ instanceId ] + 1;
 			nextMessageIdRef.current[ instanceId ] = newMessageId;
 
@@ -63,6 +65,7 @@ export const useAssistant = ( instanceId: string ) => {
 						chatId,
 						createdAt: Date.now(),
 						feedbackReceived: false,
+						messageApiId,
 					},
 				];
 				const newDict = { ...prevDict, [ instanceId ]: updatedMessages };
@@ -133,8 +136,14 @@ export const useAssistant = ( instanceId: string ) => {
 		[ instanceId ]
 	);
 
+	const sendFeedback = useSendFeedback();
+
 	const markMessageAsFeedbackReceived = useCallback(
-		( id: number ) => {
+		async ( id: number, feedback: number ) => {
+			const chatId = chatIdDict[ instanceId ];
+			if ( ! chatId ) {
+				return;
+			}
 			setMessagesDict( ( prevDict ) => {
 				const prevMessages = prevDict[ instanceId ] || [];
 
@@ -155,8 +164,23 @@ export const useAssistant = ( instanceId: string ) => {
 
 				return newDict;
 			} );
+
+			const messageApiId = messagesDict[ instanceId ][ id ].messageApiId;
+			if ( ! messageApiId ) {
+				return;
+			}
+
+			try {
+				await sendFeedback( {
+					chatId,
+					messageId: messageApiId,
+					ratingValue: feedback,
+				} );
+			} catch ( error ) {
+				console.error( 'Failed to submit feedback:', error );
+			}
 		},
-		[ instanceId ]
+		[ chatIdDict, instanceId, messagesDict, sendFeedback ]
 	);
 
 	const clearMessages = useCallback( () => {

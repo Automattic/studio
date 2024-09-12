@@ -29,6 +29,7 @@ export const useAssistant = ( instanceId: string ) => {
 	const [ chatIdDict, setChatIdDict ] = useState< ChatIdDict >( {
 		[ instanceId ]: undefined,
 	} );
+	const chatId = chatIdDict[ instanceId ];
 	const nextMessageIdRef = useRef< { [ key: string ]: number } >( {
 		[ instanceId ]: -1, // The first message should have id 0, as we do +1 when we add message
 	} );
@@ -140,7 +141,6 @@ export const useAssistant = ( instanceId: string ) => {
 
 	const markMessageAsFeedbackReceived = useCallback(
 		async ( messageRemoteId: number, feedback: number ) => {
-			const chatId = chatIdDict[ instanceId ];
 			if ( ! messageRemoteId || ! chatId ) {
 				return;
 			}
@@ -175,7 +175,7 @@ export const useAssistant = ( instanceId: string ) => {
 				console.error( 'Failed to submit feedback:', error );
 			}
 		},
-		[ chatIdDict, instanceId, sendFeedback ]
+		[ chatId, instanceId, sendFeedback ]
 	);
 
 	const clearMessages = useCallback( () => {

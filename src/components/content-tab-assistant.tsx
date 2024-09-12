@@ -180,11 +180,13 @@ export const AuthenticatedView = memo(
 				siteId,
 				updateMessage,
 				message,
+				children,
 			}: {
 				message: MessageType;
 				showThinking: boolean;
 				siteId: string;
 				updateMessage: OnUpdateMessageType;
+				children: React.ReactNode;
 			} ) => {
 				const thinkingAnimation = {
 					initial: { opacity: 0, y: 20 },
@@ -230,18 +232,7 @@ export const AuthenticatedView = memo(
 											updateMessage={ updateMessage }
 											content={ message.content }
 										/>
-										<div className="flex justify-end">
-											{ !! message.messageApiId && ! message.feedbackReceived && (
-												<ChatRating
-													messageApiId={ message.messageApiId }
-													markMessageAsFeedbackReceived={ ( id, feedback ) =>
-														markMessageAsFeedbackReceived( id, feedback )
-													}
-													feedbackReceived={ !! message?.feedbackReceived }
-												/>
-											) }
-											{ message.feedbackReceived && <FeedbackThanks /> }
-										</div>
+										{ children }
 									</motion.div>
 								) }
 							</AnimatePresence>
@@ -249,7 +240,7 @@ export const AuthenticatedView = memo(
 					</>
 				);
 			},
-			[ markMessageAsFeedbackReceived ]
+			[]
 		);
 
 		if ( messages.length === 0 ) {
@@ -266,7 +257,18 @@ export const AuthenticatedView = memo(
 						updateMessage={ updateMessage }
 						message={ lastMessage }
 						showThinking={ showThinking }
-					/>
+					>
+						<div className="flex justify-end">
+							{ !! lastMessage.messageApiId && ! lastMessage.feedbackReceived && (
+								<ChatRating
+									messageApiId={ lastMessage.messageApiId }
+									markMessageAsFeedbackReceived={ markMessageAsFeedbackReceived }
+									feedbackReceived={ !! lastMessage.feedbackReceived }
+								/>
+							) }
+							{ lastMessage.feedbackReceived && <FeedbackThanks /> }
+						</div>
+					</RenderLastMessage>
 				) }
 				<div ref={ endOfMessagesRef } />
 			</>

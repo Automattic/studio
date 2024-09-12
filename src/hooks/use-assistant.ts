@@ -174,8 +174,6 @@ export const useAssistant = ( instanceId: string ) => {
 		nextMessageIdRef.current[ instanceId ] = 0;
 	}, [ instanceId ] );
 
-	console.log( 'returning messages -->', messagesDict[ instanceId ] );
-
 	return {
 		messages: messagesDict[ instanceId ] || [],
 		addMessage,

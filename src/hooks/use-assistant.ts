@@ -147,9 +147,6 @@ export const useAssistant = ( instanceId: string ) => {
 			setMessagesDict( ( prevDict ) => {
 				const prevMessages = prevDict[ instanceId ] || [];
 
-				console.log( 'prevMessages: ', prevMessages );
-				console.log( 'Clicked message id: ', messageRemoteId );
-
 				const updatedMessages = prevMessages.map( ( message ) => {
 					if ( message.messageApiId === messageRemoteId ) {
 						return { ...message, feedbackReceived: true };

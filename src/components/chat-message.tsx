@@ -5,6 +5,7 @@ import { Message } from '../hooks/use-assistant';
 import { cx } from '../lib/cx';
 import Anchor from './assistant-anchor';
 import createCodeComponent from './assistant-code-block';
+import { FeedbackThanks } from './chat-rating';
 
 export interface ChatMessageProps {
 	children: React.ReactNode;
@@ -108,11 +109,7 @@ export const ChatMessage = ( {
 							siteId={ siteId }
 							content={ children }
 						/>
-						{ message.feedbackReceived && (
-							<div className="text-a8c-gray-70 italic text-xs flex justify-end">
-								{ __( 'Thanks for the feedback!' ) }
-							</div>
-						) }
+						{ message.feedbackReceived && <FeedbackThanks /> }
 					</>
 				) : (
 					children

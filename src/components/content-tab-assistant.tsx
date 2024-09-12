@@ -112,6 +112,7 @@ interface AuthenticatedViewProps {
 	chatId: string;
 	handleSend: ( messageToSend?: string, isRetry?: boolean ) => void;
 	markMessageAsFeedbackReceived: ( id: number ) => void;
+	messageApiId: number;
 }
 
 export const AuthenticatedView = memo(
@@ -123,6 +124,7 @@ export const AuthenticatedView = memo(
 		chatId,
 		handleSend,
 		markMessageAsFeedbackReceived,
+		messageApiId,
 	}: AuthenticatedViewProps ) => {
 		const endOfMessagesRef = useRef< HTMLDivElement >( null );
 		const [ showThinking, setShowThinking ] = useState( false );
@@ -181,11 +183,13 @@ export const AuthenticatedView = memo(
 				siteId,
 				updateMessage,
 				message,
+				messageApiId,
 			}: {
 				message: MessageType;
 				showThinking: boolean;
 				siteId: string;
 				updateMessage: OnUpdateMessageType;
+				messageApiId: number;
 			} ) => {
 				const thinkingAnimation = {
 					initial: { opacity: 0, y: 20 },
@@ -196,6 +200,8 @@ export const AuthenticatedView = memo(
 					initial: { opacity: 0, y: 20 },
 					animate: { opacity: 1, y: 0 },
 				};
+
+				console.log( 'from lastMessage', messageApiId );
 				return (
 					<>
 						<ChatMessage
@@ -235,6 +241,7 @@ export const AuthenticatedView = memo(
 												<ChatRating
 													chatId={ chatId }
 													messageId={ message.id }
+													messageApiId={ messageApiId }
 													markMessageAsFeedbackReceived={ markMessageAsFeedbackReceived }
 													feedbackReceived={ !! message?.feedbackReceived }
 												/>
@@ -269,6 +276,7 @@ export const AuthenticatedView = memo(
 						updateMessage={ updateMessage }
 						message={ lastMessage }
 						showThinking={ showThinking }
+						messageApiId={ messageApiId }
 					/>
 				) }
 				<div ref={ endOfMessagesRef } />
@@ -336,6 +344,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const { messages: welcomeMessages } = useWelcomeMessages();
 	const { randomizedPrompts } = useRotatePromptMessages( selectedSite.id );
 	const [ input, setInput ] = useState< string >( '' );
+	const [ lastMessageApiId, setLastMessageApiId ] = useState< number | null >( null );
 	const isOffline = useOffline();
 	const { __ } = useI18n();
 	const lastMessage = messages.length === 0 ? undefined : messages[ messages.length - 1 ];
@@ -361,7 +370,11 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 				setInput( '' );
 			}
 			try {
-				const { message, chatId: fetchedChatId } = await fetchAssistant(
+				const {
+					message,
+					chatId: fetchedChatId,
+					messageApiId: messageApiId,
+				} = await fetchAssistant(
 					chatId,
 					[
 						...messages,
@@ -371,6 +384,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 				);
 				if ( message ) {
 					addMessage( message, 'assistant', chatId ?? fetchedChatId );
+					setLastMessageApiId( messageApiId );
 				}
 			} catch ( error ) {
 				if ( typeof messageId !== 'undefined' ) {
@@ -434,6 +448,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 								siteId={ selectedSite.id }
 								chatId={ chatId }
 								handleSend={ handleSend }
+								messageApiId={ lastMessageApiId }
 							/>
 						</>
 					) : (

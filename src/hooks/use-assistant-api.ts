@@ -45,7 +45,7 @@ export function useAssistantApi( selectedSiteId: string ) {
 			let headers;
 			try {
 				const { data, response_headers } = await new Promise< {
-					data: { choices: { message: { content: string } }[]; id: string };
+					data: { choices: { message: { content: string; id: number } }[]; id: string };
 					response_headers: Record< string, string >;
 				} >( ( resolve, reject ) => {
 					client.req.post(
@@ -56,7 +56,7 @@ export function useAssistantApi( selectedSiteId: string ) {
 						},
 						(
 							error: Error,
-							data: { choices: { message: { content: string } }[]; id: string },
+							data: { choices: { message: { content: string; id: number } }[]; id: string },
 							headers: Record< string, string >
 						) => {
 							if ( error ) {
@@ -71,12 +71,17 @@ export function useAssistantApi( selectedSiteId: string ) {
 			} finally {
 				setIsLoading( ( prev ) => ( { ...prev, [ selectedSiteId ]: false } ) );
 			}
+
 			const message = response?.choices?.[ 0 ]?.message?.content;
+			const messageApiId = response?.choices?.[ 0 ]?.message?.id;
+			console.log( messageApiId );
+
 			updatePromptUsage( {
 				maxQuota: headers[ 'x-quota-max' ] || '',
 				remainingQuota: headers[ 'x-quota-remaining' ] || '',
 			} );
-			return { message, chatId: response?.id };
+
+			return { message, messageApiId, chatId: response?.id };
 		},
 		[ client, selectedSiteId, updatePromptUsage ]
 	);

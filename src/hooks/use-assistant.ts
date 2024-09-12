@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { CHAT_MESSAGES_STORE_KEY } from '../constants';
 
 export type Message = {

@@ -727,7 +727,10 @@ export function resetDefaultLocaleData( _event: IpcMainInvokeEvent ) {
 	defaultI18n.resetLocaleData();
 }
 
-let previousWidth = MAIN_MIN_WIDTH;
+const previousWidths = {
+	sidebar: MAIN_MIN_WIDTH,
+	noSidebar: MAIN_MIN_WIDTH - SIDEBAR_WIDTH,
+};
 export function toggleMinWindowWidth( event: IpcMainInvokeEvent, isSidebarVisible: boolean ) {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	if ( ! parentWindow || parentWindow.isDestroyed() || event.sender.isDestroyed() ) {
@@ -735,11 +738,13 @@ export function toggleMinWindowWidth( event: IpcMainInvokeEvent, isSidebarVisibl
 	}
 	const [ currentWidth, currentHeight ] = parentWindow.getSize();
 	if ( isSidebarVisible ) {
-		previousWidth = currentWidth;
+		previousWidths.sidebar = currentWidth;
+	} else {
+		previousWidths.noSidebar = currentWidth;
 	}
 	const padding = 20;
 	const newMinWidth = isSidebarVisible ? MAIN_MIN_WIDTH - SIDEBAR_WIDTH + padding : MAIN_MIN_WIDTH;
-	const newWidth = isSidebarVisible ? MAIN_MIN_WIDTH - SIDEBAR_WIDTH + padding : previousWidth;
+	const newWidth = isSidebarVisible ? previousWidths.noSidebar : previousWidths.sidebar;
 	parentWindow.setMinimumSize( newMinWidth, MAIN_MIN_HEIGHT );
 	parentWindow.setSize( newWidth, currentHeight, true );
 }

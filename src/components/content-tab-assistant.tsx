@@ -395,6 +395,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 								showExamplePrompts={ messages.length === 0 }
 								messages={ welcomeMessages }
 								examplePrompts={ examplePrompts }
+								siteId={ selectedSite.id }
 								disabled={ disabled }
 							/>
 							<AuthenticatedView

@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { arrowRight } from '@wordpress/icons';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { cx } from '../lib/cx';
 import Button from './button';
 
@@ -22,6 +22,7 @@ interface WelcomeComponentProps {
 	showExamplePrompts: boolean;
 	messages: string[];
 	examplePrompts: string[];
+	siteId: string;
 	disabled?: boolean;
 }
 
@@ -74,12 +75,17 @@ const WelcomeComponent = ( {
 	showExamplePrompts,
 	messages,
 	examplePrompts,
+	siteId,
 	disabled,
 }: WelcomeComponentProps ) => {
 	const [ showMore, setShowMore ] = useState( false ); // New state to control showing more prompts
 
 	// Determine the prompts to display (either first 3 or all)
 	const displayedPrompts = showMore ? examplePrompts : examplePrompts.slice( 0, 3 );
+
+	useEffect( () => {
+		setShowMore( false );
+	}, [ siteId ] );
 
 	return (
 		<div>

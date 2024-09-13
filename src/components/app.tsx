@@ -44,7 +44,9 @@ export default function App() {
 					spacing="0"
 				>
 					{ isWindows() ? (
-						<WindowsTitlebar className="h-titlebar-win flex-shrink-0" />
+						<WindowsTitlebar className="h-titlebar-win flex-shrink-0">
+							<TopBar onToggleSidebar={ toggleSidebar } />
+						</WindowsTitlebar>
 					) : (
 						<div className="pl-20">
 							<TopBar onToggleSidebar={ toggleSidebar } />

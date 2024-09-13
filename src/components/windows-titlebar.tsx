@@ -6,7 +6,13 @@ import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
 
-export default function WindowsTitlebar( { className }: { className?: string } ) {
+export default function WindowsTitlebar( {
+	className,
+	children,
+}: {
+	className?: string;
+	children?: React.ReactNode;
+} ) {
 	return (
 		<HStack alignment="left" className={ cx( 'bg-chrome text-white', className ) } spacing="2">
 			<Button
@@ -23,6 +29,7 @@ export default function WindowsTitlebar( { className }: { className?: string } )
 				<img src={ appIcon } alt="" className="w-[16px] flex-shrink-0" />
 				<h1 className="text-xs">{ getAppGlobals().appName }</h1>
 			</div>
+			<div className="flex-1 pl-2">{ children }</div>
 		</HStack>
 	);
 }

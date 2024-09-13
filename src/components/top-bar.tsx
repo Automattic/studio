@@ -56,9 +56,10 @@ function Authentication() {
 				onClick={ () => getIpcApi().showUserSettings() }
 				aria-label={ __( 'Account' ) }
 				variant="icon"
-				className="text-white hover:!text-white !px-2 gap-2"
+				className="text-white hover:!text-white !px-1 py-1 !h-6 gap-2"
 			>
-				<span>{ sprintf( __( 'Howdy, %s' ), user?.displayName ) }</span> <Gravatar />
+				<span>{ sprintf( __( 'Howdy, %s' ), user?.displayName ) }</span>{ ' ' }
+				<Gravatar size={ 18 } className="border-white border-[1.5px]" />
 			</Button>
 		);
 	}
@@ -110,7 +111,7 @@ export default function TopBar( { onToggleSidebar }: TopBarProps ) {
 				<OfflineIndicator />
 			</div>
 
-			<div className="app-no-drag-region flex items-center space-x-4">
+			<div className="app-no-drag-region flex items-center space-x-1">
 				<Authentication />
 				<Button onClick={ openDocs } aria-label={ __( 'Help' ) } variant="icon">
 					<Icon className="text-white" size={ 24 } icon={ help } />

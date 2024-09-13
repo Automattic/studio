@@ -104,13 +104,11 @@ const WelcomeComponent = ( {
 						{ prompt }
 					</ExampleMessagePrompt>
 				) ) }
-
-			{ /* "More suggestions" button */ }
 			{ showExamplePrompts && ! showMore && examplePrompts.length > 3 && (
 				<div className="flex mt-2">
 					<Button
 						variant="secondary"
-						className="!rounded lg:max-w-[70%]"
+						className="lg:max-w-[70%] !text-a8c-gray-50 !shadow-none"
 						onClick={ () => setShowMore( true ) }
 					>
 						{ __( 'More suggestions' ) }

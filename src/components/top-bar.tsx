@@ -31,14 +31,15 @@ function OfflineIndicator() {
 							{ offlineMessage[ 1 ] }
 						</span>
 					}
+					className="h-6"
 				>
 					<Button
 						aria-label={ __( 'Offline indicator' ) }
 						aria-description={ offlineMessage.join( ' ' ) }
-						className="cursor-default"
+						className="cursor-default !w-6 !h-6"
 						variant="icon"
 					>
-						<Icon className="m-1 text-white" size={ 18 } icon={ offlineIcon } />
+						<Icon className="text-white" size={ 18 } icon={ offlineIcon } />
 					</Button>
 				</Tooltip>
 			</div>

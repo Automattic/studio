@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { arrowRight } from '@wordpress/icons';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { cx } from '../lib/cx';
 import Button from './button';
 
@@ -26,25 +26,28 @@ interface WelcomeComponentProps {
 	disabled?: boolean;
 }
 
-export const WelcomeMessagePrompt = ( { id, children, className }: WelcomeMessagePromptProps ) => (
-	<div className={ cx( 'flex mt-2' ) }>
-		<div
-			id={ id }
-			role="group"
-			aria-labelledby={ id }
-			className={ cx(
-				'inline-block p-3 rounded border border-gray-300 lg:max-w-[70%] select-text bg-white',
-				className
-			) }
-		>
-			<div className="relative">
-				<span className="sr-only">{ __( 'Studio Assistant' ) },</span>
-			</div>
-			<div className="assistant-markdown">
-				<p>{ children }</p>
+export const WelcomeMessagePrompt = React.forwardRef< HTMLDivElement, WelcomeMessagePromptProps >(
+	( { id, children, className }, ref ) => (
+		<div className={ cx( 'flex mt-2' ) }>
+			<div
+				ref={ ref }
+				id={ id }
+				role="group"
+				aria-labelledby={ id }
+				className={ cx(
+					'inline-block p-3 rounded border border-gray-300 lg:max-w-[70%] select-text bg-white',
+					className
+				) }
+			>
+				<div className="relative">
+					<span className="sr-only">{ __( 'Studio Assistant' ) },</span>
+				</div>
+				<div className="assistant-markdown">
+					<p>{ children }</p>
+				</div>
 			</div>
 		</div>
-	</div>
+	)
 );
 
 export const ExampleMessagePrompt = ( {
@@ -70,59 +73,63 @@ export const ExampleMessagePrompt = ( {
 	</div>
 );
 
-const WelcomeComponent = ( {
-	onExampleClick,
-	showExamplePrompts,
-	messages,
-	examplePrompts,
-	siteId,
-	disabled,
-}: WelcomeComponentProps ) => {
-	const [ showMore, setShowMore ] = useState( false ); // New state to control showing more prompts
+const WelcomeComponent = React.forwardRef< HTMLDivElement, WelcomeComponentProps >(
+	( { onExampleClick, showExamplePrompts, messages, examplePrompts, siteId, disabled }, ref ) => {
+		const [ showMore, setShowMore ] = useState( false );
+		const lastMessageRef = useRef< HTMLDivElement >( null );
 
-	// Determine the prompts to display (either first 3 or all)
-	const displayedPrompts = showMore ? examplePrompts : examplePrompts.slice( 0, 3 );
+		// Determine the prompts to display (either first 3 or all)
+		const displayedPrompts = showMore ? examplePrompts : examplePrompts.slice( 0, 3 );
 
-	useEffect( () => {
-		setShowMore( false );
-	}, [ siteId ] );
+		useEffect( () => {
+			setShowMore( false );
+		}, [ siteId ] );
 
-	return (
-		<div>
-			{ messages.map( ( message, index ) => (
-				<WelcomeMessagePrompt
-					key={ index }
-					id={ `message-welcome-${ index }` }
-					className="welcome-message"
-				>
-					{ message }
-				</WelcomeMessagePrompt>
-			) ) }
+		const handleShowMore = () => {
+			setShowMore( true );
+			setTimeout( () => {
+				lastMessageRef.current?.scrollIntoView( { behavior: 'smooth' } );
+			}, 100 );
+		};
 
-			{ showExamplePrompts &&
-				displayedPrompts.map( ( prompt, index ) => (
-					<ExampleMessagePrompt
+		return (
+			<div ref={ ref }>
+				{ messages.map( ( message, index ) => (
+					<WelcomeMessagePrompt
 						key={ index }
-						className="example-prompt"
-						onClick={ () => onExampleClick( prompt ) }
-						disabled={ disabled }
+						id={ `message-welcome-${ index }` }
+						className="welcome-message"
+						ref={ index === messages.length - 1 ? lastMessageRef : null }
 					>
-						{ prompt }
-					</ExampleMessagePrompt>
+						{ message }
+					</WelcomeMessagePrompt>
 				) ) }
-			{ showExamplePrompts && ! showMore && examplePrompts.length > 3 && (
-				<div className="flex mt-2">
-					<Button
-						variant="secondary"
-						className="lg:max-w-[70%] !text-a8c-gray-50 !shadow-none"
-						onClick={ () => setShowMore( true ) }
-					>
-						{ __( 'More suggestions' ) }
-					</Button>
-				</div>
-			) }
-		</div>
-	);
-};
+
+				{ showExamplePrompts &&
+					displayedPrompts.map( ( prompt, index ) => (
+						<ExampleMessagePrompt
+							key={ index }
+							className="example-prompt"
+							onClick={ () => onExampleClick( prompt ) }
+							disabled={ disabled }
+						>
+							{ prompt }
+						</ExampleMessagePrompt>
+					) ) }
+				{ showExamplePrompts && ! showMore && examplePrompts.length > 3 && (
+					<div className="flex mt-2">
+						<Button
+							variant="secondary"
+							className="lg:max-w-[70%] !text-a8c-gray-50 !shadow-none"
+							onClick={ handleShowMore }
+						>
+							{ __( 'More suggestions' ) }
+						</Button>
+					</div>
+				) }
+			</div>
+		);
+	}
+);
 
 export default WelcomeComponent;

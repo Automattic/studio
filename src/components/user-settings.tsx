@@ -37,7 +37,7 @@ const UserInfo = ( {
 					aria-label={ __( 'Profile link' ) }
 					className="py-0 px-0"
 				>
-					<Gravatar detailedDefaultImage isLarge={ true } isBlack />
+					<Gravatar detailedDefaultImage size={ 32 } isBlack />
 				</Button>
 				<div className="flex flex-col">
 					<span className="overflow-ellipsis">{ user?.displayName }</span>

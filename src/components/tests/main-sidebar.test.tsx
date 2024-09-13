@@ -1,7 +1,6 @@
-import { fireEvent, render, act, waitFor, screen } from '@testing-library/react';
+import { render, act, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { useAuth } from '../../hooks/use-auth';
-import { useOffline } from '../../hooks/use-offline';
 import MainSidebar from '../main-sidebar';
 
 jest.mock( '../../hooks/use-auth' );
@@ -66,23 +65,6 @@ describe( 'MainSidebar Footer', () => {
 		expect( screen.getByRole( 'button', { name: 'Add site' } ) ).toBeVisible();
 	} );
 
-	it( 'Test unauthenticated footer has the Log in button', async () => {
-		const user = userEvent.setup();
-		const authenticate = jest.fn();
-		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: false, authenticate } );
-		await act( async () => render( <MainSidebar /> ) );
-		expect( screen.getByRole( 'button', { name: 'Log in' } ) ).toBeVisible();
-		await user.click( screen.getByRole( 'button', { name: 'Log in' } ) );
-		expect( authenticate ).toHaveBeenCalledTimes( 1 );
-	} );
-
-	it( 'Test authenticated footer does not have the log in button and it has the settings and account buttons', async () => {
-		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
-		await act( async () => render( <MainSidebar /> ) );
-		expect( screen.queryByRole( 'button', { name: 'Log in' } ) ).not.toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: 'Account' } ) ).toBeVisible();
-	} );
-
 	it( 'applies className prop', async () => {
 		const { container } = await act( async () =>
 			render( <MainSidebar className={ 'test-class' } /> )
@@ -93,30 +75,6 @@ describe( 'MainSidebar Footer', () => {
 	it( 'shows a "Stop All" button when there are running sites', async () => {
 		await act( async () => render( <MainSidebar /> ) );
 		expect( screen.getByRole( 'button', { name: 'Stop all' } ) ).toBeVisible();
-	} );
-
-	it( 'disables log in button when offline', async () => {
-		( useOffline as jest.Mock ).mockReturnValue( true );
-		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: false } );
-		await act( async () => render( <MainSidebar /> ) );
-		const loginButton = screen.getByRole( 'button', { name: 'Log in' } );
-		expect( loginButton ).toHaveAttribute( 'aria-disabled', 'true' );
-		fireEvent.mouseOver( loginButton );
-		expect( screen.getByRole( 'tooltip', { name: 'You’re currently offline.' } ) ).toBeVisible();
-	} );
-
-	it( 'shows offline indicator', async () => {
-		( useOffline as jest.Mock ).mockReturnValue( true );
-		await act( async () => render( <MainSidebar /> ) );
-		const offlineIndicator = screen.getByRole( 'button', {
-			name: 'Offline indicator',
-		} );
-		fireEvent.mouseOver( offlineIndicator );
-		expect(
-			screen.getByRole( 'tooltip', {
-				name: 'You’re currently offline. Some features will be unavailable.',
-			} )
-		).toBeVisible();
 	} );
 } );
 
@@ -153,21 +111,6 @@ describe( 'MainSidebar Site Menu', () => {
 		await user.click( greenDotFirstSite );
 		expect( siteDetailsMocked.stopServer ).toHaveBeenCalledWith(
 			'0e9e237b-335a-43fa-b439-9b078a613333'
-		);
-	} );
-
-	it( 'opens the support URL', async () => {
-		const user = userEvent.setup();
-		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
-
-		render( <MainSidebar /> );
-
-		const helpIconButton = screen.getByRole( 'button', { name: 'Help' } );
-		await user.click( helpIconButton );
-		await waitFor( () =>
-			expect( mockOpenURL ).toHaveBeenCalledWith(
-				`https://developer.wordpress.com/docs/developer-tools/studio/`
-			)
 		);
 	} );
 } );

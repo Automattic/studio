@@ -56,7 +56,7 @@ export default function App() {
 					<HStack spacing="0" alignment="left" className="flex-grow">
 						<MainSidebar
 							className={ cx(
-								'h-full transition-all duration-300 delay-100',
+								'h-full transition-all duration-500',
 								isSidebarVisible ? 'basis-52 flex-shrink-0' : 'basis-0 !min-w-[10px]'
 							) }
 						/>

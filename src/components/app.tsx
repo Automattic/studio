@@ -62,7 +62,7 @@ export default function App() {
 						/>
 						<main
 							data-testid="site-content"
-							className="bg-white h-full flex-grow rounded-chrome overflow-hidden"
+							className="bg-white h-full flex-grow rounded-chrome overflow-hidden z-10"
 						>
 							<SiteContentTabs />
 						</main>

@@ -7,6 +7,7 @@ import { useLocalizationSupport } from '../hooks/use-localization-support';
 import { useOnboarding } from '../hooks/use-onboarding';
 import { isWindows } from '../lib/app-globals';
 import { cx } from '../lib/cx';
+import { getIpcApi } from '../lib/get-ipc-api';
 import MainSidebar from './main-sidebar';
 import Onboarding from './onboarding';
 import { SiteContentTabs } from './site-content-tabs';
@@ -19,6 +20,7 @@ export default function App() {
 	const { needsOnboarding } = useOnboarding();
 	const [ isSidebarVisible, setIsSidebarVisible ] = useState( true );
 	const toggleSidebar = () => {
+		getIpcApi().toggleMinWindowWidth( isSidebarVisible );
 		setIsSidebarVisible( ! isSidebarVisible );
 	};
 
@@ -52,8 +54,8 @@ export default function App() {
 					<HStack spacing="0" alignment="left" className="flex-grow">
 						<MainSidebar
 							className={ cx(
-								'h-full transition-all duration-300',
-								isSidebarVisible ? 'basis-52 flex-shrink-0' : 'basis-0'
+								'h-full transition-all duration-300 delay-100',
+								isSidebarVisible ? 'basis-52 flex-shrink-0' : 'basis-0 !min-w-[10px]'
 							) }
 						/>
 						<main

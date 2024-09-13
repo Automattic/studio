@@ -70,6 +70,8 @@ const api: IpcApi = {
 	setDefaultLocaleData: ( locale?: LocaleData ) =>
 		ipcRenderer.invoke( 'setDefaultLocaleData', locale ),
 	resetDefaultLocaleData: () => ipcRenderer.invoke( 'resetDefaultLocaleData' ),
+	toggleMinWindowWidth: ( isSidebarVisible: boolean ) =>
+		ipcRenderer.invoke( 'toggleMinWindowWidth', isSidebarVisible ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

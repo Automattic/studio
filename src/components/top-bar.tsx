@@ -14,6 +14,38 @@ interface TopBarProps {
 	onToggleSidebar: () => void;
 }
 
+function OfflineIndicator() {
+	const isOffline = useOffline();
+	const offlineMessage = [
+		__( 'You’re currently offline.' ),
+		__( 'Some features will be unavailable.' ),
+	];
+	return (
+		isOffline && (
+			<div className="app-no-drag-region">
+				<Tooltip
+					text={
+						<span>
+							{ offlineMessage[ 0 ] }
+							<br />
+							{ offlineMessage[ 1 ] }
+						</span>
+					}
+				>
+					<Button
+						aria-label={ __( 'Offline indicator' ) }
+						aria-description={ offlineMessage.join( ' ' ) }
+						className="cursor-default"
+						variant="icon"
+					>
+						<Icon className="m-1 text-white" size={ 18 } icon={ offlineIcon } />
+					</Button>
+				</Tooltip>
+			</div>
+		)
+	);
+}
+
 function Authentication() {
 	const { isAuthenticated, authenticate, user } = useAuth();
 	const isOffline = useOffline();
@@ -65,14 +97,18 @@ export default function TopBar( { onToggleSidebar }: TopBarProps ) {
 
 	return (
 		<div className="flex justify-between items-center text-white p-2">
-			<Button
-				className="app-no-drag-region"
-				onClick={ onToggleSidebar }
-				variant="icon"
-				aria-label={ __( 'Toggle Sidebar' ) }
-			>
-				<Icon className="text-white" icon={ drawerLeft } size={ 24 } />
-			</Button>
+			<div className="flex items-center space-x-1.5">
+				<Button
+					className="app-no-drag-region"
+					onClick={ onToggleSidebar }
+					variant="icon"
+					aria-label={ __( 'Toggle Sidebar' ) }
+				>
+					<Icon className="text-white" icon={ drawerLeft } size={ 24 } />
+				</Button>
+
+				<OfflineIndicator />
+			</div>
 
 			<div className="app-no-drag-region flex items-center space-x-4">
 				<Authentication />

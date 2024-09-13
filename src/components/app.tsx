@@ -2,6 +2,7 @@ import {
 	__experimentalVStack as VStack,
 	__experimentalHStack as HStack,
 } from '@wordpress/components';
+import { useState } from 'react';
 import { useLocalizationSupport } from '../hooks/use-localization-support';
 import { useOnboarding } from '../hooks/use-onboarding';
 import { isWindows } from '../lib/app-globals';
@@ -9,12 +10,17 @@ import { cx } from '../lib/cx';
 import MainSidebar from './main-sidebar';
 import Onboarding from './onboarding';
 import { SiteContentTabs } from './site-content-tabs';
+import TopBar from './top-bar';
 import UserSettings from './user-settings';
 import WindowsTitlebar from './windows-titlebar';
 
 export default function App() {
 	useLocalizationSupport();
 	const { needsOnboarding } = useOnboarding();
+	const [ isSidebarVisible, setIsSidebarVisible ] = useState( true );
+	const toggleSidebar = () => {
+		setIsSidebarVisible( ! isSidebarVisible );
+	};
 
 	return (
 		<>
@@ -35,9 +41,21 @@ export default function App() {
 					) }
 					spacing="0"
 				>
-					{ isWindows() && <WindowsTitlebar className="h-titlebar-win flex-shrink-0" /> }
+					{ isWindows() ? (
+						<WindowsTitlebar className="h-titlebar-win flex-shrink-0" />
+					) : (
+						<div className="pl-20">
+							<TopBar onToggleSidebar={ toggleSidebar } />
+						</div>
+					) }
+
 					<HStack spacing="0" alignment="left" className="flex-grow">
-						<MainSidebar className="basis-52 flex-shrink-0 h-full" />
+						<MainSidebar
+							className={ cx(
+								'h-full transition-all duration-300',
+								isSidebarVisible ? 'basis-52 flex-shrink-0' : 'basis-0'
+							) }
+						/>
 						<main
 							data-testid="site-content"
 							className="bg-white h-full flex-grow rounded-chrome overflow-hidden"

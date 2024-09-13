@@ -111,30 +111,34 @@ const WelcomeComponent = React.forwardRef< HTMLDivElement, WelcomeComponentProps
 					{ showExamplePrompts && (
 						<div className="flex-grow">
 							{ displayedPrompts.map( ( prompt, index ) => (
-								<ExampleMessagePrompt
-									key={ index }
-									className="example-prompt"
-									onClick={ () => onExampleClick( prompt ) }
-									disabled={ disabled }
-								>
-									{ prompt }
-								</ExampleMessagePrompt>
+								<div className="flex items-center">
+									<ExampleMessagePrompt
+										key={ index }
+										className="example-prompt"
+										onClick={ () => onExampleClick( prompt ) }
+										disabled={ disabled }
+									>
+										{ prompt }
+									</ExampleMessagePrompt>
+									{ showExamplePrompts &&
+										! showMore &&
+										examplePrompts.length > 3 &&
+										index === displayedPrompts.length - 1 && (
+											<div className="mt-2 ml-2">
+												<Button
+													variant="secondary"
+													className="!text-a8c-gray-50 !shadow-none"
+													onClick={ handleShowMore }
+												>
+													{ __( 'More suggestions' ) }
+												</Button>
+											</div>
+										) }
+								</div>
 							) ) }
 						</div>
 					) }
 				</div>
-
-				{ showExamplePrompts && ! showMore && examplePrompts.length > 3 && (
-					<div className="mt-2">
-						<Button
-							variant="secondary"
-							className="!text-a8c-gray-50 !shadow-none"
-							onClick={ handleShowMore }
-						>
-							{ __( 'More suggestions' ) }
-						</Button>
-					</div>
-				) }
 			</div>
 		);
 	}

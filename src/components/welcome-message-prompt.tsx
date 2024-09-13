@@ -1,5 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { arrowRight } from '@wordpress/icons';
+import { useState } from 'react';
 import { cx } from '../lib/cx';
 import Button from './button';
 
@@ -75,6 +76,11 @@ const WelcomeComponent = ( {
 	examplePrompts,
 	disabled,
 }: WelcomeComponentProps ) => {
+	const [ showMore, setShowMore ] = useState( false ); // New state to control showing more prompts
+
+	// Determine the prompts to display (either first 3 or all)
+	const displayedPrompts = showMore ? examplePrompts : examplePrompts.slice( 0, 3 );
+
 	return (
 		<div>
 			{ messages.map( ( message, index ) => (
@@ -86,8 +92,9 @@ const WelcomeComponent = ( {
 					{ message }
 				</WelcomeMessagePrompt>
 			) ) }
+
 			{ showExamplePrompts &&
-				examplePrompts.map( ( prompt, index ) => (
+				displayedPrompts.map( ( prompt, index ) => (
 					<ExampleMessagePrompt
 						key={ index }
 						className="example-prompt"
@@ -97,6 +104,19 @@ const WelcomeComponent = ( {
 						{ prompt }
 					</ExampleMessagePrompt>
 				) ) }
+
+			{ /* "More suggestions" button */ }
+			{ showExamplePrompts && ! showMore && examplePrompts.length > 3 && (
+				<div className="flex mt-2">
+					<Button
+						variant="secondary"
+						className="!rounded lg:max-w-[70%]"
+						onClick={ () => setShowMore( true ) }
+					>
+						{ __( 'More suggestions' ) }
+					</Button>
+				</div>
+			) }
 		</div>
 	);
 };

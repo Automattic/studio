@@ -40,8 +40,7 @@ export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { c
 					return;
 				}
 				setFeatureFlags( {
-					assistantEnabled:
-						Boolean( flags?.[ 'assistant_enabled' ] ) || assistantEnabledFromGlobals,
+					assistantEnabled: true,
 					terminalWpCliEnabled:
 						Boolean( flags?.[ 'terminal_wp_cli_enabled' ] ) || terminalWpCliEnabledFromGlobals,
 				} );

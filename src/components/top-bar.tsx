@@ -96,7 +96,7 @@ export default function TopBar( { onToggleSidebar }: TopBarProps ) {
 	};
 
 	return (
-		<div className="flex justify-between items-center text-white p-2">
+		<div className="flex justify-between items-center text-white px-2 pb-2 pt-1.5">
 			<div className="flex items-center space-x-1.5">
 				<Button
 					className="app-no-drag-region"

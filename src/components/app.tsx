@@ -48,7 +48,7 @@ export default function App() {
 							<TopBar onToggleSidebar={ toggleSidebar } />
 						</WindowsTitlebar>
 					) : (
-						<div className="pl-20">
+						<div className="pl-20 flex-shrink-0">
 							<TopBar onToggleSidebar={ toggleSidebar } />
 						</div>
 					) }

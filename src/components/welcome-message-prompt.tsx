@@ -59,7 +59,7 @@ export const ExampleMessagePrompt = ( {
 	<div className={ cx( 'flex mt-2' ) }>
 		<Button
 			variant="secondary"
-			className={ cx( '!rounded lg:max-w-[70%]', className ) }
+			className={ cx( '!rounded', className ) }
 			onClick={ onClick }
 			disabled={ disabled }
 		>
@@ -122,19 +122,19 @@ const WelcomeComponent = React.forwardRef< HTMLDivElement, WelcomeComponentProps
 							) ) }
 						</div>
 					) }
-
-					{ showExamplePrompts && ! showMore && examplePrompts.length > 3 && (
-						<div className="flex mt-[-2.5rem] ml-[34%] pt-1">
-							<Button
-								variant="secondary"
-								className="lg:max-w-[30%] !text-a8c-gray-50 !shadow-none"
-								onClick={ handleShowMore }
-							>
-								{ __( 'More suggestions' ) }
-							</Button>
-						</div>
-					) }
 				</div>
+
+				{ showExamplePrompts && ! showMore && examplePrompts.length > 3 && (
+					<div className="mt-2">
+						<Button
+							variant="secondary"
+							className="!text-a8c-gray-50 !shadow-none"
+							onClick={ handleShowMore }
+						>
+							{ __( 'More suggestions' ) }
+						</Button>
+					</div>
+				) }
 			</div>
 		);
 	}

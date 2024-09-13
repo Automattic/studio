@@ -77,9 +77,25 @@ const WelcomeComponent = React.forwardRef< HTMLDivElement, WelcomeComponentProps
 	( { onExampleClick, showExamplePrompts, messages, examplePrompts, siteId, disabled }, ref ) => {
 		const [ showMore, setShowMore ] = useState( false );
 		const lastMessageRef = useRef< HTMLDivElement >( null );
+		const moreSuggestionsRef = useRef< HTMLDivElement >( null );
+		const [ isOnSameLine, setIsOnSameLine ] = useState( true );
 
 		// Determine the prompts to display (either first 3 or all)
 		const displayedPrompts = showMore ? examplePrompts : examplePrompts.slice( 0, 3 );
+
+		useEffect( () => {
+			const checkLayout = () => {
+				if ( lastMessageRef.current && moreSuggestionsRef.current ) {
+					const lastMessageRect = lastMessageRef.current.getBoundingClientRect();
+					const moreSuggestionsRect = moreSuggestionsRef.current.getBoundingClientRect();
+					setIsOnSameLine( lastMessageRect.bottom <= moreSuggestionsRect.top );
+				}
+			};
+
+			checkLayout();
+			window.addEventListener( 'resize', checkLayout );
+			return () => window.removeEventListener( 'resize', checkLayout );
+		}, [ messages, showExamplePrompts, examplePrompts ] );
 
 		useEffect( () => {
 			setShowMore( false );
@@ -94,39 +110,49 @@ const WelcomeComponent = React.forwardRef< HTMLDivElement, WelcomeComponentProps
 
 		return (
 			<div ref={ ref }>
-				{ messages.map( ( message, index ) => (
-					<WelcomeMessagePrompt
-						key={ index }
-						id={ `message-welcome-${ index }` }
-						className="welcome-message"
-						ref={ index === messages.length - 1 ? lastMessageRef : null }
-					>
-						{ message }
-					</WelcomeMessagePrompt>
-				) ) }
-
-				{ showExamplePrompts &&
-					displayedPrompts.map( ( prompt, index ) => (
-						<ExampleMessagePrompt
+				<div className="flex flex-col">
+					{ messages.map( ( message, index ) => (
+						<WelcomeMessagePrompt
 							key={ index }
-							className="example-prompt"
-							onClick={ () => onExampleClick( prompt ) }
-							disabled={ disabled }
+							id={ `message-welcome-${ index }` }
+							className="welcome-message"
+							ref={ index === messages.length - 1 ? lastMessageRef : null }
 						>
-							{ prompt }
-						</ExampleMessagePrompt>
+							{ message }
+						</WelcomeMessagePrompt>
 					) ) }
-				{ showExamplePrompts && ! showMore && examplePrompts.length > 3 && (
-					<div className="flex mt-2">
-						<Button
-							variant="secondary"
-							className="lg:max-w-[70%] !text-a8c-gray-50 !shadow-none"
-							onClick={ handleShowMore }
-						>
-							{ __( 'More suggestions' ) }
-						</Button>
-					</div>
-				) }
+				</div>
+
+				<div className="flex flex-col">
+					{ showExamplePrompts && (
+						<div className="flex-grow">
+							{ displayedPrompts.map( ( prompt, index ) => (
+								<ExampleMessagePrompt
+									key={ index }
+									className="example-prompt"
+									onClick={ () => onExampleClick( prompt ) }
+									disabled={ disabled }
+								>
+									{ prompt }
+								</ExampleMessagePrompt>
+							) ) }
+						</div>
+					) }
+
+					{ showExamplePrompts && ! showMore && examplePrompts.length > 3 && (
+						<div className={ cx( 'flex', isOnSameLine ? 'mt-[-2.5rem] ml-[22%] pt-1' : 'mt-2' ) }>
+							<div ref={ moreSuggestionsRef }>
+								<Button
+									variant="secondary"
+									className="lg:max-w-[30%] !text-a8c-gray-50 !shadow-none"
+									onClick={ handleShowMore }
+								>
+									{ __( 'More suggestions' ) }
+								</Button>
+							</div>
+						</div>
+					) }
+				</div>
 			</div>
 		);
 	}

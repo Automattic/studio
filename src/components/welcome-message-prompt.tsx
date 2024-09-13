@@ -77,25 +77,9 @@ const WelcomeComponent = React.forwardRef< HTMLDivElement, WelcomeComponentProps
 	( { onExampleClick, showExamplePrompts, messages, examplePrompts, siteId, disabled }, ref ) => {
 		const [ showMore, setShowMore ] = useState( false );
 		const lastMessageRef = useRef< HTMLDivElement >( null );
-		const moreSuggestionsRef = useRef< HTMLDivElement >( null );
-		const [ isOnSameLine, setIsOnSameLine ] = useState( true );
 
 		// Determine the prompts to display (either first 3 or all)
 		const displayedPrompts = showMore ? examplePrompts : examplePrompts.slice( 0, 3 );
-
-		useEffect( () => {
-			const checkLayout = () => {
-				if ( lastMessageRef.current && moreSuggestionsRef.current ) {
-					const lastMessageRect = lastMessageRef.current.getBoundingClientRect();
-					const moreSuggestionsRect = moreSuggestionsRef.current.getBoundingClientRect();
-					setIsOnSameLine( lastMessageRect.bottom <= moreSuggestionsRect.top );
-				}
-			};
-
-			checkLayout();
-			window.addEventListener( 'resize', checkLayout );
-			return () => window.removeEventListener( 'resize', checkLayout );
-		}, [ messages, showExamplePrompts, examplePrompts ] );
 
 		useEffect( () => {
 			setShowMore( false );
@@ -140,16 +124,14 @@ const WelcomeComponent = React.forwardRef< HTMLDivElement, WelcomeComponentProps
 					) }
 
 					{ showExamplePrompts && ! showMore && examplePrompts.length > 3 && (
-						<div className={ cx( 'flex', isOnSameLine ? 'mt-[-2.5rem] ml-[22%] pt-1' : 'mt-2' ) }>
-							<div ref={ moreSuggestionsRef }>
-								<Button
-									variant="secondary"
-									className="lg:max-w-[30%] !text-a8c-gray-50 !shadow-none"
-									onClick={ handleShowMore }
-								>
-									{ __( 'More suggestions' ) }
-								</Button>
-							</div>
+						<div className="flex mt-[-2.5rem] ml-[34%] pt-1">
+							<Button
+								variant="secondary"
+								className="lg:max-w-[30%] !text-a8c-gray-50 !shadow-none"
+								onClick={ handleShowMore }
+							>
+								{ __( 'More suggestions' ) }
+							</Button>
 						</div>
 					) }
 				</div>

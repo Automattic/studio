@@ -7,6 +7,7 @@ import TopBar from '../top-bar';
 jest.mock( '../../hooks/use-auth' );
 
 const mockOpenURL = jest.fn();
+const toggleMinWindowWidth = jest.fn();
 jest.mock( '../../lib/get-ipc-api', () => ( {
 	__esModule: true,
 	default: jest.fn(),
@@ -14,6 +15,7 @@ jest.mock( '../../lib/get-ipc-api', () => ( {
 		showOpenFolderDialog: jest.fn(),
 		generateProposedSitePath: jest.fn(),
 		openURL: mockOpenURL,
+		toggleMinWindowWidth,
 	} ),
 } ) );
 
@@ -74,5 +76,20 @@ describe( 'TopBar', () => {
 				`https://developer.wordpress.com/docs/developer-tools/studio/`
 			)
 		);
+	} );
+
+	it( 'calls toggleMinWindowWidth when sidebar toggle button is clicked', async () => {
+		const user = userEvent.setup();
+		const onToggleSidebar = jest.fn().mockImplementation( () => {
+			toggleMinWindowWidth( true );
+		} );
+
+		render( <TopBar onToggleSidebar={ onToggleSidebar } /> );
+
+		const toggleButton = screen.getByRole( 'button', { name: 'Toggle Sidebar' } );
+		await user.click( toggleButton );
+
+		expect( onToggleSidebar ).toHaveBeenCalledTimes( 1 );
+		expect( toggleMinWindowWidth ).toHaveBeenCalledTimes( 1 );
 	} );
 } );

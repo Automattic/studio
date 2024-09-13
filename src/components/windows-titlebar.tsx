@@ -29,7 +29,7 @@ export default function WindowsTitlebar( {
 				<img src={ appIcon } alt="" className="w-[16px] flex-shrink-0" />
 				<h1 className="text-xs">{ getAppGlobals().appName }</h1>
 			</div>
-			<div className="flex-1 pl-2 pr-32	">{ children }</div>
+			<div className="flex-1 pl-2 pr-32">{ children }</div>
 		</HStack>
 	);
 }

@@ -1,3 +1,9 @@
+1.1.2
+=====
+* Made app responsive and added sidebar toggle #533, #536
+* Switched "Local path" field to copy button instead of open new button #506
+* Updated playground packages to v0.9.39 #528
+
 1.1.1
 =====
 * Updated wp-now to fix missing curl, webp issues and Woo compatibility #491, #509, #512, #519

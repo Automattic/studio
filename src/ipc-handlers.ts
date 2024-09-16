@@ -16,7 +16,7 @@ import * as Sentry from '@sentry/electron/main';
 import { LocaleData, defaultI18n } from '@wordpress/i18n';
 import archiver from 'archiver';
 import { DEFAULT_PHP_VERSION } from '../vendor/wp-now/src/constants';
-import { MAIN_MIN_HEIGHT, MAIN_MIN_WIDTH, SIDEBAR_WIDTH, SIZE_LIMIT_BYTES } from './constants';
+import { MAIN_MIN_WIDTH, SIDEBAR_WIDTH, SIZE_LIMIT_BYTES } from './constants';
 import { isEmptyDir, pathExists, isWordPressDirectory, sanitizeFolderName } from './lib/fs-utils';
 import { getImageData } from './lib/get-image-data';
 import { exportBackup } from './lib/import-export/export/export-manager';
@@ -727,24 +727,15 @@ export function resetDefaultLocaleData( _event: IpcMainInvokeEvent ) {
 	defaultI18n.resetLocaleData();
 }
 
-const previousWidths = {
-	sidebar: MAIN_MIN_WIDTH,
-	noSidebar: MAIN_MIN_WIDTH - SIDEBAR_WIDTH,
-};
 export function toggleMinWindowWidth( event: IpcMainInvokeEvent, isSidebarVisible: boolean ) {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	if ( ! parentWindow || parentWindow.isDestroyed() || event.sender.isDestroyed() ) {
 		return;
 	}
 	const [ currentWidth, currentHeight ] = parentWindow.getSize();
-	if ( isSidebarVisible ) {
-		previousWidths.sidebar = currentWidth;
-	} else {
-		previousWidths.noSidebar = currentWidth;
-	}
-	const padding = 20;
-	const newMinWidth = isSidebarVisible ? MAIN_MIN_WIDTH - SIDEBAR_WIDTH + padding : MAIN_MIN_WIDTH;
-	const newWidth = isSidebarVisible ? previousWidths.noSidebar : previousWidths.sidebar;
-	parentWindow.setMinimumSize( newMinWidth, MAIN_MIN_HEIGHT );
+	const newWidth = Math.max(
+		MAIN_MIN_WIDTH,
+		isSidebarVisible ? currentWidth - SIDEBAR_WIDTH : currentWidth + SIDEBAR_WIDTH
+	);
 	parentWindow.setSize( newWidth, currentHeight, true );
 }

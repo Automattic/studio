@@ -69,8 +69,8 @@ export function PromptUsageProvider( { children }: PromptUsageProps ) {
 				apiNamespace: 'wpcom/v2',
 			} );
 			updatePromptUsage( {
-				maxQuota: response.max_quota || '',
-				remainingQuota: response.remaining_quota || '',
+				maxQuota: response.max_quota ?? '',
+				remainingQuota: response.remaining_quota ?? '',
 			} );
 			setQuotaResetDate( response.quota_reset_date || '' );
 		} catch ( error ) {

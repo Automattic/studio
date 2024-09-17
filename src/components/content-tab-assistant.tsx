@@ -7,7 +7,7 @@ import { __, _n, sprintf } from '@wordpress/i18n';
 import { Icon, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import React, { useState, useEffect, useRef, memo, useCallback, useMemo } from 'react';
-import { AI_GUIDELINES_URL } from '../constants';
+import { AI_GUIDELINES_URL, LIMIT_OF_PROMPTS_PER_USER } from '../constants';
 import { useAssistant, Message as MessageType } from '../hooks/use-assistant';
 import { useAssistantApi } from '../hooks/use-assistant-api';
 import { useAuth } from '../hooks/use-auth';
@@ -306,7 +306,10 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 			) }
 		</div>
 		<div className="mb-3">
-			{ __( 'Every account gets 200 prompts included for free each month.' ) }
+			{ sprintf(
+				__( 'Every account gets %d prompts included for free each month.' ),
+				LIMIT_OF_PROMPTS_PER_USER
+			) }
 		</div>
 		<Button variant="primary" onClick={ onAuthenticate }>
 			{ __( 'Log in to WordPress.com' ) }

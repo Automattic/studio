@@ -50,7 +50,7 @@ const ErrorNotice = ( {
 						<Button
 							variant="link"
 							onClick={ () => handleSend( messageContent, true ) }
-							className="text-xs"
+							className="text-xs !ml-1"
 						/>
 					),
 				}

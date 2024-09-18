@@ -1,8 +1,14 @@
-import { act, render, screen, fireEvent } from '@testing-library/react';
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { getIpcApi } from '../../lib/get-ipc-api';
 import createCodeComponent from '../assistant-code-block';
 
 jest.mock( '../../lib/get-ipc-api' );
+jest.mock( '../../hooks/use-check-installed-apps', () => ( {
+	useCheckInstalledApps: jest.fn().mockReturnValue( {
+		vscode: true,
+		phpstorm: false,
+	} ),
+} ) );
 
 describe( 'createCodeComponent', () => {
 	const contextProps = {
@@ -176,6 +182,48 @@ describe( 'createCodeComponent', () => {
 
 			expect( screen.getByText( 'Success' ) ).toBeVisible();
 			expect( screen.getByText( 'Mock success' ) ).toBeVisible();
+		} );
+	} );
+
+	describe( 'when content is a file path', () => {
+		it( 'should open the file in the IDE if the file exists', async () => {
+			( getIpcApi as jest.Mock ).mockReturnValue( {
+				getAbsolutePathFromSite: jest.fn().mockResolvedValue( 'wp-content/plugins/hello.php' ),
+				openURL: jest.fn(),
+			} );
+
+			const CodeBlock = createCodeComponent( contextProps );
+			render( <CodeBlock children="wp-content/plugins/hello.php" /> );
+
+			await waitFor( () => {
+				expect( screen.getByText( 'wp-content/plugins/hello.php' ) ).toBeVisible();
+				expect( screen.getByText( 'wp-content/plugins/hello.php' ) ).toHaveClass(
+					'cursor-pointer'
+				);
+			} );
+
+			fireEvent.click( screen.getByText( 'wp-content/plugins/hello.php' ) );
+			expect( getIpcApi().openURL ).toHaveBeenCalledWith(
+				'vscode://file/wp-content/plugins/hello.php?windowId=_blank'
+			);
+		} );
+
+		it( 'should not open the file in the IDE if the file does not exist', async () => {
+			( getIpcApi as jest.Mock ).mockReturnValue( {
+				getAbsolutePathFromSite: jest.fn().mockResolvedValue( null ),
+				openURL: jest.fn(),
+			} );
+
+			const CodeBlock = createCodeComponent( contextProps );
+			render( <CodeBlock children="wp-content/debug.log" /> );
+
+			await waitFor( () => {
+				expect( screen.getByText( 'wp-content/debug.log' ) ).toBeVisible();
+				expect( screen.getByText( 'wp-content/debug.log' ) ).not.toHaveClass( 'cursor-pointer' );
+			} );
+
+			fireEvent.click( screen.getByText( 'wp-content/debug.log' ) );
+			expect( getIpcApi().openURL ).not.toHaveBeenCalled();
 		} );
 	} );
 } );

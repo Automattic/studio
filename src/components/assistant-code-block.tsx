@@ -1,11 +1,14 @@
 import { Spinner } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
-import { useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ExtraProps } from 'react-markdown';
 import stripAnsi from 'strip-ansi';
 import { Message as MessageType } from '../hooks/use-assistant';
+import { useCheckInstalledApps } from '../hooks/use-check-installed-apps';
 import { useExecuteWPCLI } from '../hooks/use-execute-cli';
 import { useIsValidWpCliInline } from '../hooks/use-is-valid-wp-cli-inline';
+import { cx } from '../lib/cx';
+import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
 import { ChatMessageProps } from './chat-message';
 import { CopyTextButton } from './copy-text-button';
@@ -20,10 +23,11 @@ export default function createCodeComponent( contextProps: ContextProps ) {
 	return ( props: CodeBlockProps ) => <CodeBlock { ...contextProps } { ...props } />;
 }
 
-function CodeBlock( props: ContextProps & CodeBlockProps ) {
-	const content = String( props.children ).trim();
+const LanguageBlock = ( props: ContextProps & CodeBlockProps ) => {
+	const { children, className, node, blocks, updateMessage, siteId, messageId, ...htmlAttributes } =
+		props;
+	const content = String( children ).trim();
 	const isValidWpCliCommand = useIsValidWpCliInline( content );
-	const { node, blocks, updateMessage, siteId, messageId, ...htmlAttributes } = props;
 	const {
 		cliOutput,
 		cliStatus,
@@ -46,9 +50,7 @@ function CodeBlock( props: ContextProps & CodeBlockProps ) {
 		}
 	}, [ blocks, cliOutput, content, setCliOutput, setCliStatus, setCliTime ] );
 
-	const { children, className } = props;
-	const match = /language-(\w+)/.exec( className || '' );
-	return match ? (
+	return (
 		<>
 			<div className="p-3">
 				<code className={ className } { ...htmlAttributes }>
@@ -87,11 +89,107 @@ function CodeBlock( props: ContextProps & CodeBlockProps ) {
 				<InlineCLI output={ cliOutput } status={ cliStatus } time={ cliTime } />
 			) }
 		</>
-	) : (
-		<code className={ className } { ...htmlAttributes }>
+	);
+};
+
+function FileBlock( props: ContextProps & CodeBlockProps ) {
+	const { children, className, node, blocks, updateMessage, siteId, messageId, ...htmlAttributes } =
+		props;
+	const content = String( children ).trim();
+	const installedApps = useCheckInstalledApps();
+	const [ filePath, setFilePath ] = useState( '' );
+
+	const openFileInIDE = useCallback( () => {
+		if ( ! filePath ) {
+			return;
+		}
+		const { vscode, phpstorm } = installedApps;
+		if ( vscode ) {
+			getIpcApi().openURL( `vscode://file/${ filePath }?windowId=_blank` );
+		} else if ( phpstorm ) {
+			getIpcApi().openURL( `phpstorm://open?file=${ filePath }` );
+		}
+	}, [ installedApps, filePath ] );
+
+	useEffect( () => {
+		if ( ! siteId || ! content ) {
+			return;
+		}
+		getIpcApi()
+			.getAbsolutePathFromSite( siteId, content )
+			.then( ( path ) => {
+				if ( path ) {
+					setFilePath( path );
+				}
+			} );
+	}, [ siteId, content ] );
+
+	return (
+		<code
+			{ ...htmlAttributes }
+			className={ cx( className, filePath && 'cursor-pointer !text-a8c-blueberry' ) }
+			onClick={ openFileInIDE }
+		>
 			{ children }
 		</code>
 	);
+}
+
+function CodeBlock( props: ContextProps & CodeBlockProps ) {
+	const { children, className } = props;
+	const content = String( children ).trim();
+	const { node, blocks, updateMessage, siteId, messageId, ...htmlAttributes } = props;
+
+	const isFilePath = ( content: string ) => {
+		const wpPaths = [ 'wp-content', 'wp-includes', 'wp-admin' ];
+		const fileExtensions = [
+			'.js',
+			'.css',
+			'.html',
+			'.php',
+			'.jsx',
+			'.tsx',
+			'.scss',
+			'.less',
+			'.log',
+			'.md',
+			'.json',
+			'.txt',
+			'.xml',
+			'.yaml',
+			'.yml',
+			'.ini',
+			'.env',
+			'.sql',
+		];
+		return (
+			wpPaths.some( ( path ) => content.startsWith( path ) || content.startsWith( '/' + path ) ) ||
+			fileExtensions.some( ( ext ) => content.toLowerCase().endsWith( ext ) )
+		);
+	};
+
+	const inferContentType = () => {
+		if ( /language-(\w+)/.exec( className || '' ) ) {
+			return 'language';
+		}
+		if ( isFilePath( content ) ) {
+			return 'file';
+		}
+		return 'other';
+	};
+
+	switch ( inferContentType() ) {
+		case 'language':
+			return <LanguageBlock { ...props } />;
+		case 'file':
+			return <FileBlock { ...props } />;
+		default:
+			return (
+				<code className={ className } { ...htmlAttributes }>
+					{ children }
+				</code>
+			);
+	}
 }
 
 interface InlineCLIProps {

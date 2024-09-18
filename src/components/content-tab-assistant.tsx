@@ -343,7 +343,10 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 
 	const handleSend = useCallback(
 		async ( messageToSend?: string, isRetry?: boolean ) => {
-			const chatMessage = messageToSend || input;
+			const chatMessage = messageToSend || inputRef.current?.value;
+			if ( ! chatMessage ) {
+				return;
+			}
 			let messageId;
 			if ( chatMessage.trim() ) {
 				if ( isRetry ) {
@@ -384,15 +387,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 				}
 			}
 		},
-		[
-			addMessage,
-			chatId,
-			currentSiteChatContext,
-			fetchAssistant,
-			input,
-			markMessageAsFailed,
-			messages,
-		]
+		[ addMessage, chatId, currentSiteChatContext, fetchAssistant, markMessageAsFailed, messages ]
 	);
 
 	const handleKeyDown = ( e: React.KeyboardEvent< HTMLTextAreaElement > ) => {

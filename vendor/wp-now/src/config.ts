@@ -1,7 +1,4 @@
-import {
-	SupportedPHPVersion,
-	SupportedPHPVersionsList,
-} from '@php-wasm/universal';
+import { SupportedPHPVersion, SupportedPHPVersionsList } from '@php-wasm/universal';
 import crypto from 'crypto';
 import fs from 'fs-extra';
 import path from 'path';
@@ -80,39 +77,32 @@ let absoluteUrlFromBlueprint = '';
 
 async function getAbsoluteURL() {
 	const port = await portFinder.getOpenPort();
-	if (isGitHubCodespace) {
-		return getCodeSpaceURL(port);
+	if ( isGitHubCodespace ) {
+		return getCodeSpaceURL( port );
 	}
 
-	if (absoluteUrlFromBlueprint) {
+	if ( absoluteUrlFromBlueprint ) {
 		return absoluteUrlFromBlueprint;
 	}
 
 	const url = 'http://localhost';
-	if (port === 80) {
+	if ( port === 80 ) {
 		return url;
 	}
-	return `${url}:${port}`;
+	return `${ url }:${ port }`;
 }
 
-function getWpContentHomePath(projectPath: string, mode: string) {
-	const basename = path.basename(projectPath);
-	const directoryHash = crypto
-		.createHash('sha1')
-		.update(projectPath)
-		.digest('hex');
+function getWpContentHomePath( projectPath: string, mode: string ) {
+	const basename = path.basename( projectPath );
+	const directoryHash = crypto.createHash( 'sha1' ).update( projectPath ).digest( 'hex' );
 	const projectDirectory =
-		mode === WPNowMode.PLAYGROUND
-			? 'playground'
-			: `${basename}-${directoryHash}`;
-	return path.join(getWpNowPath(), 'wp-content', projectDirectory);
+		mode === WPNowMode.PLAYGROUND ? 'playground' : `${ basename }-${ directoryHash }`;
+	return path.join( getWpNowPath(), 'wp-content', projectDirectory );
 }
 
-export default async function getWpNowConfig(
-	args: CliOptions
-): Promise<WPNowOptions> {
-	if (args.port) {
-		portFinder.setPort(args.port);
+export default async function getWpNowConfig( args: CliOptions ): Promise< WPNowOptions > {
+	if ( args.port ) {
+		portFinder.setPort( args.port );
 	}
 	const port = await portFinder.getOpenPort();
 	const optionsFromCli: WPNowOptions = {
@@ -125,81 +115,68 @@ export default async function getWpNowConfig(
 
 	const options: WPNowOptions = {} as WPNowOptions;
 
-	[optionsFromCli, DEFAULT_OPTIONS].forEach((config) => {
-		for (const key in config) {
-			if (!options[key]) {
-				options[key] = config[key];
+	[ optionsFromCli, DEFAULT_OPTIONS ].forEach( ( config ) => {
+		for ( const key in config ) {
+			if ( ! options[ key ] ) {
+				options[ key ] = config[ key ];
 			}
 		}
-	});
+	} );
 
-	if (!options.mode || options.mode === 'auto') {
-		options.mode = inferMode(options.projectPath);
+	if ( ! options.mode || options.mode === 'auto' ) {
+		options.mode = inferMode( options.projectPath );
 	}
-	if (!options.wpContentPath) {
-		options.wpContentPath = getWpContentHomePath(
-			options.projectPath,
-			options.mode
-		);
+	if ( ! options.wpContentPath ) {
+		options.wpContentPath = getWpContentHomePath( options.projectPath, options.mode );
 	}
-	if (!options.absoluteUrl) {
+	if ( ! options.absoluteUrl ) {
 		options.absoluteUrl = await getAbsoluteURL();
 	}
-	if (!isValidWordPressVersion(options.wordPressVersion)) {
+	if ( ! isValidWordPressVersion( options.wordPressVersion ) ) {
 		throw new Error(
 			'Unrecognized WordPress version. Please use "latest" or numeric versions such as "6.2", "6.0.1", "6.2-beta1", or "6.2-RC1"'
 		);
 	}
-	if (
-		options.phpVersion &&
-		!SupportedPHPVersionsList.includes(options.phpVersion)
-	) {
+	if ( options.phpVersion && ! SupportedPHPVersionsList.includes( options.phpVersion ) ) {
 		throw new Error(
 			`Unsupported PHP version: ${
 				options.phpVersion
-			}. Supported versions: ${SupportedPHPVersionsList.join(', ')}`
+			}. Supported versions: ${ SupportedPHPVersionsList.join( ', ' ) }`
 		);
 	}
-	if (args.blueprint) {
-		const blueprintPath = path.resolve(args.blueprint);
-		if (!fs.existsSync(blueprintPath)) {
-			throw new Error(`Blueprint file not found: ${blueprintPath}`);
+	if ( args.blueprint ) {
+		const blueprintPath = path.resolve( args.blueprint );
+		if ( ! fs.existsSync( blueprintPath ) ) {
+			throw new Error( `Blueprint file not found: ${ blueprintPath }` );
 		}
-		const blueprintObject = JSON.parse(
-			fs.readFileSync(blueprintPath, 'utf8')
-		);
+		const blueprintObject = JSON.parse( fs.readFileSync( blueprintPath, 'utf8' ) );
 
 		options.blueprintObject = blueprintObject;
-		const siteUrl = extractSiteUrlFromBlueprint(blueprintObject);
-		if (siteUrl) {
+		const siteUrl = extractSiteUrlFromBlueprint( blueprintObject );
+		if ( siteUrl ) {
 			options.absoluteUrl = siteUrl;
 			absoluteUrlFromBlueprint = siteUrl;
 		}
 	}
-	if (args.adminPassword) {
+	if ( args.adminPassword ) {
 		options.adminPassword = args.adminPassword;
 	}
-	if (args.siteTitle) {
+	if ( args.siteTitle ) {
 		options.siteTitle = args.siteTitle;
 	}
 	return options;
 }
 
-function extractSiteUrlFromBlueprint(
-	blueprintObject: Blueprint
-): string | false {
-	for (const step of blueprintObject.steps) {
-		if (typeof step !== 'object') {
+function extractSiteUrlFromBlueprint( blueprintObject: Blueprint ): string | false {
+	for ( const step of blueprintObject.steps ) {
+		if ( typeof step !== 'object' ) {
 			return false;
 		}
 
-		if (step.step === 'defineSiteUrl') {
-			return `${step.siteUrl}`;
-		} else if (
-			step.step === 'defineWpConfigConsts' &&
-			step.consts.WP_SITEURL
-		) {
-			return `${step.consts.WP_SITEURL}`;
+		if ( step.step === 'defineSiteUrl' ) {
+			return `${ step.siteUrl }`;
+		} else if ( step.step === 'defineWpConfigConsts' && step.consts.WP_SITEURL ) {
+			return `${ step.consts.WP_SITEURL }`;
 		}
 	}
 	return false;

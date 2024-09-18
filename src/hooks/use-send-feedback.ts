@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/electron/renderer';
+import { useCallback } from 'react';
 import { useAuth } from './use-auth';
 
 interface SendFeedbackParams {
@@ -11,24 +12,27 @@ export const useSendFeedback = () => {
 	const { client } = useAuth();
 	const studioBotId = 'wpcom-studio-chat';
 
-	const sendFeedback = async ( { chatId, messageId, ratingValue }: SendFeedbackParams ) => {
-		if ( ! client?.req ) {
-			return;
-		}
+	const sendFeedback = useCallback(
+		async ( { chatId, messageId, ratingValue }: SendFeedbackParams ) => {
+			if ( ! client?.req ) {
+				return;
+			}
 
-		try {
-			await client.req.post( {
-				path: `/odie/chat/${ studioBotId }/${ chatId }/${ messageId }/feedback`,
-				apiNamespace: 'wpcom/v2',
-				body: {
-					rating_value: ratingValue,
-				},
-			} );
-		} catch ( error ) {
-			Sentry.captureException( error );
-			console.error( error );
-		}
-	};
+			try {
+				await client.req.post( {
+					path: `/odie/chat/${ studioBotId }/${ chatId }/${ messageId }/feedback`,
+					apiNamespace: 'wpcom/v2',
+					body: {
+						rating_value: ratingValue,
+					},
+				} );
+			} catch ( error ) {
+				Sentry.captureException( error );
+				console.error( error );
+			}
+		},
+		[ client ]
+	);
 
 	return sendFeedback;
 };

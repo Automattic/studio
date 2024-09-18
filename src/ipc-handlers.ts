@@ -739,3 +739,21 @@ export function toggleMinWindowWidth( event: IpcMainInvokeEvent, isSidebarVisibl
 	);
 	parentWindow.setSize( newWidth, currentHeight, true );
 }
+
+/**
+ * Returns the absolute path of a file in the site's directory.
+ * Returns null if the file does not exist.
+ */
+export async function getAbsolutePathFromSite(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	relativePath: string
+): Promise< string | null > {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( 'Site not found.' );
+	}
+
+	const path = nodePath.join( server.details.path, relativePath );
+	return ( await pathExists( path ) ) ? path : null;
+}

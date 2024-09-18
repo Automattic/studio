@@ -72,6 +72,8 @@ const api: IpcApi = {
 	resetDefaultLocaleData: () => ipcRenderer.invoke( 'resetDefaultLocaleData' ),
 	toggleMinWindowWidth: ( isSidebarVisible: boolean ) =>
 		ipcRenderer.invoke( 'toggleMinWindowWidth', isSidebarVisible ),
+	getAbsolutePathFromSite: ( siteId: string, relativePath: string ) =>
+		ipcRenderer.invoke( 'getAbsolutePathFromSite', siteId, relativePath ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

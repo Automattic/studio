@@ -7,6 +7,6 @@ import path from 'path';
  * @param projectPath The path to the project to check.
  * @returns A boolean value indicating whether the project has an index.php file.
  */
-export function hasIndexFile(projectPath: string): Boolean {
-	return fs.existsSync(path.join(projectPath, 'index.php'));
+export function hasIndexFile( projectPath: string ): Boolean {
+	return fs.existsSync( path.join( projectPath, 'index.php' ) );
 }

@@ -6,7 +6,7 @@ import { getPluginFile } from './get-plugin-file';
  * @param projectPath The path to the project to check.
  * @returns A boolean value indicating whether the project is a WordPress plugin.
  */
-export function isPluginDirectory(projectPath: string): Boolean {
-	const pluginFile = getPluginFile(projectPath);
+export function isPluginDirectory( projectPath: string ): Boolean {
+	const pluginFile = getPluginFile( projectPath );
 	return pluginFile !== null;
 }

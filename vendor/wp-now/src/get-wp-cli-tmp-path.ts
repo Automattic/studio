@@ -7,5 +7,5 @@ import os from 'os';
 export default function getWpCliTmpPath() {
 	const tmpDirectory = os.tmpdir();
 
-	return path.join(tmpDirectory, `wp-now-tests-wp-cli-hidden-folder`);
+	return path.join( tmpDirectory, `wp-now-tests-wp-cli-hidden-folder` );
 }

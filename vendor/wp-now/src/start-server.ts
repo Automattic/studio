@@ -25,36 +25,31 @@ export interface WPNowServer {
 	url: string;
 	php: PHP;
 	options: WPNowOptions;
-	stopServer: () => Promise<void>;
+	stopServer: () => Promise< void >;
 }
 
-function shouldCompress(_, res) {
-	const types = res.getHeader('content-type');
-	const type = Array.isArray(types) ? types[0] : types;
-	return type && compressible(type);
+function shouldCompress( _, res ) {
+	const types = res.getHeader( 'content-type' );
+	const type = Array.isArray( types ) ? types[ 0 ] : types;
+	return type && compressible( type );
 }
 
-export async function startServer(
-	options: WPNowOptions = {}
-): Promise<WPNowServer> {
-	if (!fs.existsSync(options.projectPath)) {
-		throw new Error(
-			`The given path "${options.projectPath}" does not exist.`
-		);
+export async function startServer( options: WPNowOptions = {} ): Promise< WPNowServer > {
+	if ( ! fs.existsSync( options.projectPath ) ) {
+		throw new Error( `The given path "${ options.projectPath }" does not exist.` );
 	}
 
 	const app = express();
-	app.use(compression({ filter: shouldCompress }));
-	app.use(addTrailingSlash('/wp-admin'));
-	const port = options.port ?? await portFinder.getOpenPort();
-	const { php, options: wpNowOptions } = await startWPNow(options);
-	app.use('/', async (req, res) => {
+	app.use( compression( { filter: shouldCompress } ) );
+	app.use( addTrailingSlash( '/wp-admin' ) );
+	const port = options.port ?? ( await portFinder.getOpenPort() );
+	const { php, options: wpNowOptions } = await startWPNow( options );
+	app.use( '/', async ( req, res ) => {
 		try {
 			const requestHeaders = {};
-			if (req.rawHeaders && req.rawHeaders.length) {
-				for (let i = 0; i < req.rawHeaders.length; i += 2) {
-					requestHeaders[req.rawHeaders[i].toLowerCase()] =
-						req.rawHeaders[i + 1];
+			if ( req.rawHeaders && req.rawHeaders.length ) {
+				for ( let i = 0; i < req.rawHeaders.length; i += 2 ) {
+					requestHeaders[ req.rawHeaders[ i ].toLowerCase() ] = req.rawHeaders[ i + 1 ];
 				}
 			}
 
@@ -64,31 +59,31 @@ export async function startServer(
 				method: req.method as HTTPMethod,
 				body: await requestBodyToBytes( req ),
 			};
-			const resp = await php.requestHandler.request(data);
+			const resp = await php.requestHandler.request( data );
 			res.statusCode = resp.httpStatusCode;
-			Object.keys(resp.headers).forEach((key) => {
-				res.setHeader(key, resp.headers[key]);
-			});
-			res.end(resp.bytes);
-		} catch (e) {
-			output?.trace(e);
+			Object.keys( resp.headers ).forEach( ( key ) => {
+				res.setHeader( key, resp.headers[ key ] );
+			} );
+			res.end( resp.bytes );
+		} catch ( e ) {
+			output?.trace( e );
 		}
-	});
+	} );
 	const url = options.absoluteUrl;
-	const server = app.listen(port, () => {
-		output?.log(`Server running at ${url}`);
-	});
+	const server = app.listen( port, () => {
+		output?.log( `Server running at ${ url }` );
+	} );
 
 	return {
 		url,
 		php,
 		options: wpNowOptions,
 		stopServer: () =>
-			new Promise((res) => {
-				server.close(() => {
-					output?.log(`Server stopped`);
+			new Promise( ( res ) => {
+				server.close( () => {
+					output?.log( `Server stopped` );
 					res();
-				});
-			}),
+				} );
+			} ),
 	};
 }

@@ -111,7 +111,7 @@ const WelcomeComponent = React.forwardRef< HTMLDivElement, WelcomeComponentProps
 					{ showExamplePrompts && (
 						<div className="flex-grow">
 							{ displayedPrompts.map( ( prompt, index ) => (
-								<div className="flex items-center">
+								<div key={ index } className="flex items-center">
 									<ExampleMessagePrompt
 										key={ index }
 										className="example-prompt"

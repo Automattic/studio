@@ -128,7 +128,7 @@ function FileBlock( props: ContextProps & CodeBlockProps ) {
 	return (
 		<code
 			{ ...htmlAttributes }
-			className={ cx( className, filePath && 'cursor-pointer !text-a8c-blueberry' ) }
+			className={ cx( className, filePath && 'file-block' ) }
 			onClick={ openFileInIDE }
 		>
 			{ children }

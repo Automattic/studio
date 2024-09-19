@@ -145,17 +145,14 @@ describe( 'SymlinkManager', () => {
 			( fs.lstat as jest.Mock ).mockResolvedValue( { isSymbolicLink: () => true } as Stats );
 			( fs.realpath as jest.Mock ).mockResolvedValue( '/real/path/to/newSymlink' );
 
-			const watchPromise = symlinkManager.startWatching();
-
-			await new Promise( ( resolve ) => setTimeout( resolve, 100 ) );
-
+			await symlinkManager.startWatching();
+			await waitFor( () => {
+				expect( mockPHP.mkdir ).toHaveBeenCalled();
+				expect( mockPHP.mount ).toHaveBeenCalled();
+				const privateProps = symlinkManager as unknown as SymlinkManagerPrivateProperties;
+				expect( privateProps.symlinks.has( 'newSymlink' ) ).toBe( true );
+			} );
 			await symlinkManager.stopWatching();
-			await watchPromise;
-
-			expect( mockPHP.mkdir ).toHaveBeenCalled();
-			expect( mockPHP.mount ).toHaveBeenCalled();
-			const privateProps = symlinkManager as unknown as SymlinkManagerPrivateProperties;
-			expect( privateProps.symlinks.has( 'newSymlink' ) ).toBe( true );
 		} );
 
 		it( 'should handle symlink deletion', async () => {

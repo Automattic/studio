@@ -197,9 +197,7 @@ describe( 'createCodeComponent', () => {
 
 			await waitFor( () => {
 				expect( screen.getByText( 'wp-content/plugins/hello.php' ) ).toBeVisible();
-				expect( screen.getByText( 'wp-content/plugins/hello.php' ) ).toHaveClass(
-					'cursor-pointer'
-				);
+				expect( screen.getByText( 'wp-content/plugins/hello.php' ) ).toHaveClass( 'file-block' );
 			} );
 
 			fireEvent.click( screen.getByText( 'wp-content/plugins/hello.php' ) );
@@ -219,7 +217,7 @@ describe( 'createCodeComponent', () => {
 
 			await waitFor( () => {
 				expect( screen.getByText( 'wp-content/debug.log' ) ).toBeVisible();
-				expect( screen.getByText( 'wp-content/debug.log' ) ).not.toHaveClass( 'cursor-pointer' );
+				expect( screen.getByText( 'wp-content/debug.log' ) ).not.toHaveClass( 'file-block' );
 			} );
 
 			fireEvent.click( screen.getByText( 'wp-content/debug.log' ) );

@@ -2,9 +2,9 @@ import { Stats } from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'path';
 import { PHP, UnmountFunction } from '@php-wasm/universal';
+import { waitFor } from '@testing-library/react';
 import { pathExists } from '../fs-utils';
 import { SymlinkManager } from '../symlink-manager';
-import { waitFor } from '@testing-library/react';
 
 jest.mock( '@php-wasm/universal' );
 jest.mock( 'node:fs/promises' );

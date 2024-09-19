@@ -4,6 +4,7 @@ import path from 'path';
 import { PHP, UnmountFunction } from '@php-wasm/universal';
 import { pathExists } from '../fs-utils';
 import { SymlinkManager } from '../symlink-manager';
+import { waitFor } from '@testing-library/react';
 
 jest.mock( '@php-wasm/universal' );
 jest.mock( 'node:fs/promises' );
@@ -100,6 +101,45 @@ describe( 'SymlinkManager', () => {
 				( symlinkManager as unknown as SymlinkManagerPrivateProperties ).mountedTargets.size
 			).toBe( 2 );
 		} );
+
+		it( 'should scan for symlinks and not mount duplicate links', async () => {
+			const mockSymlinks = [
+				'/mock/project/path/existing/symlink1',
+				'/mock/project/path/existing/symlink2',
+			];
+
+			mockPHP.fileExists.mockImplementation( ( path ) => ! path.includes( 'vfspath' ) );
+			mockPHP.readlink.mockImplementation( () => '/mock/document/root/vfspath' );
+
+			// Mock fs.readdir to return our mock symlinks
+			( fs.readdir as jest.Mock ).mockResolvedValue(
+				mockSymlinks.map( ( s ) => path.basename( s ) )
+			);
+
+			// Mock fs.lstat to indicate these are symlinks
+			( fs.lstat as jest.Mock ).mockResolvedValue( { isSymbolicLink: () => true } as Stats );
+
+			// Mock fs.realpath to return a target for each symlink
+			( fs.realpath as jest.Mock ).mockImplementation( ( p: string ) =>
+				Promise.resolve( `/real/path/to/${ path.basename( p ) }` )
+			);
+
+			await symlinkManager.scanAndCreateSymlinks();
+
+			// Verify that PHP mkdir and mount were called for each symlink
+			expect( mockPHP.mkdir ).toHaveBeenCalledTimes( 1 );
+			expect( mockPHP.mount ).toHaveBeenCalledTimes( 1 );
+
+			// Verify that the symlinks were added to the internal map
+			expect( ( symlinkManager as unknown as SymlinkManagerPrivateProperties ).symlinks.size ).toBe(
+				2
+			);
+
+			// Verify that the mount targets were added to the internal map
+			expect(
+				( symlinkManager as unknown as SymlinkManagerPrivateProperties ).mountedTargets.size
+			).toBe( 1 );
+		} );
 	} );
 
 	describe( 'startWatching and stopWatching', () => {
@@ -180,7 +220,41 @@ describe( 'SymlinkManager', () => {
 			await symlinkManager.startWatching();
 			await waitFor( () => {
 				expect( privateProps.symlinks.has( 'existingSymlink' ) ).toBe( false );
-				expect( unmountfn ).toHaveBeenCalled();
+				expect( unmountFunction ).toHaveBeenCalled();
+			} );
+			await symlinkManager.stopWatching();
+		} );
+
+		it( 'should handle symlink target deletion when no more references exist', async () => {
+			const privateProps = symlinkManager as unknown as SymlinkManagerPrivateProperties;
+			privateProps.symlinks.set( 'existingSymlink1', '/vfs/path/to/target' );
+			privateProps.symlinks.set( 'existingSymlink2', '/vfs/path/to/target' );
+			const unmountFunction = jest.fn();
+			privateProps.mountedTargets.set( '/vfs/path/to/target', {
+				referenceCount: 2,
+				unmountFunction,
+			} );
+
+			const mockWatcher = {
+				[ Symbol.asyncIterator ]: jest.fn().mockImplementation( () => ( {
+					next: jest
+						.fn()
+						.mockResolvedValueOnce( {
+							done: false,
+							value: { eventType: 'rename', filename: 'existingSymlink1' },
+						} )
+						.mockResolvedValueOnce( { done: true, value: undefined } ),
+				} ) ),
+			};
+			jest.spyOn( fs, 'watch' ).mockReturnValue( mockWatcher );
+
+			( pathExists as jest.Mock ).mockResolvedValue( false );
+
+			await symlinkManager.startWatching();
+			await waitFor( () => {
+				expect( privateProps.symlinks.has( 'existingSymlink1' ) ).toBe( false );
+				expect( privateProps.symlinks.has( 'existingSymlink2' ) ).toBe( true );
+				expect( unmountFunction ).toHaveBeenCalledTimes( 0 );
 			} );
 			await symlinkManager.stopWatching();
 		} );

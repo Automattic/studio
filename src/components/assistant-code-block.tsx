@@ -1,5 +1,6 @@
 import { Spinner } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
+import { Icon, edit } from '@wordpress/icons';
 import { useCallback, useEffect, useState } from 'react';
 import { ExtraProps } from 'react-markdown';
 import stripAnsi from 'strip-ansi';
@@ -131,6 +132,7 @@ function FileBlock( props: ContextProps & CodeBlockProps ) {
 			onClick={ openFileInIDE }
 		>
 			{ children }
+			{ filePath && <Icon icon={ edit } className="rtl:scale-x-[-1]" size={ 16 } /> }
 		</code>
 	);
 }

@@ -49,10 +49,6 @@ describe( 'SymlinkManager', () => {
 				const parts = p.split( /[\\/]/ );
 				return parts[ parts.length - 1 ];
 			} ),
-			// Keep other path functions as they are
-			relative: jest.requireActual( 'path' ).relative,
-			join: jest.requireActual( 'path' ).join,
-			// Add other path functions you're using in your tests
 		} ) );
 
 		// Mock pathExists function
@@ -98,6 +94,11 @@ describe( 'SymlinkManager', () => {
 			expect( ( symlinkManager as unknown as SymlinkManagerPrivateProperties ).symlinks.size ).toBe(
 				2
 			);
+
+			// Verify that the mount targets were added to the internal map
+			expect(
+				( symlinkManager as unknown as SymlinkManagerPrivateProperties ).mountedTargets.size
+			).toBe( 2 );
 		} );
 	} );
 
@@ -108,7 +109,7 @@ describe( 'SymlinkManager', () => {
 					next: jest.fn().mockResolvedValue( { done: true, value: undefined } ),
 				} ) ),
 			};
-			jest.spyOn( fs, 'watch' ).mockReturnValue( mockWatcher as never );
+			jest.spyOn( fs, 'watch' ).mockReturnValue( mockWatcher );
 
 			const watchPromise = symlinkManager.startWatching();
 			expect( fs.watch ).toHaveBeenCalledWith( mockProjectPath, expect.any( Object ) );
@@ -139,7 +140,7 @@ describe( 'SymlinkManager', () => {
 						.mockResolvedValueOnce( { done: true, value: undefined } ),
 				} ) ),
 			};
-			jest.spyOn( fs, 'watch' ).mockReturnValue( mockWatcher as never );
+			jest.spyOn( fs, 'watch' ).mockReturnValue( mockWatcher );
 
 			( fs.lstat as jest.Mock ).mockResolvedValue( { isSymbolicLink: () => true } as Stats );
 			( fs.realpath as jest.Mock ).mockResolvedValue( '/real/path/to/newSymlink' );
@@ -177,7 +178,7 @@ describe( 'SymlinkManager', () => {
 						.mockResolvedValueOnce( { done: true, value: undefined } ),
 				} ) ),
 			};
-			jest.spyOn( fs, 'watch' ).mockReturnValue( mockWatcher as never );
+			jest.spyOn( fs, 'watch' ).mockReturnValue( mockWatcher );
 
 			( pathExists as jest.Mock ).mockResolvedValue( false );
 

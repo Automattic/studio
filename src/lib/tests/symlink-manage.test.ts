@@ -177,15 +177,12 @@ describe( 'SymlinkManager', () => {
 
 			( pathExists as jest.Mock ).mockResolvedValue( false );
 
-			const watchPromise = symlinkManager.startWatching();
-
-			await new Promise( ( resolve ) => setTimeout( resolve, 100 ) );
-
+			await symlinkManager.startWatching();
+			await waitFor( () => {
+				expect( privateProps.symlinks.has( 'existingSymlink' ) ).toBe( false );
+				expect( unmountfn ).toHaveBeenCalled();
+			} );
 			await symlinkManager.stopWatching();
-			await watchPromise;
-
-			expect( privateProps.symlinks.has( 'existingSymlink' ) ).toBe( false );
-			expect( unmountfn ).toHaveBeenCalled();
 		} );
 	} );
 } );

@@ -143,7 +143,6 @@ function CodeBlock( props: ContextProps & CodeBlockProps ) {
 	const { node, blocks, updateMessage, siteId, messageId, ...htmlAttributes } = props;
 
 	const isFilePath = ( content: string ) => {
-		const wpPaths = [ 'wp-content', 'wp-includes', 'wp-admin' ];
 		const fileExtensions = [
 			'.js',
 			'.css',
@@ -164,10 +163,7 @@ function CodeBlock( props: ContextProps & CodeBlockProps ) {
 			'.env',
 			'.sql',
 		];
-		return (
-			wpPaths.some( ( path ) => content.startsWith( path ) || content.startsWith( '/' + path ) ) ||
-			fileExtensions.some( ( ext ) => content.toLowerCase().endsWith( ext ) )
-		);
+		return fileExtensions.some( ( ext ) => content.toLowerCase().endsWith( ext ) );
 	};
 
 	const inferContentType = () => {

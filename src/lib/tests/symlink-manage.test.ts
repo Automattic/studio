@@ -156,10 +156,10 @@ describe( 'SymlinkManager', () => {
 		it( 'should handle symlink deletion', async () => {
 			const privateProps = symlinkManager as unknown as SymlinkManagerPrivateProperties;
 			privateProps.symlinks.set( 'existingSymlink', '/vfs/path/to/target' );
-			const unmountfn = jest.fn();
+			const unmountFunction = jest.fn();
 			privateProps.mountedTargets.set( '/vfs/path/to/target', {
 				referenceCount: 1,
-				unmountFunction: unmountfn,
+				unmountFunction,
 			} );
 
 			const mockWatcher = {

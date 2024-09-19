@@ -134,7 +134,7 @@ async function getPHPInstance(
 	requestHandler: PHPRequestHandler
 ): Promise< { php: PHP; runtimeId: number } > {
 	const id = await loadNodeRuntime( options.phpVersion );
-	const php = new PHP(id);
+	const php = new PHP( id );
 	php.requestHandler = requestHandler;
 
 	await setPhpIniEntries( php, {

@@ -36,6 +36,7 @@ import { output } from './output';
 import getWpNowPath from './get-wp-now-path';
 import getWordpressVersionsPath from './get-wordpress-versions-path';
 import getSqlitePath from './get-sqlite-path';
+import { SymlinkManager } from '../../../src/lib/symlink-manager';
 
 export default async function startWPNow(
 	options: Partial< WPNowOptions > = {}
@@ -134,6 +135,7 @@ async function getPHPInstance(
 ): Promise< { php: PHP; runtimeId: number } > {
 	const id = await loadNodeRuntime( options.phpVersion );
 	const php = new PHP( id );
+	php.requestHandler = requestHandler;
 
 	await setPhpIniEntries( php, {
 		memory_limit: '256M',
@@ -173,6 +175,39 @@ async function prepareWordPress( php: PHP, options: WPNowOptions ) {
 			await runWpPlaygroundMode( php, options );
 			break;
 	}
+
+	// Symlink manager is not yet supported on windows
+	// See: https://github.com/Automattic/studio/issues/548
+	if ( process.platform !== 'win32' ) {
+		await startSymlinkManager(php, options.projectPath);
+	}
+}
+
+/**
+ * Start the symlink manager
+ *
+ * The symlink manager ensures that we mount the targets of symlinks so that they
+ * work inside the php runtime. It also watches for changes to ensure symlinks
+ * are managed correctly.
+ *
+ * @param php
+ * @param projectPath
+ */
+async function startSymlinkManager(php: PHP, projectPath: string) {
+	const symlinkManager = new SymlinkManager(php, projectPath);
+	await symlinkManager.scanAndCreateSymlinks();
+	symlinkManager.startWatching()
+		.catch((err) => {
+			output?.error('Error while watching for file changes', err);
+		})
+		.finally(() => {
+			output?.log('Stopped watching for file changes');
+		});
+
+	// Ensure that we stop watching for file changes when the runtime is exiting
+	php.addEventListener('runtime.beforedestroy', () => {
+		symlinkManager.stopWatching();
+	});
 }
 
 async function runIndexMode( php: PHP, { documentRoot, projectPath }: WPNowOptions ) {

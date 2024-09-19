@@ -111,11 +111,9 @@ describe( 'SymlinkManager', () => {
 			};
 			jest.spyOn( fs, 'watch' ).mockReturnValue( mockWatcher );
 
-			const watchPromise = symlinkManager.startWatching();
+			await symlinkManager.startWatching();
 			expect( fs.watch ).toHaveBeenCalledWith( mockProjectPath, expect.any( Object ) );
-
 			await symlinkManager.stopWatching();
-			await watchPromise;
 
 			expect( ( symlinkManager as unknown as SymlinkManagerPrivateProperties ).watcher ).toBeNull();
 			expect(

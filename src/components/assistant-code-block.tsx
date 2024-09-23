@@ -5,7 +5,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { ExtraProps } from 'react-markdown';
 import stripAnsi from 'strip-ansi';
 import { Message as MessageType } from '../hooks/use-assistant';
-import { useCheckInstalledApps } from '../hooks/use-check-installed-apps';
 import { useExecuteWPCLI } from '../hooks/use-execute-cli';
 import { useIsValidWpCliInline } from '../hooks/use-is-valid-wp-cli-inline';
 import { cx } from '../lib/cx';
@@ -97,20 +96,14 @@ function FileBlock( props: ContextProps & CodeBlockProps ) {
 	const { children, className, node, blocks, updateMessage, siteId, messageId, ...htmlAttributes } =
 		props;
 	const content = String( children ).trim();
-	const installedApps = useCheckInstalledApps();
 	const [ filePath, setFilePath ] = useState( '' );
 
 	const openFileInIDE = useCallback( () => {
-		if ( ! filePath ) {
+		if ( ! siteId || ! filePath ) {
 			return;
 		}
-		const { vscode, phpstorm } = installedApps;
-		if ( vscode ) {
-			getIpcApi().openURL( `vscode://file/${ filePath }?windowId=_blank` );
-		} else if ( phpstorm ) {
-			getIpcApi().openURL( `phpstorm://open?file=${ filePath }` );
-		}
-	}, [ installedApps, filePath ] );
+		getIpcApi().openFileInIDE( content, siteId );
+	}, [ siteId, filePath, content ] );
 
 	useEffect( () => {
 		if ( ! siteId || ! content ) {

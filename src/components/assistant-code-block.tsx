@@ -1,6 +1,6 @@
 import { Spinner } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
-import { Icon, edit } from '@wordpress/icons';
+import { Icon, archive, edit } from '@wordpress/icons';
 import { useCallback, useEffect, useState } from 'react';
 import { ExtraProps } from 'react-markdown';
 import stripAnsi from 'strip-ansi';
@@ -92,9 +92,18 @@ const LanguageBlock = ( props: ContextProps & CodeBlockProps ) => {
 	);
 };
 
-function FileBlock( props: ContextProps & CodeBlockProps ) {
-	const { children, className, node, blocks, updateMessage, siteId, messageId, ...htmlAttributes } =
-		props;
+function FileBlock( props: ContextProps & CodeBlockProps & { isDirectory?: boolean } ) {
+	const {
+		children,
+		className,
+		node,
+		blocks,
+		updateMessage,
+		siteId,
+		messageId,
+		isDirectory,
+		...htmlAttributes
+	} = props;
 	const content = String( children ).trim();
 	const [ filePath, setFilePath ] = useState( '' );
 
@@ -104,6 +113,13 @@ function FileBlock( props: ContextProps & CodeBlockProps ) {
 		}
 		getIpcApi().openFileInIDE( content, siteId );
 	}, [ siteId, filePath, content ] );
+
+	const openFileInFinder = useCallback( () => {
+		if ( ! siteId || ! filePath ) {
+			return;
+		}
+		getIpcApi().openLocalPath( filePath );
+	}, [ siteId, filePath ] );
 
 	useEffect( () => {
 		if ( ! siteId || ! content ) {
@@ -122,10 +138,12 @@ function FileBlock( props: ContextProps & CodeBlockProps ) {
 		<code
 			{ ...htmlAttributes }
 			className={ cx( className, filePath && 'file-block' ) }
-			onClick={ openFileInIDE }
+			onClick={ isDirectory ? openFileInFinder : openFileInIDE }
 		>
 			{ children }
-			{ filePath && <Icon icon={ edit } className="rtl:scale-x-[-1]" size={ 16 } /> }
+			{ filePath && (
+				<Icon icon={ isDirectory ? archive : edit } className="rtl:scale-x-[-1]" size={ 16 } />
+			) }
 		</code>
 	);
 }
@@ -159,12 +177,20 @@ function CodeBlock( props: ContextProps & CodeBlockProps ) {
 		return fileExtensions.some( ( ext ) => content.toLowerCase().endsWith( ext ) );
 	};
 
+	const isWPDirectory = ( content: string ) => {
+		const wpPaths = [ 'wp-content', 'wp-includes', 'wp-admin' ];
+		return wpPaths.some(
+			( path ) => content.startsWith( path ) || content.startsWith( '/' + path )
+		);
+	};
+
 	const inferContentType = () => {
 		if ( /language-(\w+)/.exec( className || '' ) ) {
 			return 'language';
-		}
-		if ( isFilePath( content ) ) {
+		} else if ( isFilePath( content ) ) {
 			return 'file';
+		} else if ( isWPDirectory( content ) ) {
+			return 'wp-directory';
 		}
 		return 'other';
 	};
@@ -174,6 +200,8 @@ function CodeBlock( props: ContextProps & CodeBlockProps ) {
 			return <LanguageBlock { ...props } />;
 		case 'file':
 			return <FileBlock { ...props } />;
+		case 'wp-directory':
+			return <FileBlock { ...props } isDirectory />;
 		default:
 			return (
 				<code className={ className } { ...htmlAttributes }>

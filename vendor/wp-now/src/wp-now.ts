@@ -115,6 +115,8 @@ export default async function startWPNow(
 
 	// Setup internal plugins needed for Playground
 	await setupPlatformLevelMuPlugins( php );
+	// Add custom plugins needed for Studio sites
+	addDefaultUmaskPlugin( php, options.documentRoot );
 
 	rotatePHPRuntime( {
 		php,
@@ -569,4 +571,16 @@ export async function moveDatabasesInSitu( projectPath: string ) {
 		fs.copySync( path.join( getSqlitePath(), 'db.copy' ), dbPhpPath );
 		fs.rmSync( wpContentPath, { recursive: true, force: true } );
 	}
+}
+
+function addDefaultUmaskPlugin( php: PHP, documentRoot: string ) {
+	php.writeFile(
+		'/internal/shared/mu-plugins/override-default-umask.php',
+		`<?php
+function set_default_umask()
+{
+    umask(0022);
+}
+add_action('init', 'set_default_umask', -9999);`
+	);
 }

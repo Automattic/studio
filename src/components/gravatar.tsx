@@ -10,12 +10,12 @@ import profileIconDetailed from './profile-icon-detailed';
 export function Gravatar( {
 	className,
 	isBlack = false,
-	isLarge = false,
+	size = 16,
 	detailedDefaultImage = false,
 }: {
 	className?: string;
 	isBlack?: boolean;
-	isLarge?: boolean;
+	size?: number;
 	detailedDefaultImage?: boolean;
 } ) {
 	const { __ } = useI18n();
@@ -23,16 +23,13 @@ export function Gravatar( {
 	const gravatarUrl = useGravatarUrl( user?.email, isBlack, detailedDefaultImage );
 	const [ imageError, setImageError ] = useState( false );
 
-	const childClassName = cx(
-		isLarge ? 'w-[32px] h-[32px] rounded-full' : 'w-[16px] h-[16px] rounded-full',
-		className
-	);
+	const childClassName = cx( 'rounded-full', className );
 
 	const renderDefaultGravatarIcon = () => (
 		<Icon
 			icon={ detailedDefaultImage ? profileIconDetailed : commentAuthorAvatar }
 			viewBox={ detailedDefaultImage ? '0 0 32 33' : '4 4 16 16' }
-			size={ isLarge ? 32 : 16 }
+			size={ size }
 			className={ childClassName }
 		/>
 	);
@@ -47,6 +44,7 @@ export function Gravatar( {
 			alt={ __( 'User avatar' ) }
 			className={ childClassName }
 			onError={ () => setImageError( true ) }
+			style={ { width: `${ size }px`, height: `${ size }px` } }
 		/>
 	);
 }

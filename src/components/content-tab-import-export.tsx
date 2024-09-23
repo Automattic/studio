@@ -184,7 +184,7 @@ const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 				>
 					<div
 						className={ cx(
-							'h-48 w-full rounded-sm border border-zinc-300 flex-col justify-center items-center inline-flex',
+							'h-36 w-full rounded-sm border border-zinc-300 flex-col justify-center items-center inline-flex',
 							isDraggingOver && ! isImporting && 'border-a8c-blueberry bg-a8c-gray-0'
 						) }
 					>

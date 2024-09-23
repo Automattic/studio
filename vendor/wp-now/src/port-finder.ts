@@ -9,7 +9,7 @@ class PortFinder {
 	private constructor() {}
 
 	public static getInstance(): PortFinder {
-		if (!PortFinder.#instance) {
+		if ( ! PortFinder.#instance ) {
 			PortFinder.#instance = new PortFinder();
 		}
 		return PortFinder.#instance;
@@ -19,19 +19,19 @@ class PortFinder {
 		return this.#searchPort++;
 	}
 
-	#isPortFree(): Promise<boolean> {
-		return new Promise((resolve) => {
+	#isPortFree(): Promise< boolean > {
+		return new Promise( ( resolve ) => {
 			const server = http.createServer();
 
 			server
-				.listen(this.#searchPort, () => {
+				.listen( this.#searchPort, () => {
 					server.close();
-					resolve(true);
-				})
-				.on('error', () => {
-					resolve(false);
-				});
-		});
+					resolve( true );
+				} )
+				.on( 'error', () => {
+					resolve( false );
+				} );
+		} );
 	}
 
 	/**
@@ -39,11 +39,11 @@ class PortFinder {
 	 *
 	 * @returns {Promise<number>} A promise that resolves to the open port number.
 	 */
-	public async getOpenPort(): Promise<number> {
-		if (this.#openPort) {
+	public async getOpenPort(): Promise< number > {
+		if ( this.#openPort ) {
 			return this.#openPort;
 		}
-		while (!(await this.#isPortFree())) {
+		while ( ! ( await this.#isPortFree() ) ) {
 			this.#incrementPort();
 		}
 
@@ -51,7 +51,7 @@ class PortFinder {
 		return this.#openPort;
 	}
 
-	public setPort(port: number): void {
+	public setPort( port: number ): void {
 		this.#openPort = port;
 	}
 }

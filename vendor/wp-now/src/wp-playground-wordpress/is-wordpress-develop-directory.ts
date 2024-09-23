@@ -7,7 +7,7 @@ import path from 'path';
  * @param projectPath The path to the project to check.
  * @returns Is it a WordPress-develop directory?
  */
-export function isWordPressDevelopDirectory(projectPath: string): boolean {
+export function isWordPressDevelopDirectory( projectPath: string ): boolean {
 	const requiredFiles = [
 		'src',
 		'src/wp-content',
@@ -19,7 +19,5 @@ export function isWordPressDevelopDirectory(projectPath: string): boolean {
 		'build/wp-load.php',
 	];
 
-	return requiredFiles.every((file) =>
-		fs.existsSync(path.join(projectPath, file))
-	);
+	return requiredFiles.every( ( file ) => fs.existsSync( path.join( projectPath, file ) ) );
 }

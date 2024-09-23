@@ -7,5 +7,5 @@ import os from 'os';
 export default function getWpNowTmpPath() {
 	const tmpDirectory = os.tmpdir();
 
-	return path.join(tmpDirectory, `wp-now-tests-hidden-folder`);
+	return path.join( tmpDirectory, `wp-now-tests-hidden-folder` );
 }

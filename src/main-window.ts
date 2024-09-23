@@ -1,10 +1,15 @@
 import { BrowserWindow, type BrowserWindowConstructorOptions } from 'electron';
 import { moveDatabasesInSitu } from '../vendor/wp-now/src';
-import { MAIN_MIN_HEIGHT, MAIN_MIN_WIDTH, WINDOWS_TITLEBAR_HEIGHT } from './constants';
+import {
+	DEFAULT_WIDTH,
+	MAIN_MIN_HEIGHT,
+	MAIN_MIN_WIDTH,
+	WINDOWS_TITLEBAR_HEIGHT,
+} from './constants';
 import { isEmptyDir } from './lib/fs-utils';
 import { portFinder } from './lib/port-finder';
 import { keepSqliteIntegrationUpdated } from './lib/sqlite-versions';
-import { setupMenu } from './menu';
+import { removeMenu } from './menu';
 import { UserData } from './storage/storage-types';
 import { loadUserData, saveUserData } from './storage/user-data';
 
@@ -52,7 +57,7 @@ export function createMainWindow(): BrowserWindow {
 
 	mainWindow = new BrowserWindow( {
 		height: MAIN_MIN_HEIGHT,
-		width: MAIN_MIN_WIDTH,
+		width: DEFAULT_WIDTH,
 		backgroundColor: 'rgba(30, 30, 30, 1)',
 		minHeight: MAIN_MIN_HEIGHT,
 		minWidth: MAIN_MIN_WIDTH,
@@ -91,10 +96,9 @@ export function createMainWindow(): BrowserWindow {
 	} );
 
 	mainWindow.on( 'closed', () => {
-		setupMenu( null );
+		removeMenu();
 		mainWindow = null;
 	} );
-	setupMenu( mainWindow );
 
 	return mainWindow;
 }

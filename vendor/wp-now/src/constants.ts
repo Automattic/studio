@@ -6,8 +6,7 @@ export const SQLITE_FILENAME = 'sqlite-database-integration';
 /**
  * The URL for downloading the "SQLite database integration" WordPress Plugin.
  */
-export const SQLITE_URL =
-	'https://downloads.wordpress.org/plugin/sqlite-database-integration.zip';
+export const SQLITE_URL = 'https://downloads.wordpress.org/plugin/sqlite-database-integration.zip';
 
 /**
  * The default starting port for running the WP Now server.

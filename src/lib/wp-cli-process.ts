@@ -52,9 +52,16 @@ export default class WpCliProcess {
 		} );
 	}
 
-	async execute( args: string[] ): Promise< WpCliResult > {
+	async execute(
+		args: string[],
+		{ phpVersion }: { phpVersion?: string } = {}
+	): Promise< WpCliResult > {
 		const message = 'execute';
-		const messageId = this.sendMessage( message, { projectPath: this.projectPath, args } );
+		const messageId = this.sendMessage( message, {
+			projectPath: this.projectPath,
+			args,
+			phpVersion,
+		} );
 		return await this.waitForResponse( message, messageId );
 	}
 

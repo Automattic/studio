@@ -1,4 +1,4 @@
-// To run tests, execute `npm run test -- src/lib/import-export/tests/import/importer/jetpack-importer.test.ts`
+// To run tests, execute `npm run test -- src/lib/import-export/tests/import/importer/default-importer.test.ts`
 import * as fs from 'fs/promises';
 import { lstat, move } from 'fs-extra';
 import { SiteServer } from '../../../../../site-server';
@@ -31,7 +31,9 @@ describe( 'JetpackImporter', () => {
 
 		( SiteServer.get as jest.Mock ).mockReturnValue( {
 			details: { path: '/path/to/site' },
-			executeWpCliCommand: jest.fn().mockReturnValue( { stderr: null } ),
+			executeWpCliCommand: jest.fn( ( command: string ) =>
+				command === 'option get siteurl' ? { stdout: 'http://localhost:8881' } : { stderr: null }
+			),
 		} );
 
 		// mock move

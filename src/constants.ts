@@ -1,9 +1,11 @@
-export const MAIN_MIN_WIDTH = 900;
+export const DEFAULT_WIDTH = 900;
 export const MAIN_MIN_HEIGHT = 600;
+export const SIDEBAR_WIDTH = 268;
+export const MAIN_MIN_WIDTH = DEFAULT_WIDTH - SIDEBAR_WIDTH + 20;
 export const SCREENSHOT_WIDTH = 1040;
 export const SCREENSHOT_HEIGHT = 1248;
 export const LIMIT_OF_ZIP_SITES_PER_USER = 5;
-export const LIMIT_OF_PROMPTS_PER_USER = 100;
+export const LIMIT_OF_PROMPTS_PER_USER = 200;
 export const SIZE_LIMIT_MB = 250;
 export const SIZE_LIMIT_BYTES = SIZE_LIMIT_MB * 1024 * 1024; // 250MB
 export const AUTO_UPDATE_INTERVAL_MS = 60 * 60 * 1000;
@@ -19,6 +21,7 @@ export const BUG_REPORT_URL =
 export const FEATURE_REQUEST_URL =
 	'https://github.com/Automattic/studio/issues/new?assignees=&labels=%5BType%5D+Feature+Request&projects=&template=feature_request.yml&title=Feature+Request%3A';
 export const WPCOM_PROFILE_URL = `https://wordpress.com/me`;
+export const CHAT_MESSAGES_STORE_KEY = 'ai_chat_messages';
 
 //Import file constants
 

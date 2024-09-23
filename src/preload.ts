@@ -3,6 +3,7 @@
 
 import '@sentry/electron/preload';
 import { SaveDialogOptions, contextBridge, ipcRenderer } from 'electron';
+import { LocaleData } from '@wordpress/i18n';
 import { ExportOptions } from './lib/import-export/export/types';
 import { BackupArchiveInfo } from './lib/import-export/import/types';
 import { promptWindowsSpeedUpSites } from './lib/windows-helpers';
@@ -62,9 +63,15 @@ const api: IpcApi = {
 	// Use .send instead of .invoke because logging is fire-and-forget
 	logRendererMessage: ( level: LogLevel, ...args: any[] ) =>
 		ipcRenderer.send( 'logRendererMessage', level, ...args ),
+	setupAppMenu: () => ipcRenderer.invoke( 'setupAppMenu' ),
 	popupAppMenu: () => ipcRenderer.invoke( 'popupAppMenu' ),
 	promptWindowsSpeedUpSites: ( ...args: Parameters< typeof promptWindowsSpeedUpSites > ) =>
 		ipcRenderer.invoke( 'promptWindowsSpeedUpSites', ...args ),
+	setDefaultLocaleData: ( locale?: LocaleData ) =>
+		ipcRenderer.invoke( 'setDefaultLocaleData', locale ),
+	resetDefaultLocaleData: () => ipcRenderer.invoke( 'resetDefaultLocaleData' ),
+	toggleMinWindowWidth: ( isSidebarVisible: boolean ) =>
+		ipcRenderer.invoke( 'toggleMinWindowWidth', isSidebarVisible ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

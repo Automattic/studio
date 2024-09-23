@@ -8,7 +8,11 @@ import {
 	rotatePHPRuntime,
 	setPhpIniEntries,
 } from '@php-wasm/universal';
-import { wordPressRewriteRules, getFileNotFoundActionForWordPress } from '@wp-playground/wordpress';
+import {
+	wordPressRewriteRules,
+	getFileNotFoundActionForWordPress,
+	setupPlatformLevelMuPlugins,
+} from '@wp-playground/wordpress';
 import path from 'path';
 import { SQLITE_FILENAME } from './constants';
 import { rootCertificates } from 'tls';
@@ -108,6 +112,9 @@ export default async function startWPNow(
 	if ( isFirstTimeProject && [ WPNowMode.PLUGIN, WPNowMode.THEME ].includes( options.mode ) ) {
 		await activatePluginOrTheme( php, options );
 	}
+
+	// Setup internal plugins needed for Playground
+	await setupPlatformLevelMuPlugins( php );
 
 	rotatePHPRuntime( {
 		php,

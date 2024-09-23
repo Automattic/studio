@@ -782,7 +782,6 @@ export async function openFileInIDE(
 		await shell.openExternal( `vscode://file/${ path }` );
 	} else if ( isInstalled( 'phpstorm' ) ) {
 		// Open site first to ensure the file is opened within the site context
-		await shell.openExternal( `phpstorm://open?file=${ server.details.path }` );
 		await shell.openExternal( `phpstorm://open?file=${ path }` );
 	}
 }

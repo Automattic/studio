@@ -1,4 +1,5 @@
 import { BrowserWindow, type BrowserWindowConstructorOptions } from 'electron';
+import installExtension, { REACT_DEVELOPER_TOOLS } from 'electron-devtools-installer';
 import { moveDatabasesInSitu } from '../vendor/wp-now/src';
 import {
 	DEFAULT_WIDTH,
@@ -24,6 +25,7 @@ let mainWindow: BrowserWindow | null;
 function setupDevTools( mainWindow: BrowserWindow | null, devToolsOpen?: boolean ) {
 	if ( devToolsOpen || ( process.env.NODE_ENV === 'development' && devToolsOpen === undefined ) ) {
 		mainWindow?.webContents.openDevTools();
+		installExtension( REACT_DEVELOPER_TOOLS );
 	}
 }
 

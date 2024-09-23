@@ -74,6 +74,8 @@ const api: IpcApi = {
 		ipcRenderer.invoke( 'toggleMinWindowWidth', isSidebarVisible ),
 	getAbsolutePathFromSite: ( siteId: string, relativePath: string ) =>
 		ipcRenderer.invoke( 'getAbsolutePathFromSite', siteId, relativePath ),
+	openFileInIDE: ( relativePath: string, siteId: string ) =>
+		ipcRenderer.invoke( 'openFileInIDE', relativePath, siteId ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

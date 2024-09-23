@@ -757,3 +757,32 @@ export async function getAbsolutePathFromSite(
 	const path = nodePath.join( server.details.path, relativePath );
 	return ( await pathExists( path ) ) ? path : null;
 }
+
+/**
+ * Opens a file in the IDE with the site context.
+ */
+export async function openFileInIDE(
+	_event: IpcMainInvokeEvent,
+	relativePath: string,
+	siteId: string
+) {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( 'Site not found.' );
+	}
+
+	const path = await getAbsolutePathFromSite( _event, siteId, relativePath );
+	if ( ! path ) {
+		return;
+	}
+
+	if ( isInstalled( 'vscode' ) ) {
+		// Open site first to ensure the file is opened within the site context
+		await shell.openExternal( `vscode://file/${ server.details.path }?windowId=_blank` );
+		await shell.openExternal( `vscode://file/${ path }` );
+	} else if ( isInstalled( 'phpstorm' ) ) {
+		// Open site first to ensure the file is opened within the site context
+		await shell.openExternal( `phpstorm://open?file=${ server.details.path }` );
+		await shell.openExternal( `phpstorm://open?file=${ path }` );
+	}
+}

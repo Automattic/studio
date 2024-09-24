@@ -1,8 +1,14 @@
-import { act, render, screen, fireEvent } from '@testing-library/react';
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { getIpcApi } from '../../lib/get-ipc-api';
 import createCodeComponent from '../assistant-code-block';
 
 jest.mock( '../../lib/get-ipc-api' );
+jest.mock( '../../hooks/use-check-installed-apps', () => ( {
+	useCheckInstalledApps: jest.fn().mockReturnValue( {
+		vscode: true,
+		phpstorm: false,
+	} ),
+} ) );
 
 describe( 'createCodeComponent', () => {
 	const contextProps = {
@@ -176,6 +182,85 @@ describe( 'createCodeComponent', () => {
 
 			expect( screen.getByText( 'Success' ) ).toBeVisible();
 			expect( screen.getByText( 'Mock success' ) ).toBeVisible();
+		} );
+	} );
+
+	describe( 'when content is a file path', () => {
+		it( 'should open a file in the IDE if the file exists', async () => {
+			( getIpcApi as jest.Mock ).mockReturnValue( {
+				getAbsolutePathFromSite: jest
+					.fn()
+					.mockResolvedValue( 'site-path/wp-content/plugins/hello.php' ),
+				openFileInIDE: jest.fn(),
+			} );
+
+			const CodeBlock = createCodeComponent( contextProps );
+			render( <CodeBlock children="wp-content/plugins/hello.php" /> );
+
+			await waitFor( () => {
+				expect( screen.getByText( 'wp-content/plugins/hello.php' ) ).toBeVisible();
+				expect( screen.getByText( 'wp-content/plugins/hello.php' ) ).toHaveClass( 'file-block' );
+			} );
+
+			fireEvent.click( screen.getByText( 'wp-content/plugins/hello.php' ) );
+			expect( getIpcApi().openFileInIDE ).toHaveBeenCalledWith(
+				'wp-content/plugins/hello.php',
+				'1'
+			);
+		} );
+
+		it( 'should not open a file in the IDE if the file does not exist', async () => {
+			( getIpcApi as jest.Mock ).mockReturnValue( {
+				getAbsolutePathFromSite: jest.fn().mockResolvedValue( null ),
+				openFileInIDE: jest.fn(),
+			} );
+
+			const CodeBlock = createCodeComponent( contextProps );
+			render( <CodeBlock children="wp-content/debug.log" /> );
+
+			await waitFor( () => {
+				expect( screen.getByText( 'wp-content/debug.log' ) ).toBeVisible();
+				expect( screen.getByText( 'wp-content/debug.log' ) ).not.toHaveClass( 'file-block' );
+			} );
+
+			fireEvent.click( screen.getByText( 'wp-content/debug.log' ) );
+			expect( getIpcApi().openFileInIDE ).not.toHaveBeenCalled();
+		} );
+
+		it( 'should open a directory in the Finder if the directory exists', async () => {
+			( getIpcApi as jest.Mock ).mockReturnValue( {
+				getAbsolutePathFromSite: jest.fn().mockResolvedValue( 'site-path/wp-content/plugins' ),
+				openLocalPath: jest.fn(),
+			} );
+
+			const CodeBlock = createCodeComponent( contextProps );
+			render( <CodeBlock children="wp-content/plugins" /> );
+
+			await waitFor( () => {
+				expect( screen.getByText( 'wp-content/plugins' ) ).toBeVisible();
+				expect( screen.getByText( 'wp-content/plugins' ) ).toHaveClass( 'file-block' );
+			} );
+
+			fireEvent.click( screen.getByText( 'wp-content/plugins' ) );
+			expect( getIpcApi().openLocalPath ).toHaveBeenCalledWith( 'site-path/wp-content/plugins' );
+		} );
+
+		it( 'should not open a directory in the Finder if the directory does not exist', async () => {
+			( getIpcApi as jest.Mock ).mockReturnValue( {
+				getAbsolutePathFromSite: jest.fn().mockResolvedValue( null ),
+				openLocalPath: jest.fn(),
+			} );
+
+			const CodeBlock = createCodeComponent( contextProps );
+			render( <CodeBlock children="wp-content/plugins" /> );
+
+			await waitFor( () => {
+				expect( screen.getByText( 'wp-content/plugins' ) ).toBeVisible();
+				expect( screen.getByText( 'wp-content/plugins' ) ).not.toHaveClass( 'file-block' );
+			} );
+
+			fireEvent.click( screen.getByText( 'wp-content/plugins' ) );
+			expect( getIpcApi().openLocalPath ).not.toHaveBeenCalled();
 		} );
 	} );
 } );

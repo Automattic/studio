@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { useAuth } from '../../hooks/use-auth';
+import { ChatInputProvider } from '../../hooks/use-chat-input';
 import { useOffline } from '../../hooks/use-offline';
 import { usePromptUsage } from '../../hooks/use-prompt-usage';
 import { useWelcomeMessages } from '../../hooks/use-welcome-messages';
@@ -417,5 +418,54 @@ describe( 'ContentTabAssistant', () => {
 		expect(
 			screen.queryByText( 'This conversation is over two hours old.', { exact: false } )
 		).not.toBeInTheDocument();
+	} );
+
+	test( 'restores chat input when changing current site', async () => {
+		const anotherSite = {
+			...runningSite,
+			id: 'another-site-id',
+			name: 'Another Test Site',
+		};
+
+		const { rerender } = render(
+			<ChatInputProvider>
+				<ContentTabAssistant selectedSite={ runningSite } />
+			</ChatInputProvider>
+		);
+
+		// Input should be empty initially
+		expect( getInput() ).toHaveValue( '' );
+
+		// Input is updated for the first site
+		fireEvent.change( getInput(), { target: { value: 'New message' } } );
+		expect( getInput() ).toHaveValue( 'New message' );
+
+		// Changing to second site should reset the input
+		rerender(
+			<ChatInputProvider>
+				<ContentTabAssistant selectedSite={ anotherSite } />
+			</ChatInputProvider>
+		);
+		expect( getInput() ).toHaveValue( '' );
+
+		// Input is updated for the second site
+		fireEvent.change( getInput(), { target: { value: 'Another message' } } );
+		expect( getInput() ).toHaveValue( 'Another message' );
+
+		// Changing to the first site should restore the input
+		rerender(
+			<ChatInputProvider>
+				<ContentTabAssistant selectedSite={ runningSite } />
+			</ChatInputProvider>
+		);
+		expect( getInput() ).toHaveValue( 'New message' );
+
+		// Changing to the second site should restore the input
+		rerender(
+			<ChatInputProvider>
+				<ContentTabAssistant selectedSite={ anotherSite } />
+			</ChatInputProvider>
+		);
+		expect( getInput() ).toHaveValue( 'Another message' );
 	} );
 } );

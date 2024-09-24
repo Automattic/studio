@@ -154,8 +154,6 @@ export const useAssistant = ( instanceId: string ) => {
 					return message;
 				} );
 
-				console.log( 'updatedMessages: ', updatedMessages );
-
 				const newDict = { ...prevDict, [ instanceId ]: updatedMessages };
 				localStorage.setItem( CHAT_MESSAGES_STORE_KEY, JSON.stringify( newDict ) );
 

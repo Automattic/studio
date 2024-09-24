@@ -396,7 +396,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		}
 	};
 
-	const clearInput = () => {
+	const clearConversation = () => {
 		setInput( '' );
 		clearMessages();
 	};
@@ -408,7 +408,9 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		} else if ( isAuthenticated && ! userCanSendMessage ) {
 			return <UsageLimitReached />;
 		} else if ( isAuthenticated ) {
-			return <ClearHistoryReminder lastMessage={ lastMessage } clearInput={ clearInput } />;
+			return (
+				<ClearHistoryReminder lastMessage={ lastMessage } clearConversation={ clearConversation } />
+			);
 		}
 	};
 
@@ -464,7 +466,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 						setInput={ setInput }
 						handleSend={ handleSend }
 						handleKeyDown={ handleKeyDown }
-						clearInput={ clearInput }
+						clearConversation={ clearConversation }
 						isAssistantThinking={ isAssistantThinking }
 					/>
 					<div data-testid="guidelines-link" className="text-a8c-gray-50 self-end py-2">

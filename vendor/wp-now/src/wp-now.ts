@@ -6,6 +6,7 @@ import {
 	PHPRequestHandler,
 	proxyFileSystem,
 	rotatePHPRuntime,
+	getPhpIniEntries,
 	setPhpIniEntries,
 } from '@php-wasm/universal';
 import { wordPressRewriteRules, getFileNotFoundActionForWordPress } from '@wp-playground/wordpress';
@@ -65,6 +66,8 @@ export default async function startWPNow(
 	} );
 
 	const php = await requestHandler.getPrimaryPhp();
+
+	await applyOverrideUmaskWorkaround( php );
 
 	prepareDocumentRoot( php, options );
 
@@ -562,4 +565,24 @@ export async function moveDatabasesInSitu( projectPath: string ) {
 		fs.copySync( path.join( getSqlitePath(), 'db.copy' ), dbPhpPath );
 		fs.rmSync( wpContentPath, { recursive: true, force: true } );
 	}
+}
+
+/**
+ * The default `umask` set by Emscripten is 0777 which is too restrictive. This has been updated
+ * in https://github.com/emscripten-core/emscripten/pull/22589 but is not available in the stable
+ * version of Emscripten yet. In the meantime, we'll apply a workaround by setting the umask via
+ * `auto_prepend_file` PHP directive.
+ *
+ * Once the Emscripten update is available, a new version of Playground is released using the
+ * updated Emscripten, and the Playground dependency is updated in the app, this workaround can be removed.
+ */
+async function applyOverrideUmaskWorkaround( php: PHP ) {
+	const iniEntries = await getPhpIniEntries( php );
+	await setPhpIniEntries( php, {
+		...iniEntries,
+		auto_prepend_file: '/internal/shared/studio/auto-prepend-file.php',
+	} );
+
+	php.mkdir( '/internal/shared/studio' );
+	php.writeFile( '/internal/shared/studio/auto-prepend-file.php', '<?php umask(0022);' );
 }

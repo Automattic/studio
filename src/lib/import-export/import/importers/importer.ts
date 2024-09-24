@@ -346,4 +346,50 @@ export class WpressImporter extends BaseBackupImporter {
 
 		await fsPromises.rename( tempOutputPath, tmpPath );
 	}
+
+	protected async parseWpressPackage(): Promise< {
+		template: string;
+		stylesheet: string;
+	} > {
+		const packageJsonPath = path.join( this.backup.extractionDirectory, 'package.json' );
+		try {
+			const packageContent = await fsPromises.readFile( packageJsonPath, 'utf8' );
+			const { Template: template = '', Stylesheet: stylesheet = '' } = JSON.parse( packageContent );
+			return { template, stylesheet };
+		} catch ( error ) {
+			console.error( 'Error reading package.json:', error );
+			return { template: '', stylesheet: '' };
+		}
+	}
+
+	protected async addSqlToSetTheme( sqlFiles: string[] ): Promise< void > {
+		const { template, stylesheet } = await this.parseWpressPackage();
+		if ( ! template || ! stylesheet ) {
+			return;
+		}
+
+		const themeUpdateSql = `
+				UPDATE wp_options SET option_value = '${ template }' WHERE option_name = 'template';
+				UPDATE wp_options SET option_value = '${ stylesheet }' WHERE option_name = 'stylesheet';
+			`;
+		const sqliteSetThemePath = path.join(
+			this.backup.extractionDirectory,
+			'studio-wpress-theme.sql'
+		);
+		await fsPromises.writeFile( sqliteSetThemePath, themeUpdateSql );
+		sqlFiles.push( sqliteSetThemePath );
+	}
+
+	protected async importDatabase(
+		rootPath: string,
+		siteId: string,
+		sqlFiles: string[]
+	): Promise< void > {
+		const server = SiteServer.get( siteId );
+		if ( ! server ) {
+			throw new Error( 'Site not found.' );
+		}
+		await this.addSqlToSetTheme( sqlFiles );
+		await super.importDatabase( rootPath, siteId, sqlFiles );
+	}
 }

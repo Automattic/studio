@@ -12,7 +12,7 @@ interface AIInputProps {
 	setInput: ( input: string ) => void;
 	handleSend: () => void;
 	handleKeyDown: ( e: React.KeyboardEvent< HTMLTextAreaElement > ) => void;
-	clearInput: () => void;
+	clearConversation: () => void;
 	isAssistantThinking: boolean;
 }
 
@@ -25,7 +25,7 @@ const UnforwardedAIInput = (
 		setInput,
 		handleSend,
 		handleKeyDown,
-		clearInput,
+		clearConversation,
 		isAssistantThinking,
 	}: AIInputProps,
 	inputRef: React.RefObject< HTMLTextAreaElement > | React.RefCallback< HTMLTextAreaElement > | null
@@ -139,7 +139,7 @@ const UnforwardedAIInput = (
 
 	const handleClearConversation = async () => {
 		if ( localStorage.getItem( 'dontShowClearMessagesWarning' ) === 'true' ) {
-			clearInput();
+			clearConversation();
 			return;
 		}
 
@@ -158,7 +158,7 @@ const UnforwardedAIInput = (
 				localStorage.setItem( 'dontShowClearMessagesWarning', 'true' );
 			}
 
-			clearInput();
+			clearConversation();
 		}
 	};
 

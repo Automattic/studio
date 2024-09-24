@@ -12,6 +12,7 @@ import { useAssistant, Message as MessageType } from '../hooks/use-assistant';
 import { useAssistantApi } from '../hooks/use-assistant-api';
 import { useAuth } from '../hooks/use-auth';
 import { useChatContext } from '../hooks/use-chat-context';
+import { useChatInputContext } from '../hooks/use-chat-input';
 import { useOffline } from '../hooks/use-offline';
 import { usePromptUsage } from '../hooks/use-prompt-usage';
 import { useWelcomeMessages } from '../hooks/use-welcome-messages';
@@ -33,10 +34,10 @@ interface ContentTabAssistantProps {
 }
 
 const ErrorNotice = ( {
-	handleSend,
+	submitPrompt,
 	messageContent,
 }: {
-	handleSend: ( messageToSend?: string, isRetry?: boolean ) => void;
+	submitPrompt: ( messageToSend: string, isRetry?: boolean ) => void;
 	messageContent: string;
 } ) => {
 	const { __ } = useI18n();
@@ -49,7 +50,7 @@ const ErrorNotice = ( {
 					a: (
 						<Button
 							variant="link"
-							onClick={ () => handleSend( messageContent, true ) }
+							onClick={ () => submitPrompt( messageContent, true ) }
 							className="text-xs !ml-1"
 						/>
 					),
@@ -108,7 +109,7 @@ interface AuthenticatedViewProps {
 	isAssistantThinking: boolean;
 	updateMessage: OnUpdateMessageType;
 	siteId: string;
-	handleSend: ( messageToSend?: string, isRetry?: boolean ) => void;
+	submitPrompt: ( messageToSend: string, isRetry?: boolean ) => void;
 	markMessageAsFeedbackReceived: ReturnType<
 		typeof useAssistant
 	>[ 'markMessageAsFeedbackReceived' ];
@@ -120,7 +121,7 @@ export const AuthenticatedView = memo(
 		isAssistantThinking,
 		updateMessage,
 		siteId,
-		handleSend,
+		submitPrompt,
 		markMessageAsFeedbackReceived,
 	}: AuthenticatedViewProps ) => {
 		const endOfMessagesRef = useRef< HTMLDivElement >( null );
@@ -167,11 +168,11 @@ export const AuthenticatedView = memo(
 						{ message.content }
 					</ChatMessage>
 					{ message.failedMessage && (
-						<ErrorNotice handleSend={ handleSend } messageContent={ message.content } />
+						<ErrorNotice submitPrompt={ submitPrompt } messageContent={ message.content } />
 					) }
 				</>
 			),
-			[ handleSend, siteId, updateMessage ]
+			[ submitPrompt, siteId, updateMessage ]
 		);
 
 		const RenderLastMessage = useCallback(
@@ -335,15 +336,29 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const { userCanSendMessage } = usePromptUsage();
 	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi( selectedSite.id );
 	const { messages: welcomeMessages, examplePrompts } = useWelcomeMessages();
-	const [ input, setInput ] = useState< string >( '' );
+	const { getChatInput, saveChatInput } = useChatInputContext();
+	const [ currentInput, setCurrentInput ] = useState( '' );
 	const isOffline = useOffline();
 	const { __ } = useI18n();
 	const lastMessage = messages.length === 0 ? undefined : messages[ messages.length - 1 ];
 	const hasFailedMessage = messages.some( ( msg ) => msg.failedMessage );
 
-	const handleSend = useCallback(
-		async ( messageToSend?: string, isRetry?: boolean ) => {
-			const chatMessage = messageToSend || inputRef.current?.value;
+	// Restore prompt input when site changes
+	useEffect( () => {
+		setCurrentInput( getChatInput( selectedSite.id ) );
+	}, [ selectedSite.id, getChatInput ] );
+
+	// Save prompt input when it changes
+	const setInput = useCallback(
+		( input: string ) => {
+			saveChatInput( input, selectedSite.id );
+			setCurrentInput( input );
+		},
+		[ selectedSite.id, saveChatInput ]
+	);
+
+	const submitPrompt = useCallback(
+		async ( chatMessage: string, isRetry?: boolean ) => {
 			if ( ! chatMessage ) {
 				return;
 			}
@@ -387,8 +402,22 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 				}
 			}
 		},
-		[ addMessage, chatId, currentSiteChatContext, fetchAssistant, markMessageAsFailed, messages ]
+		[
+			addMessage,
+			chatId,
+			currentSiteChatContext,
+			fetchAssistant,
+			markMessageAsFailed,
+			messages,
+			setInput,
+		]
 	);
+
+	// Submit prompt input when the user clicks the send button
+	const handleSend = useCallback( () => {
+		submitPrompt( inputRef.current?.value ?? '' );
+		setInput( '' );
+	}, [ submitPrompt, setInput ] );
 
 	const handleKeyDown = ( e: React.KeyboardEvent< HTMLTextAreaElement > ) => {
 		if ( e.key === 'Enter' ) {
@@ -396,7 +425,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		}
 	};
 
-	const clearInput = () => {
+	const clearConversation = () => {
 		setInput( '' );
 		clearMessages();
 	};
@@ -408,7 +437,9 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		} else if ( isAuthenticated && ! userCanSendMessage ) {
 			return <UsageLimitReached />;
 		} else if ( isAuthenticated ) {
-			return <ClearHistoryReminder lastMessage={ lastMessage } clearInput={ clearInput } />;
+			return (
+				<ClearHistoryReminder lastMessage={ lastMessage } clearConversation={ clearConversation } />
+			);
 		}
 	};
 
@@ -428,7 +459,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 						<>
 							<WelcomeComponent
 								onExampleClick={ ( prompt ) => {
-									handleSend( prompt );
+									submitPrompt( prompt );
 									inputRef.current?.focus();
 								} }
 								showExamplePrompts={ messages.length === 0 }
@@ -444,7 +475,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 									updateMessage={ updateMessage }
 									markMessageAsFeedbackReceived={ markMessageAsFeedbackReceived }
 									siteId={ selectedSite.id }
-									handleSend={ handleSend }
+									submitPrompt={ submitPrompt }
 								/>
 							}
 						</>
@@ -460,11 +491,11 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 					<AIInput
 						ref={ inputRef }
 						disabled={ disabled }
-						input={ input }
+						input={ currentInput }
 						setInput={ setInput }
 						handleSend={ handleSend }
 						handleKeyDown={ handleKeyDown }
-						clearInput={ clearInput }
+						clearConversation={ clearConversation }
 						isAssistantThinking={ isAssistantThinking }
 					/>
 					<div data-testid="guidelines-link" className="text-a8c-gray-50 self-end py-2">

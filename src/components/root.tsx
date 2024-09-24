@@ -1,4 +1,5 @@
 import { ChatProvider } from '../hooks/use-chat-context';
+import { ChatInputProvider } from '../hooks/use-chat-input';
 import { InstalledAppsProvider } from '../hooks/use-check-installed-apps';
 import { FeatureFlagsProvider } from '../hooks/use-feature-flags';
 import { I18nDataProvider } from '../hooks/use-i18n-data';
@@ -30,7 +31,9 @@ const Root = () => {
 												<PromptUsageProvider>
 													<ChatProvider>
 														<ImportExportProvider>
-															<App />
+															<ChatInputProvider>
+																<App />
+															</ChatInputProvider>
 														</ImportExportProvider>
 													</ChatProvider>
 												</PromptUsageProvider>

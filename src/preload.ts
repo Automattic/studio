@@ -25,8 +25,11 @@ const api: IpcApi = {
 		ipcRenderer.invoke( 'saveSnapshotsToStorage', snapshots ),
 	getSnapshots: () => ipcRenderer.invoke( 'getSnapshots' ),
 	getSiteDetails: () => ipcRenderer.invoke( 'getSiteDetails' ),
-	openSiteURL: ( id: string, relativeURL = '' ) =>
-		ipcRenderer.invoke( 'openSiteURL', id, relativeURL ),
+	openSiteURL: (
+		id: string,
+		relativeURL = '',
+		{ autoLogin = true }: { autoLogin?: boolean } = {}
+	) => ipcRenderer.invoke( 'openSiteURL', id, relativeURL, { autoLogin } ),
 	openURL: ( url: string ) => ipcRenderer.invoke( 'openURL', url ),
 	showOpenFolderDialog: ( title: string ) => ipcRenderer.invoke( 'showOpenFolderDialog', title ),
 	showSaveAsDialog: ( options: SaveDialogOptions ) =>

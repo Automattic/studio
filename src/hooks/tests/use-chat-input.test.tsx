@@ -6,7 +6,7 @@ const wrapper = ( { children }: { children: ReactNode } ) => (
 	<ChatInputProvider>{ children }</ChatInputProvider>
 );
 
-describe( 'useChatInput jook', () => {
+describe( 'useChatInput hook', () => {
 	it( 'should provide default values', () => {
 		const { result } = renderHook( () => useChatInputContext(), { wrapper } );
 

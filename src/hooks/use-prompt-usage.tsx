@@ -44,27 +44,20 @@ export function PromptUsageProvider( { children }: PromptUsageProps ) {
 	const { Provider } = promptUsageContext;
 	const { assistantEnabled } = useFeatureFlags();
 
-	const [ initiated, setInitiated ] = useState( false );
 	const [ promptLimit, setPromptLimit ] = useState( LIMIT_OF_PROMPTS_PER_USER );
 	const [ promptCount, setPromptCount ] = useState( 0 );
 	const [ quotaResetDate, setQuotaResetDate ] = useState( '' );
 	const { client } = useAuth();
 
-	const updatePromptUsage = useCallback(
-		( data: { maxQuota: string; remainingQuota: string } ) => {
-			const limit = parseInt( data.maxQuota as string );
-			const remaining = parseInt( data.remainingQuota as string );
-			if ( isNaN( limit ) || isNaN( remaining ) ) {
-				return;
-			}
-			setPromptLimit( limit );
-			setPromptCount( limit - remaining );
-			if ( ! initiated ) {
-				setInitiated( true );
-			}
-		},
-		[ initiated ]
-	);
+	const updatePromptUsage = useCallback( ( data: { maxQuota: string; remainingQuota: string } ) => {
+		const limit = parseInt( data.maxQuota as string );
+		const remaining = parseInt( data.remainingQuota as string );
+		if ( isNaN( limit ) || isNaN( remaining ) ) {
+			return;
+		}
+		setPromptLimit( limit );
+		setPromptCount( limit - remaining );
+	}, [] );
 
 	const fetchPromptUsage = useCallback( async () => {
 		if ( ! client?.req || ! assistantEnabled ) {
@@ -72,13 +65,12 @@ export function PromptUsageProvider( { children }: PromptUsageProps ) {
 		}
 		try {
 			const response = await client.req.get( {
-				method: 'GET',
 				path: '/studio-app/ai-assistant/quota',
 				apiNamespace: 'wpcom/v2',
 			} );
 			updatePromptUsage( {
-				maxQuota: response.max_quota || '',
-				remainingQuota: response.remaining_quota || '',
+				maxQuota: response.max_quota ?? '',
+				remainingQuota: response.remaining_quota ?? '',
 			} );
 			setQuotaResetDate( response.quota_reset_date || '' );
 		} catch ( error ) {
@@ -88,11 +80,11 @@ export function PromptUsageProvider( { children }: PromptUsageProps ) {
 	}, [ assistantEnabled, client, updatePromptUsage ] );
 
 	useEffect( () => {
-		if ( ! client || initiated ) {
+		if ( ! client ) {
 			return;
 		}
 		fetchPromptUsage();
-	}, [ fetchPromptUsage, client, initiated ] );
+	}, [ fetchPromptUsage, client ] );
 
 	const daysUntilReset = useMemo(
 		() => calculateDaysRemaining( quotaResetDate ),

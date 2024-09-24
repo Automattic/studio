@@ -166,6 +166,7 @@ export class SiteServer {
 
 	async executeWpCliCommand( args: string ): Promise< WpCliResult > {
 		const projectPath = this.details.path;
+		const phpVersion = this.details.phpVersion;
 
 		if ( ! this.wpCliExecutor ) {
 			this.wpCliExecutor = new WpCliProcess( projectPath );
@@ -183,7 +184,7 @@ export class SiteServer {
 		}
 
 		try {
-			return await this.wpCliExecutor.execute( wpCliArgs as string[] );
+			return await this.wpCliExecutor.execute( wpCliArgs as string[], { phpVersion } );
 		} catch ( error ) {
 			if ( ( error as MessageCanceled )?.canceled ) {
 				return { stdout: '', stderr: 'wp-cli command canceled', exitCode: 1 };

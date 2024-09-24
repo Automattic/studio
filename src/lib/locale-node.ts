@@ -11,9 +11,13 @@ export function getSupportedLocale() {
 }
 
 export async function getUserLocaleWithFallback() {
-	const { locale } = await loadUserData();
-	if ( ! locale || ! isSupportedLocale( locale ) ) {
+	try {
+		const { locale } = await loadUserData();
+		if ( ! locale || ! isSupportedLocale( locale ) ) {
+			return getSupportedLocale();
+		}
+		return locale;
+	} catch ( error ) {
 		return getSupportedLocale();
 	}
-	return locale;
 }

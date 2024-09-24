@@ -1,6 +1,12 @@
 import { BrowserWindow, type BrowserWindowConstructorOptions } from 'electron';
+import installExtension, { REACT_DEVELOPER_TOOLS } from 'electron-devtools-installer';
 import { moveDatabasesInSitu } from '../vendor/wp-now/src';
-import { MAIN_MIN_HEIGHT, MAIN_MIN_WIDTH, WINDOWS_TITLEBAR_HEIGHT } from './constants';
+import {
+	DEFAULT_WIDTH,
+	MAIN_MIN_HEIGHT,
+	MAIN_MIN_WIDTH,
+	WINDOWS_TITLEBAR_HEIGHT,
+} from './constants';
 import { isEmptyDir } from './lib/fs-utils';
 import { portFinder } from './lib/port-finder';
 import { keepSqliteIntegrationUpdated } from './lib/sqlite-versions';
@@ -19,6 +25,7 @@ let mainWindow: BrowserWindow | null;
 function setupDevTools( mainWindow: BrowserWindow | null, devToolsOpen?: boolean ) {
 	if ( devToolsOpen || ( process.env.NODE_ENV === 'development' && devToolsOpen === undefined ) ) {
 		mainWindow?.webContents.openDevTools();
+		installExtension( REACT_DEVELOPER_TOOLS );
 	}
 }
 
@@ -52,7 +59,7 @@ export function createMainWindow(): BrowserWindow {
 
 	mainWindow = new BrowserWindow( {
 		height: MAIN_MIN_HEIGHT,
-		width: MAIN_MIN_WIDTH,
+		width: DEFAULT_WIDTH,
 		backgroundColor: 'rgba(30, 30, 30, 1)',
 		minHeight: MAIN_MIN_HEIGHT,
 		minWidth: MAIN_MIN_WIDTH,

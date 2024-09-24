@@ -4,7 +4,7 @@ import { match } from '@formatjs/intl-localematcher';
 import fs from 'fs-extra';
 import { getResourcesPath } from '../storage/paths';
 import { DEFAULT_LOCALE } from './locale';
-import { getSupportedLocale } from './locale-node';
+import { getUserLocaleWithFallback } from './locale-node';
 
 interface TranslationsData {
 	translations: Translation[];
@@ -94,7 +94,8 @@ export async function getPreferredSiteLanguage( wpVersion = 'latest' ) {
 		// Filter special locales
 		.filter( ( item ) => SKIP_LOCALE_TAGS.every( ( tagToSkip ) => ! item.endsWith( tagToSkip ) ) );
 
-	return match( [ getSupportedLocale() ], availableLanguages, DEFAULT_LOCALE )
+	const preferredLanguage = await getUserLocaleWithFallback();
+	return match( [ preferredLanguage ], availableLanguages, DEFAULT_LOCALE )
 		.split( '-' )
 		.join( '_' );
 }

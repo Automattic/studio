@@ -8,14 +8,14 @@ import { defineConfig } from 'vite';
 // eslint-disable-next-line @nx/enforce-module-boundaries
 import { viteTsConfigPaths } from '../vite-ts-config-paths';
 
-export default defineConfig(() => {
+export default defineConfig( () => {
 	return {
 		cacheDir: '../../node_modules/.vite/wp-now',
 
 		plugins: [
-			viteTsConfigPaths({
+			viteTsConfigPaths( {
 				root: '../../',
-			}),
+			} ),
 		],
 
 		test: {
@@ -24,7 +24,7 @@ export default defineConfig(() => {
 				dir: '../../node_modules/.vitest',
 			},
 			environment: 'jsdom',
-			include: ['src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
+			include: [ 'src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}' ],
 		},
 	};
-});
+} );

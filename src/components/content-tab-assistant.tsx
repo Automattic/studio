@@ -7,7 +7,7 @@ import { __, _n, sprintf } from '@wordpress/i18n';
 import { Icon, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import React, { useState, useEffect, useRef, memo, useCallback, useMemo } from 'react';
-import { AI_GUIDELINES_URL } from '../constants';
+import { AI_GUIDELINES_URL, LIMIT_OF_PROMPTS_PER_USER } from '../constants';
 import { useAssistant, Message as MessageType } from '../hooks/use-assistant';
 import { useAssistantApi } from '../hooks/use-assistant-api';
 import { useAuth } from '../hooks/use-auth';
@@ -22,6 +22,7 @@ import { AIInput } from './ai-input';
 import { MessageThinking } from './assistant-thinking';
 import Button from './button';
 import { ChatMessage, MarkDownWithCode } from './chat-message';
+import { ChatRating } from './chat-rating';
 import offlineIcon from './offline-icon';
 import WelcomeComponent from './welcome-message-prompt';
 
@@ -49,7 +50,7 @@ const ErrorNotice = ( {
 						<Button
 							variant="link"
 							onClick={ () => handleSend( messageContent, true ) }
-							className="text-xs"
+							className="text-xs !ml-1"
 						/>
 					),
 				}
@@ -108,6 +109,9 @@ interface AuthenticatedViewProps {
 	updateMessage: OnUpdateMessageType;
 	siteId: string;
 	handleSend: ( messageToSend?: string, isRetry?: boolean ) => void;
+	markMessageAsFeedbackReceived: ReturnType<
+		typeof useAssistant
+	>[ 'markMessageAsFeedbackReceived' ];
 }
 
 export const AuthenticatedView = memo(
@@ -117,6 +121,7 @@ export const AuthenticatedView = memo(
 		updateMessage,
 		siteId,
 		handleSend,
+		markMessageAsFeedbackReceived,
 	}: AuthenticatedViewProps ) => {
 		const endOfMessagesRef = useRef< HTMLDivElement >( null );
 		const [ showThinking, setShowThinking ] = useState( false );
@@ -175,11 +180,13 @@ export const AuthenticatedView = memo(
 				siteId,
 				updateMessage,
 				message,
+				children,
 			}: {
 				message: MessageType;
 				showThinking: boolean;
 				siteId: string;
 				updateMessage: OnUpdateMessageType;
+				children: React.ReactNode;
 			} ) => {
 				const thinkingAnimation = {
 					initial: { opacity: 0, y: 20 },
@@ -190,6 +197,7 @@ export const AuthenticatedView = memo(
 					initial: { opacity: 0, y: 20 },
 					animate: { opacity: 1, y: 0 },
 				};
+
 				return (
 					<>
 						<ChatMessage
@@ -224,6 +232,7 @@ export const AuthenticatedView = memo(
 											updateMessage={ updateMessage }
 											content={ message.content }
 										/>
+										{ children }
 									</motion.div>
 								) }
 							</AnimatePresence>
@@ -237,7 +246,6 @@ export const AuthenticatedView = memo(
 		if ( messages.length === 0 ) {
 			return null;
 		}
-
 		return (
 			<>
 				{ messagesToRender.map( ( message ) => (
@@ -249,7 +257,17 @@ export const AuthenticatedView = memo(
 						updateMessage={ updateMessage }
 						message={ lastMessage }
 						showThinking={ showThinking }
-					/>
+					>
+						<div className="flex justify-end">
+							{ !! lastMessage.messageApiId && (
+								<ChatRating
+									messageApiId={ lastMessage.messageApiId }
+									markMessageAsFeedbackReceived={ markMessageAsFeedbackReceived }
+									feedbackReceived={ !! lastMessage.feedbackReceived }
+								/>
+							) }
+						</div>
+					</RenderLastMessage>
 				) }
 				<div ref={ endOfMessagesRef } />
 			</>
@@ -288,7 +306,10 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 			) }
 		</div>
 		<div className="mb-3">
-			{ __( 'Every account gets 200 prompts included for free each month.' ) }
+			{ sprintf(
+				__( 'Every account gets %d prompts included for free each month.' ),
+				LIMIT_OF_PROMPTS_PER_USER
+			) }
 		</div>
 		<Button variant="primary" onClick={ onAuthenticate }>
 			{ __( 'Log in to WordPress.com' ) }
@@ -301,8 +322,16 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const inputRef = useRef< HTMLTextAreaElement >( null );
 	const currentSiteChatContext = useChatContext();
 	const { isAuthenticated, authenticate, user } = useAuth();
-	const { messages, addMessage, clearMessages, updateMessage, markMessageAsFailed, chatId } =
-		useAssistant( user?.id ? `${ user.id }_${ selectedSite.id }` : selectedSite.id );
+	const instanceId = user?.id ? `${ user.id }_${ selectedSite.id }` : selectedSite.id;
+	const {
+		messages,
+		addMessage,
+		clearMessages,
+		updateMessage,
+		markMessageAsFailed,
+		chatId,
+		markMessageAsFeedbackReceived,
+	} = useAssistant( instanceId );
 	const { userCanSendMessage } = usePromptUsage();
 	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi( selectedSite.id );
 	const { messages: welcomeMessages, examplePrompts } = useWelcomeMessages();
@@ -332,7 +361,11 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 				setInput( '' );
 			}
 			try {
-				const { message, chatId: fetchedChatId } = await fetchAssistant(
+				const {
+					message,
+					chatId: fetchedChatId,
+					messageApiId,
+				} = await fetchAssistant(
 					chatId,
 					[
 						...messages,
@@ -341,7 +374,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 					currentSiteChatContext
 				);
 				if ( message ) {
-					addMessage( message, 'assistant', chatId ?? fetchedChatId );
+					addMessage( message, 'assistant', chatId ?? fetchedChatId, messageApiId );
 				}
 			} catch ( error ) {
 				if ( typeof messageId !== 'undefined' ) {
@@ -395,15 +428,19 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 								showExamplePrompts={ messages.length === 0 }
 								messages={ welcomeMessages }
 								examplePrompts={ examplePrompts }
+								siteId={ selectedSite.id }
 								disabled={ disabled }
 							/>
-							<AuthenticatedView
-								messages={ messages }
-								isAssistantThinking={ isAssistantThinking }
-								updateMessage={ updateMessage }
-								siteId={ selectedSite.id }
-								handleSend={ handleSend }
-							/>
+							{
+								<AuthenticatedView
+									messages={ messages }
+									isAssistantThinking={ isAssistantThinking }
+									updateMessage={ updateMessage }
+									markMessageAsFeedbackReceived={ markMessageAsFeedbackReceived }
+									siteId={ selectedSite.id }
+									handleSend={ handleSend }
+								/>
+							}
 						</>
 					) : (
 						! isOffline && <UnauthenticatedView onAuthenticate={ authenticate } />

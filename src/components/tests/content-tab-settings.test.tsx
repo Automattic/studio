@@ -57,9 +57,7 @@ describe( 'ContentTabSettings', () => {
 		expect(
 			screen.getByRole( 'button', { name: 'localhost:8881, Copy site url to clipboard' } )
 		).toHaveTextContent( 'localhost:8881' );
-		expect(
-			screen.getByRole( 'button', { name: '/path/to/site, Open local path' } )
-		).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Copy local path to clipboard' } ) ).toBeVisible();
 		expect( screen.getByText( '7.7.7' ) ).toBeVisible();
 		expect(
 			screen.getByRole( 'button', {
@@ -68,14 +66,15 @@ describe( 'ContentTabSettings', () => {
 		).toHaveTextContent( 'localhost:8881/wp-admin' );
 	} );
 
-	test( 'button opens local path', async () => {
+	test( 'allows copying the site path', async () => {
 		const user = userEvent.setup();
 		render( <ContentTabSettings selectedSite={ selectedSite } /> );
 
-		const pathButton = screen.getByRole( 'button', { name: '/path/to/site, Open local path' } );
-		expect( pathButton ).toBeVisible();
-		await user.click( pathButton );
-		expect( openLocalPath ).toHaveBeenCalledWith( '/path/to/site' );
+		const localPathButton = screen.getByRole( 'button', { name: 'Copy local path to clipboard' } );
+		expect( localPathButton ).toBeVisible();
+		await user.click( localPathButton );
+		expect( copyText ).toHaveBeenCalledTimes( 1 );
+		expect( copyText ).toHaveBeenCalledWith( '/path/to/site' );
 	} );
 
 	test( 'URL buttons work well when site is running', async () => {

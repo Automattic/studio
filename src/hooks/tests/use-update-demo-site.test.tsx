@@ -128,6 +128,106 @@ describe( 'useUpdateDemoSite', () => {
 		expect( result.current.isDemoSiteUpdating( mockLocalSite.id ) ).toBe( false );
 	} );
 
+	it( 'should allow updating two sites independently with different completion times', async () => {
+		const mockSnapshot2: Snapshot = {
+			atomicSiteId: 67890,
+			localSiteId: '09876',
+			url: '',
+			date: 0,
+		};
+		const mockLocalSite2: SiteDetails = {
+			name: 'Test Site 2',
+			running: false,
+			phpVersion: '8.0',
+			id: '09876',
+			path: '/path/to/site2',
+		};
+
+		// Mock different response times for each site
+		clientReqPost.mockImplementation( ( args ) => {
+			if ( args.formData[ 0 ][ 1 ] === mockSnapshot.atomicSiteId ) {
+				return new Promise( ( resolve ) =>
+					setTimeout( () => resolve( { data: 'success' } ), 1000 )
+				);
+			} else {
+				return new Promise( ( resolve ) =>
+					setTimeout( () => resolve( { data: 'success' } ), 2000 )
+				);
+			}
+		} );
+
+		const { result } = renderHook( () => useUpdateDemoSite(), { wrapper } );
+
+		// Start updating both sites
+		await act( async () => {
+			result.current.updateDemoSite( mockSnapshot, mockLocalSite );
+			result.current.updateDemoSite( mockSnapshot2, mockLocalSite2 );
+		} );
+
+		// Initially, both sites should be marked as updating
+		expect( result.current.isDemoSiteUpdating( mockLocalSite.id ) ).toBe( true );
+		expect( result.current.isDemoSiteUpdating( mockLocalSite2.id ) ).toBe( true );
+
+		// Wait for the first site to complete
+		await act( async () => {
+			jest.advanceTimersByTime( 1000 );
+			await Promise.resolve();
+		} );
+
+		// After 1000ms, the first site should be done, but the second should still be updating
+		expect( result.current.isDemoSiteUpdating( mockLocalSite.id ) ).toBe( false );
+		expect( result.current.isDemoSiteUpdating( mockLocalSite2.id ) ).toBe( true );
+
+		// Wait for the second site to complete
+		await act( async () => {
+			jest.advanceTimersByTime( 1000 );
+			await Promise.resolve();
+		} );
+
+		// After another 1000ms, both sites should be done updating
+		expect( result.current.isDemoSiteUpdating( mockLocalSite.id ) ).toBe( false );
+		expect( result.current.isDemoSiteUpdating( mockLocalSite2.id ) ).toBe( false );
+
+		// Assert that the update function was called for both sites
+		expect( clientReqPost ).toHaveBeenCalledTimes( 2 );
+		expect( clientReqPost ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				path: '/jurassic-ninja/update-site-from-zip',
+				apiNamespace: 'wpcom/v2',
+				formData: expect.arrayContaining( [
+					[ 'site_id', mockSnapshot.atomicSiteId ],
+					expect.arrayContaining( [] ),
+					[ 'wordpress_version', '6.5' ],
+				] ),
+			} )
+		);
+		expect( clientReqPost ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				path: '/jurassic-ninja/update-site-from-zip',
+				apiNamespace: 'wpcom/v2',
+				formData: expect.arrayContaining( [
+					[ 'site_id', mockSnapshot2.atomicSiteId ],
+					expect.arrayContaining( [] ),
+					[ 'wordpress_version', '6.5' ],
+				] ),
+			} )
+		);
+
+		// Assert that updateSnapshot was called for both sites
+		expect( updateSnapshotMock ).toHaveBeenCalledTimes( 2 );
+		expect( updateSnapshotMock ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				...mockSnapshot,
+				date: expect.any( Number ),
+			} )
+		);
+		expect( updateSnapshotMock ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				...mockSnapshot2,
+				date: expect.any( Number ),
+			} )
+		);
+	} );
 	afterEach( () => {
 		jest.restoreAllMocks();
 	} );

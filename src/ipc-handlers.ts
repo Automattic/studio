@@ -16,7 +16,7 @@ import * as Sentry from '@sentry/electron/main';
 import { LocaleData, defaultI18n } from '@wordpress/i18n';
 import archiver from 'archiver';
 import { DEFAULT_PHP_VERSION } from '../vendor/wp-now/src/constants';
-import { SIZE_LIMIT_BYTES } from './constants';
+import { MAIN_MIN_WIDTH, SIDEBAR_WIDTH, SIZE_LIMIT_BYTES } from './constants';
 import { isEmptyDir, pathExists, isWordPressDirectory, sanitizeFolderName } from './lib/fs-utils';
 import { getImageData } from './lib/get-image-data';
 import { exportBackup } from './lib/import-export/export/export-manager';
@@ -735,4 +735,63 @@ export function setDefaultLocaleData( _event: IpcMainInvokeEvent, locale?: Local
 
 export function resetDefaultLocaleData( _event: IpcMainInvokeEvent ) {
 	defaultI18n.resetLocaleData();
+}
+
+export function toggleMinWindowWidth( event: IpcMainInvokeEvent, isSidebarVisible: boolean ) {
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+	if ( ! parentWindow || parentWindow.isDestroyed() || event.sender.isDestroyed() ) {
+		return;
+	}
+	const [ currentWidth, currentHeight ] = parentWindow.getSize();
+	const newWidth = Math.max(
+		MAIN_MIN_WIDTH,
+		isSidebarVisible ? currentWidth - SIDEBAR_WIDTH : currentWidth + SIDEBAR_WIDTH
+	);
+	parentWindow.setSize( newWidth, currentHeight, true );
+}
+
+/**
+ * Returns the absolute path of a file in the site's directory.
+ * Returns null if the file does not exist.
+ */
+export async function getAbsolutePathFromSite(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	relativePath: string
+): Promise< string | null > {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( 'Site not found.' );
+	}
+
+	const path = nodePath.join( server.details.path, relativePath );
+	return ( await pathExists( path ) ) ? path : null;
+}
+
+/**
+ * Opens a file in the IDE with the site context.
+ */
+export async function openFileInIDE(
+	_event: IpcMainInvokeEvent,
+	relativePath: string,
+	siteId: string
+) {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( 'Site not found.' );
+	}
+
+	const path = await getAbsolutePathFromSite( _event, siteId, relativePath );
+	if ( ! path ) {
+		return;
+	}
+
+	if ( isInstalled( 'vscode' ) ) {
+		// Open site first to ensure the file is opened within the site context
+		await shell.openExternal( `vscode://file/${ server.details.path }?windowId=_blank` );
+		await shell.openExternal( `vscode://file/${ path }` );
+	} else if ( isInstalled( 'phpstorm' ) ) {
+		// Open site first to ensure the file is opened within the site context
+		await shell.openExternal( `phpstorm://open?file=${ path }` );
+	}
 }

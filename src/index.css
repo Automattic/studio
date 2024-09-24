@@ -146,6 +146,20 @@ blockquote {
 	border-radius: 2px;
 }
 
+.assistant-markdown code.file-block {
+	color: theme( 'colors.a8c-blueberry' );
+	fill: theme( 'colors.a8c-blueberry' );
+	display: inline-flex;
+	align-items: center;
+	padding: 0 0 0 3px;
+	cursor: pointer;
+}
+
+.assistant-markdown code.file-block:hover {
+	color: theme( 'colors.a8c-blueberry-70' );
+	fill: theme( 'colors.a8c-blueberry-70' );
+}
+
 .assistant-markdown pre {
 	background-color: theme( 'colors.a8c-gray.90' );
 	border-radius: 5px;

@@ -479,12 +479,25 @@ export async function getSnapshots( _event: IpcMainInvokeEvent ): Promise< Snaps
 	return snapshots;
 }
 
-export async function openSiteURL( event: IpcMainInvokeEvent, id: string, relativeURL = '' ) {
+export async function openSiteURL(
+	event: IpcMainInvokeEvent,
+	id: string,
+	relativeURL = '',
+	{ autoLogin = true }: { autoLogin?: boolean } = {}
+) {
 	const site = SiteServer.get( id );
 	if ( ! site ) {
 		throw new Error( 'Site not found.' );
 	}
-	shell.openExternal( site.server?.url + relativeURL );
+	if ( ! site.server?.url ) {
+		throw new Error( 'Site server URL not found.' );
+	}
+	const url = new URL( site.server.url + relativeURL );
+	if ( autoLogin ) {
+		url.searchParams.append( 'playground-auto-login', 'true' );
+	}
+
+	shell.openExternal( url.toString() );
 }
 
 export async function openURL( event: IpcMainInvokeEvent, url: string ) {

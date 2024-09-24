@@ -35,7 +35,7 @@ export default function Header() {
 						<Button
 							disabled={ ! site.running }
 							className="[&.is-link]:text-a8c-gray-70 [&.is-link]:hover:text-a8c-blueberry !px-0 h-0 leading-4"
-							onClick={ () => getIpcApi().openSiteURL( site.id ) }
+							onClick={ () => getIpcApi().openSiteURL( site.id, '', { autoLogin: false } ) }
 							variant="link"
 						>
 							{

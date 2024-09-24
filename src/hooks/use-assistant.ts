@@ -23,6 +23,7 @@ export type MessageDict = { [ key: string ]: Message[] };
 export type ChatIdDict = { [ key: string ]: string | undefined };
 
 const chatIdStoreKey = 'ai_chat_ids';
+const EMPTY_MESSAGES: Message[] = [];
 
 export const useAssistant = ( instanceId: string ) => {
 	const [ messagesDict, setMessagesDict ] = useState< MessageDict >( {} );
@@ -189,7 +190,7 @@ export const useAssistant = ( instanceId: string ) => {
 	}, [ instanceId ] );
 
 	return {
-		messages: messagesDict[ instanceId ] || [],
+		messages: messagesDict[ instanceId ] || EMPTY_MESSAGES,
 		addMessage,
 		updateMessage,
 		clearMessages,

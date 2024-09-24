@@ -341,48 +341,54 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const lastMessage = messages.length === 0 ? undefined : messages[ messages.length - 1 ];
 	const hasFailedMessage = messages.some( ( msg ) => msg.failedMessage );
 
-	const handleSend = async ( messageToSend?: string, isRetry?: boolean ) => {
-		const chatMessage = messageToSend || input;
-		let messageId;
-		if ( chatMessage.trim() ) {
-			if ( isRetry ) {
-				// If retrying, find the message ID with failedMessage flag
-				const failedMessage = messages.find(
-					( msg ) => msg.failedMessage && msg.content === chatMessage
-				);
-				if ( failedMessage ) {
-					messageId = failedMessage.id;
+	const handleSend = useCallback(
+		async ( messageToSend?: string, isRetry?: boolean ) => {
+			const chatMessage = messageToSend || inputRef.current?.value;
+			if ( ! chatMessage ) {
+				return;
+			}
+			let messageId;
+			if ( chatMessage.trim() ) {
+				if ( isRetry ) {
+					// If retrying, find the message ID with failedMessage flag
+					const failedMessage = messages.find(
+						( msg ) => msg.failedMessage && msg.content === chatMessage
+					);
+					if ( failedMessage ) {
+						messageId = failedMessage.id;
+						if ( typeof messageId !== 'undefined' ) {
+							markMessageAsFailed( messageId, false );
+						}
+					}
+				} else {
+					messageId = addMessage( chatMessage, 'user', chatId ); // Get the new message ID
+					setInput( '' );
+				}
+				try {
+					const {
+						message,
+						chatId: fetchedChatId,
+						messageApiId,
+					} = await fetchAssistant(
+						chatId,
+						[
+							...messages,
+							{ id: messageId, content: chatMessage, role: 'user', createdAt: Date.now() },
+						],
+						currentSiteChatContext
+					);
+					if ( message ) {
+						addMessage( message, 'assistant', chatId ?? fetchedChatId, messageApiId );
+					}
+				} catch ( error ) {
 					if ( typeof messageId !== 'undefined' ) {
-						markMessageAsFailed( messageId, false );
+						markMessageAsFailed( messageId, true );
 					}
 				}
-			} else {
-				messageId = addMessage( chatMessage, 'user', chatId ); // Get the new message ID
-				setInput( '' );
 			}
-			try {
-				const {
-					message,
-					chatId: fetchedChatId,
-					messageApiId,
-				} = await fetchAssistant(
-					chatId,
-					[
-						...messages,
-						{ id: messageId, content: chatMessage, role: 'user', createdAt: Date.now() },
-					],
-					currentSiteChatContext
-				);
-				if ( message ) {
-					addMessage( message, 'assistant', chatId ?? fetchedChatId, messageApiId );
-				}
-			} catch ( error ) {
-				if ( typeof messageId !== 'undefined' ) {
-					markMessageAsFailed( messageId, true );
-				}
-			}
-		}
-	};
+		},
+		[ addMessage, chatId, currentSiteChatContext, fetchAssistant, markMessageAsFailed, messages ]
+	);
 
 	const handleKeyDown = ( e: React.KeyboardEvent< HTMLTextAreaElement > ) => {
 		if ( e.key === 'Enter' ) {

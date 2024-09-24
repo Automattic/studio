@@ -489,7 +489,10 @@ export async function openSiteURL(
 	if ( ! site ) {
 		throw new Error( 'Site not found.' );
 	}
-	const url = new URL( site.server?.url + relativeURL );
+	if ( ! site.server?.url ) {
+		throw new Error( 'Site server URL not found.' );
+	}
+	const url = new URL( site.server.url + relativeURL );
 	if ( autoLogin ) {
 		url.searchParams.append( 'playground-auto-login', 'true' );
 	}

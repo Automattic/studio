@@ -415,12 +415,9 @@ async function initWordPress(
 		WP_SITEURL: siteUrl,
 	};
 
-	output.log(`WordPress version detected: ${wordPressVersion}`);
-
 	if ( wordPressVersion !== 'user-provided' ) {
 		wpConfigConsts[ 'WP_AUTO_UPDATE_CORE' ] = wordPressVersion === 'latest';
 	}
-
 	await defineWpConfigConsts( php, {
 		consts: wpConfigConsts,
 		method: 'define-before-run',

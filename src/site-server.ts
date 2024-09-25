@@ -164,9 +164,12 @@ export class SiteServer {
 			.finally( () => window.destroy() );
 	}
 
-	async executeWpCliCommand( args: string ): Promise< WpCliResult > {
+	async executeWpCliCommand(
+		args: string,
+		{ targetPhpVersion }: { targetPhpVersion?: string } = {}
+	): Promise< WpCliResult > {
 		const projectPath = this.details.path;
-		const phpVersion = this.details.phpVersion;
+		const phpVersion = targetPhpVersion ?? this.details.phpVersion;
 
 		if ( ! this.wpCliExecutor ) {
 			this.wpCliExecutor = new WpCliProcess( projectPath );

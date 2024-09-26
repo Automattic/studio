@@ -301,17 +301,24 @@ describe( 'createCodeComponent', () => {
 		} );
 
 		it( 'should copy the code content to the clipboard and open terminal', async () => {
+			( getIpcApi as jest.Mock ).mockReturnValue( {
+				copyText: jest.fn(),
+				openTerminalAtPath: jest.fn(),
+				showNotification: jest.fn(),
+			} );
 			render( <CodeBlock className="language-bash" children="wp plugin list" /> );
 
 			fireEvent.click( screen.getByText( 'Open in terminal' ) );
 
-			expect( getIpcApi().copyText ).toHaveBeenCalledWith( 'wp plugin list' );
-			expect( getIpcApi().openTerminalAtPath ).toHaveBeenCalledWith(
-				selectedSite.path,
-				expect.any( Object )
-			);
-			expect( getIpcApi().showNotification ).toHaveBeenCalledWith( {
-				title: 'Command copied to the clipboard',
+			await waitFor( () => {
+				expect( getIpcApi().copyText ).toHaveBeenCalledWith( 'wp plugin list' );
+				expect( getIpcApi().openTerminalAtPath ).toHaveBeenCalledWith(
+					selectedSite.path,
+					expect.any( Object )
+				);
+				expect( getIpcApi().showNotification ).toHaveBeenCalledWith( {
+					title: 'Command copied to the clipboard',
+				} );
 			} );
 		} );
 	} );

@@ -59,7 +59,9 @@ export async function startServer( options: WPNowOptions = {} ): Promise< WPNowS
 				},
 			} );
 			const cookies = response.headers[ 'set-cookie' ];
-			res.setHeader( 'set-cookie', cookies );
+			if ( cookies ) {
+				res.setHeader( 'set-cookie', cookies );
+			}
 			// Remove query parameter to avoid infinite loop
 			let redirectUrl = req.url.replace( /&?playground-auto-login=true/, '' );
 			// If no more query parameters, remove ? from URL

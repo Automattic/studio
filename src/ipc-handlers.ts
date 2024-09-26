@@ -672,16 +672,7 @@ export function openTerminalAtPath(
 				if not application "Terminal" is running then launch
 				do script "${ wpCliEnabled ? loadWpCliCommand : '' } cd ${ targetPath } && clear"
 				activate
-			end tell
-
-			delay 0.5 -- Small delay to ensure the terminal is ready
-
-			tell application "System Events"
-				tell process "Terminal"
-					keystroke "v" using command down -- Simulate Cmd+V to paste the clipboard
-				end tell
-			end tell
-			`;
+			end tell`;
 			command = `osascript -e '${ script }'`;
 		} else if ( platform === 'linux' ) {
 			// Linux

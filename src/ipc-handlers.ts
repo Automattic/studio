@@ -804,5 +804,5 @@ export async function isImportExportSupported( _event: IpcMainInvokeEvent, siteI
 	if ( ! site ) {
 		throw new Error( 'Site not found.' );
 	}
-	return site.isSQLiteInstalled();
+	return site.isSQLitePluginActivated();
 }

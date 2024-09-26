@@ -199,7 +199,7 @@ export class SiteServer {
 		}
 	}
 
-	async isSQLiteInstalled(): Promise< boolean > {
+	async isSQLitePluginActivated(): Promise< boolean > {
 		const sqlitePath = nodePath.join(
 			this.details.path,
 			'wp-content',

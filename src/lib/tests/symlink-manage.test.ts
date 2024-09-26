@@ -140,6 +140,49 @@ describe( 'SymlinkManager', () => {
 				( symlinkManager as unknown as SymlinkManagerPrivateProperties ).mountedTargets.size
 			).toBe( 1 );
 		} );
+
+		it( 'should handle broken symlinks', async () => {
+			const mockSymlink = '/mock/project/path/broken/symlink';
+			const relativeSymlinkPath = 'broken/symlink';
+
+			mockPHP.fileExists.mockImplementation( ( path ) => ! path.includes( 'vfspath' ) );
+			mockPHP.readlink.mockImplementation( ( path ) => '/mock/document/root/vfspath/' + path );
+
+			// Mock fs.readdir to return our mock symlinks
+			( fs.readdir as jest.Mock ).mockResolvedValue( path.basename( mockSymlink ) );
+
+			// Mock fs.lstat to indicate these are symlinks
+			( fs.lstat as jest.Mock ).mockResolvedValue( { isSymbolicLink: () => true } as Stats );
+
+			// Mock fs.realpath to throw ENOENT error, simulating a broken symlink
+			const notFoundError = new Error( 'ENOENT' ) as NodeJS.ErrnoException;
+			notFoundError.code = 'ENOENT';
+			( fs.realpath as jest.Mock ).mockRejectedValue( notFoundError );
+
+			// Spy on console.error
+			const consoleErrorSpy = jest.spyOn( console, 'error' ).mockImplementation();
+
+			await symlinkManager.scanAndCreateSymlinks();
+
+			// Verify that the broken symlink was not added to the internal map
+			expect(
+				( symlinkManager as unknown as SymlinkManagerPrivateProperties ).symlinks.has(
+					relativeSymlinkPath
+				)
+			).toBe( false );
+
+			// Verify that no mount was attempted for the broken symlink
+			expect( mockPHP.mkdir ).not.toHaveBeenCalled();
+			expect( mockPHP.mount ).not.toHaveBeenCalled();
+
+			// Verify that an error was logged
+			expect( consoleErrorSpy ).toHaveBeenCalledWith(
+				expect.stringContaining( 'Symlink target does not exist:' )
+			);
+
+			// Clean up the spy
+			consoleErrorSpy.mockRestore();
+		} );
 	} );
 
 	describe( 'startWatching and stopWatching', () => {

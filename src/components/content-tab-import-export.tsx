@@ -256,9 +256,11 @@ export function ContentTabImportExport( { selectedSite }: ContentTabImportExport
 		return (
 			<div className="flex flex-col p-8">
 				<Notice status="warning" isDismissible={ false }>
-					{ __(
-						"Currently, the app doesn't support Import/Export for sites not using SQLite integration."
-					) }
+					<span className="font-bold">
+						{ __( 'Import / Export is not available for this site' ) }
+					</span>
+					<br />
+					{ __( 'This feature is only available for sites using the default SQLite integration.' ) }
 				</Notice>
 			</div>
 		);

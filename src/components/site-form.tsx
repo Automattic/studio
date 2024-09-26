@@ -289,9 +289,18 @@ export const SiteForm = ( {
 						{ onSelectPath && (
 							<>
 								<div className="flex flex-row items-center mb-0">
-									<Button className="pl-0" onClick={ handleAdvancedSettingsClick }>
-										<Icon size={ 24 } icon={ chevronIcon } />
-										<div className="text-[13px] leading-[16px] ml-2">
+									<Button className={ 'pl-0' } onClick={ handleAdvancedSettingsClick }>
+										<Icon
+											size={ 24 }
+											icon={ chevronIcon }
+											className={ error ? 'text-red-500' : '' }
+										/>
+										<div
+											className={ cx(
+												'text-[13px] leading-[16px] ml-2',
+												error ? 'text-red-500' : ''
+											) }
+										>
 											{ __( 'Advanced settings' ) }
 										</div>
 									</Button>

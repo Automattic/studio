@@ -1,4 +1,5 @@
 import { __ } from '@wordpress/i18n';
+import { forwardRef } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Message } from '../hooks/use-assistant';
@@ -60,61 +61,57 @@ export const MarkDownWithCode = ( {
 		</Markdown>
 	</div>
 );
-
-export const ChatMessage = ( {
-	id,
-	message,
-	className,
-	siteId,
-	updateMessage,
-	children,
-	isUnauthenticated,
-}: ChatMessageProps ) => {
-	return (
-		<div
-			className={ cx(
-				'flex mt-4',
-				isUnauthenticated || message.role !== 'user'
-					? 'justify-start ltr:md:mr-24 rtl:md:ml-24'
-					: 'justify-end ltr:md:ml-24 rtl:md:mr-24',
-				className
-			) }
-		>
-			<div
-				id={ id }
-				role="group"
-				data-testid="chat-message"
-				aria-labelledby={ id }
-				className={ cx(
-					'inline-block p-3 rounded border overflow-x-auto select-text',
-					isUnauthenticated ? 'lg:max-w-[90%]' : 'lg:max-w-[70%]',
-					message.failedMessage
-						? 'border-[#FACFD2] bg-[#F7EBEC]'
-						: message.role === 'user'
-						? 'bg-white'
-						: 'bg-white/45',
-					! message.failedMessage && 'border-gray-300'
-				) }
-			>
-				<div className="relative">
-					<span className="sr-only">
-						{ message.role === 'user' ? __( 'Your message' ) : __( 'Studio Assistant' ) },
-					</span>
+export const ChatMessage = forwardRef< HTMLDivElement, ChatMessageProps >(
+	( { id, message, className, siteId, updateMessage, children, isUnauthenticated }, ref ) => {
+		return (
+			<>
+				<div ref={ ref } className="h-4" />
+				<div
+					className={ cx(
+						'flex',
+						isUnauthenticated || message.role !== 'user'
+							? 'justify-start ltr:md:mr-24 rtl:md:ml-24'
+							: 'justify-end ltr:md:ml-24 rtl:md:mr-24',
+						className
+					) }
+				>
+					<div
+						id={ id }
+						role="group"
+						data-testid="chat-message"
+						aria-labelledby={ id }
+						className={ cx(
+							'inline-block p-3 rounded border overflow-x-auto select-text',
+							isUnauthenticated ? 'lg:max-w-[90%]' : 'lg:max-w-[70%]',
+							message.failedMessage
+								? 'border-[#FACFD2] bg-[#F7EBEC]'
+								: message.role === 'user'
+								? 'bg-white'
+								: 'bg-white/45',
+							! message.failedMessage && 'border-gray-300'
+						) }
+					>
+						<div className="relative">
+							<span className="sr-only">
+								{ message.role === 'user' ? __( 'Your message' ) : __( 'Studio Assistant' ) },
+							</span>
+						</div>
+						{ typeof children === 'string' ? (
+							<>
+								<MarkDownWithCode
+									message={ message }
+									updateMessage={ updateMessage }
+									siteId={ siteId }
+									content={ children }
+								/>
+								{ message.feedbackReceived && <FeedbackThanks /> }
+							</>
+						) : (
+							children
+						) }
+					</div>
 				</div>
-				{ typeof children === 'string' ? (
-					<>
-						<MarkDownWithCode
-							message={ message }
-							updateMessage={ updateMessage }
-							siteId={ siteId }
-							content={ children }
-						/>
-						{ message.feedbackReceived && <FeedbackThanks /> }
-					</>
-				) : (
-					children
-				) }
-			</div>
-		</div>
-	);
-};
+			</>
+		);
+	}
+);

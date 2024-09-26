@@ -73,7 +73,7 @@ const LanguageBlock = ( props: ContextProps & CodeBlockProps ) => {
 					iconSize={ 16 }
 					onCopied={ async () => {
 						await getIpcApi().showNotification( {
-							title: __( 'Command copied to the clipboard' ),
+							title: __( 'Copied to the clipboard' ),
 						} );
 					} }
 				></CopyTextButton>

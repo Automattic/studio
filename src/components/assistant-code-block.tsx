@@ -75,25 +75,27 @@ const LanguageBlock = ( props: ContextProps & CodeBlockProps ) => {
 					className="h-auto mr-2 !px-2.5 py-0.5 !p-[6px] font-sans select-none"
 					iconSize={ 16 }
 				></CopyTextButton>
-				<CopyTextButton
-					icon={ preformatted }
-					text={ content }
-					label={ __( 'Copy and open terminal' ) }
-					copyConfirmation={ __( 'Copied to clipboard' ) }
-					showText={ true }
-					variant="outlined"
-					className="h-auto mr-2 !px-2.5 py-0.5 !p-[6px] font-sans select-none"
-					iconSize={ 16 }
-					onCopied={ async () => {
-						try {
-							await getIpcApi().openTerminalAtPath( selectedSite.path, {
-								wpCliEnabled: terminalWpCliEnabled,
-							} );
-						} catch ( error ) {
-							console.error( error );
-						}
-					} }
-				></CopyTextButton>
+				{ 'language-sh' === props.className && (
+					<CopyTextButton
+						icon={ preformatted }
+						text={ content }
+						label={ __( 'Copy and open terminal' ) }
+						copyConfirmation={ __( 'Copied to clipboard' ) }
+						showText={ true }
+						variant="outlined"
+						className="h-auto mr-2 !px-2.5 py-0.5 !p-[6px] font-sans select-none"
+						iconSize={ 16 }
+						onCopied={ async () => {
+							try {
+								await getIpcApi().openTerminalAtPath( selectedSite.path, {
+									wpCliEnabled: terminalWpCliEnabled,
+								} );
+							} catch ( error ) {
+								console.error( error );
+							}
+						} }
+					></CopyTextButton>
+				) }
 				{ isValidWpCliCommand && (
 					<Button
 						icon={ <ExecuteIcon /> }

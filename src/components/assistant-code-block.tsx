@@ -75,7 +75,7 @@ const LanguageBlock = ( props: ContextProps & CodeBlockProps ) => {
 					className="h-auto mr-2 !px-2.5 py-0.5 !p-[6px] font-sans select-none"
 					iconSize={ 16 }
 				></CopyTextButton>
-				{ 'language-sh' === props.className && (
+				{ [ 'language-sh', 'language-bash' ].includes( props.className || '' ) && (
 					<CopyTextButton
 						icon={ preformatted }
 						text={ content }

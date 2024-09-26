@@ -281,35 +281,38 @@ describe( 'createCodeComponent', () => {
 		} );
 	} );
 
-	describe( 'when the "copy and open terminal" button is clicked', () => {
+	describe( 'when the "open in terminal" button is clicked', () => {
 		it( 'should not be visible for non-bash code blocks', () => {
 			render( <CodeBlock className="language-php" children="<?php echo 'Hello'; ?>" /> );
 
-			expect( screen.queryByText( 'Copy and open terminal' ) ).not.toBeInTheDocument();
+			expect( screen.queryByText( 'Open in terminal' ) ).not.toBeInTheDocument();
 		} );
 
 		it( 'should be visible for bash code blocks', () => {
 			render( <CodeBlock className="language-bash" children="wp plugin list" /> );
 
-			expect( screen.getByText( 'Copy and open terminal' ) ).toBeVisible();
+			expect( screen.getByText( 'Open in terminal' ) ).toBeVisible();
 		} );
 
 		it( 'should be visible for sh code blocks', () => {
 			render( <CodeBlock className="language-sh" children="wp plugin list" /> );
 
-			expect( screen.getByText( 'Copy and open terminal' ) ).toBeVisible();
+			expect( screen.getByText( 'Open in terminal' ) ).toBeVisible();
 		} );
 
 		it( 'should copy the code content to the clipboard and open terminal', async () => {
 			render( <CodeBlock className="language-bash" children="wp plugin list" /> );
 
-			fireEvent.click( screen.getByText( 'Copy and open terminal' ) );
+			fireEvent.click( screen.getByText( 'Open in terminal' ) );
 
 			expect( getIpcApi().copyText ).toHaveBeenCalledWith( 'wp plugin list' );
 			expect( getIpcApi().openTerminalAtPath ).toHaveBeenCalledWith(
 				selectedSite.path,
 				expect.any( Object )
 			);
+			expect( getIpcApi().showNotification ).toHaveBeenCalledWith( {
+				title: 'Command copied to the clipboard',
+			} );
 		} );
 	} );
 } );

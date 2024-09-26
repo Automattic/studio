@@ -1,4 +1,5 @@
 import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { useSiteDetails } from '../../hooks/use-site-details';
 import { getIpcApi } from '../../lib/get-ipc-api';
 import createCodeComponent from '../assistant-code-block';
 
@@ -9,6 +10,22 @@ jest.mock( '../../hooks/use-check-installed-apps', () => ( {
 		phpstorm: false,
 	} ),
 } ) );
+jest.mock( '../../hooks/use-site-details' );
+
+const selectedSite: SiteDetails = {
+	id: 'site-id-1',
+	name: 'Test Site',
+	running: false,
+	path: '/test-site',
+	phpVersion: '8.0',
+	adminPassword: btoa( 'test-password' ),
+};
+
+( useSiteDetails as jest.Mock ).mockReturnValue( {
+	data: [ selectedSite ],
+	loadingSites: false,
+	selectedSite: selectedSite,
+} );
 
 describe( 'createCodeComponent', () => {
 	const contextProps = {

@@ -301,19 +301,12 @@ describe( 'createCodeComponent', () => {
 		} );
 
 		it( 'should copy the code content to the clipboard and open terminal', async () => {
-			const mockCopyText = jest.fn();
-			const mockOpenTerminalAtPath = jest.fn();
-			( getIpcApi as jest.Mock ).mockReturnValue( {
-				copyText: mockCopyText,
-				openTerminalAtPath: mockOpenTerminalAtPath,
-			} );
-
 			render( <CodeBlock className="language-bash" children="wp plugin list" /> );
 
 			fireEvent.click( screen.getByText( 'Copy and open terminal' ) );
 
-			expect( mockCopyText ).toHaveBeenCalledWith( 'wp plugin list' );
-			expect( mockOpenTerminalAtPath ).toHaveBeenCalledWith(
+			expect( getIpcApi().copyText ).toHaveBeenCalledWith( 'wp plugin list' );
+			expect( getIpcApi().openTerminalAtPath ).toHaveBeenCalledWith(
 				selectedSite.path,
 				expect.any( Object )
 			);

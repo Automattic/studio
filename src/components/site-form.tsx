@@ -304,6 +304,12 @@ export const SiteForm = ( {
 											{ __( 'Advanced settings' ) }
 										</div>
 									</Button>
+									{ error && (
+										<span className="text-red-500 text-[13px] leading-[16px] ml-2 flex items-center">
+											<Icon icon={ warning } size={ 16 } className="mr-1 fill-red-500" />
+											{ __( '1 error found' ) }
+										</span>
+									) }
 								</div>
 								<div
 									className={ cx(

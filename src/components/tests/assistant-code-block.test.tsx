@@ -280,4 +280,43 @@ describe( 'createCodeComponent', () => {
 			expect( getIpcApi().openLocalPath ).not.toHaveBeenCalled();
 		} );
 	} );
+
+	describe( 'when the "copy and open terminal" button is clicked', () => {
+		it( 'should not be visible for non-bash code blocks', () => {
+			render( <CodeBlock className="language-php" children="<?php echo 'Hello'; ?>" /> );
+
+			expect( screen.queryByText( 'Copy and open terminal' ) ).not.toBeInTheDocument();
+		} );
+
+		it( 'should be visible for bash code blocks', () => {
+			render( <CodeBlock className="language-bash" children="wp plugin list" /> );
+
+			expect( screen.getByText( 'Copy and open terminal' ) ).toBeInTheDocument();
+		} );
+
+		it( 'should be visible for sh code blocks', () => {
+			render( <CodeBlock className="language-sh" children="wp plugin list" /> );
+
+			expect( screen.getByText( 'Copy and open terminal' ) ).toBeInTheDocument();
+		} );
+
+		it( 'should copy the code content to the clipboard and open terminal', async () => {
+			const mockCopyText = jest.fn();
+			const mockOpenTerminalAtPath = jest.fn();
+			( getIpcApi as jest.Mock ).mockReturnValue( {
+				copyText: mockCopyText,
+				openTerminalAtPath: mockOpenTerminalAtPath,
+			} );
+
+			render( <CodeBlock className="language-bash" children="wp plugin list" /> );
+
+			fireEvent.click( screen.getByText( 'Copy and open terminal' ) );
+
+			expect( mockCopyText ).toHaveBeenCalledWith( 'wp plugin list' );
+			expect( mockOpenTerminalAtPath ).toHaveBeenCalledWith(
+				selectedSite.path,
+				expect.any( Object )
+			);
+		} );
+	} );
 } );

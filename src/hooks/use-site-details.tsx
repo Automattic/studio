@@ -267,6 +267,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 						"Please verify your site's local path directory contains the standard WordPress installation files and try again. If this problem persists, please contact support."
 					),
 				} );
+				getIpcApi().stopServer( id );
 			}
 
 			if ( updatedSite ) {

@@ -208,14 +208,12 @@ export class SiteServer {
 		);
 		const wpConfigPath = nodePath.join( this.details.path, 'wp-config.php' );
 		const databaseIndexPath = nodePath.join( this.details.path, 'wp-content', 'db.php' );
-		const databasePath = nodePath.join( this.details.path, 'wp-content', 'database', '.ht.sqlite' );
 
 		const results = await Promise.all( [
 			fsExtra.pathExists( sqlitePath ),
 			fsExtra.pathExists( wpConfigPath ),
 			fsExtra.pathExists( sqlitePath ),
 			fsExtra.pathExists( databaseIndexPath ),
-			fsExtra.pathExists( databasePath ),
 		] );
 
 		return results.every( Boolean );

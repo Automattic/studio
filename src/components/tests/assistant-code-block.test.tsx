@@ -291,13 +291,13 @@ describe( 'createCodeComponent', () => {
 		it( 'should be visible for bash code blocks', () => {
 			render( <CodeBlock className="language-bash" children="wp plugin list" /> );
 
-			expect( screen.getByText( 'Copy and open terminal' ) ).toBeInTheDocument();
+			expect( screen.getByText( 'Copy and open terminal' ) ).toBeVisible();
 		} );
 
 		it( 'should be visible for sh code blocks', () => {
 			render( <CodeBlock className="language-sh" children="wp plugin list" /> );
 
-			expect( screen.getByText( 'Copy and open terminal' ) ).toBeInTheDocument();
+			expect( screen.getByText( 'Copy and open terminal' ) ).toBeVisible();
 		} );
 
 		it( 'should copy the code content to the clipboard and open terminal', async () => {

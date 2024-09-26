@@ -71,6 +71,11 @@ const LanguageBlock = ( props: ContextProps & CodeBlockProps ) => {
 					variant="outlined"
 					className="h-auto mr-2 !px-2.5 py-0.5 !p-[6px] font-sans select-none"
 					iconSize={ 16 }
+					onCopied={ async () => {
+						await getIpcApi().showNotification( {
+							title: __( 'Command copied to the clipboard' ),
+						} );
+					} }
 				></CopyTextButton>
 				{ [ 'language-sh', 'language-bash' ].includes( props.className || '' ) && selectedSite && (
 					<Button
@@ -83,6 +88,9 @@ const LanguageBlock = ( props: ContextProps & CodeBlockProps ) => {
 								await getIpcApi().copyText( content );
 								await getIpcApi().openTerminalAtPath( selectedSite.path, {
 									wpCliEnabled: terminalWpCliEnabled,
+								} );
+								await getIpcApi().showNotification( {
+									title: __( 'Command copied to the clipboard' ),
 								} );
 							} catch ( error ) {
 								console.error( error );

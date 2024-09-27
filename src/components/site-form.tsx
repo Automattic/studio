@@ -290,11 +290,26 @@ export const SiteForm = ( {
 							<>
 								<div className="flex flex-row items-center mb-0">
 									<Button className="pl-0" onClick={ handleAdvancedSettingsClick }>
-										<Icon size={ 24 } icon={ chevronIcon } />
-										<div className="text-[13px] leading-[16px] ml-2">
+										<Icon
+											size={ 24 }
+											icon={ chevronIcon }
+											className={ error ? 'text-red-500' : '' }
+										/>
+										<div
+											className={ cx(
+												'text-[13px] leading-[16px] ml-2',
+												error ? 'text-red-500' : ''
+											) }
+										>
 											{ __( 'Advanced settings' ) }
 										</div>
 									</Button>
+									{ error && (
+										<span className="text-red-500 text-[13px] leading-[16px] ml-2 flex items-center">
+											<Icon icon={ warning } size={ 16 } className="mr-1 fill-red-500" />
+											{ __( '1 error found' ) }
+										</span>
+									) }
 								</div>
 								<div
 									className={ cx(

@@ -125,6 +125,7 @@ export const AuthenticatedView = memo(
 		markMessageAsFeedbackReceived,
 	}: AuthenticatedViewProps ) => {
 		const endOfMessagesRef = useRef< HTMLDivElement >( null );
+		const lastMessageRef = useRef< HTMLDivElement >( null );
 		const [ showThinking, setShowThinking ] = useState( false );
 		const lastMessage = useMemo(
 			() =>
@@ -136,15 +137,41 @@ export const AuthenticatedView = memo(
 		const messagesToRender =
 			messages[ messages.length - 1 ]?.role === 'assistant' ? messages.slice( 0, -1 ) : messages;
 		const showLastMessage = showThinking || messages[ messages.length - 1 ]?.role === 'assistant';
+		const previousMessagesLength = useRef( messages?.length );
+		const previousSiteId = useRef( siteId );
 
 		useEffect( () => {
-			const timer = setTimeout( () => {
-				if ( endOfMessagesRef.current ) {
-					endOfMessagesRef.current.scrollIntoView( { behavior: 'smooth' } );
+			if ( ! messages?.length ) {
+				previousSiteId.current = siteId;
+				return;
+			}
+
+			let timer: NodeJS.Timeout;
+			// Scroll to the end of the messages when the tab is opened or site ID changes
+			if ( previousMessagesLength.current === 0 || previousSiteId.current !== siteId ) {
+				endOfMessagesRef.current?.scrollIntoView( { behavior: 'instant' } );
+			}
+			// Scroll when a new message is added
+			else if ( messages?.length > previousMessagesLength.current || showLastMessage ) {
+				// Scroll to the beginning of last message received from the assistant
+				if ( showLastMessage ) {
+					timer = setTimeout( () => {
+						if ( lastMessageRef.current ) {
+							lastMessageRef.current.scrollIntoView( { block: 'start', behavior: 'smooth' } );
+						}
+					}, 400 );
 				}
-			}, 400 );
+				// For user messages, scroll to the end of the messages
+				else {
+					endOfMessagesRef.current?.scrollIntoView( { behavior: 'smooth' } );
+				}
+			}
+
+			previousMessagesLength.current = messages?.length;
+			previousSiteId.current = siteId;
+
 			return () => clearTimeout( timer );
-		}, [ messages?.length, isAssistantThinking, showThinking, showLastMessage ] );
+		}, [ messages?.length, showLastMessage, siteId ] );
 
 		useEffect( () => {
 			let timer: NodeJS.Timeout;
@@ -202,6 +229,7 @@ export const AuthenticatedView = memo(
 				return (
 					<>
 						<ChatMessage
+							ref={ lastMessageRef }
 							id={ `message-chat-${ message.id }` }
 							message={ message }
 							siteId={ siteId }

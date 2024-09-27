@@ -717,8 +717,8 @@ export async function showNotification(
 	new Notification( options ).show();
 }
 
-export function setupAppMenu( _event: IpcMainInvokeEvent ) {
-	setupMenu();
+export function setupAppMenu( _event: IpcMainInvokeEvent, config: { needsOnboarding: boolean } ) {
+	setupMenu( config );
 }
 
 export function popupAppMenu( _event: IpcMainInvokeEvent ) {

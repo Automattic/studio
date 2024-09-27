@@ -289,7 +289,7 @@ export const SiteForm = ( {
 						{ onSelectPath && (
 							<>
 								<div className="flex flex-row items-center mb-0">
-									<Button className={ 'pl-0' } onClick={ handleAdvancedSettingsClick }>
+									<Button className="pl-0" onClick={ handleAdvancedSettingsClick }>
 										<Icon
 											size={ 24 }
 											icon={ chevronIcon }

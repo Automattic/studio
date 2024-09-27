@@ -170,6 +170,7 @@ describe( 'createCodeComponent', () => {
 			const mockCopyText = jest.fn();
 			( getIpcApi as jest.Mock ).mockReturnValue( {
 				copyText: mockCopyText,
+				showNotification: jest.fn(),
 			} );
 			render( <CodeBlock className="language-bash" children="wp --version" /> );
 
@@ -209,6 +210,7 @@ describe( 'createCodeComponent', () => {
 					.fn()
 					.mockResolvedValue( 'site-path/wp-content/plugins/hello.php' ),
 				openFileInIDE: jest.fn(),
+				showNotification: jest.fn(),
 			} );
 
 			const CodeBlock = createCodeComponent( contextProps );

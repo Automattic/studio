@@ -146,13 +146,13 @@ const UnforwardedAIInput = (
 			thinkingTimeout.current.push(
 				setTimeout( () => {
 					setThinkingDuration( 'long' );
-				}, 5000 )
+				}, 6000 )
 			);
 
 			thinkingTimeout.current.push(
 				setTimeout( () => {
 					setThinkingDuration( 'veryLong' );
-				}, 8000 )
+				}, 10000 )
 			);
 		} else {
 			thinkingTimeout.current.forEach( clearTimeout );
@@ -170,13 +170,13 @@ const UnforwardedAIInput = (
 		if ( isAssistantThinking ) {
 			switch ( thinkingDuration ) {
 				case 'veryLong':
-					return __( 'Stick with me...' );
+					return __( 'Stick with me…' );
 				case 'long':
-					return __( 'This is taking a little longer than I thought...' );
+					return __( 'This is taking a little longer than I thought…' );
 				case 'medium':
-					return __( 'Still working on it...' );
+					return __( 'Still working on it…' );
 				default:
-					return __( 'Thinking about that...' );
+					return __( 'Thinking about that…' );
 			}
 		}
 		return __( 'What would you like to learn?' );

@@ -1,4 +1,5 @@
 import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { useSiteDetails } from '../../hooks/use-site-details';
 import { getIpcApi } from '../../lib/get-ipc-api';
 import createCodeComponent from '../assistant-code-block';
 
@@ -9,6 +10,22 @@ jest.mock( '../../hooks/use-check-installed-apps', () => ( {
 		phpstorm: false,
 	} ),
 } ) );
+jest.mock( '../../hooks/use-site-details' );
+
+const selectedSite: SiteDetails = {
+	id: 'site-id-1',
+	name: 'Test Site',
+	running: false,
+	path: '/test-site',
+	phpVersion: '8.0',
+	adminPassword: btoa( 'test-password' ),
+};
+
+( useSiteDetails as jest.Mock ).mockReturnValue( {
+	data: [ selectedSite ],
+	loadingSites: false,
+	selectedSite: selectedSite,
+} );
 
 describe( 'createCodeComponent', () => {
 	const contextProps = {
@@ -153,6 +170,7 @@ describe( 'createCodeComponent', () => {
 			const mockCopyText = jest.fn();
 			( getIpcApi as jest.Mock ).mockReturnValue( {
 				copyText: mockCopyText,
+				showNotification: jest.fn(),
 			} );
 			render( <CodeBlock className="language-bash" children="wp --version" /> );
 
@@ -192,6 +210,7 @@ describe( 'createCodeComponent', () => {
 					.fn()
 					.mockResolvedValue( 'site-path/wp-content/plugins/hello.php' ),
 				openFileInIDE: jest.fn(),
+				showNotification: jest.fn(),
 			} );
 
 			const CodeBlock = createCodeComponent( contextProps );
@@ -261,6 +280,48 @@ describe( 'createCodeComponent', () => {
 
 			fireEvent.click( screen.getByText( 'wp-content/plugins' ) );
 			expect( getIpcApi().openLocalPath ).not.toHaveBeenCalled();
+		} );
+	} );
+
+	describe( 'when the "open in terminal" button is clicked', () => {
+		it( 'should not be visible for non-bash code blocks', () => {
+			render( <CodeBlock className="language-php" children="<?php echo 'Hello'; ?>" /> );
+
+			expect( screen.queryByText( 'Open in terminal' ) ).not.toBeInTheDocument();
+		} );
+
+		it( 'should be visible for bash code blocks', () => {
+			render( <CodeBlock className="language-bash" children="wp plugin list" /> );
+
+			expect( screen.getByText( 'Open in terminal' ) ).toBeVisible();
+		} );
+
+		it( 'should be visible for sh code blocks', () => {
+			render( <CodeBlock className="language-sh" children="wp plugin list" /> );
+
+			expect( screen.getByText( 'Open in terminal' ) ).toBeVisible();
+		} );
+
+		it( 'should copy the code content to the clipboard and open terminal', async () => {
+			( getIpcApi as jest.Mock ).mockReturnValue( {
+				copyText: jest.fn(),
+				openTerminalAtPath: jest.fn(),
+				showNotification: jest.fn(),
+			} );
+			render( <CodeBlock className="language-bash" children="wp plugin list" /> );
+
+			fireEvent.click( screen.getByText( 'Open in terminal' ) );
+
+			await waitFor( () => {
+				expect( getIpcApi().copyText ).toHaveBeenCalledWith( 'wp plugin list' );
+				expect( getIpcApi().openTerminalAtPath ).toHaveBeenCalledWith(
+					selectedSite.path,
+					expect.any( Object )
+				);
+				expect( getIpcApi().showNotification ).toHaveBeenCalledWith( {
+					title: 'Command copied to the clipboard',
+				} );
+			} );
 		} );
 	} );
 } );

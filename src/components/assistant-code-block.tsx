@@ -1,12 +1,14 @@
 import { Spinner } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
-import { Icon, archive, edit } from '@wordpress/icons';
+import { Icon, archive, edit, preformatted } from '@wordpress/icons';
 import { useCallback, useEffect, useState } from 'react';
 import { ExtraProps } from 'react-markdown';
 import stripAnsi from 'strip-ansi';
 import { Message as MessageType } from '../hooks/use-assistant';
 import { useExecuteWPCLI } from '../hooks/use-execute-cli';
+import { useFeatureFlags } from '../hooks/use-feature-flags';
 import { useIsValidWpCliInline } from '../hooks/use-is-valid-wp-cli-inline';
+import { useSiteDetails } from '../hooks/use-site-details';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
@@ -50,6 +52,9 @@ const LanguageBlock = ( props: ContextProps & CodeBlockProps ) => {
 		}
 	}, [ blocks, cliOutput, content, setCliOutput, setCliStatus, setCliTime ] );
 
+	const { terminalWpCliEnabled } = useFeatureFlags();
+	const { selectedSite } = useSiteDetails();
+
 	return (
 		<>
 			<div className="p-3">
@@ -66,7 +71,35 @@ const LanguageBlock = ( props: ContextProps & CodeBlockProps ) => {
 					variant="outlined"
 					className="h-auto mr-2 !px-2.5 py-0.5 !p-[6px] font-sans select-none"
 					iconSize={ 16 }
+					onCopied={ async () => {
+						await getIpcApi().showNotification( {
+							title: __( 'Copied to the clipboard' ),
+						} );
+					} }
 				></CopyTextButton>
+				{ [ 'language-sh', 'language-bash' ].includes( props.className || '' ) && selectedSite && (
+					<Button
+						icon={ preformatted }
+						variant="outlined"
+						className="h-auto mr-2 !px-2.5 py-0.5 font-sans select-none"
+						iconSize={ 16 }
+						onClick={ async () => {
+							try {
+								await getIpcApi().copyText( content );
+								await getIpcApi().openTerminalAtPath( selectedSite.path, {
+									wpCliEnabled: terminalWpCliEnabled,
+								} );
+								await getIpcApi().showNotification( {
+									title: __( 'Command copied to the clipboard' ),
+								} );
+							} catch ( error ) {
+								console.error( error );
+							}
+						} }
+					>
+						{ __( 'Open in terminal' ) }
+					</Button>
+				) }
 				{ isValidWpCliCommand && (
 					<Button
 						icon={ <ExecuteIcon /> }

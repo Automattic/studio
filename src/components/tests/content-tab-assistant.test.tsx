@@ -292,7 +292,7 @@ describe( 'ContentTabAssistant', () => {
 		expect( samplePrompt ).toBeVisible();
 		fireEvent.click( samplePrompt );
 
-		textInput = screen.getByPlaceholderText( 'Thinking about that...' );
+		textInput = screen.getByPlaceholderText( 'Thinking about that…' );
 		expect( textInput ).toHaveFocus();
 	} );
 

@@ -142,12 +142,13 @@ export const AuthenticatedView = memo(
 
 		useEffect( () => {
 			if ( ! messages?.length ) {
+				previousSiteId.current = siteId;
 				return;
 			}
 
 			let timer: NodeJS.Timeout;
 			// Scroll to the end of the messages when the tab is opened or site ID changes
-			if ( previousSiteId.current !== siteId ) {
+			if ( previousMessagesLength.current === 0 || previousSiteId.current !== siteId ) {
 				timer = setTimeout( () => {
 					endOfMessagesRef.current?.scrollIntoView( { behavior: 'instant' } );
 				}, 100 );

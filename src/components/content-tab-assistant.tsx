@@ -153,7 +153,7 @@ export const AuthenticatedView = memo(
 			}
 			// Scroll when a new message is added
 			else if ( messages?.length > previousMessagesLength.current || showLastMessage ) {
-				// Scroll to the beginning of last message recieved from the assistant
+				// Scroll to the beginning of last message received from the assistant
 				if ( showLastMessage ) {
 					timer = setTimeout( () => {
 						if ( lastMessageRef.current ) {

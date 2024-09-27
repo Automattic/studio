@@ -136,6 +136,10 @@ const UnforwardedAIInput = (
 	};
 
 	useEffect( () => {
+		function clearThinkingTimeouts() {
+			thinkingTimeout.current.forEach( clearTimeout );
+			thinkingTimeout.current = [];
+		}
 		if ( isAssistantThinking ) {
 			thinkingTimeout.current.push(
 				setTimeout( () => {
@@ -155,14 +159,12 @@ const UnforwardedAIInput = (
 				}, 10000 )
 			);
 		} else {
-			thinkingTimeout.current.forEach( clearTimeout );
-			thinkingTimeout.current = [];
+			clearThinkingTimeouts();
 			setThinkingDuration( 'short' );
 		}
 
 		return () => {
-			thinkingTimeout.current.forEach( clearTimeout );
-			thinkingTimeout.current = [];
+			clearThinkingTimeouts();
 		};
 	}, [ isAssistantThinking ] );
 

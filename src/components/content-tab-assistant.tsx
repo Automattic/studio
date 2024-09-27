@@ -147,8 +147,8 @@ export const AuthenticatedView = memo(
 
 			let timer: NodeJS.Timeout;
 			// Scroll to the end of the messages when the tab is opened or site ID changes
-			if ( previousMessagesLength.current === 0 || previousSiteId.current !== siteId ) {
-				setTimeout( () => {
+			if ( previousSiteId.current !== siteId ) {
+				timer = setTimeout( () => {
 					endOfMessagesRef.current?.scrollIntoView( { behavior: 'instant' } );
 				}, 100 );
 			}
@@ -164,9 +164,7 @@ export const AuthenticatedView = memo(
 				}
 				// For user messages, scroll to the end of the messages
 				else {
-					if ( endOfMessagesRef.current ) {
-						endOfMessagesRef.current.scrollIntoView( { behavior: 'smooth' } );
-					}
+					endOfMessagesRef.current?.scrollIntoView( { behavior: 'smooth' } );
 				}
 			}
 

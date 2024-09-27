@@ -4,17 +4,24 @@ const PLACEHOLDER_CHAR_BEGIN = [ '<', '[', '{', '(' ];
 const UNSUPPORTED_COMMANDS = [ 'db', 'server', 'shell' ];
 
 export function useIsValidWpCliInline( command: string ) {
-	const wpCliArgs = parse( command )
-		.map( ( arg ) => {
-			if ( typeof arg === 'string' || arg instanceof String ) {
-				return arg;
-			} else if ( 'op' in arg ) {
-				return arg.op;
-			} else {
-				return false;
-			}
-		} )
-		.filter( Boolean ) as string[];
+	let wpCliArgs: string[] = [];
+
+	try {
+		wpCliArgs = parse( command )
+			.map( ( arg ) => {
+				if ( typeof arg === 'string' || arg instanceof String ) {
+					return arg;
+				} else if ( 'op' in arg ) {
+					return arg.op;
+				} else {
+					return false;
+				}
+			} )
+			.filter( Boolean ) as string[];
+	} catch ( error ) {
+		return false;
+	}
+
 	const wpCommandCount = wpCliArgs.filter( ( arg ) => arg === 'wp' ).length;
 	const containsPath = wpCliArgs.some( ( arg ) => /path/i.test( arg ) || arg.startsWith( '/' ) );
 	const containsPlaceholderArgs = wpCliArgs.some( ( arg ) =>

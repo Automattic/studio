@@ -25,6 +25,7 @@ import { BackupHandler } from './backup-handler-factory';
 
 const HEADER_SIZE = 4377;
 const HEADER_CHUNK_EOF = Buffer.alloc( HEADER_SIZE );
+const CHUNK_SIZE_TO_READ = 1024;
 
 interface Header {
 	name: string;
@@ -87,7 +88,7 @@ async function readBlockToFile( fd: fs.promises.FileHandle, header: Header, outp
 
 	let totalBytesToRead = header.size;
 	while ( totalBytesToRead > 0 ) {
-		let bytesToRead = 512;
+		let bytesToRead = CHUNK_SIZE_TO_READ;
 		if ( bytesToRead > totalBytesToRead ) {
 			bytesToRead = totalBytesToRead;
 		}

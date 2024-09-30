@@ -39,7 +39,7 @@ interface Header {
  * @param {Buffer} buffer - The buffer to read from.
  * @param {number} start - The start position of the string in the buffer.
  * @param {number} end - The end position of the string in the buffer.
- * @returns
+ * @returns {string} - The substring buffer, stopping at a null-terminator if present.
  */
 function readFromBuffer( buffer: Buffer, start: number, end: number ): string {
 	const _buffer = buffer.subarray( start, end );

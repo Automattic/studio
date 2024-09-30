@@ -83,7 +83,7 @@ async function readHeader( fd: fs.promises.FileHandle ): Promise< Header | null 
  */
 async function readBlockToFile( fd: fs.promises.FileHandle, header: Header, outputPath: string ) {
 	const outputFilePath = path.join( outputPath, header.prefix, header.name );
-	fse.ensureDirSync( path.dirname( outputFilePath ) );
+	await fse.ensureDir( path.dirname( outputFilePath ) );
 	const outputStream = fs.createWriteStream( outputFilePath );
 
 	let totalBytesToRead = header.size;

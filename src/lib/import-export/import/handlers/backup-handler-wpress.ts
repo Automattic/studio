@@ -209,7 +209,7 @@ export class BackupHandlerWpress extends EventEmitter implements BackupHandler {
 			return false;
 		}
 
-		if ( this.eof.toString() !== Buffer.alloc( HEADER_SIZE, '\0' ).toString() ) {
+		if ( Buffer.compare( this.eof, Buffer.alloc( HEADER_SIZE, '\0' ) ) !== 0 ) {
 			fs.closeSync( fd );
 			return false;
 		}

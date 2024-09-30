@@ -1,3 +1,12 @@
+1.1.3
+=====
+* Displayed path error on the Add Site form #564
+* Cleared out Site Health critical issue #562
+* Used the default PHP version when running WP-CLI sqlite import #559
+* Added support for symlinks and fix Emscripten umask value #555, #560, #566
+* Enabled React Devtools in the development environment #554
+* Updated playground packages to v0.9.44 #561
+
 1.1.2
 =====
 * Made app responsive and added sidebar toggle #533, #536

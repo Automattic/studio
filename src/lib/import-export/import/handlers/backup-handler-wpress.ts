@@ -54,7 +54,7 @@ function readFromBuffer( buffer: Buffer, start: number, end: number ): string {
  */
 async function readHeader( fd: fs.promises.FileHandle ): Promise< Header | null > {
 	const headerChunk = Buffer.alloc( HEADER_SIZE );
-	await fd.read( headerChunk, 0, HEADER_SIZE, null );
+	await fd.read( headerChunk, 0, HEADER_SIZE );
 
 	if ( Buffer.compare( headerChunk, HEADER_CHUNK_EOF ) === 0 ) {
 		return null;
@@ -97,7 +97,7 @@ async function readBlockToFile( fd: fs.promises.FileHandle, header: Header, outp
 		}
 
 		const buffer = Buffer.alloc( bytesToRead );
-		const data = await fd.read( buffer, 0, bytesToRead, null );
+		const data = await fd.read( buffer, 0, bytesToRead );
 		outputStream.write( buffer );
 
 		totalBytesToRead -= data.bytesRead;

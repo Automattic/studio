@@ -171,8 +171,6 @@ export class BackupHandlerWpress extends EventEmitter implements BackupHandler {
 
 					const inputFile = await fs.promises.open( file.path, 'r' );
 
-					let offset = 0;
-
 					let header;
 					while ( ( header = await readHeader( inputFile ) ) !== null ) {
 						if ( ! header ) {
@@ -180,7 +178,6 @@ export class BackupHandlerWpress extends EventEmitter implements BackupHandler {
 						}
 
 						await readBlockToFile( inputFile, header, extractionDirectory );
-						offset = offset + HEADER_SIZE + header.size;
 					}
 
 					await inputFile.close();

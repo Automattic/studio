@@ -58,6 +58,7 @@ describe( 'Header', () => {
 				startServer: jest.fn( () => {
 					throw new Error( 'Failed to start the server' );
 				} ),
+				stopServer: jest.fn( () => Promise.resolve( { running: false } ) ),
 			} );
 			render(
 				<SiteDetailsProvider>

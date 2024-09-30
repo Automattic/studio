@@ -134,7 +134,6 @@ abstract class BaseBackupImporter extends BaseImporter {
 			await this.importWpContent( rootPath );
 			if ( this.backup.metaFile ) {
 				this.meta = await this.parseMetaFile();
-				console.log( '-----_>', { meta: this.meta } );
 			}
 			await this.importDatabase( rootPath, siteId, this.backup.sqlFiles );
 

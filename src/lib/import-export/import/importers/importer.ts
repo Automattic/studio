@@ -21,6 +21,8 @@ export interface Importer extends Partial< EventEmitter > {
 }
 
 abstract class BaseImporter extends EventEmitter implements Importer {
+	protected meta?: MetaFileData;
+
 	constructor( protected backup: BackupContents ) {
 		super();
 	}
@@ -125,17 +127,16 @@ abstract class BaseBackupImporter extends BaseImporter {
 		try {
 			const databaseDir = path.join( rootPath, 'wp-content', 'database' );
 			const dbPath = path.join( databaseDir, '.ht.sqlite' );
-
 			await this.moveExistingDatabaseToTrash( dbPath );
 			await this.moveExistingWpContentToTrash( rootPath );
 			await this.createEmptyDatabase( dbPath );
 			await this.importWpConfig( rootPath );
 			await this.importWpContent( rootPath );
-			await this.importDatabase( rootPath, siteId, this.backup.sqlFiles );
-			let meta: MetaFileData | undefined;
 			if ( this.backup.metaFile ) {
-				meta = await this.parseMetaFile();
+				this.meta = await this.parseMetaFile();
+				console.log( '-----_>', { meta: this.meta } );
 			}
+			await this.importDatabase( rootPath, siteId, this.backup.sqlFiles );
 
 			this.emit( ImportEvents.IMPORT_COMPLETE );
 			return {
@@ -144,7 +145,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 				wpContent: this.backup.wpContent,
 				wpContentDirectory: this.backup.wpContentDirectory,
 				wpConfig: this.backup.wpConfig,
-				meta,
+				meta: this.meta,
 			};
 		} catch ( error ) {
 			this.emit( ImportEvents.IMPORT_ERROR, error );
@@ -318,8 +319,16 @@ export class SQLImporter extends BaseImporter {
 }
 
 export class WpressImporter extends BaseBackupImporter {
-	protected async parseMetaFile(): Promise< MetaFileData | undefined > {
-		return undefined;
+	protected async parseMetaFile(): Promise< Pick< MetaFileData, 'template' | 'stylesheet' > > {
+		const packageJsonPath = path.join( this.backup.extractionDirectory, 'package.json' );
+		try {
+			const packageContent = await fsPromises.readFile( packageJsonPath, 'utf8' );
+			const { Template: template = '', Stylesheet: stylesheet = '' } = JSON.parse( packageContent );
+			return { template, stylesheet };
+		} catch ( error ) {
+			console.error( 'Error reading package.json:', error );
+			return { template: '', stylesheet: '' };
+		}
 	}
 
 	protected async prepareSqlFile( tmpPath: string ): Promise< void > {
@@ -349,23 +358,8 @@ export class WpressImporter extends BaseBackupImporter {
 		await fsPromises.rename( tempOutputPath, tmpPath );
 	}
 
-	protected async parseWpressPackage(): Promise< {
-		template: string;
-		stylesheet: string;
-	} > {
-		const packageJsonPath = path.join( this.backup.extractionDirectory, 'package.json' );
-		try {
-			const packageContent = await fsPromises.readFile( packageJsonPath, 'utf8' );
-			const { Template: template = '', Stylesheet: stylesheet = '' } = JSON.parse( packageContent );
-			return { template, stylesheet };
-		} catch ( error ) {
-			console.error( 'Error reading package.json:', error );
-			return { template: '', stylesheet: '' };
-		}
-	}
-
 	protected async addSqlToSetTheme( sqlFiles: string[] ): Promise< void > {
-		const { template, stylesheet } = await this.parseWpressPackage();
+		const { template, stylesheet } = this.meta || {};
 		if ( ! template || ! stylesheet ) {
 			return;
 		}

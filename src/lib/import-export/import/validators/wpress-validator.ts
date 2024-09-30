@@ -43,6 +43,8 @@ export class WpressValidator extends EventEmitter implements Validator {
 				extractedBackup.wpContent.plugins.push( fullPath );
 			} else if ( file.startsWith( 'themes/' ) ) {
 				extractedBackup.wpContent.themes.push( fullPath );
+			} else if ( file === 'package.json' ) {
+				extractedBackup.metaFile = fullPath;
 			}
 		}
 		extractedBackup.sqlFiles.sort( ( a: string, b: string ) =>

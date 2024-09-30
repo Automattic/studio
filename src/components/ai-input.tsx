@@ -12,7 +12,7 @@ interface AIInputProps {
 	setInput: ( input: string ) => void;
 	handleSend: () => void;
 	handleKeyDown: ( e: React.KeyboardEvent< HTMLTextAreaElement > ) => void;
-	clearInput: () => void;
+	clearConversation: () => void;
 	isAssistantThinking: boolean;
 }
 
@@ -25,13 +25,17 @@ const UnforwardedAIInput = (
 		setInput,
 		handleSend,
 		handleKeyDown,
-		clearInput,
+		clearConversation,
 		isAssistantThinking,
 	}: AIInputProps,
 	inputRef: React.RefObject< HTMLTextAreaElement > | React.RefCallback< HTMLTextAreaElement > | null
 ) => {
 	const [ isTyping, setIsTyping ] = useState( false );
+	const [ thinkingDuration, setThinkingDuration ] = useState<
+		'short' | 'medium' | 'long' | 'veryLong'
+	>( 'short' );
 	const typingTimeout = useRef< NodeJS.Timeout >();
+	const thinkingTimeout = useRef< NodeJS.Timeout[] >( [] );
 
 	const { RiveComponent, inactiveInput, thinkingInput, typingInput, startStateMachine } =
 		useAiIcon();
@@ -131,15 +135,58 @@ const UnforwardedAIInput = (
 		}, 400 );
 	};
 
+	useEffect( () => {
+		function clearThinkingTimeouts() {
+			thinkingTimeout.current.forEach( clearTimeout );
+			thinkingTimeout.current = [];
+		}
+		if ( isAssistantThinking ) {
+			thinkingTimeout.current.push(
+				setTimeout( () => {
+					setThinkingDuration( 'medium' );
+				}, 3000 )
+			);
+
+			thinkingTimeout.current.push(
+				setTimeout( () => {
+					setThinkingDuration( 'long' );
+				}, 6000 )
+			);
+
+			thinkingTimeout.current.push(
+				setTimeout( () => {
+					setThinkingDuration( 'veryLong' );
+				}, 10000 )
+			);
+		} else {
+			clearThinkingTimeouts();
+			setThinkingDuration( 'short' );
+		}
+
+		return () => {
+			clearThinkingTimeouts();
+		};
+	}, [ isAssistantThinking ] );
+
 	const getPlaceholderText = () => {
-		return isAssistantThinking
-			? __( 'Thinking about that...' )
-			: __( 'What would you like to learn?' );
+		if ( isAssistantThinking ) {
+			switch ( thinkingDuration ) {
+				case 'veryLong':
+					return __( 'Stick with me…' );
+				case 'long':
+					return __( 'This is taking a little longer than I thought…' );
+				case 'medium':
+					return __( 'Still working on it…' );
+				default:
+					return __( 'Thinking about that…' );
+			}
+		}
+		return __( 'What would you like to learn?' );
 	};
 
 	const handleClearConversation = async () => {
 		if ( localStorage.getItem( 'dontShowClearMessagesWarning' ) === 'true' ) {
-			clearInput();
+			clearConversation();
 			return;
 		}
 
@@ -158,7 +205,7 @@ const UnforwardedAIInput = (
 				localStorage.setItem( 'dontShowClearMessagesWarning', 'true' );
 			}
 
-			clearInput();
+			clearConversation();
 		}
 	};
 

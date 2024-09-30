@@ -70,7 +70,7 @@ test.describe( 'Servers', () => {
 		const frontendUrl = await settingsTab.copySiteUrlToClipboard( session.electronApp );
 
 		// page.goto opens a browser
-		await page.goto( wpAdminUrl + '/options-general.php' );
+		await page.goto( wpAdminUrl + '/options-general.php?playground-auto-login=true' );
 		const siteTitleInput = page.getByLabel( 'Site Title' );
 		await siteTitleInput.fill( 'testing site title' );
 		await siteTitleInput.press( 'Enter' );

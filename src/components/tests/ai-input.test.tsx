@@ -15,7 +15,7 @@ describe( 'AIInput Component', () => {
 	let handleSend: jest.Mock;
 	let handleKeyDown: jest.Mock;
 	let setInput: jest.Mock;
-	let clearInput: jest.Mock;
+	let clearConverstaion: jest.Mock;
 
 	const defaultProps = {
 		disabled: false,
@@ -23,7 +23,7 @@ describe( 'AIInput Component', () => {
 		setInput: jest.fn(),
 		handleSend: jest.fn(),
 		handleKeyDown: jest.fn(),
-		clearInput: jest.fn(),
+		clearConverstaion: jest.fn(),
 		isAssistantThinking: false,
 	};
 
@@ -34,7 +34,7 @@ describe( 'AIInput Component', () => {
 		handleSend = jest.fn();
 		handleKeyDown = jest.fn();
 		setInput = jest.fn();
-		clearInput = jest.fn();
+		clearConverstaion = jest.fn();
 		const inputRef = React.createRef< HTMLTextAreaElement >();
 
 		jest.clearAllMocks();
@@ -47,7 +47,7 @@ describe( 'AIInput Component', () => {
 				setInput={ setInput }
 				handleSend={ handleSend }
 				handleKeyDown={ handleKeyDown }
-				clearInput={ clearInput }
+				clearConversation={ clearConverstaion }
 				isAssistantThinking={ defaultProps.isAssistantThinking }
 			/>
 		);
@@ -101,7 +101,7 @@ describe( 'AIInput Component', () => {
 
 		await waitFor( () => {
 			expect( mockShowMessageBox ).toHaveBeenCalled();
-			expect( clearInput ).toHaveBeenCalled();
+			expect( clearConverstaion ).toHaveBeenCalled();
 		} );
 	} );
 
@@ -118,6 +118,6 @@ describe( 'AIInput Component', () => {
 		fireEvent.click( clearConversationButton );
 
 		expect( mockShowMessageBox ).not.toHaveBeenCalled();
-		expect( clearInput ).toHaveBeenCalled();
+		expect( clearConverstaion ).toHaveBeenCalled();
 	} );
 } );

@@ -260,7 +260,7 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 						<button
 							aria-label={ __( 'Open site' ) }
 							className={ 'relative group focus-visible:outline-a8c-blueberry' }
-							onClick={ () => getIpcApi().openSiteURL( selectedSite.id ) }
+							onClick={ () => getIpcApi().openSiteURL( selectedSite.id, '', { autoLogin: false } ) }
 						>
 							<div
 								className={

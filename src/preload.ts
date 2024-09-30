@@ -25,8 +25,11 @@ const api: IpcApi = {
 		ipcRenderer.invoke( 'saveSnapshotsToStorage', snapshots ),
 	getSnapshots: () => ipcRenderer.invoke( 'getSnapshots' ),
 	getSiteDetails: () => ipcRenderer.invoke( 'getSiteDetails' ),
-	openSiteURL: ( id: string, relativeURL = '' ) =>
-		ipcRenderer.invoke( 'openSiteURL', id, relativeURL ),
+	openSiteURL: (
+		id: string,
+		relativeURL = '',
+		{ autoLogin = true }: { autoLogin?: boolean } = {}
+	) => ipcRenderer.invoke( 'openSiteURL', id, relativeURL, { autoLogin } ),
 	openURL: ( url: string ) => ipcRenderer.invoke( 'openURL', url ),
 	showOpenFolderDialog: ( title: string ) => ipcRenderer.invoke( 'showOpenFolderDialog', title ),
 	showSaveAsDialog: ( options: SaveDialogOptions ) =>
@@ -72,6 +75,10 @@ const api: IpcApi = {
 	resetDefaultLocaleData: () => ipcRenderer.invoke( 'resetDefaultLocaleData' ),
 	toggleMinWindowWidth: ( isSidebarVisible: boolean ) =>
 		ipcRenderer.invoke( 'toggleMinWindowWidth', isSidebarVisible ),
+	getAbsolutePathFromSite: ( siteId: string, relativePath: string ) =>
+		ipcRenderer.invoke( 'getAbsolutePathFromSite', siteId, relativePath ),
+	openFileInIDE: ( relativePath: string, siteId: string ) =>
+		ipcRenderer.invoke( 'openFileInIDE', relativePath, siteId ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

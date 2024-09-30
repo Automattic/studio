@@ -479,12 +479,25 @@ export async function getSnapshots( _event: IpcMainInvokeEvent ): Promise< Snaps
 	return snapshots;
 }
 
-export async function openSiteURL( event: IpcMainInvokeEvent, id: string, relativeURL = '' ) {
+export async function openSiteURL(
+	event: IpcMainInvokeEvent,
+	id: string,
+	relativeURL = '',
+	{ autoLogin = true }: { autoLogin?: boolean } = {}
+) {
 	const site = SiteServer.get( id );
 	if ( ! site ) {
 		throw new Error( 'Site not found.' );
 	}
-	shell.openExternal( site.server?.url + relativeURL );
+	if ( ! site.server?.url ) {
+		throw new Error( 'Site server URL not found.' );
+	}
+	const url = new URL( site.server.url + relativeURL );
+	if ( autoLogin ) {
+		url.searchParams.append( 'playground-auto-login', 'true' );
+	}
+
+	shell.openExternal( url.toString() );
 }
 
 export async function openURL( event: IpcMainInvokeEvent, url: string ) {
@@ -652,18 +665,15 @@ export function openTerminalAtPath(
 			}
 		} else if ( platform === 'darwin' ) {
 			// macOS
-			if ( wpCliEnabled ) {
-				const script = `
+			const loadWpCliCommand =
+				'clear && export PATH=\\"${ cliPath }\\":$PATH && export STUDIO_APP_PATH=\\"${ appPath }\\" &&';
+			const script = `
 			tell application "Terminal"
 				if not application "Terminal" is running then launch
-				do script "clear && export PATH=\\"${ cliPath }\\":$PATH && export STUDIO_APP_PATH=\\"${ appPath }\\" && cd ${ targetPath }"
+				do script "${ wpCliEnabled ? loadWpCliCommand : '' } cd ${ targetPath } && clear"
 				activate
-			end tell
-			`;
-				command = `osascript -e '${ script }'`;
-			} else {
-				command = `open -a Terminal "${ targetPath }"`;
-			}
+			end tell`;
+			command = `osascript -e '${ script }'`;
 		} else if ( platform === 'linux' ) {
 			// Linux
 			if ( wpCliEnabled ) {
@@ -738,4 +748,50 @@ export function toggleMinWindowWidth( event: IpcMainInvokeEvent, isSidebarVisibl
 		isSidebarVisible ? currentWidth - SIDEBAR_WIDTH : currentWidth + SIDEBAR_WIDTH
 	);
 	parentWindow.setSize( newWidth, currentHeight, true );
+}
+
+/**
+ * Returns the absolute path of a file in the site's directory.
+ * Returns null if the file does not exist.
+ */
+export async function getAbsolutePathFromSite(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	relativePath: string
+): Promise< string | null > {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( 'Site not found.' );
+	}
+
+	const path = nodePath.join( server.details.path, relativePath );
+	return ( await pathExists( path ) ) ? path : null;
+}
+
+/**
+ * Opens a file in the IDE with the site context.
+ */
+export async function openFileInIDE(
+	_event: IpcMainInvokeEvent,
+	relativePath: string,
+	siteId: string
+) {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( 'Site not found.' );
+	}
+
+	const path = await getAbsolutePathFromSite( _event, siteId, relativePath );
+	if ( ! path ) {
+		return;
+	}
+
+	if ( isInstalled( 'vscode' ) ) {
+		// Open site first to ensure the file is opened within the site context
+		await shell.openExternal( `vscode://file/${ server.details.path }?windowId=_blank` );
+		await shell.openExternal( `vscode://file/${ path }` );
+	} else if ( isInstalled( 'phpstorm' ) ) {
+		// Open site first to ensure the file is opened within the site context
+		await shell.openExternal( `phpstorm://open?file=${ path }` );
+	}
 }

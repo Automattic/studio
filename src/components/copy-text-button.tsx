@@ -15,6 +15,8 @@ interface CopyTextButtonProps {
 	showText?: boolean;
 	variant?: 'primary' | 'secondary' | 'tertiary' | 'outlined' | 'link' | 'icon';
 	iconSize?: number;
+	onCopied?: () => void;
+	icon?: React.JSX.Element;
 }
 
 export function CopyTextButton( {
@@ -27,6 +29,8 @@ export function CopyTextButton( {
 	showText = false,
 	variant = 'link',
 	iconSize = 13,
+	onCopied,
+	icon = copy,
 }: CopyTextButtonProps ) {
 	const { __ } = useI18n();
 	const [ showCopied, setShowCopied ] = useState( false );
@@ -34,12 +38,13 @@ export function CopyTextButton( {
 
 	const onClick = useCallback( () => {
 		getIpcApi().copyText( text );
+		onCopied?.();
 		setShowCopied( true );
 		if ( timeoutId ) {
 			clearTimeout( timeoutId );
 		}
 		setTimeoutId( setTimeout( () => setShowCopied( false ), timeoutConfirmation ) );
-	}, [ text, timeoutConfirmation, timeoutId ] );
+	}, [ onCopied, text, timeoutConfirmation, timeoutId ] );
 
 	return (
 		<Button
@@ -53,8 +58,8 @@ export function CopyTextButton( {
 			variant={ variant }
 		>
 			{ children }
-			<Icon className="ml-1 mr-1" fill="currentColor" size={ iconSize } icon={ copy } />{ ' ' }
-			{ showText && ! showCopied && <span>{ __( 'Copy' ) }</span> }{ ' ' }
+			<Icon className="ml-1 mr-1" fill="currentColor" size={ iconSize } icon={ icon } />{ ' ' }
+			{ showText && ! showCopied && <span>{ label }</span> }{ ' ' }
 			{ showCopied && (
 				<span role="alert" aria-atomic="true" className="ml-1">
 					{ copyConfirmation }

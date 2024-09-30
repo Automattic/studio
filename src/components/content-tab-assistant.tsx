@@ -12,6 +12,7 @@ import { useAssistant, Message as MessageType } from '../hooks/use-assistant';
 import { useAssistantApi } from '../hooks/use-assistant-api';
 import { useAuth } from '../hooks/use-auth';
 import { useChatContext } from '../hooks/use-chat-context';
+import { useChatInputContext } from '../hooks/use-chat-input';
 import { useOffline } from '../hooks/use-offline';
 import { usePromptUsage } from '../hooks/use-prompt-usage';
 import { useWelcomeMessages } from '../hooks/use-welcome-messages';
@@ -33,10 +34,10 @@ interface ContentTabAssistantProps {
 }
 
 const ErrorNotice = ( {
-	handleSend,
+	submitPrompt,
 	messageContent,
 }: {
-	handleSend: ( messageToSend?: string, isRetry?: boolean ) => void;
+	submitPrompt: ( messageToSend: string, isRetry?: boolean ) => void;
 	messageContent: string;
 } ) => {
 	const { __ } = useI18n();
@@ -49,7 +50,7 @@ const ErrorNotice = ( {
 					a: (
 						<Button
 							variant="link"
-							onClick={ () => handleSend( messageContent, true ) }
+							onClick={ () => submitPrompt( messageContent, true ) }
 							className="text-xs !ml-1"
 						/>
 					),
@@ -108,7 +109,7 @@ interface AuthenticatedViewProps {
 	isAssistantThinking: boolean;
 	updateMessage: OnUpdateMessageType;
 	siteId: string;
-	handleSend: ( messageToSend?: string, isRetry?: boolean ) => void;
+	submitPrompt: ( messageToSend: string, isRetry?: boolean ) => void;
 	markMessageAsFeedbackReceived: ReturnType<
 		typeof useAssistant
 	>[ 'markMessageAsFeedbackReceived' ];
@@ -120,10 +121,11 @@ export const AuthenticatedView = memo(
 		isAssistantThinking,
 		updateMessage,
 		siteId,
-		handleSend,
+		submitPrompt,
 		markMessageAsFeedbackReceived,
 	}: AuthenticatedViewProps ) => {
 		const endOfMessagesRef = useRef< HTMLDivElement >( null );
+		const lastMessageRef = useRef< HTMLDivElement >( null );
 		const [ showThinking, setShowThinking ] = useState( false );
 		const lastMessage = useMemo(
 			() =>
@@ -135,15 +137,41 @@ export const AuthenticatedView = memo(
 		const messagesToRender =
 			messages[ messages.length - 1 ]?.role === 'assistant' ? messages.slice( 0, -1 ) : messages;
 		const showLastMessage = showThinking || messages[ messages.length - 1 ]?.role === 'assistant';
+		const previousMessagesLength = useRef( messages?.length );
+		const previousSiteId = useRef( siteId );
 
 		useEffect( () => {
-			const timer = setTimeout( () => {
-				if ( endOfMessagesRef.current ) {
-					endOfMessagesRef.current.scrollIntoView( { behavior: 'smooth' } );
+			if ( ! messages?.length ) {
+				previousSiteId.current = siteId;
+				return;
+			}
+
+			let timer: NodeJS.Timeout;
+			// Scroll to the end of the messages when the tab is opened or site ID changes
+			if ( previousMessagesLength.current === 0 || previousSiteId.current !== siteId ) {
+				endOfMessagesRef.current?.scrollIntoView( { behavior: 'instant' } );
+			}
+			// Scroll when a new message is added
+			else if ( messages?.length > previousMessagesLength.current || showLastMessage ) {
+				// Scroll to the beginning of last message received from the assistant
+				if ( showLastMessage ) {
+					timer = setTimeout( () => {
+						if ( lastMessageRef.current ) {
+							lastMessageRef.current.scrollIntoView( { block: 'start', behavior: 'smooth' } );
+						}
+					}, 400 );
 				}
-			}, 400 );
+				// For user messages, scroll to the end of the messages
+				else {
+					endOfMessagesRef.current?.scrollIntoView( { behavior: 'smooth' } );
+				}
+			}
+
+			previousMessagesLength.current = messages?.length;
+			previousSiteId.current = siteId;
+
 			return () => clearTimeout( timer );
-		}, [ messages?.length, isAssistantThinking, showThinking, showLastMessage ] );
+		}, [ messages?.length, showLastMessage, siteId ] );
 
 		useEffect( () => {
 			let timer: NodeJS.Timeout;
@@ -167,11 +195,11 @@ export const AuthenticatedView = memo(
 						{ message.content }
 					</ChatMessage>
 					{ message.failedMessage && (
-						<ErrorNotice handleSend={ handleSend } messageContent={ message.content } />
+						<ErrorNotice submitPrompt={ submitPrompt } messageContent={ message.content } />
 					) }
 				</>
 			),
-			[ handleSend, siteId, updateMessage ]
+			[ submitPrompt, siteId, updateMessage ]
 		);
 
 		const RenderLastMessage = useCallback(
@@ -201,6 +229,7 @@ export const AuthenticatedView = memo(
 				return (
 					<>
 						<ChatMessage
+							ref={ lastMessageRef }
 							id={ `message-chat-${ message.id }` }
 							message={ message }
 							siteId={ siteId }
@@ -335,54 +364,88 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const { userCanSendMessage } = usePromptUsage();
 	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi( selectedSite.id );
 	const { messages: welcomeMessages, examplePrompts } = useWelcomeMessages();
-	const [ input, setInput ] = useState< string >( '' );
+	const { getChatInput, saveChatInput } = useChatInputContext();
+	const [ currentInput, setCurrentInput ] = useState( '' );
 	const isOffline = useOffline();
 	const { __ } = useI18n();
 	const lastMessage = messages.length === 0 ? undefined : messages[ messages.length - 1 ];
 	const hasFailedMessage = messages.some( ( msg ) => msg.failedMessage );
 
-	const handleSend = async ( messageToSend?: string, isRetry?: boolean ) => {
-		const chatMessage = messageToSend || input;
-		let messageId;
-		if ( chatMessage.trim() ) {
-			if ( isRetry ) {
-				// If retrying, find the message ID with failedMessage flag
-				const failedMessage = messages.find(
-					( msg ) => msg.failedMessage && msg.content === chatMessage
-				);
-				if ( failedMessage ) {
-					messageId = failedMessage.id;
+	// Restore prompt input when site changes
+	useEffect( () => {
+		setCurrentInput( getChatInput( selectedSite.id ) );
+	}, [ selectedSite.id, getChatInput ] );
+
+	// Save prompt input when it changes
+	const setInput = useCallback(
+		( input: string ) => {
+			saveChatInput( input, selectedSite.id );
+			setCurrentInput( input );
+		},
+		[ selectedSite.id, saveChatInput ]
+	);
+
+	const submitPrompt = useCallback(
+		async ( chatMessage: string, isRetry?: boolean ) => {
+			if ( ! chatMessage ) {
+				return;
+			}
+			let messageId;
+			if ( chatMessage.trim() ) {
+				if ( isRetry ) {
+					// If retrying, find the message ID with failedMessage flag
+					const failedMessage = messages.find(
+						( msg ) => msg.failedMessage && msg.content === chatMessage
+					);
+					if ( failedMessage ) {
+						messageId = failedMessage.id;
+						if ( typeof messageId !== 'undefined' ) {
+							markMessageAsFailed( messageId, false );
+						}
+					}
+				} else {
+					messageId = addMessage( chatMessage, 'user', chatId ); // Get the new message ID
+					setInput( '' );
+				}
+				try {
+					const {
+						message,
+						chatId: fetchedChatId,
+						messageApiId,
+					} = await fetchAssistant(
+						chatId,
+						[
+							...messages,
+							{ id: messageId, content: chatMessage, role: 'user', createdAt: Date.now() },
+						],
+						currentSiteChatContext
+					);
+					if ( message ) {
+						addMessage( message, 'assistant', chatId ?? fetchedChatId, messageApiId );
+					}
+				} catch ( error ) {
 					if ( typeof messageId !== 'undefined' ) {
-						markMessageAsFailed( messageId, false );
+						markMessageAsFailed( messageId, true );
 					}
 				}
-			} else {
-				messageId = addMessage( chatMessage, 'user', chatId ); // Get the new message ID
-				setInput( '' );
 			}
-			try {
-				const {
-					message,
-					chatId: fetchedChatId,
-					messageApiId,
-				} = await fetchAssistant(
-					chatId,
-					[
-						...messages,
-						{ id: messageId, content: chatMessage, role: 'user', createdAt: Date.now() },
-					],
-					currentSiteChatContext
-				);
-				if ( message ) {
-					addMessage( message, 'assistant', chatId ?? fetchedChatId, messageApiId );
-				}
-			} catch ( error ) {
-				if ( typeof messageId !== 'undefined' ) {
-					markMessageAsFailed( messageId, true );
-				}
-			}
-		}
-	};
+		},
+		[
+			addMessage,
+			chatId,
+			currentSiteChatContext,
+			fetchAssistant,
+			markMessageAsFailed,
+			messages,
+			setInput,
+		]
+	);
+
+	// Submit prompt input when the user clicks the send button
+	const handleSend = useCallback( () => {
+		submitPrompt( inputRef.current?.value ?? '' );
+		setInput( '' );
+	}, [ submitPrompt, setInput ] );
 
 	const handleKeyDown = ( e: React.KeyboardEvent< HTMLTextAreaElement > ) => {
 		if ( e.key === 'Enter' ) {
@@ -390,7 +453,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		}
 	};
 
-	const clearInput = () => {
+	const clearConversation = () => {
 		setInput( '' );
 		clearMessages();
 	};
@@ -402,7 +465,9 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		} else if ( isAuthenticated && ! userCanSendMessage ) {
 			return <UsageLimitReached />;
 		} else if ( isAuthenticated ) {
-			return <ClearHistoryReminder lastMessage={ lastMessage } clearInput={ clearInput } />;
+			return (
+				<ClearHistoryReminder lastMessage={ lastMessage } clearConversation={ clearConversation } />
+			);
 		}
 	};
 
@@ -422,7 +487,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 						<>
 							<WelcomeComponent
 								onExampleClick={ ( prompt ) => {
-									handleSend( prompt );
+									submitPrompt( prompt );
 									inputRef.current?.focus();
 								} }
 								showExamplePrompts={ messages.length === 0 }
@@ -438,7 +503,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 									updateMessage={ updateMessage }
 									markMessageAsFeedbackReceived={ markMessageAsFeedbackReceived }
 									siteId={ selectedSite.id }
-									handleSend={ handleSend }
+									submitPrompt={ submitPrompt }
 								/>
 							}
 						</>
@@ -454,11 +519,11 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 					<AIInput
 						ref={ inputRef }
 						disabled={ disabled }
-						input={ input }
+						input={ currentInput }
 						setInput={ setInput }
 						handleSend={ handleSend }
 						handleKeyDown={ handleKeyDown }
-						clearInput={ clearInput }
+						clearConversation={ clearConversation }
 						isAssistantThinking={ isAssistantThinking }
 					/>
 					<div data-testid="guidelines-link" className="text-a8c-gray-50 self-end py-2">

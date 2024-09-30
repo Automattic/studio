@@ -142,7 +142,7 @@ const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 			speak( __( 'Starting the server before opening the site link' ) );
 			await startServer( props.selectedSite.id );
 		}
-		getIpcApi().openSiteURL( props.selectedSite.id );
+		getIpcApi().openSiteURL( props.selectedSite.id, '', { autoLogin: false } );
 	};
 	const clearImportFileInput = () => {
 		if ( inputFileRef.current ) {

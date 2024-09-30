@@ -8,10 +8,10 @@ import Button from './button';
 
 function AIClearHistoryReminder( {
 	lastMessage,
-	clearInput,
+	clearConversation,
 }: {
 	lastMessage?: MessageType;
-	clearInput: () => void;
+	clearConversation: () => void;
 } ) {
 	const [ showReminder, setShowReminder ] = useState( false );
 	const timeoutId = useRef< NodeJS.Timeout >();
@@ -54,7 +54,7 @@ function AIClearHistoryReminder( {
 
 	const onClearHistory = useCallback( async () => {
 		if ( localStorage.getItem( 'dontShowClearMessagesWarning' ) === 'true' ) {
-			clearInput();
+			clearConversation();
 			return;
 		}
 
@@ -73,9 +73,9 @@ function AIClearHistoryReminder( {
 				localStorage.setItem( 'dontShowClearMessagesWarning', 'true' );
 			}
 
-			clearInput();
+			clearConversation();
 		}
-	}, [ clearInput ] );
+	}, [ clearConversation ] );
 
 	if ( ! showReminder ) {
 		return null;

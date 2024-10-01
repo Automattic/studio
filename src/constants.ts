@@ -25,7 +25,7 @@ export const CHAT_MESSAGES_STORE_KEY = 'ai_chat_messages';
 
 //Import file constants
 
-export const ACCEPTED_IMPORT_FILE_TYPES = [ '.zip', '.gz', '.gzip', '.tar', '.tar.gz' ];
+export const ACCEPTED_IMPORT_FILE_TYPES = [ '.zip', '.gz', '.gzip', '.tar', '.tar.gz', '.wpress' ];
 
 // OAuth constants
 export const CLIENT_ID = '95109';

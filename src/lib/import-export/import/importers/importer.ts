@@ -8,6 +8,7 @@ import { lstat, move } from 'fs-extra';
 import semver from 'semver';
 import { DEFAULT_PHP_VERSION } from '../../../../../vendor/wp-now/src/constants';
 import { SiteServer } from '../../../../site-server';
+import { serializePlugins } from '../../../serialize-plugins';
 import { generateBackupFilename } from '../../export/generate-backup-filename';
 import { ImportEvents } from '../events';
 import { BackupContents, MetaFileData } from '../types';
@@ -385,7 +386,7 @@ export class WpressImporter extends BaseBackupImporter {
 			return;
 		}
 
-		const serializedPlugins = this.serializePlugins( plugins );
+		const serializedPlugins = serializePlugins( plugins );
 		const activatePluginsSql = `
 			INSERT INTO wp_options (option_name, option_value, autoload) VALUES ('active_plugins', '${ serializedPlugins }', 'yes');
 		`;
@@ -396,13 +397,6 @@ export class WpressImporter extends BaseBackupImporter {
 		);
 		await fsPromises.writeFile( sqliteActivatePluginsPath, activatePluginsSql );
 		sqlFiles.push( sqliteActivatePluginsPath );
-	}
-
-	private serializePlugins( plugins: string[] ): string {
-		const serializedArray = plugins
-			.map( ( plugin, index ) => `i:${ index };s:${ plugin.length }:"${ plugin }";` )
-			.join( '' );
-		return `a:${ plugins.length }:{${ serializedArray }}`;
 	}
 
 	protected async importDatabase(

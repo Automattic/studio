@@ -5,6 +5,7 @@ export interface MetaFileData {
 	wordpressVersion?: string;
 	template?: string;
 	stylesheet?: string;
+	plugins?: string[];
 }
 
 export interface WpContent {

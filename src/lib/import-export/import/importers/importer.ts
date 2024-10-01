@@ -318,15 +318,19 @@ export class SQLImporter extends BaseImporter {
 }
 
 export class WpressImporter extends BaseBackupImporter {
-	protected async parseMetaFile(): Promise< Pick< MetaFileData, 'template' | 'stylesheet' > > {
+	protected async parseMetaFile(): Promise< MetaFileData > {
 		const packageJsonPath = path.join( this.backup.extractionDirectory, 'package.json' );
 		try {
 			const packageContent = await fsPromises.readFile( packageJsonPath, 'utf8' );
-			const { Template: template = '', Stylesheet: stylesheet = '' } = JSON.parse( packageContent );
-			return { template, stylesheet };
+			const {
+				Template: template = '',
+				Stylesheet: stylesheet = '',
+				Plugins: plugins = [],
+			} = JSON.parse( packageContent );
+			return { template, stylesheet, plugins };
 		} catch ( error ) {
 			console.error( 'Error reading package.json:', error );
-			return { template: '', stylesheet: '' };
+			return { template: '', stylesheet: '', plugins: [] };
 		}
 	}
 
@@ -375,6 +379,32 @@ export class WpressImporter extends BaseBackupImporter {
 		sqlFiles.push( sqliteSetThemePath );
 	}
 
+	protected async addSqlToActivatePlugins( sqlFiles: string[] ): Promise< void > {
+		const { plugins = [] } = this.meta || {};
+		if ( plugins.length === 0 ) {
+			return;
+		}
+
+		const serializedPlugins = this.serializePlugins( plugins );
+		const activatePluginsSql = `
+			INSERT INTO wp_options (option_name, option_value, autoload) VALUES ('active_plugins', '${ serializedPlugins }', 'yes');
+		`;
+
+		const sqliteActivatePluginsPath = path.join(
+			this.backup.extractionDirectory,
+			'studio-wpress-activate-plugins.sql'
+		);
+		await fsPromises.writeFile( sqliteActivatePluginsPath, activatePluginsSql );
+		sqlFiles.push( sqliteActivatePluginsPath );
+	}
+
+	private serializePlugins( plugins: string[] ): string {
+		const serializedArray = plugins
+			.map( ( plugin, index ) => `i:${ index };s:${ plugin.length }:"${ plugin }";` )
+			.join( '' );
+		return `a:${ plugins.length }:{${ serializedArray }}`;
+	}
+
 	protected async importDatabase(
 		rootPath: string,
 		siteId: string,
@@ -385,6 +415,7 @@ export class WpressImporter extends BaseBackupImporter {
 			throw new Error( 'Site not found.' );
 		}
 		await this.addSqlToSetTheme( sqlFiles );
+		await this.addSqlToActivatePlugins( sqlFiles );
 		await super.importDatabase( rootPath, siteId, sqlFiles );
 	}
 }

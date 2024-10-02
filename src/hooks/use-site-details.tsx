@@ -101,8 +101,6 @@ function useDeleteSite() {
 				const newSites = await getIpcApi().deleteSite( siteId, removeLocal );
 				await allSiteRemovePromises;
 				return newSites;
-			} catch ( error ) {
-				throw new Error( 'Failed to delete local files' );
 			} finally {
 				setIsLoading( ( loading ) => ( { ...loading, [ siteId ]: false } ) );
 			}

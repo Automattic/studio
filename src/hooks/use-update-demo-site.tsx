@@ -68,7 +68,7 @@ export const DemoSiteUpdateProvider: React.FC< DemoSiteUpdateProviderProps > = (
 				getIpcApi().showErrorMessageBox( {
 					title: __( 'Update failed' ),
 					message: sprintf(
-						__( "We couldn't update the %s demo site. Please try again" ),
+						__( "We couldn't update the %s demo site. Please try again." ),
 						localSite.name
 					),
 					error,

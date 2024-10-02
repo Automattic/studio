@@ -1,5 +1,9 @@
+diff --git a/node_modules/@php-wasm/universal/.DS_Store b/node_modules/@php-wasm/universal/.DS_Store
+new file mode 100644
+index 0000000..5008ddf
+Binary files /dev/null and b/node_modules/@php-wasm/universal/.DS_Store differ
 diff --git a/node_modules/@php-wasm/universal/index.cjs b/node_modules/@php-wasm/universal/index.cjs
-index 44249c1..dc4fad3 100644
+index 55206eb..72695fc 100644
 --- a/node_modules/@php-wasm/universal/index.cjs
 +++ b/node_modules/@php-wasm/universal/index.cjs
 @@ -53,4 +53,4 @@ ${bold}  WASM ERROR${reset}${redBg}`);for(const e of t.split(`

@@ -397,7 +397,6 @@ export class WpressImporter extends BaseBackupImporter {
 			'studio-wpress-activate-plugins.sql'
 		);
 		await fsPromises.writeFile( sqliteActivatePluginsPath, activatePluginsSql );
-		await fsPromises.writeFile( '/tmp/activate-plugins.sql', activatePluginsSql );
 		sqlFiles.push( sqliteActivatePluginsPath );
 	}
 

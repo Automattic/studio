@@ -719,7 +719,7 @@ export async function showErrorMessageBox(
 	await showMessageBox( event, {
 		type: 'error',
 		message: title,
-		detail: error ? `${ message }\n\nError:\n\n${ filteredError }` : message,
+		detail: error ? `${ message }\n\nError: ${ filteredError }` : message,
 		buttons: [ __( 'OK' ) ],
 	} );
 }

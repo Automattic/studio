@@ -66,7 +66,8 @@ const api: IpcApi = {
 	// Use .send instead of .invoke because logging is fire-and-forget
 	logRendererMessage: ( level: LogLevel, ...args: any[] ) =>
 		ipcRenderer.send( 'logRendererMessage', level, ...args ),
-	setupAppMenu: () => ipcRenderer.invoke( 'setupAppMenu' ),
+	setupAppMenu: ( config: { needsOnboarding: boolean } ) =>
+		ipcRenderer.invoke( 'setupAppMenu', config ),
 	popupAppMenu: () => ipcRenderer.invoke( 'popupAppMenu' ),
 	promptWindowsSpeedUpSites: ( ...args: Parameters< typeof promptWindowsSpeedUpSites > ) =>
 		ipcRenderer.invoke( 'promptWindowsSpeedUpSites', ...args ),

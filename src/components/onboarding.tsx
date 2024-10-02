@@ -6,10 +6,6 @@ import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { ACCEPTED_IMPORT_FILE_TYPES } from '../constants';
 import { useAddSite } from '../hooks/use-add-site';
 import { useDragAndDropFile } from '../hooks/use-drag-and-drop-file';
-import { useImportExport } from '../hooks/use-import-export';
-import { useIpcListener } from '../hooks/use-ipc-listener';
-import { useOnboarding } from '../hooks/use-onboarding';
-import { useSiteDetails } from '../hooks/use-site-details';
 import { generateSiteName } from '../lib/generate-site-name';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
@@ -39,7 +35,6 @@ const GradientBox = () => {
 
 export default function Onboarding() {
 	const { __ } = useI18n();
-	const { needsOnboarding } = useOnboarding();
 	const {
 		setSiteName,
 		setProposedSitePath,
@@ -57,12 +52,6 @@ export default function Onboarding() {
 		fileForImport,
 	} = useAddSite();
 	const [ fileError, setFileError ] = useState( '' );
-	const { importState } = useImportExport();
-	const { data } = useSiteDetails();
-
-	const isAnySiteProcessing = data.some(
-		( site ) => site.isAddingSite || importState[ site.id ]?.isNewSite
-	);
 
 	const siteAddedMessage = sprintf(
 		// translators: %s is the site name.
@@ -101,21 +90,24 @@ export default function Onboarding() {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [] );
 
-	const onAddSite = useCallback( async () => {
-		// Prompt the user to enable optimizations on Windows
-		try {
-			await getIpcApi().promptWindowsSpeedUpSites( { skipIfAlreadyPrompted: true } );
-		} catch ( error ) {
-			console.error( error );
-		}
+	const handleSubmit = useCallback(
+		async ( event: FormEvent ) => {
+			event.preventDefault();
+			try {
+				await getIpcApi().promptWindowsSpeedUpSites( { skipIfAlreadyPrompted: true } );
+			} catch ( error ) {
+				console.error( error );
+			}
 
-		try {
-			await handleAddSiteClick();
-			speak( siteAddedMessage );
-		} catch {
-			// No need to handle error here, it's already handled in handleAddSiteClick
-		}
-	}, [ handleAddSiteClick, siteAddedMessage ] );
+			try {
+				await handleAddSiteClick();
+				speak( siteAddedMessage );
+			} catch {
+				// No need to handle error here, it's already handled in handleAddSiteClick
+			}
+		},
+		[ handleAddSiteClick, siteAddedMessage ]
+	);
 
 	const handleImportFile = useCallback(
 		async ( file: File ) => {
@@ -124,13 +116,6 @@ export default function Onboarding() {
 		},
 		[ setFileForImport ]
 	);
-
-	useIpcListener( 'add-site', () => {
-		if ( isAnySiteProcessing || ! needsOnboarding ) {
-			return;
-		}
-		onAddSite();
-	} );
 
 	return (
 		<div className="flex flex-row flex-grow" data-testid="onboarding">
@@ -154,10 +139,7 @@ export default function Onboarding() {
 							onSelectPath={ handlePathSelectorClick }
 							error={ error }
 							doesPathContainWordPress={ doesPathContainWordPress }
-							onSubmit={ async ( event: FormEvent ) => {
-								event.preventDefault();
-								await onAddSite();
-							} }
+							onSubmit={ handleSubmit }
 							fileForImport={ fileForImport }
 							setFileForImport={ setFileForImport }
 							onFileSelected={ handleImportFile }

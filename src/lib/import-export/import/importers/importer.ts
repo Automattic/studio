@@ -388,7 +388,8 @@ export class WpressImporter extends BaseBackupImporter {
 
 		const serializedPlugins = serializePlugins( plugins );
 		const activatePluginsSql = `
-			INSERT INTO wp_options (option_name, option_value, autoload) VALUES ('active_plugins', '${ serializedPlugins }', 'yes');
+			INSERT INTO wp_options (option_name, option_value, autoload) VALUES ('active_plugins', '${ serializedPlugins }', 'yes')
+			ON CONFLICT(option_name) DO UPDATE SET option_value = excluded.option_value, autoload = excluded.autoload;
 		`;
 
 		const sqliteActivatePluginsPath = path.join(
@@ -396,6 +397,7 @@ export class WpressImporter extends BaseBackupImporter {
 			'studio-wpress-activate-plugins.sql'
 		);
 		await fsPromises.writeFile( sqliteActivatePluginsPath, activatePluginsSql );
+		await fsPromises.writeFile( '/tmp/activate-plugins.sql', activatePluginsSql );
 		sqlFiles.push( sqliteActivatePluginsPath );
 	}
 

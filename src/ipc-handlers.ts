@@ -13,7 +13,7 @@ import {
 import fs from 'fs';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
-import { LocaleData, defaultI18n } from '@wordpress/i18n';
+import { __, LocaleData, defaultI18n } from '@wordpress/i18n';
 import archiver from 'archiver';
 import { DEFAULT_PHP_VERSION } from '../vendor/wp-now/src/constants';
 import { MAIN_MIN_WIDTH, SIDEBAR_WIDTH, SIZE_LIMIT_BYTES } from './constants';
@@ -705,6 +705,23 @@ export async function showMessageBox(
 		return dialog.showMessageBox( parentWindow, options );
 	}
 	return dialog.showMessageBox( options );
+}
+
+export async function showErrorMessageBox(
+	event: IpcMainInvokeEvent,
+	{ title, message, error }: { title: string; message: string; error?: unknown }
+) {
+	// Remove prepended error message added by IPC handler
+	const filteredError = ( error as Error )?.message?.replace(
+		/Error invoking remote method '\w+': Error:/g,
+		''
+	);
+	await showMessageBox( event, {
+		type: 'error',
+		message: title,
+		detail: error ? `${ message }\n\nError:\n\n${ filteredError }` : message,
+		buttons: [ __( 'OK' ) ],
+	} );
 }
 
 export async function showNotification(

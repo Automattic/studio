@@ -17,7 +17,7 @@ export class WpressValidator extends EventEmitter implements Validator {
 	parseBackupContents( fileList: string[], extractionDirectory: string ): BackupContents {
 		this.emit( ImportEvents.IMPORT_VALIDATION_START );
 		const extractedBackup: BackupContents = {
-			extractionDirectory: extractionDirectory,
+			extractionDirectory,
 			sqlFiles: [],
 			wpConfig: '',
 			wpContent: {

@@ -1,5 +1,6 @@
 import { EventEmitter } from 'events';
 import * as fs from 'fs';
+import { constants } from 'fs';
 import * as path from 'path';
 import * as fse from 'fs-extra';
 import { BackupArchiveInfo } from '../types';
@@ -129,7 +130,9 @@ export class BackupHandlerWpress extends EventEmitter implements BackupHandler {
 	async listFiles( file: BackupArchiveInfo ): Promise< string[] > {
 		const fileNames: string[] = [];
 
-		if ( ! fs.existsSync( file.path ) ) {
+		try {
+			await fs.promises.access( file.path, constants.F_OK );
+		} catch ( error ) {
 			throw new Error( `Input file at location "${ file.path }" could not be found.` );
 		}
 
@@ -163,7 +166,9 @@ export class BackupHandlerWpress extends EventEmitter implements BackupHandler {
 		return new Promise( ( resolve, reject ) => {
 			( async () => {
 				try {
-					if ( ! fs.existsSync( file.path ) ) {
+					try {
+						await fs.promises.access( file.path, constants.F_OK );
+					} catch ( error ) {
 						throw new Error( `Input file at location "${ file.path }" could not be found.` );
 					}
 

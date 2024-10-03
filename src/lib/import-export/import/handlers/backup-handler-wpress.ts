@@ -172,7 +172,7 @@ export class BackupHandlerWpress extends EventEmitter implements BackupHandler {
 						throw new Error( `Input file at location "${ file.path }" could not be found.` );
 					}
 
-					fse.emptyDirSync( extractionDirectory );
+					await fse.emptyDir( extractionDirectory );
 
 					const inputFile = await fs.promises.open( file.path, 'r' );
 

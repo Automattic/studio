@@ -15,7 +15,7 @@ describe( 'Anchor', () => {
 		( useSiteDetails as jest.Mock ).mockReturnValue( {} );
 		( getIpcApi as jest.Mock ).mockReturnValue( {
 			openURL: jest.fn( () => Promise.resolve() ),
-			showMessageBox: jest.fn(),
+			showErrorMessageBox: jest.fn(),
 		} );
 	} );
 
@@ -79,9 +79,10 @@ describe( 'Anchor', () => {
 	} );
 
 	it( 'should gracefully handle link open failures', async () => {
+		const error = new Error( 'Failed to open link' );
 		( getIpcApi as jest.Mock ).mockReturnValue( {
-			openURL: jest.fn( () => Promise.reject( new Error( 'Failed to open link' ) ) ),
-			showMessageBox: jest.fn(),
+			openURL: jest.fn( () => Promise.reject( error ) ),
+			showErrorMessageBox: jest.fn(),
 		} );
 		render( <Anchor href="https://example.com" children="Example link" /> );
 
@@ -90,11 +91,10 @@ describe( 'Anchor', () => {
 		// Await asynchronous openURL execution
 		await new Promise( process.nextTick );
 
-		expect( getIpcApi().showMessageBox ).toHaveBeenCalledWith( {
-			type: 'error',
-			message: 'Failed to open link',
-			detail: 'We were unable to open the link. Please try again.',
-			buttons: [ 'OK' ],
+		expect( getIpcApi().showErrorMessageBox ).toHaveBeenCalledWith( {
+			title: 'Failed to open link',
+			message: 'We were unable to open the link. Please try again.',
+			error,
 		} );
 		expect( Sentry.captureException ).toHaveBeenCalled();
 	} );

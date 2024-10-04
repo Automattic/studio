@@ -29,7 +29,7 @@ beforeEach( () => {
 	jest.clearAllMocks();
 	( getIpcApi as jest.Mock ).mockReturnValue( {
 		showSaveAsDialog: jest.fn(),
-		showMessageBox: jest.fn().mockResolvedValue( { response: 0, checkboxChecked: false } ),
+		showErrorMessageBox: jest.fn(),
 		showNotification: jest.fn(),
 		exportSite: jest.fn().mockReturnValue( true ),
 		importSite: jest.fn().mockReturnValue( selectedSite ),
@@ -84,9 +84,12 @@ describe( 'useImportExport hook', () => {
 			},
 			SITE_ID
 		);
-		expect( getIpcApi().showMessageBox ).toHaveBeenCalledWith(
-			expect.objectContaining( { type: 'error', message: 'Failed exporting site' } )
-		);
+		expect( getIpcApi().showErrorMessageBox ).toHaveBeenCalledWith( {
+			title: 'Failed exporting site',
+			message:
+				'An error occurred while exporting the site. If this problem persists, please contact support.',
+			error: 'error',
+		} );
 	} );
 
 	it( 'exports database', async () => {
@@ -233,9 +236,12 @@ describe( 'useImportExport hook', () => {
 				path: 'backup.zip',
 			},
 		} );
-		expect( getIpcApi().showMessageBox ).toHaveBeenCalledWith(
-			expect.objectContaining( { type: 'error', message: 'Failed importing site' } )
-		);
+		expect( getIpcApi().showErrorMessageBox ).toHaveBeenCalledWith( {
+			title: 'Failed importing site',
+			message:
+				'An error occurred while importing the site. Verify the file is a valid Jetpack backup, Local, Playground or .sql database file and try again. If this problem persists, please contact support.',
+			error: 'error',
+		} );
 	} );
 
 	it( 'does not import if another import is running', async () => {

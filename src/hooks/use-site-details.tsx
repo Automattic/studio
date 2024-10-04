@@ -101,8 +101,6 @@ function useDeleteSite() {
 				const newSites = await getIpcApi().deleteSite( siteId, removeLocal );
 				await allSiteRemovePromises;
 				return newSites;
-			} catch ( error ) {
-				throw new Error( 'Failed to delete local files' );
 			} finally {
 				setIsLoading( ( loading ) => ( { ...loading, [ siteId ]: false } ) );
 			}
@@ -172,15 +170,14 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			callback?: ( site: SiteDetails | void ) => Promise< void >
 		) => {
 			// Function to handle error messages and cleanup
-			const showError = () => {
+			const showError = ( error?: unknown ) => {
 				console.error( 'Failed to create site' );
-				getIpcApi().showMessageBox( {
-					type: 'error',
-					message: __( 'Failed to create site' ),
-					detail: __(
+				getIpcApi().showErrorMessageBox( {
+					title: __( 'Failed to create site' ),
+					message: __(
 						'An error occurred while creating the site. Verify your selected local path is an empty directory or an existing WordPress folder and try again. If this problem persists, please contact support.'
 					),
-					buttons: [ __( 'OK' ) ],
+					error,
 				} );
 
 				// Remove the temporary site immediately, but with a minor delay to ensure state updates properly
@@ -240,7 +237,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 				return newSite;
 			} catch ( error ) {
-				showError();
+				showError( error );
 			}
 		},
 		[ setSelectedSiteId ]
@@ -260,12 +257,12 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 				updatedSite = await getIpcApi().startServer( id );
 			} catch ( error ) {
 				Sentry.captureException( error );
-				getIpcApi().showMessageBox( {
-					type: 'error',
-					message: __( 'Failed to start the site server' ),
-					detail: __(
+				getIpcApi().showErrorMessageBox( {
+					title: __( 'Failed to start the site server' ),
+					message: __(
 						"Please verify your site's local path directory contains the standard WordPress installation files and try again. If this problem persists, please contact support."
 					),
+					error,
 				} );
 				getIpcApi().stopServer( id );
 			}

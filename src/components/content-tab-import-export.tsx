@@ -1,9 +1,10 @@
 import { speak } from '@wordpress/a11y';
+import { Notice } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { sprintf, __ } from '@wordpress/i18n';
 import { Icon, download } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { STUDIO_DOCS_URL_IMPORT_EXPORT } from '../constants';
 import { useConfirmationDialog } from '../hooks/use-confirmation-dialog';
 import { useDragAndDropFile } from '../hooks/use-drag-and-drop-file';
@@ -241,6 +242,30 @@ const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 };
 
 export function ContentTabImportExport( { selectedSite }: ContentTabImportExportProps ) {
+	const [ isSupported, setIsSupported ] = useState( true );
+
+	useEffect( () => {
+		getIpcApi()
+			.isImportExportSupported( selectedSite.id )
+			.then( ( result ) => {
+				setIsSupported( result );
+			} );
+	}, [ selectedSite.id ] );
+
+	if ( ! isSupported ) {
+		return (
+			<div className="flex flex-col p-8">
+				<Notice status="warning" isDismissible={ false }>
+					<span className="font-bold">
+						{ __( 'Import / Export is not available for this site' ) }
+					</span>
+					<br />
+					{ __( 'This feature is only available for sites using the default SQLite integration.' ) }
+				</Notice>
+			</div>
+		);
+	}
+
 	return (
 		<div className="flex flex-col p-8 gap-8">
 			<ImportSite selectedSite={ selectedSite } />

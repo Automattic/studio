@@ -77,67 +77,78 @@ export function useArchiveSite() {
 				setUploadingSites( ( _uploadingSites ) => ( { ..._uploadingSites, [ siteId ]: false } ) );
 				return;
 			}
-			const { zipContent, zipPath, exceedsSizeLimit } = await getIpcApi().archiveSite( siteId );
-			if ( exceedsSizeLimit ) {
-				alert(
-					sprintf(
-						__(
-							'The site exceeds the maximum size of %dMB. Please remove some files and try again.'
-						),
-						SIZE_LIMIT_MB
-					)
-				);
-				setUploadingSites( ( _uploadingSites ) => ( { ..._uploadingSites, [ siteId ]: false } ) );
-				getIpcApi().removeTemporalFile( zipPath );
-				return;
-			}
-
-			const file = new File( [ zipContent ], 'loca-env-site-1.zip', {
-				type: 'application/zip',
-			} );
-
-			const formData = [ [ 'import', file ] ];
-			const wordpressVersion = await getIpcApi().getWpVersion( siteId );
-			if ( wordpressVersion.length >= 3 ) {
-				formData.push( [ 'wordpress_version', wordpressVersion ] );
-			}
 
 			try {
-				const response: {
-					atomic_site_id: number;
-					domain_name: string;
-					admin_pass: string;
-					admin_user: string;
-					job_id: number;
-				} = await client.req.post( {
-					path: '/jurassic-ninja/create-new-site-from-zip',
-					apiNamespace: 'wpcom/v2',
-					formData,
+				const { zipContent, zipPath, exceedsSizeLimit } = await getIpcApi().archiveSite( siteId );
+				if ( exceedsSizeLimit ) {
+					alert(
+						sprintf(
+							__(
+								'The site exceeds the maximum size of %dMB. Please remove some files and try again.'
+							),
+							SIZE_LIMIT_MB
+						)
+					);
+					setUploadingSites( ( _uploadingSites ) => ( { ..._uploadingSites, [ siteId ]: false } ) );
+					getIpcApi().removeTemporalFile( zipPath );
+					return;
+				}
+
+				const file = new File( [ zipContent ], 'loca-env-site-1.zip', {
+					type: 'application/zip',
 				} );
-				addSnapshot( {
-					url: response.domain_name,
-					atomicSiteId: response.atomic_site_id,
-					localSiteId: siteId,
-					date: new Date().getTime(),
-					isLoading: true,
-				} );
-			} catch ( error ) {
-				if ( isWpcomNetworkError( error ) ) {
-					if ( error.code in errorMessages ) {
-						alert( errorMessages[ error.code as keyof typeof errorMessages ] );
+
+				const formData = [ [ 'import', file ] ];
+				const wordpressVersion = await getIpcApi().getWpVersion( siteId );
+				if ( wordpressVersion.length >= 3 ) {
+					formData.push( [ 'wordpress_version', wordpressVersion ] );
+				}
+
+				try {
+					const response: {
+						atomic_site_id: number;
+						domain_name: string;
+						admin_pass: string;
+						admin_user: string;
+						job_id: number;
+					} = await client.req.post( {
+						path: '/jurassic-ninja/create-new-site-from-zip',
+						apiNamespace: 'wpcom/v2',
+						formData,
+					} );
+					addSnapshot( {
+						url: response.domain_name,
+						atomicSiteId: response.atomic_site_id,
+						localSiteId: siteId,
+						date: new Date().getTime(),
+						isLoading: true,
+					} );
+				} catch ( error ) {
+					if ( isWpcomNetworkError( error ) ) {
+						if ( error.code in errorMessages ) {
+							alert( errorMessages[ error.code as keyof typeof errorMessages ] );
+						} else {
+							alert( __( 'Error sharing site. Please try again.' ) );
+						}
+						if ( error.code !== 'rest_site_limit_reached' ) {
+							Sentry.captureException( error );
+						}
 					} else {
-						alert( __( 'Error sharing site. Please try again.' ) );
-					}
-					if ( error.code !== 'rest_site_limit_reached' ) {
+						alert( __( 'Error sharing site. Please contact support.' ) );
 						Sentry.captureException( error );
 					}
-				} else {
-					alert( __( 'Error sharing site. Please contact support.' ) );
-					Sentry.captureException( error );
+				} finally {
+					getIpcApi().removeTemporalFile( zipPath );
 				}
+			} catch ( error ) {
+				getIpcApi().showErrorMessageBox( {
+					title: __( 'Archiving failed' ),
+					message: __( 'Error sharing site. Please try again.' ),
+					error,
+				} );
+				Sentry.captureException( error );
 			} finally {
 				setUploadingSites( ( _uploadingSites ) => ( { ..._uploadingSites, [ siteId ]: false } ) );
-				getIpcApi().removeTemporalFile( zipPath );
 			}
 		},
 		[ __, addSnapshot, client, errorMessages, fetchSnapshotUsage, setUploadingSites ]

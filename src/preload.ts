@@ -61,12 +61,15 @@ const api: IpcApi = {
 		ipcRenderer.invoke( 'openTerminalAtPath', targetPath, extraParams ),
 	showMessageBox: ( options: Electron.MessageBoxOptions ) =>
 		ipcRenderer.invoke( 'showMessageBox', options ),
+	showErrorMessageBox: ( options: { title: string; message: string; error?: unknown } ) =>
+		ipcRenderer.invoke( 'showErrorMessageBox', options ),
 	showNotification: ( options: Electron.NotificationConstructorOptions ) =>
 		ipcRenderer.invoke( 'showNotification', options ),
 	// Use .send instead of .invoke because logging is fire-and-forget
 	logRendererMessage: ( level: LogLevel, ...args: any[] ) =>
 		ipcRenderer.send( 'logRendererMessage', level, ...args ),
-	setupAppMenu: () => ipcRenderer.invoke( 'setupAppMenu' ),
+	setupAppMenu: ( config: { needsOnboarding: boolean } ) =>
+		ipcRenderer.invoke( 'setupAppMenu', config ),
 	popupAppMenu: () => ipcRenderer.invoke( 'popupAppMenu' ),
 	promptWindowsSpeedUpSites: ( ...args: Parameters< typeof promptWindowsSpeedUpSites > ) =>
 		ipcRenderer.invoke( 'promptWindowsSpeedUpSites', ...args ),

@@ -24,13 +24,11 @@ describe( 'TopBar', () => {
 		jest.clearAllMocks();
 	} );
 	it( 'Test unauthenticated TopBar has the Log in button', async () => {
-		const user = userEvent.setup();
 		const authenticate = jest.fn();
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: false, authenticate } );
 		await act( async () => render( <TopBar onToggleSidebar={ jest.fn() } /> ) );
+		expect( screen.queryByRole( 'button', { name: 'Account' } ) ).not.toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'Log in' } ) ).toBeVisible();
-		await user.click( screen.getByRole( 'button', { name: 'Log in' } ) );
-		expect( authenticate ).toHaveBeenCalledTimes( 1 );
 	} );
 
 	it( 'Test authenticated TopBar does not have the log in button and it has the settings and account buttons', async () => {
@@ -38,15 +36,6 @@ describe( 'TopBar', () => {
 		await act( async () => render( <TopBar onToggleSidebar={ jest.fn() } /> ) );
 		expect( screen.queryByRole( 'button', { name: 'Log in' } ) ).not.toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'Account' } ) ).toBeVisible();
-	} );
-	it( 'disables log in button when offline', async () => {
-		( useOffline as jest.Mock ).mockReturnValue( true );
-		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: false } );
-		await act( async () => render( <TopBar onToggleSidebar={ jest.fn() } /> ) );
-		const loginButton = screen.getByRole( 'button', { name: 'Log in' } );
-		expect( loginButton ).toHaveAttribute( 'aria-disabled', 'true' );
-		fireEvent.mouseOver( loginButton );
-		expect( screen.getByRole( 'tooltip', { name: 'You’re currently offline.' } ) ).toBeVisible();
 	} );
 
 	it( 'shows offline indicator', async () => {

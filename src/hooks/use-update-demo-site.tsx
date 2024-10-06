@@ -34,22 +34,22 @@ export const DemoSiteUpdateProvider: React.FC< DemoSiteUpdateProviderProps > = (
 			}
 			setUpdatingSites( ( prev ) => new Set( prev ).add( localSite.id ) );
 
-			const { zipContent } = await getIpcApi().archiveSite( localSite.id );
-			const file = new File( [ zipContent ], 'loca-env-site-1.zip', {
-				type: 'application/zip',
-			} );
-
-			const formData = [
-				[ 'site_id', snapshot.atomicSiteId ],
-				[ 'import', file ],
-			];
-
-			const wordpressVersion = await getIpcApi().getWpVersion( localSite.id );
-			if ( wordpressVersion.length >= 3 ) {
-				formData.push( [ 'wordpress_version', wordpressVersion ] );
-			}
-
 			try {
+				const { zipContent } = await getIpcApi().archiveSite( localSite.id );
+				const file = new File( [ zipContent ], 'loca-env-site-1.zip', {
+					type: 'application/zip',
+				} );
+
+				const formData = [
+					[ 'site_id', snapshot.atomicSiteId ],
+					[ 'import', file ],
+				];
+
+				const wordpressVersion = await getIpcApi().getWpVersion( localSite.id );
+				if ( wordpressVersion.length >= 3 ) {
+					formData.push( [ 'wordpress_version', wordpressVersion ] );
+				}
+
 				const response = await client.req.post( {
 					path: '/jurassic-ninja/update-site-from-zip',
 					apiNamespace: 'wpcom/v2',
@@ -65,14 +65,13 @@ export const DemoSiteUpdateProvider: React.FC< DemoSiteUpdateProviderProps > = (
 				} );
 				return response;
 			} catch ( error ) {
-				getIpcApi().showMessageBox( {
-					type: 'warning',
-					message: __( 'Update failed' ),
-					detail: sprintf(
-						__( "We couldn't update the %s demo site. Please try again" ),
+				getIpcApi().showErrorMessageBox( {
+					title: __( 'Update failed' ),
+					message: sprintf(
+						__( "We couldn't update the %s demo site. Please try again." ),
 						localSite.name
 					),
-					buttons: [ __( 'OK' ) ],
+					error,
 				} );
 				Sentry.captureException( error );
 			} finally {

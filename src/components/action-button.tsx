@@ -114,7 +114,7 @@ export const ActionButton = ( {
 			};
 			break;
 		case 'loading':
-			buttonLabel = __( 'Starting…' );
+			buttonLabel = isRunning ? __( 'Stopping…' ) : __( 'Starting…' );
 			buttonProps = {
 				// `aria-disabled` used rather than `disabled` to prevent losing button
 				// focus while the button's asynchronous action is pending.

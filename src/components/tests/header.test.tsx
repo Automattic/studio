@@ -23,7 +23,7 @@ function mockGetIpcApi( mocks: Record< string, jest.Mock > ) {
 		getSnapshots: jest.fn( () => Promise.resolve( [] ) ),
 		saveSnapshotsToStorage: jest.fn( () => Promise.resolve() ),
 		startServer: jest.fn( () => Promise.resolve( { running: true } ) ),
-		showMessageBox: jest.fn(),
+		showErrorMessageBox: jest.fn(),
 		...mocks,
 	} );
 }
@@ -54,10 +54,12 @@ describe( 'Header', () => {
 	describe( 'when starting a server fails', () => {
 		it( 'should display an error message', async () => {
 			const user = userEvent.setup();
+			const error = new Error( 'Failed to start the server' );
 			mockGetIpcApi( {
 				startServer: jest.fn( () => {
-					throw new Error( 'Failed to start the server' );
+					throw error;
 				} ),
+				stopServer: jest.fn( () => Promise.resolve( { running: false } ) ),
 			} );
 			render(
 				<SiteDetailsProvider>
@@ -71,12 +73,12 @@ describe( 'Header', () => {
 
 			expect( mockedGetIpcApi().startServer ).toHaveBeenCalledTimes( 1 );
 			expect( screen.getByText( 'Start' ) ).toBeVisible();
-			expect( mockedGetIpcApi().showMessageBox ).toHaveBeenCalledTimes( 1 );
-			expect( mockedGetIpcApi().showMessageBox ).toHaveBeenCalledWith( {
-				type: 'error',
-				message: 'Failed to start the site server',
-				detail:
+			expect( mockedGetIpcApi().showErrorMessageBox ).toHaveBeenCalledTimes( 1 );
+			expect( mockedGetIpcApi().showErrorMessageBox ).toHaveBeenCalledWith( {
+				title: 'Failed to start the site server',
+				message:
 					"Please verify your site's local path directory contains the standard WordPress installation files and try again. If this problem persists, please contact support.",
+				error,
 			} );
 		} );
 	} );

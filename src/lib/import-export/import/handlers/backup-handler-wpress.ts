@@ -193,30 +193,4 @@ export class BackupHandlerWpress extends EventEmitter implements BackupHandler {
 			} )();
 		} );
 	}
-
-	/**
-	 * Checks if the provided file is a valid backup file.
-	 *
-	 * A valid backup file should have a header size of 4377 bytes and the last 4377 bytes should be 0.
-	 *
-	 * @param {BackupArchiveInfo} file - The backup archive information, including the file path.
-	 * @returns {boolean} - True if the file is valid, otherwise false.
-	 */
-	isValid( file: BackupArchiveInfo ): boolean {
-		const fd = fs.openSync( file.path, 'r' );
-		const fileSize = fs.fstatSync( fd ).size;
-
-		if ( fs.readSync( fd, this.eof, 0, HEADER_SIZE, fileSize - HEADER_SIZE ) !== HEADER_SIZE ) {
-			fs.closeSync( fd );
-			return false;
-		}
-
-		if ( Buffer.compare( this.eof, Buffer.alloc( HEADER_SIZE, '\0' ) ) !== 0 ) {
-			fs.closeSync( fd );
-			return false;
-		}
-
-		fs.closeSync( fd );
-		return true;
-	}
 }

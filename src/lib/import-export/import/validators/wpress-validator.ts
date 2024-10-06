@@ -6,7 +6,7 @@ import { Validator } from './validator';
 
 export class WpressValidator extends EventEmitter implements Validator {
 	canHandle( fileList: string[] ): boolean {
-		const requiredFiles = [ 'database.sql' ];
+		const requiredFiles = [ 'database.sql', 'package.json' ];
 		const optionalDirs = [ 'uploads', 'plugins', 'themes' ];
 		return (
 			requiredFiles.every( ( file ) => fileList.includes( file ) ) &&

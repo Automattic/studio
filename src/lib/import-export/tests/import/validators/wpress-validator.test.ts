@@ -13,6 +13,7 @@ describe( 'WpressValidator', () => {
 		it( 'should return true for valid wpress file structure', () => {
 			const fileList = [
 				'database.sql',
+				'package.json',
 				'uploads/image.jpg',
 				'plugins/some-plugin/plugin.php',
 				'themes/some-theme/style.css',
@@ -22,6 +23,17 @@ describe( 'WpressValidator', () => {
 
 		it( 'should return false if database.sql is missing', () => {
 			const fileList = [
+				'package.json',
+				'uploads/image.jpg',
+				'plugins/some-plugin/plugin.php',
+				'themes/some-theme/style.css',
+			];
+			expect( validator.canHandle( fileList ) ).toBe( false );
+		} );
+
+		it( 'should return false if package.json is missing', () => {
+			const fileList = [
+				'database.sql',
 				'uploads/image.jpg',
 				'plugins/some-plugin/plugin.php',
 				'themes/some-theme/style.css',
@@ -30,7 +42,7 @@ describe( 'WpressValidator', () => {
 		} );
 
 		it( 'should return false if no optional directories are present', () => {
-			const fileList = [ 'database.sql', 'some-other-file.txt' ];
+			const fileList = [ 'database.sql', 'package.json', 'some-other-file.txt' ];
 			expect( validator.canHandle( fileList ) ).toBe( false );
 		} );
 	} );

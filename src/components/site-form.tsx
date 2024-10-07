@@ -4,7 +4,7 @@ import { __ } from '@wordpress/i18n';
 import { tip, warning, trash, chevronRight, chevronDown, chevronLeft } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useRef, useState } from 'react';
-import { STUDIO_DOCS_URL_IMPORT_EXPORT } from '../constants';
+import { ACCEPTED_IMPORT_FILE_TYPES, STUDIO_DOCS_URL_IMPORT_EXPORT } from '../constants';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
@@ -192,7 +192,7 @@ function FormImportComponent( {
 					className="hidden"
 					type="file"
 					data-testid="backup-file"
-					accept=".zip,.tar,.gz"
+					accept={ ACCEPTED_IMPORT_FILE_TYPES.join( ',' ) }
 					onChange={ handleFileChange }
 				/>
 			</div>

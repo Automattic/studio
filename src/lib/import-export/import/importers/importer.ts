@@ -1,12 +1,14 @@
 import { shell } from 'electron';
 import { EventEmitter } from 'events';
-import fs from 'fs';
+import fs, { createReadStream, createWriteStream } from 'fs';
 import fsPromises from 'fs/promises';
 import path from 'path';
+import { createInterface } from 'readline';
 import { lstat, move } from 'fs-extra';
 import semver from 'semver';
 import { DEFAULT_PHP_VERSION } from '../../../../../vendor/wp-now/src/constants';
 import { SiteServer } from '../../../../site-server';
+import { serializePlugins } from '../../../serialize-plugins';
 import { generateBackupFilename } from '../../export/generate-backup-filename';
 import { ImportEvents } from '../events';
 import { BackupContents, MetaFileData } from '../types';
@@ -20,6 +22,8 @@ export interface Importer extends Partial< EventEmitter > {
 }
 
 abstract class BaseImporter extends EventEmitter implements Importer {
+	protected meta?: MetaFileData;
+
 	constructor( protected backup: BackupContents ) {
 		super();
 	}
@@ -49,6 +53,7 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 
 			try {
 				await move( sqlFile, tmpPath );
+				await this.prepareSqlFile( tmpPath );
 				const { stderr, exitCode } = await server.executeWpCliCommand(
 					`sqlite import ${ sqlTempFile } --require=/tmp/sqlite-command/command.php`,
 					// SQLite plugin requires PHP 8+
@@ -69,6 +74,10 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 
 		await this.replaceSiteUrl( siteId );
 		this.emit( ImportEvents.IMPORT_DATABASE_COMPLETE );
+	}
+
+	protected async prepareSqlFile( _tmpPath: string ): Promise< void > {
+		// This method can be overridden by subclasses to prepare the SQL file before import.
 	}
 
 	protected async replaceSiteUrl( siteId: string ) {
@@ -119,17 +128,15 @@ abstract class BaseBackupImporter extends BaseImporter {
 		try {
 			const databaseDir = path.join( rootPath, 'wp-content', 'database' );
 			const dbPath = path.join( databaseDir, '.ht.sqlite' );
-
 			await this.moveExistingDatabaseToTrash( dbPath );
 			await this.moveExistingWpContentToTrash( rootPath );
 			await this.createEmptyDatabase( dbPath );
 			await this.importWpConfig( rootPath );
 			await this.importWpContent( rootPath );
-			await this.importDatabase( rootPath, siteId, this.backup.sqlFiles );
-			let meta: MetaFileData | undefined;
 			if ( this.backup.metaFile ) {
-				meta = await this.parseMetaFile();
+				this.meta = await this.parseMetaFile();
 			}
+			await this.importDatabase( rootPath, siteId, this.backup.sqlFiles );
 
 			this.emit( ImportEvents.IMPORT_COMPLETE );
 			return {
@@ -138,7 +145,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 				wpContent: this.backup.wpContent,
 				wpContentDirectory: this.backup.wpContentDirectory,
 				wpConfig: this.backup.wpConfig,
-				meta,
+				meta: this.meta,
 			};
 		} catch ( error ) {
 			this.emit( ImportEvents.IMPORT_ERROR, error );
@@ -308,5 +315,102 @@ export class SQLImporter extends BaseImporter {
 			this.emit( ImportEvents.IMPORT_ERROR, error );
 			throw error;
 		}
+	}
+}
+
+export class WpressImporter extends BaseBackupImporter {
+	protected async parseMetaFile(): Promise< MetaFileData > {
+		const packageJsonPath = path.join( this.backup.extractionDirectory, 'package.json' );
+		try {
+			const packageContent = await fsPromises.readFile( packageJsonPath, 'utf8' );
+			const {
+				Template: template = '',
+				Stylesheet: stylesheet = '',
+				Plugins: plugins = [],
+			} = JSON.parse( packageContent );
+			return { template, stylesheet, plugins };
+		} catch ( error ) {
+			console.error( 'Error reading package.json:', error );
+			return { template: '', stylesheet: '', plugins: [] };
+		}
+	}
+
+	protected async prepareSqlFile( tmpPath: string ): Promise< void > {
+		const tempOutputPath = `${ tmpPath }.tmp`;
+		const readStream = createReadStream( tmpPath, 'utf8' );
+		const writeStream = createWriteStream( tempOutputPath, 'utf8' );
+
+		const rl = createInterface( {
+			input: readStream,
+			crlfDelay: Infinity,
+		} );
+
+		rl.on( 'line', ( line: string ) => {
+			writeStream.write( line.replace( /SERVMASK_PREFIX/g, 'wp' ) + '\n' );
+		} );
+
+		await new Promise( ( resolve, reject ) => {
+			rl.on( 'close', resolve );
+			rl.on( 'error', reject );
+		} );
+
+		await new Promise( ( resolve, reject ) => {
+			writeStream.end( resolve );
+			writeStream.on( 'error', reject );
+		} );
+
+		await fsPromises.rename( tempOutputPath, tmpPath );
+	}
+
+	protected async addSqlToSetTheme( sqlFiles: string[] ): Promise< void > {
+		const { template, stylesheet } = this.meta || {};
+		if ( ! template || ! stylesheet ) {
+			return;
+		}
+
+		const themeUpdateSql = `
+				UPDATE wp_options SET option_value = '${ template }' WHERE option_name = 'template';
+				UPDATE wp_options SET option_value = '${ stylesheet }' WHERE option_name = 'stylesheet';
+			`;
+		const sqliteSetThemePath = path.join(
+			this.backup.extractionDirectory,
+			'studio-wpress-theme.sql'
+		);
+		await fsPromises.writeFile( sqliteSetThemePath, themeUpdateSql );
+		sqlFiles.push( sqliteSetThemePath );
+	}
+
+	protected async addSqlToActivatePlugins( sqlFiles: string[] ): Promise< void > {
+		const { plugins = [] } = this.meta || {};
+		if ( plugins.length === 0 ) {
+			return;
+		}
+
+		const serializedPlugins = serializePlugins( plugins );
+		const activatePluginsSql = `
+			INSERT INTO wp_options (option_name, option_value, autoload) VALUES ('active_plugins', '${ serializedPlugins }', 'yes')
+			ON CONFLICT(option_name) DO UPDATE SET option_value = excluded.option_value, autoload = excluded.autoload;
+		`;
+
+		const sqliteActivatePluginsPath = path.join(
+			this.backup.extractionDirectory,
+			'studio-wpress-activate-plugins.sql'
+		);
+		await fsPromises.writeFile( sqliteActivatePluginsPath, activatePluginsSql );
+		sqlFiles.push( sqliteActivatePluginsPath );
+	}
+
+	protected async importDatabase(
+		rootPath: string,
+		siteId: string,
+		sqlFiles: string[]
+	): Promise< void > {
+		const server = SiteServer.get( siteId );
+		if ( ! server ) {
+			throw new Error( 'Site not found.' );
+		}
+		await this.addSqlToSetTheme( sqlFiles );
+		await this.addSqlToActivatePlugins( sqlFiles );
+		await super.importDatabase( rootPath, siteId, sqlFiles );
 	}
 }

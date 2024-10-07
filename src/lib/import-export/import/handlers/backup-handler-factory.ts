@@ -2,8 +2,8 @@ import { EventEmitter } from 'events';
 import { BackupArchiveInfo } from '../types';
 import { BackupHandlerSql } from './backup-handler-sql';
 import { BackupHandlerTarGz } from './backup-handler-tar-gz';
+import { BackupHandlerWpress } from './backup-handler-wpress';
 import { BackupHandlerZip } from './backup-handler-zip';
-
 export interface BackupHandler extends Partial< EventEmitter > {
 	listFiles( file: BackupArchiveInfo ): Promise< string[] >;
 	extractFiles( file: BackupArchiveInfo, extractionDirectory: string ): Promise< void >;
@@ -54,6 +54,8 @@ export class BackupHandlerFactory {
 			return new BackupHandlerTarGz();
 		} else if ( this.isSql( file ) ) {
 			return new BackupHandlerSql();
+		} else if ( this.isWpress( file ) ) {
+			return new BackupHandlerWpress();
 		}
 	}
 
@@ -76,5 +78,9 @@ export class BackupHandlerFactory {
 			( this.sqlTypes.includes( file.type ) || ! file.type ) &&
 			this.sqlExtensions.some( ( ext ) => file.path.endsWith( ext ) )
 		);
+	}
+
+	private static isWpress( file: BackupArchiveInfo ): boolean {
+		return file.path.endsWith( '.wpress' );
 	}
 }

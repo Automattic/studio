@@ -15,34 +15,34 @@ export function useContentTabs() {
 				title: __( 'Overview' ),
 			},
 			{
-				order: 3,
+				order: 2,
+				name: 'share',
+				title: __( 'Share' ),
+			},
+			{
+				order: 4,
 				name: 'import-export',
 				title: __( 'Import / Export' ),
 			},
 			{
-				order: 4,
+				order: 5,
 				name: 'settings',
 				title: __( 'Settings' ),
 			},
 		];
 
+		// Add Sync tab as third if siteSyncEnabled is true
 		if ( siteSyncEnabled ) {
 			tabs.push( {
-				order: 2,
+				order: 3,
 				name: 'sync',
 				title: __( 'Sync' ),
-			} );
-		} else {
-			tabs.push( {
-				order: 2,
-				name: 'share',
-				title: __( 'Share' ),
 			} );
 		}
 
 		if ( assistantEnabled ) {
 			tabs.push( {
-				order: 5,
+				order: 6,
 				name: 'assistant',
 				title: __( 'Assistant' ),
 				className:
@@ -50,6 +50,7 @@ export function useContentTabs() {
 			} );
 		}
 
+		// Sort tabs by order value to ensure correct ordering
 		return tabs.sort( ( a, b ) => a.order - b.order );
 	}, [ __, assistantEnabled, siteSyncEnabled ] );
 }

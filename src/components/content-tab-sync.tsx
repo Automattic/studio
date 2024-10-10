@@ -3,7 +3,7 @@ import { check } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren } from 'react';
 import Button from './button';
-import { ScreenshotDemoSite } from './screenshot-demo-site';
+import { SyncTabImage } from './sync-tab-image';
 
 function SiteSyncDesription( {
 	children,
@@ -33,7 +33,7 @@ function SiteSyncDesription( {
 				{ children }
 			</div>
 			<div className="flex flex-col shrink-0 items-end">
-				<ScreenshotDemoSite site={ selectedSite } />
+				<SyncTabImage />
 			</div>
 		</div>
 	);

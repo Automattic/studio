@@ -31,7 +31,6 @@ export function useContentTabs() {
 			},
 		];
 
-		// Add Sync tab as third if siteSyncEnabled is true
 		if ( siteSyncEnabled ) {
 			tabs.push( {
 				order: 3,

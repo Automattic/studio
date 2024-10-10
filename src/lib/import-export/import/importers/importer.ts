@@ -122,6 +122,7 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 }
 
 abstract class BaseBackupImporter extends BaseImporter {
+	protected async afterImport?( siteId: string ): Promise< void >;
 	async import( rootPath: string, siteId: string ): Promise< ImporterResult > {
 		this.emit( ImportEvents.IMPORT_START );
 
@@ -137,6 +138,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 				this.meta = await this.parseMetaFile();
 			}
 			await this.importDatabase( rootPath, siteId, this.backup.sqlFiles );
+			await this.afterImport?.( siteId );
 
 			this.emit( ImportEvents.IMPORT_COMPLETE );
 			return {
@@ -237,6 +239,14 @@ export class JetpackImporter extends BaseBackupImporter {
 		} finally {
 			this.emit( ImportEvents.IMPORT_META_COMPLETE );
 		}
+	}
+
+	protected async afterImport( siteId: string ) {
+		const server = SiteServer.get( siteId );
+		if ( ! server ) {
+			throw new Error( 'Site not found.' );
+		}
+		await server.executeWpCliCommand( 'media regenerate --yes' );
 	}
 }
 

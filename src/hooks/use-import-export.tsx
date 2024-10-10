@@ -62,15 +62,6 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 	const [ exportState, setExportState ] = useState< ExportProgressState >( {} );
 	const { startServer, stopServer, updateSite } = useSiteDetails();
 
-	const INITIAL_EXPORT_STATE = {
-		statusMessage: __( 'Starting export...' ),
-		progress: 5,
-	};
-	const INITIAL_IMPORT_STATE = {
-		statusMessage: __( 'Extracting backup…' ),
-		progress: 5,
-	};
-
 	const importFile = useCallback(
 		async (
 			file: BackupArchiveInfo,
@@ -83,6 +74,11 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 			if ( importState[ selectedSite.id ]?.progress < 100 ) {
 				return;
 			}
+
+			const INITIAL_IMPORT_STATE = {
+				statusMessage: __( 'Extracting backup…' ),
+				progress: 5,
+			};
 
 			setImportState( ( prevState ) => ( {
 				...prevState,
@@ -245,6 +241,11 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 				return;
 			}
 
+			const INITIAL_EXPORT_STATE = {
+				statusMessage: __( 'Starting export...' ),
+				progress: 5,
+			};
+
 			setExportState( ( prevState ) => ( {
 				...prevState,
 				[ selectedSite.id ]: INITIAL_EXPORT_STATE,
@@ -354,6 +355,11 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 		if ( ! siteId ) {
 			return;
 		}
+
+		const INITIAL_EXPORT_STATE = {
+			statusMessage: __( 'Starting export...' ),
+			progress: 5,
+		};
 
 		switch ( event ) {
 			case ExportEvents.EXPORT_START:

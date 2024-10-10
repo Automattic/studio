@@ -1,10 +1,7 @@
-import { Icon, file } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren } from 'react';
 import { useGetWpVersion } from '../hooks/use-get-wp-version';
-import { getIpcApi } from '../lib/get-ipc-api';
 import { decodePassword } from '../lib/passwords';
-import Button from './button';
 import { CopyTextButton } from './copy-text-button';
 import DeleteSite from './delete-site';
 import EditPhpVersion from './edit-php-version';

@@ -73,6 +73,7 @@ interface AppGlobals {
 	arm64Translation: boolean;
 	assistantEnabled: boolean;
 	terminalWpCliEnabled: boolean;
+	siteSyncEnabled: boolean;
 }
 
 interface IpcListener {

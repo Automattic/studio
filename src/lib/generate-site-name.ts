@@ -57,7 +57,7 @@ export const sanitizeFolderName = ( filename: string ) => {
 		.normalize( 'NFKD' )
 		.replace( /[\u0300-\u036f]/g, '' ) // Remove diacritics
 		.toLowerCase()
-		.replace( ALLOWED_CHARS, '')
+		.replace( ALLOWED_CHARS, '' )
 		.trim()
 		.replace( /\s+/g, '-' ) // Replace spaces with hyphens
 		.replace( /-+/g, '-' ); // Replace multiple hyphens with a single one

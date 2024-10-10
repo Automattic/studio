@@ -5,7 +5,7 @@ import { useFeatureFlags } from './use-feature-flags';
 
 export function useContentTabs() {
 	const { __ } = useI18n();
-	const { assistantEnabled } = useFeatureFlags();
+	const { assistantEnabled, siteSyncEnabled } = useFeatureFlags();
 
 	return useMemo( () => {
 		const tabs: React.ComponentProps< typeof TabPanel >[ 'tabs' ] = [
@@ -13,11 +13,6 @@ export function useContentTabs() {
 				order: 1,
 				name: 'overview',
 				title: __( 'Overview' ),
-			},
-			{
-				order: 2,
-				name: 'share',
-				title: __( 'Share' ),
 			},
 			{
 				order: 3,
@@ -31,6 +26,20 @@ export function useContentTabs() {
 			},
 		];
 
+		if ( siteSyncEnabled ) {
+			tabs.push( {
+				order: 2,
+				name: 'sync',
+				title: __( 'Sync' ),
+			} );
+		} else {
+			tabs.push( {
+				order: 2,
+				name: 'share',
+				title: __( 'Share' ),
+			} );
+		}
+
 		if ( assistantEnabled ) {
 			tabs.push( {
 				order: 5,
@@ -42,5 +51,5 @@ export function useContentTabs() {
 		}
 
 		return tabs.sort( ( a, b ) => a.order - b.order );
-	}, [ __, assistantEnabled ] );
+	}, [ __, assistantEnabled, siteSyncEnabled ] );
 }

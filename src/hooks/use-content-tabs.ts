@@ -15,7 +15,7 @@ export function useContentTabs() {
 				title: __( 'Overview' ),
 			},
 			{
-				order: 2,
+				order: 3,
 				name: 'share',
 				title: __( 'Share' ),
 			},
@@ -33,7 +33,7 @@ export function useContentTabs() {
 
 		if ( siteSyncEnabled ) {
 			tabs.push( {
-				order: 3,
+				order: 2,
 				name: 'sync',
 				title: __( 'Sync' ),
 			} );

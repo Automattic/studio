@@ -246,7 +246,9 @@ export class JetpackImporter extends BaseBackupImporter {
 		if ( ! server ) {
 			throw new Error( 'Site not found.' );
 		}
+		this.emit( ImportEvents.IMPORT_MEDIA_REGENERATE_START );
 		await server.executeWpCliCommand( 'media regenerate --yes' );
+		this.emit( ImportEvents.IMPORT_MEDIA_REGENERATE_COMPLETE );
 	}
 }
 

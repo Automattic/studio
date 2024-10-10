@@ -16,11 +16,16 @@ export function useContentTabs() {
 			},
 			{
 				order: 3,
+				name: 'share',
+				title: __( 'Share' ),
+			},
+			{
+				order: 4,
 				name: 'import-export',
 				title: __( 'Import / Export' ),
 			},
 			{
-				order: 4,
+				order: 5,
 				name: 'settings',
 				title: __( 'Settings' ),
 			},
@@ -32,17 +37,11 @@ export function useContentTabs() {
 				name: 'sync',
 				title: __( 'Sync' ),
 			} );
-		} else {
-			tabs.push( {
-				order: 2,
-				name: 'share',
-				title: __( 'Share' ),
-			} );
 		}
 
 		if ( assistantEnabled ) {
 			tabs.push( {
-				order: 5,
+				order: 6,
 				name: 'assistant',
 				title: __( 'Assistant' ),
 				className:

@@ -49,7 +49,6 @@ export function useContentTabs() {
 			} );
 		}
 
-		// Sort tabs by order value to ensure correct ordering
 		return tabs.sort( ( a, b ) => a.order - b.order );
 	}, [ __, assistantEnabled, siteSyncEnabled ] );
 }

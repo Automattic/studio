@@ -337,7 +337,7 @@ describe( 'useImportExport hook', () => {
 		expect( result.current.importState ).toEqual( {
 			[ SITE_ID ]: {
 				statusMessage: 'Importing WordPress content…',
-				progress: 95,
+				progress: 90,
 				isNewSite: false,
 			},
 		} );

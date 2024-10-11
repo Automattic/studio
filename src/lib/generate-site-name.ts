@@ -43,11 +43,12 @@ export const sanitizeFolderName = ( filename: string ) => {
 	const JAPANESE_HIRAGANA = '\\u3040-\\u309F';
 	const JAPANESE_KATAKANA = '\\u30A0-\\u30FF';
 	const KOREAN_HANGUL = '\\uAC00-\\uD7AF';
+	const KOREAN_JAMO = '\\u1100-\\u11FF'; // Hangul syllables are decomposed to Jamo letters
 	const NUMBERS = '0-9';
 	const WHITELISTED_SYMBOLS = '_\\- '; // Allow underscore, hyphen, and space
 
 	const ALLOWED_CHARS = new RegExp(
-		`[^${ LATIN }${ NUMBERS }${ CYRILLIC }${ ARABIC }${ HEBREW }${ CHINESE }${ JAPANESE_HIRAGANA }${ JAPANESE_KATAKANA }${ KOREAN_HANGUL }${ WHITELISTED_SYMBOLS }]`,
+		`[^${ LATIN }${ NUMBERS }${ CYRILLIC }${ ARABIC }${ HEBREW }${ CHINESE }${ JAPANESE_HIRAGANA }${ JAPANESE_KATAKANA }${ KOREAN_HANGUL }${ KOREAN_JAMO }${ WHITELISTED_SYMBOLS }]`,
 		'gi'
 	);
 

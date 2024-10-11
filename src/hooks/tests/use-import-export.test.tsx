@@ -337,6 +337,15 @@ describe( 'useImportExport hook', () => {
 		expect( result.current.importState ).toEqual( {
 			[ SITE_ID ]: {
 				statusMessage: 'Importing WordPress content…',
+				progress: 90,
+				isNewSite: false,
+			},
+		} );
+
+		emitImportEvent( SITE_ID, ImportEvents.IMPORT_MEDIA_REGENERATE_START );
+		expect( result.current.importState ).toEqual( {
+			[ SITE_ID ]: {
+				statusMessage: 'Regenerating media…',
 				progress: 95,
 				isNewSite: false,
 			},

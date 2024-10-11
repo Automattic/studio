@@ -206,6 +206,16 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 					...rest,
 					[ siteId ]: {
 						...currentProgress,
+						progress: 90,
+					},
+				} ) );
+				break;
+			case ImporterEvents.IMPORT_MEDIA_REGENERATE_START:
+				setImportState( ( { [ siteId ]: currentProgress, ...rest } ) => ( {
+					...rest,
+					[ siteId ]: {
+						...currentProgress,
+						statusMessage: __( 'Regenerating media…' ),
 						progress: 95,
 					},
 				} ) );

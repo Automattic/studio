@@ -137,6 +137,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 				this.meta = await this.parseMetaFile();
 			}
 			await this.importDatabase( rootPath, siteId, this.backup.sqlFiles );
+			await this.regenerateMedia( siteId );
 
 			this.emit( ImportEvents.IMPORT_COMPLETE );
 			return {
@@ -154,6 +155,19 @@ abstract class BaseBackupImporter extends BaseImporter {
 	}
 
 	protected abstract parseMetaFile(): Promise< MetaFileData | undefined >;
+
+	protected async regenerateMedia( siteId: string ): Promise< void > {
+		const server = SiteServer.get( siteId );
+		if ( ! server ) {
+			throw new Error( 'Site not found.' );
+		}
+		this.emit( ImportEvents.IMPORT_MEDIA_REGENERATE_START );
+		const { stderr } = await server.executeWpCliCommand( 'media regenerate --yes' );
+		if ( stderr ) {
+			console.error( 'Error during media regeneration:', stderr );
+		}
+		this.emit( ImportEvents.IMPORT_MEDIA_REGENERATE_COMPLETE );
+	}
 
 	protected async createEmptyDatabase( dbPath: string ): Promise< void > {
 		await fsPromises.writeFile( dbPath, '' );
@@ -190,10 +204,14 @@ abstract class BaseBackupImporter extends BaseImporter {
 	}
 
 	protected async importWpConfig( rootPath: string ): Promise< void > {
-		if ( ! this.backup.wpConfig ) {
-			return;
+		const wpConfigPath = path.join( rootPath, 'wp-config.php' );
+		const wpConfigSamplePath = path.join( rootPath, 'wp-config-sample.php' );
+
+		if ( this.backup.wpConfig ) {
+			await fsPromises.copyFile( this.backup.wpConfig, wpConfigPath );
+		} else if ( ! fs.existsSync( wpConfigPath ) && fs.existsSync( wpConfigSamplePath ) ) {
+			await fsPromises.copyFile( wpConfigSamplePath, wpConfigPath );
 		}
-		await fsPromises.copyFile( this.backup.wpConfig, `${ rootPath }/wp-config.php` );
 	}
 
 	protected async importWpContent( rootPath: string ): Promise< void > {

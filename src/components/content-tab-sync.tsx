@@ -12,7 +12,7 @@ import { SyncTabImage } from './sync-tab-image';
 import Tooltip from './tooltip';
 import { WordPressShortLogo } from './wordpress-short-logo';
 
-function SiteSyncDesription( { children }: PropsWithChildren< { selectedSite: SiteDetails } > ) {
+function SiteSyncDescription( { children }: PropsWithChildren< { selectedSite: SiteDetails } > ) {
 	const { __ } = useI18n();
 	return (
 		<div className="flex justify-between max-w-3xl gap-4">
@@ -46,11 +46,11 @@ function SiteSyncDesription( { children }: PropsWithChildren< { selectedSite: Si
 	);
 }
 
-function NoSyncedSites( { selectedSite }: React.ComponentProps< typeof SiteSyncDesription > ) {
+function NoSyncedSites( { selectedSite }: React.ComponentProps< typeof SiteSyncDescription > ) {
 	return (
-		<SiteSyncDesription selectedSite={ selectedSite }>
+		<SiteSyncDescription selectedSite={ selectedSite }>
 			<CreateConnectSite className="mt-8" selectedSite={ selectedSite } />
-		</SiteSyncDesription>
+		</SiteSyncDescription>
 	);
 }
 
@@ -112,14 +112,14 @@ function CreateConnectSite( {
 	);
 }
 
-function NoAuthSyncTab( { selectedSite }: React.ComponentProps< typeof SiteSyncDesription > ) {
+function NoAuthSyncTab( { selectedSite }: React.ComponentProps< typeof SiteSyncDescription > ) {
 	const isOffline = useOffline();
 	const { __ } = useI18n();
 	const { authenticate } = useAuth();
 	const offlineMessage = __( "You're currently offline." );
 
 	return (
-		<SiteSyncDesription selectedSite={ selectedSite }>
+		<SiteSyncDescription selectedSite={ selectedSite }>
 			<div className="mt-8">
 				<Tooltip disabled={ ! isOffline } icon={ offlineIcon } text={ offlineMessage }>
 					<Button
@@ -167,7 +167,7 @@ function NoAuthSyncTab( { selectedSite }: React.ComponentProps< typeof SiteSyncD
 					</Button>
 				</Tooltip>
 			</div>
-		</SiteSyncDesription>
+		</SiteSyncDescription>
 	);
 }
 

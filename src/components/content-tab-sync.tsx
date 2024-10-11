@@ -55,6 +55,7 @@ function NoSyncedSites( { selectedSite }: React.ComponentProps< typeof SiteSyncD
 }
 
 // TO DO: Implement use selectedSite prop once we have a way to determine if the user has any sites connected
+// Remove the eslint-disable-next-line comment once the prop is used
 
 function CreateConnectSite( {
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars

@@ -12,6 +12,10 @@ import { SyncTabImage } from './sync-tab-image';
 import Tooltip from './tooltip';
 import { WordPressShortLogo } from './wordpress-short-logo';
 
+function ArrowIcon() {
+	return <span className="ltr:ml-1 rtl:mr-1 rtl:scale-x-[-1]">↗</span>;
+}
+
 function SiteSyncDescription( { children }: PropsWithChildren< { selectedSite: SiteDetails } > ) {
 	const { __ } = useI18n();
 	return (
@@ -64,7 +68,6 @@ function CreateConnectSite( {
 }: {
 	selectedSite: SiteDetails;
 	className?: string;
-	tagline?: string;
 } ) {
 	const { __ } = useI18n();
 	const isOffline = useOffline();
@@ -88,7 +91,7 @@ function CreateConnectSite( {
 						} }
 					>
 						{ __( 'Create new site' ) }
-						<span className="ltr:ml-1 rtl:mr-1 rtl:scale-x-[-1]">↗</span>
+						<ArrowIcon />
 					</Button>
 				</Tooltip>
 				<Tooltip disabled={ ! isOffline } text={ offlineMessageConnect }>
@@ -134,7 +137,7 @@ function NoAuthSyncTab( { selectedSite }: React.ComponentProps< typeof SiteSyncD
 						} }
 					>
 						{ __( 'Log in to WordPress.com' ) }
-						<span className="ltr:ml-1 rtl:mr-1 rtl:scale-x-[-1]">↗</span>{ ' ' }
+						<ArrowIcon />
 					</Button>
 				</Tooltip>
 			</div>
@@ -163,7 +166,7 @@ function NoAuthSyncTab( { selectedSite }: React.ComponentProps< typeof SiteSyncD
 						} }
 					>
 						{ __( 'Create a free account' ) }
-						<span className="ltr:ml-1 rtl:mr-1 rtl:scale-x-[-1]">↗</span>
+						<ArrowIcon />
 					</Button>
 				</Tooltip>
 			</div>

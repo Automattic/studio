@@ -1,10 +1,15 @@
-import { Icon } from '@wordpress/components';
-import { check } from '@wordpress/icons';
+import { check, Icon } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren } from 'react';
 import wpcomLogo from '../../assets/wpcom-logo.svg';
+import { CLIENT_ID, PROTOCOL_PREFIX, SCOPES, WP_AUTHORIZE_ENDPOINT } from '../constants';
+import { useAuth } from '../hooks/use-auth';
+import { useOffline } from '../hooks/use-offline';
+import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
+import offlineIcon from './offline-icon';
 import { SyncTabImage } from './sync-tab-image';
+import Tooltip from './tooltip';
 
 function SiteSyncDesription( { children }: PropsWithChildren< { selectedSite: SiteDetails } > ) {
 	const { __ } = useI18n();
@@ -40,8 +45,71 @@ function SiteSyncDesription( { children }: PropsWithChildren< { selectedSite: Si
 	);
 }
 
+function NoAuthSyncTab( { selectedSite }: React.ComponentProps< typeof SiteSyncDesription > ) {
+	const isOffline = useOffline();
+	const { __ } = useI18n();
+	const { authenticate } = useAuth();
+	const offlineMessage = __( "You're currently offline." );
+
+	return (
+		<SiteSyncDesription selectedSite={ selectedSite }>
+			<div className="mt-8">
+				<Tooltip disabled={ ! isOffline } icon={ offlineIcon } text={ offlineMessage }>
+					<Button
+						aria-description={ isOffline ? offlineMessage : '' }
+						aria-disabled={ isOffline }
+						variant="primary"
+						onClick={ () => {
+							if ( isOffline ) {
+								return;
+							}
+							authenticate();
+						} }
+					>
+						{ __( 'Log in to WordPress.com' ) }
+						<span className="ltr:ml-1 rtl:mr-1 rtl:scale-x-[-1]">↗</span>{ ' ' }
+					</Button>
+				</Tooltip>
+			</div>
+			<div className="mt-3 w-[40ch] text-a8c-gray-70 a8c-body">
+				<Tooltip
+					disabled={ ! isOffline }
+					icon={ offlineIcon }
+					text={ offlineMessage }
+					placement="bottom-start"
+				>
+					{ __( 'New to WordPress.com?' ) }{ ' ' }
+					<Button
+						aria-description={ isOffline ? offlineMessage : '' }
+						aria-disabled={ isOffline }
+						className="!p-0 text-a8c-blueberry hover:opacity-80 h-auto inline-flex items-center"
+						onClick={ () => {
+							if ( isOffline ) {
+								return;
+							}
+							const baseURL = 'https://wordpress.com/log-in/link';
+							const authURL = encodeURIComponent(
+								`${ WP_AUTHORIZE_ENDPOINT }?response_type=token&client_id=${ CLIENT_ID }&redirect_uri=${ PROTOCOL_PREFIX }%3A%2F%2Fauth&scope=${ SCOPES }&from-calypso=1`
+							);
+							const finalURL = `${ baseURL }?redirect_to=${ authURL }&client_id=${ CLIENT_ID }`;
+							getIpcApi().openURL( finalURL );
+						} }
+					>
+						{ __( 'Create a free account' ) }
+						<span className="ltr:ml-1 rtl:mr-1 rtl:scale-x-[-1]">↗</span>
+					</Button>
+				</Tooltip>
+			</div>
+		</SiteSyncDesription>
+	);
+}
+
 export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } ) {
 	const { __ } = useI18n();
+	const { isAuthenticated } = useAuth();
+	if ( ! isAuthenticated ) {
+		return <NoAuthSyncTab selectedSite={ selectedSite } />;
+	}
 
 	return (
 		<div className="flex flex-col gap-4">

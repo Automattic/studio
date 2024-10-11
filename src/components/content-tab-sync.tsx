@@ -5,6 +5,7 @@ import wpcomLogo from '../../assets/wpcom-logo.svg';
 import { CLIENT_ID, PROTOCOL_PREFIX, SCOPES, WP_AUTHORIZE_ENDPOINT } from '../constants';
 import { useAuth } from '../hooks/use-auth';
 import { useOffline } from '../hooks/use-offline';
+import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
 import offlineIcon from './offline-icon';
@@ -93,7 +94,7 @@ function CreateConnectSite( {
 					<Button
 						aria-disabled={ isOffline }
 						variant="secondary"
-						className="!text-a8c-blueberry !shadow-a8c-blueberry"
+						className={ cx( ! isOffline && '!text-a8c-blueberry !shadow-a8c-blueberry' ) }
 						onClick={ () => {
 							if ( isOffline ) {
 								return;

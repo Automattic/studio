@@ -122,7 +122,6 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 }
 
 abstract class BaseBackupImporter extends BaseImporter {
-	protected async afterImport?( siteId: string ): Promise< void >;
 	async import( rootPath: string, siteId: string ): Promise< ImporterResult > {
 		this.emit( ImportEvents.IMPORT_START );
 
@@ -138,7 +137,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 				this.meta = await this.parseMetaFile();
 			}
 			await this.importDatabase( rootPath, siteId, this.backup.sqlFiles );
-			await this.afterImport?.( siteId );
+			await this.regenerateMedia( siteId );
 
 			this.emit( ImportEvents.IMPORT_COMPLETE );
 			return {
@@ -156,6 +155,19 @@ abstract class BaseBackupImporter extends BaseImporter {
 	}
 
 	protected abstract parseMetaFile(): Promise< MetaFileData | undefined >;
+
+	protected async regenerateMedia( siteId: string ): Promise< void > {
+		const server = SiteServer.get( siteId );
+		if ( ! server ) {
+			throw new Error( 'Site not found.' );
+		}
+		this.emit( ImportEvents.IMPORT_MEDIA_REGENERATE_START );
+		const { stderr } = await server.executeWpCliCommand( 'media regenerate --yes' );
+		if ( stderr ) {
+			console.error( 'Error during media regeneration:', stderr );
+		}
+		this.emit( ImportEvents.IMPORT_MEDIA_REGENERATE_COMPLETE );
+	}
 
 	protected async createEmptyDatabase( dbPath: string ): Promise< void > {
 		await fsPromises.writeFile( dbPath, '' );
@@ -239,16 +251,6 @@ export class JetpackImporter extends BaseBackupImporter {
 		} finally {
 			this.emit( ImportEvents.IMPORT_META_COMPLETE );
 		}
-	}
-
-	protected async afterImport( siteId: string ) {
-		const server = SiteServer.get( siteId );
-		if ( ! server ) {
-			throw new Error( 'Site not found.' );
-		}
-		this.emit( ImportEvents.IMPORT_MEDIA_REGENERATE_START );
-		await server.executeWpCliCommand( 'media regenerate --yes' );
-		this.emit( ImportEvents.IMPORT_MEDIA_REGENERATE_COMPLETE );
 	}
 }
 

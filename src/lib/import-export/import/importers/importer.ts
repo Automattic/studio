@@ -204,10 +204,14 @@ abstract class BaseBackupImporter extends BaseImporter {
 	}
 
 	protected async importWpConfig( rootPath: string ): Promise< void > {
-		if ( ! this.backup.wpConfig ) {
-			return;
+		const wpConfigPath = path.join( rootPath, 'wp-config.php' );
+		const wpConfigSamplePath = path.join( rootPath, 'wp-config-sample.php' );
+
+		if ( this.backup.wpConfig ) {
+			await fsPromises.copyFile( this.backup.wpConfig, wpConfigPath );
+		} else if ( ! fs.existsSync( wpConfigPath ) && fs.existsSync( wpConfigSamplePath ) ) {
+			await fsPromises.copyFile( wpConfigSamplePath, wpConfigPath );
 		}
-		await fsPromises.copyFile( this.backup.wpConfig, `${ rootPath }/wp-config.php` );
 	}
 
 	protected async importWpContent( rootPath: string ): Promise< void > {

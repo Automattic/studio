@@ -1,7 +1,6 @@
 import { check, Icon } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren } from 'react';
-import wpcomLogo from '../../assets/wpcom-logo.svg';
 import { CLIENT_ID, PROTOCOL_PREFIX, SCOPES, WP_AUTHORIZE_ENDPOINT } from '../constants';
 import { useAuth } from '../hooks/use-auth';
 import { useOffline } from '../hooks/use-offline';
@@ -11,6 +10,7 @@ import Button from './button';
 import offlineIcon from './offline-icon';
 import { SyncTabImage } from './sync-tab-image';
 import Tooltip from './tooltip';
+import { WordPressShortLogo } from './wordpress-short-logo';
 
 function SiteSyncDesription( { children }: PropsWithChildren< { selectedSite: SiteDetails } > ) {
 	const { __ } = useI18n();
@@ -19,7 +19,7 @@ function SiteSyncDesription( { children }: PropsWithChildren< { selectedSite: Si
 			<div className="flex flex-col p-8">
 				<div className="flex items-center mb-1">
 					<div className="a8c-subtitle">{ __( 'Sync with' ) }</div>
-					<img src={ wpcomLogo } alt="WordPress.com Logo" className="ml-2 h-5" />
+					<WordPressShortLogo className="ml-2 h-5" />
 				</div>
 				<div className="w-[40ch] text-a8c-gray-70 a8c-body pr-2">
 					{ __(

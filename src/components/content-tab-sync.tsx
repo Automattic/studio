@@ -45,6 +45,71 @@ function SiteSyncDesription( { children }: PropsWithChildren< { selectedSite: Si
 	);
 }
 
+function NoSyncedSites( { selectedSite }: React.ComponentProps< typeof SiteSyncDesription > ) {
+	return (
+		<SiteSyncDesription selectedSite={ selectedSite }>
+			<CreateConnectSite className="mt-8" selectedSite={ selectedSite } />
+		</SiteSyncDesription>
+	);
+}
+
+// TO DO: Implement use selectedSite prop once we have a way to determine if the user has any sites connected
+
+function CreateConnectSite( {
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
+	selectedSite,
+	className = '',
+}: {
+	selectedSite: SiteDetails;
+	className?: string;
+	tagline?: string;
+} ) {
+	const { __ } = useI18n();
+	const isOffline = useOffline();
+
+	const offlineMessageCreate = __( 'Creating new site requires an internet connection.' );
+	const offlineMessageConnect = __( 'Connecting a site requires an internet connection.' );
+
+	return (
+		<div className={ className }>
+			<div className="flex gap-4">
+				<Tooltip disabled={ ! isOffline } text={ offlineMessageCreate }>
+					<Button
+						aria-disabled={ isOffline }
+						variant="primary"
+						onClick={ () => {
+							if ( isOffline ) {
+								return;
+							}
+
+							// TO DO: Open the site creation flow.
+						} }
+					>
+						{ __( 'Create new site' ) }
+						<span className="ltr:ml-1 rtl:mr-1 rtl:scale-x-[-1]">↗</span>
+					</Button>
+				</Tooltip>
+				<Tooltip disabled={ ! isOffline } text={ offlineMessageConnect }>
+					<Button
+						aria-disabled={ isOffline }
+						variant="secondary"
+						className="!text-a8c-blueberry !shadow-a8c-blueberry"
+						onClick={ () => {
+							if ( isOffline ) {
+								return;
+							}
+
+							// TO DO: Open the modal to connect a site.
+						} }
+					>
+						{ __( 'Connect site' ) }
+					</Button>
+				</Tooltip>
+			</div>
+		</div>
+	);
+}
+
 function NoAuthSyncTab( { selectedSite }: React.ComponentProps< typeof SiteSyncDesription > ) {
 	const isOffline = useOffline();
 	const { __ } = useI18n();
@@ -111,9 +176,10 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 		return <NoAuthSyncTab selectedSite={ selectedSite } />;
 	}
 
+	//TO DO: Implement logic for to display a different screen when some sites are connected
 	return (
 		<div className="flex flex-col gap-4">
-			<SiteSyncDesription selectedSite={ selectedSite } />
+			<NoSyncedSites selectedSite={ selectedSite } />
 		</div>
 	);
 }

@@ -1,3 +1,14 @@
+1.1.4
+=====
+* Added support for importing `.wpress` files #497
+* Regenerate media thumbnails when importing any WordPress backup #592
+* Disabled "Add site" during onboarding #570
+* Let user open Settings menu in offline mode #582
+* Added missing 'Stopping' state label #581
+* Fixed translation of sample site names #591
+* Try to stop server if site initialization failed #565
+* Included original error message in error message box  #579
+
 1.1.3
 =====
 * Displayed path error on the Add Site form #564

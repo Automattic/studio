@@ -1,5 +1,3 @@
-// Create a modal using @wordpress/components to list all the sites that are connected to the user's WordPress.com account.
-
 import { SearchControl } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { cx } from '../lib/cx';
@@ -18,7 +16,7 @@ export function SitesSyncSelector( { onRequestClose }: { onRequestClose: () => v
 		>
 			<SearchSites />
 			<ListSites />
-			<Footer />
+			<Footer onRequestClose={ onRequestClose } />
 		</Modal>
 	);
 }
@@ -99,7 +97,7 @@ function SiteItem( {
 	);
 }
 
-function Footer() {
+function Footer( { onRequestClose }: { onRequestClose: () => void } ) {
 	const { __ } = useI18n();
 	return (
 		<div className="flex px-8 py-4 border-t border-a8c-gray-5 justify-between">
@@ -108,7 +106,9 @@ function Footer() {
 				<WordPressShortLogo className="ml-2 h-5" />
 			</div>
 			<div className="flex gap-4">
-				<Button variant="link">{ __( 'Cancel' ) }</Button>
+				<Button variant="link" onClick={ onRequestClose }>
+					{ __( 'Cancel' ) }
+				</Button>
 				<Button variant="primary">{ __( 'Connect' ) }</Button>
 			</div>
 		</div>

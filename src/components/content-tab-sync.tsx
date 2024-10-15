@@ -16,7 +16,7 @@ function ArrowIcon() {
 	return <span className="ltr:ml-1 rtl:mr-1 rtl:scale-x-[-1]">↗</span>;
 }
 
-function SiteSyncDescription( { children }: PropsWithChildren< { selectedSite: SiteDetails } > ) {
+function SiteSyncDescription( { children }: PropsWithChildren ) {
 	const { __ } = useI18n();
 	return (
 		<div className="flex justify-between max-w-3xl gap-4">
@@ -50,9 +50,9 @@ function SiteSyncDescription( { children }: PropsWithChildren< { selectedSite: S
 	);
 }
 
-function NoSyncedSites( { selectedSite }: React.ComponentProps< typeof SiteSyncDescription > ) {
+function NoSyncedSites( { selectedSite }: React.ComponentProps< typeof CreateConnectSite > ) {
 	return (
-		<SiteSyncDescription selectedSite={ selectedSite }>
+		<SiteSyncDescription>
 			<CreateConnectSite className="mt-8" selectedSite={ selectedSite } />
 		</SiteSyncDescription>
 	);
@@ -115,14 +115,14 @@ function CreateConnectSite( {
 	);
 }
 
-function NoAuthSyncTab( { selectedSite }: React.ComponentProps< typeof SiteSyncDescription > ) {
+function NoAuthSyncTab() {
 	const isOffline = useOffline();
 	const { __ } = useI18n();
 	const { authenticate } = useAuth();
 	const offlineMessage = __( "You're currently offline." );
 
 	return (
-		<SiteSyncDescription selectedSite={ selectedSite }>
+		<SiteSyncDescription>
 			<div className="mt-8">
 				<Tooltip disabled={ ! isOffline } icon={ offlineIcon } text={ offlineMessage }>
 					<Button
@@ -178,7 +178,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 	const { __ } = useI18n();
 	const { isAuthenticated } = useAuth();
 	if ( ! isAuthenticated ) {
-		return <NoAuthSyncTab selectedSite={ selectedSite } />;
+		return <NoAuthSyncTab />;
 	}
 
 	//TO DO: Implement logic for to display a different screen when some sites are connected

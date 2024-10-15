@@ -1,6 +1,6 @@
 import { check, Icon } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { PropsWithChildren } from 'react';
+import { PropsWithChildren, useState } from 'react';
 import { CLIENT_ID, PROTOCOL_PREFIX, SCOPES, WP_AUTHORIZE_ENDPOINT } from '../constants';
 import { useAuth } from '../hooks/use-auth';
 import { useOffline } from '../hooks/use-offline';
@@ -8,6 +8,7 @@ import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
 import offlineIcon from './offline-icon';
+import { SitesSyncSelector } from './sites-sync-selector';
 import { SyncTabImage } from './sync-tab-image';
 import Tooltip from './tooltip';
 import { WordPressShortLogo } from './wordpress-short-logo';
@@ -71,6 +72,7 @@ function CreateConnectSite( {
 } ) {
 	const { __ } = useI18n();
 	const isOffline = useOffline();
+	const [ isSitesSyncSelectorOpen, setIsSitesSyncSelectorOpen ] = useState( true );
 
 	const offlineMessageCreate = __( 'Creating new site requires an internet connection.' );
 	const offlineMessageConnect = __( 'Connecting a site requires an internet connection.' );
@@ -102,14 +104,16 @@ function CreateConnectSite( {
 							if ( isOffline ) {
 								return;
 							}
-
-							// TO DO: Open the modal to connect a site.
+							setIsSitesSyncSelectorOpen( true );
 						} }
 					>
 						{ __( 'Connect site' ) }
 					</Button>
 				</Tooltip>
 			</div>
+			{ isSitesSyncSelectorOpen && (
+				<SitesSyncSelector onRequestClose={ () => setIsSitesSyncSelectorOpen( false ) } />
+			) }
 		</div>
 	);
 }

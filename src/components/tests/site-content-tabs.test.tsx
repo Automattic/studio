@@ -101,4 +101,17 @@ describe( 'SiteContentTabs', () => {
 		await act( async () => render( <SiteContentTabs /> ) );
 		expect( screen.queryByRole( 'tab', { name: 'Assistant' } ) ).toBeVisible();
 	} );
+
+	it( 'should render the Sync tab if siteSyncEnabled is enabled', async () => {
+		( useSiteDetails as jest.Mock ).mockReturnValue( {
+			selectedSite,
+			snapshots: [],
+			loadingServer: {},
+		} );
+		( useFeatureFlags as jest.Mock ).mockReturnValue( {
+			siteSyncEnabled: true,
+		} );
+		await act( async () => render( <SiteContentTabs /> ) );
+		expect( screen.queryByRole( 'tab', { name: 'Sync' } ) ).toBeVisible();
+	} );
 } );

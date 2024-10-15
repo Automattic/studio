@@ -9,6 +9,7 @@ import { ContentTabImportExport } from './content-tab-import-export';
 import { ContentTabOverview } from './content-tab-overview';
 import { ContentTabSettings } from './content-tab-settings';
 import { ContentTabSnapshots } from './content-tab-snapshots';
+import { ContentTabSync } from './content-tab-sync';
 import Header from './header';
 import { SiteLoadingIndicator } from './site-loading-indicator';
 
@@ -43,6 +44,7 @@ export function SiteContentTabs() {
 						<div className="h-full">
 							{ name === 'overview' && <ContentTabOverview selectedSite={ selectedSite } /> }
 							{ name === 'share' && <ContentTabSnapshots selectedSite={ selectedSite } /> }
+							{ name === 'sync' && <ContentTabSync selectedSite={ selectedSite } /> }
 							{ name === 'settings' && <ContentTabSettings selectedSite={ selectedSite } /> }
 							{ name === 'assistant' && <ContentTabAssistant selectedSite={ selectedSite } /> }
 							{ name === 'import-export' && (

@@ -82,12 +82,11 @@ function CreateConnectSite( {
 					<Button
 						aria-disabled={ isOffline }
 						variant="primary"
-						onClick={ () => {
+						onClick={ async () => {
 							if ( isOffline ) {
 								return;
 							}
-
-							// TO DO: Open the site creation flow.
+							await getIpcApi().openURL( 'https://wordpress.com/start/new-site' );
 						} }
 					>
 						{ __( 'Create new site' ) }

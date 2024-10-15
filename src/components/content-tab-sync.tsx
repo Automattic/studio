@@ -25,7 +25,7 @@ function SiteSyncDescription( { children }: PropsWithChildren ) {
 					<div className="a8c-subtitle">{ __( 'Sync with' ) }</div>
 					<WordPressShortLogo className="ml-2 h-5" />
 				</div>
-				<div className="w-[40ch] text-a8c-gray-70 a8c-body pr-2">
+				<div className="max-w-[40ch] text-a8c-gray-70 a8c-body pr-2">
 					{ __(
 						'Connect an existing WordPress.com site, or create a new one and share your site with the world.'
 					) }

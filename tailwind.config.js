@@ -146,6 +146,8 @@ module.exports = {
 				sidebar: '6px',
 				'sidebar-mac': '10px',
 				'titlebar-win': `${ WINDOWS_TITLEBAR_HEIGHT }px`,
+				'window-controls-width-win': '138px',
+				'window-controls-width-excl-chrome-win': '128px', // Subtract 10px for the chrome
 			},
 			borderRadius: {
 				chrome: '5px',

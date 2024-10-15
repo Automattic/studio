@@ -19,6 +19,8 @@ export const ImporterEvents = {
 	IMPORT_WP_CONTENT_COMPLETE: 'import_wp_content_complete',
 	IMPORT_META_START: 'import_meta',
 	IMPORT_META_COMPLETE: 'import_meta_complete',
+	IMPORT_MEDIA_REGENERATE_START: 'import_media_regenerate_start',
+	IMPORT_MEDIA_REGENERATE_COMPLETE: 'import_media_regenerate_complete',
 	IMPORT_COMPLETE: 'import_complete',
 	IMPORT_ERROR: 'import_error',
 } as const;

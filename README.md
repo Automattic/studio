@@ -1,4 +1,4 @@
-![Crash Free Sessions Rate](https://img.shields.io/badge/Crash_Free_Session_Rate-92.02%25-blue)
+![Crash Free Sessions Rate](https://img.shields.io/badge/Crash_Free_Session_Rate-96.96%25-blue)
 
 # Studio by WordPress.com
 

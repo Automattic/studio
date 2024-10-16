@@ -61,8 +61,8 @@ const FAKE_SITES: SyncSite[] = [
 		syncSupport: 'needs-transfer',
 	},
 	...Array.from( { length: 10 }, ( _, index ) => ( {
-		id: index + 6,
-		name: `My Pro site ${ index + 6 }`,
+		id: index + 7,
+		name: `My Pro site ${ index + 7 }`,
 		url: `https://developer.wordpress.com/`,
 		isStaging: false,
 		stagingSiteIds: [],

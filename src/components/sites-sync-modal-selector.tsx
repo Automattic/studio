@@ -1,5 +1,6 @@
 import { SearchControl } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
+import { isSync } from 'tar/dist/commonjs/options';
 import { SyncSite, useSyncSites } from '../hooks/use-sync-sites';
 import { cx } from '../lib/cx';
 import { Badge } from './badge';
@@ -43,7 +44,7 @@ function SearchSites() {
 
 function ListSites( { syncSites }: { syncSites: SyncSite[] } ) {
 	return (
-		<div className="flex flex-col gap-4 overflow-y-auto h-[calc(84vh-230px)]">
+		<div className="flex flex-col overflow-y-auto h-[calc(84vh-230px)]">
 			{ syncSites.map( ( site ) => (
 				<SiteItem key={ site.id } site={ site } />
 			) ) }
@@ -59,16 +60,49 @@ function SiteItem( { site }: { site: SyncSite } ) {
 	const isSyncable = site.syncSupport === 'syncable';
 	const isNeedsTransfer = site.syncSupport === 'needs-transfer';
 	const isUnsupported = site.syncSupport === 'unsupported';
+	const isSelected = false;
 	return (
-		<div className="flex py-3 px-8 items-center border-b border-a8c-gray-0 justify-between">
+		<div
+			className={ cx(
+				'flex py-3 px-8 items-center border-b border-a8c-gray-0 justify-between group',
+				isSelected && 'hover:bg-a8c-blueberry hover:text-white',
+				! isSelected && isSyncable && 'hover:bg-a8c-blueberry-5'
+			) }
+			role={ isSyncable ? 'button' : undefined }
+			onClick={ () => {
+				console.log( 'clicked' );
+			} }
+		>
 			<div className="flex flex-col gap-0.5">
 				<div className={ cx( 'a8c-body', ! isSyncable && 'text-a8c-gray-30' ) }>{ site.name }</div>
-				<div className="a8c-body-small text-a8c-gray-30">{ site.url }</div>
+				<div
+					className={ cx(
+						'a8c-body-small text-a8c-gray-30',
+						isSelected && 'group-hover:text-white'
+					) }
+				>
+					{ site.url }
+				</div>
 			</div>
 			{ isSyncable && (
 				<div className="flex gap-2">
-					<Badge className="bg-a8c-green-5 text-a8c-green-80"> { __( 'Production' ) }</Badge>
-					{ site.stagingSiteIds.length > 0 && <Badge>{ __( 'Staging' ) }</Badge> }
+					<Badge
+						className={ cx(
+							'bg-a8c-green-5 text-a8c-green-80',
+							isSelected && 'group-hover:bg-white group-hover:text-a8c-blueberry'
+						) }
+					>
+						{ __( 'Production' ) }
+					</Badge>
+					{ site.stagingSiteIds.length > 0 && (
+						<Badge
+							className={ cx(
+								isSelected && 'group-hover:bg-white group-hover:text-a8c-blueberry'
+							) }
+						>
+							{ __( 'Staging' ) }
+						</Badge>
+					) }
 				</div>
 			) }
 			{ isUnsupported && (

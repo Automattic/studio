@@ -25,7 +25,13 @@ export function SitesSyncModalSelector( { onRequestClose }: { onRequestClose: ()
 				selectedSiteId={ selectedSiteId }
 				onSelectSite={ ( id ) => setSelectedSiteId( id ) }
 			/>
-			<Footer onRequestClose={ onRequestClose } />
+			<Footer
+				onRequestClose={ onRequestClose }
+				onConnect={ () => {
+					onRequestClose();
+				} }
+				disabled={ ! selectedSiteId }
+			/>
 		</Modal>
 	);
 }
@@ -132,7 +138,15 @@ function SiteItem( {
 	);
 }
 
-function Footer( { onRequestClose }: { onRequestClose: () => void } ) {
+function Footer( {
+	onRequestClose,
+	onConnect,
+	disabled,
+}: {
+	onRequestClose: () => void;
+	onConnect: () => void;
+	disabled: boolean;
+} ) {
 	const { __ } = useI18n();
 	return (
 		<div className="flex px-8 py-4 border-t border-a8c-gray-5 justify-between">
@@ -148,7 +162,9 @@ function Footer( { onRequestClose }: { onRequestClose: () => void } ) {
 				<Button variant="link" onClick={ onRequestClose }>
 					{ __( 'Cancel' ) }
 				</Button>
-				<Button variant="primary">{ __( 'Connect' ) }</Button>
+				<Button variant="primary" disabled={ disabled } onClick={ onConnect }>
+					{ __( 'Connect' ) }
+				</Button>
 			</div>
 		</div>
 	);

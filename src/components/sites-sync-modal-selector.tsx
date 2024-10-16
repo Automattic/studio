@@ -152,14 +152,17 @@ function SiteItem( {
 				<div className="flex gap-2">
 					<Badge
 						className={ cx(
-							'bg-a8c-green-5 text-a8c-green-80',
-							isSelected && 'bg-white text-a8c-blueberry'
+							isSelected
+								? 'bg-white text-a8c-blueberry text-a8c-blueberry'
+								: 'bg-a8c-green-5 text-a8c-green-80'
 						) }
 					>
 						{ __( 'Production' ) }
 					</Badge>
 					{ site.stagingSiteIds.length > 0 && (
-						<Badge className={ cx( isSelected && 'bg-white text-a8c-blueberry' ) }>
+						<Badge
+							className={ cx( isSelected && 'bg-white text-a8c-blueberry text-a8c-blueberry' ) }
+						>
 							{ __( 'Staging' ) }
 						</Badge>
 					) }

@@ -161,7 +161,8 @@ function NoAuthSyncTab() {
 	);
 }
 
-export function ContentTabSync() {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } ) {
 	const { __ } = useI18n();
 	const { syncSites } = useSyncSites();
 	const [ connectedSites, setConnectedSites ] = useState< SyncSite[] >( [] );

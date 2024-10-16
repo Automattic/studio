@@ -20,15 +20,18 @@ export function SitesSyncModalSelector( {
 } ) {
 	const { __ } = useI18n();
 	const [ selectedSiteId, setSelectedSiteId ] = useState< number | null >( null );
+	const [ searchQuery, setSearchQuery ] = useState< string >( '' );
 	return (
 		<Modal
 			className="w-3/5 h-full max-h-[84vh] [&>div]:!p-0"
 			onRequestClose={ onRequestClose }
 			title={ __( 'Connect a WordPress.com site' ) }
 		>
-			<SearchSites />
+			<SearchSites searchQuery={ searchQuery } setSearchQuery={ setSearchQuery } />
 			<ListSites
-				syncSites={ syncSites }
+				syncSites={ syncSites.filter( ( site ) =>
+					site.name.toLowerCase().includes( searchQuery.toLowerCase() )
+				) }
 				selectedSiteId={ selectedSiteId }
 				onSelectSite={ ( id ) => setSelectedSiteId( id ) }
 			/>
@@ -47,7 +50,13 @@ export function SitesSyncModalSelector( {
 	);
 }
 
-function SearchSites() {
+function SearchSites( {
+	searchQuery,
+	setSearchQuery,
+}: {
+	searchQuery: string;
+	setSearchQuery: ( value: string ) => void;
+} ) {
 	const { __ } = useI18n();
 	return (
 		<div className="flex flex-col px-8 pb-6 border-b border-a8c-gray-5">
@@ -55,8 +64,10 @@ function SearchSites() {
 				className="w-full"
 				placeholder={ __( 'Search sites' ) }
 				onChange={ ( value ) => {
-					console.log( value );
+					setSearchQuery( value );
 				} }
+				value={ searchQuery }
+				autoFocus
 			/>
 			<p className="a8c-helper-text text-gray-500">
 				{ __( 'Syncing is supported for sites on the Business plan or above.' ) }

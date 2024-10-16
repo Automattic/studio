@@ -3,6 +3,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useState } from 'react';
 import { SyncSite, useSyncSites } from '../hooks/use-sync-sites';
 import { cx } from '../lib/cx';
+import { getIpcApi } from '../lib/get-ipc-api';
 import { Badge } from './badge';
 import Button from './button';
 import Modal from './modal';
@@ -135,10 +136,14 @@ function Footer( { onRequestClose }: { onRequestClose: () => void } ) {
 	const { __ } = useI18n();
 	return (
 		<div className="flex px-8 py-4 border-t border-a8c-gray-5 justify-between">
-			<div className="flex items-center mb-1">
-				<div className="a8c-subtitle">{ __( 'Powered by' ) }</div>
+			<Button
+				variant="link"
+				className="flex items-center mb-1"
+				onClick={ () => getIpcApi().openURL( 'https://wordpress.com/hosting/' ) }
+			>
+				<div className="a8c-subtitle text-black">{ __( 'Powered by' ) }</div>
 				<WordPressShortLogo className="ml-2 h-5" />
-			</div>
+			</Button>
 			<div className="flex gap-4">
 				<Button variant="link" onClick={ onRequestClose }>
 					{ __( 'Cancel' ) }

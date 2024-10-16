@@ -8,7 +8,7 @@ import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
 import offlineIcon from './offline-icon';
-import { SitesSyncSelector } from './sites-sync-selector';
+import { SitesSyncModalSelector } from './sites-sync-modal-selector';
 import { SyncTabImage } from './sync-tab-image';
 import Tooltip from './tooltip';
 import { WordPressShortLogo } from './wordpress-short-logo';
@@ -112,7 +112,7 @@ function CreateConnectSite( {
 				</Tooltip>
 			</div>
 			{ isSitesSyncSelectorOpen && (
-				<SitesSyncSelector onRequestClose={ () => setIsSitesSyncSelectorOpen( false ) } />
+				<SitesSyncModalSelector onRequestClose={ () => setIsSitesSyncSelectorOpen( false ) } />
 			) }
 		</div>
 	);

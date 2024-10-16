@@ -6,7 +6,7 @@ import Button from './button';
 import Modal from './modal';
 import { WordPressShortLogo } from './wordpress-short-logo';
 
-export function SitesSyncSelector( { onRequestClose }: { onRequestClose: () => void } ) {
+export function SitesSyncModalSelector( { onRequestClose }: { onRequestClose: () => void } ) {
 	const { __ } = useI18n();
 	return (
 		<Modal

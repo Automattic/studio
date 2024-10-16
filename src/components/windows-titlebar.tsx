@@ -4,16 +4,8 @@ import appIcon from '../../assets/titlebar-icon.svg';
 import { getAppGlobals } from '../lib/app-globals';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
+import { isWindowFrameRtl } from '../lib/is-window-frame-rtl';
 import Button from './button';
-
-interface HasTextInfo {
-	textInfo: { direction: 'ltr' | 'rtl' };
-}
-
-// If this breaks in a future Electron version, we might need to change `textInfo` to `getTextInfo()`
-// See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/Locale/getTextInfo
-const isWindowFrameRtl =
-	'rtl' === ( new Intl.Locale( navigator.language ) as unknown as HasTextInfo ).textInfo.direction;
 
 export default function WindowsTitlebar( {
 	className,
@@ -29,9 +21,9 @@ export default function WindowsTitlebar( {
 				'bg-chrome text-white',
 				// Leave space for window controls depending on which side they are on
 				// Take into account the "chrome" padding, the position of which depends on the language direction
-				isWindowFrameRtl &&
+				isWindowFrameRtl() &&
 					'ltr:pl-window-controls-width-win rtl:pl-window-controls-width-excl-chrome-win',
-				! isWindowFrameRtl &&
+				! isWindowFrameRtl() &&
 					'ltr:pr-window-controls-width-excl-chrome-win rtl:pr-window-controls-width-win',
 				className
 			) }

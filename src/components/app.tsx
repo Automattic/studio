@@ -9,6 +9,7 @@ import { useSidebarVisibility } from '../hooks/use-sidebar-visibility';
 import { isWindows } from '../lib/app-globals';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
+import MacTitlebar from './mac-titlebar';
 import MainSidebar from './main-sidebar';
 import Onboarding from './onboarding';
 import { SiteContentTabs } from './site-content-tabs';
@@ -49,9 +50,9 @@ export default function App() {
 							<TopBar onToggleSidebar={ toggleSidebar } />
 						</WindowsTitlebar>
 					) : (
-						<div className="pl-20 flex-shrink-0">
+						<MacTitlebar className="flex-shrink-0">
 							<TopBar onToggleSidebar={ toggleSidebar } />
-						</div>
+						</MacTitlebar>
 					) }
 
 					<HStack spacing="0" alignment="left" className="flex-grow">

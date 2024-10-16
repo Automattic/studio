@@ -1,4 +1,5 @@
 import { SearchControl } from '@wordpress/components';
+import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useState } from 'react';
 import { SyncSite } from '../hooks/use-sync-sites';
@@ -21,6 +22,9 @@ export function SitesSyncModalSelector( {
 	const { __ } = useI18n();
 	const [ selectedSiteId, setSelectedSiteId ] = useState< number | null >( null );
 	const [ searchQuery, setSearchQuery ] = useState< string >( '' );
+	const filteredSites = syncSites.filter( ( site ) =>
+		site.name.toLowerCase().includes( searchQuery.toLowerCase() )
+	);
 	return (
 		<Modal
 			className="w-3/5 h-full max-h-[84vh] [&>div]:!p-0"
@@ -28,13 +32,21 @@ export function SitesSyncModalSelector( {
 			title={ __( 'Connect a WordPress.com site' ) }
 		>
 			<SearchSites searchQuery={ searchQuery } setSearchQuery={ setSearchQuery } />
-			<ListSites
-				syncSites={ syncSites.filter( ( site ) =>
-					site.name.toLowerCase().includes( searchQuery.toLowerCase() )
+			<div className="h-[calc(84vh-230px)]">
+				{ filteredSites.length === 0 ? (
+					<div className="flex justify-center items-center h-full">
+						{ searchQuery
+							? sprintf( __( 'No sites found for "%s"' ), searchQuery )
+							: __( 'No sites found' ) }
+					</div>
+				) : (
+					<ListSites
+						syncSites={ filteredSites }
+						selectedSiteId={ selectedSiteId }
+						onSelectSite={ setSelectedSiteId }
+					/>
 				) }
-				selectedSiteId={ selectedSiteId }
-				onSelectSite={ ( id ) => setSelectedSiteId( id ) }
-			/>
+			</div>
 			<Footer
 				onRequestClose={ onRequestClose }
 				onConnect={ () => {
@@ -86,7 +98,7 @@ function ListSites( {
 	onSelectSite: ( id: number ) => void;
 } ) {
 	return (
-		<div className="flex flex-col overflow-y-auto h-[calc(84vh-230px)]">
+		<div className="flex flex-col overflow-y-auto h-full">
 			{ syncSites.map( ( site ) => (
 				<SiteItem
 					key={ site.id }

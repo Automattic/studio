@@ -112,7 +112,12 @@ function SiteItem( {
 				! isSelected && isSyncable && 'hover:bg-a8c-blueberry-5'
 			) }
 			role={ isSyncable ? 'button' : undefined }
-			onClick={ onClick }
+			onClick={ () => {
+				if ( ! isSyncable ) {
+					return;
+				}
+				onClick();
+			} }
 		>
 			<div className="flex flex-col gap-0.5">
 				<div className={ cx( 'a8c-body', ! isSyncable && 'text-a8c-gray-30' ) }>{ site.name }</div>

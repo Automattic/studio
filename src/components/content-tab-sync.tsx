@@ -173,24 +173,6 @@ export function ContentTabSync() {
 
 	return (
 		<div className="flex flex-col gap-4 h-full">
-			{ isSitesSyncSelectorOpen && (
-				<SitesSyncModalSelector
-					onRequestClose={ () => setIsSitesSyncSelectorOpen( false ) }
-					syncSites={ syncSites }
-					onConnect={ ( siteId ) => {
-						const newConnectedSite = syncSites.find( ( site ) => site.id === siteId );
-						if ( ! newConnectedSite ) {
-							getIpcApi().showErrorMessageBox( {
-								title: __( 'Failed to connect to site' ),
-								message: __( 'Please try again.' ),
-							} );
-							return;
-						}
-						setConnectedSites( ( prevState ) => [ ...prevState, newConnectedSite ] );
-					} }
-				/>
-			) }
-
 			{ connectedSites.length > 0 ? (
 				<div className="flex flex-col gap-4 mt-8 h-full">
 					{ connectedSites.map( ( site ) => (
@@ -224,6 +206,24 @@ export function ContentTabSync() {
 				<SiteSyncDescription>
 					<CreateConnectSite openSitesSyncSelector={ () => setIsSitesSyncSelectorOpen( true ) } />
 				</SiteSyncDescription>
+			) }
+
+			{ isSitesSyncSelectorOpen && (
+				<SitesSyncModalSelector
+					onRequestClose={ () => setIsSitesSyncSelectorOpen( false ) }
+					syncSites={ syncSites }
+					onConnect={ ( siteId ) => {
+						const newConnectedSite = syncSites.find( ( site ) => site.id === siteId );
+						if ( ! newConnectedSite ) {
+							getIpcApi().showErrorMessageBox( {
+								title: __( 'Failed to connect to site' ),
+								message: __( 'Please try again.' ),
+							} );
+							return;
+						}
+						setConnectedSites( ( prevState ) => [ ...prevState, newConnectedSite ] );
+					} }
+				/>
 			) }
 		</div>
 	);

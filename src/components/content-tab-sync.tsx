@@ -4,6 +4,7 @@ import { PropsWithChildren, useState } from 'react';
 import { CLIENT_ID, PROTOCOL_PREFIX, SCOPES, WP_AUTHORIZE_ENDPOINT } from '../constants';
 import { useAuth } from '../hooks/use-auth';
 import { useOffline } from '../hooks/use-offline';
+import { SyncSite, useSyncSites } from '../hooks/use-sync-sites';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
@@ -51,34 +52,20 @@ function SiteSyncDescription( { children }: PropsWithChildren ) {
 	);
 }
 
-function NoSyncedSites( { selectedSite }: React.ComponentProps< typeof CreateConnectSite > ) {
-	return (
-		<SiteSyncDescription>
-			<CreateConnectSite className="mt-8" selectedSite={ selectedSite } />
-		</SiteSyncDescription>
-	);
-}
-
-// TO DO: Implement use selectedSite prop once we have a way to determine if the user has any sites connected
-// Remove the eslint-disable-next-line comment once the prop is used
-
 function CreateConnectSite( {
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
-	selectedSite,
-	className = '',
+	openSitesSyncSelector,
 }: {
-	selectedSite: SiteDetails;
 	className?: string;
+	openSitesSyncSelector: () => void;
 } ) {
 	const { __ } = useI18n();
 	const isOffline = useOffline();
-	const [ isSitesSyncSelectorOpen, setIsSitesSyncSelectorOpen ] = useState( true );
 
 	const offlineMessageCreate = __( 'Creating new site requires an internet connection.' );
 	const offlineMessageConnect = __( 'Connecting a site requires an internet connection.' );
 
 	return (
-		<div className={ className }>
+		<div className="mt-8">
 			<div className="flex gap-4">
 				<Tooltip disabled={ ! isOffline } text={ offlineMessageCreate }>
 					<Button
@@ -104,16 +91,13 @@ function CreateConnectSite( {
 							if ( isOffline ) {
 								return;
 							}
-							setIsSitesSyncSelectorOpen( true );
+							openSitesSyncSelector();
 						} }
 					>
 						{ __( 'Connect site' ) }
 					</Button>
 				</Tooltip>
 			</div>
-			{ isSitesSyncSelectorOpen && (
-				<SitesSyncModalSelector onRequestClose={ () => setIsSitesSyncSelectorOpen( false ) } />
-			) }
 		</div>
 	);
 }
@@ -177,17 +161,70 @@ function NoAuthSyncTab() {
 	);
 }
 
-export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } ) {
+export function ContentTabSync() {
 	const { __ } = useI18n();
+	const { syncSites } = useSyncSites();
+	const [ connectedSites, setConnectedSites ] = useState< SyncSite[] >( [] );
+	const [ isSitesSyncSelectorOpen, setIsSitesSyncSelectorOpen ] = useState( false );
 	const { isAuthenticated } = useAuth();
 	if ( ! isAuthenticated ) {
 		return <NoAuthSyncTab />;
 	}
 
-	//TO DO: Implement logic for to display a different screen when some sites are connected
 	return (
-		<div className="flex flex-col gap-4">
-			<NoSyncedSites selectedSite={ selectedSite } />
+		<div className="flex flex-col gap-4 h-full">
+			{ isSitesSyncSelectorOpen && (
+				<SitesSyncModalSelector
+					onRequestClose={ () => setIsSitesSyncSelectorOpen( false ) }
+					syncSites={ syncSites }
+					onConnect={ ( siteId ) => {
+						const newConnectedSite = syncSites.find( ( site ) => site.id === siteId );
+						if ( ! newConnectedSite ) {
+							getIpcApi().showErrorMessageBox( {
+								title: __( 'Failed to connect to site' ),
+								message: __( 'Please try again.' ),
+							} );
+							return;
+						}
+						setConnectedSites( ( prevState ) => [ ...prevState, newConnectedSite ] );
+					} }
+				/>
+			) }
+
+			{ connectedSites.length > 0 ? (
+				<div className="flex flex-col gap-4 mt-8 h-full">
+					{ connectedSites.map( ( site ) => (
+						<div key={ site.id } className="flex items-center gap-2 ml-8">
+							{ site.name }
+						</div>
+					) ) }
+					<div className="flex mt-auto gap-4 py-6 mx-8">
+						<Button
+							onClick={ () => {
+								setIsSitesSyncSelectorOpen( true );
+							} }
+							variant="secondary"
+							className={ '!text-a8c-blueberry !shadow-a8c-blueberry' }
+						>
+							{ __( 'Connect site' ) }
+						</Button>
+						<Button
+							onClick={ () => {
+								getIpcApi().openURL( 'https://wordpress.com/start/new-site' );
+							} }
+							variant="secondary"
+							className={ '!text-a8c-blueberry !shadow-a8c-blueberry' }
+						>
+							{ __( 'Create new site' ) }
+							<ArrowIcon />
+						</Button>
+					</div>
+				</div>
+			) : (
+				<SiteSyncDescription>
+					<CreateConnectSite openSitesSyncSelector={ () => setIsSitesSyncSelectorOpen( true ) } />
+				</SiteSyncDescription>
+			) }
 		</div>
 	);
 }

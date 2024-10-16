@@ -1,7 +1,7 @@
 import { SearchControl } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { useState } from 'react';
-import { SyncSite, useSyncSites } from '../hooks/use-sync-sites';
+import { SyncSite } from '../hooks/use-sync-sites';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { Badge } from './badge';
@@ -9,9 +9,16 @@ import Button from './button';
 import Modal from './modal';
 import { WordPressShortLogo } from './wordpress-short-logo';
 
-export function SitesSyncModalSelector( { onRequestClose }: { onRequestClose: () => void } ) {
+export function SitesSyncModalSelector( {
+	onRequestClose,
+	onConnect,
+	syncSites,
+}: {
+	onRequestClose: () => void;
+	syncSites: SyncSite[];
+	onConnect: ( siteId: number ) => void;
+} ) {
 	const { __ } = useI18n();
-	const { syncSites } = useSyncSites();
 	const [ selectedSiteId, setSelectedSiteId ] = useState< number | null >( null );
 	return (
 		<Modal
@@ -28,6 +35,10 @@ export function SitesSyncModalSelector( { onRequestClose }: { onRequestClose: ()
 			<Footer
 				onRequestClose={ onRequestClose }
 				onConnect={ () => {
+					if ( ! selectedSiteId ) {
+						return;
+					}
+					onConnect( selectedSiteId );
 					onRequestClose();
 				} }
 				disabled={ ! selectedSiteId }

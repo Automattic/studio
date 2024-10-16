@@ -148,6 +148,8 @@ module.exports = {
 				'titlebar-win': `${ WINDOWS_TITLEBAR_HEIGHT }px`,
 				'window-controls-width-win': '138px',
 				'window-controls-width-excl-chrome-win': '128px', // Subtract 10px for the chrome
+				'window-controls-width-mac': '80px',
+				'window-controls-width-excl-chrome-mac': '70px', // Subtract 10px for the chrome
 			},
 			borderRadius: {
 				chrome: '5px',

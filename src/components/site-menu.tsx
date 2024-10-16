@@ -104,8 +104,8 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 	return (
 		<li
 			className={ cx(
-				'flex flex-row min-w-[168px] h-8 hover:bg-[#ffffff0C] rounded transition-all ml-1',
-				isMac() ? 'mr-5' : 'mr-4',
+				'flex flex-row min-w-[168px] h-8 hover:bg-[#ffffff0C] rounded transition-all ms-1',
+				isMac() ? 'me-5' : 'me-4',
 				isSelected && 'bg-[#ffffff19] hover:bg-[#ffffff19]'
 			) }
 		>

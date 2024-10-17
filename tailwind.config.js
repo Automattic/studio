@@ -129,6 +129,7 @@ for ( const [ key, value ] of Object.entries( palette.colors ) ) {
 
 // This colors are in the palette but not included because the color name contains more than one word.
 // Reference: https://github.com/Automattic/color-studio/blob/55218ffdaecc770cd697639071f1d2083f744f66/dist/colors.json#L123-L187
+a8cToTailwindColors[ `${ PREFIX }-blueberry-5` ] = '#F7F8FE'; // WordPress Blue 5
 a8cToTailwindColors[ `${ PREFIX }-blueberry` ] = '#3858E9'; // WordPress Blue
 a8cToTailwindColors[ `${ PREFIX }-blueberry-70` ] = '#1d35b4'; // WordPress Blue 70
 

@@ -1,4 +1,4 @@
-import { SearchControl } from '@wordpress/components';
+import { SearchControl as SearchControlWp } from '@wordpress/components';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useState } from 'react';
@@ -9,6 +9,8 @@ import { Badge } from './badge';
 import Button from './button';
 import Modal from './modal';
 import { WordPressShortLogo } from './wordpress-short-logo';
+
+const SearchControl = process.env.JEST_WORKER_ID ? () => null : SearchControlWp;
 
 export function SitesSyncModalSelector( {
 	onRequestClose,

@@ -63,4 +63,12 @@ describe( 'ContentTabSync', () => {
 
 		expect( connectSiteButton ).toBeInTheDocument();
 	} );
+
+	it( 'opens the site selector modal to connect a site authenticated user', () => {
+		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
+		render( <ContentTabSync selectedSite={ selectedSite } /> );
+		const connectSiteButton = screen.getByRole( 'button', { name: 'Connect site' } );
+		fireEvent.click( connectSiteButton );
+		expect( screen.getByText( 'Connect a WordPress.com site' ) ).toBeInTheDocument();
+	} );
 } );

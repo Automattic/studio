@@ -666,8 +666,7 @@ export function openTerminalAtPath(
 			}
 		} else if ( platform === 'darwin' ) {
 			// macOS
-			const loadWpCliCommand =
-				'clear && export PATH=\\"${ cliPath }\\":$PATH && export STUDIO_APP_PATH=\\"${ appPath }\\" &&';
+			const loadWpCliCommand = `clear && export PATH=\\"${ cliPath }\\":$PATH && export STUDIO_APP_PATH=\\"${ appPath }\\" &&`;
 			const script = `
 			tell application "Terminal"
 				if not application "Terminal" is running then launch

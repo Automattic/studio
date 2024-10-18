@@ -29,7 +29,7 @@ export function SitesSyncModalSelector( {
 	);
 	return (
 		<Modal
-			className="w-3/5 h-full max-h-[84vh] [&>div]:!p-0"
+			className="w-3/5 min-w-[550px] h-full max-h-[84vh] [&>div]:!p-0"
 			onRequestClose={ onRequestClose }
 			title={ __( 'Connect a WordPress.com site' ) }
 		>

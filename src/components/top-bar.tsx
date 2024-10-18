@@ -1,5 +1,6 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { Icon, help, drawerLeft } from '@wordpress/icons';
+import { useEffect } from 'react';
 import { STUDIO_DOCS_URL } from '../constants';
 import { useAuth } from '../hooks/use-auth';
 import { useOffline } from '../hooks/use-offline';
@@ -48,7 +49,23 @@ function OfflineIndicator() {
 }
 
 function Authentication() {
-	const { isAuthenticated, user } = useAuth();
+	const { isAuthenticated, client, user } = useAuth();
+
+	useEffect( () => {
+		if ( ! isAuthenticated ) {
+			return;
+		}
+
+		client?.req
+			.get( {
+				apiNamespace: 'rest/v1.2',
+				path: `/me/sites`,
+			} )
+			.then( ( res ) => {
+				console.log( res );
+			} );
+	} );
+
 	if ( isAuthenticated ) {
 		return (
 			<Button

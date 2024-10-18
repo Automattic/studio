@@ -144,7 +144,7 @@ function SiteItem( {
 				onClick();
 			} }
 		>
-			<div className="flex flex-col gap-0.5">
+			<div className="flex flex-col gap-0.5 pr-4">
 				<div className={ cx( 'a8c-body', ! isSyncable && 'text-a8c-gray-30' ) }>{ site.name }</div>
 				<div className={ cx( 'a8c-body-small text-a8c-gray-30', isSelected && 'text-white' ) }>
 					{ site.url }

@@ -168,6 +168,9 @@ module.exports = {
 			screens: {
 				sd: `${ MAIN_MIN_WIDTH }px`,
 			},
+			height: {
+				4.5: '1.125rem',
+			},
 		},
 	},
 	plugins: [

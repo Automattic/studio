@@ -111,7 +111,7 @@
 		"@types/adm-zip": "^0.5.5",
 		"@wordpress/compose": "^6.27.0",
 		"@wordpress/i18n": "^4.50.0",
-		"@wordpress/icons": "^10.7.0",
+		"@wordpress/icons": "^10.10.0",
 		"@wp-playground/blueprints": "^0.9.44",
 		"@wp-playground/wordpress": "^0.9.44",
 		"adm-zip": "^0.5.14",

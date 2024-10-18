@@ -12,7 +12,7 @@ import { WordPressShortLogo } from './wordpress-short-logo';
 
 const SearchControl = process.env.NODE_ENV === 'test' ? () => null : SearchControlWp;
 
-export function SitesSyncModalSelector( {
+export function SyncSitesModalSelector( {
 	onRequestClose,
 	onConnect,
 	syncSites,

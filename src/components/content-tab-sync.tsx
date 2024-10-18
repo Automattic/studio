@@ -9,7 +9,7 @@ import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
 import offlineIcon from './offline-icon';
-import { SitesSyncModalSelector } from './sites-sync-modal-selector';
+import { SyncSitesModalSelector } from './sync-sites-modal-selector';
 import { SyncTabImage } from './sync-tab-image';
 import Tooltip from './tooltip';
 import { WordPressShortLogo } from './wordpress-short-logo';
@@ -165,7 +165,7 @@ function NoAuthSyncTab() {
 export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } ) {
 	const { __ } = useI18n();
 	const { syncSites, connectedSites, setConnectedSites } = useSyncSites();
-	const [ isSitesSyncSelectorOpen, setIsSitesSyncSelectorOpen ] = useState( false );
+	const [ isSyncSitesSelectorOpen, setIsSyncSitesSelectorOpen ] = useState( false );
 	const { isAuthenticated } = useAuth();
 	if ( ! isAuthenticated ) {
 		return <NoAuthSyncTab />;
@@ -183,7 +183,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 					<div className="flex mt-auto gap-4 py-6 mx-8">
 						<Button
 							onClick={ () => {
-								setIsSitesSyncSelectorOpen( true );
+								setIsSyncSitesSelectorOpen( true );
 							} }
 							variant="secondary"
 							className={ '!text-a8c-blueberry !shadow-a8c-blueberry' }
@@ -204,13 +204,13 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 				</div>
 			) : (
 				<SiteSyncDescription>
-					<CreateConnectSite openSitesSyncSelector={ () => setIsSitesSyncSelectorOpen( true ) } />
+					<CreateConnectSite openSitesSyncSelector={ () => setIsSyncSitesSelectorOpen( true ) } />
 				</SiteSyncDescription>
 			) }
 
-			{ isSitesSyncSelectorOpen && (
-				<SitesSyncModalSelector
-					onRequestClose={ () => setIsSitesSyncSelectorOpen( false ) }
+			{ isSyncSitesSelectorOpen && (
+				<SyncSitesModalSelector
+					onRequestClose={ () => setIsSyncSitesSelectorOpen( false ) }
 					syncSites={ syncSites }
 					onConnect={ ( siteId ) => {
 						const newConnectedSite = syncSites.find( ( site ) => site.id === siteId );

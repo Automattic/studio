@@ -40,7 +40,7 @@ export function SyncSitesModalSelector( {
 			<SearchSites searchQuery={ searchQuery } setSearchQuery={ setSearchQuery } />
 			<div className="h-[calc(84vh-230px)]">
 				{ isLoading && (
-					<div className="flex justify-center items-center h-full">{ __( 'Loading sites' ) }</div>
+					<div className="flex justify-center items-center h-full">{ __( 'Loading sites…' ) }</div>
 				) }
 
 				{ ! isLoading && isEmpty && (

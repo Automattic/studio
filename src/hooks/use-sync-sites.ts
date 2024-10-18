@@ -1,5 +1,5 @@
 import * as Sentry from '@sentry/electron/renderer';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from './use-auth';
 import { useOffline } from './use-offline';
 
@@ -42,7 +42,10 @@ type SitesEndpointResponse = {
 	sites: Site[];
 };
 
-function getSyncSupport( site: Site ): SyncSupport {
+function getSyncSupport( site: Site, connectedSiteIds: number[] ): SyncSupport {
+	if ( connectedSiteIds.some( ( id ) => id === site.ID ) ) {
+		return 'already-connected';
+	}
 	if ( site.plan.product_id !== 1008 ) {
 		return 'unsupported';
 	}
@@ -52,7 +55,7 @@ function getSyncSupport( site: Site ): SyncSupport {
 	return 'syncable';
 }
 
-function transformSiteResponse( sites: Site[] ): SyncSite[] {
+function transformSiteResponse( sites: Site[], connectedSiteIds: number[] ): SyncSite[] {
 	return sites.map( ( site ) => {
 		return {
 			id: site.ID,
@@ -60,7 +63,7 @@ function transformSiteResponse( sites: Site[] ): SyncSite[] {
 			url: site.URL,
 			isStaging: site.is_wpcom_staging_site,
 			stagingSiteIds: site.options.wpcom_staging_blog_ids,
-			syncSupport: getSyncSupport( site ),
+			syncSupport: getSyncSupport( site, connectedSiteIds ),
 		};
 	} );
 }
@@ -72,15 +75,15 @@ export function useSyncSites() {
 	const isFetchingSites = useRef( false );
 	const isOffline = useOffline();
 
-	const fetchSites = useCallback( async () => {
+	useEffect( () => {
 		if ( ! client?.req || isFetchingSites.current || ! isAuthenticated || isOffline ) {
 			return;
 		}
 
 		isFetchingSites.current = true;
 
-		try {
-			const response = await client.req.get< SitesEndpointResponse >(
+		client.req
+			.get< SitesEndpointResponse >(
 				{
 					apiNamespace: 'rest/v1.2',
 					path: `/me/sites`,
@@ -90,31 +93,26 @@ export function useSyncSites() {
 					filter: 'atomic,wpcom',
 					options: 'created_at,wpcom_staging_blog_ids',
 				}
-			);
-
-			if ( response ) {
-				setSyncSites( transformSiteResponse( response.sites ) );
-			}
-		} catch ( error ) {
-			Sentry.captureException( error );
-			console.error( error );
-		} finally {
-			isFetchingSites.current = false;
-		}
-	}, [ client?.req, isAuthenticated, isOffline ] );
-
-	useEffect( () => {
-		fetchSites();
-	}, [ fetchSites, isOffline ] );
-
-	const isSiteAlreadyConnected = ( siteId: number ) =>
-		connectedSites.some( ( site ) => site.id === siteId );
+			)
+			.then( ( response ) => {
+				setSyncSites(
+					transformSiteResponse(
+						response.sites,
+						connectedSites.map( ( { id } ) => id )
+					)
+				);
+			} )
+			.catch( ( error ) => {
+				Sentry.captureException( error );
+				console.error( error );
+			} )
+			.finally( () => {
+				isFetchingSites.current = false;
+			} );
+	}, [ client?.req, connectedSites, isAuthenticated, isOffline ] );
 
 	return {
-		syncSites: syncSites.map( ( site ) => ( {
-			...site,
-			syncSupport: isSiteAlreadyConnected( site.id ) ? 'already-connected' : site.syncSupport,
-		} ) ),
+		syncSites: syncSites,
 		connectedSites,
 		setConnectedSites,
 		isFetching: isFetchingSites.current,

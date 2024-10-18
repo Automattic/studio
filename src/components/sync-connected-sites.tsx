@@ -56,60 +56,64 @@ export function SyncConnectedSites( {
 	}, [ connectedSites, syncSites ] );
 
 	return (
-		<div className="flex flex-col gap-4 mt-8 h-full">
-			{ siteSections.map( ( section ) => (
-				<div key={ section.id } className="flex flex-col gap-2 mb-6">
-					<div className="flex items-center gap-2 py-2.5 border-b border-a8c-gray-0 px-8">
-						<WordPressLogoCircle />
-						<div className="a8c-label-semibold">{ section.name }</div>
-						<Button
-							variant="link"
-							className="!ml-auto !text-a8c-gray-70 hover:!text-a8c-blueberry"
-							onClick={ () => {
-								disconnectSite( section.id );
-							} }
-						>
-							{ __( 'Disconnect' ) }
-						</Button>
-					</div>
-					{ section.connectedSites.map( ( connectedSite ) => (
-						<div
-							key={ connectedSite.id }
-							className="flex items-center gap-2 py-2.5 border-b border-a8c-gray-0 px-8"
-						>
-							<div className="flex items-left min-w-20 mr-6">
-								{ connectedSite.isStaging ? (
-									<Badge>{ __( 'Staging' ) }</Badge>
-								) : (
-									<Badge className="bg-a8c-green-5 text-a8c-green-80">{ __( 'Production' ) }</Badge>
-								) }
-							</div>
-
+		<div className="flex flex-col h-full overflow-hidden">
+			<div className="flex flex-col flex-1 pt-8 overflow-y-auto">
+				{ siteSections.map( ( section ) => (
+					<div key={ section.id } className="flex flex-col gap-2 mb-6">
+						<div className="flex items-center gap-2 py-2.5 border-b border-a8c-gray-0 px-8">
+							<WordPressLogoCircle />
+							<div className="a8c-label-semibold">{ section.name }</div>
 							<Button
 								variant="link"
-								className="!text-a8c-gray-70 hover:!text-a8c-blueberry"
+								className="!ml-auto !text-a8c-gray-70 hover:!text-a8c-blueberry"
 								onClick={ () => {
-									getIpcApi().openURL( connectedSite.url );
+									disconnectSite( section.id );
 								} }
 							>
-								{ connectedSite.url } <ArrowIcon />
+								{ __( 'Disconnect' ) }
 							</Button>
-							<div className="flex gap-2 ml-auto">
-								<Button variant="link" className="!text-black hover:!text-a8c-blueberry">
-									<Icon icon={ cloudDownload } />
-									{ __( 'Pull' ) }
-								</Button>
-								<Button variant="link" className="!text-black hover:!text-a8c-blueberry">
-									<Icon icon={ cloudUpload } />
-									{ __( 'Push' ) }
-								</Button>
-							</div>
 						</div>
-					) ) }
-				</div>
-			) ) }
+						{ section.connectedSites.map( ( connectedSite ) => (
+							<div
+								key={ connectedSite.id }
+								className="flex items-center gap-2 py-2.5 border-b border-a8c-gray-0 px-8"
+							>
+								<div className="flex items-left min-w-20 mr-6">
+									{ connectedSite.isStaging ? (
+										<Badge>{ __( 'Staging' ) }</Badge>
+									) : (
+										<Badge className="bg-a8c-green-5 text-a8c-green-80">
+											{ __( 'Production' ) }
+										</Badge>
+									) }
+								</div>
 
-			<div className="flex mt-auto gap-4 py-5 px-8 border-t border-a8c-gray-5">
+								<Button
+									variant="link"
+									className="!text-a8c-gray-70 hover:!text-a8c-blueberry"
+									onClick={ () => {
+										getIpcApi().openURL( connectedSite.url );
+									} }
+								>
+									{ connectedSite.url } <ArrowIcon />
+								</Button>
+								<div className="flex gap-2 ml-auto">
+									<Button variant="link" className="!text-black hover:!text-a8c-blueberry">
+										<Icon icon={ cloudDownload } />
+										{ __( 'Pull' ) }
+									</Button>
+									<Button variant="link" className="!text-black hover:!text-a8c-blueberry">
+										<Icon icon={ cloudUpload } />
+										{ __( 'Push' ) }
+									</Button>
+								</div>
+							</div>
+						) ) }
+					</div>
+				) ) }
+			</div>
+
+			<div className="flex mt-auto gap-4 py-5 px-8 border-t border-a8c-gray-5 flex-shrink-0">
 				<Button
 					onClick={ openSitesSyncSelector }
 					variant="secondary"

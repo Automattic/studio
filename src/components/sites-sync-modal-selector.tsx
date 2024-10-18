@@ -10,7 +10,7 @@ import Button from './button';
 import Modal from './modal';
 import { WordPressShortLogo } from './wordpress-short-logo';
 
-const SearchControl = process.env.JEST_WORKER_ID ? () => null : SearchControlWp;
+const SearchControl = process.env.NODE_ENV === 'test' ? () => null : SearchControlWp;
 
 export function SitesSyncModalSelector( {
 	onRequestClose,

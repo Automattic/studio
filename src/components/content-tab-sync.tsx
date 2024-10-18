@@ -4,7 +4,7 @@ import { PropsWithChildren, useState } from 'react';
 import { CLIENT_ID, PROTOCOL_PREFIX, SCOPES, WP_AUTHORIZE_ENDPOINT } from '../constants';
 import { useAuth } from '../hooks/use-auth';
 import { useOffline } from '../hooks/use-offline';
-import { SyncSite, useSyncSites } from '../hooks/use-sync-sites';
+import { useSyncSites } from '../hooks/use-sync-sites';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';

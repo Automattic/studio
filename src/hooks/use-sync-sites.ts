@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-export type SyncSupport = 'unsupported' | 'syncable' | 'needs-transfer';
+export type SyncSupport = 'unsupported' | 'syncable' | 'needs-transfer' | 'already-connected';
 
 export interface SyncSite {
 	id: number;
@@ -72,10 +72,21 @@ const FAKE_SITES: SyncSite[] = [
 
 export function useSyncSites() {
 	const [ syncSites, setSyncSites ] = useState< SyncSite[] >( [] );
+	const [ connectedSites, setConnectedSites ] = useState< SyncSite[] >( [] );
 
 	useEffect( () => {
 		setSyncSites( FAKE_SITES );
 	}, [] );
 
-	return { syncSites };
+	const isSiteAlreadyConnected = ( siteId: number ) =>
+		connectedSites.some( ( site ) => site.id === siteId );
+
+	return {
+		syncSites: syncSites.map( ( site ) => ( {
+			...site,
+			syncSupport: isSiteAlreadyConnected( site.id ) ? 'already-connected' : site.syncSupport,
+		} ) ),
+		connectedSites,
+		setConnectedSites,
+	};
 }

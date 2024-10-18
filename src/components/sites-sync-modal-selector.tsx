@@ -126,6 +126,7 @@ function SiteItem( {
 	if ( site.isStaging ) {
 		return null;
 	}
+	const isAlreadyConnected = site.syncSupport === 'already-connected';
 	const isSyncable = site.syncSupport === 'syncable';
 	const isNeedsTransfer = site.syncSupport === 'needs-transfer';
 	const isUnsupported = site.syncSupport === 'unsupported';
@@ -169,6 +170,9 @@ function SiteItem( {
 						</Badge>
 					) }
 				</div>
+			) }
+			{ isAlreadyConnected && (
+				<div className="a8c-body-small text-a8c-gray-30">{ __( 'Already connected' ) }</div>
 			) }
 			{ isUnsupported && (
 				<div className="a8c-body-small text-a8c-gray-30"> { __( 'Unsupported plan' ) }</div>

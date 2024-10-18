@@ -176,6 +176,9 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 					syncSites={ syncSites }
 					connectedSites={ connectedSites }
 					openSitesSyncSelector={ () => setIsSyncSitesSelectorOpen( true ) }
+					disconnectSite={ ( id ) => {
+						setConnectedSites( ( prevState ) => prevState.filter( ( site ) => site.id !== id ) );
+					} }
 				/>
 			) : (
 				<SiteSyncDescription>

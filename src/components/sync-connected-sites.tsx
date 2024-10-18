@@ -20,10 +20,12 @@ export function SyncConnectedSites( {
 	syncSites,
 	connectedSites,
 	openSitesSyncSelector,
+	disconnectSite,
 }: {
 	syncSites: SyncSite[];
 	connectedSites: SyncSite[];
 	openSitesSyncSelector: () => void;
+	disconnectSite: ( id: number ) => void;
 } ) {
 	const { __ } = useI18n();
 	const siteSections: ConnectedSiteSection[] = useMemo( () => {
@@ -60,7 +62,13 @@ export function SyncConnectedSites( {
 					<div className="flex items-center gap-2 py-2.5 border-b border-a8c-gray-0 px-8">
 						<WordPressLogoCircle />
 						<div className="a8c-label-semibold">{ section.name }</div>
-						<Button variant="link" className="!ml-auto !text-a8c-gray-70 hover:!text-a8c-blueberry">
+						<Button
+							variant="link"
+							className="!ml-auto !text-a8c-gray-70 hover:!text-a8c-blueberry"
+							onClick={ () => {
+								disconnectSite( section.id );
+							} }
+						>
 							{ __( 'Disconnect' ) }
 						</Button>
 					</div>

@@ -97,7 +97,7 @@ export function SyncConnectedSites( {
 								>
 									{ connectedSite.url } <ArrowIcon />
 								</Button>
-								<div className="flex gap-2 ml-auto">
+								<div className="flex gap-2 pl-4 ml-auto">
 									<Button variant="link" className="!text-black hover:!text-a8c-blueberry">
 										<Icon icon={ cloudDownload } />
 										{ __( 'Pull' ) }

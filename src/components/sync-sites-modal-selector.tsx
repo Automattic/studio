@@ -13,10 +13,12 @@ import { WordPressShortLogo } from './wordpress-short-logo';
 const SearchControl = process.env.NODE_ENV === 'test' ? () => null : SearchControlWp;
 
 export function SyncSitesModalSelector( {
+	isLoading,
 	onRequestClose,
 	onConnect,
 	syncSites,
 }: {
+	isLoading?: boolean;
 	onRequestClose: () => void;
 	syncSites: SyncSite[];
 	onConnect: ( siteId: number ) => void;
@@ -27,6 +29,8 @@ export function SyncSitesModalSelector( {
 	const filteredSites = syncSites.filter( ( site ) =>
 		site.name.toLowerCase().includes( searchQuery.toLowerCase() )
 	);
+	const isEmpty = filteredSites.length === 0;
+
 	return (
 		<Modal
 			className="w-3/5 min-w-[550px] h-full max-h-[84vh] [&>div]:!p-0"
@@ -35,13 +39,19 @@ export function SyncSitesModalSelector( {
 		>
 			<SearchSites searchQuery={ searchQuery } setSearchQuery={ setSearchQuery } />
 			<div className="h-[calc(84vh-230px)]">
-				{ filteredSites.length === 0 ? (
+				{ isLoading && (
+					<div className="flex justify-center items-center h-full">{ __( 'Loading sites' ) }</div>
+				) }
+
+				{ ! isLoading && isEmpty && (
 					<div className="flex justify-center items-center h-full">
 						{ searchQuery
 							? sprintf( __( 'No sites found for "%s"' ), searchQuery )
 							: __( 'No sites found' ) }
 					</div>
-				) : (
+				) }
+
+				{ ! isLoading && ! isEmpty && (
 					<ListSites
 						syncSites={ filteredSites }
 						selectedSiteId={ selectedSiteId }
@@ -148,7 +158,7 @@ function SiteItem( {
 			<div className="flex flex-col gap-0.5 pr-4">
 				<div className={ cx( 'a8c-body', ! isSyncable && 'text-a8c-gray-30' ) }>{ site.name }</div>
 				<div className={ cx( 'a8c-body-small text-a8c-gray-30', isSelected && 'text-white' ) }>
-					{ site.url }
+					{ site.url.replace( /^https?:\/\//, '' ) }
 				</div>
 			</div>
 			{ isSyncable && (
@@ -203,8 +213,8 @@ function Footer( {
 				className="flex items-center mb-1"
 				onClick={ () => getIpcApi().openURL( 'https://wordpress.com/hosting/' ) }
 			>
-				<div className="a8c-subtitle text-black">{ __( 'Powered by' ) }</div>
-				<WordPressShortLogo className="ml-2 h-5" />
+				<div className="a8c-subtitle-small text-black">{ __( 'Powered by' ) }</div>
+				<WordPressShortLogo className="h-4.5" />
 			</Button>
 			<div className="flex gap-4">
 				<Button variant="link" onClick={ onRequestClose }>

@@ -101,7 +101,7 @@ export function SyncConnectedSites( {
 				</div>
 			) ) }
 
-			<div className="flex mt-auto gap-4 py-6 mx-8">
+			<div className="flex mt-auto gap-4 py-5 px-8 border-t border-a8c-gray-5">
 				<Button
 					onClick={ openSitesSyncSelector }
 					variant="secondary"

@@ -57,10 +57,17 @@ function Authentication() {
 		}
 
 		client?.req
-			.get( {
-				apiNamespace: 'rest/v1.2',
-				path: `/me/sites`,
-			} )
+			.get(
+				{
+					apiNamespace: 'rest/v1.2',
+					path: `/me/sites`,
+				},
+				{
+					fields:
+						'name,ID,plan,is_wpcom_staging_site,is_wpcom_atomic,wpcom_staging_blog_ids,options',
+					options: 'created_at',
+				}
+			)
 			.then( ( res ) => {
 				console.log( res );
 			} );

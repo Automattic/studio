@@ -1,13 +1,15 @@
 import { check, Icon } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { PropsWithChildren } from 'react';
+import { PropsWithChildren, useState } from 'react';
 import { CLIENT_ID, PROTOCOL_PREFIX, SCOPES, WP_AUTHORIZE_ENDPOINT } from '../constants';
 import { useAuth } from '../hooks/use-auth';
 import { useOffline } from '../hooks/use-offline';
+import { useSyncSites } from '../hooks/use-sync-sites';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
 import offlineIcon from './offline-icon';
+import { SyncSitesModalSelector } from './sync-sites-modal-selector';
 import { SyncTabImage } from './sync-tab-image';
 import Tooltip from './tooltip';
 import { WordPressShortLogo } from './wordpress-short-logo';
@@ -50,24 +52,11 @@ function SiteSyncDescription( { children }: PropsWithChildren ) {
 	);
 }
 
-function NoSyncedSites( { selectedSite }: React.ComponentProps< typeof CreateConnectSite > ) {
-	return (
-		<SiteSyncDescription>
-			<CreateConnectSite className="mt-8" selectedSite={ selectedSite } />
-		</SiteSyncDescription>
-	);
-}
-
-// TO DO: Implement use selectedSite prop once we have a way to determine if the user has any sites connected
-// Remove the eslint-disable-next-line comment once the prop is used
-
 function CreateConnectSite( {
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
-	selectedSite,
-	className = '',
+	openSitesSyncSelector,
 }: {
-	selectedSite: SiteDetails;
 	className?: string;
+	openSitesSyncSelector: () => void;
 } ) {
 	const { __ } = useI18n();
 	const isOffline = useOffline();
@@ -76,18 +65,17 @@ function CreateConnectSite( {
 	const offlineMessageConnect = __( 'Connecting a site requires an internet connection.' );
 
 	return (
-		<div className={ className }>
+		<div className="mt-8">
 			<div className="flex gap-4">
 				<Tooltip disabled={ ! isOffline } text={ offlineMessageCreate }>
 					<Button
 						aria-disabled={ isOffline }
 						variant="primary"
-						onClick={ () => {
+						onClick={ async () => {
 							if ( isOffline ) {
 								return;
 							}
-
-							// TO DO: Open the site creation flow.
+							await getIpcApi().openURL( 'https://wordpress.com/start/new-site' );
 						} }
 					>
 						{ __( 'Create new site' ) }
@@ -103,8 +91,7 @@ function CreateConnectSite( {
 							if ( isOffline ) {
 								return;
 							}
-
-							// TO DO: Open the modal to connect a site.
+							openSitesSyncSelector();
 						} }
 					>
 						{ __( 'Connect site' ) }
@@ -174,17 +161,70 @@ function NoAuthSyncTab() {
 	);
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } ) {
 	const { __ } = useI18n();
+	const { syncSites, connectedSites, setConnectedSites } = useSyncSites();
+	const [ isSyncSitesSelectorOpen, setIsSyncSitesSelectorOpen ] = useState( false );
 	const { isAuthenticated } = useAuth();
 	if ( ! isAuthenticated ) {
 		return <NoAuthSyncTab />;
 	}
 
-	//TO DO: Implement logic for to display a different screen when some sites are connected
 	return (
-		<div className="flex flex-col gap-4">
-			<NoSyncedSites selectedSite={ selectedSite } />
+		<div className="flex flex-col gap-4 h-full">
+			{ connectedSites.length > 0 ? (
+				<div className="flex flex-col gap-4 mt-8 h-full">
+					{ connectedSites.map( ( site ) => (
+						<div key={ site.id } className="flex items-center gap-2 ml-8">
+							{ site.name }
+						</div>
+					) ) }
+					<div className="flex mt-auto gap-4 py-6 mx-8">
+						<Button
+							onClick={ () => {
+								setIsSyncSitesSelectorOpen( true );
+							} }
+							variant="secondary"
+							className={ '!text-a8c-blueberry !shadow-a8c-blueberry' }
+						>
+							{ __( 'Connect site' ) }
+						</Button>
+						<Button
+							onClick={ () => {
+								getIpcApi().openURL( 'https://wordpress.com/start/new-site' );
+							} }
+							variant="secondary"
+							className={ '!text-a8c-blueberry !shadow-a8c-blueberry' }
+						>
+							{ __( 'Create new site' ) }
+							<ArrowIcon />
+						</Button>
+					</div>
+				</div>
+			) : (
+				<SiteSyncDescription>
+					<CreateConnectSite openSitesSyncSelector={ () => setIsSyncSitesSelectorOpen( true ) } />
+				</SiteSyncDescription>
+			) }
+
+			{ isSyncSitesSelectorOpen && (
+				<SyncSitesModalSelector
+					onRequestClose={ () => setIsSyncSitesSelectorOpen( false ) }
+					syncSites={ syncSites }
+					onConnect={ ( siteId ) => {
+						const newConnectedSite = syncSites.find( ( site ) => site.id === siteId );
+						if ( ! newConnectedSite ) {
+							getIpcApi().showErrorMessageBox( {
+								title: __( 'Failed to connect to site' ),
+								message: __( 'Please try again.' ),
+							} );
+							return;
+						}
+						setConnectedSites( ( prevState ) => [ ...prevState, newConnectedSite ] );
+					} }
+				/>
+			) }
 		</div>
 	);
 }

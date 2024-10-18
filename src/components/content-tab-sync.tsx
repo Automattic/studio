@@ -7,16 +7,14 @@ import { useOffline } from '../hooks/use-offline';
 import { useSyncSites } from '../hooks/use-sync-sites';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
+import { ArrowIcon } from './arrow-icon';
 import Button from './button';
 import offlineIcon from './offline-icon';
+import { SyncConnectedSites } from './sync-connected-sites';
 import { SyncSitesModalSelector } from './sync-sites-modal-selector';
 import { SyncTabImage } from './sync-tab-image';
 import Tooltip from './tooltip';
 import { WordPressShortLogo } from './wordpress-short-logo';
-
-function ArrowIcon() {
-	return <span className="ltr:ml-1 rtl:mr-1 rtl:scale-x-[-1]">↗</span>;
-}
 
 function SiteSyncDescription( { children }: PropsWithChildren ) {
 	const { __ } = useI18n();
@@ -174,34 +172,11 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 	return (
 		<div className="flex flex-col gap-4 h-full">
 			{ connectedSites.length > 0 ? (
-				<div className="flex flex-col gap-4 mt-8 h-full">
-					{ connectedSites.map( ( site ) => (
-						<div key={ site.id } className="flex items-center gap-2 ml-8">
-							{ site.name }
-						</div>
-					) ) }
-					<div className="flex mt-auto gap-4 py-6 mx-8">
-						<Button
-							onClick={ () => {
-								setIsSyncSitesSelectorOpen( true );
-							} }
-							variant="secondary"
-							className={ '!text-a8c-blueberry !shadow-a8c-blueberry' }
-						>
-							{ __( 'Connect site' ) }
-						</Button>
-						<Button
-							onClick={ () => {
-								getIpcApi().openURL( 'https://wordpress.com/start/new-site' );
-							} }
-							variant="secondary"
-							className={ '!text-a8c-blueberry !shadow-a8c-blueberry' }
-						>
-							{ __( 'Create new site' ) }
-							<ArrowIcon />
-						</Button>
-					</div>
-				</div>
+				<SyncConnectedSites
+					syncSites={ syncSites }
+					connectedSites={ connectedSites }
+					openSitesSyncSelector={ () => setIsSyncSitesSelectorOpen( true ) }
+				/>
 			) : (
 				<SiteSyncDescription>
 					<CreateConnectSite openSitesSyncSelector={ () => setIsSyncSitesSelectorOpen( true ) } />

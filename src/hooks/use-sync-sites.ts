@@ -3,9 +3,12 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from './use-auth';
 import { useOffline } from './use-offline';
 
-export type SyncSupport = 'unsupported' | 'syncable' | 'needs-transfer' | 'already-connected';
+const BUSINESS_PLAN_ID = 1008;
+const COMMERCE_PLAN_ID = 1011;
 
-export type SyncSite = {
+type SyncSupport = 'unsupported' | 'syncable' | 'needs-transfer' | 'already-connected';
+
+type SyncSite = {
 	id: number;
 	name: string;
 	url: string;
@@ -46,7 +49,7 @@ function getSyncSupport( site: SitesEndpointSite, connectedSiteIds: number[] ): 
 	if ( connectedSiteIds.some( ( id ) => id === site.ID ) ) {
 		return 'already-connected';
 	}
-	if ( site.plan.product_id !== 1008 && site.plan.product_id !== 1011 ) {
+	if ( site.plan.product_id !== BUSINESS_PLAN_ID && site.plan.product_id !== COMMERCE_PLAN_ID ) {
 		return 'unsupported';
 	}
 	if ( ! site.is_wpcom_atomic ) {

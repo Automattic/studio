@@ -8,7 +8,7 @@ const COMMERCE_PLAN_ID = 1011;
 
 type SyncSupport = 'unsupported' | 'syncable' | 'needs-transfer' | 'already-connected';
 
-type SyncSite = {
+export type SyncSite = {
 	id: number;
 	name: string;
 	url: string;

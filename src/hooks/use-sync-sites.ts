@@ -14,7 +14,7 @@ export type SyncSite = {
 	syncSupport: SyncSupport;
 };
 
-type Site = {
+type SitesEndpointSite = {
 	ID: number;
 	is_wpcom_atomic: boolean;
 	is_wpcom_staging_site: boolean;
@@ -39,14 +39,14 @@ type Site = {
 };
 
 type SitesEndpointResponse = {
-	sites: Site[];
+	sites: SitesEndpointSite[];
 };
 
-function getSyncSupport( site: Site, connectedSiteIds: number[] ): SyncSupport {
+function getSyncSupport( site: SitesEndpointSite, connectedSiteIds: number[] ): SyncSupport {
 	if ( connectedSiteIds.some( ( id ) => id === site.ID ) ) {
 		return 'already-connected';
 	}
-	if ( site.plan.product_id !== 1008 ) {
+	if ( site.plan.product_id !== 1008 && site.plan.product_id !== 1011 ) {
 		return 'unsupported';
 	}
 	if ( ! site.is_wpcom_atomic ) {
@@ -55,7 +55,10 @@ function getSyncSupport( site: Site, connectedSiteIds: number[] ): SyncSupport {
 	return 'syncable';
 }
 
-function transformSiteResponse( sites: Site[], connectedSiteIds: number[] ): SyncSite[] {
+function transformSiteResponse(
+	sites: SitesEndpointSite[],
+	connectedSiteIds: number[]
+): SyncSite[] {
 	return sites.map( ( site ) => {
 		return {
 			id: site.ID,
@@ -112,7 +115,7 @@ export function useSyncSites() {
 	}, [ client?.req, connectedSites, isAuthenticated, isOffline ] );
 
 	return {
-		syncSites: syncSites,
+		syncSites,
 		connectedSites,
 		setConnectedSites,
 		isFetching: isFetchingSites.current,

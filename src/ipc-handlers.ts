@@ -216,6 +216,34 @@ export async function updateSite(
 	return mergeSiteDetailsWithRunningDetails( userData.sites );
 }
 
+export async function connectWpcomSite( event: IpcMainInvokeEvent, siteId: string ) {
+	const userData = await loadUserData();
+
+	// Get the current user's ID from the authToken
+	const currentUserId = userData.authToken?.id;
+
+	if ( ! currentUserId ) {
+		throw new Error( 'User is not logged in' );
+	}
+
+	// Initialize connectedWpcomSites if it doesn't exist
+	if ( ! userData.connectedWpcomSites ) {
+		userData.connectedWpcomSites = {};
+	}
+
+	// Initialize the array for the current user if it doesn't exist
+	if ( ! userData.connectedWpcomSites[ currentUserId ] ) {
+		userData.connectedWpcomSites[ currentUserId ] = [];
+	}
+
+	// Add the siteId to the current user's connected sites if it's not already there
+	if ( ! userData.connectedWpcomSites[ currentUserId ].includes( siteId ) ) {
+		userData.connectedWpcomSites[ currentUserId ].push( siteId );
+	}
+
+	await saveUserData( userData );
+}
+
 export async function startServer(
 	event: IpcMainInvokeEvent,
 	id: string

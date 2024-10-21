@@ -15,6 +15,7 @@ const api: IpcApi = {
 		ipcRenderer.invoke( 'deleteSite', id, deleteFiles ),
 	createSite: ( path: string, name?: string ) => ipcRenderer.invoke( 'createSite', path, name ),
 	updateSite: ( updatedSite: SiteDetails ) => ipcRenderer.invoke( 'updateSite', updatedSite ),
+	connectWpcomSite: ( id: string ) => ipcRenderer.invoke( 'connectWpcomSite', id ),
 	authenticate: () => ipcRenderer.invoke( 'authenticate' ),
 	exportSite: ( options: ExportOptions, siteId: string ) =>
 		ipcRenderer.invoke( 'exportSite', options, siteId ),

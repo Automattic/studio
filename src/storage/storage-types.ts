@@ -13,6 +13,7 @@ export interface UserData {
 		};
 	};
 	promptWindowsSpeedUpResult?: PromptWindowsSpeedUpResult;
+	connectedWpcomSites?: { [ userId: number ]: string[] };
 }
 
 export interface PersistedUserData extends Omit< UserData, 'sites' > {

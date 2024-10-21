@@ -3,9 +3,6 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from './use-auth';
 import { useOffline } from './use-offline';
 
-const BUSINESS_PLAN_ID = 1008;
-const COMMERCE_PLAN_ID = 1011;
-
 type SyncSupport = 'unsupported' | 'syncable' | 'needs-transfer' | 'already-connected';
 
 export type SyncSite = {
@@ -45,11 +42,13 @@ type SitesEndpointResponse = {
 	sites: SitesEndpointSite[];
 };
 
+const STUDIO_SYNC_FEATURE_NAME = 'studio-sync';
+
 function getSyncSupport( site: SitesEndpointSite, connectedSiteIds: number[] ): SyncSupport {
 	if ( connectedSiteIds.some( ( id ) => id === site.ID ) ) {
 		return 'already-connected';
 	}
-	if ( site.plan.product_id !== BUSINESS_PLAN_ID && site.plan.product_id !== COMMERCE_PLAN_ID ) {
+	if ( ! site.plan.features.active.includes( STUDIO_SYNC_FEATURE_NAME ) ) {
 		return 'unsupported';
 	}
 	if ( ! site.is_wpcom_atomic ) {

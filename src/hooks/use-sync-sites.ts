@@ -74,7 +74,7 @@ const FAKE_SITES: SyncSite[] = [
 	} ) ),
 ];
 
-export function useSyncSites() {
+const useSyncSites = () => {
 	const [ syncSites, setSyncSites ] = useState< SyncSite[] >( [] );
 	const [ connectedSites, setConnectedSites ] = useState< SyncSite[] >( [] );
 	const { isAuthenticated } = useAuth();
@@ -82,6 +82,10 @@ export function useSyncSites() {
 	const localSiteId = selectedSite?.id;
 
 	const loadConnectedSites = useCallback( async () => {
+		if ( ! localSiteId ) {
+			return;
+		}
+
 		try {
 			const sites = await getIpcApi().getConnectedWpcomSites( localSiteId );
 			setConnectedSites( sites );
@@ -92,6 +96,9 @@ export function useSyncSites() {
 	}, [ localSiteId ] );
 
 	const connectSite = async ( site: SyncSite ) => {
+		if ( ! localSiteId ) {
+			return;
+		}
 		try {
 			await getIpcApi().connectWpcomSite( site, localSiteId );
 			setConnectedSites( ( prevSites ) => [ ...prevSites, site ] );
@@ -117,4 +124,6 @@ export function useSyncSites() {
 		connectedSites,
 		connectSite,
 	};
-}
+};
+
+export { useSyncSites };

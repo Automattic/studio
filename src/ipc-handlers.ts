@@ -224,7 +224,7 @@ export async function connectWpcomSite( event: IpcMainInvokeEvent, site: SyncSit
 	const currentUserId = userData.authToken?.id;
 
 	if ( ! currentUserId ) {
-		throw new Error( 'User is not logged in' );
+		return [];
 	}
 
 	// Initialize connectedWpcomSites if it doesn't exist

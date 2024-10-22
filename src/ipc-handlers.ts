@@ -11,12 +11,14 @@ import {
 	SaveDialogOptions,
 } from 'electron';
 import fs from 'fs';
+import fsPromises from 'fs/promises';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { __, LocaleData, defaultI18n } from '@wordpress/i18n';
 import archiver from 'archiver';
 import { DEFAULT_PHP_VERSION } from '../vendor/wp-now/src/constants';
 import { MAIN_MIN_WIDTH, SIDEBAR_WIDTH, SIZE_LIMIT_BYTES } from './constants';
+import { download } from './lib/download';
 import { isEmptyDir, pathExists, isWordPressDirectory, sanitizeFolderName } from './lib/fs-utils';
 import { getImageData } from './lib/get-image-data';
 import { exportBackup } from './lib/import-export/export/export-manager';
@@ -811,4 +813,24 @@ export async function openFileInIDE(
 		// Open site first to ensure the file is opened within the site context
 		await shell.openExternal( `phpstorm://open?file=${ path }` );
 	}
+}
+
+export async function downloadSyncBackup(
+	event: Electron.IpcMainInvokeEvent,
+	remoteSiteId: number,
+	downloadUrl: string
+) {
+	const tmpDir = nodePath.join( app.getPath( 'temp' ), 'wp-studio-backups' );
+	await fsPromises.mkdir( tmpDir, { recursive: true } );
+
+	const filePath = nodePath.join( tmpDir, `site-${ remoteSiteId }-backup.zip` );
+	await download( downloadUrl, filePath );
+	return filePath;
+}
+
+export async function removeSyncBackup( event: IpcMainInvokeEvent, filePath: string ) {
+	if ( ! filePath.includes( app.getPath( 'temp' ) ) ) {
+		return;
+	}
+	await fsPromises.unlink( filePath );
 }

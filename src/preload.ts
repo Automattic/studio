@@ -82,6 +82,9 @@ const api: IpcApi = {
 		ipcRenderer.invoke( 'getAbsolutePathFromSite', siteId, relativePath ),
 	openFileInIDE: ( relativePath: string, siteId: string ) =>
 		ipcRenderer.invoke( 'openFileInIDE', relativePath, siteId ),
+	downloadSyncBackup: ( remoteSiteId: number, downloadUrl: string ) =>
+		ipcRenderer.invoke( 'downloadSyncBackup', remoteSiteId, downloadUrl ),
+	removeSyncBackup: ( filePath: string ) => ipcRenderer.invoke( 'removeSyncBackup', filePath ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

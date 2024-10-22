@@ -1,10 +1,9 @@
 import os from 'os';
 import path from 'path';
 import extract from 'extract-zip';
-import { https } from 'follow-redirects';
 import fs from 'fs-extra';
+import { download } from '../src/lib/download';
 import { getLatestSQLiteCommandRelease } from '../src/lib/sqlite-command-release';
-
 const WP_SERVER_FILES_PATH = path.join( __dirname, '..', 'wp-files' );
 
 interface FileToDownload {
@@ -55,40 +54,8 @@ const downloadFile = async ( file: FileToDownload ) => {
 		const fsError = err as { code: string };
 		if ( fsError.code !== 'EEXIST' ) throw err;
 	}
-	const zipFile = fs.createWriteStream( zipPath );
 
-	await new Promise< void >( ( resolve, reject ) => {
-		https.get( url, ( response ) => {
-			if ( response.statusCode !== 200 ) {
-				reject( new Error( `Request failed with status code: ${ response.statusCode }` ) );
-				return;
-			}
-
-			const totalSize = parseInt( response.headers[ 'content-length' ] ?? '', 10 );
-			let downloadedSize = 0;
-			const showDownloadProgress =
-				typeof process.stdout.clearLine === 'function' && ! isNaN( totalSize );
-
-			if ( showDownloadProgress ) {
-				response.on( 'data', ( chunk ) => {
-					downloadedSize += chunk.length;
-					const progress = ( ( downloadedSize / totalSize ) * 100 ).toFixed( 2 );
-					process.stdout.clearLine( 0 );
-					process.stdout.cursorTo( 0 );
-					process.stdout.write( `[${ name }] ${ progress }%` );
-				} );
-			}
-
-			response.pipe( zipFile );
-			response.on( 'end', () => {
-				if ( showDownloadProgress ) {
-					console.log();
-				}
-				zipFile.close( () => resolve() );
-			} );
-			response.on( 'error', ( err ) => reject( err ) );
-		} );
-	} );
+	await download( url, zipPath, true, name );
 
 	if ( name === 'wp-cli' ) {
 		console.log( `[${ name }] Moving WP-CLI to destination ...` );

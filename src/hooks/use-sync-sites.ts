@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { useAuth } from './use-auth';
+import { useSiteDetails } from './use-site-details';
 
 export type SyncSupport = 'unsupported' | 'syncable' | 'needs-transfer' | 'already-connected';
 
 export interface SyncSite {
 	id: number;
+	localSiteId?: string;
 	name: string;
 	url: string;
 	isStaging: boolean;
@@ -76,20 +78,22 @@ export function useSyncSites() {
 	const [ syncSites, setSyncSites ] = useState< SyncSite[] >( [] );
 	const [ connectedSites, setConnectedSites ] = useState< SyncSite[] >( [] );
 	const { isAuthenticated } = useAuth();
+	const { selectedSite } = useSiteDetails();
+	const localSiteId = selectedSite?.id;
 
 	const loadConnectedSites = useCallback( async () => {
 		try {
-			const sites = await getIpcApi().getConnectedWpcomSites();
+			const sites = await getIpcApi().getConnectedWpcomSites( localSiteId );
 			setConnectedSites( sites );
 		} catch ( error ) {
 			console.error( 'Failed to load connected sites:', error );
 			setConnectedSites( [] );
 		}
-	}, [] );
+	}, [ localSiteId ] );
 
 	const connectSite = async ( site: SyncSite ) => {
 		try {
-			await getIpcApi().connectWpcomSite( site );
+			await getIpcApi().connectWpcomSite( site, localSiteId );
 			setConnectedSites( ( prevSites ) => [ ...prevSites, site ] );
 		} catch ( error ) {
 			console.error( 'Failed to connect site:', error );

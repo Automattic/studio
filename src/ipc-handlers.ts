@@ -217,43 +217,43 @@ export async function updateSite(
 	return mergeSiteDetailsWithRunningDetails( userData.sites );
 }
 
-export async function connectWpcomSite( event: IpcMainInvokeEvent, site: SyncSite ) {
+export async function connectWpcomSite(
+	event: IpcMainInvokeEvent,
+	site: SyncSite,
+	localSiteId: string
+) {
 	const userData = await loadUserData();
-
-	// Get the current user's ID from the authToken
 	const currentUserId = userData.authToken?.id;
 
 	if ( ! currentUserId ) {
-		return [];
+		throw new Error( 'User not authenticated' );
 	}
 
-	// Initialize connectedWpcomSites if it doesn't exist
-	if ( ! userData.connectedWpcomSites ) {
-		userData.connectedWpcomSites = {};
-	}
+	// Ensure the structure exists
+	userData.connectedWpcomSites = userData.connectedWpcomSites || {};
+	userData.connectedWpcomSites[ currentUserId ] =
+		userData.connectedWpcomSites[ currentUserId ] || [];
 
-	// Initialize the array for the current user if it doesn't exist
-	if ( ! userData.connectedWpcomSites[ currentUserId ] ) {
-		userData.connectedWpcomSites[ currentUserId ] = [];
-	}
+	const connections = userData.connectedWpcomSites[ currentUserId ];
 
-	// Check if the site is already connected
-	const existingSiteIndex = userData.connectedWpcomSites[ currentUserId ].findIndex(
-		( connectedSite ) => connectedSite.id === site.id
+	// Check if connection already exists
+	const isWpcomAlreadyConnected = connections.some(
+		( conn ) => conn.id === site.id && conn.localSiteId === localSiteId
 	);
 
-	if ( existingSiteIndex === -1 ) {
-		// If the site is not connected, add it to the array
-		userData.connectedWpcomSites[ currentUserId ].push( site );
-	} else {
-		// If the site is already connected, update its information
-		userData.connectedWpcomSites[ currentUserId ][ existingSiteIndex ] = site;
+	if ( ! isWpcomAlreadyConnected ) {
+		// Add new connection
+		connections.push( { ...site, localSiteId } );
+		await saveUserData( userData );
 	}
 
-	await saveUserData( userData );
+	return connections;
 }
 
-export async function getConnectedWpcomSites( event: IpcMainInvokeEvent ): Promise< SyncSite[] > {
+export async function getConnectedWpcomSites(
+	event: IpcMainInvokeEvent,
+	localSiteId: string
+): Promise< SyncSite[] > {
 	const userData = await loadUserData();
 	const currentUserId = userData.authToken?.id;
 
@@ -261,7 +261,9 @@ export async function getConnectedWpcomSites( event: IpcMainInvokeEvent ): Promi
 		return [];
 	}
 
-	return userData.connectedWpcomSites?.[ currentUserId ] ?? [];
+	return userData?.connectedWpcomSites[ currentUserId ].filter(
+		( site ) => site.localSiteId === localSiteId
+	);
 }
 
 export async function startServer(

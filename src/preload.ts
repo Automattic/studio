@@ -16,7 +16,8 @@ const api: IpcApi = {
 		ipcRenderer.invoke( 'deleteSite', id, deleteFiles ),
 	createSite: ( path: string, name?: string ) => ipcRenderer.invoke( 'createSite', path, name ),
 	updateSite: ( updatedSite: SiteDetails ) => ipcRenderer.invoke( 'updateSite', updatedSite ),
-	connectWpcomSite: ( site: SyncSite ) => ipcRenderer.invoke( 'connectWpcomSite', site ),
+	connectWpcomSite: ( site: SyncSite, localSiteId: string ) =>
+		ipcRenderer.invoke( 'connectWpcomSite', site, localSiteId ),
 	authenticate: () => ipcRenderer.invoke( 'authenticate' ),
 	exportSite: ( options: ExportOptions, siteId: string ) =>
 		ipcRenderer.invoke( 'exportSite', options, siteId ),
@@ -84,7 +85,8 @@ const api: IpcApi = {
 		ipcRenderer.invoke( 'getAbsolutePathFromSite', siteId, relativePath ),
 	openFileInIDE: ( relativePath: string, siteId: string ) =>
 		ipcRenderer.invoke( 'openFileInIDE', relativePath, siteId ),
-	getConnectedWpcomSites: () => ipcRenderer.invoke( 'getConnectedWpcomSites' ),
+	getConnectedWpcomSites: ( localSiteId: string ) =>
+		ipcRenderer.invoke( 'getConnectedWpcomSites', localSiteId ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

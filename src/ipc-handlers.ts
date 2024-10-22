@@ -253,6 +253,17 @@ export async function connectWpcomSite( event: IpcMainInvokeEvent, site: SyncSit
 	await saveUserData( userData );
 }
 
+export async function getConnectedWpcomSites( event: IpcMainInvokeEvent ): Promise< SyncSite[] > {
+	const userData = await loadUserData();
+	const currentUserId = userData.authToken?.id;
+
+	if ( ! currentUserId ) {
+		return [];
+	}
+
+	return userData.connectedWpcomSites?.[ currentUserId ] ?? [];
+}
+
 export async function startServer(
 	event: IpcMainInvokeEvent,
 	id: string

@@ -84,6 +84,7 @@ const api: IpcApi = {
 		ipcRenderer.invoke( 'getAbsolutePathFromSite', siteId, relativePath ),
 	openFileInIDE: ( relativePath: string, siteId: string ) =>
 		ipcRenderer.invoke( 'openFileInIDE', relativePath, siteId ),
+	getConnectedWpcomSites: () => ipcRenderer.invoke( 'getConnectedWpcomSites' ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

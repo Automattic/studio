@@ -1,9 +1,36 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { getIpcApi } from '../lib/get-ipc-api';
 import { useAuth } from './use-auth';
+
+export const PULL_STATES = {
+	'in-progress': {
+		key: 'in-progress',
+		progress: 30,
+	},
+	// Backup completed on server, downloading on client
+	completed: {
+		key: 'backup-sync-downloading',
+		progress: 60,
+	},
+	importing: {
+		key: 'backup-sync-importing',
+		progress: 80,
+	},
+	finished: {
+		key: 'backup-sync-finished',
+		progress: 100,
+	},
+	failed: {
+		key: 'failed',
+		progress: 100,
+	},
+} as const;
+
+type PullState = ( typeof PULL_STATES )[ keyof typeof PULL_STATES ];
 
 interface SiteBackupState {
 	backupId: string | null;
-	status: '' | 'in-progress' | 'completed' | 'failed';
+	status: ( typeof PULL_STATES )[ keyof typeof PULL_STATES ];
 	downloadUrl: string | null;
 }
 
@@ -35,7 +62,11 @@ function useSyncPull() {
 			}
 			setPullStates( ( prevStates ) => ( {
 				...prevStates,
-				[ remoteSiteId ]: { backupId: null, status: 'in-progress', downloadUrl: null },
+				[ remoteSiteId ]: {
+					backupId: null,
+					status: PULL_STATES[ 'in-progress' ],
+					downloadUrl: null,
+				},
 			} ) );
 			try {
 				const response = await client.req.post< { success: boolean; backup_id: string } >( {
@@ -55,7 +86,7 @@ function useSyncPull() {
 				console.error( error );
 				setPullStates( ( prevStates ) => ( {
 					...prevStates,
-					[ remoteSiteId ]: { ...prevStates[ remoteSiteId ], status: 'failed' },
+					[ remoteSiteId ]: { ...prevStates[ remoteSiteId ], status: PULL_STATES.failed },
 				} ) );
 			}
 		},
@@ -80,14 +111,34 @@ function useSyncPull() {
 				backup_id: backupId,
 			} );
 
+			const statusWithProgress = PULL_STATES[ response.status ] || PULL_STATES.failed;
+			const hasBackupCompleted = response.status === 'completed';
+			const downloadUrl = hasBackupCompleted ? response.download_url : null;
+
 			setPullStates( ( prevStates ) => ( {
 				...prevStates,
 				[ remoteSiteId ]: {
 					...prevStates[ remoteSiteId ],
-					status: response.status,
-					downloadUrl: response.status === 'completed' ? response.download_url : null,
+					status: statusWithProgress,
+					downloadUrl,
 				},
 			} ) );
+
+			if ( hasBackupCompleted ) {
+				const filePath = await getIpcApi().downloadSyncBackup(
+					remoteSiteId,
+					response.download_url
+				);
+				console.log( '----> filePath', filePath );
+				setPullStates( ( prevStates ) => ( {
+					...prevStates,
+					[ remoteSiteId ]: {
+						...prevStates[ remoteSiteId ],
+						status: PULL_STATES.importing,
+						downloadUrl,
+					},
+				} ) );
+			}
 		},
 		[ client, pullStates ]
 	);
@@ -96,7 +147,7 @@ function useSyncPull() {
 		const intervals: Record< number, NodeJS.Timeout > = {};
 
 		Object.entries( pullStates ).forEach( ( [ remoteSiteId, state ] ) => {
-			if ( state.backupId && state.status === 'in-progress' ) {
+			if ( state.backupId && state.status.key === 'in-progress' ) {
 				intervals[ Number( remoteSiteId ) ] = setInterval( () => {
 					getBackup( Number( remoteSiteId ) );
 				}, 2000 );

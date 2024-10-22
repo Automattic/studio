@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { getIpcApi } from '../lib/get-ipc-api';
 
 export type SyncSupport = 'unsupported' | 'syncable' | 'needs-transfer' | 'already-connected';
 
@@ -74,8 +75,28 @@ export function useSyncSites() {
 	const [ syncSites, setSyncSites ] = useState< SyncSite[] >( [] );
 	const [ connectedSites, setConnectedSites ] = useState< SyncSite[] >( [] );
 
+	const loadConnectedSites = async () => {
+		try {
+			const sites = await getIpcApi().getConnectedWpcomSites();
+			setConnectedSites( sites );
+		} catch ( error ) {
+			console.error( 'Failed to load connected sites:', error );
+		}
+	};
+
+	const connectSite = async ( site: SyncSite ) => {
+		try {
+			await getIpcApi().connectWpcomSite( site );
+			setConnectedSites( ( prevSites ) => [ ...prevSites, site ] );
+		} catch ( error ) {
+			console.error( 'Failed to connect site:', error );
+			throw error;
+		}
+	};
+
 	useEffect( () => {
 		setSyncSites( FAKE_SITES );
+		loadConnectedSites();
 	}, [] );
 
 	const isSiteAlreadyConnected = ( siteId: number ) =>
@@ -87,6 +108,6 @@ export function useSyncSites() {
 			syncSupport: isSiteAlreadyConnected( site.id ) ? 'already-connected' : site.syncSupport,
 		} ) ),
 		connectedSites,
-		setConnectedSites,
+		connectSite,
 	};
 }

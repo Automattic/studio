@@ -4,7 +4,7 @@ import { PropsWithChildren, useState } from 'react';
 import { CLIENT_ID, PROTOCOL_PREFIX, SCOPES, WP_AUTHORIZE_ENDPOINT } from '../constants';
 import { useAuth } from '../hooks/use-auth';
 import { useOffline } from '../hooks/use-offline';
-import { useSyncSites } from '../hooks/use-sync-sites';
+import { SyncSite, useSyncSites } from '../hooks/use-sync-sites';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { ArrowIcon } from './arrow-icon';
@@ -162,12 +162,23 @@ function NoAuthSyncTab() {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } ) {
 	const { __ } = useI18n();
-	const { syncSites, connectedSites, setConnectedSites } = useSyncSites();
+	const { syncSites, connectedSites, connectSite } = useSyncSites();
 	const [ isSyncSitesSelectorOpen, setIsSyncSitesSelectorOpen ] = useState( false );
 	const { isAuthenticated } = useAuth();
 	if ( ! isAuthenticated ) {
 		return <NoAuthSyncTab />;
 	}
+
+	const handleConnect = async ( newConnectedSite: SyncSite ) => {
+		try {
+			await connectSite( newConnectedSite );
+		} catch ( error ) {
+			getIpcApi().showErrorMessageBox( {
+				title: __( 'Failed to connect to site' ),
+				message: __( 'Please try again.' ),
+			} );
+		}
+	};
 
 	return (
 		<div className="flex flex-col gap-4 h-full">
@@ -176,9 +187,9 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 					syncSites={ syncSites }
 					connectedSites={ connectedSites }
 					openSitesSyncSelector={ () => setIsSyncSitesSelectorOpen( true ) }
-					disconnectSite={ ( id ) => {
-						setConnectedSites( ( prevState ) => prevState.filter( ( site ) => site.id !== id ) );
-					} }
+					// disconnectSite={ ( id ) => {
+					// 	setConnectedSites( ( prevState ) => prevState.filter( ( site ) => site.id !== id ) );
+					// } }
 				/>
 			) : (
 				<SiteSyncDescription>
@@ -199,7 +210,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 							} );
 							return;
 						}
-						setConnectedSites( ( prevState ) => [ ...prevState, newConnectedSite ] );
+						handleConnect( newConnectedSite );
 					} }
 				/>
 			) }

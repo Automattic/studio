@@ -261,8 +261,10 @@ export async function getConnectedWpcomSites(
 		return [];
 	}
 
-	return userData?.connectedWpcomSites[ currentUserId ].filter(
-		( site ) => site.localSiteId === localSiteId
+	return (
+		userData?.connectedWpcomSites?.[ currentUserId ]?.filter(
+			( site ) => site.localSiteId === localSiteId
+		) ?? []
 	);
 }
 

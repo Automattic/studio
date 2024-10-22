@@ -17,6 +17,7 @@ import { __, LocaleData, defaultI18n } from '@wordpress/i18n';
 import archiver from 'archiver';
 import { DEFAULT_PHP_VERSION } from '../vendor/wp-now/src/constants';
 import { MAIN_MIN_WIDTH, SIDEBAR_WIDTH, SIZE_LIMIT_BYTES } from './constants';
+import { SyncSite } from './hooks/use-sync-sites';
 import { isEmptyDir, pathExists, isWordPressDirectory, sanitizeFolderName } from './lib/fs-utils';
 import { getImageData } from './lib/get-image-data';
 import { exportBackup } from './lib/import-export/export/export-manager';
@@ -216,7 +217,7 @@ export async function updateSite(
 	return mergeSiteDetailsWithRunningDetails( userData.sites );
 }
 
-export async function connectWpcomSite( event: IpcMainInvokeEvent, siteId: string ) {
+export async function connectWpcomSite( event: IpcMainInvokeEvent, site: SyncSite ) {
 	const userData = await loadUserData();
 
 	// Get the current user's ID from the authToken
@@ -236,9 +237,17 @@ export async function connectWpcomSite( event: IpcMainInvokeEvent, siteId: strin
 		userData.connectedWpcomSites[ currentUserId ] = [];
 	}
 
-	// Add the siteId to the current user's connected sites if it's not already there
-	if ( ! userData.connectedWpcomSites[ currentUserId ].includes( siteId ) ) {
-		userData.connectedWpcomSites[ currentUserId ].push( siteId );
+	// Check if the site is already connected
+	const existingSiteIndex = userData.connectedWpcomSites[ currentUserId ].findIndex(
+		( connectedSite ) => connectedSite.id === site.id
+	);
+
+	if ( existingSiteIndex === -1 ) {
+		// If the site is not connected, add it to the array
+		userData.connectedWpcomSites[ currentUserId ].push( site );
+	} else {
+		// If the site is already connected, update its information
+		userData.connectedWpcomSites[ currentUserId ][ existingSiteIndex ] = site;
 	}
 
 	await saveUserData( userData );

@@ -1,3 +1,4 @@
+import { SyncSite } from '../hooks/use-sync-sites';
 import { StoredToken } from '../lib/oauth';
 
 export interface UserData {
@@ -13,7 +14,7 @@ export interface UserData {
 		};
 	};
 	promptWindowsSpeedUpResult?: PromptWindowsSpeedUpResult;
-	connectedWpcomSites?: { [ userId: number ]: string[] };
+	connectedWpcomSites?: { [ userId: number ]: SyncSite[] };
 }
 
 export interface PersistedUserData extends Omit< UserData, 'sites' > {

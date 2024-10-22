@@ -2,11 +2,13 @@ import { Icon } from '@wordpress/components';
 import { cloudUpload, cloudDownload } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useMemo } from 'react';
+import { useSyncSites } from '../hooks/sync-sites-context';
 import { SyncSite } from '../hooks/use-sync-sites';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { ArrowIcon } from './arrow-icon';
 import { Badge } from './badge';
 import Button from './button';
+import ProgressBar from './progress-bar';
 import { WordPressLogoCircle } from './wordpress-logo-circle';
 
 interface ConnectedSiteSection {
@@ -28,6 +30,7 @@ export function SyncConnectedSites( {
 	disconnectSite: ( id: number ) => void;
 } ) {
 	const { __ } = useI18n();
+	const { pullSite, pullStates } = useSyncSites();
 	const siteSections: ConnectedSiteSection[] = useMemo( () => {
 		const siteSections: ConnectedSiteSection[] = [];
 
@@ -98,14 +101,35 @@ export function SyncConnectedSites( {
 									{ connectedSite.url } <ArrowIcon />
 								</Button>
 								<div className="flex gap-2 pl-4 ml-auto">
-									<Button variant="link" className="!text-black hover:!text-a8c-blueberry">
-										<Icon icon={ cloudDownload } />
-										{ __( 'Pull' ) }
-									</Button>
-									<Button variant="link" className="!text-black hover:!text-a8c-blueberry">
-										<Icon icon={ cloudUpload } />
-										{ __( 'Push' ) }
-									</Button>
+									<div className="a8c-label-semibold">
+										{ pullStates[ connectedSite.id ]?.status }
+									</div>
+									{ pullStates[ connectedSite.id ]?.status === 'in-progress' ? (
+										<div className="flex flex-col gap-2">
+											<div className="a8c-label-semibold">
+												{ pullStates[ connectedSite.id ]?.status }
+												__('Pulling changes…')
+											</div>
+											<ProgressBar value={ 50 } maxValue={ 100 } />
+										</div>
+									) : (
+										<>
+											<Button
+												variant="link"
+												className="!text-black hover:!text-a8c-blueberry"
+												onClick={ () => {
+													pullSite( connectedSite.id );
+												} }
+											>
+												<Icon icon={ cloudDownload } />
+												{ __( 'Pull' ) }
+											</Button>
+											<Button variant="link" className="!text-black hover:!text-a8c-blueberry">
+												<Icon icon={ cloudUpload } />
+												{ __( 'Push' ) }
+											</Button>
+										</>
+									) }
 								</div>
 							</div>
 						) ) }

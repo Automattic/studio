@@ -250,6 +250,36 @@ export async function connectWpcomSite(
 	return connections;
 }
 
+export async function disconnectWpcomSite(
+	event: IpcMainInvokeEvent,
+	site: SyncSite,
+	localSiteId: string
+) {
+	const userData = await loadUserData();
+	const currentUserId = userData.authToken?.id;
+
+	if ( ! currentUserId ) {
+		throw new Error( 'User not authenticated' );
+	}
+
+	const connections = userData.connectedWpcomSites?.[ currentUserId ] || [];
+
+	// Filter out the connection to be removed
+	const updatedConnections = connections.filter(
+		( conn ) => ! ( conn.id === site.id && conn.localSiteId === localSiteId )
+	);
+
+	// Update userData
+	userData.connectedWpcomSites = {
+		...userData.connectedWpcomSites,
+		[ currentUserId ]: updatedConnections,
+	};
+
+	await saveUserData( userData );
+
+	return updatedConnections;
+}
+
 export async function getConnectedWpcomSites(
 	event: IpcMainInvokeEvent,
 	localSiteId: string

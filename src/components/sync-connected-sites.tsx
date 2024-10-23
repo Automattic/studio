@@ -2,7 +2,7 @@ import { Icon } from '@wordpress/components';
 import { cloudUpload, cloudDownload } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useMemo } from 'react';
-import { SyncSite } from '../hooks/use-sync-sites';
+import { SyncSite } from '../hooks/use-fetch-wpcom-sites';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { ArrowIcon } from './arrow-icon';
 import { Badge } from './badge';

@@ -1,4 +1,4 @@
-import { SyncSite } from '../hooks/use-sync-sites';
+import { SyncSite } from '../hooks/use-fetch-wpcom-sites';
 import { StoredToken } from '../lib/oauth';
 
 export interface UserData {

@@ -3,8 +3,10 @@ import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren, useState } from 'react';
 import { CLIENT_ID, PROTOCOL_PREFIX, SCOPES, WP_AUTHORIZE_ENDPOINT } from '../constants';
 import { useAuth } from '../hooks/use-auth';
+import { useFetchWpComSites } from '../hooks/use-fetch-wpcom-sites';
 import { useOffline } from '../hooks/use-offline';
-import { SyncSite, useSyncSites } from '../hooks/use-sync-sites';
+import { useSiteSyncManagement } from '../hooks/use-site-sync-management';
+import { SyncSite } from '../hooks/use-sync-sites';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { ArrowIcon } from './arrow-icon';
@@ -162,7 +164,8 @@ function NoAuthSyncTab() {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } ) {
 	const { __ } = useI18n();
-	const { syncSites, connectedSites, connectSite, disconnectSite, isFetching } = useSyncSites();
+	const { connectedSites, connectSite, disconnectSite } = useSiteSyncManagement();
+	const { syncSites, isFetching } = useFetchWpComSites( connectedSites );
 
 	const [ isSyncSitesSelectorOpen, setIsSyncSitesSelectorOpen ] = useState( false );
 	const { isAuthenticated } = useAuth();

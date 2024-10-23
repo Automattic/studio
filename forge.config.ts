@@ -5,6 +5,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import { MakerAppX } from '@electron-forge/maker-appx';
 import { MakerDeb } from '@electron-forge/maker-deb';
 import { MakerDMG } from '@electron-forge/maker-dmg';
 import { MakerSquirrel } from '@electron-forge/maker-squirrel';
@@ -35,6 +36,11 @@ const config: ForgeConfig = {
 				categories: [ 'Utility' ],
 				name: 'studio',
 			},
+		} ),
+		new MakerAppX( {
+			publisher: 'CN=E2E5A157-746D-4B04-9116-ABE5CB928306',
+			devCert: 'certificate.pfx',
+			certPass: process.env.WINDOWS_CODE_SIGNING_CERT_PASSWORD,
 		} ),
 		new MakerSquirrel(
 			{

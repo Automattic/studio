@@ -17,5 +17,6 @@ steps:
       - 'out\**\studio-setup.exe'
       - 'out\**\studio-update.nupkg'
       - 'out\**\RELEASES'
+      - 'out\**\*.appx'
     agents:
       queue: windows

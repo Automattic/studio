@@ -48,20 +48,28 @@ const useSiteSyncManagement = () => {
 				stagingSites
 			);
 			setConnectedSites( newConnectedSites );
-			// Add any additional logic for connectSite
 		} catch ( error ) {
 			console.error( 'Failed to connect site:', error );
 			throw error;
 		}
 	};
 
-	// Disconnect a site
+	// Disconnect a site and its associated staging site
 	const disconnectSite = async ( siteId: number ) => {
 		if ( ! localSiteId ) {
 			return;
 		}
 		try {
-			const newDisconnectedSites = await getIpcApi().disconnectWpcomSite( siteId, localSiteId );
+			const siteToDisconnect = connectedSites.find( ( site ) => site.id === siteId );
+			if ( ! siteToDisconnect ) {
+				throw new Error( 'Site not found' );
+			}
+
+			const sitesToDisconnect = [ siteId, ...siteToDisconnect.stagingSiteIds ];
+			const newDisconnectedSites = await getIpcApi().disconnectWpcomSite(
+				sitesToDisconnect,
+				localSiteId
+			);
 			setConnectedSites( newDisconnectedSites );
 		} catch ( error ) {
 			console.error( 'Failed to disconnect site:', error );

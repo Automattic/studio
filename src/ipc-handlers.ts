@@ -271,7 +271,7 @@ export async function connectWpcomSite(
 
 export async function disconnectWpcomSite(
 	event: IpcMainInvokeEvent,
-	siteId: number,
+	siteIds: number[],
 	localSiteId: string
 ) {
 	const userData = await loadUserData();
@@ -283,9 +283,9 @@ export async function disconnectWpcomSite(
 
 	const connections = userData.connectedWpcomSites?.[ currentUserId ] || [];
 
-	// Filter out the connection to be removed
+	// Filter out the connections to be removed
 	const updatedConnections = connections.filter(
-		( conn ) => ! ( conn.id === siteId && conn.localSiteId === localSiteId )
+		( conn ) => ! ( siteIds.includes( conn.id ) && conn.localSiteId === localSiteId )
 	);
 
 	// Update userData

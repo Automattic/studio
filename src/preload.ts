@@ -18,8 +18,8 @@ const api: IpcApi = {
 	updateSite: ( updatedSite: SiteDetails ) => ipcRenderer.invoke( 'updateSite', updatedSite ),
 	connectWpcomSite: ( site: SyncSite, localSiteId: string, stagingSites: SyncSite[] ) =>
 		ipcRenderer.invoke( 'connectWpcomSite', site, localSiteId, stagingSites ),
-	disconnectWpcomSite: ( siteId: number, localSiteId: string ) =>
-		ipcRenderer.invoke( 'disconnectWpcomSite', siteId, localSiteId ),
+	disconnectWpcomSite: ( siteIds: number[], localSiteId: string ) =>
+		ipcRenderer.invoke( 'disconnectWpcomSite', siteIds, localSiteId ),
 	authenticate: () => ipcRenderer.invoke( 'authenticate' ),
 	exportSite: ( options: ExportOptions, siteId: string ) =>
 		ipcRenderer.invoke( 'exportSite', options, siteId ),

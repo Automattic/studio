@@ -7,7 +7,7 @@ type SyncSupport = 'unsupported' | 'syncable' | 'needs-transfer' | 'already-conn
 
 export type SyncSite = {
 	id: number;
-	localSiteId?: string;
+	localSiteId: string;
 	name: string;
 	url: string;
 	isStaging: boolean;
@@ -65,6 +65,7 @@ function transformSiteResponse(
 	return sites.map( ( site ) => {
 		return {
 			id: site.ID,
+			localSiteId: '',
 			name: site.name,
 			url: site.URL,
 			isStaging: site.is_wpcom_staging_site,

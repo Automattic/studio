@@ -17,12 +17,10 @@ interface ConnectedSiteSection {
 }
 
 export function SyncConnectedSites( {
-	syncSites,
 	connectedSites,
 	openSitesSyncSelector,
 	disconnectSite,
 }: {
-	syncSites: SyncSite[];
 	connectedSites: SyncSite[];
 	openSitesSyncSelector: () => void;
 	disconnectSite: ( id: number ) => void;
@@ -32,28 +30,25 @@ export function SyncConnectedSites( {
 		const siteSections: ConnectedSiteSection[] = [];
 
 		connectedSites.forEach( ( connectedSite ) => {
-			const syncSite = syncSites.find( ( site ) => site.id === connectedSite.id );
-			if ( syncSite ) {
-				const section: ConnectedSiteSection = {
-					id: syncSite.id,
-					name: syncSite.name,
-					provider: 'wpcom',
-					connectedSites: [ connectedSite ],
-				};
-				if ( syncSite.stagingSiteIds ) {
-					for ( const id of syncSite.stagingSiteIds ) {
-						const stagingSite = syncSites.find( ( site ) => site.id === id );
-						if ( stagingSite ) {
-							section.connectedSites.push( stagingSite );
-						}
+			const section: ConnectedSiteSection = {
+				id: connectedSite.id,
+				name: connectedSite.name,
+				provider: 'wpcom',
+				connectedSites: [ connectedSite ],
+			};
+			if ( connectedSite.stagingSiteIds ) {
+				for ( const id of connectedSite.stagingSiteIds ) {
+					const stagingSite = connectedSites.find( ( site ) => site.id === id );
+					if ( stagingSite ) {
+						section.connectedSites.push( stagingSite );
 					}
 				}
-				siteSections.push( section );
 			}
+			siteSections.push( section );
 		} );
 
 		return siteSections;
-	}, [ connectedSites, syncSites ] );
+	}, [ connectedSites ] );
 
 	return (
 		<div className="flex flex-col h-full overflow-hidden">

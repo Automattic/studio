@@ -187,7 +187,6 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 		<div className="flex flex-col gap-4 h-full">
 			{ connectedSites.length > 0 ? (
 				<SyncConnectedSites
-					syncSites={ syncSites }
 					connectedSites={ connectedSites }
 					openSitesSyncSelector={ () => setIsSyncSitesSelectorOpen( true ) }
 					disconnectSite={ ( id: number ) => disconnectSite( id ) }

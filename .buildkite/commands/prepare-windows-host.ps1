@@ -60,6 +60,9 @@ Write-Host "--- :windows: Setting up Package Manager"
 $env:ChocolateyInstall = Convert-Path "$((Get-Command choco).Path)\..\.."   
 Import-Module "$env:ChocolateyInstall\helpers\chocolateyProfile.psm1"
 
+& "$PSScriptRoot\install-windows-10-sdk.ps1"
+If ($LastExitCode -ne 0) { Exit $LastExitCode }
+
 Write-Host "--- :node: Installing NVM"
 choco install nvm.portable -y
 If ($LastExitCode -ne 0) { Exit $LastExitCode }

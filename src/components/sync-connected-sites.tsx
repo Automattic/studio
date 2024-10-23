@@ -60,15 +60,19 @@ export function SyncConnectedSites( {
 		return siteSections;
 	}, [ connectedSites ] );
 
-	const handleDisconnectSite = async ( sectionId: number ) => {
+	const handleDisconnectSite = async ( sectionId: number, sectionName?: string ) => {
 		const dontShowDisconnectWarning = localStorage.getItem( 'dontShowDisconnectWarning' );
 		if ( ! dontShowDisconnectWarning ) {
 			const CANCEL_BUTTON_INDEX = 1;
 			const DISCONNECT_BUTTON_INDEX = 0;
 
+			const disconnectMessage = sectionName
+				? __( 'Disconnect' ) + ' ' + sectionName
+				: __( 'Disconnect site' );
+
 			const { response, checkboxChecked } = await getIpcApi().showMessageBox( {
 				type: 'info',
-				message: __( 'Disconnect site' ),
+				message: disconnectMessage,
 				detail: __(
 					'Your WordPress.com site will not be affected by disconnecting it from Studio.'
 				),
@@ -100,7 +104,7 @@ export function SyncConnectedSites( {
 							<Button
 								variant="link"
 								className="!ml-auto !text-a8c-gray-70 hover:!text-a8c-blueberry"
-								onClick={ () => handleDisconnectSite( section.id ) }
+								onClick={ () => handleDisconnectSite( section.id, section.name ) }
 							>
 								{ __( 'Disconnect' ) }
 							</Button>

@@ -5,6 +5,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import { MakerAppX } from '@electron-forge/maker-appx';
 import { MakerDeb } from '@electron-forge/maker-deb';
 import { MakerDMG } from '@electron-forge/maker-dmg';
 import { MakerSquirrel } from '@electron-forge/maker-squirrel';
@@ -35,6 +36,28 @@ const config: ForgeConfig = {
 				categories: [ 'Utility' ],
 				name: 'studio',
 			},
+		} ),
+		new MakerAppX( {
+			// The Windows Store does not require the AppX to be signed.
+			// However, there does not seem to be a way to configure this maker to skip signing.
+			// As such, we attempt signing at this point.
+			//
+			// At the time of writing, it is unknown whether the Window Store will allow or reject an AppX signed in this way.
+			//
+			// If a rejection occur, we can look at using a post build hook to convert to AppX instead.
+			//
+			// This is the value that Simplenote uses, but it fails.
+			// See https://buildkite.com/automattic/studio/builds/2930#0192b736-0faa-4762-af64-4b9d795a7410
+			// publisher: 'CN=E2E5A157-746D-4B04-9116-ABE5CB928306',
+			publisher:
+				'CN=&quot;Automattic, Inc.&quot;, O=&quot;Automattic, Inc.&quot;, S=California, C=US',
+			devCert: 'certificate.pfx',
+			certPass: process.env.WINDOWS_CODE_SIGNING_CERT_PASSWORD,
+			// Windows Store version numbers don't support semver beta tags.
+			//
+			// See implementation details at:
+			// https://github.com/electron/forge/blob/4e7517c11f46b87a1e7b2a31b7c7ca39b0ee0a97/packages/maker/base/src/Maker.ts#L172-L179
+			makeVersionWinStoreCompatible: true,
 		} ),
 		new MakerSquirrel(
 			{

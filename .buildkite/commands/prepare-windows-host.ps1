@@ -57,8 +57,14 @@ If ($LastExitCode -ne 0) { Exit $LastExitCode }
 
 # From https://stackoverflow.com/a/46760714
 Write-Host "--- :windows: Setting up Package Manager"
-$env:ChocolateyInstall = Convert-Path "$((Get-Command choco).Path)\..\.."   
+$env:ChocolateyInstall = Convert-Path "$((Get-Command choco).Path)\..\.."
 Import-Module "$env:ChocolateyInstall\helpers\chocolateyProfile.psm1"
+
+# Building AppX with Electron Forge requires the Windows 10 SDK
+#
+# See https://github.com/electron/forge/blob/4e7517c11f46b87a1e7b2a31b7c7ca39b0ee0a97/packages/maker/appx/README.md?plain=1#L5
+& "$PSScriptRoot\install-windows-10-sdk.ps1"
+If ($LastExitCode -ne 0) { Exit $LastExitCode }
 
 Write-Host "--- :node: Installing NVM"
 choco install nvm.portable -y

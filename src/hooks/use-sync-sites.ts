@@ -108,6 +108,19 @@ const useSyncSites = () => {
 		}
 	};
 
+	const disconnectSite = async ( siteId: number ) => {
+		if ( ! localSiteId ) {
+			return;
+		}
+		try {
+			await getIpcApi().disconnectWpcomSite( siteId, localSiteId );
+			setConnectedSites( ( prevSites ) => prevSites.filter( ( site ) => site.id !== siteId ) );
+		} catch ( error ) {
+			console.error( 'Failed to disconnect site:', error );
+			throw error;
+		}
+	};
+
 	useEffect( () => {
 		setSyncSites( FAKE_SITES );
 		loadConnectedSites();
@@ -123,6 +136,7 @@ const useSyncSites = () => {
 		} ) ),
 		connectedSites,
 		connectSite,
+		disconnectSite,
 	};
 };
 

@@ -162,7 +162,7 @@ function NoAuthSyncTab() {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } ) {
 	const { __ } = useI18n();
-	const { syncSites, connectedSites, connectSite } = useSyncSites();
+	const { syncSites, connectedSites, connectSite, disconnectSite } = useSyncSites();
 	const [ isSyncSitesSelectorOpen, setIsSyncSitesSelectorOpen ] = useState( false );
 	const { isAuthenticated } = useAuth();
 	if ( ! isAuthenticated ) {
@@ -187,9 +187,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 					syncSites={ syncSites }
 					connectedSites={ connectedSites }
 					openSitesSyncSelector={ () => setIsSyncSitesSelectorOpen( true ) }
-					// disconnectSite={ ( id ) => {
-					// 	setConnectedSites( ( prevState ) => prevState.filter( ( site ) => site.id !== id ) );
-					// } }
+					disconnectSite={ ( id: number ) => disconnectSite( id ) }
 				/>
 			) : (
 				<SiteSyncDescription>

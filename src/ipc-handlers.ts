@@ -17,7 +17,7 @@ import { __, LocaleData, defaultI18n } from '@wordpress/i18n';
 import archiver from 'archiver';
 import { DEFAULT_PHP_VERSION } from '../vendor/wp-now/src/constants';
 import { MAIN_MIN_WIDTH, SIDEBAR_WIDTH, SIZE_LIMIT_BYTES } from './constants';
-import { SyncSite } from './hooks/use-sync-sites';
+import { SyncSite } from './hooks/use-fetch-wpcom-sites';
 import { isEmptyDir, pathExists, isWordPressDirectory, sanitizeFolderName } from './lib/fs-utils';
 import { getImageData } from './lib/get-image-data';
 import { exportBackup } from './lib/import-export/export/export-manager';

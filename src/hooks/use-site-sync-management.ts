@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { useAuth } from './use-auth';
+import { SyncSite } from './use-fetch-wpcom-sites';
 import { useSiteDetails } from './use-site-details';
-import { SyncSite } from './use-sync-sites';
 
 const useSiteSyncManagement = () => {
 	const [ connectedSites, setConnectedSites ] = useState< SyncSite[] >( [] );

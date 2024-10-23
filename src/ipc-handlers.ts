@@ -247,7 +247,7 @@ export async function connectWpcomSite(
 		await saveUserData( userData );
 	}
 
-	return connections;
+	return connections.filter( ( conn ) => conn.localSiteId === localSiteId );
 }
 
 export async function disconnectWpcomSite(
@@ -277,7 +277,7 @@ export async function disconnectWpcomSite(
 
 	await saveUserData( userData );
 
-	return updatedConnections;
+	return updatedConnections.filter( ( conn ) => conn.localSiteId === localSiteId );
 }
 
 export async function getConnectedWpcomSites(

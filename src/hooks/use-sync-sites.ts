@@ -100,8 +100,8 @@ const useSyncSites = () => {
 			return;
 		}
 		try {
-			await getIpcApi().connectWpcomSite( site, localSiteId );
-			setConnectedSites( ( prevSites ) => [ ...prevSites, site ] );
+			const newConnectedSites = await getIpcApi().connectWpcomSite( site, localSiteId );
+			setConnectedSites( newConnectedSites );
 		} catch ( error ) {
 			console.error( 'Failed to connect site:', error );
 			throw error;
@@ -113,8 +113,8 @@ const useSyncSites = () => {
 			return;
 		}
 		try {
-			await getIpcApi().disconnectWpcomSite( siteId, localSiteId );
-			setConnectedSites( ( prevSites ) => prevSites.filter( ( site ) => site.id !== siteId ) );
+			const newDisconnectedSites = await getIpcApi().disconnectWpcomSite( siteId, localSiteId );
+			setConnectedSites( newDisconnectedSites );
 		} catch ( error ) {
 			console.error( 'Failed to disconnect site:', error );
 			throw error;

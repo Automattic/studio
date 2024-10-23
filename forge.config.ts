@@ -41,6 +41,11 @@ const config: ForgeConfig = {
 			publisher: 'CN=E2E5A157-746D-4B04-9116-ABE5CB928306',
 			devCert: 'certificate.pfx',
 			certPass: process.env.WINDOWS_CODE_SIGNING_CERT_PASSWORD,
+			// Windows Store version numbers don't support semver beta tags.
+			//
+			// See implementation details at:
+			// https://github.com/electron/forge/blob/4e7517c11f46b87a1e7b2a31b7c7ca39b0ee0a97/packages/maker/base/src/Maker.ts#L172-L179
+			makeVersionWinStoreCompatible: true,
 		} ),
 		new MakerSquirrel(
 			{

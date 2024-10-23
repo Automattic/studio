@@ -57,7 +57,7 @@ If ($LastExitCode -ne 0) { Exit $LastExitCode }
 
 # From https://stackoverflow.com/a/46760714
 Write-Host "--- :windows: Setting up Package Manager"
-$env:ChocolateyInstall = Convert-Path "$((Get-Command choco).Path)\..\.."   
+$env:ChocolateyInstall = Convert-Path "$((Get-Command choco).Path)\..\.."
 Import-Module "$env:ChocolateyInstall\helpers\chocolateyProfile.psm1"
 
 & "$PSScriptRoot\install-windows-10-sdk.ps1"

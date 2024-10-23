@@ -5,7 +5,6 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useState, useEffect } from 'react';
 import { LIMIT_OF_PROMPTS_PER_USER, WPCOM_PROFILE_URL } from '../constants';
 import { useAuth } from '../hooks/use-auth';
-import { useFeatureFlags } from '../hooks/use-feature-flags';
 import { useIpcListener } from '../hooks/use-ipc-listener';
 import { useOffline } from '../hooks/use-offline';
 import { usePromptUsage } from '../hooks/use-prompt-usage';
@@ -151,11 +150,7 @@ const SnapshotInfo = ( {
 function PromptInfo() {
 	const { __ } = useI18n();
 	const { promptCount = 0, promptLimit = LIMIT_OF_PROMPTS_PER_USER } = usePromptUsage();
-	const { assistantEnabled } = useFeatureFlags();
 
-	if ( ! assistantEnabled ) {
-		return null;
-	}
 	return (
 		<div className="flex gap-3 flex-col">
 			<h2 className="a8c-label-semibold">{ __( 'AI assistant' ) }</h2>

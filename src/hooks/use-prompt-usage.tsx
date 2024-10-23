@@ -2,7 +2,6 @@ import * as Sentry from '@sentry/electron/renderer';
 import { useState, useEffect, useCallback, useMemo, createContext, useContext } from 'react';
 import { LIMIT_OF_PROMPTS_PER_USER } from '../constants';
 import { useAuth } from './use-auth';
-import { useFeatureFlags } from './use-feature-flags';
 
 type PromptUsage = {
 	promptLimit: number;
@@ -42,7 +41,6 @@ const calculateDaysRemaining = ( quotaResetDate: string ): number => {
 
 export function PromptUsageProvider( { children }: PromptUsageProps ) {
 	const { Provider } = promptUsageContext;
-	const { assistantEnabled } = useFeatureFlags();
 
 	const [ promptLimit, setPromptLimit ] = useState( LIMIT_OF_PROMPTS_PER_USER );
 	const [ promptCount, setPromptCount ] = useState( 0 );
@@ -60,7 +58,7 @@ export function PromptUsageProvider( { children }: PromptUsageProps ) {
 	}, [] );
 
 	const fetchPromptUsage = useCallback( async () => {
-		if ( ! client?.req || ! assistantEnabled ) {
+		if ( ! client?.req ) {
 			return;
 		}
 		try {
@@ -77,7 +75,7 @@ export function PromptUsageProvider( { children }: PromptUsageProps ) {
 			Sentry.captureException( error );
 			console.error( error );
 		}
-	}, [ assistantEnabled, client, updatePromptUsage ] );
+	}, [ client, updatePromptUsage ] );
 
 	useEffect( () => {
 		if ( ! client ) {

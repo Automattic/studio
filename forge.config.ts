@@ -38,7 +38,11 @@ const config: ForgeConfig = {
 			},
 		} ),
 		new MakerAppX( {
-			publisher: 'CN=E2E5A157-746D-4B04-9116-ABE5CB928306',
+			// This is the value that Simplenote uses, but it fails.
+			// See https://buildkite.com/automattic/studio/builds/2930#0192b736-0faa-4762-af64-4b9d795a7410
+			// publisher: 'CN=E2E5A157-746D-4B04-9116-ABE5CB928306',
+			publisher:
+				'CN=&quot;Automattic, Inc.&quot;, O=&quot;Automattic, Inc.&quot;, S=California, C=US',
 			devCert: 'certificate.pfx',
 			certPass: process.env.WINDOWS_CODE_SIGNING_CERT_PASSWORD,
 			// Windows Store version numbers don't support semver beta tags.

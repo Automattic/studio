@@ -4,7 +4,7 @@
 import '@sentry/electron/preload';
 import { SaveDialogOptions, contextBridge, ipcRenderer } from 'electron';
 import { LocaleData } from '@wordpress/i18n';
-import { SyncSite } from './hooks/use-sync-sites';
+import { SyncSite } from './hooks/use-fetch-wpcom-sites';
 import { ExportOptions } from './lib/import-export/export/types';
 import { BackupArchiveInfo } from './lib/import-export/import/types';
 import { promptWindowsSpeedUpSites } from './lib/windows-helpers';
@@ -16,8 +16,8 @@ const api: IpcApi = {
 		ipcRenderer.invoke( 'deleteSite', id, deleteFiles ),
 	createSite: ( path: string, name?: string ) => ipcRenderer.invoke( 'createSite', path, name ),
 	updateSite: ( updatedSite: SiteDetails ) => ipcRenderer.invoke( 'updateSite', updatedSite ),
-	connectWpcomSite: ( site: SyncSite, localSiteId: string ) =>
-		ipcRenderer.invoke( 'connectWpcomSite', site, localSiteId ),
+	connectWpcomSite: ( site: SyncSite, localSiteId: string, stagingSites: SyncSite[] ) =>
+		ipcRenderer.invoke( 'connectWpcomSite', site, localSiteId, stagingSites ),
 	disconnectWpcomSite: ( siteId: number, localSiteId: string ) =>
 		ipcRenderer.invoke( 'disconnectWpcomSite', siteId, localSiteId ),
 	authenticate: () => ipcRenderer.invoke( 'authenticate' ),

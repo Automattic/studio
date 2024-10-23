@@ -28,22 +28,32 @@ export function SyncConnectedSites( {
 	const { __ } = useI18n();
 	const siteSections: ConnectedSiteSection[] = useMemo( () => {
 		const siteSections: ConnectedSiteSection[] = [];
+		const processedSites = new Set< number >();
 
 		connectedSites.forEach( ( connectedSite ) => {
+			if ( processedSites.has( connectedSite.id ) ) {
+				return; // Skip if we've already processed this site
+			}
+
 			const section: ConnectedSiteSection = {
 				id: connectedSite.id,
 				name: connectedSite.name,
 				provider: 'wpcom',
 				connectedSites: [ connectedSite ],
 			};
+
+			processedSites.add( connectedSite.id );
+
 			if ( connectedSite.stagingSiteIds ) {
 				for ( const id of connectedSite.stagingSiteIds ) {
 					const stagingSite = connectedSites.find( ( site ) => site.id === id );
 					if ( stagingSite ) {
 						section.connectedSites.push( stagingSite );
+						processedSites.add( stagingSite.id );
 					}
 				}
 			}
+
 			siteSections.push( section );
 		} );
 

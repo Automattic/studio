@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { useAuth } from './use-auth';
-import { SyncSite } from './use-fetch-wpcom-sites';
+import { SyncSite, useFetchWpComSites } from './use-fetch-wpcom-sites';
 import { useSiteDetails } from './use-site-details';
 
 const useSiteSyncManagement = () => {
 	const [ connectedSites, setConnectedSites ] = useState< SyncSite[] >( [] );
 	const { isAuthenticated } = useAuth();
+	const { syncSites } = useFetchWpComSites( connectedSites );
 	const { selectedSite } = useSiteDetails();
 	const localSiteId = selectedSite?.id;
 
@@ -37,8 +38,17 @@ const useSiteSyncManagement = () => {
 			return;
 		}
 		try {
-			const newConnectedSites = await getIpcApi().connectWpcomSite( site, localSiteId );
+			const stagingSites = site.stagingSiteIds
+				.map( ( id ) => syncSites?.find( ( s ) => s.id === id ) )
+				.filter( ( s ): s is SyncSite => s !== undefined );
+
+			const newConnectedSites = await getIpcApi().connectWpcomSite(
+				site,
+				localSiteId,
+				stagingSites
+			);
 			setConnectedSites( newConnectedSites );
+			// Add any additional logic for connectSite
 		} catch ( error ) {
 			console.error( 'Failed to connect site:', error );
 			throw error;

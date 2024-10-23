@@ -220,7 +220,8 @@ export async function updateSite(
 export async function connectWpcomSite(
 	event: IpcMainInvokeEvent,
 	site: SyncSite,
-	localSiteId: string
+	localSiteId: string,
+	stagingSites: SyncSite[]
 ) {
 	const userData = await loadUserData();
 	const currentUserId = userData.authToken?.id;
@@ -236,17 +237,35 @@ export async function connectWpcomSite(
 
 	const connections = userData.connectedWpcomSites[ currentUserId ];
 
-	// Check if connection already exists
-	const isWpcomAlreadyConnected = connections.some(
-		( conn ) => conn.id === site.id && conn.localSiteId === localSiteId
-	);
+	// Function to add a new site connection if it doesn't exist
+	const addConnection = ( siteToConnect: SyncSite ) => {
+		const isAlreadyConnected = connections.some(
+			( conn ) => conn.id === siteToConnect.id && conn.localSiteId === localSiteId
+		);
 
-	if ( ! isWpcomAlreadyConnected ) {
-		// Add new connection
-		connections.push( { ...site, localSiteId } );
-		await saveUserData( userData );
+		if ( ! isAlreadyConnected ) {
+			connections.push( { ...siteToConnect, localSiteId } );
+		}
+	};
+
+	// Connect the main site
+	addConnection( site );
+
+	// Connect staging sites if any
+	if ( stagingSites && stagingSites.length > 0 ) {
+		stagingSites.forEach( ( stagingSite ) => {
+			addConnection( {
+				...stagingSite,
+				isStaging: true,
+				stagingSiteIds: [], // Staging sites don't have their own staging sites
+			} );
+		} );
 	}
 
+	// Save the updated user data
+	await saveUserData( userData );
+
+	// Return all connections for the local site
 	return connections.filter( ( conn ) => conn.localSiteId === localSiteId );
 }
 

@@ -54,18 +54,18 @@ steps:
       - test-results/**/*.zip
     plugins: *common_plugins
     agents:
-      queue: '{{ matrix }}'
+      queue: "{{ matrix }}"
     env:
       # See https://playwright.dev/docs/ci#debugging-browser-launches
-      DEBUG: 'pw:browser'
+      DEBUG: "pw:browser"
     matrix:
       - mac
       #- windows
 
-  - group: ':package: Build for Mac'
+  - group: ":package: Build for Mac"
     key: dev-mac
     steps:
-      - label: ':hammer: Mac Dev Build - {{matrix}}'
+      - label: ":hammer: Mac Dev Build - {{matrix}}"
         agents:
           queue: mac
         command: |
@@ -110,7 +110,7 @@ steps:
           - arm64
     if: build.tag !~ /^v[0-9]+/
 
-  - label: ':hammer: Windows Dev Build'
+  - label: ":hammer: Windows Dev Build"
     key: dev-windows
     command: .buildkite/commands/build-for-windows-dev.ps1
     artifact_paths:
@@ -121,7 +121,7 @@ steps:
       queue: windows
     if: build.tag !~ /^v[0-9]+/
 
-  - label: ':rocket: Distribute Dev Builds'
+  - label: ":rocket: Distribute Dev Builds"
     command: |
       echo "--- :node: Downloading Binaries"
       buildkite-agent artifact download "*.app.zip" .
@@ -153,10 +153,10 @@ steps:
     plugins: *common_plugins
     if: build.branch == 'trunk' && build.tag !~ /^v[0-9]+/
 
-  - group: ':package: Build for Mac'
+  - group: ":package: Build for Mac"
     key: release-mac
     steps:
-      - label: ':hammer: Mac Release Build - {{matrix}}'
+      - label: ":hammer: Mac Release Build - {{matrix}}"
         agents:
           queue: mac
         command: |
@@ -200,7 +200,7 @@ steps:
           - arm64
     if: build.tag =~ /^v[0-9]+/
 
-  - label: ':hammer: Windows Release Build'
+  - label: ":hammer: Windows Release Build"
     key: release-windows
     command: .buildkite/commands/build-for-windows-release.ps1
     agents:
@@ -211,7 +211,7 @@ steps:
       - out\**\RELEASES
     if: build.tag =~ /^v[0-9]+/
 
-  - label: ':rocket: Publish Release Builds'
+  - label: ":rocket: Publish Release Builds"
     command: |
       echo "--- :node: Downloading Binaries"
       buildkite-agent artifact download "*.zip" .

@@ -5,9 +5,9 @@ import { useAuth } from './use-auth';
 import { useOffline } from './use-offline';
 import { useSiteDetails } from './use-site-details';
 
-export type SyncSupport = 'unsupported' | 'syncable' | 'needs-transfer' | 'already-connected';
+type SyncSupport = 'unsupported' | 'syncable' | 'needs-transfer' | 'already-connected';
 
-export interface SyncSite {
+export type SyncSite = {
 	id: number;
 	localSiteId?: string;
 	name: string;
@@ -15,7 +15,7 @@ export interface SyncSite {
 	isStaging: boolean;
 	stagingSiteIds: number[];
 	syncSupport: SyncSupport;
-}
+};
 
 type SitesEndpointSite = {
 	ID: number;

@@ -74,7 +74,7 @@ export function SyncConnectedSites( {
 				),
 				buttons: [ __( 'Disconnect' ), __( 'Cancel' ) ],
 				cancelId: CANCEL_BUTTON_INDEX,
-				checkboxLabel: __( "Don't show this warning again" ),
+				checkboxLabel: __( "Don't ask again" ),
 				checkboxChecked: false,
 			} );
 

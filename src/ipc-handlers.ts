@@ -230,14 +230,12 @@ export async function connectWpcomSite(
 		throw new Error( 'User not authenticated' );
 	}
 
-	// Ensure the structure exists
 	userData.connectedWpcomSites = userData.connectedWpcomSites || {};
 	userData.connectedWpcomSites[ currentUserId ] =
 		userData.connectedWpcomSites[ currentUserId ] || [];
 
 	const connections = userData.connectedWpcomSites[ currentUserId ];
 
-	// Function to add a new site connection if it doesn't exist
 	const addConnection = ( siteToConnect: SyncSite ) => {
 		const isAlreadyConnected = connections.some(
 			( conn ) => conn.id === siteToConnect.id && conn.localSiteId === localSiteId
@@ -248,7 +246,6 @@ export async function connectWpcomSite(
 		}
 	};
 
-	// Connect the main site
 	addConnection( site );
 
 	// Connect staging sites if any
@@ -257,15 +254,13 @@ export async function connectWpcomSite(
 			addConnection( {
 				...stagingSite,
 				isStaging: true,
-				stagingSiteIds: [], // Staging sites don't have their own staging sites
+				stagingSiteIds: [],
 			} );
 		} );
 	}
 
-	// Save the updated user data
 	await saveUserData( userData );
 
-	// Return all connections for the local site
 	return connections.filter( ( conn ) => conn.localSiteId === localSiteId );
 }
 
@@ -283,12 +278,10 @@ export async function disconnectWpcomSite(
 
 	const connections = userData.connectedWpcomSites?.[ currentUserId ] || [];
 
-	// Filter out the connections to be removed
 	const updatedConnections = connections.filter(
 		( conn ) => ! ( siteIds.includes( conn.id ) && conn.localSiteId === localSiteId )
 	);
 
-	// Update userData
 	userData.connectedWpcomSites = {
 		...userData.connectedWpcomSites,
 		[ currentUserId ]: updatedConnections,

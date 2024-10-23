@@ -62,10 +62,9 @@ export function SyncConnectedSites( {
 
 	const handleDisconnectSite = async ( sectionId: number ) => {
 		const dontShowDisconnectWarning = localStorage.getItem( 'dontShowDisconnectWarning' );
-
 		if ( ! dontShowDisconnectWarning ) {
-			const CANCEL_BUTTON_INDEX = 0;
-			const DISCONNECT_BUTTON_INDEX = 1;
+			const CANCEL_BUTTON_INDEX = 1;
+			const DISCONNECT_BUTTON_INDEX = 0;
 
 			const { response, checkboxChecked } = await getIpcApi().showMessageBox( {
 				type: 'info',
@@ -73,7 +72,7 @@ export function SyncConnectedSites( {
 				detail: __(
 					'Your WordPress.com site will not be affected by disconnecting it from Studio.'
 				),
-				buttons: [ __( 'Cancel' ), __( 'Disconnect' ) ],
+				buttons: [ __( 'Disconnect' ), __( 'Cancel' ) ],
 				cancelId: CANCEL_BUTTON_INDEX,
 				checkboxLabel: __( "Don't show this warning again" ),
 				checkboxChecked: false,

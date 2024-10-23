@@ -38,10 +38,6 @@ const config: ForgeConfig = {
 			},
 		} ),
 		new MakerAppX( {
-			// We don't need to sign this build because the Windows Store sign them for us.
-			// Unfortunately, the maker does not have a configuration to skip signing.
-			// We need to pass this to avoid the process locking while waiting for a password.
-			certPass: 'None',
 			// Windows Store version numbers don't support semver beta tags.
 			//
 			// See implementation details at:

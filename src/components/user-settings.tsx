@@ -243,7 +243,7 @@ export default function UserSettings() {
 					{ ! isAuthenticated && (
 						<div className="flex flex-col gap-6">
 							<div className="justify-between items-center w-full h-auto flex">
-								<WordPressLogo width={ 110 } />
+								<WordPressLogo />
 								<Tooltip disabled={ ! isOffline } icon={ offlineIcon } text={ offlineMessage }>
 									<Button
 										aria-description={ isOffline ? offlineMessage : '' }

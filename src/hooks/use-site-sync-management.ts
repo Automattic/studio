@@ -40,7 +40,7 @@ export const useSiteSyncManagement = () => {
 			try {
 				const stagingSites = site.stagingSiteIds
 					.map( ( id ) => syncSites?.find( ( s ) => s.id === id ) )
-					.filter( ( s ): s is SyncSite => s !== undefined );
+					.filter( ( s ) => s !== undefined );
 
 				const newConnectedSites = await getIpcApi().connectWpcomSite(
 					site,

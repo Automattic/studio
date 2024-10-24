@@ -1,5 +1,5 @@
 import * as Sentry from '@sentry/electron/renderer';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from './use-auth';
 import { useOffline } from './use-offline';
 
@@ -119,12 +119,16 @@ export const useFetchWpComSites = ( connectedSites: SyncSite[] ) => {
 	}, [ client?.req, connectedSites, isAuthenticated, isOffline ] );
 
 	// Map syncSites to reflect whether they are already connected
-	const syncSitesWithConnectionStatus = syncSites.map( ( site ) => ( {
-		...site,
-		syncSupport: connectedSites.some( ( connectedSite ) => connectedSite.id === site.id )
-			? 'already-connected'
-			: site.syncSupport,
-	} ) );
+	const syncSitesWithConnectionStatus = useMemo(
+		() =>
+			syncSites.map( ( site ) => ( {
+				...site,
+				syncSupport: connectedSites.some( ( connectedSite ) => connectedSite.id === site.id )
+					? 'already-connected'
+					: site.syncSupport,
+			} ) ),
+		[ syncSites, connectedSites ]
+	);
 
 	return { syncSites: syncSitesWithConnectionStatus, isFetching: isFetchingSites.current };
 };

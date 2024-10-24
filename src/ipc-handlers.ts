@@ -236,29 +236,20 @@ export async function connectWpcomSite(
 
 	const connections = userData.connectedWpcomSites[ currentUserId ];
 
-	const addConnection = ( siteToConnect: SyncSite ) => {
-		const isAlreadyConnected = connections.some(
-			( conn ) => conn.id === siteToConnect.id && conn.localSiteId === localSiteId
-		);
+	const isAlreadyConnected = connections.some(
+		( conn ) => conn.id === site.id && conn.localSiteId === localSiteId
+	);
 
-		if ( ! isAlreadyConnected ) {
-			connections.push( { ...siteToConnect, localSiteId } );
-		}
-	};
-
-	addConnection( site );
+	if ( ! isAlreadyConnected ) {
+		connections.push( { ...site, localSiteId } );
+	}
 
 	// Connect staging sites if any
 	if ( stagingSites && stagingSites.length > 0 ) {
 		stagingSites.forEach( ( stagingSite ) => {
-			addConnection( {
-				...stagingSite,
-				isStaging: true,
-				stagingSiteIds: [],
-			} );
+			connections.push( { ...stagingSite, localSiteId } );
 		} );
 	}
-
 	await saveUserData( userData );
 
 	return connections.filter( ( conn ) => conn.localSiteId === localSiteId );

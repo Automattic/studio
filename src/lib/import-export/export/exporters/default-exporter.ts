@@ -14,6 +14,7 @@ import {
 	Exporter,
 	BackupCreateProgressEventData,
 	BackupContentsCategory,
+	StudioJson,
 } from '../types';
 
 export class DefaultExporter extends EventEmitter implements Exporter {
@@ -229,12 +230,14 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 
 	private async createStudioJsonFile(): Promise< string > {
 		const wpVersion = await getWordPressVersionFromInstallation( this.options.site.path );
-		const studioJson: { phpVersion: string; wordpressVersion?: string } = {
+		const studioJson: StudioJson = {
+			siteUrl: `http://localhost:${ this.options.site.port }`,
 			phpVersion: this.options.phpVersion,
 		};
 		if ( wpVersion ) {
 			studioJson.wordpressVersion = wpVersion;
 		}
+
 		const tempDir = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio-export-' ) );
 		const studioJsonPath = path.join( tempDir, 'meta.json' );
 		await fsPromises.writeFile( studioJsonPath, JSON.stringify( studioJson, null, 2 ) );

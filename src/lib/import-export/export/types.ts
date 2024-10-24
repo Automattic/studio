@@ -29,3 +29,9 @@ export interface BackupCreateProgressEventData {
 }
 
 export type NewExporter = new ( options: ExportOptions ) => Exporter;
+
+export interface StudioJson {
+	phpVersion: string;
+	wordpressVersion?: string;
+	siteUrl: string;
+}

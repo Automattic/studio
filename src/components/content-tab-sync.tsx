@@ -65,21 +65,6 @@ function CreateConnectSite( {
 	return (
 		<div className="mt-8">
 			<div className="flex gap-4">
-				<Tooltip disabled={ ! isOffline } text={ offlineMessageCreate }>
-					<Button
-						aria-disabled={ isOffline }
-						variant="primary"
-						onClick={ async () => {
-							if ( isOffline ) {
-								return;
-							}
-							await getIpcApi().openURL( 'https://wordpress.com/start/new-site' );
-						} }
-					>
-						{ __( 'Create new site' ) }
-						<ArrowIcon />
-					</Button>
-				</Tooltip>
 				<Tooltip disabled={ ! isOffline } text={ offlineMessageConnect }>
 					<Button
 						aria-disabled={ isOffline }
@@ -93,6 +78,21 @@ function CreateConnectSite( {
 						} }
 					>
 						{ __( 'Connect site' ) }
+					</Button>
+				</Tooltip>
+				<Tooltip disabled={ ! isOffline } text={ offlineMessageCreate }>
+					<Button
+						aria-disabled={ isOffline }
+						variant="primary"
+						onClick={ async () => {
+							if ( isOffline ) {
+								return;
+							}
+							await getIpcApi().openURL( 'https://wordpress.com/start/new-site' );
+						} }
+					>
+						{ __( 'Create new site' ) }
+						<ArrowIcon />
 					</Button>
 				</Tooltip>
 			</div>

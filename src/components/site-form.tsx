@@ -42,13 +42,13 @@ const SiteFormError = ( { error, tipMessage = '', className = '' }: SiteFormErro
 				role="alert"
 				aria-atomic="true"
 				className={ cx(
-					'flex items-start gap-1',
-					error ? 'text-red-500' : 'text-a8c-gray-70',
+					'flex items-start gap-1 text-xs',
+					error ? 'text-red-500' : 'text-a8c-gray-50',
 					className
 				) }
 			>
 				<Icon
-					className={ cx( 'shrink-0 basis-4', error ? 'fill-red-500' : '' ) }
+					className={ cx( 'shrink-0 basis-4', error ? 'fill-red-500' : 'fill-a8c-gray-50' ) }
 					icon={ error ? warning : tip }
 					width={ 16 }
 					height={ 16 }
@@ -67,7 +67,7 @@ function FormPathInputComponent( {
 }: FormPathInputComponentProps ) {
 	const { __ } = useI18n();
 	return (
-		<div className="flex flex-col">
+		<div className="flex flex-col gap-2">
 			<button
 				aria-invalid={ !! error }
 				/**

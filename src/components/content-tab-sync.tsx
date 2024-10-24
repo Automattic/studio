@@ -68,8 +68,7 @@ function CreateConnectSite( {
 				<Tooltip disabled={ ! isOffline } text={ offlineMessageConnect }>
 					<Button
 						aria-disabled={ isOffline }
-						variant="secondary"
-						className={ cx( ! isOffline && '!text-a8c-blueberry !shadow-a8c-blueberry' ) }
+						variant="primary"
 						onClick={ () => {
 							if ( isOffline ) {
 								return;
@@ -83,7 +82,8 @@ function CreateConnectSite( {
 				<Tooltip disabled={ ! isOffline } text={ offlineMessageCreate }>
 					<Button
 						aria-disabled={ isOffline }
-						variant="primary"
+						className={ cx( ! isOffline && '!text-a8c-blueberry !shadow-a8c-blueberry' ) }
+						variant="secondary"
 						onClick={ async () => {
 							if ( isOffline ) {
 								return;

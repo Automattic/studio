@@ -43,7 +43,7 @@ export const ExportSite = ( { selectedSite }: { selectedSite: SiteDetails } ) =>
 				</p>
 			</div>
 			{ currentProgress ? (
-				<div className="flex flex-col gap-4">
+				<div className="flex flex-col gap-4 max-w-[300px]">
 					<ProgressBar value={ currentProgress.progress } maxValue={ 100 } />
 					<div className="text-a8c-gray-70 a8c-body">{ currentProgress.statusMessage }</div>
 				</div>

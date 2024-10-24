@@ -41,7 +41,7 @@ describe( 'JetpackValidator', () => {
 				'wp-content/uploads/2023/image.jpg',
 				'wp-content/plugins/jetpack/jetpack.php',
 				'wp-content/themes/twentytwentyone/style.css',
-				'studio.json',
+				'meta.json',
 			];
 			const extractionDirectory = '/tmp/extracted';
 			const result = validator.parseBackupContents( fileList, extractionDirectory );
@@ -56,7 +56,7 @@ describe( 'JetpackValidator', () => {
 					themes: [ '/tmp/extracted/wp-content/themes/twentytwentyone/style.css' ],
 				},
 				wpContentDirectory: 'wp-content',
-				metaFile: '/tmp/extracted/studio.json',
+				metaFile: '/tmp/extracted/meta.json',
 			} );
 		} );
 
@@ -72,7 +72,7 @@ describe( 'JetpackValidator', () => {
 				'wp-content/uploads/2023/image.jpg',
 				'wp-content/plugins/jetpack/jetpack.php',
 				'wp-content/themes/twentytwentyone/style.css',
-				'studio.json',
+				'meta.json',
 			];
 			const extractionDirectory = '/tmp/extracted';
 			const result = validator.parseBackupContents( fileList, extractionDirectory );
@@ -87,7 +87,7 @@ describe( 'JetpackValidator', () => {
 					themes: [ '/tmp/extracted/wp-content/themes/twentytwentyone/style.css' ],
 				},
 				wpContentDirectory: 'wp-content',
-				metaFile: '/tmp/extracted/studio.json',
+				metaFile: '/tmp/extracted/meta.json',
 			} );
 		} );
 	} );

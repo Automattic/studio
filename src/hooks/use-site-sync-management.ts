@@ -38,15 +38,14 @@ export const useSiteSyncManagement = () => {
 				return;
 			}
 			try {
-				const stagingSites = site.stagingSiteIds
-					.map( ( id ) => syncSites.find( ( s ) => s.id === id ) )
-					.filter( ( s ): s is SyncSite => s !== undefined );
-
-				const newConnectedSites = await getIpcApi().connectWpcomSite(
+				const sitesToConnect = [
 					site,
-					localSiteId,
-					stagingSites
-				);
+					...site.stagingSiteIds
+						.map( ( id ) => syncSites.find( ( s ) => s.id === id ) )
+						.filter( ( s ): s is SyncSite => s !== undefined ),
+				];
+
+				const newConnectedSites = await getIpcApi().connectWpcomSite( sitesToConnect, localSiteId );
 				setConnectedSites( newConnectedSites );
 			} catch ( error ) {
 				console.error( 'Failed to connect site:', error );

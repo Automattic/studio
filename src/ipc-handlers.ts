@@ -219,9 +219,8 @@ export async function updateSite(
 
 export async function connectWpcomSite(
 	event: IpcMainInvokeEvent,
-	site: SyncSite,
-	localSiteId: string,
-	stagingSites: SyncSite[]
+	sites: SyncSite[],
+	localSiteId: string
 ) {
 	const userData = await loadUserData();
 	const currentUserId = userData.authToken?.id;
@@ -236,25 +235,21 @@ export async function connectWpcomSite(
 
 	const connections = userData.connectedWpcomSites[ currentUserId ];
 
-	const isAlreadyConnected = connections.some(
-		( conn ) => conn.id === site.id && conn.localSiteId === localSiteId
-	);
+	sites.forEach( ( siteToAdd ) => {
+		const isAlreadyConnected = connections.some(
+			( conn ) => conn.id === siteToAdd.id && conn.localSiteId === localSiteId
+		);
 
-	if ( ! isAlreadyConnected ) {
-		connections.push( { ...site, localSiteId } );
-	}
+		// Add the site if it's not already connected
+		if ( ! isAlreadyConnected ) {
+			connections.push( { ...siteToAdd, localSiteId } );
+		}
+	} );
 
-	// Connect staging sites if any
-	if ( stagingSites && stagingSites.length > 0 ) {
-		stagingSites.forEach( ( stagingSite ) => {
-			connections.push( { ...stagingSite, localSiteId } );
-		} );
-	}
 	await saveUserData( userData );
 
 	return connections.filter( ( conn ) => conn.localSiteId === localSiteId );
 }
-
 export async function disconnectWpcomSite(
 	event: IpcMainInvokeEvent,
 	siteIds: number[],

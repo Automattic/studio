@@ -67,11 +67,11 @@ function Authentication() {
 		<Button
 			onClick={ () => getIpcApi().showUserSettings() }
 			aria-label={ __( 'Log in' ) }
-			className="flex gap-x-2 justify-between w-full text-white rounded !px-0 !py-1 h-auto active:!text-white hover:!text-white hover:underline items-end"
+			className="flex gap-x-2 justify-between w-full text-white rounded !px-0 !py-1 h-auto active:!text-white hover:!text-white hover:underline items-center"
 		>
 			<WordPressLogo />
 
-			<div className="text-xs text-right">{ __( 'Log in' ) }</div>
+			<div className="text-s text-right">{ __( 'Log in' ) }</div>
 		</Button>
 	);
 }
@@ -96,7 +96,7 @@ export default function TopBar( { onToggleSidebar }: TopBarProps ) {
 				<OfflineIndicator />
 			</div>
 
-			<div className="app-no-drag-region flex items-center space-x-1">
+			<div className="app-no-drag-region flex items-center space-x-4">
 				<Authentication />
 				<Button onClick={ openDocs } aria-label={ __( 'Help' ) } variant="icon">
 					<Icon className="text-white" size={ 24 } icon={ help } />

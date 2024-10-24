@@ -304,7 +304,7 @@ export async function getConnectedWpcomSites(
 	}
 
 	return (
-		userData?.connectedWpcomSites?.[ currentUserId ]?.filter(
+		userData.connectedWpcomSites?.[ currentUserId ]?.filter(
 			( site ) => site.localSiteId === localSiteId
 		) ?? []
 	);

@@ -171,11 +171,7 @@ function FormImportComponent( {
 					) }
 				</button>
 				{ fileName && (
-					<Button
-						variant="icon"
-						onClick={ handleIconClick }
-						className="[&.components-button]:focus-visible:text-a8c-red-50 [&.components-button]:hover:text-a8c-red-50"
-					>
+					<Button variant="icon" onClick={ handleIconClick } isDestructive={ true }>
 						<div
 							aria-hidden="true"
 							className="flex items-center py-[10px] px-2.5 rounded-tr-sm rounded-br-sm border border-[#949494] border-l-0"

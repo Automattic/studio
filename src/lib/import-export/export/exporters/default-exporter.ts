@@ -5,6 +5,7 @@ import os from 'os';
 import path from 'path';
 import archiver from 'archiver';
 import { getWordPressVersionFromInstallation } from '../../../../lib/wp-versions';
+import { SiteServer } from '../../../../site-server';
 import { ExportEvents } from '../events';
 import { exportDatabaseToFile } from '../export-database';
 import { generateBackupFilename } from '../generate-backup-filename';
@@ -233,14 +234,53 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		const studioJson: StudioJson = {
 			siteUrl: `http://localhost:${ this.options.site.port }`,
 			phpVersion: this.options.phpVersion,
+			wordpressVersion: wpVersion ? wpVersion : '',
+			plugins: [],
+			themes: [],
 		};
-		if ( wpVersion ) {
-			studioJson.wordpressVersion = wpVersion;
-		}
+
+		studioJson.plugins = await this.getSitePlugins( this.options.site.id );
+		studioJson.themes = await this.getSiteThemes( this.options.site.id );
 
 		const tempDir = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio-export-' ) );
 		const studioJsonPath = path.join( tempDir, 'meta.json' );
 		await fsPromises.writeFile( studioJsonPath, JSON.stringify( studioJson, null, 2 ) );
 		return studioJsonPath;
+	}
+
+	private async getSitePlugins( site_id: string ) {
+		const server = SiteServer.get( site_id );
+
+		if ( ! server ) {
+			return [];
+		}
+
+		const { stderr, stdout } = await server.executeWpCliCommand(
+			'plugin list --status=active,inactive --fields=name,status,version --format=json'
+		);
+
+		if ( stderr ) {
+			console.error( `Could not get information about plugins: ${ stderr }` );
+		}
+
+		return JSON.parse( stdout );
+	}
+
+	private async getSiteThemes( site_id: string ) {
+		const server = SiteServer.get( site_id );
+
+		if ( ! server ) {
+			return [];
+		}
+
+		const { stderr, stdout } = await server.executeWpCliCommand(
+			'theme list --fields=name,status,version --format=json'
+		);
+
+		if ( stderr ) {
+			console.error( `Could not get information about themes: ${ stderr }` );
+		}
+
+		return JSON.parse( stdout );
 	}
 }

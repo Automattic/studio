@@ -34,4 +34,12 @@ export interface StudioJson {
 	phpVersion: string;
 	wordpressVersion?: string;
 	siteUrl: string;
+	plugins: StudioJsonPluginOrTheme[];
+	themes: StudioJsonPluginOrTheme[];
+}
+
+export interface StudioJsonPluginOrTheme {
+	name: string;
+	status: 'active' | 'inactive';
+	version: string;
 }

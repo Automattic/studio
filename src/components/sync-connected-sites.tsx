@@ -72,7 +72,6 @@ export function SyncConnectedSites( {
 				: __( 'Disconnect site' );
 
 			const { response, checkboxChecked } = await getIpcApi().showMessageBox( {
-				type: 'info',
 				message: disconnectMessage,
 				detail: __(
 					'Your WordPress.com site will not be affected by disconnecting it from Studio.'
@@ -80,7 +79,6 @@ export function SyncConnectedSites( {
 				buttons: [ __( 'Disconnect' ), __( 'Cancel' ) ],
 				cancelId: CANCEL_BUTTON_INDEX,
 				checkboxLabel: __( "Don't ask again" ),
-				checkboxChecked: false,
 			} );
 
 			if ( response === DISCONNECT_BUTTON_INDEX ) {

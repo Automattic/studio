@@ -3,7 +3,7 @@ export function WordPressLogo( { width = 119 } ) {
 		<svg
 			width={ width }
 			height={ ( width * 16 ) / 119 }
-			viewBox="0 0 120 17"
+			viewBox="0 0 119 16"
 			fill="currentColor"
 			xmlns="http://www.w3.org/2000/svg"
 		>

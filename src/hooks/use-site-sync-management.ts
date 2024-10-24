@@ -4,7 +4,7 @@ import { useAuth } from './use-auth';
 import { SyncSite, useFetchWpComSites } from './use-fetch-wpcom-sites';
 import { useSiteDetails } from './use-site-details';
 
-const useSiteSyncManagement = () => {
+export const useSiteSyncManagement = () => {
 	const [ connectedSites, setConnectedSites ] = useState< SyncSite[] >( [] );
 	const { isAuthenticated } = useAuth();
 	const { syncSites } = useFetchWpComSites( connectedSites );
@@ -88,5 +88,3 @@ const useSiteSyncManagement = () => {
 		disconnectSite,
 	} as const;
 };
-
-export { useSiteSyncManagement };

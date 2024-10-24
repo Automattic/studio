@@ -75,7 +75,7 @@ function transformSiteResponse(
 	} );
 }
 
-const useFetchWpComSites = ( connectedSites: SyncSite[] ) => {
+export const useFetchWpComSites = ( connectedSites: SyncSite[] ) => {
 	const [ syncSites, setSyncSites ] = useState< SyncSite[] >( [] );
 	const { isAuthenticated, client } = useAuth();
 	const isFetchingSites = useRef( false );
@@ -128,5 +128,3 @@ const useFetchWpComSites = ( connectedSites: SyncSite[] ) => {
 
 	return { syncSites: syncSitesWithConnectionStatus, isFetching: isFetchingSites.current };
 };
-
-export { useFetchWpComSites };

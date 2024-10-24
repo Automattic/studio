@@ -260,14 +260,14 @@ export default function UserSettings() {
 									</Button>
 								</Tooltip>
 							</div>
-							<div className="border border-[#F0F0F0] w-full"></div>
+							<div className="border-t border-[#F0F0F0] w-full"></div>
 							<LanguagePicker />
 						</div>
 					) }
 					{ isAuthenticated && (
 						<div className="gap-6 flex flex-col">
 							<UserInfo onLogout={ logout } user={ user } />
-							<div className="border border-[#F0F0F0] w-full"></div>
+							<div className="border-t border-[#F0F0F0] w-full"></div>
 							<div className="flex flex-col gap-6">
 								<LanguagePicker />
 								<SnapshotInfo

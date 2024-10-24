@@ -7,7 +7,7 @@ import { useSiteDetails } from './use-site-details';
 export const useSiteSyncManagement = () => {
 	const [ connectedSites, setConnectedSites ] = useState< SyncSite[] >( [] );
 	const { isAuthenticated } = useAuth();
-	const { syncSites } = useFetchWpComSites( connectedSites );
+	const { syncSites, isFetching } = useFetchWpComSites( connectedSites );
 	const { selectedSite } = useSiteDetails();
 	const localSiteId = selectedSite?.id;
 
@@ -86,5 +86,7 @@ export const useSiteSyncManagement = () => {
 		loadConnectedSites,
 		connectSite,
 		disconnectSite,
+		syncSites,
+		isFetching,
 	} as const;
 };

@@ -81,16 +81,11 @@ const useSiteSyncManagement = () => {
 		[ localSiteId, connectedSites, setConnectedSites ]
 	);
 
-	const isSiteAlreadyConnected = ( siteId: number ) => {
-		return connectedSites.some( ( site ) => site.id === siteId );
-	};
-
 	return {
 		connectedSites,
 		loadConnectedSites,
 		connectSite,
 		disconnectSite,
-		isSiteAlreadyConnected,
 	} as const;
 };
 

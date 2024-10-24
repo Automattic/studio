@@ -83,7 +83,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 			this.addWpContent();
 			await this.addDatabase();
 			const studioJsonPath = await this.createStudioJsonFile();
-			this.archive.file( studioJsonPath, { name: 'studio.json' } );
+			this.archive.file( studioJsonPath, { name: 'meta.json' } );
 			await this.archive.finalize();
 			this.emit( ExportEvents.BACKUP_CREATE_COMPLETE );
 			await archiveClosedPromise;
@@ -236,7 +236,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 			studioJson.wordpressVersion = wpVersion;
 		}
 		const tempDir = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio-export-' ) );
-		const studioJsonPath = path.join( tempDir, 'studio.json' );
+		const studioJsonPath = path.join( tempDir, 'meta.json' );
 		await fsPromises.writeFile( studioJsonPath, JSON.stringify( studioJson, null, 2 ) );
 		return studioJsonPath;
 	}

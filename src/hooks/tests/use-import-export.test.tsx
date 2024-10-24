@@ -361,7 +361,7 @@ describe( 'useImportExport hook', () => {
 		} );
 	} );
 
-	it( 'imports site with given studio.json PHP version', async () => {
+	it( 'imports site with given meta.json PHP version', async () => {
 		const importedSite = { ...selectedSite, phpVersion: '7.4' };
 		( getIpcApi().importSite as jest.Mock ).mockResolvedValue( importedSite );
 

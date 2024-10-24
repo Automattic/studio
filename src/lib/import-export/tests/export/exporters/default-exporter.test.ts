@@ -157,14 +157,14 @@ describe( 'DefaultExporter', () => {
 		} );
 	} );
 
-	it( 'should add studio.json to the archive', async () => {
+	it( 'should add meta.json to the archive', async () => {
 		const exporter = new DefaultExporter( mockOptions );
 		await exporter.export();
 
 		expect( getWordPressVersionFromInstallation ).toHaveBeenCalledTimes( 1 );
 		expect( getWordPressVersionFromInstallation ).toHaveBeenCalledWith( '/path/to/site' );
-		expect( mockArchiver.file ).toHaveBeenCalledWith( '/tmp/studio_export_123/studio.json', {
-			name: 'studio.json',
+		expect( mockArchiver.file ).toHaveBeenCalledWith( '/tmp/studio_export_123/meta.json', {
+			name: 'meta.json',
 		} );
 	} );
 

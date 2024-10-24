@@ -42,13 +42,13 @@ const SiteFormError = ( { error, tipMessage = '', className = '' }: SiteFormErro
 				role="alert"
 				aria-atomic="true"
 				className={ cx(
-					'flex items-start gap-1',
-					error ? 'text-red-500' : 'text-a8c-gray-70',
+					'flex items-start gap-1 text-xs',
+					error ? 'text-red-500' : 'text-a8c-gray-50',
 					className
 				) }
 			>
 				<Icon
-					className={ cx( 'shrink-0 basis-4', error ? 'fill-red-500' : '' ) }
+					className={ cx( 'shrink-0 basis-4', error ? 'fill-red-500' : 'fill-a8c-gray-50' ) }
 					icon={ error ? warning : tip }
 					width={ 16 }
 					height={ 16 }
@@ -67,7 +67,7 @@ function FormPathInputComponent( {
 }: FormPathInputComponentProps ) {
 	const { __ } = useI18n();
 	return (
-		<div className="flex flex-col">
+		<div className="flex flex-col gap-2">
 			<button
 				aria-invalid={ !! error }
 				/**
@@ -97,10 +97,7 @@ function FormPathInputComponent( {
 					// eslint-disable-next-line @typescript-eslint/no-empty-function
 					onChange={ () => {} }
 				/>
-				<div
-					aria-hidden="true"
-					className="local-path-icon flex items-center py-[9px] px-2.5 border border-l-[#949494] border-t-0 border-r-0 border-b-0"
-				>
+				<div aria-hidden="true" className="local-path-icon flex items-center py-[9px] px-2.5">
 					<FolderIcon className="text-[#3C434A]" />
 				</div>
 			</button>
@@ -168,16 +165,13 @@ function FormImportComponent( {
 						onChange={ () => {} }
 					/>
 					{ ! fileName && (
-						<div
-							aria-hidden="true"
-							className="local-path-icon flex items-center py-[12px] px-2.5 border border-l-[#949494] border-t-0 border-r-0 border-b-0"
-						>
+						<div aria-hidden="true" className="local-path-icon flex items-center py-[12px] px-2.5">
 							<FolderIcon className="text-[#3C434A]" />
 						</div>
 					) }
 				</button>
 				{ fileName && (
-					<Button variant="icon" onClick={ handleIconClick }>
+					<Button variant="icon" onClick={ handleIconClick } isDestructive={ true }>
 						<div
 							aria-hidden="true"
 							className="flex items-center py-[10px] px-2.5 rounded-tr-sm rounded-br-sm border border-[#949494] border-l-0"

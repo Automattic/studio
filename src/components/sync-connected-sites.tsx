@@ -1,8 +1,9 @@
 import { Icon } from '@wordpress/components';
+import { sprintf } from '@wordpress/i18n';
 import { cloudUpload, cloudDownload } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useMemo } from 'react';
-import { SyncSite } from '../hooks/use-sync-sites';
+import { SyncSite } from '../hooks/use-fetch-wpcom-sites';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { ArrowIcon } from './arrow-icon';
 import { Badge } from './badge';
@@ -17,12 +18,10 @@ interface ConnectedSiteSection {
 }
 
 export function SyncConnectedSites( {
-	syncSites,
 	connectedSites,
 	openSitesSyncSelector,
 	disconnectSite,
 }: {
-	syncSites: SyncSite[];
 	connectedSites: SyncSite[];
 	openSitesSyncSelector: () => void;
 	disconnectSite: ( id: number ) => void;
@@ -30,30 +29,68 @@ export function SyncConnectedSites( {
 	const { __ } = useI18n();
 	const siteSections: ConnectedSiteSection[] = useMemo( () => {
 		const siteSections: ConnectedSiteSection[] = [];
+		const processedSites = new Set< number >();
 
 		connectedSites.forEach( ( connectedSite ) => {
-			const syncSite = syncSites.find( ( site ) => site.id === connectedSite.id );
-			if ( syncSite ) {
-				const section: ConnectedSiteSection = {
-					id: syncSite.id,
-					name: syncSite.name,
-					provider: 'wpcom',
-					connectedSites: [ connectedSite ],
-				};
-				if ( syncSite.stagingSiteIds ) {
-					for ( const id of syncSite.stagingSiteIds ) {
-						const stagingSite = syncSites.find( ( site ) => site.id === id );
-						if ( stagingSite ) {
-							section.connectedSites.push( stagingSite );
-						}
+			if ( processedSites.has( connectedSite.id ) ) {
+				return; // Skip if we've already processed this site
+			}
+
+			const section: ConnectedSiteSection = {
+				id: connectedSite.id,
+				name: connectedSite.name,
+				provider: 'wpcom',
+				connectedSites: [ connectedSite ],
+			};
+
+			processedSites.add( connectedSite.id );
+
+			if ( connectedSite.stagingSiteIds ) {
+				for ( const id of connectedSite.stagingSiteIds ) {
+					const stagingSite = connectedSites.find( ( site ) => site.id === id );
+					if ( stagingSite ) {
+						section.connectedSites.push( stagingSite );
+						processedSites.add( stagingSite.id );
 					}
 				}
-				siteSections.push( section );
 			}
+
+			siteSections.push( section );
 		} );
 
 		return siteSections;
-	}, [ connectedSites, syncSites ] );
+	}, [ connectedSites ] );
+
+	const handleDisconnectSite = async ( sectionId: number, sectionName?: string ) => {
+		const dontShowDisconnectWarning = localStorage.getItem( 'dontShowDisconnectWarning' );
+		if ( ! dontShowDisconnectWarning ) {
+			const CANCEL_BUTTON_INDEX = 1;
+			const DISCONNECT_BUTTON_INDEX = 0;
+
+			const disconnectMessage = sectionName
+				? sprintf( __( 'Disconnect %s' ), sectionName )
+				: __( 'Disconnect site' );
+
+			const { response, checkboxChecked } = await getIpcApi().showMessageBox( {
+				message: disconnectMessage,
+				detail: __(
+					'Your WordPress.com site will not be affected by disconnecting it from Studio.'
+				),
+				buttons: [ __( 'Disconnect' ), __( 'Cancel' ) ],
+				cancelId: CANCEL_BUTTON_INDEX,
+				checkboxLabel: __( "Don't ask again" ),
+			} );
+
+			if ( response === DISCONNECT_BUTTON_INDEX ) {
+				if ( checkboxChecked ) {
+					localStorage.setItem( 'dontShowDisconnectWarning', 'true' );
+				}
+				disconnectSite( sectionId );
+			}
+		} else {
+			disconnectSite( sectionId );
+		}
+	};
 
 	return (
 		<div className="flex flex-col h-full overflow-hidden">
@@ -66,9 +103,7 @@ export function SyncConnectedSites( {
 							<Button
 								variant="link"
 								className="!ml-auto !text-a8c-gray-70 hover:!text-a8c-blueberry"
-								onClick={ () => {
-									disconnectSite( section.id );
-								} }
+								onClick={ () => handleDisconnectSite( section.id, section.name ) }
 							>
 								{ __( 'Disconnect' ) }
 							</Button>

@@ -1,5 +1,5 @@
 import * as Sentry from '@sentry/electron/renderer';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from './use-auth';
 import { useOffline } from './use-offline';
 
@@ -7,6 +7,7 @@ type SyncSupport = 'unsupported' | 'syncable' | 'needs-transfer' | 'already-conn
 
 export type SyncSite = {
 	id: number;
+	localSiteId: string;
 	name: string;
 	url: string;
 	isStaging: boolean;
@@ -64,6 +65,7 @@ function transformSiteResponse(
 	return sites.map( ( site ) => {
 		return {
 			id: site.ID,
+			localSiteId: '',
 			name: site.name,
 			url: site.URL,
 			isStaging: site.is_wpcom_staging_site,
@@ -73,13 +75,13 @@ function transformSiteResponse(
 	} );
 }
 
-export function useSyncSites() {
+export const useFetchWpComSites = ( connectedSites: SyncSite[] ) => {
 	const [ syncSites, setSyncSites ] = useState< SyncSite[] >( [] );
-	const [ connectedSites, setConnectedSites ] = useState< SyncSite[] >( [] );
 	const { isAuthenticated, client } = useAuth();
 	const isFetchingSites = useRef( false );
 	const isOffline = useOffline();
 
+	// Fetch sites from the API
 	useEffect( () => {
 		if ( ! client?.req || isFetchingSites.current || ! isAuthenticated || isOffline ) {
 			return;
@@ -116,10 +118,17 @@ export function useSyncSites() {
 			} );
 	}, [ client?.req, connectedSites, isAuthenticated, isOffline ] );
 
-	return {
-		syncSites,
-		connectedSites,
-		setConnectedSites,
-		isFetching: isFetchingSites.current,
-	};
-}
+	// Map syncSites to reflect whether they are already connected
+	const syncSitesWithConnectionStatus = useMemo(
+		() =>
+			syncSites.map( ( site ) => ( {
+				...site,
+				syncSupport: connectedSites.some( ( connectedSite ) => connectedSite.id === site.id )
+					? 'already-connected'
+					: site.syncSupport,
+			} ) ),
+		[ syncSites, connectedSites ]
+	);
+
+	return { syncSites: syncSitesWithConnectionStatus, isFetching: isFetchingSites.current };
+};

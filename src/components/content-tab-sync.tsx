@@ -3,8 +3,9 @@ import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren, useState } from 'react';
 import { CLIENT_ID, PROTOCOL_PREFIX, SCOPES, WP_AUTHORIZE_ENDPOINT } from '../constants';
 import { useAuth } from '../hooks/use-auth';
+import { SyncSite } from '../hooks/use-fetch-wpcom-sites';
 import { useOffline } from '../hooks/use-offline';
-import { useSyncSites } from '../hooks/use-sync-sites';
+import { useSiteSyncManagement } from '../hooks/use-site-sync-management';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { ArrowIcon } from './arrow-icon';
@@ -162,23 +163,32 @@ function NoAuthSyncTab() {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } ) {
 	const { __ } = useI18n();
-	const { syncSites, connectedSites, setConnectedSites, isFetching } = useSyncSites();
+	const { connectedSites, connectSite, disconnectSite, syncSites, isFetching } =
+		useSiteSyncManagement();
 	const [ isSyncSitesSelectorOpen, setIsSyncSitesSelectorOpen ] = useState( false );
 	const { isAuthenticated } = useAuth();
 	if ( ! isAuthenticated ) {
 		return <NoAuthSyncTab />;
 	}
 
+	const handleConnect = async ( newConnectedSite: SyncSite ) => {
+		try {
+			await connectSite( newConnectedSite );
+		} catch ( error ) {
+			getIpcApi().showErrorMessageBox( {
+				title: __( 'Failed to connect to site' ),
+				message: __( 'Please try again.' ),
+			} );
+		}
+	};
+
 	return (
 		<div className="flex flex-col gap-4 h-full">
 			{ connectedSites.length > 0 ? (
 				<SyncConnectedSites
-					syncSites={ syncSites }
 					connectedSites={ connectedSites }
 					openSitesSyncSelector={ () => setIsSyncSitesSelectorOpen( true ) }
-					disconnectSite={ ( id ) => {
-						setConnectedSites( ( prevState ) => prevState.filter( ( site ) => site.id !== id ) );
-					} }
+					disconnectSite={ ( id: number ) => disconnectSite( id ) }
 				/>
 			) : (
 				<SiteSyncDescription>
@@ -200,7 +210,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 							} );
 							return;
 						}
-						setConnectedSites( ( prevState ) => [ ...prevState, newConnectedSite ] );
+						handleConnect( newConnectedSite );
 					} }
 				/>
 			) }

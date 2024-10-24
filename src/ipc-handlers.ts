@@ -17,6 +17,7 @@ import { __, LocaleData, defaultI18n } from '@wordpress/i18n';
 import archiver from 'archiver';
 import { DEFAULT_PHP_VERSION } from '../vendor/wp-now/src/constants';
 import { MAIN_MIN_WIDTH, SIDEBAR_WIDTH, SIZE_LIMIT_BYTES } from './constants';
+import { SyncSite } from './hooks/use-fetch-wpcom-sites';
 import { isEmptyDir, pathExists, isWordPressDirectory, sanitizeFolderName } from './lib/fs-utils';
 import { getImageData } from './lib/get-image-data';
 import { exportBackup } from './lib/import-export/export/export-manager';
@@ -214,6 +215,85 @@ export async function updateSite(
 	}
 	await saveUserData( userData );
 	return mergeSiteDetailsWithRunningDetails( userData.sites );
+}
+
+export async function connectWpcomSite(
+	event: IpcMainInvokeEvent,
+	sites: SyncSite[],
+	localSiteId: string
+) {
+	const userData = await loadUserData();
+	const currentUserId = userData.authToken?.id;
+
+	if ( ! currentUserId ) {
+		throw new Error( 'User not authenticated' );
+	}
+
+	userData.connectedWpcomSites = userData.connectedWpcomSites || {};
+	userData.connectedWpcomSites[ currentUserId ] =
+		userData.connectedWpcomSites[ currentUserId ] || [];
+
+	const connections = userData.connectedWpcomSites[ currentUserId ];
+
+	sites.forEach( ( siteToAdd ) => {
+		const isAlreadyConnected = connections.some(
+			( conn ) => conn.id === siteToAdd.id && conn.localSiteId === localSiteId
+		);
+
+		// Add the site if it's not already connected
+		if ( ! isAlreadyConnected ) {
+			connections.push( { ...siteToAdd, localSiteId } );
+		}
+	} );
+
+	await saveUserData( userData );
+
+	return connections.filter( ( conn ) => conn.localSiteId === localSiteId );
+}
+export async function disconnectWpcomSite(
+	event: IpcMainInvokeEvent,
+	siteIds: number[],
+	localSiteId: string
+) {
+	const userData = await loadUserData();
+	const currentUserId = userData.authToken?.id;
+
+	if ( ! currentUserId ) {
+		throw new Error( 'User not authenticated' );
+	}
+
+	const connections = userData.connectedWpcomSites?.[ currentUserId ] || [];
+
+	const updatedConnections = connections.filter(
+		( conn ) => ! ( siteIds.includes( conn.id ) && conn.localSiteId === localSiteId )
+	);
+
+	userData.connectedWpcomSites = {
+		...userData.connectedWpcomSites,
+		[ currentUserId ]: updatedConnections,
+	};
+
+	await saveUserData( userData );
+
+	return updatedConnections.filter( ( conn ) => conn.localSiteId === localSiteId );
+}
+
+export async function getConnectedWpcomSites(
+	event: IpcMainInvokeEvent,
+	localSiteId: string
+): Promise< SyncSite[] > {
+	const userData = await loadUserData();
+	const currentUserId = userData.authToken?.id;
+
+	if ( ! currentUserId ) {
+		return [];
+	}
+
+	return (
+		userData.connectedWpcomSites?.[ currentUserId ]?.filter(
+			( site ) => site.localSiteId === localSiteId
+		) ?? []
+	);
 }
 
 export async function startServer(

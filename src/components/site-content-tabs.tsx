@@ -1,5 +1,6 @@
 import { TabPanel } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
+import { SyncSitesProvider } from '../hooks/sync-sites-context';
 import { useContentTabs } from '../hooks/use-content-tabs';
 import { useImportExport } from '../hooks/use-import-export';
 import { useSiteDetails } from '../hooks/use-site-details';
@@ -34,26 +35,28 @@ export function SiteContentTabs() {
 	return (
 		<div className="flex flex-col w-full h-full app-no-drag-region pt-8 overflow-y-auto">
 			<Header />
-			<WelcomeMessagesProvider>
-				<TabPanel
-					className="mt-6 h-full flex flex-col overflow-hidden"
-					tabs={ tabs }
-					orientation="horizontal"
-				>
-					{ ( { name } ) => (
-						<div className="h-full">
-							{ name === 'overview' && <ContentTabOverview selectedSite={ selectedSite } /> }
-							{ name === 'share' && <ContentTabSnapshots selectedSite={ selectedSite } /> }
-							{ name === 'sync' && <ContentTabSync selectedSite={ selectedSite } /> }
-							{ name === 'settings' && <ContentTabSettings selectedSite={ selectedSite } /> }
-							{ name === 'assistant' && <ContentTabAssistant selectedSite={ selectedSite } /> }
-							{ name === 'import-export' && (
-								<ContentTabImportExport selectedSite={ selectedSite } />
-							) }
-						</div>
-					) }
-				</TabPanel>
-			</WelcomeMessagesProvider>
+			<SyncSitesProvider>
+				<WelcomeMessagesProvider>
+					<TabPanel
+						className="mt-6 h-full flex flex-col overflow-hidden"
+						tabs={ tabs }
+						orientation="horizontal"
+					>
+						{ ( { name } ) => (
+							<div className="h-full">
+								{ name === 'overview' && <ContentTabOverview selectedSite={ selectedSite } /> }
+								{ name === 'share' && <ContentTabSnapshots selectedSite={ selectedSite } /> }
+								{ name === 'sync' && <ContentTabSync selectedSite={ selectedSite } /> }
+								{ name === 'settings' && <ContentTabSettings selectedSite={ selectedSite } /> }
+								{ name === 'assistant' && <ContentTabAssistant selectedSite={ selectedSite } /> }
+								{ name === 'import-export' && (
+									<ContentTabImportExport selectedSite={ selectedSite } />
+								) }
+							</div>
+						) }
+					</TabPanel>
+				</WelcomeMessagesProvider>
+			</SyncSitesProvider>
 		</div>
 	);
 }

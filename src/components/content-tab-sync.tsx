@@ -65,10 +65,25 @@ function CreateConnectSite( {
 	return (
 		<div className="mt-8">
 			<div className="flex gap-4">
-				<Tooltip disabled={ ! isOffline } text={ offlineMessageCreate }>
+				<Tooltip disabled={ ! isOffline } text={ offlineMessageConnect }>
 					<Button
 						aria-disabled={ isOffline }
 						variant="primary"
+						onClick={ () => {
+							if ( isOffline ) {
+								return;
+							}
+							openSitesSyncSelector();
+						} }
+					>
+						{ __( 'Connect site' ) }
+					</Button>
+				</Tooltip>
+				<Tooltip disabled={ ! isOffline } text={ offlineMessageCreate }>
+					<Button
+						aria-disabled={ isOffline }
+						className={ cx( ! isOffline && '!text-a8c-blueberry !shadow-a8c-blueberry' ) }
+						variant="secondary"
 						onClick={ async () => {
 							if ( isOffline ) {
 								return;
@@ -78,21 +93,6 @@ function CreateConnectSite( {
 					>
 						{ __( 'Create new site' ) }
 						<ArrowIcon />
-					</Button>
-				</Tooltip>
-				<Tooltip disabled={ ! isOffline } text={ offlineMessageConnect }>
-					<Button
-						aria-disabled={ isOffline }
-						variant="secondary"
-						className={ cx( ! isOffline && '!text-a8c-blueberry !shadow-a8c-blueberry' ) }
-						onClick={ () => {
-							if ( isOffline ) {
-								return;
-							}
-							openSitesSyncSelector();
-						} }
-					>
-						{ __( 'Connect site' ) }
 					</Button>
 				</Tooltip>
 			</div>

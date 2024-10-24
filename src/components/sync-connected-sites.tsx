@@ -1,4 +1,5 @@
 import { Icon } from '@wordpress/components';
+import { sprintf } from '@wordpress/i18n';
 import { cloudUpload, cloudDownload } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useMemo } from 'react';
@@ -67,7 +68,7 @@ export function SyncConnectedSites( {
 			const DISCONNECT_BUTTON_INDEX = 0;
 
 			const disconnectMessage = sectionName
-				? __( 'Disconnect' ) + ' ' + sectionName
+				? sprintf( __( 'Disconnect %s' ), sectionName )
 				: __( 'Disconnect site' );
 
 			const { response, checkboxChecked } = await getIpcApi().showMessageBox( {

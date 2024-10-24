@@ -1,7 +1,6 @@
 // To run tests, execute `npm run test -- src/components/tests/content-tab-sync.test.tsx` from the root directory
 import { render, screen, fireEvent } from '@testing-library/react';
 import { useAuth } from '../../hooks/use-auth';
-import { useFetchWpComSites } from '../../hooks/use-fetch-wpcom-sites';
 import { useSiteSyncManagement } from '../../hooks/use-site-sync-management';
 import { getIpcApi } from '../../lib/get-ipc-api';
 import { ContentTabSync } from '../content-tab-sync';
@@ -9,7 +8,6 @@ import { ContentTabSync } from '../content-tab-sync';
 jest.mock( '../../hooks/use-auth' );
 jest.mock( '../../lib/get-ipc-api' );
 jest.mock( '../../hooks/use-site-sync-management' );
-jest.mock( '../../hooks/use-fetch-wpcom-sites' );
 
 const selectedSite: SiteDetails = {
 	name: 'Test Site',
@@ -32,8 +30,6 @@ describe( 'ContentTabSync', () => {
 		} );
 		( useSiteSyncManagement as jest.Mock ).mockReturnValue( {
 			connectedSites: [],
-		} );
-		( useFetchWpComSites as jest.Mock ).mockReturnValue( {
 			syncSites: [],
 		} );
 	} );
@@ -94,8 +90,6 @@ describe( 'ContentTabSync', () => {
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
 		( useSiteSyncManagement as jest.Mock ).mockReturnValue( {
 			connectedSites: [ fakeSyncSite ],
-		} );
-		( useFetchWpComSites as jest.Mock ).mockReturnValue( {
 			syncSites: [ fakeSyncSite ],
 		} );
 		render( <ContentTabSync selectedSite={ selectedSite } /> );
@@ -128,8 +122,6 @@ describe( 'ContentTabSync', () => {
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
 		( useSiteSyncManagement as jest.Mock ).mockReturnValue( {
 			connectedSites: [ fakeSyncSite ],
-		} );
-		( useFetchWpComSites as jest.Mock ).mockReturnValue( {
 			syncSites: [ fakeSyncSite ],
 		} );
 		render( <ContentTabSync selectedSite={ selectedSite } /> );
@@ -164,8 +156,6 @@ describe( 'ContentTabSync', () => {
 
 		( useSiteSyncManagement as jest.Mock ).mockReturnValue( {
 			connectedSites: [ fakeProductionSite, fakeStagingSite ],
-		} );
-		( useFetchWpComSites as jest.Mock ).mockReturnValue( {
 			syncSites: [ fakeProductionSite ],
 		} );
 		render( <ContentTabSync selectedSite={ selectedSite } /> );

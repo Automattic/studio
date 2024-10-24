@@ -29,9 +29,7 @@ jest.mock( '../../lib/app-globals', () => ( {
 	getAppGlobals: jest.fn().mockReturnValue( { locale: ' en' } ),
 } ) );
 
-( useFeatureFlags as jest.Mock ).mockReturnValue( {
-	assistantEnabled: false,
-} );
+( useFeatureFlags as jest.Mock ).mockReturnValue( {} );
 
 describe( 'SiteContentTabs', () => {
 	beforeEach( () => {

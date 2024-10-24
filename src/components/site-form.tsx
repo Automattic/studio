@@ -97,10 +97,7 @@ function FormPathInputComponent( {
 					// eslint-disable-next-line @typescript-eslint/no-empty-function
 					onChange={ () => {} }
 				/>
-				<div
-					aria-hidden="true"
-					className="local-path-icon flex items-center py-[9px] px-2.5 border border-l-[#949494] border-t-0 border-r-0 border-b-0"
-				>
+				<div aria-hidden="true" className="local-path-icon flex items-center py-[9px] px-2.5">
 					<FolderIcon className="text-[#3C434A]" />
 				</div>
 			</button>
@@ -168,16 +165,17 @@ function FormImportComponent( {
 						onChange={ () => {} }
 					/>
 					{ ! fileName && (
-						<div
-							aria-hidden="true"
-							className="local-path-icon flex items-center py-[12px] px-2.5 border border-l-[#949494] border-t-0 border-r-0 border-b-0"
-						>
+						<div aria-hidden="true" className="local-path-icon flex items-center py-[12px] px-2.5">
 							<FolderIcon className="text-[#3C434A]" />
 						</div>
 					) }
 				</button>
 				{ fileName && (
-					<Button variant="icon" onClick={ handleIconClick }>
+					<Button
+						variant="icon"
+						onClick={ handleIconClick }
+						className="[&.components-button]:focus-visible:text-a8c-red-50 [&.components-button]:hover:text-a8c-red-50"
+					>
 						<div
 							aria-hidden="true"
 							className="flex items-center py-[10px] px-2.5 rounded-tr-sm rounded-br-sm border border-[#949494] border-l-0"

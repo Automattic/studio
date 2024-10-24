@@ -1,7 +1,6 @@
 // To run tests, execute `npm run test -- src/components/user-settings.test.tsx` from the root directory
 import { fireEvent, render, screen } from '@testing-library/react';
 import { useAuth } from '../../hooks/use-auth';
-import { useFeatureFlags } from '../../hooks/use-feature-flags';
 import { useIpcListener } from '../../hooks/use-ipc-listener';
 import { useOffline } from '../../hooks/use-offline';
 import UserSettings from '../user-settings';
@@ -9,10 +8,6 @@ import UserSettings from '../user-settings';
 jest.mock( '../../hooks/use-feature-flags' );
 jest.mock( '../../hooks/use-auth' );
 jest.mock( '../../hooks/use-ipc-listener' );
-
-( useFeatureFlags as jest.Mock ).mockReturnValue( {
-	assistantEnabled: false,
-} );
 
 afterEach( () => {
 	jest.clearAllMocks();

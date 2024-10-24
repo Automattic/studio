@@ -73,7 +73,6 @@ beforeEach( () => {
 		platform: 'darwin',
 		appName: '',
 		arm64Translation: false,
-		assistantEnabled: false,
 		terminalWpCliEnabled: false,
 		siteSyncEnabled: false,
 	} );

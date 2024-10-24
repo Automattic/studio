@@ -71,7 +71,6 @@ interface AppGlobals {
 	platform: NodeJS.Platform;
 	appName: string;
 	arm64Translation: boolean;
-	assistantEnabled: boolean;
 	terminalWpCliEnabled: boolean;
 	siteSyncEnabled: boolean;
 }

@@ -67,7 +67,7 @@ function Authentication() {
 		<Button
 			onClick={ () => getIpcApi().showUserSettings() }
 			aria-label={ __( 'Log in' ) }
-			className="flex gap-x-2 justify-between w-full text-white rounded !px-0 !py-1 h-auto active:!text-white hover:!text-white hover:underline items-center"
+			className="flex gap-x-2 justify-between w-full text-white rounded !px-0 !py-0 h-auto active:!text-white hover:!text-white hover:underline items-center"
 		>
 			<WordPressLogo />
 

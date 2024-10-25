@@ -102,7 +102,7 @@ export function SyncConnectedSites( {
 							<div className="a8c-label-semibold">{ section.name }</div>
 							<Button
 								variant="link"
-								className="!ml-auto !text-a8c-gray-70 hover:!text-a8c-blueberry"
+								className="!ml-auto !text-a8c-gray-70 hover:!text-a8c-red-50 "
 								onClick={ () => handleDisconnectSite( section.id, section.name ) }
 							>
 								{ __( 'Disconnect' ) }

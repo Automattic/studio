@@ -38,12 +38,10 @@ export const useSiteSyncManagement = () => {
 				return;
 			}
 			try {
-				const sitesToConnect = [
-					site,
-					...site.stagingSiteIds
-						.map( ( id ) => syncSites.find( ( s ) => s.id === id ) )
-						.filter( ( s ): s is SyncSite => s !== undefined ),
-				];
+				const stagingSites = site.stagingSiteIds.flatMap(
+					( id ) => syncSites.find( ( s ) => s.id === id ) ?? []
+				);
+				const sitesToConnect = [ site, ...stagingSites ];
 
 				const newConnectedSites = await getIpcApi().connectWpcomSite( sitesToConnect, localSiteId );
 				setConnectedSites( newConnectedSites );

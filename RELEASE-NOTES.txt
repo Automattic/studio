@@ -1,6 +1,6 @@
 1.2.0
 =====
-* Introduced Studio AI Assistant feature
+* Introduced Studio Assistant feature
 * Updated styles and improved design #626, #625, #624
 * Changed studio.json file to meta.json #623
 * Fixed hard-coded wp-cli execution paths #606

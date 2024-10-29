@@ -26,8 +26,6 @@ export const PULL_STATES = {
 	},
 } as const;
 
-type PullState = ( typeof PULL_STATES )[ keyof typeof PULL_STATES ];
-
 interface SiteBackupState {
 	backupId: string | null;
 	status: ( typeof PULL_STATES )[ keyof typeof PULL_STATES ];

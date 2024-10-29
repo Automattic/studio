@@ -72,7 +72,7 @@ steps:
       #- windows
     notify:
       - github_commit_status:
-          context: E2E Tests on {{ matrix }}
+          context: "E2E Tests on {{ matrix }}"
 
   - group: 📦 Build for Mac
     key: dev-mac
@@ -123,7 +123,7 @@ steps:
     if: build.tag !~ /^v[0-9]+/
     notify:
       - github_commit_status:
-          context: Mac Dev Build – {{matrix}}
+          context: "Mac Dev Build – {{matrix}}"
 
   - label: 🔨 Windows Dev Build
     key: dev-windows
@@ -137,7 +137,7 @@ steps:
     if: build.tag !~ /^v[0-9]+/
     notify:
       - github_commit_status:
-          context: Windows Dev Build – {{matrix}}
+          context: "Windows Dev Build – {{matrix}}"
 
   - label: ":rocket: Distribute Dev Builds"
     command: |
@@ -222,7 +222,7 @@ steps:
     if: build.tag =~ /^v[0-9]+/
     notify:
       - github_commit_status:
-          context: Mac Release Build – {{matrix}}
+          context: "Mac Release Build – {{matrix}}"
 
   - label: 🔨 Windows Release Build
     key: release-windows
@@ -236,7 +236,7 @@ steps:
     if: build.tag =~ /^v[0-9]+/
     notify:
       - github_commit_status:
-          context: Windows Release Build – {{matrix}}
+          context: "Windows Release Build – {{matrix}}"
 
   - label: ":rocket: Publish Release Builds"
     command: |

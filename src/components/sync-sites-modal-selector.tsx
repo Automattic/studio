@@ -38,7 +38,7 @@ export function SyncSitesModalSelector( {
 			title={ __( 'Connect a WordPress.com site' ) }
 		>
 			<SearchSites searchQuery={ searchQuery } setSearchQuery={ setSearchQuery } />
-			<div className="h-[calc(84vh-230px)]">
+			<div className="h-[calc(84vh-232px)]">
 				{ isLoading && (
 					<div className="flex justify-center items-center h-full">{ __( 'Loading sites…' ) }</div>
 				) }
@@ -85,7 +85,7 @@ function SearchSites( {
 	return (
 		<div className="flex flex-col px-8 pb-6 border-b border-a8c-gray-5">
 			<SearchControl
-				className="w-full"
+				className="w-full mt-0.5"
 				placeholder={ __( 'Search sites' ) }
 				onChange={ ( value ) => {
 					setSearchQuery( value );

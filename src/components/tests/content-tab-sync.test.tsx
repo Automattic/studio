@@ -1,5 +1,6 @@
 // To run tests, execute `npm run test -- src/components/tests/content-tab-sync.test.tsx` from the root directory
 import { render, screen, fireEvent } from '@testing-library/react';
+import { SyncSitesProvider } from '../../hooks/sync-sites-context';
 import { useAuth } from '../../hooks/use-auth';
 import { useSiteSyncManagement } from '../../hooks/use-site-sync-management';
 import { getIpcApi } from '../../lib/get-ipc-api';
@@ -34,8 +35,12 @@ describe( 'ContentTabSync', () => {
 		} );
 	} );
 
+	const renderWithProvider = ( children: React.ReactElement ) => {
+		return render( <SyncSitesProvider>{ children }</SyncSitesProvider> );
+	};
+
 	it( 'renders the sync title and login buttons', () => {
-		render( <ContentTabSync selectedSite={ selectedSite } /> );
+		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 		expect( screen.getByText( 'Sync with' ) ).toBeInTheDocument();
 
 		const loginButton = screen.getByRole( 'button', { name: 'Log in to WordPress.com ↗' } );
@@ -53,7 +58,7 @@ describe( 'ContentTabSync', () => {
 
 	it( 'displays create new site button to authenticated user', () => {
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
-		render( <ContentTabSync selectedSite={ selectedSite } /> );
+		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 		const createSiteButton = screen.getByRole( 'button', { name: 'Create new site ↗' } );
 		fireEvent.click( createSiteButton );
 
@@ -64,7 +69,7 @@ describe( 'ContentTabSync', () => {
 
 	it( 'displays connect site button to authenticated user', () => {
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
-		render( <ContentTabSync selectedSite={ selectedSite } /> );
+		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 		const connectSiteButton = screen.getByRole( 'button', { name: 'Connect site' } );
 
 		expect( connectSiteButton ).toBeInTheDocument();
@@ -72,7 +77,7 @@ describe( 'ContentTabSync', () => {
 
 	it( 'opens the site selector modal to connect a site authenticated user', () => {
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
-		render( <ContentTabSync selectedSite={ selectedSite } /> );
+		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 		const connectSiteButton = screen.getByRole( 'button', { name: 'Connect site' } );
 		fireEvent.click( connectSiteButton );
 		expect( screen.getByText( 'Connect a WordPress.com site' ) ).toBeInTheDocument();
@@ -92,7 +97,7 @@ describe( 'ContentTabSync', () => {
 			connectedSites: [ fakeSyncSite ],
 			syncSites: [ fakeSyncSite ],
 		} );
-		render( <ContentTabSync selectedSite={ selectedSite } /> );
+		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
 		const title = screen.getByText( 'My simple business site that needs a transfer' );
 		expect( title ).toBeInTheDocument();
@@ -124,7 +129,7 @@ describe( 'ContentTabSync', () => {
 			connectedSites: [ fakeSyncSite ],
 			syncSites: [ fakeSyncSite ],
 		} );
-		render( <ContentTabSync selectedSite={ selectedSite } /> );
+		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
 		const urlButton = screen.getByRole( 'button', {
 			name: 'https:/developer.wordpress.com/studio/ ↗',
@@ -158,7 +163,7 @@ describe( 'ContentTabSync', () => {
 			connectedSites: [ fakeProductionSite, fakeStagingSite ],
 			syncSites: [ fakeProductionSite ],
 		} );
-		render( <ContentTabSync selectedSite={ selectedSite } /> );
+		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
 		// Check for production site
 		const productionTitle = screen.getByText( 'My simple business site' );

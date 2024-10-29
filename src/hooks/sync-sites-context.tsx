@@ -91,6 +91,11 @@ function useSyncPull() {
 		[ client ]
 	);
 
+	const onBackupCompleted = useCallback( async ( remoteSiteId: number, downloadUrl: string ) => {
+		const filePath = await getIpcApi().downloadSyncBackup( remoteSiteId, downloadUrl );
+		console.log( '----> filePath', filePath );
+	}, [] );
+
 	const getBackup = useCallback(
 		async ( remoteSiteId: number ) => {
 			if ( ! client ) {
@@ -122,12 +127,8 @@ function useSyncPull() {
 				},
 			} ) );
 
-			if ( hasBackupCompleted ) {
-				const filePath = await getIpcApi().downloadSyncBackup(
-					remoteSiteId,
-					response.download_url
-				);
-				console.log( '----> filePath', filePath );
+			if ( hasBackupCompleted && downloadUrl ) {
+				// Replacing the 'in-progress' status will stop the active listening for the backup completion
 				setPullStates( ( prevStates ) => ( {
 					...prevStates,
 					[ remoteSiteId ]: {
@@ -136,9 +137,10 @@ function useSyncPull() {
 						downloadUrl,
 					},
 				} ) );
+				onBackupCompleted( remoteSiteId, downloadUrl );
 			}
 		},
-		[ client, pullStates ]
+		[ client, pullStates, onBackupCompleted ]
 	);
 
 	useEffect( () => {

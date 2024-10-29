@@ -902,7 +902,7 @@ export async function downloadSyncBackup(
 	const tmpDir = nodePath.join( app.getPath( 'temp' ), 'wp-studio-backups' );
 	await fsPromises.mkdir( tmpDir, { recursive: true } );
 
-	const filePath = nodePath.join( tmpDir, `site-${ remoteSiteId }-backup.zip` );
+	const filePath = nodePath.join( tmpDir, `site-${ remoteSiteId }-backup.tar.gz` );
 	await download( downloadUrl, filePath );
 	return filePath;
 }

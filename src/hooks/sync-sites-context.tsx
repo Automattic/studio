@@ -101,7 +101,7 @@ function useSyncPull() {
 			await importFile(
 				{
 					path: filePath,
-					type: 'application/zip',
+					type: 'application/tar+gzip',
 				},
 				selectedSite
 			);

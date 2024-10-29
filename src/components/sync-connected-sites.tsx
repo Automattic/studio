@@ -113,7 +113,7 @@ export function SyncConnectedSites( {
 								key={ connectedSite.id }
 								className="flex items-center gap-2 py-2.5 border-b border-a8c-gray-0 px-8"
 							>
-								<div className="flex items-left min-w-20 mr-6">
+								<div className="flex items-left min-w-20 mr-6 shrink-0">
 									{ connectedSite.isStaging ? (
 										<Badge>{ __( 'Staging' ) }</Badge>
 									) : (
@@ -125,14 +125,14 @@ export function SyncConnectedSites( {
 
 								<Button
 									variant="link"
-									className="!text-a8c-gray-70 hover:!text-a8c-blueberry"
+									className="!text-a8c-gray-70 hover:!text-a8c-blueberry truncate"
 									onClick={ () => {
 										getIpcApi().openURL( connectedSite.url );
 									} }
 								>
-									{ connectedSite.url } <ArrowIcon />
+									<span className="truncate">{ connectedSite.url }</span> <ArrowIcon />
 								</Button>
-								<div className="flex gap-2 pl-4 ml-auto">
+								<div className="flex gap-2 pl-4 ml-auto shrink-0">
 									<Button variant="link" className="!text-black hover:!text-a8c-blueberry">
 										<Icon icon={ cloudDownload } />
 										{ __( 'Pull' ) }

@@ -62,10 +62,10 @@ steps:
       - mac
       #- windows
 
-  - group: ":package: Build for Mac"
+  - group: 📦 Build for Mac
     key: dev-mac
     steps:
-      - label: ":hammer: Mac Dev Build - {{matrix}}"
+      - label: 🔨 Mac Dev Build - {{matrix}}
         agents:
           queue: mac
         command: |
@@ -97,7 +97,7 @@ steps:
           echo "--- :node: Packaging in DMG"
           npm run make:dmg-{{matrix}}
 
-          echo "--- :page_with_curl: Notarizing Binary"
+          echo "--- 📃 Notarizing Binary"
           bundle exec fastlane notarize_binary
 
         plugins: *common_plugins
@@ -110,7 +110,7 @@ steps:
           - arm64
     if: build.tag !~ /^v[0-9]+/
 
-  - label: ":hammer: Windows Dev Build"
+  - label: 🔨 Windows Dev Build
     key: dev-windows
     command: .buildkite/commands/build-for-windows-dev.ps1
     artifact_paths:
@@ -153,10 +153,10 @@ steps:
     plugins: *common_plugins
     if: build.branch == 'trunk' && build.tag !~ /^v[0-9]+/
 
-  - group: ":package: Build for Mac"
+  - group: 📦 Build for Mac
     key: release-mac
     steps:
-      - label: ":hammer: Mac Release Build - {{matrix}}"
+      - label: 🔨 Mac Release Build - {{matrix}}
         agents:
           queue: mac
         command: |
@@ -200,7 +200,7 @@ steps:
           - arm64
     if: build.tag =~ /^v[0-9]+/
 
-  - label: ":hammer: Windows Release Build"
+  - label: 🔨 Windows Release Build
     key: release-windows
     command: .buildkite/commands/build-for-windows-release.ps1
     agents:

@@ -26,9 +26,13 @@ export function SyncSitesModalSelector( {
 	const { __ } = useI18n();
 	const [ selectedSiteId, setSelectedSiteId ] = useState< number | null >( null );
 	const [ searchQuery, setSearchQuery ] = useState< string >( '' );
-	const filteredSites = syncSites.filter( ( site ) =>
-		site.name.toLowerCase().includes( searchQuery.toLowerCase() )
-	);
+	const filteredSites = syncSites.filter( ( site ) => {
+		const searchQueryLower = searchQuery.toLowerCase();
+		return (
+			site.name?.toLowerCase().includes( searchQueryLower ) ||
+			site.url?.toLowerCase().includes( searchQueryLower )
+		);
+	} );
 	const isEmpty = filteredSites.length === 0;
 
 	return (

@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { getIpcApi } from '../lib/get-ipc-api';
 import { useAuth } from './use-auth';
 import { useImportExport } from './use-import-export';
 
@@ -96,14 +97,11 @@ function useSyncPull() {
 
 	const onBackupCompleted = useCallback(
 		async ( remoteSiteId: number, downloadUrl: string, selectedSite: SiteDetails ) => {
-			// const filePath = await getIpcApi().downloadSyncBackup( remoteSiteId, downloadUrl );
-			const filePath =
-				'/private/var/folders/_x/rbv26n3925q_01dbs4jzd8t80000gn/T/wp-studio-backups/site-234098253-backup.zip';
-			console.log( '----> filePath, importing', filePath );
+			const filePath = await getIpcApi().downloadSyncBackup( remoteSiteId, downloadUrl );
 			await importFile(
 				{
 					path: filePath,
-					type: 'zip',
+					type: 'application/zip',
 				},
 				selectedSite
 			);

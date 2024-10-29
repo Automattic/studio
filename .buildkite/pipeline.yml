@@ -50,7 +50,7 @@ steps:
   # We could have added values for queue and label, but that would have resulted in 'macOS + windows' and 'Windows + mac' combinations, which we don't want.
   # Buildkite offers an option to remove those combinations, but the overhead in code readability did not seem worth the visual effect in the build page.
   # See https://buildkite.com/docs/pipelines/build-matrix#removing-combinations-from-the-build-matrix
-  - label: E2E Tests on {{ matrix }}
+  - label: E2E Tests on {{matrix}}
     key: e2e_tests
     command: |
       # call with bash explicitly because we run this on Windows, too
@@ -63,7 +63,7 @@ steps:
       - test-results/**/*.zip
     plugins: *common_plugins
     agents:
-      queue: "{{ matrix }}"
+      queue: "{{matrix}}"
     env:
       # See https://playwright.dev/docs/ci#debugging-browser-launches
       DEBUG: "pw:browser"
@@ -72,7 +72,7 @@ steps:
       #- windows
     notify:
       - github_commit_status:
-          context: "E2E Tests on {{ matrix }}"
+          context: "E2E Tests on {{matrix}}"
 
   - group: 📦 Build for Mac
     key: dev-mac

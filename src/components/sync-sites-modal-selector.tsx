@@ -2,7 +2,7 @@ import { SearchControl as SearchControlWp } from '@wordpress/components';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useState } from 'react';
-import { SyncSite } from '../hooks/use-sync-sites';
+import { SyncSite } from '../hooks/use-fetch-wpcom-sites';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { Badge } from './badge';

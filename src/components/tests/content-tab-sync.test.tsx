@@ -1,13 +1,13 @@
 // To run tests, execute `npm run test -- src/components/tests/content-tab-sync.test.tsx` from the root directory
 import { render, screen, fireEvent } from '@testing-library/react';
 import { useAuth } from '../../hooks/use-auth';
-import { useSyncSites } from '../../hooks/use-sync-sites';
+import { useSiteSyncManagement } from '../../hooks/use-site-sync-management';
 import { getIpcApi } from '../../lib/get-ipc-api';
 import { ContentTabSync } from '../content-tab-sync';
 
 jest.mock( '../../hooks/use-auth' );
 jest.mock( '../../lib/get-ipc-api' );
-jest.mock( '../../hooks/use-sync-sites' );
+jest.mock( '../../hooks/use-site-sync-management' );
 
 const selectedSite: SiteDetails = {
 	name: 'Test Site',
@@ -28,10 +28,9 @@ describe( 'ContentTabSync', () => {
 			generateProposedSitePath: jest.fn(),
 			showMessageBox: jest.fn(),
 		} );
-		( useSyncSites as jest.Mock ).mockReturnValue( {
-			syncSites: [],
+		( useSiteSyncManagement as jest.Mock ).mockReturnValue( {
 			connectedSites: [],
-			setConnectedSites: jest.fn(),
+			syncSites: [],
 		} );
 	} );
 
@@ -89,10 +88,9 @@ describe( 'ContentTabSync', () => {
 			syncSupport: 'syncable',
 		};
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
-		( useSyncSites as jest.Mock ).mockReturnValue( {
-			syncSites: [ fakeSyncSite ],
+		( useSiteSyncManagement as jest.Mock ).mockReturnValue( {
 			connectedSites: [ fakeSyncSite ],
-			setConnectedSites: jest.fn(),
+			syncSites: [ fakeSyncSite ],
 		} );
 		render( <ContentTabSync selectedSite={ selectedSite } /> );
 
@@ -122,10 +120,9 @@ describe( 'ContentTabSync', () => {
 			syncSupport: 'syncable',
 		};
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
-		( useSyncSites as jest.Mock ).mockReturnValue( {
-			syncSites: [ fakeSyncSite ],
+		( useSiteSyncManagement as jest.Mock ).mockReturnValue( {
 			connectedSites: [ fakeSyncSite ],
-			setConnectedSites: jest.fn(),
+			syncSites: [ fakeSyncSite ],
 		} );
 		render( <ContentTabSync selectedSite={ selectedSite } /> );
 
@@ -156,10 +153,10 @@ describe( 'ContentTabSync', () => {
 			syncSupport: 'syncable',
 		};
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
-		( useSyncSites as jest.Mock ).mockReturnValue( {
-			syncSites: [ fakeProductionSite, fakeStagingSite ],
-			connectedSites: [ fakeProductionSite ],
-			setConnectedSites: jest.fn(),
+
+		( useSiteSyncManagement as jest.Mock ).mockReturnValue( {
+			connectedSites: [ fakeProductionSite, fakeStagingSite ],
+			syncSites: [ fakeProductionSite ],
 		} );
 		render( <ContentTabSync selectedSite={ selectedSite } /> );
 

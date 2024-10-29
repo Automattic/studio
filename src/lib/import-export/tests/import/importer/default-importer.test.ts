@@ -20,7 +20,7 @@ describe( 'JetpackImporter', () => {
 			themes: [ '/tmp/extracted/wp-content/themes/twentytwentyone/style.css' ],
 		},
 		wpContentDirectory: 'wp-content',
-		metaFile: '/tmp/extracted/studio.json',
+		metaFile: '/tmp/extracted/meta.json',
 	};
 
 	const mockStudioSitePath = '/path/to/studio/site';
@@ -67,7 +67,7 @@ describe( 'JetpackImporter', () => {
 
 			expect( fs.mkdir ).toHaveBeenCalled();
 			expect( fs.copyFile ).toHaveBeenCalledTimes( 4 ); // One for each wp-content file + wp-config
-			expect( fs.readFile ).toHaveBeenCalledWith( '/tmp/extracted/studio.json', 'utf-8' );
+			expect( fs.readFile ).toHaveBeenCalledWith( '/tmp/extracted/meta.json', 'utf-8' );
 		} );
 
 		it( 'should handle sql files and call wp sqlite import cli command', async () => {
@@ -114,7 +114,7 @@ describe( 'JetpackImporter', () => {
 
 			expect( fs.mkdir ).toHaveBeenCalled();
 			expect( fs.copyFile ).toHaveBeenCalledTimes( 4 );
-			expect( fs.readFile ).toHaveBeenCalledWith( '/tmp/extracted/studio.json', 'utf-8' );
+			expect( fs.readFile ).toHaveBeenCalledWith( '/tmp/extracted/meta.json', 'utf-8' );
 		} );
 
 		it( 'should regenerate media after import', async () => {

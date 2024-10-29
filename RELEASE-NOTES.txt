@@ -1,3 +1,11 @@
+1.2.0
+=====
+* Introduced Studio Assistant feature
+* Updated styles and improved design #626, #625, #624
+* Changed studio.json file to meta.json #623
+* Fixed hard-coded wp-cli execution paths #606
+* Resolved an issue with titlebar padding on macOS, ensuring adequate space for window controls #603
+
 1.1.4
 =====
 * Added support for importing `.wpress` files #497

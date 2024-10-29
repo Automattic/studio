@@ -29,7 +29,7 @@ export class JetpackValidator extends EventEmitter implements Validator {
 		/* File rules:
 		 * - Accept .zip in addition to tar.gz ( Handled by backup handler )
 		 * - Do not reject the archive that includes core WP files in addition to files and directories required by Jetpack format, and ignore those instead.
-		 * - Support optional meta file, e.g., studio.json, that stores desired PHP and WP versions.
+		 * - Support optional meta file, e.g., meta.json, that stores desired PHP and WP versions.
 		 * */
 
 		for ( const file of fileList ) {
@@ -47,7 +47,7 @@ export class JetpackValidator extends EventEmitter implements Validator {
 				extractedBackup.wpContent.plugins.push( fullPath );
 			} else if ( file.startsWith( 'wp-content/themes/' ) ) {
 				extractedBackup.wpContent.themes.push( fullPath );
-			} else if ( file === 'studio.json' ) {
+			} else if ( file === 'studio.json' || file === 'meta.json' ) {
 				extractedBackup.metaFile = fullPath;
 			}
 		}

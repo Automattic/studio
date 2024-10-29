@@ -1,6 +1,5 @@
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useAuth } from '../use-auth';
-import { useFeatureFlags } from '../use-feature-flags';
 import { usePromptUsage, PromptUsageProvider } from '../use-prompt-usage';
 
 jest.mock( '../use-auth', () => ( {
@@ -20,7 +19,6 @@ describe( 'usePromptUsage hook', () => {
 
 	beforeEach( () => {
 		( useAuth as jest.Mock ).mockReturnValue( { client: null } );
-		( useFeatureFlags as jest.Mock ).mockReturnValue( { assistantEnabled: true } );
 		jest.useFakeTimers();
 		jest.setSystemTime( new Date( '2024-09-16' ) );
 	} );
@@ -94,15 +92,5 @@ describe( 'usePromptUsage hook', () => {
 			expect( result.current.userCanSendMessage ).toBe( false );
 			expect( result.current.daysUntilReset ).toBe( 15 );
 		} );
-	} );
-
-	it( 'should not fetch usage when assistant is disabled', async () => {
-		( useFeatureFlags as jest.Mock ).mockReturnValue( { assistantEnabled: false } );
-
-		renderHook( () => usePromptUsage(), {
-			wrapper: PromptUsageProvider,
-		} );
-
-		expect( mockClient.req.get ).not.toHaveBeenCalled();
 	} );
 } );

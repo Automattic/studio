@@ -23,10 +23,12 @@ export function SyncConnectedSites( {
 	connectedSites,
 	openSitesSyncSelector,
 	disconnectSite,
+	selectedSite,
 }: {
 	connectedSites: SyncSite[];
 	openSitesSyncSelector: () => void;
 	disconnectSite: ( id: number ) => void;
+	selectedSite: SiteDetails;
 } ) {
 	const { __ } = useI18n();
 	const { pullSite, pullStates } = useSyncSites();
@@ -155,7 +157,7 @@ export function SyncConnectedSites( {
 												variant="link"
 												className="!text-black hover:!text-a8c-blueberry"
 												onClick={ () => {
-													pullSite( connectedSite.id );
+													pullSite( connectedSite.id, selectedSite );
 												} }
 											>
 												<Icon icon={ cloudDownload } />

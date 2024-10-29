@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { getIpcApi } from '../lib/get-ipc-api';
 import { useAuth } from './use-auth';
+import { useImportExport } from './use-import-export';
 
 export const PULL_STATES = {
 	'in-progress': {
@@ -30,11 +30,12 @@ interface SiteBackupState {
 	backupId: string | null;
 	status: ( typeof PULL_STATES )[ keyof typeof PULL_STATES ];
 	downloadUrl: string | null;
+	selectedSite: SiteDetails;
 }
 
 interface SyncSitesContextType {
 	pullStates: Record< number, SiteBackupState >;
-	pullSite: ( remoteSiteId: number ) => Promise< void >;
+	pullSite: ( remoteSiteId: number, selectedSite: SiteDetails ) => Promise< void >;
 }
 
 const SyncSitesContext = createContext< SyncSitesContextType | undefined >( undefined );
@@ -52,9 +53,10 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 function useSyncPull() {
 	const { client } = useAuth();
 	const [ pullStates, setPullStates ] = useState< Record< number, SiteBackupState > >( {} );
+	const { importFile } = useImportExport();
 
 	const pullSite = useCallback(
-		async ( remoteSiteId: number ) => {
+		async ( remoteSiteId: number, selectedSite: SiteDetails ) => {
 			if ( ! client ) {
 				return;
 			}
@@ -64,6 +66,7 @@ function useSyncPull() {
 					backupId: null,
 					status: PULL_STATES[ 'in-progress' ],
 					downloadUrl: null,
+					selectedSite,
 				},
 			} ) );
 			try {
@@ -91,10 +94,36 @@ function useSyncPull() {
 		[ client ]
 	);
 
-	const onBackupCompleted = useCallback( async ( remoteSiteId: number, downloadUrl: string ) => {
-		const filePath = await getIpcApi().downloadSyncBackup( remoteSiteId, downloadUrl );
-		console.log( '----> filePath', filePath );
-	}, [] );
+	const onBackupCompleted = useCallback(
+		async ( remoteSiteId: number, downloadUrl: string, selectedSite: SiteDetails ) => {
+			// const filePath = await getIpcApi().downloadSyncBackup( remoteSiteId, downloadUrl );
+			const filePath =
+				'/private/var/folders/_x/rbv26n3925q_01dbs4jzd8t80000gn/T/wp-studio-backups/site-234098253-backup.zip';
+			console.log( '----> filePath, importing', filePath );
+			await importFile(
+				{
+					path: filePath,
+					type: 'zip',
+				},
+				selectedSite
+			);
+			setPullStates( ( prevStates ) => ( {
+				...prevStates,
+				[ remoteSiteId ]: {
+					...prevStates[ remoteSiteId ],
+					status: PULL_STATES.finished,
+				},
+			} ) );
+			setTimeout( () => {
+				setPullStates( ( prevStates ) => {
+					const newStates = { ...prevStates };
+					delete newStates[ remoteSiteId ];
+					return newStates;
+				} );
+			}, 1000 );
+		},
+		[ importFile ]
+	);
 
 	const getBackup = useCallback(
 		async ( remoteSiteId: number ) => {
@@ -129,6 +158,10 @@ function useSyncPull() {
 
 			if ( hasBackupCompleted && downloadUrl ) {
 				// Replacing the 'in-progress' status will stop the active listening for the backup completion
+				const selectedSite = pullStates[ remoteSiteId ]?.selectedSite;
+				if ( ! selectedSite ) {
+					return;
+				}
 				setPullStates( ( prevStates ) => ( {
 					...prevStates,
 					[ remoteSiteId ]: {
@@ -137,7 +170,7 @@ function useSyncPull() {
 						downloadUrl,
 					},
 				} ) );
-				onBackupCompleted( remoteSiteId, downloadUrl );
+				onBackupCompleted( remoteSiteId, downloadUrl, selectedSite );
 			}
 		},
 		[ client, pullStates, onBackupCompleted ]

@@ -46,9 +46,13 @@ const config: ForgeConfig = {
 			//
 			// If a rejection occur, we can look at using a post build hook to convert to AppX instead.
 			//
+			// Notes:
+			// - I tried with publisher only, to see if it skipped code signing, but it looks like the process required user input in CI...
+			//   > When asked to enter a password, please select "None".
+			//   I wonder if there's a way to pass that via CI...
 			publisher: 'CN=E2E5A157-746D-4B04-9116-ABE5CB928306',
-			// devCert: 'certificate.pfx',
-			// certPass: process.env.WINDOWS_CODE_SIGNING_CERT_PASSWORD,
+			devCert: 'certificate.pfx',
+			certPass: process.env.WINDOWS_CODE_SIGNING_CERT_PASSWORD,
 			// Windows Store version numbers don't support semver beta tags.
 			//
 			// See implementation details at:

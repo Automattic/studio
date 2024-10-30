@@ -103,9 +103,9 @@ function SearchSites( {
 const getSortedSites = ( sites: SyncSite[] ) => {
 	const order: Record< SyncSite[ 'syncSupport' ], number > = {
 		syncable: 1,
-		'already-connected': 1,
-		'needs-transfer': 2,
-		unsupported: 3,
+		'already-connected': 2,
+		'needs-transfer': 3,
+		unsupported: 4,
 	};
 
 	return [ ...sites ].sort( ( a, b ) => order[ a.syncSupport ] - order[ b.syncSupport ] );

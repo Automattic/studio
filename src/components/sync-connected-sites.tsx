@@ -125,7 +125,7 @@ export function SyncConnectedSites( {
 
 								<Button
 									variant="link"
-									className="!text-a8c-gray-70 hover:!text-a8c-blueberry"
+									className="!text-a8c-gray-70 hover:!text-a8c-blueberry inline-block break-all"
 									onClick={ () => {
 										getIpcApi().openURL( connectedSite.url );
 									} }

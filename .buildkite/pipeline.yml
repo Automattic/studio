@@ -70,9 +70,8 @@ steps:
     matrix:
       - mac
       #- windows
-    notify:
-      - github_commit_status:
-          context: "E2E Tests on {{matrix}}"
+    # No notify node because we cannot interpolate the matrix value in the context string
+    # See https://github.com/Automattic/studio/pull/614#discussion_r1821669523
 
   - group: 📦 Build for Mac
     key: dev-mac
@@ -121,9 +120,8 @@ steps:
           - x64
           - arm64
     if: build.tag !~ /^v[0-9]+/
-    notify:
-      - github_commit_status:
-          context: "Mac Dev Build – {{matrix}}"
+    # No notify node because we cannot interpolate the matrix value in the context string
+    # See https://github.com/Automattic/studio/pull/614#discussion_r1821669523
 
   - label: 🔨 Windows Dev Build
     key: dev-windows
@@ -137,7 +135,7 @@ steps:
     if: build.tag !~ /^v[0-9]+/
     notify:
       - github_commit_status:
-          context: "Windows Dev Build – {{matrix}}"
+          context: Windows Dev Build
 
   - label: ":rocket: Distribute Dev Builds"
     command: |
@@ -219,10 +217,9 @@ steps:
           - universal
           - x64
           - arm64
+        # No notify node because we cannot interpolate the matrix value in the context string
+        # See https://github.com/Automattic/studio/pull/614#discussion_r1821669523
     if: build.tag =~ /^v[0-9]+/
-    notify:
-      - github_commit_status:
-          context: "Mac Release Build – {{matrix}}"
 
   - label: 🔨 Windows Release Build
     key: release-windows
@@ -236,7 +233,7 @@ steps:
     if: build.tag =~ /^v[0-9]+/
     notify:
       - github_commit_status:
-          context: "Windows Release Build – {{matrix}}"
+          context: Windows Release Build
 
   - label: ":rocket: Publish Release Builds"
     command: |

@@ -100,7 +100,6 @@ function SearchSites( {
 	);
 }
 
-// render unsupported sites at the bottom of the list
 const getSortedSites = ( sites: SyncSite[] ) => {
 	const order: Record< SyncSite[ 'syncSupport' ], number > = {
 		syncable: 1,

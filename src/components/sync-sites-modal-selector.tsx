@@ -100,25 +100,13 @@ function SearchSites( {
 	);
 }
 
-// we are rendering in the next order: syncable / already-connected, needs-transfer, unsupported
+// render unsupported sites at the bottom of the list
 const getSortedSites = ( sites: SyncSite[] ) => {
 	return [ ...sites ].sort( ( a, b ) => {
-		if ( a.syncSupport === 'unsupported' && b.syncSupport === 'unsupported' ) {
-			return 0;
-		}
-		if ( a.syncSupport === 'unsupported' ) {
+		if ( a.syncSupport === 'unsupported' && b.syncSupport !== 'unsupported' ) {
 			return 1;
 		}
-		if ( b.syncSupport === 'unsupported' ) {
-			return -1;
-		}
-		if ( a.syncSupport === 'needs-transfer' && b.syncSupport === 'needs-transfer' ) {
-			return 0;
-		}
-		if ( a.syncSupport === 'needs-transfer' ) {
-			return 1;
-		}
-		if ( b.syncSupport === 'needs-transfer' ) {
+		if ( a.syncSupport !== 'unsupported' && b.syncSupport === 'unsupported' ) {
 			return -1;
 		}
 		return 0;

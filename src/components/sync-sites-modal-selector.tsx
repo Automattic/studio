@@ -143,7 +143,7 @@ function SiteItem( {
 	return (
 		<div
 			className={ cx(
-				'flex py-3 px-8 items-center border-b border-a8c-gray-0 justify-between',
+				'flex py-3 px-8 items-center border-b border-a8c-gray-0 justify-between gap-4',
 				isSelected && 'bg-a8c-blueberry text-white',
 				! isSelected && isSyncable && 'hover:bg-a8c-blueberry-5'
 			) }
@@ -155,7 +155,7 @@ function SiteItem( {
 				onClick();
 			} }
 		>
-			<div className="flex flex-col gap-0.5 pr-4 max-w-[78%]">
+			<div className="flex flex-col gap-0.5 overflow-hidden">
 				<div className={ cx( 'a8c-body truncate', ! isSyncable && 'text-a8c-gray-30' ) }>
 					{ site.name }
 				</div>
@@ -186,13 +186,15 @@ function SiteItem( {
 				</div>
 			) }
 			{ isAlreadyConnected && (
-				<div className="a8c-body-small text-a8c-gray-30">{ __( 'Already connected' ) }</div>
+				<div className="a8c-body-small text-a8c-gray-30 shrink-0">
+					{ __( 'Already connected' ) }
+				</div>
 			) }
 			{ isUnsupported && (
-				<div className="a8c-body-small text-a8c-gray-30"> { __( 'Unsupported plan' ) }</div>
+				<div className="a8c-body-small text-a8c-gray-30 shrink-0">{ __( 'Unsupported plan' ) }</div>
 			) }
 			{ isNeedsTransfer && (
-				<div className="a8c-body-small text-a8c-gray-30">
+				<div className="a8c-body-small text-a8c-gray-30 shrink-0">
 					{ __( 'Please enable hosting features' ) }
 				</div>
 			) }

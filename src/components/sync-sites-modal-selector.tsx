@@ -100,6 +100,31 @@ function SearchSites( {
 	);
 }
 
+// we are rendering in the next order: syncable / already-connected, needs-transfer, unsupported
+const getSortedSites = ( sites: SyncSite[] ) => {
+	return [ ...sites ].sort( ( a, b ) => {
+		if ( a.syncSupport === 'unsupported' && b.syncSupport === 'unsupported' ) {
+			return 0;
+		}
+		if ( a.syncSupport === 'unsupported' ) {
+			return 1;
+		}
+		if ( b.syncSupport === 'unsupported' ) {
+			return -1;
+		}
+		if ( a.syncSupport === 'needs-transfer' && b.syncSupport === 'needs-transfer' ) {
+			return 0;
+		}
+		if ( a.syncSupport === 'needs-transfer' ) {
+			return 1;
+		}
+		if ( b.syncSupport === 'needs-transfer' ) {
+			return -1;
+		}
+		return 0;
+	} );
+};
+
 function ListSites( {
 	syncSites,
 	selectedSiteId,
@@ -109,9 +134,11 @@ function ListSites( {
 	selectedSiteId: null | number;
 	onSelectSite: ( id: number ) => void;
 } ) {
+	const sortedSites = getSortedSites( syncSites );
+
 	return (
 		<div className="flex flex-col overflow-y-auto h-full">
-			{ syncSites.map( ( site ) => (
+			{ sortedSites.map( ( site ) => (
 				<SiteItem
 					key={ site.id }
 					site={ site }

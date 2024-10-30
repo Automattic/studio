@@ -102,26 +102,15 @@ function SearchSites( {
 
 // render unsupported sites at the bottom of the list
 const getSortedSites = ( sites: SyncSite[] ) => {
+	const order: Record< SyncSite[ 'syncSupport' ], number > = {
+		syncable: 1,
+		'already-connected': 1,
+		'needs-transfer': 2,
+		unsupported: 3,
+	};
+
 	return [ ...sites ].sort( ( a, b ) => {
-		if ( a.syncSupport === 'unsupported' && b.syncSupport === 'unsupported' ) {
-			return 0;
-		}
-		if ( a.syncSupport === 'unsupported' ) {
-			return 1;
-		}
-		if ( b.syncSupport === 'unsupported' ) {
-			return -1;
-		}
-		if ( a.syncSupport === 'needs-transfer' && b.syncSupport === 'needs-transfer' ) {
-			return 0;
-		}
-		if ( a.syncSupport === 'needs-transfer' ) {
-			return 1;
-		}
-		if ( b.syncSupport === 'needs-transfer' ) {
-			return -1;
-		}
-		return 0;
+		return ( order[ a.syncSupport ] || 1 ) - ( order[ b.syncSupport ] || 1 );
 	} );
 };
 

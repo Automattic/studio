@@ -109,9 +109,7 @@ const getSortedSites = ( sites: SyncSite[] ) => {
 		unsupported: 3,
 	};
 
-	return [ ...sites ].sort( ( a, b ) => {
-		return ( order[ a.syncSupport ] || 1 ) - ( order[ b.syncSupport ] || 1 );
-	} );
+	return [ ...sites ].sort( ( a, b ) => order[ a.syncSupport ] - order[ b.syncSupport ] );
 };
 
 function ListSites( {

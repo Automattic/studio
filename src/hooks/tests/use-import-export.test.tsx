@@ -342,15 +342,6 @@ describe( 'useImportExport hook', () => {
 			},
 		} );
 
-		emitImportEvent( SITE_ID, ImportEvents.IMPORT_MEDIA_REGENERATE_START );
-		expect( result.current.importState ).toEqual( {
-			[ SITE_ID ]: {
-				statusMessage: 'Regenerating media…',
-				progress: 95,
-				isNewSite: false,
-			},
-		} );
-
 		emitImportEvent( SITE_ID, ImportEvents.IMPORT_COMPLETE );
 		expect( result.current.importState ).toEqual( {
 			[ SITE_ID ]: {

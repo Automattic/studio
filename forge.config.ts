@@ -47,9 +47,16 @@ const config: ForgeConfig = {
 			// If a rejection occur, we can look at using a post build hook to convert to AppX instead.
 			//
 			// Notes:
+			//
 			// - I tried with publisher only, to see if it skipped code signing, but it looks like the process required user input in CI...
 			//   > When asked to enter a password, please select "None".
 			//   I wonder if there's a way to pass that via CI...
+			//
+			// - The certificate.pfx stored in S3 does not match (or has some other issue with)
+			//   the publisher 'CN=E2E5A157-746D-4B04-9116-ABE5CB928306'.
+			//   See https://buildkite.com/automattic/studio/builds/3035#0192df1a-3ad9-4c15-9843-e7b16fd84448
+			//
+			// - Using publisher 'Automattic Inc. etc etc' results in a successful code sign, but Partner Center rejects the build.
 			publisher: 'CN=E2E5A157-746D-4B04-9116-ABE5CB928306',
 			devCert: 'certificate.pfx',
 			certPass: process.env.WINDOWS_CODE_SIGNING_CERT_PASSWORD,

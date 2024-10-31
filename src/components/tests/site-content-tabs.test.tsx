@@ -1,6 +1,7 @@
 import { act, render, screen } from '@testing-library/react';
 import { useFeatureFlags } from '../../hooks/use-feature-flags';
 import { useSiteDetails } from '../../hooks/use-site-details';
+import { getIpcApi } from '../../lib/get-ipc-api';
 import { SiteContentTabs } from '../site-content-tabs';
 
 const selectedSite = {
@@ -27,6 +28,12 @@ jest.mock( '../../hooks/use-archive-site', () => ( {
 jest.mock( '../../lib/app-globals', () => ( {
 	...jest.requireActual( '../../lib/app-globals' ),
 	getAppGlobals: jest.fn().mockReturnValue( { locale: ' en' } ),
+} ) );
+jest.mock( '../../lib/get-ipc-api', () => ( {
+	...jest.requireActual( '../../lib/get-ipc-api' ),
+	getIpcApi: jest.fn().mockReturnValue( {
+		getConnectedWpcomSites: jest.fn().mockResolvedValue( [] ),
+	} ),
 } ) );
 
 ( useFeatureFlags as jest.Mock ).mockReturnValue( {} );

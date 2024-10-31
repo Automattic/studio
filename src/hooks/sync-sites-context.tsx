@@ -1,3 +1,4 @@
+import { useI18n } from '@wordpress/react-i18n';
 import React, { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { useAuth } from './use-auth';
@@ -30,6 +31,7 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 }
 
 function useSyncPull() {
+	const { __ } = useI18n();
 	const { client } = useAuth();
 	const [ pullStates, setPullStates ] = useState< Record< number, SiteBackupState > >( {} );
 	const { importFile } = useImportExport();
@@ -72,9 +74,13 @@ function useSyncPull() {
 						status: pullStatesProgressInfo.failed,
 					},
 				} ) );
+				getIpcApi().showErrorMessageBox( {
+					title: __( 'Failed to pull backup' ),
+					message: error instanceof Error ? error.message : __( 'Unknown error' ),
+				} );
 			}
 		},
-		[ client, pullStatesProgressInfo ]
+		[ __, client, pullStatesProgressInfo ]
 	);
 
 	const onBackupCompleted = useCallback(

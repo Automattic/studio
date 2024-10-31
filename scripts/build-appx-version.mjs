@@ -49,6 +49,8 @@ const windowsStoreConfig = {
 
 console.log( 'Creating unsigned .appx / .appxbundle for Microsoft Store submission upload...' );
 
+const appxBundleName = packageJson.productName + '-appx';
+
 await convertToWindowsStore( {
 	...windowsStoreConfig,
 	packageDisplayName: 'Studio by WordPress.com',

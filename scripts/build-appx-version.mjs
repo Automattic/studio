@@ -1,8 +1,7 @@
-import { spawn } from "child_process";
+import { fileURLToPath } from `url`;
 import convertToWindowsStore from "electron2appx";
 import fs from "fs/promises";
 import path from "path";
-import { fileURLToPath } from "url";
 import xml2js from "xml2js";
 
 // FIXME: Read from location shared with what CI uses via .buildkite/commands/install-windows-10-sdk.ps1

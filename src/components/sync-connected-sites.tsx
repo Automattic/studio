@@ -142,8 +142,8 @@ export function SyncConnectedSites( {
 								</Button>
 								<div className="flex gap-2 pl-4 ml-auto">
 									{ isKeyPulling( pullStates[ connectedSite.id ]?.status.key ) ? (
-										<div className="flex flex-col gap-2">
-											<div className="a8c-label-semibold">
+										<div className="flex flex-col gap-2 min-w-44">
+											<div className="a8c-body-small">
 												{ pullStates[ connectedSite.id ]?.status.message }
 											</div>
 											<ProgressBar

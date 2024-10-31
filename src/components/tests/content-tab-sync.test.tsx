@@ -1,14 +1,16 @@
 // To run tests, execute `npm run test -- src/components/tests/content-tab-sync.test.tsx` from the root directory
 import { render, screen, fireEvent } from '@testing-library/react';
-import { SyncSitesProvider } from '../../hooks/sync-sites-context';
+import { SyncSitesProvider, useSyncSites } from '../../hooks/sync-sites-context';
 import { useAuth } from '../../hooks/use-auth';
-import { useSiteSyncManagement } from '../../hooks/use-site-sync-management';
 import { getIpcApi } from '../../lib/get-ipc-api';
 import { ContentTabSync } from '../content-tab-sync';
 
 jest.mock( '../../hooks/use-auth' );
 jest.mock( '../../lib/get-ipc-api' );
-jest.mock( '../../hooks/use-site-sync-management' );
+jest.mock( '../../hooks/sync-sites-context', () => ( {
+	...jest.requireActual( '../../hooks/sync-sites-context' ),
+	useSyncSites: jest.fn(),
+} ) );
 
 const selectedSite: SiteDetails = {
 	name: 'Test Site',
@@ -29,9 +31,12 @@ describe( 'ContentTabSync', () => {
 			generateProposedSitePath: jest.fn(),
 			showMessageBox: jest.fn(),
 		} );
-		( useSiteSyncManagement as jest.Mock ).mockReturnValue( {
+		( useSyncSites as jest.Mock ).mockReturnValue( {
 			connectedSites: [],
 			syncSites: [],
+			pullSite: jest.fn(),
+			pullStates: {},
+			isAnySitePulling: false,
 		} );
 	} );
 
@@ -93,9 +98,12 @@ describe( 'ContentTabSync', () => {
 			syncSupport: 'syncable',
 		};
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
-		( useSiteSyncManagement as jest.Mock ).mockReturnValue( {
+		( useSyncSites as jest.Mock ).mockReturnValue( {
 			connectedSites: [ fakeSyncSite ],
 			syncSites: [ fakeSyncSite ],
+			pullSite: jest.fn(),
+			pullStates: {},
+			isAnySitePulling: false,
 		} );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
@@ -125,9 +133,12 @@ describe( 'ContentTabSync', () => {
 			syncSupport: 'syncable',
 		};
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
-		( useSiteSyncManagement as jest.Mock ).mockReturnValue( {
+		( useSyncSites as jest.Mock ).mockReturnValue( {
 			connectedSites: [ fakeSyncSite ],
 			syncSites: [ fakeSyncSite ],
+			pullSite: jest.fn(),
+			pullStates: {},
+			isAnySitePulling: false,
 		} );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
@@ -159,9 +170,12 @@ describe( 'ContentTabSync', () => {
 		};
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
 
-		( useSiteSyncManagement as jest.Mock ).mockReturnValue( {
+		( useSyncSites as jest.Mock ).mockReturnValue( {
 			connectedSites: [ fakeProductionSite, fakeStagingSite ],
 			syncSites: [ fakeProductionSite ],
+			pullSite: jest.fn(),
+			pullStates: {},
+			isAnySitePulling: false,
 		} );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 

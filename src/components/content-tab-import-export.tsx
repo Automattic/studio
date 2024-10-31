@@ -5,6 +5,7 @@ import { Icon, download } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useRef } from 'react';
 import { ACCEPTED_IMPORT_FILE_TYPES, STUDIO_DOCS_URL_IMPORT_EXPORT } from '../constants';
+import { useSyncSites } from '../hooks/sync-sites-context';
 import { useConfirmationDialog } from '../hooks/use-confirmation-dialog';
 import { useDragAndDropFile } from '../hooks/use-drag-and-drop-file';
 import { useImportExport } from '../hooks/use-import-export';
@@ -104,6 +105,7 @@ const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 	const { startServer, loadingServer } = useSiteDetails();
 	const { importState, importFile, clearImportState, exportState } = useImportExport();
 	const { [ props.selectedSite.id ]: currentProgress } = importState;
+	const { isAnySitePulling } = useSyncSites();
 	const isSiteExporting =
 		exportState[ props.selectedSite?.id ] && exportState[ props.selectedSite?.id ].progress < 100;
 
@@ -157,7 +159,7 @@ const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 	const startLoadingCursorClassName =
 		loadingServer[ props.selectedSite.id ] && 'animate-pulse duration-100 cursor-wait';
 
-	const isImporting = currentProgress?.progress < 100;
+	const isImporting = currentProgress?.progress < 100 && ! isAnySitePulling;
 	const isImported = currentProgress?.progress === 100 && ! isDraggingOver;
 	const isInitial = ! isImporting && ! isImported;
 	return (
@@ -180,7 +182,7 @@ const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 				<InitialImportButton
 					isInitial={ isInitial }
 					openFileSelector={ openFileSelector }
-					disabled={ isSiteExporting }
+					disabled={ isSiteExporting || isAnySitePulling }
 				>
 					<div
 						className={ cx(

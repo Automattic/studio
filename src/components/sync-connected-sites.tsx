@@ -5,6 +5,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useMemo } from 'react';
 import { useSyncSites } from '../hooks/sync-sites-context';
 import { SyncSite } from '../hooks/use-fetch-wpcom-sites';
+import { useSyncStatesProgressInfo } from '../hooks/use-sync-states-progress-info';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { ArrowIcon } from './arrow-icon';
 import { Badge } from './badge';
@@ -32,6 +33,7 @@ export function SyncConnectedSites( {
 } ) {
 	const { __ } = useI18n();
 	const { pullSite, pullStates } = useSyncSites();
+	const { isKeyPulling } = useSyncStatesProgressInfo();
 	const siteSections: ConnectedSiteSection[] = useMemo( () => {
 		const siteSections: ConnectedSiteSection[] = [];
 		const processedSites = new Set< number >();
@@ -138,9 +140,7 @@ export function SyncConnectedSites( {
 									<span className="truncate">{ connectedSite.url }</span> <ArrowIcon />
 								</Button>
 								<div className="flex gap-2 pl-4 ml-auto">
-									{ [ 'in-progress', 'backup-sync-downloading', 'backup-sync-importing' ].includes(
-										pullStates[ connectedSite.id ]?.status.key
-									) ? (
+									{ isKeyPulling( pullStates[ connectedSite.id ]?.status.key ) ? (
 										<div className="flex flex-col gap-2">
 											<div className="a8c-label-semibold">
 												{ pullStates[ connectedSite.id ]?.status.message }

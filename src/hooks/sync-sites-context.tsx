@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { useAuth } from './use-auth';
 import { useImportExport } from './use-import-export';
@@ -14,15 +14,16 @@ export type SiteBackupState = {
 type SyncSitesContextType = {
 	pullStates: Record< number, SiteBackupState >;
 	pullSite: ( remoteSiteId: number, selectedSite: SiteDetails ) => Promise< void >;
+	isAnySitePulling: boolean;
 };
 
 const SyncSitesContext = createContext< SyncSitesContextType | undefined >( undefined );
 
 export function SyncSitesProvider( { children }: { children: React.ReactNode } ) {
-	const { pullStates, pullSite } = useSyncPull();
+	const { pullStates, pullSite, isAnySitePulling } = useSyncPull();
 
 	return (
-		<SyncSitesContext.Provider value={ { pullStates, pullSite } }>
+		<SyncSitesContext.Provider value={ { pullStates, pullSite, isAnySitePulling } }>
 			{ children }
 		</SyncSitesContext.Provider>
 	);
@@ -32,7 +33,7 @@ function useSyncPull() {
 	const { client } = useAuth();
 	const [ pullStates, setPullStates ] = useState< Record< number, SiteBackupState > >( {} );
 	const { importFile } = useImportExport();
-	const pullStatesInfo = useSyncStatesProgressInfo();
+	const { pullStatesProgressInfo, isKeyPulling } = useSyncStatesProgressInfo();
 
 	const pullSite = useCallback(
 		async ( remoteSiteId: number, selectedSite: SiteDetails ) => {
@@ -43,7 +44,7 @@ function useSyncPull() {
 				...prevStates,
 				[ remoteSiteId ]: {
 					backupId: null,
-					status: pullStatesInfo[ 'in-progress' ],
+					status: pullStatesProgressInfo[ 'in-progress' ],
 					downloadUrl: null,
 					selectedSite,
 				},
@@ -66,11 +67,14 @@ function useSyncPull() {
 				console.error( error );
 				setPullStates( ( prevStates ) => ( {
 					...prevStates,
-					[ remoteSiteId ]: { ...prevStates[ remoteSiteId ], status: pullStatesInfo.failed },
+					[ remoteSiteId ]: {
+						...prevStates[ remoteSiteId ],
+						status: pullStatesProgressInfo.failed,
+					},
 				} ) );
 			}
 		},
-		[ client, pullStatesInfo ]
+		[ client, pullStatesProgressInfo ]
 	);
 
 	const onBackupCompleted = useCallback(
@@ -79,7 +83,7 @@ function useSyncPull() {
 				...prevStates,
 				[ remoteSiteId ]: {
 					...prevStates[ remoteSiteId ],
-					status: pullStatesInfo.completed,
+					status: pullStatesProgressInfo.completed,
 					downloadUrl,
 				},
 			} ) );
@@ -90,7 +94,7 @@ function useSyncPull() {
 				...prevStates,
 				[ remoteSiteId ]: {
 					...prevStates[ remoteSiteId ],
-					status: pullStatesInfo.importing,
+					status: pullStatesProgressInfo.importing,
 					downloadUrl,
 				},
 			} ) );
@@ -107,7 +111,7 @@ function useSyncPull() {
 				...prevStates,
 				[ remoteSiteId ]: {
 					...prevStates[ remoteSiteId ],
-					status: pullStatesInfo.finished,
+					status: pullStatesProgressInfo.finished,
 				},
 			} ) );
 			setTimeout( () => {
@@ -118,7 +122,12 @@ function useSyncPull() {
 				} );
 			}, 1000 );
 		},
-		[ importFile, pullStatesInfo.completed, pullStatesInfo.finished, pullStatesInfo.importing ]
+		[
+			importFile,
+			pullStatesProgressInfo.completed,
+			pullStatesProgressInfo.finished,
+			pullStatesProgressInfo.importing,
+		]
 	);
 
 	const getBackup = useCallback(
@@ -139,7 +148,8 @@ function useSyncPull() {
 				backup_id: backupId,
 			} );
 
-			const statusWithProgress = pullStatesInfo[ response.status ] || pullStatesInfo.failed;
+			const statusWithProgress =
+				pullStatesProgressInfo[ response.status ] || pullStatesProgressInfo.failed;
 			const hasBackupCompleted = response.status === 'completed';
 			const downloadUrl = hasBackupCompleted ? response.download_url : null;
 
@@ -161,7 +171,7 @@ function useSyncPull() {
 				onBackupCompleted( remoteSiteId, downloadUrl, selectedSite );
 			}
 		},
-		[ client, pullStates, pullStatesInfo, onBackupCompleted ]
+		[ client, pullStates, pullStatesProgressInfo, onBackupCompleted ]
 	);
 
 	useEffect( () => {
@@ -180,7 +190,11 @@ function useSyncPull() {
 		};
 	}, [ pullStates, getBackup ] );
 
-	return { pullStates, pullSite };
+	const isAnySitePulling = useMemo( () => {
+		return Object.values( pullStates ).some( ( state ) => isKeyPulling( state.status.key ) );
+	}, [ pullStates, isKeyPulling ] );
+
+	return { pullStates, pullSite, isAnySitePulling };
 }
 
 export function useSyncSites() {

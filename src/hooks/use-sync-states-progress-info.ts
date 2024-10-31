@@ -45,5 +45,14 @@ export function useSyncStatesProgressInfo() {
 		} as const;
 	}, [ __ ] );
 
-	return pullStatesProgressInfo;
+	const isKeyPulling = ( key: PullStateProgressInfo[ 'key' ] ) => {
+		const pullingStateKeys: PullStateProgressInfo[ 'key' ][] = [
+			'in-progress',
+			'backup-sync-downloading',
+			'backup-sync-importing',
+		];
+		return pullingStateKeys.includes( key );
+	};
+
+	return { pullStatesProgressInfo, isKeyPulling };
 }

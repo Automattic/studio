@@ -9,6 +9,7 @@ import { ArrowIcon } from './arrow-icon';
 import { Badge } from './badge';
 import Button from './button';
 import { WordPressLogoCircle } from './wordpress-logo-circle';
+import Tooltip from './tooltip';
 
 interface ConnectedSiteSection {
 	id: number;
@@ -123,16 +124,17 @@ export function SyncConnectedSites( {
 									) }
 								</div>
 
-								<Button
-									variant="link"
-									className="!text-a8c-gray-70 hover:!text-a8c-blueberry truncate"
-									onClick={ () => {
-										getIpcApi().openURL( connectedSite.url );
-									} }
-									title={ connectedSite.url }
-								>
-									<span className="truncate">{ connectedSite.url }</span> <ArrowIcon />
-								</Button>
+								<Tooltip text={ connectedSite.url }>
+									<Button
+										variant="link"
+										className="!text-a8c-gray-70 hover:!text-a8c-blueberry truncate"
+										onClick={ () => {
+											getIpcApi().openURL( connectedSite.url );
+										} }
+									>
+										<span className="truncate">{ connectedSite.url }</span> <ArrowIcon />
+									</Button>
+								</Tooltip>
 								<div className="flex gap-2 pl-4 ml-auto shrink-0">
 									<Button variant="link" className="!text-black hover:!text-a8c-blueberry">
 										<Icon icon={ cloudDownload } />

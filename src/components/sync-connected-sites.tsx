@@ -32,7 +32,7 @@ export function SyncConnectedSites( {
 	selectedSite: SiteDetails;
 } ) {
 	const { __ } = useI18n();
-	const { pullSite, pullStates } = useSyncSites();
+	const { pullSite, pullStates, isAnySitePulling } = useSyncSites();
 	const { isKeyPulling } = useSyncStatesProgressInfo();
 	const siteSections: ConnectedSiteSection[] = useMemo( () => {
 		const siteSections: ConnectedSiteSection[] = [];
@@ -111,6 +111,7 @@ export function SyncConnectedSites( {
 								variant="link"
 								className="!ml-auto !text-a8c-gray-70 hover:!text-a8c-red-50 "
 								onClick={ () => handleDisconnectSite( section.id, section.name ) }
+								disabled={ isAnySitePulling }
 							>
 								{ __( 'Disconnect' ) }
 							</Button>
@@ -158,11 +159,16 @@ export function SyncConnectedSites( {
 												onClick={ () => {
 													pullSite( connectedSite.id, selectedSite );
 												} }
+												disabled={ isAnySitePulling }
 											>
 												<Icon icon={ cloudDownload } />
 												{ __( 'Pull' ) }
 											</Button>
-											<Button variant="link" className="!text-black hover:!text-a8c-blueberry">
+											<Button
+												variant="link"
+												className="!text-black hover:!text-a8c-blueberry"
+												disabled={ isAnySitePulling }
+											>
 												<Icon icon={ cloudUpload } />
 												{ __( 'Push' ) }
 											</Button>

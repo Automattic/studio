@@ -48,13 +48,13 @@ describe( 'ContentTabSync', () => {
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 		expect( screen.getByText( 'Sync with' ) ).toBeInTheDocument();
 
-		const loginButton = screen.getByRole( 'button', { name: 'Log in to WordPress.com ↗' } );
+		const loginButton = screen.getByRole( 'button', { name: /Log in to WordPress.com/i } );
 		expect( loginButton ).toBeInTheDocument();
 
 		fireEvent.click( loginButton );
 		expect( useAuth().authenticate ).toHaveBeenCalled();
 
-		const freeAccountButton = screen.getByRole( 'button', { name: 'Create a free account ↗' } );
+		const freeAccountButton = screen.getByRole( 'button', { name: /Create a free account/i } );
 		expect( freeAccountButton ).toBeInTheDocument();
 
 		fireEvent.click( freeAccountButton );
@@ -64,7 +64,7 @@ describe( 'ContentTabSync', () => {
 	it( 'displays create new site button to authenticated user', () => {
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
-		const createSiteButton = screen.getByRole( 'button', { name: 'Create new site ↗' } );
+		const createSiteButton = screen.getByRole( 'button', { name: /Create new site/i } );
 		fireEvent.click( createSiteButton );
 
 		expect( screen.getByText( 'Sync with' ) ).toBeInTheDocument();
@@ -75,7 +75,7 @@ describe( 'ContentTabSync', () => {
 	it( 'displays connect site button to authenticated user', () => {
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
-		const connectSiteButton = screen.getByRole( 'button', { name: 'Connect site' } );
+		const connectSiteButton = screen.getByRole( 'button', { name: /Connect site/i } );
 
 		expect( connectSiteButton ).toBeInTheDocument();
 	} );
@@ -83,7 +83,7 @@ describe( 'ContentTabSync', () => {
 	it( 'opens the site selector modal to connect a site authenticated user', () => {
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
-		const connectSiteButton = screen.getByRole( 'button', { name: 'Connect site' } );
+		const connectSiteButton = screen.getByRole( 'button', { name: /Connect site/i } );
 		fireEvent.click( connectSiteButton );
 		expect( screen.getByText( 'Connect a WordPress.com site' ) ).toBeInTheDocument();
 	} );
@@ -107,20 +107,11 @@ describe( 'ContentTabSync', () => {
 		} );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
-		const title = screen.getByText( 'My simple business site that needs a transfer' );
-		expect( title ).toBeInTheDocument();
-
-		const disconnectButton = screen.getByRole( 'button', { name: 'Disconnect' } );
-		expect( disconnectButton ).toBeInTheDocument();
-
-		const pullButton = screen.getByRole( 'button', { name: 'Pull' } );
-		expect( pullButton ).toBeInTheDocument();
-
-		const pushButton = screen.getByRole( 'button', { name: 'Push' } );
-		expect( pushButton ).toBeInTheDocument();
-
-		const productionText = screen.getByText( 'Production' );
-		expect( productionText ).toBeInTheDocument();
+		expect( screen.getByText( fakeSyncSite.name ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: /Disconnect/i } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: /Pull/i } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: /Push/i } ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Production' ) ).toBeInTheDocument();
 	} );
 
 	it( 'opens URL for connected sites', async () => {
@@ -142,13 +133,11 @@ describe( 'ContentTabSync', () => {
 		} );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
-		const urlButton = screen.getByRole( 'button', {
-			name: 'https:/developer.wordpress.com/studio/ ↗',
-		} );
+		const urlButton = screen.getByRole( 'button', { name: new RegExp( fakeSyncSite.url, 'i' ) } );
 		expect( urlButton ).toBeInTheDocument();
 
 		fireEvent.click( urlButton );
-		expect( getIpcApi().openURL ).toHaveBeenCalledWith( 'https:/developer.wordpress.com/studio/' );
+		expect( getIpcApi().openURL ).toHaveBeenCalledWith( fakeSyncSite.url );
 	} );
 
 	it( 'displays both production and staging sites when a production site is connected', async () => {
@@ -179,29 +168,21 @@ describe( 'ContentTabSync', () => {
 		} );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
-		// Check for production site
-		const productionTitle = screen.getByText( 'My simple business site' );
-		expect( productionTitle ).toBeInTheDocument();
-		const productionText = screen.getByText( 'Production' );
-		expect( productionText ).toBeInTheDocument();
+		expect( screen.getByText( fakeProductionSite.name ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Production' ) ).toBeInTheDocument();
 
-		// Check for staging site where title is not displayed
-		const stagingTitle = screen.queryByText( 'Staging: My simple business site' );
-		expect( stagingTitle ).not.toBeInTheDocument();
-		const stagingText = screen.getByText( 'Staging' );
-		expect( stagingText ).toBeInTheDocument();
+		expect( screen.queryByText( fakeStagingSite.name ) ).not.toBeInTheDocument();
+		expect( screen.getByText( 'Staging' ) ).toBeInTheDocument();
 
-		// Check for buttons on both sites, with only one disconnect button
-		const disconnectButtons = screen.getAllByRole( 'button', { name: 'Disconnect' } );
+		const disconnectButtons = screen.getAllByRole( 'button', { name: /Disconnect/i } );
 		expect( disconnectButtons ).toHaveLength( 1 );
 
-		const pullButtons = screen.getAllByRole( 'button', { name: 'Pull' } );
+		const pullButtons = screen.getAllByRole( 'button', { name: /Pull/i } );
 		expect( pullButtons ).toHaveLength( 2 );
 
-		const pushButtons = screen.getAllByRole( 'button', { name: 'Push' } );
+		const pushButtons = screen.getAllByRole( 'button', { name: /Push/i } );
 		expect( pushButtons ).toHaveLength( 2 );
 
-		// Check for URLs
 		const productionUrl = screen.getAllByRole( 'button', {
 			name: 'https://developer.wordpress.com/studio/ ↗',
 		} );

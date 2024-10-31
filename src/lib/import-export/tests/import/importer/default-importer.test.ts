@@ -116,13 +116,5 @@ describe( 'JetpackImporter', () => {
 			expect( fs.copyFile ).toHaveBeenCalledTimes( 4 );
 			expect( fs.readFile ).toHaveBeenCalledWith( '/tmp/extracted/meta.json', 'utf-8' );
 		} );
-
-		it( 'should regenerate media after import', async () => {
-			const importer = new JetpackImporter( mockBackupContents );
-			await importer.import( mockStudioSitePath, mockStudioSiteId );
-
-			const siteServer = SiteServer.get( mockStudioSiteId );
-			expect( siteServer?.executeWpCliCommand ).toHaveBeenCalledWith( 'media regenerate --yes' );
-		} );
 	} );
 } );

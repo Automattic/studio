@@ -14,12 +14,14 @@ steps:
     key: "dev-windows"
     command: |
       .buildkite/commands/build-for-windows-dev.ps1
-      # Download artifacts to save time when what we need to test is the appx script.
-      # All the build logic has been commented out in the script above, too.
-      # Not sure if these are needed, actually, but downloading them just in case...
-      buildkite-agent artifact download out\make\squirrel.windows\x64\RELEASES . --build 0192dffe-8042-4bfd-a597-77fe403e4328
-      buildkite-agent artifact download out\make\squirrel.windows\x64\studio-setup.exe . --build 0192dffe-8042-4bfd-a597-77fe403e4328
-      buildkite-agent artifact download out\make\squirrel.windows\x64\studio-update.nupkg . --build 0192dffe-8042-4bfd-a597-77fe403e4328
+      # # Download artifacts to save time when what we need to test is the appx script.
+      # # All the build logic has been commented out in the script above, too.
+      # # Not sure if these are needed, actually, but downloading them just in case...
+      # buildkite-agent artifact download out\make\squirrel.windows\x64\RELEASES . --build 0192dffe-8042-4bfd-a597-77fe403e4328
+      # buildkite-agent artifact download out\make\squirrel.windows\x64\studio-setup.exe . --build 0192dffe-8042-4bfd-a597-77fe403e4328
+      # buildkite-agent artifact download out\make\squirrel.windows\x64\studio-update.nupkg . --build 0192dffe-8042-4bfd-a597-77fe403e4328
+      #
+      # Not downloading in this build to see what is in the out folder...
       node scripts/build-appx-version.mjs
     artifact_paths:
       - 'out\**\studio-setup.exe'

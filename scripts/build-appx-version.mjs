@@ -25,7 +25,7 @@ const packageJsonText = await fs.readFile( packageJsonPath, 'utf-8' );
 const packageJson = JSON.parse( packageJsonText );
 
 const outPath = path.join( __dirname, '..', 'out' );
-const assetsPath = path.join( __dirname, '..', 'public', 'assets', 'appx' );
+const assetsPath = path.join( __dirname, '..', 'assets' );
 
 const normalizeWindowsVersion = ( version ) => {
 	const noPrerelease = version.replace( /-.*/, '' );
@@ -36,9 +36,12 @@ const appStoreVersion = normalizeWindowsVersion( packageJson.version );
 
 const windowsStoreConfig = {
 	containerVirtualization: false,
-	inputDirectory: path.resolve( outPath, 'make', 'appx', 'x64', 'pre-appx', 'app' ),
+	//inputDirectory: path.resolve( outPath, 'make', 'appx', 'x64', 'pre-appx', 'app' ),
+	inputDirectory: path.resolve( outPath, 'Studio-win32-x64' ),
 	packageVersion: appStoreVersion,
-	packageName: 'Studio by WordPress.com',
+	// Results in Id being invalid (might just be a matter of escaping, though)
+	// packageName: 'Studio by WordPress.com',
+	packageName: 'Studio',
 	packageDescription: packageJson.description,
 	packageExecutable: `app/${ packageJson.productName }.exe`,
 	windowsKit: windowsKitPath,

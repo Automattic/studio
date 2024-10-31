@@ -139,7 +139,6 @@
 		"unzipper": "0.10.11",
 		"url-loader": "^4.1.1",
 		"wpcom": "^5.4.2",
-		"xml2js": "^0.6.2",
 		"yargs": "17.7.2"
 	},
 	"optionalDependencies": {

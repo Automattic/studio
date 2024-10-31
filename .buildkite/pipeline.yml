@@ -12,11 +12,14 @@ env:
 steps:
   - label: "🔨 Windows Dev Build"
     key: "dev-windows"
-    command: .buildkite/commands/build-for-windows-dev.ps1
+    command: |
+      .buildkite/commands/build-for-windows-dev.ps1
+      node scripts/build-appx-version.mjs
     artifact_paths:
       - 'out\**\studio-setup.exe'
       - 'out\**\studio-update.nupkg'
       - 'out\**\RELEASES'
       - 'out\**\*.appx'
+      - 'out\**\*.appxbundle'
     agents:
       queue: windows

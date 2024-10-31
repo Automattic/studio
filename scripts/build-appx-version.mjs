@@ -37,7 +37,7 @@ const appStoreVersion = normalizeWindowsVersion(packageJson.version);
 
 const windowsStoreConfig = {
   containerVirtualization: false,
-  inputDirectory: path.resolve(outPath, `${packageJson.productName}-win32-x64`),
+  inputDirectory: path.resolve(outPath, 'make', 'appx', 'x64', 'pre-appx', 'app'),
   packageVersion: appStoreVersion,
   packageName: "Studio by WordPress.com",
   packageDescription: packageJson.description,

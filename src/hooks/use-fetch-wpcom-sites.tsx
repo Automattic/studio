@@ -21,11 +21,11 @@ type SitesEndpointSite = {
 	is_wpcom_staging_site: boolean;
 	name: string;
 	URL: string;
-	options: {
+	options?: {
 		created_at: string;
 		wpcom_staging_blog_ids: number[];
 	};
-	plan: {
+	plan?: {
 		expired: boolean;
 		features: {
 			active: string[];
@@ -49,7 +49,7 @@ function getSyncSupport( site: SitesEndpointSite, connectedSiteIds: number[] ): 
 	if ( connectedSiteIds.some( ( id ) => id === site.ID ) ) {
 		return 'already-connected';
 	}
-	if ( ! site.plan.features.active.includes( STUDIO_SYNC_FEATURE_NAME ) ) {
+	if ( ! site.plan || ! site.plan.features.active.includes( STUDIO_SYNC_FEATURE_NAME ) ) {
 		return 'unsupported';
 	}
 	if ( ! site.is_wpcom_atomic ) {
@@ -69,7 +69,7 @@ function transformSiteResponse(
 			name: site.name,
 			url: site.URL,
 			isStaging: site.is_wpcom_staging_site,
-			stagingSiteIds: site.options.wpcom_staging_blog_ids,
+			stagingSiteIds: site.options?.wpcom_staging_blog_ids ?? [],
 			syncSupport: getSyncSupport( site, connectedSiteIds ),
 		};
 	} );
@@ -99,6 +99,7 @@ export const useFetchWpComSites = ( connectedSites: SyncSite[] ) => {
 					fields: 'name,ID,URL,plan,is_wpcom_staging_site,is_wpcom_atomic,options',
 					filter: 'atomic,wpcom',
 					options: 'created_at,wpcom_staging_blog_ids',
+					site_visibility: 'visible',
 				}
 			)
 			.then( ( response ) => {

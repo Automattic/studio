@@ -2,42 +2,19 @@ import React, { createContext, useContext, useState, useCallback, useEffect } fr
 import { getIpcApi } from '../lib/get-ipc-api';
 import { useAuth } from './use-auth';
 import { useImportExport } from './use-import-export';
+import { PullStateProgressInfo, useSyncStatesProgressInfo } from './use-sync-states-progress-info';
 
-export const PULL_STATES = {
-	'in-progress': {
-		key: 'in-progress',
-		progress: 30,
-	},
-	// Backup completed on server, downloading on client
-	completed: {
-		key: 'backup-sync-downloading',
-		progress: 60,
-	},
-	importing: {
-		key: 'backup-sync-importing',
-		progress: 80,
-	},
-	finished: {
-		key: 'backup-sync-finished',
-		progress: 100,
-	},
-	failed: {
-		key: 'failed',
-		progress: 100,
-	},
-} as const;
-
-interface SiteBackupState {
+export type SiteBackupState = {
 	backupId: string | null;
-	status: ( typeof PULL_STATES )[ keyof typeof PULL_STATES ];
+	status: PullStateProgressInfo;
 	downloadUrl: string | null;
 	selectedSite: SiteDetails;
-}
+};
 
-interface SyncSitesContextType {
+type SyncSitesContextType = {
 	pullStates: Record< number, SiteBackupState >;
 	pullSite: ( remoteSiteId: number, selectedSite: SiteDetails ) => Promise< void >;
-}
+};
 
 const SyncSitesContext = createContext< SyncSitesContextType | undefined >( undefined );
 
@@ -55,6 +32,7 @@ function useSyncPull() {
 	const { client } = useAuth();
 	const [ pullStates, setPullStates ] = useState< Record< number, SiteBackupState > >( {} );
 	const { importFile } = useImportExport();
+	const pullStatesInfo = useSyncStatesProgressInfo();
 
 	const pullSite = useCallback(
 		async ( remoteSiteId: number, selectedSite: SiteDetails ) => {
@@ -65,7 +43,7 @@ function useSyncPull() {
 				...prevStates,
 				[ remoteSiteId ]: {
 					backupId: null,
-					status: PULL_STATES[ 'in-progress' ],
+					status: pullStatesInfo[ 'in-progress' ],
 					downloadUrl: null,
 					selectedSite,
 				},
@@ -88,16 +66,35 @@ function useSyncPull() {
 				console.error( error );
 				setPullStates( ( prevStates ) => ( {
 					...prevStates,
-					[ remoteSiteId ]: { ...prevStates[ remoteSiteId ], status: PULL_STATES.failed },
+					[ remoteSiteId ]: { ...prevStates[ remoteSiteId ], status: pullStatesInfo.failed },
 				} ) );
 			}
 		},
-		[ client ]
+		[ client, pullStatesInfo ]
 	);
 
 	const onBackupCompleted = useCallback(
 		async ( remoteSiteId: number, downloadUrl: string, selectedSite: SiteDetails ) => {
+			setPullStates( ( prevStates ) => ( {
+				...prevStates,
+				[ remoteSiteId ]: {
+					...prevStates[ remoteSiteId ],
+					status: pullStatesInfo.completed,
+					downloadUrl,
+				},
+			} ) );
+
 			const filePath = await getIpcApi().downloadSyncBackup( remoteSiteId, downloadUrl );
+
+			setPullStates( ( prevStates ) => ( {
+				...prevStates,
+				[ remoteSiteId ]: {
+					...prevStates[ remoteSiteId ],
+					status: pullStatesInfo.importing,
+					downloadUrl,
+				},
+			} ) );
+
 			await importFile(
 				{
 					path: filePath,
@@ -105,11 +102,12 @@ function useSyncPull() {
 				},
 				selectedSite
 			);
+
 			setPullStates( ( prevStates ) => ( {
 				...prevStates,
 				[ remoteSiteId ]: {
 					...prevStates[ remoteSiteId ],
-					status: PULL_STATES.finished,
+					status: pullStatesInfo.finished,
 				},
 			} ) );
 			setTimeout( () => {
@@ -120,7 +118,7 @@ function useSyncPull() {
 				} );
 			}, 1000 );
 		},
-		[ importFile ]
+		[ importFile, pullStatesInfo.completed, pullStatesInfo.finished, pullStatesInfo.importing ]
 	);
 
 	const getBackup = useCallback(
@@ -141,7 +139,7 @@ function useSyncPull() {
 				backup_id: backupId,
 			} );
 
-			const statusWithProgress = PULL_STATES[ response.status ] || PULL_STATES.failed;
+			const statusWithProgress = pullStatesInfo[ response.status ] || pullStatesInfo.failed;
 			const hasBackupCompleted = response.status === 'completed';
 			const downloadUrl = hasBackupCompleted ? response.download_url : null;
 
@@ -160,18 +158,10 @@ function useSyncPull() {
 				if ( ! selectedSite ) {
 					return;
 				}
-				setPullStates( ( prevStates ) => ( {
-					...prevStates,
-					[ remoteSiteId ]: {
-						...prevStates[ remoteSiteId ],
-						status: PULL_STATES.importing,
-						downloadUrl,
-					},
-				} ) );
 				onBackupCompleted( remoteSiteId, downloadUrl, selectedSite );
 			}
 		},
-		[ client, pullStates, onBackupCompleted ]
+		[ client, pullStates, pullStatesInfo, onBackupCompleted ]
 	);
 
 	useEffect( () => {

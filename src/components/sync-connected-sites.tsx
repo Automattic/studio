@@ -138,14 +138,13 @@ export function SyncConnectedSites( {
 									<span className="truncate">{ connectedSite.url }</span> <ArrowIcon />
 								</Button>
 								<div className="flex gap-2 pl-4 ml-auto">
-									<div className="a8c-label-semibold">
-										{ pullStates[ connectedSite.id ]?.status.key }
-									</div>
 									{ [ 'in-progress', 'backup-sync-downloading', 'backup-sync-importing' ].includes(
 										pullStates[ connectedSite.id ]?.status.key
 									) ? (
 										<div className="flex flex-col gap-2">
-											<div className="a8c-label-semibold">{ __( 'Pulling changes…' ) }</div>
+											<div className="a8c-label-semibold">
+												{ pullStates[ connectedSite.id ]?.status.message }
+											</div>
 											<ProgressBar
 												value={ pullStates[ connectedSite.id ]?.status.progress }
 												maxValue={ 100 }

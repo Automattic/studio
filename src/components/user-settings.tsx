@@ -150,6 +150,7 @@ const SnapshotInfo = ( {
 function PromptInfo() {
 	const { __ } = useI18n();
 	const { promptCount, promptLimit } = usePromptUsage();
+	const isOffline = useOffline();
 
 	return (
 		<div className="flex gap-3 flex-col">
@@ -159,7 +160,9 @@ function PromptInfo() {
 					<div className="flex w-full flex-row justify-between gap-8 ">
 						<div className="flex flex-row items-center text-right">
 							<span className="text-a8c-gray-70">
-								{ sprintf( __( '%1s of %2s monthly prompts used' ), promptCount, promptLimit ) }
+								{ isOffline
+									? __( "You're currently offline" )
+									: sprintf( __( '%1s of %2s monthly prompts used' ), promptCount, promptLimit ) }
 							</span>
 						</div>
 					</div>

@@ -8,8 +8,8 @@ import { getIpcApi } from '../lib/get-ipc-api';
 import { ArrowIcon } from './arrow-icon';
 import { Badge } from './badge';
 import Button from './button';
-import { WordPressLogoCircle } from './wordpress-logo-circle';
 import Tooltip from './tooltip';
+import { WordPressLogoCircle } from './wordpress-logo-circle';
 
 interface ConnectedSiteSection {
 	id: number;
@@ -124,10 +124,10 @@ export function SyncConnectedSites( {
 									) }
 								</div>
 
-								<Tooltip text={ connectedSite.url }>
+								<Tooltip text={ connectedSite.url } className="overflow-hidden">
 									<Button
 										variant="link"
-										className="!text-a8c-gray-70 hover:!text-a8c-blueberry truncate"
+										className="!text-a8c-gray-70 hover:!text-a8c-blueberry max-w-[100%]"
 										onClick={ () => {
 											getIpcApi().openURL( connectedSite.url );
 										} }

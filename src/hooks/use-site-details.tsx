@@ -87,11 +87,11 @@ function useDeleteSite() {
 
 	const deleteSite = useCallback(
 		async ( siteId: string, removeLocal: boolean ): Promise< SiteDetails[] | undefined > => {
-			const siteSnapshots = snapshots.filter( ( snapshot ) => snapshot.localSiteId === siteId );
-
 			if ( ! siteId ) {
 				return;
 			}
+
+			const siteSnapshots = snapshots.filter( ( snapshot ) => snapshot.localSiteId === siteId );
 			const allSiteRemovePromises = Promise.allSettled(
 				siteSnapshots.map( ( snapshot ) => deleteSnapshot( snapshot, removeLocal ) )
 			);
@@ -104,13 +104,12 @@ function useDeleteSite() {
 				const connectedSiteIds = connectedSites.map( ( site ) => site.id );
 				await getIpcApi().disconnectWpcomSite( connectedSiteIds, siteId );
 
-				// Then delete the site and its snapshots
 				const newSites = await getIpcApi().deleteSite( siteId, removeLocal );
 				await allSiteRemovePromises;
 				return newSites;
 			} catch ( error ) {
 				console.error( 'Error during site deletion:', error );
-				throw error; // Rethrow to handle in the component
+				throw error;
 			} finally {
 				setIsLoading( ( loading ) => ( { ...loading, [ siteId ]: false } ) );
 			}

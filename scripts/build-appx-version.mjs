@@ -55,7 +55,7 @@ await convertToWindowsStore( {
 	// See details at https://partner.microsoft.com/en-us/dashboard/products/<id>/identity
 	publisher: 'CN=E2E5A157-746D-4B04-9116-ABE5CB928306',
 	publisherDisplayName: 'Automattic, Inc.',
-	identityName: 'Automattic.StudiobyWordPress.com',
+	identityName: '22490Automattic.StudiobyWordPress.com',
 	devCert: 'nil',
 	outputDirectory: path.resolve( outPath, appxBundleName ),
 } );

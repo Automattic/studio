@@ -25,7 +25,7 @@ const packageJsonText = await fs.readFile( packageJsonPath, 'utf-8' );
 const packageJson = JSON.parse( packageJsonText );
 
 const outPath = path.join( __dirname, '..', 'out' );
-const assetsPath = path.join( __dirname, '..', 'assets' );
+const assetsPath = path.join( __dirname, '..', 'assets', 'appx' );
 
 const normalizeWindowsVersion = ( version ) => {
 	const noPrerelease = version.replace( /-.*/, '' );

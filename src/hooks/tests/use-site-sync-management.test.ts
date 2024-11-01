@@ -7,15 +7,7 @@ import { useSiteSyncManagement } from '../use-site-sync-management';
 jest.mock( '../use-auth' );
 jest.mock( '../use-site-details' );
 jest.mock( '../use-fetch-wpcom-sites' );
-jest.mock( '../../lib/get-ipc-api', () => ( {
-	getIpcApi: () => ( {
-		getConnectedWpcomSites: jest.fn().mockResolvedValue( mockConnectedWpcomSites ),
-		connectWpcomSite: jest
-			.fn()
-			.mockResolvedValue( [ ...mockConnectedWpcomSites, { id: 6, stagingSiteIds: [] } ] ),
-		disconnectWpcomSite: jest.fn().mockResolvedValue( mockConnectedWpcomSites.slice( 1 ) ),
-	} ),
-} ) );
+
 export const mockConnectedWpcomSites = [
 	{
 		id: 6,
@@ -45,22 +37,36 @@ export const ConnectedSitesStore = {
 
 const mockSyncSites = [
 	{
-		id: 6,
-		name: 'My simple business site',
-		url: 'https://developer.wordpress.com/studio/',
+		id: 8,
+		localSiteId: '',
+		name: 'My simple store',
+		url: 'https://developer.wordpress.com/studio/store',
 		isStaging: false,
-		stagingSiteIds: [ 7 ],
+		stagingSiteIds: [ 9 ],
 		syncSupport: 'syncable',
 	},
 	{
-		id: 7,
-		name: 'Staging: My simple business site',
-		url: 'https://developer-staging.wordpress.com/studio/',
+		id: 9,
+		localSiteId: '',
+		name: 'Staging: My simple test store',
+		url: 'https://developer-staging.wordpress.com/studio/test-store',
 		isStaging: true,
 		stagingSiteIds: [],
 		syncSupport: 'syncable',
 	},
 ];
+
+const connectWpcomSiteMock = jest
+	.fn()
+	.mockResolvedValue( [ ...mockConnectedWpcomSites, { id: 6, stagingSiteIds: [] } ] );
+
+jest.mock( '../../lib/get-ipc-api', () => ( {
+	getIpcApi: () => ( {
+		getConnectedWpcomSites: jest.fn().mockResolvedValue( mockConnectedWpcomSites ),
+		connectWpcomSite: connectWpcomSiteMock,
+		disconnectWpcomSite: jest.fn().mockResolvedValue( mockConnectedWpcomSites.slice( 1 ) ),
+	} ),
+} ) );
 
 describe( 'useSiteSyncManagement', () => {
 	beforeEach( () => {
@@ -92,6 +98,25 @@ describe( 'useSiteSyncManagement', () => {
 
 		await waitFor( () => {
 			expect( result.current.connectedSites ).toEqual( [] );
+		} );
+	} );
+
+	it( 'connects a site and its staging sites successfully', async () => {
+		const { result } = renderHook( () => useSiteSyncManagement() );
+		const siteToConnect = mockSyncSites[ 0 ];
+
+		await waitFor( async () => {
+			await result.current.connectSite( {
+				...siteToConnect,
+				syncSupport: 'syncable',
+			} );
+		} );
+
+		await waitFor( () => {
+			expect( connectWpcomSiteMock ).toHaveBeenCalledWith(
+				[ siteToConnect, mockSyncSites[ 1 ] ],
+				'788a7e0c-62d2-427e-8b1a-e6d5ac84b61c'
+			);
 		} );
 	} );
 } );

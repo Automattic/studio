@@ -34,9 +34,12 @@ const normalizeWindowsVersion = ( version ) => {
 
 const appStoreVersion = normalizeWindowsVersion( packageJson.version );
 
-const windowsStoreConfig = {
+console.log( 'Creating unsigned .appx / .appxbundle for Microsoft Store submission upload...' );
+
+const appxBundleName = packageJson.productName + '-appx';
+
+await convertToWindowsStore( {
 	containerVirtualization: false,
-	//inputDirectory: path.resolve( outPath, 'make', 'appx', 'x64', 'pre-appx', 'app' ),
 	inputDirectory: path.resolve( outPath, 'Studio-win32-x64' ),
 	packageVersion: appStoreVersion,
 	// Results in Id being invalid (might just be a matter of escaping, though)
@@ -48,14 +51,6 @@ const windowsStoreConfig = {
 	deploy: false,
 	assets: assetsPath,
 	makePri: true,
-};
-
-console.log( 'Creating unsigned .appx / .appxbundle for Microsoft Store submission upload...' );
-
-const appxBundleName = packageJson.productName + '-appx';
-
-await convertToWindowsStore( {
-	...windowsStoreConfig,
 	packageDisplayName: 'Studio by WordPress.com',
 	// See details at https://partner.microsoft.com/en-us/dashboard/products/<id>/identity
 	publisher: 'CN=E2E5A157-746D-4B04-9116-ABE5CB928306',

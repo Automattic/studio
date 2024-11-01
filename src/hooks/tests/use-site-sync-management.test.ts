@@ -56,6 +56,7 @@ const mockSyncSites = [
 	},
 ];
 
+const disconnectWpcomSiteMock = jest.fn().mockResolvedValue( [] );
 const connectWpcomSiteMock = jest
 	.fn()
 	.mockResolvedValue( [ ...mockConnectedWpcomSites, { id: 6, stagingSiteIds: [] } ] );
@@ -64,7 +65,7 @@ jest.mock( '../../lib/get-ipc-api', () => ( {
 	getIpcApi: () => ( {
 		getConnectedWpcomSites: jest.fn().mockResolvedValue( mockConnectedWpcomSites ),
 		connectWpcomSite: connectWpcomSiteMock,
-		disconnectWpcomSite: jest.fn().mockResolvedValue( mockConnectedWpcomSites.slice( 1 ) ),
+		disconnectWpcomSite: disconnectWpcomSiteMock,
 	} ),
 } ) );
 
@@ -118,5 +119,24 @@ describe( 'useSiteSyncManagement', () => {
 				'788a7e0c-62d2-427e-8b1a-e6d5ac84b61c'
 			);
 		} );
+	} );
+
+	it( 'disconnects a site and its staging sites successfully', async () => {
+		const { result } = renderHook( () => useSiteSyncManagement() );
+		const siteToDisconnect = mockConnectedWpcomSites[ 0 ];
+
+		await waitFor( () => {
+			expect( result.current.connectedSites ).toBeDefined();
+			expect( result.current.connectedSites ).toEqual( mockConnectedWpcomSites );
+		} );
+
+		await waitFor( async () => {
+			await result.current.disconnectSite( siteToDisconnect.id );
+		} );
+
+		expect( disconnectWpcomSiteMock ).toHaveBeenCalledWith(
+			[ siteToDisconnect.id, ...siteToDisconnect.stagingSiteIds ],
+			'788a7e0c-62d2-427e-8b1a-e6d5ac84b61c'
+		);
 	} );
 } );

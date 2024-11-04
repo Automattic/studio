@@ -63,7 +63,7 @@ await convertToWindowsStore( {
 	publisher: 'CN=E2E5A157-746D-4B04-9116-ABE5CB928306',
 	publisherDisplayName: 'Automattic, Inc.',
 	identityName: '22490Automattic.StudiobyWordPress.com',
-	devCert: 'nil',
+	devCert: 'nil', // skip code signing for Store upload
 	outputDirectory: path.resolve( outPath, appxBundleName ),
 } );
 

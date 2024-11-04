@@ -41,9 +41,10 @@ const normalizeWindowsVersion = ( version ) => {
 
 const appStoreVersion = normalizeWindowsVersion( packageJson.version );
 
-console.log( 'Creating unsigned .appx / .appxbundle for Microsoft Store submission upload...' );
+const appxName = packageJson.productName + '-appx';
+const appxOutputPath = path.resolve( outPath, appxName );
 
-const appxBundleName = packageJson.productName + '-appx';
+console.log( `Creating unsigned .appx / .appxbundle for Microsoft Store submission upload at ${ appxOutputPath }...` );
 
 await convertToWindowsStore( {
 	containerVirtualization: false,
@@ -64,5 +65,5 @@ await convertToWindowsStore( {
 	publisherDisplayName: 'Automattic, Inc.',
 	identityName: '22490Automattic.StudiobyWordPress.com',
 	devCert: 'nil', // skip code signing for Store upload
-	outputDirectory: path.resolve( outPath, appxBundleName ),
+	outputDirectory: appxOutputPath,
 } );

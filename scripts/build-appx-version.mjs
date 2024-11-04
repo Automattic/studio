@@ -3,6 +3,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import convertToWindowsStore from 'electron2appx';
 
+console.log( '--- :electron: Packaging Appx...' );
+
 const __dirname = path.dirname( fileURLToPath( import.meta.url ) );
 
 const windows10SDKVersionPath = path.resolve( __dirname, '..', '.windows-10-sdk-version' );

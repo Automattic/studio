@@ -63,7 +63,7 @@ const sharedOptions = {
 	windowsKit: windowsKitPath,
 	deploy: false,
 	assets: assetsPath,
-	makePri: true,
+	makePri: false, // from electron2appx docs: "you don't need to unless you know you do"
 	packageDisplayName: 'Studio by WordPress.com',
 	publisherDisplayName: 'Automattic, Inc.',
 	identityName: '22490Automattic.StudiobyWordPress.com',

@@ -1,8 +1,13 @@
 # Stop script execution when a non-terminating error occurs
 $ErrorActionPreference = "Stop"
 
-# TODO: This needs to be read by other files. Extract in a shared location.
-$windows10SDKVersion = "20348"
+$windowsSDKVersionFile = ".windows-10-sdk-version"
+if (-not (Test-Path $windowsSDKVersionFile)) {
+    Write-Output "[!] No Windows 10 SDK version file found at $windowsSDKVersionFile."
+    exit 1
+}
+
+$windows10SDKVersion = Get-Content $windowsSDKVersionFile
 
 Write-Host "--- :wrench: Setting up Windows 10 ($windows10SDKVersion) SDK and Visual Studio Build Tools"
 

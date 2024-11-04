@@ -3,22 +3,29 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import convertToWindowsStore from 'electron2appx';
 
-// FIXME: Read from location shared with what CI uses via .buildkite/commands/install-windows-10-sdk.ps1
-const windows10SDKVersion = '20348';
+const __dirname = path.dirname( fileURLToPath( import.meta.url ) );
+
+const windows10SDKVersionPath = path.resolve( __dirname, '..', '.windows-10-sdk-version' );
+try {
+	await fs.access( windows10SDKVersionPath );
+} catch {
+	console.error( `Windows version defintion not found at ${ windows10SDKVersionPath }.` );
+	process.exit( 1 );
+}
+const windows10SDKVersionContent = await fs.readFile( windows10SDKVersionPath ); //..trim();
+const windows10SDKVersion = windows10SDKVersionContent.toString().trim();
 const windowsKitPath = `C:\\Program Files (x86)\\Windows Kits\\10\\bin\\10.0.${ windows10SDKVersion }.0\\x64`;
 
 console.log( 'Verifying Windows 10 SDK location...' );
 try {
 	await fs.access( windowsKitPath );
-	console.log( 'Windows 10 SDK found. Continuing...' );
+	console.log( `Windows 10 SDK verions ${ windows10SDKVersion } found. Continuing...` );
 } catch {
 	console.error(
 		`Windows Kit not found at ${ windowsKitPath }. Please install the Windows 10 SDK using:\n\n\t.\\.buildkite\\commands\\install-windows-10-sdk.ps1`
 	);
 	process.exit( 1 );
 }
-
-const __dirname = path.dirname( fileURLToPath( import.meta.url ) );
 
 const packageJsonPath = path.resolve( __dirname, '../package.json' );
 const packageJsonText = await fs.readFile( packageJsonPath, 'utf-8' );

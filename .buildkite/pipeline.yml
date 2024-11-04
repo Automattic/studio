@@ -13,6 +13,7 @@ steps:
   - label: "🔨 Windows Dev Build"
     key: "dev-windows"
     command: |
+      set -e
       .buildkite/commands/build-for-windows-dev.ps1
       node scripts/build-appx-version.mjs
     artifact_paths:
@@ -27,6 +28,7 @@ steps:
   - label: "🔨 Windows Release Build"
     key: "windows"
     command: |
+      set -e
       .buildkite/commands/build-for-windows-release.ps1
       node scripts/build-appx-version.mjs
     artifact_paths:

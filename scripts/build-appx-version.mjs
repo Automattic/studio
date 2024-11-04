@@ -66,11 +66,3 @@ await convertToWindowsStore( {
 	devCert: 'nil', // skip code signing for Store upload
 	outputDirectory: path.resolve( outPath, appxBundleName ),
 } );
-
-console.log( 'Converting .appx to .appxbundle...' );
-
-const appxFile = path.resolve(
-	outPath,
-	appxBundleName,
-	`studio-${ appStoreVersion }-unsigned.appx`
-);

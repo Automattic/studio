@@ -125,11 +125,14 @@ steps:
 
   - label: 🔨 Windows Dev Build
     key: dev-windows
-    command: .buildkite/commands/build-for-windows-dev.ps1
+    command: |
+      .buildkite/commands/build-for-windows-dev.ps1
+      node scripts/package-appx.mjs
     artifact_paths:
       - out\**\studio-setup.exe
       - out\**\studio-update.nupkg
       - out\**\RELEASES
+      - out\**\*.appx
     agents:
       queue: windows
     if: build.tag !~ /^v[0-9]+/
@@ -223,13 +226,16 @@ steps:
 
   - label: 🔨 Windows Release Build
     key: release-windows
-    command: .buildkite/commands/build-for-windows-release.ps1
     agents:
       queue: windows
+    command: |
+      .buildkite/commands/build-for-windows-release.ps1
+      node scripts/package-appx.mjs
     artifact_paths:
       - out\**\studio-setup.exe
       - out\**\studio-update.nupkg
       - out\**\RELEASES
+      - out\**\*.appx
     if: build.tag =~ /^v[0-9]+/
     notify:
       - github_commit_status:

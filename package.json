@@ -122,6 +122,7 @@
 		"cross-port-killer": "^1.4.0",
 		"date-fns": "^3.3.1",
 		"electron-squirrel-startup": "^1.0.0",
+		"electron2appx": "^2.1.2",
 		"express": "4.19.2",
 		"file-stream-rotator": "^1.0.0",
 		"follow-redirects": "1.15.6",

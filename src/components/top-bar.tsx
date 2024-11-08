@@ -53,6 +53,7 @@ function Authentication() {
 		return (
 			<Button
 				onClick={ () => getIpcApi().showUserSettings() }
+				aria-label={ __( 'Open Settings' ) }
 				label={ __( 'Open Settings' ) }
 				showTooltip={ true }
 				variant="icon"

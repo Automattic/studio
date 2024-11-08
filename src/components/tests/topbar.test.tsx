@@ -27,7 +27,7 @@ describe( 'TopBar', () => {
 		const authenticate = jest.fn();
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: false, authenticate } );
 		await act( async () => render( <TopBar onToggleSidebar={ jest.fn() } /> ) );
-		expect( screen.queryByRole( 'button', { name: 'Account' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'Open Settings' } ) ).not.toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'Log in' } ) ).toBeVisible();
 	} );
 
@@ -35,7 +35,7 @@ describe( 'TopBar', () => {
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
 		await act( async () => render( <TopBar onToggleSidebar={ jest.fn() } /> ) );
 		expect( screen.queryByRole( 'button', { name: 'Log in' } ) ).not.toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: 'Account' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Open Settings' } ) ).toBeVisible();
 	} );
 
 	it( 'shows offline indicator', async () => {
@@ -58,7 +58,7 @@ describe( 'TopBar', () => {
 
 		render( <TopBar onToggleSidebar={ jest.fn() } /> );
 
-		const helpIconButton = screen.getByRole( 'button', { name: 'Help' } );
+		const helpIconButton = screen.getByRole( 'button', { name: 'Get help' } );
 		await user.click( helpIconButton );
 		await waitFor( () =>
 			expect( mockOpenURL ).toHaveBeenCalledWith(

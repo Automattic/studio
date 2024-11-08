@@ -5,7 +5,7 @@ import convertToWindowsStore from 'electron2appx';
 
 console.log( '--- :electron: Packaging AppX' );
 
-console.log( 'Verifying WINDOWS_CODE_SIGNING_CERT_PASSWORD env var...' );
+console.log( '~~~ Verifying WINDOWS_CODE_SIGNING_CERT_PASSWORD env var...' );
 if ( ! process.env.WINDOWS_CODE_SIGNING_CERT_PASSWORD ) {
 	console.error( 'Required env var WINDOWS_CODE_SIGNING_CERT_PASSWORD is not set!' );
 	process.exit( 1 );
@@ -24,7 +24,7 @@ const windows10SDKVersionContent = await fs.readFile( windows10SDKVersionPath );
 const windows10SDKVersion = windows10SDKVersionContent.toString().trim();
 const windowsKitPath = `C:\\Program Files (x86)\\Windows Kits\\10\\bin\\10.0.${ windows10SDKVersion }.0\\x64`;
 
-console.log( 'Verifying Windows 10 SDK location...' );
+console.log( '~~~ Verifying Windows 10 SDK location...' );
 try {
 	await fs.access( windowsKitPath );
 	console.log( `Windows 10 SDK verions ${ windows10SDKVersion } found. Continuing...` );
@@ -35,12 +35,37 @@ try {
 	process.exit( 1 );
 }
 
+// The default XML manifest electron2appx requires a few assets with specific names.
+// These assets overlap with ones from the more recent Microsoft requirements with different names.
+//
+// See https://learn.microsoft.com/en-us/windows/apps/design/style/iconography/app-icon-construction
+//
+// To compliy with the tool requirements without postprocessing the manifest or providing a custom one,
+// we duplicate existing assets and give them the names the tool expects.
+console.log( '~~~ Deriving assets...' );
+const assetsPath = path.join( __dirname, '..', 'assets', 'appx' );
+await fs.copyFile(
+	path.join( assetsPath, 'WideTile.scale-100.png' ),
+	path.join( assetsPath, 'Wide310x150Logo.png' )
+);
+await fs.copyFile(
+	path.join( assetsPath, 'MedTile.scale-100.png' ),
+	path.join( assetsPath, 'Square150x150Logo.png' )
+);
+await fs.copyFile(
+	path.join( assetsPath, 'AppList.png' ),
+	path.join( assetsPath, 'Square44x44Logo.png' )
+);
+await fs.copyFile(
+	path.join( assetsPath, 'StoreLogo.scale-100.png' ),
+	path.join( assetsPath, 'StoreLogo.png' )
+);
+
 const packageJsonPath = path.resolve( __dirname, '..', 'package.json' );
 const packageJsonText = await fs.readFile( packageJsonPath, 'utf-8' );
 const packageJson = JSON.parse( packageJsonText );
 
 const outPath = path.join( __dirname, '..', 'out' );
-const assetsPath = path.join( __dirname, '..', 'assets', 'appx' );
 
 const normalizeWindowsVersion = ( version ) => {
 	const noPrerelease = version.replace( /-.*/, '' );

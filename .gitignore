@@ -110,3 +110,10 @@ dist
 
 # Playwright traces
 test-results
+
+# Code generated AppX assets.
+# See package-appx.mjs for details.
+assets/appx/StoreLogo.png
+assets/appx/Square44x44Logo.png
+assets/appx/Square150x150Logo.png
+assets/appx/Wide310x150Logo.png

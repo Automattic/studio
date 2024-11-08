@@ -53,7 +53,8 @@ function Authentication() {
 		return (
 			<Button
 				onClick={ () => getIpcApi().showUserSettings() }
-				aria-label={ __( 'Account' ) }
+				label={ __( 'Open Settings' ) }
+				showTooltip={ true }
 				variant="icon"
 				className="text-white hover:!text-white !px-1 py-1 !h-6 gap-2"
 			>

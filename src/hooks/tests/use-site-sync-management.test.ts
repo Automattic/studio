@@ -29,12 +29,6 @@ const mockConnectedWpcomSites = [
 	},
 ];
 
-export const ConnectedSitesStore = {
-	connectedWpcomSites: {
-		'99440446': mockConnectedWpcomSites,
-	},
-};
-
 const mockSyncSites = [
 	{
 		id: 8,

@@ -4,7 +4,9 @@ for example, it requires a separate deployment to production, avoid
 using the "Fixes" keyword and use "Related to" instead.
 -->
 
-Related to #
+## Related issues
+
+- Fixes #
 
 ## Proposed Changes
 

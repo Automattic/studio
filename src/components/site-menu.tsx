@@ -57,8 +57,15 @@ function ButtonToRun( { running, id, name }: Pick< SiteDetails, 'running' | 'id'
 			/>
 		</svg>
 	);
+
+	const tooltipText = loadingServer[ id ]
+		? __( 'Starting' )
+		: running
+		? __( 'Stop site' )
+		: __( 'Start site' );
+
 	return (
-		<Tooltip text={ running ? __( 'Stop site' ) : __( 'Start site' ) }>
+		<Tooltip text={ tooltipText }>
 			<button
 				aria-disabled={ loadingServer[ id ] }
 				onClick={ () => {

@@ -56,7 +56,7 @@ export function CopyTextButton( {
 				className
 			) }
 			aria-label={ label || __( 'Copy to clipboard' ) }
-			label={ label || __( 'Copy to clipboard' ) }
+			label={ __( 'Copy to clipboard' ) }
 			showTooltip={ showTooltip }
 			onClick={ onClick }
 			variant={ variant }

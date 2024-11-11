@@ -47,7 +47,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 					<SettingsRow label={ __( 'Local URL' ) }>
 						<CopyTextButton
 							text={ `http://localhost:${ selectedSite.port }` }
-							label={ __( 'Copy site url to clipboard' ) }
+							label={ `localhost:${ selectedSite.port }, ${ __( 'Copy site url to clipboard' ) }` }
 							showTooltip={ true }
 							copyConfirmation={ __( 'Copied!' ) }
 						>
@@ -82,7 +82,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 					<SettingsRow label={ __( 'Username' ) }>
 						<CopyTextButton
 							copyConfirmation={ __( 'Copied!' ) }
-							label={ __( 'Copy admin username to clipboard' ) }
+							label={ `${ username }, ${ __( 'Copy admin username to clipboard' ) }` }
 							showTooltip={ true }
 							text={ username }
 						>
@@ -102,7 +102,9 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 					<SettingsRow label={ __( 'Admin URL' ) }>
 						<CopyTextButton
 							text={ `http://localhost:${ selectedSite.port }/wp-admin` }
-							label={ __( 'Copy wp-admin url to clipboard' ) }
+							label={ `localhost:${ selectedSite.port }/wp-admin, ${ __(
+								'Copy wp-admin url to clipboard'
+							) }` }
 							showTooltip={ true }
 							copyConfirmation={ __( 'Copied!' ) }
 						>

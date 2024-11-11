@@ -8,7 +8,7 @@ jest.mock( '../use-auth' );
 jest.mock( '../use-site-details' );
 jest.mock( '../use-fetch-wpcom-sites' );
 
-export const mockConnectedWpcomSites = [
+const mockConnectedWpcomSites = [
 	{
 		id: 6,
 		localSiteId: '788a7e0c-62d2-427e-8b1a-e6d5ac84b61c',

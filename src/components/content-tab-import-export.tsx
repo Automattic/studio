@@ -24,6 +24,8 @@ export const ExportSite = ( { selectedSite }: { selectedSite: SiteDetails } ) =>
 	const { exportState, exportFullSite, exportDatabase, importState } = useImportExport();
 	const { [ selectedSite.id ]: currentProgress } = exportState;
 	const isSiteImporting = importState[ selectedSite.id ]?.progress < 100;
+	const { isAnySitePulling } = useSyncSites();
+	const isExportDisabled = isSiteImporting || isAnySitePulling;
 	const siteNotReadyForExportMessage = __(
 		'This site is being imported. Please wait for the import to finish before you export it.'
 	);
@@ -50,22 +52,24 @@ export const ExportSite = ( { selectedSite }: { selectedSite: SiteDetails } ) =>
 				</div>
 			) : (
 				<div className="flex flex-row gap-4">
-					<Tooltip text={ siteNotReadyForExportMessage } disabled={ ! isSiteImporting }>
+					<Tooltip text={ siteNotReadyForExportMessage } disabled={ ! isExportDisabled }>
 						<Button
 							onClick={ () => handleExport( exportFullSite ) }
 							variant="primary"
-							disabled={ isSiteImporting }
+							disabled={ isExportDisabled }
 						>
 							{ __( 'Export entire site' ) }
 						</Button>
 					</Tooltip>
-					<Tooltip text={ siteNotReadyForExportMessage } disabled={ ! isSiteImporting }>
+					<Tooltip text={ siteNotReadyForExportMessage } disabled={ ! isExportDisabled }>
 						<Button
 							onClick={ () => handleExport( exportDatabase ) }
 							type="submit"
 							variant="secondary"
-							className={ cx( isSiteImporting ? '' : '!text-a8c-blueberry !shadow-a8c-blueberry' ) }
-							disabled={ isSiteImporting }
+							className={ cx(
+								isExportDisabled ? '' : '!text-a8c-blueberry !shadow-a8c-blueberry'
+							) }
+							disabled={ isExportDisabled }
 						>
 							{ __( 'Export database' ) }
 						</Button>

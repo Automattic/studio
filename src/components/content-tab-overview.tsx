@@ -260,7 +260,7 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 					{ ! loading && siteRunning && (
 						<Tooltip
 							text={ sprintf(
-								/* translators: %siteUrl is the site URL */
+								/* translators: siteUrl is the site URL */
 								__( 'Open %(siteUrl)s' ),
 								{ siteUrl: selectedSite.url }
 							) }

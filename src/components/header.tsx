@@ -25,7 +25,7 @@ export default function Header() {
 							className="[&.is-link]:text-a8c-gray-70 [&.is-link]:hover:text-a8c-blueberry !px-0 h-0 leading-4"
 							onClick={ () => getIpcApi().openSiteURL( site.id, '/wp-admin' ) }
 							label={ sprintf(
-								/* translators: %siteUrl is the site's WP Admin URL */
+								/* translators: siteUrl is the site's WP Admin URL */
 								__( 'Open %(siteUrl)s' ),
 								{ siteUrl: `${ site.url }/wp-admin` }
 							) }
@@ -44,7 +44,7 @@ export default function Header() {
 							className="[&.is-link]:text-a8c-gray-70 [&.is-link]:hover:text-a8c-blueberry !px-0 h-0 leading-4"
 							onClick={ () => getIpcApi().openSiteURL( site.id, '', { autoLogin: false } ) }
 							label={ sprintf(
-								/* translators: %siteUrl is the site URL */
+								/* translators: siteUrl is the site URL */
 								__( 'Open %(siteUrl)s' ),
 								{ siteUrl: site.url }
 							) }

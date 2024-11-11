@@ -90,7 +90,9 @@ export default function TopBar( { onToggleSidebar }: TopBarProps ) {
 					className="app-no-drag-region"
 					onClick={ onToggleSidebar }
 					variant="icon"
-					aria-label={ __( 'Toggle Sidebar' ) }
+					aria-label={ __( 'Toggle sidebar' ) }
+					label={ __( 'Toggle sidebar' ) }
+					showTooltip={ true }
 				>
 					<Icon className="text-white" icon={ drawerLeft } size={ 24 } />
 				</Button>

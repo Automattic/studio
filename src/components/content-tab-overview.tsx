@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/electron/renderer';
+import { Tooltip } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
 import {
 	archive,
@@ -15,7 +16,6 @@ import {
 	symbolFilled,
 	widget,
 } from '@wordpress/icons';
-import { Tooltip } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { useState } from 'react';
 import { useCheckInstalledApps } from '../hooks/use-check-installed-apps';

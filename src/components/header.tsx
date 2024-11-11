@@ -1,6 +1,6 @@
+import { sprintf } from '@wordpress/i18n';
 import { Icon, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { sprintf } from '@wordpress/i18n';
 import { useSiteDetails } from '../hooks/use-site-details';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';

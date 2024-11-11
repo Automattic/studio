@@ -33,8 +33,8 @@ const UserInfo = ( {
 			<div className="flex w-full items-center gap-3">
 				<Button
 					onClick={ () => getIpcApi().openURL( WPCOM_PROFILE_URL ) }
-					aria-label={ __( 'Edit Profile' ) }
-					label={ __( 'Edit Profile' ) }
+					aria-label={ __( 'Edit profile' ) }
+					label={ __( 'Edit profile' ) }
 					showTooltip={ true }
 					variant="icon"
 				>

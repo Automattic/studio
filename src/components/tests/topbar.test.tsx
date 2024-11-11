@@ -75,7 +75,7 @@ describe( 'TopBar', () => {
 
 		render( <TopBar onToggleSidebar={ onToggleSidebar } /> );
 
-		const toggleButton = screen.getByRole( 'button', { name: 'Toggle Sidebar' } );
+		const toggleButton = screen.getByRole( 'button', { name: 'Toggle sidebar' } );
 		await user.click( toggleButton );
 
 		expect( onToggleSidebar ).toHaveBeenCalledTimes( 1 );

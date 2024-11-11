@@ -246,7 +246,7 @@ export function ContentTabImportExport( { selectedSite }: ContentTabImportExport
 	return (
 		<div className="flex flex-col p-8 gap-8">
 			<ImportSite selectedSite={ selectedSite } />
-			<ExportSite selectedSite={ selectedSite }></ExportSite>
+			<ExportSite selectedSite={ selectedSite } />
 		</div>
 	);
 }

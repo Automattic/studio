@@ -11,6 +11,7 @@ import { ArrowIcon } from './arrow-icon';
 import { Badge } from './badge';
 import Button from './button';
 import ProgressBar from './progress-bar';
+import Tooltip from './tooltip';
 import { WordPressLogoCircle } from './wordpress-logo-circle';
 
 interface ConnectedSiteSection {
@@ -131,16 +132,18 @@ export function SyncConnectedSites( {
 									) }
 								</div>
 
-								<Button
-									variant="link"
-									className="!text-a8c-gray-70 hover:!text-a8c-blueberry truncate"
-									onClick={ () => {
-										getIpcApi().openURL( connectedSite.url );
-									} }
-								>
-									<span className="truncate">{ connectedSite.url }</span> <ArrowIcon />
-								</Button>
-								<div className="flex gap-2 pl-4 ml-auto">
+								<Tooltip text={ connectedSite.url } className="overflow-hidden">
+									<Button
+										variant="link"
+										className="!text-a8c-gray-70 hover:!text-a8c-blueberry max-w-[100%]"
+										onClick={ () => {
+											getIpcApi().openURL( connectedSite.url );
+										} }
+									>
+										<span className="truncate">{ connectedSite.url }</span> <ArrowIcon />
+									</Button>
+								</Tooltip>
+								<div className="flex gap-2 pl-4 ml-auto shrink-0">
 									{ isKeyPulling( pullStates[ connectedSite.id ]?.status.key ) ? (
 										<div className="flex flex-col gap-2 min-w-44">
 											<div className="a8c-body-small">

@@ -87,20 +87,37 @@ function useDeleteSite() {
 
 	const deleteSite = useCallback(
 		async ( siteId: string, removeLocal: boolean ): Promise< SiteDetails[] | undefined > => {
-			const siteSnapshots = snapshots.filter( ( snapshot ) => snapshot.localSiteId === siteId );
-
 			if ( ! siteId ) {
 				return;
 			}
+
+			const siteSnapshots = snapshots.filter( ( snapshot ) => snapshot.localSiteId === siteId );
 			const allSiteRemovePromises = Promise.allSettled(
 				siteSnapshots.map( ( snapshot ) => deleteSnapshot( snapshot, removeLocal ) )
 			);
 
 			try {
 				setIsLoading( ( loading ) => ( { ...loading, [ siteId ]: true } ) );
+
 				const newSites = await getIpcApi().deleteSite( siteId, removeLocal );
 				await allSiteRemovePromises;
+
+				// After site is deleted successfully, clean up wpcom connections
+				try {
+					const connectedSites = await getIpcApi().getConnectedWpcomSites( siteId );
+					const connectedSiteIds = connectedSites.map( ( site ) => site.id );
+					if ( connectedSiteIds.length > 0 ) {
+						await getIpcApi().disconnectWpcomSite( connectedSiteIds, siteId );
+					}
+				} catch ( error ) {
+					// If disconnection fails, log but don't fail the deletion
+					console.error( 'Failed to disconnect wpcom sites:', error );
+				}
+
 				return newSites;
+			} catch ( error ) {
+				console.error( 'Error during site deletion:', error );
+				throw error;
 			} finally {
 				setIsLoading( ( loading ) => ( { ...loading, [ siteId ]: false } ) );
 			}

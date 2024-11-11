@@ -29,6 +29,7 @@ interface StoppedSiteDetails {
 		supportsMenus: boolean;
 	};
 	isAddingSite?: boolean;
+	url?: string;
 }
 
 interface StartedSiteDetails extends StoppedSiteDetails {

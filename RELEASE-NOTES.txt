@@ -1,3 +1,7 @@
+1.2.1
+=====
+* Removed regenerate media step after import flow #639
+
 1.2.0
 =====
 * Introduced Studio Assistant feature

@@ -94,7 +94,7 @@ test.describe( 'Servers', () => {
 		} );
 		await settingsTab.openDeleteSiteModal();
 
-		await session.mainWindow.waitForTimeout( 300 ); // Short pause for site to delete.
+		await session.mainWindow.waitForTimeout( 200 ); // Short pause for site to delete.
 
 		expect( await pathExists( path.join( session.homePath, 'Studio', siteName ) ) ).toBe( false );
 		const sidebar = new MainSidebar( session.mainWindow );

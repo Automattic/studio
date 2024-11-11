@@ -13,6 +13,7 @@ interface CopyTextButtonProps {
 	timeoutConfirmation?: number;
 	children?: React.ReactNode;
 	showText?: boolean;
+	showTooltip?: boolean;
 	variant?: 'primary' | 'secondary' | 'tertiary' | 'outlined' | 'link' | 'icon';
 	iconSize?: number;
 	onCopied?: () => void;
@@ -27,6 +28,7 @@ export function CopyTextButton( {
 	timeoutConfirmation = 2000,
 	children,
 	showText = false,
+	showTooltip = false,
 	variant = 'link',
 	iconSize = 13,
 	onCopied,
@@ -53,7 +55,9 @@ export function CopyTextButton( {
 				showCopied && '[&.is-link]:text-[#2145e6]',
 				className
 			) }
-			aria-label={ label || __( 'copy to clipboard' ) }
+			aria-label={ label || __( 'Copy to clipboard' ) }
+			label={ label || __( 'Copy to clipboard' ) }
+			showTooltip={ showTooltip }
 			onClick={ onClick }
 			variant={ variant }
 		>

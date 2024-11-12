@@ -118,6 +118,7 @@ export default function ButtonComponent( {
 	variant,
 	truncate,
 	children,
+	showTooltip,
 	tooltipText,
 	...props
 }: ButtonProps ) {
@@ -145,6 +146,7 @@ export default function ButtonComponent( {
 				props.isDestructive && destructiveStyles,
 				className
 			) }
+			showTooltip={ showTooltip || ( truncate && isTruncated ) }
 		>
 			{ truncate
 				? [

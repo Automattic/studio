@@ -159,15 +159,5 @@ export default function ButtonComponent( {
 		</Button>
 	);
 
-	const shouldShowTooltip = tooltipText || ( truncate && isTruncated );
-
-	return (
-		<>
-			{ shouldShowTooltip ? (
-				<Tooltip text={ tooltipText }>{ buttonContent }</Tooltip>
-			) : (
-				buttonContent
-			) }
-		</>
-	);
+	return tooltipText ? <Tooltip text={ tooltipText }>{ buttonContent }</Tooltip> : buttonContent;
 }

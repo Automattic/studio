@@ -1,5 +1,6 @@
 import { speak } from '@wordpress/a11y';
-import { Spinner, Tooltip } from '@wordpress/components';
+import { Spinner } from '@wordpress/components';
+import Tooltip from './tooltip';
 import { __, sprintf } from '@wordpress/i18n';
 import { useEffect } from 'react';
 import { useImportExport } from '../hooks/use-import-export';

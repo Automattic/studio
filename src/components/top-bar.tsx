@@ -54,8 +54,7 @@ function Authentication() {
 			<Button
 				onClick={ () => getIpcApi().showUserSettings() }
 				aria-label={ __( 'Open settings' ) }
-				label={ __( 'Open settings' ) }
-				showTooltip={ true }
+				tooltipText={ __( 'Open settings' ) }
 				variant="icon"
 				className="text-white hover:!text-white !px-1 py-1 !h-6 gap-2"
 			>
@@ -69,8 +68,7 @@ function Authentication() {
 		<Button
 			onClick={ () => getIpcApi().showUserSettings() }
 			aria-label={ __( 'Open settings to log in' ) }
-			label={ __( 'Open settings to log in' ) }
-			showTooltip={ true }
+			tooltipText={ __( 'Open settings to log in' ) }
 			className="flex gap-x-2 justify-between w-full text-white rounded !px-0 !py-0 h-auto active:!text-white hover:!text-white hover:underline items-center"
 		>
 			<WordPressLogo />
@@ -93,8 +91,7 @@ export default function TopBar( { onToggleSidebar }: TopBarProps ) {
 					onClick={ onToggleSidebar }
 					variant="icon"
 					aria-label={ __( 'Toggle sidebar' ) }
-					label={ __( 'Toggle sidebar' ) }
-					showTooltip={ true }
+					tooltipText={ __( 'Toggle sidebar' ) }
 				>
 					<Icon className="text-white" icon={ drawerLeft } size={ 24 } />
 				</Button>
@@ -107,8 +104,7 @@ export default function TopBar( { onToggleSidebar }: TopBarProps ) {
 				<Button
 					onClick={ openDocs }
 					aria-label={ __( 'Get help' ) }
-					label={ __( 'Get help' ) }
-					showTooltip={ true }
+					tooltipText={ __( 'Get help' ) }
 					variant="icon"
 				>
 					<Icon className="text-white" size={ 24 } icon={ help } />

@@ -1,5 +1,5 @@
 import * as Sentry from '@sentry/electron/renderer';
-import { Tooltip } from '@wordpress/components';
+import Tooltip from './tooltip';
 import { __, sprintf } from '@wordpress/i18n';
 import {
 	archive,

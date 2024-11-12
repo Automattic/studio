@@ -24,12 +24,11 @@ export default function Header() {
 							disabled={ ! site.running }
 							className="[&.is-link]:text-a8c-gray-70 [&.is-link]:hover:text-a8c-blueberry !px-0 h-0 leading-4"
 							onClick={ () => getIpcApi().openSiteURL( site.id, '/wp-admin' ) }
-							label={ sprintf(
+							tooltipText={ sprintf(
 								/* translators: siteUrl is the site's WP Admin URL */
 								__( 'Open %(siteUrl)s' ),
 								{ siteUrl: `${ site.url }/wp-admin` }
 							) }
-							showTooltip={ true }
 							variant="link"
 						>
 							{ __( 'WP admin' ) }
@@ -43,12 +42,11 @@ export default function Header() {
 							disabled={ ! site.running }
 							className="[&.is-link]:text-a8c-gray-70 [&.is-link]:hover:text-a8c-blueberry !px-0 h-0 leading-4"
 							onClick={ () => getIpcApi().openSiteURL( site.id, '', { autoLogin: false } ) }
-							label={ sprintf(
+							tooltipText={ sprintf(
 								/* translators: siteUrl is the site URL */
 								__( 'Open %(siteUrl)s' ),
 								{ siteUrl: site.url }
 							) }
-							showTooltip={ true }
 							variant="link"
 						>
 							{

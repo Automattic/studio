@@ -68,7 +68,9 @@ function Authentication() {
 	return (
 		<Button
 			onClick={ () => getIpcApi().showUserSettings() }
-			aria-label={ __( 'Log in' ) }
+			aria-label={ __( 'Open settings to log in' ) }
+			label={ __( 'Open settings to log in' ) }
+			showTooltip={ true }
 			className="flex gap-x-2 justify-between w-full text-white rounded !px-0 !py-0 h-auto active:!text-white hover:!text-white hover:underline items-center"
 		>
 			<WordPressLogo />

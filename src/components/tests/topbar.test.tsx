@@ -28,7 +28,7 @@ describe( 'TopBar', () => {
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: false, authenticate } );
 		await act( async () => render( <TopBar onToggleSidebar={ jest.fn() } /> ) );
 		expect( screen.queryByRole( 'button', { name: 'Open settings' } ) ).not.toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: 'Log in' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Open settings to log in' } ) ).toBeVisible();
 	} );
 
 	it( 'Test authenticated TopBar does not have the log in button and it has the settings and account buttons', async () => {

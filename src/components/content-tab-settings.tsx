@@ -48,7 +48,6 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 						<CopyTextButton
 							text={ `http://localhost:${ selectedSite.port }` }
 							label={ `localhost:${ selectedSite.port }, ${ __( 'Copy site url to clipboard' ) }` }
-							showTooltip={ true }
 							copyConfirmation={ __( 'Copied!' ) }
 						>
 							{ `localhost:${ selectedSite.port }` }
@@ -59,7 +58,6 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 							<CopyTextButton
 								text={ selectedSite.path }
 								label={ __( 'Copy local path to clipboard' ) }
-								showTooltip={ true }
 								copyConfirmation={ __( 'Copied!' ) }
 							>
 								<span className="line-clamp-1 break-all">{ selectedSite.path }</span>
@@ -83,7 +81,6 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 						<CopyTextButton
 							copyConfirmation={ __( 'Copied!' ) }
 							label={ `${ username }, ${ __( 'Copy admin username to clipboard' ) }` }
-							showTooltip={ true }
 							text={ username }
 						>
 							{ username }
@@ -93,7 +90,6 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 						<CopyTextButton
 							copyConfirmation={ __( 'Copied!' ) }
 							label={ __( 'Copy admin password to clipboard' ) }
-							showTooltip={ true }
 							text={ password || '' }
 						>
 							************
@@ -105,7 +101,6 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 							label={ `localhost:${ selectedSite.port }/wp-admin, ${ __(
 								'Copy wp-admin url to clipboard'
 							) }` }
-							showTooltip={ true }
 							copyConfirmation={ __( 'Copied!' ) }
 						>
 							{ `localhost:${ selectedSite.port }/wp-admin` }

@@ -13,7 +13,6 @@ interface CopyTextButtonProps {
 	timeoutConfirmation?: number;
 	children?: React.ReactNode;
 	showText?: boolean;
-	showTooltip?: boolean;
 	variant?: 'primary' | 'secondary' | 'tertiary' | 'outlined' | 'link' | 'icon';
 	iconSize?: number;
 	onCopied?: () => void;
@@ -28,7 +27,6 @@ export function CopyTextButton( {
 	timeoutConfirmation = 2000,
 	children,
 	showText = false,
-	showTooltip = false,
 	variant = 'link',
 	iconSize = 13,
 	onCopied,

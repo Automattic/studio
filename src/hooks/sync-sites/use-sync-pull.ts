@@ -61,10 +61,10 @@ export function useSyncPull( {
 						backupId: response.backup_id,
 					} );
 				} else {
+					console.error( response );
 					throw new Error( 'Pull request failed' );
 				}
 			} catch ( error ) {
-				console.error( error );
 				Sentry.captureException( error );
 				updatePullState( remoteSiteId, {
 					status: pullStatesProgressInfo.failed,

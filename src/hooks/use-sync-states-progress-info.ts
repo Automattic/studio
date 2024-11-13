@@ -2,12 +2,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useMemo } from 'react';
 
 export type PullStateProgressInfo = {
-	key:
-		| 'in-progress'
-		| 'backup-sync-downloading'
-		| 'backup-sync-importing'
-		| 'backup-sync-finished'
-		| 'failed';
+	key: 'in-progress' | 'downloading' | 'importing' | 'finished' | 'failed';
 	progress: number;
 	message: string;
 };
@@ -21,19 +16,19 @@ export function useSyncStatesProgressInfo() {
 				progress: 30,
 				message: __( 'Pulling changes…' ),
 			},
-			// Backup completed on server, downloading on client
-			completed: {
-				key: 'backup-sync-downloading',
+			downloading: {
+				// On backend this key is called backup 'finished'
+				key: 'downloading',
 				progress: 60,
 				message: __( 'Downloading backup…' ),
 			},
 			importing: {
-				key: 'backup-sync-importing',
+				key: 'importing',
 				progress: 80,
 				message: __( 'Importing backup…' ),
 			},
 			finished: {
-				key: 'backup-sync-finished',
+				key: 'finished',
 				progress: 100,
 				message: __( 'Backup imported' ),
 			},
@@ -48,8 +43,8 @@ export function useSyncStatesProgressInfo() {
 	const isKeyPulling = ( key: PullStateProgressInfo[ 'key' ] ) => {
 		const pullingStateKeys: PullStateProgressInfo[ 'key' ][] = [
 			'in-progress',
-			'backup-sync-downloading',
-			'backup-sync-importing',
+			'downloading',
+			'importing',
 		];
 		return pullingStateKeys.includes( key );
 	};

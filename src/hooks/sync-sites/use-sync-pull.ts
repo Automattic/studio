@@ -81,7 +81,7 @@ export function useSyncPull( {
 	const onBackupCompleted = useCallback(
 		async ( remoteSiteId: number, downloadUrl: string, selectedSite: SiteDetails ) => {
 			updatePullState( remoteSiteId, {
-				status: pullStatesProgressInfo.completed,
+				status: pullStatesProgressInfo.downloading,
 				downloadUrl,
 			} );
 
@@ -109,7 +109,7 @@ export function useSyncPull( {
 		[
 			deletePullState,
 			importFile,
-			pullStatesProgressInfo.completed,
+			pullStatesProgressInfo.downloading,
 			pullStatesProgressInfo.finished,
 			pullStatesProgressInfo.importing,
 			updatePullState,
@@ -127,16 +127,19 @@ export function useSyncPull( {
 				return;
 			}
 			const response = await client.req.get< {
-				status: 'in-progress' | 'completed' | 'failed';
+				status: 'in-progress' | 'finished' | 'failed';
 				download_url: string;
 			} >( `/sites/${ remoteSiteId }/studio-app/sync/backup`, {
 				apiNamespace: 'wpcom/v2',
 				backup_id: backupId,
 			} );
 
+			const hasBackupCompleted = response.status === 'finished';
+			const frontendStatus = hasBackupCompleted
+				? pullStatesProgressInfo.downloading.key
+				: response.status;
 			const statusWithProgress =
-				pullStatesProgressInfo[ response.status ] || pullStatesProgressInfo.failed;
-			const hasBackupCompleted = response.status === 'completed';
+				pullStatesProgressInfo[ frontendStatus ] || pullStatesProgressInfo.failed;
 			const downloadUrl = hasBackupCompleted ? response.download_url : null;
 
 			if ( hasBackupCompleted && downloadUrl ) {

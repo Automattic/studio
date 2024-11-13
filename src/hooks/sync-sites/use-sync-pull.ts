@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/electron/renderer';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useMemo } from 'react';
 import { getIpcApi } from '../../lib/get-ipc-api';
@@ -64,6 +65,7 @@ export function useSyncPull( {
 				}
 			} catch ( error ) {
 				console.error( error );
+				Sentry.captureException( error );
 				updatePullState( remoteSiteId, {
 					status: pullStatesProgressInfo.failed,
 				} );

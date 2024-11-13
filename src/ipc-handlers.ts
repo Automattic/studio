@@ -22,6 +22,7 @@ import { SyncSite } from './hooks/use-fetch-wpcom-sites';
 import { download } from './lib/download';
 import { isEmptyDir, pathExists, isWordPressDirectory, sanitizeFolderName } from './lib/fs-utils';
 import { getImageData } from './lib/get-image-data';
+import { getSyncBackupTempPath } from './lib/get-sync-backup-temp-path';
 import { exportBackup } from './lib/import-export/export/export-manager';
 import { ExportOptions } from './lib/import-export/export/types';
 import { ImportExportEventData } from './lib/import-export/handle-events';
@@ -902,14 +903,12 @@ export async function downloadSyncBackup(
 	const tmpDir = nodePath.join( app.getPath( 'temp' ), 'wp-studio-backups' );
 	await fsPromises.mkdir( tmpDir, { recursive: true } );
 
-	const filePath = nodePath.join( tmpDir, `site-${ remoteSiteId }-backup.tar.gz` );
+	const filePath = getSyncBackupTempPath( remoteSiteId );
 	await download( downloadUrl, filePath );
 	return filePath;
 }
 
-export async function removeSyncBackup( event: IpcMainInvokeEvent, filePath: string ) {
-	if ( ! filePath.includes( app.getPath( 'temp' ) ) ) {
-		return;
-	}
+export async function removeSyncBackup( event: IpcMainInvokeEvent, remoteSiteId: number ) {
+	const filePath = getSyncBackupTempPath( remoteSiteId );
 	await fsPromises.unlink( filePath );
 }

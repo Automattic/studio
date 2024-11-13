@@ -99,6 +99,8 @@ export function useSyncPull( {
 				selectedSite
 			);
 
+			await getIpcApi().removeSyncBackup( remoteSiteId );
+
 			updatePullState( remoteSiteId, {
 				status: pullStatesProgressInfo.finished,
 			} );

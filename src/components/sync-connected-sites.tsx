@@ -125,7 +125,7 @@ export function SyncConnectedSites( {
 							return (
 								<div
 									key={ connectedSite.id }
-									className="flex items-center gap-2 py-5 border-b border-a8c-gray-0 px-8"
+									className="flex items-center gap-2 min-h-14 border-b border-a8c-gray-0 px-8"
 								>
 									<div className="flex items-left min-w-20 mr-6 shrink-0">
 										{ connectedSite.isStaging ? (

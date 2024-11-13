@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState } from 'react';
+import { SyncSite } from '../use-fetch-wpcom-sites';
 import { PullStateProgressInfo } from '../use-sync-states-progress-info';
 import { useSyncPull } from './use-sync-pull';
 
@@ -7,11 +8,12 @@ export type SiteBackupState = {
 	status: PullStateProgressInfo;
 	downloadUrl: string | null;
 	selectedSite: SiteDetails;
+	isStaging: boolean;
 };
 
 type SyncSitesContextType = {
 	pullStates: Record< number, SiteBackupState >;
-	pullSite: ( remoteSiteId: number, selectedSite: SiteDetails ) => Promise< void >;
+	pullSite: ( connectedSite: SyncSite, selectedSite: SiteDetails ) => Promise< void >;
 	isAnySitePulling: boolean;
 	isSiteIdPulling: ( selectedSiteId: string ) => boolean;
 	clearPullState: ( remoteSiteId: number ) => void;

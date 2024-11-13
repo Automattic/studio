@@ -181,7 +181,7 @@ export function SyncConnectedSites( {
 													variant="link"
 													className="!text-black hover:!text-a8c-blueberry"
 													onClick={ () => {
-														pullSite( connectedSite.id, selectedSite );
+														pullSite( connectedSite, selectedSite );
 													} }
 													disabled={ isAnySitePulling }
 												>

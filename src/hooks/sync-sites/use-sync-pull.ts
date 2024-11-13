@@ -3,6 +3,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useMemo } from 'react';
 import { getIpcApi } from '../../lib/get-ipc-api';
 import { useAuth } from '../use-auth';
+import { SyncSite } from '../use-fetch-wpcom-sites';
 import { useImportExport } from '../use-import-export';
 import { useSyncStatesProgressInfo } from '../use-sync-states-progress-info';
 import { SiteBackupState } from './sync-sites-context';
@@ -39,15 +40,17 @@ export function useSyncPull( {
 	);
 
 	const pullSite = useCallback(
-		async ( remoteSiteId: number, selectedSite: SiteDetails ) => {
+		async ( connectedSite: SyncSite, selectedSite: SiteDetails ) => {
 			if ( ! client ) {
 				return;
 			}
+			const remoteSiteId = connectedSite.id;
 			updatePullState( remoteSiteId, {
 				backupId: null,
 				status: pullStatesProgressInfo[ 'in-progress' ],
 				downloadUrl: null,
 				selectedSite,
+				isStaging: connectedSite.isStaging,
 			} );
 
 			try {
@@ -79,7 +82,8 @@ export function useSyncPull( {
 	);
 
 	const onBackupCompleted = useCallback(
-		async ( remoteSiteId: number, downloadUrl: string, selectedSite: SiteDetails ) => {
+		async ( remoteSiteId: number, backupState: SiteBackupState & { downloadUrl: string } ) => {
+			const { downloadUrl, selectedSite, isStaging } = backupState;
 			updatePullState( remoteSiteId, {
 				status: pullStatesProgressInfo.downloading,
 				downloadUrl,
@@ -96,16 +100,25 @@ export function useSyncPull( {
 					path: filePath,
 					type: 'application/tar+gzip',
 				},
-				selectedSite
+				selectedSite,
+				{ showImportNotification: false }
 			);
 
 			await getIpcApi().removeSyncBackup( remoteSiteId );
+
+			getIpcApi().showNotification( {
+				title: selectedSite.name,
+				body: isStaging
+					? __( 'Studio site updated from Staging' )
+					: __( 'Studio site updated from Production' ),
+			} );
 
 			updatePullState( remoteSiteId, {
 				status: pullStatesProgressInfo.finished,
 			} );
 		},
 		[
+			__,
 			importFile,
 			pullStatesProgressInfo.downloading,
 			pullStatesProgressInfo.finished,
@@ -142,11 +155,8 @@ export function useSyncPull( {
 
 			if ( hasBackupCompleted && downloadUrl ) {
 				// Replacing the 'in-progress' status will stop the active listening for the backup completion
-				const selectedSite = pullStates[ remoteSiteId ]?.selectedSite;
-				if ( ! selectedSite ) {
-					return;
-				}
-				onBackupCompleted( remoteSiteId, downloadUrl, selectedSite );
+				const backupState = pullStates[ remoteSiteId ];
+				onBackupCompleted( remoteSiteId, { ...backupState, downloadUrl } );
 			} else {
 				updatePullState( remoteSiteId, {
 					status: statusWithProgress,

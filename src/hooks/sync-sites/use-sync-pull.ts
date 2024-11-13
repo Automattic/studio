@@ -137,11 +137,6 @@ export function useSyncPull( {
 			const hasBackupCompleted = response.status === 'completed';
 			const downloadUrl = hasBackupCompleted ? response.download_url : null;
 
-			updatePullState( remoteSiteId, {
-				status: statusWithProgress,
-				downloadUrl,
-			} );
-
 			if ( hasBackupCompleted && downloadUrl ) {
 				// Replacing the 'in-progress' status will stop the active listening for the backup completion
 				const selectedSite = pullStates[ remoteSiteId ]?.selectedSite;
@@ -149,6 +144,11 @@ export function useSyncPull( {
 					return;
 				}
 				onBackupCompleted( remoteSiteId, downloadUrl, selectedSite );
+			} else {
+				updatePullState( remoteSiteId, {
+					status: statusWithProgress,
+					downloadUrl,
+				} );
 			}
 		},
 		[ client, onBackupCompleted, pullStates, pullStatesProgressInfo, updatePullState ]

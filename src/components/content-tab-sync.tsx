@@ -169,7 +169,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 		disconnectSite,
 		syncSites,
 		isFetching,
-		refetchConnectedSites,
+		refetchSites,
 	} = useSiteSyncManagement();
 	const [ isSyncSitesSelectorOpen, setIsSyncSitesSelectorOpen ] = useState( false );
 	const { isAuthenticated } = useAuth();
@@ -207,7 +207,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 					isLoading={ isFetching }
 					onRequestClose={ () => setIsSyncSitesSelectorOpen( false ) }
 					syncSites={ syncSites }
-					onInitialRender={ refetchConnectedSites }
+					onInitialRender={ refetchSites }
 					onConnect={ ( siteId ) => {
 						const newConnectedSite = syncSites.find( ( site ) => site.id === siteId );
 						if ( ! newConnectedSite ) {

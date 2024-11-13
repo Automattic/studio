@@ -1,5 +1,5 @@
 import * as Sentry from '@sentry/electron/renderer';
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useAuth } from './use-auth';
 import { useOffline } from './use-offline';
 
@@ -81,8 +81,7 @@ export const useFetchWpComSites = ( connectedSites: SyncSite[] ) => {
 	const isFetchingSites = useRef( false );
 	const isOffline = useOffline();
 
-	// Fetch sites from the API
-	useEffect( () => {
+	const fetchSites = useCallback( () => {
 		if ( ! client?.req || isFetchingSites.current || ! isAuthenticated || isOffline ) {
 			return;
 		}
@@ -119,6 +118,14 @@ export const useFetchWpComSites = ( connectedSites: SyncSite[] ) => {
 			} );
 	}, [ client?.req, connectedSites, isAuthenticated, isOffline ] );
 
+	useEffect( () => {
+		fetchSites();
+	}, [ fetchSites ] );
+
+	const refetchSites = useCallback( () => {
+		fetchSites();
+	}, [ fetchSites ] );
+
 	// Map syncSites to reflect whether they are already connected
 	const syncSitesWithConnectionStatus = useMemo(
 		() =>
@@ -131,5 +138,9 @@ export const useFetchWpComSites = ( connectedSites: SyncSite[] ) => {
 		[ syncSites, connectedSites ]
 	);
 
-	return { syncSites: syncSitesWithConnectionStatus, isFetching: isFetchingSites.current };
+	return {
+		syncSites: syncSitesWithConnectionStatus,
+		isFetching: isFetchingSites.current,
+		refetchSites,
+	};
 };

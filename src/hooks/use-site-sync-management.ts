@@ -78,6 +78,10 @@ export const useSiteSyncManagement = () => {
 		[ localSiteId, connectedSites, setConnectedSites ]
 	);
 
+	const refetchConnectedSites = useCallback( () => {
+		loadConnectedSites();
+	}, [ loadConnectedSites ] );
+
 	return {
 		connectedSites,
 		loadConnectedSites,
@@ -85,5 +89,6 @@ export const useSiteSyncManagement = () => {
 		disconnectSite,
 		syncSites,
 		isFetching,
+		refetchConnectedSites,
 	} as const;
 };

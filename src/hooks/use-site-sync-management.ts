@@ -7,7 +7,9 @@ import { useSiteDetails } from './use-site-details';
 export const useSiteSyncManagement = () => {
 	const [ connectedSites, setConnectedSites ] = useState< SyncSite[] >( [] );
 	const { isAuthenticated } = useAuth();
-	const { syncSites, isFetching, refetchSites } = useFetchWpComSites( connectedSites );
+	const { syncSites, isFetching, refetchSites } = useFetchWpComSites(
+		connectedSites.map( ( { id } ) => id )
+	);
 	const { selectedSite } = useSiteDetails();
 	const localSiteId = selectedSite?.id;
 
@@ -31,6 +33,33 @@ export const useSiteSyncManagement = () => {
 			loadConnectedSites();
 		}
 	}, [ isAuthenticated, loadConnectedSites ] );
+
+	// whenever array of syncSites changes, we need to update connectedSites to keep them updated with wordpress.com
+	useEffect( () => {
+		if ( isFetching ) {
+			return;
+		}
+
+		setConnectedSites( ( prevConnectedSites ) => {
+			const updatedConnectedSites = prevConnectedSites.map( ( connectedSite ) => {
+				const site = syncSites.find( ( site ) => site.id === connectedSite.id );
+
+				if ( ! site ) {
+					return connectedSite;
+				}
+
+				return {
+					...connectedSite,
+					syncSupport: site.syncSupport,
+					url: site.url,
+				};
+			} );
+
+			getIpcApi().updateConnectedWpcomSites( updatedConnectedSites );
+
+			return updatedConnectedSites;
+		} );
+	}, [ syncSites, isFetching ] );
 
 	const connectSite = useCallback(
 		async ( site: SyncSite ) => {

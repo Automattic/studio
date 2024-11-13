@@ -75,11 +75,19 @@ function transformSiteResponse(
 	} );
 }
 
-export const useFetchWpComSites = ( connectedSites: SyncSite[] ) => {
+export const useFetchWpComSites = ( connectedSiteIds: number[] ) => {
 	const [ syncSites, setSyncSites ] = useState< SyncSite[] >( [] );
 	const { isAuthenticated, client } = useAuth();
 	const isFetchingSites = useRef( false );
 	const isOffline = useOffline();
+
+	const joinedConnectedSiteIds = connectedSiteIds.join( ',' );
+	// we need this trick to avoid unnecessary re-renders,
+	// as a result different instances of the same array don't trigger refetching
+	const memoizedConnectedSiteIds: number[] = useMemo(
+		() => joinedConnectedSiteIds.split( ',' ).map( ( id ) => parseInt( id, 10 ) ),
+		[ joinedConnectedSiteIds ]
+	);
 
 	const fetchSites = useCallback( () => {
 		if ( ! client?.req || isFetchingSites.current || ! isAuthenticated || isOffline ) {
@@ -102,12 +110,7 @@ export const useFetchWpComSites = ( connectedSites: SyncSite[] ) => {
 				}
 			)
 			.then( ( response ) => {
-				setSyncSites(
-					transformSiteResponse(
-						response.sites,
-						connectedSites.map( ( { id } ) => id )
-					)
-				);
+				setSyncSites( transformSiteResponse( response.sites, memoizedConnectedSiteIds ) );
 			} )
 			.catch( ( error ) => {
 				Sentry.captureException( error );
@@ -116,7 +119,7 @@ export const useFetchWpComSites = ( connectedSites: SyncSite[] ) => {
 			.finally( () => {
 				isFetchingSites.current = false;
 			} );
-	}, [ client?.req, connectedSites, isAuthenticated, isOffline ] );
+	}, [ client?.req, memoizedConnectedSiteIds, isAuthenticated, isOffline ] );
 
 	useEffect( () => {
 		fetchSites();
@@ -131,11 +134,13 @@ export const useFetchWpComSites = ( connectedSites: SyncSite[] ) => {
 		() =>
 			syncSites.map( ( site ) => ( {
 				...site,
-				syncSupport: connectedSites.some( ( connectedSite ) => connectedSite.id === site.id )
+				syncSupport: memoizedConnectedSiteIds.some(
+					( connectedSiteId ) => connectedSiteId === site.id
+				)
 					? 'already-connected'
 					: site.syncSupport,
 			} ) ),
-		[ syncSites, connectedSites ]
+		[ syncSites, memoizedConnectedSiteIds ]
 	);
 
 	return {

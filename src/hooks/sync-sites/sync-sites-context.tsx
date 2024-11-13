@@ -1,19 +1,12 @@
 import React, { createContext, useContext, useState } from 'react';
-import { SyncSite } from '../use-fetch-wpcom-sites';
-import { SyncBackupState, useSyncPull } from './use-sync-pull';
+import { useSyncPull } from './use-sync-pull';
 
-type SyncSitesContextType = {
-	pullStates: Record< number, SyncBackupState >;
-	pullSite: ( connectedSite: SyncSite, selectedSite: SiteDetails ) => Promise< void >;
-	isAnySitePulling: boolean;
-	isSiteIdPulling: ( selectedSiteId: string ) => boolean;
-	clearPullState: ( remoteSiteId: number ) => void;
-};
+type SyncSitesContextType = ReturnType< typeof useSyncPull >;
 
 const SyncSitesContext = createContext< SyncSitesContextType | undefined >( undefined );
 
 export function SyncSitesProvider( { children }: { children: React.ReactNode } ) {
-	const [ pullStates, setPullStates ] = useState< Record< number, SyncBackupState > >( {} );
+	const [ pullStates, setPullStates ] = useState< SyncSitesContextType[ 'pullStates' ] >( {} );
 	const { pullSite, isAnySitePulling, isSiteIdPulling, clearPullState } = useSyncPull( {
 		pullStates,
 		setPullStates,

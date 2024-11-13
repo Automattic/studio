@@ -120,14 +120,11 @@ export function SyncConnectedSites( {
 							</Button>
 						</div>
 						{ section.connectedSites.map( ( connectedSite ) => {
-							let sitePullState: SyncBackupState | undefined = pullStates[ connectedSite.id ];
-							if ( sitePullState?.selectedSite.id !== selectedSite.id ) {
-								sitePullState = undefined;
-							}
-
-							const isPulling = isKeyPulling( sitePullState?.status.key );
-							const isError = isKeyFailed( sitePullState?.status.key );
-							const hasPullFinished = isKeyFinished( sitePullState?.status.key );
+							const sitePullState: SyncBackupState | undefined =
+								pullStates[ `${ selectedSite.id }-${ connectedSite.id }` ];
+							const isPulling = sitePullState && isKeyPulling( sitePullState.status.key );
+							const isError = sitePullState && isKeyFailed( sitePullState.status.key );
+							const hasPullFinished = sitePullState && isKeyFinished( sitePullState.status.key );
 							return (
 								<div
 									key={ connectedSite.id }
@@ -157,13 +154,8 @@ export function SyncConnectedSites( {
 									<div className="flex gap-2 pl-4 ml-auto shrink-0">
 										{ isPulling && (
 											<div className="flex flex-col gap-2 min-w-44">
-												<div className="a8c-body-small">
-													{ pullStates[ connectedSite.id ]?.status.message }
-												</div>
-												<ProgressBar
-													value={ pullStates[ connectedSite.id ]?.status.progress }
-													maxValue={ 100 }
-												/>
+												<div className="a8c-body-small">{ sitePullState.status.message }</div>
+												<ProgressBar value={ sitePullState.status.progress } maxValue={ 100 } />
 											</div>
 										) }
 										{ isError && (

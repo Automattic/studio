@@ -13,16 +13,22 @@ type SyncSitesContextType = {
 	pullStates: Record< number, SiteBackupState >;
 	pullSite: ( remoteSiteId: number, selectedSite: SiteDetails ) => Promise< void >;
 	isAnySitePulling: boolean;
+	isSiteIdPulling: ( selectedSiteId: string ) => boolean;
 };
 
 const SyncSitesContext = createContext< SyncSitesContextType | undefined >( undefined );
 
 export function SyncSitesProvider( { children }: { children: React.ReactNode } ) {
 	const [ pullStates, setPullStates ] = useState< Record< number, SiteBackupState > >( {} );
-	const { pullSite, isAnySitePulling } = useSyncPull( { pullStates, setPullStates } );
+	const { pullSite, isAnySitePulling, isSiteIdPulling } = useSyncPull( {
+		pullStates,
+		setPullStates,
+	} );
 
 	return (
-		<SyncSitesContext.Provider value={ { pullStates, pullSite, isAnySitePulling } }>
+		<SyncSitesContext.Provider
+			value={ { pullStates, pullSite, isAnySitePulling, isSiteIdPulling } }
+		>
 			{ children }
 		</SyncSitesContext.Provider>
 	);

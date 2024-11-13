@@ -1,3 +1,4 @@
+import { SyncSitesProvider } from '../hooks/sync-sites/sync-sites-context';
 import { ChatProvider } from '../hooks/use-chat-context';
 import { ChatInputProvider } from '../hooks/use-chat-input';
 import { InstalledAppsProvider } from '../hooks/use-check-installed-apps';
@@ -32,7 +33,9 @@ const Root = () => {
 													<ChatProvider>
 														<ImportExportProvider>
 															<ChatInputProvider>
-																<App />
+																<SyncSitesProvider>
+																	<App />
+																</SyncSitesProvider>
 															</ChatInputProvider>
 														</ImportExportProvider>
 													</ChatProvider>

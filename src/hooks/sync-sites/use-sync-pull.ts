@@ -174,5 +174,14 @@ export function useSyncPull( {
 		return Object.values( pullStates ).some( ( state ) => isKeyPulling( state.status.key ) );
 	}, [ pullStates, isKeyPulling ] );
 
-	return { pullStates, pullSite, isAnySitePulling };
+	const isSiteIdPulling = useCallback(
+		( selectedSiteId: string ) => {
+			return Object.values( pullStates ).some( ( state ) => {
+				return state.selectedSite.id === selectedSiteId && isKeyPulling( state.status.key );
+			} );
+		},
+		[ pullStates, isKeyPulling ]
+	);
+
+	return { pullStates, pullSite, isAnySitePulling, isSiteIdPulling };
 }

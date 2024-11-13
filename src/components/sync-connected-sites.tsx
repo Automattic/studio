@@ -11,6 +11,7 @@ import { ArrowIcon } from './arrow-icon';
 import { Badge } from './badge';
 import Button from './button';
 import { CheckIcon } from './check-icon';
+import { ErrorIcon } from './error-icon';
 import ProgressBar from './progress-bar';
 import Tooltip from './tooltip';
 import { WordPressLogoCircle } from './wordpress-logo-circle';
@@ -35,7 +36,7 @@ export function SyncConnectedSites( {
 } ) {
 	const { __ } = useI18n();
 	const { pullSite, clearPullState, pullStates, isAnySitePulling } = useSyncSites();
-	const { isKeyPulling, isKeyFinished } = useSyncStatesProgressInfo();
+	const { isKeyPulling, isKeyFinished, isKeyFailed } = useSyncStatesProgressInfo();
 	const siteSections: ConnectedSiteSection[] = useMemo( () => {
 		const siteSections: ConnectedSiteSection[] = [];
 		const processedSites = new Set< number >();
@@ -121,6 +122,7 @@ export function SyncConnectedSites( {
 						{ section.connectedSites.map( ( connectedSite ) => {
 							const sitePullState = pullStates[ connectedSite.id ];
 							const isPulling = isKeyPulling( sitePullState?.status.key );
+							const isError = isKeyFailed( sitePullState?.status.key );
 							const hasPullFinished = isKeyFinished( sitePullState?.status.key );
 							return (
 								<div
@@ -160,6 +162,21 @@ export function SyncConnectedSites( {
 												/>
 											</div>
 										) }
+										{ isError && (
+											<div className="flex gap-4 pl-4 ml-auto items-center shrink-0 text-a8c-red-50">
+												<span className="flex items-center gap-2">
+													<ErrorIcon />
+													{ __( 'Error pulling changes' ) }
+												</span>
+												<Button
+													variant="link"
+													className="ml-3"
+													onClick={ () => clearPullState( connectedSite.id ) }
+												>
+													{ __( 'Clear' ) }
+												</Button>
+											</div>
+										) }
 										{ hasPullFinished && (
 											<div className="flex gap-4 pl-4 ml-auto items-center shrink-0 text-a8c-green-50">
 												<span className="flex items-center gap-2">
@@ -175,7 +192,7 @@ export function SyncConnectedSites( {
 												</Button>
 											</div>
 										) }
-										{ ! isPulling && ! hasPullFinished && (
+										{ ! isPulling && ! hasPullFinished && ! isError && (
 											<div className="flex gap-2 pl-4 ml-auto shrink-0 h-5">
 												<Button
 													variant="link"

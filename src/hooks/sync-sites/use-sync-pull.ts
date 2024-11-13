@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/electron/renderer';
+import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useMemo } from 'react';
 import { getIpcApi } from '../../lib/get-ipc-api';
@@ -73,8 +74,8 @@ export function useSyncPull( {
 					status: pullStatesProgressInfo.failed,
 				} );
 				getIpcApi().showErrorMessageBox( {
-					title: __( 'Failed to pull backup' ),
-					message: error instanceof Error ? error.message : __( 'Unknown error' ),
+					title: sprintf( __( 'Error pulling from %s' ), connectedSite.name ),
+					message: __( 'Studio was unable to connect to WordPress.com. Please try again.' ),
 				} );
 			}
 		},

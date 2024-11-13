@@ -53,5 +53,9 @@ export function useSyncStatesProgressInfo() {
 		return key === pullStatesProgressInfo.finished.key;
 	};
 
-	return { pullStatesProgressInfo, isKeyPulling, isKeyFinished };
+	const isKeyFailed = ( key: PullStateProgressInfo[ 'key' ] ) => {
+		return key === pullStatesProgressInfo.failed.key;
+	};
+
+	return { pullStatesProgressInfo, isKeyPulling, isKeyFinished, isKeyFailed };
 }

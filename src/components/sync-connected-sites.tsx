@@ -3,14 +3,17 @@ import { sprintf } from '@wordpress/i18n';
 import { cloudUpload, cloudDownload } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useMemo } from 'react';
-import { useSyncSites } from '../hooks/sync-sites-context';
+import { useSyncSites } from '../hooks/sync-sites/sync-sites-context';
 import { SyncSite } from '../hooks/use-fetch-wpcom-sites';
 import { useSyncStatesProgressInfo } from '../hooks/use-sync-states-progress-info';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { ArrowIcon } from './arrow-icon';
 import { Badge } from './badge';
 import Button from './button';
+import { CheckIcon } from './check-icon';
+import { ErrorIcon } from './error-icon';
 import ProgressBar from './progress-bar';
+import Tooltip from './tooltip';
 import { WordPressLogoCircle } from './wordpress-logo-circle';
 
 interface ConnectedSiteSection {
@@ -32,8 +35,8 @@ export function SyncConnectedSites( {
 	selectedSite: SiteDetails;
 } ) {
 	const { __ } = useI18n();
-	const { pullSite, pullStates, isAnySitePulling } = useSyncSites();
-	const { isKeyPulling } = useSyncStatesProgressInfo();
+	const { pullSite, clearPullState, pullStates, isAnySitePulling } = useSyncSites();
+	const { isKeyPulling, isKeyFinished, isKeyFailed } = useSyncStatesProgressInfo();
 	const siteSections: ConnectedSiteSection[] = useMemo( () => {
 		const siteSections: ConnectedSiteSection[] = [];
 		const processedSites = new Set< number >();
@@ -116,67 +119,106 @@ export function SyncConnectedSites( {
 								{ __( 'Disconnect' ) }
 							</Button>
 						</div>
-						{ section.connectedSites.map( ( connectedSite ) => (
-							<div
-								key={ connectedSite.id }
-								className="flex items-center gap-2 py-2.5 border-b border-a8c-gray-0 px-8"
-							>
-								<div className="flex items-left min-w-20 mr-6 shrink-0">
-									{ connectedSite.isStaging ? (
-										<Badge>{ __( 'Staging' ) }</Badge>
-									) : (
-										<Badge className="bg-a8c-green-5 text-a8c-green-80">
-											{ __( 'Production' ) }
-										</Badge>
-									) }
-								</div>
-
-								<Button
-									variant="link"
-									className="!text-a8c-gray-70 hover:!text-a8c-blueberry truncate"
-									onClick={ () => {
-										getIpcApi().openURL( connectedSite.url );
-									} }
+						{ section.connectedSites.map( ( connectedSite ) => {
+							const sitePullState = pullStates[ connectedSite.id ];
+							const isPulling = isKeyPulling( sitePullState?.status.key );
+							const isError = isKeyFailed( sitePullState?.status.key );
+							const hasPullFinished = isKeyFinished( sitePullState?.status.key );
+							return (
+								<div
+									key={ connectedSite.id }
+									className="flex items-center gap-2 min-h-14 border-b border-a8c-gray-0 px-8"
 								>
-									<span className="truncate">{ connectedSite.url }</span> <ArrowIcon />
-								</Button>
-								<div className="flex gap-2 pl-4 ml-auto">
-									{ isKeyPulling( pullStates[ connectedSite.id ]?.status.key ) ? (
-										<div className="flex flex-col gap-2 min-w-44">
-											<div className="a8c-body-small">
-												{ pullStates[ connectedSite.id ]?.status.message }
+									<div className="flex items-left min-w-20 mr-6 shrink-0">
+										{ connectedSite.isStaging ? (
+											<Badge>{ __( 'Staging' ) }</Badge>
+										) : (
+											<Badge className="bg-a8c-green-5 text-a8c-green-80">
+												{ __( 'Production' ) }
+											</Badge>
+										) }
+									</div>
+
+									<Tooltip text={ connectedSite.url } className="overflow-hidden">
+										<Button
+											variant="link"
+											className="!text-a8c-gray-70 hover:!text-a8c-blueberry max-w-[100%]"
+											onClick={ () => {
+												getIpcApi().openURL( connectedSite.url );
+											} }
+										>
+											<span className="truncate">{ connectedSite.url }</span> <ArrowIcon />
+										</Button>
+									</Tooltip>
+									<div className="flex gap-2 pl-4 ml-auto shrink-0">
+										{ isPulling && (
+											<div className="flex flex-col gap-2 min-w-44">
+												<div className="a8c-body-small">
+													{ pullStates[ connectedSite.id ]?.status.message }
+												</div>
+												<ProgressBar
+													value={ pullStates[ connectedSite.id ]?.status.progress }
+													maxValue={ 100 }
+												/>
 											</div>
-											<ProgressBar
-												value={ pullStates[ connectedSite.id ]?.status.progress }
-												maxValue={ 100 }
-											/>
-										</div>
-									) : (
-										<div className="flex gap-2 pl-4 ml-auto shrink-0">
-											<Button
-												variant="link"
-												className="!text-black hover:!text-a8c-blueberry"
-												onClick={ () => {
-													pullSite( connectedSite.id, selectedSite );
-												} }
-												disabled={ isAnySitePulling }
-											>
-												<Icon icon={ cloudDownload } />
-												{ __( 'Pull' ) }
-											</Button>
-											<Button
-												variant="link"
-												className="!text-black hover:!text-a8c-blueberry"
-												disabled={ isAnySitePulling }
-											>
-												<Icon icon={ cloudUpload } />
-												{ __( 'Push' ) }
-											</Button>
-										</div>
-									) }
+										) }
+										{ isError && (
+											<div className="flex gap-4 pl-4 ml-auto items-center shrink-0 text-a8c-red-50">
+												<span className="flex items-center gap-2">
+													<ErrorIcon />
+													{ __( 'Error pulling changes' ) }
+												</span>
+												<Button
+													variant="link"
+													className="ml-3"
+													onClick={ () => clearPullState( connectedSite.id ) }
+												>
+													{ __( 'Clear' ) }
+												</Button>
+											</div>
+										) }
+										{ hasPullFinished && (
+											<div className="flex gap-4 pl-4 ml-auto items-center shrink-0 text-a8c-green-50">
+												<span className="flex items-center gap-2">
+													<CheckIcon />
+													{ __( 'Pull complete' ) }
+												</span>
+												<Button
+													variant="link"
+													className="ml-3"
+													onClick={ () => clearPullState( connectedSite.id ) }
+												>
+													{ __( 'Clear' ) }
+												</Button>
+											</div>
+										) }
+										{ ! isPulling && ! hasPullFinished && ! isError && (
+											<div className="flex gap-2 pl-4 ml-auto shrink-0 h-5">
+												<Button
+													variant="link"
+													className="!text-black hover:!text-a8c-blueberry"
+													onClick={ () => {
+														pullSite( connectedSite, selectedSite );
+													} }
+													disabled={ isAnySitePulling }
+												>
+													<Icon icon={ cloudDownload } />
+													{ __( 'Pull' ) }
+												</Button>
+												<Button
+													variant="link"
+													className="!text-black hover:!text-a8c-blueberry"
+													disabled={ isAnySitePulling }
+												>
+													<Icon icon={ cloudUpload } />
+													{ __( 'Push' ) }
+												</Button>
+											</div>
+										) }
+									</div>
 								</div>
-							</div>
-						) ) }
+							);
+						} ) }
 					</div>
 				) ) }
 			</div>

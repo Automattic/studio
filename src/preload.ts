@@ -89,7 +89,8 @@ const api: IpcApi = {
 		ipcRenderer.invoke( 'openFileInIDE', relativePath, siteId ),
 	downloadSyncBackup: ( remoteSiteId: number, downloadUrl: string ) =>
 		ipcRenderer.invoke( 'downloadSyncBackup', remoteSiteId, downloadUrl ),
-	removeSyncBackup: ( filePath: string ) => ipcRenderer.invoke( 'removeSyncBackup', filePath ),
+	removeSyncBackup: ( remoteSiteId: number ) =>
+		ipcRenderer.invoke( 'removeSyncBackup', remoteSiteId ),
 	getConnectedWpcomSites: ( localSiteId: string ) =>
 		ipcRenderer.invoke( 'getConnectedWpcomSites', localSiteId ),
 };

@@ -5,7 +5,7 @@ import { Icon, download } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useRef } from 'react';
 import { ACCEPTED_IMPORT_FILE_TYPES, STUDIO_DOCS_URL_IMPORT_EXPORT } from '../constants';
-import { useSyncSites } from '../hooks/sync-sites-context';
+import { useSyncSites } from '../hooks/sync-sites/sync-sites-context';
 import { useConfirmationDialog } from '../hooks/use-confirmation-dialog';
 import { useDragAndDropFile } from '../hooks/use-drag-and-drop-file';
 import { useImportExport } from '../hooks/use-import-export';
@@ -24,6 +24,8 @@ export const ExportSite = ( { selectedSite }: { selectedSite: SiteDetails } ) =>
 	const { exportState, exportFullSite, exportDatabase, importState } = useImportExport();
 	const { [ selectedSite.id ]: currentProgress } = exportState;
 	const isSiteImporting = importState[ selectedSite.id ]?.progress < 100;
+	const { isAnySitePulling } = useSyncSites();
+	const isExportDisabled = isSiteImporting || isAnySitePulling;
 	const siteNotReadyForExportMessage = __(
 		'This site is being imported. Please wait for the import to finish before you export it.'
 	);
@@ -50,22 +52,24 @@ export const ExportSite = ( { selectedSite }: { selectedSite: SiteDetails } ) =>
 				</div>
 			) : (
 				<div className="flex flex-row gap-4">
-					<Tooltip text={ siteNotReadyForExportMessage } disabled={ ! isSiteImporting }>
+					<Tooltip text={ siteNotReadyForExportMessage } disabled={ ! isExportDisabled }>
 						<Button
 							onClick={ () => handleExport( exportFullSite ) }
 							variant="primary"
-							disabled={ isSiteImporting }
+							disabled={ isExportDisabled }
 						>
 							{ __( 'Export entire site' ) }
 						</Button>
 					</Tooltip>
-					<Tooltip text={ siteNotReadyForExportMessage } disabled={ ! isSiteImporting }>
+					<Tooltip text={ siteNotReadyForExportMessage } disabled={ ! isExportDisabled }>
 						<Button
 							onClick={ () => handleExport( exportDatabase ) }
 							type="submit"
 							variant="secondary"
-							className={ cx( isSiteImporting ? '' : '!text-a8c-blueberry !shadow-a8c-blueberry' ) }
-							disabled={ isSiteImporting }
+							className={ cx(
+								isExportDisabled ? '' : '!text-a8c-blueberry !shadow-a8c-blueberry'
+							) }
+							disabled={ isExportDisabled }
 						>
 							{ __( 'Export database' ) }
 						</Button>
@@ -246,7 +250,7 @@ export function ContentTabImportExport( { selectedSite }: ContentTabImportExport
 	return (
 		<div className="flex flex-col p-8 gap-8">
 			<ImportSite selectedSite={ selectedSite } />
-			<ExportSite selectedSite={ selectedSite }></ExportSite>
+			<ExportSite selectedSite={ selectedSite } />
 		</div>
 	);
 }

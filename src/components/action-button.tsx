@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { cx } from '../lib/cx';
 import Button, { ButtonProps } from './button';
 
-type ActionButtonState = 'idle' | 'loading' | 'stop' | 'running' | 'importing';
+type ActionButtonState = 'idle' | 'loading' | 'stop' | 'running' | 'disabled';
 
 interface ActionButtonProps {
 	isRunning: boolean;
@@ -14,7 +14,8 @@ interface ActionButtonProps {
 	className?: string;
 	buttonClassName?: string;
 	iconSize?: number;
-	isImporting?: boolean;
+	disabled?: boolean;
+	buttonLabelOnDisabled: string;
 }
 
 const MIN_WIDTH = 96;
@@ -50,7 +51,8 @@ export const ActionButton = ( {
 	className,
 	buttonClassName,
 	iconSize = 10,
-	isImporting = false,
+	disabled = false,
+	buttonLabelOnDisabled,
 }: ActionButtonProps ) => {
 	const { __ } = useI18n();
 	const [ isUserHighlighting, setIsUserHighlighting ] = useState( false );
@@ -59,8 +61,8 @@ export const ActionButton = ( {
 	const minSize = useRef( { width: MIN_WIDTH, height: 0 } );
 
 	let state: ActionButtonState = 'idle';
-	if ( isImporting ) {
-		state = 'importing';
+	if ( disabled ) {
+		state = 'disabled';
 	} else if ( isLoading ) {
 		state = 'loading';
 	} else if ( isRunning ) {
@@ -87,7 +89,7 @@ export const ActionButton = ( {
 	}, [ sizes ] );
 
 	const handleOnClick = () => {
-		if ( isLoading || isImporting ) {
+		if ( isLoading || disabled ) {
 			return;
 		}
 		onClick();
@@ -141,8 +143,8 @@ export const ActionButton = ( {
 				className: cx( defaultButtonClassName, '!text-a8c-green-50' ),
 			};
 			break;
-		case 'importing':
-			buttonLabel = __( 'Importing…' );
+		case 'disabled':
+			buttonLabel = buttonLabelOnDisabled;
 			buttonProps = {
 				// `aria-disabled` used rather than `disabled` to prevent losing button
 				// focus while the button's asynchronous action is pending.

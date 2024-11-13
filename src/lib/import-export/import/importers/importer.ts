@@ -68,7 +68,7 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 					throw new Error( 'Database import failed' );
 				}
 			} finally {
-				await this.safelyDeleteFile( tmpPath );
+				await this.safelyDeletePath( tmpPath );
 			}
 		}
 
@@ -112,11 +112,11 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 		}
 	}
 
-	protected async safelyDeleteFile( filePath: string ): Promise< void > {
+	protected async safelyDeletePath( path: string ): Promise< void > {
 		try {
-			await fsPromises.unlink( filePath );
+			await fsPromises.rm( path, { recursive: true, force: true } );
 		} catch ( error ) {
-			console.error( `Failed to safely delete file ${ filePath }:`, error );
+			console.error( `Failed to safely delete path ${ path }:`, error );
 		}
 	}
 }
@@ -182,7 +182,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 				if ( contentToKeep.includes( content ) ) {
 					continue;
 				}
-				await this.safelyDeleteFile( contentPath );
+				await this.safelyDeletePath( contentPath );
 			}
 		} catch {
 			return;

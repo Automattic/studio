@@ -27,7 +27,7 @@ export function useSyncPull( {
 		},
 		[ setPullStates ]
 	);
-	const deletePullState = useCallback(
+	const clearPullState = useCallback(
 		( remoteSiteId: number ) => {
 			setPullStates( ( prevStates ) => {
 				const newStates = { ...prevStates };
@@ -104,12 +104,8 @@ export function useSyncPull( {
 			updatePullState( remoteSiteId, {
 				status: pullStatesProgressInfo.finished,
 			} );
-			setTimeout( () => {
-				deletePullState( remoteSiteId );
-			}, 1000 );
 		},
 		[
-			deletePullState,
 			importFile,
 			pullStatesProgressInfo.downloading,
 			pullStatesProgressInfo.finished,
@@ -190,5 +186,5 @@ export function useSyncPull( {
 		[ pullStates, isKeyPulling ]
 	);
 
-	return { pullStates, pullSite, isAnySitePulling, isSiteIdPulling };
+	return { pullStates, pullSite, isAnySitePulling, isSiteIdPulling, clearPullState };
 }

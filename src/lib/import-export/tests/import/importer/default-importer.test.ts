@@ -86,8 +86,14 @@ describe( 'JetpackImporter', () => {
 			} );
 
 			const expectedUnlinkPath = '/path/to/studio/site/studio-backup-sql-2024-08-01-12-00-00.sql';
-			expect( fs.unlink ).toHaveBeenNthCalledWith( 1, expectedUnlinkPath );
-			expect( fs.unlink ).toHaveBeenNthCalledWith( 2, expectedUnlinkPath );
+			expect( fs.rm ).toHaveBeenNthCalledWith( 1, expectedUnlinkPath, {
+				force: true,
+				recursive: true,
+			} );
+			expect( fs.rm ).toHaveBeenNthCalledWith( 2, expectedUnlinkPath, {
+				force: true,
+				recursive: true,
+			} );
 		} );
 
 		it( 'should handle missing meta file', async () => {

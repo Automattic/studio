@@ -3,7 +3,7 @@ import { sprintf } from '@wordpress/i18n';
 import { cloudUpload, cloudDownload } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useMemo } from 'react';
-import { useSyncSites } from '../hooks/sync-sites/sync-sites-context';
+import { SyncBackupState, useSyncSites } from '../hooks/sync-sites';
 import { SyncSite } from '../hooks/use-fetch-wpcom-sites';
 import { useSyncStatesProgressInfo } from '../hooks/use-sync-states-progress-info';
 import { getIpcApi } from '../lib/get-ipc-api';
@@ -120,7 +120,11 @@ export function SyncConnectedSites( {
 							</Button>
 						</div>
 						{ section.connectedSites.map( ( connectedSite ) => {
-							const sitePullState = pullStates[ connectedSite.id ];
+							let sitePullState: SyncBackupState | undefined = pullStates[ connectedSite.id ];
+							if ( sitePullState?.selectedSite.id !== selectedSite.id ) {
+								sitePullState = undefined;
+							}
+
 							const isPulling = isKeyPulling( sitePullState?.status.key );
 							const isError = isKeyFailed( sitePullState?.status.key );
 							const hasPullFinished = isKeyFinished( sitePullState?.status.key );

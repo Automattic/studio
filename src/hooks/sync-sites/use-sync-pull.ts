@@ -6,22 +6,29 @@ import { getIpcApi } from '../../lib/get-ipc-api';
 import { useAuth } from '../use-auth';
 import { SyncSite } from '../use-fetch-wpcom-sites';
 import { useImportExport } from '../use-import-export';
-import { useSyncStatesProgressInfo } from '../use-sync-states-progress-info';
-import { SiteBackupState } from './sync-sites-context';
+import { useSyncStatesProgressInfo, PullStateProgressInfo } from '../use-sync-states-progress-info';
+
+export type SyncBackupState = {
+	backupId: string | null;
+	status: PullStateProgressInfo;
+	downloadUrl: string | null;
+	selectedSite: SiteDetails;
+	isStaging: boolean;
+};
 
 export function useSyncPull( {
 	pullStates,
 	setPullStates,
 }: {
-	pullStates: Record< number, SiteBackupState >;
-	setPullStates: React.Dispatch< React.SetStateAction< Record< number, SiteBackupState > > >;
+	pullStates: Record< number, SyncBackupState >;
+	setPullStates: React.Dispatch< React.SetStateAction< Record< number, SyncBackupState > > >;
 } ) {
 	const { __ } = useI18n();
 	const { client } = useAuth();
 	const { importFile, clearImportState } = useImportExport();
 	const { pullStatesProgressInfo, isKeyPulling } = useSyncStatesProgressInfo();
 	const updatePullState = useCallback(
-		( remoteSiteId: number, state: Partial< SiteBackupState > ) => {
+		( remoteSiteId: number, state: Partial< SyncBackupState > ) => {
 			setPullStates( ( prevStates ) => ( {
 				...prevStates,
 				[ remoteSiteId ]: { ...prevStates[ remoteSiteId ], ...state },
@@ -83,7 +90,7 @@ export function useSyncPull( {
 	);
 
 	const onBackupCompleted = useCallback(
-		async ( remoteSiteId: number, backupState: SiteBackupState & { downloadUrl: string } ) => {
+		async ( remoteSiteId: number, backupState: SyncBackupState & { downloadUrl: string } ) => {
 			const { downloadUrl, selectedSite, isStaging } = backupState;
 			updatePullState( remoteSiteId, {
 				status: pullStatesProgressInfo.downloading,

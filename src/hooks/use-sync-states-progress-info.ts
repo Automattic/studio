@@ -40,20 +40,23 @@ export function useSyncStatesProgressInfo() {
 		} as const;
 	}, [ __ ] );
 
-	const isKeyPulling = ( key: PullStateProgressInfo[ 'key' ] ) => {
+	const isKeyPulling = ( key: PullStateProgressInfo[ 'key' ] | undefined ) => {
 		const pullingStateKeys: PullStateProgressInfo[ 'key' ][] = [
 			'in-progress',
 			'downloading',
 			'importing',
 		];
+		if ( ! key ) {
+			return false;
+		}
 		return pullingStateKeys.includes( key );
 	};
 
-	const isKeyFinished = ( key: PullStateProgressInfo[ 'key' ] ) => {
+	const isKeyFinished = ( key: PullStateProgressInfo[ 'key' ] | undefined ) => {
 		return key === pullStatesProgressInfo.finished.key;
 	};
 
-	const isKeyFailed = ( key: PullStateProgressInfo[ 'key' ] ) => {
+	const isKeyFailed = ( key: PullStateProgressInfo[ 'key' ] | undefined ) => {
 		return key === pullStatesProgressInfo.failed.key;
 	};
 

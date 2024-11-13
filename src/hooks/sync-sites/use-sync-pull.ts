@@ -1,15 +1,20 @@
 import { useI18n } from '@wordpress/react-i18n';
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { getIpcApi } from '../../lib/get-ipc-api';
 import { useAuth } from '../use-auth';
 import { useImportExport } from '../use-import-export';
 import { useSyncStatesProgressInfo } from '../use-sync-states-progress-info';
 import { SiteBackupState } from './sync-sites-context';
 
-export function useSyncPull() {
+export function useSyncPull( {
+	pullStates,
+	setPullStates,
+}: {
+	pullStates: Record< number, SiteBackupState >;
+	setPullStates: React.Dispatch< React.SetStateAction< Record< number, SiteBackupState > > >;
+} ) {
 	const { __ } = useI18n();
 	const { client } = useAuth();
-	const [ pullStates, setPullStates ] = useState< Record< number, SiteBackupState > >( {} );
 	const { importFile } = useImportExport();
 	const { pullStatesProgressInfo, isKeyPulling } = useSyncStatesProgressInfo();
 
@@ -56,7 +61,7 @@ export function useSyncPull() {
 				} );
 			}
 		},
-		[ __, client, pullStatesProgressInfo ]
+		[ __, client, pullStatesProgressInfo, setPullStates ]
 	);
 
 	const onBackupCompleted = useCallback(
@@ -109,6 +114,7 @@ export function useSyncPull() {
 			pullStatesProgressInfo.completed,
 			pullStatesProgressInfo.finished,
 			pullStatesProgressInfo.importing,
+			setPullStates,
 		]
 	);
 
@@ -153,7 +159,7 @@ export function useSyncPull() {
 				onBackupCompleted( remoteSiteId, downloadUrl, selectedSite );
 			}
 		},
-		[ client, pullStates, pullStatesProgressInfo, onBackupCompleted ]
+		[ client, onBackupCompleted, pullStates, pullStatesProgressInfo, setPullStates ]
 	);
 
 	useEffect( () => {

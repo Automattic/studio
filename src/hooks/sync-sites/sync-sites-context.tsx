@@ -1,4 +1,4 @@
-import React, { createContext, useContext } from 'react';
+import React, { createContext, useContext, useState } from 'react';
 import { PullStateProgressInfo } from '../use-sync-states-progress-info';
 import { useSyncPull } from './use-sync-pull';
 
@@ -18,7 +18,8 @@ type SyncSitesContextType = {
 const SyncSitesContext = createContext< SyncSitesContextType | undefined >( undefined );
 
 export function SyncSitesProvider( { children }: { children: React.ReactNode } ) {
-	const { pullStates, pullSite, isAnySitePulling } = useSyncPull();
+	const [ pullStates, setPullStates ] = useState< Record< number, SiteBackupState > >( {} );
+	const { pullSite, isAnySitePulling } = useSyncPull( { pullStates, setPullStates } );
 
 	return (
 		<SyncSitesContext.Provider value={ { pullStates, pullSite, isAnySitePulling } }>

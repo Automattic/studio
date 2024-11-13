@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
+import { SyncSitesProvider } from '../../hooks/sync-sites';
 import { SiteManagementActionProps, SiteManagementActions } from '../site-management-actions';
 
 const defaultProps = {
@@ -11,14 +12,17 @@ describe( 'SiteManagementActions', () => {
 	beforeEach( () => {
 		jest.clearAllMocks();
 	} );
+	const renderWithProvider = ( children: React.ReactElement ) => {
+		return render( <SyncSitesProvider>{ children }</SyncSitesProvider> );
+	};
 	it( 'should not render when selectedSite is undefined', () => {
-		const { container } = render(
+		const { container } = renderWithProvider(
 			<SiteManagementActions { ...defaultProps } selectedSite={ undefined } />
 		);
 		expect( container.firstChild ).toBeNull();
 	} );
 	it( 'should render correctly with a running site', () => {
-		render(
+		renderWithProvider(
 			<SiteManagementActions
 				{ ...defaultProps }
 				selectedSite={
@@ -33,7 +37,7 @@ describe( 'SiteManagementActions', () => {
 	} );
 	it( 'should change text to Stop when hovered over a running site', async () => {
 		const user = userEvent.setup();
-		render(
+		renderWithProvider(
 			<SiteManagementActions
 				{ ...defaultProps }
 				selectedSite={
@@ -49,7 +53,7 @@ describe( 'SiteManagementActions', () => {
 		expect( startStopButton ).toHaveTextContent( 'Stop' );
 	} );
 	it( 'should render "Start" button when site is not running', () => {
-		render(
+		renderWithProvider(
 			<SiteManagementActions
 				{ ...defaultProps }
 				selectedSite={ { running: false, id: 'site-1' } as SiteDetails }

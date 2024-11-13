@@ -1,6 +1,6 @@
 // To run tests, execute `npm run test -- src/components/tests/content-tab-sync.test.tsx` from the root directory
 import { render, screen, fireEvent } from '@testing-library/react';
-import { SyncSitesProvider } from '../../hooks/sync-sites-context';
+import { SyncSitesProvider } from '../../hooks/sync-sites/sync-sites-context';
 import { useAuth } from '../../hooks/use-auth';
 import { useSiteSyncManagement } from '../../hooks/use-site-sync-management';
 import { getIpcApi } from '../../lib/get-ipc-api';

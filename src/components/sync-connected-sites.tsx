@@ -3,7 +3,7 @@ import { sprintf } from '@wordpress/i18n';
 import { cloudUpload, cloudDownload } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useMemo } from 'react';
-import { useSyncSites } from '../hooks/sync-sites-context';
+import { useSyncSites } from '../hooks/sync-sites/sync-sites-context';
 import { SyncSite } from '../hooks/use-fetch-wpcom-sites';
 import { useSyncStatesProgressInfo } from '../hooks/use-sync-states-progress-info';
 import { getIpcApi } from '../lib/get-ipc-api';

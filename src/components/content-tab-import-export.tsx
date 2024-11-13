@@ -5,7 +5,7 @@ import { Icon, download } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useRef } from 'react';
 import { ACCEPTED_IMPORT_FILE_TYPES, STUDIO_DOCS_URL_IMPORT_EXPORT } from '../constants';
-import { useSyncSites } from '../hooks/sync-sites-context';
+import { useSyncSites } from '../hooks/sync-sites/sync-sites-context';
 import { useConfirmationDialog } from '../hooks/use-confirmation-dialog';
 import { useDragAndDropFile } from '../hooks/use-drag-and-drop-file';
 import { useImportExport } from '../hooks/use-import-export';

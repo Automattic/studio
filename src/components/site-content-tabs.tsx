@@ -1,6 +1,6 @@
 import { TabPanel } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
-import { SyncSitesProvider } from '../hooks/sync-sites-context';
+import { SyncSitesProvider } from '../hooks/sync-sites/sync-sites-context';
 import { useContentTabs } from '../hooks/use-content-tabs';
 import { useImportExport } from '../hooks/use-import-export';
 import { useSiteDetails } from '../hooks/use-site-details';

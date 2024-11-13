@@ -1,6 +1,6 @@
 import { render, fireEvent, waitFor, screen, createEvent, act } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
-import { SyncSitesProvider } from '../../hooks/sync-sites-context';
+import { SyncSitesProvider } from '../../hooks/sync-sites/sync-sites-context';
 import { useImportExport } from '../../hooks/use-import-export';
 import { useSiteDetails } from '../../hooks/use-site-details';
 import { getIpcApi } from '../../lib/get-ipc-api';

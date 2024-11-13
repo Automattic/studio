@@ -1,36 +1,12 @@
 import { useI18n } from '@wordpress/react-i18n';
-import React, { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react';
-import { getIpcApi } from '../lib/get-ipc-api';
-import { useAuth } from './use-auth';
-import { useImportExport } from './use-import-export';
-import { PullStateProgressInfo, useSyncStatesProgressInfo } from './use-sync-states-progress-info';
+import { useState, useCallback, useEffect, useMemo } from 'react';
+import { getIpcApi } from '../../lib/get-ipc-api';
+import { useAuth } from '../use-auth';
+import { useImportExport } from '../use-import-export';
+import { useSyncStatesProgressInfo } from '../use-sync-states-progress-info';
+import { SiteBackupState } from './sync-sites-context';
 
-export type SiteBackupState = {
-	backupId: string | null;
-	status: PullStateProgressInfo;
-	downloadUrl: string | null;
-	selectedSite: SiteDetails;
-};
-
-type SyncSitesContextType = {
-	pullStates: Record< number, SiteBackupState >;
-	pullSite: ( remoteSiteId: number, selectedSite: SiteDetails ) => Promise< void >;
-	isAnySitePulling: boolean;
-};
-
-const SyncSitesContext = createContext< SyncSitesContextType | undefined >( undefined );
-
-export function SyncSitesProvider( { children }: { children: React.ReactNode } ) {
-	const { pullStates, pullSite, isAnySitePulling } = useSyncPull();
-
-	return (
-		<SyncSitesContext.Provider value={ { pullStates, pullSite, isAnySitePulling } }>
-			{ children }
-		</SyncSitesContext.Provider>
-	);
-}
-
-function useSyncPull() {
+export function useSyncPull() {
 	const { __ } = useI18n();
 	const { client } = useAuth();
 	const [ pullStates, setPullStates ] = useState< Record< number, SiteBackupState > >( {} );
@@ -201,12 +177,4 @@ function useSyncPull() {
 	}, [ pullStates, isKeyPulling ] );
 
 	return { pullStates, pullSite, isAnySitePulling };
-}
-
-export function useSyncSites() {
-	const context = useContext( SyncSitesContext );
-	if ( context === undefined ) {
-		throw new Error( 'useSyncSites must be used within a SyncSitesProvider' );
-	}
-	return context;
 }

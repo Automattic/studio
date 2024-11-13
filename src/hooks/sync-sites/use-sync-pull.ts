@@ -18,7 +18,7 @@ export function useSyncPull( {
 } ) {
 	const { __ } = useI18n();
 	const { client } = useAuth();
-	const { importFile } = useImportExport();
+	const { importFile, clearImportState } = useImportExport();
 	const { pullStatesProgressInfo, isKeyPulling } = useSyncStatesProgressInfo();
 	const updatePullState = useCallback(
 		( remoteSiteId: number, state: Partial< SiteBackupState > ) => {
@@ -107,6 +107,8 @@ export function useSyncPull( {
 
 			await getIpcApi().removeSyncBackup( remoteSiteId );
 
+			clearImportState( selectedSite.id );
+
 			getIpcApi().showNotification( {
 				title: selectedSite.name,
 				body: isStaging
@@ -120,6 +122,7 @@ export function useSyncPull( {
 		},
 		[
 			__,
+			clearImportState,
 			importFile,
 			pullStatesProgressInfo.downloading,
 			pullStatesProgressInfo.finished,

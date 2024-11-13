@@ -2,7 +2,7 @@ import { check, Icon } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren, useState } from 'react';
 import { CLIENT_ID, PROTOCOL_PREFIX, SCOPES, WP_AUTHORIZE_ENDPOINT } from '../constants';
-import { useSyncSites } from '../hooks/sync-sites-context';
+import { useSyncSites } from '../hooks/sync-sites';
 import { useAuth } from '../hooks/use-auth';
 import { SyncSite } from '../hooks/use-fetch-wpcom-sites';
 import { useOffline } from '../hooks/use-offline';

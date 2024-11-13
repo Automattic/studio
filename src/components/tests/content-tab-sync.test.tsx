@@ -1,14 +1,14 @@
 // To run tests, execute `npm run test -- src/components/tests/content-tab-sync.test.tsx` from the root directory
 import { render, screen, fireEvent } from '@testing-library/react';
-import { SyncSitesProvider } from '../../hooks/sync-sites/sync-sites-context';
+import { SyncSitesProvider, useSyncSites } from '../../hooks/sync-sites/sync-sites-context';
 import { useAuth } from '../../hooks/use-auth';
 import { getIpcApi } from '../../lib/get-ipc-api';
 import { ContentTabSync } from '../content-tab-sync';
 
 jest.mock( '../../hooks/use-auth' );
 jest.mock( '../../lib/get-ipc-api' );
-jest.mock( '../../hooks/sync-sites-context', () => ( {
-	...jest.requireActual( '../../hooks/sync-sites-context' ),
+jest.mock( '../../hooks/sync-sites/sync-sites-context', () => ( {
+	...jest.requireActual( '../../hooks/sync-sites/sync-sites-context' ),
 	useSyncSites: jest.fn(),
 } ) );
 

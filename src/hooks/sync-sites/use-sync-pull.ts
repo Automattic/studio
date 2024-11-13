@@ -161,14 +161,14 @@ export function useSyncPull( {
 
 		Object.entries( pullStates ).forEach( ( [ remoteSiteId, state ] ) => {
 			if ( state.backupId && state.status.key === 'in-progress' ) {
-				intervals[ Number( remoteSiteId ) ] = setInterval( () => {
+				intervals[ Number( remoteSiteId ) ] = setTimeout( () => {
 					getBackup( Number( remoteSiteId ) );
 				}, 2000 );
 			}
 		} );
 
 		return () => {
-			Object.values( intervals ).forEach( clearInterval );
+			Object.values( intervals ).forEach( clearTimeout );
 		};
 	}, [ pullStates, getBackup ] );
 

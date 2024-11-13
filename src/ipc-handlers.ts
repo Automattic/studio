@@ -255,7 +255,7 @@ export async function disconnectWpcomSite(
 	event: IpcMainInvokeEvent,
 	siteIds: number[],
 	localSiteId: string
-): Promise< SyncSite[] > {
+) {
 	const userData = await loadUserData();
 	const currentUserId = userData.authToken?.id;
 

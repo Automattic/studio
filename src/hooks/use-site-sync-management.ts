@@ -98,6 +98,7 @@ export const useSiteSyncManagement = () => {
 					sitesToDisconnect,
 					localSiteId
 				);
+
 				setConnectedSites( newDisconnectedSites );
 			} catch ( error ) {
 				console.error( 'Failed to disconnect site:', error );

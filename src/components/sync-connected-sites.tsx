@@ -3,7 +3,7 @@ import { sprintf } from '@wordpress/i18n';
 import { cloudUpload, cloudDownload } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useMemo } from 'react';
-import { SyncBackupState, useSyncSites } from '../hooks/sync-sites';
+import { useSyncSites } from '../hooks/sync-sites';
 import { SyncSite } from '../hooks/use-fetch-wpcom-sites';
 import { useSyncStatesProgressInfo } from '../hooks/use-sync-states-progress-info';
 import { getIpcApi } from '../lib/get-ipc-api';
@@ -35,7 +35,7 @@ export function SyncConnectedSites( {
 	selectedSite: SiteDetails;
 } ) {
 	const { __ } = useI18n();
-	const { pullSite, clearPullState, pullStates, isAnySitePulling } = useSyncSites();
+	const { pullSite, clearPullState, getPullState, isAnySitePulling } = useSyncSites();
 	const { isKeyPulling, isKeyFinished, isKeyFailed } = useSyncStatesProgressInfo();
 	const siteSections: ConnectedSiteSection[] = useMemo( () => {
 		const siteSections: ConnectedSiteSection[] = [];
@@ -120,8 +120,7 @@ export function SyncConnectedSites( {
 							</Button>
 						</div>
 						{ section.connectedSites.map( ( connectedSite ) => {
-							const sitePullState: SyncBackupState | undefined =
-								pullStates[ `${ selectedSite.id }-${ connectedSite.id }` ];
+							const sitePullState = getPullState( selectedSite.id, connectedSite.id );
 							const isPulling = sitePullState && isKeyPulling( sitePullState.status.key );
 							const isError = sitePullState && isKeyFailed( sitePullState.status.key );
 							const hasPullFinished = sitePullState && isKeyFinished( sitePullState.status.key );

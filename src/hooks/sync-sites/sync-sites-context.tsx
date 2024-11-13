@@ -7,14 +7,23 @@ const SyncSitesContext = createContext< SyncSitesContextType | undefined >( unde
 
 export function SyncSitesProvider( { children }: { children: React.ReactNode } ) {
 	const [ pullStates, setPullStates ] = useState< SyncSitesContextType[ 'pullStates' ] >( {} );
-	const { pullSite, isAnySitePulling, isSiteIdPulling, clearPullState } = useSyncPull( {
-		pullStates,
-		setPullStates,
-	} );
+	const { pullSite, isAnySitePulling, isSiteIdPulling, clearPullState, getPullState } = useSyncPull(
+		{
+			pullStates,
+			setPullStates,
+		}
+	);
 
 	return (
 		<SyncSitesContext.Provider
-			value={ { pullStates, pullSite, isAnySitePulling, isSiteIdPulling, clearPullState } }
+			value={ {
+				pullStates,
+				pullSite,
+				isAnySitePulling,
+				isSiteIdPulling,
+				clearPullState,
+				getPullState,
+			} }
 		>
 			{ children }
 		</SyncSitesContext.Provider>

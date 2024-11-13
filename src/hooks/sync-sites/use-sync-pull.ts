@@ -17,21 +17,38 @@ export function useSyncPull( {
 	const { client } = useAuth();
 	const { importFile } = useImportExport();
 	const { pullStatesProgressInfo, isKeyPulling } = useSyncStatesProgressInfo();
+	const updatePullState = useCallback(
+		( remoteSiteId: number, state: Partial< SiteBackupState > ) => {
+			setPullStates( ( prevStates ) => ( {
+				...prevStates,
+				[ remoteSiteId ]: { ...prevStates[ remoteSiteId ], ...state },
+			} ) );
+		},
+		[ setPullStates ]
+	);
+	const deletePullState = useCallback(
+		( remoteSiteId: number ) => {
+			setPullStates( ( prevStates ) => {
+				const newStates = { ...prevStates };
+				delete newStates[ remoteSiteId ];
+				return newStates;
+			} );
+		},
+		[ setPullStates ]
+	);
 
 	const pullSite = useCallback(
 		async ( remoteSiteId: number, selectedSite: SiteDetails ) => {
 			if ( ! client ) {
 				return;
 			}
-			setPullStates( ( prevStates ) => ( {
-				...prevStates,
-				[ remoteSiteId ]: {
-					backupId: null,
-					status: pullStatesProgressInfo[ 'in-progress' ],
-					downloadUrl: null,
-					selectedSite,
-				},
-			} ) );
+			updatePullState( remoteSiteId, {
+				backupId: null,
+				status: pullStatesProgressInfo[ 'in-progress' ],
+				downloadUrl: null,
+				selectedSite,
+			} );
+
 			try {
 				const response = await client.req.post< { success: boolean; backup_id: string } >( {
 					path: `/sites/${ remoteSiteId }/studio-app/sync/backup`,
@@ -39,52 +56,38 @@ export function useSyncPull( {
 				} );
 
 				if ( response.success ) {
-					setPullStates( ( prevStates ) => ( {
-						...prevStates,
-						[ remoteSiteId ]: { ...prevStates[ remoteSiteId ], backupId: response.backup_id },
-					} ) );
+					updatePullState( remoteSiteId, {
+						backupId: response.backup_id,
+					} );
 				} else {
 					throw new Error( 'Pull request failed' );
 				}
 			} catch ( error ) {
 				console.error( error );
-				setPullStates( ( prevStates ) => ( {
-					...prevStates,
-					[ remoteSiteId ]: {
-						...prevStates[ remoteSiteId ],
-						status: pullStatesProgressInfo.failed,
-					},
-				} ) );
+				updatePullState( remoteSiteId, {
+					status: pullStatesProgressInfo.failed,
+				} );
 				getIpcApi().showErrorMessageBox( {
 					title: __( 'Failed to pull backup' ),
 					message: error instanceof Error ? error.message : __( 'Unknown error' ),
 				} );
 			}
 		},
-		[ __, client, pullStatesProgressInfo, setPullStates ]
+		[ __, client, pullStatesProgressInfo, updatePullState ]
 	);
 
 	const onBackupCompleted = useCallback(
 		async ( remoteSiteId: number, downloadUrl: string, selectedSite: SiteDetails ) => {
-			setPullStates( ( prevStates ) => ( {
-				...prevStates,
-				[ remoteSiteId ]: {
-					...prevStates[ remoteSiteId ],
-					status: pullStatesProgressInfo.completed,
-					downloadUrl,
-				},
-			} ) );
+			updatePullState( remoteSiteId, {
+				status: pullStatesProgressInfo.completed,
+				downloadUrl,
+			} );
 
 			const filePath = await getIpcApi().downloadSyncBackup( remoteSiteId, downloadUrl );
 
-			setPullStates( ( prevStates ) => ( {
-				...prevStates,
-				[ remoteSiteId ]: {
-					...prevStates[ remoteSiteId ],
-					status: pullStatesProgressInfo.importing,
-					downloadUrl,
-				},
-			} ) );
+			updatePullState( remoteSiteId, {
+				status: pullStatesProgressInfo.importing,
+			} );
 
 			await importFile(
 				{
@@ -94,27 +97,20 @@ export function useSyncPull( {
 				selectedSite
 			);
 
-			setPullStates( ( prevStates ) => ( {
-				...prevStates,
-				[ remoteSiteId ]: {
-					...prevStates[ remoteSiteId ],
-					status: pullStatesProgressInfo.finished,
-				},
-			} ) );
+			updatePullState( remoteSiteId, {
+				status: pullStatesProgressInfo.finished,
+			} );
 			setTimeout( () => {
-				setPullStates( ( prevStates ) => {
-					const newStates = { ...prevStates };
-					delete newStates[ remoteSiteId ];
-					return newStates;
-				} );
+				deletePullState( remoteSiteId );
 			}, 1000 );
 		},
 		[
+			deletePullState,
 			importFile,
 			pullStatesProgressInfo.completed,
 			pullStatesProgressInfo.finished,
 			pullStatesProgressInfo.importing,
-			setPullStates,
+			updatePullState,
 		]
 	);
 
@@ -141,14 +137,10 @@ export function useSyncPull( {
 			const hasBackupCompleted = response.status === 'completed';
 			const downloadUrl = hasBackupCompleted ? response.download_url : null;
 
-			setPullStates( ( prevStates ) => ( {
-				...prevStates,
-				[ remoteSiteId ]: {
-					...prevStates[ remoteSiteId ],
-					status: statusWithProgress,
-					downloadUrl,
-				},
-			} ) );
+			updatePullState( remoteSiteId, {
+				status: statusWithProgress,
+				downloadUrl,
+			} );
 
 			if ( hasBackupCompleted && downloadUrl ) {
 				// Replacing the 'in-progress' status will stop the active listening for the backup completion
@@ -159,7 +151,7 @@ export function useSyncPull( {
 				onBackupCompleted( remoteSiteId, downloadUrl, selectedSite );
 			}
 		},
-		[ client, onBackupCompleted, pullStates, pullStatesProgressInfo, setPullStates ]
+		[ client, onBackupCompleted, pullStates, pullStatesProgressInfo, updatePullState ]
 	);
 
 	useEffect( () => {

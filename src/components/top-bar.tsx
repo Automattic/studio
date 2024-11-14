@@ -104,7 +104,7 @@ export default function TopBar( { onToggleSidebar }: TopBarProps ) {
 				<Button
 					onClick={ openDocs }
 					aria-label={ __( 'Get help' ) }
-					tooltipText={ __( 'Get help' ) }
+					title={ __( 'Get help' ) }
 					variant="icon"
 				>
 					<Icon className="text-white" size={ 24 } icon={ help } />

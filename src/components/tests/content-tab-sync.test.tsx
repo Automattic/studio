@@ -22,6 +22,16 @@ const selectedSite: SiteDetails = {
 	id: 'site-id',
 };
 
+const defaultPushState = {
+	remoteSiteId: 1,
+	status: null,
+	selectedSite,
+	isStaging: false,
+	isInProgress: false,
+	isError: false,
+	hasFinished: false,
+};
+
 describe( 'ContentTabSync', () => {
 	beforeEach( () => {
 		jest.resetAllMocks();
@@ -38,6 +48,8 @@ describe( 'ContentTabSync', () => {
 			pullStates: {},
 			isAnySitePulling: false,
 			getPullState: jest.fn(),
+			pushStates: {},
+			getPushState: jest.fn().mockReturnValue( defaultPushState ),
 		} );
 	} );
 
@@ -106,6 +118,7 @@ describe( 'ContentTabSync', () => {
 			pullStates: {},
 			isAnySitePulling: false,
 			getPullState: jest.fn(),
+			getPushState: jest.fn().mockReturnValue( defaultPushState ),
 		} );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
@@ -133,6 +146,7 @@ describe( 'ContentTabSync', () => {
 			pullStates: {},
 			isAnySitePulling: false,
 			getPullState: jest.fn(),
+			getPushState: jest.fn().mockReturnValue( defaultPushState ),
 		} );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
@@ -169,6 +183,7 @@ describe( 'ContentTabSync', () => {
 			pullStates: {},
 			isAnySitePulling: false,
 			getPullState: jest.fn(),
+			getPushState: jest.fn().mockReturnValue( defaultPushState ),
 		} );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
@@ -188,12 +203,12 @@ describe( 'ContentTabSync', () => {
 		expect( pushButtons ).toHaveLength( 2 );
 
 		const productionUrl = screen.getAllByRole( 'button', {
-			name: 'https://developer.wordpress.com/studio/ ↗',
+			name: new RegExp( fakeProductionSite.url, 'i' ),
 		} );
 		expect( productionUrl ).toHaveLength( 1 );
 
 		const stagingUrl = screen.getAllByRole( 'button', {
-			name: 'https://developer-staging.wordpress.com/studio/ ↗',
+			name: new RegExp( fakeStagingSite.url, 'i' ),
 		} );
 		expect( stagingUrl ).toHaveLength( 1 );
 	} );

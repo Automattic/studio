@@ -6,6 +6,7 @@ import { getIpcApi } from '../../lib/get-ipc-api';
 import { useAuth } from '../use-auth';
 import { SyncSite } from '../use-fetch-wpcom-sites';
 import { useImportExport } from '../use-import-export';
+import { useSiteDetails } from '../use-site-details';
 import { useSyncStatesProgressInfo, PullStateProgressInfo } from '../use-sync-states-progress-info';
 
 export type SyncBackupState = {
@@ -28,6 +29,7 @@ export function useSyncPull( {
 	const { client } = useAuth();
 	const { importFile, clearImportState } = useImportExport();
 	const { pullStatesProgressInfo, isKeyPulling } = useSyncStatesProgressInfo();
+	const { startServer } = useSiteDetails();
 
 	const updatePullState = useCallback(
 		( selectedSiteId: string, remoteSiteId: number, state: Partial< SyncBackupState > ) => {
@@ -128,6 +130,8 @@ export function useSyncPull( {
 
 			await getIpcApi().removeSyncBackup( remoteSiteId );
 
+			await startServer( selectedSite.id );
+
 			clearImportState( selectedSite.id );
 
 			getIpcApi().showNotification( {
@@ -148,6 +152,7 @@ export function useSyncPull( {
 			pullStatesProgressInfo.downloading,
 			pullStatesProgressInfo.finished,
 			pullStatesProgressInfo.importing,
+			startServer,
 			updatePullState,
 		]
 	);

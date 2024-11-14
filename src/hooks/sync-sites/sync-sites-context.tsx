@@ -18,7 +18,7 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 	);
 
 	const [ connectedSites, setConnectedSites ] = useState< SyncSite[] >( [] );
-	const { loadConnectedSites, connectSite, disconnectSite, syncSites, isFetching } =
+	const { loadConnectedSites, connectSite, disconnectSite, syncSites, isFetching, refetchSites } =
 		useSiteSyncManagement( { connectedSites, setConnectedSites } );
 
 	return (
@@ -34,6 +34,7 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 				connectSite,
 				disconnectSite,
 				syncSites,
+				refetchSites,
 				isFetching,
 				getPullState,
 			} }

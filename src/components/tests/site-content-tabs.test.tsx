@@ -2,7 +2,6 @@ import { act, render, screen } from '@testing-library/react';
 import { SyncSitesProvider } from '../../hooks/sync-sites';
 import { useFeatureFlags } from '../../hooks/use-feature-flags';
 import { useSiteDetails } from '../../hooks/use-site-details';
-import { getIpcApi } from '../../lib/get-ipc-api';
 import { SiteContentTabs } from '../site-content-tabs';
 
 const selectedSite = {

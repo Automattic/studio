@@ -37,6 +37,7 @@ describe( 'ContentTabSync', () => {
 			pullSite: jest.fn(),
 			pullStates: {},
 			isAnySitePulling: false,
+			getPullState: jest.fn(),
 		} );
 	} );
 
@@ -104,6 +105,7 @@ describe( 'ContentTabSync', () => {
 			pullSite: jest.fn(),
 			pullStates: {},
 			isAnySitePulling: false,
+			getPullState: jest.fn(),
 		} );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
@@ -130,6 +132,7 @@ describe( 'ContentTabSync', () => {
 			pullSite: jest.fn(),
 			pullStates: {},
 			isAnySitePulling: false,
+			getPullState: jest.fn(),
 		} );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
@@ -165,6 +168,7 @@ describe( 'ContentTabSync', () => {
 			pullSite: jest.fn(),
 			pullStates: {},
 			isAnySitePulling: false,
+			getPullState: jest.fn(),
 		} );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 

@@ -73,7 +73,10 @@ export function useSyncPush( {
 				isStaging: connectedSite.isStaging,
 			} );
 
-			const { archiveContent, exceedsSizeLimit } = await getIpcApi().archiveSite( selectedSite.id );
+			const { archiveContent, exceedsSizeLimit } = await getIpcApi().archiveSite(
+				selectedSite.id,
+				'tar'
+			);
 			if ( exceedsSizeLimit ) {
 				getIpcApi().showErrorMessageBox( {
 					title: sprintf( __( 'Error pushing to %s' ), connectedSite.name ),

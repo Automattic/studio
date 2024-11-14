@@ -35,8 +35,8 @@ export const DemoSiteUpdateProvider: React.FC< DemoSiteUpdateProviderProps > = (
 			setUpdatingSites( ( prev ) => new Set( prev ).add( localSite.id ) );
 
 			try {
-				const { zipContent } = await getIpcApi().archiveSite( localSite.id );
-				const file = new File( [ zipContent ], 'loca-env-site-1.zip', {
+				const { archiveContent } = await getIpcApi().archiveSite( localSite.id, 'zip' );
+				const file = new File( [ archiveContent ], 'loca-env-site-1.zip', {
 					type: 'application/zip',
 				} );
 

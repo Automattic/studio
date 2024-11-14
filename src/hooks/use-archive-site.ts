@@ -79,7 +79,10 @@ export function useArchiveSite() {
 			}
 
 			try {
-				const { zipContent, zipPath, exceedsSizeLimit } = await getIpcApi().archiveSite( siteId );
+				const { archiveContent, archivePath, exceedsSizeLimit } = await getIpcApi().archiveSite(
+					siteId,
+					'zip'
+				);
 				if ( exceedsSizeLimit ) {
 					alert(
 						sprintf(
@@ -90,11 +93,11 @@ export function useArchiveSite() {
 						)
 					);
 					setUploadingSites( ( _uploadingSites ) => ( { ..._uploadingSites, [ siteId ]: false } ) );
-					getIpcApi().removeTemporalFile( zipPath );
+					getIpcApi().removeTemporalFile( archivePath );
 					return;
 				}
 
-				const file = new File( [ zipContent ], 'loca-env-site-1.zip', {
+				const file = new File( [ archiveContent ], 'loca-env-site-1.zip', {
 					type: 'application/zip',
 				} );
 
@@ -138,7 +141,7 @@ export function useArchiveSite() {
 						Sentry.captureException( error );
 					}
 				} finally {
-					getIpcApi().removeTemporalFile( zipPath );
+					getIpcApi().removeTemporalFile( archivePath );
 				}
 			} catch ( error ) {
 				getIpcApi().showErrorMessageBox( {

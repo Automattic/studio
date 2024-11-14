@@ -35,7 +35,7 @@ export function SyncConnectedSites( {
 	selectedSite: SiteDetails;
 } ) {
 	const { __ } = useI18n();
-	const { pullSite, clearPullState, getPullState, isAnySitePulling } = useSyncSites();
+	const { pullSite, clearPullState, getPullState, isAnySitePulling, pushSite } = useSyncSites();
 	const { isKeyPulling, isKeyFinished, isKeyFailed } = useSyncStatesProgressInfo();
 	const siteSections: ConnectedSiteSection[] = useMemo( () => {
 		const siteSections: ConnectedSiteSection[] = [];
@@ -208,6 +208,9 @@ export function SyncConnectedSites( {
 												<Button
 													variant="link"
 													className="!text-black hover:!text-a8c-blueberry"
+													onClick={ () => {
+														pushSite( connectedSite, selectedSite );
+													} }
 													disabled={ isAnySitePulling }
 												>
 													<Icon icon={ cloudUpload } />

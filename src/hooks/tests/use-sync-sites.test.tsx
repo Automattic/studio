@@ -1,8 +1,8 @@
 import { renderHook, waitFor } from '@testing-library/react';
+import { SyncSitesProvider, useSyncSites } from '../sync-sites';
 import { useAuth } from '../use-auth';
 import { useFetchWpComSites } from '../use-fetch-wpcom-sites';
 import { useSiteDetails } from '../use-site-details';
-import { useSiteSyncManagement } from '../use-site-sync-management';
 
 jest.mock( '../use-auth' );
 jest.mock( '../use-site-details' );
@@ -64,7 +64,11 @@ jest.mock( '../../lib/get-ipc-api', () => ( {
 	} ),
 } ) );
 
-describe( 'useSiteSyncManagement', () => {
+describe( 'useSyncSites management', () => {
+	const wrapper = ( { children }: { children: React.ReactNode } ) => (
+		<SyncSitesProvider>{ children }</SyncSitesProvider>
+	);
+
 	beforeEach( () => {
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
 		( useSiteDetails as jest.Mock ).mockReturnValue( {
@@ -81,7 +85,7 @@ describe( 'useSiteSyncManagement', () => {
 	} );
 
 	it( 'loads connected sites on mount when authenticated', async () => {
-		const { result } = renderHook( () => useSiteSyncManagement() );
+		const { result } = renderHook( () => useSyncSites(), { wrapper } );
 
 		await waitFor( () => {
 			expect( result.current.connectedSites ).toEqual( mockConnectedWpcomSites );
@@ -90,7 +94,7 @@ describe( 'useSiteSyncManagement', () => {
 
 	it( 'does not load connected sites when not authenticated', async () => {
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: false } );
-		const { result } = renderHook( () => useSiteSyncManagement() );
+		const { result } = renderHook( () => useSyncSites(), { wrapper } );
 
 		await waitFor( () => {
 			expect( result.current.connectedSites ).toEqual( [] );
@@ -98,7 +102,7 @@ describe( 'useSiteSyncManagement', () => {
 	} );
 
 	it( 'connects a site and its staging sites successfully', async () => {
-		const { result } = renderHook( () => useSiteSyncManagement() );
+		const { result } = renderHook( () => useSyncSites(), { wrapper } );
 		const siteToConnect = mockSyncSites[ 0 ];
 
 		await waitFor( async () => {
@@ -117,7 +121,7 @@ describe( 'useSiteSyncManagement', () => {
 	} );
 
 	it( 'disconnects a site and its staging sites successfully', async () => {
-		const { result } = renderHook( () => useSiteSyncManagement() );
+		const { result } = renderHook( () => useSyncSites(), { wrapper } );
 		const siteToDisconnect = mockConnectedWpcomSites[ 0 ];
 
 		await waitFor( () => {

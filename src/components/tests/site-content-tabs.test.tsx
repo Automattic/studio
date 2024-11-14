@@ -1,4 +1,5 @@
 import { act, render, screen } from '@testing-library/react';
+import { SyncSitesProvider } from '../../hooks/sync-sites';
 import { useFeatureFlags } from '../../hooks/use-feature-flags';
 import { useSiteDetails } from '../../hooks/use-site-details';
 import { SiteContentTabs } from '../site-content-tabs';
@@ -28,6 +29,12 @@ jest.mock( '../../lib/app-globals', () => ( {
 	...jest.requireActual( '../../lib/app-globals' ),
 	getAppGlobals: jest.fn().mockReturnValue( { locale: ' en' } ),
 } ) );
+jest.mock( '../../lib/get-ipc-api', () => ( {
+	...jest.requireActual( '../../lib/get-ipc-api' ),
+	getIpcApi: jest.fn().mockReturnValue( {
+		getConnectedWpcomSites: jest.fn().mockResolvedValue( [] ),
+	} ),
+} ) );
 
 ( useFeatureFlags as jest.Mock ).mockReturnValue( {} );
 
@@ -35,13 +42,16 @@ describe( 'SiteContentTabs', () => {
 	beforeEach( () => {
 		jest.clearAllMocks(); // Clear mock call history between tests
 	} );
+	const renderWithProvider = ( component: React.ReactElement ) => {
+		return render( <SyncSitesProvider>{ component }</SyncSitesProvider> );
+	};
 	it( 'should render tabs correctly if selected site exists', async () => {
 		( useSiteDetails as jest.Mock ).mockReturnValue( {
 			selectedSite,
 			snapshots: [],
 			loadingServer: {},
 		} );
-		await act( async () => render( <SiteContentTabs /> ) );
+		await act( async () => renderWithProvider( <SiteContentTabs /> ) );
 		expect( screen.getByRole( 'tab', { name: 'Settings' } ) ).not.toBeNull();
 		expect( screen.getByRole( 'tab', { name: 'Share' } ) ).not.toBeNull();
 		expect( screen.getByRole( 'tab', { name: 'Import / Export' } ) ).not.toBeNull();
@@ -55,7 +65,7 @@ describe( 'SiteContentTabs', () => {
 			snapshots: [],
 			loadingServer: {},
 		} );
-		await act( async () => render( <SiteContentTabs /> ) );
+		await act( async () => renderWithProvider( <SiteContentTabs /> ) );
 		expect( screen.queryByRole( 'tab', { name: 'Overview', selected: true } ) ).toBeVisible();
 		expect( screen.queryByRole( 'tab', { name: 'Share', selected: false } ) ).toBeVisible();
 		expect( screen.queryByRole( 'tab', { name: 'Settings', selected: false } ) ).toBeVisible();
@@ -69,7 +79,7 @@ describe( 'SiteContentTabs', () => {
 			data: [],
 			loadingServer: {},
 		} );
-		await act( async () => render( <SiteContentTabs /> ) );
+		await act( async () => renderWithProvider( <SiteContentTabs /> ) );
 		expect( screen.queryByRole( 'tab', { name: 'Settings' } ) ).toBeNull();
 		expect( screen.queryByRole( 'tab', { name: 'Share' } ) ).toBeNull();
 		expect( screen.queryByRole( 'tab', { name: 'Launchpad' } ) ).toBeNull();
@@ -87,7 +97,7 @@ describe( 'SiteContentTabs', () => {
 		( useFeatureFlags as jest.Mock ).mockReturnValue( {
 			siteSyncEnabled: true,
 		} );
-		await act( async () => render( <SiteContentTabs /> ) );
+		await act( async () => renderWithProvider( <SiteContentTabs /> ) );
 		expect( screen.queryByRole( 'tab', { name: 'Sync' } ) ).toBeVisible();
 	} );
 } );

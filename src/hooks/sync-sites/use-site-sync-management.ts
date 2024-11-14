@@ -1,11 +1,16 @@
-import { useState, useEffect, useCallback } from 'react';
-import { getIpcApi } from '../lib/get-ipc-api';
-import { useAuth } from './use-auth';
-import { SyncSite, useFetchWpComSites } from './use-fetch-wpcom-sites';
-import { useSiteDetails } from './use-site-details';
+import { useEffect, useCallback } from 'react';
+import { getIpcApi } from '../../lib/get-ipc-api';
+import { useAuth } from '../use-auth';
+import { SyncSite, useFetchWpComSites } from '../use-fetch-wpcom-sites';
+import { useSiteDetails } from '../use-site-details';
 
-export const useSiteSyncManagement = () => {
-	const [ connectedSites, setConnectedSites ] = useState< SyncSite[] >( [] );
+export const useSiteSyncManagement = ( {
+	connectedSites,
+	setConnectedSites,
+}: {
+	connectedSites: SyncSite[];
+	setConnectedSites: React.Dispatch< React.SetStateAction< SyncSite[] > >;
+} ) => {
 	const { isAuthenticated } = useAuth();
 	const { syncSites, isFetching, refetchSites } = useFetchWpComSites(
 		connectedSites.map( ( { id } ) => id )
@@ -26,7 +31,7 @@ export const useSiteSyncManagement = () => {
 			console.error( 'Failed to load connected sites:', error );
 			setConnectedSites( [] );
 		}
-	}, [ localSiteId ] );
+	}, [ localSiteId, setConnectedSites ] );
 
 	useEffect( () => {
 		if ( isAuthenticated ) {

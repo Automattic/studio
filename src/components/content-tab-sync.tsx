@@ -2,10 +2,10 @@ import { check, Icon } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren, useState } from 'react';
 import { CLIENT_ID, PROTOCOL_PREFIX, SCOPES, WP_AUTHORIZE_ENDPOINT } from '../constants';
+import { useSyncSites } from '../hooks/sync-sites';
 import { useAuth } from '../hooks/use-auth';
 import { SyncSite } from '../hooks/use-fetch-wpcom-sites';
 import { useOffline } from '../hooks/use-offline';
-import { useSiteSyncManagement } from '../hooks/use-site-sync-management';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { ArrowIcon } from './arrow-icon';
@@ -160,11 +160,10 @@ function NoAuthSyncTab() {
 	);
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } ) {
 	const { __ } = useI18n();
 	const { connectedSites, connectSite, disconnectSite, syncSites, isFetching, refetchSites } =
-		useSiteSyncManagement();
+		useSyncSites();
 	const [ isSyncSitesSelectorOpen, setIsSyncSitesSelectorOpen ] = useState( false );
 	const { isAuthenticated } = useAuth();
 	if ( ! isAuthenticated ) {
@@ -187,6 +186,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 			{ connectedSites.length > 0 ? (
 				<SyncConnectedSites
 					connectedSites={ connectedSites }
+					selectedSite={ selectedSite }
 					openSitesSyncSelector={ () => setIsSyncSitesSelectorOpen( true ) }
 					disconnectSite={ ( id: number ) => disconnectSite( id ) }
 				/>

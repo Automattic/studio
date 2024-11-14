@@ -41,7 +41,7 @@ export const useSiteSyncManagement = ( {
 
 	// whenever array of syncSites changes, we need to update connectedSites to keep them updated with wordpress.com
 	useEffect( () => {
-		if ( isFetching ) {
+		if ( isFetching || ! isAuthenticated ) {
 			return;
 		}
 
@@ -64,7 +64,7 @@ export const useSiteSyncManagement = ( {
 
 			return updatedConnectedSites;
 		} );
-	}, [ syncSites, isFetching, setConnectedSites ] );
+	}, [ isAuthenticated, syncSites, isFetching, setConnectedSites ] );
 
 	const connectSite = useCallback(
 		async ( site: SyncSite ) => {

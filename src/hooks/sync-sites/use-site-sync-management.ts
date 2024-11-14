@@ -64,7 +64,7 @@ export const useSiteSyncManagement = ( {
 
 			return updatedConnectedSites;
 		} );
-	}, [ syncSites, isFetching ] );
+	}, [ syncSites, isFetching, setConnectedSites ] );
 
 	const connectSite = useCallback(
 		async ( site: SyncSite ) => {

@@ -1,6 +1,6 @@
 import { check, Icon } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { PropsWithChildren, useState } from 'react';
+import { PropsWithChildren, useState, useEffect } from 'react';
 import { CLIENT_ID, PROTOCOL_PREFIX, SCOPES, WP_AUTHORIZE_ENDPOINT } from '../constants';
 import { useSyncSites } from '../hooks/sync-sites';
 import { useAuth } from '../hooks/use-auth';
@@ -166,6 +166,13 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 		useSyncSites();
 	const [ isSyncSitesSelectorOpen, setIsSyncSitesSelectorOpen ] = useState( false );
 	const { isAuthenticated } = useAuth();
+
+	useEffect( () => {
+		if ( isAuthenticated ) {
+			refetchSites();
+		}
+	}, [ isAuthenticated, refetchSites ] );
+
 	if ( ! isAuthenticated ) {
 		return <NoAuthSyncTab />;
 	}

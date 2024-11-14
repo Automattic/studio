@@ -96,6 +96,11 @@ export function SyncConnectedSites( {
 					localStorage.setItem( 'dontShowDisconnectWarning', 'true' );
 				}
 				disconnectSite( sectionId );
+				siteSections
+					.find( ( section ) => section.id === sectionId )
+					?.connectedSites.forEach( ( connectedSite ) => {
+						clearPullState( selectedSite.id, connectedSite.id );
+					} );
 			}
 		} else {
 			disconnectSite( sectionId );
@@ -166,7 +171,7 @@ export function SyncConnectedSites( {
 												<Button
 													variant="link"
 													className="ml-3"
-													onClick={ () => clearPullState( connectedSite.id ) }
+													onClick={ () => clearPullState( selectedSite.id, connectedSite.id ) }
 												>
 													{ __( 'Clear' ) }
 												</Button>
@@ -181,7 +186,7 @@ export function SyncConnectedSites( {
 												<Button
 													variant="link"
 													className="ml-3"
-													onClick={ () => clearPullState( connectedSite.id ) }
+													onClick={ () => clearPullState( selectedSite.id, connectedSite.id ) }
 												>
 													{ __( 'Clear' ) }
 												</Button>

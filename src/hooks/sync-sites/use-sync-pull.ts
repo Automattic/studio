@@ -50,10 +50,10 @@ export function useSyncPull( {
 	);
 
 	const clearPullState = useCallback(
-		( remoteSiteId: number ) => {
+		( selectedSiteId: string, remoteSiteId: number ) => {
 			setPullStates( ( prevStates ) => {
 				const newStates = { ...prevStates };
-				delete newStates[ remoteSiteId ];
+				delete newStates[ `${ selectedSiteId }-${ remoteSiteId }` ];
 				return newStates;
 			} );
 		},

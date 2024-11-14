@@ -203,12 +203,12 @@ describe( 'ContentTabSync', () => {
 		expect( pushButtons ).toHaveLength( 2 );
 
 		const productionUrl = screen.getAllByRole( 'button', {
-			name: new RegExp( fakeProductionSite.url, 'i' ),
+			name: 'https://developer.wordpress.com/studio/ ↗',
 		} );
 		expect( productionUrl ).toHaveLength( 1 );
 
 		const stagingUrl = screen.getAllByRole( 'button', {
-			name: new RegExp( fakeStagingSite.url, 'i' ),
+			name: 'https://developer-staging.wordpress.com/studio/ ↗',
 		} );
 		expect( stagingUrl ).toHaveLength( 1 );
 	} );

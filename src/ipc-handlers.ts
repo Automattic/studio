@@ -253,6 +253,7 @@ export async function connectWpcomSite(
 
 	return connections.filter( ( conn ) => conn.localSiteId === localSiteId );
 }
+
 export async function disconnectWpcomSite(
 	event: IpcMainInvokeEvent,
 	siteIds: number[],
@@ -279,6 +280,32 @@ export async function disconnectWpcomSite(
 	await saveUserData( userData );
 
 	return updatedConnections.filter( ( conn ) => conn.localSiteId === localSiteId );
+}
+
+export async function updateConnectedWpcomSites(
+	event: IpcMainInvokeEvent,
+	updatedSites: SyncSite[]
+) {
+	const userData = await loadUserData();
+	const currentUserId = userData.authToken?.id;
+
+	if ( ! currentUserId ) {
+		throw new Error( 'User not authenticated' );
+	}
+
+	const connections = userData.connectedWpcomSites?.[ currentUserId ] || [];
+
+	updatedSites.forEach( ( updatedSite ) => {
+		const index = connections.findIndex(
+			( conn ) => conn.id === updatedSite.id && conn.localSiteId === updatedSite.localSiteId
+		);
+
+		if ( index !== -1 ) {
+			connections[ index ] = updatedSite;
+		}
+	} );
+
+	await saveUserData( userData );
 }
 
 export async function getConnectedWpcomSites(

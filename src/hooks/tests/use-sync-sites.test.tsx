@@ -60,6 +60,7 @@ jest.mock( '../../lib/get-ipc-api', () => ( {
 		getConnectedWpcomSites: jest.fn().mockResolvedValue( mockConnectedWpcomSites ),
 		connectWpcomSite: connectWpcomSiteMock,
 		disconnectWpcomSite: disconnectWpcomSiteMock,
+		updateConnectedWpcomSites: jest.fn(),
 	} ),
 } ) );
 
@@ -80,7 +81,7 @@ describe( 'useSyncSites management', () => {
 	} );
 
 	afterEach( () => {
-		jest.resetAllMocks();
+		jest.clearAllMocks();
 	} );
 
 	it( 'loads connected sites on mount when authenticated', async () => {

@@ -4,7 +4,7 @@ import { getIpcApi } from '../lib/get-ipc-api';
 interface ConfirmationDialogOptions {
 	message: string;
 	detail?: string;
-	checkboxLabel: string;
+	checkboxLabel?: string;
 	confirmButtonLabel: string;
 	cancelButtonLabel?: string;
 	localStorageKey: string;
@@ -15,7 +15,7 @@ export function useConfirmationDialog( options: ConfirmationDialogOptions ) {
 	const {
 		message,
 		detail,
-		checkboxLabel,
+		checkboxLabel = __( "Don't ask again" ),
 		confirmButtonLabel,
 		cancelButtonLabel = __( 'Cancel' ),
 		localStorageKey,

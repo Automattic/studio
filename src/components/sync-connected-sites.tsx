@@ -4,6 +4,7 @@ import { cloudUpload, cloudDownload } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useMemo } from 'react';
 import { useSyncSites } from '../hooks/sync-sites';
+import { useConfirmationDialog } from '../hooks/use-confirmation-dialog';
 import { SyncSite } from '../hooks/use-fetch-wpcom-sites';
 import { useSyncStatesProgressInfo } from '../hooks/use-sync-states-progress-info';
 import { getIpcApi } from '../lib/get-ipc-api';
@@ -70,6 +71,15 @@ export function SyncConnectedSites( {
 
 		return siteSections;
 	}, [ connectedSites ] );
+
+	const showPullConfirmation = useConfirmationDialog( {
+		localStorageKey: 'dontShowPullConfirmation',
+		message: __( 'Overwrite Studio site' ),
+		detail: __(
+			"Pulling will replace your Studio site's files and database with a copy from your staging site."
+		),
+		confirmButtonLabel: __( 'Pull' ),
+	} );
 
 	const handleDisconnectSite = async ( sectionId: number, sectionName?: string ) => {
 		const dontShowDisconnectWarning = localStorage.getItem( 'dontShowDisconnectWarning' );
@@ -198,7 +208,7 @@ export function SyncConnectedSites( {
 													variant="link"
 													className="!text-black hover:!text-a8c-blueberry"
 													onClick={ () => {
-														pullSite( connectedSite, selectedSite );
+														showPullConfirmation( () => pullSite( connectedSite, selectedSite ) );
 													} }
 													disabled={ isAnySitePulling }
 												>

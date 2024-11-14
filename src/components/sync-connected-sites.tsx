@@ -3,7 +3,7 @@ import { sprintf } from '@wordpress/i18n';
 import { cloudUpload, cloudDownload } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useMemo } from 'react';
-import { useSyncSites } from '../hooks/sync-sites/sync-sites-context';
+import { useSyncSites } from '../hooks/sync-sites';
 import { SyncSite } from '../hooks/use-fetch-wpcom-sites';
 import { useSyncStatesProgressInfo } from '../hooks/use-sync-states-progress-info';
 import { getIpcApi } from '../lib/get-ipc-api';
@@ -35,7 +35,7 @@ export function SyncConnectedSites( {
 	selectedSite: SiteDetails;
 } ) {
 	const { __ } = useI18n();
-	const { pullSite, clearPullState, pullStates, isAnySitePulling } = useSyncSites();
+	const { pullSite, clearPullState, getPullState, isAnySitePulling } = useSyncSites();
 	const { isKeyPulling, isKeyFinished, isKeyFailed } = useSyncStatesProgressInfo();
 	const siteSections: ConnectedSiteSection[] = useMemo( () => {
 		const siteSections: ConnectedSiteSection[] = [];
@@ -96,6 +96,11 @@ export function SyncConnectedSites( {
 					localStorage.setItem( 'dontShowDisconnectWarning', 'true' );
 				}
 				disconnectSite( sectionId );
+				siteSections
+					.find( ( section ) => section.id === sectionId )
+					?.connectedSites.forEach( ( connectedSite ) => {
+						clearPullState( selectedSite.id, connectedSite.id );
+					} );
 			}
 		} else {
 			disconnectSite( sectionId );
@@ -120,10 +125,10 @@ export function SyncConnectedSites( {
 							</Button>
 						</div>
 						{ section.connectedSites.map( ( connectedSite ) => {
-							const sitePullState = pullStates[ connectedSite.id ];
-							const isPulling = isKeyPulling( sitePullState?.status.key );
-							const isError = isKeyFailed( sitePullState?.status.key );
-							const hasPullFinished = isKeyFinished( sitePullState?.status.key );
+							const sitePullState = getPullState( selectedSite.id, connectedSite.id );
+							const isPulling = sitePullState && isKeyPulling( sitePullState.status.key );
+							const isError = sitePullState && isKeyFailed( sitePullState.status.key );
+							const hasPullFinished = sitePullState && isKeyFinished( sitePullState.status.key );
 							return (
 								<div
 									key={ connectedSite.id }
@@ -153,13 +158,8 @@ export function SyncConnectedSites( {
 									<div className="flex gap-2 pl-4 ml-auto shrink-0">
 										{ isPulling && (
 											<div className="flex flex-col gap-2 min-w-44">
-												<div className="a8c-body-small">
-													{ pullStates[ connectedSite.id ]?.status.message }
-												</div>
-												<ProgressBar
-													value={ pullStates[ connectedSite.id ]?.status.progress }
-													maxValue={ 100 }
-												/>
+												<div className="a8c-body-small">{ sitePullState.status.message }</div>
+												<ProgressBar value={ sitePullState.status.progress } maxValue={ 100 } />
 											</div>
 										) }
 										{ isError && (
@@ -171,7 +171,7 @@ export function SyncConnectedSites( {
 												<Button
 													variant="link"
 													className="ml-3"
-													onClick={ () => clearPullState( connectedSite.id ) }
+													onClick={ () => clearPullState( selectedSite.id, connectedSite.id ) }
 												>
 													{ __( 'Clear' ) }
 												</Button>
@@ -186,7 +186,7 @@ export function SyncConnectedSites( {
 												<Button
 													variant="link"
 													className="ml-3"
-													onClick={ () => clearPullState( connectedSite.id ) }
+													onClick={ () => clearPullState( selectedSite.id, connectedSite.id ) }
 												>
 													{ __( 'Clear' ) }
 												</Button>

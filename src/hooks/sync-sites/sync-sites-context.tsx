@@ -1,16 +1,7 @@
 import React, { createContext, useContext, useState } from 'react';
 import { SyncSite } from '../use-fetch-wpcom-sites';
-import { PullStateProgressInfo } from '../use-sync-states-progress-info';
 import { useSiteSyncManagement } from './use-site-sync-management';
 import { useSyncPull } from './use-sync-pull';
-
-export type SiteBackupState = {
-	backupId: string | null;
-	status: PullStateProgressInfo;
-	downloadUrl: string | null;
-	selectedSite: SiteDetails;
-	isStaging: boolean;
-};
 
 type SyncSitesContextType = ReturnType< typeof useSyncPull > &
 	ReturnType< typeof useSiteSyncManagement >;
@@ -18,11 +9,13 @@ type SyncSitesContextType = ReturnType< typeof useSyncPull > &
 const SyncSitesContext = createContext< SyncSitesContextType | undefined >( undefined );
 
 export function SyncSitesProvider( { children }: { children: React.ReactNode } ) {
-	const [ pullStates, setPullStates ] = useState< Record< number, SiteBackupState > >( {} );
-	const { pullSite, isAnySitePulling, isSiteIdPulling, clearPullState } = useSyncPull( {
-		pullStates,
-		setPullStates,
-	} );
+	const [ pullStates, setPullStates ] = useState< SyncSitesContextType[ 'pullStates' ] >( {} );
+	const { pullSite, isAnySitePulling, isSiteIdPulling, clearPullState, getPullState } = useSyncPull(
+		{
+			pullStates,
+			setPullStates,
+		}
+	);
 
 	const [ connectedSites, setConnectedSites ] = useState< SyncSite[] >( [] );
 	const { loadConnectedSites, connectSite, disconnectSite, syncSites, isFetching } =
@@ -42,6 +35,7 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 				disconnectSite,
 				syncSites,
 				isFetching,
+				getPullState,
 			} }
 		>
 			{ children }

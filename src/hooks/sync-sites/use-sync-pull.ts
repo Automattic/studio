@@ -7,6 +7,7 @@ import { useAuth } from '../use-auth';
 import { SyncSite } from '../use-fetch-wpcom-sites';
 import { useImportExport } from '../use-import-export';
 import { useSyncStatesProgressInfo, PullStateProgressInfo } from '../use-sync-states-progress-info';
+import { usePullPushStates } from './use-pull-push-states';
 
 export type SyncBackupState = {
 	remoteSiteId: number;
@@ -28,37 +29,11 @@ export function useSyncPull( {
 	const { client } = useAuth();
 	const { importFile, clearImportState } = useImportExport();
 	const { pullStatesProgressInfo, isKeyPulling } = useSyncStatesProgressInfo();
-
-	const updatePullState = useCallback(
-		( selectedSiteId: string, remoteSiteId: number, state: Partial< SyncBackupState > ) => {
-			setPullStates( ( prevStates ) => ( {
-				...prevStates,
-				[ `${ selectedSiteId }-${ remoteSiteId }` ]: {
-					...prevStates[ `${ selectedSiteId }-${ remoteSiteId }` ],
-					...state,
-				},
-			} ) );
-		},
-		[ setPullStates ]
-	);
-
-	const getPullState = useCallback(
-		( selectedSiteId: string, remoteSiteId: number ): SyncBackupState | undefined => {
-			return pullStates[ `${ selectedSiteId }-${ remoteSiteId }` ];
-		},
-		[ pullStates ]
-	);
-
-	const clearPullState = useCallback(
-		( selectedSiteId: string, remoteSiteId: number ) => {
-			setPullStates( ( prevStates ) => {
-				const newStates = { ...prevStates };
-				delete newStates[ `${ selectedSiteId }-${ remoteSiteId }` ];
-				return newStates;
-			} );
-		},
-		[ setPullStates ]
-	);
+	const {
+		updateState: updatePullState,
+		getState: getPullState,
+		clearState: clearPullState,
+	} = usePullPushStates< SyncBackupState >( pullStates, setPullStates );
 
 	const pullSite = useCallback(
 		async ( connectedSite: SyncSite, selectedSite: SiteDetails ) => {

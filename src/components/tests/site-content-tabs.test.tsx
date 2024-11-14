@@ -33,6 +33,7 @@ jest.mock( '../../lib/get-ipc-api', () => ( {
 	...jest.requireActual( '../../lib/get-ipc-api' ),
 	getIpcApi: jest.fn().mockReturnValue( {
 		getConnectedWpcomSites: jest.fn().mockResolvedValue( [] ),
+		updateConnectedWpcomSites: jest.fn(),
 	} ),
 } ) );
 

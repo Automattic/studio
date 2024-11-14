@@ -30,6 +30,7 @@ describe( 'ContentTabSync', () => {
 			openURL: jest.fn(),
 			generateProposedSitePath: jest.fn(),
 			showMessageBox: jest.fn(),
+			updateConnectedWpcomSites: jest.fn(),
 		} );
 		( useSyncSites as jest.Mock ).mockReturnValue( {
 			connectedSites: [],
@@ -38,6 +39,7 @@ describe( 'ContentTabSync', () => {
 			pullStates: {},
 			isAnySitePulling: false,
 			getPullState: jest.fn(),
+			refetchSites: jest.fn(),
 		} );
 	} );
 
@@ -106,6 +108,7 @@ describe( 'ContentTabSync', () => {
 			pullStates: {},
 			isAnySitePulling: false,
 			getPullState: jest.fn(),
+			refetchSites: jest.fn(),
 		} );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
@@ -133,6 +136,7 @@ describe( 'ContentTabSync', () => {
 			pullStates: {},
 			isAnySitePulling: false,
 			getPullState: jest.fn(),
+			refetchSites: jest.fn(),
 		} );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
@@ -169,6 +173,7 @@ describe( 'ContentTabSync', () => {
 			pullStates: {},
 			isAnySitePulling: false,
 			getPullState: jest.fn(),
+			refetchSites: jest.fn(),
 		} );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 

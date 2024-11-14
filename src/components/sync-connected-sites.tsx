@@ -4,6 +4,7 @@ import { cloudUpload, cloudDownload } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useMemo } from 'react';
 import { useSyncSites } from '../hooks/sync-sites';
+import { useConfirmationDialog } from '../hooks/use-confirmation-dialog';
 import { SyncSite } from '../hooks/use-fetch-wpcom-sites';
 import { useSyncStatesProgressInfo } from '../hooks/use-sync-states-progress-info';
 import { getIpcApi } from '../lib/get-ipc-api';
@@ -44,6 +45,22 @@ export function SyncConnectedSites( {
 		clearPushState,
 	} = useSyncSites();
 	const { isKeyPulling, isKeyFinished, isKeyFailed } = useSyncStatesProgressInfo();
+	const showPushStagingConfirmation = useConfirmationDialog( {
+		localStorageKey: 'dontShowPushConfirmation',
+		message: __( 'Overwrite Staging site' ),
+		detail: __(
+			'Pushing will replace the existing files and database with a copy from your local site.\n\n The staging site will be backed-up before any changes are applied.'
+		),
+		confirmButtonLabel: __( 'Push' ),
+	} );
+	const showPushProductionConfirmation = useConfirmationDialog( {
+		localStorageKey: 'dontShowPushConfirmation',
+		message: __( 'Overwrite Production site' ),
+		detail: __(
+			'Pushing will replace the existing files and database with a copy from your local site.\n\n The production site will be backed-up before any changes are applied.'
+		),
+		confirmButtonLabel: __( 'Push' ),
+	} );
 	const siteSections: ConnectedSiteSection[] = useMemo( () => {
 		const siteSections: ConnectedSiteSection[] = [];
 		const processedSites = new Set< number >();
@@ -111,6 +128,14 @@ export function SyncConnectedSites( {
 			}
 		} else {
 			disconnectSite( sectionId );
+		}
+	};
+
+	const handlePushSite = async ( connectedSite: SyncSite ) => {
+		if ( connectedSite.isStaging ) {
+			showPushStagingConfirmation( () => pushSite( connectedSite, selectedSite ) );
+		} else {
+			showPushProductionConfirmation( () => pushSite( connectedSite, selectedSite ) );
 		}
 	};
 
@@ -228,9 +253,7 @@ export function SyncConnectedSites( {
 													<Button
 														variant="link"
 														className="!text-black hover:!text-a8c-blueberry"
-														onClick={ () => {
-															pushSite( connectedSite, selectedSite );
-														} }
+														onClick={ () => handlePushSite( connectedSite ) }
 														disabled={ isAnySitePulling }
 													>
 														<Icon icon={ cloudUpload } />

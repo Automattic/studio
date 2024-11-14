@@ -70,8 +70,9 @@ steps:
     matrix:
       - mac
       #- windows
-    # No notify node because we cannot interpolate the matrix value in the context string
-    # See https://github.com/Automattic/studio/pull/614#discussion_r1821669523
+    notify:
+      - github_commit_status:
+          context: All E2E Tests
 
   - group: 📦 Build for Mac
     key: dev-mac
@@ -110,7 +111,6 @@ steps:
 
           echo "--- 📃 Notarizing Binary"
           bundle exec fastlane notarize_binary
-
         plugins: *common_plugins
         artifact_paths:
           - out/**/*.app.zip
@@ -119,17 +119,21 @@ steps:
           - universal
           - x64
           - arm64
+        notify:
+          - github_commit_status:
+              context: All Mac Dev Builds
     if: build.tag !~ /^v[0-9]+/
-    # No notify node because we cannot interpolate the matrix value in the context string
-    # See https://github.com/Automattic/studio/pull/614#discussion_r1821669523
 
   - label: 🔨 Windows Dev Build
     key: dev-windows
-    command: .buildkite/commands/build-for-windows-dev.ps1
+    command: |
+      .buildkite/commands/build-for-windows-dev.ps1
+      node scripts/package-appx.mjs
     artifact_paths:
       - out\**\studio-setup.exe
       - out\**\studio-update.nupkg
       - out\**\RELEASES
+      - out\**\*.appx
     agents:
       queue: windows
     if: build.tag !~ /^v[0-9]+/
@@ -208,7 +212,6 @@ steps:
 
           echo "--- 📃 Notarizing Binary"
           bundle exec fastlane notarize_binary
-
         plugins: *common_plugins
         artifact_paths:
           - out/**/*.app.zip
@@ -217,19 +220,23 @@ steps:
           - universal
           - x64
           - arm64
-        # No notify node because we cannot interpolate the matrix value in the context string
-        # See https://github.com/Automattic/studio/pull/614#discussion_r1821669523
+        notify:
+          - github_commit_status:
+              context: All Mac Release Builds
     if: build.tag =~ /^v[0-9]+/
 
   - label: 🔨 Windows Release Build
     key: release-windows
-    command: .buildkite/commands/build-for-windows-release.ps1
     agents:
       queue: windows
+    command: |
+      .buildkite/commands/build-for-windows-release.ps1
+      node scripts/package-appx.mjs
     artifact_paths:
       - out\**\studio-setup.exe
       - out\**\studio-update.nupkg
       - out\**\RELEASES
+      - out\**\*.appx
     if: build.tag =~ /^v[0-9]+/
     notify:
       - github_commit_status:

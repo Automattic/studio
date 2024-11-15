@@ -247,7 +247,7 @@ export function SyncConnectedSites( {
 					icon={ offlineIcon }
 				>
 					<Button
-						onClick={ () => openSitesSyncSelector() }
+						onClick={ openSitesSyncSelector }
 						disabled={ isOffline }
 						aria-disabled={ isOffline }
 						variant="secondary"

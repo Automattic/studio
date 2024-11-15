@@ -206,7 +206,9 @@ export function SyncConnectedSites( {
 												<div className="flex gap-2 pl-4 ml-auto shrink-0 h-5">
 													<Button
 														variant="link"
-														className="!text-black hover:!text-a8c-blueberry"
+														className={ cx(
+															! isOffline && '!text-black hover:!text-a8c-blueberry'
+														) }
 														onClick={ () => {
 															pullSite( connectedSite, selectedSite );
 														} }
@@ -218,7 +220,9 @@ export function SyncConnectedSites( {
 													</Button>
 													<Button
 														variant="link"
-														className="!text-black hover:!text-a8c-blueberry"
+														className={ cx(
+															! isOffline && '!text-black hover:!text-a8c-blueberry'
+														) }
 														disabled={ isAnySitePulling || isOffline }
 														aria-disabled={ isOffline }
 													>

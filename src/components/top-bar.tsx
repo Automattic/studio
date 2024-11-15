@@ -101,12 +101,7 @@ export default function TopBar( { onToggleSidebar }: TopBarProps ) {
 
 			<div className="app-no-drag-region flex items-center space-x-4">
 				<Authentication />
-				<Button
-					onClick={ openDocs }
-					aria-label={ __( 'Get help' ) }
-					title={ __( 'Get help' ) }
-					variant="icon"
-				>
+				<Button onClick={ openDocs } aria-label={ __( 'Get help' ) } variant="icon">
 					<Icon className="text-white" size={ 24 } icon={ help } />
 				</Button>
 			</div>

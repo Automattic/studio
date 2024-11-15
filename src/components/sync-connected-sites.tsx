@@ -5,13 +5,16 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useMemo } from 'react';
 import { useSyncSites } from '../hooks/sync-sites';
 import { SyncSite } from '../hooks/use-fetch-wpcom-sites';
+import { useOffline } from '../hooks/use-offline';
 import { useSyncStatesProgressInfo } from '../hooks/use-sync-states-progress-info';
+import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { ArrowIcon } from './arrow-icon';
 import { Badge } from './badge';
 import Button from './button';
 import { CheckIcon } from './check-icon';
 import { ErrorIcon } from './error-icon';
+import offlineIcon from './offline-icon';
 import ProgressBar from './progress-bar';
 import Tooltip from './tooltip';
 import { WordPressLogoCircle } from './wordpress-logo-circle';
@@ -35,6 +38,7 @@ export function SyncConnectedSites( {
 	selectedSite: SiteDetails;
 } ) {
 	const { __ } = useI18n();
+	const isOffline = useOffline();
 	const { pullSite, clearPullState, getPullState, isAnySitePulling } = useSyncSites();
 	const { isKeyPulling, isKeyFinished, isKeyFailed } = useSyncStatesProgressInfo();
 	const siteSections: ConnectedSiteSection[] = useMemo( () => {
@@ -224,13 +228,25 @@ export function SyncConnectedSites( {
 			</div>
 
 			<div className="flex mt-auto gap-4 py-5 px-8 border-t border-a8c-gray-5 flex-shrink-0">
-				<Button
-					onClick={ openSitesSyncSelector }
-					variant="secondary"
-					className="!text-a8c-blueberry !shadow-a8c-blueberry"
+				<Tooltip
+					disabled={ ! isOffline }
+					text={ __( 'Connecting a site requires an internet connection.' ) }
+					icon={ offlineIcon }
 				>
-					{ __( 'Connect site' ) }
-				</Button>
+					<Button
+						onClick={ () => {
+							if ( isOffline ) {
+								return;
+							}
+							openSitesSyncSelector();
+						} }
+						disabled={ isOffline }
+						variant="secondary"
+						className={ cx( ! isOffline && '!text-a8c-blueberry !shadow-a8c-blueberry' ) }
+					>
+						{ __( 'Connect site' ) }
+					</Button>
+				</Tooltip>
 				<Button
 					onClick={ () => {
 						getIpcApi().openURL( 'https://wordpress.com/start/new-site' );

@@ -1,13 +1,20 @@
-import { useState, useEffect, useCallback } from 'react';
-import { getIpcApi } from '../lib/get-ipc-api';
-import { useAuth } from './use-auth';
-import { SyncSite, useFetchWpComSites } from './use-fetch-wpcom-sites';
-import { useSiteDetails } from './use-site-details';
+import { useEffect, useCallback } from 'react';
+import { getIpcApi } from '../../lib/get-ipc-api';
+import { useAuth } from '../use-auth';
+import { SyncSite, useFetchWpComSites } from '../use-fetch-wpcom-sites';
+import { useSiteDetails } from '../use-site-details';
 
-export const useSiteSyncManagement = () => {
-	const [ connectedSites, setConnectedSites ] = useState< SyncSite[] >( [] );
+export const useSiteSyncManagement = ( {
+	connectedSites,
+	setConnectedSites,
+}: {
+	connectedSites: SyncSite[];
+	setConnectedSites: React.Dispatch< React.SetStateAction< SyncSite[] > >;
+} ) => {
 	const { isAuthenticated } = useAuth();
-	const { syncSites, isFetching } = useFetchWpComSites( connectedSites );
+	const { syncSites, isFetching, refetchSites } = useFetchWpComSites(
+		connectedSites.map( ( { id } ) => id )
+	);
 	const { selectedSite } = useSiteDetails();
 	const localSiteId = selectedSite?.id;
 
@@ -24,13 +31,40 @@ export const useSiteSyncManagement = () => {
 			console.error( 'Failed to load connected sites:', error );
 			setConnectedSites( [] );
 		}
-	}, [ localSiteId ] );
+	}, [ localSiteId, setConnectedSites ] );
 
 	useEffect( () => {
 		if ( isAuthenticated ) {
 			loadConnectedSites();
 		}
 	}, [ isAuthenticated, loadConnectedSites ] );
+
+	// whenever array of syncSites changes, we need to update connectedSites to keep them updated with wordpress.com
+	useEffect( () => {
+		if ( isFetching || ! isAuthenticated ) {
+			return;
+		}
+
+		setConnectedSites( ( prevConnectedSites ) => {
+			const updatedConnectedSites = prevConnectedSites.map( ( connectedSite ) => {
+				const site = syncSites.find( ( site ) => site.id === connectedSite.id );
+
+				if ( ! site ) {
+					return connectedSite;
+				}
+
+				return {
+					...connectedSite,
+					syncSupport: site.syncSupport,
+					url: site.url,
+				};
+			} );
+
+			getIpcApi().updateConnectedWpcomSites( updatedConnectedSites );
+
+			return updatedConnectedSites;
+		} );
+	}, [ isAuthenticated, syncSites, isFetching, setConnectedSites ] );
 
 	const connectSite = useCallback(
 		async ( site: SyncSite ) => {
@@ -69,6 +103,7 @@ export const useSiteSyncManagement = () => {
 					sitesToDisconnect,
 					localSiteId
 				);
+
 				setConnectedSites( newDisconnectedSites );
 			} catch ( error ) {
 				console.error( 'Failed to disconnect site:', error );
@@ -85,5 +120,6 @@ export const useSiteSyncManagement = () => {
 		disconnectSite,
 		syncSites,
 		isFetching,
+		refetchSites,
 	} as const;
 };

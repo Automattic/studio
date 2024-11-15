@@ -1,13 +1,16 @@
 // To run tests, execute `npm run test -- src/components/tests/content-tab-sync.test.tsx` from the root directory
 import { render, screen, fireEvent } from '@testing-library/react';
+import { SyncSitesProvider, useSyncSites } from '../../hooks/sync-sites';
 import { useAuth } from '../../hooks/use-auth';
-import { useSiteSyncManagement } from '../../hooks/use-site-sync-management';
 import { getIpcApi } from '../../lib/get-ipc-api';
 import { ContentTabSync } from '../content-tab-sync';
 
 jest.mock( '../../hooks/use-auth' );
 jest.mock( '../../lib/get-ipc-api' );
-jest.mock( '../../hooks/use-site-sync-management' );
+jest.mock( '../../hooks/sync-sites/sync-sites-context', () => ( {
+	...jest.requireActual( '../../hooks/sync-sites/sync-sites-context' ),
+	useSyncSites: jest.fn(),
+} ) );
 
 const selectedSite: SiteDetails = {
 	name: 'Test Site',
@@ -27,24 +30,34 @@ describe( 'ContentTabSync', () => {
 			openURL: jest.fn(),
 			generateProposedSitePath: jest.fn(),
 			showMessageBox: jest.fn(),
+			updateConnectedWpcomSites: jest.fn(),
 		} );
-		( useSiteSyncManagement as jest.Mock ).mockReturnValue( {
+		( useSyncSites as jest.Mock ).mockReturnValue( {
 			connectedSites: [],
 			syncSites: [],
+			pullSite: jest.fn(),
+			pullStates: {},
+			isAnySitePulling: false,
+			getPullState: jest.fn(),
+			refetchSites: jest.fn(),
 		} );
 	} );
 
+	const renderWithProvider = ( children: React.ReactElement ) => {
+		return render( <SyncSitesProvider>{ children }</SyncSitesProvider> );
+	};
+
 	it( 'renders the sync title and login buttons', () => {
-		render( <ContentTabSync selectedSite={ selectedSite } /> );
+		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 		expect( screen.getByText( 'Sync with' ) ).toBeInTheDocument();
 
-		const loginButton = screen.getByRole( 'button', { name: 'Log in to WordPress.com ↗' } );
+		const loginButton = screen.getByRole( 'button', { name: /Log in to WordPress.com/i } );
 		expect( loginButton ).toBeInTheDocument();
 
 		fireEvent.click( loginButton );
 		expect( useAuth().authenticate ).toHaveBeenCalled();
 
-		const freeAccountButton = screen.getByRole( 'button', { name: 'Create a free account ↗' } );
+		const freeAccountButton = screen.getByRole( 'button', { name: /Create a free account/i } );
 		expect( freeAccountButton ).toBeInTheDocument();
 
 		fireEvent.click( freeAccountButton );
@@ -53,8 +66,8 @@ describe( 'ContentTabSync', () => {
 
 	it( 'displays create new site button to authenticated user', () => {
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
-		render( <ContentTabSync selectedSite={ selectedSite } /> );
-		const createSiteButton = screen.getByRole( 'button', { name: 'Create new site ↗' } );
+		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
+		const createSiteButton = screen.getByRole( 'button', { name: /Create new site/i } );
 		fireEvent.click( createSiteButton );
 
 		expect( screen.getByText( 'Sync with' ) ).toBeInTheDocument();
@@ -64,16 +77,16 @@ describe( 'ContentTabSync', () => {
 
 	it( 'displays connect site button to authenticated user', () => {
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
-		render( <ContentTabSync selectedSite={ selectedSite } /> );
-		const connectSiteButton = screen.getByRole( 'button', { name: 'Connect site' } );
+		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
+		const connectSiteButton = screen.getByRole( 'button', { name: /Connect site/i } );
 
 		expect( connectSiteButton ).toBeInTheDocument();
 	} );
 
 	it( 'opens the site selector modal to connect a site authenticated user', () => {
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
-		render( <ContentTabSync selectedSite={ selectedSite } /> );
-		const connectSiteButton = screen.getByRole( 'button', { name: 'Connect site' } );
+		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
+		const connectSiteButton = screen.getByRole( 'button', { name: /Connect site/i } );
 		fireEvent.click( connectSiteButton );
 		expect( screen.getByText( 'Connect a WordPress.com site' ) ).toBeInTheDocument();
 	} );
@@ -88,26 +101,22 @@ describe( 'ContentTabSync', () => {
 			syncSupport: 'syncable',
 		};
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
-		( useSiteSyncManagement as jest.Mock ).mockReturnValue( {
+		( useSyncSites as jest.Mock ).mockReturnValue( {
 			connectedSites: [ fakeSyncSite ],
 			syncSites: [ fakeSyncSite ],
+			pullSite: jest.fn(),
+			pullStates: {},
+			isAnySitePulling: false,
+			getPullState: jest.fn(),
+			refetchSites: jest.fn(),
 		} );
-		render( <ContentTabSync selectedSite={ selectedSite } /> );
+		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
-		const title = screen.getByText( 'My simple business site that needs a transfer' );
-		expect( title ).toBeInTheDocument();
-
-		const disconnectButton = screen.getByRole( 'button', { name: 'Disconnect' } );
-		expect( disconnectButton ).toBeInTheDocument();
-
-		const pullButton = screen.getByRole( 'button', { name: 'Pull' } );
-		expect( pullButton ).toBeInTheDocument();
-
-		const pushButton = screen.getByRole( 'button', { name: 'Push' } );
-		expect( pushButton ).toBeInTheDocument();
-
-		const productionText = screen.getByText( 'Production' );
-		expect( productionText ).toBeInTheDocument();
+		expect( screen.getByText( fakeSyncSite.name ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: /Disconnect/i } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: /Pull/i } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: /Push/i } ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Production' ) ).toBeInTheDocument();
 	} );
 
 	it( 'opens URL for connected sites', async () => {
@@ -120,19 +129,22 @@ describe( 'ContentTabSync', () => {
 			syncSupport: 'syncable',
 		};
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
-		( useSiteSyncManagement as jest.Mock ).mockReturnValue( {
+		( useSyncSites as jest.Mock ).mockReturnValue( {
 			connectedSites: [ fakeSyncSite ],
 			syncSites: [ fakeSyncSite ],
+			pullSite: jest.fn(),
+			pullStates: {},
+			isAnySitePulling: false,
+			getPullState: jest.fn(),
+			refetchSites: jest.fn(),
 		} );
-		render( <ContentTabSync selectedSite={ selectedSite } /> );
+		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
-		const urlButton = screen.getByRole( 'button', {
-			name: 'https:/developer.wordpress.com/studio/ ↗',
-		} );
+		const urlButton = screen.getByRole( 'button', { name: new RegExp( fakeSyncSite.url, 'i' ) } );
 		expect( urlButton ).toBeInTheDocument();
 
 		fireEvent.click( urlButton );
-		expect( getIpcApi().openURL ).toHaveBeenCalledWith( 'https:/developer.wordpress.com/studio/' );
+		expect( getIpcApi().openURL ).toHaveBeenCalledWith( fakeSyncSite.url );
 	} );
 
 	it( 'displays both production and staging sites when a production site is connected', async () => {
@@ -154,35 +166,32 @@ describe( 'ContentTabSync', () => {
 		};
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
 
-		( useSiteSyncManagement as jest.Mock ).mockReturnValue( {
+		( useSyncSites as jest.Mock ).mockReturnValue( {
 			connectedSites: [ fakeProductionSite, fakeStagingSite ],
 			syncSites: [ fakeProductionSite ],
+			pullSite: jest.fn(),
+			pullStates: {},
+			isAnySitePulling: false,
+			getPullState: jest.fn(),
+			refetchSites: jest.fn(),
 		} );
-		render( <ContentTabSync selectedSite={ selectedSite } /> );
+		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
-		// Check for production site
-		const productionTitle = screen.getByText( 'My simple business site' );
-		expect( productionTitle ).toBeInTheDocument();
-		const productionText = screen.getByText( 'Production' );
-		expect( productionText ).toBeInTheDocument();
+		expect( screen.getByText( fakeProductionSite.name ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Production' ) ).toBeInTheDocument();
 
-		// Check for staging site where title is not displayed
-		const stagingTitle = screen.queryByText( 'Staging: My simple business site' );
-		expect( stagingTitle ).not.toBeInTheDocument();
-		const stagingText = screen.getByText( 'Staging' );
-		expect( stagingText ).toBeInTheDocument();
+		expect( screen.queryByText( fakeStagingSite.name ) ).not.toBeInTheDocument();
+		expect( screen.getByText( 'Staging' ) ).toBeInTheDocument();
 
-		// Check for buttons on both sites, with only one disconnect button
-		const disconnectButtons = screen.getAllByRole( 'button', { name: 'Disconnect' } );
+		const disconnectButtons = screen.getAllByRole( 'button', { name: /Disconnect/i } );
 		expect( disconnectButtons ).toHaveLength( 1 );
 
-		const pullButtons = screen.getAllByRole( 'button', { name: 'Pull' } );
+		const pullButtons = screen.getAllByRole( 'button', { name: /Pull/i } );
 		expect( pullButtons ).toHaveLength( 2 );
 
-		const pushButtons = screen.getAllByRole( 'button', { name: 'Push' } );
+		const pushButtons = screen.getAllByRole( 'button', { name: /Push/i } );
 		expect( pushButtons ).toHaveLength( 2 );
 
-		// Check for URLs
 		const productionUrl = screen.getAllByRole( 'button', {
 			name: 'https://developer.wordpress.com/studio/ ↗',
 		} );

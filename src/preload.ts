@@ -20,6 +20,8 @@ const api: IpcApi = {
 		ipcRenderer.invoke( 'connectWpcomSite', sites, localSiteId ),
 	disconnectWpcomSite: ( siteIds: number[], localSiteId: string ) =>
 		ipcRenderer.invoke( 'disconnectWpcomSite', siteIds, localSiteId ),
+	updateConnectedWpcomSites: ( updatedSites: SyncSite[] ) =>
+		ipcRenderer.invoke( 'updateConnectedWpcomSites', updatedSites ),
 	authenticate: () => ipcRenderer.invoke( 'authenticate' ),
 	exportSite: ( options: ExportOptions, siteId: string ) =>
 		ipcRenderer.invoke( 'exportSite', options, siteId ),
@@ -87,6 +89,10 @@ const api: IpcApi = {
 		ipcRenderer.invoke( 'getAbsolutePathFromSite', siteId, relativePath ),
 	openFileInIDE: ( relativePath: string, siteId: string ) =>
 		ipcRenderer.invoke( 'openFileInIDE', relativePath, siteId ),
+	downloadSyncBackup: ( remoteSiteId: number, downloadUrl: string ) =>
+		ipcRenderer.invoke( 'downloadSyncBackup', remoteSiteId, downloadUrl ),
+	removeSyncBackup: ( remoteSiteId: number ) =>
+		ipcRenderer.invoke( 'removeSyncBackup', remoteSiteId ),
 	getConnectedWpcomSites: ( localSiteId: string ) =>
 		ipcRenderer.invoke( 'getConnectedWpcomSites', localSiteId ),
 };

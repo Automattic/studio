@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
+import { SyncSitesProvider } from '../../hooks/sync-sites';
 import { SiteDetailsProvider } from '../../hooks/use-site-details';
 import { getIpcApi } from '../../lib/get-ipc-api';
 import Header from '../header';
@@ -34,14 +35,17 @@ afterEach( () => {
 } );
 
 describe( 'Header', () => {
+	const renderWithProvider = ( children: React.ReactElement ) => {
+		return render(
+			<SyncSitesProvider>
+				<SiteDetailsProvider>{ children }</SiteDetailsProvider>
+			</SyncSitesProvider>
+		);
+	};
 	it( 'should start site servers', async () => {
 		const user = userEvent.setup();
 		mockGetIpcApi( {} );
-		render(
-			<SiteDetailsProvider>
-				<Header />
-			</SiteDetailsProvider>
-		);
+		renderWithProvider( <Header /> );
 
 		await screen.findByText( 'test-1' );
 		const startButton = screen.getByRole( 'button', { name: 'Start' } );
@@ -61,11 +65,7 @@ describe( 'Header', () => {
 				} ),
 				stopServer: jest.fn( () => Promise.resolve( { running: false } ) ),
 			} );
-			render(
-				<SiteDetailsProvider>
-					<Header />
-				</SiteDetailsProvider>
-			);
+			renderWithProvider( <Header /> );
 
 			await screen.findByText( 'test-1' );
 			const startButton = screen.getByRole( 'button', { name: 'Start' } );

@@ -1,7 +1,7 @@
 import { SearchControl as SearchControlWp } from '@wordpress/components';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { SyncSite } from '../hooks/use-fetch-wpcom-sites';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
@@ -17,19 +17,31 @@ export function SyncSitesModalSelector( {
 	onRequestClose,
 	onConnect,
 	syncSites,
+	onInitialRender,
 }: {
 	isLoading?: boolean;
 	onRequestClose: () => void;
 	syncSites: SyncSite[];
 	onConnect: ( siteId: number ) => void;
+	onInitialRender?: () => void;
 } ) {
 	const { __ } = useI18n();
 	const [ selectedSiteId, setSelectedSiteId ] = useState< number | null >( null );
 	const [ searchQuery, setSearchQuery ] = useState< string >( '' );
-	const filteredSites = syncSites.filter( ( site ) =>
-		site.name.toLowerCase().includes( searchQuery.toLowerCase() )
-	);
+	const filteredSites = syncSites.filter( ( site ) => {
+		const searchQueryLower = searchQuery.toLowerCase();
+		return (
+			site.name?.toLowerCase().includes( searchQueryLower ) ||
+			site.url?.toLowerCase().includes( searchQueryLower )
+		);
+	} );
 	const isEmpty = filteredSites.length === 0;
+
+	useEffect( () => {
+		if ( onInitialRender ) {
+			onInitialRender();
+		}
+	}, [ onInitialRender ] );
 
 	return (
 		<Modal
@@ -38,7 +50,7 @@ export function SyncSitesModalSelector( {
 			title={ __( 'Connect a WordPress.com site' ) }
 		>
 			<SearchSites searchQuery={ searchQuery } setSearchQuery={ setSearchQuery } />
-			<div className="h-[calc(84vh-230px)]">
+			<div className="h-[calc(84vh-232px)]">
 				{ isLoading && (
 					<div className="flex justify-center items-center h-full">{ __( 'Loading sites…' ) }</div>
 				) }
@@ -85,7 +97,7 @@ function SearchSites( {
 	return (
 		<div className="flex flex-col px-8 pb-6 border-b border-a8c-gray-5">
 			<SearchControl
-				className="w-full"
+				className="w-full mt-0.5"
 				placeholder={ __( 'Search sites' ) }
 				onChange={ ( value ) => {
 					setSearchQuery( value );
@@ -100,6 +112,17 @@ function SearchSites( {
 	);
 }
 
+const getSortedSites = ( sites: SyncSite[] ) => {
+	const order: Record< SyncSite[ 'syncSupport' ], number > = {
+		syncable: 1,
+		'already-connected': 2,
+		'needs-transfer': 3,
+		unsupported: 4,
+	};
+
+	return [ ...sites ].sort( ( a, b ) => order[ a.syncSupport ] - order[ b.syncSupport ] );
+};
+
 function ListSites( {
 	syncSites,
 	selectedSiteId,
@@ -109,9 +132,11 @@ function ListSites( {
 	selectedSiteId: null | number;
 	onSelectSite: ( id: number ) => void;
 } ) {
+	const sortedSites = getSortedSites( syncSites );
+
 	return (
 		<div className="flex flex-col overflow-y-auto h-full">
-			{ syncSites.map( ( site ) => (
+			{ sortedSites.map( ( site ) => (
 				<SiteItem
 					key={ site.id }
 					site={ site }
@@ -143,7 +168,7 @@ function SiteItem( {
 	return (
 		<div
 			className={ cx(
-				'flex py-3 px-8 items-center border-b border-a8c-gray-0 justify-between',
+				'flex py-3 px-8 items-center border-b border-a8c-gray-0 justify-between gap-4',
 				isSelected && 'bg-a8c-blueberry text-white',
 				! isSelected && isSyncable && 'hover:bg-a8c-blueberry-5'
 			) }
@@ -155,9 +180,13 @@ function SiteItem( {
 				onClick();
 			} }
 		>
-			<div className="flex flex-col gap-0.5 pr-4">
-				<div className={ cx( 'a8c-body', ! isSyncable && 'text-a8c-gray-30' ) }>{ site.name }</div>
-				<div className={ cx( 'a8c-body-small text-a8c-gray-30', isSelected && 'text-white' ) }>
+			<div className="flex flex-col gap-0.5 overflow-hidden">
+				<div className={ cx( 'a8c-body truncate', ! isSyncable && 'text-a8c-gray-30' ) }>
+					{ site.name }
+				</div>
+				<div
+					className={ cx( 'a8c-body-small text-a8c-gray-30 truncate', isSelected && 'text-white' ) }
+				>
 					{ site.url.replace( /^https?:\/\//, '' ) }
 				</div>
 			</div>
@@ -182,13 +211,15 @@ function SiteItem( {
 				</div>
 			) }
 			{ isAlreadyConnected && (
-				<div className="a8c-body-small text-a8c-gray-30">{ __( 'Already connected' ) }</div>
+				<div className="a8c-body-small text-a8c-gray-30 shrink-0">
+					{ __( 'Already connected' ) }
+				</div>
 			) }
 			{ isUnsupported && (
-				<div className="a8c-body-small text-a8c-gray-30"> { __( 'Unsupported plan' ) }</div>
+				<div className="a8c-body-small text-a8c-gray-30 shrink-0">{ __( 'Unsupported plan' ) }</div>
 			) }
 			{ isNeedsTransfer && (
-				<div className="a8c-body-small text-a8c-gray-30">
+				<div className="a8c-body-small text-a8c-gray-30 shrink-0">
 					{ __( 'Please enable hosting features' ) }
 				</div>
 			) }

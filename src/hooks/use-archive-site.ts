@@ -2,7 +2,7 @@ import * as Sentry from '@sentry/electron/renderer';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useMemo } from 'react';
-import { SIZE_LIMIT_MB } from '../constants';
+import { DEMO_SITE_SIZE_LIMIT_BYTES, DEMO_SITE_SIZE_LIMIT_MB } from '../constants';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { isWpcomNetworkError } from '../lib/is-wpcom-network-error';
 import { useArchiveErrorMessages } from './use-archive-error-messages';
@@ -79,17 +79,17 @@ export function useArchiveSite() {
 			}
 
 			try {
-				const { archiveContent, archivePath, exceedsSizeLimit } = await getIpcApi().archiveSite(
+				const { archiveContent, archivePath, archiveSizeInBytes } = await getIpcApi().archiveSite(
 					siteId,
 					'zip'
 				);
-				if ( exceedsSizeLimit ) {
+				if ( archiveSizeInBytes > DEMO_SITE_SIZE_LIMIT_BYTES ) {
 					alert(
 						sprintf(
 							__(
 								'The site exceeds the maximum size of %dMB. Please remove some files and try again.'
 							),
-							SIZE_LIMIT_MB
+							DEMO_SITE_SIZE_LIMIT_MB
 						)
 					);
 					setUploadingSites( ( _uploadingSites ) => ( { ..._uploadingSites, [ siteId ]: false } ) );

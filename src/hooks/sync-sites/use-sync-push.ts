@@ -2,6 +2,7 @@ import * as Sentry from '@sentry/electron/renderer';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useMemo } from 'react';
+import { SYNC_PUSH_SIZE_LIMIT_BYTES } from '../../constants';
 import { getIpcApi } from '../../lib/get-ipc-api';
 import { useAuth } from '../use-auth';
 import { SyncSite } from '../use-fetch-wpcom-sites';
@@ -73,11 +74,11 @@ export function useSyncPush( {
 				isStaging: connectedSite.isStaging,
 			} );
 
-			const { archiveContent, exceedsSizeLimit } = await getIpcApi().archiveSite(
+			const { archiveContent, archiveSizeInBytes } = await getIpcApi().archiveSite(
 				selectedSite.id,
 				'tar'
 			);
-			if ( exceedsSizeLimit ) {
+			if ( archiveSizeInBytes > SYNC_PUSH_SIZE_LIMIT_BYTES ) {
 				getIpcApi().showErrorMessageBox( {
 					title: sprintf( __( 'Error pushing to %s' ), connectedSite.name ),
 					message: __(

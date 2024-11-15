@@ -34,7 +34,6 @@ const UserInfo = ( {
 				<Button
 					onClick={ () => getIpcApi().openURL( WPCOM_PROFILE_URL ) }
 					aria-label={ __( 'Edit profile' ) }
-					title={ __( 'Edit profile' ) }
 					variant="icon"
 				>
 					<Gravatar detailedDefaultImage size={ 32 } isBlack />

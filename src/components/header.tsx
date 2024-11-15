@@ -1,4 +1,3 @@
-import { sprintf } from '@wordpress/i18n';
 import { Icon, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useSiteDetails } from '../hooks/use-site-details';
@@ -9,20 +8,6 @@ import { SiteManagementActions } from './site-management-actions';
 export default function Header() {
 	const { __ } = useI18n();
 	const { selectedSite: site, startServer, stopServer, loadingServer } = useSiteDetails();
-	const wpAdminTooltipText = site?.url
-		? sprintf(
-				/* translators: wpAdminUrl is the site's WP admin URL */
-				__( 'Open %(wpAdminUrl)s' ),
-				{ wpAdminUrl: `${ site.url }/wp-admin` }
-		  )
-		: __( 'Open WP admin' );
-	const siteTooltipText = site?.url
-		? sprintf(
-				/* translators: siteUrl is the site URL */
-				__( 'Open %(siteUrl)s' ),
-				{ siteUrl: site.url }
-		  )
-		: __( 'Open site' );
 	return (
 		<div
 			data-testid="site-content-header"
@@ -38,7 +23,6 @@ export default function Header() {
 							disabled={ ! site.running }
 							className="[&.is-link]:text-a8c-gray-70 [&.is-link]:hover:text-a8c-blueberry !px-0 h-0 leading-4"
 							onClick={ () => getIpcApi().openSiteURL( site.id, '/wp-admin' ) }
-							{ ...( site.running && { tooltipText: wpAdminTooltipText } ) }
 							variant="link"
 						>
 							{ __( 'WP admin' ) }
@@ -52,7 +36,6 @@ export default function Header() {
 							disabled={ ! site.running }
 							className="[&.is-link]:text-a8c-gray-70 [&.is-link]:hover:text-a8c-blueberry !px-0 h-0 leading-4"
 							onClick={ () => getIpcApi().openSiteURL( site.id, '', { autoLogin: false } ) }
-							{ ...( site.running && { tooltipText: siteTooltipText } ) }
 							variant="link"
 						>
 							{

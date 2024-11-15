@@ -66,7 +66,7 @@ function CreateConnectSite( {
 	return (
 		<div className="mt-8">
 			<div className="flex gap-4">
-				<Tooltip disabled={ ! isOffline } text={ offlineMessageConnect }>
+				<Tooltip disabled={ ! isOffline } text={ offlineMessageConnect } icon={ offlineIcon }>
 					<Button
 						aria-disabled={ isOffline }
 						variant="primary"
@@ -80,7 +80,7 @@ function CreateConnectSite( {
 						{ __( 'Connect site' ) }
 					</Button>
 				</Tooltip>
-				<Tooltip disabled={ ! isOffline } text={ offlineMessageCreate }>
+				<Tooltip disabled={ ! isOffline } text={ offlineMessageCreate } icon={ offlineIcon }>
 					<Button
 						aria-disabled={ isOffline }
 						className={ cx( ! isOffline && '!text-a8c-blueberry !shadow-a8c-blueberry' ) }

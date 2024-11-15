@@ -247,16 +247,23 @@ export function SyncConnectedSites( {
 						{ __( 'Connect site' ) }
 					</Button>
 				</Tooltip>
-				<Button
-					onClick={ () => {
-						getIpcApi().openURL( 'https://wordpress.com/start/new-site' );
-					} }
-					variant="secondary"
-					className="!text-a8c-blueberry !shadow-a8c-blueberry"
+				<Tooltip
+					disabled={ ! isOffline }
+					text={ __( 'Creating a site requires an internet connection.' ) }
+					icon={ offlineIcon }
 				>
-					{ __( 'Create new site' ) }
-					<ArrowIcon />
-				</Button>
+					<Button
+						onClick={ () => {
+							getIpcApi().openURL( 'https://wordpress.com/start/new-site' );
+						} }
+						variant="secondary"
+						className={ cx( ! isOffline && '!text-a8c-blueberry !shadow-a8c-blueberry' ) }
+						disabled={ isOffline }
+					>
+						{ __( 'Create new site' ) }
+						<ArrowIcon />
+					</Button>
+				</Tooltip>
 			</div>
 		</div>
 	);

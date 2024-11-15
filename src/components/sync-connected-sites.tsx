@@ -5,6 +5,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useMemo } from 'react';
 import { useSyncSites } from '../hooks/sync-sites';
 import { SyncSite } from '../hooks/use-fetch-wpcom-sites';
+import { useSiteDetails } from '../hooks/use-site-details';
 import { useSyncStatesProgressInfo } from '../hooks/use-sync-states-progress-info';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { ArrowIcon } from './arrow-icon';
@@ -37,6 +38,8 @@ export function SyncConnectedSites( {
 	const { __ } = useI18n();
 	const { pullSite, clearPullState, getPullState, isAnySitePulling } = useSyncSites();
 	const { isKeyPulling, isKeyFinished, isKeyFailed } = useSyncStatesProgressInfo();
+	const { stopServer } = useSiteDetails();
+
 	const siteSections: ConnectedSiteSection[] = useMemo( () => {
 		const siteSections: ConnectedSiteSection[] = [];
 		const processedSites = new Set< number >();
@@ -197,7 +200,10 @@ export function SyncConnectedSites( {
 												<Button
 													variant="link"
 													className="!text-black hover:!text-a8c-blueberry"
-													onClick={ () => {
+													onClick={ async () => {
+														if ( selectedSite.running ) {
+															await stopServer( selectedSite.id );
+														}
 														pullSite( connectedSite, selectedSite );
 													} }
 													disabled={ isAnySitePulling }

@@ -74,7 +74,7 @@ export function useSyncPush( {
 				isStaging: connectedSite.isStaging,
 			} );
 
-			const { archiveContent, archiveSizeInBytes } = await getIpcApi().archiveSite(
+			const { archiveContent, archivePath, archiveSizeInBytes } = await getIpcApi().archiveSite(
 				selectedSite.id,
 				'tar'
 			);
@@ -103,6 +103,7 @@ export function useSyncPush( {
 					formData,
 				} );
 				if ( response.success ) {
+					await getIpcApi().removeTemporalFile( archivePath );
 					updatePushState( selectedSite.id, remoteSiteId, {
 						status: pushStatesProgressInfo.importing,
 					} );

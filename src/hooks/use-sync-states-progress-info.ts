@@ -55,7 +55,7 @@ export function useSyncStatesProgressInfo() {
 			uploading: {
 				key: 'uploading',
 				progress: 50,
-				message: __( 'Pushing changes…' ),
+				message: __( 'Uploading Studio site…' ),
 			},
 			importing: {
 				key: 'importing',

@@ -40,6 +40,7 @@ export function SyncConnectedSites( {
 		clearPullState,
 		getPullState,
 		isAnySitePulling,
+		isAnySitePushing,
 		pushSite,
 		getPushState,
 		clearPushState,
@@ -151,7 +152,7 @@ export function SyncConnectedSites( {
 								variant="link"
 								className="!ml-auto !text-a8c-gray-70 hover:!text-a8c-red-50 "
 								onClick={ () => handleDisconnectSite( section.id, section.name ) }
-								disabled={ isAnySitePulling }
+								disabled={ isAnySitePulling || isAnySitePushing }
 							>
 								{ __( 'Disconnect' ) }
 							</Button>
@@ -245,7 +246,7 @@ export function SyncConnectedSites( {
 														onClick={ () => {
 															pullSite( connectedSite, selectedSite );
 														} }
-														disabled={ isAnySitePulling }
+														disabled={ isAnySitePulling || isAnySitePushing }
 													>
 														<Icon icon={ cloudDownload } />
 														{ __( 'Pull' ) }
@@ -254,7 +255,7 @@ export function SyncConnectedSites( {
 														variant="link"
 														className="!text-black hover:!text-a8c-blueberry"
 														onClick={ () => handlePushSite( connectedSite ) }
-														disabled={ isAnySitePulling }
+														disabled={ isAnySitePulling || isAnySitePushing }
 													>
 														<Icon icon={ cloudUpload } />
 														{ __( 'Push' ) }

@@ -96,6 +96,12 @@ export function SyncConnectedSites( {
 		return siteSections;
 	}, [ connectedSites ] );
 
+	const showPullConfirmation = useConfirmationDialog( {
+		localStorageKey: 'dontShowPullConfirmation',
+		message: __( 'Overwrite Studio site' ),
+		confirmButtonLabel: __( 'Pull' ),
+	} );
+
 	const handleDisconnectSite = async ( sectionId: number, sectionName?: string ) => {
 		const dontShowDisconnectWarning = localStorage.getItem( 'dontShowDisconnectWarning' );
 		if ( ! dontShowDisconnectWarning ) {
@@ -218,14 +224,7 @@ export function SyncConnectedSites( {
 												<ProgressBar value={ pushState.status.progress } maxValue={ 100 } />
 											</div>
 										) }
-										{ pushState.status && pushState.isError && (
-											<SyncPullPushClear
-												onClick={ () => clearPushState( selectedSite.id, connectedSite.id ) }
-												isError
-											>
-												{ pushState.status.message }
-											</SyncPullPushClear>
-										) }
+
 										{ pushState.status && pushState.hasFinished && (
 											<SyncPullPushClear
 												onClick={ () => clearPushState( selectedSite.id, connectedSite.id ) }
@@ -244,7 +243,16 @@ export function SyncConnectedSites( {
 														variant="link"
 														className="!text-black hover:!text-a8c-blueberry"
 														onClick={ () => {
-															pullSite( connectedSite, selectedSite );
+															const detail = connectedSite.isStaging
+																? __(
+																		"Pulling will replace your Studio site's files and database with a copy from your staging site."
+																  )
+																: __(
+																		"Pulling will replace your Studio site's files and database with a copy from your production site."
+																  );
+															showPullConfirmation( () => pullSite( connectedSite, selectedSite ), {
+																detail,
+															} );
 														} }
 														disabled={ isAnySitePulling || isAnySitePushing }
 													>

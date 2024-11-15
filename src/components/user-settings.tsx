@@ -3,7 +3,7 @@ import { sprintf } from '@wordpress/i18n';
 import { moreVertical, trash } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useState, useEffect } from 'react';
-import { LIMIT_OF_PROMPTS_PER_USER, WPCOM_PROFILE_URL } from '../constants';
+import { WPCOM_PROFILE_URL } from '../constants';
 import { useAuth } from '../hooks/use-auth';
 import { useIpcListener } from '../hooks/use-ipc-listener';
 import { useOffline } from '../hooks/use-offline';
@@ -33,7 +33,7 @@ const UserInfo = ( {
 			<div className="flex w-full items-center gap-3">
 				<Button
 					onClick={ () => getIpcApi().openURL( WPCOM_PROFILE_URL ) }
-					aria-label={ __( 'Profile link' ) }
+					aria-label={ __( 'Edit profile' ) }
 					variant="icon"
 				>
 					<Gravatar detailedDefaultImage size={ 32 } isBlack />
@@ -149,7 +149,8 @@ const SnapshotInfo = ( {
 };
 function PromptInfo() {
 	const { __ } = useI18n();
-	const { promptCount = 0, promptLimit = LIMIT_OF_PROMPTS_PER_USER } = usePromptUsage();
+	const { promptCount, promptLimit } = usePromptUsage();
+	const isOffline = useOffline();
 
 	return (
 		<div className="flex gap-3 flex-col">
@@ -159,7 +160,9 @@ function PromptInfo() {
 					<div className="flex w-full flex-row justify-between gap-8 ">
 						<div className="flex flex-row items-center text-right">
 							<span className="text-a8c-gray-70">
-								{ sprintf( __( '%1s of %2s monthly prompts used' ), promptCount, promptLimit ) }
+								{ isOffline
+									? __( "You're currently offline" )
+									: sprintf( __( '%1s of %2s monthly prompts used' ), promptCount, promptLimit ) }
 							</span>
 						</div>
 					</div>

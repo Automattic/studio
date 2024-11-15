@@ -21,7 +21,7 @@ export function useConfirmationDialog( options: ConfirmationDialogOptions ) {
 		localStorageKey,
 	} = options;
 
-	return async ( onConfirm: () => void ) => {
+	return async ( onConfirm: () => void, { detail: detailOverride }: { detail?: string } = {} ) => {
 		if ( localStorage.getItem( localStorageKey ) === 'true' ) {
 			onConfirm();
 			return;
@@ -31,7 +31,7 @@ export function useConfirmationDialog( options: ConfirmationDialogOptions ) {
 		const CANCEL_BUTTON_INDEX = 1;
 		const { response, checkboxChecked } = await getIpcApi().showMessageBox( {
 			message,
-			detail,
+			detail: detailOverride ?? detail,
 			checkboxLabel,
 			buttons: [ confirmButtonLabel, cancelButtonLabel ],
 			cancelId: CANCEL_BUTTON_INDEX,

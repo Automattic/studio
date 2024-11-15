@@ -197,27 +197,36 @@ export function SyncConnectedSites( {
 											</div>
 										) }
 										{ ! isPulling && ! hasPullFinished && ! isError && (
-											<div className="flex gap-2 pl-4 ml-auto shrink-0 h-5">
-												<Button
-													variant="link"
-													className="!text-black hover:!text-a8c-blueberry"
-													onClick={ () => {
-														pullSite( connectedSite, selectedSite );
-													} }
-													disabled={ isAnySitePulling }
-												>
-													<Icon icon={ cloudDownload } />
-													{ __( 'Pull' ) }
-												</Button>
-												<Button
-													variant="link"
-													className="!text-black hover:!text-a8c-blueberry"
-													disabled={ isAnySitePulling }
-												>
-													<Icon icon={ cloudUpload } />
-													{ __( 'Push' ) }
-												</Button>
-											</div>
+											<Tooltip
+												disabled={ ! isOffline }
+												text={ __( 'Pulling or pushing a site requires an internet connection.' ) }
+												icon={ offlineIcon }
+												placement="top-start"
+											>
+												<div className="flex gap-2 pl-4 ml-auto shrink-0 h-5">
+													<Button
+														variant="link"
+														className="!text-black hover:!text-a8c-blueberry"
+														onClick={ () => {
+															pullSite( connectedSite, selectedSite );
+														} }
+														disabled={ isAnySitePulling || isOffline }
+														aria-disabled={ isOffline }
+													>
+														<Icon icon={ cloudDownload } />
+														{ __( 'Pull' ) }
+													</Button>
+													<Button
+														variant="link"
+														className="!text-black hover:!text-a8c-blueberry"
+														disabled={ isAnySitePulling || isOffline }
+														aria-disabled={ isOffline }
+													>
+														<Icon icon={ cloudUpload } />
+														{ __( 'Push' ) }
+													</Button>
+												</div>
+											</Tooltip>
 										) }
 									</div>
 								</div>
@@ -234,13 +243,9 @@ export function SyncConnectedSites( {
 					icon={ offlineIcon }
 				>
 					<Button
-						onClick={ () => {
-							if ( isOffline ) {
-								return;
-							}
-							openSitesSyncSelector();
-						} }
+						onClick={ () => openSitesSyncSelector() }
 						disabled={ isOffline }
+						aria-disabled={ isOffline }
 						variant="secondary"
 						className={ cx( ! isOffline && '!text-a8c-blueberry !shadow-a8c-blueberry' ) }
 					>
@@ -259,6 +264,7 @@ export function SyncConnectedSites( {
 						variant="secondary"
 						className={ cx( ! isOffline && '!text-a8c-blueberry !shadow-a8c-blueberry' ) }
 						disabled={ isOffline }
+						aria-disabled={ isOffline }
 					>
 						{ __( 'Create new site' ) }
 						<ArrowIcon />

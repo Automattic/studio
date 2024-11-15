@@ -75,9 +75,6 @@ export function SyncConnectedSites( {
 	const showPullConfirmation = useConfirmationDialog( {
 		localStorageKey: 'dontShowPullConfirmation',
 		message: __( 'Overwrite Studio site' ),
-		detail: __(
-			"Pulling will replace your Studio site's files and database with a copy from your staging site."
-		),
 		confirmButtonLabel: __( 'Pull' ),
 	} );
 
@@ -208,7 +205,16 @@ export function SyncConnectedSites( {
 													variant="link"
 													className="!text-black hover:!text-a8c-blueberry"
 													onClick={ () => {
-														showPullConfirmation( () => pullSite( connectedSite, selectedSite ) );
+														const detail = connectedSite.isStaging
+															? __(
+																	"Pulling will replace your Studio site's files and database with a copy from your staging site."
+															  )
+															: __(
+																	"Pulling will replace your Studio site's files and database with a copy from your production site."
+															  );
+														showPullConfirmation( () => pullSite( connectedSite, selectedSite ), {
+															detail,
+														} );
 													} }
 													disabled={ isAnySitePulling }
 												>

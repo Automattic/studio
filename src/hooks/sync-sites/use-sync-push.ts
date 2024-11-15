@@ -34,7 +34,7 @@ export function useSyncPush( {
 		useSyncStatesProgressInfo();
 
 	const getPushProgressInfo = useCallback(
-		async ( selectedSiteId: string, remoteSiteId: number ) => {
+		async ( remoteSiteId: number, syncPushState: SyncPushState ) => {
 			if ( ! client ) {
 				return;
 			}
@@ -50,15 +50,28 @@ export function useSyncPush( {
 			let status: PushStateProgressInfo = pushStatesProgressInfo.importing;
 			if ( response.success && response.status === 'finished' ) {
 				status = pushStatesProgressInfo.finished;
+				getIpcApi().showNotification( {
+					title: syncPushState.selectedSite.name,
+					body: syncPushState.isStaging
+						? __( 'Staging has been updated' )
+						: __( 'Production has been updated' ),
+				} );
 			} else if ( response.success && response.status === 'failed' ) {
 				status = pushStatesProgressInfo.failed;
 			}
 			// Update state in any case to keep polling push state
-			updatePushState( selectedSiteId, remoteSiteId, {
+			updatePushState( syncPushState.selectedSite.id, syncPushState.remoteSiteId, {
 				status,
 			} );
 		},
-		[ client, pushStatesProgressInfo, updatePushState ]
+		[
+			__,
+			client,
+			pushStatesProgressInfo.failed,
+			pushStatesProgressInfo.finished,
+			pushStatesProgressInfo.importing,
+			updatePushState,
+		]
 	);
 
 	const pushSite = useCallback(
@@ -132,7 +145,7 @@ export function useSyncPush( {
 		Object.entries( pushStates ).forEach( ( [ key, state ] ) => {
 			if ( state.status.key === pushStatesProgressInfo.importing.key ) {
 				intervals[ key ] = setTimeout( () => {
-					getPushProgressInfo( state.selectedSite.id, state.remoteSiteId );
+					getPushProgressInfo( state.remoteSiteId, state );
 				}, 2000 );
 			}
 		} );

@@ -46,14 +46,14 @@ type SitesEndpointResponse = {
 const STUDIO_SYNC_FEATURE_NAME = 'studio-sync';
 
 function getSyncSupport( site: SitesEndpointSite, connectedSiteIds: number[] ): SyncSupport {
-	if ( connectedSiteIds.some( ( id ) => id === site.ID ) ) {
-		return 'already-connected';
-	}
 	if ( ! site.plan || ! site.plan.features.active.includes( STUDIO_SYNC_FEATURE_NAME ) ) {
 		return 'unsupported';
 	}
 	if ( ! site.is_wpcom_atomic ) {
 		return 'needs-transfer';
+	}
+	if ( connectedSiteIds.some( ( id ) => id === site.ID ) ) {
+		return 'already-connected';
 	}
 	return 'syncable';
 }
@@ -76,7 +76,7 @@ function transformSiteResponse(
 }
 
 export const useFetchWpComSites = ( connectedSiteIds: number[] ) => {
-	const [ syncSites, setSyncSites ] = useState< SyncSite[] >( [] );
+	const [ rawSyncSites, setRawSyncSites ] = useState< SitesEndpointSite[] >( [] );
 	const { isAuthenticated, client } = useAuth();
 	const isFetchingSites = useRef( false );
 	const isOffline = useOffline();
@@ -85,7 +85,10 @@ export const useFetchWpComSites = ( connectedSiteIds: number[] ) => {
 	// we need this trick to avoid unnecessary re-renders,
 	// as a result different instances of the same array don't trigger refetching
 	const memoizedConnectedSiteIds: number[] = useMemo(
-		() => joinedConnectedSiteIds.split( ',' ).map( ( id ) => parseInt( id, 10 ) ),
+		() =>
+			joinedConnectedSiteIds
+				? joinedConnectedSiteIds.split( ',' ).map( ( id ) => parseInt( id, 10 ) )
+				: [],
 		[ joinedConnectedSiteIds ]
 	);
 
@@ -110,7 +113,7 @@ export const useFetchWpComSites = ( connectedSiteIds: number[] ) => {
 				}
 			)
 			.then( ( response ) => {
-				setSyncSites( transformSiteResponse( response.sites, memoizedConnectedSiteIds ) );
+				setRawSyncSites( response.sites );
 			} )
 			.catch( ( error ) => {
 				Sentry.captureException( error );
@@ -119,7 +122,7 @@ export const useFetchWpComSites = ( connectedSiteIds: number[] ) => {
 			.finally( () => {
 				isFetchingSites.current = false;
 			} );
-	}, [ client?.req, memoizedConnectedSiteIds, isAuthenticated, isOffline ] );
+	}, [ client?.req, isAuthenticated, isOffline ] );
 
 	useEffect( () => {
 		fetchSites();
@@ -129,22 +132,13 @@ export const useFetchWpComSites = ( connectedSiteIds: number[] ) => {
 		fetchSites();
 	}, [ fetchSites ] );
 
-	// Map syncSites to reflect whether they are already connected
-	const syncSitesWithConnectionStatus = useMemo(
-		() =>
-			syncSites.map( ( site ) => ( {
-				...site,
-				syncSupport: memoizedConnectedSiteIds.some(
-					( connectedSiteId ) => connectedSiteId === site.id
-				)
-					? 'already-connected'
-					: site.syncSupport,
-			} ) ),
-		[ syncSites, memoizedConnectedSiteIds ]
+	const syncSites = useMemo(
+		() => transformSiteResponse( rawSyncSites, memoizedConnectedSiteIds ),
+		[ rawSyncSites, memoizedConnectedSiteIds ]
 	);
 
 	return {
-		syncSites: syncSitesWithConnectionStatus,
+		syncSites,
 		isFetching: isFetchingSites.current,
 		refetchSites,
 	};

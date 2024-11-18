@@ -200,22 +200,32 @@ export class SiteServer {
 	}
 
 	async isSQLitePluginActivated(): Promise< boolean > {
-		const sqlitePath = nodePath.join(
-			this.details.path,
-			'wp-content',
-			'mu-plugins',
-			SQLITE_FILENAME
-		);
-		const wpConfigPath = nodePath.join( this.details.path, 'wp-config.php' );
-		const databaseIndexPath = nodePath.join( this.details.path, 'wp-content', 'db.php' );
+		const wpContentPath = nodePath.join( this.details.path, 'wp-content' );
 
-		const results = await Promise.all( [
-			fsExtra.pathExists( sqlitePath ),
-			fsExtra.pathExists( wpConfigPath ),
-			fsExtra.pathExists( sqlitePath ),
-			fsExtra.pathExists( databaseIndexPath ),
-		] );
+		const sqliteIntegrationPaths = {
+			muPlugin: nodePath.join( wpContentPath, 'mu-plugins', SQLITE_FILENAME ),
+			muPluginLegacy: nodePath.join( wpContentPath, 'mu-plugins', `${ SQLITE_FILENAME }-main` ),
+			regularPlugin: nodePath.join( wpContentPath, 'plugins', SQLITE_FILENAME ),
+		};
 
-		return results.every( Boolean );
+		const requiredConfigPaths = {
+			wpConfig: nodePath.join( this.details.path, 'wp-config.php' ),
+			dbConfig: nodePath.join( wpContentPath, 'db.php' ),
+			dbSqlite: nodePath.join( wpContentPath, 'database', '.ht.sqlite' ),
+		};
+
+		const anyIntegrationExists = await Promise.all( [
+			fsExtra.pathExists( sqliteIntegrationPaths.muPlugin ),
+			fsExtra.pathExists( sqliteIntegrationPaths.muPluginLegacy ),
+			fsExtra.pathExists( sqliteIntegrationPaths.regularPlugin ),
+		] ).then( ( results ) => results.some( Boolean ) );
+
+		const configFilesExist = await Promise.all( [
+			fsExtra.pathExists( requiredConfigPaths.wpConfig ),
+			fsExtra.pathExists( requiredConfigPaths.dbConfig ),
+			fsExtra.pathExists( requiredConfigPaths.dbSqlite ),
+		] ).then( ( results ) => results.every( Boolean ) );
+
+		return anyIntegrationExists && configFilesExist;
 	}
 }

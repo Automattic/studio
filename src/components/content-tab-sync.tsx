@@ -68,7 +68,7 @@ function CreateConnectSite( {
 					isOffline={ isOffline }
 					connectButtonVariant="primary"
 					createButtonVariant="secondary"
-					disableDefaultButtonStyle={ true }
+					disableConnectButtonStyle={ true }
 				/>
 			</div>
 		</div>

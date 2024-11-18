@@ -11,7 +11,7 @@ interface ConnectCreateButtonsProps {
 	isOffline: boolean;
 	connectButtonVariant: ButtonVariant;
 	createButtonVariant: ButtonVariant;
-	disableDefaultButtonStyle?: boolean;
+	disableConnectButtonStyle?: boolean;
 }
 
 export const ConnectCreateButtons = ( {
@@ -19,7 +19,7 @@ export const ConnectCreateButtons = ( {
 	isOffline,
 	createButtonVariant,
 	connectButtonVariant,
-	disableDefaultButtonStyle,
+	disableConnectButtonStyle,
 }: ConnectCreateButtonsProps ) => {
 	return (
 		<>
@@ -34,7 +34,7 @@ export const ConnectCreateButtons = ( {
 					aria-disabled={ isOffline }
 					variant={ connectButtonVariant }
 					className={ cx(
-						! disableDefaultButtonStyle &&
+						! disableConnectButtonStyle &&
 							! isOffline &&
 							'!text-a8c-blueberry !shadow-a8c-blueberry'
 					) }

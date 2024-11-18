@@ -248,7 +248,7 @@ const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 };
 
 export function ContentTabImportExport( { selectedSite }: ContentTabImportExportProps ) {
-	const [ isSupported, setIsSupported ] = useState( true );
+	const [ isSupported, setIsSupported ] = useState< boolean | null >( null );
 
 	useEffect( () => {
 		getIpcApi()
@@ -257,6 +257,10 @@ export function ContentTabImportExport( { selectedSite }: ContentTabImportExport
 				setIsSupported( result );
 			} );
 	}, [ selectedSite.id ] );
+
+	if ( isSupported === null ) {
+		return null;
+	}
 
 	if ( ! isSupported ) {
 		return (

@@ -53,7 +53,8 @@ export function CopyTextButton( {
 				showCopied && '[&.is-link]:text-[#2145e6]',
 				className
 			) }
-			aria-label={ label || __( 'copy to clipboard' ) }
+			aria-label={ label || __( 'Copy to clipboard' ) }
+			tooltipText={ __( 'Copy to clipboard' ) }
 			onClick={ onClick }
 			variant={ variant }
 		>

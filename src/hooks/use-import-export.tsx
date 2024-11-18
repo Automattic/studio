@@ -127,7 +127,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 				await handleImportError( error );
 			} finally {
 				if ( wasSiteRunning ) {
-					startServer( selectedSite.id );
+					await startServer( selectedSite.id );
 				}
 			}
 		},

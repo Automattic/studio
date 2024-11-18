@@ -2,8 +2,10 @@ import React, { createContext, useContext, useState } from 'react';
 import { SyncSite } from '../use-fetch-wpcom-sites';
 import { useSiteSyncManagement } from './use-site-sync-management';
 import { useSyncPull } from './use-sync-pull';
+import { useSyncPush } from './use-sync-push';
 
 type SyncSitesContextType = ReturnType< typeof useSyncPull > &
+	ReturnType< typeof useSyncPush > &
 	ReturnType< typeof useSiteSyncManagement >;
 
 const SyncSitesContext = createContext< SyncSitesContextType | undefined >( undefined );
@@ -14,6 +16,14 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 		{
 			pullStates,
 			setPullStates,
+		}
+	);
+
+	const [ pushStates, setPushStates ] = useState< SyncSitesContextType[ 'pushStates' ] >( {} );
+	const { pushSite, isAnySitePushing, isSiteIdPushing, clearPushState, getPushState } = useSyncPush(
+		{
+			pushStates,
+			setPushStates,
 		}
 	);
 
@@ -36,7 +46,13 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 				syncSites,
 				refetchSites,
 				isFetching,
+				pushStates,
 				getPullState,
+				getPushState,
+				pushSite,
+				isAnySitePushing,
+				isSiteIdPushing,
+				clearPushState,
 			} }
 		>
 			{ children }

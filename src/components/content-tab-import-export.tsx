@@ -24,8 +24,8 @@ export const ExportSite = ( { selectedSite }: { selectedSite: SiteDetails } ) =>
 	const { exportState, exportFullSite, exportDatabase, importState } = useImportExport();
 	const { [ selectedSite.id ]: currentProgress } = exportState;
 	const isSiteImporting = importState[ selectedSite.id ]?.progress < 100;
-	const { isAnySitePulling } = useSyncSites();
-	const isExportDisabled = isSiteImporting || isAnySitePulling;
+	const { isAnySitePulling, isAnySitePushing } = useSyncSites();
+	const isExportDisabled = isSiteImporting || isAnySitePulling || isAnySitePushing;
 	const siteNotReadyForExportMessage = __(
 		'This site is being imported. Please wait for the import to finish before you export it.'
 	);
@@ -109,7 +109,7 @@ const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 	const { startServer, loadingServer } = useSiteDetails();
 	const { importState, importFile, clearImportState, exportState } = useImportExport();
 	const { [ props.selectedSite.id ]: currentProgress } = importState;
-	const { isAnySitePulling } = useSyncSites();
+	const { isAnySitePulling, isAnySitePushing } = useSyncSites();
 	const isSiteExporting =
 		exportState[ props.selectedSite?.id ] && exportState[ props.selectedSite?.id ].progress < 100;
 
@@ -163,7 +163,7 @@ const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 	const startLoadingCursorClassName =
 		loadingServer[ props.selectedSite.id ] && 'animate-pulse duration-100 cursor-wait';
 
-	const isImporting = currentProgress?.progress < 100 && ! isAnySitePulling;
+	const isImporting = currentProgress?.progress < 100 && ! isAnySitePulling && ! isAnySitePushing;
 	const isImported = currentProgress?.progress === 100 && ! isDraggingOver;
 	const isInitial = ! isImporting && ! isImported;
 	return (
@@ -186,7 +186,7 @@ const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 				<InitialImportButton
 					isInitial={ isInitial }
 					openFileSelector={ openFileSelector }
-					disabled={ isSiteExporting || isAnySitePulling }
+					disabled={ isSiteExporting || isAnySitePulling || isAnySitePushing }
 				>
 					<div
 						className={ cx(

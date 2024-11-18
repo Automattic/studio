@@ -277,7 +277,7 @@ export function ContentTabImportExport( { selectedSite }: ContentTabImportExport
 	}
 
 	return (
-		<div className="flex flex-col p-8 gap-8">
+		<div className="flex flex-col p-8 gap-8" data-testid="import-export-supported">
 			<ImportSite selectedSite={ selectedSite } />
 			<ExportSite selectedSite={ selectedSite } />
 		</div>

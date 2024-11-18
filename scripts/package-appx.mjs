@@ -35,37 +35,12 @@ try {
 	process.exit( 1 );
 }
 
-// The default XML manifest electron2appx requires a few assets with specific names.
-// These assets overlap with ones from the more recent Microsoft requirements with different names.
-//
-// See https://learn.microsoft.com/en-us/windows/apps/design/style/iconography/app-icon-construction
-//
-// To compliy with the tool requirements without postprocessing the manifest or providing a custom one,
-// we duplicate existing assets and give them the names the tool expects.
-console.log( '~~~ Deriving assets...' );
-const assetsPath = path.join( __dirname, '..', 'assets', 'appx' );
-await fs.copyFile(
-	path.join( assetsPath, 'WideTile.scale-100.png' ),
-	path.join( assetsPath, 'Wide310x150Logo.png' )
-);
-await fs.copyFile(
-	path.join( assetsPath, 'MedTile.scale-100.png' ),
-	path.join( assetsPath, 'Square150x150Logo.png' )
-);
-await fs.copyFile(
-	path.join( assetsPath, 'AppList.png' ),
-	path.join( assetsPath, 'Square44x44Logo.png' )
-);
-await fs.copyFile(
-	path.join( assetsPath, 'StoreLogo.scale-100.png' ),
-	path.join( assetsPath, 'StoreLogo.png' )
-);
-
 const packageJsonPath = path.resolve( __dirname, '..', 'package.json' );
 const packageJsonText = await fs.readFile( packageJsonPath, 'utf-8' );
 const packageJson = JSON.parse( packageJsonText );
 
 const outPath = path.join( __dirname, '..', 'out' );
+const assetsPath = path.join( __dirname, '..', 'assets', 'appx' );
 
 const normalizeWindowsVersion = ( version ) => {
 	const noPrerelease = version.replace( /-.*/, '' );

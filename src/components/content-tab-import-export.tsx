@@ -256,7 +256,7 @@ export function ContentTabImportExport( { selectedSite }: ContentTabImportExport
 			.then( ( result ) => {
 				setIsSupported( result );
 			} );
-	}, [ selectedSite.id ] );
+	}, [ selectedSite.id, selectedSite.running ] );
 
 	if ( isSupported === null ) {
 		return null;

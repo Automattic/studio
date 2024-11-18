@@ -2,6 +2,7 @@ import { Button } from '@wordpress/components';
 import { useResizeObserver } from '@wordpress/compose';
 import { ComponentProps, useEffect, useRef, useState } from 'react';
 import { cx } from '../lib/cx';
+import Tooltip from './tooltip';
 
 /**
  * Sourced from https://stackoverflow.com/a/76616671/378228 to address
@@ -13,6 +14,7 @@ type MappedOmit< T, K extends PropertyKey > = { [ P in keyof T as Exclude< P, K 
 export type ButtonProps = MappedOmit< ComponentProps< typeof Button >, 'variant' > & {
 	variant?: ButtonVariant;
 	truncate?: boolean;
+	tooltipText?: string;
 };
 
 type ButtonVariant = 'primary' | 'secondary' | 'tertiary' | 'outlined' | 'link' | 'icon';
@@ -117,6 +119,7 @@ export default function ButtonComponent( {
 	truncate,
 	children,
 	showTooltip,
+	tooltipText,
 	...props
 }: ButtonProps ) {
 	const [ isTruncated, setIsTruncated ] = useState( false );
@@ -128,7 +131,8 @@ export default function ButtonComponent( {
 		}
 		setIsTruncated( element.current.offsetWidth < element.current.scrollWidth );
 	}, [ sizes, truncate ] );
-	return (
+
+	const buttonContent = (
 		<Button
 			{ ...props }
 			variant={ sansCustomValues( variant ) }
@@ -154,4 +158,6 @@ export default function ButtonComponent( {
 				: children }
 		</Button>
 	);
+
+	return tooltipText ? <Tooltip text={ tooltipText }>{ buttonContent }</Tooltip> : buttonContent;
 }

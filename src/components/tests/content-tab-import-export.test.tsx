@@ -1,5 +1,6 @@
 import { render, fireEvent, waitFor, screen, createEvent, act } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
+import { SyncSitesProvider } from '../../hooks/sync-sites/sync-sites-context';
 import { useImportExport } from '../../hooks/use-import-export';
 import { useSiteDetails } from '../../hooks/use-site-details';
 import { getIpcApi } from '../../lib/get-ipc-api';
@@ -37,9 +38,13 @@ beforeEach( () => {
 	} );
 } );
 
+const renderWithProvider = ( children: React.ReactElement ) => {
+	return render( <SyncSitesProvider>{ children }</SyncSitesProvider> );
+};
+
 describe( 'ContentTabImportExport Import', () => {
 	test( 'should display drop text on file over', () => {
-		render( <ContentTabImportExport selectedSite={ selectedSite } /> );
+		renderWithProvider( <ContentTabImportExport selectedSite={ selectedSite } /> );
 
 		const dropZone = screen.getByText( /Drag a file here, or click to select a file/i );
 		expect( dropZone ).toBeInTheDocument();
@@ -49,7 +54,7 @@ describe( 'ContentTabImportExport Import', () => {
 	} );
 
 	test( 'should display inital text on drop leave', () => {
-		render( <ContentTabImportExport selectedSite={ selectedSite } /> );
+		renderWithProvider( <ContentTabImportExport selectedSite={ selectedSite } /> );
 
 		const dropZone = screen.getByText( /Drag a file here, or click to select a file/i );
 		expect( dropZone ).toBeInTheDocument();
@@ -71,7 +76,7 @@ describe( 'ContentTabImportExport Import', () => {
 	} );
 
 	test( 'should import a site via drag-and-drop', async () => {
-		render( <ContentTabImportExport selectedSite={ selectedSite } /> );
+		renderWithProvider( <ContentTabImportExport selectedSite={ selectedSite } /> );
 
 		const dropZone = screen.getByText( /Drag a file here, or click to select a file/i );
 		const file = new File( [ 'file contents' ], 'backup.zip', { type: 'application/zip' } );
@@ -87,7 +92,7 @@ describe( 'ContentTabImportExport Import', () => {
 	} );
 
 	test( 'should import a site via file selection', async () => {
-		render( <ContentTabImportExport selectedSite={ selectedSite } /> );
+		renderWithProvider( <ContentTabImportExport selectedSite={ selectedSite } /> );
 		const fileInput = screen.getByTestId( 'backup-file' );
 		const file = new File( [ 'file contents' ], 'backup.zip', { type: 'application/zip' } );
 
@@ -104,7 +109,7 @@ describe( 'ContentTabImportExport Import', () => {
 			exportState: {},
 		} );
 
-		render( <ContentTabImportExport selectedSite={ selectedSite } /> );
+		renderWithProvider( <ContentTabImportExport selectedSite={ selectedSite } /> );
 		expect( screen.getByText( 'Extracting backup…' ) ).toBeVisible();
 		expect( screen.getByRole( 'progressbar', { value: { now: 5 } } ) ).toBeVisible();
 	} );
@@ -117,7 +122,7 @@ describe( 'ContentTabImportExport Export', () => {
 	} );
 
 	test( 'should export full site', async () => {
-		render( <ContentTabImportExport selectedSite={ selectedSite } /> );
+		renderWithProvider( <ContentTabImportExport selectedSite={ selectedSite } /> );
 
 		const exportButton = screen.getByRole( 'button', { name: /Export entire site/i } );
 		fireEvent.click( exportButton );
@@ -126,7 +131,7 @@ describe( 'ContentTabImportExport Export', () => {
 	} );
 
 	test( 'should export database', async () => {
-		render( <ContentTabImportExport selectedSite={ selectedSite } /> );
+		renderWithProvider( <ContentTabImportExport selectedSite={ selectedSite } /> );
 
 		const exportButton = screen.getByRole( 'button', { name: /Export database/i } );
 		fireEvent.click( exportButton );
@@ -140,7 +145,7 @@ describe( 'ContentTabImportExport Export', () => {
 			exportState: { 'site-id-1': { progress: 5, statusMessage: 'Starting export...' } },
 		} );
 
-		render( <ContentTabImportExport selectedSite={ selectedSite } /> );
+		renderWithProvider( <ContentTabImportExport selectedSite={ selectedSite } /> );
 		expect( screen.getByText( 'Starting export...' ) ).toBeVisible();
 		expect( screen.getByRole( 'progressbar', { value: { now: 5 } } ) ).toBeVisible();
 	} );

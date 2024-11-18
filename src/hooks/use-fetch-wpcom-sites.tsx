@@ -1,5 +1,5 @@
 import * as Sentry from '@sentry/electron/renderer';
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useAuth } from './use-auth';
 import { useOffline } from './use-offline';
 
@@ -75,14 +75,21 @@ function transformSiteResponse(
 	} );
 }
 
-export const useFetchWpComSites = ( connectedSites: SyncSite[] ) => {
+export const useFetchWpComSites = ( connectedSiteIds: number[] ) => {
 	const [ syncSites, setSyncSites ] = useState< SyncSite[] >( [] );
 	const { isAuthenticated, client } = useAuth();
 	const isFetchingSites = useRef( false );
 	const isOffline = useOffline();
 
-	// Fetch sites from the API
-	useEffect( () => {
+	const joinedConnectedSiteIds = connectedSiteIds.join( ',' );
+	// we need this trick to avoid unnecessary re-renders,
+	// as a result different instances of the same array don't trigger refetching
+	const memoizedConnectedSiteIds: number[] = useMemo(
+		() => joinedConnectedSiteIds.split( ',' ).map( ( id ) => parseInt( id, 10 ) ),
+		[ joinedConnectedSiteIds ]
+	);
+
+	const fetchSites = useCallback( () => {
 		if ( ! client?.req || isFetchingSites.current || ! isAuthenticated || isOffline ) {
 			return;
 		}
@@ -103,12 +110,7 @@ export const useFetchWpComSites = ( connectedSites: SyncSite[] ) => {
 				}
 			)
 			.then( ( response ) => {
-				setSyncSites(
-					transformSiteResponse(
-						response.sites,
-						connectedSites.map( ( { id } ) => id )
-					)
-				);
+				setSyncSites( transformSiteResponse( response.sites, memoizedConnectedSiteIds ) );
 			} )
 			.catch( ( error ) => {
 				Sentry.captureException( error );
@@ -117,19 +119,33 @@ export const useFetchWpComSites = ( connectedSites: SyncSite[] ) => {
 			.finally( () => {
 				isFetchingSites.current = false;
 			} );
-	}, [ client?.req, connectedSites, isAuthenticated, isOffline ] );
+	}, [ client?.req, memoizedConnectedSiteIds, isAuthenticated, isOffline ] );
+
+	useEffect( () => {
+		fetchSites();
+	}, [ fetchSites ] );
+
+	const refetchSites = useCallback( () => {
+		fetchSites();
+	}, [ fetchSites ] );
 
 	// Map syncSites to reflect whether they are already connected
 	const syncSitesWithConnectionStatus = useMemo(
 		() =>
 			syncSites.map( ( site ) => ( {
 				...site,
-				syncSupport: connectedSites.some( ( connectedSite ) => connectedSite.id === site.id )
+				syncSupport: memoizedConnectedSiteIds.some(
+					( connectedSiteId ) => connectedSiteId === site.id
+				)
 					? 'already-connected'
 					: site.syncSupport,
 			} ) ),
-		[ syncSites, connectedSites ]
+		[ syncSites, memoizedConnectedSiteIds ]
 	);
 
-	return { syncSites: syncSitesWithConnectionStatus, isFetching: isFetchingSites.current };
+	return {
+		syncSites: syncSitesWithConnectionStatus,
+		isFetching: isFetchingSites.current,
+		refetchSites,
+	};
 };

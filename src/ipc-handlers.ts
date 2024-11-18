@@ -11,15 +11,18 @@ import {
 	SaveDialogOptions,
 } from 'electron';
 import fs from 'fs';
+import fsPromises from 'fs/promises';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { __, LocaleData, defaultI18n } from '@wordpress/i18n';
 import archiver from 'archiver';
 import { DEFAULT_PHP_VERSION } from '../vendor/wp-now/src/constants';
-import { MAIN_MIN_WIDTH, SIDEBAR_WIDTH, SIZE_LIMIT_BYTES } from './constants';
+import { MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from './constants';
 import { SyncSite } from './hooks/use-fetch-wpcom-sites';
+import { download } from './lib/download';
 import { isEmptyDir, pathExists, isWordPressDirectory, sanitizeFolderName } from './lib/fs-utils';
 import { getImageData } from './lib/get-image-data';
+import { getSyncBackupTempPath } from './lib/get-sync-backup-temp-path';
 import { exportBackup } from './lib/import-export/export/export-manager';
 import { ExportOptions } from './lib/import-export/export/types';
 import { ImportExportEventData } from './lib/import-export/handle-events';
@@ -250,6 +253,7 @@ export async function connectWpcomSite(
 
 	return connections.filter( ( conn ) => conn.localSiteId === localSiteId );
 }
+
 export async function disconnectWpcomSite(
 	event: IpcMainInvokeEvent,
 	siteIds: number[],
@@ -276,6 +280,32 @@ export async function disconnectWpcomSite(
 	await saveUserData( userData );
 
 	return updatedConnections.filter( ( conn ) => conn.localSiteId === localSiteId );
+}
+
+export async function updateConnectedWpcomSites(
+	event: IpcMainInvokeEvent,
+	updatedSites: SyncSite[]
+) {
+	const userData = await loadUserData();
+	const currentUserId = userData.authToken?.id;
+
+	if ( ! currentUserId ) {
+		throw new Error( 'User not authenticated' );
+	}
+
+	const connections = userData.connectedWpcomSites?.[ currentUserId ] || [];
+
+	updatedSites.forEach( ( updatedSite ) => {
+		const index = connections.findIndex(
+			( conn ) => conn.id === updatedSite.id && conn.localSiteId === updatedSite.localSiteId
+		);
+
+		if ( index !== -1 ) {
+			connections[ index ] = updatedSite;
+		}
+	} );
+
+	await saveUserData( userData );
 }
 
 export async function getConnectedWpcomSites(
@@ -421,10 +451,18 @@ export async function showUserSettings( event: IpcMainInvokeEvent ): Promise< vo
 	parentWindow.webContents.send( 'user-settings' );
 }
 
-function zipWordPressDirectory( { source, zipPath }: { source: string; zipPath: string } ) {
+function archiveWordPressDirectory( {
+	source,
+	archivePath,
+	format,
+}: {
+	source: string;
+	archivePath: string;
+	format: 'zip' | 'tar';
+} ) {
 	return new Promise( ( resolve, reject ) => {
-		const output = fs.createWriteStream( zipPath );
-		const archive = archiver( 'zip', {
+		const output = fs.createWriteStream( archivePath );
+		const archive = archiver( format, {
 			zlib: { level: 9 }, // Sets the compression level.
 		} );
 
@@ -445,20 +483,21 @@ function zipWordPressDirectory( { source, zipPath }: { source: string; zipPath: 
 	} );
 }
 
-export async function archiveSite( event: IpcMainInvokeEvent, id: string ) {
+export async function archiveSite( event: IpcMainInvokeEvent, id: string, format: 'zip' | 'tar' ) {
 	const site = SiteServer.get( id );
 	if ( ! site ) {
 		throw new Error( 'Site not found.' );
 	}
 	const sitePath = site.details.path;
-	const zipPath = `${ TEMP_DIR }site_${ id }.zip`;
-	await zipWordPressDirectory( {
+	const archivePath = `${ TEMP_DIR }site_${ id }.${ format }`;
+	await archiveWordPressDirectory( {
 		source: sitePath,
-		zipPath,
+		archivePath,
+		format,
 	} );
-	const stats = fs.statSync( zipPath );
-	const zipContent = fs.readFileSync( zipPath );
-	return { zipPath, zipContent, exceedsSizeLimit: stats.size > SIZE_LIMIT_BYTES };
+	const stats = fs.statSync( archivePath );
+	const archiveContent = fs.readFileSync( archivePath );
+	return { archivePath, archiveContent, archiveSizeInBytes: stats.size };
 }
 
 export function removeTemporalFile( event: IpcMainInvokeEvent, path: string ) {
@@ -890,4 +929,22 @@ export async function openFileInIDE(
 		// Open site first to ensure the file is opened within the site context
 		await shell.openExternal( `phpstorm://open?file=${ path }` );
 	}
+}
+
+export async function downloadSyncBackup(
+	event: Electron.IpcMainInvokeEvent,
+	remoteSiteId: number,
+	downloadUrl: string
+) {
+	const tmpDir = nodePath.join( app.getPath( 'temp' ), 'wp-studio-backups' );
+	await fsPromises.mkdir( tmpDir, { recursive: true } );
+
+	const filePath = getSyncBackupTempPath( remoteSiteId );
+	await download( downloadUrl, filePath );
+	return filePath;
+}
+
+export async function removeSyncBackup( event: IpcMainInvokeEvent, remoteSiteId: number ) {
+	const filePath = getSyncBackupTempPath( remoteSiteId );
+	await fsPromises.unlink( filePath );
 }

@@ -70,8 +70,9 @@ steps:
     matrix:
       - mac
       #- windows
-    # No notify node because we cannot interpolate the matrix value in the context string
-    # See https://github.com/Automattic/studio/pull/614#discussion_r1821669523
+    notify:
+      - github_commit_status:
+          context: All E2E Tests
 
   - group: 📦 Build for Mac
     key: dev-mac
@@ -110,7 +111,6 @@ steps:
 
           echo "--- 📃 Notarizing Binary"
           bundle exec fastlane notarize_binary
-
         plugins: *common_plugins
         artifact_paths:
           - out/**/*.app.zip
@@ -119,9 +119,10 @@ steps:
           - universal
           - x64
           - arm64
+        notify:
+          - github_commit_status:
+              context: All Mac Dev Builds
     if: build.tag !~ /^v[0-9]+/
-    # No notify node because we cannot interpolate the matrix value in the context string
-    # See https://github.com/Automattic/studio/pull/614#discussion_r1821669523
 
   - label: 🔨 Windows Dev Build
     key: dev-windows
@@ -211,7 +212,6 @@ steps:
 
           echo "--- 📃 Notarizing Binary"
           bundle exec fastlane notarize_binary
-
         plugins: *common_plugins
         artifact_paths:
           - out/**/*.app.zip
@@ -220,8 +220,9 @@ steps:
           - universal
           - x64
           - arm64
-        # No notify node because we cannot interpolate the matrix value in the context string
-        # See https://github.com/Automattic/studio/pull/614#discussion_r1821669523
+        notify:
+          - github_commit_status:
+              context: All Mac Release Builds
     if: build.tag =~ /^v[0-9]+/
 
   - label: 🔨 Windows Release Build

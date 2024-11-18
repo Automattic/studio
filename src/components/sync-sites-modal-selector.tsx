@@ -1,7 +1,7 @@
 import { SearchControl as SearchControlWp } from '@wordpress/components';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { SyncSite } from '../hooks/use-fetch-wpcom-sites';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
@@ -17,11 +17,13 @@ export function SyncSitesModalSelector( {
 	onRequestClose,
 	onConnect,
 	syncSites,
+	onInitialRender,
 }: {
 	isLoading?: boolean;
 	onRequestClose: () => void;
 	syncSites: SyncSite[];
 	onConnect: ( siteId: number ) => void;
+	onInitialRender?: () => void;
 } ) {
 	const { __ } = useI18n();
 	const [ selectedSiteId, setSelectedSiteId ] = useState< number | null >( null );
@@ -34,6 +36,12 @@ export function SyncSitesModalSelector( {
 		);
 	} );
 	const isEmpty = filteredSites.length === 0;
+
+	useEffect( () => {
+		if ( onInitialRender ) {
+			onInitialRender();
+		}
+	}, [ onInitialRender ] );
 
 	return (
 		<Modal

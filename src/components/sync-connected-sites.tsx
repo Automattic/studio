@@ -13,6 +13,7 @@ import { ArrowIcon } from './arrow-icon';
 import { Badge } from './badge';
 import Button from './button';
 import { CheckIcon } from './check-icon';
+import { ConnectCreateButtons } from './connect-create-buttons';
 import { ErrorIcon } from './error-icon';
 import offlineIcon from './offline-icon';
 import ProgressBar from './progress-bar';
@@ -241,39 +242,12 @@ export function SyncConnectedSites( {
 			</div>
 
 			<div className="flex mt-auto gap-4 py-5 px-8 border-t border-a8c-gray-5 flex-shrink-0">
-				<Tooltip
-					disabled={ ! isOffline }
-					text={ __( 'Connecting a site requires an internet connection.' ) }
-					icon={ offlineIcon }
-				>
-					<Button
-						onClick={ openSitesSyncSelector }
-						disabled={ isOffline }
-						aria-disabled={ isOffline }
-						variant="secondary"
-						className={ cx( ! isOffline && '!text-a8c-blueberry !shadow-a8c-blueberry' ) }
-					>
-						{ __( 'Connect site' ) }
-					</Button>
-				</Tooltip>
-				<Tooltip
-					disabled={ ! isOffline }
-					text={ __( 'Creating a site requires an internet connection.' ) }
-					icon={ offlineIcon }
-				>
-					<Button
-						onClick={ () => {
-							getIpcApi().openURL( 'https://wordpress.com/start/new-site' );
-						} }
-						variant="secondary"
-						className={ cx( ! isOffline && '!text-a8c-blueberry !shadow-a8c-blueberry' ) }
-						disabled={ isOffline }
-						aria-disabled={ isOffline }
-					>
-						{ __( 'Create new site' ) }
-						<ArrowIcon />
-					</Button>
-				</Tooltip>
+				<ConnectCreateButtons
+					connectSite={ openSitesSyncSelector }
+					isOffline={ isOffline }
+					connectButtonVariant="secondary"
+					createButtonVariant="secondary"
+				/>
 			</div>
 		</div>
 	);

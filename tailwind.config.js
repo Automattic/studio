@@ -129,6 +129,7 @@ for ( const [ key, value ] of Object.entries( palette.colors ) ) {
 
 // This colors are in the palette but not included because the color name contains more than one word.
 // Reference: https://github.com/Automattic/color-studio/blob/55218ffdaecc770cd697639071f1d2083f744f66/dist/colors.json#L123-L187
+a8cToTailwindColors[ `${ PREFIX }-blueberry-5` ] = '#F7F8FE'; // WordPress Blue 5
 a8cToTailwindColors[ `${ PREFIX }-blueberry` ] = '#3858E9'; // WordPress Blue
 a8cToTailwindColors[ `${ PREFIX }-blueberry-70` ] = '#1d35b4'; // WordPress Blue 70
 
@@ -146,6 +147,10 @@ module.exports = {
 				sidebar: '6px',
 				'sidebar-mac': '10px',
 				'titlebar-win': `${ WINDOWS_TITLEBAR_HEIGHT }px`,
+				'window-controls-width-win': '138px',
+				'window-controls-width-excl-chrome-win': '128px', // Subtract 10px for the chrome
+				'window-controls-width-mac': '80px',
+				'window-controls-width-excl-chrome-mac': '70px', // Subtract 10px for the chrome
 			},
 			borderRadius: {
 				chrome: '5px',
@@ -162,6 +167,9 @@ module.exports = {
 			},
 			screens: {
 				sd: `${ MAIN_MIN_WIDTH }px`,
+			},
+			height: {
+				4.5: '1.125rem',
 			},
 		},
 	},

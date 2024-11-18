@@ -11,9 +11,16 @@ import {
 	LocalImporter,
 	PlaygroundImporter,
 	SQLImporter,
+	WpressImporter,
 } from './importers/importer';
 import { BackupArchiveInfo, NewImporter } from './types';
-import { JetpackValidator, SqlValidator, LocalValidator, PlaygroundValidator } from './validators';
+import {
+	JetpackValidator,
+	SqlValidator,
+	LocalValidator,
+	PlaygroundValidator,
+	WpressValidator,
+} from './validators';
 import { Validator } from './validators/validator';
 
 export interface ImporterOption {
@@ -75,4 +82,5 @@ export const defaultImporterOptions: ImporterOption[] = [
 	{ validator: new LocalValidator(), importer: LocalImporter },
 	{ validator: new SqlValidator(), importer: SQLImporter },
 	{ validator: new PlaygroundValidator(), importer: PlaygroundImporter },
+	{ validator: new WpressValidator(), importer: WpressImporter },
 ];

@@ -48,14 +48,13 @@ function OfflineIndicator() {
 }
 
 function Authentication() {
-	const { isAuthenticated, authenticate, user } = useAuth();
-	const isOffline = useOffline();
-	const offlineMessage = __( 'You’re currently offline.' );
+	const { isAuthenticated, user } = useAuth();
 	if ( isAuthenticated ) {
 		return (
 			<Button
 				onClick={ () => getIpcApi().showUserSettings() }
-				aria-label={ __( 'Account' ) }
+				aria-label={ __( 'Open settings' ) }
+				tooltipText={ __( 'Open settings' ) }
 				variant="icon"
 				className="text-white hover:!text-white !px-1 py-1 !h-6 gap-2"
 			>
@@ -66,29 +65,16 @@ function Authentication() {
 	}
 
 	return (
-		<Tooltip
-			disabled={ ! isOffline }
-			icon={ offlineIcon }
-			text={ offlineMessage }
-			placement="right"
-			className="flex"
+		<Button
+			onClick={ () => getIpcApi().showUserSettings() }
+			aria-label={ __( 'Open settings to log in' ) }
+			tooltipText={ __( 'Open settings to log in' ) }
+			className="flex gap-x-2 justify-between w-full text-white rounded !px-0 !py-0 h-auto active:!text-white hover:!text-white hover:underline items-center"
 		>
-			<Button
-				aria-description={ isOffline ? offlineMessage : '' }
-				aria-disabled={ isOffline }
-				className="flex gap-x-2 justify-between w-full text-white rounded !px-0 !py-1 h-auto active:!text-white hover:!text-white hover:underline items-end"
-				onClick={ () => {
-					if ( isOffline ) {
-						return;
-					}
-					authenticate();
-				} }
-			>
-				<WordPressLogo />
+			<WordPressLogo />
 
-				<div className="text-xs text-right">{ __( 'Log in' ) }</div>
-			</Button>
-		</Tooltip>
+			<div className="text-s text-right">{ __( 'Log in' ) }</div>
+		</Button>
 	);
 }
 
@@ -104,7 +90,8 @@ export default function TopBar( { onToggleSidebar }: TopBarProps ) {
 					className="app-no-drag-region"
 					onClick={ onToggleSidebar }
 					variant="icon"
-					aria-label={ __( 'Toggle Sidebar' ) }
+					aria-label={ __( 'Toggle sidebar' ) }
+					tooltipText={ __( 'Toggle sidebar' ) }
 				>
 					<Icon className="text-white" icon={ drawerLeft } size={ 24 } />
 				</Button>
@@ -112,9 +99,9 @@ export default function TopBar( { onToggleSidebar }: TopBarProps ) {
 				<OfflineIndicator />
 			</div>
 
-			<div className="app-no-drag-region flex items-center space-x-1">
+			<div className="app-no-drag-region flex items-center space-x-4">
 				<Authentication />
-				<Button onClick={ openDocs } aria-label={ __( 'Help' ) } variant="icon">
+				<Button onClick={ openDocs } aria-label={ __( 'Get help' ) } variant="icon">
 					<Icon className="text-white" size={ 24 } icon={ help } />
 				</Button>
 			</div>

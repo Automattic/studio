@@ -2,11 +2,14 @@ import {
 	__experimentalVStack as VStack,
 	__experimentalHStack as HStack,
 } from '@wordpress/components';
+import { useEffect } from 'react';
 import { useLocalizationSupport } from '../hooks/use-localization-support';
 import { useOnboarding } from '../hooks/use-onboarding';
 import { useSidebarVisibility } from '../hooks/use-sidebar-visibility';
 import { isWindows } from '../lib/app-globals';
 import { cx } from '../lib/cx';
+import { getIpcApi } from '../lib/get-ipc-api';
+import MacTitlebar from './mac-titlebar';
 import MainSidebar from './main-sidebar';
 import Onboarding from './onboarding';
 import { SiteContentTabs } from './site-content-tabs';
@@ -18,6 +21,10 @@ export default function App() {
 	useLocalizationSupport();
 	const { needsOnboarding } = useOnboarding();
 	const { isSidebarVisible, toggleSidebar } = useSidebarVisibility();
+
+	useEffect( () => {
+		getIpcApi().setupAppMenu( { needsOnboarding } );
+	}, [ needsOnboarding ] );
 
 	return (
 		<>
@@ -43,9 +50,9 @@ export default function App() {
 							<TopBar onToggleSidebar={ toggleSidebar } />
 						</WindowsTitlebar>
 					) : (
-						<div className="pl-20 flex-shrink-0">
+						<MacTitlebar className="flex-shrink-0">
 							<TopBar onToggleSidebar={ toggleSidebar } />
-						</div>
+						</MacTitlebar>
 					) }
 
 					<HStack spacing="0" alignment="left" className="flex-grow">

@@ -62,15 +62,6 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 	const [ exportState, setExportState ] = useState< ExportProgressState >( {} );
 	const { startServer, stopServer, updateSite } = useSiteDetails();
 
-	const INITIAL_EXPORT_STATE = {
-		statusMessage: __( 'Starting export...' ),
-		progress: 5,
-	};
-	const INITIAL_IMPORT_STATE = {
-		statusMessage: __( 'Extracting backup…' ),
-		progress: 5,
-	};
-
 	const importFile = useCallback(
 		async (
 			file: BackupArchiveInfo,
@@ -86,18 +77,21 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 
 			setImportState( ( prevState ) => ( {
 				...prevState,
-				[ selectedSite.id ]: { ...INITIAL_IMPORT_STATE, isNewSite },
+				[ selectedSite.id ]: {
+					statusMessage: __( 'Extracting backup…' ),
+					progress: 5,
+					isNewSite,
+				},
 			} ) );
 
 			const wasSiteRunning = selectedSite.running;
-			const handleImportError = async () => {
-				await getIpcApi().showMessageBox( {
-					type: 'error',
-					message: __( 'Failed importing site' ),
-					detail: __(
-						'An error occurred while importing the site. Verify the file is a valid Jetpack backup, Local, Playground or .sql database file and try again. If this problem persists, please contact support.'
+			const handleImportError = async ( error?: unknown ) => {
+				await getIpcApi().showErrorMessageBox( {
+					title: __( 'Failed importing site' ),
+					message: __(
+						'An error occurred while importing the site. Verify the file is a valid Jetpack backup, Local, Playground, .wpress or .sql database file and try again. If this problem persists, please contact support.'
 					),
-					buttons: [ __( 'OK' ) ],
+					error,
 				} );
 				setImportState( ( { [ selectedSite.id ]: currentProgress, ...rest } ) => ( {
 					...rest,
@@ -130,10 +124,10 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 					} );
 				}
 			} catch ( error ) {
-				await handleImportError();
+				await handleImportError( error );
 			} finally {
 				if ( wasSiteRunning ) {
-					startServer( selectedSite.id );
+					await startServer( selectedSite.id );
 				}
 			}
 		},
@@ -212,7 +206,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 					...rest,
 					[ siteId ]: {
 						...currentProgress,
-						progress: 95,
+						progress: 90,
 					},
 				} ) );
 				break;
@@ -248,17 +242,19 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 
 			setExportState( ( prevState ) => ( {
 				...prevState,
-				[ selectedSite.id ]: INITIAL_EXPORT_STATE,
+				[ selectedSite.id ]: {
+					statusMessage: __( 'Starting export...' ),
+					progress: 5,
+				},
 			} ) );
 
-			const handleExportError = async () =>
-				getIpcApi().showMessageBox( {
-					type: 'error',
-					message: __( 'Failed exporting site' ),
-					detail: __(
+			const handleExportError = async ( error?: unknown ) =>
+				getIpcApi().showErrorMessageBox( {
+					title: __( 'Failed exporting site' ),
+					message: __(
 						'An error occurred while exporting the site. If this problem persists, please contact support.'
 					),
-					buttons: [ __( 'OK' ) ],
+					error,
 				} );
 
 			try {
@@ -278,7 +274,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 				return options.backupFile;
 			} catch ( error ) {
 				Sentry.captureException( error );
-				await handleExportError();
+				await handleExportError( error );
 			} finally {
 				setExportState( ( { [ selectedSite.id ]: currentProgress, ...rest } ) => ( {
 					...rest,
@@ -359,7 +355,13 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 
 		switch ( event ) {
 			case ExportEvents.EXPORT_START:
-				setExportState( ( prevState ) => ( { ...prevState, [ siteId ]: INITIAL_EXPORT_STATE } ) );
+				setExportState( ( prevState ) => ( {
+					...prevState,
+					[ siteId ]: {
+						statusMessage: __( 'Starting export...' ),
+						progress: 5,
+					},
+				} ) );
 				break;
 			case ExportEvents.BACKUP_CREATE_START:
 				setExportState( ( { [ siteId ]: currentProgress, ...rest } ) => ( {

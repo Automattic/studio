@@ -93,9 +93,19 @@ describe( 'DefaultExporter', () => {
 
 		// Reset all mock implementations
 		jest.clearAllMocks();
+
 		( SiteServer.get as jest.Mock ).mockReturnValue( {
 			details: { path: '/path/to/site' },
-			executeWpCliCommand: jest.fn().mockResolvedValue( { stderr: null } ),
+			executeWpCliCommand: jest.fn( function ( command: string ) {
+				switch ( true ) {
+					case /plugin list/.test( command ):
+						return { stdout: '[{"name":"akismet","status":"active","version":"5.3.3"}]' };
+					case /theme list/.test( command ):
+						return { stdout: '[{"name":"twentytwentyfour","status":"active","version":"1.0"}]' };
+					default:
+						return { stderr: null };
+				}
+			} ),
 		} );
 
 		mockArchiver = createMockArchiver();
@@ -157,14 +167,14 @@ describe( 'DefaultExporter', () => {
 		} );
 	} );
 
-	it( 'should add studio.json to the archive', async () => {
+	it( 'should add meta.json to the archive', async () => {
 		const exporter = new DefaultExporter( mockOptions );
 		await exporter.export();
 
 		expect( getWordPressVersionFromInstallation ).toHaveBeenCalledTimes( 1 );
 		expect( getWordPressVersionFromInstallation ).toHaveBeenCalledWith( '/path/to/site' );
-		expect( mockArchiver.file ).toHaveBeenCalledWith( '/tmp/studio_export_123/studio.json', {
-			name: 'studio.json',
+		expect( mockArchiver.file ).toHaveBeenCalledWith( '/tmp/studio_export_123/meta.json', {
+			name: 'meta.json',
 		} );
 	} );
 

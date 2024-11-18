@@ -11,7 +11,7 @@ jest.mock( '../../hooks/use-auth' );
 jest.mock( '../../lib/get-ipc-api', () => ( {
 	getIpcApi: jest.fn().mockReturnValue( {
 		archiveSite: jest.fn().mockResolvedValue( { zipContent: new Blob( [ 'zipContent' ] ) } ),
-		showMessageBox: jest.fn().mockResolvedValue( { response: 1 } ), // Assuming '1' is the cancel button
+		showErrorMessageBox: jest.fn().mockResolvedValue( { response: 1 } ), // Assuming '1' is the cancel button
 		getWpVersion: jest.fn().mockResolvedValue( '6.5' ),
 	} ),
 } ) );
@@ -108,7 +108,8 @@ describe( 'useUpdateDemoSite', () => {
 	} );
 
 	it( 'when an update fails, ensure an alert is triggered', async () => {
-		clientReqPost.mockRejectedValue( new Error( 'Update failed' ) );
+		const error = new Error( 'Update failed' );
+		clientReqPost.mockRejectedValue( error );
 
 		const { result } = renderHook( () => useUpdateDemoSite(), { wrapper } );
 
@@ -118,11 +119,11 @@ describe( 'useUpdateDemoSite', () => {
 		} );
 
 		// Assert that an alert is displayed to inform users of the failure
-		expect( getIpcApi().showMessageBox ).toHaveBeenCalledWith(
-			expect.objectContaining( {
-				type: 'warning',
-			} )
-		);
+		expect( getIpcApi().showErrorMessageBox ).toHaveBeenCalledWith( {
+			title: 'Update failed',
+			message: "We couldn't update the Test Site demo site. Please try again.",
+			error,
+		} );
 
 		// Assert that 'isDemoSiteUpdating' is set back to false
 		expect( result.current.isDemoSiteUpdating( mockLocalSite.id ) ).toBe( false );

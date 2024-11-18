@@ -414,7 +414,8 @@ async function initWordPress(
 		WP_HOME: siteUrl,
 		WP_SITEURL: siteUrl,
 	};
-	if ( wordPressVersion !== 'user-defined' ) {
+
+	if ( wordPressVersion !== 'user-provided' ) {
 		wpConfigConsts[ 'WP_AUTO_UPDATE_CORE' ] = wordPressVersion === 'latest';
 	}
 	await defineWpConfigConsts( php, {

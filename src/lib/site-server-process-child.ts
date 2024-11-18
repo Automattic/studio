@@ -35,7 +35,7 @@ async function start() {
 }
 
 async function stop() {
-	await server.stopServer();
+	await server?.stopServer();
 }
 
 async function runPhp( data: unknown ) {

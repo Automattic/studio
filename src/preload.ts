@@ -4,17 +4,25 @@
 import '@sentry/electron/preload';
 import { SaveDialogOptions, contextBridge, ipcRenderer } from 'electron';
 import { LocaleData } from '@wordpress/i18n';
+import { SyncSite } from './hooks/use-fetch-wpcom-sites';
 import { ExportOptions } from './lib/import-export/export/types';
 import { BackupArchiveInfo } from './lib/import-export/import/types';
 import { promptWindowsSpeedUpSites } from './lib/windows-helpers';
 import type { LogLevel } from './logging';
 
 const api: IpcApi = {
-	archiveSite: ( id: string ) => ipcRenderer.invoke( 'archiveSite', id ),
+	archiveSite: ( id: string, format: 'zip' | 'tar' ) =>
+		ipcRenderer.invoke( 'archiveSite', id, format ),
 	deleteSite: ( id: string, deleteFiles?: boolean ) =>
 		ipcRenderer.invoke( 'deleteSite', id, deleteFiles ),
 	createSite: ( path: string, name?: string ) => ipcRenderer.invoke( 'createSite', path, name ),
 	updateSite: ( updatedSite: SiteDetails ) => ipcRenderer.invoke( 'updateSite', updatedSite ),
+	connectWpcomSite: ( sites: SyncSite[], localSiteId: string ) =>
+		ipcRenderer.invoke( 'connectWpcomSite', sites, localSiteId ),
+	disconnectWpcomSite: ( siteIds: number[], localSiteId: string ) =>
+		ipcRenderer.invoke( 'disconnectWpcomSite', siteIds, localSiteId ),
+	updateConnectedWpcomSites: ( updatedSites: SyncSite[] ) =>
+		ipcRenderer.invoke( 'updateConnectedWpcomSites', updatedSites ),
 	authenticate: () => ipcRenderer.invoke( 'authenticate' ),
 	exportSite: ( options: ExportOptions, siteId: string ) =>
 		ipcRenderer.invoke( 'exportSite', options, siteId ),
@@ -61,12 +69,15 @@ const api: IpcApi = {
 		ipcRenderer.invoke( 'openTerminalAtPath', targetPath, extraParams ),
 	showMessageBox: ( options: Electron.MessageBoxOptions ) =>
 		ipcRenderer.invoke( 'showMessageBox', options ),
+	showErrorMessageBox: ( options: { title: string; message: string; error?: unknown } ) =>
+		ipcRenderer.invoke( 'showErrorMessageBox', options ),
 	showNotification: ( options: Electron.NotificationConstructorOptions ) =>
 		ipcRenderer.invoke( 'showNotification', options ),
 	// Use .send instead of .invoke because logging is fire-and-forget
 	logRendererMessage: ( level: LogLevel, ...args: any[] ) =>
 		ipcRenderer.send( 'logRendererMessage', level, ...args ),
-	setupAppMenu: () => ipcRenderer.invoke( 'setupAppMenu' ),
+	setupAppMenu: ( config: { needsOnboarding: boolean } ) =>
+		ipcRenderer.invoke( 'setupAppMenu', config ),
 	popupAppMenu: () => ipcRenderer.invoke( 'popupAppMenu' ),
 	promptWindowsSpeedUpSites: ( ...args: Parameters< typeof promptWindowsSpeedUpSites > ) =>
 		ipcRenderer.invoke( 'promptWindowsSpeedUpSites', ...args ),
@@ -81,6 +92,12 @@ const api: IpcApi = {
 		ipcRenderer.invoke( 'openFileInIDE', relativePath, siteId ),
 	isImportExportSupported: ( siteId: string ) =>
 		ipcRenderer.invoke( 'isImportExportSupported', siteId ),
+	downloadSyncBackup: ( remoteSiteId: number, downloadUrl: string ) =>
+		ipcRenderer.invoke( 'downloadSyncBackup', remoteSiteId, downloadUrl ),
+	removeSyncBackup: ( remoteSiteId: number ) =>
+		ipcRenderer.invoke( 'removeSyncBackup', remoteSiteId ),
+	getConnectedWpcomSites: ( localSiteId: string ) =>
+		ipcRenderer.invoke( 'getConnectedWpcomSites', localSiteId ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

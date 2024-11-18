@@ -3,6 +3,7 @@ import path from 'path';
 import { createNodeFsMountHandler } from '@php-wasm/node';
 import { PHP, UnmountFunction } from '@php-wasm/universal';
 import { pathExists } from './fs-utils';
+import { isErrnoException } from './is-errno-exception';
 
 type MountedTarget = {
 	preExisting: boolean;
@@ -137,7 +138,17 @@ export class SymlinkManager {
 	 */
 	private async addSymlink( filename: string ) {
 		const fullPath = path.join( this.projectPath, filename );
-		const target = await fs.realpath( fullPath );
+		let target: string;
+		try {
+			target = await fs.realpath( fullPath );
+		} catch ( err ) {
+			if ( isErrnoException( err ) && err.code === 'ENOENT' ) {
+				console.error( `Symlink target does not exist: ${ fullPath }` );
+				return;
+			}
+			console.error( err );
+			return;
+		}
 
 		if ( ! this.php.requestHandler ) {
 			throw new Error( 'Request handler is not set' );

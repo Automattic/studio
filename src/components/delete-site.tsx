@@ -51,19 +51,17 @@ const DeleteSite = () => {
 			try {
 				await deleteSite( selectedSite.id, checkboxChecked );
 			} catch ( error ) {
-				await showErrorMessageBox( error, trimmedSiteTitle );
+				await getIpcApi().showErrorMessageBox( {
+					title: __( 'Deletion failed' ),
+					message: sprintf(
+						__( "We couldn't delete the site '%s'. Please try again" ),
+						trimmedSiteTitle
+					),
+					error,
+				} );
 				Sentry.captureException( error );
 			}
 		}
-	};
-
-	const showErrorMessageBox = async ( error: unknown, siteTitle: string ) => {
-		getIpcApi().showMessageBox( {
-			type: 'warning',
-			message: __( 'Deletion failed' ),
-			detail: sprintf( __( "We couldn't delete the site '%s'. Please try again" ), siteTitle ),
-			buttons: [ __( 'OK' ) ],
-		} );
 	};
 
 	const getTrimmedSiteTitle = ( name: string ) =>

@@ -1,8 +1,11 @@
 import { Importer } from './importers';
 
 export interface MetaFileData {
-	phpVersion: string;
-	wordpressVersion: string;
+	phpVersion?: string;
+	wordpressVersion?: string;
+	template?: string;
+	stylesheet?: string;
+	plugins?: string[];
 }
 
 export interface WpContent {

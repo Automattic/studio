@@ -35,11 +35,10 @@ export default function Anchor( props: JSX.IntrinsicElements[ 'a' ] & ExtraProps
 				try {
 					await getIpcApi().openURL( href );
 				} catch ( error ) {
-					getIpcApi().showMessageBox( {
-						type: 'error',
-						message: __( 'Failed to open link' ),
-						detail: __( 'We were unable to open the link. Please try again.' ),
-						buttons: [ __( 'OK' ) ],
+					getIpcApi().showErrorMessageBox( {
+						title: __( 'Failed to open link' ),
+						message: __( 'We were unable to open the link. Please try again.' ),
+						error,
 					} );
 					Sentry.captureException( error );
 				}

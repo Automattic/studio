@@ -6,8 +6,10 @@ export const SCREENSHOT_WIDTH = 1040;
 export const SCREENSHOT_HEIGHT = 1248;
 export const LIMIT_OF_ZIP_SITES_PER_USER = 5;
 export const LIMIT_OF_PROMPTS_PER_USER = 200;
-export const SIZE_LIMIT_MB = 250;
-export const SIZE_LIMIT_BYTES = SIZE_LIMIT_MB * 1024 * 1024; // 250MB
+export const DEMO_SITE_SIZE_LIMIT_MB = 250;
+export const DEMO_SITE_SIZE_LIMIT_BYTES = DEMO_SITE_SIZE_LIMIT_MB * 1024 * 1024; // 250MB
+export const SYNC_PUSH_SIZE_LIMIT_GB = 2;
+export const SYNC_PUSH_SIZE_LIMIT_BYTES = SYNC_PUSH_SIZE_LIMIT_GB * 1024 * 1024 * 1024; // 2GB
 export const AUTO_UPDATE_INTERVAL_MS = 60 * 60 * 1000;
 export const WINDOWS_TITLEBAR_HEIGHT = 32;
 export const ABOUT_WINDOW_WIDTH = 284;
@@ -25,7 +27,7 @@ export const CHAT_MESSAGES_STORE_KEY = 'ai_chat_messages';
 
 //Import file constants
 
-export const ACCEPTED_IMPORT_FILE_TYPES = [ '.zip', '.gz', '.gzip', '.tar', '.tar.gz' ];
+export const ACCEPTED_IMPORT_FILE_TYPES = [ '.zip', '.gz', '.gzip', '.tar', '.tar.gz', '.wpress' ];
 
 // OAuth constants
 export const CLIENT_ID = '95109';

@@ -5,7 +5,8 @@ import { sprintf, __ } from '@wordpress/i18n';
 import { Icon, download } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useEffect, useRef, useState } from 'react';
-import { STUDIO_DOCS_URL_IMPORT_EXPORT } from '../constants';
+import { STUDIO_DOCS_URL_IMPORT_EXPORT, ACCEPTED_IMPORT_FILE_TYPES } from '../constants';
+import { useSyncSites } from '../hooks/sync-sites/sync-sites-context';
 import { useConfirmationDialog } from '../hooks/use-confirmation-dialog';
 import { useDragAndDropFile } from '../hooks/use-drag-and-drop-file';
 import { useImportExport } from '../hooks/use-import-export';
@@ -24,6 +25,8 @@ export const ExportSite = ( { selectedSite }: { selectedSite: SiteDetails } ) =>
 	const { exportState, exportFullSite, exportDatabase, importState } = useImportExport();
 	const { [ selectedSite.id ]: currentProgress } = exportState;
 	const isSiteImporting = importState[ selectedSite.id ]?.progress < 100;
+	const { isAnySitePulling, isAnySitePushing } = useSyncSites();
+	const isExportDisabled = isSiteImporting || isAnySitePulling || isAnySitePushing;
 	const siteNotReadyForExportMessage = __(
 		'This site is being imported. Please wait for the import to finish before you export it.'
 	);
@@ -44,28 +47,30 @@ export const ExportSite = ( { selectedSite }: { selectedSite: SiteDetails } ) =>
 				</p>
 			</div>
 			{ currentProgress ? (
-				<div className="flex flex-col gap-4">
+				<div className="flex flex-col gap-4 max-w-[300px]">
 					<ProgressBar value={ currentProgress.progress } maxValue={ 100 } />
 					<div className="text-a8c-gray-70 a8c-body">{ currentProgress.statusMessage }</div>
 				</div>
 			) : (
 				<div className="flex flex-row gap-4">
-					<Tooltip text={ siteNotReadyForExportMessage } disabled={ ! isSiteImporting }>
+					<Tooltip text={ siteNotReadyForExportMessage } disabled={ ! isExportDisabled }>
 						<Button
 							onClick={ () => handleExport( exportFullSite ) }
 							variant="primary"
-							disabled={ isSiteImporting }
+							disabled={ isExportDisabled }
 						>
 							{ __( 'Export entire site' ) }
 						</Button>
 					</Tooltip>
-					<Tooltip text={ siteNotReadyForExportMessage } disabled={ ! isSiteImporting }>
+					<Tooltip text={ siteNotReadyForExportMessage } disabled={ ! isExportDisabled }>
 						<Button
 							onClick={ () => handleExport( exportDatabase ) }
 							type="submit"
 							variant="secondary"
-							className={ cx( isSiteImporting ? '' : '!text-a8c-blueberry !shadow-a8c-blueberry' ) }
-							disabled={ isSiteImporting }
+							className={ cx(
+								isExportDisabled ? '' : '!text-a8c-blueberry !shadow-a8c-blueberry'
+							) }
+							disabled={ isExportDisabled }
 						>
 							{ __( 'Export database' ) }
 						</Button>
@@ -105,6 +110,7 @@ const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 	const { startServer, loadingServer } = useSiteDetails();
 	const { importState, importFile, clearImportState, exportState } = useImportExport();
 	const { [ props.selectedSite.id ]: currentProgress } = importState;
+	const { isAnySitePulling, isAnySitePushing } = useSyncSites();
 	const isSiteExporting =
 		exportState[ props.selectedSite?.id ] && exportState[ props.selectedSite?.id ].progress < 100;
 
@@ -158,7 +164,7 @@ const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 	const startLoadingCursorClassName =
 		loadingServer[ props.selectedSite.id ] && 'animate-pulse duration-100 cursor-wait';
 
-	const isImporting = currentProgress?.progress < 100;
+	const isImporting = currentProgress?.progress < 100 && ! isAnySitePulling && ! isAnySitePushing;
 	const isImported = currentProgress?.progress === 100 && ! isDraggingOver;
 	const isInitial = ! isImporting && ! isImported;
 	return (
@@ -181,7 +187,7 @@ const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 				<InitialImportButton
 					isInitial={ isInitial }
 					openFileSelector={ openFileSelector }
-					disabled={ isSiteExporting }
+					disabled={ isSiteExporting || isAnySitePulling || isAnySitePushing }
 				>
 					<div
 						className={ cx(
@@ -234,7 +240,7 @@ const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 				className="hidden"
 				type="file"
 				data-testid="backup-file"
-				accept=".zip,.sql,.tar,.gz"
+				accept={ `${ ACCEPTED_IMPORT_FILE_TYPES.join( ',' ) },.sql` }
 				onChange={ onFileSelected }
 			/>
 		</div>
@@ -269,7 +275,7 @@ export function ContentTabImportExport( { selectedSite }: ContentTabImportExport
 	return (
 		<div className="flex flex-col p-8 gap-8">
 			<ImportSite selectedSite={ selectedSite } />
-			<ExportSite selectedSite={ selectedSite }></ExportSite>
+			<ExportSite selectedSite={ selectedSite } />
 		</div>
 	);
 }

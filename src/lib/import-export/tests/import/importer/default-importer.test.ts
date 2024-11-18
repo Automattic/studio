@@ -20,7 +20,7 @@ describe( 'JetpackImporter', () => {
 			themes: [ '/tmp/extracted/wp-content/themes/twentytwentyone/style.css' ],
 		},
 		wpContentDirectory: 'wp-content',
-		metaFile: '/tmp/extracted/studio.json',
+		metaFile: '/tmp/extracted/meta.json',
 	};
 
 	const mockStudioSitePath = '/path/to/studio/site';
@@ -67,7 +67,7 @@ describe( 'JetpackImporter', () => {
 
 			expect( fs.mkdir ).toHaveBeenCalled();
 			expect( fs.copyFile ).toHaveBeenCalledTimes( 4 ); // One for each wp-content file + wp-config
-			expect( fs.readFile ).toHaveBeenCalledWith( '/tmp/extracted/studio.json', 'utf-8' );
+			expect( fs.readFile ).toHaveBeenCalledWith( '/tmp/extracted/meta.json', 'utf-8' );
 		} );
 
 		it( 'should handle sql files and call wp sqlite import cli command', async () => {
@@ -86,8 +86,14 @@ describe( 'JetpackImporter', () => {
 			} );
 
 			const expectedUnlinkPath = '/path/to/studio/site/studio-backup-sql-2024-08-01-12-00-00.sql';
-			expect( fs.unlink ).toHaveBeenNthCalledWith( 1, expectedUnlinkPath );
-			expect( fs.unlink ).toHaveBeenNthCalledWith( 2, expectedUnlinkPath );
+			expect( fs.rm ).toHaveBeenNthCalledWith( 1, expectedUnlinkPath, {
+				force: true,
+				recursive: true,
+			} );
+			expect( fs.rm ).toHaveBeenNthCalledWith( 2, expectedUnlinkPath, {
+				force: true,
+				recursive: true,
+			} );
 		} );
 
 		it( 'should handle missing meta file', async () => {
@@ -114,7 +120,7 @@ describe( 'JetpackImporter', () => {
 
 			expect( fs.mkdir ).toHaveBeenCalled();
 			expect( fs.copyFile ).toHaveBeenCalledTimes( 4 );
-			expect( fs.readFile ).toHaveBeenCalledWith( '/tmp/extracted/studio.json', 'utf-8' );
+			expect( fs.readFile ).toHaveBeenCalledWith( '/tmp/extracted/meta.json', 'utf-8' );
 		} );
 	} );
 } );

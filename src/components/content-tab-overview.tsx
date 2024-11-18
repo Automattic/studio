@@ -1,5 +1,5 @@
 import * as Sentry from '@sentry/electron/renderer';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import {
 	archive,
 	code,
@@ -24,6 +24,7 @@ import { isMac } from '../lib/app-globals';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { ButtonsSection, ButtonsSectionProps } from './buttons-section';
+import Tooltip from './tooltip';
 
 interface ContentTabOverviewProps {
 	selectedSite: SiteDetails;
@@ -257,25 +258,36 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 						</div>
 					) }
 					{ ! loading && siteRunning && (
-						<button
-							aria-label={ __( 'Open site' ) }
-							className={ 'relative group focus-visible:outline-a8c-blueberry' }
-							onClick={ () => getIpcApi().openSiteURL( selectedSite.id, '', { autoLogin: false } ) }
+						<Tooltip
+							text={ sprintf(
+								/* translators: siteUrl is the site URL */
+								__( 'Open %(siteUrl)s' ),
+								{ siteUrl: selectedSite.url }
+							) }
+							placement="top"
 						>
-							<div
-								className={
-									'opacity-0 group-hover:opacity-90 group-hover:bg-white group-focus:opacity-90 group-focus:bg-white duration-300 absolute size-full flex justify-center items-center bg-white text-a8c-blueberry'
+							<button
+								aria-label={ __( 'Open site' ) }
+								className={ 'relative group focus-visible:outline-a8c-blueberry' }
+								onClick={ () =>
+									getIpcApi().openSiteURL( selectedSite.id, '', { autoLogin: false } )
 								}
 							>
-								{ __( 'Open site' ) }
-								<Icon
-									icon={ external }
-									className="ltr:ml-0.5 rtl:mr-0.5 rtl:scale-x-[-1] fill-a8c-blueberry"
-									size={ 14 }
-								/>
-							</div>
-							{ thumbnailImage }
-						</button>
+								<div
+									className={
+										'opacity-0 group-hover:opacity-90 group-hover:bg-white group-focus:opacity-90 group-focus:bg-white duration-300 absolute size-full flex justify-center items-center bg-white text-a8c-blueberry'
+									}
+								>
+									{ __( 'Open site' ) }
+									<Icon
+										icon={ external }
+										className="ltr:ml-0.5 rtl:mr-0.5 rtl:scale-x-[-1] fill-a8c-blueberry"
+										size={ 14 }
+									/>
+								</div>
+								{ thumbnailImage }
+							</button>
+						</Tooltip>
 					) }
 					{ ! loading && ! siteRunning && thumbnailImage }
 				</div>

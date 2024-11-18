@@ -3,6 +3,7 @@ import { I18nProvider } from '@wordpress/react-i18n';
 import { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { SupportedLocale, getLocaleData } from '../lib/locale';
+import { useOnboarding } from './use-onboarding';
 
 interface I18nDataContext {
 	setLocale: ( localeKey: SupportedLocale ) => void;
@@ -19,26 +20,30 @@ export const I18nDataProvider = ( { children }: { children: React.ReactNode } ) 
 	const [ initialized, setInitialized ] = useState< boolean >( false );
 	const [ i18n, setI18n ] = useState< I18n | null >( null );
 	const [ locale, setLocale ] = useState< SupportedLocale >( 'en' );
+	const { needsOnboarding } = useOnboarding();
 
-	const initI18n = useCallback( async ( localeKey: SupportedLocale ) => {
-		const translations = getLocaleData( localeKey )?.messages;
-		const newI18n = createI18n( translations );
-		setI18n( newI18n );
-		// Update default I18n data to reflect language change when using
-		// I18n functions from `@wordpress/i18n` package.
-		// Note we need to update this in both the renderer and main processes.
-		if ( translations ) {
-			defaultI18n.setLocaleData( translations );
-			getIpcApi().setDefaultLocaleData( translations );
-		} else {
-			// In case we don't find translations, we reset the locale data to
-			// fallback to the default translations.
-			defaultI18n.resetLocaleData();
-			getIpcApi().resetDefaultLocaleData();
-		}
-		// App menu is reloaded to ensure the items show the translated strings.
-		getIpcApi().setupAppMenu();
-	}, [] );
+	const initI18n = useCallback(
+		async ( localeKey: SupportedLocale ) => {
+			const translations = getLocaleData( localeKey )?.messages;
+			const newI18n = createI18n( translations );
+			setI18n( newI18n );
+			// Update default I18n data to reflect language change when using
+			// I18n functions from `@wordpress/i18n` package.
+			// Note we need to update this in both the renderer and main processes.
+			if ( translations ) {
+				defaultI18n.setLocaleData( translations );
+				getIpcApi().setDefaultLocaleData( translations );
+			} else {
+				// In case we don't find translations, we reset the locale data to
+				// fallback to the default translations.
+				defaultI18n.resetLocaleData();
+				getIpcApi().resetDefaultLocaleData();
+			}
+			// App menu is reloaded to ensure the items show the translated strings.
+			getIpcApi().setupAppMenu( { needsOnboarding } );
+		},
+		[ needsOnboarding ]
+	);
 
 	useEffect( () => {
 		if ( initialized ) {

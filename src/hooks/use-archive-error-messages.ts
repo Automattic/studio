@@ -1,7 +1,7 @@
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useMemo } from 'react';
-import { SIZE_LIMIT_MB } from '../constants';
+import { DEMO_SITE_SIZE_LIMIT_MB } from '../constants';
 
 export function useArchiveErrorMessages() {
 	const { __ } = useI18n();
@@ -13,7 +13,7 @@ export function useArchiveErrorMessages() {
 				no_file: __( "We didn't receive the zip file. Please try uploading it again." ),
 				invalid_file_size: sprintf(
 					__( 'The file size exceeds the limit of %d MB. Please try reducing the site size.' ),
-					SIZE_LIMIT_MB
+					DEMO_SITE_SIZE_LIMIT_MB
 				),
 				could_not_upload: __( 'There was an issue uploading the zip file.' ),
 				rest_cannot_view: __(

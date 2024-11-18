@@ -3,9 +3,8 @@ import { sprintf } from '@wordpress/i18n';
 import { moreVertical, trash } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useState, useEffect } from 'react';
-import { LIMIT_OF_PROMPTS_PER_USER, WPCOM_PROFILE_URL } from '../constants';
+import { WPCOM_PROFILE_URL } from '../constants';
 import { useAuth } from '../hooks/use-auth';
-import { useFeatureFlags } from '../hooks/use-feature-flags';
 import { useIpcListener } from '../hooks/use-ipc-listener';
 import { useOffline } from '../hooks/use-offline';
 import { usePromptUsage } from '../hooks/use-prompt-usage';
@@ -31,11 +30,11 @@ const UserInfo = ( {
 	const { __ } = useI18n();
 	return (
 		<div className="flex w-full gap-5">
-			<div className="flex w-full items-center gap-[15px]">
+			<div className="flex w-full items-center gap-3">
 				<Button
 					onClick={ () => getIpcApi().openURL( WPCOM_PROFILE_URL ) }
-					aria-label={ __( 'Profile link' ) }
-					className="py-0 px-0"
+					aria-label={ __( 'Edit profile' ) }
+					variant="icon"
 				>
 					<Gravatar detailedDefaultImage size={ 32 } isBlack />
 				</Button>
@@ -150,12 +149,9 @@ const SnapshotInfo = ( {
 };
 function PromptInfo() {
 	const { __ } = useI18n();
-	const { promptCount = 0, promptLimit = LIMIT_OF_PROMPTS_PER_USER } = usePromptUsage();
-	const { assistantEnabled } = useFeatureFlags();
+	const { promptCount, promptLimit } = usePromptUsage();
+	const isOffline = useOffline();
 
-	if ( ! assistantEnabled ) {
-		return null;
-	}
 	return (
 		<div className="flex gap-3 flex-col">
 			<h2 className="a8c-label-semibold">{ __( 'AI assistant' ) }</h2>
@@ -164,7 +160,9 @@ function PromptInfo() {
 					<div className="flex w-full flex-row justify-between gap-8 ">
 						<div className="flex flex-row items-center text-right">
 							<span className="text-a8c-gray-70">
-								{ sprintf( __( '%1s of %2s monthly prompts used' ), promptCount, promptLimit ) }
+								{ isOffline
+									? __( "You're currently offline" )
+									: sprintf( __( '%1s of %2s monthly prompts used' ), promptCount, promptLimit ) }
 							</span>
 						</div>
 					</div>
@@ -243,7 +241,7 @@ export default function UserSettings() {
 					{ ! isAuthenticated && (
 						<div className="flex flex-col gap-6">
 							<div className="justify-between items-center w-full h-auto flex">
-								<WordPressLogo width={ 110 } />
+								<WordPressLogo />
 								<Tooltip disabled={ ! isOffline } icon={ offlineIcon } text={ offlineMessage }>
 									<Button
 										aria-description={ isOffline ? offlineMessage : '' }
@@ -260,14 +258,14 @@ export default function UserSettings() {
 									</Button>
 								</Tooltip>
 							</div>
-							<div className="border border-[#F0F0F0] w-full"></div>
+							<div className="border-t border-[#F0F0F0] w-full"></div>
 							<LanguagePicker />
 						</div>
 					) }
 					{ isAuthenticated && (
 						<div className="gap-6 flex flex-col">
 							<UserInfo onLogout={ logout } user={ user } />
-							<div className="border border-[#F0F0F0] w-full"></div>
+							<div className="border-t border-[#F0F0F0] w-full"></div>
 							<div className="flex flex-col gap-6">
 								<LanguagePicker />
 								<SnapshotInfo

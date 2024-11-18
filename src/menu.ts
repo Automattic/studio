@@ -13,13 +13,13 @@ import { promptWindowsSpeedUpSites } from './lib/windows-helpers';
 import { withMainWindow } from './main-window';
 import { isUpdateReadyToInstall, manualCheckForUpdates } from './updates';
 
-export function setupMenu() {
+export function setupMenu( config: { needsOnboarding: boolean } ) {
 	withMainWindow( ( mainWindow ) => {
 		if ( ! mainWindow && process.platform !== 'darwin' ) {
 			Menu.setApplicationMenu( null );
 			return;
 		}
-		const menu = getAppMenu( mainWindow );
+		const menu = getAppMenu( mainWindow, config );
 		if ( process.platform === 'darwin' ) {
 			Menu.setApplicationMenu( menu );
 			return;
@@ -44,7 +44,10 @@ export function popupMenu() {
 	} );
 }
 
-function getAppMenu( mainWindow: BrowserWindow | null ) {
+function getAppMenu(
+	mainWindow: BrowserWindow | null,
+	{ needsOnboarding = false }: { needsOnboarding?: boolean } = {}
+) {
 	const crashTestMenuItems: MenuItemConstructorOptions[] = [
 		{
 			label: __( 'Test Hard Crash (dev only)' ),
@@ -119,6 +122,7 @@ function getAppMenu( mainWindow: BrowserWindow | null ) {
 							window.webContents.send( 'add-site' );
 						} );
 					},
+					enabled: ! needsOnboarding,
 				},
 				...( process.platform === 'win32'
 					? []

@@ -46,9 +46,13 @@ declare module '@timfish/forge-externals-plugin' {
 declare module 'wpcom' {
 	class Request {
 		/* eslint-disable @typescript-eslint/no-explicit-any */
-		get( params: object | string, query?: object ): Promise< any >;
-		post( params: object | string, query?: object, body?: object ): Promise< any >;
-		del( params: object | string, query?: object ): Promise< any >;
+		get< TResponse = any >( params: object | string, query?: object ): Promise< TResponse >;
+		post< TResponse = any >(
+			params: object | string,
+			query?: object,
+			body?: object
+		): Promise< TResponse >;
+		del< TResponse = any >( params: object | string, query?: object ): Promise< TResponse >;
 		/* eslint-enable @typescript-eslint/no-explicit-any */
 	}
 

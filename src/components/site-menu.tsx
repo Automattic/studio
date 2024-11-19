@@ -4,6 +4,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { useEffect } from 'react';
 import { useImportExport } from '../hooks/use-import-export';
 import { useSiteDetails } from '../hooks/use-site-details';
+import { useSyncSites } from '../hooks/sync-sites';
 import { isMac } from '../lib/app-globals';
 import { cx } from '../lib/cx';
 import Tooltip from './tooltip';
@@ -108,9 +109,13 @@ function ButtonToRun( { running, id, name }: Pick< SiteDetails, 'running' | 'id'
 }
 function SiteItem( { site }: { site: SiteDetails } ) {
 	const { selectedSite, setSelectedSiteId } = useSiteDetails();
-	const { isSiteImporting } = useImportExport();
 	const isSelected = site === selectedSite;
+	const { isSiteImporting } = useImportExport();
+	const { isSiteIdPulling } = useSyncSites();
 	const isImporting = isSiteImporting( site.id );
+	const isPulling = isSiteIdPulling( site.id );
+	const showSpinner = site.isAddingSite || isImporting || isPulling;
+
 	return (
 		<li
 			className={ cx(
@@ -127,7 +132,7 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 			>
 				{ site.name }
 			</button>
-			{ site.isAddingSite || isImporting ? (
+			{ showSpinner ? (
 				<Spinner className="!w-2.5 !h-2.5 !top-[6px] !mr-2 [&>circle]:stroke-a8c-gray-70" />
 			) : (
 				<ButtonToRun { ...site } />

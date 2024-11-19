@@ -47,6 +47,7 @@ export const ConnectCreateButtons = ( {
 				disabled={ ! isOffline }
 				text={ __( 'Creating a site requires an internet connection.' ) }
 				icon={ offlineIcon }
+				placement="top-start"
 			>
 				<Button
 					onClick={ () => {

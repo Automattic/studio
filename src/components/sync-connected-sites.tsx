@@ -1,16 +1,15 @@
 import { Icon } from '@wordpress/components';
-import { createInterpolateElement } from '@wordpress/element';
 import { sprintf } from '@wordpress/i18n';
 import { cloudUpload, cloudDownload } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useMemo } from 'react';
-import { STUDIO_DOCS_URL_GET_HELP_UNSUPPORTED_SITES } from '../constants';
 import { useSyncSites } from '../hooks/sync-sites';
 import { useConfirmationDialog } from '../hooks/use-confirmation-dialog';
 import { SyncSite } from '../hooks/use-fetch-wpcom-sites';
 import { useSyncStatesProgressInfo } from '../hooks/use-sync-states-progress-info';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
+import { GetHelpButton } from './GetHelpButton';
 import { ArrowIcon } from './arrow-icon';
 import { Badge } from './badge';
 import Button from './button';
@@ -125,7 +124,6 @@ const SyncConnectedSitesSection = ( {
 				{ hasConnectionErrors ? <CircleRedCrossIcon /> : <WordPressLogoCircle /> }
 				<div className={ cx( 'a8c-label-semibold', hasConnectionErrors && 'error-message' ) }>
 					{ section.name }
-					{ hasConnectionErrors && mainSite && ` (${ mainSite.url })` }
 				</div>
 				<Button
 					variant="link"
@@ -140,19 +138,7 @@ const SyncConnectedSitesSection = ( {
 			{ hasConnectionErrors && (
 				<div className="flex items-center min-h-14 border-b border-a8c-gray-0 px-8">
 					<div className="text-[#3C434A]">
-						{ createInterpolateElement(
-							__( "Studio couldn't connect to this site. <button>Get help ↗️</button>" ),
-							{
-								button: (
-									<Button
-										variant="link"
-										onClick={ () =>
-											getIpcApi().openURL( STUDIO_DOCS_URL_GET_HELP_UNSUPPORTED_SITES )
-										}
-									/>
-								),
-							}
-						) }
+						{ __( "Studio couldn't connect to this site." ) } <GetHelpButton />
 					</div>
 					<Button
 						onClick={ () => openSitesSyncSelector( { disconnectSiteId: section.id } ) }

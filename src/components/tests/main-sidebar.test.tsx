@@ -1,4 +1,5 @@
 import { render, act, screen } from '@testing-library/react';
+import { SyncSitesProvider } from '../../hooks/sync-sites';
 import { userEvent } from '@testing-library/user-event';
 import { useAuth } from '../../hooks/use-auth';
 import MainSidebar from '../main-sidebar';
@@ -55,46 +56,50 @@ jest.mock( '../../hooks/use-site-details', () => ( {
 	useSiteDetails: () => ( { ...siteDetailsMocked } ),
 } ) );
 
+const renderWithProvider = ( children: React.ReactElement ) => {
+	return render( <SyncSitesProvider>{ children }</SyncSitesProvider> );
+};
+
 describe( 'MainSidebar Footer', () => {
 	beforeEach( () => {
 		jest.clearAllMocks();
 	} );
 	it( 'Has add site button', async () => {
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: false } );
-		await act( async () => render( <MainSidebar /> ) );
+		await act( async () => renderWithProvider( <MainSidebar /> ) );
 		expect( screen.getByRole( 'button', { name: 'Add site' } ) ).toBeVisible();
 	} );
 
 	it( 'applies className prop', async () => {
 		const { container } = await act( async () =>
-			render( <MainSidebar className={ 'test-class' } /> )
+			renderWithProvider( <MainSidebar className={ 'test-class' } /> )
 		);
 		expect( container.firstChild ).toHaveClass( 'test-class' );
 	} );
 
 	it( 'shows a "Stop All" button when there are running sites', async () => {
-		await act( async () => render( <MainSidebar /> ) );
+		await act( async () => renderWithProvider( <MainSidebar /> ) );
 		expect( screen.getByRole( 'button', { name: 'Stop all' } ) ).toBeVisible();
 	} );
 } );
 
 describe( 'MainSidebar Site Menu', () => {
 	it( 'renders the list of sites', async () => {
-		await act( async () => render( <MainSidebar /> ) );
+		await act( async () => renderWithProvider( <MainSidebar /> ) );
 		expect( screen.getByRole( 'button', { name: 'test-1' } ) ).toBeVisible();
 		expect( screen.getByRole( 'button', { name: 'test-2' } ) ).toBeVisible();
 		expect( screen.getByRole( 'button', { name: 'test-3' } ) ).toBeVisible();
 	} );
 
 	it( 'has "start site" buttons when sites are not running', async () => {
-		await act( async () => render( <MainSidebar /> ) );
+		await act( async () => renderWithProvider( <MainSidebar /> ) );
 		expect( screen.getByRole( 'button', { name: 'start test-1 site' } ) ).toBeVisible();
 		expect( screen.getByRole( 'button', { name: 'start test-2 site' } ) ).toBeVisible();
 	} );
 
 	it( 'starts a site', async () => {
 		const user = userEvent.setup();
-		await act( async () => render( <MainSidebar /> ) );
+		await act( async () => renderWithProvider( <MainSidebar /> ) );
 		const greenDotFirstSite = screen.getByRole( 'button', { name: 'start test-1 site' } );
 		expect( greenDotFirstSite ).toBeVisible();
 		await user.click( greenDotFirstSite );
@@ -105,7 +110,7 @@ describe( 'MainSidebar Site Menu', () => {
 
 	it( 'stops a site', async () => {
 		const user = userEvent.setup();
-		await act( async () => render( <MainSidebar /> ) );
+		await act( async () => renderWithProvider( <MainSidebar /> ) );
 		const greenDotFirstSite = screen.getByRole( 'button', { name: 'stop test-3 site' } );
 		expect( greenDotFirstSite ).toBeVisible();
 		await user.click( greenDotFirstSite );

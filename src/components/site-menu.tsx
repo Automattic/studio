@@ -116,6 +116,14 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 	const isPulling = isSiteIdPulling( site.id );
 	const showSpinner = site.isAddingSite || isImporting || isPulling;
 
+	const tooltipText = site.isAddingSite
+		? __( 'Adding' )
+		: isImporting
+		? __( 'Importing' )
+		: isPulling
+		? __( 'Pulling' )
+		: __( 'Loading' );
+
 	return (
 		<li
 			className={ cx(
@@ -133,7 +141,11 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 				{ site.name }
 			</button>
 			{ showSpinner ? (
-				<Spinner className="!w-2.5 !h-2.5 !top-[6px] !mr-2 [&>circle]:stroke-a8c-gray-70" />
+				<Tooltip text={ tooltipText }>
+					<div className="grid place-items-center">
+						<Spinner className="!w-2.5 !h-2.5 !top-[6px] !mr-2 [&>circle]:stroke-a8c-gray-70" />
+					</div>
+				</Tooltip>
 			) : (
 				<ButtonToRun { ...site } />
 			) }

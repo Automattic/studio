@@ -269,3 +269,7 @@ blockquote {
 .assistant-markdown table img {
 	background-color: transparent;
 }
+
+.error-message {
+	color: #D63638;
+}

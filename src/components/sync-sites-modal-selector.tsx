@@ -2,6 +2,7 @@ import { SearchControl as SearchControlWp } from '@wordpress/components';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useState, useEffect } from 'react';
+import { STUDIO_DOCS_URL_GET_HELP_UNSUPPORTED_SITES } from '../constants';
 import { SyncSite } from '../hooks/use-fetch-wpcom-sites';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
@@ -148,6 +149,15 @@ function ListSites( {
 	);
 }
 
+const GetHelp = () => (
+	<Button
+		variant="link"
+		onClick={ () => getIpcApi().openURL( STUDIO_DOCS_URL_GET_HELP_UNSUPPORTED_SITES ) }
+	>
+		↗️
+	</Button>
+);
+
 function SiteItem( {
 	site,
 	isSelected,
@@ -216,11 +226,13 @@ function SiteItem( {
 				</div>
 			) }
 			{ isUnsupported && (
-				<div className="a8c-body-small text-a8c-gray-30 shrink-0">{ __( 'Unsupported plan' ) }</div>
+				<div className="a8c-body-small text-a8c-gray-30 shrink-0">
+					{ __( 'Unsupported plan' ) } <GetHelp />
+				</div>
 			) }
 			{ isNeedsTransfer && (
 				<div className="a8c-body-small text-a8c-gray-30 shrink-0">
-					{ __( 'Please enable hosting features' ) }
+					{ __( 'Please enable hosting features' ) } <GetHelp />
 				</div>
 			) }
 		</div>

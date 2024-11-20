@@ -60,7 +60,7 @@ export function useSyncStatesProgressInfo() {
 			importing: {
 				key: 'importing',
 				progress: 80,
-				message: __( 'Pushing changes…' ),
+				message: __( 'Applying changes…' ),
 			},
 			finished: {
 				key: 'finished',

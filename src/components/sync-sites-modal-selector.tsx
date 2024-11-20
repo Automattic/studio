@@ -1,13 +1,15 @@
-import { SearchControl as SearchControlWp } from '@wordpress/components';
-import { sprintf } from '@wordpress/i18n';
+import { Icon, SearchControl as SearchControlWp } from '@wordpress/components';
+import { __, sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useState, useEffect } from 'react';
 import { SyncSite } from '../hooks/use-fetch-wpcom-sites';
+import { useOffline } from '../hooks/use-offline';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { Badge } from './badge';
 import Button from './button';
 import Modal from './modal';
+import offlineIcon from './offline-icon';
 import { WordPressShortLogo } from './wordpress-short-logo';
 
 const SearchControl = process.env.NODE_ENV === 'test' ? () => null : SearchControlWp;
@@ -28,6 +30,7 @@ export function SyncSitesModalSelector( {
 	const { __ } = useI18n();
 	const [ selectedSiteId, setSelectedSiteId ] = useState< number | null >( null );
 	const [ searchQuery, setSearchQuery ] = useState< string >( '' );
+	const isOffline = useOffline();
 	const filteredSites = syncSites.filter( ( site ) => {
 		const searchQueryLower = searchQuery.toLowerCase();
 		return (
@@ -49,39 +52,49 @@ export function SyncSitesModalSelector( {
 			onRequestClose={ onRequestClose }
 			title={ __( 'Connect a WordPress.com site' ) }
 		>
-			<SearchSites searchQuery={ searchQuery } setSearchQuery={ setSearchQuery } />
-			<div className="h-[calc(84vh-232px)]">
-				{ isLoading && (
-					<div className="flex justify-center items-center h-full">{ __( 'Loading sites…' ) }</div>
-				) }
+			<div className="relative">
+				<SearchSites searchQuery={ searchQuery } setSearchQuery={ setSearchQuery } />
+				<div className="h-[calc(84vh-232px)]">
+					{ isLoading && (
+						<div className="flex justify-center items-center h-full">
+							{ __( 'Loading sites…' ) }
+						</div>
+					) }
 
-				{ ! isLoading && isEmpty && (
-					<div className="flex justify-center items-center h-full">
-						{ searchQuery
-							? sprintf( __( 'No sites found for "%s"' ), searchQuery )
-							: __( 'No sites found' ) }
+					{ ! isLoading && isEmpty && (
+						<div className="flex justify-center items-center h-full">
+							{ searchQuery
+								? sprintf( __( 'No sites found for "%s"' ), searchQuery )
+								: __( 'No sites found' ) }
+						</div>
+					) }
+
+					{ ! isLoading && ! isEmpty && (
+						<ListSites
+							syncSites={ filteredSites }
+							selectedSiteId={ selectedSiteId }
+							onSelectSite={ setSelectedSiteId }
+						/>
+					) }
+				</div>
+				<Footer
+					onRequestClose={ onRequestClose }
+					onConnect={ () => {
+						if ( ! selectedSiteId ) {
+							return;
+						}
+						onConnect( selectedSiteId );
+						onRequestClose();
+					} }
+					disabled={ ! selectedSiteId }
+				/>
+
+				{ isOffline && (
+					<div className="absolute inset-0 bg-white/80 z-10 flex items-center justify-center">
+						<SyncSitesOfflineView />
 					</div>
 				) }
-
-				{ ! isLoading && ! isEmpty && (
-					<ListSites
-						syncSites={ filteredSites }
-						selectedSiteId={ selectedSiteId }
-						onSelectSite={ setSelectedSiteId }
-					/>
-				) }
 			</div>
-			<Footer
-				onRequestClose={ onRequestClose }
-				onConnect={ () => {
-					if ( ! selectedSiteId ) {
-						return;
-					}
-					onConnect( selectedSiteId );
-					onRequestClose();
-				} }
-				disabled={ ! selectedSiteId }
-			/>
 		</Modal>
 	);
 }
@@ -258,3 +271,14 @@ function Footer( {
 		</div>
 	);
 }
+
+const SyncSitesOfflineView = () => {
+	const offlineMessage = __( 'Connecting a site requires an internet connection.' );
+
+	return (
+		<div className="flex items-center justify-center h-12 px-2 pt-4 text-a8c-gray-70 gap-1">
+			<Icon className="m-1 fill-a8c-gray-70" size={ 24 } icon={ offlineIcon } />
+			<span className="text-[13px] leading-[16px]">{ offlineMessage }</span>
+		</div>
+	);
+};

@@ -5,7 +5,7 @@ import convertToWindowsStore from 'electron2appx';
 
 console.log( '--- :electron: Packaging AppX' );
 
-console.log( 'Verifying WINDOWS_CODE_SIGNING_CERT_PASSWORD env var...' );
+console.log( '~~~ Verifying WINDOWS_CODE_SIGNING_CERT_PASSWORD env var...' );
 if ( ! process.env.WINDOWS_CODE_SIGNING_CERT_PASSWORD ) {
 	console.error( 'Required env var WINDOWS_CODE_SIGNING_CERT_PASSWORD is not set!' );
 	process.exit( 1 );
@@ -24,7 +24,7 @@ const windows10SDKVersionContent = await fs.readFile( windows10SDKVersionPath );
 const windows10SDKVersion = windows10SDKVersionContent.toString().trim();
 const windowsKitPath = `C:\\Program Files (x86)\\Windows Kits\\10\\bin\\10.0.${ windows10SDKVersion }.0\\x64`;
 
-console.log( 'Verifying Windows 10 SDK location...' );
+console.log( '~~~ Verifying Windows 10 SDK location...' );
 try {
 	await fs.access( windowsKitPath );
 	console.log( `Windows 10 SDK verions ${ windows10SDKVersion } found. Continuing...` );

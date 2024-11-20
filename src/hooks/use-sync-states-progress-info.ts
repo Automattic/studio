@@ -6,6 +6,11 @@ export type PullStateProgressInfo = {
 	progress: number;
 	message: string;
 };
+export type PushStateProgressInfo = {
+	key: 'creatingBackup' | 'uploading' | 'importing' | 'finished' | 'failed';
+	progress: number;
+	message: string;
+};
 
 export function useSyncStatesProgressInfo() {
 	const { __ } = useI18n();
@@ -30,12 +35,42 @@ export function useSyncStatesProgressInfo() {
 			finished: {
 				key: 'finished',
 				progress: 100,
-				message: __( 'Backup imported' ),
+				message: __( 'Pull complete' ),
 			},
 			failed: {
 				key: 'failed',
 				progress: 100,
-				message: __( 'Failed to import backup' ),
+				message: __( 'Error pulling changes' ),
+			},
+		} as const;
+	}, [ __ ] );
+
+	const pushStatesProgressInfo = useMemo( () => {
+		return {
+			creatingBackup: {
+				key: 'creatingBackup',
+				progress: 30,
+				message: __( 'Creating backup…' ),
+			},
+			uploading: {
+				key: 'uploading',
+				progress: 50,
+				message: __( 'Uploading Studio site…' ),
+			},
+			importing: {
+				key: 'importing',
+				progress: 80,
+				message: __( 'Pushing changes…' ),
+			},
+			finished: {
+				key: 'finished',
+				progress: 100,
+				message: __( 'Push complete' ),
+			},
+			failed: {
+				key: 'failed',
+				progress: 100,
+				message: __( 'Error pushing changes' ),
 			},
 		} as const;
 	}, [ __ ] );
@@ -52,13 +87,36 @@ export function useSyncStatesProgressInfo() {
 		return pullingStateKeys.includes( key );
 	};
 
-	const isKeyFinished = ( key: PullStateProgressInfo[ 'key' ] | undefined ) => {
-		return key === pullStatesProgressInfo.finished.key;
+	const isKeyPushing = ( key: PushStateProgressInfo[ 'key' ] | undefined ) => {
+		const pushingStateKeys: PushStateProgressInfo[ 'key' ][] = [
+			'creatingBackup',
+			'uploading',
+			'importing',
+		];
+		if ( ! key ) {
+			return false;
+		}
+		return pushingStateKeys.includes( key );
 	};
 
-	const isKeyFailed = ( key: PullStateProgressInfo[ 'key' ] | undefined ) => {
-		return key === pullStatesProgressInfo.failed.key;
+	const isKeyFinished = (
+		key: PullStateProgressInfo[ 'key' ] | PushStateProgressInfo[ 'key' ] | undefined
+	) => {
+		return key === 'finished';
 	};
 
-	return { pullStatesProgressInfo, isKeyPulling, isKeyFinished, isKeyFailed };
+	const isKeyFailed = (
+		key: PullStateProgressInfo[ 'key' ] | PushStateProgressInfo[ 'key' ] | undefined
+	) => {
+		return key === 'failed';
+	};
+
+	return {
+		pullStatesProgressInfo,
+		pushStatesProgressInfo,
+		isKeyPulling,
+		isKeyPushing,
+		isKeyFinished,
+		isKeyFailed,
+	};
 }

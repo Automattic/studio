@@ -11,7 +11,8 @@ import { promptWindowsSpeedUpSites } from './lib/windows-helpers';
 import type { LogLevel } from './logging';
 
 const api: IpcApi = {
-	archiveSite: ( id: string ) => ipcRenderer.invoke( 'archiveSite', id ),
+	archiveSite: ( id: string, format: 'zip' | 'tar' ) =>
+		ipcRenderer.invoke( 'archiveSite', id, format ),
 	deleteSite: ( id: string, deleteFiles?: boolean ) =>
 		ipcRenderer.invoke( 'deleteSite', id, deleteFiles ),
 	createSite: ( path: string, name?: string ) => ipcRenderer.invoke( 'createSite', path, name ),

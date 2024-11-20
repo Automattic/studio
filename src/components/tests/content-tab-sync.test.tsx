@@ -22,6 +22,16 @@ const selectedSite: SiteDetails = {
 	id: 'site-id',
 };
 
+const defaultPushState = {
+	remoteSiteId: 1,
+	status: null,
+	selectedSite,
+	isStaging: false,
+	isInProgress: false,
+	isError: false,
+	hasFinished: false,
+};
+
 describe( 'ContentTabSync', () => {
 	beforeEach( () => {
 		jest.resetAllMocks();
@@ -36,9 +46,10 @@ describe( 'ContentTabSync', () => {
 			connectedSites: [],
 			syncSites: [],
 			pullSite: jest.fn(),
-			pullStates: {},
 			isAnySitePulling: false,
+			isAnySitePushing: false,
 			getPullState: jest.fn(),
+			getPushState: jest.fn().mockReturnValue( defaultPushState ),
 			refetchSites: jest.fn(),
 		} );
 	} );
@@ -105,9 +116,10 @@ describe( 'ContentTabSync', () => {
 			connectedSites: [ fakeSyncSite ],
 			syncSites: [ fakeSyncSite ],
 			pullSite: jest.fn(),
-			pullStates: {},
 			isAnySitePulling: false,
+			isAnySitePushing: false,
 			getPullState: jest.fn(),
+			getPushState: jest.fn().mockReturnValue( defaultPushState ),
 			refetchSites: jest.fn(),
 		} );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
@@ -133,9 +145,10 @@ describe( 'ContentTabSync', () => {
 			connectedSites: [ fakeSyncSite ],
 			syncSites: [ fakeSyncSite ],
 			pullSite: jest.fn(),
-			pullStates: {},
 			isAnySitePulling: false,
+			isAnySitePushing: false,
 			getPullState: jest.fn(),
+			getPushState: jest.fn().mockReturnValue( defaultPushState ),
 			refetchSites: jest.fn(),
 		} );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
@@ -170,9 +183,10 @@ describe( 'ContentTabSync', () => {
 			connectedSites: [ fakeProductionSite, fakeStagingSite ],
 			syncSites: [ fakeProductionSite ],
 			pullSite: jest.fn(),
-			pullStates: {},
 			isAnySitePulling: false,
+			isAnySitePushing: false,
 			getPullState: jest.fn(),
+			getPushState: jest.fn().mockReturnValue( defaultPushState ),
 			refetchSites: jest.fn(),
 		} );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );

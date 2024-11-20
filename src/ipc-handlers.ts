@@ -17,7 +17,7 @@ import * as Sentry from '@sentry/electron/main';
 import { __, LocaleData, defaultI18n } from '@wordpress/i18n';
 import archiver from 'archiver';
 import { DEFAULT_PHP_VERSION } from '../vendor/wp-now/src/constants';
-import { MAIN_MIN_WIDTH, SIDEBAR_WIDTH, SIZE_LIMIT_BYTES } from './constants';
+import { MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from './constants';
 import { SyncSite } from './hooks/use-fetch-wpcom-sites';
 import { download } from './lib/download';
 import { isEmptyDir, pathExists, isWordPressDirectory, sanitizeFolderName } from './lib/fs-utils';
@@ -451,10 +451,18 @@ export async function showUserSettings( event: IpcMainInvokeEvent ): Promise< vo
 	parentWindow.webContents.send( 'user-settings' );
 }
 
-function zipWordPressDirectory( { source, zipPath }: { source: string; zipPath: string } ) {
+function archiveWordPressDirectory( {
+	source,
+	archivePath,
+	format,
+}: {
+	source: string;
+	archivePath: string;
+	format: 'zip' | 'tar';
+} ) {
 	return new Promise( ( resolve, reject ) => {
-		const output = fs.createWriteStream( zipPath );
-		const archive = archiver( 'zip', {
+		const output = fs.createWriteStream( archivePath );
+		const archive = archiver( format, {
 			zlib: { level: 9 }, // Sets the compression level.
 		} );
 
@@ -475,20 +483,21 @@ function zipWordPressDirectory( { source, zipPath }: { source: string; zipPath: 
 	} );
 }
 
-export async function archiveSite( event: IpcMainInvokeEvent, id: string ) {
+export async function archiveSite( event: IpcMainInvokeEvent, id: string, format: 'zip' | 'tar' ) {
 	const site = SiteServer.get( id );
 	if ( ! site ) {
 		throw new Error( 'Site not found.' );
 	}
 	const sitePath = site.details.path;
-	const zipPath = `${ TEMP_DIR }site_${ id }.zip`;
-	await zipWordPressDirectory( {
+	const archivePath = `${ TEMP_DIR }site_${ id }.${ format }`;
+	await archiveWordPressDirectory( {
 		source: sitePath,
-		zipPath,
+		archivePath,
+		format,
 	} );
-	const stats = fs.statSync( zipPath );
-	const zipContent = fs.readFileSync( zipPath );
-	return { zipPath, zipContent, exceedsSizeLimit: stats.size > SIZE_LIMIT_BYTES };
+	const stats = fs.statSync( archivePath );
+	const archiveContent = fs.readFileSync( archivePath );
+	return { archivePath, archiveContent, archiveSizeInBytes: stats.size };
 }
 
 export function removeTemporalFile( event: IpcMainInvokeEvent, path: string ) {

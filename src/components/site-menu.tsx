@@ -6,6 +6,7 @@ import { useImportExport } from '../hooks/use-import-export';
 import { useSiteDetails } from '../hooks/use-site-details';
 import { isMac } from '../lib/app-globals';
 import { cx } from '../lib/cx';
+import Tooltip from './tooltip';
 
 interface SiteMenuProps {
 	className?: string;
@@ -57,43 +58,52 @@ function ButtonToRun( { running, id, name }: Pick< SiteDetails, 'running' | 'id'
 			/>
 		</svg>
 	);
+
+	const tooltipText = loadingServer[ id ]
+		? __( 'Starting' )
+		: running
+		? __( 'Stop site' )
+		: __( 'Start site' );
+
 	return (
-		<button
-			aria-disabled={ loadingServer[ id ] }
-			onClick={ () => {
-				if ( loadingServer[ id ] ) {
-					return;
-				}
-				return running ? stopServer( id ) : startServer( id );
-			} }
-			className="w-7 h-8 rounded-tr rounded-br group grid focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-a8c-blueberry"
-			aria-label={ sprintf( running ? __( 'stop %s site' ) : __( 'start %s site' ), name ) }
-		>
-			{ /* Circle */ }
-			<div
-				className={ cx(
-					'w-2.5 h-2.5 transition-opacity group-hover:opacity-0 group-focus-visible:opacity-0 border-[0.5px]',
-					'row-start-1 col-start-1 place-self-center',
-					classCircle,
-					loadingServer[ id ] && 'animate-pulse border-[#00BA3775] bg-[#1ED15A75] duration-100',
-					running && 'border-[#00BA37] bg-[#1ED15A] duration-100',
-					! running && ! loadingServer[ id ] && 'border-[#ffffff19] bg-[#ffffff26]'
-				) }
+		<Tooltip text={ tooltipText }>
+			<button
+				aria-disabled={ loadingServer[ id ] }
+				onClick={ () => {
+					if ( loadingServer[ id ] ) {
+						return;
+					}
+					return running ? stopServer( id ) : startServer( id );
+				} }
+				className="w-7 h-8 rounded-tr rounded-br group grid focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-a8c-blueberry"
+				aria-label={ sprintf( running ? __( 'stop %s site' ) : __( 'start %s site' ), name ) }
 			>
-				&nbsp;
-			</div>
-			{ /* Shapes on hover */ }
-			{ ! loadingServer[ id ] && (
+				{ /* Circle */ }
 				<div
 					className={ cx(
-						'opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100',
-						'row-start-1 col-start-1 place-self-center'
+						'w-2.5 h-2.5 transition-opacity group-hover:opacity-0 group-focus-visible:opacity-0 border-[0.5px]',
+						'row-start-1 col-start-1 place-self-center',
+						classCircle,
+						loadingServer[ id ] && 'animate-pulse border-[#00BA3775] bg-[#1ED15A75] duration-100',
+						running && 'border-[#00BA37] bg-[#1ED15A] duration-100',
+						! running && ! loadingServer[ id ] && 'border-[#ffffff19] bg-[#ffffff26]'
 					) }
 				>
-					{ running ? rectangle : triangle }
+					&nbsp;
 				</div>
-			) }
-		</button>
+				{ /* Shapes on hover */ }
+				{ ! loadingServer[ id ] && (
+					<div
+						className={ cx(
+							'opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100',
+							'row-start-1 col-start-1 place-self-center'
+						) }
+					>
+						{ running ? rectangle : triangle }
+					</div>
+				) }
+			</button>
+		</Tooltip>
 	);
 }
 function SiteItem( { site }: { site: SiteDetails } ) {

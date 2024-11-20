@@ -14,6 +14,18 @@ interface TopBarProps {
 	onToggleSidebar: () => void;
 }
 
+function ToggleSidebar( { onToggleSidebar }: TopBarProps ) {
+	return (
+		<div className="app-no-drag-region">
+			<Tooltip text={ __( 'Toggle sidebar' ) } className="h-6">
+				<Button onClick={ onToggleSidebar } variant="icon" aria-label={ __( 'Toggle sidebar' ) }>
+					<Icon className="text-white" icon={ drawerLeft } size={ 24 } />
+				</Button>
+			</Tooltip>
+		</div>
+	);
+}
+
 function OfflineIndicator() {
 	const isOffline = useOffline();
 	const offlineMessage = [
@@ -53,7 +65,8 @@ function Authentication() {
 		return (
 			<Button
 				onClick={ () => getIpcApi().showUserSettings() }
-				aria-label={ __( 'Account' ) }
+				aria-label={ __( 'Open settings' ) }
+				tooltipText={ __( 'Open settings' ) }
 				variant="icon"
 				className="text-white hover:!text-white !px-1 py-1 !h-6 gap-2"
 			>
@@ -66,7 +79,8 @@ function Authentication() {
 	return (
 		<Button
 			onClick={ () => getIpcApi().showUserSettings() }
-			aria-label={ __( 'Log in' ) }
+			aria-label={ __( 'Open settings to log in' ) }
+			tooltipText={ __( 'Open settings to log in' ) }
 			className="flex gap-x-2 justify-between w-full text-white rounded !px-0 !py-0 h-auto active:!text-white hover:!text-white hover:underline items-center"
 		>
 			<WordPressLogo />
@@ -84,21 +98,13 @@ export default function TopBar( { onToggleSidebar }: TopBarProps ) {
 	return (
 		<div className="flex justify-between items-center text-white px-2 pb-2 pt-1.5">
 			<div className="flex items-center space-x-1.5">
-				<Button
-					className="app-no-drag-region"
-					onClick={ onToggleSidebar }
-					variant="icon"
-					aria-label={ __( 'Toggle Sidebar' ) }
-				>
-					<Icon className="text-white" icon={ drawerLeft } size={ 24 } />
-				</Button>
-
+				<ToggleSidebar onToggleSidebar={ onToggleSidebar } />
 				<OfflineIndicator />
 			</div>
 
 			<div className="app-no-drag-region flex items-center space-x-4">
 				<Authentication />
-				<Button onClick={ openDocs } aria-label={ __( 'Help' ) } variant="icon">
+				<Button onClick={ openDocs } aria-label={ __( 'Get help' ) } variant="icon">
 					<Icon className="text-white" size={ 24 } icon={ help } />
 				</Button>
 			</div>

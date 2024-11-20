@@ -133,7 +133,7 @@ const SyncConnectedSitesSection = ( {
 					onClick={ handleDisconnectSite }
 					disabled={ isAnySitePulling || isAnySitePushing }
 				>
-					{ __( 'Disconnect1' ) }
+					{ __( 'Disconnect' ) }
 				</Button>
 			</div>
 
@@ -246,10 +246,10 @@ const SyncConnectedSitesSection = ( {
 													const detail = connectedSite.isStaging
 														? __(
 																"Pulling will replace your Studio site's files and database with a copy from your staging site."
-														)
+														  )
 														: __(
 																"Pulling will replace your Studio site's files and database with a copy from your production site."
-														);
+														  );
 													showPullConfirmation( () => pullSite( connectedSite, selectedSite ), {
 														detail,
 													} );

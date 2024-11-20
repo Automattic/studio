@@ -1,6 +1,6 @@
 import { render, act, screen } from '@testing-library/react';
-import { SyncSitesProvider } from '../../hooks/sync-sites';
 import { userEvent } from '@testing-library/user-event';
+import { SyncSitesProvider } from '../../hooks/sync-sites';
 import { useAuth } from '../../hooks/use-auth';
 import MainSidebar from '../main-sidebar';
 

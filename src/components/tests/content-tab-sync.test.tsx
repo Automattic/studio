@@ -109,7 +109,7 @@ describe( 'ContentTabSync', () => {
 			url: 'https:/developer.wordpress.com/studio/',
 			isStaging: false,
 			stagingSiteIds: [],
-			syncSupport: 'syncable',
+			syncSupport: 'already-connected',
 		};
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
 		( useSyncSites as jest.Mock ).mockReturnValue( {
@@ -138,7 +138,7 @@ describe( 'ContentTabSync', () => {
 			url: 'https:/developer.wordpress.com/studio/',
 			isStaging: false,
 			stagingSiteIds: [],
-			syncSupport: 'syncable',
+			syncSupport: 'already-connected',
 		};
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
 		( useSyncSites as jest.Mock ).mockReturnValue( {
@@ -167,7 +167,7 @@ describe( 'ContentTabSync', () => {
 			url: 'https://developer.wordpress.com/studio/',
 			isStaging: false,
 			stagingSiteIds: [ 7 ],
-			syncSupport: 'syncable',
+			syncSupport: 'already-connected',
 		};
 		const fakeStagingSite = {
 			id: 7,
@@ -175,7 +175,7 @@ describe( 'ContentTabSync', () => {
 			url: 'https://developer-staging.wordpress.com/studio/',
 			isStaging: true,
 			stagingSiteIds: [],
-			syncSupport: 'syncable',
+			syncSupport: 'already-connected',
 		};
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
 

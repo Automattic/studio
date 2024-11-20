@@ -230,8 +230,6 @@ function SiteItem( {
 			) }
 			{ isUnsupported && (
 				<div className="a8c-body-small text-a8c-gray-30 shrink-0 text-right">
-					{ __( 'Unsupported plan' ) }
-					<br />
 					<Button
 						variant="link"
 						onClick={ () => getIpcApi().openURL( `https://wordpress.com/plans/${ site.id }` ) }
@@ -242,8 +240,6 @@ function SiteItem( {
 			) }
 			{ isNeedsTransfer && (
 				<div className="a8c-body-small text-a8c-gray-30 shrink-0 text-right">
-					{ __( 'Please enable hosting features' ) }
-					<br />
 					<Button
 						variant="link"
 						onClick={ () =>

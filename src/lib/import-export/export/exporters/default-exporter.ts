@@ -261,6 +261,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 
 		if ( stderr ) {
 			console.error( `Could not get information about plugins: ${ stderr }` );
+			return [];
 		}
 
 		return JSON.parse( stdout );
@@ -279,6 +280,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 
 		if ( stderr ) {
 			console.error( `Could not get information about themes: ${ stderr }` );
+			return [];
 		}
 
 		return JSON.parse( stdout );

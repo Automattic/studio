@@ -279,4 +279,26 @@ describe( 'DefaultExporter', () => {
 		const canHandle = await exporter.canHandle();
 		expect( canHandle ).toBe( false );
 	} );
+
+	it( 'should not fail when can not get plugin or theme details', async () => {
+		( SiteServer.get as jest.Mock ).mockReturnValue( {
+			details: { path: '/path/to/site' },
+			executeWpCliCommand: jest.fn( function ( command: string ) {
+				switch ( true ) {
+					case /plugin list/.test( command ):
+					case /theme list/.test( command ):
+						return { stdout: '<a><br/>some html</ap>', stderr: 'Error' };
+					default:
+						return { stderr: null };
+				}
+			} ),
+		} );
+
+		const exporter = new DefaultExporter( mockOptions );
+		await exporter.export();
+
+		expect( mockArchiver.file ).toHaveBeenCalledWith( '/tmp/studio_export_123/meta.json', {
+			name: 'meta.json',
+		} );
+	} );
 } );

@@ -5,7 +5,6 @@ import { useState, useEffect } from 'react';
 import { SyncSite } from '../hooks/use-fetch-wpcom-sites';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
-import { GetHelpButton } from './GetHelpButton';
 import { Badge } from './badge';
 import Button from './button';
 import Modal from './modal';
@@ -217,13 +216,29 @@ function SiteItem( {
 				</div>
 			) }
 			{ isUnsupported && (
-				<div className="a8c-body-small text-a8c-gray-30 shrink-0">
-					{ __( 'Unsupported plan' ) } <GetHelpButton />
+				<div className="a8c-body-small text-a8c-gray-30 shrink-0 text-right">
+					{ __( 'Unsupported plan' ) }
+					<br />
+					<Button
+						variant="link"
+						onClick={ () => getIpcApi().openURL( `https://wordpress.com/plans/${ site.id }` ) }
+					>
+						{ __( 'Upgrade plan ↗' ) }
+					</Button>
 				</div>
 			) }
 			{ isNeedsTransfer && (
-				<div className="a8c-body-small text-a8c-gray-30 shrink-0">
-					{ __( 'Please enable hosting features' ) } <GetHelpButton />
+				<div className="a8c-body-small text-a8c-gray-30 shrink-0 text-right">
+					{ __( 'Please enable hosting features' ) }
+					<br />
+					<Button
+						variant="link"
+						onClick={ () =>
+							getIpcApi().openURL( `https://wordpress.com/hosting-features/${ site.id }` )
+						}
+					>
+						{ __( 'Enable hosting features ↗' ) }
+					</Button>
 				</div>
 			) }
 		</div>

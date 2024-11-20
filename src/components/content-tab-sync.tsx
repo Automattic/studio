@@ -6,10 +6,10 @@ import { useSyncSites } from '../hooks/sync-sites';
 import { useAuth } from '../hooks/use-auth';
 import { SyncSite } from '../hooks/use-fetch-wpcom-sites';
 import { useOffline } from '../hooks/use-offline';
-import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { ArrowIcon } from './arrow-icon';
 import Button from './button';
+import { ConnectCreateButtons } from './connect-create-buttons';
 import offlineIcon from './offline-icon';
 import { SyncConnectedSites } from './sync-connected-sites';
 import { SyncSitesModalSelector } from './sync-sites-modal-selector';
@@ -60,42 +60,16 @@ function CreateConnectSite( {
 	const { __ } = useI18n();
 	const isOffline = useOffline();
 
-	const offlineMessageCreate = __( 'Creating new site requires an internet connection.' );
-	const offlineMessageConnect = __( 'Connecting a site requires an internet connection.' );
-
 	return (
 		<div className="mt-8">
 			<div className="flex gap-4">
-				<Tooltip disabled={ ! isOffline } text={ offlineMessageConnect }>
-					<Button
-						aria-disabled={ isOffline }
-						variant="primary"
-						onClick={ () => {
-							if ( isOffline ) {
-								return;
-							}
-							openSitesSyncSelector();
-						} }
-					>
-						{ __( 'Connect site' ) }
-					</Button>
-				</Tooltip>
-				<Tooltip disabled={ ! isOffline } text={ offlineMessageCreate }>
-					<Button
-						aria-disabled={ isOffline }
-						className={ cx( ! isOffline && '!text-a8c-blueberry !shadow-a8c-blueberry' ) }
-						variant="secondary"
-						onClick={ async () => {
-							if ( isOffline ) {
-								return;
-							}
-							await getIpcApi().openURL( 'https://wordpress.com/start/new-site' );
-						} }
-					>
-						{ __( 'Create new site' ) }
-						<ArrowIcon />
-					</Button>
-				</Tooltip>
+				<ConnectCreateButtons
+					connectSite={ openSitesSyncSelector }
+					isOffline={ isOffline }
+					connectButtonVariant="primary"
+					createButtonVariant="secondary"
+					disableConnectButtonStyle={ true }
+				/>
 			</div>
 		</div>
 	);

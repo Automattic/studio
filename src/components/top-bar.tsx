@@ -14,6 +14,18 @@ interface TopBarProps {
 	onToggleSidebar: () => void;
 }
 
+function ToggleSidebar( { onToggleSidebar }: TopBarProps ) {
+	return (
+		<div className="app-no-drag-region">
+			<Tooltip text={ __( 'Toggle sidebar' ) } className="h-6">
+				<Button onClick={ onToggleSidebar } variant="icon" aria-label={ __( 'Toggle sidebar' ) }>
+					<Icon className="text-white" icon={ drawerLeft } size={ 24 } />
+				</Button>
+			</Tooltip>
+		</div>
+	);
+}
+
 function OfflineIndicator() {
 	const isOffline = useOffline();
 	const offlineMessage = [
@@ -86,16 +98,7 @@ export default function TopBar( { onToggleSidebar }: TopBarProps ) {
 	return (
 		<div className="flex justify-between items-center text-white px-2 pb-2 pt-1.5">
 			<div className="flex items-center space-x-1.5">
-				<Button
-					className="app-no-drag-region"
-					onClick={ onToggleSidebar }
-					variant="icon"
-					aria-label={ __( 'Toggle sidebar' ) }
-					tooltipText={ __( 'Toggle sidebar' ) }
-				>
-					<Icon className="text-white" icon={ drawerLeft } size={ 24 } />
-				</Button>
-
+				<ToggleSidebar onToggleSidebar={ onToggleSidebar } />
 				<OfflineIndicator />
 			</div>
 

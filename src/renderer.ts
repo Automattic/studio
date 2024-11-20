@@ -83,7 +83,11 @@ getIpcApi()
 		window.appGlobals = appGlobals;
 
 		// Show warning if running an ARM64 translator
-		if ( appGlobals.arm64Translation && ! localStorage.getItem( 'dontShowARM64Warning' ) ) {
+		if (
+			appGlobals.platform === 'darwin' &&
+			appGlobals.arm64Translation &&
+			! localStorage.getItem( 'dontShowARM64Warning' )
+		) {
 			const showARM64MessageBox = async () => {
 				const { response, checkboxChecked } = await getIpcApi().showMessageBox( {
 					type: 'warning',

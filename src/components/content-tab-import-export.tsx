@@ -1,10 +1,11 @@
 import { speak } from '@wordpress/a11y';
+import { Notice } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { sprintf, __ } from '@wordpress/i18n';
 import { Icon, download } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { useRef } from 'react';
-import { ACCEPTED_IMPORT_FILE_TYPES, STUDIO_DOCS_URL_IMPORT_EXPORT } from '../constants';
+import { useEffect, useRef, useState } from 'react';
+import { STUDIO_DOCS_URL_IMPORT_EXPORT, ACCEPTED_IMPORT_FILE_TYPES } from '../constants';
 import { useSyncSites } from '../hooks/sync-sites/sync-sites-context';
 import { useConfirmationDialog } from '../hooks/use-confirmation-dialog';
 import { useDragAndDropFile } from '../hooks/use-drag-and-drop-file';
@@ -247,8 +248,36 @@ const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 };
 
 export function ContentTabImportExport( { selectedSite }: ContentTabImportExportProps ) {
+	const [ isSupported, setIsSupported ] = useState< boolean | null >( null );
+
+	useEffect( () => {
+		getIpcApi()
+			.isImportExportSupported( selectedSite.id )
+			.then( ( result ) => {
+				setIsSupported( result );
+			} );
+	}, [ selectedSite.id, selectedSite.running ] );
+
+	if ( isSupported === null ) {
+		return null;
+	}
+
+	if ( ! isSupported ) {
+		return (
+			<div className="flex flex-col p-8">
+				<Notice status="warning" isDismissible={ false }>
+					<span className="font-bold">
+						{ __( 'Import / Export is not available for this site' ) }
+					</span>
+					<br />
+					{ __( 'This feature is only available for sites using the default SQLite integration.' ) }
+				</Notice>
+			</div>
+		);
+	}
+
 	return (
-		<div className="flex flex-col p-8 gap-8">
+		<div className="flex flex-col p-8 gap-8" data-testid="import-export-supported">
 			<ImportSite selectedSite={ selectedSite } />
 			<ExportSite selectedSite={ selectedSite } />
 		</div>

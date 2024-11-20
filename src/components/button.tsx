@@ -17,7 +17,7 @@ export type ButtonProps = MappedOmit< ComponentProps< typeof Button >, 'variant'
 	tooltipText?: string;
 };
 
-type ButtonVariant = 'primary' | 'secondary' | 'tertiary' | 'outlined' | 'link' | 'icon';
+export type ButtonVariant = 'primary' | 'secondary' | 'tertiary' | 'outlined' | 'link' | 'icon';
 
 /**
  * The arbitrary Tailwind variants below (e.g., `[&.is-secondary]`) are used to

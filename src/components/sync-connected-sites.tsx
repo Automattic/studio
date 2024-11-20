@@ -8,12 +8,14 @@ import { STUDIO_DOCS_URL_GET_HELP_UNSUPPORTED_SITES } from '../constants';
 import { useSyncSites } from '../hooks/sync-sites';
 import { useConfirmationDialog } from '../hooks/use-confirmation-dialog';
 import { SyncSite } from '../hooks/use-fetch-wpcom-sites';
+import { useOffline } from '../hooks/use-offline';
 import { useSyncStatesProgressInfo } from '../hooks/use-sync-states-progress-info';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { ArrowIcon } from './arrow-icon';
 import { Badge } from './badge';
 import Button from './button';
+import { ConnectCreateButtons } from './connect-create-buttons';
 import { OpenSitesSyncSelector } from './content-tab-sync';
 import { CircleRedCrossIcon } from './icons/circle-red-cross';
 import ProgressBar from './progress-bar';
@@ -288,7 +290,7 @@ export function SyncConnectedSites( {
 	disconnectSite: ( id: number ) => void;
 	selectedSite: SiteDetails;
 } ) {
-	const { __ } = useI18n();
+	const isOffline = useOffline();
 
 	const siteSections: ConnectedSiteSection[] = useMemo( () => {
 		const siteSections: ConnectedSiteSection[] = [];
@@ -338,23 +340,12 @@ export function SyncConnectedSites( {
 			</div>
 
 			<div className="flex mt-auto gap-4 py-5 px-8 border-t border-a8c-gray-5 flex-shrink-0">
-				<Button
-					onClick={ () => openSitesSyncSelector() }
-					variant="secondary"
-					className="!text-a8c-blueberry !shadow-a8c-blueberry"
-				>
-					{ __( 'Connect site' ) }
-				</Button>
-				<Button
-					onClick={ () => {
-						getIpcApi().openURL( 'https://wordpress.com/start/new-site' );
-					} }
-					variant="secondary"
-					className="!text-a8c-blueberry !shadow-a8c-blueberry"
-				>
-					{ __( 'Create new site' ) }
-					<ArrowIcon />
-				</Button>
+				<ConnectCreateButtons
+					connectSite={ openSitesSyncSelector }
+					isOffline={ isOffline }
+					connectButtonVariant="secondary"
+					createButtonVariant="secondary"
+				/>
 			</div>
 		</div>
 	);

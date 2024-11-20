@@ -948,3 +948,11 @@ export async function removeSyncBackup( event: IpcMainInvokeEvent, remoteSiteId:
 	const filePath = getSyncBackupTempPath( remoteSiteId );
 	await fsPromises.unlink( filePath );
 }
+
+export async function isImportExportSupported( _event: IpcMainInvokeEvent, siteId: string ) {
+	const site = SiteServer.get( siteId );
+	if ( ! site ) {
+		throw new Error( 'Site not found.' );
+	}
+	return site.hasSQLitePlugin();
+}

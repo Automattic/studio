@@ -1,5 +1,6 @@
-import { render, fireEvent, waitFor, screen, createEvent, act } from '@testing-library/react';
+import { render, fireEvent, waitFor, screen, createEvent } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
+import { act } from 'react';
 import { SyncSitesProvider } from '../../hooks/sync-sites/sync-sites-context';
 import { useImportExport } from '../../hooks/use-import-export';
 import { useSiteDetails } from '../../hooks/use-site-details';
@@ -28,6 +29,7 @@ beforeEach( () => {
 	} );
 	( getIpcApi as jest.Mock ).mockReturnValue( {
 		showMessageBox: jest.fn().mockResolvedValue( { response: 0, checkboxChecked: false } ), // Mock showMessageBox
+		isImportExportSupported: jest.fn().mockResolvedValue( true ),
 	} );
 	( useImportExport as jest.Mock ).mockReturnValue( {
 		importFile: jest.fn(),
@@ -43,18 +45,25 @@ const renderWithProvider = ( children: React.ReactElement ) => {
 };
 
 describe( 'ContentTabImportExport Import', () => {
-	test( 'should display drop text on file over', () => {
+	test( 'should display drop text on file over', async () => {
 		renderWithProvider( <ContentTabImportExport selectedSite={ selectedSite } /> );
+		await waitFor( () => {
+			expect( screen.getByTestId( 'import-export-supported' ) ).toBeVisible();
+		} );
 
 		const dropZone = screen.getByText( /Drag a file here, or click to select a file/i );
 		expect( dropZone ).toBeInTheDocument();
-
-		fireEvent.dragOver( dropZone );
+		act( () => {
+			fireEvent.dragOver( dropZone );
+		} );
 		expect( screen.getByText( /Drop file/i ) ).toBeInTheDocument();
 	} );
 
-	test( 'should display inital text on drop leave', () => {
+	test( 'should display inital text on drop leave', async () => {
 		renderWithProvider( <ContentTabImportExport selectedSite={ selectedSite } /> );
+		await waitFor( () => {
+			expect( screen.getByTestId( 'import-export-supported' ) ).toBeVisible();
+		} );
 
 		const dropZone = screen.getByText( /Drag a file here, or click to select a file/i );
 		expect( dropZone ).toBeInTheDocument();
@@ -77,6 +86,9 @@ describe( 'ContentTabImportExport Import', () => {
 
 	test( 'should import a site via drag-and-drop', async () => {
 		renderWithProvider( <ContentTabImportExport selectedSite={ selectedSite } /> );
+		await waitFor( () => {
+			expect( screen.getByTestId( 'import-export-supported' ) ).toBeVisible();
+		} );
 
 		const dropZone = screen.getByText( /Drag a file here, or click to select a file/i );
 		const file = new File( [ 'file contents' ], 'backup.zip', { type: 'application/zip' } );
@@ -93,7 +105,13 @@ describe( 'ContentTabImportExport Import', () => {
 
 	test( 'should import a site via file selection', async () => {
 		renderWithProvider( <ContentTabImportExport selectedSite={ selectedSite } /> );
+		await waitFor( () => {
+			expect( screen.getByTestId( 'import-export-supported' ) ).toBeVisible();
+		} );
+
 		const fileInput = screen.getByTestId( 'backup-file' );
+		expect( fileInput ).toBeInTheDocument();
+
 		const file = new File( [ 'file contents' ], 'backup.zip', { type: 'application/zip' } );
 
 		await userEvent.upload( fileInput, file );
@@ -110,6 +128,10 @@ describe( 'ContentTabImportExport Import', () => {
 		} );
 
 		renderWithProvider( <ContentTabImportExport selectedSite={ selectedSite } /> );
+		await waitFor( () => {
+			expect( screen.getByTestId( 'import-export-supported' ) ).toBeVisible();
+		} );
+
 		expect( screen.getByText( 'Extracting backup…' ) ).toBeVisible();
 		expect( screen.getByRole( 'progressbar', { value: { now: 5 } } ) ).toBeVisible();
 	} );
@@ -123,6 +145,9 @@ describe( 'ContentTabImportExport Export', () => {
 
 	test( 'should export full site', async () => {
 		renderWithProvider( <ContentTabImportExport selectedSite={ selectedSite } /> );
+		await waitFor( () => {
+			expect( screen.getByTestId( 'import-export-supported' ) ).toBeVisible();
+		} );
 
 		const exportButton = screen.getByRole( 'button', { name: /Export entire site/i } );
 		fireEvent.click( exportButton );
@@ -132,6 +157,9 @@ describe( 'ContentTabImportExport Export', () => {
 
 	test( 'should export database', async () => {
 		renderWithProvider( <ContentTabImportExport selectedSite={ selectedSite } /> );
+		await waitFor( () => {
+			expect( screen.getByTestId( 'import-export-supported' ) ).toBeVisible();
+		} );
 
 		const exportButton = screen.getByRole( 'button', { name: /Export database/i } );
 		fireEvent.click( exportButton );
@@ -146,7 +174,25 @@ describe( 'ContentTabImportExport Export', () => {
 		} );
 
 		renderWithProvider( <ContentTabImportExport selectedSite={ selectedSite } /> );
+		await waitFor( () => {
+			expect( screen.getByTestId( 'import-export-supported' ) ).toBeVisible();
+		} );
+
 		expect( screen.getByText( 'Starting export...' ) ).toBeVisible();
 		expect( screen.getByRole( 'progressbar', { value: { now: 5 } } ) ).toBeVisible();
+	} );
+
+	test( 'should be blocked', async () => {
+		( getIpcApi as jest.Mock ).mockReturnValue( {
+			isImportExportSupported: jest.fn().mockResolvedValue( false ),
+		} );
+
+		renderWithProvider( <ContentTabImportExport selectedSite={ selectedSite } /> );
+
+		await waitFor( () => {
+			expect( screen.getByText( 'Import / Export is not available for this site' ) ).toBeVisible();
+		} );
+		expect( screen.queryByRole( 'button', { name: /Export entire site/i } ) ).toBeNull();
+		expect( screen.queryByRole( 'button', { name: /Export database/i } ) ).toBeNull();
 	} );
 } );

@@ -121,7 +121,7 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 		: isImporting
 		? __( 'Importing' )
 		: isPulling
-		? __( 'Pulling' )
+		? __( 'Syncing' )
 		: __( 'Loading' );
 
 	return (

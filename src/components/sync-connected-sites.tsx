@@ -169,10 +169,11 @@ const SyncConnectedSitesSection = ( {
 				section.connectedSites.map( ( connectedSite ) => {
 					const sitePullState = getPullState( selectedSite.id, connectedSite.id );
 					const isPulling = sitePullState && isKeyPulling( sitePullState.status.key );
-					const isError = sitePullState && isKeyFailed( sitePullState.status.key );
+					const isPullError = sitePullState && isKeyFailed( sitePullState.status.key );
 					const hasPullFinished = sitePullState && isKeyFinished( sitePullState.status.key );
 
 					const pushState = getPushState( selectedSite.id, connectedSite.id );
+					const isPushError = pushState.isError;
 					return (
 						<div
 							key={ connectedSite.id }
@@ -204,12 +205,20 @@ const SyncConnectedSitesSection = ( {
 										<ProgressBar value={ sitePullState.status.progress } maxValue={ 100 } />
 									</div>
 								) }
-								{ isError && (
+								{ isPullError && (
 									<SyncPullPushClear
 										onClick={ () => clearPullState( selectedSite.id, connectedSite.id ) }
 										isError
 									>
 										{ __( 'Error pulling changes' ) }
+									</SyncPullPushClear>
+								) }
+								{ isPushError && (
+									<SyncPullPushClear
+										onClick={ () => clearPushState( selectedSite.id, connectedSite.id ) }
+										isError
+									>
+										{ __( 'Error pushing changes' ) }
 									</SyncPullPushClear>
 								) }
 								{ hasPullFinished && (
@@ -235,9 +244,9 @@ const SyncConnectedSitesSection = ( {
 								) }
 								{ ! isPulling &&
 									! hasPullFinished &&
-									! isError &&
+									! isPullError &&
+									! isPushError &&
 									! pushState.isInProgress &&
-									! pushState.isError &&
 									! pushState.hasFinished && (
 										<div className="flex gap-2 pl-4 ml-auto shrink-0 h-5">
 											<Button

@@ -129,8 +129,9 @@ const getSortedSites = ( sites: SyncSite[] ) => {
 	const order: Record< SyncSite[ 'syncSupport' ], number > = {
 		syncable: 1,
 		'already-connected': 2,
-		'needs-transfer': 3,
-		unsupported: 4,
+		deleted: 3,
+		'needs-transfer': 4,
+		unsupported: 5,
 	};
 
 	return [ ...sites ].sort( ( a, b ) => order[ a.syncSupport ] - order[ b.syncSupport ] );
@@ -178,6 +179,8 @@ function SiteItem( {
 	const isSyncable = site.syncSupport === 'syncable';
 	const isNeedsTransfer = site.syncSupport === 'needs-transfer';
 	const isUnsupported = site.syncSupport === 'unsupported';
+	const isDeleted = site.syncSupport === 'deleted';
+
 	return (
 		<div
 			className={ cx(
@@ -248,6 +251,11 @@ function SiteItem( {
 					>
 						{ __( 'Enable hosting features ↗' ) }
 					</Button>
+				</div>
+			) }
+			{ isDeleted && (
+				<div className="a8c-body-small text-a8c-gray-30 shrink-0 text-right">
+					{ __( 'Deleted' ) }
 				</div>
 			) }
 		</div>

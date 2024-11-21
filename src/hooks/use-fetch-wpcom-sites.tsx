@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useAuth } from './use-auth';
 import { useOffline } from './use-offline';
 
-type SyncSupport = 'unsupported' | 'syncable' | 'needs-transfer' | 'already-connected';
+type SyncSupport = 'unsupported' | 'syncable' | 'needs-transfer' | 'already-connected' | 'deleted';
 
 export type SyncSite = {
 	id: number;
@@ -37,6 +37,7 @@ type SitesEndpointSite = {
 		product_slug: string;
 		user_is_owner: boolean;
 	};
+	is_deleted: boolean;
 };
 
 type SitesEndpointResponse = {
@@ -46,6 +47,9 @@ type SitesEndpointResponse = {
 const STUDIO_SYNC_FEATURE_NAME = 'studio-sync';
 
 function getSyncSupport( site: SitesEndpointSite, connectedSiteIds: number[] ): SyncSupport {
+	if ( site.is_deleted ) {
+		return 'deleted';
+	}
 	if ( ! site.plan || ! site.plan.features.active.includes( STUDIO_SYNC_FEATURE_NAME ) ) {
 		return 'unsupported';
 	}
@@ -62,8 +66,12 @@ function transformSiteResponse(
 	sites: SitesEndpointSite[],
 	connectedSiteIds: number[]
 ): SyncSite[] {
-	return sites.map( ( site ) => {
-		return {
+	return sites.reduce( ( acc: SyncSite[], site ) => {
+		if ( site.is_deleted && ! connectedSiteIds.some( ( id ) => id === site.ID ) ) {
+			return acc;
+		}
+
+		acc.push( {
 			id: site.ID,
 			localSiteId: '',
 			name: site.name,
@@ -71,8 +79,10 @@ function transformSiteResponse(
 			isStaging: site.is_wpcom_staging_site,
 			stagingSiteIds: site.options?.wpcom_staging_blog_ids ?? [],
 			syncSupport: getSyncSupport( site, connectedSiteIds ),
-		};
-	} );
+		} );
+
+		return acc;
+	}, [] );
 }
 
 export const useFetchWpComSites = ( connectedSiteIds: number[] ) => {
@@ -106,10 +116,10 @@ export const useFetchWpComSites = ( connectedSiteIds: number[] ) => {
 					path: `/me/sites`,
 				},
 				{
-					fields: 'name,ID,URL,plan,is_wpcom_staging_site,is_wpcom_atomic,options',
+					fields: 'name,ID,URL,plan,is_wpcom_staging_site,is_wpcom_atomic,options,is_deleted',
 					filter: 'atomic,wpcom',
 					options: 'created_at,wpcom_staging_blog_ids',
-					site_visibility: 'visible',
+					// site_visibility: 'visible',
 				}
 			)
 			.then( ( response ) => {

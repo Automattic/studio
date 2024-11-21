@@ -36,6 +36,7 @@ beforeEach( () => {
 	} );
 	( useSiteDetails as jest.Mock ).mockReturnValue( {
 		updateSite: jest.fn(),
+		startServer: jest.fn(),
 		stopServer: jest.fn(),
 	} );
 } );

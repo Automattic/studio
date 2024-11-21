@@ -116,13 +116,16 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 	const isPulling = isSiteIdPulling( site.id );
 	const showSpinner = site.isAddingSite || isImporting || isPulling;
 
-	const tooltipText = site.isAddingSite
-		? __( 'Adding' )
-		: isImporting
-		? __( 'Importing' )
-		: isPulling
-		? __( 'Syncing' )
-		: __( 'Loading' );
+	let tooltipText;
+	if ( site.isAddingSite ) {
+		tooltipText = __( 'Adding' );
+	} else if ( isImporting ) {
+		tooltipText = __( 'Importing' );
+	} else if ( isPulling ) {
+		tooltipText = __( 'Syncing' );
+	} else {
+		tooltipText = __( 'Loading' );
+	}
 
 	return (
 		<li

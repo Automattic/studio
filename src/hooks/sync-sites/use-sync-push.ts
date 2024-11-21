@@ -92,6 +92,9 @@ export function useSyncPush( {
 				'tar'
 			);
 			if ( archiveSizeInBytes > SYNC_PUSH_SIZE_LIMIT_BYTES ) {
+				updatePushState( selectedSite.id, remoteSiteId, {
+					status: pushStatesProgressInfo.failed,
+				} );
 				getIpcApi().showErrorMessageBox( {
 					title: sprintf( __( 'Error pushing to %s' ), connectedSite.name ),
 					message: __(

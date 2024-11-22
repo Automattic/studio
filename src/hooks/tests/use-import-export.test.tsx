@@ -36,6 +36,7 @@ beforeEach( () => {
 	} );
 	( useSiteDetails as jest.Mock ).mockReturnValue( {
 		updateSite: jest.fn(),
+		startServer: jest.fn(),
 		stopServer: jest.fn(),
 	} );
 } );
@@ -219,6 +220,8 @@ describe( 'useImportExport hook', () => {
 				body: 'Import completed',
 			} )
 		);
+		expect( useSiteDetails().startServer ).toHaveBeenCalledTimes( 1 );
+		expect( useSiteDetails().startServer ).toHaveBeenCalledWith( SITE_ID );
 	} );
 
 	it( 'shows error message when import fails', async () => {

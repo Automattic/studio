@@ -87,11 +87,12 @@ export function useSyncPush( {
 				isStaging: connectedSite.isStaging,
 			} );
 
-			const { archiveContent, archivePath, archiveSizeInBytes } = await getIpcApi().archiveSite(
-				selectedSite.id,
-				'tar'
-			);
+			const { archiveContent, archivePath, archiveSizeInBytes } =
+				await getIpcApi().exportSiteToPush( selectedSite.id );
 			if ( archiveSizeInBytes > SYNC_PUSH_SIZE_LIMIT_BYTES ) {
+				updatePushState( selectedSite.id, remoteSiteId, {
+					status: pushStatesProgressInfo.failed,
+				} );
 				getIpcApi().showErrorMessageBox( {
 					title: sprintf( __( 'Error pushing to %s' ), connectedSite.name ),
 					message: __(

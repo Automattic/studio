@@ -132,6 +132,7 @@ const getSortedSites = ( sites: SyncSite[] ) => {
 		deleted: 3,
 		'needs-transfer': 4,
 		unsupported: 5,
+		'jetpack-site': 6,
 	};
 
 	return [ ...sites ].sort( ( a, b ) => order[ a.syncSupport ] - order[ b.syncSupport ] );
@@ -180,6 +181,7 @@ function SiteItem( {
 	const isNeedsTransfer = site.syncSupport === 'needs-transfer';
 	const isUnsupported = site.syncSupport === 'unsupported';
 	const isDeleted = site.syncSupport === 'deleted';
+	const isJetpackSite = site.syncSupport === 'jetpack-site';
 
 	return (
 		<div
@@ -257,6 +259,9 @@ function SiteItem( {
 				<div className="a8c-body-small text-a8c-gray-30 shrink-0 text-right">
 					{ __( 'Deleted' ) }
 				</div>
+			) }
+			{ isJetpackSite && (
+				<div className="a8c-body-small text-a8c-gray-30 shrink-0">{ __( 'Unsupported site' ) }</div>
 			) }
 		</div>
 	);

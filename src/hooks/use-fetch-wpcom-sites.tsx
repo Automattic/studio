@@ -3,7 +3,13 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useAuth } from './use-auth';
 import { useOffline } from './use-offline';
 
-type SyncSupport = 'unsupported' | 'syncable' | 'needs-transfer' | 'already-connected' | 'deleted';
+type SyncSupport =
+	| 'unsupported'
+	| 'syncable'
+	| 'needs-transfer'
+	| 'already-connected'
+	| 'jetpack-site'
+	| 'deleted';
 
 export type SyncSite = {
 	id: number;
@@ -21,6 +27,7 @@ type SitesEndpointSite = {
 	is_wpcom_staging_site: boolean;
 	name: string;
 	URL: string;
+	jetpack?: boolean;
 	options?: {
 		created_at: string;
 		wpcom_staging_blog_ids: number[];
@@ -46,11 +53,22 @@ type SitesEndpointResponse = {
 
 const STUDIO_SYNC_FEATURE_NAME = 'studio-sync';
 
+function isJetpackSite( site: SitesEndpointSite ): boolean {
+	return !! site.jetpack && ! site.is_wpcom_atomic;
+}
+
+function hasSupportedPlan( site: SitesEndpointSite ): boolean {
+	return !! site.plan && site.plan.features.active.includes( STUDIO_SYNC_FEATURE_NAME );
+}
+
 function getSyncSupport( site: SitesEndpointSite, connectedSiteIds: number[] ): SyncSupport {
 	if ( site.is_deleted ) {
 		return 'deleted';
 	}
-	if ( ! site.plan || ! site.plan.features.active.includes( STUDIO_SYNC_FEATURE_NAME ) ) {
+	if ( isJetpackSite( site ) && ! hasSupportedPlan( site ) ) {
+		return 'jetpack-site';
+	}
+	if ( ! hasSupportedPlan( site ) ) {
 		return 'unsupported';
 	}
 	if ( ! site.is_wpcom_atomic ) {
@@ -117,7 +135,7 @@ export const useFetchWpComSites = ( connectedSiteIds: number[] ) => {
 					path: `/me/sites`,
 				},
 				{
-					fields: 'name,ID,URL,plan,is_wpcom_staging_site,is_wpcom_atomic,options,is_deleted',
+					fields: 'name,ID,URL,plan,is_wpcom_staging_site,is_wpcom_atomic,options,jetpack,is_deleted',
 					filter: 'atomic,wpcom',
 					options: 'created_at,wpcom_staging_blog_ids',
 				}

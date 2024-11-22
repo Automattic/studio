@@ -1,4 +1,5 @@
 import { __ } from '@wordpress/i18n';
+import { useSiteDetails } from '../hooks/use-site-details';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { ArrowIcon } from './arrow-icon';
@@ -21,6 +22,10 @@ export const ConnectCreateButtons = ( {
 	connectButtonVariant,
 	disableConnectButtonStyle,
 }: ConnectCreateButtonsProps ) => {
+	const { selectedSite } = useSiteDetails();
+	if ( ! selectedSite ) {
+		return null;
+	}
 	return (
 		<>
 			<Tooltip
@@ -51,7 +56,9 @@ export const ConnectCreateButtons = ( {
 			>
 				<Button
 					onClick={ () => {
-						getIpcApi().openURL( 'https://wordpress.com/start/new-site' );
+						getIpcApi().openURL(
+							`https://wordpress.com/setup/new-hosted-site?ref=studio&section=studio-sync&studio-site-id=${ selectedSite.id }`
+						);
 					} }
 					variant={ createButtonVariant }
 					className={ cx( ! isOffline && '!text-a8c-blueberry !shadow-a8c-blueberry' ) }

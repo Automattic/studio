@@ -53,10 +53,7 @@ type SitesEndpointResponse = {
 const STUDIO_SYNC_FEATURE_NAME = 'studio-sync';
 
 function isJetpackSite( site: SitesEndpointSite ): boolean {
-	const hasJetpack = site.jetpack && ! site.is_wpcom_atomic;
-	const hasJetpackPlugins =
-		site.options?.jetpack_connection_active_plugins?.length && ! site.is_wpcom_atomic;
-	return !! hasJetpack || !! hasJetpackPlugins;
+	return !! site.jetpack && ! site.is_wpcom_atomic;
 }
 
 function hasSupportedPlan( site: SitesEndpointSite ): boolean {

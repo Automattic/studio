@@ -54,7 +54,7 @@ const SyncConnectedSitesSection = ( {
 		clearPushState,
 	} = useSyncSites();
 	const { isKeyPulling, isKeyFinished, isKeyFailed } = useSyncStatesProgressInfo();
-	const { updateTimestamp, getLastSyncTime, clearTimestamps } = usePullPushTimestamps();
+	const { updateTimestamp, getLastSyncTimeWithType, clearTimestamps } = usePullPushTimestamps();
 	const showPushStagingConfirmation = useConfirmationDialog( {
 		localStorageKey: 'dontShowPushConfirmation',
 		message: __( 'Overwrite Staging site' ),
@@ -259,7 +259,11 @@ const SyncConnectedSitesSection = ( {
 									! pushState.hasFinished && (
 										<div className="flex gap-2 pl-4 ml-auto shrink-0 h-5">
 											<Tooltip
-												text={ getLastSyncTime( selectedSite.id, connectedSite.id, 'pull' ) }
+												text={ getLastSyncTimeWithType(
+													selectedSite.id,
+													connectedSite.id,
+													'pull'
+												) }
 											>
 												<Button
 													variant="link"
@@ -289,7 +293,11 @@ const SyncConnectedSitesSection = ( {
 												</Button>
 											</Tooltip>
 											<Tooltip
-												text={ getLastSyncTime( selectedSite.id, connectedSite.id, 'push' ) }
+												text={ getLastSyncTimeWithType(
+													selectedSite.id,
+													connectedSite.id,
+													'push'
+												) }
 											>
 												<Button
 													variant="link"

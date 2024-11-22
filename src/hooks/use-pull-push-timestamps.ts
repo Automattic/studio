@@ -41,7 +41,7 @@ export function usePullPushTimestamps() {
 		[ getStoredTimestamps ]
 	);
 
-	const getLastSyncTime = useCallback(
+	const getLastSyncTimeWithType = useCallback(
 		( localSiteId: string, connectedSiteId: number, type: 'pull' | 'push' ): string => {
 			const timestamps = getStoredTimestamps();
 			const localSiteTimestamps = timestamps[ localSiteId ] || {};
@@ -49,10 +49,12 @@ export function usePullPushTimestamps() {
 			const timestamp = type === 'pull' ? siteTimestamps.lastPull : siteTimestamps.lastPush;
 
 			if ( ! timestamp ) {
-				return __( 'Never synced' );
+				return type === 'pull' ? __( 'Never pulled' ) : __( 'Never pushed' );
 			}
 
-			return `${ __( 'Last synced' ) } ${ formatDistanceToNow( timestamp ) } ${ __( 'ago' ) }`;
+			return type === 'pull'
+				? __( 'Last pull %s ago', formatDistanceToNow( timestamp ) )
+				: __( 'Last push %s ago', formatDistanceToNow( timestamp ) );
 		},
 		[ getStoredTimestamps ]
 	);
@@ -77,7 +79,7 @@ export function usePullPushTimestamps() {
 
 	return {
 		updateTimestamp,
-		getLastSyncTime,
+		getLastSyncTimeWithType,
 		clearTimestamps,
 	};
 }

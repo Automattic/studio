@@ -131,6 +131,7 @@ const getSortedSites = ( sites: SyncSite[] ) => {
 		'already-connected': 2,
 		'needs-transfer': 3,
 		unsupported: 4,
+		'jetpack-site': 5,
 	};
 
 	return [ ...sites ].sort( ( a, b ) => order[ a.syncSupport ] - order[ b.syncSupport ] );
@@ -178,6 +179,7 @@ function SiteItem( {
 	const isSyncable = site.syncSupport === 'syncable';
 	const isNeedsTransfer = site.syncSupport === 'needs-transfer';
 	const isUnsupported = site.syncSupport === 'unsupported';
+	const isJetpackSite = site.syncSupport === 'jetpack-site';
 	return (
 		<div
 			className={ cx(
@@ -249,6 +251,9 @@ function SiteItem( {
 						{ __( 'Enable hosting features ↗' ) }
 					</Button>
 				</div>
+			) }
+			{ isJetpackSite && (
+				<div className="a8c-body-small text-a8c-gray-30 shrink-0">{ __( 'Unsupported site' ) }</div>
 			) }
 		</div>
 	);

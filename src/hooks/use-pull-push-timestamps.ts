@@ -7,8 +7,8 @@ const SYNC_TIMESTAMPS_STORAGE_KEY = 'wp-studio-sync-timestamps';
 interface SyncTimestamps {
 	[ localSiteId: string ]: {
 		[ connectedSiteId: number ]: {
-			lastPull?: number;
-			lastPush?: number;
+			pull?: number;
+			push?: number;
 		};
 	};
 }
@@ -29,10 +29,9 @@ export function usePullPushTimestamps() {
 			try {
 				const timestamps = getStoredTimestamps();
 				timestamps[ localSiteId ] = timestamps[ localSiteId ] || {};
-				timestamps[ localSiteId ][ connectedSiteId ] = {
-					...timestamps[ localSiteId ][ connectedSiteId ],
-					[ type === 'pull' ? 'lastPull' : 'lastPush' ]: Date.now(),
-				};
+				timestamps[ localSiteId ][ connectedSiteId ] =
+					timestamps[ localSiteId ][ connectedSiteId ] || {};
+				timestamps[ localSiteId ][ connectedSiteId ][ type ] = Date.now();
 				localStorage.setItem( SYNC_TIMESTAMPS_STORAGE_KEY, JSON.stringify( timestamps ) );
 			} catch ( e ) {
 				console.error( 'Failed to update sync timestamp:', e );
@@ -46,15 +45,16 @@ export function usePullPushTimestamps() {
 			const timestamps = getStoredTimestamps();
 			const localSiteTimestamps = timestamps[ localSiteId ] || {};
 			const siteTimestamps = localSiteTimestamps[ connectedSiteId ] || {};
-			const timestamp = type === 'pull' ? siteTimestamps.lastPull : siteTimestamps.lastPush;
+			const timestamp = siteTimestamps[ type ];
 
 			if ( ! timestamp ) {
 				return type === 'pull' ? __( 'Never pulled' ) : __( 'Never pushed' );
 			}
 
-			return type === 'pull'
-				? sprintf( __( 'Last pull %s ago' ), formatDistanceToNow( timestamp ) )
-				: sprintf( __( 'Last push %s ago' ), formatDistanceToNow( timestamp ) );
+			return sprintf(
+				type === 'pull' ? __( 'Last pull %s ago' ) : __( 'Last push %s ago' ),
+				formatDistanceToNow( timestamp )
+			);
 		},
 		[ getStoredTimestamps ]
 	);

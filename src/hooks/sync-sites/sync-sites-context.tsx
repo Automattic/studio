@@ -32,10 +32,10 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 	const { loadConnectedSites, connectSite, disconnectSite, syncSites, isFetching, refetchSites } =
 		useSiteSyncManagement( { connectedSites, setConnectedSites } );
 
-	useIpcListener( 'sync-connect-site', ( _event, { remoteSiteId, studioSiteId } ) => {
+	useIpcListener( 'sync-connect-site', async ( _event, { remoteSiteId, studioSiteId } ) => {
 		const newConnectedSite = syncSites.find( ( site ) => site.id === remoteSiteId );
 		if ( newConnectedSite ) {
-			connectSite( newConnectedSite );
+			await connectSite( newConnectedSite );
 		}
 	} );
 

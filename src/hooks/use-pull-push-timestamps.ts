@@ -1,6 +1,6 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { formatDistanceToNow } from 'date-fns';
-import { useCallback } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 
 const SYNC_TIMESTAMPS_STORAGE_KEY = 'wp-studio-sync-timestamps';
 
@@ -14,7 +14,7 @@ interface SyncTimestamps {
 }
 
 export function usePullPushTimestamps() {
-	const getStoredTimestamps = useCallback( (): SyncTimestamps => {
+	const [ timestamps, setTimestamps ] = useState< SyncTimestamps >( () => {
 		try {
 			const stored = localStorage.getItem( SYNC_TIMESTAMPS_STORAGE_KEY );
 			return stored ? JSON.parse( stored ) : {};
@@ -22,27 +22,35 @@ export function usePullPushTimestamps() {
 			console.error( 'Failed to parse sync timestamps:', e );
 			return {};
 		}
-	}, [] );
+	} );
+
+	useEffect( () => {
+		try {
+			localStorage.setItem( SYNC_TIMESTAMPS_STORAGE_KEY, JSON.stringify( timestamps ) );
+		} catch ( e ) {
+			console.error( 'Failed to save sync timestamps:', e );
+		}
+	}, [ timestamps ] );
 
 	const updateTimestamp = useCallback(
 		( localSiteId: string, connectedSiteId: number, type: 'pull' | 'push' ) => {
-			try {
-				const timestamps = getStoredTimestamps();
-				timestamps[ localSiteId ] = timestamps[ localSiteId ] || {};
-				timestamps[ localSiteId ][ connectedSiteId ] =
-					timestamps[ localSiteId ][ connectedSiteId ] || {};
-				timestamps[ localSiteId ][ connectedSiteId ][ type ] = Date.now();
-				localStorage.setItem( SYNC_TIMESTAMPS_STORAGE_KEY, JSON.stringify( timestamps ) );
-			} catch ( e ) {
-				console.error( 'Failed to update sync timestamp:', e );
-			}
+			setTimestamps( ( prev ) => {
+				const newTimestamps = { ...prev };
+				if ( ! newTimestamps[ localSiteId ] ) {
+					newTimestamps[ localSiteId ] = {};
+				}
+				if ( ! newTimestamps[ localSiteId ][ connectedSiteId ] ) {
+					newTimestamps[ localSiteId ][ connectedSiteId ] = {};
+				}
+				newTimestamps[ localSiteId ][ connectedSiteId ][ type ] = Date.now();
+				return newTimestamps;
+			} );
 		},
-		[ getStoredTimestamps ]
+		[]
 	);
 
 	const getLastSyncTimeWithType = useCallback(
 		( localSiteId: string, connectedSiteId: number, type: 'pull' | 'push' ): string => {
-			const timestamps = getStoredTimestamps();
 			const localSiteTimestamps = timestamps[ localSiteId ] || {};
 			const siteTimestamps = localSiteTimestamps[ connectedSiteId ] || {};
 			const timestamp = siteTimestamps[ type ];
@@ -56,26 +64,21 @@ export function usePullPushTimestamps() {
 				formatDistanceToNow( timestamp )
 			);
 		},
-		[ getStoredTimestamps ]
+		[ timestamps ]
 	);
 
-	const clearTimestamps = useCallback(
-		( localSiteId: string, connectedSiteId: number ) => {
-			try {
-				const timestamps = getStoredTimestamps();
-				if ( timestamps[ localSiteId ] ) {
-					delete timestamps[ localSiteId ][ connectedSiteId ];
-					if ( Object.keys( timestamps[ localSiteId ] ).length === 0 ) {
-						delete timestamps[ localSiteId ];
-					}
-					localStorage.setItem( SYNC_TIMESTAMPS_STORAGE_KEY, JSON.stringify( timestamps ) );
+	const clearTimestamps = useCallback( ( localSiteId: string, connectedSiteId: number ) => {
+		setTimestamps( ( prev ) => {
+			const newTimestamps = { ...prev };
+			if ( newTimestamps[ localSiteId ] ) {
+				delete newTimestamps[ localSiteId ][ connectedSiteId ];
+				if ( Object.keys( newTimestamps[ localSiteId ] ).length === 0 ) {
+					delete newTimestamps[ localSiteId ];
 				}
-			} catch ( e ) {
-				console.error( 'Failed to clear sync timestamps:', e );
 			}
-		},
-		[ getStoredTimestamps ]
-	);
+			return newTimestamps;
+		} );
+	}, [] );
 
 	return {
 		updateTimestamp,

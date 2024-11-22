@@ -127,6 +127,7 @@ export const useFetchWpComSites = ( connectedSiteIds: number[] ) => {
 					filter: 'atomic,wpcom',
 					options: 'created_at,wpcom_staging_blog_ids',
 					site_visibility: 'visible',
+					site_activity: 'active',
 				}
 			)
 			.then( ( response ) => {

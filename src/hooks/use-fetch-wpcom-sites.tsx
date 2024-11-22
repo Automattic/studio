@@ -30,7 +30,6 @@ type SitesEndpointSite = {
 	options?: {
 		created_at: string;
 		wpcom_staging_blog_ids: number[];
-		jetpack_connection_active_plugins?: string[];
 	};
 	plan?: {
 		expired: boolean;
@@ -126,7 +125,7 @@ export const useFetchWpComSites = ( connectedSiteIds: number[] ) => {
 				{
 					fields: 'name,ID,URL,plan,is_wpcom_staging_site,is_wpcom_atomic,options,jetpack',
 					filter: 'atomic,wpcom',
-					options: 'created_at,wpcom_staging_blog_ids,jetpack_connection_active_plugins',
+					options: 'created_at,wpcom_staging_blog_ids',
 					site_visibility: 'visible',
 				}
 			)

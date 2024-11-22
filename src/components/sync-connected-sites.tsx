@@ -184,6 +184,18 @@ const SyncConnectedSitesSection = ( {
 
 					const pushState = getPushState( selectedSite.id, connectedSite.id );
 					const isPushError = pushState.isError;
+
+					const pullTimestamp = getLastSyncTimeWithType(
+						selectedSite.id,
+						connectedSite.id,
+						'pull'
+					);
+					const pushTimestamp = getLastSyncTimeWithType(
+						selectedSite.id,
+						connectedSite.id,
+						'push'
+					);
+
 					return (
 						<div
 							key={ connectedSite.id }
@@ -259,13 +271,36 @@ const SyncConnectedSitesSection = ( {
 									! pushState.isInProgress &&
 									! pushState.hasFinished && (
 										<div className="flex gap-2 pl-4 ml-auto shrink-0 h-5">
-											<Tooltip
-												text={ getLastSyncTimeWithType(
-													selectedSite.id,
-													connectedSite.id,
-													'pull'
-												) }
-											>
+											{ pullTimestamp ? (
+												<Tooltip text={ pullTimestamp }>
+													<Button
+														variant="link"
+														className="!text-black hover:!text-a8c-blueberry"
+														onClick={ () => {
+															const detail = connectedSite.isStaging
+																? __(
+																		"Pulling will replace your Studio site's files and database with a copy from your staging site."
+																  )
+																: __(
+																		"Pulling will replace your Studio site's files and database with a copy from your production site."
+																  );
+															showPullConfirmation(
+																() => {
+																	updateTimestamp( selectedSite.id, connectedSite.id, 'pull' );
+																	pullSite( connectedSite, selectedSite );
+																},
+																{
+																	detail,
+																}
+															);
+														} }
+														disabled={ isAnySitePulling || isAnySitePushing }
+													>
+														<Icon icon={ cloudDownload } />
+														{ __( 'Pull' ) }
+													</Button>
+												</Tooltip>
+											) : (
 												<Button
 													variant="link"
 													className="!text-black hover:!text-a8c-blueberry"
@@ -292,14 +327,20 @@ const SyncConnectedSitesSection = ( {
 													<Icon icon={ cloudDownload } />
 													{ __( 'Pull' ) }
 												</Button>
-											</Tooltip>
-											<Tooltip
-												text={ getLastSyncTimeWithType(
-													selectedSite.id,
-													connectedSite.id,
-													'push'
-												) }
-											>
+											) }
+											{ pushTimestamp ? (
+												<Tooltip text={ pushTimestamp }>
+													<Button
+														variant="link"
+														className="!text-black hover:!text-a8c-blueberry"
+														onClick={ () => handlePushSite( connectedSite ) }
+														disabled={ isAnySitePulling || isAnySitePushing }
+													>
+														<Icon icon={ cloudUpload } />
+														{ __( 'Push' ) }
+													</Button>
+												</Tooltip>
+											) : (
 												<Button
 													variant="link"
 													className="!text-black hover:!text-a8c-blueberry"
@@ -309,7 +350,7 @@ const SyncConnectedSitesSection = ( {
 													<Icon icon={ cloudUpload } />
 													{ __( 'Push' ) }
 												</Button>
-											</Tooltip>
+											) }
 										</div>
 									) }
 							</div>

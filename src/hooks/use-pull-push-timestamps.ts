@@ -50,13 +50,13 @@ export function usePullPushTimestamps() {
 	);
 
 	const getLastSyncTimeWithType = useCallback(
-		( localSiteId: string, connectedSiteId: number, type: 'pull' | 'push' ): string => {
+		( localSiteId: string, connectedSiteId: number, type: 'pull' | 'push' ): string | undefined => {
 			const localSiteTimestamps = timestamps[ localSiteId ] || {};
 			const siteTimestamps = localSiteTimestamps[ connectedSiteId ] || {};
 			const timestamp = siteTimestamps[ type ];
 
 			if ( ! timestamp ) {
-				return type === 'pull' ? __( 'Never pulled' ) : __( 'Never pushed' );
+				return undefined;
 			}
 
 			return sprintf(

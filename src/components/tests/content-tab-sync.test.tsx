@@ -83,7 +83,9 @@ describe( 'ContentTabSync', () => {
 
 		expect( screen.getByText( 'Sync with' ) ).toBeInTheDocument();
 		expect( createSiteButton ).toBeInTheDocument();
-		expect( getIpcApi().openURL ).toHaveBeenCalledWith( 'https://wordpress.com/start/new-site' );
+		expect( getIpcApi().openURL ).toHaveBeenCalledWith(
+			'https://wordpress.com/setup/new-hosted-site?ref=studio&section=studio-sync&studio-site-id=site-id'
+		);
 	} );
 
 	it( 'displays connect site button to authenticated user', () => {

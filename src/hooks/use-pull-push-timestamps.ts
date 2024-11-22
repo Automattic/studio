@@ -1,4 +1,4 @@
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { formatDistanceToNow } from 'date-fns';
 import { useCallback } from 'react';
 
@@ -53,8 +53,8 @@ export function usePullPushTimestamps() {
 			}
 
 			return type === 'pull'
-				? __( 'Last pull %s ago', formatDistanceToNow( timestamp ) )
-				: __( 'Last push %s ago', formatDistanceToNow( timestamp ) );
+				? sprintf( __( 'Last pull %s ago' ), formatDistanceToNow( timestamp ) )
+				: sprintf( __( 'Last push %s ago' ), formatDistanceToNow( timestamp ) );
 		},
 		[ getStoredTimestamps ]
 	);

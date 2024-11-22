@@ -310,20 +310,23 @@ export async function updateConnectedWpcomSites(
 
 export async function getConnectedWpcomSites(
 	event: IpcMainInvokeEvent,
-	localSiteId: string
+	localSiteId?: string
 ): Promise< SyncSite[] > {
 	const userData = await loadUserData();
+
 	const currentUserId = userData.authToken?.id;
 
 	if ( ! currentUserId ) {
 		return [];
 	}
 
-	return (
-		userData.connectedWpcomSites?.[ currentUserId ]?.filter(
-			( site ) => site.localSiteId === localSiteId
-		) ?? []
-	);
+	const allConnected = userData.connectedWpcomSites?.[ currentUserId ] || [];
+
+	if ( localSiteId ) {
+		return allConnected.filter( ( site ) => site.localSiteId === localSiteId );
+	} else {
+		return allConnected;
+	}
 }
 
 export async function startServer(

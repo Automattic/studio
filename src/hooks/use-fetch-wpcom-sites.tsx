@@ -89,6 +89,7 @@ export const useFetchWpComSites = ( connectedSiteIds: number[] ) => {
 	const [ rawSyncSites, setRawSyncSites ] = useState< SitesEndpointSite[] >( [] );
 	const { isAuthenticated, client } = useAuth();
 	const isFetchingSites = useRef( false );
+	const isInitialized = useRef( false ); // By default syncSites are always empty array, so this flag helps to determine if we have fetched sites at least once
 	const isOffline = useOffline();
 
 	const joinedConnectedSiteIds = connectedSiteIds.join( ',' );
@@ -119,10 +120,10 @@ export const useFetchWpComSites = ( connectedSiteIds: number[] ) => {
 					fields: 'name,ID,URL,plan,is_wpcom_staging_site,is_wpcom_atomic,options,is_deleted',
 					filter: 'atomic,wpcom',
 					options: 'created_at,wpcom_staging_blog_ids',
-					// site_visibility: 'visible',
 				}
 			)
 			.then( ( response ) => {
+				isInitialized.current = true;
 				setRawSyncSites( response.sites );
 			} )
 			.catch( ( error ) => {
@@ -138,10 +139,6 @@ export const useFetchWpComSites = ( connectedSiteIds: number[] ) => {
 		fetchSites();
 	}, [ fetchSites ] );
 
-	const refetchSites = useCallback( () => {
-		fetchSites();
-	}, [ fetchSites ] );
-
 	const syncSites = useMemo(
 		() => transformSiteResponse( rawSyncSites, memoizedConnectedSiteIds ),
 		[ rawSyncSites, memoizedConnectedSiteIds ]
@@ -150,6 +147,7 @@ export const useFetchWpComSites = ( connectedSiteIds: number[] ) => {
 	return {
 		syncSites,
 		isFetching: isFetchingSites.current,
-		refetchSites,
+		isInitialized: isInitialized.current,
+		refetchSites: fetchSites,
 	};
 };

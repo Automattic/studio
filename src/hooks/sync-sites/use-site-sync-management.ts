@@ -4,6 +4,30 @@ import { useAuth } from '../use-auth';
 import { SyncSite, useFetchWpComSites } from '../use-fetch-wpcom-sites';
 import { useSiteDetails } from '../use-site-details';
 
+const upToDateConnectedSites = (
+	connectedSites: SyncSite[],
+	originalSitesFromWpCom: SyncSite[]
+): SyncSite[] => {
+	const updatedConnectedSites: SyncSite[] = connectedSites.map( ( connectedSite ) => {
+		const site = originalSitesFromWpCom.find( ( site ) => site.id === connectedSite.id );
+
+		if ( ! site ) {
+			return {
+				...connectedSite,
+				syncSupport: 'deleted',
+			};
+		}
+
+		return {
+			...connectedSite,
+			syncSupport: site.syncSupport,
+			url: site.url,
+		};
+	} );
+
+	return updatedConnectedSites;
+};
+
 export const useSiteSyncManagement = ( {
 	connectedSites,
 	setConnectedSites,
@@ -12,7 +36,7 @@ export const useSiteSyncManagement = ( {
 	setConnectedSites: React.Dispatch< React.SetStateAction< SyncSite[] > >;
 } ) => {
 	const { isAuthenticated } = useAuth();
-	const { syncSites, isFetching, refetchSites } = useFetchWpComSites(
+	const { syncSites, isFetching, isInitialized, refetchSites } = useFetchWpComSites(
 		connectedSites.map( ( { id } ) => id )
 	);
 	const { selectedSite } = useSiteDetails();
@@ -41,30 +65,22 @@ export const useSiteSyncManagement = ( {
 
 	// whenever array of syncSites changes, we need to update connectedSites to keep them updated with wordpress.com
 	useEffect( () => {
-		if ( isFetching || ! isAuthenticated ) {
+		if ( isFetching || ! isAuthenticated || ! isInitialized ) {
 			return;
 		}
 
-		setConnectedSites( ( prevConnectedSites ) => {
-			const updatedConnectedSites = prevConnectedSites.map( ( connectedSite ) => {
-				const site = syncSites.find( ( site ) => site.id === connectedSite.id );
+		setConnectedSites( ( prevConnectedSites ) =>
+			upToDateConnectedSites( prevConnectedSites, syncSites )
+		);
 
-				if ( ! site ) {
-					return connectedSite;
-				}
+		getIpcApi()
+			.getConnectedWpcomSites()
+			.then( async ( allConnectedSites ) => {
+				const updatedConnectedSites = upToDateConnectedSites( allConnectedSites, syncSites );
 
-				return {
-					...connectedSite,
-					syncSupport: site.syncSupport,
-					url: site.url,
-				};
+				await getIpcApi().updateConnectedWpcomSites( updatedConnectedSites );
 			} );
-
-			getIpcApi().updateConnectedWpcomSites( updatedConnectedSites );
-
-			return updatedConnectedSites;
-		} );
-	}, [ isAuthenticated, syncSites, isFetching, setConnectedSites ] );
+	}, [ isAuthenticated, syncSites, isFetching, isInitialized, setConnectedSites ] );
 
 	const connectSite = useCallback(
 		async ( site: SyncSite ) => {

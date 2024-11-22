@@ -51,6 +51,9 @@ describe( 'ContentTabSync', () => {
 			getPullState: jest.fn(),
 			getPushState: jest.fn().mockReturnValue( defaultPushState ),
 			refetchSites: jest.fn(),
+			updateTimestamp: jest.fn(),
+			getLastSyncTimeWithType: jest.fn().mockReturnValue( undefined ),
+			clearTimestamps: jest.fn(),
 		} );
 	} );
 
@@ -121,6 +124,9 @@ describe( 'ContentTabSync', () => {
 			getPullState: jest.fn(),
 			getPushState: jest.fn().mockReturnValue( defaultPushState ),
 			refetchSites: jest.fn(),
+			updateTimestamp: jest.fn(),
+			getLastSyncTimeWithType: jest.fn().mockReturnValue( undefined ),
+			clearTimestamps: jest.fn(),
 		} );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
@@ -150,6 +156,9 @@ describe( 'ContentTabSync', () => {
 			getPullState: jest.fn(),
 			getPushState: jest.fn().mockReturnValue( defaultPushState ),
 			refetchSites: jest.fn(),
+			updateTimestamp: jest.fn(),
+			getLastSyncTimeWithType: jest.fn().mockReturnValue( undefined ),
+			clearTimestamps: jest.fn(),
 		} );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
@@ -188,6 +197,9 @@ describe( 'ContentTabSync', () => {
 			getPullState: jest.fn(),
 			getPushState: jest.fn().mockReturnValue( defaultPushState ),
 			refetchSites: jest.fn(),
+			updateTimestamp: jest.fn(),
+			getLastSyncTimeWithType: jest.fn().mockReturnValue( undefined ),
+			clearTimestamps: jest.fn(),
 		} );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 

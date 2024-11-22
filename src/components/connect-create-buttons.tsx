@@ -1,5 +1,4 @@
 import { __ } from '@wordpress/i18n';
-import { useSiteDetails } from '../hooks/use-site-details';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { ArrowIcon } from './arrow-icon';
@@ -13,6 +12,7 @@ interface ConnectCreateButtonsProps {
 	connectButtonVariant: ButtonVariant;
 	createButtonVariant: ButtonVariant;
 	disableConnectButtonStyle?: boolean;
+	selectedSite: SiteDetails;
 }
 
 export const ConnectCreateButtons = ( {
@@ -21,11 +21,8 @@ export const ConnectCreateButtons = ( {
 	createButtonVariant,
 	connectButtonVariant,
 	disableConnectButtonStyle,
+	selectedSite,
 }: ConnectCreateButtonsProps ) => {
-	const { selectedSite } = useSiteDetails();
-	if ( ! selectedSite ) {
-		return null;
-	}
 	return (
 		<>
 			<Tooltip

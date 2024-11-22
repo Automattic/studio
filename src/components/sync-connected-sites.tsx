@@ -355,6 +355,7 @@ export function SyncConnectedSites( {
 					isOffline={ isOffline }
 					connectButtonVariant="secondary"
 					createButtonVariant="secondary"
+					selectedSite={ selectedSite }
 				/>
 			</div>
 		</div>

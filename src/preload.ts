@@ -13,6 +13,7 @@ import type { LogLevel } from './logging';
 const api: IpcApi = {
 	archiveSite: ( id: string, format: 'zip' | 'tar' ) =>
 		ipcRenderer.invoke( 'archiveSite', id, format ),
+	exportSiteToPush: ( id: string ) => ipcRenderer.invoke( 'exportSiteToPush', id ),
 	deleteSite: ( id: string, deleteFiles?: boolean ) =>
 		ipcRenderer.invoke( 'deleteSite', id, deleteFiles ),
 	createSite: ( path: string, name?: string ) => ipcRenderer.invoke( 'createSite', path, name ),

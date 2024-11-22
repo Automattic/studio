@@ -500,6 +500,27 @@ export async function archiveSite( event: IpcMainInvokeEvent, id: string, format
 	return { archivePath, archiveContent, archiveSizeInBytes: stats.size };
 }
 
+export async function exportSiteToPush( event: IpcMainInvokeEvent, id: string ) {
+	const site = SiteServer.get( id );
+	if ( ! site ) {
+		throw new Error( 'Site not found.' );
+	}
+	const extension = 'tar.gz';
+	const archivePath = `${ TEMP_DIR }site_${ id }.${ extension }`;
+	const exportOptions = {
+		site: site.details,
+		backupFile: archivePath,
+		includes: { database: true, uploads: true, plugins: true, themes: true },
+		phpVersion: site.details.phpVersion,
+	};
+	// eslint-disable-next-line @typescript-eslint/no-empty-function
+	const onEvent = () => {};
+	await exportBackup( exportOptions, onEvent );
+	const stats = fs.statSync( archivePath );
+	const archiveContent = fs.readFileSync( archivePath );
+	return { archivePath, archiveContent, archiveSizeInBytes: stats.size };
+}
+
 export function removeTemporalFile( event: IpcMainInvokeEvent, path: string ) {
 	if ( ! path.includes( TEMP_DIR ) ) {
 		throw new Error( 'The given path is not a temporal file' );

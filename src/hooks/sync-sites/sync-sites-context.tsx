@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState } from 'react';
 import { SyncSite } from '../use-fetch-wpcom-sites';
 import { useIpcListener } from '../use-ipc-listener';
+import { useSiteDetails } from '../use-site-details';
 import { useSiteSyncManagement } from './use-site-sync-management';
 import { useSyncPull } from './use-sync-pull';
 import { useSyncPush } from './use-sync-push';
@@ -32,10 +33,15 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 	const { loadConnectedSites, connectSite, disconnectSite, syncSites, isFetching, refetchSites } =
 		useSiteSyncManagement( { connectedSites, setConnectedSites } );
 
+	const { selectedSite, setSelectedSiteId } = useSiteDetails();
 	useIpcListener( 'sync-connect-site', async ( _event, { remoteSiteId, studioSiteId } ) => {
 		const newConnectedSite = syncSites.find( ( site ) => site.id === remoteSiteId );
 		if ( newConnectedSite ) {
 			await connectSite( newConnectedSite, studioSiteId );
+			if ( selectedSite?.id && selectedSite.id !== remoteSiteId ) {
+				// Select recently connected site that started the sync
+				setSelectedSiteId( studioSiteId );
+			}
 		}
 	} );
 

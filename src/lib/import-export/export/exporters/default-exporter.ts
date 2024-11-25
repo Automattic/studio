@@ -7,7 +7,7 @@ import archiver from 'archiver';
 import { getWordPressVersionFromInstallation } from '../../../../lib/wp-versions';
 import { SiteServer } from '../../../../site-server';
 import { ExportEvents } from '../events';
-import { exportDatabaseToFile } from '../export-database';
+import { exportDatabaseToMultipleFiles } from '../export-database';
 import { generateBackupFilename } from '../generate-backup-filename';
 import {
 	ExportOptions,
@@ -165,7 +165,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 			const tmpFolder = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio_export' ) );
 			const fileName = `${ generateBackupFilename( 'db-export' ) }.sql`;
 			const sqlDumpPath = path.join( tmpFolder, fileName );
-			await exportDatabaseToFile( this.options.site, sqlDumpPath );
+			await exportDatabaseToMultipleFiles( this.options.site, sqlDumpPath );
 			this.archive.file( sqlDumpPath, { name: `sql/${ fileName }` } );
 			this.backup.sqlFiles.push( sqlDumpPath );
 			this.emit( ExportEvents.DATABASE_EXPORT_COMPLETE );

@@ -265,6 +265,7 @@ const SyncConnectedSitesSection = ( {
 													connectedSite.id,
 													'pull'
 												) }
+												placement="top-start"
 											>
 												<Button
 													variant="link"
@@ -299,6 +300,7 @@ const SyncConnectedSitesSection = ( {
 													connectedSite.id,
 													'push'
 												) }
+												placement="top-start"
 											>
 												<Button
 													variant="link"

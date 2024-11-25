@@ -1,9 +1,9 @@
 import { TabPanel } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
-import { useMemo } from 'react';
+import { createContext, ReactNode, useContext, useMemo, useState } from 'react';
 import { useFeatureFlags } from './use-feature-flags';
 
-export function useContentTabs() {
+function useTabs() {
 	const { __ } = useI18n();
 	const { siteSyncEnabled } = useFeatureFlags();
 
@@ -48,4 +48,33 @@ export function useContentTabs() {
 
 		return tabs.sort( ( a, b ) => a.order - b.order );
 	}, [ __, siteSyncEnabled ] );
+}
+
+export type TabName = 'overview' | 'share' | 'sync' | 'settings' | 'assistant' | 'import-export';
+
+interface ContentTabsContextType {
+	selectedTab: TabName;
+	setSelectedTab: ( tab: TabName ) => void;
+	tabs: React.ComponentProps< typeof TabPanel >[ 'tabs' ];
+}
+
+const ContentTabsContext = createContext< ContentTabsContextType | undefined >( undefined );
+
+export function ContentTabsProvider( { children }: { children: ReactNode } ) {
+	const tabs = useTabs();
+	const [ selectedTab, setSelectedTab ] = useState< TabName >( tabs[ 0 ].name );
+
+	return (
+		<ContentTabsContext.Provider value={ { selectedTab, setSelectedTab, tabs } }>
+			{ children }
+		</ContentTabsContext.Provider>
+	);
+}
+
+export function useContentTabs() {
+	const context = useContext( ContentTabsContext );
+	if ( ! context ) {
+		throw new Error( 'useContentTabs must be used within a ContentTabsProvider' );
+	}
+	return context;
 }

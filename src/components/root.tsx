@@ -2,6 +2,7 @@ import { SyncSitesProvider } from '../hooks/sync-sites/sync-sites-context';
 import { ChatProvider } from '../hooks/use-chat-context';
 import { ChatInputProvider } from '../hooks/use-chat-input';
 import { InstalledAppsProvider } from '../hooks/use-check-installed-apps';
+import { ContentTabsProvider } from '../hooks/use-content-tabs';
 import { FeatureFlagsProvider } from '../hooks/use-feature-flags';
 import { I18nDataProvider } from '../hooks/use-i18n-data';
 import { ImportExportProvider } from '../hooks/use-import-export';
@@ -33,9 +34,11 @@ const Root = () => {
 													<ChatProvider>
 														<ImportExportProvider>
 															<ChatInputProvider>
-																<SyncSitesProvider>
-																	<App />
-																</SyncSitesProvider>
+																<ContentTabsProvider>
+																	<SyncSitesProvider>
+																		<App />
+																	</SyncSitesProvider>
+																</ContentTabsProvider>
 															</ChatInputProvider>
 														</ImportExportProvider>
 													</ChatProvider>

@@ -35,7 +35,7 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 	useIpcListener( 'sync-connect-site', async ( _event, { remoteSiteId, studioSiteId } ) => {
 		const newConnectedSite = syncSites.find( ( site ) => site.id === remoteSiteId );
 		if ( newConnectedSite ) {
-			await connectSite( newConnectedSite );
+			await connectSite( newConnectedSite, studioSiteId );
 		}
 	} );
 

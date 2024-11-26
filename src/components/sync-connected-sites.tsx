@@ -274,6 +274,7 @@ const SyncConnectedSitesSection = ( {
 														'pull'
 													) }
 													placement="top-start"
+													disabled={ isOffline }
 												>
 													<Button
 														variant="link"
@@ -305,6 +306,7 @@ const SyncConnectedSitesSection = ( {
 														'push'
 													) }
 													placement="top-start"
+													disabled={ isOffline }
 												>
 													<Button
 														variant="link"

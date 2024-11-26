@@ -3,12 +3,17 @@ import { useI18n } from '@wordpress/react-i18n';
 import { createContext, ReactNode, useContext, useMemo, useState } from 'react';
 import { useFeatureFlags } from './use-feature-flags';
 
+export type TabName = 'overview' | 'share' | 'sync' | 'settings' | 'assistant' | 'import-export';
+type Tab = React.ComponentProps< typeof TabPanel >[ 'tabs' ][ number ] & {
+	name: TabName;
+};
+
 function useTabs() {
 	const { __ } = useI18n();
 	const { siteSyncEnabled } = useFeatureFlags();
 
 	return useMemo( () => {
-		const tabs: React.ComponentProps< typeof TabPanel >[ 'tabs' ] = [
+		const tabs: Tab[] = [
 			{
 				order: 1,
 				name: 'overview',
@@ -49,9 +54,6 @@ function useTabs() {
 		return tabs.sort( ( a, b ) => a.order - b.order );
 	}, [ __, siteSyncEnabled ] );
 }
-
-export type TabName = 'overview' | 'share' | 'sync' | 'settings' | 'assistant' | 'import-export';
-
 interface ContentTabsContextType {
 	selectedTab: TabName;
 	setSelectedTab: ( tab: TabName ) => void;

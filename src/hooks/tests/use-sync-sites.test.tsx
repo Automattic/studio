@@ -1,6 +1,7 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import { SyncSitesProvider, useSyncSites } from '../sync-sites';
 import { useAuth } from '../use-auth';
+import { ContentTabsProvider } from '../use-content-tabs';
 import { useFetchWpComSites } from '../use-fetch-wpcom-sites';
 import { useSiteDetails } from '../use-site-details';
 
@@ -66,7 +67,9 @@ jest.mock( '../../lib/get-ipc-api', () => ( {
 
 describe( 'useSyncSites management', () => {
 	const wrapper = ( { children }: { children: React.ReactNode } ) => (
-		<SyncSitesProvider>{ children }</SyncSitesProvider>
+		<ContentTabsProvider>
+			<SyncSitesProvider>{ children }</SyncSitesProvider>
+		</ContentTabsProvider>
 	);
 
 	beforeEach( () => {

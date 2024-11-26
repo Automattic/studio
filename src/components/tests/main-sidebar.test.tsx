@@ -2,6 +2,7 @@ import { render, act, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { SyncSitesProvider } from '../../hooks/sync-sites';
 import { useAuth } from '../../hooks/use-auth';
+import { ContentTabsProvider } from '../../hooks/use-content-tabs';
 import MainSidebar from '../main-sidebar';
 
 jest.mock( '../../hooks/use-auth' );
@@ -57,7 +58,11 @@ jest.mock( '../../hooks/use-site-details', () => ( {
 } ) );
 
 const renderWithProvider = ( children: React.ReactElement ) => {
-	return render( <SyncSitesProvider>{ children }</SyncSitesProvider> );
+	return render(
+		<ContentTabsProvider>
+			<SyncSitesProvider>{ children }</SyncSitesProvider>
+		</ContentTabsProvider>
+	);
 };
 
 describe( 'MainSidebar Footer', () => {

@@ -122,33 +122,6 @@ export const useSiteSyncManagement = ( {
 			return;
 		}
 
-		// setConnectedSites( ( prevConnectedSites ) => {
-		// 	const updatedConnectedSites = upToDateConnectedSites( prevConnectedSites, syncSites );
-
-		// 	const { toAdd, toDelete } = diffModificationsStagingSites(
-		// 		prevConnectedSites,
-		// 		updatedConnectedSites
-		// 	);
-
-		// 	if ( toAdd.length || toDelete.length ) {
-		// 		toDelete.forEach( ( id ) => {
-		// 			const siteIndex = updatedConnectedSites.findIndex( ( site ) => site.id === id );
-		// 			if ( siteIndex !== -1 ) {
-		// 				updatedConnectedSites.splice( siteIndex, 1 );
-		// 			}
-		// 		} );
-
-		// 		toAdd.forEach( ( id ) => {
-		// 			const site = syncSites.find( ( site ) => site.id === id );
-		// 			if ( site ) {
-		// 				updatedConnectedSites.push( site );
-		// 			}
-		// 		} );
-		// 	}
-
-		// 	return updatedConnectedSites;
-		// } );
-
 		getIpcApi()
 			.getConnectedWpcomSites()
 			.then( async ( allConnectedSites ) => {

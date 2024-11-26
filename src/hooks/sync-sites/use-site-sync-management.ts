@@ -4,10 +4,16 @@ import { useAuth } from '../use-auth';
 import { SyncSite, useFetchWpComSites } from '../use-fetch-wpcom-sites';
 import { useSiteDetails } from '../use-site-details';
 
+type UpToDateConnectedSitesReturn = {
+	updatedConnectedSites: SyncSite[];
+	toAdd: SyncSite[];
+	toDelete: { id: number; localSiteId: string }[];
+};
+
 const upToDateConnectedSites = (
 	connectedSites: SyncSite[],
 	originalSitesFromWpCom: SyncSite[]
-): SyncSite[] => {
+): UpToDateConnectedSitesReturn => {
 	const updatedConnectedSites = connectedSites.reduce( ( acc: SyncSite[], connectedSite ) => {
 		const site = originalSitesFromWpCom.find( ( site ) => site.id === connectedSite.id );
 
@@ -29,20 +35,8 @@ const upToDateConnectedSites = (
 		return acc;
 	}, [] );
 
-	return updatedConnectedSites;
-};
-
-type DiffModificationsStagingSites = {
-	toAdd: { id: number; localSiteId: string }[];
-	toDelete: { id: number; localSiteId: string }[];
-};
-
-const diffModificationsStagingSites = (
-	prevConnectedSites: SyncSite[],
-	updatedConnectedSites: SyncSite[]
-) => {
-	const stagingSitesModifications = prevConnectedSites.reduce(
-		( acc: DiffModificationsStagingSites, prevSiteState ) => {
+	const { toAdd, toDelete } = connectedSites.reduce(
+		( acc: Omit< UpToDateConnectedSitesReturn, 'updatedConnectedSites' >, prevSiteState ) => {
 			const newSiteState = updatedConnectedSites.find( ( site ) => site.id === prevSiteState.id );
 
 			if ( ! prevSiteState.stagingSiteIds.length || ! newSiteState?.stagingSiteIds.length ) {
@@ -51,10 +45,19 @@ const diffModificationsStagingSites = (
 
 			const toAdd = newSiteState.stagingSiteIds
 				.filter( ( id ) => ! prevSiteState.stagingSiteIds.includes( id ) )
-				.map( ( id ) => ( {
-					id,
-					localSiteId: prevSiteState.localSiteId,
-				} ) );
+				.reduce( ( acc: SyncSite[], id ) => {
+					const site = originalSitesFromWpCom.find( ( site ) => site.id === id );
+
+					if ( site ) {
+						acc.push( {
+							...site,
+							localSiteId: prevSiteState.localSiteId,
+							syncSupport: 'already-connected',
+						} );
+					}
+
+					return acc;
+				}, [] );
 
 			const toDelete = prevSiteState.stagingSiteIds
 				.filter( ( id ) => ! newSiteState.stagingSiteIds.includes( id ) )
@@ -71,7 +74,11 @@ const diffModificationsStagingSites = (
 		{ toAdd: [], toDelete: [] }
 	);
 
-	return stagingSitesModifications;
+	return {
+		updatedConnectedSites,
+		toAdd,
+		toDelete,
+	};
 };
 
 export const useSiteSyncManagement = ( {
@@ -145,14 +152,12 @@ export const useSiteSyncManagement = ( {
 		getIpcApi()
 			.getConnectedWpcomSites()
 			.then( async ( allConnectedSites ) => {
-				const updatedConnectedSites = upToDateConnectedSites( allConnectedSites, syncSites );
+				const { updatedConnectedSites, toAdd, toDelete } = upToDateConnectedSites(
+					allConnectedSites,
+					syncSites
+				);
 
 				await getIpcApi().updateConnectedWpcomSites( updatedConnectedSites );
-
-				const { toAdd, toDelete } = diffModificationsStagingSites(
-					allConnectedSites,
-					updatedConnectedSites
-				);
 
 				if ( toDelete.length ) {
 					for ( const data of toDelete ) {
@@ -161,15 +166,8 @@ export const useSiteSyncManagement = ( {
 				}
 
 				if ( toAdd.length ) {
-					for ( const data of toAdd ) {
-						const site = syncSites.find( ( site ) => site.id === data.id );
-
-						if ( site ) {
-							await getIpcApi().connectWpcomSite(
-								[ { ...site, syncSupport: 'already-connected' } ],
-								data.localSiteId
-							);
-						}
+					for ( const site of toAdd ) {
+						await getIpcApi().connectWpcomSite( [ site ], site.localSiteId );
 					}
 				}
 

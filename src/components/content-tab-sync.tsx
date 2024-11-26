@@ -24,7 +24,7 @@ function SiteSyncDescription( { children }: PropsWithChildren ) {
 			<div className="flex flex-col p-8">
 				<div className="flex items-center mb-1">
 					<div className="a8c-subtitle">{ __( 'Sync with' ) }</div>
-					<WordPressShortLogo className="ml-2 h-5" />
+					<WordPressShortLogo className="ltr:ml-2 rtl:mr-2 h-5" />
 				</div>
 				<div className="max-w-[40ch] text-a8c-gray-70 a8c-body">
 					{ __(

@@ -53,9 +53,11 @@ function SiteSyncDescription( { children }: PropsWithChildren ) {
 
 function CreateConnectSite( {
 	openSitesSyncSelector,
+	selectedSite,
 }: {
 	className?: string;
 	openSitesSyncSelector: () => void;
+	selectedSite: SiteDetails;
 } ) {
 	const { __ } = useI18n();
 	const isOffline = useOffline();
@@ -69,6 +71,7 @@ function CreateConnectSite( {
 					connectButtonVariant="primary"
 					createButtonVariant="secondary"
 					disableConnectButtonStyle={ true }
+					selectedSite={ selectedSite }
 				/>
 			</div>
 		</div>
@@ -177,7 +180,10 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 				/>
 			) : (
 				<SiteSyncDescription>
-					<CreateConnectSite openSitesSyncSelector={ () => setIsSyncSitesSelectorOpen( true ) } />
+					<CreateConnectSite
+						openSitesSyncSelector={ () => setIsSyncSitesSelectorOpen( true ) }
+						selectedSite={ selectedSite }
+					/>
 				</SiteSyncDescription>
 			) }
 

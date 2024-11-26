@@ -138,6 +138,8 @@ export const useFetchWpComSites = ( connectedSiteIds: number[] ) => {
 					fields: 'name,ID,URL,plan,is_wpcom_staging_site,is_wpcom_atomic,options,jetpack,is_deleted',
 					filter: 'atomic,wpcom',
 					options: 'created_at,wpcom_staging_blog_ids',
+					site_visibility: 'visible',
+					site_activity: 'active',
 				}
 			)
 			.then( ( response ) => {

@@ -12,6 +12,7 @@ interface ConnectCreateButtonsProps {
 	connectButtonVariant: ButtonVariant;
 	createButtonVariant: ButtonVariant;
 	disableConnectButtonStyle?: boolean;
+	selectedSite: SiteDetails;
 }
 
 export const ConnectCreateButtons = ( {
@@ -20,6 +21,7 @@ export const ConnectCreateButtons = ( {
 	createButtonVariant,
 	connectButtonVariant,
 	disableConnectButtonStyle,
+	selectedSite,
 }: ConnectCreateButtonsProps ) => {
 	return (
 		<>
@@ -51,7 +53,9 @@ export const ConnectCreateButtons = ( {
 			>
 				<Button
 					onClick={ () => {
-						getIpcApi().openURL( 'https://wordpress.com/start/new-site' );
+						getIpcApi().openURL(
+							`https://wordpress.com/setup/new-hosted-site?ref=studio&section=studio-sync&studioSiteId=${ selectedSite.id }`
+						);
 					} }
 					variant={ createButtonVariant }
 					className={ cx( ! isOffline && '!text-a8c-blueberry !shadow-a8c-blueberry' ) }

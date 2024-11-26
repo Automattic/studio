@@ -132,7 +132,7 @@ export const useSiteSyncManagement = ( {
 				);
 
 				await getIpcApi().updateConnectedWpcomSites( updatedConnectedSites );
-				debugger;
+
 				if ( toDelete.length ) {
 					for ( const data of toDelete ) {
 						await getIpcApi().disconnectWpcomSite( [ data.id ], data.localSiteId );

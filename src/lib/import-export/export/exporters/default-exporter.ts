@@ -169,7 +169,9 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 
 		if ( this.options.splitDatabaseDumpByTable ) {
 			const sqlFiles = await exportDatabaseToMultipleFiles( this.options.site, tmpFolder );
-			this.archive.directory( tmpFolder, 'sql' );
+			sqlFiles.forEach( ( file ) =>
+				this.archive.file( file, { name: `sql/${ path.basename( file ) }` } )
+			);
 			this.backup.sqlFiles.push( ...sqlFiles );
 		} else {
 			const fileName = `${ generateBackupFilename( 'db-export' ) }.sql`;

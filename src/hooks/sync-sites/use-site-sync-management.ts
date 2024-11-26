@@ -8,24 +8,70 @@ const upToDateConnectedSites = (
 	connectedSites: SyncSite[],
 	originalSitesFromWpCom: SyncSite[]
 ): SyncSite[] => {
-	const updatedConnectedSites: SyncSite[] = connectedSites.map( ( connectedSite ) => {
+	const updatedConnectedSites = connectedSites.reduce( ( acc: SyncSite[], connectedSite ) => {
 		const site = originalSitesFromWpCom.find( ( site ) => site.id === connectedSite.id );
 
 		if ( ! site ) {
-			return {
+			acc.push( {
 				...connectedSite,
 				syncSupport: 'deleted',
-			};
+			} );
+		} else {
+			acc.push( {
+				...connectedSite,
+				name: site.name,
+				url: site.url,
+				syncSupport: site.syncSupport,
+				stagingSiteIds: site.stagingSiteIds,
+			} );
 		}
 
-		return {
-			...connectedSite,
-			syncSupport: site.syncSupport,
-			url: site.url,
-		};
-	} );
+		return acc;
+	}, [] );
 
 	return updatedConnectedSites;
+};
+
+type DiffModificationsStagingSites = {
+	toAdd: { id: number; localSiteId: string }[];
+	toDelete: { id: number; localSiteId: string }[];
+};
+
+const diffModificationsStagingSites = (
+	prevConnectedSites: SyncSite[],
+	updatedConnectedSites: SyncSite[]
+) => {
+	const stagingSitesModifications = prevConnectedSites.reduce(
+		( acc: DiffModificationsStagingSites, prevSiteState ) => {
+			const newSiteState = updatedConnectedSites.find( ( site ) => site.id === prevSiteState.id );
+
+			if ( ! prevSiteState.stagingSiteIds.length || ! newSiteState?.stagingSiteIds.length ) {
+				return acc;
+			}
+
+			const toAdd = newSiteState.stagingSiteIds
+				.filter( ( id ) => ! prevSiteState.stagingSiteIds.includes( id ) )
+				.map( ( id ) => ( {
+					id,
+					localSiteId: prevSiteState.localSiteId,
+				} ) );
+
+			const toDelete = prevSiteState.stagingSiteIds
+				.filter( ( id ) => ! newSiteState.stagingSiteIds.includes( id ) )
+				.map( ( id ) => ( {
+					id,
+					localSiteId: prevSiteState.localSiteId,
+				} ) );
+
+			acc.toAdd.push( ...toAdd );
+			acc.toDelete.push( ...toDelete );
+
+			return acc;
+		},
+		{ toAdd: [], toDelete: [] }
+	);
+
+	return stagingSitesModifications;
 };
 
 export const useSiteSyncManagement = ( {
@@ -69,9 +115,32 @@ export const useSiteSyncManagement = ( {
 			return;
 		}
 
-		setConnectedSites( ( prevConnectedSites ) =>
-			upToDateConnectedSites( prevConnectedSites, syncSites )
-		);
+		// setConnectedSites( ( prevConnectedSites ) => {
+		// 	const updatedConnectedSites = upToDateConnectedSites( prevConnectedSites, syncSites );
+
+		// 	const { toAdd, toDelete } = diffModificationsStagingSites(
+		// 		prevConnectedSites,
+		// 		updatedConnectedSites
+		// 	);
+
+		// 	if ( toAdd.length || toDelete.length ) {
+		// 		toDelete.forEach( ( id ) => {
+		// 			const siteIndex = updatedConnectedSites.findIndex( ( site ) => site.id === id );
+		// 			if ( siteIndex !== -1 ) {
+		// 				updatedConnectedSites.splice( siteIndex, 1 );
+		// 			}
+		// 		} );
+
+		// 		toAdd.forEach( ( id ) => {
+		// 			const site = syncSites.find( ( site ) => site.id === id );
+		// 			if ( site ) {
+		// 				updatedConnectedSites.push( site );
+		// 			}
+		// 		} );
+		// 	}
+
+		// 	return updatedConnectedSites;
+		// } );
 
 		getIpcApi()
 			.getConnectedWpcomSites()
@@ -79,8 +148,41 @@ export const useSiteSyncManagement = ( {
 				const updatedConnectedSites = upToDateConnectedSites( allConnectedSites, syncSites );
 
 				await getIpcApi().updateConnectedWpcomSites( updatedConnectedSites );
+
+				const { toAdd, toDelete } = diffModificationsStagingSites(
+					allConnectedSites,
+					updatedConnectedSites
+				);
+
+				if ( toDelete.length ) {
+					for ( const data of toDelete ) {
+						await getIpcApi().disconnectWpcomSite( [ data.id ], data.localSiteId );
+					}
+				}
+
+				if ( toAdd.length ) {
+					for ( const data of toAdd ) {
+						const site = syncSites.find( ( site ) => site.id === data.id );
+
+						if ( site ) {
+							await getIpcApi().connectWpcomSite(
+								[ { ...site, syncSupport: 'already-connected' } ],
+								data.localSiteId
+							);
+						}
+					}
+				}
+
+				loadConnectedSites();
 			} );
-	}, [ isAuthenticated, syncSites, isFetching, isInitialized, setConnectedSites ] );
+	}, [
+		isAuthenticated,
+		syncSites,
+		isFetching,
+		isInitialized,
+		setConnectedSites,
+		loadConnectedSites,
+	] );
 
 	const connectSite = useCallback(
 		async ( site: SyncSite ) => {

@@ -295,6 +295,10 @@ export async function updateConnectedWpcomSites(
 
 	const connections = userData.connectedWpcomSites?.[ currentUserId ] || [];
 
+	if ( ! connections.length ) {
+		return;
+	}
+
 	updatedSites.forEach( ( updatedSite ) => {
 		const index = connections.findIndex(
 			( conn ) => conn.id === updatedSite.id && conn.localSiteId === updatedSite.localSiteId

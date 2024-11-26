@@ -60,7 +60,7 @@ export async function exportDatabaseToMultipleFiles(
 	const tmpFiles: string[] = [];
 
 	for ( const table of tables ) {
-		const fileName = `${ generateBackupFilename( table ) }.sql`;
+		const fileName = `${ table }.sql`;
 
 		// Execute the command to export directly to a temporary file in the project directory
 		const { stderr, exitCode } = await server.executeWpCliCommand(

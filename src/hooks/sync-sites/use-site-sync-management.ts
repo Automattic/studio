@@ -10,7 +10,7 @@ type UpToDateConnectedSitesReturn = {
 	toDelete: { id: number; localSiteId: string }[];
 };
 
-const upToDateConnectedSites = (
+export const upToDateConnectedSites = (
 	connectedSites: SyncSite[],
 	originalSitesFromWpCom: SyncSite[]
 ): UpToDateConnectedSitesReturn => {
@@ -39,28 +39,29 @@ const upToDateConnectedSites = (
 		( acc: Omit< UpToDateConnectedSitesReturn, 'updatedConnectedSites' >, prevSiteState ) => {
 			const newSiteState = updatedConnectedSites.find( ( site ) => site.id === prevSiteState.id );
 
-			if ( ! prevSiteState.stagingSiteIds.length || ! newSiteState?.stagingSiteIds.length ) {
+			if ( ! prevSiteState.stagingSiteIds.length && ! newSiteState?.stagingSiteIds.length ) {
 				return acc;
 			}
 
-			const toAdd = newSiteState.stagingSiteIds
-				.filter( ( id ) => ! prevSiteState.stagingSiteIds.includes( id ) )
-				.reduce( ( acc: SyncSite[], id ) => {
-					const site = originalSitesFromWpCom.find( ( site ) => site.id === id );
+			const toAdd =
+				newSiteState?.stagingSiteIds
+					.filter( ( id ) => ! prevSiteState.stagingSiteIds.includes( id ) )
+					.reduce( ( acc: SyncSite[], id ) => {
+						const site = originalSitesFromWpCom.find( ( site ) => site.id === id );
 
-					if ( site ) {
-						acc.push( {
-							...site,
-							localSiteId: prevSiteState.localSiteId,
-							syncSupport: 'already-connected',
-						} );
-					}
+						if ( site ) {
+							acc.push( {
+								...site,
+								localSiteId: prevSiteState.localSiteId,
+								syncSupport: 'already-connected',
+							} );
+						}
 
-					return acc;
-				}, [] );
+						return acc;
+					}, [] ) || [];
 
 			const toDelete = prevSiteState.stagingSiteIds
-				.filter( ( id ) => ! newSiteState.stagingSiteIds.includes( id ) )
+				.filter( ( id ) => ! newSiteState?.stagingSiteIds.includes( id ) )
 				.map( ( id ) => ( {
 					id,
 					localSiteId: prevSiteState.localSiteId,
@@ -131,7 +132,7 @@ export const useSiteSyncManagement = ( {
 				);
 
 				await getIpcApi().updateConnectedWpcomSites( updatedConnectedSites );
-
+				debugger;
 				if ( toDelete.length ) {
 					for ( const data of toDelete ) {
 						await getIpcApi().disconnectWpcomSite( [ data.id ], data.localSiteId );

@@ -8,7 +8,6 @@ import { getWordPressVersionFromInstallation } from '../../../../lib/wp-versions
 import { SiteServer } from '../../../../site-server';
 import { ExportEvents } from '../events';
 import { exportDatabaseToMultipleFiles } from '../export-database';
-import { generateBackupFilename } from '../generate-backup-filename';
 import {
 	ExportOptions,
 	BackupContents,
@@ -163,11 +162,9 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		if ( this.options.includes.database ) {
 			this.emit( ExportEvents.DATABASE_EXPORT_START );
 			const tmpFolder = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio_export' ) );
-			const fileName = `${ generateBackupFilename( 'db-export' ) }.sql`;
-			const sqlDumpPath = path.join( tmpFolder, fileName );
-			await exportDatabaseToMultipleFiles( this.options.site, sqlDumpPath );
-			this.archive.file( sqlDumpPath, { name: `sql/${ fileName }` } );
-			this.backup.sqlFiles.push( sqlDumpPath );
+			const sqlFiles = await exportDatabaseToMultipleFiles( this.options.site, tmpFolder );
+			this.archive.directory( tmpFolder, 'sql' );
+			this.backup.sqlFiles.push( ...sqlFiles );
 			this.emit( ExportEvents.DATABASE_EXPORT_COMPLETE );
 		}
 	}

@@ -15,7 +15,6 @@ export async function exportDatabaseToFile(
 
 	// Generate a temporary file name in the project directory
 	const tempFileName = `${ generateBackupFilename( 'db-export' ) }.sql`;
-	const tempFilePath = path.join( site.path, tempFileName );
 
 	// Execute the command to export directly to the temp file
 	const { stderr, exitCode } = await server.executeWpCliCommand(
@@ -31,6 +30,7 @@ export async function exportDatabaseToFile(
 	}
 
 	// Move the file to its final destination
+	const tempFilePath = path.join( site.path, tempFileName );
 	await move( tempFilePath, finalDestination );
 
 	console.log( `Database export saved to ${ finalDestination }` );
@@ -38,8 +38,8 @@ export async function exportDatabaseToFile(
 
 export async function exportDatabaseToMultipleFiles(
 	site: SiteDetails,
-	finalDestination: string
-): Promise< void > {
+	finalDestinationDir: string
+): Promise< string[] > {
 	const server = SiteServer.get( site.id );
 
 	if ( ! server ) {
@@ -57,13 +57,14 @@ export async function exportDatabaseToMultipleFiles(
 	}
 	const tables = tablesResult.stdout.split( ',' );
 
+	const tmpFiles: string[] = [];
+
 	for ( const table of tables ) {
-		// Generate a temporary file name in the project directory
-		const tempFileName = `${ generateBackupFilename( table ) }.sql`;
-		const tempFilePath = path.join( site.path, tempFileName );
-		// Execute the command to export directly to the temp file
+		const fileName = `${ generateBackupFilename( table ) }.sql`;
+
+		// Execute the command to export directly to a temporary file in the project directory
 		const { stderr, exitCode } = await server.executeWpCliCommand(
-			`sqlite export ${ tempFilePath } --tables=${ table } --require=/tmp/sqlite-command/command.php`
+			`sqlite export ${ fileName } --tables=${ table } --require=/tmp/sqlite-command/command.php`
 		);
 
 		if ( stderr ) {
@@ -75,8 +76,14 @@ export async function exportDatabaseToMultipleFiles(
 		}
 
 		// Move the file to its final destination
+		const tempFilePath = path.join( site.path, fileName );
+		const finalDestination = path.join( finalDestinationDir, fileName );
 		await move( tempFilePath, finalDestination );
+
+		tmpFiles.push( finalDestination );
 	}
 
-	console.log( `Database export saved to ${ finalDestination }` );
+	console.log( `Database export saved to ${ finalDestinationDir }` );
+
+	return tmpFiles;
 }

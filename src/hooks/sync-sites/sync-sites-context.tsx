@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState } from 'react';
 import { SyncSite } from '../use-fetch-wpcom-sites';
+import { usePullPushTimestamps } from '../use-pull-push-timestamps';
 import { useListenDeepLinkConnection } from './use-listen-deep-link-connection';
 import { useSiteSyncManagement } from './use-site-sync-management';
 import { useSyncPull } from './use-sync-pull';
@@ -7,7 +8,8 @@ import { useSyncPush } from './use-sync-push';
 
 export type SyncSitesContextType = ReturnType< typeof useSyncPull > &
 	ReturnType< typeof useSyncPush > &
-	ReturnType< typeof useSiteSyncManagement >;
+	ReturnType< typeof useSiteSyncManagement > &
+	ReturnType< typeof usePullPushTimestamps >;
 
 const SyncSitesContext = createContext< SyncSitesContextType | undefined >( undefined );
 
@@ -31,6 +33,8 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 	const [ connectedSites, setConnectedSites ] = useState< SyncSite[] >( [] );
 	const { loadConnectedSites, connectSite, disconnectSite, syncSites, isFetching, refetchSites } =
 		useSiteSyncManagement( { connectedSites, setConnectedSites } );
+
+	const { updateTimestamp, getLastSyncTimeWithType, clearTimestamps } = usePullPushTimestamps();
 
 	useListenDeepLinkConnection( { connectSite, syncSites } );
 
@@ -56,6 +60,9 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 				isAnySitePushing,
 				isSiteIdPushing,
 				clearPushState,
+				updateTimestamp,
+				getLastSyncTimeWithType,
+				clearTimestamps,
 			} }
 		>
 			{ children }

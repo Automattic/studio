@@ -73,7 +73,6 @@ describe( 'DefaultExporter', () => {
 		'wp_users',
 	];
 
-
 	( fsPromises.readdir as jest.Mock ).mockResolvedValue( mockFiles );
 	( getWordPressVersionFromInstallation as jest.Mock ).mockResolvedValue( '6.6.1' );
 

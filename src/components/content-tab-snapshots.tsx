@@ -299,7 +299,7 @@ function EmptyGeneric( {
 						__( 'Demo sites are deleted 7 days after the last update.' ),
 					].map( ( text ) => (
 						<div key={ text } className="text-a8c-gray-70 a8c-body flex items-center">
-							<Icon className="fill-a8c-blueberry ltr:mr-2 rtl:ml-2 shrink-0" icon={ check } />{ ' ' }
+							<Icon className="fill-a8c-blueberry ltr:mr-2 rtl:ml-2 shrink-0" icon={ check } />
 							{ text }
 						</div>
 					) ) }

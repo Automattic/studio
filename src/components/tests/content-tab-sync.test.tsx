@@ -52,7 +52,7 @@ describe( 'ContentTabSync', () => {
 			getPushState: jest.fn().mockReturnValue( defaultPushState ),
 			refetchSites: jest.fn(),
 			updateTimestamp: jest.fn(),
-			getLastSyncTimeWithType: jest.fn().mockReturnValue( 'You have not pulled this site yet' ),
+			getLastSyncTimeWithType: jest.fn().mockReturnValue( 'You have not pulled this site yet.' ),
 			clearTimeout: jest.fn(),
 		} );
 	} );
@@ -127,7 +127,7 @@ describe( 'ContentTabSync', () => {
 			getPushState: jest.fn().mockReturnValue( defaultPushState ),
 			refetchSites: jest.fn(),
 			updateTimestamp: jest.fn(),
-			getLastSyncTimeWithType: jest.fn().mockReturnValue( 'You have not pulled this site yet' ),
+			getLastSyncTimeWithType: jest.fn().mockReturnValue( 'You have not pulled this site yet.' ),
 			clearTimeout: jest.fn(),
 		} );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
@@ -159,7 +159,7 @@ describe( 'ContentTabSync', () => {
 			getPushState: jest.fn().mockReturnValue( defaultPushState ),
 			refetchSites: jest.fn(),
 			updateTimestamp: jest.fn(),
-			getLastSyncTimeWithType: jest.fn().mockReturnValue( 'You have not pulled this site yet' ),
+			getLastSyncTimeWithType: jest.fn().mockReturnValue( 'You have not pulled this site yet.' ),
 			clearTimeout: jest.fn(),
 		} );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
@@ -200,7 +200,7 @@ describe( 'ContentTabSync', () => {
 			getPushState: jest.fn().mockReturnValue( defaultPushState ),
 			refetchSites: jest.fn(),
 			updateTimestamp: jest.fn(),
-			getLastSyncTimeWithType: jest.fn().mockReturnValue( 'You have not pulled this site yet' ),
+			getLastSyncTimeWithType: jest.fn().mockReturnValue( 'You have not pulled this site yet.' ),
 			clearTimeout: jest.fn(),
 		} );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );

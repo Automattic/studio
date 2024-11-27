@@ -25,7 +25,6 @@ export function useListenDeepLinkConnection( {
 				setSelectedSiteId( studioSiteId );
 			}
 			if ( selectedTab !== 'sync' ) {
-				console.log( 'Switching to sync tab', { selectedTab } );
 				// Switch to sync tab
 				setSelectedTab( 'sync' );
 			}

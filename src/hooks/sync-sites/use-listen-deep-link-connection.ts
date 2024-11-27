@@ -1,5 +1,5 @@
 import { useContentTabs } from '../use-content-tabs';
-import { SyncSite } from '../use-fetch-wpcom-sites';
+import { transformSingleSiteResponse } from '../use-fetch-wpcom-sites';
 import { useIpcListener } from '../use-ipc-listener';
 import { useSiteDetails } from '../use-site-details';
 import { SyncSitesContextType } from './sync-sites-context';
@@ -14,20 +14,30 @@ export function useListenDeepLinkConnection( {
 	const { selectedSite, setSelectedSiteId } = useSiteDetails();
 	const { setSelectedTab, selectedTab } = useContentTabs();
 
-	useIpcListener( 'sync-connect-site', async ( _event, { remoteSiteId, studioSiteId } ) => {
-		// Fetch latest sites from network before checking
-		const latestSites = await refetchSites();
-		const newConnectedSite = latestSites.find( ( site: SyncSite ) => site.id === remoteSiteId );
-		if ( newConnectedSite ) {
-			await connectSite( newConnectedSite, studioSiteId );
-			if ( selectedSite?.id && selectedSite.id !== remoteSiteId ) {
-				// Select recently connected site that started the sync
-				setSelectedSiteId( studioSiteId );
-			}
-			if ( selectedTab !== 'sync' ) {
-				// Switch to sync tab
-				setSelectedTab( 'sync' );
+	useIpcListener(
+		'sync-connect-site',
+		async (
+			_event,
+			{ remoteSiteId, studioSiteId }: { remoteSiteId: number; studioSiteId: string }
+		) => {
+			// Fetch latest sites from network before checking
+			const latestSites = await refetchSites();
+			const newConnectedSiteResponse = latestSites.find( ( site ) => site.ID === remoteSiteId );
+			if ( newConnectedSiteResponse ) {
+				if ( selectedSite?.id && selectedSite.id !== studioSiteId ) {
+					// Select recently connected site that started the sync
+					setSelectedSiteId( studioSiteId );
+				}
+				const newConnectedSite = transformSingleSiteResponse(
+					newConnectedSiteResponse,
+					'already-connected'
+				);
+				await connectSite( newConnectedSite, studioSiteId );
+				if ( selectedTab !== 'sync' ) {
+					// Switch to sync tab
+					setSelectedTab( 'sync' );
+				}
 			}
 		}
-	} );
+	);
 }

@@ -25,7 +25,7 @@ export function useListenDeepLinkConnection( {
 			const newConnectedSiteResponse = latestSites.find( ( site ) => site.ID === remoteSiteId );
 			if ( newConnectedSiteResponse ) {
 				if ( selectedSite?.id && selectedSite.id !== studioSiteId ) {
-					// Select recently connected site that started the sync
+					// Select studio site that started the sync
 					setSelectedSiteId( studioSiteId );
 				}
 				const newConnectedSite = transformSingleSiteResponse(

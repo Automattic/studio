@@ -57,12 +57,14 @@ export function usePullPushTimestamps() {
 
 			if ( ! timestamp ) {
 				return type === 'pull'
-					? __( 'You have not pulled this site yet' )
-					: __( 'You have not pushed this site yet' );
+					? __( 'You have not pulled this site yet.' )
+					: __( 'You have not pushed this site yet.' );
 			}
 
 			return sprintf(
-				type === 'pull' ? __( 'You pulled this site %s ago' ) : __( 'You pushed this site %s ago' ),
+				type === 'pull'
+					? __( 'You pulled this site %s ago.' )
+					: __( 'You pushed this site %s ago.' ),
 				formatDistanceToNow( timestamp )
 			);
 		},

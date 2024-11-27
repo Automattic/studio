@@ -507,11 +507,12 @@ export async function exportSiteToPush( event: IpcMainInvokeEvent, id: string ) 
 	}
 	const extension = 'tar.gz';
 	const archivePath = `${ TEMP_DIR }site_${ id }.${ extension }`;
-	const exportOptions = {
+	const exportOptions: ExportOptions = {
 		site: site.details,
 		backupFile: archivePath,
 		includes: { database: true, uploads: true, plugins: true, themes: true },
 		phpVersion: site.details.phpVersion,
+		splitDatabaseDumpByTable: true,
 	};
 	// eslint-disable-next-line @typescript-eslint/no-empty-function
 	const onEvent = () => {};

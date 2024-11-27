@@ -36,7 +36,7 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 
 	const { updateTimestamp, getLastSyncTimeWithType, clearTimestamps } = usePullPushTimestamps();
 
-	useListenDeepLinkConnection( { connectSite, syncSites } );
+	useListenDeepLinkConnection( { connectSite, refetchSites } );
 
 	return (
 		<SyncSitesContext.Provider

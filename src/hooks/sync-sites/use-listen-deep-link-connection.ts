@@ -6,16 +6,18 @@ import { SyncSitesContextType } from './sync-sites-context';
 
 export function useListenDeepLinkConnection( {
 	connectSite,
-	syncSites,
+	refetchSites,
 }: {
 	connectSite: SyncSitesContextType[ 'connectSite' ];
-	syncSites: SyncSite[];
+	refetchSites: SyncSitesContextType[ 'refetchSites' ];
 } ) {
 	const { selectedSite, setSelectedSiteId } = useSiteDetails();
 	const { setSelectedTab, selectedTab } = useContentTabs();
 
 	useIpcListener( 'sync-connect-site', async ( _event, { remoteSiteId, studioSiteId } ) => {
-		const newConnectedSite = syncSites.find( ( site ) => site.id === remoteSiteId );
+		// Fetch latest sites from network before checking
+		const latestSites = await refetchSites();
+		const newConnectedSite = latestSites.find( ( site: SyncSite ) => site.id === remoteSiteId );
 		if ( newConnectedSite ) {
 			await connectSite( newConnectedSite, studioSiteId );
 			if ( selectedSite?.id && selectedSite.id !== remoteSiteId ) {

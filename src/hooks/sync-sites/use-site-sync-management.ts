@@ -134,15 +134,21 @@ export const useSiteSyncManagement = ( {
 				await getIpcApi().updateConnectedWpcomSites( updatedConnectedSites );
 
 				if ( toDelete.length ) {
-					for ( const data of toDelete ) {
-						await getIpcApi().disconnectWpcomSite( [ data.id ], data.localSiteId );
-					}
+					const data = toDelete.map( ( { id, localSiteId } ) => ( {
+						siteIds: [ id ],
+						localSiteId,
+					} ) );
+
+					await getIpcApi().disconnectWpcomSite( data );
 				}
 
 				if ( toAdd.length ) {
-					for ( const site of toAdd ) {
-						await getIpcApi().connectWpcomSite( [ site ], site.localSiteId );
-					}
+					const data = toAdd.map( ( site ) => ( {
+						sites: [ site ],
+						localSiteId: site.localSiteId,
+					} ) );
+
+					await getIpcApi().connectWpcomSite( data );
 				}
 
 				loadConnectedSites();
@@ -167,7 +173,10 @@ export const useSiteSyncManagement = ( {
 				);
 				const sitesToConnect = [ site, ...stagingSites ];
 
-				const newConnectedSites = await getIpcApi().connectWpcomSite( sitesToConnect, localSiteId );
+				const newConnectedSites = await getIpcApi().connectWpcomSite( {
+					sites: sitesToConnect,
+					localSiteId,
+				} );
 				setConnectedSites( newConnectedSites );
 			} catch ( error ) {
 				console.error( 'Failed to connect site:', error );
@@ -189,10 +198,10 @@ export const useSiteSyncManagement = ( {
 				}
 
 				const sitesToDisconnect = [ siteId, ...siteToDisconnect.stagingSiteIds ];
-				const newDisconnectedSites = await getIpcApi().disconnectWpcomSite(
-					sitesToDisconnect,
-					localSiteId
-				);
+				const newDisconnectedSites = await getIpcApi().disconnectWpcomSite( {
+					siteIds: sitesToDisconnect,
+					localSiteId,
+				} );
 
 				setConnectedSites( newDisconnectedSites );
 			} catch ( error ) {

@@ -117,6 +117,7 @@ function SearchSites( {
 				} }
 				value={ searchQuery }
 				autoFocus
+				__nextHasNoMarginBottom={ true }
 			/>
 			<p className="a8c-helper-text text-gray-500">
 				{ __( 'Syncing is supported for sites on the Business plan or above.' ) }

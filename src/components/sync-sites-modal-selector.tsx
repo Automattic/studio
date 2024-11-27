@@ -110,7 +110,7 @@ function SearchSites( {
 	return (
 		<div className="flex flex-col px-8 pb-6 border-b border-a8c-gray-5">
 			<SearchControl
-				className="w-full mt-0.5"
+				className="w-full mt-0.5 mb-2"
 				placeholder={ __( 'Search sites' ) }
 				onChange={ ( value ) => {
 					setSearchQuery( value );

@@ -149,7 +149,6 @@ export const useFetchWpComSites = ( connectedSiteIds: number[] ) => {
 	}, [ client?.req, isAuthenticated, isOffline ] );
 
 	useEffect( () => {
-		console.log( 'Fetching sites' );
 		fetchSites();
 	}, [ fetchSites ] );
 

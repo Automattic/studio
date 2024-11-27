@@ -146,7 +146,8 @@ export class SiteServer {
 
 	async updateCachedThumbnail() {
 		if ( ! this.details.running ) {
-			throw new Error( 'Cannot update thumbnail for a stopped server' );
+			console.warn( `Thumbnail update skipped: server ${ this.details.id } is not running.` );
+			return;
 		}
 
 		const captureUrl = new URL( '/?studio-hide-adminbar', this.details.url );

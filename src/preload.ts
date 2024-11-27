@@ -97,7 +97,7 @@ const api: IpcApi = {
 		ipcRenderer.invoke( 'downloadSyncBackup', remoteSiteId, downloadUrl ),
 	removeSyncBackup: ( remoteSiteId: number ) =>
 		ipcRenderer.invoke( 'removeSyncBackup', remoteSiteId ),
-	getConnectedWpcomSites: ( localSiteId: string ) =>
+	getConnectedWpcomSites: ( localSiteId?: string ) =>
 		ipcRenderer.invoke( 'getConnectedWpcomSites', localSiteId ),
 };
 

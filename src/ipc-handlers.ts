@@ -224,9 +224,9 @@ type DataConnectWpcomSite = { sites: SyncSite[]; localSiteId: string };
 
 export async function connectWpcomSite(
 	event: IpcMainInvokeEvent,
-	list: DataConnectWpcomSite | DataConnectWpcomSite[]
+	data: DataConnectWpcomSite | DataConnectWpcomSite[]
 ) {
-	list = Array.isArray( list ) ? list : [ list ];
+	const list = Array.isArray( data ) ? data : [ data ];
 
 	const userData = await loadUserData();
 	const currentUserId = userData.authToken?.id;
@@ -265,9 +265,9 @@ type DataDisconnectWpcomSite = { siteIds: number[]; localSiteId: string };
 
 export async function disconnectWpcomSite(
 	event: IpcMainInvokeEvent,
-	list: DataDisconnectWpcomSite | DataDisconnectWpcomSite[]
+	data: DataDisconnectWpcomSite | DataDisconnectWpcomSite[]
 ) {
-	list = Array.isArray( list ) ? list : [ list ];
+	const list = Array.isArray( data ) ? data : [ data ];
 
 	const userData = await loadUserData();
 	const currentUserId = userData.authToken?.id;

@@ -93,7 +93,7 @@ function transformSiteResponse(
 }
 
 export const useFetchWpComSites = ( connectedSiteIds: number[] ) => {
-	const [ rawSyncSites, setRawSyncSites ] = useState< SitesEndpointSite[] >( [] );
+	const [ syncSites, setSyncSites ] = useState< SyncSite[] >( [] );
 	const { isAuthenticated, client } = useAuth();
 	const isFetchingSites = useRef( false );
 	const isOffline = useOffline();
@@ -109,15 +109,15 @@ export const useFetchWpComSites = ( connectedSiteIds: number[] ) => {
 		[ joinedConnectedSiteIds ]
 	);
 
-	const fetchSites = useCallback( () => {
+	const fetchSites = useCallback( async (): Promise< SyncSite[] > => {
 		if ( ! client?.req || isFetchingSites.current || ! isAuthenticated || isOffline ) {
-			return;
+			return [];
 		}
 
 		isFetchingSites.current = true;
 
-		client.req
-			.get< SitesEndpointResponse >(
+		try {
+			const response = await client.req.get< SitesEndpointResponse >(
 				{
 					apiNamespace: 'rest/v1.2',
 					path: `/me/sites`,
@@ -129,31 +129,30 @@ export const useFetchWpComSites = ( connectedSiteIds: number[] ) => {
 					site_visibility: 'visible',
 					site_activity: 'active',
 				}
-			)
-			.then( ( response ) => {
-				setRawSyncSites( response.sites );
-			} )
-			.catch( ( error ) => {
-				Sentry.captureException( error );
-				console.error( error );
-			} )
-			.finally( () => {
-				isFetchingSites.current = false;
-			} );
-	}, [ client?.req, isAuthenticated, isOffline ] );
+			);
+
+			const transformedSyncSites = transformSiteResponse(
+				response.sites,
+				memoizedConnectedSiteIds
+			);
+			setSyncSites( transformedSyncSites );
+			return transformedSyncSites;
+		} catch ( error ) {
+			Sentry.captureException( error );
+			console.error( error );
+			return [];
+		} finally {
+			isFetchingSites.current = false;
+		}
+	}, [ client?.req, isAuthenticated, isOffline, memoizedConnectedSiteIds ] );
 
 	useEffect( () => {
 		fetchSites();
 	}, [ fetchSites ] );
 
 	const refetchSites = useCallback( () => {
-		fetchSites();
+		return fetchSites();
 	}, [ fetchSites ] );
-
-	const syncSites = useMemo(
-		() => transformSiteResponse( rawSyncSites, memoizedConnectedSiteIds ),
-		[ rawSyncSites, memoizedConnectedSiteIds ]
-	);
 
 	return {
 		syncSites,

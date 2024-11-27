@@ -19,7 +19,8 @@ const api: IpcApi = {
 	updateSite: ( updatedSite: SiteDetails ) => ipcRenderer.invoke( 'updateSite', updatedSite ),
 	connectWpcomSite: ( ...args ) => ipcRenderer.invoke( 'connectWpcomSite', ...args ),
 	disconnectWpcomSite: ( ...args ) => ipcRenderer.invoke( 'disconnectWpcomSite', ...args ),
-	updateConnectedWpcomSites: ( ...args ) => ipcRenderer.invoke( 'updateConnectedWpcomSites', ...args ),
+	updateConnectedWpcomSites: ( ...args ) =>
+		ipcRenderer.invoke( 'updateConnectedWpcomSites', ...args ),
 	authenticate: () => ipcRenderer.invoke( 'authenticate' ),
 	exportSite: ( options: ExportOptions, siteId: string ) =>
 		ipcRenderer.invoke( 'exportSite', options, siteId ),

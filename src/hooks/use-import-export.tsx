@@ -84,7 +84,6 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 				},
 			} ) );
 
-			const wasSiteRunning = selectedSite.running;
 			const handleImportError = async ( error?: unknown ) => {
 				await getIpcApi().showErrorMessageBox( {
 					title: __( 'Failed importing site' ),

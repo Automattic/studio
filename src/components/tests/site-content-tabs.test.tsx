@@ -1,5 +1,6 @@
 import { act, render, screen } from '@testing-library/react';
 import { SyncSitesProvider } from '../../hooks/sync-sites';
+import { ContentTabsProvider } from '../../hooks/use-content-tabs';
 import { useFeatureFlags } from '../../hooks/use-feature-flags';
 import { useSiteDetails } from '../../hooks/use-site-details';
 import { SiteContentTabs } from '../site-content-tabs';
@@ -44,7 +45,11 @@ describe( 'SiteContentTabs', () => {
 		jest.clearAllMocks(); // Clear mock call history between tests
 	} );
 	const renderWithProvider = ( component: React.ReactElement ) => {
-		return render( <SyncSitesProvider>{ component }</SyncSitesProvider> );
+		return render(
+			<ContentTabsProvider>
+				<SyncSitesProvider>{ component }</SyncSitesProvider>
+			</ContentTabsProvider>
+		);
 	};
 	it( 'should render tabs correctly if selected site exists', async () => {
 		( useSiteDetails as jest.Mock ).mockReturnValue( {

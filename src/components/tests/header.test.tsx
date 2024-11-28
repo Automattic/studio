@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { SyncSitesProvider } from '../../hooks/sync-sites';
+import { ContentTabsProvider } from '../../hooks/use-content-tabs';
 import { SiteDetailsProvider } from '../../hooks/use-site-details';
 import { getIpcApi } from '../../lib/get-ipc-api';
 import Header from '../header';
@@ -37,9 +38,11 @@ afterEach( () => {
 describe( 'Header', () => {
 	const renderWithProvider = ( children: React.ReactElement ) => {
 		return render(
-			<SyncSitesProvider>
-				<SiteDetailsProvider>{ children }</SiteDetailsProvider>
-			</SyncSitesProvider>
+			<ContentTabsProvider>
+				<SyncSitesProvider>
+					<SiteDetailsProvider>{ children }</SiteDetailsProvider>
+				</SyncSitesProvider>
+			</ContentTabsProvider>
 		);
 	};
 	it( 'should start site servers', async () => {

@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { SyncSitesProvider } from '../../hooks/sync-sites';
+import { ContentTabsProvider } from '../../hooks/use-content-tabs';
 import { SiteManagementActionProps, SiteManagementActions } from '../site-management-actions';
 
 const defaultProps = {
@@ -13,7 +14,11 @@ describe( 'SiteManagementActions', () => {
 		jest.clearAllMocks();
 	} );
 	const renderWithProvider = ( children: React.ReactElement ) => {
-		return render( <SyncSitesProvider>{ children }</SyncSitesProvider> );
+		return render(
+			<ContentTabsProvider>
+				<SyncSitesProvider>{ children }</SyncSitesProvider>
+			</ContentTabsProvider>
+		);
 	};
 	it( 'should not render when selectedSite is undefined', () => {
 		const { container } = renderWithProvider(

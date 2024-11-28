@@ -70,8 +70,9 @@ if ( gotTheLock && ! isInInstaller ) {
 	}
 }
 
-const onAuthorizationCallback = ( url: string ) => {
-	const { host, hash } = new URL( url );
+const onOpenUrlCallback = ( url: string ) => {
+	const urlObject = new URL( url );
+	const { host, hash, searchParams } = urlObject;
 	if ( host === 'auth' ) {
 		handleAuthCallback( hash ).then( ( authResult ) => {
 			if ( authResult instanceof Error ) {
@@ -80,6 +81,16 @@ const onAuthorizationCallback = ( url: string ) => {
 				ipcMain.emit( 'auth-callback', null, { token: authResult } );
 			}
 		} );
+	}
+
+	if ( host === 'sync-connect-site' ) {
+		const remoteSiteId = parseInt( searchParams.get( 'remoteSiteId' ) ?? '' );
+		const studioSiteId = searchParams.get( 'studioSiteId' );
+		if ( remoteSiteId && studioSiteId ) {
+			withMainWindow( ( mainWindow ) => {
+				mainWindow.webContents.send( 'sync-connect-site', { remoteSiteId, studioSiteId } );
+			} );
+		}
 	}
 };
 
@@ -168,7 +179,7 @@ async function appBoot() {
 	function setupCustomProtocolHandler() {
 		if ( process.platform === 'darwin' ) {
 			app.on( 'open-url', ( _event, url ) => {
-				onAuthorizationCallback( url );
+				onOpenUrlCallback( url );
 			} );
 		} else {
 			// Handle custom protocol links on Windows and Linux
@@ -189,7 +200,7 @@ async function appBoot() {
 						arg.startsWith( PROTOCOL_PREFIX )
 					);
 					if ( customProtocolParameter ) {
-						onAuthorizationCallback( customProtocolParameter );
+						onOpenUrlCallback( customProtocolParameter );
 					}
 				} );
 			} );

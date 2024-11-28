@@ -80,6 +80,21 @@ function getSyncSupport( site: SitesEndpointSite, connectedSiteIds: number[] ): 
 	return 'syncable';
 }
 
+export function transformSingleSiteResponse(
+	site: SitesEndpointSite,
+	syncSupport: SyncSupport
+): SyncSite {
+	return {
+		id: site.ID,
+		localSiteId: '',
+		name: site.name,
+		url: site.URL,
+		isStaging: site.is_wpcom_staging_site,
+		stagingSiteIds: site.options?.wpcom_staging_blog_ids ?? [],
+		syncSupport,
+	};
+}
+
 function transformSiteResponse(
 	sites: SitesEndpointSite[],
 	connectedSiteIds: number[]
@@ -89,15 +104,7 @@ function transformSiteResponse(
 			return acc;
 		}
 
-		acc.push( {
-			id: site.ID,
-			localSiteId: '',
-			name: site.name,
-			url: site.URL,
-			isStaging: site.is_wpcom_staging_site,
-			stagingSiteIds: site.options?.wpcom_staging_blog_ids ?? [],
-			syncSupport: getSyncSupport( site, connectedSiteIds ),
-		} );
+		acc.push( transformSingleSiteResponse( site, getSyncSupport( site, connectedSiteIds ) ) );
 
 		return acc;
 	}, [] );
@@ -121,15 +128,15 @@ export const useFetchWpComSites = ( connectedSiteIds: number[] ) => {
 		[ joinedConnectedSiteIds ]
 	);
 
-	const fetchSites = useCallback( () => {
+	const fetchSites = useCallback( async (): Promise< SitesEndpointSite[] > => {
 		if ( ! client?.req || isFetchingSites.current || ! isAuthenticated || isOffline ) {
-			return;
+			return [];
 		}
 
 		isFetchingSites.current = true;
 
-		client.req
-			.get< SitesEndpointResponse >(
+		try {
+			const response = await client.req.get< SitesEndpointResponse >(
 				{
 					apiNamespace: 'rest/v1.2',
 					path: `/me/sites`,
@@ -141,18 +148,20 @@ export const useFetchWpComSites = ( connectedSiteIds: number[] ) => {
 					options: 'created_at,wpcom_staging_blog_ids',
 					site_activity: 'active',
 				}
-			)
-			.then( ( response ) => {
-				isInitialized.current = true;
-				setRawSyncSites( response.sites );
-			} )
-			.catch( ( error ) => {
-				Sentry.captureException( error );
-				console.error( error );
-			} )
-			.finally( () => {
-				isFetchingSites.current = false;
-			} );
+			);
+
+			isInitialized.current = true;
+
+			setRawSyncSites( response.sites );
+
+			return response.sites;
+		} catch ( error ) {
+			Sentry.captureException( error );
+			console.error( error );
+			return [];
+		} finally {
+			isFetchingSites.current = false;
+		}
 	}, [ client?.req, isAuthenticated, isOffline ] );
 
 	useEffect( () => {

@@ -273,7 +273,7 @@ function EmptyGeneric( {
 		<div className="p-8 flex justify-between max-w-3xl gap-4">
 			<div className="flex flex-col">
 				<div className="a8c-subtitle mb-1">{ __( 'Share a demo site' ) }</div>
-				<div className="w-[40ch] text-a8c-gray-70 a8c-body pr-2">
+				<div className="w-[40ch] text-a8c-gray-70 a8c-body">
 					{ createInterpolateElement(
 						__(
 							'Get feedback from anyone, anywhere with a free demo site powered by <a>WordPress.com</a>.'
@@ -299,7 +299,8 @@ function EmptyGeneric( {
 						__( 'Demo sites are deleted 7 days after the last update.' ),
 					].map( ( text ) => (
 						<div key={ text } className="text-a8c-gray-70 a8c-body flex items-center">
-							<Icon className="fill-a8c-blueberry mr-2 shrink-0" icon={ check } /> { text }
+							<Icon className="fill-a8c-blueberry ltr:mr-2 rtl:ml-2 shrink-0" icon={ check } />
+							{ text }
 						</div>
 					) ) }
 				</div>

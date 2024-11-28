@@ -58,6 +58,21 @@ describe( 'DefaultExporter', () => {
 		{ path: '/path/to/site', name: 'wp-load.php', isFile: () => true },
 	];
 
+	const defaultTableNames = [
+		'wp_commentmeta',
+		'wp_comments',
+		'wp_links',
+		'wp_options',
+		'wp_postmeta',
+		'wp_posts',
+		'wp_term_relationships',
+		'wp_term_taxonomy',
+		'wp_termmeta',
+		'wp_terms',
+		'wp_usermeta',
+		'wp_users',
+	];
+
 	( fsPromises.readdir as jest.Mock ).mockResolvedValue( mockFiles );
 	( getWordPressVersionFromInstallation as jest.Mock ).mockResolvedValue( '6.6.1' );
 
@@ -102,6 +117,8 @@ describe( 'DefaultExporter', () => {
 						return { stdout: '[{"name":"akismet","status":"active","version":"5.3.3"}]' };
 					case /theme list/.test( command ):
 						return { stdout: '[{"name":"twentytwentyfour","status":"active","version":"1.0"}]' };
+					case /tables/.test( command ):
+						return { stdout: defaultTableNames.join( ',' ) };
 					default:
 						return { stderr: null };
 				}
@@ -237,6 +254,34 @@ describe( 'DefaultExporter', () => {
 				name: 'sql/studio-backup-db-export-2023-07-31-12-00-00.sql',
 			}
 		);
+	} );
+
+	it( 'should add a multiple SQL dumps to the archive when `splitDatabaseDumpByTable` is true', async () => {
+		const options = {
+			...mockOptions,
+			includes: {
+				plugins: false,
+				uploads: false,
+				themes: false,
+				database: true,
+			},
+			splitDatabaseDumpByTable: true,
+		};
+		( fsPromises.mkdtemp as jest.Mock ).mockResolvedValue( '/tmp/studio_export_123' );
+
+		const exporter = new DefaultExporter( options );
+		await exporter.export();
+
+		expect( mockArchiver.file ).toHaveBeenNthCalledWith( 1, '/path/to/site/wp-config.php', {
+			name: 'wp-config.php',
+		} );
+
+		for ( const tableName of defaultTableNames ) {
+			expect( mockArchiver.file ).toHaveBeenCalledWith(
+				`/tmp/studio_export_123/${ tableName }.sql`,
+				{ name: `sql/${ tableName }.sql` }
+			);
+		}
 	} );
 
 	it( 'should finalize the archive', async () => {

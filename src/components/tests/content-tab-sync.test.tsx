@@ -2,6 +2,7 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { SyncSitesProvider, useSyncSites } from '../../hooks/sync-sites';
 import { useAuth } from '../../hooks/use-auth';
+import { ContentTabsProvider } from '../../hooks/use-content-tabs';
 import { getIpcApi } from '../../lib/get-ipc-api';
 import { ContentTabSync } from '../content-tab-sync';
 
@@ -51,11 +52,18 @@ describe( 'ContentTabSync', () => {
 			getPullState: jest.fn(),
 			getPushState: jest.fn().mockReturnValue( defaultPushState ),
 			refetchSites: jest.fn(),
+			updateTimestamp: jest.fn(),
+			getLastSyncTimeWithType: jest.fn().mockReturnValue( 'You have not pulled this site yet.' ),
+			clearTimeout: jest.fn(),
 		} );
 	} );
 
 	const renderWithProvider = ( children: React.ReactElement ) => {
-		return render( <SyncSitesProvider>{ children }</SyncSitesProvider> );
+		return render(
+			<ContentTabsProvider>
+				<SyncSitesProvider>{ children }</SyncSitesProvider>
+			</ContentTabsProvider>
+		);
 	};
 
 	it( 'renders the sync title and login buttons', () => {
@@ -83,7 +91,9 @@ describe( 'ContentTabSync', () => {
 
 		expect( screen.getByText( 'Sync with' ) ).toBeInTheDocument();
 		expect( createSiteButton ).toBeInTheDocument();
-		expect( getIpcApi().openURL ).toHaveBeenCalledWith( 'https://wordpress.com/start/new-site' );
+		expect( getIpcApi().openURL ).toHaveBeenCalledWith(
+			'https://wordpress.com/setup/new-hosted-site?ref=studio&section=studio-sync&studioSiteId=site-id'
+		);
 	} );
 
 	it( 'displays connect site button to authenticated user', () => {
@@ -121,6 +131,9 @@ describe( 'ContentTabSync', () => {
 			getPullState: jest.fn(),
 			getPushState: jest.fn().mockReturnValue( defaultPushState ),
 			refetchSites: jest.fn(),
+			updateTimestamp: jest.fn(),
+			getLastSyncTimeWithType: jest.fn().mockReturnValue( 'You have not pulled this site yet.' ),
+			clearTimeout: jest.fn(),
 		} );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
@@ -150,6 +163,9 @@ describe( 'ContentTabSync', () => {
 			getPullState: jest.fn(),
 			getPushState: jest.fn().mockReturnValue( defaultPushState ),
 			refetchSites: jest.fn(),
+			updateTimestamp: jest.fn(),
+			getLastSyncTimeWithType: jest.fn().mockReturnValue( 'You have not pulled this site yet.' ),
+			clearTimeout: jest.fn(),
 		} );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
@@ -188,6 +204,9 @@ describe( 'ContentTabSync', () => {
 			getPullState: jest.fn(),
 			getPushState: jest.fn().mockReturnValue( defaultPushState ),
 			refetchSites: jest.fn(),
+			updateTimestamp: jest.fn(),
+			getLastSyncTimeWithType: jest.fn().mockReturnValue( 'You have not pulled this site yet.' ),
+			clearTimeout: jest.fn(),
 		} );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 

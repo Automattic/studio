@@ -1,3 +1,13 @@
+1.2.2
+=====
+* Disabled Jetpack Protect to fix auto-login for Sites that use Jetpack #658
+* Added missing tooltip labels to buttons #648, #669
+* Fixed bug preventing Studio from deleting existing plugins and themes before the import #657
+* Added AppX for Microsoft Store support #643, #647, #671
+* Disabled import/export for sites not using SQLite integration #463
+* Improved theme and plugin list generation during export #676
+* Automatically start site after import #678
+
 1.2.1
 =====
 * Removed regenerate media step after import flow #639

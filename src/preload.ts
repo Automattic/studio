@@ -105,6 +105,7 @@ const allowedChannels = [
 	'add-site',
 	'user-settings',
 	'auth-updated',
+	'sync-connect-site',
 	'thumbnail-changed',
 	'theme-details-changed',
 	'theme-details-updating',

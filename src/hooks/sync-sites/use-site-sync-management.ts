@@ -163,8 +163,9 @@ export const useSiteSyncManagement = ( {
 	] );
 
 	const connectSite = useCallback(
-		async ( site: SyncSite ) => {
-			if ( ! localSiteId ) {
+		async ( site: SyncSite, overrideLocalSiteId?: string ) => {
+			const localSiteIdToConnect = overrideLocalSiteId ?? localSiteId;
+			if ( ! localSiteIdToConnect ) {
 				return;
 			}
 			try {
@@ -175,9 +176,11 @@ export const useSiteSyncManagement = ( {
 
 				const newConnectedSites = await getIpcApi().connectWpcomSite( {
 					sites: sitesToConnect,
-					localSiteId,
+					localSiteId: localSiteIdToConnect,
 				} );
-				setConnectedSites( newConnectedSites );
+				if ( localSiteIdToConnect === localSiteId ) {
+					setConnectedSites( newConnectedSites );
+				}
 			} catch ( error ) {
 				console.error( 'Failed to connect site:', error );
 				throw error;

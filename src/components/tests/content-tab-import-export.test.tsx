@@ -2,6 +2,7 @@ import { render, fireEvent, waitFor, screen, createEvent } from '@testing-librar
 import { userEvent } from '@testing-library/user-event';
 import { act } from 'react';
 import { SyncSitesProvider } from '../../hooks/sync-sites/sync-sites-context';
+import { ContentTabsProvider } from '../../hooks/use-content-tabs';
 import { useImportExport } from '../../hooks/use-import-export';
 import { useSiteDetails } from '../../hooks/use-site-details';
 import { getIpcApi } from '../../lib/get-ipc-api';
@@ -41,7 +42,11 @@ beforeEach( () => {
 } );
 
 const renderWithProvider = ( children: React.ReactElement ) => {
-	return render( <SyncSitesProvider>{ children }</SyncSitesProvider> );
+	return render(
+		<ContentTabsProvider>
+			<SyncSitesProvider>{ children }</SyncSitesProvider>
+		</ContentTabsProvider>
+	);
 };
 
 describe( 'ContentTabImportExport Import', () => {

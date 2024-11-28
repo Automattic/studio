@@ -1,6 +1,6 @@
 import { TabPanel } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
-import { useContentTabs } from '../hooks/use-content-tabs';
+import { TabName, useContentTabs } from '../hooks/use-content-tabs';
 import { useImportExport } from '../hooks/use-import-export';
 import { useSiteDetails } from '../hooks/use-site-details';
 import { WelcomeMessagesProvider } from '../hooks/use-welcome-messages';
@@ -16,7 +16,7 @@ import { SiteLoadingIndicator } from './site-loading-indicator';
 export function SiteContentTabs() {
 	const { selectedSite } = useSiteDetails();
 	const { importState } = useImportExport();
-	const tabs = useContentTabs();
+	const { tabs, selectedTab, setSelectedTab } = useContentTabs();
 	const { __ } = useI18n();
 
 	if ( ! selectedSite ) {
@@ -39,6 +39,9 @@ export function SiteContentTabs() {
 					className="mt-6 h-full flex flex-col overflow-hidden"
 					tabs={ tabs }
 					orientation="horizontal"
+					onSelect={ ( tabName ) => setSelectedTab( tabName as TabName ) }
+					initialTabName={ selectedTab }
+					key={ selectedTab }
 				>
 					{ ( { name } ) => (
 						<div className="h-full">

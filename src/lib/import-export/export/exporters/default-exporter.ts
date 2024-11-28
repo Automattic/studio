@@ -7,7 +7,7 @@ import archiver from 'archiver';
 import { getWordPressVersionFromInstallation } from '../../../../lib/wp-versions';
 import { SiteServer } from '../../../../site-server';
 import { ExportEvents } from '../events';
-import { exportDatabaseToFile } from '../export-database';
+import { exportDatabaseToFile, exportDatabaseToMultipleFiles } from '../export-database';
 import { generateBackupFilename } from '../generate-backup-filename';
 import {
 	ExportOptions,
@@ -160,16 +160,28 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 	}
 
 	private async addDatabase(): Promise< void > {
-		if ( this.options.includes.database ) {
-			this.emit( ExportEvents.DATABASE_EXPORT_START );
-			const tmpFolder = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio_export' ) );
+		if ( ! this.options.includes.database ) {
+			return;
+		}
+
+		this.emit( ExportEvents.DATABASE_EXPORT_START );
+		const tmpFolder = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio_export' ) );
+
+		if ( this.options.splitDatabaseDumpByTable ) {
+			const sqlFiles = await exportDatabaseToMultipleFiles( this.options.site, tmpFolder );
+			sqlFiles.forEach( ( file ) =>
+				this.archive.file( file, { name: `sql/${ path.basename( file ) }` } )
+			);
+			this.backup.sqlFiles.push( ...sqlFiles );
+		} else {
 			const fileName = `${ generateBackupFilename( 'db-export' ) }.sql`;
 			const sqlDumpPath = path.join( tmpFolder, fileName );
 			await exportDatabaseToFile( this.options.site, sqlDumpPath );
 			this.archive.file( sqlDumpPath, { name: `sql/${ fileName }` } );
 			this.backup.sqlFiles.push( sqlDumpPath );
-			this.emit( ExportEvents.DATABASE_EXPORT_COMPLETE );
 		}
+
+		this.emit( ExportEvents.DATABASE_EXPORT_COMPLETE );
 	}
 
 	private async cleanupTempFiles(): Promise< void > {

@@ -6,6 +6,7 @@ export interface ExportOptions {
 	backupFile: string;
 	includes: { [ index in ExportOptionsIncludes ]: boolean };
 	phpVersion: string;
+	splitDatabaseDumpByTable?: boolean;
 }
 
 export type ExportOptionsIncludes = BackupContentsCategory | 'database';

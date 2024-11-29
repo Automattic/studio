@@ -132,11 +132,11 @@ const SyncConnectedSitesSection = ( {
 
 	const mainSite = section.connectedSites.find( ( item ) => ! item.isStaging );
 	const hasConnectionErrors = mainSite?.syncSupport !== 'already-connected';
-	const isAnySectionSitePulling = section.connectedSites.some( ( site ) => {
+	const isPulling = section.connectedSites.some( ( site ) => {
 		const sitePullState = getPullState( selectedSite.id, site.id );
 		return sitePullState && isKeyPulling( sitePullState.status.key );
 	} );
-	const isAnySectionSitePushing = section.connectedSites.some( ( site ) => {
+	const isPushing = section.connectedSites.some( ( site ) => {
 		const sitePushState = getPushState( selectedSite.id, site.id );
 		return sitePushState?.isInProgress;
 	} );
@@ -152,7 +152,7 @@ const SyncConnectedSitesSection = ( {
 					variant="link"
 					className="!ml-auto !text-a8c-gray-70 hover:!text-a8c-red-50 "
 					onClick={ handleDisconnectSite }
-					disabled={ isAnySectionSitePulling || isAnySectionSitePushing }
+					disabled={ isPulling || isPushing }
 				>
 					{ __( 'Disconnect' ) }
 				</Button>

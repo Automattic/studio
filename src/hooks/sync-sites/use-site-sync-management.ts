@@ -4,81 +4,98 @@ import { useAuth } from '../use-auth';
 import { SyncSite, useFetchWpComSites } from '../use-fetch-wpcom-sites';
 import { useSiteDetails } from '../use-site-details';
 
-type UpToDateConnectedSitesReturn = {
-	updatedConnectedSites: SyncSite[];
-	toAdd: SyncSite[];
-	toDelete: { id: number; localSiteId: string }[];
-};
-
-export const upToDateConnectedSites = (
+/**
+ * Generate updated site data to be stored in `appdata-v1.json` in three steps:
+ *   1. Update the list of `connectedSites` with fresh data (name, URL, etc)
+ *   2. Find any staging sites that have been added to an already connected site
+ *   3. Find any connected staging sites that have been deleted on WordPress.com
+ *
+ * We treat staging sites differently from production sites because users can't connect staging
+ * sites separately from production sites (they're always connected together). So, while deleted
+ * production sites are still rendered in the UI (with a "deleted" notice), we need to automatically
+ * keep the list of staging sites up-to-date, which is where `stagingSitesToAdd` and
+ * `stagingSitesToDelete` comes in.
+ */
+export const getUpdatedConnectedSites = (
 	connectedSites: SyncSite[],
-	originalSitesFromWpCom: SyncSite[]
-): UpToDateConnectedSitesReturn => {
-	const updatedConnectedSites = connectedSites.reduce( ( acc: SyncSite[], connectedSite ) => {
-		const site = originalSitesFromWpCom.find( ( site ) => site.id === connectedSite.id );
+	freshWpComSites: SyncSite[]
+): {
+	updatedConnectedSites: SyncSite[];
+	stagingSitesToAdd: SyncSite[];
+	stagingSitesToDelete: { id: number; localSiteId: string }[];
+} => {
+	const updatedConnectedSites = connectedSites.map( ( connectedSite ): SyncSite => {
+		const site = freshWpComSites.find( ( site ) => site.id === connectedSite.id );
 
 		if ( ! site ) {
-			acc.push( {
+			return {
 				...connectedSite,
 				syncSupport: 'deleted',
-			} );
-		} else {
-			acc.push( {
-				...connectedSite,
-				name: site.name,
-				url: site.url,
-				syncSupport: site.syncSupport,
-				stagingSiteIds: site.stagingSiteIds,
-			} );
+			};
 		}
 
-		return acc;
+		return {
+			...connectedSite,
+			name: site.name,
+			url: site.url,
+			syncSupport: site.syncSupport,
+			stagingSiteIds: site.stagingSiteIds,
+		};
 	}, [] );
 
-	const { toAdd, toDelete } = connectedSites.reduce(
-		( acc: Omit< UpToDateConnectedSitesReturn, 'updatedConnectedSites' >, prevSiteState ) => {
-			const newSiteState = updatedConnectedSites.find( ( site ) => site.id === prevSiteState.id );
+	const stagingSitesToAdd = connectedSites.flatMap( ( connectedSite ) => {
+		const updatedConnectedSite = updatedConnectedSites.find(
+			( site ) => site.id === connectedSite.id
+		);
 
-			if ( ! prevSiteState.stagingSiteIds.length && ! newSiteState?.stagingSiteIds.length ) {
-				return acc;
+		if ( ! updatedConnectedSite?.stagingSiteIds.length ) {
+			return [];
+		}
+
+		const addedStagingSiteIds = updatedConnectedSite.stagingSiteIds.filter(
+			( id ) => ! connectedSite.stagingSiteIds.includes( id )
+		);
+
+		return addedStagingSiteIds.flatMap( ( id ): SyncSite[] => {
+			const freshSite = freshWpComSites.find( ( site ) => site.id === id );
+
+			if ( ! freshSite ) {
+				return [];
 			}
 
-			const toAdd =
-				newSiteState?.stagingSiteIds
-					.filter( ( id ) => ! prevSiteState.stagingSiteIds.includes( id ) )
-					.reduce( ( acc: SyncSite[], id ) => {
-						const site = originalSitesFromWpCom.find( ( site ) => site.id === id );
+			return [
+				{
+					...freshSite,
+					localSiteId: connectedSite.localSiteId,
+					syncSupport: 'already-connected',
+				},
+			];
+		}, [] );
+	} );
 
-						if ( site ) {
-							acc.push( {
-								...site,
-								localSiteId: prevSiteState.localSiteId,
-								syncSupport: 'already-connected',
-							} );
-						}
+	const stagingSitesToDelete = connectedSites.flatMap( ( connectedSite ) => {
+		const updatedConnectedSite = updatedConnectedSites.find(
+			( site ) => site.id === connectedSite.id
+		);
 
-						return acc;
-					}, [] ) || [];
+		if ( ! connectedSite?.stagingSiteIds.length ) {
+			return [];
+		}
 
-			const toDelete = prevSiteState.stagingSiteIds
-				.filter( ( id ) => ! newSiteState?.stagingSiteIds.includes( id ) )
-				.map( ( id ) => ( {
+		return connectedSite.stagingSiteIds
+			.filter( ( id ) => ! updatedConnectedSite?.stagingSiteIds.includes( id ) )
+			.map( ( id ) => {
+				return {
 					id,
-					localSiteId: prevSiteState.localSiteId,
-				} ) );
-
-			acc.toAdd.push( ...toAdd );
-			acc.toDelete.push( ...toDelete );
-
-			return acc;
-		},
-		{ toAdd: [], toDelete: [] }
-	);
+					localSiteId: connectedSite.localSiteId,
+				};
+			} );
+	} );
 
 	return {
 		updatedConnectedSites,
-		toAdd,
-		toDelete,
+		stagingSitesToAdd,
+		stagingSitesToDelete,
 	};
 };
 
@@ -126,15 +143,13 @@ export const useSiteSyncManagement = ( {
 		getIpcApi()
 			.getConnectedWpcomSites()
 			.then( async ( allConnectedSites ) => {
-				const { updatedConnectedSites, toAdd, toDelete } = upToDateConnectedSites(
-					allConnectedSites,
-					syncSites
-				);
+				const { updatedConnectedSites, stagingSitesToAdd, stagingSitesToDelete } =
+					getUpdatedConnectedSites( allConnectedSites, syncSites );
 
 				await getIpcApi().updateConnectedWpcomSites( updatedConnectedSites );
 
-				if ( toDelete.length ) {
-					const data = toDelete.map( ( { id, localSiteId } ) => ( {
+				if ( stagingSitesToDelete.length ) {
+					const data = stagingSitesToDelete.map( ( { id, localSiteId } ) => ( {
 						siteIds: [ id ],
 						localSiteId,
 					} ) );
@@ -142,8 +157,8 @@ export const useSiteSyncManagement = ( {
 					await getIpcApi().disconnectWpcomSite( data );
 				}
 
-				if ( toAdd.length ) {
-					const data = toAdd.map( ( site ) => ( {
+				if ( stagingSitesToAdd.length ) {
+					const data = stagingSitesToAdd.map( ( site ) => ( {
 						sites: [ site ],
 						localSiteId: site.localSiteId,
 					} ) );

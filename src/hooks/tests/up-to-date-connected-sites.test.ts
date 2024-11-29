@@ -1,4 +1,4 @@
-import { upToDateConnectedSites } from '../sync-sites/use-site-sync-management';
+import { getUpdatedConnectedSites } from '../sync-sites/use-site-sync-management';
 import { SyncSite } from '../use-fetch-wpcom-sites';
 
 describe( 'upToDateConnectedSites', () => {
@@ -25,7 +25,7 @@ describe( 'upToDateConnectedSites', () => {
 				syncSupport: 'unsupported',
 			},
 		];
-		const result = upToDateConnectedSites( connectedSites, originalSitesFromWpCom );
+		const result = getUpdatedConnectedSites( connectedSites, originalSitesFromWpCom );
 		expect( result.updatedConnectedSites ).toEqual( [ originalSitesFromWpCom[ 0 ] ] );
 	} );
 
@@ -61,14 +61,14 @@ describe( 'upToDateConnectedSites', () => {
 				syncSupport: 'syncable',
 			},
 		];
-		const result = upToDateConnectedSites( connectedSites, originalSitesFromWpCom );
-		expect( result.toAdd ).toEqual( [
+		const result = getUpdatedConnectedSites( connectedSites, originalSitesFromWpCom );
+		expect( result.stagingSitesToAdd ).toEqual( [
 			{
 				...originalSitesFromWpCom[ 1 ],
 				syncSupport: 'already-connected',
 			},
 		] );
-		expect( result.toDelete ).toEqual( [] );
+		expect( result.stagingSitesToDelete ).toEqual( [] );
 	} );
 
 	test( 'should delete staging site, if it was removed in wordpress.com', () => {
@@ -103,9 +103,9 @@ describe( 'upToDateConnectedSites', () => {
 				syncSupport: 'already-connected',
 			},
 		];
-		const result = upToDateConnectedSites( connectedSites, originalSitesFromWpCom );
-		expect( result.toDelete ).toEqual( [ { id: 2, localSiteId: 'local-site-id' } ] );
-		expect( result.toAdd ).toEqual( [] );
+		const result = getUpdatedConnectedSites( connectedSites, originalSitesFromWpCom );
+		expect( result.stagingSitesToDelete ).toEqual( [ { id: 2, localSiteId: 'local-site-id' } ] );
+		expect( result.stagingSitesToAdd ).toEqual( [] );
 	} );
 
 	test( 'should add new staging site and delete the old one, if staging site was recreated in wordpress.com', () => {
@@ -149,9 +149,9 @@ describe( 'upToDateConnectedSites', () => {
 				syncSupport: 'syncable',
 			},
 		];
-		const result = upToDateConnectedSites( connectedSites, originalSitesFromWpCom );
-		expect( result.toDelete ).toEqual( [ { id: 2, localSiteId: 'local-site-id' } ] );
-		expect( result.toAdd ).toEqual( [
+		const result = getUpdatedConnectedSites( connectedSites, originalSitesFromWpCom );
+		expect( result.stagingSitesToDelete ).toEqual( [ { id: 2, localSiteId: 'local-site-id' } ] );
+		expect( result.stagingSitesToAdd ).toEqual( [
 			{
 				...originalSitesFromWpCom[ 1 ],
 				syncSupport: 'already-connected',
@@ -200,9 +200,9 @@ describe( 'upToDateConnectedSites', () => {
 				syncSupport: 'already-connected',
 			},
 		];
-		const result = upToDateConnectedSites( connectedSites, originalSitesFromWpCom );
-		expect( result.toDelete ).toEqual( [] );
-		expect( result.toAdd ).toEqual( [] );
+		const result = getUpdatedConnectedSites( connectedSites, originalSitesFromWpCom );
+		expect( result.stagingSitesToDelete ).toEqual( [] );
+		expect( result.stagingSitesToAdd ).toEqual( [] );
 	} );
 
 	test( 'should add staging site, if original site was initially connected to two different local sites, but initially w/o staging site', () => {
@@ -264,8 +264,8 @@ describe( 'upToDateConnectedSites', () => {
 				syncSupport: 'syncable',
 			},
 		];
-		const result = upToDateConnectedSites( connectedSites, originalSitesFromWpCom );
-		expect( result.toAdd ).toEqual( [
+		const result = getUpdatedConnectedSites( connectedSites, originalSitesFromWpCom );
+		expect( result.stagingSitesToAdd ).toEqual( [
 			{
 				...originalSitesFromWpCom[ 2 ],
 				syncSupport: 'already-connected',
@@ -275,7 +275,7 @@ describe( 'upToDateConnectedSites', () => {
 				syncSupport: 'already-connected',
 			},
 		] );
-		expect( result.toDelete ).toEqual( [] );
+		expect( result.stagingSitesToDelete ).toEqual( [] );
 		expect( result.updatedConnectedSites ).toEqual( [
 			{
 				...originalSitesFromWpCom[ 0 ],
@@ -346,7 +346,7 @@ describe( 'upToDateConnectedSites', () => {
 				syncSupport: 'already-connected',
 			},
 		];
-		const result = upToDateConnectedSites( connectedSites, originalSitesFromWpCom );
+		const result = getUpdatedConnectedSites( connectedSites, originalSitesFromWpCom );
 		expect( result.updatedConnectedSites ).toEqual( [
 			{
 				...originalSitesFromWpCom[ 0 ],
@@ -365,7 +365,7 @@ describe( 'upToDateConnectedSites', () => {
 				syncSupport: 'deleted',
 			},
 		] );
-		expect( result.toDelete ).toEqual( [
+		expect( result.stagingSitesToDelete ).toEqual( [
 			{
 				id: 2,
 				localSiteId: 'local-site-id-1',
@@ -375,6 +375,6 @@ describe( 'upToDateConnectedSites', () => {
 				localSiteId: 'local-site-id-2',
 			},
 		] );
-		expect( result.toAdd ).toEqual( [] );
+		expect( result.stagingSitesToAdd ).toEqual( [] );
 	} );
 } );

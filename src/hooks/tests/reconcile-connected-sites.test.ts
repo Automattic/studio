@@ -1,7 +1,7 @@
 import { reconcileConnectedSites } from '../sync-sites/use-site-sync-management';
 import { SyncSite } from '../use-fetch-wpcom-sites';
 
-describe( 'upToDateConnectedSites', () => {
+describe( 'reconcileConnectedSites', () => {
 	test( 'should update name, url, syncSupport properties', () => {
 		const connectedSites: SyncSite[] = [
 			{

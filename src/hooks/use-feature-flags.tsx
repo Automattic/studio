@@ -4,12 +4,10 @@ import { useAuth } from './use-auth';
 
 export interface FeatureFlagsContextType {
 	terminalWpCliEnabled: boolean;
-	siteSyncEnabled: boolean;
 }
 
 export const FeatureFlagsContext = createContext< FeatureFlagsContextType >( {
 	terminalWpCliEnabled: false,
-	siteSyncEnabled: false,
 } );
 
 interface FeatureFlagsProviderProps {
@@ -18,10 +16,8 @@ interface FeatureFlagsProviderProps {
 
 export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { children } ) => {
 	const terminalWpCliEnabledFromGlobals = getAppGlobals().terminalWpCliEnabled;
-	const siteSyncEnabledFromGlobals = getAppGlobals().siteSyncEnabled;
 	const [ featureFlags, setFeatureFlags ] = useState< FeatureFlagsContextType >( {
 		terminalWpCliEnabled: terminalWpCliEnabledFromGlobals,
-		siteSyncEnabled: siteSyncEnabledFromGlobals,
 	} );
 	const { isAuthenticated, client } = useAuth();
 
@@ -42,7 +38,6 @@ export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { c
 				setFeatureFlags( {
 					terminalWpCliEnabled:
 						Boolean( flags?.[ 'terminal_wp_cli_enabled' ] ) || terminalWpCliEnabledFromGlobals,
-					siteSyncEnabled: Boolean( flags?.[ 'site_sync_enabled' ] ) || siteSyncEnabledFromGlobals,
 				} );
 			} catch ( error ) {
 				console.error( error );
@@ -52,7 +47,7 @@ export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { c
 		return () => {
 			cancel = true;
 		};
-	}, [ isAuthenticated, client, terminalWpCliEnabledFromGlobals, siteSyncEnabledFromGlobals ] );
+	}, [ isAuthenticated, client, terminalWpCliEnabledFromGlobals ] );
 
 	return (
 		<FeatureFlagsContext.Provider value={ featureFlags }>{ children }</FeatureFlagsContext.Provider>

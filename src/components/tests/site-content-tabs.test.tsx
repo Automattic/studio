@@ -59,6 +59,7 @@ describe( 'SiteContentTabs', () => {
 		} );
 		await act( async () => renderWithProvider( <SiteContentTabs /> ) );
 		expect( screen.getByRole( 'tab', { name: 'Settings' } ) ).not.toBeNull();
+		expect( screen.getByRole( 'tab', { name: 'Sync' } ) ).not.toBeNull();
 		expect( screen.getByRole( 'tab', { name: 'Share' } ) ).not.toBeNull();
 		expect( screen.getByRole( 'tab', { name: 'Import / Export' } ) ).not.toBeNull();
 		expect( screen.queryByRole( 'tab', { name: 'Launchpad' } ) ).toBeNull();
@@ -73,6 +74,7 @@ describe( 'SiteContentTabs', () => {
 		} );
 		await act( async () => renderWithProvider( <SiteContentTabs /> ) );
 		expect( screen.queryByRole( 'tab', { name: 'Overview', selected: true } ) ).toBeVisible();
+		expect( screen.queryByRole( 'tab', { name: 'Sync', selected: false } ) ).toBeVisible();
 		expect( screen.queryByRole( 'tab', { name: 'Share', selected: false } ) ).toBeVisible();
 		expect( screen.queryByRole( 'tab', { name: 'Settings', selected: false } ) ).toBeVisible();
 		expect( screen.queryByRole( 'tab', { name: 'Assistant', selected: false } ) ).toBeVisible();
@@ -87,23 +89,11 @@ describe( 'SiteContentTabs', () => {
 		} );
 		await act( async () => renderWithProvider( <SiteContentTabs /> ) );
 		expect( screen.queryByRole( 'tab', { name: 'Settings' } ) ).toBeNull();
+		expect( screen.queryByRole( 'tab', { name: 'Sync' } ) ).toBeNull();
 		expect( screen.queryByRole( 'tab', { name: 'Share' } ) ).toBeNull();
 		expect( screen.queryByRole( 'tab', { name: 'Launchpad' } ) ).toBeNull();
 		expect( screen.queryByRole( 'tab', { name: 'Publish' } ) ).toBeNull();
 		expect( screen.queryByRole( 'tab', { name: 'Export' } ) ).toBeNull();
 		expect( screen.getByText( 'Select a site to view details.' ) ).toBeVisible();
-	} );
-
-	it( 'should render the Sync tab if siteSyncEnabled is enabled', async () => {
-		( useSiteDetails as jest.Mock ).mockReturnValue( {
-			selectedSite,
-			snapshots: [],
-			loadingServer: {},
-		} );
-		( useFeatureFlags as jest.Mock ).mockReturnValue( {
-			siteSyncEnabled: true,
-		} );
-		await act( async () => renderWithProvider( <SiteContentTabs /> ) );
-		expect( screen.queryByRole( 'tab', { name: 'Sync' } ) ).toBeVisible();
 	} );
 } );

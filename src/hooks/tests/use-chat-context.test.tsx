@@ -74,7 +74,6 @@ beforeEach( () => {
 		appName: '',
 		arm64Translation: false,
 		terminalWpCliEnabled: false,
-		siteSyncEnabled: false,
 	} );
 	setupWpCliResult( { themes: [], plugins: [] } );
 } );

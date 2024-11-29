@@ -10,7 +10,6 @@ type Tab = React.ComponentProps< typeof TabPanel >[ 'tabs' ][ number ] & {
 
 function useTabs() {
 	const { __ } = useI18n();
-	const { siteSyncEnabled } = useFeatureFlags();
 
 	return useMemo( () => {
 		const tabs: Tab[] = [
@@ -18,6 +17,11 @@ function useTabs() {
 				order: 1,
 				name: 'overview',
 				title: __( 'Overview' ),
+			},
+			{
+				order: 2,
+				name: 'sync',
+				title: __( 'Sync' ),
 			},
 			{
 				order: 3,
@@ -36,14 +40,6 @@ function useTabs() {
 			},
 		];
 
-		if ( siteSyncEnabled ) {
-			tabs.push( {
-				order: 2,
-				name: 'sync',
-				title: __( 'Sync' ),
-			} );
-		}
-
 		tabs.push( {
 			order: 6,
 			name: 'assistant',
@@ -52,7 +48,7 @@ function useTabs() {
 		} );
 
 		return tabs.sort( ( a, b ) => a.order - b.order );
-	}, [ __, siteSyncEnabled ] );
+	}, [ __ ] );
 }
 interface ContentTabsContextType {
 	selectedTab: TabName;

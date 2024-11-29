@@ -1,4 +1,4 @@
-import { getUpdatedConnectedSites } from '../sync-sites/use-site-sync-management';
+import { reconcileConnectedSites } from '../sync-sites/use-site-sync-management';
 import { SyncSite } from '../use-fetch-wpcom-sites';
 
 describe( 'upToDateConnectedSites', () => {
@@ -25,7 +25,7 @@ describe( 'upToDateConnectedSites', () => {
 				syncSupport: 'unsupported',
 			},
 		];
-		const result = getUpdatedConnectedSites( connectedSites, originalSitesFromWpCom );
+		const result = reconcileConnectedSites( connectedSites, originalSitesFromWpCom );
 		expect( result.updatedConnectedSites ).toEqual( [ originalSitesFromWpCom[ 0 ] ] );
 	} );
 
@@ -61,7 +61,7 @@ describe( 'upToDateConnectedSites', () => {
 				syncSupport: 'syncable',
 			},
 		];
-		const result = getUpdatedConnectedSites( connectedSites, originalSitesFromWpCom );
+		const result = reconcileConnectedSites( connectedSites, originalSitesFromWpCom );
 		expect( result.stagingSitesToAdd ).toEqual( [
 			{
 				...originalSitesFromWpCom[ 1 ],
@@ -103,7 +103,7 @@ describe( 'upToDateConnectedSites', () => {
 				syncSupport: 'already-connected',
 			},
 		];
-		const result = getUpdatedConnectedSites( connectedSites, originalSitesFromWpCom );
+		const result = reconcileConnectedSites( connectedSites, originalSitesFromWpCom );
 		expect( result.stagingSitesToDelete ).toEqual( [ { id: 2, localSiteId: 'local-site-id' } ] );
 		expect( result.stagingSitesToAdd ).toEqual( [] );
 	} );
@@ -149,7 +149,7 @@ describe( 'upToDateConnectedSites', () => {
 				syncSupport: 'syncable',
 			},
 		];
-		const result = getUpdatedConnectedSites( connectedSites, originalSitesFromWpCom );
+		const result = reconcileConnectedSites( connectedSites, originalSitesFromWpCom );
 		expect( result.stagingSitesToDelete ).toEqual( [ { id: 2, localSiteId: 'local-site-id' } ] );
 		expect( result.stagingSitesToAdd ).toEqual( [
 			{
@@ -200,7 +200,7 @@ describe( 'upToDateConnectedSites', () => {
 				syncSupport: 'already-connected',
 			},
 		];
-		const result = getUpdatedConnectedSites( connectedSites, originalSitesFromWpCom );
+		const result = reconcileConnectedSites( connectedSites, originalSitesFromWpCom );
 		expect( result.stagingSitesToDelete ).toEqual( [] );
 		expect( result.stagingSitesToAdd ).toEqual( [] );
 	} );
@@ -264,7 +264,7 @@ describe( 'upToDateConnectedSites', () => {
 				syncSupport: 'syncable',
 			},
 		];
-		const result = getUpdatedConnectedSites( connectedSites, originalSitesFromWpCom );
+		const result = reconcileConnectedSites( connectedSites, originalSitesFromWpCom );
 		expect( result.stagingSitesToAdd ).toEqual( [
 			{
 				...originalSitesFromWpCom[ 2 ],
@@ -346,7 +346,7 @@ describe( 'upToDateConnectedSites', () => {
 				syncSupport: 'already-connected',
 			},
 		];
-		const result = getUpdatedConnectedSites( connectedSites, originalSitesFromWpCom );
+		const result = reconcileConnectedSites( connectedSites, originalSitesFromWpCom );
 		expect( result.updatedConnectedSites ).toEqual( [
 			{
 				...originalSitesFromWpCom[ 0 ],

@@ -59,8 +59,8 @@ const connectWpcomSiteMock = jest
 jest.mock( '../../lib/get-ipc-api', () => ( {
 	getIpcApi: () => ( {
 		getConnectedWpcomSites: jest.fn().mockResolvedValue( mockConnectedWpcomSites ),
-		connectWpcomSite: connectWpcomSiteMock,
-		disconnectWpcomSite: disconnectWpcomSiteMock,
+		connectWpcomSites: connectWpcomSiteMock,
+		disconnectWpcomSites: disconnectWpcomSiteMock,
 		updateConnectedWpcomSites: jest.fn(),
 	} ),
 } ) );

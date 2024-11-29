@@ -116,10 +116,12 @@ describe( 'useSyncSites management', () => {
 		} );
 
 		await waitFor( () => {
-			expect( connectWpcomSiteMock ).toHaveBeenCalledWith( {
-				localSiteId: '788a7e0c-62d2-427e-8b1a-e6d5ac84b61c',
-				sites: [ siteToConnect, mockSyncSites[ 1 ] ],
-			} );
+			expect( connectWpcomSiteMock ).toHaveBeenCalledWith( [
+				{
+					localSiteId: '788a7e0c-62d2-427e-8b1a-e6d5ac84b61c',
+					sites: [ siteToConnect, mockSyncSites[ 1 ] ],
+				},
+			] );
 		} );
 	} );
 
@@ -136,9 +138,11 @@ describe( 'useSyncSites management', () => {
 			await result.current.disconnectSite( siteToDisconnect.id );
 		} );
 
-		expect( disconnectWpcomSiteMock ).toHaveBeenCalledWith( {
-			localSiteId: '788a7e0c-62d2-427e-8b1a-e6d5ac84b61c',
-			siteIds: [ siteToDisconnect.id, ...siteToDisconnect.stagingSiteIds ],
-		} );
+		expect( disconnectWpcomSiteMock ).toHaveBeenCalledWith( [
+			{
+				localSiteId: '788a7e0c-62d2-427e-8b1a-e6d5ac84b61c',
+				siteIds: [ siteToDisconnect.id, ...siteToDisconnect.stagingSiteIds ],
+			},
+		] );
 	} );
 } );

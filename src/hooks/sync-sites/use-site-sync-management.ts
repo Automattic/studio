@@ -16,7 +16,7 @@ import { useSiteDetails } from '../use-site-details';
  * keep the list of staging sites up-to-date, which is where `stagingSitesToAdd` and
  * `stagingSitesToDelete` comes in.
  */
-export const getUpdatedConnectedSites = (
+export const reconcileConnectedSites = (
 	connectedSites: SyncSite[],
 	freshWpComSites: SyncSite[]
 ): {
@@ -144,7 +144,7 @@ export const useSiteSyncManagement = ( {
 			.getConnectedWpcomSites()
 			.then( async ( allConnectedSites ) => {
 				const { updatedConnectedSites, stagingSitesToAdd, stagingSitesToDelete } =
-					getUpdatedConnectedSites( allConnectedSites, syncSites );
+					reconcileConnectedSites( allConnectedSites, syncSites );
 
 				await getIpcApi().updateConnectedWpcomSites( updatedConnectedSites );
 
@@ -189,10 +189,12 @@ export const useSiteSyncManagement = ( {
 				);
 				const sitesToConnect = [ site, ...stagingSites ];
 
-				const newConnectedSites = await getIpcApi().connectWpcomSite( {
-					sites: sitesToConnect,
-					localSiteId: localSiteIdToConnect,
-				} );
+				const newConnectedSites = await getIpcApi().connectWpcomSite( [
+					{
+						sites: sitesToConnect,
+						localSiteId: localSiteIdToConnect,
+					},
+				] );
 				if ( localSiteIdToConnect === localSiteId ) {
 					setConnectedSites( newConnectedSites );
 				}
@@ -216,10 +218,12 @@ export const useSiteSyncManagement = ( {
 				}
 
 				const sitesToDisconnect = [ siteId, ...siteToDisconnect.stagingSiteIds ];
-				const newDisconnectedSites = await getIpcApi().disconnectWpcomSite( {
-					siteIds: sitesToDisconnect,
-					localSiteId,
-				} );
+				const newDisconnectedSites = await getIpcApi().disconnectWpcomSite( [
+					{
+						siteIds: sitesToDisconnect,
+						localSiteId,
+					},
+				] );
 
 				setConnectedSites( newDisconnectedSites );
 			} catch ( error ) {

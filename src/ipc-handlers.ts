@@ -220,14 +220,9 @@ export async function updateSite(
 	return mergeSiteDetailsWithRunningDetails( userData.sites );
 }
 
-type DataConnectWpcomSite = { sites: SyncSite[]; localSiteId: string };
+type WpcomSitesToConnect = { sites: SyncSite[]; localSiteId: string }[];
 
-export async function connectWpcomSite(
-	event: IpcMainInvokeEvent,
-	data: DataConnectWpcomSite | DataConnectWpcomSite[]
-) {
-	const list = Array.isArray( data ) ? data : [ data ];
-
+export async function connectWpcomSite( event: IpcMainInvokeEvent, list: WpcomSitesToConnect ) {
 	const userData = await loadUserData();
 	const currentUserId = userData.authToken?.id;
 
@@ -261,14 +256,12 @@ export async function connectWpcomSite(
 	);
 }
 
-type DataDisconnectWpcomSite = { siteIds: number[]; localSiteId: string };
+type WpcomSitesToDisconnect = { siteIds: number[]; localSiteId: string }[];
 
 export async function disconnectWpcomSite(
 	event: IpcMainInvokeEvent,
-	data: DataDisconnectWpcomSite | DataDisconnectWpcomSite[]
+	list: WpcomSitesToDisconnect
 ) {
-	const list = Array.isArray( data ) ? data : [ data ];
-
 	const userData = await loadUserData();
 	const currentUserId = userData.authToken?.id;
 
@@ -278,8 +271,8 @@ export async function disconnectWpcomSite(
 
 	const connectedWpcomSites = userData.connectedWpcomSites;
 
-	// Totally unreal case, added it to make types below more clear and if this error happens, we definitely have something wrong
-	if ( ! connectedWpcomSites || ! connectedWpcomSites?.[ currentUserId ]?.length ) {
+	// Totally unreal case, added it to help TS parse the code below. And if this error happens, we definitely have something wrong.
+	if ( ! Array.isArray( connectedWpcomSites?.[ currentUserId ] ) ) {
 		throw new Error(
 			'Something went wrong, since you are trying to disconnect something, but there are no stored connections yet'
 		);

@@ -107,10 +107,12 @@ function useDeleteSite() {
 					const connectedSites = await getIpcApi().getConnectedWpcomSites( siteId );
 					const connectedSiteIds = connectedSites.map( ( site ) => site.id );
 					if ( connectedSiteIds.length > 0 ) {
-						await getIpcApi().disconnectWpcomSite( {
-							siteIds: connectedSiteIds,
-							localSiteId: siteId,
-						} );
+						await getIpcApi().disconnectWpcomSite( [
+							{
+								siteIds: connectedSiteIds,
+								localSiteId: siteId,
+							},
+						] );
 					}
 				} catch ( error ) {
 					// If disconnection fails, log but don't fail the deletion

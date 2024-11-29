@@ -154,7 +154,7 @@ export const useSiteSyncManagement = ( {
 						localSiteId,
 					} ) );
 
-					await getIpcApi().disconnectWpcomSite( data );
+					await getIpcApi().disconnectWpcomSites( data );
 				}
 
 				if ( stagingSitesToAdd.length ) {
@@ -163,7 +163,7 @@ export const useSiteSyncManagement = ( {
 						localSiteId: site.localSiteId,
 					} ) );
 
-					await getIpcApi().connectWpcomSite( data );
+					await getIpcApi().connectWpcomSites( data );
 				}
 
 				loadConnectedSites();
@@ -189,7 +189,7 @@ export const useSiteSyncManagement = ( {
 				);
 				const sitesToConnect = [ site, ...stagingSites ];
 
-				const newConnectedSites = await getIpcApi().connectWpcomSite( [
+				const newConnectedSites = await getIpcApi().connectWpcomSites( [
 					{
 						sites: sitesToConnect,
 						localSiteId: localSiteIdToConnect,
@@ -218,7 +218,7 @@ export const useSiteSyncManagement = ( {
 				}
 
 				const sitesToDisconnect = [ siteId, ...siteToDisconnect.stagingSiteIds ];
-				const newDisconnectedSites = await getIpcApi().disconnectWpcomSite( [
+				const newDisconnectedSites = await getIpcApi().disconnectWpcomSites( [
 					{
 						siteIds: sitesToDisconnect,
 						localSiteId,

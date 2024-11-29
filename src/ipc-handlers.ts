@@ -222,7 +222,7 @@ export async function updateSite(
 
 type WpcomSitesToConnect = { sites: SyncSite[]; localSiteId: string }[];
 
-export async function connectWpcomSite( event: IpcMainInvokeEvent, list: WpcomSitesToConnect ) {
+export async function connectWpcomSites( event: IpcMainInvokeEvent, list: WpcomSitesToConnect ) {
 	const userData = await loadUserData();
 	const currentUserId = userData.authToken?.id;
 
@@ -258,7 +258,7 @@ export async function connectWpcomSite( event: IpcMainInvokeEvent, list: WpcomSi
 
 type WpcomSitesToDisconnect = { siteIds: number[]; localSiteId: string }[];
 
-export async function disconnectWpcomSite(
+export async function disconnectWpcomSites(
 	event: IpcMainInvokeEvent,
 	list: WpcomSitesToDisconnect
 ) {

@@ -107,7 +107,7 @@ function useDeleteSite() {
 					const connectedSites = await getIpcApi().getConnectedWpcomSites( siteId );
 					const connectedSiteIds = connectedSites.map( ( site ) => site.id );
 					if ( connectedSiteIds.length > 0 ) {
-						await getIpcApi().disconnectWpcomSite( [
+						await getIpcApi().disconnectWpcomSites( [
 							{
 								siteIds: connectedSiteIds,
 								localSiteId: siteId,

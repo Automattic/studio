@@ -129,9 +129,13 @@ export function useSyncPush( {
 				updatePushState( selectedSite.id, remoteSiteId, {
 					status: pushStatesProgressInfo.failed,
 				} );
+				let errorMessage = __( 'Studio was unable to connect to WordPress.com. Please try again.' );
+				if ( typeof error === 'object' && error !== null && 'error' in error ) {
+					errorMessage = ( error as { error: string } ).error || errorMessage;
+				}
 				getIpcApi().showErrorMessageBox( {
 					title: sprintf( __( 'Error pushing to %s' ), connectedSite.name ),
-					message: __( 'Studio was unable to connect to WordPress.com. Please try again.' ),
+					message: errorMessage,
 				} );
 			} finally {
 				await getIpcApi().removeTemporalFile( archivePath );

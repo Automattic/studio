@@ -1,7 +1,7 @@
 import * as Sentry from '@sentry/electron/renderer';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getIpcApi } from '../../lib/get-ipc-api';
 import { useAuth } from '../use-auth';
 import { SyncSite } from '../use-fetch-wpcom-sites';
@@ -19,13 +19,19 @@ export type SyncBackupState = {
 	isStaging: boolean;
 };
 
-export function useSyncPull( {
-	pullStates,
-	setPullStates,
-}: {
-	pullStates: Record< string, SyncBackupState >;
-	setPullStates: React.Dispatch< React.SetStateAction< Record< string, SyncBackupState > > >;
-} ) {
+export type PostSyncBackupApiResponse = {
+	success: boolean;
+	backup_id: string;
+};
+
+export type GetSyncBackupApiResponse = {
+	status: 'in-progress' | 'finished' | 'failed';
+	download_url: string;
+};
+
+export function useSyncPull() {
+	const [ pullStates, setPullStates ] = useState< Record< string, SyncBackupState > >( {} );
+
 	const { __ } = useI18n();
 	const { client } = useAuth();
 	const { importFile, clearImportState } = useImportExport();
@@ -54,7 +60,7 @@ export function useSyncPull( {
 			} );
 
 			try {
-				const response = await client.req.post< { success: boolean; backup_id: string } >( {
+				const response = await client.req.post< PostSyncBackupApiResponse >( {
 					path: `/sites/${ remoteSiteId }/studio-app/sync/backup`,
 					apiNamespace: 'wpcom/v2',
 				} );
@@ -143,13 +149,13 @@ export function useSyncPull( {
 				console.error( 'No backup ID found' );
 				return;
 			}
-			const response = await client.req.get< {
-				status: 'in-progress' | 'finished' | 'failed';
-				download_url: string;
-			} >( `/sites/${ remoteSiteId }/studio-app/sync/backup`, {
-				apiNamespace: 'wpcom/v2',
-				backup_id: backupId,
-			} );
+			const response = await client.req.get< GetSyncBackupApiResponse >(
+				`/sites/${ remoteSiteId }/studio-app/sync/backup`,
+				{
+					apiNamespace: 'wpcom/v2',
+					backup_id: backupId,
+				}
+			);
 
 			const hasBackupCompleted = response.status === 'finished';
 			const frontendStatus = hasBackupCompleted
@@ -207,5 +213,66 @@ export function useSyncPull( {
 		[ pullStates, isKeyPulling ]
 	);
 
-	return { pullStates, getPullState, pullSite, isAnySitePulling, isSiteIdPulling, clearPullState };
+	const hydratePullStates = useCallback(
+		( connectedSites: SyncSite[], localSite: SiteDetails ) => {
+			if ( ! client ) {
+				return;
+			}
+
+			connectedSites
+				.filter( ( site ) => {
+					const existingPullState = Object.values( pullStates ).find(
+						( pullState ) => pullState.backupId === site.backupId
+					);
+
+					return site.backupId && ! existingPullState;
+				} )
+				.forEach( ( connectedSite ) => {
+					console.log( 'hydratePullStates for site', connectedSite );
+
+					client.req
+						.get< GetSyncBackupApiResponse >(
+							`/sites/${ connectedSite.id }/studio-app/sync/backup`,
+							{
+								apiNamespace: 'wpcom/v2',
+								backup_id: connectedSite.backupId,
+							}
+						)
+						.then( ( response ) => {
+							const pullState: Partial< SyncBackupState > = {
+								backupId: connectedSite.backupId,
+								downloadUrl: null,
+								remoteSiteId: connectedSite.id,
+								selectedSite: localSite,
+								isStaging: connectedSite.isStaging,
+							};
+
+							if ( response.status === 'in-progress' ) {
+								const status = pullStatesProgressInfo[ 'in-progress' ];
+								updatePullState( localSite.id, connectedSite.id, { ...pullState, status } );
+							} else if ( response.status === 'finished' ) {
+								const status = pullStatesProgressInfo.finished;
+								updatePullState( localSite.id, connectedSite.id, { ...pullState, status } );
+							} else {
+								return;
+							}
+						} )
+						.catch( ( error ) => {
+							Sentry.captureException( error );
+						} );
+				} );
+		},
+		[ client, pullStates, pullStatesProgressInfo, updatePullState ]
+	);
+
+	return {
+		clearPullState,
+		getPullState,
+		hydratePullStates,
+		isAnySitePulling,
+		isSiteIdPulling,
+		pullSite,
+		pullStates,
+		updatePullState,
+	};
 }

@@ -1,5 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
-import { SyncSite } from '../use-fetch-wpcom-sites';
+import React, { createContext, useContext } from 'react';
 import { usePullPushTimestamps } from '../use-pull-push-timestamps';
 import { useListenDeepLinkConnection } from './use-listen-deep-link-connection';
 import { useSiteSyncManagement } from './use-site-sync-management';
@@ -14,25 +13,27 @@ export type SyncSitesContextType = ReturnType< typeof useSyncPull > &
 const SyncSitesContext = createContext< SyncSitesContextType | undefined >( undefined );
 
 export function SyncSitesProvider( { children }: { children: React.ReactNode } ) {
-	const [ pullStates, setPullStates ] = useState< SyncSitesContextType[ 'pullStates' ] >( {} );
-	const { pullSite, isAnySitePulling, isSiteIdPulling, clearPullState, getPullState } = useSyncPull(
-		{
+	const {
+		clearPullState,
+		getPullState,
+		hydratePullStates,
+		isAnySitePulling,
+		isSiteIdPulling,
+		pullSite,
+		pullStates,
+		updatePullState,
+	} = useSyncPull();
+
+	const { clearPushState, getPushState, isAnySitePushing, isSiteIdPushing, pushSite, pushStates } =
+		useSyncPush();
+
+	const { connectedSites, connectSite, disconnectSite, syncSites, isFetching, refetchSites } =
+		useSiteSyncManagement( {
+			onConnectedSitesLoaded( connectedSites, site ) {
+				hydratePullStates( connectedSites, site );
+			},
 			pullStates,
-			setPullStates,
-		}
-	);
-
-	const [ pushStates, setPushStates ] = useState< SyncSitesContextType[ 'pushStates' ] >( {} );
-	const { pushSite, isAnySitePushing, isSiteIdPushing, clearPushState, getPushState } = useSyncPush(
-		{
-			pushStates,
-			setPushStates,
-		}
-	);
-
-	const [ connectedSites, setConnectedSites ] = useState< SyncSite[] >( [] );
-	const { loadConnectedSites, connectSite, disconnectSite, syncSites, isFetching, refetchSites } =
-		useSiteSyncManagement( { connectedSites, setConnectedSites } );
+		} );
 
 	const { updateTimestamp, getLastSyncTimeWithType, clearTimestamps } = usePullPushTimestamps();
 
@@ -47,7 +48,6 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 				isSiteIdPulling,
 				clearPullState,
 				connectedSites,
-				loadConnectedSites,
 				connectSite,
 				disconnectSite,
 				syncSites,
@@ -63,6 +63,8 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 				updateTimestamp,
 				getLastSyncTimeWithType,
 				clearTimestamps,
+				hydratePullStates,
+				updatePullState,
 			} }
 		>
 			{ children }

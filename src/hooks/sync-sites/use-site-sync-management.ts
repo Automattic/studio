@@ -1,8 +1,10 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useState, useRef } from 'react';
 import { getIpcApi } from '../../lib/get-ipc-api';
 import { useAuth } from '../use-auth';
 import { SyncSite, useFetchWpComSites } from '../use-fetch-wpcom-sites';
 import { useSiteDetails } from '../use-site-details';
+import { useSyncStatesProgressInfo } from '../use-sync-states-progress-info';
+import { useSyncPull } from './use-sync-pull';
 
 /**
  * Generate updated site data to be stored in `appdata-v1.json` in three steps:
@@ -99,40 +101,77 @@ export const reconcileConnectedSites = (
 	};
 };
 
+type PullStates = ReturnType< typeof useSyncPull >[ 'pullStates' ];
+
 export const useSiteSyncManagement = ( {
-	connectedSites,
-	setConnectedSites,
+	onConnectedSitesLoaded,
+	pullStates,
 }: {
-	connectedSites: SyncSite[];
-	setConnectedSites: React.Dispatch< React.SetStateAction< SyncSite[] > >;
+	onConnectedSitesLoaded?( sites: SyncSite[], selectedSite: SiteDetails ): void;
+	pullStates: PullStates;
 } ) => {
+	const [ connectedSites, setConnectedSites ] = useState< SyncSite[] >( [] );
+
+	const { pullStatesProgressInfo } = useSyncStatesProgressInfo();
 	const { isAuthenticated } = useAuth();
 	const { syncSites, isFetching, isInitialized, refetchSites } = useFetchWpComSites(
 		connectedSites.map( ( { id } ) => id )
 	);
+
 	const { selectedSite } = useSiteDetails();
 	const localSiteId = selectedSite?.id;
+	const loadedConnectedSitesForSiteIdRef = useRef( '' );
 
 	const loadConnectedSites = useCallback( async () => {
 		if ( ! localSiteId ) {
-			setConnectedSites( [] );
-			return;
+			return [];
 		}
 
 		try {
-			const sites = await getIpcApi().getConnectedWpcomSites( localSiteId );
-			setConnectedSites( sites );
+			return await getIpcApi().getConnectedWpcomSites( localSiteId );
 		} catch ( error ) {
 			console.error( 'Failed to load connected sites:', error );
-			setConnectedSites( [] );
+			return [];
 		}
-	}, [ localSiteId, setConnectedSites ] );
+	}, [ localSiteId ] );
 
+	// Load connected sites from local config
 	useEffect( () => {
-		if ( isAuthenticated ) {
-			loadConnectedSites();
+		if (
+			isAuthenticated &&
+			selectedSite?.id &&
+			loadedConnectedSitesForSiteIdRef.current !== selectedSite.id
+		) {
+			loadConnectedSites().then( ( sites ) => {
+				loadedConnectedSitesForSiteIdRef.current = selectedSite.id;
+				onConnectedSitesLoaded?.( sites, selectedSite );
+				setConnectedSites( sites );
+			} );
 		}
-	}, [ isAuthenticated, loadConnectedSites ] );
+	}, [ isAuthenticated, selectedSite, loadConnectedSites, onConnectedSitesLoaded ] );
+
+	// Store `backupId` in `connectedSites` array whenever `pullStates` changes
+	useEffect( () => {
+		const updatedConnectedSites = connectedSites.map( ( site ) => {
+			const pullState = Object.values( pullStates ).find(
+				( pullState ) => pullState.remoteSiteId === site.id
+			);
+
+			if ( pullState && pullState.status.key === pullStatesProgressInfo[ 'in-progress' ].key ) {
+				return {
+					...site,
+					backupId: pullState.backupId,
+				};
+			}
+
+			return site;
+		} );
+
+		setConnectedSites( updatedConnectedSites );
+		getIpcApi().updateConnectedWpcomSites( updatedConnectedSites );
+
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [ pullStates ] );
 
 	// whenever array of syncSites changes, we need to update connectedSites to keep them updated with wordpress.com
 	useEffect( () => {
@@ -166,7 +205,8 @@ export const useSiteSyncManagement = ( {
 					await getIpcApi().connectWpcomSites( data );
 				}
 
-				loadConnectedSites();
+				const sites = await loadConnectedSites();
+				setConnectedSites( sites );
 			} );
 	}, [
 		isAuthenticated,
@@ -236,7 +276,6 @@ export const useSiteSyncManagement = ( {
 
 	return {
 		connectedSites,
-		loadConnectedSites,
 		connectSite,
 		disconnectSite,
 		syncSites,

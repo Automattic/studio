@@ -228,8 +228,6 @@ export function useSyncPull() {
 					return site.backupId && ! existingPullState;
 				} )
 				.forEach( ( connectedSite ) => {
-					console.log( 'hydratePullStates for site', connectedSite );
-
 					client.req
 						.get< GetSyncBackupApiResponse >(
 							`/sites/${ connectedSite.id }/studio-app/sync/backup`,
@@ -239,22 +237,15 @@ export function useSyncPull() {
 							}
 						)
 						.then( ( response ) => {
-							const pullState: Partial< SyncBackupState > = {
-								backupId: connectedSite.backupId,
-								downloadUrl: null,
-								remoteSiteId: connectedSite.id,
-								selectedSite: localSite,
-								isStaging: connectedSite.isStaging,
-							};
-
 							if ( response.status === 'in-progress' ) {
-								const status = pullStatesProgressInfo[ 'in-progress' ];
-								updatePullState( localSite.id, connectedSite.id, { ...pullState, status } );
-							} else if ( response.status === 'finished' ) {
-								const status = pullStatesProgressInfo.finished;
-								updatePullState( localSite.id, connectedSite.id, { ...pullState, status } );
-							} else {
-								return;
+								updatePullState( localSite.id, connectedSite.id, {
+									backupId: connectedSite.backupId,
+									downloadUrl: null,
+									remoteSiteId: connectedSite.id,
+									status: pullStatesProgressInfo[ 'in-progress' ],
+									selectedSite: localSite,
+									isStaging: connectedSite.isStaging,
+								} );
 							}
 						} )
 						.catch( ( error ) => {

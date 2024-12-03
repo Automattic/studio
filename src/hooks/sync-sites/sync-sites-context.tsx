@@ -34,7 +34,8 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 	const { loadConnectedSites, connectSite, disconnectSite, syncSites, isFetching, refetchSites } =
 		useSiteSyncManagement( { connectedSites, setConnectedSites } );
 
-	const { getLastSyncTimeWithType, updateTimestamp } = usePullPushTimestamps();
+	const { getLastSyncTimeWithType, updateTimestamp, tooltips, updateTooltips, refreshTooltip } =
+		usePullPushTimestamps();
 
 	useListenDeepLinkConnection( { connectSite, refetchSites } );
 
@@ -62,6 +63,9 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 				clearPushState,
 				updateTimestamp,
 				getLastSyncTimeWithType,
+				tooltips,
+				updateTooltips,
+				refreshTooltip,
 			} }
 		>
 			{ children }

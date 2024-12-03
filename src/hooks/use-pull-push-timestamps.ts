@@ -1,9 +1,12 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { formatDistanceToNow } from 'date-fns';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { getIpcApi } from '../lib/get-ipc-api';
+import { SyncSite } from './use-fetch-wpcom-sites';
 
 export function usePullPushTimestamps() {
+	const [ tooltips, setTooltips ] = useState< Record< string, string > >( {} );
+
 	const getLastSyncTimeWithType = useCallback(
 		async ( siteId: string, connectedSiteId: number, type: 'pull' | 'push' ): Promise< string > => {
 			try {
@@ -59,5 +62,38 @@ export function usePullPushTimestamps() {
 		[]
 	);
 
-	return { getLastSyncTimeWithType, updateTimestamp };
+	const getTooltipText = useCallback(
+		async ( siteId: string, connectedSiteId: number, type: 'pull' | 'push' ) => {
+			const key = `${ siteId }-${ connectedSiteId }-${ type }`;
+			const text = await getLastSyncTimeWithType( siteId, connectedSiteId, type );
+			setTooltips( ( prev ) => ( { ...prev, [ key ]: text } ) );
+		},
+		[ getLastSyncTimeWithType ]
+	);
+
+	const updateTooltips = useCallback(
+		( siteId: string, connectedSites: SyncSite[] ) => {
+			connectedSites.forEach( ( site ) => {
+				getTooltipText( siteId, site.id, 'pull' );
+				getTooltipText( siteId, site.id, 'push' );
+			} );
+		},
+		[ getTooltipText ]
+	);
+
+	const refreshTooltip = useCallback(
+		async ( siteId: string, connectedSiteId: number, type: 'pull' | 'push' ) => {
+			await updateTimestamp( siteId, connectedSiteId, type );
+			await getTooltipText( siteId, connectedSiteId, type );
+		},
+		[ updateTimestamp, getTooltipText ]
+	);
+
+	return {
+		getLastSyncTimeWithType,
+		updateTimestamp,
+		tooltips,
+		updateTooltips,
+		refreshTooltip,
+	};
 }

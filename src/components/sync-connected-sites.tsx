@@ -3,7 +3,7 @@ import { createInterpolateElement } from '@wordpress/element';
 import { sprintf } from '@wordpress/i18n';
 import { cloudUpload, cloudDownload } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { useMemo, useState, useCallback, useEffect } from 'react';
+import { useMemo, useEffect } from 'react';
 import { STUDIO_DOCS_URL_GET_HELP_UNSUPPORTED_SITES } from '../constants';
 import { useSyncSites } from '../hooks/sync-sites';
 import { useConfirmationDialog } from '../hooks/use-confirmation-dialog';
@@ -52,8 +52,9 @@ const SyncConnectedSitesSection = ( {
 		pushSite,
 		getPushState,
 		clearPushState,
-		updateTimestamp,
-		getLastSyncTimeWithType,
+		tooltips,
+		updateTooltips,
+		refreshTooltip,
 	} = useSyncSites();
 	const { isKeyPulling, isKeyFinished, isKeyFailed } = useSyncStatesProgressInfo();
 	const isOffline = useOffline();
@@ -80,26 +81,9 @@ const SyncConnectedSitesSection = ( {
 		confirmButtonLabel: __( 'Pull' ),
 	} );
 
-	const [ tooltips, setTooltips ] = useState< Record< string, string > >( {} );
-
-	//Tooltip does not accept async function, so we need to use this hook to fetch the text and set it in the state
-	//Re-evaluate this approach when done with other changes
-	//Possible make tooltip accept promises
-	const getTooltipText = useCallback(
-		async ( siteId: string, connectedSiteId: number, type: 'pull' | 'push' ) => {
-			const key = `${ siteId }-${ connectedSiteId }-${ type }`;
-			const text = await getLastSyncTimeWithType( siteId, connectedSiteId, type );
-			setTooltips( ( prev ) => ( { ...prev, [ key ]: text } ) );
-		},
-		[ getLastSyncTimeWithType ]
-	);
-
 	useEffect( () => {
-		section.connectedSites.forEach( ( site ) => {
-			getTooltipText( selectedSite.id, site.id, 'pull' );
-			getTooltipText( selectedSite.id, site.id, 'push' );
-		} );
-	}, [ selectedSite.id, section.connectedSites, getTooltipText ] );
+		updateTooltips( selectedSite.id, section.connectedSites );
+	}, [ selectedSite.id, section.connectedSites, updateTooltips ] );
 
 	const handleDisconnectSite = async () => {
 		const dontShowDisconnectWarning = localStorage.getItem( 'dontShowDisconnectWarning' );
@@ -140,14 +124,14 @@ const SyncConnectedSitesSection = ( {
 			showPushStagingConfirmation( async () => {
 				const success = await pushSite( connectedSite, selectedSite );
 				if ( success ) {
-					updateTimestamp( selectedSite.id, connectedSite.id, 'push' );
+					await refreshTooltip( selectedSite.id, connectedSite.id, 'push' );
 				}
 			} );
 		} else {
 			showPushProductionConfirmation( async () => {
 				const success = await pushSite( connectedSite, selectedSite );
 				if ( success ) {
-					updateTimestamp( selectedSite.id, connectedSite.id, 'push' );
+					await refreshTooltip( selectedSite.id, connectedSite.id, 'push' );
 				}
 			} );
 		}
@@ -320,7 +304,11 @@ const SyncConnectedSitesSection = ( {
 																async () => {
 																	const success = await pullSite( connectedSite, selectedSite );
 																	if ( success ) {
-																		updateTimestamp( selectedSite.id, connectedSite.id, 'pull' );
+																		await refreshTooltip(
+																			selectedSite.id,
+																			connectedSite.id,
+																			'pull'
+																		);
 																	}
 																},
 																{ detail }

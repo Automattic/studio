@@ -8,7 +8,7 @@ import { SyncSite } from '../use-fetch-wpcom-sites';
 import { useImportExport } from '../use-import-export';
 import { useSiteDetails } from '../use-site-details';
 import { useSyncStatesProgressInfo, PullStateProgressInfo } from '../use-sync-states-progress-info';
-import { usePullPushStates } from './use-pull-push-states';
+import { generateStateId, usePullPushStates } from './use-pull-push-states';
 
 export type SyncBackupState = {
 	remoteSiteId: number;
@@ -29,12 +29,35 @@ export function useSyncPull( {
 	const { __ } = useI18n();
 	const { client } = useAuth();
 	const { importFile, clearImportState } = useImportExport();
-	const { pullStatesProgressInfo, isKeyPulling } = useSyncStatesProgressInfo();
+	const { pullStatesProgressInfo, isKeyPulling, isKeyFinished, isKeyFailed } =
+		useSyncStatesProgressInfo();
 	const {
-		updateState: updatePullState,
+		updateState,
 		getState: getPullState,
-		clearState: clearPullState,
+		clearState,
 	} = usePullPushStates< SyncBackupState >( pullStates, setPullStates );
+
+	const updatePullState: typeof updateState = useCallback(
+		( selectedSiteId, remoteSiteId, state ) => {
+			updateState( selectedSiteId, remoteSiteId, state );
+			const statusKey = state.status?.key;
+
+			if ( isKeyFailed( statusKey ) || isKeyFinished( statusKey ) ) {
+				getIpcApi().clearPushPullOperation( generateStateId( selectedSiteId, remoteSiteId ) );
+			} else {
+				getIpcApi().addPushPullOperation( generateStateId( selectedSiteId, remoteSiteId ) );
+			}
+		},
+		[ isKeyFailed, isKeyFinished, updateState ]
+	);
+
+	const clearPullState: typeof clearState = useCallback(
+		( selectedSiteId, remoteSiteId ) => {
+			clearState( selectedSiteId, remoteSiteId );
+			getIpcApi().clearPushPullOperation( generateStateId( selectedSiteId, remoteSiteId ) );
+		},
+		[ clearState ]
+	);
 
 	const { startServer } = useSiteDetails();
 

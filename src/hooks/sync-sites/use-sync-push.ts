@@ -7,7 +7,7 @@ import { getIpcApi } from '../../lib/get-ipc-api';
 import { useAuth } from '../use-auth';
 import { SyncSite } from '../use-fetch-wpcom-sites';
 import { useSyncStatesProgressInfo, PushStateProgressInfo } from '../use-sync-states-progress-info';
-import { usePullPushStates } from './use-pull-push-states';
+import { generateStateId, usePullPushStates } from './use-pull-push-states';
 
 export type SyncPushState = {
 	remoteSiteId: number;
@@ -25,13 +25,34 @@ export function useSyncPush( {
 } ) {
 	const { __ } = useI18n();
 	const { client } = useAuth();
-	const {
-		updateState: updatePushState,
-		getState,
-		clearState: clearPushState,
-	} = usePullPushStates< SyncPushState >( pushStates, setPushStates );
+	const { updateState, getState, clearState } = usePullPushStates< SyncPushState >(
+		pushStates,
+		setPushStates
+	);
 	const { pushStatesProgressInfo, isKeyPushing, isKeyFinished, isKeyFailed } =
 		useSyncStatesProgressInfo();
+
+	const updatePushState: typeof updateState = useCallback(
+		( selectedSiteId, remoteSiteId, state ) => {
+			updateState( selectedSiteId, remoteSiteId, state );
+			const statusKey = state.status?.key;
+
+			if ( isKeyFailed( statusKey ) || isKeyFinished( statusKey ) ) {
+				getIpcApi().clearPushPullOperation( generateStateId( selectedSiteId, remoteSiteId ) );
+			} else {
+				getIpcApi().addPushPullOperation( generateStateId( selectedSiteId, remoteSiteId ) );
+			}
+		},
+		[ isKeyFailed, isKeyFinished, updateState ]
+	);
+
+	const clearPushState: typeof clearState = useCallback(
+		( selectedSiteId, remoteSiteId ) => {
+			clearState( selectedSiteId, remoteSiteId );
+			getIpcApi().clearPushPullOperation( generateStateId( selectedSiteId, remoteSiteId ) );
+		},
+		[ clearState ]
+	);
 
 	const getPushProgressInfo = useCallback(
 		async ( remoteSiteId: number, syncPushState: SyncPushState ) => {

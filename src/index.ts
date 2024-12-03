@@ -6,6 +6,7 @@ import {
 	type IpcMainInvokeEvent,
 	globalShortcut,
 	Menu,
+	dialog,
 } from 'electron';
 import path from 'path';
 import * as Sentry from '@sentry/electron/main';
@@ -301,6 +302,30 @@ async function appBoot() {
 
 	app.on( 'will-quit', () => {
 		globalShortcut.unregisterAll();
+	} );
+
+	app.on( 'before-quit', ( event ) => {
+		if ( ! ipcHandlers.hasActivePushPullOperations() ) {
+			return;
+		}
+
+		const QUIT_APP_BUTTON_INDEX = 0;
+		const CANCEL_BUTTON_INDEX = 1;
+
+		const clickedButtonIndex = dialog.showMessageBoxSync( {
+			message: __( 'Pull or push operation in progress' ),
+			detail: __(
+				'There’s a pull or push operation in progress. Quitting the app will abort that operation. Are you sure?'
+			),
+			buttons: [ __( 'Yes, quit the app' ), __( 'No, take me back' ) ],
+			cancelId: CANCEL_BUTTON_INDEX,
+			defaultId: QUIT_APP_BUTTON_INDEX,
+			type: 'warning',
+		} );
+
+		if ( clickedButtonIndex === CANCEL_BUTTON_INDEX ) {
+			event.preventDefault();
+		}
 	} );
 
 	app.on( 'quit', () => {

@@ -9,7 +9,7 @@ import { BackupArchiveInfo } from './lib/import-export/import/types';
 import { promptWindowsSpeedUpSites } from './lib/windows-helpers';
 import type { LogLevel } from './logging';
 
-const api: IpcApi = {
+const api: Omit< IpcApi, 'hasActivePushPullOperations' > = {
 	archiveSite: ( id: string, format: 'zip' | 'tar' ) =>
 		ipcRenderer.invoke( 'archiveSite', id, format ),
 	exportSiteToPush: ( id: string ) => ipcRenderer.invoke( 'exportSiteToPush', id ),
@@ -96,6 +96,8 @@ const api: IpcApi = {
 		ipcRenderer.invoke( 'removeSyncBackup', remoteSiteId ),
 	getConnectedWpcomSites: ( localSiteId?: string ) =>
 		ipcRenderer.invoke( 'getConnectedWpcomSites', localSiteId ),
+	addPushPullOperation: ( id: string ) => ipcRenderer.invoke( 'addPushPullOperation', id ),
+	clearPushPullOperation: ( id: string ) => ipcRenderer.invoke( 'clearPushPullOperation', id ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

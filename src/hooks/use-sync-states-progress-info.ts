@@ -1,5 +1,5 @@
 import { useI18n } from '@wordpress/react-i18n';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 export type PullStateProgressInfo = {
 	key: 'in-progress' | 'downloading' | 'importing' | 'finished' | 'failed';
@@ -99,17 +99,19 @@ export function useSyncStatesProgressInfo() {
 		return pushingStateKeys.includes( key );
 	};
 
-	const isKeyFinished = (
-		key: PullStateProgressInfo[ 'key' ] | PushStateProgressInfo[ 'key' ] | undefined
-	) => {
-		return key === 'finished';
-	};
+	const isKeyFinished = useCallback(
+		( key: PullStateProgressInfo[ 'key' ] | PushStateProgressInfo[ 'key' ] | undefined ) => {
+			return key === 'finished';
+		},
+		[]
+	);
 
-	const isKeyFailed = (
-		key: PullStateProgressInfo[ 'key' ] | PushStateProgressInfo[ 'key' ] | undefined
-	) => {
-		return key === 'failed';
-	};
+	const isKeyFailed = useCallback(
+		( key: PullStateProgressInfo[ 'key' ] | PushStateProgressInfo[ 'key' ] | undefined ) => {
+			return key === 'failed';
+		},
+		[]
+	);
 
 	return {
 		pullStatesProgressInfo,

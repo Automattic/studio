@@ -1,5 +1,8 @@
 import { useCallback } from 'react';
 
+export const generateStateId = ( selectedSiteId: string, remoteSiteId: number ) =>
+	`${ selectedSiteId }-${ remoteSiteId }`;
+
 export function usePullPushStates< T >(
 	states: Record< string, T >,
 	setStates: React.Dispatch< React.SetStateAction< Record< string, T > > >
@@ -8,8 +11,8 @@ export function usePullPushStates< T >(
 		( selectedSiteId: string, remoteSiteId: number, state: Partial< T > ) => {
 			setStates( ( prevStates ) => ( {
 				...prevStates,
-				[ `${ selectedSiteId }-${ remoteSiteId }` ]: {
-					...prevStates[ `${ selectedSiteId }-${ remoteSiteId }` ],
+				[ generateStateId( selectedSiteId, remoteSiteId ) ]: {
+					...prevStates[ generateStateId( selectedSiteId, remoteSiteId ) ],
 					...state,
 				},
 			} ) );
@@ -19,7 +22,7 @@ export function usePullPushStates< T >(
 
 	const getState = useCallback(
 		( selectedSiteId: string, remoteSiteId: number ): T | undefined => {
-			return states[ `${ selectedSiteId }-${ remoteSiteId }` ];
+			return states[ generateStateId( selectedSiteId, remoteSiteId ) ];
 		},
 		[ states ]
 	);
@@ -28,7 +31,7 @@ export function usePullPushStates< T >(
 		( selectedSiteId: string, remoteSiteId: number ) => {
 			setStates( ( prevStates ) => {
 				const newStates = { ...prevStates };
-				delete newStates[ `${ selectedSiteId }-${ remoteSiteId }` ];
+				delete newStates[ generateStateId( selectedSiteId, remoteSiteId ) ];
 				return newStates;
 			} );
 		},

@@ -1003,3 +1003,28 @@ export async function isImportExportSupported( _event: IpcMainInvokeEvent, siteI
 	}
 	return site.hasSQLitePlugin();
 }
+
+const ACTIVE_PUSH_PULL_OPERATIONS = new Set();
+
+/**
+ * Store the ID of a push/pull operation in a deduped set.
+ */
+export function addPushPullOperation( event: IpcMainInvokeEvent, id: string ) {
+	ACTIVE_PUSH_PULL_OPERATIONS.add( id );
+}
+
+/**
+ * Clear the ID of a push/pull operation.
+ */
+export function clearPushPullOperation( event: IpcMainInvokeEvent, id: string ) {
+	ACTIVE_PUSH_PULL_OPERATIONS.delete( id );
+}
+
+/**
+ * Determine if the set of active push/pull operations has any members. Note that this function
+ * isn't exposed to the renderer process even if it lives in `ipc-handlers`, because it's only
+ * relevant to the main process.
+ */
+export function hasActivePushPullOperations(): boolean {
+	return ACTIVE_PUSH_PULL_OPERATIONS.size > 0;
+}

@@ -313,9 +313,9 @@ async function appBoot() {
 		const CANCEL_BUTTON_INDEX = 1;
 
 		const clickedButtonIndex = dialog.showMessageBoxSync( {
-			message: __( 'Pull or push operation in progress' ),
+			message: __( 'Sync in progress' ),
 			detail: __(
-				'There’s a pull or push operation in progress. Quitting the app will abort that operation. Are you sure?'
+				'There’s a sync operation in progress. Quitting the app will abort that operation. Are you sure?'
 			),
 			buttons: [ __( 'Yes, quit the app' ), __( 'No, take me back' ) ],
 			cancelId: CANCEL_BUTTON_INDEX,

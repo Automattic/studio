@@ -3,7 +3,7 @@ import { createInterpolateElement } from '@wordpress/element';
 import { sprintf } from '@wordpress/i18n';
 import { cloudUpload, cloudDownload } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { useMemo } from 'react';
+import { useMemo, useState, useCallback, useEffect } from 'react';
 import { STUDIO_DOCS_URL_GET_HELP_UNSUPPORTED_SITES } from '../constants';
 import { useSyncSites } from '../hooks/sync-sites';
 import { useConfirmationDialog } from '../hooks/use-confirmation-dialog';
@@ -80,6 +80,27 @@ const SyncConnectedSitesSection = ( {
 		message: __( 'Overwrite Studio site' ),
 		confirmButtonLabel: __( 'Pull' ),
 	} );
+
+	const [ tooltips, setTooltips ] = useState< Record< string, string > >( {} );
+
+	//Tooltip does not accept async function, so we need to use this hook to fetch the text and set it in the state
+	//Re-evaluate this approach when done with other changes
+	//Possible make tooltip accept promises
+	const getTooltipText = useCallback(
+		async ( siteId: string, connectedSiteId: number, type: 'pull' | 'push' ) => {
+			const key = `${ siteId }-${ connectedSiteId }-${ type }`;
+			const text = await getLastSyncTimeWithType( siteId, connectedSiteId, type );
+			setTooltips( ( prev ) => ( { ...prev, [ key ]: text } ) );
+		},
+		[ getLastSyncTimeWithType ]
+	);
+
+	useEffect( () => {
+		section.connectedSites.forEach( ( site ) => {
+			getTooltipText( selectedSite.id, site.id, 'pull' );
+			getTooltipText( selectedSite.id, site.id, 'push' );
+		} );
+	}, [ selectedSite.id, section.connectedSites, getTooltipText ] );
 
 	const handleDisconnectSite = async () => {
 		const dontShowDisconnectWarning = localStorage.getItem( 'dontShowDisconnectWarning' );
@@ -276,11 +297,7 @@ const SyncConnectedSitesSection = ( {
 										>
 											<div className="flex gap-2 pl-4 ml-auto shrink-0 h-5">
 												<Tooltip
-													text={ getLastSyncTimeWithType(
-														selectedSite.id,
-														connectedSite.id,
-														'pull'
-													) }
+													text={ tooltips[ `${ selectedSite.id }-${ connectedSite.id }-pull` ] }
 													placement="top-start"
 													disabled={ isOffline }
 												>
@@ -308,11 +325,7 @@ const SyncConnectedSitesSection = ( {
 													</Button>
 												</Tooltip>
 												<Tooltip
-													text={ getLastSyncTimeWithType(
-														selectedSite.id,
-														connectedSite.id,
-														'push'
-													) }
+													text={ tooltips[ `${ selectedSite.id }-${ connectedSite.id }-push` ] }
 													placement="top-start"
 													disabled={ isOffline }
 												>

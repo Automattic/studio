@@ -400,7 +400,7 @@ export function SyncConnectedSites( {
 				) ) }
 			</div>
 
-			<div className="flex mt-auto gap-4 py-5 px-8 border-t border-a8c-gray-5 flex-shrink-0">
+			<div className="flex mt-auto gap-4 pt-4 pb-5 px-8 border-t border-a8c-gray-5 flex-shrink-0">
 				<ConnectCreateButtons
 					connectSite={ openSitesSyncSelector }
 					isOffline={ isOffline }

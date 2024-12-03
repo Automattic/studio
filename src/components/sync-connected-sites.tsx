@@ -137,14 +137,18 @@ const SyncConnectedSitesSection = ( {
 
 	const handlePushSite = async ( connectedSite: SyncSite ) => {
 		if ( connectedSite.isStaging ) {
-			showPushStagingConfirmation( () => {
-				updateTimestamp( selectedSite.id, connectedSite.id, 'push' );
-				pushSite( connectedSite, selectedSite );
+			showPushStagingConfirmation( async () => {
+				const success = await pushSite( connectedSite, selectedSite );
+				if ( success ) {
+					updateTimestamp( selectedSite.id, connectedSite.id, 'push' );
+				}
 			} );
 		} else {
-			showPushProductionConfirmation( () => {
-				updateTimestamp( selectedSite.id, connectedSite.id, 'push' );
-				pushSite( connectedSite, selectedSite );
+			showPushProductionConfirmation( async () => {
+				const success = await pushSite( connectedSite, selectedSite );
+				if ( success ) {
+					updateTimestamp( selectedSite.id, connectedSite.id, 'push' );
+				}
 			} );
 		}
 	};
@@ -313,9 +317,11 @@ const SyncConnectedSitesSection = ( {
 																		"Pulling will replace your Studio site's files and database with a copy from your production site."
 																  );
 															showPullConfirmation(
-																() => {
-																	updateTimestamp( selectedSite.id, connectedSite.id, 'pull' );
-																	pullSite( connectedSite, selectedSite );
+																async () => {
+																	const success = await pullSite( connectedSite, selectedSite );
+																	if ( success ) {
+																		updateTimestamp( selectedSite.id, connectedSite.id, 'pull' );
+																	}
 																},
 																{ detail }
 															);

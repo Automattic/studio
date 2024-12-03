@@ -276,7 +276,11 @@ const SyncConnectedSitesSection = ( {
 										>
 											<div className="flex gap-2 pl-4 ml-auto shrink-0 h-5">
 												<Tooltip
-													text={ getLastSyncTimeWithType( connectedSite, 'pull' ) }
+													text={ getLastSyncTimeWithType(
+														selectedSite.id,
+														connectedSite.id,
+														'pull'
+													) }
 													placement="top-start"
 													disabled={ isOffline }
 												>
@@ -304,7 +308,11 @@ const SyncConnectedSitesSection = ( {
 													</Button>
 												</Tooltip>
 												<Tooltip
-													text={ getLastSyncTimeWithType( connectedSite, 'push' ) }
+													text={ getLastSyncTimeWithType(
+														selectedSite.id,
+														connectedSite.id,
+														'push'
+													) }
 													placement="top-start"
 													disabled={ isOffline }
 												>

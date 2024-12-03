@@ -55,6 +55,7 @@ const SyncConnectedSitesSection = ( {
 		tooltips,
 		updateTooltips,
 		refreshTooltip,
+		connectedSites,
 	} = useSyncSites();
 	const { isKeyPulling, isKeyFinished, isKeyFailed } = useSyncStatesProgressInfo();
 	const isOffline = useOffline();
@@ -124,14 +125,14 @@ const SyncConnectedSitesSection = ( {
 			showPushStagingConfirmation( async () => {
 				const success = await pushSite( connectedSite, selectedSite );
 				if ( success ) {
-					await refreshTooltip( selectedSite.id, connectedSite.id, 'push' );
+					await refreshTooltip( selectedSite.id, connectedSite.id, 'push', connectedSites );
 				}
 			} );
 		} else {
 			showPushProductionConfirmation( async () => {
 				const success = await pushSite( connectedSite, selectedSite );
 				if ( success ) {
-					await refreshTooltip( selectedSite.id, connectedSite.id, 'push' );
+					await refreshTooltip( selectedSite.id, connectedSite.id, 'push', connectedSites );
 				}
 			} );
 		}
@@ -307,7 +308,8 @@ const SyncConnectedSitesSection = ( {
 																		await refreshTooltip(
 																			selectedSite.id,
 																			connectedSite.id,
-																			'pull'
+																			'pull',
+																			connectedSites
 																		);
 																	}
 																},

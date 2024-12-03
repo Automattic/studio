@@ -7,15 +7,15 @@ import { SyncSite } from './use-fetch-wpcom-sites';
 export function usePullPushTimestamps() {
 	const [ tooltips, setTooltips ] = useState< Record< string, string > >( {} );
 
-	const fetchConnectedSite = async ( siteId: string, connectedSiteId: number ) => {
-		const connectedSites = await getIpcApi().getConnectedWpcomSites( siteId );
-		return connectedSites.find( ( site ) => site.id === connectedSiteId );
-	};
-
 	const getLastSyncTimeWithType = useCallback(
-		async ( siteId: string, connectedSiteId: number, type: 'pull' | 'push' ): Promise< string > => {
+		async (
+			siteId: string,
+			connectedSiteId: number,
+			type: 'pull' | 'push',
+			sites: SyncSite[]
+		): Promise< string > => {
 			try {
-				const site = await fetchConnectedSite( siteId, connectedSiteId );
+				const site = sites.find( ( site ) => site.id === connectedSiteId );
 				if ( ! site ) return __( 'Site not found.' );
 
 				const timestamp = type === 'pull' ? site.lastPullTimestamp : site.lastPushTimestamp;
@@ -41,9 +41,9 @@ export function usePullPushTimestamps() {
 	);
 
 	const updateTimestamp = useCallback(
-		async ( siteId: string, connectedSiteId: number, type: 'pull' | 'push' ) => {
+		async ( siteId: string, connectedSiteId: number, type: 'pull' | 'push', sites: SyncSite[] ) => {
 			try {
-				const site = await fetchConnectedSite( siteId, connectedSiteId );
+				const site = sites.find( ( site ) => site.id === connectedSiteId );
 				if ( ! site ) return;
 
 				const updatedSite = {
@@ -60,9 +60,9 @@ export function usePullPushTimestamps() {
 	);
 
 	const getTooltipText = useCallback(
-		async ( siteId: string, connectedSiteId: number, type: 'pull' | 'push' ) => {
+		async ( siteId: string, connectedSiteId: number, type: 'pull' | 'push', sites: SyncSite[] ) => {
 			const key = `${ siteId }-${ connectedSiteId }-${ type }`;
-			const text = await getLastSyncTimeWithType( siteId, connectedSiteId, type );
+			const text = await getLastSyncTimeWithType( siteId, connectedSiteId, type, sites );
 			setTooltips( ( prev ) => ( { ...prev, [ key ]: text } ) );
 		},
 		[ getLastSyncTimeWithType ]
@@ -72,7 +72,7 @@ export function usePullPushTimestamps() {
 		( siteId: string, connectedSites: SyncSite[] ) => {
 			connectedSites.forEach( ( site ) => {
 				[ 'pull', 'push' ].forEach( ( type ) =>
-					getTooltipText( siteId, site.id, type as 'pull' | 'push' )
+					getTooltipText( siteId, site.id, type as 'pull' | 'push', connectedSites )
 				);
 			} );
 		},
@@ -80,9 +80,9 @@ export function usePullPushTimestamps() {
 	);
 
 	const refreshTooltip = useCallback(
-		async ( siteId: string, connectedSiteId: number, type: 'pull' | 'push' ) => {
-			await updateTimestamp( siteId, connectedSiteId, type );
-			await getTooltipText( siteId, connectedSiteId, type );
+		async ( siteId: string, connectedSiteId: number, type: 'pull' | 'push', sites: SyncSite[] ) => {
+			await updateTimestamp( siteId, connectedSiteId, type, sites );
+			await getTooltipText( siteId, connectedSiteId, type, sites );
 		},
 		[ updateTimestamp, getTooltipText ]
 	);

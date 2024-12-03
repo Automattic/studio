@@ -107,7 +107,7 @@ export const useSiteSyncManagement = ( {
 	onConnectedSitesLoaded,
 	pullStates,
 }: {
-	onConnectedSitesLoaded?( sites: SyncSite[], selectedSite: SiteDetails ): void;
+	onConnectedSitesLoaded?( sites: SyncSite[], selectedSiteId: SiteDetails[ 'id' ] ): void;
 	pullStates: PullStates;
 } ) => {
 	const [ connectedSites, setConnectedSites ] = useState< SyncSite[] >( [] );
@@ -144,7 +144,7 @@ export const useSiteSyncManagement = ( {
 		) {
 			loadConnectedSites().then( ( sites ) => {
 				loadedConnectedSitesForSiteIdRef.current = selectedSite.id;
-				onConnectedSitesLoaded?.( sites, selectedSite );
+				onConnectedSitesLoaded?.( sites, selectedSite.id );
 				setConnectedSites( sites );
 			} );
 		}
@@ -152,7 +152,7 @@ export const useSiteSyncManagement = ( {
 
 	// Store `backupId` in `connectedSites` array whenever `pullStates` changes
 	useEffect( () => {
-		const updatedConnectedSites = connectedSites.map( ( site ) => {
+		const updatedConnectedSites = connectedSites.map( ( site ): SyncSite => {
 			const pullState = Object.values( pullStates ).find(
 				( pullState ) => pullState.remoteSiteId === site.id
 			);
@@ -164,7 +164,9 @@ export const useSiteSyncManagement = ( {
 				};
 			}
 
-			return site;
+			const newSite: SyncSite = { ...site };
+			delete newSite[ 'backupId' ];
+			return newSite;
 		} );
 
 		setConnectedSites( updatedConnectedSites );

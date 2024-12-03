@@ -213,6 +213,10 @@ export function useSyncPull() {
 		[ pullStates, isKeyPulling ]
 	);
 
+	/**
+	 * Iterate over an array of `connectedSites` and fetch the status of remote backup jobs,
+	 * ignoring the ones that are already present in the `pullStates` state.
+	 */
 	const hydratePullStates = useCallback(
 		( connectedSites: SyncSite[], localSite: SiteDetails ) => {
 			if ( ! client ) {
@@ -237,15 +241,23 @@ export function useSyncPull() {
 							}
 						)
 						.then( ( response ) => {
-							if ( response.status === 'in-progress' ) {
-								updatePullState( localSite.id, connectedSite.id, {
-									backupId: connectedSite.backupId,
-									downloadUrl: null,
-									remoteSiteId: connectedSite.id,
-									status: pullStatesProgressInfo[ 'in-progress' ],
-									selectedSite: localSite,
-									isStaging: connectedSite.isStaging,
+							const pullState: SyncBackupState = {
+								backupId: connectedSite.backupId ?? null,
+								downloadUrl: null,
+								remoteSiteId: connectedSite.id,
+								status: pullStatesProgressInfo[ 'in-progress' ],
+								selectedSite: localSite,
+								isStaging: connectedSite.isStaging,
+							};
+
+							if ( response.status === 'finished' ) {
+								updatePullState( localSite.id, connectedSite.id, pullState );
+								onBackupCompleted( connectedSite.id, {
+									...pullState,
+									downloadUrl: response.download_url,
 								} );
+							} else if ( response.status === 'in-progress' ) {
+								updatePullState( localSite.id, connectedSite.id, pullState );
 							}
 						} )
 						.catch( ( error ) => {
@@ -253,7 +265,7 @@ export function useSyncPull() {
 						} );
 				} );
 		},
-		[ client, pullStates, pullStatesProgressInfo, updatePullState ]
+		[ client, onBackupCompleted, pullStates, pullStatesProgressInfo, updatePullState ]
 	);
 
 	return {

@@ -1,5 +1,6 @@
-import React, { createContext, useContext } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { usePullPushTimestamps } from '../use-pull-push-timestamps';
+import { useSiteDetails } from '../use-site-details';
 import { useListenDeepLinkConnection } from './use-listen-deep-link-connection';
 import { useSiteSyncManagement } from './use-site-sync-management';
 import { useSyncPull } from './use-sync-pull';
@@ -27,13 +28,26 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 	const { clearPushState, getPushState, isAnySitePushing, isSiteIdPushing, pushSite, pushStates } =
 		useSyncPush();
 
+	const [ triggerPullStatesHydration, setTriggerPullStatesHydration ] = useState( '' );
+	const { selectedSite } = useSiteDetails();
+
 	const { connectedSites, connectSite, disconnectSite, syncSites, isFetching, refetchSites } =
 		useSiteSyncManagement( {
-			onConnectedSitesLoaded( connectedSites, site ) {
-				hydratePullStates( connectedSites, site );
+			onConnectedSitesLoaded( connectedSites, siteId ) {
+				// Instead of calling `hydratePullStates` directly, we trigger a state update. Why?
+				// Because the functions in this hook have complex dependencies, and
+				// `hydratePullStates` would not have access to the latest values for its closure
+				// members if we called it directly from within this function.
+				setTriggerPullStatesHydration( siteId );
 			},
 			pullStates,
 		} );
+
+	useEffect( () => {
+		if ( triggerPullStatesHydration && selectedSite ) {
+			hydratePullStates( connectedSites, selectedSite );
+		}
+	}, [ connectedSites, hydratePullStates, selectedSite, triggerPullStatesHydration ] );
 
 	const { updateTimestamp, getLastSyncTimeWithType, clearTimestamps } = usePullPushTimestamps();
 

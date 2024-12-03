@@ -150,7 +150,7 @@ export const useSiteSyncManagement = ( {
 		}
 	}, [ isAuthenticated, selectedSite, loadConnectedSites, onConnectedSitesLoaded ] );
 
-	// Store `backupId` in `connectedSites` array whenever `pullStates` changes
+	// Store `activeBackupId` in `connectedSites` array whenever `pullStates` changes
 	useEffect( () => {
 		const updatedConnectedSites = connectedSites.map( ( site ): SyncSite => {
 			const pullState = Object.values( pullStates ).find(
@@ -160,12 +160,12 @@ export const useSiteSyncManagement = ( {
 			if ( pullState && pullState.status.key === pullStatesProgressInfo[ 'in-progress' ].key ) {
 				return {
 					...site,
-					backupId: pullState.backupId,
+					activeBackupId: pullState.backupId,
 				};
 			}
 
 			const newSite: SyncSite = { ...site };
-			delete newSite[ 'backupId' ];
+			delete newSite[ 'activeBackupId' ];
 			return newSite;
 		} );
 

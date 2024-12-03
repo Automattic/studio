@@ -226,10 +226,10 @@ export function useSyncPull() {
 			connectedSites
 				.filter( ( site ) => {
 					const existingPullState = Object.values( pullStates ).find(
-						( pullState ) => pullState.backupId === site.backupId
+						( pullState ) => pullState.backupId === site.activeBackupId
 					);
 
-					return site.backupId && ! existingPullState;
+					return site.activeBackupId && ! existingPullState;
 				} )
 				.forEach( ( connectedSite ) => {
 					client.req
@@ -237,12 +237,12 @@ export function useSyncPull() {
 							`/sites/${ connectedSite.id }/studio-app/sync/backup`,
 							{
 								apiNamespace: 'wpcom/v2',
-								backup_id: connectedSite.backupId,
+								backup_id: connectedSite.activeBackupId,
 							}
 						)
 						.then( ( response ) => {
 							const pullState: SyncBackupState = {
-								backupId: connectedSite.backupId ?? null,
+								backupId: connectedSite.activeBackupId ?? null,
 								downloadUrl: null,
 								remoteSiteId: connectedSite.id,
 								status: pullStatesProgressInfo[ 'in-progress' ],

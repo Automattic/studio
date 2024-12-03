@@ -19,7 +19,7 @@ export type SyncSite = {
 	isStaging: boolean;
 	stagingSiteIds: number[];
 	syncSupport: SyncSupport;
-	backupId?: string | null;
+	activeBackupId?: string | null;
 };
 
 type SitesEndpointSite = {

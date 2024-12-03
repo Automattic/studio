@@ -34,7 +34,9 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 	const { loadConnectedSites, connectSite, disconnectSite, syncSites, isFetching, refetchSites } =
 		useSiteSyncManagement( { connectedSites, setConnectedSites } );
 
-	const { updateTimestamp, getLastSyncTimeWithType, clearTimestamps } = usePullPushTimestamps();
+	//const { updateTimestamp, getLastSyncTimeWithType, clearTimestamps } = usePullPushTimestamps();
+
+	const { getLastSyncTimeWithType } = usePullPushTimestamps();
 
 	useListenDeepLinkConnection( { connectSite, refetchSites } );
 
@@ -60,9 +62,9 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 				isAnySitePushing,
 				isSiteIdPushing,
 				clearPushState,
-				updateTimestamp,
+				//updateTimestamp,
 				getLastSyncTimeWithType,
-				clearTimestamps,
+				//clearTimestamps,
 			} }
 		>
 			{ children }

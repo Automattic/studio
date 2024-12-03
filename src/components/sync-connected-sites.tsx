@@ -52,9 +52,9 @@ const SyncConnectedSitesSection = ( {
 		pushSite,
 		getPushState,
 		clearPushState,
-		updateTimestamp,
+		//updateTimestamp,
 		getLastSyncTimeWithType,
-		clearTimestamps,
+		//clearTimestamps,
 	} = useSyncSites();
 	const { isKeyPulling, isKeyFinished, isKeyFailed } = useSyncStatesProgressInfo();
 	const isOffline = useOffline();
@@ -106,7 +106,7 @@ const SyncConnectedSitesSection = ( {
 					localStorage.setItem( 'dontShowDisconnectWarning', 'true' );
 				}
 				disconnectSite( section.id );
-				clearTimestamps( selectedSite.id, section.id );
+				//clearTimestamps( selectedSite.id, section.id );
 				section.connectedSites.forEach( ( connectedSite ) => {
 					clearPullState( selectedSite.id, connectedSite.id );
 				} );
@@ -119,12 +119,12 @@ const SyncConnectedSitesSection = ( {
 	const handlePushSite = async ( connectedSite: SyncSite ) => {
 		if ( connectedSite.isStaging ) {
 			showPushStagingConfirmation( () => {
-				updateTimestamp( selectedSite.id, connectedSite.id, 'push' );
+				//updateTimestamp( selectedSite.id, connectedSite.id, 'push' );
 				pushSite( connectedSite, selectedSite );
 			} );
 		} else {
 			showPushProductionConfirmation( () => {
-				updateTimestamp( selectedSite.id, connectedSite.id, 'push' );
+				//updateTimestamp( selectedSite.id, connectedSite.id, 'push' );
 				pushSite( connectedSite, selectedSite );
 			} );
 		}
@@ -276,11 +276,7 @@ const SyncConnectedSitesSection = ( {
 										>
 											<div className="flex gap-2 pl-4 ml-auto shrink-0 h-5">
 												<Tooltip
-													text={ getLastSyncTimeWithType(
-														selectedSite.id,
-														connectedSite.id,
-														'pull'
-													) }
+													text={ getLastSyncTimeWithType( connectedSite, 'pull' ) }
 													placement="top-start"
 													disabled={ isOffline }
 												>
@@ -308,11 +304,7 @@ const SyncConnectedSitesSection = ( {
 													</Button>
 												</Tooltip>
 												<Tooltip
-													text={ getLastSyncTimeWithType(
-														selectedSite.id,
-														connectedSite.id,
-														'push'
-													) }
+													text={ getLastSyncTimeWithType( connectedSite, 'push' ) }
 													placement="top-start"
 													disabled={ isOffline }
 												>

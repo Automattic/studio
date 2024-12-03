@@ -95,7 +95,12 @@ const InitialImportButton = ( {
 	isInitial ? (
 		<Button
 			variant="icon"
-			className="w-full [&>div.border-zinc-300]:hover:border-a8c-blueberry"
+			className={ `w-full 
+				${
+					disabled
+						? '[&>div.border-zinc-300]:border-gray-400 cursor-not-allowed opacity-50'
+						: '[&>div.border-zinc-300]:hover:border-a8c-blueberry'
+				}` }
 			onClick={ openFileSelector }
 			disabled={ disabled }
 		>

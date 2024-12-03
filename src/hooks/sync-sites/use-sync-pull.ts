@@ -29,9 +29,15 @@ export type GetSyncBackupApiResponse = {
 	download_url: string;
 };
 
-export function useSyncPull() {
-	const [ pullStates, setPullStates ] = useState< Record< string, SyncBackupState > >( {} );
+export type PullStates = Record< string, SyncBackupState >;
 
+export function useSyncPull( {
+	pullStates,
+	setPullStates,
+}: {
+	pullStates: PullStates;
+	setPullStates: React.Dispatch< React.SetStateAction< PullStates > >;
+} ) {
 	const { __ } = useI18n();
 	const { client } = useAuth();
 	const { importFile, clearImportState } = useImportExport();

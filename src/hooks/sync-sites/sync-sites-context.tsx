@@ -1,10 +1,11 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { SyncSite } from '../use-fetch-wpcom-sites';
 import { usePullPushTimestamps } from '../use-pull-push-timestamps';
 import { useSiteDetails } from '../use-site-details';
 import { useListenDeepLinkConnection } from './use-listen-deep-link-connection';
 import { useSiteSyncManagement } from './use-site-sync-management';
-import { useSyncPull } from './use-sync-pull';
-import { useSyncPush } from './use-sync-push';
+import { PullStates, useSyncPull } from './use-sync-pull';
+import { PushStates, useSyncPush } from './use-sync-push';
 
 export type SyncSitesContextType = ReturnType< typeof useSyncPull > &
 	ReturnType< typeof useSyncPush > &
@@ -14,6 +15,7 @@ export type SyncSitesContextType = ReturnType< typeof useSyncPull > &
 const SyncSitesContext = createContext< SyncSitesContextType | undefined >( undefined );
 
 export function SyncSitesProvider( { children }: { children: React.ReactNode } ) {
+	const [ pullStates, setPullStates ] = useState< PullStates >( {} );
 	const {
 		clearPullState,
 		getPullState,
@@ -21,18 +23,27 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 		isAnySitePulling,
 		isSiteIdPulling,
 		pullSite,
-		pullStates,
 		updatePullState,
-	} = useSyncPull();
+	} = useSyncPull( {
+		pullStates,
+		setPullStates,
+	} );
 
-	const { clearPushState, getPushState, isAnySitePushing, isSiteIdPushing, pushSite, pushStates } =
-		useSyncPush();
+	const [ pushStates, setPushStates ] = useState< PushStates >( {} );
+	const { clearPushState, getPushState, isAnySitePushing, isSiteIdPushing, pushSite } = useSyncPush(
+		{
+			pushStates,
+			setPushStates,
+		}
+	);
 
 	const [ triggerPullStatesHydration, setTriggerPullStatesHydration ] = useState( '' );
 	const { selectedSite } = useSiteDetails();
 
-	const { connectedSites, connectSite, disconnectSite, syncSites, isFetching, refetchSites } =
+	const [ connectedSites, setConnectedSites ] = useState< SyncSite[] >( [] );
+	const { connectSite, disconnectSite, syncSites, isFetching, refetchSites } =
 		useSiteSyncManagement( {
+			connectedSites,
 			onConnectedSitesLoaded( connectedSites, siteId ) {
 				// Instead of calling `hydratePullStates` directly, we trigger a state update. Why?
 				// Because the functions in this hook have complex dependencies, and
@@ -41,6 +52,7 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 				setTriggerPullStatesHydration( siteId );
 			},
 			pullStates,
+			setConnectedSites,
 		} );
 
 	useEffect( () => {

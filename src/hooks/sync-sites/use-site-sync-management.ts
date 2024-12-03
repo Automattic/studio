@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useState, useRef } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { getIpcApi } from '../../lib/get-ipc-api';
 import { useAuth } from '../use-auth';
 import { SyncSite, useFetchWpComSites } from '../use-fetch-wpcom-sites';
@@ -104,14 +104,16 @@ export const reconcileConnectedSites = (
 type PullStates = ReturnType< typeof useSyncPull >[ 'pullStates' ];
 
 export const useSiteSyncManagement = ( {
+	connectedSites,
 	onConnectedSitesLoaded,
 	pullStates,
+	setConnectedSites,
 }: {
+	connectedSites: SyncSite[];
 	onConnectedSitesLoaded?( sites: SyncSite[], selectedSiteId: SiteDetails[ 'id' ] ): void;
 	pullStates: PullStates;
+	setConnectedSites: React.Dispatch< React.SetStateAction< SyncSite[] > >;
 } ) => {
-	const [ connectedSites, setConnectedSites ] = useState< SyncSite[] >( [] );
-
 	const { pullStatesProgressInfo } = useSyncStatesProgressInfo();
 	const { isAuthenticated } = useAuth();
 	const { syncSites, isFetching, isInitialized, refetchSites } = useFetchWpComSites(

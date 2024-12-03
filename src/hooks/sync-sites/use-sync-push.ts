@@ -1,7 +1,7 @@
 import * as Sentry from '@sentry/electron/renderer';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { SYNC_PUSH_SIZE_LIMIT_BYTES } from '../../constants';
 import { getIpcApi } from '../../lib/get-ipc-api';
 import { useAuth } from '../use-auth';
@@ -16,9 +16,15 @@ export type SyncPushState = {
 	isStaging: boolean;
 };
 
-export function useSyncPush() {
-	const [ pushStates, setPushStates ] = useState< Record< string, SyncPushState > >( {} );
+export type PushStates = Record< string, SyncPushState >;
 
+export function useSyncPush( {
+	pushStates,
+	setPushStates,
+}: {
+	pushStates: PushStates;
+	setPushStates: React.Dispatch< React.SetStateAction< PushStates > >;
+} ) {
 	const { __ } = useI18n();
 	const { client } = useAuth();
 	const {
@@ -178,12 +184,5 @@ export function useSyncPush() {
 		[ getState, isKeyFailed, isKeyFinished, isKeyPushing ]
 	);
 
-	return {
-		clearPushState,
-		getPushState,
-		isAnySitePushing,
-		isSiteIdPushing,
-		pushSite,
-		pushStates,
-	};
+	return { pushStates, getPushState, pushSite, isAnySitePushing, isSiteIdPushing, clearPushState };
 }

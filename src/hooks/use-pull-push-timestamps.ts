@@ -7,15 +7,16 @@ import { SyncSite } from './use-fetch-wpcom-sites';
 export function usePullPushTimestamps() {
 	const [ tooltips, setTooltips ] = useState< Record< string, string > >( {} );
 
+	const fetchConnectedSite = async ( siteId: string, connectedSiteId: number ) => {
+		const connectedSites = await getIpcApi().getConnectedWpcomSites( siteId );
+		return connectedSites.find( ( site ) => site.id === connectedSiteId );
+	};
+
 	const getLastSyncTimeWithType = useCallback(
 		async ( siteId: string, connectedSiteId: number, type: 'pull' | 'push' ): Promise< string > => {
 			try {
-				const connectedSites = await getIpcApi().getConnectedWpcomSites( siteId );
-				const site = connectedSites.find( ( site ) => site.id === connectedSiteId );
-
-				if ( ! site ) {
-					return __( 'Site not found.' );
-				}
+				const site = await fetchConnectedSite( siteId, connectedSiteId );
+				if ( ! site ) return __( 'Site not found.' );
 
 				const timestamp = type === 'pull' ? site.lastPullTimestamp : site.lastPushTimestamp;
 
@@ -42,12 +43,8 @@ export function usePullPushTimestamps() {
 	const updateTimestamp = useCallback(
 		async ( siteId: string, connectedSiteId: number, type: 'pull' | 'push' ) => {
 			try {
-				const connectedSites = await getIpcApi().getConnectedWpcomSites( siteId );
-				const site = connectedSites.find( ( site ) => site.id === connectedSiteId );
-
-				if ( ! site ) {
-					return;
-				}
+				const site = await fetchConnectedSite( siteId, connectedSiteId );
+				if ( ! site ) return;
 
 				const updatedSite = {
 					...site,
@@ -74,8 +71,9 @@ export function usePullPushTimestamps() {
 	const updateTooltips = useCallback(
 		( siteId: string, connectedSites: SyncSite[] ) => {
 			connectedSites.forEach( ( site ) => {
-				getTooltipText( siteId, site.id, 'pull' );
-				getTooltipText( siteId, site.id, 'push' );
+				[ 'pull', 'push' ].forEach( ( type ) =>
+					getTooltipText( siteId, site.id, type as 'pull' | 'push' )
+				);
 			} );
 		},
 		[ getTooltipText ]

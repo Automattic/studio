@@ -52,7 +52,7 @@ const SyncConnectedSitesSection = ( {
 		pushSite,
 		getPushState,
 		clearPushState,
-		//updateTimestamp,
+		updateTimestamp,
 		getLastSyncTimeWithType,
 		//clearTimestamps,
 	} = useSyncSites();
@@ -140,12 +140,12 @@ const SyncConnectedSitesSection = ( {
 	const handlePushSite = async ( connectedSite: SyncSite ) => {
 		if ( connectedSite.isStaging ) {
 			showPushStagingConfirmation( () => {
-				//updateTimestamp( selectedSite.id, connectedSite.id, 'push' );
+				updateTimestamp( selectedSite.id, connectedSite.id, 'push' );
 				pushSite( connectedSite, selectedSite );
 			} );
 		} else {
 			showPushProductionConfirmation( () => {
-				//updateTimestamp( selectedSite.id, connectedSite.id, 'push' );
+				updateTimestamp( selectedSite.id, connectedSite.id, 'push' );
 				pushSite( connectedSite, selectedSite );
 			} );
 		}
@@ -314,9 +314,13 @@ const SyncConnectedSitesSection = ( {
 																: __(
 																		"Pulling will replace your Studio site's files and database with a copy from your production site."
 																  );
-															showPullConfirmation( () => pullSite( connectedSite, selectedSite ), {
-																detail,
-															} );
+															showPullConfirmation(
+																() => {
+																	updateTimestamp( selectedSite.id, connectedSite.id, 'pull' );
+																	pullSite( connectedSite, selectedSite );
+																},
+																{ detail }
+															);
 														} }
 														disabled={ isAnySitePulling || isAnySitePushing || isOffline }
 													>

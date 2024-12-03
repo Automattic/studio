@@ -36,5 +36,28 @@ export function usePullPushTimestamps() {
 		[]
 	);
 
-	return { getLastSyncTimeWithType };
+	const updateTimestamp = useCallback(
+		async ( siteId: string, connectedSiteId: number, type: 'pull' | 'push' ) => {
+			try {
+				const connectedSites = await getIpcApi().getConnectedWpcomSites( siteId );
+				const site = connectedSites.find( ( site ) => site.id === connectedSiteId );
+
+				if ( ! site ) {
+					return;
+				}
+
+				const updatedSite = {
+					...site,
+					[ type === 'pull' ? 'lastPullTimestamp' : 'lastPushTimestamp' ]: new Date().toISOString(),
+				};
+
+				await getIpcApi().updateSingleConnectedWpcomSite( updatedSite );
+			} catch ( error ) {
+				console.error( 'Failed to update timestamp:', error );
+			}
+		},
+		[]
+	);
+
+	return { getLastSyncTimeWithType, updateTimestamp };
 }

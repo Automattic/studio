@@ -36,7 +36,7 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 
 	//const { updateTimestamp, getLastSyncTimeWithType, clearTimestamps } = usePullPushTimestamps();
 
-	const { getLastSyncTimeWithType } = usePullPushTimestamps();
+	const { getLastSyncTimeWithType, updateTimestamp } = usePullPushTimestamps();
 
 	useListenDeepLinkConnection( { connectSite, refetchSites } );
 
@@ -62,7 +62,7 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 				isAnySitePushing,
 				isSiteIdPushing,
 				clearPushState,
-				//updateTimestamp,
+				updateTimestamp,
 				getLastSyncTimeWithType,
 				//clearTimestamps,
 			} }

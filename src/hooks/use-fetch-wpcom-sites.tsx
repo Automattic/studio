@@ -19,8 +19,8 @@ export type SyncSite = {
 	isStaging: boolean;
 	stagingSiteIds: number[];
 	syncSupport: SyncSupport;
-	lastPullTimestamp: number | null;
-	lastPushTimestamp: number | null;
+	lastPullTimestamp: string | null;
+	lastPushTimestamp: string | null;
 };
 
 type SitesEndpointSite = {

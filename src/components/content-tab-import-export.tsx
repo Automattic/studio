@@ -24,11 +24,15 @@ interface ContentTabImportExportProps {
 export const ExportSite = ( { selectedSite }: { selectedSite: SiteDetails } ) => {
 	const { exportState, exportFullSite, exportDatabase, importState } = useImportExport();
 	const { [ selectedSite.id ]: currentProgress } = exportState;
-	const isSiteImporting = importState[ selectedSite.id ]?.progress < 100;
+	const isImporting = importState[ selectedSite.id ]?.progress < 100;
 	const { isAnySitePulling, isAnySitePushing } = useSyncSites();
-	const isExportDisabled = isSiteImporting || isAnySitePulling || isAnySitePushing;
-	const siteNotReadyForExportMessage = __(
+	const isSyncing = isAnySitePulling || isAnySitePushing;
+	const isExportDisabled = isImporting || isSyncing;
+	const siteImportingMessage = __(
 		'This site is being imported. Please wait for the import to finish before you export it.'
+	);
+	const siteSyncingMessage = __(
+		'This site is being synced. Please wait for the sync to finish before you export it.'
 	);
 
 	const handleExport = async ( exportFunction: typeof exportFullSite | typeof exportDatabase ) => {
@@ -52,8 +56,12 @@ export const ExportSite = ( { selectedSite }: { selectedSite: SiteDetails } ) =>
 					<div className="text-a8c-gray-70 a8c-body">{ currentProgress.statusMessage }</div>
 				</div>
 			) : (
-				<div className="flex flex-row gap-4">
-					<Tooltip text={ siteNotReadyForExportMessage } disabled={ ! isExportDisabled }>
+				<Tooltip
+					text={ isSyncing ? siteSyncingMessage : siteImportingMessage }
+					disabled={ ! isExportDisabled }
+					placement="top-start"
+				>
+					<div className="flex flex-row gap-4">
 						<Button
 							onClick={ () => handleExport( exportFullSite ) }
 							variant="primary"
@@ -74,8 +82,8 @@ export const ExportSite = ( { selectedSite }: { selectedSite: SiteDetails } ) =>
 						>
 							{ __( 'Export database' ) }
 						</Button>
-					</Tooltip>
-				</div>
+					</div>
+				</Tooltip>
 			) }
 		</div>
 	);

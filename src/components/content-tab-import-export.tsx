@@ -21,6 +21,10 @@ interface ContentTabImportExportProps {
 	selectedSite: SiteDetails;
 }
 
+const siteSyncingMessage = __(
+	'This site is being synced. Please wait for the sync to finish before you export it.'
+);
+
 export const ExportSite = ( { selectedSite }: { selectedSite: SiteDetails } ) => {
 	const { exportState, exportFullSite, exportDatabase, importState } = useImportExport();
 	const { [ selectedSite.id ]: currentProgress } = exportState;
@@ -30,9 +34,6 @@ export const ExportSite = ( { selectedSite }: { selectedSite: SiteDetails } ) =>
 	const isExportDisabled = isImporting || isSyncing;
 	const siteImportingMessage = __(
 		'This site is being imported. Please wait for the import to finish before you export it.'
-	);
-	const siteSyncingMessage = __(
-		'This site is being synced. Please wait for the sync to finish before you export it.'
 	);
 
 	const handleExport = async ( exportFunction: typeof exportFullSite | typeof exportDatabase ) => {
@@ -99,19 +100,21 @@ const InitialImportButton = ( {
 	disabled?: boolean;
 } ) =>
 	isInitial ? (
-		<Button
-			variant="icon"
-			className={ `w-full 
+		<Tooltip className={ 'w-full' } text={ siteSyncingMessage } disabled={ ! disabled }>
+			<Button
+				variant="icon"
+				className={ `w-full 
 				${
 					disabled
 						? '[&>div.border-zinc-300]:border-gray-400 cursor-not-allowed opacity-50'
 						: '[&>div.border-zinc-300]:hover:border-a8c-blueberry'
 				}` }
-			onClick={ openFileSelector }
-			disabled={ disabled }
-		>
-			{ children }
-		</Button>
+				onClick={ openFileSelector }
+				disabled={ disabled }
+			>
+				{ children }
+			</Button>
+		</Tooltip>
 	) : (
 		<div className="w-full">{ children }</div>
 	);

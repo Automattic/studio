@@ -15,6 +15,7 @@ jest.mock( '../../lib/get-ipc-api', () => ( {
 		showOpenFolderDialog: jest.fn(),
 		generateProposedSitePath: jest.fn(),
 		openURL: mockOpenURL,
+		updateConnectedWpcomSites: jest.fn(),
 	} ),
 } ) );
 

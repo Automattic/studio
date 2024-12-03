@@ -26,6 +26,7 @@ function mockGetIpcApi( mocks: Record< string, jest.Mock > ) {
 		saveSnapshotsToStorage: jest.fn( () => Promise.resolve() ),
 		startServer: jest.fn( () => Promise.resolve( { running: true } ) ),
 		showErrorMessageBox: jest.fn(),
+		updateConnectedWpcomSites: jest.fn(),
 		...mocks,
 	} );
 }

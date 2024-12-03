@@ -31,6 +31,7 @@ beforeEach( () => {
 	( getIpcApi as jest.Mock ).mockReturnValue( {
 		showMessageBox: jest.fn().mockResolvedValue( { response: 0, checkboxChecked: false } ), // Mock showMessageBox
 		isImportExportSupported: jest.fn().mockResolvedValue( true ),
+		updateConnectedWpcomSites: jest.fn(),
 	} );
 	( useImportExport as jest.Mock ).mockReturnValue( {
 		importFile: jest.fn(),
@@ -190,6 +191,7 @@ describe( 'ContentTabImportExport Export', () => {
 	test( 'should be blocked', async () => {
 		( getIpcApi as jest.Mock ).mockReturnValue( {
 			isImportExportSupported: jest.fn().mockResolvedValue( false ),
+			updateConnectedWpcomSites: jest.fn(),
 		} );
 
 		renderWithProvider( <ContentTabImportExport selectedSite={ selectedSite } /> );

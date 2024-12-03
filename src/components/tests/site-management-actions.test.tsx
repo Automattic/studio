@@ -2,7 +2,10 @@ import { render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { SyncSitesProvider } from '../../hooks/sync-sites';
 import { ContentTabsProvider } from '../../hooks/use-content-tabs';
+import { getIpcApi } from '../../lib/get-ipc-api';
 import { SiteManagementActionProps, SiteManagementActions } from '../site-management-actions';
+
+jest.mock( '../../lib/get-ipc-api' );
 
 const defaultProps = {
 	onStart: jest.fn(),
@@ -12,6 +15,9 @@ const defaultProps = {
 describe( 'SiteManagementActions', () => {
 	beforeEach( () => {
 		jest.clearAllMocks();
+		( getIpcApi as jest.Mock ).mockReturnValue( {
+			updateConnectedWpcomSites: jest.fn(),
+		} );
 	} );
 	const renderWithProvider = ( children: React.ReactElement ) => {
 		return render(

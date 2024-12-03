@@ -69,8 +69,6 @@ export const ExportSite = ( { selectedSite }: { selectedSite: SiteDetails } ) =>
 						>
 							{ __( 'Export entire site' ) }
 						</Button>
-					</Tooltip>
-					<Tooltip text={ siteNotReadyForExportMessage } disabled={ ! isExportDisabled }>
 						<Button
 							onClick={ () => handleExport( exportDatabase ) }
 							type="submit"
@@ -124,6 +122,7 @@ const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 	const { importState, importFile, clearImportState, exportState } = useImportExport();
 	const { [ props.selectedSite.id ]: currentProgress } = importState;
 	const { isAnySitePulling, isAnySitePushing } = useSyncSites();
+	const isSyncing = isAnySitePulling || isAnySitePushing;
 	const isSiteExporting =
 		exportState[ props.selectedSite?.id ] && exportState[ props.selectedSite?.id ].progress < 100;
 
@@ -175,11 +174,13 @@ const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 	};
 
 	const startLoadingCursorClassName =
-		loadingServer[ props.selectedSite.id ] && 'animate-pulse duration-100 cursor-wait';
+		loadingServer[ props.selectedSite.id ] &&
+		! isSyncing &&
+		'animate-pulse duration-100 cursor-wait';
 
 	const isImporting = currentProgress?.progress < 100 && ! isAnySitePulling && ! isAnySitePushing;
-	const isImported = currentProgress?.progress === 100 && ! isDraggingOver;
-	const isInitial = ! isImporting && ! isImported;
+	const isImported = currentProgress?.progress === 100 && ! isDraggingOver && ! isSyncing;
+	const isInitial = ( ! isImporting && ! isImported ) || isSyncing;
 	return (
 		<div className={ cx( 'flex flex-col w-full', startLoadingCursorClassName ) }>
 			<div className="a8c-subtitle-small mb-1">{ __( 'Import' ) }</div>
@@ -200,7 +201,7 @@ const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 				<InitialImportButton
 					isInitial={ isInitial }
 					openFileSelector={ openFileSelector }
-					disabled={ isSiteExporting || isAnySitePulling || isAnySitePushing }
+					disabled={ isSiteExporting || isSyncing }
 				>
 					<div
 						className={ cx(

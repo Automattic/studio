@@ -54,7 +54,6 @@ const SyncConnectedSitesSection = ( {
 		clearPushState,
 		updateTimestamp,
 		getLastSyncTimeWithType,
-		//clearTimestamps,
 	} = useSyncSites();
 	const { isKeyPulling, isKeyFinished, isKeyFailed } = useSyncStatesProgressInfo();
 	const isOffline = useOffline();
@@ -127,7 +126,6 @@ const SyncConnectedSitesSection = ( {
 					localStorage.setItem( 'dontShowDisconnectWarning', 'true' );
 				}
 				disconnectSite( section.id );
-				//clearTimestamps( selectedSite.id, section.id );
 				section.connectedSites.forEach( ( connectedSite ) => {
 					clearPullState( selectedSite.id, connectedSite.id );
 				} );

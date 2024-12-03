@@ -4,6 +4,7 @@
 import '@sentry/electron/preload';
 import { SaveDialogOptions, contextBridge, ipcRenderer } from 'electron';
 import { LocaleData } from '@wordpress/i18n';
+import { SyncSite } from './hooks/use-fetch-wpcom-sites';
 import { ExportOptions } from './lib/import-export/export/types';
 import { BackupArchiveInfo } from './lib/import-export/import/types';
 import { promptWindowsSpeedUpSites } from './lib/windows-helpers';
@@ -21,6 +22,8 @@ const api: IpcApi = {
 	disconnectWpcomSites: ( ...args ) => ipcRenderer.invoke( 'disconnectWpcomSites', ...args ),
 	updateConnectedWpcomSites: ( ...args ) =>
 		ipcRenderer.invoke( 'updateConnectedWpcomSites', ...args ),
+	updateSingleConnectedWpcomSite: ( updatedSite: SyncSite ) =>
+		ipcRenderer.invoke( 'updateSingleConnectedWpcomSite', updatedSite ),
 	authenticate: () => ipcRenderer.invoke( 'authenticate' ),
 	exportSite: ( options: ExportOptions, siteId: string ) =>
 		ipcRenderer.invoke( 'exportSite', options, siteId ),

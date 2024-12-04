@@ -1,11 +1,11 @@
 import { __, sprintf } from '@wordpress/i18n';
-import { formatDistanceToNow } from 'date-fns';
 import { useCallback, useState } from 'react';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { SyncSite } from './use-fetch-wpcom-sites';
-
+import { useFormatLocalizedTimestamps } from './use-format-localized-timestamps';
 export function usePullPushTimestamps() {
 	const [ tooltips, setTooltips ] = useState< Record< string, string > >( {} );
+	const { formatRelativeTime } = useFormatLocalizedTimestamps();
 
 	const getLastSyncTimeWithType = useCallback(
 		async (
@@ -30,14 +30,14 @@ export function usePullPushTimestamps() {
 					type === 'pull'
 						? __( 'You pulled this site %s ago.' )
 						: __( 'You pushed this site %s ago.' ),
-					formatDistanceToNow( new Date( timestamp ) )
+					formatRelativeTime( timestamp )
 				);
 			} catch ( error ) {
 				console.error( 'Failed to get sync time:', error );
 				return __( 'Unable to determine sync time.' );
 			}
 		},
-		[]
+		[ formatRelativeTime ]
 	);
 
 	const updateTimestamp = useCallback(

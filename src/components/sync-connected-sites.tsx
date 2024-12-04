@@ -58,6 +58,7 @@ const SyncConnectedSitesSection = ( {
 	} = useSyncSites();
 	const { isKeyPulling, isKeyFinished, isKeyFailed } = useSyncStatesProgressInfo();
 	const isOffline = useOffline();
+	const isAnySiteSyncing = isAnySitePulling || isAnySitePushing;
 	const showPushStagingConfirmation = useConfirmationDialog( {
 		localStorageKey: 'dontShowPushConfirmation',
 		message: __( 'Overwrite Staging site' ),
@@ -276,13 +277,15 @@ const SyncConnectedSitesSection = ( {
 										>
 											<div className="flex gap-2 pl-4 ml-auto shrink-0 h-5">
 												<Tooltip
-													text={ getLastSyncTimeWithType(
-														selectedSite.id,
-														connectedSite.id,
-														'pull'
-													) }
+													text={
+														isAnySiteSyncing
+															? __(
+																	'Another site is syncing. Please wait for the sync to finish before you pull this site.'
+															  )
+															: getLastSyncTimeWithType( selectedSite.id, connectedSite.id, 'pull' )
+													}
 													placement="top-start"
-													disabled={ isOffline || isAnySitePulling || isAnySitePushing }
+													disabled={ isOffline }
 												>
 													<Button
 														variant="link"
@@ -304,20 +307,22 @@ const SyncConnectedSitesSection = ( {
 																detail,
 															} );
 														} }
-														disabled={ isAnySitePulling || isAnySitePushing || isOffline }
+														disabled={ isAnySiteSyncing || isOffline }
 													>
 														<Icon icon={ cloudDownload } />
 														{ __( 'Pull' ) }
 													</Button>
 												</Tooltip>
 												<Tooltip
-													text={ getLastSyncTimeWithType(
-														selectedSite.id,
-														connectedSite.id,
-														'push'
-													) }
+													text={
+														isAnySiteSyncing
+															? __(
+																	'Another site is syncing. Please wait for the sync to finish before you push this site.'
+															  )
+															: getLastSyncTimeWithType( selectedSite.id, connectedSite.id, 'push' )
+													}
 													placement="top-start"
-													disabled={ isOffline || isAnySitePulling || isAnySitePushing }
+													disabled={ isOffline }
 												>
 													<Button
 														variant="link"
@@ -328,7 +333,7 @@ const SyncConnectedSitesSection = ( {
 																'!text-black hover:!text-a8c-blueberry'
 														) }
 														onClick={ () => handlePushSite( connectedSite ) }
-														disabled={ isAnySitePulling || isAnySitePushing || isOffline }
+														disabled={ isAnySiteSyncing || isOffline }
 													>
 														<Icon icon={ cloudUpload } />
 														{ __( 'Push' ) }

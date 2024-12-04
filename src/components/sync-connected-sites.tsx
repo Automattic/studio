@@ -115,12 +115,12 @@ const SyncConnectedSitesSection = ( {
 
 	const handlePushSite = async ( connectedSite: SyncSite ) => {
 		if ( connectedSite.isStaging ) {
-			showPushStagingConfirmation( async () => {
-				await pushSite( connectedSite, selectedSite );
+			showPushStagingConfirmation( () => {
+				pushSite( connectedSite, selectedSite );
 			} );
 		} else {
-			showPushProductionConfirmation( async () => {
-				await pushSite( connectedSite, selectedSite );
+			showPushProductionConfirmation( () => {
+				pushSite( connectedSite, selectedSite );
 			} );
 		}
 	};

@@ -20,7 +20,7 @@ const GradientBox = () => {
 			className="gap-1 flex flex-col font-normal text-[42px] leading-[42px] text-white"
 		>
 			<div className="flex flex-col gap-1 relative self-stretch">
-				<div className="absolute inset-0 bg-gradient-to-b from-[#3858E9] to-[#3858E9]/60"></div>
+				<div className="absolute inset-0 bg-gradient-to-b from-[#3858E9] to-[#3858E9]/60 bottom-[-4px]"></div>
 				<p>{ __( 'Imagine' ) }</p>
 				<p>{ __( 'Create' ) }</p>
 				<p>{ __( 'Design' ) }</p>

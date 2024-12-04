@@ -289,8 +289,8 @@ const SyncConnectedSitesSection = ( {
 																		"Pulling will replace your Studio site's files and database with a copy from your production site."
 																  );
 															showPullConfirmation(
-																async () => {
-																	await pullSite( connectedSite, selectedSite );
+																() => {
+																	pullSite( connectedSite, selectedSite );
 																},
 																{ detail }
 															);

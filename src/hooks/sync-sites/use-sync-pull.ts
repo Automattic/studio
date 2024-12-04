@@ -71,7 +71,7 @@ export function useSyncPull( {
 					console.error( response );
 					throw new Error( 'Pull request failed' );
 				}
-				return true;
+				return;
 			} catch ( error ) {
 				Sentry.captureException( error );
 				updatePullState( selectedSite.id, remoteSiteId, {
@@ -81,7 +81,7 @@ export function useSyncPull( {
 					title: sprintf( __( 'Error pulling from %s' ), connectedSite.name ),
 					message: __( 'Studio was unable to connect to WordPress.com. Please try again.' ),
 				} );
-				return false;
+				return;
 			}
 		},
 		[ __, client, pullStatesProgressInfo, updatePullState ]

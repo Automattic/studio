@@ -43,9 +43,9 @@ export function useSyncPull( {
 			const statusKey = state.status?.key;
 
 			if ( isKeyFailed( statusKey ) || isKeyFinished( statusKey ) ) {
-				getIpcApi().clearPushPullOperation( generateStateId( selectedSiteId, remoteSiteId ) );
+				getIpcApi().clearSyncOperation( generateStateId( selectedSiteId, remoteSiteId ) );
 			} else {
-				getIpcApi().addPushPullOperation( generateStateId( selectedSiteId, remoteSiteId ) );
+				getIpcApi().addSyncOperation( generateStateId( selectedSiteId, remoteSiteId ) );
 			}
 		},
 		[ isKeyFailed, isKeyFinished, updateState ]
@@ -54,7 +54,7 @@ export function useSyncPull( {
 	const clearPullState: typeof clearState = useCallback(
 		( selectedSiteId, remoteSiteId ) => {
 			clearState( selectedSiteId, remoteSiteId );
-			getIpcApi().clearPushPullOperation( generateStateId( selectedSiteId, remoteSiteId ) );
+			getIpcApi().clearSyncOperation( generateStateId( selectedSiteId, remoteSiteId ) );
 		},
 		[ clearState ]
 	);

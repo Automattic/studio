@@ -14,7 +14,7 @@ import { __ } from '@wordpress/i18n';
 import packageJson from '../package.json';
 import { PROTOCOL_PREFIX } from './constants';
 import * as ipcHandlers from './ipc-handlers';
-import { hasActivePushPullOperations } from './lib/active-push-pull-operations';
+import { hasActiveSyncOperations } from './lib/active-sync-operations';
 import { getPlatformName } from './lib/app-globals';
 import { bumpAggregatedUniqueStat, bumpStat } from './lib/bump-stats';
 import {
@@ -306,7 +306,7 @@ async function appBoot() {
 	} );
 
 	app.on( 'before-quit', ( event ) => {
-		if ( ! hasActivePushPullOperations() ) {
+		if ( ! hasActiveSyncOperations() ) {
 			return;
 		}
 

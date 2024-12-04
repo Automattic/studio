@@ -19,6 +19,7 @@ import archiver from 'archiver';
 import { DEFAULT_PHP_VERSION } from '../vendor/wp-now/src/constants';
 import { MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from './constants';
 import { SyncSite } from './hooks/use-fetch-wpcom-sites';
+import { ACTIVE_PUSH_PULL_OPERATIONS } from './lib/active-push-pull-operations';
 import { download } from './lib/download';
 import { isEmptyDir, pathExists, isWordPressDirectory, sanitizeFolderName } from './lib/fs-utils';
 import { getImageData } from './lib/get-image-data';
@@ -1004,8 +1005,6 @@ export async function isImportExportSupported( _event: IpcMainInvokeEvent, siteI
 	return site.hasSQLitePlugin();
 }
 
-const ACTIVE_PUSH_PULL_OPERATIONS = new Set();
-
 /**
  * Store the ID of a push/pull operation in a deduped set.
  */
@@ -1018,13 +1017,4 @@ export function addPushPullOperation( event: IpcMainInvokeEvent, id: string ) {
  */
 export function clearPushPullOperation( event: IpcMainInvokeEvent, id: string ) {
 	ACTIVE_PUSH_PULL_OPERATIONS.delete( id );
-}
-
-/**
- * Determine if the set of active push/pull operations has any members. Note that this function
- * isn't exposed to the renderer process even if it lives in `ipc-handlers`, because it's only
- * relevant to the main process.
- */
-export function hasActivePushPullOperations(): boolean {
-	return ACTIVE_PUSH_PULL_OPERATIONS.size > 0;
 }

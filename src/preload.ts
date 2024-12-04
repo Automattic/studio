@@ -9,7 +9,7 @@ import { BackupArchiveInfo } from './lib/import-export/import/types';
 import { promptWindowsSpeedUpSites } from './lib/windows-helpers';
 import type { LogLevel } from './logging';
 
-const api: Omit< IpcApi, 'hasActivePushPullOperations' > = {
+const api: IpcApi = {
 	archiveSite: ( id: string, format: 'zip' | 'tar' ) =>
 		ipcRenderer.invoke( 'archiveSite', id, format ),
 	exportSiteToPush: ( id: string ) => ipcRenderer.invoke( 'exportSiteToPush', id ),

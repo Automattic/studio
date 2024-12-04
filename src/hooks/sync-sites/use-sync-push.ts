@@ -142,10 +142,9 @@ export function useSyncPush( {
 				updatePushState( selectedSite.id, remoteSiteId, {
 					status: pushStatesProgressInfo.failed,
 				} );
-				const errorMessage = getErrorFromResponse( error );
 				getIpcApi().showErrorMessageBox( {
 					title: sprintf( __( 'Error pushing to %s' ), connectedSite.name ),
-					message: errorMessage,
+					message: getErrorFromResponse( error ),
 				} );
 			} finally {
 				await getIpcApi().removeTemporalFile( archivePath );

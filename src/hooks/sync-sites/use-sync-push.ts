@@ -74,6 +74,23 @@ export function useSyncPush( {
 		]
 	);
 
+	const getErrorFromResponse = ( error: unknown ): string => {
+		const defaultErrorMessage = __(
+			'Studio was unable to connect to WordPress.com. Please try again.'
+		);
+
+		if (
+			typeof error === 'object' &&
+			error !== null &&
+			'error' in error &&
+			typeof ( error as { error: unknown } ).error === 'string'
+		) {
+			return ( error as { error: string } ).error;
+		}
+
+		return defaultErrorMessage;
+	};
+
 	const pushSite = useCallback(
 		async ( connectedSite: SyncSite, selectedSite: SiteDetails ) => {
 			if ( ! client ) {
@@ -129,10 +146,7 @@ export function useSyncPush( {
 				updatePushState( selectedSite.id, remoteSiteId, {
 					status: pushStatesProgressInfo.failed,
 				} );
-				let errorMessage = __( 'Studio was unable to connect to WordPress.com. Please try again.' );
-				if ( typeof error === 'object' && error !== null && 'error' in error ) {
-					errorMessage = ( error as { error: string } ).error || errorMessage;
-				}
+				const errorMessage = getErrorFromResponse( error );
 				getIpcApi().showErrorMessageBox( {
 					title: sprintf( __( 'Error pushing to %s' ), connectedSite.name ),
 					message: errorMessage,

@@ -75,10 +75,6 @@ export function useSyncPush( {
 	);
 
 	const getErrorFromResponse = ( error: unknown ): string => {
-		const defaultErrorMessage = __(
-			'Studio was unable to connect to WordPress.com. Please try again.'
-		);
-
 		if (
 			typeof error === 'object' &&
 			error !== null &&
@@ -88,7 +84,7 @@ export function useSyncPush( {
 			return ( error as { error: string } ).error;
 		}
 
-		return defaultErrorMessage;
+		return __( 'Studio was unable to connect to WordPress.com. Please try again.' );
 	};
 
 	const pushSite = useCallback(

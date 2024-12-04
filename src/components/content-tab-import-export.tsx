@@ -116,7 +116,6 @@ const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 
 	const importConfirmation = useConfirmationDialog( {
 		message: sprintf( __( 'Overwrite %s?' ), props.selectedSite.name ),
-		checkboxLabel: __( "Don't ask again" ),
 		detail: __( 'Importing a backup will replace the existing files and database for your site.' ),
 		confirmButtonLabel: __( 'Import' ),
 		localStorageKey: 'dontShowImportConfirmation',

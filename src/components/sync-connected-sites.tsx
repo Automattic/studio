@@ -282,12 +282,15 @@ const SyncConnectedSitesSection = ( {
 														'pull'
 													) }
 													placement="top-start"
-													disabled={ isOffline }
+													disabled={ isOffline || isAnySitePulling || isAnySitePushing }
 												>
 													<Button
 														variant="link"
 														className={ cx(
-															! isOffline && '!text-black hover:!text-a8c-blueberry'
+															! isOffline &&
+																! isAnySitePulling &&
+																! isAnySitePushing &&
+																'!text-black hover:!text-a8c-blueberry'
 														) }
 														onClick={ () => {
 															const detail = connectedSite.isStaging
@@ -314,12 +317,15 @@ const SyncConnectedSitesSection = ( {
 														'push'
 													) }
 													placement="top-start"
-													disabled={ isOffline }
+													disabled={ isOffline || isAnySitePulling || isAnySitePushing }
 												>
 													<Button
 														variant="link"
 														className={ cx(
-															! isOffline && '!text-black hover:!text-a8c-blueberry'
+															! isOffline &&
+																! isAnySitePulling &&
+																! isAnySitePushing &&
+																'!text-black hover:!text-a8c-blueberry'
 														) }
 														onClick={ () => handlePushSite( connectedSite ) }
 														disabled={ isAnySitePulling || isAnySitePushing || isOffline }

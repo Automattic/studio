@@ -28,7 +28,7 @@ export function RunningSites() {
 						onClick={ stopAllRunningSites }
 						variant="link"
 					>
-						{ __( 'Stop all' ) }
+						{ runningSites.length === 1 ? __( 'Stop' ) : __( 'Stop all' ) }
 					</Button>
 				</div>
 			) }

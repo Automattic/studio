@@ -3,7 +3,7 @@ import { createInterpolateElement } from '@wordpress/element';
 import { sprintf } from '@wordpress/i18n';
 import { cloudUpload, cloudDownload } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { useMemo, useEffect } from 'react';
+import { useMemo } from 'react';
 import { STUDIO_DOCS_URL_GET_HELP_UNSUPPORTED_SITES } from '../constants';
 import { useSyncSites } from '../hooks/sync-sites';
 import { useConfirmationDialog } from '../hooks/use-confirmation-dialog';
@@ -52,10 +52,7 @@ const SyncConnectedSitesSection = ( {
 		pushSite,
 		getPushState,
 		clearPushState,
-		tooltips,
-		updateTooltips,
-		refreshTooltip,
-		connectedSites,
+		getLastSyncTimeText,
 	} = useSyncSites();
 	const { isKeyPulling, isKeyFinished, isKeyFailed } = useSyncStatesProgressInfo();
 	const isOffline = useOffline();
@@ -81,10 +78,6 @@ const SyncConnectedSitesSection = ( {
 		message: __( 'Overwrite Studio site' ),
 		confirmButtonLabel: __( 'Pull' ),
 	} );
-
-	useEffect( () => {
-		updateTooltips( selectedSite.id, section.connectedSites );
-	}, [ selectedSite.id, section.connectedSites, updateTooltips ] );
 
 	const handleDisconnectSite = async () => {
 		const dontShowDisconnectWarning = localStorage.getItem( 'dontShowDisconnectWarning' );
@@ -123,17 +116,11 @@ const SyncConnectedSitesSection = ( {
 	const handlePushSite = async ( connectedSite: SyncSite ) => {
 		if ( connectedSite.isStaging ) {
 			showPushStagingConfirmation( async () => {
-				const success = await pushSite( connectedSite, selectedSite );
-				if ( success ) {
-					await refreshTooltip( selectedSite.id, connectedSite.id, 'push', connectedSites );
-				}
+				await pushSite( connectedSite, selectedSite );
 			} );
 		} else {
 			showPushProductionConfirmation( async () => {
-				const success = await pushSite( connectedSite, selectedSite );
-				if ( success ) {
-					await refreshTooltip( selectedSite.id, connectedSite.id, 'push', connectedSites );
-				}
+				await pushSite( connectedSite, selectedSite );
 			} );
 		}
 	};
@@ -284,7 +271,7 @@ const SyncConnectedSitesSection = ( {
 										>
 											<div className="flex gap-2 pl-4 ml-auto shrink-0 h-5">
 												<Tooltip
-													text={ tooltips[ `${ selectedSite.id }-${ connectedSite.id }-pull` ] }
+													text={ getLastSyncTimeText( connectedSite.lastPullTimestamp, 'pull' ) }
 													placement="top-start"
 													disabled={ isOffline }
 												>
@@ -303,15 +290,7 @@ const SyncConnectedSitesSection = ( {
 																  );
 															showPullConfirmation(
 																async () => {
-																	const success = await pullSite( connectedSite, selectedSite );
-																	if ( success ) {
-																		await refreshTooltip(
-																			selectedSite.id,
-																			connectedSite.id,
-																			'pull',
-																			connectedSites
-																		);
-																	}
+																	await pullSite( connectedSite, selectedSite );
 																},
 																{ detail }
 															);
@@ -323,7 +302,7 @@ const SyncConnectedSitesSection = ( {
 													</Button>
 												</Tooltip>
 												<Tooltip
-													text={ tooltips[ `${ selectedSite.id }-${ connectedSite.id }-push` ] }
+													text={ getLastSyncTimeText( connectedSite.lastPushTimestamp, 'push' ) }
 													placement="top-start"
 													disabled={ isOffline }
 												>

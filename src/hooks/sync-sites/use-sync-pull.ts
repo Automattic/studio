@@ -22,9 +22,13 @@ export type SyncBackupState = {
 export function useSyncPull( {
 	pullStates,
 	setPullStates,
+	onPullSuccess,
+	connectedSites,
 }: {
 	pullStates: Record< string, SyncBackupState >;
 	setPullStates: React.Dispatch< React.SetStateAction< Record< string, SyncBackupState > > >;
+	onPullSuccess?: ( site: SyncSite ) => void;
+	connectedSites: SyncSite[];
 } ) {
 	const { __ } = useI18n();
 	const { client } = useAuth();
@@ -84,7 +88,11 @@ export function useSyncPull( {
 	);
 
 	const onBackupCompleted = useCallback(
-		async ( remoteSiteId: number, backupState: SyncBackupState & { downloadUrl: string } ) => {
+		async (
+			remoteSiteId: number,
+			backupState: SyncBackupState & { downloadUrl: string },
+			connectedSite: SyncSite
+		) => {
 			const { downloadUrl, selectedSite, isStaging } = backupState;
 			updatePullState( selectedSite.id, remoteSiteId, {
 				status: pullStatesProgressInfo.downloading,
@@ -122,11 +130,13 @@ export function useSyncPull( {
 			updatePullState( selectedSite.id, remoteSiteId, {
 				status: pullStatesProgressInfo.finished,
 			} );
+			onPullSuccess?.( connectedSite );
 		},
 		[
 			__,
 			clearImportState,
 			importFile,
+			onPullSuccess,
 			pullStatesProgressInfo.downloading,
 			pullStatesProgressInfo.finished,
 			pullStatesProgressInfo.importing,
@@ -164,11 +174,16 @@ export function useSyncPull( {
 			if ( hasBackupCompleted && downloadUrl ) {
 				// Replacing the 'in-progress' status will stop the active listening for the backup completion
 				const backupState = getPullState( selectedSiteId, remoteSiteId );
-				if ( backupState ) {
-					onBackupCompleted( remoteSiteId, {
-						...backupState,
-						downloadUrl,
-					} );
+				const connectedSite = connectedSites.find( ( site ) => site.id === remoteSiteId );
+				if ( backupState && connectedSite ) {
+					onBackupCompleted(
+						remoteSiteId,
+						{
+							...backupState,
+							downloadUrl,
+						},
+						connectedSite
+					);
 				}
 			} else {
 				updatePullState( selectedSiteId, remoteSiteId, {
@@ -177,7 +192,14 @@ export function useSyncPull( {
 				} );
 			}
 		},
-		[ client, getPullState, onBackupCompleted, pullStatesProgressInfo, updatePullState ]
+		[
+			client,
+			connectedSites,
+			getPullState,
+			onBackupCompleted,
+			pullStatesProgressInfo,
+			updatePullState,
+		]
 	);
 
 	useEffect( () => {

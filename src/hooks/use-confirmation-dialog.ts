@@ -4,10 +4,10 @@ import { getIpcApi } from '../lib/get-ipc-api';
 interface ConfirmationDialogOptions {
 	message: string;
 	detail?: string;
-	checkboxLabel?: string;
 	confirmButtonLabel: string;
 	cancelButtonLabel?: string;
 	localStorageKey: string;
+	showCheckbox?: boolean;
 }
 
 export function useConfirmationDialog( options: ConfirmationDialogOptions ) {
@@ -15,14 +15,14 @@ export function useConfirmationDialog( options: ConfirmationDialogOptions ) {
 	const {
 		message,
 		detail,
-		checkboxLabel = __( "Don't ask again" ),
 		confirmButtonLabel,
 		cancelButtonLabel = __( 'Cancel' ),
 		localStorageKey,
+		showCheckbox = true,
 	} = options;
 
 	return async ( onConfirm: () => void, { detail: detailOverride }: { detail?: string } = {} ) => {
-		if ( localStorage.getItem( localStorageKey ) === 'true' ) {
+		if ( showCheckbox && localStorage.getItem( localStorageKey ) === 'true' ) {
 			onConfirm();
 			return;
 		}
@@ -32,14 +32,14 @@ export function useConfirmationDialog( options: ConfirmationDialogOptions ) {
 		const { response, checkboxChecked } = await getIpcApi().showMessageBox( {
 			message,
 			detail: detailOverride ?? detail,
-			checkboxLabel,
+			checkboxLabel: showCheckbox ? __( "Don't ask again" ) : undefined,
 			buttons: [ confirmButtonLabel, cancelButtonLabel ],
 			cancelId: CANCEL_BUTTON_INDEX,
 		} );
 
 		if ( response === CONFIRM_BUTTON_INDEX ) {
 			// Confirm button is always the first button
-			if ( checkboxChecked ) {
+			if ( showCheckbox && checkboxChecked ) {
 				localStorage.setItem( localStorageKey, 'true' );
 			}
 			onConfirm();

@@ -130,7 +130,6 @@ export function useSyncPush( {
 					updatePushState( selectedSite.id, remoteSiteId, {
 						status: pushStatesProgressInfo.importing,
 					} );
-					return;
 				} else {
 					console.error( response );
 					throw new Error( 'Push request failed' );
@@ -144,7 +143,6 @@ export function useSyncPush( {
 					title: sprintf( __( 'Error pushing to %s' ), connectedSite.name ),
 					message: __( 'Studio was unable to connect to WordPress.com. Please try again.' ),
 				} );
-				return;
 			} finally {
 				await getIpcApi().removeTemporalFile( archivePath );
 			}

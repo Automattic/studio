@@ -149,14 +149,26 @@ const SyncConnectedSitesSection = ( {
 				<div className={ cx( 'a8c-label-semibold', hasConnectionErrors && 'error-message' ) }>
 					{ section.name }
 				</div>
-				<Button
-					variant="link"
-					className="!ml-auto !text-a8c-gray-70 hover:!text-a8c-red-50 "
-					onClick={ handleDisconnectSite }
-					disabled={ isPulling || isPushing }
-				>
-					{ __( 'Disconnect' ) }
-				</Button>
+				<div className="!ml-auto">
+					<Tooltip
+						text={ __(
+							'This site is syncing. Please wait for the sync to finish before you can disconnect it.'
+						) }
+						disabled={ ! ( isPulling || isPushing ) || isOffline }
+						placement="top-start"
+					>
+						<Button
+							variant="link"
+							className={ cx(
+								! isPulling && ! isPushing ? '!text-a8c-gray-70 hover:!text-a8c-red-50' : ''
+							) }
+							onClick={ handleDisconnectSite }
+							disabled={ isPulling || isPushing }
+						>
+							{ __( 'Disconnect' ) }
+						</Button>
+					</Tooltip>
+				</div>
 			</div>
 
 			{ hasConnectionErrors && (

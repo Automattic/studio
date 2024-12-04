@@ -65,7 +65,6 @@ const SyncConnectedSitesSection = ( {
 			'Pushing will replace the existing files and database with a copy from your local site.\n\n The staging site will be backed-up before any changes are applied.'
 		),
 		confirmButtonLabel: __( 'Push' ),
-		showCheckbox: false,
 	} );
 	const showPushProductionConfirmation = useConfirmationDialog( {
 		localStorageKey: 'dontShowPushConfirmation',
@@ -74,14 +73,12 @@ const SyncConnectedSitesSection = ( {
 			'Pushing will replace the existing files and database with a copy from your local site.\n\n The production site will be backed-up before any changes are applied.'
 		),
 		confirmButtonLabel: __( 'Push' ),
-		showCheckbox: false,
 	} );
 
 	const showPullConfirmation = useConfirmationDialog( {
 		localStorageKey: 'dontShowPullConfirmation',
 		message: __( 'Overwrite Studio site' ),
 		confirmButtonLabel: __( 'Pull' ),
-		showCheckbox: false,
 	} );
 
 	const handleDisconnectSite = async () => {

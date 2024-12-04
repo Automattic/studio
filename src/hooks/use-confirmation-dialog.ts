@@ -8,6 +8,7 @@ interface ConfirmationDialogOptions {
 	cancelButtonLabel?: string;
 	localStorageKey: string;
 	showCheckbox?: boolean;
+	checkboxLabel?: string;
 }
 
 export function useConfirmationDialog( options: ConfirmationDialogOptions ) {
@@ -17,12 +18,12 @@ export function useConfirmationDialog( options: ConfirmationDialogOptions ) {
 		detail,
 		confirmButtonLabel,
 		cancelButtonLabel = __( 'Cancel' ),
+		checkboxLabel,
 		localStorageKey,
-		showCheckbox = true,
 	} = options;
 
 	return async ( onConfirm: () => void, { detail: detailOverride }: { detail?: string } = {} ) => {
-		if ( showCheckbox && localStorage.getItem( localStorageKey ) === 'true' ) {
+		if ( localStorage.getItem( localStorageKey ) === 'true' ) {
 			onConfirm();
 			return;
 		}
@@ -32,14 +33,14 @@ export function useConfirmationDialog( options: ConfirmationDialogOptions ) {
 		const { response, checkboxChecked } = await getIpcApi().showMessageBox( {
 			message,
 			detail: detailOverride ?? detail,
-			checkboxLabel: showCheckbox ? __( "Don't ask again" ) : undefined,
+			checkboxLabel,
 			buttons: [ confirmButtonLabel, cancelButtonLabel ],
 			cancelId: CANCEL_BUTTON_INDEX,
 		} );
 
 		if ( response === CONFIRM_BUTTON_INDEX ) {
 			// Confirm button is always the first button
-			if ( showCheckbox && checkboxChecked ) {
+			if ( checkboxChecked ) {
 				localStorage.setItem( localStorageKey, 'true' );
 			}
 			onConfirm();

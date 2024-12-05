@@ -20,12 +20,10 @@ export function useSyncPush( {
 	pushStates,
 	setPushStates,
 	onPushSuccess,
-	connectedSites,
 }: {
 	pushStates: Record< string, SyncPushState >;
 	setPushStates: React.Dispatch< React.SetStateAction< Record< string, SyncPushState > > >;
-	onPushSuccess?: ( site: SyncSite ) => void;
-	connectedSites: SyncSite[];
+	onPushSuccess?: ( siteId: number, localSiteId: string ) => void;
 } ) {
 	const { __ } = useI18n();
 	const { client } = useAuth();
@@ -54,10 +52,7 @@ export function useSyncPush( {
 			let status: PushStateProgressInfo = pushStatesProgressInfo.importing;
 			if ( response.success && response.status === 'finished' ) {
 				status = pushStatesProgressInfo.finished;
-				const connectedSite = connectedSites.find( ( site ) => site.id === remoteSiteId );
-				if ( connectedSite ) {
-					onPushSuccess?.( connectedSite );
-				}
+				onPushSuccess?.( remoteSiteId, syncPushState.selectedSite.id );
 				getIpcApi().showNotification( {
 					title: syncPushState.selectedSite.name,
 					body: syncPushState.isStaging
@@ -75,7 +70,6 @@ export function useSyncPush( {
 		[
 			__,
 			client,
-			connectedSites,
 			onPushSuccess,
 			pushStatesProgressInfo.failed,
 			pushStatesProgressInfo.finished,

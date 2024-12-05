@@ -12,7 +12,11 @@ export type SyncSitesContextType = ReturnType< typeof useSyncPull > &
 	ReturnType< typeof useSyncPush > &
 	ReturnType< typeof useSiteSyncManagement > & {
 		getLastSyncTimeText: ( timestamp: string | null, type: 'pull' | 'push' ) => string;
-		updateSiteTimestamp: ( site: SyncSite, type: 'pull' | 'push' ) => Promise< void >;
+		updateSiteTimestamp: (
+			siteId: number | undefined,
+			localSiteId: string,
+			type: 'pull' | 'push'
+		) => Promise< void >;
 	};
 
 const SyncSitesContext = createContext< SyncSitesContextType | undefined >( undefined );
@@ -40,28 +44,38 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 		[ formatRelativeTime ]
 	);
 
-	const updateSiteTimestamp = useCallback( async ( site: SyncSite, type: 'pull' | 'push' ) => {
-		try {
-			const updatedSite = {
-				...site,
-				[ type === 'pull' ? 'lastPullTimestamp' : 'lastPushTimestamp' ]: new Date().toISOString(),
-			};
+	const updateSiteTimestamp = useCallback(
+		async ( siteId: number | undefined, localSiteId: string, type: 'pull' | 'push' ) => {
+			if ( ! siteId ) return;
 
-			await getIpcApi().updateSingleConnectedWpcomSite( updatedSite );
-			setConnectedSites( ( sites ) =>
-				sites.map( ( s ) => ( s.id === site.id ? updatedSite : s ) )
+			const site = connectedSites.find(
+				( { id, localSiteId: siteLocalId } ) => siteId === id && localSiteId === siteLocalId
 			);
-		} catch ( error ) {
-			console.error( 'Failed to update timestamp:', error );
-		}
-	}, [] );
+			if ( ! site ) return;
+
+			try {
+				const updatedSite = {
+					...site,
+					[ type === 'pull' ? 'lastPullTimestamp' : 'lastPushTimestamp' ]: new Date().toISOString(),
+				};
+
+				await getIpcApi().updateSingleConnectedWpcomSite( updatedSite );
+				setConnectedSites( ( sites ) =>
+					sites.map( ( s ) => ( s.id === site.id ? updatedSite : s ) )
+				);
+			} catch ( error ) {
+				console.error( 'Failed to update timestamp:', error );
+			}
+		},
+		[ connectedSites ]
+	);
 
 	const { pullSite, isAnySitePulling, isSiteIdPulling, clearPullState, getPullState } = useSyncPull(
 		{
 			pullStates,
 			setPullStates,
-			onPullSuccess: ( site ) => updateSiteTimestamp( site, 'pull' ),
-			connectedSites,
+			onPullSuccess: ( remoteSiteId, localSiteId ) =>
+				updateSiteTimestamp( remoteSiteId, localSiteId, 'pull' ),
 		}
 	);
 
@@ -70,8 +84,8 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 		{
 			pushStates,
 			setPushStates,
-			onPushSuccess: ( site ) => updateSiteTimestamp( site, 'push' ),
-			connectedSites,
+			onPushSuccess: ( remoteSiteId, localSiteId ) =>
+				updateSiteTimestamp( remoteSiteId, localSiteId, 'push' ),
 		}
 	);
 

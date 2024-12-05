@@ -292,7 +292,7 @@ const SyncConnectedSitesSection = ( {
 													text={
 														isAnySiteSyncing
 															? __(
-																	'Another site is syncing. Please wait for the sync to finish before you pull this site.'
+																	'A Studio site is syncing. Please wait for the sync to finish before you pull this site.'
 															  )
 															: getLastSyncTimeWithType( selectedSite.id, connectedSite.id, 'pull' )
 													}
@@ -329,7 +329,7 @@ const SyncConnectedSitesSection = ( {
 													text={
 														isAnySiteSyncing
 															? __(
-																	'Another site is syncing. Please wait for the sync to finish before you push this site.'
+																	'A Studio site is syncing. Please wait for the sync to finish before you push this site.'
 															  )
 															: getLastSyncTimeWithType( selectedSite.id, connectedSite.id, 'push' )
 													}

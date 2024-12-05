@@ -182,7 +182,7 @@ const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 
 	const isImporting = currentProgress?.progress < 100 && ! isAnySitePulling && ! isAnySitePushing;
 	const isImported = currentProgress?.progress === 100 && ! isDraggingOver && ! isSyncing;
-	const isInitial = ( ! isImporting && ! isImported ) || isSyncing;
+	const isInitial = ! isImporting && ! isImported;
 	return (
 		<div className={ cx( 'flex flex-col w-full', startLoadingCursorClassName ) }>
 			<div className="a8c-subtitle-small mb-1">{ __( 'Import' ) }</div>

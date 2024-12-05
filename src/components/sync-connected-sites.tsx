@@ -55,9 +55,15 @@ const SyncConnectedSitesSection = ( {
 		updateTimestamp,
 		getLastSyncTimeWithType,
 		clearTimestamps,
+		connectedSites,
 	} = useSyncSites();
 	const { isKeyPulling, isKeyFinished, isKeyFailed } = useSyncStatesProgressInfo();
 	const isOffline = useOffline();
+	const isAnyConnectedSiteSyncing = connectedSites.some(
+		( site ) =>
+			getPullState( selectedSite.id, site.id )?.status?.key === 'in-progress' ||
+			getPushState( selectedSite.id, site.id )?.isInProgress
+	);
 	const isAnySiteSyncing = isAnySitePulling || isAnySitePushing;
 	const showPushStagingConfirmation = useConfirmationDialog( {
 		localStorageKey: 'dontShowPushConfirmation',
@@ -291,9 +297,13 @@ const SyncConnectedSitesSection = ( {
 												<Tooltip
 													text={
 														isAnySiteSyncing
-															? __(
-																	'A Studio site is syncing. Please wait for the sync to finish before you pull this site.'
-															  )
+															? isAnyConnectedSiteSyncing
+																? __(
+																		'This Studio site is syncing. Please wait for the sync to finish before you pull this site.'
+																  )
+																: __(
+																		'Another Studio site is syncing. Please wait for the sync to finish before you pull this site.'
+																  )
 															: getLastSyncTimeWithType( selectedSite.id, connectedSite.id, 'pull' )
 													}
 													placement="top-start"
@@ -328,9 +338,13 @@ const SyncConnectedSitesSection = ( {
 												<Tooltip
 													text={
 														isAnySiteSyncing
-															? __(
-																	'A Studio site is syncing. Please wait for the sync to finish before you push this site.'
-															  )
+															? isAnyConnectedSiteSyncing
+																? __(
+																		'This Studio site is syncing. Please wait for the sync to finish before you push this site.'
+																  )
+																: __(
+																		'Another Studio site is syncing. Please wait for the sync to finish before you push this site.'
+																  )
 															: getLastSyncTimeWithType( selectedSite.id, connectedSite.id, 'push' )
 													}
 													placement="top-start"

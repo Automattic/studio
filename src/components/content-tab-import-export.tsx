@@ -15,7 +15,7 @@ import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
 import ProgressBar from './progress-bar';
-import Tooltip from './tooltip';
+import { Tooltip } from './tooltip';
 
 interface ContentTabImportExportProps {
 	selectedSite: SiteDetails;

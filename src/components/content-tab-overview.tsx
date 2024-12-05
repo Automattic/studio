@@ -24,7 +24,7 @@ import { isMac } from '../lib/app-globals';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { ButtonsSection, ButtonsSectionProps } from './buttons-section';
-import Tooltip from './tooltip';
+import { Tooltip } from './tooltip';
 
 interface ContentTabOverviewProps {
 	selectedSite: SiteDetails;

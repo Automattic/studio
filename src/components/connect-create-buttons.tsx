@@ -4,7 +4,7 @@ import { getIpcApi } from '../lib/get-ipc-api';
 import { ArrowIcon } from './arrow-icon';
 import Button, { ButtonVariant } from './button';
 import offlineIcon from './offline-icon';
-import Tooltip from './tooltip';
+import { Tooltip } from './tooltip';
 
 interface ConnectCreateButtonsProps {
 	connectSite: () => void;

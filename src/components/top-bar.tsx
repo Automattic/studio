@@ -7,7 +7,7 @@ import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
 import { Gravatar } from './gravatar';
 import offlineIcon from './offline-icon';
-import Tooltip from './tooltip';
+import { Tooltip } from './tooltip';
 import { WordPressLogo } from './wordpress-logo';
 
 interface TopBarProps {

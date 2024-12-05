@@ -17,7 +17,7 @@ import { LanguagePicker } from './language-picker';
 import Modal from './modal';
 import offlineIcon from './offline-icon';
 import ProgressBar from './progress-bar';
-import Tooltip from './tooltip';
+import { Tooltip } from './tooltip';
 import { WordPressLogo } from './wordpress-logo';
 
 const UserInfo = ( {

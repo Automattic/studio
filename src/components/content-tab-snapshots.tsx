@@ -21,7 +21,7 @@ import { CopyTextButton } from './copy-text-button';
 import offlineIcon from './offline-icon';
 import ProgressBar from './progress-bar';
 import { ScreenshotDemoSite } from './screenshot-demo-site';
-import Tooltip, { TooltipProps } from './tooltip';
+import { Tooltip, TooltipProps } from './tooltip';
 
 interface ContentTabSnapshotsProps {
 	selectedSite: SiteDetails;

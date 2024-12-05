@@ -7,7 +7,7 @@ import { useImportExport } from '../hooks/use-import-export';
 import { useSiteDetails } from '../hooks/use-site-details';
 import { isMac } from '../lib/app-globals';
 import { cx } from '../lib/cx';
-import Tooltip from './tooltip';
+import { Tooltip } from './tooltip';
 
 interface SiteMenuProps {
 	className?: string;

@@ -82,9 +82,16 @@ describe( 'MainSidebar Footer', () => {
 		expect( container.firstChild ).toHaveClass( 'test-class' );
 	} );
 
-	it( 'shows a "Stop All" button when there are running sites', async () => {
+	it( 'shows a "Stop" button when there is a running site', async () => {
+		await act( async () => renderWithProvider( <MainSidebar /> ) );
+		expect( screen.getByRole( 'button', { name: 'Stop' } ) ).toBeVisible();
+	} );
+
+	it( 'shows a "Stop All" button when there are multiple running sites', async () => {
+		site2.running = true;
 		await act( async () => renderWithProvider( <MainSidebar /> ) );
 		expect( screen.getByRole( 'button', { name: 'Stop all' } ) ).toBeVisible();
+		site2.running = false;
 	} );
 } );
 

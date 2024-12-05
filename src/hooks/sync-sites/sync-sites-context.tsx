@@ -23,8 +23,8 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 	const [ connectedSites, setConnectedSites ] = useState< SyncSite[] >( [] );
 
 	const getLastSyncTimeText = useCallback(
-		( timestamp: string | null, type: 'pull' | 'push' ): string => {
-			if ( timestamp === null ) {
+		( timestamp: string | null | undefined, type: 'pull' | 'push' ): string => {
+			if ( ! timestamp ) {
 				return type === 'pull'
 					? __( 'You have not pulled this site yet.' )
 					: __( 'You have not pushed this site yet.' );

@@ -1,10 +1,8 @@
 import { Duration, intervalToDuration } from 'date-fns';
 import { useCallback } from 'react';
 import { formatDistance } from '../lib/date';
-import { SupportedLocale } from '../lib/locale';
-import { useI18nData } from './use-i18n-data';
 
-function formatTimeDistance( duration: Duration, _locale: SupportedLocale ): string {
+function formatTimeDistance( duration: Duration ): string {
 	if ( duration.days && duration.days > 0 ) {
 		return formatDistance( 'xDays', duration.days );
 	} else if ( duration.hours && duration.hours > 0 ) {
@@ -17,23 +15,18 @@ function formatTimeDistance( duration: Duration, _locale: SupportedLocale ): str
 }
 
 export function useFormatLocalizedTimestamps() {
-	const { locale } = useI18nData();
+	const formatRelativeTime = useCallback( ( timestamp: string | null ): string => {
+		if ( timestamp === null ) {
+			return '';
+		}
 
-	const formatRelativeTime = useCallback(
-		( timestamp: string | null ): string => {
-			if ( timestamp === null ) {
-				return '';
-			}
+		const duration = intervalToDuration( {
+			start: new Date( timestamp ),
+			end: new Date(),
+		} );
 
-			const duration = intervalToDuration( {
-				start: new Date( timestamp ),
-				end: new Date(),
-			} );
-
-			return formatTimeDistance( duration, locale );
-		},
-		[ locale ]
-	);
+		return formatTimeDistance( duration );
+	}, [] );
 
 	return { formatRelativeTime };
 }

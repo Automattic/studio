@@ -100,10 +100,13 @@ const InitialImportButton = ( {
 } ) => {
 	const { isAnySitePulling, isAnySitePushing } = useSyncSites();
 	const isSyncing = isAnySitePulling || isAnySitePushing;
+	const siteExportingMessage = __(
+		'This site is being exported. Please wait for the export to finish before you import a backup.'
+	);
 	return isInitial ? (
 		<Tooltip
 			className="w-full"
-			text={ isSyncing ? siteSyncingMessage() : 'export message' }
+			text={ isSyncing ? siteSyncingMessage() : siteExportingMessage }
 			disabled={ ! disabled }
 		>
 			<Button

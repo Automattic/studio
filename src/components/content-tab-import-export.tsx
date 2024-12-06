@@ -22,23 +22,18 @@ interface ContentTabImportExportProps {
 	selectedSite: SiteDetails;
 }
 
-export const ExportSite = ( { selectedSite }: { selectedSite: SiteDetails } ) => {
+export const ExportSite = ( {
+	selectedSite,
+	isAnySiteSyncing,
+	isThisSiteSyncing,
+}: {
+	selectedSite: SiteDetails;
+	isAnySiteSyncing: boolean;
+	isThisSiteSyncing: boolean;
+} ) => {
 	const { exportState, exportFullSite, exportDatabase, importState } = useImportExport();
 	const { [ selectedSite.id ]: currentProgress } = exportState;
 	const isImporting = importState[ selectedSite.id ]?.progress < 100;
-	const { isAnySitePulling, isAnySitePushing, getPullState, getPushState, connectedSites } =
-		useSyncSites();
-	const { isKeyPulling } = useSyncStatesProgressInfo();
-	const isAnySiteSyncing = isAnySitePulling || isAnySitePushing;
-	const isPulling = connectedSites.some( ( site ) => {
-		const sitePullState = getPullState( selectedSite.id, site.id );
-		return sitePullState && isKeyPulling( sitePullState.status.key );
-	} );
-	const isPushing = connectedSites.some( ( site ) => {
-		const sitePushState = getPushState( selectedSite.id, site.id );
-		return sitePushState?.isInProgress;
-	} );
-	const isThisSiteSyncing = isPulling || isPushing;
 	const isExportDisabled = isImporting || isAnySiteSyncing;
 
 	let tooltipText;
@@ -109,26 +104,32 @@ const InitialImportButton = ( {
 	isInitial,
 	openFileSelector,
 	disabled,
+	isAnySiteSyncing,
+	isThisSiteSyncing,
 }: {
 	children: React.ReactNode;
 	isInitial: boolean;
 	openFileSelector: () => void;
 	disabled?: boolean;
+	isAnySiteSyncing: boolean;
+	isThisSiteSyncing: boolean;
 } ) => {
-	const { isAnySitePulling, isAnySitePushing } = useSyncSites();
-	const isSyncing = isAnySitePulling || isAnySitePushing;
-	const siteExportingMessage = __(
-		'This site is being exported. Please wait for the export to finish before you import a backup.'
-	);
-	const siteSyncingMessage = __(
-		'This site is being synced. Please wait for the sync to finish before you import a backup.'
-	);
+	let tooltipText;
+	if ( isThisSiteSyncing ) {
+		tooltipText = __(
+			'This Studio site is syncing. Please wait for the sync to finish before you import a backup.'
+		);
+	} else if ( isAnySiteSyncing ) {
+		tooltipText = __(
+			'Another Studio site is syncing. Please wait for the sync to finish before you import a backup.'
+		);
+	} else {
+		tooltipText = __(
+			'This Studio site is exporting. Please wait for the export to finish before you import a backup.'
+		);
+	}
 	return isInitial ? (
-		<Tooltip
-			className="w-full"
-			text={ isSyncing ? siteSyncingMessage : siteExportingMessage }
-			disabled={ ! disabled }
-		>
+		<Tooltip className="w-full" text={ tooltipText } disabled={ ! disabled }>
 			<Button
 				variant="icon"
 				className={ `w-full 
@@ -148,18 +149,24 @@ const InitialImportButton = ( {
 	);
 };
 
-const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
+const ImportSite = ( {
+	selectedSite,
+	isAnySiteSyncing,
+	isThisSiteSyncing,
+}: {
+	selectedSite: SiteDetails;
+	isAnySiteSyncing: boolean;
+	isThisSiteSyncing: boolean;
+} ) => {
 	const { __ } = useI18n();
 	const { startServer, loadingServer } = useSiteDetails();
 	const { importState, importFile, clearImportState, exportState } = useImportExport();
-	const { [ props.selectedSite.id ]: currentProgress } = importState;
-	const { isAnySitePulling, isAnySitePushing } = useSyncSites();
-	const isSyncing = isAnySitePulling || isAnySitePushing;
+	const { [ selectedSite.id ]: currentProgress } = importState;
 	const isSiteExporting =
-		exportState[ props.selectedSite?.id ] && exportState[ props.selectedSite?.id ].progress < 100;
+		exportState[ selectedSite?.id ] && exportState[ selectedSite?.id ].progress < 100;
 
 	const importConfirmation = useConfirmationDialog( {
-		message: sprintf( __( 'Overwrite %s?' ), props.selectedSite.name ),
+		message: sprintf( __( 'Overwrite %s?' ), selectedSite.name ),
 		checkboxLabel: __( "Don't ask again" ),
 		detail: __( 'Importing a backup will replace the existing files and database for your site.' ),
 		confirmButtonLabel: __( 'Import' ),
@@ -171,7 +178,7 @@ const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 			if ( isImporting ) {
 				return;
 			}
-			importConfirmation( () => importFile( file, props.selectedSite ) );
+			importConfirmation( () => importFile( file, selectedSite ) );
 		},
 	} );
 	const inputFileRef = useRef< HTMLInputElement >( null );
@@ -184,16 +191,16 @@ const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 			return;
 		}
 		importConfirmation( async () => {
-			await importFile( file, props.selectedSite );
+			await importFile( file, selectedSite );
 			clearImportFileInput();
 		} );
 	};
 	const openSite = async () => {
-		if ( ! props.selectedSite.running ) {
+		if ( ! selectedSite.running ) {
 			speak( __( 'Starting the server before opening the site link' ) );
-			await startServer( props.selectedSite.id );
+			await startServer( selectedSite.id );
 		}
-		getIpcApi().openSiteURL( props.selectedSite.id, '', { autoLogin: false } );
+		getIpcApi().openSiteURL( selectedSite.id, '', { autoLogin: false } );
 	};
 	const clearImportFileInput = () => {
 		if ( inputFileRef.current ) {
@@ -201,17 +208,17 @@ const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 		}
 	};
 	const onStartAgain = () => {
-		clearImportState( props.selectedSite.id );
+		clearImportState( selectedSite.id );
 		clearImportFileInput();
 	};
 
 	const startLoadingCursorClassName =
-		loadingServer[ props.selectedSite.id ] &&
-		! isSyncing &&
+		loadingServer[ selectedSite.id ] &&
+		! isAnySiteSyncing &&
 		'animate-pulse duration-100 cursor-wait';
 
-	const isImporting = currentProgress?.progress < 100 && ! isAnySitePulling && ! isAnySitePushing;
-	const isImported = currentProgress?.progress === 100 && ! isDraggingOver && ! isSyncing;
+	const isImporting = currentProgress?.progress < 100 && ! isAnySiteSyncing;
+	const isImported = currentProgress?.progress === 100 && ! isDraggingOver && ! isAnySiteSyncing;
 	const isInitial = ! isImporting && ! isImported;
 	return (
 		<div className={ cx( 'flex flex-col w-full', startLoadingCursorClassName ) }>
@@ -233,7 +240,9 @@ const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 				<InitialImportButton
 					isInitial={ isInitial }
 					openFileSelector={ openFileSelector }
-					disabled={ isSiteExporting || isSyncing }
+					disabled={ isSiteExporting || isAnySiteSyncing }
+					isAnySiteSyncing={ isAnySiteSyncing }
+					isThisSiteSyncing={ isThisSiteSyncing }
 				>
 					<div
 						className={ cx(
@@ -304,6 +313,20 @@ export function ContentTabImportExport( { selectedSite }: ContentTabImportExport
 			} );
 	}, [ selectedSite.id, selectedSite.running ] );
 
+	const { isAnySitePulling, isAnySitePushing, getPullState, getPushState, connectedSites } =
+		useSyncSites();
+	const { isKeyPulling } = useSyncStatesProgressInfo();
+	const isAnySiteSyncing = isAnySitePulling || isAnySitePushing;
+	const isPulling = connectedSites.some( ( site ) => {
+		const sitePullState = getPullState( selectedSite.id, site.id );
+		return sitePullState && isKeyPulling( sitePullState.status.key );
+	} );
+	const isPushing = connectedSites.some( ( site ) => {
+		const sitePushState = getPushState( selectedSite.id, site.id );
+		return sitePushState?.isInProgress;
+	} );
+	const isThisSiteSyncing = isPulling || isPushing;
+
 	if ( isSupported === null ) {
 		return null;
 	}
@@ -324,8 +347,16 @@ export function ContentTabImportExport( { selectedSite }: ContentTabImportExport
 
 	return (
 		<div className="flex flex-col p-8 gap-8" data-testid="import-export-supported">
-			<ImportSite selectedSite={ selectedSite } />
-			<ExportSite selectedSite={ selectedSite } />
+			<ImportSite
+				selectedSite={ selectedSite }
+				isAnySiteSyncing={ isAnySiteSyncing }
+				isThisSiteSyncing={ isThisSiteSyncing }
+			/>
+			<ExportSite
+				selectedSite={ selectedSite }
+				isAnySiteSyncing={ isAnySiteSyncing }
+				isThisSiteSyncing={ isThisSiteSyncing }
+			/>
 		</div>
 	);
 }

@@ -7,7 +7,13 @@ import { getIpcApi } from '../../lib/get-ipc-api';
 import { useAuth } from '../use-auth';
 import { SyncSite } from '../use-fetch-wpcom-sites';
 import { useSyncStatesProgressInfo, PushStateProgressInfo } from '../use-sync-states-progress-info';
-import { generateStateId, usePullPushStates } from './use-pull-push-states';
+import {
+	ClearState,
+	generateStateId,
+	GetState,
+	UpdateState,
+	usePullPushStates,
+} from './use-pull-push-states';
 
 export type SyncPushState = {
 	remoteSiteId: number;
@@ -16,25 +22,42 @@ export type SyncPushState = {
 	isStaging: boolean;
 };
 
+export type PushStates = Record< string, SyncPushState >;
+type OnPushSuccess = ( siteId: number, localSiteId: string ) => void;
+type PushSite = ( connectedSite: SyncSite, selectedSite: SiteDetails ) => Promise< void >;
+type IsSiteIdPushing = ( selectedSiteId: string ) => boolean;
+
+type UseSyncPushProps = {
+	pushStates: PushStates;
+	setPushStates: React.Dispatch< React.SetStateAction< PushStates > >;
+	onPushSuccess?: OnPushSuccess;
+};
+
+export type UseSyncPush = {
+	pushStates: PushStates;
+	getPushState: GetState< SyncPushState >;
+	pushSite: PushSite;
+	isAnySitePushing: boolean;
+	isSiteIdPushing: IsSiteIdPushing;
+	clearPushState: ClearState;
+};
+
 export function useSyncPush( {
 	pushStates,
 	setPushStates,
 	onPushSuccess,
-}: {
-	pushStates: Record< string, SyncPushState >;
-	setPushStates: React.Dispatch< React.SetStateAction< Record< string, SyncPushState > > >;
-	onPushSuccess?: ( siteId: number, localSiteId: string ) => void;
-} ) {
+}: UseSyncPushProps ): UseSyncPush {
 	const { __ } = useI18n();
 	const { client } = useAuth();
-	const { updateState, getState, clearState } = usePullPushStates< SyncPushState >(
-		pushStates,
-		setPushStates
-	);
+	const {
+		updateState,
+		getState: getPushState,
+		clearState,
+	} = usePullPushStates< SyncPushState >( pushStates, setPushStates );
 	const { pushStatesProgressInfo, isKeyPushing, isKeyFinished, isKeyFailed } =
 		useSyncStatesProgressInfo();
 
-	const updatePushState: typeof updateState = useCallback(
+	const updatePushState = useCallback< UpdateState< SyncPushState > >(
 		( selectedSiteId, remoteSiteId, state ) => {
 			updateState( selectedSiteId, remoteSiteId, state );
 			const statusKey = state.status?.key;
@@ -48,7 +71,7 @@ export function useSyncPush( {
 		[ isKeyFailed, isKeyFinished, updateState ]
 	);
 
-	const clearPushState: typeof clearState = useCallback(
+	const clearPushState = useCallback< ClearState >(
 		( selectedSiteId, remoteSiteId ) => {
 			clearState( selectedSiteId, remoteSiteId );
 			getIpcApi().clearSyncOperation( generateStateId( selectedSiteId, remoteSiteId ) );
@@ -112,8 +135,8 @@ export function useSyncPush( {
 		return __( 'Studio was unable to connect to WordPress.com. Please try again.' );
 	};
 
-	const pushSite = useCallback(
-		async ( connectedSite: SyncSite, selectedSite: SiteDetails ) => {
+	const pushSite = useCallback< PushSite >(
+		async ( connectedSite, selectedSite ) => {
 			if ( ! client ) {
 				return;
 			}
@@ -194,30 +217,17 @@ export function useSyncPush( {
 		};
 	}, [ pushStates, getPushProgressInfo, pushStatesProgressInfo.importing.key ] );
 
-	const isAnySitePushing = useMemo( () => {
+	const isAnySitePushing = useMemo< boolean >( () => {
 		return Object.values( pushStates ).some( ( state ) => isKeyPushing( state.status.key ) );
 	}, [ pushStates, isKeyPushing ] );
 
-	const isSiteIdPushing = useCallback(
-		( selectedSiteId: string ) => {
+	const isSiteIdPushing = useCallback< IsSiteIdPushing >(
+		( selectedSiteId ) => {
 			return Object.values( pushStates ).some( ( state ) => {
 				return state.selectedSite.id === selectedSiteId && isKeyPushing( state.status.key );
 			} );
 		},
 		[ pushStates, isKeyPushing ]
-	);
-
-	const getPushState = useCallback(
-		( selectedSiteId: string, remoteSiteId: number ) => {
-			const state = getState( selectedSiteId, remoteSiteId );
-			return {
-				...state,
-				isInProgress: isKeyPushing( state?.status.key ),
-				hasFinished: isKeyFinished( state?.status.key ),
-				isError: isKeyFailed( state?.status.key ),
-			};
-		},
-		[ getState, isKeyFailed, isKeyFinished, isKeyPushing ]
 	);
 
 	return { pushStates, getPushState, pushSite, isAnySitePushing, isSiteIdPushing, clearPushState };

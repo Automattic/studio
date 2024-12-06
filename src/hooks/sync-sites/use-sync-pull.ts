@@ -8,7 +8,13 @@ import { SyncSite } from '../use-fetch-wpcom-sites';
 import { useImportExport } from '../use-import-export';
 import { useSiteDetails } from '../use-site-details';
 import { useSyncStatesProgressInfo, PullStateProgressInfo } from '../use-sync-states-progress-info';
-import { generateStateId, usePullPushStates } from './use-pull-push-states';
+import {
+	ClearState,
+	generateStateId,
+	GetState,
+	UpdateState,
+	usePullPushStates,
+} from './use-pull-push-states';
 
 export type SyncBackupState = {
 	remoteSiteId: number;
@@ -19,15 +25,31 @@ export type SyncBackupState = {
 	isStaging: boolean;
 };
 
+export type PullStates = Record< string, SyncBackupState >;
+type OnPullSuccess = ( siteId: number, localSiteId: string ) => void;
+type PullSite = ( connectedSite: SyncSite, selectedSite: SiteDetails ) => void;
+type IsSiteIdPulling = ( selectedSiteId: string ) => boolean;
+
+type UseSyncPullProps = {
+	pullStates: PullStates;
+	setPullStates: React.Dispatch< React.SetStateAction< PullStates > >;
+	onPullSuccess?: OnPullSuccess;
+};
+
+export type UseSyncPull = {
+	pullStates: PullStates;
+	getPullState: GetState< SyncBackupState >;
+	pullSite: PullSite;
+	isAnySitePulling: boolean;
+	isSiteIdPulling: IsSiteIdPulling;
+	clearPullState: ClearState;
+};
+
 export function useSyncPull( {
 	pullStates,
 	setPullStates,
 	onPullSuccess,
-}: {
-	pullStates: Record< string, SyncBackupState >;
-	setPullStates: React.Dispatch< React.SetStateAction< Record< string, SyncBackupState > > >;
-	onPullSuccess?: ( siteId: number, localSiteId: string ) => void;
-} ) {
+}: UseSyncPullProps ): UseSyncPull {
 	const { __ } = useI18n();
 	const { client } = useAuth();
 	const { importFile, clearImportState } = useImportExport();
@@ -39,7 +61,7 @@ export function useSyncPull( {
 		clearState,
 	} = usePullPushStates< SyncBackupState >( pullStates, setPullStates );
 
-	const updatePullState: typeof updateState = useCallback(
+	const updatePullState = useCallback< UpdateState< SyncBackupState > >(
 		( selectedSiteId, remoteSiteId, state ) => {
 			updateState( selectedSiteId, remoteSiteId, state );
 			const statusKey = state.status?.key;
@@ -53,7 +75,7 @@ export function useSyncPull( {
 		[ isKeyFailed, isKeyFinished, updateState ]
 	);
 
-	const clearPullState: typeof clearState = useCallback(
+	const clearPullState = useCallback< ClearState >(
 		( selectedSiteId, remoteSiteId ) => {
 			clearState( selectedSiteId, remoteSiteId );
 			getIpcApi().clearSyncOperation( generateStateId( selectedSiteId, remoteSiteId ) );
@@ -63,8 +85,8 @@ export function useSyncPull( {
 
 	const { startServer } = useSiteDetails();
 
-	const pullSite = useCallback(
-		async ( connectedSite: SyncSite, selectedSite: SiteDetails ) => {
+	const pullSite = useCallback< PullSite >(
+		async ( connectedSite, selectedSite ) => {
 			if ( ! client ) {
 				return;
 			}
@@ -160,7 +182,7 @@ export function useSyncPull( {
 		]
 	);
 
-	const getBackup = useCallback(
+	const fetchAndUpdateBackup = useCallback(
 		async ( remoteSiteId: number, selectedSiteId: string ) => {
 			if ( ! client ) {
 				return;
@@ -211,7 +233,7 @@ export function useSyncPull( {
 		Object.entries( pullStates ).forEach( ( [ key, state ] ) => {
 			if ( state.backupId && state.status.key === 'in-progress' ) {
 				intervals[ key ] = setTimeout( () => {
-					getBackup( state.remoteSiteId, state.selectedSite.id );
+					fetchAndUpdateBackup( state.remoteSiteId, state.selectedSite.id );
 				}, 2000 );
 			}
 		} );
@@ -219,9 +241,9 @@ export function useSyncPull( {
 		return () => {
 			Object.values( intervals ).forEach( clearTimeout );
 		};
-	}, [ pullStates, getBackup ] );
+	}, [ pullStates, fetchAndUpdateBackup ] );
 
-	const isAnySitePulling = useMemo( () => {
+	const isAnySitePulling = useMemo< boolean >( () => {
 		return Object.values( pullStates ).some( ( state ) => isKeyPulling( state.status.key ) );
 	}, [ pullStates, isKeyPulling ] );
 

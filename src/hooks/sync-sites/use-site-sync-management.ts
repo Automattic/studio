@@ -1,7 +1,7 @@
 import { useEffect, useCallback } from 'react';
 import { getIpcApi } from '../../lib/get-ipc-api';
 import { useAuth } from '../use-auth';
-import { SyncSite, useFetchWpComSites } from '../use-fetch-wpcom-sites';
+import { FetchSites, SyncSite, useFetchWpComSites } from '../use-fetch-wpcom-sites';
 import { useSiteDetails } from '../use-site-details';
 
 /**
@@ -99,13 +99,30 @@ export const reconcileConnectedSites = (
 	};
 };
 
+type ConnectedSites = SyncSite[];
+type LoadConnectedSites = () => Promise< void >;
+type ConnectSite = ( site: SyncSite, overrideLocalSiteId?: string ) => Promise< void >;
+type DisconnectSite = ( siteId: number ) => Promise< void >;
+
+type UseSiteSyncManagementProps = {
+	connectedSites: ConnectedSites;
+	setConnectedSites: React.Dispatch< React.SetStateAction< ConnectedSites > >;
+};
+
+export type UseSiteSyncManagement = {
+	connectedSites: ConnectedSites;
+	loadConnectedSites: LoadConnectedSites;
+	connectSite: ConnectSite;
+	disconnectSite: DisconnectSite;
+	syncSites: SyncSite[];
+	isFetching: boolean;
+	refetchSites: FetchSites;
+};
+
 export const useSiteSyncManagement = ( {
 	connectedSites,
 	setConnectedSites,
-}: {
-	connectedSites: SyncSite[];
-	setConnectedSites: React.Dispatch< React.SetStateAction< SyncSite[] > >;
-} ) => {
+}: UseSiteSyncManagementProps ): UseSiteSyncManagement => {
 	const { isAuthenticated } = useAuth();
 	const { syncSites, isFetching, isInitialized, refetchSites } = useFetchWpComSites(
 		connectedSites.map( ( { id } ) => id )
@@ -113,7 +130,7 @@ export const useSiteSyncManagement = ( {
 	const { selectedSite } = useSiteDetails();
 	const localSiteId = selectedSite?.id;
 
-	const loadConnectedSites = useCallback( async () => {
+	const loadConnectedSites = useCallback< LoadConnectedSites >( async () => {
 		if ( ! localSiteId ) {
 			setConnectedSites( [] );
 			return;
@@ -177,8 +194,8 @@ export const useSiteSyncManagement = ( {
 		loadConnectedSites,
 	] );
 
-	const connectSite = useCallback(
-		async ( site: SyncSite, overrideLocalSiteId?: string ) => {
+	const connectSite = useCallback< ConnectSite >(
+		async ( site, overrideLocalSiteId ) => {
 			const localSiteIdToConnect = overrideLocalSiteId ?? localSiteId;
 			if ( ! localSiteIdToConnect ) {
 				return;
@@ -206,8 +223,8 @@ export const useSiteSyncManagement = ( {
 		[ localSiteId, syncSites, setConnectedSites ]
 	);
 
-	const disconnectSite = useCallback(
-		async ( siteId: number ) => {
+	const disconnectSite = useCallback< DisconnectSite >(
+		async ( siteId ) => {
 			if ( ! localSiteId ) {
 				return;
 			}
@@ -242,5 +259,5 @@ export const useSiteSyncManagement = ( {
 		syncSites,
 		isFetching,
 		refetchSites,
-	} as const;
+	};
 };

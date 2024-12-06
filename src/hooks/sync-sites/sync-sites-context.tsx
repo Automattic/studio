@@ -4,30 +4,32 @@ import { getIpcApi } from '../../lib/get-ipc-api';
 import { SyncSite } from '../use-fetch-wpcom-sites';
 import { useFormatLocalizedTimestamps } from '../use-format-localized-timestamps';
 import { useListenDeepLinkConnection } from './use-listen-deep-link-connection';
-import { useSiteSyncManagement } from './use-site-sync-management';
-import { useSyncPull } from './use-sync-pull';
-import { useSyncPush } from './use-sync-push';
+import { UseSiteSyncManagement, useSiteSyncManagement } from './use-site-sync-management';
+import { PullStates, UseSyncPull, useSyncPull } from './use-sync-pull';
+import { PushStates, UseSyncPush, useSyncPush } from './use-sync-push';
 
-export type SyncSitesContextType = ReturnType< typeof useSyncPull > &
-	ReturnType< typeof useSyncPush > &
-	ReturnType< typeof useSiteSyncManagement > & {
-		getLastSyncTimeText: ( timestamp: string | null, type: 'pull' | 'push' ) => string;
-		updateSiteTimestamp: (
-			siteId: number | undefined,
-			localSiteId: string,
-			type: 'pull' | 'push'
-		) => Promise< void >;
+type GetLastSyncTimeText = ( timestamp: string | null, type: 'pull' | 'push' ) => string;
+type UpdateSiteTimestamp = (
+	siteId: number | undefined,
+	localSiteId: string,
+	type: 'pull' | 'push'
+) => Promise< void >;
+
+export type SyncSitesContextType = Omit< UseSyncPull, 'pullStates' > &
+	Omit< UseSyncPush, 'pushStates' > &
+	Omit< UseSiteSyncManagement, 'loadConnectedSites' > & {
+		getLastSyncTimeText: GetLastSyncTimeText;
 	};
 
 const SyncSitesContext = createContext< SyncSitesContextType | undefined >( undefined );
 
 export function SyncSitesProvider( { children }: { children: React.ReactNode } ) {
 	const { formatRelativeTime } = useFormatLocalizedTimestamps();
-	const [ pullStates, setPullStates ] = useState< SyncSitesContextType[ 'pullStates' ] >( {} );
+	const [ pullStates, setPullStates ] = useState< PullStates >( {} );
 	const [ connectedSites, setConnectedSites ] = useState< SyncSite[] >( [] );
 
-	const getLastSyncTimeText = useCallback(
-		( timestamp: string | null | undefined, type: 'pull' | 'push' ): string => {
+	const getLastSyncTimeText = useCallback< GetLastSyncTimeText >(
+		( timestamp, type ) => {
 			if ( ! timestamp ) {
 				return type === 'pull'
 					? __( 'You have not pulled this site yet.' )
@@ -44,14 +46,15 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 		[ formatRelativeTime ]
 	);
 
-	const updateSiteTimestamp = useCallback(
-		async ( siteId: number | undefined, localSiteId: string, type: 'pull' | 'push' ) => {
-			if ( ! siteId ) return;
-
+	const updateSiteTimestamp = useCallback< UpdateSiteTimestamp >(
+		async ( siteId, localSiteId, type ) => {
 			const site = connectedSites.find(
 				( { id, localSiteId: siteLocalId } ) => siteId === id && localSiteId === siteLocalId
 			);
-			if ( ! site ) return;
+
+			if ( ! site ) {
+				return;
+			}
 
 			try {
 				const updatedSite = {
@@ -79,7 +82,7 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 		}
 	);
 
-	const [ pushStates, setPushStates ] = useState< SyncSitesContextType[ 'pushStates' ] >( {} );
+	const [ pushStates, setPushStates ] = useState< PushStates >( {} );
 	const { pushSite, isAnySitePushing, isSiteIdPushing, clearPushState, getPushState } = useSyncPush(
 		{
 			pushStates,
@@ -89,7 +92,7 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 		}
 	);
 
-	const { loadConnectedSites, connectSite, disconnectSite, syncSites, isFetching, refetchSites } =
+	const { connectSite, disconnectSite, syncSites, isFetching, refetchSites } =
 		useSiteSyncManagement( { connectedSites, setConnectedSites } );
 
 	useListenDeepLinkConnection( { connectSite, refetchSites } );
@@ -97,19 +100,16 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 	return (
 		<SyncSitesContext.Provider
 			value={ {
-				pullStates,
 				pullSite,
 				isAnySitePulling,
 				isSiteIdPulling,
 				clearPullState,
 				connectedSites,
-				loadConnectedSites,
 				connectSite,
 				disconnectSite,
 				syncSites,
 				refetchSites,
 				isFetching,
-				pushStates,
 				getPullState,
 				getPushState,
 				pushSite,
@@ -117,7 +117,6 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 				isSiteIdPushing,
 				clearPushState,
 				getLastSyncTimeText,
-				updateSiteTimestamp,
 			} }
 		>
 			{ children }

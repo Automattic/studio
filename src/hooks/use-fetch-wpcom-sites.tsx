@@ -114,6 +114,8 @@ function transformSiteResponse(
 	}, [] );
 }
 
+export type FetchSites = () => Promise< SitesEndpointSite[] >;
+
 export const useFetchWpComSites = ( connectedSiteIds: number[] ) => {
 	const [ rawSyncSites, setRawSyncSites ] = useState< SitesEndpointSite[] >( [] );
 	const { isAuthenticated, client } = useAuth();
@@ -132,7 +134,7 @@ export const useFetchWpComSites = ( connectedSiteIds: number[] ) => {
 		[ joinedConnectedSiteIds ]
 	);
 
-	const fetchSites = useCallback( async (): Promise< SitesEndpointSite[] > => {
+	const fetchSites = useCallback< FetchSites >( async () => {
 		if ( ! client?.req || isFetchingSites.current || ! isAuthenticated || isOffline ) {
 			return [];
 		}

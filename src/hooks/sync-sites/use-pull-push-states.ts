@@ -3,12 +3,27 @@ import { useCallback } from 'react';
 export const generateStateId = ( selectedSiteId: string, remoteSiteId: number ) =>
 	`${ selectedSiteId }-${ remoteSiteId }`;
 
+export type States< T > = Record< string, T >;
+export type UpdateState< T > = (
+	selectedSiteId: string,
+	remoteSiteId: number,
+	state: Partial< T >
+) => void;
+export type GetState< T > = ( selectedSiteId: string, remoteSiteId: number ) => T | undefined;
+export type ClearState = ( selectedSiteId: string, remoteSiteId: number ) => void;
+
+export type UsePullPushStates< T > = {
+	updateState: UpdateState< T >;
+	getState: GetState< T >;
+	clearState: ClearState;
+};
+
 export function usePullPushStates< T >(
-	states: Record< string, T >,
-	setStates: React.Dispatch< React.SetStateAction< Record< string, T > > >
-) {
-	const updateState = useCallback(
-		( selectedSiteId: string, remoteSiteId: number, state: Partial< T > ) => {
+	states: States< T >,
+	setStates: React.Dispatch< React.SetStateAction< States< T > > >
+): UsePullPushStates< T > {
+	const updateState = useCallback< UpdateState< T > >(
+		( selectedSiteId, remoteSiteId, state ) => {
 			setStates( ( prevStates ) => ( {
 				...prevStates,
 				[ generateStateId( selectedSiteId, remoteSiteId ) ]: {
@@ -20,15 +35,15 @@ export function usePullPushStates< T >(
 		[ setStates ]
 	);
 
-	const getState = useCallback(
-		( selectedSiteId: string, remoteSiteId: number ): T | undefined => {
+	const getState = useCallback< GetState< T > >(
+		( selectedSiteId, remoteSiteId ): T | undefined => {
 			return states[ generateStateId( selectedSiteId, remoteSiteId ) ];
 		},
 		[ states ]
 	);
 
-	const clearState = useCallback(
-		( selectedSiteId: string, remoteSiteId: number ) => {
+	const clearState = useCallback< ClearState >(
+		( selectedSiteId, remoteSiteId ) => {
 			setStates( ( prevStates ) => {
 				const newStates = { ...prevStates };
 				delete newStates[ generateStateId( selectedSiteId, remoteSiteId ) ];

@@ -103,7 +103,6 @@ const InitialImportButton = ( {
 	children,
 	isInitial,
 	openFileSelector,
-	disabled,
 	isSiteExporting,
 	isAnySiteSyncing,
 	isThisSiteSyncing,
@@ -111,11 +110,11 @@ const InitialImportButton = ( {
 	children: React.ReactNode;
 	isInitial: boolean;
 	openFileSelector: () => void;
-	disabled?: boolean;
 	isSiteExporting: boolean;
 	isAnySiteSyncing: boolean;
 	isThisSiteSyncing: boolean;
 } ) => {
+	const disabled = isSiteExporting || isAnySiteSyncing;
 	let tooltipText;
 	if ( isThisSiteSyncing ) {
 		tooltipText = __(
@@ -242,7 +241,6 @@ const ImportSite = ( {
 				<InitialImportButton
 					isInitial={ isInitial }
 					openFileSelector={ openFileSelector }
-					disabled={ isSiteExporting || isAnySiteSyncing }
 					isSiteExporting={ isSiteExporting }
 					isAnySiteSyncing={ isAnySiteSyncing }
 					isThisSiteSyncing={ isThisSiteSyncing }

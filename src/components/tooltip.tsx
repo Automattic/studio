@@ -28,15 +28,15 @@ const Tooltip = ( {
 		setIsPopoverVisible( false );
 	};
 
+	useEffect( () => {
+		if ( ! text && isPopoverVisible ) {
+			setIsPopoverVisible( false );
+		}
+	}, [ text, isPopoverVisible ] );
+
 	if ( ! children ) {
 		return null;
 	}
-
-	useEffect( () => {
-		if ( ! text ) {
-			hidePopover();
-		}
-	}, [ text ] );
 
 	return (
 		<div

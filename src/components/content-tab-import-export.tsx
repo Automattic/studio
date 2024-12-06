@@ -21,9 +21,6 @@ interface ContentTabImportExportProps {
 	selectedSite: SiteDetails;
 }
 
-const siteSyncingMessage = () =>
-	__( 'This site is being synced. Please wait for the sync to finish before you export it.' );
-
 export const ExportSite = ( { selectedSite }: { selectedSite: SiteDetails } ) => {
 	const { exportState, exportFullSite, exportDatabase, importState } = useImportExport();
 	const { [ selectedSite.id ]: currentProgress } = exportState;
@@ -33,6 +30,9 @@ export const ExportSite = ( { selectedSite }: { selectedSite: SiteDetails } ) =>
 	const isExportDisabled = isImporting || isSyncing;
 	const siteImportingMessage = __(
 		'This site is being imported. Please wait for the import to finish before you export it.'
+	);
+	const siteSyncingMessage = __(
+		'This site is being synced. Please wait for the sync to finish before you export it.'
 	);
 
 	const handleExport = async ( exportFunction: typeof exportFullSite | typeof exportDatabase ) => {
@@ -57,7 +57,7 @@ export const ExportSite = ( { selectedSite }: { selectedSite: SiteDetails } ) =>
 				</div>
 			) : (
 				<Tooltip
-					text={ isSyncing ? siteSyncingMessage() : siteImportingMessage }
+					text={ isSyncing ? siteSyncingMessage : siteImportingMessage }
 					disabled={ ! isExportDisabled }
 					placement="top-start"
 				>
@@ -103,10 +103,13 @@ const InitialImportButton = ( {
 	const siteExportingMessage = __(
 		'This site is being exported. Please wait for the export to finish before you import a backup.'
 	);
+	const siteSyncingMessage = __(
+		'This site is being synced. Please wait for the sync to finish before you import a backup.'
+	);
 	return isInitial ? (
 		<Tooltip
 			className="w-full"
-			text={ isSyncing ? siteSyncingMessage() : siteExportingMessage }
+			text={ isSyncing ? siteSyncingMessage : siteExportingMessage }
 			disabled={ ! disabled }
 		>
 			<Button

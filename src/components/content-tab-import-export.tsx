@@ -45,7 +45,7 @@ export const ExportSite = ( {
 		tooltipText = __(
 			'Another Studio site is syncing. Please wait for the sync to finish before you export this site.'
 		);
-	} else {
+	} else if ( isImporting ) {
 		tooltipText = __(
 			'This Studio site is being imported. Please wait for the import to finish before you export it.'
 		);
@@ -104,6 +104,7 @@ const InitialImportButton = ( {
 	isInitial,
 	openFileSelector,
 	disabled,
+	isSiteExporting,
 	isAnySiteSyncing,
 	isThisSiteSyncing,
 }: {
@@ -111,6 +112,7 @@ const InitialImportButton = ( {
 	isInitial: boolean;
 	openFileSelector: () => void;
 	disabled?: boolean;
+	isSiteExporting: boolean;
 	isAnySiteSyncing: boolean;
 	isThisSiteSyncing: boolean;
 } ) => {
@@ -123,7 +125,7 @@ const InitialImportButton = ( {
 		tooltipText = __(
 			'Another Studio site is syncing. Please wait for the sync to finish before you import a backup.'
 		);
-	} else {
+	} else if ( isSiteExporting ) {
 		tooltipText = __(
 			'This Studio site is exporting. Please wait for the export to finish before you import a backup.'
 		);
@@ -241,6 +243,7 @@ const ImportSite = ( {
 					isInitial={ isInitial }
 					openFileSelector={ openFileSelector }
 					disabled={ isSiteExporting || isAnySiteSyncing }
+					isSiteExporting={ isSiteExporting }
 					isAnySiteSyncing={ isAnySiteSyncing }
 					isThisSiteSyncing={ isThisSiteSyncing }
 				>

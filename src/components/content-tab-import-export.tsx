@@ -10,6 +10,7 @@ import { useSyncSites } from '../hooks/sync-sites/sync-sites-context';
 import { useConfirmationDialog } from '../hooks/use-confirmation-dialog';
 import { useDragAndDropFile } from '../hooks/use-drag-and-drop-file';
 import { useImportExport } from '../hooks/use-import-export';
+import { useSyncStatesProgressInfo } from '../hooks/use-sync-states-progress-info';
 import { useSiteDetails } from '../hooks/use-site-details';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
@@ -25,15 +26,35 @@ export const ExportSite = ( { selectedSite }: { selectedSite: SiteDetails } ) =>
 	const { exportState, exportFullSite, exportDatabase, importState } = useImportExport();
 	const { [ selectedSite.id ]: currentProgress } = exportState;
 	const isImporting = importState[ selectedSite.id ]?.progress < 100;
-	const { isAnySitePulling, isAnySitePushing } = useSyncSites();
-	const isSyncing = isAnySitePulling || isAnySitePushing;
-	const isExportDisabled = isImporting || isSyncing;
-	const siteImportingMessage = __(
-		'This site is being imported. Please wait for the import to finish before you export it.'
-	);
-	const siteSyncingMessage = __(
-		'This site is being synced. Please wait for the sync to finish before you export it.'
-	);
+	const { isAnySitePulling, isAnySitePushing, getPullState, getPushState, connectedSites } =
+		useSyncSites();
+	const { isKeyPulling } = useSyncStatesProgressInfo();
+	const isAnySiteSyncing = isAnySitePulling || isAnySitePushing;
+	const isPulling = connectedSites.some( ( site ) => {
+		const sitePullState = getPullState( selectedSite.id, site.id );
+		return sitePullState && isKeyPulling( sitePullState.status.key );
+	} );
+	const isPushing = connectedSites.some( ( site ) => {
+		const sitePushState = getPushState( selectedSite.id, site.id );
+		return sitePushState?.isInProgress;
+	} );
+	const isThisSiteSyncing = isPulling || isPushing;
+	const isExportDisabled = isImporting || isAnySiteSyncing;
+
+	let tooltipText;
+	if ( isThisSiteSyncing ) {
+		tooltipText = __(
+			'This Studio site is syncing. Please wait for the sync to finish before you export it.'
+		);
+	} else if ( isAnySiteSyncing ) {
+		tooltipText = __(
+			'Another Studio site is syncing. Please wait for the sync to finish before you export this site.'
+		);
+	} else {
+		tooltipText = __(
+			'This Studio site is being imported. Please wait for the import to finish before you export it.'
+		);
+	}
 
 	const handleExport = async ( exportFunction: typeof exportFullSite | typeof exportDatabase ) => {
 		const exportPath = await exportFunction( selectedSite );
@@ -56,11 +77,7 @@ export const ExportSite = ( { selectedSite }: { selectedSite: SiteDetails } ) =>
 					<div className="text-a8c-gray-70 a8c-body">{ currentProgress.statusMessage }</div>
 				</div>
 			) : (
-				<Tooltip
-					text={ isSyncing ? siteSyncingMessage : siteImportingMessage }
-					disabled={ ! isExportDisabled }
-					placement="top-start"
-				>
+				<Tooltip text={ tooltipText } disabled={ ! isExportDisabled } placement="top-start">
 					<div className="flex flex-row gap-4">
 						<Button
 							onClick={ () => handleExport( exportFullSite ) }

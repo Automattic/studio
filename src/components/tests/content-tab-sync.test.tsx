@@ -1,6 +1,7 @@
 // To run tests, execute `npm run test -- src/components/tests/content-tab-sync.test.tsx` from the root directory
 import { render, screen, fireEvent } from '@testing-library/react';
 import { SyncSitesProvider, useSyncSites } from '../../hooks/sync-sites';
+import { SyncPushState } from '../../hooks/sync-sites/use-sync-push';
 import { useAuth } from '../../hooks/use-auth';
 import { ContentTabsProvider } from '../../hooks/use-content-tabs';
 import { getIpcApi } from '../../lib/get-ipc-api';
@@ -23,14 +24,15 @@ const selectedSite: SiteDetails = {
 	id: 'site-id',
 };
 
-const defaultPushState = {
+const inProgressPushState: SyncPushState = {
 	remoteSiteId: 1,
-	status: null,
+	status: {
+		key: 'importing',
+		progress: 50,
+		message: '',
+	},
 	selectedSite,
 	isStaging: false,
-	isInProgress: false,
-	isError: false,
-	hasFinished: false,
 };
 
 describe( 'ContentTabSync', () => {
@@ -50,10 +52,12 @@ describe( 'ContentTabSync', () => {
 			isAnySitePulling: false,
 			isAnySitePushing: false,
 			getPullState: jest.fn(),
-			getPushState: jest.fn().mockReturnValue( defaultPushState ),
+			getPushState: jest.fn().mockReturnValue( inProgressPushState ),
 			refetchSites: jest.fn(),
 			updateTimestamp: jest.fn(),
 			getLastSyncTimeWithType: jest.fn().mockReturnValue( 'You have not pulled this site yet.' ),
+			isSiteIdPulling: jest.fn(),
+			isSiteIdPushing: jest.fn(),
 			clearTimeout: jest.fn(),
 		} );
 	} );
@@ -129,9 +133,11 @@ describe( 'ContentTabSync', () => {
 			isAnySitePulling: false,
 			isAnySitePushing: false,
 			getPullState: jest.fn(),
-			getPushState: jest.fn().mockReturnValue( defaultPushState ),
+			getPushState: jest.fn().mockReturnValue( undefined ),
 			refetchSites: jest.fn(),
 			getLastSyncTimeText: jest.fn().mockReturnValue( 'You have not pulled this site yet.' ),
+			isSiteIdPulling: jest.fn(),
+			isSiteIdPushing: jest.fn(),
 			clearTimeout: jest.fn(),
 		} );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
@@ -160,9 +166,11 @@ describe( 'ContentTabSync', () => {
 			isAnySitePulling: false,
 			isAnySitePushing: false,
 			getPullState: jest.fn(),
-			getPushState: jest.fn().mockReturnValue( defaultPushState ),
+			getPushState: jest.fn().mockReturnValue( inProgressPushState ),
 			refetchSites: jest.fn(),
 			getLastSyncTimeText: jest.fn().mockReturnValue( 'You have not pulled this site yet.' ),
+			isSiteIdPulling: jest.fn(),
+			isSiteIdPushing: jest.fn(),
 			clearTimeout: jest.fn(),
 		} );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
@@ -200,9 +208,11 @@ describe( 'ContentTabSync', () => {
 			isAnySitePulling: false,
 			isAnySitePushing: false,
 			getPullState: jest.fn(),
-			getPushState: jest.fn().mockReturnValue( defaultPushState ),
+			getPushState: jest.fn().mockReturnValue( undefined ),
 			refetchSites: jest.fn(),
 			getLastSyncTimeText: jest.fn().mockReturnValue( 'You have not pulled this site yet.' ),
+			isSiteIdPulling: jest.fn(),
+			isSiteIdPushing: jest.fn(),
 			clearTimeout: jest.fn(),
 		} );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );

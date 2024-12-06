@@ -567,6 +567,7 @@ export async function exportSiteToPush( event: IpcMainInvokeEvent, id: string ) 
 		includes: { database: true, uploads: true, plugins: true, themes: true },
 		phpVersion: site.details.phpVersion,
 		splitDatabaseDumpByTable: true,
+		targetHost: 'wpcom',
 	};
 	// eslint-disable-next-line @typescript-eslint/no-empty-function
 	const onEvent = () => {};

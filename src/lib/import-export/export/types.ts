@@ -7,6 +7,7 @@ export interface ExportOptions {
 	includes: { [ index in ExportOptionsIncludes ]: boolean };
 	phpVersion: string;
 	splitDatabaseDumpByTable?: boolean;
+	targetHost?: 'wpcom';
 }
 
 export type ExportOptionsIncludes = BackupContentsCategory | 'database';

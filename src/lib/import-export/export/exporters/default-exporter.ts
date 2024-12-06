@@ -23,6 +23,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 	private backup: BackupContents;
 	private readonly options: ExportOptions;
 	private siteFiles: string[];
+	private originalActivePlugins?: string[] = undefined;
 
 	constructor( options: ExportOptions ) {
 		super();
@@ -81,6 +82,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		this.archive.pipe( output );
 
 		try {
+			await this.activateJetpackIfNeeded();
 			this.addWpConfig();
 			this.addWpContent();
 			await this.addDatabase();
@@ -90,6 +92,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 			this.emit( ExportEvents.BACKUP_CREATE_COMPLETE );
 			await archiveClosedPromise;
 			this.emit( ExportEvents.EXPORT_COMPLETE );
+			await this.deactivateJetpackIfNeeded();
 		} catch ( error ) {
 			this.archive.abort();
 			this.emit( ExportEvents.EXPORT_ERROR );
@@ -296,5 +299,54 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		}
 
 		return JSON.parse( stdout );
+	}
+
+	private async activateJetpackIfNeeded() {
+		if ( this.options.targetHost !== 'wpcom' ) {
+			return;
+		}
+
+		const server = SiteServer.get( this.options.site.id );
+
+		if ( ! server ) {
+			return;
+		}
+
+		const { stderr: getOptionStderr, stdout: getOptionStdout } = await server.executeWpCliCommand(
+			`option get active_plugins --format=json`
+		);
+
+		if ( getOptionStderr ) {
+			console.error( `Could not get active_plugins option: ${ getOptionStderr }` );
+			return;
+		}
+
+		const activePlugins = JSON.parse( getOptionStdout.trim() );
+		const jetpackSlug = 'jetpack/jetpack.php';
+
+		if ( Array.isArray( activePlugins ) && ! activePlugins.includes( jetpackSlug ) ) {
+			this.originalActivePlugins = activePlugins;
+			activePlugins.push( jetpackSlug );
+
+			await server.executeWpCliCommand(
+				`option set active_plugins '${ JSON.stringify( activePlugins ) }' --format=json`
+			);
+		}
+	}
+
+	private async deactivateJetpackIfNeeded() {
+		if ( this.options.targetHost !== 'wpcom' || ! this.originalActivePlugins ) {
+			return;
+		}
+
+		const server = SiteServer.get( this.options.site.id );
+
+		if ( ! server ) {
+			return;
+		}
+
+		await server.executeWpCliCommand(
+			`option set active_plugins '${ JSON.stringify( this.originalActivePlugins ) }' --format=json`
+		);
 	}
 }

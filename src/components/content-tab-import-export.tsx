@@ -305,15 +305,6 @@ const ImportSite = ( {
 
 export function ContentTabImportExport( { selectedSite }: ContentTabImportExportProps ) {
 	const [ isSupported, setIsSupported ] = useState< boolean | null >( null );
-
-	useEffect( () => {
-		getIpcApi()
-			.isImportExportSupported( selectedSite.id )
-			.then( ( result ) => {
-				setIsSupported( result );
-			} );
-	}, [ selectedSite.id, selectedSite.running ] );
-
 	const { isAnySitePulling, isAnySitePushing, getPullState, getPushState, connectedSites } =
 		useSyncSites();
 	const { isKeyPulling } = useSyncStatesProgressInfo();
@@ -327,6 +318,14 @@ export function ContentTabImportExport( { selectedSite }: ContentTabImportExport
 		return sitePushState?.isInProgress;
 	} );
 	const isThisSiteSyncing = isPulling || isPushing;
+
+	useEffect( () => {
+		getIpcApi()
+			.isImportExportSupported( selectedSite.id )
+			.then( ( result ) => {
+				setIsSupported( result );
+			} );
+	}, [ selectedSite.id, selectedSite.running ] );
 
 	if ( isSupported === null ) {
 		return null;

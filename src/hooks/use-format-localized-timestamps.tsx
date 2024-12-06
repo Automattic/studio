@@ -10,7 +10,7 @@ function formatTimeDistance( duration: Duration ): string {
 	} else if ( duration.minutes && duration.minutes > 0 ) {
 		return formatDistance( 'xMinutes', duration.minutes );
 	} else {
-		return formatDistance( 'xMinutes', 1 );
+		return '';
 	}
 }
 

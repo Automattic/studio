@@ -97,9 +97,15 @@ const InitialImportButton = ( {
 	isInitial: boolean;
 	openFileSelector: () => void;
 	disabled?: boolean;
-} ) =>
-	isInitial ? (
-		<Tooltip className={ 'w-full' } text={ siteSyncingMessage() } disabled={ ! disabled }>
+} ) => {
+	const { isAnySitePulling, isAnySitePushing } = useSyncSites();
+	const isSyncing = isAnySitePulling || isAnySitePushing;
+	return isInitial ? (
+		<Tooltip
+			className="w-full"
+			text={ isSyncing ? siteSyncingMessage() : 'export message' }
+			disabled={ ! disabled }
+		>
 			<Button
 				variant="icon"
 				className={ `w-full 
@@ -117,6 +123,7 @@ const InitialImportButton = ( {
 	) : (
 		<div className="w-full">{ children }</div>
 	);
+};
 
 const ImportSite = ( props: { selectedSite: SiteDetails } ) => {
 	const { __ } = useI18n();

@@ -60,6 +60,11 @@ export async function exportDatabaseToMultipleFiles(
 	const tmpFiles: string[] = [];
 
 	for ( const table of tables ) {
+		if ( table === 'wp_users' || table === 'wp_usermeta' ) {
+			// Skip the wp_users and wp_usermeta tables as they are not needed
+			continue;
+		}
+
 		const fileName = `${ table }.sql`;
 
 		// Execute the command to export directly to a temporary file in the project directory

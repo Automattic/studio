@@ -59,11 +59,13 @@ const SyncConnectedSitesSection = ( {
 	} = useSyncSites();
 	const { isKeyPulling, isKeyFinished, isKeyFailed } = useSyncStatesProgressInfo();
 	const isOffline = useOffline();
-	const isAnyConnectedSiteSyncing = connectedSites.some(
-		( site ) =>
-			getPullState( selectedSite.id, site.id )?.status?.key === 'in-progress' ||
+	const isAnyConnectedSiteSyncing = connectedSites.some( ( site ) => {
+		const pullState = getPullState( selectedSite.id, site.id );
+		return (
+			isKeyPulling( pullState?.status?.key ) ||
 			getPushState( selectedSite.id, site.id )?.isInProgress
-	);
+		);
+	} );
 	const isAnySiteSyncing = isAnySitePulling || isAnySitePushing;
 	const showPushStagingConfirmation = useConfirmationDialog( {
 		localStorageKey: 'dontShowPushConfirmation',

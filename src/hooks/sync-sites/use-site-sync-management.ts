@@ -4,6 +4,27 @@ import { useAuth } from '../use-auth';
 import { SyncSite, useFetchWpComSites } from '../use-fetch-wpcom-sites';
 import { useSiteDetails } from '../use-site-details';
 
+type UserEndpointUser = {
+	ID: number;
+	URL: string;
+	avatar_URL: string;
+	email: string;
+	first_name: string;
+	last_name: string;
+	linked_user_ID: number;
+	linked_user_info: Record< string, string >;
+	login: string;
+	name: string;
+	nice_name: string;
+	profile_URL: string;
+	roles: string[];
+};
+
+type UserEndpointResponse = {
+	found: number;
+	users: UserEndpointUser[];
+};
+
 /**
  * Generate updated site data to be stored in `appdata-v1.json` in three steps:
  *   1. Update the list of `connectedSites` with fresh data (name, URL, etc)
@@ -106,7 +127,7 @@ export const useSiteSyncManagement = ( {
 	connectedSites: SyncSite[];
 	setConnectedSites: React.Dispatch< React.SetStateAction< SyncSite[] > >;
 } ) => {
-	const { isAuthenticated } = useAuth();
+	const { client, isAuthenticated } = useAuth();
 	const { syncSites, isFetching, isInitialized, refetchSites } = useFetchWpComSites(
 		connectedSites.map( ( { id } ) => id )
 	);
@@ -183,11 +204,24 @@ export const useSiteSyncManagement = ( {
 			if ( ! localSiteIdToConnect ) {
 				return;
 			}
+
+			if ( ! client?.req ) {
+				return;
+			}
+
 			try {
 				const stagingSites = site.stagingSiteIds.flatMap(
 					( id ) => syncSites.find( ( s ) => s.id === id ) ?? []
 				);
 				const sitesToConnect = [ site, ...stagingSites ];
+
+				const usersResponse = await client.req.get< UserEndpointResponse >(
+					`/sites/${ site.id }/users`
+				);
+
+				console.log( usersResponse );
+
+				// TODO: Insert users into DB
 
 				const newConnectedSites = await getIpcApi().connectWpcomSites( [
 					{
@@ -195,6 +229,7 @@ export const useSiteSyncManagement = ( {
 						localSiteId: localSiteIdToConnect,
 					},
 				] );
+
 				if ( localSiteIdToConnect === localSiteId ) {
 					setConnectedSites( newConnectedSites );
 				}
@@ -203,7 +238,7 @@ export const useSiteSyncManagement = ( {
 				throw error;
 			}
 		},
-		[ localSiteId, syncSites, setConnectedSites ]
+		[ client?.req, localSiteId, syncSites, setConnectedSites ]
 	);
 
 	const disconnectSite = useCallback(

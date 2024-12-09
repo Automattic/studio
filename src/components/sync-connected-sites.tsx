@@ -301,10 +301,10 @@ const SyncConnectedSitesSection = ( {
 														isAnySiteSyncing
 															? isAnyConnectedSiteSyncing
 																? __(
-																		'This Studio site is syncing. Please wait for the sync to finish before you pull it'
+																		'This Studio site is syncing. Please wait for the sync to finish before you pull it.'
 																  )
 																: __(
-																		'Another Studio site is syncing. Please wait for the sync to finish before you pull it.'
+																		'Another Studio site is syncing. Please wait for the sync to finish before you pull this site.'
 																  )
 															: getLastSyncTimeWithType( selectedSite.id, connectedSite.id, 'pull' )
 													}
@@ -345,7 +345,7 @@ const SyncConnectedSitesSection = ( {
 																		'This Studio site is syncing. Please wait for the sync to finish before you push it.'
 																  )
 																: __(
-																		'Another Studio site is syncing. Please wait for the sync to finish before you push it.'
+																		'Another Studio site is syncing. Please wait for the sync to finish before you push this site.'
 																  )
 															: getLastSyncTimeWithType( selectedSite.id, connectedSite.id, 'push' )
 													}

@@ -15,7 +15,7 @@ export function useConfirmationDialog( options: ConfirmationDialogOptions ) {
 	const {
 		message,
 		detail,
-		checkboxLabel = __( "Don't ask again" ),
+		checkboxLabel,
 		confirmButtonLabel,
 		cancelButtonLabel = __( 'Cancel' ),
 		localStorageKey,

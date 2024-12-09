@@ -7,7 +7,7 @@ import { useSnapshots } from '../hooks/use-snapshots';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
 import offlineIcon from './offline-icon';
-import Tooltip from './tooltip';
+import { Tooltip } from './tooltip';
 
 const MAX_LENGTH_SITE_TITLE = 35;
 

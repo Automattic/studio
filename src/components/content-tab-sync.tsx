@@ -14,7 +14,7 @@ import offlineIcon from './offline-icon';
 import { SyncConnectedSites } from './sync-connected-sites';
 import { SyncSitesModalSelector } from './sync-sites-modal-selector';
 import { SyncTabImage } from './sync-tab-image';
-import Tooltip from './tooltip';
+import { Tooltip } from './tooltip';
 import { WordPressShortLogo } from './wordpress-short-logo';
 
 function SiteSyncDescription( { children }: PropsWithChildren ) {

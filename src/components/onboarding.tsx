@@ -17,9 +17,9 @@ const GradientBox = () => {
 	return (
 		<div
 			aria-label={ __( 'Imagine, Create, Design, Code, Build' ) }
-			className="gap-1 flex flex-col font-normal text-[42px] leading-[42px] text-white"
+			className="gap-0 flex flex-col font-normal text-[42px] leading-[42px] text-white"
 		>
-			<div className="flex flex-col gap-1 relative self-stretch">
+			<div className="flex flex-col gap-1 relative self-stretch pb-1">
 				<div className="absolute inset-0 bg-gradient-to-b from-[#3858E9] to-[#3858E9]/60"></div>
 				<p>{ __( 'Imagine' ) }</p>
 				<p>{ __( 'Create' ) }</p>

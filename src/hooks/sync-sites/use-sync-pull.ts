@@ -22,9 +22,11 @@ export type SyncBackupState = {
 export function useSyncPull( {
 	pullStates,
 	setPullStates,
+	onPullSuccess,
 }: {
 	pullStates: Record< string, SyncBackupState >;
 	setPullStates: React.Dispatch< React.SetStateAction< Record< string, SyncBackupState > > >;
+	onPullSuccess?: ( siteId: number, localSiteId: string ) => void;
 } ) {
 	const { __ } = useI18n();
 	const { client } = useAuth();
@@ -143,11 +145,13 @@ export function useSyncPull( {
 			updatePullState( selectedSite.id, remoteSiteId, {
 				status: pullStatesProgressInfo.finished,
 			} );
+			onPullSuccess?.( remoteSiteId, selectedSite.id );
 		},
 		[
 			__,
 			clearImportState,
 			importFile,
+			onPullSuccess,
 			pullStatesProgressInfo.downloading,
 			pullStatesProgressInfo.finished,
 			pullStatesProgressInfo.importing,

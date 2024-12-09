@@ -21,7 +21,7 @@ import { CircleRedCrossIcon } from './icons/circle-red-cross';
 import offlineIcon from './offline-icon';
 import ProgressBar from './progress-bar';
 import { SyncPullPushClear } from './sync-pull-push-clear';
-import Tooltip from './tooltip';
+import { Tooltip, DynamicTooltip } from './tooltip';
 import { WordPressLogoCircle } from './wordpress-logo-circle';
 
 interface ConnectedSiteSection {
@@ -52,9 +52,7 @@ const SyncConnectedSitesSection = ( {
 		pushSite,
 		getPushState,
 		clearPushState,
-		updateTimestamp,
-		getLastSyncTimeWithType,
-		clearTimestamps,
+		getLastSyncTimeText,
 		connectedSites,
 	} = useSyncSites();
 	const { isKeyPulling, isKeyFinished, isKeyFailed } = useSyncStatesProgressInfo();
@@ -115,7 +113,6 @@ const SyncConnectedSitesSection = ( {
 					localStorage.setItem( 'dontShowDisconnectWarning', 'true' );
 				}
 				disconnectSite( section.id );
-				clearTimestamps( selectedSite.id, section.id );
 				section.connectedSites.forEach( ( connectedSite ) => {
 					clearPullState( selectedSite.id, connectedSite.id );
 				} );
@@ -128,12 +125,10 @@ const SyncConnectedSitesSection = ( {
 	const handlePushSite = async ( connectedSite: SyncSite ) => {
 		if ( connectedSite.isStaging ) {
 			showPushStagingConfirmation( () => {
-				updateTimestamp( selectedSite.id, connectedSite.id, 'push' );
 				pushSite( connectedSite, selectedSite );
 			} );
 		} else {
 			showPushProductionConfirmation( () => {
-				updateTimestamp( selectedSite.id, connectedSite.id, 'push' );
 				pushSite( connectedSite, selectedSite );
 			} );
 		}
@@ -296,77 +291,102 @@ const SyncConnectedSitesSection = ( {
 											placement="top-start"
 										>
 											<div className="flex gap-2 pl-4 ml-auto shrink-0 h-5">
-												<Tooltip
-													text={
-														isAnySiteSyncing
-															? isAnyConnectedSiteSyncing
+												{ isAnySiteSyncing ? (
+													<Tooltip
+														text={
+															isAnyConnectedSiteSyncing
 																? __(
 																		'This Studio site is syncing. Please wait for the sync to finish before you pull it.'
 																  )
 																: __(
 																		'Another Studio site is syncing. Please wait for the sync to finish before you pull this site.'
 																  )
-															: getLastSyncTimeWithType( selectedSite.id, connectedSite.id, 'pull' )
-													}
-													placement="top-start"
-													disabled={ isOffline }
-												>
-													<Button
-														variant="link"
-														className={ cx(
-															! isOffline &&
-																! isAnySitePulling &&
-																! isAnySitePushing &&
-																'!text-black hover:!text-a8c-blueberry'
-														) }
-														onClick={ () => {
-															const detail = connectedSite.isStaging
-																? __(
-																		"Pulling will replace your Studio site's files and database with a copy from your staging site."
-																  )
-																: __(
-																		"Pulling will replace your Studio site's files and database with a copy from your production site."
-																  );
-															showPullConfirmation( () => pullSite( connectedSite, selectedSite ), {
-																detail,
-															} );
-														} }
-														disabled={ isAnySiteSyncing || isOffline }
+														}
+														placement="top-start"
 													>
-														<Icon icon={ cloudDownload } />
-														{ __( 'Pull' ) }
-													</Button>
-												</Tooltip>
-												<Tooltip
-													text={
-														isAnySiteSyncing
-															? isAnyConnectedSiteSyncing
+														<Button variant="link" disabled={ true }>
+															<Icon icon={ cloudDownload } />
+															{ __( 'Pull' ) }
+														</Button>
+													</Tooltip>
+												) : (
+													<DynamicTooltip
+														getTooltipText={ () =>
+															getLastSyncTimeText( connectedSite.lastPullTimestamp, 'pull' )
+														}
+														placement="top-start"
+														disabled={ isOffline }
+													>
+														<Button
+															variant="link"
+															className={ cx(
+																! isOffline &&
+																	! isAnySitePulling &&
+																	! isAnySitePushing &&
+																	'!text-black hover:!text-a8c-blueberry'
+															) }
+															onClick={ () => {
+																const detail = connectedSite.isStaging
+																	? __(
+																			"Pulling will replace your Studio site's files and database with a copy from your staging site."
+																	  )
+																	: __(
+																			"Pulling will replace your Studio site's files and database with a copy from your production site."
+																	  );
+																showPullConfirmation(
+																	() => pullSite( connectedSite, selectedSite ),
+																	{ detail }
+																);
+															} }
+															disabled={ isAnySiteSyncing || isOffline }
+														>
+															<Icon icon={ cloudDownload } />
+															{ __( 'Pull' ) }
+														</Button>
+													</DynamicTooltip>
+												) }
+												{ isAnySiteSyncing ? (
+													<Tooltip
+														text={
+															isAnyConnectedSiteSyncing
 																? __(
 																		'This Studio site is syncing. Please wait for the sync to finish before you push it.'
 																  )
 																: __(
 																		'Another Studio site is syncing. Please wait for the sync to finish before you push this site.'
 																  )
-															: getLastSyncTimeWithType( selectedSite.id, connectedSite.id, 'push' )
-													}
-													placement="top-start"
-													disabled={ isOffline }
-												>
-													<Button
-														variant="link"
-														className={ cx(
-															! isOffline &&
-																! isAnySitePulling &&
-																! isAnySitePushing &&
-																'!text-black hover:!text-a8c-blueberry'
-														) }
-														onClick={ () => handlePushSite( connectedSite ) }
-														disabled={ isAnySiteSyncing || isOffline }
+														}
+														placement="top-start"
 													>
-														<Icon icon={ cloudUpload } />
-														{ __( 'Push' ) }
-													</Button>
-												</Tooltip>
+														<Button variant="link" disabled={ true }>
+															<Icon icon={ cloudUpload } />
+															{ __( 'Push' ) }
+														</Button>
+													</Tooltip>
+												) : (
+													<DynamicTooltip
+														getTooltipText={ () =>
+															getLastSyncTimeText( connectedSite.lastPushTimestamp, 'push' )
+														}
+														placement="top-start"
+														disabled={ isOffline }
+													>
+														<Button
+															variant="link"
+															className={ cx(
+																! isOffline &&
+																	! isAnySitePulling &&
+																	! isAnySitePushing &&
+																	'!text-black hover:!text-a8c-blueberry'
+															) }
+															onClick={ () => handlePushSite( connectedSite ) }
+															disabled={ isAnySiteSyncing || isOffline }
+														>
+															<Icon icon={ cloudUpload } />
+															{ __( 'Push' ) }
+														</Button>
+													</DynamicTooltip>
+												) }
 											</div>
 										</Tooltip>
 									) }

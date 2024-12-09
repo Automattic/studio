@@ -19,9 +19,11 @@ export type SyncPushState = {
 export function useSyncPush( {
 	pushStates,
 	setPushStates,
+	onPushSuccess,
 }: {
 	pushStates: Record< string, SyncPushState >;
 	setPushStates: React.Dispatch< React.SetStateAction< Record< string, SyncPushState > > >;
+	onPushSuccess?: ( siteId: number, localSiteId: string ) => void;
 } ) {
 	const { __ } = useI18n();
 	const { client } = useAuth();
@@ -71,6 +73,7 @@ export function useSyncPush( {
 			let status: PushStateProgressInfo = pushStatesProgressInfo.importing;
 			if ( response.success && response.status === 'finished' ) {
 				status = pushStatesProgressInfo.finished;
+				onPushSuccess?.( remoteSiteId, syncPushState.selectedSite.id );
 				getIpcApi().showNotification( {
 					title: syncPushState.selectedSite.name,
 					body: syncPushState.isStaging
@@ -88,12 +91,26 @@ export function useSyncPush( {
 		[
 			__,
 			client,
+			onPushSuccess,
 			pushStatesProgressInfo.failed,
 			pushStatesProgressInfo.finished,
 			pushStatesProgressInfo.importing,
 			updatePushState,
 		]
 	);
+
+	const getErrorFromResponse = ( error: unknown ): string => {
+		if (
+			typeof error === 'object' &&
+			error !== null &&
+			'error' in error &&
+			typeof ( error as { error: unknown } ).error === 'string'
+		) {
+			return ( error as { error: string } ).error;
+		}
+
+		return __( 'Studio was unable to connect to WordPress.com. Please try again.' );
+	};
 
 	const pushSite = useCallback(
 		async ( connectedSite: SyncSite, selectedSite: SiteDetails ) => {
@@ -152,7 +169,7 @@ export function useSyncPush( {
 				} );
 				getIpcApi().showErrorMessageBox( {
 					title: sprintf( __( 'Error pushing to %s' ), connectedSite.name ),
-					message: __( 'Studio was unable to connect to WordPress.com. Please try again.' ),
+					message: getErrorFromResponse( error ),
 				} );
 			} finally {
 				await getIpcApi().removeTemporalFile( archivePath );

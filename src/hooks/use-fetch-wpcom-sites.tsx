@@ -19,6 +19,8 @@ export type SyncSite = {
 	isStaging: boolean;
 	stagingSiteIds: number[];
 	syncSupport: SyncSupport;
+	lastPullTimestamp: string | null;
+	lastPushTimestamp: string | null;
 };
 
 type SitesEndpointSite = {
@@ -92,6 +94,8 @@ export function transformSingleSiteResponse(
 		isStaging: site.is_wpcom_staging_site,
 		stagingSiteIds: site.options?.wpcom_staging_blog_ids ?? [],
 		syncSupport,
+		lastPullTimestamp: null,
+		lastPushTimestamp: null,
 	};
 }
 

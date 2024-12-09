@@ -2,7 +2,7 @@ import { Button } from '@wordpress/components';
 import { useResizeObserver } from '@wordpress/compose';
 import { ComponentProps, useEffect, useRef, useState } from 'react';
 import { cx } from '../lib/cx';
-import Tooltip from './tooltip';
+import { Tooltip } from './tooltip';
 
 /**
  * Sourced from https://stackoverflow.com/a/76616671/378228 to address

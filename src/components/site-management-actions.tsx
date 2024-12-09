@@ -3,7 +3,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useSyncSites } from '../hooks/sync-sites';
 import { useImportExport } from '../hooks/use-import-export';
 import { ActionButton } from './action-button';
-import Tooltip from './tooltip';
+import { Tooltip } from './tooltip';
 
 export interface SiteManagementActionProps {
 	onStop: ( id: string ) => Promise< void >;

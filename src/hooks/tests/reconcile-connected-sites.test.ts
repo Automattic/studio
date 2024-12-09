@@ -12,6 +12,8 @@ describe( 'reconcileConnectedSites', () => {
 				name: 'site1',
 				url: 'site1.com',
 				syncSupport: 'already-connected',
+				lastPullTimestamp: null,
+				lastPushTimestamp: null,
 			},
 		];
 		const originalSitesFromWpCom: SyncSite[] = [
@@ -23,6 +25,8 @@ describe( 'reconcileConnectedSites', () => {
 				name: 'site1-updated',
 				url: 'site1-updated.com',
 				syncSupport: 'unsupported',
+				lastPullTimestamp: null,
+				lastPushTimestamp: null,
 			},
 		];
 		const result = reconcileConnectedSites( connectedSites, originalSitesFromWpCom );
@@ -39,6 +43,8 @@ describe( 'reconcileConnectedSites', () => {
 				name: 'site1',
 				url: 'site1.com',
 				syncSupport: 'already-connected',
+				lastPullTimestamp: null,
+				lastPushTimestamp: null,
 			},
 		];
 		const originalSitesFromWpCom: SyncSite[] = [
@@ -50,6 +56,8 @@ describe( 'reconcileConnectedSites', () => {
 				name: 'site1',
 				url: 'site1.com',
 				syncSupport: 'already-connected',
+				lastPullTimestamp: null,
+				lastPushTimestamp: null,
 			},
 			{
 				id: 2,
@@ -59,6 +67,8 @@ describe( 'reconcileConnectedSites', () => {
 				name: 'staging-site1',
 				url: 'staging-site1.com',
 				syncSupport: 'syncable',
+				lastPullTimestamp: null,
+				lastPushTimestamp: null,
 			},
 		];
 		const result = reconcileConnectedSites( connectedSites, originalSitesFromWpCom );
@@ -81,6 +91,8 @@ describe( 'reconcileConnectedSites', () => {
 				name: 'site1',
 				url: 'site1.com',
 				syncSupport: 'already-connected',
+				lastPullTimestamp: null,
+				lastPushTimestamp: null,
 			},
 			{
 				id: 2,
@@ -90,6 +102,8 @@ describe( 'reconcileConnectedSites', () => {
 				name: 'staging-site1',
 				url: 'staging-site1.com',
 				syncSupport: 'already-connected',
+				lastPullTimestamp: null,
+				lastPushTimestamp: null,
 			},
 		];
 		const originalSitesFromWpCom: SyncSite[] = [
@@ -101,6 +115,8 @@ describe( 'reconcileConnectedSites', () => {
 				name: 'site1',
 				url: 'site1.com',
 				syncSupport: 'already-connected',
+				lastPullTimestamp: null,
+				lastPushTimestamp: null,
 			},
 		];
 		const result = reconcileConnectedSites( connectedSites, originalSitesFromWpCom );
@@ -118,6 +134,8 @@ describe( 'reconcileConnectedSites', () => {
 				name: 'site1',
 				url: 'site1.com',
 				syncSupport: 'already-connected',
+				lastPullTimestamp: null,
+				lastPushTimestamp: null,
 			},
 			{
 				id: 2,
@@ -127,6 +145,8 @@ describe( 'reconcileConnectedSites', () => {
 				name: 'staging-site1',
 				url: 'staging-site1.com',
 				syncSupport: 'already-connected',
+				lastPullTimestamp: null,
+				lastPushTimestamp: null,
 			},
 		];
 		const originalSitesFromWpCom: SyncSite[] = [
@@ -138,6 +158,8 @@ describe( 'reconcileConnectedSites', () => {
 				name: 'site1',
 				url: 'site1.com',
 				syncSupport: 'already-connected',
+				lastPullTimestamp: null,
+				lastPushTimestamp: null,
 			},
 			{
 				id: 3,
@@ -147,6 +169,8 @@ describe( 'reconcileConnectedSites', () => {
 				name: 'new-staging-site1',
 				url: 'new-staging-site1.com',
 				syncSupport: 'syncable',
+				lastPullTimestamp: null,
+				lastPushTimestamp: null,
 			},
 		];
 		const result = reconcileConnectedSites( connectedSites, originalSitesFromWpCom );
@@ -169,6 +193,8 @@ describe( 'reconcileConnectedSites', () => {
 				name: 'site1',
 				url: 'site1.com',
 				syncSupport: 'already-connected',
+				lastPullTimestamp: null,
+				lastPushTimestamp: null,
 			},
 			{
 				id: 2,
@@ -178,6 +204,8 @@ describe( 'reconcileConnectedSites', () => {
 				name: 'staging-site1',
 				url: 'staging-site1.com',
 				syncSupport: 'already-connected',
+				lastPullTimestamp: null,
+				lastPushTimestamp: null,
 			},
 		];
 		const originalSitesFromWpCom: SyncSite[] = [
@@ -189,6 +217,8 @@ describe( 'reconcileConnectedSites', () => {
 				name: 'site1',
 				url: 'site1.com',
 				syncSupport: 'already-connected',
+				lastPullTimestamp: null,
+				lastPushTimestamp: null,
 			},
 			{
 				id: 2,
@@ -198,6 +228,8 @@ describe( 'reconcileConnectedSites', () => {
 				name: 'staging-site1',
 				url: 'staging-site1.com',
 				syncSupport: 'already-connected',
+				lastPullTimestamp: null,
+				lastPushTimestamp: null,
 			},
 		];
 		const result = reconcileConnectedSites( connectedSites, originalSitesFromWpCom );
@@ -215,6 +247,8 @@ describe( 'reconcileConnectedSites', () => {
 				name: 'site1',
 				url: 'site1.com',
 				syncSupport: 'already-connected',
+				lastPullTimestamp: null,
+				lastPushTimestamp: null,
 			},
 			{
 				id: 1,
@@ -224,6 +258,8 @@ describe( 'reconcileConnectedSites', () => {
 				name: 'site1',
 				url: 'site1.com',
 				syncSupport: 'already-connected',
+				lastPullTimestamp: null,
+				lastPushTimestamp: null,
 			},
 		];
 		const originalSitesFromWpCom: SyncSite[] = [
@@ -235,6 +271,8 @@ describe( 'reconcileConnectedSites', () => {
 				name: 'site1',
 				url: 'site1.com',
 				syncSupport: 'already-connected',
+				lastPullTimestamp: null,
+				lastPushTimestamp: null,
 			},
 			{
 				id: 1,
@@ -244,6 +282,8 @@ describe( 'reconcileConnectedSites', () => {
 				name: 'site1',
 				url: 'site1.com',
 				syncSupport: 'already-connected',
+				lastPullTimestamp: null,
+				lastPushTimestamp: null,
 			},
 			{
 				id: 2,
@@ -253,6 +293,8 @@ describe( 'reconcileConnectedSites', () => {
 				name: 'staging-site1',
 				url: 'staging-site1.com',
 				syncSupport: 'syncable',
+				lastPullTimestamp: null,
+				lastPushTimestamp: null,
 			},
 			{
 				id: 2,
@@ -262,6 +304,8 @@ describe( 'reconcileConnectedSites', () => {
 				name: 'staging-site1',
 				url: 'staging-site1.com',
 				syncSupport: 'syncable',
+				lastPullTimestamp: null,
+				lastPushTimestamp: null,
 			},
 		];
 		const result = reconcileConnectedSites( connectedSites, originalSitesFromWpCom );
@@ -297,6 +341,8 @@ describe( 'reconcileConnectedSites', () => {
 				name: 'site1',
 				url: 'site1.com',
 				syncSupport: 'already-connected',
+				lastPullTimestamp: null,
+				lastPushTimestamp: null,
 			},
 			{
 				id: 1,
@@ -306,6 +352,8 @@ describe( 'reconcileConnectedSites', () => {
 				name: 'site1',
 				url: 'site1.com',
 				syncSupport: 'already-connected',
+				lastPullTimestamp: null,
+				lastPushTimestamp: null,
 			},
 			{
 				id: 2,
@@ -315,6 +363,8 @@ describe( 'reconcileConnectedSites', () => {
 				name: 'staging-site1',
 				url: 'staging-site1.com',
 				syncSupport: 'already-connected',
+				lastPullTimestamp: null,
+				lastPushTimestamp: null,
 			},
 			{
 				id: 2,
@@ -324,6 +374,8 @@ describe( 'reconcileConnectedSites', () => {
 				name: 'staging-site1',
 				url: 'staging-site1.com',
 				syncSupport: 'already-connected',
+				lastPullTimestamp: null,
+				lastPushTimestamp: null,
 			},
 		];
 		const originalSitesFromWpCom: SyncSite[] = [
@@ -335,6 +387,8 @@ describe( 'reconcileConnectedSites', () => {
 				name: 'site1',
 				url: 'site1.com',
 				syncSupport: 'already-connected',
+				lastPullTimestamp: null,
+				lastPushTimestamp: null,
 			},
 			{
 				id: 1,
@@ -344,6 +398,8 @@ describe( 'reconcileConnectedSites', () => {
 				name: 'site1',
 				url: 'site1.com',
 				syncSupport: 'already-connected',
+				lastPullTimestamp: null,
+				lastPushTimestamp: null,
 			},
 		];
 		const result = reconcileConnectedSites( connectedSites, originalSitesFromWpCom );

@@ -18,6 +18,8 @@ const mockConnectedWpcomSites = [
 		isStaging: false,
 		stagingSiteIds: [ 7 ],
 		syncSupport: 'syncable',
+		lastPullTimestamp: null,
+		lastPushTimestamp: null,
 	},
 	{
 		id: 7,
@@ -27,6 +29,8 @@ const mockConnectedWpcomSites = [
 		isStaging: true,
 		stagingSiteIds: [],
 		syncSupport: 'syncable',
+		lastPullTimestamp: null,
+		lastPushTimestamp: null,
 	},
 ];
 
@@ -39,6 +43,8 @@ const mockSyncSites = [
 		isStaging: false,
 		stagingSiteIds: [ 9 ],
 		syncSupport: 'syncable',
+		lastPullTimestamp: null,
+		lastPushTimestamp: null,
 	},
 	{
 		id: 9,
@@ -48,6 +54,8 @@ const mockSyncSites = [
 		isStaging: true,
 		stagingSiteIds: [],
 		syncSupport: 'syncable',
+		lastPullTimestamp: null,
+		lastPushTimestamp: null,
 	},
 ];
 

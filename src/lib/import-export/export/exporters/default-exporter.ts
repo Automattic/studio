@@ -325,7 +325,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		const jetpackSlug = 'jetpack/jetpack.php';
 
 		if ( Array.isArray( activePlugins ) && ! activePlugins.includes( jetpackSlug ) ) {
-			this.originalActivePlugins = activePlugins;
+			this.originalActivePlugins = structuredClone( activePlugins );
 			activePlugins.push( jetpackSlug );
 
 			await server.executeWpCliCommand(

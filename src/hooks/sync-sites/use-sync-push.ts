@@ -125,8 +125,23 @@ export function useSyncPush( {
 				isStaging: connectedSite.isStaging,
 			} );
 
-			const { archiveContent, archivePath, archiveSizeInBytes } =
-				await getIpcApi().exportSiteToPush( selectedSite.id );
+			let archiveContent, archivePath, archiveSizeInBytes;
+
+			try {
+				const result = await getIpcApi().exportSiteToPush( selectedSite.id );
+				( { archiveContent, archivePath, archiveSizeInBytes } = result );
+			} catch ( error ) {
+				Sentry.captureException( error );
+				updatePushState( selectedSite.id, remoteSiteId, {
+					status: pushStatesProgressInfo.failed,
+				} );
+				getIpcApi().showErrorMessageBox( {
+					title: sprintf( __( 'Error exporting site to %s' ), connectedSite.name ),
+					message: __( 'Studio was unable to export the site.' ),
+				} );
+				return;
+			}
+
 			if ( archiveSizeInBytes > SYNC_PUSH_SIZE_LIMIT_BYTES ) {
 				updatePushState( selectedSite.id, remoteSiteId, {
 					status: pushStatesProgressInfo.failed,

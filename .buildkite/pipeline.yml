@@ -147,6 +147,7 @@ steps:
       buildkite-agent artifact download "*.app.zip" .
       buildkite-agent artifact download "*.dmg" .
       buildkite-agent artifact download "*.exe" .
+      buildkite-agent artifact download "*.appx" .
       buildkite-agent artifact download "*.nupkg" .
       buildkite-agent artifact download "*\\RELEASES" .
 
@@ -248,6 +249,7 @@ steps:
       buildkite-agent artifact download "*.zip" .
       buildkite-agent artifact download "*.dmg" .
       buildkite-agent artifact download "*.exe" .
+      buildkite-agent artifact download "*.appx" .
       buildkite-agent artifact download "*.nupkg" .
       buildkite-agent artifact download "*\\RELEASES" .
 

@@ -93,7 +93,6 @@ def distribute_builds(
   # If we are distributing a build without a tag, i.e. a development build, we also want to update the latest build reference for distribution.
   update_latest = release_tag.nil?
   suffix = release_tag.nil? ? commit_hash : release_tag
-  normalized_version = suffix.gsub(/-.*/, '')
   filename_root = 'studio'
   bucket_folder = 'studio'
 
@@ -146,20 +145,7 @@ def distribute_builds(
       suffix: 'full',
       extension: 'nupkg',
       name: 'Windows Update'
-    },
-    windows_appx: {
-      binary_path: File.join(BUILDS_FOLDER, 'Studio-appx-signed', "Studio #{normalized_version}.0.appx"),
-      filename_core: 'win32',
-      extension: 'appx',
-      name: 'Windows (Appx)'
-    },
-    windows_appx_unsigned: {
-      binary_path: File.join(BUILDS_FOLDER, 'Studio-appx-unsigned', "Studio #{normalized_version}.0 unsigned.appx"),
-      filename_core: 'win32',
-      suffix: 'unsigned',
-      extension: 'appx',
-      name: 'Windows (Unsigned Appx)'
-    },
+    }
   }
 
   # Add computed fields

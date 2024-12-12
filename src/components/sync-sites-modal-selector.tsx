@@ -283,7 +283,6 @@ function Footer( {
 	selectedSite: SiteDetails;
 } ) {
 	const { __ } = useI18n();
-	console.log( 'selectedSite', selectedSite );
 
 	return (
 		<div className="flex px-8 py-4 border-t border-a8c-gray-5 justify-between">

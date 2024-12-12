@@ -10,7 +10,6 @@ import { Badge } from './badge';
 import Button from './button';
 import Modal from './modal';
 import offlineIcon from './offline-icon';
-import { WordPressShortLogo } from './wordpress-short-logo';
 
 const SearchControl = process.env.NODE_ENV === 'test' ? () => null : SearchControlWp;
 
@@ -280,14 +279,6 @@ function Footer( {
 	const { __ } = useI18n();
 	return (
 		<div className="flex px-8 py-4 border-t border-a8c-gray-5 justify-between">
-			<Button
-				variant="link"
-				className="flex items-center mb-1"
-				onClick={ () => getIpcApi().openURL( 'https://wordpress.com/hosting/' ) }
-			>
-				<div className="a8c-subtitle-small text-black">{ __( 'Powered by' ) }</div>
-				<WordPressShortLogo className="h-4.5" />
-			</Button>
 			<div className="flex gap-4">
 				<Button variant="link" onClick={ onRequestClose }>
 					{ __( 'Cancel' ) }

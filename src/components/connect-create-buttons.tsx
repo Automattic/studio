@@ -13,6 +13,7 @@ interface ConnectCreateButtonsProps {
 	createButtonVariant: ButtonVariant;
 	disableConnectButtonStyle?: boolean;
 	selectedSite: SiteDetails;
+	createButtonText?: string;
 }
 
 export const ConnectCreateButtons = ( {
@@ -22,6 +23,7 @@ export const ConnectCreateButtons = ( {
 	connectButtonVariant,
 	disableConnectButtonStyle,
 	selectedSite,
+	createButtonText = __( 'Create new site' ),
 }: ConnectCreateButtonsProps ) => {
 	return (
 		<>
@@ -62,7 +64,7 @@ export const ConnectCreateButtons = ( {
 					disabled={ isOffline }
 					aria-disabled={ isOffline }
 				>
-					{ __( 'Create new site' ) }
+					{ createButtonText }
 					<ArrowIcon />
 				</Button>
 			</Tooltip>

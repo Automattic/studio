@@ -14,6 +14,8 @@ interface ConnectCreateButtonsProps {
 	disableConnectButtonStyle?: boolean;
 	selectedSite: SiteDetails;
 	createButtonText?: string;
+	showConnectButton?: boolean;
+	showCreateButton?: boolean;
 }
 
 export const ConnectCreateButtons = ( {
@@ -24,50 +26,56 @@ export const ConnectCreateButtons = ( {
 	disableConnectButtonStyle,
 	selectedSite,
 	createButtonText = __( 'Create new site' ),
+	showConnectButton = true,
+	showCreateButton = true,
 }: ConnectCreateButtonsProps ) => {
 	return (
 		<>
-			<Tooltip
-				disabled={ ! isOffline }
-				text={ __( 'Connecting a site requires an internet connection.' ) }
-				icon={ offlineIcon }
-				placement="top-start"
-			>
-				<Button
-					onClick={ connectSite }
-					disabled={ isOffline }
-					aria-disabled={ isOffline }
-					variant={ connectButtonVariant }
-					className={ cx(
-						! disableConnectButtonStyle &&
-							! isOffline &&
-							'!text-a8c-blueberry !shadow-a8c-blueberry'
-					) }
+			{ showConnectButton && (
+				<Tooltip
+					disabled={ ! isOffline }
+					text={ __( 'Connecting a site requires an internet connection.' ) }
+					icon={ offlineIcon }
+					placement="top-start"
 				>
-					{ __( 'Connect site' ) }
-				</Button>
-			</Tooltip>
-			<Tooltip
-				disabled={ ! isOffline }
-				text={ __( 'Creating a site requires an internet connection.' ) }
-				icon={ offlineIcon }
-				placement="top-start"
-			>
-				<Button
-					onClick={ () => {
-						getIpcApi().openURL(
-							`https://wordpress.com/setup/new-hosted-site?ref=studio&section=studio-sync&studioSiteId=${ selectedSite.id }`
-						);
-					} }
-					variant={ createButtonVariant }
-					className={ cx( ! isOffline && '!text-a8c-blueberry !shadow-a8c-blueberry' ) }
-					disabled={ isOffline }
-					aria-disabled={ isOffline }
+					<Button
+						onClick={ connectSite }
+						disabled={ isOffline }
+						aria-disabled={ isOffline }
+						variant={ connectButtonVariant }
+						className={ cx(
+							! disableConnectButtonStyle &&
+								! isOffline &&
+								'!text-a8c-blueberry !shadow-a8c-blueberry'
+						) }
+					>
+						{ __( 'Connect site' ) }
+					</Button>
+				</Tooltip>
+			) }
+			{ showCreateButton && (
+				<Tooltip
+					disabled={ ! isOffline }
+					text={ __( 'Creating a site requires an internet connection.' ) }
+					icon={ offlineIcon }
+					placement="top-start"
 				>
-					{ createButtonText }
-					<ArrowIcon />
-				</Button>
-			</Tooltip>
+					<Button
+						onClick={ () => {
+							getIpcApi().openURL(
+								`https://wordpress.com/setup/new-hosted-site?ref=studio&section=studio-sync&studioSiteId=${ selectedSite.id }`
+							);
+						} }
+						variant={ createButtonVariant }
+						className={ cx( ! isOffline && '!text-a8c-blueberry !shadow-a8c-blueberry' ) }
+						disabled={ isOffline }
+						aria-disabled={ isOffline }
+					>
+						{ createButtonText }
+						<ArrowIcon />
+					</Button>
+				</Tooltip>
+			) }
 		</>
 	);
 };

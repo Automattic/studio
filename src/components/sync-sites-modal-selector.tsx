@@ -8,7 +8,7 @@ import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { Badge } from './badge';
 import Button from './button';
-import { ConnectCreateButtons } from './connect-create-buttons';
+import { CreateButton } from './connect-create-buttons';
 import Modal from './modal';
 import offlineIcon from './offline-icon';
 
@@ -287,10 +287,8 @@ function Footer( {
 
 	return (
 		<div className="flex px-8 py-4 border-t border-a8c-gray-5 justify-between">
-			<ConnectCreateButtons
+			<CreateButton
 				createButtonVariant="secondary"
-				connectButtonVariant="secondary"
-				showConnectButton={ false }
 				selectedSite={ selectedSite }
 				createButtonText={ __( 'Create new site' ) }
 			/>

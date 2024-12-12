@@ -15,7 +15,7 @@ import { getIpcApi } from '../lib/get-ipc-api';
 import { ArrowIcon } from './arrow-icon';
 import { Badge } from './badge';
 import Button from './button';
-import { ConnectCreateButtons } from './connect-create-buttons';
+import { ConnectButton } from './connect-create-buttons';
 import { OpenSitesSyncSelector } from './content-tab-sync';
 import { CircleRedCrossIcon } from './icons/circle-red-cross';
 import offlineIcon from './offline-icon';
@@ -458,13 +458,7 @@ export function SyncConnectedSites( {
 			</div>
 
 			<div className="flex mt-auto gap-4 pt-5 pb-4 px-8 border-t border-a8c-gray-5 flex-shrink-0">
-				<ConnectCreateButtons
-					connectSite={ openSitesSyncSelector }
-					connectButtonVariant="secondary"
-					createButtonVariant="secondary"
-					selectedSite={ selectedSite }
-					showCreateButton={ false }
-				/>
+				<ConnectButton connectButtonVariant="secondary" connectSite={ openSitesSyncSelector } />
 			</div>
 		</div>
 	);

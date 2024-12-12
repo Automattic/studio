@@ -7,75 +7,73 @@ import Button, { ButtonVariant } from './button';
 import offlineIcon from './offline-icon';
 import { Tooltip } from './tooltip';
 
-interface ConnectCreateButtonsProps {
+interface ConnectButtonProps {
 	connectButtonVariant: ButtonVariant;
-	createButtonVariant: ButtonVariant;
 	connectSite?: () => void;
 	disableConnectButtonStyle?: boolean;
-	selectedSite: SiteDetails;
-	createButtonText?: string;
-	showConnectButton?: boolean;
-	showCreateButton?: boolean;
 }
 
-export const ConnectCreateButtons = ( {
-	connectSite,
-	createButtonVariant,
+interface CreateButtonProps {
+	createButtonVariant: ButtonVariant;
+	selectedSite: SiteDetails;
+	createButtonText?: string;
+}
+
+export const ConnectButton = ( {
 	connectButtonVariant,
+	connectSite,
 	disableConnectButtonStyle,
-	selectedSite,
-	createButtonText = __( 'Create new site' ),
-	showConnectButton = true,
-	showCreateButton = true,
-}: ConnectCreateButtonsProps ) => {
+}: ConnectButtonProps ) => {
 	const isOffline = useOffline();
 	return (
-		<>
-			{ showConnectButton && (
-				<Tooltip
-					disabled={ ! isOffline }
-					text={ __( 'Connecting a site requires an internet connection.' ) }
-					icon={ offlineIcon }
-					placement="top-start"
-				>
-					<Button
-						onClick={ connectSite }
-						disabled={ isOffline }
-						aria-disabled={ isOffline }
-						variant={ connectButtonVariant }
-						className={ cx(
-							! disableConnectButtonStyle &&
-								! isOffline &&
-								'!text-a8c-blueberry !shadow-a8c-blueberry'
-						) }
-					>
-						{ __( 'Connect site' ) }
-					</Button>
-				</Tooltip>
-			) }
-			{ showCreateButton && (
-				<Tooltip
-					disabled={ ! isOffline }
-					text={ __( 'Creating a site requires an internet connection.' ) }
-					icon={ offlineIcon }
-					placement="top-start"
-				>
-					<Button
-						onClick={ () => {
-							getIpcApi().openURL(
-								`https://wordpress.com/setup/new-hosted-site?ref=studio&section=studio-sync&studioSiteId=${ selectedSite.id }`
-							);
-						} }
-						variant={ createButtonVariant }
-						className={ cx( ! isOffline && '!text-a8c-blueberry !shadow-a8c-blueberry' ) }
-						disabled={ isOffline }
-						aria-disabled={ isOffline }
-					>
-						{ createButtonText }
-						<ArrowIcon />
-					</Button>
-				</Tooltip>
-			) }
-		</>
+		<Tooltip
+			disabled={ ! isOffline }
+			text={ __( 'Connecting a site requires an internet connection.' ) }
+			icon={ offlineIcon }
+			placement="top-start"
+		>
+			<Button
+				onClick={ connectSite }
+				disabled={ isOffline }
+				aria-disabled={ isOffline }
+				variant={ connectButtonVariant }
+				className={ cx(
+					! disableConnectButtonStyle && ! isOffline && '!text-a8c-blueberry !shadow-a8c-blueberry'
+				) }
+			>
+				{ __( 'Connect site' ) }
+			</Button>
+		</Tooltip>
+	);
+};
+
+export const CreateButton = ( {
+	createButtonVariant,
+	selectedSite,
+	createButtonText = __( 'Create new site' ),
+}: CreateButtonProps ) => {
+	const isOffline = useOffline();
+	return (
+		<Tooltip
+			disabled={ ! isOffline }
+			text={ __( 'Creating a site requires an internet connection.' ) }
+			icon={ offlineIcon }
+			placement="top-start"
+		>
+			<Button
+				onClick={ () => {
+					getIpcApi().openURL(
+						`https://wordpress.com/setup/new-hosted-site?ref=studio&section=studio-sync&studioSiteId=${ selectedSite.id }`
+					);
+				} }
+				variant={ createButtonVariant }
+				className={ cx( ! isOffline && '!text-a8c-blueberry !shadow-a8c-blueberry' ) }
+				disabled={ isOffline }
+				aria-disabled={ isOffline }
+			>
+				{ createButtonText }
+				<ArrowIcon />
+			</Button>
+		</Tooltip>
 	);
 };

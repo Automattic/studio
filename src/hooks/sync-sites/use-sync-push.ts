@@ -99,18 +99,21 @@ export function useSyncPush( {
 		]
 	);
 
-	const getErrorFromResponse = ( error: unknown ): string => {
-		if (
-			typeof error === 'object' &&
-			error !== null &&
-			'error' in error &&
-			typeof ( error as { error: unknown } ).error === 'string'
-		) {
-			return ( error as { error: string } ).error;
-		}
+	const getErrorFromResponse = useCallback(
+		( error: unknown ): string => {
+			if (
+				typeof error === 'object' &&
+				error !== null &&
+				'error' in error &&
+				typeof ( error as { error: unknown } ).error === 'string'
+			) {
+				return ( error as { error: string } ).error;
+			}
 
-		return __( 'Studio was unable to connect to WordPress.com. Please try again.' );
-	};
+			return __( 'Studio was unable to connect to WordPress.com. Please try again.' );
+		},
+		[ __ ]
+	);
 
 	const pushSite = useCallback(
 		async ( connectedSite: SyncSite, selectedSite: SiteDetails ) => {
@@ -175,7 +178,7 @@ export function useSyncPush( {
 				await getIpcApi().removeTemporalFile( archivePath );
 			}
 		},
-		[ __, client, pushStatesProgressInfo, updatePushState ]
+		[ __, client, pushStatesProgressInfo, updatePushState, getErrorFromResponse ]
 	);
 
 	useEffect( () => {

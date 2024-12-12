@@ -11,18 +11,21 @@ interface ConnectButtonProps {
 	connectButtonVariant: ButtonVariant;
 	connectSite?: () => void;
 	disableConnectButtonStyle?: boolean;
+	className?: string;
 }
 
 interface CreateButtonProps {
 	createButtonVariant: ButtonVariant;
 	selectedSite: SiteDetails;
 	createButtonText?: string;
+	className?: string;
 }
 
 export const ConnectButton = ( {
 	connectButtonVariant,
 	connectSite,
 	disableConnectButtonStyle,
+	className,
 }: ConnectButtonProps ) => {
 	const isOffline = useOffline();
 	return (
@@ -38,7 +41,8 @@ export const ConnectButton = ( {
 				aria-disabled={ isOffline }
 				variant={ connectButtonVariant }
 				className={ cx(
-					! disableConnectButtonStyle && ! isOffline && '!text-a8c-blueberry !shadow-a8c-blueberry'
+					! disableConnectButtonStyle && ! isOffline && '!text-a8c-blueberry !shadow-a8c-blueberry',
+					className
 				) }
 			>
 				{ __( 'Connect site' ) }
@@ -51,6 +55,7 @@ export const CreateButton = ( {
 	createButtonVariant,
 	selectedSite,
 	createButtonText = __( 'Create new site' ),
+	className,
 }: CreateButtonProps ) => {
 	const isOffline = useOffline();
 	return (
@@ -67,7 +72,7 @@ export const CreateButton = ( {
 					);
 				} }
 				variant={ createButtonVariant }
-				className={ cx( ! isOffline && '!text-a8c-blueberry !shadow-a8c-blueberry' ) }
+				className={ cx( ! isOffline && '!text-a8c-blueberry !shadow-a8c-blueberry', className ) }
 				disabled={ isOffline }
 				aria-disabled={ isOffline }
 			>

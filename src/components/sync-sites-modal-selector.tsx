@@ -290,7 +290,8 @@ function Footer( {
 			<CreateButton
 				createButtonVariant="secondary"
 				selectedSite={ selectedSite }
-				createButtonText={ __( 'Create new site' ) }
+				createButtonText={ __( 'Create a new WordPress.com site' ) }
+				className="!shadow-none !px-0"
 			/>
 			<div className="flex gap-4">
 				<Button variant="link" onClick={ onRequestClose }>

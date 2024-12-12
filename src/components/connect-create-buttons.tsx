@@ -1,4 +1,5 @@
 import { __ } from '@wordpress/i18n';
+import { useOffline } from '../hooks/use-offline';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { ArrowIcon } from './arrow-icon';
@@ -8,7 +9,6 @@ import { Tooltip } from './tooltip';
 
 interface ConnectCreateButtonsProps {
 	connectSite: () => void;
-	isOffline: boolean;
 	connectButtonVariant: ButtonVariant;
 	createButtonVariant: ButtonVariant;
 	disableConnectButtonStyle?: boolean;
@@ -20,7 +20,6 @@ interface ConnectCreateButtonsProps {
 
 export const ConnectCreateButtons = ( {
 	connectSite,
-	isOffline,
 	createButtonVariant,
 	connectButtonVariant,
 	disableConnectButtonStyle,
@@ -29,6 +28,7 @@ export const ConnectCreateButtons = ( {
 	showConnectButton = true,
 	showCreateButton = true,
 }: ConnectCreateButtonsProps ) => {
+	const isOffline = useOffline();
 	return (
 		<>
 			{ showConnectButton && (

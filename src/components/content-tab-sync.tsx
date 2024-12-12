@@ -61,14 +61,12 @@ function CreateConnectSite( {
 	selectedSite: SiteDetails;
 } ) {
 	const { __ } = useI18n();
-	const isOffline = useOffline();
 
 	return (
 		<div className="mt-8">
 			<div className="flex gap-4">
 				<ConnectCreateButtons
 					connectSite={ openSitesSyncSelector }
-					isOffline={ isOffline }
 					connectButtonVariant="primary"
 					createButtonVariant="secondary"
 					disableConnectButtonStyle={ true }

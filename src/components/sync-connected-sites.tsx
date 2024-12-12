@@ -466,6 +466,7 @@ export function SyncConnectedSites( {
 					connectButtonVariant="secondary"
 					createButtonVariant="secondary"
 					selectedSite={ selectedSite }
+					showCreateButton={ false }
 				/>
 			</div>
 		</div>

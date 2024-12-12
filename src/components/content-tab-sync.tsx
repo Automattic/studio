@@ -212,6 +212,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 						}
 						handleConnect( newConnectedSite );
 					} }
+					selectedSite={ selectedSite }
 				/>
 			) }
 		</div>

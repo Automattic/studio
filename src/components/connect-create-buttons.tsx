@@ -8,9 +8,9 @@ import offlineIcon from './offline-icon';
 import { Tooltip } from './tooltip';
 
 interface ConnectCreateButtonsProps {
-	connectSite: () => void;
 	connectButtonVariant: ButtonVariant;
 	createButtonVariant: ButtonVariant;
+	connectSite?: () => void;
 	disableConnectButtonStyle?: boolean;
 	selectedSite: SiteDetails;
 	createButtonText?: string;

@@ -1,5 +1,5 @@
 import { Icon, Popover } from '@wordpress/components';
-import { PropsWithChildren, useState } from 'react';
+import { PropsWithChildren, useState, useEffect } from 'react';
 
 export interface TooltipProps
 	extends Pick< React.ComponentProps< typeof Popover >, 'placement' | 'className' > {
@@ -27,6 +27,12 @@ const Tooltip = ( {
 	const hidePopover = () => {
 		setIsPopoverVisible( false );
 	};
+
+	useEffect( () => {
+		if ( ! text && isPopoverVisible ) {
+			setIsPopoverVisible( false );
+		}
+	}, [ text, isPopoverVisible ] );
 
 	if ( ! children ) {
 		return null;

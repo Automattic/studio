@@ -69,8 +69,6 @@ describe( 'DefaultExporter', () => {
 		'wp_term_taxonomy',
 		'wp_termmeta',
 		'wp_terms',
-		'wp_usermeta',
-		'wp_users',
 	];
 
 	( fsPromises.readdir as jest.Mock ).mockResolvedValue( mockFiles );

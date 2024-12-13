@@ -66,7 +66,7 @@ function CreateConnectSite( {
 		<div className="mt-8">
 			<div className="flex gap-4">
 				<ConnectButton
-					connectButtonVariant="primary"
+					variant="primary"
 					connectSite={ openSitesSyncSelector }
 					disableConnectButtonStyle={ true }
 				/>

@@ -8,7 +8,7 @@ import offlineIcon from './offline-icon';
 import { Tooltip } from './tooltip';
 
 interface ConnectButtonProps {
-	connectButtonVariant: ButtonVariant;
+	variant: ButtonVariant;
 	connectSite?: () => void;
 	disableConnectButtonStyle?: boolean;
 	className?: string;
@@ -22,7 +22,7 @@ interface CreateButtonProps {
 }
 
 export const ConnectButton = ( {
-	connectButtonVariant,
+	variant,
 	connectSite,
 	disableConnectButtonStyle,
 	className,
@@ -39,7 +39,7 @@ export const ConnectButton = ( {
 				onClick={ connectSite }
 				disabled={ isOffline }
 				aria-disabled={ isOffline }
-				variant={ connectButtonVariant }
+				variant={ variant }
 				className={ cx(
 					! disableConnectButtonStyle && ! isOffline && '!text-a8c-blueberry !shadow-a8c-blueberry',
 					className

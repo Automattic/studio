@@ -136,6 +136,12 @@ const SyncConnectedSitesSection = ( {
 
 	const mainSite = section.connectedSites.find( ( item ) => ! item.isStaging );
 	const hasConnectionErrors = mainSite?.syncSupport !== 'already-connected';
+	const isPulling = section.connectedSites.some( ( site ) =>
+		isSiteIdPulling( selectedSite.id, site.id )
+	);
+	const isPushing = section.connectedSites.some( ( site ) =>
+		isSiteIdPushing( selectedSite.id, site.id )
+	);
 
 	return (
 		<div key={ section.id } className="flex flex-col gap-2 mb-6">
@@ -149,21 +155,16 @@ const SyncConnectedSitesSection = ( {
 						text={ __(
 							'This site is syncing. Please wait for the sync to finish before you can disconnect it.'
 						) }
-						disabled={
-							! ( isSiteIdPulling( selectedSite.id ) || isSiteIdPushing( selectedSite.id ) ) ||
-							isOffline
-						}
+						disabled={ ! ( isPulling || isPushing ) || isOffline }
 						placement="top-start"
 					>
 						<Button
 							variant="link"
 							className={ cx(
-								! isSiteIdPulling( selectedSite.id ) || ! isSiteIdPushing( selectedSite.id )
-									? '!text-a8c-gray-70 hover:!text-a8c-red-50'
-									: ''
+								! isPulling || ! isPushing ? '!text-a8c-gray-70 hover:!text-a8c-red-50' : ''
 							) }
 							onClick={ handleDisconnectSite }
-							disabled={ isSiteIdPulling( selectedSite.id ) || isSiteIdPushing( selectedSite.id ) }
+							disabled={ isPulling || isPushing }
 						>
 							{ __( 'Disconnect' ) }
 						</Button>

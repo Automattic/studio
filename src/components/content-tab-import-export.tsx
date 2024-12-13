@@ -11,7 +11,6 @@ import { useConfirmationDialog } from '../hooks/use-confirmation-dialog';
 import { useDragAndDropFile } from '../hooks/use-drag-and-drop-file';
 import { useImportExport } from '../hooks/use-import-export';
 import { useSiteDetails } from '../hooks/use-site-details';
-import { useSyncStatesProgressInfo } from '../hooks/use-sync-states-progress-info';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
@@ -305,18 +304,11 @@ const ImportSite = ( {
 
 export function ContentTabImportExport( { selectedSite }: ContentTabImportExportProps ) {
 	const [ isSupported, setIsSupported ] = useState< boolean | null >( null );
-	const { isAnySitePulling, isAnySitePushing, getPullState, getPushState, connectedSites } =
+	const { isAnySitePulling, isAnySitePushing, isSiteIdPulling, isSiteIdPushing, connectedSites } =
 		useSyncSites();
-	const { isKeyPulling } = useSyncStatesProgressInfo();
 	const isAnySiteSyncing = isAnySitePulling || isAnySitePushing;
-	const isPulling = connectedSites.some( ( site ) => {
-		const sitePullState = getPullState( selectedSite.id, site.id );
-		return sitePullState && isKeyPulling( sitePullState.status.key );
-	} );
-	const isPushing = connectedSites.some( ( site ) => {
-		const sitePushState = getPushState( selectedSite.id, site.id );
-		return sitePushState?.isInProgress;
-	} );
+	const isPulling = connectedSites.some( ( site ) => isSiteIdPulling( selectedSite.id, site.id ) );
+	const isPushing = connectedSites.some( ( site ) => isSiteIdPushing( selectedSite.id, site.id ) );
 	const isThisSiteSyncing = isPulling || isPushing;
 
 	useEffect( () => {

@@ -25,7 +25,7 @@ export type SyncPushState = {
 export type PushStates = Record< string, SyncPushState >;
 type OnPushSuccess = ( siteId: number, localSiteId: string ) => void;
 type PushSite = ( connectedSite: SyncSite, selectedSite: SiteDetails ) => Promise< void >;
-type IsSiteIdPushing = ( selectedSiteId: string ) => boolean;
+type IsSiteIdPushing = ( selectedSiteId: string, remoteSiteId?: number ) => boolean;
 
 type UseSyncPushProps = {
 	pushStates: PushStates;
@@ -225,9 +225,15 @@ export function useSyncPush( {
 	}, [ pushStates, isKeyPushing ] );
 
 	const isSiteIdPushing = useCallback< IsSiteIdPushing >(
-		( selectedSiteId ) => {
+		( selectedSiteId, remoteSiteId ) => {
 			return Object.values( pushStates ).some( ( state ) => {
-				return state.selectedSite.id === selectedSiteId && isKeyPushing( state.status.key );
+				if ( state.selectedSite.id !== selectedSiteId ) {
+					return false;
+				}
+				if ( remoteSiteId !== undefined ) {
+					return isKeyPushing( state.status.key ) && state.remoteSiteId === remoteSiteId;
+				}
+				return isKeyPushing( state.status.key );
 			} );
 		},
 		[ pushStates, isKeyPushing ]

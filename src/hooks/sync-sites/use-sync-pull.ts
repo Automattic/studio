@@ -28,7 +28,7 @@ export type SyncBackupState = {
 export type PullStates = Record< string, SyncBackupState >;
 type OnPullSuccess = ( siteId: number, localSiteId: string ) => void;
 type PullSite = ( connectedSite: SyncSite, selectedSite: SiteDetails ) => void;
-type IsSiteIdPulling = ( selectedSiteId: string ) => boolean;
+type IsSiteIdPulling = ( selectedSiteId: string, remoteSiteId?: number ) => boolean;
 
 type UseSyncPullProps = {
 	pullStates: PullStates;
@@ -247,10 +247,16 @@ export function useSyncPull( {
 		return Object.values( pullStates ).some( ( state ) => isKeyPulling( state.status.key ) );
 	}, [ pullStates, isKeyPulling ] );
 
-	const isSiteIdPulling = useCallback(
-		( selectedSiteId: string ) => {
+	const isSiteIdPulling = useCallback< IsSiteIdPulling >(
+		( selectedSiteId, remoteSiteId ) => {
 			return Object.values( pullStates ).some( ( state ) => {
-				return state.selectedSite.id === selectedSiteId && isKeyPulling( state.status.key );
+				if ( state.selectedSite.id !== selectedSiteId ) {
+					return false;
+				}
+				if ( remoteSiteId !== undefined ) {
+					return isKeyPulling( state.status.key ) && state.remoteSiteId === remoteSiteId;
+				}
+				return isKeyPulling( state.status.key );
 			} );
 		},
 		[ pullStates, isKeyPulling ]

@@ -15,9 +15,9 @@ interface ConnectButtonProps {
 }
 
 interface CreateButtonProps {
-	createButtonVariant: ButtonVariant;
+	variant: ButtonVariant;
 	selectedSite: SiteDetails;
-	createButtonText?: string;
+	text?: string;
 	className?: string;
 }
 
@@ -52,9 +52,9 @@ export const ConnectButton = ( {
 };
 
 export const CreateButton = ( {
-	createButtonVariant,
+	variant,
 	selectedSite,
-	createButtonText = __( 'Create new site' ),
+	text = __( 'Create new site' ),
 	className,
 }: CreateButtonProps ) => {
 	const isOffline = useOffline();
@@ -71,12 +71,12 @@ export const CreateButton = ( {
 						`https://wordpress.com/setup/new-hosted-site?ref=studio&section=studio-sync&studioSiteId=${ selectedSite.id }`
 					);
 				} }
-				variant={ createButtonVariant }
+				variant={ variant }
 				className={ cx( ! isOffline && '!text-a8c-blueberry !shadow-a8c-blueberry', className ) }
 				disabled={ isOffline }
 				aria-disabled={ isOffline }
 			>
-				{ createButtonText }
+				{ text }
 				<ArrowIcon />
 			</Button>
 		</Tooltip>

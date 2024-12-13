@@ -287,9 +287,9 @@ function Footer( {
 	return (
 		<div className="flex px-8 py-4 border-t border-a8c-gray-5 justify-between">
 			<CreateButton
-				createButtonVariant="secondary"
+				variant="secondary"
 				selectedSite={ selectedSite }
-				createButtonText={ __( 'Create a new WordPress.com site' ) }
+				text={ __( 'Create a new WordPress.com site' ) }
 				className="!shadow-none !px-0"
 			/>
 			<div className="flex gap-4">

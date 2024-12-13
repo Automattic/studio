@@ -70,7 +70,7 @@ function CreateConnectSite( {
 					connectSite={ openSitesSyncSelector }
 					disableConnectButtonStyle={ true }
 				/>
-				<CreateButton createButtonVariant="secondary" selectedSite={ selectedSite } />
+				<CreateButton variant="secondary" selectedSite={ selectedSite } />
 			</div>
 		</div>
 	);

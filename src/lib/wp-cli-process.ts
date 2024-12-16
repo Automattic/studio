@@ -11,7 +11,7 @@ export type MessageName = 'execute';
 export type WpCliResult = ReturnType< typeof executeWPCli >;
 export type MessageCanceled = { error: Error; canceled: boolean };
 
-const DEFAULT_RESPONSE_TIMEOUT = 120000;
+const DEFAULT_RESPONSE_TIMEOUT = 180 * 1000;
 
 export default class WpCliProcess {
 	lastMessageId = 0;

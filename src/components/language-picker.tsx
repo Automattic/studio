@@ -16,7 +16,7 @@ export const LanguagePicker = () => {
 					value: locale as SupportedLocale,
 					label,
 				} ) ) }
-				__nextHasNoMarginBottom={ true }
+				__nextHasNoMarginBottom
 				className="mb-2"
 			/>
 		</div>

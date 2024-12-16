@@ -134,6 +134,7 @@ export function useSyncPush( {
 				const result = await getIpcApi().exportSiteToPush( selectedSite.id );
 				( { archiveContent, archivePath, archiveSizeInBytes } = result );
 			} catch ( error ) {
+				console.error( error );
 				Sentry.captureException( error );
 				updatePushState( selectedSite.id, remoteSiteId, {
 					status: pushStatesProgressInfo.failed,

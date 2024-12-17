@@ -224,6 +224,7 @@ export async function updateSite(
 type WpcomSitesToConnect = { sites: SyncSite[]; localSiteId: string }[];
 
 export async function connectWpcomSites( event: IpcMainInvokeEvent, list: WpcomSitesToConnect ) {
+	debugger;
 	const userData = await loadUserData();
 	const currentUserId = userData.authToken?.id;
 
@@ -245,7 +246,11 @@ export async function connectWpcomSites( event: IpcMainInvokeEvent, list: WpcomS
 
 			// Add the site if it's not already connected
 			if ( ! isAlreadyConnected ) {
-				connections.push( { ...siteToAdd, localSiteId } );
+				connections.push( {
+					...siteToAdd,
+					localSiteId,
+					syncSupport: 'already-connected',
+				} );
 			}
 		} );
 	} );

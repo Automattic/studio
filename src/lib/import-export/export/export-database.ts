@@ -47,7 +47,7 @@ export async function exportDatabaseToMultipleFiles(
 	}
 
 	const tablesResult = await server.executeWpCliCommand(
-		`sqlite tables --format=csv --require=/tmp/sqlite-command/command.php`
+		`sqlite tables --format=json --require=/tmp/sqlite-command/command.php`
 	);
 	if ( tablesResult.stderr ) {
 		throw new Error( `Database export failed: ${ tablesResult.stderr }` );
@@ -55,7 +55,17 @@ export async function exportDatabaseToMultipleFiles(
 	if ( tablesResult.exitCode ) {
 		throw new Error( 'Database export failed' );
 	}
-	const tables = tablesResult.stdout.split( ',' );
+
+	let tables;
+
+	try {
+		tables = JSON.parse( tablesResult.stdout );
+	} catch ( error ) {
+		console.error(
+			`Could not get list of database tables. The WP CLI output: ${ tablesResult.stdout }`
+		);
+		throw new Error( 'Could not get list of database tables to export.' );
+	}
 
 	const tmpFiles: string[] = [];
 

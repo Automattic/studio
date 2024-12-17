@@ -276,7 +276,11 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 			return [];
 		}
 
-		return JSON.parse( stdout );
+		try {
+			return JSON.parse( stdout );
+		} catch ( error ) {
+			return [];
+		}
 	}
 
 	private async getSiteThemes( site_id: string ) {
@@ -295,6 +299,10 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 			return [];
 		}
 
-		return JSON.parse( stdout );
+		try {
+			return JSON.parse( stdout );
+		} catch ( error ) {
+			return [];
+		}
 	}
 }

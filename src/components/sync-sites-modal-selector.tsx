@@ -8,9 +8,9 @@ import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { Badge } from './badge';
 import Button from './button';
+import { CreateButton } from './connect-create-buttons';
 import Modal from './modal';
 import offlineIcon from './offline-icon';
-import { WordPressShortLogo } from './wordpress-short-logo';
 
 const SearchControl = process.env.NODE_ENV === 'test' ? () => null : SearchControlWp;
 
@@ -20,12 +20,14 @@ export function SyncSitesModalSelector( {
 	onConnect,
 	syncSites,
 	onInitialRender,
+	selectedSite,
 }: {
 	isLoading?: boolean;
 	onRequestClose: () => void;
 	syncSites: SyncSite[];
 	onConnect: ( siteId: number ) => void;
 	onInitialRender?: () => void;
+	selectedSite: SiteDetails;
 } ) {
 	const { __ } = useI18n();
 	const [ selectedSiteId, setSelectedSiteId ] = useState< number | null >( null );
@@ -87,6 +89,7 @@ export function SyncSitesModalSelector( {
 						onRequestClose();
 					} }
 					disabled={ ! selectedSiteId }
+					selectedSite={ selectedSite }
 				/>
 
 				{ isOffline && (
@@ -272,22 +275,23 @@ function Footer( {
 	onRequestClose,
 	onConnect,
 	disabled,
+	selectedSite,
 }: {
 	onRequestClose: () => void;
 	onConnect: () => void;
 	disabled: boolean;
+	selectedSite: SiteDetails;
 } ) {
 	const { __ } = useI18n();
+
 	return (
 		<div className="flex px-8 py-4 border-t border-a8c-gray-5 justify-between">
-			<Button
-				variant="link"
-				className="flex items-center mb-1"
-				onClick={ () => getIpcApi().openURL( 'https://wordpress.com/hosting/' ) }
-			>
-				<div className="a8c-subtitle-small text-black">{ __( 'Powered by' ) }</div>
-				<WordPressShortLogo className="h-4.5" />
-			</Button>
+			<CreateButton
+				variant="secondary"
+				selectedSite={ selectedSite }
+				text={ __( 'Create a new WordPress.com site' ) }
+				className="!shadow-none !px-0"
+			/>
 			<div className="flex gap-4">
 				<Button variant="link" onClick={ onRequestClose }>
 					{ __( 'Cancel' ) }

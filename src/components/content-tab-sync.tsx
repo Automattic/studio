@@ -9,7 +9,7 @@ import { useOffline } from '../hooks/use-offline';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { ArrowIcon } from './arrow-icon';
 import Button from './button';
-import { ConnectCreateButtons } from './connect-create-buttons';
+import { ConnectButton, CreateButton } from './connect-create-buttons';
 import offlineIcon from './offline-icon';
 import { SyncConnectedSites } from './sync-connected-sites';
 import { SyncSitesModalSelector } from './sync-sites-modal-selector';
@@ -61,19 +61,16 @@ function CreateConnectSite( {
 	selectedSite: SiteDetails;
 } ) {
 	const { __ } = useI18n();
-	const isOffline = useOffline();
 
 	return (
 		<div className="mt-8">
 			<div className="flex gap-4">
-				<ConnectCreateButtons
+				<ConnectButton
+					variant="primary"
 					connectSite={ openSitesSyncSelector }
-					isOffline={ isOffline }
-					connectButtonVariant="primary"
-					createButtonVariant="secondary"
 					disableConnectButtonStyle={ true }
-					selectedSite={ selectedSite }
 				/>
+				<CreateButton variant="secondary" selectedSite={ selectedSite } />
 			</div>
 		</div>
 	);
@@ -214,6 +211,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 						}
 						handleConnect( newConnectedSite );
 					} }
+					selectedSite={ selectedSite }
 				/>
 			) }
 		</div>

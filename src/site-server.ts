@@ -168,7 +168,15 @@ export class SiteServer {
 
 	async executeWpCliCommand(
 		args: string,
-		{ targetPhpVersion, includePlugins, includeThemes }: { targetPhpVersion?: string, includePlugins?: boolean, includeThemes?: boolean } = {}
+		{
+			targetPhpVersion,
+			includePlugins,
+			includeThemes,
+		}: {
+			targetPhpVersion?: string;
+			includePlugins?: boolean;
+			includeThemes?: boolean;
+		} = {}
 	): Promise< WpCliResult > {
 		const projectPath = this.details.path;
 		const phpVersion = targetPhpVersion ?? this.details.phpVersion;
@@ -178,7 +186,7 @@ export class SiteServer {
 			await this.wpCliExecutor.init();
 		}
 
-		const wpCliArgs = parse(args);
+		const wpCliArgs = parse( args );
 
 		if ( ! includePlugins ) {
 			wpCliArgs.push( '--skip-plugins' );

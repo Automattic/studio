@@ -224,7 +224,6 @@ export async function updateSite(
 type WpcomSitesToConnect = { sites: SyncSite[]; localSiteId: string }[];
 
 export async function connectWpcomSites( event: IpcMainInvokeEvent, list: WpcomSitesToConnect ) {
-	debugger;
 	const userData = await loadUserData();
 	const currentUserId = userData.authToken?.id;
 

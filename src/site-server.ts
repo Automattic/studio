@@ -168,7 +168,7 @@ export class SiteServer {
 
 	async executeWpCliCommand(
 		args: string,
-		{ targetPhpVersion }: { targetPhpVersion?: string } = {}
+		{ targetPhpVersion, includePlugins, includeThemes }: { targetPhpVersion?: string, includePlugins?: boolean, includeThemes?: boolean } = {}
 	): Promise< WpCliResult > {
 		const projectPath = this.details.path;
 		const phpVersion = targetPhpVersion ?? this.details.phpVersion;
@@ -178,7 +178,15 @@ export class SiteServer {
 			await this.wpCliExecutor.init();
 		}
 
-		const wpCliArgs = parse( args );
+		const wpCliArgs = parse(args);
+
+		if ( ! includePlugins ) {
+			wpCliArgs.push( '--skip-plugins' );
+		}
+
+		if ( ! includeThemes ) {
+			wpCliArgs.push( '--skip-themes' );
+		}
 
 		// The parsing of arguments can include shell operators like `>` or `||` that the app don't support.
 		const isValidCommand = wpCliArgs.every(

@@ -122,12 +122,7 @@ export default class WpCliProcess {
 			};
 
 			const timeoutHandler = async () => {
-				try {
-					await this.#killProcess();
-				} catch ( error ) {
-					console.error( 'Failed to kill process after timeout:', error );
-					Sentry.captureException( error );
-				}
+				await this.#killProcess();
 				process.removeListener( 'message', handler );
 				reject( new Error( `Request for message ${ originalMessage } timed out` ) );
 			};

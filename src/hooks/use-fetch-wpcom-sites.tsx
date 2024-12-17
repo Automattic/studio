@@ -212,13 +212,13 @@ function transformSiteResponse(
 
 export type FetchSites = () => Promise< SitesEndpointSite[] >;
 
-export const useFetchWpComSites = ( connectedSiteIds: number[] ) => {
+export const useFetchWpComSites = ( connectedSiteIdsOnlyForSelectedSite: number[] ) => {
 	const [ rawSyncSites, setRawSyncSites ] = useState< SitesEndpointSite[] >( [] );
 	const { isAuthenticated, client } = useAuth();
 	const isFetchingSites = useRef( false );
 	const isOffline = useOffline();
 
-	const joinedConnectedSiteIds = connectedSiteIds.join( ',' );
+	const joinedConnectedSiteIds = connectedSiteIdsOnlyForSelectedSite.join( ',' );
 	// we need this trick to avoid unnecessary re-renders,
 	// as a result different instances of the same array don't trigger refetching
 	const memoizedConnectedSiteIds: number[] = useMemo(

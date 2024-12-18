@@ -75,7 +75,9 @@ describe( 'localImporter', () => {
 			const siteServer = SiteServer.get( mockStudioSiteId );
 
 			const expectedCommand = 'option get siteurl';
-			expect( siteServer?.executeWpCliCommand ).toHaveBeenNthCalledWith( 1, expectedCommand );
+			expect( siteServer?.executeWpCliCommand ).toHaveBeenNthCalledWith( 1, expectedCommand, {
+				skipPluginsAndThemes: true,
+			} );
 
 			expect( move ).toHaveBeenNthCalledWith(
 				1,

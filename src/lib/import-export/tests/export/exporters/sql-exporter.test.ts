@@ -58,7 +58,10 @@ describe( 'SqlExporter', () => {
 
 		const siteServer = SiteServer.get( '123' );
 		expect( siteServer?.executeWpCliCommand ).toHaveBeenCalledWith(
-			'sqlite export studio-backup-db-export-2024-08-01-12-00-00.sql --require=/tmp/sqlite-command/command.php'
+			'sqlite export studio-backup-db-export-2024-08-01-12-00-00.sql --require=/tmp/sqlite-command/command.php',
+			{
+				skipPluginsAndThemes: true,
+			}
 		);
 	} );
 

@@ -339,6 +339,8 @@ describe( 'DefaultExporter', () => {
 
 		const exporter = new DefaultExporter( mockOptions );
 
-		await expect( exporter.export() ).rejects.toThrow( 'Could not get information about installed plugins to create meta.json file.' );
+		await expect( exporter.export() ).rejects.toThrow(
+			'Could not get information about installed plugins to create meta.json file.'
+		);
 	} );
 } );

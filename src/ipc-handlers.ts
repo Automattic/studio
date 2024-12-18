@@ -818,13 +818,11 @@ export async function executeWPCLiInline(
 	{
 		siteId,
 		args,
-		includePlugins = false,
-		includeThemes = false,
+		skipPluginsAndThemes = false,
 	}: {
 		siteId: string;
 		args: string;
-		includePlugins?: boolean;
-		includeThemes?: boolean;
+		skipPluginsAndThemes?: boolean;
 	}
 ): Promise< WpCliResult > {
 	if ( SiteServer.isDeleted( siteId ) ) {
@@ -839,8 +837,7 @@ export async function executeWPCLiInline(
 		throw new Error( 'Site not found.' );
 	}
 	return server.executeWpCliCommand( args, {
-		includePlugins,
-		includeThemes,
+		skipPluginsAndThemes,
 	} );
 }
 

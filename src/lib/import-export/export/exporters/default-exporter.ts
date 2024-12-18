@@ -268,7 +268,10 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		}
 
 		const { stderr, stdout } = await server.executeWpCliCommand(
-			'plugin list --status=active,inactive --fields=name,status,version --format=json'
+			'plugin list --status=active,inactive --fields=name,status,version --format=json',
+			{
+				skipPluginsAndThemes: true,
+			}
 		);
 
 		if ( stderr ) {
@@ -287,7 +290,10 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		}
 
 		const { stderr, stdout } = await server.executeWpCliCommand(
-			'theme list --fields=name,status,version --format=json'
+			'theme list --fields=name,status,version --format=json',
+			{
+				skipPluginsAndThemes: true,
+			}
 		);
 
 		if ( stderr ) {

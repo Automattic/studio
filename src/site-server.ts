@@ -170,12 +170,10 @@ export class SiteServer {
 		args: string,
 		{
 			targetPhpVersion,
-			includePlugins = false,
-			includeThemes = false,
+			skipPluginsAndThemes = false,
 		}: {
 			targetPhpVersion?: string;
-			includePlugins?: boolean;
-			includeThemes?: boolean;
+			skipPluginsAndThemes?: boolean;
 		} = {}
 	): Promise< WpCliResult > {
 		const projectPath = this.details.path;
@@ -188,11 +186,8 @@ export class SiteServer {
 
 		const wpCliArgs = parse( args );
 
-		if ( ! includePlugins ) {
+		if ( skipPluginsAndThemes ) {
 			wpCliArgs.push( '--skip-plugins' );
-		}
-
-		if ( ! includeThemes ) {
 			wpCliArgs.push( '--skip-themes' );
 		}
 

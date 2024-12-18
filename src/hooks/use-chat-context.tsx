@@ -81,6 +81,7 @@ export const ChatProvider: React.FC< ChatProviderProps > = ( { children } ) => {
 		const { stdout, stderr } = await getIpcApi().executeWPCLiInline( {
 			siteId,
 			args: 'plugin list --format=json --status=active',
+			skipPluginsAndThemes: true,
 		} );
 		if ( stderr ) {
 			return [];
@@ -92,6 +93,7 @@ export const ChatProvider: React.FC< ChatProviderProps > = ( { children } ) => {
 		const { stdout, stderr } = await getIpcApi().executeWPCLiInline( {
 			siteId,
 			args: 'theme list --format=json',
+			skipPluginsAndThemes: true,
 		} );
 		if ( stderr ) {
 			return [];

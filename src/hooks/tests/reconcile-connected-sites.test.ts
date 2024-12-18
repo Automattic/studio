@@ -1,4 +1,5 @@
-import { reconcileConnectedSites, SyncSite } from '../use-fetch-wpcom-sites';
+import { reconcileConnectedSites } from '../use-fetch-wpcom-sites/reconcile-connected-sites';
+import type { SyncSite } from '../use-fetch-wpcom-sites/types/sync-site';
 
 describe( 'reconcileConnectedSites', () => {
 	test( 'should update name, url, syncSupport properties', () => {

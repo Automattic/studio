@@ -1,3 +1,5 @@
+import { SyncSite } from './types/sync-site';
+
 /**
  * Generate updated site data to be stored in `appdata-v1.json` in three steps:
  *   1. Update the list of `connectedSites` with fresh data (name, URL, etc)

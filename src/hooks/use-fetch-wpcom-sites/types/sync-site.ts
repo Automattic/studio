@@ -1,0 +1,13 @@
+import type { SyncSupport } from './sync-support';
+
+export type SyncSite = {
+	id: number;
+	localSiteId: string;
+	name: string;
+	url: string;
+	isStaging: boolean;
+	stagingSiteIds: number[];
+	syncSupport: SyncSupport;
+	lastPullTimestamp: string | null;
+	lastPushTimestamp: string | null;
+};

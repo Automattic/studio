@@ -7,7 +7,6 @@ import { useMemo } from 'react';
 import { STUDIO_DOCS_URL_GET_HELP_UNSUPPORTED_SITES } from '../constants';
 import { useSyncSites } from '../hooks/sync-sites';
 import { useConfirmationDialog } from '../hooks/use-confirmation-dialog';
-import { SyncSite } from '../hooks/use-fetch-wpcom-sites';
 import { useOffline } from '../hooks/use-offline';
 import { useSyncStatesProgressInfo } from '../hooks/use-sync-states-progress-info';
 import { cx } from '../lib/cx';
@@ -23,6 +22,7 @@ import ProgressBar from './progress-bar';
 import { SyncPullPushClear } from './sync-pull-push-clear';
 import { Tooltip, DynamicTooltip } from './tooltip';
 import { WordPressLogoCircle } from './wordpress-logo-circle';
+import type { SyncSite } from '../hooks/use-fetch-wpcom-sites/types/sync-site';
 
 interface ConnectedSiteSection {
 	id: number;

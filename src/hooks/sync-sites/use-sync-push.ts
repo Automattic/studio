@@ -88,6 +88,7 @@ export function useSyncPush( {
 			const response = await client.req.get< {
 				status: 'finished' | 'failed' | 'initial_backup_started' | 'archive_import_started';
 				success: boolean;
+				error?: string;
 			} >( {
 				path: `/sites/${ remoteSiteId }/studio-app/sync/import`,
 				apiNamespace: 'wpcom/v2',
@@ -105,6 +106,17 @@ export function useSyncPush( {
 				} );
 			} else if ( response.success && response.status === 'failed' ) {
 				status = pushStatesProgressInfo.failed;
+				getIpcApi().showErrorMessageBox( {
+					title: sprintf( __( 'Error pushing to %s' ), syncPushState.selectedSite.name ),
+					message:
+						response.error === 'Import timed out'
+							? __(
+									'A timeout error occurred while pushing the site. If this problem persists, please contact support.'
+							  )
+							: __(
+									'An error occurred while pushing the site. If this problem persists, please contact support.'
+							  ),
+				} );
 			}
 			// Update state in any case to keep polling push state
 			updatePushState( syncPushState.selectedSite.id, syncPushState.remoteSiteId, {

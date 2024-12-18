@@ -28,6 +28,8 @@ export function useExecuteWPCLI(
 		const result = await getIpcApi().executeWPCLiInline( {
 			siteId: siteId || '',
 			args: args.join( ' ' ),
+			includePlugins: true,
+			includeThemes: true,
 		} );
 
 		const msTime = Date.now() - startTime;

@@ -815,7 +815,17 @@ export async function saveOnboarding(
 
 export async function executeWPCLiInline(
 	_event: IpcMainInvokeEvent,
-	{ siteId, args }: { siteId: string; args: string }
+	{
+		siteId,
+		args,
+		includePlugins = false,
+		includeThemes = false,
+	}: {
+		siteId: string;
+		args: string;
+		includePlugins?: boolean;
+		includeThemes?: boolean;
+	}
 ): Promise< WpCliResult > {
 	if ( SiteServer.isDeleted( siteId ) ) {
 		return {
@@ -828,7 +838,10 @@ export async function executeWPCLiInline(
 	if ( ! server ) {
 		throw new Error( 'Site not found.' );
 	}
-	return server.executeWpCliCommand( args );
+	return server.executeWpCliCommand( args, {
+		includePlugins,
+		includeThemes,
+	} );
 }
 
 export async function getThumbnailData( _event: IpcMainInvokeEvent, id: string ) {

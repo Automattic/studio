@@ -186,10 +186,6 @@ export const useFetchWpComSites = ( connectedSiteIdsOnlyForSelectedSite: number[
 		fetchSites();
 	}, [ fetchSites ] );
 
-	const refetchSites = useCallback( () => {
-		return fetchSites();
-	}, [ fetchSites ] );
-
 	const syncSitesWithSyncSupportForSelectedSite = useMemo(
 		() => transformSiteResponse( rawSyncSites, memoizedConnectedSiteIds ),
 		[ rawSyncSites, memoizedConnectedSiteIds ]
@@ -198,6 +194,6 @@ export const useFetchWpComSites = ( connectedSiteIdsOnlyForSelectedSite: number[
 	return {
 		syncSites: syncSitesWithSyncSupportForSelectedSite,
 		isFetching: isFetchingSites.current,
-		refetchSites,
+		refetchSites: fetchSites,
 	};
 };

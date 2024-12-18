@@ -5,7 +5,6 @@ import { useCallback, useEffect, useMemo } from 'react';
 import { SYNC_PUSH_SIZE_LIMIT_BYTES } from '../../constants';
 import { getIpcApi } from '../../lib/get-ipc-api';
 import { useAuth } from '../use-auth';
-import { SyncSite } from '../use-fetch-wpcom-sites';
 import { useSyncStatesProgressInfo, PushStateProgressInfo } from '../use-sync-states-progress-info';
 import {
 	ClearState,
@@ -14,6 +13,7 @@ import {
 	UpdateState,
 	usePullPushStates,
 } from './use-pull-push-states';
+import type { SyncSite } from '../use-fetch-wpcom-sites/types/sync-site';
 
 export type SyncPushState = {
 	remoteSiteId: number;

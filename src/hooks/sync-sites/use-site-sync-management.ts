@@ -1,8 +1,9 @@
 import { useEffect, useCallback } from 'react';
 import { getIpcApi } from '../../lib/get-ipc-api';
 import { useAuth } from '../use-auth';
-import { FetchSites, SyncSite, useFetchWpComSites } from '../use-fetch-wpcom-sites';
+import { FetchSites, useFetchWpComSites } from '../use-fetch-wpcom-sites';
 import { useSiteDetails } from '../use-site-details';
+import type { SyncSite } from '../use-fetch-wpcom-sites/types/sync-site';
 
 type ConnectedSites = SyncSite[];
 type LoadConnectedSites = () => Promise< void >;

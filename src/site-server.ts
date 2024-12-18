@@ -170,8 +170,8 @@ export class SiteServer {
 		args: string,
 		{
 			targetPhpVersion,
-			includePlugins,
-			includeThemes,
+			includePlugins = false,
+			includeThemes = false,
 		}: {
 			targetPhpVersion?: string;
 			includePlugins?: boolean;

@@ -162,8 +162,11 @@ export function useSyncPush( {
 					status: pushStatesProgressInfo.failed,
 				} );
 				getIpcApi().showErrorMessageBox( {
-					title: sprintf( __( 'Error exporting site to %s' ), connectedSite.name ),
-					message: __( 'Studio was unable to export the site.' ),
+					title: sprintf( __( 'Error pushing to %s' ), connectedSite.name ),
+					message: __(
+						'An error occurred while pushing the site. If this problem persists, please contact support.'
+					),
+					error,
 				} );
 				return;
 			}

@@ -53,7 +53,6 @@ const parseWpCliOutput = ( stdout: string, defaultValue: string[] ): string[] =>
 		const data = JSON.parse( stdout );
 		return data?.map( ( item: { name: string } ) => item.name ) || [];
 	} catch ( error ) {
-		console.error( error, stdout );
 		Sentry.captureException( error, {
 			extra: { stdout },
 		} );

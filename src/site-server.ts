@@ -123,6 +123,7 @@ export class SiteServer {
 			name: site.name,
 			path: site.path,
 			phpVersion: site.phpVersion,
+			absoluteUrl: site.absoluteUrl,
 		};
 	}
 

@@ -4,6 +4,7 @@ import { useGetWpVersion } from '../hooks/use-get-wp-version';
 import { decodePassword } from '../lib/passwords';
 import { CopyTextButton } from './copy-text-button';
 import DeleteSite from './delete-site';
+import EditAbsoluteUrl from './edit-absolute-url';
 import EditPhpVersion from './edit-php-version';
 import EditSite from './edit-site';
 
@@ -29,6 +30,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 	const storedPassword = decodePassword( selectedSite.adminPassword ?? '' );
 	const password = storedPassword === '' ? 'password' : storedPassword;
 	const wpVersion = useGetWpVersion( selectedSite );
+	const url = selectedSite.absoluteUrl || `http://localhost:${ selectedSite.port }`;
 	return (
 		<div className="p-8">
 			<table className="mb-2 m-w-full" cellPadding={ 0 } cellSpacing={ 0 }>
@@ -44,14 +46,17 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 							<EditSite />
 						</div>
 					</SettingsRow>
-					<SettingsRow label={ __( 'Local URL' ) }>
-						<CopyTextButton
-							text={ `http://localhost:${ selectedSite.port }` }
-							label={ `localhost:${ selectedSite.port }, ${ __( 'Copy site url to clipboard' ) }` }
-							copyConfirmation={ __( 'Copied!' ) }
-						>
-							{ `localhost:${ selectedSite.port }` }
-						</CopyTextButton>
+					<SettingsRow label={ __( 'URL' ) }>
+						<div className="flex">
+							<CopyTextButton
+								text={ url }
+								label={ `${ url }, ${ __( 'Copy site url to clipboard' ) }` }
+								copyConfirmation={ __( 'Copied!' ) }
+							>
+								{ url.replace( /http(s)?:\/\//, '' ) }
+							</CopyTextButton>
+							<EditAbsoluteUrl />
+						</div>
 					</SettingsRow>
 					<SettingsRow label={ __( 'Local path' ) }>
 						<div className="flex">

@@ -18,6 +18,7 @@ export default class SiteServerProcess {
 	process?: UtilityProcess;
 	php?: { documentRoot: string };
 	url: string;
+	exitCode: number | null = null;
 
 	constructor( options: WPNowOptions ) {
 		this.options = options;
@@ -42,6 +43,7 @@ export default class SiteServerProcess {
 				}
 			};
 			const exitListener = ( code: number ) => {
+				this.exitCode = code;
 				if ( code !== 0 ) {
 					reject( new Error( `Site server process exited with code ${ code } upon starting` ) );
 				}
@@ -147,7 +149,15 @@ export default class SiteServerProcess {
 				}
 				resolve();
 			} );
-			process.kill();
+
+			const killResult = process.kill();
+			if ( ! killResult ) {
+				reject(
+					new Error(
+						`Failed to kill server process. Child server process exited with code: ${ this.exitCode }`
+					)
+				);
+			}
 		} ).catch( ( error ) => {
 			Sentry.captureException( error );
 		} );

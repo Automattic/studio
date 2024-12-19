@@ -279,6 +279,13 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 				updatedSite = await getIpcApi().startServer( id );
 			} catch ( error ) {
 				Sentry.captureException( error );
+				if (
+					error instanceof Error &&
+					error.message.includes( '"unreachable" WASM instruction executed' )
+				) {
+					error.message =
+						'Please try disabling plugins and themes that might be causing the issue.';
+				}
 				getIpcApi().showErrorMessageBox( {
 					title: __( 'Failed to start the site server' ),
 					message: __(

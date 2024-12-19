@@ -1,4 +1,4 @@
-import { SyncSite } from './types/sync-site';
+import { SyncSite } from './types';
 
 /**
  * Generate updated site data to be stored in `appdata-v1.json` in three steps:

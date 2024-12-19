@@ -44,7 +44,7 @@ import { popupMenu, setupMenu } from './menu';
 import { SiteServer, createSiteWorkingDirectory } from './site-server';
 import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from './storage/paths';
 import { loadUserData, saveUserData } from './storage/user-data';
-import type { SyncSite } from './hooks/use-fetch-wpcom-sites/types/sync-site';
+import type { SyncSite } from './hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from './lib/wp-cli-process';
 
 const TEMP_DIR = nodePath.join( app.getPath( 'temp' ), 'com.wordpress.studio' ) + nodePath.sep;

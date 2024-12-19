@@ -15,7 +15,7 @@ import { SyncSitesModalSelector } from './sync-sites-modal-selector';
 import { SyncTabImage } from './sync-tab-image';
 import { Tooltip } from './tooltip';
 import { WordPressShortLogo } from './wordpress-short-logo';
-import type { SyncSite } from '../hooks/use-fetch-wpcom-sites/types/sync-site';
+import type { SyncSite } from '../hooks/use-fetch-wpcom-sites/types';
 
 function SiteSyncDescription( { children }: PropsWithChildren ) {
 	const { __ } = useI18n();

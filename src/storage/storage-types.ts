@@ -1,5 +1,5 @@
 import { StoredToken } from '../lib/oauth';
-import type { SyncSite } from '../hooks/use-fetch-wpcom-sites/types/sync-site';
+import type { SyncSite } from '../hooks/use-fetch-wpcom-sites/types';
 
 export interface UserData {
 	sites: SiteDetails[];

@@ -10,7 +10,7 @@ import Button from './button';
 import { CreateButton } from './connect-create-buttons';
 import Modal from './modal';
 import offlineIcon from './offline-icon';
-import type { SyncSite } from '../hooks/use-fetch-wpcom-sites/types/sync-site';
+import type { SyncSite } from '../hooks/use-fetch-wpcom-sites/types';
 
 const SearchControl = process.env.NODE_ENV === 'test' ? () => null : SearchControlWp;
 

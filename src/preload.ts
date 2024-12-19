@@ -7,7 +7,7 @@ import { LocaleData } from '@wordpress/i18n';
 import { ExportOptions } from './lib/import-export/export/types';
 import { BackupArchiveInfo } from './lib/import-export/import/types';
 import { promptWindowsSpeedUpSites } from './lib/windows-helpers';
-import type { SyncSite } from './hooks/use-fetch-wpcom-sites/types/sync-site';
+import type { SyncSite } from './hooks/use-fetch-wpcom-sites/types';
 import type { LogLevel } from './logging';
 
 const api: IpcApi = {

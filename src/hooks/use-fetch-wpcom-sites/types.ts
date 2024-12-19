@@ -1,4 +1,10 @@
-import type { SyncSupport } from './sync-support';
+export type SyncSupport =
+	| 'unsupported'
+	| 'syncable'
+	| 'needs-transfer'
+	| 'already-connected'
+	| 'jetpack-site'
+	| 'deleted';
 
 export type SyncSite = {
 	id: number;

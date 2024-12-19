@@ -4,8 +4,7 @@ import { getIpcApi } from '../../lib/get-ipc-api';
 import { useAuth } from '../use-auth';
 import { useOffline } from '../use-offline';
 import { reconcileConnectedSites } from './reconcile-connected-sites';
-import type { SyncSite } from './types/sync-site';
-import type { SyncSupport } from './types/sync-support';
+import type { SyncSite, SyncSupport } from './types';
 
 type SitesEndpointSite = {
 	ID: number;

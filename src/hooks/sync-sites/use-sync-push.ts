@@ -13,7 +13,7 @@ import {
 	UpdateState,
 	usePullPushStates,
 } from './use-pull-push-states';
-import type { SyncSite } from '../use-fetch-wpcom-sites/types/sync-site';
+import type { SyncSite } from '../use-fetch-wpcom-sites/types';
 
 export type SyncPushState = {
 	remoteSiteId: number;

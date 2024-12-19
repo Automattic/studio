@@ -22,7 +22,7 @@ import ProgressBar from './progress-bar';
 import { SyncPullPushClear } from './sync-pull-push-clear';
 import { Tooltip, DynamicTooltip } from './tooltip';
 import { WordPressLogoCircle } from './wordpress-logo-circle';
-import type { SyncSite } from '../hooks/use-fetch-wpcom-sites/types/sync-site';
+import type { SyncSite } from '../hooks/use-fetch-wpcom-sites/types';
 
 interface ConnectedSiteSection {
 	id: number;

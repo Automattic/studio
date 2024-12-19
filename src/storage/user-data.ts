@@ -104,29 +104,35 @@ export async function saveUserData( data: UserData ): Promise< void > {
 function toDiskFormat( { sites, ...rest }: UserData ): PersistedUserData {
 	return {
 		version: 1,
-		sites: sites.map( ( { id, path, adminPassword, port, phpVersion, name, themeDetails } ) => {
-			// No object spreading allowed. TypeScript's structural typing is too permissive and
-			// will permit us to persist properties that aren't in the type definition.
-			// Add each property explicitly instead.
-			const persistedSiteDetails: PersistedUserData[ 'sites' ][ number ] = {
-				id,
-				name,
-				path,
-				adminPassword,
-				port,
-				phpVersion,
-				themeDetails: {
-					name: themeDetails?.name || '',
-					path: themeDetails?.path || '',
-					slug: themeDetails?.slug || '',
-					isBlockTheme: themeDetails?.isBlockTheme || false,
-					supportsWidgets: themeDetails?.supportsWidgets || false,
-					supportsMenus: themeDetails?.supportsMenus || false,
-				},
-			};
+		sites: sites.map(
+			( { id, path, adminPassword, port, phpVersion, name, themeDetails, absoluteUrl } ) => {
+				// No object spreading allowed. TypeScript's structural typing is too permissive and
+				// will permit us to persist properties that aren't in the type definition.
+				// Add each property explicitly instead.
+				const persistedSiteDetails: PersistedUserData[ 'sites' ][ number ] = {
+					id,
+					name,
+					path,
+					adminPassword,
+					port,
+					phpVersion,
+					themeDetails: {
+						name: themeDetails?.name || '',
+						path: themeDetails?.path || '',
+						slug: themeDetails?.slug || '',
+						isBlockTheme: themeDetails?.isBlockTheme || false,
+						supportsWidgets: themeDetails?.supportsWidgets || false,
+						supportsMenus: themeDetails?.supportsMenus || false,
+					},
+				};
 
-			return persistedSiteDetails;
-		} ),
+				if ( absoluteUrl ) {
+					persistedSiteDetails.absoluteUrl = absoluteUrl;
+				}
+
+				return persistedSiteDetails;
+			}
+		),
 		...rest,
 	};
 }

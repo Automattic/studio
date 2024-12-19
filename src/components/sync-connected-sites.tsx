@@ -14,7 +14,6 @@ import { getIpcApi } from '../lib/get-ipc-api';
 import { ArrowIcon } from './arrow-icon';
 import { Badge } from './badge';
 import Button from './button';
-import { ConnectButton } from './connect-create-buttons';
 import { OpenSitesSyncSelector } from './content-tab-sync';
 import { CircleRedCrossIcon } from './icons/circle-red-cross';
 import offlineIcon from './offline-icon';

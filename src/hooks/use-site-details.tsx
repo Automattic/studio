@@ -298,7 +298,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					message,
 					error: errorToDisplay,
 				} );
-				getIpcApi().stopServer( id );
+				await getIpcApi().stopServer( id );
 			}
 
 			if ( updatedSite ) {

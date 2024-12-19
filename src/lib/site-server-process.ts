@@ -137,8 +137,8 @@ export default class SiteServerProcess {
 
 	async #killProcess(): Promise< void > {
 		const process = this.process;
-		if ( ! process ) {
-			throw Error( 'Server process is not running' );
+		if ( ! process || this.exitCode !== null ) {
+			throw Error( 'Server process is not running. Exit code: ' + this.exitCode );
 		}
 
 		return new Promise< void >( ( resolve, reject ) => {
@@ -150,14 +150,7 @@ export default class SiteServerProcess {
 				resolve();
 			} );
 
-			const killResult = process.kill();
-			if ( ! killResult ) {
-				reject(
-					new Error(
-						`Failed to kill server process. Child server process exited with code: ${ this.exitCode }`
-					)
-				);
-			}
+			process.kill();
 		} ).catch( ( error ) => {
 			Sentry.captureException( error );
 		} );

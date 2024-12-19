@@ -149,7 +149,6 @@ export default class SiteServerProcess {
 				}
 				resolve();
 			} );
-
 			process.kill();
 		} ).catch( ( error ) => {
 			Sentry.captureException( error );

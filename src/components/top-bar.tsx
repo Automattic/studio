@@ -14,10 +14,16 @@ interface TopBarProps {
 	onToggleSidebar: () => void;
 }
 
+const DEFAULT_TOOLTIP_PLACEMENT = 'bottom-start';
+
 function ToggleSidebar( { onToggleSidebar }: TopBarProps ) {
 	return (
 		<div className="app-no-drag-region">
-			<Tooltip text={ __( 'Toggle sidebar' ) } className="h-6">
+			<Tooltip
+				text={ __( 'Toggle sidebar' ) }
+				className="h-6"
+				placement={ DEFAULT_TOOLTIP_PLACEMENT }
+			>
 				<Button onClick={ onToggleSidebar } variant="icon" aria-label={ __( 'Toggle sidebar' ) }>
 					<Icon className="text-white" icon={ drawerLeft } size={ 24 } />
 				</Button>
@@ -44,6 +50,7 @@ function OfflineIndicator() {
 						</span>
 					}
 					className="h-6"
+					placement={ DEFAULT_TOOLTIP_PLACEMENT }
 				>
 					<Button
 						aria-label={ __( 'Offline indicator' ) }

@@ -902,25 +902,21 @@ export async function showMessageBox(
 
 export async function showErrorMessageBox(
 	event: IpcMainInvokeEvent,
-	{ title, message, error }: { title: string; message: string; error?: unknown }
+	{
+		title,
+		message,
+		error,
+		showOpenLogs = false,
+	}: { title: string; message: string; error?: unknown; showOpenLogs?: boolean }
 ) {
-	// Remove prepended error message added by IPC handler
-	const filteredError = ( error as Error )?.message?.replace(
-		/Error invoking remote method '\w+': Error:/g,
-		''
-	);
-
-	console.error( filteredError );
-
 	const response = await showMessageBox( event, {
 		type: 'error',
 		message: title,
-		detail: message,
-		buttons: [ __( 'Open Studio logs' ), __( 'OK' ) ],
+		detail: error ? `${ message }\n\n${ error }` : message,
+		buttons: [ ...( showOpenLogs ? [ __( 'Open Studio Logs' ) ] : [] ), __( 'OK' ) ],
 	} );
 
-	// If user clicked "Open Logs" (button index 0)
-	if ( response.response === 0 ) {
+	if ( showOpenLogs && response.response === 0 ) {
 		const logFilePath = getLogsFilePath();
 		const err = await shell.openPath( logFilePath );
 		if ( err ) {

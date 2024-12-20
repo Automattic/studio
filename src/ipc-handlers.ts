@@ -391,6 +391,7 @@ export async function startServer(
 	try {
 		await server.start();
 	} catch ( error ) {
+		Sentry.captureException( error );
 		if (
 			error instanceof Error &&
 			error.message.includes( '"unreachable" WASM instruction executed' )

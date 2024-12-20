@@ -82,6 +82,7 @@ describe( 'Header', () => {
 				message:
 					"Please verify your site's local path directory contains the standard WordPress installation files and try again. If this problem persists, please contact support.",
 				error,
+				showOpenLogs: true,
 			} );
 		} );
 	} );

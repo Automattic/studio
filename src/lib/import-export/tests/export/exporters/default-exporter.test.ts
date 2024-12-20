@@ -116,7 +116,7 @@ describe( 'DefaultExporter', () => {
 					case /theme list/.test( command ):
 						return { stdout: '[{"name":"twentytwentyfour","status":"active","version":"1.0"}]' };
 					case /tables/.test( command ):
-						return { stdout: defaultTableNames.join( ',' ) };
+						return { stdout: JSON.stringify( defaultTableNames ) };
 					default:
 						return { stderr: null };
 				}
@@ -323,7 +323,7 @@ describe( 'DefaultExporter', () => {
 		expect( canHandle ).toBe( false );
 	} );
 
-	it( 'should not fail when can not get plugin or theme details', async () => {
+	it( 'should fail when can not get plugin or theme details', async () => {
 		( SiteServer.get as jest.Mock ).mockReturnValue( {
 			details: { path: '/path/to/site' },
 			executeWpCliCommand: jest.fn( function ( command: string ) {
@@ -338,10 +338,9 @@ describe( 'DefaultExporter', () => {
 		} );
 
 		const exporter = new DefaultExporter( mockOptions );
-		await exporter.export();
 
-		expect( mockArchiver.file ).toHaveBeenCalledWith( '/tmp/studio_export_123/meta.json', {
-			name: 'meta.json',
-		} );
+		await expect( exporter.export() ).rejects.toThrow(
+			'Could not get information about installed plugins to create meta.json file.'
+		);
 	} );
 } );

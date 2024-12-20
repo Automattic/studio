@@ -57,7 +57,7 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 				const { stderr, exitCode } = await server.executeWpCliCommand(
 					`sqlite import ${ sqlTempFile } --require=/tmp/sqlite-command/command.php`,
 					// SQLite plugin requires PHP 8+
-					{ targetPhpVersion: DEFAULT_PHP_VERSION }
+					{ targetPhpVersion: DEFAULT_PHP_VERSION, skipPluginsAndThemes: true }
 				);
 
 				if ( stderr ) {
@@ -86,7 +86,9 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 			throw new Error( 'Site not found.' );
 		}
 
-		const { stdout: currentSiteUrl } = await server.executeWpCliCommand( `option get siteurl` );
+		const { stdout: currentSiteUrl } = await server.executeWpCliCommand( `option get siteurl`, {
+			skipPluginsAndThemes: true,
+		} );
 
 		if ( ! currentSiteUrl ) {
 			console.error( 'Failed to fetch site URL after import' );
@@ -96,7 +98,10 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 		const studioUrl = `http://localhost:${ server.details.port }`;
 
 		const { stderr, exitCode } = await server.executeWpCliCommand(
-			`search-replace '${ currentSiteUrl.trim() }' '${ studioUrl.trim() }'`
+			`search-replace '${ currentSiteUrl.trim() }' '${ studioUrl.trim() }'`,
+			{
+				skipPluginsAndThemes: true,
+			}
 		);
 
 		if ( stderr ) {

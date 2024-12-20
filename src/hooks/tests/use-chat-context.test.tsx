@@ -123,10 +123,12 @@ describe( 'useChatContext hook', () => {
 			expect( getIpcApi().executeWPCLiInline ).toHaveBeenNthCalledWith( 1, {
 				siteId: SELECTED_SITE.id,
 				args: 'plugin list --format=json --status=active',
+				skipPluginsAndThemes: true,
 			} );
 			expect( getIpcApi().executeWPCLiInline ).toHaveBeenNthCalledWith( 2, {
 				siteId: SELECTED_SITE.id,
 				args: 'theme list --format=json',
+				skipPluginsAndThemes: true,
 			} );
 			expect( getIpcApi().executeWPCLiInline ).toHaveBeenCalledTimes( 2 );
 		} );
@@ -234,10 +236,12 @@ describe( 'useChatContext hook', () => {
 			expect( getIpcApi().executeWPCLiInline ).toHaveBeenNthCalledWith( 1, {
 				siteId: ANOTHER_SITE.id,
 				args: 'plugin list --format=json --status=active',
+				skipPluginsAndThemes: true,
 			} );
 			expect( getIpcApi().executeWPCLiInline ).toHaveBeenNthCalledWith( 2, {
 				siteId: ANOTHER_SITE.id,
 				args: 'theme list --format=json',
+				skipPluginsAndThemes: true,
 			} );
 			expect( getIpcApi().executeWPCLiInline ).toHaveBeenCalledTimes( 2 );
 		} );
@@ -288,10 +292,12 @@ describe( 'useChatContext hook', () => {
 			expect( getIpcApi().executeWPCLiInline ).toHaveBeenNthCalledWith( 1, {
 				siteId: SELECTED_SITE.id,
 				args: 'plugin list --format=json --status=active',
+				skipPluginsAndThemes: true,
 			} );
 			expect( getIpcApi().executeWPCLiInline ).toHaveBeenNthCalledWith( 2, {
 				siteId: SELECTED_SITE.id,
 				args: 'theme list --format=json',
+				skipPluginsAndThemes: true,
 			} );
 			expect( getIpcApi().executeWPCLiInline ).toHaveBeenCalledTimes( 2 );
 		} );
@@ -391,10 +397,12 @@ describe( 'useChatContext hook', () => {
 			expect( getIpcApi().executeWPCLiInline ).toHaveBeenNthCalledWith( 1, {
 				siteId: NEW_SITE.id,
 				args: 'plugin list --format=json --status=active',
+				skipPluginsAndThemes: true,
 			} );
 			expect( getIpcApi().executeWPCLiInline ).toHaveBeenNthCalledWith( 2, {
 				siteId: NEW_SITE.id,
 				args: 'theme list --format=json',
+				skipPluginsAndThemes: true,
 			} );
 			expect( getIpcApi().executeWPCLiInline ).toHaveBeenCalledTimes( 2 );
 		} );
@@ -436,10 +444,12 @@ describe( 'useChatContext hook', () => {
 			expect( getIpcApi().executeWPCLiInline ).toHaveBeenNthCalledWith( 1, {
 				siteId: SELECTED_SITE.id,
 				args: 'plugin list --format=json --status=active',
+				skipPluginsAndThemes: true,
 			} );
 			expect( getIpcApi().executeWPCLiInline ).toHaveBeenNthCalledWith( 2, {
 				siteId: SELECTED_SITE.id,
 				args: 'theme list --format=json',
+				skipPluginsAndThemes: true,
 			} );
 			expect( getIpcApi().executeWPCLiInline ).toHaveBeenCalledTimes( 2 );
 		} );

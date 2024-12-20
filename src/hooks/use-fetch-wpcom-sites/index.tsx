@@ -1,27 +1,10 @@
 import * as Sentry from '@sentry/electron/renderer';
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { useAuth } from './use-auth';
-import { useOffline } from './use-offline';
-
-type SyncSupport =
-	| 'unsupported'
-	| 'syncable'
-	| 'needs-transfer'
-	| 'already-connected'
-	| 'jetpack-site'
-	| 'deleted';
-
-export type SyncSite = {
-	id: number;
-	localSiteId: string;
-	name: string;
-	url: string;
-	isStaging: boolean;
-	stagingSiteIds: number[];
-	syncSupport: SyncSupport;
-	lastPullTimestamp: string | null;
-	lastPushTimestamp: string | null;
-};
+import { getIpcApi } from '../../lib/get-ipc-api';
+import { useAuth } from '../use-auth';
+import { useOffline } from '../use-offline';
+import { reconcileConnectedSites } from './reconcile-connected-sites';
+import type { SyncSite, SyncSupport } from './types';
 
 type SitesEndpointSite = {
 	ID: number;
@@ -116,14 +99,13 @@ function transformSiteResponse(
 
 export type FetchSites = () => Promise< SitesEndpointSite[] >;
 
-export const useFetchWpComSites = ( connectedSiteIds: number[] ) => {
+export const useFetchWpComSites = ( connectedSiteIdsOnlyForSelectedSite: number[] ) => {
 	const [ rawSyncSites, setRawSyncSites ] = useState< SitesEndpointSite[] >( [] );
 	const { isAuthenticated, client } = useAuth();
 	const isFetchingSites = useRef( false );
-	const isInitialized = useRef( false ); // By default syncSites are always empty array, so this flag helps to determine if we have fetched sites at least once
 	const isOffline = useOffline();
 
-	const joinedConnectedSiteIds = connectedSiteIds.join( ',' );
+	const joinedConnectedSiteIds = connectedSiteIdsOnlyForSelectedSite.join( ',' );
 	// we need this trick to avoid unnecessary re-renders,
 	// as a result different instances of the same array don't trigger refetching
 	const memoizedConnectedSiteIds: number[] = useMemo(
@@ -142,6 +124,8 @@ export const useFetchWpComSites = ( connectedSiteIds: number[] ) => {
 		isFetchingSites.current = true;
 
 		try {
+			const allConnectedSites = await getIpcApi().getConnectedWpcomSites();
+
 			const response = await client.req.get< SitesEndpointResponse >(
 				{
 					apiNamespace: 'rest/v1.2',
@@ -156,7 +140,34 @@ export const useFetchWpComSites = ( connectedSiteIds: number[] ) => {
 				}
 			);
 
-			isInitialized.current = true;
+			const syncSites = transformSiteResponse(
+				response.sites,
+				allConnectedSites.map( ( { id } ) => id )
+			);
+
+			// whenever array of syncSites changes, we need to update connectedSites to keep them updated with wordpress.com
+			const { updatedConnectedSites, stagingSitesToAdd, stagingSitesToDelete } =
+				reconcileConnectedSites( allConnectedSites, syncSites );
+
+			await getIpcApi().updateConnectedWpcomSites( updatedConnectedSites );
+
+			if ( stagingSitesToDelete.length ) {
+				const data = stagingSitesToDelete.map( ( { id, localSiteId } ) => ( {
+					siteIds: [ id ],
+					localSiteId,
+				} ) );
+
+				await getIpcApi().disconnectWpcomSites( data );
+			}
+
+			if ( stagingSitesToAdd.length ) {
+				const data = stagingSitesToAdd.map( ( site ) => ( {
+					sites: [ site ],
+					localSiteId: site.localSiteId,
+				} ) );
+
+				await getIpcApi().connectWpcomSites( data );
+			}
 
 			setRawSyncSites( response.sites );
 
@@ -174,19 +185,14 @@ export const useFetchWpComSites = ( connectedSiteIds: number[] ) => {
 		fetchSites();
 	}, [ fetchSites ] );
 
-	const refetchSites = useCallback( () => {
-		return fetchSites();
-	}, [ fetchSites ] );
-
-	const syncSites = useMemo(
+	const syncSitesWithSyncSupportForSelectedSite = useMemo(
 		() => transformSiteResponse( rawSyncSites, memoizedConnectedSiteIds ),
 		[ rawSyncSites, memoizedConnectedSiteIds ]
 	);
 
 	return {
-		syncSites,
+		syncSites: syncSitesWithSyncSupportForSelectedSite,
 		isFetching: isFetchingSites.current,
-		isInitialized: isInitialized.current,
-		refetchSites,
+		refetchSites: fetchSites,
 	};
 };

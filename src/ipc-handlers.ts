@@ -18,7 +18,6 @@ import { __, LocaleData, defaultI18n } from '@wordpress/i18n';
 import archiver from 'archiver';
 import { DEFAULT_PHP_VERSION } from '../vendor/wp-now/src/constants';
 import { MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from './constants';
-import { SyncSite } from './hooks/use-fetch-wpcom-sites';
 import { ACTIVE_SYNC_OPERATIONS } from './lib/active-sync-operations';
 import { download } from './lib/download';
 import { isEmptyDir, pathExists, isWordPressDirectory, sanitizeFolderName } from './lib/fs-utils';
@@ -45,6 +44,7 @@ import { popupMenu, setupMenu } from './menu';
 import { SiteServer, createSiteWorkingDirectory } from './site-server';
 import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from './storage/paths';
 import { loadUserData, saveUserData } from './storage/user-data';
+import type { SyncSite } from './hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from './lib/wp-cli-process';
 
 const TEMP_DIR = nodePath.join( app.getPath( 'temp' ), 'com.wordpress.studio' ) + nodePath.sep;
@@ -245,7 +245,11 @@ export async function connectWpcomSites( event: IpcMainInvokeEvent, list: WpcomS
 
 			// Add the site if it's not already connected
 			if ( ! isAlreadyConnected ) {
-				connections.push( { ...siteToAdd, localSiteId } );
+				connections.push( {
+					...siteToAdd,
+					localSiteId,
+					syncSupport: 'already-connected',
+				} );
 			}
 		} );
 	} );
@@ -384,7 +388,18 @@ export async function startServer(
 	await keepSqliteIntegrationUpdated( server.details.path );
 
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	await server.start();
+	try {
+		await server.start();
+	} catch ( error ) {
+		Sentry.captureException( error );
+		if (
+			error instanceof Error &&
+			error.message.includes( '"unreachable" WASM instruction executed' )
+		) {
+			throw new Error( 'Please try disabling plugins and themes that might be causing the issue.' );
+		}
+		throw error;
+	}
 	if ( parentWindow && ! parentWindow.isDestroyed() && ! event.sender.isDestroyed() ) {
 		parentWindow.webContents.send( 'theme-details-changed', id, server.details.themeDetails );
 	}
@@ -815,7 +830,15 @@ export async function saveOnboarding(
 
 export async function executeWPCLiInline(
 	_event: IpcMainInvokeEvent,
-	{ siteId, args }: { siteId: string; args: string }
+	{
+		siteId,
+		args,
+		skipPluginsAndThemes = false,
+	}: {
+		siteId: string;
+		args: string;
+		skipPluginsAndThemes?: boolean;
+	}
 ): Promise< WpCliResult > {
 	if ( SiteServer.isDeleted( siteId ) ) {
 		return {
@@ -828,7 +851,9 @@ export async function executeWPCLiInline(
 	if ( ! server ) {
 		throw new Error( 'Site not found.' );
 	}
-	return server.executeWpCliCommand( args );
+	return server.executeWpCliCommand( args, {
+		skipPluginsAndThemes,
+	} );
 }
 
 export async function getThumbnailData( _event: IpcMainInvokeEvent, id: string ) {

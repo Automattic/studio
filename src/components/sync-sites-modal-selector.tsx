@@ -2,7 +2,6 @@ import { Icon, SearchControl as SearchControlWp } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useState, useEffect } from 'react';
-import { SyncSite } from '../hooks/use-fetch-wpcom-sites';
 import { useOffline } from '../hooks/use-offline';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
@@ -11,6 +10,7 @@ import Button from './button';
 import { CreateButton } from './connect-create-buttons';
 import Modal from './modal';
 import offlineIcon from './offline-icon';
+import type { SyncSite } from '../hooks/use-fetch-wpcom-sites/types';
 
 const SearchControl = process.env.NODE_ENV === 'test' ? () => null : SearchControlWp;
 

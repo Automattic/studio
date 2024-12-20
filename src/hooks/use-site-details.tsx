@@ -278,7 +278,6 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			try {
 				updatedSite = await getIpcApi().startServer( id );
 			} catch ( error ) {
-				Sentry.captureException( error );
 				getIpcApi().showErrorMessageBox( {
 					title: __( 'Failed to start the site server' ),
 					message: __(
@@ -286,7 +285,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					),
 					error,
 				} );
-				getIpcApi().stopServer( id );
+				await getIpcApi().stopServer( id );
 			}
 
 			if ( updatedSite ) {

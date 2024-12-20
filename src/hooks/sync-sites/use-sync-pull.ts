@@ -4,7 +4,6 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useMemo } from 'react';
 import { getIpcApi } from '../../lib/get-ipc-api';
 import { useAuth } from '../use-auth';
-import { SyncSite } from '../use-fetch-wpcom-sites';
 import { useImportExport } from '../use-import-export';
 import { useSiteDetails } from '../use-site-details';
 import { useSyncStatesProgressInfo, PullStateProgressInfo } from '../use-sync-states-progress-info';
@@ -15,6 +14,7 @@ import {
 	UpdateState,
 	usePullPushStates,
 } from './use-pull-push-states';
+import type { SyncSite } from '../use-fetch-wpcom-sites/types';
 
 export type SyncBackupState = {
 	remoteSiteId: number;

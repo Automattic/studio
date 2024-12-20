@@ -4,7 +4,6 @@ import { PropsWithChildren, useState, useEffect } from 'react';
 import { CLIENT_ID, PROTOCOL_PREFIX, SCOPES, WP_AUTHORIZE_ENDPOINT } from '../constants';
 import { useSyncSites } from '../hooks/sync-sites';
 import { useAuth } from '../hooks/use-auth';
-import { SyncSite } from '../hooks/use-fetch-wpcom-sites';
 import { useOffline } from '../hooks/use-offline';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { ArrowIcon } from './arrow-icon';
@@ -16,6 +15,7 @@ import { SyncSitesModalSelector } from './sync-sites-modal-selector';
 import { SyncTabImage } from './sync-tab-image';
 import { Tooltip } from './tooltip';
 import { WordPressShortLogo } from './wordpress-short-logo';
+import type { SyncSite } from '../hooks/use-fetch-wpcom-sites/types';
 
 function SiteSyncDescription( { children }: PropsWithChildren ) {
 	const { __ } = useI18n();

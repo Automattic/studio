@@ -53,7 +53,6 @@ const parseWpCliOutput = ( stdout: string, defaultValue: string[] ): string[] =>
 		const data = JSON.parse( stdout );
 		return data?.map( ( item: { name: string } ) => item.name ) || [];
 	} catch ( error ) {
-		console.error( error, stdout );
 		Sentry.captureException( error, {
 			extra: { stdout },
 		} );
@@ -81,6 +80,7 @@ export const ChatProvider: React.FC< ChatProviderProps > = ( { children } ) => {
 		const { stdout, stderr } = await getIpcApi().executeWPCLiInline( {
 			siteId,
 			args: 'plugin list --format=json --status=active',
+			skipPluginsAndThemes: true,
 		} );
 		if ( stderr ) {
 			return [];
@@ -92,6 +92,7 @@ export const ChatProvider: React.FC< ChatProviderProps > = ( { children } ) => {
 		const { stdout, stderr } = await getIpcApi().executeWPCLiInline( {
 			siteId,
 			args: 'theme list --format=json',
+			skipPluginsAndThemes: true,
 		} );
 		if ( stderr ) {
 			return [];

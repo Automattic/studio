@@ -268,15 +268,27 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		}
 
 		const { stderr, stdout } = await server.executeWpCliCommand(
-			'plugin list --status=active,inactive --fields=name,status,version --format=json'
+			'plugin list --status=active,inactive --fields=name,status,version --format=json',
+			{
+				skipPluginsAndThemes: true,
+			}
 		);
 
 		if ( stderr ) {
 			console.error( `Could not get information about plugins: ${ stderr }` );
-			return [];
+			throw new Error(
+				'Could not get information about installed plugins to create meta.json file.'
+			);
 		}
 
-		return JSON.parse( stdout );
+		try {
+			return JSON.parse( stdout );
+		} catch ( error ) {
+			console.error( `Could not parse plugins list. The WP CLI output: ${ stdout }` );
+			throw new Error(
+				'Could not parse information about installed plugins to create meta.json file.'
+			);
+		}
 	}
 
 	private async getSiteThemes( site_id: string ) {
@@ -287,14 +299,26 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		}
 
 		const { stderr, stdout } = await server.executeWpCliCommand(
-			'theme list --fields=name,status,version --format=json'
+			'theme list --fields=name,status,version --format=json',
+			{
+				skipPluginsAndThemes: true,
+			}
 		);
 
 		if ( stderr ) {
 			console.error( `Could not get information about themes: ${ stderr }` );
-			return [];
+			throw new Error(
+				'Could not get information about installed themes to create meta.json file.'
+			);
 		}
 
-		return JSON.parse( stdout );
+		try {
+			return JSON.parse( stdout );
+		} catch ( error ) {
+			console.error( `Could not parse themes list. The WP CLI output: ${ stdout }` );
+			throw new Error(
+				'Could not parse information about installed themes to create meta.json file.'
+			);
+		}
 	}
 }

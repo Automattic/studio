@@ -1,12 +1,12 @@
 import { __, sprintf } from '@wordpress/i18n';
 import React, { createContext, useCallback, useContext, useState } from 'react';
 import { getIpcApi } from '../../lib/get-ipc-api';
-import { SyncSite } from '../use-fetch-wpcom-sites';
 import { useFormatLocalizedTimestamps } from '../use-format-localized-timestamps';
 import { useListenDeepLinkConnection } from './use-listen-deep-link-connection';
 import { UseSiteSyncManagement, useSiteSyncManagement } from './use-site-sync-management';
 import { PullStates, UseSyncPull, useSyncPull } from './use-sync-pull';
 import { PushStates, UseSyncPush, useSyncPush } from './use-sync-push';
+import type { SyncSite } from '../use-fetch-wpcom-sites/types';
 
 type GetLastSyncTimeText = ( timestamp: string | null, type: 'pull' | 'push' ) => string;
 type UpdateSiteTimestamp = (

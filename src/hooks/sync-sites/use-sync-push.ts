@@ -5,7 +5,6 @@ import { useCallback, useEffect, useMemo } from 'react';
 import { SYNC_PUSH_SIZE_LIMIT_BYTES } from '../../constants';
 import { getIpcApi } from '../../lib/get-ipc-api';
 import { useAuth } from '../use-auth';
-import { SyncSite } from '../use-fetch-wpcom-sites';
 import { useSyncStatesProgressInfo, PushStateProgressInfo } from '../use-sync-states-progress-info';
 import {
 	ClearState,
@@ -14,6 +13,7 @@ import {
 	UpdateState,
 	usePullPushStates,
 } from './use-pull-push-states';
+import type { SyncSite } from '../use-fetch-wpcom-sites/types';
 
 export type SyncPushState = {
 	remoteSiteId: number;
@@ -162,8 +162,11 @@ export function useSyncPush( {
 					status: pushStatesProgressInfo.failed,
 				} );
 				getIpcApi().showErrorMessageBox( {
-					title: sprintf( __( 'Error exporting site to %s' ), connectedSite.name ),
-					message: __( 'Studio was unable to export the site.' ),
+					title: sprintf( __( 'Error pushing to %s' ), connectedSite.name ),
+					message: __(
+						'An error occurred while pushing the site. If this problem persists, please contact support.'
+					),
+					error,
 				} );
 				return;
 			}

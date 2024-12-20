@@ -1,7 +1,7 @@
 import { shell } from 'electron';
 import { EventEmitter } from 'events';
 import fs, { createReadStream, createWriteStream } from 'fs';
-import fsPromises from 'fs/promises';
+import fsPromises, { readFile, writeFile } from 'fs/promises';
 import path from 'path';
 import { createInterface } from 'readline';
 import { lstat, move } from 'fs-extra';
@@ -198,10 +198,60 @@ abstract class BaseBackupImporter extends BaseImporter {
 		const wpConfigPath = path.join( rootPath, 'wp-config.php' );
 		const wpConfigSamplePath = path.join( rootPath, 'wp-config-sample.php' );
 
+		// First ensure we have a wp-config.php file
 		if ( this.backup.wpConfig ) {
 			await fsPromises.copyFile( this.backup.wpConfig, wpConfigPath );
 		} else if ( ! fs.existsSync( wpConfigPath ) && fs.existsSync( wpConfigSamplePath ) ) {
 			await fsPromises.copyFile( wpConfigSamplePath, wpConfigPath );
+		}
+
+		// Read the current config content
+		const configContent = await readFile( wpConfigPath, 'utf8' );
+
+		// Check for missing constants
+		const requiredConstants = [ 'DB_HOST', 'DB_NAME', 'DB_USER', 'DB_PASSWORD' ];
+		const missingConstants: { [ key: string ]: string } = {};
+
+		for ( const constant of requiredConstants ) {
+			if (
+				! configContent.includes( `define('${ constant }'` ) &&
+				! configContent.includes( `define("${ constant }"` )
+			) {
+				// If constant is missing, add it to our list with a default value
+				missingConstants[ constant ] = this.getDefaultDbValue( constant );
+			}
+		}
+
+		// If we found missing constants, add them to the config
+		if ( Object.keys( missingConstants ).length > 0 ) {
+			// Create the constants definition block
+			const constantsBlock = Object.entries( missingConstants )
+				.map( ( [ constant, value ] ) => `define('${ constant }', '${ value }');` )
+				.join( '\n' );
+
+			// Find a good place to insert the constants (after the comment block if it exists)
+			const newContent = configContent.replace(
+				/\/\*\*[\s\S]*?\*\/\s*/,
+				( match ) => `${ match }\n${ constantsBlock }\n`
+			);
+
+			// Write the updated config back to the file
+			await writeFile( wpConfigPath, newContent );
+		}
+	}
+
+	private getDefaultDbValue( constant: string ): string {
+		switch ( constant ) {
+			case 'DB_HOST':
+				return 'localhost';
+			case 'DB_NAME':
+				return 'wordpress';
+			case 'DB_USER':
+				return 'root';
+			case 'DB_PASSWORD':
+				return '';
+			default:
+				return '';
 		}
 	}
 

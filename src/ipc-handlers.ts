@@ -934,10 +934,15 @@ export async function showErrorMessageBox(
 		showOpenLogs = false,
 	}: { title: string; message: string; error?: unknown; showOpenLogs?: boolean }
 ) {
+	// Remove prepended error message added by IPC handler
+	const filteredError = ( error as Error )?.message?.replace(
+		/Error invoking remote method '\w+': Error:/g,
+		''
+	);
 	const response = await showMessageBox( event, {
 		type: 'error',
 		message: title,
-		detail: error ? `${ message }\n\n${ error }` : message,
+		detail: error ? `${ message }\n\n${ filteredError }` : message,
 		buttons: [ ...( showOpenLogs ? [ __( 'Open Studio Logs' ) ] : [] ), __( 'OK' ) ],
 	} );
 

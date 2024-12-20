@@ -388,7 +388,17 @@ export async function startServer(
 	await keepSqliteIntegrationUpdated( server.details.path );
 
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	await server.start();
+	try {
+		await server.start();
+	} catch ( error ) {
+		if (
+			error instanceof Error &&
+			error.message.includes( '"unreachable" WASM instruction executed' )
+		) {
+			throw new Error( 'Please try disabling plugins and themes that might be causing the issue.' );
+		}
+		throw error;
+	}
 	if ( parentWindow && ! parentWindow.isDestroyed() && ! event.sender.isDestroyed() ) {
 		parentWindow.webContents.send( 'theme-details-changed', id, server.details.themeDetails );
 	}

@@ -279,21 +279,12 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 				updatedSite = await getIpcApi().startServer( id );
 			} catch ( error ) {
 				Sentry.captureException( error );
-				let errorToDisplay = error;
-				if (
-					error instanceof Error &&
-					error.message.includes( '"unreachable" WASM instruction executed' )
-				) {
-					errorToDisplay = new Error(
-						__( 'Please try disabling plugins and themes that might be causing the issue.' )
-					);
-				}
 				getIpcApi().showErrorMessageBox( {
 					title: __( 'Failed to start the site server' ),
 					message: __(
 						"Please verify your site's local path directory contains the standard WordPress installation files and try again. If this problem persists, please contact support."
 					),
-					error: errorToDisplay,
+					error,
 				} );
 				await getIpcApi().stopServer( id );
 			}

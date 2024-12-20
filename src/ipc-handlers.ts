@@ -916,7 +916,7 @@ export async function showErrorMessageBox(
 		type: 'error',
 		message: title,
 		detail: message,
-		buttons: [ __( 'Open Logs' ), __( 'OK' ) ],
+		buttons: [ __( 'Open Studio logs' ), __( 'OK' ) ],
 	} );
 
 	// If user clicked "Open Logs" (button index 0)

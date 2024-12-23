@@ -198,7 +198,6 @@ abstract class BaseBackupImporter extends BaseImporter {
 		const wpConfigPath = path.join( rootPath, 'wp-config.php' );
 		const wpConfigSamplePath = path.join( rootPath, 'wp-config-sample.php' );
 
-		// First ensure we have a wp-config.php file
 		if ( this.backup.wpConfig ) {
 			try {
 				await fsPromises.copyFile( this.backup.wpConfig, wpConfigPath );
@@ -212,21 +211,18 @@ abstract class BaseBackupImporter extends BaseImporter {
 			await fsPromises.copyFile( wpConfigSamplePath, wpConfigPath );
 		}
 
+		const configContent = await readFile( wpConfigPath, 'utf8' );
 		const polyfill =
 			'<?php\n' +
-			'// Polyfill for missing database constants\n' +
+			"if (!defined('DB_NAME')) define('DB_NAME', 'database_name_here');\n" +
+			"if (!defined('DB_USER')) define('DB_USER', 'username_here');\n" +
+			"if (!defined('DB_PASSWORD')) define('DB_PASSWORD', 'password_here');\n" +
 			"if (!defined('DB_HOST')) define('DB_HOST', 'localhost');\n" +
-			"if (!defined('DB_NAME')) define('DB_NAME', 'wordpress');\n" +
-			"if (!defined('DB_USER')) define('DB_USER', 'root');\n" +
-			"if (!defined('DB_PASSWORD')) define('DB_PASSWORD', '');\n" +
+			"if (!defined('DB_CHARSET')) define('DB_CHARSET', 'utf8');\n" +
+			"if (!defined('DB_COLLATE')) define('DB_COLLATE', '');\n" +
 			'?>\n';
 
-		const configContent = await readFile( wpConfigPath, 'utf8' );
-
-		// Only add polyfill if it's not already present
-		if ( ! configContent.includes( 'Polyfill for missing database constants' ) ) {
-			await writeFile( wpConfigPath, polyfill + configContent );
-		}
+		await writeFile( wpConfigPath, polyfill + configContent );
 	}
 
 	protected async importWpContent( rootPath: string ): Promise< void > {

@@ -200,58 +200,32 @@ abstract class BaseBackupImporter extends BaseImporter {
 
 		// First ensure we have a wp-config.php file
 		if ( this.backup.wpConfig ) {
-			await fsPromises.copyFile( this.backup.wpConfig, wpConfigPath );
+			try {
+				await fsPromises.copyFile( this.backup.wpConfig, wpConfigPath );
+			} catch ( error ) {
+				// If copying fails, fall back to sample config
+				if ( fs.existsSync( wpConfigSamplePath ) ) {
+					await fsPromises.copyFile( wpConfigSamplePath, wpConfigPath );
+				}
+			}
 		} else if ( ! fs.existsSync( wpConfigPath ) && fs.existsSync( wpConfigSamplePath ) ) {
 			await fsPromises.copyFile( wpConfigSamplePath, wpConfigPath );
 		}
 
-		// Read the current config content
+		const polyfill =
+			'<?php\n' +
+			'// Polyfill for missing database constants\n' +
+			"if (!defined('DB_HOST')) define('DB_HOST', 'localhost');\n" +
+			"if (!defined('DB_NAME')) define('DB_NAME', 'wordpress');\n" +
+			"if (!defined('DB_USER')) define('DB_USER', 'root');\n" +
+			"if (!defined('DB_PASSWORD')) define('DB_PASSWORD', '');\n" +
+			'?>\n';
+
 		const configContent = await readFile( wpConfigPath, 'utf8' );
 
-		// Check for missing constants
-		const requiredConstants = [ 'DB_HOST', 'DB_NAME', 'DB_USER', 'DB_PASSWORD' ];
-		const missingConstants: { [ key: string ]: string } = {};
-
-		for ( const constant of requiredConstants ) {
-			if (
-				! configContent.includes( `define('${ constant }'` ) &&
-				! configContent.includes( `define("${ constant }"` )
-			) {
-				// If constant is missing, add it to our list with a default value
-				missingConstants[ constant ] = this.getDefaultDbValue( constant );
-			}
-		}
-
-		// If we found missing constants, add them to the config
-		if ( Object.keys( missingConstants ).length > 0 ) {
-			// Create the constants definition block
-			const constantsBlock = Object.entries( missingConstants )
-				.map( ( [ constant, value ] ) => `define('${ constant }', '${ value }');` )
-				.join( '\n' );
-
-			// Find a good place to insert the constants (after the comment block if it exists)
-			const newContent = configContent.replace(
-				/\/\*\*[\s\S]*?\*\/\s*/,
-				( match ) => `${ match }\n${ constantsBlock }\n`
-			);
-
-			// Write the updated config back to the file
-			await writeFile( wpConfigPath, newContent );
-		}
-	}
-
-	private getDefaultDbValue( constant: string ): string {
-		switch ( constant ) {
-			case 'DB_HOST':
-				return 'localhost';
-			case 'DB_NAME':
-				return 'wordpress';
-			case 'DB_USER':
-				return 'root';
-			case 'DB_PASSWORD':
-				return '';
-			default:
-				return '';
+		// Only add polyfill if it's not already present
+		if ( ! configContent.includes( 'Polyfill for missing database constants' ) ) {
+			await writeFile( wpConfigPath, polyfill + configContent );
 		}
 	}
 

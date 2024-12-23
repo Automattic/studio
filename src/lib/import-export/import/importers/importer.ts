@@ -200,14 +200,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 
 		// First ensure we have a wp-config.php file
 		if ( this.backup.wpConfig ) {
-			try {
-				await fsPromises.copyFile( this.backup.wpConfig, wpConfigPath );
-			} catch ( error ) {
-				// If copying fails, fall back to sample config
-				if ( fs.existsSync( wpConfigSamplePath ) ) {
-					await fsPromises.copyFile( wpConfigSamplePath, wpConfigPath );
-				}
-			}
+			await fsPromises.copyFile( this.backup.wpConfig, wpConfigPath );
 		} else if ( ! fs.existsSync( wpConfigPath ) && fs.existsSync( wpConfigSamplePath ) ) {
 			await fsPromises.copyFile( wpConfigSamplePath, wpConfigPath );
 		}

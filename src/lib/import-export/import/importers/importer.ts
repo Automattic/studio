@@ -198,6 +198,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 		const wpConfigPath = path.join( rootPath, 'wp-config.php' );
 		const wpConfigSamplePath = path.join( rootPath, 'wp-config-sample.php' );
 
+		// First ensure we have a wp-config.php file
 		if ( this.backup.wpConfig ) {
 			try {
 				await fsPromises.copyFile( this.backup.wpConfig, wpConfigPath );
@@ -212,17 +213,22 @@ abstract class BaseBackupImporter extends BaseImporter {
 		}
 
 		const configContent = await readFile( wpConfigPath, 'utf8' );
-		const polyfill =
-			'<?php\n' +
-			"if (!defined('DB_NAME')) define('DB_NAME', 'database_name_here');\n" +
-			"if (!defined('DB_USER')) define('DB_USER', 'username_here');\n" +
-			"if (!defined('DB_PASSWORD')) define('DB_PASSWORD', 'password_here');\n" +
-			"if (!defined('DB_HOST')) define('DB_HOST', 'localhost');\n" +
-			"if (!defined('DB_CHARSET')) define('DB_CHARSET', 'utf8');\n" +
-			"if (!defined('DB_COLLATE')) define('DB_COLLATE', '');\n" +
-			'?>\n';
 
-		await writeFile( wpConfigPath, polyfill + configContent );
+		// Add a unique marker comment to identify our polyfill
+		if ( ! configContent.includes( '/* WP_POLYFILL_MARKER */' ) ) {
+			const polyfill =
+				'<?php\n' +
+				'/* WP_POLYFILL_MARKER */\n' +
+				"if (!defined('DB_NAME')) define('DB_NAME', 'database_name_here');\n" +
+				"if (!defined('DB_USER')) define('DB_USER', 'username_here');\n" +
+				"if (!defined('DB_PASSWORD')) define('DB_PASSWORD', 'password_here');\n" +
+				"if (!defined('DB_HOST')) define('DB_HOST', 'localhost');\n" +
+				"if (!defined('DB_CHARSET')) define('DB_CHARSET', 'utf8');\n" +
+				"if (!defined('DB_COLLATE')) define('DB_COLLATE', '');\n" +
+				'?>\n';
+
+			await writeFile( wpConfigPath, polyfill + configContent );
+		}
 	}
 
 	protected async importWpContent( rootPath: string ): Promise< void > {

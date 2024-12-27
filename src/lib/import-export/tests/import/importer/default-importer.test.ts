@@ -107,7 +107,7 @@ describe( 'JetpackImporter', () => {
 
 			expect( fs.mkdir ).toHaveBeenCalled();
 			expect( fs.copyFile ).toHaveBeenCalledTimes( 4 );
-			expect( fs.readFile ).not.toHaveBeenCalled();
+			expect( fs.readFile ).toHaveBeenCalledTimes( 1 );
 		} );
 
 		it( 'should handle JSON parse error in meta file', async () => {

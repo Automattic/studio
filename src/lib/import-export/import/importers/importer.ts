@@ -71,8 +71,8 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 				await this.safelyDeletePath( tmpPath );
 			}
 		}
+		await this.replaceOldUrl( siteId );
 
-		await this.replaceSiteUrl( siteId );
 		this.emit( ImportEvents.IMPORT_DATABASE_COMPLETE );
 	}
 
@@ -91,7 +91,7 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 		} );
 
 		if ( ! currentSiteUrl ) {
-			console.error( 'Failed to fetch site URL after import' );
+			console.error( 'Failed to fetch site URL' );
 			return;
 		}
 
@@ -115,6 +115,57 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 				`Error during replacing siteUrl ${ currentSiteUrl } -> ${ studioUrl }, Exit Code: ${ exitCode }`
 			);
 		}
+	}
+
+	protected async replaceOldUrl( siteId: string ) {
+		const server = SiteServer.get( siteId );
+		if ( ! server ) {
+			throw new Error( 'Site not found.' );
+		}
+
+		const { stdout: currentSiteUrl } = await server.executeWpCliCommand( `option get siteurl`, {
+			skipPluginsAndThemes: true,
+		} );
+
+		if ( ! currentSiteUrl ) {
+			console.error( 'Failed to fetch site URL' );
+			return;
+		}
+
+		const studioUrl = `http://localhost:${ server.details.port }`;
+		const oldUrl = currentSiteUrl.trim();
+		const oldUrlHttps = oldUrl.replace( 'http://', 'https://' );
+		const oldUrlHttp = oldUrl.replace( 'https://', 'http://' );
+
+		console.log( 'Starting URL replacement:' );
+		console.log( `Studio URL: ${ studioUrl }` );
+		console.log( `Original URLs to replace: ${ oldUrlHttp }, ${ oldUrlHttps }` );
+
+		// Replace both HTTP and HTTPS versions
+		for ( const urlToReplace of [ oldUrlHttps, oldUrlHttp ] ) {
+			console.log( `\nReplacing: ${ urlToReplace } → ${ studioUrl }` );
+
+			const { stdout, stderr, exitCode } = await server.executeWpCliCommand(
+				`search-replace '${ urlToReplace }' '${ studioUrl }' --all-tables --precise --include-columns=guid,post_content,post_excerpt,post_content_filtered,meta_value --report`,
+				{ skipPluginsAndThemes: true }
+			);
+
+			if ( stdout ) {
+				console.log( 'Replacement results:', stdout );
+			}
+
+			if ( stderr ) {
+				console.error( `Warning during replacing URLs (${ urlToReplace }): ${ stderr }` );
+			}
+
+			if ( exitCode ) {
+				console.error(
+					`Error during replacing URLs (${ urlToReplace }), Exit Code: ${ exitCode }`
+				);
+			}
+		}
+
+		console.log( '\nURL replacement completed' );
 	}
 
 	protected async safelyDeletePath( path: string ): Promise< void > {
@@ -295,6 +346,8 @@ export class PlaygroundImporter extends BaseBackupImporter {
 				overwrite: true,
 			} );
 		}
+
+		await this.replaceOldUrl( siteId );
 		await this.replaceSiteUrl( siteId );
 
 		this.emit( ImportEvents.IMPORT_DATABASE_COMPLETE );

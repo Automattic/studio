@@ -100,11 +100,6 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 		const oldUrlHttps = oldUrl.replace( 'http://', 'https://' );
 		const oldUrlHttp = oldUrl.replace( 'https://', 'http://' );
 
-		console.log( 'Starting URL replacement:' );
-		console.log( `Studio URL: ${ studioUrl }` );
-		console.log( `Original URLs to replace: ${ oldUrlHttp }, ${ oldUrlHttps }` );
-
-		// Replace all URLs including site URL in one go
 		for ( const urlToReplace of [ oldUrlHttps, oldUrlHttp ] ) {
 			const { stderr, exitCode } = await server.executeWpCliCommand(
 				`search-replace '${ urlToReplace }' '${ studioUrl }' wp_posts wp_postmeta wp_options`,

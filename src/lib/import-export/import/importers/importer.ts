@@ -71,7 +71,7 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 				await this.safelyDeletePath( tmpPath );
 			}
 		}
-		await this.replaceOldUrl( siteId );
+		await this.replaceSiteUrl( siteId );
 
 		this.emit( ImportEvents.IMPORT_DATABASE_COMPLETE );
 	}
@@ -91,44 +91,7 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 		} );
 
 		if ( ! currentSiteUrl ) {
-			console.error( 'Failed to fetch site URL' );
-			return;
-		}
-
-		const studioUrl = `http://localhost:${ server.details.port }`;
-
-		const { stderr, exitCode } = await server.executeWpCliCommand(
-			`search-replace '${ currentSiteUrl.trim() }' '${ studioUrl.trim() }'`,
-			{
-				skipPluginsAndThemes: true,
-			}
-		);
-
-		if ( stderr ) {
-			console.error(
-				`Warning during replacing siteUrl ${ currentSiteUrl } -> ${ studioUrl }: ${ stderr }`
-			);
-		}
-
-		if ( exitCode ) {
-			console.error(
-				`Error during replacing siteUrl ${ currentSiteUrl } -> ${ studioUrl }, Exit Code: ${ exitCode }`
-			);
-		}
-	}
-
-	protected async replaceOldUrl( siteId: string ) {
-		const server = SiteServer.get( siteId );
-		if ( ! server ) {
-			throw new Error( 'Site not found.' );
-		}
-
-		const { stdout: currentSiteUrl } = await server.executeWpCliCommand( `option get siteurl`, {
-			skipPluginsAndThemes: true,
-		} );
-
-		if ( ! currentSiteUrl ) {
-			console.error( 'Failed to fetch site URL' );
+			console.error( 'Failed to fetch site URL after import' );
 			return;
 		}
 
@@ -141,12 +104,12 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 		console.log( `Studio URL: ${ studioUrl }` );
 		console.log( `Original URLs to replace: ${ oldUrlHttp }, ${ oldUrlHttps }` );
 
-		// Replace both HTTP and HTTPS versions
+		// Replace all URLs including site URL in one go
 		for ( const urlToReplace of [ oldUrlHttps, oldUrlHttp ] ) {
 			console.log( `\nReplacing: ${ urlToReplace } → ${ studioUrl }` );
 
 			const { stdout, stderr, exitCode } = await server.executeWpCliCommand(
-				`search-replace '${ urlToReplace }' '${ studioUrl }' --all-tables --precise --include-columns=guid,post_content,post_excerpt,post_content_filtered,meta_value --report`,
+				`search-replace '${ urlToReplace }' '${ studioUrl }' wp_posts wp_postmeta wp_options --precise --report --report-changed-only`,
 				{ skipPluginsAndThemes: true }
 			);
 
@@ -164,6 +127,12 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 				);
 			}
 		}
+
+		// Verify the final site URL
+		const { stdout: finalSiteUrl } = await server.executeWpCliCommand( `option get siteurl`, {
+			skipPluginsAndThemes: true,
+		} );
+		console.log( '\nFinal site URL:', finalSiteUrl?.trim() );
 
 		console.log( '\nURL replacement completed' );
 	}
@@ -346,8 +315,6 @@ export class PlaygroundImporter extends BaseBackupImporter {
 				overwrite: true,
 			} );
 		}
-
-		await this.replaceOldUrl( siteId );
 		await this.replaceSiteUrl( siteId );
 
 		this.emit( ImportEvents.IMPORT_DATABASE_COMPLETE );

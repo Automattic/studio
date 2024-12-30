@@ -106,16 +106,10 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 
 		// Replace all URLs including site URL in one go
 		for ( const urlToReplace of [ oldUrlHttps, oldUrlHttp ] ) {
-			console.log( `\nReplacing: ${ urlToReplace } → ${ studioUrl }` );
-
-			const { stdout, stderr, exitCode } = await server.executeWpCliCommand(
-				`search-replace '${ urlToReplace }' '${ studioUrl }' wp_posts wp_postmeta wp_options --precise --report --report-changed-only`,
+			const { stderr, exitCode } = await server.executeWpCliCommand(
+				`search-replace '${ urlToReplace }' '${ studioUrl }' wp_posts wp_postmeta wp_options`,
 				{ skipPluginsAndThemes: true }
 			);
-
-			if ( stdout ) {
-				console.log( 'Replacement results:', stdout );
-			}
 
 			if ( stderr ) {
 				console.error( `Warning during replacing URLs (${ urlToReplace }): ${ stderr }` );
@@ -127,14 +121,6 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 				);
 			}
 		}
-
-		// Verify the final site URL
-		const { stdout: finalSiteUrl } = await server.executeWpCliCommand( `option get siteurl`, {
-			skipPluginsAndThemes: true,
-		} );
-		console.log( '\nFinal site URL:', finalSiteUrl?.trim() );
-
-		console.log( '\nURL replacement completed' );
 	}
 
 	protected async safelyDeletePath( path: string ): Promise< void > {

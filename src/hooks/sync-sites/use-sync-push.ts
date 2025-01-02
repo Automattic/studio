@@ -111,11 +111,12 @@ export function useSyncPush( {
 					message:
 						response.error === 'Import timed out'
 							? __(
-									"A timeout error occurred while pushing the site, likely due to its large size. Please try reducing the site's content or files and try again. If the problem persists, contact support."
+									"A timeout error occurred while pushing the site, likely due to its large size. Please try reducing the site's content or files and try again. If this problem persists, please contact support."
 							  )
 							: __(
 									'An error occurred while pushing the site. If this problem persists, please contact support.'
 							  ),
+					showOpenLogs: true,
 				} );
 			}
 			// Update state in any case to keep polling push state
@@ -179,6 +180,7 @@ export function useSyncPush( {
 						'An error occurred while pushing the site. If this problem persists, please contact support.'
 					),
 					error,
+					showOpenLogs: true,
 				} );
 				return;
 			}

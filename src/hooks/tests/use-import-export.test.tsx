@@ -90,6 +90,7 @@ describe( 'useImportExport hook', () => {
 			message:
 				'An error occurred while exporting the site. If this problem persists, please contact support.',
 			error: 'error',
+			showOpenLogs: true,
 		} );
 	} );
 
@@ -244,6 +245,7 @@ describe( 'useImportExport hook', () => {
 			message:
 				'An error occurred while importing the site. Verify the file is a valid Jetpack backup, Local, Playground, .wpress or .sql database file and try again. If this problem persists, please contact support.',
 			error: 'error',
+			showOpenLogs: true,
 		} );
 	} );
 

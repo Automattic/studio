@@ -191,8 +191,8 @@ const ImportSite = ( {
 			return;
 		}
 		importConfirmation( async () => {
-			await importFile( file, selectedSite );
 			clearImportFileInput();
+			await importFile( file, selectedSite );
 		} );
 	};
 	const openSite = async () => {

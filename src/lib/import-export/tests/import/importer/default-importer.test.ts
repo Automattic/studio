@@ -79,11 +79,11 @@ describe( 'JetpackImporter', () => {
 			const expectedCommand =
 				'sqlite import studio-backup-sql-2024-08-01-12-00-00.sql --require=/tmp/sqlite-command/command.php';
 			expect( siteServer?.executeWpCliCommand ).toHaveBeenNthCalledWith( 1, expectedCommand, {
-				targetPhpVersion: '8.1',
+				targetPhpVersion: '8.2',
 				skipPluginsAndThemes: true,
 			} );
 			expect( siteServer?.executeWpCliCommand ).toHaveBeenNthCalledWith( 2, expectedCommand, {
-				targetPhpVersion: '8.1',
+				targetPhpVersion: '8.2',
 				skipPluginsAndThemes: true,
 			} );
 

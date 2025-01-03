@@ -56,7 +56,7 @@ describe( 'createSite', () => {
 			id: expect.any( String ),
 			name: 'Test',
 			path: '/test',
-			phpVersion: '8.1',
+			phpVersion: '8.2',
 			running: false,
 		} );
 	} );

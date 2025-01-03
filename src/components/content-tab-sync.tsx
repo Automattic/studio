@@ -8,7 +8,7 @@ import { useOffline } from '../hooks/use-offline';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { ArrowIcon } from './arrow-icon';
 import Button from './button';
-import { ConnectButton, CreateButton } from './connect-create-buttons';
+import { ConnectButton } from './connect-create-buttons';
 import offlineIcon from './offline-icon';
 import { SyncConnectedSites } from './sync-connected-sites';
 import { SyncSitesModalSelector } from './sync-sites-modal-selector';
@@ -54,11 +54,9 @@ function SiteSyncDescription( { children }: PropsWithChildren ) {
 
 function CreateConnectSite( {
 	openSitesSyncSelector,
-	selectedSite,
 }: {
 	className?: string;
 	openSitesSyncSelector: () => void;
-	selectedSite: SiteDetails;
 } ) {
 	const { __ } = useI18n();
 
@@ -70,7 +68,6 @@ function CreateConnectSite( {
 					connectSite={ openSitesSyncSelector }
 					disableConnectButtonStyle={ true }
 				/>
-				<CreateButton variant="secondary" selectedSite={ selectedSite } />
 			</div>
 		</div>
 	);
@@ -178,10 +175,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 				/>
 			) : (
 				<SiteSyncDescription>
-					<CreateConnectSite
-						openSitesSyncSelector={ () => setIsSyncSitesSelectorOpen( true ) }
-						selectedSite={ selectedSite }
-					/>
+					<CreateConnectSite openSitesSyncSelector={ () => setIsSyncSitesSelectorOpen( true ) } />
 				</SiteSyncDescription>
 			) }
 

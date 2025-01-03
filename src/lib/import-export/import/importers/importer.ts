@@ -97,10 +97,11 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 
 		const studioUrl = `http://localhost:${ server.details.port }`;
 		const oldUrl = currentSiteUrl.trim();
-		const oldUrlHttps = oldUrl.replace( 'http://', 'https://' );
-		const oldUrlHttp = oldUrl.replace( 'https://', 'http://' );
+		const urlWithoutProtocol = oldUrl.replace( /^https?:\/\//, '' );
 
-		for ( const urlToReplace of [ oldUrlHttps, oldUrlHttp ] ) {
+		const oldUrlVariants = [ `http://${ urlWithoutProtocol }`, `https://${ urlWithoutProtocol }` ];
+
+		for ( const urlToReplace of oldUrlVariants ) {
 			const { stderr, exitCode } = await server.executeWpCliCommand(
 				`search-replace '${ urlToReplace }' '${ studioUrl }'`,
 				{ skipPluginsAndThemes: true }

@@ -1,3 +1,11 @@
+1.3.0
+=====
+* Introduced Sync to WordPress.com Studio feature
+* Updated default PHP version to 8.2 #767
+* Improved spacing and position for elements in RTL languages #757, #759
+* Improved logs display across the app #756, #765
+* Minor UI fixes #701, #720, #721, #722
+
 1.2.2
 =====
 * Disabled Jetpack Protect to fix auto-login for Sites that use Jetpack #658

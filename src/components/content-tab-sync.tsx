@@ -52,27 +52,6 @@ function SiteSyncDescription( { children }: PropsWithChildren ) {
 	);
 }
 
-function CreateConnectSite( {
-	openSitesSyncSelector,
-}: {
-	className?: string;
-	openSitesSyncSelector: () => void;
-} ) {
-	const { __ } = useI18n();
-
-	return (
-		<div className="mt-8">
-			<div className="flex gap-4">
-				<ConnectButton
-					variant="primary"
-					connectSite={ openSitesSyncSelector }
-					disableConnectButtonStyle={ true }
-				/>
-			</div>
-		</div>
-	);
-}
-
 function NoAuthSyncTab() {
 	const isOffline = useOffline();
 	const { __ } = useI18n();
@@ -175,7 +154,13 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 				/>
 			) : (
 				<SiteSyncDescription>
-					<CreateConnectSite openSitesSyncSelector={ () => setIsSyncSitesSelectorOpen( true ) } />
+					<div className="mt-8">
+						<ConnectButton
+							variant="primary"
+							connectSite={ () => setIsSyncSitesSelectorOpen( true ) }
+							disableConnectButtonStyle={ true }
+						/>
+					</div>
 				</SiteSyncDescription>
 			) }
 

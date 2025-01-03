@@ -102,7 +102,7 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 
 		for ( const urlToReplace of [ oldUrlHttps, oldUrlHttp ] ) {
 			const { stderr, exitCode } = await server.executeWpCliCommand(
-				`search-replace '${ urlToReplace }' '${ studioUrl }' wp_posts wp_postmeta wp_options`,
+				`search-replace '${ urlToReplace }' '${ studioUrl }'`,
 				{ skipPluginsAndThemes: true }
 			);
 

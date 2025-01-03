@@ -68,7 +68,7 @@ export const CreateButton = ( {
 			<Button
 				onClick={ () => {
 					getIpcApi().openURL(
-						`https://wordpress.com/setup/new-hosted-site?ref=studio&section=studio-sync&studioSiteId=${ selectedSite.id }`
+						`https://wordpress.com/setup/new-hosted-site?ref=studio&section=studio-sync&showDomainStep&studioSiteId=${ selectedSite.id }`
 					);
 				} }
 				variant={ variant }

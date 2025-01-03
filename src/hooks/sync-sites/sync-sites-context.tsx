@@ -73,24 +73,34 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 		[ connectedSites ]
 	);
 
-	const { pullSite, isAnySitePulling, isSiteIdPulling, clearPullState, getPullState } = useSyncPull(
-		{
-			pullStates,
-			setPullStates,
-			onPullSuccess: ( remoteSiteId, localSiteId ) =>
-				updateSiteTimestamp( remoteSiteId, localSiteId, 'pull' ),
-		}
-	);
+	const {
+		pullSite,
+		isAnySitePulling,
+		isSiteIdPulling,
+		clearPullState,
+		getPullState,
+		clearAllPullStates,
+	} = useSyncPull( {
+		pullStates,
+		setPullStates,
+		onPullSuccess: ( remoteSiteId, localSiteId ) =>
+			updateSiteTimestamp( remoteSiteId, localSiteId, 'pull' ),
+	} );
 
 	const [ pushStates, setPushStates ] = useState< PushStates >( {} );
-	const { pushSite, isAnySitePushing, isSiteIdPushing, clearPushState, getPushState } = useSyncPush(
-		{
-			pushStates,
-			setPushStates,
-			onPushSuccess: ( remoteSiteId, localSiteId ) =>
-				updateSiteTimestamp( remoteSiteId, localSiteId, 'push' ),
-		}
-	);
+	const {
+		pushSite,
+		isAnySitePushing,
+		isSiteIdPushing,
+		clearPushState,
+		getPushState,
+		clearAllPushStates,
+	} = useSyncPush( {
+		pushStates,
+		setPushStates,
+		onPushSuccess: ( remoteSiteId, localSiteId ) =>
+			updateSiteTimestamp( remoteSiteId, localSiteId, 'push' ),
+	} );
 
 	const { connectSite, disconnectSite, syncSites, isFetching, refetchSites } =
 		useSiteSyncManagement( { connectedSites, setConnectedSites } );
@@ -117,6 +127,8 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 				isSiteIdPushing,
 				clearPushState,
 				getLastSyncTimeText,
+				clearAllPullStates,
+				clearAllPushStates,
 			} }
 		>
 			{ children }

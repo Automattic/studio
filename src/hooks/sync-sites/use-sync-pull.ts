@@ -43,6 +43,7 @@ export type UseSyncPull = {
 	isAnySitePulling: boolean;
 	isSiteIdPulling: IsSiteIdPulling;
 	clearPullState: ClearState;
+	clearAllPullStates: () => void;
 };
 
 export function useSyncPull( {
@@ -59,6 +60,7 @@ export function useSyncPull( {
 		updateState,
 		getState: getPullState,
 		clearState,
+		clearAllStates,
 	} = usePullPushStates< SyncBackupState >( pullStates, setPullStates );
 
 	const updatePullState = useCallback< UpdateState< SyncBackupState > >(
@@ -102,7 +104,7 @@ export function useSyncPull( {
 
 			try {
 				const response = await client.req.post< { success: boolean; backup_id: string } >( {
-					path: `/sites/${ remoteSiteId }/studio-app/sync/backup`,
+					path: `/sites123123/${ remoteSiteId }/studio-app/sync/backup`,
 					apiNamespace: 'wpcom/v2',
 				} );
 
@@ -262,5 +264,13 @@ export function useSyncPull( {
 		[ pullStates, isKeyPulling ]
 	);
 
-	return { pullStates, getPullState, pullSite, isAnySitePulling, isSiteIdPulling, clearPullState };
+	return {
+		pullStates,
+		getPullState,
+		pullSite,
+		isAnySitePulling,
+		isSiteIdPulling,
+		clearPullState,
+		clearAllPullStates: clearAllStates,
+	};
 }

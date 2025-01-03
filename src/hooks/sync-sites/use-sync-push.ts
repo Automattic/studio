@@ -40,6 +40,7 @@ export type UseSyncPush = {
 	isAnySitePushing: boolean;
 	isSiteIdPushing: IsSiteIdPushing;
 	clearPushState: ClearState;
+	clearAllPushStates: () => void;
 };
 
 export function useSyncPush( {
@@ -53,6 +54,7 @@ export function useSyncPush( {
 		updateState,
 		getState: getPushState,
 		clearState,
+		clearAllStates,
 	} = usePullPushStates< SyncPushState >( pushStates, setPushStates );
 	const { pushStatesProgressInfo, isKeyPushing, isKeyFinished, isKeyFailed } =
 		useSyncStatesProgressInfo();
@@ -271,5 +273,13 @@ export function useSyncPush( {
 		[ pushStates, isKeyPushing ]
 	);
 
-	return { pushStates, getPushState, pushSite, isAnySitePushing, isSiteIdPushing, clearPushState };
+	return {
+		pushStates,
+		getPushState,
+		pushSite,
+		isAnySitePushing,
+		isSiteIdPushing,
+		clearPushState,
+		clearAllPushStates: clearAllStates,
+	};
 }

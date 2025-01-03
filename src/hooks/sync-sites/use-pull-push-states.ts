@@ -16,6 +16,7 @@ export type UsePullPushStates< T > = {
 	updateState: UpdateState< T >;
 	getState: GetState< T >;
 	clearState: ClearState;
+	clearAllStates: () => void;
 };
 
 export function usePullPushStates< T >(
@@ -53,5 +54,9 @@ export function usePullPushStates< T >(
 		[ setStates ]
 	);
 
-	return { updateState, getState, clearState };
+	const clearAllStates = useCallback( () => {
+		setStates( {} );
+	}, [ setStates ] );
+
+	return { updateState, getState, clearState, clearAllStates };
 }

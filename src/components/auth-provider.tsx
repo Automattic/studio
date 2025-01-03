@@ -1,6 +1,7 @@
 import * as Sentry from '@sentry/electron/renderer';
 import { createContext, useState, useEffect, useMemo, useCallback, ReactNode } from 'react';
 import WPCOM from 'wpcom';
+import { useSyncSites } from '../hooks/sync-sites/sync-sites-context';
 import { useI18nData } from '../hooks/use-i18n-data';
 import { useIpcListener } from '../hooks/use-ipc-listener';
 import { getIpcApi } from '../lib/get-ipc-api';
@@ -33,6 +34,7 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 	const [ isAuthenticated, setIsAuthenticated ] = useState( false );
 	const [ client, setClient ] = useState< WPCOM | undefined >( undefined );
 	const [ user, setUser ] = useState< AuthContextType[ 'user' ] >( undefined );
+	const { clearAllPullStates, clearAllPushStates } = useSyncSites();
 	const { locale } = useI18nData();
 
 	const authenticate = getIpcApi().authenticate;
@@ -58,11 +60,13 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 			setIsAuthenticated( false );
 			setClient( undefined );
 			setUser( undefined );
+			clearAllPullStates();
+			clearAllPushStates();
 		} catch ( err ) {
 			console.error( err );
 			Sentry.captureException( err );
 		}
-	}, [] );
+	}, [ clearAllPullStates, clearAllPushStates ] );
 
 	useEffect( () => {
 		async function run() {

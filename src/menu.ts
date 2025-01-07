@@ -57,8 +57,10 @@ function getAppMenu(
 		},
 		{
 			label: __( 'Test Render Failure (dev only)' ),
-			click: ( menuItem, browserWindow ) => {
-				browserWindow?.webContents.send( 'test-render-failure' );
+			click: () => {
+				withMainWindow( ( window ) => {
+					window.webContents.send( 'test-render-failure' );
+				} );
 			},
 		},
 	];

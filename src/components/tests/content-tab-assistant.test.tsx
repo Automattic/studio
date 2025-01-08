@@ -1,20 +1,21 @@
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { useAuth } from '../../hooks/use-auth';
-import { ChatInputProvider } from '../../hooks/use-chat-input';
+import { ChatProvider } from '../../hooks/use-chat-context';
+import { useGetWpVersion } from '../../hooks/use-get-wp-version';
 import { useOffline } from '../../hooks/use-offline';
 import { usePromptUsage } from '../../hooks/use-prompt-usage';
+import { ThemeDetailsProvider } from '../../hooks/use-theme-details';
 import { useWelcomeMessages } from '../../hooks/use-welcome-messages';
 import { getIpcApi } from '../../lib/get-ipc-api';
 import { ContentTabAssistant, MIMIC_CONVERSATION_DELAY } from '../content-tab-assistant';
 
-jest.mock( '../../hooks/use-theme-details' );
 jest.mock( '../../hooks/use-auth' );
 jest.mock( '../../hooks/use-welcome-messages' );
 jest.mock( '../../hooks/use-offline' );
 jest.mock( '../../hooks/use-prompt-usage' );
-jest.mock( '../../hooks/use-prompt-usage' );
 jest.mock( '../../lib/get-ipc-api' );
+jest.mock( '../../hooks/use-get-wp-version' );
 
 jest.mock( '../../lib/app-globals', () => ( {
 	getAppGlobals: () => ( {
@@ -45,6 +46,16 @@ const initialMessages = [
 	{ id: 0, content: 'Initial message 1', role: 'user' },
 	{ id: 1, content: 'Initial message 2', role: 'assistant' },
 ];
+
+function ContextWrapper( props: Parameters< typeof ContentTabAssistant >[ 0 ] ) {
+	return (
+		<ThemeDetailsProvider>
+			<ChatProvider>
+				<ContentTabAssistant { ...props } />
+			</ChatProvider>
+		</ThemeDetailsProvider>
+	);
+}
 
 describe( 'ContentTabAssistant', () => {
 	const clientReqPost = jest.fn().mockResolvedValue( {
@@ -90,10 +101,15 @@ describe( 'ContentTabAssistant', () => {
 		} );
 		( useOffline as jest.Mock ).mockReturnValue( false );
 		( usePromptUsage as jest.Mock ).mockReturnValue( { userCanSendMessage: true } );
+		( getIpcApi as jest.Mock ).mockReturnValue( {
+			showMessageBox: jest.fn().mockResolvedValue( { response: 0, checkboxChecked: false } ),
+			executeWPCLiInline: jest.fn().mockResolvedValue( { stdout: '', stderr: 'Error' } ),
+		} );
+		( useGetWpVersion as jest.Mock ).mockReturnValue( '6.4.3' );
 	} );
 
 	test( 'renders placeholder text input', () => {
-		render( <ContentTabAssistant selectedSite={ runningSite } /> );
+		render( <ContextWrapper selectedSite={ runningSite } /> );
 		const textInput = getInput();
 		expect( textInput ).toBeVisible();
 		expect( textInput ).toBeEnabled();
@@ -101,7 +117,7 @@ describe( 'ContentTabAssistant', () => {
 	} );
 
 	test( 'renders guideline section', () => {
-		render( <ContentTabAssistant selectedSite={ runningSite } /> );
+		render( <ContextWrapper selectedSite={ runningSite } /> );
 		const guideLines = getGuidelinesLink();
 		expect( guideLines ).toBeVisible();
 		expect( guideLines ).toHaveTextContent( 'Powered by experimental AI. Learn more' );
@@ -110,7 +126,7 @@ describe( 'ContentTabAssistant', () => {
 	test( 'saves and retrieves conversation from localStorage', async () => {
 		const storageKey = 'ai_chat_messages';
 		localStorage.setItem( storageKey, JSON.stringify( { [ runningSite.id ]: initialMessages } ) );
-		render( <ContentTabAssistant selectedSite={ runningSite } /> );
+		render( <ContextWrapper selectedSite={ runningSite } /> );
 		await waitFor( () => {
 			expect( screen.getByText( 'Initial message 1' ) ).toBeVisible();
 			expect( screen.getByText( 'Initial message 2' ) ).toBeVisible();
@@ -143,7 +159,7 @@ describe( 'ContentTabAssistant', () => {
 			isAuthenticated: false,
 			authenticate,
 		} );
-		render( <ContentTabAssistant selectedSite={ runningSite } /> );
+		render( <ContextWrapper selectedSite={ runningSite } /> );
 
 		await waitFor( () => {
 			expect( screen.getByText( 'Hold up!' ) ).toBeVisible();
@@ -165,7 +181,7 @@ describe( 'ContentTabAssistant', () => {
 		} );
 		( useOffline as jest.Mock ).mockReturnValue( true );
 
-		render( <ContentTabAssistant selectedSite={ runningSite } /> );
+		render( <ContextWrapper selectedSite={ runningSite } /> );
 		expect( screen.queryByText( 'Hold up!' ) ).not.toBeInTheDocument();
 		expect(
 			screen.queryByText( 'You need to log in to your WordPress.com account to use the assistant.' )
@@ -183,7 +199,7 @@ describe( 'ContentTabAssistant', () => {
 			isAuthenticated: false,
 			authenticate,
 		} );
-		render( <ContentTabAssistant selectedSite={ runningSite } /> );
+		render( <ContextWrapper selectedSite={ runningSite } /> );
 
 		await waitFor( () => {
 			const loginButton = screen.getByRole( 'button', { name: 'Log in to WordPress.com' } );
@@ -208,7 +224,7 @@ describe( 'ContentTabAssistant', () => {
 			authenticate,
 			user: user1,
 		} );
-		const { rerender } = render( <ContentTabAssistant selectedSite={ runningSite } /> );
+		const { rerender } = render( <ContextWrapper selectedSite={ runningSite } /> );
 
 		const textInput = getInput();
 		act( () => {
@@ -231,7 +247,7 @@ describe( 'ContentTabAssistant', () => {
 			user: user2,
 		} );
 
-		rerender( <ContentTabAssistant selectedSite={ runningSite } /> );
+		rerender( <ContextWrapper selectedSite={ runningSite } /> );
 
 		await waitFor(
 			() => {
@@ -251,7 +267,7 @@ describe( 'ContentTabAssistant', () => {
 			isAuthenticated: false,
 			authenticate,
 		} );
-		render( <ContentTabAssistant selectedSite={ runningSite } /> );
+		render( <ContextWrapper selectedSite={ runningSite } /> );
 
 		expect( screen.getByTestId( 'unauthenticated-header' ) ).toHaveTextContent( 'Hold up!' );
 
@@ -259,7 +275,7 @@ describe( 'ContentTabAssistant', () => {
 	} );
 
 	test( 'renders Welcome messages and example prompts when the conversation is starts', () => {
-		render( <ContentTabAssistant selectedSite={ runningSite } /> );
+		render( <ContextWrapper selectedSite={ runningSite } /> );
 		expect( screen.getByText( 'Welcome to our service!' ) ).toBeVisible();
 		expect( screen.getByText( 'How to create a WordPress site' ) ).toBeVisible();
 		expect( screen.getByText( 'How to clear cache' ) ).toBeVisible();
@@ -269,7 +285,7 @@ describe( 'ContentTabAssistant', () => {
 	test( 'renders Welcome messages and example prompts when offline', () => {
 		( useOffline as jest.Mock ).mockReturnValue( true );
 
-		render( <ContentTabAssistant selectedSite={ runningSite } /> );
+		render( <ContextWrapper selectedSite={ runningSite } /> );
 		expect( screen.getByText( 'Welcome to our service!' ) ).toBeVisible();
 		expect( screen.getByText( 'How to create a WordPress site' ) ).toBeVisible();
 		expect( screen.getByText( 'How to clear cache' ) ).toBeVisible();
@@ -280,7 +296,7 @@ describe( 'ContentTabAssistant', () => {
 	test( 'should manage the focus state when selecting an example prompt', async () => {
 		jest.useRealTimers();
 		const user = userEvent.setup();
-		render( <ContentTabAssistant selectedSite={ runningSite } /> );
+		render( <ContextWrapper selectedSite={ runningSite } /> );
 
 		let textInput = getInput();
 		await user.type( textInput, '[Tab]' );
@@ -297,7 +313,7 @@ describe( 'ContentTabAssistant', () => {
 	} );
 
 	test( 'renders the selected prompt of Welcome messages and confirms other prompts are removed', async () => {
-		render( <ContentTabAssistant selectedSite={ runningSite } /> );
+		render( <ContextWrapper selectedSite={ runningSite } /> );
 
 		await waitFor( () => {
 			expect( screen.getByText( 'Welcome to our service!' ) ).toBeInTheDocument();
@@ -343,7 +359,12 @@ describe( 'ContentTabAssistant', () => {
 			} )
 		);
 
-		render( <ContentTabAssistant selectedSite={ runningSite } /> );
+		( getIpcApi as jest.Mock ).mockReturnValue( {
+			showMessageBox: jest.fn().mockResolvedValue( { response: 0, checkboxChecked: false } ),
+			executeWPCLiInline: jest.fn().mockResolvedValue( { stdout: '', stderr: 'Error' } ),
+		} );
+
+		render( <ContextWrapper selectedSite={ runningSite } /> );
 
 		await waitFor(
 			() => {
@@ -357,9 +378,6 @@ describe( 'ContentTabAssistant', () => {
 			{ timeout: MIMIC_CONVERSATION_DELAY + 1000 }
 		);
 
-		( getIpcApi as jest.Mock ).mockReturnValue( {
-			showMessageBox: jest.fn().mockResolvedValue( { response: 0, checkboxChecked: false } ),
-		} );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Clear the history' } ) );
 		await waitFor(
 			() => {
@@ -384,7 +402,7 @@ describe( 'ContentTabAssistant', () => {
 			} )
 		);
 
-		const { rerender } = render( <ContentTabAssistant selectedSite={ runningSite } /> );
+		const { rerender } = render( <ContextWrapper selectedSite={ runningSite } /> );
 		await waitFor(
 			() => {
 				expect( screen.getByText( 'Welcome to our service!' ) ).toBeVisible();
@@ -401,7 +419,7 @@ describe( 'ContentTabAssistant', () => {
 			userCanSendMessage: false,
 			daysUntilReset: 4,
 		} );
-		rerender( <ContentTabAssistant selectedSite={ runningSite } /> );
+		rerender( <ContextWrapper selectedSite={ runningSite } /> );
 		expect(
 			screen.getByText( 'Your limit will reset in 4 days.', { exact: false } )
 		).toBeVisible();
@@ -410,7 +428,7 @@ describe( 'ContentTabAssistant', () => {
 		).not.toBeInTheDocument();
 
 		( useOffline as jest.Mock ).mockReturnValue( true );
-		rerender( <ContentTabAssistant selectedSite={ runningSite } /> );
+		rerender( <ContextWrapper selectedSite={ runningSite } /> );
 		expect( screen.getByText( 'The AI assistant requires an internet connection.' ) ).toBeVisible();
 		expect(
 			screen.queryByText( 'Your limit will reset in 4 days.', { exact: false } )
@@ -427,11 +445,7 @@ describe( 'ContentTabAssistant', () => {
 			name: 'Another Test Site',
 		};
 
-		const { rerender } = render(
-			<ChatInputProvider>
-				<ContentTabAssistant selectedSite={ runningSite } />
-			</ChatInputProvider>
-		);
+		const { rerender } = render( <ContextWrapper selectedSite={ runningSite } /> );
 
 		// Input should be empty initially
 		expect( getInput() ).toHaveValue( '' );
@@ -441,11 +455,7 @@ describe( 'ContentTabAssistant', () => {
 		expect( getInput() ).toHaveValue( 'New message' );
 
 		// Changing to second site should reset the input
-		rerender(
-			<ChatInputProvider>
-				<ContentTabAssistant selectedSite={ anotherSite } />
-			</ChatInputProvider>
-		);
+		rerender( <ContextWrapper selectedSite={ anotherSite } /> );
 		expect( getInput() ).toHaveValue( '' );
 
 		// Input is updated for the second site
@@ -453,19 +463,11 @@ describe( 'ContentTabAssistant', () => {
 		expect( getInput() ).toHaveValue( 'Another message' );
 
 		// Changing to the first site should restore the input
-		rerender(
-			<ChatInputProvider>
-				<ContentTabAssistant selectedSite={ runningSite } />
-			</ChatInputProvider>
-		);
+		rerender( <ContextWrapper selectedSite={ runningSite } /> );
 		expect( getInput() ).toHaveValue( 'New message' );
 
 		// Changing to the second site should restore the input
-		rerender(
-			<ChatInputProvider>
-				<ContentTabAssistant selectedSite={ anotherSite } />
-			</ChatInputProvider>
-		);
+		rerender( <ContextWrapper selectedSite={ anotherSite } /> );
 		expect( getInput() ).toHaveValue( 'Another message' );
 	} );
 } );

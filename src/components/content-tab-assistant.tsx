@@ -12,7 +12,6 @@ import { useAssistant, Message as MessageType } from '../hooks/use-assistant';
 import { useAssistantApi } from '../hooks/use-assistant-api';
 import { useAuth } from '../hooks/use-auth';
 import { useChatContext } from '../hooks/use-chat-context';
-import { useChatInputContext } from '../hooks/use-chat-input';
 import { useOffline } from '../hooks/use-offline';
 import { usePromptUsage } from '../hooks/use-prompt-usage';
 import { useWelcomeMessages } from '../hooks/use-welcome-messages';
@@ -349,7 +348,7 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
 	const inputRef = useRef< HTMLTextAreaElement >( null );
-	const currentSiteChatContext = useChatContext();
+	const chatContext = useChatContext();
 	const { isAuthenticated, authenticate, user } = useAuth();
 	const instanceId = user?.id ? `${ user.id }_${ selectedSite.id }` : selectedSite.id;
 	const {
@@ -364,7 +363,6 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const { userCanSendMessage } = usePromptUsage();
 	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi( selectedSite.id );
 	const { messages: welcomeMessages, examplePrompts } = useWelcomeMessages();
-	const { getChatInput, saveChatInput } = useChatInputContext();
 	const [ currentInput, setCurrentInput ] = useState( '' );
 	const isOffline = useOffline();
 	const { __ } = useI18n();
@@ -373,16 +371,16 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 
 	// Restore prompt input when site changes
 	useEffect( () => {
-		setCurrentInput( getChatInput( selectedSite.id ) );
-	}, [ selectedSite.id, getChatInput ] );
+		setCurrentInput( chatContext.getChatInput( selectedSite.id ) );
+	}, [ selectedSite.id, chatContext ] );
 
 	// Save prompt input when it changes
 	const setInput = useCallback(
 		( input: string ) => {
-			saveChatInput( input, selectedSite.id );
+			chatContext.saveChatInput( input, selectedSite.id );
 			setCurrentInput( input );
 		},
-		[ selectedSite.id, saveChatInput ]
+		[ selectedSite.id, chatContext ]
 	);
 
 	const submitPrompt = useCallback(
@@ -418,7 +416,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 							...messages,
 							{ id: messageId, content: chatMessage, role: 'user', createdAt: Date.now() },
 						],
-						currentSiteChatContext
+						chatContext
 					);
 					if ( message ) {
 						addMessage( message, 'assistant', chatId ?? fetchedChatId, messageApiId );
@@ -430,15 +428,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 				}
 			}
 		},
-		[
-			addMessage,
-			chatId,
-			currentSiteChatContext,
-			fetchAssistant,
-			markMessageAsFailed,
-			messages,
-			setInput,
-		]
+		[ addMessage, chatId, chatContext, fetchAssistant, markMessageAsFailed, messages, setInput ]
 	);
 
 	// Submit prompt input when the user clicks the send button

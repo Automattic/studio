@@ -1,6 +1,5 @@
 import { SyncSitesProvider } from '../hooks/sync-sites/sync-sites-context';
 import { ChatProvider } from '../hooks/use-chat-context';
-import { ChatInputProvider } from '../hooks/use-chat-input';
 import { InstalledAppsProvider } from '../hooks/use-check-installed-apps';
 import { ContentTabsProvider } from '../hooks/use-content-tabs';
 import { FeatureFlagsProvider } from '../hooks/use-feature-flags';
@@ -33,13 +32,11 @@ const Root = () => {
 												<PromptUsageProvider>
 													<ChatProvider>
 														<ImportExportProvider>
-															<ChatInputProvider>
-																<ContentTabsProvider>
-																	<SyncSitesProvider>
-																		<App />
-																	</SyncSitesProvider>
-																</ContentTabsProvider>
-															</ChatInputProvider>
+															<ContentTabsProvider>
+																<SyncSitesProvider>
+																	<App />
+																</SyncSitesProvider>
+															</ContentTabsProvider>
 														</ImportExportProvider>
 													</ChatProvider>
 												</PromptUsageProvider>

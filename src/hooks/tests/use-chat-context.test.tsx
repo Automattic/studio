@@ -102,6 +102,8 @@ describe( 'useChatContext hook', () => {
 				availableEditors: [],
 				siteName: 'Test Site',
 				os: 'darwin',
+				getChatInput: expect.any( Function ),
+				saveChatInput: expect.any( Function ),
 			} );
 		} );
 
@@ -210,6 +212,8 @@ describe( 'useChatContext hook', () => {
 				availableEditors: [],
 				siteName: 'Another Test Site',
 				os: 'darwin',
+				getChatInput: expect.any( Function ),
+				saveChatInput: expect.any( Function ),
 			} );
 		} );
 
@@ -366,6 +370,8 @@ describe( 'useChatContext hook', () => {
 				availableEditors: [],
 				siteName: 'New Test Site',
 				os: 'darwin',
+				getChatInput: expect.any( Function ),
+				saveChatInput: expect.any( Function ),
 			} );
 		} );
 
@@ -500,6 +506,25 @@ describe( 'useChatContext hook', () => {
 			} );
 
 			expect( getIpcApi().executeWPCLiInline ).not.toHaveBeenCalled();
+		} );
+	} );
+
+	describe( 'chat input functionality', () => {
+		it( 'saves and retrieves chat input by site', () => {
+			const { result } = renderHook( () => useChatContext(), { wrapper } );
+
+			act( () => {
+				result.current.saveChatInput( 'test input 1', 'site-1' );
+				result.current.saveChatInput( 'test input 2', 'site-2' );
+			} );
+
+			expect( result.current.getChatInput( 'site-1' ) ).toBe( 'test input 1' );
+			expect( result.current.getChatInput( 'site-2' ) ).toBe( 'test input 2' );
+		} );
+
+		it( 'returns empty string for non-existent site input', () => {
+			const { result } = renderHook( () => useChatContext(), { wrapper } );
+			expect( result.current.getChatInput( 'non-existent-site' ) ).toBe( '' );
 		} );
 	} );
 } );

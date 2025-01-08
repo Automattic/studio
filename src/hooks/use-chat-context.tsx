@@ -170,6 +170,9 @@ export const ChatProvider: React.FC< ChatProviderProps > = ( { children } ) => {
 		if ( storedMessages ) {
 			const parsedMessages: MessageDict = JSON.parse( storedMessages );
 			setMessagesDict( parsedMessages );
+			Object.entries( parsedMessages ).forEach( ( [ key, messages ] ) => {
+				nextMessageIdRef.current[ key ] = messages.length - 1;
+			} );
 		}
 	}, [] );
 

@@ -166,7 +166,7 @@ export const useAssistant = ( instanceId: string ) => {
 			localStorage.setItem( CHAT_ID_STORE_KEY, JSON.stringify( rest ) );
 			return rest;
 		} );
-		nextMessageIdRef.current[ instanceId ] = 0;
+		nextMessageIdRef.current[ instanceId ] = -1;
 	}, [ instanceId, setMessagesDict, setChatIdDict ] );
 
 	return {

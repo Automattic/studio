@@ -56,6 +56,8 @@ export interface ChatContextType {
 	chatIdDict: ChatIdDict;
 	setChatIdDict: React.Dispatch< React.SetStateAction< ChatIdDict > >;
 	nextMessageIdRef: React.MutableRefObject< { [ key: string ]: number } >;
+	isLoadingDict: Record< string, boolean >;
+	setIsLoadingDict: React.Dispatch< React.SetStateAction< Record< string, boolean > > >;
 }
 
 const ChatContext = createContext< ChatContextType >( {
@@ -83,6 +85,10 @@ const ChatContext = createContext< ChatContextType >( {
 		// noop
 	},
 	nextMessageIdRef: { current: {} },
+	isLoadingDict: {},
+	setIsLoadingDict: () => {
+		// noop
+	},
 } );
 
 const parseWpCliOutput = ( stdout: string, defaultValue: string[] ): string[] => {
@@ -116,6 +122,7 @@ export const ChatProvider: React.FC< ChatProviderProps > = ( { children } ) => {
 
 	const [ messagesDict, setMessagesDict ] = useState< MessageDict >( {} );
 	const [ chatIdDict, setChatIdDict ] = useState< ChatIdDict >( {} );
+	const [ isLoadingDict, setIsLoadingDict ] = useState< Record< string, boolean > >( {} );
 
 	const numberOfSites = sites?.length || 0;
 	const sitePort = selectedSite?.port || '';
@@ -240,6 +247,8 @@ export const ChatProvider: React.FC< ChatProviderProps > = ( { children } ) => {
 				themeList: selectedSite?.id ? themesList[ selectedSite.id ] || [] : [],
 				themeName: themeDetails?.name,
 				wpVersion,
+				isLoadingDict,
+				setIsLoadingDict,
 			} }
 		>
 			{ children }

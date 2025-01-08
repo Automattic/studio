@@ -1,7 +1,7 @@
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 import { Message } from './use-assistant';
 import { useAuth } from './use-auth';
-import { ChatContextType } from './use-chat-context';
+import { ChatContextType, useChatContext } from './use-chat-context';
 import { usePromptUsage } from './use-prompt-usage';
 
 const contextMapper = ( context?: ChatContextType ) => {
@@ -25,9 +25,7 @@ const contextMapper = ( context?: ChatContextType ) => {
 
 export function useAssistantApi( selectedSiteId: string ) {
 	const { client } = useAuth();
-	const [ isLoading, setIsLoading ] = useState< Record< string, boolean > >( {
-		[ selectedSiteId ]: false,
-	} );
+	const { setIsLoadingDict, isLoadingDict } = useChatContext();
 	const { updatePromptUsage } = usePromptUsage();
 
 	const fetchAssistant = useCallback(
@@ -35,7 +33,7 @@ export function useAssistantApi( selectedSiteId: string ) {
 			if ( ! client ) {
 				throw new Error( 'WPcom client not initialized' );
 			}
-			setIsLoading( ( prev ) => ( { ...prev, [ selectedSiteId ]: true } ) );
+			setIsLoadingDict( ( prev ) => ( { ...prev, [ selectedSiteId ]: true } ) );
 			const body = {
 				messages,
 				chat_id: chatId,
@@ -69,7 +67,7 @@ export function useAssistantApi( selectedSiteId: string ) {
 				response = data;
 				headers = response_headers;
 			} finally {
-				setIsLoading( ( prev ) => ( { ...prev, [ selectedSiteId ]: false } ) );
+				setIsLoadingDict( ( prev ) => ( { ...prev, [ selectedSiteId ]: false } ) );
 			}
 
 			const message = response?.choices?.[ 0 ]?.message?.content;
@@ -82,8 +80,8 @@ export function useAssistantApi( selectedSiteId: string ) {
 
 			return { message, messageApiId, chatId: response?.id };
 		},
-		[ client, selectedSiteId, updatePromptUsage ]
+		[ client, selectedSiteId, setIsLoadingDict, updatePromptUsage ]
 	);
 
-	return { fetchAssistant, isLoading: isLoading[ selectedSiteId ] };
+	return { fetchAssistant, isLoading: isLoadingDict[ selectedSiteId ] };
 }

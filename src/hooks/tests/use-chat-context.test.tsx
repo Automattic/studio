@@ -109,6 +109,8 @@ describe( 'useChatContext hook', () => {
 				chatIdDict: {},
 				setChatIdDict: expect.any( Function ),
 				nextMessageIdRef: expect.any( Object ),
+				isLoadingDict: {},
+				setIsLoadingDict: expect.any( Function ),
 			} );
 		} );
 
@@ -224,6 +226,8 @@ describe( 'useChatContext hook', () => {
 				chatIdDict: {},
 				setChatIdDict: expect.any( Function ),
 				nextMessageIdRef: expect.any( Object ),
+				isLoadingDict: {},
+				setIsLoadingDict: expect.any( Function ),
 			} );
 		} );
 
@@ -387,6 +391,8 @@ describe( 'useChatContext hook', () => {
 				chatIdDict: {},
 				setChatIdDict: expect.any( Function ),
 				nextMessageIdRef: expect.any( Object ),
+				isLoadingDict: {},
+				setIsLoadingDict: expect.any( Function ),
 			} );
 		} );
 

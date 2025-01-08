@@ -15,9 +15,9 @@ import { useSnapshots } from '../hooks/use-snapshots';
 import { useUpdateDemoSite } from '../hooks/use-update-demo-site';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
+import { ArrowIcon } from './arrow-icon';
 import { Badge } from './badge';
 import Button from './button';
-import { CopyTextButton } from './copy-text-button';
 import offlineIcon from './offline-icon';
 import ProgressBar from './progress-bar';
 import { ScreenshotDemoSite } from './screenshot-demo-site';
@@ -189,13 +189,16 @@ function SnapshotRow( {
 				</div>
 				<Badge>{ __( 'Demo site' ) }</Badge>
 			</div>
-			<CopyTextButton
-				text={ urlWithHTTPS }
-				label={ `${ urlWithHTTPS }, ${ __( 'Copy site url to clipboard' ) }` }
-				copyConfirmation={ __( 'Copied!' ) }
+			<Button
+				variant="link"
+				className="!text-a8c-gray-70 hover:!text-a8c-blueberry max-w-[100%]"
+				onClick={ () => {
+					getIpcApi().openURL( urlWithHTTPS );
+				} }
 			>
-				{ urlWithHTTPS }
-			</CopyTextButton>
+				<span className="truncate">{ urlWithHTTPS }</span>
+				<ArrowIcon />
+			</Button>
 			<div className="mt-2 text-a8c-gray-70 whitespace-nowrap overflow-hidden truncate flex-1">
 				{ sprintf( __( 'Expires in %s' ), countDown ) }
 			</div>

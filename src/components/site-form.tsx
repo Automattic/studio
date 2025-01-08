@@ -259,7 +259,9 @@ export const SiteForm = ( {
 							</label>
 							<span className="text-a8c-gray-50 text-xs">
 								{ createInterpolateElement(
-									__( 'Jetpack and WordPress backups supported. <button>Learn more</button>' ),
+									__(
+										'Import a Jetpack backup or another full-site backup format. <button>Learn more</button>'
+									),
 									{
 										button: (
 											<Button

@@ -460,7 +460,8 @@ export async function showSaveAsDialog( event: IpcMainInvokeEvent, options: Save
 
 export async function showOpenFolderDialog(
 	event: IpcMainInvokeEvent,
-	title: string
+	title: string,
+	defaultDialogPath: string
 ): Promise< FolderDialogResponse | null > {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	if ( ! parentWindow ) {
@@ -482,7 +483,7 @@ export async function showOpenFolderDialog(
 
 	const { canceled, filePaths } = await dialog.showOpenDialog( parentWindow, {
 		title,
-		defaultPath: DEFAULT_SITE_PATH,
+		defaultPath: defaultDialogPath !== '' ? defaultDialogPath : DEFAULT_SITE_PATH,
 		properties: [
 			'openDirectory',
 			'createDirectory', // allow user to create new directories; macOS only

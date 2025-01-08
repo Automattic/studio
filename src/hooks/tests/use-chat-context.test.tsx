@@ -104,6 +104,11 @@ describe( 'useChatContext hook', () => {
 				os: 'darwin',
 				getChatInput: expect.any( Function ),
 				saveChatInput: expect.any( Function ),
+				messagesDict: {},
+				setMessagesDict: expect.any( Function ),
+				chatIdDict: {},
+				setChatIdDict: expect.any( Function ),
+				nextMessageIdRef: expect.any( Object ),
 			} );
 		} );
 
@@ -214,6 +219,11 @@ describe( 'useChatContext hook', () => {
 				os: 'darwin',
 				getChatInput: expect.any( Function ),
 				saveChatInput: expect.any( Function ),
+				messagesDict: {},
+				setMessagesDict: expect.any( Function ),
+				chatIdDict: {},
+				setChatIdDict: expect.any( Function ),
+				nextMessageIdRef: expect.any( Object ),
 			} );
 		} );
 
@@ -372,6 +382,11 @@ describe( 'useChatContext hook', () => {
 				os: 'darwin',
 				getChatInput: expect.any( Function ),
 				saveChatInput: expect.any( Function ),
+				messagesDict: {},
+				setMessagesDict: expect.any( Function ),
+				chatIdDict: {},
+				setChatIdDict: expect.any( Function ),
+				nextMessageIdRef: expect.any( Object ),
 			} );
 		} );
 

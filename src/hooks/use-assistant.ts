@@ -23,18 +23,18 @@ export type Message = {
 const EMPTY_MESSAGES: Message[] = [];
 
 export const useAssistant = ( instanceId: string ) => {
-	const { messagesDict, setMessagesDict, chatIdDict, setChatIdDict, nextMessageIdRef } =
+	const { messagesDict, setMessagesDict, chatIdDict, setChatIdDict, lastMessageIdDictRef } =
 		useChatContext();
 	const chatId = chatIdDict[ instanceId ];
 
 	const addMessage = useCallback(
 		( content: string, role: 'user' | 'assistant', chatId?: string, messageApiId?: number ) => {
-			if ( nextMessageIdRef.current[ instanceId ] === undefined ) {
-				nextMessageIdRef.current[ instanceId ] = -1;
+			if ( lastMessageIdDictRef.current[ instanceId ] === undefined ) {
+				lastMessageIdDictRef.current[ instanceId ] = -1;
 			}
 
-			const newMessageId = nextMessageIdRef.current[ instanceId ] + 1;
-			nextMessageIdRef.current[ instanceId ] = newMessageId;
+			const newMessageId = lastMessageIdDictRef.current[ instanceId ] + 1;
+			lastMessageIdDictRef.current[ instanceId ] = newMessageId;
 
 			setMessagesDict( ( prevDict ) => {
 				const prevMessages = prevDict[ instanceId ] || [];
@@ -66,7 +66,7 @@ export const useAssistant = ( instanceId: string ) => {
 
 			return newMessageId; // Return the new message ID
 		},
-		[ instanceId, setMessagesDict, setChatIdDict, nextMessageIdRef ]
+		[ instanceId, setMessagesDict, setChatIdDict, lastMessageIdDictRef ]
 	);
 
 	const updateMessage = useCallback(
@@ -166,7 +166,7 @@ export const useAssistant = ( instanceId: string ) => {
 			localStorage.setItem( CHAT_ID_STORE_KEY, JSON.stringify( rest ) );
 			return rest;
 		} );
-		nextMessageIdRef.current[ instanceId ] = -1;
+		lastMessageIdDictRef.current[ instanceId ] = -1;
 	}, [ instanceId, setMessagesDict, setChatIdDict ] );
 
 	return {

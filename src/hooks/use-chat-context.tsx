@@ -55,7 +55,7 @@ export interface ChatContextType {
 	setMessagesDict: React.Dispatch< React.SetStateAction< MessageDict > >;
 	chatIdDict: ChatIdDict;
 	setChatIdDict: React.Dispatch< React.SetStateAction< ChatIdDict > >;
-	nextMessageIdRef: React.MutableRefObject< { [ key: string ]: number } >;
+	lastMessageIdDictRef: React.MutableRefObject< { [ key: string ]: number } >;
 	isLoadingDict: Record< string, boolean >;
 	setIsLoadingDict: React.Dispatch< React.SetStateAction< Record< string, boolean > > >;
 }
@@ -84,7 +84,7 @@ const ChatContext = createContext< ChatContextType >( {
 	setChatIdDict: () => {
 		// noop
 	},
-	nextMessageIdRef: { current: {} },
+	lastMessageIdDictRef: { current: {} },
 	isLoadingDict: {},
 	setIsLoadingDict: () => {
 		// noop
@@ -112,7 +112,7 @@ type ChatProviderProps = {
 export const ChatProvider: React.FC< ChatProviderProps > = ( { children } ) => {
 	const initialLoad = useRef< Record< string, boolean > >( {} );
 	const inputBySite = useRef< Record< string, string > >( {} );
-	const nextMessageIdRef = useRef< { [ key: string ]: number } >( {} );
+	const lastMessageIdDictRef = useRef< { [ key: string ]: number } >( {} );
 
 	const installedApps = useCheckInstalledApps();
 	const { data: sites, loadingSites, selectedSite } = useSiteDetails();
@@ -171,7 +171,7 @@ export const ChatProvider: React.FC< ChatProviderProps > = ( { children } ) => {
 			const parsedMessages: MessageDict = JSON.parse( storedMessages );
 			setMessagesDict( parsedMessages );
 			Object.entries( parsedMessages ).forEach( ( [ key, messages ] ) => {
-				nextMessageIdRef.current[ key ] = messages.length - 1;
+				lastMessageIdDictRef.current[ key ] = messages.length - 1;
 			} );
 		}
 	}, [] );
@@ -238,7 +238,7 @@ export const ChatProvider: React.FC< ChatProviderProps > = ( { children } ) => {
 				getChatInput,
 				isBlockTheme: themeDetails?.isBlockTheme,
 				messagesDict,
-				nextMessageIdRef,
+				lastMessageIdDictRef,
 				numberOfSites,
 				os: window.appGlobals?.platform,
 				phpVersion: selectedSite?.phpVersion ?? DEFAULT_PHP_VERSION,

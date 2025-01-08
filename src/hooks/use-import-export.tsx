@@ -64,7 +64,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 
 	const importFile = useCallback(
 		async (
-			file: BackupArchiveInfo,
+			file: File,
 			selectedSite: SiteDetails,
 			{
 				showImportNotification = true,
@@ -103,7 +103,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 
 				const backupFile: BackupArchiveInfo = {
 					type: file.type,
-					path: file.path,
+					path: getIpcApi().showFilePath( file ),
 				};
 				const importedSite = await getIpcApi().importSite( {
 					id: selectedSite.id,

@@ -18,7 +18,7 @@ If you manage packages with Homebrew you can do the following:
 brew install python3 python-setuptools
 ```
 >[!TIP]
->Note, if you have error `Error: Cannot find module 'appdmg'`, it means that you have installed `setuptools`<br />(Added this line to simplify finding it by keywords).
+>Note, if you have error `Error: Cannot find module 'appdmg'`, it means that you haven't installed `setuptools`<br />(Added this line to simplify finding it by keywords).
 
 
 

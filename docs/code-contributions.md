@@ -12,7 +12,7 @@ Before you can build and run the app, you need to install the following dependen
 
 Many project contributors rely upon [`nvm`](https://github.com/nvm-sh/nvm) and [Homebrew](https://brew.sh) to manage Node.js and Python installations respectively.
 
-If you manage packages with Homebrew you can do the following:<br />
+If you manage packages with Homebrew you can do the following:
 ```bash
 brew install python3 python-setuptools
 ```

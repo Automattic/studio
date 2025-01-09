@@ -21,8 +21,6 @@ brew install python3 python-setuptools
 > [!TIP]
 > If you encounter the error `Error: Cannot find module 'appdmg'`, ensure that `setuptools` is installed in your environment.
 
-
-
 `nvm` commands referenced in the remaining documentation operate under the assumption that installed Node.js versions are managed with `nvm`. To use the correct Node.js version and install the project dependencies, run the following commands:
 
 ```bash

@@ -260,7 +260,7 @@ export const SiteForm = ( {
 							<span className="text-a8c-gray-50 text-xs">
 								{ createInterpolateElement(
 									__(
-										'Import a Jetpack backup or another full-site backup format. <button>Learn more</button>'
+										'Import a Jetpack backup or a full-site backup in another format. <button>Learn more</button>'
 									),
 									{
 										button: (

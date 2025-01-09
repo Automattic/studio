@@ -226,7 +226,7 @@ const ImportSite = ( {
 			<div className="text-a8c-gray-70 a8c-body mb-4">
 				{ createInterpolateElement(
 					__(
-						'Import a Jetpack backup, another full-site backup, or a .sql database file. <button>Learn more</button>'
+						'Import a Jetpack backup, a full-site backup in another format, or a .sql database file. <button>Learn more</button>'
 					),
 					{
 						button: (

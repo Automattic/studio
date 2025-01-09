@@ -88,7 +88,7 @@ function Authentication() {
 			onClick={ () => getIpcApi().showUserSettings() }
 			aria-label={ __( 'Open settings to log in' ) }
 			tooltipText={ __( 'Open settings to log in' ) }
-			className="flex gap-x-2 justify-between w-full text-white rounded !px-0 !py-0 h-auto active:!text-white hover:!text-white hover:underline items-center"
+			className="flex gap-x-2 justify-between w-full text-white rounded !px-2 !py-0 h-auto active:!text-white hover:!text-white hover:underline items-center"
 		>
 			<WordPressLogo />
 
@@ -109,7 +109,7 @@ export default function TopBar( { onToggleSidebar }: TopBarProps ) {
 				<OfflineIndicator />
 			</div>
 
-			<div className="app-no-drag-region flex items-center space-x-4">
+			<div className="app-no-drag-region flex items-center space-x-1.5 rtl:space-x-reverse">
 				<Authentication />
 				<Button onClick={ openDocs } aria-label={ __( 'Get help' ) } variant="icon">
 					<Icon className="text-white" size={ 24 } icon={ help } />

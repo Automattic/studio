@@ -13,11 +13,12 @@ Before you can build and run the app, you need to install the following dependen
 Many project contributors rely upon [`nvm`](https://github.com/nvm-sh/nvm) and [Homebrew](https://brew.sh) to manage Node.js and Python installations respectively.
 
 If you manage packages with Homebrew you can do the following:
+
 ```bash
 brew install python3 python-setuptools
 ```
 >[!TIP]
->Note, if you have error `Error: Cannot find module 'appdmg'`, it means that you have installed `setuptools`<br />(added this line to simplify finding it by keywords).
+>Note, if you have error `Error: Cannot find module 'appdmg'`, it means that you have installed `setuptools`<br />(Added this line to simplify finding it by keywords).
 
 
 

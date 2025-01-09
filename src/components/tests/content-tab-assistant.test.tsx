@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { useAuth } from '../../hooks/use-auth';
-import { ChatInputProvider } from '../../hooks/use-chat-input';
+import { chatInputStore } from '../../hooks/use-chat-input';
 import { useOffline } from '../../hooks/use-offline';
 import { usePromptUsage } from '../../hooks/use-prompt-usage';
 import { useWelcomeMessages } from '../../hooks/use-welcome-messages';
@@ -90,6 +90,7 @@ describe( 'ContentTabAssistant', () => {
 		} );
 		( useOffline as jest.Mock ).mockReturnValue( false );
 		( usePromptUsage as jest.Mock ).mockReturnValue( { userCanSendMessage: true } );
+		chatInputStore.inputBySite = {};
 	} );
 
 	test( 'renders placeholder text input', () => {
@@ -427,11 +428,7 @@ describe( 'ContentTabAssistant', () => {
 			name: 'Another Test Site',
 		};
 
-		const { rerender } = render(
-			<ChatInputProvider>
-				<ContentTabAssistant selectedSite={ runningSite } />
-			</ChatInputProvider>
-		);
+		const { rerender } = render( <ContentTabAssistant selectedSite={ runningSite } /> );
 
 		// Input should be empty initially
 		expect( getInput() ).toHaveValue( '' );
@@ -441,11 +438,7 @@ describe( 'ContentTabAssistant', () => {
 		expect( getInput() ).toHaveValue( 'New message' );
 
 		// Changing to second site should reset the input
-		rerender(
-			<ChatInputProvider>
-				<ContentTabAssistant selectedSite={ anotherSite } />
-			</ChatInputProvider>
-		);
+		rerender( <ContentTabAssistant selectedSite={ anotherSite } /> );
 		expect( getInput() ).toHaveValue( '' );
 
 		// Input is updated for the second site
@@ -453,19 +446,11 @@ describe( 'ContentTabAssistant', () => {
 		expect( getInput() ).toHaveValue( 'Another message' );
 
 		// Changing to the first site should restore the input
-		rerender(
-			<ChatInputProvider>
-				<ContentTabAssistant selectedSite={ runningSite } />
-			</ChatInputProvider>
-		);
+		rerender( <ContentTabAssistant selectedSite={ runningSite } /> );
 		expect( getInput() ).toHaveValue( 'New message' );
 
 		// Changing to the second site should restore the input
-		rerender(
-			<ChatInputProvider>
-				<ContentTabAssistant selectedSite={ anotherSite } />
-			</ChatInputProvider>
-		);
+		rerender( <ContentTabAssistant selectedSite={ anotherSite } /> );
 		expect( getInput() ).toHaveValue( 'Another message' );
 	} );
 } );

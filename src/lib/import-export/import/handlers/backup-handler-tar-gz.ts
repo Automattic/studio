@@ -9,7 +9,6 @@ import { BackupHandler, isFileAllowed } from './backup-handler-factory';
 export class BackupHandlerTarGz extends EventEmitter implements BackupHandler {
 	async listFiles( backup: BackupArchiveInfo ): Promise< string[] > {
 		const filesSet = new Set< string >();
-
 		await tar.t( {
 			file: backup.path,
 			onReadEntry: ( entry ) => {

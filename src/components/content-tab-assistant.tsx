@@ -6,13 +6,14 @@ import { createInterpolateElement } from '@wordpress/element';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { Icon, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
+import { observer } from 'mobx-react-lite';
 import React, { useState, useEffect, useRef, memo, useCallback, useMemo } from 'react';
 import { AI_GUIDELINES_URL, LIMIT_OF_PROMPTS_PER_USER } from '../constants';
 import { useAssistant, Message as MessageType } from '../hooks/use-assistant';
 import { useAssistantApi } from '../hooks/use-assistant-api';
 import { useAuth } from '../hooks/use-auth';
 import { useChatContext } from '../hooks/use-chat-context';
-import { useChatInputContext } from '../hooks/use-chat-input';
+import { chatInputStore } from '../hooks/use-chat-input';
 import { useOffline } from '../hooks/use-offline';
 import { usePromptUsage } from '../hooks/use-prompt-usage';
 import { useWelcomeMessages } from '../hooks/use-welcome-messages';
@@ -347,7 +348,7 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 	</ChatMessage>
 );
 
-export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
+export const ContentTabAssistant = observer( ( { selectedSite }: ContentTabAssistantProps ) => {
 	const inputRef = useRef< HTMLTextAreaElement >( null );
 	const currentSiteChatContext = useChatContext();
 	const { isAuthenticated, authenticate, user } = useAuth();
@@ -364,7 +365,6 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const { userCanSendMessage } = usePromptUsage();
 	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi( selectedSite.id );
 	const { messages: welcomeMessages, examplePrompts } = useWelcomeMessages();
-	const { getChatInput, saveChatInput } = useChatInputContext();
 	const [ currentInput, setCurrentInput ] = useState( '' );
 	const isOffline = useOffline();
 	const { __ } = useI18n();
@@ -373,16 +373,16 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 
 	// Restore prompt input when site changes
 	useEffect( () => {
-		setCurrentInput( getChatInput( selectedSite.id ) );
-	}, [ selectedSite.id, getChatInput ] );
+		setCurrentInput( chatInputStore.getChatInput( selectedSite.id ) );
+	}, [ selectedSite.id ] );
 
 	// Save prompt input when it changes
 	const setInput = useCallback(
 		( input: string ) => {
-			saveChatInput( input, selectedSite.id );
+			chatInputStore.saveChatInput( input, selectedSite.id );
 			setCurrentInput( input );
 		},
-		[ selectedSite.id, saveChatInput ]
+		[ selectedSite.id ]
 	);
 
 	const submitPrompt = useCallback(
@@ -537,4 +537,4 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 			</div>
 		</div>
 	);
-}
+} );

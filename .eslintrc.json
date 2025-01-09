@@ -13,10 +13,11 @@
 		"plugin:import/electron",
 		"plugin:import/typescript",
 		"plugin:prettier/recommended",
-		"plugin:react-hooks/recommended"
+		"plugin:react-hooks/recommended",
+		"plugin:mobx/recommended"
 	],
 	"parser": "@typescript-eslint/parser",
-	"plugins": [ "prettier", "jest-dom" ],
+	"plugins": [ "prettier", "jest-dom", "mobx" ],
 	"rules": {
 		"@typescript-eslint/no-explicit-any": [ "error", { "ignoreRestArgs": true } ],
 		"@typescript-eslint/no-unused-vars": [
@@ -38,6 +39,10 @@
 				},
 				"groups": [ "builtin", "external", "internal", "parent", "sibling", "index", "type" ]
 			}
-		]
+		],
+		"mobx/exhaustive-make-observable": "warn",
+		"mobx/unconditional-make-observable": "error",
+		"mobx/missing-make-observable": "error",
+		"mobx/missing-observer": "off"
 	}
 }

@@ -26,13 +26,17 @@ export function useAddSite() {
 	);
 
 	const handlePathSelectorClick = useCallback( async () => {
-		const response = await getIpcApi().showOpenFolderDialog( __( 'Choose folder for site' ) );
+		const response = await getIpcApi().showOpenFolderDialog(
+			__( 'Choose folder for site' ),
+			sitePath
+		);
 		if ( response?.path ) {
 			const { path, name, isEmpty, isWordPress } = response;
 			setDoesPathContainWordPress( false );
 			setError( '' );
 			const pathResetToDefaultSitePath =
 				path === proposedSitePath.substring( 0, proposedSitePath.lastIndexOf( '/' ) );
+
 			setSitePath( pathResetToDefaultSitePath ? '' : path );
 			if ( siteWithPathAlreadyExists( path ) ) {
 				return;
@@ -50,7 +54,7 @@ export function useAddSite() {
 				setSiteName( name ?? null );
 			}
 		}
-	}, [ __, siteWithPathAlreadyExists, siteName, proposedSitePath ] );
+	}, [ __, siteWithPathAlreadyExists, siteName, proposedSitePath, sitePath ] );
 
 	const handleAddSiteClick = useCallback( async () => {
 		try {

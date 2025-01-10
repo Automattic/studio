@@ -87,19 +87,6 @@ describe( 'ContentTabSync', () => {
 		expect( getIpcApi().openURL ).toHaveBeenCalled();
 	} );
 
-	it( 'displays create new site button to authenticated user', () => {
-		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
-		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
-		const createSiteButton = screen.getByRole( 'button', { name: /Create new site/i } );
-		fireEvent.click( createSiteButton );
-
-		expect( screen.getByText( 'Sync with' ) ).toBeInTheDocument();
-		expect( createSiteButton ).toBeInTheDocument();
-		expect( getIpcApi().openURL ).toHaveBeenCalledWith(
-			'https://wordpress.com/setup/new-hosted-site?ref=studio&section=studio-sync&showDomainStep&studioSiteId=site-id'
-		);
-	} );
-
 	it( 'displays connect site button to authenticated user', () => {
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );

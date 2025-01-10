@@ -30,9 +30,10 @@ const archiveSite = jest.fn();
 jest.mock( '../../hooks/use-archive-site' );
 
 const mockShowMessageBox = jest.fn();
+const mockOpenURL = jest.fn();
 jest.mock( '../../lib/get-ipc-api', () => ( {
 	getIpcApi: () => ( {
-		openURL: jest.fn(),
+		openURL: mockOpenURL,
 		generateProposedSitePath: jest.fn(),
 		showMessageBox: mockShowMessageBox,
 	} ),
@@ -431,6 +432,30 @@ describe( 'ContentTabSnapshots', () => {
 		await waitFor( () => {
 			expect( clearSnapshotsButton ).not.toBeInTheDocument();
 		} );
+	} );
+
+	test( 'clicking the demo site URL opens the browser', async () => {
+		const user = userEvent.setup();
+		( useSnapshots as jest.Mock ).mockReturnValue( {
+			snapshots: [
+				{
+					url: 'fake-site.fake',
+					atomicSiteId: 150,
+					localSiteId: 'site-id-1',
+					date: new Date().getTime(),
+					deleted: false,
+				},
+			],
+			fetchSnapshotUsage: jest.fn(),
+		} );
+
+		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
+
+		const urlButton = screen.getByRole( 'button', { name: 'https://fake-site.fake ↗' } );
+		expect( urlButton ).toBeVisible();
+		await user.click( urlButton );
+
+		expect( mockOpenURL ).toHaveBeenCalledWith( 'https://fake-site.fake' );
 	} );
 } );
 

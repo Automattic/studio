@@ -40,7 +40,8 @@ const api: IpcApi = {
 		{ autoLogin = true }: { autoLogin?: boolean } = {}
 	) => ipcRenderer.invoke( 'openSiteURL', id, relativeURL, { autoLogin } ),
 	openURL: ( url: string ) => ipcRenderer.invoke( 'openURL', url ),
-	showOpenFolderDialog: ( title: string ) => ipcRenderer.invoke( 'showOpenFolderDialog', title ),
+	showOpenFolderDialog: ( title: string, defaultDialogPath: string ) =>
+		ipcRenderer.invoke( 'showOpenFolderDialog', title, defaultDialogPath ),
 	showSaveAsDialog: ( options: SaveDialogOptions ) =>
 		ipcRenderer.invoke( 'showSaveAsDialog', options ),
 	saveUserLocale: ( locale: string ) => ipcRenderer.invoke( 'saveUserLocale', locale ),

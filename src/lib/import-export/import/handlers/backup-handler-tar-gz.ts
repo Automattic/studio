@@ -8,7 +8,7 @@ import { BackupHandler, isFileAllowed } from './backup-handler-factory';
 
 export class BackupHandlerTarGz extends EventEmitter implements BackupHandler {
 	async listFiles( backup: BackupArchiveInfo ): Promise< string[] > {
-		const files: string[] = [];
+		const filesSet = new Set< string >();
 		await tar.t( {
 			file: backup.path,
 			onReadEntry: ( entry ) => {
@@ -17,11 +17,11 @@ export class BackupHandlerTarGz extends EventEmitter implements BackupHandler {
 					if ( entry.path.startsWith( '/' ) ) {
 						path = path.slice( 1 );
 					}
-					files.push( path );
+					filesSet.add( path );
 				}
 			},
 		} );
-		return files;
+		return Array.from( filesSet );
 	}
 
 	async extractFiles( file: BackupArchiveInfo, extractionDirectory: string ): Promise< void > {

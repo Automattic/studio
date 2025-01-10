@@ -36,6 +36,9 @@ npm start
 
 The app automatically launches with the Chromium developer tools opened by default. Changes to the "renderer" process code will automatically reload the app, changes to the main process code require a manual server restart or [typing `rs`](https://www.electronforge.io/cli#start) into the same terminal where the server was started.
 
+> [!TIP]
+> If you encounter `Error: Cannot find module 'appdmg'` error, ensure that `python-setuptools` are installed in your environment according to the previous steps.
+
 ### Project Structure
 
 The following represents notable pieces of project structure:

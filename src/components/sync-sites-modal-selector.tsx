@@ -209,8 +209,10 @@ function SiteItem( {
 				<Button
 					variant="link"
 					className={ cx(
-						'a8c-body-small !text-a8c-gray-30 truncate !p-0',
-						isSelected && '!text-white'
+						'a8c-body-small truncate !p-0',
+						isSelected
+							? '!text-inherit hover:!text-inherit'
+							: '!text-a8c-gray-30 hover:!text-a8c-gray-30'
 					) }
 					onClick={ () => getIpcApi().openURL( site.url ) }
 				>

@@ -138,7 +138,8 @@
 		"unzipper": "0.10.11",
 		"url-loader": "^4.1.1",
 		"wpcom": "^5.4.2",
-		"yargs": "17.7.2"
+		"yargs": "17.7.2",
+		"zustand": "^5.0.3"
 	},
 	"optionalDependencies": {
 		"appdmg": "^0.6.6"

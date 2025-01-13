@@ -6,7 +6,7 @@ import { createInterpolateElement } from '@wordpress/element';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { Icon, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { AI_GUIDELINES_URL, LIMIT_OF_PROMPTS_PER_USER } from '../constants';
 import { useAssistant, Message as MessageType } from '../hooks/use-assistant';
 import { useAssistantApi } from '../hooks/use-assistant-api';
@@ -114,191 +114,193 @@ interface AuthenticatedViewProps {
 	>[ 'markMessageAsFeedbackReceived' ];
 }
 
-const AuthenticatedView = ( {
-	messages,
-	isAssistantThinking,
-	updateMessage,
-	siteId,
-	submitPrompt,
-	markMessageAsFeedbackReceived,
-}: AuthenticatedViewProps ) => {
-	const endOfMessagesRef = useRef< HTMLDivElement >( null );
-	const lastMessageRef = useRef< HTMLDivElement >( null );
-	const [ showThinking, setShowThinking ] = useState( isAssistantThinking );
-	const lastMessage = useMemo(
-		() =>
-			showThinking
-				? ( { role: 'assistant', id: -1, createdAt: Date.now() } as MessageType )
-				: messages[ messages.length - 1 ],
-		[ messages, showThinking ]
-	);
-	const messagesToRender =
-		messages[ messages.length - 1 ]?.role === 'assistant' ? messages.slice( 0, -1 ) : messages;
-	const showLastMessage = lastMessage?.role === 'assistant';
-	const previousMessagesLength = useRef( messages.length );
-	const isInitialRenderRef = useRef( true );
+const AuthenticatedView = memo(
+	( {
+		messages,
+		isAssistantThinking,
+		updateMessage,
+		siteId,
+		submitPrompt,
+		markMessageAsFeedbackReceived,
+	}: AuthenticatedViewProps ) => {
+		const endOfMessagesRef = useRef< HTMLDivElement >( null );
+		const lastMessageRef = useRef< HTMLDivElement >( null );
+		const [ showThinking, setShowThinking ] = useState( isAssistantThinking );
+		const lastMessage = useMemo(
+			() =>
+				showThinking
+					? ( { role: 'assistant', id: -1, createdAt: Date.now() } as MessageType )
+					: messages[ messages.length - 1 ],
+			[ messages, showThinking ]
+		);
+		const messagesToRender =
+			messages[ messages.length - 1 ]?.role === 'assistant' ? messages.slice( 0, -1 ) : messages;
+		const showLastMessage = lastMessage?.role === 'assistant';
+		const previousMessagesLength = useRef( messages.length );
+		const isInitialRenderRef = useRef( true );
 
-	useEffect( () => {
-		if ( ! messages.length ) {
-			return;
-		}
-
-		let timer: NodeJS.Timeout;
-		// Scroll to the end of the messages when the tab is opened or site ID changes
-		if ( isInitialRenderRef.current ) {
-			endOfMessagesRef.current?.scrollIntoView( { behavior: 'instant' } );
-			isInitialRenderRef.current = false;
-		}
-		// Scroll when a new message is added
-		else if ( messages.length > previousMessagesLength.current || showLastMessage ) {
-			// Scroll to the beginning of last message received from the assistant
-			if ( showLastMessage ) {
-				timer = setTimeout( () => {
-					if ( lastMessageRef.current ) {
-						lastMessageRef.current.scrollIntoView( { block: 'start', behavior: 'smooth' } );
-					}
-				}, 400 );
+		useEffect( () => {
+			if ( ! messages.length ) {
+				return;
 			}
-			// For user messages, scroll to the end of the messages
-			else {
-				endOfMessagesRef.current?.scrollIntoView( { behavior: 'smooth' } );
+
+			let timer: NodeJS.Timeout;
+			// Scroll to the end of the messages when the tab is opened or site ID changes
+			if ( isInitialRenderRef.current ) {
+				endOfMessagesRef.current?.scrollIntoView( { behavior: 'instant' } );
+				isInitialRenderRef.current = false;
 			}
-		}
+			// Scroll when a new message is added
+			else if ( messages.length > previousMessagesLength.current || showLastMessage ) {
+				// Scroll to the beginning of last message received from the assistant
+				if ( showLastMessage ) {
+					timer = setTimeout( () => {
+						if ( lastMessageRef.current ) {
+							lastMessageRef.current.scrollIntoView( { block: 'start', behavior: 'smooth' } );
+						}
+					}, 400 );
+				}
+				// For user messages, scroll to the end of the messages
+				else {
+					endOfMessagesRef.current?.scrollIntoView( { behavior: 'smooth' } );
+				}
+			}
 
-		previousMessagesLength.current = messages.length;
+			previousMessagesLength.current = messages.length;
 
-		return () => clearTimeout( timer );
-	}, [ messages.length, showLastMessage ] );
+			return () => clearTimeout( timer );
+		}, [ messages.length, showLastMessage ] );
 
-	useEffect( () => {
-		let timer: NodeJS.Timeout;
-		if ( isAssistantThinking ) {
-			timer = setTimeout( () => setShowThinking( true ), MIMIC_CONVERSATION_DELAY );
-		} else {
-			setShowThinking( false );
-		}
-		return () => clearTimeout( timer );
-	}, [ isAssistantThinking ] );
+		useEffect( () => {
+			let timer: NodeJS.Timeout;
+			if ( isAssistantThinking ) {
+				timer = setTimeout( () => setShowThinking( true ), MIMIC_CONVERSATION_DELAY );
+			} else {
+				setShowThinking( false );
+			}
+			return () => clearTimeout( timer );
+		}, [ isAssistantThinking ] );
 
-	const RenderMessage = useCallback(
-		( { message }: { message: MessageType } ) => (
-			<>
-				<ChatMessage
-					id={ `message-chat-${ message.id }` }
-					message={ message }
-					siteId={ siteId }
-					updateMessage={ updateMessage }
-				>
-					{ message.content }
-				</ChatMessage>
-				{ message.failedMessage && (
-					<ErrorNotice submitPrompt={ submitPrompt } messageContent={ message.content } />
-				) }
-			</>
-		),
-		[ submitPrompt, siteId, updateMessage ]
-	);
-
-	const RenderLastMessage = useCallback(
-		( {
-			showThinking,
-			siteId,
-			updateMessage,
-			message,
-			children,
-		}: {
-			message: MessageType;
-			showThinking: boolean;
-			siteId: string;
-			updateMessage: OnUpdateMessageType;
-			children: React.ReactNode;
-		} ) => {
-			const thinkingAnimation = {
-				initial: { opacity: 0, y: 20 },
-				animate: { opacity: 1, y: 0 },
-				exit: { opacity: 0, y: -20 },
-			};
-			const messageAnimation = {
-				initial: { opacity: 0, y: 20 },
-				animate: { opacity: 1, y: 0 },
-			};
-
-			return (
+		const RenderMessage = useCallback(
+			( { message }: { message: MessageType } ) => (
 				<>
 					<ChatMessage
-						ref={ lastMessageRef }
 						id={ `message-chat-${ message.id }` }
 						message={ message }
 						siteId={ siteId }
 						updateMessage={ updateMessage }
 					>
-						<AnimatePresence mode="wait">
-							{ showThinking ? (
-								<motion.div
-									key="thinking"
-									initial="initial"
-									animate="animate"
-									exit="exit"
-									variants={ thinkingAnimation }
-									transition={ { duration: 0.3 } }
-								>
-									<MessageThinking />
-								</motion.div>
-							) : (
-								<motion.div
-									key="content"
-									variants={ messageAnimation }
-									transition={ { duration: 0.3 } }
-									initial="initial"
-									animate="animate"
-								>
-									<MarkDownWithCode
-										message={ message }
-										siteId={ siteId }
-										updateMessage={ updateMessage }
-										content={ message.content }
-									/>
-									{ children }
-								</motion.div>
-							) }
-						</AnimatePresence>
+						{ message.content }
 					</ChatMessage>
+					{ message.failedMessage && (
+						<ErrorNotice submitPrompt={ submitPrompt } messageContent={ message.content } />
+					) }
 				</>
-			);
-		},
-		[]
-	);
+			),
+			[ submitPrompt, siteId, updateMessage ]
+		);
 
-	if ( messages.length === 0 ) {
-		return null;
+		const RenderLastMessage = useCallback(
+			( {
+				showThinking,
+				siteId,
+				updateMessage,
+				message,
+				children,
+			}: {
+				message: MessageType;
+				showThinking: boolean;
+				siteId: string;
+				updateMessage: OnUpdateMessageType;
+				children: React.ReactNode;
+			} ) => {
+				const thinkingAnimation = {
+					initial: { opacity: 0, y: 20 },
+					animate: { opacity: 1, y: 0 },
+					exit: { opacity: 0, y: -20 },
+				};
+				const messageAnimation = {
+					initial: { opacity: 0, y: 20 },
+					animate: { opacity: 1, y: 0 },
+				};
+
+				return (
+					<>
+						<ChatMessage
+							ref={ lastMessageRef }
+							id={ `message-chat-${ message.id }` }
+							message={ message }
+							siteId={ siteId }
+							updateMessage={ updateMessage }
+						>
+							<AnimatePresence mode="wait">
+								{ showThinking ? (
+									<motion.div
+										key="thinking"
+										initial="initial"
+										animate="animate"
+										exit="exit"
+										variants={ thinkingAnimation }
+										transition={ { duration: 0.3 } }
+									>
+										<MessageThinking />
+									</motion.div>
+								) : (
+									<motion.div
+										key="content"
+										variants={ messageAnimation }
+										transition={ { duration: 0.3 } }
+										initial="initial"
+										animate="animate"
+									>
+										<MarkDownWithCode
+											message={ message }
+											siteId={ siteId }
+											updateMessage={ updateMessage }
+											content={ message.content }
+										/>
+										{ children }
+									</motion.div>
+								) }
+							</AnimatePresence>
+						</ChatMessage>
+					</>
+				);
+			},
+			[]
+		);
+
+		if ( messages.length === 0 ) {
+			return null;
+		}
+		return (
+			<>
+				{ messagesToRender.map( ( message ) => (
+					<RenderMessage key={ message.id } message={ message } />
+				) ) }
+				{ showLastMessage && (
+					<RenderLastMessage
+						siteId={ siteId }
+						updateMessage={ updateMessage }
+						message={ lastMessage }
+						showThinking={ showThinking }
+					>
+						<div className="flex justify-end">
+							{ !! lastMessage.messageApiId && (
+								<ChatRating
+									messageApiId={ lastMessage.messageApiId }
+									markMessageAsFeedbackReceived={ markMessageAsFeedbackReceived }
+									feedbackReceived={ !! lastMessage.feedbackReceived }
+								/>
+							) }
+						</div>
+					</RenderLastMessage>
+				) }
+				<div ref={ endOfMessagesRef } />
+			</>
+		);
 	}
-	return (
-		<>
-			{ messagesToRender.map( ( message ) => (
-				<RenderMessage key={ message.id } message={ message } />
-			) ) }
-			{ showLastMessage && (
-				<RenderLastMessage
-					siteId={ siteId }
-					updateMessage={ updateMessage }
-					message={ lastMessage }
-					showThinking={ showThinking }
-				>
-					<div className="flex justify-end">
-						{ !! lastMessage.messageApiId && (
-							<ChatRating
-								messageApiId={ lastMessage.messageApiId }
-								markMessageAsFeedbackReceived={ markMessageAsFeedbackReceived }
-								feedbackReceived={ !! lastMessage.feedbackReceived }
-							/>
-						) }
-					</div>
-				</RenderLastMessage>
-			) }
-			<div ref={ endOfMessagesRef } />
-		</>
-	);
-};
+);
 
 const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void } ) => (
 	<ChatMessage

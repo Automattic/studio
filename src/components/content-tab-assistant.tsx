@@ -139,6 +139,10 @@ const AuthenticatedView = memo(
 		const previousMessagesLength = useRef( messages.length );
 		const isInitialRenderRef = useRef( true );
 
+		// This effect may run twice when the component is mounted, which makes the viewport scroll
+		// to the wrong position. This happens because the app runs in React strict mode, meaning
+		// it only affects the development environment. For more details, see
+		// https://github.com/Automattic/studio/pull/788#issuecomment-2586644007
 		useEffect( () => {
 			if ( ! messages.length ) {
 				return;

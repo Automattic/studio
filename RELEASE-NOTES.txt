@@ -2,9 +2,9 @@
 =====
 * Allowed starting a site import even when one is already in progress #775
 * Allowed to select a custom domain when setting up a new WordPress.com site #774
-* Demo site link will now open in a new browser window instead of copying the URL to the clipboard #790
-* Fixed tar.gz import issue where the archive includes multiple SQL files with the same name #793
-* Fixed import/export in-app links #773
+* Changed Demo site link to open in a new browser window instead of copying the URL to the clipboard #790
+* Fixed cases with tar.gz import failing #793
+* Updated Import / Export help docs link  #773
 * Fixed custom directory path selection in the “Add a Site” form #787
 * Fixed icon spacing in the top bar #776
 * Unified import labels and clarified supported formats #784

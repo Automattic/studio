@@ -17,6 +17,7 @@ import { usePromptUsage } from '../hooks/use-prompt-usage';
 import { useWelcomeMessages } from '../hooks/use-welcome-messages';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
+import { useChatInputStore } from '../stores/chat-input-store';
 import ClearHistoryReminder from './ai-clear-history-reminder';
 import { AIInput } from './ai-input';
 import { MessageThinking } from './assistant-thinking';
@@ -368,19 +369,20 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const { __ } = useI18n();
 	const lastMessage = messages.length === 0 ? undefined : messages[ messages.length - 1 ];
 	const hasFailedMessage = messages.some( ( msg ) => msg.failedMessage );
+	const { getChatInput, saveChatInput } = useChatInputStore();
 
 	// Restore prompt input when site changes
 	useEffect( () => {
-		setCurrentInput( chatContext.getChatInput( selectedSite.id ) );
-	}, [ selectedSite.id, chatContext ] );
+		setCurrentInput( getChatInput( selectedSite.id ) );
+	}, [ selectedSite.id, getChatInput ] );
 
 	// Save prompt input when it changes
 	const setInput = useCallback(
 		( input: string ) => {
-			chatContext.saveChatInput( input, selectedSite.id );
+			saveChatInput( input, selectedSite.id );
 			setCurrentInput( input );
 		},
-		[ selectedSite.id, chatContext ]
+		[ selectedSite.id, saveChatInput ]
 	);
 
 	const submitPrompt = useCallback(

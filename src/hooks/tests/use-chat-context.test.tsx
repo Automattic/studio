@@ -1,5 +1,6 @@
 import { renderHook, act } from '@testing-library/react';
 import { getIpcApi } from '../../lib/get-ipc-api';
+import { useChatInputStore } from '../../stores/chat-input-store';
 import { ChatProvider, useChatContext } from '../use-chat-context';
 import { useCheckInstalledApps } from '../use-check-installed-apps';
 import { useGetWpVersion } from '../use-get-wp-version';
@@ -76,6 +77,11 @@ beforeEach( () => {
 		terminalWpCliEnabled: false,
 	} );
 	setupWpCliResult( { themes: [], plugins: [] } );
+
+	// Reset Zustand store
+	act( () => {
+		useChatInputStore.setState( { inputBySite: {} } );
+	} );
 } );
 
 afterEach( () => {
@@ -102,8 +108,6 @@ describe( 'useChatContext hook', () => {
 				availableEditors: [],
 				siteName: 'Test Site',
 				os: 'darwin',
-				getChatInput: expect.any( Function ),
-				saveChatInput: expect.any( Function ),
 			} );
 		} );
 
@@ -212,8 +216,6 @@ describe( 'useChatContext hook', () => {
 				availableEditors: [],
 				siteName: 'Another Test Site',
 				os: 'darwin',
-				getChatInput: expect.any( Function ),
-				saveChatInput: expect.any( Function ),
 			} );
 		} );
 
@@ -370,8 +372,6 @@ describe( 'useChatContext hook', () => {
 				availableEditors: [],
 				siteName: 'New Test Site',
 				os: 'darwin',
-				getChatInput: expect.any( Function ),
-				saveChatInput: expect.any( Function ),
 			} );
 		} );
 
@@ -511,7 +511,7 @@ describe( 'useChatContext hook', () => {
 
 	describe( 'chat input functionality', () => {
 		it( 'saves and retrieves chat input by site', () => {
-			const { result } = renderHook( () => useChatContext(), { wrapper } );
+			const { result } = renderHook( () => useChatInputStore(), { wrapper } );
 
 			act( () => {
 				result.current.saveChatInput( 'test input 1', 'site-1' );
@@ -523,7 +523,7 @@ describe( 'useChatContext hook', () => {
 		} );
 
 		it( 'returns empty string for non-existent site input', () => {
-			const { result } = renderHook( () => useChatContext(), { wrapper } );
+			const { result } = renderHook( () => useChatInputStore(), { wrapper } );
 			expect( result.current.getChatInput( 'non-existent-site' ) ).toBe( '' );
 		} );
 	} );

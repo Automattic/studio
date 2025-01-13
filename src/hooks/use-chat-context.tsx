@@ -28,8 +28,6 @@ export interface ChatContextType {
 	os: string;
 	availableEditors: string[];
 	siteName?: string;
-	getChatInput: ( siteId: string ) => string;
-	saveChatInput: ( input: string, siteId: string ) => void;
 }
 const ChatContext = createContext< ChatContextType >( {
 	currentURL: '',
@@ -43,10 +41,6 @@ const ChatContext = createContext< ChatContextType >( {
 	availableEditors: [] as string[],
 	os: '',
 	siteName: '',
-	getChatInput: () => '',
-	saveChatInput: () => {
-		// noop
-	},
 } );
 
 interface ChatProviderProps {
@@ -67,7 +61,6 @@ const parseWpCliOutput = ( stdout: string, defaultValue: string[] ): string[] =>
 
 export const ChatProvider: React.FC< ChatProviderProps > = ( { children } ) => {
 	const initialLoad = useRef< Record< string, boolean > >( {} );
-	const inputBySite = useRef< Record< string, string > >( {} );
 	const installedApps = useCheckInstalledApps();
 	const { data: sites, loadingSites, selectedSite } = useSiteDetails();
 	const wpVersion = useGetWpVersion( selectedSite || ( {} as SiteDetails ) );
@@ -81,14 +74,6 @@ export const ChatProvider: React.FC< ChatProviderProps > = ( { children } ) => {
 	const availableEditors = Object.keys( installedApps ).filter( ( app ) => {
 		return installedApps[ app as keyof InstalledApps ];
 	} );
-
-	const getChatInput = useCallback( ( siteId: string ) => {
-		return inputBySite.current[ siteId ] ?? '';
-	}, [] );
-
-	const saveChatInput = useCallback( ( input: string, siteId: string ) => {
-		inputBySite.current[ siteId ] = input;
-	}, [] );
 
 	const fetchPluginList = useCallback( async ( siteId: string ) => {
 		const { stdout, stderr } = await getIpcApi().executeWPCLiInline( {
@@ -165,13 +150,11 @@ export const ChatProvider: React.FC< ChatProviderProps > = ( { children } ) => {
 			value={ {
 				availableEditors,
 				currentURL: `http://localhost:${ sitePort }`,
-				getChatInput,
 				isBlockTheme: themeDetails?.isBlockTheme,
 				numberOfSites,
 				os: window.appGlobals?.platform,
 				phpVersion: selectedSite?.phpVersion ?? DEFAULT_PHP_VERSION,
 				pluginList: selectedSite?.id ? pluginsList[ selectedSite.id ] || [] : [],
-				saveChatInput,
 				siteName: selectedSite?.name,
 				themeList: selectedSite?.id ? themesList[ selectedSite.id ] || [] : [],
 				themeName: themeDetails?.name,

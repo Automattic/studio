@@ -134,7 +134,7 @@ const AuthenticatedView = ( {
 	);
 	const messagesToRender =
 		messages[ messages.length - 1 ]?.role === 'assistant' ? messages.slice( 0, -1 ) : messages;
-	const showLastMessage = lastMessage.role === 'assistant';
+	const showLastMessage = lastMessage?.role === 'assistant';
 	const previousMessagesLength = useRef( messages.length );
 	const isInitialRenderRef = useRef( true );
 

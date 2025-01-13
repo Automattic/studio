@@ -67,10 +67,11 @@ type IpcApi = {
 	) => ReturnType< ( typeof import('./ipc-handlers') )[ K ] >;
 } & {
 	/**
-	 * webUtils.getPathForFile is available only inside preload script, that's why this one function is exception and need to be defined here manually.
+	 * `webUtils.getPathForFile` is available only inside preload script, that's why this one
+	 * function is exception and need to be defined here manually.
 	 *
-	 * The nonstandard `path` property of the Web `File` object was added in an early version of Electron as a convenience method for working with native files when doing everything in the renderer was more common.
-	 * However, it represents a deviation from the standard and poses a minor security risk as well, so beginning in Electron 32.0 it has been removed in favor of the [`webUtils.getPathForFile`](api/web-utils.md#webutilsgetpathforfilefile) method.
+	 * See https://www.electronjs.org/docs/latest/breaking-changes#planned-breaking-api-changes-320
+	 * for more details.
 	 */
 	showFilePath: ( file: File ) => string;
 };

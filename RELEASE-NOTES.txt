@@ -1,7 +1,7 @@
 1.3.1
 =====
 * Allowed starting a site import even when one is already in progress #775
-* Enabled selecting a custom domain when setting up a new WordPress.com site #774
+* Allowed to select a custom domain when setting up a new WordPress.com site #774
 * Demo site link will now open in a new browser window instead of copying the URL to the clipboard #790
 * Fixed tar.gz import issue where the archive includes multiple SQL files with the same name #793
 * Fixed import/export in-app links #773

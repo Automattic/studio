@@ -112,6 +112,7 @@ interface AuthenticatedViewProps {
 	markMessageAsFeedbackReceived: ReturnType<
 		typeof useAssistant
 	>[ 'markMessageAsFeedbackReceived' ];
+	wrapperRef: React.RefObject< HTMLDivElement >;
 }
 
 const AuthenticatedView = memo(
@@ -122,8 +123,8 @@ const AuthenticatedView = memo(
 		siteId,
 		submitPrompt,
 		markMessageAsFeedbackReceived,
+		wrapperRef,
 	}: AuthenticatedViewProps ) => {
-		const endOfMessagesRef = useRef< HTMLDivElement >( null );
 		const lastMessageRef = useRef< HTMLDivElement >( null );
 		const [ showThinking, setShowThinking ] = useState( isAssistantThinking );
 		const lastMessage = useMemo(
@@ -151,7 +152,7 @@ const AuthenticatedView = memo(
 			let timer: NodeJS.Timeout;
 			// Scroll to the end of the messages when the tab is opened or site ID changes
 			if ( isInitialRenderRef.current ) {
-				endOfMessagesRef.current?.scrollIntoView( { behavior: 'instant' } );
+				wrapperRef.current?.scrollIntoView( { block: 'end', behavior: 'instant' } );
 				isInitialRenderRef.current = false;
 			}
 			// Scroll when a new message is added
@@ -166,7 +167,7 @@ const AuthenticatedView = memo(
 				}
 				// For user messages, scroll to the end of the messages
 				else {
-					endOfMessagesRef.current?.scrollIntoView( { behavior: 'smooth' } );
+					wrapperRef.current?.scrollIntoView( { block: 'end', behavior: 'smooth' } );
 				}
 			}
 
@@ -300,7 +301,6 @@ const AuthenticatedView = memo(
 						</div>
 					</RenderLastMessage>
 				) }
-				<div ref={ endOfMessagesRef } />
 			</>
 		);
 	}
@@ -351,6 +351,7 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
 	const inputRef = useRef< HTMLTextAreaElement >( null );
+	const wrapperRef = useRef< HTMLDivElement >( null );
 	const chatContext = useChatContext();
 	const { isAuthenticated, authenticate, user } = useAuth();
 	const instanceId = user?.id ? `${ user.id }_${ selectedSite.id }` : selectedSite.id;
@@ -467,7 +468,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const disabled = isOffline || ! isAuthenticated || ! userCanSendMessage || hasFailedMessage;
 
 	return (
-		<div className="relative min-h-full flex flex-col bg-gray-50">
+		<div className="relative min-h-full flex flex-col bg-gray-50" ref={ wrapperRef }>
 			<div
 				data-testid="assistant-chat"
 				className={ cx(
@@ -497,6 +498,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 								markMessageAsFeedbackReceived={ markMessageAsFeedbackReceived }
 								siteId={ selectedSite.id }
 								submitPrompt={ submitPrompt }
+								wrapperRef={ wrapperRef }
 							/>
 						</>
 					) : (

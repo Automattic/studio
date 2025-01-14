@@ -9,7 +9,7 @@ import Button from './button';
 function shouldShowReminder( lastMessage?: MessageType ) {
 	return (
 		lastMessage?.role === 'assistant' &&
-		Date.now() - lastMessage?.createdAt > CLEAR_HISTORY_REMINDER_TIME
+		Date.now() - ( lastMessage?.createdAt ?? 0 ) > CLEAR_HISTORY_REMINDER_TIME
 	);
 }
 

@@ -1,0 +1,53 @@
+# WordPress.com Studio
+
+Every time you choose to apply a rule(s), explicitly state the rule(s) in the output. You can abbreviate the rule description to a single word or phrase.
+
+## Project Context
+A desktop Electron application for creating local WordPress environments, powered by WordPress Playground and WordPress.com. Used by WordPress enthusiasts and developers.
+
+## Code Style and Structure
+- Follow the WordPress coding standards
+- Write concise, technical TypeScript code with accurate examples
+- Prefer iteration and modularization over code duplication
+- Use descriptive variable names with auxiliary verbs (e.g., isLoading, hasError)
+- Structure repository files as follows:
+
+```
+src
+├── about-menu         # Files required for the main about menu
+├── components         # Shared React components
+│   ├── icons          # Icons used in the application
+│   └── tests          # Tests for shared components
+├── hooks              # Custom React hooks
+│   ├── sync-sites     # Hooks related to syncing local sites to WordPress.com
+│   └── tests          # Tests for custom React hooks
+├── lib                # Shared libraries
+│   ├── import-export  # Shared libraries for import/export
+│   └── tests          # Tests for shared libraries
+├── migrations         # Migrations for application version upgrades
+├── storage            # Utilities for storing persisted user data
+│   └── tests          # Tests for storage utilities
+├── tests              # Global test files
+├── translations       # Translation JSON files
+├── preload.ts         # The only Electron preload script (see https://www.electronjs.org/docs/latest/tutorial/process-model#preload-scripts)
+└── ipc-handlers.ts    # Notable top-level file for handling Electron IPC messages
+```
+
+## Tech Stack
+- React
+- TypeScript
+- Tailwind CSS
+- Electron
+- PHP
+
+## Naming Conventions
+- Use lowercase with dashes for directories (e.g., components/form-wizard)
+- Favor named exports for components and utilities
+- Use PascalCase for component files (e.g., ChatInput.tsx)
+- Use camelCase for utility files (e.g., formValidator.ts)
+
+## TypeScript Usage
+- Use TypeScript for all code; prefer types over interfaces
+- Use functional components with TypeScript interfaces
+- Avoid try/catch blocks unless there's good reason to translate or handle error in that abstraction
+- Use explicit return types for all functions

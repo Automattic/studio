@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { useOffline } from '../hooks/use-offline';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
+import { ArrowIcon } from './arrow-icon';
 import { Badge } from './badge';
 import Button from './button';
 import { CreateButton } from './connect-create-buttons';
@@ -217,6 +218,7 @@ function SiteItem( {
 					onClick={ () => getIpcApi().openURL( site.url ) }
 				>
 					{ site.url.replace( /^https?:\/\//, '' ) }
+					<ArrowIcon />
 				</Button>
 			</div>
 			{ isSyncable && (

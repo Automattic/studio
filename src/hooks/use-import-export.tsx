@@ -101,12 +101,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 			try {
 				await stopServer( selectedSite.id );
 
-				let filePath: string;
-				if ( file instanceof File ) {
-					filePath = getIpcApi().getPathForFile( file );
-				} else {
-					filePath = file.path;
-				}
+				const filePath = file instanceof File ? getIpcApi().getPathForFile( file ) : file.path;
 
 				const backupFile: BackupArchiveInfo = {
 					type: file.type,

@@ -73,7 +73,7 @@ type IpcApi = {
 	 * See https://www.electronjs.org/docs/latest/breaking-changes#planned-breaking-api-changes-320
 	 * for more details.
 	 */
-	showFilePath: ( file: File ) => string;
+	getPathForFile: ( file: File ) => string;
 };
 
 interface AppGlobals {

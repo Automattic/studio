@@ -101,7 +101,7 @@ const api: IpcApi = {
 		ipcRenderer.invoke( 'getConnectedWpcomSites', localSiteId ),
 	addSyncOperation: ( id: string ) => ipcRenderer.invoke( 'addSyncOperation', id ),
 	clearSyncOperation: ( id: string ) => ipcRenderer.invoke( 'clearSyncOperation', id ),
-	showFilePath: webUtils.getPathForFile,
+	getPathForFile: webUtils.getPathForFile,
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

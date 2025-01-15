@@ -103,7 +103,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 
 				let filePath: string;
 				if ( file instanceof File ) {
-					filePath = getIpcApi().showFilePath( file );
+					filePath = getIpcApi().getPathForFile( file );
 				} else {
 					filePath = file.path;
 				}

@@ -1,3 +1,15 @@
+1.3.1
+=====
+* Allowed starting a site import even when one is already in progress #775
+* Allowed to select a custom domain when setting up a new WordPress.com site #774
+* Changed Demo site link to open in a new browser window instead of copying the URL to the clipboard #790
+* Fixed cases with tar.gz import failing #793
+* Updated Import / Export help docs link  #773
+* Fixed custom directory path selection in the “Add a Site” form #787
+* Fixed icon spacing in the top bar #776
+* Unified import labels and clarified supported formats #784
+* Removed the “Create a New Site” button when no sites are connected on the Sync tab #771
+
 1.3.0
 =====
 * Introduced Sync to WordPress.com Studio feature

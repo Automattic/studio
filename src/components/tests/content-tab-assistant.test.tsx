@@ -1,5 +1,6 @@
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
+import { CLEAR_HISTORY_REMINDER_TIME } from '../../constants';
 import { useAuth } from '../../hooks/use-auth';
 import { ChatProvider } from '../../hooks/use-chat-context';
 import { useGetWpVersion } from '../../hooks/use-get-wp-version';
@@ -338,10 +339,10 @@ describe( 'ContentTabAssistant', () => {
 	} );
 
 	test( 'clears history via reminder when last message is two hours old', async () => {
-		const MOCKED_TIME = 1718882159928;
-		const TWO_HOURS_DIFF = 2 * 60 * 60 * 1000;
+		const MOCKED_CURRENT_TIME = 1718882159928;
+		const OLD_MESSAGE_TIME = MOCKED_CURRENT_TIME - CLEAR_HISTORY_REMINDER_TIME - 1;
 		jest.useFakeTimers();
-		jest.setSystemTime( MOCKED_TIME );
+		jest.setSystemTime( MOCKED_CURRENT_TIME );
 
 		const storageKey = 'ai_chat_messages';
 		localStorage.setItem(
@@ -353,7 +354,7 @@ describe( 'ContentTabAssistant', () => {
 						id: 1,
 						content: 'Initial message 2',
 						role: 'assistant',
-						createdAt: MOCKED_TIME - TWO_HOURS_DIFF,
+						createdAt: OLD_MESSAGE_TIME,
 					},
 				],
 			} )

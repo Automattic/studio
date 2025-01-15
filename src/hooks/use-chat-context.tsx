@@ -9,12 +9,33 @@ import React, {
 	ReactNode,
 } from 'react';
 import { DEFAULT_PHP_VERSION } from '../../vendor/wp-now/src/constants';
+import { CHAT_MESSAGES_STORE_KEY } from '../constants';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { useCheckInstalledApps } from './use-check-installed-apps';
 import { useGetWpVersion } from './use-get-wp-version';
 import { useSiteDetails } from './use-site-details';
 import { useThemeDetails } from './use-theme-details';
 import { useWindowListener } from './use-window-listener';
+
+type Message = {
+	id?: number;
+	messageApiId?: number;
+	content: string;
+	role: 'user' | 'assistant';
+	chatId?: string;
+	blocks?: {
+		cliOutput?: string;
+		cliStatus?: 'success' | 'error';
+		cliTime?: string;
+		codeBlockContent?: string;
+	}[];
+	createdAt: number;
+	failedMessage?: boolean;
+	feedbackReceived?: boolean;
+};
+
+type MessageDict = { [ key: string ]: Message[] };
+type ChatIdDict = { [ key: string ]: string | undefined };
 
 export interface ChatContextType {
 	currentURL: string;
@@ -30,7 +51,15 @@ export interface ChatContextType {
 	siteName?: string;
 	getChatInput: ( siteId: string ) => string;
 	saveChatInput: ( input: string, siteId: string ) => void;
+	messagesDict: MessageDict;
+	setMessagesDict: React.Dispatch< React.SetStateAction< MessageDict > >;
+	chatIdDict: ChatIdDict;
+	setChatIdDict: React.Dispatch< React.SetStateAction< ChatIdDict > >;
+	lastMessageIdDictRef: React.MutableRefObject< { [ key: string ]: number } >;
+	isLoadingDict: Record< string, boolean >;
+	setIsLoadingDict: React.Dispatch< React.SetStateAction< Record< string, boolean > > >;
 }
+
 const ChatContext = createContext< ChatContextType >( {
 	currentURL: '',
 	pluginList: [],
@@ -47,11 +76,20 @@ const ChatContext = createContext< ChatContextType >( {
 	saveChatInput: () => {
 		// noop
 	},
+	messagesDict: {},
+	setMessagesDict: () => {
+		// noop
+	},
+	chatIdDict: {},
+	setChatIdDict: () => {
+		// noop
+	},
+	lastMessageIdDictRef: { current: {} },
+	isLoadingDict: {},
+	setIsLoadingDict: () => {
+		// noop
+	},
 } );
-
-interface ChatProviderProps {
-	children: ReactNode;
-}
 
 const parseWpCliOutput = ( stdout: string, defaultValue: string[] ): string[] => {
 	try {
@@ -65,14 +103,27 @@ const parseWpCliOutput = ( stdout: string, defaultValue: string[] ): string[] =>
 	return defaultValue;
 };
 
+export const CHAT_ID_STORE_KEY = 'ai_chat_ids';
+
+type ChatProviderProps = {
+	children: ReactNode;
+};
+
 export const ChatProvider: React.FC< ChatProviderProps > = ( { children } ) => {
 	const initialLoad = useRef< Record< string, boolean > >( {} );
 	const inputBySite = useRef< Record< string, string > >( {} );
+	const lastMessageIdDictRef = useRef< { [ key: string ]: number } >( {} );
+
 	const installedApps = useCheckInstalledApps();
 	const { data: sites, loadingSites, selectedSite } = useSiteDetails();
 	const wpVersion = useGetWpVersion( selectedSite || ( {} as SiteDetails ) );
 	const [ pluginsList, setPluginsList ] = useState< Record< string, string[] > >( {} );
 	const [ themesList, setThemesList ] = useState< Record< string, string[] > >( {} );
+
+	const [ messagesDict, setMessagesDict ] = useState< MessageDict >( {} );
+	const [ chatIdDict, setChatIdDict ] = useState< ChatIdDict >( {} );
+	const [ isLoadingDict, setIsLoadingDict ] = useState< Record< string, boolean > >( {} );
+
 	const numberOfSites = sites?.length || 0;
 	const sitePort = selectedSite?.port || '';
 
@@ -112,6 +163,24 @@ export const ChatProvider: React.FC< ChatProviderProps > = ( { children } ) => {
 			return [];
 		}
 		return parseWpCliOutput( stdout, [] );
+	}, [] );
+
+	useEffect( () => {
+		const storedMessages = localStorage.getItem( CHAT_MESSAGES_STORE_KEY );
+		if ( storedMessages ) {
+			const parsedMessages: MessageDict = JSON.parse( storedMessages );
+			setMessagesDict( parsedMessages );
+			Object.entries( parsedMessages ).forEach( ( [ key, messages ] ) => {
+				lastMessageIdDictRef.current[ key ] = messages.length - 1;
+			} );
+		}
+	}, [] );
+
+	useEffect( () => {
+		const storedChatIds = localStorage.getItem( CHAT_ID_STORE_KEY );
+		if ( storedChatIds ) {
+			setChatIdDict( JSON.parse( storedChatIds ) );
+		}
 	}, [] );
 
 	useEffect( () => {
@@ -164,18 +233,25 @@ export const ChatProvider: React.FC< ChatProviderProps > = ( { children } ) => {
 		<ChatContext.Provider
 			value={ {
 				availableEditors,
+				chatIdDict,
 				currentURL: `http://localhost:${ sitePort }`,
 				getChatInput,
 				isBlockTheme: themeDetails?.isBlockTheme,
+				messagesDict,
+				lastMessageIdDictRef,
 				numberOfSites,
 				os: window.appGlobals?.platform,
 				phpVersion: selectedSite?.phpVersion ?? DEFAULT_PHP_VERSION,
 				pluginList: selectedSite?.id ? pluginsList[ selectedSite.id ] || [] : [],
 				saveChatInput,
+				setChatIdDict,
+				setMessagesDict,
 				siteName: selectedSite?.name,
 				themeList: selectedSite?.id ? themesList[ selectedSite.id ] || [] : [],
 				themeName: themeDetails?.name,
 				wpVersion,
+				isLoadingDict,
+				setIsLoadingDict,
 			} }
 		>
 			{ children }

@@ -1,4 +1,5 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { CLEAR_HISTORY_REMINDER_TIME } from '../../constants';
 import { getIpcApi } from '../../lib/get-ipc-api';
 import AIClearHistoryReminder from '../ai-clear-history-reminder';
 import type { Message } from '../../hooks/use-assistant';
@@ -7,15 +8,15 @@ jest.mock( '../../lib/get-ipc-api' );
 
 describe( 'AIClearHistoryReminder', () => {
 	let clearConversation: jest.Mock;
-	const MOCKED_TIME = 1718882159928;
-	const TWO_HOURS_DIFF = 2 * 60 * 60 * 1000;
+	const MOCKED_CURRENT_TIME = 1718882159928;
+	const OLD_MESSAGE_TIME = MOCKED_CURRENT_TIME - CLEAR_HISTORY_REMINDER_TIME - 1;
 
 	beforeEach( () => {
 		window.HTMLElement.prototype.scrollIntoView = jest.fn();
 		clearConversation = jest.fn();
 		jest.clearAllMocks();
 		jest.useFakeTimers();
-		jest.setSystemTime( MOCKED_TIME );
+		jest.setSystemTime( MOCKED_CURRENT_TIME );
 	} );
 
 	afterEach( () => {
@@ -25,7 +26,7 @@ describe( 'AIClearHistoryReminder', () => {
 	it( 'should display a reminder when the conversation is stale', () => {
 		const message: Message = {
 			id: 0,
-			createdAt: MOCKED_TIME - TWO_HOURS_DIFF,
+			createdAt: OLD_MESSAGE_TIME,
 			content: '',
 			role: 'assistant',
 		};
@@ -42,7 +43,7 @@ describe( 'AIClearHistoryReminder', () => {
 		} );
 		const message: Message = {
 			id: 0,
-			createdAt: MOCKED_TIME - TWO_HOURS_DIFF,
+			createdAt: OLD_MESSAGE_TIME,
 			content: '',
 			role: 'assistant',
 		};
@@ -65,7 +66,7 @@ describe( 'AIClearHistoryReminder', () => {
 		} );
 		const message: Message = {
 			id: 0,
-			createdAt: MOCKED_TIME - TWO_HOURS_DIFF,
+			createdAt: OLD_MESSAGE_TIME,
 			content: '',
 			role: 'assistant',
 		};

@@ -1084,3 +1084,11 @@ export function addSyncOperation( event: IpcMainInvokeEvent, id: string ) {
 export function clearSyncOperation( event: IpcMainInvokeEvent, id: string ) {
 	ACTIVE_SYNC_OPERATIONS.delete( id );
 }
+
+export async function getFileContent( event: IpcMainInvokeEvent, filePath: string ) {
+	if ( ! fs.existsSync( filePath ) ) {
+		throw new Error( `File not found: ${ filePath }` );
+	}
+
+	return fs.readFileSync( filePath );
+}

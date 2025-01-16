@@ -79,7 +79,6 @@ steps:
     key: dev-mac
     steps:
       - label: 🔨 Mac Dev Build - {{matrix}}
-        skip: Disabled for debugging
         agents:
           queue: mac
         command: |

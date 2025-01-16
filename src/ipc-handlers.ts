@@ -566,8 +566,7 @@ export async function archiveSite( event: IpcMainInvokeEvent, id: string, format
 		format,
 	} );
 	const stats = fs.statSync( archivePath );
-	const archiveContent = fs.readFileSync( archivePath );
-	return { archivePath, archiveContent, archiveSizeInBytes: stats.size };
+	return { archivePath, archiveSizeInBytes: stats.size };
 }
 
 export async function exportSiteToPush( event: IpcMainInvokeEvent, id: string ) {

@@ -79,10 +79,7 @@ export function useArchiveSite() {
 			}
 
 			try {
-				const { archiveContent, archivePath, archiveSizeInBytes } = await getIpcApi().archiveSite(
-					siteId,
-					'zip'
-				);
+				const { archivePath, archiveSizeInBytes } = await getIpcApi().archiveSite( siteId, 'zip' );
 				if ( archiveSizeInBytes > DEMO_SITE_SIZE_LIMIT_BYTES ) {
 					alert(
 						sprintf(
@@ -97,9 +94,13 @@ export function useArchiveSite() {
 					return;
 				}
 
-				const file = new File( [ archiveContent ], 'loca-env-site-1.zip', {
-					type: 'application/zip',
-				} );
+				const file = new File(
+					[ await getIpcApi().getFileContent( archivePath ) ],
+					'loca-env-site-1.zip',
+					{
+						type: 'application/zip',
+					}
+				);
 
 				const formData = [ [ 'import', file ] ];
 				const wordpressVersion = await getIpcApi().getWpVersion( siteId );

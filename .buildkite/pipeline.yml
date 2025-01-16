@@ -86,8 +86,6 @@ steps:
 
           .buildkite/commands/install-node-dependencies.sh
 
-          node ./scripts/prepare-dev-build-version.mjs
-
           echo "--- :node: Building Binary"
           npm run make:macos-{{matrix}}
 

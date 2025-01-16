@@ -81,6 +81,8 @@ steps:
       - label: 🔨 Mac Dev Build - {{matrix}}
         agents:
           queue: mac
+        env:
+          BUILDING_APP: "true"
         command: |
           .buildkite/commands/prepare-environment.sh
 
@@ -127,6 +129,8 @@ steps:
 
   - label: 🔨 Windows Dev Build
     key: dev-windows
+    env:
+      BUILDING_APP: "true"
     command: |
       .buildkite/commands/build-for-windows-dev.ps1
       node scripts/package-appx.mjs

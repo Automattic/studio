@@ -12,7 +12,6 @@ env:
 steps:
   - label: Lint
     key: lint
-    skip: Disabled for debugging
     command: |
       .buildkite/commands/install-node-dependencies.sh
       echo '--- :eslint: Lint'
@@ -24,7 +23,6 @@ steps:
 
   - label: Unit Tests
     key: unit_tests
-    skip: Disabled for debugging
     command: |
       .buildkite/commands/install-node-dependencies.sh
       echo '--- :npm: Run Unit Tests'
@@ -79,7 +77,6 @@ steps:
 
   - group: 📦 Build for Mac
     key: dev-mac
-    skip: Disabled for debugging
     steps:
       - label: 🔨 Mac Dev Build - {{matrix}}
         agents:
@@ -130,7 +127,6 @@ steps:
 
   - label: 🔨 Windows Dev Build
     key: dev-windows
-    skip: Disabled for debugging
     command: |
       .buildkite/commands/build-for-windows-dev.ps1
       node scripts/package-appx.mjs
@@ -147,7 +143,6 @@ steps:
           context: Windows Dev Build
 
   - label: ":rocket: Distribute Dev Builds"
-    skip: Disabled for debugging
     command: |
       echo "--- :node: Downloading Binaries"
       buildkite-agent artifact download "*.app.zip" .
@@ -186,7 +181,6 @@ steps:
     key: release-mac
     steps:
       - label: 🔨 Mac Release Build - {{matrix}}
-        skip: Disabled for debugging
         agents:
           queue: mac
         command: |
@@ -234,7 +228,6 @@ steps:
 
   - label: 🔨 Windows Release Build
     key: release-windows
-    skip: Disabled for debugging
     agents:
       queue: windows
     command: |
@@ -251,7 +244,6 @@ steps:
           context: Windows Release Build
 
   - label: ":rocket: Publish Release Builds"
-    skip: Disabled for debugging
     command: |
       echo "--- :node: Downloading Binaries"
       buildkite-agent artifact download "*.zip" .

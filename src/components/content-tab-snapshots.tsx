@@ -221,7 +221,7 @@ function SnapshotRow( {
 					</div>
 				) : (
 					<>
-						<Tooltip disabled={ ! isUpdateDisabled } { ...tooltipContent }>
+						<Tooltip disabled={ ! isUpdateDisabled } placement="top-start" { ...tooltipContent }>
 							<DynamicTooltip
 								getTooltipText={ getLastUpdateTimeText }
 								placement="top-start"
@@ -245,6 +245,7 @@ function SnapshotRow( {
 						<Tooltip
 							disabled={ ! isOffline }
 							icon={ offlineIcon }
+							placement="top-start"
 							text={ deleteDemoSiteOfflineMessage }
 						>
 							<Button

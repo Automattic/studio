@@ -88,6 +88,9 @@ steps:
 
           .buildkite/commands/install-node-dependencies.sh
 
+          # Ensure DEV_BUILD is available to npm commands
+          export DEV_BUILD=true
+
           node ./scripts/prepare-dev-build-version.mjs
 
           echo "--- :node: Building Binary"

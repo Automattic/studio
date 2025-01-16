@@ -129,6 +129,7 @@ steps:
 
   - label: 🔨 Windows Dev Build
     key: dev-windows
+    skip: Disabled for debugging
     command: |
       $env:DEV_BUILD="true"
       .buildkite/commands/build-for-windows-dev.ps1

@@ -6,15 +6,9 @@ import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from './constants';
 import { phpVar } from '@php-wasm/util';
 import { createNodeFsMountHandler, loadNodeRuntime } from '@php-wasm/node';
 import { getSqliteCommandPath } from '../../../src/lib/sqlite-command-versions';
-import {
-	PHP,
-	MountHandler,
-	writeFiles,
-	setPhpIniEntries,
-	loadPHPRuntime,
-} from '@php-wasm/universal';
+import { PHP, MountHandler, writeFiles, setPhpIniEntries } from '@php-wasm/universal';
 import { readFileSync } from 'fs';
-
+import { startSymlinkManager } from './wp-now';
 const isWindows = process.platform === 'win32';
 
 /**
@@ -39,6 +33,7 @@ export async function executeWPCli(
 		options.documentRoot,
 		createNodeFsMountHandler( projectPath ) as unknown as MountHandler
 	);
+	await startSymlinkManager( php, projectPath );
 
 	//Set the SAPI name to cli before running the script
 	await php.setSapiName( 'cli' );
@@ -77,7 +72,7 @@ export async function executeWPCli(
 			define('STDIN', fopen('php://stdin', 'rb'));
 			define('STDOUT', fopen('php://stdout', 'wb'));
 			define('STDERR', fopen('${ stderrPath }', 'wb'));
-			
+
 			// Force disabling WordPress debugging mode to avoid parsing issues of WP-CLI command result
 			define('WP_DEBUG', false);
 			// Filter out errors below ERROR level to avoid parsing issues of WP-CLI command result

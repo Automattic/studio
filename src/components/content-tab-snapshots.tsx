@@ -11,6 +11,7 @@ import { useAuth } from '../hooks/use-auth';
 import { useExpirationDate } from '../hooks/use-expiration-date';
 import { useOffline } from '../hooks/use-offline';
 import { useProgressTimer } from '../hooks/use-progress-timer';
+import { useSiteSize } from '../hooks/use-site-size';
 import { useSnapshots } from '../hooks/use-snapshots';
 import { useUpdateDemoSite } from '../hooks/use-update-demo-site';
 import { cx } from '../lib/cx';
@@ -60,6 +61,8 @@ function SnapshotRow( {
 	const { updateDemoSite, isDemoSiteUpdating } = useUpdateDemoSite();
 	const errorMessages = useArchiveErrorMessages();
 	const isSiteDemoUpdating = isDemoSiteUpdating( snapshot.localSiteId );
+
+	const { isOverLimit, formattedSize } = useSiteSize( selectedSite.id );
 
 	const isOffline = useOffline();
 	const updateDemoSiteOfflineMessage = __(
@@ -178,8 +181,12 @@ function SnapshotRow( {
 		};
 	} else if ( snapshotCreationBlocked ) {
 		tooltipContent = { text: userBlockedMessage };
+	} else if ( isOverLimit ) {
+		tooltipContent = {
+			text: __( `This site (${ formattedSize }) exceeds the maximum size limit for demo sites.` ),
+		};
 	}
-	const isUpdateDisabled = isOffline || snapshotCreationBlocked;
+	const isUpdateDisabled = isOffline || snapshotCreationBlocked || isOverLimit;
 
 	return (
 		<div className="self-stretch flex-col px-4 py-3">
@@ -412,6 +419,7 @@ function AddDemoSiteWithProgress( {
 	const { activeSnapshotCount, snapshotQuota, isLoadingSnapshotUsage, snapshotCreationBlocked } =
 		useSnapshots();
 	const isLimitUsed = activeSnapshotCount >= snapshotQuota;
+	const { isOverLimit, formattedSize } = useSiteSize( selectedSite.id );
 	const isOffline = useOffline();
 	const { progress, setProgress } = useProgressTimer( {
 		paused: ! isUploading && ! isSnapshotLoading,
@@ -433,7 +441,8 @@ function AddDemoSiteWithProgress( {
 		isLoadingSnapshotUsage ||
 		isLimitUsed ||
 		isOffline ||
-		snapshotCreationBlocked;
+		snapshotCreationBlocked ||
+		isOverLimit;
 	const siteArchivingMessage = __(
 		'A different demo site is being created. Please wait for it to finish before creating another.'
 	);
@@ -446,6 +455,10 @@ function AddDemoSiteWithProgress( {
 		snapshotQuota
 	);
 	const offlineMessage = __( 'Creating a demo site requires an internet connection.' );
+	const overLimitMessage = sprintf(
+		__( 'This site (%s) exceeds the maximum size limit for demo sites.' ),
+		formattedSize
+	);
 	const userBlockedMessage = errorMessages.rest_site_creation_blocked;
 
 	let tooltipContent;
@@ -460,6 +473,8 @@ function AddDemoSiteWithProgress( {
 		tooltipContent = { text: siteArchivingMessage };
 	} else if ( snapshotCreationBlocked ) {
 		tooltipContent = { text: userBlockedMessage };
+	} else if ( isOverLimit ) {
+		tooltipContent = { text: overLimitMessage };
 	}
 
 	return (

@@ -81,8 +81,6 @@ steps:
       - label: 🔨 Mac Dev Build - {{matrix}}
         agents:
           queue: mac
-        env:
-          DEV_BUILD: "true"
         command: |
           .buildkite/commands/prepare-environment.sh
 
@@ -132,8 +130,6 @@ steps:
 
   - label: 🔨 Windows Dev Build
     key: dev-windows
-    env:
-      DEV_BUILD: "true"
     skip: Disabled for debugging
     command: |
       .buildkite/commands/build-for-windows-dev.ps1

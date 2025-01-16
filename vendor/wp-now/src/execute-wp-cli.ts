@@ -33,7 +33,7 @@ export async function executeWPCli(
 		options.documentRoot,
 		createNodeFsMountHandler( projectPath ) as unknown as MountHandler
 	);
-	await startSymlinkManager( php, options.projectPath );
+	await startSymlinkManager( php, options.projectPath, options.documentRoot );
 
 	//Set the SAPI name to cli before running the script
 	await php.setSapiName( 'cli' );

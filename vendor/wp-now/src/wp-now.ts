@@ -179,7 +179,7 @@ async function prepareWordPress( php: PHP, options: WPNowOptions ) {
 			break;
 	}
 
-	await startSymlinkManager( php, options.projectPath );
+	await startSymlinkManager( php, options.projectPath, options.documentRoot );
 }
 
 /**
@@ -191,15 +191,16 @@ async function prepareWordPress( php: PHP, options: WPNowOptions ) {
  *
  * @param php
  * @param projectPath
+ * @param documentRoot
  */
-export async function startSymlinkManager( php: PHP, projectPath: string ) {
+export async function startSymlinkManager( php: PHP, projectPath: string, documentRoot: string ) {
 	// Symlink manager is not yet supported on windows
 	// See: https://github.com/Automattic/studio/issues/548
 	if ( process.platform === 'win32' ) {
 		return;
 	}
 
-	const symlinkManager = new SymlinkManager( php, projectPath );
+	const symlinkManager = new SymlinkManager( php, projectPath, documentRoot );
 	await symlinkManager.scanAndCreateSymlinks();
 	symlinkManager
 		.startWatching()

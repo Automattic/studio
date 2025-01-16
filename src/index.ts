@@ -37,12 +37,7 @@ import { stopAllServersOnQuit } from './site-server';
 import { loadUserData } from './storage/user-data'; // eslint-disable-next-line import/order
 import { setupUpdates } from './updates';
 
-if (
-	! isCLI() &&
-	! process.env.E2E &&
-	process.env.NODE_ENV !== 'test' &&
-	! process.env.BUILDING_APP
-) {
+if ( ! isCLI() && ! process.env.E2E && process.env.NODE_ENV !== 'test' ) {
 	Sentry.init( {
 		dsn: 'https://97693275b2716fb95048c6d12f4318cf@o248881.ingest.sentry.io/4506612776501248',
 		debug: true,

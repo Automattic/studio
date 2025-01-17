@@ -42,14 +42,15 @@ export const DemoSiteUpdateProvider: React.FC< DemoSiteUpdateProviderProps > = (
 				);
 
 				if ( archiveSizeInBytes > DEMO_SITE_SIZE_LIMIT_BYTES ) {
-					alert(
-						sprintf(
+					getIpcApi().showErrorMessageBox( {
+						title: __( 'Updating demo site failed' ),
+						message: sprintf(
 							__(
 								'The site exceeds the maximum size of %dGB. Please remove some files and try again.'
 							),
 							DEMO_SITE_SIZE_LIMIT_GB
-						)
-					);
+						),
+					} );
 
 					setUpdatingSites( ( prev ) => {
 						const newSet = new Set( prev );

@@ -50,5 +50,5 @@ describe( 'executeWPCli', () => {
 	it( 'should return the correct version of WP-CLI', async () => {
 		const result = await getWPCliVersionFromInstallation();
 		expect( result ).toMatch( /v\d+\.\d+\.\d+/ ); // Example: v2.10.0
-	}, 30000 ); // The underlying WP-CLI version check can take more than 20 seconds in CI.
+	} );
 } );

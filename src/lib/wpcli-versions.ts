@@ -54,7 +54,12 @@ async function getLatestWPCliVersion() {
 }
 
 export const getWPCliVersionFromInstallation = async () => {
-	const { stdout } = await executeWPCli( '.', [ '--version' ] );
+	/**
+	 * This command is used to check the version of WP-CLI
+	 * which doesn't require mounting the project directory
+	 * so we are not passing the projectPath.
+	 */
+	const { stdout } = await executeWPCli( undefined, [ '--version' ] );
 	if ( stdout?.startsWith( 'WP-CLI ' ) ) {
 		const version = stdout.split( ' ' )[ 1 ];
 		if ( ! version ) {

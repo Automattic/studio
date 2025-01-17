@@ -13,9 +13,14 @@ const isWindows = process.platform === 'win32';
 
 /**
  * This is an unstable API. Multiple wp-cli commands may not work due to a current limitation on php-wasm and pthreads.
+ *
+ * @param projectPath - The path to the project. If undefined or a empty string is provided files won't be mounted.
+ * @param args - The arguments to pass to wp-cli.
+ * @param phpVersion - The PHP version to use.
+ * @returns The result of the wp-cli command.
  */
 export async function executeWPCli(
-	projectPath: string,
+	projectPath: string | undefined,
 	args: string[],
 	{ phpVersion }: { phpVersion?: string } = {}
 ): Promise< { stdout: string; stderr: string; exitCode: number } > {
@@ -23,17 +28,19 @@ export async function executeWPCli(
 	let options = await getWpNowConfig( {
 		php: phpVersion || DEFAULT_PHP_VERSION,
 		wp: DEFAULT_WORDPRESS_VERSION,
-		path: projectPath,
+		path: projectPath || '.',
 	} );
 
 	const id = await loadNodeRuntime( options.phpVersion );
 	const php = new PHP( id );
 	php.mkdir( options.documentRoot );
-	await php.mount(
-		options.documentRoot,
-		createNodeFsMountHandler( projectPath ) as unknown as MountHandler
-	);
-	await startSymlinkManager( php, options.projectPath, options.documentRoot );
+	if ( projectPath ) {
+		await php.mount(
+			options.documentRoot,
+			createNodeFsMountHandler( projectPath ) as unknown as MountHandler
+		);
+		await startSymlinkManager( php, options.projectPath, options.documentRoot );
+	}
 
 	//Set the SAPI name to cli before running the script
 	await php.setSapiName( 'cli' );

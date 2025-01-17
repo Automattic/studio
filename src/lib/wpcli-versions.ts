@@ -56,7 +56,7 @@ async function getLatestWPCliVersion() {
 export const getWPCliVersionFromInstallation = async () => {
 	/**
 	 * Version checks don't require a project folder to be mounted for WP-cli
-	 * to execute a version check. 
+	 * to execute a version check.
 	 */
 	const { stdout } = await executeWPCli( getWpCliFolderPath(), [ '--version' ] );
 

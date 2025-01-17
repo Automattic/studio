@@ -13,7 +13,7 @@ export const plugins: WebpackPluginInstance[] = [
 		},
 	} ),
 	// Sentry must be the last plugin
-	! process.env.DEV_BUILD &&
+	! process.env.IS_DEV_BUILD &&
 		!! process.env.SENTRY_AUTH_TOKEN &&
 		sentryWebpackPlugin( {
 			authToken: process.env.SENTRY_AUTH_TOKEN,

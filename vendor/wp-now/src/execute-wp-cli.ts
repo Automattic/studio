@@ -28,7 +28,6 @@ export async function executeWPCli(
 	let options = await getWpNowConfig( {
 		php: phpVersion || DEFAULT_PHP_VERSION,
 		wp: DEFAULT_WORDPRESS_VERSION,
-		path: projectPath || '.',
 	} );
 
 	const id = await loadNodeRuntime( options.phpVersion );
@@ -39,7 +38,7 @@ export async function executeWPCli(
 			options.documentRoot,
 			createNodeFsMountHandler( projectPath ) as unknown as MountHandler
 		);
-		await startSymlinkManager( php, options.projectPath, options.documentRoot );
+		await startSymlinkManager( php, projectPath, options.documentRoot );
 	}
 
 	//Set the SAPI name to cli before running the script

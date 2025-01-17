@@ -224,7 +224,7 @@ function SnapshotRow( {
 						<Tooltip disabled={ ! isUpdateDisabled } placement="top-start" { ...tooltipContent }>
 							<DynamicTooltip
 								getTooltipText={ getLastUpdateTimeText }
-								placement="top-start"
+								placement="bottom-start"
 								disabled={ isUpdateDisabled }
 							>
 								<Button

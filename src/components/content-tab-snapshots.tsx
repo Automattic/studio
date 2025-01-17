@@ -62,7 +62,7 @@ function SnapshotRow( {
 	const errorMessages = useArchiveErrorMessages();
 	const isSiteDemoUpdating = isDemoSiteUpdating( snapshot.localSiteId );
 
-	const { isOverLimit, formattedSize } = useSiteSize( selectedSite.id );
+	const { isOverLimit } = useSiteSize( selectedSite.id );
 
 	const isOffline = useOffline();
 	const updateDemoSiteOfflineMessage = __(
@@ -183,10 +183,12 @@ function SnapshotRow( {
 		tooltipContent = { text: userBlockedMessage };
 	} else if ( isOverLimit ) {
 		tooltipContent = {
-			text: __( `This site (${ formattedSize }) exceeds the maximum size limit for demo sites.` ),
+			text: __(
+				'Your site exceeds 1GB in size. Updating this demo site may take considerable amount of time and could exceed the maximum allowed size for a demo site.'
+			),
 		};
 	}
-	const isUpdateDisabled = isOffline || snapshotCreationBlocked || isOverLimit;
+	const isUpdateDisabled = isOffline || snapshotCreationBlocked;
 
 	return (
 		<div className="self-stretch flex-col px-4 py-3">
@@ -419,7 +421,7 @@ function AddDemoSiteWithProgress( {
 	const { activeSnapshotCount, snapshotQuota, isLoadingSnapshotUsage, snapshotCreationBlocked } =
 		useSnapshots();
 	const isLimitUsed = activeSnapshotCount >= snapshotQuota;
-	const { isOverLimit, formattedSize } = useSiteSize( selectedSite.id );
+	const { isOverLimit } = useSiteSize( selectedSite.id );
 	const isOffline = useOffline();
 	const { progress, setProgress } = useProgressTimer( {
 		paused: ! isUploading && ! isSnapshotLoading,
@@ -441,8 +443,7 @@ function AddDemoSiteWithProgress( {
 		isLoadingSnapshotUsage ||
 		isLimitUsed ||
 		isOffline ||
-		snapshotCreationBlocked ||
-		isOverLimit;
+		snapshotCreationBlocked;
 	const siteArchivingMessage = __(
 		'A different demo site is being created. Please wait for it to finish before creating another.'
 	);
@@ -455,10 +456,10 @@ function AddDemoSiteWithProgress( {
 		snapshotQuota
 	);
 	const offlineMessage = __( 'Creating a demo site requires an internet connection.' );
-	const overLimitMessage = sprintf(
-		__( 'This site (%s) exceeds the maximum size limit for demo sites.' ),
-		formattedSize
+	const overLimitMessage = __(
+		'Your site exceeds 1GB in size. Creating a demo site for a larger site may take considerable amount of time and could exceed the maximum allowed size for a demo site.'
 	);
+
 	const userBlockedMessage = errorMessages.rest_site_creation_blocked;
 
 	let tooltipContent;

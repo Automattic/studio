@@ -1091,5 +1091,5 @@ export function getSiteSize( _event: IpcMainInvokeEvent, siteId: string ) {
 	if ( ! site ) {
 		throw new Error( 'Site not found.' );
 	}
-	return calculateDirectorySize( site.details.path );
+	return calculateDirectorySize( nodePath.join( site.details.path, 'wp-content' ) );
 }

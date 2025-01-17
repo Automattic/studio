@@ -22,6 +22,7 @@ export function useSiteSize( siteId: string ) {
 		async function checkSiteSize() {
 			try {
 				const size = await getIpcApi().getSiteSize( siteId );
+				console.log( 'site size' + size );
 				setIsOverLimit( size > DEMO_SITE_SIZE_LIMIT_BYTES );
 				setFormattedSize( formatBytes( size ) );
 			} catch ( error ) {

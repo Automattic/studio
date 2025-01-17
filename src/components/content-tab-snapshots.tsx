@@ -9,6 +9,7 @@ import { useArchiveErrorMessages } from '../hooks/use-archive-error-messages';
 import { useArchiveSite } from '../hooks/use-archive-site';
 import { useAuth } from '../hooks/use-auth';
 import { useExpirationDate } from '../hooks/use-expiration-date';
+import { useFormatLocalizedTimestamps } from '../hooks/use-format-localized-timestamps';
 import { useOffline } from '../hooks/use-offline';
 import { useProgressTimer } from '../hooks/use-progress-timer';
 import { useSiteSize } from '../hooks/use-site-size';
@@ -22,7 +23,7 @@ import Button from './button';
 import offlineIcon from './offline-icon';
 import ProgressBar from './progress-bar';
 import { ScreenshotDemoSite } from './screenshot-demo-site';
-import { Tooltip, TooltipProps } from './tooltip';
+import { Tooltip, TooltipProps, DynamicTooltip } from './tooltip';
 
 interface ContentTabSnapshotsProps {
 	selectedSite: SiteDetails;
@@ -61,6 +62,7 @@ function SnapshotRow( {
 	const { updateDemoSite, isDemoSiteUpdating } = useUpdateDemoSite();
 	const errorMessages = useArchiveErrorMessages();
 	const isSiteDemoUpdating = isDemoSiteUpdating( snapshot.localSiteId );
+	const { formatRelativeTime } = useFormatLocalizedTimestamps();
 
 	const { isOverLimit } = useSiteSize( selectedSite.id );
 
@@ -71,6 +73,13 @@ function SnapshotRow( {
 	const deleteDemoSiteOfflineMessage = __(
 		'Deleting a demo site requires an internet connection.'
 	);
+	const getLastUpdateTimeText = () => {
+		if ( ! date ) {
+			return __( 'Never updated' );
+		}
+		const timeDistance = formatRelativeTime( new Date( date ).toISOString() );
+		return sprintf( __( 'Last updated %s ago.' ), timeDistance );
+	};
 	const userBlockedMessage = errorMessages.rest_site_creation_blocked;
 
 	const { progress, setProgress } = useProgressTimer( {
@@ -221,24 +230,31 @@ function SnapshotRow( {
 					</div>
 				) : (
 					<>
-						<Tooltip disabled={ ! isUpdateDisabled } { ...tooltipContent }>
-							<Button
-								aria-description={ tooltipContent?.text || '' }
-								aria-disabled={ isUpdateDisabled }
-								variant="primary"
-								onClick={ () => {
-									if ( isUpdateDisabled ) {
-										return;
-									}
-									handleUpdateDemoSite();
-								} }
+						<Tooltip disabled={ ! isUpdateDisabled } placement="top-start" { ...tooltipContent }>
+							<DynamicTooltip
+								getTooltipText={ getLastUpdateTimeText }
+								placement="bottom-start"
+								disabled={ isUpdateDisabled }
 							>
-								{ __( 'Update demo site' ) }
-							</Button>
+								<Button
+									aria-description={ tooltipContent?.text || '' }
+									aria-disabled={ isUpdateDisabled }
+									variant="primary"
+									onClick={ () => {
+										if ( isUpdateDisabled ) {
+											return;
+										}
+										handleUpdateDemoSite();
+									} }
+								>
+									{ __( 'Update demo site' ) }
+								</Button>
+							</DynamicTooltip>
 						</Tooltip>
 						<Tooltip
 							disabled={ ! isOffline }
 							icon={ offlineIcon }
+							placement="top-start"
 							text={ deleteDemoSiteOfflineMessage }
 						>
 							<Button

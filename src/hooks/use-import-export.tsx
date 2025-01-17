@@ -36,7 +36,7 @@ type ExportProgressState = {
 interface ImportExportContext {
 	importState: ImportProgressState;
 	importFile: (
-		file: BackupArchiveInfo,
+		file: File | BackupArchiveInfo,
 		selectedSite: SiteDetails,
 		options?: { showImportNotification?: boolean; isNewSite?: boolean }
 	) => Promise< void >;
@@ -64,7 +64,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 
 	const importFile = useCallback(
 		async (
-			file: BackupArchiveInfo,
+			file: File | BackupArchiveInfo,
 			selectedSite: SiteDetails,
 			{
 				showImportNotification = true,
@@ -101,9 +101,11 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 			try {
 				await stopServer( selectedSite.id );
 
+				const filePath = file instanceof File ? getIpcApi().getPathForFile( file ) : file.path;
+
 				const backupFile: BackupArchiveInfo = {
 					type: file.type,
-					path: file.path,
+					path: filePath,
 				};
 				const importedSite = await getIpcApi().importSite( {
 					id: selectedSite.id,

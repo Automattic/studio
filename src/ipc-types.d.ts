@@ -65,6 +65,15 @@ type IpcApi = {
 	[ K in keyof typeof import('./ipc-handlers') ]: (
 		...args: Tail< Parameters< ( typeof import('./ipc-handlers') )[ K ] > >
 	) => ReturnType< ( typeof import('./ipc-handlers') )[ K ] >;
+} & {
+	/**
+	 * `webUtils.getPathForFile` is available only inside preload script, that's why this one
+	 * function is exception and need to be defined here manually.
+	 *
+	 * See https://www.electronjs.org/docs/latest/breaking-changes#planned-breaking-api-changes-320
+	 * for more details.
+	 */
+	getPathForFile: ( file: File ) => string;
 };
 
 interface AppGlobals {

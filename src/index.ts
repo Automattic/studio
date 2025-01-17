@@ -138,6 +138,12 @@ async function appBoot() {
 	} );
 
 	function validateIpcSender( event: IpcMainInvokeEvent ) {
+		if ( ! event.senderFrame ) {
+			throw new Error(
+				'Failed IPC sender validation check: the frame has either navigated or been destroyed'
+			);
+		}
+
 		if ( new URL( event.senderFrame.url ).origin === new URL( MAIN_WINDOW_WEBPACK_ENTRY ).origin ) {
 			return true;
 		}

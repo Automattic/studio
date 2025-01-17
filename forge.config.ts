@@ -55,6 +55,7 @@ const config: ForgeConfig = {
 			? []
 			: [
 					new MakerDMG(
+						// @ts-expect-error - https://github.com/electron/forge/issues/3712
 						{
 							icon: 'assets/studio-app-icon.icns',
 							background: 'assets/dmg-background.png',

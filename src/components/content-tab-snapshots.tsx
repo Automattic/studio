@@ -184,7 +184,7 @@ function SnapshotRow( {
 	} else if ( isOverLimit ) {
 		tooltipContent = {
 			text: __(
-				'Your site exceeds 1GB in size. Updating this demo site may take considerable amount of time and could exceed the maximum allowed size for a demo site.'
+				'Your site exceeds 2GB in size. Updating this demo site may take considerable amount of time and could exceed the maximum allowed size for a demo site.'
 			),
 		};
 	}
@@ -457,7 +457,7 @@ function AddDemoSiteWithProgress( {
 	);
 	const offlineMessage = __( 'Creating a demo site requires an internet connection.' );
 	const overLimitMessage = __(
-		'Your site exceeds 1GB in size. Creating a demo site for a larger site may take considerable amount of time and could exceed the maximum allowed size for a demo site.'
+		'Your site exceeds 2GB in size. Creating a demo site for a larger site may take considerable amount of time and could exceed the maximum allowed size for a demo site.'
 	);
 
 	const userBlockedMessage = errorMessages.rest_site_creation_blocked;

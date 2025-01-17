@@ -13,10 +13,10 @@ export function calculateDirectorySize( directoryPath: string ): Promise< number
 					files.map( async ( file ) => {
 						const filePath = path.join( dirPath, file.name );
 						try {
-							const stats = await fs.promises.stat( filePath );
-							if ( stats.isDirectory() ) {
+							if ( file.isDirectory() ) {
 								await calculateSize( filePath );
 							} else {
+								const stats = await fs.promises.stat( filePath );
 								totalSize += stats.size;
 							}
 						} catch ( error ) {

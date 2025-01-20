@@ -35,7 +35,7 @@ import Root from './components/root';
 import { getIpcApi } from './lib/get-ipc-api';
 import './index.css';
 
-Sentry.init( { debug: true, release: 'studio-dev' }, reactInit );
+Sentry.init( { debug: true }, reactInit );
 
 const makeLogger =
 	( level: 'info' | 'warn' | 'erro', originalLogger: typeof console.log ) =>

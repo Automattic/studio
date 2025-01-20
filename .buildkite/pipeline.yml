@@ -57,9 +57,9 @@ steps:
       # call with bash explicitly because we run this on Windows, too
       bash .buildkite/commands/install-node-dependencies.sh
       echo '--- :package: Package app for testing'
-      npm run package
+      IS_DEV_BUILD=true npm run package
       echo '--- :playwright: Run End To End Tests'
-      npm run e2e
+      IS_DEV_BUILD=true npm run e2e
     artifact_paths:
       - test-results/**/*.zip
     plugins: *common_plugins

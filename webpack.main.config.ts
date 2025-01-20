@@ -78,7 +78,6 @@ export const mainBaseConfig: Configuration = {
 			COMMIT_HASH: JSON.stringify(
 				process.env.GITHUB_SHA ?? process.env.BUILDKITE_COMMIT ?? undefined
 			),
-			IS_DEV_BUILD: JSON.stringify( process.env.IS_DEV_BUILD ),
 		} ),
 		new CopyWebpackPlugin( {
 			patterns: [

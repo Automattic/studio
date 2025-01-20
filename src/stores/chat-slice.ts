@@ -85,6 +85,9 @@ export const updateFromSite = createAsyncThunk(
 	}
 );
 
+const storedMessages = localStorage.getItem( CHAT_MESSAGES_STORE_KEY );
+const storedChatIds = localStorage.getItem( CHAT_ID_STORE_KEY );
+
 const initialState: ChatState = {
 	currentURL: '',
 	pluginList: [],
@@ -98,8 +101,8 @@ const initialState: ChatState = {
 	availableEditors: [],
 	siteName: '',
 	isSiteLoadedDict: {},
-	messagesDict: {},
-	chatIdDict: {},
+	messagesDict: storedMessages ? JSON.parse( storedMessages ) : {},
+	chatIdDict: storedChatIds ? JSON.parse( storedChatIds ) : {},
 	chatInputBySite: {},
 	isLoadingDict: {},
 };

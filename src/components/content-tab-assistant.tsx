@@ -423,18 +423,6 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		}
 	};
 
-	// Submit prompt input when the user clicks the send button
-	const handleSend = () => {
-		submitPrompt( inputRef.current?.value ?? '' );
-		setInput( '' );
-	};
-
-	const handleKeyDown = ( e: React.KeyboardEvent< HTMLTextAreaElement > ) => {
-		if ( e.key === 'Enter' ) {
-			handleSend();
-		}
-	};
-
 	const clearConversation = () => {
 		setInput( '' );
 		clearMessages();
@@ -503,8 +491,14 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 						disabled={ disabled }
 						input={ chatInput }
 						setInput={ setInput }
-						handleSend={ handleSend }
-						handleKeyDown={ handleKeyDown }
+						handleSend={ () => {
+							submitPrompt( inputRef.current?.value ?? '' );
+						} }
+						handleKeyDown={ ( event ) => {
+							if ( event.key === 'Enter' ) {
+								submitPrompt( inputRef.current?.value ?? '' );
+							}
+						} }
 						clearConversation={ clearConversation }
 						isAssistantThinking={ isAssistantThinking }
 					/>

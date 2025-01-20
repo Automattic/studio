@@ -9,6 +9,7 @@ import { getSqliteCommandPath } from '../../../src/lib/sqlite-command-versions';
 import { PHP, MountHandler, writeFiles, setPhpIniEntries } from '@php-wasm/universal';
 import { readFileSync } from 'fs';
 import { startSymlinkManager } from './wp-now';
+
 const isWindows = process.platform === 'win32';
 
 /**

@@ -23,7 +23,9 @@ export const plugins: WebpackPluginInstance[] = [
 			org: 'a8c',
 			project: 'studio',
 			release: {
-				name: `webpack-${ process.env.npm_package_version || COMMIT_HASH }-${ process.platform }`,
+				name: `webpack-${ COMMIT_HASH }-${ process.platform }-${
+					process.env.BUILDKITE_STEP_KEY || 'unknown_step'
+				}-${ process.env.BUILDKITE_BUILD_NUMBER || 'local' }`,
 			},
 		} ),
 ];

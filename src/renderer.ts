@@ -35,11 +35,16 @@ import Root from './components/root';
 import { getIpcApi } from './lib/get-ipc-api';
 import './index.css';
 
+// @ts-expect-error - This is injected by webpack.DefinePlugin
+const COMMIT_HASH: string = process.env.COMMIT_HASH;
+
 if ( ! process.env.IS_DEV_BUILD ) {
 	Sentry.init(
 		{
 			debug: true,
-			release: `renderer-${ process.env.npm_package_version || COMMIT_HASH }-${ process.platform }`,
+			release: `renderer-${ COMMIT_HASH }-${ process.platform }-${
+				process.env.BUILDKITE_STEP_KEY || 'unknown_step'
+			}-${ process.env.BUILDKITE_BUILD_NUMBER || 'local' }`,
 		},
 		reactInit
 	);

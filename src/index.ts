@@ -45,7 +45,9 @@ if ( ! isCLI() && ! process.env.IS_DEV_BUILD ) {
 			process.env.NODE_ENV !== 'development' &&
 			process.env.NODE_ENV !== 'test' &&
 			! process.env.E2E,
-		release: `main-${ app.getVersion() ? app.getVersion() : COMMIT_HASH }-${ getPlatformName() }`,
+		release: `main-${ app.getVersion() ? app.getVersion() : COMMIT_HASH }-${ getPlatformName() }-${
+			process.env.BUILDKITE_STEP_KEY || 'unknown_step'
+		}-${ process.env.BUILDKITE_BUILD_NUMBER || 'local' }`,
 	} );
 }
 

@@ -42,9 +42,7 @@ if ( ! isCLI() && ! process.env.E2E ) {
 		dsn: 'https://97693275b2716fb95048c6d12f4318cf@o248881.ingest.sentry.io/4506612776501248',
 		debug: true,
 		enabled: process.env.NODE_ENV !== 'development' && process.env.NODE_ENV !== 'test',
-		release: process.env.BUILDKITE_STEP_KEY
-			? `studio-${ process.env.BUILDKITE_STEP_KEY }`
-			: `studio-${ COMMIT_HASH }`,
+		release: `${ app.getVersion() ? app.getVersion() : COMMIT_HASH }-${ getPlatformName() }`,
 	} );
 }
 

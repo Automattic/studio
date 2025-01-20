@@ -154,7 +154,7 @@ steps:
       .buildkite/commands/install-node-dependencies.sh
 
       echo "--- :node: Generating Release Manifest"
-      node ./scripts/generate-releases-manifest.mjs
+      IS_DEV_BUILD=true node ./scripts/generate-releases-manifest.mjs
 
       echo "--- :fastlane: Distributing Dev Builds"
       install_gems

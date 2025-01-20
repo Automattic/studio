@@ -19,10 +19,5 @@ export const plugins: WebpackPluginInstance[] = [
 			authToken: process.env.SENTRY_AUTH_TOKEN,
 			org: 'a8c',
 			project: 'studio',
-			release: {
-				name: process.env.BUILDKITE_STEP_KEY
-					? `studio-${ process.env.BUILDKITE_STEP_KEY }`
-					: undefined,
-			},
 		} ),
 ];

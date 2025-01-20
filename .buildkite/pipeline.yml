@@ -8,6 +8,7 @@ common_params:
 # Defining it at the root level propagates it too all agents, which can seem unnecessary but is a the same time convenient and DRY.
 env:
   IMAGE_ID: $IMAGE_ID
+  IS_DEV_BUILD: 'true'
 
 steps:
   - label: Lint
@@ -53,8 +54,6 @@ steps:
   - label: E2E Tests on {{matrix}}
     key: e2e_tests
     command: |
-      # Ensure IS_DEV_BUILD is available to npm commands
-      export IS_DEV_BUILD=true
       # call with bash explicitly because we run this on Windows, too
       bash .buildkite/commands/install-node-dependencies.sh
       echo '--- :package: Package app for testing'
@@ -86,9 +85,6 @@ steps:
           .buildkite/commands/prepare-environment.sh
 
           .buildkite/commands/install-node-dependencies.sh
-
-          # Ensure IS_DEV_BUILD is available to npm commands
-          export IS_DEV_BUILD=true
 
           node ./scripts/prepare-dev-build-version.mjs
 
@@ -132,7 +128,6 @@ steps:
   - label: 🔨 Windows Dev Build
     key: dev-windows
     command: |
-      $env:IS_DEV_BUILD="true"
       .buildkite/commands/build-for-windows-dev.ps1
       node scripts/package-appx.mjs
     artifact_paths:
@@ -159,7 +154,7 @@ steps:
       .buildkite/commands/install-node-dependencies.sh
 
       echo "--- :node: Generating Release Manifest"
-      IS_DEV_BUILD=true node ./scripts/generate-releases-manifest.mjs
+      node ./scripts/generate-releases-manifest.mjs
 
       echo "--- :fastlane: Distributing Dev Builds"
       install_gems

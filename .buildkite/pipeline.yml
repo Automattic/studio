@@ -127,8 +127,9 @@ steps:
   - label: 🔨 Windows Dev Build
     key: dev-windows
     command: |
+      $env:IS_DEV_BUILD="true"
       .buildkite/commands/build-for-windows-dev.ps1
-      IS_DEV_BUILD=true node scripts/package-appx.mjs
+      node scripts/package-appx.mjs
     artifact_paths:
       - out\**\studio-setup.exe
       - out\**\studio-update.nupkg

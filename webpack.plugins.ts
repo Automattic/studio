@@ -16,8 +16,11 @@ export const plugins: WebpackPluginInstance[] = [
 		},
 	} ),
 	// Sentry must be the last plugin
+	console.log( 'Webpack Sentry Plugin - IS_DEV_BUILD:', process.env.IS_DEV_BUILD ),
+	console.log( 'Webpack Sentry Plugin - Should run:', ! process.env.IS_DEV_BUILD ),
 	! process.env.IS_DEV_BUILD &&
 		!! process.env.SENTRY_AUTH_TOKEN &&
+		!! COMMIT_HASH &&
 		sentryWebpackPlugin( {
 			authToken: process.env.SENTRY_AUTH_TOKEN,
 			org: 'a8c',

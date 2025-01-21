@@ -4,7 +4,13 @@ import { __, sprintf } from '@wordpress/i18n';
 import { Icon, check, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren, useEffect } from 'react';
-import { CLIENT_ID, PROTOCOL_PREFIX, WP_AUTHORIZE_ENDPOINT, SCOPES } from '../constants';
+import {
+	CLIENT_ID,
+	PROTOCOL_PREFIX,
+	WP_AUTHORIZE_ENDPOINT,
+	SCOPES,
+	DEMO_SITE_SIZE_LIMIT_GB,
+} from '../constants';
 import { useArchiveErrorMessages } from '../hooks/use-archive-error-messages';
 import { useArchiveSite } from '../hooks/use-archive-site';
 import { useAuth } from '../hooks/use-auth';
@@ -192,8 +198,11 @@ function SnapshotRow( {
 		tooltipContent = { text: userBlockedMessage };
 	} else if ( isOverLimit ) {
 		tooltipContent = {
-			text: __(
-				'Your site exceeds 2GB in size. Updating this demo site may take considerable amount of time and could exceed the maximum allowed size for a demo site.'
+			text: sprintf(
+				__(
+					'Your site exceeds %s GB in size. Updating this demo site may take considerable amount of time and could exceed the maximum allowed size for a demo site.'
+				),
+				DEMO_SITE_SIZE_LIMIT_GB
 			),
 		};
 	}
@@ -472,8 +481,11 @@ function AddDemoSiteWithProgress( {
 		snapshotQuota
 	);
 	const offlineMessage = __( 'Creating a demo site requires an internet connection.' );
-	const overLimitMessage = __(
-		'Your site exceeds 2GB in size. Creating a demo site for a larger site may take considerable amount of time and could exceed the maximum allowed size for a demo site.'
+	const overLimitMessage = sprintf(
+		__(
+			'Your site exceeds %s GB in size. Creating a demo site for a larger site may take considerable amount of time and could exceed the maximum allowed size for a demo site.'
+		),
+		DEMO_SITE_SIZE_LIMIT_GB
 	);
 
 	const userBlockedMessage = errorMessages.rest_site_creation_blocked;

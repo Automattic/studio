@@ -567,8 +567,7 @@ export async function archiveSite( event: IpcMainInvokeEvent, id: string, format
 		format,
 	} );
 	const stats = fs.statSync( archivePath );
-	const archiveContent = fs.readFileSync( archivePath );
-	return { archivePath, archiveContent, archiveSizeInBytes: stats.size };
+	return { archivePath, archiveSizeInBytes: stats.size };
 }
 
 export async function exportSiteToPush( event: IpcMainInvokeEvent, id: string ) {
@@ -726,6 +725,7 @@ export async function getAppGlobals( _event: IpcMainInvokeEvent ): Promise< AppG
 		appName: app.name,
 		arm64Translation: app.runningUnderARM64Translation,
 		terminalWpCliEnabled: process.env.STUDIO_TERMINAL_WP_CLI === 'true',
+		quickDeploysEnabled: process.env.STUDIO_QUICK_DEPLOYS === 'true',
 	};
 }
 
@@ -1092,4 +1092,11 @@ export function getWpContentSize( _event: IpcMainInvokeEvent, siteId: string ) {
 		throw new Error( 'Site not found.' );
 	}
 	return calculateDirectorySize( nodePath.join( site.details.path, 'wp-content' ) );
+}
+export async function getFileContent( event: IpcMainInvokeEvent, filePath: string ) {
+	if ( ! fs.existsSync( filePath ) ) {
+		throw new Error( `File not found: ${ filePath }` );
+	}
+
+	return fs.readFileSync( filePath );
 }

@@ -104,6 +104,7 @@ const api: IpcApi = {
 	clearSyncOperation: ( id: string ) => ipcRenderer.invoke( 'clearSyncOperation', id ),
 	getWpContentSize: ( id: string ) => ipcRenderer.invoke( 'getWpContentSize', id ),
 	getPathForFile: webUtils.getPathForFile,
+	getFileContent: ( filePath: string ) => ipcRenderer.invoke( 'getFileContent', filePath ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

@@ -179,11 +179,7 @@ async function prepareWordPress( php: PHP, options: WPNowOptions ) {
 			break;
 	}
 
-	// Symlink manager is not yet supported on windows
-	// See: https://github.com/Automattic/studio/issues/548
-	if ( process.platform !== 'win32' ) {
-		await startSymlinkManager(php, options.projectPath);
-	}
+	await startSymlinkManager( php, options.projectPath, options.documentRoot );
 }
 
 /**
@@ -195,22 +191,30 @@ async function prepareWordPress( php: PHP, options: WPNowOptions ) {
  *
  * @param php
  * @param projectPath
+ * @param documentRoot
  */
-async function startSymlinkManager(php: PHP, projectPath: string) {
-	const symlinkManager = new SymlinkManager(php, projectPath);
+export async function startSymlinkManager( php: PHP, projectPath: string, documentRoot: string ) {
+	// Symlink manager is not yet supported on windows
+	// See: https://github.com/Automattic/studio/issues/548
+	if ( process.platform === 'win32' ) {
+		return;
+	}
+
+	const symlinkManager = new SymlinkManager( php, projectPath, documentRoot );
 	await symlinkManager.scanAndCreateSymlinks();
-	symlinkManager.startWatching()
-		.catch((err) => {
-			output?.error('Error while watching for file changes', err);
-		})
-		.finally(() => {
-			output?.log('Stopped watching for file changes');
-		});
+	symlinkManager
+		.startWatching()
+		.catch( ( err ) => {
+			output?.error( 'Error while watching for file changes', err );
+		} )
+		.finally( () => {
+			output?.log( 'Stopped watching for file changes' );
+		} );
 
 	// Ensure that we stop watching for file changes when the runtime is exiting
-	php.addEventListener('runtime.beforedestroy', () => {
+	php.addEventListener( 'runtime.beforedestroy', () => {
 		symlinkManager.stopWatching();
-	});
+	} );
 }
 
 async function runIndexMode( php: PHP, { documentRoot, projectPath }: WPNowOptions ) {

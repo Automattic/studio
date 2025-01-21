@@ -26,7 +26,7 @@ describe( 'SymlinkManager', () => {
 	let symlinkManager: SymlinkManager;
 	let mockPHP: jest.Mocked< PHP >;
 	const mockProjectPath = '/mock/project/path';
-
+	const mockDocumentRoot = '/mock/document/root';
 	beforeEach( () => {
 		mockPHP = {
 			fileExists: jest.fn().mockReturnValue( false ),
@@ -38,11 +38,11 @@ describe( 'SymlinkManager', () => {
 			unlink: jest.fn(),
 			rmdir: jest.fn(),
 			requestHandler: {
-				documentRoot: '/mock/document/root',
+				documentRoot: mockDocumentRoot,
 			},
 		} as unknown as jest.Mocked< PHP >;
 
-		symlinkManager = new SymlinkManager( mockPHP, mockProjectPath );
+		symlinkManager = new SymlinkManager( mockPHP, mockProjectPath, mockDocumentRoot );
 
 		jest.mock( 'path', () => ( {
 			...jest.requireActual( 'path' ),

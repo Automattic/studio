@@ -102,7 +102,7 @@ const api: IpcApi = {
 		ipcRenderer.invoke( 'getConnectedWpcomSites', localSiteId ),
 	addSyncOperation: ( id: string ) => ipcRenderer.invoke( 'addSyncOperation', id ),
 	clearSyncOperation: ( id: string ) => ipcRenderer.invoke( 'clearSyncOperation', id ),
-	getWpContentSize: ( id: string ) => ipcRenderer.invoke( 'getSiteSize', id ),
+	getWpContentSize: ( id: string ) => ipcRenderer.invoke( 'getWpContentSize', id ),
 	getPathForFile: webUtils.getPathForFile,
 };
 

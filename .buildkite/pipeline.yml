@@ -56,9 +56,9 @@ steps:
       # call with bash explicitly because we run this on Windows, too
       bash .buildkite/commands/install-node-dependencies.sh
       echo '--- :package: Package app for testing'
-      IS_DEV_BUILD=true npm run package
+      npm run package
       echo '--- :playwright: Run End To End Tests'
-      IS_DEV_BUILD=true npm run e2e
+      npm run e2e
     artifact_paths:
       - test-results/**/*.zip
     plugins: *common_plugins
@@ -67,6 +67,7 @@ steps:
     env:
       # See https://playwright.dev/docs/ci#debugging-browser-launches
       DEBUG: "pw:browser"
+      IS_DEV_BUILD: true
     matrix:
       - mac
       #- windows

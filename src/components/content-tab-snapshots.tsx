@@ -239,11 +239,15 @@ function SnapshotRow( {
 					</div>
 				) : (
 					<>
-						<Tooltip disabled={ ! isUpdateDisabled } placement="top-start" { ...tooltipContent }>
+						<Tooltip
+							disabled={ ! ( isOverLimit || isUpdateDisabled ) }
+							placement="top-start"
+							{ ...tooltipContent }
+						>
 							<DynamicTooltip
 								getTooltipText={ getLastUpdateTimeText }
 								placement="bottom-start"
-								disabled={ isUpdateDisabled }
+								disabled={ isUpdateDisabled || isOverLimit }
 							>
 								<Button
 									aria-description={ tooltipContent?.text || '' }

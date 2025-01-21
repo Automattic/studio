@@ -3,6 +3,7 @@
 fastlane_require 'digest'
 fastlane_require 'zip'
 fastlane_require 'aws-sdk-cloudfront'
+fastlane_require 'json'
 
 UI.user_error!('Please run fastlane via `bundle exec`') unless FastlaneCore::Helper.bundler?
 
@@ -12,6 +13,9 @@ UI.user_error!('Please run fastlane via `bundle exec`') unless FastlaneCore::Hel
 PROJECT_ROOT_FOLDER = File.dirname(File.expand_path(__dir__))
 SECRETS_FOLDER = File.join(Dir.home, '.configure', 'studio', 'secrets')
 BUILDS_FOLDER = File.join(PROJECT_ROOT_FOLDER, 'out')
+
+# Read version from package.json
+PACKAGE_VERSION = JSON.parse(File.read(File.join(PROJECT_ROOT_FOLDER, 'package.json')))['version']
 
 APPLE_TEAM_ID = 'PZYM8XX95Q'
 APPLE_BUNDLE_IDENTIFIER = 'com.automattic.studio'
@@ -92,7 +96,7 @@ def distribute_builds(
 )
   # If we are distributing a build without a tag, i.e. a development build, we also want to update the latest build reference for distribution.
   update_latest = release_tag.nil?
-  suffix = release_tag.nil? ? commit_hash : release_tag
+  suffix = release_tag.nil? ? "v#{PACKAGE_VERSION}-#{commit_hash}" : release_tag
   filename_root = 'studio'
   bucket_folder = 'studio'
 

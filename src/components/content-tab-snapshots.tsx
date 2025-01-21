@@ -517,7 +517,7 @@ function AddDemoSiteWithProgress( {
 				</div>
 			) : (
 				<div className="flex gap-4">
-					<Tooltip disabled={ ! tooltipContent } { ...tooltipContent }>
+					<Tooltip disabled={ ! tooltipContent } { ...tooltipContent } placement="top-start">
 						<Button
 							aria-description={ tooltipContent?.text ?? '' }
 							aria-disabled={ isDisabled }

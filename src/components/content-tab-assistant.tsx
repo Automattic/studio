@@ -7,11 +7,13 @@ import { __, _n, sprintf } from '@wordpress/i18n';
 import { Icon, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import React, { useState, useEffect, useRef, memo, useCallback, useMemo } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
+import { RootState } from 'src/stores';
+import { selectChatInput, setChatInput } from 'src/stores/chat-slice';
 import { AI_GUIDELINES_URL, LIMIT_OF_PROMPTS_PER_USER } from '../constants';
 import { useAssistant, Message as MessageType } from '../hooks/use-assistant';
 import { useAssistantApi } from '../hooks/use-assistant-api';
 import { useAuth } from '../hooks/use-auth';
-import { useChatContext } from '../hooks/use-chat-context';
 import { useOffline } from '../hooks/use-offline';
 import { usePromptUsage } from '../hooks/use-prompt-usage';
 import { useWelcomeMessages } from '../hooks/use-welcome-messages';
@@ -352,7 +354,10 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
 	const inputRef = useRef< HTMLTextAreaElement >( null );
 	const wrapperRef = useRef< HTMLDivElement >( null );
-	const chatContext = useChatContext();
+	const dispatch = useDispatch();
+	const chatInput = useSelector( ( state: RootState ) =>
+		selectChatInput( state, selectedSite.id )
+	);
 	const { isAuthenticated, authenticate, user } = useAuth();
 	const instanceId = user?.id ? `${ user.id }_${ selectedSite.id }` : selectedSite.id;
 	const {
@@ -367,79 +372,62 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const { userCanSendMessage } = usePromptUsage();
 	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi( selectedSite.id );
 	const { messages: welcomeMessages, examplePrompts } = useWelcomeMessages();
-	const [ currentInput, setCurrentInput ] = useState( '' );
 	const isOffline = useOffline();
 	const { __ } = useI18n();
 	const lastMessage = messages.length === 0 ? undefined : messages[ messages.length - 1 ];
-	const hasFailedMessage = messages.some( ( msg ) => msg.failedMessage );
-
-	// Restore prompt input when site changes
-	useEffect( () => {
-		setCurrentInput( chatContext.getChatInput( selectedSite.id ) );
-	}, [ selectedSite.id, chatContext ] );
+	const hasFailedMessage = messages.some( ( msg: MessageType ) => msg.failedMessage );
 
 	// Save prompt input when it changes
-	const setInput = useCallback(
-		( input: string ) => {
-			chatContext.saveChatInput( input, selectedSite.id );
-			setCurrentInput( input );
-		},
-		[ selectedSite.id, chatContext ]
-	);
+	const setInput = ( input: string ) => {
+		dispatch( setChatInput( { siteId: selectedSite.id, input } ) );
+	};
 
-	const submitPrompt = useCallback(
-		async ( chatMessage: string, isRetry?: boolean ) => {
-			if ( ! chatMessage ) {
-				return;
-			}
-			let messageId;
-			if ( chatMessage.trim() ) {
-				if ( isRetry ) {
-					// If retrying, find the message ID with failedMessage flag
-					const failedMessage = messages.find(
-						( msg ) => msg.failedMessage && msg.content === chatMessage
-					);
-					if ( failedMessage ) {
-						messageId = failedMessage.id;
-						if ( typeof messageId !== 'undefined' ) {
-							markMessageAsFailed( messageId, false );
-						}
-					}
-				} else {
-					messageId = addMessage( chatMessage, 'user', chatId ); // Get the new message ID
-					setInput( '' );
-				}
-				try {
-					const {
-						message,
-						chatId: fetchedChatId,
-						messageApiId,
-					} = await fetchAssistant(
-						chatId,
-						[
-							...messages,
-							{ id: messageId, content: chatMessage, role: 'user', createdAt: Date.now() },
-						],
-						chatContext
-					);
-					if ( message ) {
-						addMessage( message, 'assistant', chatId ?? fetchedChatId, messageApiId );
-					}
-				} catch ( error ) {
+	const submitPrompt = async ( chatMessage: string, isRetry?: boolean ) => {
+		if ( ! chatMessage ) {
+			return;
+		}
+		let messageId;
+		if ( chatMessage.trim() ) {
+			if ( isRetry ) {
+				// If retrying, find the message ID with failedMessage flag
+				const failedMessage = messages.find(
+					( msg ) => msg.failedMessage && msg.content === chatMessage
+				);
+				if ( failedMessage ) {
+					messageId = failedMessage.id;
 					if ( typeof messageId !== 'undefined' ) {
-						markMessageAsFailed( messageId, true );
+						markMessageAsFailed( messageId, false );
 					}
 				}
+			} else {
+				messageId = addMessage( chatMessage, 'user', chatId ); // Get the new message ID
+				setInput( '' );
 			}
-		},
-		[ addMessage, chatId, chatContext, fetchAssistant, markMessageAsFailed, messages, setInput ]
-	);
+			try {
+				const {
+					message,
+					chatId: fetchedChatId,
+					messageApiId,
+				} = await fetchAssistant( chatId, [
+					...messages,
+					{ id: messageId, content: chatMessage, role: 'user', createdAt: Date.now() },
+				] );
+				if ( message ) {
+					addMessage( message, 'assistant', chatId ?? fetchedChatId, messageApiId );
+				}
+			} catch ( error ) {
+				if ( typeof messageId !== 'undefined' ) {
+					markMessageAsFailed( messageId, true );
+				}
+			}
+		}
+	};
 
 	// Submit prompt input when the user clicks the send button
-	const handleSend = useCallback( () => {
+	const handleSend = () => {
 		submitPrompt( inputRef.current?.value ?? '' );
 		setInput( '' );
-	}, [ submitPrompt, setInput ] );
+	};
 
 	const handleKeyDown = ( e: React.KeyboardEvent< HTMLTextAreaElement > ) => {
 		if ( e.key === 'Enter' ) {
@@ -513,7 +501,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 					<AIInput
 						ref={ inputRef }
 						disabled={ disabled }
-						input={ currentInput }
+						input={ chatInput }
 						setInput={ setInput }
 						handleSend={ handleSend }
 						handleKeyDown={ handleKeyDown }

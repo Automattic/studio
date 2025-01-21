@@ -88,8 +88,10 @@ steps:
 
           node ./scripts/prepare-dev-build-version.mjs
 
+          export IS_DEV_BUILD=true
+
           echo "--- :node: Building Binary"
-          IS_DEV_BUILD=true npm run make:macos-{{matrix}}
+          npm run make:macos-{{matrix}}
 
           # Local trial and error show this needs to run before the DMG generation (obviously) but after the binary has been built
           echo "--- :hammer: Rebuild fs-attr if necessary before generating DMG"
@@ -108,7 +110,7 @@ steps:
           esac
 
           echo "--- :node: Packaging in DMG"
-          IS_DEV_BUILD=true npm run make:dmg-{{matrix}}
+          npm run make:dmg-{{matrix}}
 
           echo "--- 📃 Notarizing Binary"
           bundle exec fastlane notarize_binary
@@ -154,8 +156,10 @@ steps:
 
       .buildkite/commands/install-node-dependencies.sh
 
+      export IS_DEV_BUILD=true
+
       echo "--- :node: Generating Release Manifest"
-      IS_DEV_BUILD=true node ./scripts/generate-releases-manifest.mjs
+      node ./scripts/generate-releases-manifest.mjs
 
       echo "--- :fastlane: Distributing Dev Builds"
       install_gems

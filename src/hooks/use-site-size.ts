@@ -8,7 +8,7 @@ export function useSiteSize( siteId: string ) {
 	useEffect( () => {
 		async function checkSiteSize() {
 			try {
-				const size = await getIpcApi().getSiteSize( siteId );
+				const size = await getIpcApi().getWpContentSize( siteId );
 				setIsOverLimit( size > DEMO_SITE_SIZE_LIMIT_BYTES );
 			} catch ( error ) {
 				console.error( 'Error checking site size:', error );

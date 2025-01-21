@@ -1086,7 +1086,7 @@ export function clearSyncOperation( event: IpcMainInvokeEvent, id: string ) {
 	ACTIVE_SYNC_OPERATIONS.delete( id );
 }
 
-export function getSiteSize( _event: IpcMainInvokeEvent, siteId: string ) {
+export function getWpContentSize( _event: IpcMainInvokeEvent, siteId: string ) {
 	const site = SiteServer.get( siteId );
 	if ( ! site ) {
 		throw new Error( 'Site not found.' );

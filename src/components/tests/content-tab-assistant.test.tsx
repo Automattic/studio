@@ -2,7 +2,6 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event';
 import { CLEAR_HISTORY_REMINDER_TIME } from '../../constants';
 import { useAuth } from '../../hooks/use-auth';
-import { ChatProvider } from '../../hooks/use-chat-context';
 import { useGetWpVersion } from '../../hooks/use-get-wp-version';
 import { useOffline } from '../../hooks/use-offline';
 import { usePromptUsage } from '../../hooks/use-prompt-usage';
@@ -51,9 +50,7 @@ const initialMessages = [
 function ContextWrapper( props: Parameters< typeof ContentTabAssistant >[ 0 ] ) {
 	return (
 		<ThemeDetailsProvider>
-			<ChatProvider>
-				<ContentTabAssistant { ...props } />
-			</ChatProvider>
+			<ContentTabAssistant { ...props } />
 		</ThemeDetailsProvider>
 	);
 }

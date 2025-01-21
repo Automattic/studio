@@ -2,7 +2,6 @@ import { renderHook, act } from '@testing-library/react';
 import { ReactNode } from 'react';
 import { getIpcApi } from '../../lib/get-ipc-api';
 import { useAssistant } from '../use-assistant';
-import { ChatProvider } from '../use-chat-context';
 import { useGetWpVersion } from '../use-get-wp-version';
 import { ThemeDetailsProvider } from '../use-theme-details';
 
@@ -10,11 +9,7 @@ jest.mock( '../../lib/get-ipc-api' );
 jest.mock( '../use-get-wp-version' );
 
 function ContextWrapper( { children }: { children: ReactNode } ) {
-	return (
-		<ThemeDetailsProvider>
-			<ChatProvider>{ children }</ChatProvider>
-		</ThemeDetailsProvider>
-	);
+	return <ThemeDetailsProvider>{ children }</ThemeDetailsProvider>;
 }
 
 interface Message {

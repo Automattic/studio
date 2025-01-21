@@ -17,9 +17,6 @@
 		"plugin:react-hooks/recommended"
 	],
 	"parser": "@typescript-eslint/parser",
-	"parserOptions": {
-		"project": ["./tsconfig.json"]
-	},
 	"plugins": [ "@typescript-eslint", "prettier", "jest-dom" ],
 	"settings": {
 		"import/resolver": {
@@ -50,5 +47,13 @@
 				"groups": [ "builtin", "external", "internal", "parent", "sibling", "index", "type" ]
 			}
 		]
-	}
+	},
+	"overrides": [
+		{
+			"files": ["*.ts", "src/tests/**/*.{ts,tsx}"],
+			"rules": {
+				"@typescript-eslint/no-require-imports": "off"
+			}
+		}
+	]
 }

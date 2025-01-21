@@ -1,8 +1,10 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import * as Sentry from '@sentry/electron/renderer';
+import WPCOM from 'wpcom';
 import { CHAT_ID_STORE_KEY, CHAT_MESSAGES_STORE_KEY } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { DEFAULT_PHP_VERSION } from 'vendor/wp-now/src/constants';
+import { RootState } from '.';
 
 export interface ChatState {
 	currentURL: string;
@@ -85,6 +87,69 @@ export const updateFromSite = createAsyncThunk(
 	}
 );
 
+type FetchAssistantParams = {
+	client: WPCOM;
+	chatId: string | undefined;
+	isRetry?: boolean;
+	message: Message;
+	siteId: string;
+};
+
+type FetchAssistantResponseData = {
+	choices: { message: { content: string; id: number } }[];
+	id: string;
+};
+
+export const fetchAssistantThunk = createAsyncThunk(
+	'chat/fetchAssistant',
+	async ( { client, chatId, message, siteId }: FetchAssistantParams, thunkAPI ) => {
+		const state = thunkAPI.getState() as RootState;
+		const context = {
+			current_url: state.chat.currentURL,
+			number_of_sites: state.chat.numberOfSites,
+			wp_version: state.chat.wpVersion,
+			php_version: state.chat.phpVersion,
+			plugins: state.chat.pluginList,
+			themes: state.chat.themeList,
+			current_theme: state.chat.themeName,
+			is_block_theme: state.chat.isBlockTheme,
+			ide: state.chat.availableEditors,
+			site_name: state.chat.siteName,
+			os: state.chat.os,
+		};
+		const messages = state.chat.messagesDict[ siteId ].concat( message );
+
+		const { data, headers } = await new Promise< {
+			data: FetchAssistantResponseData;
+			headers: Record< string, string >;
+		} >( ( resolve, reject ) => {
+			client.req.post< FetchAssistantResponseData >(
+				{
+					path: '/studio-app/ai-assistant/chat',
+					apiNamespace: 'wpcom/v2',
+					body: {
+						messages,
+						chat_id: chatId,
+						context,
+					},
+				},
+				( error, data, headers ) => {
+					if ( error ) {
+						return reject( error );
+					}
+					return resolve( { data, headers } );
+				}
+			);
+		} );
+
+		return {
+			chatId: data?.id,
+			message: data?.choices?.[ 0 ]?.message?.content,
+			messageApiId: data?.choices?.[ 0 ]?.message?.id,
+		};
+	}
+);
+
 const storedMessages = localStorage.getItem( CHAT_MESSAGES_STORE_KEY );
 const storedChatIds = localStorage.getItem( CHAT_ID_STORE_KEY );
 
@@ -106,6 +171,24 @@ const initialState: ChatState = {
 	chatInputBySite: {},
 	isLoadingDict: {},
 };
+
+export function generateMessage(
+	content: string,
+	role: 'user' | 'assistant',
+	newMessageId: number,
+	chatId?: string,
+	messageApiId?: number
+): Message {
+	return {
+		content,
+		role,
+		id: newMessageId,
+		chatId,
+		createdAt: Date.now(),
+		feedbackReceived: false,
+		messageApiId,
+	};
+}
 
 const chatSlice = createSlice( {
 	name: 'chat',
@@ -160,6 +243,49 @@ const chatSlice = createSlice( {
 			} )
 			.addCase( updateFromSite.rejected, ( state, action ) => {
 				state.isSiteLoadedDict[ action.meta.arg.id ] = false;
+			} )
+			.addCase( fetchAssistantThunk.pending, ( state, action ) => {
+				state.isLoadingDict[ action.meta.arg.siteId ] = true;
+
+				if ( ! state.messagesDict[ action.meta.arg.siteId ] ) {
+					state.messagesDict[ action.meta.arg.siteId ] = [];
+				}
+
+				const messages = state.messagesDict[ action.meta.arg.siteId ];
+
+				if ( action.meta.arg.isRetry ) {
+					messages.forEach( ( message ) => {
+						if ( message.id === action.meta.arg.message.id ) {
+							message.failedMessage = false;
+						}
+					} );
+				}
+
+				messages.push( action.meta.arg.message );
+			} )
+			.addCase( fetchAssistantThunk.rejected, ( state, action ) => {
+				state.isLoadingDict[ action.meta.arg.siteId ] = false;
+				const messages = state.messagesDict[ action.meta.arg.siteId ];
+
+				messages.forEach( ( message ) => {
+					if ( message.id === action.meta.arg.message.id ) {
+						message.failedMessage = true;
+					}
+				} );
+			} )
+			.addCase( fetchAssistantThunk.fulfilled, ( state, action ) => {
+				state.isLoadingDict[ action.meta.arg.siteId ] = false;
+
+				const messages = state.messagesDict[ action.meta.arg.siteId ];
+				const message = generateMessage(
+					action.payload.message,
+					'assistant',
+					messages.length,
+					action.meta.arg.chatId,
+					action.payload.messageApiId
+				);
+
+				messages.push( message );
 			} );
 	},
 	selectors: {
@@ -167,33 +293,13 @@ const chatSlice = createSlice( {
 		selectMessages: ( state, siteId: string ) => state.messagesDict[ siteId ] ?? [],
 		selectChatId: ( state, siteId: string ) => state.chatIdDict[ siteId ],
 		selectIsLoading: ( state, siteId: string ) => state.isLoadingDict[ siteId ] ?? false,
-		selectContextForApi: ( state ) => {
-			return {
-				current_url: state.currentURL,
-				number_of_sites: state.numberOfSites,
-				wp_version: state.wpVersion,
-				php_version: state.phpVersion,
-				plugins: state.pluginList,
-				themes: state.themeList,
-				current_theme: state.themeName,
-				is_block_theme: state.isBlockTheme,
-				ide: state.availableEditors,
-				site_name: state.siteName,
-				os: state.os,
-			};
-		},
 	},
 } );
 
 export const { updateFromTheme, setMessages, setChatId, setChatInput, setIsLoading } =
 	chatSlice.actions;
 
-export const {
-	selectChatInput,
-	selectMessages,
-	selectChatId,
-	selectIsLoading,
-	selectContextForApi,
-} = chatSlice.selectors;
+export const { selectChatInput, selectMessages, selectChatId, selectIsLoading } =
+	chatSlice.selectors;
 
 export default chatSlice.reducer;

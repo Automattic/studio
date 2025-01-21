@@ -9,10 +9,18 @@ import { useI18n } from '@wordpress/react-i18n';
 import React, { useState, useEffect, useRef, memo, useCallback, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from 'src/stores';
-import { selectChatInput, setChatInput } from 'src/stores/chat-slice';
+import {
+	setMessages,
+	fetchAssistantThunk,
+	generateMessage,
+	selectChatInput,
+	selectIsLoading,
+	selectMessages,
+	setChatInput,
+	updateFromSite,
+} from 'src/stores/chat-slice';
 import { AI_GUIDELINES_URL, LIMIT_OF_PROMPTS_PER_USER } from '../constants';
 import { useAssistant, Message as MessageType } from '../hooks/use-assistant';
-import { useAssistantApi } from '../hooks/use-assistant-api';
 import { useAuth } from '../hooks/use-auth';
 import { useOffline } from '../hooks/use-offline';
 import { usePromptUsage } from '../hooks/use-prompt-usage';
@@ -358,24 +366,23 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const chatInput = useSelector( ( state: RootState ) =>
 		selectChatInput( state, selectedSite.id )
 	);
-	const { isAuthenticated, authenticate, user } = useAuth();
+	const { isAuthenticated, authenticate, user, client } = useAuth();
 	const instanceId = user?.id ? `${ user.id }_${ selectedSite.id }` : selectedSite.id;
-	const {
-		messages,
-		addMessage,
-		clearMessages,
-		updateMessage,
-		markMessageAsFailed,
-		chatId,
-		markMessageAsFeedbackReceived,
-	} = useAssistant( instanceId );
+	const { updateMessage, chatId, markMessageAsFeedbackReceived } = useAssistant( instanceId );
+	const messages = useSelector( ( state: RootState ) => selectMessages( state, selectedSite.id ) );
+	const isAssistantThinking = useSelector( ( state: RootState ) =>
+		selectIsLoading( state, selectedSite.id )
+	);
 	const { userCanSendMessage } = usePromptUsage();
-	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi( selectedSite.id );
 	const { messages: welcomeMessages, examplePrompts } = useWelcomeMessages();
 	const isOffline = useOffline();
 	const { __ } = useI18n();
 	const lastMessage = messages.length === 0 ? undefined : messages[ messages.length - 1 ];
 	const hasFailedMessage = messages.some( ( msg: MessageType ) => msg.failedMessage );
+
+	useEffect( () => {
+		dispatch( updateFromSite( selectedSite ) );
+	}, [ dispatch, selectedSite ] );
 
 	// Save prompt input when it changes
 	const setInput = ( input: string ) => {
@@ -383,49 +390,18 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	};
 
 	const submitPrompt = async ( chatMessage: string, isRetry?: boolean ) => {
-		if ( ! chatMessage ) {
+		if ( ! chatMessage || ! client ) {
 			return;
 		}
-		let messageId;
-		if ( chatMessage.trim() ) {
-			if ( isRetry ) {
-				// If retrying, find the message ID with failedMessage flag
-				const failedMessage = messages.find(
-					( msg ) => msg.failedMessage && msg.content === chatMessage
-				);
-				if ( failedMessage ) {
-					messageId = failedMessage.id;
-					if ( typeof messageId !== 'undefined' ) {
-						markMessageAsFailed( messageId, false );
-					}
-				}
-			} else {
-				messageId = addMessage( chatMessage, 'user', chatId ); // Get the new message ID
-				setInput( '' );
-			}
-			try {
-				const {
-					message,
-					chatId: fetchedChatId,
-					messageApiId,
-				} = await fetchAssistant( chatId, [
-					...messages,
-					{ id: messageId, content: chatMessage, role: 'user', createdAt: Date.now() },
-				] );
-				if ( message ) {
-					addMessage( message, 'assistant', chatId ?? fetchedChatId, messageApiId );
-				}
-			} catch ( error ) {
-				if ( typeof messageId !== 'undefined' ) {
-					markMessageAsFailed( messageId, true );
-				}
-			}
-		}
+
+		setInput( '' );
+		const message = generateMessage( chatMessage, 'user', messages.length, chatId );
+		dispatch( fetchAssistantThunk( { chatId, client, message, siteId: selectedSite.id } ) );
 	};
 
 	const clearConversation = () => {
 		setInput( '' );
-		clearMessages();
+		dispatch( setMessages( { siteId: selectedSite.id, messages: [] } ) );
 	};
 
 	// We should render only one notice at a time in the bottom area

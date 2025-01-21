@@ -89,17 +89,6 @@ export const useAssistant = ( instanceId: string ) => {
 		[ instanceId, prevMessages, dispatch ]
 	);
 
-	const markMessageAsFailed = useCallback(
-		( id: number, failedMessage: boolean ) => {
-			const updatedMessages = prevMessages.map( ( message: Message ) => {
-				if ( message.id !== id ) return message;
-				return { ...message, failedMessage };
-			} );
-			dispatch( setMessages( { siteId: instanceId, messages: updatedMessages } ) );
-		},
-		[ instanceId, prevMessages, dispatch ]
-	);
-
 	const sendFeedback = useSendFeedback();
 
 	const markMessageAsFeedbackReceived = useCallback(
@@ -128,20 +117,11 @@ export const useAssistant = ( instanceId: string ) => {
 		[ instanceId, prevMessages, prevChatId, dispatch, sendFeedback ]
 	);
 
-	const clearMessages = useCallback( () => {
-		dispatch( setMessages( { siteId: instanceId, messages: [] } ) );
-		dispatch( setChatId( { siteId: instanceId, chatId: undefined } ) );
-
-		lastMessageIdDictRef.current[ instanceId ] = -1;
-	}, [ instanceId, dispatch ] );
-
 	return {
 		messages: prevMessages || EMPTY_MESSAGES,
 		addMessage,
 		updateMessage,
-		clearMessages,
 		chatId: prevChatId,
-		markMessageAsFailed,
 		markMessageAsFeedbackReceived,
 	};
 };

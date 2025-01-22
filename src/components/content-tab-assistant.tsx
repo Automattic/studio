@@ -20,9 +20,10 @@ import {
 	setChatInput,
 	updateFromSite,
 	updateFromTheme,
+	selectChatId,
+	Message as MessageType,
 } from 'src/stores/chat-slice';
 import { AI_GUIDELINES_URL, LIMIT_OF_PROMPTS_PER_USER } from '../constants';
-import { useAssistant, Message as MessageType } from '../hooks/use-assistant';
 import { useAuth } from '../hooks/use-auth';
 import { useOffline } from '../hooks/use-offline';
 import { usePromptUsage } from '../hooks/use-prompt-usage';
@@ -107,18 +108,9 @@ const OfflineModeView = () => {
 	);
 };
 
-type OnUpdateMessageType = (
-	id: number,
-	codeBlockContent: string,
-	cliOutput: string,
-	cliStatus: 'success' | 'error',
-	cliTime: string
-) => void;
-
 interface AuthenticatedViewProps {
 	messages: MessageType[];
 	isAssistantThinking: boolean;
-	updateMessage: OnUpdateMessageType;
 	siteId: string;
 	submitPrompt: ( messageToSend: string, isRetry?: boolean ) => void;
 	wrapperRef: React.RefObject< HTMLDivElement >;
@@ -128,7 +120,6 @@ const AuthenticatedView = memo(
 	( {
 		messages,
 		isAssistantThinking,
-		updateMessage,
 		siteId,
 		submitPrompt,
 		wrapperRef,
@@ -197,12 +188,7 @@ const AuthenticatedView = memo(
 		const RenderMessage = useCallback(
 			( { message }: { message: MessageType } ) => (
 				<>
-					<ChatMessage
-						id={ `message-chat-${ message.id }` }
-						message={ message }
-						siteId={ siteId }
-						updateMessage={ updateMessage }
-					>
+					<ChatMessage id={ `message-chat-${ message.id }` } message={ message } siteId={ siteId }>
 						{ message.content }
 					</ChatMessage>
 					{ message.failedMessage && (
@@ -210,21 +196,19 @@ const AuthenticatedView = memo(
 					) }
 				</>
 			),
-			[ submitPrompt, siteId, updateMessage ]
+			[ submitPrompt, siteId ]
 		);
 
 		const RenderLastMessage = useCallback(
 			( {
 				showThinking,
 				siteId,
-				updateMessage,
 				message,
 				children,
 			}: {
 				message: MessageType;
 				showThinking: boolean;
 				siteId: string;
-				updateMessage: OnUpdateMessageType;
 				children: React.ReactNode;
 			} ) => {
 				const thinkingAnimation = {
@@ -244,7 +228,6 @@ const AuthenticatedView = memo(
 							id={ `message-chat-${ message.id }` }
 							message={ message }
 							siteId={ siteId }
-							updateMessage={ updateMessage }
 						>
 							<AnimatePresence mode="wait">
 								{ showThinking ? (
@@ -269,7 +252,6 @@ const AuthenticatedView = memo(
 										<MarkDownWithCode
 											message={ message }
 											siteId={ siteId }
-											updateMessage={ updateMessage }
 											content={ message.content }
 										/>
 										{ children }
@@ -294,7 +276,6 @@ const AuthenticatedView = memo(
 				{ showLastMessage && (
 					<RenderLastMessage
 						siteId={ siteId }
-						updateMessage={ updateMessage }
 						message={ lastMessage }
 						showThinking={ showThinking }
 					>
@@ -366,7 +347,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	);
 	const { isAuthenticated, authenticate, user, client } = useAuth();
 	const instanceId = user?.id ? `${ user.id }_${ selectedSite.id }` : selectedSite.id;
-	const { updateMessage, chatId } = useAssistant( instanceId );
+	const chatId = useSelector( ( state: RootState ) => selectChatId( state, instanceId ) );
 	const messages = useSelector( ( state: RootState ) => selectMessages( state, selectedSite.id ) );
 	const isAssistantThinking = useSelector( ( state: RootState ) =>
 		selectIsLoading( state, selectedSite.id )
@@ -402,7 +383,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 
 		setInput( '' );
 		const message = generateMessage( chatMessage, 'user', messages.length, chatId );
-		dispatch( fetchAssistantThunk( { chatId, client, message, siteId: selectedSite.id } ) );
+		dispatch( fetchAssistantThunk( { client, message, siteId: selectedSite.id } ) );
 	};
 
 	const clearConversation = () => {
@@ -452,7 +433,6 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 							<AuthenticatedView
 								messages={ messages }
 								isAssistantThinking={ isAssistantThinking }
-								updateMessage={ updateMessage }
 								siteId={ selectedSite.id }
 								submitPrompt={ submitPrompt }
 								wrapperRef={ wrapperRef }

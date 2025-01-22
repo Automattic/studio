@@ -89,7 +89,6 @@ export const updateFromSite = createAsyncThunk(
 
 type FetchAssistantParams = {
 	client: WPCOM;
-	chatId: string | undefined;
 	isRetry?: boolean;
 	message: Message;
 	siteId: string;
@@ -102,7 +101,7 @@ type FetchAssistantResponseData = {
 
 export const fetchAssistantThunk = createAsyncThunk(
 	'chat/fetchAssistant',
-	async ( { client, chatId, message, siteId }: FetchAssistantParams, thunkAPI ) => {
+	async ( { client, message, siteId }: FetchAssistantParams, thunkAPI ) => {
 		const state = thunkAPI.getState() as RootState;
 		const context = {
 			current_url: state.chat.currentURL,
@@ -118,6 +117,7 @@ export const fetchAssistantThunk = createAsyncThunk(
 			os: state.chat.os,
 		};
 		const messages = state.chat.messagesDict[ siteId ].concat( message );
+		const chatId = state.chat.chatIdDict[ siteId ];
 
 		const { data, headers } = await new Promise< {
 			data: FetchAssistantResponseData;
@@ -152,7 +152,6 @@ export const fetchAssistantThunk = createAsyncThunk(
 
 type SendFeedbackParams = {
 	client: WPCOM;
-	chatId: string;
 	messageApiId: number;
 	ratingValue: number;
 	siteId: string;
@@ -248,6 +247,31 @@ const chatSlice = createSlice( {
 			const { siteId, isLoading } = action.payload;
 			state.isLoadingDict[ siteId ] = isLoading;
 		},
+		updateMessage: (
+			state,
+			action: PayloadAction< {
+				cliOutput?: string;
+				cliStatus?: 'success' | 'error';
+				cliTime?: string;
+				codeBlockContent: string;
+				messageId: number;
+				siteId: string;
+			} >
+		) => {
+			const { cliOutput, cliStatus, cliTime, codeBlockContent, messageId, siteId } = action.payload;
+
+			state.messagesDict[ siteId ].forEach( ( message ) => {
+				if ( message.id === messageId ) {
+					message.blocks?.forEach( ( block ) => {
+						if ( block.codeBlockContent === codeBlockContent ) {
+							block.cliOutput = cliOutput;
+							block.cliStatus = cliStatus;
+							block.cliTime = cliTime;
+						}
+					} );
+				}
+			} );
+		},
 	},
 	extraReducers: ( builder ) => {
 		builder
@@ -301,11 +325,13 @@ const chatSlice = createSlice( {
 				state.isLoadingDict[ action.meta.arg.siteId ] = false;
 
 				const messages = state.messagesDict[ action.meta.arg.siteId ];
+				const chatId = state.chatIdDict[ action.meta.arg.siteId ];
+
 				const message = generateMessage(
 					action.payload.message,
 					'assistant',
 					messages.length,
-					action.meta.arg.chatId,
+					chatId,
 					action.payload.messageApiId
 				);
 
@@ -332,8 +358,14 @@ const chatSlice = createSlice( {
 	},
 } );
 
-export const { updateFromTheme, setMessages, setChatId, setChatInput, setIsLoading } =
-	chatSlice.actions;
+export const {
+	updateFromTheme,
+	setMessages,
+	setChatId,
+	setChatInput,
+	setIsLoading,
+	updateMessage,
+} = chatSlice.actions;
 
 export const { selectChatInput, selectMessages, selectChatId, selectIsLoading } =
 	chatSlice.selectors;

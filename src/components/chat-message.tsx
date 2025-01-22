@@ -2,8 +2,8 @@ import { __ } from '@wordpress/i18n';
 import { forwardRef } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Message } from '../hooks/use-assistant';
 import { cx } from '../lib/cx';
+import { Message } from '../stores/chat-slice';
 import Anchor from './assistant-anchor';
 import createCodeComponent from './assistant-code-block';
 import { FeedbackThanks } from './chat-rating';
@@ -14,13 +14,6 @@ export interface ChatMessageProps {
 	className?: string;
 	siteId?: string;
 	message: Message;
-	updateMessage?: (
-		id: number,
-		content: string,
-		output: string,
-		status: 'success' | 'error',
-		time: string
-	) => void;
 	isUnauthenticated?: boolean;
 	failedMessage?: boolean;
 	feedbackReceived?: boolean;
@@ -28,20 +21,12 @@ export interface ChatMessageProps {
 
 export const MarkDownWithCode = ( {
 	message,
-	updateMessage,
 	siteId,
 	content,
 }: {
 	siteId?: string;
 	content: string;
 	message: Message;
-	updateMessage?: (
-		id: number,
-		content: string,
-		output: string,
-		status: 'success' | 'error',
-		time: string
-	) => void;
 } ) => (
 	<div className="assistant-markdown">
 		<Markdown
@@ -51,7 +36,6 @@ export const MarkDownWithCode = ( {
 					blocks: message?.blocks,
 					messageId: message.id,
 					siteId,
-					updateMessage,
 				} ),
 				img: () => null,
 			} }
@@ -62,7 +46,7 @@ export const MarkDownWithCode = ( {
 	</div>
 );
 export const ChatMessage = forwardRef< HTMLDivElement, ChatMessageProps >(
-	( { id, message, className, siteId, updateMessage, children, isUnauthenticated }, ref ) => {
+	( { id, message, className, siteId, children, isUnauthenticated }, ref ) => {
 		return (
 			<>
 				<div ref={ ref } className="h-4" />
@@ -98,12 +82,7 @@ export const ChatMessage = forwardRef< HTMLDivElement, ChatMessageProps >(
 						</div>
 						{ typeof children === 'string' ? (
 							<>
-								<MarkDownWithCode
-									message={ message }
-									updateMessage={ updateMessage }
-									siteId={ siteId }
-									content={ children }
-								/>
+								<MarkDownWithCode message={ message } siteId={ siteId } content={ children } />
 								{ message.feedbackReceived && <FeedbackThanks /> }
 							</>
 						) : (

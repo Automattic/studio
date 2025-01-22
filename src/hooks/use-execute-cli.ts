@@ -1,25 +1,19 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { useCallback, useState } from 'react';
+import { useDispatch } from 'react-redux';
 import { getIpcApi } from '../lib/get-ipc-api';
+import { updateMessage } from '../stores/chat-slice';
 
 export function useExecuteWPCLI(
 	content: string,
 	siteId: string | undefined,
-	updateMessage:
-		| ( (
-				id: number,
-				content: string,
-				output: string,
-				status: 'success' | 'error',
-				time: string
-		  ) => void )
-		| undefined,
 	messageId: number | undefined
 ) {
 	const [ cliOutput, setCliOutput ] = useState< string | null >( null );
 	const [ cliStatus, setCliStatus ] = useState< 'success' | 'error' | null >( null );
 	const [ cliTime, setCliTime ] = useState< string | null >( null );
 	const [ isRunning, setIsRunning ] = useState( false );
+	const dispatch = useDispatch();
 
 	const handleExecute = useCallback( async () => {
 		setIsRunning( true );
@@ -43,16 +37,19 @@ export function useExecuteWPCLI(
 		setCliTime( completedIn );
 		setIsRunning( false );
 
-		if ( updateMessage && messageId !== undefined ) {
-			updateMessage(
-				messageId,
-				content,
-				result.stdout || result.stderr,
-				result.stderr ? 'error' : 'success',
-				completedIn || ''
+		if ( messageId !== undefined ) {
+			dispatch(
+				updateMessage( {
+					cliOutput: result.stdout || result.stderr,
+					cliStatus: result.stderr ? 'error' : 'success',
+					cliTime: completedIn || '',
+					codeBlockContent: content,
+					messageId,
+					siteId: siteId || '',
+				} )
 			);
 		}
-	}, [ content, messageId, siteId, updateMessage ] );
+	}, [ content, dispatch, messageId, siteId ] );
 
 	return {
 		cliOutput,

@@ -2,7 +2,7 @@
 // https://www.electronjs.org/docs/latest/tutorial/process-model#preload-scripts
 
 import '@sentry/electron/preload';
-import { SaveDialogOptions, contextBridge, ipcRenderer } from 'electron';
+import { SaveDialogOptions, contextBridge, ipcRenderer, webUtils } from 'electron';
 import { LocaleData } from '@wordpress/i18n';
 import { ExportOptions } from './lib/import-export/export/types';
 import { BackupArchiveInfo } from './lib/import-export/import/types';
@@ -40,7 +40,8 @@ const api: IpcApi = {
 		{ autoLogin = true }: { autoLogin?: boolean } = {}
 	) => ipcRenderer.invoke( 'openSiteURL', id, relativeURL, { autoLogin } ),
 	openURL: ( url: string ) => ipcRenderer.invoke( 'openURL', url ),
-	showOpenFolderDialog: ( title: string ) => ipcRenderer.invoke( 'showOpenFolderDialog', title ),
+	showOpenFolderDialog: ( title: string, defaultDialogPath: string ) =>
+		ipcRenderer.invoke( 'showOpenFolderDialog', title, defaultDialogPath ),
 	showSaveAsDialog: ( options: SaveDialogOptions ) =>
 		ipcRenderer.invoke( 'showSaveAsDialog', options ),
 	saveUserLocale: ( locale: string ) => ipcRenderer.invoke( 'saveUserLocale', locale ),
@@ -101,6 +102,8 @@ const api: IpcApi = {
 		ipcRenderer.invoke( 'getConnectedWpcomSites', localSiteId ),
 	addSyncOperation: ( id: string ) => ipcRenderer.invoke( 'addSyncOperation', id ),
 	clearSyncOperation: ( id: string ) => ipcRenderer.invoke( 'clearSyncOperation', id ),
+	getPathForFile: webUtils.getPathForFile,
+	getFileContent: ( filePath: string ) => ipcRenderer.invoke( 'getFileContent', filePath ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

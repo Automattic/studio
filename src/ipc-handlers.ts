@@ -39,7 +39,7 @@ import { sanitizeForLogging } from './lib/sanitize-for-logging';
 import { sortSites } from './lib/sort-sites';
 import { installSqliteIntegration, keepSqliteIntegrationUpdated } from './lib/sqlite-versions';
 import * as windowsHelpers from './lib/windows-helpers';
-import { writeLogToFile, type LogLevel } from './logging';
+import { getLogsFilePath, writeLogToFile, type LogLevel } from './logging';
 import { popupMenu, setupMenu } from './menu';
 import { SiteServer, createSiteWorkingDirectory } from './site-server';
 import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from './storage/paths';
@@ -388,7 +388,18 @@ export async function startServer(
 	await keepSqliteIntegrationUpdated( server.details.path );
 
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	await server.start();
+	try {
+		await server.start();
+	} catch ( error ) {
+		Sentry.captureException( error );
+		if (
+			error instanceof Error &&
+			error.message.includes( '"unreachable" WASM instruction executed' )
+		) {
+			throw new Error( 'Please try disabling plugins and themes that might be causing the issue.' );
+		}
+		throw error;
+	}
 	if ( parentWindow && ! parentWindow.isDestroyed() && ! event.sender.isDestroyed() ) {
 		parentWindow.webContents.send( 'theme-details-changed', id, server.details.themeDetails );
 	}
@@ -449,7 +460,8 @@ export async function showSaveAsDialog( event: IpcMainInvokeEvent, options: Save
 
 export async function showOpenFolderDialog(
 	event: IpcMainInvokeEvent,
-	title: string
+	title: string,
+	defaultDialogPath: string
 ): Promise< FolderDialogResponse | null > {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	if ( ! parentWindow ) {
@@ -471,7 +483,7 @@ export async function showOpenFolderDialog(
 
 	const { canceled, filePaths } = await dialog.showOpenDialog( parentWindow, {
 		title,
-		defaultPath: DEFAULT_SITE_PATH,
+		defaultPath: defaultDialogPath !== '' ? defaultDialogPath : DEFAULT_SITE_PATH,
 		properties: [
 			'openDirectory',
 			'createDirectory', // allow user to create new directories; macOS only
@@ -554,8 +566,7 @@ export async function archiveSite( event: IpcMainInvokeEvent, id: string, format
 		format,
 	} );
 	const stats = fs.statSync( archivePath );
-	const archiveContent = fs.readFileSync( archivePath );
-	return { archivePath, archiveContent, archiveSizeInBytes: stats.size };
+	return { archivePath, archiveSizeInBytes: stats.size };
 }
 
 export async function exportSiteToPush( event: IpcMainInvokeEvent, id: string ) {
@@ -713,6 +724,7 @@ export async function getAppGlobals( _event: IpcMainInvokeEvent ): Promise< AppG
 		appName: app.name,
 		arm64Translation: app.runningUnderARM64Translation,
 		terminalWpCliEnabled: process.env.STUDIO_TERMINAL_WP_CLI === 'true',
+		quickDeploysEnabled: process.env.STUDIO_QUICK_DEPLOYS === 'true',
 	};
 }
 
@@ -916,19 +928,32 @@ export async function showMessageBox(
 
 export async function showErrorMessageBox(
 	event: IpcMainInvokeEvent,
-	{ title, message, error }: { title: string; message: string; error?: unknown }
+	{
+		title,
+		message,
+		error,
+		showOpenLogs = false,
+	}: { title: string; message: string; error?: unknown; showOpenLogs?: boolean }
 ) {
 	// Remove prepended error message added by IPC handler
 	const filteredError = ( error as Error )?.message?.replace(
 		/Error invoking remote method '\w+': Error:/g,
 		''
 	);
-	await showMessageBox( event, {
+	const response = await showMessageBox( event, {
 		type: 'error',
 		message: title,
-		detail: error ? `${ message }\n\nError: ${ filteredError }` : message,
-		buttons: [ __( 'OK' ) ],
+		detail: error ? `${ message }\n\n${ filteredError }` : message,
+		buttons: [ ...( showOpenLogs ? [ __( 'Open Studio Logs' ) ] : [] ), __( 'OK' ) ],
 	} );
+
+	if ( showOpenLogs && response.response === 0 ) {
+		const logFilePath = getLogsFilePath();
+		const err = await shell.openPath( logFilePath );
+		if ( err ) {
+			console.error( `Error opening logs file: ${ logFilePath } ${ err }` );
+		}
+	}
 }
 
 export async function showNotification(
@@ -1058,4 +1083,12 @@ export function addSyncOperation( event: IpcMainInvokeEvent, id: string ) {
  */
 export function clearSyncOperation( event: IpcMainInvokeEvent, id: string ) {
 	ACTIVE_SYNC_OPERATIONS.delete( id );
+}
+
+export async function getFileContent( event: IpcMainInvokeEvent, filePath: string ) {
+	if ( ! fs.existsSync( filePath ) ) {
+		throw new Error( `File not found: ${ filePath }` );
+	}
+
+	return fs.readFileSync( filePath );
 }

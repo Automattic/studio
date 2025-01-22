@@ -3,6 +3,7 @@ import path from 'path';
 import * as FileStreamRotator from 'file-stream-rotator';
 
 let logStream: ReturnType< typeof FileStreamRotator.getStream > | null = null;
+let currentLogFile = '';
 
 // Intentional typo of 'erro' so all levels the same number of characters
 export type LogLevel = 'info' | 'warn' | 'erro';
@@ -36,6 +37,8 @@ export function setupLogging( {
 		audit_hash_type: 'sha256',
 		verbose: true, // file-stream-rotator itself will log to console too
 	} );
+
+	currentLogFile = path.join( logDir, 'current.log' );
 
 	const makeLogger =
 		( level: LogLevel, originalLogger: typeof console.log ) =>
@@ -98,4 +101,11 @@ function formatLogMessageArg( arg: unknown ): string {
 	}
 
 	return JSON.stringify( arg, null, 2 );
+}
+
+export function getLogsFilePath(): string {
+	if ( ! currentLogFile ) {
+		throw new Error( 'Logging system not initialized' );
+	}
+	return currentLogFile;
 }

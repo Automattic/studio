@@ -2,7 +2,7 @@ import * as Sentry from '@sentry/electron/renderer';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useMemo } from 'react';
-import { DEMO_SITE_SIZE_LIMIT_BYTES, DEMO_SITE_SIZE_LIMIT_MB } from '../constants';
+import { DEMO_SITE_SIZE_LIMIT_BYTES, DEMO_SITE_SIZE_LIMIT_GB } from '../constants';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { isWpcomNetworkError } from '../lib/is-wpcom-network-error';
 import { useArchiveErrorMessages } from './use-archive-error-messages';
@@ -79,27 +79,29 @@ export function useArchiveSite() {
 			}
 
 			try {
-				const { archiveContent, archivePath, archiveSizeInBytes } = await getIpcApi().archiveSite(
-					siteId,
-					'zip'
-				);
+				const { archivePath, archiveSizeInBytes } = await getIpcApi().archiveSite( siteId, 'zip' );
 				if ( archiveSizeInBytes > DEMO_SITE_SIZE_LIMIT_BYTES ) {
-					alert(
-						sprintf(
+					getIpcApi().showErrorMessageBox( {
+						title: __( 'Adding demo site failed' ),
+						message: sprintf(
 							__(
-								'The site exceeds the maximum size of %dMB. Please remove some files and try again.'
+								'The site exceeds the maximum size of %dGB. Please remove some files and try again.'
 							),
-							DEMO_SITE_SIZE_LIMIT_MB
-						)
-					);
+							DEMO_SITE_SIZE_LIMIT_GB
+						),
+					} );
 					setUploadingSites( ( _uploadingSites ) => ( { ..._uploadingSites, [ siteId ]: false } ) );
 					getIpcApi().removeTemporalFile( archivePath );
 					return;
 				}
 
-				const file = new File( [ archiveContent ], 'loca-env-site-1.zip', {
-					type: 'application/zip',
-				} );
+				const file = new File(
+					[ await getIpcApi().getFileContent( archivePath ) ],
+					'loca-env-site-1.zip',
+					{
+						type: 'application/zip',
+					}
+				);
 
 				const formData = [ [ 'import', file ] ];
 				const wordpressVersion = await getIpcApi().getWpVersion( siteId );

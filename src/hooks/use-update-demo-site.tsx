@@ -2,6 +2,7 @@ import * as Sentry from '@sentry/electron/renderer';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useState, createContext, useContext, useMemo, ReactNode } from 'react';
+import { DEMO_SITE_SIZE_LIMIT_BYTES, DEMO_SITE_SIZE_LIMIT_GB } from '../constants';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { useAuth } from './use-auth';
 import { useSnapshots } from './use-snapshots';
@@ -35,10 +36,38 @@ export const DemoSiteUpdateProvider: React.FC< DemoSiteUpdateProviderProps > = (
 			setUpdatingSites( ( prev ) => new Set( prev ).add( localSite.id ) );
 
 			try {
-				const { archiveContent } = await getIpcApi().archiveSite( localSite.id, 'zip' );
-				const file = new File( [ archiveContent ], 'loca-env-site-1.zip', {
-					type: 'application/zip',
-				} );
+				const { archivePath, archiveSizeInBytes } = await getIpcApi().archiveSite(
+					localSite.id,
+					'zip'
+				);
+
+				if ( archiveSizeInBytes > DEMO_SITE_SIZE_LIMIT_BYTES ) {
+					getIpcApi().showErrorMessageBox( {
+						title: __( 'Updating demo site failed' ),
+						message: sprintf(
+							__(
+								'The site exceeds the maximum size of %dGB. Please remove some files and try again.'
+							),
+							DEMO_SITE_SIZE_LIMIT_GB
+						),
+					} );
+
+					setUpdatingSites( ( prev ) => {
+						const newSet = new Set( prev );
+						newSet.delete( localSite.id );
+						return newSet;
+					} );
+					getIpcApi().removeTemporalFile( archivePath );
+					return;
+				}
+
+				const file = new File(
+					[ await getIpcApi().getFileContent( archivePath ) ],
+					'loca-env-site-1.zip',
+					{
+						type: 'application/zip',
+					}
+				);
 
 				const formData = [
 					[ 'site_id', snapshot.atomicSiteId ],

@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { useOffline } from '../hooks/use-offline';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
+import { ArrowIcon } from './arrow-icon';
 import { Badge } from './badge';
 import Button from './button';
 import { CreateButton } from './connect-create-buttons';
@@ -206,11 +207,19 @@ function SiteItem( {
 				<div className={ cx( 'a8c-body truncate', ! isSyncable && 'text-a8c-gray-30' ) }>
 					{ site.name }
 				</div>
-				<div
-					className={ cx( 'a8c-body-small text-a8c-gray-30 truncate', isSelected && 'text-white' ) }
+				<Button
+					variant="link"
+					className={ cx(
+						'a8c-body-small truncate !p-0',
+						isSelected
+							? '!text-inherit hover:!text-inherit'
+							: '!text-a8c-gray-30 hover:!text-a8c-gray-30'
+					) }
+					onClick={ () => getIpcApi().openURL( site.url ) }
 				>
 					{ site.url.replace( /^https?:\/\//, '' ) }
-				</div>
+					<ArrowIcon />
+				</Button>
 			</div>
 			{ isSyncable && (
 				<div className="flex gap-2">

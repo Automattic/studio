@@ -200,6 +200,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 						'An error occurred while creating the site. Verify your selected local path is an empty directory or an existing WordPress folder and try again. If this problem persists, please contact support.'
 					),
 					error,
+					showOpenLogs: true,
 				} );
 
 				// Remove the temporary site immediately, but with a minor delay to ensure state updates properly
@@ -278,15 +279,15 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			try {
 				updatedSite = await getIpcApi().startServer( id );
 			} catch ( error ) {
-				Sentry.captureException( error );
 				getIpcApi().showErrorMessageBox( {
 					title: __( 'Failed to start the site server' ),
 					message: __(
 						"Please verify your site's local path directory contains the standard WordPress installation files and try again. If this problem persists, please contact support."
 					),
 					error,
+					showOpenLogs: true,
 				} );
-				getIpcApi().stopServer( id );
+				await getIpcApi().stopServer( id );
 			}
 
 			if ( updatedSite ) {

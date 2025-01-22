@@ -12,7 +12,6 @@ import { useAssistant, Message as MessageType } from '../hooks/use-assistant';
 import { useAssistantApi } from '../hooks/use-assistant-api';
 import { useAuth } from '../hooks/use-auth';
 import { useChatContext } from '../hooks/use-chat-context';
-import { useChatInputContext } from '../hooks/use-chat-input';
 import { useOffline } from '../hooks/use-offline';
 import { usePromptUsage } from '../hooks/use-prompt-usage';
 import { useWelcomeMessages } from '../hooks/use-welcome-messages';
@@ -113,9 +112,10 @@ interface AuthenticatedViewProps {
 	markMessageAsFeedbackReceived: ReturnType<
 		typeof useAssistant
 	>[ 'markMessageAsFeedbackReceived' ];
+	wrapperRef: React.RefObject< HTMLDivElement >;
 }
 
-export const AuthenticatedView = memo(
+const AuthenticatedView = memo(
 	( {
 		messages,
 		isAssistantThinking,
@@ -123,10 +123,10 @@ export const AuthenticatedView = memo(
 		siteId,
 		submitPrompt,
 		markMessageAsFeedbackReceived,
+		wrapperRef,
 	}: AuthenticatedViewProps ) => {
-		const endOfMessagesRef = useRef< HTMLDivElement >( null );
 		const lastMessageRef = useRef< HTMLDivElement >( null );
-		const [ showThinking, setShowThinking ] = useState( false );
+		const [ showThinking, setShowThinking ] = useState( isAssistantThinking );
 		const lastMessage = useMemo(
 			() =>
 				showThinking
@@ -136,23 +136,27 @@ export const AuthenticatedView = memo(
 		);
 		const messagesToRender =
 			messages[ messages.length - 1 ]?.role === 'assistant' ? messages.slice( 0, -1 ) : messages;
-		const showLastMessage = showThinking || messages[ messages.length - 1 ]?.role === 'assistant';
-		const previousMessagesLength = useRef( messages?.length );
-		const previousSiteId = useRef( siteId );
+		const showLastMessage = lastMessage?.role === 'assistant';
+		const previousMessagesLength = useRef( messages.length );
+		const isInitialRenderRef = useRef( true );
 
+		// This effect may run twice when the component is mounted, which makes the viewport scroll
+		// to the wrong position. This happens because the app runs in React strict mode, meaning
+		// it only affects the development environment. For more details, see
+		// https://github.com/Automattic/studio/pull/788#issuecomment-2586644007
 		useEffect( () => {
-			if ( ! messages?.length ) {
-				previousSiteId.current = siteId;
+			if ( ! messages.length ) {
 				return;
 			}
 
 			let timer: NodeJS.Timeout;
 			// Scroll to the end of the messages when the tab is opened or site ID changes
-			if ( previousMessagesLength.current === 0 || previousSiteId.current !== siteId ) {
-				endOfMessagesRef.current?.scrollIntoView( { behavior: 'instant' } );
+			if ( isInitialRenderRef.current ) {
+				wrapperRef.current?.scrollIntoView( { block: 'end', behavior: 'instant' } );
+				isInitialRenderRef.current = false;
 			}
 			// Scroll when a new message is added
-			else if ( messages?.length > previousMessagesLength.current || showLastMessage ) {
+			else if ( messages.length > previousMessagesLength.current || showLastMessage ) {
 				// Scroll to the beginning of last message received from the assistant
 				if ( showLastMessage ) {
 					timer = setTimeout( () => {
@@ -163,15 +167,14 @@ export const AuthenticatedView = memo(
 				}
 				// For user messages, scroll to the end of the messages
 				else {
-					endOfMessagesRef.current?.scrollIntoView( { behavior: 'smooth' } );
+					wrapperRef.current?.scrollIntoView( { block: 'end', behavior: 'smooth' } );
 				}
 			}
 
-			previousMessagesLength.current = messages?.length;
-			previousSiteId.current = siteId;
+			previousMessagesLength.current = messages.length;
 
 			return () => clearTimeout( timer );
-		}, [ messages?.length, showLastMessage, siteId ] );
+		}, [ messages.length, showLastMessage ] );
 
 		useEffect( () => {
 			let timer: NodeJS.Timeout;
@@ -298,7 +301,6 @@ export const AuthenticatedView = memo(
 						</div>
 					</RenderLastMessage>
 				) }
-				<div ref={ endOfMessagesRef } />
 			</>
 		);
 	}
@@ -349,7 +351,8 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
 	const inputRef = useRef< HTMLTextAreaElement >( null );
-	const currentSiteChatContext = useChatContext();
+	const wrapperRef = useRef< HTMLDivElement >( null );
+	const chatContext = useChatContext();
 	const { isAuthenticated, authenticate, user } = useAuth();
 	const instanceId = user?.id ? `${ user.id }_${ selectedSite.id }` : selectedSite.id;
 	const {
@@ -364,7 +367,6 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const { userCanSendMessage } = usePromptUsage();
 	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi( selectedSite.id );
 	const { messages: welcomeMessages, examplePrompts } = useWelcomeMessages();
-	const { getChatInput, saveChatInput } = useChatInputContext();
 	const [ currentInput, setCurrentInput ] = useState( '' );
 	const isOffline = useOffline();
 	const { __ } = useI18n();
@@ -373,16 +375,16 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 
 	// Restore prompt input when site changes
 	useEffect( () => {
-		setCurrentInput( getChatInput( selectedSite.id ) );
-	}, [ selectedSite.id, getChatInput ] );
+		setCurrentInput( chatContext.getChatInput( selectedSite.id ) );
+	}, [ selectedSite.id, chatContext ] );
 
 	// Save prompt input when it changes
 	const setInput = useCallback(
 		( input: string ) => {
-			saveChatInput( input, selectedSite.id );
+			chatContext.saveChatInput( input, selectedSite.id );
 			setCurrentInput( input );
 		},
-		[ selectedSite.id, saveChatInput ]
+		[ selectedSite.id, chatContext ]
 	);
 
 	const submitPrompt = useCallback(
@@ -418,7 +420,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 							...messages,
 							{ id: messageId, content: chatMessage, role: 'user', createdAt: Date.now() },
 						],
-						currentSiteChatContext
+						chatContext
 					);
 					if ( message ) {
 						addMessage( message, 'assistant', chatId ?? fetchedChatId, messageApiId );
@@ -430,15 +432,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 				}
 			}
 		},
-		[
-			addMessage,
-			chatId,
-			currentSiteChatContext,
-			fetchAssistant,
-			markMessageAsFailed,
-			messages,
-			setInput,
-		]
+		[ addMessage, chatId, chatContext, fetchAssistant, markMessageAsFailed, messages, setInput ]
 	);
 
 	// Submit prompt input when the user clicks the send button
@@ -474,7 +468,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const disabled = isOffline || ! isAuthenticated || ! userCanSendMessage || hasFailedMessage;
 
 	return (
-		<div className="relative min-h-full flex flex-col bg-gray-50">
+		<div className="relative min-h-full flex flex-col bg-gray-50" ref={ wrapperRef }>
 			<div
 				data-testid="assistant-chat"
 				className={ cx(
@@ -496,16 +490,16 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 								siteId={ selectedSite.id }
 								disabled={ disabled }
 							/>
-							{
-								<AuthenticatedView
-									messages={ messages }
-									isAssistantThinking={ isAssistantThinking }
-									updateMessage={ updateMessage }
-									markMessageAsFeedbackReceived={ markMessageAsFeedbackReceived }
-									siteId={ selectedSite.id }
-									submitPrompt={ submitPrompt }
-								/>
-							}
+
+							<AuthenticatedView
+								messages={ messages }
+								isAssistantThinking={ isAssistantThinking }
+								updateMessage={ updateMessage }
+								markMessageAsFeedbackReceived={ markMessageAsFeedbackReceived }
+								siteId={ selectedSite.id }
+								submitPrompt={ submitPrompt }
+								wrapperRef={ wrapperRef }
+							/>
 						</>
 					) : (
 						! isOffline && <UnauthenticatedView onAuthenticate={ authenticate } />

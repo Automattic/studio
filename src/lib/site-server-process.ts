@@ -18,6 +18,7 @@ export default class SiteServerProcess {
 	process?: UtilityProcess;
 	php?: { documentRoot: string };
 	url: string;
+	exitCode: number | null = null;
 
 	constructor( options: WPNowOptions ) {
 		this.options = options;
@@ -42,6 +43,7 @@ export default class SiteServerProcess {
 				}
 			};
 			const exitListener = ( code: number ) => {
+				this.exitCode = code;
 				if ( code !== 0 ) {
 					reject( new Error( `Site server process exited with code ${ code } upon starting` ) );
 				}
@@ -135,8 +137,8 @@ export default class SiteServerProcess {
 
 	async #killProcess(): Promise< void > {
 		const process = this.process;
-		if ( ! process ) {
-			throw Error( 'Server process is not running' );
+		if ( ! process || this.exitCode !== null ) {
+			throw Error( 'Server process is not running. Exit code: ' + this.exitCode );
 		}
 
 		return new Promise< void >( ( resolve, reject ) => {

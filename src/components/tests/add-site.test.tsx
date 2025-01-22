@@ -71,7 +71,7 @@ describe( 'AddSite', () => {
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 		await user.click( screen.getByTestId( 'select-path-button' ) );
 
-		expect( mockShowOpenFolderDialog ).toHaveBeenCalledWith( 'Choose folder for site' );
+		expect( mockShowOpenFolderDialog ).toHaveBeenCalledWith( 'Choose folder for site', '' );
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 
 		await waitFor( () => {
@@ -104,7 +104,7 @@ describe( 'AddSite', () => {
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 		await user.click( screen.getByTestId( 'select-path-button' ) );
 
-		expect( mockShowOpenFolderDialog ).toHaveBeenCalledWith( 'Choose folder for site' );
+		expect( mockShowOpenFolderDialog ).toHaveBeenCalledWith( 'Choose folder for site', '' );
 
 		await waitFor( () => {
 			expect( screen.getByRole( 'button', { name: 'Add site' } ) ).toBeDisabled();
@@ -136,7 +136,7 @@ describe( 'AddSite', () => {
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 		await user.click( screen.getByTestId( 'select-path-button' ) );
 
-		expect( mockShowOpenFolderDialog ).toHaveBeenCalledWith( 'Choose folder for site' );
+		expect( mockShowOpenFolderDialog ).toHaveBeenCalledWith( 'Choose folder for site', '' );
 
 		await waitFor( () => {
 			expect( screen.getByRole( 'button', { name: 'Add site' } ) ).not.toBeDisabled();

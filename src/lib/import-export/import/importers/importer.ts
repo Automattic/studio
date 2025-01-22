@@ -96,24 +96,26 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 		}
 
 		const studioUrl = `http://localhost:${ server.details.port }`;
+		const oldUrl = currentSiteUrl.trim();
+		const urlWithoutProtocol = oldUrl.replace( /^https?:\/\//, '' );
 
-		const { stderr, exitCode } = await server.executeWpCliCommand(
-			`search-replace '${ currentSiteUrl.trim() }' '${ studioUrl.trim() }'`,
-			{
-				skipPluginsAndThemes: true,
+		const oldUrlVariants = [ `http://${ urlWithoutProtocol }`, `https://${ urlWithoutProtocol }` ];
+
+		for ( const urlToReplace of oldUrlVariants ) {
+			const { stderr, exitCode } = await server.executeWpCliCommand(
+				`search-replace '${ urlToReplace }' '${ studioUrl }'`,
+				{ skipPluginsAndThemes: true }
+			);
+
+			if ( stderr ) {
+				console.error( `Warning during replacing URLs (${ urlToReplace }): ${ stderr }` );
 			}
-		);
 
-		if ( stderr ) {
-			console.error(
-				`Warning during replacing siteUrl ${ currentSiteUrl } -> ${ studioUrl }: ${ stderr }`
-			);
-		}
-
-		if ( exitCode ) {
-			console.error(
-				`Error during replacing siteUrl ${ currentSiteUrl } -> ${ studioUrl }, Exit Code: ${ exitCode }`
-			);
+			if ( exitCode ) {
+				console.error(
+					`Error during replacing URLs (${ urlToReplace }), Exit Code: ${ exitCode }`
+				);
+			}
 		}
 	}
 

@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useCallback } from 'react';
 import { CHAT_MESSAGES_STORE_KEY } from '../constants';
+import { CHAT_ID_STORE_KEY, useChatContext } from './use-chat-context';
 import { useSendFeedback } from './use-send-feedback';
 
 export type Message = {
@@ -19,42 +20,21 @@ export type Message = {
 	feedbackReceived?: boolean;
 };
 
-export type MessageDict = { [ key: string ]: Message[] };
-export type ChatIdDict = { [ key: string ]: string | undefined };
-
-const chatIdStoreKey = 'ai_chat_ids';
 const EMPTY_MESSAGES: Message[] = [];
 
 export const useAssistant = ( instanceId: string ) => {
-	const [ messagesDict, setMessagesDict ] = useState< MessageDict >( {} );
-	const [ chatIdDict, setChatIdDict ] = useState< ChatIdDict >( {
-		[ instanceId ]: undefined,
-	} );
+	const { messagesDict, setMessagesDict, chatIdDict, setChatIdDict, lastMessageIdDictRef } =
+		useChatContext();
 	const chatId = chatIdDict[ instanceId ];
-	const nextMessageIdRef = useRef< { [ key: string ]: number } >( {
-		[ instanceId ]: -1, // The first message should have id 0, as we do +1 when we add message
-	} );
-
-	useEffect( () => {
-		const storedMessages = localStorage.getItem( CHAT_MESSAGES_STORE_KEY );
-		const storedChatIds = localStorage.getItem( chatIdStoreKey );
-
-		if ( storedMessages ) {
-			const parsedMessages: MessageDict = JSON.parse( storedMessages );
-			setMessagesDict( parsedMessages );
-			Object.entries( parsedMessages ).forEach( ( [ key, messages ] ) => {
-				nextMessageIdRef.current[ key ] = messages.length;
-			} );
-		}
-		if ( storedChatIds ) {
-			setChatIdDict( JSON.parse( storedChatIds ) );
-		}
-	}, [] );
 
 	const addMessage = useCallback(
 		( content: string, role: 'user' | 'assistant', chatId?: string, messageApiId?: number ) => {
-			const newMessageId = nextMessageIdRef.current[ instanceId ] + 1;
-			nextMessageIdRef.current[ instanceId ] = newMessageId;
+			if ( lastMessageIdDictRef.current[ instanceId ] === undefined ) {
+				lastMessageIdDictRef.current[ instanceId ] = -1;
+			}
+
+			const newMessageId = lastMessageIdDictRef.current[ instanceId ] + 1;
+			lastMessageIdDictRef.current[ instanceId ] = newMessageId;
 
 			setMessagesDict( ( prevDict ) => {
 				const prevMessages = prevDict[ instanceId ] || [];
@@ -78,7 +58,7 @@ export const useAssistant = ( instanceId: string ) => {
 			setChatIdDict( ( prevDict ) => {
 				if ( prevDict[ instanceId ] !== chatId && chatId ) {
 					const newDict = { ...prevDict, [ instanceId ]: chatId };
-					localStorage.setItem( chatIdStoreKey, JSON.stringify( newDict ) );
+					localStorage.setItem( CHAT_ID_STORE_KEY, JSON.stringify( newDict ) );
 					return newDict;
 				}
 				return prevDict;
@@ -86,7 +66,7 @@ export const useAssistant = ( instanceId: string ) => {
 
 			return newMessageId; // Return the new message ID
 		},
-		[ instanceId ]
+		[ instanceId, setMessagesDict, setChatIdDict, lastMessageIdDictRef ]
 	);
 
 	const updateMessage = useCallback(
@@ -119,7 +99,7 @@ export const useAssistant = ( instanceId: string ) => {
 				return newDict;
 			} );
 		},
-		[ instanceId ]
+		[ instanceId, setMessagesDict ]
 	);
 
 	const markMessageAsFailed = useCallback(
@@ -135,7 +115,7 @@ export const useAssistant = ( instanceId: string ) => {
 				return newDict;
 			} );
 		},
-		[ instanceId ]
+		[ instanceId, setMessagesDict ]
 	);
 
 	const sendFeedback = useSendFeedback();
@@ -183,11 +163,11 @@ export const useAssistant = ( instanceId: string ) => {
 
 		setChatIdDict( ( prevDict ) => {
 			const { [ instanceId ]: _, ...rest } = prevDict;
-			localStorage.setItem( chatIdStoreKey, JSON.stringify( rest ) );
+			localStorage.setItem( CHAT_ID_STORE_KEY, JSON.stringify( rest ) );
 			return rest;
 		} );
-		nextMessageIdRef.current[ instanceId ] = 0;
-	}, [ instanceId ] );
+		lastMessageIdDictRef.current[ instanceId ] = -1;
+	}, [ instanceId, setMessagesDict, setChatIdDict ] );
 
 	return {
 		messages: messagesDict[ instanceId ] || EMPTY_MESSAGES,

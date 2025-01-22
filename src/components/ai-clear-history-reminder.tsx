@@ -6,6 +6,13 @@ import { Message as MessageType } from '../hooks/use-assistant';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
 
+function shouldShowReminder( lastMessage?: MessageType ) {
+	return (
+		lastMessage?.role === 'assistant' &&
+		Date.now() - ( lastMessage?.createdAt ?? 0 ) > CLEAR_HISTORY_REMINDER_TIME
+	);
+}
+
 function AIClearHistoryReminder( {
 	lastMessage,
 	clearConversation,
@@ -13,36 +20,22 @@ function AIClearHistoryReminder( {
 	lastMessage?: MessageType;
 	clearConversation: () => void;
 } ) {
-	const [ showReminder, setShowReminder ] = useState( false );
-	const timeoutId = useRef< NodeJS.Timeout >();
-	const currentMessage = useRef< number >();
+	const [ showReminder, setShowReminder ] = useState( shouldShowReminder( lastMessage ) );
 	const elementRef = useRef< HTMLDivElement >( null );
 
 	useEffect( () => {
-		if ( ! lastMessage || lastMessage.role === 'user' ) {
-			clearTimeout( timeoutId.current );
-			setShowReminder( false );
-			return;
-		}
+		let timeoutId: NodeJS.Timeout;
+		const nextValue = shouldShowReminder( lastMessage );
+		setShowReminder( nextValue );
 
-		if ( lastMessage.id === currentMessage.current ) {
-			return;
-		}
-
-		const messageTime = Date.now() - lastMessage?.createdAt;
-		const timeToRemind = CLEAR_HISTORY_REMINDER_TIME - messageTime;
-		if ( timeToRemind > 0 ) {
-			clearTimeout( timeoutId.current );
-			setShowReminder( false );
-			timeoutId.current = setTimeout( () => {
+		if ( nextValue && lastMessage ) {
+			timeoutId = setTimeout( () => {
 				setShowReminder( true );
-			}, timeToRemind );
-		} else {
-			setShowReminder( true );
+			}, Date.now() - lastMessage.createdAt );
 		}
 
 		return () => {
-			clearTimeout( timeoutId.current );
+			clearTimeout( timeoutId );
 		};
 	}, [ lastMessage ] );
 

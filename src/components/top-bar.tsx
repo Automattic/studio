@@ -14,10 +14,16 @@ interface TopBarProps {
 	onToggleSidebar: () => void;
 }
 
+const DEFAULT_TOOLTIP_PLACEMENT = 'bottom-start';
+
 function ToggleSidebar( { onToggleSidebar }: TopBarProps ) {
 	return (
 		<div className="app-no-drag-region">
-			<Tooltip text={ __( 'Toggle sidebar' ) } className="h-6">
+			<Tooltip
+				text={ __( 'Toggle sidebar' ) }
+				className="h-6"
+				placement={ DEFAULT_TOOLTIP_PLACEMENT }
+			>
 				<Button onClick={ onToggleSidebar } variant="icon" aria-label={ __( 'Toggle sidebar' ) }>
 					<Icon className="text-white" icon={ drawerLeft } size={ 24 } />
 				</Button>
@@ -44,6 +50,7 @@ function OfflineIndicator() {
 						</span>
 					}
 					className="h-6"
+					placement={ DEFAULT_TOOLTIP_PLACEMENT }
 				>
 					<Button
 						aria-label={ __( 'Offline indicator' ) }
@@ -81,7 +88,7 @@ function Authentication() {
 			onClick={ () => getIpcApi().showUserSettings() }
 			aria-label={ __( 'Open settings to log in' ) }
 			tooltipText={ __( 'Open settings to log in' ) }
-			className="flex gap-x-2 justify-between w-full text-white rounded !px-0 !py-0 h-auto active:!text-white hover:!text-white hover:underline items-center"
+			className="flex gap-x-2 justify-between w-full text-white rounded !px-2 !py-0 h-auto active:!text-white hover:!text-white hover:underline items-center"
 		>
 			<WordPressLogo />
 
@@ -97,12 +104,12 @@ export default function TopBar( { onToggleSidebar }: TopBarProps ) {
 
 	return (
 		<div className="flex justify-between items-center text-white px-2 pb-2 pt-1.5">
-			<div className="flex items-center space-x-1.5">
+			<div className="flex items-center space-x-1.5 rtl:space-x-reverse">
 				<ToggleSidebar onToggleSidebar={ onToggleSidebar } />
 				<OfflineIndicator />
 			</div>
 
-			<div className="app-no-drag-region flex items-center space-x-4">
+			<div className="app-no-drag-region flex items-center space-x-1.5 rtl:space-x-reverse">
 				<Authentication />
 				<Button onClick={ openDocs } aria-label={ __( 'Get help' ) } variant="icon">
 					<Icon className="text-white" size={ 24 } icon={ help } />

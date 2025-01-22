@@ -6,8 +6,8 @@ export const SCREENSHOT_WIDTH = 1040;
 export const SCREENSHOT_HEIGHT = 1248;
 export const LIMIT_OF_ZIP_SITES_PER_USER = 5;
 export const LIMIT_OF_PROMPTS_PER_USER = 200;
-export const DEMO_SITE_SIZE_LIMIT_MB = 250;
-export const DEMO_SITE_SIZE_LIMIT_BYTES = DEMO_SITE_SIZE_LIMIT_MB * 1024 * 1024; // 250MB
+export const DEMO_SITE_SIZE_LIMIT_GB = 2;
+export const DEMO_SITE_SIZE_LIMIT_BYTES = DEMO_SITE_SIZE_LIMIT_GB * 1024 * 1024 * 1024; // 2GB
 export const SYNC_PUSH_SIZE_LIMIT_GB = 2;
 export const SYNC_PUSH_SIZE_LIMIT_BYTES = SYNC_PUSH_SIZE_LIMIT_GB * 1024 * 1024 * 1024; // 2GB
 export const AUTO_UPDATE_INTERVAL_MS = 60 * 60 * 1000;
@@ -17,7 +17,7 @@ export const ABOUT_WINDOW_HEIGHT = 350;
 export const AI_GUIDELINES_URL = 'https://automattic.com/ai-guidelines/';
 export const STUDIO_DOCS_URL = `https://developer.wordpress.com/docs/developer-tools/studio/`;
 export const STUDIO_DOCS_URL_IMPORT_EXPORT =
-	'https://developer.wordpress.com/docs/developer-tools/studio/#import-export';
+	'https://developer.wordpress.com/docs/developer-tools/studio/import-export';
 export const BUG_REPORT_URL =
 	'https://github.com/Automattic/studio/issues/new?assignees=&labels=Needs+triage%2C%5BType%5D+Bug&projects=&template=bug_report.yml';
 export const FEATURE_REQUEST_URL =

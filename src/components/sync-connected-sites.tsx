@@ -14,7 +14,6 @@ import { getIpcApi } from '../lib/get-ipc-api';
 import { ArrowIcon } from './arrow-icon';
 import { Badge } from './badge';
 import Button from './button';
-import { ConnectButton } from './connect-create-buttons';
 import { OpenSitesSyncSelector } from './content-tab-sync';
 import { CircleRedCrossIcon } from './icons/circle-red-cross';
 import offlineIcon from './offline-icon';
@@ -444,22 +443,16 @@ export function SyncConnectedSites( {
 	}, [ connectedSites ] );
 
 	return (
-		<div className="flex flex-col h-full overflow-hidden">
-			<div className="flex flex-col flex-1 pt-8 overflow-y-auto">
-				{ siteSections.map( ( section ) => (
-					<SyncConnectedSitesSection
-						key={ section.id }
-						section={ section }
-						selectedSite={ selectedSite }
-						disconnectSite={ disconnectSite }
-						openSitesSyncSelector={ openSitesSyncSelector }
-					/>
-				) ) }
-			</div>
-
-			<div className="flex mt-auto gap-4 pt-5 pb-4 px-8 border-t border-a8c-gray-5 flex-shrink-0">
-				<ConnectButton variant="secondary" connectSite={ openSitesSyncSelector } />
-			</div>
+		<div className="flex flex-col flex-1 pt-8 overflow-y-auto">
+			{ siteSections.map( ( section ) => (
+				<SyncConnectedSitesSection
+					key={ section.id }
+					section={ section }
+					selectedSite={ selectedSite }
+					disconnectSite={ disconnectSite }
+					openSitesSyncSelector={ openSitesSyncSelector }
+				/>
+			) ) }
 		</div>
 	);
 }

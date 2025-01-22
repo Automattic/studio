@@ -10,7 +10,7 @@ export class WpressValidator extends EventEmitter implements Validator {
 		const optionalDirs = [ 'uploads', 'plugins', 'themes' ];
 		return (
 			requiredFiles.every( ( file ) => fileList.includes( file ) ) &&
-			fileList.some( ( file ) => optionalDirs.some( ( dir ) => file.startsWith( dir + '/' ) ) )
+			optionalDirs.some( ( dir ) => fileList.some( ( file ) => file.startsWith( dir + path.sep ) ) )
 		);
 	}
 

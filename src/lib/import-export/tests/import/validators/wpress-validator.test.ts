@@ -5,18 +5,34 @@ import { WpressValidator } from '../../../import/validators/wpress-validator';
 describe( 'WpressValidator', () => {
 	let validator: WpressValidator;
 
+	const originalSep = path.sep;
+	const separators = [
+		{ name: 'Unix', separator: '/' },
+		{ name: 'Windows', separator: '\\' },
+	];
+
 	beforeEach( () => {
 		validator = new WpressValidator();
 	} );
 
-	describe( 'canHandle', () => {
+	describe.each( separators )( 'canHandle with $name separators', ( { separator } ) => {
+		beforeEach( () => {
+			// @ts-expect-error - Temporarily override path.sep
+			path.sep = separator;
+		} );
+
+		afterEach( () => {
+			// @ts-expect-error - Temporarily override path.sep
+			path.sep = originalSep;
+		} );
+
 		it( 'should return true for valid wpress file structure', () => {
 			const fileList = [
 				'database.sql',
 				'package.json',
-				'uploads/image.jpg',
-				'plugins/some-plugin/plugin.php',
-				'themes/some-theme/style.css',
+				[ 'uploads', 'image.jpg' ].join( separator ),
+				[ 'plugins', 'some-plugin', 'plugin.php' ].join( separator ),
+				[ 'themes', 'some-theme', 'style.css' ].join( separator ),
 			];
 			expect( validator.canHandle( fileList ) ).toBe( true );
 		} );
@@ -24,9 +40,9 @@ describe( 'WpressValidator', () => {
 		it( 'should return false if database.sql is missing', () => {
 			const fileList = [
 				'package.json',
-				'uploads/image.jpg',
-				'plugins/some-plugin/plugin.php',
-				'themes/some-theme/style.css',
+				[ 'uploads', 'image.jpg' ].join( separator ),
+				[ 'plugins', 'some-plugin', 'plugin.php' ].join( separator ),
+				[ 'themes', 'some-theme', 'style.css' ].join( separator ),
 			];
 			expect( validator.canHandle( fileList ) ).toBe( false );
 		} );
@@ -34,9 +50,9 @@ describe( 'WpressValidator', () => {
 		it( 'should return false if package.json is missing', () => {
 			const fileList = [
 				'database.sql',
-				'uploads/image.jpg',
-				'plugins/some-plugin/plugin.php',
-				'themes/some-theme/style.css',
+				[ 'uploads', 'image.jpg' ].join( separator ),
+				[ 'plugins', 'some-plugin', 'plugin.php' ].join( separator ),
+				[ 'themes', 'some-theme', 'style.css' ].join( separator ),
 			];
 			expect( validator.canHandle( fileList ) ).toBe( false );
 		} );

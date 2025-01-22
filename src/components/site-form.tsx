@@ -104,7 +104,7 @@ function FormPathInputComponent( {
 			<SiteFormError
 				error={ error }
 				tipMessage={
-					doesPathContainWordPress ? 'The existing WordPress site at this path will be added.' : ''
+					doesPathContainWordPress ? __( 'The existing WordPress site at this path will be added.' ) : ''
 				}
 			/>
 		</div>

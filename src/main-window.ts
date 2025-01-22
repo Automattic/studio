@@ -80,6 +80,7 @@ export function createMainWindow(): BrowserWindow {
 		removeSitesWithEmptyDirectories( userData );
 		for ( const site of sites ) {
 			moveDatabasesInSitu( site.path ).then( () => {
+				// REMOVE-MU
 				keepSqliteIntegrationUpdated( site.path );
 			} );
 		}

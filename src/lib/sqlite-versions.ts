@@ -133,6 +133,7 @@ export async function removeLegacySqliteIntegrationPlugin( installPath: string )
  *
  * @param sitePath Path of the site.
  */
+// REMOVE-MU: if we load from a shared source, we don't need to keep it updated
 export async function keepSqliteIntegrationUpdated( sitePath: string ) {
 	const sqlitePath = path.join( sitePath, 'wp-content', 'mu-plugins', SQLITE_FILENAME );
 	const hasWpConfig = await fs.pathExists( path.join( sitePath, 'wp-config.php' ) );
@@ -140,6 +141,7 @@ export async function keepSqliteIntegrationUpdated( sitePath: string ) {
 	const sqliteOutdated = sqliteInstalled && ( await isSqliteInstallationOutdated( sqlitePath ) );
 
 	if ( ( ! sqliteInstalled && ! hasWpConfig ) || sqliteOutdated ) {
+		// REMOVE-MU: let's allow wp-now to handle the SQLite integration
 		await installSqliteIntegration( sitePath );
 	}
 }
@@ -150,6 +152,7 @@ export async function keepSqliteIntegrationUpdated( sitePath: string ) {
  *
  * @param sitePath Path of the site.
  */
+// REMOVE-MU: let's allow wp-now to handle the SQLite integration
 export async function installSqliteIntegration( sitePath: string ) {
 	await downloadSqliteIntegrationPlugin();
 	const wpContentPath = path.join( sitePath, 'wp-content' );

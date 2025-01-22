@@ -211,6 +211,7 @@ export class SiteServer {
 		}
 	}
 
+	// REMOVE-MU: if we load from a shared source, we don't need to check for the SQLite plugin
 	async hasSQLitePlugin(): Promise< boolean > {
 		const wpContentPath = nodePath.join( this.details.path, 'wp-content' );
 

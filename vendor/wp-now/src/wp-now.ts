@@ -6,14 +6,21 @@ import {
 	PHPRequestHandler,
 	proxyFileSystem,
 	rotatePHPRuntime,
-	getPhpIniEntries,
 	setPhpIniEntries,
 } from '@php-wasm/universal';
-import { wordPressRewriteRules, getFileNotFoundActionForWordPress } from '@wp-playground/wordpress';
+import {
+	wordPressRewriteRules,
+	getFileNotFoundActionForWordPress,
+	setupPlatformLevelMuPlugins,
+} from '@wp-playground/wordpress';
 import path from 'path';
 import { SQLITE_FILENAME } from './constants';
 import { rootCertificates } from 'tls';
-import { downloadMuPlugins, downloadSqliteIntegrationPlugin, downloadWordPress } from './download';
+import {
+	downloadSqliteIntegrationPlugin,
+	downloadWordPress,
+	removeDownloadedMuPlugins,
+} from './download';
 import {
 	StepDefinition,
 	activatePlugin,
@@ -53,6 +60,7 @@ export default async function startWPNow(
 					'/internal/shared',
 				] );
 			}
+
 			if ( reqHandler ) {
 				php.requestHandler = reqHandler;
 			}
@@ -82,8 +90,8 @@ export default async function startWPNow(
 	output?.log( `wp: ${ options.wordPressVersion }` );
 	await Promise.all( [
 		downloadWordPress( options.wordPressVersion ),
+		// REMOVE-MU: let's allow wp-now to handle the mu-plugins
 		downloadSqliteIntegrationPlugin(),
-		downloadMuPlugins(),
 	] );
 
 	if ( options.reset ) {
@@ -92,6 +100,8 @@ export default async function startWPNow(
 	}
 
 	const isFirstTimeProject = ! fs.existsSync( options.wpContentPath );
+
+	await removeDownloadedMuPlugins( options.projectPath );
 
 	await prepareWordPress( php, options );
 
@@ -122,7 +132,7 @@ export default async function startWPNow(
 			await prepareWordPress( php, options );
 			return runtimeId;
 		},
-		maxRequests: 400,
+		maxRequests: 4,
 	} );
 
 	return {
@@ -155,6 +165,152 @@ function prepareDocumentRoot( php: PHP, options: WPNowOptions ) {
 	php.chdir( options.documentRoot );
 	php.writeFile( `${ options.documentRoot }/index.php`, `<?php echo 'Hello wp-now!';` );
 	php.writeFile( '/internal/shared/ca-bundle.crt', rootCertificates.join( '\n' ) );
+
+	prepareInternalMuPlugins( php );
+}
+
+export async function prepareInternalMuPlugins( php: PHP ) {
+	// TODO-MU: maybe rename mu-plugins to wp-now-drop-ins
+	const muPluginsPath = '/internal/shared/mu-plugins';
+	php.mkdir( muPluginsPath );
+
+	php.writeFile(
+		path.join( muPluginsPath, '0-allowed-redirect-hosts.php' ),
+		`<?php
+	// Needed because gethostbyname( <host> ) returns
+	// a private network IP address for some reason.
+	add_filter( 'allowed_redirect_hosts', function( $hosts ) {
+		$redirect_hosts = array(
+			'wordpress.org',
+			'api.wordpress.org',
+			'downloads.wordpress.org',
+			'themes.svn.wordpress.org',
+			'fonts.gstatic.com',
+		);
+		return array_merge( $hosts, $redirect_hosts );
+	} );
+	add_filter('http_request_host_is_external', '__return_true', 20, 3 );
+	`
+	);
+
+	php.writeFile(
+		path.join( muPluginsPath, '0-dns-functions.php' ),
+		`<?php
+		// Polyfill for DNS functions/features which are not currently supported by @php-wasm/node.
+		// See https://github.com/WordPress/wordpress-playground/issues/1042
+		// These specific features are polyfilled so the Jetpack plugin loads correctly, but others should be added as needed.
+		if ( ! function_exists( 'dns_get_record' ) ) {
+			function dns_get_record() {
+				return array();
+			}
+		}
+		if ( ! defined( 'DNS_NS' ) ) {
+			define( 'DNS_NS', 2 );
+		}`
+	);
+
+	php.writeFile(
+		path.join( muPluginsPath, '0-thumbnails.php' ),
+		`<?php
+		// Facilitates the taking of screenshots to be used as thumbnails.
+		if ( isset( $_GET['studio-hide-adminbar'] ) ) {
+			add_filter( 'show_admin_bar', '__return_false' );
+		}
+		`
+	);
+
+	php.writeFile(
+		path.join( muPluginsPath, '0-sqlite.php' ),
+		`<?php
+		if ( file_exists( WP_CONTENT_DIR . "/db.php" ) && file_exists( __DIR__ . "/${ SQLITE_FILENAME }/load.php" ) ) {
+			require_once __DIR__ . "/${ SQLITE_FILENAME }/load.php";
+		}`
+	);
+
+	php.writeFile(
+		path.join( muPluginsPath, '0-32bit-integer-warnings.php' ),
+		`<?php
+/**
+ * This is a temporary workaround to hide the 32bit integer warnings that
+ * appear when using various time related function, such as strtotime and mktime.
+ * Examples of the warnings that are displayed:
+ * Warning: mktime(): Epoch doesn't fit in a PHP integer in <file>
+ * Warning: strtotime(): Epoch doesn't fit in a PHP integer in <file>
+ */
+set_error_handler(function($severity, $message, $file, $line) {
+  if (strpos($message, "fit in a PHP integer") !== false) {
+      return;
+  }
+  return false;
+});
+`
+	);
+
+	php.writeFile(
+		path.join( muPluginsPath, '0-check-theme-availability.php' ),
+		`<?php
+	function check_current_theme_availability() {
+			// Get the current theme's directory
+			$current_theme = wp_get_theme();
+			$theme_dir = get_theme_root() . '/' . $current_theme->stylesheet;
+
+			if (!is_dir($theme_dir)) {
+					$all_themes = wp_get_themes();
+					$available_themes = [];
+
+					foreach ($all_themes as $theme_slug => $theme_obj) {
+							if ($theme_slug != $current_theme->get_stylesheet()) {
+									$available_themes[$theme_slug] = $theme_obj;
+							}
+					}
+
+					if (!empty($available_themes)) {
+							$new_theme_slug = array_keys($available_themes)[0];
+							switch_theme($new_theme_slug);
+					}
+			}
+	}
+	add_action('after_setup_theme', 'check_current_theme_availability');
+`
+	);
+
+	php.writeFile(
+		path.join( muPluginsPath, '0-permalinks.php' ),
+		`<?php
+			// Support permalinks without "index.php"
+			add_filter( 'got_url_rewrite', '__return_true' );
+	`
+	);
+
+	php.writeFile(
+		path.join( muPluginsPath, '0-deactivate-jetpack-modules.php' ),
+		`<?php
+			// Disable Jetpack Protect 2FA for local auto-login purpose
+			add_action( 'jetpack_active_modules', 'jetpack_deactivate_modules' );
+			function jetpack_deactivate_modules( $active ) {
+				if ( ( $index = array_search('protect', $active, true) ) !== false ) {
+					unset( $active[ $index ] );
+				}
+				return $active;
+			}
+	`
+	);
+
+	php.writeFile(
+		path.join( muPluginsPath, '0-wp-config-constants-polyfill.php' ),
+		`<?php
+		// Define database constants if not already defined. It fixes the error
+		// for imported sites that don't have those defined e.g. WP Cloud and
+		// include plugins which try to access those directly e.g. Mailpoet
+		if (!defined('DB_NAME')) define('DB_NAME', 'database_name_here');
+		if (!defined('DB_USER')) define('DB_USER', 'username_here');
+		if (!defined('DB_PASSWORD')) define('DB_PASSWORD', 'password_here');
+		if (!defined('DB_HOST')) define('DB_HOST', 'localhost');
+		if (!defined('DB_CHARSET')) define('DB_CHARSET', 'utf8');
+		if (!defined('DB_COLLATE')) define('DB_COLLATE', '');
+		`
+	);
+	setupPlatformLevelMuPlugins( php );
 }
 
 async function prepareWordPress( php: PHP, options: WPNowOptions ) {
@@ -269,7 +425,8 @@ async function runWordPressMode(
 
 	await initWordPress( php, 'user-provided', documentRoot, absoluteUrl );
 
-	await downloadMuPlugins( path.join( projectPath, 'wp-content', 'mu-plugins' ) );
+	// REMOVE-MU: let's allow wp-now startWPNow to handle the mu-plugins
+	// await downloadMuPlugins( path.join( projectPath, 'wp-content', 'mu-plugins' ) );
 }
 
 async function runPluginOrThemeMode(
@@ -451,9 +608,11 @@ export function getThemeTemplate( projectPath: string ) {
 
 async function mountMuPlugins( php: PHP, vfsDocumentRoot: string ) {
 	await php.mount(
+		// TODO-MU: maybe rename mu-plugins to wp-now-drop-ins
 		path.join( getWpNowPath(), 'mu-plugins' ),
 		// VFS paths always use forward / slashes so
 		// we can't use path.join() for them
+		// TODO-MU: store in internal/wp-now
 		createNodeFsMountHandler(
 			`${ vfsDocumentRoot }/wp-content/mu-plugins`
 		) as unknown as MountHandler

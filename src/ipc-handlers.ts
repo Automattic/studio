@@ -186,6 +186,7 @@ export async function createSite(
 			);
 		}
 
+		// REMOVE-MU: Let's allow wp-now to handle the SQLite integration
 		if ( ! ( await pathExists( nodePath.join( path, 'wp-config.php' ) ) ) ) {
 			await installSqliteIntegration( path );
 		}
@@ -385,7 +386,8 @@ export async function startServer(
 		return null;
 	}
 
-	await keepSqliteIntegrationUpdated( server.details.path );
+	// REMOVE-MU: load from wp-now-drop-ins
+	// await keepSqliteIntegrationUpdated( server.details.path );
 
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	try {
@@ -1068,7 +1070,9 @@ export async function isImportExportSupported( _event: IpcMainInvokeEvent, siteI
 	if ( ! site ) {
 		throw new Error( 'Site not found.' );
 	}
-	return site.hasSQLitePlugin();
+	// REMOVE-MU: if we load from a shared source, we don't need to check for the SQLite plugin
+	return true;
+	//return site.hasSQLitePlugin();
 }
 
 /**

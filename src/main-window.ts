@@ -102,6 +102,14 @@ export function createMainWindow(): BrowserWindow {
 		mainWindow = null;
 	} );
 
+	mainWindow.on( 'enter-full-screen', () => {
+		mainWindow?.webContents.send( 'window-fullscreen-change', true );
+	} );
+
+	mainWindow.on( 'leave-full-screen', () => {
+		mainWindow?.webContents.send( 'window-fullscreen-change', false );
+	} );
+
 	return mainWindow;
 }
 

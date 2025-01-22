@@ -40,6 +40,7 @@ import { sortSites } from './lib/sort-sites';
 import { installSqliteIntegration, keepSqliteIntegrationUpdated } from './lib/sqlite-versions';
 import * as windowsHelpers from './lib/windows-helpers';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from './logging';
+import { withMainWindow } from './main-window';
 import { popupMenu, setupMenu } from './menu';
 import { SiteServer, createSiteWorkingDirectory } from './site-server';
 import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from './storage/paths';
@@ -1091,4 +1092,12 @@ export async function getFileContent( event: IpcMainInvokeEvent, filePath: strin
 	}
 
 	return fs.readFileSync( filePath );
+}
+
+export async function isFullscreen( _event: IpcMainInvokeEvent ): Promise< boolean > {
+	let isFullscreen = false;
+	withMainWindow( ( window ) => {
+		isFullscreen = window.isFullScreen();
+	} );
+	return isFullscreen;
 }

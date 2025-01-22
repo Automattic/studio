@@ -1,6 +1,7 @@
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useState } from 'react';
 import { useSiteDetails } from '../hooks/use-site-details';
+import { isMac, isWindows } from '../lib/app-globals';
 import Button from './button';
 import Modal from './modal';
 import TextControlComponent from './text-control';
@@ -59,6 +60,44 @@ export default function EditAbsoluteUrl() {
 
 	const closeModal = () => setShowModal( false );
 
+	const getHostsFileInstructions = () => {
+		const hostname = new URL( urlState.localUrl ).hostname;
+
+		if ( isWindows() ) {
+			return (
+				<>
+					<p className="text-sm text-gray-600 mt-2">
+						{ __( "To use a custom hostname, you'll need to update your hosts file:" ) }
+					</p>
+					<ol className="text-sm text-gray-600 list-decimal list-inside ml-2 mt-1">
+						<li>{ __( 'Open Notepad as Administrator' ) }</li>
+						<li>{ __( 'Open C:\\Windows\\System32\\drivers\\etc\\hosts' ) }</li>
+						<li>{ __( 'Add the following line to the file:' ) }</li>
+						<code className="block bg-gray-100 px-3 py-1 mt-1 text-sm rounded">
+							{ `127.0.0.1 ${ hostname }` }
+						</code>
+					</ol>
+				</>
+			);
+		}
+
+		if ( isMac() ) {
+			return (
+				<>
+					<p className="text-sm text-gray-600 mt-2">
+						{ __( "To use a custom hostname, you'll need to update your hosts file:" ) }
+					</p>
+					<p>{ __( 'Add the following line to /etc/hosts:' ) }</p>
+					<code className="block bg-gray-100 px-3 py-1 mt-1 text-sm rounded">
+						{ `127.0.0.1 ${ hostname }` }
+					</code>
+				</>
+			);
+		}
+
+		return null;
+	};
+
 	return (
 		<>
 			<Button
@@ -80,9 +119,12 @@ export default function EditAbsoluteUrl() {
 					onRequestClose={ closeModal }
 				>
 					<form onSubmit={ handleSubmit } className="flex flex-col gap-4">
-						<label className="flex flex-col gap-1.5 leading-4">
-							<span className="font-semibold">{ __( 'Hostname' ) }</span>
+						<div className="flex flex-col gap-1.5 leading-4">
+							<label className="font-semibold" htmlFor="hostname-input">
+								{ __( 'Hostname' ) }
+							</label>
 							<TextControlComponent
+								id="hostname-input"
 								onChange={ ( value ) =>
 									setUrlState( ( prev ) => ( { ...prev, localUrl: value } ) )
 								}
@@ -100,11 +142,17 @@ export default function EditAbsoluteUrl() {
 								/>
 								<span>{ __( 'Include port in URL' ) }</span>
 							</label>
-						</label>
+						</div>
 
 						<div className="flex flex-col gap-1.5 leading-4">
 							<span className="font-semibold">{ __( 'Final URL' ) }</span>
 							<div className="px-3 py-1.5 bg-gray-100 rounded text-gray-600">{ absoluteUrl }</div>
+						</div>
+
+						<div className="flex flex-col gap-1.5 leading-4">
+							{ urlState.localUrl &&
+								urlState.localUrl !== 'http://localhost' &&
+								getHostsFileInstructions() }
 						</div>
 
 						<div className="flex flex-row justify-end gap-x-5 mt-6">

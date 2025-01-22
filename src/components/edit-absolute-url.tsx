@@ -1,69 +1,121 @@
 import { useI18n } from '@wordpress/react-i18n';
-import { FormEvent, useCallback, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useSiteDetails } from '../hooks/use-site-details';
 import Button from './button';
 import Modal from './modal';
 import TextControlComponent from './text-control';
 
+interface UrlState {
+	localUrl: string;
+	includePort: boolean;
+}
+
 export default function EditAbsoluteUrl() {
 	const { __ } = useI18n();
 	const { updateSite, selectedSite, stopServer, startServer } = useSiteDetails();
 	const [ isEditingSite, setIsEditingSite ] = useState( false );
-	const [ showEditAbsoluteUrlModal, setShowEditAbsoluteUrlModal ] = useState( false );
-	const [ localUrl, setLocalUrl ] = useState(
-		selectedSite?.absoluteUrl || `http://localhost:${ selectedSite?.port }`
-	);
+	const [ showModal, setShowModal ] = useState( false );
 
-	const onLocalUrlEdit = useCallback(
-		async ( event: FormEvent ) => {
-			event.preventDefault();
-			if ( ! selectedSite ) {
-				return;
-			}
+	// Initialize URL state from selected site
+	const initialUrlState = {
+		localUrl:
+			selectedSite?.absoluteUrl?.replace( `:${ selectedSite?.port }`, '' ) || 'http://localhost',
+		includePort: Boolean(
+			selectedSite?.absoluteUrl?.includes( `:${ selectedSite?.port }` ) ||
+				! selectedSite?.absoluteUrl
+		),
+	};
+	const [ urlState, setUrlState ] = useState< UrlState >( initialUrlState );
+
+	// Compute absolute URL
+	const absoluteUrl =
+		urlState.includePort && selectedSite?.port
+			? `${ urlState.localUrl }:${ selectedSite.port }`
+			: urlState.localUrl;
+
+	const handleSubmit = useCallback(
+		async ( e: React.FormEvent ) => {
+			e.preventDefault();
+			if ( ! selectedSite || ! urlState.localUrl.trim() ) return;
 
 			setIsEditingSite( true );
-			await updateSite( {
-				...selectedSite,
-				absoluteUrl: localUrl,
-			} );
-			if ( selectedSite.running ) {
-				await stopServer( selectedSite.id );
-				await startServer( selectedSite.id );
+			try {
+				await updateSite( {
+					...selectedSite,
+					absoluteUrl,
+				} );
+
+				if ( selectedSite.running ) {
+					await stopServer( selectedSite.id );
+					await startServer( selectedSite.id );
+				}
+				setShowModal( false );
+			} finally {
+				setIsEditingSite( false );
 			}
-			setIsEditingSite( false );
-			setShowEditAbsoluteUrlModal( false );
 		},
-		[ selectedSite, localUrl, updateSite, stopServer, startServer ]
+		[ absoluteUrl, selectedSite, startServer, stopServer, updateSite, urlState.localUrl ]
 	);
+
+	const closeModal = () => setShowModal( false );
 
 	return (
 		<>
-			{ showEditAbsoluteUrlModal && (
+			<Button
+				disabled={ ! selectedSite }
+				className="!mx-4 shrink-0"
+				onClick={ () => selectedSite && setShowModal( true ) }
+				label={ __( 'Edit Local URL' ) }
+				variant="link"
+			>
+				{ __( 'Edit' ) }
+			</Button>
+
+			{ showModal && (
 				<Modal
 					size="medium"
 					title={ __( 'Edit Local URL' ) }
 					isDismissible
 					focusOnMount="firstContentElement"
-					onRequestClose={ () => setShowEditAbsoluteUrlModal( false ) }
+					onRequestClose={ closeModal }
 				>
-					<form onSubmit={ onLocalUrlEdit }>
-						<label className="flex flex-col gap-1.5 leading-4 mb-6">
-							<span className="font-semibold">{ __( 'Local URL' ) }</span>
-							<TextControlComponent onChange={ setLocalUrl } value={ localUrl } />
+					<form onSubmit={ handleSubmit } className="flex flex-col gap-4">
+						<label className="flex flex-col gap-1.5 leading-4">
+							<span className="font-semibold">{ __( 'Hostname' ) }</span>
+							<TextControlComponent
+								onChange={ ( value ) =>
+									setUrlState( ( prev ) => ( { ...prev, localUrl: value } ) )
+								}
+								value={ urlState.localUrl }
+								placeholder="http://localhost"
+							/>
+							<label className="flex items-center gap-2">
+								<input
+									type="checkbox"
+									checked={ urlState.includePort }
+									onChange={ ( e ) =>
+										setUrlState( ( prev ) => ( { ...prev, includePort: e.target.checked } ) )
+									}
+									className="form-checkbox"
+								/>
+								<span>{ __( 'Include port in URL' ) }</span>
+							</label>
 						</label>
+
+						<div className="flex flex-col gap-1.5 leading-4">
+							<span className="font-semibold">{ __( 'Final URL' ) }</span>
+							<div className="px-3 py-1.5 bg-gray-100 rounded text-gray-600">{ absoluteUrl }</div>
+						</div>
+
 						<div className="flex flex-row justify-end gap-x-5 mt-6">
-							<Button
-								onClick={ () => setShowEditAbsoluteUrlModal( false ) }
-								disabled={ isEditingSite }
-								variant="tertiary"
-							>
+							<Button onClick={ closeModal } disabled={ isEditingSite } variant="tertiary">
 								{ __( 'Cancel' ) }
 							</Button>
 							<Button
 								type="submit"
 								variant="primary"
 								isBusy={ isEditingSite }
-								disabled={ isEditingSite || ! selectedSite || ! localUrl.trim() }
+								disabled={ isEditingSite || ! selectedSite || ! urlState.localUrl.trim() }
 							>
 								{ isEditingSite ? __( 'Restarting server…' ) : __( 'Save' ) }
 							</Button>
@@ -71,19 +123,6 @@ export default function EditAbsoluteUrl() {
 					</form>
 				</Modal>
 			) }
-			<Button
-				disabled={ ! selectedSite }
-				className="!mx-4 shrink-0"
-				onClick={ () => {
-					if ( selectedSite ) {
-						setShowEditAbsoluteUrlModal( true );
-					}
-				} }
-				label={ __( 'Edit Local URL' ) }
-				variant="link"
-			>
-				{ __( 'Edit' ) }
-			</Button>
 		</>
 	);
 }

@@ -6,25 +6,6 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { RootState } from 'src/stores';
 import { DEFAULT_PHP_VERSION } from 'vendor/wp-now/src/constants';
 
-export interface ChatState {
-	currentURL: string;
-	pluginListDict: Record< string, string[] >;
-	themeListDict: Record< string, string[] >;
-	numberOfSites: number;
-	phpVersion: string;
-	siteName: string;
-	isSiteLoadedDict: Record< string, boolean >;
-	themeName: string;
-	isBlockTheme: boolean;
-	os: string;
-	availableEditors: string[];
-	wpVersion: string;
-	messagesDict: { [ key: string ]: Message[] };
-	chatIdDict: { [ key: string ]: string | undefined };
-	chatInputBySite: { [ key: string ]: string };
-	isLoadingDict: Record< string, boolean >;
-}
-
 export type Message = {
 	id?: number;
 	messageApiId?: number;
@@ -142,12 +123,12 @@ export const fetchAssistantThunk = createAsyncThunk(
 			);
 		} );
 
-		// TODO: Store the quota headers
-
 		return {
 			chatId: data?.id,
+			maxQuota: headers[ 'x-quota-max' ] || '',
 			message: data?.choices?.[ 0 ]?.message?.content,
 			messageApiId: data?.choices?.[ 0 ]?.message?.id,
+			remainingQuota: headers[ 'x-quota-remaining' ] || '',
 		};
 	}
 );
@@ -184,6 +165,26 @@ const storedMessages = localStorage.getItem( CHAT_MESSAGES_STORE_KEY );
 const storedChatIds = localStorage.getItem( CHAT_ID_STORE_KEY );
 const EMPTY_MESSAGES: readonly Message[] = Object.freeze( [] );
 
+export interface ChatState {
+	currentURL: string;
+	pluginListDict: Record< string, string[] >;
+	themeListDict: Record< string, string[] >;
+	numberOfSites: number;
+	phpVersion: string;
+	siteName: string;
+	isSiteLoadedDict: Record< string, boolean >;
+	themeName: string;
+	isBlockTheme: boolean;
+	os: string;
+	availableEditors: string[];
+	wpVersion: string;
+	messagesDict: { [ key: string ]: Message[] };
+	chatIdDict: { [ key: string ]: string | undefined };
+	chatInputBySite: { [ key: string ]: string };
+	isLoadingDict: Record< string, boolean >;
+	promptUsageDict: Record< string, { maxQuota: string; remainingQuota: string } >;
+}
+
 const initialState: ChatState = {
 	currentURL: '',
 	pluginListDict: {},
@@ -201,6 +202,7 @@ const initialState: ChatState = {
 	chatIdDict: storedChatIds ? JSON.parse( storedChatIds ) : {},
 	chatInputBySite: {},
 	isLoadingDict: {},
+	promptUsageDict: {},
 };
 
 export function generateMessage(
@@ -331,22 +333,24 @@ const chatSlice = createSlice( {
 
 				state.isLoadingDict[ siteId ] = false;
 
-				const messages = state.messagesDict[ siteId ];
-				const chatId = state.chatIdDict[ siteId ];
-
 				const message = generateMessage(
 					action.payload.message,
 					'assistant',
-					messages.length,
-					chatId,
+					state.messagesDict[ siteId ].length,
+					state.chatIdDict[ siteId ],
 					action.payload.messageApiId
 				);
 
-				messages.push( message );
+				state.messagesDict[ siteId ].push( message );
 
 				if ( message.chatId ) {
 					state.chatInputBySite[ siteId ] = message.chatId;
 				}
+
+				state.promptUsageDict[ siteId ] = {
+					maxQuota: action.payload.maxQuota,
+					remainingQuota: action.payload.remainingQuota,
+				};
 			} )
 			.addCase( sendFeedbackThunk.pending, ( state, action ) => {
 				const { siteId, messageApiId } = action.meta.arg;

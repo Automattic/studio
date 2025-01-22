@@ -8,8 +8,8 @@ import { RootState } from '.';
 
 export interface ChatState {
 	currentURL: string;
-	pluginList: string[];
-	themeList: string[];
+	pluginListDict: Record< string, string[] >;
+	themeListDict: Record< string, string[] >;
 	numberOfSites: number;
 	phpVersion: string;
 	siteName: string;
@@ -108,8 +108,8 @@ export const fetchAssistantThunk = createAsyncThunk(
 			number_of_sites: state.chat.numberOfSites,
 			wp_version: state.chat.wpVersion,
 			php_version: state.chat.phpVersion,
-			plugins: state.chat.pluginList,
-			themes: state.chat.themeList,
+			plugins: state.chat.pluginListDict[ siteId ] || [],
+			themes: state.chat.themeListDict[ siteId ] || [],
 			current_theme: state.chat.themeName,
 			is_block_theme: state.chat.isBlockTheme,
 			ide: state.chat.availableEditors,
@@ -182,12 +182,12 @@ export const sendFeedbackThunk = createAsyncThunk(
 
 const storedMessages = localStorage.getItem( CHAT_MESSAGES_STORE_KEY );
 const storedChatIds = localStorage.getItem( CHAT_ID_STORE_KEY );
-const EMPTY_MESSAGES: Message[] = [];
+const EMPTY_MESSAGES: readonly Message[] = Object.freeze( [] );
 
 const initialState: ChatState = {
 	currentURL: '',
-	pluginList: [],
-	themeList: [],
+	pluginListDict: {},
+	themeListDict: {},
 	numberOfSites: 0,
 	themeName: '',
 	wpVersion: '',
@@ -288,47 +288,52 @@ const chatSlice = createSlice( {
 			} )
 			.addCase( updateFromSite.fulfilled, ( state, action ) => {
 				const { plugins, themes } = action.payload;
+				const siteId = action.meta.arg.id;
 
-				state.pluginList = plugins;
-				state.themeList = themes;
+				state.pluginListDict[ siteId ] = plugins;
+				state.themeListDict[ siteId ] = themes;
 			} )
 			.addCase( updateFromSite.rejected, ( state, action ) => {
 				state.isSiteLoadedDict[ action.meta.arg.id ] = false;
 			} )
 			.addCase( fetchAssistantThunk.pending, ( state, action ) => {
-				state.isLoadingDict[ action.meta.arg.siteId ] = true;
+				const { message, siteId, isRetry } = action.meta.arg;
 
-				if ( ! state.messagesDict[ action.meta.arg.siteId ] ) {
-					state.messagesDict[ action.meta.arg.siteId ] = [];
+				state.isLoadingDict[ siteId ] = true;
+
+				if ( ! state.messagesDict[ siteId ] ) {
+					state.messagesDict[ siteId ] = [];
 				}
 
-				const messages = state.messagesDict[ action.meta.arg.siteId ];
-
-				if ( action.meta.arg.isRetry ) {
-					messages.forEach( ( message ) => {
-						if ( message.id === action.meta.arg.message.id ) {
-							message.failedMessage = false;
+				if ( isRetry ) {
+					state.messagesDict[ siteId ].forEach( ( msg ) => {
+						if ( msg.id === message.id ) {
+							msg.failedMessage = false;
 						}
 					} );
 				}
 
-				messages.push( action.meta.arg.message );
+				state.messagesDict[ siteId ].push( message );
 			} )
 			.addCase( fetchAssistantThunk.rejected, ( state, action ) => {
-				state.isLoadingDict[ action.meta.arg.siteId ] = false;
-				const messages = state.messagesDict[ action.meta.arg.siteId ];
+				const { message, siteId } = action.meta.arg;
 
-				messages.forEach( ( message ) => {
-					if ( message.id === action.meta.arg.message.id ) {
-						message.failedMessage = true;
+				state.isLoadingDict[ siteId ] = false;
+				const messages = state.messagesDict[ siteId ];
+
+				messages.forEach( ( msg ) => {
+					if ( msg.id === message.id ) {
+						msg.failedMessage = true;
 					}
 				} );
 			} )
 			.addCase( fetchAssistantThunk.fulfilled, ( state, action ) => {
-				state.isLoadingDict[ action.meta.arg.siteId ] = false;
+				const { siteId } = action.meta.arg;
 
-				const messages = state.messagesDict[ action.meta.arg.siteId ];
-				const chatId = state.chatIdDict[ action.meta.arg.siteId ];
+				state.isLoadingDict[ siteId ] = false;
+
+				const messages = state.messagesDict[ siteId ];
+				const chatId = state.chatIdDict[ siteId ];
 
 				const message = generateMessage(
 					action.payload.message,
@@ -341,13 +346,15 @@ const chatSlice = createSlice( {
 				messages.push( message );
 
 				if ( message.chatId ) {
-					state.chatInputBySite[ action.meta.arg.siteId ] = message.chatId;
+					state.chatInputBySite[ siteId ] = message.chatId;
 					localStorage.setItem( CHAT_ID_STORE_KEY, JSON.stringify( state.chatIdDict ) );
 				}
 			} )
 			.addCase( sendFeedbackThunk.pending, ( state, action ) => {
-				state.messagesDict[ action.meta.arg.siteId ].forEach( ( message ) => {
-					if ( message.messageApiId === action.meta.arg.messageApiId ) {
+				const { siteId, messageApiId } = action.meta.arg;
+
+				state.messagesDict[ siteId ].forEach( ( message ) => {
+					if ( message.messageApiId === messageApiId ) {
 						message.feedbackReceived = true;
 					}
 				} );

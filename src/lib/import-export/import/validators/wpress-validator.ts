@@ -37,11 +37,11 @@ export class WpressValidator extends EventEmitter implements Validator {
 			const fullPath = path.join( extractionDirectory, file );
 			if ( file === 'database.sql' ) {
 				extractedBackup.sqlFiles.push( fullPath );
-			} else if ( file.startsWith( 'uploads/' ) ) {
+			} else if ( file.startsWith( 'uploads' + path.sep ) ) {
 				extractedBackup.wpContent.uploads.push( fullPath );
-			} else if ( file.startsWith( 'plugins/' ) ) {
+			} else if ( file.startsWith( 'plugins' + path.sep ) ) {
 				extractedBackup.wpContent.plugins.push( fullPath );
-			} else if ( file.startsWith( 'themes/' ) ) {
+			} else if ( file.startsWith( 'themes' + path.sep ) ) {
 				extractedBackup.wpContent.themes.push( fullPath );
 			} else if ( file === 'package.json' ) {
 				extractedBackup.metaFile = fullPath;

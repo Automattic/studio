@@ -1,7 +1,7 @@
 import { useCallback, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from 'src/stores';
-import { setMessages, setChatId, selectMessages, selectChatId } from 'src/stores/chat-slice';
+import { setMessages, selectMessages, selectChatId } from 'src/stores/chat-slice';
 import { useSendFeedback } from './use-send-feedback';
 
 export type Message = {
@@ -27,39 +27,6 @@ export const useAssistant = ( instanceId: string ) => {
 	const dispatch = useDispatch();
 	const prevMessages = useSelector( ( state: RootState ) => selectMessages( state, instanceId ) );
 	const prevChatId = useSelector( ( state: RootState ) => selectChatId( state, instanceId ) );
-	const lastMessageIdDictRef = useRef< { [ key: string ]: number } >( {} );
-
-	const addMessage = useCallback(
-		( content: string, role: 'user' | 'assistant', chatId?: string, messageApiId?: number ) => {
-			if ( lastMessageIdDictRef.current[ instanceId ] === undefined ) {
-				lastMessageIdDictRef.current[ instanceId ] = -1;
-			}
-
-			const newMessageId = lastMessageIdDictRef.current[ instanceId ] + 1;
-			lastMessageIdDictRef.current[ instanceId ] = newMessageId;
-
-			const updatedMessages = [
-				...prevMessages,
-				{
-					content,
-					role,
-					id: newMessageId,
-					chatId,
-					createdAt: Date.now(),
-					feedbackReceived: false,
-					messageApiId,
-				},
-			];
-			dispatch( setMessages( { siteId: instanceId, messages: updatedMessages } ) );
-
-			if ( prevChatId !== chatId && chatId ) {
-				dispatch( setChatId( { siteId: instanceId, chatId } ) );
-			}
-
-			return newMessageId;
-		},
-		[ instanceId, prevMessages, prevChatId, dispatch ]
-	);
 
 	const updateMessage = useCallback(
 		(
@@ -119,7 +86,6 @@ export const useAssistant = ( instanceId: string ) => {
 
 	return {
 		messages: prevMessages || EMPTY_MESSAGES,
-		addMessage,
 		updateMessage,
 		chatId: prevChatId,
 		markMessageAsFeedbackReceived,

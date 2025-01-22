@@ -196,25 +196,20 @@ const chatSlice = createSlice( {
 	reducers: {
 		updateFromTheme: (
 			state,
-			action: PayloadAction< { name: string; isBlockTheme: boolean } >
+			action: PayloadAction< NonNullable< SiteDetails[ 'themeDetails' ] > >
 		) => {
-			const { name, isBlockTheme } = action.payload;
-			state.themeName = name;
-			state.isBlockTheme = isBlockTheme;
+			state.themeName = action.payload.name;
+			state.isBlockTheme = action.payload.isBlockTheme;
 		},
 		setMessages: ( state, action: PayloadAction< { siteId: string; messages: Message[] } > ) => {
 			const { siteId, messages } = action.payload;
 			state.messagesDict[ siteId ] = messages;
-
-			const newDict = { ...state.messagesDict, [ siteId ]: messages };
-			localStorage.setItem( CHAT_MESSAGES_STORE_KEY, JSON.stringify( newDict ) );
+			localStorage.setItem( CHAT_MESSAGES_STORE_KEY, JSON.stringify( state.messagesDict ) );
 		},
 		setChatId: ( state, action: PayloadAction< { siteId: string; chatId?: string } > ) => {
 			const { siteId, chatId } = action.payload;
 			state.chatIdDict[ siteId ] = chatId;
-
-			const newChatDict = { ...state.chatIdDict, [ siteId ]: chatId };
-			localStorage.setItem( CHAT_ID_STORE_KEY, JSON.stringify( newChatDict ) );
+			localStorage.setItem( CHAT_ID_STORE_KEY, JSON.stringify( state.chatIdDict ) );
 		},
 		setChatInput: ( state, action: PayloadAction< { siteId: string; input: string } > ) => {
 			const { siteId, input } = action.payload;
@@ -286,6 +281,11 @@ const chatSlice = createSlice( {
 				);
 
 				messages.push( message );
+
+				if ( message.chatId ) {
+					state.chatInputBySite[ action.meta.arg.siteId ] = message.chatId;
+					localStorage.setItem( CHAT_ID_STORE_KEY, JSON.stringify( state.chatIdDict ) );
+				}
 			} );
 	},
 	selectors: {

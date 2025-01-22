@@ -8,6 +8,7 @@ import { Icon, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import React, { useState, useEffect, useRef, memo, useCallback, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
+import { useThemeDetails } from 'src/hooks/use-theme-details';
 import { RootState } from 'src/stores';
 import {
 	setMessages,
@@ -18,6 +19,7 @@ import {
 	selectMessages,
 	setChatInput,
 	updateFromSite,
+	updateFromTheme,
 } from 'src/stores/chat-slice';
 import { AI_GUIDELINES_URL, LIMIT_OF_PROMPTS_PER_USER } from '../constants';
 import { useAssistant, Message as MessageType } from '../hooks/use-assistant';
@@ -380,9 +382,17 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const lastMessage = messages.length === 0 ? undefined : messages[ messages.length - 1 ];
 	const hasFailedMessage = messages.some( ( msg: MessageType ) => msg.failedMessage );
 
+	const { selectedThemeDetails: themeDetails } = useThemeDetails();
+
 	useEffect( () => {
 		dispatch( updateFromSite( selectedSite ) );
 	}, [ dispatch, selectedSite ] );
+
+	useEffect( () => {
+		if ( themeDetails ) {
+			dispatch( updateFromTheme( themeDetails ) );
+		}
+	}, [ themeDetails ] );
 
 	// Save prompt input when it changes
 	const setInput = ( input: string ) => {

@@ -182,6 +182,7 @@ export const sendFeedbackThunk = createAsyncThunk(
 
 const storedMessages = localStorage.getItem( CHAT_MESSAGES_STORE_KEY );
 const storedChatIds = localStorage.getItem( CHAT_ID_STORE_KEY );
+const EMPTY_MESSAGES: Message[] = [];
 
 const initialState: ChatState = {
 	currentURL: '',
@@ -354,7 +355,7 @@ const chatSlice = createSlice( {
 	},
 	selectors: {
 		selectChatInput: ( state, siteId: string ) => state.chatInputBySite[ siteId ] ?? '',
-		selectMessages: ( state, siteId: string ) => state.messagesDict[ siteId ] ?? [],
+		selectMessages: ( state, siteId: string ) => state.messagesDict[ siteId ] ?? EMPTY_MESSAGES,
 		selectChatId: ( state, siteId: string ) => state.chatIdDict[ siteId ],
 		selectIsLoading: ( state, siteId: string ) => state.isLoadingDict[ siteId ] ?? false,
 	},

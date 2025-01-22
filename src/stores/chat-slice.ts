@@ -3,8 +3,8 @@ import * as Sentry from '@sentry/electron/renderer';
 import WPCOM from 'wpcom';
 import { CHAT_ID_STORE_KEY, CHAT_MESSAGES_STORE_KEY } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { RootState } from 'src/stores';
 import { DEFAULT_PHP_VERSION } from 'vendor/wp-now/src/constants';
-import { RootState } from '.';
 
 export interface ChatState {
 	currentURL: string;
@@ -235,7 +235,6 @@ const chatSlice = createSlice( {
 		setMessages: ( state, action: PayloadAction< { siteId: string; messages: Message[] } > ) => {
 			const { siteId, messages } = action.payload;
 			state.messagesDict[ siteId ] = messages;
-			localStorage.setItem( CHAT_MESSAGES_STORE_KEY, JSON.stringify( state.messagesDict ) );
 		},
 		setChatId: ( state, action: PayloadAction< { siteId: string; chatId?: string } > ) => {
 			const { siteId, chatId } = action.payload;
@@ -347,7 +346,6 @@ const chatSlice = createSlice( {
 
 				if ( message.chatId ) {
 					state.chatInputBySite[ siteId ] = message.chatId;
-					localStorage.setItem( CHAT_ID_STORE_KEY, JSON.stringify( state.chatIdDict ) );
 				}
 			} )
 			.addCase( sendFeedbackThunk.pending, ( state, action ) => {

@@ -9,7 +9,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import React, { useState, useEffect, useRef, memo, useCallback, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useThemeDetails } from 'src/hooks/use-theme-details';
-import { RootState } from 'src/stores';
+import { RootState, AppDispatch } from 'src/stores';
 import {
 	setMessages,
 	fetchAssistantThunk,
@@ -341,7 +341,7 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
 	const inputRef = useRef< HTMLTextAreaElement >( null );
 	const wrapperRef = useRef< HTMLDivElement >( null );
-	const dispatch = useDispatch();
+	const dispatch = useDispatch< AppDispatch >();
 	const chatInput = useSelector( ( state: RootState ) =>
 		selectChatInput( state, selectedSite.id )
 	);

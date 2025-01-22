@@ -142,6 +142,8 @@ export const fetchAssistantThunk = createAsyncThunk(
 			);
 		} );
 
+		// TODO: Store the quota headers
+
 		return {
 			chatId: data?.id,
 			message: data?.choices?.[ 0 ]?.message?.content,

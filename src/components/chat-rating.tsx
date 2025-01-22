@@ -2,6 +2,7 @@ import { __ } from '@wordpress/i18n';
 import { thumbsUp, thumbsDown, Icon } from '@wordpress/icons';
 import { useDispatch } from 'react-redux';
 import { useAuth } from 'src/hooks/use-auth';
+import { AppDispatch } from 'src/stores';
 import { sendFeedbackThunk } from 'src/stores/chat-slice';
 import Button from './button';
 
@@ -22,7 +23,7 @@ export const FeedbackThanks = () => {
 
 export const ChatRating = ( { messageApiId, feedbackReceived, siteId }: ChatRatingProps ) => {
 	const { client } = useAuth();
-	const dispatch = useDispatch();
+	const dispatch = useDispatch< AppDispatch >();
 	const handleRatingClick = async ( feedback: number ) => {
 		if ( ! client ) {
 			return;

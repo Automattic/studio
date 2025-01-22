@@ -56,6 +56,7 @@
 		"@types/react-dom": "^18.2.17",
 		"@types/semver": "^7.5.8",
 		"@types/shell-quote": "^1.7.5",
+		"@types/yauzl": "^2.10.3",
 		"@typescript-eslint/eslint-plugin": "^8.21.0",
 		"@typescript-eslint/parser": "^8.21.0",
 		"@vercel/webpack-asset-relocator-loader": "1.7.3",
@@ -110,13 +111,11 @@
 		"@rive-app/react-canvas": "^4.12.0",
 		"@sentry/electron": "^4.24.0",
 		"@sentry/webpack-plugin": "^2.16.1",
-		"@types/adm-zip": "^0.5.5",
 		"@wordpress/compose": "^6.27.0",
 		"@wordpress/i18n": "^4.50.0",
 		"@wordpress/icons": "^10.10.0",
 		"@wp-playground/blueprints": "^0.9.44",
 		"@wp-playground/wordpress": "^0.9.44",
-		"adm-zip": "^0.5.14",
 		"archiver": "^6.0.1",
 		"atomically": "^2.0.3",
 		"compressible": "2.0.18",
@@ -140,7 +139,8 @@
 		"unzipper": "0.10.11",
 		"url-loader": "^4.1.1",
 		"wpcom": "^5.4.2",
-		"yargs": "17.7.2"
+		"yargs": "17.7.2",
+		"yauzl": "^3.2.0"
 	},
 	"optionalDependencies": {
 		"appdmg": "^0.6.6"

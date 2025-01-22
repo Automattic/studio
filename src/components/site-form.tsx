@@ -319,40 +319,40 @@ export const SiteForm = ( {
 											: 'max-h-0 opacity-0 mb-0'
 									) }
 								>
-									<label
+									<div
 										className={ cx(
 											'flex flex-col gap-1.5 leading-4',
 											isAdvancedSettingsVisible ? 'py-2' : 'p-2',
 											! isAdvancedSettingsVisible && 'hidden'
 										) }
 									>
-										<span onClick={ onSelectPath } className="font-semibold">
+										<label onClick={ onSelectPath } className="font-semibold">
 											{ __( 'Local path' ) }
-										</span>
-									</label>
-									<span className="text-a8c-gray-50 text-xs">
-										{ createInterpolateElement(
-											__(
-												'Select an empty directory or a directory with an existing WordPress site. <button>Learn more</button>'
-											),
-											{
-												button: (
-													<Button
-														variant="link"
-														className="text-xs"
-														onClick={ () => getIpcApi().openURL( STUDIO_DOCS_URL_SITES ) }
-													/>
+										</label>
+										<span className="text-a8c-gray-50 text-xs">
+											{ createInterpolateElement(
+												__(
+													'Select an empty directory or a directory with an existing WordPress site. <button>Learn more</button>'
 												),
-											}
-										) }
-									</span>
-									<FormPathInputComponent
-										isDisabled={ isPathInputDisabled }
-										doesPathContainWordPress={ doesPathContainWordPress }
-										error={ error }
-										value={ sitePath }
-										onClick={ onSelectPath }
-									/>
+												{
+													button: (
+														<Button
+															variant="link"
+															className="text-xs"
+															onClick={ () => getIpcApi().openURL( STUDIO_DOCS_URL_SITES ) }
+														/>
+													),
+												}
+											) }
+										</span>
+										<FormPathInputComponent
+											isDisabled={ isPathInputDisabled }
+											doesPathContainWordPress={ doesPathContainWordPress }
+											error={ error }
+											value={ sitePath }
+											onClick={ onSelectPath }
+										/>
+									</div>
 								</div>
 							</>
 						) }

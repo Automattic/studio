@@ -55,7 +55,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 							>
 								{ url.replace( /http(s)?:\/\//, '' ) }
 							</CopyTextButton>
-							<EditAbsoluteUrl />
+							<EditAbsoluteUrl key={ selectedSite.id } />
 						</div>
 					</SettingsRow>
 					<SettingsRow label={ __( 'Local path' ) }>

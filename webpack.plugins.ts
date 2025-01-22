@@ -1,7 +1,6 @@
 import { sentryWebpackPlugin } from '@sentry/webpack-plugin';
 import type IForkTsCheckerWebpackPlugin from 'fork-ts-checker-webpack-plugin';
 import type { WebpackPluginInstance } from 'webpack';
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 const ForkTsCheckerWebpackPlugin: typeof IForkTsCheckerWebpackPlugin = require( 'fork-ts-checker-webpack-plugin' );
 
 export const plugins: WebpackPluginInstance[] = [

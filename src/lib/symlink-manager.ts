@@ -34,18 +34,20 @@ export class SymlinkManager {
 	readonly projectPath: string;
 	private watcher?: AsyncIterable< FileChangeInfo< string > > | null;
 	private watcherAbortController?: AbortController | null;
+	readonly documentRoot: string;
 
 	/**
 	 * Create a new symlink manager.
 	 * @param php
 	 * @param projectPath
-	 *
+	 * @param documentRoot
 	 */
-	constructor( php: PHP, projectPath: string ) {
+	constructor( php: PHP, projectPath: string, documentRoot: string ) {
 		this.symlinks = new Map< string, string >();
 		this.mountedTargets = new Map< string, MountedTarget >();
 		this.php = php;
 		this.projectPath = projectPath;
+		this.documentRoot = documentRoot;
 	}
 
 	/**
@@ -150,11 +152,7 @@ export class SymlinkManager {
 			return;
 		}
 
-		if ( ! this.php.requestHandler ) {
-			throw new Error( 'Request handler is not set' );
-		}
-
-		const vfsPath = path.posix.join( this.php.requestHandler.documentRoot, filename );
+		const vfsPath = path.posix.join( this.documentRoot, filename );
 
 		// Double check to ensure the symlink exists
 		if ( ! this.php.fileExists( vfsPath ) ) {

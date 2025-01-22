@@ -110,3 +110,6 @@ dist
 
 # Playwright traces
 test-results
+
+# Editor config files
+.cursorrules

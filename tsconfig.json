@@ -14,7 +14,9 @@
 		"jsx": "react-jsx",
 		"strict": true,
 		"paths": {
-			"*": [ "node_modules/*" ]
+			"*": [ "node_modules/*" ],
+			"src/*": [ "src/*" ],
+			"vendor/*": [ "vendor/*" ]
 		}
 	},
 	"include": [ "src/**/*", "./jest-setup.ts" ]

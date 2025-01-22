@@ -1,3 +1,11 @@
+1.3.2
+=====
+* Upgraded Electron to 33.3.1 (#782)
+* Assistant: Fixed scroll glitch on initial render (#804)
+* Added tooltip with demo site last update time (#812)
+* Added link to the site's URL on the Sync connect popup (#799)
+* Increased demo site size limit from 250MB to 2GB (#805)
+
 1.3.1
 =====
 * Allowed starting a site import even when one is already in progress #775

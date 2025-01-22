@@ -4,10 +4,12 @@ import { useAuth } from './use-auth';
 
 export interface FeatureFlagsContextType {
 	terminalWpCliEnabled: boolean;
+	quickDeploysEnabled: boolean;
 }
 
 export const FeatureFlagsContext = createContext< FeatureFlagsContextType >( {
 	terminalWpCliEnabled: false,
+	quickDeploysEnabled: false,
 } );
 
 interface FeatureFlagsProviderProps {
@@ -16,8 +18,10 @@ interface FeatureFlagsProviderProps {
 
 export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { children } ) => {
 	const terminalWpCliEnabledFromGlobals = getAppGlobals().terminalWpCliEnabled;
+	const quickDeploysEnabledFromGlobals = getAppGlobals().quickDeploysEnabled;
 	const [ featureFlags, setFeatureFlags ] = useState< FeatureFlagsContextType >( {
 		terminalWpCliEnabled: terminalWpCliEnabledFromGlobals,
+		quickDeploysEnabled: quickDeploysEnabledFromGlobals,
 	} );
 	const { isAuthenticated, client } = useAuth();
 
@@ -38,6 +42,8 @@ export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { c
 				setFeatureFlags( {
 					terminalWpCliEnabled:
 						Boolean( flags?.[ 'terminal_wp_cli_enabled' ] ) || terminalWpCliEnabledFromGlobals,
+					quickDeploysEnabled:
+						Boolean( flags?.[ 'quick_deploys_enabled' ] ) || quickDeploysEnabledFromGlobals,
 				} );
 			} catch ( error ) {
 				console.error( error );
@@ -47,7 +53,7 @@ export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { c
 		return () => {
 			cancel = true;
 		};
-	}, [ isAuthenticated, client, terminalWpCliEnabledFromGlobals ] );
+	}, [ isAuthenticated, client, terminalWpCliEnabledFromGlobals, quickDeploysEnabledFromGlobals ] );
 
 	return (
 		<FeatureFlagsContext.Provider value={ featureFlags }>{ children }</FeatureFlagsContext.Provider>

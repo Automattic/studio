@@ -1,4 +1,5 @@
 {
+	"root": true,
 	"env": {
 		"browser": true,
 		"es6": true,
@@ -16,7 +17,14 @@
 		"plugin:react-hooks/recommended"
 	],
 	"parser": "@typescript-eslint/parser",
-	"plugins": [ "prettier", "jest-dom" ],
+	"plugins": [ "@typescript-eslint", "prettier", "jest-dom" ],
+	"settings": {
+		"import/resolver": {
+			"typescript": {
+				"alwaysTryTypes": true
+			}
+		}
+	},
 	"rules": {
 		"@typescript-eslint/no-explicit-any": [ "error", { "ignoreRestArgs": true } ],
 		"@typescript-eslint/no-unused-vars": [
@@ -39,5 +47,13 @@
 				"groups": [ "builtin", "external", "internal", "parent", "sibling", "index", "type" ]
 			}
 		]
-	}
+	},
+	"overrides": [
+		{
+			"files": ["*.ts", "src/tests/**/*.{ts,tsx}"],
+			"rules": {
+				"@typescript-eslint/no-require-imports": "off"
+			}
+		}
+	]
 }

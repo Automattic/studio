@@ -4,7 +4,11 @@ import { __ } from '@wordpress/i18n';
 import { tip, warning, trash, chevronRight, chevronDown, chevronLeft } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useRef, useState } from 'react';
-import { ACCEPTED_IMPORT_FILE_TYPES, STUDIO_DOCS_URL_IMPORT_EXPORT } from '../constants';
+import {
+	ACCEPTED_IMPORT_FILE_TYPES,
+	STUDIO_DOCS_URL_IMPORT_EXPORT,
+	STUDIO_DOCS_URL_SITES,
+} from '../constants';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import Button from './button';
@@ -325,14 +329,30 @@ export const SiteForm = ( {
 										<span onClick={ onSelectPath } className="font-semibold">
 											{ __( 'Local path' ) }
 										</span>
-										<FormPathInputComponent
-											isDisabled={ isPathInputDisabled }
-											doesPathContainWordPress={ doesPathContainWordPress }
-											error={ error }
-											value={ sitePath }
-											onClick={ onSelectPath }
-										/>
 									</label>
+									<span className="text-a8c-gray-50 text-xs">
+										{ createInterpolateElement(
+											__(
+												'Select an empty directory or a directory with an existing WordPress site. <button>Learn more</button>'
+											),
+											{
+												button: (
+													<Button
+														variant="link"
+														className="text-xs"
+														onClick={ () => getIpcApi().openURL( STUDIO_DOCS_URL_SITES ) }
+													/>
+												),
+											}
+										) }
+									</span>
+									<FormPathInputComponent
+										isDisabled={ isPathInputDisabled }
+										doesPathContainWordPress={ doesPathContainWordPress }
+										error={ error }
+										value={ sitePath }
+										onClick={ onSelectPath }
+									/>
 								</div>
 							</>
 						) }

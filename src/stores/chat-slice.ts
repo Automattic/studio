@@ -150,6 +150,35 @@ export const fetchAssistantThunk = createAsyncThunk(
 	}
 );
 
+type SendFeedbackParams = {
+	client: WPCOM;
+	chatId: string;
+	messageApiId: number;
+	ratingValue: number;
+	siteId: string;
+};
+
+export const sendFeedbackThunk = createAsyncThunk(
+	'chat/sendFeedback',
+	async ( { client, messageApiId, ratingValue, siteId }: SendFeedbackParams, thunkAPI ) => {
+		const state = thunkAPI.getState() as RootState;
+		const chatId = state.chat.chatIdDict[ siteId ];
+
+		try {
+			await client.req.post( {
+				path: `/odie/chat/wpcom-studio-chat/${ chatId }/${ messageApiId }/feedback`,
+				apiNamespace: 'wpcom/v2',
+				body: {
+					rating_value: ratingValue,
+				},
+			} );
+		} catch ( error ) {
+			Sentry.captureException( error );
+			console.error( error );
+		}
+	}
+);
+
 const storedMessages = localStorage.getItem( CHAT_MESSAGES_STORE_KEY );
 const storedChatIds = localStorage.getItem( CHAT_ID_STORE_KEY );
 
@@ -286,6 +315,13 @@ const chatSlice = createSlice( {
 					state.chatInputBySite[ action.meta.arg.siteId ] = message.chatId;
 					localStorage.setItem( CHAT_ID_STORE_KEY, JSON.stringify( state.chatIdDict ) );
 				}
+			} )
+			.addCase( sendFeedbackThunk.pending, ( state, action ) => {
+				state.messagesDict[ action.meta.arg.siteId ].forEach( ( message ) => {
+					if ( message.messageApiId === action.meta.arg.messageApiId ) {
+						message.feedbackReceived = true;
+					}
+				} );
 			} );
 	},
 	selectors: {

@@ -1,8 +1,7 @@
-import { useCallback, useRef } from 'react';
+import { useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from 'src/stores';
 import { setMessages, selectMessages, selectChatId } from 'src/stores/chat-slice';
-import { useSendFeedback } from './use-send-feedback';
 
 export type Message = {
 	id?: number;
@@ -56,38 +55,9 @@ export const useAssistant = ( instanceId: string ) => {
 		[ instanceId, prevMessages, dispatch ]
 	);
 
-	const sendFeedback = useSendFeedback();
-
-	const markMessageAsFeedbackReceived = useCallback(
-		async ( messageRemoteId: number, feedback: number ) => {
-			if ( ! messageRemoteId || ! prevChatId ) {
-				return;
-			}
-			const updatedMessages = prevMessages.map( ( message: Message ) => {
-				if ( message.messageApiId === messageRemoteId ) {
-					return { ...message, feedbackReceived: true };
-				}
-				return message;
-			} );
-			dispatch( setMessages( { siteId: instanceId, messages: updatedMessages } ) );
-
-			try {
-				await sendFeedback( {
-					chatId: prevChatId,
-					messageId: messageRemoteId,
-					ratingValue: feedback,
-				} );
-			} catch ( error ) {
-				console.error( 'Failed to submit feedback:', error );
-			}
-		},
-		[ instanceId, prevMessages, prevChatId, dispatch, sendFeedback ]
-	);
-
 	return {
 		messages: prevMessages || EMPTY_MESSAGES,
 		updateMessage,
 		chatId: prevChatId,
-		markMessageAsFeedbackReceived,
 	};
 };

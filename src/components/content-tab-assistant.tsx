@@ -121,9 +121,6 @@ interface AuthenticatedViewProps {
 	updateMessage: OnUpdateMessageType;
 	siteId: string;
 	submitPrompt: ( messageToSend: string, isRetry?: boolean ) => void;
-	markMessageAsFeedbackReceived: ReturnType<
-		typeof useAssistant
-	>[ 'markMessageAsFeedbackReceived' ];
 	wrapperRef: React.RefObject< HTMLDivElement >;
 }
 
@@ -134,7 +131,6 @@ const AuthenticatedView = memo(
 		updateMessage,
 		siteId,
 		submitPrompt,
-		markMessageAsFeedbackReceived,
 		wrapperRef,
 	}: AuthenticatedViewProps ) => {
 		const lastMessageRef = useRef< HTMLDivElement >( null );
@@ -305,8 +301,8 @@ const AuthenticatedView = memo(
 						<div className="flex justify-end">
 							{ !! lastMessage.messageApiId && (
 								<ChatRating
+									siteId={ siteId }
 									messageApiId={ lastMessage.messageApiId }
-									markMessageAsFeedbackReceived={ markMessageAsFeedbackReceived }
 									feedbackReceived={ !! lastMessage.feedbackReceived }
 								/>
 							) }
@@ -370,7 +366,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	);
 	const { isAuthenticated, authenticate, user, client } = useAuth();
 	const instanceId = user?.id ? `${ user.id }_${ selectedSite.id }` : selectedSite.id;
-	const { updateMessage, chatId, markMessageAsFeedbackReceived } = useAssistant( instanceId );
+	const { updateMessage, chatId } = useAssistant( instanceId );
 	const messages = useSelector( ( state: RootState ) => selectMessages( state, selectedSite.id ) );
 	const isAssistantThinking = useSelector( ( state: RootState ) =>
 		selectIsLoading( state, selectedSite.id )
@@ -457,7 +453,6 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 								messages={ messages }
 								isAssistantThinking={ isAssistantThinking }
 								updateMessage={ updateMessage }
-								markMessageAsFeedbackReceived={ markMessageAsFeedbackReceived }
 								siteId={ selectedSite.id }
 								submitPrompt={ submitPrompt }
 								wrapperRef={ wrapperRef }

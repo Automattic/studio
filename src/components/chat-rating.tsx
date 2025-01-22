@@ -1,14 +1,14 @@
 import { __ } from '@wordpress/i18n';
 import { thumbsUp, thumbsDown, Icon } from '@wordpress/icons';
-import { useAssistant } from '../hooks/use-assistant';
+import { useDispatch } from 'react-redux';
+import { useAuth } from 'src/hooks/use-auth';
+import { sendFeedbackThunk } from 'src/stores/chat-slice';
 import Button from './button';
 
 interface ChatRatingProps {
+	siteId: string;
 	messageApiId: number;
 	feedbackReceived: boolean;
-	markMessageAsFeedbackReceived: ReturnType<
-		typeof useAssistant
-	>[ 'markMessageAsFeedbackReceived' ];
 	className?: string;
 }
 
@@ -20,13 +20,15 @@ export const FeedbackThanks = () => {
 	);
 };
 
-export const ChatRating = ( {
-	messageApiId,
-	markMessageAsFeedbackReceived,
-	feedbackReceived,
-}: ChatRatingProps ) => {
+export const ChatRating = ( { messageApiId, feedbackReceived, siteId }: ChatRatingProps ) => {
+	const { client } = useAuth();
+	const dispatch = useDispatch();
 	const handleRatingClick = async ( feedback: number ) => {
-		markMessageAsFeedbackReceived( messageApiId, feedback );
+		if ( ! client ) {
+			return;
+		}
+
+		dispatch( sendFeedbackThunk( { client, messageApiId, ratingValue: feedback, siteId } ) );
 	};
 
 	return feedbackReceived ? (

@@ -1,8 +1,27 @@
-// To run tests, execute `npm run test -- src/lib/import-export/tests/import/validators/local-validator.test.ts`
+import path from 'path';
 import { LocalValidator } from '../../../import/validators/local-validator';
 
-describe( 'LocalValidator', () => {
-	const validator = new LocalValidator();
+const separators = [
+	{ name: 'Unix', join: path.posix.join, normalize: path.posix.normalize },
+	{ name: 'Windows', join: path.win32.join, normalize: path.win32.normalize },
+];
+
+const originalJoin = path.join;
+const originalNormalize = path.normalize;
+
+describe.each( separators )( 'LocalValidator on $name', ( { join, normalize } ) => {
+	let validator: LocalValidator;
+
+	beforeEach( () => {
+		validator = new LocalValidator();
+		path.join = join;
+		path.normalize = normalize;
+	} );
+
+	afterEach( () => {
+		path.join = originalJoin;
+		path.normalize = originalNormalize;
+	} );
 
 	describe( 'canHandle', () => {
 		it( 'should return true for valid Local backup structure', () => {
@@ -48,15 +67,19 @@ describe( 'LocalValidator', () => {
 
 			expect( result ).toEqual( {
 				extractionDirectory,
-				sqlFiles: [ '/tmp/extracted/app/sql/local.sql' ],
+				sqlFiles: [ normalize( '/tmp/extracted/app/sql/local.sql' ) ],
 				wpConfig: '',
 				wpContent: {
-					uploads: [ '/tmp/extracted/app/public/wp-content/uploads/2023/image.jpg' ],
-					plugins: [ '/tmp/extracted/app/public/wp-content/plugins/jetpack/jetpack.php' ],
-					themes: [ '/tmp/extracted/app/public/wp-content/themes/twentytwentyone/style.css' ],
+					uploads: [ normalize( '/tmp/extracted/app/public/wp-content/uploads/2023/image.jpg' ) ],
+					plugins: [
+						normalize( '/tmp/extracted/app/public/wp-content/plugins/jetpack/jetpack.php' ),
+					],
+					themes: [
+						normalize( '/tmp/extracted/app/public/wp-content/themes/twentytwentyone/style.css' ),
+					],
 				},
-				wpContentDirectory: 'app/public/wp-content',
-				metaFile: '/tmp/extracted/local-site.json',
+				wpContentDirectory: normalize( 'app/public/wp-content' ),
+				metaFile: normalize( '/tmp/extracted/local-site.json' ),
 			} );
 		} );
 
@@ -77,15 +100,19 @@ describe( 'LocalValidator', () => {
 
 			expect( result ).toEqual( {
 				extractionDirectory,
-				sqlFiles: [ '/tmp/extracted/app/sql/local.sql' ],
-				wpConfig: '/tmp/extracted/app/public/wp-config.php',
+				sqlFiles: [ normalize( '/tmp/extracted/app/sql/local.sql' ) ],
+				wpConfig: normalize( '/tmp/extracted/app/public/wp-config.php' ),
 				wpContent: {
-					uploads: [ '/tmp/extracted/app/public/wp-content/uploads/2023/image.jpg' ],
-					plugins: [ '/tmp/extracted/app/public/wp-content/plugins/jetpack/jetpack.php' ],
-					themes: [ '/tmp/extracted/app/public/wp-content/themes/twentytwentyone/style.css' ],
+					uploads: [ normalize( '/tmp/extracted/app/public/wp-content/uploads/2023/image.jpg' ) ],
+					plugins: [
+						normalize( '/tmp/extracted/app/public/wp-content/plugins/jetpack/jetpack.php' ),
+					],
+					themes: [
+						normalize( '/tmp/extracted/app/public/wp-content/themes/twentytwentyone/style.css' ),
+					],
 				},
-				wpContentDirectory: 'app/public/wp-content',
-				metaFile: '/tmp/extracted/local-site.json',
+				wpContentDirectory: normalize( 'app/public/wp-content' ),
+				metaFile: normalize( '/tmp/extracted/local-site.json' ),
 			} );
 		} );
 	} );

@@ -1,8 +1,27 @@
-// To run tests, execute `npm run test -- src/lib/import-export/tests/import/validators/sql-validator.test.ts`
+import path from 'path';
 import { SqlValidator } from '../../../import/validators/sql-validator';
 
-describe( 'SqlValidator', () => {
-	const validator = new SqlValidator();
+const separators = [
+	{ name: 'Unix', join: path.posix.join, normalize: path.posix.normalize },
+	{ name: 'Windows', join: path.win32.join, normalize: path.win32.normalize },
+];
+
+const originalJoin = path.join;
+const originalNormalize = path.normalize;
+
+describe.each( separators )( 'SqlValidator on $name', ( { join, normalize } ) => {
+	let validator: SqlValidator;
+
+	beforeEach( () => {
+		validator = new SqlValidator();
+		path.join = join;
+		path.normalize = normalize;
+	} );
+
+	afterEach( () => {
+		path.join = originalJoin;
+		path.normalize = originalNormalize;
+	} );
 
 	describe( 'canHandle', () => {
 		it( 'should return true for a single SQL file', () => {
@@ -34,7 +53,7 @@ describe( 'SqlValidator', () => {
 
 			expect( result ).toEqual( {
 				extractionDirectory,
-				sqlFiles: [ '/tmp/extracted/backup.sql' ],
+				sqlFiles: [ normalize( '/tmp/extracted/backup.sql' ) ],
 				wpConfig: '',
 				wpContent: {
 					uploads: [],

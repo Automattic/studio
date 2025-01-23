@@ -11,7 +11,7 @@ export type Message = {
 	messageApiId?: number;
 	content: string;
 	role: 'user' | 'assistant';
-	chatId?: string;
+	chatApiId?: string;
 	blocks?: {
 		cliOutput?: string;
 		cliStatus?: 'success' | 'error';
@@ -104,7 +104,7 @@ export const fetchAssistantThunk = createAsyncThunk(
 			os: state.chat.os,
 		};
 		const messages = state.chat.messagesDict[ instanceId ].concat( message );
-		const chatId = state.chat.chatIdDict[ instanceId ];
+		const chatApiId = state.chat.chatApiIdDict[ instanceId ];
 
 		const { data, headers } = await new Promise< {
 			data: FetchAssistantResponseData;
@@ -116,7 +116,7 @@ export const fetchAssistantThunk = createAsyncThunk(
 					apiNamespace: 'wpcom/v2',
 					body: {
 						messages,
-						chat_id: chatId,
+						chat_id: chatApiId,
 						context,
 					},
 				},
@@ -130,7 +130,7 @@ export const fetchAssistantThunk = createAsyncThunk(
 		} );
 
 		return {
-			chatId: data?.id,
+			chatApiId: data?.id,
 			maxQuota: headers[ 'x-quota-max' ] || '',
 			message: data?.choices?.[ 0 ]?.message?.content,
 			messageApiId: data?.choices?.[ 0 ]?.message?.id,
@@ -150,11 +150,11 @@ export const sendFeedbackThunk = createAsyncThunk(
 	'chat/sendFeedback',
 	async ( { client, messageApiId, ratingValue, instanceId }: SendFeedbackParams, thunkAPI ) => {
 		const state = thunkAPI.getState() as RootState;
-		const chatId = state.chat.chatIdDict[ instanceId ];
+		const chatApiId = state.chat.chatApiIdDict[ instanceId ];
 
 		try {
 			await client.req.post( {
-				path: `/odie/chat/wpcom-studio-chat/${ chatId }/${ messageApiId }/feedback`,
+				path: `/odie/chat/wpcom-studio-chat/${ chatApiId }/${ messageApiId }/feedback`,
 				apiNamespace: 'wpcom/v2',
 				body: {
 					rating_value: ratingValue,
@@ -185,7 +185,7 @@ export interface ChatState {
 	availableEditors: string[];
 	wpVersion: string;
 	messagesDict: { [ key: string ]: Message[] };
-	chatIdDict: { [ key: string ]: string | undefined };
+	chatApiIdDict: { [ key: string ]: string | undefined };
 	chatInputBySite: { [ key: string ]: string };
 	isLoadingDict: Record< string, boolean >;
 	promptUsageDict: Record< string, { maxQuota: string; remainingQuota: string } >;
@@ -205,7 +205,7 @@ const initialState: ChatState = {
 	siteName: '',
 	isSiteLoadedDict: {},
 	messagesDict: storedMessages ? JSON.parse( storedMessages ) : {},
-	chatIdDict: storedChatIds ? JSON.parse( storedChatIds ) : {},
+	chatApiIdDict: storedChatIds ? JSON.parse( storedChatIds ) : {},
 	chatInputBySite: {},
 	isLoadingDict: {},
 	promptUsageDict: {},
@@ -215,14 +215,14 @@ export function generateMessage(
 	content: string,
 	role: 'user' | 'assistant',
 	newMessageId: number,
-	chatId?: string,
+	chatApiId?: string,
 	messageApiId?: number
 ): Message {
 	return {
 		content,
 		role,
 		id: newMessageId,
-		chatId,
+		chatApiId,
 		createdAt: Date.now(),
 		feedbackReceived: false,
 		messageApiId,
@@ -344,14 +344,14 @@ const chatSlice = createSlice( {
 					action.payload.message,
 					'assistant',
 					state.messagesDict[ instanceId ].length,
-					action.payload.chatId,
+					action.payload.chatApiId,
 					action.payload.messageApiId
 				);
 
 				state.messagesDict[ instanceId ].push( message );
 
-				if ( message.chatId ) {
-					state.chatIdDict[ instanceId ] = message.chatId;
+				if ( message.chatApiId ) {
+					state.chatApiIdDict[ instanceId ] = message.chatApiId;
 				}
 
 				state.promptUsageDict[ instanceId ] = {
@@ -377,7 +377,7 @@ const chatSlice = createSlice( {
 		selectChatInput: ( state, siteId: string ) => state.chatInputBySite[ siteId ] ?? '',
 		selectMessages: ( state, instanceId: string ) =>
 			state.messagesDict[ instanceId ] ?? EMPTY_MESSAGES,
-		selectChatId: ( state, instanceId: string ) => state.chatIdDict[ instanceId ],
+		selectChatApiId: ( state, instanceId: string ) => state.chatApiIdDict[ instanceId ],
 		selectIsLoading: ( state, instanceId: string ) => state.isLoadingDict[ instanceId ] ?? false,
 	},
 } );
@@ -385,7 +385,7 @@ const chatSlice = createSlice( {
 export const { updateFromTheme, setMessages, setChatInput, updateMessage, resetChatState } =
 	chatSlice.actions;
 
-export const { selectChatInput, selectMessages, selectChatId, selectIsLoading } =
+export const { selectChatInput, selectMessages, selectChatApiId, selectIsLoading } =
 	chatSlice.selectors;
 
 export default chatSlice.reducer;

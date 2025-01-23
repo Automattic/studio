@@ -20,7 +20,7 @@ import {
 	setChatInput,
 	updateFromSite,
 	updateFromTheme,
-	selectChatId,
+	selectChatApiId,
 	Message as MessageType,
 } from 'src/stores/chat-slice';
 import { AI_GUIDELINES_URL, LIMIT_OF_PROMPTS_PER_USER } from '../constants';
@@ -349,7 +349,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	);
 	const { isAuthenticated, authenticate, user, client } = useAuth();
 	const instanceId = user?.id ? `${ user.id }_${ selectedSite.id }` : selectedSite.id;
-	const chatId = useSelector( ( state: RootState ) => selectChatId( state, instanceId ) );
+	const chatApiId = useSelector( ( state: RootState ) => selectChatApiId( state, instanceId ) );
 	const messages = useSelector( ( state: RootState ) => selectMessages( state, instanceId ) );
 	const isAssistantThinking = useSelector( ( state: RootState ) =>
 		selectIsLoading( state, instanceId )
@@ -380,12 +380,12 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 			}
 
 			dispatch( setChatInput( { siteId: selectedSite.id, input: '' } ) );
-			const message = generateMessage( chatMessage, 'user', messages.length, chatId );
+			const message = generateMessage( chatMessage, 'user', messages.length, chatApiId );
 			dispatch(
 				fetchAssistantThunk( { client, instanceId, isRetry, message, siteId: selectedSite.id } )
 			);
 		},
-		[ client, dispatch, instanceId, selectedSite.id, messages, chatId ]
+		[ client, dispatch, instanceId, selectedSite.id, messages, chatApiId ]
 	);
 
 	const clearConversation = () => {

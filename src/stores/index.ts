@@ -20,11 +20,11 @@ listenerMiddleware.startListening( {
 
 listenerMiddleware.startListening( {
 	predicate( action, currentState, previousState ) {
-		return currentState.chat.chatIdDict !== previousState.chat.chatIdDict;
+		return currentState.chat.chatApiIdDict !== previousState.chat.chatApiIdDict;
 	},
 	effect( action, listenerApi ) {
 		const state = listenerApi.getState() as RootState;
-		localStorage.setItem( CHAT_ID_STORE_KEY, JSON.stringify( state.chat.chatIdDict ) );
+		localStorage.setItem( CHAT_ID_STORE_KEY, JSON.stringify( state.chat.chatApiIdDict ) );
 	},
 } );
 

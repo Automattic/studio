@@ -19,6 +19,7 @@ import archiver from 'archiver';
 import { DEFAULT_PHP_VERSION } from '../vendor/wp-now/src/constants';
 import { MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from './constants';
 import { ACTIVE_SYNC_OPERATIONS } from './lib/active-sync-operations';
+import { calculateDirectorySize } from './lib/calculate-directory-size';
 import { download } from './lib/download';
 import { isEmptyDir, pathExists, isWordPressDirectory, sanitizeFolderName } from './lib/fs-utils';
 import { getImageData } from './lib/get-image-data';
@@ -1085,6 +1086,13 @@ export function clearSyncOperation( event: IpcMainInvokeEvent, id: string ) {
 	ACTIVE_SYNC_OPERATIONS.delete( id );
 }
 
+export function getWpContentSize( _event: IpcMainInvokeEvent, siteId: string ) {
+	const site = SiteServer.get( siteId );
+	if ( ! site ) {
+		throw new Error( 'Site not found.' );
+	}
+	return calculateDirectorySize( nodePath.join( site.details.path, 'wp-content' ) );
+}
 export async function getFileContent( event: IpcMainInvokeEvent, filePath: string ) {
 	if ( ! fs.existsSync( filePath ) ) {
 		throw new Error( `File not found: ${ filePath }` );

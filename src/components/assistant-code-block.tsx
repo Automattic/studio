@@ -19,7 +19,7 @@ import { ExecuteIcon } from './icons/execute';
 type ContextProps = Pick< MessageType, 'blocks' > &
 	Pick< ChatMessageProps, 'siteId' > & { messageId?: number };
 
-type CodeBlockProps = JSX.IntrinsicElements[ 'code' ] & ExtraProps;
+export type CodeBlockProps = JSX.IntrinsicElements[ 'code' ] & ExtraProps;
 
 export default function createCodeComponent( contextProps: ContextProps ) {
 	return ( props: CodeBlockProps ) => <CodeBlock { ...contextProps } { ...props } />;

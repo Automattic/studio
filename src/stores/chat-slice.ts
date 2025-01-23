@@ -264,6 +264,10 @@ const chatSlice = createSlice( {
 		) => {
 			const { cliOutput, cliStatus, cliTime, codeBlockContent, messageId, siteId } = action.payload;
 
+			if ( ! state.messagesDict[ siteId ] ) {
+				state.messagesDict[ siteId ] = [];
+			}
+
 			state.messagesDict[ siteId ].forEach( ( message ) => {
 				if ( message.id === messageId ) {
 					message.blocks?.forEach( ( block ) => {
@@ -354,6 +358,10 @@ const chatSlice = createSlice( {
 			} )
 			.addCase( sendFeedbackThunk.pending, ( state, action ) => {
 				const { siteId, messageApiId } = action.meta.arg;
+
+				if ( ! state.messagesDict[ siteId ] ) {
+					state.messagesDict[ siteId ] = [];
+				}
 
 				state.messagesDict[ siteId ].forEach( ( message ) => {
 					if ( message.messageApiId === messageApiId ) {

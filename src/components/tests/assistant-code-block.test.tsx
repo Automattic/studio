@@ -1,7 +1,9 @@
 import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { Provider } from 'react-redux';
+import store from 'src/stores';
 import { useSiteDetails } from '../../hooks/use-site-details';
 import { getIpcApi } from '../../lib/get-ipc-api';
-import createCodeComponent from '../assistant-code-block';
+import createCodeComponent, { CodeBlockProps } from '../assistant-code-block';
 
 jest.mock( '../../lib/get-ipc-api' );
 jest.mock( '../../hooks/use-check-installed-apps', () => ( {
@@ -28,16 +30,24 @@ const selectedSite: SiteDetails = {
 } );
 
 describe( 'createCodeComponent', () => {
-	const contextProps = {
-		blocks: [],
-		updateMessage: jest.fn(),
-		siteId: '1',
-		messageId: 1,
-	};
-	const CodeBlock = createCodeComponent( contextProps );
+	function ContextWrapper( props: CodeBlockProps ) {
+		const contextProps = {
+			blocks: [],
+			updateMessage: jest.fn(),
+			siteId: '1',
+			messageId: 1,
+		};
+		const CodeBlock = createCodeComponent( contextProps );
+
+		return (
+			<Provider store={ store }>
+				<CodeBlock { ...props } />
+			</Provider>
+		);
+	}
 
 	it( 'should render inline styles for language-generic code', () => {
-		render( <CodeBlock children="example-code" /> );
+		render( <ContextWrapper children="example-code" /> );
 
 		expect( screen.getByText( 'example-code' ) ).toBeVisible();
 		expect( screen.queryByText( 'Copy' ) ).not.toBeInTheDocument();
@@ -45,68 +55,68 @@ describe( 'createCodeComponent', () => {
 	} );
 
 	it( 'should display a "copy" button for language-specific code', () => {
-		render( <CodeBlock className="language-bash" children="wp --version" /> );
+		render( <ContextWrapper className="language-bash" children="wp --version" /> );
 
 		expect( screen.getByText( 'Copy' ) ).toBeVisible();
 	} );
 
 	it( 'should display the "run" button for eligible wp-cli commands without placeholder content', () => {
-		render( <CodeBlock className="language-bash" children="wp --version" /> );
+		render( <ContextWrapper className="language-bash" children="wp --version" /> );
 
 		expect( screen.getByText( 'Run' ) ).toBeVisible();
 	} );
 
 	it( 'should hide the "run" button for ineligible non-wp-cli code', () => {
-		render( <CodeBlock className="language-bash" children="echo 'Hello, World!'" /> );
+		render( <ContextWrapper className="language-bash" children="echo 'Hello, World!'" /> );
 
 		expect( screen.queryByText( 'Run' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'should hide the "run" button for ineligible wp-cli commands with placeholder content', () => {
 		render(
-			<CodeBlock className="language-bash" children="wp plugin activate <example-plugin>" />
+			<ContextWrapper className="language-bash" children="wp plugin activate <example-plugin>" />
 		);
 		expect( screen.queryByText( 'Run' ) ).not.toBeInTheDocument();
 
 		render(
-			<CodeBlock className="language-bash" children="wp plugin activate [example-plugin]" />
+			<ContextWrapper className="language-bash" children="wp plugin activate [example-plugin]" />
 		);
 		expect( screen.queryByText( 'Run' ) ).not.toBeInTheDocument();
 
 		render(
-			<CodeBlock className="language-bash" children="wp plugin activate {example-plugin}" />
+			<ContextWrapper className="language-bash" children="wp plugin activate {example-plugin}" />
 		);
 		expect( screen.queryByText( 'Run' ) ).not.toBeInTheDocument();
 
 		render(
-			<CodeBlock className="language-bash" children="wp plugin activate (example-plugin)" />
+			<ContextWrapper className="language-bash" children="wp plugin activate (example-plugin)" />
 		);
 		expect( screen.queryByText( 'Run' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'should hide the "run" button for ineligible wp-cli commands with multiple wp-cli invocations', () => {
-		render( <CodeBlock className="language-bash" children="wp --version wp --version" /> );
+		render( <ContextWrapper className="language-bash" children="wp --version wp --version" /> );
 
 		expect( screen.queryByText( 'Run' ) ).not.toBeInTheDocument();
 	} );
 	it( 'should hide the "run" button for unsupported commands db', () => {
-		render( <CodeBlock className="language-bash" children="wp db export" /> );
+		render( <ContextWrapper className="language-bash" children="wp db export" /> );
 
 		expect( screen.queryByText( 'Run' ) ).not.toBeInTheDocument();
 	} );
 	it( 'should hide the "run" button for unsupported commands shell', () => {
-		render( <CodeBlock className="language-bash" children="wp shell" /> );
+		render( <ContextWrapper className="language-bash" children="wp shell" /> );
 
 		expect( screen.queryByText( 'Run' ) ).not.toBeInTheDocument();
 	} );
 	it( 'should hide the "run" button for unsupported commands server', () => {
-		render( <CodeBlock className="language-bash" children="wp server" /> );
+		render( <ContextWrapper className="language-bash" children="wp server" /> );
 
 		expect( screen.queryByText( 'Run' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'should display the "run" button for elligble wp-cli commands that contain a placeholder char', () => {
-		render( <CodeBlock className="language-bash" children="wp eval 'var_dump(3 < 4);'" /> );
+		render( <ContextWrapper className="language-bash" children="wp eval 'var_dump(3 < 4);'" /> );
 
 		expect( screen.getByText( 'Run' ) ).toBeInTheDocument();
 	} );
@@ -124,7 +134,7 @@ describe( 'createCodeComponent', () => {
 			( getIpcApi as jest.Mock ).mockReturnValue( {
 				executeWPCLiInline: jest.fn().mockResolvedValue( { stdout: 'Mock success', stderr: '' } ),
 			} );
-			render( <CodeBlock className="language-bash" children="wp --version" /> );
+			render( <ContextWrapper className="language-bash" children="wp --version" /> );
 			expect( screen.queryByText( 'Running...' ) ).not.toBeInTheDocument();
 
 			fireEvent.click( screen.getByText( 'Run' ) );
@@ -140,7 +150,7 @@ describe( 'createCodeComponent', () => {
 			( getIpcApi as jest.Mock ).mockReturnValue( {
 				executeWPCLiInline: jest.fn().mockResolvedValue( { stdout: 'Mock success', stderr: '' } ),
 			} );
-			render( <CodeBlock className="language-bash" children="wp --version" /> );
+			render( <ContextWrapper className="language-bash" children="wp --version" /> );
 
 			fireEvent.click( screen.getByText( 'Run' ) );
 
@@ -154,7 +164,7 @@ describe( 'createCodeComponent', () => {
 			( getIpcApi as jest.Mock ).mockReturnValue( {
 				executeWPCLiInline: jest.fn().mockResolvedValue( { stdout: '', stderr: 'Mock error' } ),
 			} );
-			render( <CodeBlock className="language-bash" children="wp --version" /> );
+			render( <ContextWrapper className="language-bash" children="wp --version" /> );
 
 			fireEvent.click( screen.getByText( 'Run' ) );
 
@@ -172,7 +182,7 @@ describe( 'createCodeComponent', () => {
 				copyText: mockCopyText,
 				showNotification: jest.fn(),
 			} );
-			render( <CodeBlock className="language-bash" children="wp --version" /> );
+			render( <ContextWrapper className="language-bash" children="wp --version" /> );
 
 			fireEvent.click( screen.getByText( 'Copy' ) );
 
@@ -196,7 +206,12 @@ describe( 'createCodeComponent', () => {
 				messageId: 1,
 			};
 			const CodeBlock = createCodeComponent( contextProps );
-			render( <CodeBlock className="language-bash" children="wp --version" /> );
+
+			render(
+				<Provider store={ store }>
+					<CodeBlock className="language-bash" children="wp --version" />
+				</Provider>
+			);
 
 			expect( screen.getByText( 'Success' ) ).toBeVisible();
 			expect( screen.getByText( 'Mock success' ) ).toBeVisible();
@@ -213,8 +228,7 @@ describe( 'createCodeComponent', () => {
 				showNotification: jest.fn(),
 			} );
 
-			const CodeBlock = createCodeComponent( contextProps );
-			render( <CodeBlock children="wp-content/plugins/hello.php" /> );
+			render( <ContextWrapper children="wp-content/plugins/hello.php" /> );
 
 			await waitFor( () => {
 				expect( screen.getByText( 'wp-content/plugins/hello.php' ) ).toBeVisible();
@@ -234,8 +248,7 @@ describe( 'createCodeComponent', () => {
 				openFileInIDE: jest.fn(),
 			} );
 
-			const CodeBlock = createCodeComponent( contextProps );
-			render( <CodeBlock children="wp-content/debug.log" /> );
+			render( <ContextWrapper children="wp-content/debug.log" /> );
 
 			await waitFor( () => {
 				expect( screen.getByText( 'wp-content/debug.log' ) ).toBeVisible();
@@ -252,8 +265,7 @@ describe( 'createCodeComponent', () => {
 				openLocalPath: jest.fn(),
 			} );
 
-			const CodeBlock = createCodeComponent( contextProps );
-			render( <CodeBlock children="wp-content/plugins" /> );
+			render( <ContextWrapper children="wp-content/plugins" /> );
 
 			await waitFor( () => {
 				expect( screen.getByText( 'wp-content/plugins' ) ).toBeVisible();
@@ -270,8 +282,7 @@ describe( 'createCodeComponent', () => {
 				openLocalPath: jest.fn(),
 			} );
 
-			const CodeBlock = createCodeComponent( contextProps );
-			render( <CodeBlock children="wp-content/plugins" /> );
+			render( <ContextWrapper children="wp-content/plugins" /> );
 
 			await waitFor( () => {
 				expect( screen.getByText( 'wp-content/plugins' ) ).toBeVisible();
@@ -285,19 +296,19 @@ describe( 'createCodeComponent', () => {
 
 	describe( 'when the "open in terminal" button is clicked', () => {
 		it( 'should not be visible for non-bash code blocks', () => {
-			render( <CodeBlock className="language-php" children="<?php echo 'Hello'; ?>" /> );
+			render( <ContextWrapper className="language-php" children="<?php echo 'Hello'; ?>" /> );
 
 			expect( screen.queryByText( 'Open in terminal' ) ).not.toBeInTheDocument();
 		} );
 
 		it( 'should be visible for bash code blocks', () => {
-			render( <CodeBlock className="language-bash" children="wp plugin list" /> );
+			render( <ContextWrapper className="language-bash" children="wp plugin list" /> );
 
 			expect( screen.getByText( 'Open in terminal' ) ).toBeVisible();
 		} );
 
 		it( 'should be visible for sh code blocks', () => {
-			render( <CodeBlock className="language-sh" children="wp plugin list" /> );
+			render( <ContextWrapper className="language-sh" children="wp plugin list" /> );
 
 			expect( screen.getByText( 'Open in terminal' ) ).toBeVisible();
 		} );
@@ -308,7 +319,7 @@ describe( 'createCodeComponent', () => {
 				openTerminalAtPath: jest.fn(),
 				showNotification: jest.fn(),
 			} );
-			render( <CodeBlock className="language-bash" children="wp plugin list" /> );
+			render( <ContextWrapper className="language-bash" children="wp plugin list" /> );
 
 			fireEvent.click( screen.getByText( 'Open in terminal' ) );
 

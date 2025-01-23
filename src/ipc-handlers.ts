@@ -1061,9 +1061,7 @@ export async function isImportExportSupported( _event: IpcMainInvokeEvent, siteI
 	if ( ! site ) {
 		throw new Error( 'Site not found.' );
 	}
-	// REMOVE-MU: if we load from a shared source, we don't need to check for the SQLite plugin
 	return true;
-	//return site.hasSQLitePlugin();
 }
 
 /**

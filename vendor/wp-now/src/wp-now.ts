@@ -452,9 +452,6 @@ async function runWordPressMode(
 	);
 
 	await initWordPress( php, 'user-provided', documentRoot, absoluteUrl );
-
-	// REMOVE-MU: let's allow wp-now startWPNow to handle the mu-plugins
-	// await downloadMuPlugins( path.join( projectPath, 'wp-content', 'mu-plugins' ) );
 }
 
 async function runPluginOrThemeMode(

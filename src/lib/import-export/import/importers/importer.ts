@@ -179,13 +179,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 			if ( ! fs.existsSync( wpContentDir ) ) {
 				return;
 			}
-			const contentToKeep = [
-				// REMOVE-MU: remove mu-plugins from this list
-				// 'mu-plugins',
-				'database',
-				// REMOVE-MU: remove db.php from this list
-				// 'db.php'
-			];
+			const contentToKeep = [ 'database' ];
 
 			const contents = await fsPromises.readdir( wpContentDir );
 

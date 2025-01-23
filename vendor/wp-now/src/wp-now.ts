@@ -125,7 +125,7 @@ export default async function startWPNow(
 			await prepareWordPress( php, options );
 			return runtimeId;
 		},
-		maxRequests: 4,
+		maxRequests: 400,
 	} );
 
 	return {
@@ -159,6 +159,7 @@ function prepareDocumentRoot( php: PHP, options: WPNowOptions ) {
 	php.writeFile( `${ options.documentRoot }/index.php`, `<?php echo 'Hello wp-now!';` );
 	php.writeFile( '/internal/shared/ca-bundle.crt', rootCertificates.join( '\n' ) );
 
+	// MU-TODO: rename to mount
 	prepareInternalMuPlugins( php );
 	prepareSqlitePlugin( php );
 }
@@ -178,7 +179,8 @@ async function prepareSqlitePlugin( php: PHP ) {
 	await php.writeFile( path.join( php.requestHandler.documentRoot, 'wp-content/db.php' ), dbPhp );
 }
 
-export async function recursiveCopyDirectoryToMuPlugins(
+// MU-TODO: move this code to a helper or find a built-in function to do this
+async function recursiveCopyDirectoryToMuPlugins(
 	php: PHP,
 	source: string,
 	destination: string
@@ -200,7 +202,6 @@ export async function recursiveCopyDirectoryToMuPlugins(
 }
 
 async function prepareInternalMuPlugins( php: PHP ) {
-	// TODO-MU: maybe rename mu-plugins to wp-now-drop-ins
 	const muPluginsPath = '/internal/shared/mu-plugins';
 	php.mkdir( muPluginsPath );
 

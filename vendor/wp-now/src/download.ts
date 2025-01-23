@@ -245,8 +245,8 @@ export function getWordPressVersionPath( wpVersion: string ) {
  * @param projectPath The path to the project directory.
  */
 export async function removeDownloadedMuPlugins( projectPath: string ) {
-	const muPluginsPath = path.join( projectPath, 'wp-content', 'mu-plugins' );
-	console.log( 'Removing internal mu-plugins from', muPluginsPath );
+	const wpContentPath = path.join( projectPath, 'wp-content' );
+	const muPluginsPath = path.join( wpContentPath, 'mu-plugins' );
 	fs.removeSync( path.join( muPluginsPath, '0-32bit-integer-warnings.php' ) );
 	fs.removeSync( path.join( muPluginsPath, '0-allowed-redirect-hosts.php' ) );
 	fs.removeSync( path.join( muPluginsPath, '0-check-theme-availability.php' ) );
@@ -256,4 +256,9 @@ export async function removeDownloadedMuPlugins( projectPath: string ) {
 	fs.removeSync( path.join( muPluginsPath, '0-wp-config-constants-polyfill.php' ) );
 	fs.removeSync( path.join( muPluginsPath, '0-sqlite.php' ) );
 	fs.removeSync( path.join( muPluginsPath, '0-thumbnails.php' ) );
+
+	fs.removeSync( path.join( muPluginsPath, 'sqlite-database-integration/' ) );
+	fs.removeSync( path.join( wpContentPath, 'db.php' ) );
+
+	// MU-TODO: remove CLI code
 }

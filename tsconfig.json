@@ -19,5 +19,5 @@
 			"vendor/*": [ "vendor/*" ]
 		}
 	},
-	"include": [ "src/**/*", "./jest-setup.ts", "webpack.*.ts" ]
+	"include": [ "src/**/*", "./jest-setup.ts" ]
 }

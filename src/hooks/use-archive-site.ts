@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo } from 'react';
 import { DEMO_SITE_SIZE_LIMIT_BYTES, DEMO_SITE_SIZE_LIMIT_GB } from '../constants';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { isWpcomNetworkError } from '../lib/is-wpcom-network-error';
+import { useSyncSites } from './sync-sites';
 import { useArchiveErrorMessages } from './use-archive-error-messages';
 import { useAuth } from './use-auth';
 import { useSiteDetails } from './use-site-details';
@@ -19,6 +20,7 @@ export function useArchiveSite() {
 	);
 	const { client } = useAuth();
 	const { __ } = useI18n();
+	const { connectedSites } = useSyncSites();
 
 	useEffect( () => {
 		if ( ! client ) {
@@ -115,6 +117,11 @@ export function useArchiveSite() {
 					formData.push( [ 'wordpress_version', wordpressVersion ] );
 				}
 
+				const connectedProductionSite = connectedSites.find( ( site ) => ! site.isStaging );
+				if ( connectedProductionSite ) {
+					formData.push( [ 'connected_site_id', String( connectedProductionSite.id ) ] );
+				}
+
 				try {
 					const response: {
 						atomic_site_id: number;
@@ -165,7 +172,15 @@ export function useArchiveSite() {
 				}
 			}
 		},
-		[ __, addSnapshot, client, errorMessages, fetchSnapshotUsage, setUploadingSites ]
+		[
+			__,
+			addSnapshot,
+			client,
+			errorMessages,
+			fetchSnapshotUsage,
+			setUploadingSites,
+			connectedSites,
+		]
 	);
 	const isAnySiteArchiving = useMemo( () => {
 		const isAnySiteUploading = Object.values( uploadingSites ).some( ( uploading ) => uploading );

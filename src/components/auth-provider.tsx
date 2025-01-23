@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/electron/renderer';
+import { __ } from '@wordpress/i18n';
 import { createContext, useState, useEffect, useMemo, useCallback, ReactNode } from 'react';
 import WPCOM from 'wpcom';
 import { useI18nData } from '../hooks/use-i18n-data';
@@ -35,7 +36,17 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 	const [ user, setUser ] = useState< AuthContextType[ 'user' ] >( undefined );
 	const { locale } = useI18nData();
 
-	const authenticate = getIpcApi().authenticate;
+	const authenticate = useCallback( async () => {
+		try {
+			await getIpcApi().authenticate();
+		} catch ( error ) {
+			getIpcApi().showErrorMessageBox( {
+				title: __( 'Failed to open browser' ),
+				error,
+			} );
+		}
+	}, [] );
+
 	useIpcListener( 'auth-updated', ( _event, { token, error } ) => {
 		if ( error ) {
 			Sentry.captureException( error );

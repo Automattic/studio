@@ -1,9 +1,10 @@
-import { ipcMain, shell } from 'electron';
+import { ipcMain } from 'electron';
 import * as Sentry from '@sentry/electron/main';
 import wpcom from 'wpcom';
 import { PROTOCOL_PREFIX, WP_AUTHORIZE_ENDPOINT, CLIENT_ID, SCOPES } from '../constants';
 import { getMainWindow } from '../main-window';
 import { loadUserData, saveUserData } from '../storage/user-data';
+import { shellOpenExternalWrapper } from '../utils/shellOpenExternalWrapper';
 
 export interface StoredToken {
 	accessToken?: string;
@@ -94,11 +95,12 @@ export async function handleAuthCallback( hash: string ): Promise< Error | Store
 	};
 }
 
-export function authenticate(): void {
+export async function authenticate(): Promise< void > {
 	const authUrl = `${ WP_AUTHORIZE_ENDPOINT }?response_type=token&client_id=${ CLIENT_ID }&redirect_uri=${ encodeURIComponent(
 		REDIRECT_URI
 	) }&scope=${ encodeURIComponent( SCOPES ) }`;
-	shell.openExternal( authUrl );
+
+	await shellOpenExternalWrapper( authUrl );
 }
 
 export function setUpAuthCallbackHandler() {

@@ -53,46 +53,100 @@ function CustomizeSection( {
 		{
 			label: __( 'Site Editor' ),
 			icon: desktop,
-			onClick: () => {
-				getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/site-editor.php' );
+			onClick: async () => {
+				try {
+					await getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/site-editor.php' );
+				} catch ( error ) {
+					getIpcApi().showErrorMessageBox( {
+						title: __( 'Failed to open browser' ),
+						error,
+					} );
+				}
 			},
 		},
 		{
 			label: __( 'Styles' ),
 			icon: styles,
-			onClick: () => {
-				getIpcApi().openSiteURL(
-					selectedSite.id,
-					'/wp-admin/site-editor.php?path=%2Fwp_global_styles'
-				);
+			onClick: async () => {
+				try {
+					await getIpcApi().openSiteURL(
+						selectedSite.id,
+						'/wp-admin/site-editor.php?path=%2Fwp_global_styles'
+					);
+				} catch ( error ) {
+					getIpcApi().showErrorMessageBox( {
+						title: __( 'Failed to open browser' ),
+						error,
+					} );
+				}
 			},
 		},
 		{
 			label: __( 'Patterns' ),
 			icon: symbolFilled,
-			onClick: () => {
-				getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/site-editor.php?path=%2Fpatterns' );
+			onClick: async () => {
+				try {
+					await getIpcApi().openSiteURL(
+						selectedSite.id,
+						'/wp-admin/site-editor.php?path=%2Fpatterns'
+					);
+				} catch ( error ) {
+					getIpcApi().showErrorMessageBox( {
+						title: __( 'Failed to open browser' ),
+						error,
+					} );
+				}
 			},
 		},
 		{
 			label: __( 'Navigation' ),
 			icon: navigation,
-			onClick: () => {
-				getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/site-editor.php?path=%2Fnavigation' );
+			onClick: async () => {
+				try {
+					await getIpcApi().openSiteURL(
+						selectedSite.id,
+						'/wp-admin/site-editor.php?path=%2Fnavigation'
+					);
+				} catch ( error ) {
+					getIpcApi().showErrorMessageBox( {
+						title: __( 'Failed to open browser' ),
+						error,
+					} );
+				}
 			},
 		},
 		{
 			label: __( 'Templates' ),
 			icon: layout,
-			onClick: () => {
-				getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/site-editor.php?path=%2Fwp_template' );
+			onClick: async () => {
+				try {
+					await getIpcApi().openSiteURL(
+						selectedSite.id,
+						'/wp-admin/site-editor.php?path=%2Fwp_template'
+					);
+				} catch ( error ) {
+					getIpcApi().showErrorMessageBox( {
+						title: __( 'Failed to open browser' ),
+						error,
+					} );
+				}
 			},
 		},
 		{
 			label: __( 'Pages' ),
 			icon: page,
-			onClick: () => {
-				getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/site-editor.php?path=%2Fpage' );
+			onClick: async () => {
+				try {
+					await getIpcApi().openSiteURL(
+						selectedSite.id,
+						'/wp-admin/site-editor.php?path=%2Fpage'
+					);
+				} catch ( error ) {
+					getIpcApi().showErrorMessageBox( {
+						title: __( 'Failed to open browser' ),
+						error,
+					} );
+				}
 			},
 		},
 	];
@@ -101,7 +155,16 @@ function CustomizeSection( {
 		{
 			label: __( 'Customizer' ),
 			icon: edit,
-			onClick: () => getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/customize.php' ),
+			onClick: async () => {
+				try {
+					await getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/customize.php' );
+				} catch ( error ) {
+					getIpcApi().showErrorMessageBox( {
+						title: __( 'Failed to open browser' ),
+						error,
+					} );
+				}
+			},
 		},
 	];
 
@@ -109,7 +172,16 @@ function CustomizeSection( {
 		classicThemeButtons.push( {
 			label: __( 'Menus' ),
 			icon: navigation,
-			onClick: () => getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/nav-menus.php' ),
+			onClick: async () => {
+				try {
+					await getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/nav-menus.php' );
+				} catch ( error ) {
+					getIpcApi().showErrorMessageBox( {
+						title: __( 'Failed to open browser' ),
+						error,
+					} );
+				}
+			},
 		} );
 	}
 
@@ -117,7 +189,16 @@ function CustomizeSection( {
 		classicThemeButtons.push( {
 			label: __( 'Widgets' ),
 			icon: widget,
-			onClick: () => getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/widgets.php' ),
+			onClick: async () => {
+				try {
+					await getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/widgets.php' );
+				} catch ( error ) {
+					getIpcApi().showErrorMessageBox( {
+						title: __( 'Failed to open browser' ),
+						error,
+					} );
+				}
+			},
 		} );
 	}
 
@@ -269,9 +350,16 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 							<button
 								aria-label={ __( 'Open site' ) }
 								className={ 'relative group focus-visible:outline-a8c-blueberry' }
-								onClick={ () =>
-									getIpcApi().openSiteURL( selectedSite.id, '', { autoLogin: false } )
-								}
+								onClick={ async () => {
+									try {
+										await getIpcApi().openSiteURL( selectedSite.id, '', { autoLogin: false } );
+									} catch ( error ) {
+										getIpcApi().showErrorMessageBox( {
+											title: __( 'Failed to open browser' ),
+											error,
+										} );
+									}
+								} }
 							>
 								<div
 									className={

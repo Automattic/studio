@@ -200,7 +200,15 @@ const ImportSite = ( {
 			speak( __( 'Starting the server before opening the site link' ) );
 			await startServer( selectedSite.id );
 		}
-		getIpcApi().openSiteURL( selectedSite.id, '', { autoLogin: false } );
+
+		try {
+			await getIpcApi().openSiteURL( selectedSite.id, '', { autoLogin: false } );
+		} catch ( error ) {
+			getIpcApi().showErrorMessageBox( {
+				title: __( 'Failed to open browser' ),
+				error,
+			} );
+		}
 	};
 	const clearImportFileInput = () => {
 		if ( inputFileRef.current ) {

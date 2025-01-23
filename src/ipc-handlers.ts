@@ -45,6 +45,7 @@ import { popupMenu, setupMenu } from './menu';
 import { SiteServer, createSiteWorkingDirectory } from './site-server';
 import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from './storage/paths';
 import { loadUserData, saveUserData } from './storage/user-data';
+import { shellOpenExternalWrapper } from './utils/shellOpenExternalWrapper';
 import type { SyncSite } from './hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from './lib/wp-cli-process';
 
@@ -707,11 +708,11 @@ export async function openSiteURL(
 		url.searchParams.append( 'playground-auto-login', 'true' );
 	}
 
-	shell.openExternal( url.toString() );
+	await shellOpenExternalWrapper( url.toString() );
 }
 
 export async function openURL( event: IpcMainInvokeEvent, url: string ) {
-	return shell.openExternal( url );
+	return shellOpenExternalWrapper( url );
 }
 
 export async function copyText( event: IpcMainInvokeEvent, text: string ) {
@@ -933,7 +934,7 @@ export async function showErrorMessageBox(
 		message,
 		error,
 		showOpenLogs = false,
-	}: { title: string; message: string; error?: unknown; showOpenLogs?: boolean }
+	}: { title: string; message?: string; error?: unknown; showOpenLogs?: boolean }
 ) {
 	// Remove prepended error message added by IPC handler
 	const filteredError = ( error as Error )?.message?.replace(
@@ -943,7 +944,7 @@ export async function showErrorMessageBox(
 	const response = await showMessageBox( event, {
 		type: 'error',
 		message: title,
-		detail: error ? `${ message }\n\n${ filteredError }` : message,
+		detail: error ? `${ message ? message + '\n\n' : '' }${ filteredError }` : message,
 		buttons: [ ...( showOpenLogs ? [ __( 'Open Studio Logs' ) ] : [] ), __( 'OK' ) ],
 	} );
 

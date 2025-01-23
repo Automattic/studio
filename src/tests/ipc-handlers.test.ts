@@ -3,9 +3,10 @@
  */
 import { shell, IpcMainInvokeEvent } from 'electron';
 import fs from 'fs';
-import { createSite, startServer } from '../ipc-handlers';
+import { createSite, startServer, isFullscreen } from '../ipc-handlers';
 import { isEmptyDir, pathExists } from '../lib/fs-utils';
 import { keepSqliteIntegrationUpdated } from '../lib/sqlite-versions';
+import { withMainWindow } from '../main-window';
 import { SiteServer, createSiteWorkingDirectory } from '../site-server';
 
 jest.mock( 'fs' );
@@ -14,6 +15,7 @@ jest.mock( '../lib/fs-utils' );
 jest.mock( '../site-server' );
 jest.mock( '../lib/sqlite-versions' );
 jest.mock( '../../vendor/wp-now/src/download' );
+jest.mock( '../main-window' );
 
 ( SiteServer.create as jest.Mock ).mockImplementation( ( details ) => ( {
 	start: jest.fn(),
@@ -91,5 +93,31 @@ describe( 'startServer', () => {
 		await startServer( mockIpcMainInvokeEvent, 'mock-site-id' );
 
 		expect( keepSqliteIntegrationUpdated ).toHaveBeenCalledWith( mockSitePath );
+	} );
+} );
+
+describe( 'isFullscreen', () => {
+	it( 'should return false when window is not in fullscreen', async () => {
+		( withMainWindow as jest.Mock ).mockImplementationOnce( ( callback ) => {
+			callback( {
+				isFullScreen: () => false,
+			} );
+		} );
+
+		const result = await isFullscreen( mockIpcMainInvokeEvent );
+
+		expect( result ).toBe( false );
+	} );
+
+	it( 'should return true when window is in fullscreen', async () => {
+		( withMainWindow as jest.Mock ).mockImplementationOnce( ( callback ) => {
+			callback( {
+				isFullScreen: () => true,
+			} );
+		} );
+
+		const result = await isFullscreen( mockIpcMainInvokeEvent );
+
+		expect( result ).toBe( true );
 	} );
 } );

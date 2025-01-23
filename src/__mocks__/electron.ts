@@ -42,6 +42,18 @@ BrowserWindow.fromWebContents = jest.fn( () => ( {
 BrowserWindow.getAllWindows = jest.fn( () => [] );
 BrowserWindow.getFocusedWindow = jest.fn();
 
+const eventHandlers: { [ key: string ]: Array< ( ...args: any[] ) => void > } = {};
+BrowserWindow.prototype.on = jest.fn( ( event: string, handler: ( ...args: any[] ) => void ) => {
+	if ( ! eventHandlers[ event ] ) {
+		eventHandlers[ event ] = [];
+	}
+	eventHandlers[ event ].push( handler );
+} );
+BrowserWindow.prototype.emit = jest.fn( ( event: string, ...args: any[] ) => {
+	const handlers = eventHandlers[ event ] || [];
+	handlers.forEach( ( handler ) => handler( ...args ) );
+} );
+
 export const Menu = {
 	buildFromTemplate: jest.fn(),
 	setApplicationMenu: jest.fn(),

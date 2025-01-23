@@ -84,3 +84,35 @@ describe( 'withMainWindow', () => {
 		expect( callback ).toHaveBeenCalledWith( expect.any( BrowserWindow ) );
 	} );
 } );
+
+describe( 'fullscreen events', () => {
+	let createdWindow: BrowserWindow;
+
+	beforeEach( () => {
+		createdWindow = createMainWindow();
+	} );
+
+	afterEach( () => {
+		__resetMainWindow();
+	} );
+
+	it( 'sends fullscreen-change event when entering fullscreen', () => {
+		const mockSend = jest.fn();
+		createdWindow.webContents.send = mockSend;
+
+		// Simulate entering fullscreen
+		createdWindow.emit( 'enter-full-screen' );
+
+		expect( mockSend ).toHaveBeenCalledWith( 'window-fullscreen-change', true );
+	} );
+
+	it( 'sends fullscreen-change event when leaving fullscreen', () => {
+		const mockSend = jest.fn();
+		createdWindow.webContents.send = mockSend;
+
+		// Simulate leaving fullscreen
+		createdWindow.emit( 'leave-full-screen' );
+
+		expect( mockSend ).toHaveBeenCalledWith( 'window-fullscreen-change', false );
+	} );
+} );

@@ -241,7 +241,7 @@ function SnapshotRow( {
 					<>
 						<Tooltip
 							disabled={ ! ( isOverLimit || isUpdateDisabled ) }
-							placement="top-start"
+							placement="bottom-start"
 							{ ...tooltipContent }
 						>
 							<DynamicTooltip

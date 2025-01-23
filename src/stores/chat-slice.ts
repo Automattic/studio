@@ -313,24 +313,22 @@ const chatSlice = createSlice( {
 					state.messagesDict[ instanceId ] = [];
 				}
 
-				// TODO: retry logic probably needs updating
-				if ( isRetry ) {
+				if ( ! isRetry ) {
+					state.messagesDict[ instanceId ].push( message );
+				} else {
 					state.messagesDict[ instanceId ].forEach( ( msg ) => {
 						if ( msg.id === message.id ) {
 							msg.failedMessage = false;
 						}
 					} );
 				}
-
-				state.messagesDict[ instanceId ].push( message );
 			} )
 			.addCase( fetchAssistantThunk.rejected, ( state, action ) => {
 				const { message, instanceId } = action.meta.arg;
 
 				state.isLoadingDict[ instanceId ] = false;
-				const messages = state.messagesDict[ instanceId ];
 
-				messages.forEach( ( msg ) => {
+				state.messagesDict[ instanceId ].forEach( ( msg ) => {
 					if ( msg.id === message.id ) {
 						msg.failedMessage = true;
 					}

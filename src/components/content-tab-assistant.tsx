@@ -379,8 +379,13 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 				return;
 			}
 
-			dispatch( setChatInput( { siteId: selectedSite.id, input: '' } ) );
-			const message = generateMessage( chatMessage, 'user', messages.length, chatApiId );
+			if ( ! isRetry ) {
+				dispatch( setChatInput( { siteId: selectedSite.id, input: '' } ) );
+			}
+
+			const newMessageId = isRetry ? messages.length - 1 : messages.length;
+			const message = generateMessage( chatMessage, 'user', newMessageId, chatApiId );
+
 			dispatch(
 				fetchAssistantThunk( { client, instanceId, isRetry, message, siteId: selectedSite.id } )
 			);

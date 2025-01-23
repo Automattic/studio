@@ -14,6 +14,9 @@ PROJECT_ROOT_FOLDER = File.dirname(File.expand_path(__dir__))
 SECRETS_FOLDER = File.join(Dir.home, '.configure', 'studio', 'secrets')
 BUILDS_FOLDER = File.join(PROJECT_ROOT_FOLDER, 'out')
 
+# Enable dry run mode through environment variable
+DRY_RUN = ENV['DRY_RUN'] == 'true'
+
 # Read version from package.json
 PACKAGE_VERSION = JSON.parse(File.read(File.join(PROJECT_ROOT_FOLDER, 'package.json')))['version']
 
@@ -26,6 +29,8 @@ CDN_URL = 'https://cdn.a8c-ci.services'
 # Use this instead of getting values from ENV directly
 # It will throw an error if the requested value is missing
 def get_required_env(key)
+  return 'dry-run' if DRY_RUN && (key == 'BUILDKITE_BUILD_NUMBER' || key == 'BUILDKITE_TAG' || key == 'SLACK_WEBHOOK')
+  
   UI.user_error!("Environment variable `#{key}` is not set.") unless ENV.key?(key)
   ENV.fetch(key)
 end
@@ -75,18 +80,50 @@ lane :distribute_release_build do |_options|
   release_tag = get_required_env('BUILDKITE_TAG')
   builds = distribute_builds(release_tag:)
 
-  slack(
-    username: 'CI Bot',
-    icon_url: 'https://octodex.github.com/images/jenktocat.jpg',
-    message: ":tada: #{release_tag} is now available! :tada:",
-    channel: '#dotcom-studio',
-    success: true,
-    slack_url: get_required_env('SLACK_WEBHOOK'),
-    payload: {
-      ':studio-app-icon-mac: Release available for': builds.each_value.map { |b| "[#{b[:name]}](#{b[:cdn_url]})" }.join(', ')
-    },
-    default_payloads: []
+  unless DRY_RUN
+    slack(
+      username: 'CI Bot',
+      icon_url: 'https://octodex.github.com/images/jenktocat.jpg',
+      message: ":tada: #{release_tag} is now available! :tada:",
+      channel: '#dotcom-studio',
+      success: true,
+      slack_url: get_required_env('SLACK_WEBHOOK'),
+      payload: {
+        ':studio-app-icon-mac: Release available for': builds.each_value.map { |b| "[#{b[:name]}](#{b[:cdn_url]})" }.join(', ')
+      },
+      default_payloads: []
+    )
+  end
+end
+
+def upload_to_s3_with_dry_run(bucket:, key:, file:, if_exists:, auto_prefix:)
+  if DRY_RUN
+    UI.message("[DRY RUN] Would upload file: #{file}")
+    UI.message("           to S3 bucket: #{bucket}")
+    UI.message("           with key: #{key}")
+    UI.message("           if_exists: #{if_exists}")
+    return true
+  end
+
+  upload_to_s3(
+    bucket: bucket,
+    key: key,
+    file: file,
+    if_exists: if_exists,
+    auto_prefix: auto_prefix
   )
+end
+
+def clear_cloudfront_cache_with_dry_run(paths:, commit_hash:)
+  if DRY_RUN
+    UI.message("[DRY RUN] Would invalidate CloudFront cache:")
+    UI.message("           Distribution: EF4A01YASGPY5")
+    UI.message("           Paths: #{paths.join(', ')}")
+    UI.message("           Commit hash: #{commit_hash}")
+    return true
+  end
+
+  clear_cloudfront_cache(paths: paths, commit_hash: commit_hash)
 end
 
 def distribute_builds(
@@ -94,6 +131,7 @@ def distribute_builds(
   build_number: get_required_env('BUILDKITE_BUILD_NUMBER'),
   release_tag: nil
 )
+  UI.message("Running in #{DRY_RUN ? 'DRY RUN' : 'NORMAL'} mode")
   # If we are distributing a build without a tag, i.e. a development build, we also want to update the latest build reference for distribution.
   update_latest = release_tag.nil?
   suffix = release_tag.nil? ? "v#{PACKAGE_VERSION}-#{commit_hash}" : release_tag
@@ -166,7 +204,7 @@ def distribute_builds(
   bucket_name = 'a8c-apps-public-artifacts'
 
   builds.each_value do |build|
-    upload_to_s3(
+    upload_to_s3_with_dry_run(
       bucket: bucket_name,
       key: "#{bucket_folder}/#{build[:filename]}",
       file: build[:binary_path],
@@ -176,7 +214,7 @@ def distribute_builds(
   end
 
   manifest_name = 'releases.json'
-  upload_to_s3(
+  upload_to_s3_with_dry_run(
     bucket: bucket_name,
     key: "#{bucket_folder}/#{manifest_name}",
     file: File.join(BUILDS_FOLDER, manifest_name),
@@ -193,9 +231,9 @@ def distribute_builds(
       filename = assemble_filename.call(build, 'latest')
       key = "#{bucket_folder}/#{filename}"
 
-      upload_to_s3(
+      upload_to_s3_with_dry_run(
         bucket: bucket_name,
-        key:,
+        key: key,
         file: build[:binary_path],
         if_exists: :replace,
         auto_prefix: false
@@ -205,19 +243,18 @@ def distribute_builds(
     end
   end
 
-  # Because we distribute via Cloudfront, we need to invalidate the manifest
-  # and the latest build (if building for release) after each upload, otherwise
-  # it'll be stale.
-  clear_cloudfront_cache(
+  clear_cloudfront_cache_with_dry_run(
     paths: cache_paths_to_clear,
     commit_hash: "#{commit_hash}-#{build_number}"
   )
 
-  buildkite_annotate(
-    context: 'cdn-link',
-    style: 'info',
-    message: "🔗 Build available for #{builds.each_value.map { |build| "[#{build[:name]}](#{build[:cdn_url]})" }.join(', ')}"
-  )
+  unless DRY_RUN
+    buildkite_annotate(
+      context: 'cdn-link',
+      style: 'info',
+      message: "🔗 Build available for #{builds.each_value.map { |build| "[#{build[:name]}](#{build[:cdn_url]})" }.join(', ')}"
+    )
+  end
 
   # Return the builds data so callers can use them for further processing or messaging.
   builds

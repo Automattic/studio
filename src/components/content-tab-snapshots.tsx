@@ -4,7 +4,13 @@ import { __, sprintf } from '@wordpress/i18n';
 import { Icon, check, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren, useEffect } from 'react';
-import { CLIENT_ID, PROTOCOL_PREFIX, WP_AUTHORIZE_ENDPOINT, SCOPES } from '../constants';
+import {
+	CLIENT_ID,
+	PROTOCOL_PREFIX,
+	WP_AUTHORIZE_ENDPOINT,
+	SCOPES,
+	DEMO_SITE_SIZE_LIMIT_GB,
+} from '../constants';
 import { useArchiveErrorMessages } from '../hooks/use-archive-error-messages';
 import { useArchiveSite } from '../hooks/use-archive-site';
 import { useAuth } from '../hooks/use-auth';
@@ -12,6 +18,7 @@ import { useExpirationDate } from '../hooks/use-expiration-date';
 import { useFormatLocalizedTimestamps } from '../hooks/use-format-localized-timestamps';
 import { useOffline } from '../hooks/use-offline';
 import { useProgressTimer } from '../hooks/use-progress-timer';
+import { useSiteSize } from '../hooks/use-site-size';
 import { useSnapshots } from '../hooks/use-snapshots';
 import { useUpdateDemoSite } from '../hooks/use-update-demo-site';
 import { cx } from '../lib/cx';
@@ -62,6 +69,8 @@ function SnapshotRow( {
 	const errorMessages = useArchiveErrorMessages();
 	const isSiteDemoUpdating = isDemoSiteUpdating( snapshot.localSiteId );
 	const { formatRelativeTime } = useFormatLocalizedTimestamps();
+
+	const { isOverLimit } = useSiteSize( selectedSite.id );
 
 	const isOffline = useOffline();
 	const updateDemoSiteOfflineMessage = __(
@@ -187,6 +196,15 @@ function SnapshotRow( {
 		};
 	} else if ( snapshotCreationBlocked ) {
 		tooltipContent = { text: userBlockedMessage };
+	} else if ( isOverLimit ) {
+		tooltipContent = {
+			text: sprintf(
+				__(
+					'Your site exceeds %s GB in size. Updating this demo site may take considerable amount of time and could exceed the maximum allowed size for a demo site.'
+				),
+				DEMO_SITE_SIZE_LIMIT_GB
+			),
+		};
 	}
 	const isUpdateDisabled = isOffline || snapshotCreationBlocked;
 
@@ -221,11 +239,15 @@ function SnapshotRow( {
 					</div>
 				) : (
 					<>
-						<Tooltip disabled={ ! isUpdateDisabled } placement="top-start" { ...tooltipContent }>
+						<Tooltip
+							disabled={ ! ( isOverLimit || isUpdateDisabled ) }
+							placement="bottom-start"
+							{ ...tooltipContent }
+						>
 							<DynamicTooltip
 								getTooltipText={ getLastUpdateTimeText }
 								placement="bottom-start"
-								disabled={ isUpdateDisabled }
+								disabled={ isUpdateDisabled || isOverLimit }
 							>
 								<Button
 									aria-description={ tooltipContent?.text || '' }
@@ -428,6 +450,7 @@ function AddDemoSiteWithProgress( {
 	const { activeSnapshotCount, snapshotQuota, isLoadingSnapshotUsage, snapshotCreationBlocked } =
 		useSnapshots();
 	const isLimitUsed = activeSnapshotCount >= snapshotQuota;
+	const { isOverLimit } = useSiteSize( selectedSite.id );
 	const isOffline = useOffline();
 	const { progress, setProgress } = useProgressTimer( {
 		paused: ! isUploading && ! isSnapshotLoading,
@@ -462,6 +485,13 @@ function AddDemoSiteWithProgress( {
 		snapshotQuota
 	);
 	const offlineMessage = __( 'Creating a demo site requires an internet connection.' );
+	const overLimitMessage = sprintf(
+		__(
+			'Your site exceeds %s GB in size. Creating a demo site for a larger site may take considerable amount of time and could exceed the maximum allowed size for a demo site.'
+		),
+		DEMO_SITE_SIZE_LIMIT_GB
+	);
+
 	const userBlockedMessage = errorMessages.rest_site_creation_blocked;
 
 	let tooltipContent;
@@ -476,6 +506,8 @@ function AddDemoSiteWithProgress( {
 		tooltipContent = { text: siteArchivingMessage };
 	} else if ( snapshotCreationBlocked ) {
 		tooltipContent = { text: userBlockedMessage };
+	} else if ( isOverLimit ) {
+		tooltipContent = { text: overLimitMessage };
 	}
 
 	return (
@@ -489,7 +521,7 @@ function AddDemoSiteWithProgress( {
 				</div>
 			) : (
 				<div className="flex gap-4">
-					<Tooltip disabled={ ! tooltipContent } { ...tooltipContent }>
+					<Tooltip disabled={ ! tooltipContent } { ...tooltipContent } placement="top-start">
 						<Button
 							aria-description={ tooltipContent?.text ?? '' }
 							aria-disabled={ isDisabled }

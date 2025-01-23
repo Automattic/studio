@@ -55,6 +55,7 @@ steps:
     command: |
       # call with bash explicitly because we run this on Windows, too
       bash .buildkite/commands/install-node-dependencies.sh
+      export IS_DEV_BUILD=true
       echo '--- :package: Package app for testing'
       npm run package
       echo '--- :playwright: Run End To End Tests'
@@ -86,6 +87,8 @@ steps:
           .buildkite/commands/install-node-dependencies.sh
 
           node ./scripts/prepare-dev-build-version.mjs
+
+          export IS_DEV_BUILD=true
 
           echo "--- :node: Building Binary"
           npm run make:macos-{{matrix}}
@@ -127,6 +130,7 @@ steps:
   - label: 🔨 Windows Dev Build
     key: dev-windows
     command: |
+      $env:IS_DEV_BUILD="true"
       .buildkite/commands/build-for-windows-dev.ps1
       node scripts/package-appx.mjs
     artifact_paths:
@@ -152,8 +156,10 @@ steps:
 
       .buildkite/commands/install-node-dependencies.sh
 
+      export IS_DEV_BUILD=true
+
       echo "--- :node: Generating Release Manifest"
-      IS_DEV_BUILD=true node ./scripts/generate-releases-manifest.mjs
+      node ./scripts/generate-releases-manifest.mjs
 
       echo "--- :fastlane: Distributing Dev Builds"
       install_gems

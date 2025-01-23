@@ -1,3 +1,4 @@
+import path from 'path';
 import MiniCssExtractPlugin from 'mini-css-extract-plugin';
 import { plugins } from './webpack.plugins';
 import { rules } from './webpack.rules';
@@ -35,5 +36,9 @@ export const rendererConfig: Configuration = {
 	plugins,
 	resolve: {
 		extensions: [ '.js', '.ts', '.jsx', '.tsx', '.css' ],
+		alias: {
+			src: path.resolve( __dirname, 'src/' ),
+			vendor: path.resolve( __dirname, 'vendor/' ),
+		},
 	},
 };

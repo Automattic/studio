@@ -7,6 +7,7 @@ Write-Host "--- :node: Building App"
 node ./scripts/prepare-dev-build-version.mjs
 If ($LastExitCode -ne 0) { Exit $LastExitCode }
 
+$env:IS_DEV_BUILD="true"
 npm run make
 
 # Rename NuGet package files with generic name

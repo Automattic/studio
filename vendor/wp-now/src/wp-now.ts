@@ -1,5 +1,6 @@
 import fs from 'fs-extra';
 import { createNodeFsMountHandler, loadNodeRuntime } from '@php-wasm/node';
+import { joinPaths, phpVar } from '@php-wasm/util';
 import {
 	MountHandler,
 	PHP,
@@ -16,11 +17,7 @@ import {
 import path from 'path';
 import { SQLITE_FILENAME } from './constants';
 import { rootCertificates } from 'tls';
-import {
-	downloadSqliteIntegrationPlugin,
-	downloadWordPress,
-	removeDownloadedMuPlugins,
-} from './download';
+import { downloadWordPress, removeDownloadedMuPlugins } from './download';
 import {
 	StepDefinition,
 	activatePlugin,
@@ -88,11 +85,7 @@ export default async function startWPNow(
 		return { php, options };
 	}
 	output?.log( `wp: ${ options.wordPressVersion }` );
-	await Promise.all( [
-		downloadWordPress( options.wordPressVersion ),
-		// REMOVE-MU: let's allow wp-now to handle the mu-plugins
-		downloadSqliteIntegrationPlugin(),
-	] );
+	await Promise.all( [ downloadWordPress( options.wordPressVersion ) ] );
 
 	if ( options.reset ) {
 		fs.removeSync( options.wpContentPath );
@@ -167,9 +160,46 @@ function prepareDocumentRoot( php: PHP, options: WPNowOptions ) {
 	php.writeFile( '/internal/shared/ca-bundle.crt', rootCertificates.join( '\n' ) );
 
 	prepareInternalMuPlugins( php );
+	prepareSqlitePlugin( php );
 }
 
-export async function prepareInternalMuPlugins( php: PHP ) {
+async function prepareSqlitePlugin( php: PHP ) {
+	const SQLITE_PLUGIN_FOLDER = '/internal/shared/mu-plugins/sqlite-database-integration';
+	await recursiveCopyDirectoryToMuPlugins(
+		php,
+		path.join( getWpNowPath(), 'sqlite-database-integration' ),
+		SQLITE_PLUGIN_FOLDER
+	);
+
+	const dbCopy = await php.readFileAsText( path.join( SQLITE_PLUGIN_FOLDER, 'db.copy' ) );
+	const dbPhp = dbCopy
+		.replace( "'{SQLITE_IMPLEMENTATION_FOLDER_PATH}'", phpVar( SQLITE_PLUGIN_FOLDER ) )
+		.replace( "'{SQLITE_PLUGIN}'", phpVar( joinPaths( SQLITE_PLUGIN_FOLDER, 'load.php' ) ) );
+	await php.writeFile( path.join( php.requestHandler.documentRoot, 'wp-content/db.php' ), dbPhp );
+}
+
+export async function recursiveCopyDirectoryToMuPlugins(
+	php: PHP,
+	source: string,
+	destination: string
+): Promise< void > {
+	await php.mkdir( destination );
+
+	const entries = await fs.readdir( source, { withFileTypes: true } );
+
+	for ( const entry of entries ) {
+		const sourcePath = path.join( source, entry.name );
+		const destinationPath = path.join( destination, entry.name );
+
+		if ( entry.isDirectory() ) {
+			await recursiveCopyDirectoryToMuPlugins( php, sourcePath, destinationPath );
+		} else if ( entry.isFile() ) {
+			await php.writeFile( destinationPath, await fs.readFile( sourcePath ) );
+		}
+	}
+}
+
+async function prepareInternalMuPlugins( php: PHP ) {
 	// TODO-MU: maybe rename mu-plugins to wp-now-drop-ins
 	const muPluginsPath = '/internal/shared/mu-plugins';
 	php.mkdir( muPluginsPath );
@@ -397,9 +427,7 @@ async function runWpContentMode(
 		createNodeFsMountHandler( `${ documentRoot }/wp-content` ) as unknown as MountHandler
 	);
 
-	await mountSqlitePlugin( php, documentRoot );
 	await mountSqliteDatabaseDirectory( php, documentRoot, wpContentPath );
-	await mountMuPlugins( php, documentRoot );
 }
 
 async function runWordPressDevelopMode(
@@ -475,8 +503,6 @@ async function runPluginOrThemeMode(
 			}
 		}
 	}
-	await mountSqlitePlugin( php, documentRoot );
-	await mountMuPlugins( php, documentRoot );
 }
 
 async function runWpPlaygroundMode(
@@ -499,9 +525,6 @@ async function runWpPlaygroundMode(
 		wpContentPath,
 		createNodeFsMountHandler( `${ documentRoot }/wp-content` ) as unknown as MountHandler
 	);
-
-	await mountSqlitePlugin( php, documentRoot );
-	await mountMuPlugins( php, documentRoot );
 }
 
 async function login( php: PHP, options: WPNowOptions = {} ) {
@@ -606,35 +629,6 @@ export function getThemeTemplate( projectPath: string ) {
 	}
 }
 
-async function mountMuPlugins( php: PHP, vfsDocumentRoot: string ) {
-	await php.mount(
-		// TODO-MU: maybe rename mu-plugins to wp-now-drop-ins
-		path.join( getWpNowPath(), 'mu-plugins' ),
-		// VFS paths always use forward / slashes so
-		// we can't use path.join() for them
-		// TODO-MU: store in internal/wp-now
-		createNodeFsMountHandler(
-			`${ vfsDocumentRoot }/wp-content/mu-plugins`
-		) as unknown as MountHandler
-	);
-}
-
-async function mountSqlitePlugin( php: PHP, vfsDocumentRoot: string ) {
-	const sqlitePluginPath = `${ vfsDocumentRoot }/wp-content/plugins/${ SQLITE_FILENAME }`;
-	if ( php.listFiles( sqlitePluginPath ).length === 0 ) {
-		await php.mount(
-			getSqlitePath(),
-			createNodeFsMountHandler( sqlitePluginPath ) as unknown as MountHandler
-		);
-		await php.mount(
-			path.join( getSqlitePath(), 'db.copy' ),
-			createNodeFsMountHandler(
-				`${ vfsDocumentRoot }/wp-content/db.php`
-			) as unknown as MountHandler
-		);
-	}
-}
-
 /**
  * Create SQLite database directory in hidden utility directory and mount it to the document root
  *
@@ -707,15 +701,8 @@ async function installationSteps( php: PHP, options: WPNowOptions ) {
 }
 
 export async function moveDatabasesInSitu( projectPath: string ) {
-	const dbPhpPath = path.join( projectPath, 'wp-content', 'db.php' );
-	const hasDbPhpInSitu = fs.existsSync( dbPhpPath ) && fs.lstatSync( dbPhpPath ).isFile();
-
 	const { wpContentPath } = await getWpNowConfig( { path: projectPath } );
-	if (
-		wpContentPath &&
-		fs.existsSync( path.join( wpContentPath, 'database' ) ) &&
-		! hasDbPhpInSitu
-	) {
+	if ( wpContentPath && fs.existsSync( path.join( wpContentPath, 'database' ) ) ) {
 		// Do not mount but move the files to projectPath once
 		const databasePath = path.join( projectPath, 'wp-content', 'database' );
 		fs.rmdirSync( databasePath );
@@ -725,8 +712,6 @@ export async function moveDatabasesInSitu( projectPath: string ) {
 		fs.rmdirSync( sqlitePath );
 		fs.copySync( path.join( getSqlitePath() ), sqlitePath );
 
-		fs.rmdirSync( dbPhpPath );
-		fs.copySync( path.join( getSqlitePath(), 'db.copy' ), dbPhpPath );
 		fs.rmSync( wpContentPath, { recursive: true, force: true } );
 	}
 }

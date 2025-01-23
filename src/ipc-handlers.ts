@@ -37,7 +37,6 @@ import { createPassword } from './lib/passwords';
 import { phpGetThemeDetails } from './lib/php-get-theme-details';
 import { sanitizeForLogging } from './lib/sanitize-for-logging';
 import { sortSites } from './lib/sort-sites';
-import { installSqliteIntegration, keepSqliteIntegrationUpdated } from './lib/sqlite-versions';
 import * as windowsHelpers from './lib/windows-helpers';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from './logging';
 import { popupMenu, setupMenu } from './menu';
@@ -184,11 +183,6 @@ export async function createSite(
 				nodePath.join( path, 'wp-config.php' ),
 				nodePath.join( path, 'wp-config-studio.php' )
 			);
-		}
-
-		// REMOVE-MU: Let's allow wp-now to handle the SQLite integration
-		if ( ! ( await pathExists( nodePath.join( path, 'wp-config.php' ) ) ) ) {
-			await installSqliteIntegration( path );
 		}
 	}
 
@@ -385,9 +379,6 @@ export async function startServer(
 	if ( ! server ) {
 		return null;
 	}
-
-	// REMOVE-MU: load from wp-now-drop-ins
-	// await keepSqliteIntegrationUpdated( server.details.path );
 
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	try {

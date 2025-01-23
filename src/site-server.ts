@@ -223,7 +223,6 @@ export class SiteServer {
 
 		const requiredConfigPaths = {
 			wpConfig: nodePath.join( this.details.path, 'wp-config.php' ),
-			dbConfig: nodePath.join( wpContentPath, 'db.php' ),
 			dbSqlite: nodePath.join( wpContentPath, 'database', '.ht.sqlite' ),
 		};
 
@@ -235,7 +234,6 @@ export class SiteServer {
 
 		const configFilesExist = await Promise.all( [
 			fsExtra.pathExists( requiredConfigPaths.wpConfig ),
-			fsExtra.pathExists( requiredConfigPaths.dbConfig ),
 			fsExtra.pathExists( requiredConfigPaths.dbSqlite ),
 		] ).then( ( results ) => results.every( Boolean ) );
 

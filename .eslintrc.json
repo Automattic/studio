@@ -46,6 +46,17 @@
 				},
 				"groups": [ "builtin", "external", "internal", "parent", "sibling", "index", "type" ]
 			}
+		],
+		"no-restricted-imports": [
+			"warn",
+			{
+				"patterns": [
+					{
+						"group": ["../*", "./*"],
+						"message": "Please use absolute imports instead of relative imports. Example: 'src/components/foo' instead of '../components/foo'"
+					}
+				]
+			}
 		]
 	},
 	"overrides": [

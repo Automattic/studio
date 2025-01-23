@@ -99,5 +99,9 @@ export const mainBaseConfig: Configuration = {
 	],
 	resolve: {
 		extensions: [ '.js', '.ts', '.jsx', '.tsx', '.css', '.json' ],
+		alias: {
+			src: path.resolve( __dirname, 'src/' ),
+			vendor: path.resolve( __dirname, 'vendor/' ),
+		},
 	},
 };

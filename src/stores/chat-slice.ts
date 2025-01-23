@@ -250,11 +250,6 @@ const chatSlice = createSlice( {
 			const { instanceId, messages } = action.payload;
 			state.messagesDict[ instanceId ] = messages;
 		},
-		setChatId: ( state, action: PayloadAction< { instanceId: string; chatId?: string } > ) => {
-			const { instanceId, chatId } = action.payload;
-			state.chatIdDict[ instanceId ] = chatId;
-			localStorage.setItem( CHAT_ID_STORE_KEY, JSON.stringify( state.chatIdDict ) );
-		},
 		setChatInput: ( state, action: PayloadAction< { siteId: string; input: string } > ) => {
 			const { siteId, input } = action.payload;
 			state.chatInputBySite[ siteId ] = input;
@@ -349,14 +344,14 @@ const chatSlice = createSlice( {
 					action.payload.message,
 					'assistant',
 					state.messagesDict[ instanceId ].length,
-					state.chatIdDict[ instanceId ],
+					action.payload.chatId,
 					action.payload.messageApiId
 				);
 
 				state.messagesDict[ instanceId ].push( message );
 
 				if ( message.chatId ) {
-					state.chatInputBySite[ instanceId ] = message.chatId;
+					state.chatIdDict[ instanceId ] = message.chatId;
 				}
 
 				state.promptUsageDict[ instanceId ] = {
@@ -387,14 +382,8 @@ const chatSlice = createSlice( {
 	},
 } );
 
-export const {
-	updateFromTheme,
-	setMessages,
-	setChatId,
-	setChatInput,
-	updateMessage,
-	resetChatState,
-} = chatSlice.actions;
+export const { updateFromTheme, setMessages, setChatInput, updateMessage, resetChatState } =
+	chatSlice.actions;
 
 export const { selectChatInput, selectMessages, selectChatId, selectIsLoading } =
 	chatSlice.selectors;

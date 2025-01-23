@@ -14,7 +14,7 @@ import { ThemeDetailsProvider } from 'src/hooks/use-theme-details';
 import { useWelcomeMessages } from 'src/hooks/use-welcome-messages';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import store from 'src/stores';
-import { setMessages, resetChatState, generateMessage, setChatId } from 'src/stores/chat-slice';
+import { setMessages, resetChatState, generateMessage } from 'src/stores/chat-slice';
 
 jest.mock( '../../hooks/use-auth' );
 jest.mock( '../../hooks/use-welcome-messages' );
@@ -377,8 +377,6 @@ describe( 'ContentTabAssistant', () => {
 				messages: [ messageOne, messageTwo ],
 			} )
 		);
-
-		store.dispatch( setChatId( { instanceId: runningSite.id, chatId: 'hej' } ) );
 
 		( getIpcApi as jest.Mock ).mockReturnValue( {
 			showMessageBox: jest.fn().mockResolvedValue( { response: 0, checkboxChecked: false } ),

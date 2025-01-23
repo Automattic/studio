@@ -88,7 +88,7 @@ type FetchAssistantResponseData = {
 
 export const fetchAssistantThunk = createAsyncThunk(
 	'chat/fetchAssistant',
-	async ( { client, instanceId, message, siteId }: FetchAssistantParams, thunkAPI ) => {
+	async ( { client, instanceId, siteId }: FetchAssistantParams, thunkAPI ) => {
 		const state = thunkAPI.getState() as RootState;
 		const context = {
 			current_url: state.chat.currentURL,
@@ -103,7 +103,7 @@ export const fetchAssistantThunk = createAsyncThunk(
 			site_name: state.chat.siteName,
 			os: state.chat.os,
 		};
-		const messages = state.chat.messagesDict[ instanceId ].concat( message );
+		const messages = state.chat.messagesDict[ instanceId ];
 		const chatApiId = state.chat.chatApiIdDict[ instanceId ];
 
 		const { data, headers } = await new Promise< {
@@ -313,6 +313,7 @@ const chatSlice = createSlice( {
 					state.messagesDict[ instanceId ] = [];
 				}
 
+				// TODO: retry logic probably needs updating
 				if ( isRetry ) {
 					state.messagesDict[ instanceId ].forEach( ( msg ) => {
 						if ( msg.id === message.id ) {

@@ -1,14 +1,20 @@
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
-import { CLEAR_HISTORY_REMINDER_TIME } from '../../constants';
-import { useAuth } from '../../hooks/use-auth';
-import { useGetWpVersion } from '../../hooks/use-get-wp-version';
-import { useOffline } from '../../hooks/use-offline';
-import { usePromptUsage } from '../../hooks/use-prompt-usage';
-import { ThemeDetailsProvider } from '../../hooks/use-theme-details';
-import { useWelcomeMessages } from '../../hooks/use-welcome-messages';
-import { getIpcApi } from '../../lib/get-ipc-api';
-import { ContentTabAssistant, MIMIC_CONVERSATION_DELAY } from '../content-tab-assistant';
+import { Provider } from 'react-redux';
+import {
+	ContentTabAssistant,
+	MIMIC_CONVERSATION_DELAY,
+} from 'src/components/content-tab-assistant';
+import { CHAT_MESSAGES_STORE_KEY, CLEAR_HISTORY_REMINDER_TIME } from 'src/constants';
+import { useAuth } from 'src/hooks/use-auth';
+import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
+import { useOffline } from 'src/hooks/use-offline';
+import { usePromptUsage } from 'src/hooks/use-prompt-usage';
+import { ThemeDetailsProvider } from 'src/hooks/use-theme-details';
+import { useWelcomeMessages } from 'src/hooks/use-welcome-messages';
+import { getIpcApi } from 'src/lib/get-ipc-api';
+import store from 'src/stores';
+import { setMessages, resetChatState, generateMessage, setChatId } from 'src/stores/chat-slice';
 
 jest.mock( '../../hooks/use-auth' );
 jest.mock( '../../hooks/use-welcome-messages' );
@@ -43,39 +49,50 @@ const runningSite = {
 };
 
 const initialMessages = [
-	{ id: 0, content: 'Initial message 1', role: 'user' },
-	{ id: 1, content: 'Initial message 2', role: 'assistant' },
+	generateMessage( 'Initial message 1', 'user', 0, 'chat-id', 10 ),
+	generateMessage( 'Initial message 2', 'assistant', 1, 'chat-id', 11 ),
 ];
 
 function ContextWrapper( props: Parameters< typeof ContentTabAssistant >[ 0 ] ) {
 	return (
-		<ThemeDetailsProvider>
-			<ContentTabAssistant { ...props } />
-		</ThemeDetailsProvider>
+		<Provider store={ store }>
+			<ThemeDetailsProvider>
+				<ContentTabAssistant { ...props } />
+			</ThemeDetailsProvider>
+		</Provider>
 	);
 }
 
 describe( 'ContentTabAssistant', () => {
-	const clientReqPost = jest.fn().mockResolvedValue( {
-		id: 'chatcmpl-9USNsuhHWYsPAUNiOhOG2970Hjwwb',
-		object: 'chat.completion',
-		created: 1717045976,
-		model: 'test',
-		choices: [
+	const clientReqPost = jest.fn().mockImplementation( ( params, callback ) => {
+		callback(
+			null,
 			{
-				index: 0,
-				message: {
-					id: 0,
-					role: 'assistant',
-					content:
-						'Hello! How can I assist you today? Are you working on a WordPress project, or do you need help with something specific related to WordPress or WP-CLI?',
-				},
-				logprobs: null,
-				finish_reason: 'stop',
+				id: 'chatcmpl-9USNsuhHWYsPAUNiOhOG2970Hjwwb',
+				object: 'chat.completion',
+				created: 1717045976,
+				model: 'test',
+				choices: [
+					{
+						index: 0,
+						message: {
+							id: 0,
+							role: 'assistant',
+							content:
+								'Hello! How can I assist you today? Are you working on a WordPress project, or do you need help with something specific related to WordPress or WP-CLI?',
+						},
+						logprobs: null,
+						finish_reason: 'stop',
+					},
+				],
+				usage: { prompt_tokens: 980, completion_tokens: 36, total_tokens: 1016 },
+				system_fingerprint: 'fp_777',
 			},
-		],
-		usage: { prompt_tokens: 980, completion_tokens: 36, total_tokens: 1016 },
-		system_fingerprint: 'fp_777',
+			{
+				'x-quota-max': '100',
+				'x-quota-remaining': '99',
+			}
+		);
 	} );
 
 	const authenticate = jest.fn();
@@ -88,6 +105,10 @@ describe( 'ContentTabAssistant', () => {
 		jest.clearAllMocks();
 		window.HTMLElement.prototype.scrollIntoView = jest.fn();
 		localStorage.clear();
+
+		// Reset Redux store state
+		store.dispatch( resetChatState() );
+
 		( useAuth as jest.Mock ).mockReturnValue( {
 			client: {
 				req: {
@@ -121,9 +142,8 @@ describe( 'ContentTabAssistant', () => {
 		expect( guideLines ).toHaveTextContent( 'Powered by experimental AI. Learn more' );
 	} );
 
-	test( 'saves and retrieves conversation from localStorage', async () => {
-		const storageKey = 'ai_chat_messages';
-		localStorage.setItem( storageKey, JSON.stringify( { [ runningSite.id ]: initialMessages } ) );
+	test( 'saves and retrieves conversation from Redux state', async () => {
+		store.dispatch( setMessages( { instanceId: runningSite.id, messages: initialMessages } ) );
 		render( <ContextWrapper selectedSite={ runningSite } /> );
 		await waitFor( () => {
 			expect( screen.getByText( 'Initial message 1' ) ).toBeVisible();
@@ -141,8 +161,8 @@ describe( 'ContentTabAssistant', () => {
 		} );
 
 		await waitFor( () => {
-			const storedMessages = JSON.parse( localStorage.getItem( storageKey ) || '[]' );
-			expect( storedMessages[ runningSite.id ] ).toHaveLength( 3 );
+			const storedMessages = JSON.parse( localStorage.getItem( CHAT_MESSAGES_STORE_KEY ) || '[]' );
+			expect( storedMessages[ runningSite.id ] ).toHaveLength( 4 );
 			expect( storedMessages[ runningSite.id ][ 2 ].content ).toBe( 'New message' );
 		} );
 	} );
@@ -273,7 +293,9 @@ describe( 'ContentTabAssistant', () => {
 	} );
 
 	test( 'renders Welcome messages and example prompts when the conversation is starts', () => {
+		store.dispatch( setMessages( { instanceId: runningSite.id, messages: [] } ) );
 		render( <ContextWrapper selectedSite={ runningSite } /> );
+
 		expect( screen.getByText( 'Welcome to our service!' ) ).toBeVisible();
 		expect( screen.getByText( 'How to create a WordPress site' ) ).toBeVisible();
 		expect( screen.getByText( 'How to clear cache' ) ).toBeVisible();
@@ -281,6 +303,7 @@ describe( 'ContentTabAssistant', () => {
 	} );
 
 	test( 'renders Welcome messages and example prompts when offline', () => {
+		store.dispatch( setMessages( { instanceId: runningSite.id, messages: [] } ) );
 		( useOffline as jest.Mock ).mockReturnValue( true );
 
 		render( <ContextWrapper selectedSite={ runningSite } /> );
@@ -292,6 +315,7 @@ describe( 'ContentTabAssistant', () => {
 	} );
 
 	test( 'should manage the focus state when selecting an example prompt', async () => {
+		store.dispatch( setMessages( { instanceId: runningSite.id, messages: [] } ) );
 		jest.useRealTimers();
 		const user = userEvent.setup();
 		render( <ContextWrapper selectedSite={ runningSite } /> );
@@ -311,6 +335,8 @@ describe( 'ContentTabAssistant', () => {
 	} );
 
 	test( 'renders the selected prompt of Welcome messages and confirms other prompts are removed', async () => {
+		store.dispatch( setMessages( { instanceId: runningSite.id, messages: [] } ) );
+
 		render( <ContextWrapper selectedSite={ runningSite } /> );
 
 		await waitFor( () => {
@@ -341,21 +367,18 @@ describe( 'ContentTabAssistant', () => {
 		jest.useFakeTimers();
 		jest.setSystemTime( MOCKED_CURRENT_TIME );
 
-		const storageKey = 'ai_chat_messages';
-		localStorage.setItem(
-			storageKey,
-			JSON.stringify( {
-				[ runningSite.id ]: [
-					{ id: 0, content: 'Initial message 1', role: 'user' },
-					{
-						id: 1,
-						content: 'Initial message 2',
-						role: 'assistant',
-						createdAt: OLD_MESSAGE_TIME,
-					},
-				],
+		const messageOne = generateMessage( 'Initial message 1', 'user', 0, 'hej', 10 );
+		messageOne.createdAt = MOCKED_CURRENT_TIME;
+		const messageTwo = generateMessage( 'Initial message 2', 'assistant', 1, 'hej', 11 );
+		messageTwo.createdAt = OLD_MESSAGE_TIME;
+		store.dispatch(
+			setMessages( {
+				instanceId: runningSite.id,
+				messages: [ messageOne, messageTwo ],
 			} )
 		);
+
+		store.dispatch( setChatId( { instanceId: runningSite.id, chatId: 'hej' } ) );
 
 		( getIpcApi as jest.Mock ).mockReturnValue( {
 			showMessageBox: jest.fn().mockResolvedValue( { response: 0, checkboxChecked: false } ),
@@ -389,14 +412,14 @@ describe( 'ContentTabAssistant', () => {
 	} );
 
 	test( 'renders notices by importance', async () => {
-		const storageKey = 'ai_chat_messages';
-		localStorage.setItem(
-			storageKey,
-			JSON.stringify( {
-				[ runningSite.id ]: [
-					{ id: 0, content: 'Initial message 1', role: 'user' },
-					{ id: 1, content: 'Initial message 2', role: 'assistant', createdAt: 0 },
-				],
+		const messageOne = generateMessage( 'Initial message 1', 'user', 0, 'chat-id', 10 );
+		messageOne.createdAt = 0;
+		const messageTwo = generateMessage( 'Initial message 2', 'assistant', 1, 'chat-id', 11 );
+		messageTwo.createdAt = 0;
+		store.dispatch(
+			setMessages( {
+				instanceId: runningSite.id,
+				messages: [ messageOne, messageTwo ],
 			} )
 		);
 

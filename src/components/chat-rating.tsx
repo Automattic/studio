@@ -7,7 +7,7 @@ import { sendFeedbackThunk } from 'src/stores/chat-slice';
 import Button from './button';
 
 interface ChatRatingProps {
-	siteId: string;
+	instanceId: string;
 	messageApiId: number;
 	feedbackReceived: boolean;
 	className?: string;
@@ -21,7 +21,7 @@ export const FeedbackThanks = () => {
 	);
 };
 
-export const ChatRating = ( { messageApiId, feedbackReceived, siteId }: ChatRatingProps ) => {
+export const ChatRating = ( { messageApiId, feedbackReceived, instanceId }: ChatRatingProps ) => {
 	const { client } = useAuth();
 	const dispatch = useDispatch< AppDispatch >();
 	const handleRatingClick = async ( feedback: number ) => {
@@ -29,7 +29,7 @@ export const ChatRating = ( { messageApiId, feedbackReceived, siteId }: ChatRati
 			return;
 		}
 
-		dispatch( sendFeedbackThunk( { client, messageApiId, ratingValue: feedback, siteId } ) );
+		dispatch( sendFeedbackThunk( { client, messageApiId, ratingValue: feedback, instanceId } ) );
 	};
 
 	return feedbackReceived ? (

@@ -110,6 +110,7 @@ const OfflineModeView = () => {
 
 interface AuthenticatedViewProps {
 	messages: MessageType[];
+	instanceId: string;
 	isAssistantThinking: boolean;
 	siteId: string;
 	submitPrompt: ( messageToSend: string, isRetry?: boolean ) => void;
@@ -119,6 +120,7 @@ interface AuthenticatedViewProps {
 const AuthenticatedView = memo(
 	( {
 		messages,
+		instanceId,
 		isAssistantThinking,
 		siteId,
 		submitPrompt,
@@ -282,7 +284,7 @@ const AuthenticatedView = memo(
 						<div className="flex justify-end">
 							{ !! lastMessage.messageApiId && (
 								<ChatRating
-									siteId={ siteId }
+									instanceId={ instanceId }
 									messageApiId={ lastMessage.messageApiId }
 									feedbackReceived={ !! lastMessage.feedbackReceived }
 								/>
@@ -348,47 +350,44 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const { isAuthenticated, authenticate, user, client } = useAuth();
 	const instanceId = user?.id ? `${ user.id }_${ selectedSite.id }` : selectedSite.id;
 	const chatId = useSelector( ( state: RootState ) => selectChatId( state, instanceId ) );
-	const messages = useSelector( ( state: RootState ) => selectMessages( state, selectedSite.id ) );
+	const messages = useSelector( ( state: RootState ) => selectMessages( state, instanceId ) );
 	const isAssistantThinking = useSelector( ( state: RootState ) =>
-		selectIsLoading( state, selectedSite.id )
+		selectIsLoading( state, instanceId )
 	);
 	const { userCanSendMessage } = usePromptUsage();
 	const { messages: welcomeMessages, examplePrompts } = useWelcomeMessages();
 	const isOffline = useOffline();
 	const { __ } = useI18n();
 	const lastMessage = messages.length === 0 ? undefined : messages[ messages.length - 1 ];
-	const hasFailedMessage = messages.some( ( msg: MessageType ) => msg.failedMessage );
+	const hasFailedMessage = messages.some( ( msg ) => msg.failedMessage );
 
 	const { selectedThemeDetails: themeDetails } = useThemeDetails();
 
 	useEffect( () => {
-		dispatch( updateFromSite( selectedSite ) );
-	}, [ dispatch, selectedSite ] );
+		dispatch( updateFromSite( { site: selectedSite, instanceId } ) );
+	}, [ dispatch, instanceId, selectedSite ] );
 
 	useEffect( () => {
 		if ( themeDetails ) {
 			dispatch( updateFromTheme( themeDetails ) );
 		}
-	}, [ themeDetails ] );
-
-	// Save prompt input when it changes
-	const setInput = ( input: string ) => {
-		dispatch( setChatInput( { siteId: selectedSite.id, input } ) );
-	};
+	}, [ dispatch, themeDetails ] );
 
 	const submitPrompt = async ( chatMessage: string, isRetry?: boolean ) => {
 		if ( ! chatMessage || ! client ) {
 			return;
 		}
 
-		setInput( '' );
+		dispatch( setChatInput( { siteId: selectedSite.id, input: '' } ) );
 		const message = generateMessage( chatMessage, 'user', messages.length, chatId );
-		dispatch( fetchAssistantThunk( { client, message, siteId: selectedSite.id } ) );
+		dispatch(
+			fetchAssistantThunk( { client, instanceId, isRetry, message, siteId: selectedSite.id } )
+		);
 	};
 
 	const clearConversation = () => {
-		setInput( '' );
-		dispatch( setMessages( { siteId: selectedSite.id, messages: [] } ) );
+		dispatch( setChatInput( { siteId: selectedSite.id, input: '' } ) );
+		dispatch( setMessages( { instanceId, messages: [] } ) );
 	};
 
 	// We should render only one notice at a time in the bottom area
@@ -433,6 +432,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 							<AuthenticatedView
 								messages={ messages }
 								isAssistantThinking={ isAssistantThinking }
+								instanceId={ instanceId }
 								siteId={ selectedSite.id }
 								submitPrompt={ submitPrompt }
 								wrapperRef={ wrapperRef }
@@ -451,7 +451,9 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 						ref={ inputRef }
 						disabled={ disabled }
 						input={ chatInput }
-						setInput={ setInput }
+						setInput={ ( input ) => {
+							dispatch( setChatInput( { siteId: selectedSite.id, input } ) );
+						} }
 						handleSend={ () => {
 							submitPrompt( inputRef.current?.value ?? '' );
 						} }

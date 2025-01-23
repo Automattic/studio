@@ -53,9 +53,14 @@ async function fetchThemeList( siteId: string ): Promise< string[] > {
 	return stderr ? [] : parseWpCliOutput( stdout );
 }
 
+type UpdateFromSiteParams = {
+	instanceId: string;
+	site: SiteDetails;
+};
+
 export const updateFromSite = createAsyncThunk(
 	'chat/updateFromSite',
-	async ( site: SiteDetails ) => {
+	async ( { site }: UpdateFromSiteParams ) => {
 		const [ plugins, themes ] = await Promise.all( [
 			fetchPluginList( site.id ),
 			fetchThemeList( site.id ),
@@ -70,6 +75,7 @@ export const updateFromSite = createAsyncThunk(
 
 type FetchAssistantParams = {
 	client: WPCOM;
+	instanceId: string;
 	isRetry?: boolean;
 	message: Message;
 	siteId: string;
@@ -82,7 +88,7 @@ type FetchAssistantResponseData = {
 
 export const fetchAssistantThunk = createAsyncThunk(
 	'chat/fetchAssistant',
-	async ( { client, message, siteId }: FetchAssistantParams, thunkAPI ) => {
+	async ( { client, instanceId, message, siteId }: FetchAssistantParams, thunkAPI ) => {
 		const state = thunkAPI.getState() as RootState;
 		const context = {
 			current_url: state.chat.currentURL,
@@ -97,8 +103,8 @@ export const fetchAssistantThunk = createAsyncThunk(
 			site_name: state.chat.siteName,
 			os: state.chat.os,
 		};
-		const messages = state.chat.messagesDict[ siteId ].concat( message );
-		const chatId = state.chat.chatIdDict[ siteId ];
+		const messages = state.chat.messagesDict[ instanceId ].concat( message );
+		const chatId = state.chat.chatIdDict[ instanceId ];
 
 		const { data, headers } = await new Promise< {
 			data: FetchAssistantResponseData;
@@ -135,16 +141,16 @@ export const fetchAssistantThunk = createAsyncThunk(
 
 type SendFeedbackParams = {
 	client: WPCOM;
+	instanceId: string;
 	messageApiId: number;
 	ratingValue: number;
-	siteId: string;
 };
 
 export const sendFeedbackThunk = createAsyncThunk(
 	'chat/sendFeedback',
-	async ( { client, messageApiId, ratingValue, siteId }: SendFeedbackParams, thunkAPI ) => {
+	async ( { client, messageApiId, ratingValue, instanceId }: SendFeedbackParams, thunkAPI ) => {
 		const state = thunkAPI.getState() as RootState;
-		const chatId = state.chat.chatIdDict[ siteId ];
+		const chatId = state.chat.chatIdDict[ instanceId ];
 
 		try {
 			await client.req.post( {
@@ -227,6 +233,9 @@ const chatSlice = createSlice( {
 	name: 'chat',
 	initialState,
 	reducers: {
+		resetChatState: ( state ) => {
+			state = initialState;
+		},
 		updateFromTheme: (
 			state,
 			action: PayloadAction< NonNullable< SiteDetails[ 'themeDetails' ] > >
@@ -234,22 +243,21 @@ const chatSlice = createSlice( {
 			state.themeName = action.payload.name;
 			state.isBlockTheme = action.payload.isBlockTheme;
 		},
-		setMessages: ( state, action: PayloadAction< { siteId: string; messages: Message[] } > ) => {
-			const { siteId, messages } = action.payload;
-			state.messagesDict[ siteId ] = messages;
+		setMessages: (
+			state,
+			action: PayloadAction< { instanceId: string; messages: Message[] } >
+		) => {
+			const { instanceId, messages } = action.payload;
+			state.messagesDict[ instanceId ] = messages;
 		},
-		setChatId: ( state, action: PayloadAction< { siteId: string; chatId?: string } > ) => {
-			const { siteId, chatId } = action.payload;
-			state.chatIdDict[ siteId ] = chatId;
+		setChatId: ( state, action: PayloadAction< { instanceId: string; chatId?: string } > ) => {
+			const { instanceId, chatId } = action.payload;
+			state.chatIdDict[ instanceId ] = chatId;
 			localStorage.setItem( CHAT_ID_STORE_KEY, JSON.stringify( state.chatIdDict ) );
 		},
 		setChatInput: ( state, action: PayloadAction< { siteId: string; input: string } > ) => {
 			const { siteId, input } = action.payload;
 			state.chatInputBySite[ siteId ] = input;
-		},
-		setIsLoading: ( state, action: PayloadAction< { siteId: string; isLoading: boolean } > ) => {
-			const { siteId, isLoading } = action.payload;
-			state.isLoadingDict[ siteId ] = isLoading;
 		},
 		updateMessage: (
 			state,
@@ -284,7 +292,7 @@ const chatSlice = createSlice( {
 	extraReducers: ( builder ) => {
 		builder
 			.addCase( updateFromSite.pending, ( state, action ) => {
-				const site = action.meta.arg;
+				const { site } = action.meta.arg;
 
 				state.currentURL = `http://localhost:${ site.port }`;
 				state.phpVersion = site.phpVersion ?? DEFAULT_PHP_VERSION;
@@ -293,38 +301,38 @@ const chatSlice = createSlice( {
 			} )
 			.addCase( updateFromSite.fulfilled, ( state, action ) => {
 				const { plugins, themes } = action.payload;
-				const siteId = action.meta.arg.id;
+				const siteId = action.meta.arg.site.id;
 
 				state.pluginListDict[ siteId ] = plugins;
 				state.themeListDict[ siteId ] = themes;
 			} )
 			.addCase( updateFromSite.rejected, ( state, action ) => {
-				state.isSiteLoadedDict[ action.meta.arg.id ] = false;
+				state.isSiteLoadedDict[ action.meta.arg.instanceId ] = false;
 			} )
 			.addCase( fetchAssistantThunk.pending, ( state, action ) => {
-				const { message, siteId, isRetry } = action.meta.arg;
+				const { message, instanceId, isRetry } = action.meta.arg;
 
-				state.isLoadingDict[ siteId ] = true;
+				state.isLoadingDict[ instanceId ] = true;
 
-				if ( ! state.messagesDict[ siteId ] ) {
-					state.messagesDict[ siteId ] = [];
+				if ( ! state.messagesDict[ instanceId ] ) {
+					state.messagesDict[ instanceId ] = [];
 				}
 
 				if ( isRetry ) {
-					state.messagesDict[ siteId ].forEach( ( msg ) => {
+					state.messagesDict[ instanceId ].forEach( ( msg ) => {
 						if ( msg.id === message.id ) {
 							msg.failedMessage = false;
 						}
 					} );
 				}
 
-				state.messagesDict[ siteId ].push( message );
+				state.messagesDict[ instanceId ].push( message );
 			} )
 			.addCase( fetchAssistantThunk.rejected, ( state, action ) => {
-				const { message, siteId } = action.meta.arg;
+				const { message, instanceId } = action.meta.arg;
 
-				state.isLoadingDict[ siteId ] = false;
-				const messages = state.messagesDict[ siteId ];
+				state.isLoadingDict[ instanceId ] = false;
+				const messages = state.messagesDict[ instanceId ];
 
 				messages.forEach( ( msg ) => {
 					if ( msg.id === message.id ) {
@@ -333,37 +341,37 @@ const chatSlice = createSlice( {
 				} );
 			} )
 			.addCase( fetchAssistantThunk.fulfilled, ( state, action ) => {
-				const { siteId } = action.meta.arg;
+				const { instanceId } = action.meta.arg;
 
-				state.isLoadingDict[ siteId ] = false;
+				state.isLoadingDict[ instanceId ] = false;
 
 				const message = generateMessage(
 					action.payload.message,
 					'assistant',
-					state.messagesDict[ siteId ].length,
-					state.chatIdDict[ siteId ],
+					state.messagesDict[ instanceId ].length,
+					state.chatIdDict[ instanceId ],
 					action.payload.messageApiId
 				);
 
-				state.messagesDict[ siteId ].push( message );
+				state.messagesDict[ instanceId ].push( message );
 
 				if ( message.chatId ) {
-					state.chatInputBySite[ siteId ] = message.chatId;
+					state.chatInputBySite[ instanceId ] = message.chatId;
 				}
 
-				state.promptUsageDict[ siteId ] = {
+				state.promptUsageDict[ instanceId ] = {
 					maxQuota: action.payload.maxQuota,
 					remainingQuota: action.payload.remainingQuota,
 				};
 			} )
 			.addCase( sendFeedbackThunk.pending, ( state, action ) => {
-				const { siteId, messageApiId } = action.meta.arg;
+				const { instanceId, messageApiId } = action.meta.arg;
 
-				if ( ! state.messagesDict[ siteId ] ) {
-					state.messagesDict[ siteId ] = [];
+				if ( ! state.messagesDict[ instanceId ] ) {
+					state.messagesDict[ instanceId ] = [];
 				}
 
-				state.messagesDict[ siteId ].forEach( ( message ) => {
+				state.messagesDict[ instanceId ].forEach( ( message ) => {
 					if ( message.messageApiId === messageApiId ) {
 						message.feedbackReceived = true;
 					}
@@ -372,9 +380,10 @@ const chatSlice = createSlice( {
 	},
 	selectors: {
 		selectChatInput: ( state, siteId: string ) => state.chatInputBySite[ siteId ] ?? '',
-		selectMessages: ( state, siteId: string ) => state.messagesDict[ siteId ] ?? EMPTY_MESSAGES,
-		selectChatId: ( state, siteId: string ) => state.chatIdDict[ siteId ],
-		selectIsLoading: ( state, siteId: string ) => state.isLoadingDict[ siteId ] ?? false,
+		selectMessages: ( state, instanceId: string ) =>
+			state.messagesDict[ instanceId ] ?? EMPTY_MESSAGES,
+		selectChatId: ( state, instanceId: string ) => state.chatIdDict[ instanceId ],
+		selectIsLoading: ( state, instanceId: string ) => state.isLoadingDict[ instanceId ] ?? false,
 	},
 } );
 
@@ -383,8 +392,8 @@ export const {
 	setMessages,
 	setChatId,
 	setChatInput,
-	setIsLoading,
 	updateMessage,
+	resetChatState,
 } = chatSlice.actions;
 
 export const { selectChatInput, selectMessages, selectChatId, selectIsLoading } =

@@ -373,17 +373,20 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		}
 	}, [ dispatch, themeDetails ] );
 
-	const submitPrompt = async ( chatMessage: string, isRetry?: boolean ) => {
-		if ( ! chatMessage || ! client ) {
-			return;
-		}
+	const submitPrompt = useCallback(
+		( chatMessage: string, isRetry?: boolean ) => {
+			if ( ! chatMessage || ! client ) {
+				return;
+			}
 
-		dispatch( setChatInput( { siteId: selectedSite.id, input: '' } ) );
-		const message = generateMessage( chatMessage, 'user', messages.length, chatId );
-		dispatch(
-			fetchAssistantThunk( { client, instanceId, isRetry, message, siteId: selectedSite.id } )
-		);
-	};
+			dispatch( setChatInput( { siteId: selectedSite.id, input: '' } ) );
+			const message = generateMessage( chatMessage, 'user', messages.length, chatId );
+			dispatch(
+				fetchAssistantThunk( { client, instanceId, isRetry, message, siteId: selectedSite.id } )
+			);
+		},
+		[ client, dispatch, instanceId, selectedSite.id, messages, chatId ]
+	);
 
 	const clearConversation = () => {
 		dispatch( setChatInput( { siteId: selectedSite.id, input: '' } ) );

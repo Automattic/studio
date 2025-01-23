@@ -30,7 +30,7 @@ export default function EditAbsoluteUrl() {
 
 	// Compute absolute URL
 	const absoluteUrl =
-		urlState.includePort && selectedSite?.port
+		urlState.includePort && urlState.localUrl && selectedSite?.port
 			? `${ urlState.localUrl }:${ selectedSite.port }`
 			: urlState.localUrl;
 
@@ -61,7 +61,12 @@ export default function EditAbsoluteUrl() {
 	const closeModal = () => setShowModal( false );
 
 	const getHostsFileInstructions = () => {
-		const hostname = new URL( urlState.localUrl ).hostname;
+		let hostname = '';
+		try {
+			hostname = new URL( urlState.localUrl ).hostname;
+		} catch {
+			hostname = '';
+		}
 
 		if ( isWindows() ) {
 			return (
@@ -80,7 +85,7 @@ export default function EditAbsoluteUrl() {
 				</>
 			);
 		}
-
+		console.log( 'isMac()', isMac() );
 		if ( isMac() ) {
 			return (
 				<>

@@ -53,40 +53,47 @@ function CustomizeSection( {
 		{
 			label: __( 'Site Editor' ),
 			icon: desktop,
-			onClick: () => getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/site-editor.php' ),
+			onClick: () => {
+				getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/site-editor.php' );
+			},
 		},
 		{
 			label: __( 'Styles' ),
 			icon: styles,
-			onClick: () =>
+			onClick: () => {
 				getIpcApi().openSiteURL(
 					selectedSite.id,
 					'/wp-admin/site-editor.php?path=%2Fwp_global_styles'
-				),
+				);
+			},
 		},
 		{
 			label: __( 'Patterns' ),
 			icon: symbolFilled,
-			onClick: () =>
-				getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/site-editor.php?path=%2Fpatterns' ),
+			onClick: () => {
+				getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/site-editor.php?path=%2Fpatterns' );
+			},
 		},
 		{
 			label: __( 'Navigation' ),
 			icon: navigation,
-			onClick: () =>
-				getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/site-editor.php?path=%2Fnavigation' ),
+			onClick: () => {
+				getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/site-editor.php?path=%2Fnavigation' );
+			},
 		},
 		{
 			label: __( 'Templates' ),
 			icon: layout,
-			onClick: () =>
-				getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/site-editor.php?path=%2Fwp_template' ),
+			onClick: () => {
+				getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/site-editor.php?path=%2Fwp_template' );
+			},
 		},
 		{
 			label: __( 'Pages' ),
 			icon: page,
-			onClick: () =>
-				getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/site-editor.php?path=%2Fpage' ),
+			onClick: () => {
+				getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/site-editor.php?path=%2Fpage' );
+			},
 		},
 	];
 

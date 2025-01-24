@@ -364,8 +364,8 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const { selectedThemeDetails: themeDetails } = useThemeDetails();
 
 	useEffect( () => {
-		dispatch( updateFromSiteThunk( { site: selectedSite, instanceId } ) );
-	}, [ dispatch, instanceId, selectedSite ] );
+		dispatch( updateFromSiteThunk( { site: selectedSite } ) );
+	}, [ dispatch, selectedSite ] );
 
 	useEffect( () => {
 		if ( themeDetails ) {

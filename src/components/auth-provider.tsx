@@ -36,7 +36,6 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 	const { locale } = useI18nData();
 
 	const authenticate = getIpcApi().authenticate;
-
 	useIpcListener( 'auth-updated', ( _event, { token, error } ) => {
 		if ( error ) {
 			Sentry.captureException( error );

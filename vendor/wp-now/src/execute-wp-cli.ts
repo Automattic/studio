@@ -41,10 +41,10 @@ export async function executeWPCli(
 		createNodeFsMountHandler( projectPath ) as unknown as MountHandler
 	);
 
-	await prepareWordPress( php, options );
-
 	//Set the SAPI name to cli before running the script
 	await php.setSapiName( 'cli' );
+
+	await prepareWordPress( php, options );
 
 	php.mkdir( '/tmp' );
 

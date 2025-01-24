@@ -159,9 +159,26 @@ async function prepareDocumentRoot( php: PHP, options: WPNowOptions ) {
 	php.writeFile( '/internal/shared/ca-bundle.crt', rootCertificates.join( '\n' ) );
 }
 
-async function mountSqlitePlugin( php: PHP, projectPath: string, documentRoot: string ) {
+async function mountSqlitePlugin( php: PHP, documentRoot: string ) {
+	const mysqlCheckResult = await php.run( {
+		code: `<?php
+			if ( ! file_exists( "${ documentRoot }/wp-load.php" ) ) {
+				die( 'false' );
+			}
+			require_once "${ documentRoot }/wp-load.php";
+			global $wpdb;
+			die( $wpdb->is_mysql ? 'true' : 'false' );`,
+	} );
+
+	if ( mysqlCheckResult.text === 'true' ) {
+		output?.log( 'MySQL is configured, skipping SQLite plugin setup' );
+		return;
+	} else {
+		output?.log( 'MySQL is not configured, setting up SQLite plugin' );
+	}
+
 	const SQLITE_PLUGIN_FOLDER = '/internal/shared/mu-plugins/sqlite-database-integration';
-	const sqlitePluginSourceDir = path.join( projectPath, 'sqlite-database-integration' );
+	const sqlitePluginSourceDir = getSqlitePath();
 	if ( ! fs.existsSync( sqlitePluginSourceDir ) ) {
 		return;
 	}
@@ -243,14 +260,6 @@ async function mountInternalMuPlugins( php: PHP ) {
 			add_filter( 'show_admin_bar', '__return_false' );
 		}
 		`
-	);
-
-	php.writeFile(
-		path.join( muPluginsPath, '0-sqlite.php' ),
-		`<?php
-		if ( file_exists( WP_CONTENT_DIR . "/db.php" ) && file_exists( __DIR__ . "/${ SQLITE_FILENAME }/load.php" ) ) {
-			require_once __DIR__ . "/${ SQLITE_FILENAME }/load.php";
-		}`
 	);
 
 	php.writeFile(
@@ -362,7 +371,7 @@ export async function prepareWordPress( php: PHP, options: WPNowOptions ) {
 	}
 
 	await mountInternalMuPlugins( php );
-	await mountSqlitePlugin( php, options.projectPath, options.documentRoot );
+	await mountSqlitePlugin( php, options.documentRoot );
 	await startSymlinkManager( php, options.projectPath, options.documentRoot );
 }
 

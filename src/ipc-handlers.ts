@@ -640,7 +640,18 @@ export function logRendererMessage(
 }
 
 export async function authenticate( _event: IpcMainInvokeEvent ): Promise< void > {
-	return oauthClient.authenticate();
+	try {
+		await oauthClient.authenticate();
+	} catch ( error ) {
+		if ( error instanceof Error ) {
+			dialog.showMessageBox( {
+				type: 'error',
+				message: __( 'Failed to open browser' ),
+				detail: error.message,
+				buttons: [ __( 'OK' ) ],
+			} );
+		}
+	}
 }
 
 export async function getAuthenticationToken(

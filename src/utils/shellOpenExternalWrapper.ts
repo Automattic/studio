@@ -1,5 +1,6 @@
 import { shell } from 'electron';
 import * as Sentry from '@sentry/electron/main';
+import { __ } from '@wordpress/i18n';
 
 // Check if error is one of the known "application not found" errors that we checked and can mute
 // Examples of errors which can be muted:
@@ -24,14 +25,12 @@ export const shellOpenExternalWrapper = async ( url: string ) => {
 
 		let message = '';
 		if ( url.startsWith( 'vscode://file/' ) ) {
-			message = 'Studio is unable to open VS Code.';
+			message = __( 'Studio is unable to open VS Code. Please ensure it is functioning correctly' );
 		} else if ( url.startsWith( 'phpstorm://open?file=' ) ) {
-			message = 'Studio is unable to open PHPStorm.';
+			message = __( 'Studio is unable to open PHPStorm. Please ensure it is functioning correctly' );
 		} else {
-			message = 'Studio is unable to open your default browser.';
+			message = __( 'Studio is unable to open your default browser. Please ensure it is functioning correctly' );
 		}
-
-		message += 'Please ensure it is functioning correctly';
 
 		throw new Error( message );
 	}

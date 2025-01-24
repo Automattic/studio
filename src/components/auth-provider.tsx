@@ -36,16 +36,7 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 	const [ user, setUser ] = useState< AuthContextType[ 'user' ] >( undefined );
 	const { locale } = useI18nData();
 
-	const authenticate = useCallback( async () => {
-		try {
-			await getIpcApi().authenticate();
-		} catch ( error ) {
-			getIpcApi().showErrorMessageBox( {
-				title: __( 'Failed to open browser' ),
-				error,
-			} );
-		}
-	}, [] );
+	const authenticate = getIpcApi().authenticate;
 
 	useIpcListener( 'auth-updated', ( _event, { token, error } ) => {
 		if ( error ) {

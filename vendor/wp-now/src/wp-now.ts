@@ -184,6 +184,17 @@ async function mountSqlitePlugin( php: PHP, documentRoot: string ) {
 	}
 	await recursiveCopyDirectoryToMuPlugins( php, sqlitePluginSourceDir, SQLITE_PLUGIN_FOLDER );
 
+	/**
+	 * TODO: Load db.php using Playground's preloadSqliteIntegration function.
+	 *
+	 * Currently, we can't use it because it requires a SQLite plugin ZIP pulled from GitHub.
+	 * We will need to split the function into loading SQLite and creating the db.php file to
+	 * be able to reuse the db.php file creation or add a way to skip loading the ZIP file.
+	 *
+	 * In my testing, the class Playground uses to load db.php is not compatible with Studio.
+	 * When I tried to use it, I got the following error:
+	 * Call to undefined function wp_cache_get() in /var/www/html/wp-includes/option.php:612
+	 */
 	const dbCopy = await php.readFileAsText( path.join( SQLITE_PLUGIN_FOLDER, 'db.copy' ) );
 	const dbPhp = dbCopy
 		.replace( "'{SQLITE_IMPLEMENTATION_FOLDER_PATH}'", phpVar( SQLITE_PLUGIN_FOLDER ) )
@@ -234,22 +245,6 @@ async function mountInternalMuPlugins( php: PHP ) {
 	} );
 	add_filter('http_request_host_is_external', '__return_true', 20, 3 );
 	`
-	);
-
-	php.writeFile(
-		path.join( muPluginsPath, '0-dns-functions.php' ),
-		`<?php
-		// Polyfill for DNS functions/features which are not currently supported by @php-wasm/node.
-		// See https://github.com/WordPress/wordpress-playground/issues/1042
-		// These specific features are polyfilled so the Jetpack plugin loads correctly, but others should be added as needed.
-		if ( ! function_exists( 'dns_get_record' ) ) {
-			function dns_get_record() {
-				return array();
-			}
-		}
-		if ( ! defined( 'DNS_NS' ) ) {
-			define( 'DNS_NS', 2 );
-		}`
 	);
 
 	php.writeFile(

@@ -640,7 +640,7 @@ export function logRendererMessage(
 }
 
 export async function authenticate( _event: IpcMainInvokeEvent ): Promise< void > {
-	oauthClient.authenticate();
+	return oauthClient.authenticate();
 }
 
 export async function getAuthenticationToken(

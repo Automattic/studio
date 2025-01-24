@@ -19,6 +19,8 @@ module.exports = {
 	transformIgnorePatterns: [ 'node_modules/(?!(@php-wasm|@wp-playground)/)' ],
 	moduleNameMapper: {
 		'^(\\.{1,2}/.*)\\.js$': '$1',
+		'^src/(.*)$': '<rootDir>/src/$1',
+		'^vendor/(.*)$': '<rootDir>/vendor/$1',
 	},
 	testEnvironment: 'jsdom',
 	globals: {

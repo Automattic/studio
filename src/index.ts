@@ -37,20 +37,17 @@ import { stopAllServersOnQuit } from './site-server';
 import { loadUserData } from './storage/user-data'; // eslint-disable-next-line import/order
 import { setupUpdates } from './updates';
 
-if ( ! isCLI() ) {
+if ( ! isCLI() && ! process.env.IS_DEV_BUILD ) {
 	Sentry.init( {
 		dsn: 'https://97693275b2716fb95048c6d12f4318cf@o248881.ingest.sentry.io/4506612776501248',
 		debug: true,
-		enabled:
-			process.env.NODE_ENV !== 'development' &&
-			process.env.NODE_ENV !== 'test' &&
-			! process.env.E2E,
+		enabled: process.env.NODE_ENV !== 'development' && process.env.NODE_ENV !== 'test',
 		release: `${ app.getVersion() ? app.getVersion() : COMMIT_HASH }-${ getPlatformName() }`,
 	} );
 }
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const isInInstaller = require( 'electron-squirrel-startup' );
 
 // Ensure we're the only instance of the app running

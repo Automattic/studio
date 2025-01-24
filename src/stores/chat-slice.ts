@@ -234,7 +234,8 @@ const chatSlice = createSlice( {
 	initialState,
 	reducers: {
 		resetChatState: ( state ) => {
-			state = initialState;
+			// Reassigning `initialState` to `state` doesn't work. Probably because of Immer.js.
+			Object.assign( state, initialState );
 		},
 		updateFromTheme: (
 			state,

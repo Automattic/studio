@@ -100,7 +100,7 @@ export async function authenticate(): Promise< void > {
 		REDIRECT_URI
 	) }&scope=${ encodeURIComponent( SCOPES ) }`;
 
-	await shellOpenExternalWrapper( authUrl );
+	shellOpenExternalWrapper( authUrl );
 }
 
 export function setUpAuthCallbackHandler() {

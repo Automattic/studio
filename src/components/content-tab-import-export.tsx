@@ -201,14 +201,7 @@ const ImportSite = ( {
 			await startServer( selectedSite.id );
 		}
 
-		try {
-			await getIpcApi().openSiteURL( selectedSite.id, '', { autoLogin: false } );
-		} catch ( error ) {
-			getIpcApi().showErrorMessageBox( {
-				title: __( 'Failed to open browser' ),
-				error,
-			} );
-		}
+		getIpcApi().openSiteURL( selectedSite.id, '', { autoLogin: false } );
 	};
 	const clearImportFileInput = () => {
 		if ( inputFileRef.current ) {

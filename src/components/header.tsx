@@ -22,16 +22,7 @@ export default function Header() {
 						<Button
 							disabled={ ! site.running }
 							className="[&.is-link]:text-a8c-gray-70 [&.is-link]:hover:text-a8c-blueberry !px-0 h-0 leading-4"
-							onClick={ async () => {
-								try {
-									await getIpcApi().openSiteURL( site.id, '/wp-admin' );
-								} catch ( error ) {
-									getIpcApi().showErrorMessageBox( {
-										title: __( 'Failed to open browser' ),
-										error,
-									} );
-								}
-							} }
+							onClick={ () => getIpcApi().openSiteURL( site.id, '/wp-admin' ) }
 							variant="link"
 						>
 							{ __( 'WP admin' ) }
@@ -44,16 +35,7 @@ export default function Header() {
 						<Button
 							disabled={ ! site.running }
 							className="[&.is-link]:text-a8c-gray-70 [&.is-link]:hover:text-a8c-blueberry !px-0 h-0 leading-4"
-							onClick={ async () => {
-								try {
-									await getIpcApi().openSiteURL( site.id, '', { autoLogin: false } );
-								} catch ( error ) {
-									getIpcApi().showErrorMessageBox( {
-										title: __( 'Failed to open browser' ),
-										error,
-									} );
-								}
-							} }
+							onClick={ async () => getIpcApi().openSiteURL( site.id, '', { autoLogin: false } ) }
 							variant="link"
 						>
 							{

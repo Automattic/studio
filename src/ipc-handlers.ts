@@ -719,11 +719,33 @@ export async function openSiteURL(
 		url.searchParams.append( 'playground-auto-login', 'true' );
 	}
 
-	await shellOpenExternalWrapper( url.toString() );
+	try {
+		await shellOpenExternalWrapper( url.toString() );
+	} catch ( error ) {
+		if ( error instanceof Error ) {
+			dialog.showMessageBox( {
+				type: 'error',
+				message: __( 'Failed to open browser' ),
+				detail: error.message,
+				buttons: [ __( 'OK' ) ],
+			} );
+		}
+	}
 }
 
 export async function openURL( event: IpcMainInvokeEvent, url: string ) {
-	return shellOpenExternalWrapper( url );
+	try {
+		await shellOpenExternalWrapper( url );
+	} catch ( error ) {
+		if ( error instanceof Error ) {
+			dialog.showMessageBox( {
+				type: 'error',
+				message: __( 'Failed to open browser' ),
+				detail: error.message,
+				buttons: [ __( 'OK' ) ],
+			} );
+		}
+	}
 }
 
 export async function copyText( event: IpcMainInvokeEvent, text: string ) {

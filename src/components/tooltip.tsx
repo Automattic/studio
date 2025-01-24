@@ -57,8 +57,8 @@ const Tooltip = ( {
 					placement={ placement }
 				>
 					<div className="inline-flex items-center gap-2 max-w-80 rounded py-2 px-2.5 bg-[#101517] text-white animate-[fade_0.5s_ease-in-out_1]">
-						{ icon && <Icon className="fill-white shrink-0" size={ 16 } icon={ icon } /> }
-						<span className="text-left text-xs">{ text }</span>
+						{ icon && <Icon className="fill-white shrink-0  m-[2px]" size={ 16 } icon={ icon } /> }
+						<span className="text-left text-x break-words overflow-hidden">{ text }</span>
 					</div>
 				</Popover>
 			) }

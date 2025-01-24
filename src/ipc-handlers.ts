@@ -708,7 +708,7 @@ export async function openSiteURL(
 		url.searchParams.append( 'playground-auto-login', 'true' );
 	}
 
-	await shellOpenExternalWrapper( url.toString() );
+	shellOpenExternalWrapper( url.toString() );
 }
 
 export async function openURL( event: IpcMainInvokeEvent, url: string ) {

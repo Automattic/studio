@@ -12,6 +12,7 @@ import {
 } from 'electron';
 import fs from 'fs';
 import fsPromises from 'fs/promises';
+import https from 'node:https';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { __, LocaleData, defaultI18n } from '@wordpress/i18n';
@@ -1099,4 +1100,35 @@ export async function getFileContent( event: IpcMainInvokeEvent, filePath: strin
 	}
 
 	return fs.readFileSync( filePath );
+}
+
+/**
+ * Checks the size of a sync backup file before downloading.
+ * Returns the size in bytes.
+ */
+export async function checkSyncBackupSize(
+	event: IpcMainInvokeEvent,
+	downloadUrl: string
+): Promise< number > {
+	return new Promise( ( resolve, reject ) => {
+		https
+			.get( downloadUrl, { method: 'HEAD' }, ( res ) => {
+				if ( res.statusCode !== 200 ) {
+					reject( new Error( `Failed to fetch file size: ${ res.statusMessage }` ) );
+					return;
+				}
+
+				const contentLength = res.headers[ 'content-length' ];
+				if ( ! contentLength ) {
+					reject( new Error( 'Content-Length header not found' ) );
+					return;
+				}
+
+				resolve( parseInt( contentLength, 10 ) );
+			} )
+			.on( 'error', ( error: Error ) => {
+				Sentry.captureException( error );
+				reject( new Error( `Failed to check backup file size: ${ error.message }` ) );
+			} );
+	} );
 }

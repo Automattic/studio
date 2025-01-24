@@ -2,11 +2,12 @@ import * as Sentry from '@sentry/electron/renderer';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useMemo } from 'react';
+import { SYNC_PUSH_SIZE_LIMIT_BYTES } from '../../constants';
 import { getIpcApi } from '../../lib/get-ipc-api';
 import { useAuth } from '../use-auth';
 import { useImportExport } from '../use-import-export';
 import { useSiteDetails } from '../use-site-details';
-import { useSyncStatesProgressInfo, PullStateProgressInfo } from '../use-sync-states-progress-info';
+import { PullStateProgressInfo, useSyncStatesProgressInfo } from '../use-sync-states-progress-info';
 import {
 	ClearState,
 	generateStateId,
@@ -90,6 +91,9 @@ export function useSyncPull( {
 			if ( ! client ) {
 				return;
 			}
+
+			console.groupCollapsed( 'Sync Pull' );
+
 			const remoteSiteId = connectedSite.id;
 			updatePullState( selectedSite.id, remoteSiteId, {
 				backupId: null,
@@ -101,6 +105,7 @@ export function useSyncPull( {
 			} );
 
 			try {
+				console.log( 'Signal for backup' );
 				const response = await client.req.post< { success: boolean; backup_id: string } >( {
 					path: `/sites/${ remoteSiteId }/studio-app/sync/backup`,
 					apiNamespace: 'wpcom/v2',
@@ -115,10 +120,14 @@ export function useSyncPull( {
 					throw new Error( 'Pull request failed' );
 				}
 			} catch ( error ) {
+				console.error( 'Pull request failed:', error );
+				console.groupEnd();
+
 				Sentry.captureException( error );
 				updatePullState( selectedSite.id, remoteSiteId, {
 					status: pullStatesProgressInfo.failed,
 				} );
+
 				getIpcApi().showErrorMessageBox( {
 					title: sprintf( __( 'Error pulling from %s' ), connectedSite.name ),
 					message: __( 'Studio was unable to connect to WordPress.com. Please try again.' ),
@@ -128,46 +137,108 @@ export function useSyncPull( {
 		[ __, client, pullStatesProgressInfo, updatePullState ]
 	);
 
+	const checkBackupFileSize = async ( downloadUrl: string ): Promise< number > => {
+		try {
+			return await getIpcApi().checkSyncBackupSize( downloadUrl );
+		} catch ( error ) {
+			console.log( 'Failed to check backup file size', error );
+			Sentry.captureException( error );
+			throw new Error( 'Failed to check backup file size' );
+		}
+	};
+
 	const onBackupCompleted = useCallback(
 		async ( remoteSiteId: number, backupState: SyncBackupState & { downloadUrl: string } ) => {
 			const { downloadUrl, selectedSite, isStaging } = backupState;
-			updatePullState( selectedSite.id, remoteSiteId, {
-				status: pullStatesProgressInfo.downloading,
-				downloadUrl,
-			} );
 
-			const filePath = await getIpcApi().downloadSyncBackup( remoteSiteId, downloadUrl );
+			try {
+				const fileSize = await checkBackupFileSize( downloadUrl );
+				console.log( 'Backup file size:', { fileSize, limit: SYNC_PUSH_SIZE_LIMIT_BYTES } );
 
-			updatePullState( selectedSite.id, remoteSiteId, {
-				status: pullStatesProgressInfo.importing,
-			} );
+				if ( fileSize > SYNC_PUSH_SIZE_LIMIT_BYTES ) {
+					console.log( 'File size exceeds limit, prompting user' );
+					const { response: userChoice } = await getIpcApi().showMessageBox( {
+						type: 'warning',
+						title: __( 'Large Backup File' ),
+						message: sprintf(
+							__(
+								'The backup file is over %s GB. You will not be able to push back the site. Continue?'
+							),
+							SYNC_PUSH_SIZE_LIMIT_BYTES
+						),
+						buttons: [ __( 'Continue' ), __( 'Cancel' ) ],
+						defaultId: 0,
+						cancelId: 1,
+					} );
 
-			await importFile(
-				{
-					path: filePath,
-					type: 'application/tar+gzip',
-				},
-				selectedSite,
-				{ showImportNotification: false }
-			);
+					if ( userChoice === 1 ) {
+						console.log( 'User cancelled pull operation' );
+						updatePullState( selectedSite.id, remoteSiteId, {
+							status: pullStatesProgressInfo.cancelled,
+						} );
+						return;
+					}
 
-			await getIpcApi().removeSyncBackup( remoteSiteId );
+					console.log( 'User confirmed to continue despite large file size' );
+				}
 
-			await startServer( selectedSite.id );
+				console.log( 'Initiating backup file download' );
+				updatePullState( selectedSite.id, remoteSiteId, {
+					status: pullStatesProgressInfo.downloading,
+					downloadUrl,
+				} );
 
-			clearImportState( selectedSite.id );
+				const filePath = await getIpcApi().downloadSyncBackup( remoteSiteId, downloadUrl );
+				console.log( 'Download completed', { filePath } );
 
-			getIpcApi().showNotification( {
-				title: selectedSite.name,
-				body: isStaging
-					? __( 'Studio site updated from Staging' )
-					: __( 'Studio site updated from Production' ),
-			} );
+				console.log( 'Starting import process' );
+				updatePullState( selectedSite.id, remoteSiteId, {
+					status: pullStatesProgressInfo.importing,
+				} );
 
-			updatePullState( selectedSite.id, remoteSiteId, {
-				status: pullStatesProgressInfo.finished,
-			} );
-			onPullSuccess?.( remoteSiteId, selectedSite.id );
+				await importFile(
+					{
+						path: filePath,
+						type: 'application/tar+gzip',
+					},
+					selectedSite,
+					{ showImportNotification: false }
+				);
+				console.log( 'Import completed successfully' );
+
+				console.log( 'Cleaning up' );
+				await getIpcApi().removeSyncBackup( remoteSiteId );
+
+				console.log( 'Starting local server' );
+				await startServer( selectedSite.id );
+
+				clearImportState( selectedSite.id );
+
+				console.log( 'Sync pull operation completed successfully' );
+				updatePullState( selectedSite.id, remoteSiteId, {
+					status: pullStatesProgressInfo.finished,
+				} );
+
+				getIpcApi().showNotification( {
+					title: selectedSite.name,
+					body: isStaging
+						? __( 'Studio site updated from Staging' )
+						: __( 'Studio site updated from Production' ),
+				} );
+
+				onPullSuccess?.( remoteSiteId, selectedSite.id );
+			} catch ( error ) {
+				console.error( 'Backup completion failed:', error );
+				Sentry.captureException( error );
+				updatePullState( selectedSite.id, remoteSiteId, {
+					status: pullStatesProgressInfo.failed,
+				} );
+				getIpcApi().showErrorMessageBox( {
+					title: sprintf( __( 'Error pulling from %s' ), selectedSite.name ),
+					message: __( 'Failed to check backup file size. Please try again.' ),
+				} );
+			}
+			console.groupEnd();
 		},
 		[
 			__,
@@ -177,6 +248,7 @@ export function useSyncPull( {
 			pullStatesProgressInfo.downloading,
 			pullStatesProgressInfo.finished,
 			pullStatesProgressInfo.importing,
+			pullStatesProgressInfo.cancelled,
 			startServer,
 			updatePullState,
 		]
@@ -187,41 +259,52 @@ export function useSyncPull( {
 			if ( ! client ) {
 				return;
 			}
+
 			const backupId = getPullState( selectedSiteId, remoteSiteId )?.backupId;
 			if ( ! backupId ) {
 				console.error( 'No backup ID found' );
 				return;
 			}
-			const response = await client.req.get< {
-				status: 'in-progress' | 'finished' | 'failed';
-				download_url: string;
-			} >( `/sites/${ remoteSiteId }/studio-app/sync/backup`, {
-				apiNamespace: 'wpcom/v2',
-				backup_id: backupId,
-			} );
 
-			const hasBackupCompleted = response.status === 'finished';
-			const frontendStatus = hasBackupCompleted
-				? pullStatesProgressInfo.downloading.key
-				: response.status;
-			const statusWithProgress =
-				pullStatesProgressInfo[ frontendStatus ] || pullStatesProgressInfo.failed;
-			const downloadUrl = hasBackupCompleted ? response.download_url : null;
+			try {
+				const response = await client.req.get< {
+					status: 'in-progress' | 'finished' | 'failed';
+					download_url: string;
+				} >( `/sites/${ remoteSiteId }/studio-app/sync/backup`, {
+					apiNamespace: 'wpcom/v2',
+					backup_id: backupId,
+				} );
 
-			if ( hasBackupCompleted && downloadUrl ) {
-				// Replacing the 'in-progress' status will stop the active listening for the backup completion
-				const backupState = getPullState( selectedSiteId, remoteSiteId );
-				if ( backupState ) {
-					onBackupCompleted( remoteSiteId, {
-						...backupState,
+				console.log( 'Checking backup status:', response.status );
+
+				const hasBackupCompleted = response.status === 'finished';
+				const frontendStatus = hasBackupCompleted
+					? pullStatesProgressInfo.downloading.key
+					: response.status;
+				const statusWithProgress =
+					pullStatesProgressInfo[ frontendStatus ] || pullStatesProgressInfo.failed;
+				const downloadUrl = hasBackupCompleted ? response.download_url : null;
+
+				if ( hasBackupCompleted && downloadUrl ) {
+					// Replacing the 'in-progress' status will stop the active listening for the backup completion
+					const backupState = getPullState( selectedSiteId, remoteSiteId );
+					if ( backupState ) {
+						await onBackupCompleted( remoteSiteId, {
+							...backupState,
+							downloadUrl,
+						} );
+						console.groupEnd();
+					}
+				} else {
+					updatePullState( selectedSiteId, remoteSiteId, {
+						status: statusWithProgress,
 						downloadUrl,
 					} );
 				}
-			} else {
-				updatePullState( selectedSiteId, remoteSiteId, {
-					status: statusWithProgress,
-					downloadUrl,
-				} );
+			} catch ( error ) {
+				console.error( 'Failed to fetch backup status:', error );
+				console.groupEnd();
+				throw error;
 			}
 		},
 		[ client, getPullState, onBackupCompleted, pullStatesProgressInfo, updatePullState ]

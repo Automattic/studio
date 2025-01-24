@@ -94,6 +94,8 @@ const api: IpcApi = {
 		ipcRenderer.invoke( 'openFileInIDE', relativePath, siteId ),
 	isImportExportSupported: ( siteId: string ) =>
 		ipcRenderer.invoke( 'isImportExportSupported', siteId ),
+	checkSyncBackupSize: ( downloadUrl: string ) =>
+		ipcRenderer.invoke( 'checkSyncBackupSize', downloadUrl ),
 	downloadSyncBackup: ( remoteSiteId: number, downloadUrl: string ) =>
 		ipcRenderer.invoke( 'downloadSyncBackup', remoteSiteId, downloadUrl ),
 	removeSyncBackup: ( remoteSiteId: number ) =>

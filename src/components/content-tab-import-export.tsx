@@ -200,7 +200,6 @@ const ImportSite = ( {
 			speak( __( 'Starting the server before opening the site link' ) );
 			await startServer( selectedSite.id );
 		}
-
 		getIpcApi().openSiteURL( selectedSite.id, '', { autoLogin: false } );
 	};
 	const clearImportFileInput = () => {

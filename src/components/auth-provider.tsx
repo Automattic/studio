@@ -1,5 +1,4 @@
 import * as Sentry from '@sentry/electron/renderer';
-import { __ } from '@wordpress/i18n';
 import { createContext, useState, useEffect, useMemo, useCallback, ReactNode } from 'react';
 import WPCOM from 'wpcom';
 import { useI18nData } from '../hooks/use-i18n-data';

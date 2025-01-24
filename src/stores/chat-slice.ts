@@ -177,7 +177,6 @@ export interface ChatState {
 	numberOfSites: number;
 	phpVersion: string;
 	siteName: string;
-	isSiteLoadedDict: Record< string, boolean >;
 	themeName: string;
 	isBlockTheme: boolean;
 	os: string;
@@ -202,7 +201,6 @@ const initialState: ChatState = {
 	os: window.appGlobals?.platform || '',
 	availableEditors: [],
 	siteName: '',
-	isSiteLoadedDict: {},
 	messagesDict: storedMessages ? JSON.parse( storedMessages ) : {},
 	chatApiIdDict: storedChatIds ? JSON.parse( storedChatIds ) : {},
 	chatInputBySite: {},
@@ -292,7 +290,6 @@ const chatSlice = createSlice( {
 				state.currentURL = `http://localhost:${ site.port }`;
 				state.phpVersion = site.phpVersion ?? DEFAULT_PHP_VERSION;
 				state.siteName = site.name;
-				state.isSiteLoadedDict[ site.id ] = true;
 			} )
 			.addCase( updateFromSiteThunk.fulfilled, ( state, action ) => {
 				const { plugins, themes } = action.payload;
@@ -300,10 +297,6 @@ const chatSlice = createSlice( {
 
 				state.pluginListDict[ siteId ] = plugins;
 				state.themeListDict[ siteId ] = themes;
-			} )
-			.addCase( updateFromSiteThunk.rejected, ( state, action ) => {
-				const { site } = action.meta.arg;
-				state.isSiteLoadedDict[ site.id ] = false;
 			} )
 			.addCase( fetchAssistantThunk.pending, ( state, action ) => {
 				const { message, instanceId, isRetry } = action.meta.arg;

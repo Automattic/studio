@@ -213,7 +213,6 @@ describe( 'chat-slice', () => {
 			expect( state.chat.currentURL ).toBe( 'http://localhost:8881' );
 			expect( state.chat.phpVersion ).toBe( '8.0' );
 			expect( state.chat.siteName ).toBe( 'Test Site' );
-			expect( state.chat.isSiteLoadedDict[ mockSite.id ] ).toBe( true );
 		} );
 
 		it( 'should handle WP CLI errors gracefully', async () => {
@@ -235,7 +234,6 @@ describe( 'chat-slice', () => {
 			const state = store.getState();
 			expect( state.chat.pluginListDict[ mockSite.id ] ).toEqual( [] );
 			expect( state.chat.themeListDict[ mockSite.id ] ).toEqual( [] );
-			expect( state.chat.isSiteLoadedDict[ mockSite.id ] ).toBe( true );
 		} );
 
 		it( 'should handle JSON parsing errors gracefully', async () => {
@@ -257,7 +255,6 @@ describe( 'chat-slice', () => {
 			const state = store.getState();
 			expect( state.chat.pluginListDict[ mockSite.id ] ).toEqual( [] );
 			expect( state.chat.themeListDict[ mockSite.id ] ).toEqual( [] );
-			expect( state.chat.isSiteLoadedDict[ mockSite.id ] ).toBe( true );
 		} );
 	} );
 } );

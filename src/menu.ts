@@ -4,7 +4,7 @@ import {
 	app,
 	BrowserWindow,
 	autoUpdater,
-	shell,
+	dialog,
 } from 'electron';
 import { __ } from '@wordpress/i18n';
 import { openAboutWindow } from './about-menu/open-about-menu';
@@ -12,6 +12,7 @@ import { BUG_REPORT_URL, FEATURE_REQUEST_URL, STUDIO_DOCS_URL } from './constant
 import { promptWindowsSpeedUpSites } from './lib/windows-helpers';
 import { getMainWindow } from './main-window';
 import { isUpdateReadyToInstall, manualCheckForUpdates } from './updates';
+import { shellOpenExternalWrapper } from './utils/shellOpenExternalWrapper'
 
 export async function setupMenu( config: { needsOnboarding: boolean } ) {
 	const mainWindow = await getMainWindow();
@@ -180,8 +181,19 @@ function getAppMenu(
 			submenu: [
 				{
 					label: __( 'Studio Help' ),
-					click: () => {
-						shell.openExternal( STUDIO_DOCS_URL );
+					click: async () => {
+						try {
+							await shellOpenExternalWrapper( STUDIO_DOCS_URL );
+						} catch ( error ) {
+							if ( error instanceof Error ) {
+								dialog.showMessageBox( {
+									type: 'error',
+									message: __( 'Failed to open browser' ),
+									detail: error.message,
+									buttons: [ __( 'OK' ) ],
+								} );
+							}
+						}
 					},
 				},
 				{ type: 'separator' },
@@ -198,14 +210,36 @@ function getAppMenu(
 				{ type: 'separator' },
 				{
 					label: __( 'Report an Issue' ),
-					click: () => {
-						shell.openExternal( BUG_REPORT_URL );
+					click: async () => {
+						try {
+							await shellOpenExternalWrapper( BUG_REPORT_URL );
+						} catch ( error ) {
+							if ( error instanceof Error ) {
+								dialog.showMessageBox( {
+									type: 'error',
+									message: __( 'Failed to open browser' ),
+									detail: error.message,
+									buttons: [ __( 'OK' ) ],
+								} );
+							}
+						}
 					},
 				},
 				{
 					label: __( 'Propose a Feature' ),
-					click: () => {
-						shell.openExternal( FEATURE_REQUEST_URL );
+					click: async () => {
+						try {
+							await shellOpenExternalWrapper( FEATURE_REQUEST_URL );
+						} catch ( error ) {
+							if ( error instanceof Error ) {
+								dialog.showMessageBox( {
+									type: 'error',
+									message: __( 'Failed to open browser' ),
+									detail: error.message,
+									buttons: [ __( 'OK' ) ],
+								} );
+							}
+						}
 					},
 				},
 			],

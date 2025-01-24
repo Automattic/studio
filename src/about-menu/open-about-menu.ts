@@ -1,8 +1,9 @@
-import { BrowserWindow, app, shell } from 'electron';
+import { BrowserWindow, app, dialog } from 'electron';
 import path from 'path';
 import * as Sentry from '@sentry/electron/renderer';
 import { sprintf, __ } from '@wordpress/i18n';
 import { ABOUT_WINDOW_HEIGHT, ABOUT_WINDOW_WIDTH } from '../constants';
+import { shellOpenExternalWrapper } from '../utils/shellOpenExternalWrapper'
 
 let aboutWindow: BrowserWindow | null = null;
 
@@ -30,7 +31,21 @@ export function openAboutWindow() {
 
 	// Open external links in the default browser
 	aboutWindow.webContents.setWindowOpenHandler( ( { url } ) => {
-		shell.openExternal( url );
+		( async function () {
+			try {
+				await shellOpenExternalWrapper( url );
+			} catch ( error ) {
+				if ( error instanceof Error ) {
+					dialog.showMessageBox( {
+						type: 'error',
+						message: __( 'Failed to open browser' ),
+						detail: error.message,
+						buttons: [ __( 'OK' ) ],
+					} );
+				}
+			}
+		} )();
+
 		return { action: 'deny' };
 	} );
 

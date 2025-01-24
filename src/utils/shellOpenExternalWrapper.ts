@@ -27,9 +27,13 @@ export const shellOpenExternalWrapper = async ( url: string ) => {
 		if ( url.startsWith( 'vscode://file/' ) ) {
 			message = __( 'Studio is unable to open VS Code. Please ensure it is functioning correctly' );
 		} else if ( url.startsWith( 'phpstorm://open?file=' ) ) {
-			message = __( 'Studio is unable to open PHPStorm. Please ensure it is functioning correctly' );
+			message = __(
+				'Studio is unable to open PHPStorm. Please ensure it is functioning correctly'
+			);
 		} else {
-			message = __( 'Studio is unable to open your default browser. Please ensure it is functioning correctly' );
+			message = __(
+				'Studio is unable to open your default browser. Please ensure it is functioning correctly'
+			);
 		}
 
 		throw new Error( message );

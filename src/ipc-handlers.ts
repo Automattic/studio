@@ -934,7 +934,7 @@ export async function showErrorMessageBox(
 		message,
 		error,
 		showOpenLogs = false,
-	}: { title: string; message?: string; error?: unknown; showOpenLogs?: boolean }
+	}: { title: string; message: string; error?: unknown; showOpenLogs?: boolean }
 ) {
 	// Remove prepended error message added by IPC handler
 	const filteredError = ( error as Error )?.message?.replace(
@@ -944,7 +944,7 @@ export async function showErrorMessageBox(
 	const response = await showMessageBox( event, {
 		type: 'error',
 		message: title,
-		detail: error ? `${ message ? message + '\n\n' : '' }${ filteredError }` : message,
+		detail: error ? `${ message }\n\n${ filteredError }` : message,
 		buttons: [ ...( showOpenLogs ? [ __( 'Open Studio Logs' ) ] : [] ), __( 'OK' ) ],
 	} );
 

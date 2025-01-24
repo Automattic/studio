@@ -18,7 +18,7 @@ import {
 	selectIsLoading,
 	selectMessages,
 	setChatInput,
-	updateFromSite,
+	updateFromSiteThunk,
 	updateFromTheme,
 	selectChatApiId,
 	Message as MessageType,
@@ -364,7 +364,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const { selectedThemeDetails: themeDetails } = useThemeDetails();
 
 	useEffect( () => {
-		dispatch( updateFromSite( { site: selectedSite, instanceId } ) );
+		dispatch( updateFromSiteThunk( { site: selectedSite, instanceId } ) );
 	}, [ dispatch, instanceId, selectedSite ] );
 
 	useEffect( () => {

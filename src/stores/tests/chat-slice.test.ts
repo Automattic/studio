@@ -1,5 +1,6 @@
 import WPCOM from 'wpcom';
 import { CHAT_ID_STORE_KEY, CHAT_MESSAGES_STORE_KEY } from 'src/constants';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 import store from 'src/stores';
 import {
 	fetchAssistantThunk,
@@ -7,7 +8,10 @@ import {
 	resetChatState,
 	sendFeedbackThunk,
 	setMessages,
+	updateFromSiteThunk,
 } from 'src/stores/chat-slice';
+
+jest.mock( 'src/lib/get-ipc-api' );
 
 const mockClientReqPostUsingCallback = jest.fn().mockImplementation( ( params, callback ) => {
 	callback(
@@ -171,6 +175,89 @@ describe( 'chat-slice', () => {
 
 			const storedChatIds = JSON.parse( localStorage.getItem( CHAT_ID_STORE_KEY ) || '{}' );
 			expect( storedChatIds[ instanceId ] ).toBe( 'chatcmpl-123' );
+		} );
+	} );
+
+	describe( 'updateFromSiteThunk', () => {
+		const mockSite: SiteDetails = {
+			id: 'test-site',
+			name: 'Test Site',
+			port: 8881,
+			phpVersion: '8.0',
+			path: '/test/path',
+			running: true,
+			url: 'http://localhost:8881',
+		};
+
+		beforeEach( () => {
+			( getIpcApi as jest.Mock ).mockReturnValue( {
+				executeWPCLiInline: jest.fn().mockResolvedValue( {
+					stdout: JSON.stringify( [ { name: 'woocommerce' }, { name: 'jetpack' } ] ),
+					stderr: '',
+				} ),
+			} );
+		} );
+
+		it( 'should update plugin and theme lists when WP CLI succeeds', async () => {
+			const result = await store.dispatch( updateFromSiteThunk( { site: mockSite } ) );
+
+			expect( result.type ).toBe( 'chat/updateFromSite/fulfilled' );
+			expect( result.payload ).toEqual( {
+				plugins: [ 'woocommerce', 'jetpack' ],
+				themes: [ 'woocommerce', 'jetpack' ],
+			} );
+
+			const state = store.getState();
+			expect( state.chat.pluginListDict[ mockSite.id ] ).toEqual( [ 'woocommerce', 'jetpack' ] );
+			expect( state.chat.themeListDict[ mockSite.id ] ).toEqual( [ 'woocommerce', 'jetpack' ] );
+			expect( state.chat.currentURL ).toBe( 'http://localhost:8881' );
+			expect( state.chat.phpVersion ).toBe( '8.0' );
+			expect( state.chat.siteName ).toBe( 'Test Site' );
+			expect( state.chat.isSiteLoadedDict[ mockSite.id ] ).toBe( true );
+		} );
+
+		it( 'should handle WP CLI errors gracefully', async () => {
+			( getIpcApi as jest.Mock ).mockReturnValue( {
+				executeWPCLiInline: jest.fn().mockResolvedValue( {
+					stdout: '',
+					stderr: 'Error: WP CLI failed',
+				} ),
+			} );
+
+			const result = await store.dispatch( updateFromSiteThunk( { site: mockSite } ) );
+
+			expect( result.type ).toBe( 'chat/updateFromSite/fulfilled' );
+			expect( result.payload ).toEqual( {
+				plugins: [],
+				themes: [],
+			} );
+
+			const state = store.getState();
+			expect( state.chat.pluginListDict[ mockSite.id ] ).toEqual( [] );
+			expect( state.chat.themeListDict[ mockSite.id ] ).toEqual( [] );
+			expect( state.chat.isSiteLoadedDict[ mockSite.id ] ).toBe( true );
+		} );
+
+		it( 'should handle JSON parsing errors gracefully', async () => {
+			( getIpcApi as jest.Mock ).mockReturnValue( {
+				executeWPCLiInline: jest.fn().mockResolvedValue( {
+					stdout: 'Invalid JSON',
+					stderr: '',
+				} ),
+			} );
+
+			const result = await store.dispatch( updateFromSiteThunk( { site: mockSite } ) );
+
+			expect( result.type ).toBe( 'chat/updateFromSite/fulfilled' );
+			expect( result.payload ).toEqual( {
+				plugins: [],
+				themes: [],
+			} );
+
+			const state = store.getState();
+			expect( state.chat.pluginListDict[ mockSite.id ] ).toEqual( [] );
+			expect( state.chat.themeListDict[ mockSite.id ] ).toEqual( [] );
+			expect( state.chat.isSiteLoadedDict[ mockSite.id ] ).toBe( true );
 		} );
 	} );
 } );

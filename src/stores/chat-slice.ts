@@ -54,11 +54,10 @@ async function fetchThemeList( siteId: string ): Promise< string[] > {
 }
 
 type UpdateFromSiteParams = {
-	instanceId: string;
 	site: SiteDetails;
 };
 
-export const updateFromSite = createAsyncThunk(
+export const updateFromSiteThunk = createAsyncThunk(
 	'chat/updateFromSite',
 	async ( { site }: UpdateFromSiteParams ) => {
 		const [ plugins, themes ] = await Promise.all( [
@@ -287,7 +286,7 @@ const chatSlice = createSlice( {
 	},
 	extraReducers: ( builder ) => {
 		builder
-			.addCase( updateFromSite.pending, ( state, action ) => {
+			.addCase( updateFromSiteThunk.pending, ( state, action ) => {
 				const { site } = action.meta.arg;
 
 				state.currentURL = `http://localhost:${ site.port }`;
@@ -295,15 +294,16 @@ const chatSlice = createSlice( {
 				state.siteName = site.name;
 				state.isSiteLoadedDict[ site.id ] = true;
 			} )
-			.addCase( updateFromSite.fulfilled, ( state, action ) => {
+			.addCase( updateFromSiteThunk.fulfilled, ( state, action ) => {
 				const { plugins, themes } = action.payload;
 				const siteId = action.meta.arg.site.id;
 
 				state.pluginListDict[ siteId ] = plugins;
 				state.themeListDict[ siteId ] = themes;
 			} )
-			.addCase( updateFromSite.rejected, ( state, action ) => {
-				state.isSiteLoadedDict[ action.meta.arg.instanceId ] = false;
+			.addCase( updateFromSiteThunk.rejected, ( state, action ) => {
+				const { site } = action.meta.arg;
+				state.isSiteLoadedDict[ site.id ] = false;
 			} )
 			.addCase( fetchAssistantThunk.pending, ( state, action ) => {
 				const { message, instanceId, isRetry } = action.meta.arg;

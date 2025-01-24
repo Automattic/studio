@@ -159,13 +159,13 @@ async function prepareDocumentRoot( php: PHP, options: WPNowOptions ) {
 	php.writeFile( '/internal/shared/ca-bundle.crt', rootCertificates.join( '\n' ) );
 }
 
-async function mountSqlitePlugin( php: PHP, documentRoot: string ) {
+async function mountSqlitePlugin( php: PHP, projectPath: string, documentRoot: string ) {
 	const SQLITE_PLUGIN_FOLDER = '/internal/shared/mu-plugins/sqlite-database-integration';
-	await recursiveCopyDirectoryToMuPlugins(
-		php,
-		path.join( getWpNowPath(), 'sqlite-database-integration' ),
-		SQLITE_PLUGIN_FOLDER
-	);
+	const sqlitePluginSourceDir = path.join( projectPath, 'sqlite-database-integration' );
+	if ( ! fs.existsSync( sqlitePluginSourceDir ) ) {
+		return;
+	}
+	await recursiveCopyDirectoryToMuPlugins( php, sqlitePluginSourceDir, SQLITE_PLUGIN_FOLDER );
 
 	const dbCopy = await php.readFileAsText( path.join( SQLITE_PLUGIN_FOLDER, 'db.copy' ) );
 	const dbPhp = dbCopy
@@ -362,7 +362,7 @@ export async function prepareWordPress( php: PHP, options: WPNowOptions ) {
 	}
 
 	await mountInternalMuPlugins( php );
-	await mountSqlitePlugin( php, options.documentRoot );
+	await mountSqlitePlugin( php, options.projectPath, options.documentRoot );
 	await startSymlinkManager( php, options.projectPath, options.documentRoot );
 }
 

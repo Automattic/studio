@@ -712,7 +712,7 @@ export async function openSiteURL(
 }
 
 export async function openURL( event: IpcMainInvokeEvent, url: string ) {
-	await shellOpenExternalWrapper( url );
+	return shellOpenExternalWrapper( url );
 }
 
 export async function copyText( event: IpcMainInvokeEvent, text: string ) {

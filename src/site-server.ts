@@ -178,10 +178,10 @@ export class SiteServer {
 		const projectPath = this.details.path;
 		const phpVersion = targetPhpVersion ?? this.details.phpVersion;
 
-		if ( ! this.wpCliExecutor ) {
-			this.wpCliExecutor = new WpCliProcess( projectPath );
-			await this.wpCliExecutor.init();
-		}
+		// if ( ! this.wpCliExecutor ) {
+		this.wpCliExecutor = new WpCliProcess( projectPath );
+		await this.wpCliExecutor.init();
+		// }
 
 		const wpCliArgs = parse( args );
 

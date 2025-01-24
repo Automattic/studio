@@ -1,14 +1,14 @@
 import { downloadWpCli } from './download';
 import { rootCertificates } from 'tls';
 import getWpCliPath from './get-wp-cli-path';
-import getWpNowConfig from './config';
+import getWpNowConfig, { WPNowMode } from './config';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from './constants';
 import { phpVar } from '@php-wasm/util';
 import { createNodeFsMountHandler, loadNodeRuntime } from '@php-wasm/node';
 import { getSqliteCommandPath } from '../../../src/lib/sqlite-command-versions';
 import { PHP, MountHandler, writeFiles, setPhpIniEntries } from '@php-wasm/universal';
 import { readFileSync } from 'fs';
-import { startSymlinkManager } from './wp-now';
+import { prepareWordPress } from './wp-now';
 
 const isWindows = process.platform === 'win32';
 
@@ -30,6 +30,7 @@ export async function executeWPCli(
 		php: phpVersion || DEFAULT_PHP_VERSION,
 		wp: DEFAULT_WORDPRESS_VERSION,
 		path: projectPath,
+		mode: WPNowMode.CLI,
 	} );
 
 	const id = await loadNodeRuntime( options.phpVersion );
@@ -39,7 +40,8 @@ export async function executeWPCli(
 		options.documentRoot,
 		createNodeFsMountHandler( projectPath ) as unknown as MountHandler
 	);
-	await startSymlinkManager( php, projectPath, options.documentRoot );
+
+	await prepareWordPress( php, options );
 
 	//Set the SAPI name to cli before running the script
 	await php.setSapiName( 'cli' );

@@ -73,8 +73,7 @@ export default async function startWPNow(
 	const php = await requestHandler.getPrimaryPhp();
 
 	applyOverrideUmaskWorkaround( php );
-
-	prepareDocumentRoot( php, options );
+	await prepareDocumentRoot( php, options );
 
 	output?.log( `directory: ${ options.projectPath }` );
 	output?.log( `mode: ${ options.mode }` );
@@ -121,7 +120,7 @@ export default async function startWPNow(
 		recreateRuntime: async () => {
 			output?.log( 'Recreating and rotating PHP runtime' );
 			const { php, runtimeId } = await getPHPInstance( options, true, requestHandler );
-			prepareDocumentRoot( php, options );
+			await prepareDocumentRoot( php, options );
 			await prepareWordPress( php, options );
 			return runtimeId;
 		},
@@ -153,18 +152,14 @@ async function getPHPInstance(
 	return { php, runtimeId: id };
 }
 
-function prepareDocumentRoot( php: PHP, options: WPNowOptions ) {
+async function prepareDocumentRoot( php: PHP, options: WPNowOptions ) {
 	php.mkdir( options.documentRoot );
 	php.chdir( options.documentRoot );
 	php.writeFile( `${ options.documentRoot }/index.php`, `<?php echo 'Hello wp-now!';` );
 	php.writeFile( '/internal/shared/ca-bundle.crt', rootCertificates.join( '\n' ) );
-
-	// MU-TODO: rename to mount
-	prepareInternalMuPlugins( php );
-	prepareSqlitePlugin( php );
 }
 
-async function prepareSqlitePlugin( php: PHP ) {
+async function mountSqlitePlugin( php: PHP, documentRoot: string ) {
 	const SQLITE_PLUGIN_FOLDER = '/internal/shared/mu-plugins/sqlite-database-integration';
 	await recursiveCopyDirectoryToMuPlugins(
 		php,
@@ -176,7 +171,7 @@ async function prepareSqlitePlugin( php: PHP ) {
 	const dbPhp = dbCopy
 		.replace( "'{SQLITE_IMPLEMENTATION_FOLDER_PATH}'", phpVar( SQLITE_PLUGIN_FOLDER ) )
 		.replace( "'{SQLITE_PLUGIN}'", phpVar( joinPaths( SQLITE_PLUGIN_FOLDER, 'load.php' ) ) );
-	await php.writeFile( path.join( php.requestHandler.documentRoot, 'wp-content/db.php' ), dbPhp );
+	await php.writeFile( path.join( documentRoot, 'wp-content/db.php' ), dbPhp );
 }
 
 // MU-TODO: move this code to a helper or find a built-in function to do this
@@ -201,7 +196,7 @@ async function recursiveCopyDirectoryToMuPlugins(
 	}
 }
 
-async function prepareInternalMuPlugins( php: PHP ) {
+async function mountInternalMuPlugins( php: PHP ) {
 	const muPluginsPath = '/internal/shared/mu-plugins';
 	php.mkdir( muPluginsPath );
 
@@ -344,7 +339,7 @@ set_error_handler(function($severity, $message, $file, $line) {
 	setupPlatformLevelMuPlugins( php );
 }
 
-async function prepareWordPress( php: PHP, options: WPNowOptions ) {
+export async function prepareWordPress( php: PHP, options: WPNowOptions ) {
 	switch ( options.mode ) {
 		case WPNowMode.WP_CONTENT:
 			await runWpContentMode( php, options );
@@ -366,6 +361,8 @@ async function prepareWordPress( php: PHP, options: WPNowOptions ) {
 			break;
 	}
 
+	await mountInternalMuPlugins( php );
+	await mountSqlitePlugin( php, options.documentRoot );
 	await startSymlinkManager( php, options.projectPath, options.documentRoot );
 }
 

@@ -1,4 +1,4 @@
-import { shell } from 'electron';
+import { shell, dialog } from 'electron';
 import * as Sentry from '@sentry/electron/main';
 import { __ } from '@wordpress/i18n';
 
@@ -23,19 +23,28 @@ export const shellOpenExternalWrapper = async ( url: string ) => {
 			Sentry.captureException( error );
 		}
 
+		let title = '';
 		let message = '';
 		if ( url.startsWith( 'vscode://file/' ) ) {
+			title = __( 'Failed to open "VS Code"' );
 			message = __( 'Studio is unable to open VS Code. Please ensure it is functioning correctly' );
 		} else if ( url.startsWith( 'phpstorm://open?file=' ) ) {
+			title = __( 'Failed to open "PHP Storm"' );
 			message = __(
 				'Studio is unable to open PHPStorm. Please ensure it is functioning correctly'
 			);
 		} else {
+			title = __( 'Failed to open browser' );
 			message = __(
 				'Studio is unable to open your default browser. Please ensure it is functioning correctly'
 			);
 		}
 
-		throw new Error( message );
+		dialog.showMessageBox( {
+			type: 'error',
+			message: title,
+			detail: message,
+			buttons: [ __( 'OK' ) ],
+		} );
 	}
 };

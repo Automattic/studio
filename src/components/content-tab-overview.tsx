@@ -162,18 +162,8 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 				__( 'VS Code' ),
 			className: 'text-nowrap',
 			icon: code,
-			onClick: async () => {
-				try {
-					await getIpcApi().openURL( `vscode://file/${ selectedSite.path }?windowId=_blank` );
-				} catch ( error ) {
-					Sentry.captureException( error );
-					alert(
-						// translators: "VS Code" is the brand name for an IDE and does not need to be translated
-						__(
-							"Could not open the site code in VS Code. Please check if it's installed correctly."
-						)
-					);
-				}
+			onClick: () => {
+				getIpcApi().openURL( `vscode://file/${ selectedSite.path }?windowId=_blank` );
 			},
 		} );
 	} else if ( installedApps.phpstorm ) {
@@ -183,18 +173,8 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 				__( 'PhpStorm' ),
 			className: 'text-nowrap',
 			icon: code,
-			onClick: async () => {
-				try {
-					await getIpcApi().openURL( `phpstorm://open?file=${ selectedSite.path }` );
-				} catch ( error ) {
-					Sentry.captureException( error );
-					alert(
-						// translators: "PhpStorm" is the brand name for an IDE and does not need to be translated
-						__(
-							"Could not open the site code in PhpStorm. Please check if it's installed correctly."
-						)
-					);
-				}
+			onClick: () => {
+				getIpcApi().openURL( `phpstorm://open?file=${ selectedSite.path }` );
 			},
 		} );
 	}

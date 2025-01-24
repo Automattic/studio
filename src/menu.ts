@@ -181,19 +181,8 @@ function getAppMenu(
 			submenu: [
 				{
 					label: __( 'Studio Help' ),
-					click: async () => {
-						try {
-							await shellOpenExternalWrapper( STUDIO_DOCS_URL );
-						} catch ( error ) {
-							if ( error instanceof Error ) {
-								dialog.showMessageBox( {
-									type: 'error',
-									message: __( 'Failed to open browser' ),
-									detail: error.message,
-									buttons: [ __( 'OK' ) ],
-								} );
-							}
-						}
+					click: () => {
+						shellOpenExternalWrapper( STUDIO_DOCS_URL );
 					},
 				},
 				{ type: 'separator' },
@@ -210,36 +199,14 @@ function getAppMenu(
 				{ type: 'separator' },
 				{
 					label: __( 'Report an Issue' ),
-					click: async () => {
-						try {
-							await shellOpenExternalWrapper( BUG_REPORT_URL );
-						} catch ( error ) {
-							if ( error instanceof Error ) {
-								dialog.showMessageBox( {
-									type: 'error',
-									message: __( 'Failed to open browser' ),
-									detail: error.message,
-									buttons: [ __( 'OK' ) ],
-								} );
-							}
-						}
+					click: () => {
+						shellOpenExternalWrapper( BUG_REPORT_URL );
 					},
 				},
 				{
 					label: __( 'Propose a Feature' ),
-					click: async () => {
-						try {
-							await shellOpenExternalWrapper( FEATURE_REQUEST_URL );
-						} catch ( error ) {
-							if ( error instanceof Error ) {
-								dialog.showMessageBox( {
-									type: 'error',
-									message: __( 'Failed to open browser' ),
-									detail: error.message,
-									buttons: [ __( 'OK' ) ],
-								} );
-							}
-						}
+					click: () => {
+						shellOpenExternalWrapper( FEATURE_REQUEST_URL );
 					},
 				},
 			],

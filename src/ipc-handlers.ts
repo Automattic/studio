@@ -640,18 +640,7 @@ export function logRendererMessage(
 }
 
 export async function authenticate( _event: IpcMainInvokeEvent ): Promise< void > {
-	try {
-		await oauthClient.authenticate();
-	} catch ( error ) {
-		if ( error instanceof Error ) {
-			dialog.showMessageBox( {
-				type: 'error',
-				message: __( 'Failed to open browser' ),
-				detail: error.message,
-				buttons: [ __( 'OK' ) ],
-			} );
-		}
-	}
+	oauthClient.authenticate();
 }
 
 export async function getAuthenticationToken(
@@ -719,33 +708,11 @@ export async function openSiteURL(
 		url.searchParams.append( 'playground-auto-login', 'true' );
 	}
 
-	try {
-		await shellOpenExternalWrapper( url.toString() );
-	} catch ( error ) {
-		if ( error instanceof Error ) {
-			dialog.showMessageBox( {
-				type: 'error',
-				message: __( 'Failed to open browser' ),
-				detail: error.message,
-				buttons: [ __( 'OK' ) ],
-			} );
-		}
-	}
+	await shellOpenExternalWrapper( url.toString() );
 }
 
 export async function openURL( event: IpcMainInvokeEvent, url: string ) {
-	try {
-		await shellOpenExternalWrapper( url );
-	} catch ( error ) {
-		if ( error instanceof Error ) {
-			dialog.showMessageBox( {
-				type: 'error',
-				message: __( 'Failed to open browser' ),
-				detail: error.message,
-				buttons: [ __( 'OK' ) ],
-			} );
-		}
-	}
+	await shellOpenExternalWrapper( url );
 }
 
 export async function copyText( event: IpcMainInvokeEvent, text: string ) {

@@ -31,20 +31,7 @@ export function openAboutWindow() {
 
 	// Open external links in the default browser
 	aboutWindow.webContents.setWindowOpenHandler( ( { url } ) => {
-		( async function () {
-			try {
-				await shellOpenExternalWrapper( url );
-			} catch ( error ) {
-				if ( error instanceof Error ) {
-					dialog.showMessageBox( {
-						type: 'error',
-						message: __( 'Failed to open browser' ),
-						detail: error.message,
-						buttons: [ __( 'OK' ) ],
-					} );
-				}
-			}
-		} )();
+		shellOpenExternalWrapper( url );
 
 		return { action: 'deny' };
 	} );

@@ -1,4 +1,4 @@
-import { BrowserWindow, app, dialog } from 'electron';
+import { BrowserWindow, app } from 'electron';
 import path from 'path';
 import * as Sentry from '@sentry/electron/renderer';
 import { sprintf, __ } from '@wordpress/i18n';

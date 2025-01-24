@@ -95,7 +95,7 @@ export async function handleAuthCallback( hash: string ): Promise< Error | Store
 	};
 }
 
-export async function authenticate(): Promise< void > {
+export function authenticate(): void {
 	const authUrl = `${ WP_AUTHORIZE_ENDPOINT }?response_type=token&client_id=${ CLIENT_ID }&redirect_uri=${ encodeURIComponent(
 		REDIRECT_URI
 	) }&scope=${ encodeURIComponent( SCOPES ) }`;

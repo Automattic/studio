@@ -13,7 +13,6 @@ import React, {
 import { LIMIT_OF_ZIP_SITES_PER_USER } from '../constants';
 import { getIpcApi } from '../lib/get-ipc-api';
 import { useAuth } from './use-auth';
-import { useFeatureFlags } from './use-feature-flags';
 import { useOffline } from './use-offline';
 
 interface SnapshotContextType {
@@ -93,10 +92,7 @@ export const SnapshotProvider: React.FC< { children: ReactNode } > = ( { childre
 	const [ allSnapshots, setAllSnapshots ] = useState< Pick< Snapshot, 'atomicSiteId' >[] | null >(
 		null
 	);
-	const quickDeploysEnabled = useFeatureFlags();
-	const [ snapshotQuota, setSnapshotQuota ] = useState(
-		quickDeploysEnabled ? 100 : LIMIT_OF_ZIP_SITES_PER_USER
-	);
+	const [ snapshotQuota, setSnapshotQuota ] = useState( LIMIT_OF_ZIP_SITES_PER_USER );
 	const [ isLoadingSnapshotUsage, setIsLoadingSnapshotUsage ] = useState( false );
 	const [ snapshotCreationBlocked, setSnapshotCreationBlocked ] = useState( false );
 

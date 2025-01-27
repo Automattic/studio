@@ -1,4 +1,4 @@
-import { ProgressBar, DropdownMenu, MenuGroup, MenuItem } from '@wordpress/components';
+import { ProgressBar, DropdownMenu, MenuGroup, MenuItem, Spinner } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 import { check, external, Icon, arrowDown, moreVertical } from '@wordpress/icons';
@@ -357,7 +357,16 @@ function SnapshotRow( {
 					</Button>
 				</div>
 				<div className="flex ml-auto">
-					<div className="w-[110px] text-a8c-gray-70">{ getLastUpdateTimeText() }</div>
+					<div className="w-[110px] text-a8c-gray-70">
+						{ isSiteDemoUpdating ? (
+							<div className="flex items-center">
+								<Spinner className="!mt-0 !mx-2" />
+								{ __( 'Updating' ) }
+							</div>
+						) : (
+							getLastUpdateTimeText()
+						) }
+					</div>
 					<div className="w-[100px] text-a8c-gray-70">{ countDown }</div>
 					<div className="w-[60px] pr-2">
 						<PreviewActionButtonsMenu snapshot={ snapshot } selectedSite={ selectedSite } />

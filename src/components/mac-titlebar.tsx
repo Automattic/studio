@@ -15,7 +15,7 @@ export default function MacTitlebar( {
 	return (
 		<div
 			className={ cx(
-				'transition-[padding] duration-700 ease-in-out',
+				'transition-[padding] duration-500 ease-in-out',
 				! isFullscreen &&
 					isRtl &&
 					'ltr:pr-window-controls-width-excl-chrome-mac ltr:pl-chrome rtl:pr-window-controls-width-mac rtl:-ml-chrome',

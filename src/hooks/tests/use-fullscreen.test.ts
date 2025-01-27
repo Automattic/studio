@@ -1,4 +1,4 @@
-import { renderHook } from '@testing-library/react';
+import { renderHook, waitFor } from '@testing-library/react';
 import { act } from 'react';
 import { getIpcApi } from '../../lib/get-ipc-api';
 import { useFullscreen } from '../use-fullscreen';
@@ -24,8 +24,8 @@ describe( 'useFullscreen', () => {
 
 		expect( result.current ).toBe( false );
 
-		await act( async () => {
-			await Promise.resolve();
+		await waitFor( () => {
+			expect( mockIpcApi.isFullscreen ).toHaveBeenCalledTimes( 1 );
 		} );
 
 		expect( result.current ).toBe( true );
@@ -40,8 +40,8 @@ describe( 'useFullscreen', () => {
 
 		const { result } = renderHook( () => useFullscreen() );
 
-		await act( async () => {
-			await Promise.resolve();
+		await waitFor( () => {
+			expect( mockIpcApi.isFullscreen ).toHaveBeenCalledTimes( 1 );
 		} );
 
 		await act( async () => {

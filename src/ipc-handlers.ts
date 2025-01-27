@@ -520,6 +520,9 @@ export async function showUserSettings( event: IpcMainInvokeEvent ): Promise< vo
 	if ( ! parentWindow ) {
 		throw new Error( `No window found for sender of showUserSettings message: ${ event.frameId }` );
 	}
+	if ( parentWindow.isDestroyed() || event.sender.isDestroyed() ) {
+		return;
+	}
 	parentWindow.webContents.send( 'user-settings' );
 }
 

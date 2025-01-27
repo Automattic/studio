@@ -11,7 +11,6 @@ import { pathExists, recursiveCopyDirectory, isEmptyDir } from './lib/fs-utils';
 import { decodePassword } from './lib/passwords';
 import { phpGetThemeDetails } from './lib/php-get-theme-details';
 import { portFinder } from './lib/port-finder';
-import { sanitizeForLogging } from './lib/sanitize-for-logging';
 import { getPreferredSiteLanguage } from './lib/site-language';
 import SiteServerProcess from './lib/site-server-process';
 import WpCliProcess, { MessageCanceled, WpCliResult } from './lib/wp-cli-process';

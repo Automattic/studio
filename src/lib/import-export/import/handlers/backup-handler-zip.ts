@@ -1,9 +1,9 @@
 import { EventEmitter } from 'events';
-import * as fs from 'fs';
-import * as path from 'path';
+import fs from 'fs';
+import path from 'path';
 import { promisify } from 'util';
-import * as fse from 'fs-extra';
-import * as yauzl from 'yauzl';
+import fse from 'fs-extra';
+import yauzl from 'yauzl';
 import { ImportEvents } from '../events';
 import { BackupArchiveInfo, BackupExtractProgressEventData } from '../types';
 import { BackupHandler, isFileAllowed } from './backup-handler-factory';

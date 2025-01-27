@@ -357,7 +357,7 @@ function SnapshotRow( {
 					</Button>
 				</div>
 				<div className="flex ml-auto">
-					<div className="w-[110px] text-a8c-gray-70">
+					<div className="w-[110px] text-a8c-gray-70 flex items-center">
 						{ isSiteDemoUpdating ? (
 							<div className="flex items-center">
 								<Spinner className="!mt-0 !mx-2" />
@@ -367,7 +367,7 @@ function SnapshotRow( {
 							getLastUpdateTimeText()
 						) }
 					</div>
-					<div className="w-[100px] text-a8c-gray-70">{ countDown }</div>
+					<div className="w-[100px] text-a8c-gray-70 flex items-center">{ countDown }</div>
 					<div className="w-[60px] pr-2">
 						<PreviewActionButtonsMenu snapshot={ snapshot } selectedSite={ selectedSite } />
 					</div>

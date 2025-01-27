@@ -7,6 +7,7 @@ import { WelcomeMessagesProvider } from '../hooks/use-welcome-messages';
 import { ContentTabAssistant } from './content-tab-assistant';
 import { ContentTabImportExport } from './content-tab-import-export';
 import { ContentTabOverview } from './content-tab-overview';
+import { ContentTabPreviews } from './content-tab-previews';
 import { ContentTabSettings } from './content-tab-settings';
 import { ContentTabSnapshots } from './content-tab-snapshots';
 import { ContentTabSync } from './content-tab-sync';
@@ -47,6 +48,7 @@ export function SiteContentTabs() {
 						<div className="h-full">
 							{ name === 'overview' && <ContentTabOverview selectedSite={ selectedSite } /> }
 							{ name === 'share' && <ContentTabSnapshots selectedSite={ selectedSite } /> }
+							{ name === 'previews' && <ContentTabPreviews selectedSite={ selectedSite } /> }
 							{ name === 'sync' && <ContentTabSync selectedSite={ selectedSite } /> }
 							{ name === 'settings' && <ContentTabSettings selectedSite={ selectedSite } /> }
 							{ name === 'assistant' && (

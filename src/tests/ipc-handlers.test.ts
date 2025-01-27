@@ -3,9 +3,8 @@
  */
 import { shell, IpcMainInvokeEvent } from 'electron';
 import fs from 'fs';
-import { createSite, startServer } from '../ipc-handlers';
+import { createSite } from '../ipc-handlers';
 import { isEmptyDir, pathExists } from '../lib/fs-utils';
-import { keepSqliteIntegrationUpdated } from '../lib/sqlite-versions';
 import { SiteServer, createSiteWorkingDirectory } from '../site-server';
 
 jest.mock( 'fs' );
@@ -74,22 +73,5 @@ describe( 'createSite', () => {
 				expect( shell.trashItem ).toHaveBeenCalledWith( '/test' );
 			} );
 		} );
-	} );
-} );
-
-describe( 'startServer', () => {
-	it( 'should keep SQLite integration up-to-date', async () => {
-		const mockSitePath = 'mock-site-path';
-		( keepSqliteIntegrationUpdated as jest.Mock ).mockResolvedValue( undefined );
-		( SiteServer.get as jest.Mock ).mockReturnValue( {
-			details: { path: mockSitePath },
-			start: jest.fn(),
-			updateSiteDetails: jest.fn(),
-			updateCachedThumbnail: jest.fn( () => Promise.resolve() ),
-		} );
-
-		await startServer( mockIpcMainInvokeEvent, 'mock-site-id' );
-
-		expect( keepSqliteIntegrationUpdated ).toHaveBeenCalledWith( mockSitePath );
 	} );
 } );

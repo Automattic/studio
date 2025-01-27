@@ -9,7 +9,7 @@ import {
 	rotatePHPRuntime,
 	setPhpIniEntries,
 } from '@php-wasm/universal';
-import { phpVar } from '@php-wasm/util';
+import { joinPaths, phpVar } from '@php-wasm/util';
 import {
 	StepDefinition,
 	activatePlugin,
@@ -33,11 +33,7 @@ import {
 	SQLITE_FILENAME,
 	SQLITE_PLUGIN_FOLDER,
 } from './constants';
-import {
-	downloadWordPress,
-	downloadSqliteIntegrationPlugin,
-	removeDownloadedMuPlugins,
-} from './download';
+import { downloadWordPress, removeDownloadedMuPlugins } from './download';
 import getSqlitePath from './get-sqlite-path';
 import getWordpressVersionsPath from './get-wordpress-versions-path';
 import { output } from './output';
@@ -93,10 +89,7 @@ export default async function startWPNow(
 		return { php, options };
 	}
 	output?.log( `wp: ${ options.wordPressVersion }` );
-	await Promise.all( [
-		downloadWordPress( options.wordPressVersion ),
-		downloadSqliteIntegrationPlugin(),
-	] );
+	await Promise.all( [ downloadWordPress( options.wordPressVersion ) ] );
 
 	if ( options.reset ) {
 		fs.removeSync( options.wpContentPath );
@@ -197,6 +190,7 @@ export async function prepareWordPress( php: PHP, options: WPNowOptions ) {
 	}
 
 	await mountInternalMuPlugins( php );
+	await mountSqlitePlugin( php, options.documentRoot );
 	await startSymlinkManager( php, options.projectPath, options.documentRoot );
 	await setupPlatformLevelMuPlugins( php );
 }
@@ -260,7 +254,6 @@ async function runWpContentMode(
 		createNodeFsMountHandler( `${ documentRoot }/wp-content` ) as unknown as MountHandler
 	);
 
-	await mountSqlitePlugin( php, documentRoot );
 	await mountSqliteDatabaseDirectory( php, documentRoot, wpContentPath );
 }
 
@@ -334,7 +327,6 @@ async function runPluginOrThemeMode(
 			}
 		}
 	}
-	await mountSqlitePlugin( php, documentRoot );
 }
 
 async function runWpPlaygroundMode(
@@ -357,8 +349,6 @@ async function runWpPlaygroundMode(
 		wpContentPath,
 		createNodeFsMountHandler( `${ documentRoot }/wp-content` ) as unknown as MountHandler
 	);
-
-	await mountSqlitePlugin( php, documentRoot );
 }
 
 async function login( php: PHP, options: WPNowOptions = {} ) {
@@ -590,19 +580,69 @@ set_error_handler(function($severity, $message, $file, $line) {
 	);
 }
 
-async function mountSqlitePlugin( php: PHP, vfsDocumentRoot: string ) {
-	const sqlitePluginPath = `${ vfsDocumentRoot }/wp-content/plugins/${ SQLITE_FILENAME }`;
-	if ( php.listFiles( sqlitePluginPath ).length === 0 ) {
-		await php.mount(
-			getSqlitePath(),
-			createNodeFsMountHandler( sqlitePluginPath ) as unknown as MountHandler
-		);
-		await php.mount(
-			path.join( getSqlitePath(), 'db.copy' ),
-			createNodeFsMountHandler(
-				`${ vfsDocumentRoot }/wp-content/db.php`
-			) as unknown as MountHandler
-		);
+async function mountSqlitePlugin( php: PHP, documentRoot: string ) {
+	const mysqlCheckResult = await php.run( {
+		code: `<?php
+			if ( ! file_exists( "${ documentRoot }/wp-load.php" ) ) {
+				die( 'false' );
+			}
+			require_once "${ documentRoot }/wp-load.php";
+			global $wpdb;
+			die( $wpdb->is_mysql ? 'true' : 'false' );`,
+	} );
+
+	if ( mysqlCheckResult.text === 'true' ) {
+		output?.log( 'MySQL is configured, skipping SQLite plugin setup' );
+		return;
+	} else {
+		output?.log( 'MySQL is not configured, setting up SQLite plugin' );
+	}
+
+	await copyDirectoryToPlaygroundFs( php, getSqlitePath(), SQLITE_PLUGIN_FOLDER );
+
+	/**
+	 * TODO: Load db.php using Playground's preloadSqliteIntegration function.
+	 *
+	 * Currently, we can't use it because it requires a SQLite plugin ZIP pulled from GitHub.
+	 * We will need to split the function into loading SQLite and creating the db.php file to
+	 * be able to reuse the db.php file creation or add a way to skip loading the ZIP file.
+	 *
+	 * In my testing, the class Playground uses to load db.php is not compatible with Studio.
+	 * When I tried to use it, I got the following error:
+	 * Call to undefined function wp_cache_get() in /var/www/html/wp-includes/option.php:612
+	 */
+	const dbCopy = await php.readFileAsText( path.join( SQLITE_PLUGIN_FOLDER, 'db.copy' ) );
+	const dbPhp = dbCopy
+		.replace( "'{SQLITE_IMPLEMENTATION_FOLDER_PATH}'", phpVar( SQLITE_PLUGIN_FOLDER ) )
+		.replace( "'{SQLITE_PLUGIN}'", phpVar( joinPaths( SQLITE_PLUGIN_FOLDER, 'load.php' ) ) );
+	await php.writeFile( path.join( documentRoot, 'wp-content/db.php' ), dbPhp );
+}
+
+/**
+ * Copy a directory from the local filesystem to the Playground filesystem
+ *
+ * @param php - The PHP instance
+ * @param source - The source directory
+ * @param destination - The destination directory
+ */
+async function copyDirectoryToPlaygroundFs(
+	php: PHP,
+	source: string,
+	destination: string
+): Promise< void > {
+	await php.mkdir( destination );
+
+	const entries = await fs.readdir( source, { withFileTypes: true } );
+
+	for ( const entry of entries ) {
+		const sourcePath = path.join( source, entry.name );
+		const destinationPath = path.join( destination, entry.name );
+
+		if ( entry.isDirectory() ) {
+			await copyDirectoryToPlaygroundFs( php, sourcePath, destinationPath );
+		} else if ( entry.isFile() ) {
+			await php.writeFile( destinationPath, await fs.readFile( sourcePath ) );
+		}
 	}
 }
 
@@ -678,15 +718,8 @@ async function installationSteps( php: PHP, options: WPNowOptions ) {
 }
 
 export async function moveDatabasesInSitu( projectPath: string ) {
-	const dbPhpPath = path.join( projectPath, 'wp-content', 'db.php' );
-	const hasDbPhpInSitu = fs.existsSync( dbPhpPath ) && fs.lstatSync( dbPhpPath ).isFile();
-
 	const { wpContentPath } = await getWpNowConfig( { path: projectPath } );
-	if (
-		wpContentPath &&
-		fs.existsSync( path.join( wpContentPath, 'database' ) ) &&
-		! hasDbPhpInSitu
-	) {
+	if ( wpContentPath && fs.existsSync( path.join( wpContentPath, 'database' ) ) ) {
 		// Do not mount but move the files to projectPath once
 		const databasePath = path.join( projectPath, 'wp-content', 'database' );
 		fs.rmdirSync( databasePath );
@@ -696,8 +729,6 @@ export async function moveDatabasesInSitu( projectPath: string ) {
 		fs.rmdirSync( sqlitePath );
 		fs.copySync( path.join( getSqlitePath() ), sqlitePath );
 
-		fs.rmdirSync( dbPhpPath );
-		fs.copySync( path.join( getSqlitePath(), 'db.copy' ), dbPhpPath );
 		fs.rmSync( wpContentPath, { recursive: true, force: true } );
 	}
 }

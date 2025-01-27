@@ -255,4 +255,7 @@ export async function removeDownloadedMuPlugins( projectPath: string ) {
 	fs.removeSync( path.join( muPluginsPath, '0-wp-config-constants-polyfill.php' ) );
 	fs.removeSync( path.join( muPluginsPath, '0-sqlite.php' ) );
 	fs.removeSync( path.join( muPluginsPath, '0-thumbnails.php' ) );
+
+	fs.removeSync( path.join( muPluginsPath, 'sqlite-database-integration/' ) );
+	fs.removeSync( path.join( wpContentPath, 'db.php' ) );
 }

@@ -1,5 +1,3 @@
-import path from 'path';
-
 /**
  * Playground internal shared folder.
  */
@@ -28,10 +26,7 @@ export const SQLITE_URL = 'https://downloads.wordpress.org/plugin/sqlite-databas
 /**
  * The folder for the SQLite plugin.
  */
-export const SQLITE_PLUGIN_FOLDER = path.join(
-	PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER,
-	'sqlite-database-integration'
-);
+export const SQLITE_PLUGIN_FOLDER = '/internal/shared/mu-plugins/sqlite-database-integration';
 
 /**
  * The default starting port for running the WP Now server.

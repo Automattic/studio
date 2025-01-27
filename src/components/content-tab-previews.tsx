@@ -1,10 +1,22 @@
+import { ProgressBar } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
+import { sprintf } from '@wordpress/i18n';
 import { check, external, Icon } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { PropsWithChildren } from 'react';
-import { CLIENT_ID, PROTOCOL_PREFIX, SCOPES, WP_AUTHORIZE_ENDPOINT } from 'src/constants';
+import { PropsWithChildren, useEffect } from 'react';
+import {
+	CLIENT_ID,
+	DEMO_SITE_SIZE_LIMIT_GB,
+	PROTOCOL_PREFIX,
+	SCOPES,
+	WP_AUTHORIZE_ENDPOINT,
+} from 'src/constants';
+import { useArchiveErrorMessages } from 'src/hooks/use-archive-error-messages';
+import { useArchiveSite } from 'src/hooks/use-archive-site';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
+import { useProgressTimer } from 'src/hooks/use-progress-timer';
+import { useSiteSize } from 'src/hooks/use-site-size';
 import { useSnapshots } from 'src/hooks/use-snapshots';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import Button from './button';
@@ -101,7 +113,7 @@ function NoAuth( { selectedSite }: React.ComponentProps< typeof EmptyGeneric > )
 				>
 					{ createInterpolateElement(
 						__(
-							'A WordPress.com account is required to create preview sites. <a>Create a free account</a>'
+							'A WordPress.com account is required to create preview links. <a>Create a free account</a>'
 						),
 						{
 							a: (
@@ -130,17 +142,126 @@ function NoAuth( { selectedSite }: React.ComponentProps< typeof EmptyGeneric > )
 	);
 }
 
+function AddPreviewSiteWithProgress( {
+	isSnapshotLoading,
+	selectedSite,
+	className = '',
+	tagline = '',
+}: {
+	isSnapshotLoading?: boolean;
+	selectedSite: SiteDetails;
+	className?: string;
+	tagline?: string;
+} ) {
+	const { __, _n } = useI18n();
+	const { archiveSite, isUploadingSiteId, isAnySiteArchiving } = useArchiveSite();
+	const isUploading = isUploadingSiteId( selectedSite.id );
+	const { activeSnapshotCount, snapshotQuota, isLoadingSnapshotUsage, snapshotCreationBlocked } =
+		useSnapshots();
+	const isLimitUsed = activeSnapshotCount >= snapshotQuota;
+	const { isOverLimit } = useSiteSize( selectedSite.id );
+	const isOffline = useOffline();
+	const { progress, setProgress } = useProgressTimer( {
+		paused: ! isUploading && ! isSnapshotLoading,
+		initialProgress: 5,
+		interval: 1500,
+		maxValue: 95,
+	} );
+	const errorMessages = useArchiveErrorMessages();
+
+	useEffect( () => {
+		if ( isSnapshotLoading ) {
+			setProgress( 80 );
+		}
+	}, [ isSnapshotLoading, setProgress ] );
+
+	const isDisabled =
+		isAnySiteArchiving ||
+		isUploading ||
+		isLoadingSnapshotUsage ||
+		isLimitUsed ||
+		isOffline ||
+		snapshotCreationBlocked;
+	const siteArchivingMessage = __(
+		'A different preview link is being created. Please wait for it to finish before creating another.'
+	);
+	const allotmentConsumptionMessage = sprintf(
+		_n(
+			"You've used %s preview links available on your account.",
+			"You've used all %s preview links available on your account.",
+			snapshotQuota
+		),
+		snapshotQuota
+	);
+	const offlineMessage = __( 'Creating a preview link requires an internet connection.' );
+	const overLimitMessage = sprintf(
+		__(
+			'Your site exceeds %s GB in size. Creating a preview link for a larger site may take considerable amount of time and could exceed the maximum allowed size for a preview link.'
+		),
+		DEMO_SITE_SIZE_LIMIT_GB
+	);
+
+	const userBlockedMessage = errorMessages.rest_site_creation_blocked;
+
+	let tooltipContent;
+	if ( isOffline ) {
+		tooltipContent = {
+			icon: offlineIcon,
+			text: offlineMessage,
+		};
+	} else if ( isLimitUsed ) {
+		tooltipContent = { text: allotmentConsumptionMessage };
+	} else if ( isAnySiteArchiving ) {
+		tooltipContent = { text: siteArchivingMessage };
+	} else if ( snapshotCreationBlocked ) {
+		tooltipContent = { text: userBlockedMessage };
+	} else if ( isOverLimit ) {
+		tooltipContent = { text: overLimitMessage };
+	}
+
+	return (
+		<div className={ className }>
+			{ isUploading || isSnapshotLoading ? (
+				<div className="w-[300px]">
+					<ProgressBar value={ progress } max={ 100 } />
+					<div className="text-a8c-gray-70 a8c-body mt-4">
+						{ tagline || __( "We're creating your preview link." ) }
+					</div>
+				</div>
+			) : (
+				<div className="flex gap-4">
+					<Tooltip disabled={ ! tooltipContent } { ...tooltipContent } placement="top-start">
+						<Button
+							aria-description={ tooltipContent?.text ?? '' }
+							aria-disabled={ isDisabled }
+							variant="primary"
+							onClick={ () => {
+								if ( isDisabled ) {
+									return;
+								}
+								archiveSite( selectedSite.id );
+							} }
+						>
+							{ __( 'Create preview link' ) }
+						</Button>
+					</Tooltip>
+				</div>
+			) }
+		</div>
+	);
+}
+
 function NoPreviews( {
 	selectedSite,
 	isSnapshotLoading,
 }: React.ComponentProps< typeof EmptyGeneric > & { isSnapshotLoading?: boolean } ) {
 	return (
 		<EmptyGeneric selectedSite={ selectedSite }>
-			{ /* <AddDemoSiteWithProgress
+			<AddPreviewSiteWithProgress
 				className="mt-8"
 				selectedSite={ selectedSite }
 				isSnapshotLoading={ isSnapshotLoading }
-			/> */ }
+			/>
 		</EmptyGeneric>
 	);
 }

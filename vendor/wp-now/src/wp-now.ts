@@ -1,4 +1,5 @@
-import fs from 'fs-extra';
+import path from 'path';
+import { rootCertificates } from 'tls';
 import { createNodeFsMountHandler, loadNodeRuntime } from '@php-wasm/node';
 import {
 	MountHandler,
@@ -6,14 +7,9 @@ import {
 	PHPRequestHandler,
 	proxyFileSystem,
 	rotatePHPRuntime,
-	getPhpIniEntries,
 	setPhpIniEntries,
 } from '@php-wasm/universal';
-import { wordPressRewriteRules, getFileNotFoundActionForWordPress } from '@wp-playground/wordpress';
-import path from 'path';
-import { SQLITE_FILENAME } from './constants';
-import { rootCertificates } from 'tls';
-import { downloadMuPlugins, downloadSqliteIntegrationPlugin, downloadWordPress } from './download';
+import { phpVar } from '@php-wasm/util';
 import {
 	StepDefinition,
 	activatePlugin,
@@ -22,7 +18,29 @@ import {
 	defineWpConfigConsts,
 	runBlueprintSteps,
 } from '@wp-playground/blueprints';
+import {
+	wordPressRewriteRules,
+	getFileNotFoundActionForWordPress,
+	setupPlatformLevelMuPlugins,
+} from '@wp-playground/wordpress';
+import fs from 'fs-extra';
+import { SymlinkManager } from '../../../src/lib/symlink-manager';
 import getWpNowConfig, { WPNowOptions, WPNowMode } from './config';
+import {
+	PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER,
+	PLAYGROUND_INTERNAL_PRELOAD_PATH,
+	PLAYGROUND_INTERNAL_SHARED_FOLDER,
+	SQLITE_FILENAME,
+	SQLITE_PLUGIN_FOLDER,
+} from './constants';
+import {
+	downloadWordPress,
+	downloadSqliteIntegrationPlugin,
+	removeDownloadedMuPlugins,
+} from './download';
+import getSqlitePath from './get-sqlite-path';
+import getWordpressVersionsPath from './get-wordpress-versions-path';
+import { output } from './output';
 import {
 	hasIndexFile,
 	isPluginDirectory,
@@ -33,11 +51,6 @@ import {
 	getPluginFile,
 	readFileHead,
 } from './wp-playground-wordpress';
-import { output } from './output';
-import getWpNowPath from './get-wp-now-path';
-import getWordpressVersionsPath from './get-wordpress-versions-path';
-import getSqlitePath from './get-sqlite-path';
-import { SymlinkManager } from '../../../src/lib/symlink-manager';
 
 export default async function startWPNow(
 	options: Partial< WPNowOptions > = {}
@@ -53,6 +66,7 @@ export default async function startWPNow(
 					'/internal/shared',
 				] );
 			}
+
 			if ( reqHandler ) {
 				php.requestHandler = reqHandler;
 			}
@@ -68,8 +82,7 @@ export default async function startWPNow(
 	const php = await requestHandler.getPrimaryPhp();
 
 	applyOverrideUmaskWorkaround( php );
-
-	prepareDocumentRoot( php, options );
+	await prepareDocumentRoot( php, options );
 
 	output?.log( `directory: ${ options.projectPath }` );
 	output?.log( `mode: ${ options.mode }` );
@@ -83,7 +96,6 @@ export default async function startWPNow(
 	await Promise.all( [
 		downloadWordPress( options.wordPressVersion ),
 		downloadSqliteIntegrationPlugin(),
-		downloadMuPlugins(),
 	] );
 
 	if ( options.reset ) {
@@ -92,6 +104,8 @@ export default async function startWPNow(
 	}
 
 	const isFirstTimeProject = ! fs.existsSync( options.wpContentPath );
+
+	await removeDownloadedMuPlugins( options.projectPath );
 
 	await prepareWordPress( php, options );
 
@@ -118,7 +132,7 @@ export default async function startWPNow(
 		recreateRuntime: async () => {
 			output?.log( 'Recreating and rotating PHP runtime' );
 			const { php, runtimeId } = await getPHPInstance( options, true, requestHandler );
-			prepareDocumentRoot( php, options );
+			await prepareDocumentRoot( php, options );
 			await prepareWordPress( php, options );
 			return runtimeId;
 		},
@@ -144,20 +158,23 @@ async function getPHPInstance(
 		memory_limit: '256M',
 		disable_functions: '',
 		allow_url_fopen: '1',
-		'openssl.cafile': '/internal/shared/ca-bundle.crt',
+		'openssl.cafile': path.join( PLAYGROUND_INTERNAL_SHARED_FOLDER, 'ca-bundle.crt' ),
 	} );
 
 	return { php, runtimeId: id };
 }
 
-function prepareDocumentRoot( php: PHP, options: WPNowOptions ) {
+async function prepareDocumentRoot( php: PHP, options: WPNowOptions ) {
 	php.mkdir( options.documentRoot );
 	php.chdir( options.documentRoot );
 	php.writeFile( `${ options.documentRoot }/index.php`, `<?php echo 'Hello wp-now!';` );
-	php.writeFile( '/internal/shared/ca-bundle.crt', rootCertificates.join( '\n' ) );
+	php.writeFile(
+		path.join( PLAYGROUND_INTERNAL_SHARED_FOLDER, 'ca-bundle.crt' ),
+		rootCertificates.join( '\n' )
+	);
 }
 
-async function prepareWordPress( php: PHP, options: WPNowOptions ) {
+export async function prepareWordPress( php: PHP, options: WPNowOptions ) {
 	switch ( options.mode ) {
 		case WPNowMode.WP_CONTENT:
 			await runWpContentMode( php, options );
@@ -179,7 +196,9 @@ async function prepareWordPress( php: PHP, options: WPNowOptions ) {
 			break;
 	}
 
+	await mountInternalMuPlugins( php );
 	await startSymlinkManager( php, options.projectPath, options.documentRoot );
+	await setupPlatformLevelMuPlugins( php );
 }
 
 /**
@@ -243,7 +262,6 @@ async function runWpContentMode(
 
 	await mountSqlitePlugin( php, documentRoot );
 	await mountSqliteDatabaseDirectory( php, documentRoot, wpContentPath );
-	await mountMuPlugins( php, documentRoot );
 }
 
 async function runWordPressDevelopMode(
@@ -268,8 +286,6 @@ async function runWordPressMode(
 	);
 
 	await initWordPress( php, 'user-provided', documentRoot, absoluteUrl );
-
-	await downloadMuPlugins( path.join( projectPath, 'wp-content', 'mu-plugins' ) );
 }
 
 async function runPluginOrThemeMode(
@@ -319,7 +335,6 @@ async function runPluginOrThemeMode(
 		}
 	}
 	await mountSqlitePlugin( php, documentRoot );
-	await mountMuPlugins( php, documentRoot );
 }
 
 async function runWpPlaygroundMode(
@@ -344,7 +359,6 @@ async function runWpPlaygroundMode(
 	);
 
 	await mountSqlitePlugin( php, documentRoot );
-	await mountMuPlugins( php, documentRoot );
 }
 
 async function login( php: PHP, options: WPNowOptions = {} ) {
@@ -449,14 +463,130 @@ export function getThemeTemplate( projectPath: string ) {
 	}
 }
 
-async function mountMuPlugins( php: PHP, vfsDocumentRoot: string ) {
-	await php.mount(
-		path.join( getWpNowPath(), 'mu-plugins' ),
-		// VFS paths always use forward / slashes so
-		// we can't use path.join() for them
-		createNodeFsMountHandler(
-			`${ vfsDocumentRoot }/wp-content/mu-plugins`
-		) as unknown as MountHandler
+async function mountInternalMuPlugins( php: PHP ) {
+	php.mkdir( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER );
+
+	php.writeFile(
+		path.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-allowed-redirect-hosts.php' ),
+		`<?php
+	// Needed because gethostbyname( <host> ) returns
+	// a private network IP address for some reason.
+	add_filter( 'allowed_redirect_hosts', function( $hosts ) {
+		$redirect_hosts = array(
+			'wordpress.org',
+			'api.wordpress.org',
+			'downloads.wordpress.org',
+			'themes.svn.wordpress.org',
+			'fonts.gstatic.com',
+		);
+		return array_merge( $hosts, $redirect_hosts );
+	} );
+	add_filter('http_request_host_is_external', '__return_true', 20, 3 );
+	`
+	);
+
+	php.writeFile(
+		path.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-thumbnails.php' ),
+		`<?php
+		// Facilitates the taking of screenshots to be used as thumbnails.
+		if ( isset( $_GET['studio-hide-adminbar'] ) ) {
+			add_filter( 'show_admin_bar', '__return_false' );
+		}
+		`
+	);
+
+	php.writeFile(
+		path.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-32bit-integer-warnings.php' ),
+		`<?php
+/**
+ * This is a temporary workaround to hide the 32bit integer warnings that
+ * appear when using various time related function, such as strtotime and mktime.
+ * Examples of the warnings that are displayed:
+ * Warning: mktime(): Epoch doesn't fit in a PHP integer in <file>
+ * Warning: strtotime(): Epoch doesn't fit in a PHP integer in <file>
+ */
+set_error_handler(function($severity, $message, $file, $line) {
+  if (strpos($message, "fit in a PHP integer") !== false) {
+      return;
+  }
+  return false;
+});
+`
+	);
+
+	php.writeFile(
+		path.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-check-theme-availability.php' ),
+		`<?php
+	function check_current_theme_availability() {
+			// Get the current theme's directory
+			$current_theme = wp_get_theme();
+			$theme_dir = get_theme_root() . '/' . $current_theme->stylesheet;
+
+			if (!is_dir($theme_dir)) {
+					$all_themes = wp_get_themes();
+					$available_themes = [];
+
+					foreach ($all_themes as $theme_slug => $theme_obj) {
+							if ($theme_slug != $current_theme->get_stylesheet()) {
+									$available_themes[$theme_slug] = $theme_obj;
+							}
+					}
+
+					if (!empty($available_themes)) {
+							$new_theme_slug = array_keys($available_themes)[0];
+							switch_theme($new_theme_slug);
+					}
+			}
+	}
+	add_action('after_setup_theme', 'check_current_theme_availability');
+`
+	);
+
+	php.writeFile(
+		path.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-permalinks.php' ),
+		`<?php
+			// Support permalinks without "index.php"
+			add_filter( 'got_url_rewrite', '__return_true' );
+	`
+	);
+
+	php.writeFile(
+		path.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-sqlite-command.php' ),
+		`<?php
+			add_filter( 'sqlite_command_sqlite_plugin_directories', function( $directories ) {
+				$directories[] = ${ phpVar( SQLITE_PLUGIN_FOLDER ) };
+				return $directories;
+			} );
+		`
+	);
+
+	php.writeFile(
+		path.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-deactivate-jetpack-modules.php' ),
+		`<?php
+			// Disable Jetpack Protect 2FA for local auto-login purpose
+			add_action( 'jetpack_active_modules', 'jetpack_deactivate_modules' );
+			function jetpack_deactivate_modules( $active ) {
+				if ( ( $index = array_search('protect', $active, true) ) !== false ) {
+					unset( $active[ $index ] );
+				}
+				return $active;
+			}
+	`
+	);
+
+	php.writeFile(
+		path.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-wp-config-constants-polyfill.php' ),
+		`<?php
+		// Define database constants if not already defined. It fixes the error
+		// for imported sites that don't have those defined e.g. WP Cloud and
+		// include plugins which try to access those directly e.g. Mailpoet
+		if (!defined('DB_NAME')) define('DB_NAME', 'database_name_here');
+		if (!defined('DB_USER')) define('DB_USER', 'username_here');
+		if (!defined('DB_PASSWORD')) define('DB_PASSWORD', 'password_here');
+		if (!defined('DB_HOST')) define('DB_HOST', 'localhost');
+		if (!defined('DB_CHARSET')) define('DB_CHARSET', 'utf8');
+		if (!defined('DB_COLLATE')) define('DB_COLLATE', '');
+		`
 	);
 }
 
@@ -582,5 +712,8 @@ export async function moveDatabasesInSitu( projectPath: string ) {
  * updated Emscripten, and the Playground dependency is updated in the app, this workaround can be removed.
  */
 function applyOverrideUmaskWorkaround( php: PHP ) {
-	php.writeFile( '/internal/shared/preload/override-umask-workaround.php', '<?php umask(0022);' );
+	php.writeFile(
+		path.join( PLAYGROUND_INTERNAL_PRELOAD_PATH, 'override-umask-workaround.php' ),
+		'<?php umask(0022);'
+	);
 }

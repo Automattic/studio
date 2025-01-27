@@ -1,14 +1,19 @@
-import { downloadWpCli } from './download';
-import { rootCertificates } from 'tls';
-import getWpCliPath from './get-wp-cli-path';
-import getWpNowConfig from './config';
-import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from './constants';
-import { phpVar } from '@php-wasm/util';
-import { createNodeFsMountHandler, loadNodeRuntime } from '@php-wasm/node';
-import { getSqliteCommandPath } from '../../../src/lib/sqlite-command-versions';
-import { PHP, MountHandler, writeFiles, setPhpIniEntries } from '@php-wasm/universal';
 import { readFileSync } from 'fs';
-import { startSymlinkManager } from './wp-now';
+import path from 'path';
+import { rootCertificates } from 'tls';
+import { createNodeFsMountHandler, loadNodeRuntime } from '@php-wasm/node';
+import { PHP, MountHandler, writeFiles, setPhpIniEntries } from '@php-wasm/universal';
+import { phpVar } from '@php-wasm/util';
+import { getSqliteCommandPath } from '../../../src/lib/sqlite-command-versions';
+import getWpNowConfig, { WPNowMode } from './config';
+import {
+	DEFAULT_PHP_VERSION,
+	DEFAULT_WORDPRESS_VERSION,
+	PLAYGROUND_INTERNAL_SHARED_FOLDER,
+} from './constants';
+import { downloadWpCli } from './download';
+import getWpCliPath from './get-wp-cli-path';
+import { prepareWordPress } from './wp-now';
 
 const isWindows = process.platform === 'win32';
 
@@ -26,10 +31,11 @@ export async function executeWPCli(
 	{ phpVersion }: { phpVersion?: string } = {}
 ): Promise< { stdout: string; stderr: string; exitCode: number } > {
 	await downloadWpCli();
-	let options = await getWpNowConfig( {
+	const options = await getWpNowConfig( {
 		php: phpVersion || DEFAULT_PHP_VERSION,
 		wp: DEFAULT_WORDPRESS_VERSION,
 		path: projectPath,
+		mode: WPNowMode.CLI,
 	} );
 
 	const id = await loadNodeRuntime( options.phpVersion );
@@ -39,10 +45,11 @@ export async function executeWPCli(
 		options.documentRoot,
 		createNodeFsMountHandler( projectPath ) as unknown as MountHandler
 	);
-	await startSymlinkManager( php, projectPath, options.documentRoot );
 
 	//Set the SAPI name to cli before running the script
 	await php.setSapiName( 'cli' );
+
+	await prepareWordPress( php, options );
 
 	php.mkdir( '/tmp' );
 
@@ -90,13 +97,14 @@ export async function executeWPCli(
 			$_SERVER['argv'][0] = '${ wpCliPath }';
 
 			require( '${ wpCliPath }' );`,
-		[ '/internal/shared/ca-bundle.crt' ]: rootCertificates.join( '\n' ),
+		[ path.join( PLAYGROUND_INTERNAL_SHARED_FOLDER, 'ca-bundle.crt' ) ]:
+			rootCertificates.join( '\n' ),
 	};
 
 	await writeFiles( php, '/', createFiles );
 
 	await setPhpIniEntries( php, {
-		'openssl.cafile': '/internal/shared/ca-bundle.crt',
+		'openssl.cafile': path.join( PLAYGROUND_INTERNAL_SHARED_FOLDER, 'ca-bundle.crt' ),
 	} );
 	try {
 		php.mkdir( sqliteCommandPath );

@@ -6,7 +6,7 @@ import fs from 'fs';
 import { createSite, startServer, isFullscreen } from '../ipc-handlers';
 import { isEmptyDir, pathExists } from '../lib/fs-utils';
 import { keepSqliteIntegrationUpdated } from '../lib/sqlite-versions';
-import { withMainWindow } from '../main-window';
+import { getMainWindow } from '../main-window';
 import { SiteServer, createSiteWorkingDirectory } from '../site-server';
 
 jest.mock( 'fs' );
@@ -98,10 +98,8 @@ describe( 'startServer', () => {
 
 describe( 'isFullscreen', () => {
 	it( 'should return false when window is not in fullscreen', async () => {
-		( withMainWindow as jest.Mock ).mockImplementationOnce( ( callback ) => {
-			callback( {
-				isFullScreen: () => false,
-			} );
+		( getMainWindow as jest.Mock ).mockResolvedValue( {
+			isFullScreen: () => false,
 		} );
 
 		const result = await isFullscreen( mockIpcMainInvokeEvent );
@@ -110,10 +108,8 @@ describe( 'isFullscreen', () => {
 	} );
 
 	it( 'should return true when window is in fullscreen', async () => {
-		( withMainWindow as jest.Mock ).mockImplementationOnce( ( callback ) => {
-			callback( {
-				isFullScreen: () => true,
-			} );
+		( getMainWindow as jest.Mock ).mockResolvedValue( {
+			isFullScreen: () => true,
 		} );
 
 		const result = await isFullscreen( mockIpcMainInvokeEvent );

@@ -32,10 +32,12 @@ BrowserWindow.prototype.on = jest.fn();
 BrowserWindow.prototype.webContents = {
 	on: jest.fn(),
 	send: jest.fn(),
+	isDestroyed: jest.fn( () => false ),
 };
 BrowserWindow.fromWebContents = jest.fn( () => ( {
 	isDestroyed: jest.fn( () => false ),
 	webContents: {
+		isDestroyed: jest.fn( () => false ),
 		send: jest.fn(),
 	},
 } ) );

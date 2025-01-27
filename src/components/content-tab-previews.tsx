@@ -1,6 +1,6 @@
 import { ProgressBar } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
-import { sprintf } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { check, external, Icon } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren, useEffect } from 'react';
@@ -14,19 +14,54 @@ import {
 import { useArchiveErrorMessages } from 'src/hooks/use-archive-error-messages';
 import { useArchiveSite } from 'src/hooks/use-archive-site';
 import { useAuth } from 'src/hooks/use-auth';
+import { useExpirationDate } from 'src/hooks/use-expiration-date';
+import { useFormatLocalizedTimestamps } from 'src/hooks/use-format-localized-timestamps';
 import { useOffline } from 'src/hooks/use-offline';
 import { useProgressTimer } from 'src/hooks/use-progress-timer';
 import { useSiteSize } from 'src/hooks/use-site-size';
 import { useSnapshots } from 'src/hooks/use-snapshots';
+import { useUpdateDemoSite } from 'src/hooks/use-update-demo-site';
+import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { ArrowIcon } from './arrow-icon';
+import { Badge } from './badge';
 import Button from './button';
 import offlineIcon from './offline-icon';
 import { ScreenshotDemoSite } from './screenshot-demo-site';
-import { Tooltip } from './tooltip';
+import { DynamicTooltip, Tooltip, TooltipProps } from './tooltip';
 
 interface ContentTabPreviewsProps {
 	selectedSite: SiteDetails;
 }
+
+interface PreviewLinksTableColumn {
+	name: string;
+	label: string;
+	className?: string;
+}
+
+const PREVIEW_LINKS_COLUMNS: PreviewLinksTableColumn[] = [
+	{
+		name: 'preview-link',
+		label: __( 'PREVIEW LINK' ),
+		className: 'w-[45%]',
+	},
+	{
+		name: 'updated',
+		label: __( 'UPDATED' ),
+		className: 'w-[20%]',
+	},
+	{
+		name: 'expires',
+		label: __( 'EXPIRES' ),
+		className: 'w-[20%]',
+	},
+	{
+		name: 'actions',
+		label: __( 'ACTIONS' ),
+		className: 'w-[15%]',
+	},
+];
 
 function EmptyGeneric( {
 	children,
@@ -251,6 +286,197 @@ function AddPreviewSiteWithProgress( {
 	);
 }
 
+function SnapshotRow( {
+	snapshot,
+	previousSnapshot,
+	selectedSite,
+}: {
+	snapshot: Snapshot;
+	previousSnapshot: Snapshot | null;
+	selectedSite: SiteDetails;
+} ) {
+	const { url, date, isDeleting } =
+		previousSnapshot && snapshot.isLoading ? previousSnapshot : snapshot;
+	const { countDown, isExpired, dateString } = useExpirationDate( date );
+	const { deleteSnapshot, fetchSnapshotUsage, snapshotCreationBlocked, removeSnapshot } =
+		useSnapshots();
+	const { isUploadingSiteId } = useArchiveSite();
+	const isUploading = isUploadingSiteId( selectedSite.id );
+	const { updateDemoSite, isDemoSiteUpdating } = useUpdateDemoSite();
+	const errorMessages = useArchiveErrorMessages();
+	const isSiteDemoUpdating = isDemoSiteUpdating( snapshot.localSiteId );
+	const { formatRelativeTime } = useFormatLocalizedTimestamps();
+
+	const { isOverLimit } = useSiteSize( selectedSite.id );
+
+	const isOffline = useOffline();
+	const updateDemoSiteOfflineMessage = __(
+		'Updating a demo site requires an internet connection.'
+	);
+	const deleteDemoSiteOfflineMessage = __(
+		'Deleting a demo site requires an internet connection.'
+	);
+	const getLastUpdateTimeText = () => {
+		if ( ! date ) {
+			return __( 'Never updated' );
+		}
+		const timeDistance = formatRelativeTime( new Date( date ).toISOString() );
+		return sprintf( __( 'Last updated %s ago.' ), timeDistance );
+	};
+	const userBlockedMessage = errorMessages.rest_site_creation_blocked;
+
+	const { progress, setProgress } = useProgressTimer( {
+		paused: ! isSiteDemoUpdating,
+		initialProgress: 5,
+		interval: 1500,
+		maxValue: 95,
+	} );
+
+	useEffect( () => {
+		fetchSnapshotUsage();
+	}, [ fetchSnapshotUsage ] );
+
+	useEffect( () => {
+		if ( isSiteDemoUpdating ) {
+			setProgress( 80 );
+		}
+	}, [ isSiteDemoUpdating, setProgress ] );
+
+	// if ( isDeleting ) {
+	// 	return <SnapshotRowLoading>{ __( 'Deleting demo site…' ) }</SnapshotRowLoading>;
+	// }
+	const urlWithHTTPS = `https://${ url }`;
+	const handleUpdateDemoSite = async () => {
+		const dontShowUpdateWarning = localStorage.getItem( 'dontShowUpdateWarning' );
+
+		if ( ! dontShowUpdateWarning ) {
+			const UPDATE_BUTTON_INDEX = 0;
+			const CANCEL_BUTTON_INDEX = 1;
+
+			const { response, checkboxChecked } = await getIpcApi().showMessageBox( {
+				type: 'info',
+				message: __( 'Overwrite demo site' ),
+				detail: __(
+					"Updating will replace the existing files and database with a copy from your local site. Any changes you've made to your demo site will be permanently lost."
+				),
+				buttons: [ __( 'Update' ), __( 'Cancel' ) ],
+				cancelId: CANCEL_BUTTON_INDEX,
+				checkboxLabel: __( "Don't show this warning again" ),
+				checkboxChecked: false,
+			} );
+
+			if ( response === UPDATE_BUTTON_INDEX ) {
+				if ( checkboxChecked ) {
+					localStorage.setItem( 'dontShowUpdateWarning', 'true' );
+				}
+
+				updateDemoSite( snapshot, selectedSite );
+			}
+		} else {
+			updateDemoSite( snapshot, selectedSite );
+		}
+	};
+	if ( isExpired ) {
+		return (
+			<div className="self-stretch flex-col">
+				<div
+					className={ cx(
+						'px-4 pt-3',
+						'bg-a8c-gray-0 pb-4 border-b border-a8c-gray-5',
+						'[&_.demo-site-name]:text-a8c-gray-50',
+						'[&_.badge]:text-a8c-gray-50 [&_.badge]:bg-a8c-gray-5'
+					) }
+				>
+					<div className="flex gap-2 items-center">
+						<div className="text-black a8c-subtitle-small demo-site-name">
+							{ selectedSite.name }
+						</div>
+						<Badge>{ __( 'Demo site' ) }</Badge>
+					</div>
+					<Button
+						variant="link"
+						className={ cx( 'mt-1 !p-0 h-auto', '[&.is-link]:disabled:line-through' ) }
+						disabled
+					>
+						{ urlWithHTTPS }
+					</Button>
+				</div>
+				<div className="px-4 mt-4">
+					<div className="text-black a8c-subtitle-small demo-site-name">
+						{ sprintf( __( 'Site expired on %s' ), dateString ) }
+					</div>
+					<div className="a8c-body mt-1">
+						{ __( 'Demo sites are deleted 7 days after they were last updated.' ) }
+					</div>
+				</div>
+				<div className="px-4 pb-3 mt-4 flex gap-4">
+					<AddPreviewSiteWithProgress
+						selectedSite={ selectedSite }
+						isSnapshotLoading={ snapshot.isLoading }
+						tagline={ __( "We're creating your new demo site." ) }
+					/>
+					{ ! snapshot.isLoading && ! isUploading && (
+						<Button isDestructive onClick={ () => removeSnapshot( snapshot ) }>
+							{ __( 'Clear expired site' ) }
+						</Button>
+					) }
+				</div>
+			</div>
+		);
+	}
+
+	let tooltipContent: Partial< TooltipProps & { text?: string } > = {};
+	if ( isOffline ) {
+		tooltipContent = {
+			icon: offlineIcon,
+			text: updateDemoSiteOfflineMessage,
+		};
+	} else if ( snapshotCreationBlocked ) {
+		tooltipContent = { text: userBlockedMessage };
+	} else if ( isOverLimit ) {
+		tooltipContent = {
+			text: sprintf(
+				__(
+					'Your site exceeds %s GB in size. Updating this demo site may take considerable amount of time and could exceed the maximum allowed size for a demo site.'
+				),
+				DEMO_SITE_SIZE_LIMIT_GB
+			),
+		};
+	}
+	const isUpdateDisabled = isOffline || snapshotCreationBlocked;
+
+	return (
+		<div className="self-stretch flex-col px-4 py-3">
+			<div className="flex items-center">
+				<div className="w-[51%]">
+					<div className="flex gap-2 items-center mb-1">
+						<div className="a8c-subtitle-small demo-site-name line-clamp-1 break-all">
+							{ selectedSite.name }
+						</div>
+					</div>
+					<Button
+						variant="link"
+						className="!text-a8c-gray-70 hover:!text-a8c-blueberry max-w-[100%]"
+						onClick={ () => {
+							getIpcApi().openURL( urlWithHTTPS );
+						} }
+					>
+						<span className="truncate">{ urlWithHTTPS }</span>
+						<ArrowIcon />
+					</Button>
+				</div>
+				<div className="flex ml-auto">
+					<div className="w-[110px] text-a8c-gray-70">{ getLastUpdateTimeText() }</div>
+					<div className="w-[100px] text-a8c-gray-70">
+						{ sprintf( __( 'Expires in %s' ), countDown ) }
+					</div>
+					<div className="w-[60px] pr-2">{ /* Actions content */ }</div>
+				</div>
+			</div>
+		</div>
+	);
+}
+
 function NoPreviews( {
 	selectedSite,
 	isSnapshotLoading,
@@ -263,6 +489,22 @@ function NoPreviews( {
 				isSnapshotLoading={ isSnapshotLoading }
 			/>
 		</EmptyGeneric>
+	);
+}
+
+function PreviewLinksTableHeader() {
+	const { __ } = useI18n();
+	return (
+		<div className="border-b border-a8c-gray-5">
+			<div className="flex items-center h-12 px-8 text-gray-900 text-xs uppercase">
+				<div className="w-[51%]">{ __( 'Preview link' ) }</div>
+				<div className="flex ml-auto">
+					<div className="w-[110px]">{ __( 'Updated' ) }</div>
+					<div className="w-[100px]">{ __( 'Expires' ) }</div>
+					<div className="w-[60px] text-right">{ __( 'Actions' ) }</div>
+				</div>
+			</div>
+		</div>
 	);
 }
 
@@ -282,16 +524,15 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 	if ( ! snapshot || ( snapshotsOnSite.length === 1 && snapshotsOnSite[ 0 ].isLoading ) ) {
 		return <NoPreviews selectedSite={ selectedSite } isSnapshotLoading={ snapshot?.isLoading } />;
 	}
-	// return (
-	// <div className="p-8">
-	// 	<div className="w-full rounded border border-a8c-gray-5">
-	// 		<SnapshotRow
-	// 			snapshot={ snapshot }
-	// 			previousSnapshot={ previousSnapshot }
-	// 			selectedSite={ selectedSite }
-	// 			key={ snapshot.atomicSiteId }
-	// 		/>
-	// 	</div>
-	// </div>
-	// );
+	return (
+		<div className="w-full">
+			<PreviewLinksTableHeader />
+			<SnapshotRow
+				snapshot={ snapshot }
+				previousSnapshot={ previousSnapshot }
+				selectedSite={ selectedSite }
+				key={ snapshot.atomicSiteId }
+			/>
+		</div>
+	);
 }

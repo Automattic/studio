@@ -42,6 +42,7 @@ import { sortSites } from './lib/sort-sites';
 import { installSqliteIntegration, keepSqliteIntegrationUpdated } from './lib/sqlite-versions';
 import * as windowsHelpers from './lib/windows-helpers';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from './logging';
+import { withMainWindow } from './main-window';
 import { popupMenu, setupMenu } from './menu';
 import { SiteServer, createSiteWorkingDirectory } from './site-server';
 import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from './storage/paths';
@@ -1131,4 +1132,12 @@ export async function checkSyncBackupSize(
 				reject( new Error( `Failed to check backup file size: ${ error.message }` ) );
 			} );
 	} );
+}
+
+export async function isFullscreen( _event: IpcMainInvokeEvent ): Promise< boolean > {
+	let isFullscreen = false;
+	withMainWindow( ( window ) => {
+		isFullscreen = window.isFullScreen();
+	} );
+	return isFullscreen;
 }

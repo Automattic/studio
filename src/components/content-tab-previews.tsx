@@ -1,7 +1,7 @@
 import { ProgressBar } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
-import { check, external, Icon } from '@wordpress/icons';
+import { check, external, Icon, arrowDown } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren, useEffect } from 'react';
 import {
@@ -39,29 +39,6 @@ interface PreviewLinksTableColumn {
 	label: string;
 	className?: string;
 }
-
-const PREVIEW_LINKS_COLUMNS: PreviewLinksTableColumn[] = [
-	{
-		name: 'preview-link',
-		label: __( 'PREVIEW LINK' ),
-		className: 'w-[45%]',
-	},
-	{
-		name: 'updated',
-		label: __( 'UPDATED' ),
-		className: 'w-[20%]',
-	},
-	{
-		name: 'expires',
-		label: __( 'EXPIRES' ),
-		className: 'w-[20%]',
-	},
-	{
-		name: 'actions',
-		label: __( 'ACTIONS' ),
-		className: 'w-[15%]',
-	},
-];
 
 function EmptyGeneric( {
 	children,
@@ -499,7 +476,10 @@ function PreviewLinksTableHeader() {
 			<div className="flex items-center h-12 px-8 text-gray-900 text-xs uppercase">
 				<div className="w-[51%]">{ __( 'Preview link' ) }</div>
 				<div className="flex ml-auto">
-					<div className="w-[110px]">{ __( 'Updated' ) }</div>
+					<div className="w-[110px] flex items-center">
+						{ __( 'Updated' ) }
+						<Icon icon={ arrowDown } height={ 13 } width={ 16 } />
+					</div>
 					<div className="w-[100px]">{ __( 'Expires' ) }</div>
 					<div className="w-[60px] text-right">{ __( 'Actions' ) }</div>
 				</div>

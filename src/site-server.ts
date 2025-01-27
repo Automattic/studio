@@ -98,7 +98,7 @@ export class SiteServer {
 			);
 		}
 
-		console.log( 'Starting server with options', sanitizeForLogging( options ) );
+		console.log( `Starting server for '${ this.details.name }'` );
 		this.server = new SiteServerProcess( options );
 		await this.server.start();
 

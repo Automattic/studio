@@ -79,10 +79,6 @@ async function mergeSiteDetailsWithRunningDetails(
 export async function getSiteDetails( _event: IpcMainInvokeEvent ): Promise< SiteDetails[] > {
 	const userData = await loadUserData();
 
-	// This is probably one of the first times the user data is loaded. Take the opportunity
-	// to log for debugging purposes.
-	console.log( 'Loaded user data', sanitizeForLogging( userData ) );
-
 	const { sites } = userData;
 
 	// Ensure we have an instance of a server for each site we know about
@@ -414,7 +410,7 @@ export async function startServer(
 		}
 	}
 
-	console.log( 'Server started', server.details );
+	console.log( `Server started for '${ server.details.name }'` );
 	await updateSite( event, server.details );
 	return server.details;
 }

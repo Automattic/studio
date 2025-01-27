@@ -639,8 +639,8 @@ export function logRendererMessage(
 	writeLogToFile( level, processId, ...args );
 }
 
-export async function authenticate( _event: IpcMainInvokeEvent ): Promise< void > {
-	return oauthClient.authenticate();
+export function authenticate( _event: IpcMainInvokeEvent ): void {
+	oauthClient.authenticate();
 }
 
 export async function getAuthenticationToken(
@@ -690,7 +690,7 @@ export async function getSnapshots( _event: IpcMainInvokeEvent ): Promise< Snaps
 	return snapshots;
 }
 
-export async function openSiteURL(
+export function openSiteURL(
 	event: IpcMainInvokeEvent,
 	id: string,
 	relativeURL = '',
@@ -711,8 +711,8 @@ export async function openSiteURL(
 	shellOpenExternalWrapper( url.toString() );
 }
 
-export async function openURL( event: IpcMainInvokeEvent, url: string ) {
-	return shellOpenExternalWrapper( url );
+export function openURL( event: IpcMainInvokeEvent, url: string ) {
+	shellOpenExternalWrapper( url );
 }
 
 export async function copyText( event: IpcMainInvokeEvent, text: string ) {

@@ -34,12 +34,6 @@ interface ContentTabPreviewsProps {
 	selectedSite: SiteDetails;
 }
 
-interface PreviewLinksTableColumn {
-	name: string;
-	label: string;
-	className?: string;
-}
-
 function EmptyGeneric( {
 	children,
 	selectedSite,
@@ -356,27 +350,31 @@ function SnapshotRow( {
 	if ( isExpired ) {
 		return (
 			<div className="self-stretch flex-col">
-				<div
-					className={ cx(
-						'px-4 pt-3',
-						'bg-a8c-gray-0 pb-4 border-b border-a8c-gray-5',
-						'[&_.demo-site-name]:text-a8c-gray-50',
-						'[&_.badge]:text-a8c-gray-50 [&_.badge]:bg-a8c-gray-5'
-					) }
-				>
-					<div className="flex gap-2 items-center">
-						<div className="text-black a8c-subtitle-small demo-site-name">
-							{ selectedSite.name }
+				<div className="flex items-center h-12 px-8">
+					<div className="w-[51%]">
+						<div className="flex gap-2 items-center">
+							<div className="a8c-subtitle-small demo-site-name line-clamp-1 break-all">
+								{ selectedSite.name }
+							</div>
 						</div>
-						<Badge>{ __( 'Demo site' ) }</Badge>
+						<Button
+							variant="link"
+							className="!text-a8c-gray-70 hover:!text-a8c-blueberry max-w-[100%]"
+							onClick={ () => {
+								getIpcApi().openURL( urlWithHTTPS );
+							} }
+						>
+							<span className="truncate">{ urlWithHTTPS }</span>
+							<ArrowIcon />
+						</Button>
 					</div>
-					<Button
-						variant="link"
-						className={ cx( 'mt-1 !p-0 h-auto', '[&.is-link]:disabled:line-through' ) }
-						disabled
-					>
-						{ urlWithHTTPS }
-					</Button>
+					<div className="flex ml-auto">
+						<div className="w-[110px] text-a8c-gray-70">{ getLastUpdateTimeText() }</div>
+						<div className="w-[100px] text-a8c-gray-70">
+							{ sprintf( __( 'Expires in %s' ), countDown ) }
+						</div>
+						<div className="w-[60px] pr-2">{ /* Actions content */ }</div>
+					</div>
 				</div>
 				<div className="px-4 mt-4">
 					<div className="text-black a8c-subtitle-small demo-site-name">
@@ -423,10 +421,10 @@ function SnapshotRow( {
 	const isUpdateDisabled = isOffline || snapshotCreationBlocked;
 
 	return (
-		<div className="self-stretch flex-col px-4 py-3">
-			<div className="flex items-center">
+		<div className="self-stretch flex-col">
+			<div className="flex items-center h-12 px-8">
 				<div className="w-[51%]">
-					<div className="flex gap-2 items-center mb-1">
+					<div className="flex gap-2 items-center">
 						<div className="a8c-subtitle-small demo-site-name line-clamp-1 break-all">
 							{ selectedSite.name }
 						</div>

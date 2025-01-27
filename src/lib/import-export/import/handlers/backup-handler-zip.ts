@@ -55,26 +55,21 @@ export class BackupHandlerZip extends EventEmitter implements BackupHandler {
 					return;
 				}
 
-				zipFile.openReadStream( entry, ( err, readStream ) => {
-					if ( err ) {
-						reject( err );
-						return;
-					}
+				const readStream = await openReadStream( entry );
+				const writeStream = fs.createWriteStream( fullPath );
 
-					const writeStream = fs.createWriteStream( fullPath );
-					readStream.on( 'data', ( chunk ) => {
-						processedSize += chunk.length;
-						this.emit( ImportEvents.BACKUP_EXTRACT_PROGRESS, {
-							progress: processedSize / totalSize,
-						} as BackupExtractProgressEventData );
-					} );
-
-					writeStream.on( 'finish', () => {
-						zipFile.readEntry();
-					} );
-
-					readStream.pipe( writeStream );
+				readStream.on( 'data', ( chunk ) => {
+					processedSize += chunk.length;
+					this.emit( ImportEvents.BACKUP_EXTRACT_PROGRESS, {
+						progress: processedSize / totalSize,
+					} as BackupExtractProgressEventData );
 				} );
+
+				writeStream.on( 'finish', () => {
+					zipFile.readEntry();
+				} );
+
+				readStream.pipe( writeStream );
 			} );
 
 			zipFile.on( 'end', () => {

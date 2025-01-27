@@ -1,6 +1,6 @@
-import fs from 'fs-extra';
+import path from 'path';
+import { rootCertificates } from 'tls';
 import { createNodeFsMountHandler, loadNodeRuntime } from '@php-wasm/node';
-import { joinPaths, phpVar } from '@php-wasm/util';
 import {
 	MountHandler,
 	PHP,
@@ -9,15 +9,7 @@ import {
 	rotatePHPRuntime,
 	setPhpIniEntries,
 } from '@php-wasm/universal';
-import {
-	wordPressRewriteRules,
-	getFileNotFoundActionForWordPress,
-	setupPlatformLevelMuPlugins,
-} from '@wp-playground/wordpress';
-import path from 'path';
-import { SQLITE_FILENAME } from './constants';
-import { rootCertificates } from 'tls';
-import { downloadWordPress, removeDownloadedMuPlugins } from './download';
+import { joinPaths, phpVar } from '@php-wasm/util';
 import {
 	StepDefinition,
 	activatePlugin,
@@ -26,7 +18,26 @@ import {
 	defineWpConfigConsts,
 	runBlueprintSteps,
 } from '@wp-playground/blueprints';
+import {
+	wordPressRewriteRules,
+	getFileNotFoundActionForWordPress,
+	setupPlatformLevelMuPlugins,
+} from '@wp-playground/wordpress';
+import fs from 'fs-extra';
+import { SymlinkManager } from '../../../src/lib/symlink-manager';
 import getWpNowConfig, { WPNowOptions, WPNowMode } from './config';
+import {
+	PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER,
+	PLAYGROUND_INTERNAL_PRELOAD_PATH,
+	PLAYGROUND_INTERNAL_SHARED_FOLDER,
+	SQLITE_FILENAME,
+	SQLITE_PLUGIN_FOLDER,
+} from './constants';
+import { downloadWordPress, removeDownloadedMuPlugins } from './download';
+import getSqlitePath from './get-sqlite-path';
+import getWordpressVersionsPath from './get-wordpress-versions-path';
+import getWpNowPath from './get-wp-now-path';
+import { output } from './output';
 import {
 	hasIndexFile,
 	isPluginDirectory,
@@ -37,11 +48,6 @@ import {
 	getPluginFile,
 	readFileHead,
 } from './wp-playground-wordpress';
-import { output } from './output';
-import getWpNowPath from './get-wp-now-path';
-import getWordpressVersionsPath from './get-wordpress-versions-path';
-import getSqlitePath from './get-sqlite-path';
-import { SymlinkManager } from '../../../src/lib/symlink-manager';
 
 export default async function startWPNow(
 	options: Partial< WPNowOptions > = {}
@@ -146,7 +152,7 @@ async function getPHPInstance(
 		memory_limit: '256M',
 		disable_functions: '',
 		allow_url_fopen: '1',
-		'openssl.cafile': '/internal/shared/ca-bundle.crt',
+		'openssl.cafile': path.join( PLAYGROUND_INTERNAL_SHARED_FOLDER, 'ca-bundle.crt' ),
 	} );
 
 	return { php, runtimeId: id };
@@ -156,7 +162,10 @@ async function prepareDocumentRoot( php: PHP, options: WPNowOptions ) {
 	php.mkdir( options.documentRoot );
 	php.chdir( options.documentRoot );
 	php.writeFile( `${ options.documentRoot }/index.php`, `<?php echo 'Hello wp-now!';` );
-	php.writeFile( '/internal/shared/ca-bundle.crt', rootCertificates.join( '\n' ) );
+	php.writeFile(
+		path.join( PLAYGROUND_INTERNAL_SHARED_FOLDER, 'ca-bundle.crt' ),
+		rootCertificates.join( '\n' )
+	);
 }
 
 async function mountSqlitePlugin( php: PHP, documentRoot: string ) {
@@ -177,12 +186,7 @@ async function mountSqlitePlugin( php: PHP, documentRoot: string ) {
 		output?.log( 'MySQL is not configured, setting up SQLite plugin' );
 	}
 
-	const SQLITE_PLUGIN_FOLDER = '/internal/shared/mu-plugins/sqlite-database-integration';
-	const sqlitePluginSourceDir = getSqlitePath();
-	if ( ! fs.existsSync( sqlitePluginSourceDir ) ) {
-		return;
-	}
-	await recursiveCopyDirectoryToMuPlugins( php, sqlitePluginSourceDir, SQLITE_PLUGIN_FOLDER );
+	await copyDirectoryToPlaygroundFs( php, getSqlitePath(), SQLITE_PLUGIN_FOLDER );
 
 	/**
 	 * TODO: Load db.php using Playground's preloadSqliteIntegration function.
@@ -202,8 +206,14 @@ async function mountSqlitePlugin( php: PHP, documentRoot: string ) {
 	await php.writeFile( path.join( documentRoot, 'wp-content/db.php' ), dbPhp );
 }
 
-// MU-TODO: move this code to a helper or find a built-in function to do this
-async function recursiveCopyDirectoryToMuPlugins(
+/**
+ * Copy a directory from the local filesystem to the Playground filesystem
+ *
+ * @param php - The PHP instance
+ * @param source - The source directory
+ * @param destination - The destination directory
+ */
+async function copyDirectoryToPlaygroundFs(
 	php: PHP,
 	source: string,
 	destination: string
@@ -217,7 +227,7 @@ async function recursiveCopyDirectoryToMuPlugins(
 		const destinationPath = path.join( destination, entry.name );
 
 		if ( entry.isDirectory() ) {
-			await recursiveCopyDirectoryToMuPlugins( php, sourcePath, destinationPath );
+			await copyDirectoryToPlaygroundFs( php, sourcePath, destinationPath );
 		} else if ( entry.isFile() ) {
 			await php.writeFile( destinationPath, await fs.readFile( sourcePath ) );
 		}
@@ -225,11 +235,10 @@ async function recursiveCopyDirectoryToMuPlugins(
 }
 
 async function mountInternalMuPlugins( php: PHP ) {
-	const muPluginsPath = '/internal/shared/mu-plugins';
-	php.mkdir( muPluginsPath );
+	php.mkdir( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER );
 
 	php.writeFile(
-		path.join( muPluginsPath, '0-allowed-redirect-hosts.php' ),
+		path.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-allowed-redirect-hosts.php' ),
 		`<?php
 	// Needed because gethostbyname( <host> ) returns
 	// a private network IP address for some reason.
@@ -248,7 +257,7 @@ async function mountInternalMuPlugins( php: PHP ) {
 	);
 
 	php.writeFile(
-		path.join( muPluginsPath, '0-thumbnails.php' ),
+		path.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-thumbnails.php' ),
 		`<?php
 		// Facilitates the taking of screenshots to be used as thumbnails.
 		if ( isset( $_GET['studio-hide-adminbar'] ) ) {
@@ -258,7 +267,7 @@ async function mountInternalMuPlugins( php: PHP ) {
 	);
 
 	php.writeFile(
-		path.join( muPluginsPath, '0-32bit-integer-warnings.php' ),
+		path.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-32bit-integer-warnings.php' ),
 		`<?php
 /**
  * This is a temporary workaround to hide the 32bit integer warnings that
@@ -277,7 +286,7 @@ set_error_handler(function($severity, $message, $file, $line) {
 	);
 
 	php.writeFile(
-		path.join( muPluginsPath, '0-check-theme-availability.php' ),
+		path.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-check-theme-availability.php' ),
 		`<?php
 	function check_current_theme_availability() {
 			// Get the current theme's directory
@@ -305,7 +314,7 @@ set_error_handler(function($severity, $message, $file, $line) {
 	);
 
 	php.writeFile(
-		path.join( muPluginsPath, '0-permalinks.php' ),
+		path.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-permalinks.php' ),
 		`<?php
 			// Support permalinks without "index.php"
 			add_filter( 'got_url_rewrite', '__return_true' );
@@ -313,7 +322,17 @@ set_error_handler(function($severity, $message, $file, $line) {
 	);
 
 	php.writeFile(
-		path.join( muPluginsPath, '0-deactivate-jetpack-modules.php' ),
+		path.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-sqlite-command.php' ),
+		`<?php
+			add_filter( 'sqlite_command_sqlite_plugin_directories', function( $directories ) {
+				$directories[] = ${ phpVar( SQLITE_PLUGIN_FOLDER ) };
+				return $directories;
+			} );
+		`
+	);
+
+	php.writeFile(
+		path.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-deactivate-jetpack-modules.php' ),
 		`<?php
 			// Disable Jetpack Protect 2FA for local auto-login purpose
 			add_action( 'jetpack_active_modules', 'jetpack_deactivate_modules' );
@@ -327,7 +346,7 @@ set_error_handler(function($severity, $message, $file, $line) {
 	);
 
 	php.writeFile(
-		path.join( muPluginsPath, '0-wp-config-constants-polyfill.php' ),
+		path.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-wp-config-constants-polyfill.php' ),
 		`<?php
 		// Define database constants if not already defined. It fixes the error
 		// for imported sites that don't have those defined e.g. WP Cloud and
@@ -340,7 +359,6 @@ set_error_handler(function($severity, $message, $file, $line) {
 		if (!defined('DB_COLLATE')) define('DB_COLLATE', '');
 		`
 	);
-	setupPlatformLevelMuPlugins( php );
 }
 
 export async function prepareWordPress( php: PHP, options: WPNowOptions ) {
@@ -368,6 +386,7 @@ export async function prepareWordPress( php: PHP, options: WPNowOptions ) {
 	await mountInternalMuPlugins( php );
 	await mountSqlitePlugin( php, options.documentRoot );
 	await startSymlinkManager( php, options.projectPath, options.documentRoot );
+	await setupPlatformLevelMuPlugins( php );
 }
 
 /**
@@ -725,5 +744,8 @@ export async function moveDatabasesInSitu( projectPath: string ) {
  * updated Emscripten, and the Playground dependency is updated in the app, this workaround can be removed.
  */
 function applyOverrideUmaskWorkaround( php: PHP ) {
-	php.writeFile( '/internal/shared/preload/override-umask-workaround.php', '<?php umask(0022);' );
+	php.writeFile(
+		path.join( PLAYGROUND_INTERNAL_PRELOAD_PATH, 'override-umask-workaround.php' ),
+		'<?php umask(0022);'
+	);
 }

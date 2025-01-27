@@ -1,8 +1,15 @@
-import startWPNow, { getThemeTemplate, inferMode } from '../wp-now';
-import { startServer } from '../';
-import getWpNowConfig, { CliOptions, WPNowMode } from '../config';
-import fs from 'fs-extra';
+import crypto from 'crypto';
+import os from 'os';
 import path from 'path';
+import fs from 'fs-extra';
+import { getWpNowPath, startServer } from '../';
+import getWpNowConfig, { CliOptions, WPNowMode } from '../config';
+import { downloadSqliteIntegrationPlugin, downloadWpCli, downloadWordPress } from '../download';
+import { executeWPCli } from '../execute-wp-cli';
+import getWpCliTmpPath from '../get-wp-cli-tmp-path';
+import getWpNowTmpPath from '../get-wp-now-tmp-path';
+import { runCli } from '../run-cli';
+import startWPNow, { getThemeTemplate, inferMode } from '../wp-now';
 import {
 	isPluginDirectory,
 	isThemeDirectory,
@@ -10,13 +17,6 @@ import {
 	isWordPressDirectory,
 	isWordPressDevelopDirectory,
 } from '../wp-playground-wordpress';
-import { downloadSqliteIntegrationPlugin, downloadWpCli, downloadWordPress } from '../download';
-import os from 'os';
-import crypto from 'crypto';
-import getWpNowTmpPath from '../get-wp-now-tmp-path';
-import getWpCliTmpPath from '../get-wp-cli-tmp-path';
-import { executeWPCli } from '../execute-wp-cli';
-import { runCli } from '../run-cli';
 
 const exampleDir = __dirname + '/mode-examples';
 
@@ -770,7 +770,11 @@ describe( 'wp-cli command', () => {
 	} );
 
 	beforeAll( async () => {
-		await downloadWithTimer( 'wp-cli', downloadWpCli );
+		await Promise.all( [
+			downloadWithTimer( 'wp-cli', downloadWpCli ),
+			downloadWithTimer( 'wordpress', downloadWordPress ),
+			downloadWithTimer( 'sqlite', downloadSqliteIntegrationPlugin ),
+		] );
 	} );
 
 	afterAll( () => {
@@ -782,7 +786,7 @@ describe( 'wp-cli command', () => {
 	 * We don't need the WordPress context for this test.
 	 */
 	test( 'wp-cli displays the version', async () => {
-		await executeWPCli( [ 'cli', 'version' ] );
+		await executeWPCli( getWpNowTmpPath(), [ 'cli', 'version' ] );
 		expect( output ).toMatch( /WP-CLI (\d\.?)+/i );
 	} );
 } );

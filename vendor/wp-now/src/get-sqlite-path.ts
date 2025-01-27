@@ -1,6 +1,6 @@
 import path from 'path';
-import getWpNowPath from './get-wp-now-path';
 import { SQLITE_FILENAME } from './constants';
+import getWpNowPath from './get-wp-now-path';
 
 /**
  * The full path to the "SQLite database integration" folder.

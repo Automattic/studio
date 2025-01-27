@@ -1,7 +1,7 @@
 import { ProgressBar, DropdownMenu, MenuGroup, MenuItem } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
-import { check, external, Icon, arrowDown, moreVertical, update, trash } from '@wordpress/icons';
+import { check, external, Icon, arrowDown, moreVertical } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren, useEffect } from 'react';
 import {
@@ -21,14 +21,12 @@ import { useProgressTimer } from 'src/hooks/use-progress-timer';
 import { useSiteSize } from 'src/hooks/use-site-size';
 import { useSnapshots } from 'src/hooks/use-snapshots';
 import { useUpdateDemoSite } from 'src/hooks/use-update-demo-site';
-import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ArrowIcon } from './arrow-icon';
-import { Badge } from './badge';
 import Button from './button';
 import offlineIcon from './offline-icon';
 import { ScreenshotDemoSite } from './screenshot-demo-site';
-import { DynamicTooltip, Tooltip, TooltipProps } from './tooltip';
+import { Tooltip, TooltipProps } from './tooltip';
 
 interface ContentTabPreviewsProps {
 	selectedSite: SiteDetails;
@@ -273,8 +271,8 @@ function SnapshotRow( {
 		useSnapshots();
 	const { isUploadingSiteId } = useArchiveSite();
 	const isUploading = isUploadingSiteId( selectedSite.id );
-	const { updateDemoSite, isDemoSiteUpdating } = useUpdateDemoSite();
 	const errorMessages = useArchiveErrorMessages();
+	const { isDemoSiteUpdating } = useUpdateDemoSite();
 	const isSiteDemoUpdating = isDemoSiteUpdating( snapshot.localSiteId );
 	const { formatRelativeTime } = useFormatLocalizedTimestamps();
 
@@ -317,36 +315,6 @@ function SnapshotRow( {
 	// 	return <SnapshotRowLoading>{ __( 'Deleting demo site…' ) }</SnapshotRowLoading>;
 	// }
 	const urlWithHTTPS = `https://${ url }`;
-	const handleUpdateDemoSite = async () => {
-		const dontShowUpdateWarning = localStorage.getItem( 'dontShowUpdateWarning' );
-
-		if ( ! dontShowUpdateWarning ) {
-			const UPDATE_BUTTON_INDEX = 0;
-			const CANCEL_BUTTON_INDEX = 1;
-
-			const { response, checkboxChecked } = await getIpcApi().showMessageBox( {
-				type: 'info',
-				message: __( 'Overwrite demo site' ),
-				detail: __(
-					"Updating will replace the existing files and database with a copy from your local site. Any changes you've made to your demo site will be permanently lost."
-				),
-				buttons: [ __( 'Update' ), __( 'Cancel' ) ],
-				cancelId: CANCEL_BUTTON_INDEX,
-				checkboxLabel: __( "Don't show this warning again" ),
-				checkboxChecked: false,
-			} );
-
-			if ( response === UPDATE_BUTTON_INDEX ) {
-				if ( checkboxChecked ) {
-					localStorage.setItem( 'dontShowUpdateWarning', 'true' );
-				}
-
-				updateDemoSite( snapshot, selectedSite );
-			}
-		} else {
-			updateDemoSite( snapshot, selectedSite );
-		}
-	};
 
 	let tooltipContent: Partial< TooltipProps & { text?: string } > = {};
 	if ( isOffline ) {
@@ -402,6 +370,7 @@ function SnapshotRow( {
 
 function PreviewActionButtonsMenu( {
 	snapshot,
+	selectedSite,
 }: {
 	snapshot: Snapshot;
 	selectedSite: SiteDetails;
@@ -409,6 +378,37 @@ function PreviewActionButtonsMenu( {
 	const { __ } = useI18n();
 	const { deleteSnapshot } = useSnapshots();
 	const { updateDemoSite } = useUpdateDemoSite();
+
+	const handleUpdateDemoSite = async () => {
+		const dontShowUpdateWarning = localStorage.getItem( 'dontShowUpdateWarning' );
+
+		if ( ! dontShowUpdateWarning ) {
+			const UPDATE_BUTTON_INDEX = 0;
+			const CANCEL_BUTTON_INDEX = 1;
+
+			const { response, checkboxChecked } = await getIpcApi().showMessageBox( {
+				type: 'info',
+				message: __( 'Overwrite preview' ),
+				detail: __(
+					"Updating will replace the existing files and database with a copy from your local site. Any changes you've made to your preview link will be permanently lost."
+				),
+				buttons: [ __( 'Update' ), __( 'Cancel' ) ],
+				cancelId: CANCEL_BUTTON_INDEX,
+				checkboxLabel: __( "Don't show this warning again" ),
+				checkboxChecked: false,
+			} );
+
+			if ( response === UPDATE_BUTTON_INDEX ) {
+				if ( checkboxChecked ) {
+					localStorage.setItem( 'dontShowUpdateWarning', 'true' );
+				}
+
+				updateDemoSite( snapshot, selectedSite );
+			}
+		} else {
+			updateDemoSite( snapshot, selectedSite );
+		}
+	};
 
 	return (
 		<DropdownMenu
@@ -419,10 +419,9 @@ function PreviewActionButtonsMenu( {
 			{ ( { onClose }: { onClose: () => void } ) => (
 				<MenuGroup className="w-40 overflow-hidden">
 					<MenuItem
-						onClick={ () => {
-							handleUpdateDemoSite();
-							onClose();
-						} }
+					// 	Implement rename
+					// 	onClose();
+					// } }
 					>
 						<span>{ __( 'Rename' ) }</span>
 					</MenuItem>

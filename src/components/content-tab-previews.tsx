@@ -1,7 +1,7 @@
-import { ProgressBar } from '@wordpress/components';
+import { ProgressBar, DropdownMenu, MenuGroup, MenuItem } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
-import { check, external, Icon, arrowDown } from '@wordpress/icons';
+import { check, external, Icon, arrowDown, moreVertical, update, trash } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren, useEffect } from 'react';
 import {
@@ -231,7 +231,7 @@ function AddPreviewSiteWithProgress( {
 				<div className="w-[300px]">
 					<ProgressBar value={ progress } max={ 100 } />
 					<div className="text-a8c-gray-70 a8c-body mt-4">
-						{ tagline || __( "We're creating your preview link." ) }
+						{ tagline || __( 'Generating preview link' ) }
 					</div>
 				</div>
 			) : (
@@ -292,7 +292,7 @@ function SnapshotRow( {
 			return __( 'Never updated' );
 		}
 		const timeDistance = formatRelativeTime( new Date( date ).toISOString() );
-		return sprintf( __( 'Last updated %s ago.' ), timeDistance );
+		return sprintf( __( '%s ago' ), timeDistance );
 	};
 	const userBlockedMessage = errorMessages.rest_site_creation_blocked;
 
@@ -347,58 +347,6 @@ function SnapshotRow( {
 			updateDemoSite( snapshot, selectedSite );
 		}
 	};
-	if ( isExpired ) {
-		return (
-			<div className="self-stretch flex-col">
-				<div className="flex items-center h-12 px-8">
-					<div className="w-[51%]">
-						<div className="flex gap-2 items-center">
-							<div className="a8c-subtitle-small demo-site-name line-clamp-1 break-all">
-								{ selectedSite.name }
-							</div>
-						</div>
-						<Button
-							variant="link"
-							className="!text-a8c-gray-70 hover:!text-a8c-blueberry max-w-[100%]"
-							onClick={ () => {
-								getIpcApi().openURL( urlWithHTTPS );
-							} }
-						>
-							<span className="truncate">{ urlWithHTTPS }</span>
-							<ArrowIcon />
-						</Button>
-					</div>
-					<div className="flex ml-auto">
-						<div className="w-[110px] text-a8c-gray-70">{ getLastUpdateTimeText() }</div>
-						<div className="w-[100px] text-a8c-gray-70">
-							{ sprintf( __( 'Expires in %s' ), countDown ) }
-						</div>
-						<div className="w-[60px] pr-2">{ /* Actions content */ }</div>
-					</div>
-				</div>
-				<div className="px-4 mt-4">
-					<div className="text-black a8c-subtitle-small demo-site-name">
-						{ sprintf( __( 'Site expired on %s' ), dateString ) }
-					</div>
-					<div className="a8c-body mt-1">
-						{ __( 'Demo sites are deleted 7 days after they were last updated.' ) }
-					</div>
-				</div>
-				<div className="px-4 pb-3 mt-4 flex gap-4">
-					<AddPreviewSiteWithProgress
-						selectedSite={ selectedSite }
-						isSnapshotLoading={ snapshot.isLoading }
-						tagline={ __( "We're creating your new demo site." ) }
-					/>
-					{ ! snapshot.isLoading && ! isUploading && (
-						<Button isDestructive onClick={ () => removeSnapshot( snapshot ) }>
-							{ __( 'Clear expired site' ) }
-						</Button>
-					) }
-				</div>
-			</div>
-		);
-	}
 
 	let tooltipContent: Partial< TooltipProps & { text?: string } > = {};
 	if ( isOffline ) {
@@ -422,7 +370,7 @@ function SnapshotRow( {
 
 	return (
 		<div className="self-stretch flex-col">
-			<div className="flex items-center h-12 px-8">
+			<div className="flex items-center px-8 py-6">
 				<div className="w-[51%]">
 					<div className="flex gap-2 items-center">
 						<div className="a8c-subtitle-small demo-site-name line-clamp-1 break-all">
@@ -442,13 +390,62 @@ function SnapshotRow( {
 				</div>
 				<div className="flex ml-auto">
 					<div className="w-[110px] text-a8c-gray-70">{ getLastUpdateTimeText() }</div>
-					<div className="w-[100px] text-a8c-gray-70">
-						{ sprintf( __( 'Expires in %s' ), countDown ) }
+					<div className="w-[100px] text-a8c-gray-70">{ countDown }</div>
+					<div className="w-[60px] pr-2">
+						<PreviewActionButtonsMenu snapshot={ snapshot } selectedSite={ selectedSite } />
 					</div>
-					<div className="w-[60px] pr-2">{ /* Actions content */ }</div>
 				</div>
 			</div>
 		</div>
+	);
+}
+
+function PreviewActionButtonsMenu( {
+	snapshot,
+}: {
+	snapshot: Snapshot;
+	selectedSite: SiteDetails;
+} ) {
+	const { __ } = useI18n();
+	const { deleteSnapshot } = useSnapshots();
+	const { updateDemoSite } = useUpdateDemoSite();
+
+	return (
+		<DropdownMenu
+			icon={ moreVertical }
+			label={ __( 'Preview actions' ) }
+			className="p-1 flex items-center"
+		>
+			{ ( { onClose }: { onClose: () => void } ) => (
+				<MenuGroup className="w-40 overflow-hidden">
+					<MenuItem
+						onClick={ () => {
+							handleUpdateDemoSite();
+							onClose();
+						} }
+					>
+						<span>{ __( 'Rename' ) }</span>
+					</MenuItem>
+					<MenuItem
+						onClick={ () => {
+							handleUpdateDemoSite();
+							onClose();
+						} }
+					>
+						<span>{ __( 'Update' ) }</span>
+					</MenuItem>
+					<MenuItem
+						isDestructive
+						onClick={ () => {
+							deleteSnapshot( snapshot );
+							onClose();
+						} }
+					>
+						<span>{ __( 'Delete' ) }</span>
+					</MenuItem>
+				</MenuGroup>
+			) }
+		</DropdownMenu>
 	);
 }
 

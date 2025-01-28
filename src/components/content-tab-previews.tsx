@@ -219,10 +219,8 @@ function CreatePreviewButton( {
 }
 
 function AddPreviewSiteWithProgress( {
-	isSnapshotLoading,
 	selectedSite,
 	className = '',
-	tagline = '',
 }: {
 	isSnapshotLoading?: boolean;
 	selectedSite: SiteDetails;
@@ -230,39 +228,16 @@ function AddPreviewSiteWithProgress( {
 	tagline?: string;
 } ) {
 	const { __ } = useI18n();
-	const { archiveSite, isUploadingSiteId } = useArchiveSite();
-	const isUploading = isUploadingSiteId( selectedSite.id );
-
-	const { progress, setProgress } = useProgressTimer( {
-		paused: ! isUploading && ! isSnapshotLoading,
-		initialProgress: 5,
-		interval: 1500,
-		maxValue: 95,
-	} );
-
-	useEffect( () => {
-		if ( isSnapshotLoading ) {
-			setProgress( 80 );
-		}
-	}, [ isSnapshotLoading, setProgress ] );
+	const { archiveSite } = useArchiveSite();
 
 	return (
 		<div className={ className }>
-			{ isUploading || isSnapshotLoading ? (
-				<div className="w-[300px]">
-					<ProgressBar value={ progress } max={ 100 } />
-					<div className="text-a8c-gray-70 a8c-body mt-4">
-						{ tagline || __( 'Generating preview link' ) }
-					</div>
-				</div>
-			) : (
-				<div className="flex gap-4">
-					<CreatePreviewButton
-						onClick={ () => archiveSite( selectedSite.id ) }
-						selectedSite={ selectedSite }
-					/>
-				</div>
-			) }
+			<div className="flex gap-4">
+				<CreatePreviewButton
+					onClick={ () => archiveSite( selectedSite.id ) }
+					selectedSite={ selectedSite }
+				/>
+			</div>
 		</div>
 	);
 }
@@ -306,22 +281,9 @@ function SnapshotRow( {
 	};
 	const userBlockedMessage = errorMessages.rest_site_creation_blocked;
 
-	const { progress, setProgress } = useProgressTimer( {
-		paused: ! isSiteDemoUpdating,
-		initialProgress: 5,
-		interval: 1500,
-		maxValue: 95,
-	} );
-
 	useEffect( () => {
 		fetchSnapshotUsage();
 	}, [ fetchSnapshotUsage ] );
-
-	useEffect( () => {
-		if ( isSiteDemoUpdating ) {
-			setProgress( 80 );
-		}
-	}, [ isSiteDemoUpdating, setProgress ] );
 
 	const urlWithHTTPS = `https://${ url }`;
 
@@ -498,8 +460,20 @@ function PreviewLinksTableHeader() {
 	);
 }
 
-function LoadingRow( { progress }: { progress: number } ) {
+function LoadingRow( { isSnapshotLoading }: { isSnapshotLoading?: boolean } ) {
 	const { __ } = useI18n();
+	const { progress, setProgress } = useProgressTimer( {
+		paused: ! isSnapshotLoading,
+		initialProgress: 5,
+		interval: 1500,
+		maxValue: 95,
+	} );
+
+	useEffect( () => {
+		if ( isSnapshotLoading ) {
+			setProgress( 80 );
+		}
+	}, [ isSnapshotLoading, setProgress ] );
 
 	return (
 		<div className="flex items-center px-8 py-6">
@@ -524,12 +498,6 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 	const { isAuthenticated } = useAuth();
 	const { archiveSite, isUploadingSiteId } = useArchiveSite();
 	const isUploading = isUploadingSiteId( selectedSite.id );
-	const { progress } = useProgressTimer( {
-		paused: ! isUploading,
-		initialProgress: 5,
-		interval: 1500,
-		maxValue: 95,
-	} );
 
 	if ( ! isAuthenticated ) {
 		return <NoAuth selectedSite={ selectedSite } />;
@@ -544,7 +512,7 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 			return (
 				<div className="w-full h-full flex flex-col">
 					<PreviewLinksTableHeader />
-					<LoadingRow progress={ progress } />
+					<LoadingRow isSnapshotLoading={ isUploading } />
 				</div>
 			);
 		}
@@ -555,7 +523,7 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 		<div className="w-full h-full flex flex-col">
 			<div>
 				<PreviewLinksTableHeader />
-				{ isUploading && <LoadingRow progress={ progress } /> }
+				{ isUploading && <LoadingRow isSnapshotLoading={ isUploading } /> }
 				{ snapshotsOnSite.map( ( snapshot ) => (
 					<SnapshotRow
 						snapshot={ snapshot }

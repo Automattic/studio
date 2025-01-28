@@ -78,28 +78,36 @@ export function useArchiveSite() {
 				return;
 			}
 
+			let archivePath = '';
 			try {
-				const { archiveContent, archivePath, archiveSizeInBytes } = await getIpcApi().archiveSite(
+				const { archivePath: tempArchivePath, archiveSizeInBytes } = await getIpcApi().archiveSite(
 					siteId,
 					'zip'
 				);
+				archivePath = tempArchivePath;
+
 				if ( archiveSizeInBytes > DEMO_SITE_SIZE_LIMIT_BYTES ) {
-					alert(
-						sprintf(
+					getIpcApi().showErrorMessageBox( {
+						title: __( 'Adding demo site failed' ),
+						message: sprintf(
 							__(
 								'The site exceeds the maximum size of %dGB. Please remove some files and try again.'
 							),
 							DEMO_SITE_SIZE_LIMIT_GB
-						)
-					);
+						),
+					} );
 					setUploadingSites( ( _uploadingSites ) => ( { ..._uploadingSites, [ siteId ]: false } ) );
 					getIpcApi().removeTemporalFile( archivePath );
 					return;
 				}
 
-				const file = new File( [ archiveContent ], 'loca-env-site-1.zip', {
-					type: 'application/zip',
-				} );
+				const file = new File(
+					[ await getIpcApi().getFileContent( archivePath ) ],
+					'loca-env-site-1.zip',
+					{
+						type: 'application/zip',
+					}
+				);
 
 				const formData = [ [ 'import', file ] ];
 				const wordpressVersion = await getIpcApi().getWpVersion( siteId );
@@ -152,6 +160,9 @@ export function useArchiveSite() {
 				Sentry.captureException( error );
 			} finally {
 				setUploadingSites( ( _uploadingSites ) => ( { ..._uploadingSites, [ siteId ]: false } ) );
+				if ( archivePath ) {
+					getIpcApi().removeTemporalFile( archivePath );
+				}
 			}
 		},
 		[ __, addSnapshot, client, errorMessages, fetchSnapshotUsage, setUploadingSites ]

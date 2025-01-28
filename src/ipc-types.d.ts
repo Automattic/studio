@@ -81,6 +81,7 @@ interface AppGlobals {
 	appName: string;
 	arm64Translation: boolean;
 	terminalWpCliEnabled: boolean;
+	quickDeploysEnabled: boolean;
 }
 
 interface IpcListener {

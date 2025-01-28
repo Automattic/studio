@@ -5,18 +5,34 @@ import { WpressValidator } from '../../../import/validators/wpress-validator';
 describe( 'WpressValidator', () => {
 	let validator: WpressValidator;
 
-	beforeEach( () => {
-		validator = new WpressValidator();
+	const originalSep = path.sep;
+	const originalJoin = path.join;
+	const separators = [
+		{ name: 'Unix', separator: '/' },
+		{ name: 'Windows', separator: '\\' },
+	];
+
+	afterEach( () => {
+		// @ts-expect-error - Restore original path.sep
+		path.sep = originalSep;
+		path.join = originalJoin;
 	} );
 
-	describe( 'canHandle', () => {
+	describe.each( separators )( 'canHandle with $name separators', ( { separator } ) => {
+		beforeEach( () => {
+			validator = new WpressValidator();
+			// @ts-expect-error - Temporarily override path.sep
+			path.sep = separator;
+			path.join = jest.fn( ( ...segments ) => segments.join( separator ) );
+		} );
+
 		it( 'should return true for valid wpress file structure', () => {
 			const fileList = [
 				'database.sql',
 				'package.json',
-				'uploads/image.jpg',
-				'plugins/some-plugin/plugin.php',
-				'themes/some-theme/style.css',
+				[ 'uploads', 'image.jpg' ].join( separator ),
+				[ 'plugins', 'some-plugin', 'plugin.php' ].join( separator ),
+				[ 'themes', 'some-theme', 'style.css' ].join( separator ),
 			];
 			expect( validator.canHandle( fileList ) ).toBe( true );
 		} );
@@ -24,9 +40,9 @@ describe( 'WpressValidator', () => {
 		it( 'should return false if database.sql is missing', () => {
 			const fileList = [
 				'package.json',
-				'uploads/image.jpg',
-				'plugins/some-plugin/plugin.php',
-				'themes/some-theme/style.css',
+				[ 'uploads', 'image.jpg' ].join( separator ),
+				[ 'plugins', 'some-plugin', 'plugin.php' ].join( separator ),
+				[ 'themes', 'some-theme', 'style.css' ].join( separator ),
 			];
 			expect( validator.canHandle( fileList ) ).toBe( false );
 		} );
@@ -34,9 +50,9 @@ describe( 'WpressValidator', () => {
 		it( 'should return false if package.json is missing', () => {
 			const fileList = [
 				'database.sql',
-				'uploads/image.jpg',
-				'plugins/some-plugin/plugin.php',
-				'themes/some-theme/style.css',
+				[ 'uploads', 'image.jpg' ].join( separator ),
+				[ 'plugins', 'some-plugin', 'plugin.php' ].join( separator ),
+				[ 'themes', 'some-theme', 'style.css' ].join( separator ),
 			];
 			expect( validator.canHandle( fileList ) ).toBe( false );
 		} );
@@ -47,13 +63,20 @@ describe( 'WpressValidator', () => {
 		} );
 	} );
 
-	describe( 'parseBackupContents', () => {
-		const extractionDirectory = '/path/to/extraction';
+	describe.each( separators )( 'parseBackupContents with $name separators', ( { separator } ) => {
+		beforeEach( () => {
+			validator = new WpressValidator();
+			// @ts-expect-error - Temporarily override path.sep
+			path.sep = separator;
+			path.join = jest.fn( ( ...segments ) => segments.join( separator ) );
+		} );
+
+		const extractionDirectory = [ 'path', 'to', 'extraction' ].join( separator );
 		const fileList = [
 			'database.sql',
-			'uploads/image.jpg',
-			'plugins/some-plugin/plugin.php',
-			'themes/some-theme/style.css',
+			[ 'uploads', 'image.jpg' ].join( separator ),
+			[ 'plugins', 'some-plugin', 'plugin.php' ].join( separator ),
+			[ 'themes', 'some-theme', 'style.css' ].join( separator ),
 			'package.json',
 		];
 
@@ -61,17 +84,19 @@ describe( 'WpressValidator', () => {
 			const result = validator.parseBackupContents( fileList, extractionDirectory );
 
 			expect( result.extractionDirectory ).toBe( extractionDirectory );
-			expect( result.sqlFiles ).toEqual( [ path.join( extractionDirectory, 'database.sql' ) ] );
+			expect( result.sqlFiles ).toEqual( [
+				[ extractionDirectory, 'database.sql' ].join( separator ),
+			] );
 			expect( result.wpContent.uploads ).toEqual( [
-				path.join( extractionDirectory, 'uploads/image.jpg' ),
+				[ extractionDirectory, 'uploads', 'image.jpg' ].join( separator ),
 			] );
 			expect( result.wpContent.plugins ).toEqual( [
-				path.join( extractionDirectory, 'plugins/some-plugin/plugin.php' ),
+				[ extractionDirectory, 'plugins', 'some-plugin', 'plugin.php' ].join( separator ),
 			] );
 			expect( result.wpContent.themes ).toEqual( [
-				path.join( extractionDirectory, 'themes/some-theme/style.css' ),
+				[ extractionDirectory, 'themes', 'some-theme', 'style.css' ].join( separator ),
 			] );
-			expect( result.metaFile ).toBe( path.join( extractionDirectory, 'package.json' ) );
+			expect( result.metaFile ).toBe( [ extractionDirectory, 'package.json' ].join( separator ) );
 		} );
 
 		it( 'should emit validation events', () => {

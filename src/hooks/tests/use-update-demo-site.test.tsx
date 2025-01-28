@@ -10,9 +10,15 @@ jest.mock( '../../hooks/use-snapshots' );
 jest.mock( '../../hooks/use-auth' );
 jest.mock( '../../lib/get-ipc-api', () => ( {
 	getIpcApi: jest.fn().mockReturnValue( {
-		archiveSite: jest.fn().mockResolvedValue( { zipContent: new Blob( [ 'zipContent' ] ) } ),
-		showErrorMessageBox: jest.fn().mockResolvedValue( { response: 1 } ), // Assuming '1' is the cancel button
+		archiveSite: jest.fn().mockResolvedValue( {
+			archivePath: '/mock/path/archive.zip',
+			archiveSizeInBytes: 1000,
+		} ),
+		getFileContent: jest.fn().mockResolvedValue( new Uint8Array( [ 1, 2, 3, 4 ] ).buffer ),
+		showErrorMessageBox: jest.fn().mockResolvedValue( { response: 1 } ),
 		getWpVersion: jest.fn().mockResolvedValue( '6.5' ),
+		removeTemporalFile: jest.fn(),
+		showNotification: jest.fn(),
 	} ),
 } ) );
 jest.mock( '@sentry/electron/renderer', () => ( {
@@ -78,6 +84,12 @@ describe( 'useUpdateDemoSite', () => {
 			jest.advanceTimersByTime( 3000 );
 		} );
 
+		// Assert that archive site is called
+		expect( getIpcApi().archiveSite ).toHaveBeenCalledWith( mockLocalSite.id, 'zip' );
+
+		// Assert that file content is retrieved
+		expect( getIpcApi().getFileContent ).toHaveBeenCalledWith( '/mock/path/archive.zip' );
+
 		// Assert that 'update-site-from-zip' endpoint is correctly called
 		expect( clientReqPost ).toHaveBeenCalledWith( {
 			path: '/jurassic-ninja/update-site-from-zip',
@@ -105,6 +117,12 @@ describe( 'useUpdateDemoSite', () => {
 				date: expect.any( Number ),
 			} )
 		);
+
+		// Assert that success notification is shown
+		expect( getIpcApi().showNotification ).toHaveBeenCalledWith( {
+			title: 'Update Successful',
+			body: "Demo site for 'Test Site' has been updated.",
+		} );
 	} );
 
 	it( 'when an update fails, ensure an alert is triggered', async () => {

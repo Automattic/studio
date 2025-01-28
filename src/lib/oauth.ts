@@ -2,7 +2,7 @@ import { ipcMain, shell } from 'electron';
 import * as Sentry from '@sentry/electron/main';
 import wpcom from 'wpcom';
 import { PROTOCOL_PREFIX, WP_AUTHORIZE_ENDPOINT, CLIENT_ID, SCOPES } from '../constants';
-import { withMainWindow } from '../main-window';
+import { getMainWindow } from '../main-window';
 import { loadUserData, saveUserData } from '../storage/user-data';
 
 export interface StoredToken {
@@ -102,15 +102,13 @@ export function authenticate(): void {
 }
 
 export function setUpAuthCallbackHandler() {
-	ipcMain.on( 'auth-callback', ( _event, { token, error } ) => {
-		withMainWindow( ( mainWindow ) => {
-			if ( error ) {
-				mainWindow.webContents.send( 'auth-updated', { error: error } );
-			} else {
-				storeToken( token ).then( () => {
-					mainWindow.webContents.send( 'auth-updated', { token } );
-				} );
-			}
-		} );
+	ipcMain.on( 'auth-callback', async ( _event, { token, error } ) => {
+		const mainWindow = await getMainWindow();
+		if ( error ) {
+			mainWindow.webContents.send( 'auth-updated', { error } );
+		} else {
+			await storeToken( token );
+			mainWindow.webContents.send( 'auth-updated', { token } );
+		}
 	} );
 }

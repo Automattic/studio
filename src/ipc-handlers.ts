@@ -19,6 +19,7 @@ import archiver from 'archiver';
 import { DEFAULT_PHP_VERSION } from '../vendor/wp-now/src/constants';
 import { MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from './constants';
 import { ACTIVE_SYNC_OPERATIONS } from './lib/active-sync-operations';
+import { calculateDirectorySize } from './lib/calculate-directory-size';
 import { download } from './lib/download';
 import { isEmptyDir, pathExists, isWordPressDirectory, sanitizeFolderName } from './lib/fs-utils';
 import { getImageData } from './lib/get-image-data';
@@ -35,11 +36,11 @@ import { getUserLocaleWithFallback } from './lib/locale-node';
 import * as oauthClient from './lib/oauth';
 import { createPassword } from './lib/passwords';
 import { phpGetThemeDetails } from './lib/php-get-theme-details';
-import { sanitizeForLogging } from './lib/sanitize-for-logging';
 import { sortSites } from './lib/sort-sites';
 import { installSqliteIntegration, keepSqliteIntegrationUpdated } from './lib/sqlite-versions';
 import * as windowsHelpers from './lib/windows-helpers';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from './logging';
+import { getMainWindow } from './main-window';
 import { popupMenu, setupMenu } from './menu';
 import { SiteServer, createSiteWorkingDirectory } from './site-server';
 import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from './storage/paths';
@@ -77,10 +78,6 @@ async function mergeSiteDetailsWithRunningDetails(
 
 export async function getSiteDetails( _event: IpcMainInvokeEvent ): Promise< SiteDetails[] > {
 	const userData = await loadUserData();
-
-	// This is probably one of the first times the user data is loaded. Take the opportunity
-	// to log for debugging purposes.
-	console.log( 'Loaded user data', sanitizeForLogging( userData ) );
 
 	const { sites } = userData;
 
@@ -413,7 +410,7 @@ export async function startServer(
 		}
 	}
 
-	console.log( 'Server started', server.details );
+	console.log( `Server started for '${ server.details.name }'` );
 	await updateSite( event, server.details );
 	return server.details;
 }
@@ -518,6 +515,9 @@ export async function showUserSettings( event: IpcMainInvokeEvent ): Promise< vo
 	if ( ! parentWindow ) {
 		throw new Error( `No window found for sender of showUserSettings message: ${ event.frameId }` );
 	}
+	if ( parentWindow.isDestroyed() || event.sender.isDestroyed() ) {
+		return;
+	}
 	parentWindow.webContents.send( 'user-settings' );
 }
 
@@ -566,8 +566,7 @@ export async function archiveSite( event: IpcMainInvokeEvent, id: string, format
 		format,
 	} );
 	const stats = fs.statSync( archivePath );
-	const archiveContent = fs.readFileSync( archivePath );
-	return { archivePath, archiveContent, archiveSizeInBytes: stats.size };
+	return { archivePath, archiveSizeInBytes: stats.size };
 }
 
 export async function exportSiteToPush( event: IpcMainInvokeEvent, id: string ) {
@@ -725,6 +724,7 @@ export async function getAppGlobals( _event: IpcMainInvokeEvent ): Promise< AppG
 		appName: app.name,
 		arm64Translation: app.runningUnderARM64Translation,
 		terminalWpCliEnabled: process.env.STUDIO_TERMINAL_WP_CLI === 'true',
+		quickDeploysEnabled: process.env.STUDIO_QUICK_DEPLOYS === 'true',
 	};
 }
 
@@ -985,12 +985,15 @@ export async function showNotification(
 	new Notification( options ).show();
 }
 
-export function setupAppMenu( _event: IpcMainInvokeEvent, config: { needsOnboarding: boolean } ) {
-	setupMenu( config );
+export async function setupAppMenu(
+	_event: IpcMainInvokeEvent,
+	config: { needsOnboarding: boolean }
+) {
+	await setupMenu( config );
 }
 
-export function popupAppMenu( _event: IpcMainInvokeEvent ) {
-	popupMenu();
+export async function popupAppMenu( _event: IpcMainInvokeEvent ) {
+	await popupMenu();
 }
 
 export async function promptWindowsSpeedUpSites(
@@ -1105,4 +1108,24 @@ export function addSyncOperation( event: IpcMainInvokeEvent, id: string ) {
  */
 export function clearSyncOperation( event: IpcMainInvokeEvent, id: string ) {
 	ACTIVE_SYNC_OPERATIONS.delete( id );
+}
+
+export function getWpContentSize( _event: IpcMainInvokeEvent, siteId: string ) {
+	const site = SiteServer.get( siteId );
+	if ( ! site ) {
+		throw new Error( 'Site not found.' );
+	}
+	return calculateDirectorySize( nodePath.join( site.details.path, 'wp-content' ) );
+}
+export async function getFileContent( event: IpcMainInvokeEvent, filePath: string ) {
+	if ( ! fs.existsSync( filePath ) ) {
+		throw new Error( `File not found: ${ filePath }` );
+	}
+
+	return fs.readFileSync( filePath );
+}
+
+export async function isFullscreen( _event: IpcMainInvokeEvent ): Promise< boolean > {
+	const window = await getMainWindow();
+	return window.isFullScreen();
 }

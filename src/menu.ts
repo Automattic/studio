@@ -10,38 +10,36 @@ import { __ } from '@wordpress/i18n';
 import { openAboutWindow } from './about-menu/open-about-menu';
 import { BUG_REPORT_URL, FEATURE_REQUEST_URL, STUDIO_DOCS_URL } from './constants';
 import { promptWindowsSpeedUpSites } from './lib/windows-helpers';
-import { withMainWindow } from './main-window';
+import { getMainWindow } from './main-window';
 import { isUpdateReadyToInstall, manualCheckForUpdates } from './updates';
 
-export function setupMenu( config: { needsOnboarding: boolean } ) {
-	withMainWindow( ( mainWindow ) => {
-		if ( ! mainWindow && process.platform !== 'darwin' ) {
-			Menu.setApplicationMenu( null );
-			return;
-		}
-		const menu = getAppMenu( mainWindow, config );
-		if ( process.platform === 'darwin' ) {
-			Menu.setApplicationMenu( menu );
-			return;
-		}
-		// Make menu accessible in development for non-macOS platforms
-		if ( process.env.NODE_ENV === 'development' ) {
-			mainWindow?.setMenu( menu );
-			return;
-		}
+export async function setupMenu( config: { needsOnboarding: boolean } ) {
+	const mainWindow = await getMainWindow();
+	if ( ! mainWindow && process.platform !== 'darwin' ) {
 		Menu.setApplicationMenu( null );
-	} );
+		return;
+	}
+	const menu = getAppMenu( mainWindow, config );
+	if ( process.platform === 'darwin' ) {
+		Menu.setApplicationMenu( menu );
+		return;
+	}
+	// Make menu accessible in development for non-macOS platforms
+	if ( process.env.NODE_ENV === 'development' ) {
+		mainWindow?.setMenu( menu );
+		return;
+	}
+	Menu.setApplicationMenu( null );
 }
 
 export function removeMenu() {
 	Menu.setApplicationMenu( null );
 }
 
-export function popupMenu() {
-	withMainWindow( ( window ) => {
-		const menu = getAppMenu( window );
-		menu.popup();
-	} );
+export async function popupMenu() {
+	const window = await getMainWindow();
+	const menu = getAppMenu( window );
+	menu.popup();
 }
 
 function getAppMenu(
@@ -57,10 +55,9 @@ function getAppMenu(
 		},
 		{
 			label: __( 'Test Render Failure (dev only)' ),
-			click: () => {
-				withMainWindow( ( window ) => {
-					window.webContents.send( 'test-render-failure' );
-				} );
+			click: async () => {
+				const window = await getMainWindow();
+				window.webContents.send( 'test-render-failure' );
 			},
 		},
 	];
@@ -93,10 +90,9 @@ function getAppMenu(
 				{
 					label: __( 'Settings…' ),
 					accelerator: 'CommandOrControl+,',
-					click: () => {
-						withMainWindow( ( window ) => {
-							window.webContents.send( 'user-settings' );
-						} );
+					click: async () => {
+						const window = await getMainWindow();
+						window.webContents.send( 'user-settings' );
 					},
 				},
 				{ type: 'separator' },
@@ -119,10 +115,9 @@ function getAppMenu(
 				{
 					label: __( 'Add Site…' ),
 					accelerator: 'CommandOrControl+N',
-					click: () => {
-						withMainWindow( ( window ) => {
-							window.webContents.send( 'add-site' );
-						} );
+					click: async () => {
+						const window = await getMainWindow();
+						window.webContents.send( 'add-site' );
 					},
 					enabled: ! needsOnboarding,
 				},

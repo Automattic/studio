@@ -102,7 +102,10 @@ const api: IpcApi = {
 		ipcRenderer.invoke( 'getConnectedWpcomSites', localSiteId ),
 	addSyncOperation: ( id: string ) => ipcRenderer.invoke( 'addSyncOperation', id ),
 	clearSyncOperation: ( id: string ) => ipcRenderer.invoke( 'clearSyncOperation', id ),
+	getWpContentSize: ( id: string ) => ipcRenderer.invoke( 'getWpContentSize', id ),
 	getPathForFile: webUtils.getPathForFile,
+	getFileContent: ( filePath: string ) => ipcRenderer.invoke( 'getFileContent', filePath ),
+	isFullscreen: () => ipcRenderer.invoke( 'isFullscreen' ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );
@@ -118,6 +121,7 @@ const allowedChannels = [
 	'theme-details-updating',
 	'on-import',
 	'on-export',
+	'window-fullscreen-change',
 ] as const;
 
 contextBridge.exposeInMainWorld( 'ipcListener', {

@@ -27,7 +27,7 @@ import {
 import { getUserLocaleWithFallback } from './lib/locale-node';
 import { handleAuthCallback, setUpAuthCallbackHandler } from './lib/oauth';
 import { setupLogging } from './logging';
-import { createMainWindow, withMainWindow } from './main-window';
+import { createMainWindow, getMainWindow } from './main-window';
 import {
 	migrateFromWpNowFolder,
 	needsToMigrateFromWpNowFolder,
@@ -37,20 +37,17 @@ import { stopAllServersOnQuit } from './site-server';
 import { loadUserData } from './storage/user-data'; // eslint-disable-next-line import/order
 import { setupUpdates } from './updates';
 
-if ( ! isCLI() ) {
+if ( ! isCLI() && ! process.env.IS_DEV_BUILD ) {
 	Sentry.init( {
 		dsn: 'https://97693275b2716fb95048c6d12f4318cf@o248881.ingest.sentry.io/4506612776501248',
 		debug: true,
-		enabled:
-			process.env.NODE_ENV !== 'development' &&
-			process.env.NODE_ENV !== 'test' &&
-			! process.env.E2E,
+		enabled: process.env.NODE_ENV !== 'development' && process.env.NODE_ENV !== 'test',
 		release: `${ app.getVersion() ? app.getVersion() : COMMIT_HASH }-${ getPlatformName() }`,
 	} );
 }
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const isInInstaller = require( 'electron-squirrel-startup' );
 
 // Ensure we're the only instance of the app running
@@ -72,7 +69,7 @@ if ( gotTheLock && ! isInInstaller ) {
 	}
 }
 
-const onOpenUrlCallback = ( url: string ) => {
+const onOpenUrlCallback = async ( url: string ) => {
 	const urlObject = new URL( url );
 	const { host, hash, searchParams } = urlObject;
 	if ( host === 'auth' ) {
@@ -89,9 +86,8 @@ const onOpenUrlCallback = ( url: string ) => {
 		const remoteSiteId = parseInt( searchParams.get( 'remoteSiteId' ) ?? '' );
 		const studioSiteId = searchParams.get( 'studioSiteId' );
 		if ( remoteSiteId && studioSiteId ) {
-			withMainWindow( ( mainWindow ) => {
-				mainWindow.webContents.send( 'sync-connect-site', { remoteSiteId, studioSiteId } );
-			} );
+			const mainWindow = await getMainWindow();
+			mainWindow.webContents.send( 'sync-connect-site', { remoteSiteId, studioSiteId } );
 		}
 	}
 };
@@ -191,26 +187,23 @@ async function appBoot() {
 			} );
 		} else {
 			// Handle custom protocol links on Windows and Linux
-			app.on( 'second-instance', ( _event, argv ): void => {
+			app.on( 'second-instance', async ( _event, argv ) => {
 				if ( ! finishedInitialization ) {
 					return;
 				}
 
-				withMainWindow( ( mainWindow ) => {
-					// CLI commands are likely invoked from other apps, so we need to avoid changing app focus.
-					const isCLI = argv?.find( ( arg ) => arg.startsWith( '--cli=' ) );
-					if ( ! isCLI ) {
-						if ( mainWindow.isMinimized() ) mainWindow.restore();
-						mainWindow.focus();
-					}
+				const mainWindow = await getMainWindow();
+				// CLI commands are likely invoked from other apps, so we need to avoid changing app focus.
+				const isCLI = argv?.find( ( arg ) => arg.startsWith( '--cli=' ) );
+				if ( ! isCLI ) {
+					if ( mainWindow.isMinimized() ) mainWindow.restore();
+					mainWindow.focus();
+				}
 
-					const customProtocolParameter = argv?.find( ( arg ) =>
-						arg.startsWith( PROTOCOL_PREFIX )
-					);
-					if ( customProtocolParameter ) {
-						onOpenUrlCallback( customProtocolParameter );
-					}
-				} );
+				const customProtocolParameter = argv?.find( ( arg ) => arg.startsWith( PROTOCOL_PREFIX ) );
+				if ( customProtocolParameter ) {
+					await onOpenUrlCallback( customProtocolParameter );
+				}
 			} );
 		}
 	}

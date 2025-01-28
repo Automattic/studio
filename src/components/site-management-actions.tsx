@@ -44,7 +44,11 @@ export const SiteManagementActions = ( {
 				isRunning={ selectedSite.running }
 				isLoading={ loading }
 				onClick={ () => {
-					selectedSite.running ? onStop( selectedSite.id ) : onStart( selectedSite.id );
+					if ( selectedSite.running ) {
+						onStop( selectedSite.id );
+					} else {
+						onStart( selectedSite.id );
+					}
 				} }
 				disabled={ disabled }
 				buttonLabelOnDisabled={ buttonLabelOnDisabled }

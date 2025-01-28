@@ -151,7 +151,7 @@ export const useAssistant = ( instanceId: string ) => {
 				console.error( 'Failed to submit feedback:', error );
 			}
 		},
-		[ chatId, instanceId, sendFeedback ]
+		[ chatId, instanceId, sendFeedback, setMessagesDict ]
 	);
 
 	const clearMessages = useCallback( () => {
@@ -167,7 +167,7 @@ export const useAssistant = ( instanceId: string ) => {
 			return rest;
 		} );
 		lastMessageIdDictRef.current[ instanceId ] = -1;
-	}, [ instanceId, setMessagesDict, setChatIdDict ] );
+	}, [ instanceId, setMessagesDict, setChatIdDict, lastMessageIdDictRef ] );
 
 	return {
 		messages: messagesDict[ instanceId ] || EMPTY_MESSAGES,

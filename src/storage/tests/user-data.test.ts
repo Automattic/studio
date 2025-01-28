@@ -3,6 +3,7 @@
  */
 // To run tests, execute `npm run test -- src/storage/user-data.test.ts` from the root directory
 import fs from 'fs';
+import { normalize } from 'path';
 import * as atomically from 'atomically';
 import { getUserDataFilePath } from '../paths';
 import { UserData } from '../storage-types';
@@ -30,7 +31,7 @@ const defaultThemeDetails = {
 
 function mockUserData( data: RecursivePartial< UserData > ) {
 	( fs as MockedFs ).__setFileContents(
-		'/path/to/app/appData/App Name/appdata-v1.json',
+		normalize( '/path/to/app/appData/App Name/appdata-v1.json' ),
 		JSON.stringify( data )
 	);
 }

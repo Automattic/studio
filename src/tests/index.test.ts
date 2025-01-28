@@ -2,6 +2,7 @@
  * @jest-environment node
  */
 import fs from 'fs';
+import { normalize } from 'path';
 import { createMainWindow, getMainWindow } from '../main-window';
 import { setupWPServerFiles } from '../setup-wp-server-files';
 
@@ -20,10 +21,10 @@ const mockUserData = {
 	sites: [],
 };
 ( fs as MockedFs ).__setFileContents(
-	'/path/to/app/appData/App Name/appdata-v1.json',
+	normalize( '/path/to/app/appData/App Name/appdata-v1.json' ),
 	JSON.stringify( mockUserData )
 );
-( fs as MockedFs ).__setFileContents( '/path/to/app/temp/com.wordpress.studio/', '' );
+( fs as MockedFs ).__setFileContents( normalize( '/path/to/app/temp/com.wordpress.studio/' ), '' );
 
 function mockElectron(
 	{

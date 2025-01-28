@@ -3,6 +3,7 @@
  */
 import { ipcMain } from 'electron';
 import fs from 'fs';
+import { normalize } from 'path';
 import { getMainWindow } from '../../main-window';
 import { loadUserData, saveUserData } from '../../storage/user-data';
 import { setUpAuthCallbackHandler } from '../oauth';
@@ -15,7 +16,7 @@ const mockUserData = {
 	sites: [],
 };
 ( fs as MockedFs ).__setFileContents(
-	'/path/to/app/appData/App Name/appdata-v1.json',
+	normalize( '/path/to/app/appData/App Name/appdata-v1.json' ),
 	JSON.stringify( mockUserData )
 );
 

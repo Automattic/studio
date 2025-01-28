@@ -3,6 +3,7 @@
  */
 import { shell, IpcMainInvokeEvent } from 'electron';
 import fs from 'fs';
+import { normalize } from 'path';
 import { createSite, startServer, isFullscreen } from '../ipc-handlers';
 import { isEmptyDir, pathExists } from '../lib/fs-utils';
 import { keepSqliteIntegrationUpdated } from '../lib/sqlite-versions';
@@ -29,7 +30,7 @@ const mockUserData = {
 	sites: [],
 };
 ( fs as MockedFs ).__setFileContents(
-	'/path/to/app/appData/App Name/appdata-v1.json',
+	normalize( '/path/to/app/appData/App Name/appdata-v1.json' ),
 	JSON.stringify( mockUserData )
 );
 // Assume the provided site path is a directory

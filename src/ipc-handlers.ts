@@ -639,7 +639,7 @@ export function logRendererMessage(
 	writeLogToFile( level, processId, ...args );
 }
 
-export function authenticate( _event: IpcMainInvokeEvent ): void {
+export function authenticate( _event: IpcMainInvokeEvent ) {
 	oauthClient.authenticate();
 }
 

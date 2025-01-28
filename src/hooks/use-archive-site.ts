@@ -111,7 +111,7 @@ export function useArchiveSite() {
 					}
 				);
 
-				const formData = [ [ 'import', file ] ];
+				const formData: Array< [ string, string | number | File ] > = [ [ 'import', file ] ];
 				const wordpressVersion = await getIpcApi().getWpVersion( siteId );
 				if ( wordpressVersion.length >= 3 ) {
 					formData.push( [ 'wordpress_version', wordpressVersion ] );
@@ -119,7 +119,7 @@ export function useArchiveSite() {
 
 				const connectedProductionSite = connectedSites.find( ( site ) => ! site.isStaging );
 				if ( connectedProductionSite ) {
-					formData.push( [ 'connected_site_id', String( connectedProductionSite.id ) ] );
+					formData.push( [ 'connected_site_id', connectedProductionSite.id ] );
 				}
 
 				try {

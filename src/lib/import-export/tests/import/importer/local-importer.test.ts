@@ -1,6 +1,6 @@
 import * as fs from 'fs/promises';
-import path from 'path';
 import { lstat, rename } from 'fs-extra';
+import { platformTestSuite } from 'src/tests/utils/platformTestSetup';
 import { SiteServer } from '../../../../../site-server';
 import { LocalImporter } from '../../../import/importers';
 import { BackupContents } from '../../../import/types';
@@ -9,25 +9,7 @@ jest.mock( 'fs/promises' );
 jest.mock( '../../../../../site-server' );
 jest.mock( 'fs-extra' );
 
-const platforms = [
-	{ name: 'Unix', join: path.posix.join, normalize: path.posix.normalize },
-	{ name: 'Windows', join: path.win32.join, normalize: path.win32.normalize },
-];
-
-const originalJoin = path.join;
-const originalNormalize = path.normalize;
-
-describe.each( platforms )( 'LocalImporter on $name', ( { join, normalize } ) => {
-	beforeEach( () => {
-		path.join = join;
-		path.normalize = normalize;
-	} );
-
-	afterEach( () => {
-		path.join = originalJoin;
-		path.normalize = originalNormalize;
-	} );
-
+platformTestSuite( 'LocalImporter', ( { normalize } ) => {
 	const mockBackupContents: BackupContents = {
 		extractionDirectory: normalize( '/tmp/extracted' ),
 		sqlFiles: [

@@ -1,29 +1,12 @@
-import path from 'path';
+import { platformTestSuite } from 'src/tests/utils/platformTestSetup';
 import { ImportEvents } from '../../../import/events';
 import { WpressValidator } from '../../../import/validators/wpress-validator';
 
-const platforms = [
-	{ name: 'Unix', separator: path.posix.sep, join: path.posix.join },
-	{ name: 'Windows', separator: path.win32.sep, join: path.win32.join },
-];
-
-const originalSep = path.sep;
-const originalJoin = path.join;
-
-describe.each( platforms )( 'WpressValidator on $name', ( { separator, join } ) => {
+platformTestSuite( 'WpressValidator', ( { sep: separator } ) => {
 	let validator: WpressValidator;
 
 	beforeEach( () => {
 		validator = new WpressValidator();
-		// @ts-expect-error - Temporarily override path.sep
-		path.sep = separator;
-		path.join = join;
-	} );
-
-	afterEach( () => {
-		// @ts-expect-error - Restore original path.sep
-		path.sep = originalSep;
-		path.join = originalJoin;
 	} );
 
 	describe( 'canHandle', () => {
@@ -67,9 +50,6 @@ describe.each( platforms )( 'WpressValidator on $name', ( { separator, join } ) 
 	describe( 'parseBackupContents', () => {
 		beforeEach( () => {
 			validator = new WpressValidator();
-			// @ts-expect-error - Temporarily override path.sep
-			path.sep = separator;
-			path.join = jest.fn( ( ...segments ) => segments.join( separator ) );
 		} );
 
 		const extractionDirectory = [ 'path', 'to', 'extraction' ].join( separator );

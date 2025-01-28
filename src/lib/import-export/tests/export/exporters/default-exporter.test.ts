@@ -1,11 +1,11 @@
 import fs from 'fs';
 import fsPromises from 'fs/promises';
 import os from 'os';
-import path from 'path';
 import archiver from 'archiver';
 import { format } from 'date-fns';
 import { getWordPressVersionFromInstallation } from '../../../../../lib/wp-versions';
 import { SiteServer } from '../../../../../site-server';
+import { platformTestSuite } from '../../../../../tests/utils/platformTestSetup';
 import { DefaultExporter } from '../../../export/exporters';
 import { ExportOptions, BackupContents } from '../../../export/types';
 
@@ -56,52 +56,7 @@ const defaultTableNames = [
 	'wp_terms',
 ];
 
-const platforms = [
-	{
-		name: 'Unix',
-		join: path.posix.join,
-		normalize: path.posix.normalize,
-		basename: path.posix.basename,
-		relative: path.posix.relative,
-		sep: path.posix.sep,
-	},
-	{
-		name: 'Windows',
-		join: path.win32.join,
-		normalize: path.win32.normalize,
-		basename: path.win32.basename,
-		relative: path.win32.relative,
-		sep: path.win32.sep,
-	},
-];
-
-const originalJoin = path.join;
-const originalNormalize = path.normalize;
-const originalBasename = path.basename;
-const originalRelative = path.relative;
-const originalSeparator = path.sep;
-
-describe.each( platforms )( 'DefaultExporter on $name', ( opts ) => {
-	const { join, normalize, basename, relative, sep } = opts;
-
-	beforeEach( () => {
-		path.join = join;
-		path.normalize = normalize;
-		path.basename = basename;
-		path.relative = relative;
-		// @ts-expect-error - Temporarily override path.sep
-		path.sep = sep;
-	} );
-
-	afterEach( () => {
-		path.join = originalJoin;
-		path.normalize = originalNormalize;
-		path.basename = originalBasename;
-		path.relative = originalRelative;
-		// @ts-expect-error - Restore original path.sep
-		path.sep = originalSeparator;
-	} );
-
+platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 	let exporter: DefaultExporter;
 	let mockBackup: BackupContents;
 	let mockOptions: ExportOptions;

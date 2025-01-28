@@ -1,5 +1,5 @@
-import path from 'path';
 import fs from 'fs-extra';
+import { platformTestSuite } from 'src/tests/utils/platformTestSetup';
 import { SQLITE_FILENAME } from '../../../vendor/wp-now/src/constants';
 import { installSqliteIntegration, keepSqliteIntegrationUpdated } from '../sqlite-versions';
 
@@ -19,25 +19,7 @@ afterEach( () => {
 	( fs as MockedFsExtra ).__mockFiles = {};
 } );
 
-const platforms = [
-	{ name: 'Unix', join: path.posix.join, normalize: path.posix.normalize },
-	{ name: 'Windows', join: path.win32.join, normalize: path.win32.normalize },
-];
-
-const originalJoin = path.join;
-const originalNormalize = path.normalize;
-
-describe.each( platforms )( 'keepSqliteIntegrationUpdated on $name', ( { join, normalize } ) => {
-	beforeEach( () => {
-		path.join = join;
-		path.normalize = normalize;
-	} );
-
-	afterEach( () => {
-		path.join = originalJoin;
-		path.normalize = originalNormalize;
-	} );
-
+platformTestSuite( 'keepSqliteIntegrationUpdated', ( { normalize } ) => {
 	describe( 'when SQLite integration is installed in a site', () => {
 		it( 'should update SQLite integration when outdated', async () => {
 			( fs as MockedFsExtra ).__setFileContents(
@@ -130,16 +112,7 @@ describe.each( platforms )( 'keepSqliteIntegrationUpdated on $name', ( { join, n
 	} );
 } );
 
-describe.each( platforms )( 'installSqliteIntegration on $name', ( { join, normalize } ) => {
-	beforeEach( () => {
-		path.join = join;
-		path.normalize = normalize;
-	} );
-
-	afterEach( () => {
-		path.join = originalJoin;
-		path.normalize = originalNormalize;
-	} );
+platformTestSuite( 'installSqliteIntegration', ( { normalize } ) => {
 	it( 'should install SQLite integration', async () => {
 		// Mock site default db.php
 		( fs as MockedFsExtra ).__setFileContents(

@@ -1,26 +1,11 @@
-import path from 'path';
+import { platformTestSuite } from 'src/tests/utils/platformTestSetup';
 import { SqlValidator } from '../../../import/validators/sql-validator';
 
-const platforms = [
-	{ name: 'Unix', join: path.posix.join, normalize: path.posix.normalize },
-	{ name: 'Windows', join: path.win32.join, normalize: path.win32.normalize },
-];
-
-const originalJoin = path.join;
-const originalNormalize = path.normalize;
-
-describe.each( platforms )( 'SqlValidator on $name', ( { join, normalize } ) => {
+platformTestSuite( 'SqlValidator', ( { normalize } ) => {
 	let validator: SqlValidator;
 
 	beforeEach( () => {
 		validator = new SqlValidator();
-		path.join = join;
-		path.normalize = normalize;
-	} );
-
-	afterEach( () => {
-		path.join = originalJoin;
-		path.normalize = originalNormalize;
 	} );
 
 	describe( 'canHandle', () => {

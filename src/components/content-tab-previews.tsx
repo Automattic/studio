@@ -262,8 +262,8 @@ function DeletingRow() {
 					</div>
 				</div>
 				<div className="flex ml-auto">
-					<div className="w-[110px] text-[#757575] flex items-center">{ '-' }</div>
-					<div className="w-[100px] text-[#757575] flex items-center">{ '-' }</div>
+					<div className="w-[110px] text-[#757575] flex items-center pl-4">{ '-' }</div>
+					<div className="w-[100px] text-[#757575] flex items-center pl-4">{ '-' }</div>
 					<div className="w-[60px] pr-2" />
 				</div>
 			</div>
@@ -327,7 +327,7 @@ function SnapshotRow( {
 					</Button>
 				</div>
 				<div className="flex ml-auto">
-					<div className="w-[110px] text-[#757575] flex items-center">
+					<div className="w-[110px] text-[#757575] flex items-center pl-4">
 						{ isSiteDemoUpdating ? (
 							<div className="flex items-center">
 								<Spinner className="!mt-0 !mx-2" />
@@ -337,8 +337,8 @@ function SnapshotRow( {
 							getLastUpdateTimeText()
 						) }
 					</div>
-					<div className="w-[100px] text-[#757575] flex items-center">{ countDown }</div>
-					<div className="w-[60px] pr-2">
+					<div className="w-[100px] text-[#757575] flex items-center pl-4">{ countDown }</div>
+					<div className="w-[60px] flex justify-end">
 						<PreviewActionButtonsMenu snapshot={ snapshot } selectedSite={ selectedSite } />
 					</div>
 				</div>
@@ -460,11 +460,11 @@ function PreviewLinksTableHeader() {
 			<div className="flex items-center h-12 px-8 text-gray-900 text-xs uppercase">
 				<div className="w-[51%]">{ __( 'Preview link' ) }</div>
 				<div className="flex ml-auto">
-					<div className="w-[110px] flex items-center">
+					<div className="w-[110px] flex items-center pl-4">
 						{ __( 'Updated' ) }
 						<Icon icon={ arrowDown } height={ 13 } width={ 16 } />
 					</div>
-					<div className="w-[100px]">{ __( 'Expires' ) }</div>
+					<div className="w-[100px] pl-4">{ __( 'Expires' ) }</div>
 					<div className="w-[60px] text-right">{ __( 'Actions' ) }</div>
 				</div>
 			</div>
@@ -496,8 +496,8 @@ function LoadingRow( { isSnapshotLoading }: { isSnapshotLoading?: boolean } ) {
 				</div>
 			</div>
 			<div className="flex ml-auto">
-				<div className="w-[110px] text-[#757575] flex items-center">{ __( 'Just now' ) }</div>
-				<div className="w-[100px] text-[#757575] flex items-center">{ '-' }</div>
+				<div className="w-[110px] text-[#757575] flex items-center pl-4">{ __( 'Just now' ) }</div>
+				<div className="w-[100px] text-[#757575] flex items-center pl-4">{ '-' }</div>
 				<div className="w-[60px] pr-2" />
 			</div>
 		</div>

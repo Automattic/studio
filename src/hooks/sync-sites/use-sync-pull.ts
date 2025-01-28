@@ -176,6 +176,7 @@ export function useSyncPull( {
 						updatePullState( selectedSite.id, remoteSiteId, {
 							status: pullStatesProgressInfo.cancelled,
 						} );
+						clearPullState( selectedSite.id, remoteSiteId );
 						return;
 					}
 
@@ -243,12 +244,14 @@ export function useSyncPull( {
 		[
 			__,
 			clearImportState,
+			clearPullState,
 			importFile,
 			onPullSuccess,
+			pullStatesProgressInfo.cancelled,
 			pullStatesProgressInfo.downloading,
+			pullStatesProgressInfo.failed,
 			pullStatesProgressInfo.finished,
 			pullStatesProgressInfo.importing,
-			pullStatesProgressInfo.cancelled,
 			startServer,
 			updatePullState,
 		]

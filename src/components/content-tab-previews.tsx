@@ -1,4 +1,4 @@
-import { ProgressBar, DropdownMenu, MenuGroup, MenuItem, Spinner } from '@wordpress/components';
+import { DropdownMenu, MenuGroup, MenuItem, Spinner } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 import { check, external, Icon, arrowDown, moreVertical } from '@wordpress/icons';
@@ -25,6 +25,7 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ArrowIcon } from './arrow-icon';
 import Button from './button';
 import offlineIcon from './offline-icon';
+import ProgressBar from './progress-bar';
 import { ScreenshotDemoSite } from './screenshot-demo-site';
 import { Tooltip } from './tooltip';
 
@@ -255,8 +256,10 @@ function DeletingRow() {
 		<div className="self-stretch flex-col">
 			<div className="flex items-center px-8 py-6">
 				<div className="w-[51%]">
-					<div className="text-a8c-gray-70 a8c-body mb-4">{ __( 'Deleting preview link' ) }</div>
-					<ProgressBar value={ progress } max={ 100 } />
+					<div className="w-[200px]">
+						<div className="text-a8c-gray-70 a8c-body mb-4">{ __( 'Deleting preview link' ) }</div>
+						<ProgressBar value={ progress } maxValue={ 100 } />
+					</div>
 				</div>
 				<div className="flex ml-auto">
 					<div className="w-[110px] text-a8c-gray-70 flex items-center">{ '-' }</div>
@@ -487,9 +490,9 @@ function LoadingRow( { isSnapshotLoading }: { isSnapshotLoading?: boolean } ) {
 	return (
 		<div className="flex items-center px-8 py-6">
 			<div className="w-[51%]">
-				<div className="w-[300px]">
+				<div className="w-[200px]">
 					<div className="text-a8c-gray-70 a8c-body mb-4">{ __( 'Generating preview link' ) }</div>
-					<ProgressBar value={ progress } max={ 100 } />
+					<ProgressBar value={ progress } maxValue={ 100 } />
 				</div>
 			</div>
 			<div className="flex ml-auto">

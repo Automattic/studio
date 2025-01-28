@@ -898,13 +898,13 @@ export function openTerminalAtPath(
 
 		return promiseExec( `osascript -e '${ osascript }'` );
 	} else if ( platform === 'linux' ) {
-		const env = wpCliEnabled
-			? { PATH: `${ cliPath }:${ process.env.PATH }`, STUDIO_APP_PATH: appPath }
-			: {};
+		if ( wpCliEnabled ) {
+			return promiseExec(
+				`export PATH=${ cliPath }:$PATH && export STUDIO_APP_PATH="${ appPath }" && gnome-terminal -- bash -c 'cd ${ targetPath }; exec bash'`
+			);
+		}
 
-		return promiseExec( `gnome-terminal --working-directory=${ targetPath }`, {
-			env: { ...process.env, ...env },
-		} );
+		return promiseExec( `gnome-terminal --working-directory=${ targetPath }` );
 	} else {
 		console.error( 'Unsupported platform:', platform );
 		return;

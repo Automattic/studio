@@ -4,7 +4,7 @@ import wpcom from 'wpcom';
 import { PROTOCOL_PREFIX, WP_AUTHORIZE_ENDPOINT, CLIENT_ID, SCOPES } from '../constants';
 import { getMainWindow } from '../main-window';
 import { loadUserData, saveUserData } from '../storage/user-data';
-import { shellOpenExternalWrapper } from '../utils/shell-open-external-wrapper';
+import { shellOpenExternalWrapper } from '../lib/shell-open-external-wrapper';
 
 export interface StoredToken {
 	accessToken?: string;

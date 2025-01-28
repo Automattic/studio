@@ -45,7 +45,7 @@ import { popupMenu, setupMenu } from './menu';
 import { SiteServer, createSiteWorkingDirectory } from './site-server';
 import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from './storage/paths';
 import { loadUserData, saveUserData } from './storage/user-data';
-import { shellOpenExternalWrapper } from './utils/shell-open-external-wrapper';
+import { shellOpenExternalWrapper } from './lib/shell-open-external-wrapper';
 import type { SyncSite } from './hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from './lib/wp-cli-process';
 

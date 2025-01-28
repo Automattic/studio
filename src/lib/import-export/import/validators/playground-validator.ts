@@ -30,6 +30,7 @@ export class PlaygroundValidator extends EventEmitter implements Validator {
 				uploads: [],
 				plugins: [],
 				themes: [],
+				muPlugins: [],
 			},
 			wpContentDirectory: 'wp-content',
 		};
@@ -55,6 +56,8 @@ export class PlaygroundValidator extends EventEmitter implements Validator {
 				extractedBackup.wpContent.plugins.push( fullPath );
 			} else if ( file.startsWith( 'wp-content/themes/' ) ) {
 				extractedBackup.wpContent.themes.push( fullPath );
+			} else if ( file.startsWith( 'wp-content/mu-plugins/' ) ) {
+				extractedBackup.wpContent.muPlugins!.push( fullPath );
 			}
 		}
 		this.emit( ImportEvents.IMPORT_VALIDATION_COMPLETE );

@@ -4,7 +4,7 @@ import fs, { createReadStream, createWriteStream } from 'fs';
 import fsPromises from 'fs/promises';
 import path from 'path';
 import { createInterface } from 'readline';
-import { lstat, move } from 'fs-extra';
+import { lstat, move, ensureDir } from 'fs-extra';
 import semver from 'semver';
 import { DEFAULT_PHP_VERSION } from '../../../../../vendor/wp-now/src/constants';
 import { SiteServer } from '../../../../site-server';
@@ -179,17 +179,20 @@ abstract class BaseBackupImporter extends BaseImporter {
 			if ( ! fs.existsSync( wpContentDir ) ) {
 				return;
 			}
-			const contentToKeep = [ 'mu-plugins', 'database', 'db.php' ];
+			const contentToKeep = [
+				/^mu-plugins$/, // Match mu-plugins directory exactly
+				/^mu-plugins(\/|\\)sqlite-database-integration(\/|\\)?.*/, // Match sqlite-database-integration dir and contents
+				/^database(\/|\\)?.*/, // Match database dir and all contents
+				/^db\.php$/, // Exact match for db.php
+			];
 
-			const contents = await fsPromises.readdir( wpContentDir );
+			const contents = await fsPromises.readdir( wpContentDir, { recursive: true } );
 
 			for ( const content of contents ) {
-				const contentPath = path.join( wpContentDir, content );
-
-				if ( contentToKeep.includes( content ) ) {
+				if ( contentToKeep.some( ( pattern ) => pattern.test( content ) ) ) {
 					continue;
 				}
-				await this.safelyDeletePath( contentPath );
+				await this.safelyDeletePath( path.join( wpContentDir, content ) );
 			}
 		} catch {
 			return;

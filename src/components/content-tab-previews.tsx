@@ -507,7 +507,14 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 	const { __ } = useI18n();
 	const { snapshots } = useSnapshots();
 	const { isAuthenticated } = useAuth();
-	const { archiveSite } = useArchiveSite();
+	const { archiveSite, isUploadingSiteId } = useArchiveSite();
+	const isUploading = isUploadingSiteId( selectedSite.id );
+	const { progress } = useProgressTimer( {
+		paused: ! isUploading,
+		initialProgress: 5,
+		interval: 1500,
+		maxValue: 95,
+	} );
 
 	if ( ! isAuthenticated ) {
 		return <NoAuth selectedSite={ selectedSite } />;
@@ -517,16 +524,32 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 		( snapshot ) => snapshot.localSiteId === selectedSite.id
 	);
 
-	if (
-		! snapshotsOnSite.length ||
-		( snapshotsOnSite.length === 1 && snapshotsOnSite[ 0 ].isLoading )
-	) {
-		return (
-			<NoPreviews
-				selectedSite={ selectedSite }
-				isSnapshotLoading={ snapshotsOnSite[ 0 ]?.isLoading }
-			/>
-		);
+	if ( ! snapshotsOnSite.length ) {
+		if ( isUploading ) {
+			return (
+				<div className="w-full h-full flex flex-col">
+					<PreviewLinksTableHeader />
+					<div className="flex items-center px-8 py-6">
+						<div className="w-[51%]">
+							<div className="w-[300px]">
+								<div className="text-a8c-gray-70 a8c-body mb-4">
+									{ __( 'Generating preview link' ) }
+								</div>
+								<ProgressBar value={ progress } max={ 100 } />
+							</div>
+						</div>
+						<div className="flex ml-auto">
+							<div className="w-[110px] text-a8c-gray-70 flex items-center">
+								{ __( 'Just now' ) }
+							</div>
+							<div className="w-[100px] text-a8c-gray-70 flex items-center">{ '-' }</div>
+							<div className="w-[60px] pr-2" />
+						</div>
+					</div>
+				</div>
+			);
+		}
+		return <NoPreviews selectedSite={ selectedSite } />;
 	}
 
 	return (

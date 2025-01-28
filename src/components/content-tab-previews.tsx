@@ -26,7 +26,7 @@ import { ArrowIcon } from './arrow-icon';
 import Button from './button';
 import offlineIcon from './offline-icon';
 import { ScreenshotDemoSite } from './screenshot-demo-site';
-import { Tooltip, TooltipProps } from './tooltip';
+import { Tooltip } from './tooltip';
 
 interface ContentTabPreviewsProps {
 	selectedSite: SiteDetails;
@@ -279,25 +279,12 @@ function SnapshotRow( {
 } ) {
 	const { url, date, isDeleting } =
 		previousSnapshot && snapshot.isLoading ? previousSnapshot : snapshot;
-	const { countDown, isExpired, dateString } = useExpirationDate( date );
-	const { deleteSnapshot, fetchSnapshotUsage, snapshotCreationBlocked, removeSnapshot } =
-		useSnapshots();
-	const { isUploadingSiteId } = useArchiveSite();
-	const isUploading = isUploadingSiteId( selectedSite.id );
-	const errorMessages = useArchiveErrorMessages();
+	const { countDown } = useExpirationDate( date );
+	const { fetchSnapshotUsage } = useSnapshots();
 	const { isDemoSiteUpdating } = useUpdateDemoSite();
 	const isSiteDemoUpdating = isDemoSiteUpdating( snapshot.localSiteId, snapshot.atomicSiteId );
 	const { formatRelativeTime } = useFormatLocalizedTimestamps();
 
-	const { isOverLimit } = useSiteSize( selectedSite.id );
-
-	const isOffline = useOffline();
-	const updateDemoSiteOfflineMessage = __(
-		'Updating a demo site requires an internet connection.'
-	);
-	const deleteDemoSiteOfflineMessage = __(
-		'Deleting a demo site requires an internet connection.'
-	);
 	const getLastUpdateTimeText = () => {
 		if ( ! date ) {
 			return __( 'Never updated' );
@@ -305,7 +292,6 @@ function SnapshotRow( {
 		const timeDistance = formatRelativeTime( new Date( date ).toISOString() );
 		return sprintf( __( '%s ago' ), timeDistance );
 	};
-	const userBlockedMessage = errorMessages.rest_site_creation_blocked;
 
 	useEffect( () => {
 		fetchSnapshotUsage();
@@ -317,24 +303,6 @@ function SnapshotRow( {
 		return <DeletingRow />;
 	}
 
-	let tooltipContent: Partial< TooltipProps & { text?: string } > = {};
-	if ( isOffline ) {
-		tooltipContent = {
-			icon: offlineIcon,
-			text: updateDemoSiteOfflineMessage,
-		};
-	} else if ( snapshotCreationBlocked ) {
-		tooltipContent = { text: userBlockedMessage };
-	} else if ( isOverLimit ) {
-		tooltipContent = {
-			text: sprintf(
-				__(
-					'Your site exceeds %s GB in size. Updating this demo site may take considerable amount of time and could exceed the maximum allowed size for a demo site.'
-				),
-				DEMO_SITE_SIZE_LIMIT_GB
-			),
-		};
-	}
 	return (
 		<div className="self-stretch flex-col">
 			<div className="flex items-center px-8 py-6">

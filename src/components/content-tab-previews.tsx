@@ -307,7 +307,7 @@ function SnapshotRow( {
 		<div className="self-stretch flex-col">
 			<div className="flex items-center px-8 py-6">
 				<div className="w-[51%]">
-					<div className="flex gap-2 items-center">
+					<div className="flex items-center">
 						<div className="text-[13px] leading-5 line-clamp-1 break-all">
 							{ selectedSite.name }
 						</div>
@@ -532,15 +532,17 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 		<div className="w-full h-full flex flex-col">
 			<div>
 				<PreviewLinksTableHeader />
-				{ isUploading && <LoadingRow isSnapshotLoading={ isUploading } /> }
-				{ snapshotsOnSite.map( ( snapshot ) => (
-					<SnapshotRow
-						snapshot={ snapshot }
-						previousSnapshot={ null }
-						selectedSite={ selectedSite }
-						key={ snapshot.atomicSiteId }
-					/>
-				) ) }
+				<div className="[&>*:not(:last-child)]:border-b [&>*]:border-a8c-gray-5">
+					{ isUploading && <LoadingRow isSnapshotLoading={ isUploading } /> }
+					{ snapshotsOnSite.map( ( snapshot ) => (
+						<SnapshotRow
+							snapshot={ snapshot }
+							previousSnapshot={ null }
+							selectedSite={ selectedSite }
+							key={ snapshot.atomicSiteId }
+						/>
+					) ) }
+				</div>
 			</div>
 			<div className="mt-auto px-8 py-6">
 				<CreatePreviewButton

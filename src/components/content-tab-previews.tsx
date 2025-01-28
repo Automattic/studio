@@ -262,8 +262,8 @@ function DeletingRow() {
 					</div>
 				</div>
 				<div className="flex ml-auto">
-					<div className="w-[110px] text-a8c-gray-70 flex items-center">{ '-' }</div>
-					<div className="w-[100px] text-a8c-gray-70 flex items-center">{ '-' }</div>
+					<div className="w-[110px] text-[#757575] flex items-center">{ '-' }</div>
+					<div className="w-[100px] text-[#757575] flex items-center">{ '-' }</div>
 					<div className="w-[60px] pr-2" />
 				</div>
 			</div>
@@ -327,7 +327,7 @@ function SnapshotRow( {
 					</Button>
 				</div>
 				<div className="flex ml-auto">
-					<div className="w-[110px] text-a8c-gray-70 flex items-center">
+					<div className="w-[110px] text-[#757575] flex items-center">
 						{ isSiteDemoUpdating ? (
 							<div className="flex items-center">
 								<Spinner className="!mt-0 !mx-2" />
@@ -337,7 +337,7 @@ function SnapshotRow( {
 							getLastUpdateTimeText()
 						) }
 					</div>
-					<div className="w-[100px] text-a8c-gray-70 flex items-center">{ countDown }</div>
+					<div className="w-[100px] text-[#757575] flex items-center">{ countDown }</div>
 					<div className="w-[60px] pr-2">
 						<PreviewActionButtonsMenu snapshot={ snapshot } selectedSite={ selectedSite } />
 					</div>
@@ -496,8 +496,8 @@ function LoadingRow( { isSnapshotLoading }: { isSnapshotLoading?: boolean } ) {
 				</div>
 			</div>
 			<div className="flex ml-auto">
-				<div className="w-[110px] text-a8c-gray-70 flex items-center">{ __( 'Just now' ) }</div>
-				<div className="w-[100px] text-a8c-gray-70 flex items-center">{ '-' }</div>
+				<div className="w-[110px] text-[#757575] flex items-center">{ __( 'Just now' ) }</div>
+				<div className="w-[100px] text-[#757575] flex items-center">{ '-' }</div>
 				<div className="w-[60px] pr-2" />
 			</div>
 		</div>

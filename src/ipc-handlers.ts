@@ -1,4 +1,4 @@
-import { exec } from 'child_process';
+import { exec, ExecOptions } from 'child_process';
 import crypto from 'crypto';
 import {
 	BrowserWindow,
@@ -13,7 +13,6 @@ import {
 import fs from 'fs';
 import fsPromises from 'fs/promises';
 import nodePath from 'path';
-import { promisify } from 'util';
 import * as Sentry from '@sentry/electron/main';
 import { __, LocaleData, defaultI18n } from '@wordpress/i18n';
 import archiver from 'archiver';
@@ -48,8 +47,6 @@ import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from './sto
 import { loadUserData, saveUserData } from './storage/user-data';
 import type { SyncSite } from './hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from './lib/wp-cli-process';
-
-const promiseExec = promisify( exec );
 
 const TEMP_DIR = nodePath.join( app.getPath( 'temp' ), 'com.wordpress.studio' ) + nodePath.sep;
 if ( ! fs.existsSync( TEMP_DIR ) ) {
@@ -863,6 +860,18 @@ export async function executeWPCLiInline(
 export async function getThumbnailData( _event: IpcMainInvokeEvent, id: string ) {
 	const path = getSiteThumbnailPath( id );
 	return getImageData( path );
+}
+
+function promiseExec( command: string, options: ExecOptions = {} ): Promise< void > {
+	return new Promise( ( resolve, reject ) => {
+		exec( command, options, ( error ) => {
+			if ( error ) {
+				reject( error );
+				return;
+			}
+			resolve();
+		} );
+	} );
 }
 
 export function openTerminalAtPath(

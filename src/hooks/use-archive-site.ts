@@ -78,8 +78,14 @@ export function useArchiveSite() {
 				return;
 			}
 
+			let archivePath = '';
 			try {
-				const { archivePath, archiveSizeInBytes } = await getIpcApi().archiveSite( siteId, 'zip' );
+				const { archivePath: tempArchivePath, archiveSizeInBytes } = await getIpcApi().archiveSite(
+					siteId,
+					'zip'
+				);
+				archivePath = tempArchivePath;
+
 				if ( archiveSizeInBytes > DEMO_SITE_SIZE_LIMIT_BYTES ) {
 					getIpcApi().showErrorMessageBox( {
 						title: __( 'Adding demo site failed' ),
@@ -154,6 +160,9 @@ export function useArchiveSite() {
 				Sentry.captureException( error );
 			} finally {
 				setUploadingSites( ( _uploadingSites ) => ( { ..._uploadingSites, [ siteId ]: false } ) );
+				if ( archivePath ) {
+					getIpcApi().removeTemporalFile( archivePath );
+				}
 			}
 		},
 		[ __, addSnapshot, client, errorMessages, fetchSnapshotUsage, setUploadingSites ]

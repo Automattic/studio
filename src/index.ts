@@ -27,7 +27,7 @@ import {
 import { getUserLocaleWithFallback } from './lib/locale-node';
 import { handleAuthCallback, setUpAuthCallbackHandler } from './lib/oauth';
 import { setupLogging } from './logging';
-import { createMainWindow, withMainWindow } from './main-window';
+import { createMainWindow, getMainWindow } from './main-window';
 import {
 	migrateFromWpNowFolder,
 	needsToMigrateFromWpNowFolder,
@@ -69,7 +69,7 @@ if ( gotTheLock && ! isInInstaller ) {
 	}
 }
 
-const onOpenUrlCallback = ( url: string ) => {
+const onOpenUrlCallback = async ( url: string ) => {
 	const urlObject = new URL( url );
 	const { host, hash, searchParams } = urlObject;
 	if ( host === 'auth' ) {
@@ -86,9 +86,8 @@ const onOpenUrlCallback = ( url: string ) => {
 		const remoteSiteId = parseInt( searchParams.get( 'remoteSiteId' ) ?? '' );
 		const studioSiteId = searchParams.get( 'studioSiteId' );
 		if ( remoteSiteId && studioSiteId ) {
-			withMainWindow( ( mainWindow ) => {
-				mainWindow.webContents.send( 'sync-connect-site', { remoteSiteId, studioSiteId } );
-			} );
+			const mainWindow = await getMainWindow();
+			mainWindow.webContents.send( 'sync-connect-site', { remoteSiteId, studioSiteId } );
 		}
 	}
 };
@@ -188,26 +187,23 @@ async function appBoot() {
 			} );
 		} else {
 			// Handle custom protocol links on Windows and Linux
-			app.on( 'second-instance', ( _event, argv ): void => {
+			app.on( 'second-instance', async ( _event, argv ) => {
 				if ( ! finishedInitialization ) {
 					return;
 				}
 
-				withMainWindow( ( mainWindow ) => {
-					// CLI commands are likely invoked from other apps, so we need to avoid changing app focus.
-					const isCLI = argv?.find( ( arg ) => arg.startsWith( '--cli=' ) );
-					if ( ! isCLI ) {
-						if ( mainWindow.isMinimized() ) mainWindow.restore();
-						mainWindow.focus();
-					}
+				const mainWindow = await getMainWindow();
+				// CLI commands are likely invoked from other apps, so we need to avoid changing app focus.
+				const isCLI = argv?.find( ( arg ) => arg.startsWith( '--cli=' ) );
+				if ( ! isCLI ) {
+					if ( mainWindow.isMinimized() ) mainWindow.restore();
+					mainWindow.focus();
+				}
 
-					const customProtocolParameter = argv?.find( ( arg ) =>
-						arg.startsWith( PROTOCOL_PREFIX )
-					);
-					if ( customProtocolParameter ) {
-						onOpenUrlCallback( customProtocolParameter );
-					}
-				} );
+				const customProtocolParameter = argv?.find( ( arg ) => arg.startsWith( PROTOCOL_PREFIX ) );
+				if ( customProtocolParameter ) {
+					await onOpenUrlCallback( customProtocolParameter );
+				}
 			} );
 		}
 	}

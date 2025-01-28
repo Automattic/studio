@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 import fs from 'fs';
-import { createMainWindow, withMainWindow } from '../main-window';
+import { createMainWindow, getMainWindow } from '../main-window';
 import { setupWPServerFiles } from '../setup-wp-server-files';
 
 jest.mock( 'fs' );
@@ -156,6 +156,11 @@ it( 'should wait app initialization before creating main window via activate eve
 
 it( 'should wait app initialization before creating main window via second-instance event', async () => {
 	await jest.isolateModulesAsync( async () => {
+		( getMainWindow as jest.Mock ).mockResolvedValue( {
+			focus: jest.fn(),
+			isMinimized: jest.fn( () => false ),
+		} );
+
 		const { mockedEvents } = mockElectron( { appEvents: [ 'ready', 'second-instance' ] } );
 
 		// The "second-instance" event is only invoked on Windows/Linux platforms.
@@ -168,13 +173,13 @@ it( 'should wait app initialization before creating main window via second-insta
 		const { ready, 'second-instance': secondInstance } = mockedEvents;
 
 		await secondInstance();
-		// "withMainWindow" creates the main window if it doesn't exist
-		expect( withMainWindow as jest.Mock ).not.toHaveBeenCalled();
+		// "getMainWindow" creates the main window if it doesn't exist
+		expect( getMainWindow as jest.Mock ).not.toHaveBeenCalled();
 
 		await ready();
 
 		await secondInstance();
-		expect( withMainWindow as jest.Mock ).toHaveBeenCalled();
+		expect( getMainWindow as jest.Mock ).toHaveBeenCalled();
 
 		Object.defineProperty( process, 'platform', { value: originalProcessPlatform } );
 	} );

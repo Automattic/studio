@@ -13,6 +13,7 @@ import {
 import fs from 'fs';
 import fsPromises from 'fs/promises';
 import nodePath from 'path';
+import { promisify } from 'util';
 import * as Sentry from '@sentry/electron/main';
 import { __, LocaleData, defaultI18n } from '@wordpress/i18n';
 import archiver from 'archiver';
@@ -47,6 +48,8 @@ import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from './sto
 import { loadUserData, saveUserData } from './storage/user-data';
 import type { SyncSite } from './hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from './lib/wp-cli-process';
+
+const promiseExec = promisify( exec );
 
 const TEMP_DIR = nodePath.join( app.getPath( 'temp' ), 'com.wordpress.studio' ) + nodePath.sep;
 if ( ! fs.existsSync( TEMP_DIR ) ) {
@@ -862,18 +865,6 @@ export async function getThumbnailData( _event: IpcMainInvokeEvent, id: string )
 	return getImageData( path );
 }
 
-async function checkPowerShellAvailability() {
-	if ( process.platform !== 'win32' ) {
-		return false;
-	}
-
-	return new Promise( ( resolve ) => {
-		exec( 'powershell -Command "Get-Host"', ( error, stdout, stderr ) => {
-			resolve( ! error && ! stderr );
-		} );
-	} );
-}
-
 export async function openTerminalAtPath(
 	_event: IpcMainInvokeEvent,
 	targetPath: string,
@@ -886,55 +877,30 @@ export async function openTerminalAtPath(
 	const appDirectory = app.getAppPath();
 	const appPath = ! app.isPackaged ? `${ exePath } ${ appDirectory }` : exePath;
 
-	let command: string;
 	if ( platform === 'win32' ) {
-		// Windows
-		const isPowerShellAvailable = await checkPowerShellAvailability();
 		const defaultShell = process.env.ComSpec || 'cmd.exe';
-		const cmdCommand = wpCliEnabled
-			? `set PATH=${ cliPath };%PATH% && set STUDIO_APP_PATH=${ appPath } && cd /d ${ targetPath }`
-			: `cd /d ${ targetPath }`;
+		const env = wpCliEnabled ? { PATH: `${ cliPath };%PATH%`, STUDIO_APP_PATH: appPath } : {};
 
-		// PowerShell's `Start-Process` command allows us to launch a command prompt that loads the
-		// default user-level environment variables. cmd's `start` command inherits the environment
-		// variables of the parent process, which can lead to issues with the PATH variable. See
-		// https://github.com/Automattic/studio/issues/359 for more details.
-		if ( isPowerShellAvailable ) {
-			command = `powershell -Command "Start-Process -Verb Open -FilePath ${ defaultShell } -ArgumentList '/K', \\"${ cmdCommand }\\""`;
-		} else {
-			command = `start ${ defaultShell } /K "${ cmdCommand }"`;
-		}
+		return promiseExec( `start "Command Prompt" ${ defaultShell }`, {
+			cwd: targetPath,
+			env,
+		} );
 	} else if ( platform === 'darwin' ) {
-		// macOS
-		const loadWpCliCommand = `clear && export PATH=\\"${ cliPath }\\":$PATH && export STUDIO_APP_PATH=\\"${ appPath }\\" &&`;
-		const script = `
-		tell application "Terminal"
-			if not application "Terminal" is running then launch
-			do script "${ wpCliEnabled ? loadWpCliCommand : '' } cd ${ targetPath } && clear"
-			activate
-		end tell`;
-		command = `osascript -e '${ script }'`;
+		const env = wpCliEnabled ? { PATH: `${ cliPath }:$PATH`, STUDIO_APP_PATH: appPath } : {};
+
+		return promiseExec( `open -b com.apple.Terminal ${ targetPath }`, {
+			env,
+		} );
 	} else if ( platform === 'linux' ) {
-		// Linux
-		if ( wpCliEnabled ) {
-			command = `export PATH=${ cliPath }:$PATH && export STUDIO_APP_PATH="${ appPath }" && gnome-terminal -- bash -c 'cd ${ targetPath }; exec bash'`;
-		} else {
-			command = `gnome-terminal --working-directory=${ targetPath }`;
-		}
+		const env = wpCliEnabled ? { PATH: `${ cliPath }:$PATH`, STUDIO_APP_PATH: appPath } : {};
+
+		return promiseExec( `gnome-terminal --working-directory=${ targetPath }`, {
+			env,
+		} );
 	} else {
 		console.error( 'Unsupported platform:', platform );
 		return;
 	}
-
-	return new Promise< void >( ( resolve, reject ) => {
-		exec( command, ( error, _stdout, _stderr ) => {
-			if ( error ) {
-				reject( error );
-				return;
-			}
-			resolve();
-		} );
-	} );
 }
 
 export async function showMessageBox(

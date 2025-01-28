@@ -507,6 +507,8 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 	const { __ } = useI18n();
 	const { snapshots } = useSnapshots();
 	const { isAuthenticated } = useAuth();
+	const { archiveSite } = useArchiveSite();
+
 	if ( ! isAuthenticated ) {
 		return <NoAuth selectedSite={ selectedSite } />;
 	}
@@ -520,14 +522,22 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 		return <NoPreviews selectedSite={ selectedSite } isSnapshotLoading={ snapshot?.isLoading } />;
 	}
 	return (
-		<div className="w-full">
-			<PreviewLinksTableHeader />
-			<SnapshotRow
-				snapshot={ snapshot }
-				previousSnapshot={ previousSnapshot }
-				selectedSite={ selectedSite }
-				key={ snapshot.atomicSiteId }
-			/>
+		<div className="w-full h-full flex flex-col">
+			<div>
+				<PreviewLinksTableHeader />
+				<SnapshotRow
+					snapshot={ snapshot }
+					previousSnapshot={ previousSnapshot }
+					selectedSite={ selectedSite }
+					key={ snapshot.atomicSiteId }
+				/>
+			</div>
+			<div className="mt-auto px-8 py-6">
+				<CreatePreviewButton
+					onClick={ () => archiveSite( selectedSite.id ) }
+					selectedSite={ selectedSite }
+				/>
+			</div>
 		</div>
 	);
 }

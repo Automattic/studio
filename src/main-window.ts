@@ -138,8 +138,8 @@ function getOSWindowOptions(): Partial< BrowserWindowConstructorOptions > {
 	}
 }
 
-export function getMainWindow(): Promise< BrowserWindow > {
-	return new Promise( ( resolve ) => {
+export function getMainWindow() {
+	return new Promise< BrowserWindow >( ( resolve ) => {
 		if ( mainWindow && ! mainWindow.isDestroyed() && ! mainWindow.webContents.isDestroyed() ) {
 			resolve( mainWindow );
 			return;

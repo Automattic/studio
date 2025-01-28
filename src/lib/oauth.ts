@@ -105,7 +105,7 @@ export function setUpAuthCallbackHandler() {
 	ipcMain.on( 'auth-callback', async ( _event, { token, error } ) => {
 		const mainWindow = await getMainWindow();
 		if ( error ) {
-			mainWindow.webContents.send( 'auth-updated', { error: error } );
+			mainWindow.webContents.send( 'auth-updated', { error } );
 		} else {
 			await storeToken( token );
 			mainWindow.webContents.send( 'auth-updated', { token } );

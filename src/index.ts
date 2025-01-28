@@ -187,7 +187,7 @@ async function appBoot() {
 			} );
 		} else {
 			// Handle custom protocol links on Windows and Linux
-			app.on( 'second-instance', async ( _event, argv ): Promise< void > => {
+			app.on( 'second-instance', async ( _event, argv ) => {
 				if ( ! finishedInitialization ) {
 					return;
 				}
@@ -315,7 +315,7 @@ async function appBoot() {
 		const clickedButtonIndex = dialog.showMessageBoxSync( {
 			message: __( 'Sync in progress' ),
 			detail: __(
-				"There's a sync operation in progress. Quitting the app will abort that operation. Are you sure you want to quit?"
+				'There’s a sync operation in progress. Quitting the app will abort that operation. Are you sure you want to quit?'
 			),
 			buttons: [ __( 'Yes, quit the app' ), __( 'No, take me back' ) ],
 			cancelId: CANCEL_BUTTON_INDEX,

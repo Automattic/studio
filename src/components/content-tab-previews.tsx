@@ -308,7 +308,7 @@ function SnapshotRow( {
 			<div className="flex items-center px-8 py-6">
 				<div className="w-[51%]">
 					<div className="flex gap-2 items-center">
-						<div className="a8c-subtitle-small demo-site-name line-clamp-1 break-all">
+						<div className="text-[13px] leading-5 line-clamp-1 break-all">
 							{ selectedSite.name }
 						</div>
 					</div>

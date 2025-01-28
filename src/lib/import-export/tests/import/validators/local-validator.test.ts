@@ -1,7 +1,7 @@
 import path from 'path';
 import { LocalValidator } from '../../../import/validators/local-validator';
 
-const separators = [
+const platforms = [
 	{ name: 'Unix', join: path.posix.join, normalize: path.posix.normalize },
 	{ name: 'Windows', join: path.win32.join, normalize: path.win32.normalize },
 ];
@@ -9,7 +9,7 @@ const separators = [
 const originalJoin = path.join;
 const originalNormalize = path.normalize;
 
-describe.each( separators )( 'LocalValidator on $name', ( { join, normalize } ) => {
+describe.each( platforms )( 'LocalValidator on $name', ( { join, normalize } ) => {
 	let validator: LocalValidator;
 
 	beforeEach( () => {

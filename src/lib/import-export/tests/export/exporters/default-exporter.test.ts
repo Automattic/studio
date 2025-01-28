@@ -1,6 +1,7 @@
 import fs from 'fs';
 import fsPromises from 'fs/promises';
 import os from 'os';
+import path from 'path';
 import archiver from 'archiver';
 import { format } from 'date-fns';
 import { getWordPressVersionFromInstallation } from '../../../../../lib/wp-versions';
@@ -42,47 +43,117 @@ jest.mock( 'archiver', () => {
 // Mock SiteServer
 jest.mock( '../../../../../site-server' );
 
-describe( 'DefaultExporter', () => {
+const defaultTableNames = [
+	'wp_commentmeta',
+	'wp_comments',
+	'wp_links',
+	'wp_options',
+	'wp_postmeta',
+	'wp_posts',
+	'wp_term_relationships',
+	'wp_term_taxonomy',
+	'wp_termmeta',
+	'wp_terms',
+];
+
+const platforms = [
+	{
+		name: 'Unix',
+		join: path.posix.join,
+		normalize: path.posix.normalize,
+		basename: path.posix.basename,
+		relative: path.posix.relative,
+		sep: path.posix.sep,
+	},
+	{
+		name: 'Windows',
+		join: path.win32.join,
+		normalize: path.win32.normalize,
+		basename: path.win32.basename,
+		relative: path.win32.relative,
+		sep: path.win32.sep,
+	},
+];
+
+const originalJoin = path.join;
+const originalNormalize = path.normalize;
+const originalBasename = path.basename;
+const originalRelative = path.relative;
+const originalSeparator = path.sep;
+
+describe.each( platforms )( 'DefaultExporter on $name', ( opts ) => {
+	const { join, normalize, basename, relative, sep } = opts;
+
+	beforeEach( () => {
+		path.join = join;
+		path.normalize = normalize;
+		path.basename = basename;
+		path.relative = relative;
+		// @ts-expect-error - Temporarily override path.sep
+		path.sep = sep;
+	} );
+
+	afterEach( () => {
+		path.join = originalJoin;
+		path.normalize = originalNormalize;
+		path.basename = originalBasename;
+		path.relative = originalRelative;
+		// @ts-expect-error - Restore original path.sep
+		path.sep = originalSeparator;
+	} );
+
 	let exporter: DefaultExporter;
 	let mockBackup: BackupContents;
 	let mockOptions: ExportOptions;
 	let mockArchiver: jest.Mocked< PartialArchiver >;
 	let mockWriteStream: { on: jest.Mock; path: string };
 
-	const mockFiles = [
-		{ path: '/path/to/site/wp-content/uploads', name: 'file1.jpg', isFile: () => true },
-		{ path: '/path/to/site', name: 'wp-config.php', isFile: () => true },
-		{ path: '/path/to/site/wp-content/plugins/plugin1', name: 'plugin1.php', isFile: () => true },
-		{ path: '/path/to/site/wp-content/themes/theme1', name: 'index.php', isFile: () => true },
-		{ path: '/path/to/site/wp-includes/index.php', name: 'index.php', isFile: () => true },
-		{ path: '/path/to/site', name: 'wp-load.php', isFile: () => true },
-	];
-
-	const defaultTableNames = [
-		'wp_commentmeta',
-		'wp_comments',
-		'wp_links',
-		'wp_options',
-		'wp_postmeta',
-		'wp_posts',
-		'wp_term_relationships',
-		'wp_term_taxonomy',
-		'wp_termmeta',
-		'wp_terms',
-	];
-
-	( fsPromises.readdir as jest.Mock ).mockResolvedValue( mockFiles );
 	( getWordPressVersionFromInstallation as jest.Mock ).mockResolvedValue( '6.6.1' );
 
 	beforeEach( () => {
+		const mockFiles = [
+			{
+				path: normalize( '/path/to/site/wp-content/uploads' ),
+				name: 'file1.jpg',
+				isFile: () => true,
+			},
+			{
+				path: normalize( '/path/to/site' ),
+				name: 'wp-config.php',
+				isFile: () => true,
+			},
+			{
+				path: normalize( '/path/to/site/wp-content/plugins/plugin1' ),
+				name: 'plugin1.php',
+				isFile: () => true,
+			},
+			{
+				path: normalize( '/path/to/site/wp-content/themes/theme1' ),
+				name: 'index.php',
+				isFile: () => true,
+			},
+			{
+				path: normalize( '/path/to/site/wp-includes/index.php' ),
+				name: 'index.php',
+				isFile: () => true,
+			},
+			{
+				path: normalize( '/path/to/site' ),
+				name: 'wp-load.php',
+				isFile: () => true,
+			},
+		];
+
+		( fsPromises.readdir as jest.Mock ).mockResolvedValue( mockFiles );
+
 		mockBackup = {
-			backupFile: '/path/to/backup.tar.gz',
-			wpConfigFile: '/path/to/wp-config.php',
-			sqlFiles: [ '/tmp/studio_export_123/file.sql' ],
+			backupFile: normalize( '/path/to/backup.tar.gz' ),
+			wpConfigFile: normalize( '/path/to/wp-config.php' ),
+			sqlFiles: [ normalize( '/tmp/studio_export_123/file.sql' ) ],
 			wpContent: {
-				uploads: [ '/path/to/wp-content/uploads/file1.jpg' ],
-				plugins: [ '/path/to/wp-content/plugins/plugin1' ],
-				themes: [ '/path/to/wp-content/themes/theme1' ],
+				uploads: [ normalize( '/path/to/wp-content/uploads/file1.jpg' ) ],
+				plugins: [ normalize( '/path/to/wp-content/plugins/plugin1' ) ],
+				themes: [ normalize( '/path/to/wp-content/themes/theme1' ) ],
 			},
 		};
 
@@ -91,10 +162,10 @@ describe( 'DefaultExporter', () => {
 				running: false,
 				id: '123',
 				name: '123',
-				path: '/path/to/site',
+				path: normalize( '/path/to/site' ),
 				phpVersion: '7.4',
 			},
-			backupFile: '/path/to/backup.tar.gz',
+			backupFile: normalize( '/path/to/backup.tar.gz' ),
 			includes: {
 				uploads: true,
 				plugins: true,
@@ -108,7 +179,7 @@ describe( 'DefaultExporter', () => {
 		jest.clearAllMocks();
 
 		( SiteServer.get as jest.Mock ).mockReturnValue( {
-			details: { path: '/path/to/site' },
+			details: { path: normalize( '/path/to/site' ) },
 			executeWpCliCommand: jest.fn( function ( command: string ) {
 				switch ( true ) {
 					case /plugin list/.test( command ):
@@ -129,7 +200,7 @@ describe( 'DefaultExporter', () => {
 		);
 		mockWriteStream = {
 			on: jest.fn(),
-			path: '/path/to/backup.tar.gz',
+			path: normalize( '/path/to/backup.tar.gz' ),
 		};
 		( fs.createWriteStream as jest.Mock ).mockReturnValue( mockWriteStream );
 		( fsPromises.unlink as jest.Mock ).mockResolvedValue( undefined );
@@ -177,7 +248,7 @@ describe( 'DefaultExporter', () => {
 		const exporter = new DefaultExporter( options );
 		await exporter.export();
 
-		expect( mockArchiver.file ).toHaveBeenCalledWith( '/path/to/site/wp-config.php', {
+		expect( mockArchiver.file ).toHaveBeenCalledWith( normalize( '/path/to/site/wp-config.php' ), {
 			name: 'wp-config.php',
 		} );
 	} );
@@ -187,10 +258,13 @@ describe( 'DefaultExporter', () => {
 		await exporter.export();
 
 		expect( getWordPressVersionFromInstallation ).toHaveBeenCalledTimes( 1 );
-		expect( getWordPressVersionFromInstallation ).toHaveBeenCalledWith( '/path/to/site' );
-		expect( mockArchiver.file ).toHaveBeenCalledWith( '/tmp/studio_export_123/meta.json', {
-			name: 'meta.json',
-		} );
+		expect( getWordPressVersionFromInstallation ).toHaveBeenCalledWith(
+			normalize( '/path/to/site' )
+		);
+		expect( mockArchiver.file ).toHaveBeenCalledWith(
+			normalize( '/tmp/studio_export_123/meta.json' ),
+			{ name: 'meta.json' }
+		);
 	} );
 
 	it( 'should add wp-content files to the archive', async () => {
@@ -207,23 +281,25 @@ describe( 'DefaultExporter', () => {
 		const exporter = new DefaultExporter( options );
 		await exporter.export();
 		// Check each expected call individually
-		expect( mockArchiver.file ).toHaveBeenNthCalledWith( 1, '/path/to/site/wp-config.php', {
-			name: 'wp-config.php',
-		} );
+		expect( mockArchiver.file ).toHaveBeenNthCalledWith(
+			1,
+			normalize( '/path/to/site/wp-config.php' ),
+			{ name: 'wp-config.php' }
+		);
 		expect( mockArchiver.file ).toHaveBeenNthCalledWith(
 			2,
-			'/path/to/site/wp-content/uploads/file1.jpg',
-			{ name: 'wp-content/uploads/file1.jpg' }
+			normalize( '/path/to/site/wp-content/uploads/file1.jpg' ),
+			{ name: normalize( 'wp-content/uploads/file1.jpg' ) }
 		);
 		expect( mockArchiver.file ).toHaveBeenNthCalledWith(
 			3,
-			'/path/to/site/wp-content/plugins/plugin1/plugin1.php',
-			{ name: 'wp-content/plugins/plugin1/plugin1.php' }
+			normalize( '/path/to/site/wp-content/plugins/plugin1/plugin1.php' ),
+			{ name: normalize( 'wp-content/plugins/plugin1/plugin1.php' ) }
 		);
 		expect( mockArchiver.file ).toHaveBeenNthCalledWith(
 			4,
-			'/path/to/site/wp-content/themes/theme1/index.php',
-			{ name: 'wp-content/themes/theme1/index.php' }
+			normalize( '/path/to/site/wp-content/themes/theme1/index.php' ),
+			{ name: normalize( 'wp-content/themes/theme1/index.php' ) }
 		);
 	} );
 
@@ -237,20 +313,20 @@ describe( 'DefaultExporter', () => {
 				database: true,
 			},
 		};
-		( fsPromises.mkdtemp as jest.Mock ).mockResolvedValue( '/tmp/studio_export_123' );
+		( fsPromises.mkdtemp as jest.Mock ).mockResolvedValue( normalize( '/tmp/studio_export_123' ) );
 
 		const exporter = new DefaultExporter( options );
 		await exporter.export();
 
-		expect( mockArchiver.file ).toHaveBeenNthCalledWith( 1, '/path/to/site/wp-config.php', {
-			name: 'wp-config.php',
-		} );
+		expect( mockArchiver.file ).toHaveBeenNthCalledWith(
+			1,
+			normalize( '/path/to/site/wp-config.php' ),
+			{ name: 'wp-config.php' }
+		);
 		expect( mockArchiver.file ).toHaveBeenNthCalledWith(
 			2,
-			'/tmp/studio_export_123/studio-backup-db-export-2023-07-31-12-00-00.sql',
-			{
-				name: 'sql/studio-backup-db-export-2023-07-31-12-00-00.sql',
-			}
+			normalize( '/tmp/studio_export_123/studio-backup-db-export-2023-07-31-12-00-00.sql' ),
+			{ name: 'sql/studio-backup-db-export-2023-07-31-12-00-00.sql' }
 		);
 	} );
 
@@ -265,18 +341,20 @@ describe( 'DefaultExporter', () => {
 			},
 			splitDatabaseDumpByTable: true,
 		};
-		( fsPromises.mkdtemp as jest.Mock ).mockResolvedValue( '/tmp/studio_export_123' );
+		( fsPromises.mkdtemp as jest.Mock ).mockResolvedValue( normalize( '/tmp/studio_export_123' ) );
 
 		const exporter = new DefaultExporter( options );
 		await exporter.export();
 
-		expect( mockArchiver.file ).toHaveBeenNthCalledWith( 1, '/path/to/site/wp-config.php', {
-			name: 'wp-config.php',
-		} );
+		expect( mockArchiver.file ).toHaveBeenNthCalledWith(
+			1,
+			normalize( '/path/to/site/wp-config.php' ),
+			{ name: 'wp-config.php' }
+		);
 
 		for ( const tableName of defaultTableNames ) {
 			expect( mockArchiver.file ).toHaveBeenCalledWith(
-				`/tmp/studio_export_123/${ tableName }.sql`,
+				normalize( `/tmp/studio_export_123/${ tableName }.sql` ),
 				{ name: `sql/${ tableName }.sql` }
 			);
 		}
@@ -289,12 +367,12 @@ describe( 'DefaultExporter', () => {
 	} );
 
 	it( 'should cleanup temporary files when database is included', async () => {
-		mockBackup.sqlFiles = [ '/tmp/studio_export_123/file.sql' ];
+		mockBackup.sqlFiles = [ normalize( '/tmp/studio_export_123/file.sql' ) ];
 
 		await exporter.export();
 
 		expect( fsPromises.unlink ).toHaveBeenCalledWith(
-			'/tmp/studio_export_123/studio-backup-db-export-2023-07-31-12-00-00.sql'
+			normalize( '/tmp/studio_export_123/studio-backup-db-export-2023-07-31-12-00-00.sql' )
 		);
 	} );
 
@@ -316,7 +394,7 @@ describe( 'DefaultExporter', () => {
 	it( 'should return false when canHandle is called with invalid options', async () => {
 		const exporter = new DefaultExporter( {
 			...mockOptions,
-			backupFile: '/path/to/backup.sql',
+			backupFile: normalize( '/path/to/backup.sql' ),
 		} );
 
 		const canHandle = await exporter.canHandle();
@@ -325,7 +403,7 @@ describe( 'DefaultExporter', () => {
 
 	it( 'should fail when can not get plugin or theme details', async () => {
 		( SiteServer.get as jest.Mock ).mockReturnValue( {
-			details: { path: '/path/to/site' },
+			details: { path: normalize( '/path/to/site' ) },
 			executeWpCliCommand: jest.fn( function ( command: string ) {
 				switch ( true ) {
 					case /plugin list/.test( command ):

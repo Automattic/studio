@@ -2,7 +2,7 @@ import path from 'path';
 import { ImportEvents } from '../../../import/events';
 import { WpressValidator } from '../../../import/validators/wpress-validator';
 
-const separators = [
+const platforms = [
 	{ name: 'Unix', separator: path.posix.sep, join: path.posix.join },
 	{ name: 'Windows', separator: path.win32.sep, join: path.win32.join },
 ];
@@ -10,7 +10,7 @@ const separators = [
 const originalSep = path.sep;
 const originalJoin = path.join;
 
-describe.each( separators )( 'WpressValidator on $name', ( { separator, join } ) => {
+describe.each( platforms )( 'WpressValidator on $name', ( { separator, join } ) => {
 	let validator: WpressValidator;
 
 	beforeEach( () => {

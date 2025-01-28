@@ -19,7 +19,7 @@ afterEach( () => {
 	( fs as MockedFsExtra ).__mockFiles = {};
 } );
 
-const separators = [
+const platforms = [
 	{ name: 'Unix', join: path.posix.join, normalize: path.posix.normalize },
 	{ name: 'Windows', join: path.win32.join, normalize: path.win32.normalize },
 ];
@@ -27,7 +27,7 @@ const separators = [
 const originalJoin = path.join;
 const originalNormalize = path.normalize;
 
-describe.each( separators )( 'keepSqliteIntegrationUpdated on $name', ( { join, normalize } ) => {
+describe.each( platforms )( 'keepSqliteIntegrationUpdated on $name', ( { join, normalize } ) => {
 	beforeEach( () => {
 		path.join = join;
 		path.normalize = normalize;
@@ -130,7 +130,7 @@ describe.each( separators )( 'keepSqliteIntegrationUpdated on $name', ( { join, 
 	} );
 } );
 
-describe.each( separators )( 'installSqliteIntegration on $name', ( { join, normalize } ) => {
+describe.each( platforms )( 'installSqliteIntegration on $name', ( { join, normalize } ) => {
 	beforeEach( () => {
 		path.join = join;
 		path.normalize = normalize;

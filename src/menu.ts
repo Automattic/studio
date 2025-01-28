@@ -5,7 +5,7 @@ import { BUG_REPORT_URL, FEATURE_REQUEST_URL, STUDIO_DOCS_URL } from './constant
 import { promptWindowsSpeedUpSites } from './lib/windows-helpers';
 import { getMainWindow } from './main-window';
 import { isUpdateReadyToInstall, manualCheckForUpdates } from './updates';
-import { shellOpenExternalWrapper } from './utils/shellOpenExternalWrapper';
+import { shellOpenExternalWrapper } from './utils/shell-open-external-wrapper';
 
 export async function setupMenu( config: { needsOnboarding: boolean } ) {
 	const mainWindow = await getMainWindow();

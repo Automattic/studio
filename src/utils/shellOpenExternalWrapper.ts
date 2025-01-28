@@ -2,10 +2,8 @@ import { shell, dialog } from 'electron';
 import * as Sentry from '@sentry/electron/main';
 import { __ } from '@wordpress/i18n';
 
-// Check if error is one of the known "application not found" errors that we checked and can mute
-// Examples of errors which can be muted:
-// "Failed to open: 没有应用程序与此操作的指定文件有关联。 (0x483)"
-// "Failed to open: Application not found (0x800401F5)"
+// Determines if an error should be muted (not reported to Sentry) based on known "application not
+// found" error codes.
 const shouldMute = ( error: Error ) => {
 	return (
 		error.message.startsWith( 'Failed to open:' ) &&
@@ -13,8 +11,9 @@ const shouldMute = ( error: Error ) => {
 	);
 };
 
-// With this wrapper some errors are mutes and some not
-// And we throw just simple message which can be rendered at the frontend
+// This wrapper handles shell.openExternal errors, showing appropriate dialog messages
+// while only reporting specific errors to Sentry. Some common "application not found"
+// errors are muted to avoid unnecessary error reporting.
 export const shellOpenExternalWrapper = async ( url: string ) => {
 	try {
 		await shell.openExternal( url );

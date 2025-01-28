@@ -1,4 +1,3 @@
-import * as Sentry from '@sentry/electron/renderer';
 import { speak } from '@wordpress/a11y';
 import { __ } from '@wordpress/i18n';
 import { ExtraProps } from 'react-markdown';

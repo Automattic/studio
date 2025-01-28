@@ -865,7 +865,7 @@ export async function getThumbnailData( _event: IpcMainInvokeEvent, id: string )
 	return getImageData( path );
 }
 
-export async function openTerminalAtPath(
+export function openTerminalAtPath(
 	_event: IpcMainInvokeEvent,
 	targetPath: string,
 	{ wpCliEnabled }: { wpCliEnabled?: boolean } = {}
@@ -898,7 +898,9 @@ export async function openTerminalAtPath(
 
 		return promiseExec( `osascript -e '${ osascript }'` );
 	} else if ( platform === 'linux' ) {
-		const env = wpCliEnabled ? { PATH: `${ cliPath }:$PATH`, STUDIO_APP_PATH: appPath } : {};
+		const env = wpCliEnabled
+			? { PATH: `${ cliPath }:${ process.env.PATH }`, STUDIO_APP_PATH: appPath }
+			: {};
 
 		return promiseExec( `gnome-terminal --working-directory=${ targetPath }`, {
 			env: { ...process.env, ...env },

@@ -323,9 +323,6 @@ function SnapshotRow( {
 		}
 	}, [ isSiteDemoUpdating, setProgress ] );
 
-	// if ( isDeleting ) {
-	// 	return <SnapshotRowLoading>{ __( 'Deleting demo site…' ) }</SnapshotRowLoading>;
-	// }
 	const urlWithHTTPS = `https://${ url }`;
 
 	let tooltipContent: Partial< TooltipProps & { text?: string } > = {};
@@ -346,8 +343,6 @@ function SnapshotRow( {
 			),
 		};
 	}
-	const isUpdateDisabled = isOffline || snapshotCreationBlocked;
-
 	return (
 		<div className="self-stretch flex-col">
 			<div className="flex items-center px-8 py-6">
@@ -503,6 +498,26 @@ function PreviewLinksTableHeader() {
 	);
 }
 
+function LoadingRow( { progress }: { progress: number } ) {
+	const { __ } = useI18n();
+
+	return (
+		<div className="flex items-center px-8 py-6">
+			<div className="w-[51%]">
+				<div className="w-[300px]">
+					<div className="text-a8c-gray-70 a8c-body mb-4">{ __( 'Generating preview link' ) }</div>
+					<ProgressBar value={ progress } max={ 100 } />
+				</div>
+			</div>
+			<div className="flex ml-auto">
+				<div className="w-[110px] text-a8c-gray-70 flex items-center">{ __( 'Just now' ) }</div>
+				<div className="w-[100px] text-a8c-gray-70 flex items-center">{ '-' }</div>
+				<div className="w-[60px] pr-2" />
+			</div>
+		</div>
+	);
+}
+
 export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) {
 	const { __ } = useI18n();
 	const { snapshots } = useSnapshots();
@@ -529,23 +544,7 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 			return (
 				<div className="w-full h-full flex flex-col">
 					<PreviewLinksTableHeader />
-					<div className="flex items-center px-8 py-6">
-						<div className="w-[51%]">
-							<div className="w-[300px]">
-								<div className="text-a8c-gray-70 a8c-body mb-4">
-									{ __( 'Generating preview link' ) }
-								</div>
-								<ProgressBar value={ progress } max={ 100 } />
-							</div>
-						</div>
-						<div className="flex ml-auto">
-							<div className="w-[110px] text-a8c-gray-70 flex items-center">
-								{ __( 'Just now' ) }
-							</div>
-							<div className="w-[100px] text-a8c-gray-70 flex items-center">{ '-' }</div>
-							<div className="w-[60px] pr-2" />
-						</div>
-					</div>
+					<LoadingRow progress={ progress } />
 				</div>
 			);
 		}
@@ -556,6 +555,7 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 		<div className="w-full h-full flex flex-col">
 			<div>
 				<PreviewLinksTableHeader />
+				{ isUploading && <LoadingRow progress={ progress } /> }
 				{ snapshotsOnSite.map( ( snapshot ) => (
 					<SnapshotRow
 						snapshot={ snapshot }

@@ -10,16 +10,15 @@ import { useAuth } from 'src/hooks/use-auth';
 import { useExpirationDate } from 'src/hooks/use-expiration-date';
 import { useFormatLocalizedTimestamps } from 'src/hooks/use-format-localized-timestamps';
 import { useOffline } from 'src/hooks/use-offline';
-import { useProgressTimer } from 'src/hooks/use-progress-timer';
 import { useSnapshots } from 'src/hooks/use-snapshots';
 import { useUpdateDemoSite } from 'src/hooks/use-update-demo-site';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { CreatePreviewButton } from 'src/modules/preview-site/components/create-preview-button';
 import { PreviewActionButtonsMenu } from 'src/modules/preview-site/components/preview-action-buttons-menu';
+import { ProgressRow } from 'src/modules/preview-site/components/progress-row';
 import { ArrowIcon } from './arrow-icon';
 import Button from './button';
 import offlineIcon from './offline-icon';
-import ProgressBar from './progress-bar';
 import { ScreenshotDemoSite } from './screenshot-demo-site';
 import { Tooltip } from './tooltip';
 
@@ -141,34 +140,6 @@ function NoAuth( { selectedSite }: React.ComponentProps< typeof EmptyGeneric > )
 	);
 }
 
-function DeletingRow() {
-	const { __ } = useI18n();
-	const { progress } = useProgressTimer( {
-		paused: false,
-		initialProgress: 60,
-		interval: 1500,
-		maxValue: 95,
-	} );
-
-	return (
-		<div className="self-stretch flex-col">
-			<div className="flex items-center px-8 py-6">
-				<div className="w-[51%]">
-					<div className="w-[200px]">
-						<div className="text-a8c-gray-70 a8c-body mb-4">{ __( 'Deleting preview link' ) }</div>
-						<ProgressBar value={ progress } maxValue={ 100 } />
-					</div>
-				</div>
-				<div className="flex ml-auto">
-					<div className="w-[110px] text-[#757575] flex items-center pl-4">{ '-' }</div>
-					<div className="w-[100px] text-[#757575] flex items-center pl-4">{ '-' }</div>
-					<div className="w-[60px] pr-2" />
-				</div>
-			</div>
-		</div>
-	);
-}
-
 function SnapshotRow( {
 	snapshot,
 	previousSnapshot,
@@ -201,7 +172,7 @@ function SnapshotRow( {
 	const urlWithHTTPS = `https://${ url }`;
 
 	if ( isDeleting ) {
-		return <DeletingRow />;
+		return <ProgressRow text={ __( 'Deleting preview link' ) } />;
 	}
 
 	return (
@@ -279,38 +250,6 @@ function PreviewLinksTableHeader() {
 	);
 }
 
-function LoadingRow( { isSnapshotLoading }: { isSnapshotLoading?: boolean } ) {
-	const { __ } = useI18n();
-	const { progress, setProgress } = useProgressTimer( {
-		paused: ! isSnapshotLoading,
-		initialProgress: 5,
-		interval: 1500,
-		maxValue: 95,
-	} );
-
-	useEffect( () => {
-		if ( isSnapshotLoading ) {
-			setProgress( 80 );
-		}
-	}, [ isSnapshotLoading, setProgress ] );
-
-	return (
-		<div className="flex items-center px-8 py-6">
-			<div className="w-[51%]">
-				<div className="w-[200px]">
-					<div className="text-a8c-gray-70 a8c-body mb-4">{ __( 'Generating preview link' ) }</div>
-					<ProgressBar value={ progress } maxValue={ 100 } />
-				</div>
-			</div>
-			<div className="flex ml-auto">
-				<div className="w-[110px] text-[#757575] flex items-center pl-4">{ __( 'Just now' ) }</div>
-				<div className="w-[100px] text-[#757575] flex items-center pl-4">{ '-' }</div>
-				<div className="w-[60px] pr-2" />
-			</div>
-		</div>
-	);
-}
-
 export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) {
 	const { __ } = useI18n();
 	const { snapshots } = useSnapshots();
@@ -334,7 +273,18 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 						<div className="flex-1">
 							<PreviewLinksTableHeader />
 							<div className="[&>*:not(:last-child)]:border-b [&>*]:border-a8c-gray-5">
-								{ isUploading && <LoadingRow isSnapshotLoading={ isUploading } /> }
+								{ isUploading && (
+									<ProgressRow
+										text={ __( 'Generating preview link' ) }
+										statusText={ __( 'Just now' ) }
+										progressConfig={ {
+											initialProgress: 5,
+											paused: ! isUploading,
+											interval: 1500,
+											maxValue: 95,
+										} }
+									/>
+								) }
 							</div>
 						</div>
 						<div className="sticky bottom-0 bg-white/[0.8] backdrop-blur-sm w-full px-8 py-6 mt-auto">
@@ -356,7 +306,18 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 				<div className="flex-1">
 					<PreviewLinksTableHeader />
 					<div className="[&>*:not(:last-child)]:border-b [&>*]:border-a8c-gray-5">
-						{ isUploading && <LoadingRow isSnapshotLoading={ isUploading } /> }
+						{ isUploading && (
+							<ProgressRow
+								text={ __( 'Generating preview link' ) }
+								statusText={ __( 'Just now' ) }
+								progressConfig={ {
+									initialProgress: 5,
+									paused: ! isUploading,
+									interval: 1500,
+									maxValue: 95,
+								} }
+							/>
+						) }
 						{ snapshotsOnSite.map( ( snapshot ) => (
 							<SnapshotRow
 								snapshot={ snapshot }

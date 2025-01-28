@@ -1,22 +1,18 @@
-import { Spinner } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
-import { __, sprintf } from '@wordpress/i18n';
-import { check, external, Icon, arrowDown } from '@wordpress/icons';
+import { __ } from '@wordpress/i18n';
+import { check, external, Icon } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { PropsWithChildren, useEffect } from 'react';
+import { PropsWithChildren } from 'react';
 import { CLIENT_ID, PROTOCOL_PREFIX, SCOPES, WP_AUTHORIZE_ENDPOINT } from 'src/constants';
 import { useArchiveSite } from 'src/hooks/use-archive-site';
 import { useAuth } from 'src/hooks/use-auth';
-import { useExpirationDate } from 'src/hooks/use-expiration-date';
-import { useFormatLocalizedTimestamps } from 'src/hooks/use-format-localized-timestamps';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSnapshots } from 'src/hooks/use-snapshots';
-import { useUpdateDemoSite } from 'src/hooks/use-update-demo-site';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { CreatePreviewButton } from 'src/modules/preview-site/components/create-preview-button';
-import { PreviewActionButtonsMenu } from 'src/modules/preview-site/components/preview-action-buttons-menu';
+import { PreviewLinksTableHeader } from 'src/modules/preview-site/components/preview-links-table-header';
 import { ProgressRow } from 'src/modules/preview-site/components/progress-row';
-import { ArrowIcon } from './arrow-icon';
+import { SnapshotRow } from 'src/modules/preview-site/components/snapshot-row';
 import Button from './button';
 import offlineIcon from './offline-icon';
 import { ScreenshotDemoSite } from './screenshot-demo-site';
@@ -140,82 +136,6 @@ function NoAuth( { selectedSite }: React.ComponentProps< typeof EmptyGeneric > )
 	);
 }
 
-function SnapshotRow( {
-	snapshot,
-	previousSnapshot,
-	selectedSite,
-}: {
-	snapshot: Snapshot;
-	previousSnapshot: Snapshot | null;
-	selectedSite: SiteDetails;
-} ) {
-	const { url, date, isDeleting } =
-		previousSnapshot && snapshot.isLoading ? previousSnapshot : snapshot;
-	const { countDown } = useExpirationDate( date );
-	const { fetchSnapshotUsage } = useSnapshots();
-	const { isDemoSiteUpdating } = useUpdateDemoSite();
-	const isSiteDemoUpdating = isDemoSiteUpdating( snapshot.localSiteId, snapshot.atomicSiteId );
-	const { formatRelativeTime } = useFormatLocalizedTimestamps();
-
-	const getLastUpdateTimeText = () => {
-		if ( ! date ) {
-			return __( 'Never updated' );
-		}
-		const timeDistance = formatRelativeTime( new Date( date ).toISOString() );
-		return sprintf( __( '%s ago' ), timeDistance );
-	};
-
-	useEffect( () => {
-		fetchSnapshotUsage();
-	}, [ fetchSnapshotUsage ] );
-
-	const urlWithHTTPS = `https://${ url }`;
-
-	if ( isDeleting ) {
-		return <ProgressRow text={ __( 'Deleting preview link' ) } />;
-	}
-
-	return (
-		<div className="self-stretch flex-col">
-			<div className="flex items-center px-8 py-6">
-				<div className="w-[51%]">
-					<div className="flex items-center">
-						<div className="text-[13px] leading-5 line-clamp-1 break-all">
-							{ selectedSite.name }
-						</div>
-					</div>
-					<Button
-						variant="link"
-						className="!text-a8c-gray-70 hover:!text-a8c-blueberry max-w-[100%]"
-						onClick={ () => {
-							getIpcApi().openURL( urlWithHTTPS );
-						} }
-					>
-						<span className="truncate">{ urlWithHTTPS }</span>
-						<ArrowIcon />
-					</Button>
-				</div>
-				<div className="flex ml-auto">
-					<div className="w-[110px] text-[#757575] flex items-center pl-4">
-						{ isSiteDemoUpdating ? (
-							<div className="flex items-center">
-								<Spinner className="!mt-0 !mx-2" />
-								{ __( 'Updating' ) }
-							</div>
-						) : (
-							getLastUpdateTimeText()
-						) }
-					</div>
-					<div className="w-[100px] text-[#757575] flex items-center pl-4">{ countDown }</div>
-					<div className="w-[60px] flex justify-end">
-						<PreviewActionButtonsMenu snapshot={ snapshot } selectedSite={ selectedSite } />
-					</div>
-				</div>
-			</div>
-		</div>
-	);
-}
-
 function NoPreviews( { selectedSite }: React.ComponentProps< typeof EmptyGeneric > ) {
 	const { archiveSite } = useArchiveSite();
 
@@ -228,25 +148,6 @@ function NoPreviews( { selectedSite }: React.ComponentProps< typeof EmptyGeneric
 				/>
 			</div>
 		</EmptyGeneric>
-	);
-}
-
-function PreviewLinksTableHeader() {
-	const { __ } = useI18n();
-	return (
-		<div className="border-b border-a8c-gray-5">
-			<div className="flex items-center h-12 px-8 text-gray-900 text-xs uppercase">
-				<div className="w-[51%]">{ __( 'Preview link' ) }</div>
-				<div className="flex ml-auto">
-					<div className="w-[110px] flex items-center pl-4">
-						{ __( 'Updated' ) }
-						<Icon icon={ arrowDown } height={ 13 } width={ 16 } />
-					</div>
-					<div className="w-[100px] pl-4">{ __( 'Expires' ) }</div>
-					<div className="w-[60px] text-right">{ __( 'Actions' ) }</div>
-				</div>
-			</div>
-		</div>
 	);
 }
 

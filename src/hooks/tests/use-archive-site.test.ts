@@ -41,7 +41,7 @@ describe( 'useArchiveSite', () => {
 		} ) );
 	} );
 
-	it( 'should include connected_site_id in form data when a production WPCOM site exists', async () => {
+	it( 'should include connected_site_id in form data when a production WPCOM site is connected', async () => {
 		( useSyncSites as jest.Mock ).mockImplementation( () => ( {
 			connectedSites: [
 				{
@@ -76,7 +76,7 @@ describe( 'useArchiveSite', () => {
 		expect( formData ).toContainEqual( [ 'connected_site_id', 240383639 ] );
 	} );
 
-	it( 'should not include connected_site_id in form data when no WPCOM sites are connected', async () => {
+	it( 'should not include connected_site_id in form data when no WPCOM site is connected', async () => {
 		( useSyncSites as jest.Mock ).mockImplementation( () => ( {
 			connectedSites: [],
 		} ) );

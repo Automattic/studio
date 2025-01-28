@@ -187,6 +187,9 @@ export async function prepareWordPress( php: PHP, options: WPNowOptions ) {
 		case WPNowMode.PLAYGROUND:
 			await runWpPlaygroundMode( php, options );
 			break;
+		case WPNowMode.CLI:
+			await runWPCliMode( php, options );
+			break;
 	}
 
 	await mountInternalMuPlugins( php );
@@ -348,6 +351,14 @@ async function runWpPlaygroundMode(
 	await php.mount(
 		wpContentPath,
 		createNodeFsMountHandler( `${ documentRoot }/wp-content` ) as unknown as MountHandler
+	);
+}
+
+async function runWPCliMode( php: PHP, options: WPNowOptions = {} ) {
+	php.mkdir( options.documentRoot );
+	await php.mount(
+		options.documentRoot,
+		createNodeFsMountHandler( options.projectPath ) as unknown as MountHandler
 	);
 }
 

@@ -40,11 +40,6 @@ export async function executeWPCli(
 
 	const id = await loadNodeRuntime( options.phpVersion );
 	const php = new PHP( id );
-	php.mkdir( options.documentRoot );
-	await php.mount(
-		options.documentRoot,
-		createNodeFsMountHandler( projectPath ) as unknown as MountHandler
-	);
 
 	//Set the SAPI name to cli before running the script
 	await php.setSapiName( 'cli' );

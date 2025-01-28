@@ -16,6 +16,7 @@ const shouldMute = ( error: Error ) => {
 // errors are muted to avoid unnecessary error reporting.
 export const shellOpenExternalWrapper = async ( url: string ) => {
 	try {
+		throw new Error( 'test' );
 		await shell.openExternal( url );
 	} catch ( error ) {
 		if ( error instanceof Error && ! shouldMute( error ) ) {
@@ -25,17 +26,19 @@ export const shellOpenExternalWrapper = async ( url: string ) => {
 		let title = '';
 		let message = '';
 		if ( url.startsWith( 'vscode://file/' ) ) {
-			title = __( 'Failed to open "VS Code"' );
-			message = __( 'Studio is unable to open VS Code. Please ensure it is functioning correctly' );
-		} else if ( url.startsWith( 'phpstorm://open?file=' ) ) {
-			title = __( 'Failed to open "PHP Storm"' );
+			title = __( 'Failed to open VS Code' );
 			message = __(
-				'Studio is unable to open PHPStorm. Please ensure it is functioning correctly'
+				'Studio is unable to open VS Code. Please ensure it is functioning correctly.'
+			);
+		} else if ( url.startsWith( 'phpstorm://open?file=' ) ) {
+			title = __( 'Failed to open PHP Storm' );
+			message = __(
+				'Studio is unable to open PHPStorm. Please ensure it is functioning correctly.'
 			);
 		} else {
 			title = __( 'Failed to open browser' );
 			message = __(
-				'Studio is unable to open your default browser. Please ensure it is functioning correctly'
+				'Studio is unable to open your default browser. Please ensure it is functioning correctly.'
 			);
 		}
 

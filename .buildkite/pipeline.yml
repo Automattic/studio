@@ -32,7 +32,7 @@ steps:
       - github_commit_status:
           context: Unit Tests
 
-  - label: Experiment Windows Unit Tests
+  - label: Windows Unit Tests
     command: |
       bash .buildkite/commands/install-node-dependencies.sh
       echo '--- :npm: Run Unit Tests'

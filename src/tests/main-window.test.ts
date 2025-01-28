@@ -3,7 +3,7 @@
  */
 import { BrowserWindow } from 'electron';
 import fs from 'fs';
-import { createMainWindow, withMainWindow, __resetMainWindow } from '../main-window';
+import { createMainWindow, getMainWindow, __resetMainWindow } from '../main-window';
 
 jest.mock( 'fs' );
 
@@ -15,7 +15,7 @@ const mockUserData = {
 	JSON.stringify( mockUserData )
 );
 
-describe( 'withMainWindow', () => {
+describe( 'getMainWindow', () => {
 	let createdWindow: BrowserWindow;
 
 	beforeEach( () => {
@@ -26,18 +26,14 @@ describe( 'withMainWindow', () => {
 		__resetMainWindow();
 	} );
 
-	it( 'passes the main window to the callback when the reference is set', () => {
-		const callback = jest.fn();
-
-		withMainWindow( callback );
-
-		expect( callback ).toHaveBeenCalledWith( createdWindow );
+	it( 'returns the main window when the reference is set', async () => {
+		const window = await getMainWindow();
+		expect( window ).toBe( createdWindow );
 	} );
 
-	it( 'passes the focused window to the callback when the reference is destroyed', () => {
-		const callback = jest.fn();
-		const mockWindow1 = { foo: 'foo' };
-		const mockWindow2 = { bar: 'bar' };
+	it( 'returns the focused window when the reference is destroyed', async () => {
+		const mockWindow1 = new BrowserWindow();
+		const mockWindow2 = new BrowserWindow();
 		( createdWindow.isDestroyed as jest.Mock ).mockReturnValue( true );
 		( BrowserWindow.getFocusedWindow as jest.Mock ).mockReturnValueOnce( mockWindow2 );
 		( BrowserWindow.getAllWindows as jest.Mock ).mockReturnValueOnce( [
@@ -45,28 +41,24 @@ describe( 'withMainWindow', () => {
 			mockWindow2,
 		] );
 
-		withMainWindow( callback );
-
-		expect( callback ).toHaveBeenCalledWith( mockWindow2 );
+		const window = await getMainWindow();
+		expect( window ).toBe( mockWindow2 );
 	} );
 
-	it( 'passes the first window to the callback when the reference is destroyed and no window is focused', () => {
-		const callback = jest.fn();
-		const mockWindow1 = { bim: 'bim' };
-		const mockWindow2 = { bam: 'bam' };
+	it( 'returns the first window when the reference is destroyed and no window is focused', async () => {
+		const mockWindow1 = new BrowserWindow();
+		const mockWindow2 = new BrowserWindow();
 		( createdWindow.isDestroyed as jest.Mock ).mockReturnValue( true );
 		( BrowserWindow.getAllWindows as jest.Mock ).mockReturnValueOnce( [
 			mockWindow1,
 			mockWindow2,
 		] );
 
-		withMainWindow( callback );
-
-		expect( callback ).toHaveBeenCalledWith( mockWindow1 );
+		const window = await getMainWindow();
+		expect( window ).toBe( mockWindow1 );
 	} );
 
-	it( 'passes the main window to the callback when no non-destroyed windows exist', () => {
-		const callback = jest.fn();
+	it( 'returns a new window when no non-destroyed windows exist', async () => {
 		// eslint-disable-next-line @typescript-eslint/no-empty-function
 		let didFinishLoad: ( ...args: any[] ) => void = () => {};
 		( createdWindow.isDestroyed as jest.Mock ).mockReturnValue( true );
@@ -76,12 +68,11 @@ describe( 'withMainWindow', () => {
 			}
 		);
 
-		withMainWindow( callback );
+		const windowPromise = getMainWindow();
 		didFinishLoad();
+		const window = await windowPromise;
 
-		// Assert any `BrowserWindow` as mocking the return of `createMainWindow`
-		// within `withMainWindow` is difficult.
-		expect( callback ).toHaveBeenCalledWith( expect.any( BrowserWindow ) );
+		expect( window ).toBeInstanceOf( BrowserWindow );
 	} );
 } );
 

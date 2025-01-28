@@ -1,8 +1,9 @@
 // To run tests, execute `npm run test -- src/lib/import-export/tests/import/handlers/backup-handler-factory.test.ts`
 import fs from 'fs';
 import path from 'path';
-import AdmZip from 'adm-zip';
+import { Readable, Writable } from 'stream';
 import * as tar from 'tar';
+import * as yauzl from 'yauzl';
 import { BackupHandlerFactory } from '../../../import/handlers/backup-handler-factory';
 import { BackupHandlerSql } from '../../../import/handlers/backup-handler-sql';
 import { BackupHandlerTarGz } from '../../../import/handlers/backup-handler-tar-gz';
@@ -13,8 +14,24 @@ jest.mock( 'fs' );
 jest.mock( 'fs/promises' );
 jest.mock( 'zlib' );
 jest.mock( 'tar' );
-jest.mock( 'adm-zip' );
+jest.mock( 'yauzl' );
 jest.mock( 'path' );
+
+// Mock types to match yauzl and Node.js stream interfaces
+interface MockZipFile {
+	on: jest.Mock;
+	readEntry: jest.Mock;
+	openReadStream?: jest.Mock;
+}
+
+interface MockReadStream extends Partial< Readable > {
+	on: jest.Mock;
+	pipe: jest.Mock;
+}
+
+interface MockWriteStream extends Partial< Writable > {
+	on: jest.Mock;
+}
 
 describe( 'BackupHandlerFactory', () => {
 	beforeEach( () => {
@@ -101,10 +118,20 @@ describe( 'BackupHandlerFactory', () => {
 			};
 			const handler = BackupHandlerFactory.create( archiveInfo );
 
-			( AdmZip as jest.Mock ).mockReturnValue( {
-				getEntries: jest
-					.fn()
-					.mockReturnValue( archiveFiles.map( ( file ) => ( { entryName: file } ) ) ),
+			const mockZipFile: MockZipFile = {
+				on: jest.fn().mockImplementation( ( event, callback ) => {
+					if ( event === 'entry' ) {
+						archiveFiles.forEach( ( file ) => callback( { fileName: file } ) );
+					} else if ( event === 'end' ) {
+						callback();
+					}
+					return mockZipFile;
+				} ),
+				readEntry: jest.fn(),
+			};
+
+			( yauzl.open as jest.Mock ).mockImplementation( ( path, options, callback ) => {
+				callback( null, mockZipFile );
 			} );
 
 			await expect( handler?.listFiles( archiveInfo ) ).resolves.toEqual( expectedArchiveFiles );
@@ -158,23 +185,78 @@ describe( 'BackupHandlerFactory', () => {
 			};
 			const handler = BackupHandlerFactory.create( archiveInfo );
 			const extractionDirectory = '/tmp/extracted';
-			const mockExtractAllToAsync = jest
-				.fn()
-				.mockImplementation( ( path, overwrite, keepOriginalPermission, callback ) => {
-					callback();
-				} );
-			( AdmZip as jest.Mock ).mockImplementation( () => ( {
-				extractAllToAsync: mockExtractAllToAsync,
-			} ) );
+
+			const mockReadStream: MockReadStream = {
+				on: jest.fn().mockImplementation( ( event, callback ) => {
+					if ( event === 'data' ) {
+						callback( Buffer.from( 'test data' ) );
+					}
+					return mockReadStream;
+				} ),
+				pipe: jest.fn().mockReturnThis(),
+			};
+
+			const mockWriteStream: MockWriteStream = {
+				on: jest.fn().mockImplementation( ( event, callback ) => {
+					if ( event === 'finish' ) {
+						callback();
+					}
+					return mockWriteStream;
+				} ),
+			};
+
+			const mockZipFile: MockZipFile = {
+				on: jest.fn().mockImplementation( ( event, callback ) => {
+					if ( event === 'entry' ) {
+						callback( { fileName: 'test.txt' } );
+					} else if ( event === 'end' ) {
+						callback();
+					}
+					return mockZipFile;
+				} ),
+				readEntry: jest.fn(),
+				openReadStream: jest.fn().mockImplementation( ( entry, callback ) => {
+					callback( null, mockReadStream );
+				} ),
+			};
+
+			( yauzl.open as jest.Mock ).mockImplementation( ( path, options, callback ) => {
+				callback( null, mockZipFile );
+			} );
+			( fs.createWriteStream as jest.Mock ).mockReturnValue( mockWriteStream );
+			( fs.statSync as jest.Mock ).mockReturnValue( { size: 1000 } );
+
 			await expect(
 				handler?.extractFiles( archiveInfo, extractionDirectory )
 			).resolves.not.toThrow();
-			expect( mockExtractAllToAsync ).toHaveBeenCalledWith(
-				extractionDirectory,
-				true,
-				undefined,
+
+			// Verify zip file was opened with correct options
+			expect( yauzl.open ).toHaveBeenCalledWith(
+				archiveInfo.path,
+				{ lazyEntries: true },
 				expect.any( Function )
 			);
+
+			// Verify readEntry was called to start reading entries
+			expect( mockZipFile.readEntry ).toHaveBeenCalled();
+
+			// Verify openReadStream was called for the entry
+			expect( mockZipFile.openReadStream ).toHaveBeenCalledWith(
+				{ fileName: 'test.txt' },
+				expect.any( Function )
+			);
+
+			// Verify write stream was created with correct path
+			expect( fs.createWriteStream ).toHaveBeenCalledWith(
+				path.join( extractionDirectory, 'test.txt' )
+			);
+
+			// Verify pipe was called to connect read and write streams
+			expect( mockReadStream.pipe ).toHaveBeenCalledWith( mockWriteStream );
+
+			// Verify event handlers were set up
+			expect( mockReadStream.on ).toHaveBeenCalledWith( 'data', expect.any( Function ) );
+			expect( mockWriteStream.on ).toHaveBeenCalledWith( 'finish', expect.any( Function ) );
 		} );
 
 		it( 'should copy SQL file to extraction directory', async () => {

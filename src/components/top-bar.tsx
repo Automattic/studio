@@ -98,8 +98,8 @@ function Authentication() {
 }
 
 export default function TopBar( { onToggleSidebar }: TopBarProps ) {
-	const openDocs = async () => {
-		await getIpcApi().openURL( STUDIO_DOCS_URL );
+	const openDocs = () => {
+		getIpcApi().openURL( STUDIO_DOCS_URL );
 	};
 
 	return (

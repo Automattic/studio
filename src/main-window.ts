@@ -138,23 +138,27 @@ function getOSWindowOptions(): Partial< BrowserWindowConstructorOptions > {
 	}
 }
 
-export function withMainWindow( callback: ( window: BrowserWindow ) => void ): void {
-	if ( mainWindow && ! mainWindow.isDestroyed() ) {
-		callback( mainWindow );
-		return;
-	}
+export function getMainWindow() {
+	return new Promise< BrowserWindow >( ( resolve ) => {
+		if ( mainWindow && ! mainWindow.isDestroyed() && ! mainWindow.webContents.isDestroyed() ) {
+			resolve( mainWindow );
+			return;
+		}
 
-	const windows = BrowserWindow.getAllWindows();
-	if ( windows.length > 0 ) {
-		mainWindow = BrowserWindow.getFocusedWindow() || windows[ 0 ];
-		callback( mainWindow );
-		return;
-	}
+		const windows = BrowserWindow.getAllWindows();
+		if ( windows.length > 0 ) {
+			mainWindow = BrowserWindow.getFocusedWindow() || windows[ 0 ];
+			if ( ! mainWindow.webContents.isDestroyed() ) {
+				resolve( mainWindow );
+			}
+			return;
+		}
 
-	const newWindow = createMainWindow();
-	mainWindow = newWindow;
-	newWindow.webContents.on( 'did-finish-load', () => {
-		callback( newWindow );
+		const newWindow = createMainWindow();
+		mainWindow = newWindow;
+		newWindow.webContents.on( 'did-finish-load', () => {
+			resolve( newWindow );
+		} );
 	} );
 }
 

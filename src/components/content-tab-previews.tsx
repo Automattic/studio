@@ -444,14 +444,14 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 		if ( isUploading ) {
 			return (
 				<div className="relative min-h-full flex flex-col">
-					<div className="w-full h-full flex flex-col">
-						<div className="flex-1 overflow-auto">
+					<div className="w-full flex flex-col flex-1">
+						<div className="flex-1">
 							<PreviewLinksTableHeader />
 							<div className="[&>*:not(:last-child)]:border-b [&>*]:border-a8c-gray-5">
 								{ isUploading && <LoadingRow isSnapshotLoading={ isUploading } /> }
 							</div>
 						</div>
-						<div className="sticky bottom-0 bg-white/[0.8] backdrop-blur-sm w-full px-8 py-6">
+						<div className="sticky bottom-0 bg-white/[0.8] backdrop-blur-sm w-full px-8 py-6 mt-auto">
 							<CreatePreviewButton
 								onClick={ () => archiveSite( selectedSite.id ) }
 								selectedSite={ selectedSite }
@@ -466,8 +466,8 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 
 	return (
 		<div className="relative min-h-full flex flex-col">
-			<div className="w-full h-full flex flex-col">
-				<div className="flex-1 overflow-auto">
+			<div className="w-full flex flex-col flex-1">
+				<div className="flex-1">
 					<PreviewLinksTableHeader />
 					<div className="[&>*:not(:last-child)]:border-b [&>*]:border-a8c-gray-5">
 						{ isUploading && <LoadingRow isSnapshotLoading={ isUploading } /> }
@@ -481,7 +481,7 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 						) ) }
 					</div>
 				</div>
-				<div className="sticky bottom-0 bg-white/[0.8] backdrop-blur-sm w-full px-8 py-6">
+				<div className="sticky bottom-0 bg-white/[0.8] backdrop-blur-sm w-full px-8 py-6 mt-auto">
 					<CreatePreviewButton
 						onClick={ () => archiveSite( selectedSite.id ) }
 						selectedSite={ selectedSite }

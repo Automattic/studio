@@ -159,7 +159,7 @@ export function useSyncPull( {
 					console.log( 'File size exceeds limit, prompting user' );
 					const { response: userChoice } = await getIpcApi().showMessageBox( {
 						type: 'warning',
-						title: __( 'Large Backup File' ),
+						title: __( "Large site's backup" ),
 						message: sprintf(
 							__(
 								"Your site's backup exceeds %s GB. Pulling it will prevent you from pushing the site back. Do you want to continue?"

@@ -67,7 +67,7 @@ function SnapshotRow( {
 	const isUploading = isUploadingSiteId( selectedSite.id );
 	const { updateDemoSite, isDemoSiteUpdating } = useUpdateDemoSite();
 	const errorMessages = useArchiveErrorMessages();
-	const isSiteDemoUpdating = isDemoSiteUpdating( snapshot.localSiteId );
+	const isSiteDemoUpdating = isDemoSiteUpdating( snapshot.localSiteId, snapshot.atomicSiteId );
 	const { formatRelativeTime } = useFormatLocalizedTimestamps();
 
 	const { isOverLimit } = useSiteSize( selectedSite.id );

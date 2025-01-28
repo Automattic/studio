@@ -5,10 +5,7 @@ import { __ } from '@wordpress/i18n';
 // Determines if an error should be muted (not reported to Sentry) based on known "application not
 // found" error codes.
 const shouldMute = ( error: Error ) => {
-	return (
-		error.message.startsWith( 'Failed to open:' ) &&
-		( error.message.endsWith( '(0x483)' ) || error.message.endsWith( '(0x800401F5)' ) )
-	);
+	return error.message.endsWith( '(0x800401F5)' );
 };
 
 // This wrapper handles shell.openExternal errors, showing appropriate dialog messages

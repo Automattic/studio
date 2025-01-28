@@ -242,6 +242,32 @@ function AddPreviewSiteWithProgress( {
 	);
 }
 
+function DeletingRow() {
+	const { __ } = useI18n();
+	const { progress } = useProgressTimer( {
+		paused: false,
+		initialProgress: 60,
+		interval: 1500,
+		maxValue: 95,
+	} );
+
+	return (
+		<div className="self-stretch flex-col">
+			<div className="flex items-center px-8 py-6">
+				<div className="w-[51%]">
+					<div className="text-a8c-gray-70 a8c-body mb-4">{ __( 'Deleting preview link' ) }</div>
+					<ProgressBar value={ progress } max={ 100 } />
+				</div>
+				<div className="flex ml-auto">
+					<div className="w-[110px] text-a8c-gray-70 flex items-center">{ '-' }</div>
+					<div className="w-[100px] text-a8c-gray-70 flex items-center">{ '-' }</div>
+					<div className="w-[60px] pr-2" />
+				</div>
+			</div>
+		</div>
+	);
+}
+
 function SnapshotRow( {
 	snapshot,
 	previousSnapshot,
@@ -286,6 +312,10 @@ function SnapshotRow( {
 	}, [ fetchSnapshotUsage ] );
 
 	const urlWithHTTPS = `https://${ url }`;
+
+	if ( isDeleting ) {
+		return <DeletingRow />;
+	}
 
 	let tooltipContent: Partial< TooltipProps & { text?: string } > = {};
 	if ( isOffline ) {
@@ -380,11 +410,26 @@ function PreviewActionButtonsMenu( {
 				if ( checkboxChecked ) {
 					localStorage.setItem( 'dontShowUpdateWarning', 'true' );
 				}
-
 				updateDemoSite( snapshot, selectedSite );
 			}
 		} else {
 			updateDemoSite( snapshot, selectedSite );
+		}
+	};
+
+	const handleDeleteDemoSite = async () => {
+		const { response } = await getIpcApi().showMessageBox( {
+			type: 'warning',
+			message: __( 'Delete preview' ),
+			detail: __(
+				'Your previews files and database along with all posts, pages, comments and media will be lost.'
+			),
+			buttons: [ __( 'Delete' ), __( 'Cancel' ) ],
+			cancelId: 1,
+		} );
+
+		if ( response === 0 ) {
+			deleteSnapshot( snapshot );
 		}
 	};
 
@@ -396,11 +441,7 @@ function PreviewActionButtonsMenu( {
 		>
 			{ ( { onClose }: { onClose: () => void } ) => (
 				<MenuGroup className="w-40 overflow-hidden">
-					<MenuItem
-					// 	Implement rename
-					// 	onClose();
-					// } }
-					>
+					<MenuItem>
 						<span>{ __( 'Rename' ) }</span>
 					</MenuItem>
 					<MenuItem
@@ -414,7 +455,7 @@ function PreviewActionButtonsMenu( {
 					<MenuItem
 						isDestructive
 						onClick={ () => {
-							deleteSnapshot( snapshot );
+							handleDeleteDemoSite();
 							onClose();
 						} }
 					>

@@ -146,46 +146,29 @@ function NoAuth( { selectedSite }: React.ComponentProps< typeof EmptyGeneric > )
 	);
 }
 
-function AddPreviewSiteWithProgress( {
-	isSnapshotLoading,
+function CreatePreviewButton( {
+	onClick,
 	selectedSite,
-	className = '',
-	tagline = '',
 }: {
-	isSnapshotLoading?: boolean;
+	onClick: () => void;
 	selectedSite: SiteDetails;
-	className?: string;
-	tagline?: string;
 } ) {
 	const { __, _n } = useI18n();
-	const { archiveSite, isUploadingSiteId, isAnySiteArchiving } = useArchiveSite();
-	const isUploading = isUploadingSiteId( selectedSite.id );
+	const { isAnySiteArchiving } = useArchiveSite();
 	const { activeSnapshotCount, snapshotQuota, isLoadingSnapshotUsage, snapshotCreationBlocked } =
 		useSnapshots();
 	const isLimitUsed = activeSnapshotCount >= snapshotQuota;
 	const { isOverLimit } = useSiteSize( selectedSite.id );
 	const isOffline = useOffline();
-	const { progress, setProgress } = useProgressTimer( {
-		paused: ! isUploading && ! isSnapshotLoading,
-		initialProgress: 5,
-		interval: 1500,
-		maxValue: 95,
-	} );
 	const errorMessages = useArchiveErrorMessages();
-
-	useEffect( () => {
-		if ( isSnapshotLoading ) {
-			setProgress( 80 );
-		}
-	}, [ isSnapshotLoading, setProgress ] );
 
 	const isDisabled =
 		isAnySiteArchiving ||
-		isUploading ||
 		isLoadingSnapshotUsage ||
 		isLimitUsed ||
 		isOffline ||
 		snapshotCreationBlocked;
+
 	const siteArchivingMessage = __(
 		'A different preview link is being created. Please wait for it to finish before creating another.'
 	);
@@ -205,8 +188,6 @@ function AddPreviewSiteWithProgress( {
 		DEMO_SITE_SIZE_LIMIT_GB
 	);
 
-	const userBlockedMessage = errorMessages.rest_site_creation_blocked;
-
 	let tooltipContent;
 	if ( isOffline ) {
 		tooltipContent = {
@@ -218,10 +199,52 @@ function AddPreviewSiteWithProgress( {
 	} else if ( isAnySiteArchiving ) {
 		tooltipContent = { text: siteArchivingMessage };
 	} else if ( snapshotCreationBlocked ) {
-		tooltipContent = { text: userBlockedMessage };
+		tooltipContent = { text: errorMessages.rest_site_creation_blocked };
 	} else if ( isOverLimit ) {
 		tooltipContent = { text: overLimitMessage };
 	}
+
+	return (
+		<Tooltip disabled={ ! tooltipContent } { ...tooltipContent } placement="top-start">
+			<Button
+				aria-description={ tooltipContent?.text ?? '' }
+				aria-disabled={ isDisabled }
+				variant="primary"
+				onClick={ onClick }
+			>
+				{ __( 'Create preview link' ) }
+			</Button>
+		</Tooltip>
+	);
+}
+
+function AddPreviewSiteWithProgress( {
+	isSnapshotLoading,
+	selectedSite,
+	className = '',
+	tagline = '',
+}: {
+	isSnapshotLoading?: boolean;
+	selectedSite: SiteDetails;
+	className?: string;
+	tagline?: string;
+} ) {
+	const { __ } = useI18n();
+	const { archiveSite, isUploadingSiteId } = useArchiveSite();
+	const isUploading = isUploadingSiteId( selectedSite.id );
+
+	const { progress, setProgress } = useProgressTimer( {
+		paused: ! isUploading && ! isSnapshotLoading,
+		initialProgress: 5,
+		interval: 1500,
+		maxValue: 95,
+	} );
+
+	useEffect( () => {
+		if ( isSnapshotLoading ) {
+			setProgress( 80 );
+		}
+	}, [ isSnapshotLoading, setProgress ] );
 
 	return (
 		<div className={ className }>
@@ -234,21 +257,10 @@ function AddPreviewSiteWithProgress( {
 				</div>
 			) : (
 				<div className="flex gap-4">
-					<Tooltip disabled={ ! tooltipContent } { ...tooltipContent } placement="top-start">
-						<Button
-							aria-description={ tooltipContent?.text ?? '' }
-							aria-disabled={ isDisabled }
-							variant="primary"
-							onClick={ () => {
-								if ( isDisabled ) {
-									return;
-								}
-								archiveSite( selectedSite.id );
-							} }
-						>
-							{ __( 'Create preview link' ) }
-						</Button>
-					</Tooltip>
+					<CreatePreviewButton
+						onClick={ () => archiveSite( selectedSite.id ) }
+						selectedSite={ selectedSite }
+					/>
 				</div>
 			) }
 		</div>

@@ -164,7 +164,7 @@ export function useSyncPull( {
 							__(
 								'The backup file is over %s GB. You will not be able to push back the site. Continue?'
 							),
-							SYNC_PUSH_SIZE_LIMIT_BYTES
+							SYNC_PUSH_SIZE_LIMIT_GB
 						),
 						buttons: [ __( 'Continue' ), __( 'Cancel' ) ],
 						defaultId: 0,

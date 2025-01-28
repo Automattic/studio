@@ -141,30 +141,6 @@ function NoAuth( { selectedSite }: React.ComponentProps< typeof EmptyGeneric > )
 	);
 }
 
-function AddPreviewSiteWithProgress( {
-	selectedSite,
-	className = '',
-}: {
-	isSnapshotLoading?: boolean;
-	selectedSite: SiteDetails;
-	className?: string;
-	tagline?: string;
-} ) {
-	const { __ } = useI18n();
-	const { archiveSite } = useArchiveSite();
-
-	return (
-		<div className={ className }>
-			<div className="flex gap-4">
-				<CreatePreviewButton
-					onClick={ () => archiveSite( selectedSite.id ) }
-					selectedSite={ selectedSite }
-				/>
-			</div>
-		</div>
-	);
-}
-
 function DeletingRow() {
 	const { __ } = useI18n();
 	const { progress } = useProgressTimer( {
@@ -269,17 +245,17 @@ function SnapshotRow( {
 	);
 }
 
-function NoPreviews( {
-	selectedSite,
-	isSnapshotLoading,
-}: React.ComponentProps< typeof EmptyGeneric > & { isSnapshotLoading?: boolean } ) {
+function NoPreviews( { selectedSite }: React.ComponentProps< typeof EmptyGeneric > ) {
+	const { archiveSite } = useArchiveSite();
+
 	return (
 		<EmptyGeneric selectedSite={ selectedSite }>
-			<AddPreviewSiteWithProgress
-				className="mt-8"
-				selectedSite={ selectedSite }
-				isSnapshotLoading={ isSnapshotLoading }
-			/>
+			<div className="mt-8">
+				<CreatePreviewButton
+					onClick={ () => archiveSite( selectedSite.id ) }
+					selectedSite={ selectedSite }
+				/>
+			</div>
 		</EmptyGeneric>
 	);
 }

@@ -37,6 +37,7 @@
 				"ignoreRestSiblings": true
 			}
 		],
+		"import/no-named-as-default-member": "off",
 		"import/order": [
 			"error",
 			{

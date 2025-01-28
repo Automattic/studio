@@ -2,9 +2,9 @@ import { ipcMain } from 'electron';
 import * as Sentry from '@sentry/electron/main';
 import wpcom from 'wpcom';
 import { PROTOCOL_PREFIX, WP_AUTHORIZE_ENDPOINT, CLIENT_ID, SCOPES } from '../constants';
+import { shellOpenExternalWrapper } from '../lib/shell-open-external-wrapper';
 import { getMainWindow } from '../main-window';
 import { loadUserData, saveUserData } from '../storage/user-data';
-import { shellOpenExternalWrapper } from '../lib/shell-open-external-wrapper';
 
 export interface StoredToken {
 	accessToken?: string;

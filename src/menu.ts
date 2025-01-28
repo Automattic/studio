@@ -2,10 +2,10 @@ import { Menu, type MenuItemConstructorOptions, app, BrowserWindow, autoUpdater 
 import { __ } from '@wordpress/i18n';
 import { openAboutWindow } from './about-menu/open-about-menu';
 import { BUG_REPORT_URL, FEATURE_REQUEST_URL, STUDIO_DOCS_URL } from './constants';
+import { shellOpenExternalWrapper } from './lib/shell-open-external-wrapper';
 import { promptWindowsSpeedUpSites } from './lib/windows-helpers';
 import { getMainWindow } from './main-window';
 import { isUpdateReadyToInstall, manualCheckForUpdates } from './updates';
-import { shellOpenExternalWrapper } from './lib/shell-open-external-wrapper';
 
 export async function setupMenu( config: { needsOnboarding: boolean } ) {
 	const mainWindow = await getMainWindow();

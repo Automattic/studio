@@ -879,23 +879,29 @@ export async function openTerminalAtPath(
 
 	if ( platform === 'win32' ) {
 		const defaultShell = process.env.ComSpec || 'cmd.exe';
-		const env = wpCliEnabled ? { PATH: `${ cliPath };%PATH%`, STUDIO_APP_PATH: appPath } : {};
+		const env = wpCliEnabled
+			? { PATH: `${ cliPath };${ process.env.PATH }`, STUDIO_APP_PATH: appPath }
+			: {};
 
 		return promiseExec( `start "Command Prompt" ${ defaultShell }`, {
 			cwd: targetPath,
-			env,
+			env: { ...process.env, ...env },
 		} );
 	} else if ( platform === 'darwin' ) {
-		const env = wpCliEnabled ? { PATH: `${ cliPath }:$PATH`, STUDIO_APP_PATH: appPath } : {};
+		const loadWpCliCommand = `clear && export PATH=\\"${ cliPath }\\":$PATH && export STUDIO_APP_PATH=\\"${ appPath }\\" &&`;
+		const osascript = `
+		tell application "Terminal"
+			if not application "Terminal" is running then launch
+			do script "${ wpCliEnabled ? loadWpCliCommand : '' } cd ${ targetPath } && clear"
+			activate
+		end tell`;
 
-		return promiseExec( `open -b com.apple.Terminal ${ targetPath }`, {
-			env,
-		} );
+		return promiseExec( `osascript -e '${ osascript }'` );
 	} else if ( platform === 'linux' ) {
 		const env = wpCliEnabled ? { PATH: `${ cliPath }:$PATH`, STUDIO_APP_PATH: appPath } : {};
 
 		return promiseExec( `gnome-terminal --working-directory=${ targetPath }`, {
-			env,
+			env: { ...process.env, ...env },
 		} );
 	} else {
 		console.error( 'Unsupported platform:', platform );

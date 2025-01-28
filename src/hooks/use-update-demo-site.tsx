@@ -9,7 +9,7 @@ import { useSnapshots } from './use-snapshots';
 
 interface DemoSiteUpdateContextType {
 	updateDemoSite: ( snapshot: Snapshot, localSite: SiteDetails ) => Promise< void >;
-	isDemoSiteUpdating: ( siteId: string ) => boolean;
+	isDemoSiteUpdating: ( localSiteId: string, atomicSiteId: number ) => boolean;
 }
 
 const DemoSiteUpdateContext = createContext< DemoSiteUpdateContextType >( {
@@ -24,7 +24,7 @@ interface DemoSiteUpdateProviderProps {
 export const DemoSiteUpdateProvider: React.FC< DemoSiteUpdateProviderProps > = ( { children } ) => {
 	const { client } = useAuth();
 	const { __ } = useI18n();
-	const [ updatingSites, setUpdatingSites ] = useState< Set< string > >( new Set() );
+	const [ updatingSites, setUpdatingSites ] = useState< Set< number > >( new Set() );
 	const { updateSnapshot } = useSnapshots();
 
 	const updateDemoSite = useCallback(
@@ -33,7 +33,7 @@ export const DemoSiteUpdateProvider: React.FC< DemoSiteUpdateProviderProps > = (
 				// No-op if logged out
 				return;
 			}
-			setUpdatingSites( ( prev ) => new Set( prev ).add( localSite.id ) );
+			setUpdatingSites( ( prev ) => new Set( prev ).add( snapshot.atomicSiteId ) );
 
 			let archivePath = '';
 			try {
@@ -56,7 +56,7 @@ export const DemoSiteUpdateProvider: React.FC< DemoSiteUpdateProviderProps > = (
 
 					setUpdatingSites( ( prev ) => {
 						const newSet = new Set( prev );
-						newSet.delete( localSite.id );
+						newSet.delete( snapshot.atomicSiteId );
 						return newSet;
 					} );
 					getIpcApi().removeTemporalFile( archivePath );
@@ -107,9 +107,9 @@ export const DemoSiteUpdateProvider: React.FC< DemoSiteUpdateProviderProps > = (
 				Sentry.captureException( error );
 			} finally {
 				setUpdatingSites( ( prev ) => {
-					const newSet = new Set( prev );
-					newSet.delete( localSite.id );
-					return newSet;
+					const next = new Set( prev );
+					next.delete( snapshot.atomicSiteId );
+					return next;
 				} );
 				if ( archivePath ) {
 					getIpcApi().removeTemporalFile( archivePath );
@@ -120,7 +120,9 @@ export const DemoSiteUpdateProvider: React.FC< DemoSiteUpdateProviderProps > = (
 	);
 
 	const isDemoSiteUpdating = useCallback(
-		( siteId: string ) => updatingSites.has( siteId ),
+		( _localSiteId: string, atomicSiteId: number ) => {
+			return updatingSites.has( atomicSiteId );
+		},
 		[ updatingSites ]
 	);
 

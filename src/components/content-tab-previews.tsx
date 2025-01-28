@@ -285,7 +285,7 @@ function SnapshotRow( {
 	const isUploading = isUploadingSiteId( selectedSite.id );
 	const errorMessages = useArchiveErrorMessages();
 	const { isDemoSiteUpdating } = useUpdateDemoSite();
-	const isSiteDemoUpdating = isDemoSiteUpdating( snapshot.localSiteId );
+	const isSiteDemoUpdating = isDemoSiteUpdating( snapshot.localSiteId, snapshot.atomicSiteId );
 	const { formatRelativeTime } = useFormatLocalizedTimestamps();
 
 	const { isOverLimit } = useSiteSize( selectedSite.id );
@@ -516,21 +516,31 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 	const snapshotsOnSite = snapshots.filter(
 		( snapshot ) => snapshot.localSiteId === selectedSite.id
 	);
-	const snapshot = snapshotsOnSite[ 0 ] || null;
-	const previousSnapshot = snapshotsOnSite[ 1 ] || null;
-	if ( ! snapshot || ( snapshotsOnSite.length === 1 && snapshotsOnSite[ 0 ].isLoading ) ) {
-		return <NoPreviews selectedSite={ selectedSite } isSnapshotLoading={ snapshot?.isLoading } />;
+
+	if (
+		! snapshotsOnSite.length ||
+		( snapshotsOnSite.length === 1 && snapshotsOnSite[ 0 ].isLoading )
+	) {
+		return (
+			<NoPreviews
+				selectedSite={ selectedSite }
+				isSnapshotLoading={ snapshotsOnSite[ 0 ]?.isLoading }
+			/>
+		);
 	}
+
 	return (
 		<div className="w-full h-full flex flex-col">
 			<div>
 				<PreviewLinksTableHeader />
-				<SnapshotRow
-					snapshot={ snapshot }
-					previousSnapshot={ previousSnapshot }
-					selectedSite={ selectedSite }
-					key={ snapshot.atomicSiteId }
-				/>
+				{ snapshotsOnSite.map( ( snapshot ) => (
+					<SnapshotRow
+						snapshot={ snapshot }
+						previousSnapshot={ null }
+						selectedSite={ selectedSite }
+						key={ snapshot.atomicSiteId }
+					/>
+				) ) }
 			</div>
 			<div className="mt-auto px-8 py-6">
 				<CreatePreviewButton

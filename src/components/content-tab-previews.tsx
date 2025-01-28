@@ -4,24 +4,17 @@ import { __, sprintf } from '@wordpress/i18n';
 import { check, external, Icon, arrowDown, moreVertical } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren, useEffect } from 'react';
-import {
-	CLIENT_ID,
-	DEMO_SITE_SIZE_LIMIT_GB,
-	PROTOCOL_PREFIX,
-	SCOPES,
-	WP_AUTHORIZE_ENDPOINT,
-} from 'src/constants';
-import { useArchiveErrorMessages } from 'src/hooks/use-archive-error-messages';
+import { CLIENT_ID, PROTOCOL_PREFIX, SCOPES, WP_AUTHORIZE_ENDPOINT } from 'src/constants';
 import { useArchiveSite } from 'src/hooks/use-archive-site';
 import { useAuth } from 'src/hooks/use-auth';
 import { useExpirationDate } from 'src/hooks/use-expiration-date';
 import { useFormatLocalizedTimestamps } from 'src/hooks/use-format-localized-timestamps';
 import { useOffline } from 'src/hooks/use-offline';
 import { useProgressTimer } from 'src/hooks/use-progress-timer';
-import { useSiteSize } from 'src/hooks/use-site-size';
 import { useSnapshots } from 'src/hooks/use-snapshots';
 import { useUpdateDemoSite } from 'src/hooks/use-update-demo-site';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { CreatePreviewButton } from 'src/modules/preview-site/components/create-preview-button';
 import { ArrowIcon } from './arrow-icon';
 import Button from './button';
 import offlineIcon from './offline-icon';
@@ -144,78 +137,6 @@ function NoAuth( { selectedSite }: React.ComponentProps< typeof EmptyGeneric > )
 				</Tooltip>
 			</div>
 		</EmptyGeneric>
-	);
-}
-
-function CreatePreviewButton( {
-	onClick,
-	selectedSite,
-}: {
-	onClick: () => void;
-	selectedSite: SiteDetails;
-} ) {
-	const { __, _n } = useI18n();
-	const { isAnySiteArchiving } = useArchiveSite();
-	const { activeSnapshotCount, snapshotQuota, isLoadingSnapshotUsage, snapshotCreationBlocked } =
-		useSnapshots();
-	const isLimitUsed = activeSnapshotCount >= snapshotQuota;
-	const { isOverLimit } = useSiteSize( selectedSite.id );
-	const isOffline = useOffline();
-	const errorMessages = useArchiveErrorMessages();
-
-	const isDisabled =
-		isAnySiteArchiving ||
-		isLoadingSnapshotUsage ||
-		isLimitUsed ||
-		isOffline ||
-		snapshotCreationBlocked;
-
-	const siteArchivingMessage = __(
-		'A different preview link is being created. Please wait for it to finish before creating another.'
-	);
-	const allotmentConsumptionMessage = sprintf(
-		_n(
-			"You've used %s preview links available on your account.",
-			"You've used all %s preview links available on your account.",
-			snapshotQuota
-		),
-		snapshotQuota
-	);
-	const offlineMessage = __( 'Creating a preview link requires an internet connection.' );
-	const overLimitMessage = sprintf(
-		__(
-			'Your site exceeds %s GB in size. Creating a preview link for a larger site may take considerable amount of time and could exceed the maximum allowed size for a preview link.'
-		),
-		DEMO_SITE_SIZE_LIMIT_GB
-	);
-
-	let tooltipContent;
-	if ( isOffline ) {
-		tooltipContent = {
-			icon: offlineIcon,
-			text: offlineMessage,
-		};
-	} else if ( isLimitUsed ) {
-		tooltipContent = { text: allotmentConsumptionMessage };
-	} else if ( isAnySiteArchiving ) {
-		tooltipContent = { text: siteArchivingMessage };
-	} else if ( snapshotCreationBlocked ) {
-		tooltipContent = { text: errorMessages.rest_site_creation_blocked };
-	} else if ( isOverLimit ) {
-		tooltipContent = { text: overLimitMessage };
-	}
-
-	return (
-		<Tooltip disabled={ ! tooltipContent } { ...tooltipContent } placement="top-start">
-			<Button
-				aria-description={ tooltipContent?.text ?? '' }
-				aria-disabled={ isDisabled }
-				variant="primary"
-				onClick={ onClick }
-			>
-				{ __( 'Create preview link' ) }
-			</Button>
-		</Tooltip>
 	);
 }
 

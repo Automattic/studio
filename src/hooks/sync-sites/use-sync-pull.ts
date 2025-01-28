@@ -105,7 +105,7 @@ export function useSyncPull( {
 			} );
 
 			try {
-				console.log( 'Signal for backup' );
+				console.log( 'Initializing backup on remote' );
 				const response = await client.req.post< { success: boolean; backup_id: string } >( {
 					path: `/sites/${ remoteSiteId }/studio-app/sync/backup`,
 					apiNamespace: 'wpcom/v2',
@@ -162,7 +162,7 @@ export function useSyncPull( {
 						title: __( 'Large Backup File' ),
 						message: sprintf(
 							__(
-								'The backup file is over %s GB. You will not be able to push back the site. Continue?'
+								"Your site's backup exceeds %s GB. Pulling it will prevent you from pushing the site back. Do you want to continue?"
 							),
 							SYNC_PUSH_SIZE_LIMIT_GB
 						),

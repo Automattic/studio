@@ -2,28 +2,30 @@
  * @jest-environment node
  */
 
-import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import fs from 'fs-extra';
 import { executeWPCli } from '../../vendor/wp-now/src/execute-wp-cli';
+import getSqlitePath from '../../vendor/wp-now/src/get-sqlite-path';
+import getWpNowPath from '../../vendor/wp-now/src/get-wp-now-path';
 import { getWPCliVersionFromInstallation } from '../lib/wpcli-versions';
 
 jest.unmock( 'fs-extra' );
 
 describe( 'executeWPCli', () => {
-	const tmpPath = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-test-wp-cli-site' ) );
 	beforeAll( async () => {
-		// It sets mode index so we don't need to download the whole WordPress
-		fs.writeFileSync( path.join( tmpPath, 'index.php' ), '' );
+		fs.ensureDirSync( path.join( getWpNowPath(), 'wp-content' ) );
+		fs.ensureDirSync( getSqlitePath() );
+		fs.writeFileSync( path.join( getSqlitePath(), 'db.copy' ), '<?php' );
 	} );
 	afterAll( () => {
-		fs.rmSync( tmpPath, { recursive: true } );
+		fs.rmSync( getWpNowPath(), { recursive: true } );
 	} );
 
 	it( 'should execute wp-cli version command and return stdout and stderr', async () => {
 		const args = [ '--version' ];
 
-		const result = await executeWPCli( tmpPath, args );
+		const result = await executeWPCli( getWpNowPath(), args );
 
 		expect( result.stdout ).toMatch( /WP-CLI \d+\.\d+\.\d+/ ); // Example: WP-CLI 2.10.0
 		expect( result.stderr ).toBe( '' );
@@ -36,7 +38,7 @@ describe( 'executeWPCli', () => {
 		console.warn = jest.fn();
 		const args = [ 'yoda' ];
 
-		const result = await executeWPCli( tmpPath, args );
+		const result = await executeWPCli( getWpNowPath(), args );
 
 		expect( result.stdout ).toBe( '' );
 		expect( result.stderr ).toContain(

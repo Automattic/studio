@@ -16,7 +16,6 @@ const shouldMute = ( error: Error ) => {
 // errors are muted to avoid unnecessary error reporting.
 export const shellOpenExternalWrapper = async ( url: string ) => {
 	try {
-		throw new Error( 'test' );
 		await shell.openExternal( url );
 	} catch ( error ) {
 		if ( error instanceof Error && ! shouldMute( error ) ) {

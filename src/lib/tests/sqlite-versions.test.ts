@@ -1,5 +1,5 @@
 import fs from 'fs-extra';
-import { platformTestSuite } from 'src/tests/utils/platformTestSetup';
+import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
 import { SQLITE_FILENAME } from '../../../vendor/wp-now/src/constants';
 import { installSqliteIntegration, keepSqliteIntegrationUpdated } from '../sqlite-versions';
 

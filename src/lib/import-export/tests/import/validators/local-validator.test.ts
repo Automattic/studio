@@ -1,4 +1,4 @@
-import { platformTestSuite } from 'src/tests/utils/platformTestSetup';
+import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
 import { LocalValidator } from '../../../import/validators/local-validator';
 
 platformTestSuite( 'LocalValidator', ( { normalize } ) => {

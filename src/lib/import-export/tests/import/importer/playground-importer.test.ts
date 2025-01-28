@@ -1,6 +1,6 @@
 import * as fs from 'fs/promises';
 import { lstat, move } from 'fs-extra';
-import { platformTestSuite } from 'src/tests/utils/platformTestSetup';
+import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
 import { SiteServer } from '../../../../../site-server';
 import { PlaygroundImporter } from '../../../import/importers';
 import { BackupContents } from '../../../import/types';

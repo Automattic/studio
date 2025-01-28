@@ -1,4 +1,4 @@
-import { platformTestSuite } from 'src/tests/utils/platformTestSetup';
+import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
 import { PlaygroundValidator } from '../../../import/validators/playground-validator';
 
 platformTestSuite( 'PlaygroundValidator', ( { normalize } ) => {

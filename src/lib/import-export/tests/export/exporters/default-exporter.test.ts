@@ -3,9 +3,9 @@ import fsPromises from 'fs/promises';
 import os from 'os';
 import archiver from 'archiver';
 import { format } from 'date-fns';
+import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
 import { getWordPressVersionFromInstallation } from '../../../../../lib/wp-versions';
 import { SiteServer } from '../../../../../site-server';
-import { platformTestSuite } from '../../../../../tests/utils/platformTestSetup';
 import { DefaultExporter } from '../../../export/exporters';
 import { ExportOptions, BackupContents } from '../../../export/types';
 

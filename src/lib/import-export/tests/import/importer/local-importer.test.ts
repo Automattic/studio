@@ -1,6 +1,6 @@
 import * as fs from 'fs/promises';
 import { lstat, rename } from 'fs-extra';
-import { platformTestSuite } from 'src/tests/utils/platformTestSetup';
+import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
 import { SiteServer } from '../../../../../site-server';
 import { LocalImporter } from '../../../import/importers';
 import { BackupContents } from '../../../import/types';

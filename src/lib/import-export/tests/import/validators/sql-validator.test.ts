@@ -1,4 +1,4 @@
-import { platformTestSuite } from 'src/tests/utils/platformTestSetup';
+import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
 import { SqlValidator } from '../../../import/validators/sql-validator';
 
 platformTestSuite( 'SqlValidator', ( { normalize } ) => {

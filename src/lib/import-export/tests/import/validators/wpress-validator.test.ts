@@ -1,4 +1,4 @@
-import { platformTestSuite } from 'src/tests/utils/platformTestSetup';
+import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
 import { ImportEvents } from '../../../import/events';
 import { WpressValidator } from '../../../import/validators/wpress-validator';
 

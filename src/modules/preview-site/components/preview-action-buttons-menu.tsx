@@ -2,6 +2,7 @@ import { DropdownMenu, MenuGroup, MenuItem } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { moreVertical } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
+import { useConfirmationDialog } from 'src/hooks/use-confirmation-dialog';
 import { useSnapshots } from 'src/hooks/use-snapshots';
 import { useUpdateDemoSite } from 'src/hooks/use-update-demo-site';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -19,34 +20,19 @@ export function PreviewActionButtonsMenu( {
 	const { deleteSnapshot } = useSnapshots();
 	const { updateDemoSite } = useUpdateDemoSite();
 
-	const handleUpdateDemoSite = async () => {
-		const dontShowUpdateWarning = localStorage.getItem( 'dontShowUpdateWarning' );
+	const showUpdatePreviewConfirmation = useConfirmationDialog( {
+		localStorageKey: 'dontShowUpdateWarning',
+		message: __( 'Overwrite preview' ),
+		detail: __(
+			"Updating will replace the existing files and database with a copy from your local site. Any changes you've made to your preview site will be permanently lost."
+		),
+		confirmButtonLabel: __( 'Update' ),
+	} );
 
-		if ( ! dontShowUpdateWarning ) {
-			const UPDATE_BUTTON_INDEX = 0;
-			const CANCEL_BUTTON_INDEX = 1;
-
-			const { response, checkboxChecked } = await getIpcApi().showMessageBox( {
-				type: 'info',
-				message: __( 'Overwrite preview' ),
-				detail: __(
-					"Updating will replace the existing files and database with a copy from your local site. Any changes you've made to your preview site will be permanently lost."
-				),
-				buttons: [ __( 'Update' ), __( 'Cancel' ) ],
-				cancelId: CANCEL_BUTTON_INDEX,
-				checkboxLabel: __( "Don't show this warning again" ),
-				checkboxChecked: false,
-			} );
-
-			if ( response === UPDATE_BUTTON_INDEX ) {
-				if ( checkboxChecked ) {
-					localStorage.setItem( 'dontShowUpdateWarning', 'true' );
-				}
-				updateDemoSite( snapshot, selectedSite );
-			}
-		} else {
+	const handleUpdatePreviewSite = async () => {
+		showUpdatePreviewConfirmation( () => {
 			updateDemoSite( snapshot, selectedSite );
-		}
+		} );
 	};
 
 	const handleDeleteDemoSite = async () => {
@@ -78,7 +64,7 @@ export function PreviewActionButtonsMenu( {
 					</MenuItem>
 					<MenuItem
 						onClick={ () => {
-							handleUpdateDemoSite();
+							handleUpdatePreviewSite();
 							onClose();
 						} }
 					>

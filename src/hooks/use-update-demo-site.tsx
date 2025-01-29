@@ -9,7 +9,7 @@ import { useSnapshots } from './use-snapshots';
 
 interface DemoSiteUpdateContextType {
 	updateDemoSite: ( snapshot: Snapshot, localSite: SiteDetails ) => Promise< void >;
-	isDemoSiteUpdating: ( localSiteId: string, atomicSiteId: number ) => boolean;
+	isDemoSiteUpdating: ( atomicSiteId: number ) => boolean;
 }
 
 const DemoSiteUpdateContext = createContext< DemoSiteUpdateContextType >( {
@@ -120,7 +120,7 @@ export const DemoSiteUpdateProvider: React.FC< DemoSiteUpdateProviderProps > = (
 	);
 
 	const isDemoSiteUpdating = useCallback(
-		( _localSiteId: string, atomicSiteId: number ) => {
+		( atomicSiteId: number ) => {
 			return updatingSites.has( atomicSiteId );
 		},
 		[ updatingSites ]

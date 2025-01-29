@@ -25,7 +25,7 @@ export function SnapshotRow( { snapshot, previousSnapshot, selectedSite }: Snaps
 	const { countDown } = useExpirationDate( date );
 	const { fetchSnapshotUsage } = useSnapshots();
 	const { isDemoSiteUpdating } = useUpdateDemoSite();
-	const isSiteDemoUpdating = isDemoSiteUpdating( snapshot.localSiteId, snapshot.atomicSiteId );
+	const isSiteDemoUpdating = isDemoSiteUpdating( snapshot.atomicSiteId );
 	const { formatRelativeTime } = useFormatLocalizedTimestamps();
 
 	const getLastUpdateTimeText = () => {

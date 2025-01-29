@@ -239,7 +239,7 @@ export function getWordPressVersionPath( wpVersion: string ) {
  *
  * WP-now used to store some internal mu-plugins in the site's mu-plugins directory.
  * This prevented users from using the mu-plugins directory for their own plugins,
- * so we now mount the mu-plugins directory to the shared mu-plugins directory.
+ * so Studio now mounts the mu-plugins directory to the shared mu-plugins directory.
  *
  * @param projectPath The path to the project directory.
  */

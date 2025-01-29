@@ -256,7 +256,7 @@ export default function UserSettings() {
 			await deleteAllSnapshots( allSnapshots );
 			setDeletedAllSnapshots( true );
 		}
-	}, [ allSnapshots, quickDeploysEnabled, __, deleteAllSnapshots ] );
+	}, [ allSnapshots, deleteAllSnapshots, __, quickDeploysEnabled ] );
 
 	return (
 		<>

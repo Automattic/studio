@@ -12,13 +12,17 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { PreviewActionButtonsMenu } from './preview-action-buttons-menu';
 import { ProgressRow } from './progress-row';
 
-interface SnapshotRowProps {
+interface PreviewSiteRowProps {
 	snapshot: Snapshot;
 	previousSnapshot: Snapshot | null;
 	selectedSite: SiteDetails;
 }
 
-export function SnapshotRow( { snapshot, previousSnapshot, selectedSite }: SnapshotRowProps ) {
+export function PreviewSiteRow( {
+	snapshot,
+	previousSnapshot,
+	selectedSite,
+}: PreviewSiteRowProps ) {
 	const { __ } = useI18n();
 	const { url, date, isDeleting } =
 		previousSnapshot && snapshot.isLoading ? previousSnapshot : snapshot;

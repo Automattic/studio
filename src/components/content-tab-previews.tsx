@@ -12,7 +12,7 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { CreatePreviewButton } from 'src/modules/preview-site/components/create-preview-button';
 import { PreviewLinksTableHeader } from 'src/modules/preview-site/components/preview-links-table-header';
 import { ProgressRow } from 'src/modules/preview-site/components/progress-row';
-import { SnapshotRow } from 'src/modules/preview-site/components/snapshot-row';
+import { PreviewSiteRow } from 'src/modules/preview-site/components/snapshot-row';
 import Button from './button';
 import offlineIcon from './offline-icon';
 import { ScreenshotDemoSite } from './screenshot-demo-site';
@@ -209,7 +209,7 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 							/>
 						) }
 						{ snapshotsOnSite.map( ( snapshot ) => (
-							<SnapshotRow
+							<PreviewSiteRow
 								snapshot={ snapshot }
 								previousSnapshot={ null }
 								selectedSite={ selectedSite }

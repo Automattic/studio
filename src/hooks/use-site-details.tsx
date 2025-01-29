@@ -1,4 +1,3 @@
-import * as Sentry from '@sentry/electron/renderer';
 import { __ } from '@wordpress/i18n';
 import {
 	ReactNode,

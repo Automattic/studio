@@ -174,7 +174,7 @@ const AuthenticatedView = memo(
 			previousMessagesLength.current = messages.length;
 
 			return () => clearTimeout( timer );
-		}, [ messages.length, showLastMessage ] );
+		}, [ messages.length, showLastMessage, wrapperRef ] );
 
 		useEffect( () => {
 			let timer: NodeJS.Timeout;

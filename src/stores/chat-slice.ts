@@ -166,8 +166,6 @@ export const sendFeedbackThunk = createAsyncThunk(
 	}
 );
 
-const storedMessages = localStorage.getItem( LOCAL_STORAGE_CHAT_MESSAGES_KEY );
-const storedChatIds = localStorage.getItem( LOCAL_STORAGE_CHAT_API_IDS_KEY );
 const EMPTY_MESSAGES: readonly Message[] = Object.freeze( [] );
 
 export interface ChatState {
@@ -189,23 +187,28 @@ export interface ChatState {
 	promptUsageDict: Record< string, { maxQuota: string; remainingQuota: string } >;
 }
 
-const initialState: ChatState = {
-	currentURL: '',
-	pluginListDict: {},
-	themeListDict: {},
-	numberOfSites: 0,
-	themeName: '',
-	wpVersion: '',
-	phpVersion: DEFAULT_PHP_VERSION,
-	isBlockTheme: false,
-	os: window.appGlobals?.platform || '',
-	availableEditors: [],
-	siteName: '',
-	messagesDict: storedMessages ? JSON.parse( storedMessages ) : {},
-	chatApiIdDict: storedChatIds ? JSON.parse( storedChatIds ) : {},
-	chatInputBySite: {},
-	isLoadingDict: {},
-	promptUsageDict: {},
+const getInitialState = (): ChatState => {
+	const storedMessages = localStorage.getItem( LOCAL_STORAGE_CHAT_MESSAGES_KEY );
+	const storedChatIds = localStorage.getItem( LOCAL_STORAGE_CHAT_API_IDS_KEY );
+
+	return {
+		currentURL: '',
+		pluginListDict: {},
+		themeListDict: {},
+		numberOfSites: 0,
+		themeName: '',
+		wpVersion: '',
+		phpVersion: DEFAULT_PHP_VERSION,
+		isBlockTheme: false,
+		os: window.appGlobals?.platform || '',
+		availableEditors: [],
+		siteName: '',
+		messagesDict: storedMessages ? JSON.parse( storedMessages ) : {},
+		chatApiIdDict: storedChatIds ? JSON.parse( storedChatIds ) : {},
+		chatInputBySite: {},
+		isLoadingDict: {},
+		promptUsageDict: {},
+	};
 };
 
 export function generateMessage(
@@ -228,11 +231,11 @@ export function generateMessage(
 
 const chatSlice = createSlice( {
 	name: 'chat',
-	initialState,
+	initialState: getInitialState(),
 	reducers: {
 		// Resetting the state is helpful in tests. Less so in the app code.
 		resetChatState: () => {
-			return initialState;
+			return getInitialState();
 		},
 		updateFromTheme: (
 			state,

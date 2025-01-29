@@ -145,7 +145,6 @@ describe( 'chat-slice', () => {
 			expect( result.type ).toBe( 'chat/sendFeedback/fulfilled' );
 
 			const state = store.getState();
-			console.log( 'state', state );
 			const messages = state.chat.messagesDict[ instanceId ];
 
 			expect( messages[ 0 ].feedbackReceived ).toBe( true );

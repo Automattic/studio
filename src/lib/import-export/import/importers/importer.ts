@@ -4,7 +4,7 @@ import fs, { createReadStream, createWriteStream } from 'fs';
 import fsPromises from 'fs/promises';
 import path from 'path';
 import { createInterface } from 'readline';
-import { lstat, move, ensureDir } from 'fs-extra';
+import { lstat, move } from 'fs-extra';
 import semver from 'semver';
 import { DEFAULT_PHP_VERSION } from '../../../../../vendor/wp-now/src/constants';
 import { SiteServer } from '../../../../site-server';
@@ -218,9 +218,18 @@ abstract class BaseBackupImporter extends BaseImporter {
 		const wpContentDestDir = path.join( rootPath, 'wp-content' );
 		for ( const files of Object.values( wpContent ) ) {
 			for ( const file of files ) {
-				const stats = await lstat( file );
-				// Skip if it's a directory
-				if ( stats.isDirectory() ) {
+				try {
+					const stats = await lstat( file );
+					// Skip if it's a directory
+					if ( stats.isDirectory() ) {
+						continue;
+					}
+				} catch {
+					/**
+					 * If the file does not exist, skip it.
+					 * This can happen if a empty directory is included in the backup
+					 * because the empty directory won't be included in the extraction.
+					 */
 					continue;
 				}
 				const relativePath = path.relative(

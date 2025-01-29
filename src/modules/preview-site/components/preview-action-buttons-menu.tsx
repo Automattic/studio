@@ -30,7 +30,7 @@ export function PreviewActionButtonsMenu( {
 				type: 'info',
 				message: __( 'Overwrite preview' ),
 				detail: __(
-					"Updating will replace the existing files and database with a copy from your local site. Any changes you've made to your preview link will be permanently lost."
+					"Updating will replace the existing files and database with a copy from your local site. Any changes you've made to your preview site will be permanently lost."
 				),
 				buttons: [ __( 'Update' ), __( 'Cancel' ) ],
 				cancelId: CANCEL_BUTTON_INDEX,

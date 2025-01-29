@@ -33,20 +33,20 @@ export function CreatePreviewButton( { onClick, selectedSite }: CreatePreviewBut
 		snapshotCreationBlocked;
 
 	const siteArchivingMessage = __(
-		'A different preview link is being created. Please wait for it to finish before creating another.'
+		'A different preview site is being created. Please wait for it to finish before creating another.'
 	);
 	const allotmentConsumptionMessage = sprintf(
 		_n(
-			"You've used %s preview links available on your account.",
-			"You've used all %s preview links available on your account.",
+			"You've used %s preview sites available on your account.",
+			"You've used all %s preview sites available on your account.",
 			snapshotQuota
 		),
 		snapshotQuota
 	);
-	const offlineMessage = __( 'Creating a preview link requires an internet connection.' );
+	const offlineMessage = __( 'Creating a preview site requires an internet connection.' );
 	const overLimitMessage = sprintf(
 		__(
-			'Your site exceeds %s GB in size. Creating a preview link for a larger site may take considerable amount of time and could exceed the maximum allowed size for a preview link.'
+			'Your site exceeds %s GB in size. Creating a preview site for a larger site may take considerable amount of time and could exceed the maximum allowed size for a preview site.'
 		),
 		DEMO_SITE_SIZE_LIMIT_GB
 	);
@@ -80,7 +80,7 @@ export function CreatePreviewButton( { onClick, selectedSite }: CreatePreviewBut
 					onClick();
 				} }
 			>
-				{ __( 'Create preview link' ) }
+				{ __( 'Create preview site' ) }
 			</Button>
 		</Tooltip>
 	);

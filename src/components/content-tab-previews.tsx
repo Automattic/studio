@@ -38,8 +38,8 @@ function EmptyGeneric( {
 				</div>
 				<div className="mt-6">
 					{ [
-						__( 'Create up to 10 preview links for free.' ),
-						__( 'Preview links expire 7 days after the last update.' ),
+						__( 'Create up to 10 preview sites for free.' ),
+						__( 'Preview sites expire 7 days after the last update.' ),
 						createInterpolateElement( __( 'Powered by <a> WordPress.com</a>.' ), {
 							a: (
 								<Button
@@ -107,7 +107,7 @@ function NoAuth( { selectedSite }: React.ComponentProps< typeof EmptyGeneric > )
 				>
 					{ createInterpolateElement(
 						__(
-							'A WordPress.com account is required to create preview links. <a>Create a free account</a>'
+							'A WordPress.com account is required to create preview sites. <a>Create a free account</a>'
 						),
 						{
 							a: (
@@ -177,7 +177,7 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 							<div className="[&>*:not(:last-child)]:border-b [&>*]:border-a8c-gray-5">
 								{ ( isUploading || isSnapshotLoading ) && (
 									<ProgressRow
-										text={ __( 'Generating preview link' ) }
+										text={ __( 'Generating preview site' ) }
 										statusText={ __( 'Just now' ) }
 									/>
 								) }
@@ -204,7 +204,7 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 					<div className="[&>*:not(:last-child)]:border-b [&>*]:border-a8c-gray-5">
 						{ ( isUploading || isSnapshotLoading ) && (
 							<ProgressRow
-								text={ __( 'Generating preview link' ) }
+								text={ __( 'Generating preview site' ) }
 								statusText={ __( 'Just now' ) }
 							/>
 						) }

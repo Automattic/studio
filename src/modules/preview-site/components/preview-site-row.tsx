@@ -47,7 +47,7 @@ export function PreviewSiteRow( {
 	const urlWithHTTPS = `https://${ url }`;
 
 	if ( isDeleting ) {
-		return <ProgressRow text={ __( 'Deleting preview link' ) } />;
+		return <ProgressRow text={ __( 'Deleting preview site' ) } />;
 	}
 
 	return (

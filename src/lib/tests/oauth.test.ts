@@ -3,7 +3,8 @@
  */
 import { ipcMain } from 'electron';
 import fs from 'fs';
-import { withMainWindow } from '../../main-window';
+import { normalize } from 'path';
+import { getMainWindow } from '../../main-window';
 import { loadUserData, saveUserData } from '../../storage/user-data';
 import { setUpAuthCallbackHandler } from '../oauth';
 
@@ -15,7 +16,7 @@ const mockUserData = {
 	sites: [],
 };
 ( fs as MockedFs ).__setFileContents(
-	'/path/to/app/appData/App Name/appdata-v1.json',
+	normalize( '/path/to/app/appData/App Name/appdata-v1.json' ),
 	JSON.stringify( mockUserData )
 );
 
@@ -28,12 +29,10 @@ describe( 'setUpAuthCallbackHandler', () => {
 			}
 		} );
 		const mockSend = jest.fn();
-		( withMainWindow as jest.Mock ).mockImplementationOnce( ( callback ) => {
-			callback( {
-				webContents: {
-					send: mockSend,
-				},
-			} );
+		( getMainWindow as jest.Mock ).mockResolvedValue( {
+			webContents: {
+				send: mockSend,
+			},
 		} );
 		( loadUserData as jest.Mock ).mockResolvedValueOnce( {} );
 		( saveUserData as jest.Mock ).mockResolvedValueOnce( {} );

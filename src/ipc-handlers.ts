@@ -1,4 +1,4 @@
-import { exec } from 'child_process';
+import { exec, ExecOptions } from 'child_process';
 import crypto from 'crypto';
 import {
 	BrowserWindow,
@@ -36,11 +36,12 @@ import { getUserLocaleWithFallback } from './lib/locale-node';
 import * as oauthClient from './lib/oauth';
 import { createPassword } from './lib/passwords';
 import { phpGetThemeDetails } from './lib/php-get-theme-details';
-import { sanitizeForLogging } from './lib/sanitize-for-logging';
+import { shellOpenExternalWrapper } from './lib/shell-open-external-wrapper';
 import { sortSites } from './lib/sort-sites';
 import { installSqliteIntegration, keepSqliteIntegrationUpdated } from './lib/sqlite-versions';
 import * as windowsHelpers from './lib/windows-helpers';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from './logging';
+import { getMainWindow } from './main-window';
 import { popupMenu, setupMenu } from './menu';
 import { SiteServer, createSiteWorkingDirectory } from './site-server';
 import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from './storage/paths';
@@ -78,10 +79,6 @@ async function mergeSiteDetailsWithRunningDetails(
 
 export async function getSiteDetails( _event: IpcMainInvokeEvent ): Promise< SiteDetails[] > {
 	const userData = await loadUserData();
-
-	// This is probably one of the first times the user data is loaded. Take the opportunity
-	// to log for debugging purposes.
-	console.log( 'Loaded user data', sanitizeForLogging( userData ) );
 
 	const { sites } = userData;
 
@@ -414,7 +411,7 @@ export async function startServer(
 		}
 	}
 
-	console.log( 'Server started', server.details );
+	console.log( `Server started for '${ server.details.name }'` );
 	await updateSite( event, server.details );
 	return server.details;
 }
@@ -518,6 +515,9 @@ export async function showUserSettings( event: IpcMainInvokeEvent ): Promise< vo
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	if ( ! parentWindow ) {
 		throw new Error( `No window found for sender of showUserSettings message: ${ event.frameId }` );
+	}
+	if ( parentWindow.isDestroyed() || event.sender.isDestroyed() ) {
+		return;
 	}
 	parentWindow.webContents.send( 'user-settings' );
 }
@@ -639,8 +639,8 @@ export function logRendererMessage(
 	writeLogToFile( level, processId, ...args );
 }
 
-export async function authenticate( _event: IpcMainInvokeEvent ): Promise< void > {
-	return oauthClient.authenticate();
+export function authenticate( _event: IpcMainInvokeEvent ) {
+	oauthClient.authenticate();
 }
 
 export async function getAuthenticationToken(
@@ -690,7 +690,7 @@ export async function getSnapshots( _event: IpcMainInvokeEvent ): Promise< Snaps
 	return snapshots;
 }
 
-export async function openSiteURL(
+export function openSiteURL(
 	event: IpcMainInvokeEvent,
 	id: string,
 	relativeURL = '',
@@ -708,11 +708,11 @@ export async function openSiteURL(
 		url.searchParams.append( 'playground-auto-login', 'true' );
 	}
 
-	shell.openExternal( url.toString() );
+	shellOpenExternalWrapper( url.toString() );
 }
 
-export async function openURL( event: IpcMainInvokeEvent, url: string ) {
-	return shell.openExternal( url );
+export function openURL( event: IpcMainInvokeEvent, url: string ) {
+	shellOpenExternalWrapper( url );
 }
 
 export async function copyText( event: IpcMainInvokeEvent, text: string ) {
@@ -863,50 +863,9 @@ export async function getThumbnailData( _event: IpcMainInvokeEvent, id: string )
 	return getImageData( path );
 }
 
-export function openTerminalAtPath(
-	_event: IpcMainInvokeEvent,
-	targetPath: string,
-	{ wpCliEnabled }: { wpCliEnabled?: boolean } = {}
-) {
-	return new Promise< void >( ( resolve, reject ) => {
-		const platform = process.platform;
-		const cliPath = nodePath.join( getResourcesPath(), 'bin' );
-
-		const exePath = app.getPath( 'exe' );
-		const appDirectory = app.getAppPath();
-		const appPath = ! app.isPackaged ? `${ exePath } ${ appDirectory }` : exePath;
-
-		let command: string;
-		if ( platform === 'win32' ) {
-			// Windows
-			if ( wpCliEnabled ) {
-				command = `start cmd /K "set PATH=${ cliPath };%PATH% && set STUDIO_APP_PATH=${ appPath } && cd /d ${ targetPath }"`;
-			} else {
-				command = `start cmd /K "cd /d ${ targetPath }"`;
-			}
-		} else if ( platform === 'darwin' ) {
-			// macOS
-			const loadWpCliCommand = `clear && export PATH=\\"${ cliPath }\\":$PATH && export STUDIO_APP_PATH=\\"${ appPath }\\" &&`;
-			const script = `
-			tell application "Terminal"
-				if not application "Terminal" is running then launch
-				do script "${ wpCliEnabled ? loadWpCliCommand : '' } cd ${ targetPath } && clear"
-				activate
-			end tell`;
-			command = `osascript -e '${ script }'`;
-		} else if ( platform === 'linux' ) {
-			// Linux
-			if ( wpCliEnabled ) {
-				command = `export PATH=${ cliPath }:$PATH && export STUDIO_APP_PATH="${ appPath }" && gnome-terminal -- bash -c 'cd ${ targetPath }; exec bash'`;
-			} else {
-				command = `gnome-terminal --working-directory=${ targetPath }`;
-			}
-		} else {
-			console.error( 'Unsupported platform:', platform );
-			return;
-		}
-
-		exec( command, ( error, _stdout, _stderr ) => {
+function promiseExec( command: string, options: ExecOptions = {} ): Promise< void > {
+	return new Promise( ( resolve, reject ) => {
+		exec( command, options, ( error ) => {
 			if ( error ) {
 				reject( error );
 				return;
@@ -914,6 +873,52 @@ export function openTerminalAtPath(
 			resolve();
 		} );
 	} );
+}
+
+export function openTerminalAtPath(
+	_event: IpcMainInvokeEvent,
+	targetPath: string,
+	{ wpCliEnabled }: { wpCliEnabled?: boolean } = {}
+) {
+	const platform = process.platform;
+	const cliPath = nodePath.join( getResourcesPath(), 'bin' );
+
+	const exePath = app.getPath( 'exe' );
+	const appDirectory = app.getAppPath();
+	const appPath = ! app.isPackaged ? `${ exePath } ${ appDirectory }` : exePath;
+
+	if ( platform === 'win32' ) {
+		const defaultShell = process.env.ComSpec || 'cmd.exe';
+		const env = wpCliEnabled
+			? { PATH: `${ cliPath };${ process.env.PATH }`, STUDIO_APP_PATH: appPath }
+			: {};
+
+		return promiseExec( `start "Command Prompt" ${ defaultShell }`, {
+			cwd: targetPath,
+			env: { ...process.env, ...env },
+		} );
+	} else if ( platform === 'darwin' ) {
+		const loadWpCliCommand = `clear && export PATH=\\"${ cliPath }\\":$PATH && export STUDIO_APP_PATH=\\"${ appPath }\\" &&`;
+		const osascript = `
+		tell application "Terminal"
+			if not application "Terminal" is running then launch
+			do script "${ wpCliEnabled ? loadWpCliCommand : '' } cd ${ targetPath } && clear"
+			activate
+		end tell`;
+
+		return promiseExec( `osascript -e '${ osascript }'` );
+	} else if ( platform === 'linux' ) {
+		if ( wpCliEnabled ) {
+			return promiseExec(
+				`export PATH=${ cliPath }:$PATH && export STUDIO_APP_PATH="${ appPath }" && gnome-terminal -- bash -c 'cd ${ targetPath }; exec bash'`
+			);
+		}
+
+		return promiseExec( `gnome-terminal --working-directory=${ targetPath }` );
+	} else {
+		console.error( 'Unsupported platform:', platform );
+		return;
+	}
 }
 
 export async function showMessageBox(
@@ -964,12 +969,15 @@ export async function showNotification(
 	new Notification( options ).show();
 }
 
-export function setupAppMenu( _event: IpcMainInvokeEvent, config: { needsOnboarding: boolean } ) {
-	setupMenu( config );
+export async function setupAppMenu(
+	_event: IpcMainInvokeEvent,
+	config: { needsOnboarding: boolean }
+) {
+	await setupMenu( config );
 }
 
-export function popupAppMenu( _event: IpcMainInvokeEvent ) {
-	popupMenu();
+export async function popupAppMenu( _event: IpcMainInvokeEvent ) {
+	await popupMenu();
 }
 
 export async function promptWindowsSpeedUpSites(
@@ -1099,4 +1107,9 @@ export async function getFileContent( event: IpcMainInvokeEvent, filePath: strin
 	}
 
 	return fs.readFileSync( filePath );
+}
+
+export async function isFullscreen( _event: IpcMainInvokeEvent ): Promise< boolean > {
+	const window = await getMainWindow();
+	return window.isFullScreen();
 }

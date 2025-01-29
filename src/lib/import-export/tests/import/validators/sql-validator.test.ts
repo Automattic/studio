@@ -1,8 +1,12 @@
-// To run tests, execute `npm run test -- src/lib/import-export/tests/import/validators/sql-validator.test.ts`
+import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
 import { SqlValidator } from '../../../import/validators/sql-validator';
 
-describe( 'SqlValidator', () => {
-	const validator = new SqlValidator();
+platformTestSuite( 'SqlValidator', ( { normalize } ) => {
+	let validator: SqlValidator;
+
+	beforeEach( () => {
+		validator = new SqlValidator();
+	} );
 
 	describe( 'canHandle', () => {
 		it( 'should return true for a single SQL file', () => {
@@ -34,7 +38,7 @@ describe( 'SqlValidator', () => {
 
 			expect( result ).toEqual( {
 				extractionDirectory,
-				sqlFiles: [ '/tmp/extracted/backup.sql' ],
+				sqlFiles: [ normalize( '/tmp/extracted/backup.sql' ) ],
 				wpConfig: '',
 				wpContent: {
 					uploads: [],

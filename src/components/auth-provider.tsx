@@ -8,7 +8,7 @@ import { getIpcApi } from '../lib/get-ipc-api';
 export interface AuthContextType {
 	client: WPCOM | undefined;
 	isAuthenticated: boolean;
-	authenticate: () => Promise< void >; // Adjust based on the actual implementation
+	authenticate: () => void; // Adjust based on the actual implementation
 	logout: () => Promise< void >; // Adjust based on the actual implementation
 	user?: { id: number | null; email: string; displayName: string };
 }
@@ -25,7 +25,9 @@ interface WpcomParams extends Record< string, unknown > {
 export const AuthContext = createContext< AuthContextType >( {
 	client: undefined,
 	isAuthenticated: false,
-	authenticate: () => Promise.resolve(),
+	authenticate: () => {
+		// Placeholder for authenticate logic. Just to avoid lint error
+	},
 	logout: () => Promise.resolve(),
 } );
 

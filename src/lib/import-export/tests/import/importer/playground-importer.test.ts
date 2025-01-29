@@ -1,6 +1,6 @@
-// To run tests, execute `npm run test -- src/lib/import-export/tests/import/importer/local-importer.test.ts`
 import * as fs from 'fs/promises';
 import { lstat, move } from 'fs-extra';
+import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
 import { SiteServer } from '../../../../../site-server';
 import { PlaygroundImporter } from '../../../import/importers';
 import { BackupContents } from '../../../import/types';
@@ -9,20 +9,20 @@ jest.mock( 'fs/promises' );
 jest.mock( '../../../../../site-server' );
 jest.mock( 'fs-extra' );
 
-describe( 'localImporter', () => {
+platformTestSuite( 'PlaygroundImporter', ( { normalize } ) => {
 	const mockBackupContents: BackupContents = {
-		extractionDirectory: '/tmp/extracted',
-		sqlFiles: [ '/tmp/extracted/wp-content/database/.ht.sqlite' ],
-		wpConfig: 'wp-config.php',
+		extractionDirectory: normalize( '/tmp/extracted' ),
+		sqlFiles: [ normalize( '/tmp/extracted/wp-content/database/.ht.sqlite' ) ],
+		wpConfig: normalize( 'wp-config.php' ),
 		wpContent: {
-			uploads: [ '/tmp/extracted/wp-content/uploads/2023/image.jpg' ],
-			plugins: [ '/tmp/extracted/wp-content/plugins/jetpack/jetpack.php' ],
-			themes: [ '/tmp/extracted/wp-content/themes/twentytwentyone/style.css' ],
+			uploads: [ normalize( '/tmp/extracted/wp-content/uploads/2023/image.jpg' ) ],
+			plugins: [ normalize( '/tmp/extracted/wp-content/plugins/jetpack/jetpack.php' ) ],
+			themes: [ normalize( '/tmp/extracted/wp-content/themes/twentytwentyone/style.css' ) ],
 		},
-		wpContentDirectory: 'wp-content',
+		wpContentDirectory: normalize( 'wp-content' ),
 	};
 
-	const mockStudioSitePath = '/path/to/studio/site';
+	const mockStudioSitePath = normalize( '/path/to/studio/site' );
 	const mockStudioSiteId = '123';
 
 	beforeEach( () => {
@@ -81,8 +81,8 @@ describe( 'localImporter', () => {
 
 			expect( move ).toHaveBeenNthCalledWith(
 				1,
-				'/tmp/extracted/wp-content/database/.ht.sqlite',
-				'/path/to/studio/site/wp-content/database/.ht.sqlite',
+				normalize( '/tmp/extracted/wp-content/database/.ht.sqlite' ),
+				normalize( '/path/to/studio/site/wp-content/database/.ht.sqlite' ),
 				{ overwrite: true }
 			);
 		} );

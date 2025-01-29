@@ -32,9 +32,7 @@ steps:
       - github_commit_status:
           context: Unit Tests
 
-  - label: Experiment Windows Unit Tests
-    # Reference: https://github.com/Automattic/studio/pull/76#issuecomment-2162689679
-    skip: Disabled till we solve Windows-specific test failures
+  - label: Windows Unit Tests
     command: |
       bash .buildkite/commands/install-node-dependencies.sh
       echo '--- :npm: Run Unit Tests'

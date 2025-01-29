@@ -19,6 +19,7 @@ export interface CliOptions {
 	reset?: boolean;
 	adminPassword?: string;
 	siteTitle?: string;
+	mode?: WPNowMode;
 }
 
 export const enum WPNowMode {
@@ -30,6 +31,7 @@ export const enum WPNowMode {
 	WP_CONTENT = 'wp-content',
 	PLAYGROUND = 'playground',
 	AUTO = 'auto',
+	CLI = 'cli',
 }
 
 export interface WPNowOptions {
@@ -111,6 +113,7 @@ export default async function getWpNowConfig( args: CliOptions ): Promise< WPNow
 		wordPressVersion: args.wp as string,
 		port,
 		reset: args.reset as boolean,
+		mode: args.mode as WPNowMode,
 	};
 
 	const options: WPNowOptions = {} as WPNowOptions;

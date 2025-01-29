@@ -1,8 +1,9 @@
-import { BrowserWindow, app, shell } from 'electron';
+import { BrowserWindow, app } from 'electron';
 import path from 'path';
 import * as Sentry from '@sentry/electron/renderer';
 import { sprintf, __ } from '@wordpress/i18n';
 import { ABOUT_WINDOW_HEIGHT, ABOUT_WINDOW_WIDTH } from '../constants';
+import { shellOpenExternalWrapper } from '../lib/shell-open-external-wrapper';
 
 let aboutWindow: BrowserWindow | null = null;
 
@@ -30,7 +31,8 @@ export function openAboutWindow() {
 
 	// Open external links in the default browser
 	aboutWindow.webContents.setWindowOpenHandler( ( { url } ) => {
-		shell.openExternal( url );
+		shellOpenExternalWrapper( url );
+
 		return { action: 'deny' };
 	} );
 

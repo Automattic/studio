@@ -1,6 +1,6 @@
-// To run tests, execute `npm run test -- src/lib/import-export/tests/import/importer/local-importer.test.ts`
 import * as fs from 'fs/promises';
 import { lstat, rename } from 'fs-extra';
+import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
 import { SiteServer } from '../../../../../site-server';
 import { LocalImporter } from '../../../import/importers';
 import { BackupContents } from '../../../import/types';
@@ -9,21 +9,26 @@ jest.mock( 'fs/promises' );
 jest.mock( '../../../../../site-server' );
 jest.mock( 'fs-extra' );
 
-describe( 'localImporter', () => {
+platformTestSuite( 'LocalImporter', ( { normalize } ) => {
 	const mockBackupContents: BackupContents = {
-		extractionDirectory: '/tmp/extracted',
-		sqlFiles: [ '/tmp/extracted/app/sql/local.sql', '/tmp/extracted/app/sql/local.sql' ],
-		wpConfig: '/tmp/extracted/app/wp-config.php',
+		extractionDirectory: normalize( '/tmp/extracted' ),
+		sqlFiles: [
+			normalize( '/tmp/extracted/app/sql/local.sql' ),
+			normalize( '/tmp/extracted/app/sql/local.sql' ),
+		],
+		wpConfig: normalize( '/tmp/extracted/app/wp-config.php' ),
 		wpContent: {
-			uploads: [ '/tmp/extracted/app/public/wp-content/uploads/2023/image.jpg' ],
-			plugins: [ '/tmp/extracted/app/public/wp-content/plugins/jetpack/jetpack.php' ],
-			themes: [ '/tmp/extracted/app/public/wp-content/themes/twentytwentyone/style.css' ],
+			uploads: [ normalize( '/tmp/extracted/app/public/wp-content/uploads/2023/image.jpg' ) ],
+			plugins: [ normalize( '/tmp/extracted/app/public/wp-content/plugins/jetpack/jetpack.php' ) ],
+			themes: [
+				normalize( '/tmp/extracted/app/public/wp-content/themes/twentytwentyone/style.css' ),
+			],
 		},
-		wpContentDirectory: 'app/public/wp-content',
-		metaFile: '/tmp/extracted/local-site.json',
+		wpContentDirectory: normalize( 'app/public/wp-content' ),
+		metaFile: normalize( '/tmp/extracted/local-site.json' ),
 	};
 
-	const mockStudioSitePath = '/path/to/studio/site';
+	const mockStudioSitePath = normalize( '/path/to/studio/site' );
 	const mockStudioSiteId = '123';
 
 	beforeEach( () => {
@@ -72,7 +77,10 @@ describe( 'localImporter', () => {
 
 			expect( fs.mkdir ).toHaveBeenCalled();
 			expect( fs.copyFile ).toHaveBeenCalledTimes( 4 ); // One for each wp-content file + wp-config
-			expect( fs.readFile ).toHaveBeenCalledWith( '/tmp/extracted/local-site.json', 'utf-8' );
+			expect( fs.readFile ).toHaveBeenCalledWith(
+				normalize( '/tmp/extracted/local-site.json' ),
+				'utf-8'
+			);
 		} );
 
 		it( 'should handle missing meta file', async () => {
@@ -101,7 +109,10 @@ describe( 'localImporter', () => {
 
 			expect( fs.mkdir ).toHaveBeenCalled();
 			expect( fs.copyFile ).toHaveBeenCalledTimes( 4 );
-			expect( fs.readFile ).toHaveBeenCalledWith( '/tmp/extracted/local-site.json', 'utf-8' );
+			expect( fs.readFile ).toHaveBeenCalledWith(
+				normalize( '/tmp/extracted/local-site.json' ),
+				'utf-8'
+			);
 		} );
 	} );
 } );

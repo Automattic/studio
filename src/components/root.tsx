@@ -1,5 +1,5 @@
 import { Provider as ReduxProvider } from 'react-redux';
-import store from 'src/stores';
+import { store } from 'src/stores';
 import { SyncSitesProvider } from '../hooks/sync-sites/sync-sites-context';
 import { InstalledAppsProvider } from '../hooks/use-check-installed-apps';
 import { ContentTabsProvider } from '../hooks/use-content-tabs';

@@ -5,7 +5,7 @@ import {
 	ContentTabAssistant,
 	MIMIC_CONVERSATION_DELAY,
 } from 'src/components/content-tab-assistant';
-import { CHAT_MESSAGES_STORE_KEY, CLEAR_HISTORY_REMINDER_TIME } from 'src/constants';
+import { LOCAL_STORAGE_CHAT_MESSAGES_KEY, CLEAR_HISTORY_REMINDER_TIME } from 'src/constants';
 import { useAuth } from 'src/hooks/use-auth';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
 import { useOffline } from 'src/hooks/use-offline';
@@ -13,7 +13,7 @@ import { usePromptUsage } from 'src/hooks/use-prompt-usage';
 import { ThemeDetailsProvider } from 'src/hooks/use-theme-details';
 import { useWelcomeMessages } from 'src/hooks/use-welcome-messages';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import store from 'src/stores';
+import { store } from 'src/stores';
 import { setMessages, resetChatState, generateMessage } from 'src/stores/chat-slice';
 
 jest.mock( '../../hooks/use-auth' );
@@ -161,7 +161,9 @@ describe( 'ContentTabAssistant', () => {
 		} );
 
 		await waitFor( () => {
-			const storedMessages = JSON.parse( localStorage.getItem( CHAT_MESSAGES_STORE_KEY ) || '[]' );
+			const storedMessages = JSON.parse(
+				localStorage.getItem( LOCAL_STORAGE_CHAT_MESSAGES_KEY ) || '[]'
+			);
 			expect( storedMessages[ runningSite.id ] ).toHaveLength( 4 );
 			expect( storedMessages[ runningSite.id ][ 2 ].content ).toBe( 'New message' );
 		} );

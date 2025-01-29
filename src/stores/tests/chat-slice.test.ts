@@ -1,7 +1,7 @@
 import WPCOM from 'wpcom';
-import { CHAT_ID_STORE_KEY, CHAT_MESSAGES_STORE_KEY } from 'src/constants';
+import { LOCAL_STORAGE_CHAT_API_IDS_KEY, LOCAL_STORAGE_CHAT_MESSAGES_KEY } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import store from 'src/stores';
+import { store } from 'src/stores';
 import {
 	fetchAssistantThunk,
 	generateMessage,
@@ -165,7 +165,9 @@ describe( 'chat-slice', () => {
 				} )
 			);
 
-			const storedMessages = JSON.parse( localStorage.getItem( CHAT_MESSAGES_STORE_KEY ) || '{}' );
+			const storedMessages = JSON.parse(
+				localStorage.getItem( LOCAL_STORAGE_CHAT_MESSAGES_KEY ) || '{}'
+			);
 			expect( storedMessages[ instanceId ] ).toHaveLength( 2 );
 			expect( storedMessages[ instanceId ][ 0 ] ).toEqual( userMessage );
 			expect( storedMessages[ instanceId ][ 1 ] ).toMatchObject( {
@@ -173,7 +175,9 @@ describe( 'chat-slice', () => {
 				role: 'assistant',
 			} );
 
-			const storedChatIds = JSON.parse( localStorage.getItem( CHAT_ID_STORE_KEY ) || '{}' );
+			const storedChatIds = JSON.parse(
+				localStorage.getItem( LOCAL_STORAGE_CHAT_API_IDS_KEY ) || '{}'
+			);
 			expect( storedChatIds[ instanceId ] ).toBe( 'chatcmpl-123' );
 		} );
 	} );

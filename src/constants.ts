@@ -27,8 +27,8 @@ export const FEATURE_REQUEST_URL =
 export const WPCOM_PROFILE_URL = 'https://wordpress.com/me';
 export const STUDIO_DOCS_URL_GET_HELP_UNSUPPORTED_SITES =
 	'https://developer.wordpress.com/docs/developer-tools/studio/';
-export const CHAT_MESSAGES_STORE_KEY = 'ai_chat_messages';
-export const CHAT_ID_STORE_KEY = 'ai_chat_ids';
+export const LOCAL_STORAGE_CHAT_MESSAGES_KEY = 'ai_chat_messages';
+export const LOCAL_STORAGE_CHAT_API_IDS_KEY = 'ai_chat_ids';
 
 //Import file constants
 

@@ -1,9 +1,9 @@
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
-import store from 'src/stores';
+import { store } from 'src/stores';
 import { useAuth } from '../use-auth';
 import { usePromptUsage, PromptUsageProvider } from '../use-prompt-usage';
-import type { ReactNode, FC } from 'react';
+import type { ReactNode } from 'react';
 
 jest.mock( '../use-auth', () => ( {
 	useAuth: jest.fn(),

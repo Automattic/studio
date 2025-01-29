@@ -1,6 +1,6 @@
 import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
-import store from 'src/stores';
+import { store } from 'src/stores';
 import { useSiteDetails } from '../../hooks/use-site-details';
 import { getIpcApi } from '../../lib/get-ipc-api';
 import createCodeComponent, { CodeBlockProps } from '../assistant-code-block';

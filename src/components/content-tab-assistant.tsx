@@ -7,10 +7,9 @@ import { __, _n, sprintf } from '@wordpress/i18n';
 import { Icon, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import React, { useState, useEffect, useRef, memo, useCallback, useMemo } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
 import { useThemeDetails } from 'src/hooks/use-theme-details';
 import { cx } from 'src/lib/cx';
-import { RootState, AppDispatch } from 'src/stores';
+import { useAppDispatch, useRootSelector } from 'src/stores';
 import {
 	setMessages,
 	fetchAssistantThunk,
@@ -343,17 +342,13 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
 	const inputRef = useRef< HTMLTextAreaElement >( null );
 	const wrapperRef = useRef< HTMLDivElement >( null );
-	const dispatch = useDispatch< AppDispatch >();
-	const chatInput = useSelector( ( state: RootState ) =>
-		selectChatInput( state, selectedSite.id )
-	);
+	const dispatch = useAppDispatch();
+	const chatInput = useRootSelector( ( state ) => selectChatInput( state, selectedSite.id ) );
 	const { isAuthenticated, authenticate, user, client } = useAuth();
 	const instanceId = user?.id ? `${ user.id }_${ selectedSite.id }` : selectedSite.id;
-	const chatApiId = useSelector( ( state: RootState ) => selectChatApiId( state, instanceId ) );
-	const messages = useSelector( ( state: RootState ) => selectMessages( state, instanceId ) );
-	const isAssistantThinking = useSelector( ( state: RootState ) =>
-		selectIsLoading( state, instanceId )
-	);
+	const chatApiId = useRootSelector( ( state ) => selectChatApiId( state, instanceId ) );
+	const messages = useRootSelector( ( state ) => selectMessages( state, instanceId ) );
+	const isAssistantThinking = useRootSelector( ( state ) => selectIsLoading( state, instanceId ) );
 	const { userCanSendMessage } = usePromptUsage();
 	const { messages: welcomeMessages, examplePrompts } = useWelcomeMessages();
 	const isOffline = useOffline();

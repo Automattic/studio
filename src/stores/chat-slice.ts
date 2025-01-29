@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import * as Sentry from '@sentry/electron/renderer';
 import WPCOM from 'wpcom';
-import { CHAT_ID_STORE_KEY, CHAT_MESSAGES_STORE_KEY } from 'src/constants';
+import { LOCAL_STORAGE_CHAT_API_IDS_KEY, LOCAL_STORAGE_CHAT_MESSAGES_KEY } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { RootState } from 'src/stores';
 import { DEFAULT_PHP_VERSION } from 'vendor/wp-now/src/constants';
@@ -166,8 +166,8 @@ export const sendFeedbackThunk = createAsyncThunk(
 	}
 );
 
-const storedMessages = localStorage.getItem( CHAT_MESSAGES_STORE_KEY );
-const storedChatIds = localStorage.getItem( CHAT_ID_STORE_KEY );
+const storedMessages = localStorage.getItem( LOCAL_STORAGE_CHAT_MESSAGES_KEY );
+const storedChatIds = localStorage.getItem( LOCAL_STORAGE_CHAT_API_IDS_KEY );
 const EMPTY_MESSAGES: readonly Message[] = Object.freeze( [] );
 
 export interface ChatState {
@@ -230,9 +230,9 @@ const chatSlice = createSlice( {
 	name: 'chat',
 	initialState,
 	reducers: {
-		resetChatState: ( state ) => {
-			// Reassigning `initialState` to `state` doesn't work. Probably because of Immer.js.
-			Object.assign( state, initialState );
+		// Resetting the state is helpful in tests. Less so in the app code.
+		resetChatState: () => {
+			return initialState;
 		},
 		updateFromTheme: (
 			state,
@@ -381,4 +381,4 @@ export const { updateFromTheme, setMessages, setChatInput, updateMessage, resetC
 export const { selectChatInput, selectMessages, selectChatApiId, selectIsLoading } =
 	chatSlice.selectors;
 
-export default chatSlice.reducer;
+export const { reducer } = chatSlice;

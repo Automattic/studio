@@ -29,7 +29,7 @@ module.exports = {
 		MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: 'main-window-preload-webpack-entry',
 	},
 	testRegex: '(/tests/.*|(\\.|/)(test|spec))\\.tsx?$',
-	testPathIgnorePatterns: [ '/node_modules/', 'tests/utils/' ],
+	testPathIgnorePatterns: [ '/node_modules/', 'tests/utils/', 'stores/tests/utils/' ],
 	moduleFileExtensions: [ 'ts', 'tsx', 'js', 'jsx', 'json', 'node' ],
 	globalSetup: '<rootDir>/jest-global-setup.ts',
 	setupFilesAfterEnv: [ '<rootDir>/jest-setup.ts' ],

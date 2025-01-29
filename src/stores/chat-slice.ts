@@ -233,10 +233,6 @@ const chatSlice = createSlice( {
 	name: 'chat',
 	initialState: getInitialState(),
 	reducers: {
-		// Resetting the state is helpful in tests. Less so in the app code.
-		resetChatState: () => {
-			return getInitialState();
-		},
 		updateFromTheme: (
 			state,
 			action: PayloadAction< NonNullable< SiteDetails[ 'themeDetails' ] > >

@@ -9,8 +9,11 @@ import {
 	sendFeedbackThunk,
 	updateFromSiteThunk,
 } from 'src/stores/chat-slice';
+import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
 
 jest.mock( 'src/lib/get-ipc-api' );
+
+store.replaceReducer( testReducer );
 
 const mockClientReqPostUsingCallback = jest.fn().mockImplementation( ( params, callback ) => {
 	callback(
@@ -49,7 +52,7 @@ describe( 'chat-slice', () => {
 	beforeEach( () => {
 		jest.clearAllMocks();
 		localStorage.clear();
-		store.dispatch( chatActions.resetChatState() );
+		store.dispatch( testActions.resetState() );
 	} );
 
 	describe( 'fetchAssistantThunk', () => {

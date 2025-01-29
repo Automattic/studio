@@ -1,4 +1,4 @@
-import { configureStore, createListenerMiddleware } from '@reduxjs/toolkit';
+import { combineReducers, configureStore, createListenerMiddleware } from '@reduxjs/toolkit';
 import { useDispatch, useSelector } from 'react-redux';
 import { LOCAL_STORAGE_CHAT_API_IDS_KEY, LOCAL_STORAGE_CHAT_MESSAGES_KEY } from 'src/constants';
 import { reducer as chatReducer } from 'src/stores/chat-slice';
@@ -37,10 +37,12 @@ listenerMiddleware.startListening( {
 	},
 } );
 
+export const rootReducer = combineReducers( {
+	chat: chatReducer,
+} );
+
 export const store = configureStore( {
-	reducer: {
-		chat: chatReducer,
-	},
+	reducer: rootReducer,
 	middleware: ( getDefaultMiddleware ) =>
 		getDefaultMiddleware().prepend( listenerMiddleware.middleware ),
 } );

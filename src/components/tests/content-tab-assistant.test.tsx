@@ -15,6 +15,9 @@ import { useWelcomeMessages } from 'src/hooks/use-welcome-messages';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { store } from 'src/stores';
 import { generateMessage, chatActions } from 'src/stores/chat-slice';
+import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
+
+store.replaceReducer( testReducer );
 
 jest.mock( '../../hooks/use-auth' );
 jest.mock( '../../hooks/use-welcome-messages' );
@@ -107,7 +110,7 @@ describe( 'ContentTabAssistant', () => {
 		localStorage.clear();
 
 		// Reset Redux store state
-		store.dispatch( chatActions.resetChatState() );
+		store.dispatch( testActions.resetState() );
 
 		( useAuth as jest.Mock ).mockReturnValue( {
 			client: {

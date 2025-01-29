@@ -73,7 +73,12 @@ export function CreatePreviewButton( { onClick, selectedSite }: CreatePreviewBut
 				aria-description={ tooltipContent?.text ?? '' }
 				aria-disabled={ isDisabled }
 				variant="primary"
-				onClick={ onClick }
+				onClick={ () => {
+					if ( isDisabled ) {
+						return;
+					}
+					onClick();
+				} }
 			>
 				{ __( 'Create preview link' ) }
 			</Button>

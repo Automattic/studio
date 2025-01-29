@@ -11,6 +11,7 @@ platformTestSuite( 'PlaygroundValidator', ( { normalize } ) => {
 				'wp-content/uploads/2023/image.jpg',
 				'wp-content/plugins/jetpack/jetpack.php',
 				'wp-content/themes/twentytwentyone/style.css',
+				'wp-content/mu-plugins/hello.php',
 			];
 			expect( validator.canHandle( fileList ) ).toBe( true );
 		} );
@@ -24,6 +25,7 @@ platformTestSuite( 'PlaygroundValidator', ( { normalize } ) => {
 				'wp-content/uploads/2023/image.jpg',
 				'wp-content/plugins/jetpack/jetpack.php',
 				'wp-content/themes/twentytwentyone/style.css',
+				'wp-content/mu-plugins/hello.php',
 			];
 			expect( validator.canHandle( fileList ) ).toBe( true );
 		} );
@@ -36,6 +38,7 @@ platformTestSuite( 'PlaygroundValidator', ( { normalize } ) => {
 				'wp-content/uploads/2023/image.jpg',
 				'wp-content/plugins/jetpack/jetpack.php',
 				'wp-content/themes/twentytwentyone/style.css',
+				'wp-content/mu-plugins/hello.php',
 				'random.txt',
 				'another-file.js',
 			];
@@ -50,6 +53,7 @@ platformTestSuite( 'PlaygroundValidator', ( { normalize } ) => {
 				'wp-content/uploads/2023/image.jpg',
 				'wp-content/plugins/jetpack/jetpack.php',
 				'wp-content/themes/twentytwentyone/style.css',
+				'wp-content/mu-plugins/hello.php',
 			];
 			const extractionDirectory = normalize( '/tmp/extracted' );
 			const result = validator.parseBackupContents( fileList, extractionDirectory );
@@ -62,6 +66,7 @@ platformTestSuite( 'PlaygroundValidator', ( { normalize } ) => {
 					uploads: [ normalize( '/tmp/extracted/wp-content/uploads/2023/image.jpg' ) ],
 					plugins: [ normalize( '/tmp/extracted/wp-content/plugins/jetpack/jetpack.php' ) ],
 					themes: [ normalize( '/tmp/extracted/wp-content/themes/twentytwentyone/style.css' ) ],
+					muPlugins: [ normalize( '/tmp/extracted/wp-content/mu-plugins/hello.php' ) ],
 				},
 				wpContentDirectory: 'wp-content',
 			} );
@@ -77,6 +82,7 @@ platformTestSuite( 'PlaygroundValidator', ( { normalize } ) => {
 				'wp-content/uploads/2023/image.jpg',
 				'wp-content/plugins/jetpack/jetpack.php',
 				'wp-content/themes/twentytwentyone/style.css',
+				'wp-content/mu-plugins/hello.php',
 			];
 			const extractionDirectory = normalize( '/tmp/extracted' );
 			const result = validator.parseBackupContents( fileList, extractionDirectory );
@@ -89,6 +95,7 @@ platformTestSuite( 'PlaygroundValidator', ( { normalize } ) => {
 					uploads: [ normalize( '/tmp/extracted/wp-content/uploads/2023/image.jpg' ) ],
 					plugins: [ normalize( '/tmp/extracted/wp-content/plugins/jetpack/jetpack.php' ) ],
 					themes: [ normalize( '/tmp/extracted/wp-content/themes/twentytwentyone/style.css' ) ],
+					muPlugins: [ normalize( '/tmp/extracted/wp-content/mu-plugins/hello.php' ) ],
 				},
 				wpContentDirectory: 'wp-content',
 			} );

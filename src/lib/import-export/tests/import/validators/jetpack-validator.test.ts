@@ -15,6 +15,7 @@ platformTestSuite( 'JetpackValidator', ( { normalize } ) => {
 				'wp-content/uploads/2023/image.jpg',
 				'wp-content/plugins/jetpack/jetpack.php',
 				'wp-content/themes/twentytwentyone/style.css',
+				'wp-content/mu-plugins/hello.php',
 			];
 			expect( validator.canHandle( fileList ) ).toBe( true );
 		} );
@@ -28,6 +29,7 @@ platformTestSuite( 'JetpackValidator', ( { normalize } ) => {
 				'wp-content/uploads/2023/image.jpg',
 				'wp-content/plugins/jetpack/jetpack.php',
 				'wp-content/themes/twentytwentyone/style.css',
+				'wp-content/mu-plugins/hello.php',
 			];
 			expect( validator.canHandle( fileList ) ).toBe( true );
 		} );
@@ -45,6 +47,7 @@ platformTestSuite( 'JetpackValidator', ( { normalize } ) => {
 				'wp-content/uploads/2023/image.jpg',
 				'wp-content/plugins/jetpack/jetpack.php',
 				'wp-content/themes/twentytwentyone/style.css',
+				'wp-content/mu-plugins/hello.php',
 				'meta.json',
 			];
 			const extractionDirectory = '/tmp/extracted';
@@ -58,6 +61,7 @@ platformTestSuite( 'JetpackValidator', ( { normalize } ) => {
 					uploads: [ normalize( '/tmp/extracted/wp-content/uploads/2023/image.jpg' ) ],
 					plugins: [ normalize( '/tmp/extracted/wp-content/plugins/jetpack/jetpack.php' ) ],
 					themes: [ normalize( '/tmp/extracted/wp-content/themes/twentytwentyone/style.css' ) ],
+					muPlugins: [ normalize( '/tmp/extracted/wp-content/mu-plugins/hello.php' ) ],
 				},
 				wpContentDirectory: normalize( 'wp-content' ),
 				metaFile: normalize( '/tmp/extracted/meta.json' ),
@@ -76,6 +80,7 @@ platformTestSuite( 'JetpackValidator', ( { normalize } ) => {
 				'wp-content/uploads/2023/image.jpg',
 				'wp-content/plugins/jetpack/jetpack.php',
 				'wp-content/themes/twentytwentyone/style.css',
+				'wp-content/mu-plugins/hello.php',
 				'meta.json',
 			];
 			const extractionDirectory = '/tmp/extracted';
@@ -89,6 +94,7 @@ platformTestSuite( 'JetpackValidator', ( { normalize } ) => {
 					uploads: [ normalize( '/tmp/extracted/wp-content/uploads/2023/image.jpg' ) ],
 					plugins: [ normalize( '/tmp/extracted/wp-content/plugins/jetpack/jetpack.php' ) ],
 					themes: [ normalize( '/tmp/extracted/wp-content/themes/twentytwentyone/style.css' ) ],
+					muPlugins: [ normalize( '/tmp/extracted/wp-content/mu-plugins/hello.php' ) ],
 				},
 				wpContentDirectory: normalize( 'wp-content' ),
 				metaFile: normalize( '/tmp/extracted/meta.json' ),

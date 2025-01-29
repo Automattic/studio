@@ -25,12 +25,9 @@ APPLE_BUNDLE_IDENTIFIER = 'com.automattic.studio'
 APPLE_API_KEY_PATH = File.join(SECRETS_FOLDER, 'app_store_connect_fastlane_api_key.json')
 
 CDN_URL = 'https://cdn.a8c-ci.services'
+CLOUDFRONT_DISTRIBUTION_ID = 'EF4A01YASGPY5'
 
-# Use this instead of getting values from ENV directly
-# It will throw an error if the requested value is missing
 def get_required_env(key)
-  return 'dry-run' if DRY_RUN && (key == 'BUILDKITE_BUILD_NUMBER' || key == 'BUILDKITE_TAG' || key == 'SLACK_WEBHOOK')
-  
   UI.user_error!("Environment variable `#{key}` is not set.") unless ENV.key?(key)
   ENV.fetch(key)
 end
@@ -77,27 +74,27 @@ end
 
 desc 'Ship release build'
 lane :distribute_release_build do |_options|
+  next if DRY_RUN
+  
   release_tag = get_required_env('BUILDKITE_TAG')
   builds = distribute_builds(release_tag:)
 
-  unless DRY_RUN
-    slack(
-      username: 'CI Bot',
-      icon_url: 'https://octodex.github.com/images/jenktocat.jpg',
-      message: ":tada: #{release_tag} is now available! :tada:",
-      channel: '#dotcom-studio',
-      success: true,
-      slack_url: get_required_env('SLACK_WEBHOOK'),
-      payload: {
-        ':studio-app-icon-mac: Release available for': builds.each_value.map { |b| "[#{b[:name]}](#{b[:cdn_url]})" }.join(', ')
-      },
-      default_payloads: []
-    )
-  end
+  slack(
+    username: 'CI Bot',
+    icon_url: 'https://octodex.github.com/images/jenktocat.jpg',
+    message: ":tada: #{release_tag} is now available! :tada:",
+    channel: '#dotcom-studio',
+    success: true,
+    slack_url: get_required_env('SLACK_WEBHOOK'),
+    payload: {
+      ':studio-app-icon-mac: Release available for': builds.each_value.map { |b| "[#{b[:name]}](#{b[:cdn_url]})" }.join(', ')
+    },
+    default_payloads: []
+  )
 end
 
-def upload_to_s3_with_dry_run(bucket:, key:, file:, if_exists:, auto_prefix:)
-  if DRY_RUN
+def upload_to_s3(bucket:, key:, file:, if_exists:, auto_prefix: false, dry_run: DRY_RUN)
+  if dry_run
     UI.message("[DRY RUN] Would upload file: #{file}")
     UI.message("           to S3 bucket: #{bucket}")
     UI.message("           with key: #{key}")
@@ -105,25 +102,34 @@ def upload_to_s3_with_dry_run(bucket:, key:, file:, if_exists:, auto_prefix:)
     return true
   end
 
-  upload_to_s3(
-    bucket: bucket,
-    key: key,
-    file: file,
-    if_exists: if_exists,
-    auto_prefix: auto_prefix
+  aws_s3_upload(
+    bucket:,
+    key:,
+    file:,
+    if_exists:,
+    auto_prefix:
   )
 end
 
-def clear_cloudfront_cache_with_dry_run(paths:, commit_hash:)
-  if DRY_RUN
+def clear_cloudfront_cache(paths:, commit_hash:, dry_run: DRY_RUN)
+  if dry_run
     UI.message("[DRY RUN] Would invalidate CloudFront cache:")
-    UI.message("           Distribution: EF4A01YASGPY5")
+    UI.message("           Distribution: #{CLOUDFRONT_DISTRIBUTION_ID}")
     UI.message("           Paths: #{paths.join(', ')}")
     UI.message("           Commit hash: #{commit_hash}")
     return true
   end
 
-  clear_cloudfront_cache(paths: paths, commit_hash: commit_hash)
+  Aws::CloudFront::Client.new.create_invalidation(
+    distribution_id: CLOUDFRONT_DISTRIBUTION_ID,
+    invalidation_batch: {
+      paths: {
+        quantity: paths.length,
+        items: paths
+      },
+      caller_reference: commit_hash
+    }
+  )
 end
 
 def distribute_builds(
@@ -204,7 +210,7 @@ def distribute_builds(
   bucket_name = 'a8c-apps-public-artifacts'
 
   builds.each_value do |build|
-    upload_to_s3_with_dry_run(
+    upload_to_s3(
       bucket: bucket_name,
       key: "#{bucket_folder}/#{build[:filename]}",
       file: build[:binary_path],
@@ -214,7 +220,7 @@ def distribute_builds(
   end
 
   manifest_name = 'releases.json'
-  upload_to_s3_with_dry_run(
+  upload_to_s3(
     bucket: bucket_name,
     key: "#{bucket_folder}/#{manifest_name}",
     file: File.join(BUILDS_FOLDER, manifest_name),
@@ -231,7 +237,7 @@ def distribute_builds(
       filename = assemble_filename.call(build, 'latest')
       key = "#{bucket_folder}/#{filename}"
 
-      upload_to_s3_with_dry_run(
+      upload_to_s3(
         bucket: bucket_name,
         key: key,
         file: build[:binary_path],
@@ -243,7 +249,7 @@ def distribute_builds(
     end
   end
 
-  clear_cloudfront_cache_with_dry_run(
+  clear_cloudfront_cache(
     paths: cache_paths_to_clear,
     commit_hash: "#{commit_hash}-#{build_number}"
   )
@@ -258,17 +264,4 @@ def distribute_builds(
 
   # Return the builds data so callers can use them for further processing or messaging.
   builds
-end
-
-def clear_cloudfront_cache(paths:, commit_hash:)
-  Aws::CloudFront::Client.new.create_invalidation(
-    distribution_id: 'EF4A01YASGPY5',
-    invalidation_batch: {
-      paths: {
-        quantity: paths.length,
-        items: paths
-      },
-      caller_reference: commit_hash
-    }
-  )
 end

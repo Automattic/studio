@@ -14,7 +14,7 @@ import { ThemeDetailsProvider } from 'src/hooks/use-theme-details';
 import { useWelcomeMessages } from 'src/hooks/use-welcome-messages';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { store } from 'src/stores';
-import { setMessages, resetChatState, generateMessage } from 'src/stores/chat-slice';
+import { generateMessage, chatActions } from 'src/stores/chat-slice';
 
 jest.mock( '../../hooks/use-auth' );
 jest.mock( '../../hooks/use-welcome-messages' );
@@ -107,7 +107,7 @@ describe( 'ContentTabAssistant', () => {
 		localStorage.clear();
 
 		// Reset Redux store state
-		store.dispatch( resetChatState() );
+		store.dispatch( chatActions.resetChatState() );
 
 		( useAuth as jest.Mock ).mockReturnValue( {
 			client: {
@@ -143,7 +143,9 @@ describe( 'ContentTabAssistant', () => {
 	} );
 
 	test( 'saves and retrieves conversation from Redux state', async () => {
-		store.dispatch( setMessages( { instanceId: runningSite.id, messages: initialMessages } ) );
+		store.dispatch(
+			chatActions.setMessages( { instanceId: runningSite.id, messages: initialMessages } )
+		);
 		render( <ContextWrapper selectedSite={ runningSite } /> );
 		await waitFor( () => {
 			expect( screen.getByText( 'Initial message 1' ) ).toBeVisible();
@@ -295,7 +297,7 @@ describe( 'ContentTabAssistant', () => {
 	} );
 
 	test( 'renders Welcome messages and example prompts when the conversation is starts', () => {
-		store.dispatch( setMessages( { instanceId: runningSite.id, messages: [] } ) );
+		store.dispatch( chatActions.setMessages( { instanceId: runningSite.id, messages: [] } ) );
 		render( <ContextWrapper selectedSite={ runningSite } /> );
 
 		expect( screen.getByText( 'Welcome to our service!' ) ).toBeVisible();
@@ -305,7 +307,7 @@ describe( 'ContentTabAssistant', () => {
 	} );
 
 	test( 'renders Welcome messages and example prompts when offline', () => {
-		store.dispatch( setMessages( { instanceId: runningSite.id, messages: [] } ) );
+		store.dispatch( chatActions.setMessages( { instanceId: runningSite.id, messages: [] } ) );
 		( useOffline as jest.Mock ).mockReturnValue( true );
 
 		render( <ContextWrapper selectedSite={ runningSite } /> );
@@ -317,7 +319,7 @@ describe( 'ContentTabAssistant', () => {
 	} );
 
 	test( 'should manage the focus state when selecting an example prompt', async () => {
-		store.dispatch( setMessages( { instanceId: runningSite.id, messages: [] } ) );
+		store.dispatch( chatActions.setMessages( { instanceId: runningSite.id, messages: [] } ) );
 		jest.useRealTimers();
 		const user = userEvent.setup();
 		render( <ContextWrapper selectedSite={ runningSite } /> );
@@ -337,7 +339,7 @@ describe( 'ContentTabAssistant', () => {
 	} );
 
 	test( 'renders the selected prompt of Welcome messages and confirms other prompts are removed', async () => {
-		store.dispatch( setMessages( { instanceId: runningSite.id, messages: [] } ) );
+		store.dispatch( chatActions.setMessages( { instanceId: runningSite.id, messages: [] } ) );
 
 		render( <ContextWrapper selectedSite={ runningSite } /> );
 
@@ -374,7 +376,7 @@ describe( 'ContentTabAssistant', () => {
 		const messageTwo = generateMessage( 'Initial message 2', 'assistant', 1, 'hej', 11 );
 		messageTwo.createdAt = OLD_MESSAGE_TIME;
 		store.dispatch(
-			setMessages( {
+			chatActions.setMessages( {
 				instanceId: runningSite.id,
 				messages: [ messageOne, messageTwo ],
 			} )
@@ -417,7 +419,7 @@ describe( 'ContentTabAssistant', () => {
 		const messageTwo = generateMessage( 'Initial message 2', 'assistant', 1, 'chat-id', 11 );
 		messageTwo.createdAt = 0;
 		store.dispatch(
-			setMessages( {
+			chatActions.setMessages( {
 				instanceId: runningSite.id,
 				messages: [ messageOne, messageTwo ],
 			} )

@@ -5,9 +5,8 @@ import { store } from 'src/stores';
 import {
 	fetchAssistantThunk,
 	generateMessage,
-	resetChatState,
+	chatActions,
 	sendFeedbackThunk,
-	setMessages,
 	updateFromSiteThunk,
 } from 'src/stores/chat-slice';
 
@@ -50,7 +49,7 @@ describe( 'chat-slice', () => {
 	beforeEach( () => {
 		jest.clearAllMocks();
 		localStorage.clear();
-		store.dispatch( resetChatState() );
+		store.dispatch( chatActions.resetChatState() );
 	} );
 
 	describe( 'fetchAssistantThunk', () => {
@@ -130,7 +129,9 @@ describe( 'chat-slice', () => {
 
 			const userMessage = generateMessage( 'Hello test 3', 'user', 0, 'chatcmpl-123', 42 );
 			const assistantMessage = generateMessage( 'Response', 'assistant', 1, 'chatcmpl-123', 43 );
-			store.dispatch( setMessages( { instanceId, messages: [ userMessage, assistantMessage ] } ) );
+			store.dispatch(
+				chatActions.setMessages( { instanceId, messages: [ userMessage, assistantMessage ] } )
+			);
 
 			const result = await store.dispatch(
 				sendFeedbackThunk( {

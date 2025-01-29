@@ -1,4 +1,3 @@
-import * as Sentry from '@sentry/electron/renderer';
 import { render, screen } from '@testing-library/react';
 import { speak } from '@wordpress/a11y';
 import { useSiteDetails } from '../../hooks/use-site-details';

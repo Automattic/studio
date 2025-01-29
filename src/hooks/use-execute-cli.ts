@@ -2,7 +2,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { useCallback, useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { getIpcApi } from '../lib/get-ipc-api';
-import { updateMessage } from '../stores/chat-slice';
+import { chatActions } from '../stores/chat-slice';
 
 export function useExecuteWPCLI(
 	content: string,
@@ -39,7 +39,7 @@ export function useExecuteWPCLI(
 
 		if ( messageId !== undefined ) {
 			dispatch(
-				updateMessage( {
+				chatActions.updateMessage( {
 					cliOutput: result.stdout || result.stderr,
 					cliStatus: result.stderr ? 'error' : 'success',
 					cliTime: completedIn || '',

@@ -375,10 +375,6 @@ const chatSlice = createSlice( {
 	},
 } );
 
-export const { updateFromTheme, setMessages, setChatInput, updateMessage, resetChatState } =
-	chatSlice.actions;
-
-export const { selectChatInput, selectMessages, selectChatApiId, selectIsLoading } =
-	chatSlice.selectors;
-
+export const chatActions = chatSlice.actions;
+export const chatSelectors = chatSlice.selectors;
 export const { reducer } = chatSlice;

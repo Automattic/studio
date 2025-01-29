@@ -11,17 +11,12 @@ import { useThemeDetails } from 'src/hooks/use-theme-details';
 import { cx } from 'src/lib/cx';
 import { useAppDispatch, useRootSelector } from 'src/stores';
 import {
-	setMessages,
 	fetchAssistantThunk,
 	generateMessage,
-	selectChatInput,
-	selectIsLoading,
-	selectMessages,
-	setChatInput,
 	updateFromSiteThunk,
-	updateFromTheme,
-	selectChatApiId,
 	Message as MessageType,
+	chatActions,
+	chatSelectors,
 } from 'src/stores/chat-slice';
 import { AI_GUIDELINES_URL, LIMIT_OF_PROMPTS_PER_USER } from '../constants';
 import { useAuth } from '../hooks/use-auth';
@@ -343,12 +338,20 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const inputRef = useRef< HTMLTextAreaElement >( null );
 	const wrapperRef = useRef< HTMLDivElement >( null );
 	const dispatch = useAppDispatch();
-	const chatInput = useRootSelector( ( state ) => selectChatInput( state, selectedSite.id ) );
+	const chatInput = useRootSelector( ( state ) =>
+		chatSelectors.selectChatInput( state, selectedSite.id )
+	);
 	const { isAuthenticated, authenticate, user, client } = useAuth();
 	const instanceId = user?.id ? `${ user.id }_${ selectedSite.id }` : selectedSite.id;
-	const chatApiId = useRootSelector( ( state ) => selectChatApiId( state, instanceId ) );
-	const messages = useRootSelector( ( state ) => selectMessages( state, instanceId ) );
-	const isAssistantThinking = useRootSelector( ( state ) => selectIsLoading( state, instanceId ) );
+	const chatApiId = useRootSelector( ( state ) =>
+		chatSelectors.selectChatApiId( state, instanceId )
+	);
+	const messages = useRootSelector( ( state ) =>
+		chatSelectors.selectMessages( state, instanceId )
+	);
+	const isAssistantThinking = useRootSelector( ( state ) =>
+		chatSelectors.selectIsLoading( state, instanceId )
+	);
 	const { userCanSendMessage } = usePromptUsage();
 	const { messages: welcomeMessages, examplePrompts } = useWelcomeMessages();
 	const isOffline = useOffline();
@@ -364,7 +367,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 
 	useEffect( () => {
 		if ( themeDetails ) {
-			dispatch( updateFromTheme( themeDetails ) );
+			dispatch( chatActions.updateFromTheme( themeDetails ) );
 		}
 	}, [ dispatch, themeDetails ] );
 
@@ -375,7 +378,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 			}
 
 			if ( ! isRetry ) {
-				dispatch( setChatInput( { siteId: selectedSite.id, input: '' } ) );
+				dispatch( chatActions.setChatInput( { siteId: selectedSite.id, input: '' } ) );
 			}
 
 			const newMessageId = isRetry ? messages.length - 1 : messages.length;
@@ -389,8 +392,8 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	);
 
 	const clearConversation = () => {
-		dispatch( setChatInput( { siteId: selectedSite.id, input: '' } ) );
-		dispatch( setMessages( { instanceId, messages: [] } ) );
+		dispatch( chatActions.setChatInput( { siteId: selectedSite.id, input: '' } ) );
+		dispatch( chatActions.setMessages( { instanceId, messages: [] } ) );
 	};
 
 	// We should render only one notice at a time in the bottom area
@@ -455,7 +458,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 						disabled={ disabled }
 						input={ chatInput }
 						setInput={ ( input ) => {
-							dispatch( setChatInput( { siteId: selectedSite.id, input } ) );
+							dispatch( chatActions.setChatInput( { siteId: selectedSite.id, input } ) );
 						} }
 						handleSend={ () => {
 							submitPrompt( inputRef.current?.value ?? '' );

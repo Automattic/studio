@@ -36,11 +36,12 @@ import { getUserLocaleWithFallback } from './lib/locale-node';
 import * as oauthClient from './lib/oauth';
 import { createPassword } from './lib/passwords';
 import { phpGetThemeDetails } from './lib/php-get-theme-details';
-import { sanitizeForLogging } from './lib/sanitize-for-logging';
+import { shellOpenExternalWrapper } from './lib/shell-open-external-wrapper';
 import { sortSites } from './lib/sort-sites';
 import { installSqliteIntegration, keepSqliteIntegrationUpdated } from './lib/sqlite-versions';
 import * as windowsHelpers from './lib/windows-helpers';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from './logging';
+import { getMainWindow } from './main-window';
 import { popupMenu, setupMenu } from './menu';
 import { SiteServer, createSiteWorkingDirectory } from './site-server';
 import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from './storage/paths';
@@ -78,10 +79,6 @@ async function mergeSiteDetailsWithRunningDetails(
 
 export async function getSiteDetails( _event: IpcMainInvokeEvent ): Promise< SiteDetails[] > {
 	const userData = await loadUserData();
-
-	// This is probably one of the first times the user data is loaded. Take the opportunity
-	// to log for debugging purposes.
-	console.log( 'Loaded user data', sanitizeForLogging( userData ) );
 
 	const { sites } = userData;
 
@@ -414,7 +411,7 @@ export async function startServer(
 		}
 	}
 
-	console.log( 'Server started', server.details );
+	console.log( `Server started for '${ server.details.name }'` );
 	await updateSite( event, server.details );
 	return server.details;
 }
@@ -518,6 +515,9 @@ export async function showUserSettings( event: IpcMainInvokeEvent ): Promise< vo
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	if ( ! parentWindow ) {
 		throw new Error( `No window found for sender of showUserSettings message: ${ event.frameId }` );
+	}
+	if ( parentWindow.isDestroyed() || event.sender.isDestroyed() ) {
+		return;
 	}
 	parentWindow.webContents.send( 'user-settings' );
 }
@@ -639,8 +639,8 @@ export function logRendererMessage(
 	writeLogToFile( level, processId, ...args );
 }
 
-export async function authenticate( _event: IpcMainInvokeEvent ): Promise< void > {
-	return oauthClient.authenticate();
+export function authenticate( _event: IpcMainInvokeEvent ) {
+	oauthClient.authenticate();
 }
 
 export async function getAuthenticationToken(
@@ -690,7 +690,7 @@ export async function getSnapshots( _event: IpcMainInvokeEvent ): Promise< Snaps
 	return snapshots;
 }
 
-export async function openSiteURL(
+export function openSiteURL(
 	event: IpcMainInvokeEvent,
 	id: string,
 	relativeURL = '',
@@ -708,11 +708,11 @@ export async function openSiteURL(
 		url.searchParams.append( 'playground-auto-login', 'true' );
 	}
 
-	shell.openExternal( url.toString() );
+	shellOpenExternalWrapper( url.toString() );
 }
 
-export async function openURL( event: IpcMainInvokeEvent, url: string ) {
-	return shell.openExternal( url );
+export function openURL( event: IpcMainInvokeEvent, url: string ) {
+	shellOpenExternalWrapper( url );
 }
 
 export async function copyText( event: IpcMainInvokeEvent, text: string ) {
@@ -964,12 +964,15 @@ export async function showNotification(
 	new Notification( options ).show();
 }
 
-export function setupAppMenu( _event: IpcMainInvokeEvent, config: { needsOnboarding: boolean } ) {
-	setupMenu( config );
+export async function setupAppMenu(
+	_event: IpcMainInvokeEvent,
+	config: { needsOnboarding: boolean }
+) {
+	await setupMenu( config );
 }
 
-export function popupAppMenu( _event: IpcMainInvokeEvent ) {
-	popupMenu();
+export async function popupAppMenu( _event: IpcMainInvokeEvent ) {
+	await popupMenu();
 }
 
 export async function promptWindowsSpeedUpSites(
@@ -1099,4 +1102,9 @@ export async function getFileContent( event: IpcMainInvokeEvent, filePath: strin
 	}
 
 	return fs.readFileSync( filePath );
+}
+
+export async function isFullscreen( _event: IpcMainInvokeEvent ): Promise< boolean > {
+	const window = await getMainWindow();
+	return window.isFullScreen();
 }

@@ -1,31 +1,15 @@
-import path from 'path';
+import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
 import { ImportEvents } from '../../../import/events';
 import { WpressValidator } from '../../../import/validators/wpress-validator';
 
-describe( 'WpressValidator', () => {
+platformTestSuite( 'WpressValidator', ( { sep: separator } ) => {
 	let validator: WpressValidator;
 
-	const originalSep = path.sep;
-	const originalJoin = path.join;
-	const separators = [
-		{ name: 'Unix', separator: '/' },
-		{ name: 'Windows', separator: '\\' },
-	];
-
-	afterEach( () => {
-		// @ts-expect-error - Restore original path.sep
-		path.sep = originalSep;
-		path.join = originalJoin;
+	beforeEach( () => {
+		validator = new WpressValidator();
 	} );
 
-	describe.each( separators )( 'canHandle with $name separators', ( { separator } ) => {
-		beforeEach( () => {
-			validator = new WpressValidator();
-			// @ts-expect-error - Temporarily override path.sep
-			path.sep = separator;
-			path.join = jest.fn( ( ...segments ) => segments.join( separator ) );
-		} );
-
+	describe( 'canHandle', () => {
 		it( 'should return true for valid wpress file structure', () => {
 			const fileList = [
 				'database.sql',
@@ -63,12 +47,9 @@ describe( 'WpressValidator', () => {
 		} );
 	} );
 
-	describe.each( separators )( 'parseBackupContents with $name separators', ( { separator } ) => {
+	describe( 'parseBackupContents', () => {
 		beforeEach( () => {
 			validator = new WpressValidator();
-			// @ts-expect-error - Temporarily override path.sep
-			path.sep = separator;
-			path.join = jest.fn( ( ...segments ) => segments.join( separator ) );
 		} );
 
 		const extractionDirectory = [ 'path', 'to', 'extraction' ].join( separator );

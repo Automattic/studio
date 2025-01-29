@@ -1,41 +1,88 @@
 import { EventEmitter } from 'events';
-import AdmZip from 'adm-zip';
+import fs from 'fs';
+import path from 'path';
+import { promisify } from 'util';
+import fse from 'fs-extra';
+import yauzl from 'yauzl';
 import { ImportEvents } from '../events';
 import { BackupArchiveInfo, BackupExtractProgressEventData } from '../types';
 import { BackupHandler, isFileAllowed } from './backup-handler-factory';
 
+const openZip = promisify< string, yauzl.Options, yauzl.ZipFile >( yauzl.open );
+
 export class BackupHandlerZip extends EventEmitter implements BackupHandler {
 	async listFiles( backup: BackupArchiveInfo ): Promise< string[] > {
-		const zip = new AdmZip( backup.path );
-		return zip
-			.getEntries()
-			.map( ( entry ) => {
-				if ( entry.entryName.startsWith( '/' ) ) {
-					return entry.entryName.slice( 1 );
+		const zipFile = await openZip( backup.path, { lazyEntries: true } );
+		const fileNames: string[] = [];
+
+		return new Promise( ( resolve, reject ) => {
+			zipFile.on( 'entry', ( entry ) => {
+				if ( isFileAllowed( entry.fileName ) ) {
+					fileNames.push( entry.fileName );
 				}
-				return entry.entryName;
-			} )
-			.filter( isFileAllowed );
+				zipFile.readEntry();
+			} );
+
+			zipFile.on( 'end', () => {
+				resolve( fileNames );
+			} );
+
+			zipFile.on( 'error', reject );
+			zipFile.readEntry();
+		} );
 	}
 
 	async extractFiles( file: BackupArchiveInfo, extractionDirectory: string ): Promise< void > {
+		const zipFile = await openZip( file.path, { lazyEntries: true } );
+		const openReadStream = promisify( zipFile.openReadStream.bind( zipFile ) );
+		const totalSize = fs.statSync( file.path ).size;
+		let processedSize = 0;
+
 		this.emit( ImportEvents.BACKUP_EXTRACT_START );
+
 		return new Promise( ( resolve, reject ) => {
-			this.emit( ImportEvents.BACKUP_EXTRACT_PROGRESS, {
-				progress: 0,
-			} as BackupExtractProgressEventData );
-			const zip = new AdmZip( file.path );
-			zip.extractAllToAsync( extractionDirectory, true, undefined, ( error?: Error ) => {
-				if ( error ) {
-					this.emit( ImportEvents.BACKUP_EXTRACT_ERROR, { error } );
-					reject( error );
+			zipFile.on( 'entry', async ( entry ) => {
+				if ( ! isFileAllowed( entry.fileName ) ) {
+					zipFile.readEntry();
+					return;
 				}
-				this.emit( ImportEvents.BACKUP_EXTRACT_PROGRESS, {
-					progress: 1,
-				} as BackupExtractProgressEventData );
+
+				const fullPath = path.join( extractionDirectory, entry.fileName );
+				await fse.ensureDir( path.dirname( fullPath ) );
+
+				if ( entry.fileName.endsWith( '/' ) ) {
+					zipFile.readEntry();
+					return;
+				}
+
+				const readStream = await openReadStream( entry );
+				const writeStream = fs.createWriteStream( fullPath );
+
+				readStream.on( 'data', ( chunk ) => {
+					processedSize += chunk.length;
+					this.emit( ImportEvents.BACKUP_EXTRACT_PROGRESS, {
+						progress: processedSize / totalSize,
+					} as BackupExtractProgressEventData );
+				} );
+
+				writeStream.on( 'finish', () => {
+					zipFile.readEntry();
+				} );
+
+				readStream.pipe( writeStream );
+			} );
+
+			zipFile.on( 'end', () => {
 				this.emit( ImportEvents.BACKUP_EXTRACT_COMPLETE );
 				resolve();
 			} );
+
+			zipFile.on( 'error', ( error ) => {
+				this.emit( ImportEvents.BACKUP_EXTRACT_ERROR, { error } );
+				reject( error );
+			} );
+
+			zipFile.readEntry();
 		} );
 	}
 }

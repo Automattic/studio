@@ -9,6 +9,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import React, { useState, useEffect, useRef, memo, useCallback, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useThemeDetails } from 'src/hooks/use-theme-details';
+import { cx } from 'src/lib/cx';
 import { RootState, AppDispatch } from 'src/stores';
 import {
 	setMessages,
@@ -28,7 +29,6 @@ import { useAuth } from '../hooks/use-auth';
 import { useOffline } from '../hooks/use-offline';
 import { usePromptUsage } from '../hooks/use-prompt-usage';
 import { useWelcomeMessages } from '../hooks/use-welcome-messages';
-import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
 import ClearHistoryReminder from './ai-clear-history-reminder';
 import { AIInput } from './ai-input';

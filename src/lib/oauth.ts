@@ -1,8 +1,9 @@
-import { ipcMain, shell } from 'electron';
+import { ipcMain } from 'electron';
 import * as Sentry from '@sentry/electron/main';
 import wpcom from 'wpcom';
 import { PROTOCOL_PREFIX, WP_AUTHORIZE_ENDPOINT, CLIENT_ID, SCOPES } from '../constants';
-import { withMainWindow } from '../main-window';
+import { shellOpenExternalWrapper } from '../lib/shell-open-external-wrapper';
+import { getMainWindow } from '../main-window';
 import { loadUserData, saveUserData } from '../storage/user-data';
 
 export interface StoredToken {
@@ -98,19 +99,18 @@ export function authenticate(): void {
 	const authUrl = `${ WP_AUTHORIZE_ENDPOINT }?response_type=token&client_id=${ CLIENT_ID }&redirect_uri=${ encodeURIComponent(
 		REDIRECT_URI
 	) }&scope=${ encodeURIComponent( SCOPES ) }`;
-	shell.openExternal( authUrl );
+
+	shellOpenExternalWrapper( authUrl );
 }
 
 export function setUpAuthCallbackHandler() {
-	ipcMain.on( 'auth-callback', ( _event, { token, error } ) => {
-		withMainWindow( ( mainWindow ) => {
-			if ( error ) {
-				mainWindow.webContents.send( 'auth-updated', { error: error } );
-			} else {
-				storeToken( token ).then( () => {
-					mainWindow.webContents.send( 'auth-updated', { token } );
-				} );
-			}
-		} );
+	ipcMain.on( 'auth-callback', async ( _event, { token, error } ) => {
+		const mainWindow = await getMainWindow();
+		if ( error ) {
+			mainWindow.webContents.send( 'auth-updated', { error } );
+		} else {
+			await storeToken( token );
+			mainWindow.webContents.send( 'auth-updated', { token } );
+		}
 	} );
 }

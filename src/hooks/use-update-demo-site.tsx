@@ -35,11 +35,13 @@ export const DemoSiteUpdateProvider: React.FC< DemoSiteUpdateProviderProps > = (
 			}
 			setUpdatingSites( ( prev ) => new Set( prev ).add( localSite.id ) );
 
+			let archivePath = '';
 			try {
-				const { archivePath, archiveSizeInBytes } = await getIpcApi().archiveSite(
+				const { archivePath: tempArchivePath, archiveSizeInBytes } = await getIpcApi().archiveSite(
 					localSite.id,
 					'zip'
 				);
+				archivePath = tempArchivePath;
 
 				if ( archiveSizeInBytes > DEMO_SITE_SIZE_LIMIT_BYTES ) {
 					getIpcApi().showErrorMessageBox( {
@@ -109,6 +111,9 @@ export const DemoSiteUpdateProvider: React.FC< DemoSiteUpdateProviderProps > = (
 					newSet.delete( localSite.id );
 					return newSet;
 				} );
+				if ( archivePath ) {
+					getIpcApi().removeTemporalFile( archivePath );
+				}
 			}
 		},
 		[ __, client, updateSnapshot ]

@@ -32,11 +32,13 @@
 			{
 				"args": "after-used",
 				"argsIgnorePattern": "^_",
+				"caughtErrors": "none",
+				"ignoreRestSiblings": true,
 				"vars": "all",
-				"varsIgnorePattern": "^_",
-				"ignoreRestSiblings": true
+				"varsIgnorePattern": "^_"
 			}
 		],
+		"import/no-named-as-default-member": "off",
 		"import/order": [
 			"error",
 			{

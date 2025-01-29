@@ -1,7 +1,7 @@
-// To run tests, execute `npm run test -- src/lib/import-export/tests/import/validators/local-validator.test.ts`
+import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
 import { PlaygroundValidator } from '../../../import/validators/playground-validator';
 
-describe( 'PlaygroundValidator', () => {
+platformTestSuite( 'PlaygroundValidator', ( { normalize } ) => {
 	const validator = new PlaygroundValidator();
 
 	describe( 'canHandle', () => {
@@ -51,17 +51,17 @@ describe( 'PlaygroundValidator', () => {
 				'wp-content/plugins/jetpack/jetpack.php',
 				'wp-content/themes/twentytwentyone/style.css',
 			];
-			const extractionDirectory = '/tmp/extracted';
+			const extractionDirectory = normalize( '/tmp/extracted' );
 			const result = validator.parseBackupContents( fileList, extractionDirectory );
 
 			expect( result ).toEqual( {
 				extractionDirectory,
-				sqlFiles: [ '/tmp/extracted/wp-content/database/.ht.sqlite' ],
+				sqlFiles: [ normalize( '/tmp/extracted/wp-content/database/.ht.sqlite' ) ],
 				wpConfig: '',
 				wpContent: {
-					uploads: [ '/tmp/extracted/wp-content/uploads/2023/image.jpg' ],
-					plugins: [ '/tmp/extracted/wp-content/plugins/jetpack/jetpack.php' ],
-					themes: [ '/tmp/extracted/wp-content/themes/twentytwentyone/style.css' ],
+					uploads: [ normalize( '/tmp/extracted/wp-content/uploads/2023/image.jpg' ) ],
+					plugins: [ normalize( '/tmp/extracted/wp-content/plugins/jetpack/jetpack.php' ) ],
+					themes: [ normalize( '/tmp/extracted/wp-content/themes/twentytwentyone/style.css' ) ],
 				},
 				wpContentDirectory: 'wp-content',
 			} );
@@ -78,17 +78,17 @@ describe( 'PlaygroundValidator', () => {
 				'wp-content/plugins/jetpack/jetpack.php',
 				'wp-content/themes/twentytwentyone/style.css',
 			];
-			const extractionDirectory = '/tmp/extracted';
+			const extractionDirectory = normalize( '/tmp/extracted' );
 			const result = validator.parseBackupContents( fileList, extractionDirectory );
 
 			expect( result ).toEqual( {
 				extractionDirectory,
-				sqlFiles: [ '/tmp/extracted/wp-content/database/.ht.sqlite' ],
-				wpConfig: '/tmp/extracted/wp-config.php',
+				sqlFiles: [ normalize( '/tmp/extracted/wp-content/database/.ht.sqlite' ) ],
+				wpConfig: normalize( '/tmp/extracted/wp-config.php' ),
 				wpContent: {
-					uploads: [ '/tmp/extracted/wp-content/uploads/2023/image.jpg' ],
-					plugins: [ '/tmp/extracted/wp-content/plugins/jetpack/jetpack.php' ],
-					themes: [ '/tmp/extracted/wp-content/themes/twentytwentyone/style.css' ],
+					uploads: [ normalize( '/tmp/extracted/wp-content/uploads/2023/image.jpg' ) ],
+					plugins: [ normalize( '/tmp/extracted/wp-content/plugins/jetpack/jetpack.php' ) ],
+					themes: [ normalize( '/tmp/extracted/wp-content/themes/twentytwentyone/style.css' ) ],
 				},
 				wpContentDirectory: 'wp-content',
 			} );

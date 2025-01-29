@@ -7,7 +7,8 @@ interface ConfirmationDialogOptions {
 	checkboxLabel?: string;
 	confirmButtonLabel: string;
 	cancelButtonLabel?: string;
-	localStorageKey: string;
+	type?: 'none' | 'info' | 'error' | 'question' | 'warning';
+	localStorageKey?: string;
 }
 
 export function useConfirmationDialog( options: ConfirmationDialogOptions ) {
@@ -19,10 +20,11 @@ export function useConfirmationDialog( options: ConfirmationDialogOptions ) {
 		confirmButtonLabel,
 		cancelButtonLabel = __( 'Cancel' ),
 		localStorageKey,
+		type,
 	} = options;
 
 	return async ( onConfirm: () => void, { detail: detailOverride }: { detail?: string } = {} ) => {
-		if ( localStorage.getItem( localStorageKey ) === 'true' ) {
+		if ( localStorageKey && localStorage.getItem( localStorageKey ) === 'true' ) {
 			onConfirm();
 			return;
 		}
@@ -30,16 +32,19 @@ export function useConfirmationDialog( options: ConfirmationDialogOptions ) {
 		const CONFIRM_BUTTON_INDEX = 0;
 		const CANCEL_BUTTON_INDEX = 1;
 		const { response, checkboxChecked } = await getIpcApi().showMessageBox( {
+			type,
 			message,
 			detail: detailOverride ?? detail,
-			checkboxLabel,
+			...( localStorageKey && {
+				checkboxLabel: checkboxLabel ?? __( "Don't show this warning again" ),
+			} ),
 			buttons: [ confirmButtonLabel, cancelButtonLabel ],
 			cancelId: CANCEL_BUTTON_INDEX,
 		} );
 
 		if ( response === CONFIRM_BUTTON_INDEX ) {
 			// Confirm button is always the first button
-			if ( checkboxChecked ) {
+			if ( localStorageKey && checkboxChecked ) {
 				localStorage.setItem( localStorageKey, 'true' );
 			}
 			onConfirm();

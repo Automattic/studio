@@ -5,7 +5,6 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useConfirmationDialog } from 'src/hooks/use-confirmation-dialog';
 import { useSnapshots } from 'src/hooks/use-snapshots';
 import { useUpdateDemoSite } from 'src/hooks/use-update-demo-site';
-import { getIpcApi } from 'src/lib/get-ipc-api';
 
 interface PreviewActionButtonsMenuProps {
 	snapshot: Snapshot;
@@ -35,20 +34,19 @@ export function PreviewActionButtonsMenu( {
 		} );
 	};
 
-	const handleDeleteDemoSite = async () => {
-		const { response } = await getIpcApi().showMessageBox( {
-			type: 'warning',
-			message: __( 'Delete preview' ),
-			detail: __(
-				'Your previews files and database along with all posts, pages, comments and media will be lost.'
-			),
-			buttons: [ __( 'Delete' ), __( 'Cancel' ) ],
-			cancelId: 1,
-		} );
+	const showDeletePreviewConfirmation = useConfirmationDialog( {
+		type: 'warning',
+		message: __( 'Delete preview' ),
+		detail: __(
+			'Your previews files and database along with all posts, pages, comments and media will be lost.'
+		),
+		confirmButtonLabel: __( 'Delete' ),
+	} );
 
-		if ( response === 0 ) {
+	const handleDeletePreviewSite = async () => {
+		showDeletePreviewConfirmation( () => {
 			deleteSnapshot( snapshot );
-		}
+		} );
 	};
 
 	return (
@@ -73,7 +71,7 @@ export function PreviewActionButtonsMenu( {
 					<MenuItem
 						isDestructive
 						onClick={ () => {
-							handleDeleteDemoSite();
+							handleDeletePreviewSite();
 							onClose();
 						} }
 					>

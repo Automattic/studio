@@ -28,6 +28,7 @@ export class LocalValidator extends EventEmitter implements Validator {
 				uploads: [],
 				plugins: [],
 				themes: [],
+				muPlugins: [],
 			},
 			wpContentDirectory: path.normalize( 'app/public/wp-content' ),
 		};
@@ -52,6 +53,8 @@ export class LocalValidator extends EventEmitter implements Validator {
 				extractedBackup.wpContent.plugins.push( fullPath );
 			} else if ( file.startsWith( 'app/public/wp-content/themes/' ) ) {
 				extractedBackup.wpContent.themes.push( fullPath );
+			} else if ( file.startsWith( 'app/public/wp-content/mu-plugins/' ) ) {
+				extractedBackup.wpContent.muPlugins!.push( fullPath );
 			} else if ( file === 'local-site.json' ) {
 				extractedBackup.metaFile = fullPath;
 			}

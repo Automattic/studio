@@ -23,6 +23,7 @@ export class JetpackValidator extends EventEmitter implements Validator {
 				uploads: [],
 				plugins: [],
 				themes: [],
+				muPlugins: [],
 			},
 			wpContentDirectory: 'wp-content',
 		};
@@ -47,6 +48,8 @@ export class JetpackValidator extends EventEmitter implements Validator {
 				extractedBackup.wpContent.plugins.push( fullPath );
 			} else if ( file.startsWith( 'wp-content/themes/' ) ) {
 				extractedBackup.wpContent.themes.push( fullPath );
+			} else if ( file.startsWith( 'wp-content/mu-plugins/' ) ) {
+				extractedBackup.wpContent.muPlugins!.push( fullPath );
 			} else if ( file === 'studio.json' || file === 'meta.json' ) {
 				extractedBackup.metaFile = fullPath;
 			}

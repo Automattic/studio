@@ -157,6 +157,7 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 	const { isAuthenticated } = useAuth();
 	const { archiveSite, isUploadingSiteId } = useArchiveSite();
 	const isUploading = isUploadingSiteId( selectedSite.id );
+	const isSnapshotLoading = snapshots.some( ( snapshot ) => snapshot.isLoading );
 
 	if ( ! isAuthenticated ) {
 		return <NoAuth selectedSite={ selectedSite } />;
@@ -167,14 +168,14 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 	);
 
 	if ( ! snapshotsOnSite.length ) {
-		if ( isUploading ) {
+		if ( isUploading || isSnapshotLoading ) {
 			return (
 				<div className="relative min-h-full flex flex-col">
 					<div className="w-full flex flex-col flex-1">
 						<div className="flex-1">
 							<PreviewLinksTableHeader />
 							<div className="[&>*:not(:last-child)]:border-b [&>*]:border-a8c-gray-5">
-								{ isUploading && (
+								{ ( isUploading || isSnapshotLoading ) && (
 									<ProgressRow
 										text={ __( 'Generating preview link' ) }
 										statusText={ __( 'Just now' ) }
@@ -207,7 +208,7 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 				<div className="flex-1">
 					<PreviewLinksTableHeader />
 					<div className="[&>*:not(:last-child)]:border-b [&>*]:border-a8c-gray-5">
-						{ isUploading && (
+						{ ( isUploading || isSnapshotLoading ) && (
 							<ProgressRow
 								text={ __( 'Generating preview link' ) }
 								statusText={ __( 'Just now' ) }

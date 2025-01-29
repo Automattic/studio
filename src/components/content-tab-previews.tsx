@@ -179,12 +179,6 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 									<ProgressRow
 										text={ __( 'Generating preview link' ) }
 										statusText={ __( 'Just now' ) }
-										progressConfig={ {
-											initialProgress: 5,
-											paused: ! isUploading,
-											interval: 1500,
-											maxValue: 95,
-										} }
 									/>
 								) }
 							</div>
@@ -212,12 +206,6 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 							<ProgressRow
 								text={ __( 'Generating preview link' ) }
 								statusText={ __( 'Just now' ) }
-								progressConfig={ {
-									initialProgress: 5,
-									paused: ! isUploading,
-									interval: 1500,
-									maxValue: 95,
-								} }
 							/>
 						) }
 						{ snapshotsOnSite.map( ( snapshot ) => (

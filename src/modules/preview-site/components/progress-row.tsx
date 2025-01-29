@@ -5,25 +5,15 @@ import { useProgressTimer } from 'src/hooks/use-progress-timer';
 interface ProgressRowProps {
 	text: string;
 	statusText?: string;
-	progressConfig?: {
-		initialProgress: number;
-		paused: boolean;
-		interval?: number;
-		maxValue?: number;
-	};
 }
 
-export function ProgressRow( {
-	text,
-	statusText = '-',
-	progressConfig = {
-		initialProgress: 60,
+export function ProgressRow( { text, statusText = '-' }: ProgressRowProps ) {
+	const { progress } = useProgressTimer( {
+		initialProgress: 40,
 		paused: false,
-		interval: 1500,
+		interval: 1000,
 		maxValue: 95,
-	},
-}: ProgressRowProps ) {
-	const { progress } = useProgressTimer( progressConfig );
+	} );
 
 	return (
 		<div className="self-stretch flex-col">

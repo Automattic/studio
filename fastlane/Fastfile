@@ -231,7 +231,7 @@ def distribute_builds(
   end
 
   # Because we distribute via Cloudfront, we need to invalidate the manifest
-  # and the latest build (<if building for release) after each upload, otherwise
+  # and the latest build (if building for release) after each upload, otherwise
   # it'll be stale.
   clear_cloudfront_cache(
     paths: cache_paths_to_clear,

@@ -108,7 +108,7 @@ describe( 'useUpdateDemoSite', () => {
 		} );
 
 		// Assert that 'isDemoSiteUpdating' is set back to false
-		expect( result.current.isDemoSiteUpdating( mockLocalSite.id ) ).toBe( false );
+		expect( result.current.isDemoSiteUpdating( mockSnapshot.atomicSiteId ) ).toBe( false );
 
 		// Assert that demo site is updated with a new expiration date
 		expect( updateSnapshotMock ).toHaveBeenCalledWith(
@@ -144,7 +144,7 @@ describe( 'useUpdateDemoSite', () => {
 		} );
 
 		// Assert that 'isDemoSiteUpdating' is set back to false
-		expect( result.current.isDemoSiteUpdating( mockLocalSite.id ) ).toBe( false );
+		expect( result.current.isDemoSiteUpdating( mockSnapshot.atomicSiteId ) ).toBe( false );
 	} );
 
 	it( 'should allow updating two sites independently with different completion times', async () => {
@@ -184,8 +184,8 @@ describe( 'useUpdateDemoSite', () => {
 		} );
 
 		// Initially, both sites should be marked as updating
-		expect( result.current.isDemoSiteUpdating( mockLocalSite.id ) ).toBe( true );
-		expect( result.current.isDemoSiteUpdating( mockLocalSite2.id ) ).toBe( true );
+		expect( result.current.isDemoSiteUpdating( mockSnapshot.atomicSiteId ) ).toBe( true );
+		expect( result.current.isDemoSiteUpdating( mockSnapshot2.atomicSiteId ) ).toBe( true );
 
 		// Wait for the first site to complete
 		await act( async () => {
@@ -194,8 +194,8 @@ describe( 'useUpdateDemoSite', () => {
 		} );
 
 		// After 1000ms, the first site should be done, but the second should still be updating
-		expect( result.current.isDemoSiteUpdating( mockLocalSite.id ) ).toBe( false );
-		expect( result.current.isDemoSiteUpdating( mockLocalSite2.id ) ).toBe( true );
+		expect( result.current.isDemoSiteUpdating( mockSnapshot.atomicSiteId ) ).toBe( false );
+		expect( result.current.isDemoSiteUpdating( mockSnapshot2.atomicSiteId ) ).toBe( true );
 
 		// Wait for the second site to complete
 		await act( async () => {
@@ -204,8 +204,8 @@ describe( 'useUpdateDemoSite', () => {
 		} );
 
 		// After another 1000ms, both sites should be done updating
-		expect( result.current.isDemoSiteUpdating( mockLocalSite.id ) ).toBe( false );
-		expect( result.current.isDemoSiteUpdating( mockLocalSite2.id ) ).toBe( false );
+		expect( result.current.isDemoSiteUpdating( mockSnapshot.atomicSiteId ) ).toBe( false );
+		expect( result.current.isDemoSiteUpdating( mockSnapshot2.atomicSiteId ) ).toBe( false );
 
 		// Assert that the update function was called for both sites
 		expect( clientReqPost ).toHaveBeenCalledTimes( 2 );

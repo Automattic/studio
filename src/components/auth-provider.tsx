@@ -4,6 +4,7 @@ import WPCOM from 'wpcom';
 import { useI18nData } from '../hooks/use-i18n-data';
 import { useIpcListener } from '../hooks/use-ipc-listener';
 import { getIpcApi } from '../lib/get-ipc-api';
+import { __ } from '@wordpress/i18n';
 
 export interface AuthContextType {
 	client: WPCOM | undefined;
@@ -43,15 +44,23 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 			Sentry.captureException( error );
 			return;
 		}
+
+		if ( ! token.id || token.id === '' ) {
+			getIpcApi().showErrorMessageBox( {
+				title: 'Authentication error',
+				message: __( 'Please re-try login again' ),
+			} );
+			Sentry.captureException( new Error( 'id missing or empty in /rest/v1/me response' ) );
+			return;
+		}
+
 		setIsAuthenticated( true );
 		setClient( createWpcomClient( token.accessToken, locale ) );
-		if ( token.id || token.email || token.displayName ) {
-			setUser( {
-				id: token.id || null,
-				email: token.email || '',
-				displayName: token.displayName || '',
-			} );
-		}
+		setUser( {
+			id: token.id,
+			email: token.email || '',
+			displayName: token.displayName || '',
+		} );
 	} );
 
 	const logout = useCallback( async () => {

@@ -580,7 +580,13 @@ export async function exportSiteToPush( event: IpcMainInvokeEvent, id: string ) 
 	const exportOptions: ExportOptions = {
 		site: site.details,
 		backupFile: archivePath,
-		includes: { database: true, uploads: true, plugins: true, themes: true },
+		includes: {
+			database: true,
+			uploads: true,
+			plugins: true,
+			themes: true,
+			'mu-plugins': true,
+		},
 		phpVersion: site.details.phpVersion,
 		splitDatabaseDumpByTable: true,
 	};

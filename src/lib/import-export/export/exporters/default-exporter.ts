@@ -35,6 +35,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 				uploads: [],
 				plugins: [],
 				themes: [],
+				'mu-plugins': [],
 			},
 		};
 	}
@@ -141,13 +142,17 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 	}
 
 	private addWpContent(): void {
-		const categories = ( [ 'uploads', 'plugins', 'themes' ] as BackupContentsCategory[] ).filter(
-			( category ) => this.options.includes[ category ]
-		);
+		const categories = (
+			[ 'uploads', 'plugins', 'themes', 'mu-plugins' ] as BackupContentsCategory[]
+		 ).filter( ( category ) => this.options.includes[ category ] );
+		const pathsToExclude = [ 'wp-content/mu-plugins/sqlite-database-integration' ];
 		this.emit( ExportEvents.WP_CONTENT_EXPORT_START );
 		for ( const category of categories ) {
 			for ( const file of this.backup.wpContent[ category ] ) {
 				const relativePath = path.relative( this.options.site.path, file );
+				if ( pathsToExclude.some( ( path ) => relativePath.startsWith( path ) ) ) {
+					continue;
+				}
 				this.archive.file( file, { name: relativePath } );
 				this.emit( ExportEvents.WP_CONTENT_EXPORT_PROGRESS, { file: relativePath } );
 			}
@@ -156,6 +161,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 			uploads: this.backup.wpContent.uploads.length,
 			plugins: this.backup.wpContent.plugins.length,
 			themes: this.backup.wpContent.themes.length,
+			'mu-plugins': this.backup.wpContent[ 'mu-plugins' ].length ?? 0,
 		} );
 	}
 
@@ -219,6 +225,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 				uploads: [],
 				plugins: [],
 				themes: [],
+				'mu-plugins': [],
 			},
 		};
 
@@ -232,7 +239,10 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 				backupContents.wpConfigFile = file;
 			} else if (
 				wpContent === 'wp-content' &&
-				( category === 'uploads' || category === 'plugins' || category === 'themes' )
+				( category === 'uploads' ||
+					category === 'plugins' ||
+					category === 'themes' ||
+					category === 'mu-plugins' )
 			) {
 				backupContents.wpContent[ category ].push( file );
 			}

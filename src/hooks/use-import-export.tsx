@@ -309,6 +309,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 					uploads: true,
 					plugins: true,
 					themes: true,
+					'mu-plugins': true,
 				},
 				phpVersion: selectedSite.phpVersion,
 			};
@@ -341,6 +342,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 					uploads: false,
 					plugins: false,
 					themes: false,
+					'mu-plugins': false,
 				},
 				phpVersion: selectedSite.phpVersion,
 			};

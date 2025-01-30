@@ -97,6 +97,18 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 				name: 'wp-load.php',
 				isFile: () => true,
 			},
+			{
+				path: normalize(
+					'/path/to/site/wp-content/mu-plugins/sqlite-database-integration/load.php'
+				),
+				name: 'load.php',
+				isFile: () => true,
+			},
+			{
+				path: normalize( '/path/to/site/wp-content/mu-plugins/custom-mu-plugin.php' ),
+				name: 'custom-mu-plugin.php',
+				isFile: () => true,
+			},
 		];
 
 		( fsPromises.readdir as jest.Mock ).mockResolvedValue( mockFiles );
@@ -109,6 +121,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 				uploads: [ normalize( '/path/to/wp-content/uploads/file1.jpg' ) ],
 				plugins: [ normalize( '/path/to/wp-content/plugins/plugin1' ) ],
 				themes: [ normalize( '/path/to/wp-content/themes/theme1' ) ],
+				'mu-plugins': [ normalize( '/path/to/wp-content/mu-plugins/custom-mu-plugin.php' ) ],
 			},
 		};
 
@@ -126,6 +139,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 				plugins: true,
 				themes: true,
 				database: true,
+				'mu-plugins': true,
 			},
 			phpVersion: '8.4',
 		};
@@ -197,6 +211,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 				plugins: false,
 				themes: false,
 				database: false,
+				'mu-plugins': false,
 			},
 		};
 
@@ -230,6 +245,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 				plugins: true,
 				themes: true,
 				database: false,
+				'mu-plugins': false,
 			},
 		};
 
@@ -266,6 +282,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 				uploads: false,
 				themes: false,
 				database: true,
+				'mu-plugins': false,
 			},
 		};
 		( fsPromises.mkdtemp as jest.Mock ).mockResolvedValue( normalize( '/tmp/studio_export_123' ) );
@@ -293,6 +310,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 				uploads: false,
 				themes: false,
 				database: true,
+				'mu-plugins': false,
 			},
 			splitDatabaseDumpByTable: true,
 		};

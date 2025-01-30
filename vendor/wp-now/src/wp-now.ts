@@ -105,8 +105,6 @@ export default async function startWPNow(
 
 	const isFirstTimeProject = ! fs.existsSync( options.wpContentPath );
 
-	await removeDownloadedMuPlugins( options.projectPath );
-
 	await prepareWordPress( php, options );
 
 	if ( options.blueprintObject ) {
@@ -175,6 +173,13 @@ async function prepareDocumentRoot( php: PHP, options: WPNowOptions ) {
 }
 
 export async function prepareWordPress( php: PHP, options: WPNowOptions ) {
+	/**
+	 * Studio used to store internal mu-plugins in the site's mu-plugins folder.
+	 * Internal mu-plugins are now mounted into Playground's internal mu-plugins folder,
+	 * so we need to remove the mu-plugins from the site's mu-plugins folder.
+	 */
+	await removeDownloadedMuPlugins( options.projectPath );
+
 	switch ( options.mode ) {
 		case WPNowMode.WP_CONTENT:
 			await runWpContentMode( php, options );

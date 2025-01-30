@@ -19,7 +19,7 @@ export function useSyncStatesProgressInfo() {
 			'in-progress': {
 				key: 'in-progress',
 				progress: 30,
-				message: __( 'Pulling changes…' ),
+				message: __( 'Initializing backup…' ),
 			},
 			downloading: {
 				// On backend this key is called backup 'finished'

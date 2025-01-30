@@ -97,6 +97,47 @@ describe( 'chat-slice', () => {
 			} );
 		} );
 
+		it( 'should update failed message when retrying', async () => {
+			const instanceId = 'test-site';
+			const userMessage = generateMessage( 'Hello test retry', 'user', 0, 'chatcmpl-123', 42 );
+			userMessage.failedMessage = true;
+			store.dispatch( chatActions.setMessages( { instanceId, messages: [ userMessage ] } ) );
+
+			const result = await store.dispatch(
+				fetchAssistantThunk( {
+					client: mockClientUsingCallback,
+					instanceId,
+					message: userMessage,
+					siteId: instanceId,
+					isRetry: true,
+				} )
+			);
+
+			expect( result.type ).toBe( 'chat/fetchAssistant/fulfilled' );
+			expect( result.payload ).toEqual( {
+				chatApiId: 'chatcmpl-123',
+				maxQuota: '100',
+				message: 'Test assistant response',
+				messageApiId: 42,
+				remainingQuota: '99',
+			} );
+
+			const state = store.getState();
+			const messages = chatSelectors.selectMessages( state, instanceId );
+
+			expect( messages ).toHaveLength( 2 );
+			expect( messages[ 0 ] ).toMatchObject( {
+				...userMessage,
+				failedMessage: false,
+			} );
+			expect( messages[ 1 ] ).toMatchObject( {
+				content: 'Test assistant response',
+				role: 'assistant',
+				chatApiId: 'chatcmpl-123',
+				messageApiId: 42,
+			} );
+		} );
+
 		it( 'should mark message as failed when rejected', async () => {
 			const instanceId = 'test-site';
 			const userMessage = generateMessage( 'Hello test 2', 'user', 0, 'chatcmpl-123', 42 );

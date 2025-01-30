@@ -181,10 +181,7 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 							<PreviewSitesTableHeader />
 							<div className="[&>*:not(:last-child)]:border-b [&>*]:border-a8c-gray-5">
 								{ ( isUploading || isSnapshotLoading ) && (
-									<ProgressRow
-										text={ __( 'Creating preview site' ) }
-										statusText={ __( 'Just now' ) }
-									/>
+									<ProgressRow text={ __( 'Creating preview site' ) } />
 								) }
 							</div>
 						</div>
@@ -208,7 +205,7 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 					<PreviewSitesTableHeader />
 					<div className="[&>*:not(:last-child)]:border-b [&>*]:border-a8c-gray-5">
 						{ ( isUploading || isSnapshotLoading ) && (
-							<ProgressRow text={ __( 'Creating preview site' ) } statusText={ __( 'Just now' ) } />
+							<ProgressRow text={ __( 'Creating preview site' ) } />
 						) }
 						{ snapshotsOnSite
 							.filter( ( snapshot ) => ! snapshot.isLoading )

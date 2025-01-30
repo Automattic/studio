@@ -4,10 +4,9 @@ import { useProgressTimer } from 'src/hooks/use-progress-timer';
 
 interface ProgressRowProps {
 	text: string;
-	statusText?: string;
 }
 
-export function ProgressRow( { text, statusText = '-' }: ProgressRowProps ) {
+export function ProgressRow( { text }: ProgressRowProps ) {
 	const { progress } = useProgressTimer( {
 		initialProgress: 40,
 		paused: false,
@@ -25,7 +24,7 @@ export function ProgressRow( { text, statusText = '-' }: ProgressRowProps ) {
 					</div>
 				</div>
 				<div className="flex ml-auto">
-					<div className="w-[110px] text-[#757575] flex items-center pl-4">{ statusText }</div>
+					<div className="w-[110px] text-[#757575] flex items-center pl-4">{ '-' }</div>
 					<div className="w-[100px] text-[#757575] flex items-center pl-4">{ '-' }</div>
 					<div className="w-[60px] pr-2" />
 				</div>

@@ -3,7 +3,13 @@ import { __ } from '@wordpress/i18n';
 import { check, external, Icon } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren } from 'react';
-import { CLIENT_ID, PROTOCOL_PREFIX, SCOPES, WP_AUTHORIZE_ENDPOINT } from 'src/constants';
+import {
+	CLIENT_ID,
+	PROTOCOL_PREFIX,
+	SCOPES,
+	WP_AUTHORIZE_ENDPOINT,
+	LIMIT_OF_ZIP_SITES_PER_USER,
+} from 'src/constants';
 import { useArchiveSite } from 'src/hooks/use-archive-site';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
@@ -38,7 +44,7 @@ function EmptyGeneric( {
 				</div>
 				<div className="mt-6">
 					{ [
-						__( 'Create up to 10 preview sites for free.' ),
+						__( `Create up to ${ LIMIT_OF_ZIP_SITES_PER_USER } preview sites for free.` ),
 						__( 'Preview sites expire 7 days after the last update.' ),
 						createInterpolateElement( __( 'Powered by <a> WordPress.com</a>.' ), {
 							a: (

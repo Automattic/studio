@@ -23,7 +23,7 @@ export function PreviewSiteRow( { snapshot, selectedSite }: PreviewSiteRowProps 
 	const { countDown } = useExpirationDate( date );
 	const { fetchSnapshotUsage } = useSnapshots();
 	const { isDemoSiteUpdating } = useUpdateDemoSite();
-	const isSiteDemoUpdating = isDemoSiteUpdating( snapshot.atomicSiteId );
+	const isPreviewSiteUpdating = isDemoSiteUpdating( snapshot.atomicSiteId );
 	const { formatRelativeTime } = useFormatLocalizedTimestamps();
 
 	const getLastUpdateTimeText = () => {
@@ -66,7 +66,7 @@ export function PreviewSiteRow( { snapshot, selectedSite }: PreviewSiteRowProps 
 				</div>
 				<div className="flex ml-auto">
 					<div className="w-[110px] text-[#757575] flex items-center pl-4">
-						{ isSiteDemoUpdating ? (
+						{ isPreviewSiteUpdating ? (
 							<div className="flex items-center">
 								<Spinner className="!mt-0 !mx-2" />
 								{ __( 'Updating' ) }

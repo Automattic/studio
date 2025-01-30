@@ -1,6 +1,8 @@
 import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { store } from 'src/stores';
+import { chatActions, generateMessage } from 'src/stores/chat-slice';
+import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
 import { useSiteDetails } from '../../hooks/use-site-details';
 import { getIpcApi } from '../../lib/get-ipc-api';
 import createCodeComponent, { CodeBlockProps } from '../assistant-code-block';
@@ -13,6 +15,8 @@ jest.mock( '../../hooks/use-check-installed-apps', () => ( {
 	} ),
 } ) );
 jest.mock( '../../hooks/use-site-details' );
+
+store.replaceReducer( testReducer );
 
 const selectedSite: SiteDetails = {
 	id: 'site-id-1',
@@ -31,13 +35,11 @@ const selectedSite: SiteDetails = {
 
 describe( 'createCodeComponent', () => {
 	function ContextWrapper( props: CodeBlockProps ) {
-		const contextProps = {
-			blocks: [],
-			updateMessage: jest.fn(),
+		const CodeBlock = createCodeComponent( {
 			siteId: '1',
 			messageId: 1,
-		};
-		const CodeBlock = createCodeComponent( contextProps );
+			instanceId: '1',
+		} );
 
 		return (
 			<Provider store={ store }>
@@ -124,6 +126,7 @@ describe( 'createCodeComponent', () => {
 	describe( 'when the "run" button is clicked', () => {
 		beforeEach( () => {
 			jest.useFakeTimers();
+			store.dispatch( testActions.resetState() );
 		} );
 
 		afterEach( () => {
@@ -132,7 +135,11 @@ describe( 'createCodeComponent', () => {
 
 		it( 'should display an activity indicator while running code', async () => {
 			( getIpcApi as jest.Mock ).mockReturnValue( {
-				executeWPCLiInline: jest.fn().mockResolvedValue( { stdout: 'Mock success', stderr: '' } ),
+				executeWPCLiInline: jest.fn().mockResolvedValue( {
+					stdout: 'Mock success',
+					stderr: '',
+					exitCode: 0,
+				} ),
 			} );
 			render( <ContextWrapper className="language-bash" children="wp --version" /> );
 			expect( screen.queryByText( 'Running...' ) ).not.toBeInTheDocument();
@@ -148,8 +155,15 @@ describe( 'createCodeComponent', () => {
 
 		it( 'should display the output of the successfully executed code', async () => {
 			( getIpcApi as jest.Mock ).mockReturnValue( {
-				executeWPCLiInline: jest.fn().mockResolvedValue( { stdout: 'Mock success', stderr: '' } ),
+				executeWPCLiInline: jest.fn().mockResolvedValue( {
+					stdout: 'Mock success',
+					stderr: '',
+					exitCode: 0,
+				} ),
 			} );
+			const message = generateMessage( 'Lorem ipsum', 'user', 1 );
+			store.dispatch( chatActions.setMessages( { instanceId: '1', messages: [ message ] } ) );
+
 			render( <ContextWrapper className="language-bash" children="wp --version" /> );
 
 			fireEvent.click( screen.getByText( 'Run' ) );
@@ -162,8 +176,15 @@ describe( 'createCodeComponent', () => {
 
 		it( 'should display the output of the failed code execution', async () => {
 			( getIpcApi as jest.Mock ).mockReturnValue( {
-				executeWPCLiInline: jest.fn().mockResolvedValue( { stdout: '', stderr: 'Mock error' } ),
+				executeWPCLiInline: jest.fn().mockResolvedValue( {
+					stdout: '',
+					stderr: 'Mock error',
+					exitCode: 1,
+				} ),
 			} );
+			const message = generateMessage( 'Lorem ipsum', 'user', 1 );
+			store.dispatch( chatActions.setMessages( { instanceId: '1', messages: [ message ] } ) );
+
 			render( <ContextWrapper className="language-bash" children="wp --version" /> );
 
 			fireEvent.click( screen.getByText( 'Run' ) );
@@ -192,26 +213,18 @@ describe( 'createCodeComponent', () => {
 
 	describe( 'when past block execution output is present', () => {
 		it( 'should display the output of the previously executed code', async () => {
-			const contextProps = {
-				blocks: [
-					{
-						codeBlockContent: 'wp --version',
-						cliOutput: 'Mock success',
-						cliStatus: 'success' as const,
-						cliTime: '2.3s',
-					},
-				],
-				updateMessage: jest.fn(),
-				siteId: '1',
-				messageId: 1,
-			};
-			const CodeBlock = createCodeComponent( contextProps );
+			const message = generateMessage( 'Lorem ipsum', 'user', 1 );
+			message.blocks = [
+				{
+					codeBlockContent: 'wp --version',
+					cliOutput: 'Mock success',
+					cliStatus: 'success',
+					cliTime: '2.3s',
+				},
+			];
+			store.dispatch( chatActions.setMessages( { instanceId: '1', messages: [ message ] } ) );
 
-			render(
-				<Provider store={ store }>
-					<CodeBlock className="language-bash" children="wp --version" />
-				</Provider>
-			);
+			render( <ContextWrapper className="language-bash" children="wp --version" /> );
 
 			expect( screen.getByText( 'Success' ) ).toBeVisible();
 			expect( screen.getByText( 'Mock success' ) ).toBeVisible();

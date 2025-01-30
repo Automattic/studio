@@ -36,7 +36,6 @@ export const MarkDownWithCode = ( {
 			components={ {
 				a: Anchor,
 				code: createCodeComponent( {
-					blocks: message?.blocks,
 					messageId: message.id,
 					siteId,
 					instanceId,

@@ -4,20 +4,20 @@ import { Icon, archive, edit, preformatted } from '@wordpress/icons';
 import { useCallback, useEffect, useState } from 'react';
 import { ExtraProps } from 'react-markdown';
 import stripAnsi from 'strip-ansi';
+import { useRootSelector } from 'src/stores';
+import { chatSelectors } from 'src/stores/chat-slice';
 import { useExecuteWPCLI } from '../hooks/use-execute-cli';
 import { useFeatureFlags } from '../hooks/use-feature-flags';
 import { useIsValidWpCliInline } from '../hooks/use-is-valid-wp-cli-inline';
 import { useSiteDetails } from '../hooks/use-site-details';
 import { cx } from '../lib/cx';
 import { getIpcApi } from '../lib/get-ipc-api';
-import { Message as MessageType } from '../stores/chat-slice';
 import Button from './button';
 import { ChatMessageProps } from './chat-message';
 import { CopyTextButton } from './copy-text-button';
 import { ExecuteIcon } from './icons/execute';
 
 type ContextProps = {
-	blocks: MessageType[ 'blocks' ];
 	siteId: ChatMessageProps[ 'siteId' ];
 	messageId?: number;
 	instanceId: string;
@@ -30,12 +30,17 @@ export default function createCodeComponent( contextProps: ContextProps ) {
 }
 
 const LanguageBlock = ( props: ContextProps & CodeBlockProps ) => {
-	const { children, className, node, blocks, siteId, messageId, instanceId, ...htmlAttributes } =
-		props;
+	const { children, className, node, siteId, messageId, instanceId, ...htmlAttributes } = props;
 
 	const content = String( children ).trim();
 	const isValidWpCliCommand = useIsValidWpCliInline( content );
 	const { isRunning, handleExecute } = useExecuteWPCLI( content, instanceId, siteId, messageId );
+
+	const messages = useRootSelector( ( state ) =>
+		chatSelectors.selectMessages( state, instanceId )
+	);
+	const message = messages.find( ( { id } ) => id === messageId );
+	const blocks = message?.blocks ?? [];
 
 	const block = blocks?.find( ( block ) => block.codeBlockContent === content );
 	const cliOutput = block?.cliOutput ? stripAnsi( block.cliOutput ) : null;
@@ -116,8 +121,16 @@ const LanguageBlock = ( props: ContextProps & CodeBlockProps ) => {
 };
 
 function FileBlock( props: ContextProps & CodeBlockProps & { isDirectory?: boolean } ) {
-	const { children, className, node, blocks, siteId, messageId, isDirectory, ...htmlAttributes } =
-		props;
+	const {
+		children,
+		className,
+		node,
+		siteId,
+		messageId,
+		isDirectory,
+		instanceId,
+		...htmlAttributes
+	} = props;
 	const content = String( children ).trim();
 	const [ filePath, setFilePath ] = useState( '' );
 
@@ -165,7 +178,7 @@ function FileBlock( props: ContextProps & CodeBlockProps & { isDirectory?: boole
 function CodeBlock( props: ContextProps & CodeBlockProps ) {
 	const { children, className } = props;
 	const content = String( children ).trim();
-	const { node, blocks, siteId, messageId, ...htmlAttributes } = props;
+	const { node, siteId, messageId, instanceId, ...htmlAttributes } = props;
 
 	const isFilePath = ( content: string ) => {
 		const fileExtensions = [

@@ -16,8 +16,8 @@ import { useOffline } from 'src/hooks/use-offline';
 import { useSnapshots } from 'src/hooks/use-snapshots';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { CreatePreviewButton } from 'src/modules/preview-site/components/create-preview-button';
-import { PreviewLinksTableHeader } from 'src/modules/preview-site/components/preview-links-table-header';
 import { PreviewSiteRow } from 'src/modules/preview-site/components/preview-site-row';
+import { PreviewSitesTableHeader } from 'src/modules/preview-site/components/preview-sites-table-header';
 import { ProgressRow } from 'src/modules/preview-site/components/progress-row';
 import Button from './button';
 import offlineIcon from './offline-icon';
@@ -178,7 +178,7 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 				<div className="relative min-h-full flex flex-col">
 					<div className="w-full flex flex-col flex-1">
 						<div className="flex-1">
-							<PreviewLinksTableHeader />
+							<PreviewSitesTableHeader />
 							<div className="[&>*:not(:last-child)]:border-b [&>*]:border-a8c-gray-5">
 								{ ( isUploading || isSnapshotLoading ) && (
 									<ProgressRow
@@ -205,7 +205,7 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 		<div className="relative min-h-full flex flex-col">
 			<div className="w-full flex flex-col flex-1">
 				<div className="flex-1">
-					<PreviewLinksTableHeader />
+					<PreviewSitesTableHeader />
 					<div className="[&>*:not(:last-child)]:border-b [&>*]:border-a8c-gray-5">
 						{ ( isUploading || isSnapshotLoading ) && (
 							<ProgressRow text={ __( 'Creating preview site' ) } statusText={ __( 'Just now' ) } />

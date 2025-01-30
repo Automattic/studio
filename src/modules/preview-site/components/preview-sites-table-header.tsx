@@ -1,7 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 
-export function PreviewLinksTableHeader() {
+export function PreviewSitesTableHeader() {
 	const { __ } = useI18n();
 	return (
 		<div className="border-b border-a8c-gray-5">

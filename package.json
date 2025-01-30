@@ -108,7 +108,7 @@
 		"@php-wasm/node": "^0.9.44",
 		"@php-wasm/scopes": "^0.9.44",
 		"@php-wasm/universal": "^0.9.44",
-		"@reduxjs/toolkit": "^2.5.0",
+		"@reduxjs/toolkit": "^2.5.1",
 		"@rive-app/react-canvas": "^4.12.0",
 		"@sentry/electron": "^4.24.0",
 		"@sentry/webpack-plugin": "^2.16.1",

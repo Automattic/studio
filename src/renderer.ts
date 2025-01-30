@@ -35,7 +35,65 @@ import Root from './components/root';
 import { getIpcApi } from './lib/get-ipc-api';
 import './index.css';
 
-Sentry.init( { debug: true }, reactInit );
+Sentry.init(
+	{
+		debug: true,
+		beforeBreadcrumb( breadcrumb, hint ) {
+			if ( breadcrumb.category === 'ui.click' ) {
+				const targetElement = hint?.event?.target;
+
+				if ( targetElement ) {
+					// improve breadcrumb message, since sometimes we don't have any valuable information in the clicked element
+					const getExtraInformation = () => {
+						// if some clicked element doesn't have any valuable information, we can use data-sentry attribute to identify it
+						// but if button doesn't have textContent or any other information, prefer to always add area-label, since it's useful for screen-readers.
+						// data-sentry should be used only in edge-cases
+						const sentryData = targetElement.getAttribute( 'data-sentry' );
+						if ( sentryData ) {
+							return `[data-sentry="${ sentryData }"]`;
+						}
+
+						// area-label is added by default to message, so we don't need to add it again or any extra information, typically it's enough information to identify the element
+						if ( targetElement.getAttribute( 'aria-label' ) ) {
+							return '';
+						}
+
+						const textContent =
+							targetElement.textContent?.trim() || targetElement.innerText?.trim();
+						if ( textContent ) {
+							return `[text-content="${ textContent }"]`;
+						}
+
+						// Last resort, for example in cases when click happened on svg which doesn't have any information, but area-label or data-sentry or textContent is located in parent <a> or <button> tag
+						let element = targetElement.parentElement;
+						while ( element ) {
+							const ariaLabel = element.getAttribute( 'aria-label' );
+							const sentryData = element.getAttribute( 'data-sentry' );
+							const textContent = element.textContent?.trim() || element.innerText?.trim();
+							if ( ariaLabel ) {
+								return `[parent-aria-label="${ ariaLabel }"]`;
+							}
+							if ( sentryData ) {
+								return `[parent-data-sentry="${ sentryData }"]`;
+							}
+							if ( textContent ) {
+								return `[parent-text-content="${ textContent }"]`;
+							}
+							element = element.parentElement;
+						}
+
+						return '';
+					};
+
+					breadcrumb.message = ( breadcrumb.message || '' ) + getExtraInformation();
+				}
+			}
+
+			return breadcrumb;
+		},
+	},
+	reactInit
+);
 
 const makeLogger =
 	( level: 'info' | 'warn' | 'erro', originalLogger: typeof console.log ) =>

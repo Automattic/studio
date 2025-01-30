@@ -212,7 +212,6 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 							.map( ( snapshot ) => (
 								<PreviewSiteRow
 									snapshot={ snapshot }
-									previousSnapshot={ null }
 									selectedSite={ selectedSite }
 									key={ snapshot.atomicSiteId }
 								/>

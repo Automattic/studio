@@ -14,18 +14,12 @@ import { ProgressRow } from './progress-row';
 
 interface PreviewSiteRowProps {
 	snapshot: Snapshot;
-	previousSnapshot: Snapshot | null;
 	selectedSite: SiteDetails;
 }
 
-export function PreviewSiteRow( {
-	snapshot,
-	previousSnapshot,
-	selectedSite,
-}: PreviewSiteRowProps ) {
+export function PreviewSiteRow( { snapshot, selectedSite }: PreviewSiteRowProps ) {
 	const { __ } = useI18n();
-	const { url, date, isDeleting } =
-		previousSnapshot && snapshot.isLoading ? previousSnapshot : snapshot;
+	const { url, date, isDeleting } = snapshot;
 	const { countDown } = useExpirationDate( date );
 	const { fetchSnapshotUsage } = useSnapshots();
 	const { isDemoSiteUpdating } = useUpdateDemoSite();

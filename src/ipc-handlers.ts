@@ -507,6 +507,11 @@ export async function saveUserLocale( _event: IpcMainInvokeEvent, locale: string
 	} );
 }
 
+export async function getSentryUserId( _event: IpcMainInvokeEvent ): Promise< string | undefined > {
+	const userData = await loadUserData();
+	return userData.sentryUserId;
+}
+
 export async function getUserLocale( _event: IpcMainInvokeEvent ): Promise< SupportedLocale > {
 	return getUserLocaleWithFallback();
 }

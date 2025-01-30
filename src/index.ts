@@ -34,7 +34,7 @@ import {
 } from './migrations/migrate-from-wp-now-folder';
 import { setupWPServerFiles, updateWPServerFiles } from './setup-wp-server-files';
 import { stopAllServersOnQuit } from './site-server';
-import { loadUserData } from './storage/user-data'; // eslint-disable-next-line import/order
+import { loadUserData, saveUserData } from './storage/user-data'; // eslint-disable-next-line import/order
 import { setupUpdates } from './updates';
 
 if ( ! isCLI() && ! process.env.IS_DEV_BUILD ) {
@@ -271,6 +271,16 @@ async function appBoot() {
 			await migrateFromWpNowFolder();
 		}
 
+		const userData = await loadUserData();
+
+		if ( ! userData.sentryUserId ) {
+			userData.sentryUserId = crypto.randomUUID();
+			await saveUserData( userData );
+		}
+
+		console.log( 'Setting Sentry user ID:', userData.sentryUserId );
+		Sentry.setUser( { id: userData.sentryUserId } );
+
 		createMainWindow();
 
 		// Handle CLI commands
@@ -278,7 +288,6 @@ async function appBoot() {
 		executeCLICommand();
 
 		// Bump stats for the first time the app runs - this is when no lastBumpStats are available
-		const userData = await loadUserData();
 		if ( ! userData.lastBumpStats ) {
 			bumpStat( 'studio-app-launch-first', process.platform );
 		}

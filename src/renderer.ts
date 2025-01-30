@@ -76,9 +76,8 @@ window.onunhandledrejection = ( event ) => {
 	);
 };
 
-getIpcApi()
-	.getAppGlobals()
-	.then( ( appGlobals ) => {
+Promise.all( [ getIpcApi().getAppGlobals(), getIpcApi().getSentryUserId() ] ).then(
+	( [ appGlobals, sentryUserId ] ) => {
 		// Ensure the app globals are available before any renderer code starts running
 		window.appGlobals = appGlobals;
 
@@ -125,9 +124,12 @@ getIpcApi()
 			showARM64MessageBox();
 		}
 
+		Sentry.setUser( { id: sentryUserId } );
+
 		const rootEl = document.getElementById( 'root' );
 		if ( rootEl ) {
 			const root = createRoot( rootEl );
 			root.render( createElement( StrictMode, null, createElement( Root ) ) );
 		}
-	} );
+	}
+);

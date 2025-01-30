@@ -45,6 +45,7 @@ const api: IpcApi = {
 	showSaveAsDialog: ( options: SaveDialogOptions ) =>
 		ipcRenderer.invoke( 'showSaveAsDialog', options ),
 	saveUserLocale: ( locale: string ) => ipcRenderer.invoke( 'saveUserLocale', locale ),
+	getSentryUserId: () => ipcRenderer.invoke( 'getSentryUserId' ),
 	getUserLocale: () => ipcRenderer.invoke( 'getUserLocale' ),
 	showUserSettings: () => ipcRenderer.invoke( 'showUserSettings' ),
 	startServer: ( id: string ) => ipcRenderer.invoke( 'startServer', id ),

@@ -121,6 +121,7 @@ const fetchAssistant = createAsyncThunk(
 				},
 				( error, data, headers ) => {
 					if ( error ) {
+						Sentry.captureException( error );
 						return reject( error );
 					}
 					return resolve( { data, headers } );
@@ -191,6 +192,17 @@ const getInitialState = (): ChatState => {
 	const storedMessages = localStorage.getItem( LOCAL_STORAGE_CHAT_MESSAGES_KEY );
 	const storedChatIds = localStorage.getItem( LOCAL_STORAGE_CHAT_API_IDS_KEY );
 
+	let parsedStoredMessages: ChatState[ 'messagesDict' ] = {};
+	let parsedStoredChatIds: ChatState[ 'chatApiIdDict' ] = {};
+
+	try {
+		parsedStoredMessages = storedMessages ? JSON.parse( storedMessages ) : {};
+		parsedStoredChatIds = storedChatIds ? JSON.parse( storedChatIds ) : {};
+	} catch ( error ) {
+		Sentry.captureException( error );
+		console.error( error );
+	}
+
 	return {
 		currentURL: '',
 		pluginListDict: {},
@@ -203,8 +215,8 @@ const getInitialState = (): ChatState => {
 		os: window.appGlobals?.platform || '',
 		availableEditors: [],
 		siteName: '',
-		messagesDict: storedMessages ? JSON.parse( storedMessages ) : {},
-		chatApiIdDict: storedChatIds ? JSON.parse( storedChatIds ) : {},
+		messagesDict: parsedStoredMessages,
+		chatApiIdDict: parsedStoredChatIds,
 		chatInputBySite: {},
 		isLoadingDict: {},
 		promptUsageDict: {},

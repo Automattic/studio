@@ -218,6 +218,23 @@ describe( 'chat-slice', () => {
 			);
 			expect( storedChatIds[ instanceId ] ).toBe( 'chatcmpl-123' );
 		} );
+
+		it( 'should handle invalid JSON in localStorage gracefully', () => {
+			const consoleErrorSpy = jest.spyOn( console, 'error' );
+
+			localStorage.setItem( LOCAL_STORAGE_CHAT_MESSAGES_KEY, 'invalid json' );
+			localStorage.setItem( LOCAL_STORAGE_CHAT_API_IDS_KEY, '{also invalid}' );
+
+			jest.isolateModules( () => {
+				const { store } = require( 'src/stores' );
+
+				const state = store.getState();
+				expect( state.chat.messagesDict ).toEqual( {} );
+				expect( state.chat.chatApiIdDict ).toEqual( {} );
+			} );
+
+			expect( consoleErrorSpy ).toHaveBeenCalledTimes( 1 );
+		} );
 	} );
 
 	describe( 'updateMessage', () => {

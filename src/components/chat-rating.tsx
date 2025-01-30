@@ -2,7 +2,7 @@ import { __ } from '@wordpress/i18n';
 import { thumbsUp, thumbsDown, Icon } from '@wordpress/icons';
 import { useAuth } from 'src/hooks/use-auth';
 import { useAppDispatch } from 'src/stores';
-import { sendFeedbackThunk } from 'src/stores/chat-slice';
+import { chatThunks } from 'src/stores/chat-slice';
 import Button from './button';
 
 interface ChatRatingProps {
@@ -28,7 +28,9 @@ export const ChatRating = ( { messageApiId, feedbackReceived, instanceId }: Chat
 			return;
 		}
 
-		dispatch( sendFeedbackThunk( { client, messageApiId, ratingValue: feedback, instanceId } ) );
+		dispatch(
+			chatThunks.sendFeedback( { client, messageApiId, ratingValue: feedback, instanceId } )
+		);
 	};
 
 	return feedbackReceived ? (

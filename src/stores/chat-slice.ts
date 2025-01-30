@@ -57,7 +57,7 @@ type UpdateFromSiteParams = {
 	site: SiteDetails;
 };
 
-export const updateFromSiteThunk = createAsyncThunk(
+const updateFromSite = createAsyncThunk(
 	'chat/updateFromSite',
 	async ( { site }: UpdateFromSiteParams ) => {
 		const [ plugins, themes ] = await Promise.all( [
@@ -85,7 +85,7 @@ type FetchAssistantResponseData = {
 	id: string;
 };
 
-export const fetchAssistantThunk = createAsyncThunk(
+const fetchAssistant = createAsyncThunk(
 	'chat/fetchAssistant',
 	async ( { client, instanceId, siteId }: FetchAssistantParams, thunkAPI ) => {
 		const state = thunkAPI.getState() as RootState;
@@ -145,7 +145,7 @@ type SendFeedbackParams = {
 	ratingValue: number;
 };
 
-export const sendFeedbackThunk = createAsyncThunk(
+const sendFeedback = createAsyncThunk(
 	'chat/sendFeedback',
 	async ( { client, messageApiId, ratingValue, instanceId }: SendFeedbackParams, thunkAPI ) => {
 		const state = thunkAPI.getState() as RootState;
@@ -292,21 +292,21 @@ const chatSlice = createSlice( {
 	},
 	extraReducers: ( builder ) => {
 		builder
-			.addCase( updateFromSiteThunk.pending, ( state, action ) => {
+			.addCase( updateFromSite.pending, ( state, action ) => {
 				const { site } = action.meta.arg;
 
 				state.currentURL = `http://localhost:${ site.port }`;
 				state.phpVersion = site.phpVersion ?? DEFAULT_PHP_VERSION;
 				state.siteName = site.name;
 			} )
-			.addCase( updateFromSiteThunk.fulfilled, ( state, action ) => {
+			.addCase( updateFromSite.fulfilled, ( state, action ) => {
 				const { plugins, themes } = action.payload;
 				const siteId = action.meta.arg.site.id;
 
 				state.pluginListDict[ siteId ] = plugins;
 				state.themeListDict[ siteId ] = themes;
 			} )
-			.addCase( fetchAssistantThunk.pending, ( state, action ) => {
+			.addCase( fetchAssistant.pending, ( state, action ) => {
 				const { message, instanceId, isRetry } = action.meta.arg;
 
 				state.isLoadingDict[ instanceId ] = true;
@@ -325,7 +325,7 @@ const chatSlice = createSlice( {
 					} );
 				}
 			} )
-			.addCase( fetchAssistantThunk.rejected, ( state, action ) => {
+			.addCase( fetchAssistant.rejected, ( state, action ) => {
 				const { message, instanceId } = action.meta.arg;
 
 				state.isLoadingDict[ instanceId ] = false;
@@ -336,7 +336,7 @@ const chatSlice = createSlice( {
 					}
 				} );
 			} )
-			.addCase( fetchAssistantThunk.fulfilled, ( state, action ) => {
+			.addCase( fetchAssistant.fulfilled, ( state, action ) => {
 				const { instanceId } = action.meta.arg;
 
 				state.isLoadingDict[ instanceId ] = false;
@@ -360,7 +360,7 @@ const chatSlice = createSlice( {
 					remainingQuota: action.payload.remainingQuota,
 				};
 			} )
-			.addCase( sendFeedbackThunk.pending, ( state, action ) => {
+			.addCase( sendFeedback.pending, ( state, action ) => {
 				const { instanceId, messageApiId } = action.meta.arg;
 
 				if ( ! state.messagesDict[ instanceId ] ) {
@@ -385,4 +385,9 @@ const chatSlice = createSlice( {
 
 export const chatActions = chatSlice.actions;
 export const chatSelectors = chatSlice.selectors;
+export const chatThunks = {
+	fetchAssistant,
+	sendFeedback,
+	updateFromSite,
+};
 export const { reducer } = chatSlice;

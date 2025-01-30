@@ -11,9 +11,8 @@ import { useThemeDetails } from 'src/hooks/use-theme-details';
 import { cx } from 'src/lib/cx';
 import { useAppDispatch, useRootSelector } from 'src/stores';
 import {
-	fetchAssistantThunk,
+	chatThunks,
 	generateMessage,
-	updateFromSiteThunk,
 	Message as MessageType,
 	chatActions,
 	chatSelectors,
@@ -354,7 +353,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const { selectedThemeDetails: themeDetails } = useThemeDetails();
 
 	useEffect( () => {
-		dispatch( updateFromSiteThunk( { site: selectedSite } ) );
+		dispatch( chatThunks.updateFromSite( { site: selectedSite } ) );
 	}, [ dispatch, selectedSite ] );
 
 	useEffect( () => {
@@ -377,7 +376,13 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 			const message = generateMessage( chatMessage, 'user', newMessageId, chatApiId );
 
 			dispatch(
-				fetchAssistantThunk( { client, instanceId, isRetry, message, siteId: selectedSite.id } )
+				chatThunks.fetchAssistant( {
+					client,
+					instanceId,
+					isRetry,
+					message,
+					siteId: selectedSite.id,
+				} )
 			);
 		},
 		[ client, dispatch, instanceId, selectedSite.id, messages, chatApiId ]

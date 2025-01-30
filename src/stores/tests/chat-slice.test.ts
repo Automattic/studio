@@ -2,14 +2,7 @@ import WPCOM from 'wpcom';
 import { LOCAL_STORAGE_CHAT_API_IDS_KEY, LOCAL_STORAGE_CHAT_MESSAGES_KEY } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { store } from 'src/stores';
-import {
-	fetchAssistantThunk,
-	generateMessage,
-	chatActions,
-	sendFeedbackThunk,
-	updateFromSiteThunk,
-	chatSelectors,
-} from 'src/stores/chat-slice';
+import { chatThunks, generateMessage, chatActions, chatSelectors } from 'src/stores/chat-slice';
 import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
 
 jest.mock( 'src/lib/get-ipc-api' );
@@ -56,13 +49,13 @@ describe( 'chat-slice', () => {
 		store.dispatch( testActions.resetState() );
 	} );
 
-	describe( 'fetchAssistantThunk', () => {
+	describe( 'fetchAssistant', () => {
 		it( 'should add assistant message to state when fulfilled', async () => {
 			const instanceId = 'test-site';
 			const userMessage = generateMessage( 'Hello test 1', 'user', 0, 'chatcmpl-123', 42 );
 
 			const result = await store.dispatch(
-				fetchAssistantThunk( {
+				chatThunks.fetchAssistant( {
 					client: mockClientUsingCallback,
 					instanceId,
 					message: userMessage,
@@ -104,7 +97,7 @@ describe( 'chat-slice', () => {
 			store.dispatch( chatActions.setMessages( { instanceId, messages: [ userMessage ] } ) );
 
 			const result = await store.dispatch(
-				fetchAssistantThunk( {
+				chatThunks.fetchAssistant( {
 					client: mockClientUsingCallback,
 					instanceId,
 					message: userMessage,
@@ -147,7 +140,7 @@ describe( 'chat-slice', () => {
 			} );
 
 			const result = await store.dispatch(
-				fetchAssistantThunk( {
+				chatThunks.fetchAssistant( {
 					client: mockClientUsingCallback,
 					instanceId,
 					message: userMessage,
@@ -168,7 +161,7 @@ describe( 'chat-slice', () => {
 		} );
 	} );
 
-	describe( 'sendFeedbackThunk', () => {
+	describe( 'sendFeedback', () => {
 		it( 'should mark message as feedback received', async () => {
 			const instanceId = 'test-site';
 
@@ -179,7 +172,7 @@ describe( 'chat-slice', () => {
 			);
 
 			const result = await store.dispatch(
-				sendFeedbackThunk( {
+				chatThunks.sendFeedback( {
 					client: mockClientUsingPromise,
 					instanceId,
 					messageApiId: 42,
@@ -202,7 +195,7 @@ describe( 'chat-slice', () => {
 			const userMessage = generateMessage( 'Hello test 4', 'user', 0, 'chatcmpl-123', 42 );
 
 			await store.dispatch(
-				fetchAssistantThunk( {
+				chatThunks.fetchAssistant( {
 					client: mockClientUsingCallback,
 					instanceId,
 					message: userMessage,
@@ -337,7 +330,7 @@ describe( 'chat-slice', () => {
 		} );
 	} );
 
-	describe( 'updateFromSiteThunk', () => {
+	describe( 'updateFromSite', () => {
 		const mockSite: SiteDetails = {
 			id: 'test-site',
 			name: 'Test Site',
@@ -358,7 +351,7 @@ describe( 'chat-slice', () => {
 		} );
 
 		it( 'should update plugin and theme lists when WP CLI succeeds', async () => {
-			const result = await store.dispatch( updateFromSiteThunk( { site: mockSite } ) );
+			const result = await store.dispatch( chatThunks.updateFromSite( { site: mockSite } ) );
 
 			expect( result.type ).toBe( 'chat/updateFromSite/fulfilled' );
 			expect( result.payload ).toEqual( {
@@ -382,7 +375,7 @@ describe( 'chat-slice', () => {
 				} ),
 			} );
 
-			const result = await store.dispatch( updateFromSiteThunk( { site: mockSite } ) );
+			const result = await store.dispatch( chatThunks.updateFromSite( { site: mockSite } ) );
 
 			expect( result.type ).toBe( 'chat/updateFromSite/fulfilled' );
 			expect( result.payload ).toEqual( {
@@ -403,7 +396,7 @@ describe( 'chat-slice', () => {
 				} ),
 			} );
 
-			const result = await store.dispatch( updateFromSiteThunk( { site: mockSite } ) );
+			const result = await store.dispatch( chatThunks.updateFromSite( { site: mockSite } ) );
 
 			expect( result.type ).toBe( 'chat/updateFromSite/fulfilled' );
 			expect( result.payload ).toEqual( {

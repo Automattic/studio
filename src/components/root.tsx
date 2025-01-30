@@ -1,5 +1,6 @@
+import { Provider as ReduxProvider } from 'react-redux';
+import { store } from 'src/stores';
 import { SyncSitesProvider } from '../hooks/sync-sites/sync-sites-context';
-import { ChatProvider } from '../hooks/use-chat-context';
 import { InstalledAppsProvider } from '../hooks/use-check-installed-apps';
 import { ContentTabsProvider } from '../hooks/use-content-tabs';
 import { FeatureFlagsProvider } from '../hooks/use-feature-flags';
@@ -20,17 +21,17 @@ const Root = () => {
 	return (
 		<ErrorBoundary>
 			<CrashTester />
-			<I18nDataProvider>
-				<AuthProvider>
-					<SnapshotProvider>
-						<SiteDetailsProvider>
-							<FeatureFlagsProvider>
-								<DemoSiteUpdateProvider>
-									<ThemeDetailsProvider>
-										<InstalledAppsProvider>
-											<OnboardingProvider>
-												<PromptUsageProvider>
-													<ChatProvider>
+			<ReduxProvider store={ store }>
+				<I18nDataProvider>
+					<AuthProvider>
+						<SnapshotProvider>
+							<SiteDetailsProvider>
+								<FeatureFlagsProvider>
+									<DemoSiteUpdateProvider>
+										<ThemeDetailsProvider>
+											<InstalledAppsProvider>
+												<OnboardingProvider>
+													<PromptUsageProvider>
 														<ImportExportProvider>
 															<ContentTabsProvider>
 																<SyncSitesProvider>
@@ -38,17 +39,17 @@ const Root = () => {
 																</SyncSitesProvider>
 															</ContentTabsProvider>
 														</ImportExportProvider>
-													</ChatProvider>
-												</PromptUsageProvider>
-											</OnboardingProvider>
-										</InstalledAppsProvider>
-									</ThemeDetailsProvider>
-								</DemoSiteUpdateProvider>
-							</FeatureFlagsProvider>
-						</SiteDetailsProvider>
-					</SnapshotProvider>
-				</AuthProvider>
-			</I18nDataProvider>
+													</PromptUsageProvider>
+												</OnboardingProvider>
+											</InstalledAppsProvider>
+										</ThemeDetailsProvider>
+									</DemoSiteUpdateProvider>
+								</FeatureFlagsProvider>
+							</SiteDetailsProvider>
+						</SnapshotProvider>
+					</AuthProvider>
+				</I18nDataProvider>
+			</ReduxProvider>
 		</ErrorBoundary>
 	);
 };

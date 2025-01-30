@@ -4,7 +4,7 @@ export const SIDEBAR_WIDTH = 268;
 export const MAIN_MIN_WIDTH = DEFAULT_WIDTH - SIDEBAR_WIDTH + 20;
 export const SCREENSHOT_WIDTH = 1040;
 export const SCREENSHOT_HEIGHT = 1248;
-export const LIMIT_OF_ZIP_SITES_PER_USER = 5;
+export const LIMIT_OF_ZIP_SITES_PER_USER = 10;
 export const LIMIT_OF_PROMPTS_PER_USER = 200;
 export const DEMO_SITE_SIZE_LIMIT_GB = 2;
 export const DEMO_SITE_SIZE_LIMIT_BYTES = DEMO_SITE_SIZE_LIMIT_GB * 1024 * 1024 * 1024; // 2GB
@@ -27,7 +27,8 @@ export const FEATURE_REQUEST_URL =
 export const WPCOM_PROFILE_URL = 'https://wordpress.com/me';
 export const STUDIO_DOCS_URL_GET_HELP_UNSUPPORTED_SITES =
 	'https://developer.wordpress.com/docs/developer-tools/studio/';
-export const CHAT_MESSAGES_STORE_KEY = 'ai_chat_messages';
+export const LOCAL_STORAGE_CHAT_MESSAGES_KEY = 'ai_chat_messages';
+export const LOCAL_STORAGE_CHAT_API_IDS_KEY = 'ai_chat_ids';
 
 //Import file constants
 

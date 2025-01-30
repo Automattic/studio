@@ -179,17 +179,20 @@ abstract class BaseBackupImporter extends BaseImporter {
 			if ( ! fs.existsSync( wpContentDir ) ) {
 				return;
 			}
-			const contentToKeep = [ 'mu-plugins', 'database', 'db.php' ];
+			const contentToKeep = [
+				/^mu-plugins$/, // Match mu-plugins directory exactly
+				/^mu-plugins(\/|\\)sqlite-database-integration(\/|\\)?.*/, // Match sqlite-database-integration dir and contents
+				/^database(\/|\\)?.*/, // Match database dir and all contents
+				/^db\.php$/, // Exact match for db.php
+			];
 
-			const contents = await fsPromises.readdir( wpContentDir );
+			const contents = await fsPromises.readdir( wpContentDir, { recursive: true } );
 
 			for ( const content of contents ) {
-				const contentPath = path.join( wpContentDir, content );
-
-				if ( contentToKeep.includes( content ) ) {
+				if ( contentToKeep.some( ( pattern ) => pattern.test( content ) ) ) {
 					continue;
 				}
-				await this.safelyDeletePath( contentPath );
+				await this.safelyDeletePath( path.join( wpContentDir, content ) );
 			}
 		} catch {
 			return;
@@ -215,9 +218,18 @@ abstract class BaseBackupImporter extends BaseImporter {
 		const wpContentDestDir = path.join( rootPath, 'wp-content' );
 		for ( const files of Object.values( wpContent ) ) {
 			for ( const file of files ) {
-				const stats = await lstat( file );
-				// Skip if it's a directory
-				if ( stats.isDirectory() ) {
+				try {
+					const stats = await lstat( file );
+					// Skip if it's a directory
+					if ( stats.isDirectory() ) {
+						continue;
+					}
+				} catch {
+					/**
+					 * If the file does not exist, skip it.
+					 * This can happen if a empty directory is included in the backup
+					 * because the empty directory won't be included in the extraction.
+					 */
 					continue;
 				}
 				const relativePath = path.relative(

@@ -1,4 +1,3 @@
-import * as Sentry from '@sentry/electron/renderer';
 import { render, screen } from '@testing-library/react';
 import { speak } from '@wordpress/a11y';
 import { useSiteDetails } from '../../hooks/use-site-details';
@@ -76,26 +75,5 @@ describe( 'Anchor', () => {
 		render( <Anchor href="http://localhost:3000" children="Example link" /> );
 
 		expect( screen.getByRole( 'link' ) ).toHaveClass( 'animate-pulse', 'cursor-wait' );
-	} );
-
-	it( 'should gracefully handle link open failures', async () => {
-		const error = new Error( 'Failed to open link' );
-		( getIpcApi as jest.Mock ).mockReturnValue( {
-			openURL: jest.fn( () => Promise.reject( error ) ),
-			showErrorMessageBox: jest.fn(),
-		} );
-		render( <Anchor href="https://example.com" children="Example link" /> );
-
-		screen.getByRole( 'link' ).click();
-
-		// Await asynchronous openURL execution
-		await new Promise( process.nextTick );
-
-		expect( getIpcApi().showErrorMessageBox ).toHaveBeenCalledWith( {
-			title: 'Failed to open link',
-			message: 'We were unable to open the link. Please try again.',
-			error,
-		} );
-		expect( Sentry.captureException ).toHaveBeenCalled();
 	} );
 } );

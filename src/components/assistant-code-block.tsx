@@ -4,7 +4,8 @@ import { Icon, archive, edit, preformatted } from '@wordpress/icons';
 import { useCallback, useEffect, useState } from 'react';
 import { ExtraProps } from 'react-markdown';
 import stripAnsi from 'strip-ansi';
-import { Message as MessageType } from '../hooks/use-assistant';
+import { useRootSelector } from 'src/stores';
+import { chatSelectors } from 'src/stores/chat-slice';
 import { useExecuteWPCLI } from '../hooks/use-execute-cli';
 import { useFeatureFlags } from '../hooks/use-feature-flags';
 import { useIsValidWpCliInline } from '../hooks/use-is-valid-wp-cli-inline';
@@ -16,41 +17,35 @@ import { ChatMessageProps } from './chat-message';
 import { CopyTextButton } from './copy-text-button';
 import { ExecuteIcon } from './icons/execute';
 
-type ContextProps = Pick< MessageType, 'blocks' > &
-	Pick< ChatMessageProps, 'updateMessage' | 'siteId' > & { messageId?: number };
+type ContextProps = {
+	siteId: ChatMessageProps[ 'siteId' ];
+	messageId?: number;
+	instanceId: string;
+};
 
-type CodeBlockProps = JSX.IntrinsicElements[ 'code' ] & ExtraProps;
+export type CodeBlockProps = JSX.IntrinsicElements[ 'code' ] & ExtraProps;
 
 export default function createCodeComponent( contextProps: ContextProps ) {
 	return ( props: CodeBlockProps ) => <CodeBlock { ...contextProps } { ...props } />;
 }
 
 const LanguageBlock = ( props: ContextProps & CodeBlockProps ) => {
-	const { children, className, node, blocks, updateMessage, siteId, messageId, ...htmlAttributes } =
-		props;
+	const { children, className, node, siteId, messageId, instanceId, ...htmlAttributes } = props;
+
 	const content = String( children ).trim();
 	const isValidWpCliCommand = useIsValidWpCliInline( content );
-	const {
-		cliOutput,
-		cliStatus,
-		cliTime,
-		isRunning,
-		handleExecute,
-		setCliOutput,
-		setCliStatus,
-		setCliTime,
-	} = useExecuteWPCLI( content, siteId, updateMessage, messageId );
+	const { isRunning, handleExecute } = useExecuteWPCLI( content, instanceId, siteId, messageId );
 
-	useEffect( () => {
-		if ( blocks ) {
-			const block = blocks?.find( ( block ) => block.codeBlockContent === content );
-			if ( block ) {
-				setCliOutput( block?.cliOutput ? stripAnsi( block.cliOutput ) : null );
-				setCliStatus( block?.cliStatus ?? null );
-				setCliTime( block?.cliTime ?? null );
-			}
-		}
-	}, [ blocks, cliOutput, content, setCliOutput, setCliStatus, setCliTime ] );
+	const messages = useRootSelector( ( state ) =>
+		chatSelectors.selectMessages( state, instanceId )
+	);
+	const message = messages.find( ( { id } ) => id === messageId );
+	const blocks = message?.blocks ?? [];
+
+	const block = blocks?.find( ( block ) => block.codeBlockContent === content );
+	const cliOutput = block?.cliOutput ? stripAnsi( block.cliOutput ) : null;
+	const cliStatus = block?.cliStatus ?? null;
+	const cliTime = block?.cliTime ?? null;
 
 	const { terminalWpCliEnabled } = useFeatureFlags();
 	const { selectedSite } = useSiteDetails();
@@ -130,11 +125,10 @@ function FileBlock( props: ContextProps & CodeBlockProps & { isDirectory?: boole
 		children,
 		className,
 		node,
-		blocks,
-		updateMessage,
 		siteId,
 		messageId,
 		isDirectory,
+		instanceId,
 		...htmlAttributes
 	} = props;
 	const content = String( children ).trim();
@@ -184,7 +178,7 @@ function FileBlock( props: ContextProps & CodeBlockProps & { isDirectory?: boole
 function CodeBlock( props: ContextProps & CodeBlockProps ) {
 	const { children, className } = props;
 	const content = String( children ).trim();
-	const { node, blocks, updateMessage, siteId, messageId, ...htmlAttributes } = props;
+	const { node, siteId, messageId, instanceId, ...htmlAttributes } = props;
 
 	const isFilePath = ( content: string ) => {
 		const fileExtensions = [

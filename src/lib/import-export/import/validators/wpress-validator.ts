@@ -24,6 +24,7 @@ export class WpressValidator extends EventEmitter implements Validator {
 				uploads: [],
 				plugins: [],
 				themes: [],
+				muPlugins: [],
 			},
 			wpContentDirectory: '',
 		};
@@ -43,6 +44,8 @@ export class WpressValidator extends EventEmitter implements Validator {
 				extractedBackup.wpContent.plugins.push( fullPath );
 			} else if ( file.startsWith( 'themes' + path.sep ) ) {
 				extractedBackup.wpContent.themes.push( fullPath );
+			} else if ( file.startsWith( 'mu-plugins' + path.sep ) ) {
+				extractedBackup.wpContent.muPlugins!.push( fullPath );
 			} else if ( file === 'package.json' ) {
 				extractedBackup.metaFile = fullPath;
 			}

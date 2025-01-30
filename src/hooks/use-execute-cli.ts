@@ -1,25 +1,17 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { useCallback, useState } from 'react';
+import { useDispatch } from 'react-redux';
 import { getIpcApi } from '../lib/get-ipc-api';
+import { chatActions } from '../stores/chat-slice';
 
 export function useExecuteWPCLI(
 	content: string,
+	instanceId: string,
 	siteId: string | undefined,
-	updateMessage:
-		| ( (
-				id: number,
-				content: string,
-				output: string,
-				status: 'success' | 'error',
-				time: string
-		  ) => void )
-		| undefined,
 	messageId: number | undefined
 ) {
-	const [ cliOutput, setCliOutput ] = useState< string | null >( null );
-	const [ cliStatus, setCliStatus ] = useState< 'success' | 'error' | null >( null );
-	const [ cliTime, setCliTime ] = useState< string | null >( null );
 	const [ isRunning, setIsRunning ] = useState( false );
+	const dispatch = useDispatch();
 
 	const handleExecute = useCallback( async () => {
 		setIsRunning( true );
@@ -32,36 +24,40 @@ export function useExecuteWPCLI(
 		} );
 
 		const msTime = Date.now() - startTime;
-		if ( result.stderr ) {
-			setCliOutput( result.stderr );
-			setCliStatus( 'error' );
-		} else {
-			setCliOutput( result.stdout );
-			setCliStatus( 'success' );
-		}
 		const completedIn = sprintf( __( 'Completed in %s seconds' ), ( msTime / 1000 ).toFixed( 2 ) );
-		setCliTime( completedIn );
 		setIsRunning( false );
 
-		if ( updateMessage && messageId !== undefined ) {
-			updateMessage(
-				messageId,
-				content,
-				result.stdout || result.stderr,
-				result.stderr ? 'error' : 'success',
-				completedIn || ''
+		if ( messageId === undefined ) {
+			return;
+		}
+
+		if ( result.exitCode === 0 ) {
+			dispatch(
+				chatActions.updateMessage( {
+					cliOutput: result.stdout,
+					cliStatus: 'success',
+					cliTime: completedIn,
+					codeBlockContent: content,
+					messageId,
+					instanceId,
+				} )
+			);
+		} else {
+			dispatch(
+				chatActions.updateMessage( {
+					cliOutput: result.stderr || __( 'Error when executing wp-cli command' ),
+					cliStatus: 'error',
+					cliTime: completedIn,
+					codeBlockContent: content,
+					messageId,
+					instanceId,
+				} )
 			);
 		}
-	}, [ content, messageId, siteId, updateMessage ] );
+	}, [ content, dispatch, messageId, siteId, instanceId ] );
 
 	return {
-		cliOutput,
-		cliStatus,
-		cliTime,
 		isRunning,
 		handleExecute,
-		setCliOutput,
-		setCliStatus,
-		setCliTime,
 	};
 }

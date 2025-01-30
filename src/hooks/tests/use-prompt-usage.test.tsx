@@ -1,6 +1,9 @@
 import { renderHook, act, waitFor } from '@testing-library/react';
+import { Provider } from 'react-redux';
+import { store } from 'src/stores';
 import { useAuth } from '../use-auth';
 import { usePromptUsage, PromptUsageProvider } from '../use-prompt-usage';
+import type { ReactNode } from 'react';
 
 jest.mock( '../use-auth', () => ( {
 	useAuth: jest.fn(),
@@ -9,6 +12,14 @@ jest.mock( '../use-auth', () => ( {
 jest.mock( '../use-feature-flags', () => ( {
 	useFeatureFlags: jest.fn(),
 } ) );
+
+function TestWrapper( { children }: { children: ReactNode } ) {
+	return (
+		<Provider store={ store }>
+			<PromptUsageProvider>{ children }</PromptUsageProvider>
+		</Provider>
+	);
+}
 
 describe( 'usePromptUsage hook', () => {
 	const mockClient = {
@@ -30,7 +41,7 @@ describe( 'usePromptUsage hook', () => {
 
 	it( 'should initialize with default values', () => {
 		const { result } = renderHook( () => usePromptUsage(), {
-			wrapper: PromptUsageProvider,
+			wrapper: TestWrapper,
 		} );
 
 		expect( result.current.promptLimit ).toBe( 200 );
@@ -48,7 +59,7 @@ describe( 'usePromptUsage hook', () => {
 		} );
 
 		const { result } = renderHook( () => usePromptUsage(), {
-			wrapper: PromptUsageProvider,
+			wrapper: TestWrapper,
 		} );
 
 		await waitFor( () => {
@@ -61,7 +72,7 @@ describe( 'usePromptUsage hook', () => {
 
 	it( 'should update prompt usage', async () => {
 		const { result } = renderHook( () => usePromptUsage(), {
-			wrapper: PromptUsageProvider,
+			wrapper: TestWrapper,
 		} );
 
 		act( () => {
@@ -74,7 +85,7 @@ describe( 'usePromptUsage hook', () => {
 		expect( result.current.daysUntilReset ).toBe( NaN );
 	} );
 
-	it.only( 'should not allow sending message when limit is reached', async () => {
+	it( 'should not allow sending message when limit is reached', async () => {
 		( useAuth as jest.Mock ).mockReturnValue( { client: mockClient } );
 		mockClient.req.get.mockResolvedValue( {
 			max_quota: 100,
@@ -83,7 +94,7 @@ describe( 'usePromptUsage hook', () => {
 		} );
 
 		const { result } = renderHook( () => usePromptUsage(), {
-			wrapper: PromptUsageProvider,
+			wrapper: TestWrapper,
 		} );
 
 		await waitFor( () => {

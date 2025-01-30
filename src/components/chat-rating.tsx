@@ -1,14 +1,14 @@
 import { __ } from '@wordpress/i18n';
 import { thumbsUp, thumbsDown, Icon } from '@wordpress/icons';
-import { useAssistant } from '../hooks/use-assistant';
+import { useAuth } from 'src/hooks/use-auth';
+import { useAppDispatch } from 'src/stores';
+import { chatThunks } from 'src/stores/chat-slice';
 import Button from './button';
 
 interface ChatRatingProps {
+	instanceId: string;
 	messageApiId: number;
 	feedbackReceived: boolean;
-	markMessageAsFeedbackReceived: ReturnType<
-		typeof useAssistant
-	>[ 'markMessageAsFeedbackReceived' ];
 	className?: string;
 }
 
@@ -20,13 +20,17 @@ export const FeedbackThanks = () => {
 	);
 };
 
-export const ChatRating = ( {
-	messageApiId,
-	markMessageAsFeedbackReceived,
-	feedbackReceived,
-}: ChatRatingProps ) => {
+export const ChatRating = ( { messageApiId, feedbackReceived, instanceId }: ChatRatingProps ) => {
+	const { client } = useAuth();
+	const dispatch = useAppDispatch();
 	const handleRatingClick = async ( feedback: number ) => {
-		markMessageAsFeedbackReceived( messageApiId, feedback );
+		if ( ! client ) {
+			return;
+		}
+
+		dispatch(
+			chatThunks.sendFeedback( { client, messageApiId, ratingValue: feedback, instanceId } )
+		);
 	};
 
 	return feedbackReceived ? (

@@ -12,6 +12,7 @@ export interface WpContent {
 	uploads: string[];
 	plugins: string[];
 	themes: string[];
+	muPlugins?: string[];
 }
 
 export interface BackupContents {

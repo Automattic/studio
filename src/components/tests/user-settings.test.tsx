@@ -1,6 +1,7 @@
 // To run tests, execute `npm run test -- src/components/user-settings.test.tsx` from the root directory
 import { fireEvent, render, screen } from '@testing-library/react';
 import { useAuth } from '../../hooks/use-auth';
+import { useFeatureFlags } from '../../hooks/use-feature-flags';
 import { useIpcListener } from '../../hooks/use-ipc-listener';
 import { useOffline } from '../../hooks/use-offline';
 import UserSettings from '../user-settings';
@@ -15,6 +16,8 @@ afterEach( () => {
 
 describe( 'UserSettings', () => {
 	beforeEach( () => {
+		( useFeatureFlags as jest.Mock ).mockReturnValue( { quickDeploysEnabled: false } );
+
 		// Triggers IPC listener to show modal
 		( useIpcListener as jest.Mock ).mockImplementationOnce( ( listener, callback ) => {
 			if ( listener === 'user-settings' ) {

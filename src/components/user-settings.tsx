@@ -5,6 +5,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useState, useEffect } from 'react';
 import { WPCOM_PROFILE_URL } from '../constants';
 import { useAuth } from '../hooks/use-auth';
+import { useFeatureFlags } from '../hooks/use-feature-flags';
 import { useIpcListener } from '../hooks/use-ipc-listener';
 import { useOffline } from '../hooks/use-offline';
 import { usePromptUsage } from '../hooks/use-prompt-usage';
@@ -64,7 +65,7 @@ const SnapshotInfo = ( {
 	isDeleting?: boolean;
 } ) => {
 	const { __ } = useI18n();
-
+	const { quickDeploysEnabled } = useFeatureFlags();
 	const { snapshotCreationBlocked } = useSnapshots();
 	const menuItemStyles = cx(
 		'[&_span]:min-w-0 [&_span]:p-[1px]',
@@ -72,14 +73,20 @@ const SnapshotInfo = ( {
 			'[&.components-button:disabled]:cursor-not-allowed [&.components-button]:aria-disabled:cursor-not-allowed'
 	);
 	const isOffline = useOffline();
-	const offlineMessage = __( 'Deleting demo sites requires an internet connection.' );
+	const offlineMessage = quickDeploysEnabled
+		? __( 'Deleting preview sites requires an internet connection.' )
+		: __( 'Deleting demo sites requires an internet connection.' );
 	return (
 		<div className={ cx( 'flex flex-col', ! snapshotCreationBlocked && 'gap-3' ) }>
-			<h2 className="a8c-label-semibold">{ __( 'Demo sites' ) }</h2>
+			<h2 className="a8c-label-semibold">
+				{ quickDeploysEnabled ? __( 'Preview sites' ) : __( 'Demo sites' ) }
+			</h2>
 			<div className="flex gap-3 flex-row items-center w-full">
 				{ snapshotCreationBlocked ? (
 					<div className="text-a8c-gray-70">
-						{ __( 'Demo sites are not available for your account.' ) }
+						{ quickDeploysEnabled
+							? __( 'Preview sites are not available for your account.' )
+							: __( 'Demo sites are not available for your account.' ) }
 					</div>
 				) : (
 					<>
@@ -88,7 +95,13 @@ const SnapshotInfo = ( {
 								<div className="flex flex-row items-center text-right">
 									{ isDeleting && <Spinner className="!mt-0 !mx-2" /> }
 									<span className="text-a8c-gray-70">
-										{ sprintf( __( '%1s of %2s active demo sites' ), siteCount, siteLimit ) }
+										{ sprintf(
+											quickDeploysEnabled
+												? __( '%1s of %2s active preview sites' )
+												: __( '%1s of %2s active demo sites' ),
+											siteCount,
+											siteLimit
+										) }
 									</span>
 								</div>
 							</div>
@@ -134,7 +147,9 @@ const SnapshotInfo = ( {
 													onClose();
 												} }
 											>
-												{ __( 'Delete all demo sites' ) }
+												{ quickDeploysEnabled
+													? __( 'Delete all preview sites' )
+													: __( 'Delete all demo sites' ) }
 											</MenuItem>
 										</Tooltip>
 									</MenuGroup>
@@ -175,6 +190,7 @@ function PromptInfo() {
 }
 
 export default function UserSettings() {
+	const { quickDeploysEnabled } = useFeatureFlags();
 	const { __ } = useI18n();
 	const [ deletedAllSnapshots, setDeletedAllSnapshots ] = useState( false );
 	const { isAuthenticated, authenticate, logout, user } = useAuth();
@@ -205,10 +221,12 @@ export default function UserSettings() {
 			setDeletedAllSnapshots( false );
 			getIpcApi().showNotification( {
 				title: __( 'Delete Successful' ),
-				body: __( 'All demo sites have been deleted.' ),
+				body: quickDeploysEnabled
+					? __( 'All preview sites have been deleted.' )
+					: __( 'All demo sites have been deleted.' ),
 			} );
 		}
-	}, [ __, loadingDeletingAllSnapshots, deletedAllSnapshots ] );
+	}, [ __, loadingDeletingAllSnapshots, deletedAllSnapshots, quickDeploysEnabled ] );
 
 	const onRemoveSnapshots = useCallback( async () => {
 		if ( ! allSnapshots || allSnapshots.length === 0 ) {
@@ -220,10 +238,16 @@ export default function UserSettings() {
 
 		const { response } = await getIpcApi().showMessageBox( {
 			type: 'warning',
-			message: __( 'Delete all demo sites' ),
-			detail: __(
-				'All demo sites that exist for your WordPress.com account, along with all posts, pages, comments, and media, will be lost.'
-			),
+			message: quickDeploysEnabled
+				? __( 'Delete all preview sites' )
+				: __( 'Delete all demo sites' ),
+			detail: quickDeploysEnabled
+				? __(
+						'All preview sites that exist for your WordPress.com account, along with all posts, pages, comments, and media, will be lost.'
+				  )
+				: __(
+						'All demo sites that exist for your WordPress.com account, along with all posts, pages, comments, and media, will be lost.'
+				  ),
 			buttons: [ __( 'Cancel' ), __( 'Delete all' ) ],
 			cancelId: CANCEL_BUTTON_INDEX,
 		} );
@@ -232,7 +256,7 @@ export default function UserSettings() {
 			await deleteAllSnapshots( allSnapshots );
 			setDeletedAllSnapshots( true );
 		}
-	}, [ allSnapshots, deleteAllSnapshots, __ ] );
+	}, [ allSnapshots, deleteAllSnapshots, __, quickDeploysEnabled ] );
 
 	return (
 		<>

@@ -1,8 +1,12 @@
-// To run tests, execute `npm run test -- src/lib/import-export/tests/import/validators/jetpack-validator.test.ts`
+import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
 import { JetpackValidator } from '../../../import/validators/jetpack-validator';
 
-describe( 'JetpackValidator', () => {
-	const validator = new JetpackValidator();
+platformTestSuite( 'JetpackValidator', ( { normalize } ) => {
+	let validator: JetpackValidator;
+
+	beforeEach( () => {
+		validator = new JetpackValidator();
+	} );
 
 	describe( 'canHandle', () => {
 		it( 'should return true for valid Jetpack backup structure', () => {
@@ -11,6 +15,7 @@ describe( 'JetpackValidator', () => {
 				'wp-content/uploads/2023/image.jpg',
 				'wp-content/plugins/jetpack/jetpack.php',
 				'wp-content/themes/twentytwentyone/style.css',
+				'wp-content/mu-plugins/hello.php',
 			];
 			expect( validator.canHandle( fileList ) ).toBe( true );
 		} );
@@ -24,6 +29,7 @@ describe( 'JetpackValidator', () => {
 				'wp-content/uploads/2023/image.jpg',
 				'wp-content/plugins/jetpack/jetpack.php',
 				'wp-content/themes/twentytwentyone/style.css',
+				'wp-content/mu-plugins/hello.php',
 			];
 			expect( validator.canHandle( fileList ) ).toBe( true );
 		} );
@@ -41,6 +47,7 @@ describe( 'JetpackValidator', () => {
 				'wp-content/uploads/2023/image.jpg',
 				'wp-content/plugins/jetpack/jetpack.php',
 				'wp-content/themes/twentytwentyone/style.css',
+				'wp-content/mu-plugins/hello.php',
 				'meta.json',
 			];
 			const extractionDirectory = '/tmp/extracted';
@@ -48,15 +55,16 @@ describe( 'JetpackValidator', () => {
 
 			expect( result ).toEqual( {
 				extractionDirectory,
-				sqlFiles: [ '/tmp/extracted/sql/wp_options.sql' ],
+				sqlFiles: [ normalize( '/tmp/extracted/sql/wp_options.sql' ) ],
 				wpConfig: '',
 				wpContent: {
-					uploads: [ '/tmp/extracted/wp-content/uploads/2023/image.jpg' ],
-					plugins: [ '/tmp/extracted/wp-content/plugins/jetpack/jetpack.php' ],
-					themes: [ '/tmp/extracted/wp-content/themes/twentytwentyone/style.css' ],
+					uploads: [ normalize( '/tmp/extracted/wp-content/uploads/2023/image.jpg' ) ],
+					plugins: [ normalize( '/tmp/extracted/wp-content/plugins/jetpack/jetpack.php' ) ],
+					themes: [ normalize( '/tmp/extracted/wp-content/themes/twentytwentyone/style.css' ) ],
+					muPlugins: [ normalize( '/tmp/extracted/wp-content/mu-plugins/hello.php' ) ],
 				},
-				wpContentDirectory: 'wp-content',
-				metaFile: '/tmp/extracted/meta.json',
+				wpContentDirectory: normalize( 'wp-content' ),
+				metaFile: normalize( '/tmp/extracted/meta.json' ),
 			} );
 		} );
 
@@ -72,6 +80,7 @@ describe( 'JetpackValidator', () => {
 				'wp-content/uploads/2023/image.jpg',
 				'wp-content/plugins/jetpack/jetpack.php',
 				'wp-content/themes/twentytwentyone/style.css',
+				'wp-content/mu-plugins/hello.php',
 				'meta.json',
 			];
 			const extractionDirectory = '/tmp/extracted';
@@ -79,15 +88,16 @@ describe( 'JetpackValidator', () => {
 
 			expect( result ).toEqual( {
 				extractionDirectory,
-				sqlFiles: [ '/tmp/extracted/sql/wp_options.sql' ],
-				wpConfig: '/tmp/extracted/wp-config.php',
+				sqlFiles: [ normalize( '/tmp/extracted/sql/wp_options.sql' ) ],
+				wpConfig: normalize( '/tmp/extracted/wp-config.php' ),
 				wpContent: {
-					uploads: [ '/tmp/extracted/wp-content/uploads/2023/image.jpg' ],
-					plugins: [ '/tmp/extracted/wp-content/plugins/jetpack/jetpack.php' ],
-					themes: [ '/tmp/extracted/wp-content/themes/twentytwentyone/style.css' ],
+					uploads: [ normalize( '/tmp/extracted/wp-content/uploads/2023/image.jpg' ) ],
+					plugins: [ normalize( '/tmp/extracted/wp-content/plugins/jetpack/jetpack.php' ) ],
+					themes: [ normalize( '/tmp/extracted/wp-content/themes/twentytwentyone/style.css' ) ],
+					muPlugins: [ normalize( '/tmp/extracted/wp-content/mu-plugins/hello.php' ) ],
 				},
-				wpContentDirectory: 'wp-content',
-				metaFile: '/tmp/extracted/meta.json',
+				wpContentDirectory: normalize( 'wp-content' ),
+				metaFile: normalize( '/tmp/extracted/meta.json' ),
 			} );
 		} );
 	} );

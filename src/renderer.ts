@@ -112,7 +112,7 @@ getIpcApi()
 				switch ( response ) {
 					case 0:
 						// Open Download link
-						await getIpcApi().openURL( `https://developer.wordpress.com/studio/` );
+						getIpcApi().openURL( `https://developer.wordpress.com/studio/` );
 						break;
 					case 1:
 						// User clicked Cancel

@@ -1,4 +1,5 @@
 import { move } from 'fs-extra';
+import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
 import { SiteServer } from '../../../../../site-server';
 import { SqlExporter } from '../../../export/exporters';
 import { ExportOptions } from '../../../export/types';
@@ -11,7 +12,7 @@ jest.mock( 'fs-extra' );
 // Mock SiteServer
 jest.mock( '../../../../../site-server' );
 
-describe( 'SqlExporter', () => {
+platformTestSuite( 'SqlExporter', ( { normalize } ) => {
 	let exporter: SqlExporter;
 	let mockOptions: ExportOptions;
 
@@ -24,7 +25,7 @@ describe( 'SqlExporter', () => {
 				path: '/path/to/site',
 				phpVersion: '7.4',
 			},
-			backupFile: '/path/to/backup.sql',
+			backupFile: normalize( '/path/to/backup.sql' ),
 			includes: {
 				uploads: false,
 				plugins: false,
@@ -38,7 +39,7 @@ describe( 'SqlExporter', () => {
 		jest.clearAllMocks();
 
 		( SiteServer.get as jest.Mock ).mockReturnValue( {
-			details: { path: '/path/to/site' },
+			details: { path: normalize( '/path/to/site' ) },
 			executeWpCliCommand: jest.fn().mockResolvedValue( { stderr: null } ),
 		} );
 		( move as jest.Mock ).mockResolvedValue( null );
@@ -59,16 +60,14 @@ describe( 'SqlExporter', () => {
 		const siteServer = SiteServer.get( '123' );
 		expect( siteServer?.executeWpCliCommand ).toHaveBeenCalledWith(
 			'sqlite export studio-backup-db-export-2024-08-01-12-00-00.sql --require=/tmp/sqlite-command/command.php',
-			{
-				skipPluginsAndThemes: true,
-			}
+			{ skipPluginsAndThemes: true }
 		);
 	} );
 
 	it( 'should call move on the temporary file', async () => {
 		await exporter.export();
 		expect( move ).toHaveBeenCalledWith(
-			'/path/to/site/studio-backup-db-export-2024-08-01-12-00-00.sql',
+			normalize( '/path/to/site/studio-backup-db-export-2024-08-01-12-00-00.sql' ),
 			mockOptions.backupFile
 		);
 	} );
@@ -81,7 +80,7 @@ describe( 'SqlExporter', () => {
 	it( 'should return false when canHandle is called with invalid options', async () => {
 		const exporter = new SqlExporter( {
 			...mockOptions,
-			backupFile: '/path/to/backup.zip',
+			backupFile: normalize( '/path/to/backup.zip' ),
 		} );
 
 		const canHandle = await exporter.canHandle();

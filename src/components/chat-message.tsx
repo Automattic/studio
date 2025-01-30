@@ -2,8 +2,8 @@ import { __ } from '@wordpress/i18n';
 import { forwardRef } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Message } from '../hooks/use-assistant';
 import { cx } from '../lib/cx';
+import { Message } from '../stores/chat-slice';
 import Anchor from './assistant-anchor';
 import createCodeComponent from './assistant-code-block';
 import { FeedbackThanks } from './chat-rating';
@@ -14,44 +14,31 @@ export interface ChatMessageProps {
 	className?: string;
 	siteId?: string;
 	message: Message;
-	updateMessage?: (
-		id: number,
-		content: string,
-		output: string,
-		status: 'success' | 'error',
-		time: string
-	) => void;
 	isUnauthenticated?: boolean;
 	failedMessage?: boolean;
 	feedbackReceived?: boolean;
+	instanceId: string;
 }
 
 export const MarkDownWithCode = ( {
 	message,
-	updateMessage,
 	siteId,
 	content,
+	instanceId,
 }: {
 	siteId?: string;
 	content: string;
 	message: Message;
-	updateMessage?: (
-		id: number,
-		content: string,
-		output: string,
-		status: 'success' | 'error',
-		time: string
-	) => void;
+	instanceId: string;
 } ) => (
 	<div className="assistant-markdown">
 		<Markdown
 			components={ {
 				a: Anchor,
 				code: createCodeComponent( {
-					blocks: message?.blocks,
 					messageId: message.id,
 					siteId,
-					updateMessage,
+					instanceId,
 				} ),
 				img: () => null,
 			} }
@@ -62,7 +49,7 @@ export const MarkDownWithCode = ( {
 	</div>
 );
 export const ChatMessage = forwardRef< HTMLDivElement, ChatMessageProps >(
-	( { id, message, className, siteId, updateMessage, children, isUnauthenticated }, ref ) => {
+	( { id, message, className, siteId, children, isUnauthenticated, instanceId }, ref ) => {
 		return (
 			<>
 				<div ref={ ref } className="h-4" />
@@ -100,8 +87,8 @@ export const ChatMessage = forwardRef< HTMLDivElement, ChatMessageProps >(
 							<>
 								<MarkDownWithCode
 									message={ message }
-									updateMessage={ updateMessage }
 									siteId={ siteId }
+									instanceId={ instanceId }
 									content={ children }
 								/>
 								{ message.feedbackReceived && <FeedbackThanks /> }

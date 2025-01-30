@@ -184,7 +184,12 @@ const AuthenticatedView = memo(
 		const RenderMessage = useCallback(
 			( { message }: { message: MessageType } ) => (
 				<>
-					<ChatMessage id={ `message-chat-${ message.id }` } message={ message } siteId={ siteId }>
+					<ChatMessage
+						id={ `message-chat-${ message.id }` }
+						message={ message }
+						siteId={ siteId }
+						instanceId={ instanceId }
+					>
 						{ message.content }
 					</ChatMessage>
 					{ message.failedMessage && (
@@ -192,21 +197,11 @@ const AuthenticatedView = memo(
 					) }
 				</>
 			),
-			[ submitPrompt, siteId ]
+			[ submitPrompt, siteId, instanceId ]
 		);
 
 		const RenderLastMessage = useCallback(
-			( {
-				showThinking,
-				siteId,
-				message,
-				children,
-			}: {
-				message: MessageType;
-				showThinking: boolean;
-				siteId: string;
-				children: React.ReactNode;
-			} ) => {
+			( { message, children }: { message: MessageType; children: React.ReactNode } ) => {
 				const thinkingAnimation = {
 					initial: { opacity: 0, y: 20 },
 					animate: { opacity: 1, y: 0 },
@@ -218,47 +213,47 @@ const AuthenticatedView = memo(
 				};
 
 				return (
-					<>
-						<ChatMessage
-							ref={ lastMessageRef }
-							id={ `message-chat-${ message.id }` }
-							message={ message }
-							siteId={ siteId }
-						>
-							<AnimatePresence mode="wait">
-								{ showThinking ? (
-									<motion.div
-										key="thinking"
-										initial="initial"
-										animate="animate"
-										exit="exit"
-										variants={ thinkingAnimation }
-										transition={ { duration: 0.3 } }
-									>
-										<MessageThinking />
-									</motion.div>
-								) : (
-									<motion.div
-										key="content"
-										variants={ messageAnimation }
-										transition={ { duration: 0.3 } }
-										initial="initial"
-										animate="animate"
-									>
-										<MarkDownWithCode
-											message={ message }
-											siteId={ siteId }
-											content={ message.content }
-										/>
-										{ children }
-									</motion.div>
-								) }
-							</AnimatePresence>
-						</ChatMessage>
-					</>
+					<ChatMessage
+						ref={ lastMessageRef }
+						id={ `message-chat-${ message.id }` }
+						message={ message }
+						siteId={ siteId }
+						instanceId={ instanceId }
+					>
+						<AnimatePresence mode="wait">
+							{ showThinking ? (
+								<motion.div
+									key="thinking"
+									initial="initial"
+									animate="animate"
+									exit="exit"
+									variants={ thinkingAnimation }
+									transition={ { duration: 0.3 } }
+								>
+									<MessageThinking />
+								</motion.div>
+							) : (
+								<motion.div
+									key="content"
+									variants={ messageAnimation }
+									transition={ { duration: 0.3 } }
+									initial="initial"
+									animate="animate"
+								>
+									<MarkDownWithCode
+										message={ message }
+										siteId={ siteId }
+										instanceId={ instanceId }
+										content={ message.content }
+									/>
+									{ children }
+								</motion.div>
+							) }
+						</AnimatePresence>
+					</ChatMessage>
 				);
 			},
-			[]
+			[ showThinking, siteId, instanceId ]
 		);
 
 		if ( messages.length === 0 ) {
@@ -270,11 +265,7 @@ const AuthenticatedView = memo(
 					<RenderMessage key={ message.id } message={ message } />
 				) ) }
 				{ showLastMessage && (
-					<RenderLastMessage
-						siteId={ siteId }
-						message={ lastMessage }
-						showThinking={ showThinking }
-					>
+					<RenderLastMessage message={ lastMessage }>
 						<div className="flex justify-end">
 							{ !! lastMessage.messageApiId && (
 								<ChatRating
@@ -297,6 +288,7 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 		className="w-full"
 		message={ { role: 'user' } as MessageType }
 		isUnauthenticated={ true }
+		instanceId=""
 	>
 		<div data-testid="unauthenticated-header" className="mb-3 a8c-label-semibold">
 			{ __( 'Hold up!' ) }

@@ -8,6 +8,7 @@ import {
 	chatActions,
 	sendFeedbackThunk,
 	updateFromSiteThunk,
+	chatSelectors,
 } from 'src/stores/chat-slice';
 import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
 
@@ -182,6 +183,116 @@ describe( 'chat-slice', () => {
 				localStorage.getItem( LOCAL_STORAGE_CHAT_API_IDS_KEY ) || '{}'
 			);
 			expect( storedChatIds[ instanceId ] ).toBe( 'chatcmpl-123' );
+		} );
+	} );
+
+	describe( 'updateMessage', () => {
+		it( 'should update existing message block with CLI output', () => {
+			const instanceId = 'test-site';
+			const userMessage = generateMessage( 'Hello test 5', 'user', 0, 'chatcmpl-123', 42 );
+			store.dispatch( chatActions.setMessages( { instanceId, messages: [ userMessage ] } ) );
+
+			store.dispatch(
+				chatActions.updateMessage( {
+					cliOutput: 'Command output',
+					cliStatus: 'success',
+					cliTime: 'Completed in 1.00 seconds',
+					codeBlockContent: 'wp plugin list',
+					messageId: 0,
+					instanceId,
+				} )
+			);
+
+			const messages = chatSelectors.selectMessages( store.getState(), instanceId );
+
+			expect( messages[ 0 ].blocks ).toHaveLength( 1 );
+			expect( messages[ 0 ].blocks ).toHaveLength( 1 );
+			expect( messages[ 0 ].blocks?.[ 0 ] ).toEqual( {
+				cliOutput: 'Command output',
+				cliStatus: 'success',
+				cliTime: 'Completed in 1.00 seconds',
+				codeBlockContent: 'wp plugin list',
+			} );
+		} );
+
+		it( 'should update existing block when code content matches', () => {
+			const instanceId = 'test-site';
+			const userMessage = {
+				...generateMessage( 'Hello test 6', 'user', 0, 'chatcmpl-123', 42 ),
+				blocks: [
+					{
+						codeBlockContent: 'wp plugin list',
+						cliOutput: 'Old output',
+						cliStatus: 'error' as const,
+						cliTime: 'Completed in 0.50 seconds',
+					},
+				],
+			};
+			store.dispatch( chatActions.setMessages( { instanceId, messages: [ userMessage ] } ) );
+
+			store.dispatch(
+				chatActions.updateMessage( {
+					cliOutput: 'New output',
+					cliStatus: 'success',
+					cliTime: 'Completed in 1.00 seconds',
+					codeBlockContent: 'wp plugin list',
+					messageId: 0,
+					instanceId,
+				} )
+			);
+
+			const messages = chatSelectors.selectMessages( store.getState(), instanceId );
+
+			expect( messages[ 0 ].blocks ).toHaveLength( 1 );
+			expect( messages[ 0 ].blocks?.[ 0 ] ).toEqual( {
+				cliOutput: 'New output',
+				cliStatus: 'success',
+				cliTime: 'Completed in 1.00 seconds',
+				codeBlockContent: 'wp plugin list',
+			} );
+		} );
+
+		it( 'should add new block when code content is different', () => {
+			const instanceId = 'test-site';
+			const userMessage = {
+				...generateMessage( 'Hello test 7', 'user', 0, 'chatcmpl-123', 42 ),
+				blocks: [
+					{
+						codeBlockContent: 'wp plugin list',
+						cliOutput: 'First output',
+						cliStatus: 'success' as const,
+						cliTime: 'Completed in 0.50 seconds',
+					},
+				],
+			};
+			store.dispatch( chatActions.setMessages( { instanceId, messages: [ userMessage ] } ) );
+
+			store.dispatch(
+				chatActions.updateMessage( {
+					cliOutput: 'Second output',
+					cliStatus: 'success',
+					cliTime: 'Completed in 1.00 seconds',
+					codeBlockContent: 'wp theme list',
+					messageId: 0,
+					instanceId,
+				} )
+			);
+
+			const messages = chatSelectors.selectMessages( store.getState(), instanceId );
+
+			expect( messages[ 0 ].blocks ).toHaveLength( 2 );
+			expect( messages[ 0 ].blocks?.[ 0 ] ).toEqual( {
+				codeBlockContent: 'wp plugin list',
+				cliOutput: 'First output',
+				cliStatus: 'success',
+				cliTime: 'Completed in 0.50 seconds',
+			} );
+			expect( messages[ 0 ].blocks?.[ 1 ] ).toEqual( {
+				codeBlockContent: 'wp theme list',
+				cliOutput: 'Second output',
+				cliStatus: 'success',
+				cliTime: 'Completed in 1.00 seconds',
+			} );
 		} );
 	} );
 

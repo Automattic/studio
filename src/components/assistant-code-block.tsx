@@ -16,8 +16,12 @@ import { ChatMessageProps } from './chat-message';
 import { CopyTextButton } from './copy-text-button';
 import { ExecuteIcon } from './icons/execute';
 
-type ContextProps = Pick< MessageType, 'blocks' > &
-	Pick< ChatMessageProps, 'siteId' > & { messageId?: number };
+type ContextProps = {
+	blocks: MessageType[ 'blocks' ];
+	siteId: ChatMessageProps[ 'siteId' ];
+	messageId?: number;
+	instanceId: string;
+};
 
 export type CodeBlockProps = JSX.IntrinsicElements[ 'code' ] & ExtraProps;
 
@@ -26,30 +30,17 @@ export default function createCodeComponent( contextProps: ContextProps ) {
 }
 
 const LanguageBlock = ( props: ContextProps & CodeBlockProps ) => {
-	const { children, className, node, blocks, siteId, messageId, ...htmlAttributes } = props;
+	const { children, className, node, blocks, siteId, messageId, instanceId, ...htmlAttributes } =
+		props;
+
 	const content = String( children ).trim();
 	const isValidWpCliCommand = useIsValidWpCliInline( content );
-	const {
-		cliOutput,
-		cliStatus,
-		cliTime,
-		isRunning,
-		handleExecute,
-		setCliOutput,
-		setCliStatus,
-		setCliTime,
-	} = useExecuteWPCLI( content, siteId, messageId );
+	const { isRunning, handleExecute } = useExecuteWPCLI( content, instanceId, siteId, messageId );
 
-	useEffect( () => {
-		if ( blocks ) {
-			const block = blocks?.find( ( block ) => block.codeBlockContent === content );
-			if ( block ) {
-				setCliOutput( block?.cliOutput ? stripAnsi( block.cliOutput ) : null );
-				setCliStatus( block?.cliStatus ?? null );
-				setCliTime( block?.cliTime ?? null );
-			}
-		}
-	}, [ blocks, cliOutput, content, setCliOutput, setCliStatus, setCliTime ] );
+	const block = blocks?.find( ( block ) => block.codeBlockContent === content );
+	const cliOutput = block?.cliOutput ? stripAnsi( block.cliOutput ) : null;
+	const cliStatus = block?.cliStatus ?? null;
+	const cliTime = block?.cliTime ?? null;
 
 	const { terminalWpCliEnabled } = useFeatureFlags();
 	const { selectedSite } = useSiteDetails();

@@ -259,24 +259,33 @@ const chatSlice = createSlice( {
 				cliTime?: string;
 				codeBlockContent: string;
 				messageId: number;
-				siteId: string;
+				instanceId: string;
 			} >
 		) => {
-			const { cliOutput, cliStatus, cliTime, codeBlockContent, messageId, siteId } = action.payload;
+			const { cliOutput, cliStatus, cliTime, codeBlockContent, messageId, instanceId } =
+				action.payload;
 
-			if ( ! state.messagesDict[ siteId ] ) {
-				state.messagesDict[ siteId ] = [];
+			if ( ! state.messagesDict[ instanceId ] ) {
+				state.messagesDict[ instanceId ] = [];
 			}
 
-			state.messagesDict[ siteId ].forEach( ( message ) => {
-				if ( message.id === messageId ) {
-					message.blocks?.forEach( ( block ) => {
-						if ( block.codeBlockContent === codeBlockContent ) {
-							block.cliOutput = cliOutput;
-							block.cliStatus = cliStatus;
-							block.cliTime = cliTime;
-						}
-					} );
+			state.messagesDict[ instanceId ].forEach( ( message ) => {
+				if ( message.id !== messageId ) {
+					return;
+				}
+
+				message.blocks = message.blocks || [];
+
+				const relevantBlock = message.blocks.find(
+					( block ) => block.codeBlockContent === codeBlockContent
+				);
+
+				if ( relevantBlock ) {
+					relevantBlock.cliOutput = cliOutput;
+					relevantBlock.cliStatus = cliStatus;
+					relevantBlock.cliTime = cliTime;
+				} else {
+					message.blocks.push( { codeBlockContent, cliOutput, cliStatus, cliTime } );
 				}
 			} );
 		},

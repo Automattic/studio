@@ -17,16 +17,19 @@ export interface ChatMessageProps {
 	isUnauthenticated?: boolean;
 	failedMessage?: boolean;
 	feedbackReceived?: boolean;
+	instanceId: string;
 }
 
 export const MarkDownWithCode = ( {
 	message,
 	siteId,
 	content,
+	instanceId,
 }: {
 	siteId?: string;
 	content: string;
 	message: Message;
+	instanceId: string;
 } ) => (
 	<div className="assistant-markdown">
 		<Markdown
@@ -36,6 +39,7 @@ export const MarkDownWithCode = ( {
 					blocks: message?.blocks,
 					messageId: message.id,
 					siteId,
+					instanceId,
 				} ),
 				img: () => null,
 			} }
@@ -46,7 +50,7 @@ export const MarkDownWithCode = ( {
 	</div>
 );
 export const ChatMessage = forwardRef< HTMLDivElement, ChatMessageProps >(
-	( { id, message, className, siteId, children, isUnauthenticated }, ref ) => {
+	( { id, message, className, siteId, children, isUnauthenticated, instanceId }, ref ) => {
 		return (
 			<>
 				<div ref={ ref } className="h-4" />
@@ -82,7 +86,12 @@ export const ChatMessage = forwardRef< HTMLDivElement, ChatMessageProps >(
 						</div>
 						{ typeof children === 'string' ? (
 							<>
-								<MarkDownWithCode message={ message } siteId={ siteId } content={ children } />
+								<MarkDownWithCode
+									message={ message }
+									siteId={ siteId }
+									instanceId={ instanceId }
+									content={ children }
+								/>
 								{ message.feedbackReceived && <FeedbackThanks /> }
 							</>
 						) : (

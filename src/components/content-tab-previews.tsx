@@ -172,29 +172,7 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 		return <NoAuth selectedSite={ selectedSite } />;
 	}
 
-	if ( ! snapshotsOnSite.length ) {
-		if ( isUploading || isSnapshotLoading ) {
-			return (
-				<div className="relative min-h-full flex flex-col">
-					<div className="w-full flex flex-col flex-1">
-						<div className="flex-1">
-							<PreviewSitesTableHeader />
-							<div className="[&>*:not(:last-child)]:border-b [&>*]:border-a8c-gray-5">
-								{ ( isUploading || isSnapshotLoading ) && (
-									<ProgressRow text={ __( 'Creating preview site' ) } />
-								) }
-							</div>
-						</div>
-						<div className="sticky bottom-0 bg-white/[0.8] backdrop-blur-sm w-full px-8 py-6 mt-auto">
-							<CreatePreviewButton
-								onClick={ () => archiveSite( selectedSite.id ) }
-								selectedSite={ selectedSite }
-							/>
-						</div>
-					</div>
-				</div>
-			);
-		}
+	if ( ! snapshotsOnSite.length && ! isUploading && ! isSnapshotLoading ) {
 		return <NoPreviews selectedSite={ selectedSite } />;
 	}
 

@@ -245,14 +245,14 @@ async function runIndexMode( php: PHP, { documentRoot, projectPath }: WPNowOptio
 
 async function runWpContentMode(
 	php: PHP,
-	{ documentRoot, wordPressVersion, wpContentPath, projectPath, absoluteUrl }: WPNowOptions
+	{ documentRoot, wordPressVersion, wpContentPath, projectPath }: WPNowOptions
 ) {
 	const wordPressPath = path.join( getWordpressVersionsPath(), wordPressVersion );
 	await php.mount(
 		wordPressPath,
 		createNodeFsMountHandler( documentRoot ) as unknown as MountHandler
 	);
-	await initWordPress( php, wordPressVersion, documentRoot, absoluteUrl );
+	await initWordPress( php, wordPressVersion, documentRoot );
 	fs.ensureDirSync( wpContentPath );
 
 	await php.mount(
@@ -275,29 +275,26 @@ async function runWordPressDevelopMode(
 	} );
 }
 
-async function runWordPressMode(
-	php: PHP,
-	{ documentRoot, projectPath, absoluteUrl }: WPNowOptions
-) {
+async function runWordPressMode( php: PHP, { documentRoot, projectPath }: WPNowOptions ) {
 	php.mkdir( documentRoot );
 	await php.mount(
 		documentRoot,
 		createNodeFsMountHandler( projectPath ) as unknown as MountHandler
 	);
 
-	await initWordPress( php, 'user-provided', documentRoot, absoluteUrl );
+	await initWordPress( php, 'user-provided', documentRoot );
 }
 
 async function runPluginOrThemeMode(
 	php: PHP,
-	{ wordPressVersion, documentRoot, projectPath, wpContentPath, absoluteUrl, mode }: WPNowOptions
+	{ wordPressVersion, documentRoot, projectPath, wpContentPath, mode }: WPNowOptions
 ) {
 	const wordPressPath = path.join( getWordpressVersionsPath(), wordPressVersion );
 	await php.mount(
 		wordPressPath,
 		createNodeFsMountHandler( documentRoot ) as unknown as MountHandler
 	);
-	await initWordPress( php, wordPressVersion, documentRoot, absoluteUrl );
+	await initWordPress( php, wordPressVersion, documentRoot );
 
 	fs.ensureDirSync( wpContentPath );
 	fs.copySync(
@@ -339,14 +336,14 @@ async function runPluginOrThemeMode(
 
 async function runWpPlaygroundMode(
 	php: PHP,
-	{ documentRoot, wordPressVersion, wpContentPath, absoluteUrl }: WPNowOptions
+	{ documentRoot, wordPressVersion, wpContentPath }: WPNowOptions
 ) {
 	const wordPressPath = path.join( getWordpressVersionsPath(), wordPressVersion );
 	await php.mount(
 		wordPressPath,
 		createNodeFsMountHandler( documentRoot ) as unknown as MountHandler
 	);
-	await initWordPress( php, wordPressVersion, documentRoot, absoluteUrl );
+	await initWordPress( php, wordPressVersion, documentRoot );
 
 	fs.ensureDirSync( wpContentPath );
 	fs.copySync(
@@ -413,12 +410,7 @@ async function login( php: PHP, options: WPNowOptions = {} ) {
  * @param vfsDocumentRoot
  * @param siteUrl
  */
-async function initWordPress(
-	php: PHP,
-	wordPressVersion: string,
-	vfsDocumentRoot: string,
-	siteUrl: string
-) {
+async function initWordPress( php: PHP, wordPressVersion: string, vfsDocumentRoot: string ) {
 	let initializeDefaultDatabase = false;
 	if ( ! php.fileExists( `${ vfsDocumentRoot }/wp-config.php` ) ) {
 		php.writeFile(
@@ -428,18 +420,11 @@ async function initWordPress(
 		initializeDefaultDatabase = true;
 	}
 
-	const wpConfigConsts = {
-		WP_HOME: siteUrl,
-		WP_SITEURL: siteUrl,
-	};
+	const wpConfigConsts = {};
 
 	if ( wordPressVersion !== 'user-provided' ) {
 		wpConfigConsts[ 'WP_AUTO_UPDATE_CORE' ] = wordPressVersion === 'latest';
 	}
-	await defineWpConfigConsts( php, {
-		consts: wpConfigConsts,
-		method: 'define-before-run',
-	} );
 
 	return { initializeDefaultDatabase };
 }
@@ -465,6 +450,27 @@ export function getThemeTemplate( projectPath: string ) {
 
 async function mountInternalMuPlugins( php: PHP ) {
 	php.mkdir( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER );
+
+	php.writeFile(
+		path.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-site-url-config.php' ),
+		`<?php
+		// Configure dynamic site URL
+		$protocol = 'http';
+		if (
+			! empty($_SERVER['HTTP_X_FORWARDED_PROTO']) &&
+			$_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https'
+		) {
+			$protocol = 'https';
+		}
+		$siteUrl = $protocol . '://' . $_SERVER['SERVER_NAME'];
+		if (! defined('WP_SITEURL')) {
+			define('WP_SITEURL', $siteUrl);
+		}
+		if (! defined('WP_HOME')) {
+			define('WP_HOME', $siteUrl);
+		}
+		`
+	);
 
 	php.writeFile(
 		path.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-allowed-redirect-hosts.php' ),

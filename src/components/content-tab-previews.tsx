@@ -157,15 +157,14 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 	const { isAuthenticated } = useAuth();
 	const { archiveSite, isUploadingSiteId } = useArchiveSite();
 	const isUploading = isUploadingSiteId( selectedSite.id );
-	const isSnapshotLoading = snapshots.some( ( snapshot ) => snapshot.isLoading );
+	const snapshotsOnSite = snapshots.filter(
+		( snapshot ) => snapshot.localSiteId === selectedSite.id
+	);
+	const isSnapshotLoading = snapshotsOnSite.some( ( snapshot ) => snapshot.isLoading );
 
 	if ( ! isAuthenticated ) {
 		return <NoAuth selectedSite={ selectedSite } />;
 	}
-
-	const snapshotsOnSite = snapshots.filter(
-		( snapshot ) => snapshot.localSiteId === selectedSite.id
-	);
 
 	if ( ! snapshotsOnSite.length ) {
 		if ( isUploading || isSnapshotLoading ) {
@@ -208,14 +207,16 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 								statusText={ __( 'Just now' ) }
 							/>
 						) }
-						{ snapshotsOnSite.map( ( snapshot ) => (
-							<PreviewSiteRow
-								snapshot={ snapshot }
-								previousSnapshot={ null }
-								selectedSite={ selectedSite }
-								key={ snapshot.atomicSiteId }
-							/>
-						) ) }
+						{ snapshotsOnSite
+							.filter( ( snapshot ) => ! snapshot.isLoading )
+							.map( ( snapshot ) => (
+								<PreviewSiteRow
+									snapshot={ snapshot }
+									previousSnapshot={ null }
+									selectedSite={ selectedSite }
+									key={ snapshot.atomicSiteId }
+								/>
+							) ) }
 					</div>
 				</div>
 				<div className="sticky bottom-0 bg-white/[0.8] backdrop-blur-sm w-full px-8 py-6 mt-auto">

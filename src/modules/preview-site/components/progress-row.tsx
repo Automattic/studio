@@ -8,9 +8,9 @@ interface ProgressRowProps {
 
 export function ProgressRow( { text }: ProgressRowProps ) {
 	const { progress } = useProgressTimer( {
-		initialProgress: 40,
+		initialProgress: 20,
 		paused: false,
-		interval: 1000,
+		interval: 300,
 		maxValue: 95,
 	} );
 

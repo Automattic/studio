@@ -37,11 +37,17 @@ import { loadUserData, saveUserData } from './storage/user-data'; // eslint-disa
 import { setupUpdates } from './updates';
 
 if ( ! isCLI() && ! process.env.IS_DEV_BUILD ) {
+	const version = app.getVersion();
+	const baseVersion = version.split( '-' )[ 0 ]; // Get the version without the dev suffix
+	const isDevBuild = version.includes( '-dev.' );
+	const sentryRelease = `studio@${ baseVersion }`;
+
 	Sentry.init( {
 		dsn: 'https://97693275b2716fb95048c6d12f4318cf@o248881.ingest.sentry.io/4506612776501248',
 		debug: true,
 		enabled: process.env.NODE_ENV !== 'development' && process.env.NODE_ENV !== 'test',
-		release: `studio@${ app.getVersion() }`,
+		release: sentryRelease,
+		environment: isDevBuild ? 'development' : 'production',
 	} );
 }
 

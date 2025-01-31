@@ -225,8 +225,30 @@ describe( 'useImportExport hook', () => {
 		expect( useSiteDetails().startServer ).toHaveBeenCalledWith( SITE_ID );
 	} );
 
-	it( 'shows error message when import fails', async () => {
-		( getIpcApi().importSite as jest.Mock ).mockRejectedValue( 'error' );
+	it( 'shows error message when import fails with absolute path error', async () => {
+		( getIpcApi().importSite as jest.Mock ).mockRejectedValue( new Error( 'absolute path error' ) );
+
+		const { result } = renderHook( () => useImportExport(), { wrapper } );
+		const file = { path: 'backup.zip', type: 'application/zip' };
+		await act( () => result.current.importFile( file, selectedSite ) );
+
+		expect( result.current.exportState ).toEqual( {} );
+		expect( getIpcApi().importSite ).toHaveBeenCalledWith( {
+			id: SITE_ID,
+			backupFile: {
+				type: 'application/zip',
+				path: 'backup.zip',
+			},
+		} );
+		expect( getIpcApi().showErrorMessageBox ).toHaveBeenCalledWith( {
+			title: 'Failed importing site',
+			message:
+				'The ZIP archive is incorrect. Try to unpack and pack it again. If this problem persists, please contact support.',
+		} );
+	} );
+
+	it( 'shows error message when import fails with other error', async () => {
+		( getIpcApi().importSite as jest.Mock ).mockRejectedValue( new Error( 'generic error' ) );
 
 		const { result } = renderHook( () => useImportExport(), { wrapper } );
 		const file = { path: 'backup.zip', type: 'application/zip' };
@@ -244,7 +266,7 @@ describe( 'useImportExport hook', () => {
 			title: 'Failed importing site',
 			message:
 				'An error occurred while importing the site. Verify the file is a valid Jetpack backup, Local, Playground, .wpress or .sql database file and try again. If this problem persists, please contact support.',
-			error: 'error',
+			error: new Error( 'generic error' ),
 			showOpenLogs: true,
 		} );
 	} );

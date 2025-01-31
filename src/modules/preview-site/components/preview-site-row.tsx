@@ -102,7 +102,7 @@ export function PreviewSiteRow( { snapshot, selectedSite }: PreviewSiteRowProps 
 				<div className="flex ml-auto">
 					<div className="w-[110px] text-[#757575] flex items-center pl-4">
 						{ isPreviewSiteUpdating ? (
-							<div className="flex items-center">
+							<div className="flex items-center text-gray-900">
 								<Spinner className="!mt-0 !mx-2" />
 								{ __( 'Updating' ) }
 							</div>

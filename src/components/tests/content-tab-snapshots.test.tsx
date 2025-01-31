@@ -5,6 +5,7 @@ import { LIMIT_OF_ZIP_SITES_PER_USER } from '../../constants';
 import { useArchiveSite } from '../../hooks/use-archive-site';
 import { useAuth } from '../../hooks/use-auth';
 import { useOffline } from '../../hooks/use-offline';
+import { useSiteSize } from '../../hooks/use-site-size';
 import { useSnapshots } from '../../hooks/use-snapshots';
 import { useUpdateDemoSite } from '../../hooks/use-update-demo-site';
 import { ContentTabSnapshots } from '../content-tab-snapshots';
@@ -13,7 +14,7 @@ const authenticate = jest.fn();
 jest.mock( '../../hooks/use-auth' );
 jest.mock( '../../hooks/use-snapshots' );
 jest.mock( '../../hooks/use-offline' );
-
+jest.mock( '../../hooks/use-site-size' );
 jest.mock( '../../hooks/use-update-demo-site' );
 const updateDemoSiteMock = jest.fn();
 const isDemoSiteUpdating = jest.fn();
@@ -47,6 +48,10 @@ const selectedSite = {
 	phpVersion: '8.0',
 	adminPassword: btoa( 'test-password' ),
 };
+
+( useSiteSize as jest.Mock ).mockReturnValue( {
+	isOverLimit: false,
+} );
 
 afterEach( () => {
 	jest.clearAllMocks();

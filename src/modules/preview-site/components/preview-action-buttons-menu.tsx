@@ -3,6 +3,7 @@ import { __ } from '@wordpress/i18n';
 import { moreVertical } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useConfirmationDialog } from 'src/hooks/use-confirmation-dialog';
+import { useOffline } from 'src/hooks/use-offline';
 import { useSnapshots } from 'src/hooks/use-snapshots';
 import { useUpdateDemoSite } from 'src/hooks/use-update-demo-site';
 
@@ -18,6 +19,7 @@ export function PreviewActionButtonsMenu( {
 	const { __ } = useI18n();
 	const { deleteSnapshot } = useSnapshots();
 	const { updateDemoSite } = useUpdateDemoSite();
+	const isOffline = useOffline();
 
 	const showUpdatePreviewConfirmation = useConfirmationDialog( {
 		localStorageKey: 'dontShowUpdateWarning',
@@ -61,6 +63,7 @@ export function PreviewActionButtonsMenu( {
 						<span>{ __( 'Rename' ) }</span>
 					</MenuItem>
 					<MenuItem
+						disabled={ isOffline }
 						onClick={ () => {
 							handleUpdatePreviewSite();
 							onClose();
@@ -70,6 +73,7 @@ export function PreviewActionButtonsMenu( {
 					</MenuItem>
 					<MenuItem
 						isDestructive
+						disabled={ isOffline }
 						onClick={ () => {
 							handleDeletePreviewSite();
 							onClose();

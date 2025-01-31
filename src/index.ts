@@ -38,9 +38,9 @@ import { setupUpdates } from './updates';
 
 if ( ! isCLI() && ! process.env.IS_DEV_BUILD ) {
 	const version = app.getVersion();
-	const baseVersion = version.split( '-' )[ 0 ]; // Get the version without the dev suffix
+	const [ baseVersionWithBeta ] = version.split( '-dev.' );
 	const isDevBuild = version.includes( '-dev.' );
-	const sentryRelease = `studio@${ baseVersion }`;
+	const sentryRelease = `studio@${ baseVersionWithBeta }`;
 
 	Sentry.init( {
 		dsn: 'https://97693275b2716fb95048c6d12f4318cf@o248881.ingest.sentry.io/4506612776501248',

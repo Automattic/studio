@@ -94,19 +94,19 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 		run();
 	}, [ locale ] );
 
-	return (
-		<AuthContext.Provider
-			value={ {
-				client,
-				isAuthenticated,
-				authenticate,
-				logout,
-				user,
-			} }
-		>
-			{ children }
-		</AuthContext.Provider>
+	// Memoize the context value to avoid unnecessary renders
+	const contextValue: AuthContextType = useMemo(
+		() => ( {
+			client,
+			isAuthenticated,
+			authenticate,
+			logout,
+			user,
+		} ),
+		[ client, isAuthenticated, authenticate, logout, user ]
 	);
+
+	return <AuthContext.Provider value={ contextValue }>{ children }</AuthContext.Provider>;
 };
 
 function createWpcomClient( token?: string, locale?: string ): WPCOM {

@@ -47,8 +47,8 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 		setClient( createWpcomClient( token.accessToken, locale ) );
 		if ( token.id || token.email || token.displayName ) {
 			setUser( {
-				id: token.id || null,
-				email: token.email || '',
+				id: token.id,
+				email: token.email,
 				displayName: token.displayName || '',
 			} );
 		}
@@ -69,22 +69,20 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 	useEffect( () => {
 		async function run() {
 			try {
-				const isAuthenticated = await getIpcApi().isAuthenticated();
-				setIsAuthenticated( isAuthenticated );
-				if ( isAuthenticated ) {
-					const token = await getIpcApi().getAuthenticationToken();
-					if ( ! token ) {
-						return;
-					}
-					setClient( createWpcomClient( token.accessToken, locale ) );
-					if ( token.id || token.email || token.displayName ) {
-						setUser( {
-							id: token.id || null,
-							email: token.email || '',
-							displayName: token.displayName || '',
-						} );
-					}
+				const token = await getIpcApi().getAuthenticationToken();
+
+				if ( ! token ) {
+					setIsAuthenticated( false );
+					return;
 				}
+
+				setIsAuthenticated( true );
+				setClient( createWpcomClient( token.accessToken, locale ) );
+				setUser( {
+					id: token.id,
+					email: token.email,
+					displayName: token.displayName || '',
+				} );
 			} catch ( err ) {
 				console.error( err );
 				Sentry.captureException( err );

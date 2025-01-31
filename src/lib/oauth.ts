@@ -1,26 +1,29 @@
 import { ipcMain } from 'electron';
 import * as Sentry from '@sentry/electron/main';
 import wpcom from 'wpcom';
+import { z } from 'zod';
 import { PROTOCOL_PREFIX, WP_AUTHORIZE_ENDPOINT, CLIENT_ID, SCOPES } from '../constants';
 import { shellOpenExternalWrapper } from '../lib/shell-open-external-wrapper';
 import { getMainWindow } from '../main-window';
 import { loadUserData, saveUserData } from '../storage/user-data';
 
-export interface StoredToken {
-	accessToken?: string;
-	expiresIn?: number;
-	expirationTime?: number;
-	id?: number;
-	email?: string;
-	displayName?: string;
-}
 const REDIRECT_URI = `${ PROTOCOL_PREFIX }://auth`;
-const TOKEN_KEY = 'authToken';
+const authTokenSchema = z.object( {
+	accessToken: z.string(),
+	expiresIn: z.number(),
+	expirationTime: z.number(),
+	id: z.number(),
+	email: z.string(),
+	displayName: z.string().optional(),
+} );
+
+export type StoredToken = z.infer< typeof authTokenSchema >;
 
 async function getToken(): Promise< StoredToken | null > {
 	try {
 		const userData = await loadUserData();
-		return userData[ TOKEN_KEY ] ?? null;
+		const parsed = authTokenSchema.parse( userData.authToken );
+		return parsed;
 	} catch ( error ) {
 		return null;
 	}
@@ -31,7 +34,7 @@ async function storeToken( tokens: StoredToken ) {
 		const userData = await loadUserData();
 		await saveUserData( {
 			...userData,
-			[ TOKEN_KEY ]: tokens,
+			authToken: tokens,
 		} );
 	} catch ( error ) {
 		console.error( 'Failed to store token', error );
@@ -43,7 +46,7 @@ export async function clearAuthenticationToken() {
 		const userData = await loadUserData();
 		await saveUserData( {
 			...userData,
-			[ TOKEN_KEY ]: undefined,
+			authToken: undefined,
 		} );
 	} catch ( error ) {
 		return;
@@ -70,29 +73,34 @@ export async function isAuthenticated(): Promise< boolean > {
 export async function handleAuthCallback( hash: string ): Promise< Error | StoredToken > {
 	const params = new URLSearchParams( hash.substring( 1 ) );
 	const error = params.get( 'error' );
+
 	if ( error ) {
 		// Close the browser if code found or error
 		return new Error( error );
 	}
+
 	const accessToken = params.get( 'access_token' ) ?? '';
 	const expiresIn = parseInt( params.get( 'expires_in' ) ?? '0' );
+
 	if ( isNaN( expiresIn ) || expiresIn === 0 || ! accessToken ) {
 		return new Error( 'Error while getting token' );
 	}
-	let response: { ID?: number; email?: string; display_name?: string } = {};
+
 	try {
-		response = await new wpcom( accessToken ).req.get( '/me?fields=ID,email,display_name' );
+		const response = await new wpcom( accessToken ).req.get( '/me?fields=ID,email,display_name' );
+
+		return authTokenSchema.parse( {
+			expiresIn,
+			expirationTime: new Date().getTime() + expiresIn * 1000,
+			accessToken,
+			id: response.ID,
+			email: response.email,
+			displayName: response.display_name,
+		} );
 	} catch ( error ) {
 		Sentry.captureException( error );
+		throw error;
 	}
-	return {
-		expiresIn,
-		expirationTime: new Date().getTime() + expiresIn * 1000,
-		accessToken,
-		id: response.ID,
-		email: response.email,
-		displayName: response.display_name,
-	};
 }
 
 export function authenticate(): void {
@@ -101,6 +109,30 @@ export function authenticate(): void {
 	) }&scope=${ encodeURIComponent( SCOPES ) }`;
 
 	shellOpenExternalWrapper( authUrl );
+}
+
+export async function onOpenUrlCallback( url: string ) {
+	const urlObject = new URL( url );
+	const { host, hash, searchParams } = urlObject;
+
+	if ( host === 'auth' ) {
+		handleAuthCallback( hash ).then( ( authResult ) => {
+			if ( authResult instanceof Error ) {
+				ipcMain.emit( 'auth-callback', null, { error: authResult } );
+			} else {
+				ipcMain.emit( 'auth-callback', null, { token: authResult } );
+			}
+		} );
+	}
+
+	if ( host === 'sync-connect-site' ) {
+		const remoteSiteId = parseInt( searchParams.get( 'remoteSiteId' ) ?? '' );
+		const studioSiteId = searchParams.get( 'studioSiteId' );
+		if ( remoteSiteId && studioSiteId ) {
+			const mainWindow = await getMainWindow();
+			mainWindow.webContents.send( 'sync-connect-site', { remoteSiteId, studioSiteId } );
+		}
+	}
 }
 
 export function setUpAuthCallbackHandler() {

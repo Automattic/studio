@@ -103,7 +103,7 @@ export async function getInstalledApps( _event: IpcMainInvokeEvent ): Promise< I
 export async function importSite(
 	event: IpcMainInvokeEvent,
 	{ id, backupFile }: { id: string; backupFile: BackupArchiveInfo }
-): Promise< SiteDetails | undefined > {
+): Promise< SiteDetails > {
 	const site = SiteServer.get( id );
 	if ( ! site ) {
 		throw new Error( 'Site not found.' );
@@ -116,9 +116,6 @@ export async function importSite(
 			}
 		};
 		const result = await importBackup( backupFile, site.details, onEvent, defaultImporterOptions );
-		if ( ! result ) {
-			return;
-		}
 		if ( result?.meta?.phpVersion ) {
 			site.details.phpVersion = result.meta.phpVersion;
 		}

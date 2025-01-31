@@ -1,14 +1,17 @@
 /**
  * @jest-environment node
  */
-import { shell, IpcMainInvokeEvent } from 'electron';
+import { shell, IpcMainInvokeEvent, BrowserWindow } from 'electron';
 import fs from 'fs';
 import { normalize } from 'path';
-import { createSite, startServer, isFullscreen } from '../ipc-handlers';
+import * as Sentry from '@sentry/electron/main';
+import { createSite, startServer, isFullscreen, importSite } from '../ipc-handlers';
 import { isEmptyDir, pathExists } from '../lib/fs-utils';
+import { importBackup, defaultImporterOptions } from '../lib/import-export/import/import-manager';
 import { keepSqliteIntegrationUpdated } from '../lib/sqlite-versions';
 import { getMainWindow } from '../main-window';
 import { SiteServer, createSiteWorkingDirectory } from '../site-server';
+import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 
 jest.mock( 'fs' );
 jest.mock( 'fs-extra' );
@@ -17,6 +20,8 @@ jest.mock( '../site-server' );
 jest.mock( '../lib/sqlite-versions' );
 jest.mock( '../../vendor/wp-now/src/download' );
 jest.mock( '../main-window' );
+jest.mock( '@sentry/electron/main' );
+jest.mock( '../lib/import-export/import/import-manager' );
 
 ( SiteServer.create as jest.Mock ).mockImplementation( ( details ) => ( {
 	start: jest.fn(),
@@ -116,5 +121,111 @@ describe( 'isFullscreen', () => {
 		const result = await isFullscreen( mockIpcMainInvokeEvent );
 
 		expect( result ).toBe( true );
+	} );
+} );
+
+describe( 'importSite', () => {
+	const mockBackupFile: BackupArchiveInfo = {
+		path: '/path/to/backup.zip',
+		type: 'doo',
+	};
+
+	beforeEach( () => {
+		( importBackup as jest.Mock ).mockReset();
+	} );
+
+	it( 'should throw error if site is not found', async () => {
+		( SiteServer.get as jest.Mock ).mockReturnValue( null );
+
+		await expect(
+			importSite( mockIpcMainInvokeEvent, {
+				id: 'non-existent-id',
+				backupFile: mockBackupFile,
+			} )
+		).rejects.toThrow( 'Site not found.' );
+	} );
+
+	it( 'should import backup successfully', async () => {
+		const mockSite = {
+			details: {
+				id: 'test-site',
+				phpVersion: '8.0',
+			},
+			updateSiteDetails: jest.fn(),
+		};
+		( SiteServer.get as jest.Mock ).mockReturnValue( mockSite );
+		( importBackup as jest.Mock ).mockResolvedValue( {
+			meta: {
+				phpVersion: '8.2',
+			},
+		} );
+
+		const result = await importSite( mockIpcMainInvokeEvent, {
+			id: 'test-site',
+			backupFile: mockBackupFile,
+		} );
+
+		expect( importBackup ).toHaveBeenCalledWith(
+			mockBackupFile,
+			mockSite.details,
+			expect.any( Function ),
+			defaultImporterOptions
+		);
+		expect( mockSite.details.phpVersion ).toBe( '8.2' );
+		expect( result ).toBe( mockSite.details );
+	} );
+
+	it( 'should capture exception in Sentry when import fails', async () => {
+		const mockError = new Error( 'Import failed' );
+		const mockSite = {
+			details: {
+				id: 'test-site',
+			},
+		};
+		( SiteServer.get as jest.Mock ).mockReturnValue( mockSite );
+		( importBackup as jest.Mock ).mockRejectedValue( mockError );
+
+		await expect(
+			importSite( mockIpcMainInvokeEvent, {
+				id: 'test-site',
+				backupFile: mockBackupFile,
+			} )
+		).rejects.toThrow( 'Import failed' );
+
+		expect( Sentry.captureException ).toHaveBeenCalledWith( mockError );
+	} );
+
+	it( 'should send import events to renderer process', async () => {
+		const mockSite = {
+			details: {
+				id: 'test-site',
+			},
+		};
+		const mockParentWindow = {
+			webContents: {
+				send: jest.fn(),
+			},
+			isDestroyed: () => false,
+		};
+		( SiteServer.get as jest.Mock ).mockReturnValue( mockSite );
+		( BrowserWindow.fromWebContents as jest.Mock ).mockReturnValue( mockParentWindow );
+
+		await importSite( mockIpcMainInvokeEvent, {
+			id: 'test-site',
+			backupFile: mockBackupFile,
+		} );
+
+		// Get the onEvent callback that was passed to importBackup
+		const onEvent = ( importBackup as jest.Mock ).mock.calls[ 0 ][ 2 ];
+		const mockEventData = { status: 'importing' };
+
+		// Simulate an import event
+		onEvent( mockEventData );
+
+		expect( mockParentWindow.webContents.send ).toHaveBeenCalledWith(
+			'on-import',
+			mockEventData,
+			'test-site'
+		);
 	} );
 } );

@@ -25,7 +25,7 @@ import {
 	executeCLICommand,
 } from './lib/cli';
 import { getUserLocaleWithFallback } from './lib/locale-node';
-import { onOpenUrlCallback, setUpAuthCallbackHandler } from './lib/oauth';
+import { onOpenUrlCallback } from './lib/oauth';
 import { setupLogging } from './logging';
 import { createMainWindow, getMainWindow } from './main-window';
 import {
@@ -75,8 +75,6 @@ async function appBoot() {
 	Menu.setApplicationMenu( null );
 
 	setupCustomProtocolHandler();
-
-	setUpAuthCallbackHandler();
 
 	setupLogging();
 

@@ -1,4 +1,3 @@
-import { ipcMain } from 'electron';
 import * as Sentry from '@sentry/electron/main';
 import wpcom from 'wpcom';
 import { z } from 'zod';
@@ -56,10 +55,7 @@ export async function clearAuthenticationToken() {
 export async function getAuthenticationToken(): Promise< StoredToken | null > {
 	// Check if tokens already exist and are valid
 	const existingToken = await getToken();
-	if (
-		existingToken?.accessToken &&
-		new Date().getTime() < ( existingToken?.expirationTime ?? 0 )
-	) {
+	if ( existingToken && new Date().getTime() < existingToken.expirationTime ) {
 		return existingToken;
 	}
 	return null;
@@ -70,20 +66,20 @@ export async function isAuthenticated(): Promise< boolean > {
 	return !! token;
 }
 
-export async function handleAuthCallback( hash: string ): Promise< Error | StoredToken > {
+async function handleAuthCallback( hash: string ): Promise< StoredToken > {
 	const params = new URLSearchParams( hash.substring( 1 ) );
 	const error = params.get( 'error' );
 
 	if ( error ) {
 		// Close the browser if code found or error
-		return new Error( error );
+		throw new Error( error );
 	}
 
 	const accessToken = params.get( 'access_token' ) ?? '';
 	const expiresIn = parseInt( params.get( 'expires_in' ) ?? '0' );
 
 	if ( isNaN( expiresIn ) || expiresIn === 0 || ! accessToken ) {
-		return new Error( 'Error while getting token' );
+		throw new Error( 'Error while getting token' );
 	}
 
 	try {
@@ -116,16 +112,16 @@ export async function onOpenUrlCallback( url: string ) {
 	const { host, hash, searchParams } = urlObject;
 
 	if ( host === 'auth' ) {
-		handleAuthCallback( hash ).then( ( authResult ) => {
-			if ( authResult instanceof Error ) {
-				ipcMain.emit( 'auth-callback', null, { error: authResult } );
-			} else {
-				ipcMain.emit( 'auth-callback', null, { token: authResult } );
-			}
-		} );
-	}
-
-	if ( host === 'sync-connect-site' ) {
+		try {
+			const authResult = await handleAuthCallback( hash );
+			const mainWindow = await getMainWindow();
+			await storeToken( authResult );
+			mainWindow.webContents.send( 'auth-updated', { token: authResult } );
+		} catch ( error ) {
+			const mainWindow = await getMainWindow();
+			mainWindow.webContents.send( 'auth-updated', { error } );
+		}
+	} else if ( host === 'sync-connect-site' ) {
 		const remoteSiteId = parseInt( searchParams.get( 'remoteSiteId' ) ?? '' );
 		const studioSiteId = searchParams.get( 'studioSiteId' );
 		if ( remoteSiteId && studioSiteId ) {
@@ -133,16 +129,4 @@ export async function onOpenUrlCallback( url: string ) {
 			mainWindow.webContents.send( 'sync-connect-site', { remoteSiteId, studioSiteId } );
 		}
 	}
-}
-
-export function setUpAuthCallbackHandler() {
-	ipcMain.on( 'auth-callback', async ( _event, { token, error } ) => {
-		const mainWindow = await getMainWindow();
-		if ( error ) {
-			mainWindow.webContents.send( 'auth-updated', { error } );
-		} else {
-			await storeToken( token );
-			mainWindow.webContents.send( 'auth-updated', { token } );
-		}
-	} );
 }

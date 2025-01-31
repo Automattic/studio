@@ -145,14 +145,10 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		const categories = (
 			[ 'uploads', 'plugins', 'themes', 'muPlugins' ] as BackupContentsCategory[]
 		 ).filter( ( category ) => this.options.includes[ category ] );
-		const pathsToExclude = [ 'wp-content/mu-plugins/sqlite-database-integration' ];
 		this.emit( ExportEvents.WP_CONTENT_EXPORT_START );
 		for ( const category of categories ) {
 			for ( const file of this.backup.wpContent[ category ] ) {
 				const relativePath = path.relative( this.options.site.path, file );
-				if ( pathsToExclude.some( ( path ) => relativePath.startsWith( path ) ) ) {
-					continue;
-				}
 				this.archive.file( file, { name: relativePath } );
 				this.emit( ExportEvents.WP_CONTENT_EXPORT_PROGRESS, { file: relativePath } );
 			}
@@ -230,11 +226,15 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		};
 
 		const siteFiles = await this.getSiteFiles();
+		const pathsToExclude = [ 'wp-content/mu-plugins/sqlite-database-integration' ];
 		siteFiles.forEach( ( file ) => {
 			const relativePath = path.relative( options.site.path, file );
 			const relativePathItems = relativePath.split( path.sep );
 			const [ wpContent, wpContentDirectory ] = relativePathItems;
 
+			if ( pathsToExclude.some( ( path ) => relativePath.startsWith( path ) ) ) {
+				return;
+			}
 			if ( path.basename( file ) === 'wp-config.php' ) {
 				backupContents.wpConfigFile = file;
 			} else if ( wpContent === 'wp-content' ) {

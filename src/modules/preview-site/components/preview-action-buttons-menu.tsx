@@ -2,11 +2,12 @@ import { DropdownMenu, MenuGroup, MenuItem } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { moreVertical } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
+import offlineIcon from 'src/components/offline-icon';
+import { Tooltip } from 'src/components/tooltip';
 import { useConfirmationDialog } from 'src/hooks/use-confirmation-dialog';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSnapshots } from 'src/hooks/use-snapshots';
 import { useUpdateDemoSite } from 'src/hooks/use-update-demo-site';
-
 interface PreviewActionButtonsMenuProps {
 	snapshot: Snapshot;
 	selectedSite: SiteDetails;
@@ -69,7 +70,14 @@ export function PreviewActionButtonsMenu( {
 							onClose();
 						} }
 					>
-						<span>{ __( 'Update' ) }</span>
+						<Tooltip
+							disabled={ ! isOffline }
+							text={ __( 'Updating a preview site requires an internet connection.' ) }
+							icon={ offlineIcon }
+							placement="top-start"
+						>
+							<span>{ __( 'Update' ) }</span>
+						</Tooltip>
 					</MenuItem>
 					<MenuItem
 						isDestructive
@@ -79,7 +87,14 @@ export function PreviewActionButtonsMenu( {
 							onClose();
 						} }
 					>
-						<span>{ __( 'Delete' ) }</span>
+						<Tooltip
+							disabled={ ! isOffline }
+							text={ __( 'Deleting a preview site requires an internet connection.' ) }
+							icon={ offlineIcon }
+							placement="top-start"
+						>
+							<span>{ __( 'Delete' ) }</span>
+						</Tooltip>
 					</MenuItem>
 				</MenuGroup>
 			) }

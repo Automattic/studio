@@ -5,6 +5,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useEffect, useState, useRef } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
+import { UPDATED_MESSAGE_DURATION_MS } from 'src/constants';
 import { useExpirationDate } from 'src/hooks/use-expiration-date';
 import { useFormatLocalizedTimestamps } from 'src/hooks/use-format-localized-timestamps';
 import { useSnapshots } from 'src/hooks/use-snapshots';
@@ -30,25 +31,23 @@ export function PreviewSiteRow( { snapshot, selectedSite }: PreviewSiteRowProps 
 	const wasUpdating = useRef( false );
 
 	useEffect( () => {
-		let timeoutId: NodeJS.Timeout;
-
 		if ( isPreviewSiteUpdating ) {
 			wasUpdating.current = true;
 			setShowUpdatedMessage( false );
-		} else if ( wasUpdating.current ) {
-			setShowUpdatedMessage( true );
-			wasUpdating.current = false;
-
-			timeoutId = setTimeout( () => {
-				setShowUpdatedMessage( false );
-			}, 60000 );
+			return;
 		}
 
-		return () => {
-			if ( timeoutId ) {
-				clearTimeout( timeoutId );
-			}
-		};
+		if ( ! wasUpdating.current ) {
+			return;
+		}
+		wasUpdating.current = false;
+		setShowUpdatedMessage( true );
+
+		const timeoutId = setTimeout( () => {
+			setShowUpdatedMessage( false );
+		}, UPDATED_MESSAGE_DURATION_MS );
+
+		return () => clearTimeout( timeoutId );
 	}, [ isPreviewSiteUpdating ] );
 
 	const getLastUpdateTimeText = () => {

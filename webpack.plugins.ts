@@ -3,6 +3,9 @@ import type IForkTsCheckerWebpackPlugin from 'fork-ts-checker-webpack-plugin';
 import type { WebpackPluginInstance } from 'webpack';
 const ForkTsCheckerWebpackPlugin: typeof IForkTsCheckerWebpackPlugin = require( 'fork-ts-checker-webpack-plugin' );
 
+const sentryRelease = `studio@${ process.env.npm_package_version }`;
+console.log( 'Sentry release version would be:', sentryRelease );
+
 export const plugins: WebpackPluginInstance[] = [
 	new ForkTsCheckerWebpackPlugin( {
 		logger: 'webpack-infrastructure',
@@ -19,5 +22,8 @@ export const plugins: WebpackPluginInstance[] = [
 			authToken: process.env.SENTRY_AUTH_TOKEN,
 			org: 'a8c',
 			project: 'studio',
+			release: {
+				name: sentryRelease,
+			},
 		} ),
 ];

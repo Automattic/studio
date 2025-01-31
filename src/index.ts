@@ -15,7 +15,6 @@ import packageJson from '../package.json';
 import { PROTOCOL_PREFIX } from './constants';
 import * as ipcHandlers from './ipc-handlers';
 import { hasActiveSyncOperations } from './lib/active-sync-operations';
-import { getPlatformName } from './lib/app-globals';
 import { bumpAggregatedUniqueStat, bumpStat } from './lib/bump-stats';
 import {
 	listenCLICommands,
@@ -42,7 +41,7 @@ if ( ! isCLI() && ! process.env.IS_DEV_BUILD ) {
 		dsn: 'https://97693275b2716fb95048c6d12f4318cf@o248881.ingest.sentry.io/4506612776501248',
 		debug: true,
 		enabled: process.env.NODE_ENV !== 'development' && process.env.NODE_ENV !== 'test',
-		release: `${ app.getVersion() ? app.getVersion() : COMMIT_HASH }-${ getPlatformName() }`,
+		release: `studio@${ app.getVersion() }`,
 	} );
 }
 

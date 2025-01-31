@@ -20,17 +20,3 @@ export function isLinux() {
 	const platform = process ? process.platform : getAppGlobals().platform;
 	return platform === 'linux';
 }
-
-export function getPlatformName() {
-	const platform = process ? process.platform : getAppGlobals().platform;
-	switch ( platform ) {
-		case 'darwin':
-			return 'macos';
-		case 'win32':
-			return 'windows';
-		case 'linux':
-			return 'linux';
-		default:
-			return 'other';
-	}
-}

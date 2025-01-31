@@ -585,7 +585,7 @@ export async function exportSiteToPush( event: IpcMainInvokeEvent, id: string ) 
 			uploads: true,
 			plugins: true,
 			themes: true,
-			'mu-plugins': true,
+			muPlugins: true,
 		},
 		phpVersion: site.details.phpVersion,
 		splitDatabaseDumpByTable: true,

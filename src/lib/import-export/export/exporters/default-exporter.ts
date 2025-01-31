@@ -35,7 +35,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 				uploads: [],
 				plugins: [],
 				themes: [],
-				'mu-plugins': [],
+				muPlugins: [],
 			},
 		};
 	}
@@ -143,7 +143,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 
 	private addWpContent(): void {
 		const categories = (
-			[ 'uploads', 'plugins', 'themes', 'mu-plugins' ] as BackupContentsCategory[]
+			[ 'uploads', 'plugins', 'themes', 'muPlugins' ] as BackupContentsCategory[]
 		 ).filter( ( category ) => this.options.includes[ category ] );
 		const pathsToExclude = [ 'wp-content/mu-plugins/sqlite-database-integration' ];
 		this.emit( ExportEvents.WP_CONTENT_EXPORT_START );
@@ -161,7 +161,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 			uploads: this.backup.wpContent.uploads.length,
 			plugins: this.backup.wpContent.plugins.length,
 			themes: this.backup.wpContent.themes.length,
-			'mu-plugins': this.backup.wpContent[ 'mu-plugins' ].length ?? 0,
+			muPlugins: this.backup.wpContent.muPlugins.length,
 		} );
 	}
 
@@ -225,7 +225,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 				uploads: [],
 				plugins: [],
 				themes: [],
-				'mu-plugins': [],
+				muPlugins: [],
 			},
 		};
 
@@ -233,18 +233,20 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		siteFiles.forEach( ( file ) => {
 			const relativePath = path.relative( options.site.path, file );
 			const relativePathItems = relativePath.split( path.sep );
-			const [ wpContent, category ] = relativePathItems;
+			const [ wpContent, wpContentDirectory ] = relativePathItems;
 
 			if ( path.basename( file ) === 'wp-config.php' ) {
 				backupContents.wpConfigFile = file;
-			} else if (
-				wpContent === 'wp-content' &&
-				( category === 'uploads' ||
-					category === 'plugins' ||
-					category === 'themes' ||
-					category === 'mu-plugins' )
-			) {
-				backupContents.wpContent[ category ].push( file );
+			} else if ( wpContent === 'wp-content' ) {
+				if (
+					wpContentDirectory === 'uploads' ||
+					wpContentDirectory === 'plugins' ||
+					wpContentDirectory === 'themes'
+				) {
+					backupContents.wpContent[ wpContentDirectory as BackupContentsCategory ].push( file );
+				} else if ( wpContentDirectory === 'mu-plugins' ) {
+					backupContents.wpContent.muPlugins.push( file );
+				}
 			}
 		} );
 

@@ -1,5 +1,5 @@
 import * as Sentry from '@sentry/electron/renderer';
-import { createContext, useState, useEffect, useCallback, ReactNode, useMemo } from 'react';
+import { createContext, useState, useEffect, useMemo, useCallback, ReactNode } from 'react';
 import WPCOM from 'wpcom';
 import { useI18nData } from '../hooks/use-i18n-data';
 import { useIpcListener } from '../hooks/use-ipc-listener';

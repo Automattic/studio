@@ -25,6 +25,7 @@ import {
 } from './lib/cli';
 import { getUserLocaleWithFallback } from './lib/locale-node';
 import { handleAuthCallback, setUpAuthCallbackHandler } from './lib/oauth';
+import { getSentryReleaseInfo } from './lib/sentry-release';
 import { setupLogging } from './logging';
 import { createMainWindow, getMainWindow } from './main-window';
 import {
@@ -37,17 +38,14 @@ import { loadUserData, saveUserData } from './storage/user-data'; // eslint-disa
 import { setupUpdates } from './updates';
 
 if ( ! isCLI() && ! process.env.IS_DEV_BUILD ) {
-	const version = app.getVersion();
-	const [ baseVersionWithBeta ] = version.split( '-dev.' );
-	const isDevBuild = version.includes( '-dev.' ) || process.env.NODE_ENV === 'development';
-	const sentryRelease = `studio@${ baseVersionWithBeta }`;
+	const { release, environment } = getSentryReleaseInfo( app.getVersion() );
 
 	Sentry.init( {
 		dsn: 'https://97693275b2716fb95048c6d12f4318cf@o248881.ingest.sentry.io/4506612776501248',
 		debug: true,
 		enabled: process.env.NODE_ENV !== 'development' && process.env.NODE_ENV !== 'test',
-		release: sentryRelease,
-		environment: isDevBuild ? 'development' : 'production',
+		release,
+		environment,
 	} );
 }
 

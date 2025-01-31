@@ -170,7 +170,9 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 	);
 	const isSnapshotLoading = snapshotsOnSite.some( ( snapshot ) => snapshot.isLoading );
 
-	const isAnyPreviewUpdating = snapshots.some( ( s ) => isDemoSiteUpdating( s.atomicSiteId ) );
+	const isAnyPreviewUpdating = snapshots.some( ( snapshot ) =>
+		isDemoSiteUpdating( snapshot.atomicSiteId )
+	);
 
 	if ( ! isAuthenticated ) {
 		return <NoAuth selectedSite={ selectedSite } />;

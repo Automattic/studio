@@ -220,6 +220,7 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 									selectedSite={ selectedSite }
 									disabledUpdate={ isUpdateDisabled }
 									updateButtonTooltipContent={ tooltipContent }
+									showUpdateTooltip={ isOverLimit }
 									key={ snapshot.atomicSiteId }
 								/>
 							) ) }

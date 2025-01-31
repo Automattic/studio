@@ -20,6 +20,7 @@ interface PreviewSiteRowProps {
 	selectedSite: SiteDetails;
 	disabledUpdate: boolean;
 	updateButtonTooltipContent?: Partial< TooltipProps & { text?: string } >;
+	showUpdateTooltip?: boolean;
 }
 
 export function PreviewSiteRow( {
@@ -27,6 +28,7 @@ export function PreviewSiteRow( {
 	selectedSite,
 	disabledUpdate,
 	updateButtonTooltipContent = {},
+	showUpdateTooltip = false,
 }: PreviewSiteRowProps ) {
 	const { __ } = useI18n();
 	const { url, date, isDeleting } = snapshot;
@@ -124,6 +126,7 @@ export function PreviewSiteRow( {
 							selectedSite={ selectedSite }
 							disabledUpdate={ disabledUpdate }
 							updateButtonTooltipContent={ updateButtonTooltipContent }
+							showUpdateTooltip={ showUpdateTooltip }
 						/>
 					</div>
 				</div>

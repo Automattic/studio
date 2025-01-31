@@ -12,6 +12,7 @@ interface PreviewActionButtonsMenuProps {
 	selectedSite: SiteDetails;
 	disabledUpdate?: boolean;
 	updateButtonTooltipContent?: Partial< TooltipProps & { text?: string } >;
+	showUpdateTooltip?: boolean;
 }
 
 export function PreviewActionButtonsMenu( {
@@ -19,6 +20,7 @@ export function PreviewActionButtonsMenu( {
 	selectedSite,
 	disabledUpdate,
 	updateButtonTooltipContent = {},
+	showUpdateTooltip = false,
 }: PreviewActionButtonsMenuProps ) {
 	const { __ } = useI18n();
 	const { deleteSnapshot } = useSnapshots();
@@ -72,7 +74,11 @@ export function PreviewActionButtonsMenu( {
 						} }
 						disabled={ disabledUpdate }
 					>
-						<Tooltip disabled={ ! disabledUpdate } { ...updateButtonTooltipContent }>
+						<Tooltip
+							disabled={ ! showUpdateTooltip }
+							{ ...updateButtonTooltipContent }
+							placement="top-start"
+						>
 							<span>{ __( 'Update' ) }</span>
 						</Tooltip>
 					</MenuItem>

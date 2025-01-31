@@ -1,5 +1,5 @@
 import { createInterpolateElement } from '@wordpress/element';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { check, external, Icon } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren } from 'react';
@@ -9,10 +9,13 @@ import {
 	SCOPES,
 	WP_AUTHORIZE_ENDPOINT,
 	LIMIT_OF_ZIP_SITES_PER_USER,
+	DEMO_SITE_SIZE_LIMIT_GB,
 } from 'src/constants';
+import { useArchiveErrorMessages } from 'src/hooks/use-archive-error-messages';
 import { useArchiveSite } from 'src/hooks/use-archive-site';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
+import { useSiteSize } from 'src/hooks/use-site-size';
 import { useSnapshots } from 'src/hooks/use-snapshots';
 import { useUpdateDemoSite } from 'src/hooks/use-update-demo-site';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -23,7 +26,7 @@ import { ProgressRow } from 'src/modules/preview-site/components/progress-row';
 import Button from './button';
 import offlineIcon from './offline-icon';
 import { ScreenshotDemoSite } from './screenshot-demo-site';
-import { Tooltip } from './tooltip';
+import { Tooltip, TooltipProps } from './tooltip';
 
 interface ContentTabPreviewsProps {
 	selectedSite: SiteDetails;
@@ -160,19 +163,23 @@ function NoPreviews( { selectedSite }: React.ComponentProps< typeof EmptyGeneric
 
 export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) {
 	const { __ } = useI18n();
-	const { snapshots } = useSnapshots();
+	const { snapshots, snapshotCreationBlocked } = useSnapshots();
 	const { isAuthenticated } = useAuth();
 	const { archiveSite, isUploadingSiteId } = useArchiveSite();
+	const { isOverLimit } = useSiteSize( selectedSite.id );
 	const { isDemoSiteUpdating } = useUpdateDemoSite();
 	const isUploading = isUploadingSiteId( selectedSite.id );
+	const errorMessages = useArchiveErrorMessages();
 	const snapshotsOnSite = snapshots.filter(
 		( snapshot ) => snapshot.localSiteId === selectedSite.id
 	);
 	const isSnapshotLoading = snapshotsOnSite.some( ( snapshot ) => snapshot.isLoading );
-
+	const userBlockedMessage = errorMessages.rest_site_creation_blocked;
 	const isAnyPreviewUpdating = snapshots.some( ( snapshot ) =>
 		isDemoSiteUpdating( snapshot.atomicSiteId )
 	);
+
+	const isUpdateDisabled = isAnyPreviewUpdating || snapshotCreationBlocked;
 
 	if ( ! isAuthenticated ) {
 		return <NoAuth selectedSite={ selectedSite } />;
@@ -180,6 +187,20 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 
 	if ( ! snapshotsOnSite.length && ! isUploading && ! isSnapshotLoading ) {
 		return <NoPreviews selectedSite={ selectedSite } />;
+	}
+
+	let tooltipContent: Partial< TooltipProps & { text?: string } > = {};
+	if ( snapshotCreationBlocked ) {
+		tooltipContent = { text: userBlockedMessage };
+	} else if ( isOverLimit ) {
+		tooltipContent = {
+			text: sprintf(
+				__(
+					'Your site exceeds %s GB in size. Updating this preview site may take considerable amount of time and could exceed the maximum allowed size for a preview site.'
+				),
+				DEMO_SITE_SIZE_LIMIT_GB
+			),
+		};
 	}
 
 	return (
@@ -197,7 +218,8 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 								<PreviewSiteRow
 									snapshot={ snapshot }
 									selectedSite={ selectedSite }
-									isAnyPreviewUpdating={ isAnyPreviewUpdating }
+									disabledUpdate={ isUpdateDisabled }
+									updateButtonTooltipContent={ tooltipContent }
 									key={ snapshot.atomicSiteId }
 								/>
 							) ) }

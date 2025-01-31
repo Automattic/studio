@@ -2,6 +2,7 @@ import { DropdownMenu, MenuGroup, MenuItem } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { moreVertical } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
+import { Tooltip, TooltipProps } from 'src/components/tooltip';
 import { useConfirmationDialog } from 'src/hooks/use-confirmation-dialog';
 import { useSnapshots } from 'src/hooks/use-snapshots';
 import { useUpdateDemoSite } from 'src/hooks/use-update-demo-site';
@@ -9,13 +10,15 @@ import { useUpdateDemoSite } from 'src/hooks/use-update-demo-site';
 interface PreviewActionButtonsMenuProps {
 	snapshot: Snapshot;
 	selectedSite: SiteDetails;
-	isAnyPreviewUpdating?: boolean;
+	disabledUpdate?: boolean;
+	updateButtonTooltipContent?: Partial< TooltipProps & { text?: string } >;
 }
 
 export function PreviewActionButtonsMenu( {
 	snapshot,
 	selectedSite,
-	isAnyPreviewUpdating = false,
+	disabledUpdate,
+	updateButtonTooltipContent = {},
 }: PreviewActionButtonsMenuProps ) {
 	const { __ } = useI18n();
 	const { deleteSnapshot } = useSnapshots();
@@ -67,9 +70,11 @@ export function PreviewActionButtonsMenu( {
 							handleUpdatePreviewSite();
 							onClose();
 						} }
-						disabled={ isAnyPreviewUpdating }
+						disabled={ disabledUpdate }
 					>
-						<span>{ __( 'Update' ) }</span>
+						<Tooltip disabled={ ! disabledUpdate } { ...updateButtonTooltipContent }>
+							<span>{ __( 'Update' ) }</span>
+						</Tooltip>
 					</MenuItem>
 					<MenuItem
 						isDestructive

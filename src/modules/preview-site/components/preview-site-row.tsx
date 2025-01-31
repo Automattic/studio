@@ -5,6 +5,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useEffect, useState, useRef } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
+import { TooltipProps } from 'src/components/tooltip';
 import { UPDATED_MESSAGE_DURATION_MS } from 'src/constants';
 import { useExpirationDate } from 'src/hooks/use-expiration-date';
 import { useFormatLocalizedTimestamps } from 'src/hooks/use-format-localized-timestamps';
@@ -17,13 +18,15 @@ import { ProgressRow } from './progress-row';
 interface PreviewSiteRowProps {
 	snapshot: Snapshot;
 	selectedSite: SiteDetails;
-	isAnyPreviewUpdating: boolean;
+	disabledUpdate: boolean;
+	updateButtonTooltipContent?: Partial< TooltipProps & { text?: string } >;
 }
 
 export function PreviewSiteRow( {
 	snapshot,
 	selectedSite,
-	isAnyPreviewUpdating,
+	disabledUpdate,
+	updateButtonTooltipContent = {},
 }: PreviewSiteRowProps ) {
 	const { __ } = useI18n();
 	const { url, date, isDeleting } = snapshot;
@@ -119,7 +122,8 @@ export function PreviewSiteRow( {
 						<PreviewActionButtonsMenu
 							snapshot={ snapshot }
 							selectedSite={ selectedSite }
-							isAnyPreviewUpdating={ isAnyPreviewUpdating }
+							disabledUpdate={ disabledUpdate }
+							updateButtonTooltipContent={ updateButtonTooltipContent }
 						/>
 					</div>
 				</div>

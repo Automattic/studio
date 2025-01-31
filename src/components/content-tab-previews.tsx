@@ -164,10 +164,19 @@ function NoPreviews( { selectedSite }: React.ComponentProps< typeof EmptyGeneric
 function getUpdateButtonTooltipContent(
 	snapshotCreationBlocked: boolean,
 	isOverLimit: boolean,
+	isAnyPreviewUpdating: boolean,
 	userBlockedMessage: string
 ): Partial< TooltipProps & { text?: string } > {
 	if ( snapshotCreationBlocked ) {
 		return { text: userBlockedMessage };
+	}
+
+	if ( isAnyPreviewUpdating ) {
+		return {
+			text: __(
+				'Another preview is being updated. Please wait for it to finish before updating this preview site.'
+			),
+		};
 	}
 
 	if ( isOverLimit ) {
@@ -207,6 +216,7 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 	const tooltipContent = getUpdateButtonTooltipContent(
 		snapshotCreationBlocked,
 		isOverLimit,
+		isAnyPreviewUpdating,
 		userBlockedMessage
 	);
 

@@ -1,5 +1,5 @@
 import * as Sentry from '@sentry/electron/renderer';
-import { createContext, useState, useEffect, useMemo, useCallback, ReactNode } from 'react';
+import { createContext, useState, useEffect, useCallback, ReactNode, useMemo } from 'react';
 import WPCOM from 'wpcom';
 import { useI18nData } from '../hooks/use-i18n-data';
 import { useIpcListener } from '../hooks/use-ipc-listener';
@@ -37,7 +37,8 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 	const [ user, setUser ] = useState< AuthContextType[ 'user' ] >( undefined );
 	const { locale } = useI18nData();
 
-	const authenticate = getIpcApi().authenticate;
+	const authenticate = useCallback( () => getIpcApi().authenticate(), [] );
+
 	useIpcListener( 'auth-updated', ( _event, { token, error } ) => {
 		if ( error ) {
 			Sentry.captureException( error );
@@ -93,19 +94,19 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 		run();
 	}, [ locale ] );
 
-	// Memoize the context value to avoid unnecessary renders
-	const contextValue: AuthContextType = useMemo(
-		() => ( {
-			client,
-			isAuthenticated,
-			authenticate,
-			logout,
-			user,
-		} ),
-		[ client, isAuthenticated, authenticate, logout, user ]
+	return (
+		<AuthContext.Provider
+			value={ {
+				client,
+				isAuthenticated,
+				authenticate,
+				logout,
+				user,
+			} }
+		>
+			{ children }
+		</AuthContext.Provider>
 	);
-
-	return <AuthContext.Provider value={ contextValue }>{ children }</AuthContext.Provider>;
 };
 
 function createWpcomClient( token?: string, locale?: string ): WPCOM {

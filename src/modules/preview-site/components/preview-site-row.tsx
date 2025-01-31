@@ -17,9 +17,14 @@ import { ProgressRow } from './progress-row';
 interface PreviewSiteRowProps {
 	snapshot: Snapshot;
 	selectedSite: SiteDetails;
+	isAnyPreviewUpdating: boolean;
 }
 
-export function PreviewSiteRow( { snapshot, selectedSite }: PreviewSiteRowProps ) {
+export function PreviewSiteRow( {
+	snapshot,
+	selectedSite,
+	isAnyPreviewUpdating,
+}: PreviewSiteRowProps ) {
 	const { __ } = useI18n();
 	const { url, date, isDeleting } = snapshot;
 	const { countDown } = useExpirationDate( date );
@@ -111,7 +116,11 @@ export function PreviewSiteRow( { snapshot, selectedSite }: PreviewSiteRowProps 
 					</div>
 					<div className="w-[100px] text-[#757575] flex items-center pl-4">{ countDown }</div>
 					<div className="w-[60px] flex justify-end">
-						<PreviewActionButtonsMenu snapshot={ snapshot } selectedSite={ selectedSite } />
+						<PreviewActionButtonsMenu
+							snapshot={ snapshot }
+							selectedSite={ selectedSite }
+							isAnyPreviewUpdating={ isAnyPreviewUpdating }
+						/>
 					</div>
 				</div>
 			</div>

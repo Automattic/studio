@@ -9,11 +9,13 @@ import { useUpdateDemoSite } from 'src/hooks/use-update-demo-site';
 interface PreviewActionButtonsMenuProps {
 	snapshot: Snapshot;
 	selectedSite: SiteDetails;
+	isAnyPreviewUpdating?: boolean;
 }
 
 export function PreviewActionButtonsMenu( {
 	snapshot,
 	selectedSite,
+	isAnyPreviewUpdating = false,
 }: PreviewActionButtonsMenuProps ) {
 	const { __ } = useI18n();
 	const { deleteSnapshot } = useSnapshots();
@@ -65,6 +67,7 @@ export function PreviewActionButtonsMenu( {
 							handleUpdatePreviewSite();
 							onClose();
 						} }
+						disabled={ isAnyPreviewUpdating }
 					>
 						<span>{ __( 'Update' ) }</span>
 					</MenuItem>

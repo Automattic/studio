@@ -14,6 +14,7 @@ import { useArchiveSite } from 'src/hooks/use-archive-site';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSnapshots } from 'src/hooks/use-snapshots';
+import { useUpdateDemoSite } from 'src/hooks/use-update-demo-site';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { CreatePreviewButton } from 'src/modules/preview-site/components/create-preview-button';
 import { PreviewSiteRow } from 'src/modules/preview-site/components/preview-site-row';
@@ -162,11 +163,14 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 	const { snapshots } = useSnapshots();
 	const { isAuthenticated } = useAuth();
 	const { archiveSite, isUploadingSiteId } = useArchiveSite();
+	const { isDemoSiteUpdating } = useUpdateDemoSite();
 	const isUploading = isUploadingSiteId( selectedSite.id );
 	const snapshotsOnSite = snapshots.filter(
 		( snapshot ) => snapshot.localSiteId === selectedSite.id
 	);
 	const isSnapshotLoading = snapshotsOnSite.some( ( snapshot ) => snapshot.isLoading );
+
+	const isAnyPreviewUpdating = snapshots.some( ( s ) => isDemoSiteUpdating( s.atomicSiteId ) );
 
 	if ( ! isAuthenticated ) {
 		return <NoAuth selectedSite={ selectedSite } />;
@@ -191,6 +195,7 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 								<PreviewSiteRow
 									snapshot={ snapshot }
 									selectedSite={ selectedSite }
+									isAnyPreviewUpdating={ isAnyPreviewUpdating }
 									key={ snapshot.atomicSiteId }
 								/>
 							) ) }

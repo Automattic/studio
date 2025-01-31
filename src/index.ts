@@ -39,7 +39,7 @@ import { setupUpdates } from './updates';
 if ( ! isCLI() && ! process.env.IS_DEV_BUILD ) {
 	const version = app.getVersion();
 	const [ baseVersionWithBeta ] = version.split( '-dev.' );
-	const isDevBuild = version.includes( '-dev.' );
+	const isDevBuild = version.includes( '-dev.' ) || process.env.NODE_ENV !== 'development';
 	const sentryRelease = `studio@${ baseVersionWithBeta }`;
 
 	Sentry.init( {

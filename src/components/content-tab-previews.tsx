@@ -161,6 +161,29 @@ function NoPreviews( { selectedSite }: React.ComponentProps< typeof EmptyGeneric
 	);
 }
 
+function getUpdateButtonTooltipContent(
+	snapshotCreationBlocked: boolean,
+	isOverLimit: boolean,
+	userBlockedMessage: string
+): Partial< TooltipProps & { text?: string } > {
+	if ( snapshotCreationBlocked ) {
+		return { text: userBlockedMessage };
+	}
+
+	if ( isOverLimit ) {
+		return {
+			text: sprintf(
+				__(
+					'Your site exceeds %s GB in size. Updating this preview site may take considerable amount of time and could exceed the maximum allowed size for a preview site.'
+				),
+				DEMO_SITE_SIZE_LIMIT_GB
+			),
+		};
+	}
+
+	return {};
+}
+
 export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) {
 	const { __ } = useI18n();
 	const { snapshots, snapshotCreationBlocked } = useSnapshots();
@@ -181,26 +204,18 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 
 	const isUpdateDisabled = isAnyPreviewUpdating || snapshotCreationBlocked;
 
+	const tooltipContent = getUpdateButtonTooltipContent(
+		snapshotCreationBlocked,
+		isOverLimit,
+		userBlockedMessage
+	);
+
 	if ( ! isAuthenticated ) {
 		return <NoAuth selectedSite={ selectedSite } />;
 	}
 
 	if ( ! snapshotsOnSite.length && ! isUploading && ! isSnapshotLoading ) {
 		return <NoPreviews selectedSite={ selectedSite } />;
-	}
-
-	let tooltipContent: Partial< TooltipProps & { text?: string } > = {};
-	if ( snapshotCreationBlocked ) {
-		tooltipContent = { text: userBlockedMessage };
-	} else if ( isOverLimit ) {
-		tooltipContent = {
-			text: sprintf(
-				__(
-					'Your site exceeds %s GB in size. Updating this preview site may take considerable amount of time and could exceed the maximum allowed size for a preview site.'
-				),
-				DEMO_SITE_SIZE_LIMIT_GB
-			),
-		};
 	}
 
 	return (

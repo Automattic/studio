@@ -81,21 +81,16 @@ async function handleAuthCallback( hash: string ): Promise< StoredToken > {
 		throw new Error( 'Error while getting token' );
 	}
 
-	try {
-		const response = await new wpcom( accessToken ).req.get( '/me?fields=ID,email,display_name' );
+	const response = await new wpcom( accessToken ).req.get( '/me?fields=ID,email,display_name' );
 
-		return authTokenSchema.parse( {
-			expiresIn,
-			expirationTime: new Date().getTime() + expiresIn * 1000,
-			accessToken,
-			id: response.ID,
-			email: response.email,
-			displayName: response.display_name,
-		} );
-	} catch ( error ) {
-		Sentry.captureException( error );
-		throw error;
-	}
+	return authTokenSchema.parse( {
+		expiresIn,
+		expirationTime: new Date().getTime() + expiresIn * 1000,
+		accessToken,
+		id: response.ID,
+		email: response.email,
+		displayName: response.display_name,
+	} );
 }
 
 export function authenticate(): void {
@@ -117,6 +112,7 @@ export async function onOpenUrlCallback( url: string ) {
 			await storeToken( authResult );
 			mainWindow.webContents.send( 'auth-updated', { token: authResult } );
 		} catch ( error ) {
+			Sentry.captureException( error );
 			const mainWindow = await getMainWindow();
 			mainWindow.webContents.send( 'auth-updated', { error } );
 		}

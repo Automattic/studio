@@ -39,7 +39,7 @@ steps:
       npm run test
     agents:
       queue: windows
-    plugins: *common_plugins
+    plugins: [$CI_TOOLKIT_PLUGIN]
     notify:
       - github_commit_status:
           context: Windows Unit Tests
@@ -138,7 +138,7 @@ steps:
       - out\**\*.appx
     agents:
       queue: windows
-    plugins: *common_plugins
+    plugins: [$CI_TOOLKIT_PLUGIN]
     if: build.tag !~ /^v[0-9]+/
     notify:
       - github_commit_status:
@@ -234,7 +234,7 @@ steps:
     key: release-windows
     agents:
       queue: windows
-    plugins: *common_plugins
+    plugins: [$CI_TOOLKIT_PLUGIN]
     command: |
       .buildkite/commands/build-for-windows-release.ps1
       node scripts/package-appx.mjs

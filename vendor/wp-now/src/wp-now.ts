@@ -156,7 +156,7 @@ async function getPHPInstance(
 		memory_limit: '256M',
 		disable_functions: '',
 		allow_url_fopen: '1',
-		'openssl.cafile': path.join( PLAYGROUND_INTERNAL_SHARED_FOLDER, 'ca-bundle.crt' ),
+		'openssl.cafile': path.posix.join( PLAYGROUND_INTERNAL_SHARED_FOLDER, 'ca-bundle.crt' ),
 	} );
 
 	return { php, runtimeId: id };
@@ -167,7 +167,7 @@ async function prepareDocumentRoot( php: PHP, options: WPNowOptions ) {
 	php.chdir( options.documentRoot );
 	php.writeFile( `${ options.documentRoot }/index.php`, `<?php echo 'Hello wp-now!';` );
 	php.writeFile(
-		path.join( PLAYGROUND_INTERNAL_SHARED_FOLDER, 'ca-bundle.crt' ),
+		path.posix.join( PLAYGROUND_INTERNAL_SHARED_FOLDER, 'ca-bundle.crt' ),
 		rootCertificates.join( '\n' )
 	);
 }
@@ -472,7 +472,7 @@ async function mountInternalMuPlugins( php: PHP ) {
 	php.mkdir( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER );
 
 	php.writeFile(
-		path.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-allowed-redirect-hosts.php' ),
+		path.posix.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-allowed-redirect-hosts.php' ),
 		`<?php
 	// Needed because gethostbyname( <host> ) returns
 	// a private network IP address for some reason.
@@ -491,7 +491,7 @@ async function mountInternalMuPlugins( php: PHP ) {
 	);
 
 	php.writeFile(
-		path.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-thumbnails.php' ),
+		path.posix.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-thumbnails.php' ),
 		`<?php
 		// Facilitates the taking of screenshots to be used as thumbnails.
 		if ( isset( $_GET['studio-hide-adminbar'] ) ) {
@@ -501,7 +501,7 @@ async function mountInternalMuPlugins( php: PHP ) {
 	);
 
 	php.writeFile(
-		path.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-32bit-integer-warnings.php' ),
+		path.posix.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-32bit-integer-warnings.php' ),
 		`<?php
 /**
  * This is a temporary workaround to hide the 32bit integer warnings that
@@ -520,7 +520,7 @@ set_error_handler(function($severity, $message, $file, $line) {
 	);
 
 	php.writeFile(
-		path.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-check-theme-availability.php' ),
+		path.posix.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-check-theme-availability.php' ),
 		`<?php
 	function check_current_theme_availability() {
 			// Get the current theme's directory
@@ -548,7 +548,7 @@ set_error_handler(function($severity, $message, $file, $line) {
 	);
 
 	php.writeFile(
-		path.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-permalinks.php' ),
+		path.posix.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-permalinks.php' ),
 		`<?php
 			// Support permalinks without "index.php"
 			add_filter( 'got_url_rewrite', '__return_true' );
@@ -556,7 +556,7 @@ set_error_handler(function($severity, $message, $file, $line) {
 	);
 
 	php.writeFile(
-		path.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-sqlite-command.php' ),
+		path.posix.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-sqlite-command.php' ),
 		`<?php
 			add_filter( 'sqlite_command_sqlite_plugin_directories', function( $directories ) {
 				$directories[] = ${ phpVar( SQLITE_PLUGIN_FOLDER ) };
@@ -566,7 +566,7 @@ set_error_handler(function($severity, $message, $file, $line) {
 	);
 
 	php.writeFile(
-		path.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-deactivate-jetpack-modules.php' ),
+		path.posix.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-deactivate-jetpack-modules.php' ),
 		`<?php
 			// Disable Jetpack Protect 2FA for local auto-login purpose
 			add_action( 'jetpack_active_modules', 'jetpack_deactivate_modules' );
@@ -580,7 +580,7 @@ set_error_handler(function($severity, $message, $file, $line) {
 	);
 
 	php.writeFile(
-		path.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-wp-config-constants-polyfill.php' ),
+		path.posix.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-wp-config-constants-polyfill.php' ),
 		`<?php
 		// Define database constants if not already defined. It fixes the error
 		// for imported sites that don't have those defined e.g. WP Cloud and
@@ -718,7 +718,7 @@ export async function moveDatabasesInSitu( projectPath: string ) {
  */
 function applyOverrideUmaskWorkaround( php: PHP ) {
 	php.writeFile(
-		path.join( PLAYGROUND_INTERNAL_PRELOAD_PATH, 'override-umask-workaround.php' ),
+		path.posix.join( PLAYGROUND_INTERNAL_PRELOAD_PATH, 'override-umask-workaround.php' ),
 		'<?php umask(0022);'
 	);
 }

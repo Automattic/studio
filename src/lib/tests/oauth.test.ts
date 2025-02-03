@@ -30,7 +30,9 @@ describe( 'setUpAuthCallbackHandler', () => {
 		} );
 		const mockSend = jest.fn();
 		( getMainWindow as jest.Mock ).mockResolvedValue( {
+			isDestroyed: jest.fn( () => false ),
 			webContents: {
+				isDestroyed: jest.fn( () => false ),
 				send: mockSend,
 			},
 		} );

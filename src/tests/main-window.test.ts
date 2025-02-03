@@ -35,7 +35,7 @@ describe( 'getMainWindow', () => {
 	it( 'returns the focused window when the reference is destroyed', async () => {
 		const mockWindow1 = new BrowserWindow();
 		const mockWindow2 = new BrowserWindow();
-		( createdWindow.isDestroyed as jest.Mock ).mockReturnValue( true );
+		( createdWindow.isDestroyed as jest.Mock ).mockReturnValueOnce( true );
 		( BrowserWindow.getFocusedWindow as jest.Mock ).mockReturnValueOnce( mockWindow2 );
 		( BrowserWindow.getAllWindows as jest.Mock ).mockReturnValueOnce( [
 			mockWindow1,
@@ -49,7 +49,7 @@ describe( 'getMainWindow', () => {
 	it( 'returns the first window when the reference is destroyed and no window is focused', async () => {
 		const mockWindow1 = new BrowserWindow();
 		const mockWindow2 = new BrowserWindow();
-		( createdWindow.isDestroyed as jest.Mock ).mockReturnValue( true );
+		( createdWindow.isDestroyed as jest.Mock ).mockReturnValueOnce( true );
 		( BrowserWindow.getAllWindows as jest.Mock ).mockReturnValueOnce( [
 			mockWindow1,
 			mockWindow2,
@@ -62,7 +62,7 @@ describe( 'getMainWindow', () => {
 	it( 'returns a new window when no non-destroyed windows exist', async () => {
 		// eslint-disable-next-line @typescript-eslint/no-empty-function
 		let didFinishLoad: ( ...args: any[] ) => void = () => {};
-		( createdWindow.isDestroyed as jest.Mock ).mockReturnValue( true );
+		( createdWindow.isDestroyed as jest.Mock ).mockReturnValueOnce( true );
 		( BrowserWindow.prototype.webContents.on as jest.Mock ).mockImplementation(
 			( _event, callback ) => {
 				didFinishLoad = callback;

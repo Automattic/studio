@@ -21,19 +21,18 @@ export type StoredToken = z.infer< typeof authTokenSchema >;
 async function getToken(): Promise< StoredToken | null > {
 	try {
 		const userData = await loadUserData();
-		const parsed = authTokenSchema.parse( userData.authToken );
-		return parsed;
+		return authTokenSchema.parse( userData.authToken );
 	} catch ( error ) {
 		return null;
 	}
 }
 
-async function storeToken( tokens: StoredToken ) {
+async function storeToken( token: StoredToken ) {
 	try {
 		const userData = await loadUserData();
 		await saveUserData( {
 			...userData,
-			authToken: tokens,
+			authToken: token,
 		} );
 	} catch ( error ) {
 		console.error( 'Failed to store token', error );

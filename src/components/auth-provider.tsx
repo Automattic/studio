@@ -46,13 +46,11 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 		}
 		setIsAuthenticated( true );
 		setClient( createWpcomClient( token.accessToken, locale ) );
-		if ( token.id || token.email || token.displayName ) {
-			setUser( {
-				id: token.id,
-				email: token.email,
-				displayName: token.displayName || '',
-			} );
-		}
+		setUser( {
+			id: token.id,
+			email: token.email,
+			displayName: token.displayName || '',
+		} );
 	} );
 
 	const logout = useCallback( async () => {

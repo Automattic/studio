@@ -36,7 +36,7 @@ steps:
       npm run test
     agents:
       queue: windows
-    plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
+    plugins: [$CI_TOOLKIT_PLUGIN]
     notify:
       - github_commit_status:
           context: Windows Unit Tests

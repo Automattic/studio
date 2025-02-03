@@ -145,7 +145,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 		[ importState ]
 	);
 
-	useIpcListener( 'on-import', ( _, { event, data }: ImportExportEventData, siteId: string ) => {
+	useIpcListener( 'on-import', ( _, { event, data }, siteId ) => {
 		if ( ! siteId ) {
 			return;
 		}
@@ -349,7 +349,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 		[ exportSite ]
 	);
 
-	useIpcListener( 'on-export', ( _, { event, data }: ImportExportEventData, siteId: string ) => {
+	useIpcListener( 'on-export', ( _, { event, data }, siteId ) => {
 		if ( ! siteId ) {
 			return;
 		}

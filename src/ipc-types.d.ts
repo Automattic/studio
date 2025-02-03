@@ -90,7 +90,6 @@ interface IpcListener {
 
 // Our IPC objects will be attached to the `window` global
 interface Window {
-	ipcListener: IpcListener;
 	ipcApi: IpcApi;
 	appGlobals: AppGlobals;
 }

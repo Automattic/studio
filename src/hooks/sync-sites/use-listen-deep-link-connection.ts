@@ -14,30 +14,24 @@ export function useListenDeepLinkConnection( {
 	const { selectedSite, setSelectedSiteId } = useSiteDetails();
 	const { setSelectedTab, selectedTab } = useContentTabs();
 
-	useIpcListener(
-		'sync-connect-site',
-		async (
-			_event,
-			{ remoteSiteId, studioSiteId }: { remoteSiteId: number; studioSiteId: string }
-		) => {
-			// Fetch latest sites from network before checking
-			const latestSites = await refetchSites();
-			const newConnectedSiteResponse = latestSites.find( ( site ) => site.ID === remoteSiteId );
-			if ( newConnectedSiteResponse ) {
-				if ( selectedSite?.id && selectedSite.id !== studioSiteId ) {
-					// Select studio site that started the sync
-					setSelectedSiteId( studioSiteId );
-				}
-				const newConnectedSite = transformSingleSiteResponse(
-					newConnectedSiteResponse,
-					'already-connected'
-				);
-				await connectSite( newConnectedSite, studioSiteId );
-				if ( selectedTab !== 'sync' ) {
-					// Switch to sync tab
-					setSelectedTab( 'sync' );
-				}
+	useIpcListener( 'sync-connect-site', async ( _event, { remoteSiteId, studioSiteId } ) => {
+		// Fetch latest sites from network before checking
+		const latestSites = await refetchSites();
+		const newConnectedSiteResponse = latestSites.find( ( site ) => site.ID === remoteSiteId );
+		if ( newConnectedSiteResponse ) {
+			if ( selectedSite?.id && selectedSite.id !== studioSiteId ) {
+				// Select studio site that started the sync
+				setSelectedSiteId( studioSiteId );
+			}
+			const newConnectedSite = transformSingleSiteResponse(
+				newConnectedSiteResponse,
+				'already-connected'
+			);
+			await connectSite( newConnectedSite, studioSiteId );
+			if ( selectedTab !== 'sync' ) {
+				// Switch to sync tab
+				setSelectedTab( 'sync' );
 			}
 		}
-	);
+	} );
 }

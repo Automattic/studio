@@ -19,7 +19,7 @@ export function useFullscreen() {
 		};
 	}, [] );
 
-	useIpcListener( 'window-fullscreen-change', ( _, fullscreen: boolean ) => {
+	useIpcListener( 'window-fullscreen-change', ( _, fullscreen ) => {
 		setIsFullscreen( fullscreen );
 	} );
 

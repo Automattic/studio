@@ -39,11 +39,14 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 
 	const authenticate = useCallback( () => getIpcApi().authenticate(), [] );
 
-	useIpcListener( 'auth-updated', ( _event, { token, error } ) => {
-		if ( error ) {
-			Sentry.captureException( error );
+	useIpcListener( 'auth-updated', ( _event, payload ) => {
+		if ( 'error' in payload ) {
+			Sentry.captureException( payload.error );
 			return;
 		}
+
+		const { token } = payload;
+
 		setIsAuthenticated( true );
 		setClient( createWpcomClient( token.accessToken, locale ) );
 		if ( token.id || token.email || token.displayName ) {

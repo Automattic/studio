@@ -12,7 +12,7 @@ import { useSiteDetails } from './use-site-details';
 import { SnapshotStatus, SnapshotStatusResponse, useSnapshots } from './use-snapshots';
 
 export function useArchiveSite() {
-	const { uploadingSites, setUploadingSites } = useSiteDetails();
+	const { uploadingSites, setUploadingSites, selectedSite } = useSiteDetails();
 	const { snapshots, addSnapshot, updateSnapshot, fetchSnapshotUsage } = useSnapshots();
 	const isUploadingSiteId = useCallback(
 		( localSiteId: string ) => uploadingSites[ localSiteId ] || false,
@@ -62,6 +62,14 @@ export function useArchiveSite() {
 			clearInterval( intervalId );
 		};
 	}, [ client, snapshots, updateSnapshot ] );
+
+	const getNextSequenceNumber = ( siteId: string, snapshots: Array< Snapshot > ): number => {
+		const siteSnapshots = snapshots.filter( ( s ) => s.localSiteId === siteId );
+		const existingSequences = siteSnapshots
+			.map( ( s ) => s.sequence ?? 0 )
+			.filter( ( n ) => ! isNaN( n ) );
+		return existingSequences.length > 0 ? Math.max( ...existingSequences ) + 1 : 1;
+	};
 
 	const errorMessages = useArchiveErrorMessages();
 	const archiveSite = useCallback(
@@ -134,12 +142,17 @@ export function useArchiveSite() {
 						apiNamespace: 'wpcom/v2',
 						formData,
 					} );
+
+					const nextSequence = getNextSequenceNumber( siteId, snapshots );
+
 					addSnapshot( {
 						url: response.domain_name,
 						atomicSiteId: response.atomic_site_id,
 						localSiteId: siteId,
 						date: new Date().getTime(),
 						isLoading: true,
+						name: `${ selectedSite?.name } ${ __( 'Preview' ) } ${ nextSequence }`,
+						sequence: nextSequence,
 					} );
 				} catch ( error ) {
 					if ( isWpcomNetworkError( error ) ) {
@@ -180,6 +193,8 @@ export function useArchiveSite() {
 			fetchSnapshotUsage,
 			setUploadingSites,
 			connectedSites,
+			selectedSite,
+			snapshots,
 		]
 	);
 	const isAnySiteArchiving = useMemo( () => {

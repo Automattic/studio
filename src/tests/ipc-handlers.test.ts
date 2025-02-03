@@ -5,13 +5,13 @@ import { shell, IpcMainInvokeEvent, BrowserWindow } from 'electron';
 import fs from 'fs';
 import { normalize } from 'path';
 import * as Sentry from '@sentry/electron/main';
+import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 import { createSite, startServer, isFullscreen, importSite } from '../ipc-handlers';
 import { isEmptyDir, pathExists } from '../lib/fs-utils';
 import { importBackup, defaultImporterOptions } from '../lib/import-export/import/import-manager';
 import { keepSqliteIntegrationUpdated } from '../lib/sqlite-versions';
 import { getMainWindow } from '../main-window';
 import { SiteServer, createSiteWorkingDirectory } from '../site-server';
-import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 
 jest.mock( 'fs' );
 jest.mock( 'fs-extra' );

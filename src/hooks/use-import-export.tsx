@@ -5,7 +5,6 @@ import { getIpcApi } from '../lib/get-ipc-api';
 import { ExportEvents } from '../lib/import-export/export/events';
 import { generateBackupFilename } from '../lib/import-export/export/generate-backup-filename';
 import { BackupCreateProgressEventData, ExportOptions } from '../lib/import-export/export/types';
-import { ImportExportEventData } from '../lib/import-export/handle-events';
 import {
 	ImporterEvents,
 	BackupExtractEvents,

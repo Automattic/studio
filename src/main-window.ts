@@ -7,6 +7,7 @@ import {
 	MAIN_MIN_WIDTH,
 	WINDOWS_TITLEBAR_HEIGHT,
 } from './constants';
+import { sendIpcEventToRendererWithWindow } from './ipc-utils';
 import { isEmptyDir } from './lib/fs-utils';
 import { portFinder } from './lib/port-finder';
 import { keepSqliteIntegrationUpdated } from './lib/sqlite-versions';
@@ -103,11 +104,11 @@ export function createMainWindow(): BrowserWindow {
 	} );
 
 	mainWindow.on( 'enter-full-screen', () => {
-		mainWindow?.webContents.send( 'window-fullscreen-change', true );
+		sendIpcEventToRendererWithWindow( mainWindow, 'window-fullscreen-change', true );
 	} );
 
 	mainWindow.on( 'leave-full-screen', () => {
-		mainWindow?.webContents.send( 'window-fullscreen-change', false );
+		sendIpcEventToRendererWithWindow( mainWindow, 'window-fullscreen-change', false );
 	} );
 
 	return mainWindow;

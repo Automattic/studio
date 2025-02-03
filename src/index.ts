@@ -14,6 +14,7 @@ import { __ } from '@wordpress/i18n';
 import packageJson from '../package.json';
 import { PROTOCOL_PREFIX } from './constants';
 import * as ipcHandlers from './ipc-handlers';
+import { sendIpcEventToRenderer } from './ipc-utils';
 import { hasActiveSyncOperations } from './lib/active-sync-operations';
 import { bumpAggregatedUniqueStat, bumpStat } from './lib/bump-stats';
 import {
@@ -89,8 +90,7 @@ const onOpenUrlCallback = async ( url: string ) => {
 		const remoteSiteId = parseInt( searchParams.get( 'remoteSiteId' ) ?? '' );
 		const studioSiteId = searchParams.get( 'studioSiteId' );
 		if ( remoteSiteId && studioSiteId ) {
-			const mainWindow = await getMainWindow();
-			mainWindow.webContents.send( 'sync-connect-site', { remoteSiteId, studioSiteId } );
+			sendIpcEventToRenderer( 'sync-connect-site', { remoteSiteId, studioSiteId } );
 		}
 	}
 };

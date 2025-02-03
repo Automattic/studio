@@ -10,10 +10,9 @@ import {
 	webUtils,
 } from 'electron';
 import { LocaleData } from '@wordpress/i18n';
+import { IpcEvents } from './ipc-utils';
 import { ExportOptions } from './lib/import-export/export/types';
-import { ImportExportEventData } from './lib/import-export/handle-events';
 import { BackupArchiveInfo } from './lib/import-export/import/types';
-import { StoredToken } from './lib/oauth';
 import { promptWindowsSpeedUpSites } from './lib/windows-helpers';
 import type { SyncSite } from './hooks/use-fetch-wpcom-sites/types';
 import type { LogLevel } from './logging';
@@ -120,28 +119,19 @@ const api: IpcApi = {
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );
-export interface IpcEvents {
-	'add-site': [ void ];
-	'auth-updated': [ { token: StoredToken } | { error: Error } ];
-	'on-export': [ ImportExportEventData, string ];
-	'on-import': [ ImportExportEventData, string ];
-	'sync-connect-site': [ { remoteSiteId: number; studioSiteId: string } ];
-	'test-render-failure': [ void ];
-	'theme-details-changed': [ { id: string; details: StartedSiteDetails[ 'themeDetails' ] } ];
-	'theme-details-updating': [ { id: string } ];
-	'thumbnail-changed': [ { id: string; imageData: string | null } ];
-	'user-settings': [ void ];
-	'window-fullscreen-change': [ boolean ];
-}
 
 const subscribe = < T extends keyof IpcEvents >(
 	channel: T,
 	listener: ( event: IpcRendererEvent, ...args: IpcEvents[ T ] ) => void
 ) => {
-	ipcRenderer.on( channel, listener );
+	function wrappedListener( event: IpcRendererEvent, ...args: any[] ) {
+		listener( event, ...( args as IpcEvents[ T ] ) );
+	}
+
+	ipcRenderer.on( channel, wrappedListener );
 
 	return () => {
-		ipcRenderer.off( channel, listener );
+		ipcRenderer.off( channel, wrappedListener );
 	};
 };
 

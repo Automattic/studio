@@ -1,9 +1,9 @@
 import { ipcMain } from 'electron';
 import * as Sentry from '@sentry/electron/main';
 import wpcom from 'wpcom';
+import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { PROTOCOL_PREFIX, WP_AUTHORIZE_ENDPOINT, CLIENT_ID, SCOPES } from '../constants';
 import { shellOpenExternalWrapper } from '../lib/shell-open-external-wrapper';
-import { getMainWindow } from '../main-window';
 import { loadUserData, saveUserData } from '../storage/user-data';
 
 export interface StoredToken {
@@ -105,12 +105,11 @@ export function authenticate(): void {
 
 export function setUpAuthCallbackHandler() {
 	ipcMain.on( 'auth-callback', async ( _event, { token, error } ) => {
-		const mainWindow = await getMainWindow();
 		if ( error ) {
-			mainWindow.webContents.send( 'auth-updated', { error } );
+			sendIpcEventToRenderer( 'auth-updated', { error } );
 		} else {
 			await storeToken( token );
-			mainWindow.webContents.send( 'auth-updated', { token } );
+			sendIpcEventToRenderer( 'auth-updated', { token } );
 		}
 	} );
 }

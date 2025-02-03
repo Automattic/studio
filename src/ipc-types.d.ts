@@ -84,10 +84,6 @@ interface AppGlobals {
 	quickDeploysEnabled: boolean;
 }
 
-interface IpcListener {
-	subscribe( channel: string, listener: ( ...args: any[] ) => void ): () => void;
-}
-
 // Our IPC objects will be attached to the `window` global
 interface Window {
 	ipcApi: IpcApi;

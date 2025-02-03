@@ -1,6 +1,6 @@
 import { IpcRendererEvent } from 'electron';
 import { useEffect } from 'react';
-import { IpcEvents } from 'src/preload';
+import { IpcEvents } from 'src/ipc-utils';
 
 export function useIpcListener< T extends keyof IpcEvents >(
 	channel: T,

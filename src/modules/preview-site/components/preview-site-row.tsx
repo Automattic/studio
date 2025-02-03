@@ -84,7 +84,7 @@ export function PreviewSiteRow( { snapshot, selectedSite }: PreviewSiteRowProps 
 				<div className="w-[51%]">
 					<div className="flex items-center">
 						<div className="text-[13px] leading-5 line-clamp-1 break-all">
-							{ selectedSite.name }
+							{ snapshot.name || selectedSite.name }
 						</div>
 					</div>
 					<Button

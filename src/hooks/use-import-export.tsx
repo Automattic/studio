@@ -85,7 +85,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 			} ) );
 
 			const handleImportError = async ( error: unknown ) => {
-				if ( error instanceof Error && error.message.includes( 'absolute path' ) ) {
+				if ( error instanceof Error && error.message.includes( 'Error: absolute path: /' ) ) {
 					await getIpcApi().showErrorMessageBox( {
 						title: __( 'Failed importing site' ),
 						message: __(

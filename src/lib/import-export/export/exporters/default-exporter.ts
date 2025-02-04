@@ -23,7 +23,18 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 	private backup: BackupContents;
 	private readonly options: ExportOptions;
 	private siteFiles: string[];
-	private readonly pathsToExclude = [ 'wp-content/mu-plugins/sqlite-database-integration' ];
+	private readonly pathsToExclude = [
+		'wp-content/mu-plugins/sqlite-database-integration',
+		'wp-content/mu-plugins/0-32bit-integer-warnings.php',
+		'wp-content/mu-plugins/0-allowed-redirect-hosts.php',
+		'wp-content/mu-plugins/0-check-theme-availability.php',
+		'wp-content/mu-plugins/0-deactivate-jetpack-modules.php',
+		'wp-content/mu-plugins/0-dns-functions.php',
+		'wp-content/mu-plugins/0-permalinks.php',
+		'wp-content/mu-plugins/0-wp-config-constants-polyfill.php',
+		'wp-content/mu-plugins/0-sqlite.php',
+		'wp-content/mu-plugins/0-thumbnails.php',
+	];
 
 	constructor( options: ExportOptions ) {
 		super();

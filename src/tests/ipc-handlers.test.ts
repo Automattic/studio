@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-import { shell, IpcMainInvokeEvent, BrowserWindow } from 'electron';
+import { shell, IpcMainInvokeEvent } from 'electron';
 import fs from 'fs';
 import { normalize } from 'path';
 import * as Sentry from '@sentry/electron/main';

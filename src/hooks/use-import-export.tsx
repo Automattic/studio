@@ -89,7 +89,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 					await getIpcApi().showErrorMessageBox( {
 						title: __( 'Failed importing site' ),
 						message: __(
-							'The ZIP archive is incorrect. Try to unpack and pack it again. If this problem persists, please contact support.'
+							'The ZIP archive is invalid. Try to unpack and pack it again. If this problem persists, please contact support.'
 						),
 					} );
 				} else {

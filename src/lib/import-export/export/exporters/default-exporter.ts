@@ -23,6 +23,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 	private backup: BackupContents;
 	private readonly options: ExportOptions;
 	private siteFiles: string[];
+	private readonly pathsToExclude = [ 'wp-content/mu-plugins/sqlite-database-integration' ];
 
 	constructor( options: ExportOptions ) {
 		super();
@@ -205,8 +206,13 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		} );
 
 		return directoryContents.reduce< string[] >( ( files: string[], directoryContent ) => {
+			const filePath = path.join( directoryContent.path, directoryContent.name );
+			const relativePath = path.relative( this.options.site.path, filePath );
+			if ( this.pathsToExclude.some( ( path ) => relativePath.startsWith( path ) ) ) {
+				return files;
+			}
 			if ( directoryContent.isFile() ) {
-				files.push( path.join( directoryContent.path, directoryContent.name ) );
+				files.push( filePath );
 			}
 			return files;
 		}, [] );
@@ -226,15 +232,10 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		};
 
 		const siteFiles = await this.getSiteFiles();
-		const pathsToExclude = [ 'wp-content/mu-plugins/sqlite-database-integration' ];
 		siteFiles.forEach( ( file ) => {
 			const relativePath = path.relative( options.site.path, file );
 			const relativePathItems = relativePath.split( path.sep );
 			const [ wpContent, wpContentDirectory ] = relativePathItems;
-
-			if ( pathsToExclude.some( ( path ) => relativePath.startsWith( path ) ) ) {
-				return;
-			}
 			if ( path.basename( file ) === 'wp-config.php' ) {
 				backupContents.wpConfigFile = file;
 			} else if ( wpContent === 'wp-content' ) {

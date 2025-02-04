@@ -1,14 +1,14 @@
 1.3.3
 =====
-* Handle zip imports regression #874
-* Sentry: change release naming #868
-* Sentry: improve breadcrumbs with providing more info #864
-* Sentry: add user identifier #863
-* Show warning when user tries to pull a site that is larger than 2GB #842
-* Remove internal mu-plugins during prepareWordPress #860
-* Include mu-plugins in Studio site import #852
+* Handled zip imports regression #874
+* Changed Sentry release naming #868
+* Improved Sentry breadcrumbs by providing more info #864
+* Added user identifier in Sentry #863
+* Added a warning when user tries to pull a site that is larger than 2GB #842
+* Removed internal mu-plugins during prepareWordPress #860
+* Included mu-plugins in Studio site import #852
 * Introduced Redux with refactoring ChatProvider as the first store #826
-* Fixed setting environment variables for WP CLI #814
+* Cosmetic improvements to how the terminal is launched on Windows #814
 * Mounted mu-plugin polyfills to the Playground filesystem #845
 * Handled errors of failed opening browser on Windows #840
 * Increase width of tooltips #841

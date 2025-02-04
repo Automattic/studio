@@ -84,15 +84,24 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 				},
 			} ) );
 
-			const handleImportError = async ( error?: unknown ) => {
-				await getIpcApi().showErrorMessageBox( {
-					title: __( 'Failed importing site' ),
-					message: __(
-						'An error occurred while importing the site. Verify the file is a valid Jetpack backup, Local, Playground, .wpress or .sql database file and try again. If this problem persists, please contact support.'
-					),
-					error,
-					showOpenLogs: true,
-				} );
+			const handleImportError = async ( error: unknown ) => {
+				if ( error instanceof Error && error.message.includes( 'Error: absolute path: /' ) ) {
+					await getIpcApi().showErrorMessageBox( {
+						title: __( 'Failed importing site' ),
+						message: __(
+							'The ZIP archive is invalid. Try to unpack and pack it again. If this problem persists, please contact support.'
+						),
+					} );
+				} else {
+					await getIpcApi().showErrorMessageBox( {
+						title: __( 'Failed importing site' ),
+						message: __(
+							'An error occurred while importing the site. Verify the file is a valid Jetpack backup, Local, Playground, .wpress or .sql database file and try again. If this problem persists, please contact support.'
+						),
+						error,
+						showOpenLogs: true,
+					} );
+				}
 				setImportState( ( { [ selectedSite.id ]: currentProgress, ...rest } ) => ( {
 					...rest,
 				} ) );
@@ -111,11 +120,6 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 					id: selectedSite.id,
 					backupFile,
 				} );
-
-				if ( ! importedSite ) {
-					await handleImportError();
-					return;
-				}
 
 				await updateSite( importedSite );
 

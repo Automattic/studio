@@ -548,7 +548,7 @@ set_error_handler(function($severity, $message, $file, $line) {
 	);
 
 	php.writeFile(
-		path.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-dns-functions.php' ),
+		path.posix.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-dns-functions.php' ),
 		`<?php
 		// Polyfill for DNS features which are not currently supported by @php-wasm/node.
 		// See https://github.com/WordPress/wordpress-playground/issues/1042

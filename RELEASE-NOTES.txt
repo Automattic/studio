@@ -12,13 +12,9 @@
 * Mounted mu-plugin polyfills to the Playground filesystem #845
 * Handled errors of failed opening browser on Windows #840
 * Increase width of tooltips #841
-* Fixed importing tables and Jetpack backups over 2 GB #800
-* Increased limit of demo sites from 5 to 10 #836
 * Improved fullscreen view in macOS #833
-* Fixed cleaning up of archive files created for creating/updating demo sites #816
 * Fixed absolute imports in main process #837
 * Fixed importing of .wpress backups #830
-* Added tooltips to create and update Demo Sites buttons when size limit is reached #811
 * Added description for Advanced settings of creating a new site #828
 * Allowed non-relative imports starting with src/ or vendor/ #825
 * Skip Sentry initialization in E2E tests #813

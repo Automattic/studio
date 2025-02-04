@@ -56,14 +56,14 @@ export async function importBackup(
 		throw new Error( 'No suitable backup handler found for the provided backup file' );
 	}
 
+	const extractionDirectory = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio_backup' ) );
 	const fileList = await backupHandler.listFiles( backupFile );
-	const importer = selectImporter( fileList, '', onEvent, options );
+	const importer = selectImporter( fileList, extractionDirectory, onEvent, options );
 
 	if ( ! importer ) {
 		throw new Error( 'No suitable importer found for the provided backup contents' );
 	}
 
-	const extractionDirectory = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio_backup' ) );
 	let removeBackupListeners;
 	let removeImportListeners;
 	try {

@@ -88,7 +88,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 				isFile: () => true,
 			},
 			{
-				path: normalize( '/path/to/site/wp-includes/index.php' ),
+				path: normalize( '/path/to/site/wp-includes' ),
 				name: 'index.php',
 				isFile: () => true,
 			},
@@ -98,14 +98,12 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 				isFile: () => true,
 			},
 			{
-				path: normalize(
-					'/path/to/site/wp-content/mu-plugins/sqlite-database-integration/load.php'
-				),
+				path: normalize( '/path/to/site/wp-content/mu-plugins/sqlite-database-integration' ),
 				name: 'load.php',
 				isFile: () => true,
 			},
 			{
-				path: normalize( '/path/to/site/wp-content/mu-plugins/custom-mu-plugin.php' ),
+				path: normalize( '/path/to/site/wp-content/mu-plugins' ),
 				name: 'custom-mu-plugin.php',
 				isFile: () => true,
 			},
@@ -271,6 +269,37 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 			4,
 			normalize( '/path/to/site/wp-content/themes/theme1/index.php' ),
 			{ name: normalize( 'wp-content/themes/theme1/index.php' ) }
+		);
+	} );
+
+	it( 'should add (non-excluded) mu-plugins files to the archive', async () => {
+		const options = {
+			...mockOptions,
+			includes: {
+				uploads: false,
+				plugins: false,
+				themes: false,
+				database: false,
+				muPlugins: true,
+			},
+		};
+
+		const exporter = new DefaultExporter( options );
+		await exporter.export();
+
+		expect( mockArchiver.file ).toHaveBeenNthCalledWith(
+			1,
+			normalize( '/path/to/site/wp-config.php' ),
+			{ name: 'wp-config.php' }
+		);
+		expect( mockArchiver.file ).toHaveBeenNthCalledWith(
+			2,
+			normalize( '/path/to/site/wp-content/mu-plugins/custom-mu-plugin.php' ),
+			{ name: normalize( 'wp-content/mu-plugins/custom-mu-plugin.php' ) }
+		);
+		expect( mockArchiver.file ).not.toHaveBeenCalledWith(
+			normalize( '/path/to/site/wp-content/mu-plugins/sqlite-database-integration/load.php' ),
+			{ name: normalize( 'wp-content/mu-plugins/sqlite-database-integration/load.php' ) }
 		);
 	} );
 

@@ -219,7 +219,10 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		return directoryContents.reduce< string[] >( ( files: string[], directoryContent ) => {
 			const filePath = path.join( directoryContent.path, directoryContent.name );
 			const relativePath = path.relative( this.options.site.path, filePath );
-			if ( this.pathsToExclude.some( ( path ) => relativePath.startsWith( path ) ) ) {
+			const isExcluded = this.pathsToExclude.some( ( pathToExclude ) =>
+				relativePath.startsWith( path.normalize( pathToExclude ) )
+			);
+			if ( isExcluded ) {
 				return files;
 			}
 			if ( directoryContent.isFile() ) {

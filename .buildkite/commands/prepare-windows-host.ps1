@@ -8,7 +8,7 @@ If ($LastExitCode -ne 0) { Exit $LastExitCode }
 # Building AppX requires the Windows 10 SDK
 #
 # See https://github.com/hermit99/electron-windows-store/tree/v2.1.2?tab=readme-ov-file#usage
-& "$PSScriptRoot\install-windows-10-sdk.ps1"
+& "install_windows_10_sdk.ps1"
 If ($LastExitCode -ne 0) { Exit $LastExitCode }
 
 Write-Host "--- :npm: Installing Node dependencies"

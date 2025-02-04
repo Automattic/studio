@@ -226,7 +226,7 @@ describe( 'useImportExport hook', () => {
 	} );
 
 	it( 'shows error message when import fails with absolute path error', async () => {
-		( getIpcApi().importSite as jest.Mock ).mockRejectedValue( new Error( 'absolute path error' ) );
+		( getIpcApi().importSite as jest.Mock ).mockRejectedValue( new Error( 'Error: absolute path: /' ) );
 
 		const { result } = renderHook( () => useImportExport(), { wrapper } );
 		const file = { path: 'backup.zip', type: 'application/zip' };
@@ -243,7 +243,7 @@ describe( 'useImportExport hook', () => {
 		expect( getIpcApi().showErrorMessageBox ).toHaveBeenCalledWith( {
 			title: 'Failed importing site',
 			message:
-				'The ZIP archive is incorrect. Try to unpack and pack it again. If this problem persists, please contact support.',
+				'The ZIP archive is invalid. Try to unpack and pack it again. If this problem persists, please contact support.',
 		} );
 	} );
 

@@ -2,7 +2,6 @@
 =====
 * Handled zip imports regression #874
 * Cosmetic improvements to how the terminal is launched on Windows #814
-* Mounted mu-plugin polyfills to the Playground filesystem #845
 * Fixed importing of .wpress backups #830
 * Added description for Advanced settings of creating a new site #828
 * Improved Sentry reports #813, #863, #868, #864

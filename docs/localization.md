@@ -26,7 +26,7 @@ If you want to add support for another language you will need to add it to the
 #### Step 2: Import to GlotPress:
 
    1. Open [our project in GlotPress](https://translate.wordpress.com/projects/studio/).
-   2. Click the **Project actions** menu. (You should be proxied through AutoProxxy or similar way)
+   2. Click the **Project actions** menu. You must have admin permissions to view the menu.
    3. Click **Import Originals**.
    4. Import `out/pots/bundle-strings.pot` (auto-detecting the file format is fine).
 

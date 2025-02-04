@@ -146,7 +146,7 @@ describe( 'importManager', () => {
 				] )
 			).rejects.toThrow( 'No suitable importer found for the provided backup contents' );
 
-			expect( fsPromises.mkdtemp ).not.toHaveBeenCalled();
+			expect( fsPromises.mkdtemp ).toHaveBeenCalled();
 			expect( fsPromises.rm ).not.toHaveBeenCalled();
 		} );
 

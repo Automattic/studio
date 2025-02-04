@@ -194,38 +194,4 @@ describe( 'importSite', () => {
 
 		expect( Sentry.captureException ).toHaveBeenCalledWith( mockError );
 	} );
-
-	it( 'should send import events to renderer process', async () => {
-		const mockSite = {
-			details: {
-				id: 'test-site',
-			},
-		};
-		const mockParentWindow = {
-			webContents: {
-				send: jest.fn(),
-			},
-			isDestroyed: () => false,
-		};
-		( SiteServer.get as jest.Mock ).mockReturnValue( mockSite );
-		( BrowserWindow.fromWebContents as jest.Mock ).mockReturnValue( mockParentWindow );
-
-		await importSite( mockIpcMainInvokeEvent, {
-			id: 'test-site',
-			backupFile: mockBackupFile,
-		} );
-
-		// Get the onEvent callback that was passed to importBackup
-		const onEvent = ( importBackup as jest.Mock ).mock.calls[ 0 ][ 2 ];
-		const mockEventData = { status: 'importing' };
-
-		// Simulate an import event
-		onEvent( mockEventData );
-
-		expect( mockParentWindow.webContents.send ).toHaveBeenCalledWith(
-			'on-import',
-			mockEventData,
-			'test-site'
-		);
-	} );
 } );

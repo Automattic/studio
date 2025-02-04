@@ -104,6 +104,11 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 			},
 			{
 				path: normalize( '/path/to/site/wp-content/mu-plugins' ),
+				name: '0-32bit-integer-warnings.php',
+				isFile: () => true,
+			},
+			{
+				path: normalize( '/path/to/site/wp-content/mu-plugins' ),
 				name: 'custom-mu-plugin.php',
 				isFile: () => true,
 			},
@@ -297,9 +302,14 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 			normalize( '/path/to/site/wp-content/mu-plugins/custom-mu-plugin.php' ),
 			{ name: normalize( 'wp-content/mu-plugins/custom-mu-plugin.php' ) }
 		);
+
 		expect( mockArchiver.file ).not.toHaveBeenCalledWith(
 			normalize( '/path/to/site/wp-content/mu-plugins/sqlite-database-integration/load.php' ),
 			{ name: normalize( 'wp-content/mu-plugins/sqlite-database-integration/load.php' ) }
+		);
+		expect( mockArchiver.file ).not.toHaveBeenCalledWith(
+			normalize( '/path/to/site/wp-content/mu-plugins/0-32bit-integer-warnings.php' ),
+			{ name: normalize( 'wp-content/mu-plugins/0-32bit-integer-warnings.php' ) }
 		);
 	} );
 

@@ -5,17 +5,17 @@ import { sprintf, __ } from '@wordpress/i18n';
 import { Icon, download } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useEffect, useRef, useState } from 'react';
-import { STUDIO_DOCS_URL_IMPORT_EXPORT, ACCEPTED_IMPORT_FILE_TYPES } from '../constants';
-import { useSyncSites } from '../hooks/sync-sites/sync-sites-context';
-import { useConfirmationDialog } from '../hooks/use-confirmation-dialog';
-import { useDragAndDropFile } from '../hooks/use-drag-and-drop-file';
-import { useImportExport } from '../hooks/use-import-export';
-import { useSiteDetails } from '../hooks/use-site-details';
-import { cx } from '../lib/cx';
-import { getIpcApi } from '../lib/get-ipc-api';
-import Button from './button';
-import ProgressBar from './progress-bar';
-import { Tooltip } from './tooltip';
+import Button from 'src/components/button';
+import ProgressBar from 'src/components/progress-bar';
+import { Tooltip } from 'src/components/tooltip';
+import { STUDIO_DOCS_URL_IMPORT_EXPORT, ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
+import { useSyncSites } from 'src/hooks/sync-sites/sync-sites-context';
+import { useConfirmationDialog } from 'src/hooks/use-confirmation-dialog';
+import { useDragAndDropFile } from 'src/hooks/use-drag-and-drop-file';
+import { useImportExport } from 'src/hooks/use-import-export';
+import { useSiteDetails } from 'src/hooks/use-site-details';
+import { cx } from 'src/lib/cx';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 
 interface ContentTabImportExportProps {
 	selectedSite: SiteDetails;

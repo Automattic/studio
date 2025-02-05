@@ -1,7 +1,7 @@
 import { app, autoUpdater, dialog } from 'electron';
 import * as Sentry from '@sentry/electron/main';
 import { __ } from '@wordpress/i18n';
-import { AUTO_UPDATE_INTERVAL_MS } from './constants';
+import { AUTO_UPDATE_INTERVAL_MS } from 'src/constants';
 
 type UpdpaterState =
 	| 'init'

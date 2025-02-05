@@ -2,9 +2,15 @@ import { EventEmitter } from 'events';
 import fs from 'fs';
 import zlib from 'zlib';
 import * as tar from 'tar';
-import { ImportEvents } from '../events';
-import { BackupArchiveInfo, BackupExtractProgressEventData } from '../types';
-import { BackupHandler, isFileAllowed } from './backup-handler-factory';
+import { ImportEvents } from 'src/lib/import-export/import/events';
+import {
+	BackupHandler,
+	isFileAllowed,
+} from 'src/lib/import-export/import/handlers/backup-handler-factory';
+import {
+	BackupArchiveInfo,
+	BackupExtractProgressEventData,
+} from 'src/lib/import-export/import/types';
 
 export class BackupHandlerTarGz extends EventEmitter implements BackupHandler {
 	async listFiles( backup: BackupArchiveInfo ): Promise< string[] > {

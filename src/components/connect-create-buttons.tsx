@@ -1,11 +1,11 @@
 import { __ } from '@wordpress/i18n';
-import { useOffline } from '../hooks/use-offline';
-import { cx } from '../lib/cx';
-import { getIpcApi } from '../lib/get-ipc-api';
-import { ArrowIcon } from './arrow-icon';
-import Button, { ButtonVariant } from './button';
-import offlineIcon from './offline-icon';
-import { Tooltip } from './tooltip';
+import { ArrowIcon } from 'src/components/arrow-icon';
+import Button, { ButtonVariant } from 'src/components/button';
+import offlineIcon from 'src/components/offline-icon';
+import { Tooltip } from 'src/components/tooltip';
+import { useOffline } from 'src/hooks/use-offline';
+import { cx } from 'src/lib/cx';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 
 interface ConnectButtonProps {
 	variant: ButtonVariant;

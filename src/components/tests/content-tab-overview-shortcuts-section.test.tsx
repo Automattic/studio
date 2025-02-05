@@ -1,10 +1,10 @@
 // To run tests, execute `npm run test -- src/components/tests/content-tab-overview-shortcuts-section.test.tsx` from the root directory
 import { fireEvent, render, waitFor } from '@testing-library/react';
-import { useCheckInstalledApps } from '../../hooks/use-check-installed-apps';
-import { useFeatureFlags } from '../../hooks/use-feature-flags';
-import { useThemeDetails } from '../../hooks/use-theme-details';
-import { getIpcApi } from '../../lib/get-ipc-api';
-import { ContentTabOverview } from '../content-tab-overview';
+import { ContentTabOverview } from 'src/components/content-tab-overview';
+import { useCheckInstalledApps } from 'src/hooks/use-check-installed-apps';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
+import { useThemeDetails } from 'src/hooks/use-theme-details';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 
 const selectedSite: StartedSiteDetails = {
 	name: 'Test Site',
@@ -17,10 +17,10 @@ const selectedSite: StartedSiteDetails = {
 };
 
 const mockGetIpcApi = getIpcApi as jest.Mock;
-jest.mock( '../../hooks/use-check-installed-apps' );
-jest.mock( '../../lib/get-ipc-api' );
-jest.mock( '../../hooks/use-theme-details' );
-jest.mock( '../../hooks/use-feature-flags' );
+jest.mock( 'src/hooks/use-check-installed-apps' );
+jest.mock( 'src/lib/get-ipc-api' );
+jest.mock( 'src/hooks/use-theme-details' );
+jest.mock( 'src/hooks/use-feature-flags' );
 
 describe( 'ShortcutsSection', () => {
 	beforeEach( () => {

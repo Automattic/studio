@@ -2,13 +2,13 @@
 import fsPromises from 'fs/promises';
 import os from 'os';
 import path from 'path';
-import { BackupHandlerFactory } from '../../import/handlers/backup-handler-factory';
-import { selectImporter, importBackup } from '../../import/import-manager';
-import { Importer } from '../../import/importers/importer';
-import { BackupContents, BackupArchiveInfo } from '../../import/types';
-import { Validator } from '../../import/validators/validator';
+import { BackupHandlerFactory } from 'src/lib/import-export/import/handlers/backup-handler-factory';
+import { selectImporter, importBackup } from 'src/lib/import-export/import/import-manager';
+import { Importer } from 'src/lib/import-export/import/importers/importer';
+import { BackupContents, BackupArchiveInfo } from 'src/lib/import-export/import/types';
+import { Validator } from 'src/lib/import-export/import/validators/validator';
 
-jest.mock( '../../import/handlers/backup-handler-factory' );
+jest.mock( 'src/lib/import-export/import/handlers/backup-handler-factory' );
 jest.mock( 'fs/promises' );
 jest.mock( 'os' );
 jest.mock( 'path' );

@@ -1,9 +1,9 @@
 import { act, render, screen } from '@testing-library/react';
-import { SyncSitesProvider } from '../../hooks/sync-sites';
-import { ContentTabsProvider } from '../../hooks/use-content-tabs';
-import { useFeatureFlags } from '../../hooks/use-feature-flags';
-import { useSiteDetails } from '../../hooks/use-site-details';
-import { SiteContentTabs } from '../site-content-tabs';
+import { SiteContentTabs } from 'src/components/site-content-tabs';
+import { SyncSitesProvider } from 'src/hooks/sync-sites';
+import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
+import { useSiteDetails } from 'src/hooks/use-site-details';
 
 const selectedSite = {
 	id: 'site-id-1',
@@ -12,25 +12,25 @@ const selectedSite = {
 	path: '/test-site',
 };
 
-jest.mock( '../../hooks/use-feature-flags' );
-jest.mock( '../../hooks/use-site-details' );
-jest.mock( '../../hooks/use-auth', () => ( {
+jest.mock( 'src/hooks/use-feature-flags' );
+jest.mock( 'src/hooks/use-site-details' );
+jest.mock( 'src/hooks/use-auth', () => ( {
 	useAuth: () => ( {
 		isAuthenticated: true,
 		authenticate: jest.fn(),
 	} ),
 } ) );
-jest.mock( '../../hooks/use-archive-site', () => ( {
+jest.mock( 'src/hooks/use-archive-site', () => ( {
 	useArchiveSite: () => ( {
 		archiveSite: jest.fn(),
 		isUploadingSiteId: jest.fn(),
 	} ),
 } ) );
-jest.mock( '../../lib/app-globals', () => ( {
+jest.mock( 'src/lib/app-globals', () => ( {
 	...jest.requireActual( '../../lib/app-globals' ),
 	getAppGlobals: jest.fn().mockReturnValue( { locale: ' en' } ),
 } ) );
-jest.mock( '../../lib/get-ipc-api', () => ( {
+jest.mock( 'src/lib/get-ipc-api', () => ( {
 	...jest.requireActual( '../../lib/get-ipc-api' ),
 	getIpcApi: jest.fn().mockReturnValue( {
 		getConnectedWpcomSites: jest.fn().mockResolvedValue( [] ),

@@ -1,7 +1,7 @@
 import path from 'path';
 import { move } from 'fs-extra';
-import { SiteServer } from '../../../site-server';
-import { generateBackupFilename } from './generate-backup-filename';
+import { generateBackupFilename } from 'src/lib/import-export/export/generate-backup-filename';
+import { SiteServer } from 'src/site-server';
 
 export async function exportDatabaseToFile(
 	site: SiteDetails,

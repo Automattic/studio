@@ -3,16 +3,16 @@
  */
 import fs from 'fs';
 import { normalize } from 'path';
-import { createMainWindow, getMainWindow } from '../main-window';
-import { setupWPServerFiles } from '../setup-wp-server-files';
+import { createMainWindow, getMainWindow } from 'src/main-window';
+import { setupWPServerFiles } from 'src/setup-wp-server-files';
 
 jest.mock( 'fs' );
 jest.mock( 'file-stream-rotator' );
-jest.mock( '../main-window' );
-jest.mock( '../updates' );
-jest.mock( '../lib/bump-stats' );
-jest.mock( '../lib/cli' );
-jest.mock( '../setup-wp-server-files', () => ( {
+jest.mock( 'src/main-window' );
+jest.mock( 'src/updates' );
+jest.mock( 'src/lib/bump-stats' );
+jest.mock( 'src/lib/cli' );
+jest.mock( 'src/setup-wp-server-files', () => ( {
 	setupWPServerFiles: jest.fn( () => Promise.resolve() ),
 	updateWPServerFiles: jest.fn( () => Promise.resolve() ),
 } ) );

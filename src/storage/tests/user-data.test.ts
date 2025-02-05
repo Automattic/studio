@@ -5,13 +5,13 @@
 import fs from 'fs';
 import { normalize } from 'path';
 import * as atomically from 'atomically';
+import { getUserDataFilePath } from 'src/storage/paths';
+import { UserData } from 'src/storage/storage-types';
+import { loadUserData, saveUserData } from 'src/storage/user-data';
 import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
-import { getUserDataFilePath } from '../paths';
-import { UserData } from '../storage-types';
-import { loadUserData, saveUserData } from '../user-data';
 
 jest.mock( 'fs' );
-jest.mock( '../paths' );
+jest.mock( 'src/storage/paths' );
 
 const mockedUserData: RecursivePartial< UserData > = {
 	sites: [

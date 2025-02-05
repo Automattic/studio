@@ -2,11 +2,11 @@
 import * as Sentry from '@sentry/electron/renderer';
 import { waitFor, renderHook, act } from '@testing-library/react';
 import { ReactNode } from 'react';
-import { LIMIT_OF_ZIP_SITES_PER_USER } from '../../constants';
-import { getIpcApi } from '../../lib/get-ipc-api';
-import { useAuth } from '../use-auth';
-import { useOffline } from '../use-offline';
-import { useSnapshots, SnapshotProvider } from '../use-snapshots';
+import { LIMIT_OF_ZIP_SITES_PER_USER } from 'src/constants';
+import { useAuth } from 'src/hooks/use-auth';
+import { useOffline } from 'src/hooks/use-offline';
+import { useSnapshots, SnapshotProvider } from 'src/hooks/use-snapshots';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 
 const wrapper = ( { children }: { children: ReactNode } ) => (
 	<SnapshotProvider>{ children }</SnapshotProvider>
@@ -14,9 +14,9 @@ const wrapper = ( { children }: { children: ReactNode } ) => (
 
 const mockSnapshots = [ { atomicSiteId: 12345 }, { atomicSiteId: 67890 } ];
 jest.mock( '@sentry/electron/renderer' );
-jest.mock( '../use-auth' );
-jest.mock( '../../hooks/use-offline' );
-jest.mock( '../../lib/get-ipc-api', () => ( {
+jest.mock( 'src/hooks/use-auth' );
+jest.mock( 'src/hooks/use-offline' );
+jest.mock( 'src/lib/get-ipc-api', () => ( {
 	getIpcApi: () => ( {
 		getSnapshots: jest.fn().mockResolvedValue( mockSnapshots ),
 		saveSnapshotsToStorage: jest.fn(),

@@ -4,11 +4,12 @@ import fsPromises from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import archiver from 'archiver';
-import { getWordPressVersionFromInstallation } from '../../../../lib/wp-versions';
-import { SiteServer } from '../../../../site-server';
-import { ExportEvents } from '../events';
-import { exportDatabaseToFile, exportDatabaseToMultipleFiles } from '../export-database';
-import { generateBackupFilename } from '../generate-backup-filename';
+import { ExportEvents } from 'src/lib/import-export/export/events';
+import {
+	exportDatabaseToFile,
+	exportDatabaseToMultipleFiles,
+} from 'src/lib/import-export/export/export-database';
+import { generateBackupFilename } from 'src/lib/import-export/export/generate-backup-filename';
 import {
 	ExportOptions,
 	BackupContents,
@@ -16,7 +17,9 @@ import {
 	BackupCreateProgressEventData,
 	BackupContentsCategory,
 	StudioJson,
-} from '../types';
+} from 'src/lib/import-export/export/types';
+import { getWordPressVersionFromInstallation } from 'src/lib/wp-versions';
+import { SiteServer } from 'src/site-server';
 
 export class DefaultExporter extends EventEmitter implements Exporter {
 	private archive!: archiver.Archiver;

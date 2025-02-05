@@ -2,10 +2,10 @@ import path from 'path';
 import * as Sentry from '@sentry/electron/main';
 import fs from 'fs-extra';
 import semver from 'semver';
-import { SQLITE_FILENAME } from '../../vendor/wp-now/src/constants';
-import { downloadSqliteIntegrationPlugin } from '../../vendor/wp-now/src/download';
-import getSqlitePath from '../../vendor/wp-now/src/get-sqlite-path';
-import { getServerFilesPath } from '../storage/paths';
+import { getServerFilesPath } from 'src/storage/paths';
+import { SQLITE_FILENAME } from 'vendor/wp-now/src/constants';
+import { downloadSqliteIntegrationPlugin } from 'vendor/wp-now/src/download';
+import getSqlitePath from 'vendor/wp-now/src/get-sqlite-path';
 
 export async function isSqlLiteInstalled( installPath: string ) {
 	const installedFiles = ( await fs.pathExists( installPath ) )

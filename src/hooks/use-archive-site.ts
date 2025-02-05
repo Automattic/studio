@@ -2,14 +2,14 @@ import * as Sentry from '@sentry/electron/renderer';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useMemo } from 'react';
-import { DEMO_SITE_SIZE_LIMIT_BYTES, DEMO_SITE_SIZE_LIMIT_GB } from '../constants';
-import { getIpcApi } from '../lib/get-ipc-api';
-import { isWpcomNetworkError } from '../lib/is-wpcom-network-error';
-import { useSyncSites } from './sync-sites';
-import { useArchiveErrorMessages } from './use-archive-error-messages';
-import { useAuth } from './use-auth';
-import { useSiteDetails } from './use-site-details';
-import { SnapshotStatus, SnapshotStatusResponse, useSnapshots } from './use-snapshots';
+import { DEMO_SITE_SIZE_LIMIT_BYTES, DEMO_SITE_SIZE_LIMIT_GB } from 'src/constants';
+import { useSyncSites } from 'src/hooks/sync-sites';
+import { useArchiveErrorMessages } from 'src/hooks/use-archive-error-messages';
+import { useAuth } from 'src/hooks/use-auth';
+import { useSiteDetails } from 'src/hooks/use-site-details';
+import { SnapshotStatus, SnapshotStatusResponse, useSnapshots } from 'src/hooks/use-snapshots';
+import { getIpcApi } from 'src/lib/get-ipc-api';
+import { isWpcomNetworkError } from 'src/lib/is-wpcom-network-error';
 
 export function useArchiveSite() {
 	const { uploadingSites, setUploadingSites } = useSiteDetails();

@@ -2,12 +2,12 @@
  * @jest-environment node
  */
 import wpcom from 'wpcom';
-import { getMainWindow } from '../../main-window';
-import { loadUserData, saveUserData } from '../../storage/user-data';
-import { getAuthenticationToken, onOpenUrlCallback } from '../oauth';
+import { getAuthenticationToken, onOpenUrlCallback } from 'src/lib/oauth';
+import { getMainWindow } from 'src/main-window';
+import { loadUserData, saveUserData } from 'src/storage/user-data';
 
-jest.mock( '../../main-window' );
-jest.mock( '../../storage/user-data' );
+jest.mock( 'src/main-window' );
+jest.mock( 'src/storage/user-data' );
 jest.mock( 'wpcom' );
 
 describe( 'getAuthenticationToken', () => {

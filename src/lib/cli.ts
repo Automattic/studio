@@ -1,7 +1,7 @@
 import { app } from 'electron';
 import { parse } from 'shell-quote';
 import { z } from 'zod';
-import { executeWPCli } from '../../vendor/wp-now/src/execute-wp-cli';
+import { executeWPCli } from 'vendor/wp-now/src/execute-wp-cli';
 
 type CommandAction = 'wp';
 interface Command {

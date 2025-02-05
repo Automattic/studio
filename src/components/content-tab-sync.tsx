@@ -1,21 +1,21 @@
 import { check, Icon } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren, useState, useEffect } from 'react';
-import { CLIENT_ID, PROTOCOL_PREFIX, SCOPES, WP_AUTHORIZE_ENDPOINT } from '../constants';
-import { useSyncSites } from '../hooks/sync-sites';
-import { useAuth } from '../hooks/use-auth';
-import { useOffline } from '../hooks/use-offline';
-import { getIpcApi } from '../lib/get-ipc-api';
-import { ArrowIcon } from './arrow-icon';
-import Button from './button';
-import { ConnectButton } from './connect-create-buttons';
-import offlineIcon from './offline-icon';
-import { SyncConnectedSites } from './sync-connected-sites';
-import { SyncSitesModalSelector } from './sync-sites-modal-selector';
-import { SyncTabImage } from './sync-tab-image';
-import { Tooltip } from './tooltip';
-import { WordPressShortLogo } from './wordpress-short-logo';
-import type { SyncSite } from '../hooks/use-fetch-wpcom-sites/types';
+import { ArrowIcon } from 'src/components/arrow-icon';
+import Button from 'src/components/button';
+import { ConnectButton } from 'src/components/connect-create-buttons';
+import offlineIcon from 'src/components/offline-icon';
+import { SyncConnectedSites } from 'src/components/sync-connected-sites';
+import { SyncSitesModalSelector } from 'src/components/sync-sites-modal-selector';
+import { SyncTabImage } from 'src/components/sync-tab-image';
+import { Tooltip } from 'src/components/tooltip';
+import { WordPressShortLogo } from 'src/components/wordpress-short-logo';
+import { CLIENT_ID, PROTOCOL_PREFIX, SCOPES, WP_AUTHORIZE_ENDPOINT } from 'src/constants';
+import { useSyncSites } from 'src/hooks/sync-sites';
+import { useAuth } from 'src/hooks/use-auth';
+import { useOffline } from 'src/hooks/use-offline';
+import { getIpcApi } from 'src/lib/get-ipc-api';
+import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
 function SiteSyncDescription( { children }: PropsWithChildren ) {
 	const { __ } = useI18n();

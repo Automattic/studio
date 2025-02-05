@@ -1,6 +1,6 @@
 import * as Sentry from '@sentry/electron/renderer';
 import { Component } from 'react';
-import DefaultErrorFallback from './default-error-fallback';
+import DefaultErrorFallback from 'src/components/default-error-fallback';
 
 interface ErrorLoggerProps {
 	children: React.ReactNode;

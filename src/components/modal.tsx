@@ -1,6 +1,6 @@
 import { Modal as WPModal } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
-import { cx } from '../lib/cx';
+import { cx } from 'src/lib/cx';
 import type { ComponentProps } from 'react';
 
 export default function Modal( { className, ...rest }: ComponentProps< typeof WPModal > ) {

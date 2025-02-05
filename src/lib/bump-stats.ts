@@ -1,7 +1,7 @@
 import https from 'https';
 import * as Sentry from '@sentry/electron/main';
 import { isSameDay, isSameMonth, isSameWeek } from 'date-fns';
-import { loadUserData, saveUserData } from '../storage/user-data';
+import { loadUserData, saveUserData } from 'src/storage/user-data';
 
 export type AggregateInterval = 'daily' | 'weekly' | 'monthly';
 

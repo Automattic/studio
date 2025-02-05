@@ -1,8 +1,8 @@
 import { EventEmitter } from 'events';
 import path from 'path';
-import { ImportEvents } from '../events';
-import { BackupContents } from '../types';
-import { Validator } from './validator';
+import { ImportEvents } from 'src/lib/import-export/import/events';
+import { BackupContents } from 'src/lib/import-export/import/types';
+import { Validator } from 'src/lib/import-export/import/validators/validator';
 
 export class SqlValidator extends EventEmitter implements Validator {
 	canHandle( fileList: string[] ): boolean {

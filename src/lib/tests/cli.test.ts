@@ -2,9 +2,9 @@
  * @jest-environment node
  */
 import { app } from 'electron';
-import * as cli from '../cli';
+import * as cli from 'src/lib/cli';
 
-jest.mock( '../../../vendor/wp-now/src/execute-wp-cli' );
+jest.mock( 'vendor/wp-now/src/execute-wp-cli' );
 
 describe( 'listenCLICommands', () => {
 	beforeEach( () => {

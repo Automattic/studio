@@ -1,5 +1,5 @@
+import { JetpackValidator } from 'src/lib/import-export/import/validators/jetpack-validator';
 import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
-import { JetpackValidator } from '../../../import/validators/jetpack-validator';
 
 platformTestSuite( 'JetpackValidator', ( { normalize } ) => {
 	let validator: JetpackValidator;

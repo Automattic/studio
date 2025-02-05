@@ -1,9 +1,9 @@
 import * as Sentry from '@sentry/electron/renderer';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useMemo, useState } from 'react';
-import { getIpcApi } from '../lib/get-ipc-api';
-import { useImportExport } from './use-import-export';
-import { useSiteDetails } from './use-site-details';
+import { useImportExport } from 'src/hooks/use-import-export';
+import { useSiteDetails } from 'src/hooks/use-site-details';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 
 export function useAddSite() {
 	const { __ } = useI18n();

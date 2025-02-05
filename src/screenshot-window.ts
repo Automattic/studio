@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { BrowserWindow, session } from 'electron';
-import { SCREENSHOT_HEIGHT, SCREENSHOT_WIDTH } from './constants';
+import { SCREENSHOT_HEIGHT, SCREENSHOT_WIDTH } from 'src/constants';
 
 export function createScreenshotWindow( captureUrl: string ) {
 	const newSession = session.fromPartition( crypto.randomUUID() );

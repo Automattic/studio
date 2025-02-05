@@ -2,16 +2,16 @@ import { Icon, SearchControl as SearchControlWp } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useState, useEffect } from 'react';
-import { useOffline } from '../hooks/use-offline';
-import { cx } from '../lib/cx';
-import { getIpcApi } from '../lib/get-ipc-api';
-import { ArrowIcon } from './arrow-icon';
-import { Badge } from './badge';
-import Button from './button';
-import { CreateButton } from './connect-create-buttons';
-import Modal from './modal';
-import offlineIcon from './offline-icon';
-import type { SyncSite } from '../hooks/use-fetch-wpcom-sites/types';
+import { ArrowIcon } from 'src/components/arrow-icon';
+import { Badge } from 'src/components/badge';
+import Button from 'src/components/button';
+import { CreateButton } from 'src/components/connect-create-buttons';
+import Modal from 'src/components/modal';
+import offlineIcon from 'src/components/offline-icon';
+import { useOffline } from 'src/hooks/use-offline';
+import { cx } from 'src/lib/cx';
+import { getIpcApi } from 'src/lib/get-ipc-api';
+import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
 const SearchControl = process.env.NODE_ENV === 'test' ? () => null : SearchControlWp;
 

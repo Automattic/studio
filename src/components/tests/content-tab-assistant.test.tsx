@@ -19,14 +19,14 @@ import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
 
 store.replaceReducer( testReducer );
 
-jest.mock( '../../hooks/use-auth' );
-jest.mock( '../../hooks/use-welcome-messages' );
-jest.mock( '../../hooks/use-offline' );
-jest.mock( '../../hooks/use-prompt-usage' );
-jest.mock( '../../lib/get-ipc-api' );
-jest.mock( '../../hooks/use-get-wp-version' );
+jest.mock( 'src/hooks/use-auth' );
+jest.mock( 'src/hooks/use-welcome-messages' );
+jest.mock( 'src/hooks/use-offline' );
+jest.mock( 'src/hooks/use-prompt-usage' );
+jest.mock( 'src/lib/get-ipc-api' );
+jest.mock( 'src/hooks/use-get-wp-version' );
 
-jest.mock( '../../lib/app-globals', () => ( {
+jest.mock( 'src/lib/app-globals', () => ( {
 	getAppGlobals: () => ( {
 		locale: jest.fn,
 	} ),

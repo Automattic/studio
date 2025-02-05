@@ -7,8 +7,22 @@ import { __, _n, sprintf } from '@wordpress/i18n';
 import { Icon, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import React, { useState, useEffect, useRef, memo, useCallback, useMemo } from 'react';
+import ClearHistoryReminder from 'src/components/ai-clear-history-reminder';
+import { AIInput } from 'src/components/ai-input';
+import { MessageThinking } from 'src/components/assistant-thinking';
+import Button from 'src/components/button';
+import { ChatMessage, MarkDownWithCode } from 'src/components/chat-message';
+import { ChatRating } from 'src/components/chat-rating';
+import offlineIcon from 'src/components/offline-icon';
+import WelcomeComponent from 'src/components/welcome-message-prompt';
+import { AI_GUIDELINES_URL, LIMIT_OF_PROMPTS_PER_USER } from 'src/constants';
+import { useAuth } from 'src/hooks/use-auth';
+import { useOffline } from 'src/hooks/use-offline';
+import { usePromptUsage } from 'src/hooks/use-prompt-usage';
 import { useThemeDetails } from 'src/hooks/use-theme-details';
+import { useWelcomeMessages } from 'src/hooks/use-welcome-messages';
 import { cx } from 'src/lib/cx';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useAppDispatch, useRootSelector } from 'src/stores';
 import {
 	chatThunks,
@@ -17,20 +31,6 @@ import {
 	chatActions,
 	chatSelectors,
 } from 'src/stores/chat-slice';
-import { AI_GUIDELINES_URL, LIMIT_OF_PROMPTS_PER_USER } from '../constants';
-import { useAuth } from '../hooks/use-auth';
-import { useOffline } from '../hooks/use-offline';
-import { usePromptUsage } from '../hooks/use-prompt-usage';
-import { useWelcomeMessages } from '../hooks/use-welcome-messages';
-import { getIpcApi } from '../lib/get-ipc-api';
-import ClearHistoryReminder from './ai-clear-history-reminder';
-import { AIInput } from './ai-input';
-import { MessageThinking } from './assistant-thinking';
-import Button from './button';
-import { ChatMessage, MarkDownWithCode } from './chat-message';
-import { ChatRating } from './chat-rating';
-import offlineIcon from './offline-icon';
-import WelcomeComponent from './welcome-message-prompt';
 
 export const MIMIC_CONVERSATION_DELAY = 500;
 

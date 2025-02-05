@@ -2,8 +2,8 @@ import { BrowserWindow, app } from 'electron';
 import path from 'path';
 import * as Sentry from '@sentry/electron/renderer';
 import { sprintf, __ } from '@wordpress/i18n';
-import { ABOUT_WINDOW_HEIGHT, ABOUT_WINDOW_WIDTH } from '../constants';
-import { shellOpenExternalWrapper } from '../lib/shell-open-external-wrapper';
+import { ABOUT_WINDOW_HEIGHT, ABOUT_WINDOW_WIDTH } from 'src/constants';
+import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 
 let aboutWindow: BrowserWindow | null = null;
 

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { DEMO_SITE_SIZE_LIMIT_BYTES } from '../constants';
-import { getIpcApi } from '../lib/get-ipc-api';
-import { useWindowListener } from './use-window-listener';
+import { DEMO_SITE_SIZE_LIMIT_BYTES } from 'src/constants';
+import { useWindowListener } from 'src/hooks/use-window-listener';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 
 export function useSiteSize( siteId: string ) {
 	const [ isOverLimit, setIsOverLimit ] = useState( false );

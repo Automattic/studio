@@ -3,13 +3,13 @@ import fs from 'node:fs/promises';
 import path from 'path';
 import { PHP, UnmountFunction } from '@php-wasm/universal';
 import { waitFor } from '@testing-library/react';
-import { pathExists } from '../fs-utils';
-import { SymlinkManager } from '../symlink-manager';
+import { pathExists } from 'src/lib/fs-utils';
+import { SymlinkManager } from 'src/lib/symlink-manager';
 
 jest.mock( '@php-wasm/universal' );
 jest.mock( 'node:fs/promises' );
 
-jest.mock( '../fs-utils' );
+jest.mock( 'src/lib/fs-utils' );
 
 // Define a type for the private properties we need to access
 type SymlinkManagerPrivateProperties = {

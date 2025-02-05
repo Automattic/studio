@@ -1,8 +1,8 @@
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
-import { useSiteDetails } from '../hooks/use-site-details';
-import { cx } from '../lib/cx';
-import Button from './button';
+import Button from 'src/components/button';
+import { useSiteDetails } from 'src/hooks/use-site-details';
+import { cx } from 'src/lib/cx';
 
 export function RunningSites() {
 	const { __, _n } = useI18n();

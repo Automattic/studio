@@ -10,10 +10,10 @@ import React, {
 	useMemo,
 	useLayoutEffect,
 } from 'react';
-import { LIMIT_OF_ZIP_SITES_PER_USER } from '../constants';
-import { getIpcApi } from '../lib/get-ipc-api';
-import { useAuth } from './use-auth';
-import { useOffline } from './use-offline';
+import { LIMIT_OF_ZIP_SITES_PER_USER } from 'src/constants';
+import { useAuth } from 'src/hooks/use-auth';
+import { useOffline } from 'src/hooks/use-offline';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 
 interface SnapshotContextType {
 	snapshots: Snapshot[];

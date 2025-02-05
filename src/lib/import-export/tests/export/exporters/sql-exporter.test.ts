@@ -1,8 +1,8 @@
 import { move } from 'fs-extra';
+import { SqlExporter } from 'src/lib/import-export/export/exporters';
+import { ExportOptions } from 'src/lib/import-export/export/types';
+import { SiteServer } from 'src/site-server';
 import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
-import { SiteServer } from '../../../../../site-server';
-import { SqlExporter } from '../../../export/exporters';
-import { ExportOptions } from '../../../export/types';
 
 jest.mock( 'fs' );
 jest.mock( 'fs/promises' );
@@ -10,7 +10,7 @@ jest.mock( 'os' );
 jest.mock( 'fs-extra' );
 
 // Mock SiteServer
-jest.mock( '../../../../../site-server' );
+jest.mock( 'src/site-server' );
 
 platformTestSuite( 'SqlExporter', ( { normalize } ) => {
 	let exporter: SqlExporter;

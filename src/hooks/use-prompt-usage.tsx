@@ -1,8 +1,8 @@
 import * as Sentry from '@sentry/electron/renderer';
 import { useState, useEffect, useCallback, useMemo, createContext, useContext } from 'react';
+import { LIMIT_OF_PROMPTS_PER_USER } from 'src/constants';
+import { useAuth } from 'src/hooks/use-auth';
 import { useRootSelector } from 'src/stores';
-import { LIMIT_OF_PROMPTS_PER_USER } from '../constants';
-import { useAuth } from './use-auth';
 
 type PromptUsage = {
 	promptLimit: number;

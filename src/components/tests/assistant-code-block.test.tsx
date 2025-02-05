@@ -1,20 +1,20 @@
 import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
+import createCodeComponent, { CodeBlockProps } from 'src/components/assistant-code-block';
+import { useSiteDetails } from 'src/hooks/use-site-details';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 import { store } from 'src/stores';
 import { chatActions, generateMessage } from 'src/stores/chat-slice';
 import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
-import { useSiteDetails } from '../../hooks/use-site-details';
-import { getIpcApi } from '../../lib/get-ipc-api';
-import createCodeComponent, { CodeBlockProps } from '../assistant-code-block';
 
-jest.mock( '../../lib/get-ipc-api' );
-jest.mock( '../../hooks/use-check-installed-apps', () => ( {
+jest.mock( 'src/lib/get-ipc-api' );
+jest.mock( 'src/hooks/use-check-installed-apps', () => ( {
 	useCheckInstalledApps: jest.fn().mockReturnValue( {
 		vscode: true,
 		phpstorm: false,
 	} ),
 } ) );
-jest.mock( '../../hooks/use-site-details' );
+jest.mock( 'src/hooks/use-site-details' );
 
 store.replaceReducer( testReducer );
 

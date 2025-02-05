@@ -4,18 +4,18 @@ import { Icon, archive, edit, preformatted } from '@wordpress/icons';
 import { useCallback, useEffect, useState } from 'react';
 import { ExtraProps } from 'react-markdown';
 import stripAnsi from 'strip-ansi';
+import Button from 'src/components/button';
+import { ChatMessageProps } from 'src/components/chat-message';
+import { CopyTextButton } from 'src/components/copy-text-button';
+import { ExecuteIcon } from 'src/components/icons/execute';
+import { useExecuteWPCLI } from 'src/hooks/use-execute-cli';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
+import { useIsValidWpCliInline } from 'src/hooks/use-is-valid-wp-cli-inline';
+import { useSiteDetails } from 'src/hooks/use-site-details';
+import { cx } from 'src/lib/cx';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useRootSelector } from 'src/stores';
 import { chatSelectors } from 'src/stores/chat-slice';
-import { useExecuteWPCLI } from '../hooks/use-execute-cli';
-import { useFeatureFlags } from '../hooks/use-feature-flags';
-import { useIsValidWpCliInline } from '../hooks/use-is-valid-wp-cli-inline';
-import { useSiteDetails } from '../hooks/use-site-details';
-import { cx } from '../lib/cx';
-import { getIpcApi } from '../lib/get-ipc-api';
-import Button from './button';
-import { ChatMessageProps } from './chat-message';
-import { CopyTextButton } from './copy-text-button';
-import { ExecuteIcon } from './icons/execute';
 
 type ContextProps = {
 	siteId: ChatMessageProps[ 'siteId' ];

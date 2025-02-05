@@ -1,8 +1,8 @@
 import fs from 'fs-extra';
 import semver from 'semver';
-import { downloadWpCli } from '../../vendor/wp-now/src/download';
-import { executeWPCli } from '../../vendor/wp-now/src/execute-wp-cli';
-import getWpCliPath, { getWpCliFolderPath } from '../../vendor/wp-now/src/get-wp-cli-path';
+import { downloadWpCli } from 'vendor/wp-now/src/download';
+import { executeWPCli } from 'vendor/wp-now/src/execute-wp-cli';
+import getWpCliPath, { getWpCliFolderPath } from 'vendor/wp-now/src/get-wp-cli-path';
 
 export async function updateLatestWPCliVersion() {
 	let shouldOverwrite = false;

@@ -1,6 +1,6 @@
-import { useFullscreen } from '../hooks/use-fullscreen';
-import { cx } from '../lib/cx';
-import { isWindowFrameRtl } from '../lib/is-window-frame-rtl';
+import { useFullscreen } from 'src/hooks/use-fullscreen';
+import { cx } from 'src/lib/cx';
+import { isWindowFrameRtl } from 'src/lib/is-window-frame-rtl';
 
 export default function MacTitlebar( {
 	className,

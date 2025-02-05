@@ -3,8 +3,8 @@ import * as fs from 'fs';
 import { constants } from 'fs';
 import * as path from 'path';
 import * as fse from 'fs-extra';
-import { BackupArchiveInfo } from '../types';
-import { BackupHandler } from './backup-handler-factory';
+import { BackupHandler } from 'src/lib/import-export/import/handlers/backup-handler-factory';
+import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 
 /**
  * The .wpress format is a custom archive format used by All-In-One WP Migration.

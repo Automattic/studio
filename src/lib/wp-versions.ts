@@ -1,9 +1,9 @@
 import path from 'path';
 import fs from 'fs-extra';
 import semver from 'semver';
-import { DEFAULT_WORDPRESS_VERSION } from '../../vendor/wp-now/src/constants';
-import { downloadWordPress, getWordPressVersionPath } from '../../vendor/wp-now/src/download';
-import { pathExists, recursiveCopyDirectory } from './fs-utils';
+import { pathExists, recursiveCopyDirectory } from 'src/lib/fs-utils';
+import { DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
+import { downloadWordPress, getWordPressVersionPath } from 'vendor/wp-now/src/download';
 
 export const MINIMUM_SUPPORTED_WP_VERSION = 6;
 

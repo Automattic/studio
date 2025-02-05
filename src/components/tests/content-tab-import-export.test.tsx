@@ -1,16 +1,16 @@
 import { render, fireEvent, waitFor, screen, createEvent } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { act } from 'react';
-import { SyncSitesProvider } from '../../hooks/sync-sites/sync-sites-context';
-import { ContentTabsProvider } from '../../hooks/use-content-tabs';
-import { useImportExport } from '../../hooks/use-import-export';
-import { useSiteDetails } from '../../hooks/use-site-details';
-import { getIpcApi } from '../../lib/get-ipc-api';
-import { ContentTabImportExport } from '../content-tab-import-export';
+import { ContentTabImportExport } from 'src/components/content-tab-import-export';
+import { SyncSitesProvider } from 'src/hooks/sync-sites/sync-sites-context';
+import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
+import { useImportExport } from 'src/hooks/use-import-export';
+import { useSiteDetails } from 'src/hooks/use-site-details';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 
-jest.mock( '../../lib/get-ipc-api' );
-jest.mock( '../../hooks/use-site-details' );
-jest.mock( '../../hooks/use-import-export' );
+jest.mock( 'src/lib/get-ipc-api' );
+jest.mock( 'src/hooks/use-site-details' );
+jest.mock( 'src/hooks/use-import-export' );
 
 const selectedSite: SiteDetails = {
 	id: 'site-id-1',

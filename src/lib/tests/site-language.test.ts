@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 import { app } from 'electron';
-import { getPreferredSiteLanguage } from '../site-language';
+import { getPreferredSiteLanguage } from 'src/lib/site-language';
 
 jest.unmock( 'fs-extra' );
 

@@ -1,17 +1,17 @@
 // To run tests, execute `npm run test -- src/components/tests/content-tab-settings.test.tsx` from the root directory
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
-import { useGetWpVersion } from '../../hooks/use-get-wp-version';
-import { useOffline } from '../../hooks/use-offline';
-import { useSiteDetails } from '../../hooks/use-site-details';
-import { useSnapshots } from '../../hooks/use-snapshots';
-import { getIpcApi } from '../../lib/get-ipc-api';
-import { ContentTabSettings } from '../content-tab-settings';
+import { ContentTabSettings } from 'src/components/content-tab-settings';
+import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
+import { useOffline } from 'src/hooks/use-offline';
+import { useSiteDetails } from 'src/hooks/use-site-details';
+import { useSnapshots } from 'src/hooks/use-snapshots';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 
-jest.mock( '../../hooks/use-get-wp-version' );
-jest.mock( '../../hooks/use-snapshots' );
-jest.mock( '../../hooks/use-site-details' );
-jest.mock( '../../lib/get-ipc-api' );
+jest.mock( 'src/hooks/use-get-wp-version' );
+jest.mock( 'src/hooks/use-snapshots' );
+jest.mock( 'src/hooks/use-site-details' );
+jest.mock( 'src/lib/get-ipc-api' );
 
 const selectedSite: SiteDetails = {
 	name: 'Test Site',

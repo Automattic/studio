@@ -1,12 +1,12 @@
 import { render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
-import { SyncSitesProvider } from '../../hooks/sync-sites';
-import { ContentTabsProvider } from '../../hooks/use-content-tabs';
-import { SiteDetailsProvider } from '../../hooks/use-site-details';
-import { getIpcApi } from '../../lib/get-ipc-api';
-import Header from '../header';
+import Header from 'src/components/header';
+import { SyncSitesProvider } from 'src/hooks/sync-sites';
+import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
+import { SiteDetailsProvider } from 'src/hooks/use-site-details';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 
-jest.mock( '../../lib/get-ipc-api' );
+jest.mock( 'src/lib/get-ipc-api' );
 
 const mockedGetIpcApi = getIpcApi as jest.Mock;
 const mockedSites = [

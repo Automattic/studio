@@ -1,9 +1,13 @@
 import fsPromises from 'fs/promises';
 import os from 'os';
 import path from 'path';
-import { ImportExportEventData, handleEvents } from '../handle-events';
-import { BackupExtractEvents, ImporterEvents, ValidatorEvents } from './events';
-import { BackupHandlerFactory } from './handlers/backup-handler-factory';
+import { ImportExportEventData, handleEvents } from 'src/lib/import-export/handle-events';
+import {
+	BackupExtractEvents,
+	ImporterEvents,
+	ValidatorEvents,
+} from 'src/lib/import-export/import/events';
+import { BackupHandlerFactory } from 'src/lib/import-export/import/handlers/backup-handler-factory';
 import {
 	Importer,
 	ImporterResult,
@@ -12,16 +16,16 @@ import {
 	PlaygroundImporter,
 	SQLImporter,
 	WpressImporter,
-} from './importers/importer';
-import { BackupArchiveInfo, NewImporter } from './types';
+} from 'src/lib/import-export/import/importers/importer';
+import { BackupArchiveInfo, NewImporter } from 'src/lib/import-export/import/types';
 import {
 	JetpackValidator,
 	SqlValidator,
 	LocalValidator,
 	PlaygroundValidator,
 	WpressValidator,
-} from './validators';
-import { Validator } from './validators/validator';
+} from 'src/lib/import-export/import/validators';
+import { Validator } from 'src/lib/import-export/import/validators/validator';
 
 export interface ImporterOption {
 	validator: Validator;

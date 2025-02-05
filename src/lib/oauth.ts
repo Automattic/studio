@@ -1,10 +1,10 @@
 import * as Sentry from '@sentry/electron/main';
 import wpcom from 'wpcom';
 import { z } from 'zod';
-import { PROTOCOL_PREFIX, WP_AUTHORIZE_ENDPOINT, CLIENT_ID, SCOPES } from '../constants';
-import { shellOpenExternalWrapper } from '../lib/shell-open-external-wrapper';
-import { getMainWindow } from '../main-window';
-import { loadUserData, saveUserData } from '../storage/user-data';
+import { PROTOCOL_PREFIX, WP_AUTHORIZE_ENDPOINT, CLIENT_ID, SCOPES } from 'src/constants';
+import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
+import { getMainWindow } from 'src/main-window';
+import { loadUserData, saveUserData } from 'src/storage/user-data';
 
 const REDIRECT_URI = `${ PROTOCOL_PREFIX }://auth`;
 const authTokenSchema = z.object( {

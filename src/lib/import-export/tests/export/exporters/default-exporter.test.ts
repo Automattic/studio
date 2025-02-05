@@ -3,11 +3,11 @@ import fsPromises from 'fs/promises';
 import os from 'os';
 import archiver from 'archiver';
 import { format } from 'date-fns';
+import { DefaultExporter } from 'src/lib/import-export/export/exporters';
+import { ExportOptions, BackupContents } from 'src/lib/import-export/export/types';
+import { getWordPressVersionFromInstallation } from 'src/lib/wp-versions';
+import { SiteServer } from 'src/site-server';
 import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
-import { getWordPressVersionFromInstallation } from '../../../../../lib/wp-versions';
-import { SiteServer } from '../../../../../site-server';
-import { DefaultExporter } from '../../../export/exporters';
-import { ExportOptions, BackupContents } from '../../../export/types';
 
 jest.mock( 'fs' );
 jest.mock( 'fs/promises' );
@@ -16,7 +16,7 @@ jest.mock( 'fs-extra' );
 jest.mock( 'date-fns', () => ( {
 	format: jest.fn(),
 } ) );
-jest.mock( '../../../../../lib/wp-versions' );
+jest.mock( 'src/lib/wp-versions' );
 
 // Create a partial mock of the Archiver interface
 type PartialArchiver = Pick<
@@ -41,7 +41,7 @@ jest.mock( 'archiver', () => {
 } );
 
 // Mock SiteServer
-jest.mock( '../../../../../site-server' );
+jest.mock( 'src/site-server' );
 
 const defaultTableNames = [
 	'wp_commentmeta',

@@ -3,11 +3,11 @@ import {
 	__experimentalHStack as HStack,
 } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
-import { useI18nData } from '../hooks/use-i18n-data';
-import { isMac, isWindows } from '../lib/app-globals';
-import { cx } from '../lib/cx';
-import { getIpcApi } from '../lib/get-ipc-api';
-import Button from './button';
+import Button from 'src/components/button';
+import { useI18nData } from 'src/hooks/use-i18n-data';
+import { isMac, isWindows } from 'src/lib/app-globals';
+import { cx } from 'src/lib/cx';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 
 const SiteItemSkeleton = () => {
 	return (

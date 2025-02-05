@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-import { createPassword, decodePassword } from '../passwords';
+import { createPassword, decodePassword } from 'src/lib/passwords';
 
 describe( 'createPassword', () => {
 	it( 'should return a Base64-encoded string', () => {

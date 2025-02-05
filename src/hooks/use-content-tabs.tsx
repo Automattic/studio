@@ -1,7 +1,7 @@
 import { TabPanel } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { createContext, ReactNode, useContext, useMemo, useState } from 'react';
-import { useFeatureFlags } from './use-feature-flags';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 
 export type TabName =
 	| 'overview'

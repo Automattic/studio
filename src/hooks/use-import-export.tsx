@@ -1,22 +1,22 @@
 import * as Sentry from '@sentry/electron/renderer';
 import { __ } from '@wordpress/i18n';
 import { createContext, useMemo, useState, useCallback, useContext } from 'react';
-import { getIpcApi } from '../lib/get-ipc-api';
-import { ExportEvents } from '../lib/import-export/export/events';
-import { generateBackupFilename } from '../lib/import-export/export/generate-backup-filename';
-import { BackupCreateProgressEventData, ExportOptions } from '../lib/import-export/export/types';
-import { ImportExportEventData } from '../lib/import-export/handle-events';
+import { useIpcListener } from 'src/hooks/use-ipc-listener';
+import { useSiteDetails } from 'src/hooks/use-site-details';
+import { getIpcApi } from 'src/lib/get-ipc-api';
+import { ExportEvents } from 'src/lib/import-export/export/events';
+import { generateBackupFilename } from 'src/lib/import-export/export/generate-backup-filename';
+import { BackupCreateProgressEventData, ExportOptions } from 'src/lib/import-export/export/types';
+import { ImportExportEventData } from 'src/lib/import-export/handle-events';
 import {
 	ImporterEvents,
 	BackupExtractEvents,
 	ValidatorEvents,
-} from '../lib/import-export/import/events';
+} from 'src/lib/import-export/import/events';
 import {
 	BackupArchiveInfo,
 	BackupExtractProgressEventData,
-} from '../lib/import-export/import/types';
-import { useIpcListener } from './use-ipc-listener';
-import { useSiteDetails } from './use-site-details';
+} from 'src/lib/import-export/import/types';
 
 type ImportProgressState = {
 	[ siteId: string ]: {

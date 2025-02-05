@@ -11,8 +11,8 @@ import { useFormatLocalizedTimestamps } from 'src/hooks/use-format-localized-tim
 import { useSnapshots } from 'src/hooks/use-snapshots';
 import { useUpdateDemoSite } from 'src/hooks/use-update-demo-site';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { PreviewActionButtonsMenu } from './preview-action-buttons-menu';
-import { ProgressRow } from './progress-row';
+import { PreviewActionButtonsMenu } from 'src/modules/preview-site/components/preview-action-buttons-menu';
+import { ProgressRow } from 'src/modules/preview-site/components/progress-row';
 
 interface PreviewSiteRowProps {
 	snapshot: Snapshot;

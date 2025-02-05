@@ -2,8 +2,8 @@ import fs, { FileChangeInfo } from 'node:fs/promises';
 import path from 'path';
 import { createNodeFsMountHandler } from '@php-wasm/node';
 import { PHP, UnmountFunction } from '@php-wasm/universal';
-import { pathExists } from './fs-utils';
-import { isErrnoException } from './is-errno-exception';
+import { pathExists } from 'src/lib/fs-utils';
+import { isErrnoException } from 'src/lib/is-errno-exception';
 
 type MountedTarget = {
 	preExisting: boolean;

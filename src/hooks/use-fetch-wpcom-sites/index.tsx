@@ -1,10 +1,10 @@
 import * as Sentry from '@sentry/electron/renderer';
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { getIpcApi } from '../../lib/get-ipc-api';
-import { useAuth } from '../use-auth';
-import { useOffline } from '../use-offline';
-import { reconcileConnectedSites } from './reconcile-connected-sites';
-import type { SyncSite, SyncSupport } from './types';
+import { useAuth } from 'src/hooks/use-auth';
+import { reconcileConnectedSites } from 'src/hooks/use-fetch-wpcom-sites/reconcile-connected-sites';
+import { useOffline } from 'src/hooks/use-offline';
+import { getIpcApi } from 'src/lib/get-ipc-api';
+import type { SyncSite, SyncSupport } from 'src/hooks/use-fetch-wpcom-sites/types';
 
 type SitesEndpointSite = {
 	ID: number;

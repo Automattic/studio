@@ -1,9 +1,9 @@
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useCallback, useState } from 'react';
-import { useSiteDetails } from '../hooks/use-site-details';
-import Button from './button';
-import Modal from './modal';
-import { SiteForm } from './site-form';
+import Button from 'src/components/button';
+import Modal from 'src/components/modal';
+import { SiteForm } from 'src/components/site-form';
+import { useSiteDetails } from 'src/hooks/use-site-details';
 
 export default function EditSite() {
 	const { __ } = useI18n();

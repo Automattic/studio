@@ -1,21 +1,21 @@
 // To run tests, execute `npm run test -- src/components/content-tab-snapshots.test.tsx` from the root directory
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
-import { LIMIT_OF_ZIP_SITES_PER_USER } from '../../constants';
-import { useArchiveSite } from '../../hooks/use-archive-site';
-import { useAuth } from '../../hooks/use-auth';
-import { useOffline } from '../../hooks/use-offline';
-import { useSiteSize } from '../../hooks/use-site-size';
-import { useSnapshots } from '../../hooks/use-snapshots';
-import { useUpdateDemoSite } from '../../hooks/use-update-demo-site';
-import { ContentTabSnapshots } from '../content-tab-snapshots';
+import { ContentTabSnapshots } from 'src/components/content-tab-snapshots';
+import { LIMIT_OF_ZIP_SITES_PER_USER } from 'src/constants';
+import { useArchiveSite } from 'src/hooks/use-archive-site';
+import { useAuth } from 'src/hooks/use-auth';
+import { useOffline } from 'src/hooks/use-offline';
+import { useSiteSize } from 'src/hooks/use-site-size';
+import { useSnapshots } from 'src/hooks/use-snapshots';
+import { useUpdateDemoSite } from 'src/hooks/use-update-demo-site';
 
 const authenticate = jest.fn();
-jest.mock( '../../hooks/use-auth' );
-jest.mock( '../../hooks/use-snapshots' );
-jest.mock( '../../hooks/use-offline' );
-jest.mock( '../../hooks/use-site-size' );
-jest.mock( '../../hooks/use-update-demo-site' );
+jest.mock( 'src/hooks/use-auth' );
+jest.mock( 'src/hooks/use-snapshots' );
+jest.mock( 'src/hooks/use-offline' );
+jest.mock( 'src/hooks/use-site-size' );
+jest.mock( 'src/hooks/use-update-demo-site' );
 const updateDemoSiteMock = jest.fn();
 const isDemoSiteUpdating = jest.fn();
 ( useUpdateDemoSite as jest.Mock ).mockReturnValue( {
@@ -28,11 +28,11 @@ const archiveSite = jest.fn();
 	archiveSite,
 	isUploadingSiteId: jest.fn().mockReturnValue( false ),
 } );
-jest.mock( '../../hooks/use-archive-site' );
+jest.mock( 'src/hooks/use-archive-site' );
 
 const mockShowMessageBox = jest.fn();
 const mockOpenURL = jest.fn();
-jest.mock( '../../lib/get-ipc-api', () => ( {
+jest.mock( 'src/lib/get-ipc-api', () => ( {
 	getIpcApi: () => ( {
 		openURL: mockOpenURL,
 		generateProposedSitePath: jest.fn(),

@@ -36,6 +36,7 @@ export const reconcileConnectedSites = (
 			url: site.url,
 			syncSupport: site.syncSupport,
 			stagingSiteIds: site.stagingSiteIds,
+			isStaging: site.isStaging,
 		};
 	}, [] );
 

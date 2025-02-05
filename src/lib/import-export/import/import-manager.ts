@@ -50,22 +50,23 @@ export async function importBackup(
 	site: SiteDetails,
 	onEvent: ( data: ImportExportEventData ) => void,
 	options: ImporterOption[]
-): Promise< ImporterResult | undefined > {
+): Promise< ImporterResult > {
+	const backupHandler = BackupHandlerFactory.create( backupFile );
+	if ( ! backupHandler ) {
+		throw new Error( 'No suitable backup handler found for the provided backup file' );
+	}
+
 	const extractionDirectory = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio_backup' ) );
+	const fileList = await backupHandler.listFiles( backupFile );
+	const importer = selectImporter( fileList, extractionDirectory, onEvent, options );
+
+	if ( ! importer ) {
+		throw new Error( 'No suitable importer found for the provided backup contents' );
+	}
+
 	let removeBackupListeners;
 	let removeImportListeners;
 	try {
-		const backupHandler = BackupHandlerFactory.create( backupFile );
-		if ( ! backupHandler ) {
-			return;
-		}
-		const fileList = await backupHandler.listFiles( backupFile );
-		const importer = selectImporter( fileList, extractionDirectory, onEvent, options );
-
-		if ( ! importer ) {
-			return;
-		}
-
 		removeBackupListeners = handleEvents( backupHandler, onEvent, BackupExtractEvents );
 		removeImportListeners = handleEvents( importer, onEvent, ImporterEvents );
 		await backupHandler.extractFiles( backupFile, extractionDirectory );

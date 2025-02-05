@@ -16,7 +16,7 @@ A **release build** is version of the app built from a specific changeset that
 was chosen by a member of the team by applying a tag to the changeset. It has
 version numbers that look like `1.2.3` and `0.1.0-beta3`. Notice a beta is
 still considered a release build. They’re built using the same mechanism and are
-out in the wild, generating entries in Sentry etc. From the team’s point of view
+out in the wild (with one exception - we prevent generating release entry in Sentry). From the team’s point of view
 there’s no real difference between a beta and a non-beta build.
 
 ## Where Versions Come From
@@ -36,18 +36,9 @@ See `scripts/prepare-dev-build-version.mjs`.
 
 ## Updating Logic
 
-Studio checks for updates on launch and every hour after that.
-
-Release builds:
-
-- Check for updates on launch and every hour after that.
-- Ignore dev builds, will only update to another release build.
-
-Dev builds:
-
-- Do not automatically check for updates.
-- Check for updates if you use the “Check for Updates” menu item on Mac.
-- Ignore release builds, will only update to the latest dev build.
+Studio checks for updates on launch and every hour after that, for both release
+and dev builds. In case of dev build, if there is prod build bigger than the
+latest dev build, then will be updated to the prod build. Otherwise, to the latest dev build.
 
 ## Releases Manifest and CDN
 

@@ -1,13 +1,12 @@
 /**
  * @jest-environment node
  */
-import { BrowserWindow } from 'electron';
 import wpcom from 'wpcom';
-import { getMainWindow } from '../../main-window';
+import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { loadUserData, saveUserData } from '../../storage/user-data';
 import { getAuthenticationToken, onOpenUrlCallback } from '../oauth';
 
-jest.mock( '../../main-window' );
+jest.mock( 'src/ipc-utils' );
 jest.mock( '../../storage/user-data' );
 jest.mock( 'wpcom' );
 
@@ -66,13 +65,8 @@ describe( 'getAuthenticationToken', () => {
 } );
 
 describe( 'onOpenUrlCallback', () => {
-	const mockMainWindow = new BrowserWindow();
-	const mockSend = jest.fn();
-	mockMainWindow.webContents.send = mockSend;
-
 	beforeEach( () => {
 		jest.clearAllMocks();
-		( getMainWindow as jest.Mock ).mockResolvedValue( mockMainWindow );
 		( loadUserData as jest.Mock ).mockResolvedValue( {} );
 		( saveUserData as jest.Mock ).mockResolvedValue( undefined );
 	} );
@@ -91,7 +85,7 @@ describe( 'onOpenUrlCallback', () => {
 			const url = 'studio://auth#access_token=mock-token&expires_in=3600';
 			await onOpenUrlCallback( url );
 
-			expect( mockSend ).toHaveBeenCalledWith( 'auth-updated', {
+			expect( sendIpcEventToRenderer ).toHaveBeenCalledWith( 'auth-updated', {
 				token: expect.objectContaining( {
 					accessToken: 'mock-token',
 					expiresIn: 3600,
@@ -107,7 +101,7 @@ describe( 'onOpenUrlCallback', () => {
 			const url = 'studio://auth#error=access_denied';
 			await onOpenUrlCallback( url );
 
-			expect( mockSend ).toHaveBeenCalledWith( 'auth-updated', {
+			expect( sendIpcEventToRenderer ).toHaveBeenCalledWith( 'auth-updated', {
 				error: new Error( 'access_denied' ),
 			} );
 			expect( saveUserData ).not.toHaveBeenCalled();
@@ -117,7 +111,7 @@ describe( 'onOpenUrlCallback', () => {
 			const url = 'studio://auth#access_token=mock-token&expires_in=invalid';
 			await onOpenUrlCallback( url );
 
-			expect( mockSend ).toHaveBeenCalledWith( 'auth-updated', {
+			expect( sendIpcEventToRenderer ).toHaveBeenCalledWith( 'auth-updated', {
 				error: expect.any( Error ),
 			} );
 			expect( saveUserData ).not.toHaveBeenCalled();
@@ -132,7 +126,7 @@ describe( 'onOpenUrlCallback', () => {
 			const url = 'studio://auth#access_token=mock-token&expires_in=3600';
 			await onOpenUrlCallback( url );
 
-			expect( mockSend ).toHaveBeenCalledWith( 'auth-updated', {
+			expect( sendIpcEventToRenderer ).toHaveBeenCalledWith( 'auth-updated', {
 				error: expect.any( Error ),
 			} );
 			expect( saveUserData ).not.toHaveBeenCalled();
@@ -144,7 +138,7 @@ describe( 'onOpenUrlCallback', () => {
 			const url = 'studio://sync-connect-site?remoteSiteId=123&studioSiteId=local-site';
 			await onOpenUrlCallback( url );
 
-			expect( mockSend ).toHaveBeenCalledWith( 'sync-connect-site', {
+			expect( sendIpcEventToRenderer ).toHaveBeenCalledWith( 'sync-connect-site', {
 				remoteSiteId: 123,
 				studioSiteId: 'local-site',
 			} );
@@ -154,7 +148,7 @@ describe( 'onOpenUrlCallback', () => {
 			const url = 'studio://sync-connect-site?remoteSiteId=123';
 			await onOpenUrlCallback( url );
 
-			expect( mockSend ).not.toHaveBeenCalled();
+			expect( sendIpcEventToRenderer ).not.toHaveBeenCalled();
 		} );
 	} );
 } );

@@ -1,40 +1,47 @@
 import * as Sentry from '@sentry/electron/renderer';
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { z } from 'zod';
 import { useAuth } from 'src/hooks/use-auth';
 import { reconcileConnectedSites } from 'src/hooks/use-fetch-wpcom-sites/reconcile-connected-sites';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import type { SyncSite, SyncSupport } from 'src/hooks/use-fetch-wpcom-sites/types';
 
-type SitesEndpointSite = {
-	ID: number;
-	is_wpcom_atomic: boolean;
-	is_wpcom_staging_site: boolean;
-	name: string;
-	URL: string;
-	jetpack?: boolean;
-	options?: {
-		created_at: string;
-		wpcom_staging_blog_ids: number[];
-	};
-	plan?: {
-		expired: boolean;
-		features: {
-			active: string[];
-			available: Record< string, string[] >;
-		};
-		is_free: boolean;
-		product_id: number;
-		product_name_short: string;
-		product_slug: string;
-		user_is_owner: boolean;
-	};
-	is_deleted: boolean;
-};
+export const sitesEndpointSiteSchema = z.object( {
+	ID: z.number(),
+	is_wpcom_atomic: z.boolean(),
+	is_wpcom_staging_site: z.boolean(),
+	name: z.string(),
+	URL: z.string(),
+	jetpack: z.boolean().optional(),
+	is_deleted: z.boolean(),
+	options: z.object( {
+		created_at: z.string(),
+		wpcom_staging_blog_ids: z.array( z.number() ),
+	} ),
+	capabilities: z.object( {
+		manage_options: z.boolean(),
+	} ),
+	plan: z.object( {
+		expired: z.boolean(),
+		features: z.object( {
+			active: z.array( z.string() ),
+			available: z.record( z.string(), z.array( z.string() ) ).optional(),
+		} ),
+		is_free: z.boolean(),
+		product_id: z.number(),
+		product_name_short: z.string(),
+		product_slug: z.string(),
+		user_is_owner: z.boolean(),
+	} ),
+} );
 
-type SitesEndpointResponse = {
-	sites: SitesEndpointSite[];
-};
+type SitesEndpointSite = z.infer< typeof sitesEndpointSiteSchema >;
+
+// We use a permissive schema for the API response to fail gracefully if a single site is malformed
+export const sitesEndpointResponseSchema = z.object( {
+	sites: z.array( z.unknown() ),
+} );
 
 const STUDIO_SYNC_FEATURE_NAME = 'studio-sync';
 
@@ -49,6 +56,9 @@ function hasSupportedPlan( site: SitesEndpointSite ): boolean {
 function getSyncSupport( site: SitesEndpointSite, connectedSiteIds: number[] ): SyncSupport {
 	if ( site.is_deleted ) {
 		return 'deleted';
+	}
+	if ( ! site.capabilities.manage_options ) {
+		return 'missing-permissions';
 	}
 	if ( isJetpackSite( site ) && ! hasSupportedPlan( site ) ) {
 		return 'jetpack-site';
@@ -82,25 +92,29 @@ export function transformSingleSiteResponse(
 	};
 }
 
-function transformSiteResponse(
-	sites: SitesEndpointSite[],
-	connectedSiteIds: number[]
-): SyncSite[] {
-	return sites.reduce( ( acc: SyncSite[], site ) => {
-		if ( site.is_deleted && ! connectedSiteIds.some( ( id ) => id === site.ID ) ) {
-			return acc;
-		}
+function transformSiteResponse( sites: unknown[], connectedSiteIds: number[] ): SyncSite[] {
+	return sites
+		.map( ( rawSite ) => {
+			try {
+				const site = sitesEndpointSiteSchema.parse( rawSite );
 
-		acc.push( transformSingleSiteResponse( site, getSyncSupport( site, connectedSiteIds ) ) );
+				if ( site.is_deleted && ! connectedSiteIds.some( ( id ) => id === site.ID ) ) {
+					return null;
+				}
 
-		return acc;
-	}, [] );
+				return transformSingleSiteResponse( site, getSyncSupport( site, connectedSiteIds ) );
+			} catch ( error ) {
+				Sentry.captureException( error );
+				return null;
+			}
+		} )
+		.filter( ( site ) => site !== null );
 }
 
-export type FetchSites = () => Promise< SitesEndpointSite[] >;
+export type FetchSites = () => Promise< unknown[] >;
 
 export const useFetchWpComSites = ( connectedSiteIdsOnlyForSelectedSite: number[] ) => {
-	const [ rawSyncSites, setRawSyncSites ] = useState< SitesEndpointSite[] >( [] );
+	const [ rawSyncSites, setRawSyncSites ] = useState< unknown[] >( [] );
 	const { isAuthenticated, client } = useAuth();
 	const isFetchingSites = useRef( false );
 	const isOffline = useOffline();
@@ -126,22 +140,23 @@ export const useFetchWpComSites = ( connectedSiteIdsOnlyForSelectedSite: number[
 		try {
 			const allConnectedSites = await getIpcApi().getConnectedWpcomSites();
 
-			const response = await client.req.get< SitesEndpointResponse >(
+			const response = await client.req.get(
 				{
 					apiNamespace: 'rest/v1.2',
 					path: `/me/sites`,
 				},
 				{
 					fields:
-						'name,ID,URL,plan,is_wpcom_staging_site,is_wpcom_atomic,options,jetpack,is_deleted',
+						'name,ID,URL,plan,capabilities,is_wpcom_staging_site,is_wpcom_atomic,options,jetpack,is_deleted',
 					filter: 'atomic,wpcom',
 					options: 'created_at,wpcom_staging_blog_ids',
 					site_activity: 'active',
 				}
 			);
 
+			const parsedResponse = sitesEndpointResponseSchema.parse( response );
 			const syncSites = transformSiteResponse(
-				response.sites,
+				parsedResponse.sites,
 				allConnectedSites.map( ( { id } ) => id )
 			);
 
@@ -169,9 +184,9 @@ export const useFetchWpComSites = ( connectedSiteIdsOnlyForSelectedSite: number[
 				await getIpcApi().connectWpcomSites( data );
 			}
 
-			setRawSyncSites( response.sites );
+			setRawSyncSites( parsedResponse.sites );
 
-			return response.sites;
+			return parsedResponse.sites;
 		} catch ( error ) {
 			Sentry.captureException( error );
 			console.error( error );

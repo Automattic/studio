@@ -113,3 +113,4 @@ test-results
 
 # Editor config files
 .cursorrules
+.cursor/

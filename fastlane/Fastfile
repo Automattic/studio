@@ -95,7 +95,7 @@ lane :distribute_release_build do |_options|
   )
 end
 
-def upload_to_s3(bucket:, key:, file:, if_exists:, auto_prefix: false, dry_run: DRY_RUN)
+def aws_upload_to_s3(bucket:, key:, file:, if_exists:, auto_prefix: false, dry_run: DRY_RUN)
   if dry_run
     UI.message("[DRY RUN] Would upload file: #{file}")
     UI.message("           to S3 bucket: #{bucket}")
@@ -104,7 +104,7 @@ def upload_to_s3(bucket:, key:, file:, if_exists:, auto_prefix: false, dry_run: 
     return true
   end
 
-  aws_s3_upload(
+  upload_to_s3(
     bucket:,
     key:,
     file:,
@@ -191,7 +191,7 @@ def distribute_builds(
   bucket_name = 'a8c-apps-public-artifacts'
 
   builds.each_value do |build|
-    upload_to_s3(
+    aws_upload_to_s3(
       bucket: bucket_name,
       key: "#{bucket_folder}/#{build[:filename]}",
       file: build[:binary_path],
@@ -201,7 +201,7 @@ def distribute_builds(
   end
 
   manifest_name = 'releases.json'
-  upload_to_s3(
+  aws_upload_to_s3(
     bucket: bucket_name,
     key: "#{bucket_folder}/#{manifest_name}",
     file: File.join(BUILDS_FOLDER, manifest_name),
@@ -218,7 +218,7 @@ def distribute_builds(
       filename = assemble_filename.call(build, 'latest')
       key = "#{bucket_folder}/#{filename}"
 
-      upload_to_s3(
+      aws_upload_to_s3(
         bucket: bucket_name,
         key:,
         file: build[:binary_path],

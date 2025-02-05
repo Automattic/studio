@@ -30,7 +30,8 @@ export function useListenDeepLinkConnection( {
 				}
 				const newConnectedSite = transformSingleSiteResponse(
 					newConnectedSiteResponse,
-					'already-connected'
+					'already-connected',
+					false
 				);
 				await connectSite( newConnectedSite, studioSiteId );
 				if ( selectedTab !== 'sync' ) {

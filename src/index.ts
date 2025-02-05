@@ -24,7 +24,7 @@ import {
 	executeCLICommand,
 } from './lib/cli';
 import { getUserLocaleWithFallback } from './lib/locale-node';
-import { handleAuthCallback, setUpAuthCallbackHandler } from './lib/oauth';
+import { onOpenUrlCallback } from './lib/oauth';
 import { getSentryReleaseInfo } from './lib/sentry-release';
 import { setupLogging } from './logging';
 import { createMainWindow, getMainWindow } from './main-window';
@@ -72,37 +72,12 @@ if ( gotTheLock && ! isInInstaller ) {
 	}
 }
 
-const onOpenUrlCallback = async ( url: string ) => {
-	const urlObject = new URL( url );
-	const { host, hash, searchParams } = urlObject;
-	if ( host === 'auth' ) {
-		handleAuthCallback( hash ).then( ( authResult ) => {
-			if ( authResult instanceof Error ) {
-				ipcMain.emit( 'auth-callback', null, { error: authResult } );
-			} else {
-				ipcMain.emit( 'auth-callback', null, { token: authResult } );
-			}
-		} );
-	}
-
-	if ( host === 'sync-connect-site' ) {
-		const remoteSiteId = parseInt( searchParams.get( 'remoteSiteId' ) ?? '' );
-		const studioSiteId = searchParams.get( 'studioSiteId' );
-		if ( remoteSiteId && studioSiteId ) {
-			const mainWindow = await getMainWindow();
-			mainWindow.webContents.send( 'sync-connect-site', { remoteSiteId, studioSiteId } );
-		}
-	}
-};
-
 async function appBoot() {
 	app.setName( packageJson.productName );
 
 	Menu.setApplicationMenu( null );
 
 	setupCustomProtocolHandler();
-
-	setUpAuthCallbackHandler();
 
 	setupLogging();
 

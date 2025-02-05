@@ -17,6 +17,7 @@ import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { __, LocaleData, defaultI18n } from '@wordpress/i18n';
 import archiver from 'archiver';
+import { StoredToken } from 'src/lib/oauth';
 import { DEFAULT_PHP_VERSION } from '../vendor/wp-now/src/constants';
 import { MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from './constants';
 import { ACTIVE_SYNC_OPERATIONS } from './lib/active-sync-operations';
@@ -103,7 +104,7 @@ export async function getInstalledApps( _event: IpcMainInvokeEvent ): Promise< I
 export async function importSite(
 	event: IpcMainInvokeEvent,
 	{ id, backupFile }: { id: string; backupFile: BackupArchiveInfo }
-): Promise< SiteDetails | undefined > {
+): Promise< SiteDetails > {
 	const site = SiteServer.get( id );
 	if ( ! site ) {
 		throw new Error( 'Site not found.' );
@@ -116,9 +117,6 @@ export async function importSite(
 			}
 		};
 		const result = await importBackup( backupFile, site.details, onEvent, defaultImporterOptions );
-		if ( ! result ) {
-			return;
-		}
 		if ( result?.meta?.phpVersion ) {
 			site.details.phpVersion = result.meta.phpVersion;
 		}
@@ -651,7 +649,7 @@ export function authenticate( _event: IpcMainInvokeEvent ) {
 
 export async function getAuthenticationToken(
 	_event: IpcMainInvokeEvent
-): Promise< oauthClient.StoredToken | null > {
+): Promise< StoredToken | null > {
 	return oauthClient.getAuthenticationToken();
 }
 

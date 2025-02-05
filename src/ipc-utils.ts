@@ -5,7 +5,7 @@ import { getMainWindow } from 'src/main-window';
 
 export interface IpcEvents {
 	'add-site': [ void ];
-	'auth-updated': [ { token: StoredToken } | { error: Error } ];
+	'auth-updated': [ { token: StoredToken } | { error: unknown } ];
 	'on-export': [ ImportExportEventData, string ];
 	'on-import': [ ImportExportEventData, string ];
 	'sync-connect-site': [ { remoteSiteId: number; studioSiteId: string } ];

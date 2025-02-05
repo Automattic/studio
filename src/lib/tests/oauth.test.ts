@@ -1,6 +1,7 @@
 /**
  * @jest-environment node
  */
+import { BrowserWindow } from 'electron';
 import wpcom from 'wpcom';
 import { getMainWindow } from '../../main-window';
 import { loadUserData, saveUserData } from '../../storage/user-data';
@@ -65,12 +66,9 @@ describe( 'getAuthenticationToken', () => {
 } );
 
 describe( 'onOpenUrlCallback', () => {
+	const mockMainWindow = new BrowserWindow();
 	const mockSend = jest.fn();
-	const mockMainWindow = {
-		webContents: {
-			send: mockSend,
-		},
-	};
+	mockMainWindow.webContents.send = mockSend;
 
 	beforeEach( () => {
 		jest.clearAllMocks();

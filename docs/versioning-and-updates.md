@@ -16,7 +16,7 @@ A **release build** is version of the app built from a specific changeset that
 was chosen by a member of the team by applying a tag to the changeset. It has
 version numbers that look like `1.2.3` and `0.1.0-beta3`. Notice a beta is
 still considered a release build. They’re built using the same mechanism and are
-out in the wild (with one exception - we prevent generating release entry in Sentry). From the team’s point of view
+out in the wild, generating entries in Sentry etc. From the team’s point of view
 there’s no real difference between a beta and a non-beta build.
 
 ## Where Versions Come From

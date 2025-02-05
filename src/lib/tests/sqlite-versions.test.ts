@@ -1,7 +1,8 @@
 import fs from 'fs-extra';
+// eslint-disable-next-line import/order
+import { SQLITE_FILENAME } from 'vendor/wp-now/src/constants';
 import { installSqliteIntegration, keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
 import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
-import { SQLITE_FILENAME } from 'vendor/wp-now/src/constants';
 
 jest.mock( 'fs-extra' );
 jest.mock( 'vendor/wp-now/src/download' );

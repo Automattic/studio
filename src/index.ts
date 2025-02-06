@@ -11,38 +11,42 @@ import {
 import path from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { __ } from '@wordpress/i18n';
-import packageJson from '../package.json';
-import { PROTOCOL_PREFIX } from './constants';
-import * as ipcHandlers from './ipc-handlers';
-import { hasActiveSyncOperations } from './lib/active-sync-operations';
-import { getPlatformName } from './lib/app-globals';
-import { bumpAggregatedUniqueStat, bumpStat } from './lib/bump-stats';
+import { PROTOCOL_PREFIX } from 'src/constants';
+import * as ipcHandlers from 'src/ipc-handlers';
+import { hasActiveSyncOperations } from 'src/lib/active-sync-operations';
+import { bumpAggregatedUniqueStat, bumpStat } from 'src/lib/bump-stats';
 import {
 	listenCLICommands,
 	getCLIDataForMainInstance,
 	isCLI,
 	processCLICommand,
 	executeCLICommand,
-} from './lib/cli';
-import { getUserLocaleWithFallback } from './lib/locale-node';
-import { handleAuthCallback, setUpAuthCallbackHandler } from './lib/oauth';
-import { setupLogging } from './logging';
-import { createMainWindow, getMainWindow } from './main-window';
+} from 'src/lib/cli';
+import { getUserLocaleWithFallback } from 'src/lib/locale-node';
+import { onOpenUrlCallback } from 'src/lib/oauth';
+import { getSentryReleaseInfo } from 'src/lib/sentry-release';
+import { setupLogging } from 'src/logging';
+import { createMainWindow, getMainWindow } from 'src/main-window';
 import {
 	migrateFromWpNowFolder,
 	needsToMigrateFromWpNowFolder,
-} from './migrations/migrate-from-wp-now-folder';
-import { setupWPServerFiles, updateWPServerFiles } from './setup-wp-server-files';
-import { stopAllServersOnQuit } from './site-server';
-import { loadUserData, saveUserData } from './storage/user-data'; // eslint-disable-next-line import/order
-import { setupUpdates } from './updates';
+} from 'src/migrations/migrate-from-wp-now-folder';
+import { setupWPServerFiles, updateWPServerFiles } from 'src/setup-wp-server-files';
+import { stopAllServersOnQuit } from 'src/site-server';
+import { loadUserData, saveUserData } from 'src/storage/user-data';
+import { setupUpdates } from 'src/updates';
+// eslint-disable-next-line import/order
+import packageJson from '../package.json';
 
 if ( ! isCLI() && ! process.env.IS_DEV_BUILD ) {
+	const { release, environment } = getSentryReleaseInfo( app.getVersion() );
+
 	Sentry.init( {
 		dsn: 'https://97693275b2716fb95048c6d12f4318cf@o248881.ingest.sentry.io/4506612776501248',
 		debug: true,
 		enabled: process.env.NODE_ENV !== 'development' && process.env.NODE_ENV !== 'test',
-		release: `${ app.getVersion() ? app.getVersion() : COMMIT_HASH }-${ getPlatformName() }`,
+		release,
+		environment,
 	} );
 }
 
@@ -69,37 +73,12 @@ if ( gotTheLock && ! isInInstaller ) {
 	}
 }
 
-const onOpenUrlCallback = async ( url: string ) => {
-	const urlObject = new URL( url );
-	const { host, hash, searchParams } = urlObject;
-	if ( host === 'auth' ) {
-		handleAuthCallback( hash ).then( ( authResult ) => {
-			if ( authResult instanceof Error ) {
-				ipcMain.emit( 'auth-callback', null, { error: authResult } );
-			} else {
-				ipcMain.emit( 'auth-callback', null, { token: authResult } );
-			}
-		} );
-	}
-
-	if ( host === 'sync-connect-site' ) {
-		const remoteSiteId = parseInt( searchParams.get( 'remoteSiteId' ) ?? '' );
-		const studioSiteId = searchParams.get( 'studioSiteId' );
-		if ( remoteSiteId && studioSiteId ) {
-			const mainWindow = await getMainWindow();
-			mainWindow.webContents.send( 'sync-connect-site', { remoteSiteId, studioSiteId } );
-		}
-	}
-};
-
 async function appBoot() {
 	app.setName( packageJson.productName );
 
 	Menu.setApplicationMenu( null );
 
 	setupCustomProtocolHandler();
-
-	setUpAuthCallbackHandler();
 
 	setupLogging();
 

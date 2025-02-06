@@ -1,6 +1,6 @@
 import React, { createContext, useContext, ReactNode, useState, useEffect } from 'react';
-import { getAppGlobals } from '../lib/app-globals';
-import { useAuth } from './use-auth';
+import { useAuth } from 'src/hooks/use-auth';
+import { getAppGlobals } from 'src/lib/app-globals';
 
 export interface FeatureFlagsContextType {
 	terminalWpCliEnabled: boolean;

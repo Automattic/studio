@@ -1,5 +1,5 @@
 import * as Sentry from '@sentry/electron/main';
-import SiteServerProcess from './site-server-process';
+import SiteServerProcess from 'src/lib/site-server-process';
 
 export async function phpGetThemeDetails(
 	server: SiteServerProcess

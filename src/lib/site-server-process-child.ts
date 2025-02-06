@@ -1,8 +1,8 @@
 import { PHPRunOptions } from '@php-wasm/universal';
-import { startServer, type WPNowServer } from '../../vendor/wp-now/src';
-import { WPNowOptions } from '../../vendor/wp-now/src/config';
-import { setupLogging } from '../logging';
-import type { MessageName } from './site-server-process';
+import { setupLogging } from 'src/logging';
+import { startServer, type WPNowServer } from 'vendor/wp-now/src';
+import { WPNowOptions } from 'vendor/wp-now/src/config';
+import type { MessageName } from 'src/lib/site-server-process';
 
 type Handler = ( message: string, messageId: number, data: unknown ) => void;
 type Handlers = { [ K in MessageName ]: Handler };

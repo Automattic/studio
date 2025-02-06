@@ -2,11 +2,11 @@ import * as Sentry from '@sentry/electron/renderer';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useState, createContext, useContext, useMemo, ReactNode } from 'react';
-import { DEMO_SITE_SIZE_LIMIT_BYTES, DEMO_SITE_SIZE_LIMIT_GB } from '../constants';
-import { getIpcApi } from '../lib/get-ipc-api';
-import { useAuth } from './use-auth';
-import { useFeatureFlags } from './use-feature-flags';
-import { useSnapshots } from './use-snapshots';
+import { DEMO_SITE_SIZE_LIMIT_BYTES, DEMO_SITE_SIZE_LIMIT_GB } from 'src/constants';
+import { useAuth } from 'src/hooks/use-auth';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
+import { useSnapshots } from 'src/hooks/use-snapshots';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 
 interface DemoSiteUpdateContextType {
 	updateDemoSite: ( snapshot: Snapshot, localSite: SiteDetails ) => Promise< void >;

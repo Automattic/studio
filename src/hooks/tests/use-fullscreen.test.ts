@@ -1,11 +1,11 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import { act } from 'react';
-import { getIpcApi } from '../../lib/get-ipc-api';
-import { useFullscreen } from '../use-fullscreen';
-import { useIpcListener } from '../use-ipc-listener';
+import { useFullscreen } from 'src/hooks/use-fullscreen';
+import { useIpcListener } from 'src/hooks/use-ipc-listener';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 
-jest.mock( '../../lib/get-ipc-api' );
-jest.mock( '../use-ipc-listener' );
+jest.mock( 'src/lib/get-ipc-api' );
+jest.mock( 'src/hooks/use-ipc-listener' );
 
 const mockIpcApi = {
 	isFullscreen: jest.fn(),

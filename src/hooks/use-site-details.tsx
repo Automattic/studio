@@ -8,9 +8,9 @@ import {
 	useMemo,
 	useState,
 } from 'react';
-import { getIpcApi } from '../lib/get-ipc-api';
-import { sortSites } from '../lib/sort-sites';
-import { useSnapshots } from './use-snapshots';
+import { useSnapshots } from 'src/hooks/use-snapshots';
+import { getIpcApi } from 'src/lib/get-ipc-api';
+import { sortSites } from 'src/lib/sort-sites';
 
 interface SiteDetailsContext {
 	selectedSite: SiteDetails | null;

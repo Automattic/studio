@@ -1,5 +1,5 @@
 import { renderHook } from '@testing-library/react';
-import { useIsValidWpCliInline } from '../../hooks/use-is-valid-wp-cli-inline';
+import { useIsValidWpCliInline } from 'src/hooks/use-is-valid-wp-cli-inline';
 
 describe( 'useIsValidWpCliInline', () => {
 	it( 'returns true for a valid wp-cli command', () => {

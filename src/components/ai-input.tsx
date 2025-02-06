@@ -2,9 +2,9 @@ import { DropdownMenu, MenuGroup, MenuItem } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { Icon, moreVertical, keyboardReturn, reset } from '@wordpress/icons';
 import React, { forwardRef, useRef, useEffect, useState } from 'react';
-import useAiIcon from '../hooks/use-ai-icon';
-import { cx } from '../lib/cx';
-import { getIpcApi } from '../lib/get-ipc-api';
+import useAiIcon from 'src/hooks/use-ai-icon';
+import { cx } from 'src/lib/cx';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 
 interface AIInputProps {
 	disabled: boolean;

@@ -1,8 +1,8 @@
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useMemo } from 'react';
-import { DEMO_SITE_SIZE_LIMIT_GB } from '../constants';
-import { useFeatureFlags } from './use-feature-flags';
+import { DEMO_SITE_SIZE_LIMIT_GB } from 'src/constants';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 
 export function useArchiveErrorMessages() {
 	const { __ } = useI18n();

@@ -1,8 +1,8 @@
 import { app } from 'electron';
 import path from 'path';
-import { pathExists, recursiveCopyDirectory } from '../lib/fs-utils';
-import { getServerFilesPath } from '../storage/paths';
-import { loadUserData } from '../storage/user-data';
+import { pathExists, recursiveCopyDirectory } from 'src/lib/fs-utils';
+import { getServerFilesPath } from 'src/storage/paths';
+import { loadUserData } from 'src/storage/user-data';
 
 const wpNowPath = path.join( app.getPath( 'home' ), '.wp-now' );
 

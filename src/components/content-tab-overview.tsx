@@ -17,14 +17,14 @@ import {
 } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useState } from 'react';
-import { useCheckInstalledApps } from '../hooks/use-check-installed-apps';
-import { useFeatureFlags } from '../hooks/use-feature-flags';
-import { useThemeDetails } from '../hooks/use-theme-details';
-import { isMac } from '../lib/app-globals';
-import { cx } from '../lib/cx';
-import { getIpcApi } from '../lib/get-ipc-api';
-import { ButtonsSection, ButtonsSectionProps } from './buttons-section';
-import { Tooltip } from './tooltip';
+import { ButtonsSection, ButtonsSectionProps } from 'src/components/buttons-section';
+import { Tooltip } from 'src/components/tooltip';
+import { useCheckInstalledApps } from 'src/hooks/use-check-installed-apps';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
+import { useThemeDetails } from 'src/hooks/use-theme-details';
+import { isMac } from 'src/lib/app-globals';
+import { cx } from 'src/lib/cx';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 
 interface ContentTabOverviewProps {
 	selectedSite: SiteDetails;

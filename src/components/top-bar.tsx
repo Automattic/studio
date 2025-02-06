@@ -1,14 +1,14 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { Icon, help, drawerLeft } from '@wordpress/icons';
-import { STUDIO_DOCS_URL } from '../constants';
-import { useAuth } from '../hooks/use-auth';
-import { useOffline } from '../hooks/use-offline';
-import { getIpcApi } from '../lib/get-ipc-api';
-import Button from './button';
-import { Gravatar } from './gravatar';
-import offlineIcon from './offline-icon';
-import { Tooltip } from './tooltip';
-import { WordPressLogo } from './wordpress-logo';
+import Button from 'src/components/button';
+import { Gravatar } from 'src/components/gravatar';
+import offlineIcon from 'src/components/offline-icon';
+import { Tooltip } from 'src/components/tooltip';
+import { WordPressLogo } from 'src/components/wordpress-logo';
+import { STUDIO_DOCS_URL } from 'src/constants';
+import { useAuth } from 'src/hooks/use-auth';
+import { useOffline } from 'src/hooks/use-offline';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 
 interface TopBarProps {
 	onToggleSidebar: () => void;

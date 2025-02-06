@@ -1,13 +1,13 @@
 import { renderHook, waitFor } from '@testing-library/react';
-import { SyncSitesProvider, useSyncSites } from '../sync-sites';
-import { useAuth } from '../use-auth';
-import { ContentTabsProvider } from '../use-content-tabs';
-import { useFetchWpComSites } from '../use-fetch-wpcom-sites';
-import { useSiteDetails } from '../use-site-details';
+import { SyncSitesProvider, useSyncSites } from 'src/hooks/sync-sites';
+import { useAuth } from 'src/hooks/use-auth';
+import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
+import { useFetchWpComSites } from 'src/hooks/use-fetch-wpcom-sites';
+import { useSiteDetails } from 'src/hooks/use-site-details';
 
-jest.mock( '../use-auth' );
-jest.mock( '../use-site-details' );
-jest.mock( '../use-fetch-wpcom-sites' );
+jest.mock( 'src/hooks/use-auth' );
+jest.mock( 'src/hooks/use-site-details' );
+jest.mock( 'src/hooks/use-fetch-wpcom-sites' );
 
 const mockConnectedWpcomSites = [
 	{
@@ -64,7 +64,7 @@ const connectWpcomSiteMock = jest
 	.fn()
 	.mockResolvedValue( [ ...mockConnectedWpcomSites, { id: 6, stagingSiteIds: [] } ] );
 
-jest.mock( '../../lib/get-ipc-api', () => ( {
+jest.mock( 'src/lib/get-ipc-api', () => ( {
 	getIpcApi: () => ( {
 		getConnectedWpcomSites: jest.fn().mockResolvedValue( mockConnectedWpcomSites ),
 		connectWpcomSites: connectWpcomSiteMock,

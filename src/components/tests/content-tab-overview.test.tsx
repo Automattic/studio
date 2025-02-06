@@ -1,9 +1,9 @@
 // To run tests, execute `npm run test -- src/components/tests/content-tab-overview.test.tsx` from the root directory
 import { render, screen } from '@testing-library/react';
-import { useThemeDetails } from '../../hooks/use-theme-details';
-import { ContentTabOverview } from '../content-tab-overview';
+import { ContentTabOverview } from 'src/components/content-tab-overview';
+import { useThemeDetails } from 'src/hooks/use-theme-details';
 
-jest.mock( '../../hooks/use-theme-details' );
+jest.mock( 'src/hooks/use-theme-details' );
 
 const runningSite: StartedSiteDetails = {
 	name: 'Test Site',

@@ -2,11 +2,11 @@ import { __ } from '@wordpress/i18n';
 import { forwardRef } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { cx } from '../lib/cx';
-import { Message } from '../stores/chat-slice';
-import Anchor from './assistant-anchor';
-import createCodeComponent from './assistant-code-block';
-import { FeedbackThanks } from './chat-rating';
+import Anchor from 'src/components/assistant-anchor';
+import createCodeComponent from 'src/components/assistant-code-block';
+import { FeedbackThanks } from 'src/components/chat-rating';
+import { cx } from 'src/lib/cx';
+import { Message } from 'src/stores/chat-slice';
 
 export interface ChatMessageProps {
 	children: React.ReactNode;

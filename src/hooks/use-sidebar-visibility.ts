@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { DEFAULT_WIDTH } from '../constants';
-import { getIpcApi } from '../lib/get-ipc-api';
+import { DEFAULT_WIDTH } from 'src/constants';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 
 const SIDEBAR_BREAKPOINT = DEFAULT_WIDTH;
 

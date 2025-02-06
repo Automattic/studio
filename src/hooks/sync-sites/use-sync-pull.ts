@@ -2,20 +2,23 @@ import * as Sentry from '@sentry/electron/renderer';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useMemo } from 'react';
-import { SYNC_PUSH_SIZE_LIMIT_GB, SYNC_PUSH_SIZE_LIMIT_BYTES } from '../../constants';
-import { getIpcApi } from '../../lib/get-ipc-api';
-import { useAuth } from '../use-auth';
-import { useImportExport } from '../use-import-export';
-import { useSiteDetails } from '../use-site-details';
-import { PullStateProgressInfo, useSyncStatesProgressInfo } from '../use-sync-states-progress-info';
+import { SYNC_PUSH_SIZE_LIMIT_GB, SYNC_PUSH_SIZE_LIMIT_BYTES } from 'src/constants';
 import {
 	ClearState,
 	generateStateId,
 	GetState,
 	UpdateState,
 	usePullPushStates,
-} from './use-pull-push-states';
-import type { SyncSite } from '../use-fetch-wpcom-sites/types';
+} from 'src/hooks/sync-sites/use-pull-push-states';
+import { useAuth } from 'src/hooks/use-auth';
+import { useImportExport } from 'src/hooks/use-import-export';
+import { useSiteDetails } from 'src/hooks/use-site-details';
+import {
+	PullStateProgressInfo,
+	useSyncStatesProgressInfo,
+} from 'src/hooks/use-sync-states-progress-info';
+import { getIpcApi } from 'src/lib/get-ipc-api';
+import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
 export type SyncBackupState = {
 	remoteSiteId: number;

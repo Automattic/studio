@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useSha256 } from './use-sha256';
+import { useSha256 } from 'src/hooks/use-sha256';
 
 const defaultImageUri = 'https://s0.wp.com/i/studio-app/profile-icon.png';
 const defaultImageUriDark = 'https://s0.wp.com/i/studio-app/profile-icon-black.png';

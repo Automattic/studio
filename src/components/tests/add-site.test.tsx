@@ -2,14 +2,14 @@
 import { jest } from '@jest/globals';
 import { render, waitFor, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
-import { FolderDialogResponse } from '../../ipc-handlers';
-import AddSite from '../add-site';
+import AddSite from 'src/components/add-site';
+import { FolderDialogResponse } from 'src/ipc-handlers';
 
 const mockShowOpenFolderDialog =
 	jest.fn< ( dialogTitle: string ) => Promise< FolderDialogResponse | null > >();
 const mockGenerateProposedSitePath =
 	jest.fn< ( siteName: string ) => Promise< FolderDialogResponse > >();
-jest.mock( '../../lib/get-ipc-api', () => ( {
+jest.mock( 'src/lib/get-ipc-api', () => ( {
 	__esModule: true,
 	default: jest.fn(),
 	getIpcApi: () => ( {
@@ -19,7 +19,7 @@ jest.mock( '../../lib/get-ipc-api', () => ( {
 } ) );
 
 const mockCreateSite = jest.fn< ( path: string ) => void >();
-jest.mock( '../../hooks/use-site-details', () => ( {
+jest.mock( 'src/hooks/use-site-details', () => ( {
 	useSiteDetails: () => ( {
 		createSite: mockCreateSite,
 		data: [],

@@ -4,11 +4,11 @@
 import '@sentry/electron/preload';
 import { SaveDialogOptions, contextBridge, ipcRenderer, webUtils } from 'electron';
 import { LocaleData } from '@wordpress/i18n';
-import { ExportOptions } from './lib/import-export/export/types';
-import { BackupArchiveInfo } from './lib/import-export/import/types';
-import { promptWindowsSpeedUpSites } from './lib/windows-helpers';
-import type { SyncSite } from './hooks/use-fetch-wpcom-sites/types';
-import type { LogLevel } from './logging';
+import { ExportOptions } from 'src/lib/import-export/export/types';
+import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
+import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
+import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
+import type { LogLevel } from 'src/logging';
 
 const api: IpcApi = {
 	archiveSite: ( id: string, format: 'zip' | 'tar' ) =>

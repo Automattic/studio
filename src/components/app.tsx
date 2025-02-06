@@ -3,19 +3,19 @@ import {
 	__experimentalHStack as HStack,
 } from '@wordpress/components';
 import { useEffect } from 'react';
-import { useLocalizationSupport } from '../hooks/use-localization-support';
-import { useOnboarding } from '../hooks/use-onboarding';
-import { useSidebarVisibility } from '../hooks/use-sidebar-visibility';
-import { isWindows } from '../lib/app-globals';
-import { cx } from '../lib/cx';
-import { getIpcApi } from '../lib/get-ipc-api';
-import MacTitlebar from './mac-titlebar';
-import MainSidebar from './main-sidebar';
-import Onboarding from './onboarding';
-import { SiteContentTabs } from './site-content-tabs';
-import TopBar from './top-bar';
-import UserSettings from './user-settings';
-import WindowsTitlebar from './windows-titlebar';
+import MacTitlebar from 'src/components/mac-titlebar';
+import MainSidebar from 'src/components/main-sidebar';
+import Onboarding from 'src/components/onboarding';
+import { SiteContentTabs } from 'src/components/site-content-tabs';
+import TopBar from 'src/components/top-bar';
+import UserSettings from 'src/components/user-settings';
+import WindowsTitlebar from 'src/components/windows-titlebar';
+import { useLocalizationSupport } from 'src/hooks/use-localization-support';
+import { useOnboarding } from 'src/hooks/use-onboarding';
+import { useSidebarVisibility } from 'src/hooks/use-sidebar-visibility';
+import { isWindows } from 'src/lib/app-globals';
+import { cx } from 'src/lib/cx';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 
 export default function App() {
 	useLocalizationSupport();

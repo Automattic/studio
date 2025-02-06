@@ -1,14 +1,14 @@
 import { fireEvent, render, act, waitFor, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
-import { useAuth } from '../../hooks/use-auth';
-import { useOffline } from '../../hooks/use-offline';
-import TopBar from '../top-bar';
+import TopBar from 'src/components/top-bar';
+import { useAuth } from 'src/hooks/use-auth';
+import { useOffline } from 'src/hooks/use-offline';
 
-jest.mock( '../../hooks/use-auth' );
+jest.mock( 'src/hooks/use-auth' );
 
 const mockOpenURL = jest.fn();
 const toggleMinWindowWidth = jest.fn();
-jest.mock( '../../lib/get-ipc-api', () => ( {
+jest.mock( 'src/lib/get-ipc-api', () => ( {
 	__esModule: true,
 	default: jest.fn(),
 	getIpcApi: () => ( {

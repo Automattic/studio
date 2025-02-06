@@ -12,8 +12,8 @@ import { useFormatLocalizedTimestamps } from 'src/hooks/use-format-localized-tim
 import { useSnapshots } from 'src/hooks/use-snapshots';
 import { useUpdateDemoSite } from 'src/hooks/use-update-demo-site';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { PreviewActionButtonsMenu } from './preview-action-buttons-menu';
-import { ProgressRow } from './progress-row';
+import { PreviewActionButtonsMenu } from 'src/modules/preview-site/components/preview-action-buttons-menu';
+import { ProgressRow } from 'src/modules/preview-site/components/progress-row';
 
 interface PreviewSiteRowProps {
 	snapshot: Snapshot;
@@ -94,7 +94,8 @@ export function PreviewSiteRow( {
 				<div className="w-[51%]">
 					<div className="flex items-center">
 						<div className="text-[13px] leading-5 line-clamp-1 break-all">
-							{ selectedSite.name }
+							{ /* translators: %s: Site name (e.g. "My Site Preview") */ }
+							{ snapshot.name || sprintf( __( '%s Preview' ), selectedSite.name ) }
 						</div>
 					</div>
 					<Button

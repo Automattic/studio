@@ -1,4 +1,4 @@
-import { Importer } from './importers';
+import { Importer } from 'src/lib/import-export/import/importers';
 
 export interface MetaFileData {
 	phpVersion?: string;

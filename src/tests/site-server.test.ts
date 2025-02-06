@@ -1,17 +1,17 @@
 /**
  * @jest-environment node
  */
-import { getWpNowConfig } from '../../vendor/wp-now/src';
-import { SiteServer } from '../site-server';
+import { SiteServer } from 'src/site-server';
+import { getWpNowConfig } from 'vendor/wp-now/src';
 
 // Electron's Node.js environment provides `bota`/`atob`, but Jests' does not
-jest.mock( '../lib/passwords' );
+jest.mock( 'src/lib/passwords' );
 
 // `download` and `config` are private APIs that must be mocked individually
-jest.mock( '../../vendor/wp-now/src/download' );
-jest.mock( '../../vendor/wp-now/src/config' );
+jest.mock( 'vendor/wp-now/src/download' );
+jest.mock( 'vendor/wp-now/src/config' );
 
-jest.mock( '../../vendor/wp-now/src', () => ( {
+jest.mock( 'vendor/wp-now/src', () => ( {
 	getWpNowConfig: jest.fn( () => ( { mode: 'wordpress', port: 1234 } ) ),
 	startServer: jest.fn( () =>
 		Promise.resolve( {

@@ -4,16 +4,16 @@ import { __ } from '@wordpress/i18n';
 import { tip, warning, trash, chevronRight, chevronDown, chevronLeft } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useRef, useState } from 'react';
+import Button from 'src/components/button';
+import FolderIcon from 'src/components/folder-icon';
+import TextControlComponent from 'src/components/text-control';
 import {
 	ACCEPTED_IMPORT_FILE_TYPES,
 	STUDIO_DOCS_URL_IMPORT_EXPORT,
 	STUDIO_DOCS_URL_SITES,
-} from '../constants';
-import { cx } from '../lib/cx';
-import { getIpcApi } from '../lib/get-ipc-api';
-import Button from './button';
-import FolderIcon from './folder-icon';
-import TextControlComponent from './text-control';
+} from 'src/constants';
+import { cx } from 'src/lib/cx';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 
 interface FormPathInputComponentProps {
 	value: string;

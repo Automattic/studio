@@ -1,10 +1,10 @@
 import { render } from '@testing-library/react';
-import { useFullscreen } from '../../hooks/use-fullscreen';
-import { isWindowFrameRtl } from '../../lib/is-window-frame-rtl';
-import MacTitlebar from '../mac-titlebar';
+import MacTitlebar from 'src/components/mac-titlebar';
+import { useFullscreen } from 'src/hooks/use-fullscreen';
+import { isWindowFrameRtl } from 'src/lib/is-window-frame-rtl';
 
-jest.mock( '../../hooks/use-fullscreen' );
-jest.mock( '../../lib/is-window-frame-rtl' );
+jest.mock( 'src/hooks/use-fullscreen' );
+jest.mock( 'src/lib/is-window-frame-rtl' );
 
 const FULLSCREEN_CLASSES = {
 	ltr: 'ltr:pl-4',

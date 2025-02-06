@@ -1,5 +1,5 @@
 import { useI18n } from '@wordpress/react-i18n';
-import { getIpcApi } from '../lib/get-ipc-api';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 
 interface ConfirmationDialogOptions {
 	message: string;

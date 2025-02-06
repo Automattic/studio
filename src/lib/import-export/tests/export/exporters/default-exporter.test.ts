@@ -3,11 +3,11 @@ import fsPromises from 'fs/promises';
 import os from 'os';
 import archiver from 'archiver';
 import { format } from 'date-fns';
+import { DefaultExporter } from 'src/lib/import-export/export/exporters';
+import { ExportOptions, BackupContents } from 'src/lib/import-export/export/types';
+import { getWordPressVersionFromInstallation } from 'src/lib/wp-versions';
+import { SiteServer } from 'src/site-server';
 import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
-import { getWordPressVersionFromInstallation } from '../../../../../lib/wp-versions';
-import { SiteServer } from '../../../../../site-server';
-import { DefaultExporter } from '../../../export/exporters';
-import { ExportOptions, BackupContents } from '../../../export/types';
 
 jest.mock( 'fs' );
 jest.mock( 'fs/promises' );
@@ -16,7 +16,7 @@ jest.mock( 'fs-extra' );
 jest.mock( 'date-fns', () => ( {
 	format: jest.fn(),
 } ) );
-jest.mock( '../../../../../lib/wp-versions' );
+jest.mock( 'src/lib/wp-versions' );
 
 // Create a partial mock of the Archiver interface
 type PartialArchiver = Pick<
@@ -41,7 +41,7 @@ jest.mock( 'archiver', () => {
 } );
 
 // Mock SiteServer
-jest.mock( '../../../../../site-server' );
+jest.mock( 'src/site-server' );
 
 const defaultTableNames = [
 	'wp_commentmeta',
@@ -88,13 +88,28 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 				isFile: () => true,
 			},
 			{
-				path: normalize( '/path/to/site/wp-includes/index.php' ),
+				path: normalize( '/path/to/site/wp-includes' ),
 				name: 'index.php',
 				isFile: () => true,
 			},
 			{
 				path: normalize( '/path/to/site' ),
 				name: 'wp-load.php',
+				isFile: () => true,
+			},
+			{
+				path: normalize( '/path/to/site/wp-content/mu-plugins/sqlite-database-integration' ),
+				name: 'load.php',
+				isFile: () => true,
+			},
+			{
+				path: normalize( '/path/to/site/wp-content/mu-plugins' ),
+				name: '0-32bit-integer-warnings.php',
+				isFile: () => true,
+			},
+			{
+				path: normalize( '/path/to/site/wp-content/mu-plugins' ),
+				name: 'custom-mu-plugin.php',
 				isFile: () => true,
 			},
 		];
@@ -109,6 +124,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 				uploads: [ normalize( '/path/to/wp-content/uploads/file1.jpg' ) ],
 				plugins: [ normalize( '/path/to/wp-content/plugins/plugin1' ) ],
 				themes: [ normalize( '/path/to/wp-content/themes/theme1' ) ],
+				muPlugins: [ normalize( '/path/to/wp-content/mu-plugins/custom-mu-plugin.php' ) ],
 			},
 		};
 
@@ -126,6 +142,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 				plugins: true,
 				themes: true,
 				database: true,
+				muPlugins: true,
 			},
 			phpVersion: '8.4',
 		};
@@ -197,6 +214,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 				plugins: false,
 				themes: false,
 				database: false,
+				muPlugins: false,
 			},
 		};
 
@@ -230,6 +248,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 				plugins: true,
 				themes: true,
 				database: false,
+				muPlugins: false,
 			},
 		};
 
@@ -258,6 +277,42 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 		);
 	} );
 
+	it( 'should add (non-excluded) mu-plugins files to the archive', async () => {
+		const options = {
+			...mockOptions,
+			includes: {
+				uploads: false,
+				plugins: false,
+				themes: false,
+				database: false,
+				muPlugins: true,
+			},
+		};
+
+		const exporter = new DefaultExporter( options );
+		await exporter.export();
+
+		expect( mockArchiver.file ).toHaveBeenNthCalledWith(
+			1,
+			normalize( '/path/to/site/wp-config.php' ),
+			{ name: 'wp-config.php' }
+		);
+		expect( mockArchiver.file ).toHaveBeenNthCalledWith(
+			2,
+			normalize( '/path/to/site/wp-content/mu-plugins/custom-mu-plugin.php' ),
+			{ name: normalize( 'wp-content/mu-plugins/custom-mu-plugin.php' ) }
+		);
+
+		expect( mockArchiver.file ).not.toHaveBeenCalledWith(
+			normalize( '/path/to/site/wp-content/mu-plugins/sqlite-database-integration/load.php' ),
+			{ name: normalize( 'wp-content/mu-plugins/sqlite-database-integration/load.php' ) }
+		);
+		expect( mockArchiver.file ).not.toHaveBeenCalledWith(
+			normalize( '/path/to/site/wp-content/mu-plugins/0-32bit-integer-warnings.php' ),
+			{ name: normalize( 'wp-content/mu-plugins/0-32bit-integer-warnings.php' ) }
+		);
+	} );
+
 	it( 'should add a database file to the archive when database is included', async () => {
 		const options = {
 			...mockOptions,
@@ -266,6 +321,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 				uploads: false,
 				themes: false,
 				database: true,
+				muPlugins: false,
 			},
 		};
 		( fsPromises.mkdtemp as jest.Mock ).mockResolvedValue( normalize( '/tmp/studio_export_123' ) );
@@ -293,6 +349,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 				uploads: false,
 				themes: false,
 				database: true,
+				muPlugins: false,
 			},
 			splitDatabaseDumpByTable: true,
 		};

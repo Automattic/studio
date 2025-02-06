@@ -1,8 +1,13 @@
+import { TooltipProps } from '@wordpress/components/build-types/tooltip/types';
 import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 import { check, external, Icon } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren } from 'react';
+import Button from 'src/components/button';
+import offlineIcon from 'src/components/offline-icon';
+import { ScreenshotDemoSite } from 'src/components/screenshot-demo-site';
+import { Tooltip } from 'src/components/tooltip';
 import {
 	CLIENT_ID,
 	PROTOCOL_PREFIX,
@@ -23,10 +28,6 @@ import { CreatePreviewButton } from 'src/modules/preview-site/components/create-
 import { PreviewSiteRow } from 'src/modules/preview-site/components/preview-site-row';
 import { PreviewSitesTableHeader } from 'src/modules/preview-site/components/preview-sites-table-header';
 import { ProgressRow } from 'src/modules/preview-site/components/progress-row';
-import Button from './button';
-import offlineIcon from './offline-icon';
-import { ScreenshotDemoSite } from './screenshot-demo-site';
-import { Tooltip, TooltipProps } from './tooltip';
 
 interface ContentTabPreviewsProps {
 	selectedSite: SiteDetails;

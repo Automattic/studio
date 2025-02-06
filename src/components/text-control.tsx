@@ -1,6 +1,6 @@
 import { TextControl } from '@wordpress/components';
 import { ComponentProps } from 'react';
-import { cx } from '../lib/cx';
+import { cx } from 'src/lib/cx';
 
 type TextControlProps = ComponentProps< typeof TextControl >;
 

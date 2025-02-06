@@ -1,14 +1,14 @@
 // To run tests, execute `npm run test -- src/components/user-settings.test.tsx` from the root directory
 import { fireEvent, render, screen } from '@testing-library/react';
-import { useAuth } from '../../hooks/use-auth';
-import { useFeatureFlags } from '../../hooks/use-feature-flags';
-import { useIpcListener } from '../../hooks/use-ipc-listener';
-import { useOffline } from '../../hooks/use-offline';
-import UserSettings from '../user-settings';
+import UserSettings from 'src/components/user-settings';
+import { useAuth } from 'src/hooks/use-auth';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
+import { useIpcListener } from 'src/hooks/use-ipc-listener';
+import { useOffline } from 'src/hooks/use-offline';
 
-jest.mock( '../../hooks/use-feature-flags' );
-jest.mock( '../../hooks/use-auth' );
-jest.mock( '../../hooks/use-ipc-listener' );
+jest.mock( 'src/hooks/use-feature-flags' );
+jest.mock( 'src/hooks/use-auth' );
+jest.mock( 'src/hooks/use-ipc-listener' );
 
 afterEach( () => {
 	jest.clearAllMocks();

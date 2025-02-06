@@ -2,10 +2,10 @@ import { SupportedPHPVersions } from '@php-wasm/universal';
 import { SelectControl } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
-import { DEFAULT_PHP_VERSION } from '../../vendor/wp-now/src/constants';
-import { useSiteDetails } from '../hooks/use-site-details';
-import Button from './button';
-import Modal from './modal';
+import Button from 'src/components/button';
+import Modal from 'src/components/modal';
+import { useSiteDetails } from 'src/hooks/use-site-details';
+import { DEFAULT_PHP_VERSION } from 'vendor/wp-now/src/constants';
 
 export default function EditPhpVersion() {
 	const { __ } = useI18n();

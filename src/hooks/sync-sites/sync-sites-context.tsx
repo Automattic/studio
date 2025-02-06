@@ -1,12 +1,15 @@
 import { __, sprintf } from '@wordpress/i18n';
 import React, { createContext, useCallback, useContext, useState } from 'react';
-import { getIpcApi } from '../../lib/get-ipc-api';
-import { useFormatLocalizedTimestamps } from '../use-format-localized-timestamps';
-import { useListenDeepLinkConnection } from './use-listen-deep-link-connection';
-import { UseSiteSyncManagement, useSiteSyncManagement } from './use-site-sync-management';
-import { PullStates, UseSyncPull, useSyncPull } from './use-sync-pull';
-import { PushStates, UseSyncPush, useSyncPush } from './use-sync-push';
-import type { SyncSite } from '../use-fetch-wpcom-sites/types';
+import { useListenDeepLinkConnection } from 'src/hooks/sync-sites/use-listen-deep-link-connection';
+import {
+	UseSiteSyncManagement,
+	useSiteSyncManagement,
+} from 'src/hooks/sync-sites/use-site-sync-management';
+import { PullStates, UseSyncPull, useSyncPull } from 'src/hooks/sync-sites/use-sync-pull';
+import { PushStates, UseSyncPush, useSyncPush } from 'src/hooks/sync-sites/use-sync-push';
+import { useFormatLocalizedTimestamps } from 'src/hooks/use-format-localized-timestamps';
+import { getIpcApi } from 'src/lib/get-ipc-api';
+import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
 type GetLastSyncTimeText = ( timestamp: string | null, type: 'pull' | 'push' ) => string;
 type UpdateSiteTimestamp = (

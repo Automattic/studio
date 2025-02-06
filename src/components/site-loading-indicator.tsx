@@ -1,6 +1,6 @@
 import { useI18n } from '@wordpress/react-i18n';
-import { useImportExport } from '../hooks/use-import-export';
-import ProgressBar, { ProgressBarWithAutoIncrement } from './progress-bar';
+import ProgressBar, { ProgressBarWithAutoIncrement } from 'src/components/progress-bar';
+import { useImportExport } from 'src/hooks/use-import-export';
 
 export function SiteLoadingIndicator( { selectedSite }: { selectedSite: SiteDetails } ) {
 	const { __ } = useI18n();

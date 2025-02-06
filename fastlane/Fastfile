@@ -113,6 +113,18 @@ def aws_upload_to_s3(bucket:, key:, file:, if_exists:, auto_prefix: false, dry_r
   )
 end
 
+def get_commit_count
+  # Get the most recent tag
+  latest_tag = `git describe --tags --abbrev=0`.strip rescue ''
+  
+  # Get commit count since the last tag
+  if latest_tag.empty?
+    `git rev-list --count HEAD`.strip.to_i
+  else
+    `git rev-list #{latest_tag}..HEAD --count`.strip.to_i
+  end
+end
+
 def distribute_builds(
   commit_hash: last_git_commit[:abbreviated_commit_hash],
   build_number: get_required_env('BUILDKITE_BUILD_NUMBER'),
@@ -121,7 +133,8 @@ def distribute_builds(
   UI.message("Running in #{DRY_RUN ? 'DRY RUN' : 'NORMAL'} mode")
   # If we are distributing a build without a tag, i.e. a development build, we also want to update the latest build reference for distribution.
   update_latest = release_tag.nil?
-  suffix = release_tag.nil? ? "v#{PACKAGE_VERSION}-#{commit_hash}" : release_tag
+  commit_count = get_commit_count
+  suffix = release_tag.nil? ? "#{PACKAGE_VERSION.split('-')[0]}-dev#{commit_count}" : release_tag
   filename_root = 'studio'
   bucket_folder = 'studio'
 

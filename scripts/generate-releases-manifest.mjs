@@ -6,20 +6,20 @@
 //     "darwin": {
 //       "universal": {
 //         "sha": "30a8251",
-//         "url": "https://cdn.a8c-ci.services/studio/studio-darwin-universal-30a8251.app.zip"
+//         "url": "https://cdn.a8c-ci.services/studio/studio-darwin-universal-v1.2.3-dev42.app.zip"
 //       },
 //       "arm64": {
 //         "sha": "30a8251",
-//         "url": "https://cdn.a8c-ci.services/studio/studio-darwin-arm64-30a8251.app.zip"
+//         "url": "https://cdn.a8c-ci.services/studio/studio-darwin-arm64-v1.2.3-dev42.app.zip"
 //       },
 //       "x64": {
 //         "sha": "30a8251",
-//         "url": "https://cdn.a8c-ci.services/studio/studio-darwin-x64-30a8251.app.zip"
+//         "url": "https://cdn.a8c-ci.services/studio/studio-darwin-x64-v1.2.3-dev42.app.zip"
 //       }
 //     },
 //     "win32": {
 //       "sha": "30a8251",
-//       "url": "https://cdn.a8c-ci.services/studio/studio-win32-30a8251.exe.zip"
+//       "url": "https://cdn.a8c-ci.services/studio/studio-win32-v1.2.3-dev42-full.nupkg"
 //     }
 //   },
 //   "1.0.0": {
@@ -49,15 +49,44 @@ import packageJson from '../package.json' assert { type: 'json' };
 const cdnURL = 'https://cdn.a8c-ci.services/studio';
 const baseName = 'studio';
 
+// Get the most recent tag
+const getLatestTag = () => {
+	try {
+		return child_process.execSync( 'git describe --tags --abbrev=0' ).toString().trim();
+	} catch ( error ) {
+		// If no tags exist, return empty string
+		return '';
+	}
+};
+
+// Get commit count since the last tag
+const getCommitCount = ( latestTag ) => {
+	try {
+		if ( latestTag ) {
+			return parseInt(
+				child_process.execSync( `git rev-list ${ latestTag }..HEAD --count` ).toString().trim(),
+				10
+			);
+		}
+		// If no tags exist, count all commits
+		return parseInt( child_process.execSync( 'git rev-list --count HEAD' ).toString().trim(), 10 );
+	} catch ( error ) {
+		throw new Error( 'Failed to get commit count: ' + error.message );
+	}
+};
+
 const currentCommit = child_process.execSync( 'git rev-parse --short HEAD' ).toString().trim();
 const { version } = packageJson;
 const isDevBuild = process.env.IS_DEV_BUILD;
+const latestTag = getLatestTag();
+const commitCount = getCommitCount( latestTag );
 
 const __dirname = path.dirname( fileURLToPath( import.meta.url ) );
 
 console.log( `Version: ${ version }` );
 console.log( `Is dev build: ${ isDevBuild }` );
 console.log( `Current commit: ${ currentCommit }` );
+console.log( `Commit count since ${ latestTag || 'start' }: ${ commitCount }` );
 
 console.log( 'Downloading current manifest ...' );
 
@@ -136,22 +165,30 @@ if ( isDevBuild ) {
 	releasesData[ 'dev' ][ 'darwin' ] = releasesData[ 'dev' ][ 'darwin' ] ?? {};
 	releasesData[ 'dev' ][ 'darwin' ][ 'universal' ] = {
 		sha: currentCommit,
-		url: `${ cdnURL }/${ baseName }-darwin-universal-v${ version }-${ currentCommit }.app.zip`,
+		url: `${ cdnURL }/${ baseName }-darwin-universal-v${
+			version.split( '-' )[ 0 ]
+		}-dev${ commitCount }.app.zip`,
 	};
 	releasesData[ 'dev' ][ 'darwin' ][ 'x64' ] = {
 		sha: currentCommit,
-		url: `${ cdnURL }/${ baseName }-darwin-x64-v${ version }-${ currentCommit }.app.zip`,
+		url: `${ cdnURL }/${ baseName }-darwin-x64-v${
+			version.split( '-' )[ 0 ]
+		}-dev${ commitCount }.app.zip`,
 	};
 	releasesData[ 'dev' ][ 'darwin' ][ 'arm64' ] = {
 		sha: currentCommit,
-		url: `${ cdnURL }/${ baseName }-darwin-arm64-v${ version }-${ currentCommit }.app.zip`,
+		url: `${ cdnURL }/${ baseName }-darwin-arm64-v${
+			version.split( '-' )[ 0 ]
+		}-dev${ commitCount }.app.zip`,
 	};
 
 	// Windows
 	const windowsReleaseInfo = await getWindowsReleaseInfo();
 	releasesData[ 'dev' ][ 'win32' ] = {
 		sha: windowsReleaseInfo.sha1,
-		url: `${ cdnURL }/${ baseName }-win32-v${ version }-${ currentCommit }-full.nupkg`,
+		url: `${ cdnURL }/${ baseName }-win32-v${
+			version.split( '-' )[ 0 ]
+		}-dev${ commitCount }-full.nupkg`,
 		size: windowsReleaseInfo.size,
 	};
 

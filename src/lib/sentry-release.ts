@@ -3,9 +3,10 @@
  * @param version The version string from package.json or app.getVersion()
  */
 export function getSentryReleaseInfo( version: string ) {
-	const [ baseVersionWithBeta ] = version.split( '-dev.' );
+	// Handle both -dev.HASH and -devN formats for backward compatibility
+	const baseVersionWithBeta = version.replace( /(-dev\..*|-dev\d+)$/, '' );
 	const isDevEnvironment =
-		version.includes( '-dev.' ) ||
+		/-dev\..*|-dev\d+/.test( version ) ||
 		!! process.env.IS_DEV_BUILD ||
 		process.env.NODE_ENV === 'development';
 	const sentryRelease = `studio@${ baseVersionWithBeta }`;

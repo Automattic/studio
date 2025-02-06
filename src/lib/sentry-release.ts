@@ -6,7 +6,7 @@ export function getSentryReleaseInfo( version: string ) {
 	// Handle both -dev.HASH and -devN formats for backward compatibility
 	const baseVersionWithBeta = version.replace( /(-dev\..*|-dev\d+)$/, '' );
 	const isDevEnvironment =
-		/-dev\..*|-dev\d+/.test( version ) ||
+		version.includes( '-dev.' ) ||
 		!! process.env.IS_DEV_BUILD ||
 		process.env.NODE_ENV === 'development';
 	const sentryRelease = `studio@${ baseVersionWithBeta }`;

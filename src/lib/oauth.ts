@@ -13,7 +13,13 @@ const authTokenSchema = z.object( {
 	expirationTime: z.number(),
 	id: z.number(),
 	email: z.string(),
-	displayName: z.string().optional(),
+	displayName: z.string().default( '' ),
+} );
+
+const meResponseSchema = z.object( {
+	ID: z.number(),
+	email: z.string(),
+	display_name: z.string(),
 } );
 
 export type StoredToken = z.infer< typeof authTokenSchema >;
@@ -81,7 +87,8 @@ async function handleAuthCallback( hash: string ): Promise< StoredToken > {
 		throw new Error( 'Error while getting token' );
 	}
 
-	const response = await new wpcom( accessToken ).req.get( '/me?fields=ID,email,display_name' );
+	const rawResponse = await new wpcom( accessToken ).req.get( '/me?fields=ID,email,display_name' );
+	const response = meResponseSchema.parse( rawResponse );
 
 	return authTokenSchema.parse( {
 		expiresIn,

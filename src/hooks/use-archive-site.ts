@@ -151,7 +151,12 @@ export function useArchiveSite() {
 						localSiteId: siteId,
 						date: new Date().getTime(),
 						isLoading: true,
-						name: `${ selectedSite?.name } ${ __( 'Preview' ) } ${ nextSequence }`,
+						name: sprintf(
+							/* translators: 1: Site name 2: Sequence number  (e.g. "My Site Name Preview 1") */
+							__( '%1$s Preview %2$d' ),
+							selectedSite?.name,
+							nextSequence
+						),
 						sequence: nextSequence,
 					} );
 				} catch ( error ) {

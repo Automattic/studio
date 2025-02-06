@@ -12,7 +12,7 @@ export const getLatestTag = () => {
 			.toString()
 			.trim()
 			.split( '\n' );
-		
+
 		// Find first tag that doesn't include '-' (no pre-release part)
 		const latestReleaseTag = tags.find( ( tag ) => ! tag.includes( '-' ) );
 		return latestReleaseTag || '';
@@ -40,4 +40,4 @@ export const getCommitCount = ( latestTag ) => {
 	} catch ( error ) {
 		throw new Error( 'Failed to get commit count: ' + error.message );
 	}
-}; 
+};

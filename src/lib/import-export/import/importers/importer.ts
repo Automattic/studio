@@ -57,7 +57,7 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 				const { stderr, exitCode } = await server.executeWpCliCommand(
 					`sqlite import ${ sqlTempFile } --require=/tmp/sqlite-command/command.php`,
 					// SQLite plugin requires PHP 8+
-					{ targetPhpVersion: DEFAULT_PHP_VERSION, skipPluginsAndThemes: true }
+					{ targetPhpVersion: DEFAULT_PHP_VERSION, skipPluginsAndThemes: true, longRunning: true }
 				);
 
 				if ( stderr ) {

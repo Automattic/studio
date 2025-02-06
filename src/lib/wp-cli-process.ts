@@ -11,7 +11,8 @@ export type MessageName = 'execute';
 export type WpCliResult = ReturnType< typeof executeWPCli >;
 export type MessageCanceled = { error: Error; canceled: boolean };
 
-const DEFAULT_RESPONSE_TIMEOUT = 300 * 1000;
+const DEFAULT_RESPONSE_TIMEOUT = 5 * 60 * 1000; // 5min
+const IMPORT_EXPORT_RESPONSE_TIMEOUT = 24 * 60 * 60 * 1000; // 24hr
 
 export default class WpCliProcess {
 	lastMessageId = 0;
@@ -54,7 +55,13 @@ export default class WpCliProcess {
 
 	async execute(
 		args: string[],
-		{ phpVersion }: { phpVersion?: string } = {}
+		{
+			phpVersion,
+			longRunning = false,
+		}: {
+			phpVersion?: string;
+			longRunning?: boolean;
+		} = {}
 	): Promise< WpCliResult > {
 		const message = 'execute';
 		const messageId = this.sendMessage( message, {
@@ -62,7 +69,11 @@ export default class WpCliProcess {
 			args,
 			phpVersion,
 		} );
-		return await this.waitForResponse( message, messageId );
+		return await this.waitForResponse(
+			message,
+			messageId,
+			longRunning ? IMPORT_EXPORT_RESPONSE_TIMEOUT : DEFAULT_RESPONSE_TIMEOUT
+		);
 	}
 
 	async stop() {

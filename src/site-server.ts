@@ -170,9 +170,11 @@ export class SiteServer {
 		{
 			targetPhpVersion,
 			skipPluginsAndThemes = false,
+			longRunning = false,
 		}: {
 			targetPhpVersion?: string;
 			skipPluginsAndThemes?: boolean;
+			longRunning?: boolean;
 		} = {}
 	): Promise< WpCliResult > {
 		const projectPath = this.details.path;
@@ -199,14 +201,22 @@ export class SiteServer {
 		}
 
 		try {
-			return await this.wpCliExecutor.execute( wpCliArgs as string[], { phpVersion } );
+			return await this.wpCliExecutor.execute( wpCliArgs as string[], { phpVersion, longRunning } );
 		} catch ( error ) {
 			if ( ( error as MessageCanceled )?.canceled ) {
-				return { stdout: '', stderr: 'wp-cli command canceled', exitCode: 1 };
+				return {
+					stdout: '',
+					stderr: 'WP-CLI command was canceled (timed out)',
+					exitCode: 1,
+				};
 			}
 
 			Sentry.captureException( error );
-			return { stdout: '', stderr: 'error when executing wp-cli command', exitCode: 1 };
+			return {
+				stdout: '',
+				stderr: `Error executing WP-CLI command: ${ ( error as MessageCanceled ).error.message }`,
+				exitCode: 1,
+			};
 		}
 	}
 

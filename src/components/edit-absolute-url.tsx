@@ -1,5 +1,8 @@
+import { createInterpolateElement } from '@wordpress/element';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useState } from 'react';
+import { STUDIO_DOCS_URL_SITES } from 'src/constants';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useSiteDetails } from '../hooks/use-site-details';
 import { isMac, isWindows } from '../lib/app-globals';
 import Button from './button';
@@ -136,6 +139,22 @@ export default function EditAbsoluteUrl() {
 								value={ urlState.localUrl }
 								placeholder="http://localhost"
 							/>
+							<span className="text-a8c-gray-50 text-xs">
+								{ createInterpolateElement(
+									__(
+										"If you're using a TLD other than .localhost, you may need to update your hosts file. <button>Learn more.</button>"
+									),
+									{
+										button: (
+											<Button
+												variant="link"
+												className="text-xs"
+												onClick={ () => getIpcApi().openURL( STUDIO_DOCS_URL_SITES ) }
+											/>
+										),
+									}
+								) }
+							</span>
 						</div>
 
 						<div className="flex flex-col gap-1.5 leading-4">
@@ -153,7 +172,9 @@ export default function EditAbsoluteUrl() {
 								<span>
 									{ __( 'Include port in URL.' ) }
 									<br />
-									{ __( 'Required locally. Disable for external routing like Ngrok.' ) }
+									<span className="text-a8c-gray-50 text-xs">
+										{ __( 'Required locally. Disable for external routing like Ngrok.' ) }
+									</span>
 								</span>
 							</label>
 						</div>

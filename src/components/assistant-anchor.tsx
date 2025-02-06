@@ -1,9 +1,9 @@
 import { speak } from '@wordpress/a11y';
 import { __ } from '@wordpress/i18n';
 import { ExtraProps } from 'react-markdown';
-import { useSiteDetails } from '../hooks/use-site-details';
-import { cx } from '../lib/cx';
-import { getIpcApi } from '../lib/get-ipc-api';
+import { useSiteDetails } from 'src/hooks/use-site-details';
+import { cx } from 'src/lib/cx';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 
 export default function Anchor( props: JSX.IntrinsicElements[ 'a' ] & ExtraProps ) {
 	const { href } = props;

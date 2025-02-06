@@ -4,32 +4,32 @@ import { __, sprintf } from '@wordpress/i18n';
 import { Icon, check, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren, useEffect } from 'react';
+import { ArrowIcon } from 'src/components/arrow-icon';
+import { Badge } from 'src/components/badge';
+import Button from 'src/components/button';
+import offlineIcon from 'src/components/offline-icon';
+import ProgressBar from 'src/components/progress-bar';
+import { ScreenshotDemoSite } from 'src/components/screenshot-demo-site';
+import { Tooltip, TooltipProps, DynamicTooltip } from 'src/components/tooltip';
 import {
 	CLIENT_ID,
 	PROTOCOL_PREFIX,
 	WP_AUTHORIZE_ENDPOINT,
 	SCOPES,
 	DEMO_SITE_SIZE_LIMIT_GB,
-} from '../constants';
-import { useArchiveErrorMessages } from '../hooks/use-archive-error-messages';
-import { useArchiveSite } from '../hooks/use-archive-site';
-import { useAuth } from '../hooks/use-auth';
-import { useExpirationDate } from '../hooks/use-expiration-date';
-import { useFormatLocalizedTimestamps } from '../hooks/use-format-localized-timestamps';
-import { useOffline } from '../hooks/use-offline';
-import { useProgressTimer } from '../hooks/use-progress-timer';
-import { useSiteSize } from '../hooks/use-site-size';
-import { useSnapshots } from '../hooks/use-snapshots';
-import { useUpdateDemoSite } from '../hooks/use-update-demo-site';
-import { cx } from '../lib/cx';
-import { getIpcApi } from '../lib/get-ipc-api';
-import { ArrowIcon } from './arrow-icon';
-import { Badge } from './badge';
-import Button from './button';
-import offlineIcon from './offline-icon';
-import ProgressBar from './progress-bar';
-import { ScreenshotDemoSite } from './screenshot-demo-site';
-import { Tooltip, TooltipProps, DynamicTooltip } from './tooltip';
+} from 'src/constants';
+import { useArchiveErrorMessages } from 'src/hooks/use-archive-error-messages';
+import { useArchiveSite } from 'src/hooks/use-archive-site';
+import { useAuth } from 'src/hooks/use-auth';
+import { useExpirationDate } from 'src/hooks/use-expiration-date';
+import { useFormatLocalizedTimestamps } from 'src/hooks/use-format-localized-timestamps';
+import { useOffline } from 'src/hooks/use-offline';
+import { useProgressTimer } from 'src/hooks/use-progress-timer';
+import { useSiteSize } from 'src/hooks/use-site-size';
+import { useSnapshots } from 'src/hooks/use-snapshots';
+import { useUpdateDemoSite } from 'src/hooks/use-update-demo-site';
+import { cx } from 'src/lib/cx';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 
 interface ContentTabSnapshotsProps {
 	selectedSite: SiteDetails;
@@ -67,7 +67,7 @@ function SnapshotRow( {
 	const isUploading = isUploadingSiteId( selectedSite.id );
 	const { updateDemoSite, isDemoSiteUpdating } = useUpdateDemoSite();
 	const errorMessages = useArchiveErrorMessages();
-	const isSiteDemoUpdating = isDemoSiteUpdating( snapshot.localSiteId );
+	const isSiteDemoUpdating = isDemoSiteUpdating( snapshot.atomicSiteId );
 	const { formatRelativeTime } = useFormatLocalizedTimestamps();
 
 	const { isOverLimit } = useSiteSize( selectedSite.id );

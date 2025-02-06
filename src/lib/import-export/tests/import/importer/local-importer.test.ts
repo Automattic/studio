@@ -1,12 +1,12 @@
 import * as fs from 'fs/promises';
 import { lstat, rename } from 'fs-extra';
+import { LocalImporter } from 'src/lib/import-export/import/importers';
+import { BackupContents } from 'src/lib/import-export/import/types';
+import { SiteServer } from 'src/site-server';
 import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
-import { SiteServer } from '../../../../../site-server';
-import { LocalImporter } from '../../../import/importers';
-import { BackupContents } from '../../../import/types';
 
 jest.mock( 'fs/promises' );
-jest.mock( '../../../../../site-server' );
+jest.mock( 'src/site-server' );
 jest.mock( 'fs-extra' );
 
 platformTestSuite( 'LocalImporter', ( { normalize } ) => {

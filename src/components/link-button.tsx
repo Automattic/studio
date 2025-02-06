@@ -1,6 +1,6 @@
 import { ComponentProps } from 'react';
-import { cx } from '../lib/cx';
-import Button from './button';
+import Button from 'src/components/button';
+import { cx } from 'src/lib/cx';
 
 type ButtonProps = ComponentProps< typeof Button >;
 

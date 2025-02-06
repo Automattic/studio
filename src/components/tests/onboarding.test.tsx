@@ -2,27 +2,27 @@
 import { jest } from '@jest/globals';
 import { render, waitFor } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
-import { useAddSite } from '../../hooks/use-add-site';
-import { useOnboarding } from '../../hooks/use-onboarding';
-import { FolderDialogResponse } from '../../ipc-handlers';
-import Onboarding from '../onboarding';
+import Onboarding from 'src/components/onboarding';
+import { useAddSite } from 'src/hooks/use-add-site';
+import { useOnboarding } from 'src/hooks/use-onboarding';
+import { FolderDialogResponse } from 'src/ipc-handlers';
 
-jest.mock( '../../hooks/use-onboarding', () => ( {
+jest.mock( 'src/hooks/use-onboarding', () => ( {
 	useOnboarding: jest.fn(),
 } ) );
 
-jest.mock( '../../hooks/use-add-site', () => ( {
+jest.mock( 'src/hooks/use-add-site', () => ( {
 	useAddSite: jest.fn(),
 } ) );
 
-jest.mock( '../../lib/app-globals', () => ( {
+jest.mock( 'src/lib/app-globals', () => ( {
 	isMac: () => true,
 } ) );
 
 const mockGenerateProposedSitePath =
 	jest.fn< ( siteName: string ) => Promise< FolderDialogResponse > >();
 
-jest.mock( '../../lib/get-ipc-api', () => ( {
+jest.mock( 'src/lib/get-ipc-api', () => ( {
 	getIpcApi: () => ( {
 		generateProposedSitePath: mockGenerateProposedSitePath.mockResolvedValue( {
 			path: '/default_path/My Site',

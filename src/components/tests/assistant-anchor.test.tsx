@@ -1,13 +1,12 @@
-import * as Sentry from '@sentry/electron/renderer';
 import { render, screen } from '@testing-library/react';
 import { speak } from '@wordpress/a11y';
-import { useSiteDetails } from '../../hooks/use-site-details';
-import { getIpcApi } from '../../lib/get-ipc-api';
-import Anchor from '../assistant-anchor';
+import Anchor from 'src/components/assistant-anchor';
+import { useSiteDetails } from 'src/hooks/use-site-details';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 
 jest.mock( '@sentry/electron/renderer' );
-jest.mock( '../../hooks/use-site-details' );
-jest.mock( '../../lib/get-ipc-api' );
+jest.mock( 'src/hooks/use-site-details' );
+jest.mock( 'src/lib/get-ipc-api' );
 jest.mock( '@wordpress/a11y' );
 
 describe( 'Anchor', () => {

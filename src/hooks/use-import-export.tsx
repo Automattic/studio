@@ -1,22 +1,22 @@
 import * as Sentry from '@sentry/electron/renderer';
 import { __ } from '@wordpress/i18n';
 import { createContext, useMemo, useState, useCallback, useContext } from 'react';
-import { getIpcApi } from '../lib/get-ipc-api';
-import { ExportEvents } from '../lib/import-export/export/events';
-import { generateBackupFilename } from '../lib/import-export/export/generate-backup-filename';
-import { BackupCreateProgressEventData, ExportOptions } from '../lib/import-export/export/types';
-import { ImportExportEventData } from '../lib/import-export/handle-events';
+import { useIpcListener } from 'src/hooks/use-ipc-listener';
+import { useSiteDetails } from 'src/hooks/use-site-details';
+import { getIpcApi } from 'src/lib/get-ipc-api';
+import { ExportEvents } from 'src/lib/import-export/export/events';
+import { generateBackupFilename } from 'src/lib/import-export/export/generate-backup-filename';
+import { BackupCreateProgressEventData, ExportOptions } from 'src/lib/import-export/export/types';
+import { ImportExportEventData } from 'src/lib/import-export/handle-events';
 import {
 	ImporterEvents,
 	BackupExtractEvents,
 	ValidatorEvents,
-} from '../lib/import-export/import/events';
+} from 'src/lib/import-export/import/events';
 import {
 	BackupArchiveInfo,
 	BackupExtractProgressEventData,
-} from '../lib/import-export/import/types';
-import { useIpcListener } from './use-ipc-listener';
-import { useSiteDetails } from './use-site-details';
+} from 'src/lib/import-export/import/types';
 
 type ImportProgressState = {
 	[ siteId: string ]: {
@@ -84,15 +84,24 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 				},
 			} ) );
 
-			const handleImportError = async ( error?: unknown ) => {
-				await getIpcApi().showErrorMessageBox( {
-					title: __( 'Failed importing site' ),
-					message: __(
-						'An error occurred while importing the site. Verify the file is a valid Jetpack backup, Local, Playground, .wpress or .sql database file and try again. If this problem persists, please contact support.'
-					),
-					error,
-					showOpenLogs: true,
-				} );
+			const handleImportError = async ( error: unknown ) => {
+				if ( error instanceof Error && error.message.includes( 'Error: absolute path: /' ) ) {
+					await getIpcApi().showErrorMessageBox( {
+						title: __( 'Failed importing site' ),
+						message: __(
+							'The ZIP archive is invalid. Try to unpack and pack it again. If this problem persists, please contact support.'
+						),
+					} );
+				} else {
+					await getIpcApi().showErrorMessageBox( {
+						title: __( 'Failed importing site' ),
+						message: __(
+							'An error occurred while importing the site. Verify the file is a valid Jetpack backup, Local, Playground, .wpress or .sql database file and try again. If this problem persists, please contact support.'
+						),
+						error,
+						showOpenLogs: true,
+					} );
+				}
 				setImportState( ( { [ selectedSite.id ]: currentProgress, ...rest } ) => ( {
 					...rest,
 				} ) );
@@ -111,11 +120,6 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 					id: selectedSite.id,
 					backupFile,
 				} );
-
-				if ( ! importedSite ) {
-					await handleImportError();
-					return;
-				}
 
 				await updateSite( importedSite );
 
@@ -309,6 +313,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 					uploads: true,
 					plugins: true,
 					themes: true,
+					muPlugins: true,
 				},
 				phpVersion: selectedSite.phpVersion,
 			};
@@ -341,6 +346,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 					uploads: false,
 					plugins: false,
 					themes: false,
+					muPlugins: false,
 				},
 				phpVersion: selectedSite.phpVersion,
 			};

@@ -4,11 +4,11 @@ import path from 'path';
 import { Readable, Writable } from 'stream';
 import * as tar from 'tar';
 import * as yauzl from 'yauzl';
-import { BackupHandlerFactory } from '../../../import/handlers/backup-handler-factory';
-import { BackupHandlerSql } from '../../../import/handlers/backup-handler-sql';
-import { BackupHandlerTarGz } from '../../../import/handlers/backup-handler-tar-gz';
-import { BackupHandlerZip } from '../../../import/handlers/backup-handler-zip';
-import { BackupArchiveInfo } from '../../../import/types';
+import { BackupHandlerFactory } from 'src/lib/import-export/import/handlers/backup-handler-factory';
+import { BackupHandlerSql } from 'src/lib/import-export/import/handlers/backup-handler-sql';
+import { BackupHandlerTarGz } from 'src/lib/import-export/import/handlers/backup-handler-tar-gz';
+import { BackupHandlerZip } from 'src/lib/import-export/import/handlers/backup-handler-zip';
+import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 
 jest.mock( 'fs' );
 jest.mock( 'fs/promises' );

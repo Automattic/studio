@@ -4,11 +4,11 @@ import nodePath from 'path';
 import { SupportedPHPVersion, SupportedPHPVersions } from '@php-wasm/universal';
 import * as Sentry from '@sentry/electron/main';
 import * as atomically from 'atomically';
-import { isErrnoException } from '../lib/is-errno-exception';
-import { sanitizeUnstructuredData, sanitizeUserpath } from '../lib/sanitize-for-logging';
-import { sortSites } from '../lib/sort-sites';
-import { getUserDataFilePath } from './paths';
-import type { PersistedUserData, UserData } from './storage-types';
+import { isErrnoException } from 'src/lib/is-errno-exception';
+import { sanitizeUnstructuredData, sanitizeUserpath } from 'src/lib/sanitize-for-logging';
+import { sortSites } from 'src/lib/sort-sites';
+import { getUserDataFilePath } from 'src/storage/paths';
+import type { PersistedUserData, UserData } from 'src/storage/storage-types';
 
 // Before persisting the PHP version of sites, the default PHP version used was 8.0.
 // In case we can't retrieve the PHP version from site details, we assume it was created

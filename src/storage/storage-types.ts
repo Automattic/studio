@@ -1,5 +1,5 @@
-import { StoredToken } from '../lib/oauth';
-import type { SyncSite } from '../hooks/use-fetch-wpcom-sites/types';
+import { StoredToken } from 'src/lib/oauth';
+import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
 export interface UserData {
 	sites: SiteDetails[];
@@ -15,6 +15,7 @@ export interface UserData {
 	};
 	promptWindowsSpeedUpResult?: PromptWindowsSpeedUpResult;
 	connectedWpcomSites?: { [ userId: number ]: SyncSite[] };
+	sentryUserId?: string;
 }
 
 export interface PersistedUserData extends Omit< UserData, 'sites' > {

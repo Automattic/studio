@@ -1,8 +1,8 @@
-import { useContentTabs } from '../use-content-tabs';
-import { transformSingleSiteResponse } from '../use-fetch-wpcom-sites';
-import { useIpcListener } from '../use-ipc-listener';
-import { useSiteDetails } from '../use-site-details';
-import { SyncSitesContextType } from './sync-sites-context';
+import { SyncSitesContextType } from 'src/hooks/sync-sites/sync-sites-context';
+import { useContentTabs } from 'src/hooks/use-content-tabs';
+import { transformSingleSiteResponse } from 'src/hooks/use-fetch-wpcom-sites';
+import { useIpcListener } from 'src/hooks/use-ipc-listener';
+import { useSiteDetails } from 'src/hooks/use-site-details';
 
 export function useListenDeepLinkConnection( {
 	connectSite,

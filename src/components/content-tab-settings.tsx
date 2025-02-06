@@ -1,12 +1,12 @@
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren } from 'react';
-import { useGetWpVersion } from '../hooks/use-get-wp-version';
-import { decodePassword } from '../lib/passwords';
-import { CopyTextButton } from './copy-text-button';
-import DeleteSite from './delete-site';
-import EditAbsoluteUrl from './edit-absolute-url';
-import EditPhpVersion from './edit-php-version';
-import EditSite from './edit-site';
+import { CopyTextButton } from 'src/components/copy-text-button';
+import DeleteSite from 'src/components/delete-site';
+import EditAbsoluteUrl from 'src/components/edit-absolute-url';
+import EditPhpVersion from 'src/components/edit-php-version';
+import EditSite from 'src/components/edit-site';
+import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
+import { decodePassword } from 'src/lib/passwords';
 
 interface ContentTabSettingsProps {
 	selectedSite: SiteDetails;

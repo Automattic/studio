@@ -1,7 +1,7 @@
 // To run tests, execute `npm run test -- src/hooks/tests/use-expiration-date.test.ts` from the root directory
 import { renderHook } from '@testing-library/react';
 import { subDays, subHours, subMinutes, subMilliseconds } from 'date-fns';
-import { useExpirationDate } from '../use-expiration-date';
+import { useExpirationDate } from 'src/hooks/use-expiration-date';
 
 jest.useFakeTimers();
 

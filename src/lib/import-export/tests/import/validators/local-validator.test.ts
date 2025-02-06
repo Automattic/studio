@@ -1,5 +1,5 @@
+import { LocalValidator } from 'src/lib/import-export/import/validators/local-validator';
 import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
-import { LocalValidator } from '../../../import/validators/local-validator';
 
 platformTestSuite( 'LocalValidator', ( { normalize } ) => {
 	let validator: LocalValidator;
@@ -15,6 +15,7 @@ platformTestSuite( 'LocalValidator', ( { normalize } ) => {
 				'app/public/wp-content/uploads/2023/image.jpg',
 				'app/public/wp-content/plugins/jetpack/jetpack.php',
 				'app/public/wp-content/themes/twentytwentyone/style.css',
+				'app/public/wp-content/mu-plugins/hello.php',
 			];
 			expect( validator.canHandle( fileList ) ).toBe( true );
 		} );
@@ -28,6 +29,7 @@ platformTestSuite( 'LocalValidator', ( { normalize } ) => {
 				'app/public/wp-content/uploads/2023/image.jpg',
 				'app/public/wp-content/plugins/jetpack/jetpack.php',
 				'app/public/wp-content/themes/twentytwentyone/style.css',
+				'app/public/wp-content/mu-plugins/hello.php',
 			];
 			expect( validator.canHandle( fileList ) ).toBe( true );
 		} );
@@ -45,6 +47,7 @@ platformTestSuite( 'LocalValidator', ( { normalize } ) => {
 				'app/public/wp-content/uploads/2023/image.jpg',
 				'app/public/wp-content/plugins/jetpack/jetpack.php',
 				'app/public/wp-content/themes/twentytwentyone/style.css',
+				'app/public/wp-content/mu-plugins/hello.php',
 				'local-site.json',
 			];
 			const extractionDirectory = '/tmp/extracted';
@@ -62,6 +65,7 @@ platformTestSuite( 'LocalValidator', ( { normalize } ) => {
 					themes: [
 						normalize( '/tmp/extracted/app/public/wp-content/themes/twentytwentyone/style.css' ),
 					],
+					muPlugins: [ normalize( '/tmp/extracted/app/public/wp-content/mu-plugins/hello.php' ) ],
 				},
 				wpContentDirectory: normalize( 'app/public/wp-content' ),
 				metaFile: normalize( '/tmp/extracted/local-site.json' ),
@@ -78,6 +82,7 @@ platformTestSuite( 'LocalValidator', ( { normalize } ) => {
 				'app/public/wp-content/uploads/2023/image.jpg',
 				'app/public/wp-content/plugins/jetpack/jetpack.php',
 				'app/public/wp-content/themes/twentytwentyone/style.css',
+				'app/public/wp-content/mu-plugins/hello.php',
 				'local-site.json',
 			];
 			const extractionDirectory = '/tmp/extracted';
@@ -95,6 +100,7 @@ platformTestSuite( 'LocalValidator', ( { normalize } ) => {
 					themes: [
 						normalize( '/tmp/extracted/app/public/wp-content/themes/twentytwentyone/style.css' ),
 					],
+					muPlugins: [ normalize( '/tmp/extracted/app/public/wp-content/mu-plugins/hello.php' ) ],
 				},
 				wpContentDirectory: normalize( 'app/public/wp-content' ),
 				metaFile: normalize( '/tmp/extracted/local-site.json' ),

@@ -97,14 +97,14 @@ export async function executeWPCli(
 			$_SERVER['argv'][0] = '${ wpCliPath }';
 
 			require( '${ wpCliPath }' );`,
-		[ path.join( PLAYGROUND_INTERNAL_SHARED_FOLDER, 'ca-bundle.crt' ) ]:
+		[ path.posix.join( PLAYGROUND_INTERNAL_SHARED_FOLDER, 'ca-bundle.crt' ) ]:
 			rootCertificates.join( '\n' ),
 	};
 
 	await writeFiles( php, '/', createFiles );
 
 	await setPhpIniEntries( php, {
-		'openssl.cafile': path.join( PLAYGROUND_INTERNAL_SHARED_FOLDER, 'ca-bundle.crt' ),
+		'openssl.cafile': path.posix.join( PLAYGROUND_INTERNAL_SHARED_FOLDER, 'ca-bundle.crt' ),
 	} );
 	try {
 		php.mkdir( sqliteCommandPath );

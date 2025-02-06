@@ -1,6 +1,6 @@
 import { useI18n } from '@wordpress/react-i18n';
 import { useEffect } from 'react';
-import { useI18nData } from './use-i18n-data';
+import { useI18nData } from 'src/hooks/use-i18n-data';
 
 export function useLocalizationSupport() {
 	const { __, _x, isRTL } = useI18n();

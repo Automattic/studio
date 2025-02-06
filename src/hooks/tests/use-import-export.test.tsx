@@ -1,14 +1,14 @@
 import { renderHook, act } from '@testing-library/react';
-import { getIpcApi } from '../../lib/get-ipc-api';
-import { ExportEventType, ExportEvents } from '../../lib/import-export/export/events';
-import { ImportEventType, ImportEvents } from '../../lib/import-export/import/events';
-import { ImportExportProvider, useImportExport } from '../use-import-export';
-import { useIpcListener } from '../use-ipc-listener';
-import { useSiteDetails } from '../use-site-details';
+import { ImportExportProvider, useImportExport } from 'src/hooks/use-import-export';
+import { useIpcListener } from 'src/hooks/use-ipc-listener';
+import { useSiteDetails } from 'src/hooks/use-site-details';
+import { getIpcApi } from 'src/lib/get-ipc-api';
+import { ExportEventType, ExportEvents } from 'src/lib/import-export/export/events';
+import { ImportEventType, ImportEvents } from 'src/lib/import-export/import/events';
 
-jest.mock( '../../lib/get-ipc-api' );
-jest.mock( '../../hooks/use-ipc-listener' );
-jest.mock( '../../hooks/use-site-details' );
+jest.mock( 'src/lib/get-ipc-api' );
+jest.mock( 'src/hooks/use-ipc-listener' );
+jest.mock( 'src/hooks/use-site-details' );
 
 const SITE_ID = 'site-id-1';
 
@@ -54,7 +54,13 @@ describe( 'useImportExport hook', () => {
 			{
 				site: selectedSite,
 				backupFile: '/path/to/exported-site.tar.gz',
-				includes: { database: true, uploads: true, plugins: true, themes: true },
+				includes: {
+					database: true,
+					uploads: true,
+					plugins: true,
+					themes: true,
+					muPlugins: true,
+				},
 				phpVersion: '8.0',
 			},
 			SITE_ID
@@ -80,7 +86,13 @@ describe( 'useImportExport hook', () => {
 			{
 				site: selectedSite,
 				backupFile: '/path/to/exported-site.tar.gz',
-				includes: { database: true, uploads: true, plugins: true, themes: true },
+				includes: {
+					database: true,
+					uploads: true,
+					plugins: true,
+					themes: true,
+					muPlugins: true,
+				},
 				phpVersion: '8.0',
 			},
 			SITE_ID
@@ -106,7 +118,13 @@ describe( 'useImportExport hook', () => {
 			{
 				site: selectedSite,
 				backupFile: '/path/to/exported-database.sql',
-				includes: { database: true, uploads: false, plugins: false, themes: false },
+				includes: {
+					database: true,
+					uploads: false,
+					plugins: false,
+					themes: false,
+					muPlugins: false,
+				},
 				phpVersion: '8.0',
 			},
 			SITE_ID
@@ -225,8 +243,32 @@ describe( 'useImportExport hook', () => {
 		expect( useSiteDetails().startServer ).toHaveBeenCalledWith( SITE_ID );
 	} );
 
-	it( 'shows error message when import fails', async () => {
-		( getIpcApi().importSite as jest.Mock ).mockRejectedValue( 'error' );
+	it( 'shows error message when import fails with absolute path error', async () => {
+		( getIpcApi().importSite as jest.Mock ).mockRejectedValue(
+			new Error( 'Error: absolute path: /' )
+		);
+
+		const { result } = renderHook( () => useImportExport(), { wrapper } );
+		const file = { path: 'backup.zip', type: 'application/zip' };
+		await act( () => result.current.importFile( file, selectedSite ) );
+
+		expect( result.current.exportState ).toEqual( {} );
+		expect( getIpcApi().importSite ).toHaveBeenCalledWith( {
+			id: SITE_ID,
+			backupFile: {
+				type: 'application/zip',
+				path: 'backup.zip',
+			},
+		} );
+		expect( getIpcApi().showErrorMessageBox ).toHaveBeenCalledWith( {
+			title: 'Failed importing site',
+			message:
+				'The ZIP archive is invalid. Try to unpack and pack it again. If this problem persists, please contact support.',
+		} );
+	} );
+
+	it( 'shows error message when import fails with other error', async () => {
+		( getIpcApi().importSite as jest.Mock ).mockRejectedValue( new Error( 'generic error' ) );
 
 		const { result } = renderHook( () => useImportExport(), { wrapper } );
 		const file = { path: 'backup.zip', type: 'application/zip' };
@@ -244,7 +286,7 @@ describe( 'useImportExport hook', () => {
 			title: 'Failed importing site',
 			message:
 				'An error occurred while importing the site. Verify the file is a valid Jetpack backup, Local, Playground, .wpress or .sql database file and try again. If this problem persists, please contact support.',
-			error: 'error',
+			error: new Error( 'generic error' ),
 			showOpenLogs: true,
 		} );
 	} );

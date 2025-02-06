@@ -2,12 +2,12 @@ import { speak } from '@wordpress/a11y';
 import { Spinner } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
 import { useEffect } from 'react';
-import { useSyncSites } from '../hooks/sync-sites';
-import { useImportExport } from '../hooks/use-import-export';
-import { useSiteDetails } from '../hooks/use-site-details';
-import { isMac } from '../lib/app-globals';
-import { cx } from '../lib/cx';
-import { Tooltip } from './tooltip';
+import { Tooltip } from 'src/components/tooltip';
+import { useSyncSites } from 'src/hooks/sync-sites';
+import { useImportExport } from 'src/hooks/use-import-export';
+import { useSiteDetails } from 'src/hooks/use-site-details';
+import { isMac } from 'src/lib/app-globals';
+import { cx } from 'src/lib/cx';
 
 interface SiteMenuProps {
 	className?: string;

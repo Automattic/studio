@@ -7,24 +7,30 @@ import { __, _n, sprintf } from '@wordpress/i18n';
 import { Icon, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import React, { useState, useEffect, useRef, memo, useCallback, useMemo } from 'react';
+import ClearHistoryReminder from 'src/components/ai-clear-history-reminder';
+import { AIInput } from 'src/components/ai-input';
+import { MessageThinking } from 'src/components/assistant-thinking';
+import Button from 'src/components/button';
+import { ChatMessage, MarkDownWithCode } from 'src/components/chat-message';
+import { ChatRating } from 'src/components/chat-rating';
+import offlineIcon from 'src/components/offline-icon';
+import WelcomeComponent from 'src/components/welcome-message-prompt';
+import { AI_GUIDELINES_URL, LIMIT_OF_PROMPTS_PER_USER } from 'src/constants';
+import { useAuth } from 'src/hooks/use-auth';
+import { useOffline } from 'src/hooks/use-offline';
+import { usePromptUsage } from 'src/hooks/use-prompt-usage';
+import { useThemeDetails } from 'src/hooks/use-theme-details';
+import { useWelcomeMessages } from 'src/hooks/use-welcome-messages';
 import { cx } from 'src/lib/cx';
-import { AI_GUIDELINES_URL, LIMIT_OF_PROMPTS_PER_USER } from '../constants';
-import { useAssistant, Message as MessageType } from '../hooks/use-assistant';
-import { useAssistantApi } from '../hooks/use-assistant-api';
-import { useAuth } from '../hooks/use-auth';
-import { useChatContext } from '../hooks/use-chat-context';
-import { useOffline } from '../hooks/use-offline';
-import { usePromptUsage } from '../hooks/use-prompt-usage';
-import { useWelcomeMessages } from '../hooks/use-welcome-messages';
-import { getIpcApi } from '../lib/get-ipc-api';
-import ClearHistoryReminder from './ai-clear-history-reminder';
-import { AIInput } from './ai-input';
-import { MessageThinking } from './assistant-thinking';
-import Button from './button';
-import { ChatMessage, MarkDownWithCode } from './chat-message';
-import { ChatRating } from './chat-rating';
-import offlineIcon from './offline-icon';
-import WelcomeComponent from './welcome-message-prompt';
+import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useAppDispatch, useRootSelector } from 'src/stores';
+import {
+	chatThunks,
+	generateMessage,
+	Message as MessageType,
+	chatActions,
+	chatSelectors,
+} from 'src/stores/chat-slice';
 
 export const MIMIC_CONVERSATION_DELAY = 500;
 
@@ -95,34 +101,22 @@ const OfflineModeView = () => {
 	);
 };
 
-type OnUpdateMessageType = (
-	id: number,
-	codeBlockContent: string,
-	cliOutput: string,
-	cliStatus: 'success' | 'error',
-	cliTime: string
-) => void;
-
 interface AuthenticatedViewProps {
 	messages: MessageType[];
+	instanceId: string;
 	isAssistantThinking: boolean;
-	updateMessage: OnUpdateMessageType;
 	siteId: string;
 	submitPrompt: ( messageToSend: string, isRetry?: boolean ) => void;
-	markMessageAsFeedbackReceived: ReturnType<
-		typeof useAssistant
-	>[ 'markMessageAsFeedbackReceived' ];
 	wrapperRef: React.RefObject< HTMLDivElement >;
 }
 
 const AuthenticatedView = memo(
 	( {
 		messages,
+		instanceId,
 		isAssistantThinking,
-		updateMessage,
 		siteId,
 		submitPrompt,
-		markMessageAsFeedbackReceived,
 		wrapperRef,
 	}: AuthenticatedViewProps ) => {
 		const lastMessageRef = useRef< HTMLDivElement >( null );
@@ -193,7 +187,7 @@ const AuthenticatedView = memo(
 						id={ `message-chat-${ message.id }` }
 						message={ message }
 						siteId={ siteId }
-						updateMessage={ updateMessage }
+						instanceId={ instanceId }
 					>
 						{ message.content }
 					</ChatMessage>
@@ -202,23 +196,11 @@ const AuthenticatedView = memo(
 					) }
 				</>
 			),
-			[ submitPrompt, siteId, updateMessage ]
+			[ submitPrompt, siteId, instanceId ]
 		);
 
 		const RenderLastMessage = useCallback(
-			( {
-				showThinking,
-				siteId,
-				updateMessage,
-				message,
-				children,
-			}: {
-				message: MessageType;
-				showThinking: boolean;
-				siteId: string;
-				updateMessage: OnUpdateMessageType;
-				children: React.ReactNode;
-			} ) => {
+			( { message, children }: { message: MessageType; children: React.ReactNode } ) => {
 				const thinkingAnimation = {
 					initial: { opacity: 0, y: 20 },
 					animate: { opacity: 1, y: 0 },
@@ -230,49 +212,47 @@ const AuthenticatedView = memo(
 				};
 
 				return (
-					<>
-						<ChatMessage
-							ref={ lastMessageRef }
-							id={ `message-chat-${ message.id }` }
-							message={ message }
-							siteId={ siteId }
-							updateMessage={ updateMessage }
-						>
-							<AnimatePresence mode="wait">
-								{ showThinking ? (
-									<motion.div
-										key="thinking"
-										initial="initial"
-										animate="animate"
-										exit="exit"
-										variants={ thinkingAnimation }
-										transition={ { duration: 0.3 } }
-									>
-										<MessageThinking />
-									</motion.div>
-								) : (
-									<motion.div
-										key="content"
-										variants={ messageAnimation }
-										transition={ { duration: 0.3 } }
-										initial="initial"
-										animate="animate"
-									>
-										<MarkDownWithCode
-											message={ message }
-											siteId={ siteId }
-											updateMessage={ updateMessage }
-											content={ message.content }
-										/>
-										{ children }
-									</motion.div>
-								) }
-							</AnimatePresence>
-						</ChatMessage>
-					</>
+					<ChatMessage
+						ref={ lastMessageRef }
+						id={ `message-chat-${ message.id }` }
+						message={ message }
+						siteId={ siteId }
+						instanceId={ instanceId }
+					>
+						<AnimatePresence mode="wait">
+							{ showThinking ? (
+								<motion.div
+									key="thinking"
+									initial="initial"
+									animate="animate"
+									exit="exit"
+									variants={ thinkingAnimation }
+									transition={ { duration: 0.3 } }
+								>
+									<MessageThinking />
+								</motion.div>
+							) : (
+								<motion.div
+									key="content"
+									variants={ messageAnimation }
+									transition={ { duration: 0.3 } }
+									initial="initial"
+									animate="animate"
+								>
+									<MarkDownWithCode
+										message={ message }
+										siteId={ siteId }
+										instanceId={ instanceId }
+										content={ message.content }
+									/>
+									{ children }
+								</motion.div>
+							) }
+						</AnimatePresence>
+					</ChatMessage>
 				);
 			},
-			[]
+			[ showThinking, siteId, instanceId ]
 		);
 
 		if ( messages.length === 0 ) {
@@ -284,17 +264,12 @@ const AuthenticatedView = memo(
 					<RenderMessage key={ message.id } message={ message } />
 				) ) }
 				{ showLastMessage && (
-					<RenderLastMessage
-						siteId={ siteId }
-						updateMessage={ updateMessage }
-						message={ lastMessage }
-						showThinking={ showThinking }
-					>
+					<RenderLastMessage message={ lastMessage }>
 						<div className="flex justify-end">
 							{ !! lastMessage.messageApiId && (
 								<ChatRating
+									instanceId={ instanceId }
 									messageApiId={ lastMessage.messageApiId }
-									markMessageAsFeedbackReceived={ markMessageAsFeedbackReceived }
 									feedbackReceived={ !! lastMessage.feedbackReceived }
 								/>
 							) }
@@ -312,6 +287,7 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 		className="w-full"
 		message={ { role: 'user' } as MessageType }
 		isUnauthenticated={ true }
+		instanceId=""
 	>
 		<div data-testid="unauthenticated-header" className="mb-3 a8c-label-semibold">
 			{ __( 'Hold up!' ) }
@@ -352,104 +328,69 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
 	const inputRef = useRef< HTMLTextAreaElement >( null );
 	const wrapperRef = useRef< HTMLDivElement >( null );
-	const chatContext = useChatContext();
-	const { isAuthenticated, authenticate, user } = useAuth();
+	const dispatch = useAppDispatch();
+	const chatInput = useRootSelector( ( state ) =>
+		chatSelectors.selectChatInput( state, selectedSite.id )
+	);
+	const { isAuthenticated, authenticate, user, client } = useAuth();
 	const instanceId = user?.id ? `${ user.id }_${ selectedSite.id }` : selectedSite.id;
-	const {
-		messages,
-		addMessage,
-		clearMessages,
-		updateMessage,
-		markMessageAsFailed,
-		chatId,
-		markMessageAsFeedbackReceived,
-	} = useAssistant( instanceId );
+	const chatApiId = useRootSelector( ( state ) =>
+		chatSelectors.selectChatApiId( state, instanceId )
+	);
+	const messages = useRootSelector( ( state ) =>
+		chatSelectors.selectMessages( state, instanceId )
+	);
+	const isAssistantThinking = useRootSelector( ( state ) =>
+		chatSelectors.selectIsLoading( state, instanceId )
+	);
 	const { userCanSendMessage } = usePromptUsage();
-	const { fetchAssistant, isLoading: isAssistantThinking } = useAssistantApi( selectedSite.id );
 	const { messages: welcomeMessages, examplePrompts } = useWelcomeMessages();
-	const [ currentInput, setCurrentInput ] = useState( '' );
 	const isOffline = useOffline();
 	const { __ } = useI18n();
 	const lastMessage = messages.length === 0 ? undefined : messages[ messages.length - 1 ];
 	const hasFailedMessage = messages.some( ( msg ) => msg.failedMessage );
 
-	// Restore prompt input when site changes
-	useEffect( () => {
-		setCurrentInput( chatContext.getChatInput( selectedSite.id ) );
-	}, [ selectedSite.id, chatContext ] );
+	const { selectedThemeDetails: themeDetails } = useThemeDetails();
 
-	// Save prompt input when it changes
-	const setInput = useCallback(
-		( input: string ) => {
-			chatContext.saveChatInput( input, selectedSite.id );
-			setCurrentInput( input );
-		},
-		[ selectedSite.id, chatContext ]
-	);
+	useEffect( () => {
+		dispatch( chatThunks.updateFromSite( { site: selectedSite } ) );
+	}, [ dispatch, selectedSite ] );
+
+	useEffect( () => {
+		if ( themeDetails ) {
+			dispatch( chatActions.updateFromTheme( themeDetails ) );
+		}
+	}, [ dispatch, themeDetails ] );
 
 	const submitPrompt = useCallback(
-		async ( chatMessage: string, isRetry?: boolean ) => {
-			if ( ! chatMessage ) {
+		( chatMessage: string, isRetry?: boolean ) => {
+			if ( ! chatMessage || ! client ) {
 				return;
 			}
-			let messageId;
-			if ( chatMessage.trim() ) {
-				if ( isRetry ) {
-					// If retrying, find the message ID with failedMessage flag
-					const failedMessage = messages.find(
-						( msg ) => msg.failedMessage && msg.content === chatMessage
-					);
-					if ( failedMessage ) {
-						messageId = failedMessage.id;
-						if ( typeof messageId !== 'undefined' ) {
-							markMessageAsFailed( messageId, false );
-						}
-					}
-				} else {
-					messageId = addMessage( chatMessage, 'user', chatId ); // Get the new message ID
-					setInput( '' );
-				}
-				try {
-					const {
-						message,
-						chatId: fetchedChatId,
-						messageApiId,
-					} = await fetchAssistant(
-						chatId,
-						[
-							...messages,
-							{ id: messageId, content: chatMessage, role: 'user', createdAt: Date.now() },
-						],
-						chatContext
-					);
-					if ( message ) {
-						addMessage( message, 'assistant', chatId ?? fetchedChatId, messageApiId );
-					}
-				} catch ( error ) {
-					if ( typeof messageId !== 'undefined' ) {
-						markMessageAsFailed( messageId, true );
-					}
-				}
+
+			if ( ! isRetry ) {
+				dispatch( chatActions.setChatInput( { siteId: selectedSite.id, input: '' } ) );
 			}
+
+			const newMessageId = isRetry ? messages.length - 1 : messages.length;
+			const message = generateMessage( chatMessage, 'user', newMessageId, chatApiId );
+
+			dispatch(
+				chatThunks.fetchAssistant( {
+					client,
+					instanceId,
+					isRetry,
+					message,
+					siteId: selectedSite.id,
+				} )
+			);
 		},
-		[ addMessage, chatId, chatContext, fetchAssistant, markMessageAsFailed, messages, setInput ]
+		[ client, dispatch, instanceId, selectedSite.id, messages, chatApiId ]
 	);
 
-	// Submit prompt input when the user clicks the send button
-	const handleSend = useCallback( () => {
-		submitPrompt( inputRef.current?.value ?? '' );
-		setInput( '' );
-	}, [ submitPrompt, setInput ] );
-
-	const handleKeyDown = ( e: React.KeyboardEvent< HTMLTextAreaElement > ) => {
-		if ( e.key === 'Enter' ) {
-			handleSend();
-		}
-	};
-
 	const clearConversation = () => {
-		setInput( '' );
-		clearMessages();
+		dispatch( chatActions.setChatInput( { siteId: selectedSite.id, input: '' } ) );
+		dispatch( chatActions.setMessages( { instanceId, messages: [] } ) );
 	};
 
 	// We should render only one notice at a time in the bottom area
@@ -494,8 +435,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 							<AuthenticatedView
 								messages={ messages }
 								isAssistantThinking={ isAssistantThinking }
-								updateMessage={ updateMessage }
-								markMessageAsFeedbackReceived={ markMessageAsFeedbackReceived }
+								instanceId={ instanceId }
 								siteId={ selectedSite.id }
 								submitPrompt={ submitPrompt }
 								wrapperRef={ wrapperRef }
@@ -513,10 +453,18 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 					<AIInput
 						ref={ inputRef }
 						disabled={ disabled }
-						input={ currentInput }
-						setInput={ setInput }
-						handleSend={ handleSend }
-						handleKeyDown={ handleKeyDown }
+						input={ chatInput }
+						setInput={ ( input ) => {
+							dispatch( chatActions.setChatInput( { siteId: selectedSite.id, input } ) );
+						} }
+						handleSend={ () => {
+							submitPrompt( inputRef.current?.value ?? '' );
+						} }
+						handleKeyDown={ ( event ) => {
+							if ( event.key === 'Enter' ) {
+								submitPrompt( inputRef.current?.value ?? '' );
+							}
+						} }
 						clearConversation={ clearConversation }
 						isAssistantThinking={ isAssistantThinking }
 					/>

@@ -1,3 +1,14 @@
+1.3.3
+=====
+* Added support for mu-plugins in site import #852
+* Moved mu-plugin polyfills to an internal Playground directory #845
+* Fixed an issue with window control placement in fullscreen view on macOS #833
+* Fixed an issue where ZIP files larger than 2GB could not be imported #835 #874
+* Cosmetic improvements to how the terminal is launched on Windows #814
+* Fixed importing of .wpress backups #830
+* Added description for Advanced settings of creating a new site #828
+* Improved Sentry reports #813, #863, #868, #864
+
 1.3.2
 =====
 * Upgraded Electron to 33.3.1 (#782)

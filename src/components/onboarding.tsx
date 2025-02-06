@@ -3,14 +3,14 @@ import { sprintf } from '@wordpress/i18n';
 import { Icon, wordpress } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
-import { ACCEPTED_IMPORT_FILE_TYPES } from '../constants';
-import { useAddSite } from '../hooks/use-add-site';
-import { useDragAndDropFile } from '../hooks/use-drag-and-drop-file';
-import { generateSiteName } from '../lib/generate-site-name';
-import { getIpcApi } from '../lib/get-ipc-api';
-import Button from './button';
-import DragAndDropOverlay from './drag-and-drop-overlay';
-import { SiteForm } from './site-form';
+import Button from 'src/components/button';
+import DragAndDropOverlay from 'src/components/drag-and-drop-overlay';
+import { SiteForm } from 'src/components/site-form';
+import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
+import { useAddSite } from 'src/hooks/use-add-site';
+import { useDragAndDropFile } from 'src/hooks/use-drag-and-drop-file';
+import { generateSiteName } from 'src/lib/generate-site-name';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 
 const GradientBox = () => {
 	const { __ } = useI18n();

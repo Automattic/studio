@@ -1,9 +1,9 @@
 import { useEffect, useCallback } from 'react';
-import { getIpcApi } from '../../lib/get-ipc-api';
-import { useAuth } from '../use-auth';
-import { FetchSites, useFetchWpComSites } from '../use-fetch-wpcom-sites';
-import { useSiteDetails } from '../use-site-details';
-import type { SyncSite } from '../use-fetch-wpcom-sites/types';
+import { useAuth } from 'src/hooks/use-auth';
+import { FetchSites, useFetchWpComSites } from 'src/hooks/use-fetch-wpcom-sites';
+import { useSiteDetails } from 'src/hooks/use-site-details';
+import { getIpcApi } from 'src/lib/get-ipc-api';
+import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
 type ConnectedSites = SyncSite[];
 type LoadConnectedSites = () => Promise< void >;

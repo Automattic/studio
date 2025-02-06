@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getIpcApi } from '../lib/get-ipc-api';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 
 export function useGetWpVersion( site: SiteDetails ) {
 	const [ wpVersion, setWpVersion ] = useState( '-' );

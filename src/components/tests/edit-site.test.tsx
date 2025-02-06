@@ -1,9 +1,9 @@
 import { render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
-import EditSite from '../edit-site';
+import EditSite from 'src/components/edit-site';
 
 const mockUpdateSite = jest.fn();
-jest.mock( '../../hooks/use-site-details', () => ( {
+jest.mock( 'src/hooks/use-site-details', () => ( {
 	useSiteDetails: () => ( {
 		selectedSite: { name: 'Test Site', path: '/path/to/site', id: 'site-id' },
 		updateSite: mockUpdateSite,

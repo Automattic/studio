@@ -1,14 +1,23 @@
 import { TabPanel } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { createContext, ReactNode, useContext, useMemo, useState } from 'react';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 
-export type TabName = 'overview' | 'share' | 'sync' | 'settings' | 'assistant' | 'import-export';
+export type TabName =
+	| 'overview'
+	| 'share'
+	| 'sync'
+	| 'settings'
+	| 'assistant'
+	| 'import-export'
+	| 'previews';
 type Tab = React.ComponentProps< typeof TabPanel >[ 'tabs' ][ number ] & {
 	name: TabName;
 };
 
 function useTabs() {
 	const { __ } = useI18n();
+	const { quickDeploysEnabled } = useFeatureFlags();
 
 	return useMemo( () => {
 		const tabs: Tab[] = [
@@ -22,11 +31,23 @@ function useTabs() {
 				name: 'sync',
 				title: __( 'Sync' ),
 			},
-			{
+		];
+
+		if ( quickDeploysEnabled ) {
+			tabs.push( {
+				order: 3,
+				name: 'previews',
+				title: __( 'Previews' ),
+			} );
+		} else {
+			tabs.push( {
 				order: 3,
 				name: 'share',
 				title: __( 'Share' ),
-			},
+			} );
+		}
+
+		tabs.push(
 			{
 				order: 4,
 				name: 'import-export',
@@ -36,8 +57,8 @@ function useTabs() {
 				order: 5,
 				name: 'settings',
 				title: __( 'Settings' ),
-			},
-		];
+			}
+		);
 
 		tabs.push( {
 			order: 6,
@@ -47,7 +68,7 @@ function useTabs() {
 		} );
 
 		return tabs.sort( ( a, b ) => a.order - b.order );
-	}, [ __ ] );
+	}, [ __, quickDeploysEnabled ] );
 }
 interface ContentTabsContextType {
 	selectedTab: TabName;

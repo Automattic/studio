@@ -1,10 +1,10 @@
 import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { useCallback, useState, useEffect, useRef } from 'react';
-import { CLEAR_HISTORY_REMINDER_TIME } from '../constants';
-import { Message as MessageType } from '../hooks/use-assistant';
-import { getIpcApi } from '../lib/get-ipc-api';
-import Button from './button';
+import Button from 'src/components/button';
+import { CLEAR_HISTORY_REMINDER_TIME } from 'src/constants';
+import { getIpcApi } from 'src/lib/get-ipc-api';
+import { Message as MessageType } from 'src/stores/chat-slice';
 
 function shouldShowReminder( lastMessage?: MessageType ) {
 	return (

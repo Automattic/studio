@@ -1,36 +1,37 @@
-import { SyncSitesProvider } from '../hooks/sync-sites/sync-sites-context';
-import { ChatProvider } from '../hooks/use-chat-context';
-import { InstalledAppsProvider } from '../hooks/use-check-installed-apps';
-import { ContentTabsProvider } from '../hooks/use-content-tabs';
-import { FeatureFlagsProvider } from '../hooks/use-feature-flags';
-import { I18nDataProvider } from '../hooks/use-i18n-data';
-import { ImportExportProvider } from '../hooks/use-import-export';
-import { OnboardingProvider } from '../hooks/use-onboarding';
-import { PromptUsageProvider } from '../hooks/use-prompt-usage';
-import { SiteDetailsProvider } from '../hooks/use-site-details';
-import { SnapshotProvider } from '../hooks/use-snapshots';
-import { ThemeDetailsProvider } from '../hooks/use-theme-details';
-import { DemoSiteUpdateProvider } from '../hooks/use-update-demo-site';
-import App from './app';
-import AuthProvider from './auth-provider';
-import CrashTester from './crash-tester';
-import ErrorBoundary from './error-boundary';
+import { Provider as ReduxProvider } from 'react-redux';
+import App from 'src/components/app';
+import AuthProvider from 'src/components/auth-provider';
+import CrashTester from 'src/components/crash-tester';
+import ErrorBoundary from 'src/components/error-boundary';
+import { SyncSitesProvider } from 'src/hooks/sync-sites/sync-sites-context';
+import { InstalledAppsProvider } from 'src/hooks/use-check-installed-apps';
+import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
+import { FeatureFlagsProvider } from 'src/hooks/use-feature-flags';
+import { I18nDataProvider } from 'src/hooks/use-i18n-data';
+import { ImportExportProvider } from 'src/hooks/use-import-export';
+import { OnboardingProvider } from 'src/hooks/use-onboarding';
+import { PromptUsageProvider } from 'src/hooks/use-prompt-usage';
+import { SiteDetailsProvider } from 'src/hooks/use-site-details';
+import { SnapshotProvider } from 'src/hooks/use-snapshots';
+import { ThemeDetailsProvider } from 'src/hooks/use-theme-details';
+import { DemoSiteUpdateProvider } from 'src/hooks/use-update-demo-site';
+import { store } from 'src/stores';
 
 const Root = () => {
 	return (
 		<ErrorBoundary>
 			<CrashTester />
-			<I18nDataProvider>
-				<AuthProvider>
-					<SnapshotProvider>
-						<SiteDetailsProvider>
-							<FeatureFlagsProvider>
-								<DemoSiteUpdateProvider>
-									<ThemeDetailsProvider>
-										<InstalledAppsProvider>
-											<OnboardingProvider>
-												<PromptUsageProvider>
-													<ChatProvider>
+			<ReduxProvider store={ store }>
+				<I18nDataProvider>
+					<AuthProvider>
+						<SnapshotProvider>
+							<SiteDetailsProvider>
+								<FeatureFlagsProvider>
+									<DemoSiteUpdateProvider>
+										<ThemeDetailsProvider>
+											<InstalledAppsProvider>
+												<OnboardingProvider>
+													<PromptUsageProvider>
 														<ImportExportProvider>
 															<ContentTabsProvider>
 																<SyncSitesProvider>
@@ -38,17 +39,17 @@ const Root = () => {
 																</SyncSitesProvider>
 															</ContentTabsProvider>
 														</ImportExportProvider>
-													</ChatProvider>
-												</PromptUsageProvider>
-											</OnboardingProvider>
-										</InstalledAppsProvider>
-									</ThemeDetailsProvider>
-								</DemoSiteUpdateProvider>
-							</FeatureFlagsProvider>
-						</SiteDetailsProvider>
-					</SnapshotProvider>
-				</AuthProvider>
-			</I18nDataProvider>
+													</PromptUsageProvider>
+												</OnboardingProvider>
+											</InstalledAppsProvider>
+										</ThemeDetailsProvider>
+									</DemoSiteUpdateProvider>
+								</FeatureFlagsProvider>
+							</SiteDetailsProvider>
+						</SnapshotProvider>
+					</AuthProvider>
+				</I18nDataProvider>
+			</ReduxProvider>
 		</ErrorBoundary>
 	);
 };

@@ -1,14 +1,15 @@
 import fs from 'fs-extra';
+// eslint-disable-next-line import/order
+import { SQLITE_FILENAME } from 'vendor/wp-now/src/constants';
+import { installSqliteIntegration, keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
 import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
-import { SQLITE_FILENAME } from '../../../vendor/wp-now/src/constants';
-import { installSqliteIntegration, keepSqliteIntegrationUpdated } from '../sqlite-versions';
 
 jest.mock( 'fs-extra' );
-jest.mock( '../../../vendor/wp-now/src/download' );
-jest.mock( '../../../vendor/wp-now/src/get-sqlite-path', () =>
+jest.mock( 'vendor/wp-now/src/download' );
+jest.mock( 'vendor/wp-now/src/get-sqlite-path', () =>
 	jest.fn().mockReturnValue( `server-files/${ SQLITE_FILENAME }` )
 );
-jest.mock( '../../storage/paths', () => ( {
+jest.mock( 'src/storage/paths', () => ( {
 	getServerFilesPath: jest.fn().mockReturnValue( 'server-files' ),
 } ) );
 

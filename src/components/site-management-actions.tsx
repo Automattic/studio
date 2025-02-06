@@ -1,9 +1,9 @@
 import { __ } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
-import { useSyncSites } from '../hooks/sync-sites';
-import { useImportExport } from '../hooks/use-import-export';
-import { ActionButton } from './action-button';
-import { Tooltip } from './tooltip';
+import { ActionButton } from 'src/components/action-button';
+import { Tooltip } from 'src/components/tooltip';
+import { useSyncSites } from 'src/hooks/sync-sites';
+import { useImportExport } from 'src/hooks/use-import-export';
 
 export interface SiteManagementActionProps {
 	onStop: ( id: string ) => Promise< void >;

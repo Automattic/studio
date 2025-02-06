@@ -1,14 +1,14 @@
 import { render, act, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
-import { SyncSitesProvider } from '../../hooks/sync-sites';
-import { useAuth } from '../../hooks/use-auth';
-import { ContentTabsProvider } from '../../hooks/use-content-tabs';
-import MainSidebar from '../main-sidebar';
+import MainSidebar from 'src/components/main-sidebar';
+import { SyncSitesProvider } from 'src/hooks/sync-sites';
+import { useAuth } from 'src/hooks/use-auth';
+import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 
-jest.mock( '../../hooks/use-auth' );
+jest.mock( 'src/hooks/use-auth' );
 
 const mockOpenURL = jest.fn();
-jest.mock( '../../lib/get-ipc-api', () => ( {
+jest.mock( 'src/lib/get-ipc-api', () => ( {
 	__esModule: true,
 	default: jest.fn(),
 	getIpcApi: () => ( {
@@ -53,7 +53,7 @@ const siteDetailsMocked = {
 	startServer: jest.fn(),
 	stopServer: jest.fn(),
 };
-jest.mock( '../../hooks/use-site-details', () => ( {
+jest.mock( 'src/hooks/use-site-details', () => ( {
 	useSiteDetails: () => ( { ...siteDetailsMocked } ),
 } ) );
 

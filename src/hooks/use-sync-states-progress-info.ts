@@ -2,7 +2,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useMemo } from 'react';
 
 export type PullStateProgressInfo = {
-	key: 'in-progress' | 'downloading' | 'importing' | 'finished' | 'failed';
+	key: 'in-progress' | 'downloading' | 'importing' | 'finished' | 'failed' | 'cancelled';
 	progress: number;
 	message: string;
 };
@@ -19,7 +19,7 @@ export function useSyncStatesProgressInfo() {
 			'in-progress': {
 				key: 'in-progress',
 				progress: 30,
-				message: __( 'Pulling changes…' ),
+				message: __( 'Initializing backup…' ),
 			},
 			downloading: {
 				// On backend this key is called backup 'finished'
@@ -41,6 +41,11 @@ export function useSyncStatesProgressInfo() {
 				key: 'failed',
 				progress: 100,
 				message: __( 'Error pulling changes' ),
+			},
+			cancelled: {
+				key: 'cancelled',
+				progress: 0,
+				message: __( 'Cancelled' ),
 			},
 		} as const;
 	}, [ __ ] );

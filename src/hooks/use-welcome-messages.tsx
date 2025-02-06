@@ -8,9 +8,9 @@ import {
 	useCallback,
 	useContext,
 } from 'react';
-import { useAuth } from './use-auth';
-import { useOffline } from './use-offline';
-import { useWindowListener } from './use-window-listener';
+import { useAuth } from 'src/hooks/use-auth';
+import { useOffline } from 'src/hooks/use-offline';
+import { useWindowListener } from 'src/hooks/use-window-listener';
 
 interface WelcomeMessageResponse {
 	messages: string[];

@@ -36,18 +36,9 @@ See `scripts/prepare-dev-build-version.mjs`.
 
 ## Updating Logic
 
-Studio checks for updates on launch and every hour after that.
-
-Release builds:
-
-- Check for updates on launch and every hour after that.
-- Ignore dev builds, will only update to another release build.
-
-Dev builds:
-
-- Do not automatically check for updates.
-- Check for updates if you use the “Check for Updates” menu item on Mac.
-- Ignore release builds, will only update to the latest dev build.
+Studio checks for updates on launch and every hour after that, for both release
+and dev builds. In case of dev build, if there is prod build bigger than the
+latest dev build, then will be updated to the prod build. Otherwise, to the latest dev build.
 
 ## Releases Manifest and CDN
 

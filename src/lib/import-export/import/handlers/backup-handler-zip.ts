@@ -4,9 +4,15 @@ import path from 'path';
 import { promisify } from 'util';
 import fse from 'fs-extra';
 import yauzl from 'yauzl';
-import { ImportEvents } from '../events';
-import { BackupArchiveInfo, BackupExtractProgressEventData } from '../types';
-import { BackupHandler, isFileAllowed } from './backup-handler-factory';
+import { ImportEvents } from 'src/lib/import-export/import/events';
+import {
+	BackupHandler,
+	isFileAllowed,
+} from 'src/lib/import-export/import/handlers/backup-handler-factory';
+import {
+	BackupArchiveInfo,
+	BackupExtractProgressEventData,
+} from 'src/lib/import-export/import/types';
 
 const openZip = promisify< string, yauzl.Options, yauzl.ZipFile >( yauzl.open );
 

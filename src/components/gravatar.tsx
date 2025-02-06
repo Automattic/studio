@@ -2,10 +2,10 @@ import { Icon } from '@wordpress/components';
 import { commentAuthorAvatar } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useState } from 'react';
-import { useAuth } from '../hooks/use-auth';
-import { useGravatarUrl } from '../hooks/use-gravatar-url';
-import { cx } from '../lib/cx';
-import profileIconDetailed from './profile-icon-detailed';
+import profileIconDetailed from 'src/components/profile-icon-detailed';
+import { useAuth } from 'src/hooks/use-auth';
+import { useGravatarUrl } from 'src/hooks/use-gravatar-url';
+import { cx } from 'src/lib/cx';
 
 export function Gravatar( {
 	className,

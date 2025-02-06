@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { getIpcApi } from '../lib/get-ipc-api';
-import { useIpcListener } from './use-ipc-listener';
+import { useIpcListener } from 'src/hooks/use-ipc-listener';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 
 export function useFullscreen() {
 	const [ isFullscreen, setIsFullscreen ] = useState( false );

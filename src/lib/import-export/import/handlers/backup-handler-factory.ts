@@ -1,9 +1,9 @@
 import { EventEmitter } from 'events';
-import { BackupArchiveInfo } from '../types';
-import { BackupHandlerSql } from './backup-handler-sql';
-import { BackupHandlerTarGz } from './backup-handler-tar-gz';
-import { BackupHandlerWpress } from './backup-handler-wpress';
-import { BackupHandlerZip } from './backup-handler-zip';
+import { BackupHandlerSql } from 'src/lib/import-export/import/handlers/backup-handler-sql';
+import { BackupHandlerTarGz } from 'src/lib/import-export/import/handlers/backup-handler-tar-gz';
+import { BackupHandlerWpress } from 'src/lib/import-export/import/handlers/backup-handler-wpress';
+import { BackupHandlerZip } from 'src/lib/import-export/import/handlers/backup-handler-zip';
+import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 export interface BackupHandler extends Partial< EventEmitter > {
 	listFiles( file: BackupArchiveInfo ): Promise< string[] >;
 	extractFiles( file: BackupArchiveInfo, extractionDirectory: string ): Promise< void >;

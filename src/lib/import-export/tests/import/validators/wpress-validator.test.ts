@@ -1,6 +1,6 @@
+import { ImportEvents } from 'src/lib/import-export/import/events';
+import { WpressValidator } from 'src/lib/import-export/import/validators/wpress-validator';
 import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
-import { ImportEvents } from '../../../import/events';
-import { WpressValidator } from '../../../import/validators/wpress-validator';
 
 platformTestSuite( 'WpressValidator', ( { sep: separator } ) => {
 	let validator: WpressValidator;

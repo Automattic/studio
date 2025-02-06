@@ -176,7 +176,7 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 		isDemoSiteUpdating( snapshot.atomicSiteId )
 	);
 
-	const isUpdateDisabled = isAnyPreviewUpdating || snapshotCreationBlocked;
+	const isUpdateDisabled = isAnyPreviewUpdating || snapshotCreationBlocked || isOverLimit;
 
 	const tooltipContent = useUpdateButtonTooltip( {
 		snapshotCreationBlocked,

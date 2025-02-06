@@ -23,7 +23,7 @@ export function useUpdateButtonTooltip( {
 			return {
 				text: sprintf(
 					__(
-						'Your site exceeds %s GB in size. Updating this preview site may take considerable amount of time and could exceed the maximum allowed size for a preview site.'
+						'Your site exceeds the %s GB size limit. Please, consider removing unnecessary media files, plugins, or themes from wp-content.'
 					),
 					DEMO_SITE_SIZE_LIMIT_GB
 				),

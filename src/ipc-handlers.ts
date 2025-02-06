@@ -908,15 +908,25 @@ export function openTerminalAtPath(
 			env: { ...process.env, ...env },
 		} );
 	} else if ( platform === 'darwin' ) {
-		const loadWpCliCommand = `clear && export PATH=\\"${ cliPath }\\":$PATH && export STUDIO_APP_PATH=\\"${ appPath }\\" &&`;
+		const initScriptSteps = [];
+
+		if ( wpCliEnabled ) {
+			initScriptSteps.push(
+				`export PATH=\\"${ cliPath }\\":$PATH`,
+				`export STUDIO_APP_PATH=\\"${ appPath }\\"`
+			);
+		}
+
+		const escapedPath = targetPath.replace( /"/g, '\\"' );
+		initScriptSteps.push( `cd \\"${ escapedPath }\\"`, 'clear' );
+
 		const osascript = `
 		tell application "Terminal"
-			if not application "Terminal" is running then launch
-			do script "${ wpCliEnabled ? loadWpCliCommand : '' } cd ${ targetPath } && clear"
+			do script "${ initScriptSteps.join( ' ; ' ) }"
 			activate
 		end tell`;
 
-		return promiseExec( `osascript -e '${ osascript }'` );
+		return promiseExec( `osascript << END '${ osascript }' END` );
 	} else if ( platform === 'linux' ) {
 		if ( wpCliEnabled ) {
 			return promiseExec(

@@ -1,6 +1,5 @@
-import { TooltipProps } from '@wordpress/components/build-types/tooltip/types';
 import { createInterpolateElement } from '@wordpress/element';
-import { __, sprintf } from '@wordpress/i18n';
+import { __ } from '@wordpress/i18n';
 import { check, external, Icon } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren } from 'react';
@@ -14,9 +13,7 @@ import {
 	SCOPES,
 	WP_AUTHORIZE_ENDPOINT,
 	LIMIT_OF_ZIP_SITES_PER_USER,
-	DEMO_SITE_SIZE_LIMIT_GB,
 } from 'src/constants';
-import { useArchiveErrorMessages } from 'src/hooks/use-archive-error-messages';
 import { useArchiveSite } from 'src/hooks/use-archive-site';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
@@ -28,6 +25,7 @@ import { CreatePreviewButton } from 'src/modules/preview-site/components/create-
 import { PreviewSiteRow } from 'src/modules/preview-site/components/preview-site-row';
 import { PreviewSitesTableHeader } from 'src/modules/preview-site/components/preview-sites-table-header';
 import { ProgressRow } from 'src/modules/preview-site/components/progress-row';
+import { useUpdateButtonTooltip } from 'src/modules/preview-site/hooks/use-update-button-tooltip';
 
 interface ContentTabPreviewsProps {
 	selectedSite: SiteDetails;
@@ -162,29 +160,6 @@ function NoPreviews( { selectedSite }: React.ComponentProps< typeof EmptyGeneric
 	);
 }
 
-function getUpdateButtonTooltipContent(
-	snapshotCreationBlocked: boolean,
-	isOverLimit: boolean,
-	userBlockedMessage: string
-): Partial< TooltipProps > {
-	if ( snapshotCreationBlocked ) {
-		return { text: userBlockedMessage };
-	}
-
-	if ( isOverLimit ) {
-		return {
-			text: sprintf(
-				__(
-					'Your site exceeds %s GB in size. Updating this preview site may take considerable amount of time and could exceed the maximum allowed size for a preview site.'
-				),
-				DEMO_SITE_SIZE_LIMIT_GB
-			),
-		};
-	}
-
-	return {};
-}
-
 export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) {
 	const { __ } = useI18n();
 	const { snapshots, snapshotCreationBlocked } = useSnapshots();
@@ -193,23 +168,20 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 	const { isOverLimit } = useSiteSize( selectedSite.id );
 	const { isDemoSiteUpdating } = useUpdateDemoSite();
 	const isUploading = isUploadingSiteId( selectedSite.id );
-	const errorMessages = useArchiveErrorMessages();
 	const snapshotsOnSite = snapshots.filter(
 		( snapshot ) => snapshot.localSiteId === selectedSite.id
 	);
 	const isSnapshotLoading = snapshotsOnSite.some( ( snapshot ) => snapshot.isLoading );
-	const userBlockedMessage = errorMessages.rest_site_creation_blocked;
 	const isAnyPreviewUpdating = snapshots.some( ( snapshot ) =>
 		isDemoSiteUpdating( snapshot.atomicSiteId )
 	);
 
 	const isUpdateDisabled = isAnyPreviewUpdating || snapshotCreationBlocked;
 
-	const tooltipContent = getUpdateButtonTooltipContent(
+	const tooltipContent = useUpdateButtonTooltip( {
 		snapshotCreationBlocked,
 		isOverLimit,
-		userBlockedMessage
-	);
+	} );
 
 	if ( ! isAuthenticated ) {
 		return <NoAuth selectedSite={ selectedSite } />;

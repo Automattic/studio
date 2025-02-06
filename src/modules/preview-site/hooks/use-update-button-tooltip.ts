@@ -13,7 +13,7 @@ export function useUpdateButtonTooltip( {
 	snapshotCreationBlocked: boolean;
 	isOverLimit: boolean;
 	isOffline: boolean;
-} ): Partial< TooltipProps > {
+} ): Pick< TooltipProps, 'text' > {
 	const { __ } = useI18n();
 	const errorMessages = useArchiveErrorMessages();
 	return useMemo( () => {

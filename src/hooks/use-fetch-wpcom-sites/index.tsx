@@ -92,7 +92,7 @@ export function transformSingleSiteResponse(
 	};
 }
 
-function transformSiteResponse( sites: unknown[], connectedSiteIds: number[] ): SyncSite[] {
+export function transformSiteResponse( sites: unknown[], connectedSiteIds: number[] ): SyncSite[] {
 	return sites
 		.map( ( rawSite ) => {
 			try {
@@ -108,10 +108,10 @@ function transformSiteResponse( sites: unknown[], connectedSiteIds: number[] ): 
 				return null;
 			}
 		} )
-		.filter( ( site ) => site !== null );
+		.filter( ( site ): site is SyncSite => site !== null );
 }
 
-export type FetchSites = () => Promise< unknown[] >;
+export type FetchSites = () => Promise< SyncSite[] >;
 
 export const useFetchWpComSites = ( connectedSiteIdsOnlyForSelectedSite: number[] ) => {
 	const [ rawSyncSites, setRawSyncSites ] = useState< unknown[] >( [] );
@@ -186,7 +186,7 @@ export const useFetchWpComSites = ( connectedSiteIdsOnlyForSelectedSite: number[
 
 			setRawSyncSites( parsedResponse.sites );
 
-			return parsedResponse.sites;
+			return syncSites;
 		} catch ( error ) {
 			Sentry.captureException( error );
 			console.error( error );

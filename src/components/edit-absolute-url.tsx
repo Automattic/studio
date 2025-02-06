@@ -151,9 +151,9 @@ export default function EditAbsoluteUrl() {
 									className="form-checkbox"
 								/>
 								<span>
-									{ __(
-										'Include port in URL (Required locally. Disable for external routing like Ngrok)'
-									) }
+									{ __( 'Include port in URL.' ) }
+									<br />
+									{ __( 'Required locally. Disable for external routing like Ngrok.' ) }
 								</span>
 							</label>
 						</div>

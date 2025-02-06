@@ -166,7 +166,7 @@ function getUpdateButtonTooltipContent(
 	snapshotCreationBlocked: boolean,
 	isOverLimit: boolean,
 	userBlockedMessage: string
-): Partial< TooltipProps & { text?: string } > {
+): Partial< TooltipProps > {
 	if ( snapshotCreationBlocked ) {
 		return { text: userBlockedMessage };
 	}

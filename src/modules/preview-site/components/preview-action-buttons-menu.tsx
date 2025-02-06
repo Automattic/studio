@@ -2,25 +2,37 @@ import { DropdownMenu, MenuGroup, MenuItem } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { moreVertical } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
+import { useState } from 'react';
+import Button from 'src/components/button';
+import Modal from 'src/components/modal';
 import offlineIcon from 'src/components/offline-icon';
-import { Tooltip } from 'src/components/tooltip';
+import { Tooltip, TooltipProps } from 'src/components/tooltip';
 import { useConfirmationDialog } from 'src/hooks/use-confirmation-dialog';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSnapshots } from 'src/hooks/use-snapshots';
 import { useUpdateDemoSite } from 'src/hooks/use-update-demo-site';
+import { RenamePreviewModal } from './rename-preview-modal';
+
 interface PreviewActionButtonsMenuProps {
 	snapshot: Snapshot;
 	selectedSite: SiteDetails;
+	disabledUpdate?: boolean;
+	updateButtonTooltipContent?: Partial< TooltipProps & { text?: string } >;
+	showUpdateTooltip?: boolean;
 }
 
 export function PreviewActionButtonsMenu( {
 	snapshot,
 	selectedSite,
+	disabledUpdate,
+	updateButtonTooltipContent = {},
+	showUpdateTooltip = false,
 }: PreviewActionButtonsMenuProps ) {
 	const { __ } = useI18n();
-	const { deleteSnapshot } = useSnapshots();
+	const { deleteSnapshot, updateSnapshot } = useSnapshots();
 	const { updateDemoSite } = useUpdateDemoSite();
 	const isOffline = useOffline();
+	const [ showRenameModal, setShowRenameModal ] = useState( false );
 
 	const showUpdatePreviewConfirmation = useConfirmationDialog( {
 		localStorageKey: 'dontShowUpdateWarning',
@@ -52,52 +64,74 @@ export function PreviewActionButtonsMenu( {
 		} );
 	};
 
+	const handleRename = ( newName: string ) => {
+		updateSnapshot( {
+			...snapshot,
+			name: newName,
+		} );
+		setShowRenameModal( false );
+	};
+
 	return (
-		<DropdownMenu
-			icon={ moreVertical }
-			label={ __( 'Preview actions' ) }
-			className="p-1 flex items-center"
-		>
-			{ ( { onClose }: { onClose: () => void } ) => (
-				<MenuGroup className="w-40 overflow-hidden">
-					<MenuItem>
-						<span>{ __( 'Rename' ) }</span>
-					</MenuItem>
-					<MenuItem
-						disabled={ isOffline }
-						onClick={ () => {
-							handleUpdatePreviewSite();
-							onClose();
-						} }
-					>
-						<Tooltip
-							disabled={ ! isOffline }
-							text={ __( 'Updating a preview site requires an internet connection.' ) }
-							icon={ offlineIcon }
-							placement="top-start"
+		<>
+			<DropdownMenu
+				icon={ moreVertical }
+				label={ __( 'Preview actions' ) }
+				className="p-1 flex items-center"
+			>
+				{ ( { onClose }: { onClose: () => void } ) => (
+					<MenuGroup className="w-40 overflow-hidden">
+						<MenuItem
+							onClick={ () => {
+								setShowRenameModal( true );
+								onClose();
+							} }
 						>
-							<span>{ __( 'Update' ) }</span>
-						</Tooltip>
-					</MenuItem>
-					<MenuItem
-						isDestructive
-						disabled={ isOffline }
-						onClick={ () => {
-							handleDeletePreviewSite();
-							onClose();
-						} }
-					>
-						<Tooltip
-							disabled={ ! isOffline }
-							text={ __( 'Deleting a preview site requires an internet connection.' ) }
-							icon={ offlineIcon }
-							placement="top-start"
+							<span>{ __( 'Rename' ) }</span>
+						</MenuItem>
+						<MenuItem
+							onClick={ () => {
+								handleUpdatePreviewSite();
+								onClose();
+							} }
+							disabled={ disabledUpdate }
 						>
-							<span>{ __( 'Delete' ) }</span>
-						</Tooltip>
-					</MenuItem>
-				</MenuGroup>
+							<Tooltip
+								disabled={ ! showUpdateTooltip }
+								placement="top-start"
+								{ ...updateButtonTooltipContent }
+							>
+								<span>{ __( 'Update' ) }</span>
+							</Tooltip>
+						</MenuItem>
+						<MenuItem
+							isDestructive
+							disabled={ isOffline }
+							onClick={ () => {
+								handleDeletePreviewSite();
+								onClose();
+							} }
+						>
+							<Tooltip
+								disabled={ ! isOffline }
+								text={ __( 'Deleting a preview site requires an internet connection.' ) }
+								icon={ offlineIcon }
+								placement="top-start"
+							>
+								<span>{ __( 'Delete' ) }</span>
+							</Tooltip>
+						</MenuItem>
+					</MenuGroup>
+				) }
+			</DropdownMenu>
+
+			{ showRenameModal && (
+				<RenamePreviewModal
+					initialName={ snapshot.name || selectedSite.name }
+					onRename={ handleRename }
+					onClose={ () => setShowRenameModal( false ) }
+				/>
 			) }
-		</DropdownMenu>
+		</>
 	);
 }

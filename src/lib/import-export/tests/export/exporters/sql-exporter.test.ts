@@ -31,6 +31,7 @@ platformTestSuite( 'SqlExporter', ( { normalize } ) => {
 				plugins: false,
 				themes: false,
 				database: true,
+				muPlugins: false,
 			},
 			phpVersion: '7.4',
 		};

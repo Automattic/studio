@@ -26,6 +26,18 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 	private backup: BackupContents;
 	private readonly options: ExportOptions;
 	private siteFiles: string[];
+	private readonly pathsToExclude = [
+		'wp-content/mu-plugins/sqlite-database-integration',
+		'wp-content/mu-plugins/0-32bit-integer-warnings.php',
+		'wp-content/mu-plugins/0-allowed-redirect-hosts.php',
+		'wp-content/mu-plugins/0-check-theme-availability.php',
+		'wp-content/mu-plugins/0-deactivate-jetpack-modules.php',
+		'wp-content/mu-plugins/0-dns-functions.php',
+		'wp-content/mu-plugins/0-permalinks.php',
+		'wp-content/mu-plugins/0-wp-config-constants-polyfill.php',
+		'wp-content/mu-plugins/0-sqlite.php',
+		'wp-content/mu-plugins/0-thumbnails.php',
+	];
 
 	constructor( options: ExportOptions ) {
 		super();
@@ -38,6 +50,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 				uploads: [],
 				plugins: [],
 				themes: [],
+				muPlugins: [],
 			},
 		};
 	}
@@ -144,9 +157,9 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 	}
 
 	private addWpContent(): void {
-		const categories = ( [ 'uploads', 'plugins', 'themes' ] as BackupContentsCategory[] ).filter(
-			( category ) => this.options.includes[ category ]
-		);
+		const categories = (
+			[ 'uploads', 'plugins', 'themes', 'muPlugins' ] as BackupContentsCategory[]
+		 ).filter( ( category ) => this.options.includes[ category ] );
 		this.emit( ExportEvents.WP_CONTENT_EXPORT_START );
 		for ( const category of categories ) {
 			for ( const file of this.backup.wpContent[ category ] ) {
@@ -159,6 +172,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 			uploads: this.backup.wpContent.uploads.length,
 			plugins: this.backup.wpContent.plugins.length,
 			themes: this.backup.wpContent.themes.length,
+			muPlugins: this.backup.wpContent.muPlugins.length,
 		} );
 	}
 
@@ -206,8 +220,16 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		} );
 
 		return directoryContents.reduce< string[] >( ( files: string[], directoryContent ) => {
+			const filePath = path.join( directoryContent.path, directoryContent.name );
+			const relativePath = path.relative( this.options.site.path, filePath );
+			const isExcluded = this.pathsToExclude.some( ( pathToExclude ) =>
+				relativePath.startsWith( path.normalize( pathToExclude ) )
+			);
+			if ( isExcluded ) {
+				return files;
+			}
 			if ( directoryContent.isFile() ) {
-				files.push( path.join( directoryContent.path, directoryContent.name ) );
+				files.push( filePath );
 			}
 			return files;
 		}, [] );
@@ -222,6 +244,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 				uploads: [],
 				plugins: [],
 				themes: [],
+				muPlugins: [],
 			},
 		};
 
@@ -229,15 +252,19 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		siteFiles.forEach( ( file ) => {
 			const relativePath = path.relative( options.site.path, file );
 			const relativePathItems = relativePath.split( path.sep );
-			const [ wpContent, category ] = relativePathItems;
-
+			const [ wpContent, wpContentDirectory ] = relativePathItems;
 			if ( path.basename( file ) === 'wp-config.php' ) {
 				backupContents.wpConfigFile = file;
-			} else if (
-				wpContent === 'wp-content' &&
-				( category === 'uploads' || category === 'plugins' || category === 'themes' )
-			) {
-				backupContents.wpContent[ category ].push( file );
+			} else if ( wpContent === 'wp-content' ) {
+				if (
+					wpContentDirectory === 'uploads' ||
+					wpContentDirectory === 'plugins' ||
+					wpContentDirectory === 'themes'
+				) {
+					backupContents.wpContent[ wpContentDirectory as BackupContentsCategory ].push( file );
+				} else if ( wpContentDirectory === 'mu-plugins' ) {
+					backupContents.wpContent.muPlugins.push( file );
+				}
 			}
 		} );
 

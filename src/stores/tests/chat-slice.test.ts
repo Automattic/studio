@@ -17,9 +17,11 @@ const mockClientReqPostUsingCallback = jest.fn().mockImplementation( ( params, c
 			id: 123,
 			choices: [
 				{
+					index: 0,
 					message: {
 						id: 42,
 						content: 'Test assistant response',
+						role: 'assistant',
 					},
 				},
 			],
@@ -66,7 +68,7 @@ describe( 'chat-slice', () => {
 
 			expect( result.type ).toBe( 'chat/fetchAssistant/fulfilled' );
 			expect( result.payload ).toEqual( {
-				chatApiId: 'chatcmpl-123',
+				chatApiId: 123,
 				maxQuota: '100',
 				message: 'Test assistant response',
 				messageApiId: 42,
@@ -81,7 +83,7 @@ describe( 'chat-slice', () => {
 			expect( messages[ 1 ] ).toMatchObject( {
 				content: 'Test assistant response',
 				role: 'assistant',
-				chatApiId: 'chatcmpl-123',
+				chatApiId: 123,
 				messageApiId: 42,
 			} );
 
@@ -109,7 +111,7 @@ describe( 'chat-slice', () => {
 
 			expect( result.type ).toBe( 'chat/fetchAssistant/fulfilled' );
 			expect( result.payload ).toEqual( {
-				chatApiId: 'chatcmpl-123',
+				chatApiId: 123,
 				maxQuota: '100',
 				message: 'Test assistant response',
 				messageApiId: 42,
@@ -127,7 +129,7 @@ describe( 'chat-slice', () => {
 			expect( messages[ 1 ] ).toMatchObject( {
 				content: 'Test assistant response',
 				role: 'assistant',
-				chatApiId: 'chatcmpl-123',
+				chatApiId: 123,
 				messageApiId: 42,
 			} );
 
@@ -222,7 +224,7 @@ describe( 'chat-slice', () => {
 			const storedChatIds = JSON.parse(
 				localStorage.getItem( LOCAL_STORAGE_CHAT_API_IDS_KEY ) || '{}'
 			);
-			expect( storedChatIds[ instanceId ] ).toBe( 'chatcmpl-123' );
+			expect( storedChatIds[ instanceId ] ).toBe( 123 );
 		} );
 
 		it( 'should handle invalid JSON in localStorage gracefully', () => {

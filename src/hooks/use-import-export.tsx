@@ -92,6 +92,13 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 							'The ZIP archive is invalid. Try to unpack and pack it again. If this problem persists, please contact support.'
 						),
 					} );
+				} else if (
+					( error as Error ).message.includes( 'WP-CLI command was canceled (timed out)' )
+				) {
+					await getIpcApi().showErrorMessageBox( {
+						title: __( 'Failed importing site' ),
+						message: __( 'Import process timed out. Very large import?' ),
+					} );
 				} else {
 					await getIpcApi().showErrorMessageBox( {
 						title: __( 'Failed importing site' ),

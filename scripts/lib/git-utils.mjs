@@ -40,4 +40,4 @@ export const getCommitCount = ( latestTag ) => {
 	} catch ( error ) {
 		throw new Error( 'Failed to get commit count: ' + error.message );
 	}
-};
+}; 

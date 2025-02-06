@@ -18,9 +18,7 @@ let timeout: NodeJS.Timeout | null = null;
 let showManualCheckDialogs = false;
 
 const shouldPoll =
-	process.env.NODE_ENV === 'production' &&
-	app.isPackaged &&
-	! /(-dev\.|-dev\d+)/.test( app.getVersion() );
+	process.env.NODE_ENV === 'production' && app.isPackaged && ! app.getVersion().includes( '-dev.' );
 
 export function setupUpdates() {
 	if ( process.env.E2E ) {

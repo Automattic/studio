@@ -1,6 +1,3 @@
-// Rewrites the version in package.json so it includes the `-devN` style suffix of dev builds,
-// where N is the number of commits since the last tag.
-
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -11,15 +8,21 @@ const __dirname = path.dirname( fileURLToPath( import.meta.url ) );
 const latestTag = getLatestTag();
 const commitCount = getCommitCount( latestTag );
 
-if ( commitCount === undefined ) {
-	throw new Error( 'Failed to determine commit count' );
+if ( ! commitCount ) {
+	// Are you trying to dev on the build scripts outside of CI?
+	// You will need to define the GITHUB_SHA or BUILDKITE_COMMIT environment
+	// variable before running build scripts. e.g.
+	// GITHUB_SHA=abcdef1234567890 node ./scripts/prepare-dev-build-version.mjs
+	throw new Error( 'Missing commit count' );
 }
 
 const packageJsonPath = path.resolve( __dirname, '../package.json' );
 const packageJsonText = await fs.readFile( packageJsonPath, 'utf-8' );
 const packageJson = JSON.parse( packageJsonText );
 
-const devVersion = `${ packageJson.version.split( '-' )[ 0 ] }-dev${ commitCount }`;
+const devVersion = `${ packageJson.version.split( '-' )[ 0 ] }-dev.${ commitCount }`;
+
+console.log( `Updating package.json version to ${ devVersion }` );
 
 packageJson.version = devVersion;
 

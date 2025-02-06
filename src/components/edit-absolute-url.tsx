@@ -136,6 +136,11 @@ export default function EditAbsoluteUrl() {
 								value={ urlState.localUrl }
 								placeholder="http://localhost"
 							/>
+						</div>
+
+						<div className="flex flex-col gap-1.5 leading-4">
+							<span className="font-semibold">{ __( 'Your site URL' ) }</span>
+							<div className="px-3 py-1.5 bg-gray-100 rounded text-gray-600">{ absoluteUrl }</div>
 							<label className="flex items-center gap-2">
 								<input
 									type="checkbox"
@@ -145,13 +150,12 @@ export default function EditAbsoluteUrl() {
 									}
 									className="form-checkbox"
 								/>
-								<span>{ __( 'Include port in URL' ) }</span>
+								<span>
+									{ __(
+										'Include port in URL (Required locally. Disable for external routing like Ngrok)'
+									) }
+								</span>
 							</label>
-						</div>
-
-						<div className="flex flex-col gap-1.5 leading-4">
-							<span className="font-semibold">{ __( 'Your site URL' ) }</span>
-							<div className="px-3 py-1.5 bg-gray-100 rounded text-gray-600">{ absoluteUrl }</div>
 						</div>
 
 						<div className="flex flex-col gap-1.5 leading-4">

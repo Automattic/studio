@@ -46,38 +46,38 @@ declare module '@timfish/forge-externals-plugin' {
 declare module 'wpcom' {
 	class Request {
 		/* eslint-disable @typescript-eslint/no-explicit-any */
-		get< TResponse = unknown >( params: object | string, query?: object ): Promise< TResponse >;
-		get< TResponse = unknown >(
+		get< TResponse = any >( params: object | string, query?: object ): Promise< TResponse >;
+		get< TResponse = any >(
 			params: object | string,
 			callback?: ( error: Error, data: TResponse, headers: Record< string, string > ) => void
 		);
-		get< TResponse = unknown >(
+		get< TResponse = any >(
 			params: object | string,
 			query?: object,
 			callback?: ( error: Error, data: TResponse, headers: Record< string, string > ) => void
 		);
-		post< TResponse = unknown >(
+		post< TResponse = any >(
 			params: object | string,
 			callback?: ( error: Error, data: TResponse, headers: Record< string, string > ) => void
 		);
-		post< TResponse = unknown >(
+		post< TResponse = any >(
 			params: object | string,
 			query?: object,
 			body?: object
 		): Promise< TResponse >;
-		post< TResponse = unknown >(
+		post< TResponse = any >(
 			params: object | string,
 			query?: object,
 			body?: object,
 			callback?: ( error: Error, data: TResponse, headers: Record< string, string > ) => void
 		);
-		del< TResponse = unknown >( params: object | string, query?: object ): Promise< TResponse >;
-		del< TResponse = unknown >(
+		del< TResponse = any >( params: object | string, query?: object ): Promise< TResponse >;
+		del< TResponse = any >(
 			params: object | string,
 			query?: object,
 			callback?: ( error: Error, data: TResponse, headers: Record< string, string > ) => void
 		);
-		del< TResponse = unknown >(
+		del< TResponse = any >(
 			params: object | string,
 			callback?: ( error: Error, data: TResponse, headers: Record< string, string > ) => void
 		);

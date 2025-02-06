@@ -150,7 +150,7 @@ export default function EditAbsoluteUrl() {
 						</div>
 
 						<div className="flex flex-col gap-1.5 leading-4">
-							<span className="font-semibold">{ __( 'Final URL' ) }</span>
+							<span className="font-semibold">{ __( 'Your site URL' ) }</span>
 							<div className="px-3 py-1.5 bg-gray-100 rounded text-gray-600">{ absoluteUrl }</div>
 						</div>
 

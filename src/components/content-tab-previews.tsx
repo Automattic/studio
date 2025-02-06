@@ -175,12 +175,15 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 	const isAnyPreviewUpdating = snapshots.some( ( snapshot ) =>
 		isDemoSiteUpdating( snapshot.atomicSiteId )
 	);
+	const isOffline = useOffline();
 
-	const isUpdateDisabled = isAnyPreviewUpdating || snapshotCreationBlocked || isOverLimit;
+	const isUpdateDisabled =
+		isAnyPreviewUpdating || snapshotCreationBlocked || isOverLimit || isOffline;
 
 	const tooltipContent = useUpdateButtonTooltip( {
 		snapshotCreationBlocked,
 		isOverLimit,
+		isOffline,
 	} );
 
 	if ( ! isAuthenticated ) {

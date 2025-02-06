@@ -8,15 +8,21 @@ import { useArchiveErrorMessages } from 'src/hooks/use-archive-error-messages';
 export function useUpdateButtonTooltip( {
 	snapshotCreationBlocked,
 	isOverLimit,
+	isOffline,
 }: {
 	snapshotCreationBlocked: boolean;
 	isOverLimit: boolean;
+	isOffline: boolean;
 } ): Partial< TooltipProps > {
 	const { __ } = useI18n();
 	const errorMessages = useArchiveErrorMessages();
 	return useMemo( () => {
 		if ( snapshotCreationBlocked ) {
 			return { text: errorMessages.rest_site_creation_blocked };
+		}
+
+		if ( isOffline ) {
+			return { text: __( 'Updating a preview site requires an internet connection.' ) };
 		}
 
 		if ( isOverLimit ) {
@@ -31,5 +37,11 @@ export function useUpdateButtonTooltip( {
 		}
 
 		return {};
-	}, [ snapshotCreationBlocked, isOverLimit, errorMessages.rest_site_creation_blocked, __ ] );
+	}, [
+		snapshotCreationBlocked,
+		isOffline,
+		isOverLimit,
+		errorMessages.rest_site_creation_blocked,
+		__,
+	] );
 }

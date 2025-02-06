@@ -6,20 +6,20 @@
 //     "darwin": {
 //       "universal": {
 //         "sha": "30a8251",
-//         "url": "https://cdn.a8c-ci.services/studio/studio-darwin-universal-v1.2.3-dev.42.app.zip"
+//         "url": "https://cdn.a8c-ci.services/studio/studio-darwin-universal-v1.2.3-42.app.zip"
 //       },
 //       "arm64": {
 //         "sha": "30a8251",
-//         "url": "https://cdn.a8c-ci.services/studio/studio-darwin-arm64-v1.2.3-dev.42.app.zip"
+//         "url": "https://cdn.a8c-ci.services/studio/studio-darwin-arm64-v1.2.3-42.app.zip"
 //       },
 //       "x64": {
 //         "sha": "30a8251",
-//         "url": "https://cdn.a8c-ci.services/studio/studio-darwin-x64-v1.2.3-dev.42.app.zip"
+//         "url": "https://cdn.a8c-ci.services/studio/studio-darwin-x64-v1.2.3-42.app.zip"
 //       }
 //     },
 //     "win32": {
 //       "sha": "30a8251",
-//       "url": "https://cdn.a8c-ci.services/studio/studio-win32-v1.2.3-dev.42-full.nupkg"
+//       "url": "https://cdn.a8c-ci.services/studio/studio-win32-v1.2.3-42-full.nupkg"
 //     }
 //   },
 //   "1.0.0": {

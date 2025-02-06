@@ -23,22 +23,30 @@ export function generateSiteName( usedSiteNames: string[] ): string {
 		__( 'My Swift Website' ),
 		__( 'My True Website' ),
 	];
-	let proposedName = __( 'My WordPress Website' );
-	let tryCount = 0;
 
-	while ( usedSiteNames.includes( proposedName ) && tryCount < siteNames.length ) {
-		tryCount++;
-		proposedName = siteNames[ Math.floor( Math.random() * siteNames.length ) ];
+	const defaultName = __( 'My WordPress Website' );
+	if ( ! usedSiteNames.includes( defaultName ) ) {
+		return defaultName;
 	}
 
-	return proposedName;
+	const availableNames = siteNames.filter( ( name ) => ! usedSiteNames.includes( name ) );
+	if ( availableNames.length > 0 ) {
+		return availableNames[ Math.floor( Math.random() * availableNames.length ) ];
+	}
+
+	const randomName = siteNames[ Math.floor( Math.random() * siteNames.length ) ];
+	let postfix = 1;
+	while ( usedSiteNames.includes( `${ randomName } ${ postfix }` ) ) {
+		postfix++;
+	}
+	return `${ randomName } ${ postfix }`;
 }
 
 export const sanitizeFolderName = ( filename: string ) => {
 	const LATIN = 'a-z';
 	const CYRILLIC = 'а-яё';
 	const ARABIC = '\\u0600-\\u06FF';
-	const HEBREW = '\\u0590-\\u05FF';
+	const HEREW = '\\u0590-\\u05FF';
 	const CHINESE = '\\u4e00-\\u9fa5';
 	const JAPANESE_HIRAGANA = '\\u3040-\\u309F';
 	const JAPANESE_KATAKANA = '\\u30A0-\\u30FF';

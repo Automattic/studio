@@ -84,7 +84,8 @@ export function PreviewSiteRow( { snapshot, selectedSite }: PreviewSiteRowProps 
 				<div className="w-[51%]">
 					<div className="flex items-center">
 						<div className="text-[13px] leading-5 line-clamp-1 break-all">
-							{ selectedSite.name }
+							{ /* translators: %s: Site name (e.g. "My Site Preview") */ }
+							{ snapshot.name || sprintf( __( '%s Preview' ), selectedSite.name ) }
 						</div>
 					</div>
 					<Button

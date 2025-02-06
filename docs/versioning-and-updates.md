@@ -9,7 +9,7 @@ Studio uses [semver](https://semver.org/)-style version numbers.
 ## “Dev Builds” and “Release Builds”
 
 A **dev build** is any version of the app built from `trunk` using CI. It has
-version numbers that look like `0.1.0-dev1`, where the suffix is the number of
+version numbers that look like `0.1.0-dev.1`, where the suffix is the number of
 commits since the last release tag.
 
 A **release build** is version of the app built from a specific changeset that

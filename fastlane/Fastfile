@@ -114,8 +114,9 @@ def aws_upload_to_s3(bucket:, key:, file:, if_exists:, auto_prefix: false, dry_r
 end
 
 def get_commit_count
-  # Get the most recent tag
-  latest_tag = `git describe --tags --abbrev=0`.strip rescue ''
+  # Get the most recent release tag (excluding pre-release tags)
+  tags = `git tag --sort=-v:refname`.strip.split("\n")
+  latest_tag = tags.find { |tag| !tag.include?('-') } rescue ''
   
   # Get commit count since the last tag
   if latest_tag.empty?

@@ -45,35 +45,10 @@ import https from 'https';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import packageJson from '../package.json' assert { type: 'json' };
+import { getLatestTag, getCommitCount } from './lib/git-utils.mjs';
 
 const cdnURL = 'https://cdn.a8c-ci.services/studio';
 const baseName = 'studio';
-
-// Get the most recent tag
-const getLatestTag = () => {
-	try {
-		return child_process.execSync( 'git describe --tags --abbrev=0' ).toString().trim();
-	} catch ( error ) {
-		// If no tags exist, return empty string
-		return '';
-	}
-};
-
-// Get commit count since the last tag
-const getCommitCount = ( latestTag ) => {
-	try {
-		if ( latestTag ) {
-			return parseInt(
-				child_process.execSync( `git rev-list ${ latestTag }..HEAD --count` ).toString().trim(),
-				10
-			);
-		}
-		// If no tags exist, count all commits
-		return parseInt( child_process.execSync( 'git rev-list --count HEAD' ).toString().trim(), 10 );
-	} catch ( error ) {
-		throw new Error( 'Failed to get commit count: ' + error.message );
-	}
-};
 
 const currentCommit = child_process.execSync( 'git rev-parse --short HEAD' ).toString().trim();
 const { version } = packageJson;

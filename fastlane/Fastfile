@@ -159,7 +159,7 @@ def distribute_builds(
   # If we are distributing a build without a tag, i.e. a development build, we also want to update the latest build reference for distribution.
   update_latest = release_tag.nil?
   commit_count = get_commit_count
-  suffix = release_tag.nil? ? "v#{PACKAGE_VERSION}-#{commit_count}" : release_tag
+  suffix = release_tag.nil? ? "v#{PACKAGE_VERSION}-dev#{commit_count}" : release_tag
   filename_root = 'studio'
   bucket_folder = 'studio'
 

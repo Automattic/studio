@@ -18,7 +18,12 @@ export function RenamePreviewModal( { initialName, onRename, onClose }: RenamePr
 	};
 
 	return (
-		<Modal title={ __( 'Rename preview link' ) } onRequestClose={ onClose } isDismissible>
+		<Modal
+			title={ __( 'Rename preview link' ) }
+			size="medium"
+			onRequestClose={ onClose }
+			isDismissible
+		>
 			<form onSubmit={ handleRename }>
 				<div className="flex flex-col gap-4">
 					<label className="flex flex-col gap-1.5">

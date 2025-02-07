@@ -33,6 +33,7 @@ export function RenamePreviewModal( { initialName, onRename, onClose }: RenamePr
 							autoFocus
 							onChange={ setNewName }
 							value={ newName }
+							maxLength={ 50 }
 						></TextControlComponent>
 					</label>
 					<div className="flex justify-end gap-3 mt-4">

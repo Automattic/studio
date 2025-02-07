@@ -152,6 +152,7 @@ describe( 'importManager', () => {
 
 		it( 'should throw error if no suitable backup handler is found', async () => {
 			( BackupHandlerFactory.create as jest.Mock ).mockReturnValue( null );
+			( fsPromises.stat as jest.Mock ).mockResolvedValue( { size: 1024 } );
 
 			await expect( importBackup( mockFile, mockSite, jest.fn(), [] ) ).rejects.toThrow(
 				'No suitable backup handler found for the provided backup file'

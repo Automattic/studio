@@ -22,7 +22,7 @@ const packageJsonPath = path.resolve( __dirname, '../package.json' );
 const packageJsonText = await fs.readFile( packageJsonPath, 'utf-8' );
 const packageJson = JSON.parse( packageJsonText );
 
-const devVersion = `${ packageJson.version.split( '-' )[ 0 ] }-dev.${ commitCount }`;
+const devVersion = `${ packageJson.version.split( '-' )[ 0 ] }-dev${ commitCount }`;
 
 packageJson.version = devVersion;
 

@@ -2,6 +2,7 @@ import { __ } from '@wordpress/i18n';
 import { useState } from 'react';
 import Button from 'src/components/button';
 import Modal from 'src/components/modal';
+import TextControlComponent from 'src/components/text-control';
 
 interface RenamePreviewModalProps {
 	initialName: string;
@@ -26,15 +27,13 @@ export function RenamePreviewModal( { initialName, onRename, onClose }: RenamePr
 		>
 			<form onSubmit={ handleRename }>
 				<div className="flex flex-col gap-4">
-					<label className="flex flex-col gap-1.5">
+					<label className="flex flex-col gap-1.5 leading-4 mb-6">
 						<span className="font-semibold">{ __( 'Name' ) }</span>
-						<input
-							type="text"
-							value={ newName }
-							onChange={ ( e ) => setNewName( e.target.value ) }
-							className="border rounded px-3 py-2"
+						<TextControlComponent
 							autoFocus
-						/>
+							onChange={ setNewName }
+							value={ newName }
+						></TextControlComponent>
 					</label>
 					<div className="flex justify-end gap-3 mt-4">
 						<Button variant="tertiary" onClick={ onClose }>

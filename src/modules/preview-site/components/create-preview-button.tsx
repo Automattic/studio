@@ -30,7 +30,8 @@ export function CreatePreviewButton( { onClick, selectedSite }: CreatePreviewBut
 		isLoadingSnapshotUsage ||
 		isLimitUsed ||
 		isOffline ||
-		snapshotCreationBlocked;
+		snapshotCreationBlocked ||
+		isOverLimit;
 
 	const siteArchivingMessage = __(
 		'A different preview site is being created. Please wait for it to finish before creating another.'
@@ -46,7 +47,7 @@ export function CreatePreviewButton( { onClick, selectedSite }: CreatePreviewBut
 	const offlineMessage = __( 'Creating a preview site requires an internet connection.' );
 	const overLimitMessage = sprintf(
 		__(
-			'Your site exceeds %s GB in size. Creating a preview site for a larger site may take considerable amount of time and could exceed the maximum allowed size for a preview site.'
+			'Your site exceeds the %s GB size limit. Please, consider removing unnecessary media files, plugins, or themes from wp-content.'
 		),
 		DEMO_SITE_SIZE_LIMIT_GB
 	);

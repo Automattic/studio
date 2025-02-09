@@ -14,9 +14,9 @@ import ProgressBar from 'src/components/progress-bar';
 import { SyncPullPushClear } from 'src/components/sync-pull-push-clear';
 import { Tooltip, DynamicTooltip } from 'src/components/tooltip';
 import { WordPressLogoCircle } from 'src/components/wordpress-logo-circle';
-import { STUDIO_DOCS_URL_GET_HELP_UNSUPPORTED_SITES } from 'src/constants';
 import { useSyncSites } from 'src/hooks/sync-sites';
 import { useConfirmationDialog } from 'src/hooks/use-confirmation-dialog';
+import { useDocsUrl } from 'src/hooks/use-docs-url';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSyncStatesProgressInfo } from 'src/hooks/use-sync-states-progress-info';
 import { cx } from 'src/lib/cx';
@@ -42,6 +42,7 @@ const SyncConnectedSitesSection = ( {
 	openSitesSyncSelector: OpenSitesSyncSelector;
 } ) => {
 	const { __ } = useI18n();
+	const docs = useDocsUrl();
 	const {
 		pullSite,
 		clearPullState,
@@ -177,12 +178,7 @@ const SyncConnectedSitesSection = ( {
 							__( "Studio couldn't connect to this site. <button>Get help ↗️</button>" ),
 							{
 								button: (
-									<Button
-										variant="link"
-										onClick={ () =>
-											getIpcApi().openURL( STUDIO_DOCS_URL_GET_HELP_UNSUPPORTED_SITES )
-										}
-									/>
+									<Button variant="link" onClick={ () => getIpcApi().openURL( docs.studio ) } />
 								),
 							}
 						) }

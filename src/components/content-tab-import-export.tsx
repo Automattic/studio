@@ -1,3 +1,4 @@
+import { localizeUrl } from '@automattic/i18n-utils';
 import { speak } from '@wordpress/a11y';
 import { Notice } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
@@ -232,7 +233,9 @@ const ImportSite = ( {
 						button: (
 							<Button
 								variant="link"
-								onClick={ () => getIpcApi().openURL( STUDIO_DOCS_URL_IMPORT_EXPORT ) }
+								onClick={ () =>
+									getIpcApi().openURL( localizeUrl( STUDIO_DOCS_URL_IMPORT_EXPORT, 'es' ) )
+								}
 							/>
 						),
 					}

@@ -103,6 +103,7 @@
 	},
 	"dependencies": {
 		"@automattic/generate-password": "^0.1.0",
+		"@automattic/i18n-utils": "^1.2.3",
 		"@formatjs/intl-locale": "^3.4.5",
 		"@formatjs/intl-localematcher": "^0.5.4",
 		"@php-wasm/node": "^0.9.44",

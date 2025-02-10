@@ -1,40 +1,46 @@
 import * as Sentry from '@sentry/electron/renderer';
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { z } from 'zod';
 import { useAuth } from 'src/hooks/use-auth';
 import { reconcileConnectedSites } from 'src/hooks/use-fetch-wpcom-sites/reconcile-connected-sites';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import type { SyncSite, SyncSupport } from 'src/hooks/use-fetch-wpcom-sites/types';
 
-type SitesEndpointSite = {
-	ID: number;
-	is_wpcom_atomic: boolean;
-	is_wpcom_staging_site: boolean;
-	name: string;
-	URL: string;
-	jetpack?: boolean;
-	options?: {
-		created_at: string;
-		wpcom_staging_blog_ids: number[];
-	};
-	plan?: {
-		expired: boolean;
-		features: {
-			active: string[];
-			available: Record< string, string[] >;
-		};
-		is_free: boolean;
-		product_id: number;
-		product_name_short: string;
-		product_slug: string;
-		user_is_owner: boolean;
-	};
-	is_deleted: boolean;
-};
+export const sitesEndpointSiteSchema = z.object( {
+	ID: z.number(),
+	is_wpcom_atomic: z.boolean(),
+	name: z.string(),
+	URL: z.string(),
+	jetpack: z.boolean().optional(),
+	is_deleted: z.boolean(),
+	options: z.object( {
+		created_at: z.string(),
+		wpcom_staging_blog_ids: z.array( z.number() ),
+	} ),
+	capabilities: z.object( {
+		manage_options: z.boolean(),
+	} ),
+	plan: z.object( {
+		expired: z.boolean(),
+		features: z.object( {
+			active: z.array( z.string() ),
+			available: z.record( z.string(), z.array( z.string() ) ).optional(),
+		} ),
+		is_free: z.boolean(),
+		product_id: z.number(),
+		product_name_short: z.string(),
+		product_slug: z.string(),
+		user_is_owner: z.boolean(),
+	} ),
+} );
 
-type SitesEndpointResponse = {
-	sites: SitesEndpointSite[];
-};
+type SitesEndpointSite = z.infer< typeof sitesEndpointSiteSchema >;
+
+// We use a permissive schema for the API response to fail gracefully if a single site is malformed
+export const sitesEndpointResponseSchema = z.object( {
+	sites: z.array( z.unknown() ),
+} );
 
 const STUDIO_SYNC_FEATURE_NAME = 'studio-sync';
 
@@ -43,12 +49,15 @@ function isJetpackSite( site: SitesEndpointSite ): boolean {
 }
 
 function hasSupportedPlan( site: SitesEndpointSite ): boolean {
-	return !! site.plan && site.plan.features.active.includes( STUDIO_SYNC_FEATURE_NAME );
+	return site.plan.features.active.includes( STUDIO_SYNC_FEATURE_NAME );
 }
 
 function getSyncSupport( site: SitesEndpointSite, connectedSiteIds: number[] ): SyncSupport {
 	if ( site.is_deleted ) {
 		return 'deleted';
+	}
+	if ( ! site.capabilities.manage_options ) {
+		return 'missing-permissions';
 	}
 	if ( isJetpackSite( site ) && ! hasSupportedPlan( site ) ) {
 		return 'jetpack-site';
@@ -67,14 +76,15 @@ function getSyncSupport( site: SitesEndpointSite, connectedSiteIds: number[] ): 
 
 export function transformSingleSiteResponse(
 	site: SitesEndpointSite,
-	syncSupport: SyncSupport
+	syncSupport: SyncSupport,
+	isStaging: boolean
 ): SyncSite {
 	return {
 		id: site.ID,
 		localSiteId: '',
 		name: site.name,
 		url: site.URL,
-		isStaging: site.is_wpcom_staging_site,
+		isStaging,
 		stagingSiteIds: site.options?.wpcom_staging_blog_ids ?? [],
 		syncSupport,
 		lastPullTimestamp: null,
@@ -82,25 +92,37 @@ export function transformSingleSiteResponse(
 	};
 }
 
-function transformSiteResponse(
-	sites: SitesEndpointSite[],
-	connectedSiteIds: number[]
-): SyncSite[] {
-	return sites.reduce( ( acc: SyncSite[], site ) => {
-		if ( site.is_deleted && ! connectedSiteIds.some( ( id ) => id === site.ID ) ) {
+export function transformSitesResponse( sites: unknown[], connectedSiteIds: number[] ): SyncSite[] {
+	const validatedSites = sites.reduce< SitesEndpointSite[] >( ( acc, rawSite ) => {
+		try {
+			const site = sitesEndpointSiteSchema.parse( rawSite );
+			return [ ...acc, site ];
+		} catch ( error ) {
+			Sentry.captureException( error );
 			return acc;
 		}
-
-		acc.push( transformSingleSiteResponse( site, getSyncSupport( site, connectedSiteIds ) ) );
-
-		return acc;
 	}, [] );
+
+	const allStagingSiteIds = validatedSites.flatMap( ( site ) => {
+		return site.options.wpcom_staging_blog_ids;
+	} );
+
+	return validatedSites
+		.filter( ( site ) => ! site.is_deleted || connectedSiteIds.some( ( id ) => id === site.ID ) )
+		.map( ( site ) => {
+			// The API returns the wrong value for the `is_wpcom_staging_site` prop while staging sites
+			// are being created. Hence the check in other sites' `wpcom_staging_blog_ids` arrays.
+			const isStaging = allStagingSiteIds.includes( site.ID );
+			const syncSupport = getSyncSupport( site, connectedSiteIds );
+
+			return transformSingleSiteResponse( site, syncSupport, isStaging );
+		} );
 }
 
-export type FetchSites = () => Promise< SitesEndpointSite[] >;
+export type FetchSites = () => Promise< SyncSite[] >;
 
 export const useFetchWpComSites = ( connectedSiteIdsOnlyForSelectedSite: number[] ) => {
-	const [ rawSyncSites, setRawSyncSites ] = useState< SitesEndpointSite[] >( [] );
+	const [ rawSyncSites, setRawSyncSites ] = useState< unknown[] >( [] );
 	const { isAuthenticated, client } = useAuth();
 	const isFetchingSites = useRef( false );
 	const isOffline = useOffline();
@@ -126,22 +148,22 @@ export const useFetchWpComSites = ( connectedSiteIdsOnlyForSelectedSite: number[
 		try {
 			const allConnectedSites = await getIpcApi().getConnectedWpcomSites();
 
-			const response = await client.req.get< SitesEndpointResponse >(
+			const response = await client.req.get(
 				{
 					apiNamespace: 'rest/v1.2',
 					path: `/me/sites`,
 				},
 				{
-					fields:
-						'name,ID,URL,plan,is_wpcom_staging_site,is_wpcom_atomic,options,jetpack,is_deleted',
+					fields: 'name,ID,URL,plan,capabilities,is_wpcom_atomic,options,jetpack,is_deleted',
 					filter: 'atomic,wpcom',
 					options: 'created_at,wpcom_staging_blog_ids',
 					site_activity: 'active',
 				}
 			);
 
-			const syncSites = transformSiteResponse(
-				response.sites,
+			const parsedResponse = sitesEndpointResponseSchema.parse( response );
+			const syncSites = transformSitesResponse(
+				parsedResponse.sites,
 				allConnectedSites.map( ( { id } ) => id )
 			);
 
@@ -169,9 +191,9 @@ export const useFetchWpComSites = ( connectedSiteIdsOnlyForSelectedSite: number[
 				await getIpcApi().connectWpcomSites( data );
 			}
 
-			setRawSyncSites( response.sites );
+			setRawSyncSites( parsedResponse.sites );
 
-			return response.sites;
+			return syncSites;
 		} catch ( error ) {
 			Sentry.captureException( error );
 			console.error( error );
@@ -186,7 +208,7 @@ export const useFetchWpComSites = ( connectedSiteIdsOnlyForSelectedSite: number[
 	}, [ fetchSites ] );
 
 	const syncSitesWithSyncSupportForSelectedSite = useMemo(
-		() => transformSiteResponse( rawSyncSites, memoizedConnectedSiteIds ),
+		() => transformSitesResponse( rawSyncSites, memoizedConnectedSiteIds ),
 		[ rawSyncSites, memoizedConnectedSiteIds ]
 	);
 

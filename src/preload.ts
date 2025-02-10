@@ -2,8 +2,15 @@
 // https://www.electronjs.org/docs/latest/tutorial/process-model#preload-scripts
 
 import '@sentry/electron/preload';
-import { SaveDialogOptions, contextBridge, ipcRenderer, webUtils } from 'electron';
+import {
+	IpcRendererEvent,
+	SaveDialogOptions,
+	contextBridge,
+	ipcRenderer,
+	webUtils,
+} from 'electron';
 import { LocaleData } from '@wordpress/i18n';
+import { IpcEvents } from 'src/ipc-utils';
 import { ExportOptions } from 'src/lib/import-export/export/types';
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
@@ -113,32 +120,27 @@ const api: IpcApi = {
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );
 
-const allowedChannels = [
-	'test-render-failure',
-	'add-site',
-	'user-settings',
-	'auth-updated',
-	'sync-connect-site',
-	'thumbnail-changed',
-	'theme-details-changed',
-	'theme-details-updating',
-	'on-import',
-	'on-export',
-	'window-fullscreen-change',
-] as const;
+const subscribe = < T extends keyof IpcEvents >(
+	channel: T,
+	listener: ( event: IpcRendererEvent, ...args: IpcEvents[ T ] ) => void
+) => {
+	function wrappedListener( event: IpcRendererEvent, ...args: any[] ) {
+		listener( event, ...( args as IpcEvents[ T ] ) );
+	}
 
-contextBridge.exposeInMainWorld( 'ipcListener', {
-	subscribe: (
-		channel: ( typeof allowedChannels )[ number ],
-		listener: ( ...args: any[] ) => void
-	) => {
-		if ( allowedChannels.includes( channel ) ) {
-			ipcRenderer.on( channel, listener );
-			return () => {
-				ipcRenderer.off( channel, listener );
-			};
-		} else {
-			throw new Error( `Attempted to listen on disallowed IPC channel: ${ channel }` );
-		}
-	},
-} );
+	ipcRenderer.on( channel, wrappedListener );
+
+	return () => {
+		ipcRenderer.off( channel, wrappedListener );
+	};
+};
+
+declare global {
+	interface Window {
+		ipcListener: {
+			subscribe: typeof subscribe;
+		};
+	}
+}
+
+contextBridge.exposeInMainWorld( 'ipcListener', { subscribe } );

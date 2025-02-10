@@ -45,7 +45,7 @@ export const ThemeDetailsProvider: React.FC< ThemeDetailsProviderProps > = ( { c
 	);
 	const [ loadingThumbnails, setLoadingThumbnails ] = useState< Record< string, boolean > >( {} );
 
-	useIpcListener( 'theme-details-changed', ( _evt, id, details ) => {
+	useIpcListener( 'theme-details-changed', ( _evt, { id, details } ) => {
 		setThemeDetails( ( themeDetails ) => {
 			return { ...themeDetails, [ id ]: details };
 		} );
@@ -54,16 +54,16 @@ export const ThemeDetailsProvider: React.FC< ThemeDetailsProviderProps > = ( { c
 		} );
 	} );
 
-	useIpcListener( 'thumbnail-changed', ( _evt, id, imageData ) => {
+	useIpcListener( 'thumbnail-changed', ( _evt, { id, imageData } ) => {
 		setThumbnails( ( thumbnails ) => {
-			return { ...thumbnails, [ id ]: imageData };
+			return { ...thumbnails, [ id ]: imageData ?? undefined };
 		} );
 		setLoadingThumbnails( ( loadingThumbnails ) => {
 			return { ...loadingThumbnails, [ id ]: false };
 		} );
 	} );
 
-	useIpcListener( 'theme-details-updating', ( _evt, id ) => {
+	useIpcListener( 'theme-details-updating', ( _evt, { id } ) => {
 		setLoadingThemeDetails( ( loadingThemeDetails ) => {
 			return { ...loadingThemeDetails, [ id ]: true };
 		} );

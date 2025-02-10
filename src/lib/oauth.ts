@@ -2,8 +2,8 @@ import * as Sentry from '@sentry/electron/main';
 import wpcom from 'wpcom';
 import { z } from 'zod';
 import { PROTOCOL_PREFIX, WP_AUTHORIZE_ENDPOINT, CLIENT_ID, SCOPES } from 'src/constants';
+import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
-import { getMainWindow } from 'src/main-window';
 import { loadUserData, saveUserData } from 'src/storage/user-data';
 
 const REDIRECT_URI = `${ PROTOCOL_PREFIX }://auth`;
@@ -13,7 +13,13 @@ const authTokenSchema = z.object( {
 	expirationTime: z.number(),
 	id: z.number(),
 	email: z.string(),
-	displayName: z.string().optional(),
+	displayName: z.string().default( '' ),
+} );
+
+const meResponseSchema = z.object( {
+	ID: z.number(),
+	email: z.string(),
+	display_name: z.string(),
 } );
 
 export type StoredToken = z.infer< typeof authTokenSchema >;
@@ -81,7 +87,8 @@ async function handleAuthCallback( hash: string ): Promise< StoredToken > {
 		throw new Error( 'Error while getting token' );
 	}
 
-	const response = await new wpcom( accessToken ).req.get( '/me?fields=ID,email,display_name' );
+	const rawResponse = await new wpcom( accessToken ).req.get( '/me?fields=ID,email,display_name' );
+	const response = meResponseSchema.parse( rawResponse );
 
 	return authTokenSchema.parse( {
 		expiresIn,
@@ -108,20 +115,17 @@ export async function onOpenUrlCallback( url: string ) {
 	if ( host === 'auth' ) {
 		try {
 			const authResult = await handleAuthCallback( hash );
-			const mainWindow = await getMainWindow();
 			await storeToken( authResult );
-			mainWindow.webContents.send( 'auth-updated', { token: authResult } );
+			sendIpcEventToRenderer( 'auth-updated', { token: authResult } );
 		} catch ( error ) {
 			Sentry.captureException( error );
-			const mainWindow = await getMainWindow();
-			mainWindow.webContents.send( 'auth-updated', { error } );
+			sendIpcEventToRenderer( 'auth-updated', { error } );
 		}
 	} else if ( host === 'sync-connect-site' ) {
 		const remoteSiteId = parseInt( searchParams.get( 'remoteSiteId' ) ?? '' );
 		const studioSiteId = searchParams.get( 'studioSiteId' );
 		if ( remoteSiteId && studioSiteId ) {
-			const mainWindow = await getMainWindow();
-			mainWindow.webContents.send( 'sync-connect-site', { remoteSiteId, studioSiteId } );
+			sendIpcEventToRenderer( 'sync-connect-site', { remoteSiteId, studioSiteId } );
 		}
 	}
 }

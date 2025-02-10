@@ -923,7 +923,7 @@ export function openTerminalAtPath(
 		return promiseExec( `osascript << END
 activate application "Terminal"
 tell application "Terminal"
-	do script "${ initScriptSteps.join( '\n' ) }"
+	do script "${ initScriptSteps.join( ';' ) }"
 end tell
 END` );
 	} else if ( platform === 'linux' ) {

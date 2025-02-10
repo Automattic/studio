@@ -49,7 +49,7 @@ function isJetpackSite( site: SitesEndpointSite ): boolean {
 }
 
 function hasSupportedPlan( site: SitesEndpointSite ): boolean {
-	return !! site.plan && site.plan.features.active.includes( STUDIO_SYNC_FEATURE_NAME );
+	return site.plan.features.active.includes( STUDIO_SYNC_FEATURE_NAME );
 }
 
 function getSyncSupport( site: SitesEndpointSite, connectedSiteIds: number[] ): SyncSupport {

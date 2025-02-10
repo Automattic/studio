@@ -20,7 +20,7 @@ export function useAddSite() {
 
 	const siteWithPathAlreadyExists = useCallback(
 		( path: string ) => {
-			return sites.some( ( site ) => site.path === path );
+			return sites.some( ( site ) => site.path.toLowerCase() === path.toLowerCase() );
 		},
 		[ sites ]
 	);

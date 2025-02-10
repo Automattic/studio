@@ -10,7 +10,6 @@ import type { SyncSite, SyncSupport } from 'src/hooks/use-fetch-wpcom-sites/type
 export const sitesEndpointSiteSchema = z.object( {
 	ID: z.number(),
 	is_wpcom_atomic: z.boolean(),
-	is_wpcom_staging_site: z.boolean(),
 	name: z.string(),
 	URL: z.string(),
 	jetpack: z.boolean().optional(),
@@ -77,14 +76,15 @@ function getSyncSupport( site: SitesEndpointSite, connectedSiteIds: number[] ): 
 
 export function transformSingleSiteResponse(
 	site: SitesEndpointSite,
-	syncSupport: SyncSupport
+	syncSupport: SyncSupport,
+	isStaging: boolean
 ): SyncSite {
 	return {
 		id: site.ID,
 		localSiteId: '',
 		name: site.name,
 		url: site.URL,
-		isStaging: site.is_wpcom_staging_site,
+		isStaging,
 		stagingSiteIds: site.options?.wpcom_staging_blog_ids ?? [],
 		syncSupport,
 		lastPullTimestamp: null,
@@ -92,7 +92,7 @@ export function transformSingleSiteResponse(
 	};
 }
 
-export function transformSiteResponse( sites: unknown[], connectedSiteIds: number[] ): SyncSite[] {
+export function transformSitesResponse( sites: unknown[], connectedSiteIds: number[] ): SyncSite[] {
 	return sites
 		.map( ( rawSite ) => {
 			try {
@@ -102,7 +102,14 @@ export function transformSiteResponse( sites: unknown[], connectedSiteIds: numbe
 					return null;
 				}
 
-				return transformSingleSiteResponse( site, getSyncSupport( site, connectedSiteIds ) );
+				const syncSupport = getSyncSupport( site, connectedSiteIds );
+				// The API returns the wrong value for the `is_wpcom_staging_site` prop while staging sites
+				// are being created. Hence the check in other sites' `wpcom_staging_blog_ids` arrays.
+				const isStaging = sites.some(
+					( s ) => s.options?.wpcom_staging_blog_ids?.includes( site.ID )
+				);
+
+				return transformSingleSiteResponse( site, syncSupport, isStaging );
 			} catch ( error ) {
 				Sentry.captureException( error );
 				return null;
@@ -146,8 +153,7 @@ export const useFetchWpComSites = ( connectedSiteIdsOnlyForSelectedSite: number[
 					path: `/me/sites`,
 				},
 				{
-					fields:
-						'name,ID,URL,plan,capabilities,is_wpcom_staging_site,is_wpcom_atomic,options,jetpack,is_deleted',
+					fields: 'name,ID,URL,plan,capabilities,is_wpcom_atomic,options,jetpack,is_deleted',
 					filter: 'atomic,wpcom',
 					options: 'created_at,wpcom_staging_blog_ids',
 					site_activity: 'active',
@@ -155,7 +161,7 @@ export const useFetchWpComSites = ( connectedSiteIdsOnlyForSelectedSite: number[
 			);
 
 			const parsedResponse = sitesEndpointResponseSchema.parse( response );
-			const syncSites = transformSiteResponse(
+			const syncSites = transformSitesResponse(
 				parsedResponse.sites,
 				allConnectedSites.map( ( { id } ) => id )
 			);
@@ -201,7 +207,7 @@ export const useFetchWpComSites = ( connectedSiteIdsOnlyForSelectedSite: number[
 	}, [ fetchSites ] );
 
 	const syncSitesWithSyncSupportForSelectedSite = useMemo(
-		() => transformSiteResponse( rawSyncSites, memoizedConnectedSiteIds ),
+		() => transformSitesResponse( rawSyncSites, memoizedConnectedSiteIds ),
 		[ rawSyncSites, memoizedConnectedSiteIds ]
 	);
 

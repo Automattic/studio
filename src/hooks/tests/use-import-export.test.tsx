@@ -54,7 +54,13 @@ describe( 'useImportExport hook', () => {
 			{
 				site: selectedSite,
 				backupFile: '/path/to/exported-site.tar.gz',
-				includes: { database: true, uploads: true, plugins: true, themes: true },
+				includes: {
+					database: true,
+					uploads: true,
+					plugins: true,
+					themes: true,
+					muPlugins: true,
+				},
 				phpVersion: '8.0',
 			},
 			SITE_ID
@@ -80,7 +86,13 @@ describe( 'useImportExport hook', () => {
 			{
 				site: selectedSite,
 				backupFile: '/path/to/exported-site.tar.gz',
-				includes: { database: true, uploads: true, plugins: true, themes: true },
+				includes: {
+					database: true,
+					uploads: true,
+					plugins: true,
+					themes: true,
+					muPlugins: true,
+				},
 				phpVersion: '8.0',
 			},
 			SITE_ID
@@ -106,7 +118,13 @@ describe( 'useImportExport hook', () => {
 			{
 				site: selectedSite,
 				backupFile: '/path/to/exported-database.sql',
-				includes: { database: true, uploads: false, plugins: false, themes: false },
+				includes: {
+					database: true,
+					uploads: false,
+					plugins: false,
+					themes: false,
+					muPlugins: false,
+				},
 				phpVersion: '8.0',
 			},
 			SITE_ID

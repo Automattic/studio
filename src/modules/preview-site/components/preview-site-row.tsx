@@ -11,6 +11,7 @@ import { useExpirationDate } from 'src/hooks/use-expiration-date';
 import { useFormatLocalizedTimestamps } from 'src/hooks/use-format-localized-timestamps';
 import { useSnapshots } from 'src/hooks/use-snapshots';
 import { useUpdateDemoSite } from 'src/hooks/use-update-demo-site';
+import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { PreviewActionButtonsMenu } from 'src/modules/preview-site/components/preview-action-buttons-menu';
 import { ProgressRow } from 'src/modules/preview-site/components/progress-row';
@@ -93,20 +94,29 @@ export function PreviewSiteRow( {
 			<div className="flex items-center px-8 py-6">
 				<div className="w-[51%]">
 					<div className="flex items-center">
-						<div className="text-[13px] leading-5 line-clamp-1 break-all">
+						<div
+							className={ cx(
+								'text-[13px] leading-5 line-clamp-1 break-all',
+								isExpired && 'line-through'
+							) }
+						>
 							{ /* translators: %s: Site name (e.g. "My Site Preview") */ }
 							{ snapshot.name || sprintf( __( '%s Preview' ), selectedSite.name ) }
 						</div>
 					</div>
 					<Button
 						variant="link"
-						className="!text-a8c-gray-70 hover:!text-a8c-blueberry max-w-[100%]"
-						onClick={ () => {
-							getIpcApi().openURL( urlWithHTTPS );
-						} }
+						disabled={ isExpired }
+						className={ cx(
+							'!text-a8c-gray-70 max-w-[100%]',
+							isExpired ? 'pointer-events-none' : 'hover:!text-a8c-blueberry'
+						) }
+						onClick={ () => getIpcApi().openURL( urlWithHTTPS ) }
 					>
-						<span className="truncate">{ urlWithHTTPS }</span>
-						<ArrowIcon />
+						<span className={ cx( 'truncate', isExpired && 'line-through' ) }>
+							{ urlWithHTTPS }
+						</span>
+						{ ! isExpired && <ArrowIcon /> }
 					</Button>
 				</div>
 				<div className="flex ml-auto">

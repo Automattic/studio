@@ -46,7 +46,7 @@ export const sanitizeFolderName = ( filename: string ) => {
 	const LATIN = 'a-z';
 	const CYRILLIC = 'а-яё';
 	const ARABIC = '\\u0600-\\u06FF';
-	const HEREW = '\\u0590-\\u05FF';
+	const HEBREW = '\\u0590-\\u05FF';
 	const CHINESE = '\\u4e00-\\u9fa5';
 	const JAPANESE_HIRAGANA = '\\u3040-\\u309F';
 	const JAPANESE_KATAKANA = '\\u30A0-\\u30FF';

@@ -168,6 +168,5 @@ export function useAddSite() {
 		usedSiteNames,
 		loadingSites,
 		fileForImport,
-	]
-);
+	] );
 }

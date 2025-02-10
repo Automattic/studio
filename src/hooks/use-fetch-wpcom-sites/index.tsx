@@ -93,29 +93,31 @@ export function transformSingleSiteResponse(
 }
 
 export function transformSitesResponse( sites: unknown[], connectedSiteIds: number[] ): SyncSite[] {
-	return sites
+	const validatedSites = sites
 		.map( ( rawSite ) => {
 			try {
-				const site = sitesEndpointSiteSchema.parse( rawSite );
-
-				if ( site.is_deleted && ! connectedSiteIds.some( ( id ) => id === site.ID ) ) {
-					return null;
-				}
-
-				const syncSupport = getSyncSupport( site, connectedSiteIds );
-				// The API returns the wrong value for the `is_wpcom_staging_site` prop while staging sites
-				// are being created. Hence the check in other sites' `wpcom_staging_blog_ids` arrays.
-				const isStaging = sites.some(
-					( s ) => s.options?.wpcom_staging_blog_ids?.includes( site.ID )
-				);
-
-				return transformSingleSiteResponse( site, syncSupport, isStaging );
+				return sitesEndpointSiteSchema.parse( rawSite );
 			} catch ( error ) {
 				Sentry.captureException( error );
 				return null;
 			}
 		} )
-		.filter( ( site ): site is SyncSite => site !== null );
+		.filter( ( site ): site is SitesEndpointSite => site !== null );
+
+	const allStagingSiteIds = validatedSites.flatMap( ( site ) => {
+		return site.options.wpcom_staging_blog_ids;
+	} );
+
+	return validatedSites
+		.filter( ( site ) => ! site.is_deleted || connectedSiteIds.some( ( id ) => id === site.ID ) )
+		.map( ( site ) => {
+			// The API returns the wrong value for the `is_wpcom_staging_site` prop while staging sites
+			// are being created. Hence the check in other sites' `wpcom_staging_blog_ids` arrays.
+			const isStaging = allStagingSiteIds.includes( site.ID );
+			const syncSupport = getSyncSupport( site, connectedSiteIds );
+
+			return transformSingleSiteResponse( site, syncSupport, isStaging );
+		} );
 }
 
 export type FetchSites = () => Promise< SyncSite[] >;

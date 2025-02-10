@@ -16,6 +16,7 @@ export function getDocsLinks( locale: SupportedLocale ) {
 		studio: `${ basePath }/docs/developer-tools/studio/`,
 		importExport: `${ basePath }/docs/developer-tools/studio/import-export/`,
 		sites: `${ basePath }/docs/developer-tools/studio/sites/`,
+		sync: `${ basePath }/docs/developer-tools/studio/sync/`,
 	} as const;
 }
 

@@ -178,7 +178,7 @@ const SyncConnectedSitesSection = ( {
 							__( "Studio couldn't connect to this site. <button>Get help ↗️</button>" ),
 							{
 								button: (
-									<Button variant="link" onClick={ () => getIpcApi().openURL( docs.studio ) } />
+									<Button variant="link" onClick={ () => getIpcApi().openURL( docs.sync ) } />
 								),
 							}
 						) }

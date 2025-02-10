@@ -27,6 +27,9 @@ describe( 'useDocsLinks', () => {
 		expect( result.current.sites ).toBe(
 			'https://developer.wordpress.com/docs/developer-tools/studio/sites/'
 		);
+		expect( result.current.sync ).toBe(
+			'https://developer.wordpress.com/docs/developer-tools/studio/sync/'
+		);
 	} );
 
 	it( 'should return English URLs when locale is not in available translations', () => {
@@ -42,6 +45,9 @@ describe( 'useDocsLinks', () => {
 		);
 		expect( result.current.sites ).toBe(
 			'https://developer.wordpress.com/docs/developer-tools/studio/sites/'
+		);
+		expect( result.current.sync ).toBe(
+			'https://developer.wordpress.com/docs/developer-tools/studio/sync/'
 		);
 	} );
 
@@ -59,6 +65,9 @@ describe( 'useDocsLinks', () => {
 		expect( result.current.sites ).toBe(
 			'https://developer.wordpress.com/es/docs/developer-tools/studio/sites/'
 		);
+		expect( result.current.sync ).toBe(
+			'https://developer.wordpress.com/es/docs/developer-tools/studio/sync/'
+		);
 	} );
 
 	describe( 'getDocsLinks function used in nodejs on electron action menu', () => {
@@ -70,6 +79,9 @@ describe( 'useDocsLinks', () => {
 			);
 			expect( urls.sites ).toBe(
 				'https://developer.wordpress.com/docs/developer-tools/studio/sites/'
+			);
+			expect( urls.sync ).toBe(
+				'https://developer.wordpress.com/docs/developer-tools/studio/sync/'
 			);
 		} );
 
@@ -83,6 +95,9 @@ describe( 'useDocsLinks', () => {
 			);
 			expect( urls.sites ).toBe(
 				'https://developer.wordpress.com/es/docs/developer-tools/studio/sites/'
+			);
+			expect( urls.sync ).toBe(
+				'https://developer.wordpress.com/es/docs/developer-tools/studio/sync/'
 			);
 		} );
 	} );

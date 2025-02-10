@@ -29,18 +29,20 @@ export function BrowserWindow() {}
 BrowserWindow.prototype.loadURL = jest.fn();
 BrowserWindow.prototype.isDestroyed = jest.fn( () => false );
 BrowserWindow.prototype.on = jest.fn();
-BrowserWindow.prototype.webContents = {
+
+const mockWebContents = {
 	on: jest.fn(),
 	send: jest.fn(),
 	isDestroyed: jest.fn( () => false ),
 };
+
+BrowserWindow.prototype.webContents = mockWebContents;
+
 BrowserWindow.fromWebContents = jest.fn( () => ( {
 	isDestroyed: jest.fn( () => false ),
-	webContents: {
-		isDestroyed: jest.fn( () => false ),
-		send: jest.fn(),
-	},
+	webContents: mockWebContents,
 } ) );
+
 BrowserWindow.getAllWindows = jest.fn( () => [] );
 BrowserWindow.getFocusedWindow = jest.fn();
 

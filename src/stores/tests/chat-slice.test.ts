@@ -13,12 +13,15 @@ const mockClientReqPostUsingCallback = jest.fn().mockImplementation( ( params, c
 	callback(
 		null,
 		{
-			id: 'chatcmpl-123',
+			created_at: '2025-02-06 12:00:00',
+			id: 123,
 			choices: [
 				{
+					index: 0,
 					message: {
 						id: 42,
 						content: 'Test assistant response',
+						role: 'assistant',
 					},
 				},
 			],
@@ -52,7 +55,7 @@ describe( 'chat-slice', () => {
 	describe( 'fetchAssistant', () => {
 		it( 'should add assistant message to state when fulfilled', async () => {
 			const instanceId = 'test-site';
-			const userMessage = generateMessage( 'Hello test 1', 'user', 0, 'chatcmpl-123', 42 );
+			const userMessage = generateMessage( 'Hello test 1', 'user', 0, 100, 42 );
 
 			const result = await store.dispatch(
 				chatThunks.fetchAssistant( {
@@ -65,7 +68,7 @@ describe( 'chat-slice', () => {
 
 			expect( result.type ).toBe( 'chat/fetchAssistant/fulfilled' );
 			expect( result.payload ).toEqual( {
-				chatApiId: 'chatcmpl-123',
+				chatApiId: 123,
 				maxQuota: '100',
 				message: 'Test assistant response',
 				messageApiId: 42,
@@ -80,11 +83,11 @@ describe( 'chat-slice', () => {
 			expect( messages[ 1 ] ).toMatchObject( {
 				content: 'Test assistant response',
 				role: 'assistant',
-				chatApiId: 'chatcmpl-123',
+				chatApiId: 123,
 				messageApiId: 42,
 			} );
 
-			expect( state.chat.promptUsageDict[ instanceId ] ).toEqual( {
+			expect( state.chat.promptUsage ).toEqual( {
 				maxQuota: '100',
 				remainingQuota: '99',
 			} );
@@ -92,7 +95,7 @@ describe( 'chat-slice', () => {
 
 		it( 'should update failed message when retrying', async () => {
 			const instanceId = 'test-site';
-			const userMessage = generateMessage( 'Hello test retry', 'user', 0, 'chatcmpl-123', 42 );
+			const userMessage = generateMessage( 'Hello test retry', 'user', 0, 100, 42 );
 			userMessage.failedMessage = true;
 			store.dispatch( chatActions.setMessages( { instanceId, messages: [ userMessage ] } ) );
 
@@ -108,7 +111,7 @@ describe( 'chat-slice', () => {
 
 			expect( result.type ).toBe( 'chat/fetchAssistant/fulfilled' );
 			expect( result.payload ).toEqual( {
-				chatApiId: 'chatcmpl-123',
+				chatApiId: 123,
 				maxQuota: '100',
 				message: 'Test assistant response',
 				messageApiId: 42,
@@ -126,14 +129,19 @@ describe( 'chat-slice', () => {
 			expect( messages[ 1 ] ).toMatchObject( {
 				content: 'Test assistant response',
 				role: 'assistant',
-				chatApiId: 'chatcmpl-123',
+				chatApiId: 123,
 				messageApiId: 42,
+			} );
+
+			expect( state.chat.promptUsage ).toEqual( {
+				maxQuota: '100',
+				remainingQuota: '99',
 			} );
 		} );
 
 		it( 'should mark message as failed when rejected', async () => {
 			const instanceId = 'test-site';
-			const userMessage = generateMessage( 'Hello test 2', 'user', 0, 'chatcmpl-123', 42 );
+			const userMessage = generateMessage( 'Hello test 2', 'user', 0, 100, 42 );
 
 			mockClientReqPostUsingCallback.mockImplementationOnce( ( params, callback ) => {
 				callback( new Error( 'API Error' ), null, {} );
@@ -165,8 +173,8 @@ describe( 'chat-slice', () => {
 		it( 'should mark message as feedback received', async () => {
 			const instanceId = 'test-site';
 
-			const userMessage = generateMessage( 'Hello test 3', 'user', 0, 'chatcmpl-123', 42 );
-			const assistantMessage = generateMessage( 'Response', 'assistant', 1, 'chatcmpl-123', 43 );
+			const userMessage = generateMessage( 'Hello test 3', 'user', 0, 100, 42 );
+			const assistantMessage = generateMessage( 'Response', 'assistant', 1, 100, 43 );
 			store.dispatch(
 				chatActions.setMessages( { instanceId, messages: [ userMessage, assistantMessage ] } )
 			);
@@ -192,7 +200,7 @@ describe( 'chat-slice', () => {
 	describe( 'localStorage persistence', () => {
 		it( 'should persist messagesDict and chatApiIdDict changes to localStorage', async () => {
 			const instanceId = 'test-site';
-			const userMessage = generateMessage( 'Hello test 4', 'user', 0, 'chatcmpl-123', 42 );
+			const userMessage = generateMessage( 'Hello test 4', 'user', 0, 100, 42 );
 
 			await store.dispatch(
 				chatThunks.fetchAssistant( {
@@ -216,7 +224,7 @@ describe( 'chat-slice', () => {
 			const storedChatIds = JSON.parse(
 				localStorage.getItem( LOCAL_STORAGE_CHAT_API_IDS_KEY ) || '{}'
 			);
-			expect( storedChatIds[ instanceId ] ).toBe( 'chatcmpl-123' );
+			expect( storedChatIds[ instanceId ] ).toBe( 123 );
 		} );
 
 		it( 'should handle invalid JSON in localStorage gracefully', () => {
@@ -240,7 +248,7 @@ describe( 'chat-slice', () => {
 	describe( 'updateMessage', () => {
 		it( 'should update existing message block with CLI output', () => {
 			const instanceId = 'test-site';
-			const userMessage = generateMessage( 'Hello test 5', 'user', 0, 'chatcmpl-123', 42 );
+			const userMessage = generateMessage( 'Hello test 5', 'user', 0, 100, 42 );
 			store.dispatch( chatActions.setMessages( { instanceId, messages: [ userMessage ] } ) );
 
 			store.dispatch(
@@ -269,7 +277,7 @@ describe( 'chat-slice', () => {
 		it( 'should update existing block when code content matches', () => {
 			const instanceId = 'test-site';
 			const userMessage = {
-				...generateMessage( 'Hello test 6', 'user', 0, 'chatcmpl-123', 42 ),
+				...generateMessage( 'Hello test 6', 'user', 0, 100, 42 ),
 				blocks: [
 					{
 						codeBlockContent: 'wp plugin list',
@@ -306,7 +314,7 @@ describe( 'chat-slice', () => {
 		it( 'should add new block when code content is different', () => {
 			const instanceId = 'test-site';
 			const userMessage = {
-				...generateMessage( 'Hello test 7', 'user', 0, 'chatcmpl-123', 42 ),
+				...generateMessage( 'Hello test 7', 'user', 0, 100, 42 ),
 				blocks: [
 					{
 						codeBlockContent: 'wp plugin list',

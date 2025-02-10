@@ -1,6 +1,17 @@
+import * as Sentry from '@sentry/react';
 import React, { createContext, useContext, ReactNode, useState, useEffect } from 'react';
+import { z } from 'zod';
 import { useAuth } from 'src/hooks/use-auth';
 import { getAppGlobals } from 'src/lib/app-globals';
+
+// In PHP, empty associative arrays are encoded as regular arrays when converted to JSON.
+// This means an empty feature flags response comes as [] instead of {}.
+const featureFlagsSchema = z
+	.object( {
+		terminal_wp_cli_enabled: z.boolean().optional(),
+		quick_deploys_enabled: z.boolean().optional(),
+	} )
+	.catch( ( _ ) => ( {} ) );
 
 export interface FeatureFlagsContextType {
 	terminalWpCliEnabled: boolean;
@@ -32,20 +43,22 @@ export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { c
 				return;
 			}
 			try {
-				const flags = await client.req.get( {
+				const response = await client.req.get( {
 					path: '/studio-app/feature-flags',
 					apiNamespace: 'wpcom/v2',
 				} );
+				const flags = featureFlagsSchema.parse( response );
 				if ( cancel ) {
 					return;
 				}
 				setFeatureFlags( {
 					terminalWpCliEnabled:
-						Boolean( flags?.[ 'terminal_wp_cli_enabled' ] ) || terminalWpCliEnabledFromGlobals,
+						Boolean( flags.terminal_wp_cli_enabled ) || terminalWpCliEnabledFromGlobals,
 					quickDeploysEnabled:
-						Boolean( flags?.[ 'quick_deploys_enabled' ] ) || quickDeploysEnabledFromGlobals,
+						Boolean( flags.quick_deploys_enabled ) || quickDeploysEnabledFromGlobals,
 				} );
 			} catch ( error ) {
+				Sentry.captureException( error );
 				console.error( error );
 			}
 		}

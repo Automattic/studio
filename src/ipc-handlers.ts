@@ -18,6 +18,7 @@ import * as Sentry from '@sentry/electron/main';
 import { __, LocaleData, defaultI18n } from '@wordpress/i18n';
 import archiver from 'archiver';
 import { MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
+import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
 import { calculateDirectorySize } from 'src/lib/calculate-directory-size';
 import { download } from 'src/lib/download';
@@ -62,9 +63,10 @@ async function sendThumbnailChangedEvent( event: IpcMainInvokeEvent, id: string 
 	}
 	const thumbnailData = await getThumbnailData( event, id );
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	if ( parentWindow && ! parentWindow.isDestroyed() ) {
-		parentWindow.webContents.send( 'thumbnail-changed', id, thumbnailData );
-	}
+	sendIpcEventToRendererWithWindow( parentWindow, 'thumbnail-changed', {
+		id,
+		imageData: thumbnailData,
+	} );
 }
 
 async function mergeSiteDetailsWithRunningDetails(
@@ -112,9 +114,7 @@ export async function importSite(
 	try {
 		const onEvent = ( data: ImportExportEventData ) => {
 			const parentWindow = BrowserWindow.fromWebContents( event.sender );
-			if ( parentWindow && ! parentWindow.isDestroyed() && ! event.sender.isDestroyed() ) {
-				parentWindow.webContents.send( 'on-import', data, id );
-			}
+			sendIpcEventToRendererWithWindow( parentWindow, 'on-import', data, id );
 		};
 		const result = await importBackup( backupFile, site.details, onEvent, defaultImporterOptions );
 		if ( result?.meta?.phpVersion ) {
@@ -189,9 +189,7 @@ export async function createSite(
 	}
 
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	if ( parentWindow && ! parentWindow.isDestroyed() && ! event.sender.isDestroyed() ) {
-		parentWindow.webContents.send( 'theme-details-updating', details.id );
-	}
+	sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-updating', { id: details.id } );
 
 	userData.sites.push( server.details );
 	sortSites( userData.sites );
@@ -397,9 +395,11 @@ export async function startServer(
 		}
 		throw error;
 	}
-	if ( parentWindow && ! parentWindow.isDestroyed() && ! event.sender.isDestroyed() ) {
-		parentWindow.webContents.send( 'theme-details-changed', id, server.details.themeDetails );
-	}
+
+	sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-changed', {
+		id,
+		details: server.details.themeDetails,
+	} );
 
 	if ( server.details.running ) {
 		try {
@@ -517,13 +517,7 @@ export async function getUserLocale( _event: IpcMainInvokeEvent ): Promise< Supp
 
 export async function showUserSettings( event: IpcMainInvokeEvent ): Promise< void > {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	if ( ! parentWindow ) {
-		throw new Error( `No window found for sender of showUserSettings message: ${ event.frameId }` );
-	}
-	if ( parentWindow.isDestroyed() || event.sender.isDestroyed() ) {
-		return;
-	}
-	parentWindow.webContents.send( 'user-settings' );
+	sendIpcEventToRendererWithWindow( parentWindow, 'user-settings' );
 }
 
 function archiveWordPressDirectory( {
@@ -675,9 +669,7 @@ export async function exportSite(
 	try {
 		const onEvent = ( data: ImportExportEventData ) => {
 			const parentWindow = BrowserWindow.fromWebContents( event.sender );
-			if ( parentWindow && ! parentWindow.isDestroyed() && ! event.sender.isDestroyed() ) {
-				parentWindow.webContents.send( 'on-export', data, siteId );
-			}
+			sendIpcEventToRendererWithWindow( parentWindow, 'on-export', data, siteId );
 		};
 		return await exportBackup( options, onEvent );
 	} catch ( e ) {
@@ -805,16 +797,15 @@ export async function getThemeDetails( event: IpcMainInvokeEvent, id: string ) {
 
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	if ( themeDetails?.path && themeDetails.path !== server.details.themeDetails?.path ) {
-		if ( parentWindow && ! parentWindow.isDestroyed() && ! event.sender.isDestroyed() ) {
-			parentWindow.webContents.send( 'theme-details-updating', id );
-		}
+		sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-updating', { id } );
 		const updatedSite = {
 			...server.details,
 			themeDetails,
 		};
-		if ( parentWindow && ! parentWindow.isDestroyed() && ! event.sender.isDestroyed() ) {
-			parentWindow.webContents.send( 'theme-details-changed', id, themeDetails );
-		}
+		sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-changed', {
+			id,
+			details: themeDetails,
+		} );
 
 		server.updateCachedThumbnail().then( () => sendThumbnailChangedEvent( event, id ) );
 		server.details.themeDetails = themeDetails;

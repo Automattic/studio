@@ -41,14 +41,16 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 
 	const authenticate = useCallback( () => getIpcApi().authenticate(), [] );
 
-	useIpcListener( 'auth-updated', ( _event, { token, error } ) => {
-		if ( error ) {
+	useIpcListener( 'auth-updated', ( _event, payload ) => {
+		if ( 'error' in payload ) {
 			getIpcApi().showErrorMessageBox( {
 				title: __( 'Authentication error' ),
 				message: __( 'Please try again.' ),
 			} );
 			return;
 		}
+
+		const { token } = payload;
 
 		setIsAuthenticated( true );
 		setClient( createWpcomClient( token.accessToken, locale ) );

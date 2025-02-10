@@ -16,7 +16,7 @@ import { Tooltip, DynamicTooltip } from 'src/components/tooltip';
 import { WordPressLogoCircle } from 'src/components/wordpress-logo-circle';
 import { useSyncSites } from 'src/hooks/sync-sites';
 import { useConfirmationDialog } from 'src/hooks/use-confirmation-dialog';
-import { useDocsUrl } from 'src/hooks/use-docs-url';
+import { useDocsLinks } from 'src/hooks/use-docs-links';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSyncStatesProgressInfo } from 'src/hooks/use-sync-states-progress-info';
 import { cx } from 'src/lib/cx';
@@ -42,7 +42,7 @@ const SyncConnectedSitesSection = ( {
 	openSitesSyncSelector: OpenSitesSyncSelector;
 } ) => {
 	const { __ } = useI18n();
-	const docs = useDocsUrl();
+	const docs = useDocsLinks();
 	const {
 		pullSite,
 		clearPullState,

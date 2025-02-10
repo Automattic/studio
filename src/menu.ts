@@ -6,7 +6,7 @@ import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { getMainWindow } from 'src/main-window';
 import { isUpdateReadyToInstall, manualCheckForUpdates } from 'src/updates';
-import { getDocsUrl } from './hooks/use-docs-url';
+import { getDocsLinks } from './hooks/use-docs-links';
 import { getUserLocaleWithFallback } from './lib/locale-node';
 
 export async function setupMenu( config: { needsOnboarding: boolean } ) {
@@ -178,7 +178,7 @@ function getAppMenu(
 					label: __( 'Studio Help' ),
 					click: async () => {
 						const locale = await getUserLocaleWithFallback();
-						const docsUrl = getDocsUrl( locale );
+						const docsUrl = getDocsLinks( locale );
 						shellOpenExternalWrapper( docsUrl.studio );
 					},
 				},

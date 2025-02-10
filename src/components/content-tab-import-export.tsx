@@ -11,7 +11,7 @@ import { Tooltip } from 'src/components/tooltip';
 import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
 import { useSyncSites } from 'src/hooks/sync-sites/sync-sites-context';
 import { useConfirmationDialog } from 'src/hooks/use-confirmation-dialog';
-import { useDocsUrl } from 'src/hooks/use-docs-url';
+import { useDocsLinks } from 'src/hooks/use-docs-links';
 import { useDragAndDropFile } from 'src/hooks/use-drag-and-drop-file';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
@@ -160,7 +160,7 @@ const ImportSite = ( {
 	isThisSiteSyncing: boolean;
 } ) => {
 	const { __ } = useI18n();
-	const docs = useDocsUrl();
+	const docs = useDocsLinks();
 	const { startServer, loadingServer } = useSiteDetails();
 	const { importState, importFile, clearImportState, exportState } = useImportExport();
 	const { [ selectedSite.id ]: currentProgress } = importState;

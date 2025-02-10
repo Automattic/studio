@@ -8,7 +8,7 @@ import Button from 'src/components/button';
 import FolderIcon from 'src/components/folder-icon';
 import TextControlComponent from 'src/components/text-control';
 import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
-import { useDocsUrl } from 'src/hooks/use-docs-url';
+import { useDocsLinks } from 'src/hooks/use-docs-links';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
@@ -229,7 +229,7 @@ export const SiteForm = ( {
 	fileError?: string;
 } ) => {
 	const { __, isRTL } = useI18n();
-	const docs = useDocsUrl();
+	const docs = useDocsLinks();
 
 	const [ isAdvancedSettingsVisible, setAdvancedSettingsVisible ] = useState( false );
 

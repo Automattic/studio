@@ -6,7 +6,7 @@ import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
 import { WordPressLogo } from 'src/components/wordpress-logo';
 import { useAuth } from 'src/hooks/use-auth';
-import { useDocsUrl } from 'src/hooks/use-docs-url';
+import { useDocsLinks } from 'src/hooks/use-docs-links';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
@@ -98,7 +98,7 @@ function Authentication() {
 }
 
 export default function TopBar( { onToggleSidebar }: TopBarProps ) {
-	const docs = useDocsUrl();
+	const docs = useDocsLinks();
 
 	const openDocs = () => {
 		getIpcApi().openURL( docs.studio );

@@ -5,7 +5,7 @@ const BASE_DOCS_URL = 'https://developer.wordpress.com';
 
 const AVAILABLE_DOCS_TRANSLATIONS = [ 'es' ];
 
-export function getDocsUrl( locale: SupportedLocale ) {
+export function getDocsLinks( locale: SupportedLocale ) {
 	let langPath = '';
 	if ( AVAILABLE_DOCS_TRANSLATIONS.includes( locale ) ) {
 		langPath = `/${ locale }`;
@@ -19,7 +19,7 @@ export function getDocsUrl( locale: SupportedLocale ) {
 	} as const;
 }
 
-export function useDocsUrl() {
+export function useDocsLinks() {
 	const { locale } = useI18nData();
-	return getDocsUrl( locale );
+	return getDocsLinks( locale );
 }

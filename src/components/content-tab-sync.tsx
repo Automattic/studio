@@ -24,7 +24,7 @@ function SiteSyncDescription( { children }: PropsWithChildren ) {
 			<div className="flex flex-col p-8">
 				<div className="flex items-center mb-1">
 					<div className="a8c-subtitle">{ __( 'Sync with' ) }</div>
-					<WordPressShortLogo className="ltr:ml-2 rtl:mr-2 h-5" />
+					<WordPressShortLogo className="ms-2 h-5" />
 				</div>
 				<div className="max-w-[40ch] text-a8c-gray-70 a8c-body">
 					{ __(
@@ -38,7 +38,7 @@ function SiteSyncDescription( { children }: PropsWithChildren ) {
 						__( 'Sync database and file changes.' ),
 					].map( ( text ) => (
 						<div key={ text } className="text-a8c-gray-70 a8c-body flex items-center">
-							<Icon className="fill-a8c-blueberry ltr:mr-2 rtl:ml-2 shrink-0" icon={ check } />
+							<Icon className="fill-a8c-blueberry me-2 shrink-0" icon={ check } />
 							{ text }
 						</div>
 					) ) }

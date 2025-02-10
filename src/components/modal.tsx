@@ -10,7 +10,7 @@ export default function Modal( { className, ...rest }: ComponentProps< typeof WP
 			closeButtonLabel={ __( 'Close' ) }
 			className={ cx(
 				'select-none [&_h1]:!text-xl [&_h1]:!font-normal outline-0',
-				'[&_h1]:flex-1 [&_h1]:rtl:text-right',
+				'[&_h1]:flex-1 [&_h1]:text-start',
 				className
 			) }
 			{ ...rest }

@@ -1,10 +1,10 @@
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import { CLEAR_HISTORY_REMINDER_TIME } from '../../constants';
-import { getIpcApi } from '../../lib/get-ipc-api';
-import { Message } from '../../stores/chat-slice';
-import AIClearHistoryReminder from '../ai-clear-history-reminder';
+import AIClearHistoryReminder from 'src/components/ai-clear-history-reminder';
+import { CLEAR_HISTORY_REMINDER_TIME } from 'src/constants';
+import { getIpcApi } from 'src/lib/get-ipc-api';
+import { Message } from 'src/stores/chat-slice';
 
-jest.mock( '../../lib/get-ipc-api' );
+jest.mock( 'src/lib/get-ipc-api' );
 
 describe( 'AIClearHistoryReminder', () => {
 	let clearConversation: jest.Mock;

@@ -1,8 +1,8 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { useCallback, useState } from 'react';
 import { useDispatch } from 'react-redux';
-import { getIpcApi } from '../lib/get-ipc-api';
-import { chatActions } from '../stores/chat-slice';
+import { getIpcApi } from 'src/lib/get-ipc-api';
+import { chatActions } from 'src/stores/chat-slice';
 
 export function useExecuteWPCLI(
 	content: string,

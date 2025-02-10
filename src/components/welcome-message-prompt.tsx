@@ -1,8 +1,8 @@
 import { __ } from '@wordpress/i18n';
 import { arrowRight } from '@wordpress/icons';
 import React, { useEffect, useRef, useState } from 'react';
-import { cx } from '../lib/cx';
-import Button from './button';
+import Button from 'src/components/button';
+import { cx } from 'src/lib/cx';
 
 interface WelcomeMessagePromptProps {
 	children?: React.ReactNode;

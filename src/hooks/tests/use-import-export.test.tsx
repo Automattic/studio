@@ -1,14 +1,14 @@
 import { renderHook, act } from '@testing-library/react';
-import { getIpcApi } from '../../lib/get-ipc-api';
-import { ExportEventType, ExportEvents } from '../../lib/import-export/export/events';
-import { ImportEventType, ImportEvents } from '../../lib/import-export/import/events';
-import { ImportExportProvider, useImportExport } from '../use-import-export';
-import { useIpcListener } from '../use-ipc-listener';
-import { useSiteDetails } from '../use-site-details';
+import { ImportExportProvider, useImportExport } from 'src/hooks/use-import-export';
+import { useIpcListener } from 'src/hooks/use-ipc-listener';
+import { useSiteDetails } from 'src/hooks/use-site-details';
+import { getIpcApi } from 'src/lib/get-ipc-api';
+import { ExportEventType, ExportEvents } from 'src/lib/import-export/export/events';
+import { ImportEventType, ImportEvents } from 'src/lib/import-export/import/events';
 
-jest.mock( '../../lib/get-ipc-api' );
-jest.mock( '../../hooks/use-ipc-listener' );
-jest.mock( '../../hooks/use-site-details' );
+jest.mock( 'src/lib/get-ipc-api' );
+jest.mock( 'src/hooks/use-ipc-listener' );
+jest.mock( 'src/hooks/use-site-details' );
 
 const SITE_ID = 'site-id-1';
 
@@ -54,7 +54,13 @@ describe( 'useImportExport hook', () => {
 			{
 				site: selectedSite,
 				backupFile: '/path/to/exported-site.tar.gz',
-				includes: { database: true, uploads: true, plugins: true, themes: true },
+				includes: {
+					database: true,
+					uploads: true,
+					plugins: true,
+					themes: true,
+					muPlugins: true,
+				},
 				phpVersion: '8.0',
 			},
 			SITE_ID
@@ -80,7 +86,13 @@ describe( 'useImportExport hook', () => {
 			{
 				site: selectedSite,
 				backupFile: '/path/to/exported-site.tar.gz',
-				includes: { database: true, uploads: true, plugins: true, themes: true },
+				includes: {
+					database: true,
+					uploads: true,
+					plugins: true,
+					themes: true,
+					muPlugins: true,
+				},
 				phpVersion: '8.0',
 			},
 			SITE_ID
@@ -106,7 +118,13 @@ describe( 'useImportExport hook', () => {
 			{
 				site: selectedSite,
 				backupFile: '/path/to/exported-database.sql',
-				includes: { database: true, uploads: false, plugins: false, themes: false },
+				includes: {
+					database: true,
+					uploads: false,
+					plugins: false,
+					themes: false,
+					muPlugins: false,
+				},
 				phpVersion: '8.0',
 			},
 			SITE_ID

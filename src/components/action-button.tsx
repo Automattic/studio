@@ -2,8 +2,8 @@ import { useResizeObserver } from '@wordpress/compose';
 import { SVG, Path } from '@wordpress/primitives';
 import { useI18n } from '@wordpress/react-i18n';
 import { useEffect, useRef, useState } from 'react';
-import { cx } from '../lib/cx';
-import Button, { ButtonProps } from './button';
+import Button, { ButtonProps } from 'src/components/button';
+import { cx } from 'src/lib/cx';
 
 type ActionButtonState = 'idle' | 'loading' | 'stop' | 'running' | 'disabled';
 

@@ -1,14 +1,20 @@
 import * as Sentry from '@sentry/electron/renderer';
 import { useState, useEffect, useCallback, useMemo, createContext, useContext } from 'react';
+import { z } from 'zod';
+import { LIMIT_OF_PROMPTS_PER_USER } from 'src/constants';
+import { useAuth } from 'src/hooks/use-auth';
 import { useRootSelector } from 'src/stores';
-import { LIMIT_OF_PROMPTS_PER_USER } from '../constants';
-import { useAuth } from './use-auth';
+
+const promptUsageSchema = z.object( {
+	max_quota: z.number(),
+	remaining_quota: z.number(),
+	quota_reset_date: z.string(),
+} );
 
 type PromptUsage = {
 	promptLimit: number;
 	promptCount: number;
 	fetchPromptUsage: () => Promise< void >;
-	updatePromptUsage: ( data: { maxQuota: string; remainingQuota: string } ) => void;
 	userCanSendMessage: boolean;
 	daysUntilReset: number;
 };
@@ -17,7 +23,6 @@ const initState: PromptUsage = {
 	promptLimit: LIMIT_OF_PROMPTS_PER_USER,
 	promptCount: 0,
 	fetchPromptUsage: async () => undefined,
-	updatePromptUsage: ( _data: { maxQuota: string; remainingQuota: string } ) => undefined,
 	userCanSendMessage: true,
 	daysUntilReset: 0,
 };
@@ -43,21 +48,24 @@ const calculateDaysRemaining = ( quotaResetDate: string ): number => {
 export function PromptUsageProvider( { children }: PromptUsageProps ) {
 	const { Provider } = promptUsageContext;
 
-	const promptUsageDict = useRootSelector( ( state ) => state.chat.promptUsageDict );
+	const promptUsage = useRootSelector( ( state ) => state.chat.promptUsage );
 	const [ promptLimit, setPromptLimit ] = useState( LIMIT_OF_PROMPTS_PER_USER );
 	const [ promptCount, setPromptCount ] = useState( 0 );
 	const [ quotaResetDate, setQuotaResetDate ] = useState( '' );
 	const { client } = useAuth();
 
-	const updatePromptUsage = useCallback( ( data: { maxQuota: string; remainingQuota: string } ) => {
-		const limit = parseInt( data.maxQuota as string );
-		const remaining = parseInt( data.remainingQuota as string );
-		if ( isNaN( limit ) || isNaN( remaining ) ) {
-			return;
-		}
-		setPromptLimit( limit );
-		setPromptCount( limit - remaining );
-	}, [] );
+	const updatePromptUsage = useCallback(
+		( maxQuota: string | number, remainingQuota: string | number ) => {
+			const limit = parseInt( maxQuota as string );
+			const remaining = parseInt( remainingQuota as string );
+			if ( isNaN( limit ) || isNaN( remaining ) ) {
+				return;
+			}
+			setPromptLimit( limit );
+			setPromptCount( limit - remaining );
+		},
+		[]
+	);
 
 	const fetchPromptUsage = useCallback( async () => {
 		if ( ! client?.req ) {
@@ -68,11 +76,9 @@ export function PromptUsageProvider( { children }: PromptUsageProps ) {
 				path: '/studio-app/ai-assistant/quota',
 				apiNamespace: 'wpcom/v2',
 			} );
-			updatePromptUsage( {
-				maxQuota: response.max_quota ?? '',
-				remainingQuota: response.remaining_quota ?? '',
-			} );
-			setQuotaResetDate( response.quota_reset_date || '' );
+			const data = promptUsageSchema.parse( response );
+			updatePromptUsage( data.max_quota, data.remaining_quota );
+			setQuotaResetDate( data.quota_reset_date );
 		} catch ( error ) {
 			Sentry.captureException( error );
 			console.error( error );
@@ -87,12 +93,10 @@ export function PromptUsageProvider( { children }: PromptUsageProps ) {
 	}, [ fetchPromptUsage, client ] );
 
 	useEffect( () => {
-		if ( promptUsageDict ) {
-			for ( const siteId in promptUsageDict ) {
-				updatePromptUsage( promptUsageDict[ siteId ] );
-			}
+		if ( promptUsage.maxQuota && promptUsage.remainingQuota ) {
+			updatePromptUsage( promptUsage.maxQuota, promptUsage.remainingQuota );
 		}
-	}, [ promptUsageDict, updatePromptUsage ] );
+	}, [ promptUsage, updatePromptUsage ] );
 
 	const daysUntilReset = useMemo(
 		() => calculateDaysRemaining( quotaResetDate ),
@@ -104,11 +108,10 @@ export function PromptUsageProvider( { children }: PromptUsageProps ) {
 			fetchPromptUsage,
 			promptLimit,
 			promptCount,
-			updatePromptUsage,
 			userCanSendMessage: promptCount < promptLimit,
 			daysUntilReset,
 		};
-	}, [ fetchPromptUsage, promptLimit, promptCount, updatePromptUsage, daysUntilReset ] );
+	}, [ fetchPromptUsage, promptLimit, promptCount, daysUntilReset ] );
 
 	return <Provider value={ contextValue }>{ children }</Provider>;
 }

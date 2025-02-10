@@ -1,16 +1,21 @@
-import { renderHook, act, waitFor } from '@testing-library/react';
+import { renderHook, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
-import { store } from 'src/stores';
-import { useAuth } from '../use-auth';
-import { usePromptUsage, PromptUsageProvider } from '../use-prompt-usage';
+import { useAuth } from 'src/hooks/use-auth';
+import { usePromptUsage, PromptUsageProvider } from 'src/hooks/use-prompt-usage';
+import { store, useRootSelector } from 'src/stores';
 import type { ReactNode } from 'react';
 
-jest.mock( '../use-auth', () => ( {
+jest.mock( 'src/hooks/use-auth', () => ( {
 	useAuth: jest.fn(),
 } ) );
 
-jest.mock( '../use-feature-flags', () => ( {
+jest.mock( 'src/hooks/use-feature-flags', () => ( {
 	useFeatureFlags: jest.fn(),
+} ) );
+
+jest.mock( 'src/stores', () => ( {
+	...jest.requireActual( 'src/stores' ),
+	useRootSelector: jest.fn().mockReturnValue( {} ),
 } ) );
 
 function TestWrapper( { children }: { children: ReactNode } ) {
@@ -71,12 +76,13 @@ describe( 'usePromptUsage hook', () => {
 	} );
 
 	it( 'should update prompt usage', async () => {
-		const { result } = renderHook( () => usePromptUsage(), {
-			wrapper: TestWrapper,
+		jest.mocked( useRootSelector ).mockReturnValueOnce( {
+			maxQuota: '300',
+			remainingQuota: '50',
 		} );
 
-		act( () => {
-			result.current.updatePromptUsage( { maxQuota: '300', remainingQuota: '50' } );
+		const { result } = renderHook( () => usePromptUsage(), {
+			wrapper: TestWrapper,
 		} );
 
 		expect( result.current.promptLimit ).toBe( 300 );

@@ -1,5 +1,5 @@
+import { PlaygroundValidator } from 'src/lib/import-export/import/validators/playground-validator';
 import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
-import { PlaygroundValidator } from '../../../import/validators/playground-validator';
 
 platformTestSuite( 'PlaygroundValidator', ( { normalize } ) => {
 	const validator = new PlaygroundValidator();

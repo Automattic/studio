@@ -3,11 +3,11 @@
  */
 import wpcom from 'wpcom';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
-import { loadUserData, saveUserData } from '../../storage/user-data';
-import { getAuthenticationToken, onOpenUrlCallback } from '../oauth';
+import { getAuthenticationToken, onOpenUrlCallback } from 'src/lib/oauth';
+import { loadUserData, saveUserData } from 'src/storage/user-data';
 
-jest.mock( 'src/ipc-utils' );
-jest.mock( '../../storage/user-data' );
+jest.mock( 'src/main-window' );
+jest.mock( 'src/storage/user-data' );
 jest.mock( 'wpcom' );
 
 describe( 'getAuthenticationToken', () => {

@@ -6,12 +6,12 @@ import path from 'path';
 import { createInterface } from 'readline';
 import { lstat, move } from 'fs-extra';
 import semver from 'semver';
-import { DEFAULT_PHP_VERSION } from '../../../../../vendor/wp-now/src/constants';
-import { SiteServer } from '../../../../site-server';
-import { serializePlugins } from '../../../serialize-plugins';
-import { generateBackupFilename } from '../../export/generate-backup-filename';
-import { ImportEvents } from '../events';
-import { BackupContents, MetaFileData } from '../types';
+import { generateBackupFilename } from 'src/lib/import-export/export/generate-backup-filename';
+import { ImportEvents } from 'src/lib/import-export/import/events';
+import { BackupContents, MetaFileData } from 'src/lib/import-export/import/types';
+import { serializePlugins } from 'src/lib/serialize-plugins';
+import { SiteServer } from 'src/site-server';
+import { DEFAULT_PHP_VERSION } from 'vendor/wp-now/src/constants';
 
 export interface ImporterResult extends Omit< BackupContents, 'metaFile' > {
 	meta?: MetaFileData;

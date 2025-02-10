@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useMemo, ReactNode, useState, useEffect } from 'react';
-import { getIpcApi } from '../lib/get-ipc-api';
-import { useIpcListener } from './use-ipc-listener';
-import { siteDetailsContext, useSiteDetails } from './use-site-details';
-import { useWindowListener } from './use-window-listener';
+import { useIpcListener } from 'src/hooks/use-ipc-listener';
+import { siteDetailsContext, useSiteDetails } from 'src/hooks/use-site-details';
+import { useWindowListener } from 'src/hooks/use-window-listener';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 
 type ThemeDetailsType = SiteDetails[ 'themeDetails' ] | undefined;
 type ThumbnailType = string | undefined;

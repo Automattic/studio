@@ -17,40 +17,40 @@ import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { __, LocaleData, defaultI18n } from '@wordpress/i18n';
 import archiver from 'archiver';
+import { MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
+import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
+import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
+import { calculateDirectorySize } from 'src/lib/calculate-directory-size';
+import { download } from 'src/lib/download';
+import { isEmptyDir, pathExists, isWordPressDirectory, sanitizeFolderName } from 'src/lib/fs-utils';
+import { getImageData } from 'src/lib/get-image-data';
+import { getSyncBackupTempPath } from 'src/lib/get-sync-backup-temp-path';
+import { exportBackup } from 'src/lib/import-export/export/export-manager';
+import { ExportOptions } from 'src/lib/import-export/export/types';
+import { ImportExportEventData } from 'src/lib/import-export/handle-events';
+import { defaultImporterOptions, importBackup } from 'src/lib/import-export/import/import-manager';
+import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
+import { isErrnoException } from 'src/lib/is-errno-exception';
+import { isInstalled } from 'src/lib/is-installed';
+import { SupportedLocale } from 'src/lib/locale';
+import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { StoredToken } from 'src/lib/oauth';
-import { DEFAULT_PHP_VERSION } from '../vendor/wp-now/src/constants';
-import { MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from './constants';
-import { sendIpcEventToRendererWithWindow } from './ipc-utils';
-import { ACTIVE_SYNC_OPERATIONS } from './lib/active-sync-operations';
-import { calculateDirectorySize } from './lib/calculate-directory-size';
-import { download } from './lib/download';
-import { isEmptyDir, pathExists, isWordPressDirectory, sanitizeFolderName } from './lib/fs-utils';
-import { getImageData } from './lib/get-image-data';
-import { getSyncBackupTempPath } from './lib/get-sync-backup-temp-path';
-import { exportBackup } from './lib/import-export/export/export-manager';
-import { ExportOptions } from './lib/import-export/export/types';
-import { ImportExportEventData } from './lib/import-export/handle-events';
-import { defaultImporterOptions, importBackup } from './lib/import-export/import/import-manager';
-import { BackupArchiveInfo } from './lib/import-export/import/types';
-import { isErrnoException } from './lib/is-errno-exception';
-import { isInstalled } from './lib/is-installed';
-import { SupportedLocale } from './lib/locale';
-import { getUserLocaleWithFallback } from './lib/locale-node';
-import * as oauthClient from './lib/oauth';
-import { createPassword } from './lib/passwords';
-import { phpGetThemeDetails } from './lib/php-get-theme-details';
-import { shellOpenExternalWrapper } from './lib/shell-open-external-wrapper';
-import { sortSites } from './lib/sort-sites';
-import { installSqliteIntegration, keepSqliteIntegrationUpdated } from './lib/sqlite-versions';
-import * as windowsHelpers from './lib/windows-helpers';
-import { getLogsFilePath, writeLogToFile, type LogLevel } from './logging';
-import { getMainWindow } from './main-window';
-import { popupMenu, setupMenu } from './menu';
-import { SiteServer, createSiteWorkingDirectory } from './site-server';
-import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from './storage/paths';
-import { loadUserData, saveUserData } from './storage/user-data';
-import type { SyncSite } from './hooks/use-fetch-wpcom-sites/types';
-import type { WpCliResult } from './lib/wp-cli-process';
+import * as oauthClient from 'src/lib/oauth';
+import { createPassword } from 'src/lib/passwords';
+import { phpGetThemeDetails } from 'src/lib/php-get-theme-details';
+import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
+import { sortSites } from 'src/lib/sort-sites';
+import { installSqliteIntegration, keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
+import * as windowsHelpers from 'src/lib/windows-helpers';
+import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
+import { getMainWindow } from 'src/main-window';
+import { popupMenu, setupMenu } from 'src/menu';
+import { SiteServer, createSiteWorkingDirectory } from 'src/site-server';
+import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from 'src/storage/paths';
+import { loadUserData, saveUserData } from 'src/storage/user-data';
+import { DEFAULT_PHP_VERSION } from 'vendor/wp-now/src/constants';
+import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
+import type { WpCliResult } from 'src/lib/wp-cli-process';
 
 const TEMP_DIR = nodePath.join( app.getPath( 'temp' ), 'com.wordpress.studio' ) + nodePath.sep;
 if ( ! fs.existsSync( TEMP_DIR ) ) {
@@ -578,7 +578,13 @@ export async function exportSiteToPush( event: IpcMainInvokeEvent, id: string ) 
 	const exportOptions: ExportOptions = {
 		site: site.details,
 		backupFile: archivePath,
-		includes: { database: true, uploads: true, plugins: true, themes: true },
+		includes: {
+			database: true,
+			uploads: true,
+			plugins: true,
+			themes: true,
+			muPlugins: true,
+		},
 		phpVersion: site.details.phpVersion,
 		splitDatabaseDumpByTable: true,
 	};

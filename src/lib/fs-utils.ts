@@ -1,7 +1,7 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import { existsSync } from 'fs-extra';
-import { isErrnoException } from './is-errno-exception';
+import { isErrnoException } from 'src/lib/is-errno-exception';
 export { sanitizeFolderName } from './generate-site-name';
 
 export async function pathExists( path: string ): Promise< boolean > {

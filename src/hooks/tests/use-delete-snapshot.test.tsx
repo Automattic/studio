@@ -2,18 +2,18 @@
 import * as Sentry from '@sentry/electron/renderer';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { ReactNode } from 'react';
-import { useAuth } from '../use-auth';
-import { useOffline } from '../use-offline';
-import { SnapshotProvider, useSnapshots } from '../use-snapshots';
+import { useAuth } from 'src/hooks/use-auth';
+import { useOffline } from 'src/hooks/use-offline';
+import { SnapshotProvider, useSnapshots } from 'src/hooks/use-snapshots';
 
 jest.mock( '@sentry/electron/renderer' );
-jest.mock( '../use-auth' );
-jest.mock( '../use-offline' );
+jest.mock( 'src/hooks/use-auth' );
+jest.mock( 'src/hooks/use-offline' );
 
 const mockSnapshots = [ { atomicSiteId: 12345 }, { atomicSiteId: 67890 } ];
 const mockSnapshot = { atomicSiteId: 12345 };
 
-jest.mock( '../../lib/get-ipc-api', () => ( {
+jest.mock( 'src/lib/get-ipc-api', () => ( {
 	getIpcApi: () => ( {
 		getSnapshots: jest.fn().mockResolvedValue( mockSnapshots ),
 		saveSnapshotsToStorage: jest.fn(),
@@ -59,7 +59,7 @@ const mockClient = {
 
 ( useOffline as jest.Mock ).mockReturnValue( false );
 
-jest.mock( '../../lib/get-ipc-api', () => ( {
+jest.mock( 'src/lib/get-ipc-api', () => ( {
 	getIpcApi: () => ( {
 		getSnapshots: jest.fn().mockResolvedValue( mockSnapshots ),
 		saveSnapshotsToStorage: jest.fn(),

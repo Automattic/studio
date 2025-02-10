@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useIpcListener } from '../hooks/use-ipc-listener';
+import { useIpcListener } from 'src/hooks/use-ipc-listener';
 
 export default function CrashTester() {
 	const [ renderFailure, setRenderFailure ] = useState( false );

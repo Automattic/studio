@@ -1,4 +1,4 @@
-import { SyncSite } from './types';
+import { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
 /**
  * Generate updated site data to be stored in `appdata-v1.json` in three steps:
@@ -36,6 +36,7 @@ export const reconcileConnectedSites = (
 			url: site.url,
 			syncSupport: site.syncSupport,
 			stagingSiteIds: site.stagingSiteIds,
+			isStaging: site.isStaging,
 		};
 	}, [] );
 

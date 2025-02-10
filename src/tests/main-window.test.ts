@@ -4,7 +4,7 @@
 import { BrowserWindow } from 'electron';
 import fs from 'fs';
 import { normalize } from 'path';
-import { createMainWindow, getMainWindow, __resetMainWindow } from '../main-window';
+import { createMainWindow, getMainWindow, __resetMainWindow } from 'src/main-window';
 
 jest.mock( 'fs' );
 

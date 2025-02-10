@@ -1,13 +1,13 @@
 import * as Sentry from '@sentry/electron/renderer';
 import { __, sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
-import { useOffline } from '../hooks/use-offline';
-import { useSiteDetails } from '../hooks/use-site-details';
-import { useSnapshots } from '../hooks/use-snapshots';
-import { getIpcApi } from '../lib/get-ipc-api';
-import Button from './button';
-import offlineIcon from './offline-icon';
-import { Tooltip } from './tooltip';
+import Button from 'src/components/button';
+import offlineIcon from 'src/components/offline-icon';
+import { Tooltip } from 'src/components/tooltip';
+import { useOffline } from 'src/hooks/use-offline';
+import { useSiteDetails } from 'src/hooks/use-site-details';
+import { useSnapshots } from 'src/hooks/use-snapshots';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 
 const MAX_LENGTH_SITE_TITLE = 35;
 

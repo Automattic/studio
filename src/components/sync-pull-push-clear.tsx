@@ -1,8 +1,8 @@
 import { useI18n } from '@wordpress/react-i18n';
-import { cx } from '../lib/cx';
-import Button from './button';
-import { CheckIcon } from './check-icon';
-import { ErrorIcon } from './error-icon';
+import Button from 'src/components/button';
+import { CheckIcon } from 'src/components/check-icon';
+import { ErrorIcon } from 'src/components/error-icon';
+import { cx } from 'src/lib/cx';
 
 export function SyncPullPushClear( {
 	onClick,

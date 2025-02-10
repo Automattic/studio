@@ -1,5 +1,5 @@
+import { LocalValidator } from 'src/lib/import-export/import/validators/local-validator';
 import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
-import { LocalValidator } from '../../../import/validators/local-validator';
 
 platformTestSuite( 'LocalValidator', ( { normalize } ) => {
 	let validator: LocalValidator;

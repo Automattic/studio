@@ -2,7 +2,7 @@ import { app, dialog } from 'electron';
 import path from 'path';
 import { __ } from '@wordpress/i18n';
 import sudo from 'sudo-prompt';
-import { loadUserData, saveUserData } from '../storage/user-data';
+import { loadUserData, saveUserData } from 'src/storage/user-data';
 
 export async function promptWindowsSpeedUpSites( {
 	skipIfAlreadyPrompted,

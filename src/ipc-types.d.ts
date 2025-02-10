@@ -47,6 +47,8 @@ interface Snapshot {
 	date: number;
 	isLoading?: boolean;
 	isDeleting?: boolean;
+	name?: string;
+	sequence?: number;
 }
 
 type InstalledApps = {

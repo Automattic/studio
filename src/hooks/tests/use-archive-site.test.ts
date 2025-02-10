@@ -1,14 +1,14 @@
 import { renderHook, act } from '@testing-library/react';
-import { getIpcApi } from '../../lib/get-ipc-api';
-import { useSyncSites } from '../sync-sites';
-import { useArchiveSite } from '../use-archive-site';
-import { useAuth } from '../use-auth';
-import { useSiteDetails } from '../use-site-details';
+import { useSyncSites } from 'src/hooks/sync-sites';
+import { useArchiveSite } from 'src/hooks/use-archive-site';
+import { useAuth } from 'src/hooks/use-auth';
+import { useSiteDetails } from 'src/hooks/use-site-details';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 
-jest.mock( '../use-auth' );
-jest.mock( '../sync-sites' );
-jest.mock( '../use-site-details' );
-jest.mock( '../../lib/get-ipc-api' );
+jest.mock( 'src/hooks/use-auth' );
+jest.mock( 'src/hooks/sync-sites' );
+jest.mock( 'src/hooks/use-site-details' );
+jest.mock( 'src/lib/get-ipc-api' );
 
 describe( 'useArchiveSite', () => {
 	const LOCAL_SITE_ID = '1658e275-3e68-4aff-a016-2dbf9c5de3db';

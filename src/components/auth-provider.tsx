@@ -2,9 +2,9 @@ import * as Sentry from '@sentry/electron/renderer';
 import { useI18n } from '@wordpress/react-i18n';
 import { createContext, useState, useEffect, useMemo, useCallback, ReactNode } from 'react';
 import WPCOM from 'wpcom';
-import { useI18nData } from '../hooks/use-i18n-data';
-import { useIpcListener } from '../hooks/use-ipc-listener';
-import { getIpcApi } from '../lib/get-ipc-api';
+import { useI18nData } from 'src/hooks/use-i18n-data';
+import { useIpcListener } from 'src/hooks/use-ipc-listener';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 
 export interface AuthContextType {
 	client: WPCOM | undefined;

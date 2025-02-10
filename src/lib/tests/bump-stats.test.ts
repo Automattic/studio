@@ -1,9 +1,9 @@
 import { waitFor } from '@testing-library/react';
 import nock from 'nock';
-import { loadUserData, saveUserData } from '../../storage/user-data';
-import { bumpAggregatedUniqueStat, bumpStat } from '../bump-stats';
+import { bumpAggregatedUniqueStat, bumpStat } from 'src/lib/bump-stats';
+import { loadUserData, saveUserData } from 'src/storage/user-data';
 
-jest.mock( '../../storage/user-data' );
+jest.mock( 'src/storage/user-data' );
 
 const originalEnv = { ...process.env };
 afterEach( () => {

@@ -1,10 +1,10 @@
 import * as Sentry from '@sentry/electron/main';
 import wpcom from 'wpcom';
 import { z } from 'zod';
+import { PROTOCOL_PREFIX, WP_AUTHORIZE_ENDPOINT, CLIENT_ID, SCOPES } from 'src/constants';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
-import { PROTOCOL_PREFIX, WP_AUTHORIZE_ENDPOINT, CLIENT_ID, SCOPES } from '../constants';
-import { shellOpenExternalWrapper } from '../lib/shell-open-external-wrapper';
-import { loadUserData, saveUserData } from '../storage/user-data';
+import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
+import { loadUserData, saveUserData } from 'src/storage/user-data';
 
 const REDIRECT_URI = `${ PROTOCOL_PREFIX }://auth`;
 const authTokenSchema = z.object( {
@@ -13,7 +13,13 @@ const authTokenSchema = z.object( {
 	expirationTime: z.number(),
 	id: z.number(),
 	email: z.string(),
-	displayName: z.string().optional(),
+	displayName: z.string().default( '' ),
+} );
+
+const meResponseSchema = z.object( {
+	ID: z.number(),
+	email: z.string(),
+	display_name: z.string(),
 } );
 
 export type StoredToken = z.infer< typeof authTokenSchema >;
@@ -81,7 +87,8 @@ async function handleAuthCallback( hash: string ): Promise< StoredToken > {
 		throw new Error( 'Error while getting token' );
 	}
 
-	const response = await new wpcom( accessToken ).req.get( '/me?fields=ID,email,display_name' );
+	const rawResponse = await new wpcom( accessToken ).req.get( '/me?fields=ID,email,display_name' );
+	const response = meResponseSchema.parse( rawResponse );
 
 	return authTokenSchema.parse( {
 		expiresIn,

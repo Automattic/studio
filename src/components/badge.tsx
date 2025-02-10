@@ -1,4 +1,4 @@
-import { cx } from '../lib/cx';
+import { cx } from 'src/lib/cx';
 
 export function Badge( {
 	children,

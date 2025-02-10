@@ -1,14 +1,14 @@
 // To run tests, execute `npm test src/hooks/tests/use-update-demo-site.test.ts` from the root directory
 import { act, renderHook } from '@testing-library/react';
 import { ReactNode } from 'react';
-import { getIpcApi } from '../../lib/get-ipc-api';
-import { useAuth } from '../use-auth';
-import { useSnapshots } from '../use-snapshots';
-import { useUpdateDemoSite, DemoSiteUpdateProvider } from '../use-update-demo-site';
+import { useAuth } from 'src/hooks/use-auth';
+import { useSnapshots } from 'src/hooks/use-snapshots';
+import { useUpdateDemoSite, DemoSiteUpdateProvider } from 'src/hooks/use-update-demo-site';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 
-jest.mock( '../../hooks/use-snapshots' );
-jest.mock( '../../hooks/use-auth' );
-jest.mock( '../../lib/get-ipc-api', () => ( {
+jest.mock( 'src/hooks/use-snapshots' );
+jest.mock( 'src/hooks/use-auth' );
+jest.mock( 'src/lib/get-ipc-api', () => ( {
 	getIpcApi: jest.fn().mockReturnValue( {
 		archiveSite: jest.fn().mockResolvedValue( {
 			archivePath: '/mock/path/archive.zip',

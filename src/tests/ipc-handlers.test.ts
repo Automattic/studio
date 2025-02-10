@@ -5,23 +5,23 @@ import { shell, IpcMainInvokeEvent } from 'electron';
 import fs from 'fs';
 import { normalize } from 'path';
 import * as Sentry from '@sentry/electron/main';
+import { createSite, startServer, isFullscreen, importSite } from 'src/ipc-handlers';
+import { isEmptyDir, pathExists } from 'src/lib/fs-utils';
+import { importBackup, defaultImporterOptions } from 'src/lib/import-export/import/import-manager';
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
-import { createSite, startServer, isFullscreen, importSite } from '../ipc-handlers';
-import { isEmptyDir, pathExists } from '../lib/fs-utils';
-import { importBackup, defaultImporterOptions } from '../lib/import-export/import/import-manager';
-import { keepSqliteIntegrationUpdated } from '../lib/sqlite-versions';
-import { getMainWindow } from '../main-window';
-import { SiteServer, createSiteWorkingDirectory } from '../site-server';
+import { keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
+import { getMainWindow } from 'src/main-window';
+import { SiteServer, createSiteWorkingDirectory } from 'src/site-server';
 
 jest.mock( 'fs' );
 jest.mock( 'fs-extra' );
-jest.mock( '../lib/fs-utils' );
-jest.mock( '../site-server' );
-jest.mock( '../lib/sqlite-versions' );
-jest.mock( '../../vendor/wp-now/src/download' );
-jest.mock( '../main-window' );
+jest.mock( 'src/lib/fs-utils' );
+jest.mock( 'src/site-server' );
+jest.mock( 'src/lib/sqlite-versions' );
+jest.mock( 'vendor/wp-now/src/download' );
+jest.mock( 'src/main-window' );
 jest.mock( '@sentry/electron/main' );
-jest.mock( '../lib/import-export/import/import-manager' );
+jest.mock( 'src/lib/import-export/import/import-manager' );
 
 ( SiteServer.create as jest.Mock ).mockImplementation( ( details ) => ( {
 	start: jest.fn(),

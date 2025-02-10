@@ -19,14 +19,14 @@ import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
 
 store.replaceReducer( testReducer );
 
-jest.mock( '../../hooks/use-auth' );
-jest.mock( '../../hooks/use-welcome-messages' );
-jest.mock( '../../hooks/use-offline' );
-jest.mock( '../../hooks/use-prompt-usage' );
-jest.mock( '../../lib/get-ipc-api' );
-jest.mock( '../../hooks/use-get-wp-version' );
+jest.mock( 'src/hooks/use-auth' );
+jest.mock( 'src/hooks/use-welcome-messages' );
+jest.mock( 'src/hooks/use-offline' );
+jest.mock( 'src/hooks/use-prompt-usage' );
+jest.mock( 'src/lib/get-ipc-api' );
+jest.mock( 'src/hooks/use-get-wp-version' );
 
-jest.mock( '../../lib/app-globals', () => ( {
+jest.mock( 'src/lib/app-globals', () => ( {
 	getAppGlobals: () => ( {
 		locale: jest.fn,
 	} ),
@@ -52,8 +52,8 @@ const runningSite = {
 };
 
 const initialMessages = [
-	generateMessage( 'Initial message 1', 'user', 0, 'chat-id', 10 ),
-	generateMessage( 'Initial message 2', 'assistant', 1, 'chat-id', 11 ),
+	generateMessage( 'Initial message 1', 'user', 0, 100, 10 ),
+	generateMessage( 'Initial message 2', 'assistant', 1, 100, 11 ),
 ];
 
 function ContextWrapper( props: Parameters< typeof ContentTabAssistant >[ 0 ] ) {
@@ -71,10 +71,8 @@ describe( 'ContentTabAssistant', () => {
 		callback(
 			null,
 			{
-				id: 'chatcmpl-9USNsuhHWYsPAUNiOhOG2970Hjwwb',
-				object: 'chat.completion',
-				created: 1717045976,
-				model: 'test',
+				id: 100,
+				created_at: '2025-01-24 09:11:50',
 				choices: [
 					{
 						index: 0,
@@ -84,12 +82,8 @@ describe( 'ContentTabAssistant', () => {
 							content:
 								'Hello! How can I assist you today? Are you working on a WordPress project, or do you need help with something specific related to WordPress or WP-CLI?',
 						},
-						logprobs: null,
-						finish_reason: 'stop',
 					},
 				],
-				usage: { prompt_tokens: 980, completion_tokens: 36, total_tokens: 1016 },
-				system_fingerprint: 'fp_777',
 			},
 			{
 				'x-quota-max': '100',
@@ -355,9 +349,9 @@ describe( 'ContentTabAssistant', () => {
 		jest.useFakeTimers();
 		jest.setSystemTime( MOCKED_CURRENT_TIME );
 
-		const messageOne = generateMessage( 'Initial message 1', 'user', 0, 'hej', 10 );
+		const messageOne = generateMessage( 'Initial message 1', 'user', 0, 100, 10 );
 		messageOne.createdAt = MOCKED_CURRENT_TIME;
-		const messageTwo = generateMessage( 'Initial message 2', 'assistant', 1, 'hej', 11 );
+		const messageTwo = generateMessage( 'Initial message 2', 'assistant', 1, 100, 11 );
 		messageTwo.createdAt = OLD_MESSAGE_TIME;
 		store.dispatch(
 			chatActions.setMessages( {
@@ -398,9 +392,9 @@ describe( 'ContentTabAssistant', () => {
 	} );
 
 	it( 'renders notices by importance', async () => {
-		const messageOne = generateMessage( 'Initial message 1', 'user', 0, 'chat-id', 10 );
+		const messageOne = generateMessage( 'Initial message 1', 'user', 0, 100, 10 );
 		messageOne.createdAt = 0;
-		const messageTwo = generateMessage( 'Initial message 2', 'assistant', 1, 'chat-id', 11 );
+		const messageTwo = generateMessage( 'Initial message 2', 'assistant', 1, 100, 11 );
 		messageTwo.createdAt = 0;
 		store.dispatch(
 			chatActions.setMessages( {

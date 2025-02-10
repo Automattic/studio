@@ -1,23 +1,26 @@
 import path from 'path';
 import fs from 'fs-extra';
 import semver from 'semver';
-import { SQLITE_FILENAME } from '../vendor/wp-now/src/constants';
-import { getWordPressVersionPath } from '../vendor/wp-now/src/download';
-import getSqlitePath from '../vendor/wp-now/src/get-sqlite-path';
-import getWpCliPath from '../vendor/wp-now/src/get-wp-cli-path';
-import { recursiveCopyDirectory } from './lib/fs-utils';
+import { recursiveCopyDirectory } from 'src/lib/fs-utils';
 import {
 	getSqliteCommandPath,
 	updateLatestSQLiteCommandVersion,
 	getSQLiteCommandVersion,
-} from './lib/sqlite-command-versions';
-import { getSqliteVersionFromInstallation, updateLatestSqliteVersion } from './lib/sqlite-versions';
+} from 'src/lib/sqlite-command-versions';
+import {
+	getSqliteVersionFromInstallation,
+	updateLatestSqliteVersion,
+} from 'src/lib/sqlite-versions';
 import {
 	getWordPressVersionFromInstallation,
 	updateLatestWordPressVersion,
-} from './lib/wp-versions';
-import { updateLatestWPCliVersion } from './lib/wpcli-versions';
-import { getResourcesPath } from './storage/paths';
+} from 'src/lib/wp-versions';
+import { updateLatestWPCliVersion } from 'src/lib/wpcli-versions';
+import { getResourcesPath } from 'src/storage/paths';
+import { SQLITE_FILENAME } from 'vendor/wp-now/src/constants';
+import { getWordPressVersionPath } from 'vendor/wp-now/src/download';
+import getSqlitePath from 'vendor/wp-now/src/get-sqlite-path';
+import getWpCliPath from 'vendor/wp-now/src/get-wp-cli-path';
 
 // Tries to copy the app's bundled WordPress version to `wp-now` WP versions if needed
 async function copyBundledLatestWPVersion() {

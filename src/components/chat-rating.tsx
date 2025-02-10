@@ -1,9 +1,9 @@
 import { __ } from '@wordpress/i18n';
 import { thumbsUp, thumbsDown, Icon } from '@wordpress/icons';
+import Button from 'src/components/button';
 import { useAuth } from 'src/hooks/use-auth';
 import { useAppDispatch } from 'src/stores';
 import { chatThunks } from 'src/stores/chat-slice';
-import Button from './button';
 
 interface ChatRatingProps {
 	instanceId: string;

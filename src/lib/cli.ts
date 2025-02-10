@@ -1,6 +1,7 @@
 import { app } from 'electron';
 import { parse } from 'shell-quote';
-import { executeWPCli } from '../../vendor/wp-now/src/execute-wp-cli';
+import { z } from 'zod';
+import { executeWPCli } from 'vendor/wp-now/src/execute-wp-cli';
 
 type CommandAction = 'wp';
 interface Command {
@@ -25,10 +26,17 @@ export const getCLIDataForMainInstance = () => {
 };
 
 export const listenCLICommands = () => {
+	const additionalDataSchema = z.object( {
+		cliCommand: z.string(),
+	} );
+
 	app.on( 'second-instance', async ( event, commandLine, workingDirectory, additionalData ) => {
-		const data = additionalData as { cliCommand: string };
-		setCommand( data.cliCommand );
-		await executeCLICommand();
+		const result = additionalDataSchema.safeParse( additionalData );
+
+		if ( result.success ) {
+			setCommand( result.data.cliCommand );
+			await executeCLICommand();
+		}
 	} );
 };
 

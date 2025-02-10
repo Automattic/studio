@@ -18,6 +18,7 @@ export function SyncPullPushClear( {
 		<div
 			className={ cx(
 				'flex gap-4 pl-4 ml-auto items-center shrink-0',
+				'rtl:pl-0',
 				isError ? 'text-a8c-red-50' : 'text-a8c-green-50'
 			) }
 		>

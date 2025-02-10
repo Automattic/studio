@@ -45,7 +45,7 @@ function SiteSyncDescription( { children }: PropsWithChildren ) {
 				</div>
 				{ children }
 			</div>
-			<div className="flex flex-col shrink-0 items-end p-4">
+			<div className="flex flex-col shrink-0 items-end p-4 rtl:order-first">
 				<SyncTabImage />
 			</div>
 		</div>

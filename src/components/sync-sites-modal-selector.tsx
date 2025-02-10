@@ -135,9 +135,10 @@ const getSortedSites = ( sites: SyncSite[] ) => {
 		syncable: 1,
 		'already-connected': 2,
 		deleted: 3,
-		'needs-transfer': 4,
-		unsupported: 5,
-		'jetpack-site': 6,
+		'missing-permissions': 4,
+		'needs-transfer': 5,
+		unsupported: 6,
+		'jetpack-site': 7,
 	};
 
 	return [ ...sites ].sort( ( a, b ) => order[ a.syncSupport ] - order[ b.syncSupport ] );
@@ -184,6 +185,7 @@ function SiteItem( {
 	const isAlreadyConnected = site.syncSupport === 'already-connected';
 	const isSyncable = site.syncSupport === 'syncable';
 	const isNeedsTransfer = site.syncSupport === 'needs-transfer';
+	const isMissingPermissions = site.syncSupport === 'missing-permissions';
 	const isUnsupported = site.syncSupport === 'unsupported';
 	const isDeleted = site.syncSupport === 'deleted';
 	const isJetpackSite = site.syncSupport === 'jetpack-site';
@@ -266,6 +268,11 @@ function SiteItem( {
 					>
 						{ __( 'Enable hosting features ↗' ) }
 					</Button>
+				</div>
+			) }
+			{ isMissingPermissions && (
+				<div className="a8c-body-small text-a8c-gray-30 shrink-0 text-right">
+					{ __( 'Missing permissions' ) }
 				</div>
 			) }
 			{ isDeleted && (

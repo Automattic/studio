@@ -4,7 +4,8 @@ export type SyncSupport =
 	| 'needs-transfer'
 	| 'already-connected'
 	| 'jetpack-site'
-	| 'deleted';
+	| 'deleted'
+	| 'missing-permissions';
 
 export type SyncSite = {
 	id: number;

@@ -17,12 +17,15 @@ import {
 import { useArchiveSite } from 'src/hooks/use-archive-site';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
+import { useSiteSize } from 'src/hooks/use-site-size';
 import { useSnapshots } from 'src/hooks/use-snapshots';
+import { useUpdateDemoSite } from 'src/hooks/use-update-demo-site';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { CreatePreviewButton } from 'src/modules/preview-site/components/create-preview-button';
 import { PreviewSiteRow } from 'src/modules/preview-site/components/preview-site-row';
 import { PreviewSitesTableHeader } from 'src/modules/preview-site/components/preview-sites-table-header';
 import { ProgressRow } from 'src/modules/preview-site/components/progress-row';
+import { useUpdateButtonTooltip } from 'src/modules/preview-site/hooks/use-update-button-tooltip';
 
 interface ContentTabPreviewsProps {
 	selectedSite: SiteDetails;
@@ -159,14 +162,29 @@ function NoPreviews( { selectedSite }: React.ComponentProps< typeof EmptyGeneric
 
 export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) {
 	const { __ } = useI18n();
-	const { snapshots } = useSnapshots();
+	const { snapshots, snapshotCreationBlocked } = useSnapshots();
 	const { isAuthenticated } = useAuth();
 	const { archiveSite, isUploadingSiteId } = useArchiveSite();
+	const { isOverLimit } = useSiteSize( selectedSite.id );
+	const { isDemoSiteUpdating } = useUpdateDemoSite();
 	const isUploading = isUploadingSiteId( selectedSite.id );
 	const snapshotsOnSite = snapshots.filter(
 		( snapshot ) => snapshot.localSiteId === selectedSite.id
 	);
 	const isSnapshotLoading = snapshotsOnSite.some( ( snapshot ) => snapshot.isLoading );
+	const isAnyPreviewUpdating = snapshots.some( ( snapshot ) =>
+		isDemoSiteUpdating( snapshot.atomicSiteId )
+	);
+	const isOffline = useOffline();
+
+	const isUpdateDisabled =
+		isAnyPreviewUpdating || snapshotCreationBlocked || isOverLimit || isOffline;
+
+	const tooltipContent = useUpdateButtonTooltip( {
+		snapshotCreationBlocked,
+		isOverLimit,
+		isOffline,
+	} );
 
 	if ( ! isAuthenticated ) {
 		return <NoAuth selectedSite={ selectedSite } />;
@@ -191,6 +209,9 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 								<PreviewSiteRow
 									snapshot={ snapshot }
 									selectedSite={ selectedSite }
+									disabledUpdate={ isUpdateDisabled }
+									updateButtonTooltipContent={ tooltipContent }
+									showUpdateTooltip={ isOverLimit }
 									key={ snapshot.atomicSiteId }
 								/>
 							) ) }

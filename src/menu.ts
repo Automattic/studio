@@ -2,6 +2,7 @@ import { Menu, type MenuItemConstructorOptions, app, BrowserWindow, autoUpdater 
 import { __ } from '@wordpress/i18n';
 import { openAboutWindow } from 'src/about-menu/open-about-menu';
 import { BUG_REPORT_URL, FEATURE_REQUEST_URL, STUDIO_DOCS_URL } from 'src/constants';
+import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { getMainWindow } from 'src/main-window';
@@ -50,8 +51,7 @@ function getAppMenu(
 		{
 			label: __( 'Test Render Failure (dev only)' ),
 			click: async () => {
-				const window = await getMainWindow();
-				window.webContents.send( 'test-render-failure' );
+				sendIpcEventToRenderer( 'test-render-failure' );
 			},
 		},
 	];
@@ -85,8 +85,7 @@ function getAppMenu(
 					label: __( 'Settings…' ),
 					accelerator: 'CommandOrControl+,',
 					click: async () => {
-						const window = await getMainWindow();
-						window.webContents.send( 'user-settings' );
+						sendIpcEventToRenderer( 'user-settings' );
 					},
 				},
 				{ type: 'separator' },
@@ -110,8 +109,7 @@ function getAppMenu(
 					label: __( 'Add Site…' ),
 					accelerator: 'CommandOrControl+N',
 					click: async () => {
-						const window = await getMainWindow();
-						window.webContents.send( 'add-site' );
+						sendIpcEventToRenderer( 'add-site' );
 					},
 					enabled: ! needsOnboarding,
 				},

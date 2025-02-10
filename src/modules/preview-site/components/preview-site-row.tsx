@@ -5,6 +5,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useEffect, useState, useRef } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
+import { TooltipProps } from 'src/components/tooltip';
 import { UPDATED_MESSAGE_DURATION_MS } from 'src/constants';
 import { useExpirationDate } from 'src/hooks/use-expiration-date';
 import { useFormatLocalizedTimestamps } from 'src/hooks/use-format-localized-timestamps';
@@ -17,9 +18,18 @@ import { ProgressRow } from 'src/modules/preview-site/components/progress-row';
 interface PreviewSiteRowProps {
 	snapshot: Snapshot;
 	selectedSite: SiteDetails;
+	disabledUpdate: boolean;
+	updateButtonTooltipContent?: Partial< TooltipProps & { text?: string } >;
+	showUpdateTooltip?: boolean;
 }
 
-export function PreviewSiteRow( { snapshot, selectedSite }: PreviewSiteRowProps ) {
+export function PreviewSiteRow( {
+	snapshot,
+	selectedSite,
+	disabledUpdate,
+	updateButtonTooltipContent = {},
+	showUpdateTooltip = false,
+}: PreviewSiteRowProps ) {
 	const { __ } = useI18n();
 	const { url, date, isDeleting } = snapshot;
 	const { countDown } = useExpirationDate( date );
@@ -112,7 +122,13 @@ export function PreviewSiteRow( { snapshot, selectedSite }: PreviewSiteRowProps 
 					</div>
 					<div className="w-[100px] text-[#757575] flex items-center pl-4">{ countDown }</div>
 					<div className="w-[60px] flex justify-end">
-						<PreviewActionButtonsMenu snapshot={ snapshot } selectedSite={ selectedSite } />
+						<PreviewActionButtonsMenu
+							snapshot={ snapshot }
+							selectedSite={ selectedSite }
+							disabledUpdate={ disabledUpdate }
+							updateButtonTooltipContent={ updateButtonTooltipContent }
+							showUpdateTooltip={ showUpdateTooltip }
+						/>
 					</div>
 				</div>
 			</div>

@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import * as Sentry from '@sentry/electron/renderer';
 import WPCOM from 'wpcom';
+import { z } from 'zod';
 import { LOCAL_STORAGE_CHAT_API_IDS_KEY, LOCAL_STORAGE_CHAT_MESSAGES_KEY } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { RootState } from 'src/stores';
@@ -11,7 +12,7 @@ export type Message = {
 	messageApiId?: number;
 	content: string;
 	role: 'user' | 'assistant';
-	chatApiId?: string;
+	chatApiId?: number;
 	blocks?: {
 		cliOutput?: string;
 		cliStatus?: 'success' | 'error';
@@ -72,17 +73,35 @@ const updateFromSite = createAsyncThunk(
 	}
 );
 
+const assistantResponseSchema = z.object( {
+	choices: z.array(
+		z.object( {
+			index: z.number(),
+			message: z.object( {
+				content: z.string(),
+				id: z.number(),
+				role: z.string(),
+			} ),
+		} )
+	),
+	created_at: z.string(),
+	id: z.number(),
+} );
+
+const assistantHeadersSchema = z.object( {
+	'x-quota-max': z.string().default( '' ),
+	'x-quota-remaining': z.string().default( '' ),
+} );
+
+type FetchAssistantResponseData = z.infer< typeof assistantResponseSchema >;
+type FetchAssistantHeaders = z.infer< typeof assistantHeadersSchema >;
+
 type FetchAssistantParams = {
 	client: WPCOM;
 	instanceId: string;
 	isRetry?: boolean;
 	message: Message;
 	siteId: string;
-};
-
-type FetchAssistantResponseData = {
-	choices: { message: { content: string; id: number } }[];
-	id: string;
 };
 
 const fetchAssistant = createAsyncThunk(
@@ -107,9 +126,9 @@ const fetchAssistant = createAsyncThunk(
 
 		const { data, headers } = await new Promise< {
 			data: FetchAssistantResponseData;
-			headers: Record< string, string >;
+			headers: FetchAssistantHeaders;
 		} >( ( resolve, reject ) => {
-			client.req.post< FetchAssistantResponseData >(
+			client.req.post(
 				{
 					path: '/studio-app/ai-assistant/chat',
 					apiNamespace: 'wpcom/v2',
@@ -124,17 +143,26 @@ const fetchAssistant = createAsyncThunk(
 						Sentry.captureException( error );
 						return reject( error );
 					}
-					return resolve( { data, headers } );
+
+					try {
+						const validatedData = assistantResponseSchema.parse( data );
+						const validatedHeaders = assistantHeadersSchema.parse( headers );
+						return resolve( { data: validatedData, headers: validatedHeaders } );
+					} catch ( validationError ) {
+						Sentry.captureException( validationError );
+						console.error( validationError );
+						return reject( validationError );
+					}
 				}
 			);
 		} );
 
 		return {
-			chatApiId: data?.id,
-			maxQuota: headers[ 'x-quota-max' ] || '',
-			message: data?.choices?.[ 0 ]?.message?.content,
-			messageApiId: data?.choices?.[ 0 ]?.message?.id,
-			remainingQuota: headers[ 'x-quota-remaining' ] || '',
+			chatApiId: data.id,
+			maxQuota: headers[ 'x-quota-max' ],
+			message: data.choices[ 0 ].message.content,
+			messageApiId: data.choices[ 0 ].message.id,
+			remainingQuota: headers[ 'x-quota-remaining' ],
 		};
 	}
 );
@@ -182,10 +210,13 @@ export interface ChatState {
 	availableEditors: string[];
 	wpVersion: string;
 	messagesDict: { [ key: string ]: Message[] };
-	chatApiIdDict: { [ key: string ]: string | undefined };
+	chatApiIdDict: { [ key: string ]: number | undefined };
 	chatInputBySite: { [ key: string ]: string };
 	isLoadingDict: Record< string, boolean >;
-	promptUsageDict: Record< string, { maxQuota: string; remainingQuota: string } >;
+	promptUsage: {
+		maxQuota: string;
+		remainingQuota: string;
+	};
 }
 
 const getInitialState = (): ChatState => {
@@ -219,7 +250,10 @@ const getInitialState = (): ChatState => {
 		chatApiIdDict: parsedStoredChatIds,
 		chatInputBySite: {},
 		isLoadingDict: {},
-		promptUsageDict: {},
+		promptUsage: {
+			maxQuota: '',
+			remainingQuota: '',
+		},
 	};
 };
 
@@ -227,14 +261,14 @@ export function generateMessage(
 	content: string,
 	role: 'user' | 'assistant',
 	newMessageId: number,
-	chatApiId?: string,
+	chatApiId?: number,
 	messageApiId?: number
 ): Message {
 	return {
 		content,
 		role,
 		id: newMessageId,
-		chatApiId,
+		chatApiId: chatApiId,
 		createdAt: Date.now(),
 		feedbackReceived: false,
 		messageApiId,
@@ -367,7 +401,7 @@ const chatSlice = createSlice( {
 					state.chatApiIdDict[ instanceId ] = message.chatApiId;
 				}
 
-				state.promptUsageDict[ instanceId ] = {
+				state.promptUsage = {
 					maxQuota: action.payload.maxQuota,
 					remainingQuota: action.payload.remainingQuota,
 				};

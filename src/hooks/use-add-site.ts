@@ -129,7 +129,7 @@ export function useAddSite() {
 				);
 			} else {
 				errorPathIsNotAvailable = __(
-					'The directory is already associated with another site. Please choose a different "Site name" or adjust the "Local path".'
+					'The directory is already associated with another Studio site. Please choose a different site name or a custom local path.'
 				);
 			}
 		}

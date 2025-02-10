@@ -7,7 +7,6 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ExportEvents } from 'src/lib/import-export/export/events';
 import { generateBackupFilename } from 'src/lib/import-export/export/generate-backup-filename';
 import { BackupCreateProgressEventData, ExportOptions } from 'src/lib/import-export/export/types';
-import { ImportExportEventData } from 'src/lib/import-export/handle-events';
 import {
 	ImporterEvents,
 	BackupExtractEvents,
@@ -149,7 +148,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 		[ importState ]
 	);
 
-	useIpcListener( 'on-import', ( _, { event, data }: ImportExportEventData, siteId: string ) => {
+	useIpcListener( 'on-import', ( _, { event, data }, siteId ) => {
 		if ( ! siteId ) {
 			return;
 		}
@@ -355,7 +354,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 		[ exportSite ]
 	);
 
-	useIpcListener( 'on-export', ( _, { event, data }: ImportExportEventData, siteId: string ) => {
+	useIpcListener( 'on-export', ( _, { event, data }, siteId ) => {
 		if ( ! siteId ) {
 			return;
 		}

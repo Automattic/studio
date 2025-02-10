@@ -920,13 +920,12 @@ export function openTerminalAtPath(
 		const escapedPath = targetPath.replace( /"/g, '\\"' );
 		initScriptSteps.push( `cd \\"${ escapedPath }\\"`, 'clear' );
 
-		const osascript = `
-		tell application "Terminal"
-			do script "${ initScriptSteps.join( ' ; ' ) }"
-			activate
-		end tell`;
-
-		return promiseExec( `osascript << END '${ osascript }' END` );
+		return promiseExec( `osascript << END
+activate application "Terminal"
+tell application "Terminal"
+	do script "${ initScriptSteps.join( '\n' ) }"
+end tell
+END` );
 	} else if ( platform === 'linux' ) {
 		if ( wpCliEnabled ) {
 			return promiseExec(

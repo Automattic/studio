@@ -93,16 +93,15 @@ export function transformSingleSiteResponse(
 }
 
 export function transformSitesResponse( sites: unknown[], connectedSiteIds: number[] ): SyncSite[] {
-	const validatedSites = sites
-		.map( ( rawSite ) => {
-			try {
-				return sitesEndpointSiteSchema.parse( rawSite );
-			} catch ( error ) {
-				Sentry.captureException( error );
-				return null;
-			}
-		} )
-		.filter( ( site ): site is SitesEndpointSite => site !== null );
+	const validatedSites = sites.reduce< SitesEndpointSite[] >( ( acc, rawSite ) => {
+		try {
+			const site = sitesEndpointSiteSchema.parse( rawSite );
+			return [ ...acc, site ];
+		} catch ( error ) {
+			Sentry.captureException( error );
+			return acc;
+		}
+	}, [] );
 
 	const allStagingSiteIds = validatedSites.flatMap( ( site ) => {
 		return site.options.wpcom_staging_blog_ids;

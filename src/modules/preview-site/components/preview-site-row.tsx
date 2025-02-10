@@ -32,8 +32,8 @@ export function PreviewSiteRow( {
 }: PreviewSiteRowProps ) {
 	const { __ } = useI18n();
 	const { url, date, isDeleting } = snapshot;
-	const { countDown } = useExpirationDate( date );
-	const { fetchSnapshotUsage } = useSnapshots();
+	const { countDown, isExpired } = useExpirationDate( date );
+	const { fetchSnapshotUsage, removeSnapshot } = useSnapshots();
 	const { isDemoSiteUpdating } = useUpdateDemoSite();
 	const isPreviewSiteUpdating = isDemoSiteUpdating( snapshot.atomicSiteId );
 	const { formatRelativeTime } = useFormatLocalizedTimestamps();
@@ -122,13 +122,23 @@ export function PreviewSiteRow( {
 					</div>
 					<div className="w-[100px] text-[#757575] flex items-center pl-4">{ countDown }</div>
 					<div className="w-[60px] flex justify-end">
-						<PreviewActionButtonsMenu
-							snapshot={ snapshot }
-							selectedSite={ selectedSite }
-							disabledUpdate={ disabledUpdate }
-							updateButtonTooltipContent={ updateButtonTooltipContent }
-							showUpdateTooltip={ showUpdateTooltip }
-						/>
+						{ isExpired ? (
+							<Button
+								variant="link"
+								onClick={ () => removeSnapshot( snapshot ) }
+								className={ '!text-a8c-gray-70 hover:!text-a8c-red-50' }
+							>
+								{ __( 'Clear' ) }
+							</Button>
+						) : (
+							<PreviewActionButtonsMenu
+								snapshot={ snapshot }
+								selectedSite={ selectedSite }
+								disabledUpdate={ disabledUpdate }
+								updateButtonTooltipContent={ updateButtonTooltipContent }
+								showUpdateTooltip={ showUpdateTooltip }
+							/>
+						) }
 					</div>
 				</div>
 			</div>

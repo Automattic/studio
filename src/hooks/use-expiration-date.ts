@@ -2,7 +2,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { intervalToDuration, formatDuration, addDays, Duration, addHours } from 'date-fns';
 import { HOUR_MS, DAY_MS } from 'src/constants';
 import { useI18nData } from 'src/hooks/use-i18n-data';
-import { formatDistance } from 'src/lib/date';
+import { formatDistanceShort } from 'src/lib/date';
 import { SupportedLocale } from 'src/lib/locale';
 
 function formatStringDate( ms: number, locale: SupportedLocale ): string {
@@ -40,7 +40,7 @@ export function useExpirationDate( snapshotDate: number ) {
 		{
 			format,
 			delimiter: ', ',
-			locale: { formatDistance },
+			locale: { formatDistance: formatDistanceShort },
 		}
 	);
 

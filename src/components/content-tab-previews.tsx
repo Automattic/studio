@@ -202,8 +202,9 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 					{ ( isUploading || isSnapshotLoading ) && (
 						<ProgressRow text={ __( 'Creating preview site' ) } />
 					) }
-					{ [ snapshotsOnSite[ 0 ] ]
+					{ snapshotsOnSite
 						.filter( ( snapshot ) => ! snapshot.isLoading )
+						.sort( ( a, b ) => b.date - a.date )
 						.map( ( snapshot ) => (
 							<PreviewSiteRow
 								snapshot={ snapshot }

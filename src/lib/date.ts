@@ -45,7 +45,7 @@ export const formatDistanceShort: FormatDistanceFn = ( token, count ) => {
 			stringToFormat = _n( '%d h', '%d h', count );
 			break;
 		case 'xMinutes':
-			stringToFormat = _n( '%d m', '%d m', count );
+			stringToFormat = _n( '%d min', '%d min', count );
 			break;
 	}
 	return sprintf( stringToFormat, count );

@@ -70,7 +70,7 @@ describe( 'ContentTabSnapshots', () => {
 		( useOffline as jest.Mock ).mockReturnValue( false );
 
 		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
-		const loginButton = screen.getByRole( 'button', { name: 'Log in to WordPress.com' } );
+		const loginButton = screen.getByRole( 'button', { name: 'Log in to WordPress.com ↗' } );
 		expect( loginButton ).toBeVisible();
 		await user.click( loginButton );
 		expect( authenticate ).toHaveBeenCalledTimes( 1 );
@@ -378,7 +378,7 @@ describe( 'ContentTabSnapshots', () => {
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: false } );
 		render( <ContentTabSnapshots selectedSite={ selectedSite } /> );
 
-		const loginButton = screen.getByRole( 'button', { name: 'Log in to WordPress.com' } );
+		const loginButton = screen.getByRole( 'button', { name: 'Log in to WordPress.com ↗' } );
 		expect( loginButton ).toHaveAttribute( 'aria-disabled', 'true' );
 		fireEvent.mouseOver( loginButton );
 		expect(

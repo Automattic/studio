@@ -205,6 +205,7 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 						) }
 						{ snapshotsOnSite
 							.filter( ( snapshot ) => ! snapshot.isLoading )
+							.sort( ( a, b ) => b.date - a.date )
 							.map( ( snapshot ) => (
 								<PreviewSiteRow
 									snapshot={ snapshot }

@@ -1,4 +1,4 @@
-import { __, _n, sprintf } from '@wordpress/i18n';
+import { _n, sprintf } from '@wordpress/i18n';
 import { FormatDistanceFn } from 'date-fns';
 
 export type TimeFormat = 'short' | 'long';

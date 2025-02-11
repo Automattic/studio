@@ -57,7 +57,6 @@ export async function loadUserData(): Promise< UserData > {
 			const data = fromDiskFormat( parsed );
 			sortSites( data.sites );
 			populatePhpVersion( data.sites );
-			console.log( `Loaded user data from ${ sanitizeUserpath( filePath ) }` );
 			return data;
 		} catch ( err ) {
 			// Awkward double try-catch needed to have access to the file contents
@@ -98,7 +97,6 @@ export async function saveUserData( data: UserData ): Promise< void > {
 			await fs.promises.writeFile( filePath, asString, 'utf-8' );
 		}
 	}
-	console.log( `Saved user data to ${ sanitizeUserpath( filePath ) }` );
 }
 
 function toDiskFormat( { sites, ...rest }: UserData ): PersistedUserData {

@@ -30,6 +30,12 @@ function mockCurrentTime( timestamp: number ) {
 }
 
 describe( 'bumpStat', () => {
+	let logger: jest.SpyInstance;
+
+	beforeEach( () => {
+		logger = jest.spyOn( console, 'info' ).mockImplementation( () => {} );
+	} );
+
 	test( 'record stat with GET request to b.gif', async () => {
 		const nock = mockBumpStatRequest( 'usage', 'launch' );
 
@@ -40,7 +46,6 @@ describe( 'bumpStat', () => {
 
 	test( "don't record stat in e2e tests", () => {
 		process.env.E2E = 'true';
-		const logger = jest.spyOn( console, 'info' );
 
 		bumpStat( 'usage', 'launch' );
 
@@ -49,7 +54,6 @@ describe( 'bumpStat', () => {
 
 	test( "don't record stat in development mode", () => {
 		process.env.NODE_ENV = 'development';
-		const logger = jest.spyOn( console, 'info' );
 
 		bumpStat( 'usage', 'launch' );
 
@@ -58,7 +62,6 @@ describe( 'bumpStat', () => {
 
 	test( 'record stat in development mode if override arg is used', async () => {
 		process.env.NODE_ENV = 'development';
-		const logger = jest.spyOn( console, 'info' );
 		const nock = mockBumpStatRequest( 'usage', 'launch' );
 
 		bumpStat( 'usage', 'launch', true );

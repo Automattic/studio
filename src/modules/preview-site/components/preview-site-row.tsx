@@ -97,7 +97,7 @@ export function PreviewSiteRow( {
 						<div
 							className={ cx(
 								'text-[13px] leading-5 line-clamp-1 break-all',
-								isExpired && 'line-through'
+								isExpired && 'line-through text-[#757575]'
 							) }
 						>
 							{ /* translators: %s: Site name (e.g. "My Site Preview") */ }
@@ -113,7 +113,7 @@ export function PreviewSiteRow( {
 						) }
 						onClick={ () => getIpcApi().openURL( urlWithHTTPS ) }
 					>
-						<span className={ cx( 'truncate', isExpired && 'line-through' ) }>
+						<span className={ cx( 'truncate', isExpired && 'line-through text-[#757575]' ) }>
 							{ urlWithHTTPS }
 						</span>
 						{ ! isExpired && <ArrowIcon /> }

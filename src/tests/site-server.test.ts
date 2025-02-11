@@ -7,6 +7,7 @@ import { getWpNowConfig } from 'vendor/wp-now/src';
 // Electron's Node.js environment provides `bota`/`atob`, but Jests' does not
 jest.mock( 'src/lib/passwords' );
 
+// `SiteServer::start` uses `getPreferredSiteLanguage` to set the site language
 jest.mock( 'src/lib/site-language', () => ( {
 	getPreferredSiteLanguage: jest.fn().mockResolvedValue( 'en' ),
 } ) );

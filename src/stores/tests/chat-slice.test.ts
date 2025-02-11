@@ -243,7 +243,10 @@ describe( 'chat-slice', () => {
 			} );
 
 			expect( consoleErrorSpy ).toHaveBeenCalledTimes( 1 );
-			consoleErrorSpy.mockRestore();
+		} );
+
+		afterEach( () => {
+			jest.restoreAllMocks();
 		} );
 	} );
 

@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { useI18nData } from 'src/hooks/use-i18n-data';
 import { SupportedLocale } from 'src/lib/locale';
 
@@ -5,7 +6,7 @@ const BASE_DOCS_URL = 'https://developer.wordpress.com';
 
 const AVAILABLE_DOCS_TRANSLATIONS = [ 'es' ];
 
-export function getDocsLinks( locale: SupportedLocale ) {
+function getDocsLinks( locale: SupportedLocale ) {
 	let langPath = '';
 	if ( AVAILABLE_DOCS_TRANSLATIONS.includes( locale ) ) {
 		langPath = `/${ locale }`;
@@ -18,6 +19,14 @@ export function getDocsLinks( locale: SupportedLocale ) {
 		sites: `${ basePath }/docs/developer-tools/studio/sites/`,
 		sync: `${ basePath }/docs/developer-tools/studio/sync/`,
 	} as const;
+}
+
+export function getDocsLink(
+	locale: SupportedLocale,
+	path: keyof ReturnType< typeof getDocsLinks >
+) {
+	const links = getDocsLinks( locale );
+	return links[ path ];
 }
 
 export function useDocsLinks() {

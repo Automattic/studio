@@ -1,5 +1,5 @@
 import { renderHook } from '@testing-library/react';
-import { useDocsLinks, getDocsLinks } from '../use-docs-links';
+import { useDocsLinks, getDocsLink } from '../use-docs-links';
 import { useI18nData } from '../use-i18n-data';
 
 // Mock the useI18nData hook
@@ -70,33 +70,33 @@ describe( 'useDocsLinks', () => {
 		);
 	} );
 
-	describe( 'getDocsLinks function used in nodejs on electron action menu', () => {
+	describe( 'getDocsLink function used in nodejs on electron action menu', () => {
 		it( 'should return English URLs when called directly with en locale', () => {
-			const urls = getDocsLinks( 'en' );
-			expect( urls.studio ).toBe( 'https://developer.wordpress.com/docs/developer-tools/studio/' );
-			expect( urls.importExport ).toBe(
+			expect( getDocsLink( 'en', 'studio' ) ).toBe(
+				'https://developer.wordpress.com/docs/developer-tools/studio/'
+			);
+			expect( getDocsLink( 'en', 'importExport' ) ).toBe(
 				'https://developer.wordpress.com/docs/developer-tools/studio/import-export/'
 			);
-			expect( urls.sites ).toBe(
+			expect( getDocsLink( 'en', 'sites' ) ).toBe(
 				'https://developer.wordpress.com/docs/developer-tools/studio/sites/'
 			);
-			expect( urls.sync ).toBe(
+			expect( getDocsLink( 'en', 'sync' ) ).toBe(
 				'https://developer.wordpress.com/docs/developer-tools/studio/sync/'
 			);
 		} );
 
 		it( 'should return Spanish URLs when called directly with es locale', () => {
-			const urls = getDocsLinks( 'es' );
-			expect( urls.studio ).toBe(
+			expect( getDocsLink( 'es', 'studio' ) ).toBe(
 				'https://developer.wordpress.com/es/docs/developer-tools/studio/'
 			);
-			expect( urls.importExport ).toBe(
+			expect( getDocsLink( 'es', 'importExport' ) ).toBe(
 				'https://developer.wordpress.com/es/docs/developer-tools/studio/import-export/'
 			);
-			expect( urls.sites ).toBe(
+			expect( getDocsLink( 'es', 'sites' ) ).toBe(
 				'https://developer.wordpress.com/es/docs/developer-tools/studio/sites/'
 			);
-			expect( urls.sync ).toBe(
+			expect( getDocsLink( 'es', 'sync' ) ).toBe(
 				'https://developer.wordpress.com/es/docs/developer-tools/studio/sync/'
 			);
 		} );

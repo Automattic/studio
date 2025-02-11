@@ -4,11 +4,12 @@ import {
 } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { Icon, external } from '@wordpress/icons';
+import { Icon } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import React, { useState, useEffect, useRef, memo, useCallback, useMemo } from 'react';
 import ClearHistoryReminder from 'src/components/ai-clear-history-reminder';
 import { AIInput } from 'src/components/ai-input';
+import { ArrowIcon } from 'src/components/arrow-icon';
 import { MessageThinking } from 'src/components/assistant-thinking';
 import Button from 'src/components/button';
 import { ChatMessage, MarkDownWithCode } from 'src/components/chat-message';
@@ -320,7 +321,7 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 		</div>
 		<Button variant="primary" onClick={ onAuthenticate }>
 			{ __( 'Log in to WordPress.com' ) }
-			<Icon className="ltr:ml-1 rtl:mr-1 rtl:scale-x-[-1]" icon={ external } size={ 21 } />
+			<ArrowIcon />
 		</Button>
 	</ChatMessage>
 );

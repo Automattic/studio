@@ -228,7 +228,8 @@ describe( 'chat-slice', () => {
 		} );
 
 		it( 'should handle invalid JSON in localStorage gracefully', () => {
-			const consoleErrorSpy = jest.spyOn( console, 'error' );
+			// Silence `console.error` output
+			const consoleErrorSpy = jest.spyOn( console, 'error' ).mockImplementation( () => {} );
 
 			localStorage.setItem( LOCAL_STORAGE_CHAT_MESSAGES_KEY, 'invalid json' );
 			localStorage.setItem( LOCAL_STORAGE_CHAT_API_IDS_KEY, '{also invalid}' );
@@ -242,6 +243,7 @@ describe( 'chat-slice', () => {
 			} );
 
 			expect( consoleErrorSpy ).toHaveBeenCalledTimes( 1 );
+			consoleErrorSpy.mockRestore();
 		} );
 	} );
 

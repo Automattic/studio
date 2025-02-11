@@ -5,6 +5,9 @@ import { app } from 'electron';
 import { getPreferredSiteLanguage } from 'src/lib/site-language';
 
 jest.unmock( 'fs-extra' );
+jest.mock( 'src/storage/user-data', () => ( {
+	loadUserData: jest.fn().mockResolvedValue( { locale: undefined } ),
+} ) );
 
 const originalFetch = global.fetch;
 

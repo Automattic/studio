@@ -56,6 +56,19 @@ const defaultTableNames = [
 	'wp_terms',
 ];
 
+// Silence `console.log`, `console.warn`, and `console.error` output
+beforeAll( () => {
+	jest.spyOn( console, 'log' ).mockImplementation( () => {} );
+	jest.spyOn( console, 'warn' ).mockImplementation( () => {} );
+	jest.spyOn( console, 'error' ).mockImplementation( () => {} );
+} );
+
+afterAll( () => {
+	jest.spyOn( console, 'log' ).mockRestore();
+	jest.spyOn( console, 'warn' ).mockRestore();
+	jest.spyOn( console, 'error' ).mockRestore();
+} );
+
 platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 	let exporter: DefaultExporter;
 	let mockBackup: BackupContents;

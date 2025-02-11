@@ -17,24 +17,24 @@ describe( 'useExpirationDate', () => {
 		const snapshotDate = subHours( subDays( new Date(), 2 ), 2 ).getTime();
 		const { result } = renderHook( () => useExpirationDate( snapshotDate ) );
 		expect( result.current.isExpired ).toBeFalsy();
-		expect( result.current.countDown ).toBe( '4 days, 23 hours' );
+		expect( result.current.countDown ).toBe( '4 d, 23 h' );
 	} );
 
 	test( 'should extend countdown day for the first hour', () => {
 		const snapshotDate = subMinutes( new Date().getTime(), 5 ).getTime();
 		const { result } = renderHook( () => useExpirationDate( snapshotDate ) );
 		expect( result.current.isExpired ).toBeFalsy();
-		expect( result.current.countDown ).toBe( '7 days' );
+		expect( result.current.countDown ).toBe( '7 d' );
 	} );
 
 	test( 'should switch to hours and minutes format within 24 hours to expiration', () => {
 		const snapshotDate = subMilliseconds( subHours( subDays( new Date(), 6 ), 12 ), 100 ).getTime();
 		const { result } = renderHook( () => useExpirationDate( snapshotDate ) );
-		expect( result.current.countDown ).toBe( '12 hours, 59 minutes' );
+		expect( result.current.countDown ).toBe( '12 h, 59 min' );
 	} );
 	test( 'should switch to minutes and seconds format within the last hour before expiration', () => {
 		const snapshotDate = subHours( subDays( new Date(), 6 ), 23 ).getTime() - 1;
 		const { result } = renderHook( () => useExpirationDate( snapshotDate ) );
-		expect( result.current.countDown ).toBe( '59 minutes' );
+		expect( result.current.countDown ).toBe( '59 min' );
 	} );
 } );

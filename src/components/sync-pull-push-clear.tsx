@@ -17,7 +17,7 @@ export function SyncPullPushClear( {
 	return (
 		<div
 			className={ cx(
-				'flex gap-4 pl-4 ml-auto items-center shrink-0',
+				'flex gap-4 ps-4 ms-auto items-center shrink-0',
 				isError ? 'text-a8c-red-50' : 'text-a8c-green-50'
 			) }
 		>
@@ -25,7 +25,7 @@ export function SyncPullPushClear( {
 				{ isError ? <ErrorIcon /> : <CheckIcon /> }
 				{ children }
 			</span>
-			<Button variant="link" className="ml-3" onClick={ onClick }>
+			<Button variant="link" className="ms-3" onClick={ onClick }>
 				{ __( 'Clear' ) }
 			</Button>
 		</div>

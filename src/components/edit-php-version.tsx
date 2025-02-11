@@ -74,6 +74,7 @@ export default function EditPhpVersion() {
 									value: version,
 								} ) ) }
 								onChange={ ( version ) => setSelectedPhpVersion( version ) }
+								__nextHasNoMarginBottom
 							/>
 						</label>
 						<div className="flex flex-row justify-end gap-x-5 mt-6">

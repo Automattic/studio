@@ -4,9 +4,11 @@
 import { BrowserWindow } from 'electron';
 import fs from 'fs';
 import { normalize } from 'path';
+import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { createMainWindow, getMainWindow, __resetMainWindow } from 'src/main-window';
 
 jest.mock( 'fs' );
+jest.mock( 'src/ipc-utils' );
 
 const mockUserData = {
 	sites: [],
@@ -63,7 +65,7 @@ describe( 'getMainWindow', () => {
 		// eslint-disable-next-line @typescript-eslint/no-empty-function
 		let didFinishLoad: ( ...args: any[] ) => void = () => {};
 		( createdWindow.isDestroyed as jest.Mock ).mockReturnValueOnce( true );
-		( BrowserWindow.prototype.webContents.on as jest.Mock ).mockImplementation(
+		( BrowserWindow.prototype.webContents.on as jest.Mock ).mockImplementationOnce(
 			( _event, callback ) => {
 				didFinishLoad = callback;
 			}
@@ -89,22 +91,24 @@ describe( 'fullscreen events', () => {
 	} );
 
 	it( 'sends fullscreen-change event when entering fullscreen', () => {
-		const mockSend = jest.fn();
-		createdWindow.webContents.send = mockSend;
-
 		// Simulate entering fullscreen
 		createdWindow.emit( 'enter-full-screen' );
 
-		expect( mockSend ).toHaveBeenCalledWith( 'window-fullscreen-change', true );
+		expect( sendIpcEventToRendererWithWindow ).toHaveBeenCalledWith(
+			createdWindow,
+			'window-fullscreen-change',
+			true
+		);
 	} );
 
 	it( 'sends fullscreen-change event when leaving fullscreen', () => {
-		const mockSend = jest.fn();
-		createdWindow.webContents.send = mockSend;
-
 		// Simulate leaving fullscreen
 		createdWindow.emit( 'leave-full-screen' );
 
-		expect( mockSend ).toHaveBeenCalledWith( 'window-fullscreen-change', false );
+		expect( sendIpcEventToRendererWithWindow ).toHaveBeenCalledWith(
+			createdWindow,
+			'window-fullscreen-change',
+			false
+		);
 	} );
 } );

@@ -1,5 +1,5 @@
 import { createInterpolateElement } from '@wordpress/element';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { check, external, Icon } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren } from 'react';
@@ -47,7 +47,7 @@ function EmptyGeneric( {
 				</div>
 				<div className="mt-6">
 					{ [
-						__( `Create up to ${ LIMIT_OF_ZIP_SITES_PER_USER } preview sites for free.` ),
+						sprintf( __( 'Create up to %d preview sites for free.' ), LIMIT_OF_ZIP_SITES_PER_USER ),
 						__( 'Preview sites expire 7 days after the last update.' ),
 						createInterpolateElement( __( 'Powered by <a> WordPress.com</a>.' ), {
 							a: (

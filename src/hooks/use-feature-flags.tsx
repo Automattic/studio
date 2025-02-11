@@ -54,8 +54,7 @@ export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { c
 				setFeatureFlags( {
 					terminalWpCliEnabled:
 						Boolean( flags.terminal_wp_cli_enabled ) || terminalWpCliEnabledFromGlobals,
-					quickDeploysEnabled:
-						Boolean( flags.quick_deploys_enabled ) || quickDeploysEnabledFromGlobals,
+					quickDeploysEnabled: true,
 				} );
 			} catch ( error ) {
 				Sentry.captureException( error );

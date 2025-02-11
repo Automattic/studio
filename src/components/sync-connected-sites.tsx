@@ -148,7 +148,7 @@ const SyncConnectedSitesSection = ( {
 				<div className={ cx( 'a8c-label-semibold', hasConnectionErrors && 'error-message' ) }>
 					{ section.name }
 				</div>
-				<div className="!ml-auto">
+				<div className="ms-auto">
 					<Tooltip
 						text={ __(
 							'This site is syncing. Please wait for the sync to finish before you can disconnect it.'
@@ -190,7 +190,7 @@ const SyncConnectedSitesSection = ( {
 					<Button
 						onClick={ () => openSitesSyncSelector( { disconnectSiteId: section.id } ) }
 						variant="primary"
-						className="ml-auto"
+						className="ms-auto"
 					>
 						{ __( 'Reconnect' ) }
 					</Button>
@@ -214,7 +214,7 @@ const SyncConnectedSitesSection = ( {
 							key={ connectedSite.id }
 							className="flex items-center gap-2 min-h-14 border-b border-a8c-gray-0 px-8"
 						>
-							<div className="flex items-left min-w-20 mr-6 shrink-0">
+							<div className="flex items-left min-w-20 me-6 shrink-0">
 								{ connectedSite.isStaging ? (
 									<Badge>{ __( 'Staging' ) }</Badge>
 								) : (
@@ -233,7 +233,7 @@ const SyncConnectedSitesSection = ( {
 									<span className="truncate">{ connectedSite.url }</span> <ArrowIcon />
 								</Button>
 							</Tooltip>
-							<div className="flex gap-2 pl-4 ml-auto shrink-0">
+							<div className="flex gap-2 ps-4 ms-auto shrink-0">
 								{ isPulling && (
 									<div className="flex flex-col gap-2 min-w-44">
 										<div className="a8c-body-small">{ sitePullState.status.message }</div>
@@ -289,7 +289,7 @@ const SyncConnectedSitesSection = ( {
 											text={ __( 'Pulling or pushing a site requires an internet connection.' ) }
 											placement="top-start"
 										>
-											<div className="flex gap-2 pl-4 ml-auto shrink-0 h-5">
+											<div className="flex gap-2 ps-4 ms-auto shrink-0 h-5">
 												{ isAnySiteSyncing ? (
 													<Tooltip
 														text={

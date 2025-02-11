@@ -97,7 +97,7 @@ export function PreviewSiteRow( {
 						<div
 							className={ cx(
 								'text-[13px] leading-5 line-clamp-1 break-all',
-								isExpired && 'line-through text-[#757575]'
+								isExpired && 'line-through text-a8c-gray-700'
 							) }
 						>
 							{ /* translators: %s: Site name (e.g. "My Site Preview") */ }
@@ -108,19 +108,19 @@ export function PreviewSiteRow( {
 						variant="link"
 						disabled={ isExpired }
 						className={ cx(
-							'!text-a8c-gray-70 max-w-[100%]',
+							'!text-a8c-gray-700 max-w-[100%]',
 							isExpired ? 'pointer-events-none' : 'hover:!text-a8c-blueberry'
 						) }
 						onClick={ () => getIpcApi().openURL( urlWithHTTPS ) }
 					>
-						<span className={ cx( 'truncate', isExpired && 'line-through text-[#757575]' ) }>
+						<span className={ cx( 'truncate', isExpired && 'line-through text-a8c-gray-700' ) }>
 							{ urlWithHTTPS }
 						</span>
 						{ ! isExpired && <ArrowIcon /> }
 					</Button>
 				</div>
 				<div className="flex ml-auto">
-					<div className="w-[110px] text-[#757575] flex items-center pl-4">
+					<div className="w-[110px] text-a8c-gray-700 flex items-center pl-4">
 						{ isPreviewSiteUpdating ? (
 							<div className="flex items-center text-gray-900">
 								<Spinner className="!mt-0 !mx-2" />
@@ -130,7 +130,7 @@ export function PreviewSiteRow( {
 							getLastUpdateTimeText()
 						) }
 					</div>
-					<div className="w-[100px] text-[#757575] flex items-center pl-4">{ countDown }</div>
+					<div className="w-[100px] text-a8c-gray-700 flex items-center pl-4">{ countDown }</div>
 					<div className="w-[60px] flex justify-end">
 						{ isExpired ? (
 							<Button

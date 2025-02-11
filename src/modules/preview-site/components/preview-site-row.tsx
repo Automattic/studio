@@ -136,7 +136,7 @@ export function PreviewSiteRow( {
 							<Button
 								variant="link"
 								onClick={ () => removeSnapshot( snapshot ) }
-								className={ '!text-a8c-gray-70 hover:!text-a8c-red-50' }
+								className={ '!text-a8c-blueberry hover:!text-a8c-red-50' }
 							>
 								{ __( 'Clear' ) }
 							</Button>

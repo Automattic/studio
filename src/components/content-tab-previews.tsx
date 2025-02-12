@@ -197,32 +197,30 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 	return (
 		<div className="relative min-h-full flex flex-col">
 			<div className="w-full flex flex-col flex-1">
-				<div className="flex-1">
-					<PreviewSitesTableHeader />
-					<div className="[&>*:not(:last-child)]:border-b [&>*]:border-a8c-gray-5">
-						{ ( isUploading || isSnapshotLoading ) && (
-							<ProgressRow text={ __( 'Creating preview site' ) } />
-						) }
-						{ snapshotsOnSite
-							.filter( ( snapshot ) => ! snapshot.isLoading )
-							.sort( ( a, b ) => b.date - a.date )
-							.map( ( snapshot ) => (
-								<PreviewSiteRow
-									snapshot={ snapshot }
-									selectedSite={ selectedSite }
-									disabledUpdate={ isUpdateDisabled }
-									updateButtonTooltipContent={ tooltipContent }
-									showUpdateTooltip={ isOverLimit }
-									key={ snapshot.atomicSiteId }
-								/>
-							) ) }
+				<PreviewSitesTableHeader />
+				<div className="[&>*:not(:last-child)]:border-b [&>*]:border-a8c-gray-5">
+					{ ( isUploading || isSnapshotLoading ) && (
+						<ProgressRow text={ __( 'Creating preview site' ) } />
+					) }
+					{ snapshotsOnSite
+						.filter( ( snapshot ) => ! snapshot.isLoading )
+						.sort( ( a, b ) => b.date - a.date )
+						.map( ( snapshot ) => (
+							<PreviewSiteRow
+								snapshot={ snapshot }
+								selectedSite={ selectedSite }
+								disabledUpdate={ isUpdateDisabled }
+								updateButtonTooltipContent={ tooltipContent }
+								showUpdateTooltip={ isOverLimit }
+								key={ snapshot.atomicSiteId }
+							/>
+						) ) }
+					<div className="sticky bottom-0 bg-white/[0.8] backdrop-blur-sm w-full px-8 py-6 mt-auto">
+						<CreatePreviewButton
+							onClick={ () => archiveSite( selectedSite.id ) }
+							selectedSite={ selectedSite }
+						/>
 					</div>
-				</div>
-				<div className="sticky bottom-0 bg-white/[0.8] backdrop-blur-sm w-full px-8 py-6 mt-auto">
-					<CreatePreviewButton
-						onClick={ () => archiveSite( selectedSite.id ) }
-						selectedSite={ selectedSite }
-					/>
 				</div>
 			</div>
 		</div>

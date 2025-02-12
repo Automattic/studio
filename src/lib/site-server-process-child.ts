@@ -1,9 +1,9 @@
 import { PHPRunOptions } from '@php-wasm/universal';
+import { runCLI } from '@wp-playground/cli';
 import { setupLogging } from 'src/logging';
 import { startServer, type WPNowServer } from 'vendor/wp-now/src';
 import { WPNowOptions } from 'vendor/wp-now/src/config';
 import type { MessageName } from 'src/lib/site-server-process';
-
 type Handler = ( message: string, messageId: number, data: unknown ) => void;
 type Handlers = { [ K in MessageName ]: Handler };
 
@@ -16,17 +16,46 @@ if ( process.env.STUDIO_APP_LOGS_PATH ) {
 	} );
 }
 
-const options = JSON.parse( process.argv[ 2 ] ) as WPNowOptions;
+const useCLI = process.argv[ 2 ] === 'cli';
+const options = JSON.parse( process.argv[ 3 ] ) as WPNowOptions;
 let server: WPNowServer;
 
 const handlers: Handlers = {
-	'start-server': createHandler( start ),
+	'start-server': createHandler( useCLI ? cliStart : wpComStart ),
 	'stop-server': createHandler( stop ),
 	'run-php': createHandler( runPhp ),
 };
 
-async function start() {
+async function wpComStart() {
 	server = await startServer( options );
+	return {
+		php: {
+			documentRoot: server.php.documentRoot,
+		},
+	};
+}
+
+async function cliStart() {
+	const cli = await runCLI( {
+		command: 'server',
+		mountBeforeInstall: [ `${ options.projectPath }:/wordpress` ],
+		php: options.phpVersion,
+		port: options.port,
+		// quiet: true,
+		skipWordPressSetup: true,
+		wp: options.wordPressVersion,
+	} );
+
+	server.url = options.absoluteUrl ?? '';
+	server.php = await cli.requestHandler.getPrimaryPhp();
+	server.options = options;
+	server.stopServer = () => {
+		cli.server.close();
+		server.php.exit();
+
+		return Promise.resolve();
+	};
+
 	return {
 		php: {
 			documentRoot: server.php.documentRoot,

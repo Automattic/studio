@@ -1,5 +1,4 @@
 import { app, utilityProcess, UtilityProcess } from 'electron';
-import path from 'path';
 import { PHPRunOptions } from '@php-wasm/universal';
 import * as Sentry from '@sentry/electron/renderer';
 import { WPNowOptions } from 'vendor/wp-now/src/config';
@@ -26,20 +25,9 @@ export default class SiteServerProcess {
 		this.url = options.absoluteUrl ?? '';
 	}
 
-	async start( useCLI = true ): Promise< void > {
+	async start( useCLI = false ): Promise< void > {
 		return new Promise( ( resolve, reject ) => {
 			const spawnListener = async () => {
-				if ( useCLI ) {
-					this.php = {
-						documentRoot: '/wordpress',
-					};
-
-					this.process?.off( 'exit', exitListener );
-					resolve();
-
-					return;
-				}
-
 				const messageId = this.sendMessage( 'start-server' );
 				try {
 					const { php } = await this.waitForResponse< Pick< SiteServerProcess, 'php' > >(
@@ -61,32 +49,21 @@ export default class SiteServerProcess {
 				}
 			};
 
-			const cliPath = useCLI
-				? path.resolve( __dirname, '../../node_modules/@wp-playground/cli/wp-playground.js' )
-				: SITE_SERVER_PROCESS_MODULE_PATH;
-
-			const options = useCLI
-				? [
-						'server',
-						`--mount-before-install=${ this.options.projectPath }:/wordpress`,
-						`--wp=${ this.options.phpVersion }`,
-						'--skipWordPressSetup',
-						`--port=${ this.options.port }`,
-						`--php=${ this.options.phpVersion }`,
-				  ]
-				: [ JSON.stringify( this.options ) ];
-
 			this.process = utilityProcess
-				.fork( cliPath, options, {
-					serviceName: 'studio-site-server',
-					env: {
-						...process.env,
-						STUDIO_IN_CHILD_PROCESS: 'true',
-						STUDIO_APP_NAME: app.name,
-						STUDIO_APP_DATA_PATH: app.getPath( 'appData' ),
-						STUDIO_APP_LOGS_PATH: app.getPath( 'logs' ),
-					},
-				} )
+				.fork(
+					SITE_SERVER_PROCESS_MODULE_PATH,
+					[ useCLI ? 'cli' : 'wp-now', JSON.stringify( this.options ) ],
+					{
+						serviceName: 'studio-site-server',
+						env: {
+							...process.env,
+							STUDIO_IN_CHILD_PROCESS: 'true',
+							STUDIO_APP_NAME: app.name,
+							STUDIO_APP_DATA_PATH: app.getPath( 'appData' ),
+							STUDIO_APP_LOGS_PATH: app.getPath( 'logs' ),
+						},
+					}
+				)
 				.on( 'spawn', spawnListener )
 				.on( 'exit', exitListener );
 		} );

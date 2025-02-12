@@ -108,7 +108,7 @@ export function PreviewSiteRow( {
 						variant="link"
 						disabled={ isExpired }
 						className={ cx(
-							'!text-a8c-gray-700 max-w-[100%]',
+							'!text-a8c-gray-700 max-w-[250px]',
 							isExpired ? 'pointer-events-none' : 'hover:!text-a8c-blueberry'
 						) }
 						onClick={ () => getIpcApi().openURL( urlWithHTTPS ) }

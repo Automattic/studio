@@ -1,6 +1,6 @@
 import { app, autoUpdater, dialog } from 'electron';
 import * as Sentry from '@sentry/electron/main';
-import { __ } from '@wordpress/i18n';
+import { sprintf, __ } from '@wordpress/i18n';
 import { AUTO_UPDATE_INTERVAL_MS } from 'src/constants';
 
 type UpdpaterState =
@@ -71,15 +71,14 @@ export function setupUpdates() {
 		// Doesn't re-queue an update after an error.
 		updaterState = 'done';
 
-		if ( 'code' in err && err.code === 8 ) {
-			// Corresponds to error: "Cannot update while running on a read-only volume."
-			// This appears to occur when the app is launched from the ~/Downloads folder.
-			showInstallLocationErrorNotice();
-			console.log( err );
-		} else {
-			console.error( err );
-			Sentry.captureException( err );
+		const isReadOnlyVolumeError = 'code' in err && err.code === 8;
+		if ( isReadOnlyVolumeError ) {
+			handleReadOnlyVolumeError( err );
+			return;
 		}
+
+		console.error( err );
+		Sentry.captureException( err );
 	} );
 
 	autoUpdater.on( 'update-available', () => {
@@ -185,17 +184,65 @@ async function showUpdateReadyToInstallNotice() {
 	}
 }
 
-async function showInstallLocationErrorNotice() {
+async function showInstallLocationErrorNotice( message: string ) {
 	if ( process.platform === 'darwin' ) {
 		await dialog.showMessageBox( {
 			type: 'warning',
 			buttons: [ __( 'OK' ) ],
 			title: __( 'Could Not Update Studio' ),
 			message:
+				message ||
 				// Translators: "Applications" is the name of the folder apps are installed to on macOS
 				__(
 					'Studio can only update automatically from the Applications folder. Please move Studio to Applications and try again.'
 				),
 		} );
 	}
+}
+
+function isAppRunningFromDMG(): boolean {
+	if ( process.platform !== 'darwin' ) {
+		return false;
+	}
+
+	const appPath = app.getPath( 'exe' );
+	return appPath.startsWith( '/Volumes/' );
+}
+
+function handleReadOnlyVolumeError( err: Error ) {
+	if ( isAppRunningFromDMG() ) {
+		showInstallLocationErrorNotice(
+			sprintf(
+				__(
+					'Studio is currently running from a disk image at: %s\n\nPlease drag Studio to the Applications folder first, to enable automatic updates.'
+				),
+				app.getPath( 'exe' )
+			)
+		);
+		return;
+	}
+
+	if ( ! app.isInApplicationsFolder() ) {
+		showInstallLocationErrorNotice(
+			sprintf(
+				__(
+					'Studio is currently running from: %s\n\nPlease move Studio to the Applications folder to enable automatic updates.'
+				),
+				app.getPath( 'exe' )
+			)
+		);
+		return;
+	}
+
+	showInstallLocationErrorNotice(
+		sprintf(
+			__(
+				'Unable to update Studio at: %s\n\nPlease check if you have write permissions for this location.'
+			),
+			app.getPath( 'exe' )
+		)
+	);
+
+	console.error( err );
+	Sentry.captureException( err );
 }

@@ -1,8 +1,9 @@
 import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
-import { check, external, Icon } from '@wordpress/icons';
+import { check, Icon } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren } from 'react';
+import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import offlineIcon from 'src/components/offline-icon';
 import { ScreenshotDemoSite } from 'src/components/screenshot-demo-site';
@@ -103,7 +104,7 @@ function NoAuth( { selectedSite }: React.ComponentProps< typeof EmptyGeneric > )
 						} }
 					>
 						{ __( 'Log in to WordPress.com' ) }
-						<Icon className="ltr:ml-1 rtl:mr-1 rtl:scale-x-[-1]" icon={ external } size={ 21 } />
+						<ArrowIcon />
 					</Button>
 				</Tooltip>
 			</div>
@@ -197,31 +198,30 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 	return (
 		<div className="relative min-h-full flex flex-col">
 			<div className="w-full flex flex-col flex-1">
-				<div className="flex-1">
-					<PreviewSitesTableHeader />
-					<div className="[&>*:not(:last-child)]:border-b [&>*]:border-a8c-gray-5">
-						{ ( isUploading || isSnapshotLoading ) && (
-							<ProgressRow text={ __( 'Creating preview site' ) } />
-						) }
-						{ snapshotsOnSite
-							.filter( ( snapshot ) => ! snapshot.isLoading )
-							.map( ( snapshot ) => (
-								<PreviewSiteRow
-									snapshot={ snapshot }
-									selectedSite={ selectedSite }
-									disabledUpdate={ isUpdateDisabled }
-									updateButtonTooltipContent={ tooltipContent }
-									showUpdateTooltip={ isOverLimit }
-									key={ snapshot.atomicSiteId }
-								/>
-							) ) }
+				<PreviewSitesTableHeader />
+				<div className="[&>*:not(:last-child)]:border-b [&>*]:border-a8c-gray-5">
+					{ ( isUploading || isSnapshotLoading ) && (
+						<ProgressRow text={ __( 'Creating preview site' ) } />
+					) }
+					{ snapshotsOnSite
+						.filter( ( snapshot ) => ! snapshot.isLoading )
+						.sort( ( a, b ) => b.date - a.date )
+						.map( ( snapshot ) => (
+							<PreviewSiteRow
+								snapshot={ snapshot }
+								selectedSite={ selectedSite }
+								disabledUpdate={ isUpdateDisabled }
+								updateButtonTooltipContent={ tooltipContent }
+								showUpdateTooltip={ isOverLimit }
+								key={ snapshot.atomicSiteId }
+							/>
+						) ) }
+					<div className="sticky bottom-0 bg-white/[0.8] backdrop-blur-sm w-full px-8 py-6 mt-auto">
+						<CreatePreviewButton
+							onClick={ () => archiveSite( selectedSite.id ) }
+							selectedSite={ selectedSite }
+						/>
 					</div>
-				</div>
-				<div className="sticky bottom-0 bg-white/[0.8] backdrop-blur-sm w-full px-8 py-6 mt-auto">
-					<CreatePreviewButton
-						onClick={ () => archiveSite( selectedSite.id ) }
-						selectedSite={ selectedSite }
-					/>
 				</div>
 			</div>
 		</div>

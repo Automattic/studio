@@ -16,18 +16,11 @@ export const WINDOWS_TITLEBAR_HEIGHT = 32;
 export const ABOUT_WINDOW_WIDTH = 284;
 export const ABOUT_WINDOW_HEIGHT = 350;
 export const AI_GUIDELINES_URL = 'https://automattic.com/ai-guidelines/';
-export const STUDIO_DOCS_URL = `https://developer.wordpress.com/docs/developer-tools/studio/`;
-export const STUDIO_DOCS_URL_IMPORT_EXPORT =
-	'https://developer.wordpress.com/docs/developer-tools/studio/import-export';
-export const STUDIO_DOCS_URL_SITES =
-	'https://developer.wordpress.com/docs/developer-tools/studio/sites/';
 export const BUG_REPORT_URL =
 	'https://github.com/Automattic/studio/issues/new?assignees=&labels=Needs+triage%2C%5BType%5D+Bug&projects=&template=bug_report.yml';
 export const FEATURE_REQUEST_URL =
 	'https://github.com/Automattic/studio/issues/new?assignees=&labels=%5BType%5D+Feature+Request&projects=&template=feature_request.yml&title=Feature+Request%3A';
 export const WPCOM_PROFILE_URL = 'https://wordpress.com/me';
-export const STUDIO_DOCS_URL_GET_HELP_UNSUPPORTED_SITES =
-	'https://developer.wordpress.com/docs/developer-tools/studio/';
 export const LOCAL_STORAGE_CHAT_MESSAGES_KEY = 'ai_chat_messages';
 export const LOCAL_STORAGE_CHAT_API_IDS_KEY = 'ai_chat_ids';
 

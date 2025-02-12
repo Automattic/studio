@@ -16,7 +16,7 @@ import { Tooltip, DynamicTooltip } from 'src/components/tooltip';
 import { WordPressLogoCircle } from 'src/components/wordpress-logo-circle';
 import { useSyncSites } from 'src/hooks/sync-sites';
 import { useConfirmationDialog } from 'src/hooks/use-confirmation-dialog';
-import { useDocsLinks } from 'src/hooks/use-docs-links';
+import { useDocsLink } from 'src/hooks/use-docs-link';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSyncStatesProgressInfo } from 'src/hooks/use-sync-states-progress-info';
 import { cx } from 'src/lib/cx';
@@ -42,7 +42,7 @@ const SyncConnectedSitesSection = ( {
 	openSitesSyncSelector: OpenSitesSyncSelector;
 } ) => {
 	const { __ } = useI18n();
-	const docs = useDocsLinks();
+	const getDocsLink = useDocsLink();
 	const {
 		pullSite,
 		clearPullState,
@@ -178,7 +178,10 @@ const SyncConnectedSitesSection = ( {
 							__( "Studio couldn't connect to this site. <button>Get help ↗️</button>" ),
 							{
 								button: (
-									<Button variant="link" onClick={ () => getIpcApi().openURL( docs.sync ) } />
+									<Button
+										variant="link"
+										onClick={ () => getIpcApi().openURL( getDocsLink( 'sync' ) ) }
+									/>
 								),
 							}
 						) }

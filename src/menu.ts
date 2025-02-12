@@ -7,7 +7,7 @@ import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { getMainWindow } from 'src/main-window';
 import { isUpdateReadyToInstall, manualCheckForUpdates } from 'src/updates';
-import { getDocsLink } from './hooks/use-docs-links';
+import { getDocsLink } from './hooks/use-docs-link';
 import { getUserLocaleWithFallback } from './lib/locale-node';
 
 export async function setupMenu( config: { needsOnboarding: boolean } ) {

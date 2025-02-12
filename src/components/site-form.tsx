@@ -8,7 +8,7 @@ import Button from 'src/components/button';
 import FolderIcon from 'src/components/folder-icon';
 import TextControlComponent from 'src/components/text-control';
 import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
-import { useDocsLinks } from 'src/hooks/use-docs-links';
+import { useDocsLink } from 'src/hooks/use-docs-link';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
@@ -229,7 +229,7 @@ export const SiteForm = ( {
 	fileError?: string;
 } ) => {
 	const { __, isRTL } = useI18n();
-	const docs = useDocsLinks();
+	const getDocsLink = useDocsLink();
 
 	const [ isAdvancedSettingsVisible, setAdvancedSettingsVisible ] = useState( false );
 
@@ -271,7 +271,7 @@ export const SiteForm = ( {
 											<Button
 												variant="link"
 												className="text-xs"
-												onClick={ () => getIpcApi().openURL( docs.importExport ) }
+												onClick={ () => getIpcApi().openURL( getDocsLink( 'importExport' ) ) }
 											/>
 										),
 									}
@@ -339,7 +339,7 @@ export const SiteForm = ( {
 														<Button
 															variant="link"
 															className="text-xs"
-															onClick={ () => getIpcApi().openURL( docs.sites ) }
+															onClick={ () => getIpcApi().openURL( getDocsLink( 'sites' ) ) }
 														/>
 													),
 												}

@@ -120,7 +120,7 @@ export function PreviewSiteRow( {
 					</Button>
 				</div>
 				<div className="flex ml-auto">
-					<div className="w-[170px] text-a8c-gray-700 flex items-center pl-4">
+					<div className="w-[150px] text-a8c-gray-700 flex items-center pl-4">
 						{ isPreviewSiteUpdating ? (
 							<div className="flex items-center text-gray-900">
 								<Spinner className="!mt-0 !mx-2" />
@@ -132,7 +132,7 @@ export function PreviewSiteRow( {
 					</div>
 					<div className="flex items-center">
 						<Tooltip text={ expireDateString } disabled={ isExpired }>
-							<div className="w-[170px] text-a8c-gray-700 pl-4">{ countDown }</div>
+							<div className="w-[150px] text-a8c-gray-700 pl-4">{ countDown }</div>
 						</Tooltip>
 					</div>
 					<div className="w-[60px] flex justify-end">

@@ -2,15 +2,31 @@ import { useI18n } from '@wordpress/react-i18n';
 import { intervalToDuration, formatDuration, addDays, Duration, addHours } from 'date-fns';
 import { HOUR_MS, DAY_MS } from 'src/constants';
 import { useI18nData } from 'src/hooks/use-i18n-data';
-import { formatDistanceShort } from 'src/lib/date';
+import { formatDistance } from 'src/lib/date';
 import { SupportedLocale } from 'src/lib/locale';
 
-function formatStringDate( ms: number, locale: SupportedLocale ): string {
-	const formatter = new Intl.DateTimeFormat( locale, {
-		day: 'numeric',
-		month: 'long',
-		year: 'numeric',
-	} );
+function formatStringDate(
+	ms: number,
+	locale: SupportedLocale,
+	format: 'long' | 'short' = 'short'
+): string {
+	const options: Intl.DateTimeFormatOptions =
+		format === 'short'
+			? {
+					day: 'numeric',
+					month: 'long',
+					year: 'numeric',
+			  }
+			: {
+					day: '2-digit',
+					month: 'short',
+					year: 'numeric',
+					hour: '2-digit',
+					minute: '2-digit',
+					second: '2-digit',
+					hour12: false,
+			  };
+	const formatter = new Intl.DateTimeFormat( locale, options );
 	return formatter.format( new Date( ms ) );
 }
 
@@ -40,13 +56,14 @@ export function useExpirationDate( snapshotDate: number ) {
 		{
 			format,
 			delimiter: ', ',
-			locale: { formatDistance: formatDistanceShort },
+			locale: { formatDistance },
 		}
 	);
 
 	return {
 		isExpired,
 		countDown: isExpired ? __( 'Expired' ) : countDown,
+		fullDateString: formatStringDate( endDate.getTime(), locale, 'long' ),
 		dateString: formatStringDate( snapshotDate, locale ),
 	};
 }

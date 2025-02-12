@@ -5,7 +5,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useEffect, useState, useRef } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
-import { TooltipProps } from 'src/components/tooltip';
+import { TooltipProps, Tooltip } from 'src/components/tooltip';
 import { UPDATED_MESSAGE_DURATION_MS } from 'src/constants';
 import { useExpirationDate } from 'src/hooks/use-expiration-date';
 import { useFormatLocalizedTimestamps } from 'src/hooks/use-format-localized-timestamps';
@@ -33,7 +33,7 @@ export function PreviewSiteRow( {
 }: PreviewSiteRowProps ) {
 	const { __ } = useI18n();
 	const { url, date, isDeleting } = snapshot;
-	const { countDown, isExpired } = useExpirationDate( date );
+	const { countDown, fullDateString, isExpired } = useExpirationDate( date );
 	const { fetchSnapshotUsage, removeSnapshot } = useSnapshots();
 	const { isDemoSiteUpdating } = useUpdateDemoSite();
 	const isPreviewSiteUpdating = isDemoSiteUpdating( snapshot.atomicSiteId );
@@ -130,7 +130,11 @@ export function PreviewSiteRow( {
 							getLastUpdateTimeText()
 						) }
 					</div>
-					<div className="w-[100px] text-a8c-gray-700 flex items-center pl-4">{ countDown }</div>
+					<div className="flex items-center">
+						<Tooltip text={ fullDateString } disabled={ isExpired }>
+							<div className="w-[100px] text-a8c-gray-700 pl-4">{ countDown }</div>
+						</Tooltip>
+					</div>
 					<div className="w-[60px] flex justify-end">
 						{ isExpired ? (
 							<Button

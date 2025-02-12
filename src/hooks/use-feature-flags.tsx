@@ -20,7 +20,7 @@ export interface FeatureFlagsContextType {
 
 export const FeatureFlagsContext = createContext< FeatureFlagsContextType >( {
 	terminalWpCliEnabled: false,
-	quickDeploysEnabled: false,
+	quickDeploysEnabled: true,
 } );
 
 interface FeatureFlagsProviderProps {
@@ -32,7 +32,7 @@ export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { c
 	const quickDeploysEnabledFromGlobals = getAppGlobals().quickDeploysEnabled;
 	const [ featureFlags, setFeatureFlags ] = useState< FeatureFlagsContextType >( {
 		terminalWpCliEnabled: terminalWpCliEnabledFromGlobals,
-		quickDeploysEnabled: quickDeploysEnabledFromGlobals,
+		quickDeploysEnabled: true,
 	} );
 	const { isAuthenticated, client } = useAuth();
 

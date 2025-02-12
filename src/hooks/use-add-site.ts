@@ -125,7 +125,7 @@ export function useAddSite() {
 		if ( siteWithPathAlreadyExists( sitePath ? sitePath : proposedSitePath ) ) {
 			if ( sitePath ) {
 				errorPathIsNotAvailable = __(
-					'This directory is already connected to another site in Studio.'
+					'The directory is already associated with another Studio site. Please choose a different custom local path.'
 				);
 			} else {
 				errorPathIsNotAvailable = __(

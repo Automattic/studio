@@ -5,8 +5,6 @@ import {
 	code,
 	desktop,
 	edit,
-	external,
-	Icon,
 	layout,
 	navigation,
 	page,

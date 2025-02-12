@@ -33,7 +33,7 @@ export function PreviewSiteRow( {
 }: PreviewSiteRowProps ) {
 	const { __ } = useI18n();
 	const { url, date, isDeleting } = snapshot;
-	const { countDown, fullDateString, isExpired } = useExpirationDate( date );
+	const { countDown, expireDateString, isExpired } = useExpirationDate( date );
 	const { fetchSnapshotUsage, removeSnapshot } = useSnapshots();
 	const { isDemoSiteUpdating } = useUpdateDemoSite();
 	const isPreviewSiteUpdating = isDemoSiteUpdating( snapshot.atomicSiteId );
@@ -131,7 +131,7 @@ export function PreviewSiteRow( {
 						) }
 					</div>
 					<div className="flex items-center">
-						<Tooltip text={ fullDateString } disabled={ isExpired }>
+						<Tooltip text={ expireDateString } disabled={ isExpired }>
 							<div className="w-[170px] text-a8c-gray-700 pl-4">{ countDown }</div>
 						</Tooltip>
 					</div>

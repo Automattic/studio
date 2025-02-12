@@ -64,7 +64,7 @@ export function useExpirationDate( snapshotDate: number ) {
 	return {
 		isExpired,
 		countDown: isExpired ? __( 'Expired' ) : countDown,
-		fullDateString: formatStringDate( endDate.getTime(), locale, 'long' ),
+		expireDateString: formatStringDate( endDate.getTime(), locale, 'long' ),
 		dateString: formatStringDate( snapshotDate, locale ),
 	};
 }

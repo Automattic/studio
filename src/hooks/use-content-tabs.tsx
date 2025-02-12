@@ -37,7 +37,7 @@ function useTabs() {
 			tabs.push( {
 				order: 3,
 				name: 'previews',
-				title: __( 'Previews' ),
+				title: __( 'Share' ),
 			} );
 		} else {
 			tabs.push( {

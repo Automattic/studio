@@ -75,7 +75,7 @@ export function PreviewSiteRow( {
 			);
 		}
 
-		const timeDistance = formatRelativeTime( new Date( date ).toISOString(), 'short' );
+		const timeDistance = formatRelativeTime( new Date( date ).toISOString() );
 		return sprintf( __( '%s ago' ), timeDistance );
 	};
 

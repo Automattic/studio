@@ -121,7 +121,7 @@ describe( 'useUpdateDemoSite', () => {
 		// Assert that success notification is shown
 		expect( getIpcApi().showNotification ).toHaveBeenCalledWith( {
 			title: 'Update Successful',
-			body: "Demo site for 'Test Site' has been updated.",
+			body: "Preview site for 'Test Site' has been updated.",
 		} );
 	} );
 
@@ -139,7 +139,7 @@ describe( 'useUpdateDemoSite', () => {
 		// Assert that an alert is displayed to inform users of the failure
 		expect( getIpcApi().showErrorMessageBox ).toHaveBeenCalledWith( {
 			title: 'Update failed',
-			message: "We couldn't update the Test Site demo site. Please try again.",
+			message: "We couldn't update the Test Site preview site. Please try again.",
 			error,
 		} );
 

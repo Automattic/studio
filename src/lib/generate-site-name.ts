@@ -25,6 +25,7 @@ export function generateSiteName( usedSiteNames: string[] ): string {
 	];
 
 	const defaultName = __( 'My WordPress Website' );
+
 	if ( ! usedSiteNames.includes( defaultName ) ) {
 		return defaultName;
 	}
@@ -34,12 +35,11 @@ export function generateSiteName( usedSiteNames: string[] ): string {
 		return availableNames[ Math.floor( Math.random() * availableNames.length ) ];
 	}
 
-	const randomName = siteNames[ Math.floor( Math.random() * siteNames.length ) ];
-	let postfix = 1;
-	while ( usedSiteNames.includes( `${ randomName } ${ postfix }` ) ) {
-		postfix++;
+	let siteNumber = 1;
+	while ( usedSiteNames.includes( `${ defaultName } ${ siteNumber }` ) ) {
+		siteNumber++;
 	}
-	return `${ randomName } ${ postfix }`;
+	return `${ defaultName } ${ siteNumber }`;
 }
 
 export const sanitizeFolderName = ( filename: string ) => {

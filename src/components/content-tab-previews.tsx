@@ -1,8 +1,9 @@
 import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
-import { check, external, Icon } from '@wordpress/icons';
+import { check, Icon } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren } from 'react';
+import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import offlineIcon from 'src/components/offline-icon';
 import { ScreenshotDemoSite } from 'src/components/screenshot-demo-site';
@@ -103,7 +104,7 @@ function NoAuth( { selectedSite }: React.ComponentProps< typeof EmptyGeneric > )
 						} }
 					>
 						{ __( 'Log in to WordPress.com' ) }
-						<Icon className="ltr:ml-1 rtl:mr-1 rtl:scale-x-[-1]" icon={ external } size={ 21 } />
+						<ArrowIcon />
 					</Button>
 				</Tooltip>
 			</div>

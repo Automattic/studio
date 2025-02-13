@@ -49,7 +49,7 @@ export function openAboutWindow() {
 			const versionText = sprintf( __( 'Version %s' ), packageJson );
 			const studioByWpcomText = escapeSingleQuotes( __( 'Studio by WordPress.com' ) );
 			const shareFeedbackText = escapeSingleQuotes( __( 'Share Feedback' ) );
-			const demoSitesText = escapeSingleQuotes( __( 'Demo sites powered by' ) );
+			const demoSitesText = escapeSingleQuotes( __( 'Preview sites powered by' ) );
 			const localSitesText = escapeSingleQuotes( __( 'Local sites powered by' ) );
 
 			const script = `

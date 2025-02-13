@@ -17,7 +17,7 @@ const DeleteSite = () => {
 	const isOffline = useOffline();
 
 	const offlineMessage = __(
-		'This site has active demo sites that cannot be deleted without an internet connection.'
+		'This site has active preview sites that cannot be deleted without an internet connection.'
 	);
 
 	const { snapshots } = useSnapshots();

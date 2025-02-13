@@ -35,7 +35,7 @@ export function generateSiteName( usedSiteNames: string[] ): string {
 		return availableNames[ Math.floor( Math.random() * availableNames.length ) ];
 	}
 
-	let siteNumber = 1;
+	let siteNumber = 2;
 	while ( usedSiteNames.includes( `${ defaultName } ${ siteNumber }` ) ) {
 		siteNumber++;
 	}

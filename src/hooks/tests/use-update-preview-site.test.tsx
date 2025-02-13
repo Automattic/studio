@@ -1,4 +1,4 @@
-// To run tests, execute `npm test src/hooks/tests/use-update-demo-site.test.ts` from the root directory
+// To run tests, execute `npm test src/hooks/tests/use-update-preview-site.test.ts` from the root directory
 import { act, renderHook } from '@testing-library/react';
 import { ReactNode } from 'react';
 import { useAuth } from 'src/hooks/use-auth';

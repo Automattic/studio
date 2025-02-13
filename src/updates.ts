@@ -2,6 +2,7 @@ import { app, autoUpdater, dialog } from 'electron';
 import * as Sentry from '@sentry/electron/main';
 import { __ } from '@wordpress/i18n';
 import { AUTO_UPDATE_INTERVAL_MS } from 'src/constants';
+import { isDevRelease } from './lib/version-utils';
 
 type UpdpaterState =
 	| 'init'
@@ -18,9 +19,7 @@ let timeout: NodeJS.Timeout | null = null;
 let showManualCheckDialogs = false;
 
 const shouldPoll =
-	process.env.NODE_ENV === 'production' &&
-	app.isPackaged &&
-	! /(-dev\.|-dev\d+)/.test( app.getVersion() );
+	process.env.NODE_ENV === 'production' && app.isPackaged && ! isDevRelease( app.getVersion() );
 
 export function setupUpdates() {
 	if ( process.env.E2E ) {

@@ -2,11 +2,9 @@ import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useMemo } from 'react';
 import { DEMO_SITE_SIZE_LIMIT_GB } from 'src/constants';
-import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 
 export function useArchiveErrorMessages() {
 	const { __ } = useI18n();
-	const { quickDeploysEnabled } = useFeatureFlags();
 
 	return useMemo(
 		() =>
@@ -21,10 +19,8 @@ export function useArchiveErrorMessages() {
 				rest_cannot_view: __(
 					"There's been an authentication error. Please log in again before sharing a site."
 				),
-				rest_site_creation_blocked: quickDeploysEnabled
-					? __( 'Preview sites are not available for your account.' )
-					: __( 'Demo sites are not available for your account.' ),
+				rest_site_creation_blocked: __( 'Preview sites are not available for your account.' ),
 			} ) as const,
-		[ __, quickDeploysEnabled ]
+		[ __ ]
 	);
 }

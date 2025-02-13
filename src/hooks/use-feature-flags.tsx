@@ -15,12 +15,10 @@ const featureFlagsSchema = z
 
 export interface FeatureFlagsContextType {
 	terminalWpCliEnabled: boolean;
-	quickDeploysEnabled: boolean;
 }
 
 export const FeatureFlagsContext = createContext< FeatureFlagsContextType >( {
 	terminalWpCliEnabled: false,
-	quickDeploysEnabled: true,
 } );
 
 interface FeatureFlagsProviderProps {
@@ -29,10 +27,8 @@ interface FeatureFlagsProviderProps {
 
 export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { children } ) => {
 	const terminalWpCliEnabledFromGlobals = getAppGlobals().terminalWpCliEnabled;
-	const quickDeploysEnabledFromGlobals = getAppGlobals().quickDeploysEnabled;
 	const [ featureFlags, setFeatureFlags ] = useState< FeatureFlagsContextType >( {
 		terminalWpCliEnabled: terminalWpCliEnabledFromGlobals,
-		quickDeploysEnabled: true,
 	} );
 	const { isAuthenticated, client } = useAuth();
 
@@ -54,7 +50,6 @@ export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { c
 				setFeatureFlags( {
 					terminalWpCliEnabled:
 						Boolean( flags.terminal_wp_cli_enabled ) || terminalWpCliEnabledFromGlobals,
-					quickDeploysEnabled: true,
 				} );
 			} catch ( error ) {
 				Sentry.captureException( error );
@@ -65,7 +60,7 @@ export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { c
 		return () => {
 			cancel = true;
 		};
-	}, [ isAuthenticated, client, terminalWpCliEnabledFromGlobals, quickDeploysEnabledFromGlobals ] );
+	}, [ isAuthenticated, client, terminalWpCliEnabledFromGlobals ] );
 
 	return (
 		<FeatureFlagsContext.Provider value={ featureFlags }>{ children }</FeatureFlagsContext.Provider>

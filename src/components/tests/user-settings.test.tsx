@@ -2,7 +2,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import UserSettings from 'src/components/user-settings';
 import { useAuth } from 'src/hooks/use-auth';
-import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
 
@@ -16,8 +15,6 @@ afterEach( () => {
 
 describe( 'UserSettings', () => {
 	beforeEach( () => {
-		( useFeatureFlags as jest.Mock ).mockReturnValue( { quickDeploysEnabled: false } );
-
 		// Triggers IPC listener to show modal
 		( useIpcListener as jest.Mock ).mockImplementationOnce( ( listener, callback ) => {
 			if ( listener === 'user-settings' ) {

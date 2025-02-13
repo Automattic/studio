@@ -141,7 +141,7 @@ export const DemoSiteUpdateProvider: React.FC< DemoSiteUpdateProviderProps > = (
 	);
 };
 
-export const useUpdateDemoSite = () => {
+export const useUpdatePreviewSite = () => {
 	const context = useContext( DemoSiteUpdateContext );
 	if ( context === null ) {
 		throw new Error( 'useDemoSiteUpdate must be used within a DemoSiteUpdateProvider' );

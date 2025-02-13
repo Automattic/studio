@@ -3,7 +3,7 @@ import { act, renderHook } from '@testing-library/react';
 import { ReactNode } from 'react';
 import { useAuth } from 'src/hooks/use-auth';
 import { useSnapshots } from 'src/hooks/use-snapshots';
-import { useUpdateDemoSite, DemoSiteUpdateProvider } from 'src/hooks/use-update-demo-site';
+import { useUpdatePreviewSite, DemoSiteUpdateProvider } from 'src/hooks/use-update-preview-site';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
 jest.mock( 'src/hooks/use-snapshots' );
@@ -35,7 +35,7 @@ const wrapper = ( { children }: { children: ReactNode } ) => (
 	<DemoSiteUpdateProvider>{ children }</DemoSiteUpdateProvider>
 );
 
-describe( 'useUpdateDemoSite', () => {
+describe( 'useUpdatePreviewSite', () => {
 	// Mock data and responses
 	const mockSnapshot: Snapshot = {
 		atomicSiteId: 12345,
@@ -77,7 +77,7 @@ describe( 'useUpdateDemoSite', () => {
 			data: 'success',
 		} );
 
-		const { result } = renderHook( () => useUpdateDemoSite(), { wrapper } );
+		const { result } = renderHook( () => useUpdatePreviewSite(), { wrapper } );
 
 		await act( async () => {
 			await result.current.updateDemoSite( mockSnapshot, mockLocalSite );
@@ -129,7 +129,7 @@ describe( 'useUpdateDemoSite', () => {
 		const error = new Error( 'Update failed' );
 		clientReqPost.mockRejectedValue( error );
 
-		const { result } = renderHook( () => useUpdateDemoSite(), { wrapper } );
+		const { result } = renderHook( () => useUpdatePreviewSite(), { wrapper } );
 
 		await act( async () => {
 			await result.current.updateDemoSite( mockSnapshot, mockLocalSite );
@@ -175,7 +175,7 @@ describe( 'useUpdateDemoSite', () => {
 			}
 		} );
 
-		const { result } = renderHook( () => useUpdateDemoSite(), { wrapper } );
+		const { result } = renderHook( () => useUpdatePreviewSite(), { wrapper } );
 
 		// Start updating both sites
 		await act( async () => {

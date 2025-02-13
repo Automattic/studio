@@ -14,7 +14,7 @@ import { PromptUsageProvider } from 'src/hooks/use-prompt-usage';
 import { SiteDetailsProvider } from 'src/hooks/use-site-details';
 import { SnapshotProvider } from 'src/hooks/use-snapshots';
 import { ThemeDetailsProvider } from 'src/hooks/use-theme-details';
-import { DemoSiteUpdateProvider } from 'src/hooks/use-update-demo-site';
+import { DemoSiteUpdateProvider } from 'src/hooks/use-update-preview-site';
 import { store } from 'src/stores';
 
 const Root = () => {

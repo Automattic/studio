@@ -153,7 +153,7 @@ describe( 'useSnapshots (delete functionality)', () => {
 		expect( Sentry.captureException ).toHaveBeenCalled();
 	} );
 
-	it( 'does not check demo site statuses when offline', async () => {
+	it( 'does not check preview site statuses when offline', async () => {
 		( useOffline as jest.Mock ).mockReturnValue( true );
 		const { result } = renderHook( () => useSnapshots(), { wrapper } );
 		await waitFor( () => expect( result.current.initiated ).toBeTruthy() );

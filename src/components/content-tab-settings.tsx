@@ -31,6 +31,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 	const password = storedPassword === '' ? 'password' : storedPassword;
 	const wpVersion = useGetWpVersion( selectedSite );
 	const url = selectedSite.absoluteUrl || `http://localhost:${ selectedSite.port }`;
+	const urlWihtoutProtocol = url.replace( /http(s)?:\/\//, '' );
 	return (
 		<div className="p-8">
 			<table className="mb-2 m-w-full" cellPadding={ 0 } cellSpacing={ 0 }>
@@ -50,10 +51,10 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 						<div className="flex">
 							<CopyTextButton
 								text={ url }
-								label={ `${ url }, ${ __( 'Copy site url to clipboard' ) }` }
+								label={ `${ urlWihtoutProtocol }, ${ __( 'Copy site url to clipboard' ) }` }
 								copyConfirmation={ __( 'Copied!' ) }
 							>
-								{ url.replace( /http(s)?:\/\//, '' ) }
+								{ urlWihtoutProtocol }
 							</CopyTextButton>
 							<EditAbsoluteUrl key={ selectedSite.id } />
 						</div>

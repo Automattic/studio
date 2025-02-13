@@ -54,43 +54,20 @@ end
 
 desc 'Notarize the compiled binary'
 lane :notarize_binary do
-  puts "\n=== Starting notarization process ==="
-  
   Dir[File.join(BUILDS_FOLDER, '**', 'Studio.app')].each do |path|
-    puts "\nChecking app bundle at: #{path}"
-    
-    # Check Info.plist contents
-    info_plist_path = File.join(path, 'Contents', 'Info.plist')
-    puts "\nInfo.plist path: #{info_plist_path}"
-    
-    if File.exist?(info_plist_path)
-      puts "\nInfo.plist contents:"
-      puts "CFBundleVersion: #{`/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' "#{info_plist_path}" 2>&1`.strip}"
-      puts "CFBundleShortVersionString: #{`/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "#{info_plist_path}" 2>&1`.strip}"
-      puts "CFBundleIdentifier: #{`/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "#{info_plist_path}" 2>&1`.strip}"
-    else
-      puts "Warning: Info.plist not found at #{info_plist_path}"
-    end
-    
-    puts "\nAttempting to notarize app bundle..."
     notarize(
       package: path,
       api_key_path: APPLE_API_KEY_PATH
     )
-    puts "Notarization completed for app bundle"
   end
 
   Dir[File.join(BUILDS_FOLDER, '**', 'Studio-*.dmg')].each do |path|
-    puts "\nAttempting to notarize DMG at: #{path}"
     notarize(
       bundle_id: APPLE_BUNDLE_IDENTIFIER,
       package: path,
       api_key_path: APPLE_API_KEY_PATH
     )
-    puts "Notarization completed for DMG"
   end
-  
-  puts "\n=== Notarization process completed ==="
 end
 
 desc 'Ship the binary to internal testers'

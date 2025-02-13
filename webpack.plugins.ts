@@ -5,9 +5,9 @@ import type { WebpackPluginInstance } from 'webpack';
 const ForkTsCheckerWebpackPlugin: typeof IForkTsCheckerWebpackPlugin = require( 'fork-ts-checker-webpack-plugin' );
 
 const version = process.env.npm_package_version || '';
-const { release: sentryRelease, environment } = getSentryReleaseInfo( version );
+const { sentryRelease, isDevEnvironment } = getSentryReleaseInfo( version );
 console.log( 'Sentry release version:', sentryRelease );
-console.log( 'Sentry environment:', environment );
+console.log( 'Sentry environment:', isDevEnvironment ? 'development' : 'production' );
 
 export const plugins: WebpackPluginInstance[] = [
 	new ForkTsCheckerWebpackPlugin( {
@@ -19,7 +19,7 @@ export const plugins: WebpackPluginInstance[] = [
 		},
 	} ),
 	// Sentry must be the last plugin
-	environment !== 'development' &&
+	! isDevEnvironment &&
 		!! process.env.SENTRY_AUTH_TOKEN &&
 		sentryWebpackPlugin( {
 			authToken: process.env.SENTRY_AUTH_TOKEN,

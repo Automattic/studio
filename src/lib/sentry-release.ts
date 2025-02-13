@@ -1,17 +1,17 @@
+import { isDevRelease } from './version-utils';
+
 /**
- * Get the Sentry release information based on the version
+ * Get the Sentry release info for the current version
  * @param version The version string from package.json or app.getVersion()
  */
 export function getSentryReleaseInfo( version: string ) {
-	const [ baseVersionWithBeta ] = version.split( '-dev.' );
+	// Handle both -dev.HASH and -devN formats for backward compatibility
+	const baseVersionWithBeta = version.replace( /(-dev\..*|-dev\d+)$/, '' );
 	const isDevEnvironment =
-		version.includes( '-dev.' ) ||
+		isDevRelease( version ) ||
 		!! process.env.IS_DEV_BUILD ||
 		process.env.NODE_ENV === 'development';
 	const sentryRelease = `studio@${ baseVersionWithBeta }`;
 
-	return {
-		release: sentryRelease,
-		environment: isDevEnvironment ? 'development' : 'production',
-	};
+	return { sentryRelease, isDevEnvironment };
 }

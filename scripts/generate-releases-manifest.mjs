@@ -6,20 +6,20 @@
 //     "darwin": {
 //       "universal": {
 //         "sha": "30a8251",
-//         "url": "https://cdn.a8c-ci.services/studio/studio-darwin-universal-30a8251.app.zip"
+//         "url": "https://cdn.a8c-ci.services/studio/studio-darwin-universal-v1.2.3-42.app.zip"
 //       },
 //       "arm64": {
 //         "sha": "30a8251",
-//         "url": "https://cdn.a8c-ci.services/studio/studio-darwin-arm64-30a8251.app.zip"
+//         "url": "https://cdn.a8c-ci.services/studio/studio-darwin-arm64-v1.2.3-42.app.zip"
 //       },
 //       "x64": {
 //         "sha": "30a8251",
-//         "url": "https://cdn.a8c-ci.services/studio/studio-darwin-x64-30a8251.app.zip"
+//         "url": "https://cdn.a8c-ci.services/studio/studio-darwin-x64-v1.2.3-42.app.zip"
 //       }
 //     },
 //     "win32": {
 //       "sha": "30a8251",
-//       "url": "https://cdn.a8c-ci.services/studio/studio-win32-30a8251.exe.zip"
+//       "url": "https://cdn.a8c-ci.services/studio/studio-win32-v1.2.3-42-full.nupkg"
 //     }
 //   },
 //   "1.0.0": {
@@ -45,6 +45,7 @@ import https from 'https';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import packageJson from '../package.json' assert { type: 'json' };
+import { getLatestTag, getCommitCount } from './lib/git-utils.mjs';
 
 const cdnURL = 'https://cdn.a8c-ci.services/studio';
 const baseName = 'studio';
@@ -52,12 +53,15 @@ const baseName = 'studio';
 const currentCommit = child_process.execSync( 'git rev-parse --short HEAD' ).toString().trim();
 const { version } = packageJson;
 const isDevBuild = process.env.IS_DEV_BUILD;
+const latestTag = getLatestTag();
+const commitCount = getCommitCount( latestTag );
 
 const __dirname = path.dirname( fileURLToPath( import.meta.url ) );
 
 console.log( `Version: ${ version }` );
 console.log( `Is dev build: ${ isDevBuild }` );
 console.log( `Current commit: ${ currentCommit }` );
+console.log( `Commit count since ${ latestTag || 'start' }: ${ commitCount }` );
 
 console.log( 'Downloading current manifest ...' );
 
@@ -123,11 +127,11 @@ const releasesData = JSON.parse( await fs.readFile( releasesPath, 'utf8' ) );
 if ( isDevBuild ) {
 	console.log( 'Overriding latest dev release ...' );
 
-	if ( ! currentCommit ) {
-		// Without the latest commit hash we can't determine what the zip filename will be.
+	if ( ! commitCount ) {
+		// Without the commit count we can't determine what the zip filename will be.
 		// Are you sure you're running this script in a CI environment?
 		// You can develop locally by setting the GITHUB_SHA envvar before running this script.
-		throw new Error( 'Missing latest commit hash' );
+		throw new Error( 'Missing commit count' );
 	}
 
 	releasesData[ 'dev' ] = releasesData[ 'dev' ] ?? {};
@@ -136,22 +140,22 @@ if ( isDevBuild ) {
 	releasesData[ 'dev' ][ 'darwin' ] = releasesData[ 'dev' ][ 'darwin' ] ?? {};
 	releasesData[ 'dev' ][ 'darwin' ][ 'universal' ] = {
 		sha: currentCommit,
-		url: `${ cdnURL }/${ baseName }-darwin-universal-v${ version }-${ currentCommit }.app.zip`,
+		url: `${ cdnURL }/${ baseName }-darwin-universal-v${ version }-dev${ commitCount }.app.zip`,
 	};
 	releasesData[ 'dev' ][ 'darwin' ][ 'x64' ] = {
 		sha: currentCommit,
-		url: `${ cdnURL }/${ baseName }-darwin-x64-v${ version }-${ currentCommit }.app.zip`,
+		url: `${ cdnURL }/${ baseName }-darwin-x64-v${ version }-dev${ commitCount }.app.zip`,
 	};
 	releasesData[ 'dev' ][ 'darwin' ][ 'arm64' ] = {
 		sha: currentCommit,
-		url: `${ cdnURL }/${ baseName }-darwin-arm64-v${ version }-${ currentCommit }.app.zip`,
+		url: `${ cdnURL }/${ baseName }-darwin-arm64-v${ version }-dev${ commitCount }.app.zip`,
 	};
 
 	// Windows
 	const windowsReleaseInfo = await getWindowsReleaseInfo();
 	releasesData[ 'dev' ][ 'win32' ] = {
 		sha: windowsReleaseInfo.sha1,
-		url: `${ cdnURL }/${ baseName }-win32-v${ version }-${ currentCommit }-full.nupkg`,
+		url: `${ cdnURL }/${ baseName }-win32-v${ version }-dev${ commitCount }-full.nupkg`,
 		size: windowsReleaseInfo.size,
 	};
 

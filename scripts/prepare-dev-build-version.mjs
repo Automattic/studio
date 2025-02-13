@@ -3,6 +3,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import semver from 'semver';
 import { getLatestTag, getCommitCount } from './lib/git-utils.mjs';
 
 const __dirname = path.dirname( fileURLToPath( import.meta.url ) );
@@ -22,7 +23,14 @@ const packageJsonPath = path.resolve( __dirname, '../package.json' );
 const packageJsonText = await fs.readFile( packageJsonPath, 'utf-8' );
 const packageJson = JSON.parse( packageJsonText );
 
-const devVersion = `${ packageJson.version.split( '-' )[ 0 ] }-dev${ commitCount }`;
+// Parse the version using semver to get just the core version numbers
+const parsedVersion = semver.parse( packageJson.version );
+if ( ! parsedVersion ) {
+	throw new Error( `Invalid version in package.json: ${ packageJson.version }` );
+}
+
+// Create dev version using just the core version numbers (major.minor.patch)
+const devVersion = `${ parsedVersion.major }.${ parsedVersion.minor }.${ parsedVersion.patch }-dev${ commitCount }`;
 
 packageJson.version = devVersion;
 

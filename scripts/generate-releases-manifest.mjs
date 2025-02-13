@@ -140,22 +140,22 @@ if ( isDevBuild ) {
 	releasesData[ 'dev' ][ 'darwin' ] = releasesData[ 'dev' ][ 'darwin' ] ?? {};
 	releasesData[ 'dev' ][ 'darwin' ][ 'universal' ] = {
 		sha: currentCommit,
-		url: `${ cdnURL }/${ baseName }-darwin-universal-v${ version }-dev${ commitCount }.app.zip`,
+		url: `${ cdnURL }/${ baseName }-darwin-universal-v${ version }.app.zip`,
 	};
 	releasesData[ 'dev' ][ 'darwin' ][ 'x64' ] = {
 		sha: currentCommit,
-		url: `${ cdnURL }/${ baseName }-darwin-x64-v${ version }-dev${ commitCount }.app.zip`,
+		url: `${ cdnURL }/${ baseName }-darwin-x64-v${ version }.app.zip`,
 	};
 	releasesData[ 'dev' ][ 'darwin' ][ 'arm64' ] = {
 		sha: currentCommit,
-		url: `${ cdnURL }/${ baseName }-darwin-arm64-v${ version }-dev${ commitCount }.app.zip`,
+		url: `${ cdnURL }/${ baseName }-darwin-arm64-v${ version }.app.zip`,
 	};
 
 	// Windows
 	const windowsReleaseInfo = await getWindowsReleaseInfo();
 	releasesData[ 'dev' ][ 'win32' ] = {
 		sha: windowsReleaseInfo.sha1,
-		url: `${ cdnURL }/${ baseName }-win32-v${ version }-dev${ commitCount }-full.nupkg`,
+		url: `${ cdnURL }/${ baseName }-win32-v${ version }-full.nupkg`,
 		size: windowsReleaseInfo.size,
 	};
 

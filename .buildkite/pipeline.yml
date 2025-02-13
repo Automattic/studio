@@ -158,6 +158,7 @@ steps:
       export IS_DEV_BUILD=true
 
       echo "--- :node: Generating Release Manifest"
+      node ./scripts/prepare-dev-build-version.mjs
       node ./scripts/generate-releases-manifest.mjs
 
       echo "--- :fastlane: Distributing Dev Builds"

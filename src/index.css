@@ -38,6 +38,7 @@ blockquote {
 	flex: 1;
 	overflow: auto;
 	scrollbar-width: thin;
+	scrollbar-gutter: stable;
 }
 
 .components-tab-panel__tabs {

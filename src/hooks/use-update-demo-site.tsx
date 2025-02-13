@@ -2,7 +2,7 @@ import * as Sentry from '@sentry/electron/renderer';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useState, createContext, useContext, useMemo, ReactNode } from 'react';
-import { DEMO_SITE_SIZE_LIMIT_BYTES, DEMO_SITE_SIZE_LIMIT_GB } from 'src/constants';
+import { PREVIEW_SITE_SIZE_LIMIT_BYTES, PREVIEW_SITE_SIZE_LIMIT_GB } from 'src/constants';
 import { useAuth } from 'src/hooks/use-auth';
 import { useSnapshots } from 'src/hooks/use-snapshots';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -43,14 +43,14 @@ export const DemoSiteUpdateProvider: React.FC< DemoSiteUpdateProviderProps > = (
 				);
 				archivePath = tempArchivePath;
 
-				if ( archiveSizeInBytes > DEMO_SITE_SIZE_LIMIT_BYTES ) {
+				if ( archiveSizeInBytes > PREVIEW_SITE_SIZE_LIMIT_BYTES ) {
 					getIpcApi().showErrorMessageBox( {
 						title: __( 'Updating preview site failed' ),
 						message: sprintf(
 							__(
 								'The site exceeds the maximum size of %dGB. Please remove some files and try again.'
 							),
-							DEMO_SITE_SIZE_LIMIT_GB
+							PREVIEW_SITE_SIZE_LIMIT_GB
 						),
 					} );
 

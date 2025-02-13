@@ -3,7 +3,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import Button from 'src/components/button';
 import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
-import { DEMO_SITE_SIZE_LIMIT_GB } from 'src/constants';
+import { PREVIEW_SITE_SIZE_LIMIT_GB } from 'src/constants';
 import { useArchiveErrorMessages } from 'src/hooks/use-archive-error-messages';
 import { useArchiveSite } from 'src/hooks/use-archive-site';
 import { useOffline } from 'src/hooks/use-offline';
@@ -49,7 +49,7 @@ export function CreatePreviewButton( { onClick, selectedSite }: CreatePreviewBut
 		__(
 			'Your site exceeds the %s GB size limit. Please, consider removing unnecessary media files, plugins, or themes from wp-content.'
 		),
-		DEMO_SITE_SIZE_LIMIT_GB
+		PREVIEW_SITE_SIZE_LIMIT_GB
 	);
 
 	let tooltipContent;

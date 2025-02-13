@@ -2,7 +2,7 @@ import * as Sentry from '@sentry/electron/renderer';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useMemo } from 'react';
-import { DEMO_SITE_SIZE_LIMIT_BYTES, DEMO_SITE_SIZE_LIMIT_GB } from 'src/constants';
+import { PREVIEW_SITE_SIZE_LIMIT_BYTES, PREVIEW_SITE_SIZE_LIMIT_GB } from 'src/constants';
 import { useSyncSites } from 'src/hooks/sync-sites';
 import { useArchiveErrorMessages } from 'src/hooks/use-archive-error-messages';
 import { useAuth } from 'src/hooks/use-auth';
@@ -96,14 +96,14 @@ export function useArchiveSite() {
 				);
 				archivePath = tempArchivePath;
 
-				if ( archiveSizeInBytes > DEMO_SITE_SIZE_LIMIT_BYTES ) {
+				if ( archiveSizeInBytes > PREVIEW_SITE_SIZE_LIMIT_BYTES ) {
 					getIpcApi().showErrorMessageBox( {
 						title: __( 'Adding demo site failed' ),
 						message: sprintf(
 							__(
 								'The site exceeds the maximum size of %dGB. Please remove some files and try again.'
 							),
-							DEMO_SITE_SIZE_LIMIT_GB
+							PREVIEW_SITE_SIZE_LIMIT_GB
 						),
 					} );
 					setUploadingSites( ( _uploadingSites ) => ( { ..._uploadingSites, [ siteId ]: false } ) );

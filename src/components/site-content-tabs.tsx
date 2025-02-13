@@ -45,9 +45,12 @@ export function SiteContentTabs() {
 					key={ selectedTab }
 				>
 					{ ( { name } ) => (
-						<div className="h-full overflow-y-auto" style={ {
-							scrollbarGutter: 'stable',
-						} }>
+						<div
+							className="h-full overflow-y-auto"
+							style={ {
+								scrollbarGutter: 'stable',
+							} }
+						>
 							{ name === 'overview' && <ContentTabOverview selectedSite={ selectedSite } /> }
 							{ name === 'share' && <ContentTabSnapshots selectedSite={ selectedSite } /> }
 							{ name === 'previews' && <ContentTabPreviews selectedSite={ selectedSite } /> }

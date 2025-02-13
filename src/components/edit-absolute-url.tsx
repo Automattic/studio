@@ -1,10 +1,9 @@
 import { createInterpolateElement } from '@wordpress/element';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useState } from 'react';
-import { STUDIO_DOCS_URL_SITES } from 'src/constants';
+import { useDocsLink } from 'src/hooks/use-docs-link';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useSiteDetails } from '../hooks/use-site-details';
-import { isMac, isWindows } from '../lib/app-globals';
 import Button from './button';
 import Modal from './modal';
 import TextControlComponent from './text-control';
@@ -16,6 +15,7 @@ interface UrlState {
 
 export default function EditAbsoluteUrl() {
 	const { __ } = useI18n();
+	const getDocsLink = useDocsLink();
 	const { updateSite, selectedSite, stopServer, startServer } = useSiteDetails();
 	const [ isEditingSite, setIsEditingSite ] = useState( false );
 	const [ showModal, setShowModal ] = useState( false );
@@ -105,7 +105,7 @@ export default function EditAbsoluteUrl() {
 											<Button
 												variant="link"
 												className="text-xs"
-												onClick={ () => getIpcApi().openURL( STUDIO_DOCS_URL_SITES ) }
+												onClick={ () => getIpcApi().openURL( getDocsLink( 'sites' ) ) }
 											/>
 										),
 									}

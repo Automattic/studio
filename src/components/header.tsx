@@ -1,5 +1,5 @@
-import { Icon, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
+import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import { SiteManagementActions } from 'src/components/site-management-actions';
 import { useSiteDetails } from 'src/hooks/use-site-details';
@@ -26,11 +26,7 @@ export default function Header() {
 							variant="link"
 						>
 							{ __( 'WP admin' ) }
-							<Icon
-								icon={ external }
-								className="ltr:ml-0.5 rtl:mr-0.5 rtl:scale-x-[-1]"
-								size={ 14 }
-							/>
+							<ArrowIcon />
 						</Button>
 						<Button
 							disabled={ ! site.running }
@@ -42,11 +38,7 @@ export default function Header() {
 								// translators: "Open site" refers to the action, like "to open site"
 								__( 'Open site' )
 							}
-							<Icon
-								className="ltr:ml-0.5 rtl:mr-0.5 rtl:scale-x-[-1]"
-								icon={ external }
-								size={ 14 }
-							/>
+							<ArrowIcon />
 						</Button>
 					</div>
 				</div>

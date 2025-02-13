@@ -41,7 +41,7 @@ const UserInfo = ( {
 				</Button>
 				<div className="flex flex-col">
 					<span className="overflow-ellipsis">{ user?.displayName }</span>
-					<span className="text-[#757575] text-[10px] leading-[10px]">{ user?.email }</span>
+					<span className="text-a8c-gray-700 text-[10px] leading-[10px]">{ user?.email }</span>
 				</div>
 			</div>
 			<Button variant="secondary" className="!gap-3" onClick={ onLogout }>

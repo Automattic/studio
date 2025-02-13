@@ -1,12 +1,14 @@
 import { Menu, type MenuItemConstructorOptions, app, BrowserWindow, autoUpdater } from 'electron';
 import { __ } from '@wordpress/i18n';
 import { openAboutWindow } from 'src/about-menu/open-about-menu';
-import { BUG_REPORT_URL, FEATURE_REQUEST_URL, STUDIO_DOCS_URL } from 'src/constants';
+import { BUG_REPORT_URL, FEATURE_REQUEST_URL } from 'src/constants';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { getMainWindow } from 'src/main-window';
 import { isUpdateReadyToInstall, manualCheckForUpdates } from 'src/updates';
+import { getDocsLink } from './hooks/use-docs-link';
+import { getUserLocaleWithFallback } from './lib/locale-node';
 
 export async function setupMenu( config: { needsOnboarding: boolean } ) {
 	const mainWindow = await getMainWindow();
@@ -172,8 +174,9 @@ function getAppMenu(
 			submenu: [
 				{
 					label: __( 'Studio Help' ),
-					click: () => {
-						shellOpenExternalWrapper( STUDIO_DOCS_URL );
+					click: async () => {
+						const locale = await getUserLocaleWithFallback();
+						shellOpenExternalWrapper( getDocsLink( locale, 'studio' ) );
 					},
 				},
 				{ type: 'separator' },

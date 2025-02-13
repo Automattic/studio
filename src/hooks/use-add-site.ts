@@ -20,7 +20,7 @@ export function useAddSite() {
 
 	const siteWithPathAlreadyExists = useCallback(
 		( path: string ) => {
-			return sites.some( ( site ) => site.path === path );
+			return sites.some( ( site ) => site.path.toLowerCase() === path.toLowerCase() );
 		},
 		[ sites ]
 	);
@@ -120,16 +120,25 @@ export function useAddSite() {
 		[ __, sitePath, siteWithPathAlreadyExists ]
 	);
 
-	return useMemo(
-		() => ( {
+	return useMemo( () => {
+		let errorPathIsNotAvailable;
+		if ( siteWithPathAlreadyExists( sitePath ? sitePath : proposedSitePath ) ) {
+			if ( sitePath ) {
+				errorPathIsNotAvailable = __(
+					'The directory is already associated with another Studio site. Please choose a different custom local path.'
+				);
+			} else {
+				errorPathIsNotAvailable = __(
+					'The directory is already associated with another Studio site. Please choose a different site name or a custom local path.'
+				);
+			}
+		}
+
+		return {
 			handleAddSiteClick,
 			handlePathSelectorClick,
 			handleSiteNameChange,
-			error: siteWithPathAlreadyExists( sitePath ? sitePath : proposedSitePath )
-				? __(
-						'Another site already exists at this path. Please select an empty directory to create a site.'
-				  )
-				: error,
+			error: errorPathIsNotAvailable || error,
 			sitePath: sitePath ? sitePath : proposedSitePath,
 			siteName,
 			doesPathContainWordPress,
@@ -144,21 +153,20 @@ export function useAddSite() {
 			loadingSites,
 			fileForImport,
 			setFileForImport,
-		} ),
-		[
-			__,
-			doesPathContainWordPress,
-			error,
-			handleAddSiteClick,
-			handlePathSelectorClick,
-			siteWithPathAlreadyExists,
-			handleSiteNameChange,
-			siteName,
-			sitePath,
-			proposedSitePath,
-			usedSiteNames,
-			loadingSites,
-			fileForImport,
-		]
-	);
+		};
+	}, [
+		__,
+		doesPathContainWordPress,
+		error,
+		handleAddSiteClick,
+		handlePathSelectorClick,
+		siteWithPathAlreadyExists,
+		handleSiteNameChange,
+		siteName,
+		sitePath,
+		proposedSitePath,
+		usedSiteNames,
+		loadingSites,
+		fileForImport,
+	] );
 }

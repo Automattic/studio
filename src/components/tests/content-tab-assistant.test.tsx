@@ -205,11 +205,11 @@ describe( 'ContentTabAssistant', () => {
 		render( <ContextWrapper selectedSite={ runningSite } /> );
 
 		await waitFor( () => {
-			const loginButton = screen.getByRole( 'button', { name: 'Log in to WordPress.com' } );
+			const loginButton = screen.getByRole( 'button', { name: 'Log in to WordPress.com ↗' } );
 			expect( loginButton ).toBeInTheDocument();
 		} );
 
-		const loginButton = screen.getByRole( 'button', { name: 'Log in to WordPress.com' } );
+		const loginButton = screen.getByRole( 'button', { name: 'Log in to WordPress.com ↗' } );
 		fireEvent.click( loginButton );
 		expect( authenticate ).toHaveBeenCalledTimes( 1 );
 	} );

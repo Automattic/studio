@@ -26,9 +26,8 @@ describe( 'useFullscreen', () => {
 
 		await waitFor( () => {
 			expect( mockIpcApi.isFullscreen ).toHaveBeenCalledTimes( 1 );
+			expect( result.current ).toBe( true );
 		} );
-
-		expect( result.current ).toBe( true );
 	} );
 
 	it( 'should update state when receiving window-fullscreen-change event', async () => {

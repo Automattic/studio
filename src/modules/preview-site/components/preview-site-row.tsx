@@ -5,12 +5,13 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useEffect, useState, useRef } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
-import { TooltipProps } from 'src/components/tooltip';
+import { TooltipProps, Tooltip } from 'src/components/tooltip';
 import { UPDATED_MESSAGE_DURATION_MS } from 'src/constants';
 import { useExpirationDate } from 'src/hooks/use-expiration-date';
 import { useFormatLocalizedTimestamps } from 'src/hooks/use-format-localized-timestamps';
 import { useSnapshots } from 'src/hooks/use-snapshots';
 import { useUpdateDemoSite } from 'src/hooks/use-update-demo-site';
+import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { PreviewActionButtonsMenu } from 'src/modules/preview-site/components/preview-action-buttons-menu';
 import { ProgressRow } from 'src/modules/preview-site/components/progress-row';
@@ -32,8 +33,8 @@ export function PreviewSiteRow( {
 }: PreviewSiteRowProps ) {
 	const { __ } = useI18n();
 	const { url, date, isDeleting } = snapshot;
-	const { countDown } = useExpirationDate( date );
-	const { fetchSnapshotUsage } = useSnapshots();
+	const { countDown, expireDateString, isExpired } = useExpirationDate( date );
+	const { fetchSnapshotUsage, removeSnapshot } = useSnapshots();
 	const { isDemoSiteUpdating } = useUpdateDemoSite();
 	const isPreviewSiteUpdating = isDemoSiteUpdating( snapshot.atomicSiteId );
 	const { formatRelativeTime } = useFormatLocalizedTimestamps();
@@ -93,24 +94,33 @@ export function PreviewSiteRow( {
 			<div className="flex items-center px-8 py-6">
 				<div className="w-[51%]">
 					<div className="flex items-center">
-						<div className="text-[13px] leading-5 line-clamp-1 break-all">
+						<div
+							className={ cx(
+								'text-[13px] leading-5 line-clamp-1 break-all',
+								isExpired && 'line-through text-a8c-gray-700'
+							) }
+						>
 							{ /* translators: %s: Site name (e.g. "My Site Preview") */ }
 							{ snapshot.name || sprintf( __( '%s Preview' ), selectedSite.name ) }
 						</div>
 					</div>
 					<Button
 						variant="link"
-						className="!text-a8c-gray-70 hover:!text-a8c-blueberry max-w-[100%]"
-						onClick={ () => {
-							getIpcApi().openURL( urlWithHTTPS );
-						} }
+						disabled={ isExpired }
+						className={ cx(
+							'!text-a8c-gray-700 max-w-[250px]',
+							isExpired ? 'pointer-events-none' : 'hover:!text-a8c-blueberry'
+						) }
+						onClick={ () => getIpcApi().openURL( urlWithHTTPS ) }
 					>
-						<span className="truncate">{ urlWithHTTPS }</span>
-						<ArrowIcon />
+						<span className={ cx( 'truncate', isExpired && 'line-through text-a8c-gray-700' ) }>
+							{ urlWithHTTPS }
+						</span>
+						{ ! isExpired && <ArrowIcon /> }
 					</Button>
 				</div>
 				<div className="flex ml-auto">
-					<div className="w-[110px] text-[#757575] flex items-center pl-4">
+					<div className="w-[150px] text-a8c-gray-700 flex items-center pl-4">
 						{ isPreviewSiteUpdating ? (
 							<div className="flex items-center text-gray-900">
 								<Spinner className="!mt-0 !mx-2" />
@@ -120,15 +130,29 @@ export function PreviewSiteRow( {
 							getLastUpdateTimeText()
 						) }
 					</div>
-					<div className="w-[100px] text-[#757575] flex items-center pl-4">{ countDown }</div>
+					<div className="flex items-center">
+						<Tooltip text={ expireDateString } disabled={ isExpired }>
+							<div className="w-[150px] text-a8c-gray-700 pl-4">{ countDown }</div>
+						</Tooltip>
+					</div>
 					<div className="w-[60px] flex justify-end">
-						<PreviewActionButtonsMenu
-							snapshot={ snapshot }
-							selectedSite={ selectedSite }
-							disabledUpdate={ disabledUpdate }
-							updateButtonTooltipContent={ updateButtonTooltipContent }
-							showUpdateTooltip={ showUpdateTooltip }
-						/>
+						{ isExpired ? (
+							<Button
+								variant="link"
+								onClick={ () => removeSnapshot( snapshot ) }
+								className={ '!text-a8c-blueberry hover:!text-a8c-red-50' }
+							>
+								{ __( 'Clear' ) }
+							</Button>
+						) : (
+							<PreviewActionButtonsMenu
+								snapshot={ snapshot }
+								selectedSite={ selectedSite }
+								disabledUpdate={ disabledUpdate }
+								updateButtonTooltipContent={ updateButtonTooltipContent }
+								showUpdateTooltip={ showUpdateTooltip }
+							/>
+						) }
 					</div>
 				</div>
 			</div>

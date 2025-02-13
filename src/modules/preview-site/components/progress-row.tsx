@@ -24,8 +24,8 @@ export function ProgressRow( { text }: ProgressRowProps ) {
 					</div>
 				</div>
 				<div className="flex ml-auto">
-					<div className="w-[110px] text-[#757575] flex items-center pl-4">{ '-' }</div>
-					<div className="w-[100px] text-[#757575] flex items-center pl-4">{ '-' }</div>
+					<div className="w-[150px] text-a8c-gray-700 flex items-center pl-4">{ '-' }</div>
+					<div className="w-[150px] text-a8c-gray-700 flex items-center pl-4">{ '-' }</div>
 					<div className="w-[60px] pr-2" />
 				</div>
 			</div>

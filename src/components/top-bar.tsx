@@ -5,8 +5,8 @@ import { Gravatar } from 'src/components/gravatar';
 import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
 import { WordPressLogo } from 'src/components/wordpress-logo';
-import { STUDIO_DOCS_URL } from 'src/constants';
 import { useAuth } from 'src/hooks/use-auth';
+import { useDocsLink } from 'src/hooks/use-docs-link';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
@@ -98,8 +98,10 @@ function Authentication() {
 }
 
 export default function TopBar( { onToggleSidebar }: TopBarProps ) {
+	const getDocsLink = useDocsLink();
+
 	const openDocs = () => {
-		getIpcApi().openURL( STUDIO_DOCS_URL );
+		getIpcApi().openURL( getDocsLink( 'studio' ) );
 	};
 
 	return (

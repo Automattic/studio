@@ -8,9 +8,10 @@ import { useEffect, useRef, useState } from 'react';
 import Button from 'src/components/button';
 import ProgressBar from 'src/components/progress-bar';
 import { Tooltip } from 'src/components/tooltip';
-import { STUDIO_DOCS_URL_IMPORT_EXPORT, ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
+import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
 import { useSyncSites } from 'src/hooks/sync-sites/sync-sites-context';
 import { useConfirmationDialog } from 'src/hooks/use-confirmation-dialog';
+import { useDocsLink } from 'src/hooks/use-docs-link';
 import { useDragAndDropFile } from 'src/hooks/use-drag-and-drop-file';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
@@ -159,6 +160,7 @@ const ImportSite = ( {
 	isThisSiteSyncing: boolean;
 } ) => {
 	const { __ } = useI18n();
+	const getDocsLink = useDocsLink();
 	const { startServer, loadingServer } = useSiteDetails();
 	const { importState, importFile, clearImportState, exportState } = useImportExport();
 	const { [ selectedSite.id ]: currentProgress } = importState;
@@ -232,7 +234,7 @@ const ImportSite = ( {
 						button: (
 							<Button
 								variant="link"
-								onClick={ () => getIpcApi().openURL( STUDIO_DOCS_URL_IMPORT_EXPORT ) }
+								onClick={ () => getIpcApi().openURL( getDocsLink( 'importExport' ) ) }
 							/>
 						),
 					}

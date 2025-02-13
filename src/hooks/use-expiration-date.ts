@@ -5,12 +5,29 @@ import { useI18nData } from 'src/hooks/use-i18n-data';
 import { formatDistance } from 'src/lib/date';
 import { SupportedLocale } from 'src/lib/locale';
 
-function formatStringDate( ms: number, locale: SupportedLocale ): string {
-	const formatter = new Intl.DateTimeFormat( locale, {
-		day: 'numeric',
-		month: 'long',
-		year: 'numeric',
-	} );
+type FormatKey = 'short' | 'long';
+
+function formatStringDate(
+	ms: number,
+	locale: SupportedLocale,
+	format: FormatKey = 'short'
+): string {
+	const options: Record< FormatKey, Intl.DateTimeFormatOptions > = {
+		short: {
+			day: 'numeric',
+			month: 'long',
+			year: 'numeric',
+		},
+		long: {
+			day: '2-digit',
+			month: 'short',
+			year: 'numeric',
+			hour: '2-digit',
+			minute: '2-digit',
+			hour12: false,
+		},
+	};
+	const formatter = new Intl.DateTimeFormat( locale, options[ format ] );
 	return formatter.format( new Date( ms ) );
 }
 
@@ -47,6 +64,7 @@ export function useExpirationDate( snapshotDate: number ) {
 	return {
 		isExpired,
 		countDown: isExpired ? __( 'Expired' ) : countDown,
+		expireDateString: formatStringDate( endDate.getTime(), locale, 'long' ),
 		dateString: formatStringDate( snapshotDate, locale ),
 	};
 }

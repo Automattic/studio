@@ -5,8 +5,6 @@ import {
 	code,
 	desktop,
 	edit,
-	external,
-	Icon,
 	layout,
 	navigation,
 	page,
@@ -17,6 +15,7 @@ import {
 } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useState } from 'react';
+import { ArrowIcon } from 'src/components/arrow-icon';
 import { ButtonsSection, ButtonsSectionProps } from 'src/components/buttons-section';
 import { Tooltip } from 'src/components/tooltip';
 import { useCheckInstalledApps } from 'src/hooks/use-check-installed-apps';
@@ -259,11 +258,7 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 									}
 								>
 									{ __( 'Open site' ) }
-									<Icon
-										icon={ external }
-										className="ltr:ml-0.5 rtl:mr-0.5 rtl:scale-x-[-1] fill-a8c-blueberry"
-										size={ 14 }
-									/>
+									<ArrowIcon />
 								</div>
 								{ thumbnailImage }
 							</button>

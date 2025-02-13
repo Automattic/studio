@@ -1,3 +1,6 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/buildkite/pipeline-schema/main/schema.json
+---
+
 # IMAGE_ID is an env var that only macOS agents need.
 # Defining it at the root level propagates it too all agents, which can seem unnecessary but is a the same time convenient and DRY.
 env:

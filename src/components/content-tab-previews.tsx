@@ -6,7 +6,7 @@ import { PropsWithChildren } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import offlineIcon from 'src/components/offline-icon';
-import { ScreenshotDemoSite } from 'src/components/screenshot-demo-site';
+import { ScreenshotPreviewSite } from 'src/components/screenshot-preview-site';
 import { Tooltip } from 'src/components/tooltip';
 import {
 	CLIENT_ID,
@@ -76,7 +76,7 @@ function EmptyGeneric( {
 				{ children }
 			</div>
 			<div className="flex flex-col shrink-0 items-end">
-				<ScreenshotDemoSite site={ selectedSite } />
+				<ScreenshotPreviewSite site={ selectedSite } />
 			</div>
 		</div>
 	);

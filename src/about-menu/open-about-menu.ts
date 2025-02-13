@@ -49,14 +49,14 @@ export function openAboutWindow() {
 			const versionText = sprintf( __( 'Version %s' ), packageJson );
 			const studioByWpcomText = escapeSingleQuotes( __( 'Studio by WordPress.com' ) );
 			const shareFeedbackText = escapeSingleQuotes( __( 'Share Feedback' ) );
-			const previewSitesText = escapeSingleQuotes( __( 'Preview sites powered by' ) );
+			const demoSitesText = escapeSingleQuotes( __( 'Preview sites powered by' ) );
 			const localSitesText = escapeSingleQuotes( __( 'Local sites powered by' ) );
 
 			const script = `
 				document.getElementById('studio-by-wpcom').innerText = '${ studioByWpcomText }';
 				document.getElementById('version-text').innerText = '${ versionText }';
 				document.getElementById('share-feedback').innerText = '${ shareFeedbackText }';
-				document.getElementById('preview-sites').innerText = '${ previewSitesText }';
+				document.getElementById('demo-sites').innerText = '${ demoSitesText }';
 				document.getElementById('local-sites').innerText = '${ localSitesText }';
 			`;
 			aboutWindow.webContents.executeJavaScript( script ).catch( ( err ) => {

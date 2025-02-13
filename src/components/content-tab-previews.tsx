@@ -167,14 +167,14 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 	const { isAuthenticated } = useAuth();
 	const { archiveSite, isUploadingSiteId } = useArchiveSite();
 	const { isOverLimit } = useSiteSize( selectedSite.id );
-	const { isDemoSiteUpdating } = useUpdatePreviewSite();
+	const { isPreviewSiteUpdating } = useUpdatePreviewSite();
 	const isUploading = isUploadingSiteId( selectedSite.id );
 	const snapshotsOnSite = snapshots.filter(
 		( snapshot ) => snapshot.localSiteId === selectedSite.id
 	);
 	const isSnapshotLoading = snapshotsOnSite.some( ( snapshot ) => snapshot.isLoading );
 	const isAnyPreviewUpdating = snapshots.some( ( snapshot ) =>
-		isDemoSiteUpdating( snapshot.atomicSiteId )
+		isPreviewSiteUpdating( snapshot.atomicSiteId )
 	);
 	const isOffline = useOffline();
 

@@ -35,14 +35,14 @@ export function PreviewSiteRow( {
 	const { url, date, isDeleting } = snapshot;
 	const { countDown, expireDateString, isExpired } = useExpirationDate( date );
 	const { fetchSnapshotUsage, removeSnapshot } = useSnapshots();
-	const { isDemoSiteUpdating } = useUpdatePreviewSite();
-	const isPreviewSiteUpdating = isDemoSiteUpdating( snapshot.atomicSiteId );
+	const { isPreviewSiteUpdating } = useUpdatePreviewSite();
+	const isPreviewSiteUpdatingNow = isPreviewSiteUpdating( snapshot.atomicSiteId );
 	const { formatRelativeTime } = useFormatLocalizedTimestamps();
 	const [ showUpdatedMessage, setShowUpdatedMessage ] = useState( false );
 	const wasUpdating = useRef( false );
 
 	useEffect( () => {
-		if ( isPreviewSiteUpdating ) {
+		if ( isPreviewSiteUpdatingNow ) {
 			wasUpdating.current = true;
 			setShowUpdatedMessage( false );
 			return;
@@ -59,7 +59,7 @@ export function PreviewSiteRow( {
 		}, UPDATED_MESSAGE_DURATION_MS );
 
 		return () => clearTimeout( timeoutId );
-	}, [ isPreviewSiteUpdating ] );
+	}, [ isPreviewSiteUpdatingNow ] );
 
 	const getLastUpdateTimeText = () => {
 		if ( ! date ) {
@@ -121,7 +121,7 @@ export function PreviewSiteRow( {
 				</div>
 				<div className="flex ml-auto">
 					<div className="w-[150px] text-a8c-gray-700 flex items-center pl-4">
-						{ isPreviewSiteUpdating ? (
+						{ isPreviewSiteUpdatingNow ? (
 							<div className="flex items-center text-gray-900">
 								<Spinner className="!mt-0 !mx-2" />
 								{ __( 'Updating' ) }

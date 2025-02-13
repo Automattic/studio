@@ -28,7 +28,7 @@ export function PreviewActionButtonsMenu( {
 }: PreviewActionButtonsMenuProps ) {
 	const { __ } = useI18n();
 	const { deleteSnapshot, updateSnapshot } = useSnapshots();
-	const { updateDemoSite } = useUpdatePreviewSite();
+	const { updatePreviewSite } = useUpdatePreviewSite();
 	const isOffline = useOffline();
 	const [ showRenameModal, setShowRenameModal ] = useState( false );
 
@@ -43,7 +43,7 @@ export function PreviewActionButtonsMenu( {
 
 	const handleUpdatePreviewSite = async () => {
 		showUpdatePreviewConfirmation( () => {
-			updateDemoSite( snapshot, selectedSite );
+			updatePreviewSite( snapshot, selectedSite );
 		} );
 	};
 

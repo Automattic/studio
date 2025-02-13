@@ -3,7 +3,7 @@ import { act, renderHook } from '@testing-library/react';
 import { ReactNode } from 'react';
 import { useAuth } from 'src/hooks/use-auth';
 import { useSnapshots } from 'src/hooks/use-snapshots';
-import { useUpdatePreviewSite, DemoSiteUpdateProvider } from 'src/hooks/use-update-preview-site';
+import { useUpdatePreviewSite, PreviewSiteUpdateProvider } from 'src/hooks/use-update-preview-site';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
 jest.mock( 'src/hooks/use-snapshots' );
@@ -32,7 +32,7 @@ global.File = jest.fn().mockImplementation( ( blobParts, fileName, options ) => 
 } ) );
 
 const wrapper = ( { children }: { children: ReactNode } ) => (
-	<DemoSiteUpdateProvider>{ children }</DemoSiteUpdateProvider>
+	<PreviewSiteUpdateProvider>{ children }</PreviewSiteUpdateProvider>
 );
 
 describe( 'useUpdatePreviewSite', () => {
@@ -72,7 +72,7 @@ describe( 'useUpdatePreviewSite', () => {
 		} ) );
 	} );
 
-	it( 'when an update succeeds, ensure all functions to update a demo site are called', async () => {
+	it( 'when an update succeeds, ensure all functions to update a preview site are called', async () => {
 		clientReqPost.mockResolvedValue( {
 			data: 'success',
 		} );
@@ -80,7 +80,7 @@ describe( 'useUpdatePreviewSite', () => {
 		const { result } = renderHook( () => useUpdatePreviewSite(), { wrapper } );
 
 		await act( async () => {
-			await result.current.updateDemoSite( mockSnapshot, mockLocalSite );
+			await result.current.updatePreviewSite( mockSnapshot, mockLocalSite );
 			jest.advanceTimersByTime( 3000 );
 		} );
 
@@ -107,10 +107,10 @@ describe( 'useUpdatePreviewSite', () => {
 			],
 		} );
 
-		// Assert that 'isDemoSiteUpdating' is set back to false
-		expect( result.current.isDemoSiteUpdating( mockSnapshot.atomicSiteId ) ).toBe( false );
+		// Assert that 'isPreviewSiteUpdating' is set back to false
+		expect( result.current.isPreviewSiteUpdating( mockSnapshot.atomicSiteId ) ).toBe( false );
 
-		// Assert that demo site is updated with a new expiration date
+		// Assert that preview site is updated with a new expiration date
 		expect( updateSnapshotMock ).toHaveBeenCalledWith(
 			expect.objectContaining( {
 				...mockSnapshot,
@@ -132,7 +132,7 @@ describe( 'useUpdatePreviewSite', () => {
 		const { result } = renderHook( () => useUpdatePreviewSite(), { wrapper } );
 
 		await act( async () => {
-			await result.current.updateDemoSite( mockSnapshot, mockLocalSite );
+			await result.current.updatePreviewSite( mockSnapshot, mockLocalSite );
 			jest.advanceTimersByTime( 3000 );
 		} );
 
@@ -143,8 +143,8 @@ describe( 'useUpdatePreviewSite', () => {
 			error,
 		} );
 
-		// Assert that 'isDemoSiteUpdating' is set back to false
-		expect( result.current.isDemoSiteUpdating( mockSnapshot.atomicSiteId ) ).toBe( false );
+		// Assert that 'isPreviewSiteUpdating' is set back to false
+		expect( result.current.isPreviewSiteUpdating( mockSnapshot.atomicSiteId ) ).toBe( false );
 	} );
 
 	it( 'should allow updating two sites independently with different completion times', async () => {
@@ -179,13 +179,13 @@ describe( 'useUpdatePreviewSite', () => {
 
 		// Start updating both sites
 		await act( async () => {
-			result.current.updateDemoSite( mockSnapshot, mockLocalSite );
-			result.current.updateDemoSite( mockSnapshot2, mockLocalSite2 );
+			result.current.updatePreviewSite( mockSnapshot, mockLocalSite );
+			result.current.updatePreviewSite( mockSnapshot2, mockLocalSite2 );
 		} );
 
 		// Initially, both sites should be marked as updating
-		expect( result.current.isDemoSiteUpdating( mockSnapshot.atomicSiteId ) ).toBe( true );
-		expect( result.current.isDemoSiteUpdating( mockSnapshot2.atomicSiteId ) ).toBe( true );
+		expect( result.current.isPreviewSiteUpdating( mockSnapshot.atomicSiteId ) ).toBe( true );
+		expect( result.current.isPreviewSiteUpdating( mockSnapshot2.atomicSiteId ) ).toBe( true );
 
 		// Wait for the first site to complete
 		await act( async () => {
@@ -194,8 +194,8 @@ describe( 'useUpdatePreviewSite', () => {
 		} );
 
 		// After 1000ms, the first site should be done, but the second should still be updating
-		expect( result.current.isDemoSiteUpdating( mockSnapshot.atomicSiteId ) ).toBe( false );
-		expect( result.current.isDemoSiteUpdating( mockSnapshot2.atomicSiteId ) ).toBe( true );
+		expect( result.current.isPreviewSiteUpdating( mockSnapshot.atomicSiteId ) ).toBe( false );
+		expect( result.current.isPreviewSiteUpdating( mockSnapshot2.atomicSiteId ) ).toBe( true );
 
 		// Wait for the second site to complete
 		await act( async () => {
@@ -204,8 +204,8 @@ describe( 'useUpdatePreviewSite', () => {
 		} );
 
 		// After another 1000ms, both sites should be done updating
-		expect( result.current.isDemoSiteUpdating( mockSnapshot.atomicSiteId ) ).toBe( false );
-		expect( result.current.isDemoSiteUpdating( mockSnapshot2.atomicSiteId ) ).toBe( false );
+		expect( result.current.isPreviewSiteUpdating( mockSnapshot.atomicSiteId ) ).toBe( false );
+		expect( result.current.isPreviewSiteUpdating( mockSnapshot2.atomicSiteId ) ).toBe( false );
 
 		// Assert that the update function was called for both sites
 		expect( clientReqPost ).toHaveBeenCalledTimes( 2 );

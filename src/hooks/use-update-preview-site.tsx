@@ -7,27 +7,29 @@ import { useAuth } from 'src/hooks/use-auth';
 import { useSnapshots } from 'src/hooks/use-snapshots';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
-interface DemoSiteUpdateContextType {
-	updateDemoSite: ( snapshot: Snapshot, localSite: SiteDetails ) => Promise< void >;
-	isDemoSiteUpdating: ( atomicSiteId: number ) => boolean;
+interface PreviewSiteUpdateContextType {
+	updatePreviewSite: ( snapshot: Snapshot, localSite: SiteDetails ) => Promise< void >;
+	isPreviewSiteUpdating: ( atomicSiteId: number ) => boolean;
 }
 
-const DemoSiteUpdateContext = createContext< DemoSiteUpdateContextType >( {
-	updateDemoSite: async () => undefined,
-	isDemoSiteUpdating: () => false,
+const PreviewSiteUpdateContext = createContext< PreviewSiteUpdateContextType >( {
+	updatePreviewSite: async () => undefined,
+	isPreviewSiteUpdating: () => false,
 } );
 
-interface DemoSiteUpdateProviderProps {
+interface PreviewSiteUpdateProviderProps {
 	children: ReactNode;
 }
 
-export const DemoSiteUpdateProvider: React.FC< DemoSiteUpdateProviderProps > = ( { children } ) => {
+export const PreviewSiteUpdateProvider: React.FC< PreviewSiteUpdateProviderProps > = ( {
+	children,
+} ) => {
 	const { client } = useAuth();
 	const { __ } = useI18n();
 	const [ updatingSites, setUpdatingSites ] = useState< Set< number > >( new Set() );
 	const { updateSnapshot } = useSnapshots();
 
-	const updateDemoSite = useCallback(
+	const updatePreviewSite = useCallback(
 		async ( snapshot: Snapshot, localSite: SiteDetails ) => {
 			if ( ! client ) {
 				// No-op if logged out
@@ -119,7 +121,7 @@ export const DemoSiteUpdateProvider: React.FC< DemoSiteUpdateProviderProps > = (
 		[ __, client, updateSnapshot ]
 	);
 
-	const isDemoSiteUpdating = useCallback(
+	const isPreviewSiteUpdating = useCallback(
 		( atomicSiteId: number ) => {
 			return updatingSites.has( atomicSiteId );
 		},
@@ -128,23 +130,23 @@ export const DemoSiteUpdateProvider: React.FC< DemoSiteUpdateProviderProps > = (
 
 	const contextValue = useMemo(
 		() => ( {
-			updateDemoSite,
-			isDemoSiteUpdating,
+			updatePreviewSite,
+			isPreviewSiteUpdating,
 		} ),
-		[ updateDemoSite, isDemoSiteUpdating ]
+		[ updatePreviewSite, isPreviewSiteUpdating ]
 	);
 
 	return (
-		<DemoSiteUpdateContext.Provider value={ contextValue }>
+		<PreviewSiteUpdateContext.Provider value={ contextValue }>
 			{ children }
-		</DemoSiteUpdateContext.Provider>
+		</PreviewSiteUpdateContext.Provider>
 	);
 };
 
 export const useUpdatePreviewSite = () => {
-	const context = useContext( DemoSiteUpdateContext );
+	const context = useContext( PreviewSiteUpdateContext );
 	if ( context === null ) {
-		throw new Error( 'useDemoSiteUpdate must be used within a DemoSiteUpdateProvider' );
+		throw new Error( 'usePreviewSiteUpdate must be used within a PreviewSiteUpdateProvider' );
 	}
 	return context;
 };

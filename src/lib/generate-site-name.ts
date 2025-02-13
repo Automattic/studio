@@ -23,15 +23,23 @@ export function generateSiteName( usedSiteNames: string[] ): string {
 		__( 'My Swift Website' ),
 		__( 'My True Website' ),
 	];
-	let proposedName = __( 'My WordPress Website' );
-	let tryCount = 0;
 
-	while ( usedSiteNames.includes( proposedName ) && tryCount < siteNames.length ) {
-		tryCount++;
-		proposedName = siteNames[ Math.floor( Math.random() * siteNames.length ) ];
+	const defaultName = __( 'My WordPress Website' );
+
+	if ( ! usedSiteNames.includes( defaultName ) ) {
+		return defaultName;
 	}
 
-	return proposedName;
+	const availableNames = siteNames.filter( ( name ) => ! usedSiteNames.includes( name ) );
+	if ( availableNames.length > 0 ) {
+		return availableNames[ Math.floor( Math.random() * availableNames.length ) ];
+	}
+
+	let siteNumber = 2;
+	while ( usedSiteNames.includes( `${ defaultName } ${ siteNumber }` ) ) {
+		siteNumber++;
+	}
+	return `${ defaultName } ${ siteNumber }`;
 }
 
 export const sanitizeFolderName = ( filename: string ) => {

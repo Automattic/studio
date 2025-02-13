@@ -11,7 +11,7 @@ import TextControlComponent from './text-control';
 
 interface UrlState {
 	localUrl: string;
-	includePort: boolean;
+	skipPort: boolean;
 }
 
 export default function EditAbsoluteUrl() {
@@ -24,16 +24,15 @@ export default function EditAbsoluteUrl() {
 	const initialUrlState = {
 		localUrl:
 			selectedSite?.absoluteUrl?.replace( `:${ selectedSite?.port }`, '' ) || 'http://localhost',
-		includePort: Boolean(
-			selectedSite?.absoluteUrl?.includes( `:${ selectedSite?.port }` ) ||
-				! selectedSite?.absoluteUrl
-		),
+		skipPort:
+			Boolean( selectedSite?.absoluteUrl ) &&
+			! selectedSite?.absoluteUrl?.includes( `:${ selectedSite?.port }` ),
 	};
 	const [ urlState, setUrlState ] = useState< UrlState >( initialUrlState );
 
 	// Compute absolute URL
 	const absoluteUrl =
-		urlState.includePort && urlState.localUrl && selectedSite?.port
+		! urlState.skipPort && selectedSite?.port
 			? `${ urlState.localUrl }:${ selectedSite.port }`
 			: urlState.localUrl;
 
@@ -120,17 +119,17 @@ export default function EditAbsoluteUrl() {
 							<label className="flex items-center gap-2">
 								<input
 									type="checkbox"
-									checked={ urlState.includePort }
+									checked={ urlState.skipPort }
 									onChange={ ( e ) =>
-										setUrlState( ( prev ) => ( { ...prev, includePort: e.target.checked } ) )
+										setUrlState( ( prev ) => ( { ...prev, skipPort: e.target.checked } ) )
 									}
 									className="form-checkbox"
 								/>
 								<span>
-									{ __( 'Include port in URL.' ) }
+									{ __( 'Skip port in URL' ) }
 									<br />
 									<span className="text-a8c-gray-50 text-xs">
-										{ __( 'Required locally. Disable for external routing like Ngrok.' ) }
+										{ __( 'Skip the port to use external routing like Ngrok' ) }
 									</span>
 								</span>
 							</label>

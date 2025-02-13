@@ -27,8 +27,8 @@
 		"publish": "electron-forge publish",
 		"lint": "eslint --ext .ts,.tsx,.js,.jsx,.mjs .",
 		"format": "prettier . --write",
-		"test": "jest",
-		"test:watch": "jest --watch",
+		"test": "cross-env NODE_OPTIONS='--no-deprecation' jest",
+		"test:watch": "cross-env NODE_OPTIONS='--no-deprecation' jest --watch",
 		"e2e": "npx playwright install && npx playwright test",
 		"make-pot": "wp-babel-makepot \"./src/**/*.{js,jsx,ts,tsx}\" --ignore \"**/*.d.ts\" --base \"./src\" --dir \"./out/pots\" --output \"./out/pots/bundle-strings.pot\""
 	},
@@ -66,6 +66,7 @@
 		"autoprefixer": "^10.4.16",
 		"babel-preset-env": "^1.7.0",
 		"copy-webpack-plugin": "^12.0.2",
+		"cross-env": "^7.0.3",
 		"css-loader": "^6.0.0",
 		"ejs": "^3.1.10",
 		"electron": "33.3.1",

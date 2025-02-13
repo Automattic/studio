@@ -10,7 +10,7 @@ import { UPDATED_MESSAGE_DURATION_MS } from 'src/constants';
 import { useExpirationDate } from 'src/hooks/use-expiration-date';
 import { useFormatLocalizedTimestamps } from 'src/hooks/use-format-localized-timestamps';
 import { useSnapshots } from 'src/hooks/use-snapshots';
-import { useUpdatePreviewSite } from 'src/hooks/use-update-preview-site';
+import { useUpdateDemoSite } from 'src/hooks/use-update-demo-site';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { PreviewActionButtonsMenu } from 'src/modules/preview-site/components/preview-action-buttons-menu';
@@ -35,14 +35,14 @@ export function PreviewSiteRow( {
 	const { url, date, isDeleting } = snapshot;
 	const { countDown, expireDateString, isExpired } = useExpirationDate( date );
 	const { fetchSnapshotUsage, removeSnapshot } = useSnapshots();
-	const { isPreviewSiteUpdating } = useUpdatePreviewSite();
-	const isPreviewSiteUpdatingNow = isPreviewSiteUpdating( snapshot.atomicSiteId );
+	const { isDemoSiteUpdating } = useUpdateDemoSite();
+	const isPreviewSiteUpdating = isDemoSiteUpdating( snapshot.atomicSiteId );
 	const { formatRelativeTime } = useFormatLocalizedTimestamps();
 	const [ showUpdatedMessage, setShowUpdatedMessage ] = useState( false );
 	const wasUpdating = useRef( false );
 
 	useEffect( () => {
-		if ( isPreviewSiteUpdatingNow ) {
+		if ( isPreviewSiteUpdating ) {
 			wasUpdating.current = true;
 			setShowUpdatedMessage( false );
 			return;
@@ -59,7 +59,7 @@ export function PreviewSiteRow( {
 		}, UPDATED_MESSAGE_DURATION_MS );
 
 		return () => clearTimeout( timeoutId );
-	}, [ isPreviewSiteUpdatingNow ] );
+	}, [ isPreviewSiteUpdating ] );
 
 	const getLastUpdateTimeText = () => {
 		if ( ! date ) {
@@ -121,7 +121,7 @@ export function PreviewSiteRow( {
 				</div>
 				<div className="flex ml-auto">
 					<div className="w-[150px] text-a8c-gray-700 flex items-center pl-4">
-						{ isPreviewSiteUpdatingNow ? (
+						{ isPreviewSiteUpdating ? (
 							<div className="flex items-center text-gray-900">
 								<Spinner className="!mt-0 !mx-2" />
 								{ __( 'Updating' ) }

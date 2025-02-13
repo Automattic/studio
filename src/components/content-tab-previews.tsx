@@ -6,7 +6,7 @@ import { PropsWithChildren } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import offlineIcon from 'src/components/offline-icon';
-import { ScreenshotPreviewSite } from 'src/components/screenshot-preview-site';
+import { ScreenshotDemoSite } from 'src/components/screenshot-demo-site';
 import { Tooltip } from 'src/components/tooltip';
 import {
 	CLIENT_ID,
@@ -20,7 +20,7 @@ import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSiteSize } from 'src/hooks/use-site-size';
 import { useSnapshots } from 'src/hooks/use-snapshots';
-import { useUpdatePreviewSite } from 'src/hooks/use-update-preview-site';
+import { useUpdateDemoSite } from 'src/hooks/use-update-demo-site';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { CreatePreviewButton } from 'src/modules/preview-site/components/create-preview-button';
 import { PreviewSiteRow } from 'src/modules/preview-site/components/preview-site-row';
@@ -76,7 +76,7 @@ function EmptyGeneric( {
 				{ children }
 			</div>
 			<div className="flex flex-col shrink-0 items-end">
-				<ScreenshotPreviewSite site={ selectedSite } />
+				<ScreenshotDemoSite site={ selectedSite } />
 			</div>
 		</div>
 	);
@@ -167,14 +167,14 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 	const { isAuthenticated } = useAuth();
 	const { archiveSite, isUploadingSiteId } = useArchiveSite();
 	const { isOverLimit } = useSiteSize( selectedSite.id );
-	const { isPreviewSiteUpdating } = useUpdatePreviewSite();
+	const { isDemoSiteUpdating } = useUpdateDemoSite();
 	const isUploading = isUploadingSiteId( selectedSite.id );
 	const snapshotsOnSite = snapshots.filter(
 		( snapshot ) => snapshot.localSiteId === selectedSite.id
 	);
 	const isSnapshotLoading = snapshotsOnSite.some( ( snapshot ) => snapshot.isLoading );
 	const isAnyPreviewUpdating = snapshots.some( ( snapshot ) =>
-		isPreviewSiteUpdating( snapshot.atomicSiteId )
+		isDemoSiteUpdating( snapshot.atomicSiteId )
 	);
 	const isOffline = useOffline();
 

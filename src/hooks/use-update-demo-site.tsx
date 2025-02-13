@@ -2,34 +2,32 @@ import * as Sentry from '@sentry/electron/renderer';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useState, createContext, useContext, useMemo, ReactNode } from 'react';
-import { PREVIEW_SITE_SIZE_LIMIT_BYTES, PREVIEW_SITE_SIZE_LIMIT_GB } from 'src/constants';
+import { DEMO_SITE_SIZE_LIMIT_BYTES, DEMO_SITE_SIZE_LIMIT_GB } from 'src/constants';
 import { useAuth } from 'src/hooks/use-auth';
 import { useSnapshots } from 'src/hooks/use-snapshots';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
-interface PreviewSiteUpdateContextType {
-	updatePreviewSite: ( snapshot: Snapshot, localSite: SiteDetails ) => Promise< void >;
-	isPreviewSiteUpdating: ( atomicSiteId: number ) => boolean;
+interface DemoSiteUpdateContextType {
+	updateDemoSite: ( snapshot: Snapshot, localSite: SiteDetails ) => Promise< void >;
+	isDemoSiteUpdating: ( atomicSiteId: number ) => boolean;
 }
 
-const PreviewSiteUpdateContext = createContext< PreviewSiteUpdateContextType >( {
-	updatePreviewSite: async () => undefined,
-	isPreviewSiteUpdating: () => false,
+const DemoSiteUpdateContext = createContext< DemoSiteUpdateContextType >( {
+	updateDemoSite: async () => undefined,
+	isDemoSiteUpdating: () => false,
 } );
 
-interface PreviewSiteUpdateProviderProps {
+interface DemoSiteUpdateProviderProps {
 	children: ReactNode;
 }
 
-export const PreviewSiteUpdateProvider: React.FC< PreviewSiteUpdateProviderProps > = ( {
-	children,
-} ) => {
+export const DemoSiteUpdateProvider: React.FC< DemoSiteUpdateProviderProps > = ( { children } ) => {
 	const { client } = useAuth();
 	const { __ } = useI18n();
 	const [ updatingSites, setUpdatingSites ] = useState< Set< number > >( new Set() );
 	const { updateSnapshot } = useSnapshots();
 
-	const updatePreviewSite = useCallback(
+	const updateDemoSite = useCallback(
 		async ( snapshot: Snapshot, localSite: SiteDetails ) => {
 			if ( ! client ) {
 				// No-op if logged out
@@ -45,14 +43,14 @@ export const PreviewSiteUpdateProvider: React.FC< PreviewSiteUpdateProviderProps
 				);
 				archivePath = tempArchivePath;
 
-				if ( archiveSizeInBytes > PREVIEW_SITE_SIZE_LIMIT_BYTES ) {
+				if ( archiveSizeInBytes > DEMO_SITE_SIZE_LIMIT_BYTES ) {
 					getIpcApi().showErrorMessageBox( {
 						title: __( 'Updating preview site failed' ),
 						message: sprintf(
 							__(
 								'The site exceeds the maximum size of %dGB. Please remove some files and try again.'
 							),
-							PREVIEW_SITE_SIZE_LIMIT_GB
+							DEMO_SITE_SIZE_LIMIT_GB
 						),
 					} );
 
@@ -121,7 +119,7 @@ export const PreviewSiteUpdateProvider: React.FC< PreviewSiteUpdateProviderProps
 		[ __, client, updateSnapshot ]
 	);
 
-	const isPreviewSiteUpdating = useCallback(
+	const isDemoSiteUpdating = useCallback(
 		( atomicSiteId: number ) => {
 			return updatingSites.has( atomicSiteId );
 		},
@@ -130,23 +128,23 @@ export const PreviewSiteUpdateProvider: React.FC< PreviewSiteUpdateProviderProps
 
 	const contextValue = useMemo(
 		() => ( {
-			updatePreviewSite,
-			isPreviewSiteUpdating,
+			updateDemoSite,
+			isDemoSiteUpdating,
 		} ),
-		[ updatePreviewSite, isPreviewSiteUpdating ]
+		[ updateDemoSite, isDemoSiteUpdating ]
 	);
 
 	return (
-		<PreviewSiteUpdateContext.Provider value={ contextValue }>
+		<DemoSiteUpdateContext.Provider value={ contextValue }>
 			{ children }
-		</PreviewSiteUpdateContext.Provider>
+		</DemoSiteUpdateContext.Provider>
 	);
 };
 
-export const useUpdatePreviewSite = () => {
-	const context = useContext( PreviewSiteUpdateContext );
+export const useUpdateDemoSite = () => {
+	const context = useContext( DemoSiteUpdateContext );
 	if ( context === null ) {
-		throw new Error( 'usePreviewSiteUpdate must be used within a PreviewSiteUpdateProvider' );
+		throw new Error( 'useDemoSiteUpdate must be used within a DemoSiteUpdateProvider' );
 	}
 	return context;
 };

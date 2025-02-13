@@ -76,7 +76,7 @@ const backgroundSvg = (
 		</defs>
 	</svg>
 );
-export function ScreenshotPreviewSite( { site }: { site: SiteDetails } ) {
+export function ScreenshotDemoSite( { site }: { site: SiteDetails } ) {
 	const { selectedThumbnail: thumbnailData } = useThemeDetails();
 
 	return (

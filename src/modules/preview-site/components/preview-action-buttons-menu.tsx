@@ -8,7 +8,7 @@ import { Tooltip, TooltipProps } from 'src/components/tooltip';
 import { useConfirmationDialog } from 'src/hooks/use-confirmation-dialog';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSnapshots } from 'src/hooks/use-snapshots';
-import { useUpdatePreviewSite } from 'src/hooks/use-update-preview-site';
+import { useUpdateDemoSite } from 'src/hooks/use-update-demo-site';
 import { RenamePreviewModal } from './rename-preview-modal';
 
 interface PreviewActionButtonsMenuProps {
@@ -28,7 +28,7 @@ export function PreviewActionButtonsMenu( {
 }: PreviewActionButtonsMenuProps ) {
 	const { __ } = useI18n();
 	const { deleteSnapshot, updateSnapshot } = useSnapshots();
-	const { updatePreviewSite } = useUpdatePreviewSite();
+	const { updateDemoSite } = useUpdateDemoSite();
 	const isOffline = useOffline();
 	const [ showRenameModal, setShowRenameModal ] = useState( false );
 
@@ -43,7 +43,7 @@ export function PreviewActionButtonsMenu( {
 
 	const handleUpdatePreviewSite = async () => {
 		showUpdatePreviewConfirmation( () => {
-			updatePreviewSite( snapshot, selectedSite );
+			updateDemoSite( snapshot, selectedSite );
 		} );
 	};
 

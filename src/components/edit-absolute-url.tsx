@@ -125,13 +125,7 @@ export default function EditAbsoluteUrl() {
 									}
 									className="form-checkbox"
 								/>
-								<span>
-									{ __( 'Skip port in URL' ) }
-									<br />
-									<span className="text-a8c-gray-50 text-xs">
-										{ __( 'Skip the port to use external routing like Ngrok' ) }
-									</span>
-								</span>
+								<span>{ __( 'Skip the port to use external routing like Ngrok.' ) }</span>
 							</label>
 						</div>
 

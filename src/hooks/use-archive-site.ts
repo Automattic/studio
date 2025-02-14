@@ -98,7 +98,7 @@ export function useArchiveSite() {
 
 				if ( archiveSizeInBytes > DEMO_SITE_SIZE_LIMIT_BYTES ) {
 					getIpcApi().showErrorMessageBox( {
-						title: __( 'Adding demo site failed' ),
+						title: __( 'Adding preview site failed' ),
 						message: sprintf(
 							__(
 								'The site exceeds the maximum size of %dGB. Please remove some files and try again.'

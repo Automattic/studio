@@ -5,7 +5,6 @@ import { ContentTabImportExport } from 'src/components/content-tab-import-export
 import { ContentTabOverview } from 'src/components/content-tab-overview';
 import { ContentTabPreviews } from 'src/components/content-tab-previews';
 import { ContentTabSettings } from 'src/components/content-tab-settings';
-import { ContentTabSnapshots } from 'src/components/content-tab-snapshots';
 import { ContentTabSync } from 'src/components/content-tab-sync';
 import Header from 'src/components/header';
 import { SiteLoadingIndicator } from 'src/components/site-loading-indicator';
@@ -47,7 +46,6 @@ export function SiteContentTabs() {
 					{ ( { name } ) => (
 						<div className="h-full">
 							{ name === 'overview' && <ContentTabOverview selectedSite={ selectedSite } /> }
-							{ name === 'share' && <ContentTabSnapshots selectedSite={ selectedSite } /> }
 							{ name === 'previews' && <ContentTabPreviews selectedSite={ selectedSite } /> }
 							{ name === 'sync' && <ContentTabSync selectedSite={ selectedSite } /> }
 							{ name === 'settings' && <ContentTabSettings selectedSite={ selectedSite } /> }

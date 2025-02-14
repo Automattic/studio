@@ -60,7 +60,7 @@ describe( 'SiteContentTabs', () => {
 		await act( async () => renderWithProvider( <SiteContentTabs /> ) );
 		expect( screen.getByRole( 'tab', { name: 'Settings' } ) ).not.toBeNull();
 		expect( screen.getByRole( 'tab', { name: 'Sync' } ) ).not.toBeNull();
-		expect( screen.getByRole( 'tab', { name: 'Share' } ) ).not.toBeNull();
+		expect( screen.getByRole( 'tab', { name: 'Previews' } ) ).not.toBeNull();
 		expect( screen.getByRole( 'tab', { name: 'Import / Export' } ) ).not.toBeNull();
 		expect( screen.queryByRole( 'tab', { name: 'Launchpad' } ) ).toBeNull();
 		expect( screen.queryByRole( 'tab', { name: 'Publish' } ) ).toBeNull();
@@ -75,7 +75,7 @@ describe( 'SiteContentTabs', () => {
 		await act( async () => renderWithProvider( <SiteContentTabs /> ) );
 		expect( screen.queryByRole( 'tab', { name: 'Overview', selected: true } ) ).toBeVisible();
 		expect( screen.queryByRole( 'tab', { name: 'Sync', selected: false } ) ).toBeVisible();
-		expect( screen.queryByRole( 'tab', { name: 'Share', selected: false } ) ).toBeVisible();
+		expect( screen.queryByRole( 'tab', { name: 'Previews', selected: false } ) ).toBeVisible();
 		expect( screen.queryByRole( 'tab', { name: 'Settings', selected: false } ) ).toBeVisible();
 		expect( screen.queryByRole( 'tab', { name: 'Assistant', selected: false } ) ).toBeVisible();
 		expect( screen.queryByRole( 'tab', { name: 'Backup', selected: false } ) ).toBeNull();
@@ -90,7 +90,7 @@ describe( 'SiteContentTabs', () => {
 		await act( async () => renderWithProvider( <SiteContentTabs /> ) );
 		expect( screen.queryByRole( 'tab', { name: 'Settings' } ) ).toBeNull();
 		expect( screen.queryByRole( 'tab', { name: 'Sync' } ) ).toBeNull();
-		expect( screen.queryByRole( 'tab', { name: 'Share' } ) ).toBeNull();
+		expect( screen.queryByRole( 'tab', { name: 'Previews' } ) ).toBeNull();
 		expect( screen.queryByRole( 'tab', { name: 'Launchpad' } ) ).toBeNull();
 		expect( screen.queryByRole( 'tab', { name: 'Publish' } ) ).toBeNull();
 		expect( screen.queryByRole( 'tab', { name: 'Export' } ) ).toBeNull();

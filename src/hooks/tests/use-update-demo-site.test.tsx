@@ -72,7 +72,7 @@ describe( 'useUpdateDemoSite', () => {
 		} ) );
 	} );
 
-	it( 'when an update succeeds, ensure all functions to update a demo site are called', async () => {
+	it( 'when an update succeeds, ensure all functions to update a preview site are called', async () => {
 		clientReqPost.mockResolvedValue( {
 			data: 'success',
 		} );
@@ -110,7 +110,7 @@ describe( 'useUpdateDemoSite', () => {
 		// Assert that 'isDemoSiteUpdating' is set back to false
 		expect( result.current.isDemoSiteUpdating( mockSnapshot.atomicSiteId ) ).toBe( false );
 
-		// Assert that demo site is updated with a new expiration date
+		// Assert that preview site is updated with a new expiration date
 		expect( updateSnapshotMock ).toHaveBeenCalledWith(
 			expect.objectContaining( {
 				...mockSnapshot,

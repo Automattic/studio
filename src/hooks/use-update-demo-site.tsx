@@ -4,7 +4,6 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useState, createContext, useContext, useMemo, ReactNode } from 'react';
 import { DEMO_SITE_SIZE_LIMIT_BYTES, DEMO_SITE_SIZE_LIMIT_GB } from 'src/constants';
 import { useAuth } from 'src/hooks/use-auth';
-import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useSnapshots } from 'src/hooks/use-snapshots';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
@@ -27,7 +26,6 @@ export const DemoSiteUpdateProvider: React.FC< DemoSiteUpdateProviderProps > = (
 	const { __ } = useI18n();
 	const [ updatingSites, setUpdatingSites ] = useState< Set< number > >( new Set() );
 	const { updateSnapshot } = useSnapshots();
-	const { quickDeploysEnabled } = useFeatureFlags();
 
 	const updateDemoSite = useCallback(
 		async ( snapshot: Snapshot, localSite: SiteDetails ) => {
@@ -47,9 +45,7 @@ export const DemoSiteUpdateProvider: React.FC< DemoSiteUpdateProviderProps > = (
 
 				if ( archiveSizeInBytes > DEMO_SITE_SIZE_LIMIT_BYTES ) {
 					getIpcApi().showErrorMessageBox( {
-						title: quickDeploysEnabled
-							? __( 'Updating preview site failed' )
-							: __( 'Updating demo site failed' ),
+						title: __( 'Updating preview site failed' ),
 						message: sprintf(
 							__(
 								'The site exceeds the maximum size of %dGB. Please remove some files and try again.'
@@ -96,23 +92,16 @@ export const DemoSiteUpdateProvider: React.FC< DemoSiteUpdateProviderProps > = (
 				} );
 				await getIpcApi().showNotification( {
 					title: __( 'Update Successful' ),
-					body: quickDeploysEnabled
-						? sprintf( __( "Preview site for '%s' has been updated." ), localSite.name )
-						: sprintf( __( "Demo site for '%s' has been updated." ), localSite.name ),
+					body: sprintf( __( "Preview site for '%s' has been updated." ), localSite.name ),
 				} );
 				return response;
 			} catch ( error ) {
 				getIpcApi().showErrorMessageBox( {
 					title: __( 'Update failed' ),
-					message: quickDeploysEnabled
-						? sprintf(
-								__( "We couldn't update the %s preview site. Please try again." ),
-								localSite.name
-						  )
-						: sprintf(
-								__( "We couldn't update the %s demo site. Please try again." ),
-								localSite.name
-						  ),
+					message: sprintf(
+						__( "We couldn't update the %s preview site. Please try again." ),
+						localSite.name
+					),
 					error,
 				} );
 				Sentry.captureException( error );
@@ -127,7 +116,7 @@ export const DemoSiteUpdateProvider: React.FC< DemoSiteUpdateProviderProps > = (
 				}
 			}
 		},
-		[ __, client, updateSnapshot, quickDeploysEnabled ]
+		[ __, client, updateSnapshot ]
 	);
 
 	const isDemoSiteUpdating = useCallback(

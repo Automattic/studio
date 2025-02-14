@@ -135,7 +135,7 @@ describe( 'ContentTabSettings', () => {
 		fireEvent.mouseOver( deleteSiteButton );
 		expect(
 			screen.getByRole( 'tooltip', {
-				name: 'This site has active demo sites that cannot be deleted without an internet connection.',
+				name: 'This site has active preview sites that cannot be deleted without an internet connection.',
 			} )
 		).toBeVisible();
 	} );

@@ -2,16 +2,16 @@ import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useMemo } from 'react';
 import { DEMO_SITE_SIZE_LIMIT_GB } from 'src/constants';
-import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 
 export function useArchiveErrorMessages() {
 	const { __ } = useI18n();
-	const { quickDeploysEnabled } = useFeatureFlags();
 
 	return useMemo(
 		() =>
 			( {
-				rest_site_limit_reached: __( 'Demo sites limit reached. Please, delete some demo sites.' ),
+				rest_site_limit_reached: __(
+					'Preview sites limit reached. Please, delete some preview sites.'
+				),
 				no_file: __( "We didn't receive the zip file. Please try uploading it again." ),
 				invalid_file_size: sprintf(
 					__( 'The file size exceeds the limit of %d GB. Please try reducing the site size.' ),
@@ -21,10 +21,8 @@ export function useArchiveErrorMessages() {
 				rest_cannot_view: __(
 					"There's been an authentication error. Please log in again before sharing a site."
 				),
-				rest_site_creation_blocked: quickDeploysEnabled
-					? __( 'Preview sites are not available for your account.' )
-					: __( 'Demo sites are not available for your account.' ),
+				rest_site_creation_blocked: __( 'Preview sites are not available for your account.' ),
 			} ) as const,
-		[ __, quickDeploysEnabled ]
+		[ __ ]
 	);
 }

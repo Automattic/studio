@@ -119,7 +119,7 @@ export function PreviewSiteRow( {
 						{ ! isExpired && <ArrowIcon /> }
 					</Button>
 				</div>
-				<div className="flex ml-auto">
+				<div className="flex ltr:ml-auto rtl:mr-auto">
 					<div className="w-[150px] text-a8c-gray-700 flex items-center pl-4">
 						{ isPreviewSiteUpdating ? (
 							<div className="flex items-center text-gray-900">

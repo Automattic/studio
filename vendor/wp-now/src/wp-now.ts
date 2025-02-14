@@ -24,6 +24,7 @@ import {
 	setupPlatformLevelMuPlugins,
 } from '@wp-playground/wordpress';
 import fs from 'fs-extra';
+import { geWpConfigConstants } from 'src/lib/get-wp-config-constants';
 import { SymlinkManager } from '../../../src/lib/symlink-manager';
 import getWpNowConfig, { WPNowOptions, WPNowMode } from './config';
 import {
@@ -289,8 +290,8 @@ async function runWordPressMode(
 		documentRoot,
 		createNodeFsMountHandler( projectPath ) as unknown as MountHandler
 	);
-
-	await initWordPress( php, 'user-provided', documentRoot, absoluteUrl );
+	const wpConfigConstants = await geWpConfigConstants( projectPath );
+	await initWordPress( php, 'user-provided', documentRoot, absoluteUrl, wpConfigConstants );
 }
 
 async function runPluginOrThemeMode(
@@ -405,25 +406,6 @@ async function login( php: PHP, options: WPNowOptions = {} ) {
 	await php.unlink( `${ documentRoot }/playground-login.php` );
 }
 
-async function geWpConfigConstants( php: PHP, documentRoot: string ) {
-	const { json } = await php.run( {
-		code: `<?php
-		include '${ path.posix.join( documentRoot, 'wp-config.php' ) }';
-		
-		function studioGetSafeConstant( $name ) {
-			return defined( $name ) ? constant( $name ) : null;
-		}
-
-		echo json_encode( array(
-			'WP_SITEURL' => studioGetSafeConstant( 'WP_SITEURL' ),
-			'WP_HOME' => studioGetSafeConstant( 'WP_HOME' ),
-		) );
-		?>`,
-	} );
-
-	return json as { WP_SITEURL: boolean; WP_HOME: boolean };
-}
-
 /**
  * Initialize WordPress
  *
@@ -441,7 +423,8 @@ async function initWordPress(
 	php: PHP,
 	wordPressVersion: string,
 	vfsDocumentRoot: string,
-	siteUrl: string
+	siteUrl: string,
+	wpConfigConstants?: Awaited< ReturnType< typeof geWpConfigConstants > >
 ) {
 	let initializeDefaultDatabase = false;
 	if ( ! php.fileExists( `${ vfsDocumentRoot }/wp-config.php` ) ) {
@@ -454,13 +437,11 @@ async function initWordPress(
 
 	const wpConfigConsts = {};
 
-	const { WP_SITEURL, WP_HOME } = await geWpConfigConstants( php, vfsDocumentRoot );
-
-	if ( ! WP_SITEURL ) {
+	if ( ! wpConfigConstants?.WP_SITEURL ) {
 		wpConfigConsts[ 'WP_SITEURL' ] = siteUrl;
 	}
 
-	if ( ! WP_HOME ) {
+	if ( ! wpConfigConstants?.WP_HOME ) {
 		wpConfigConsts[ 'WP_HOME' ] = siteUrl;
 	}
 

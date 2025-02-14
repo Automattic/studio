@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-wrapper-object-types */
+/* eslint-disable import/order */
 import { SupportedPHPVersion, SupportedPHPVersionsList } from '@php-wasm/universal';
 import crypto from 'crypto';
 import fs from 'fs-extra';
@@ -9,6 +11,7 @@ import { portFinder } from './port-finder';
 import { isValidWordPressVersion } from './wp-playground-wordpress';
 import getWpNowPath from './get-wp-now-path';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from './constants';
+import { geWpConfigConstants } from 'src/lib/get-wp-config-constants';
 
 export interface CliOptions {
 	php?: string;
@@ -77,7 +80,7 @@ export interface WPEnvOptions {
 
 let absoluteUrlFromBlueprint = '';
 
-async function getAbsoluteURL() {
+async function getAbsoluteURL( projectPath: string ) {
 	const port = await portFinder.getOpenPort();
 	if ( isGitHubCodespace ) {
 		return getCodeSpaceURL( port );
@@ -85,6 +88,11 @@ async function getAbsoluteURL() {
 
 	if ( absoluteUrlFromBlueprint ) {
 		return absoluteUrlFromBlueprint;
+	}
+
+	const { WP_SITEURL } = await geWpConfigConstants( projectPath );
+	if ( WP_SITEURL ) {
+		return WP_SITEURL;
 	}
 
 	const url = 'http://localhost';
@@ -133,7 +141,7 @@ export default async function getWpNowConfig( args: CliOptions ): Promise< WPNow
 		options.wpContentPath = getWpContentHomePath( options.projectPath, options.mode );
 	}
 	if ( ! options.absoluteUrl ) {
-		options.absoluteUrl = await getAbsoluteURL();
+		options.absoluteUrl = await getAbsoluteURL( options.projectPath );
 	}
 	if ( ! isValidWordPressVersion( options.wordPressVersion ) ) {
 		throw new Error(

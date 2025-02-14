@@ -10,7 +10,7 @@ export function PreviewSitesTableHeader() {
 				<div className="flex ml-auto">
 					<div className="w-[150px] flex items-center pl-4">{ __( 'Updated' ) }</div>
 					<div className="w-[150px] pl-4">{ __( 'Expires' ) }</div>
-					<div className="w-[60px] text-right">{ __( 'Actions' ) }</div>
+					<div className="w-[60px] ltr:text-right rtl:text-left">{ __( 'Actions' ) }</div>
 				</div>
 			</div>
 		</div>

@@ -164,13 +164,15 @@ function NoPreviews( { selectedSite }: React.ComponentProps< typeof EmptyGeneric
 export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) {
 	const { __ } = useI18n();
 	const { snapshots, snapshotCreationBlocked } = useSnapshots();
-	const { isAuthenticated } = useAuth();
+	const { isAuthenticated, user } = useAuth();
 	const { archiveSite, isUploadingSiteId } = useArchiveSite();
 	const { isOverLimit } = useSiteSize( selectedSite.id );
 	const { isDemoSiteUpdating } = useUpdateDemoSite();
 	const isUploading = isUploadingSiteId( selectedSite.id );
 	const snapshotsOnSite = snapshots.filter(
-		( snapshot ) => snapshot.localSiteId === selectedSite.id
+		( snapshot ) =>
+			snapshot.localSiteId === selectedSite.id &&
+			( ! snapshot.userId || snapshot.userId === user?.id?.toString() )
 	);
 	const isSnapshotLoading = snapshotsOnSite.some( ( snapshot ) => snapshot.isLoading );
 	const isAnyPreviewUpdating = snapshots.some( ( snapshot ) =>

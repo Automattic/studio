@@ -405,6 +405,25 @@ async function login( php: PHP, options: WPNowOptions = {} ) {
 	await php.unlink( `${ documentRoot }/playground-login.php` );
 }
 
+async function geWpConfigConstants( php: PHP, documentRoot: string ) {
+	const { json } = await php.run( {
+		code: `<?php
+		include '${ path.posix.join( documentRoot, 'wp-config.php' ) }';
+		
+		function studioGetSafeConstant( $name ) {
+			return defined( $name ) ? constant( $name ) : null;
+		}
+
+		echo json_encode( array(
+			'WP_SITEURL' => studioGetSafeConstant( 'WP_SITEURL' ),
+			'WP_HOME' => studioGetSafeConstant( 'WP_HOME' ),
+		) );
+		?>`,
+	} );
+
+	return json as { WP_SITEURL: boolean; WP_HOME: boolean };
+}
+
 /**
  * Initialize WordPress
  *
@@ -433,10 +452,17 @@ async function initWordPress(
 		initializeDefaultDatabase = true;
 	}
 
-	const wpConfigConsts = {
-		WP_HOME: siteUrl,
-		WP_SITEURL: siteUrl,
-	};
+	const wpConfigConsts = {};
+
+	const { WP_SITEURL, WP_HOME } = await geWpConfigConstants( php, vfsDocumentRoot );
+
+	if ( ! WP_SITEURL ) {
+		wpConfigConsts[ 'WP_SITEURL' ] = siteUrl;
+	}
+
+	if ( ! WP_HOME ) {
+		wpConfigConsts[ 'WP_HOME' ] = siteUrl;
+	}
 
 	if ( wordPressVersion !== 'user-provided' ) {
 		wpConfigConsts[ 'WP_AUTO_UPDATE_CORE' ] = wordPressVersion === 'latest';

@@ -63,8 +63,14 @@ export function useArchiveSite() {
 		};
 	}, [ client, snapshots, updateSnapshot ] );
 
-	const getNextSequenceNumber = ( siteId: string, snapshots: Array< Snapshot > ): number => {
-		const siteSnapshots = snapshots.filter( ( s ) => s.localSiteId === siteId );
+	const getNextSequenceNumber = (
+		siteId: string,
+		snapshots: Array< Snapshot >,
+		userId: number | null
+	): number => {
+		const siteSnapshots = snapshots.filter(
+			( s ) => s.localSiteId === siteId && ( ! s.userId || s.userId === userId )
+		);
 		const existingSequences = siteSnapshots
 			.map( ( s ) => s.sequence ?? 0 )
 			.filter( ( n ) => ! isNaN( n ) );
@@ -143,7 +149,7 @@ export function useArchiveSite() {
 						formData,
 					} );
 
-					const nextSequence = getNextSequenceNumber( siteId, snapshots );
+					const nextSequence = getNextSequenceNumber( siteId, snapshots, user.id );
 
 					addSnapshot( {
 						url: response.domain_name,

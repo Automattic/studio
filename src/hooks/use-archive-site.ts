@@ -158,7 +158,7 @@ export function useArchiveSite() {
 							nextSequence
 						),
 						sequence: nextSequence,
-						userId: user.id?.toString(),
+						userId: user.id,
 					} );
 				} catch ( error ) {
 					if ( isWpcomNetworkError( error ) ) {

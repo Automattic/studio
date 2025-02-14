@@ -172,7 +172,7 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 	const snapshotsOnSite = snapshots.filter(
 		( snapshot ) =>
 			snapshot.localSiteId === selectedSite.id &&
-			( ! snapshot.userId || snapshot.userId === user?.id?.toString() )
+			( ! snapshot.userId || snapshot.userId === user?.id )
 	);
 	const isSnapshotLoading = snapshotsOnSite.some( ( snapshot ) => snapshot.isLoading );
 	const isAnyPreviewUpdating = snapshots.some( ( snapshot ) =>

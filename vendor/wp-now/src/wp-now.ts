@@ -250,14 +250,14 @@ async function runIndexMode( php: PHP, { documentRoot, projectPath }: WPNowOptio
 
 async function runWpContentMode(
 	php: PHP,
-	{ documentRoot, wordPressVersion, wpContentPath, projectPath, absoluteUrl }: WPNowOptions
+	{ documentRoot, wordPressVersion, wpContentPath, projectPath }: WPNowOptions
 ) {
 	const wordPressPath = path.join( getWordpressVersionsPath(), wordPressVersion );
 	await php.mount(
 		wordPressPath,
 		createNodeFsMountHandler( documentRoot ) as unknown as MountHandler
 	);
-	await initWordPress( php, wordPressVersion, documentRoot, absoluteUrl );
+	await initWordPress( php, wordPressVersion, documentRoot );
 	fs.ensureDirSync( wpContentPath );
 
 	await php.mount(
@@ -280,29 +280,26 @@ async function runWordPressDevelopMode(
 	} );
 }
 
-async function runWordPressMode(
-	php: PHP,
-	{ documentRoot, projectPath, absoluteUrl }: WPNowOptions
-) {
+async function runWordPressMode( php: PHP, { documentRoot, projectPath }: WPNowOptions ) {
 	php.mkdir( documentRoot );
 	await php.mount(
 		documentRoot,
 		createNodeFsMountHandler( projectPath ) as unknown as MountHandler
 	);
 
-	await initWordPress( php, 'user-provided', documentRoot, absoluteUrl );
+	await initWordPress( php, 'user-provided', documentRoot );
 }
 
 async function runPluginOrThemeMode(
 	php: PHP,
-	{ wordPressVersion, documentRoot, projectPath, wpContentPath, absoluteUrl, mode }: WPNowOptions
+	{ wordPressVersion, documentRoot, projectPath, wpContentPath, mode }: WPNowOptions
 ) {
 	const wordPressPath = path.join( getWordpressVersionsPath(), wordPressVersion );
 	await php.mount(
 		wordPressPath,
 		createNodeFsMountHandler( documentRoot ) as unknown as MountHandler
 	);
-	await initWordPress( php, wordPressVersion, documentRoot, absoluteUrl );
+	await initWordPress( php, wordPressVersion, documentRoot );
 
 	fs.ensureDirSync( wpContentPath );
 	fs.copySync(
@@ -344,14 +341,14 @@ async function runPluginOrThemeMode(
 
 async function runWpPlaygroundMode(
 	php: PHP,
-	{ documentRoot, wordPressVersion, wpContentPath, absoluteUrl }: WPNowOptions
+	{ documentRoot, wordPressVersion, wpContentPath }: WPNowOptions
 ) {
 	const wordPressPath = path.join( getWordpressVersionsPath(), wordPressVersion );
 	await php.mount(
 		wordPressPath,
 		createNodeFsMountHandler( documentRoot ) as unknown as MountHandler
 	);
-	await initWordPress( php, wordPressVersion, documentRoot, absoluteUrl );
+	await initWordPress( php, wordPressVersion, documentRoot );
 
 	fs.ensureDirSync( wpContentPath );
 	fs.copySync(
@@ -418,12 +415,7 @@ async function login( php: PHP, options: WPNowOptions = {} ) {
  * @param vfsDocumentRoot
  * @param siteUrl
  */
-async function initWordPress(
-	php: PHP,
-	wordPressVersion: string,
-	vfsDocumentRoot: string,
-	siteUrl: string
-) {
+async function initWordPress( php: PHP, wordPressVersion: string, vfsDocumentRoot: string ) {
 	let initializeDefaultDatabase = false;
 	if ( ! php.fileExists( `${ vfsDocumentRoot }/wp-config.php` ) ) {
 		php.writeFile(
@@ -433,10 +425,7 @@ async function initWordPress(
 		initializeDefaultDatabase = true;
 	}
 
-	const wpConfigConsts = {
-		WP_HOME: siteUrl,
-		WP_SITEURL: siteUrl,
-	};
+	const wpConfigConsts = {};
 
 	if ( wordPressVersion !== 'user-provided' ) {
 		wpConfigConsts[ 'WP_AUTO_UPDATE_CORE' ] = wordPressVersion === 'latest';

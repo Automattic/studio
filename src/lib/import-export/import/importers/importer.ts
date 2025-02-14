@@ -89,6 +89,7 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 		const { stdout: currentSiteUrl } = await server.executeWpCliCommand( `option get siteurl`, {
 			skipPluginsAndThemes: true,
 		} );
+
 		if ( ! currentSiteUrl ) {
 			console.error( 'Failed to fetch site URL after import' );
 			return;

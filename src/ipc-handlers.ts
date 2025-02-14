@@ -51,6 +51,7 @@ import { loadUserData, saveUserData } from 'src/storage/user-data';
 import { DEFAULT_PHP_VERSION } from 'vendor/wp-now/src/constants';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
+import { portFinder } from 'src/lib/port-finder';
 
 const TEMP_DIR = nodePath.join( app.getPath( 'temp' ), 'com.wordpress.studio' ) + nodePath.sep;
 if ( ! fs.existsSync( TEMP_DIR ) ) {
@@ -161,11 +162,14 @@ export async function createSite(
 		}
 	}
 
+	const port = await portFinder.getOpenPort();
+
 	const details = {
 		id: crypto.randomUUID(),
 		name: siteName || nodePath.basename( path ),
 		path,
 		adminPassword: createPassword(),
+		port,
 		running: false,
 		phpVersion: DEFAULT_PHP_VERSION,
 	} as const;

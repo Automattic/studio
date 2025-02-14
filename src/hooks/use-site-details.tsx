@@ -218,6 +218,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 						id: tempSiteId,
 						name: siteName || path,
 						path,
+						port: 9999, // Set a temporary port
 						running: false,
 						isAddingSite: true,
 						phpVersion: '',

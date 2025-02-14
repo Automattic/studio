@@ -17,7 +17,7 @@ interface StoppedSiteDetails {
 	id: string;
 	name: string;
 	path: string;
-	port?: number;
+	port: number;
 	phpVersion: string;
 	adminPassword?: string;
 	themeDetails?: {

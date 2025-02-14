@@ -147,6 +147,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 				id: '123',
 				name: '123',
 				path: normalize( '/path/to/site' ),
+				port: 8881,
 				phpVersion: '7.4',
 			},
 			backupFile: normalize( '/path/to/backup.tar.gz' ),

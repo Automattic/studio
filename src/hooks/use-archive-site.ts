@@ -18,7 +18,7 @@ export function useArchiveSite() {
 		( localSiteId: string ) => uploadingSites[ localSiteId ] || false,
 		[ uploadingSites ]
 	);
-	const { client } = useAuth();
+	const { client, user } = useAuth();
 	const { __ } = useI18n();
 	const { connectedSites } = useSyncSites();
 
@@ -74,7 +74,7 @@ export function useArchiveSite() {
 	const errorMessages = useArchiveErrorMessages();
 	const archiveSite = useCallback(
 		async ( siteId: string ) => {
-			if ( ! client ) {
+			if ( ! client || ! user ) {
 				// No-op if logged out
 				return;
 			}
@@ -158,6 +158,7 @@ export function useArchiveSite() {
 							nextSequence
 						),
 						sequence: nextSequence,
+						userId: user.id?.toString(),
 					} );
 				} catch ( error ) {
 					if ( isWpcomNetworkError( error ) ) {
@@ -194,6 +195,7 @@ export function useArchiveSite() {
 			__,
 			addSnapshot,
 			client,
+			user,
 			errorMessages,
 			fetchSnapshotUsage,
 			setUploadingSites,

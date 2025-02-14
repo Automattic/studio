@@ -193,12 +193,6 @@ export const SnapshotProvider: React.FC< { children: ReactNode } > = ( { childre
 		);
 	}, [] );
 
-	useEffect( () => {
-		if ( initiated && ! loadingServerSnapshots && allSnapshots ) {
-			clearFloatingSnapshots( allSnapshots );
-		}
-	}, [ allSnapshots, clearFloatingSnapshots, initiated, loadingServerSnapshots ] );
-
 	const fetchAllSnapshots = useCallback( async () => {
 		if ( ! client?.req || isOffline || ! initiated ) {
 			return null;

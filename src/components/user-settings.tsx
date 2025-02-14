@@ -32,13 +32,15 @@ const UserInfo = ( {
 	return (
 		<div className="flex w-full gap-5">
 			<div className="flex w-full items-center gap-3">
-				<Button
-					onClick={ () => getIpcApi().openURL( WPCOM_PROFILE_URL ) }
-					aria-label={ __( 'Edit profile' ) }
-					variant="icon"
-				>
-					<Gravatar detailedDefaultImage size={ 32 } isBlack />
-				</Button>
+				<Tooltip text={ __( 'Edit profile' ) } placement="bottom">
+					<Button
+						onClick={ () => getIpcApi().openURL( WPCOM_PROFILE_URL ) }
+						aria-label={ __( 'Edit profile' ) }
+						variant="icon"
+					>
+						<Gravatar detailedDefaultImage size={ 32 } isBlack />
+					</Button>
+				</Tooltip>
 				<div className="flex flex-col">
 					<span className="overflow-ellipsis">{ user?.displayName }</span>
 					<span className="text-a8c-gray-700 text-[10px] leading-[10px]">{ user?.email }</span>

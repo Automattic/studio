@@ -21,6 +21,7 @@ describe( 'useArchiveSite', () => {
 
 		( useAuth as jest.Mock ).mockImplementation( () => ( {
 			client: { req: { post: mockPost } },
+			user: { id: 123 },
 		} ) );
 
 		( useSiteDetails as jest.Mock ).mockImplementation( () => ( {

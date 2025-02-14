@@ -462,6 +462,7 @@ async function mountInternalMuPlugins( php: PHP ) {
 	php.writeFile(
 		path.posix.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-https-for-reverse-proxy.php' ),
 		`<?php
+		// See https://developer.wordpress.org/advanced-administration/security/https/#using-a-reverse-proxy
 		if( isset( $_SERVER['HTTP_X_FORWARDED_PROTO'] ) && strpos( $_SERVER['HTTP_X_FORWARDED_PROTO'], 'https') !== false ){
 			$_SERVER['HTTPS'] = 'on';
 		}

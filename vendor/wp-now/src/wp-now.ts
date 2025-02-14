@@ -470,6 +470,26 @@ async function mountInternalMuPlugins( php: PHP ) {
 	);
 
 	php.writeFile(
+		path.posix.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-redirect-to-siteurl-constant.php' ),
+		`<?php
+		// See https://core.trac.wordpress.org/ticket/33821#comment:10
+		add_action( 'init', function() {
+			if ( ! defined( 'WP_SITEURL' ) ) {
+				return;
+			}
+
+			$current_host = $_SERVER['HTTP_HOST'] ?? '';
+
+			if ( preg_match( '/^localhost:\\d+$/', $current_host ) ) {
+				$requested_uri = $_SERVER['REQUEST_URI'] ?? '/';
+				wp_redirect( rtrim( WP_SITEURL, '/' ) . $requested_uri, 302 );
+				exit;
+			}
+		});
+		`
+	);
+
+	php.writeFile(
 		path.posix.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-allowed-redirect-hosts.php' ),
 		`<?php
 	// Needed because gethostbyname( <host> ) returns

@@ -87,9 +87,8 @@ export class SiteServer {
 			siteTitle: this.details.name,
 			php: this.details.phpVersion,
 		} );
-		if ( ! options.absoluteUrl ) {
-			options.absoluteUrl = `http://localhost:${ port }`;
-		}
+		const absoluteUrl = `http://localhost:${ port }`;
+		options.absoluteUrl = absoluteUrl;
 		options.siteLanguage = await getPreferredSiteLanguage( options.wordPressVersion );
 
 		if ( options.mode !== WPNowMode.WORDPRESS ) {

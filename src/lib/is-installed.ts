@@ -8,16 +8,19 @@ if ( process.platform === 'darwin' ) {
 	appPaths = {
 		vscode: '/Applications/Visual Studio Code.app',
 		phpstorm: '/Applications/PhpStorm.app',
+		cursor: '/Applications/Cursor.app',
 	};
 } else if ( process.platform === 'linux' ) {
 	appPaths = {
 		vscode: '/usr/bin/code',
 		phpstorm: '/usr/bin/phpstorm',
+		cursor: '/usr/bin/cursor',
 	};
 } else if ( process.platform === 'win32' ) {
 	appPaths = {
 		vscode: path.join( app.getPath( 'appData' ), 'Code' ),
 		phpstorm: '', // Disable phpStorm for Windows
+		cursor: path.join( app.getPath( 'appData' ), 'Cursor' ),
 	};
 }
 

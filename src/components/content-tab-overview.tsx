@@ -153,8 +153,16 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 			},
 		},
 	];
-	if ( installedApps.vscode ) {
-		// Use VS Code as a default even if none of the editors are installed
+	if ( installedApps.cursor ) {
+		buttonsArray.push( {
+			label: 'Cursor',
+			className: 'text-nowrap',
+			icon: code,
+			onClick: () => {
+				getIpcApi().openURL( `cursor://file/${ selectedSite.path }` );
+			},
+		} );
+	} else if ( installedApps.vscode ) {
 		buttonsArray.push( {
 			label:
 				// translators: "VS Code" is the brand name for an IDE and does not need to be translated

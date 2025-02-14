@@ -52,8 +52,9 @@ interface Snapshot {
 }
 
 type InstalledApps = {
-	vscode: boolean | null;
-	phpstorm: boolean | null;
+	vscode: boolean;
+	phpstorm: boolean;
+	cursor: boolean;
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

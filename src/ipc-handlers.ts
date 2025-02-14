@@ -100,6 +100,7 @@ export async function getInstalledApps( _event: IpcMainInvokeEvent ): Promise< I
 	return {
 		vscode: isInstalled( 'vscode' ),
 		phpstorm: isInstalled( 'phpstorm' ),
+		cursor: isInstalled( 'cursor' ),
 	};
 }
 

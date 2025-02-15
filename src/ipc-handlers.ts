@@ -1064,7 +1064,8 @@ export async function openFileInIDE(
 		await shell.openExternal( `phpstorm://open?file=${ path }` );
 	} else if ( isInstalled( 'cursor' ) ) {
 		// Open site first to ensure the file is opened within the site context
-		await shell.openExternal( `cursor://open?file=${ path }` );
+		await shell.openExternal( `cursor://file/${ server.details.path }?windowId=_blank` );
+		await shell.openExternal( `cursor://file/${ path }` );
 	}
 }
 

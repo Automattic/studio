@@ -14,13 +14,13 @@ if ( process.platform === 'darwin' ) {
 	appPaths = {
 		vscode: '/usr/bin/code',
 		phpstorm: '/usr/bin/phpstorm',
-		cursor: '', //disable for linux
+		cursor: '', // Disable Cursor for Linux
 	};
 } else if ( process.platform === 'win32' ) {
 	appPaths = {
 		vscode: path.join( app.getPath( 'appData' ), 'Code' ),
 		phpstorm: '', // Disable phpStorm for Windows
-		cursor: '', // Disable cursor for Windows
+		cursor: '', // Disable Cursor for Windows
 	};
 }
 

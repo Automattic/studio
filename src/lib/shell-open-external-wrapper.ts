@@ -31,7 +31,7 @@ export const shellOpenExternalWrapper = async ( url: string ) => {
 			message = __(
 				'Studio is unable to open PHPStorm. Please ensure it is functioning correctly.'
 			);
-		} else if ( url.startsWith( 'cursor://open?file=' ) ) {
+		} else if ( url.startsWith( 'cursor://file/' ) ) {
 			title = __( 'Failed to open Cursor' );
 			message = __( 'Studio is unable to open Cursor. Please ensure it is functioning correctly.' );
 		} else {

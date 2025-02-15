@@ -60,7 +60,7 @@ describe( 'ShortcutsSection', () => {
 			expect( openURLMock ).toHaveBeenCalledWith( expect.stringContaining( 'vscode://' ) )
 		);
 	} );
-	it( 'opens site in VS Code when VS Code and PhpStorm are both installed', async () => {
+	it( 'opens site in VS Code when VS Code, PhpStorm and Cursor are installed', async () => {
 		// Mock the `useCheckInstalledApps` hook to simulate VS Code being installed
 		( useCheckInstalledApps as jest.Mock ).mockReturnValue( {
 			vscode: true,
@@ -169,4 +169,28 @@ describe( 'ShortcutsSection', () => {
 			} );
 		} );
 	} );
+} );
+
+it( 'opens site in Cursor when Cursor is installed and the button is clicked, only available on MacOS', async () => {
+	// Mock the `useCheckInstalledApps` hook to simulate Cursor being installed
+	( useCheckInstalledApps as jest.Mock ).mockReturnValue( {
+		vscode: false,
+		phpstorm: false,
+		cursor: true,
+	} );
+
+	// Mock the IPC API
+	const openURLMock = jest.fn();
+	mockGetIpcApi.mockReturnValue( {
+		openURL: openURLMock,
+	} );
+
+	const { getByText } = render( <ContentTabOverview selectedSite={ selectedSite } /> );
+
+	const cursorButton = getByText( 'Cursor' );
+	fireEvent.click( cursorButton );
+
+	await waitFor( () =>
+		expect( openURLMock ).toHaveBeenCalledWith( expect.stringContaining( 'cursor://' ) )
+	);
 } );

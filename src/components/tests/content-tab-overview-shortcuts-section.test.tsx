@@ -42,6 +42,7 @@ describe( 'ShortcutsSection', () => {
 		( useCheckInstalledApps as jest.Mock ).mockReturnValue( {
 			vscode: true,
 			phpstorm: false,
+			cursor: false,
 		} );
 
 		// Mock the IPC API
@@ -64,6 +65,7 @@ describe( 'ShortcutsSection', () => {
 		( useCheckInstalledApps as jest.Mock ).mockReturnValue( {
 			vscode: true,
 			phpstorm: true,
+			cursor: false,
 		} );
 
 		// Mock the IPC API
@@ -87,6 +89,7 @@ describe( 'ShortcutsSection', () => {
 		( useCheckInstalledApps as jest.Mock ).mockReturnValue( {
 			vscode: false,
 			phpstorm: true,
+			cursor: false,
 		} );
 
 		// Mock the IPC API
@@ -110,6 +113,7 @@ describe( 'ShortcutsSection', () => {
 			terminal: true,
 			vscode: false,
 			phpstorm: false,
+			cursor: false,
 		} );
 
 		// Mock the IPC API
@@ -139,6 +143,7 @@ describe( 'ShortcutsSection', () => {
 			terminal: true,
 			vscode: false,
 			phpstorm: false,
+			cursor: false,
 		} );
 		( useFeatureFlags as jest.Mock ).mockReturnValue( {
 			terminalWpCliEnabled: true,

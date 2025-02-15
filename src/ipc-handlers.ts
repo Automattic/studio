@@ -100,6 +100,7 @@ export async function getInstalledApps( _event: IpcMainInvokeEvent ): Promise< I
 	return {
 		vscode: isInstalled( 'vscode' ),
 		phpstorm: isInstalled( 'phpstorm' ),
+		cursor: isInstalled( 'cursor' ),
 	};
 }
 
@@ -1061,6 +1062,9 @@ export async function openFileInIDE(
 	} else if ( isInstalled( 'phpstorm' ) ) {
 		// Open site first to ensure the file is opened within the site context
 		await shell.openExternal( `phpstorm://open?file=${ path }` );
+	} else if ( isInstalled( 'cursor' ) ) {
+		// Open site first to ensure the file is opened within the site context
+		await shell.openExternal( `cursor://open?file=${ path }` );
 	}
 }
 

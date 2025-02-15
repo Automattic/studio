@@ -176,6 +176,17 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 				getIpcApi().openURL( `phpstorm://open?file=${ selectedSite.path }` );
 			},
 		} );
+	} else if ( installedApps.cursor ) {
+		buttonsArray.push( {
+			label:
+				// translators: "Cursor" is the brand name for an IDE and does not need to be translated
+				__( 'Cursor' ),
+			className: 'text-nowrap',
+			icon: code,
+			onClick: () => {
+				getIpcApi().openURL( `cursor://file/${ selectedSite.path }?windowId=_blank` );
+			},
+		} );
 	}
 	buttonsArray.push( {
 		label: __( 'Terminal' ),

@@ -1,7 +1,6 @@
 # Stop script execution when a non-terminating error occurs
 $ErrorActionPreference = "Stop"
 
-Write-Host "--- :windows: Setting up Windows"
 & "prepare_windows_host_for_node.ps1"
 If ($LastExitCode -ne 0) { Exit $LastExitCode }
 

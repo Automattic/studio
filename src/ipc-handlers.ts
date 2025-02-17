@@ -38,6 +38,7 @@ import { StoredToken } from 'src/lib/oauth';
 import * as oauthClient from 'src/lib/oauth';
 import { createPassword } from 'src/lib/passwords';
 import { phpGetThemeDetails } from 'src/lib/php-get-theme-details';
+import { portFinder } from 'src/lib/port-finder';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { sortSites } from 'src/lib/sort-sites';
 import { installSqliteIntegration, keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
@@ -51,7 +52,6 @@ import { loadUserData, saveUserData } from 'src/storage/user-data';
 import { DEFAULT_PHP_VERSION } from 'vendor/wp-now/src/constants';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
-import { portFinder } from 'src/lib/port-finder';
 
 const TEMP_DIR = nodePath.join( app.getPath( 'temp' ), 'com.wordpress.studio' ) + nodePath.sep;
 if ( ! fs.existsSync( TEMP_DIR ) ) {

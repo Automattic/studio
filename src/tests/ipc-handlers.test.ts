@@ -9,6 +9,7 @@ import { createSite, startServer, isFullscreen, importSite } from 'src/ipc-handl
 import { isEmptyDir, pathExists } from 'src/lib/fs-utils';
 import { importBackup, defaultImporterOptions } from 'src/lib/import-export/import/import-manager';
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
+import { portFinder } from 'src/lib/port-finder';
 import { keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
 import { getMainWindow } from 'src/main-window';
 import { SiteServer, createSiteWorkingDirectory } from 'src/site-server';
@@ -56,6 +57,7 @@ describe( 'createSite', () => {
 	it( 'should create a site', async () => {
 		( isEmptyDir as jest.Mock ).mockResolvedValueOnce( true );
 		( pathExists as jest.Mock ).mockResolvedValueOnce( true );
+		( portFinder.getOpenPort as jest.Mock ).mockResolvedValueOnce( 8881 );
 
 		const [ site ] = await createSite( mockIpcMainInvokeEvent, '/test', 'Test' );
 
@@ -65,6 +67,7 @@ describe( 'createSite', () => {
 			name: 'Test',
 			path: '/test',
 			phpVersion: '8.2',
+			port: 8881,
 			running: false,
 		} );
 	} );

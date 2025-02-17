@@ -64,7 +64,7 @@ export default class WpCliProcess {
 			phpVersion,
 		} );
 		const timeout =
-			args[ 0 ] === 'sqlite' && ( args[ 1 ] === 'import' || args[ 1 ] === 'export' )
+			args[ 0 ] === 'sqlite' && [ 'import', 'export' ].includes( args[ 1 ] )
 				? IMPORT_EXPORT_RESPONSE_TIMEOUT
 				: DEFAULT_RESPONSE_TIMEOUT;
 		return await this.waitForResponse( message, messageId, timeout );

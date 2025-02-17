@@ -43,7 +43,7 @@ The app automatically launches with the Chromium developer tools opened by defau
 
 The project follows a modular architecture with both global and feature-specific code organization:
 
-### Global Directories
+#### Global Directories
 
 - `src/components/` - Reusable UI components used across the application
 - `src/hooks/` - Global React hooks
@@ -51,21 +51,21 @@ The project follows a modular architecture with both global and feature-specific
 - `src/stores/` - Global state management (Redux stores)
 - `src/api/` - API interfaces and implementations
 
-### Important Entry Points
+#### Important Entry Points
 
 - `scripts/` - Scripts for building and testing the app
 - `src/index.ts` - The entry point for the main process
 - `src/renderer.ts` - The entry point for the "renderer," the code running in the Chromium window
 - `vendor/wp-now` - The modified `wp-now` source code
 
-### Feature Modules
+#### Feature Modules
 
 Feature-specific code is organized in the `src/modules/` directory. Each module follows a consistent internal structure:
 
 ```
 src/modules/
-  ├── preview-site/           # Preview sites feature
-  │   ├── components/         # Feature-specific components
+  ├── preview-site/          # Preview sites feature
+  │   ├── components/        # Feature-specific components
   │   ├── hooks/             # Feature-specific hooks
   │   └── lib/               # Feature-specific utilities
   │

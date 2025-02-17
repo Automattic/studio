@@ -9,7 +9,6 @@ import { createSite, startServer, isFullscreen, importSite } from 'src/ipc-handl
 import { isEmptyDir, pathExists } from 'src/lib/fs-utils';
 import { importBackup, defaultImporterOptions } from 'src/lib/import-export/import/import-manager';
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
-import { portFinder } from 'src/lib/port-finder';
 import { keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
 import { getMainWindow } from 'src/main-window';
 import { SiteServer, createSiteWorkingDirectory } from 'src/site-server';
@@ -23,6 +22,12 @@ jest.mock( 'vendor/wp-now/src/download' );
 jest.mock( 'src/main-window' );
 jest.mock( '@sentry/electron/main' );
 jest.mock( 'src/lib/import-export/import/import-manager' );
+
+jest.mock( 'src/lib/port-finder', () => ( {
+	portFinder: {
+		getOpenPort: jest.fn().mockResolvedValue( 9999 ),
+	},
+} ) );
 
 ( SiteServer.create as jest.Mock ).mockImplementation( ( details ) => ( {
 	start: jest.fn(),
@@ -57,7 +62,6 @@ describe( 'createSite', () => {
 	it( 'should create a site', async () => {
 		( isEmptyDir as jest.Mock ).mockResolvedValueOnce( true );
 		( pathExists as jest.Mock ).mockResolvedValueOnce( true );
-		( portFinder.getOpenPort as jest.Mock ).mockResolvedValueOnce( 9999 );
 
 		const [ site ] = await createSite( mockIpcMainInvokeEvent, '/test', 'Test' );
 

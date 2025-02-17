@@ -67,6 +67,9 @@ export function useAddSite() {
 							isNewSite: true,
 						} );
 						clearImportState( newSite.id );
+					} else {
+						// when we import file we start the server automatically, so doesn't make sense to run it again, to avoid unexpected behaviour
+						await startServer( newSite.id );
 					}
 
 					getIpcApi().showNotification( {

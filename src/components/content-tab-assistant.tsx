@@ -410,7 +410,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const disabled = isOffline || ! isAuthenticated || ! userCanSendMessage || hasFailedMessage;
 
 	return (
-		<div className="relative min-h-full flex flex-col bg-gray-50" ref={ wrapperRef }>
+		<div className="relative min-h-full flex flex-col" ref={ wrapperRef }>
 			<div
 				data-testid="assistant-chat"
 				className={ cx(

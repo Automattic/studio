@@ -41,13 +41,42 @@ The app automatically launches with the Chromium developer tools opened by defau
 
 ### Project Structure
 
-The following represents notable pieces of project structure:
+The project follows a modular architecture with both global and feature-specific code organization:
 
-- `scripts/` - scripts for building and testing the app.
-- `src/` - the source code for the app.
-- `src/index.ts` - the entry point for the main process.
-- `src/renderer.ts` - the entry point for the "renderer," the code running in the Chromium window.
-- `vendor/wp-now` - the modified `wp-now` source code.
+### Global Directories
+
+- `src/components/` - Reusable UI components used across the application
+- `src/hooks/` - Global React hooks
+- `src/lib/` - Utility functions and helper libraries
+- `src/stores/` - Global state management (Redux stores)
+- `src/api/` - API interfaces and implementations
+
+### Important Entry Points
+
+- `scripts/` - Scripts for building and testing the app
+- `src/index.ts` - The entry point for the main process
+- `src/renderer.ts` - The entry point for the "renderer," the code running in the Chromium window
+- `vendor/wp-now` - The modified `wp-now` source code
+
+### Feature Modules
+
+Feature-specific code is organized in the `src/modules/` directory. Each module follows a consistent internal structure:
+
+```
+src/modules/
+  ├── preview-site/           # Preview sites feature
+  │   ├── components/         # Feature-specific components
+  │   ├── hooks/             # Feature-specific hooks
+  │   └── lib/               # Feature-specific utilities
+  │
+  ├── ai-assistant/          # AI Assistant feature
+  │   └── ...
+  │
+  └── sidebar/               # Sites sidebar feature
+      └── ...
+```
+
+Each feature module should be self-contained and include its own components, hooks, and utilities. This organization helps maintain separation of concerns and makes the codebase more maintainable.
 
 ### Code Formatting
 

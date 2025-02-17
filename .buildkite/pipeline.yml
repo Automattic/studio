@@ -135,7 +135,7 @@ steps:
       - out\**\*.appx
     agents:
       queue: windows
-    plugins: [$CI_TOOLKIT_PLUGIN]
+    plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
     if: build.tag !~ /^v[0-9]+/
     notify:
       - github_commit_status:

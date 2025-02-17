@@ -21,7 +21,6 @@ export async function exportDatabaseToFile(
 		`sqlite export ${ tempFileName } --require=/tmp/sqlite-command/command.php`,
 		{
 			skipPluginsAndThemes: true,
-			longRunning: true,
 		}
 	);
 
@@ -89,7 +88,6 @@ export async function exportDatabaseToMultipleFiles(
 			`sqlite export ${ fileName } --tables=${ table } --require=/tmp/sqlite-command/command.php`,
 			{
 				skipPluginsAndThemes: true,
-				longRunning: true,
 			}
 		);
 

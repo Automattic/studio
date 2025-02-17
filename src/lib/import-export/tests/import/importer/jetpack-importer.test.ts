@@ -87,12 +87,10 @@ platformTestSuite( 'JetpackImporter', ( { normalize } ) => {
 			expect( siteServer?.executeWpCliCommand ).toHaveBeenNthCalledWith( 1, expectedCommand, {
 				targetPhpVersion: '8.2',
 				skipPluginsAndThemes: true,
-				longRunning: true,
 			} );
 			expect( siteServer?.executeWpCliCommand ).toHaveBeenNthCalledWith( 2, expectedCommand, {
 				targetPhpVersion: '8.2',
 				skipPluginsAndThemes: true,
-				longRunning: true,
 			} );
 
 			const expectedUnlinkPath = normalize(

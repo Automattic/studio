@@ -170,11 +170,9 @@ export class SiteServer {
 		{
 			targetPhpVersion,
 			skipPluginsAndThemes = false,
-			longRunning = false,
 		}: {
 			targetPhpVersion?: string;
 			skipPluginsAndThemes?: boolean;
-			longRunning?: boolean;
 		} = {}
 	): Promise< WpCliResult > {
 		const projectPath = this.details.path;
@@ -201,7 +199,7 @@ export class SiteServer {
 		}
 
 		try {
-			return await this.wpCliExecutor.execute( wpCliArgs as string[], { phpVersion, longRunning } );
+			return await this.wpCliExecutor.execute( wpCliArgs as string[], { phpVersion } );
 		} catch ( error ) {
 			if ( ( error as MessageCanceled )?.canceled ) {
 				return {

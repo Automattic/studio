@@ -55,13 +55,7 @@ export default class WpCliProcess {
 
 	async execute(
 		args: string[],
-		{
-			phpVersion,
-			longRunning = false,
-		}: {
-			phpVersion?: string;
-			longRunning?: boolean;
-		} = {}
+		{ phpVersion }: { phpVersion?: string } = {}
 	): Promise< WpCliResult > {
 		const message = 'execute';
 		const messageId = this.sendMessage( message, {
@@ -69,11 +63,11 @@ export default class WpCliProcess {
 			args,
 			phpVersion,
 		} );
-		return await this.waitForResponse(
-			message,
-			messageId,
-			longRunning ? IMPORT_EXPORT_RESPONSE_TIMEOUT : DEFAULT_RESPONSE_TIMEOUT
-		);
+		const timeout =
+			args[ 0 ] === 'sqlite' && ( args[ 1 ] === 'import' || args[ 1 ] === 'export' )
+				? IMPORT_EXPORT_RESPONSE_TIMEOUT
+				: DEFAULT_RESPONSE_TIMEOUT;
+		return await this.waitForResponse( message, messageId, timeout );
 	}
 
 	async stop() {

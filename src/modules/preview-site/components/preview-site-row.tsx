@@ -104,20 +104,22 @@ export function PreviewSiteRow( {
 							{ snapshot.name || sprintf( __( '%s Preview' ), selectedSite.name ) }
 						</div>
 					</div>
-					<Button
-						variant="link"
-						disabled={ isExpired }
-						className={ cx(
-							'!text-a8c-gray-700 max-w-[250px]',
-							isExpired ? 'pointer-events-none' : 'hover:!text-a8c-blueberry'
-						) }
-						onClick={ () => getIpcApi().openURL( urlWithHTTPS ) }
-					>
-						<span className={ cx( 'truncate', isExpired && 'line-through text-a8c-gray-700' ) }>
-							{ urlWithHTTPS }
-						</span>
-						{ ! isExpired && <ArrowIcon /> }
-					</Button>
+					<Tooltip text={ urlWithHTTPS } disabled={ isExpired }>
+						<Button
+							variant="link"
+							disabled={ isExpired }
+							className={ cx(
+								'!text-a8c-gray-700 max-w-[250px]',
+								isExpired ? 'pointer-events-none' : 'hover:!text-a8c-blueberry'
+							) }
+							onClick={ () => getIpcApi().openURL( urlWithHTTPS ) }
+						>
+							<span className={ cx( 'truncate', isExpired && 'line-through text-a8c-gray-700' ) }>
+								{ urlWithHTTPS }
+							</span>
+							{ ! isExpired && <ArrowIcon /> }
+						</Button>
+					</Tooltip>
 				</div>
 				<div className="flex ltr:ml-auto rtl:mr-auto">
 					<div className="w-[150px] text-a8c-gray-700 flex items-center pl-4">

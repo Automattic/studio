@@ -40,7 +40,7 @@ const Tooltip = ( {
 
 	return (
 		<div
-			className={ className ?? 'inline-block' }
+			className={ className ?? 'inline-flex items-center h-fit' }
 			onFocus={ showPopover }
 			onBlur={ hidePopover }
 			onMouseOut={ hidePopover }

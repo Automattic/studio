@@ -1,6 +1,7 @@
 import * as Sentry from '@sentry/electron/renderer';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { createContext, useMemo, useState, useCallback, useContext } from 'react';
+import { WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT_IN_HRS } from 'src/constants';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -89,6 +90,18 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 						title: __( 'Failed importing site' ),
 						message: __(
 							'The ZIP archive is invalid. Try to unpack and pack it again. If this problem persists, please contact support.'
+						),
+					} );
+				} else if (
+					( error as Error ).message.includes( 'WP-CLI command was canceled (timed out)' )
+				) {
+					await getIpcApi().showErrorMessageBox( {
+						title: __( 'Failed importing site' ),
+						message: sprintf(
+							__(
+								'The import process timed out after %d hours, which can occur when processing very large imports. If the issue persists, please contact support.'
+							),
+							WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT_IN_HRS
 						),
 					} );
 				} else {

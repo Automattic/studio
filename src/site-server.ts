@@ -202,11 +202,19 @@ export class SiteServer {
 			return await this.wpCliExecutor.execute( wpCliArgs as string[], { phpVersion } );
 		} catch ( error ) {
 			if ( ( error as MessageCanceled )?.canceled ) {
-				return { stdout: '', stderr: 'wp-cli command canceled', exitCode: 1 };
+				return {
+					stdout: '',
+					stderr: 'WP-CLI command was canceled (timed out)',
+					exitCode: 1,
+				};
 			}
 
 			Sentry.captureException( error );
-			return { stdout: '', stderr: 'error when executing wp-cli command', exitCode: 1 };
+			return {
+				stdout: '',
+				stderr: `Error executing WP-CLI command: ${ ( error as MessageCanceled ).error.message }`,
+				exitCode: 1,
+			};
 		}
 	}
 

@@ -57,7 +57,7 @@ describe( 'createSite', () => {
 	it( 'should create a site', async () => {
 		( isEmptyDir as jest.Mock ).mockResolvedValueOnce( true );
 		( pathExists as jest.Mock ).mockResolvedValueOnce( true );
-		( portFinder.getOpenPort as jest.Mock ).mockResolvedValueOnce( 8881 );
+		( portFinder.getOpenPort as jest.Mock ).mockResolvedValueOnce( 9999 );
 
 		const [ site ] = await createSite( mockIpcMainInvokeEvent, '/test', 'Test' );
 
@@ -67,7 +67,7 @@ describe( 'createSite', () => {
 			name: 'Test',
 			path: '/test',
 			phpVersion: '8.2',
-			port: 8881,
+			port: 9999,
 			running: false,
 		} );
 	} );

@@ -1,5 +1,5 @@
 import * as Sentry from '@sentry/electron/renderer';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { createContext, useMemo, useState, useCallback, useContext } from 'react';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useSiteDetails } from 'src/hooks/use-site-details';
@@ -97,7 +97,12 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 				) {
 					await getIpcApi().showErrorMessageBox( {
 						title: __( 'Failed importing site' ),
-						message: __( 'Import process timed out. Very large import?' ),
+						message: sprintf(
+							__(
+								'The import process timed out after %d hours, which can occur when processing very large imports. If the issue persists, please contact support.'
+							),
+							6
+						),
 					} );
 				} else {
 					await getIpcApi().showErrorMessageBox( {

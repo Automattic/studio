@@ -12,7 +12,7 @@ export type WpCliResult = ReturnType< typeof executeWPCli >;
 export type MessageCanceled = { error: Error; canceled: boolean };
 
 const DEFAULT_RESPONSE_TIMEOUT = 5 * 60 * 1000; // 5min
-const IMPORT_EXPORT_RESPONSE_TIMEOUT = 24 * 60 * 60 * 1000; // 24hr
+const IMPORT_EXPORT_RESPONSE_TIMEOUT = 6 * 60 * 60 * 1000; // 6hr
 
 export default class WpCliProcess {
 	lastMessageId = 0;

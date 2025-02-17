@@ -12,6 +12,7 @@ import { TabName, useContentTabs } from 'src/hooks/use-content-tabs';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { WelcomeMessagesProvider } from 'src/hooks/use-welcome-messages';
+import { cx } from 'src/lib/cx';
 
 export function SiteContentTabs() {
 	const { selectedSite } = useSiteDetails();
@@ -44,7 +45,16 @@ export function SiteContentTabs() {
 					key={ selectedTab }
 				>
 					{ ( { name } ) => (
-						<div className="h-full">
+						<div
+							className={ cx(
+								'h-full overflow-y-auto',
+								selectedTab === 'assistant' && 'bg-gray-50'
+							) }
+							style={ {
+								scrollbarWidth: 'thin',
+								scrollbarGutter: 'stable',
+							} }
+						>
 							{ name === 'overview' && <ContentTabOverview selectedSite={ selectedSite } /> }
 							{ name === 'previews' && <ContentTabPreviews selectedSite={ selectedSite } /> }
 							{ name === 'sync' && <ContentTabSync selectedSite={ selectedSite } /> }

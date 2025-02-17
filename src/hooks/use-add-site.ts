@@ -68,7 +68,7 @@ export function useAddSite() {
 						} );
 						clearImportState( newSite.id );
 					}
-					await startServer( newSite.id );
+
 					getIpcApi().showNotification( {
 						title: newSite.name,
 						body: __( 'Your new site is up and running' ),

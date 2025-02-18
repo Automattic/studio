@@ -170,9 +170,7 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 	const { isDemoSiteUpdating } = useUpdateDemoSite();
 	const isUploading = isUploadingSiteId( selectedSite.id );
 	const snapshotsOnSite = snapshots.filter(
-		( snapshot ) =>
-			snapshot.localSiteId === selectedSite.id &&
-			( ! snapshot.userId || snapshot.userId === user?.id )
+		( snapshot ) => snapshot.localSiteId === selectedSite.id && snapshot.userId === user?.id
 	);
 	const isSnapshotLoading = snapshotsOnSite.some( ( snapshot ) => snapshot.isLoading );
 	const isAnyPreviewUpdating = snapshots.some( ( snapshot ) =>

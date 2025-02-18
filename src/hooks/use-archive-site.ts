@@ -69,7 +69,7 @@ export function useArchiveSite() {
 		userId: number | null
 	): number => {
 		const siteSnapshots = snapshots.filter(
-			( s ) => s.localSiteId === siteId && ( ! s.userId || s.userId === userId )
+			( s ) => s.localSiteId === siteId && s.userId === userId
 		);
 		const existingSequences = siteSnapshots
 			.map( ( s ) => s.sequence ?? 0 )

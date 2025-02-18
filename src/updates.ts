@@ -72,8 +72,8 @@ export function setupUpdates() {
 		updaterState = 'done';
 
 		const isReadOnlyVolumeError = 'code' in err && err.code === 8;
-		if ( isReadOnlyVolumeError ) {
-			handleReadOnlyVolumeError( err );
+		if ( isReadOnlyVolumeError && process.platform === 'darwin' ) {
+			showReadOnlyVolumeError( err );
 			return;
 		}
 
@@ -184,22 +184,6 @@ async function showUpdateReadyToInstallNotice() {
 	}
 }
 
-async function showInstallLocationErrorNotice( message: string ) {
-	if ( process.platform === 'darwin' ) {
-		await dialog.showMessageBox( {
-			type: 'warning',
-			buttons: [ __( 'OK' ) ],
-			title: __( 'Could Not Update Studio' ),
-			message:
-				message ||
-				// Translators: "Applications" is the name of the folder apps are installed to on macOS
-				__(
-					'Studio can only update automatically from the Applications folder. Please move Studio to Applications and try again.'
-				),
-		} );
-	}
-}
-
 function isAppRunningFromDMG(): boolean {
 	if ( process.platform !== 'darwin' ) {
 		return false;
@@ -209,40 +193,39 @@ function isAppRunningFromDMG(): boolean {
 	return appPath.startsWith( '/Volumes/' );
 }
 
-function handleReadOnlyVolumeError( err: Error ) {
+function showReadOnlyVolumeError( err: Error ) {
+	let message = '';
 	if ( isAppRunningFromDMG() ) {
-		showInstallLocationErrorNotice(
-			sprintf(
-				__(
-					'Studio is currently running from a disk image at: %s\n\nPlease drag Studio to the Applications folder first, to enable automatic updates.'
-				),
-				app.getPath( 'exe' )
-			)
-		);
-		return;
-	}
-
-	if ( ! app.isInApplicationsFolder() ) {
-		showInstallLocationErrorNotice(
-			sprintf(
-				__(
-					'Studio is currently running from: %s\n\nPlease move Studio to the Applications folder to enable automatic updates.'
-				),
-				app.getPath( 'exe' )
-			)
-		);
-		return;
-	}
-
-	showInstallLocationErrorNotice(
-		sprintf(
+		message = sprintf(
 			__(
-				'Unable to update Studio at: %s\n\nPlease check if you have write permissions for this location.'
+				'Studio can only update automatically from the Applications folder. Please move Studio to Applications and try again.\n\nStudio is running from a disk image at: %s'
 			),
 			app.getPath( 'exe' )
-		)
-	);
+		);
+	} else if ( ! app.isInApplicationsFolder() ) {
+		message = sprintf(
+			__(
+				'Studio can only update automatically from the Applications folder. Please move Studio to Applications and try again.\n\nStudio is running from: %s'
+			),
+			app.getPath( 'exe' )
+		);
+	} else {
+		message = sprintf(
+			__(
+				'Studio can only update from the writable Applications folder. Please check write permissions and try again.\n\nStudio is running from: %s'
+			),
+			app.getPath( 'exe' )
+		);
 
-	console.error( err );
-	Sentry.captureException( err );
+		// this case is not expected, so we want to capture it
+		Sentry.captureException( err );
+		console.error( err );
+	}
+
+	dialog.showMessageBox( {
+		type: 'warning',
+		buttons: [ __( 'OK' ) ],
+		title: __( 'Error updating Studio' ),
+		message,
+	} );
 }

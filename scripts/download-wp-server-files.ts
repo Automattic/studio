@@ -23,7 +23,13 @@ const FILES_TO_DOWNLOAD: FileToDownload[] = [
 	{
 		name: 'sqlite',
 		description: 'SQLite files',
-		url: 'https://downloads.wordpress.org/plugin/sqlite-database-integration.zip',
+		url: async () => {
+			const response = await fetch(
+				'https://api.github.com/repos/automattic/sqlite-database-integration/releases/latest'
+			);
+			const data = await response.json();
+			return `https://github.com/Automattic/sqlite-database-integration/archive/refs/tags/${ data.tag_name }.zip`;
+		},
 	},
 	{
 		name: 'wp-cli',
@@ -60,6 +66,27 @@ const downloadFile = async ( file: FileToDownload ) => {
 	if ( name === 'wp-cli' ) {
 		console.log( `[${ name }] Moving WP-CLI to destination ...` );
 		fs.moveSync( zipPath, path.join( extractedPath, 'wp-cli.phar' ), { overwrite: true } );
+	} else if ( name === 'sqlite' ) {
+		/**
+		 * The SQLite database integration plugin is extracted
+		 * into a folder with the version number like sqlite-database-integration-1.0.0
+		 * We need to move the contents of that folder to the sqlite-database-integration folder
+		 */
+		await extract( zipPath, { dir: extractedPath } );
+
+		const files = fs.readdirSync( extractedPath );
+		const sqliteFolder = files.find( ( file ) =>
+			file.startsWith( 'sqlite-database-integration-' )
+		);
+
+		if ( sqliteFolder ) {
+			const sourcePath = path.join( extractedPath, sqliteFolder );
+			const targetPath = path.join( extractedPath, 'sqlite-database-integration' );
+			if ( fs.existsSync( targetPath ) ) {
+				fs.rmSync( targetPath, { recursive: true, force: true } );
+			}
+			fs.renameSync( sourcePath, targetPath );
+		}
 	} else {
 		console.log( `[${ name }] Extracting files from zip ...` );
 		await extract( zipPath, { dir: extractedPath } );

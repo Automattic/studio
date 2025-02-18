@@ -80,8 +80,14 @@ export function useArchiveSite() {
 	const errorMessages = useArchiveErrorMessages();
 	const archiveSite = useCallback(
 		async ( siteId: string ) => {
-			if ( ! client || ! user ) {
+			if ( ! client || ! user?.id ) {
 				// No-op if logged out
+				getIpcApi().showErrorMessageBox( {
+					title: __( 'Failed to archive site' ),
+					message: sprintf(
+						__( 'There was an authentication error. Please reauthenticate and try again.' )
+					),
+				} );
 				return;
 			}
 
@@ -164,7 +170,7 @@ export function useArchiveSite() {
 							nextSequence
 						),
 						sequence: nextSequence,
-						userId: user.id ?? undefined,
+						userId: user.id,
 					} );
 				} catch ( error ) {
 					if ( isWpcomNetworkError( error ) ) {

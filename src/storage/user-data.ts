@@ -47,6 +47,19 @@ function populatePhpVersion( sites: SiteDetails[] ) {
 	} );
 }
 
+function populateSnapshotUserIds( data: UserData ): void {
+	const userId = data.authToken?.id;
+
+	if ( userId && data.snapshots ) {
+		data.snapshots = data.snapshots.map( ( snapshot ) => {
+			if ( ! snapshot.userId ) {
+				return { ...snapshot, userId };
+			}
+			return snapshot;
+		} );
+	}
+}
+
 export async function loadUserData(): Promise< UserData > {
 	migrateUserDataOldName();
 	const filePath = getUserDataFilePath();
@@ -57,17 +70,7 @@ export async function loadUserData(): Promise< UserData > {
 			const parsed = JSON.parse( asString );
 			const data = fromDiskFormat( parsed );
 
-			const userId = data.authToken?.id;
-
-			if ( userId && data.snapshots ) {
-				data.snapshots = data.snapshots.map( ( snapshot ) => {
-					if ( ! snapshot.userId ) {
-						return { ...snapshot, userId };
-					}
-					return snapshot;
-				} );
-			}
-
+			populateSnapshotUserIds( data );
 			sortSites( data.sites );
 			populatePhpVersion( data.sites );
 			return data;

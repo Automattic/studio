@@ -286,6 +286,13 @@ const chatSlice = createSlice( {
 			state.themeName = action.payload.name;
 			state.isBlockTheme = action.payload.isBlockTheme;
 		},
+		setChatApiId: (
+			state,
+			action: PayloadAction< { instanceId: string; chatApiId: number | undefined } >
+		) => {
+			const { instanceId, chatApiId } = action.payload;
+			state.chatApiIdDict[ instanceId ] = chatApiId;
+		},
 		setMessages: (
 			state,
 			action: PayloadAction< { instanceId: string; messages: Message[] } >

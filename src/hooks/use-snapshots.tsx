@@ -27,7 +27,6 @@ interface SnapshotContextType {
 		displayAlert?: boolean
 	) => Promise< void >;
 	deleteAllSnapshots: ( snapshots: Pick< Snapshot, 'atomicSiteId' >[] ) => Promise< void >;
-	clearFloatingSnapshots: ( allSnapshots: Pick< Snapshot, 'atomicSiteId' >[] ) => void;
 	isLoading: boolean;
 	loadingDeletingAllSnapshots: boolean;
 	loadingServerSnapshots: boolean;
@@ -70,7 +69,6 @@ export const SnapshotContext = createContext< SnapshotContextType >( {
 	fetchAllSnapshots: async () => [],
 	deleteSnapshot: async () => undefined,
 	deleteAllSnapshots: async () => undefined,
-	clearFloatingSnapshots: () => undefined,
 	isLoading: false,
 	loadingDeletingAllSnapshots: false,
 	loadingServerSnapshots: false,
@@ -178,19 +176,6 @@ export const SnapshotProvider: React.FC< { children: ReactNode } > = ( { childre
 			newSnapshots[ index ] = { ...snapshots[ index ], ...snapshot };
 			return newSnapshots;
 		} );
-	}, [] );
-
-	const clearFloatingSnapshots = useCallback( function clearFloatingSnapshots(
-		allSnapshots: Pick< Snapshot, 'atomicSiteId' >[]
-	) {
-		const siteIds = allSnapshots.map( ( snapshot ) => snapshot.atomicSiteId );
-		if ( ! siteIds.length ) {
-			setSnapshots( [] );
-			return;
-		}
-		setSnapshots( ( snapshots ) =>
-			snapshots.filter( ( snapshot ) => siteIds.includes( snapshot.atomicSiteId ) )
-		);
 	}, [] );
 
 	const fetchAllSnapshots = useCallback( async () => {
@@ -332,7 +317,6 @@ export const SnapshotProvider: React.FC< { children: ReactNode } > = ( { childre
 			fetchAllSnapshots,
 			deleteSnapshot,
 			deleteAllSnapshots,
-			clearFloatingSnapshots,
 			isLoading,
 			loadingDeletingAllSnapshots,
 			loadingServerSnapshots,
@@ -352,7 +336,6 @@ export const SnapshotProvider: React.FC< { children: ReactNode } > = ( { childre
 			fetchAllSnapshots,
 			deleteSnapshot,
 			deleteAllSnapshots,
-			clearFloatingSnapshots,
 			isLoading,
 			loadingDeletingAllSnapshots,
 			loadingServerSnapshots,

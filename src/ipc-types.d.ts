@@ -49,6 +49,7 @@ interface Snapshot {
 	isDeleting?: boolean;
 	name?: string;
 	sequence?: number;
+	userId?: number;
 }
 
 type InstalledApps = {

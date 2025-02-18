@@ -392,6 +392,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const clearConversation = () => {
 		dispatch( chatActions.setChatInput( { siteId: selectedSite.id, input: '' } ) );
 		dispatch( chatActions.setMessages( { instanceId, messages: [] } ) );
+		dispatch( chatActions.setChatApiId( { instanceId, chatApiId: undefined } ) );
 	};
 
 	// We should render only one notice at a time in the bottom area

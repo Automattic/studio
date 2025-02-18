@@ -4,6 +4,7 @@ import nodePath from 'path';
 import { SupportedPHPVersion, SupportedPHPVersions } from '@php-wasm/universal';
 import * as Sentry from '@sentry/electron/main';
 import * as atomically from 'atomically';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 import { isErrnoException } from 'src/lib/is-errno-exception';
 import { sanitizeUnstructuredData, sanitizeUserpath } from 'src/lib/sanitize-for-logging';
 import { sortSites } from 'src/lib/sort-sites';
@@ -55,6 +56,18 @@ export async function loadUserData(): Promise< UserData > {
 		try {
 			const parsed = JSON.parse( asString );
 			const data = fromDiskFormat( parsed );
+
+			const userId = data.authToken?.id;
+
+			if ( userId && data.snapshots ) {
+				data.snapshots = data.snapshots.map( ( snapshot ) => {
+					if ( ! snapshot.userId ) {
+						return { ...snapshot, userId };
+					}
+					return snapshot;
+				} );
+			}
+
 			sortSites( data.sites );
 			populatePhpVersion( data.sites );
 			return data;

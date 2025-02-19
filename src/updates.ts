@@ -194,28 +194,26 @@ function isAppRunningFromDMG(): boolean {
 }
 
 function showReadOnlyVolumeError( err: Error ) {
-	let message = '';
+	let detailMessage = '';
+	let detailPath = '';
 	if ( isAppRunningFromDMG() ) {
-		message = sprintf(
-			__(
-				'Studio can only update automatically from the Applications folder. Please move Studio to Applications and try again.\n\nStudio is running from a disk image at: %s'
-			),
+		detailMessage = __(
+			'Studio can only update automatically from the Applications folder. Please move Studio to Applications and try again.'
+		);
+		detailPath = sprintf(
+			__( 'Studio is running from a disk image at: %s' ),
 			app.getPath( 'exe' )
 		);
 	} else if ( ! app.isInApplicationsFolder() ) {
-		message = sprintf(
-			__(
-				'Studio can only update automatically from the Applications folder. Please move Studio to Applications and try again.\n\nStudio is running from: %s'
-			),
-			app.getPath( 'exe' )
+		detailMessage = __(
+			'Studio can only update automatically from the Applications folder. Please move Studio to Applications and try again.'
 		);
+		detailPath = sprintf( __( 'Studio is running from: %s' ), app.getPath( 'exe' ) );
 	} else {
-		message = sprintf(
-			__(
-				'Studio can only update from the writable Applications folder. Please check write permissions and try again.\n\nStudio is running from: %s'
-			),
-			app.getPath( 'exe' )
+		detailMessage = __(
+			'Studio can only update from the writable Applications folder. Please check write permissions and try again.'
 		);
+		detailPath = sprintf( __( 'Studio is running from: %s' ), app.getPath( 'exe' ) );
 
 		// this case is not expected, so we want to capture it
 		Sentry.captureException( err );
@@ -225,7 +223,7 @@ function showReadOnlyVolumeError( err: Error ) {
 	dialog.showMessageBox( {
 		type: 'warning',
 		buttons: [ __( 'OK' ) ],
-		title: __( 'Error updating Studio' ),
-		message,
+		message: __( 'Error updating Studio' ),
+		detail: `${ detailMessage }\n\n${ detailPath }`,
 	} );
 }

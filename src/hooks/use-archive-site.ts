@@ -49,7 +49,6 @@ export function useArchiveSite() {
 								isLoading: false,
 							} );
 
-							// Show notification only when site is actually ready
 							await getIpcApi().showNotification( {
 								title: __( 'Preview created' ),
 								body: snapshot.localSiteName

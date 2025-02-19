@@ -23,6 +23,7 @@ platformTestSuite( 'SqlExporter', ( { normalize } ) => {
 				id: '123',
 				name: '123',
 				path: '/path/to/site',
+				port: 9999,
 				phpVersion: '7.4',
 			},
 			backupFile: normalize( '/path/to/backup.sql' ),

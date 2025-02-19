@@ -38,6 +38,7 @@ import { StoredToken } from 'src/lib/oauth';
 import * as oauthClient from 'src/lib/oauth';
 import { createPassword } from 'src/lib/passwords';
 import { phpGetThemeDetails } from 'src/lib/php-get-theme-details';
+import { portFinder } from 'src/lib/port-finder';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { sortSites } from 'src/lib/sort-sites';
 import { installSqliteIntegration, keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
@@ -161,11 +162,14 @@ export async function createSite(
 		}
 	}
 
+	const port = await portFinder.getOpenPort();
+
 	const details = {
 		id: crypto.randomUUID(),
 		name: siteName || nodePath.basename( path ),
 		path,
 		adminPassword: createPassword(),
+		port,
 		running: false,
 		phpVersion: DEFAULT_PHP_VERSION,
 	} as const;

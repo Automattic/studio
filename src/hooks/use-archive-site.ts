@@ -32,6 +32,9 @@ export function useArchiveSite() {
 		if ( loadingSnapshots.length === 0 ) {
 			return;
 		}
+
+		let activeSnapshot: Snapshot | null = null;
+
 		const intervalId = setInterval( async () => {
 			for ( const snapshot of loadingSnapshots ) {
 				if ( snapshot.isLoading ) {
@@ -48,16 +51,7 @@ export function useArchiveSite() {
 								...snapshot,
 								isLoading: false,
 							} );
-
-							await getIpcApi().showNotification( {
-								title: __( 'Preview created' ),
-								body: snapshot.localSiteName
-									? sprintf(
-											__( "Preview site for '%s' has been created." ),
-											snapshot.localSiteName
-									  )
-									: __( 'Preview site has been created.' ),
-							} );
+							activeSnapshot = snapshot;
 						}
 					} catch ( error ) {
 						updateSnapshot( {
@@ -70,6 +64,18 @@ export function useArchiveSite() {
 		}, 3000 );
 		return () => {
 			clearInterval( intervalId );
+			if ( activeSnapshot ) {
+				console.log( 'Showing notification...' );
+				getIpcApi().showNotification( {
+					title: __( 'Preview created' ),
+					body: activeSnapshot.localSiteName
+						? sprintf(
+								__( "Preview site for '%s' has been created." ),
+								activeSnapshot.localSiteName
+						  )
+						: __( 'Preview site has been created.' ),
+				} );
+			}
 		};
 	}, [ __, client, snapshots, updateSnapshot ] );
 

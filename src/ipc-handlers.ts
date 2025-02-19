@@ -17,7 +17,7 @@ import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { __, LocaleData, defaultI18n } from '@wordpress/i18n';
 import archiver from 'archiver';
-import { MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
+import { ARCHIVER_OPTIONS, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
 import { calculateDirectorySize } from 'src/lib/calculate-directory-size';
@@ -535,9 +535,7 @@ function archiveWordPressDirectory( {
 } ) {
 	return new Promise( ( resolve, reject ) => {
 		const output = fs.createWriteStream( archivePath );
-		const archive = archiver( format, {
-			zlib: { level: 9 }, // Sets the compression level.
-		} );
+		const archive = archiver( format, ARCHIVER_OPTIONS[ format ] );
 
 		output.on( 'close', function () {
 			resolve( archive );

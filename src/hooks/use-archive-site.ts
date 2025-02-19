@@ -66,13 +66,11 @@ export function useArchiveSite() {
 			clearInterval( intervalId );
 			if ( activeSnapshot ) {
 				getIpcApi().showNotification( {
-					title: __( 'Preview created' ),
-					body: activeSnapshot.localSiteName
-						? sprintf(
-								__( "Preview site for '%s' has been created." ),
-								activeSnapshot.localSiteName
-						  )
-						: __( 'Preview site has been created.' ),
+					title: activeSnapshot.localSiteName,
+					body: sprintf(
+						__( "Preview site for '%s' has been created." ),
+						activeSnapshot.localSiteName
+					),
 				} );
 			}
 		};

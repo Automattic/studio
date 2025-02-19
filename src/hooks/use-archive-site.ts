@@ -65,7 +65,6 @@ export function useArchiveSite() {
 		return () => {
 			clearInterval( intervalId );
 			if ( activeSnapshot ) {
-				console.log( 'Showing notification...' );
 				getIpcApi().showNotification( {
 					title: __( 'Preview created' ),
 					body: activeSnapshot.localSiteName

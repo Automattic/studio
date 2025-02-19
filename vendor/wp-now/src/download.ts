@@ -5,13 +5,13 @@ import followRedirects, { FollowResponse } from 'follow-redirects';
 import fs from 'fs-extra';
 import { HttpProxyAgent, HttpsProxyAgent } from 'hpagent';
 import unzipper from 'unzipper';
-import { DEFAULT_WORDPRESS_VERSION, SQLITE_FILENAME, SQLITE_URL, WP_CLI_URL } from './constants';
+import { getLatestSQLiteDatabaseIntegrationRelease } from '../../../src/lib/sqlite-database-integration-release';
+import { DEFAULT_WORDPRESS_VERSION, SQLITE_FILENAME, WP_CLI_URL } from './constants';
 import getSqlitePath from './get-sqlite-path';
 import getWordpressVersionsPath from './get-wordpress-versions-path';
 import getWpCliPath from './get-wp-cli-path';
 import { output } from './output';
 import { isValidWordPressVersion } from './wp-playground-wordpress';
-
 function httpsGet( url: string, callback: ( res: IncomingMessage & FollowResponse ) => void ) {
 	const proxy =
 		process.env.https_proxy ||
@@ -193,7 +193,7 @@ export async function downloadSqliteIntegrationPlugin(
 	const finalFolder = getSqlitePath();
 	const tempFolder = path.join( os.tmpdir(), SQLITE_FILENAME );
 	const { downloaded, statusCode } = await downloadFileAndUnzip( {
-		url: SQLITE_URL,
+		url: await getLatestSQLiteDatabaseIntegrationRelease(),
 		destinationFolder: tempFolder,
 		checkFinalPath: finalFolder,
 		itemName: 'SQLite',

@@ -48,6 +48,17 @@ export function useArchiveSite() {
 								...snapshot,
 								isLoading: false,
 							} );
+
+							// Show notification only when site is actually ready
+							await getIpcApi().showNotification( {
+								title: __( 'Preview created' ),
+								body: snapshot.localSiteName
+									? sprintf(
+											__( "Preview site for '%s' has been created." ),
+											snapshot.localSiteName
+									  )
+									: __( 'Preview site has been created.' ),
+							} );
 						}
 					} catch ( error ) {
 						updateSnapshot( {
@@ -61,7 +72,7 @@ export function useArchiveSite() {
 		return () => {
 			clearInterval( intervalId );
 		};
-	}, [ client, snapshots, updateSnapshot ] );
+	}, [ __, client, snapshots, updateSnapshot ] );
 
 	const getNextSequenceNumber = (
 		siteId: string,
@@ -171,6 +182,7 @@ export function useArchiveSite() {
 						),
 						sequence: nextSequence,
 						userId: user.id,
+						localSiteName: selectedSite?.name,
 					} );
 				} catch ( error ) {
 					if ( isWpcomNetworkError( error ) ) {

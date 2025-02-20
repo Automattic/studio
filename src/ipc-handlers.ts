@@ -190,11 +190,9 @@ export async function createSite(
 
 		if ( ! ( await pathExists( nodePath.join( path, 'wp-config.php' ) ) ) ) {
 			await installSqliteIntegration( path );
+		} else {
+			await updateSiteUrlToLocal( details.id );
 		}
-	}
-
-	if ( await pathExists( nodePath.join( path, 'wp-content/database/.ht.sqlite' ) ) ) {
-		await updateSiteUrlToLocal( details.id );
 	}
 
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );

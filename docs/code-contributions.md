@@ -34,10 +34,27 @@ npm install
 npm start
 ```
 
-The app automatically launches with the Chromium developer tools opened by default. Changes to the "renderer" process code will automatically reload the app, changes to the main process code require a manual server restart or [typing `rs`](https://www.electronforge.io/cli#start) into the same terminal where the server was started.
+The app automatically launches with the Chromium developer tools opened by default. The code is split into two processes:
+
+1. **Renderer Process** (automatic reload):
+   - All React components and UI code in `src/components/`, `src/modules/*/components/`
+   - Hooks, stores, and utilities used by the UI (`src/hooks/`, `src/stores/`, etc.)
+   - Any code that runs in the browser window context
+
+2. **Main Process** (requires restart):
+   - IPC handlers in `src/ipc-handlers.ts`
+   - Electron main process code in `src/index.ts`
+   - Node.js operations like file system access
+   - PHP server management code
+
+When editing main process code, you can either:
+- Restart the app manually, or
+- Type `rs` in the terminal where you ran `npm start` to restart the server
+
+A good rule of thumb: if the code interacts with the operating system, file system, or PHP server, it's likely main process code and will need a restart to see changes.
 
 > [!TIP]
-> If you encounter `Error: Cannot find module 'appdmg'` error, ensure that `python-setuptools` are installed in your environment according to the previous steps.
+> If you encounter `Error: Cannot find module 'appdmg'` error, ensure that `python-setuptools` are installed in your environment according to the previous steps. 
 
 ### Project Structure
 

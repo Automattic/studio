@@ -42,6 +42,7 @@ import { portFinder } from 'src/lib/port-finder';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { sortSites } from 'src/lib/sort-sites';
 import { installSqliteIntegration, keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
+import { updateSiteUrlToLocal } from 'src/lib/updateSiteUrlToLocal';
 import * as windowsHelpers from 'src/lib/windows-helpers';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
@@ -190,6 +191,10 @@ export async function createSite(
 		if ( ! ( await pathExists( nodePath.join( path, 'wp-config.php' ) ) ) ) {
 			await installSqliteIntegration( path );
 		}
+	}
+
+	if ( await pathExists( nodePath.join( path, 'wp-content/database/.ht.sqlite' ) ) ) {
+		await updateSiteUrlToLocal( details.id );
 	}
 
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );

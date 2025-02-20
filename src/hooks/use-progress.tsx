@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 
 interface UseProgressOptions {
-	isProcessing: boolean;
 	initialProgress?: number;
 	maxProgress?: number;
 	interval?: number;
@@ -9,16 +8,16 @@ interface UseProgressOptions {
 }
 
 export function useProgress( {
-	isProcessing,
 	initialProgress = 10,
 	maxProgress = 95,
 	interval = 800,
 	step = 0.5,
-}: UseProgressOptions ) {
+}: UseProgressOptions = {} ) {
 	const [ progress, setProgress ] = useState( initialProgress );
+	const [ isProgressing, setIsProgressing ] = useState( false );
 
 	useEffect( () => {
-		if ( ! isProcessing ) {
+		if ( ! isProgressing ) {
 			setProgress( initialProgress );
 			return;
 		}
@@ -33,7 +32,20 @@ export function useProgress( {
 		}, interval );
 
 		return () => clearInterval( intervalId );
-	}, [ isProcessing, initialProgress, maxProgress, interval, step ] );
+	}, [ isProgressing, initialProgress, maxProgress, interval, step ] );
 
-	return progress;
+	const startProgress = () => {
+		setIsProgressing( true );
+	};
+
+	const stopProgress = () => {
+		setIsProgressing( false );
+	};
+
+	return {
+		startProgress,
+		stopProgress,
+		progress,
+		isProgressing,
+	};
 }

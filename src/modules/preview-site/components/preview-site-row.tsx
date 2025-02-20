@@ -36,7 +36,19 @@ export function PreviewSiteRow( {
 	const { url, date, isDeleting } = snapshot;
 	const { countDown, expireDateString, isExpired } = useExpirationDate( date );
 	const { fetchSnapshotUsage, removeSnapshot } = useSnapshots();
-	const deletionProgress = useProgress( { isProcessing: isDeleting || false } );
+	const {
+		progress: deletionProgress,
+		startProgress: startDeletionProgress,
+		stopProgress: stopDeletionProgress,
+	} = useProgress();
+
+	useEffect( () => {
+		if ( isDeleting ) {
+			startDeletionProgress();
+		} else {
+			stopDeletionProgress();
+		}
+	}, [ isDeleting, startDeletionProgress, stopDeletionProgress ] );
 	const { isDemoSiteUpdating } = useUpdateDemoSite();
 	const isPreviewSiteUpdating = isDemoSiteUpdating( snapshot.atomicSiteId );
 	const { formatRelativeTime } = useFormatLocalizedTimestamps();

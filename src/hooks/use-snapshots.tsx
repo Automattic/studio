@@ -40,9 +40,9 @@ interface SnapshotContextType {
 	isLoadingSnapshotUsage: boolean;
 	initiated: boolean;
 	snapshotCreationBlocked: boolean;
-	isSnapshotProcessing: boolean;
-	setIsSnapshotProcessing: ( isProcessing: boolean ) => void;
 	progress: number;
+	startProgress: () => void;
+	stopProgress: () => void;
 }
 
 export enum SnapshotStatus {
@@ -83,9 +83,9 @@ export const SnapshotContext = createContext< SnapshotContextType >( {
 	isLoadingSnapshotUsage: false,
 	initiated: false,
 	snapshotCreationBlocked: false,
-	isSnapshotProcessing: false,
-	setIsSnapshotProcessing: () => undefined,
 	progress: 10,
+	startProgress: () => undefined,
+	stopProgress: () => undefined,
 } );
 
 export const SnapshotProvider: React.FC< { children: ReactNode } > = ( { children } ) => {
@@ -101,8 +101,7 @@ export const SnapshotProvider: React.FC< { children: ReactNode } > = ( { childre
 	const [ snapshotQuota, setSnapshotQuota ] = useState( LIMIT_OF_ZIP_SITES_PER_USER );
 	const [ isLoadingSnapshotUsage, setIsLoadingSnapshotUsage ] = useState( false );
 	const [ snapshotCreationBlocked, setSnapshotCreationBlocked ] = useState( false );
-	const [ isSnapshotProcessing, setIsSnapshotProcessing ] = useState( false );
-	const progress = useProgress( { isProcessing: isSnapshotProcessing } );
+	const { progress, startProgress, stopProgress } = useProgress();
 
 	const { client } = useAuth();
 	const isOffline = useOffline();
@@ -382,8 +381,8 @@ export const SnapshotProvider: React.FC< { children: ReactNode } > = ( { childre
 			isLoadingSnapshotUsage,
 			initiated,
 			snapshotCreationBlocked,
-			isSnapshotProcessing,
-			setIsSnapshotProcessing,
+			startProgress,
+			stopProgress,
 			progress,
 		} ),
 		[
@@ -404,8 +403,8 @@ export const SnapshotProvider: React.FC< { children: ReactNode } > = ( { childre
 			isLoadingSnapshotUsage,
 			initiated,
 			snapshotCreationBlocked,
-			isSnapshotProcessing,
-			setIsSnapshotProcessing,
+			startProgress,
+			stopProgress,
 			progress,
 		]
 	);

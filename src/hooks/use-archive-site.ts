@@ -13,7 +13,7 @@ import { isWpcomNetworkError } from 'src/lib/is-wpcom-network-error';
 
 export function useArchiveSite() {
 	const { uploadingSites, setUploadingSites, selectedSite } = useSiteDetails();
-	const { snapshots, addSnapshot, fetchSnapshotUsage } = useSnapshots();
+	const { snapshots, addSnapshot, fetchSnapshotUsage, startProgress } = useSnapshots();
 	const isUploadingSiteId = useCallback(
 		( localSiteId: string ) => uploadingSites[ localSiteId ] || false,
 		[ uploadingSites ]
@@ -39,7 +39,7 @@ export function useArchiveSite() {
 	const errorMessages = useArchiveErrorMessages();
 	const archiveSite = useCallback(
 		async ( siteId: string ) => {
-			setIsSnapshotProcessing( true );
+			startProgress();
 			if ( ! client || ! user?.id ) {
 				// No-op if logged out
 				getIpcApi().showErrorMessageBox( {
@@ -174,7 +174,7 @@ export function useArchiveSite() {
 			connectedSites,
 			selectedSite,
 			snapshots,
-			setIsSnapshotProcessing,
+			startProgress,
 		]
 	);
 

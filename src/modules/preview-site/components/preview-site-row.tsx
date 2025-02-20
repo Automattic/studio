@@ -92,7 +92,7 @@ export function PreviewSiteRow( {
 	return (
 		<div className="self-stretch flex-col">
 			<div className="flex items-center px-8 py-6">
-				<div className="w-[51%]">
+				<div className="w-[51%] overflow-hidden ltr:pr-4 rtl:pl-4">
 					<div className="flex items-center">
 						<div
 							className={ cx(
@@ -104,12 +104,12 @@ export function PreviewSiteRow( {
 							{ snapshot.name || sprintf( __( '%s Preview' ), selectedSite.name ) }
 						</div>
 					</div>
-					<Tooltip text={ urlWithHTTPS } disabled={ isExpired }>
+					<Tooltip text={ urlWithHTTPS } disabled={ isExpired } className="overflow-hidden">
 						<Button
 							variant="link"
 							disabled={ isExpired }
 							className={ cx(
-								'!text-a8c-gray-700 max-w-[250px]',
+								'!text-a8c-gray-700 max-w-[100%]',
 								isExpired ? 'pointer-events-none' : 'hover:!text-a8c-blueberry'
 							) }
 							onClick={ () => getIpcApi().openURL( urlWithHTTPS ) }

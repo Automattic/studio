@@ -50,7 +50,6 @@ interface Snapshot {
 	name?: string;
 	sequence?: number;
 	userId?: number;
-	localSiteName?: string;
 }
 
 type InstalledApps = {

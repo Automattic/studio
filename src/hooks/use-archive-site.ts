@@ -66,11 +66,8 @@ export function useArchiveSite() {
 			clearInterval( intervalId );
 			if ( activeSnapshot ) {
 				getIpcApi().showNotification( {
-					title: activeSnapshot.localSiteName,
-					body: sprintf(
-						__( "Preview site for '%s' has been created." ),
-						activeSnapshot.localSiteName
-					),
+					title: activeSnapshot.name,
+					body: sprintf( __( "Preview site '%s' has been created." ), activeSnapshot.url ),
 				} );
 			}
 		};
@@ -184,7 +181,6 @@ export function useArchiveSite() {
 						),
 						sequence: nextSequence,
 						userId: user.id,
-						localSiteName: selectedSite?.name,
 					} );
 				} catch ( error ) {
 					if ( isWpcomNetworkError( error ) ) {

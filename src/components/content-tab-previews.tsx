@@ -2,7 +2,7 @@ import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 import { check, Icon } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { PropsWithChildren, useEffect } from 'react';
+import { PropsWithChildren } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import offlineIcon from 'src/components/offline-icon';
@@ -163,7 +163,7 @@ function NoPreviews( { selectedSite }: React.ComponentProps< typeof EmptyGeneric
 
 export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) {
 	const { __ } = useI18n();
-	const { snapshots, snapshotCreationBlocked, setIsSnapshotProcessing } = useSnapshots();
+	const { snapshots, snapshotCreationBlocked } = useSnapshots();
 	const { isAuthenticated, user } = useAuth();
 	const { archiveSite, isUploadingSiteId } = useArchiveSite();
 	const { isOverLimit } = useSiteSize( selectedSite.id );
@@ -177,10 +177,6 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 		isDemoSiteUpdating( snapshot.atomicSiteId )
 	);
 	const isOffline = useOffline();
-
-	useEffect( () => {
-		setIsSnapshotProcessing( isUploading || isSnapshotLoading );
-	}, [ isUploading, isSnapshotLoading, setIsSnapshotProcessing ] );
 
 	const isUpdateDisabled =
 		isAnyPreviewUpdating || snapshotCreationBlocked || isOverLimit || isOffline;

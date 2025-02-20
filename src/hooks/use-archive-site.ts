@@ -39,6 +39,7 @@ export function useArchiveSite() {
 	const errorMessages = useArchiveErrorMessages();
 	const archiveSite = useCallback(
 		async ( siteId: string ) => {
+			setIsSnapshotProcessing( true );
 			if ( ! client || ! user?.id ) {
 				// No-op if logged out
 				getIpcApi().showErrorMessageBox( {
@@ -173,6 +174,7 @@ export function useArchiveSite() {
 			connectedSites,
 			selectedSite,
 			snapshots,
+			setIsSnapshotProcessing,
 		]
 	);
 

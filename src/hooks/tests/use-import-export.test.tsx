@@ -19,6 +19,7 @@ const selectedSite: SiteDetails = {
 	path: '/test-site',
 	phpVersion: '8.0',
 	adminPassword: btoa( 'test-password' ),
+	port: 9999,
 };
 
 const wrapper = ( { children }: { children: React.ReactNode } ) => (

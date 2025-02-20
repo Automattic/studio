@@ -37,6 +37,7 @@ describe( 'PreviewSiteRow', () => {
 		name: 'Test',
 		path: '/test/path',
 		phpVersion: '8.2',
+		port: 9999,
 		running: false,
 	};
 

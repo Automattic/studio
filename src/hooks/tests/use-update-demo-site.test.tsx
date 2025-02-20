@@ -49,6 +49,7 @@ describe( 'useUpdateDemoSite', () => {
 		phpVersion: '8.0',
 		id: '54321',
 		path: '/path/to/site',
+		port: 9999,
 	};
 	const clientReqPost = jest.fn().mockResolvedValue( {
 		data: 'success',
@@ -160,6 +161,7 @@ describe( 'useUpdateDemoSite', () => {
 			phpVersion: '8.0',
 			id: '09876',
 			path: '/path/to/site2',
+			port: 9999,
 		};
 
 		// Mock different response times for each site

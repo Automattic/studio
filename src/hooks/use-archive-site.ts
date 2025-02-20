@@ -18,7 +18,7 @@ export function useArchiveSite() {
 		( localSiteId: string ) => uploadingSites[ localSiteId ] || false,
 		[ uploadingSites ]
 	);
-	const { client } = useAuth();
+	const { client, user } = useAuth();
 	const { __ } = useI18n();
 	const { connectedSites } = useSyncSites();
 
@@ -63,8 +63,14 @@ export function useArchiveSite() {
 		};
 	}, [ client, snapshots, updateSnapshot ] );
 
-	const getNextSequenceNumber = ( siteId: string, snapshots: Array< Snapshot > ): number => {
-		const siteSnapshots = snapshots.filter( ( s ) => s.localSiteId === siteId );
+	const getNextSequenceNumber = (
+		siteId: string,
+		snapshots: Array< Snapshot >,
+		userId: number | null
+	): number => {
+		const siteSnapshots = snapshots.filter(
+			( s ) => s.localSiteId === siteId && s.userId === userId
+		);
 		const existingSequences = siteSnapshots
 			.map( ( s ) => s.sequence ?? 0 )
 			.filter( ( n ) => ! isNaN( n ) );
@@ -74,8 +80,14 @@ export function useArchiveSite() {
 	const errorMessages = useArchiveErrorMessages();
 	const archiveSite = useCallback(
 		async ( siteId: string ) => {
-			if ( ! client ) {
+			if ( ! client || ! user?.id ) {
 				// No-op if logged out
+				getIpcApi().showErrorMessageBox( {
+					title: __( 'Failed to archive site' ),
+					message: sprintf(
+						__( 'There was an authentication error. Please reauthenticate and try again.' )
+					),
+				} );
 				return;
 			}
 
@@ -143,7 +155,7 @@ export function useArchiveSite() {
 						formData,
 					} );
 
-					const nextSequence = getNextSequenceNumber( siteId, snapshots );
+					const nextSequence = getNextSequenceNumber( siteId, snapshots, user.id );
 
 					addSnapshot( {
 						url: response.domain_name,
@@ -158,6 +170,7 @@ export function useArchiveSite() {
 							nextSequence
 						),
 						sequence: nextSequence,
+						userId: user.id,
 					} );
 				} catch ( error ) {
 					if ( isWpcomNetworkError( error ) ) {
@@ -194,6 +207,7 @@ export function useArchiveSite() {
 			__,
 			addSnapshot,
 			client,
+			user,
 			errorMessages,
 			fetchSnapshotUsage,
 			setUploadingSites,

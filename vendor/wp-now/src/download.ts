@@ -200,9 +200,19 @@ export async function downloadSqliteIntegrationPlugin(
 		overwrite,
 	} );
 	if ( downloaded ) {
-		const nestedFolder = path.join( tempFolder, SQLITE_FILENAME );
+		/**
+		 * The SQLite plugin is extracted into a folder
+		 * named sqlite-database-integration-VERSION,
+		 * so we need to find that folder and move it to the final folder.
+		 */
+		const nestedFolder = fs
+			.readdirSync( tempFolder )
+			.find( ( folder ) => folder.startsWith( `${ SQLITE_FILENAME }-` ) );
+		if ( ! nestedFolder ) {
+			throw new Error( 'SQLite folder not found' );
+		}
 		await fs.ensureDir( path.dirname( finalFolder ) );
-		await fs.move( nestedFolder, finalFolder, {
+		await fs.move( path.join( tempFolder, nestedFolder ), finalFolder, {
 			overwrite: true,
 		} );
 	} else if ( 0 !== statusCode ) {

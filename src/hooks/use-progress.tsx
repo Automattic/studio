@@ -13,7 +13,7 @@ export function useProgress( {
 	initialProgress = 10,
 	maxProgress = 95,
 	interval = 800,
-	step = 1,
+	step = 0.5,
 }: UseProgressOptions ) {
 	const [ progress, setProgress ] = useState( initialProgress );
 

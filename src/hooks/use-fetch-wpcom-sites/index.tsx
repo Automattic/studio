@@ -102,7 +102,7 @@ export function transformSitesResponse( sites: unknown[], connectedSiteIds: numb
 			const site = sitesEndpointSiteSchema.parse( rawSite );
 			return [ ...acc, site ];
 		} catch ( error ) {
-			console.error( error );
+			Sentry.captureException( error );
 			return acc;
 		}
 	}, [] );

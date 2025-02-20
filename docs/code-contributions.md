@@ -36,7 +36,7 @@ npm start
 
 The app automatically launches with the Chromium developer tools opened by default. The code is split into two processes:
 
-1. **Renderer Process** (automatic reload):
+1. **Renderer Process** (reloads automatically):
    - All React components and UI code in `src/components/`, `src/modules/*/components/`
    - Hooks, stores, and utilities used by the UI (`src/hooks/`, `src/stores/`, etc.)
    - Any code that runs in the browser window context
@@ -54,7 +54,7 @@ When editing main process code, you can either:
 A good rule of thumb: if the code interacts with the operating system, file system, or PHP server, it's likely main process code and will need a restart to see changes.
 
 > [!TIP]
-> If you encounter `Error: Cannot find module 'appdmg'` error, ensure that `python-setuptools` are installed in your environment according to the previous steps. 
+> If you encounter `Error: Cannot find module 'appdmg'` error, ensure that `python-setuptools` are installed in your environment according to the previous steps.
 
 ### Project Structure
 

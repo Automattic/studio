@@ -15,6 +15,7 @@ import { LIMIT_OF_ZIP_SITES_PER_USER } from 'src/constants';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useProgress } from './use-progress';
 
 interface SnapshotContextType {
 	snapshots: Snapshot[];
@@ -41,7 +42,7 @@ interface SnapshotContextType {
 	snapshotCreationBlocked: boolean;
 	isSnapshotProcessing: boolean;
 	setIsSnapshotProcessing: ( isProcessing: boolean ) => void;
-	processingProgress: number;
+	progress: number;
 }
 
 export enum SnapshotStatus {
@@ -84,7 +85,7 @@ export const SnapshotContext = createContext< SnapshotContextType >( {
 	snapshotCreationBlocked: false,
 	isSnapshotProcessing: false,
 	setIsSnapshotProcessing: () => undefined,
-	processingProgress: 20,
+	progress: 10,
 } );
 
 export const SnapshotProvider: React.FC< { children: ReactNode } > = ( { children } ) => {
@@ -101,26 +102,7 @@ export const SnapshotProvider: React.FC< { children: ReactNode } > = ( { childre
 	const [ isLoadingSnapshotUsage, setIsLoadingSnapshotUsage ] = useState( false );
 	const [ snapshotCreationBlocked, setSnapshotCreationBlocked ] = useState( false );
 	const [ isSnapshotProcessing, setIsSnapshotProcessing ] = useState( false );
-	const [ processingProgress, setProcessingProgress ] = useState( 20 );
-
-	// Handle progress animation
-	useEffect( () => {
-		if ( ! isSnapshotProcessing ) {
-			setProcessingProgress( 10 );
-			return;
-		}
-
-		const interval = setInterval( () => {
-			setProcessingProgress( ( current ) => {
-				if ( current >= 95 ) {
-					return current;
-				}
-				return current + 1;
-			} );
-		}, 800 );
-
-		return () => clearInterval( interval );
-	}, [ isSnapshotProcessing ] );
+	const progress = useProgress( { isProcessing: isSnapshotProcessing } );
 
 	const { client } = useAuth();
 	const isOffline = useOffline();
@@ -402,7 +384,7 @@ export const SnapshotProvider: React.FC< { children: ReactNode } > = ( { childre
 			snapshotCreationBlocked,
 			isSnapshotProcessing,
 			setIsSnapshotProcessing,
-			processingProgress,
+			progress,
 		} ),
 		[
 			snapshots,
@@ -424,7 +406,7 @@ export const SnapshotProvider: React.FC< { children: ReactNode } > = ( { childre
 			snapshotCreationBlocked,
 			isSnapshotProcessing,
 			setIsSnapshotProcessing,
-			processingProgress,
+			progress,
 		]
 	);
 

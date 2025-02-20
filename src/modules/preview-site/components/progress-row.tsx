@@ -7,7 +7,7 @@ interface ProgressRowProps {
 }
 
 export function ProgressRow( { text }: ProgressRowProps ) {
-	const { processingProgress } = useSnapshots();
+	const { progress } = useSnapshots();
 
 	return (
 		<div className="self-stretch flex-col">
@@ -15,7 +15,7 @@ export function ProgressRow( { text }: ProgressRowProps ) {
 				<div className="w-[51%]">
 					<div className="w-[200px]">
 						<div className="text-a8c-gray-70 a8c-body mb-4">{ text }</div>
-						<ProgressBar value={ processingProgress } maxValue={ 100 } />
+						<ProgressBar value={ progress } maxValue={ 100 } />
 					</div>
 				</div>
 				<div className="flex ltr:ml-auto rtl:mr-auto">

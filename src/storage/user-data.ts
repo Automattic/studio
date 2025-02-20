@@ -46,7 +46,7 @@ function populatePhpVersion( sites: SiteDetails[] ) {
 	} );
 }
 
-function populateSnapshotUserIds( data: UserData ): void {
+function legacyPopulateSnapshotUserIds( data: UserData ): void {
 	const userId = data.authToken?.id;
 
 	if ( userId && data.snapshots ) {
@@ -69,7 +69,9 @@ export async function loadUserData(): Promise< UserData > {
 			const parsed = JSON.parse( asString );
 			const data = fromDiskFormat( parsed );
 
-			populateSnapshotUserIds( data );
+			// Temporarily populate old snapshots with userId of authenticated user.
+			// See PR #937 for more context.
+			legacyPopulateSnapshotUserIds( data );
 			sortSites( data.sites );
 			populatePhpVersion( data.sites );
 			return data;

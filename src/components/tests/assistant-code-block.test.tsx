@@ -25,6 +25,7 @@ const selectedSite: SiteDetails = {
 	path: '/test-site',
 	phpVersion: '8.0',
 	adminPassword: btoa( 'test-password' ),
+	port: 9999,
 };
 
 ( useSiteDetails as jest.Mock ).mockReturnValue( {

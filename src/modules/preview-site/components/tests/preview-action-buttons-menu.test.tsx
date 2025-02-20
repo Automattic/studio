@@ -25,6 +25,7 @@ describe( 'PreviewActionButtonsMenu Rename', () => {
 		name: 'Test Site',
 		path: '/test/path',
 		phpVersion: '8.0',
+		port: 9999,
 		running: false,
 	};
 	beforeEach( () => {

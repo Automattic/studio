@@ -23,7 +23,6 @@ export const updateSiteUrlToLocal = async ( siteId: string ) => {
 
 	for ( const urlToReplace of oldUrlVariants ) {
 		const { stderr, exitCode } = await server.executeWpCliCommand(
-			// --skip-columns=guid Skip the guid column to avoid altering the GUIDs of your posts, which is a best practice.
 			`search-replace '${ urlToReplace }' '${ studioUrl }' --skip-columns=guid`,
 			{ skipPluginsAndThemes: true }
 		);

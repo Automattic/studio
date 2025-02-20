@@ -39,6 +39,9 @@ interface SnapshotContextType {
 	isLoadingSnapshotUsage: boolean;
 	initiated: boolean;
 	snapshotCreationBlocked: boolean;
+	isSnapshotProcessing: boolean;
+	setIsSnapshotProcessing: ( isProcessing: boolean ) => void;
+	processingProgress: number;
 }
 
 export enum SnapshotStatus {
@@ -79,6 +82,9 @@ export const SnapshotContext = createContext< SnapshotContextType >( {
 	isLoadingSnapshotUsage: false,
 	initiated: false,
 	snapshotCreationBlocked: false,
+	isSnapshotProcessing: false,
+	setIsSnapshotProcessing: () => undefined,
+	processingProgress: 20,
 } );
 
 export const SnapshotProvider: React.FC< { children: ReactNode } > = ( { children } ) => {
@@ -94,6 +100,27 @@ export const SnapshotProvider: React.FC< { children: ReactNode } > = ( { childre
 	const [ snapshotQuota, setSnapshotQuota ] = useState( LIMIT_OF_ZIP_SITES_PER_USER );
 	const [ isLoadingSnapshotUsage, setIsLoadingSnapshotUsage ] = useState( false );
 	const [ snapshotCreationBlocked, setSnapshotCreationBlocked ] = useState( false );
+	const [ isSnapshotProcessing, setIsSnapshotProcessing ] = useState( false );
+	const [ processingProgress, setProcessingProgress ] = useState( 20 );
+
+	// Handle progress animation
+	useEffect( () => {
+		if ( ! isSnapshotProcessing ) {
+			setProcessingProgress( 10 );
+			return;
+		}
+
+		const interval = setInterval( () => {
+			setProcessingProgress( ( current ) => {
+				if ( current >= 95 ) {
+					return current;
+				}
+				return current + 1;
+			} );
+		}, 800 );
+
+		return () => clearInterval( interval );
+	}, [ isSnapshotProcessing ] );
 
 	const { client } = useAuth();
 	const isOffline = useOffline();
@@ -373,6 +400,9 @@ export const SnapshotProvider: React.FC< { children: ReactNode } > = ( { childre
 			isLoadingSnapshotUsage,
 			initiated,
 			snapshotCreationBlocked,
+			isSnapshotProcessing,
+			setIsSnapshotProcessing,
+			processingProgress,
 		} ),
 		[
 			snapshots,
@@ -392,6 +422,9 @@ export const SnapshotProvider: React.FC< { children: ReactNode } > = ( { childre
 			isLoadingSnapshotUsage,
 			initiated,
 			snapshotCreationBlocked,
+			isSnapshotProcessing,
+			setIsSnapshotProcessing,
+			processingProgress,
 		]
 	);
 

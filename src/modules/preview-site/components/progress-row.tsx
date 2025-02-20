@@ -1,18 +1,13 @@
 import { __ } from '@wordpress/i18n';
 import ProgressBar from 'src/components/progress-bar';
-import { useProgressTimer } from 'src/hooks/use-progress-timer';
+import { useSnapshots } from 'src/hooks/use-snapshots';
 
 interface ProgressRowProps {
 	text: string;
 }
 
 export function ProgressRow( { text }: ProgressRowProps ) {
-	const { progress } = useProgressTimer( {
-		initialProgress: 20,
-		paused: false,
-		interval: 300,
-		maxValue: 95,
-	} );
+	const { processingProgress } = useSnapshots();
 
 	return (
 		<div className="self-stretch flex-col">
@@ -20,7 +15,7 @@ export function ProgressRow( { text }: ProgressRowProps ) {
 				<div className="w-[51%]">
 					<div className="w-[200px]">
 						<div className="text-a8c-gray-70 a8c-body mb-4">{ text }</div>
-						<ProgressBar value={ progress } maxValue={ 100 } />
+						<ProgressBar value={ processingProgress } maxValue={ 100 } />
 					</div>
 				</div>
 				<div className="flex ltr:ml-auto rtl:mr-auto">

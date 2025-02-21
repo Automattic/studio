@@ -134,12 +134,58 @@ export async function removeLegacySqliteIntegrationPlugin( installPath: string )
  * @param sitePath Path of the site.
  */
 export async function keepSqliteIntegrationUpdated( sitePath: string ) {
+	const isTargetSite = sitePath.includes( 'new-complex-site' );
 	const sqlitePath = path.join( sitePath, 'wp-content', 'mu-plugins', SQLITE_FILENAME );
-	const hasWpConfig = await fs.pathExists( path.join( sitePath, 'wp-config.php' ) );
+
+	if ( isTargetSite ) {
+		console.log( '=== SQLite Update Check for Target Site ===' );
+		// Check for legacy -main version
+		const mainPath = path.join(
+			sitePath,
+			'wp-content',
+			'mu-plugins',
+			'sqlite-database-integration-main'
+		);
+		const mainExists = await fs.pathExists( mainPath );
+		console.log( 'Legacy -main version exists at:', mainPath, '?:', mainExists );
+
+		if ( mainExists ) {
+			console.log( 'Found legacy SQLite, renaming to correct path' );
+			const correctPath = path.join(
+				sitePath,
+				'wp-content',
+				'mu-plugins',
+				'sqlite-database-integration'
+			);
+			try {
+				// Remove existing if any
+				if ( await fs.pathExists( correctPath ) ) {
+					await fs.remove( correctPath );
+				}
+				// Rename -main to correct name
+				await fs.move( mainPath, correctPath );
+				console.log( 'Successfully renamed legacy SQLite to:', correctPath );
+				return;
+			} catch ( error ) {
+				console.error( 'Failed to rename legacy SQLite:', error );
+				Sentry.captureException( error );
+			}
+		}
+	}
+
 	const sqliteInstalled = await isSqlLiteInstalled( sqlitePath );
 	const sqliteOutdated = sqliteInstalled && ( await isSqliteInstallationOutdated( sqlitePath ) );
 
-	if ( ( ! sqliteInstalled && ! hasWpConfig ) || sqliteOutdated ) {
+	if ( isTargetSite ) {
+		console.log( 'SQLite installed?:', sqliteInstalled );
+		console.log( 'SQLite outdated?:', sqliteOutdated );
+	}
+
+	// Install if not installed or outdated, regardless of wp-config
+	if ( ! sqliteInstalled || sqliteOutdated ) {
+		if ( isTargetSite ) {
+			console.log( 'Installing SQLite - not installed or outdated' );
+		}
 		await installSqliteIntegration( sitePath );
 	}
 }

@@ -37,7 +37,7 @@ export function CreatePreviewButton( { onClick, selectedSite }: CreatePreviewBut
 		isOverLimit;
 
 	const currentSiteArchivingMessage = __(
-		"This site's preview is being created. Please wait for it to finish before creating another."
+		'A preview of this siteis being created. Please wait for it to finish before creating another.'
 	);
 	const otherSiteArchivingMessage = __(
 		'A different preview site is being created. Please wait for it to finish before creating another.'

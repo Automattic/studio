@@ -24,6 +24,18 @@ if ( typeof window !== 'undefined' ) {
 			dispatchEvent: jest.fn(),
 		} ) ),
 	} );
+
+	/**
+	 * `crypto.subtle.generateKey` is required by `@php-wasm/web`
+	 */
+	Object.defineProperty( global.crypto, 'subtle', {
+		value: { generateKey: jest.fn() },
+	} );
+
+	/**
+	 * `fetch` is required by `@wp-playground/blueprints`
+	 */
+	global.fetch = jest.fn();
 }
 
 nock.disableNetConnect();

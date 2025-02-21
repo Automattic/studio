@@ -28,6 +28,17 @@ export const LOCAL_STORAGE_CHAT_API_IDS_KEY = 'ai_chat_ids';
 
 export const ACCEPTED_IMPORT_FILE_TYPES = [ '.zip', '.gz', '.gzip', '.tar', '.tar.gz', '.wpress' ];
 
+// Archiver options
+export const ARCHIVER_OPTIONS = {
+	zip: {
+		zlib: { level: 9 },
+	},
+	tar: {
+		gzip: true,
+		gzipOptions: { level: 9 },
+	},
+};
+
 // OAuth constants
 export const CLIENT_ID = '95109';
 export const PROTOCOL_PREFIX = 'wpcom-local-dev';

@@ -4,6 +4,7 @@ import fsPromises from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import archiver from 'archiver';
+import { ARCHIVER_OPTIONS } from 'src/constants';
 import { ExportEvents } from 'src/lib/import-export/export/events';
 import {
 	exportDatabaseToFile,
@@ -120,10 +121,8 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 	private createArchive(): archiver.Archiver {
 		this.emit( ExportEvents.BACKUP_CREATE_START );
 		const isZip = this.options.backupFile.endsWith( '.zip' );
-		return archiver( isZip ? 'zip' : 'tar', {
-			gzip: ! isZip,
-			gzipOptions: isZip ? undefined : { level: 9 },
-		} );
+		const format = isZip ? 'zip' : 'tar';
+		return archiver( format, ARCHIVER_OPTIONS[ format ] );
 	}
 
 	private setupArchiveListeners( output: fs.WriteStream ): Promise< void > {

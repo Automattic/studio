@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 interface UseProgressOptions {
 	initialProgress?: number;
@@ -34,13 +34,13 @@ export function useProgress( {
 		return () => clearInterval( intervalId );
 	}, [ isProgressing, initialProgress, maxProgress, interval, step ] );
 
-	const startProgress = () => {
+	const startProgress = useCallback( () => {
 		setIsProgressing( true );
-	};
+	}, [ setIsProgressing ] );
 
-	const stopProgress = () => {
+	const stopProgress = useCallback( () => {
 		setIsProgressing( false );
-	};
+	}, [ setIsProgressing ] );
 
 	return {
 		startProgress,

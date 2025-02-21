@@ -34,7 +34,6 @@ interface StoppedSiteDetails {
 interface StartedSiteDetails extends StoppedSiteDetails {
 	running: true;
 
-	port: number;
 	url: string;
 }
 

@@ -1,5 +1,5 @@
 import { Spinner } from '@wordpress/components';
-import { __, sprintf } from '@wordpress/i18n';
+import { sprintf } from '@wordpress/i18n';
 import { Icon, published } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useEffect, useState, useRef } from 'react';
@@ -13,8 +13,8 @@ import { useSnapshots } from 'src/hooks/use-snapshots';
 import { useUpdateDemoSite } from 'src/hooks/use-update-demo-site';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { DeleteProgressRow } from 'src/modules/preview-site/components/delete-progress-row';
 import { PreviewActionButtonsMenu } from 'src/modules/preview-site/components/preview-action-buttons-menu';
-import { ProgressRow } from 'src/modules/preview-site/components/progress-row';
 
 interface PreviewSiteRowProps {
 	snapshot: Snapshot;
@@ -86,7 +86,7 @@ export function PreviewSiteRow( {
 	const urlWithHTTPS = `https://${ url }`;
 
 	if ( isDeleting ) {
-		return <ProgressRow text={ __( 'Deleting preview site' ) } />;
+		return <DeleteProgressRow />;
 	}
 
 	return (

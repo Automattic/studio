@@ -15,6 +15,7 @@ import { LIMIT_OF_ZIP_SITES_PER_USER } from 'src/constants';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useProgress } from './use-progress';
 
 interface SnapshotContextType {
 	snapshots: Snapshot[];
@@ -39,6 +40,9 @@ interface SnapshotContextType {
 	isLoadingSnapshotUsage: boolean;
 	initiated: boolean;
 	snapshotCreationBlocked: boolean;
+	creationProgress: number;
+	startCreationProgress: () => void;
+	stopCreationProgress: () => void;
 }
 
 export enum SnapshotStatus {
@@ -79,6 +83,9 @@ export const SnapshotContext = createContext< SnapshotContextType >( {
 	isLoadingSnapshotUsage: false,
 	initiated: false,
 	snapshotCreationBlocked: false,
+	creationProgress: 10,
+	startCreationProgress: () => undefined,
+	stopCreationProgress: () => undefined,
 } );
 
 export const SnapshotProvider: React.FC< { children: ReactNode } > = ( { children } ) => {
@@ -94,6 +101,11 @@ export const SnapshotProvider: React.FC< { children: ReactNode } > = ( { childre
 	const [ snapshotQuota, setSnapshotQuota ] = useState( LIMIT_OF_ZIP_SITES_PER_USER );
 	const [ isLoadingSnapshotUsage, setIsLoadingSnapshotUsage ] = useState( false );
 	const [ snapshotCreationBlocked, setSnapshotCreationBlocked ] = useState( false );
+	const {
+		progress: creationProgress,
+		startProgress: startCreationProgress,
+		stopProgress: stopCreationProgress,
+	} = useProgress();
 
 	const { client } = useAuth();
 	const isOffline = useOffline();
@@ -335,6 +347,7 @@ export const SnapshotProvider: React.FC< { children: ReactNode } > = ( { childre
 								...snapshot,
 								isLoading: false,
 							} );
+							stopCreationProgress();
 							getIpcApi().showNotification( {
 								title: snapshot.name,
 								body: sprintf( __( "Preview site '%s' has been created." ), snapshot.url ),
@@ -345,6 +358,7 @@ export const SnapshotProvider: React.FC< { children: ReactNode } > = ( { childre
 							...snapshot,
 							isLoading: false,
 						} );
+						stopCreationProgress();
 					}
 				}
 			}
@@ -352,7 +366,7 @@ export const SnapshotProvider: React.FC< { children: ReactNode } > = ( { childre
 		return () => {
 			clearInterval( intervalId );
 		};
-	}, [ __, client, snapshots, updateSnapshot ] );
+	}, [ __, client, snapshots, updateSnapshot, stopCreationProgress ] );
 
 	const value: SnapshotContextType = useMemo(
 		() => ( {
@@ -373,6 +387,9 @@ export const SnapshotProvider: React.FC< { children: ReactNode } > = ( { childre
 			isLoadingSnapshotUsage,
 			initiated,
 			snapshotCreationBlocked,
+			startCreationProgress,
+			stopCreationProgress,
+			creationProgress,
 		} ),
 		[
 			snapshots,
@@ -392,6 +409,9 @@ export const SnapshotProvider: React.FC< { children: ReactNode } > = ( { childre
 			isLoadingSnapshotUsage,
 			initiated,
 			snapshotCreationBlocked,
+			startCreationProgress,
+			stopCreationProgress,
+			creationProgress,
 		]
 	);
 

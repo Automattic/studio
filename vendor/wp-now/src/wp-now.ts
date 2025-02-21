@@ -623,6 +623,25 @@ set_error_handler(function($severity, $message, $file, $line) {
 		if (!defined('DB_COLLATE')) define('DB_COLLATE', '');
 		`
 	);
+
+	/**
+	 * dns_get_record() is not implemented in @php-wasm,
+	 * so we suppress the warning to avoid it being displayed to users.
+	 */
+	php.writeFile(
+		path.posix.join(
+			PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER,
+			'0-suppress-dns-get-record-warnings.php'
+		),
+		`<?php
+		set_error_handler(function($severity, $message, $file, $line) {
+			if ($severity === E_WARNING && strpos($message, "dns_get_record()") === 0) {
+				return true;
+			}
+			return false;
+		});
+		`
+	);
 }
 
 async function mountSqlitePlugin( php: PHP, vfsDocumentRoot: string ) {

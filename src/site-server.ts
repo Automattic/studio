@@ -78,16 +78,15 @@ export class SiteServer {
 		if ( this.details.running || this.server ) {
 			return;
 		}
-		const port = await portFinder.getOpenPort( this.details.port );
-		portFinder.addUnavailablePort( this.details.port );
+
 		const options = await getWpNowConfig( {
 			path: this.details.path,
-			port,
+			port: this.details.port,
 			adminPassword: decodePassword( this.details.adminPassword ?? '' ),
 			siteTitle: this.details.name,
 			php: this.details.phpVersion,
 		} );
-		const absoluteUrl = `http://localhost:${ port }`;
+		const absoluteUrl = `http://localhost:${ this.details.port }`;
 		options.absoluteUrl = absoluteUrl;
 		options.siteLanguage = await getPreferredSiteLanguage( options.wordPressVersion );
 

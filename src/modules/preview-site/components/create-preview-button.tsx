@@ -17,13 +17,16 @@ interface CreatePreviewButtonProps {
 
 export function CreatePreviewButton( { onClick, selectedSite }: CreatePreviewButtonProps ) {
 	const { __, _n } = useI18n();
-	const { isAnySiteArchiving } = useArchiveSite();
+	const { isAnySiteArchiving, archivingSiteId } = useArchiveSite();
 	const { activeSnapshotCount, snapshotQuota, isLoadingSnapshotUsage, snapshotCreationBlocked } =
 		useSnapshots();
 	const isLimitUsed = activeSnapshotCount >= snapshotQuota;
 	const { isOverLimit } = useSiteSize( selectedSite.id );
 	const isOffline = useOffline();
 	const errorMessages = useArchiveErrorMessages();
+
+	const isCurrentSiteArchiving = archivingSiteId === selectedSite.id;
+	const isOtherSiteArchiving = isAnySiteArchiving && ! isCurrentSiteArchiving;
 
 	const isDisabled =
 		isAnySiteArchiving ||
@@ -33,7 +36,10 @@ export function CreatePreviewButton( { onClick, selectedSite }: CreatePreviewBut
 		snapshotCreationBlocked ||
 		isOverLimit;
 
-	const siteArchivingMessage = __(
+	const currentSiteArchivingMessage = __(
+		'A preview of this site is being created. Please wait for it to finish before creating another.'
+	);
+	const otherSiteArchivingMessage = __(
 		'A different preview site is being created. Please wait for it to finish before creating another.'
 	);
 	const allotmentConsumptionMessage = sprintf(
@@ -60,8 +66,10 @@ export function CreatePreviewButton( { onClick, selectedSite }: CreatePreviewBut
 		};
 	} else if ( isLimitUsed ) {
 		tooltipContent = { text: allotmentConsumptionMessage };
-	} else if ( isAnySiteArchiving ) {
-		tooltipContent = { text: siteArchivingMessage };
+	} else if ( isCurrentSiteArchiving ) {
+		tooltipContent = { text: currentSiteArchivingMessage };
+	} else if ( isOtherSiteArchiving ) {
+		tooltipContent = { text: otherSiteArchivingMessage };
 	} else if ( snapshotCreationBlocked ) {
 		tooltipContent = { text: errorMessages.rest_site_creation_blocked };
 	} else if ( isOverLimit ) {

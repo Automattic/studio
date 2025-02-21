@@ -23,6 +23,12 @@ jest.mock( 'src/main-window' );
 jest.mock( '@sentry/electron/main' );
 jest.mock( 'src/lib/import-export/import/import-manager' );
 
+jest.mock( 'src/lib/port-finder', () => ( {
+	portFinder: {
+		getOpenPort: jest.fn().mockResolvedValue( 9999 ),
+	},
+} ) );
+
 ( SiteServer.create as jest.Mock ).mockImplementation( ( details ) => ( {
 	start: jest.fn(),
 	details,
@@ -65,6 +71,7 @@ describe( 'createSite', () => {
 			name: 'Test',
 			path: '/test',
 			phpVersion: '8.2',
+			port: 9999,
 			running: false,
 		} );
 	} );

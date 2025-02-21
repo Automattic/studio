@@ -175,14 +175,23 @@ export function useArchiveSite() {
 			snapshots,
 		]
 	);
-	const isAnySiteArchiving = useMemo( () => {
-		const isAnySiteUploading = Object.values( uploadingSites ).some( ( uploading ) => uploading );
-		return isAnySiteUploading || snapshots.some( ( snapshot ) => snapshot.isLoading );
-	}, [ snapshots, uploadingSites ] );
+
+	const { isAnySiteArchiving, archivingSiteId } = useMemo( () => {
+		const uploadingSiteId = Object.keys( uploadingSites ).find(
+			( siteId ) => uploadingSites[ siteId ]
+		);
+		const loadingSnapshot = snapshots.find( ( snapshot ) => snapshot.isLoading );
+
+		return {
+			isAnySiteArchiving: !! uploadingSiteId || !! loadingSnapshot,
+			archivingSiteId: uploadingSiteId || loadingSnapshot?.localSiteId || null,
+		};
+	}, [ uploadingSites, snapshots ] );
 
 	return {
 		archiveSite,
 		isUploadingSiteId,
 		isAnySiteArchiving,
+		archivingSiteId,
 	};
 }

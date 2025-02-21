@@ -190,7 +190,7 @@ function isAppRunningFromDMG(): boolean {
 	}
 
 	const appPath = app.getPath( 'exe' );
-	return appPath.startsWith( '/Volumes/' );
+	return appPath.startsWith( '/Volumes/' ) || appPath.startsWith( '/private/var/folders' );
 }
 
 function showReadOnlyVolumeError( err: Error ) {

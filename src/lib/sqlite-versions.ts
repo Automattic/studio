@@ -137,9 +137,9 @@ export async function keepSqliteIntegrationUpdated( sitePath: string ) {
 	const sqlitePath = path.join( sitePath, 'wp-content', 'mu-plugins', SQLITE_FILENAME );
 	const hasWpConfig = await fs.pathExists( path.join( sitePath, 'wp-config.php' ) );
 	const sqliteInstalled = await isSqlLiteInstalled( sqlitePath );
-	const sqliteOutdated = sqliteInstalled && ( await isSqliteInstallationOutdated( sqlitePath ) );
+	const sqliteOutdated = await isSqliteInstallationOutdated( sqlitePath );
 
-	if ( ! sqliteInstalled || sqliteOutdated ) {
+	if ( ( ! sqliteInstalled && ! hasWpConfig ) || sqliteOutdated ) {
 		await installSqliteIntegration( sitePath );
 	}
 }

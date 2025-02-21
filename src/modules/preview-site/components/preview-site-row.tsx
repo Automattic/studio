@@ -1,5 +1,5 @@
 import { Spinner } from '@wordpress/components';
-import { __, sprintf } from '@wordpress/i18n';
+import { sprintf } from '@wordpress/i18n';
 import { Icon, published } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useEffect, useState, useRef } from 'react';
@@ -9,13 +9,12 @@ import { TooltipProps, Tooltip } from 'src/components/tooltip';
 import { UPDATED_MESSAGE_DURATION_MS } from 'src/constants';
 import { useExpirationDate } from 'src/hooks/use-expiration-date';
 import { useFormatLocalizedTimestamps } from 'src/hooks/use-format-localized-timestamps';
-import { useProgress } from 'src/hooks/use-progress';
 import { useSnapshots } from 'src/hooks/use-snapshots';
 import { useUpdateDemoSite } from 'src/hooks/use-update-demo-site';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { PreviewActionButtonsMenu } from 'src/modules/preview-site/components/preview-action-buttons-menu';
-import { ProgressRow } from 'src/modules/preview-site/components/progress-row';
+import { DeleteProgressRow } from './delete-progress-row';
 
 interface PreviewSiteRowProps {
 	snapshot: Snapshot;
@@ -36,19 +35,6 @@ export function PreviewSiteRow( {
 	const { url, date, isDeleting } = snapshot;
 	const { countDown, expireDateString, isExpired } = useExpirationDate( date );
 	const { fetchSnapshotUsage, removeSnapshot } = useSnapshots();
-	const {
-		progress: deletionProgress,
-		startProgress: startDeletionProgress,
-		stopProgress: stopDeletionProgress,
-	} = useProgress();
-
-	useEffect( () => {
-		if ( isDeleting ) {
-			startDeletionProgress();
-		} else {
-			stopDeletionProgress();
-		}
-	}, [ isDeleting, startDeletionProgress, stopDeletionProgress ] );
 	const { isDemoSiteUpdating } = useUpdateDemoSite();
 	const isPreviewSiteUpdating = isDemoSiteUpdating( snapshot.atomicSiteId );
 	const { formatRelativeTime } = useFormatLocalizedTimestamps();
@@ -100,7 +86,7 @@ export function PreviewSiteRow( {
 	const urlWithHTTPS = `https://${ url }`;
 
 	if ( isDeleting ) {
-		return <ProgressRow text={ __( 'Deleting preview site' ) } progress={ deletionProgress } />;
+		return <DeleteProgressRow />;
 	}
 
 	return (

@@ -343,6 +343,7 @@ export const SnapshotProvider: React.FC< { children: ReactNode } > = ( { childre
 								...snapshot,
 								isLoading: false,
 							} );
+							stopProgress();
 							getIpcApi().showNotification( {
 								title: snapshot.name,
 								body: sprintf( __( "Preview site '%s' has been created." ), snapshot.url ),
@@ -353,6 +354,7 @@ export const SnapshotProvider: React.FC< { children: ReactNode } > = ( { childre
 							...snapshot,
 							isLoading: false,
 						} );
+						stopProgress();
 					}
 				}
 			}
@@ -360,7 +362,7 @@ export const SnapshotProvider: React.FC< { children: ReactNode } > = ( { childre
 		return () => {
 			clearInterval( intervalId );
 		};
-	}, [ __, client, snapshots, updateSnapshot ] );
+	}, [ __, client, snapshots, updateSnapshot, stopProgress ] );
 
 	const value: SnapshotContextType = useMemo(
 		() => ( {

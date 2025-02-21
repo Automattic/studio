@@ -163,7 +163,7 @@ function NoPreviews( { selectedSite }: React.ComponentProps< typeof EmptyGeneric
 
 export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) {
 	const { __ } = useI18n();
-	const { snapshots, snapshotCreationBlocked, progress } = useSnapshots();
+	const { snapshots, snapshotCreationBlocked, creationProgress } = useSnapshots();
 	const { isAuthenticated, user } = useAuth();
 	const { archiveSite, isUploadingSiteId } = useArchiveSite();
 	const { isOverLimit } = useSiteSize( selectedSite.id );
@@ -201,7 +201,7 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 				<PreviewSitesTableHeader />
 				<div className="[&>*:not(:last-child)]:border-b [&>*]:border-a8c-gray-5">
 					{ ( isUploading || isSnapshotLoading ) && (
-						<ProgressRow text={ __( 'Creating preview site' ) } progress={ progress } />
+						<ProgressRow text={ __( 'Creating preview site' ) } progress={ creationProgress } />
 					) }
 					{ snapshotsOnSite
 						.filter( ( snapshot ) => ! snapshot.isLoading )

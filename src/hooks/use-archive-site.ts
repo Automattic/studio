@@ -33,8 +33,6 @@ export function useArchiveSite() {
 			return;
 		}
 
-		let activeSnapshot: Snapshot | null = null;
-
 		const intervalId = setInterval( async () => {
 			for ( const snapshot of loadingSnapshots ) {
 				if ( snapshot.isLoading ) {
@@ -51,7 +49,10 @@ export function useArchiveSite() {
 								...snapshot,
 								isLoading: false,
 							} );
-							activeSnapshot = snapshot;
+							getIpcApi().showNotification( {
+								title: snapshot.name,
+								body: sprintf( __( "Preview site '%s' has been created." ), snapshot.url ),
+							} );
 						}
 					} catch ( error ) {
 						updateSnapshot( {
@@ -64,12 +65,6 @@ export function useArchiveSite() {
 		}, 3000 );
 		return () => {
 			clearInterval( intervalId );
-			if ( activeSnapshot ) {
-				getIpcApi().showNotification( {
-					title: activeSnapshot.name,
-					body: sprintf( __( "Preview site '%s' has been created." ), activeSnapshot.url ),
-				} );
-			}
 		};
 	}, [ __, client, snapshots, updateSnapshot ] );
 

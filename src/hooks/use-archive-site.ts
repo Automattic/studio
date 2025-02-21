@@ -1,19 +1,19 @@
 import * as Sentry from '@sentry/electron/renderer';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { DEMO_SITE_SIZE_LIMIT_BYTES, DEMO_SITE_SIZE_LIMIT_GB } from 'src/constants';
 import { useSyncSites } from 'src/hooks/sync-sites';
 import { useArchiveErrorMessages } from 'src/hooks/use-archive-error-messages';
 import { useAuth } from 'src/hooks/use-auth';
 import { useSiteDetails } from 'src/hooks/use-site-details';
-import { SnapshotStatus, SnapshotStatusResponse, useSnapshots } from 'src/hooks/use-snapshots';
+import { useSnapshots } from 'src/hooks/use-snapshots';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { isWpcomNetworkError } from 'src/lib/is-wpcom-network-error';
 
 export function useArchiveSite() {
 	const { uploadingSites, setUploadingSites, selectedSite } = useSiteDetails();
-	const { snapshots, addSnapshot, updateSnapshot, fetchSnapshotUsage } = useSnapshots();
+	const { snapshots, addSnapshot, fetchSnapshotUsage } = useSnapshots();
 	const isUploadingSiteId = useCallback(
 		( localSiteId: string ) => uploadingSites[ localSiteId ] || false,
 		[ uploadingSites ]
@@ -21,52 +21,6 @@ export function useArchiveSite() {
 	const { client, user } = useAuth();
 	const { __ } = useI18n();
 	const { connectedSites } = useSyncSites();
-
-	useEffect( () => {
-		if ( ! client ) {
-			// Can't poll for snapshots if logged out
-			return;
-		}
-
-		const loadingSnapshots = snapshots.filter( ( snapshot ) => snapshot.isLoading );
-		if ( loadingSnapshots.length === 0 ) {
-			return;
-		}
-
-		const intervalId = setInterval( async () => {
-			for ( const snapshot of loadingSnapshots ) {
-				if ( snapshot.isLoading ) {
-					try {
-						const response: SnapshotStatusResponse = await client.req.get(
-							'/jurassic-ninja/status',
-							{
-								apiNamespace: 'wpcom/v2',
-								site_id: snapshot.atomicSiteId,
-							}
-						);
-						if ( response.status === SnapshotStatus.Active ) {
-							updateSnapshot( {
-								...snapshot,
-								isLoading: false,
-							} );
-							getIpcApi().showNotification( {
-								title: snapshot.name,
-								body: sprintf( __( "Preview site '%s' has been created." ), snapshot.url ),
-							} );
-						}
-					} catch ( error ) {
-						updateSnapshot( {
-							...snapshot,
-							isLoading: false,
-						} );
-					}
-				}
-			}
-		}, 3000 );
-		return () => {
-			clearInterval( intervalId );
-		};
-	}, [ __, client, snapshots, updateSnapshot ] );
 
 	const getNextSequenceNumber = (
 		siteId: string,

@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/electron/renderer';
+import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import React, {
 	createContext,
@@ -306,6 +307,52 @@ export const SnapshotProvider: React.FC< { children: ReactNode } > = ( { childre
 		};
 		fetchStats();
 	}, [ client, fetchSnapshotUsage, initiated, snapshots.length ] );
+
+	useEffect( () => {
+		if ( ! client ) {
+			// Can't poll for snapshots if logged out
+			return;
+		}
+
+		const loadingSnapshots = snapshots.filter( ( snapshot ) => snapshot.isLoading );
+		if ( loadingSnapshots.length === 0 ) {
+			return;
+		}
+
+		const intervalId = setInterval( async () => {
+			for ( const snapshot of loadingSnapshots ) {
+				if ( snapshot.isLoading ) {
+					try {
+						const response: SnapshotStatusResponse = await client.req.get(
+							'/jurassic-ninja/status',
+							{
+								apiNamespace: 'wpcom/v2',
+								site_id: snapshot.atomicSiteId,
+							}
+						);
+						if ( response.status === SnapshotStatus.Active ) {
+							updateSnapshot( {
+								...snapshot,
+								isLoading: false,
+							} );
+							getIpcApi().showNotification( {
+								title: snapshot.name,
+								body: sprintf( __( "Preview site '%s' has been created." ), snapshot.url ),
+							} );
+						}
+					} catch ( error ) {
+						updateSnapshot( {
+							...snapshot,
+							isLoading: false,
+						} );
+					}
+				}
+			}
+		}, 3000 );
+		return () => {
+			clearInterval( intervalId );
+		};
+	}, [ __, client, snapshots, updateSnapshot ] );
 
 	const value: SnapshotContextType = useMemo(
 		() => ( {

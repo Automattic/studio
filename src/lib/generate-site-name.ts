@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
 
-export function generateSiteName( usedSiteNames: string[] ): string {
+export function generateSiteName( usedSites: SiteDetails[] ): string {
 	const siteNames = [
 		__( 'My Bold Website' ),
 		__( 'My Bright Website' ),
@@ -26,20 +26,36 @@ export function generateSiteName( usedSiteNames: string[] ): string {
 
 	const defaultName = __( 'My WordPress Website' );
 
-	if ( ! usedSiteNames.includes( defaultName ) ) {
+	const isPathUnique = ( name: string ): boolean => {
+		const sanitizedPath = sanitizeFolderName( name );
+		return ! usedSites.some( ( site ) => site.path.toLowerCase().endsWith( '/' + sanitizedPath ) );
+	};
+
+	const isNameUnique = ( name: string ): boolean => {
+		return ! usedSites.some( ( site ) => site.name === name );
+	};
+
+	if ( isNameUnique( defaultName ) && isPathUnique( defaultName ) ) {
 		return defaultName;
 	}
 
-	const availableNames = siteNames.filter( ( name ) => ! usedSiteNames.includes( name ) );
+	const availableNames = siteNames.filter(
+		( name ) => isNameUnique( name ) && isPathUnique( name )
+	);
+
 	if ( availableNames.length > 0 ) {
 		return availableNames[ Math.floor( Math.random() * availableNames.length ) ];
 	}
 
 	let siteNumber = 2;
-	while ( usedSiteNames.includes( `${ defaultName } ${ siteNumber }` ) ) {
+	let candidateName = `${ defaultName } ${ siteNumber }`;
+
+	while ( ! isNameUnique( candidateName ) || ! isPathUnique( candidateName ) ) {
 		siteNumber++;
+		candidateName = `${ defaultName } ${ siteNumber }`;
 	}
-	return `${ defaultName } ${ siteNumber }`;
+
+	return candidateName;
 }
 
 export const sanitizeFolderName = ( filename: string ) => {

@@ -11,7 +11,6 @@ import { useAddSite } from 'src/hooks/use-add-site';
 import { useDragAndDropFile } from 'src/hooks/use-drag-and-drop-file';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
-import { useSiteDetails } from 'src/hooks/use-site-details';
 import { generateSiteName } from 'src/lib/generate-site-name';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
@@ -24,8 +23,6 @@ export default function AddSite( { className }: AddSiteProps ) {
 	const [ showModal, setShowModal ] = useState( false );
 	const [ nameSuggested, setNameSuggested ] = useState( false );
 	const [ fileError, setFileError ] = useState( '' );
-
-	const { data } = useSiteDetails();
 
 	const {
 		handleAddSiteClick,
@@ -40,14 +37,14 @@ export default function AddSite( { className }: AddSiteProps ) {
 		setDoesPathContainWordPress,
 		handleSiteNameChange,
 		handlePathSelectorClick,
-		usedSiteNames,
 		loadingSites,
 		fileForImport,
 		setFileForImport,
+		sites,
 	} = useAddSite();
 	const { importState } = useImportExport();
 
-	const isAnySiteProcessing = data.some(
+	const isAnySiteProcessing = sites.some(
 		( site ) => site.isAddingSite || importState[ site.id ]?.isNewSite
 	);
 
@@ -59,7 +56,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 
 	const initializeForm = useCallback( async () => {
 		const { name, path, isWordPress } =
-			( await getIpcApi().generateProposedSitePath( generateSiteName( usedSiteNames ) ) ) || {};
+			( await getIpcApi().generateProposedSitePath( generateSiteName( sites ) ) ) || {};
 		setNameSuggested( true );
 		setSiteName( name );
 		setProposedSitePath( path );
@@ -67,7 +64,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 		setError( '' );
 		setDoesPathContainWordPress( isWordPress );
 	}, [
-		usedSiteNames,
+		sites,
 		setSiteName,
 		setProposedSitePath,
 		setSitePath,

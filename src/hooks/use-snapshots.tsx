@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/electron/renderer';
+import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import React, {
 	createContext,
@@ -14,6 +15,7 @@ import { LIMIT_OF_ZIP_SITES_PER_USER } from 'src/constants';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useProgress } from './use-progress';
 
 interface SnapshotContextType {
 	snapshots: Snapshot[];
@@ -38,6 +40,9 @@ interface SnapshotContextType {
 	isLoadingSnapshotUsage: boolean;
 	initiated: boolean;
 	snapshotCreationBlocked: boolean;
+	creationProgress: number;
+	startCreationProgress: () => void;
+	stopCreationProgress: () => void;
 }
 
 export enum SnapshotStatus {
@@ -78,6 +83,9 @@ export const SnapshotContext = createContext< SnapshotContextType >( {
 	isLoadingSnapshotUsage: false,
 	initiated: false,
 	snapshotCreationBlocked: false,
+	creationProgress: 10,
+	startCreationProgress: () => undefined,
+	stopCreationProgress: () => undefined,
 } );
 
 export const SnapshotProvider: React.FC< { children: ReactNode } > = ( { children } ) => {
@@ -93,6 +101,11 @@ export const SnapshotProvider: React.FC< { children: ReactNode } > = ( { childre
 	const [ snapshotQuota, setSnapshotQuota ] = useState( LIMIT_OF_ZIP_SITES_PER_USER );
 	const [ isLoadingSnapshotUsage, setIsLoadingSnapshotUsage ] = useState( false );
 	const [ snapshotCreationBlocked, setSnapshotCreationBlocked ] = useState( false );
+	const {
+		progress: creationProgress,
+		startProgress: startCreationProgress,
+		stopProgress: stopCreationProgress,
+	} = useProgress();
 
 	const { client } = useAuth();
 	const isOffline = useOffline();
@@ -307,6 +320,54 @@ export const SnapshotProvider: React.FC< { children: ReactNode } > = ( { childre
 		fetchStats();
 	}, [ client, fetchSnapshotUsage, initiated, snapshots.length ] );
 
+	useEffect( () => {
+		if ( ! client ) {
+			// Can't poll for snapshots if logged out
+			return;
+		}
+
+		const loadingSnapshots = snapshots.filter( ( snapshot ) => snapshot.isLoading );
+		if ( loadingSnapshots.length === 0 ) {
+			return;
+		}
+
+		const intervalId = setInterval( async () => {
+			for ( const snapshot of loadingSnapshots ) {
+				if ( snapshot.isLoading ) {
+					try {
+						const response: SnapshotStatusResponse = await client.req.get(
+							'/jurassic-ninja/status',
+							{
+								apiNamespace: 'wpcom/v2',
+								site_id: snapshot.atomicSiteId,
+							}
+						);
+						if ( response.status === SnapshotStatus.Active ) {
+							updateSnapshot( {
+								...snapshot,
+								isLoading: false,
+							} );
+							stopCreationProgress();
+							getIpcApi().showNotification( {
+								title: snapshot.name,
+								body: sprintf( __( "Preview site '%s' has been created." ), snapshot.url ),
+							} );
+						}
+					} catch ( error ) {
+						updateSnapshot( {
+							...snapshot,
+							isLoading: false,
+						} );
+						stopCreationProgress();
+					}
+				}
+			}
+		}, 3000 );
+		return () => {
+			clearInterval( intervalId );
+		};
+	}, [ __, client, snapshots, updateSnapshot, stopCreationProgress ] );
+
 	const value: SnapshotContextType = useMemo(
 		() => ( {
 			snapshots,
@@ -326,6 +387,9 @@ export const SnapshotProvider: React.FC< { children: ReactNode } > = ( { childre
 			isLoadingSnapshotUsage,
 			initiated,
 			snapshotCreationBlocked,
+			startCreationProgress,
+			stopCreationProgress,
+			creationProgress,
 		} ),
 		[
 			snapshots,
@@ -345,6 +409,9 @@ export const SnapshotProvider: React.FC< { children: ReactNode } > = ( { childre
 			isLoadingSnapshotUsage,
 			initiated,
 			snapshotCreationBlocked,
+			startCreationProgress,
+			stopCreationProgress,
+			creationProgress,
 		]
 	);
 

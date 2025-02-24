@@ -5,7 +5,7 @@ export function PreviewSitesTableHeader() {
 	const { __ } = useI18n();
 	return (
 		<div className="border-b border-a8c-gray-5">
-			<div className="flex items-center h-12 px-8 text-gray-900 text-xs uppercase">
+			<div className="flex items-center h-12 px-8 a8c-label uppercase">
 				<div className="w-[51%]">{ __( 'Preview site' ) }</div>
 				<div className="flex ltr:ml-auto rtl:mr-auto">
 					<div className="w-[150px] flex items-center pl-4">{ __( 'Updated' ) }</div>

@@ -26,23 +26,19 @@ export function generateSiteName( usedSites: SiteDetails[] ): string {
 
 	const defaultName = __( 'My WordPress Website' );
 
-	// Helper function to check if a name's path would be unique
 	const isPathUnique = ( name: string ): boolean => {
 		const sanitizedPath = sanitizeFolderName( name );
 		return ! usedSites.some( ( site ) => site.path.toLowerCase().endsWith( '/' + sanitizedPath ) );
 	};
 
-	// Helper function to check if a name is unique
 	const isNameUnique = ( name: string ): boolean => {
 		return ! usedSites.some( ( site ) => site.name === name );
 	};
 
-	// Try default name first
 	if ( isNameUnique( defaultName ) && isPathUnique( defaultName ) ) {
 		return defaultName;
 	}
 
-	// Try names from the predefined list
 	const availableNames = siteNames.filter(
 		( name ) => isNameUnique( name ) && isPathUnique( name )
 	);
@@ -51,7 +47,6 @@ export function generateSiteName( usedSites: SiteDetails[] ): string {
 		return availableNames[ Math.floor( Math.random() * availableNames.length ) ];
 	}
 
-	// If all else fails, append numbers to the default name until we find a unique combination
 	let siteNumber = 2;
 	let candidateName = `${ defaultName } ${ siteNumber }`;
 

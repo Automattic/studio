@@ -8,6 +8,8 @@ env:
 
 steps:
   - label: Lint
+    agents:
+      queue: mac
     key: lint
     command: |
       .buildkite/commands/install-node-dependencies.sh
@@ -19,6 +21,8 @@ steps:
           context: Lint
 
   - label: Unit Tests
+    agents:
+      queue: mac
     key: unit_tests
     command: |
       .buildkite/commands/install-node-dependencies.sh

@@ -37,7 +37,6 @@ export const DemoSiteUpdateProvider: React.FC< DemoSiteUpdateProviderProps > = (
 			setUpdatingSites( ( prev ) => new Set( prev ).add( snapshot.atomicSiteId ) );
 
 			let archivePath = '';
-
 			try {
 				const { archivePath: tempArchivePath, archiveSizeInBytes } = await getIpcApi().archiveSite(
 					localSite.id,

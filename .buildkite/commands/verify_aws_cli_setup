@@ -8,7 +8,8 @@ if ! command -v aws &> /dev/null; then
   echo "[!] AWS CLI not found."
   exit 1
 else
-  echo "AWS CLI found."
+  echo "AWS CLI found at $(which aws)"
+  aws --version
 fi
 
 # Check if AWS credentials are configured

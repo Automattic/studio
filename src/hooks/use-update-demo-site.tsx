@@ -9,12 +9,12 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 
 interface DemoSiteUpdateContextType {
 	updateDemoSite: ( snapshot: Snapshot, localSite: SiteDetails ) => Promise< void >;
-	isDemoSiteUpdating: ( atomicSiteId: number ) => boolean;
+	isDemoSiteUpdating: ( atomicSiteId: number ) => { isUpdating: boolean; hasError: boolean };
 }
 
 const DemoSiteUpdateContext = createContext< DemoSiteUpdateContextType >( {
 	updateDemoSite: async () => undefined,
-	isDemoSiteUpdating: () => false,
+	isDemoSiteUpdating: () => ( { isUpdating: false, hasError: false } ),
 } );
 
 interface DemoSiteUpdateProviderProps {
@@ -25,6 +25,7 @@ export const DemoSiteUpdateProvider: React.FC< DemoSiteUpdateProviderProps > = (
 	const { client } = useAuth();
 	const { __ } = useI18n();
 	const [ updatingSites, setUpdatingSites ] = useState< Set< number > >( new Set() );
+	const [ errorSites, setErrorSites ] = useState< Set< number > >( new Set() );
 	const { updateSnapshot } = useSnapshots();
 
 	const updateDemoSite = useCallback(
@@ -36,6 +37,7 @@ export const DemoSiteUpdateProvider: React.FC< DemoSiteUpdateProviderProps > = (
 			setUpdatingSites( ( prev ) => new Set( prev ).add( snapshot.atomicSiteId ) );
 
 			let archivePath = '';
+
 			try {
 				const { archivePath: tempArchivePath, archiveSizeInBytes } = await getIpcApi().archiveSite(
 					localSite.id,
@@ -81,6 +83,9 @@ export const DemoSiteUpdateProvider: React.FC< DemoSiteUpdateProviderProps > = (
 					formData.push( [ 'wordpress_version', wordpressVersion ] );
 				}
 
+				// Temporary: Simulate a failure for testing
+				throw new Error( 'Artificial error for testing' );
+
 				const response = await client.req.post( {
 					path: '/jurassic-ninja/update-site-from-zip',
 					apiNamespace: 'wpcom/v2',
@@ -96,6 +101,7 @@ export const DemoSiteUpdateProvider: React.FC< DemoSiteUpdateProviderProps > = (
 				} );
 				return response;
 			} catch ( error ) {
+				setErrorSites( ( prev ) => new Set( prev ).add( snapshot.atomicSiteId ) );
 				getIpcApi().showErrorMessageBox( {
 					title: __( 'Update failed' ),
 					message: sprintf(
@@ -120,10 +126,11 @@ export const DemoSiteUpdateProvider: React.FC< DemoSiteUpdateProviderProps > = (
 	);
 
 	const isDemoSiteUpdating = useCallback(
-		( atomicSiteId: number ) => {
-			return updatingSites.has( atomicSiteId );
-		},
-		[ updatingSites ]
+		( atomicSiteId: number ) => ( {
+			isUpdating: updatingSites.has( atomicSiteId ),
+			hasError: errorSites.has( atomicSiteId ),
+		} ),
+		[ updatingSites, errorSites ]
 	);
 
 	const contextValue = useMemo(

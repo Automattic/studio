@@ -170,8 +170,8 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 		( snapshot ) => snapshot.localSiteId === selectedSite.id && snapshot.userId === user?.id
 	);
 	const isSnapshotLoading = snapshotsOnSite.some( ( snapshot ) => snapshot.isLoading );
-	const isAnyPreviewUpdating = snapshots.some( ( snapshot ) =>
-		isDemoSiteUpdating( snapshot.atomicSiteId )
+	const isAnyPreviewUpdating = snapshots.some(
+		( snapshot ) => isDemoSiteUpdating( snapshot.atomicSiteId ).isUpdating
 	);
 	const isOffline = useOffline();
 

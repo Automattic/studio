@@ -1,10 +1,13 @@
 import { combineReducers, configureStore, createListenerMiddleware } from '@reduxjs/toolkit';
 import { useDispatch, useSelector } from 'react-redux';
 import { LOCAL_STORAGE_CHAT_API_IDS_KEY, LOCAL_STORAGE_CHAT_MESSAGES_KEY } from 'src/constants';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 import { reducer as chatReducer } from 'src/stores/chat-slice';
+import { snapshotsReducer } from 'src/stores/snapshots-slice';
 
 export type RootState = {
 	chat: ReturnType< typeof chatReducer >;
+	snapshots: ReturnType< typeof snapshotsReducer >;
 };
 
 const listenerMiddleware = createListenerMiddleware< RootState >();
@@ -37,8 +40,20 @@ listenerMiddleware.startListening( {
 	},
 } );
 
+// Save snapshots to storage when they change
+listenerMiddleware.startListening( {
+	predicate( action, currentState, previousState ) {
+		return currentState.snapshots.snapshots !== previousState.snapshots.snapshots;
+	},
+	effect( action, listenerApi ) {
+		const state = listenerApi.getState();
+		getIpcApi().saveSnapshotsToStorage( state.snapshots.snapshots );
+	},
+} );
+
 export const rootReducer = combineReducers( {
 	chat: chatReducer,
+	snapshots: snapshotsReducer,
 } );
 
 export const store = configureStore( {

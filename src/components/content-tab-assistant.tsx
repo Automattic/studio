@@ -120,10 +120,10 @@ const AuthenticatedView = memo(
 		submitPrompt,
 		wrapperRef,
 	}: AuthenticatedViewProps ) => {
+		const isInitialRenderRef = useRef( true );
 		const lastMessageRef = useRef< HTMLDivElement >( null );
 		const [ showThinking, setShowThinking ] = useState( isAssistantThinking );
-		const [ lastSeenMessageId, setLastSeenMessageId ] = useState< number | null >( null );
-		const [ shouldAnimate, setShouldAnimate ] = useState( false );
+		const [ shouldAnimate, setShouldAnimate ] = useState( ! isInitialRenderRef.current );
 
 		const lastMessage = useMemo(
 			() =>
@@ -133,18 +133,10 @@ const AuthenticatedView = memo(
 			[ messages, showThinking ]
 		);
 
-		useEffect( () => {
-			if ( lastMessage?.id !== lastSeenMessageId ) {
-				setLastSeenMessageId( lastMessage?.id ?? null );
-				setShouldAnimate( true );
-			}
-		}, [ lastMessage, lastSeenMessageId ] );
-
 		const messagesToRender =
 			messages[ messages.length - 1 ]?.role === 'assistant' ? messages.slice( 0, -1 ) : messages;
 		const showLastMessage = lastMessage?.role === 'assistant';
 		const previousMessagesLength = useRef( messages.length );
-		const isInitialRenderRef = useRef( true );
 
 		// This effect may run twice when the component is mounted, which makes the viewport scroll
 		// to the wrong position. This happens because the app runs in React strict mode, meaning
@@ -153,6 +145,10 @@ const AuthenticatedView = memo(
 		useEffect( () => {
 			if ( ! messages.length ) {
 				return;
+			}
+
+			if ( ! isInitialRenderRef.current ) {
+				setShouldAnimate( true );
 			}
 
 			let timer: NodeJS.Timeout;

@@ -1,0 +1,51 @@
+#!/bin/bash -eu
+
+CACHE_KEY=$1
+
+bytes_to_mb() {
+	local bytes=$1
+	printf "%.2f" "$(awk "BEGIN {print $bytes / (1024 * 1024)}")"
+}
+
+S3_BUCKET_NAME=${CACHE_BUCKET_NAME-}
+if [ -z "$S3_BUCKET_NAME" ]; then
+	if [ -z "$BUILDKITE_PLUGIN_A8C_CI_TOOLKIT_BUCKET" ]; then
+		echo "⛔Unable to restore file from cache – no \$CACHE_BUCKET_NAME is set"
+		exit 1
+	else
+		echo "Reading bucket name from 'BUILDKITE_PLUGIN_A8C_CI_TOOLKIT_BUCKET'"
+		S3_BUCKET_NAME="$BUILDKITE_PLUGIN_A8C_CI_TOOLKIT_BUCKET"
+	fi
+fi
+
+echo "Using $S3_BUCKET_NAME as cache bucket"
+
+if aws s3api head-object --bucket "$S3_BUCKET_NAME" --key "$CACHE_KEY" > /dev/null 2>&1; then
+	SECONDS=0
+	echo "Restoring cache entry $CACHE_KEY"
+
+	echo "	Downloading"
+	# If the bucket has transfer acceleration enabled, use it!
+	ACCELERATION_STATUS=$(aws s3api get-bucket-accelerate-configuration --bucket "$S3_BUCKET_NAME" | jq '.Status' -r || true)
+
+	if [ "$ACCELERATION_STATUS" = "Enabled" ]; then
+		echo "Downloading with transfer acceleration"
+		aws s3 cp "s3://$S3_BUCKET_NAME/$CACHE_KEY" "$CACHE_KEY" --quiet --endpoint-url https://s3-accelerate.amazonaws.com
+	else
+		aws s3 cp "s3://$S3_BUCKET_NAME/$CACHE_KEY" "$CACHE_KEY" --quiet
+	fi
+
+	CACHE_SIZE=$(wc -c < "$CACHE_KEY")
+	echo "	Decompressing"
+	tar -xf "$CACHE_KEY"
+
+	echo "	Cleaning Up"
+	rm "$CACHE_KEY"
+
+	duration=$SECONDS
+	echo "Cache entry successfully restored"
+	echo "	Duration: $((duration / 60)) minutes and $((duration % 60)) seconds"
+	echo "	Cache Size: $(bytes_to_mb "$CACHE_SIZE") MB"
+else
+	echo "No cache entry found for '$CACHE_KEY'"
+fi

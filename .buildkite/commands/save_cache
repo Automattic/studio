@@ -1,0 +1,90 @@
+#!/bin/bash -eu
+
+CACHE_FILE=$1
+CACHE_KEY=$2
+
+bytes_to_mb() {
+	local bytes=$1
+	printf "%.2f" "$(awk "BEGIN {print $bytes / (1024 * 1024)}")"
+}
+
+if [ -z "$CACHE_FILE" ]; then
+	echo "You must pass the file or directory you want to be cached"
+	exit 1
+fi
+
+# We can automatically derive a cache key if one isn't provided
+if [ -z "$CACHE_KEY" ]; then
+	echo "No cache key provided – automatically deriving one:"
+
+	# if the $CACHE_FILE is a directory, derived the key from the hash of all files within it
+	if [[ -d $CACHE_FILE ]]; then
+		CACHE_KEY=$(hash_directory "$CACHE_FILE")
+		echo "	'$CACHE_FILE' is a directory with the hash $CACHE_KEY"
+
+	# if the $CACHE_FILE is a regular file, derive the key from the file's hash
+	elif [[ -f $CACHE_FILE ]]; then  
+		CACHE_KEY=$(hash_file "$CACHE_FILE")
+		echo "	'$CACHE_FILE' is a file with the hash $CACHE_KEY"
+	fi
+fi
+
+S3_BUCKET_NAME=${CACHE_BUCKET_NAME-}
+if [ -z "$S3_BUCKET_NAME" ]; then
+	if [ -z "$BUILDKITE_PLUGIN_A8C_CI_TOOLKIT_BUCKET" ]; then
+		echo "⛔Unable to save file to cache – no \$CACHE_BUCKET_NAME is set"
+		exit 1
+	else
+		echo "Reading bucket name from 'BUILDKITE_PLUGIN_A8C_CI_TOOLKIT_BUCKET'"
+		S3_BUCKET_NAME="$BUILDKITE_PLUGIN_A8C_CI_TOOLKIT_BUCKET"
+	fi
+fi
+
+echo "Using $S3_BUCKET_NAME as cache bucket"
+
+# Use with caution – in general it's not a good idea to overwrite a cache entry
+SHOULD_FORCE=${3-false}
+if [[ "$SHOULD_FORCE" == '--force' ]]; then
+	echo "Deleting the existing cache key"
+	aws s3 rm "s3://$S3_BUCKET_NAME/$CACHE_KEY"
+fi
+
+if ! aws s3api head-object --bucket "$S3_BUCKET_NAME" --key "$CACHE_KEY" > /dev/null 2>&1; then
+	SECONDS=0
+	echo "No existing cache entry for $CACHE_KEY – storing in cache"
+
+	echo "	Compressing"
+	TAR_CONFIG=${4-}
+	if [[ "$TAR_CONFIG" == '--use_relative_path_in_tar' ]]; then
+		# This is used by actions such as `install_swiftpm_dependencies`
+		# This configuration allows the tar to not include the full system path of the
+		# directory that's being archived. For example, this will save only the 
+		# "DIRECTORY_BEING_ARCHIVED" in `/User/builder/DIRECTORY_BEING_ARCHIVED` 
+		# instead of also creating `/User/builder` when extracting the archive
+		tar -czf "$CACHE_KEY" -C "$CACHE_FILE" .		
+	else
+		tar -czf "$CACHE_KEY" "$CACHE_FILE"
+	fi
+	CACHE_SIZE=$(wc -c < "$CACHE_KEY")
+
+	echo "	Uploading"
+	# If the bucket has transfer acceleration enabled, use it!
+	ACCELERATION_STATUS=$(aws s3api get-bucket-accelerate-configuration --bucket "$S3_BUCKET_NAME" | jq '.Status' -r || true)
+
+	if [ "$ACCELERATION_STATUS" = "Enabled" ]; then
+		echo "Uploading with transfer acceleration"
+		aws s3 cp "$CACHE_KEY" "s3://$S3_BUCKET_NAME/$CACHE_KEY" --quiet --endpoint-url https://s3-accelerate.amazonaws.com
+	else
+		aws s3 cp "$CACHE_KEY" "s3://$S3_BUCKET_NAME/$CACHE_KEY" --quiet
+	fi
+
+	echo "	Cleaning Up"
+	rm "$CACHE_KEY"
+
+	duration=$SECONDS
+	echo "Cache entry successfully saved"
+	echo "	Duration: $((duration / 60)) minutes and $((duration % 60)) seconds"
+	echo "	Cache Size: $(bytes_to_mb "$CACHE_SIZE") MB"
+else
+	echo "This file is already cached – skipping upload"
+fi

@@ -2,7 +2,6 @@
 
 echo "--- :aws: Ensuring AWS CLI is installed and configured."
 
-# Check if aws command is available
 echo "~~~ Checking if AWS CLI is installed"
 if ! command -v aws &> /dev/null; then
   echo "[!] AWS CLI not found."
@@ -12,11 +11,42 @@ else
   aws --version
 fi
 
-# Check if AWS credentials are configured
-echo "~~~ Checking if AWS credentials are configured"
-if ! aws sts get-caller-identity &> /dev/null; then
-  echo "[!] AWS credentials not found."
+echo "~~~ Checking if AWS credentials are configured in env vars or config files"
+
+if [ -n "${AWS_ACCESS_KEY_ID:-}" ]; then
+    echo "AWS_ACCESS_KEY_ID found in environment variables"
+else
+    echo "No AWS_ACCESS_KEY_ID in environment variables"
+fi
+
+if [ -n "${AWS_SECRET_ACCESS_KEY:-}" ]; then
+    echo "AWS_SECRET_ACCESS_KEY found in environment variables"
+else
+    echo "No AWS_SECRET_ACCESS_KEY in environment variables"
+fi
+
+AWS_CONFIG_PATH="$HOME/.aws/config"
+if [ -f $AWS_CONFIG_PATH ]; then
+    echo "AWS config file exists at $AWS_CONFIG_PATH"
+    echo "Printing config via aws configure list"
+    aws configure list
+else
+    echo "No AWS config file found at $AWS_CONFIG_PATH"
+fi
+
+AWS_CREDENTIALS_PATH="$HOME/.aws/credentials"
+if [ -f $AWS_CREDENTIALS_PATH ]; then
+    echo "AWS credentials file exists at $AWS_CREDENTIALS_PATH"
+    echo "Printing profiles via aws configure list"
+    aws configure list-profiles
+else
+    echo "No AWS credentials file found at $AWS_CREDENTIALS_PATH"
+fi
+
+echo "~~~ Checking AWS credentials via CLI call"
+if ! aws sts get-caller-identity > /dev/null 2>&1; then
+  echo "[!] AWS credentials check failed"
   exit 1
 else
-  echo "AWS credentials found."
+  echo "AWS credentials verified successfully."
 fi

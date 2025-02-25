@@ -3,6 +3,7 @@ import { setupLogging } from 'src/logging';
 import { startServer, type WPNowServer } from 'vendor/wp-now/src';
 import { WPNowOptions } from 'vendor/wp-now/src/config';
 import type { MessageName } from 'src/lib/site-server-process';
+import { LoadBalancer } from 'vendor/wp-now/src/load-balancer';
 
 type Handler = ( message: string, messageId: number, data: unknown ) => void;
 type Handlers = { [ K in MessageName ]: Handler };
@@ -29,22 +30,25 @@ async function start() {
 	server = await startServer( options );
 	return {
 		php: {
-			documentRoot: server.php.documentRoot,
+			documentRoot: server.loadBalancer.getNextServer().php.documentRoot,
 		},
 	};
 }
 
 async function stop() {
-	await server?.stopServer();
+	if ( server ) {
+		await server.stopServer();
+	}
 }
 
 async function runPhp( data: unknown ) {
-	const request = data as PHPRunOptions;
-	if ( ! request ) {
-		throw Error( 'PHP request is not valid' );
+	if ( ! server ) {
+		throw new Error( 'Server not started' );
 	}
-	const response = await server.php.run( request );
-	return response.text;
+	const { code } = data as { code: string };
+	// Use the first PHP instance for CLI operations
+	const firstServer = server.loadBalancer.getNextServer();
+	return await firstServer.php.run( { code } );
 }
 
 function createHandler< T >( handler: ( data: unknown ) => T ) {

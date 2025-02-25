@@ -18,11 +18,10 @@ export async function executePHP( phpArgs: string[], options: WPNowOptions = {} 
 		throw new Error( 'The first argument to executePHP must be the string "php".' );
 	}
 	disableOutput();
-	const { phpInstances, options: wpNowOptions } = await startWPNow( {
+	const { php, options: wpNowOptions } = await startWPNow( {
 		...options,
 		numberOfPhpInstances: 2,
 	} );
-	const [ , php ] = phpInstances;
 
 	try {
 		if ( ! path.isAbsolute( phpArgs[ 1 ] ) ) {

@@ -55,6 +55,10 @@ import {
 export default async function startWPNow(
 	options: Partial< WPNowOptions > = {}
 ): Promise< { php: PHP; options: WPNowOptions } > {
+	if ( ! options.projectPath ) {
+		throw new Error( 'projectPath is required' );
+	}
+
 	const { documentRoot } = options;
 	const requestHandler = new PHPRequestHandler( {
 		phpFactory: async ( { isPrimary, requestHandler: reqHandler } ) => {
@@ -73,6 +77,7 @@ export default async function startWPNow(
 
 			return php;
 		},
+		maxPhpInstances: 6,
 		documentRoot: documentRoot || '/wordpress',
 		absoluteUrl: options.absoluteUrl,
 		rewriteRules: wordPressRewriteRules,

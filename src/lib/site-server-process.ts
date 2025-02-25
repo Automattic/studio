@@ -15,42 +15,37 @@ const DEFAULT_RESPONSE_TIMEOUT = 120000;
 export default class SiteServerProcess {
 	lastMessageId = 0;
 	options: WPNowOptions;
-	process?: UtilityProcess;
-	php?: { documentRoot: string };
+	processes: UtilityProcess[] = [];
+	phpInstances: { documentRoot: string }[] = [];
 	url: string;
 	exitCode: number | null = null;
+	private currentProcessIndex = 0;
 
 	constructor( options: WPNowOptions ) {
 		this.options = options;
 		this.url = options.absoluteUrl ?? '';
 	}
 
-	async start(): Promise< void > {
-		return new Promise( ( resolve, reject ) => {
-			const spawnListener = async () => {
-				const messageId = this.sendMessage( 'start-server' );
-				try {
-					const { php } = await this.waitForResponse< Pick< SiteServerProcess, 'php' > >(
-						'start-server',
-						messageId
-					);
-					this.php = php;
-					// Removing exit listener as we only need it upon starting
-					this.process?.off( 'exit', exitListener );
-					resolve();
-				} catch ( error ) {
-					reject( error );
-				}
-			};
-			const exitListener = ( code: number ) => {
-				this.exitCode = code;
-				if ( code !== 0 ) {
-					reject( new Error( `Site server process exited with code ${ code } upon starting` ) );
-				}
+	private getNextProcess(): UtilityProcess {
+		const process = this.processes[ this.currentProcessIndex ];
+		this.currentProcessIndex = ( this.currentProcessIndex + 1 ) % this.processes.length;
+		return process;
+	}
+
+	async start() {
+		const numInstances = this.options.numberOfPhpInstances || 6;
+
+		for ( let i = 0; i < numInstances; i++ ) {
+			const processOptions = {
+				...this.options,
+				instanceId: i,
+				projectPath: this.options.projectPath,
 			};
 
-			this.process = utilityProcess
-				.fork( SITE_SERVER_PROCESS_MODULE_PATH, [ JSON.stringify( this.options ) ], {
+			const forkedProcess = utilityProcess.fork(
+				SITE_SERVER_PROCESS_MODULE_PATH,
+				[ JSON.stringify( processOptions ) ],
+				{
 					serviceName: 'studio-site-server',
 					env: {
 						...process.env,
@@ -59,37 +54,46 @@ export default class SiteServerProcess {
 						STUDIO_APP_DATA_PATH: app.getPath( 'appData' ),
 						STUDIO_APP_LOGS_PATH: app.getPath( 'logs' ),
 					},
-				} )
-				.on( 'spawn', spawnListener )
-				.on( 'exit', exitListener );
-		} );
+				}
+			);
+			this.processes.push( forkedProcess );
+
+			const result = await this.sendMessage( forkedProcess, 'start-server', {} );
+			if ( result && result.php ) {
+				this.phpInstances.push( result.php );
+			}
+		}
 	}
 
 	async stop() {
-		const message = 'stop-server';
-		const messageId = this.sendMessage( message );
-		try {
-			await this.waitForResponse( message, messageId, 5_000 );
-		} finally {
-			await this.#killProcess();
-		}
+		await Promise.all(
+			this.processes.map( async ( process ) => {
+				const message = 'stop-server';
+				const messageId = await this.sendMessage( process, message, {} );
+				try {
+					await this.waitForResponse( message, messageId, 5_000 );
+				} finally {
+					await this.#killProcess();
+				}
+			} )
+		);
+		this.processes = [];
+		this.phpInstances = [];
 	}
 
 	async runPhp( data: PHPRunOptions ): Promise< string > {
-		const message = 'run-php';
-		const messageId = this.sendMessage( message, data );
-		return await this.waitForResponse( message, messageId );
+		const process = this.getNextProcess();
+		return await this.sendMessage( process, 'run-php', data );
 	}
 
-	sendMessage< T >( message: MessageName, data?: T ) {
-		const process = this.process;
-		if ( ! process ) {
-			throw Error( 'Server process is not running' );
-		}
-
-		const messageId = this.lastMessageId++;
+	async sendMessage(
+		process: UtilityProcess,
+		message: MessageName,
+		data: unknown
+	): Promise< any > {
+		const messageId = ++this.lastMessageId;
 		process.postMessage( { message, messageId, data } );
-		return messageId;
+		return this.waitForResponse( message, messageId );
 	}
 
 	async waitForResponse< T = undefined >(
@@ -97,7 +101,7 @@ export default class SiteServerProcess {
 		originalMessageId: number,
 		timeout = DEFAULT_RESPONSE_TIMEOUT
 	): Promise< T > {
-		const process = this.process;
+		const process = this.getNextProcess();
 		if ( ! process ) {
 			throw Error( 'Server process is not running' );
 		}
@@ -136,7 +140,7 @@ export default class SiteServerProcess {
 	}
 
 	async #killProcess(): Promise< void > {
-		const process = this.process;
+		const process = this.getNextProcess();
 		if ( ! process || this.exitCode !== null ) {
 			throw Error( 'Server process is not running. Exit code: ' + this.exitCode );
 		}

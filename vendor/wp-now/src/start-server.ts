@@ -1,14 +1,69 @@
 import fs from 'fs';
-import { WPNowOptions } from './config';
-import { HTTPMethod } from '@php-wasm/universal';
-import express from 'express';
-import compression from 'compression';
+import { HTTPMethod, PHP } from '@php-wasm/universal';
 import compressible from 'compressible';
-import { portFinder } from './port-finder';
-import { PHP } from '@php-wasm/universal';
-import startWPNow from './wp-now';
-import { output } from './output';
+import compression from 'compression';
+import express from 'express';
 import { addTrailingSlash } from './add-trailing-slash';
+import { WPNowOptions } from './config';
+import { LoadBalancer } from './load-balancer';
+import { output } from './output';
+import { portFinder } from './port-finder';
+import startWPNow from './wp-now';
+
+class EventLoopTester {
+	private readonly intervalMs: number;
+	private readonly label: string;
+	private isRunning: boolean;
+	private startTime: number;
+	private iterationCount: number;
+	constructor( intervalMs = 1000, label = 'EventLoopTester' ) {
+		this.intervalMs = intervalMs;
+		this.label = label;
+		this.isRunning = false;
+		this.startTime = null;
+		this.iterationCount = 0;
+	}
+
+	start() {
+		if ( this.isRunning ) {
+			console.warn( `${ this.label }: Already running` );
+			return;
+		}
+
+		this.isRunning = true;
+		this.startTime = Date.now();
+		this.iterationCount = 0;
+
+		const tick = () => {
+			if ( ! this.isRunning ) return;
+
+			this.iterationCount++;
+			const elapsedTime = Date.now() - this.startTime;
+			// console.log(
+			// 	`${ this.label }: Iteration ${ this.iterationCount } at ${ elapsedTime }ms ` +
+			// 		`(expected: ${ this.iterationCount * this.intervalMs }ms, ` +
+			// 		`drift: ${ elapsedTime - this.iterationCount * this.intervalMs }ms)`
+			// );
+
+			console.log( '🫥' + elapsedTime );
+
+			setTimeout( tick, this.intervalMs );
+		};
+
+		console.log( `${ this.label }: Starting event loop tester` );
+		setTimeout( tick, this.intervalMs );
+	}
+
+	stop() {
+		if ( ! this.isRunning ) {
+			console.warn( `${ this.label }: Not running` );
+			return;
+		}
+
+		this.isRunning = false;
+		console.log( `${ this.label }: Stopped after ${ this.iterationCount } iterations` );
+	}
+}
 
 const requestBodyToBytes = async ( req ): Promise< Uint8Array > =>
 	await new Promise( ( resolve ) => {
@@ -23,8 +78,9 @@ const requestBodyToBytes = async ( req ): Promise< Uint8Array > =>
 
 export interface WPNowServer {
 	url: string;
-	php: PHP;
+	loadBalancer: LoadBalancer;
 	options: WPNowOptions;
+	php: PHP;
 	stopServer: () => Promise< void >;
 }
 
@@ -39,49 +95,72 @@ export async function startServer( options: WPNowOptions = {} ): Promise< WPNowS
 		throw new Error( `The given path "${ options.projectPath }" does not exist.` );
 	}
 
+	const tester = new EventLoopTester( 100, 'FakeWorker' );
+	tester.start();
+
 	const app = express();
 	app.use( compression( { filter: shouldCompress } ) );
 	app.use( addTrailingSlash( '/wp-admin' ) );
 	const port = options.port ?? ( await portFinder.getOpenPort() );
-	const { php, options: wpNowOptions } = await startWPNow( options );
 
-	// Middleware to check if auto-login should be executed
-	app.use( async ( req, res, next ) => {
-		if ( req.query[ 'playground-auto-login' ] === 'true' ) {
-			await php.requestHandler.request( { url: '/wp-login.php' } );
-			const response = await php.requestHandler.request( {
-				url: '/wp-login.php',
-				method: 'POST',
-				body: {
-					log: 'admin',
-					pwd: options.adminPassword,
-					rememberme: 'forever',
-				},
-			} );
-			const cookies = response.headers[ 'set-cookie' ];
-			if ( cookies ) {
-				res.setHeader( 'set-cookie', cookies );
-			}
-			// Remove query parameter to avoid infinite loop
-			let redirectUrl = req.url.replace( /&?playground-auto-login=true/, '' );
-			// If no more query parameters, remove ? from URL
-			if ( Object.keys( req.query ).length === 1 ) {
-				redirectUrl = redirectUrl.substring( 0, redirectUrl.length - 1 );
-			}
-			return res.redirect( redirectUrl );
-		}
-		next();
+	// @TODO: add back middleware to check if auto-login should be executed
+
+	// First create a primary PHP instance
+	const { php: primaryPhp, options: primaryOptions } = await startWPNow( options );
+
+	const numInstances = options.numberOfPhpInstances || 6;
+	const phpServers: WPNowServer[] = [
+		{
+			url: options.absoluteUrl,
+			php: primaryPhp,
+			options: primaryOptions,
+			loadBalancer: null!,
+			stopServer: async () => {
+				primaryPhp.exit();
+			},
+		},
+	];
+
+	// Create additional PHP instances if needed
+	for ( let i = 1; i < numInstances; i++ ) {
+		const { php, options: wpNowOptions } = await startWPNow( {
+			...options,
+			port: port + i,
+			// isPrimaryInstance: false
+		} );
+
+		const server: WPNowServer = {
+			url: options.absoluteUrl,
+			php,
+			options: wpNowOptions,
+			loadBalancer: null!,
+			stopServer: async () => {
+				php.exit();
+			},
+		};
+		phpServers.push( server );
+	}
+
+	const loadBalancer = new LoadBalancer( phpServers );
+	phpServers.forEach( ( server ) => {
+		server.loadBalancer = loadBalancer;
 	} );
 
-	// Handle requests
+	// Handle requests using load balancer
 	app.use( '/', async ( req, res ) => {
+		console.log( 'GOT ' + req.url );
+		const server = loadBalancer.getNextServer();
+		const sTime = performance.now();
+
 		try {
-			const requestHeaders = {};
-			if ( req.rawHeaders && req.rawHeaders.length ) {
-				for ( let i = 0; i < req.rawHeaders.length; i += 2 ) {
-					requestHeaders[ req.rawHeaders[ i ].toLowerCase() ] = req.rawHeaders[ i + 1 ];
-				}
-			}
+			const requestHeaders = req.rawHeaders?.length
+				? Object.fromEntries(
+						Array.from( { length: req.rawHeaders.length / 2 }, ( _, i ) => i * 2 ).map( ( i ) => [
+							req.rawHeaders[ i ].toLowerCase(),
+							req.rawHeaders[ i + 1 ],
+						] )
+				  )
+				: {};
 
 			const data = {
 				url: req.url,
@@ -89,30 +168,32 @@ export async function startServer( options: WPNowOptions = {} ): Promise< WPNowS
 				method: req.method as HTTPMethod,
 				body: await requestBodyToBytes( req ),
 			};
-			const resp = await php.requestHandler.request( data );
-			res.statusCode = resp.httpStatusCode;
-			Object.keys( resp.headers ).forEach( ( key ) => {
-				res.setHeader( key, resp.headers[ key ] );
-			} );
+
+			const resp = await server.php.requestHandler.request( data );
+			res.writeHead( resp.httpStatusCode, resp.headers );
 			res.end( resp.bytes );
+
+			const timeTaken = Number( ( performance.now() - sTime ).toFixed( 2 ) );
+			console.log( 'req time:', req.method, req.url, timeTaken, 'ms' );
 		} catch ( e ) {
 			output?.trace( e );
 		}
 	} );
-	const url = options.absoluteUrl;
+
 	const server = app.listen( port, () => {
-		output?.log( `Server running at ${ url }` );
+		output?.log( `Server running at ${ options.absoluteUrl }` );
 	} );
 
 	return {
-		url,
-		php,
-		options: wpNowOptions,
+		url: options.absoluteUrl,
+		loadBalancer,
+		options,
+		php: phpServers[ 0 ].php,
 		stopServer: () =>
 			new Promise( ( res ) => {
-				server.close( () => {
+				server.close( async () => {
 					output?.log( `Server stopped` );
-					php.exit();
+					await loadBalancer.stopAll();
 					res();
 				} );
 			} ),

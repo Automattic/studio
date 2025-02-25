@@ -4,13 +4,13 @@ import SiteServerProcess from 'src/lib/site-server-process';
 export async function phpGetThemeDetails(
 	server: SiteServerProcess
 ): Promise< StartedSiteDetails[ 'themeDetails' ] > {
-	if ( ! server.php ) {
+	if ( ! server.phpInstances.length ) {
 		throw Error( 'PHP is not instantiated' );
 	}
 
 	let themeDetails = null;
 	const themeDetailsPhp = `<?php
-	require_once('${ server.php.documentRoot }/wp-load.php');
+	require_once('${ server.phpInstances[ 0 ].documentRoot }/wp-load.php');
 	$theme = wp_get_theme();
 	echo json_encode([
 		'name' => $theme->get('Name'),

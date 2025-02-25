@@ -83,9 +83,6 @@ export const DemoSiteUpdateProvider: React.FC< DemoSiteUpdateProviderProps > = (
 					formData.push( [ 'wordpress_version', wordpressVersion ] );
 				}
 
-				// Temporary: Simulate a failure for testing
-				throw new Error( 'Artificial error for testing' );
-
 				const response = await client.req.post( {
 					path: '/jurassic-ninja/update-site-from-zip',
 					apiNamespace: 'wpcom/v2',

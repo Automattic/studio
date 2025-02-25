@@ -1,6 +1,12 @@
 #!/bin/bash -eu
 
-echo "~~~ :mechanic: Running local $0 version"
+echo -e ":mechanic: Running local $0 version"
+
+if ! "$(dirname "${BASH_SOURCE[0]}")/verify_aws_cli_setup"; then
+  echo "^^^ +++"
+  echo "AWS CLI setup check failed! Will bypass cache restoration..."
+  exit 0
+fi
 
 CACHE_KEY=$1
 

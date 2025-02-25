@@ -20,6 +20,7 @@ import archiver from 'archiver';
 import { ARCHIVER_OPTIONS, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
+import { bumpAggregatedUniqueStat, bumpStat } from 'src/lib/bump-stats';
 import { calculateDirectorySize } from 'src/lib/calculate-directory-size';
 import { download } from 'src/lib/download';
 import { isEmptyDir, pathExists, isWordPressDirectory, sanitizeFolderName } from 'src/lib/fs-utils';
@@ -119,6 +120,10 @@ export async function importSite(
 			sendIpcEventToRendererWithWindow( parentWindow, 'on-import', data, id );
 		};
 		const result = await importBackup( backupFile, site.details, onEvent, defaultImporterOptions );
+
+		const fileExtension = nodePath.extname( backupFile.path ).toLowerCase();
+		bumpStat( 'studio-import', fileExtension || 'unknown' );
+
 		if ( result?.meta?.phpVersion ) {
 			site.details.phpVersion = result.meta.phpVersion;
 		}
@@ -676,7 +681,19 @@ export async function exportSite(
 			const parentWindow = BrowserWindow.fromWebContents( event.sender );
 			sendIpcEventToRendererWithWindow( parentWindow, 'on-export', data, siteId );
 		};
-		return await exportBackup( options, onEvent );
+
+		const result = await exportBackup( options, onEvent );
+
+		if ( result ) {
+			const exportType =
+				options.includes.uploads || options.includes.plugins || options.includes.themes
+					? 'full-site'
+					: 'database-only';
+
+			bumpStat( 'studio-export', exportType );
+		}
+
+		return result;
 	} catch ( e ) {
 		Sentry.captureException( e );
 		throw e;

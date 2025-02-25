@@ -9,12 +9,14 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 
 interface DemoSiteUpdateContextType {
 	updateDemoSite: ( snapshot: Snapshot, localSite: SiteDetails ) => Promise< void >;
-	isDemoSiteUpdating: ( atomicSiteId: number ) => { isUpdating: boolean; hasError: boolean };
+	isDemoSiteUpdating: ( atomicSiteId: number ) => boolean;
+	hasDemoSiteError: ( atomicSiteId: number ) => boolean;
 }
 
 const DemoSiteUpdateContext = createContext< DemoSiteUpdateContextType >( {
 	updateDemoSite: async () => undefined,
-	isDemoSiteUpdating: () => ( { isUpdating: false, hasError: false } ),
+	isDemoSiteUpdating: () => false,
+	hasDemoSiteError: () => false,
 } );
 
 interface DemoSiteUpdateProviderProps {
@@ -122,19 +124,22 @@ export const DemoSiteUpdateProvider: React.FC< DemoSiteUpdateProviderProps > = (
 	);
 
 	const isDemoSiteUpdating = useCallback(
-		( atomicSiteId: number ) => ( {
-			isUpdating: updatingSites.has( atomicSiteId ),
-			hasError: errorSites.has( atomicSiteId ),
-		} ),
-		[ updatingSites, errorSites ]
+		( atomicSiteId: number ) => updatingSites.has( atomicSiteId ),
+		[ updatingSites ]
+	);
+
+	const hasDemoSiteError = useCallback(
+		( atomicSiteId: number ) => errorSites.has( atomicSiteId ),
+		[ errorSites ]
 	);
 
 	const contextValue = useMemo(
 		() => ( {
 			updateDemoSite,
 			isDemoSiteUpdating,
+			hasDemoSiteError,
 		} ),
-		[ updateDemoSite, isDemoSiteUpdating ]
+		[ updateDemoSite, isDemoSiteUpdating, hasDemoSiteError ]
 	);
 
 	return (

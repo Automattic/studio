@@ -69,7 +69,15 @@ if ! aws s3api head-object --bucket "$S3_BUCKET_NAME" --key "$CACHE_KEY" > /dev/
 
   echo "	Uploading"
   # If the bucket has transfer acceleration enabled, use it!
-  ACCELERATION_STATUS=$(aws s3api get-bucket-accelerate-configuration --bucket "$S3_BUCKET_NAME" | jq '.Status' -r || true)
+  #
+  # Bypass to avoid:
+  #
+  # An error occurred (AuthorizationHeaderMalformed) when calling the GetBucketAccelerateConfiguration operation: The authorization header is malformed; a non-empty Access Key (AKID) must be provided in the credential.
+  #
+  # Which we've seen in
+  # https://buildkite.com/automattic/studio/builds/4485#01953ac4-f568-4c49-a930-823e05af4cfa
+  # ACCELERATION_STATUS=$(aws s3api get-bucket-accelerate-configuration --bucket "$S3_BUCKET_NAME" | jq '.Status' -r || true)
+  ACCELERATION_STATUS='Disabled'
 
   if [ "$ACCELERATION_STATUS" = "Enabled" ]; then
     echo "Uploading with transfer acceleration"

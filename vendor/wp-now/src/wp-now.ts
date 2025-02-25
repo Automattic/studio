@@ -635,7 +635,7 @@ set_error_handler(function($severity, $message, $file, $line) {
 		),
 		`<?php
 		set_error_handler(function($severity, $message, $file, $line) {
-			if ($severity === E_WARNING && strpos($message, "dns_get_record()") === 0) {
+			if ($severity === E_WARNING && strpos($message, "dns_get_record(): dns_get_record() always returns an empty array in PHP.wasm.") === 0) {
 				return true;
 			}
 			return false;

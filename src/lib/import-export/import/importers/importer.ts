@@ -10,9 +10,9 @@ import { generateBackupFilename } from 'src/lib/import-export/export/generate-ba
 import { ImportEvents } from 'src/lib/import-export/import/events';
 import { BackupContents, MetaFileData } from 'src/lib/import-export/import/types';
 import { serializePlugins } from 'src/lib/serialize-plugins';
+import { updateSiteUrlToLocal } from 'src/lib/updateSiteUrlToLocal';
 import { SiteServer } from 'src/site-server';
 import { DEFAULT_PHP_VERSION } from 'vendor/wp-now/src/constants';
-
 export interface ImporterResult extends Omit< BackupContents, 'metaFile' > {
 	meta?: MetaFileData;
 }
@@ -72,51 +72,12 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 			}
 		}
 
-		await this.replaceSiteUrl( siteId );
+		await updateSiteUrlToLocal( siteId );
 		this.emit( ImportEvents.IMPORT_DATABASE_COMPLETE );
 	}
 
 	protected async prepareSqlFile( _tmpPath: string ): Promise< void > {
 		// This method can be overridden by subclasses to prepare the SQL file before import.
-	}
-
-	protected async replaceSiteUrl( siteId: string ) {
-		const server = SiteServer.get( siteId );
-		if ( ! server ) {
-			throw new Error( 'Site not found.' );
-		}
-
-		const { stdout: currentSiteUrl } = await server.executeWpCliCommand( `option get siteurl`, {
-			skipPluginsAndThemes: true,
-		} );
-
-		if ( ! currentSiteUrl ) {
-			console.error( 'Failed to fetch site URL after import' );
-			return;
-		}
-
-		const studioUrl = `http://localhost:${ server.details.port }`;
-		const oldUrl = currentSiteUrl.trim();
-		const urlWithoutProtocol = oldUrl.replace( /^https?:\/\//, '' );
-
-		const oldUrlVariants = [ `http://${ urlWithoutProtocol }`, `https://${ urlWithoutProtocol }` ];
-
-		for ( const urlToReplace of oldUrlVariants ) {
-			const { stderr, exitCode } = await server.executeWpCliCommand(
-				`search-replace '${ urlToReplace }' '${ studioUrl }'`,
-				{ skipPluginsAndThemes: true }
-			);
-
-			if ( stderr ) {
-				console.error( `Warning during replacing URLs (${ urlToReplace }): ${ stderr }` );
-			}
-
-			if ( exitCode ) {
-				console.error(
-					`Error during replacing URLs (${ urlToReplace }), Exit Code: ${ exitCode }`
-				);
-			}
-		}
 	}
 
 	protected async safelyDeletePath( path: string ): Promise< void > {
@@ -309,7 +270,7 @@ export class PlaygroundImporter extends BaseBackupImporter {
 				overwrite: true,
 			} );
 		}
-		await this.replaceSiteUrl( siteId );
+		await updateSiteUrlToLocal( siteId );
 
 		this.emit( ImportEvents.IMPORT_DATABASE_COMPLETE );
 	}

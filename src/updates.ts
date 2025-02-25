@@ -1,6 +1,6 @@
 import { app, autoUpdater, dialog } from 'electron';
 import * as Sentry from '@sentry/electron/main';
-import { __ } from '@wordpress/i18n';
+import { sprintf, __ } from '@wordpress/i18n';
 import { AUTO_UPDATE_INTERVAL_MS } from 'src/constants';
 import { isDevRelease } from './lib/version-utils';
 
@@ -72,15 +72,14 @@ export function setupUpdates() {
 		// Doesn't re-queue an update after an error.
 		updaterState = 'done';
 
-		if ( 'code' in err && err.code === 8 ) {
-			// Corresponds to error: "Cannot update while running on a read-only volume."
-			// This appears to occur when the app is launched from the ~/Downloads folder.
-			showInstallLocationErrorNotice();
-			console.log( err );
-		} else {
-			console.error( err );
-			Sentry.captureException( err );
+		const isReadOnlyVolumeError = 'code' in err && err.code === 8;
+		if ( isReadOnlyVolumeError && process.platform === 'darwin' ) {
+			showReadOnlyVolumeError( err );
+			return;
 		}
+
+		console.error( err );
+		Sentry.captureException( err );
 	} );
 
 	autoUpdater.on( 'update-available', () => {
@@ -186,17 +185,46 @@ async function showUpdateReadyToInstallNotice() {
 	}
 }
 
-async function showInstallLocationErrorNotice() {
-	if ( process.platform === 'darwin' ) {
-		await dialog.showMessageBox( {
-			type: 'warning',
-			buttons: [ __( 'OK' ) ],
-			title: __( 'Could Not Update Studio' ),
-			message:
-				// Translators: "Applications" is the name of the folder apps are installed to on macOS
-				__(
-					'Studio can only update automatically from the Applications folder. Please move Studio to Applications and try again.'
-				),
-		} );
+function isAppRunningFromDMG(): boolean {
+	if ( process.platform !== 'darwin' ) {
+		return false;
 	}
+
+	const appPath = app.getPath( 'exe' );
+	return appPath.startsWith( '/Volumes/' ) || appPath.startsWith( '/private/var/folders' );
+}
+
+function showReadOnlyVolumeError( err: Error ) {
+	let detailMessage = '';
+	let detailPath = '';
+	if ( isAppRunningFromDMG() ) {
+		detailMessage = __(
+			'Studio can only update automatically from the Applications folder. Please move Studio to Applications and try again.'
+		);
+		detailPath = sprintf(
+			__( 'Studio is running from a disk image at: %s' ),
+			app.getPath( 'exe' )
+		);
+	} else if ( ! app.isInApplicationsFolder() ) {
+		detailMessage = __(
+			'Studio can only update automatically from the Applications folder. Please move Studio to Applications and try again.'
+		);
+		detailPath = sprintf( __( 'Studio is running from: %s' ), app.getPath( 'exe' ) );
+	} else {
+		detailMessage = __(
+			'Studio can only update from the writable Applications folder. Please check write permissions and try again.'
+		);
+		detailPath = sprintf( __( 'Studio is running from: %s' ), app.getPath( 'exe' ) );
+
+		// this case is not expected, so we want to capture it
+		Sentry.captureException( err );
+		console.error( err );
+	}
+
+	dialog.showMessageBox( {
+		type: 'warning',
+		buttons: [ __( 'OK' ) ],
+		message: __( 'Error updating Studio' ),
+		detail: `${ detailMessage }\n\n${ detailPath }`,
+	} );
 }

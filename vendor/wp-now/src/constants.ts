@@ -19,6 +19,11 @@ export const PLAYGROUND_INTERNAL_PRELOAD_PATH = '/internal/shared/preload';
 export const SQLITE_FILENAME = 'sqlite-database-integration';
 
 /**
+ * The file name for the legacy SQLite plugin name.
+ */
+export const SQLITE_FILENAME_LEGACY = 'sqlite-database-integration-main';
+
+/**
  * The URL for downloading the "SQLite database integration" WordPress Plugin.
  */
 export const SQLITE_URL = 'https://downloads.wordpress.org/plugin/sqlite-database-integration.zip';

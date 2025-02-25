@@ -115,31 +115,28 @@ function NoAuth( { selectedSite }: React.ComponentProps< typeof EmptyGeneric > )
 					text={ offlineMessage }
 					placement="bottom-start"
 				>
-					{ createInterpolateElement(
-						__(
-							'A WordPress.com account is required to create preview sites. <a>Create a free account</a>'
-						),
-						{
-							a: (
-								<Button
-									aria-description={ isOffline ? offlineMessage : '' }
-									aria-disabled={ isOffline }
-									className="!p-0 text-a8c-blueberry hover:opacity-80 h-auto"
-									onClick={ () => {
-										if ( isOffline ) {
-											return;
-										}
-										const baseURL = 'https://wordpress.com/log-in/link';
-										const authURL = encodeURIComponent(
-											`${ WP_AUTHORIZE_ENDPOINT }?response_type=token&client_id=${ CLIENT_ID }&redirect_uri=${ PROTOCOL_PREFIX }%3A%2F%2Fauth&scope=${ SCOPES }&from-calypso=1`
-										);
-										const finalURL = `${ baseURL }?redirect_to=${ authURL }&client_id=${ CLIENT_ID }`;
-										getIpcApi().openURL( finalURL );
-									} }
-								/>
-							),
-						}
-					) }
+					<span>
+						{ __( 'A WordPress.com account is required to create preview sites.' ) }{ ' ' }
+						<Button
+							aria-description={ isOffline ? offlineMessage : '' }
+							aria-disabled={ isOffline }
+							className="!p-0 text-a8c-blueberry hover:opacity-80 h-auto inline-flex items-center"
+							onClick={ () => {
+								if ( isOffline ) {
+									return;
+								}
+								const baseURL = 'https://wordpress.com/log-in/link';
+								const authURL = encodeURIComponent(
+									`${ WP_AUTHORIZE_ENDPOINT }?response_type=token&client_id=${ CLIENT_ID }&redirect_uri=${ PROTOCOL_PREFIX }%3A%2F%2Fauth&scope=${ SCOPES }&from-calypso=1`
+								);
+								const finalURL = `${ baseURL }?redirect_to=${ authURL }&client_id=${ CLIENT_ID }`;
+								getIpcApi().openURL( finalURL );
+							} }
+						>
+							{ __( 'Create a free account' ) }
+							<ArrowIcon />
+						</Button>
+					</span>
 				</Tooltip>
 			</div>
 		</EmptyGeneric>
@@ -163,7 +160,7 @@ function NoPreviews( { selectedSite }: React.ComponentProps< typeof EmptyGeneric
 
 export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) {
 	const { __ } = useI18n();
-	const { snapshots, snapshotCreationBlocked } = useSnapshots();
+	const { snapshots, snapshotCreationBlocked, creationProgress } = useSnapshots();
 	const { isAuthenticated, user } = useAuth();
 	const { archiveSite, isUploadingSiteId } = useArchiveSite();
 	const { isOverLimit } = useSiteSize( selectedSite.id );
@@ -201,7 +198,7 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 				<PreviewSitesTableHeader />
 				<div className="[&>*:not(:last-child)]:border-b [&>*]:border-a8c-gray-5">
 					{ ( isUploading || isSnapshotLoading ) && (
-						<ProgressRow text={ __( 'Creating preview site' ) } />
+						<ProgressRow text={ __( 'Creating preview site' ) } progress={ creationProgress } />
 					) }
 					{ snapshotsOnSite
 						.filter( ( snapshot ) => ! snapshot.isLoading )

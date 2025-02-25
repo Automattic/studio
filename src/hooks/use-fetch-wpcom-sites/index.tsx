@@ -14,25 +14,29 @@ export const sitesEndpointSiteSchema = z.object( {
 	URL: z.string(),
 	jetpack: z.boolean().optional(),
 	is_deleted: z.boolean(),
-	options: z.object( {
-		created_at: z.string(),
-		wpcom_staging_blog_ids: z.array( z.number() ),
-	} ),
+	options: z
+		.object( {
+			created_at: z.string(),
+			wpcom_staging_blog_ids: z.array( z.number() ),
+		} )
+		.optional(),
 	capabilities: z.object( {
 		manage_options: z.boolean(),
 	} ),
-	plan: z.object( {
-		expired: z.boolean(),
-		features: z.object( {
-			active: z.array( z.string() ),
-			available: z.record( z.string(), z.array( z.string() ) ).optional(),
-		} ),
-		is_free: z.boolean(),
-		product_id: z.number(),
-		product_name_short: z.string(),
-		product_slug: z.string(),
-		user_is_owner: z.boolean(),
-	} ),
+	plan: z
+		.object( {
+			expired: z.boolean(),
+			features: z.object( {
+				active: z.array( z.string() ),
+				available: z.record( z.string(), z.array( z.string() ) ).optional(),
+			} ),
+			is_free: z.boolean(),
+			product_id: z.number(),
+			product_name_short: z.string(),
+			product_slug: z.string(),
+			user_is_owner: z.boolean(),
+		} )
+		.optional(),
 } );
 
 type SitesEndpointSite = z.infer< typeof sitesEndpointSiteSchema >;
@@ -49,7 +53,7 @@ function isJetpackSite( site: SitesEndpointSite ): boolean {
 }
 
 function hasSupportedPlan( site: SitesEndpointSite ): boolean {
-	return site.plan.features.active.includes( STUDIO_SYNC_FEATURE_NAME );
+	return site.plan?.features.active.includes( STUDIO_SYNC_FEATURE_NAME ) ?? false;
 }
 
 function getSyncSupport( site: SitesEndpointSite, connectedSiteIds: number[] ): SyncSupport {
@@ -104,7 +108,7 @@ export function transformSitesResponse( sites: unknown[], connectedSiteIds: numb
 	}, [] );
 
 	const allStagingSiteIds = validatedSites.flatMap( ( site ) => {
-		return site.options.wpcom_staging_blog_ids;
+		return site.options?.wpcom_staging_blog_ids ?? [];
 	} );
 
 	return validatedSites

@@ -77,6 +77,7 @@ export default async function startWPNow(
 		absoluteUrl: options.absoluteUrl,
 		rewriteRules: wordPressRewriteRules,
 		getFileNotFoundAction: getFileNotFoundActionForWordPress,
+		cookieStore: false,
 	} );
 
 	const php = await requestHandler.getPrimaryPhp();
@@ -562,18 +563,6 @@ set_error_handler(function($severity, $message, $file, $line) {
 			}
 	}
 	add_action('after_setup_theme', 'check_current_theme_availability');
-	`
-	);
-
-	php.writeFile(
-		path.posix.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-dns-functions.php' ),
-		`<?php
-		// Polyfill for DNS features which are not currently supported by @php-wasm/node.
-		// See https://github.com/WordPress/wordpress-playground/issues/1042
-		// These specific features are polyfilled so the Jetpack plugin loads correctly, but others should be added as needed.
-		if ( ! defined( 'DNS_NS' ) ) {
-			define( 'DNS_NS', 2 );
-		}
 	`
 	);
 

@@ -2,6 +2,8 @@
 
 echo "~~~ :mechanic: Running local $0 version"
 
+"$(dirname "${BASH_SOURCE[0]}")/verify_aws_cli_setup"
+
 CACHE_FILE=$1
 CACHE_KEY=$2
 

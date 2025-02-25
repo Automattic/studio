@@ -132,7 +132,6 @@ const AuthenticatedView = memo(
 					: messages[ messages.length - 1 ],
 			[ messages, showThinking ]
 		);
-
 		const messagesToRender =
 			messages[ messages.length - 1 ]?.role === 'assistant' ? messages.slice( 0, -1 ) : messages;
 		const showLastMessage = lastMessage?.role === 'assistant';

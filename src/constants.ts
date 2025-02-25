@@ -1,6 +1,6 @@
 export const DEFAULT_WIDTH = 900;
 export const MAIN_MIN_HEIGHT = 600;
-export const SIDEBAR_WIDTH = 268;
+export const SIDEBAR_WIDTH = 208;
 export const MAIN_MIN_WIDTH = DEFAULT_WIDTH - SIDEBAR_WIDTH + 20;
 export const SCREENSHOT_WIDTH = 1040;
 export const SCREENSHOT_HEIGHT = 1248;

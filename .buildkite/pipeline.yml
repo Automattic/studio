@@ -9,7 +9,7 @@ env:
 steps:
   - label: Lint
     agents:
-      queue: mac
+      queue: default
     key: lint
     command: |
       .buildkite/commands/install-node-dependencies.sh

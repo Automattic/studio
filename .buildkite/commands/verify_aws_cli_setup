@@ -1,8 +1,9 @@
 #!/bin/bash -eu
 
-echo "~~~ Ensuring AWS CLI is installed and configured."
+echo "--- :aws: Ensuring AWS CLI is installed and configured."
 
 # Check if aws command is available
+echo "~~~ Checking if AWS CLI is installed"
 if ! command -v aws &> /dev/null; then
   echo "[!] AWS CLI not found."
   exit 1
@@ -11,6 +12,7 @@ else
 fi
 
 # Check if AWS credentials are configured
+echo "~~~ Checking if AWS credentials are configured"
 if ! aws sts get-caller-identity &> /dev/null; then
   echo "[!] AWS credentials not found."
   exit 1

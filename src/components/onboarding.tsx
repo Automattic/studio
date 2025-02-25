@@ -75,20 +75,16 @@ export default function Onboarding() {
 		},
 	} );
 
-	useEffect( () => {
-		const run = async () => {
-			const { path, name, isWordPress } = await getIpcApi().generateProposedSitePath(
-				generateSiteName( [] )
-			);
-			setSiteName( name );
-			setProposedSitePath( path );
-			setSitePath( '' );
-			setError( '' );
-			setDoesPathContainWordPress( isWordPress );
-		};
-		run();
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [] );
+	const run = async () => {
+		const siteName = await generateSiteName( [] );
+		const { path, name, isWordPress } = await getIpcApi().generateProposedSitePath( siteName );
+		setSiteName( name );
+		setProposedSitePath( path );
+		setSitePath( '' );
+		setError( '' );
+		setDoesPathContainWordPress( isWordPress );
+	};
+	run();
 
 	const handleSubmit = useCallback(
 		async ( event: FormEvent ) => {

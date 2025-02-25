@@ -85,7 +85,9 @@ if ! aws s3api head-object --bucket "$S3_BUCKET_NAME" --key "$CACHE_KEY" > /dev/
     echo "Uploading with transfer acceleration"
     aws s3 cp "$CACHE_KEY" "s3://$S3_BUCKET_NAME/$CACHE_KEY" --quiet --endpoint-url https://s3-accelerate.amazonaws.com
   else
-    aws s3 cp "$CACHE_KEY" "s3://$S3_BUCKET_NAME/$CACHE_KEY" --quiet
+    # Run "not quietly" so we can see why the command failed in
+    # https://buildkite.com/automattic/studio/builds/4488#01953ad7-e316-40f5-84e2-036440128996
+    aws s3 cp "$CACHE_KEY" "s3://$S3_BUCKET_NAME/$CACHE_KEY" # --quiet
   fi
 
   echo "	Cleaning Up"

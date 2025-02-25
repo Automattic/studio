@@ -122,6 +122,9 @@ const AuthenticatedView = memo(
 	}: AuthenticatedViewProps ) => {
 		const lastMessageRef = useRef< HTMLDivElement >( null );
 		const [ showThinking, setShowThinking ] = useState( isAssistantThinking );
+		const [ lastSeenMessageId, setLastSeenMessageId ] = useState< number | null >( null );
+		const [ shouldAnimate, setShouldAnimate ] = useState( false );
+
 		const lastMessage = useMemo(
 			() =>
 				showThinking
@@ -129,6 +132,14 @@ const AuthenticatedView = memo(
 					: messages[ messages.length - 1 ],
 			[ messages, showThinking ]
 		);
+
+		useEffect( () => {
+			if ( lastMessage?.id !== lastSeenMessageId ) {
+				setLastSeenMessageId( lastMessage?.id ?? null );
+				setShouldAnimate( true );
+			}
+		}, [ lastMessage, lastSeenMessageId ] );
+
 		const messagesToRender =
 			messages[ messages.length - 1 ]?.role === 'assistant' ? messages.slice( 0, -1 ) : messages;
 		const showLastMessage = lastMessage?.role === 'assistant';
@@ -208,7 +219,7 @@ const AuthenticatedView = memo(
 					exit: { opacity: 0, y: -20 },
 				};
 				const messageAnimation = {
-					initial: { opacity: 0, y: 20 },
+					initial: shouldAnimate ? { opacity: 0, y: 20 } : { opacity: 1, y: 0 },
 					animate: { opacity: 1, y: 0 },
 				};
 
@@ -239,6 +250,7 @@ const AuthenticatedView = memo(
 									transition={ { duration: 0.3 } }
 									initial="initial"
 									animate="animate"
+									onAnimationComplete={ () => setShouldAnimate( false ) }
 								>
 									<MarkDownWithCode
 										message={ message }
@@ -253,7 +265,7 @@ const AuthenticatedView = memo(
 					</ChatMessage>
 				);
 			},
-			[ showThinking, siteId, instanceId ]
+			[ showThinking, siteId, instanceId, shouldAnimate, setShouldAnimate ]
 		);
 
 		if ( messages.length === 0 ) {

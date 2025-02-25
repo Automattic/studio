@@ -1,5 +1,7 @@
 #!/bin/bash -eu
 
+echo "~~~ :mechanic: Running local $0 version"
+
 CACHE_FILE=$1
 CACHE_KEY=$2
 

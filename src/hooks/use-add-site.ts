@@ -16,8 +16,6 @@ export function useAddSite() {
 	const [ doesPathContainWordPress, setDoesPathContainWordPress ] = useState( false );
 	const [ fileForImport, setFileForImport ] = useState< File | null >( null );
 
-	const usedSiteNames = sites.map( ( site ) => site.name );
-
 	const siteWithPathAlreadyExists = useCallback(
 		( path: string ) => {
 			return sites.some( ( site ) => site.path.toLowerCase() === path.toLowerCase() );
@@ -152,7 +150,7 @@ export function useAddSite() {
 			setSitePath,
 			setError,
 			setDoesPathContainWordPress,
-			usedSiteNames,
+			sites,
 			loadingSites,
 			fileForImport,
 			setFileForImport,
@@ -168,7 +166,7 @@ export function useAddSite() {
 		siteName,
 		sitePath,
 		proposedSitePath,
-		usedSiteNames,
+		sites,
 		loadingSites,
 		fileForImport,
 	] );

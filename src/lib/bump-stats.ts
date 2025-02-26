@@ -3,7 +3,23 @@ import { isSameDay, isSameMonth, isSameWeek } from 'date-fns';
 import fetch from 'node-fetch';
 import { loadUserData, saveUserData } from 'src/storage/user-data';
 
+export const STATS_GROUP = {
+	STUDIO_APP_LAUNCH: 'studio-app-launch-first',
+	STUDIO_APP_LAUNCH_TOTAL: 'studio-app-launch-total',
+	STUDIO_APP_LAUNCH_UNIQUE: 'local-environment-launch-uniques',
+	STUDIO_IMPORT: 'studio-app-import',
+	STUDIO_EXPORT: 'studio-app-export',
+} as const;
+
+export const STATS_METRIC = {
+	SUCCESS: 'success',
+	FAILURE: 'failure',
+} as const;
+
 export type AggregateInterval = 'daily' | 'weekly' | 'monthly';
+
+type StatsGroup = ( typeof STATS_GROUP )[ keyof typeof STATS_GROUP ];
+type StatsMetric = ( typeof STATS_METRIC )[ keyof typeof STATS_METRIC ] | typeof process.platform;
 
 // Bumps a stat if it hasn't been bumped within the current aggregate interval.
 // This allows us to approximate a 1-count-per-user stat without recording which
@@ -12,8 +28,8 @@ export type AggregateInterval = 'daily' | 'weekly' | 'monthly';
 // We don't want to block the thread to record the stat, so this function doesn't
 // await promises before returning.
 export function bumpAggregatedUniqueStat(
-	group: string,
-	stat: string,
+	group: StatsGroup,
+	stat: StatsMetric,
 	aggregateBy: AggregateInterval,
 	bumpInDev = false
 ) {
@@ -49,7 +65,7 @@ export function bumpAggregatedUniqueStat(
 }
 
 // Returns true if we attempted to bump the stat
-export function bumpStat( group: string, stat: string, bumpInDev = false ) {
+export function bumpStat( group: StatsGroup, stat: StatsMetric, bumpInDev = false ) {
 	if ( process.env.E2E || ( process.env.NODE_ENV === 'development' && ! bumpInDev ) ) {
 		console.info( `Would have bumped stat: ${ group }=${ stat }` );
 		return false;

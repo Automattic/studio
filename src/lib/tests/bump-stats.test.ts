@@ -1,6 +1,6 @@
 import { waitFor } from '@testing-library/react';
 import nock from 'nock';
-import { bumpAggregatedUniqueStat, bumpStat } from 'src/lib/bump-stats';
+import { bumpAggregatedUniqueStat, bumpStat, STATS_GROUP, STATS_METRIC } from 'src/lib/bump-stats';
 import { loadUserData, saveUserData } from 'src/storage/user-data';
 
 jest.mock( 'src/storage/user-data' );
@@ -37,9 +37,9 @@ describe( 'bumpStat', () => {
 	} );
 
 	test( 'record stat with GET request to b.gif', async () => {
-		const nock = mockBumpStatRequest( 'usage', 'launch' );
+		const nock = mockBumpStatRequest( STATS_GROUP.STUDIO_APP_LAUNCH, STATS_METRIC.SUCCESS );
 
-		bumpStat( 'usage', 'launch' );
+		bumpStat( STATS_GROUP.STUDIO_APP_LAUNCH, STATS_METRIC.SUCCESS );
 
 		await waitFor( () => expect( nock.isDone() ).toBe( true ) );
 	} );
@@ -47,24 +47,28 @@ describe( 'bumpStat', () => {
 	test( "don't record stat in e2e tests", () => {
 		process.env.E2E = 'true';
 
-		bumpStat( 'usage', 'launch' );
+		bumpStat( STATS_GROUP.STUDIO_APP_LAUNCH, STATS_METRIC.SUCCESS );
 
-		expect( logger ).toHaveBeenCalledWith( 'Would have bumped stat: usage=launch' );
+		expect( logger ).toHaveBeenCalledWith(
+			`Would have bumped stat: ${ STATS_GROUP.STUDIO_APP_LAUNCH }=${ STATS_METRIC.SUCCESS }`
+		);
 	} );
 
 	test( "don't record stat in development mode", () => {
 		process.env.NODE_ENV = 'development';
 
-		bumpStat( 'usage', 'launch' );
+		bumpStat( STATS_GROUP.STUDIO_APP_LAUNCH, STATS_METRIC.SUCCESS );
 
-		expect( logger ).toHaveBeenCalledWith( 'Would have bumped stat: usage=launch' );
+		expect( logger ).toHaveBeenCalledWith(
+			`Would have bumped stat: ${ STATS_GROUP.STUDIO_APP_LAUNCH }=${ STATS_METRIC.SUCCESS }`
+		);
 	} );
 
 	test( 'record stat in development mode if override arg is used', async () => {
 		process.env.NODE_ENV = 'development';
-		const nock = mockBumpStatRequest( 'usage', 'launch' );
+		const nock = mockBumpStatRequest( STATS_GROUP.STUDIO_APP_LAUNCH, STATS_METRIC.SUCCESS );
 
-		bumpStat( 'usage', 'launch', true );
+		bumpStat( STATS_GROUP.STUDIO_APP_LAUNCH, STATS_METRIC.SUCCESS, true );
 
 		expect( logger ).not.toHaveBeenCalled();
 		await waitFor( () => expect( nock.isDone() ).toBe( true ) );
@@ -73,11 +77,11 @@ describe( 'bumpStat', () => {
 
 describe( 'bumpAggregatedUniqueStat', () => {
 	test( 'bump stat when it has never been recorded before', async () => {
-		const nock = mockBumpStatRequest( 'usage', 'launch' );
+		const nock = mockBumpStatRequest( STATS_GROUP.STUDIO_APP_LAUNCH, STATS_METRIC.SUCCESS );
 
 		( loadUserData as jest.Mock ).mockResolvedValue( { lastBumpStats: {} } );
 
-		bumpAggregatedUniqueStat( 'usage', 'launch', 'weekly' );
+		bumpAggregatedUniqueStat( STATS_GROUP.STUDIO_APP_LAUNCH, STATS_METRIC.SUCCESS, 'weekly' );
 
 		await waitFor( () => expect( nock.isDone() ).toBe( true ) );
 	} );
@@ -90,24 +94,24 @@ describe( 'bumpAggregatedUniqueStat', () => {
 		test( `bump ${ aggregateBy } stat when it has been more than the specified interval since last recorded`, async () => {
 			mockCurrentTime( currentTime );
 
-			const nock = mockBumpStatRequest( 'usage', 'launch' );
+			const nock = mockBumpStatRequest( STATS_GROUP.STUDIO_APP_LAUNCH, STATS_METRIC.SUCCESS );
 			( loadUserData as jest.Mock ).mockResolvedValue( {
 				lastBumpStats: {
-					usage: {
-						launch: lastBumpTime,
+					[ STATS_GROUP.STUDIO_APP_LAUNCH ]: {
+						[ STATS_METRIC.SUCCESS ]: lastBumpTime,
 					},
 				},
 			} );
 
-			bumpAggregatedUniqueStat( 'usage', 'launch', aggregateBy );
+			bumpAggregatedUniqueStat( STATS_GROUP.STUDIO_APP_LAUNCH, STATS_METRIC.SUCCESS, aggregateBy );
 
 			await waitFor( () => expect( nock.isDone() ).toBe( true ) );
 
 			expect( saveUserData ).toHaveBeenCalledWith(
 				expect.objectContaining( {
 					lastBumpStats: {
-						usage: {
-							launch: currentTime,
+						[ STATS_GROUP.STUDIO_APP_LAUNCH ]: {
+							[ STATS_METRIC.SUCCESS ]: currentTime,
 						},
 					},
 				} )
@@ -127,13 +131,13 @@ describe( 'bumpAggregatedUniqueStat', () => {
 
 			( loadUserData as jest.Mock ).mockResolvedValue( {
 				lastBumpStats: {
-					usage: {
-						launch: lastBumpTime,
+					[ STATS_GROUP.STUDIO_APP_LAUNCH ]: {
+						[ STATS_METRIC.SUCCESS ]: lastBumpTime,
 					},
 				},
 			} );
 
-			bumpAggregatedUniqueStat( 'usage', 'launch', aggregateBy );
+			bumpAggregatedUniqueStat( STATS_GROUP.STUDIO_APP_LAUNCH, STATS_METRIC.SUCCESS, aggregateBy );
 
 			expect( saveUserData ).not.toHaveBeenCalled();
 		} );

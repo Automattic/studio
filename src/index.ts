@@ -14,7 +14,7 @@ import { __ } from '@wordpress/i18n';
 import { PROTOCOL_PREFIX } from 'src/constants';
 import * as ipcHandlers from 'src/ipc-handlers';
 import { hasActiveSyncOperations } from 'src/lib/active-sync-operations';
-import { bumpAggregatedUniqueStat, bumpStat } from 'src/lib/bump-stats';
+import { bumpAggregatedUniqueStat, bumpStat, STATS_GROUP } from 'src/lib/bump-stats';
 import {
 	listenCLICommands,
 	getCLIDataForMainInstance,
@@ -270,13 +270,13 @@ async function appBoot() {
 
 		// Bump stats for the first time the app runs - this is when no lastBumpStats are available
 		if ( ! userData.lastBumpStats ) {
-			bumpStat( 'studio-app-launch-first', process.platform );
+			bumpStat( STATS_GROUP.STUDIO_APP_LAUNCH, process.platform );
 		}
 
 		// Bump a stat on each app launch, approximates total app launches
-		bumpStat( 'studio-app-launch-total', process.platform );
+		bumpStat( STATS_GROUP.STUDIO_APP_LAUNCH_TOTAL, process.platform );
 		// Bump stat for unique weekly app launch, approximates weekly active users
-		bumpAggregatedUniqueStat( 'local-environment-launch-uniques', process.platform, 'weekly' );
+		bumpAggregatedUniqueStat( STATS_GROUP.STUDIO_APP_LAUNCH_UNIQUE, process.platform, 'weekly' );
 
 		finishedInitialization = true;
 	} );

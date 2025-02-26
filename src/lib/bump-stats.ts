@@ -17,11 +17,6 @@ export const STATS_GROUP = {
 export const STATS_METRIC = {
 	SUCCESS: 'success',
 	FAILURE: 'failure',
-	// Import types
-	SQL: 'sql',
-	ZIP: 'zip',
-	TAR_GZ: 'tar-gz',
-	WPRESS: 'wpress',
 	// Export content types
 	DATABASE: 'database',
 	UPLOADS: 'uploads',

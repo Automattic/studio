@@ -122,6 +122,7 @@ export async function importSite(
 		const result = await importBackup( backupFile, site.details, onEvent, defaultImporterOptions );
 
 		bumpStat( STATS_GROUP.STUDIO_IMPORT, STATS_METRIC.SUCCESS );
+		bumpStat( STATS_GROUP.STUDIO_IMPORT_TYPE, backupFile.type );
 
 		if ( result?.meta?.phpVersion ) {
 			site.details.phpVersion = result.meta.phpVersion;
@@ -686,6 +687,25 @@ export async function exportSite(
 
 		if ( result ) {
 			bumpStat( STATS_GROUP.STUDIO_EXPORT, STATS_METRIC.SUCCESS );
+
+			// Track which content types are being included in the export
+			if ( options.includes ) {
+				if ( options.includes.database ) {
+					bumpStat( STATS_GROUP.STUDIO_EXPORT_CONTENT, STATS_METRIC.DATABASE );
+				}
+				if ( options.includes.uploads ) {
+					bumpStat( STATS_GROUP.STUDIO_EXPORT_CONTENT, STATS_METRIC.UPLOADS );
+				}
+				if ( options.includes.plugins ) {
+					bumpStat( STATS_GROUP.STUDIO_EXPORT_CONTENT, STATS_METRIC.PLUGINS );
+				}
+				if ( options.includes.themes ) {
+					bumpStat( STATS_GROUP.STUDIO_EXPORT_CONTENT, STATS_METRIC.THEMES );
+				}
+				if ( options.includes.muPlugins ) {
+					bumpStat( STATS_GROUP.STUDIO_EXPORT_CONTENT, STATS_METRIC.MU_PLUGINS );
+				}
+			}
 		}
 
 		return result;

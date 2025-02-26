@@ -132,7 +132,8 @@ export async function importSite(
 export async function createSite(
 	event: IpcMainInvokeEvent,
 	path: string,
-	siteName?: string
+	siteName?: string,
+	wpVersion?: string
 ): Promise< SiteDetails[] > {
 	const userData = await loadUserData();
 	const forceSetupSqlite = false;
@@ -154,7 +155,7 @@ export async function createSite(
 
 	if ( ( await pathExists( path ) ) && ( await isEmptyDir( path ) ) ) {
 		try {
-			await createSiteWorkingDirectory( path );
+			await createSiteWorkingDirectory( path, wpVersion );
 		} catch ( error ) {
 			// If site creation failed, remove the generated files and re-throw the
 			// error so it can be handled by the caller.

@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
 
 export function useAddSite() {
 	const { __ } = useI18n();
@@ -15,6 +16,8 @@ export function useAddSite() {
 	const [ proposedSitePath, setProposedSitePath ] = useState( '' );
 	const [ doesPathContainWordPress, setDoesPathContainWordPress ] = useState( false );
 	const [ fileForImport, setFileForImport ] = useState< File | null >( null );
+	const [ phpVersion, setPhpVersion ] = useState< string >( '' );
+	const [ wpVersion, setWpVersion ] = useState( DEFAULT_WORDPRESS_VERSION );
 
 	const siteWithPathAlreadyExists = useCallback(
 		( path: string ) => {
@@ -57,7 +60,7 @@ export function useAddSite() {
 	const handleAddSiteClick = useCallback( async () => {
 		try {
 			const path = sitePath ? sitePath : proposedSitePath;
-			await createSite( path, siteName ?? '', async ( newSite ) => {
+			await createSite( path, siteName ?? '', wpVersion, async ( newSite ) => {
 				if ( newSite ) {
 					if ( fileForImport ) {
 						await importFile( fileForImport, newSite, {
@@ -89,6 +92,7 @@ export function useAddSite() {
 		siteName,
 		sitePath,
 		startServer,
+		wpVersion,
 	] );
 
 	const handleSiteNameChange = useCallback(
@@ -154,6 +158,10 @@ export function useAddSite() {
 			loadingSites,
 			fileForImport,
 			setFileForImport,
+			phpVersion,
+			setPhpVersion,
+			wpVersion,
+			setWpVersion,
 		};
 	}, [
 		__,
@@ -169,5 +177,7 @@ export function useAddSite() {
 		sites,
 		loadingSites,
 		fileForImport,
+		phpVersion,
+		wpVersion,
 	] );
 }

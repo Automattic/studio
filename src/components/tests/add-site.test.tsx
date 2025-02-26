@@ -18,7 +18,7 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 	} ),
 } ) );
 
-const mockCreateSite = jest.fn< ( path: string ) => void >();
+const mockCreateSite = jest.fn< ( path: string, name?: string, wpVersion?: string ) => void >();
 jest.mock( 'src/hooks/use-site-details', () => ( {
 	useSiteDetails: () => ( {
 		createSite: mockCreateSite,
@@ -78,6 +78,7 @@ describe( 'AddSite', () => {
 			expect( mockCreateSite ).toHaveBeenCalledWith(
 				'test',
 				'My WordPress Website',
+				expect.any( String ),
 				expect.any( Function )
 			);
 		} );

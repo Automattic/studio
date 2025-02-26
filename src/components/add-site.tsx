@@ -28,6 +28,10 @@ export default function AddSite( { className }: AddSiteProps ) {
 		handleAddSiteClick,
 		siteName,
 		setSiteName,
+		phpVersion,
+		setPhpVersion,
+		wpVersion,
+		setWpVersion,
 		setProposedSitePath,
 		sitePath,
 		setSitePath,
@@ -154,6 +158,10 @@ export default function AddSite( { className }: AddSiteProps ) {
 						<SiteForm
 							siteName={ siteName || '' }
 							setSiteName={ handleSiteNameChange }
+							phpVersion={ phpVersion }
+							setPhpVersion={ setPhpVersion }
+							wpVersion={ wpVersion }
+							setWpVersion={ setWpVersion }
 							sitePath={ sitePath }
 							onSelectPath={ handlePathSelectorClick }
 							error={ error }

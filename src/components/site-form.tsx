@@ -1,4 +1,4 @@
-import { Icon } from '@wordpress/components';
+import { Icon, SelectControl } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { tip, warning, trash, chevronRight, chevronDown, chevronLeft } from '@wordpress/icons';
@@ -11,6 +11,10 @@ import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
 import { useDocsLink } from 'src/hooks/use-docs-link';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+
+// ToDO: Hard-coded versions for now, will be updated with issue #10528
+const AVAILABLE_PHP_VERSIONS = [ '8.2', '8.1', '8.0' ];
+const AVAILABLE_WP_VERSIONS = [ '6.4', '6.3', '6.2' ];
 
 interface FormPathInputComponentProps {
 	value: string;
@@ -202,6 +206,10 @@ export const SiteForm = ( {
 	children,
 	siteName,
 	setSiteName,
+	phpVersion,
+	setPhpVersion,
+	wpVersion,
+	setWpVersion,
 	sitePath = '',
 	onSelectPath,
 	error,
@@ -217,6 +225,10 @@ export const SiteForm = ( {
 	children?: React.ReactNode;
 	siteName: string;
 	setSiteName: ( name: string ) => void;
+	phpVersion?: string;
+	setPhpVersion?: ( version: string ) => void;
+	wpVersion?: string;
+	setWpVersion?: ( version: string ) => void;
 	sitePath?: string;
 	onSelectPath?: () => void;
 	error: string;
@@ -352,6 +364,34 @@ export const SiteForm = ( {
 											value={ sitePath }
 											onClick={ onSelectPath }
 										/>
+										{ setPhpVersion && setWpVersion && (
+											<div className="grid grid-cols-2 gap-4 mt-4">
+												<div className="flex flex-col gap-1.5 leading-4">
+													<label className="font-semibold">{ __( 'PHP version' ) }</label>
+													<SelectControl
+														value={ phpVersion }
+														options={ AVAILABLE_PHP_VERSIONS.map( ( version ) => ( {
+															label: version,
+															value: version,
+														} ) ) }
+														onChange={ ( version ) => setPhpVersion( version ) }
+														__nextHasNoMarginBottom
+													/>
+												</div>
+												<div className="flex flex-col gap-1.5 leading-4">
+													<label className="font-semibold">{ __( 'WordPress version' ) }</label>
+													<SelectControl
+														value={ wpVersion }
+														options={ AVAILABLE_WP_VERSIONS.map( ( version ) => ( {
+															label: version,
+															value: version,
+														} ) ) }
+														onChange={ ( version ) => setWpVersion( version ) }
+														__nextHasNoMarginBottom
+													/>
+												</div>
+											</div>
+										) }
 									</div>
 								</div>
 							</>

@@ -4,7 +4,7 @@ export function MessageThinking() {
 	return (
 		<div
 			aria-label={ __( 'Thinking…' ) }
-			className="flex justify-center items-center gap-1 p-0.5 min-h-5"
+			className="flex justify-center items-center gap-1 p-0.5 h-5 overflow-hidden"
 		>
 			<div
 				className="animate-pulse h-1.5 w-1.5 bg-a8c-blueberry rounded-full"

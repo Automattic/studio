@@ -10,15 +10,18 @@ const featureFlagsSchema = z
 	.object( {
 		terminal_wp_cli_enabled: z.boolean().optional(),
 		quick_deploys_enabled: z.boolean().optional(),
+		wp_versions_enabled: z.boolean().optional(),
 	} )
 	.catch( ( _ ) => ( {} ) );
 
 export interface FeatureFlagsContextType {
 	terminalWpCliEnabled: boolean;
+	wpVersionsEnabled: boolean;
 }
 
 export const FeatureFlagsContext = createContext< FeatureFlagsContextType >( {
 	terminalWpCliEnabled: false,
+	wpVersionsEnabled: false,
 } );
 
 interface FeatureFlagsProviderProps {
@@ -27,8 +30,10 @@ interface FeatureFlagsProviderProps {
 
 export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { children } ) => {
 	const terminalWpCliEnabledFromGlobals = getAppGlobals().terminalWpCliEnabled;
+	const wpVersionsEnabledFromGlobals = getAppGlobals().wpVersionsEnabled;
 	const [ featureFlags, setFeatureFlags ] = useState< FeatureFlagsContextType >( {
 		terminalWpCliEnabled: terminalWpCliEnabledFromGlobals,
+		wpVersionsEnabled: wpVersionsEnabledFromGlobals,
 	} );
 	const { isAuthenticated, client } = useAuth();
 
@@ -50,6 +55,7 @@ export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { c
 				setFeatureFlags( {
 					terminalWpCliEnabled:
 						Boolean( flags.terminal_wp_cli_enabled ) || terminalWpCliEnabledFromGlobals,
+					wpVersionsEnabled: Boolean( flags.wp_versions_enabled ) || wpVersionsEnabledFromGlobals,
 				} );
 			} catch ( error ) {
 				Sentry.captureException( error );
@@ -60,7 +66,7 @@ export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { c
 		return () => {
 			cancel = true;
 		};
-	}, [ isAuthenticated, client, terminalWpCliEnabledFromGlobals ] );
+	}, [ isAuthenticated, client, terminalWpCliEnabledFromGlobals, wpVersionsEnabledFromGlobals ] );
 
 	return (
 		<FeatureFlagsContext.Provider value={ featureFlags }>{ children }</FeatureFlagsContext.Provider>

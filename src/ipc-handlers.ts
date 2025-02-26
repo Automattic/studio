@@ -121,14 +121,14 @@ export async function importSite(
 		};
 		const result = await importBackup( backupFile, site.details, onEvent, defaultImporterOptions );
 
-		const fileExtension = nodePath.extname( backupFile.path ).toLowerCase();
-		bumpStat( 'studio-import', fileExtension || 'unknown' );
+		bumpStat( 'studio-import', 'success' );
 
 		if ( result?.meta?.phpVersion ) {
 			site.details.phpVersion = result.meta.phpVersion;
 		}
 		return site.details;
 	} catch ( e ) {
+		bumpStat( 'studio-import', 'failure' );
 		Sentry.captureException( e );
 		throw e;
 	}
@@ -685,16 +685,12 @@ export async function exportSite(
 		const result = await exportBackup( options, onEvent );
 
 		if ( result ) {
-			const exportType =
-				options.includes.uploads || options.includes.plugins || options.includes.themes
-					? 'full-site'
-					: 'database-only';
-
-			bumpStat( 'studio-export', exportType );
+			bumpStat( 'studio-export', 'success' );
 		}
 
 		return result;
 	} catch ( e ) {
+		bumpStat( 'studio-export', 'failure' );
 		Sentry.captureException( e );
 		throw e;
 	}

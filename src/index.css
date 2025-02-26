@@ -211,14 +211,14 @@ blockquote {
 
 .assistant-markdown ol {
 	list-style-type: decimal;
-	margin: 0 0 1rem;
-	padding-left: 1.5rem;
+	margin-block-end: 1rem;
+	padding-inline-start: 1.5rem;
 }
 
 .assistant-markdown ul {
 	list-style-type: disc;
-	margin: 0 0 1rem;
-	padding-left: 1.5rem;
+	margin-block-end: 1rem;
+	padding-inline-start: 1.5rem;
 }
 
 .assistant-markdown li {

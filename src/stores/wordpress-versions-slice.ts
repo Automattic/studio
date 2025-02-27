@@ -79,9 +79,8 @@ const wordpressVersionsSlice = createSlice( {
 			} )
 			.addCase( fetchWordPressVersions.fulfilled, ( state, action ) => {
 				state.status = 'succeeded';
-				if ( action.payload.length > 0 ) {
-					state.versions = action.payload;
-				}
+				state.versions = action.payload;
+				state.error = null;
 			} )
 			.addCase( fetchWordPressVersions.rejected, ( state, action ) => {
 				state.status = 'failed';

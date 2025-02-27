@@ -4,7 +4,7 @@ import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { tip, warning, trash, chevronRight, chevronDown, chevronLeft } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { FormEvent, useRef, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import Button from 'src/components/button';
 import FolderIcon from 'src/components/folder-icon';
 import TextControlComponent from 'src/components/text-control';
@@ -13,9 +13,12 @@ import { useDocsLink } from 'src/hooks/use-docs-link';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-
-// ToDO: Hard-coded versions for now, will be updated with issue #10528
-const AVAILABLE_WP_VERSIONS = [ 'latest', '6.7.1', '6.7', '6.6.2', '6.5.5', '6.5.4' ];
+import { useAppDispatch, useRootSelector } from 'src/stores';
+import {
+	wordpressVersionsSelectors,
+	wordpressVersionsThunks,
+} from 'src/stores/wordpress-versions-slice';
+import { DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
 
 interface FormPathInputComponentProps {
 	value: string;
@@ -261,6 +264,15 @@ export const SiteForm = ( {
 	const { __, isRTL } = useI18n();
 	const getDocsLink = useDocsLink();
 	const { wpVersionsEnabled } = useFeatureFlags();
+	const dispatch = useAppDispatch();
+	const wpVersions = useRootSelector( wordpressVersionsSelectors.selectWordPressVersions );
+	const wpVersionsStatus = useRootSelector( ( state ) => state.wordpressVersions.status );
+
+	useEffect( () => {
+		if ( wpVersionsEnabled && allowVersionsChange && wpVersionsStatus === 'idle' ) {
+			dispatch( wordpressVersionsThunks.fetchWordPressVersions() );
+		}
+	}, [ wpVersionsEnabled, allowVersionsChange, wpVersionsStatus, dispatch ] );
 
 	const [ isAdvancedSettingsVisible, setAdvancedSettingsVisible ] = useState( false );
 
@@ -407,10 +419,16 @@ export const SiteForm = ( {
 													<label className="font-semibold">{ __( 'WordPress version' ) }</label>
 													<SelectControl
 														value={ wpVersion }
-														options={ AVAILABLE_WP_VERSIONS.map( ( version ) => ( {
-															label: version,
-															value: version,
-														} ) ) }
+														options={
+															wpVersions.length > 0
+																? wpVersions.map( ( v ) => ( { label: v.name, value: v.version } ) )
+																: [
+																		{
+																			label: DEFAULT_WORDPRESS_VERSION,
+																			value: DEFAULT_WORDPRESS_VERSION,
+																		},
+																  ]
+														}
 														onChange={ ( version ) => {
 															if ( setWpVersion ) {
 																setWpVersion( version );

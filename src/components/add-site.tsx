@@ -1,3 +1,4 @@
+import { SupportedPHPVersion } from '@php-wasm/universal';
 import { speak } from '@wordpress/a11y';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
@@ -13,6 +14,7 @@ import { useImportExport } from 'src/hooks/use-import-export';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { generateSiteName } from 'src/lib/generate-site-name';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
 
 interface AddSiteProps {
 	className?: string;
@@ -93,7 +95,9 @@ export default function AddSite( { className }: AddSiteProps ) {
 		setDoesPathContainWordPress( false );
 		setFileForImport( null );
 		setFileError( '' );
-	}, [ setSitePath, setDoesPathContainWordPress, setFileForImport ] );
+		setPhpVersion( DEFAULT_PHP_VERSION as SupportedPHPVersion );
+		setWpVersion( DEFAULT_WORDPRESS_VERSION );
+	}, [ setSitePath, setDoesPathContainWordPress, setFileForImport, setPhpVersion, setWpVersion ] );
 
 	const handleSubmit = useCallback(
 		async ( event: FormEvent ) => {

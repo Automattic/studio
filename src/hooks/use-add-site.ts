@@ -1,14 +1,15 @@
+import { SupportedPHPVersion } from '@php-wasm/universal';
 import * as Sentry from '@sentry/electron/renderer';
 import { useI18n } from '@wordpress/react-i18n';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
+import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
 
 export function useAddSite() {
 	const { __ } = useI18n();
-	const { createSite, data: sites, loadingSites, startServer } = useSiteDetails();
+	const { createSite, data: sites, loadingSites, startServer, updateSite } = useSiteDetails();
 	const { importFile, clearImportState } = useImportExport();
 	const [ error, setError ] = useState( '' );
 	const [ siteName, setSiteName ] = useState< string | null >( null );
@@ -16,8 +17,15 @@ export function useAddSite() {
 	const [ proposedSitePath, setProposedSitePath ] = useState( '' );
 	const [ doesPathContainWordPress, setDoesPathContainWordPress ] = useState( false );
 	const [ fileForImport, setFileForImport ] = useState< File | null >( null );
-	const [ phpVersion, setPhpVersion ] = useState< string >( '' );
+	const [ phpVersion, setPhpVersion ] = useState< SupportedPHPVersion >(
+		DEFAULT_PHP_VERSION as SupportedPHPVersion
+	);
 	const [ wpVersion, setWpVersion ] = useState( DEFAULT_WORDPRESS_VERSION );
+
+	useEffect( () => {
+		setPhpVersion( DEFAULT_PHP_VERSION as SupportedPHPVersion );
+		setWpVersion( DEFAULT_WORDPRESS_VERSION );
+	}, [] );
 
 	const siteWithPathAlreadyExists = useCallback(
 		( path: string ) => {
@@ -62,6 +70,13 @@ export function useAddSite() {
 			const path = sitePath ? sitePath : proposedSitePath;
 			await createSite( path, siteName ?? '', wpVersion, async ( newSite ) => {
 				if ( newSite ) {
+					if ( newSite.phpVersion !== phpVersion ) {
+						await updateSite( {
+							...newSite,
+							phpVersion,
+						} );
+					}
+
 					if ( fileForImport ) {
 						await importFile( fileForImport, newSite, {
 							showImportNotification: false,

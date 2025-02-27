@@ -1,3 +1,4 @@
+import { SupportedPHPVersion, SupportedPHPVersionsList } from '@php-wasm/universal';
 import { Icon, SelectControl } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
@@ -13,8 +14,7 @@ import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
 // ToDO: Hard-coded versions for now, will be updated with issue #10528
-const AVAILABLE_PHP_VERSIONS = [ '8.2', '8.1', '8.0' ];
-const AVAILABLE_WP_VERSIONS = [ '6.4', '6.3', '6.2' ];
+const AVAILABLE_WP_VERSIONS = [ 'latest', '6.7.1', '6.7', '6.6.2', '6.5.5', '6.5.4' ];
 
 interface FormPathInputComponentProps {
 	value: string;
@@ -225,8 +225,8 @@ export const SiteForm = ( {
 	children?: React.ReactNode;
 	siteName: string;
 	setSiteName: ( name: string ) => void;
-	phpVersion?: string;
-	setPhpVersion?: ( version: string ) => void;
+	phpVersion?: SupportedPHPVersion;
+	setPhpVersion?: ( version: SupportedPHPVersion ) => void;
 	wpVersion?: string;
 	setWpVersion?: ( version: string ) => void;
 	sitePath?: string;
@@ -370,11 +370,17 @@ export const SiteForm = ( {
 													<label className="font-semibold">{ __( 'PHP version' ) }</label>
 													<SelectControl
 														value={ phpVersion }
-														options={ AVAILABLE_PHP_VERSIONS.map( ( version ) => ( {
-															label: version,
-															value: version,
-														} ) ) }
-														onChange={ ( version ) => setPhpVersion( version ) }
+														options={ SupportedPHPVersionsList.map( ( version ) => {
+															return {
+																label: version,
+																value: version,
+															};
+														} ) }
+														onChange={ ( value ) => {
+															if ( setPhpVersion ) {
+																setPhpVersion( value as SupportedPHPVersion );
+															}
+														} }
 														__nextHasNoMarginBottom
 													/>
 												</div>

@@ -203,7 +203,7 @@ const AuthenticatedView = memo(
 		const RenderLastMessage = useCallback(
 			( { message, children }: { message: MessageType; children: React.ReactNode } ) => {
 				const thinkingAnimation = {
-					initial: { opacity: 1, y: 20 },
+					initial: { opacity: 0, y: 20 },
 					animate: { opacity: 1, y: 0 },
 					exit: { opacity: 0, y: -20 },
 				};

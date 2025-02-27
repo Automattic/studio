@@ -120,7 +120,6 @@ const AuthenticatedView = memo(
 		submitPrompt,
 		wrapperRef,
 	}: AuthenticatedViewProps ) => {
-		const isInitialRenderRef = useRef( true );
 		const lastMessageRef = useRef< HTMLDivElement >( null );
 		const [ showThinking, setShowThinking ] = useState( isAssistantThinking );
 		const lastMessage = useMemo(
@@ -134,6 +133,7 @@ const AuthenticatedView = memo(
 			messages[ messages.length - 1 ]?.role === 'assistant' ? messages.slice( 0, -1 ) : messages;
 		const showLastMessage = lastMessage?.role === 'assistant';
 		const previousMessagesLength = useRef( messages.length );
+		const isInitialRenderRef = useRef( true );
 
 		// This effect may run twice when the component is mounted, which makes the viewport scroll
 		// to the wrong position. This happens because the app runs in React strict mode, meaning

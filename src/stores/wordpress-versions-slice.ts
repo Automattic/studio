@@ -32,18 +32,17 @@ export const fetchWordPressVersions = createAsyncThunk(
 			const data = wordPressApiResponseSchema.parse( rawData );
 
 			const shortNameOccurrences = new Map< string, number >();
-			const versionShortNames = data.offers
+			const offers = data.offers
 				.filter( ( offer ) => offer.response === 'autoupdate' )
-				.map( ( offer ) => {
-					const shortName = extractShortName( offer.version );
+				.map( ( { version } ) => {
+					const shortName = extractShortName( version );
 					shortNameOccurrences.set( shortName, ( shortNameOccurrences.get( shortName ) || 0 ) + 1 );
 					return {
-						version: offer.version,
+						version,
 						shortName,
 					};
 				} );
-
-			return versionShortNames.map( ( { version, shortName } ) => {
+			return offers.map( ( { version, shortName } ) => {
 				const isBeta = version.includes( 'beta' ) || version.includes( 'RC' );
 				const occurrences = shortNameOccurrences.get( shortName ) || 0;
 				return {

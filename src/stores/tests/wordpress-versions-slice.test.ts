@@ -21,7 +21,6 @@ describe( 'wordpress-versions-slice', () => {
 		jest.clearAllMocks();
 		store.dispatch( testActions.resetState() );
 	} );
-
 	describe( 'fetchWordPressVersions', () => {
 		it( 'should update versions when API call is successful', async () => {
 			// Mock successful API response
@@ -40,16 +39,20 @@ describe( 'wordpress-versions-slice', () => {
 
 			expect( result.type ).toBe( 'wordpressVersions/fetchWordPressVersions/fulfilled' );
 			expect( result.payload ).toEqual( [
-				{ version: '6.4.0', isBeta: false },
-				{ version: '6.5.0-beta1', isBeta: true },
+				{ version: '6.4.0', isBeta: false, name: '6.4' },
+				{ version: '6.5.0-beta1', isBeta: true, name: '6.5.0-beta1' },
 			] );
 
 			const state = store.getState();
 			const versions = wordpressVersionsSelectors.selectWordPressVersions( state );
 
 			expect( versions ).toHaveLength( 2 );
-			expect( versions[ 0 ] ).toEqual( { version: '6.4.0', isBeta: false } );
-			expect( versions[ 1 ] ).toEqual( { version: '6.5.0-beta1', isBeta: true } );
+			expect( versions[ 0 ] ).toEqual( { version: '6.4.0', isBeta: false, name: '6.4' } );
+			expect( versions[ 1 ] ).toEqual( {
+				version: '6.5.0-beta1',
+				isBeta: true,
+				name: '6.5.0-beta1',
+			} );
 			expect( state.wordpressVersions.status ).toBe( 'succeeded' );
 			expect( state.wordpressVersions.error ).toBeNull();
 		} );
@@ -131,7 +134,7 @@ describe( 'wordpress-versions-slice', () => {
 			expect( state.wordpressVersions.error ).toContain( 'invalid_type' );
 		} );
 
-		it( 'should correctly identify beta and RC versions', async () => {
+		it( 'should correctly identify beta and RC versions and use full version for name', async () => {
 			// Mock API response with beta and RC versions
 			( global.fetch as jest.Mock ).mockResolvedValueOnce( {
 				ok: true,
@@ -150,19 +153,48 @@ describe( 'wordpress-versions-slice', () => {
 			const versions = wordpressVersionsSelectors.selectWordPressVersions( state );
 
 			expect( versions ).toHaveLength( 3 );
-			expect( versions[ 0 ] ).toEqual( { version: '6.4.0', isBeta: false } );
-			expect( versions[ 1 ] ).toEqual( { version: '6.5.0-beta1', isBeta: true } );
-			expect( versions[ 2 ] ).toEqual( { version: '6.5.0-RC1', isBeta: true } );
+			expect( versions ).toEqual( [
+				{ version: '6.4.0', isBeta: false, name: '6.4' },
+				{ version: '6.5.0-beta1', isBeta: true, name: '6.5.0-beta1' },
+				{ version: '6.5.0-RC1', isBeta: true, name: '6.5.0-RC1' },
+			] );
+		} );
+
+		it( 'should handle unusual version formats', async () => {
+			// Mock API response with unusual version formats
+			( global.fetch as jest.Mock ).mockResolvedValueOnce( {
+				ok: true,
+				json: jest.fn().mockResolvedValueOnce( {
+					offers: [
+						{ version: '10.11.12', response: 'autoupdate' },
+						{ version: '6.5-dev', response: 'autoupdate' },
+					],
+				} ),
+			} );
+
+			await store.dispatch( fetchWordPressVersions() );
+
+			const state = store.getState();
+			const versions = wordpressVersionsSelectors.selectWordPressVersions( state );
+
+			expect( versions ).toHaveLength( 2 );
+			expect( versions ).toEqual( [
+				{ version: '10.11.12', isBeta: false, name: '10.11' },
+				{ version: '6.5-dev', isBeta: false, name: '6.5' },
+			] );
 		} );
 	} );
 
 	describe( 'selectors', () => {
-		it( 'should select WordPress versions', async () => {
+		it( 'should select WordPress versions with name property', async () => {
 			// Setup state with versions
 			( global.fetch as jest.Mock ).mockResolvedValueOnce( {
 				ok: true,
 				json: jest.fn().mockResolvedValueOnce( {
 					offers: [
+						{ version: '6.1.0', response: 'autoupdate' },
+						{ version: '6.2.0', response: 'autoupdate' },
+						{ version: '6.3.0', response: 'autoupdate' },
 						{ version: '6.4.0', response: 'autoupdate' },
 						{ version: '6.5.0-beta1', response: 'autoupdate' },
 					],
@@ -174,9 +206,14 @@ describe( 'wordpress-versions-slice', () => {
 			const state = store.getState();
 			const versions = wordpressVersionsSelectors.selectWordPressVersions( state );
 
-			expect( versions ).toHaveLength( 2 );
-			expect( versions[ 0 ].version ).toBe( '6.4.0' );
-			expect( versions[ 1 ].version ).toBe( '6.5.0-beta1' );
+			expect( versions ).toHaveLength( 5 );
+			expect( versions ).toEqual( [
+				{ version: '6.1.0', isBeta: false, name: '6.1' },
+				{ version: '6.2.0', isBeta: false, name: '6.2' },
+				{ version: '6.3.0', isBeta: false, name: '6.3' },
+				{ version: '6.4.0', isBeta: false, name: '6.4' },
+				{ version: '6.5.0-beta1', isBeta: true, name: '6.5.0-beta1' },
+			] );
 		} );
 	} );
 } );

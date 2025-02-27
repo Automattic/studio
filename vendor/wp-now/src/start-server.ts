@@ -107,8 +107,10 @@ export async function startServer( options: WPNowOptions = {} ): Promise< WPNowS
 
 	// First create a primary PHP instance
 	const { php: primaryPhp, options: primaryOptions } = await startWPNow( options );
+	// @TODO: undo
+	// const numInstances = options.numberOfPhpInstances || 6;
+	const numInstances = 6;
 
-	const numInstances = options.numberOfPhpInstances || 6;
 	const phpServers: WPNowServer[] = [
 		{
 			url: options.absoluteUrl,
@@ -120,6 +122,8 @@ export async function startServer( options: WPNowOptions = {} ): Promise< WPNowS
 			},
 		},
 	];
+
+	console.log( 'Starting this many PHP instances:', numInstances );
 
 	// Create additional PHP instances if needed
 	for ( let i = 1; i < numInstances; i++ ) {
@@ -147,8 +151,25 @@ export async function startServer( options: WPNowOptions = {} ): Promise< WPNowS
 	} );
 
 	// Handle requests using load balancer
-	app.use( '/', async ( req, res ) => {
+	app.use( '/', ( req, res ) => {
 		console.log( 'GOT ' + req.url );
+		// Process each request in its own async context without awaiting
+		processRequest( req, res, loadBalancer ).catch( ( e ) => {
+			output?.trace( e );
+			if ( ! res.headersSent ) {
+				res.status( 500 ).send( 'Internal Server Error' );
+			}
+		} );
+	} );
+
+	// Log load balancer stats periodically
+	setInterval( () => {
+		console.log( 'Load Balancer Stats:' );
+		console.log( loadBalancer.getServerStats() );
+	}, 3000 );
+
+	// Separate function to handle the request processing
+	async function processRequest( req, res, loadBalancer ) {
 		const server = loadBalancer.getNextServer();
 		const sTime = performance.now();
 
@@ -177,8 +198,11 @@ export async function startServer( options: WPNowOptions = {} ): Promise< WPNowS
 			console.log( 'req time:', req.method, req.url, timeTaken, 'ms' );
 		} catch ( e ) {
 			output?.trace( e );
+			if ( ! res.headersSent ) {
+				res.status( 500 ).send( 'Internal Server Error' );
+			}
 		}
-	} );
+	}
 
 	const server = app.listen( port, () => {
 		output?.log( `Server running at ${ options.absoluteUrl }` );

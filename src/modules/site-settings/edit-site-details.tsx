@@ -17,18 +17,18 @@ export default function EditSiteDetails() {
 	const [ isEditingSite, setIsEditingSite ] = useState( false );
 	const [ siteName, setSiteName ] = useState( selectedSite?.name ?? '' );
 	const [ selectedPhpVersion, setSelectedPhpVersion ] = useState< SupportedPHPVersion >(
-		selectedSite?.phpVersion ?? DEFAULT_PHP_VERSION
+		( selectedSite?.phpVersion as SupportedPHPVersion ) ?? DEFAULT_PHP_VERSION
 	);
 	const [ selectedWpVersion, setSelectedWpVersion ] = useState( 'latest' );
 
 	const wordpressVersions = useRootSelector( wordpressVersionsSelectors.selectWordPressVersions );
 
 	useEffect( () => {
-		if ( selectedSite ) {
+		if ( selectedSite && showModal ) {
 			setSiteName( selectedSite.name );
-			setSelectedPhpVersion( selectedSite.phpVersion );
+			setSelectedPhpVersion( selectedSite.phpVersion as SupportedPHPVersion );
 		}
-	}, [ selectedSite ] );
+	}, [ selectedSite, showModal ] );
 
 	const resetLocalState = useCallback( () => {
 		setShowModal( false );
@@ -153,10 +153,6 @@ export default function EditSiteDetails() {
 				disabled={ ! selectedSite }
 				className="!mx-4 shrink-0"
 				onClick={ () => {
-					if ( selectedSite ) {
-						setSiteName( selectedSite.name );
-						setSelectedPhpVersion( selectedSite.phpVersion );
-					}
 					setShowModal( true );
 				} }
 				label={ __( 'Edit site details' ) }

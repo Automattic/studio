@@ -6,10 +6,7 @@ import {
 	wordpressVersionsSelectors,
 } from 'src/stores/wordpress-versions-slice';
 
-// Mock fetch
 global.fetch = jest.fn();
-
-// Mock Sentry
 jest.mock( '@sentry/electron/renderer', () => ( {
 	captureException: jest.fn(),
 } ) );
@@ -23,7 +20,6 @@ describe( 'wordpress-versions-slice', () => {
 	} );
 	describe( 'fetchWordPressVersions', () => {
 		it( 'should update versions when API call is successful', async () => {
-			// Mock successful API response
 			( global.fetch as jest.Mock ).mockResolvedValueOnce( {
 				ok: true,
 				json: jest.fn().mockResolvedValueOnce( {
@@ -58,7 +54,6 @@ describe( 'wordpress-versions-slice', () => {
 		} );
 
 		it( 'should handle API response with no autoupdate offers', async () => {
-			// Mock API response with no autoupdate offers
 			( global.fetch as jest.Mock ).mockResolvedValueOnce( {
 				ok: true,
 				json: jest.fn().mockResolvedValueOnce( {
@@ -82,7 +77,6 @@ describe( 'wordpress-versions-slice', () => {
 		} );
 
 		it( 'should handle non-OK API response', async () => {
-			// Mock failed API response
 			( global.fetch as jest.Mock ).mockResolvedValueOnce( {
 				ok: false,
 			} );
@@ -99,7 +93,6 @@ describe( 'wordpress-versions-slice', () => {
 		} );
 
 		it( 'should handle API fetch error', async () => {
-			// Mock fetch throwing an error
 			( global.fetch as jest.Mock ).mockRejectedValueOnce( new Error( 'Network error' ) );
 
 			const result = await store.dispatch( fetchWordPressVersions() );
@@ -113,11 +106,10 @@ describe( 'wordpress-versions-slice', () => {
 		} );
 
 		it( 'should handle schema validation error', async () => {
-			// Mock API response with invalid schema
 			( global.fetch as jest.Mock ).mockResolvedValueOnce( {
 				ok: true,
 				json: jest.fn().mockResolvedValueOnce( {
-					// Missing 'offers' field
+					// Missing 'offers' field to trigger schema validation error
 					something_else: [],
 				} ),
 			} );
@@ -135,7 +127,6 @@ describe( 'wordpress-versions-slice', () => {
 		} );
 
 		it( 'should correctly identify beta and RC versions and use full version for name', async () => {
-			// Mock API response with beta and RC versions
 			( global.fetch as jest.Mock ).mockResolvedValueOnce( {
 				ok: true,
 				json: jest.fn().mockResolvedValueOnce( {
@@ -161,7 +152,6 @@ describe( 'wordpress-versions-slice', () => {
 		} );
 
 		it( 'should handle unusual version formats', async () => {
-			// Mock API response with unusual version formats
 			( global.fetch as jest.Mock ).mockResolvedValueOnce( {
 				ok: true,
 				json: jest.fn().mockResolvedValueOnce( {
@@ -187,7 +177,6 @@ describe( 'wordpress-versions-slice', () => {
 
 	describe( 'selectors', () => {
 		it( 'should select WordPress versions with name property', async () => {
-			// Setup state with versions
 			( global.fetch as jest.Mock ).mockResolvedValueOnce( {
 				ok: true,
 				json: jest.fn().mockResolvedValueOnce( {

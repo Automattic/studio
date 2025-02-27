@@ -1,6 +1,6 @@
 import { Spinner } from '@wordpress/components';
 import { sprintf } from '@wordpress/i18n';
-import { Icon, published } from '@wordpress/icons';
+import { Icon, published, warning } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useEffect, useState, useRef } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
@@ -35,8 +35,9 @@ export function PreviewSiteRow( {
 	const { url, date, isDeleting } = snapshot;
 	const { countDown, expireDateString, isExpired } = useExpirationDate( date );
 	const { fetchSnapshotUsage, removeSnapshot } = useSnapshots();
-	const { isDemoSiteUpdating } = useUpdateDemoSite();
+	const { isDemoSiteUpdating, hasDemoSiteError } = useUpdateDemoSite();
 	const isPreviewSiteUpdating = isDemoSiteUpdating( snapshot.atomicSiteId );
+	const hasError = hasDemoSiteError( snapshot.atomicSiteId );
 	const { formatRelativeTime } = useFormatLocalizedTimestamps();
 	const [ showUpdatedMessage, setShowUpdatedMessage ] = useState( false );
 	const wasUpdating = useRef( false );
@@ -52,14 +53,17 @@ export function PreviewSiteRow( {
 			return;
 		}
 		wasUpdating.current = false;
-		setShowUpdatedMessage( true );
+
+		if ( ! hasError ) {
+			setShowUpdatedMessage( true );
+		}
 
 		const timeoutId = setTimeout( () => {
 			setShowUpdatedMessage( false );
 		}, UPDATED_MESSAGE_DURATION_MS );
 
 		return () => clearTimeout( timeoutId );
-	}, [ isPreviewSiteUpdating ] );
+	}, [ hasError, isPreviewSiteUpdating ] );
 
 	const getLastUpdateTimeText = () => {
 		if ( ! date ) {
@@ -71,6 +75,15 @@ export function PreviewSiteRow( {
 				<div className="flex items-center">
 					<Icon icon={ published } className="!mt-0 mr-1 fill-a8c-green-50" />
 					<span className="text-a8c-green-50">{ __( 'Updated' ) }</span>
+				</div>
+			);
+		}
+
+		if ( hasError ) {
+			return (
+				<div className="flex items-center">
+					<Icon icon={ warning } className="!mt-0 mr-1 fill-a8c-red-50" />
+					<span className="text-a8c-red-50">{ __( 'Failed' ) }</span>
 				</div>
 			);
 		}

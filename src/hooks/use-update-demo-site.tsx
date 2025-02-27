@@ -10,11 +10,13 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 interface DemoSiteUpdateContextType {
 	updateDemoSite: ( snapshot: Snapshot, localSite: SiteDetails ) => Promise< void >;
 	isDemoSiteUpdating: ( atomicSiteId: number ) => boolean;
+	hasDemoSiteError: ( atomicSiteId: number ) => boolean;
 }
 
 const DemoSiteUpdateContext = createContext< DemoSiteUpdateContextType >( {
 	updateDemoSite: async () => undefined,
 	isDemoSiteUpdating: () => false,
+	hasDemoSiteError: () => false,
 } );
 
 interface DemoSiteUpdateProviderProps {
@@ -25,6 +27,7 @@ export const DemoSiteUpdateProvider: React.FC< DemoSiteUpdateProviderProps > = (
 	const { client } = useAuth();
 	const { __ } = useI18n();
 	const [ updatingSites, setUpdatingSites ] = useState< Set< number > >( new Set() );
+	const [ errorSites, setErrorSites ] = useState< Set< number > >( new Set() );
 	const { updateSnapshot } = useSnapshots();
 
 	const updateDemoSite = useCallback(
@@ -34,6 +37,14 @@ export const DemoSiteUpdateProvider: React.FC< DemoSiteUpdateProviderProps > = (
 				return;
 			}
 			setUpdatingSites( ( prev ) => new Set( prev ).add( snapshot.atomicSiteId ) );
+			// Clear error when user retries
+			if ( errorSites.has( snapshot.atomicSiteId ) ) {
+				setErrorSites( ( prev ) => {
+					const next = new Set( prev );
+					next.delete( snapshot.atomicSiteId );
+					return next;
+				} );
+			}
 
 			let archivePath = '';
 			try {
@@ -96,6 +107,7 @@ export const DemoSiteUpdateProvider: React.FC< DemoSiteUpdateProviderProps > = (
 				} );
 				return response;
 			} catch ( error ) {
+				setErrorSites( ( prev ) => new Set( prev ).add( snapshot.atomicSiteId ) );
 				getIpcApi().showErrorMessageBox( {
 					title: __( 'Update failed' ),
 					message: sprintf(
@@ -116,22 +128,26 @@ export const DemoSiteUpdateProvider: React.FC< DemoSiteUpdateProviderProps > = (
 				}
 			}
 		},
-		[ __, client, updateSnapshot ]
+		[ __, client, errorSites, updateSnapshot ]
 	);
 
 	const isDemoSiteUpdating = useCallback(
-		( atomicSiteId: number ) => {
-			return updatingSites.has( atomicSiteId );
-		},
+		( atomicSiteId: number ) => updatingSites.has( atomicSiteId ),
 		[ updatingSites ]
+	);
+
+	const hasDemoSiteError = useCallback(
+		( atomicSiteId: number ) => errorSites.has( atomicSiteId ),
+		[ errorSites ]
 	);
 
 	const contextValue = useMemo(
 		() => ( {
 			updateDemoSite,
 			isDemoSiteUpdating,
+			hasDemoSiteError,
 		} ),
-		[ updateDemoSite, isDemoSiteUpdating ]
+		[ updateDemoSite, isDemoSiteUpdating, hasDemoSiteError ]
 	);
 
 	return (

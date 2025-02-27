@@ -209,7 +209,7 @@ const AuthenticatedView = memo(
 		const RenderLastMessage = useCallback(
 			( { message, children }: { message: MessageType; children: React.ReactNode } ) => {
 				const thinkingAnimation = {
-					initial: { opacity: 0, y: 20 },
+					initial: shouldAnimate ? { opacity: 0, y: 20 } : { opacity: 1, y: 0 },
 					animate: { opacity: 1, y: 0 },
 					exit: { opacity: 0, y: -20 },
 				};
@@ -235,6 +235,7 @@ const AuthenticatedView = memo(
 									exit="exit"
 									variants={ thinkingAnimation }
 									transition={ { duration: 0.3 } }
+									onAnimationComplete={ () => setShouldAnimate( false ) }
 								>
 									<MessageThinking />
 								</motion.div>

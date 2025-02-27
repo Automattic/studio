@@ -173,6 +173,50 @@ describe( 'wordpress-versions-slice', () => {
 				{ version: '6.5-dev', isBeta: false, name: '6.5' },
 			] );
 		} );
+
+		it( 'should handle multiple patch versions of the same minor', async () => {
+			( global.fetch as jest.Mock ).mockResolvedValueOnce( {
+				ok: true,
+				json: jest.fn().mockResolvedValueOnce( {
+					offers: [
+						{
+							response: 'upgrade',
+							version: '6.7.2',
+						},
+						{
+							response: 'autoupdate',
+							version: '6.7.2',
+						},
+						{
+							response: 'autoupdate',
+							version: '6.7.1',
+						},
+						{
+							response: 'autoupdate',
+							version: '6.6.2',
+						},
+						{
+							response: 'autoupdate',
+							version: '6.5.5',
+						},
+					],
+					translations: [],
+				} ),
+			} );
+
+			await store.dispatch( fetchWordPressVersions() );
+
+			const state = store.getState();
+			const versions = wordpressVersionsSelectors.selectWordPressVersions( state );
+
+			expect( versions ).toHaveLength( 4 );
+			expect( versions ).toEqual( [
+				{ version: '6.7.2', isBeta: false, name: '6.7.2' },
+				{ version: '6.7.1', isBeta: false, name: '6.7.1' },
+				{ version: '6.6.2', isBeta: false, name: '6.6' },
+				{ version: '6.5.5', isBeta: false, name: '6.5' },
+			] );
+		} );
 	} );
 
 	describe( 'selectors', () => {

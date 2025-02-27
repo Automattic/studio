@@ -13,10 +13,7 @@ const wordPressApiResponseSchema = z.object( {
 	offers: z.array( wordPressOfferSchema ),
 } );
 
-const extractVersionName = ( version: string ): string => {
-	if ( version.includes( 'beta' ) || version.includes( 'RC' ) ) {
-		return version;
-	}
+const extractShortName = ( version: string ): string => {
 	const match = version.match( /^(\d+\.\d+)/ );
 	return match ? match[ 1 ] : version;
 };
@@ -34,13 +31,27 @@ export const fetchWordPressVersions = createAsyncThunk(
 			const rawData = await response.json();
 			const data = wordPressApiResponseSchema.parse( rawData );
 
-			return data.offers
+			const shortNameOccurrences = new Map< string, number >();
+			const versionShortNames = data.offers
 				.filter( ( offer ) => offer.response === 'autoupdate' )
-				.map( ( offer ) => ( {
-					version: offer.version,
-					isBeta: offer.version.includes( 'beta' ) || offer.version.includes( 'RC' ),
-					name: extractVersionName( offer.version ),
-				} ) );
+				.map( ( offer ) => {
+					const shortName = extractShortName( offer.version );
+					shortNameOccurrences.set( shortName, ( shortNameOccurrences.get( shortName ) || 0 ) + 1 );
+					return {
+						version: offer.version,
+						shortName,
+					};
+				} );
+
+			return versionShortNames.map( ( { version, shortName } ) => {
+				const isBeta = version.includes( 'beta' ) || version.includes( 'RC' );
+				const occurrences = shortNameOccurrences.get( shortName ) || 0;
+				return {
+					version,
+					isBeta,
+					name: occurrences > 1 || isBeta ? version : shortName,
+				};
+			} );
 		} catch ( error ) {
 			if ( error instanceof ZodError ) {
 				Sentry.captureException( error );

@@ -123,7 +123,6 @@ const AuthenticatedView = memo(
 		const isInitialRenderRef = useRef( true );
 		const lastMessageRef = useRef< HTMLDivElement >( null );
 		const [ showThinking, setShowThinking ] = useState( isAssistantThinking );
-
 		const lastMessage = useMemo(
 			() =>
 				showThinking

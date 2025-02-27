@@ -2,7 +2,11 @@ import * as Sentry from '@sentry/electron/renderer';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useState, createContext, useContext, useMemo, ReactNode } from 'react';
-import { DEMO_SITE_SIZE_LIMIT_BYTES, DEMO_SITE_SIZE_LIMIT_GB } from 'src/constants';
+import {
+	DEMO_SITE_SIZE_LIMIT_BYTES,
+	DEMO_SITE_SIZE_LIMIT_GB,
+	UPDATED_MESSAGE_DURATION_MS,
+} from 'src/constants';
 import { useAuth } from 'src/hooks/use-auth';
 import { useSnapshots } from 'src/hooks/use-snapshots';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -37,12 +41,6 @@ export const DemoSiteUpdateProvider: React.FC< DemoSiteUpdateProviderProps > = (
 				return;
 			}
 			setUpdatingSites( ( prev ) => new Set( prev ).add( snapshot.atomicSiteId ) );
-			// Clear any previous error state when starting a new update
-			setErrorSites( ( prev ) => {
-				const next = new Set( prev );
-				next.delete( snapshot.atomicSiteId );
-				return next;
-			} );
 
 			let archivePath = '';
 			try {
@@ -106,6 +104,13 @@ export const DemoSiteUpdateProvider: React.FC< DemoSiteUpdateProviderProps > = (
 				return response;
 			} catch ( error ) {
 				setErrorSites( ( prev ) => new Set( prev ).add( snapshot.atomicSiteId ) );
+				setTimeout( () => {
+					setErrorSites( ( prev ) => {
+						const next = new Set( prev );
+						next.delete( snapshot.atomicSiteId );
+						return next;
+					} );
+				}, UPDATED_MESSAGE_DURATION_MS );
 				getIpcApi().showErrorMessageBox( {
 					title: __( 'Update failed' ),
 					message: sprintf(

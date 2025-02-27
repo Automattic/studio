@@ -40,14 +40,12 @@ export function PreviewSiteRow( {
 	const hasError = hasDemoSiteError( snapshot.atomicSiteId );
 	const { formatRelativeTime } = useFormatLocalizedTimestamps();
 	const [ showUpdatedMessage, setShowUpdatedMessage ] = useState( false );
-	const [ showFailedMessage, setShowFailedMessage ] = useState( false );
 	const wasUpdating = useRef( false );
 
 	useEffect( () => {
 		if ( isPreviewSiteUpdating ) {
 			wasUpdating.current = true;
 			setShowUpdatedMessage( false );
-			setShowFailedMessage( false );
 			return;
 		}
 
@@ -56,15 +54,12 @@ export function PreviewSiteRow( {
 		}
 		wasUpdating.current = false;
 
-		if ( hasError ) {
-			setShowFailedMessage( true );
-		} else {
+		if ( ! hasError ) {
 			setShowUpdatedMessage( true );
 		}
 
 		const timeoutId = setTimeout( () => {
 			setShowUpdatedMessage( false );
-			setShowFailedMessage( false );
 		}, UPDATED_MESSAGE_DURATION_MS );
 
 		return () => clearTimeout( timeoutId );
@@ -84,7 +79,7 @@ export function PreviewSiteRow( {
 			);
 		}
 
-		if ( showFailedMessage ) {
+		if ( hasError ) {
 			return (
 				<div className="flex items-center">
 					<Icon icon={ warning } className="!mt-0 mr-1 fill-a8c-red-50" />

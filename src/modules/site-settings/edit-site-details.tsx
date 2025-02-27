@@ -111,7 +111,7 @@ export default function EditSiteDetails() {
 								</label>
 
 								<label className="flex flex-1 flex-col gap-1.5 leading-4">
-									<span className="font-semibold">{ __( 'WP version' ) }</span>
+									<span className="font-semibold">{ __( 'WordPress version' ) }</span>
 									<SelectControl
 										value={ selectedWpVersion }
 										options={ [

@@ -2,9 +2,11 @@ import { combineReducers, configureStore, createListenerMiddleware } from '@redu
 import { useDispatch, useSelector } from 'react-redux';
 import { LOCAL_STORAGE_CHAT_API_IDS_KEY, LOCAL_STORAGE_CHAT_MESSAGES_KEY } from 'src/constants';
 import { reducer as chatReducer } from 'src/stores/chat-slice';
+import { reducer as wordpressVersionsReducer } from './wordpress-versions-slice';
 
 export type RootState = {
 	chat: ReturnType< typeof chatReducer >;
+	wordpressVersions: ReturnType< typeof wordpressVersionsReducer >;
 };
 
 const listenerMiddleware = createListenerMiddleware< RootState >();
@@ -39,6 +41,7 @@ listenerMiddleware.startListening( {
 
 export const rootReducer = combineReducers( {
 	chat: chatReducer,
+	wordpressVersions: wordpressVersionsReducer,
 } );
 
 export const store = configureStore( {

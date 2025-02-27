@@ -13,24 +13,6 @@ const wordPressApiResponseSchema = z.object( {
 	offers: z.array( wordPressOfferSchema ),
 } );
 
-interface WordPressVersion {
-	version: string;
-	isBeta: boolean;
-	name: string;
-}
-
-interface WordPressVersionsState {
-	versions: WordPressVersion[];
-	status: 'idle' | 'loading' | 'succeeded' | 'failed';
-	error: string | null;
-}
-
-const initialState: WordPressVersionsState = {
-	versions: [],
-	status: 'idle',
-	error: null,
-};
-
 const extractVersionName = ( version: string ): string => {
 	if ( version.includes( 'beta' ) || version.includes( 'RC' ) ) {
 		return version;
@@ -67,6 +49,24 @@ export const fetchWordPressVersions = createAsyncThunk(
 		}
 	}
 );
+
+interface WordPressVersion {
+	version: string;
+	isBeta: boolean;
+	name: string;
+}
+
+interface WordPressVersionsState {
+	versions: WordPressVersion[];
+	status: 'idle' | 'loading' | 'succeeded' | 'failed';
+	error: string | null;
+}
+
+const initialState: WordPressVersionsState = {
+	versions: [],
+	status: 'idle',
+	error: null,
+};
 
 const wordpressVersionsSlice = createSlice( {
 	name: 'wordpressVersions',

@@ -78,7 +78,7 @@ function NoAuthSyncTab() {
 					</Button>
 				</Tooltip>
 			</div>
-			<div className="mt-3 max-w-[40ch] text-a8c-gray-70 a8c-body">
+			<div className="mt-3 text-a8c-gray-70 a8c-body">
 				<Tooltip
 					disabled={ ! isOffline }
 					icon={ offlineIcon }

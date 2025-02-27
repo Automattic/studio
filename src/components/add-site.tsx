@@ -10,6 +10,7 @@ import { SiteForm } from 'src/components/site-form';
 import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
 import { useAddSite } from 'src/hooks/use-add-site';
 import { useDragAndDropFile } from 'src/hooks/use-drag-and-drop-file';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { generateSiteName } from 'src/lib/generate-site-name';
@@ -22,6 +23,7 @@ interface AddSiteProps {
 
 export default function AddSite( { className }: AddSiteProps ) {
 	const { __ } = useI18n();
+	const { wpVersionsEnabled } = useFeatureFlags();
 	const [ showModal, setShowModal ] = useState( false );
 	const [ nameSuggested, setNameSuggested ] = useState( false );
 	const [ fileError, setFileError ] = useState( '' );
@@ -95,9 +97,18 @@ export default function AddSite( { className }: AddSiteProps ) {
 		setDoesPathContainWordPress( false );
 		setFileForImport( null );
 		setFileError( '' );
-		setPhpVersion( DEFAULT_PHP_VERSION as SupportedPHPVersion );
-		setWpVersion( DEFAULT_WORDPRESS_VERSION );
-	}, [ setSitePath, setDoesPathContainWordPress, setFileForImport, setPhpVersion, setWpVersion ] );
+		if ( wpVersionsEnabled ) {
+			setWpVersion( DEFAULT_WORDPRESS_VERSION );
+			setPhpVersion( DEFAULT_PHP_VERSION as SupportedPHPVersion );
+		}
+	}, [
+		setSitePath,
+		setDoesPathContainWordPress,
+		setFileForImport,
+		setPhpVersion,
+		setWpVersion,
+		wpVersionsEnabled,
+	] );
 
 	const handleSubmit = useCallback(
 		async ( event: FormEvent ) => {
@@ -175,6 +186,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 							setFileForImport={ setFileForImport }
 							onFileSelected={ handleImportFile }
 							fileError={ fileError }
+							allowVersionsChange
 						>
 							<div className="flex flex-row justify-end gap-x-5 mt-6">
 								<Button onClick={ closeModal } variant="tertiary">

@@ -10,6 +10,7 @@ import FolderIcon from 'src/components/folder-icon';
 import TextControlComponent from 'src/components/text-control';
 import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
 import { useDocsLink } from 'src/hooks/use-docs-link';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
@@ -38,6 +39,41 @@ interface SiteFormErrorProps {
 	tipMessage?: string;
 	className?: string;
 }
+
+interface SiteFormBaseProps {
+	className?: string;
+	children?: React.ReactNode;
+	siteName: string;
+	setSiteName: ( name: string ) => void;
+	sitePath?: string;
+	onSelectPath?: () => void;
+	error: string;
+	doesPathContainWordPress?: boolean;
+	isPathInputDisabled?: boolean;
+	onSubmit: ( event: FormEvent ) => void;
+	fileForImport?: File | null;
+	setFileForImport?: ( file: File | null ) => void;
+	onFileSelected?: ( file: File ) => void;
+	fileError?: string;
+}
+
+interface SiteFormWithVersionsProps extends SiteFormBaseProps {
+	allowVersionsChange: true;
+	phpVersion: SupportedPHPVersion;
+	setPhpVersion: ( version: SupportedPHPVersion ) => void;
+	wpVersion: string;
+	setWpVersion: ( version: string ) => void;
+}
+
+interface SiteFormWithoutVersionsProps extends SiteFormBaseProps {
+	allowVersionsChange?: false;
+	phpVersion?: never;
+	setPhpVersion?: never;
+	wpVersion?: never;
+	setWpVersion?: never;
+}
+
+type SiteFormProps = SiteFormWithVersionsProps | SiteFormWithoutVersionsProps;
 
 const SiteFormError = ( { error, tipMessage = '', className = '' }: SiteFormErrorProps ) => {
 	return (
@@ -220,28 +256,11 @@ export const SiteForm = ( {
 	setFileForImport,
 	onFileSelected,
 	fileError,
-}: {
-	className?: string;
-	children?: React.ReactNode;
-	siteName: string;
-	setSiteName: ( name: string ) => void;
-	phpVersion?: SupportedPHPVersion;
-	setPhpVersion?: ( version: SupportedPHPVersion ) => void;
-	wpVersion?: string;
-	setWpVersion?: ( version: string ) => void;
-	sitePath?: string;
-	onSelectPath?: () => void;
-	error: string;
-	doesPathContainWordPress?: boolean;
-	isPathInputDisabled?: boolean;
-	onSubmit: ( event: FormEvent ) => void;
-	fileForImport?: File | null;
-	setFileForImport?: ( file: File | null ) => void;
-	onFileSelected?: ( file: File ) => void;
-	fileError?: string;
-} ) => {
+	allowVersionsChange = false,
+}: SiteFormProps ) => {
 	const { __, isRTL } = useI18n();
 	const getDocsLink = useDocsLink();
+	const { wpVersionsEnabled } = useFeatureFlags();
 
 	const [ isAdvancedSettingsVisible, setAdvancedSettingsVisible ] = useState( false );
 
@@ -364,7 +383,7 @@ export const SiteForm = ( {
 											value={ sitePath }
 											onClick={ onSelectPath }
 										/>
-										{ setPhpVersion && setWpVersion && (
+										{ wpVersionsEnabled && allowVersionsChange && (
 											<div className="grid grid-cols-2 gap-4 mt-4">
 												<div className="flex flex-col gap-1.5 leading-4">
 													<label className="font-semibold">{ __( 'PHP version' ) }</label>
@@ -392,7 +411,11 @@ export const SiteForm = ( {
 															label: version,
 															value: version,
 														} ) ) }
-														onChange={ ( version ) => setWpVersion( version ) }
+														onChange={ ( version ) => {
+															if ( setWpVersion ) {
+																setWpVersion( version );
+															}
+														} }
 														__nextHasNoMarginBottom
 													/>
 												</div>

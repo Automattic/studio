@@ -41,6 +41,8 @@ export default function Onboarding() {
 		setSitePath,
 		setError,
 		setDoesPathContainWordPress,
+		setPhpVersion,
+		setWpVersion,
 		siteName,
 		sitePath,
 		error,
@@ -50,6 +52,8 @@ export default function Onboarding() {
 		handlePathSelectorClick,
 		setFileForImport,
 		fileForImport,
+		phpVersion,
+		wpVersion,
 	} = useAddSite();
 	const [ fileError, setFileError ] = useState( '' );
 
@@ -143,6 +147,11 @@ export default function Onboarding() {
 							setFileForImport={ setFileForImport }
 							onFileSelected={ handleImportFile }
 							fileError={ fileError }
+							allowVersionsChange
+							phpVersion={ phpVersion }
+							setPhpVersion={ setPhpVersion }
+							wpVersion={ wpVersion }
+							setWpVersion={ setWpVersion }
 						>
 							<div className="flex flex-row gap-x-5 mt-6 justify-end">
 								<Button type="submit" variant="primary">

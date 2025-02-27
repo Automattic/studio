@@ -2,6 +2,7 @@ import { SupportedPHPVersion } from '@php-wasm/universal';
 import * as Sentry from '@sentry/electron/renderer';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -9,6 +10,7 @@ import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/sr
 
 export function useAddSite() {
 	const { __ } = useI18n();
+	const { wpVersionsEnabled } = useFeatureFlags();
 	const { createSite, data: sites, loadingSites, startServer, updateSite } = useSiteDetails();
 	const { importFile, clearImportState } = useImportExport();
 	const [ error, setError ] = useState( '' );
@@ -68,32 +70,51 @@ export function useAddSite() {
 	const handleAddSiteClick = useCallback( async () => {
 		try {
 			const path = sitePath ? sitePath : proposedSitePath;
-			await createSite( path, siteName ?? '', wpVersion, async ( newSite ) => {
-				if ( newSite ) {
-					if ( newSite.phpVersion !== phpVersion ) {
-						await updateSite( {
-							...newSite,
-							phpVersion,
+			await createSite(
+				path,
+				siteName ?? '',
+				wpVersionsEnabled ? wpVersion : DEFAULT_WORDPRESS_VERSION,
+				async ( newSite ) => {
+					if ( newSite ) {
+						let updatedSite = { ...newSite };
+
+						if ( newSite.phpVersion !== phpVersion ) {
+							updatedSite = {
+								...updatedSite,
+								phpVersion,
+							};
+						}
+
+						if ( wpVersionsEnabled && newSite.wpVersion !== wpVersion ) {
+							updatedSite = {
+								...updatedSite,
+								wpVersion,
+							};
+						}
+
+						// Only update if changes were made
+						if ( updatedSite !== newSite ) {
+							await updateSite( updatedSite );
+						}
+
+						if ( fileForImport ) {
+							await importFile( fileForImport, newSite, {
+								showImportNotification: false,
+								isNewSite: true,
+							} );
+							clearImportState( newSite.id );
+						} else {
+							// when we import file we start the server automatically, so doesn't make sense to run it again, to avoid unexpected behaviour
+							await startServer( newSite.id );
+						}
+
+						getIpcApi().showNotification( {
+							title: newSite.name,
+							body: __( 'Your new site is up and running' ),
 						} );
 					}
-
-					if ( fileForImport ) {
-						await importFile( fileForImport, newSite, {
-							showImportNotification: false,
-							isNewSite: true,
-						} );
-						clearImportState( newSite.id );
-					} else {
-						// when we import file we start the server automatically, so doesn't make sense to run it again, to avoid unexpected behaviour
-						await startServer( newSite.id );
-					}
-
-					getIpcApi().showNotification( {
-						title: newSite.name,
-						body: __( 'Your new site is up and running' ),
-					} );
 				}
-			} );
+			);
 		} catch ( e ) {
 			Sentry.captureException( e );
 		}
@@ -107,7 +128,10 @@ export function useAddSite() {
 		siteName,
 		sitePath,
 		startServer,
+		updateSite,
 		wpVersion,
+		phpVersion,
+		wpVersionsEnabled,
 	] );
 
 	const handleSiteNameChange = useCallback(

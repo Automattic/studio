@@ -37,6 +37,12 @@ export const DemoSiteUpdateProvider: React.FC< DemoSiteUpdateProviderProps > = (
 				return;
 			}
 			setUpdatingSites( ( prev ) => new Set( prev ).add( snapshot.atomicSiteId ) );
+			// Clear any previous error state when starting a new update
+			setErrorSites( ( prev ) => {
+				const next = new Set( prev );
+				next.delete( snapshot.atomicSiteId );
+				return next;
+			} );
 
 			let archivePath = '';
 			try {

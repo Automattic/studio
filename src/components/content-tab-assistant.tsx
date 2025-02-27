@@ -123,7 +123,6 @@ const AuthenticatedView = memo(
 		const isInitialRenderRef = useRef( true );
 		const lastMessageRef = useRef< HTMLDivElement >( null );
 		const [ showThinking, setShowThinking ] = useState( isAssistantThinking );
-		const [ shouldAnimate, setShouldAnimate ] = useState( ! isInitialRenderRef.current );
 
 		const lastMessage = useMemo(
 			() =>
@@ -144,10 +143,6 @@ const AuthenticatedView = memo(
 		useEffect( () => {
 			if ( ! messages.length ) {
 				return;
-			}
-
-			if ( ! isInitialRenderRef.current ) {
-				setShouldAnimate( true );
 			}
 
 			let timer: NodeJS.Timeout;
@@ -209,12 +204,12 @@ const AuthenticatedView = memo(
 		const RenderLastMessage = useCallback(
 			( { message, children }: { message: MessageType; children: React.ReactNode } ) => {
 				const thinkingAnimation = {
-					initial: shouldAnimate ? { opacity: 0, y: 20 } : { opacity: 1, y: 0 },
+					initial: { opacity: 1, y: 20 },
 					animate: { opacity: 1, y: 0 },
 					exit: { opacity: 0, y: -20 },
 				};
 				const messageAnimation = {
-					initial: shouldAnimate ? { opacity: 0, y: 20 } : { opacity: 1, y: 0 },
+					initial: { opacity: 0, y: 20 },
 					animate: { opacity: 1, y: 0 },
 				};
 
@@ -230,12 +225,11 @@ const AuthenticatedView = memo(
 							{ showThinking ? (
 								<motion.div
 									key="thinking"
-									initial="initial"
+									initial={ isInitialRenderRef.current ? 'animate' : 'initial' }
 									animate="animate"
 									exit="exit"
 									variants={ thinkingAnimation }
 									transition={ { duration: 0.3 } }
-									onAnimationComplete={ () => setShouldAnimate( false ) }
 								>
 									<MessageThinking />
 								</motion.div>
@@ -244,9 +238,8 @@ const AuthenticatedView = memo(
 									key="content"
 									variants={ messageAnimation }
 									transition={ { duration: 0.3 } }
-									initial="initial"
+									initial={ isInitialRenderRef.current ? 'animate' : 'initial' }
 									animate="animate"
-									onAnimationComplete={ () => setShouldAnimate( false ) }
 								>
 									<MarkDownWithCode
 										message={ message }
@@ -261,7 +254,7 @@ const AuthenticatedView = memo(
 					</ChatMessage>
 				);
 			},
-			[ showThinking, siteId, instanceId, shouldAnimate, setShouldAnimate ]
+			[ showThinking, siteId, instanceId ]
 		);
 
 		if ( messages.length === 0 ) {

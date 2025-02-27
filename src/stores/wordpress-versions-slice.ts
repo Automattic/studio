@@ -52,14 +52,13 @@ export const fetchWordPressVersions = createAsyncThunk(
 			const rawData = await response.json();
 			const data = wordPressApiResponseSchema.parse( rawData );
 
-			const offers = data.offers
+			return data.offers
 				.filter( ( offer ) => offer.response === 'autoupdate' )
 				.map( ( offer ) => ( {
 					version: offer.version,
 					isBeta: offer.version.includes( 'beta' ) || offer.version.includes( 'RC' ),
 					name: extractVersionName( offer.version ),
 				} ) );
-			return offers;
 		} catch ( error ) {
 			if ( error instanceof ZodError ) {
 				Sentry.captureException( error );

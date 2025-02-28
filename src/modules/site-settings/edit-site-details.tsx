@@ -79,7 +79,7 @@ export default function EditSiteDetails() {
 			{ showModal && (
 				<Modal
 					size="medium"
-					title={ __( 'Edit site details' ) }
+					title={ __( 'Edit site' ) }
 					isDismissible
 					focusOnMount="firstContentElement"
 					onRequestClose={ resetLocalState }
@@ -155,7 +155,7 @@ export default function EditSiteDetails() {
 				onClick={ () => {
 					setShowModal( true );
 				} }
-				label={ __( 'Edit site details' ) }
+				label={ __( 'Edit site' ) }
 				variant="link"
 			>
 				{ __( 'Edit' ) }

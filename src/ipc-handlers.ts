@@ -20,7 +20,8 @@ import archiver from 'archiver';
 import { ARCHIVER_OPTIONS, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
-import { bumpStat, STATS_GROUP, STATS_METRIC } from 'src/lib/bump-stats';
+import { bumpStat } from 'src/lib/bump-stats';
+import { STATS_GROUP, STATS_METRIC, StatsGroup, StatsMetric } from 'src/lib/bump-stats/types';
 import { calculateDirectorySize } from 'src/lib/calculate-directory-size';
 import { download } from 'src/lib/download';
 import { isEmptyDir, pathExists, isWordPressDirectory, sanitizeFolderName } from 'src/lib/fs-utils';
@@ -687,25 +688,6 @@ export async function exportSite(
 
 		if ( result ) {
 			bumpStat( STATS_GROUP.STUDIO_EXPORT, STATS_METRIC.SUCCESS );
-
-			// Track which content types are being included in the export
-			if ( options.includes ) {
-				if ( options.includes.database ) {
-					bumpStat( STATS_GROUP.STUDIO_EXPORT_CONTENT, STATS_METRIC.DATABASE );
-				}
-				if ( options.includes.uploads ) {
-					bumpStat( STATS_GROUP.STUDIO_EXPORT_CONTENT, STATS_METRIC.UPLOADS );
-				}
-				if ( options.includes.plugins ) {
-					bumpStat( STATS_GROUP.STUDIO_EXPORT_CONTENT, STATS_METRIC.PLUGINS );
-				}
-				if ( options.includes.themes ) {
-					bumpStat( STATS_GROUP.STUDIO_EXPORT_CONTENT, STATS_METRIC.THEMES );
-				}
-				if ( options.includes.muPlugins ) {
-					bumpStat( STATS_GROUP.STUDIO_EXPORT_CONTENT, STATS_METRIC.MU_PLUGINS );
-				}
-			}
 		}
 
 		return result;
@@ -1191,4 +1173,13 @@ export async function checkSyncBackupSize(
 export async function isFullscreen( _event: IpcMainInvokeEvent ): Promise< boolean > {
 	const window = await getMainWindow();
 	return window.isFullScreen();
+}
+
+export async function ipcBumpStat(
+	_event: IpcMainInvokeEvent,
+	group: StatsGroup,
+	stat: StatsMetric,
+	bumpInDev = false
+) {
+	return bumpStat( group, stat, bumpInDev );
 }

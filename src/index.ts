@@ -14,7 +14,8 @@ import { __ } from '@wordpress/i18n';
 import { PROTOCOL_PREFIX } from 'src/constants';
 import * as ipcHandlers from 'src/ipc-handlers';
 import { hasActiveSyncOperations } from 'src/lib/active-sync-operations';
-import { bumpAggregatedUniqueStat, bumpStat, STATS_GROUP } from 'src/lib/bump-stats';
+import { bumpAggregatedUniqueStat, bumpStat } from 'src/lib/bump-stats';
+import { STATS_GROUP } from 'src/lib/bump-stats/types';
 import {
 	listenCLICommands,
 	getCLIDataForMainInstance,

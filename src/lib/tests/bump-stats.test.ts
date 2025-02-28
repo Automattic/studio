@@ -1,6 +1,7 @@
 import { waitFor } from '@testing-library/react';
 import nock from 'nock';
-import { bumpAggregatedUniqueStat, bumpStat, STATS_GROUP, STATS_METRIC } from 'src/lib/bump-stats';
+import { bumpAggregatedUniqueStat, bumpStat } from 'src/lib/bump-stats';
+import { STATS_GROUP, STATS_METRIC } from 'src/lib/bump-stats/types';
 import { loadUserData, saveUserData } from 'src/storage/user-data';
 
 jest.mock( 'src/storage/user-data' );

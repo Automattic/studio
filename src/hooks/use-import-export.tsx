@@ -4,6 +4,7 @@ import { createContext, useMemo, useState, useCallback, useContext } from 'react
 import { WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT_IN_HRS } from 'src/constants';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useSiteDetails } from 'src/hooks/use-site-details';
+import { STATS_GROUP, STATS_METRIC } from 'src/lib/bump-stats/types';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ExportEvents } from 'src/lib/import-export/export/events';
 import { generateBackupFilename } from 'src/lib/import-export/export/generate-backup-filename';
@@ -303,6 +304,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 
 	const exportFullSite = useCallback(
 		async ( selectedSite: SiteDetails ): Promise< string | undefined > => {
+			getIpcApi().ipcBumpStat( STATS_GROUP.STUDIO_EXPORT, STATS_METRIC.FULL_SITE );
 			const fileName = generateBackupFilename( selectedSite.name );
 			const path = await getIpcApi().showSaveAsDialog( {
 				title: __( 'Save backup file' ),
@@ -336,6 +338,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 
 	const exportDatabase = useCallback(
 		async ( selectedSite: SiteDetails ): Promise< string | undefined > => {
+			getIpcApi().ipcBumpStat( STATS_GROUP.STUDIO_EXPORT, STATS_METRIC.DATABASE_ONLY );
 			const fileName = generateBackupFilename( selectedSite.name );
 			const path = await getIpcApi().showSaveAsDialog( {
 				title: __( 'Save database file' ),

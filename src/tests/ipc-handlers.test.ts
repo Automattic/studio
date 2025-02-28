@@ -191,11 +191,7 @@ describe( 'importSite', () => {
 			STATS_GROUP.STUDIO_IMPORT,
 			STATS_METRIC.SUCCESS
 		);
-		expect( bumpStat ).toHaveBeenNthCalledWith(
-			2,
-			STATS_GROUP.STUDIO_IMPORT_TYPE,
-			mockBackupFile.type
-		);
+		expect( bumpStat ).toHaveBeenNthCalledWith( 2, STATS_GROUP.STUDIO_IMPORT, 'unknown' );
 	} );
 
 	it( 'should capture exception in Sentry and bump failure stats when import fails', async () => {

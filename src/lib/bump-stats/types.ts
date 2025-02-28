@@ -6,8 +6,6 @@ export const STATS_GROUP = {
 	STUDIO_APP_LAUNCH_UNIQUE: 'local-environment-launch-uniques',
 	STUDIO_IMPORT: 'studio-app-import',
 	STUDIO_EXPORT: 'studio-app-export',
-	STUDIO_IMPORT_TYPE: 'studio-app-import-type',
-	STUDIO_EXPORT_CONTENT: 'studio-app-export-content',
 } as const;
 
 export const STATS_METRIC = {

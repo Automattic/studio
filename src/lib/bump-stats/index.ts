@@ -1,4 +1,3 @@
-import https from 'https';
 import * as Sentry from '@sentry/electron/main';
 import { isSameDay, isSameMonth, isSameWeek } from 'date-fns';
 import fetch from 'node-fetch';

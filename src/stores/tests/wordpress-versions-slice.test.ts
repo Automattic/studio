@@ -35,19 +35,19 @@ describe( 'wordpress-versions-slice', () => {
 
 			expect( result.type ).toBe( 'wordpressVersions/fetchWordPressVersions/fulfilled' );
 			expect( result.payload ).toEqual( [
-				{ version: '6.4.0', isBeta: false, name: '6.4' },
-				{ version: '6.5.0-beta1', isBeta: true, name: '6.5.0-beta1' },
+				{ value: '6.4.0', isBeta: false, label: '6.4' },
+				{ value: '6.5.0-beta1', isBeta: true, label: '6.5.0-beta1' },
 			] );
 
 			const state = store.getState();
 			const versions = wordpressVersionsSelectors.selectWordPressVersions( state );
 
 			expect( versions ).toHaveLength( 2 );
-			expect( versions[ 0 ] ).toEqual( { version: '6.4.0', isBeta: false, name: '6.4' } );
+			expect( versions[ 0 ] ).toEqual( { value: '6.4.0', isBeta: false, label: '6.4' } );
 			expect( versions[ 1 ] ).toEqual( {
-				version: '6.5.0-beta1',
+				value: '6.5.0-beta1',
 				isBeta: true,
-				name: '6.5.0-beta1',
+				label: '6.5.0-beta1',
 			} );
 			expect( state.wordpressVersions.status ).toBe( 'succeeded' );
 			expect( state.wordpressVersions.error ).toBeNull();
@@ -145,9 +145,9 @@ describe( 'wordpress-versions-slice', () => {
 
 			expect( versions ).toHaveLength( 3 );
 			expect( versions ).toEqual( [
-				{ version: '6.4.0', isBeta: false, name: '6.4' },
-				{ version: '6.5.0-beta1', isBeta: true, name: '6.5.0-beta1' },
-				{ version: '6.5.0-RC1', isBeta: true, name: '6.5.0-RC1' },
+				{ value: '6.4.0', isBeta: false, label: '6.4' },
+				{ value: '6.5.0-beta1', isBeta: true, label: '6.5.0-beta1' },
+				{ value: '6.5.0-RC1', isBeta: true, label: '6.5.0-RC1' },
 			] );
 		} );
 
@@ -169,8 +169,8 @@ describe( 'wordpress-versions-slice', () => {
 
 			expect( versions ).toHaveLength( 2 );
 			expect( versions ).toEqual( [
-				{ version: '10.11.12', isBeta: false, name: '10.11' },
-				{ version: '6.5-dev', isBeta: false, name: '6.5' },
+				{ value: '10.11.12', isBeta: false, label: '10.11' },
+				{ value: '6.5-dev', isBeta: false, label: '6.5' },
 			] );
 		} );
 
@@ -211,10 +211,10 @@ describe( 'wordpress-versions-slice', () => {
 
 			expect( versions ).toHaveLength( 4 );
 			expect( versions ).toEqual( [
-				{ version: '6.7.2', isBeta: false, name: '6.7.2' },
-				{ version: '6.7.1', isBeta: false, name: '6.7.1' },
-				{ version: '6.6.2', isBeta: false, name: '6.6' },
-				{ version: '6.5.5', isBeta: false, name: '6.5' },
+				{ value: '6.7.2', isBeta: false, label: '6.7.2' },
+				{ value: '6.7.1', isBeta: false, label: '6.7.1' },
+				{ value: '6.6.2', isBeta: false, label: '6.6' },
+				{ value: '6.5.5', isBeta: false, label: '6.5' },
 			] );
 		} );
 	} );
@@ -241,11 +241,11 @@ describe( 'wordpress-versions-slice', () => {
 
 			expect( versions ).toHaveLength( 5 );
 			expect( versions ).toEqual( [
-				{ version: '6.1.0', isBeta: false, name: '6.1' },
-				{ version: '6.2.0', isBeta: false, name: '6.2' },
-				{ version: '6.3.0', isBeta: false, name: '6.3' },
-				{ version: '6.4.0', isBeta: false, name: '6.4' },
-				{ version: '6.5.0-beta1', isBeta: true, name: '6.5.0-beta1' },
+				{ value: '6.1.0', isBeta: false, label: '6.1' },
+				{ value: '6.2.0', isBeta: false, label: '6.2' },
+				{ value: '6.3.0', isBeta: false, label: '6.3' },
+				{ value: '6.4.0', isBeta: false, label: '6.4' },
+				{ value: '6.5.0-beta1', isBeta: true, label: '6.5.0-beta1' },
 			] );
 		} );
 	} );

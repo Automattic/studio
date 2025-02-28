@@ -113,12 +113,7 @@ export default function EditSiteDetails() {
 									<span className="font-semibold">{ __( 'WordPress version' ) }</span>
 									<SelectControl
 										value={ selectedWpVersion }
-										options={ [
-											...( wordpressVersions || [] ).map( ( version ) => ( {
-												label: version.name,
-												value: version.version,
-											} ) ),
-										] }
+										options={ wordpressVersions }
 										onChange={ ( version ) => setSelectedWpVersion( version ) }
 										__next40pxDefaultSize
 									/>

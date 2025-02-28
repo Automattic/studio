@@ -46,9 +46,9 @@ export const fetchWordPressVersions = createAsyncThunk(
 				const isBeta = version.includes( 'beta' ) || version.includes( 'RC' );
 				const occurrences = shortNameOccurrences.get( shortName ) || 0;
 				return {
-					version,
 					isBeta,
-					name: occurrences > 1 || isBeta ? version : shortName,
+					label: occurrences > 1 || isBeta ? version : shortName,
+					value: version,
 				};
 			} );
 		} catch ( error ) {
@@ -61,9 +61,9 @@ export const fetchWordPressVersions = createAsyncThunk(
 );
 
 interface WordPressVersion {
-	version: string;
 	isBeta: boolean;
-	name: string;
+	label: string;
+	value: string;
 }
 
 interface WordPressVersionsState {

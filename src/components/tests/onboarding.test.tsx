@@ -147,7 +147,7 @@ describe( 'Onboarding Component', () => {
 
 		// Render the component to trigger the useEffect
 		render( <Onboarding /> );
-		
+
 		// Wait for any async operations to complete
 		await waitFor( () => {
 			// Verify that the dispatch function is available
@@ -158,7 +158,7 @@ describe( 'Onboarding Component', () => {
 	it( 'should provide setWpVersion function from useAddSite hook', async () => {
 		// Create a mock for setWpVersion
 		const mockSetWpVersion = jest.fn();
-		
+
 		// Override the useAddSite mock for this test
 		( useAddSite as jest.Mock ).mockReturnValue( {
 			setSiteName: jest.fn(),

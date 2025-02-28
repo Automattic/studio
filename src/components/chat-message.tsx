@@ -68,7 +68,7 @@ export const ChatMessage = forwardRef< HTMLDivElement, ChatMessageProps >(
 						data-testid="chat-message"
 						aria-labelledby={ id }
 						className={ cx(
-							'inline-block p-3 rounded border overflow-x-auto select-text',
+							'inline-block p-3 rounded border overflow-x-auto overflow-y-hidden select-text',
 							isUnauthenticated ? 'lg:max-w-[90%]' : 'lg:max-w-[70%]',
 							message.failedMessage
 								? 'border-[#FACFD2] bg-[#F7EBEC]'

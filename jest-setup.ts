@@ -24,6 +24,24 @@ if ( typeof window !== 'undefined' ) {
 			dispatchEvent: jest.fn(),
 		} ) ),
 	} );
+
+	/**
+	 * Mock `crypto.subtle.generateKey` as it's not implemented in JSDOM
+	 * https://github.com/jsdom/jsdom/issues/1612
+	 *
+	 * `crypto.subtle.generateKey` is required by `@php-wasm/web`
+	 */
+	Object.defineProperty( global.crypto, 'subtle', {
+		value: { generateKey: jest.fn() },
+	} );
+
+	/**
+	 * Mock `fetch` as it's not implemented in JSDOM
+	 * https://github.com/jsdom/jsdom/issues/1724
+	 *
+	 * `fetch` is required by `@wp-playground/blueprints`
+	 */
+	global.fetch = jest.fn();
 }
 
 nock.disableNetConnect();

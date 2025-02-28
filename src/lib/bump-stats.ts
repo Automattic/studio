@@ -1,6 +1,6 @@
-import https from 'https';
 import * as Sentry from '@sentry/electron/main';
 import { isSameDay, isSameMonth, isSameWeek } from 'date-fns';
+import fetch from 'node-fetch';
 import { loadUserData, saveUserData } from 'src/storage/user-data';
 
 export type AggregateInterval = 'daily' | 'weekly' | 'monthly';
@@ -55,11 +55,15 @@ export function bumpStat( group: string, stat: string, bumpInDev = false ) {
 		return false;
 	}
 
-	const url = new URL( 'https://pixel.wp.com/b.gif?v=wpcom-no-pv' );
-	url.searchParams.append( `x_${ group }`, stat );
+	// Fire and forget POST request
+	fetch( 'https://public-api.wordpress.com/wpcom/v2/studio-app/bump-stat', {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json',
+		},
+		body: JSON.stringify( { group, stat } ),
+	} );
 
-	// Fire and forget GET request
-	https.get( url.toString() );
 	return true;
 }
 

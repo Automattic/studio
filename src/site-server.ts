@@ -30,7 +30,6 @@ export async function createSiteWorkingDirectory(
 		return false;
 	}
 
-	// Check if the WordPress version exists and download it if it doesn't
 	const wpVersionPath = getWordPressVersionPath( wpVersion );
 	const wpVersionExists = await pathExists( wpVersionPath );
 

@@ -63,7 +63,6 @@ jest.mock( 'src/hooks/use-site-details', () => ( {
 beforeEach( () => {
 	jest.clearAllMocks();
 
-	// Set up default behavior for mockShowOpenFolderDialog
 	mockShowOpenFolderDialog.mockResolvedValue( {
 		path: 'test',
 		name: 'test',
@@ -71,7 +70,6 @@ beforeEach( () => {
 		isWordPress: false,
 	} );
 
-	// Set up default behavior for mockGenerateProposedSitePath
 	mockGenerateProposedSitePath.mockResolvedValue( {
 		path: '/default_path/my-wordpress-website',
 		name: 'My WordPress Website',

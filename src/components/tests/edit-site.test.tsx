@@ -11,7 +11,6 @@ jest.mock( 'src/stores', () => {
 	return {
 		useAppDispatch: jest.fn().mockReturnValue( mockDispatch ),
 		useRootSelector: jest.fn().mockImplementation( ( selector ) => {
-			// For the WordPress versions selector, return mock versions
 			if (
 				typeof selector === 'object' &&
 				selector !== null &&
@@ -23,7 +22,6 @@ jest.mock( 'src/stores', () => {
 					{ name: '6.3', version: '6.3' },
 				];
 			}
-			// For other selectors, return a succeeded status
 			return { status: 'succeeded' };
 		} ),
 	};

@@ -5,7 +5,6 @@ import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
 
-// Mock dependencies
 jest.mock( 'src/hooks/use-site-details' );
 jest.mock( 'src/hooks/use-feature-flags' );
 jest.mock( 'src/hooks/use-import-export', () => ( {
@@ -94,18 +93,15 @@ describe( 'useAddSite', () => {
 
 		const { result } = renderHook( () => useAddSite() );
 
-		// Set WordPress version and site path
 		act( () => {
 			result.current.setWpVersion( '6.1.7' );
 			result.current.setSitePath( '/test/path' );
 		} );
 
-		// Call handleAddSiteClick
 		await act( async () => {
 			await result.current.handleAddSiteClick();
 		} );
 
-		// Verify createSite was called with the correct WordPress version
 		expect( mockCreateSite ).toHaveBeenCalledWith(
 			'/test/path',
 			'',
@@ -130,18 +126,15 @@ describe( 'useAddSite', () => {
 
 		const { result } = renderHook( () => useAddSite() );
 
-		// Set WordPress version and site path
 		act( () => {
 			result.current.setWpVersion( '6.1.7' );
 			result.current.setSitePath( '/test/path' );
 		} );
 
-		// Call handleAddSiteClick
 		await act( async () => {
 			await result.current.handleAddSiteClick();
 		} );
 
-		// Verify updateSite was called with the correct WordPress version
 		expect( mockUpdateSite ).toHaveBeenCalledWith( {
 			...newSite,
 			wpVersion: '6.1.7',
@@ -149,18 +142,16 @@ describe( 'useAddSite', () => {
 	} );
 
 	it( 'should still call updateSite even if wpVersion matches due to object comparison', async () => {
-		// In this test, we'll set the wpVersion to match what's returned from createSite
 		const wpVersion = '6.1.7';
 		const newSite = {
 			id: 'test-id',
 			name: 'Test Site',
 			path: '/test/path',
-			wpVersion: wpVersion, // Same as what we'll set in the hook
+			wpVersion: wpVersion,
 			phpVersion: '8.2',
 		};
 
 		mockCreateSite.mockImplementation( ( path, name, version, callback ) => {
-			// Return a site with the same wpVersion that was passed to createSite
 			callback( {
 				...newSite,
 				wpVersion: version,
@@ -170,26 +161,19 @@ describe( 'useAddSite', () => {
 
 		const { result } = renderHook( () => useAddSite() );
 
-		// Set WordPress version to match the one in the new site
 		act( () => {
 			result.current.setWpVersion( wpVersion );
 			result.current.setSitePath( '/test/path' );
 		} );
 
-		// Reset the mock to ensure we can check if it was called
 		mockUpdateSite.mockClear();
 
-		// Call handleAddSiteClick
 		await act( async () => {
 			await result.current.handleAddSiteClick();
 		} );
 
-		// In the actual implementation, updateSite is still called because the object comparison
-		// (updatedSite !== newSite) will always be true for objects with the same values
-		// This is a limitation of the current implementation
 		expect( mockUpdateSite ).toHaveBeenCalled();
 
-		// Verify it was called with the correct parameters
 		expect( mockUpdateSite ).toHaveBeenCalledWith( {
 			...newSite,
 			wpVersion,
@@ -197,7 +181,6 @@ describe( 'useAddSite', () => {
 	} );
 
 	it( 'should use DEFAULT_WORDPRESS_VERSION when feature flag is disabled', async () => {
-		// Disable the feature flag
 		( useFeatureFlags as jest.Mock ).mockReturnValue( {
 			wpVersionsEnabled: false,
 		} );
@@ -215,18 +198,15 @@ describe( 'useAddSite', () => {
 
 		const { result } = renderHook( () => useAddSite() );
 
-		// Set WordPress version and site path
 		act( () => {
-			result.current.setWpVersion( '6.1.7' ); // This should be ignored
+			result.current.setWpVersion( '6.1.7' );
 			result.current.setSitePath( '/test/path' );
 		} );
 
-		// Call handleAddSiteClick
 		await act( async () => {
 			await result.current.handleAddSiteClick();
 		} );
 
-		// Verify createSite was called with the default WordPress version
 		expect( mockCreateSite ).toHaveBeenCalledWith(
 			'/test/path',
 			'',

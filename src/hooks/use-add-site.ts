@@ -92,7 +92,6 @@ export function useAddSite() {
 							};
 						}
 
-						// Only update if changes were made
 						if ( updatedSite !== newSite ) {
 							await updateSite( updatedSite );
 						}
@@ -104,7 +103,6 @@ export function useAddSite() {
 							} );
 							clearImportState( newSite.id );
 						} else {
-							// when we import file we start the server automatically, so doesn't make sense to run it again, to avoid unexpected behaviour
 							await startServer( newSite.id );
 						}
 

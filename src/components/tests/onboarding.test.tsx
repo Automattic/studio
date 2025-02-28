@@ -47,10 +47,8 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 	} ),
 } ) );
 
-// Mock dispatch function
 const mockDispatch = jest.fn();
 
-// Mock createSite function to test it's called with correct parameters
 const mockCreateSite = jest.fn();
 
 describe( 'Onboarding Component', () => {
@@ -59,7 +57,6 @@ describe( 'Onboarding Component', () => {
 	beforeEach( () => {
 		jest.clearAllMocks();
 
-		// Default mock implementations
 		( useFeatureFlags as jest.Mock ).mockReturnValue( {
 			wpVersionsEnabled: false,
 		} );
@@ -116,29 +113,23 @@ describe( 'Onboarding Component', () => {
 
 		await user.click( getByText( 'Add site' ) );
 
-		// Check if handleAddSiteClick has been called and the process to create a new site started
 		await waitFor( () => expect( handleAddSiteClick ).toHaveBeenCalled() );
 	} );
 
 	it( 'should use wpVersion from useAddSite hook', () => {
-		// Render the component
 		render( <Onboarding /> );
 
-		// Verify that the useAddSite hook is called with the correct implementation
 		const mockUseAddSite = useAddSite as jest.Mock;
 		expect( mockUseAddSite ).toHaveBeenCalled();
-		// Type assertion to avoid 'unknown' type error
 		const hookResult = mockUseAddSite() as { wpVersion: string };
 		expect( hookResult.wpVersion ).toBe( DEFAULT_WORDPRESS_VERSION );
 	} );
 
 	it( 'should dispatch an action when feature flag is enabled', async () => {
-		// Enable the feature flag
 		( useFeatureFlags as jest.Mock ).mockReturnValue( {
 			wpVersionsEnabled: true,
 		} );
 
-		// Mock WordPress versions
 		( useRootSelector as jest.Mock ).mockImplementation( ( selector ) => {
 			if ( selector === wordpressVersionsSelectors.selectWordPressVersions ) {
 				return [
@@ -149,24 +140,18 @@ describe( 'Onboarding Component', () => {
 			return { status: 'succeeded' };
 		} );
 
-		// Mock dispatch to return a function that resolves immediately
 		mockDispatch.mockImplementation( () => Promise.resolve() );
 
-		// Render the component to trigger the useEffect
 		render( <Onboarding /> );
 
-		// Wait for any async operations to complete
 		await waitFor( () => {
-			// Verify that the dispatch function is available
 			expect( useAppDispatch ).toHaveBeenCalled();
 		} );
 	} );
 
 	it( 'should provide setWpVersion function from useAddSite hook', async () => {
-		// Create a mock for setWpVersion
 		const mockSetWpVersion = jest.fn();
 
-		// Override the useAddSite mock for this test
 		( useAddSite as jest.Mock ).mockReturnValue( {
 			setSiteName: jest.fn(),
 			setProposedSitePath: jest.fn(),
@@ -192,17 +177,14 @@ describe( 'Onboarding Component', () => {
 
 		render( <Onboarding /> );
 
-		// Verify that the setWpVersion function is provided by the useAddSite hook
 		expect( useAddSite().setWpVersion ).toBe( mockSetWpVersion );
 	} );
 
 	it( 'should display WordPress and PHP version dropdowns when feature flag is enabled', async () => {
-		// Enable the feature flag
 		( useFeatureFlags as jest.Mock ).mockReturnValue( {
 			wpVersionsEnabled: true,
 		} );
 
-		// Mock WordPress versions
 		( useRootSelector as jest.Mock ).mockImplementation( ( selector ) => {
 			if ( selector === wordpressVersionsSelectors.selectWordPressVersions ) {
 				return [
@@ -215,30 +197,24 @@ describe( 'Onboarding Component', () => {
 
 		render( <Onboarding /> );
 
-		// Verify WordPress version dropdown is visible
 		expect( screen.getByText( 'WordPress version' ) ).toBeInTheDocument();
 		expect( screen.getByText( 'PHP version' ) ).toBeInTheDocument();
 
-		// Find all comboboxes
 		const comboboxes = screen.getAllByRole( 'combobox' );
 		expect( comboboxes.length ).toBeGreaterThanOrEqual( 2 );
 
-		// The first combobox should be the PHP version dropdown
 		const phpVersionDropdown = comboboxes[ 0 ];
 		expect( phpVersionDropdown ).toBeInTheDocument();
 
-		// The second combobox should be the WordPress version dropdown
 		const wpVersionDropdown = comboboxes[ 1 ];
 		expect( wpVersionDropdown ).toBeInTheDocument();
 	} );
 
 	it( 'should allow selecting a different WordPress version', async () => {
-		// Enable the feature flag
 		( useFeatureFlags as jest.Mock ).mockReturnValue( {
 			wpVersionsEnabled: true,
 		} );
 
-		// Mock WordPress versions
 		( useRootSelector as jest.Mock ).mockImplementation( ( selector ) => {
 			if ( selector === wordpressVersionsSelectors.selectWordPressVersions ) {
 				return [
@@ -249,14 +225,12 @@ describe( 'Onboarding Component', () => {
 			return { status: 'succeeded' };
 		} );
 
-		// Create mocks for the functions we need to test
 		const mockSetWpVersion = jest.fn();
 		const mockHandleAddSiteClick = jest.fn().mockImplementation( () => {
 			mockCreateSite( '/path/to/my/site', 'My Site', '6.3' );
 			return Promise.resolve();
 		} );
 
-		// Override the useAddSite mock for this test
 		( useAddSite as jest.Mock ).mockReturnValue( {
 			setSiteName: jest.fn(),
 			setProposedSitePath: jest.fn(),
@@ -282,37 +256,29 @@ describe( 'Onboarding Component', () => {
 
 		render( <Onboarding /> );
 
-		// Find all comboboxes
 		const comboboxes = screen.getAllByRole( 'combobox' );
 
-		// The second combobox should be the WordPress version dropdown
 		const wpVersionDropdown = comboboxes[ 1 ];
 
-		// Select a different WordPress version
 		await user.selectOptions( wpVersionDropdown, '6.3' );
 
-		// Submit the form
 		const addSiteButton = screen.getByText( 'Add site' );
 		await user.click( addSiteButton );
 
-		// Verify that handleAddSiteClick was called
 		await waitFor( () => {
 			expect( mockHandleAddSiteClick ).toHaveBeenCalled();
 		} );
 
-		// Verify createSite was called with the selected WordPress version
 		await waitFor( () => {
 			expect( mockCreateSite ).toHaveBeenCalledWith( '/path/to/my/site', 'My Site', '6.3' );
 		} );
 	} );
 
 	it( 'should allow selecting a different PHP version', async () => {
-		// Enable the feature flag
 		( useFeatureFlags as jest.Mock ).mockReturnValue( {
 			wpVersionsEnabled: true,
 		} );
 
-		// Mock WordPress versions
 		( useRootSelector as jest.Mock ).mockImplementation( ( selector ) => {
 			if ( selector === wordpressVersionsSelectors.selectWordPressVersions ) {
 				return [
@@ -323,10 +289,8 @@ describe( 'Onboarding Component', () => {
 			return { status: 'succeeded' };
 		} );
 
-		// Create a mock for setPhpVersion
 		const mockSetPhpVersion = jest.fn();
 
-		// Override the useAddSite mock for this test
 		( useAddSite as jest.Mock ).mockReturnValue( {
 			setSiteName: jest.fn(),
 			setProposedSitePath: jest.fn(),
@@ -353,28 +317,23 @@ describe( 'Onboarding Component', () => {
 
 		render( <Onboarding /> );
 
-		// Find all comboboxes
 		const comboboxes = screen.getAllByRole( 'combobox' );
 
-		// The first combobox should be the PHP version dropdown
 		const phpVersionDropdown = comboboxes[ 0 ];
 
-		// Select a different PHP version
 		await user.selectOptions( phpVersionDropdown, '8.2' );
 
-		// Verify that setPhpVersion was called with the selected PHP version
 		expect( mockSetPhpVersion ).toHaveBeenCalled();
 	} );
 
 	it( 'should not display version dropdowns when feature flag is disabled', () => {
-		// Disable the feature flag
 		( useFeatureFlags as jest.Mock ).mockReturnValue( {
 			wpVersionsEnabled: false,
 		} );
 
 		render( <Onboarding /> );
 
-		// Verify WordPress and PHP version dropdowns are not visible
+		 Verify WordPress and PHP version dropdowns are not visible
 		expect( screen.queryByText( 'WordPress version' ) ).not.toBeInTheDocument();
 		expect( screen.queryByText( 'PHP version' ) ).not.toBeInTheDocument();
 	} );

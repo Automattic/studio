@@ -412,7 +412,7 @@ export const SiteForm = ( {
 																setPhpVersion( value as SupportedPHPVersion );
 															}
 														} }
-														__nextHasNoMarginBottom
+														__next40pxDefaultSize
 													/>
 												</div>
 												<div className="flex flex-col gap-1.5 leading-4">
@@ -434,7 +434,7 @@ export const SiteForm = ( {
 																setWpVersion( version );
 															}
 														} }
-														__nextHasNoMarginBottom
+														__next40pxDefaultSize
 													/>
 												</div>
 											</div>

@@ -2,7 +2,6 @@
 import { jest } from '@jest/globals';
 import { render, waitFor, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
-import { FormEvent } from 'react';
 import Onboarding from 'src/components/onboarding';
 import { useAddSite } from 'src/hooks/use-add-site';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
@@ -333,7 +332,6 @@ describe( 'Onboarding Component', () => {
 
 		render( <Onboarding /> );
 
-		 Verify WordPress and PHP version dropdowns are not visible
 		expect( screen.queryByText( 'WordPress version' ) ).not.toBeInTheDocument();
 		expect( screen.queryByText( 'PHP version' ) ).not.toBeInTheDocument();
 	} );

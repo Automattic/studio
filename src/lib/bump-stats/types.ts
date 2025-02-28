@@ -11,12 +11,6 @@ export const STATS_GROUP = {
 export const STATS_METRIC = {
 	SUCCESS: 'success',
 	FAILURE: 'failure',
-	// Export content types
-	DATABASE: 'database',
-	UPLOADS: 'uploads',
-	PLUGINS: 'plugins',
-	THEMES: 'themes',
-	MU_PLUGINS: 'mu-plugins',
 	// Export button types
 	FULL_SITE: 'full-site',
 	DATABASE_ONLY: 'database-only',

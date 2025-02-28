@@ -29,6 +29,11 @@ const extraEntries = [
 		path: './src/lib/wp-cli-process-child.ts',
 		exportName: 'WP_CLI_PROCESS_MODULE_PATH',
 	},
+	{
+		name: 'phpWorker',
+		path: './vendor/wp-now/src/php-worker.ts',
+		exportName: 'PHP_WORKER_MODULE_PATH',
+	},
 ];
 
 export default function mainConfig( _env: unknown, args: Record< string, unknown > ) {

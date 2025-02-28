@@ -105,7 +105,7 @@ export default function EditSiteDetails() {
 											value: version,
 										} ) ) }
 										onChange={ ( version ) => setSelectedPhpVersion( version ) }
-										__nextHasNoMarginBottom
+										__next40pxDefaultSize
 									/>
 								</label>
 
@@ -120,6 +120,7 @@ export default function EditSiteDetails() {
 											} ) ),
 										] }
 										onChange={ ( version ) => setSelectedWpVersion( version ) }
+										__next40pxDefaultSize
 									/>
 								</label>
 							</div>

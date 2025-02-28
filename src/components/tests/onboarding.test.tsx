@@ -116,7 +116,7 @@ describe( 'Onboarding Component', () => {
 	it( 'should use wpVersion from useAddSite hook', () => {
 		// Render the component
 		render( <Onboarding /> );
-		
+
 		// Verify that the useAddSite hook is called with the correct implementation
 		const mockUseAddSite = useAddSite as jest.Mock;
 		expect( mockUseAddSite ).toHaveBeenCalled();

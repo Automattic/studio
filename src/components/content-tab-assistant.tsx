@@ -224,7 +224,7 @@ const AuthenticatedView = memo(
 							{ showThinking ? (
 								<motion.div
 									key="thinking"
-									initial="initial"
+									initial={ isInitialRenderRef.current ? 'animate' : 'initial' }
 									animate="animate"
 									exit="exit"
 									variants={ thinkingAnimation }
@@ -237,7 +237,7 @@ const AuthenticatedView = memo(
 									key="content"
 									variants={ messageAnimation }
 									transition={ { duration: 0.3 } }
-									initial="initial"
+									initial={ isInitialRenderRef.current ? 'animate' : 'initial' }
 									animate="animate"
 								>
 									<MarkDownWithCode

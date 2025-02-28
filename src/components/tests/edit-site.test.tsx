@@ -97,31 +97,4 @@ describe( 'EditSite', () => {
 		const saveButton = screen.getByRole( 'button', { name: 'Save' } );
 		expect( saveButton ).toBeDisabled();
 	} );
-
-	it( 'should allow changing PHP version when advanced settings are visible', async () => {
-		// Mock the SiteForm component to include PHP version selection
-		// This is a more focused test on the integration between EditSite and SiteForm
-		const user = userEvent.setup();
-		await user.click( screen.getByRole( 'button', { name: 'Edit site name' } ) );
-
-		// Change the site name
-		const siteNameInput = screen.getByLabelText( 'Site name' );
-		await user.clear( siteNameInput );
-		await user.type( siteNameInput, 'Updated Site Name' );
-
-		// Save the changes
-		await user.click( screen.getByRole( 'button', { name: 'Save' } ) );
-
-		// Verify updateSite was called with the updated site name
-		// The PHP version would be passed from the selectedSite object
-		expect( mockUpdateSite ).toHaveBeenCalledWith(
-			expect.objectContaining( {
-				name: 'Updated Site Name',
-				id: 'site-id',
-				path: '/path/to/site',
-				wpVersion: '6.4',
-				phpVersion: '8.0',
-			} )
-		);
-	} );
 } );

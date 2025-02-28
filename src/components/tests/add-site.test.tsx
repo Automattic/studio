@@ -14,7 +14,6 @@ jest.mock( 'src/stores', () => {
 	return {
 		useAppDispatch: jest.fn().mockReturnValue( mockDispatch ),
 		useRootSelector: jest.fn().mockImplementation( ( selector ) => {
-			// For the WordPress versions selector, return mock versions
 			if (
 				typeof selector === 'object' &&
 				selector !== null &&
@@ -26,7 +25,6 @@ jest.mock( 'src/stores', () => {
 					{ name: '6.3', version: '6.3' },
 				];
 			}
-			// For other selectors, return a succeeded status
 			return { status: 'succeeded' };
 		} ),
 	};
@@ -61,6 +59,26 @@ jest.mock( 'src/hooks/use-site-details', () => ( {
 		data: [],
 	} ),
 } ) );
+
+beforeEach( () => {
+	jest.clearAllMocks();
+
+	// Set up default behavior for mockShowOpenFolderDialog
+	mockShowOpenFolderDialog.mockResolvedValue( {
+		path: 'test',
+		name: 'test',
+		isEmpty: true,
+		isWordPress: false,
+	} );
+
+	// Set up default behavior for mockGenerateProposedSitePath
+	mockGenerateProposedSitePath.mockResolvedValue( {
+		path: '/default_path/my-wordpress-website',
+		name: 'My WordPress Website',
+		isEmpty: true,
+		isWordPress: false,
+	} );
+} );
 
 describe( 'AddSite', () => {
 	beforeEach( () => {
@@ -266,22 +284,16 @@ describe( 'AddSite', () => {
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 
-		// Verify WordPress version dropdown is visible
 		expect( screen.getByText( 'WordPress version' ) ).toBeInTheDocument();
-		expect( screen.getByText( 'PHP version' ) ).toBeInTheDocument();
 
-		// Find all comboboxes and select the second one (WordPress version)
 		const comboboxes = screen.getAllByRole( 'combobox' );
 		expect( comboboxes.length ).toBeGreaterThanOrEqual( 2 );
 
-		// The second combobox should be the WordPress version dropdown
 		const wpVersionDropdown = comboboxes[ 1 ];
 		expect( wpVersionDropdown ).toBeInTheDocument();
 
-		// Select a different WordPress version
 		await user.selectOptions( wpVersionDropdown, '6.3' );
 
-		// Complete the form and submit
 		mockShowOpenFolderDialog.mockResolvedValue( {
 			path: 'test',
 			name: 'test',
@@ -291,7 +303,6 @@ describe( 'AddSite', () => {
 		await user.click( screen.getByTestId( 'select-path-button' ) );
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 
-		// Verify createSite was called with the selected WordPress version
 		await waitFor( () => {
 			expect( mockCreateSite ).toHaveBeenCalledWith(
 				'test',
@@ -316,18 +327,16 @@ describe( 'AddSite', () => {
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 
-		// Find all comboboxes - the first one should be PHP version
+		expect( screen.getByText( 'PHP version' ) ).toBeInTheDocument();
+
 		const comboboxes = screen.getAllByRole( 'combobox' );
 		expect( comboboxes.length ).toBeGreaterThanOrEqual( 2 );
 
-		// The first combobox should be the PHP version dropdown
 		const phpVersionDropdown = comboboxes[ 0 ];
 		expect( phpVersionDropdown ).toBeInTheDocument();
 
-		// Select a different PHP version
 		await user.selectOptions( phpVersionDropdown, '8.2' );
 
-		// Complete the form and submit
 		mockShowOpenFolderDialog.mockResolvedValue( {
 			path: 'test',
 			name: 'test',
@@ -337,8 +346,6 @@ describe( 'AddSite', () => {
 		await user.click( screen.getByTestId( 'select-path-button' ) );
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 
-		// Verify createSite was called with the default WordPress version
-		// The PHP version is handled internally by the useAddSite hook
 		await waitFor( () => {
 			expect( mockCreateSite ).toHaveBeenCalled();
 		} );

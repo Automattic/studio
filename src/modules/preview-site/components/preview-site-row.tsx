@@ -33,7 +33,7 @@ export function PreviewSiteRow( {
 }: PreviewSiteRowProps ) {
 	const { __ } = useI18n();
 	const { url, date, isDeleting } = snapshot;
-	const { countDown, expireDateString, isExpired } = useExpirationDate( date );
+	const { countDown, dateString, expireDateString, isExpired } = useExpirationDate( date );
 	const { fetchSnapshotUsage, removeSnapshot } = useSnapshots();
 	const { isDemoSiteUpdating, hasDemoSiteError } = useUpdateDemoSite();
 	const isPreviewSiteUpdating = isDemoSiteUpdating( snapshot.atomicSiteId );
@@ -117,22 +117,20 @@ export function PreviewSiteRow( {
 							{ snapshot.name || sprintf( __( '%s Preview' ), selectedSite.name ) }
 						</div>
 					</div>
-					<Tooltip text={ urlWithHTTPS } disabled={ isExpired } className="overflow-hidden">
-						<Button
-							variant="link"
-							disabled={ isExpired }
-							className={ cx(
-								'!text-a8c-gray-700 max-w-full',
-								isExpired ? 'pointer-events-none' : 'hover:!text-a8c-blueberry'
-							) }
-							onClick={ () => getIpcApi().openURL( urlWithHTTPS ) }
-						>
-							<span className={ cx( 'truncate', isExpired && 'line-through text-a8c-gray-700' ) }>
-								{ urlWithHTTPS }
-							</span>
-							{ ! isExpired && <ArrowIcon /> }
-						</Button>
-					</Tooltip>
+					<Button
+						variant="link"
+						disabled={ isExpired }
+						className={ cx(
+							'!text-a8c-gray-700 max-w-full',
+							isExpired ? 'pointer-events-none' : 'hover:!text-a8c-blueberry'
+						) }
+						onClick={ () => getIpcApi().openURL( urlWithHTTPS ) }
+					>
+						<span className={ cx( 'truncate', isExpired && 'line-through text-a8c-gray-700' ) }>
+							{ urlWithHTTPS }
+						</span>
+						{ ! isExpired && <ArrowIcon /> }
+					</Button>
 				</div>
 				<div className="flex ltr:ml-auto rtl:mr-auto">
 					<div className="w-[150px] text-a8c-gray-700 flex items-center pl-4">
@@ -142,7 +140,9 @@ export function PreviewSiteRow( {
 								{ __( 'Updating' ) }
 							</div>
 						) : (
-							getLastUpdateTimeText()
+							<Tooltip text={ dateString } disabled={ ! date }>
+								{ getLastUpdateTimeText() }
+							</Tooltip>
 						) }
 					</div>
 					<div className="flex items-center">

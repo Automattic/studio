@@ -4,6 +4,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import Button from 'src/components/button';
 import Modal from 'src/components/modal';
+import TextControlComponent from 'src/components/text-control';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { useRootSelector } from 'src/stores';
 import { wordpressVersionsSelectors } from 'src/stores/wordpress-versions-slice';
@@ -88,12 +89,10 @@ export default function EditSiteDetails() {
 						<div className="flex flex-col gap-6">
 							<label className="flex flex-col gap-1.5 leading-4">
 								<span className="font-semibold">{ __( 'Site name' ) }</span>
-								<input
-									type="text"
-									className="components-text-control__input"
+								<TextControlComponent
+									onChange={ setSiteName }
 									value={ siteName }
-									onChange={ ( e ) => setSiteName( e.target.value ) }
-								/>
+								></TextControlComponent>
 							</label>
 
 							<div className="flex flex-row gap-x-6">

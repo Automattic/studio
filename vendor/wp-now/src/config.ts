@@ -95,6 +95,8 @@ async function getAbsoluteURL() {
 }
 
 function getWpContentHomePath( projectPath: string, mode: string ) {
+	console.log( 'getWpContentHomePath', projectPath, mode );
+	return path.join( projectPath, 'wp-content' );
 	const basename = path.basename( projectPath );
 	const directoryHash = crypto.createHash( 'sha1' ).update( projectPath ).digest( 'hex' );
 	const projectDirectory =

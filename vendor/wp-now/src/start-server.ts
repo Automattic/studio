@@ -1,9 +1,9 @@
 import { performance } from 'perf_hooks';
-import { HTTPMethod } from '@php-wasm/universal';
+import { HTTPMethod, PHPRequest } from '@php-wasm/universal';
 import compression from 'compression';
 import express from 'express';
 import fs from 'fs-extra';
-import { EventLoopTester } from 'vendor/wp-now/src/event-loop-tester';
+// import { EventLoopTester } from 'vendor/wp-now/src/event-loop-tester';
 import { WPNowOptions } from './config';
 import { LoadBalancer } from './load-balancer';
 import { output } from './output';
@@ -41,26 +41,26 @@ export async function startServer( options: WPNowOptions = {} ): Promise< WPNowS
 		throw new Error( `The given path "${ options.projectPath }" does not exist.` );
 	}
 
-	const tester = new EventLoopTester( 1000, 'FakeWorker' );
-	tester.start();
+	// const tester = new EventLoopTester( 1000, 'FakeWorker' );
+	// tester.start();
 
 	const app = express();
-	app.use( compression( { filter: shouldCompress } ) );
-	app.use( ( req, res, next ) => {
-		if ( req.path.startsWith( '/wp-admin' ) && ! req.path.endsWith( '/' ) ) {
-			res.redirect( 301, req.path + '/' );
-		} else {
-			next();
-		}
-	} );
+	// app.use( compression( { filter: shouldCompress } ) );
+	// app.use( ( req, res, next ) => {
+	// 	if ( req.path.startsWith( '/wp-admin' ) && ! req.path.endsWith( '/' ) ) {
+	// 		res.redirect( 301, req.path + '/' );
+	// 	} else {
+	// 		next();
+	// 	}
+	// } );
 	const port = options.port ?? ( await portFinder.getOpenPort() );
 
 	// Create load balancer with worker pool
-	const loadBalancer = new LoadBalancer( options );
+	const loadBalancer = new LoadBalancer( options, 1 );
 	await loadBalancer.initialize();
 
 	// Handle requests using load balancer
-	app.use( '/', async ( req, res ) => {
+	app.get( '/', async ( req, res ) => {
 		console.log( 'GOT ' + req.url );
 		const sTime = performance.now();
 
@@ -79,7 +79,7 @@ export async function startServer( options: WPNowOptions = {} ): Promise< WPNowS
 				headers: requestHeaders,
 				method: req.method as HTTPMethod,
 				body: await requestBodyToBytes( req ),
-			};
+			} as PHPRequest;
 
 			// Add a timeout to prevent hanging requests
 			const timeoutMs = 30000; // 30 seconds
@@ -108,8 +108,7 @@ export async function startServer( options: WPNowOptions = {} ): Promise< WPNowS
 
 	// Log load balancer stats periodically
 	setInterval( () => {
-		console.log( 'Load Balancer Stats:' );
-		console.log( loadBalancer.getServerStats() );
+		console.log( 'Load Balancer Stats:', loadBalancer.getServerStats() );
 	}, 3000 );
 
 	const server = app.listen( port, () => {

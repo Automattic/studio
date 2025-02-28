@@ -1,5 +1,5 @@
 import { isMainThread, workerData } from 'worker_threads';
-import { PHPRunOptions } from '@php-wasm/universal';
+import { HTTPMethod, PHPRequest, PHPRunOptions } from '@php-wasm/universal';
 import { setupLogging } from 'src/logging';
 import { startServer, type WPNowServer } from 'vendor/wp-now/src';
 import { WPNowOptions } from 'vendor/wp-now/src/config';
@@ -56,9 +56,8 @@ async function runPhp( data: unknown ) {
 	if ( ! server ) {
 		throw new Error( 'Server not started' );
 	}
-	const { code } = data as { code: string };
-	// Use handleRequest directly for PHP operations
-	return await server.loadBalancer.handleRequest( { code } );
+	const request = data as PHPRequest;
+	return await server.loadBalancer.handleRequest( request );
 }
 
 function createHandler< T >( handler: ( data: unknown ) => Promise< T > ) {

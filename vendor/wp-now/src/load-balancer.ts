@@ -1,3 +1,4 @@
+import { HTTPMethod, PHPRequest, PHPRunOptions } from '@php-wasm/universal';
 import { WPNowOptions } from 'vendor/wp-now/src/config';
 import { PHPWorkerPool } from './php-worker-pool';
 
@@ -20,7 +21,7 @@ export class LoadBalancer {
 		console.log( 'LoadBalancer initialized with worker pool' );
 	}
 
-	async handleRequest( request: never ) {
+	async handleRequest( request: PHPRequest ) {
 		try {
 			return await this.workerPool.handleRequest( request );
 		} catch ( error ) {

@@ -23,6 +23,7 @@ export default class SiteServerProcess {
 	private currentProcessIndex = 0;
 
 	constructor( options: WPNowOptions ) {
+		options.documentRoot = options.projectPath; // @TODO huh?
 		this.options = options;
 		this.url = options.absoluteUrl ?? '';
 	}
@@ -34,7 +35,7 @@ export default class SiteServerProcess {
 	}
 
 	async start() {
-		const numInstances = this.options.numberOfPhpInstances || 6;
+		const numInstances = this.options.numberOfPhpInstances || 1;
 
 		for ( let i = 0; i < numInstances; i++ ) {
 			const processOptions = {

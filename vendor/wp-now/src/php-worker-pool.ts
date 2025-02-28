@@ -26,28 +26,28 @@ export class PHPWorkerPool {
 		private options: WPNowOptions,
 		private numWorkers: number
 	) {
-		console.log(`Creating PHP Worker Pool with ${numWorkers} workers`);
+		console.log( `Creating PHP Worker Pool with ${ numWorkers } workers` );
 	}
 
 	async initialize() {
-		console.log('Starting worker pool initialization...');
-		console.log('Worker script path:', PHP_WORKER_MODULE_PATH);
-		
+		console.log( 'Starting worker pool initialization...' );
+		console.log( 'Worker script path:', PHP_WORKER_MODULE_PATH );
+
 		for ( let i = 0; i < this.numWorkers; i++ ) {
-			console.log(`Initializing worker ${i}...`);
+			console.log( `Initializing worker ${ i }...` );
 			try {
 				const worker = new Worker( PHP_WORKER_MODULE_PATH, {
 					workerData: { options: this.options, workerId: i },
 				} );
 
 				worker.on( 'message', ( data ) => {
-					console.log(`Worker ${i} message:`, data);
+					console.log( `Worker ${ i } message:`, data );
 					if ( data.type === 'ready' ) {
-						console.log(`Worker ${data.workerId} signaled ready`);
+						console.log( `Worker ${ data.workerId } signaled ready` );
 						this.readyWorkers.add( data.workerId );
 						this.processQueue();
 					} else if ( data.type === 'error' ) {
-						console.error(`Worker ${i} initialization error:`, data.error);
+						console.error( `Worker ${ i } initialization error:`, data.error );
 					} else if ( data.requestId !== undefined ) {
 						const pending = this.pendingRequests.get( data.requestId );
 						if ( pending ) {
@@ -67,21 +67,21 @@ export class PHPWorkerPool {
 					console.error( `Worker ${ i } error:`, error );
 				} );
 
-				worker.on( 'exit', (code) => {
-					console.error(`Worker ${i} exited with code ${code}`);
-					if (code !== 0) {
-						console.error(`Worker ${i} crashed`);
+				worker.on( 'exit', ( code ) => {
+					console.error( `Worker ${ i } exited with code ${ code }` );
+					if ( code !== 0 ) {
+						console.error( `Worker ${ i } crashed` );
 					}
-				});
+				} );
 
 				this.workers[ i ] = worker;
-			} catch (error) {
-				console.error(`Failed to create worker ${i}:`, error);
+			} catch ( error ) {
+				console.error( `Failed to create worker ${ i }:`, error );
 				throw error;
 			}
 		}
 
-		console.log('Waiting for all workers to be ready...');
+		console.log( 'Waiting for all workers to be ready...' );
 		try {
 			// Wait for all workers to be ready with a timeout
 			const timeout = 30000; // 30 seconds timeout
@@ -90,26 +90,28 @@ export class PHPWorkerPool {
 					new Promise< void >( ( resolve, reject ) => {
 						const checkReady = () => {
 							if ( this.readyWorkers.has( index ) ) {
-								console.log(`Worker ${index} is ready`);
+								console.log( `Worker ${ index } is ready` );
 								resolve();
 							} else {
-								console.log(`Worker ${index} not ready yet, checking again in 100ms...`);
+								console.log( `Worker ${ index } not ready yet, checking again in 100ms...` );
 								setTimeout( checkReady, 100 );
 							}
 						};
 						checkReady();
 
 						// Add timeout
-						setTimeout(() => {
-							reject(new Error(`Worker ${index} initialization timed out after ${timeout}ms`));
-						}, timeout);
+						setTimeout( () => {
+							reject(
+								new Error( `Worker ${ index } initialization timed out after ${ timeout }ms` )
+							);
+						}, timeout );
 					} )
 			);
 
-			await Promise.all(workerPromises);
-			console.log('All workers initialized and ready');
-		} catch (error) {
-			console.error('Worker pool initialization failed:', error);
+			await Promise.all( workerPromises );
+			console.log( 'All workers initialized and ready' );
+		} catch ( error ) {
+			console.error( 'Worker pool initialization failed:', error );
 			// Clean up any workers that did start
 			await this.shutdown();
 			throw error;

@@ -1,55 +1,43 @@
-import { WPNowServer } from './start-server';
+import { WPNowOptions } from 'vendor/wp-now/src/config';
+import { PHPWorkerPool } from './php-worker-pool';
 
 export class LoadBalancer {
-	private servers: WPNowServer[];
-	private currentIndex: number;
+	private workerPool: PHPWorkerPool;
 	private requestCounts: Map< number, number >;
 
-	constructor( servers: WPNowServer[] ) {
-		this.servers = servers;
-		this.currentIndex = 0;
+	constructor( options: WPNowOptions, numWorkers = 6 ) {
+		this.workerPool = new PHPWorkerPool( options, numWorkers );
 		this.requestCounts = new Map();
 
-		// Initialize request counts for each server
-		servers.forEach( ( _, index ) => {
-			this.requestCounts.set( index, 0 );
-		} );
-
-		console.log( `LoadBalancer initialized with ${ servers.length } PHP instances` );
+		// Initialize request counts
+		for ( let i = 0; i < numWorkers; i++ ) {
+			this.requestCounts.set( i, 0 );
+		}
 	}
 
-	getNextServer(): WPNowServer {
-		if ( ! this.servers.length ) {
-			throw new Error( 'No PHP servers available' );
+	async initialize() {
+		await this.workerPool.initialize();
+		console.log( 'LoadBalancer initialized with worker pool' );
+	}
+
+	async handleRequest( request: never ) {
+		try {
+			return await this.workerPool.handleRequest( request );
+		} catch ( error ) {
+			console.error( 'Request failed:', error );
+			throw error;
 		}
-
-		const server = this.servers[ this.currentIndex ];
-
-		// Update request count for this server
-		const currentCount = this.requestCounts.get( this.currentIndex ) || 0;
-		this.requestCounts.set( this.currentIndex, currentCount + 1 );
-
-		// Add more detailed logging
-		console.log(
-			`Using PHP instance ${ this.currentIndex } for request (total: ${ currentCount + 1 })`
-		);
-		console.log( `PHP instance details: ${ server.php.constructor.name }` );
-
-		// Move to next server in round-robin fashion
-		this.currentIndex = ( this.currentIndex + 1 ) % this.servers.length;
-
-		return server;
 	}
 
 	getServerStats(): string {
 		return Array.from( this.requestCounts.entries() )
-			.map( ( [ index, count ] ) => `Instance ${ index }: ${ count } requests` )
+			.map( ( [ index, count ] ) => `Worker ${ index }: ${ count } requests` )
 			.join( '\n' );
 	}
 
 	async stopAll(): Promise< void > {
-		console.log( 'Stopping all PHP instances' );
+		console.log( 'Stopping all PHP workers' );
 		console.log( this.getServerStats() );
-		await Promise.all( this.servers.map( ( server ) => server.stopServer() ) );
+		await this.workerPool.shutdown();
 	}
 }

@@ -1,69 +1,29 @@
-import fs from 'fs';
-import { HTTPMethod, PHP } from '@php-wasm/universal';
-import compressible from 'compressible';
+import { performance } from 'perf_hooks';
+import { HTTPMethod } from '@php-wasm/universal';
 import compression from 'compression';
 import express from 'express';
-import { addTrailingSlash } from './add-trailing-slash';
+import fs from 'fs-extra';
+import { EventLoopTester } from 'vendor/wp-now/src/event-loop-tester';
 import { WPNowOptions } from './config';
 import { LoadBalancer } from './load-balancer';
 import { output } from './output';
 import { portFinder } from './port-finder';
-import startWPNow from './wp-now';
 
-class EventLoopTester {
-	private readonly intervalMs: number;
-	private readonly label: string;
-	private isRunning: boolean;
-	private startTime: number;
-	private iterationCount: number;
-	constructor( intervalMs = 1000, label = 'EventLoopTester' ) {
-		this.intervalMs = intervalMs;
-		this.label = label;
-		this.isRunning = false;
-		this.startTime = null;
-		this.iterationCount = 0;
-	}
-
-	start() {
-		if ( this.isRunning ) {
-			console.warn( `${ this.label }: Already running` );
-			return;
-		}
-
-		this.isRunning = true;
-		this.startTime = Date.now();
-		this.iterationCount = 0;
-
-		const tick = () => {
-			if ( ! this.isRunning ) return;
-
-			this.iterationCount++;
-			const elapsedTime = Date.now() - this.startTime;
-			// console.log(
-			// 	`${ this.label }: Iteration ${ this.iterationCount } at ${ elapsedTime }ms ` +
-			// 		`(expected: ${ this.iterationCount * this.intervalMs }ms, ` +
-			// 		`drift: ${ elapsedTime - this.iterationCount * this.intervalMs }ms)`
-			// );
-
-			console.log( '🫥' + elapsedTime );
-
-			setTimeout( tick, this.intervalMs );
-		};
-
-		console.log( `${ this.label }: Starting event loop tester` );
-		setTimeout( tick, this.intervalMs );
-	}
-
-	stop() {
-		if ( ! this.isRunning ) {
-			console.warn( `${ this.label }: Not running` );
-			return;
-		}
-
-		this.isRunning = false;
-		console.log( `${ this.label }: Stopped after ${ this.iterationCount } iterations` );
-	}
+export interface WPNowServer {
+	url: string;
+	loadBalancer: LoadBalancer;
+	options: WPNowOptions;
+	stopServer: () => Promise< void >;
 }
+
+// @TODO Review this func again
+// Simple compression middleware
+const shouldCompress = ( req, res ) => {
+	if ( req.headers[ 'x-no-compression' ] ) {
+		return false;
+	}
+	return compression.filter( req, res );
+};
 
 const requestBodyToBytes = async ( req ): Promise< Uint8Array > =>
 	await new Promise( ( resolve ) => {
@@ -76,101 +36,32 @@ const requestBodyToBytes = async ( req ): Promise< Uint8Array > =>
 		} );
 	} );
 
-export interface WPNowServer {
-	url: string;
-	loadBalancer: LoadBalancer;
-	options: WPNowOptions;
-	php: PHP;
-	stopServer: () => Promise< void >;
-}
-
-function shouldCompress( _, res ) {
-	const types = res.getHeader( 'content-type' );
-	const type = Array.isArray( types ) ? types[ 0 ] : types;
-	return type && compressible( type );
-}
-
 export async function startServer( options: WPNowOptions = {} ): Promise< WPNowServer > {
 	if ( ! fs.existsSync( options.projectPath ) ) {
 		throw new Error( `The given path "${ options.projectPath }" does not exist.` );
 	}
 
-	const tester = new EventLoopTester( 100, 'FakeWorker' );
+	const tester = new EventLoopTester( 1000, 'FakeWorker' );
 	tester.start();
 
 	const app = express();
 	app.use( compression( { filter: shouldCompress } ) );
-	app.use( addTrailingSlash( '/wp-admin' ) );
+	app.use( ( req, res, next ) => {
+		if ( req.path.startsWith( '/wp-admin' ) && ! req.path.endsWith( '/' ) ) {
+			res.redirect( 301, req.path + '/' );
+		} else {
+			next();
+		}
+	} );
 	const port = options.port ?? ( await portFinder.getOpenPort() );
 
-	// @TODO: add back middleware to check if auto-login should be executed
-
-	// First create a primary PHP instance
-	const { php: primaryPhp, options: primaryOptions } = await startWPNow( options );
-	// @TODO: undo
-	// const numInstances = options.numberOfPhpInstances || 6;
-	const numInstances = 6;
-
-	const phpServers: WPNowServer[] = [
-		{
-			url: options.absoluteUrl,
-			php: primaryPhp,
-			options: primaryOptions,
-			loadBalancer: null!,
-			stopServer: async () => {
-				primaryPhp.exit();
-			},
-		},
-	];
-
-	console.log( 'Starting this many PHP instances:', numInstances );
-
-	// Create additional PHP instances if needed
-	for ( let i = 1; i < numInstances; i++ ) {
-		const { php, options: wpNowOptions } = await startWPNow( {
-			...options,
-			port: port + i,
-			// isPrimaryInstance: false
-		} );
-
-		const server: WPNowServer = {
-			url: options.absoluteUrl,
-			php,
-			options: wpNowOptions,
-			loadBalancer: null!,
-			stopServer: async () => {
-				php.exit();
-			},
-		};
-		phpServers.push( server );
-	}
-
-	const loadBalancer = new LoadBalancer( phpServers );
-	phpServers.forEach( ( server ) => {
-		server.loadBalancer = loadBalancer;
-	} );
+	// Create load balancer with worker pool
+	const loadBalancer = new LoadBalancer( options );
+	await loadBalancer.initialize();
 
 	// Handle requests using load balancer
-	app.use( '/', ( req, res ) => {
+	app.use( '/', async ( req, res ) => {
 		console.log( 'GOT ' + req.url );
-		// Process each request in its own async context without awaiting
-		processRequest( req, res, loadBalancer ).catch( ( e ) => {
-			output?.trace( e );
-			if ( ! res.headersSent ) {
-				res.status( 500 ).send( 'Internal Server Error' );
-			}
-		} );
-	} );
-
-	// Log load balancer stats periodically
-	setInterval( () => {
-		console.log( 'Load Balancer Stats:' );
-		console.log( loadBalancer.getServerStats() );
-	}, 3000 );
-
-	// Separate function to handle the request processing
-	async function processRequest( req, res, loadBalancer ) {
-		const server = loadBalancer.getNextServer();
 		const sTime = performance.now();
 
 		try {
@@ -190,7 +81,18 @@ export async function startServer( options: WPNowOptions = {} ): Promise< WPNowS
 				body: await requestBodyToBytes( req ),
 			};
 
-			const resp = await server.php.requestHandler.request( data );
+			// Add a timeout to prevent hanging requests
+			const timeoutMs = 30000; // 30 seconds
+			const timeoutPromise = new Promise( ( _, reject ) => {
+				setTimeout( () => reject( new Error( 'Request timed out' ) ), timeoutMs );
+			} );
+
+			// Race the actual request against the timeout
+			const resp = ( await Promise.race( [
+				loadBalancer.handleRequest( data ),
+				timeoutPromise,
+			] ) ) as any;
+
 			res.writeHead( resp.httpStatusCode, resp.headers );
 			res.end( resp.bytes );
 
@@ -202,7 +104,13 @@ export async function startServer( options: WPNowOptions = {} ): Promise< WPNowS
 				res.status( 500 ).send( 'Internal Server Error' );
 			}
 		}
-	}
+	} );
+
+	// Log load balancer stats periodically
+	setInterval( () => {
+		console.log( 'Load Balancer Stats:' );
+		console.log( loadBalancer.getServerStats() );
+	}, 3000 );
 
 	const server = app.listen( port, () => {
 		output?.log( `Server running at ${ options.absoluteUrl }` );
@@ -212,7 +120,6 @@ export async function startServer( options: WPNowOptions = {} ): Promise< WPNowS
 		url: options.absoluteUrl,
 		loadBalancer,
 		options,
-		php: phpServers[ 0 ].php,
 		stopServer: () =>
 			new Promise( ( res ) => {
 				server.close( async () => {

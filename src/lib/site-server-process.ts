@@ -1,4 +1,5 @@
-import { app, utilityProcess, UtilityProcess } from 'electron';
+import { fork, ChildProcess } from 'child_process';
+import { app } from 'electron';
 import { PHPRunOptions } from '@php-wasm/universal';
 import * as Sentry from '@sentry/electron/renderer';
 import { WPNowOptions } from 'vendor/wp-now/src/config';
@@ -15,7 +16,7 @@ const DEFAULT_RESPONSE_TIMEOUT = 120000;
 export default class SiteServerProcess {
 	lastMessageId = 0;
 	options: WPNowOptions;
-	processes: UtilityProcess[] = [];
+	processes: ChildProcess[] = [];
 	phpInstances: { documentRoot: string }[] = [];
 	url: string;
 	exitCode: number | null = null;
@@ -26,10 +27,10 @@ export default class SiteServerProcess {
 		this.url = options.absoluteUrl ?? '';
 	}
 
-	private getNextProcess(): UtilityProcess {
-		const process = this.processes[ this.currentProcessIndex ];
+	private getNextProcess(): ChildProcess {
+		// Simple round-robin process selection
 		this.currentProcessIndex = ( this.currentProcessIndex + 1 ) % this.processes.length;
-		return process;
+		return this.processes[ this.currentProcessIndex ];
 	}
 
 	async start() {
@@ -42,11 +43,10 @@ export default class SiteServerProcess {
 				projectPath: this.options.projectPath,
 			};
 
-			const forkedProcess = utilityProcess.fork(
+			const forkedProcess = fork(
 				SITE_SERVER_PROCESS_MODULE_PATH,
 				[ JSON.stringify( processOptions ) ],
 				{
-					serviceName: 'studio-site-server',
 					env: {
 						...process.env,
 						STUDIO_IN_CHILD_PROCESS: 'true',
@@ -56,9 +56,10 @@ export default class SiteServerProcess {
 					},
 				}
 			);
+
 			this.processes.push( forkedProcess );
 
-			const result = await this.sendMessage( forkedProcess, 'start-server', {} );
+			const result = await this.sendMessage( forkedProcess, 'start-server', {}, i );
 			if ( result && result.php ) {
 				this.phpInstances.push( result.php );
 			}
@@ -67,13 +68,13 @@ export default class SiteServerProcess {
 
 	async stop() {
 		await Promise.all(
-			this.processes.map( async ( process ) => {
+			this.processes.map( async ( process, index ) => {
 				const message = 'stop-server';
-				const messageId = await this.sendMessage( process, message, {} );
+				const messageId = await this.sendMessage( process, message, {}, index );
 				try {
-					await this.waitForResponse( message, messageId, 5_000 );
+					await this.waitForResponse( message, messageId, 5_000, index );
 				} finally {
-					await this.#killProcess();
+					await this.#killProcess( index );
 				}
 			} )
 		);
@@ -83,50 +84,50 @@ export default class SiteServerProcess {
 
 	async runPhp( data: PHPRunOptions ): Promise< string > {
 		const process = this.getNextProcess();
-		return await this.sendMessage( process, 'run-php', data );
+		const index = this.processes.indexOf( process );
+		return await this.sendMessage( process, 'run-php', data, index );
 	}
 
 	async sendMessage(
-		process: UtilityProcess,
+		process: ChildProcess,
 		message: MessageName,
-		data: unknown
+		data: unknown,
+		processIndex: number
 	): Promise< any > {
 		const messageId = ++this.lastMessageId;
-		process.postMessage( { message, messageId, data } );
-		return this.waitForResponse( message, messageId );
+		// Use Node.js IPC send method instead of postMessage
+		process.send( { message, messageId, data } );
+		return this.waitForResponse( message, messageId, DEFAULT_RESPONSE_TIMEOUT, processIndex );
 	}
 
 	async waitForResponse< T = undefined >(
 		originalMessage: MessageName,
 		originalMessageId: number,
-		timeout = DEFAULT_RESPONSE_TIMEOUT
+		timeout = DEFAULT_RESPONSE_TIMEOUT,
+		processIndex: number
 	): Promise< T > {
-		const process = this.getNextProcess();
+		const process = this.processes[ processIndex ];
 		if ( ! process ) {
 			throw Error( 'Server process is not running' );
 		}
 
 		return new Promise( ( resolve, reject ) => {
-			const handler = ( {
-				message,
-				messageId,
-				data,
-				error,
-			}: {
-				message: MessageName;
-				messageId: number;
-				data: T;
-				error?: Error;
-			} ) => {
-				if ( message !== originalMessage || messageId !== originalMessageId ) {
+			const handler = ( message: any ) => {
+				// Extract message data from Node.js IPC format
+				const { message: msgType, messageId, data, error } = message;
+
+				if ( msgType !== originalMessage || messageId !== originalMessageId ) {
 					return;
 				}
+
 				process.removeListener( 'message', handler );
 				clearTimeout( timeoutId );
+
 				if ( typeof error !== 'undefined' ) {
 					reject( error );
 					return;
 				}
+
 				resolve( data );
 			};
 
@@ -139,8 +140,8 @@ export default class SiteServerProcess {
 		} );
 	}
 
-	async #killProcess(): Promise< void > {
-		const process = this.getNextProcess();
+	async #killProcess( processIndex: number ): Promise< void > {
+		const process = this.processes[ processIndex ];
 		if ( ! process || this.exitCode !== null ) {
 			throw Error( 'Server process is not running. Exit code: ' + this.exitCode );
 		}
@@ -153,7 +154,9 @@ export default class SiteServerProcess {
 				}
 				resolve();
 			} );
-			process.kill();
+
+			// Use SIGTERM for clean shutdown
+			process.kill( 'SIGTERM' );
 		} ).catch( ( error ) => {
 			Sentry.captureException( error );
 		} );

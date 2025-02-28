@@ -1,23 +1,34 @@
+import { isMainThread, workerData } from 'worker_threads';
 import { PHPRunOptions } from '@php-wasm/universal';
 import { setupLogging } from 'src/logging';
 import { startServer, type WPNowServer } from 'vendor/wp-now/src';
 import { WPNowOptions } from 'vendor/wp-now/src/config';
-import type { MessageName } from 'src/lib/site-server-process';
 import { LoadBalancer } from 'vendor/wp-now/src/load-balancer';
+import type { MessageName } from 'src/lib/site-server-process';
 
-type Handler = ( message: string, messageId: number, data: unknown ) => void;
+type MessagePayload = {
+	message: MessageName;
+	messageId: number;
+	data: unknown;
+};
+
+type Handler = ( messagePayload: MessagePayload ) => Promise< void >;
 type Handlers = { [ K in MessageName ]: Handler };
 
 // Setup logging for the forked process
 if ( process.env.STUDIO_APP_LOGS_PATH ) {
 	setupLogging( {
-		processId: 'site-server-process',
+		processId: `site-server-process-${ process.pid }`,
 		isForkedProcess: true,
 		logDir: process.env.STUDIO_APP_LOGS_PATH,
 	} );
 }
 
-const options = JSON.parse( process.argv[ 2 ] ) as WPNowOptions;
+// Get options from either process args (main thread) or worker data (worker thread)
+const options = isMainThread
+	? ( JSON.parse( process.argv[ 2 ] ) as WPNowOptions )
+	: ( workerData.options as WPNowOptions );
+
 let server: WPNowServer;
 
 const handlers: Handlers = {
@@ -30,7 +41,7 @@ async function start() {
 	server = await startServer( options );
 	return {
 		php: {
-			documentRoot: server.loadBalancer.getNextServer().php.documentRoot,
+			documentRoot: options.projectPath, // Use project path directly since we don't need PHP instance details
 		},
 	};
 }
@@ -46,46 +57,76 @@ async function runPhp( data: unknown ) {
 		throw new Error( 'Server not started' );
 	}
 	const { code } = data as { code: string };
-	// Use the first PHP instance for CLI operations
-	const firstServer = server.loadBalancer.getNextServer();
-	return await firstServer.php.run( { code } );
+	// Use handleRequest directly for PHP operations
+	return await server.loadBalancer.handleRequest( { code } );
 }
 
-function createHandler< T >( handler: ( data: unknown ) => T ) {
-	return async ( message: string, messageId: number, data: unknown ) => {
+function createHandler< T >( handler: ( data: unknown ) => Promise< T > ) {
+	return async ( messagePayload: MessagePayload ) => {
 		try {
-			const response = await handler( data );
-			process.parentPort.postMessage( {
-				message,
-				messageId,
+			const response = await handler( messagePayload.data );
+			process.send!( {
+				message: messagePayload.message,
+				messageId: messagePayload.messageId,
 				data: response,
 			} );
 		} catch ( error ) {
 			const errorObj = error as Error;
-			if ( ! errorObj ) {
-				process.parentPort.postMessage( { message, messageId, error: Error( 'Unknown Error' ) } );
-				return;
-			}
-			process.parentPort.postMessage( {
-				message,
-				messageId,
-				error: errorObj,
+			process.send!( {
+				message: messagePayload.message,
+				messageId: messagePayload.messageId,
+				error: errorObj?.message || 'Unknown Error',
 			} );
 		}
 	};
 }
 
-process.parentPort.on( 'message', async ( { data: messagePayload } ) => {
-	const { message, messageId, data }: { message: MessageName; messageId: number; data: unknown } =
-		messagePayload;
-	const handler = handlers[ message ];
+process.on( 'message', async ( messagePayload: unknown ) => {
+	if ( ! messagePayload || typeof messagePayload !== 'object' ) {
+		console.error( 'Invalid message payload received:', messagePayload );
+		return;
+	}
+
+	const payload = messagePayload as MessagePayload;
+	if ( ! payload.message || ! payload.messageId ) {
+		console.error( 'Message payload missing required fields:', payload );
+		return;
+	}
+
+	const handler = handlers[ payload.message ];
 	if ( ! handler ) {
-		process.parentPort.postMessage( {
-			message,
-			messageId,
-			error: Error( `No handler defined for message '${ message }'` ),
+		process.send!( {
+			message: payload.message,
+			messageId: payload.messageId,
+			error: `No handler defined for message '${ payload.message }'`,
 		} );
 		return;
 	}
-	await handler( message, messageId, data );
+
+	await handler( payload );
+} );
+
+// Handle process termination signals
+process.on( 'SIGTERM', async () => {
+	console.log( `Process ${ process.pid } received SIGTERM, shutting down...` );
+	if ( server ) {
+		try {
+			await server.stopServer();
+		} catch ( error ) {
+			console.error( 'Error stopping server during shutdown:', error );
+		}
+	}
+	process.exit( 0 );
+} );
+
+process.on( 'SIGINT', async () => {
+	console.log( `Process ${ process.pid } received SIGINT, shutting down...` );
+	if ( server ) {
+		try {
+			await server.stopServer();
+		} catch ( error ) {
+			console.error( 'Error stopping server during shutdown:', error );
+		}
+	}
+	process.exit( 0 );
 } );

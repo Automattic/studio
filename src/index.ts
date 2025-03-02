@@ -24,6 +24,7 @@ import {
 } from 'src/lib/cli';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { onOpenUrlCallback } from 'src/lib/oauth';
+import { startProxyServer, stopProxyServer } from 'src/lib/proxy-server';
 import { getSentryReleaseInfo } from 'src/lib/sentry-release';
 import { setupLogging } from 'src/logging';
 import { createMainWindow, getMainWindow } from 'src/main-window';
@@ -197,6 +198,20 @@ async function appBoot() {
 		console.log( `System locale: ${ app.getSystemLocale() }` );
 		console.log( `Used language: ${ locale }` );
 
+		// Start the proxy server for custom domains
+		try {
+			const proxyStarted = await startProxyServer();
+			if ( proxyStarted ) {
+				console.log( 'Custom domain proxy server started successfully' );
+			} else {
+				console.warn(
+					'Failed to start custom domain proxy server - custom domains will require port numbers'
+				);
+			}
+		} catch ( error ) {
+			console.error( 'Error starting proxy server:', error );
+		}
+
 		// By default Electron automatically approves all permissions requests (e.g. notifications, webcam)
 		// We'll opt-in to permissions we specifically need instead.
 		session.defaultSession.setPermissionRequestHandler( ( webContents, permission, callback ) => {
@@ -305,7 +320,7 @@ async function appBoot() {
 		const clickedButtonIndex = dialog.showMessageBoxSync( {
 			message: __( 'Sync in progress' ),
 			detail: __(
-				'There’s a sync operation in progress. Quitting the app will abort that operation. Are you sure you want to quit?'
+				"There's a sync operation in progress. Quitting the app will abort that operation. Are you sure you want to quit?"
 			),
 			buttons: [ __( 'Yes, quit the app' ), __( 'No, take me back' ) ],
 			cancelId: CANCEL_BUTTON_INDEX,
@@ -320,6 +335,7 @@ async function appBoot() {
 
 	app.on( 'quit', () => {
 		stopAllServersOnQuit();
+		stopProxyServer().catch( ( error ) => console.error( 'Error stopping proxy server:', error ) );
 	} );
 
 	app.on( 'activate', () => {

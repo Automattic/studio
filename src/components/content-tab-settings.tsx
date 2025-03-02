@@ -32,6 +32,10 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 	const storedPassword = decodePassword( selectedSite.adminPassword ?? '' );
 	const password = storedPassword === '' ? 'password' : storedPassword;
 	const [ wpVersion, refreshWpVersion ] = useGetWpVersion( selectedSite );
+	const domain =
+		selectedSite.useCustomDomain && selectedSite.customDomain
+			? `${ selectedSite.customDomain }`
+			: `localhost:${ selectedSite.port }`;
 	return (
 		<div className="p-8">
 			<table className="mb-2 m-w-full" cellPadding={ 0 } cellSpacing={ 0 }>
@@ -53,13 +57,15 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 						</div>
 					</SettingsRow>
 					<SettingsRow label={ __( 'Local URL' ) }>
-						<CopyTextButton
-							text={ `http://localhost:${ selectedSite.port }` }
-							label={ `localhost:${ selectedSite.port }, ${ __( 'Copy site url to clipboard' ) }` }
-							copyConfirmation={ __( 'Copied!' ) }
-						>
-							{ `localhost:${ selectedSite.port }` }
-						</CopyTextButton>
+						<div className="flex">
+							<CopyTextButton
+								text={ `http://${ domain }` }
+								label={ `${ domain }, ${ __( 'Copy site url to clipboard' ) }` }
+								copyConfirmation={ __( 'Copied!' ) }
+							>
+								{ domain }
+							</CopyTextButton>
+						</div>
 					</SettingsRow>
 					<SettingsRow label={ __( 'Local path' ) }>
 						<div className="flex">
@@ -105,13 +111,11 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 					</SettingsRow>
 					<SettingsRow label={ __( 'Admin URL' ) }>
 						<CopyTextButton
-							text={ `http://localhost:${ selectedSite.port }/wp-admin` }
-							label={ `localhost:${ selectedSite.port }/wp-admin, ${ __(
-								'Copy wp-admin url to clipboard'
-							) }` }
+							text={ `http://${ domain }/wp-admin` }
+							label={ `${ domain }/wp-admin, ${ __( 'Copy wp-admin url to clipboard' ) }` }
 							copyConfirmation={ __( 'Copied!' ) }
 						>
-							{ `localhost:${ selectedSite.port }/wp-admin` }
+							{ `${ domain }/wp-admin` }
 						</CopyTextButton>
 					</SettingsRow>
 				</tbody>

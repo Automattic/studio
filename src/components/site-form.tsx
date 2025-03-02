@@ -58,6 +58,11 @@ interface SiteFormBaseProps {
 	setFileForImport?: ( file: File | null ) => void;
 	onFileSelected?: ( file: File ) => void;
 	fileError?: string;
+	useCustomDomain?: boolean;
+	setUseCustomDomain?: ( use: boolean ) => void;
+	customDomain?: string;
+	setCustomDomain?: ( domain: string ) => void;
+	customDomainError?: string;
 }
 
 // TODO: Add all this props to the SiteForm component once we have the versions selects in edit site page.
@@ -80,6 +85,20 @@ interface SiteFormWithoutVersionsProps extends SiteFormBaseProps {
 }
 
 type SiteFormProps = SiteFormWithVersionsProps | SiteFormWithoutVersionsProps;
+
+/**
+ * Generates a suitable domain name from site name
+ */
+const generateDomainFromSiteName = ( siteName: string ): string => {
+	// Convert the site name to lowercase and replace spaces with hyphens
+	const domainBase = siteName
+		.toLowerCase()
+		.replace( /[^a-z0-9-]/g, '-' ) // Replace non-alphanumeric chars with hyphens
+		.replace( /-+/g, '-' ) // Replace multiple hyphens with single hyphen
+		.replace( /^-|-$/g, '' ); // Remove hyphens from start and end
+
+	return `${ domainBase }.wp.local`;
+};
 
 const SiteFormError = ( { error, tipMessage = '', className = '' }: SiteFormErrorProps ) => {
 	return (
@@ -263,6 +282,11 @@ export const SiteForm = ( {
 	onFileSelected,
 	fileError,
 	allowVersionsChange = false,
+	useCustomDomain,
+	setUseCustomDomain,
+	customDomain,
+	setCustomDomain,
+	customDomainError,
 }: SiteFormProps ) => {
 	const { __, isRTL } = useI18n();
 	const getDocsLink = useDocsLink();
@@ -302,6 +326,47 @@ export const SiteForm = ( {
 					<span className="font-semibold">{ __( 'Site name' ) }</span>
 					<TextControlComponent onChange={ setSiteName } value={ siteName }></TextControlComponent>
 				</label>
+				{ setUseCustomDomain && setCustomDomain && (
+					<div className="flex items-center gap-2 mb-6">
+						<input
+							type="checkbox"
+							id="use-custom-domain"
+							checked={ useCustomDomain }
+							onChange={ ( e ) => {
+								setUseCustomDomain( e.target.checked );
+								setCustomDomain( generateDomainFromSiteName( siteName ) );
+							} }
+						/>
+						<label htmlFor="use-custom-domain">{ __( 'Use custom domain' ) }</label>
+					</div>
+				) }
+
+				{ useCustomDomain && setCustomDomain && (
+					<div className="flex flex-col gap-2 mb-6">
+						<label htmlFor="custom-domain" className="font-semibold">
+							{ __( 'Domain name' ) }
+						</label>
+						<TextControlComponent
+							id="custom-domain"
+							value={ customDomain ?? '' }
+							onChange={ setCustomDomain }
+							placeholder="my-site.wp.local"
+						/>
+						{ customDomainError && (
+							<div className="text-red-500 text-xs">{ customDomainError }</div>
+						) }
+						<div className="text-a8c-gray-50 text-xs">
+							{ __(
+								'You will be prompted for administrator permission to modify your system hosts file.'
+							) }
+						</div>
+						<div className="text-a8c-gray-50 text-xs mt-1">
+							{ __(
+								'Note: You will need administrator privileges to enable direct domain access.'
+							) }
+						</div>
+					</div>
+				) }
 				{ setFileForImport && (
 					<>
 						<div className="flex flex-col gap-1.5 leading-4 mb-6">

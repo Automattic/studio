@@ -49,6 +49,12 @@ export default function AddSite( { className }: AddSiteProps ) {
 		fileForImport,
 		setFileForImport,
 		sites,
+		useCustomDomain,
+		setUseCustomDomain,
+		customDomain,
+		setCustomDomain,
+		customDomainError,
+		setCustomDomainError,
 	} = useAddSite();
 	const { importState } = useImportExport();
 
@@ -101,6 +107,9 @@ export default function AddSite( { className }: AddSiteProps ) {
 			setWpVersion( DEFAULT_WORDPRESS_VERSION );
 			setPhpVersion( DEFAULT_PHP_VERSION as SupportedPHPVersion );
 		}
+		setUseCustomDomain( false );
+		setCustomDomain( '' );
+		setCustomDomainError( '' );
 	}, [
 		setSitePath,
 		setDoesPathContainWordPress,
@@ -108,6 +117,9 @@ export default function AddSite( { className }: AddSiteProps ) {
 		setPhpVersion,
 		setWpVersion,
 		wpVersionsEnabled,
+		setUseCustomDomain,
+		setCustomDomain,
+		setCustomDomainError,
 	] );
 
 	const handleSubmit = useCallback(
@@ -187,6 +199,11 @@ export default function AddSite( { className }: AddSiteProps ) {
 							onFileSelected={ handleImportFile }
 							fileError={ fileError }
 							allowVersionsChange
+							useCustomDomain={ useCustomDomain }
+							setUseCustomDomain={ setUseCustomDomain }
+							customDomain={ customDomain }
+							setCustomDomain={ setCustomDomain }
+							customDomainError={ customDomainError }
 						>
 							<div className="flex flex-row justify-end gap-x-5 mt-6">
 								<Button onClick={ closeModal } variant="tertiary">

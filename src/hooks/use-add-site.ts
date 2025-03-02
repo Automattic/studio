@@ -23,6 +23,9 @@ export function useAddSite() {
 		DEFAULT_PHP_VERSION as SupportedPHPVersion
 	);
 	const [ wpVersion, setWpVersion ] = useState( DEFAULT_WORDPRESS_VERSION );
+	const [ useCustomDomain, setUseCustomDomain ] = useState( false );
+	const [ customDomain, setCustomDomain ] = useState( '' );
+	const [ customDomainError, setCustomDomainError ] = useState( '' );
 
 	const siteWithPathAlreadyExists = useCallback(
 		( path: string ) => {
@@ -64,11 +67,27 @@ export function useAddSite() {
 
 	const handleAddSiteClick = useCallback( async () => {
 		try {
+			// Validate custom domain if enabled
+			if ( useCustomDomain ) {
+				if ( ! customDomain.trim() ) {
+					setCustomDomainError( __( 'Custom domain cannot be empty' ) );
+					return;
+				}
+
+				const domainPattern = /^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9](?:\.[a-zA-Z]{2,})+$/;
+				if ( ! domainPattern.test( customDomain ) ) {
+					setCustomDomainError( __( 'Please enter a valid domain name' ) );
+					return;
+				}
+			}
+
 			const path = sitePath ? sitePath : proposedSitePath;
 			await createSite(
 				path,
 				siteName ?? '',
 				wpVersionsEnabled ? wpVersion : DEFAULT_WORDPRESS_VERSION,
+				useCustomDomain,
+				customDomain,
 				async ( newSite ) => {
 					if ( newSite ) {
 						let updatedSite = { ...newSite };
@@ -125,6 +144,8 @@ export function useAddSite() {
 		wpVersion,
 		phpVersion,
 		wpVersionsEnabled,
+		customDomain,
+		useCustomDomain,
 	] );
 
 	const handleSiteNameChange = useCallback(
@@ -194,6 +215,12 @@ export function useAddSite() {
 			setPhpVersion,
 			wpVersion,
 			setWpVersion,
+			useCustomDomain,
+			setUseCustomDomain,
+			customDomain,
+			setCustomDomain,
+			customDomainError,
+			setCustomDomainError,
 		};
 	}, [
 		__,
@@ -211,5 +238,11 @@ export function useAddSite() {
 		fileForImport,
 		phpVersion,
 		wpVersion,
+		useCustomDomain,
+		setUseCustomDomain,
+		customDomain,
+		setCustomDomain,
+		customDomainError,
+		setCustomDomainError,
 	] );
 }

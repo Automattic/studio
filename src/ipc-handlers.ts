@@ -17,7 +17,7 @@ import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { __, LocaleData, defaultI18n } from '@wordpress/i18n';
 import archiver from 'archiver';
-import { MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
+import { ARCHIVER_OPTIONS, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
 import { calculateDirectorySize } from 'src/lib/calculate-directory-size';
@@ -42,6 +42,7 @@ import { portFinder } from 'src/lib/port-finder';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { sortSites } from 'src/lib/sort-sites';
 import { installSqliteIntegration, keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
+import { updateSiteUrlToLocal } from 'src/lib/updateSiteUrlToLocal';
 import * as windowsHelpers from 'src/lib/windows-helpers';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
@@ -189,6 +190,8 @@ export async function createSite(
 
 		if ( ! ( await pathExists( nodePath.join( path, 'wp-config.php' ) ) ) ) {
 			await installSqliteIntegration( path );
+		} else {
+			await updateSiteUrlToLocal( details.id );
 		}
 	}
 
@@ -535,9 +538,7 @@ function archiveWordPressDirectory( {
 } ) {
 	return new Promise( ( resolve, reject ) => {
 		const output = fs.createWriteStream( archivePath );
-		const archive = archiver( format, {
-			zlib: { level: 9 }, // Sets the compression level.
-		} );
+		const archive = archiver( format, ARCHIVER_OPTIONS[ format ] );
 
 		output.on( 'close', function () {
 			resolve( archive );
@@ -731,6 +732,7 @@ export async function getAppGlobals( _event: IpcMainInvokeEvent ): Promise< AppG
 		appName: app.name,
 		arm64Translation: app.runningUnderARM64Translation,
 		terminalWpCliEnabled: process.env.STUDIO_TERMINAL_WP_CLI === 'true',
+		wpVersionsEnabled: process.env.STUDIO_WP_VERSIONS === 'true',
 	};
 }
 

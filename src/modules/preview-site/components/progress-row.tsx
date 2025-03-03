@@ -1,19 +1,12 @@
 import { __ } from '@wordpress/i18n';
 import ProgressBar from 'src/components/progress-bar';
-import { useProgressTimer } from 'src/hooks/use-progress-timer';
 
 interface ProgressRowProps {
 	text: string;
+	progress: number;
 }
 
-export function ProgressRow( { text }: ProgressRowProps ) {
-	const { progress } = useProgressTimer( {
-		initialProgress: 20,
-		paused: false,
-		interval: 300,
-		maxValue: 95,
-	} );
-
+export function ProgressRow( { text, progress }: ProgressRowProps ) {
 	return (
 		<div className="self-stretch flex-col">
 			<div className="flex items-center px-8 py-6">

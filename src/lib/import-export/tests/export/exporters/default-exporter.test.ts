@@ -217,7 +217,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 		mockOptions.backupFile = '/path/to/backup.zip';
 		await exporter.export();
 
-		expect( archiver ).toHaveBeenCalledWith( 'zip', { gzip: false, gzipOptions: undefined } );
+		expect( archiver ).toHaveBeenCalledWith( 'zip', { zlib: { level: 9 } } );
 	} );
 
 	it( 'should add wp-config.php to the archive', async () => {

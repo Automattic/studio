@@ -16,12 +16,12 @@ afterEach( () => {
 } );
 
 function mockBumpStatRequest( group: string, stat: string ) {
-	return nock( 'https://pixel.wp.com' )
-		.get( '/b.gif' )
-		.query( {
-			v: 'wpcom-no-pv',
-			[ `x_${ group }` ]: stat,
+	return nock( 'https://public-api.wordpress.com' )
+		.post( '/wpcom/v2/studio-app/bump-stat', {
+			group,
+			stat,
 		} )
+		.matchHeader( 'Content-Type', 'application/json' )
 		.reply( 200 );
 }
 

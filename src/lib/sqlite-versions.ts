@@ -3,15 +3,21 @@ import * as Sentry from '@sentry/electron/main';
 import fs from 'fs-extra';
 import semver from 'semver';
 import { getServerFilesPath } from 'src/storage/paths';
-import { SQLITE_FILENAME } from 'vendor/wp-now/src/constants';
+import { SQLITE_FILENAME, SQLITE_FILENAME_LEGACY } from 'vendor/wp-now/src/constants';
 import { downloadSqliteIntegrationPlugin } from 'vendor/wp-now/src/download';
 import getSqlitePath from 'vendor/wp-now/src/get-sqlite-path';
 
 export async function isSqlLiteInstalled( installPath: string ) {
-	const installedFiles = ( await fs.pathExists( installPath ) )
-		? await fs.readdir( installPath )
-		: [];
-	return installedFiles.length !== 0;
+	// Check both standard and legacy (-main) paths
+	const paths = [ installPath, installPath.replace( SQLITE_FILENAME, SQLITE_FILENAME_LEGACY ) ];
+
+	for ( const path of paths ) {
+		const installedFiles = ( await fs.pathExists( path ) ) ? await fs.readdir( path ) : [];
+		if ( installedFiles.length !== 0 ) {
+			return true;
+		}
+	}
+	return false;
 }
 
 /**

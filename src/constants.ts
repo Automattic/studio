@@ -1,6 +1,6 @@
 export const DEFAULT_WIDTH = 900;
 export const MAIN_MIN_HEIGHT = 600;
-export const SIDEBAR_WIDTH = 268;
+export const SIDEBAR_WIDTH = 208;
 export const MAIN_MIN_WIDTH = DEFAULT_WIDTH - SIDEBAR_WIDTH + 20;
 export const SCREENSHOT_WIDTH = 1040;
 export const SCREENSHOT_HEIGHT = 1248;
@@ -27,6 +27,17 @@ export const LOCAL_STORAGE_CHAT_API_IDS_KEY = 'ai_chat_ids';
 //Import file constants
 
 export const ACCEPTED_IMPORT_FILE_TYPES = [ '.zip', '.gz', '.gzip', '.tar', '.tar.gz', '.wpress' ];
+
+// Archiver options
+export const ARCHIVER_OPTIONS = {
+	zip: {
+		zlib: { level: 9 },
+	},
+	tar: {
+		gzip: true,
+		gzipOptions: { level: 9 },
+	},
+};
 
 // OAuth constants
 export const CLIENT_ID = '95109';

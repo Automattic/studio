@@ -78,33 +78,35 @@ function NoAuthSyncTab() {
 					</Button>
 				</Tooltip>
 			</div>
-			<div className="mt-3 w-[40ch] text-a8c-gray-70 a8c-body">
+			<div className="mt-3 text-a8c-gray-70 a8c-body">
 				<Tooltip
 					disabled={ ! isOffline }
 					icon={ offlineIcon }
 					text={ offlineMessage }
 					placement="bottom-start"
 				>
-					{ __( 'New to WordPress.com?' ) }{ ' ' }
-					<Button
-						aria-description={ isOffline ? offlineMessage : '' }
-						aria-disabled={ isOffline }
-						className="!p-0 text-a8c-blueberry hover:opacity-80 h-auto inline-flex items-center"
-						onClick={ () => {
-							if ( isOffline ) {
-								return;
-							}
-							const baseURL = 'https://wordpress.com/log-in/link';
-							const authURL = encodeURIComponent(
-								`${ WP_AUTHORIZE_ENDPOINT }?response_type=token&client_id=${ CLIENT_ID }&redirect_uri=${ PROTOCOL_PREFIX }%3A%2F%2Fauth&scope=${ SCOPES }&from-calypso=1`
-							);
-							const finalURL = `${ baseURL }?redirect_to=${ authURL }&client_id=${ CLIENT_ID }`;
-							getIpcApi().openURL( finalURL );
-						} }
-					>
-						{ __( 'Create a free account' ) }
-						<ArrowIcon />
-					</Button>
+					<span>
+						{ __( 'New to WordPress.com?' ) }{ ' ' }
+						<Button
+							aria-description={ isOffline ? offlineMessage : '' }
+							aria-disabled={ isOffline }
+							className="!p-0 text-a8c-blueberry hover:opacity-80 h-auto inline-flex items-center"
+							onClick={ () => {
+								if ( isOffline ) {
+									return;
+								}
+								const baseURL = 'https://wordpress.com/log-in/link';
+								const authURL = encodeURIComponent(
+									`${ WP_AUTHORIZE_ENDPOINT }?response_type=token&client_id=${ CLIENT_ID }&redirect_uri=${ PROTOCOL_PREFIX }%3A%2F%2Fauth&scope=${ SCOPES }&from-calypso=1`
+								);
+								const finalURL = `${ baseURL }?redirect_to=${ authURL }&client_id=${ CLIENT_ID }`;
+								getIpcApi().openURL( finalURL );
+							} }
+						>
+							{ __( 'Create a free account' ) }
+							<ArrowIcon />
+						</Button>
+					</span>
 				</Tooltip>
 			</div>
 		</SiteSyncDescription>

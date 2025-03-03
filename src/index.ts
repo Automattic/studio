@@ -219,12 +219,14 @@ async function appBoot() {
 				"style-src 'self' 'unsafe-inline'", // unsafe-inline used by tailwindcss in development, and also in production after the app rename
 				"script-src 'self' 'wasm-unsafe-eval'", // allow WebAssembly to compile and instantiate
 			];
-			const prodPolicies = [ "connect-src 'self' https://public-api.wordpress.com" ];
+			const prodPolicies = [
+				"connect-src 'self' https://public-api.wordpress.com https://api.wordpress.org",
+			];
 			const devPolicies = [
 				// Webpack uses eval in development, react-devtools uses localhost
 				"script-src 'self' 'unsafe-eval' 'unsafe-inline' data: http://localhost:*",
 				// react-devtools uses localhost
-				"connect-src 'self' https://public-api.wordpress.com ws://localhost:*",
+				"connect-src 'self' https://public-api.wordpress.com https://api.wordpress.org ws://localhost:*",
 			];
 			const policies = [
 				...basePolicies,

@@ -34,7 +34,6 @@ interface StoppedSiteDetails {
 interface StartedSiteDetails extends StoppedSiteDetails {
 	running: true;
 
-	port: number;
 	url: string;
 }
 
@@ -84,6 +83,7 @@ interface AppGlobals {
 	appName: string;
 	arm64Translation: boolean;
 	terminalWpCliEnabled: boolean;
+	wpVersionsEnabled: boolean;
 }
 
 // Our IPC objects will be attached to the `window` global

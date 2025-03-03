@@ -77,6 +77,7 @@ export default async function startWPNow(
 		absoluteUrl: options.absoluteUrl,
 		rewriteRules: wordPressRewriteRules,
 		getFileNotFoundAction: getFileNotFoundActionForWordPress,
+		cookieStore: false,
 	} );
 
 	const php = await requestHandler.getPrimaryPhp();
@@ -566,18 +567,6 @@ set_error_handler(function($severity, $message, $file, $line) {
 	);
 
 	php.writeFile(
-		path.posix.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-dns-functions.php' ),
-		`<?php
-		// Polyfill for DNS features which are not currently supported by @php-wasm/node.
-		// See https://github.com/WordPress/wordpress-playground/issues/1042
-		// These specific features are polyfilled so the Jetpack plugin loads correctly, but others should be added as needed.
-		if ( ! defined( 'DNS_NS' ) ) {
-			define( 'DNS_NS', 2 );
-		}
-	`
-	);
-
-	php.writeFile(
 		path.posix.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-permalinks.php' ),
 		`<?php
 			// Support permalinks without "index.php"
@@ -621,6 +610,25 @@ set_error_handler(function($severity, $message, $file, $line) {
 		if (!defined('DB_HOST')) define('DB_HOST', 'localhost');
 		if (!defined('DB_CHARSET')) define('DB_CHARSET', 'utf8');
 		if (!defined('DB_COLLATE')) define('DB_COLLATE', '');
+		`
+	);
+
+	/**
+	 * dns_get_record() is not implemented in @php-wasm,
+	 * so we suppress the warning to avoid it being displayed to users.
+	 */
+	php.writeFile(
+		path.posix.join(
+			PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER,
+			'0-suppress-dns-get-record-warnings.php'
+		),
+		`<?php
+		set_error_handler(function($severity, $message, $file, $line) {
+			if ($severity === E_WARNING && strpos($message, "dns_get_record(): dns_get_record() always returns an empty array in PHP.wasm.") === 0) {
+				return true;
+			}
+			return false;
+		});
 		`
 	);
 }

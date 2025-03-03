@@ -1,6 +1,6 @@
 import { Spinner } from '@wordpress/components';
-import { __, sprintf } from '@wordpress/i18n';
-import { Icon, published } from '@wordpress/icons';
+import { sprintf } from '@wordpress/i18n';
+import { Icon, published, warning } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useEffect, useState, useRef } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
@@ -13,8 +13,8 @@ import { useSnapshots } from 'src/hooks/use-snapshots';
 import { useUpdateDemoSite } from 'src/hooks/use-update-demo-site';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { DeleteProgressRow } from 'src/modules/preview-site/components/delete-progress-row';
 import { PreviewActionButtonsMenu } from 'src/modules/preview-site/components/preview-action-buttons-menu';
-import { ProgressRow } from 'src/modules/preview-site/components/progress-row';
 
 interface PreviewSiteRowProps {
 	snapshot: Snapshot;
@@ -35,8 +35,9 @@ export function PreviewSiteRow( {
 	const { url, date, isDeleting } = snapshot;
 	const { countDown, expireDateString, isExpired } = useExpirationDate( date );
 	const { fetchSnapshotUsage, removeSnapshot } = useSnapshots();
-	const { isDemoSiteUpdating } = useUpdateDemoSite();
+	const { isDemoSiteUpdating, hasDemoSiteError } = useUpdateDemoSite();
 	const isPreviewSiteUpdating = isDemoSiteUpdating( snapshot.atomicSiteId );
+	const hasError = hasDemoSiteError( snapshot.atomicSiteId );
 	const { formatRelativeTime } = useFormatLocalizedTimestamps();
 	const [ showUpdatedMessage, setShowUpdatedMessage ] = useState( false );
 	const wasUpdating = useRef( false );
@@ -52,14 +53,17 @@ export function PreviewSiteRow( {
 			return;
 		}
 		wasUpdating.current = false;
-		setShowUpdatedMessage( true );
+
+		if ( ! hasError ) {
+			setShowUpdatedMessage( true );
+		}
 
 		const timeoutId = setTimeout( () => {
 			setShowUpdatedMessage( false );
 		}, UPDATED_MESSAGE_DURATION_MS );
 
 		return () => clearTimeout( timeoutId );
-	}, [ isPreviewSiteUpdating ] );
+	}, [ hasError, isPreviewSiteUpdating ] );
 
 	const getLastUpdateTimeText = () => {
 		if ( ! date ) {
@@ -75,6 +79,15 @@ export function PreviewSiteRow( {
 			);
 		}
 
+		if ( hasError ) {
+			return (
+				<div className="flex items-center">
+					<Icon icon={ warning } className="!mt-0 mr-1 fill-a8c-red-50" />
+					<span className="text-a8c-red-50">{ __( 'Failed' ) }</span>
+				</div>
+			);
+		}
+
 		const timeDistance = formatRelativeTime( new Date( date ).toISOString() );
 		return sprintf( __( '%s ago' ), timeDistance );
 	};
@@ -86,13 +99,13 @@ export function PreviewSiteRow( {
 	const urlWithHTTPS = `https://${ url }`;
 
 	if ( isDeleting ) {
-		return <ProgressRow text={ __( 'Deleting preview site' ) } />;
+		return <DeleteProgressRow />;
 	}
 
 	return (
 		<div className="self-stretch flex-col">
 			<div className="flex items-center px-8 py-6">
-				<div className="w-[51%]">
+				<div className="w-[51%] overflow-hidden pe-4">
 					<div className="flex items-center">
 						<div
 							className={ cx(
@@ -104,12 +117,12 @@ export function PreviewSiteRow( {
 							{ snapshot.name || sprintf( __( '%s Preview' ), selectedSite.name ) }
 						</div>
 					</div>
-					<Tooltip text={ urlWithHTTPS } disabled={ isExpired }>
+					<Tooltip text={ urlWithHTTPS } disabled={ isExpired } className="overflow-hidden">
 						<Button
 							variant="link"
 							disabled={ isExpired }
 							className={ cx(
-								'!text-a8c-gray-700 max-w-[250px]',
+								'!text-a8c-gray-700 max-w-full',
 								isExpired ? 'pointer-events-none' : 'hover:!text-a8c-blueberry'
 							) }
 							onClick={ () => getIpcApi().openURL( urlWithHTTPS ) }

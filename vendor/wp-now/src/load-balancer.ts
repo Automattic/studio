@@ -31,9 +31,12 @@ export class LoadBalancer {
 	}
 
 	getServerStats(): string {
-		return Array.from( this.requestCounts.entries() )
-			.map( ( [ index, count ] ) => `Worker ${ index }: ${ count } requests` )
-			.join( '\n' );
+		return (
+			'\n' +
+			Array.from( this.requestCounts.entries() )
+				.map( ( [ index, count ] ) => `Worker ${ index }: ${ count } requests` )
+				.join( '\n' )
+		);
 	}
 
 	async stopAll(): Promise< void > {

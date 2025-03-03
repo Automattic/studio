@@ -29,7 +29,7 @@ rules.push( {
 } );
 
 export const rendererConfig: Configuration = {
-	devtool: 'source-map',
+	devtool: process.env.NODE_ENV === 'development' ? 'eval-source-map' : 'source-map',
 	module: {
 		rules,
 	},

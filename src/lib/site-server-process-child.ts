@@ -5,6 +5,7 @@ import { startServer, type WPNowServer } from 'vendor/wp-now/src';
 import { WPNowOptions } from 'vendor/wp-now/src/config';
 import { LoadBalancer } from 'vendor/wp-now/src/load-balancer';
 import type { MessageName } from 'src/lib/site-server-process';
+import 'source-map-support/register';
 
 type MessagePayload = {
 	message: MessageName;
@@ -56,6 +57,7 @@ async function runPhp( data: unknown ) {
 	if ( ! server ) {
 		throw new Error( 'Server not started' );
 	}
+	console.log( 'site-server-process-child runPhp', data );
 	const request = data as PHPRequest;
 	return await server.loadBalancer.handleRequest( request );
 }
@@ -71,10 +73,14 @@ function createHandler< T >( handler: ( data: unknown ) => Promise< T > ) {
 			} );
 		} catch ( error ) {
 			const errorObj = error as Error;
+			console.error( 'Error in handler:', error );
+			if ( errorObj?.stack ) {
+				console.error( 'Stack trace:', errorObj.stack );
+			}
 			process.send!( {
 				message: messagePayload.message,
 				messageId: messagePayload.messageId,
-				error: errorObj?.message || 'Unknown Error',
+				error: errorObj?.stack || errorObj?.message || 'Unknown Error',
 			} );
 		}
 	};

@@ -56,11 +56,11 @@ export async function startServer( options: WPNowOptions = {} ): Promise< WPNowS
 	const port = options.port ?? ( await portFinder.getOpenPort() );
 
 	// Create load balancer with worker pool
-	const loadBalancer = new LoadBalancer( options, 1 );
+	const loadBalancer = new LoadBalancer( options, 2 );
 	await loadBalancer.initialize();
 
 	// Handle requests using load balancer
-	app.get( '/', async ( req, res ) => {
+	app.get( '*', async ( req, res ) => {
 		console.log( 'GOT ' + req.url );
 		const sTime = performance.now();
 

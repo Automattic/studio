@@ -66,14 +66,48 @@ export const addDomainToHosts = async ( domain: string, port: number ): Promise<
 		const hostsContent = await readHostsFile();
 
 		// Check if the domain is already in the hosts file
-		const domainRegex = new RegExp( `127\\.0\\.0\\.1\\s+${ domain.replace( /\./g, '\\.' ) }`, 'i' );
+		const domainRegex = new RegExp(
+			`^127\\.0\\.0\\.1\\s+${ domain.replace( /\./g, '\\.' ) }`,
+			'i'
+		);
 		if ( domainRegex.test( hostsContent ) ) {
 			return; // Domain already exists
 		}
 
-		// Add the domain entry with comment showing the port for reference
-		const newEntry = `\n# Added by WordPress Studio (Port: ${ port })\n127.0.0.1\t${ domain }`;
-		const newContent = hostsContent + newEntry;
+		// Define markers for WordPress Studio block
+		const beginMarker = '# BEGIN WordPress Studio';
+		const endMarker = '# END WordPress Studio';
+
+		// Create the domain entry with port reference
+		const domainEntry = `127.0.0.1\t${ domain } # Port: ${ port }`;
+
+		// Check if WordPress Studio block already exists
+		// Use non-greedy matching to avoid capturing multiple blocks at once
+		const blockRegex = new RegExp( `(${ beginMarker })[\\s\\S]*?(${ endMarker })` );
+		const blockMatch = hostsContent.match( blockRegex );
+
+		let newContent;
+
+		if ( blockMatch ) {
+			// Extract existing entries between markers
+			const existingBlock = blockMatch[ 0 ];
+			const entries = existingBlock
+				.split( '\n' )
+				.filter( ( line ) => line !== beginMarker && line !== endMarker && line.trim() !== '' );
+
+			// Add new entry to entries
+			entries.push( domainEntry );
+
+			// Create updated block with entries
+			const updatedBlock = `${ beginMarker }\n${ entries.join( '\n' ) }\n${ endMarker }`;
+
+			// Replace old block with updated block
+			newContent = hostsContent.replace( blockRegex, updatedBlock );
+		} else {
+			// Create new block with the domain entry
+			const newBlock = `\n\n${ beginMarker }\n${ domainEntry }\n${ endMarker }\n`;
+			newContent = hostsContent + newBlock;
+		}
 
 		await writeHostsFile( newContent );
 	} catch ( error ) {
@@ -89,17 +123,50 @@ export const removeDomainFromHosts = async ( domain: string ): Promise< void > =
 	try {
 		const hostsContent = await readHostsFile();
 
-		// Remove the domain entry and the comment line
-		// Match both formats of comments (with and without port)
-		const pattern = new RegExp(
-			`\\n# Added by WordPress Studio(?: \\(Port: \\d+\\))?\\n127\\.0\\.0\\.1\\s+${ domain.replace(
-				/\./g,
-				'\\.'
-			) }`,
+		// Check if the domain is already in the hosts file
+		const domainRegex = new RegExp(
+			`^127\\.0\\.0\\.1\\s+${ domain.replace( /\./g, '\\.' ) }`,
 			'i'
 		);
-		const newContent = hostsContent.replace( pattern, '' );
+		if ( ! domainRegex.test( hostsContent ) ) {
+			return; // Domain doesn't exist
+		}
 
+		// All WordPress Studio entries will be grouped in a block
+		const beginMarker = '# BEGIN WordPress Studio';
+		const endMarker = '# END WordPress Studio';
+
+		// Find the Studio block, if any. For performance, avoid greedy
+		// searches; there should only be a small block anyway.
+		const blockRegex = new RegExp( `(${ beginMarker })[\\s\\S]*?(${ endMarker })` );
+		const blockMatch = hostsContent.match( blockRegex );
+
+		let newContent = hostsContent;
+
+		if ( blockMatch ) {
+			// Split into lines to remove domain entry
+			const block = blockMatch[ 0 ];
+			const lines = block.split( '\n' );
+			const remainingLines = lines.filter(
+				( line ) =>
+					line === beginMarker ||
+					line === endMarker ||
+					( line.trim() !== '' && ! domainRegex.test( line ) )
+			);
+
+			if ( remainingLines.length <= 2 ) {
+				// Only markers left, remove entire block
+				newContent = newContent.replace( block, '' );
+				// Clean up extra newlines
+				newContent = newContent.replace( /\n\n\n+/g, '\n\n' );
+			} else {
+				// Create updated block with remaining entries
+				const updatedBlock = remainingLines.join( '\n' );
+				newContent = newContent.replace( block, updatedBlock );
+			}
+		}
+
+		// Only write if content changed
 		if ( newContent !== hostsContent ) {
 			await writeHostsFile( newContent );
 		}

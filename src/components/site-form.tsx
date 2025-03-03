@@ -60,8 +60,9 @@ interface SiteFormBaseProps {
 	fileError?: string;
 }
 
-// TODO: Remove this once we have the versions selects in edit site page.
+// TODO: Add all this props to the SiteForm component once we have the versions selects in edit site page.
 interface SiteFormWithVersionsProps extends SiteFormBaseProps {
+	// TODO: allowVersionsChange should be removed once we have the versions selects in edit site page.
 	allowVersionsChange: true;
 	phpVersion: SupportedPHPVersion;
 	setPhpVersion: ( version: SupportedPHPVersion ) => void;
@@ -69,6 +70,7 @@ interface SiteFormWithVersionsProps extends SiteFormBaseProps {
 	setWpVersion: ( version: string ) => void;
 }
 
+// TODO: Remove this once we have the versions selects in edit site page.
 interface SiteFormWithoutVersionsProps extends SiteFormBaseProps {
 	allowVersionsChange?: false;
 	phpVersion?: never;
@@ -408,11 +410,7 @@ export const SiteForm = ( {
 																value: version,
 															};
 														} ) }
-														onChange={ ( value ) => {
-															if ( setPhpVersion ) {
-																setPhpVersion( value as SupportedPHPVersion );
-															}
-														} }
+														onChange={ setPhpVersion as ( value: string ) => void }
 														__next40pxDefaultSize
 													/>
 												</div>
@@ -430,11 +428,7 @@ export const SiteForm = ( {
 																		},
 																  ]
 														}
-														onChange={ ( version ) => {
-															if ( setWpVersion ) {
-																setWpVersion( version );
-															}
-														} }
+														onChange={ setWpVersion }
 														__next40pxDefaultSize
 													/>
 												</div>

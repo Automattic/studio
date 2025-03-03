@@ -3,6 +3,7 @@ import fs from 'fs-extra';
 import { SQLITE_FILENAME } from 'vendor/wp-now/src/constants';
 import { installSqliteIntegration, keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
 import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
+import { SQLITE_DATABASE_INTEGRATION_VERSION } from '../sqlite-database-integration-release';
 
 jest.mock( 'fs-extra' );
 jest.mock( 'vendor/wp-now/src/download' );
@@ -55,7 +56,7 @@ platformTestSuite( 'keepSqliteIntegrationUpdated', ( { normalize } ) => {
 			// Mock SQLite integration version of server files
 			( fs as MockedFsExtra ).__setFileContents(
 				normalize( `server-files/${ SQLITE_FILENAME }/load.php` ),
-				' * Version: 2.1.13'
+				` * Version: ${ SQLITE_DATABASE_INTEGRATION_VERSION }`
 			);
 
 			// Mock SQLite integration version of mocked site
@@ -65,7 +66,7 @@ platformTestSuite( 'keepSqliteIntegrationUpdated', ( { normalize } ) => {
 			);
 			( fs as MockedFsExtra ).__setFileContents(
 				normalize( `${ MOCK_SITE_PATH }/wp-content/mu-plugins/${ SQLITE_FILENAME }/load.php` ),
-				' * Version: 2.1.13'
+				` * Version: ${ SQLITE_DATABASE_INTEGRATION_VERSION }`
 			);
 
 			await keepSqliteIntegrationUpdated( MOCK_SITE_PATH );

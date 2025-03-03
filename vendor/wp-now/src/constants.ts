@@ -24,11 +24,6 @@ export const SQLITE_FILENAME = 'sqlite-database-integration';
 export const SQLITE_FILENAME_LEGACY = 'sqlite-database-integration-main';
 
 /**
- * The URL for downloading the "SQLite database integration" WordPress Plugin.
- */
-export const SQLITE_URL = 'https://downloads.wordpress.org/plugin/sqlite-database-integration.zip';
-
-/**
  * The folder for the SQLite plugin.
  */
 export const SQLITE_PLUGIN_FOLDER = '/internal/shared/mu-plugins/sqlite-database-integration';

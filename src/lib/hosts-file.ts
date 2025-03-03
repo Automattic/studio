@@ -45,8 +45,6 @@ export const readHostsFile = async (): Promise< string > => {
  */
 export const writeHostsFile = async ( content: string ): Promise< void > => {
 	const hostsPath = getHostsFilePath();
-	const currentPlatform = platform();
-
 	try {
 		const tempPath = '/tmp/wp-studio-hosts';
 		await writeFile( tempPath, content );

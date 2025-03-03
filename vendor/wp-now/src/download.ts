@@ -5,7 +5,7 @@ import followRedirects, { FollowResponse } from 'follow-redirects';
 import fs from 'fs-extra';
 import { HttpProxyAgent, HttpsProxyAgent } from 'hpagent';
 import unzipper from 'unzipper';
-import { getLatestSQLiteDatabaseIntegrationRelease } from '../../../src/lib/sqlite-database-integration-release';
+import { SQLITE_DATABASE_INTEGRATION_RELEASE_URL } from '../../../src/lib/sqlite-database-integration-release';
 import { DEFAULT_WORDPRESS_VERSION, SQLITE_FILENAME, WP_CLI_URL } from './constants';
 import getSqlitePath from './get-sqlite-path';
 import getWordpressVersionsPath from './get-wordpress-versions-path';
@@ -193,7 +193,7 @@ export async function downloadSqliteIntegrationPlugin(
 	const finalFolder = getSqlitePath();
 	const tempFolder = path.join( os.tmpdir(), SQLITE_FILENAME );
 	const { downloaded, statusCode } = await downloadFileAndUnzip( {
-		url: await getLatestSQLiteDatabaseIntegrationRelease(),
+		url: SQLITE_DATABASE_INTEGRATION_RELEASE_URL,
 		destinationFolder: tempFolder,
 		checkFinalPath: finalFolder,
 		itemName: 'SQLite',

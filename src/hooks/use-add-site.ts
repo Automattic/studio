@@ -24,11 +24,6 @@ export function useAddSite() {
 	);
 	const [ wpVersion, setWpVersion ] = useState( DEFAULT_WORDPRESS_VERSION );
 
-	useEffect( () => {
-		setPhpVersion( DEFAULT_PHP_VERSION as SupportedPHPVersion );
-		setWpVersion( DEFAULT_WORDPRESS_VERSION );
-	}, [] );
-
 	const siteWithPathAlreadyExists = useCallback(
 		( path: string ) => {
 			return sites.some( ( site ) => site.path.toLowerCase() === path.toLowerCase() );

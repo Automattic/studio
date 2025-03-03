@@ -36,12 +36,12 @@ export async function startProxyServer(): Promise< boolean > {
 
 	try {
 		// First, try starting on a privileged port directly (might work if app has permissions)
-		const result = await startProxyDirectly();
+		const result = await startDomainProxy();
 		if ( result ) {
 			return true;
 		}
 
-		// If direct start fails, attempt with sudo/admin privileges
+		// If direct start fails and we're not skipping elevation, attempt with sudo/admin privileges
 		return await startProxyWithElevation();
 	} catch ( error ) {
 		console.error( 'Failed to start proxy server:', error );
@@ -51,8 +51,9 @@ export async function startProxyServer(): Promise< boolean > {
 
 /**
  * Attempts to start the proxy server directly (without privilege elevation)
+ * @param {number} port - The port to listen on (defaults to 80)
  */
-async function startProxyDirectly(): Promise< boolean > {
+async function startDomainProxy( port: number = 80 ): Promise< boolean > {
 	try {
 		// Create proxy with additional options to preserve host header
 		const proxy = httpProxy.createProxyServer();
@@ -98,20 +99,20 @@ async function startProxyDirectly(): Promise< boolean > {
 
 		await new Promise< void >( ( resolve, reject ) => {
 			proxyServer!
-				.listen( 80, () => {
-					console.log( 'Proxy server started on port 80' );
+				.listen( port, () => {
+					console.log( `Proxy server started on port ${ port }` );
 					isProxyRunning = true;
 					resolve();
 				} )
 				.on( 'error', ( err ) => {
-					console.error( 'Error starting proxy server on port 80:', err );
+					console.error( `Error starting proxy server on port ${ port }:`, err );
 					reject( err );
 				} );
 		} );
 
 		return true;
 	} catch ( error ) {
-		console.error( 'Failed to start proxy server directly:', error );
+		console.error( `Failed to start proxy server directly:`, error );
 		return false;
 	}
 }
@@ -122,23 +123,38 @@ async function startProxyDirectly(): Promise< boolean > {
 async function startProxyWithElevation(): Promise< boolean > {
 	const currentPlatform = platform();
 
-	// We need to create a separate script that can be run with elevated privileges
 	try {
 		console.log( 'Attempting to start proxy server with elevated privileges' );
 
-		// For now, this is a simplified implementation
-		// In a full solution, we would need a more sophisticated approach for each platform
-		const command =
-			currentPlatform === 'win32'
-				? 'netsh interface portproxy add v4tov4 listenport=80 listenaddress=127.0.0.1 connectport=8880 connectaddress=127.0.0.1'
-				: 'sudo -p "Enter password to start proxy server: " node -e "require(\'http\').createServer((req, res) => { res.end(\'hello\') }).listen(80)"';
+		if ( currentPlatform === 'win32' ) {
+			// For Windows: First start the actual proxy on a non-privileged port (8880)
+			const proxyStarted = await startDomainProxy( 8880 );
+			if ( ! proxyStarted ) {
+				console.error( 'Failed to start proxy server on port 8880' );
+				return false;
+			}
 
-		// @ts-expect-error promisify doesn't seem typed properly.
-		await sudoExec( command, { name: 'WordPress Studio Proxy' } );
+			// Then use netsh to forward from privileged port 80 to our proxy on 8880
+			const command =
+				'netsh interface portproxy add v4tov4 listenport=80 listenaddress=127.0.0.1 connectport=8880 connectaddress=127.0.0.1';
 
-		// If we get here, assume the proxy was started successfully
-		isProxyRunning = true;
-		return true;
+			try {
+				// @ts-expect-error promisify doesn't seem typed properly.
+				await sudoExec( command, { name: 'WordPress Studio Proxy' } );
+				console.log( 'Successfully set up port forwarding from port 80 to 8880' );
+				return true;
+			} catch ( error ) {
+				console.error( 'Failed to set up port forwarding:', error );
+				// Even though port forwarding failed, we still have a working proxy on 8880
+				return proxyStarted;
+			}
+		} else {
+			// For Mac/Linux: Use sudo to run a command that starts a proxy directly on port 80
+			// This is a more complex solution that would require a proper script
+			// For now, we'll just return false and let the app fall back to non-privileged ports
+			console.log( 'Elevated privileges for Mac/Linux not fully implemented yet' );
+			return false;
+		}
 	} catch ( error ) {
 		console.error( 'Failed to start proxy with elevated privileges:', error );
 		return false;

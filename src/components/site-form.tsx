@@ -338,6 +338,9 @@ export const SiteForm = ( {
 							} }
 						/>
 						<label htmlFor="use-custom-domain">{ __( 'Use custom domain' ) }</label>
+						<span className="text-a8c-gray-50 text-xs ml-2">
+							{ __( 'This will require your password to authorize changes to the hosts file.' ) }
+						</span>
 					</div>
 				) }
 

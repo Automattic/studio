@@ -30,7 +30,7 @@ if ( ! isMainThread ) {
 			type: 'error',
 			error: error instanceof Error ? `${ error.message }\n${ error.stack }` : 'Unknown error',
 		} as WorkerResponse );
-		// process.exit( 1 );
+		process.exit( 1 );
 	} );
 
 	process.on( 'unhandledRejection', ( reason ) => {
@@ -42,7 +42,7 @@ if ( ! isMainThread ) {
 			type: 'error',
 			error: reason instanceof Error ? `${ reason.message }\n${ reason.stack }` : 'Unknown error',
 		} as WorkerResponse );
-		// process.exit( 1 );
+		process.exit( 1 );
 	} );
 
 	// eslint-disable-next-line no-inner-declarations
@@ -110,7 +110,7 @@ if ( ! isMainThread ) {
 					type: 'error',
 					error: error instanceof Error ? error.message : 'Failed to initialize worker',
 				} as WorkerResponse );
-				// process.exit( 1 );
+				process.exit( 1 );
 			} );
 	}
 

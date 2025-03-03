@@ -21,8 +21,6 @@ export class PHPWorkerPool {
 			reject: ( error: any ) => void;
 		}
 	>();
-	private workerStats: Map< number, number > = new Map();
-	private lastUsedWorker = -1;
 
 	constructor(
 		private options: WPNowOptions,
@@ -35,7 +33,7 @@ export class PHPWorkerPool {
 		console.log( 'Starting worker pool initialization...' );
 		console.log( 'Worker script path:', PHP_WORKER_MODULE_PATH );
 
-		for ( let i = 0; i < this.numWorkers; i++ ) {
+		for ( let i = 1; i <= this.numWorkers; i++ ) {
 			console.log( `Initializing worker ${ i }...` );
 			try {
 				await this.initializeWorker( i );
@@ -92,7 +90,6 @@ export class PHPWorkerPool {
 			if ( data.type === 'ready' ) {
 				console.log( `Worker ${ workerId } signaled ready` );
 				this.readyWorkers.add( workerId );
-				this.workerStats.set( workerId, 0 );
 				this.processQueue();
 			} else if ( data.type === 'error' ) {
 				console.error( `Worker ${ workerId } initialization error:`, data.error );
@@ -108,9 +105,6 @@ export class PHPWorkerPool {
 					this.pendingRequests.delete( data.requestId );
 					this.readyWorkers.add( workerId );
 					console.log( 'worker free again', workerId, 'lastRequestId', data.requestId );
-					// Increment request count for this worker
-					const currentCount = this.workerStats.get( workerId ) || 0;
-					this.workerStats.set( workerId, currentCount + 1 );
 					this.processQueue();
 				}
 			}
@@ -140,98 +134,51 @@ export class PHPWorkerPool {
 		} );
 	}
 
-	private getNextWorker(): number | undefined {
-		if ( this.readyWorkers.size === 0 ) return undefined;
+	private getNextWorker(): number {
+		if ( this.areAllWorkersBusy() ) return 0;
+		return Array.from( this.readyWorkers )[ 0 ]; // return id of first available worker
+	}
 
-		const readyWorkerIds = Array.from( this.readyWorkers ).sort( ( a, b ) => a - b );
+	private isQueueEmpty(): boolean {
+		return this.requestQueue.length === 0;
+	}
 
-		// If lastUsedWorker is not in the ready set or is -1, start from the beginning
-		if ( ! this.readyWorkers.has( this.lastUsedWorker ) ) {
-			this.lastUsedWorker = readyWorkerIds[ 0 ];
-			return this.lastUsedWorker;
-		}
-
-		// Find the current worker's index
-		const currentIndex = readyWorkerIds.indexOf( this.lastUsedWorker );
-
-		// Move to next worker (wrap around to beginning if at end)
-		const nextIndex = ( currentIndex + 1 ) % readyWorkerIds.length;
-		this.lastUsedWorker = readyWorkerIds[ nextIndex ];
-
-		return this.lastUsedWorker;
+	private areAllWorkersBusy(): boolean {
+		return this.readyWorkers.size === 0;
 	}
 
 	private processQueue() {
-		console.log( 'Processing queue:', {
-			queueLength: this.requestQueue.length,
-			readyWorkersCount: this.readyWorkers.size,
-			readyWorkers: Array.from( this.readyWorkers ),
-			lastUsedWorker: this.lastUsedWorker,
-		} );
-		while ( this.requestQueue.length > 0 && this.readyWorkers.size > 0 ) {
-			const workerId = this.getNextWorker();
-			console.log( 'Next worker selected:', {
-				workerId,
-				isValid: workerId !== undefined && !! this.workers[ workerId ],
-			} );
-			if ( workerId === undefined || ! this.workers[ workerId ] ) {
-				console.log( 'No valid workers available' );
-				break;
-			}
+		if ( this.isQueueEmpty() || this.areAllWorkersBusy() ) return;
 
-			this.readyWorkers.delete( workerId );
-			const { resolve, reject, request } = this.requestQueue.shift()!;
-			const requestId = this.nextRequestId++;
+		const workerId = this.getNextWorker();
 
-			this.pendingRequests.set( requestId, { resolve, reject } );
+		this.readyWorkers.delete( workerId );
+		const { resolve, reject, request } = this.requestQueue.shift()!;
+		const requestId = this.nextRequestId++;
 
-			try {
-				console.log( 'assigning worker', 'workerId', workerId, 'requestId', requestId );
-				this.workers[ workerId ].postMessage( { requestId, request } );
-			} catch ( error ) {
-				console.error( `Error sending message to worker ${ workerId }:`, error );
-				this.handleWorkerError( workerId );
-				// Put the request back in the queue
-				this.requestQueue.unshift( { resolve, reject, request } );
-			}
+		this.pendingRequests.set( requestId, { resolve, reject } );
+
+		try {
+			console.log( 'assigning worker', 'workerId', workerId, 'requestId', requestId );
+			this.workers[ workerId ].postMessage( { requestId, request } );
+		} catch ( error ) {
+			console.error( `Error sending message to worker ${ workerId }:`, error );
+			this.handleWorkerError( workerId );
+			this.requestQueue.unshift( { resolve, reject, request } );
 		}
 	}
 
-	// async runPhp( data: PHPRunOptions ): Promise< any > {
-	// 	const workerId = this.getNextWorker();
-	// 	if ( workerId === undefined || ! this.workers[ workerId ] ) {
-	// 		console.log( 'No valid workers available' );
-	// 		break;
-	// 	}
-	// 	try {
-	// 		this.workers[ workerId ].postMessage( { requestId, request } );
-	// 	} catch ( error ) {
-	// 		console.error( `Error sending message to worker ${ workerId }:`, error );
-	// 		this.handleWorkerError( workerId );
-	// 		// Put the request back in the queue
-	// 		this.requestQueue.unshift( { resolve, reject, request } );
-	// 	}
-	// }
-
-	async handleRequest( request: any ): Promise< any > {
-		console.log( 'adding request to queue', request.url );
+	async handleRequest( request: PHPRequest ): Promise< PHPResponse > {
 		return new Promise( ( resolve, reject ) => {
 			this.requestQueue.push( { resolve, reject, request } );
 			this.processQueue();
 		} );
 	}
 
-	getWorkerStats(): string {
-		return Array.from( this.workerStats.entries() )
-			.map( ( [ workerId, count ] ) => `Worker ${ workerId }: ${ count } requests` )
-			.join( '\n' );
-	}
-
 	async shutdown() {
 		await Promise.all( this.workers.map( ( worker ) => worker.terminate() ) );
 		this.workers = [];
 		this.readyWorkers.clear();
-		this.workerStats.clear();
-		this.lastUsedWorker = -1;
+		this.pendingRequests.clear();
 	}
 }

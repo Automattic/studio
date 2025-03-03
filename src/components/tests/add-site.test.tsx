@@ -21,8 +21,8 @@ jest.mock( 'src/stores', () => {
 				selector.name === 'selectWordPressVersions'
 			) {
 				return [
-					{ name: '6.4', version: '6.4' },
-					{ name: '6.3', version: '6.3' },
+					{ isBeta: false, label: '6.4', value: '6.4.3' },
+					{ isBeta: false, label: '6.3', value: '6.3.3' },
 				];
 			}
 			return { status: 'succeeded' };
@@ -290,7 +290,7 @@ describe( 'AddSite', () => {
 		const wpVersionDropdown = comboboxes[ 1 ];
 		expect( wpVersionDropdown ).toBeInTheDocument();
 
-		await user.selectOptions( wpVersionDropdown, '6.3' );
+		await user.selectOptions( wpVersionDropdown, '6.3.3' );
 
 		mockShowOpenFolderDialog.mockResolvedValue( {
 			path: 'test',
@@ -305,7 +305,7 @@ describe( 'AddSite', () => {
 			expect( mockCreateSite ).toHaveBeenCalledWith(
 				'test',
 				'My WordPress Website',
-				'6.3',
+				'6.3.3',
 				expect.any( Function )
 			);
 		} );

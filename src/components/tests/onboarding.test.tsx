@@ -64,9 +64,12 @@ describe( 'Onboarding Component', () => {
 
 		( useRootSelector as jest.Mock ).mockImplementation( ( selector ) => {
 			if ( selector === wordpressVersionsSelectors.selectWordPressVersions ) {
-				return [];
+				return [
+					{ isBeta: false, label: '6.1', value: '6.1.7' },
+					{ isBeta: false, label: '6.2', value: '6.2.0' },
+				];
 			}
-			return { status: 'idle' };
+			return { status: 'succeeded' };
 		} );
 
 		( useOnboarding as jest.Mock ).mockReturnValue( {
@@ -187,8 +190,9 @@ describe( 'Onboarding Component', () => {
 		( useRootSelector as jest.Mock ).mockImplementation( ( selector ) => {
 			if ( selector === wordpressVersionsSelectors.selectWordPressVersions ) {
 				return [
-					{ name: '6.4', version: '6.4' },
-					{ name: '6.3', version: '6.3' },
+					{ isBeta: false, label: 'latest', value: 'latest' },
+					{ isBeta: false, label: '6.4', value: '6.4.3' },
+					{ isBeta: false, label: '6.3', value: '6.3.3' },
 				];
 			}
 			return { status: 'succeeded' };
@@ -217,8 +221,9 @@ describe( 'Onboarding Component', () => {
 		( useRootSelector as jest.Mock ).mockImplementation( ( selector ) => {
 			if ( selector === wordpressVersionsSelectors.selectWordPressVersions ) {
 				return [
-					{ name: '6.4', version: '6.4' },
-					{ name: '6.3', version: '6.3' },
+					{ isBeta: false, label: 'latest', value: 'latest' },
+					{ isBeta: false, label: '6.4', value: '6.4.3' },
+					{ isBeta: false, label: '6.3', value: '6.3.3' },
 				];
 			}
 			return { status: 'succeeded' };
@@ -226,7 +231,7 @@ describe( 'Onboarding Component', () => {
 
 		const mockSetWpVersion = jest.fn();
 		const mockHandleAddSiteClick = jest.fn().mockImplementation( () => {
-			mockCreateSite( '/path/to/my/site', 'My Site', '6.3' );
+			mockCreateSite( '/path/to/my/site', 'My Site', '6.3.3' );
 			return Promise.resolve();
 		} );
 
@@ -241,7 +246,7 @@ describe( 'Onboarding Component', () => {
 			siteName: 'My Site',
 			sitePath: '/path/to/my/site',
 			phpVersion: '8.0',
-			wpVersion: '6.3', // Changed from default
+			wpVersion: '6.3.3', // Changed from default
 			error: '',
 			doesPathContainWordPress: false,
 			handleAddSiteClick: mockHandleAddSiteClick,
@@ -259,7 +264,7 @@ describe( 'Onboarding Component', () => {
 
 		const wpVersionDropdown = comboboxes[ 1 ];
 
-		await user.selectOptions( wpVersionDropdown, '6.3' );
+		await user.selectOptions( wpVersionDropdown, '6.3.3' );
 
 		const addSiteButton = screen.getByText( 'Add site' );
 		await user.click( addSiteButton );
@@ -269,7 +274,7 @@ describe( 'Onboarding Component', () => {
 		} );
 
 		await waitFor( () => {
-			expect( mockCreateSite ).toHaveBeenCalledWith( '/path/to/my/site', 'My Site', '6.3' );
+			expect( mockCreateSite ).toHaveBeenCalledWith( '/path/to/my/site', 'My Site', '6.3.3' );
 		} );
 	} );
 
@@ -281,8 +286,9 @@ describe( 'Onboarding Component', () => {
 		( useRootSelector as jest.Mock ).mockImplementation( ( selector ) => {
 			if ( selector === wordpressVersionsSelectors.selectWordPressVersions ) {
 				return [
-					{ name: '6.4', version: '6.4' },
-					{ name: '6.3', version: '6.3' },
+					{ isBeta: false, label: 'latest', value: 'latest' },
+					{ isBeta: false, label: '6.4', value: '6.4.3' },
+					{ isBeta: false, label: '6.3', value: '6.3.3' },
 				];
 			}
 			return { status: 'succeeded' };

@@ -1,4 +1,4 @@
-1.3.4
+1.3.5
 =====
 * Improved stats tracking of app usage #988
 * Added failed state when preview sites update fails #977

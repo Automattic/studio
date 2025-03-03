@@ -60,6 +60,7 @@ interface SiteFormBaseProps {
 	fileError?: string;
 }
 
+// TODO: Remove this once we have the versions selects in edit site page.
 interface SiteFormWithVersionsProps extends SiteFormBaseProps {
 	allowVersionsChange: true;
 	phpVersion: SupportedPHPVersion;

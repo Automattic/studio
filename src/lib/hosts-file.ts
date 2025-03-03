@@ -48,23 +48,12 @@ export const writeHostsFile = async ( content: string ): Promise< void > => {
 	const currentPlatform = platform();
 
 	try {
-		// On Windows and macOS, we need to use sudo to write to the hosts file
-		if ( currentPlatform === 'win32' || currentPlatform === 'darwin' ) {
-			const tempPath = '/tmp/wp-studio-hosts';
-			await writeFile( tempPath, content );
-			// @ts-expect-error promisify doesn't seem typed properly.
-			await sudoExec( `cat ${ tempPath } > ${ hostsPath }`, {
-				name: 'WordPress Studio',
-			} );
-		} else {
-			// For Linux, we also need sudo
-			const tempPath = '/tmp/wp-studio-hosts';
-			await writeFile( tempPath, content );
-			// @ts-expect-error promisify doesn't seem typed properly.
-			await sudoExec( `cat ${ tempPath } > ${ hostsPath }`, {
-				name: 'WordPress Studio',
-			} );
-		}
+		const tempPath = '/tmp/wp-studio-hosts';
+		await writeFile( tempPath, content );
+		// @ts-expect-error promisify doesn't seem typed properly.
+		await sudoExec( `cat ${ tempPath } > ${ hostsPath }`, {
+			name: 'WordPress Studio',
+		} );
 	} catch ( error ) {
 		console.error( 'Error writing hosts file:', error );
 		throw error;

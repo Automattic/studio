@@ -129,7 +129,10 @@ export default function Onboarding() {
 				<GradientBox />
 			</div>
 
-			<div className="w-1/2 bg-white p-[50px] flex flex-col relative" ref={ dropRef }>
+			<div
+				className="w-1/2 bg-white p-[50px] flex flex-col relative overflow-y-auto"
+				ref={ dropRef }
+			>
 				{ isDraggingOver && <DragAndDropOverlay /> }
 				<div className="h-[569px] flex flex-col justify-center items-start flex-[1_0_0%] gap-8">
 					<div className="flex flex-col items-start self-stretch gap-6 app-no-drag-region">

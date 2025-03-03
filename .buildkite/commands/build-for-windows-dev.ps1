@@ -1,7 +1,7 @@
 # Stop script execution when a non-terminating error occurs
 $ErrorActionPreference = "Stop"
 
-& "prepare_windows_host_for_app_distribution.ps1"
+& "prepare_windows_host_for_app_distribution.ps1" # via CI toolkit plugin
 
 Write-Host "--- :node: Building App"
 node ./scripts/prepare-dev-build-version.mjs

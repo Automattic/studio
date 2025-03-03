@@ -420,7 +420,7 @@ export const SiteForm = ( {
 														value={ wpVersion }
 														options={
 															wpVersions.length > 0
-																? wpVersions.map( ( v ) => ( { label: v.name, value: v.version } ) )
+																? wpVersions
 																: [
 																		{
 																			label: DEFAULT_WORDPRESS_VERSION,

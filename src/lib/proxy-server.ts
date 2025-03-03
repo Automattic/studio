@@ -125,35 +125,36 @@ async function startProxyWithElevation(): Promise< boolean > {
 
 	try {
 		console.log( 'Attempting to start proxy server with elevated privileges' );
-
-		if ( currentPlatform === 'win32' ) {
-			// For Windows: First start the actual proxy on a non-privileged port (8880)
-			const proxyStarted = await startDomainProxy( 8880 );
-			if ( ! proxyStarted ) {
-				console.error( 'Failed to start proxy server on port 8880' );
-				return false;
-			}
-
-			// Then use netsh to forward from privileged port 80 to our proxy on 8880
-			const command =
-				'netsh interface portproxy add v4tov4 listenport=80 listenaddress=127.0.0.1 connectport=8880 connectaddress=127.0.0.1';
-
-			try {
-				// @ts-expect-error promisify doesn't seem typed properly.
-				await sudoExec( command, { name: 'WordPress Studio Proxy' } );
-				console.log( 'Successfully set up port forwarding from port 80 to 8880' );
-				return true;
-			} catch ( error ) {
-				console.error( 'Failed to set up port forwarding:', error );
-				// Even though port forwarding failed, we still have a working proxy on 8880
-				return proxyStarted;
-			}
-		} else {
-			// For Mac/Linux: Use sudo to run a command that starts a proxy directly on port 80
-			// This is a more complex solution that would require a proper script
-			// For now, we'll just return false and let the app fall back to non-privileged ports
-			console.log( 'Elevated privileges for Mac/Linux not fully implemented yet' );
+		// First start the actual proxy on a non-privileged port (8880)
+		const proxyStarted = await startDomainProxy( 8880 );
+		if ( ! proxyStarted ) {
+			console.error( 'Failed to start proxy server on port 8880' );
 			return false;
+		}
+
+		// Then use netsh or iptables to forward from privileged port 80 to our proxy on 8880
+		const elevatedProxyCommands: Record< string, string > = {
+			win32:
+				'netsh interface portproxy add v4tov4 listenport=80 listenaddress=127.0.0.1 connectport=8880 connectaddress=127.0.0.1',
+			darwin:
+				'echo "rdr pass inet proto tcp from any to any port 80 -> 127.0.0.1 port 8880" | sudo pfctl -ef -',
+			linux: 'iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to-port 8880',
+		};
+		const command = elevatedProxyCommands[ currentPlatform ];
+		if ( ! command ) {
+			console.error( 'Elevated privileges not supported on this platform' );
+			return false;
+		}
+
+		try {
+			// @ts-expect-error promisify doesn't seem typed properly.
+			await sudoExec( command, { name: 'WordPress Studio Proxy' } );
+			console.log( 'Successfully set up port forwarding from port 80 to 8880' );
+			return true;
+		} catch ( error ) {
+			console.error( 'Failed to set up port forwarding:', error );
+			// Even though port forwarding failed, we still have a working proxy on 8880
+			return proxyStarted;
 		}
 	} catch ( error ) {
 		console.error( 'Failed to start proxy with elevated privileges:', error );

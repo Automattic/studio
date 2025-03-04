@@ -9,6 +9,7 @@ import { WPNowOptions } from './config';
 import { output } from './output';
 import { PHPWorkerPool } from './php-worker-pool';
 import { portFinder } from './port-finder';
+import { addTrailingSlash } from 'vendor/wp-now/src/add-trailing-slash';
 
 export interface WPNowServer {
 	url: string;
@@ -45,6 +46,7 @@ export async function startServer( options: WPNowOptions = {} ): Promise< WPNowS
 
 	const app = express();
 	app.use( compression( { filter: shouldCompress } ) );
+	app.use( addTrailingSlash( '/wp-admin' ) );
 	const port = options.port ?? ( await portFinder.getOpenPort() );
 
 	// Create worker pool
@@ -52,7 +54,7 @@ export async function startServer( options: WPNowOptions = {} ): Promise< WPNowS
 	await workerPool.initialize();
 
 	// Handle requests using worker pool
-	app.all( '*', async ( req, res ) => {
+	app.use( '/', async ( req, res ) => {
 		console.log( 'GOT ' + req.url );
 		const sTime = performance.now();
 

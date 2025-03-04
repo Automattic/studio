@@ -43,7 +43,7 @@ export class PHPWorkerPool {
 		console.log( `Creating PHP Worker Pool with ${ this.numWorkers } workers` );
 		console.log( 'Worker script path:', PHP_WORKER_MODULE_PATH );
 
-		for ( let i = 1; i <= this.numWorkers; i++ ) {
+		for ( let i = 0; i < this.numWorkers; i++ ) {
 			console.log( `Initializing worker ${ i }...` );
 			try {
 				await this.initializeWorker( i );
@@ -129,13 +129,13 @@ export class PHPWorkerPool {
 		} );
 
 		worker.on( 'exit', ( code ) => {
+			console.log( `Worker ${ workerId } exited with code ${ code }` );
 			this.#readyWorkers.delete( workerId );
 
 			if ( code === 0 ) {
 				console.log( `Worker ${ workerId } decommissioned` );
 				this.#workers.splice( workerId, 1 );
-				console.log( this.#workers.length, Array.from( this.#workers.keys() ) );
-				console.log( `Worker ${ workerId } exited with code ${ code }` );
+				console.log( `Worker array: ${ Array.from( this.#workers ) }` );
 			} else {
 				console.error( `Worker ${ workerId } crashed` );
 				this.restartWorker( workerId );
@@ -153,7 +153,7 @@ export class PHPWorkerPool {
 	}
 
 	private getNextWorker(): number {
-		if ( this.areAllWorkersBusy() ) return 0;
+		if ( this.areAllWorkersBusy() ) return -1;
 		return Array.from( this.#readyWorkers )[ 0 ]; // return id of first available worker
 	}
 
@@ -197,12 +197,27 @@ export class PHPWorkerPool {
 		console.log( 'Shutting down worker pool...' );
 		this.#status = WorkerPoolStatus.SHUTTING_DOWN;
 
-		this.#workers.map( ( worker ) => {
-			worker.postMessage( { type: 'shutdown' } );
+		// Send shutdown message to all workers and collect their exit promises
+		const workerExitPromises = this.#workers.map( ( worker ) => {
+			return new Promise< void >( ( resolve ) => {
+				worker.once( 'exit', () => resolve() );
+				worker.postMessage( { type: 'shutdown' } );
+			} );
 		} );
 
-		// wait for 5sec before terminating workers
-		await new Promise( ( resolve ) => setTimeout( resolve, 5000 ) );
+		// Wait for all workers to exit gracefully or timeout after 5 seconds
+		try {
+			await Promise.race( [
+				Promise.all( workerExitPromises ),
+				new Promise( ( _, reject ) =>
+					setTimeout( () => reject( new Error( 'PHP worker shutdown timeout' ) ), 5000 )
+				),
+			] );
+		} catch ( error ) {
+			console.warn( 'Some workers did not exit gracefully:', error );
+		}
+
+		// Force terminate any remaining workers
 		console.log( 'workers still left', this.#workers.length );
 		await Promise.all( this.#workers.map( ( worker ) => worker.terminate() ) );
 

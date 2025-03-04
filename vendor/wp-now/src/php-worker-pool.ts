@@ -134,8 +134,12 @@ export class PHPWorkerPool {
 
 			if ( code === 0 ) {
 				console.log( `Worker ${ workerId } decommissioned` );
-				this.#workers.splice( workerId, 1 );
-				console.log( `Worker array: ${ Array.from( this.#workers ) }` );
+				delete this.#workers[workerId];
+				const remainingWorkers = this.#workers
+					.map((w, idx) => w ? `${idx}` : null)
+					.filter(id => id !== null);
+				const activeCount = remainingWorkers.length;
+				console.log( `Workers: active=${activeCount}, ids=[${remainingWorkers.join(',')}]` );
 			} else {
 				console.error( `Worker ${ workerId } crashed` );
 				this.restartWorker( workerId );
@@ -194,32 +198,41 @@ export class PHPWorkerPool {
 	}
 
 	async shutdown() {
+		if ( this.#status === WorkerPoolStatus.SHUTDOWN ) {
+			console.log( 'Worker pool already shutdown' );
+			return;
+		}
+
 		console.log( 'Shutting down worker pool...' );
 		this.#status = WorkerPoolStatus.SHUTTING_DOWN;
 
 		// Send shutdown message to all workers and collect their exit promises
-		const workerExitPromises = this.#workers.map( ( worker ) => {
-			return new Promise< void >( ( resolve ) => {
-				worker.once( 'exit', () => resolve() );
-				worker.postMessage( { type: 'shutdown' } );
-			} );
-		} );
+		const workerExitPromises = this.#workers
+			.map((worker, id) => worker ? { worker, id } : null)
+			.filter((entry): entry is { worker: Worker, id: number } => entry !== null)
+			.map(({ worker, id }) => {
+				return new Promise<void>((resolve) => {
+					worker.once('exit', () => resolve());
+					worker.postMessage({ type: 'shutdown' });
+				});
+			});
 
 		// Wait for all workers to exit gracefully or timeout after 5 seconds
 		try {
-			await Promise.race( [
-				Promise.all( workerExitPromises ),
-				new Promise( ( _, reject ) =>
-					setTimeout( () => reject( new Error( 'PHP worker shutdown timeout' ) ), 5000 )
+			await Promise.race([
+				Promise.all(workerExitPromises),
+				new Promise((_, reject) =>
+					setTimeout(() => reject(new Error('PHP worker shutdown timeout')), 5000)
 				),
-			] );
-		} catch ( error ) {
-			console.warn( 'Some workers did not exit gracefully:', error );
+			]);
+		} catch (error) {
+			console.warn('Some workers did not exit gracefully:', error);
 		}
 
 		// Force terminate any remaining workers
-		console.log( 'workers still left', this.#workers.length );
-		await Promise.all( this.#workers.map( ( worker ) => worker.terminate() ) );
+		const remainingWorkers = this.#workers.filter(worker => worker !== null);
+		console.log('workers still left', remainingWorkers.length);
+		await Promise.all(remainingWorkers.map((worker) => worker.terminate()));
 
 		// Clear all internal state
 		this.#workers = [];

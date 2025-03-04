@@ -77,6 +77,8 @@ const api: IpcApi = {
 		ipcRenderer.invoke( 'saveOnboarding', onboardingCompleted ),
 	openTerminalAtPath: ( targetPath: string, extraParams: { wpCliEnabled?: boolean } = {} ) =>
 		ipcRenderer.invoke( 'openTerminalAtPath', targetPath, extraParams ),
+	openItermAtPath: ( targetPath: string, extraParams: { wpCliEnabled?: boolean } = {} ) =>
+		ipcRenderer.invoke( 'openItermAtPath', targetPath, extraParams ),
 	showMessageBox: ( options: Electron.MessageBoxOptions ) =>
 		ipcRenderer.invoke( 'showMessageBox', options ),
 	showErrorMessageBox: ( options: { title: string; message: string; error?: unknown } ) =>

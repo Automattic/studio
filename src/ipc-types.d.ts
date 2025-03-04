@@ -54,6 +54,7 @@ interface Snapshot {
 type InstalledApps = {
 	vscode: boolean | null;
 	phpstorm: boolean | null;
+	iterm: boolean | null;
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

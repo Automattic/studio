@@ -177,6 +177,24 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 			},
 		} );
 	}
+	if ( installedApps.iterm ) {
+		buttonsArray.push( {
+			// translators: "iTerm" is the brand name for a terminal app and does not need to be translated
+			label: __( 'iTerm' ),
+			className: 'text-nowrap',
+			icon: preformatted,
+			onClick: async () => {
+				try {
+					await getIpcApi().openItermAtPath( selectedSite.path, {
+						wpCliEnabled: terminalWpCliEnabled,
+					} );
+				} catch ( error ) {
+					Sentry.captureException( error );
+					alert( __( 'Could not open iTerm.' ) );
+				}
+			},
+		} );
+	}
 	buttonsArray.push( {
 		label: __( 'Terminal' ),
 		className: 'text-nowrap',

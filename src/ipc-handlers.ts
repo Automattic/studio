@@ -102,6 +102,7 @@ export async function getInstalledApps( _event: IpcMainInvokeEvent ): Promise< I
 	return {
 		vscode: isInstalled( 'vscode' ),
 		phpstorm: isInstalled( 'phpstorm' ),
+		iterm: isInstalled( 'iterm' ),
 	};
 }
 
@@ -934,6 +935,40 @@ END` );
 		console.error( 'Unsupported platform:', platform );
 		return;
 	}
+}
+
+export function openItermAtPath(
+	_event: IpcMainInvokeEvent,
+	targetPath: string,
+	{ wpCliEnabled }: { wpCliEnabled?: boolean } = {}
+) {
+	const cliPath = nodePath.join( getResourcesPath(), 'bin' );
+
+	const exePath = app.getPath( 'exe' );
+	const appDirectory = app.getAppPath();
+	const appPath = ! app.isPackaged ? `${ exePath } ${ appDirectory }` : exePath;
+
+	const initScriptSteps = [];
+
+	if ( wpCliEnabled ) {
+		initScriptSteps.push(
+			`export PATH=\\"${ cliPath }\\":$PATH`,
+			`export STUDIO_APP_PATH=\\"${ appPath }\\"`
+		);
+	}
+
+	const escapedPath = targetPath.replace( /"/g, '\\"' );
+	initScriptSteps.push( `cd \\"${ escapedPath }\\"`, 'clear' );
+
+	return promiseExec( `osascript << END
+activate application "iTerm"
+tell application "iTerm"
+	 set newWindow to (create window with default profile)
+    tell current session of newWindow
+        write text "${ initScriptSteps.join( ';' ) }"
+    end tell
+end tell
+END` );
 }
 
 export async function showMessageBox(

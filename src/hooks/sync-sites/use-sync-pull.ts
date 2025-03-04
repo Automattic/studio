@@ -155,6 +155,8 @@ export function useSyncPull( {
 				const fileSize = await checkBackupFileSize( downloadUrl );
 
 				if ( fileSize > SYNC_PUSH_SIZE_LIMIT_BYTES ) {
+					const CANCEL_ID = 1;
+
 					const { response: userChoice } = await getIpcApi().showMessageBox( {
 						type: 'warning',
 						message: __( "Large site's backup" ),
@@ -166,11 +168,10 @@ export function useSyncPull( {
 						),
 						buttons: [ __( 'Continue' ), __( 'Cancel' ) ],
 						defaultId: 0,
-						cancelId: 1,
+						cancelId: CANCEL_ID,
 					} );
 
-					const isCanceledByUser = userChoice === 1;
-					if ( isCanceledByUser ) {
+					if ( userChoice === CANCEL_ID ) {
 						updatePullState( selectedSite.id, remoteSiteId, {
 							status: pullStatesProgressInfo.cancelled,
 						} );

@@ -133,13 +133,13 @@ export class PHPWorkerPool {
 			this.#readyWorkers.delete( workerId );
 
 			if ( code === 0 ) {
-				console.log( `Worker ${ workerId } decommissioned` );
-				delete this.#workers[workerId];
+				console.log( `Worker ${ workerId } exited` );
+				delete this.#workers[ workerId ];
 				const remainingWorkers = this.#workers
-					.map((w, idx) => w ? `${idx}` : null)
-					.filter(id => id !== null);
+					.map( ( w, idx ) => ( w ? `${ idx }` : null ) )
+					.filter( ( id ) => id !== null );
 				const activeCount = remainingWorkers.length;
-				console.log( `Workers: active=${activeCount}, ids=[${remainingWorkers.join(',')}]` );
+				console.log( `Workers: active=${ activeCount }, ids=[${ remainingWorkers.join( ',' ) }]` );
 			} else {
 				console.error( `Worker ${ workerId } crashed` );
 				this.restartWorker( workerId );
@@ -170,7 +170,14 @@ export class PHPWorkerPool {
 	}
 
 	private processQueue() {
-		if ( this.isQueueEmpty() || this.areAllWorkersBusy() ) return;
+		if ( this.isQueueEmpty() ) {
+			return;
+		}
+
+		if ( this.areAllWorkersBusy() ) {
+			console.log( 'Waiting on a worker to be available' );
+			return;
+		}
 
 		const workerId = this.getNextWorker();
 		this.#readyWorkers.delete( workerId );
@@ -208,31 +215,33 @@ export class PHPWorkerPool {
 
 		// Send shutdown message to all workers and collect their exit promises
 		const workerExitPromises = this.#workers
-			.map((worker, id) => worker ? { worker, id } : null)
-			.filter((entry): entry is { worker: Worker, id: number } => entry !== null)
-			.map(({ worker, id }) => {
-				return new Promise<void>((resolve) => {
-					worker.once('exit', () => resolve());
-					worker.postMessage({ type: 'shutdown' });
-				});
-			});
+			.map( ( worker, id ) => ( worker ? { worker, id } : null ) )
+			.filter( ( entry ): entry is { worker: Worker; id: number } => entry !== null )
+			.map( ( { worker } ) => {
+				return new Promise< void >( ( resolve ) => {
+					worker.once( 'exit', () => resolve() );
+					worker.postMessage( { type: 'shutdown' } );
+				} );
+			} );
 
 		// Wait for all workers to exit gracefully or timeout after 5 seconds
 		try {
-			await Promise.race([
-				Promise.all(workerExitPromises),
-				new Promise((_, reject) =>
-					setTimeout(() => reject(new Error('PHP worker shutdown timeout')), 5000)
+			await Promise.race( [
+				Promise.all( workerExitPromises ),
+				new Promise( ( _, reject ) =>
+					setTimeout( () => reject( new Error( 'PHP worker shutdown timeout' ) ), 5000 )
 				),
-			]);
-		} catch (error) {
-			console.warn('Some workers did not exit gracefully:', error);
+			] );
+		} catch ( error ) {
+			console.warn( 'Some workers did not exit gracefully:', error );
 		}
 
 		// Force terminate any remaining workers
-		const remainingWorkers = this.#workers.filter(worker => worker !== null);
-		console.log('workers still left', remainingWorkers.length);
-		await Promise.all(remainingWorkers.map((worker) => worker.terminate()));
+		const remainingWorkers = this.#workers.filter( ( worker ) => worker !== null );
+		if ( remainingWorkers.length > 0 ) {
+			console.log( 'workers still left', remainingWorkers.length );
+			await Promise.all( remainingWorkers.map( ( worker ) => worker.terminate() ) );
+		}
 
 		// Clear all internal state
 		this.#workers = [];
@@ -241,5 +250,6 @@ export class PHPWorkerPool {
 		this.#requestQueue = [];
 
 		this.#status = WorkerPoolStatus.SHUTDOWN;
+		console.log( 'Worker pool shutdown completed' );
 	}
 }

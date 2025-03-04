@@ -11,7 +11,7 @@ const __dirname = path.dirname( fileURLToPath( import.meta.url ) );
 const latestTag = getLatestTag();
 const commitCount = getCommitCount( latestTag );
 
-if ( ! commitCount ) {
+if ( ! commitCount && commitCount !== 0 ) {
 	// Are you trying to dev on the build scripts outside of CI?
 	// You will need to define the GITHUB_SHA or BUILDKITE_COMMIT environment
 	// variable before running build scripts. e.g.

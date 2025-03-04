@@ -4,12 +4,11 @@ import compressible from 'compressible';
 import compression from 'compression';
 import express from 'express';
 import fs from 'fs-extra';
-// import { EventLoopTester } from 'vendor/wp-now/src/event-loop-tester';
+import { addTrailingSlash } from 'vendor/wp-now/src/add-trailing-slash';
 import { WPNowOptions } from './config';
 import { output } from './output';
 import { PHPWorkerPool } from './php-worker-pool';
 import { portFinder } from './port-finder';
-import { addTrailingSlash } from 'vendor/wp-now/src/add-trailing-slash';
 
 export interface WPNowServer {
 	url: string;

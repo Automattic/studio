@@ -45,6 +45,11 @@ if ( ! isMainThread ) {
 		process.exit( 1 );
 	} );
 
+	process.on( 'SIGTERM', () => {
+		console.log( `Worker ${ workerId }: Received termination signal, exiting...` );
+		process.exit( 0 );
+	} );
+
 	// eslint-disable-next-line no-inner-declarations
 	function initializeWorker() {
 		console.log( `Worker ${ workerId }: Starting initialization...` );

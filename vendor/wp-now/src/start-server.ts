@@ -106,11 +106,6 @@ export async function startServer( options: WPNowOptions = {} ): Promise< WPNowS
 		}
 	} );
 
-	// Log load balancer stats periodically
-	setInterval( () => {
-		console.log( 'Load Balancer Stats:', loadBalancer.getServerStats() );
-	}, 3000 );
-
 	const server = app.listen( port, () => {
 		output?.log( `Server running at ${ options.absoluteUrl }` );
 	} );

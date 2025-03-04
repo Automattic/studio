@@ -359,19 +359,11 @@ export const SiteForm = ( {
 								</div>
 								<div
 									className={ cx(
-										'transition-height duration-500 ease-in-out overflow-hidden',
-										isAdvancedSettingsVisible
-											? 'max-h-96 opacity-100 mb-6'
-											: 'max-h-0 opacity-0 mb-0'
+										'transition-all duration-500 ease-in-out overflow-hidden',
+										isAdvancedSettingsVisible ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
 									) }
 								>
-									<div
-										className={ cx(
-											'flex flex-col gap-1.5 leading-4',
-											isAdvancedSettingsVisible ? 'py-2' : 'p-2',
-											! isAdvancedSettingsVisible && 'hidden'
-										) }
-									>
+									<div className={ cx( 'flex flex-col gap-1.5 leading-4 p-2' ) }>
 										<label onClick={ onSelectPath } className="font-semibold">
 											{ __( 'Local path' ) }
 										</label>

@@ -55,22 +55,10 @@ import {
 export default async function startWPNow(
 	options: Partial< WPNowOptions > = {}
 ): Promise< { php: PHP; options: WPNowOptions } > {
-	if ( ! options.projectPath ) {
-		throw new Error( 'projectPath is required' );
-	}
-
-	console.log( 'startWPNow: Initializing with options:', {
-		...options,
-		adminPassword: '[REDACTED]',
-	} );
-	const documentRoot = options.projectPath;
-	console.log( 'startWPNow: Creating PHP request handler...' );
 	const requestHandler = new PHPRequestHandler( {
 		phpFactory: async ( { isPrimary, requestHandler: reqHandler } ) => {
-			console.log( 'startWPNow: Creating PHP instance (isPrimary:', isPrimary, ')' );
 			const { php } = await getPHPInstance( options, isPrimary, reqHandler );
 			if ( ! isPrimary ) {
-				console.log( 'startWPNow: Setting up filesystem proxy for secondary instance' );
 				proxyFileSystem( await requestHandler.getPrimaryPhp(), php, [
 					'/tmp',
 					requestHandler.documentRoot,
@@ -85,19 +73,15 @@ export default async function startWPNow(
 			return php;
 		},
 		maxPhpInstances: 6,
-		documentRoot: documentRoot || '/wordpress',
+		documentRoot: options.documentRoot || '/wordpress',
 		absoluteUrl: options.absoluteUrl,
 		rewriteRules: wordPressRewriteRules,
 		getFileNotFoundAction: getFileNotFoundActionForWordPress,
 	} );
 
-	console.log( 'startWPNow: Getting primary PHP instance...' );
 	const php = await requestHandler.getPrimaryPhp();
-	console.log( 'startWPNow: Got primary PHP instance' );
 
-	console.log( 'startWPNow: Applying umask workaround...' );
 	applyOverrideUmaskWorkaround( php );
-	console.log( 'startWPNow: Preparing document root...' );
 	await prepareDocumentRoot( php, options );
 
 	output?.log( `directory: ${ options.projectPath }` );
@@ -105,34 +89,25 @@ export default async function startWPNow(
 	output?.log( `php: ${ options.phpVersion }` );
 
 	if ( options.mode === WPNowMode.INDEX ) {
-		console.log( 'startWPNow: Running in INDEX mode' );
 		await runIndexMode( php, options );
 		return { php, options };
 	}
-
-	console.log( 'startWPNow: Running in WordPress mode' );
 	output?.log( `wp: ${ options.wordPressVersion }` );
-	console.log( 'startWPNow: Downloading WordPress and SQLite integration...' );
 	await Promise.all( [
 		downloadWordPress( options.wordPressVersion ),
 		downloadSqliteIntegrationPlugin(),
 	] );
 
 	if ( options.reset ) {
-		console.log( 'startWPNow: Resetting wp-content directory...' );
 		fs.removeSync( options.wpContentPath );
 		output?.log( 'Created a fresh SQLite database and wp-content directory.' );
 	}
 
 	const isFirstTimeProject = ! fs.existsSync( options.wpContentPath );
-	console.log( 'startWPNow: Is first time project?', isFirstTimeProject );
 
-	console.log( 'startWPNow: Preparing WordPress...' );
 	await prepareWordPress( php, options );
-	console.log( 'startWPNow: WordPress preparation complete' );
 
 	if ( options.blueprintObject ) {
-		console.log( 'startWPNow: Running blueprint steps...' );
 		output?.log( `blueprint steps: ${ options.blueprintObject.steps.length }` );
 		const compiled = compileBlueprint( options.blueprintObject, {
 			onStepCompleted: ( result, step: StepDefinition ) => {
@@ -140,24 +115,18 @@ export default async function startWPNow(
 			},
 		} );
 		await runBlueprintSteps( compiled, php );
-		console.log( 'startWPNow: Blueprint steps complete' );
 	}
 
-	console.log( 'startWPNow: Running installation steps...' );
 	await installationSteps( php, options );
-	console.log( 'startWPNow: Installation complete' );
 
 	// console.log( 'startWPNow: Logging in...' );
 	// await login( php, options );
 	// console.log( 'startWPNow: Login complete' );
 
 	if ( isFirstTimeProject && [ WPNowMode.PLUGIN, WPNowMode.THEME ].includes( options.mode ) ) {
-		console.log( 'startWPNow: Activating plugin/theme...' );
 		await activatePluginOrTheme( php, options );
-		console.log( 'startWPNow: Plugin/theme activation complete' );
 	}
 
-	console.log( 'startWPNow: Setting up PHP runtime rotation...' );
 	rotatePHPRuntime( {
 		php,
 		cwd: requestHandler.documentRoot,
@@ -170,7 +139,6 @@ export default async function startWPNow(
 		},
 		maxRequests: 400,
 	} );
-	console.log( 'startWPNow: Initialization complete' );
 
 	return {
 		php,

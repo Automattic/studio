@@ -24,7 +24,7 @@ import {
 	setupPlatformLevelMuPlugins,
 } from '@wp-playground/wordpress';
 import fs from 'fs-extra';
-import { SymlinkManager } from '../../../src/lib/symlink-manager';
+import { SymlinkManager } from 'src/lib/symlink-manager';
 import getWpNowConfig, { WPNowOptions, WPNowMode } from './config';
 import {
 	PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER,
@@ -53,7 +53,8 @@ import {
 } from './wp-playground-wordpress';
 
 export default async function startWPNow(
-	options: Partial< WPNowOptions > = {}
+	options: Partial< WPNowOptions > = {},
+	workerId?: number
 ): Promise< { php: PHP; options: WPNowOptions } > {
 	const { documentRoot } = options;
 	const requestHandler = new PHPRequestHandler( {
@@ -104,27 +105,27 @@ export default async function startWPNow(
 	}
 
 	const isFirstTimeProject = ! fs.existsSync( options.wpContentPath );
+	const isFirstWorker = workerId === 0;
 
 	await prepareWordPress( php, options );
 
-	if ( options.blueprintObject ) {
-		output?.log( `blueprint steps: ${ options.blueprintObject.steps.length }` );
-		const compiled = compileBlueprint( options.blueprintObject, {
-			onStepCompleted: ( result, step: StepDefinition ) => {
-				output?.log( `Blueprint step completed: ${ step.step }` );
-			},
-		} );
-		await runBlueprintSteps( compiled, php );
-	}
+	if ( isFirstWorker ) {
+		if ( options.blueprintObject ) {
+			output?.log( `blueprint steps: ${ options.blueprintObject.steps.length }` );
+			const compiled = compileBlueprint( options.blueprintObject, {
+				onStepCompleted: ( result, step: StepDefinition ) => {
+					output?.log( `Blueprint step completed: ${ step.step }` );
+				},
+			} );
+			await runBlueprintSteps( compiled, php );
+		}
 
-	await installationSteps( php, options );
+		await installationSteps( php, options );
+		await login( php, options );
 
-	// console.log( 'startWPNow: Logging in...' );
-	// await login( php, options );
-	// console.log( 'startWPNow: Login complete' );
-
-	if ( isFirstTimeProject && [ WPNowMode.PLUGIN, WPNowMode.THEME ].includes( options.mode ) ) {
-		await activatePluginOrTheme( php, options );
+		if ( isFirstTimeProject && [ WPNowMode.PLUGIN, WPNowMode.THEME ].includes( options.mode ) ) {
+			await activatePluginOrTheme( php, options );
+		}
 	}
 
 	rotatePHPRuntime( {

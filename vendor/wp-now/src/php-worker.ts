@@ -17,12 +17,12 @@ interface WorkerResponse {
 	error?: string;
 	success: boolean;
 	type?: 'error' | 'ready';
-	workerId?: string;
+	workerId?: number;
 }
 
 // Worker thread code
 if ( ! isMainThread ) {
-	const { options, workerId }: { options: WPNowOptions; workerId: string } = workerData;
+	const { options, workerId }: { options: WPNowOptions; workerId: number } = workerData;
 
 	process.on( 'uncaughtException', ( error ) => {
 		console.error( `Worker ${ workerId } uncaught exception:`, error );
@@ -58,7 +58,7 @@ if ( ! isMainThread ) {
 		console.log( `Worker ${ workerId }: Starting WPNow...` );
 		console.log( `Worker ${ workerId }: Options:`, { ...options, adminPassword: '[REDACTED]' } );
 
-		startWPNow( options )
+		startWPNow( options, workerId )
 			.then( ( { php } ) => {
 				console.log( `Worker ${ workerId } initialized PHP runtime successfully` );
 

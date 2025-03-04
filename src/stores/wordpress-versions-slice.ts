@@ -6,7 +6,7 @@ const MINIMUM_WORDPRESS_VERSION = '5.9.9';
 
 const wordPressOfferSchema = z.object( {
 	version: z.string(),
-	response: z.enum( [ 'autoupdate', 'upgrade' ] ),
+	response: z.enum( [ 'autoupdate', 'development', 'upgrade' ] ),
 } );
 
 const wordPressApiResponseSchema = z.object( {

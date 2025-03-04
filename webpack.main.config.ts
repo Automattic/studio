@@ -70,14 +70,9 @@ export const mainBaseConfig: Configuration = {
 	},
 	output: {
 		filename: '[name].js',
-		sourceMapFilename: '[name].js.map',
 	},
 	// Put your normal webpack config below here
-	devtool: process.env.NODE_ENV === 'development' ? 'inline-source-map' : 'source-map',
-	node: {
-		__filename: true,
-		__dirname: true,
-	},
+	devtool: 'source-map',
 	module: {
 		rules,
 	},

@@ -80,7 +80,6 @@ export class SiteServer {
 		}
 		const port = await portFinder.getOpenPort( this.details.port );
 		portFinder.addUnavailablePort( this.details.port );
-		console.log( 'ashfame details:', this.details );
 		const options = await getWpNowConfig( {
 			path: this.details.path,
 			port,

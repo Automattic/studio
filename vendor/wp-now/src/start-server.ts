@@ -1,5 +1,6 @@
 import { performance } from 'perf_hooks';
 import { HTTPMethod, PHPRequest } from '@php-wasm/universal';
+import compressible from 'compressible';
 import compression from 'compression';
 import express from 'express';
 import fs from 'fs-extra';
@@ -16,14 +17,15 @@ export interface WPNowServer {
 	stopServer: () => Promise< void >;
 }
 
-// @TODO Review this func again
-// Simple compression middleware
-const shouldCompress = ( req, res ) => {
+function shouldCompress( req, res ) {
 	if ( req.headers[ 'x-no-compression' ] ) {
 		return false;
 	}
-	return compression.filter( req, res );
-};
+
+	const types = res.getHeader( 'content-type' );
+	const type = Array.isArray( types ) ? types[ 0 ] : types;
+	return type && compressible( type );
+}
 
 const requestBodyToBytes = async ( req ): Promise< Uint8Array > =>
 	await new Promise( ( resolve ) => {
@@ -41,18 +43,8 @@ export async function startServer( options: WPNowOptions = {} ): Promise< WPNowS
 		throw new Error( `The given path "${ options.projectPath }" does not exist.` );
 	}
 
-	// const tester = new EventLoopTester( 1000, 'FakeWorker' );
-	// tester.start();
-
 	const app = express();
-	// app.use( compression( { filter: shouldCompress } ) );
-	// app.use( ( req, res, next ) => {
-	// 	if ( req.path.startsWith( '/wp-admin' ) && ! req.path.endsWith( '/' ) ) {
-	// 		res.redirect( 301, req.path + '/' );
-	// 	} else {
-	// 		next();
-	// 	}
-	// } );
+	app.use( compression( { filter: shouldCompress } ) );
 	const port = options.port ?? ( await portFinder.getOpenPort() );
 
 	// Create worker pool
@@ -65,14 +57,12 @@ export async function startServer( options: WPNowOptions = {} ): Promise< WPNowS
 		const sTime = performance.now();
 
 		try {
-			const requestHeaders = req.rawHeaders?.length
-				? Object.fromEntries(
-						Array.from( { length: req.rawHeaders.length / 2 }, ( _, i ) => i * 2 ).map( ( i ) => [
-							req.rawHeaders[ i ].toLowerCase(),
-							req.rawHeaders[ i + 1 ],
-						] )
-				  )
-				: {};
+			const requestHeaders = {};
+			if ( req.rawHeaders && req.rawHeaders.length ) {
+				for ( let i = 0; i < req.rawHeaders.length; i += 2 ) {
+					requestHeaders[ req.rawHeaders[ i ].toLowerCase() ] = req.rawHeaders[ i + 1 ];
+				}
+			}
 
 			const data = {
 				url: req.url,

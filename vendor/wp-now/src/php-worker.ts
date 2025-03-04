@@ -6,6 +6,7 @@ import startWPNow from './wp-now';
 import 'source-map-support/register';
 
 interface WorkerMessage {
+	type: 'request' | 'shutdown';
 	requestId: string;
 	request: PHPRequest | PHPRunOptions;
 }
@@ -22,6 +23,11 @@ interface WorkerResponse {
 // Worker thread code
 if ( ! isMainThread ) {
 	const { options, workerId }: { options: WPNowOptions; workerId: string } = workerData;
+
+	process.on( 'SIGTERM', () => {
+		console.log( `Worker ${ workerId }: Received termination signal, exiting...` );
+		process.exit( 0 );
+	} );
 
 	process.on( 'uncaughtException', ( error ) => {
 		console.error( `Worker ${ workerId } uncaught exception:`, error );
@@ -45,11 +51,6 @@ if ( ! isMainThread ) {
 		process.exit( 1 );
 	} );
 
-	process.on( 'SIGTERM', () => {
-		console.log( `Worker ${ workerId }: Received termination signal, exiting...` );
-		process.exit( 0 );
-	} );
-
 	// eslint-disable-next-line no-inner-declarations
 	function initializeWorker() {
 		console.log( `Worker ${ workerId }: Starting initialization...` );
@@ -68,7 +69,10 @@ if ( ! isMainThread ) {
 
 				// Handle requests
 				parentPort?.on( 'message', async ( data: WorkerMessage ) => {
-					const { requestId, request } = data;
+					const { type, requestId, request } = data;
+					if ( type === 'shutdown' ) {
+						process.exit( 0 );
+					}
 					try {
 						console.log(
 							'inside worker',

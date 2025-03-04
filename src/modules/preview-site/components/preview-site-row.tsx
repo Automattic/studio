@@ -117,20 +117,30 @@ export function PreviewSiteRow( {
 							{ snapshot.name || sprintf( __( '%s Preview' ), selectedSite.name ) }
 						</div>
 					</div>
-					<Button
-						variant="link"
-						disabled={ isExpired }
-						className={ cx(
-							'!text-a8c-gray-700 max-w-full',
-							isExpired ? 'pointer-events-none' : 'hover:!text-a8c-blueberry'
+					<Tooltip 
+						text={ sprintf(
+							/* translators: %s: The preview site URL */
+							__( 'Open %s' ),
+							urlWithHTTPS
 						) }
-						onClick={ () => getIpcApi().openURL( urlWithHTTPS ) }
+						disabled={ isExpired } 
+						className="overflow-hidden"
 					>
-						<span className={ cx( 'truncate', isExpired && 'line-through text-a8c-gray-700' ) }>
-							{ urlWithHTTPS }
-						</span>
-						{ ! isExpired && <ArrowIcon /> }
-					</Button>
+						<Button
+							variant="link"
+							disabled={ isExpired }
+							className={ cx(
+								'!text-a8c-gray-700 max-w-full',
+								isExpired ? 'pointer-events-none' : 'hover:!text-a8c-blueberry'
+							) }
+							onClick={ () => getIpcApi().openURL( urlWithHTTPS ) }
+						>
+							<span className={ cx( 'truncate', isExpired && 'line-through text-a8c-gray-700' ) }>
+								{ urlWithHTTPS }
+							</span>
+							{ ! isExpired && <ArrowIcon /> }
+						</Button>
+					</Tooltip>
 				</div>
 				<div className="flex ltr:ml-auto rtl:mr-auto">
 					<div className="w-[150px] text-a8c-gray-700 flex items-center pl-4">

@@ -95,8 +95,6 @@ export function useSyncPull( {
 				return;
 			}
 
-			console.groupCollapsed( 'Sync Pull' );
-
 			const remoteSiteId = connectedSite.id;
 			updatePullState( selectedSite.id, remoteSiteId, {
 				backupId: null,
@@ -108,7 +106,7 @@ export function useSyncPull( {
 			} );
 
 			try {
-				console.log( 'Initializing backup on remote' );
+				// Initializing backup on remote
 				const response = await client.req.post< { success: boolean; backup_id: string } >( {
 					path: `/sites/${ remoteSiteId }/studio-app/sync/backup`,
 					apiNamespace: 'wpcom/v2',
@@ -124,7 +122,6 @@ export function useSyncPull( {
 				}
 			} catch ( error ) {
 				console.error( 'Pull request failed:', error );
-				console.groupEnd();
 
 				Sentry.captureException( error );
 				updatePullState( selectedSite.id, remoteSiteId, {
@@ -144,7 +141,7 @@ export function useSyncPull( {
 		try {
 			return await getIpcApi().checkSyncBackupSize( downloadUrl );
 		} catch ( error ) {
-			console.log( 'Failed to check backup file size', error );
+			console.error( 'Failed to check backup file size', error );
 			Sentry.captureException( error );
 			throw new Error( 'Failed to check backup file size' );
 		}
@@ -156,10 +153,8 @@ export function useSyncPull( {
 
 			try {
 				const fileSize = await checkBackupFileSize( downloadUrl );
-				console.log( 'Backup file size:', { fileSize, limit: SYNC_PUSH_SIZE_LIMIT_BYTES } );
 
 				if ( fileSize > SYNC_PUSH_SIZE_LIMIT_BYTES ) {
-					console.log( 'File size exceeds limit, prompting user' );
 					const { response: userChoice } = await getIpcApi().showMessageBox( {
 						type: 'warning',
 						message: __( "Large site's backup" ),
@@ -174,28 +169,25 @@ export function useSyncPull( {
 						cancelId: 1,
 					} );
 
-					if ( userChoice === 1 ) {
-						console.log( 'User cancelled pull operation' );
+					const isCanceledByUser = userChoice === 1;
+					if ( isCanceledByUser ) {
 						updatePullState( selectedSite.id, remoteSiteId, {
 							status: pullStatesProgressInfo.cancelled,
 						} );
 						clearPullState( selectedSite.id, remoteSiteId );
 						return;
 					}
-
-					console.log( 'User confirmed to continue despite large file size' );
 				}
 
-				console.log( 'Initiating backup file download' );
+				// Initiating backup file download
 				updatePullState( selectedSite.id, remoteSiteId, {
 					status: pullStatesProgressInfo.downloading,
 					downloadUrl,
 				} );
 
 				const filePath = await getIpcApi().downloadSyncBackup( remoteSiteId, downloadUrl );
-				console.log( 'Download completed', { filePath } );
 
-				console.log( 'Starting import process' );
+				// Starting import process
 				updatePullState( selectedSite.id, remoteSiteId, {
 					status: pullStatesProgressInfo.importing,
 				} );
@@ -208,17 +200,14 @@ export function useSyncPull( {
 					selectedSite,
 					{ showImportNotification: false }
 				);
-				console.log( 'Import completed successfully' );
 
-				console.log( 'Cleaning up' );
 				await getIpcApi().removeSyncBackup( remoteSiteId );
 
-				console.log( 'Starting local server' );
 				await startServer( selectedSite.id );
 
 				clearImportState( selectedSite.id );
 
-				console.log( 'Sync pull operation completed successfully' );
+				// Sync pull operation completed successfully
 				updatePullState( selectedSite.id, remoteSiteId, {
 					status: pullStatesProgressInfo.finished,
 				} );
@@ -242,7 +231,6 @@ export function useSyncPull( {
 					message: __( 'Failed to check backup file size. Please try again.' ),
 				} );
 			}
-			console.groupEnd();
 		},
 		[
 			__,
@@ -281,8 +269,6 @@ export function useSyncPull( {
 					backup_id: backupId,
 				} );
 
-				console.log( 'Checking backup status:', response.status );
-
 				const hasBackupCompleted = response.status === 'finished';
 				const frontendStatus = hasBackupCompleted
 					? pullStatesProgressInfo.downloading.key
@@ -291,7 +277,7 @@ export function useSyncPull( {
 					pullStatesProgressInfo[ frontendStatus ] || pullStatesProgressInfo.failed;
 				const downloadUrl = hasBackupCompleted ? response.download_url : null;
 
-				if ( hasBackupCompleted && downloadUrl ) {
+				if ( downloadUrl ) {
 					// Replacing the 'in-progress' status will stop the active listening for the backup completion
 					const backupState = getPullState( selectedSiteId, remoteSiteId );
 					if ( backupState ) {
@@ -299,7 +285,6 @@ export function useSyncPull( {
 							...backupState,
 							downloadUrl,
 						} );
-						console.groupEnd();
 					}
 				} else {
 					updatePullState( selectedSiteId, remoteSiteId, {
@@ -309,7 +294,6 @@ export function useSyncPull( {
 				}
 			} catch ( error ) {
 				console.error( 'Failed to fetch backup status:', error );
-				console.groupEnd();
 				throw error;
 			}
 		},

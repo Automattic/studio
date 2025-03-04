@@ -55,6 +55,7 @@ import {
 export default async function startWPNow(
 	options: Partial< WPNowOptions > = {}
 ): Promise< { php: PHP; options: WPNowOptions } > {
+	const { documentRoot } = options;
 	const requestHandler = new PHPRequestHandler( {
 		phpFactory: async ( { isPrimary, requestHandler: reqHandler } ) => {
 			const { php } = await getPHPInstance( options, isPrimary, reqHandler );
@@ -72,8 +73,7 @@ export default async function startWPNow(
 
 			return php;
 		},
-		maxPhpInstances: 6,
-		documentRoot: options.documentRoot || '/wordpress',
+		documentRoot: documentRoot || '/wordpress',
 		absoluteUrl: options.absoluteUrl,
 		rewriteRules: wordPressRewriteRules,
 		getFileNotFoundAction: getFileNotFoundActionForWordPress,

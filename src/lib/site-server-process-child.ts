@@ -3,7 +3,7 @@ import { HTTPMethod, PHPRequest, PHPRunOptions } from '@php-wasm/universal';
 import { setupLogging } from 'src/logging';
 import { startServer, type WPNowServer } from 'vendor/wp-now/src';
 import { WPNowOptions } from 'vendor/wp-now/src/config';
-import { LoadBalancer } from 'vendor/wp-now/src/load-balancer';
+import { PHPWorkerPool } from 'vendor/wp-now/src/php-worker-pool';
 import type { MessageName } from 'src/lib/site-server-process';
 import 'source-map-support/register';
 
@@ -59,7 +59,7 @@ async function runPhp( data: unknown ) {
 	}
 	console.log( 'site-server-process-child runPhp', data );
 	const request = data as PHPRequest;
-	return await server.loadBalancer.handleRequest( request );
+	return await server.phpWorkerPool.handleRequest( request );
 }
 
 function createHandler< T >( handler: ( data: unknown ) => Promise< T > ) {

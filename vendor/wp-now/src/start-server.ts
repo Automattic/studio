@@ -5,13 +5,13 @@ import express from 'express';
 import fs from 'fs-extra';
 // import { EventLoopTester } from 'vendor/wp-now/src/event-loop-tester';
 import { WPNowOptions } from './config';
-import { LoadBalancer } from './load-balancer';
 import { output } from './output';
+import { PHPWorkerPool } from './php-worker-pool';
 import { portFinder } from './port-finder';
 
 export interface WPNowServer {
 	url: string;
-	loadBalancer: LoadBalancer;
+	phpWorkerPool: PHPWorkerPool;
 	options: WPNowOptions;
 	stopServer: () => Promise< void >;
 }
@@ -55,11 +55,11 @@ export async function startServer( options: WPNowOptions = {} ): Promise< WPNowS
 	// } );
 	const port = options.port ?? ( await portFinder.getOpenPort() );
 
-	// Create load balancer with worker pool
-	const loadBalancer = new LoadBalancer( options, 6 );
-	await loadBalancer.initialize();
+	// Create worker pool
+	const workerPool = new PHPWorkerPool( options );
+	await workerPool.initialize();
 
-	// Handle requests using load balancer
+	// Handle requests using worker pool
 	app.all( '*', async ( req, res ) => {
 		console.log( 'GOT ' + req.url );
 		const sTime = performance.now();
@@ -89,7 +89,7 @@ export async function startServer( options: WPNowOptions = {} ): Promise< WPNowS
 
 			// Race the actual request against the timeout
 			const resp = ( await Promise.race( [
-				loadBalancer.handleRequest( data ),
+				workerPool.handleRequest( data ),
 				timeoutPromise,
 			] ) ) as any;
 
@@ -112,13 +112,13 @@ export async function startServer( options: WPNowOptions = {} ): Promise< WPNowS
 
 	return {
 		url: options.absoluteUrl,
-		loadBalancer,
+		phpWorkerPool: workerPool,
 		options,
 		stopServer: () =>
 			new Promise( ( res ) => {
 				server.close( async () => {
 					output?.log( `Server stopped` );
-					await loadBalancer.stopAll();
+					await workerPool.shutdown();
 					res();
 				} );
 			} ),

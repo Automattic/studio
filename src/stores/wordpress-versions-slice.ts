@@ -9,8 +9,10 @@ const wordPressOfferSchema = z.object( {
 	response: z.string(),
 } );
 
+type WordPressOffer = z.infer< typeof wordPressOfferSchema >;
+
 const wordPressApiResponseSchema = z.object( {
-	offers: z.array( wordPressOfferSchema ),
+	offers: z.array( z.any() ),
 } );
 
 const extractShortName = ( version: string ): string => {
@@ -33,7 +35,14 @@ export const fetchWordPressVersions = createAsyncThunk(
 
 			const shortNameOccurrences = new Map< string, number >();
 			const offers = data.offers
-				.filter( ( offer ) => offer.response === 'autoupdate' )
+				.map( ( o ) => {
+					try {
+						return wordPressOfferSchema.parse( o );
+					} catch ( error ) {
+						return null;
+					}
+				} )
+				.filter( ( offer ): offer is WordPressOffer => offer?.response === 'autoupdate' )
 				.map( ( { version } ) => {
 					const shortName = extractShortName( version );
 					shortNameOccurrences.set( shortName, ( shortNameOccurrences.get( shortName ) || 0 ) + 1 );
@@ -42,6 +51,7 @@ export const fetchWordPressVersions = createAsyncThunk(
 						shortName,
 					};
 				} );
+
 			return offers.map( ( { version, shortName } ) => {
 				const isBeta = version.includes( 'beta' ) || version.includes( 'RC' );
 				const occurrences = shortNameOccurrences.get( shortName ) || 0;

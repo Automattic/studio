@@ -71,12 +71,9 @@ export default class SiteServerProcess {
 		await Promise.all(
 			this.processes.map( async ( process, index ) => {
 				const message = 'stop-server';
-				const messageId = await this.sendMessage( process, message, {}, index );
-				try {
-					await this.waitForResponse( message, messageId, 5_000, index );
-				} finally {
-					await this.#killProcess( index );
-				}
+				return this.sendMessage( process, message, {}, index ).finally( () => {
+					return this.#killProcess( index );
+				} );
 			} )
 		);
 		this.processes = [];

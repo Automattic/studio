@@ -24,11 +24,6 @@ interface WorkerResponse {
 if ( ! isMainThread ) {
 	const { options, workerId }: { options: WPNowOptions; workerId: string } = workerData;
 
-	process.on( 'SIGTERM', () => {
-		console.log( `Worker ${ workerId }: Received termination signal, exiting...` );
-		process.exit( 0 );
-	} );
-
 	process.on( 'uncaughtException', ( error ) => {
 		console.error( `Worker ${ workerId } uncaught exception:`, error );
 		console.error( 'Stack trace:', error?.stack );

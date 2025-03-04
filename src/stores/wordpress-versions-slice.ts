@@ -35,9 +35,9 @@ export const fetchWordPressVersions = createAsyncThunk(
 
 			const shortNameOccurrences = new Map< string, number >();
 			const offers = data.offers
-				.map( ( o ) => {
+				.map( ( offer ) => {
 					try {
-						return wordPressOfferSchema.parse( o );
+						return wordPressOfferSchema.parse( offer );
 					} catch ( error ) {
 						return null;
 					}

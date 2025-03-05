@@ -314,47 +314,7 @@ export const SiteForm = ( {
 					<span className="font-semibold">{ __( 'Site name' ) }</span>
 					<TextControlComponent onChange={ setSiteName } value={ siteName }></TextControlComponent>
 				</label>
-				{ setUseCustomDomain && setCustomDomain && (
-					<div className="flex items-center gap-2 mb-6">
-						<input
-							type="checkbox"
-							id="use-custom-domain"
-							checked={ useCustomDomain }
-							onChange={ ( e ) => setUseCustomDomain( e.target.checked ) }
-						/>
-						<label htmlFor="use-custom-domain">{ __( 'Use custom domain' ) }</label>
-						<span className="text-a8c-gray-50 text-xs ml-2">
-							{ __( 'This will require your password to authorize changes to the hosts file.' ) }
-						</span>
-					</div>
-				) }
 
-				{ useCustomDomain && setCustomDomain && (
-					<div className="flex flex-col gap-2 mb-6">
-						<label htmlFor="custom-domain" className="font-semibold">
-							{ __( 'Domain name' ) }
-						</label>
-						<TextControlComponent
-							id="custom-domain"
-							value={ customDomain ?? '' }
-							onChange={ setCustomDomain }
-							placeholder={ generatedDomainName }
-						/>
-						{ customDomainError && (
-							<div className="text-red-500 text-xs">{ customDomainError }</div>
-						) }
-						<div className="text-a8c-gray-50 text-xs">
-							{ __(
-								'You will be prompted for administrator permission to modify your system hosts file.'
-							) }
-						</div>
-						<div className="text-a8c-gray-50 text-xs mt-1">
-							{ __(
-								'Note: You will need administrator privileges to enable direct domain access.'
-							) }
-						</div>
-					</div>
-				) }
 				{ setFileForImport && (
 					<>
 						<div className="flex flex-col gap-1.5 leading-4 mb-6">
@@ -414,7 +374,7 @@ export const SiteForm = ( {
 								</div>
 								<div
 									className={ cx(
-										'transition-all duration-500 ease-in-out overflow-hidden',
+										'transition-all duration-500 ease-in-out overflow-hidden flex flex-col gap-2',
 										isAdvancedSettingsVisible ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
 									) }
 								>
@@ -482,6 +442,62 @@ export const SiteForm = ( {
 											</div>
 										) }
 									</div>
+
+									{ setUseCustomDomain && setCustomDomain && (
+										<div
+											className={ cx(
+												'flex items-center gap-2',
+												isAdvancedSettingsVisible ? 'py-2' : 'p-2',
+												! isAdvancedSettingsVisible && 'hidden'
+											) }
+										>
+											<input
+												type="checkbox"
+												id="use-custom-domain"
+												checked={ useCustomDomain }
+												onChange={ ( e ) => setUseCustomDomain( e.target.checked ) }
+											/>
+											<label htmlFor="use-custom-domain">{ __( 'Use custom domain' ) }</label>
+											<span className="text-a8c-gray-50 text-xs ml-2">
+												{ __(
+													'This will require your password to authorize changes to the hosts file.'
+												) }
+											</span>
+										</div>
+									) }
+
+									{ useCustomDomain && setCustomDomain && (
+										<div
+											className={ cx(
+												'flex flex-col gap-2',
+												isAdvancedSettingsVisible ? 'py-2' : 'p-2',
+												! isAdvancedSettingsVisible && 'hidden'
+											) }
+										>
+											<label htmlFor="custom-domain" className="font-semibold">
+												{ __( 'Domain name' ) }
+											</label>
+											<TextControlComponent
+												id="custom-domain"
+												value={ customDomain ?? '' }
+												onChange={ setCustomDomain }
+												placeholder={ generatedDomainName }
+											/>
+											{ customDomainError && (
+												<div className="text-red-500 text-xs">{ customDomainError }</div>
+											) }
+											<div className="text-a8c-gray-50 text-xs">
+												{ __(
+													'You will be prompted for administrator permission to modify your system hosts file.'
+												) }
+											</div>
+											<div className="text-a8c-gray-50 text-xs mt-1">
+												{ __(
+													'Note: You will need administrator privileges to enable direct domain access.'
+												) }
+											</div>
+										</div>
+									) }
 								</div>
 							</>
 						) }

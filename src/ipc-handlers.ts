@@ -397,15 +397,10 @@ export async function startServer(
 
 	// Handle custom domain if necessary
 	if ( server.details.useCustomDomain && server.details.customDomain ) {
-		try {
-			await addDomainToHosts( server.details.customDomain, server.details.port );
-			console.log(
-				`Domain ${ server.details.customDomain } added to hosts file for port ${ server.details.port }`
-			);
-		} catch ( error ) {
-			console.error( 'Failed to setup custom domain:', error );
-			// Continue even if custom domain setup fails - the site will still work with localhost:PORT
-		}
+		await addDomainToHosts( server.details.customDomain, server.details.port );
+		console.log(
+			`Domain ${ server.details.customDomain } added to hosts file for port ${ server.details.port }`
+		);
 	}
 
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );

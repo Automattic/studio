@@ -210,6 +210,9 @@ export class SymlinkManager {
 			vfsTarget,
 			createNodeFsMountHandler( hostTarget )
 		);
+		// For some reason, we must access the target directory after mounting it, otherwise the
+		// mount will not work.
+		this.php.listFiles( vfsTarget );
 	}
 
 	/**

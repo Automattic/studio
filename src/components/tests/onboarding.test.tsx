@@ -99,6 +99,12 @@ describe( 'Onboarding Component', () => {
 			handleSubmit: jest.fn( () => {
 				mockCreateSite( '/path/to/my/site', 'My Site', DEFAULT_WORDPRESS_VERSION );
 			} ),
+			setUseCustomDomain: jest.fn(),
+			useCustomDomain: false,
+			customDomain: '',
+			setCustomDomain: jest.fn(),
+			setCustomDomainError: jest.fn(),
+			customDomainError: '',
 		} );
 	} );
 

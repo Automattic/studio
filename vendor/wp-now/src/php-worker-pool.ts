@@ -36,15 +36,24 @@ export class PHPWorkerPool {
 
 	constructor(
 		private options: WPNowOptions,
-		private numWorkers: number = 6
+		private numWorkers: number = 6,
+		private verbose: boolean = false
 	) {}
 
+	private verboseLog( ...args: any[] ) {
+		if ( this.verbose ) {
+			console.log( ...args );
+		}
+	}
+
 	async initialize() {
-		console.log( `Creating PHP Worker Pool with ${ this.numWorkers } workers` );
-		console.log( 'Worker script path:', PHP_WORKER_MODULE_PATH );
+		console.log(
+			`Creating PHP Worker Pool with ${ this.numWorkers } workers: `,
+			PHP_WORKER_MODULE_PATH
+		);
 
 		for ( let i = 0; i < this.numWorkers; i++ ) {
-			console.log( `Initializing worker ${ i }...` );
+			this.verboseLog( `Initializing worker ${ i }...` );
 			try {
 				await this.initializeWorker( i );
 			} catch ( error ) {
@@ -53,7 +62,7 @@ export class PHPWorkerPool {
 			}
 		}
 
-		console.log( 'Waiting for all workers to be ready...' );
+		this.verboseLog( 'Waiting for all workers to be ready...' );
 		try {
 			// Wait for all workers to be ready with a timeout
 			const timeout = 10000; // 10 seconds timeout
@@ -62,10 +71,10 @@ export class PHPWorkerPool {
 					new Promise< void >( ( resolve, reject ) => {
 						const checkReady = () => {
 							if ( this.#readyWorkers.has( index ) ) {
-								console.log( `Worker ${ index } is ready` );
+								this.verboseLog( `Worker ${ index } is ready` );
 								resolve();
 							} else {
-								// console.log( `Worker ${ index } not ready yet, checking again in 100ms...` );
+								this.verboseLog( `Worker ${ index } not ready yet, checking again in 100ms...` );
 								setTimeout( checkReady, 100 );
 							}
 						};
@@ -93,19 +102,24 @@ export class PHPWorkerPool {
 
 	private async initializeWorker( workerId: number ) {
 		const worker = new Worker( PHP_WORKER_MODULE_PATH, {
-			workerData: { options: this.options, workerId },
+			workerData: { options: this.options, workerId, verbose: this.verbose },
 		} );
 
 		worker.on( 'message', ( data ) => {
-			console.log( `Worker ${ workerId } message:`, data.success, 'requestId', data.requestId );
 			if ( data.type === 'ready' ) {
-				console.log( `Worker ${ workerId } signaled ready` );
+				this.verboseLog( `Worker ${ workerId } signaled ready` );
 				this.#readyWorkers.add( workerId );
 				this.processQueue();
 			} else if ( data.type === 'error' ) {
 				console.error( `Worker ${ workerId } initialization error:`, data.error );
 				this.restartWorker( workerId );
 			} else {
+				this.verboseLog(
+					`Worker ${ workerId } message:`,
+					data.success,
+					'requestId',
+					data.requestId
+				);
 				const pending = this.#pendingRequests.get( data.requestId );
 				if ( pending ) {
 					if ( data.success ) {
@@ -115,7 +129,7 @@ export class PHPWorkerPool {
 					}
 					this.#pendingRequests.delete( data.requestId );
 					this.#readyWorkers.add( workerId );
-					console.log( 'Worker free again', workerId, 'lastRequestId', data.requestId );
+					this.verboseLog( 'Worker free again', workerId, 'lastRequestId', data.requestId );
 					this.processQueue();
 				}
 			}
@@ -129,17 +143,19 @@ export class PHPWorkerPool {
 		} );
 
 		worker.on( 'exit', ( code ) => {
-			console.log( `Worker ${ workerId } exited with code ${ code }` );
+			this.verboseLog( `Worker ${ workerId } exited with code ${ code }` );
 			this.#readyWorkers.delete( workerId );
 
 			if ( code === 0 ) {
-				console.log( `Worker ${ workerId } exited` );
+				this.verboseLog( `Worker ${ workerId } exited` );
 				delete this.#workers[ workerId ];
 				const remainingWorkers = this.#workers
 					.map( ( w, idx ) => ( w ? `${ idx }` : null ) )
 					.filter( ( id ) => id !== null );
 				const activeCount = remainingWorkers.length;
-				console.log( `Workers: active=${ activeCount }, ids=[${ remainingWorkers.join( ',' ) }]` );
+				this.verboseLog(
+					`Workers: active=${ activeCount }, ids=[${ remainingWorkers.join( ',' ) }]`
+				);
 			} else {
 				console.error( `Worker ${ workerId } crashed, restarting...` );
 				this.restartWorker( workerId );
@@ -175,7 +191,7 @@ export class PHPWorkerPool {
 		}
 
 		if ( this.areAllWorkersBusy() ) {
-			console.log( 'Waiting on a worker to be available' );
+			this.verboseLog( 'Waiting on a worker to be available' );
 			return;
 		}
 
@@ -188,7 +204,7 @@ export class PHPWorkerPool {
 		this.#pendingRequests.set( requestId, { resolve, reject } );
 
 		try {
-			console.log( 'Worker assigned', 'workerId', workerId, 'requestId', requestId );
+			this.verboseLog( 'Worker assigned', 'workerId', workerId, 'requestId', requestId );
 			this.#workers[ workerId ].postMessage( { requestId, request } );
 		} catch ( error ) {
 			console.error( `Error sending message to worker ${ workerId }:`, error );
@@ -206,7 +222,7 @@ export class PHPWorkerPool {
 
 	async shutdown() {
 		if ( this.#status === WorkerPoolStatus.SHUTDOWN ) {
-			console.log( 'PHP worker pool already shutdown' );
+			this.verboseLog( 'PHP worker pool already shutdown' );
 			return;
 		}
 
@@ -239,7 +255,7 @@ export class PHPWorkerPool {
 		// Force terminate any remaining workers
 		const remainingWorkers = this.#workers.filter( ( worker ) => worker !== null );
 		if ( remainingWorkers.length > 0 ) {
-			console.log( 'workers still left', remainingWorkers.length );
+			this.verboseLog( 'workers still left', remainingWorkers.length );
 			await Promise.all( remainingWorkers.map( ( worker ) => worker.terminate() ) );
 		}
 

@@ -22,7 +22,11 @@ interface WorkerResponse {
 
 // Worker thread code
 if ( ! isMainThread ) {
-	const { options, workerId }: { options: WPNowOptions; workerId: number } = workerData;
+	const {
+		options,
+		workerId,
+		verbose,
+	}: { options: WPNowOptions; workerId: number; verbose: boolean } = workerData;
 
 	process.on( 'uncaughtException', ( error ) => {
 		console.error( `Worker ${ workerId } uncaught exception:`, error );
@@ -47,20 +51,29 @@ if ( ! isMainThread ) {
 	} );
 
 	// eslint-disable-next-line no-inner-declarations
+	function verboseLog( ...args: any[] ) {
+		if ( verbose ) {
+			console.log( ...args );
+		}
+	}
+
+	// eslint-disable-next-line no-inner-declarations
 	function initializeWorker() {
-		console.log( `Worker ${ workerId }: Starting initialization...` );
+		verboseLog( `Worker ${ workerId }: Starting initialization...` );
 
 		if ( ! options || ! options.projectPath ) {
 			throw new Error( 'Invalid worker options' );
 		}
 
 		// Initialize PHP instance
-		console.log( `Worker ${ workerId }: Starting WPNow...` );
-		console.log( `Worker ${ workerId }: Options:`, { ...options, adminPassword: '[REDACTED]' } );
+		verboseLog( `Worker ${ workerId }: Starting WPNow...`, {
+			...options,
+			adminPassword: '[REDACTED]',
+		} );
 
 		startWPNow( options, workerId )
 			.then( ( { php } ) => {
-				console.log( `Worker ${ workerId } initialized PHP runtime successfully` );
+				verboseLog( `Worker ${ workerId } initialized PHP runtime successfully` );
 
 				// Handle requests
 				parentPort?.on( 'message', async ( data: WorkerMessage ) => {
@@ -69,7 +82,7 @@ if ( ! isMainThread ) {
 						process.exit( 0 );
 					}
 					try {
-						console.log(
+						verboseLog(
 							'inside worker',
 							'workerId',
 							workerId,
@@ -103,10 +116,10 @@ if ( ! isMainThread ) {
 					}
 				} );
 
-				console.log( `Worker ${ workerId }: Setup complete, signaling ready...` );
+				verboseLog( `Worker ${ workerId }: Setup complete, signaling ready...` );
 				// Signal ready
 				parentPort?.postMessage( { type: 'ready', workerId } as WorkerResponse );
-				console.log( `Worker ${ workerId }: Ready signal sent` );
+				verboseLog( `Worker ${ workerId }: Ready signal sent` );
 			} )
 			.catch( ( error ) => {
 				console.error( `Worker ${ workerId } failed to initialize:`, error );

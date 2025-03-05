@@ -31,7 +31,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 	// Empty strings account for legacy sites lacking a stored password.
 	const storedPassword = decodePassword( selectedSite.adminPassword ?? '' );
 	const password = storedPassword === '' ? 'password' : storedPassword;
-	const wpVersion = useGetWpVersion( selectedSite );
+	const [ wpVersion, refreshWpVersion ] = useGetWpVersion( selectedSite );
 	return (
 		<div className="p-8">
 			<table className="mb-2 m-w-full" cellPadding={ 0 } cellSpacing={ 0 }>
@@ -40,7 +40,9 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 						<th colSpan={ 2 } className="pb-4 ltr:text-left rtl:text-right">
 							<h3 className="text-black text-sm font-semibold">
 								{ __( 'Site details' ) }
-								{ wpVersionsEnabled && <EditSiteDetails currentWpVersion={ wpVersion } /> }
+								{ wpVersionsEnabled && (
+									<EditSiteDetails currentWpVersion={ wpVersion } onSave={ refreshWpVersion } />
+								) }
 							</h3>
 						</th>
 					</tr>

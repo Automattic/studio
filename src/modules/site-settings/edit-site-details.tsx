@@ -12,7 +12,12 @@ import { useRootSelector } from 'src/stores';
 import { wordpressVersionsSelectors } from 'src/stores/wordpress-versions-slice';
 import { DEFAULT_PHP_VERSION } from 'vendor/wp-now/src/constants';
 
-export default function EditSiteDetails( { currentWpVersion }: { currentWpVersion: string } ) {
+type EditSiteDetailsProps = {
+	currentWpVersion: string;
+	onSave: () => void;
+};
+
+export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteDetailsProps ) {
 	const { __ } = useI18n();
 	const { updateSite, selectedSite, stopServer, startServer } = useSiteDetails();
 	const [ editSiteError, setEditSiteError ] = useState( '' );
@@ -48,79 +53,64 @@ export default function EditSiteDetails( { currentWpVersion }: { currentWpVersio
 		setEditSiteError( '' );
 	}, [ currentWpVersion, selectedSite ] );
 
-	const onSiteEdit = useCallback(
-		async ( event: FormEvent ) => {
-			event.preventDefault();
-			if ( ! selectedSite?.id ) {
-				return;
+	const onSiteEdit = async ( event: FormEvent ) => {
+		event.preventDefault();
+		if ( ! selectedSite?.id ) {
+			return;
+		}
+		setIsEditingSite( true );
+		setEditSiteError( '' );
+		try {
+			const running = selectedSite.running;
+
+			const hasWpVersionChanged = selectedWpVersion !== currentWpVersion;
+			const hasPhpVersionChanged = selectedPhpVersion !== selectedSite.phpVersion;
+			const needsRestart = running && ( hasWpVersionChanged || hasPhpVersionChanged );
+			if ( needsRestart ) {
+				await stopServer( selectedSite.id );
 			}
-			setIsEditingSite( true );
-			setEditSiteError( '' );
-			try {
-				const running = selectedSite.running;
 
-				const hasWpVersionChanged = selectedWpVersion !== currentWpVersion;
-				const hasPhpVersionChanged = selectedPhpVersion !== selectedSite.phpVersion;
-				const needsRestart = running && ( hasWpVersionChanged || hasPhpVersionChanged );
-				if ( needsRestart ) {
-					await stopServer( selectedSite.id );
-				}
-
-				if ( hasWpVersionChanged ) {
-					try {
-						const result = await getIpcApi().executeWPCLiInline( {
-							siteId: selectedSite.id,
-							args: `core update --version=${ selectedWpVersion } --force`,
-							skipPluginsAndThemes: true,
-						} );
-						if ( result.exitCode !== 0 ) {
-							throw new Error( result.stderr );
-						}
-					} catch ( wpError ) {
-						console.error( 'Error updating WordPress version:', wpError );
-						const errorMessage = stripAnsi( ( wpError as Error )?.message );
-						setEditSiteError( __( 'Error updating WordPress version' ) );
-						getIpcApi().showErrorMessageBox( {
-							title: __( 'Error updating WordPress version' ),
-							message: errorMessage,
-						} );
-						setSelectedWpVersion( currentWpVersion );
-						setIsEditingSite( false );
-						return;
+			if ( hasWpVersionChanged ) {
+				try {
+					const result = await getIpcApi().executeWPCLiInline( {
+						siteId: selectedSite.id,
+						args: `core update --version=${ selectedWpVersion } --force`,
+						skipPluginsAndThemes: true,
+					} );
+					if ( result.exitCode !== 0 ) {
+						throw new Error( result.stderr );
 					}
+				} catch ( wpError ) {
+					console.error( 'Error updating WordPress version:', wpError );
+					const errorMessage = stripAnsi( ( wpError as Error )?.message );
+					setEditSiteError( __( 'Error updating WordPress version' ) );
+					getIpcApi().showErrorMessageBox( {
+						title: __( 'Error updating WordPress version' ),
+						message: errorMessage,
+					} );
+					setSelectedWpVersion( currentWpVersion );
+					setIsEditingSite( false );
+					return;
 				}
-
-				await updateSite( {
-					...selectedSite,
-					name: siteName,
-					phpVersion: selectedPhpVersion,
-				} );
-
-				if ( needsRestart ) {
-					await startServer( selectedSite.id );
-				}
-
-				closeModal();
-				resetFormState();
-			} catch ( e ) {
-				setEditSiteError( ( e as Error )?.message );
 			}
-			setIsEditingSite( false );
-		},
-		[
-			selectedSite,
-			selectedWpVersion,
-			currentWpVersion,
-			selectedPhpVersion,
-			updateSite,
-			siteName,
-			closeModal,
-			resetFormState,
-			stopServer,
-			__,
-			startServer,
-		]
-	);
+
+			await updateSite( {
+				...selectedSite,
+				name: siteName,
+				phpVersion: selectedPhpVersion,
+			} );
+
+			if ( needsRestart ) {
+				await startServer( selectedSite.id );
+			}
+			onSave();
+			closeModal();
+			resetFormState();
+		} catch ( e ) {
+			setEditSiteError( ( e as Error )?.message );
+		}
+		setIsEditingSite( false );
+	};
 
 	return (
 		<>

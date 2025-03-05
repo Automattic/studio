@@ -1,10 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
 export function useGetWpVersion( site: SiteDetails ) {
 	const [ wpVersion, setWpVersion ] = useState( '-' );
-	useEffect( () => {
+	const refreshWpVersion = useCallback( () => {
 		getIpcApi().getWpVersion( site.id ).then( setWpVersion );
-	}, [ site.id, site.running ] );
-	return wpVersion;
+	}, [ site.id ] );
+	useEffect( () => {
+		refreshWpVersion();
+	}, [ site.running, refreshWpVersion ] );
+	return [ wpVersion, refreshWpVersion ] as const;
 }

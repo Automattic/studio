@@ -117,7 +117,7 @@ describe( 'ContentTabAssistant', () => {
 			showMessageBox: jest.fn().mockResolvedValue( { response: 0, checkboxChecked: false } ),
 			executeWPCLiInline: jest.fn().mockResolvedValue( { stdout: '', stderr: 'Error' } ),
 		} );
-		( useGetWpVersion as jest.Mock ).mockReturnValue( '6.4.3' );
+		( useGetWpVersion as jest.Mock ).mockReturnValue( [ '6.4.3', jest.fn() ] );
 	} );
 
 	it( 'renders placeholder text input', () => {

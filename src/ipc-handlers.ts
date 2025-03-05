@@ -1158,13 +1158,3 @@ export async function isFullscreen( _event: IpcMainInvokeEvent ): Promise< boole
 	const window = await getMainWindow();
 	return window.isFullScreen();
 }
-
-export function isPathEndingWith(
-	_event: IpcMainInvokeEvent,
-	path: string,
-	suffix: string
-): Promise< boolean > {
-	const normalizedPath = nodePath.normalize( path ).toLowerCase();
-	const normalizedSuffix = nodePath.normalize( suffix ).toLowerCase();
-	return Promise.resolve( normalizedPath.endsWith( normalizedSuffix ) );
-}

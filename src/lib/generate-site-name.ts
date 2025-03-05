@@ -28,13 +28,8 @@ export async function generateSiteName( usedSites: SiteDetails[] ): Promise< str
 	const defaultName = __( 'My WordPress Website' );
 
 	const isPathUnique = async ( name: string ): Promise< boolean > => {
-		const sanitizedPath = sanitizeFolderName( name );
-		for ( const site of usedSites ) {
-			if ( await getIpcApi().isPathEndingWith( site.path, `/${ sanitizedPath }` ) ) {
-				return false;
-			}
-		}
-		return true;
+		const { isEmpty } = await getIpcApi().generateProposedSitePath( name );
+		return isEmpty;
 	};
 
 	const isNameUnique = ( name: string ): boolean => {

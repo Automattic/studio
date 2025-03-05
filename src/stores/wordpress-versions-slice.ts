@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import * as Sentry from '@sentry/electron/renderer';
+import { __ } from '@wordpress/i18n';
 import { z, ZodError } from 'zod';
 
 const MINIMUM_WORDPRESS_VERSION = '5.9.9';
@@ -110,6 +111,14 @@ const wordpressVersionsSlice = createSlice( {
 	},
 	selectors: {
 		selectWordPressVersions: ( state ) => state.versions,
+		selectWordPressVersionsWithLatest: ( state ) => [
+			{
+				isBeta: false,
+				label: __( 'Latest' ),
+				value: 'latest',
+			},
+			...state.versions,
+		],
 	},
 } );
 

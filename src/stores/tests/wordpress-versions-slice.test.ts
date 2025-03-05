@@ -277,5 +277,34 @@ describe( 'wordpress-versions-slice', () => {
 				{ value: '6.5.0-beta1', isBeta: true, label: '6.5.0-beta1' },
 			] );
 		} );
+
+		it( 'should select WordPress versions with latest', async () => {
+			( global.fetch as jest.Mock ).mockResolvedValueOnce( {
+				ok: true,
+				json: jest.fn().mockResolvedValueOnce( {
+					offers: [
+						{ version: '6.1.0', response: 'autoupdate' },
+						{ version: '6.2.0', response: 'autoupdate' },
+						{ version: '6.3.0', response: 'autoupdate' },
+						{ version: '6.4.0', response: 'autoupdate' },
+						{ version: '6.5.0-beta1', response: 'autoupdate' },
+					],
+				} ),
+			} );
+
+			await store.dispatch( fetchWordPressVersions() );
+
+			const state = store.getState();
+			const versions = wordpressVersionsSelectors.selectWordPressVersionsWithLatest( state );
+
+			expect( versions ).toEqual( [
+				{ value: 'latest', isBeta: false, label: 'Latest' },
+				{ value: '6.1.0', isBeta: false, label: '6.1' },
+				{ value: '6.2.0', isBeta: false, label: '6.2' },
+				{ value: '6.3.0', isBeta: false, label: '6.3' },
+				{ value: '6.4.0', isBeta: false, label: '6.4' },
+				{ value: '6.5.0-beta1', isBeta: true, label: '6.5.0-beta1' },
+			] );
+		} );
 	} );
 } );

@@ -54,7 +54,6 @@ steps:
     command: |
       # call with bash explicitly because we run this on Windows, too
       bash .buildkite/commands/install-node-dependencies.sh
-      export IS_DEV_BUILD=true
       echo '--- :package: Package app for testing'
       npm run package
       echo '--- :playwright: Run End To End Tests'
@@ -67,6 +66,7 @@ steps:
     env:
       # See https://playwright.dev/docs/ci#debugging-browser-launches
       DEBUG: "pw:browser"
+      IS_DEV_BUILD: true
     matrix:
       - mac
       #- windows
@@ -86,8 +86,6 @@ steps:
           .buildkite/commands/install-node-dependencies.sh
 
           node ./scripts/prepare-dev-build-version.mjs
-
-          export IS_DEV_BUILD=true
 
           echo "--- :node: Building Binary"
           npm run make:macos-{{matrix}}
@@ -113,6 +111,8 @@ steps:
 
           echo "--- 📃 Notarizing Binary"
           bundle exec fastlane notarize_binary
+        env:
+          IS_DEV_BUILD: true
         plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
         artifact_paths:
           - out/**/*.app.zip
@@ -158,8 +158,6 @@ steps:
 
       .buildkite/commands/install-node-dependencies.sh
 
-      export IS_DEV_BUILD=true
-
       echo "--- :node: Generating Release Manifest"
       node ./scripts/prepare-dev-build-version.mjs
       node ./scripts/generate-releases-manifest.mjs
@@ -167,6 +165,8 @@ steps:
       echo "--- :fastlane: Distributing Dev Builds"
       install_gems
       bundle exec fastlane distribute_dev_build
+    env:
+      IS_DEV_BUILD: true
     artifact_paths:
       - out/releases.json
     agents:

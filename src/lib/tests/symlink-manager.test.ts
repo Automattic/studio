@@ -37,6 +37,7 @@ describe( 'SymlinkManager', () => {
 			isDir: jest.fn(),
 			unlink: jest.fn(),
 			rmdir: jest.fn(),
+			listFiles: jest.fn(),
 			requestHandler: {
 				documentRoot: mockDocumentRoot,
 			},

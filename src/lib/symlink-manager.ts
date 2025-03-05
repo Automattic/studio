@@ -135,15 +135,6 @@ export class SymlinkManager {
 	}
 
 	/**
-	 * Check if a target path is inside the document root.
-	 * @param target
-	 * @returns
-	 */
-	private isTargetInsideDocumentRoot( target: string ) {
-		return path.posix.normalize( target ).startsWith( this.documentRoot );
-	}
-
-	/**
 	 * Add a symlink to the PHP runtime by mounting the target path.
 	 * @param filename
 	 */
@@ -170,11 +161,6 @@ export class SymlinkManager {
 
 		// Get the realpath of the symlink within the PHP runtime.
 		const vfsTarget = path.posix.resolve( path.dirname( vfsPath ), this.php.readlink( vfsPath ) );
-
-		// If the target is inside the document root, we don't need to mount it.
-		if ( this.isTargetInsideDocumentRoot( vfsTarget ) ) {
-			return;
-		}
 
 		this.symlinks.set( filename, vfsTarget );
 

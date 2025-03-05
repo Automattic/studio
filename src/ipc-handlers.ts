@@ -123,7 +123,10 @@ export async function importSite(
 		const result = await importBackup( backupFile, site.details, onEvent, defaultImporterOptions );
 
 		bumpStat( STATS_GROUP.STUDIO_IMPORT, STATS_METRIC.SUCCESS );
-		bumpStat( STATS_GROUP.STUDIO_IMPORT, result.importerType || 'unknown' );
+		bumpStat(
+			STATS_GROUP.STUDIO_IMPORT,
+			( result.importerType as STATS_METRIC ) || STATS_METRIC.UNKNOWN
+		);
 
 		if ( result?.meta?.phpVersion ) {
 			site.details.phpVersion = result.meta.phpVersion;

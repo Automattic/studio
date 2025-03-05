@@ -139,10 +139,10 @@ export class SymlinkManager {
 	 * @param filename
 	 */
 	private async addSymlink( filename: string ) {
-		const fullPath = path.join( this.projectPath, filename );
-		let target: string;
+		const fullPath = path.resolve( this.projectPath, filename );
+		let hostTarget: string;
 		try {
-			target = await fs.realpath( fullPath );
+			hostTarget = await fs.realpath( fullPath );
 		} catch ( err ) {
 			if ( isErrnoException( err ) && err.code === 'ENOENT' ) {
 				console.error( `Symlink target does not exist: ${ fullPath }` );
@@ -152,7 +152,7 @@ export class SymlinkManager {
 			return;
 		}
 
-		const vfsPath = path.posix.join( this.documentRoot, filename );
+		const vfsPath = path.posix.resolve( this.documentRoot, filename );
 
 		// Double check to ensure the symlink exists
 		if ( ! this.php.fileExists( vfsPath ) ) {
@@ -160,10 +160,10 @@ export class SymlinkManager {
 		}
 
 		// Get the realpath of the symlink within the PHP runtime.
-		const vfsTarget = this.php.readlink( vfsPath );
+		const vfsTarget = path.posix.resolve( path.dirname( vfsPath ), this.php.readlink( vfsPath ) );
 		this.symlinks.set( filename, vfsTarget );
 
-		await this.mountTarget( vfsTarget, target );
+		await this.mountTarget( vfsTarget, hostTarget );
 	}
 
 	/**

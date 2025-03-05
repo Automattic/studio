@@ -385,6 +385,7 @@ export async function startServer(
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	try {
 		await server.start();
+		console.log( `Server started for '${ server.details.name }'` );
 	} catch ( error ) {
 		Sentry.captureException( error );
 		if (
@@ -410,7 +411,6 @@ export async function startServer(
 		}
 	}
 
-	console.log( `Server started for '${ server.details.name }'` );
 	await updateSite( event, server.details );
 	return server.details;
 }

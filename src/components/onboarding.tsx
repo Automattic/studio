@@ -86,6 +86,7 @@ export default function Onboarding() {
 			setDoesPathContainWordPress( isWordPress );
 		};
 		run();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [] );
 
 	const handleSubmit = useCallback(

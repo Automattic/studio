@@ -122,6 +122,7 @@ export default function EditSiteDetails( { currentWpVersion }: { currentWpVersio
 							<label className="flex flex-col gap-1.5 leading-4">
 								<span className="font-semibold">{ __( 'Site name' ) }</span>
 								<TextControlComponent
+									disabled={ isEditingSite }
 									onChange={ setSiteName }
 									value={ siteName }
 								></TextControlComponent>
@@ -131,6 +132,7 @@ export default function EditSiteDetails( { currentWpVersion }: { currentWpVersio
 								<label className="flex flex-1 flex-col gap-1.5 leading-4">
 									<span className="font-semibold">{ __( 'PHP version' ) }</span>
 									<SelectControl
+										disabled={ isEditingSite }
 										value={ selectedPhpVersion }
 										options={ SupportedPHPVersions.map( ( version ) => ( {
 											label: version,
@@ -144,6 +146,7 @@ export default function EditSiteDetails( { currentWpVersion }: { currentWpVersio
 								<label className="flex flex-1 flex-col gap-1.5 leading-4">
 									<span className="font-semibold">{ __( 'WordPress version' ) }</span>
 									<SelectControl
+										disabled={ isEditingSite }
 										value={ selectedWpVersion }
 										options={ wordpressVersions.map( ( { label, value } ) => ( {
 											label,

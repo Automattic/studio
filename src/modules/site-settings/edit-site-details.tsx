@@ -29,6 +29,13 @@ export default function EditSiteDetails( { currentWpVersion }: { currentWpVersio
 	);
 	const [ selectedWpVersion, setSelectedWpVersion ] = useState( currentWpVersion );
 	const wordpressVersions = useRootSelector( wordpressVersionsSelectors.selectWordPressVersions );
+	const wordpressVersionOptions = wordpressVersions.map( ( version ) => ( {
+		label: version.label,
+		value: version.value,
+	} ) );
+	if ( ! wordpressVersionOptions.some( ( version ) => version.value === currentWpVersion ) ) {
+		wordpressVersionOptions.push( { label: currentWpVersion, value: currentWpVersion } );
+	}
 
 	const resetFormState = useCallback( () => {
 		if ( ! selectedSite ) {
@@ -148,10 +155,7 @@ export default function EditSiteDetails( { currentWpVersion }: { currentWpVersio
 									<SelectControl
 										disabled={ isEditingSite }
 										value={ selectedWpVersion }
-										options={ wordpressVersions.map( ( { label, value } ) => ( {
-											label,
-											value,
-										} ) ) }
+										options={ wordpressVersionOptions }
 										onChange={ setSelectedWpVersion }
 										__next40pxDefaultSize
 									/>

@@ -12,6 +12,7 @@ import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
 import { useDocsLink } from 'src/hooks/use-docs-link';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { cx } from 'src/lib/cx';
+import { generateCustomDomainFromSiteName } from 'src/lib/generate-custom-domain';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useAppDispatch, useRootSelector } from 'src/stores';
 import {
@@ -85,20 +86,6 @@ interface SiteFormWithoutVersionsProps extends SiteFormBaseProps {
 }
 
 type SiteFormProps = SiteFormWithVersionsProps | SiteFormWithoutVersionsProps;
-
-/**
- * Generates a suitable domain name from site name
- */
-const generateDomainFromSiteName = ( siteName: string ): string => {
-	// Convert the site name to lowercase and replace spaces with hyphens
-	const domainBase = siteName
-		.toLowerCase()
-		.replace( /[^a-z0-9-]/g, '-' ) // Replace non-alphanumeric chars with hyphens
-		.replace( /-+/g, '-' ) // Replace multiple hyphens with single hyphen
-		.replace( /^-|-$/g, '' ); // Remove hyphens from start and end
-
-	return `${ domainBase }.wp.local`;
-};
 
 const SiteFormError = ( { error, tipMessage = '', className = '' }: SiteFormErrorProps ) => {
 	return (
@@ -318,6 +305,7 @@ export const SiteForm = ( {
 	} else {
 		chevronIcon = chevronRight;
 	}
+	const generatedDomainName = generateCustomDomainFromSiteName( siteName );
 
 	return (
 		<form className={ className } onSubmit={ onSubmit }>
@@ -332,10 +320,7 @@ export const SiteForm = ( {
 							type="checkbox"
 							id="use-custom-domain"
 							checked={ useCustomDomain }
-							onChange={ ( e ) => {
-								setUseCustomDomain( e.target.checked );
-								setCustomDomain( generateDomainFromSiteName( siteName ) );
-							} }
+							onChange={ ( e ) => setUseCustomDomain( e.target.checked ) }
 						/>
 						<label htmlFor="use-custom-domain">{ __( 'Use custom domain' ) }</label>
 						<span className="text-a8c-gray-50 text-xs ml-2">
@@ -353,7 +338,7 @@ export const SiteForm = ( {
 							id="custom-domain"
 							value={ customDomain ?? '' }
 							onChange={ setCustomDomain }
-							placeholder="my-site.wp.local"
+							placeholder={ generatedDomainName }
 						/>
 						{ customDomainError && (
 							<div className="text-red-500 text-xs">{ customDomainError }</div>

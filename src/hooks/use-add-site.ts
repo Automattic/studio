@@ -5,6 +5,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
+import { generateCustomDomainFromSiteName } from 'src/lib/generate-custom-domain';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
 
@@ -68,26 +69,24 @@ export function useAddSite() {
 	const handleAddSiteClick = useCallback( async () => {
 		try {
 			// Validate custom domain if enabled
-			if ( useCustomDomain ) {
-				if ( ! customDomain.trim() ) {
-					setCustomDomainError( __( 'Custom domain cannot be empty' ) );
-					return;
-				}
-
-				const domainPattern = /^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9](?:\.[a-zA-Z]{2,})+$/;
-				if ( ! domainPattern.test( customDomain ) ) {
-					setCustomDomainError( __( 'Please enter a valid domain name' ) );
-					return;
-				}
+			const domainPattern = /^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9](?:\.[a-zA-Z]{2,})+$/;
+			if ( useCustomDomain && customDomain && ! domainPattern.test( customDomain ) ) {
+				setCustomDomainError( __( 'Please enter a valid domain name' ) );
+				return;
 			}
 
 			const path = sitePath ? sitePath : proposedSitePath;
+
+			let usedCustomDomain = customDomain;
+			if ( useCustomDomain && ! customDomain ) {
+				usedCustomDomain = generateCustomDomainFromSiteName( siteName ?? '' );
+			}
 			await createSite(
 				path,
 				siteName ?? '',
 				wpVersionsEnabled ? wpVersion : DEFAULT_WORDPRESS_VERSION,
 				useCustomDomain,
-				customDomain,
+				usedCustomDomain,
 				async ( newSite ) => {
 					if ( newSite ) {
 						let updatedSite = { ...newSite };

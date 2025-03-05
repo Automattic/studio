@@ -49,8 +49,12 @@ export const writeHostsFile = async ( content: string ): Promise< void > => {
 	try {
 		const tempPath = path.join( tmpdir(), 'wp-studio-hosts' );
 		await writeFile( tempPath, content );
+		const command =
+			platform() === 'win32'
+				? `type ${ tempPath } > ${ hostsPath }`
+				: `cat ${ tempPath } > ${ hostsPath }`;
 		// @ts-expect-error promisify doesn't seem typed properly.
-		await sudoExec( `cat ${ tempPath } > ${ hostsPath }`, {
+		await sudoExec( command, {
 			name: 'WordPress Studio',
 		} );
 	} catch ( error ) {

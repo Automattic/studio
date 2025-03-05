@@ -35,6 +35,20 @@ export function useAddSite() {
 		[ sites ]
 	);
 
+	const handleCustomDomainChange = useCallback(
+		( value: string ) => {
+			setCustomDomain( value );
+			// Validate custom domain if enabled
+			const domainPattern = /^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9](?:\.[a-zA-Z]{2,})+$/;
+			if ( useCustomDomain && value && ! domainPattern.test( value ) ) {
+				setCustomDomainError( __( 'Please enter a valid domain name' ) );
+			} else {
+				setCustomDomainError( '' );
+			}
+		},
+		[ __, useCustomDomain, setCustomDomain, setCustomDomainError ]
+	);
+
 	const handlePathSelectorClick = useCallback( async () => {
 		const response = await getIpcApi().showOpenFolderDialog(
 			__( 'Choose folder for site' ),
@@ -68,13 +82,6 @@ export function useAddSite() {
 
 	const handleAddSiteClick = useCallback( async () => {
 		try {
-			// Validate custom domain if enabled
-			const domainPattern = /^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9](?:\.[a-zA-Z]{2,})+$/;
-			if ( useCustomDomain && customDomain && ! domainPattern.test( customDomain ) ) {
-				setCustomDomainError( __( 'Please enter a valid domain name' ) );
-				return;
-			}
-
 			const path = sitePath ? sitePath : proposedSitePath;
 
 			let usedCustomDomain = customDomain;
@@ -217,7 +224,7 @@ export function useAddSite() {
 			useCustomDomain,
 			setUseCustomDomain,
 			customDomain,
-			setCustomDomain,
+			setCustomDomain: handleCustomDomainChange,
 			customDomainError,
 			setCustomDomainError,
 		};
@@ -240,7 +247,7 @@ export function useAddSite() {
 		useCustomDomain,
 		setUseCustomDomain,
 		customDomain,
-		setCustomDomain,
+		handleCustomDomainChange,
 		customDomainError,
 		setCustomDomainError,
 	] );

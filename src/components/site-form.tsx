@@ -365,10 +365,12 @@ export const SiteForm = ( {
 											{ __( 'Advanced settings' ) }
 										</div>
 									</Button>
-									{ error && (
+									{ ( error || customDomainError ) && (
 										<span className="text-red-500 text-[13px] leading-[16px] ml-2 flex items-center">
 											<Icon icon={ warning } size={ 16 } className="mr-1 fill-red-500" />
-											{ __( '1 error found' ) }
+											{ error && customDomainError
+												? __( '2 errors found' )
+												: __( '1 error found' ) }
 										</span>
 									) }
 								</div>
@@ -483,9 +485,7 @@ export const SiteForm = ( {
 												onChange={ setCustomDomain }
 												placeholder={ generatedDomainName }
 											/>
-											{ customDomainError && (
-												<div className="text-red-500 text-xs">{ customDomainError }</div>
-											) }
+											{ customDomainError && <SiteFormError error={ customDomainError } /> }
 											<div className="text-a8c-gray-50 text-xs">
 												{ __(
 													'You will be prompted for administrator permission to modify your system hosts file.'

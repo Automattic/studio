@@ -40,7 +40,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 						<th colSpan={ 2 } className="pb-4 ltr:text-left rtl:text-right">
 							<h3 className="text-black text-sm font-semibold">
 								{ __( 'Site details' ) }
-								{ wpVersionsEnabled && <EditSiteDetails /> }
+								{ wpVersionsEnabled && <EditSiteDetails currentWpVersion={ wpVersion } /> }
 							</h3>
 						</th>
 					</tr>

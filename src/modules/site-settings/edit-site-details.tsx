@@ -6,58 +6,93 @@ import Button from 'src/components/button';
 import Modal from 'src/components/modal';
 import TextControlComponent from 'src/components/text-control';
 import { useSiteDetails } from 'src/hooks/use-site-details';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useRootSelector } from 'src/stores';
 import { wordpressVersionsSelectors } from 'src/stores/wordpress-versions-slice';
 import { DEFAULT_PHP_VERSION } from 'vendor/wp-now/src/constants';
 
-export default function EditSiteDetails() {
+export default function EditSiteDetails( { currentWpVersion }: { currentWpVersion: string } ) {
 	const { __ } = useI18n();
 	const { updateSite, selectedSite, stopServer, startServer } = useSiteDetails();
 	const [ editSiteError, setEditSiteError ] = useState( '' );
 	const [ showModal, setShowModal ] = useState( false );
 	const [ isEditingSite, setIsEditingSite ] = useState( false );
+	const closeModal = useCallback( () => {
+		if ( isEditingSite ) {
+			return;
+		}
+		setShowModal( false );
+	}, [ isEditingSite ] );
 	const [ siteName, setSiteName ] = useState( selectedSite?.name ?? '' );
 	const [ selectedPhpVersion, setSelectedPhpVersion ] = useState< SupportedPHPVersion >(
 		( selectedSite?.phpVersion as SupportedPHPVersion ) ?? DEFAULT_PHP_VERSION
 	);
-	const [ selectedWpVersion, setSelectedWpVersion ] = useState( 'latest' );
-
+	const [ selectedWpVersion, setSelectedWpVersion ] = useState( currentWpVersion );
 	const wordpressVersions = useRootSelector( wordpressVersionsSelectors.selectWordPressVersions );
 
-	useEffect( () => {
-		if ( selectedSite && showModal ) {
-			setSiteName( selectedSite.name );
-			setSelectedPhpVersion( selectedSite.phpVersion as SupportedPHPVersion );
-		}
-	}, [ selectedSite, showModal ] );
-
 	const resetLocalState = useCallback( () => {
-		setShowModal( false );
-		setSiteName( '' );
-		setSelectedPhpVersion( DEFAULT_PHP_VERSION );
-		setSelectedWpVersion( 'latest' );
+		if ( ! selectedSite ) {
+			return;
+		}
+
+		setSiteName( selectedSite.name );
+		setSelectedPhpVersion( selectedSite.phpVersion as SupportedPHPVersion );
+		setSelectedWpVersion( currentWpVersion );
 		setEditSiteError( '' );
-	}, [] );
+	}, [ currentWpVersion, selectedSite ] );
+
+	useEffect( () => {
+		if ( showModal ) {
+			resetLocalState();
+		}
+	}, [ showModal, resetLocalState ] );
 
 	const onSiteEdit = useCallback(
 		async ( event: FormEvent ) => {
 			event.preventDefault();
-			if ( ! selectedSite ) {
+			if ( ! selectedSite?.id ) {
 				return;
 			}
 			setIsEditingSite( true );
 			try {
 				const running = selectedSite.running;
+
+				const hasWpVersionChanged = selectedWpVersion !== currentWpVersion;
+				const hasPhpVersionChanged = selectedPhpVersion !== selectedSite.phpVersion;
+				const needsRestart = running && ( hasWpVersionChanged || hasPhpVersionChanged );
+				if ( needsRestart ) {
+					await stopServer( selectedSite.id );
+				}
+
+				if ( hasWpVersionChanged ) {
+					try {
+						await getIpcApi().executeWPCLiInline( {
+							siteId: selectedSite.id,
+							args: `core update --version=${ selectedWpVersion } --force`,
+							skipPluginsAndThemes: false,
+						} );
+					} catch ( wpError ) {
+						console.error( 'Error updating WordPress version:', wpError );
+						setEditSiteError( ( wpError as Error )?.message );
+						getIpcApi().showErrorMessageBox( {
+							title: __( 'Error updating WordPress version' ),
+							message: ( wpError as Error )?.message,
+						} );
+						return;
+					}
+				}
+
 				await updateSite( {
 					...selectedSite,
 					name: siteName,
 					phpVersion: selectedPhpVersion,
 				} );
-				if ( running && selectedSite.phpVersion !== selectedPhpVersion ) {
-					await stopServer( selectedSite.id );
+
+				if ( needsRestart ) {
 					await startServer( selectedSite.id );
 				}
-				setShowModal( false );
+
+				closeModal();
 				resetLocalState();
 			} catch ( e ) {
 				setEditSiteError( ( e as Error )?.message );
@@ -65,13 +100,17 @@ export default function EditSiteDetails() {
 			setIsEditingSite( false );
 		},
 		[
-			updateSite,
 			selectedSite,
-			siteName,
+			selectedWpVersion,
+			currentWpVersion,
 			selectedPhpVersion,
+			updateSite,
+			siteName,
+			closeModal,
 			resetLocalState,
-			startServer,
 			stopServer,
+			__,
+			startServer,
 		]
 	);
 
@@ -83,7 +122,7 @@ export default function EditSiteDetails() {
 					title={ __( 'Edit site' ) }
 					isDismissible
 					focusOnMount="firstContentElement"
-					onRequestClose={ resetLocalState }
+					onRequestClose={ closeModal }
 				>
 					<form onSubmit={ onSiteEdit }>
 						<div className="flex flex-col gap-6">
@@ -113,8 +152,11 @@ export default function EditSiteDetails() {
 									<span className="font-semibold">{ __( 'WordPress version' ) }</span>
 									<SelectControl
 										value={ selectedWpVersion }
-										options={ wordpressVersions }
-										onChange={ ( version ) => setSelectedWpVersion( version ) }
+										options={ wordpressVersions.map( ( { label, value } ) => ( {
+											label,
+											value,
+										} ) ) }
+										onChange={ setSelectedWpVersion }
 										__next40pxDefaultSize
 									/>
 								</label>
@@ -122,7 +164,7 @@ export default function EditSiteDetails() {
 						</div>
 
 						<div className="flex flex-row justify-end gap-x-5 mt-6">
-							<Button onClick={ resetLocalState } disabled={ isEditingSite } variant="tertiary">
+							<Button onClick={ closeModal } disabled={ isEditingSite } variant="tertiary">
 								{ __( 'Cancel' ) }
 							</Button>
 							<Button
@@ -133,7 +175,8 @@ export default function EditSiteDetails() {
 									isEditingSite ||
 										! selectedSite ||
 										( selectedSite?.name === siteName &&
-											selectedSite?.phpVersion === selectedPhpVersion ) ||
+											selectedSite?.phpVersion === selectedPhpVersion &&
+											currentWpVersion === selectedWpVersion ) ||
 										! siteName.trim() ||
 										editSiteError
 								) }

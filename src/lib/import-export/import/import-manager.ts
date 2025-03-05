@@ -85,8 +85,7 @@ export async function importBackup(
 		removeBackupListeners = handleEvents( backupHandler, onEvent, BackupExtractEvents );
 		removeImportListeners = handleEvents( importer, onEvent, ImporterEvents );
 		await backupHandler.extractFiles( backupFile, extractionDirectory );
-		const result = await importer.import( site.path, site.id );
-		return result;
+		return await importer.import( site.path, site.id );
 	} finally {
 		removeBackupListeners?.();
 		removeImportListeners?.();

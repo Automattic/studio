@@ -23,7 +23,6 @@ export default class SiteServerProcess {
 	private currentProcessIndex = 0;
 
 	constructor( options: WPNowOptions ) {
-		options.documentRoot = options.projectPath; // @TODO huh?
 		this.options = options;
 		this.url = options.absoluteUrl ?? '';
 	}

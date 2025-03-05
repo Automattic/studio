@@ -69,7 +69,7 @@ export default function EditSiteDetails( { currentWpVersion }: { currentWpVersio
 						await getIpcApi().executeWPCLiInline( {
 							siteId: selectedSite.id,
 							args: `core update --version=${ selectedWpVersion } --force`,
-							skipPluginsAndThemes: false,
+							skipPluginsAndThemes: true,
 						} );
 					} catch ( wpError ) {
 						console.error( 'Error updating WordPress version:', wpError );

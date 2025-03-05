@@ -52,6 +52,34 @@ export async function startServer( options: WPNowOptions = {} ): Promise< WPNowS
 	const workerPool = new PHPWorkerPool( options );
 	await workerPool.initialize();
 
+	// Middleware to check if auto-login should be executed
+	app.use( async ( req, res, next ) => {
+		if ( req.query[ 'playground-auto-login' ] === 'true' ) {
+			await workerPool.handleRequest( { url: '/wp-login.php' } );
+			const response = await workerPool.handleRequest( {
+				url: '/wp-login.php',
+				method: 'POST',
+				body: {
+					log: 'admin',
+					pwd: options.adminPassword,
+					rememberme: 'forever',
+				},
+			} );
+			const cookies = response.headers[ 'set-cookie' ];
+			if ( cookies ) {
+				res.setHeader( 'set-cookie', cookies );
+			}
+			// Remove query parameter to avoid infinite loop
+			let redirectUrl = req.url.replace( /&?playground-auto-login=true/, '' );
+			// If no more query parameters, remove ? from URL
+			if ( Object.keys( req.query ).length === 1 ) {
+				redirectUrl = redirectUrl.substring( 0, redirectUrl.length - 1 );
+			}
+			return res.redirect( redirectUrl );
+		}
+		next();
+	} );
+
 	// Handle requests using worker pool
 	app.use( '/', async ( req, res ) => {
 		console.log( 'GOT ' + req.url );

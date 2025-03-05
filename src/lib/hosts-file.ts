@@ -60,57 +60,35 @@ export const writeHostsFile = async ( content: string ): Promise< void > => {
 };
 
 /**
+ * Create a regular expression matching the hosts entry for a given domain:
+ *
+ * 	127.0.0.1 foo.wp.cloud # Port 8000 (WordPress Studio)
+ */
+function createHostsEntryPattern( domain: string ): RegExp {
+	return new RegExp( `127\\.0\\.0\\.1\\s+${ domain.replace( /\./g, '\\.' ) }(\\s|$)`, 'i' );
+}
+
+/**
  * Adds a domain to the hosts file pointing to 127.0.0.1
  */
 export const addDomainToHosts = async ( domain: string, port: number ): Promise< void > => {
 	try {
 		const hostsContent = await readHostsFile();
 
-		// Check if the domain is already in the hosts file
-		const domainRegex = new RegExp(
-			`^127\\.0\\.0\\.1\\s+${ domain.replace( /\./g, '\\.' ) }`,
-			'i'
-		);
-		if ( domainRegex.test( hostsContent ) ) {
-			return; // Domain already exists
+		const newContent = updateStudioBlock( hostsContent, ( entries ) => {
+			const pattern = createHostsEntryPattern( domain );
+
+			// No changes if domain already present
+			if ( entries.some( ( entry ) => entry.match( pattern ) ) ) {
+				return entries;
+			}
+
+			return [ ...entries, `127.0.0.1 ${ domain } # Port ${ port } (WordPress Studio)` ];
+		} );
+
+		if ( newContent !== hostsContent ) {
+			await writeHostsFile( newContent );
 		}
-
-		// Define markers for WordPress Studio block
-		const beginMarker = '# BEGIN WordPress Studio';
-		const endMarker = '# END WordPress Studio';
-
-		// Create the domain entry with port reference
-		const domainEntry = `127.0.0.1\t${ domain } # Port: ${ port }`;
-
-		// Check if WordPress Studio block already exists
-		// Use non-greedy matching to avoid capturing multiple blocks at once
-		const blockRegex = new RegExp( `(${ beginMarker })[\\s\\S]*?(${ endMarker })` );
-		const blockMatch = hostsContent.match( blockRegex );
-
-		let newContent;
-
-		if ( blockMatch ) {
-			// Extract existing entries between markers
-			const existingBlock = blockMatch[ 0 ];
-			const entries = existingBlock
-				.split( '\n' )
-				.filter( ( line ) => line !== beginMarker && line !== endMarker && line.trim() !== '' );
-
-			// Add new entry to entries
-			entries.push( domainEntry );
-
-			// Create updated block with entries
-			const updatedBlock = `${ beginMarker }\n${ entries.join( '\n' ) }\n${ endMarker }`;
-
-			// Replace old block with updated block
-			newContent = hostsContent.replace( blockRegex, updatedBlock );
-		} else {
-			// Create new block with the domain entry
-			const newBlock = `\n\n${ beginMarker }\n${ domainEntry }\n${ endMarker }\n`;
-			newContent = hostsContent + newBlock;
-		}
-
-		await writeHostsFile( newContent );
 	} catch ( error ) {
 		console.error( `Error adding domain ${ domain } to hosts file:`, error );
 		throw error;
@@ -124,48 +102,10 @@ export const removeDomainFromHosts = async ( domain: string ): Promise< void > =
 	try {
 		const hostsContent = await readHostsFile();
 
-		// Check if the domain is already in the hosts file
-		const domainRegex = new RegExp(
-			`^127\\.0\\.0\\.1\\s+${ domain.replace( /\./g, '\\.' ) }`,
-			'i'
+		const pattern = createHostsEntryPattern( domain );
+		const newContent = updateStudioBlock( hostsContent, ( entries ) =>
+			entries.filter( ( entry ) => ! entry.match( pattern ) )
 		);
-		if ( ! domainRegex.test( hostsContent ) ) {
-			return; // Domain doesn't exist
-		}
-
-		// All WordPress Studio entries will be grouped in a block
-		const beginMarker = '# BEGIN WordPress Studio';
-		const endMarker = '# END WordPress Studio';
-
-		// Find the Studio block, if any. For performance, avoid greedy
-		// searches; there should only be a small block anyway.
-		const blockRegex = new RegExp( `(${ beginMarker })[\\s\\S]*?(${ endMarker })` );
-		const blockMatch = hostsContent.match( blockRegex );
-
-		let newContent = hostsContent;
-
-		if ( blockMatch ) {
-			// Split into lines to remove domain entry
-			const block = blockMatch[ 0 ];
-			const lines = block.split( '\n' );
-			const remainingLines = lines.filter(
-				( line ) =>
-					line === beginMarker ||
-					line === endMarker ||
-					( line.trim() !== '' && ! domainRegex.test( line ) )
-			);
-
-			if ( remainingLines.length <= 2 ) {
-				// Only markers left, remove entire block
-				newContent = newContent.replace( block, '' );
-				// Clean up extra newlines
-				newContent = newContent.replace( /\n\n\n+/g, '\n\n' );
-			} else {
-				// Create updated block with remaining entries
-				const updatedBlock = remainingLines.join( '\n' );
-				newContent = newContent.replace( block, updatedBlock );
-			}
-		}
 
 		// Only write if content changed
 		if ( newContent !== hostsContent ) {
@@ -176,3 +116,56 @@ export const removeDomainFromHosts = async ( domain: string ): Promise< void > =
 		throw error;
 	}
 };
+
+/**
+ * Helper function for manipulating the "block" of entries in the hosts file
+ * pertaining to WordPres Studio.
+ *
+ * @param content - Content of the hosts file
+ * @param updateFn - Function to map/filter over hosts entries
+ */
+function updateStudioBlock( content: string, updateFn: ( entries: string[] ) => string[] ): string {
+	/**
+	 * Regular expression matching a block of entries demarcated as follows:
+	 *
+	 * 	# BEGIN WordPress Studio
+	 * 	127.0.0.1 foo.wp.cloud
+	 * 	127.0.0.1 bar.wp.cloud
+	 * 	# END WordPress Studio
+	 */
+	const STUDIO_BLOCK_PATTERN =
+		/(^|\n)(# BEGIN WordPress Studio)([\s\S]*?)\n(# END WordPress Studio)/;
+
+	const match = content.match( STUDIO_BLOCK_PATTERN );
+
+	// Edit the existing "block" of Studio entries
+	if ( match ) {
+		const [ _, space, begin, block, end ] = match;
+
+		const before = content.slice( 0, match.index );
+		const after = content.slice( ( match.index ?? 0 ) + match[ 0 ].length );
+
+		const entries = block.split( '\n' ).filter( Boolean );
+		const newEntries = updateFn( entries );
+
+		// Remove whole block if empty
+		if ( ! newEntries.length ) {
+			return before + after;
+		}
+
+		const newLines = [ begin, ...newEntries, end ];
+		return before + space + newLines.join( '\n' ) + after;
+	}
+	// Append a new block to the hosts file
+	else {
+		const newEntries = updateFn( [] );
+		if ( newEntries.length ) {
+			return (
+				content +
+				[ '\n', '# BEGIN WordPress Studio', ...newEntries, '# END WordPress Studio' ].join( '\n' )
+			);
+		}
+	}
+
+	return content;
+}

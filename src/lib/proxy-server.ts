@@ -69,9 +69,6 @@ async function startDomainProxy( port: number = 80 ): Promise< boolean > {
 		proxyServer = http.createServer( async ( req, res ) => {
 			const host = req.headers.host?.split( ':' )[ 0 ]; // Remove port if present
 
-			// Log incoming request information for debugging
-			console.log( `Received request with host header: ${ host }` );
-
 			// Look up the port directly from user data
 			if ( ! host ) {
 				console.log( 'No host header found' );
@@ -87,8 +84,6 @@ async function startDomainProxy( port: number = 80 ): Promise< boolean > {
 				res.end( `Domain not found: ${ host }` );
 				return;
 			}
-
-			console.log( `Proxying request for ${ host } to port ${ port }` );
 
 			// Forward the request with the original host preserved
 			proxy.web( req, res, {

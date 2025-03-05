@@ -1,5 +1,6 @@
 import fs from 'fs';
-import { platform } from 'os';
+import { platform, tmpdir } from 'os';
+import path from 'path';
 import { promisify } from 'util';
 import sudo from 'sudo-prompt';
 
@@ -46,7 +47,7 @@ export const readHostsFile = async (): Promise< string > => {
 export const writeHostsFile = async ( content: string ): Promise< void > => {
 	const hostsPath = getHostsFilePath();
 	try {
-		const tempPath = '/tmp/wp-studio-hosts';
+		const tempPath = path.join( tmpdir(), 'wp-studio-hosts' );
 		await writeFile( tempPath, content );
 		// @ts-expect-error promisify doesn't seem typed properly.
 		await sudoExec( `cat ${ tempPath } > ${ hostsPath }`, {

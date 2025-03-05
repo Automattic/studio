@@ -1,7 +1,7 @@
 import { SupportedPHPVersion, SupportedPHPVersions } from '@php-wasm/universal';
 import { SelectControl } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
-import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { FormEvent, useCallback, useState } from 'react';
 import Button from 'src/components/button';
 import Modal from 'src/components/modal';
 import TextControlComponent from 'src/components/text-control';
@@ -30,22 +30,15 @@ export default function EditSiteDetails( { currentWpVersion }: { currentWpVersio
 	const [ selectedWpVersion, setSelectedWpVersion ] = useState( currentWpVersion );
 	const wordpressVersions = useRootSelector( wordpressVersionsSelectors.selectWordPressVersions );
 
-	const resetLocalState = useCallback( () => {
+	const resetFormState = useCallback( () => {
 		if ( ! selectedSite ) {
 			return;
 		}
-
 		setSiteName( selectedSite.name );
 		setSelectedPhpVersion( selectedSite.phpVersion as SupportedPHPVersion );
 		setSelectedWpVersion( currentWpVersion );
 		setEditSiteError( '' );
 	}, [ currentWpVersion, selectedSite ] );
-
-	useEffect( () => {
-		if ( showModal ) {
-			resetLocalState();
-		}
-	}, [ showModal, resetLocalState ] );
 
 	const onSiteEdit = useCallback(
 		async ( event: FormEvent ) => {
@@ -93,7 +86,7 @@ export default function EditSiteDetails( { currentWpVersion }: { currentWpVersio
 				}
 
 				closeModal();
-				resetLocalState();
+				resetFormState();
 			} catch ( e ) {
 				setEditSiteError( ( e as Error )?.message );
 			}
@@ -107,7 +100,7 @@ export default function EditSiteDetails( { currentWpVersion }: { currentWpVersio
 			updateSite,
 			siteName,
 			closeModal,
-			resetLocalState,
+			resetFormState,
 			stopServer,
 			__,
 			startServer,
@@ -192,6 +185,7 @@ export default function EditSiteDetails( { currentWpVersion }: { currentWpVersio
 				className="!mx-4 shrink-0"
 				onClick={ () => {
 					setShowModal( true );
+					resetFormState();
 				} }
 				label={ __( 'Edit site' ) }
 				variant="link"

@@ -220,7 +220,7 @@ const SyncConnectedSitesSection = ( {
 									<Badge className="bg-a8c-green-5 text-a8c-green-80">{ __( 'Production' ) }</Badge>
 								) }
 							</div>
-							<Tooltip 
+							<Tooltip
 								text={ sprintf(
 									/* translators: %s: The URL of the connected site */
 									__( 'Open %s' ),

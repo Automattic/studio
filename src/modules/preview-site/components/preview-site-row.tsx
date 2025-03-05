@@ -117,13 +117,13 @@ export function PreviewSiteRow( {
 							{ snapshot.name || sprintf( __( '%s Preview' ), selectedSite.name ) }
 						</div>
 					</div>
-					<Tooltip 
+					<Tooltip
 						text={ sprintf(
 							/* translators: %s: The preview site URL */
 							__( 'Open %s' ),
 							urlWithHTTPS
 						) }
-						disabled={ isExpired } 
+						disabled={ isExpired }
 						className="overflow-hidden"
 					>
 						<Button

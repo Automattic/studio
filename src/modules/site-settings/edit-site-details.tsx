@@ -2,6 +2,7 @@ import { SupportedPHPVersion, SupportedPHPVersions } from '@php-wasm/universal';
 import { SelectControl } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useCallback, useState } from 'react';
+import stripAnsi from 'strip-ansi';
 import Button from 'src/components/button';
 import Modal from 'src/components/modal';
 import TextControlComponent from 'src/components/text-control';
@@ -54,6 +55,7 @@ export default function EditSiteDetails( { currentWpVersion }: { currentWpVersio
 				return;
 			}
 			setIsEditingSite( true );
+			setEditSiteError( '' );
 			try {
 				const running = selectedSite.running;
 
@@ -66,18 +68,24 @@ export default function EditSiteDetails( { currentWpVersion }: { currentWpVersio
 
 				if ( hasWpVersionChanged ) {
 					try {
-						await getIpcApi().executeWPCLiInline( {
+						const result = await getIpcApi().executeWPCLiInline( {
 							siteId: selectedSite.id,
 							args: `core update --version=${ selectedWpVersion } --force`,
 							skipPluginsAndThemes: true,
 						} );
+						if ( result.exitCode !== 0 ) {
+							throw new Error( result.stderr );
+						}
 					} catch ( wpError ) {
 						console.error( 'Error updating WordPress version:', wpError );
-						setEditSiteError( ( wpError as Error )?.message );
+						const errorMessage = stripAnsi( ( wpError as Error )?.message );
+						setEditSiteError( __( 'Error updating WordPress version' ) );
 						getIpcApi().showErrorMessageBox( {
 							title: __( 'Error updating WordPress version' ),
-							message: ( wpError as Error )?.message,
+							message: errorMessage,
 						} );
+						setSelectedWpVersion( currentWpVersion );
+						setIsEditingSite( false );
 						return;
 					}
 				}
@@ -163,6 +171,8 @@ export default function EditSiteDetails( { currentWpVersion }: { currentWpVersio
 							</div>
 						</div>
 
+						{ editSiteError && <div className="mt-4 text-red-500">{ editSiteError }</div> }
+
 						<div className="flex flex-row justify-end gap-x-5 mt-6">
 							<Button onClick={ closeModal } disabled={ isEditingSite } variant="tertiary">
 								{ __( 'Cancel' ) }
@@ -177,8 +187,7 @@ export default function EditSiteDetails( { currentWpVersion }: { currentWpVersio
 										( selectedSite?.name === siteName &&
 											selectedSite?.phpVersion === selectedPhpVersion &&
 											currentWpVersion === selectedWpVersion ) ||
-										! siteName.trim() ||
-										editSiteError
+										! siteName.trim()
 								) }
 							>
 								{ isEditingSite ? __( 'Saving…' ) : __( 'Save' ) }

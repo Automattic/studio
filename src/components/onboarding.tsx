@@ -77,9 +77,8 @@ export default function Onboarding() {
 
 	useEffect( () => {
 		const run = async () => {
-			const { path, name, isWordPress } = await getIpcApi().generateProposedSitePath(
-				generateSiteName( [] )
-			);
+			const siteName = await generateSiteName( [] );
+			const { path, name, isWordPress } = await getIpcApi().generateProposedSitePath( siteName );
 			setSiteName( name );
 			setProposedSitePath( path );
 			setSitePath( '' );

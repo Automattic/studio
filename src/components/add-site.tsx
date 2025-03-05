@@ -55,8 +55,8 @@ export default function AddSite( { className }: AddSiteProps ) {
 	);
 
 	const initializeForm = useCallback( async () => {
-		const { name, path, isWordPress } =
-			( await getIpcApi().generateProposedSitePath( generateSiteName( sites ) ) ) || {};
+		const siteName = await generateSiteName( sites );
+		const { path, name, isWordPress } = await getIpcApi().generateProposedSitePath( siteName );
 		setNameSuggested( true );
 		setSiteName( name );
 		setProposedSitePath( path );

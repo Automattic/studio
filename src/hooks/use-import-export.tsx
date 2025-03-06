@@ -304,7 +304,6 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 
 	const exportFullSite = useCallback(
 		async ( selectedSite: SiteDetails ): Promise< string | undefined > => {
-			getIpcApi().ipcBumpStat( STATS_GROUP.STUDIO_EXPORT, STATS_METRIC.FULL_SITE );
 			const fileName = generateBackupFilename( selectedSite.name );
 			const path = await getIpcApi().showSaveAsDialog( {
 				title: __( 'Save backup file' ),
@@ -338,7 +337,6 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 
 	const exportDatabase = useCallback(
 		async ( selectedSite: SiteDetails ): Promise< string | undefined > => {
-			getIpcApi().ipcBumpStat( STATS_GROUP.STUDIO_EXPORT, STATS_METRIC.DATABASE_ONLY );
 			const fileName = generateBackupFilename( selectedSite.name );
 			const path = await getIpcApi().showSaveAsDialog( {
 				title: __( 'Save database file' ),

@@ -117,8 +117,6 @@ const api: IpcApi = {
 	getPathForFile: webUtils.getPathForFile,
 	getFileContent: ( filePath: string ) => ipcRenderer.invoke( 'getFileContent', filePath ),
 	isFullscreen: () => ipcRenderer.invoke( 'isFullscreen' ),
-	ipcBumpStat: ( group: StatsGroup, stat: StatsMetric, bumpInDev = false ) =>
-		ipcRenderer.invoke( 'ipcBumpStat', group, stat, bumpInDev ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

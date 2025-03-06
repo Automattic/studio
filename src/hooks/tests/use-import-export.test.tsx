@@ -34,7 +34,6 @@ beforeEach( () => {
 		showSaveAsDialog: jest.fn(),
 		showErrorMessageBox: jest.fn(),
 		showNotification: jest.fn(),
-		ipcBumpStat: jest.fn(),
 		exportSite: jest.fn().mockReturnValue( true ),
 		importSite: jest.fn().mockReturnValue( selectedSite ),
 	} );
@@ -46,34 +45,6 @@ beforeEach( () => {
 } );
 
 describe( 'useImportExport hook', () => {
-	it( 'tracks export full site button click', async () => {
-		const mockShowSaveAsDialog = getIpcApi().showSaveAsDialog as jest.Mock;
-		const mockBumpStat = getIpcApi().ipcBumpStat as jest.Mock;
-		mockShowSaveAsDialog.mockResolvedValue( '/path/to/exported-site.tar.gz' );
-
-		const { result } = renderHook( () => useImportExport(), { wrapper } );
-		await act( () => result.current.exportFullSite( selectedSite ) );
-
-		expect( mockBumpStat ).toHaveBeenCalledWith(
-			STATS_GROUP.STUDIO_EXPORT,
-			STATS_METRIC.FULL_SITE
-		);
-	} );
-
-	it( 'tracks export database button click', async () => {
-		const mockShowSaveAsDialog = getIpcApi().showSaveAsDialog as jest.Mock;
-		const mockBumpStat = getIpcApi().ipcBumpStat as jest.Mock;
-		mockShowSaveAsDialog.mockResolvedValue( '/path/to/exported-database.sql' );
-
-		const { result } = renderHook( () => useImportExport(), { wrapper } );
-		await act( () => result.current.exportDatabase( selectedSite ) );
-
-		expect( mockBumpStat ).toHaveBeenCalledWith(
-			STATS_GROUP.STUDIO_EXPORT,
-			STATS_METRIC.DATABASE_ONLY
-		);
-	} );
-
 	it( 'exports entire site', async () => {
 		const mockShowSaveAsDialog = getIpcApi().showSaveAsDialog as jest.Mock;
 		mockShowSaveAsDialog.mockResolvedValue( '/path/to/exported-site.tar.gz' );

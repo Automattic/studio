@@ -18,7 +18,7 @@ export enum STATS_METRIC {
 	SQL_IMPORTER = 'SQLImporter',
 	PLAYGROUND_IMPORTER = 'PlaygroundImporter',
 	WPRESS_IMPORTER = 'WpressImporter',
-	UNKNOWN = 'unknown',
+	UNKNOWN_IMPORTER = 'UnknownImporter',
 }
 
 export type AggregateInterval = 'daily' | 'weekly' | 'monthly';

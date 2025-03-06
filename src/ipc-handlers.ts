@@ -122,10 +122,9 @@ export async function importSite(
 		};
 		const result = await importBackup( backupFile, site.details, onEvent, defaultImporterOptions );
 
-		bumpStat( STATS_GROUP.STUDIO_IMPORT, STATS_METRIC.SUCCESS );
 		bumpStat(
 			STATS_GROUP.STUDIO_IMPORT,
-			( result.importerType as STATS_METRIC ) || STATS_METRIC.UNKNOWN
+			( result.importerType as STATS_METRIC ) || STATS_METRIC.UNKNOWN_IMPORTER
 		);
 
 		if ( result?.meta?.phpVersion ) {
@@ -690,7 +689,16 @@ export async function exportSite(
 		const result = await exportBackup( options, onEvent );
 
 		if ( result ) {
-			bumpStat( STATS_GROUP.STUDIO_EXPORT, STATS_METRIC.SUCCESS );
+			bumpStat(
+				STATS_GROUP.STUDIO_EXPORT,
+				options.includes.database &&
+					! options.includes.uploads &&
+					! options.includes.plugins &&
+					! options.includes.themes &&
+					! options.includes.muPlugins
+					? STATS_METRIC.DATABASE_ONLY
+					: STATS_METRIC.FULL_SITE
+			);
 		}
 
 		return result;
@@ -1176,13 +1184,4 @@ export async function checkSyncBackupSize(
 export async function isFullscreen( _event: IpcMainInvokeEvent ): Promise< boolean > {
 	const window = await getMainWindow();
 	return window.isFullScreen();
-}
-
-export async function ipcBumpStat(
-	_event: IpcMainInvokeEvent,
-	group: StatsGroup,
-	stat: StatsMetric,
-	bumpInDev = false
-) {
-	return bumpStat( group, stat, bumpInDev );
 }

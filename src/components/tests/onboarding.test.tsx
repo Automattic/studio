@@ -63,7 +63,7 @@ describe( 'Onboarding Component', () => {
 		( useAppDispatch as jest.Mock ).mockReturnValue( mockDispatch );
 
 		( useRootSelector as jest.Mock ).mockImplementation( ( selector ) => {
-			if ( selector === wordpressVersionsSelectors.selectWordPressVersions ) {
+			if ( selector === wordpressVersionsSelectors.selectWordPressVersionsWithLatest ) {
 				return [
 					{ isBeta: false, label: '6.1', value: '6.1.7' },
 					{ isBeta: false, label: '6.2', value: '6.2.0' },
@@ -133,7 +133,7 @@ describe( 'Onboarding Component', () => {
 		} );
 
 		( useRootSelector as jest.Mock ).mockImplementation( ( selector ) => {
-			if ( selector === wordpressVersionsSelectors.selectWordPressVersions ) {
+			if ( selector === wordpressVersionsSelectors.selectWordPressVersionsWithLatest ) {
 				return [
 					{ name: '6.1.7', version: '6.1.7' },
 					{ name: '6.2.0', version: '6.2.0' },
@@ -188,7 +188,7 @@ describe( 'Onboarding Component', () => {
 		} );
 
 		( useRootSelector as jest.Mock ).mockImplementation( ( selector ) => {
-			if ( selector === wordpressVersionsSelectors.selectWordPressVersions ) {
+			if ( selector === wordpressVersionsSelectors.selectWordPressVersionsWithLatest ) {
 				return [
 					{ isBeta: false, label: 'latest', value: 'latest' },
 					{ isBeta: false, label: '6.4', value: '6.4.3' },
@@ -219,7 +219,7 @@ describe( 'Onboarding Component', () => {
 		} );
 
 		( useRootSelector as jest.Mock ).mockImplementation( ( selector ) => {
-			if ( selector === wordpressVersionsSelectors.selectWordPressVersions ) {
+			if ( selector === wordpressVersionsSelectors.selectWordPressVersionsWithLatest ) {
 				return [
 					{ isBeta: false, label: 'latest', value: 'latest' },
 					{ isBeta: false, label: '6.4', value: '6.4.3' },
@@ -284,7 +284,7 @@ describe( 'Onboarding Component', () => {
 		} );
 
 		( useRootSelector as jest.Mock ).mockImplementation( ( selector ) => {
-			if ( selector === wordpressVersionsSelectors.selectWordPressVersions ) {
+			if ( selector === wordpressVersionsSelectors.selectWordPressVersionsWithLatest ) {
 				return [
 					{ isBeta: false, label: 'latest', value: 'latest' },
 					{ isBeta: false, label: '6.4', value: '6.4.3' },

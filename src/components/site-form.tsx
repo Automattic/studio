@@ -268,7 +268,9 @@ export const SiteForm = ( {
 	const getDocsLink = useDocsLink();
 	const { wpVersionsEnabled } = useFeatureFlags();
 	const dispatch = useAppDispatch();
-	const wpVersions = useRootSelector( wordpressVersionsSelectors.selectWordPressVersions );
+	const wpVersions = useRootSelector(
+		wordpressVersionsSelectors.selectWordPressVersionsWithLatest
+	);
 	const wpVersionsStatus = useRootSelector( ( state ) => state.wordpressVersions.status );
 
 	useEffect( () => {

@@ -18,7 +18,7 @@ jest.mock( 'src/stores', () => {
 				typeof selector === 'object' &&
 				selector !== null &&
 				'name' in selector &&
-				selector.name === 'selectWordPressVersions'
+				selector.name === 'selectWordPressVersionsWithLatest'
 			) {
 				return [
 					{ isBeta: false, label: '6.4', value: '6.4.3' },
@@ -32,7 +32,7 @@ jest.mock( 'src/stores', () => {
 
 jest.mock( 'src/stores/wordpress-versions-slice', () => ( {
 	wordpressVersionsSelectors: {
-		selectWordPressVersions: { name: 'selectWordPressVersions' },
+		selectWordPressVersionsWithLatest: { name: 'selectWordPressVersionsWithLatest' },
 	},
 	wordpressVersionsThunks: {
 		fetchWordPressVersions: jest.fn(),

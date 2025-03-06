@@ -166,7 +166,6 @@ async function getPHPInstance(
 async function prepareDocumentRoot( php: PHP, options: WPNowOptions ) {
 	php.mkdir( options.documentRoot );
 	php.chdir( options.documentRoot );
-	php.writeFile( `${ options.documentRoot }/index.php`, `<?php echo 'Hello wp-now!';` );
 	php.writeFile(
 		path.posix.join( PLAYGROUND_INTERNAL_SHARED_FOLDER, 'ca-bundle.crt' ),
 		rootCertificates.join( '\n' )

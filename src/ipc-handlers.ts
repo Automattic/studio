@@ -686,15 +686,15 @@ export async function exportSite(
 		const result = await exportBackup( options, onEvent );
 
 		if ( result ) {
+			const isDatabaseOnly =
+				options.includes.database &&
+				! options.includes.uploads &&
+				! options.includes.plugins &&
+				! options.includes.themes &&
+				! options.includes.muPlugins;
 			bumpStat(
 				StatsGroup.STUDIO_EXPORT,
-				options.includes.database &&
-					! options.includes.uploads &&
-					! options.includes.plugins &&
-					! options.includes.themes &&
-					! options.includes.muPlugins
-					? StatsMetric.DATABASE_ONLY
-					: StatsMetric.FULL_SITE
+				isDatabaseOnly ? StatsMetric.DATABASE_ONLY : StatsMetric.FULL_SITE
 			);
 		}
 

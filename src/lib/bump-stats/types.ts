@@ -1,3 +1,11 @@
+import {
+	JetpackImporter,
+	LocalImporter,
+	PlaygroundImporter,
+	SQLImporter,
+	WpressImporter,
+} from 'src/lib/import-export/import/importers';
+
 export enum StatsGroup {
 	STUDIO_APP_LAUNCH = 'studio-app-launch-first',
 	STUDIO_APP_LAUNCH_TOTAL = 'studio-app-launch-total',
@@ -42,15 +50,15 @@ export function getPlatformMetric( platform: typeof process.platform ): StatsMet
 
 export function getImporterMetric( importer?: string ): StatsMetric {
 	switch ( importer ) {
-		case 'JetpackImporter':
+		case JetpackImporter.name:
 			return StatsMetric.JETPACK_IMPORTER;
-		case 'LocalImporter':
+		case LocalImporter.name:
 			return StatsMetric.LOCAL_IMPORTER;
-		case 'SQLImporter':
+		case SQLImporter.name:
 			return StatsMetric.SQL_IMPORTER;
-		case 'PlaygroundImporter':
+		case PlaygroundImporter.name:
 			return StatsMetric.PLAYGROUND_IMPORTER;
-		case 'WpressImporter':
+		case WpressImporter.name:
 			return StatsMetric.WPRESS_IMPORTER;
 		default:
 			return StatsMetric.UNKNOWN_IMPORTER;

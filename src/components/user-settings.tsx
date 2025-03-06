@@ -1,6 +1,7 @@
 import { DropdownMenu, Icon, MenuGroup, MenuItem, Spinner, RadioControl } from '@wordpress/components';
 import { sprintf } from '@wordpress/i18n';
-import { moreVertical, trash, sun, moon } from '@wordpress/icons';
+import { moreVertical, trash } from '@wordpress/icons';
+import { SunIcon, MoonIcon, DeviceIcon } from './icons/theme-icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useState, useEffect } from 'react';
 import Button from 'src/components/button';
@@ -167,7 +168,7 @@ function ThemeModePicker() {
 					onChange={(value) => setThemeMode(value as 'light' | 'dark' | 'system')}
 				/>
 				<div className="ml-auto">
-					<Icon icon={themeMode === 'dark' ? moon : sun} size={24} />
+					{themeMode === 'dark' ? <MoonIcon /> : themeMode === 'light' ? <SunIcon /> : <DeviceIcon />}
 				</div>
 			</div>
 		</div>

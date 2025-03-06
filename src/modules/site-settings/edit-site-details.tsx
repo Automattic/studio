@@ -153,6 +153,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 								<label className="flex flex-1 flex-col gap-1.5 leading-4">
 									<span className="font-semibold">{ __( 'WordPress version' ) }</span>
 									<SelectControl
+										className={ cx( changeWpError && 'error-select-control' ) }
 										disabled={ isEditingSite }
 										value={ selectedWpVersion }
 										options={ wordpressVersionOptions }

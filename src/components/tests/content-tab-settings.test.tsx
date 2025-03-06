@@ -29,7 +29,7 @@ describe( 'ContentTabSettings', () => {
 	const generateProposedSitePath = jest.fn();
 	beforeEach( () => {
 		jest.clearAllMocks();
-		( useGetWpVersion as jest.Mock ).mockReturnValue( '7.7.7' );
+		( useGetWpVersion as jest.Mock ).mockReturnValue( [ '7.7.7', jest.fn() ] );
 		( getIpcApi as jest.Mock ).mockReturnValue( {
 			copyText,
 			openLocalPath,

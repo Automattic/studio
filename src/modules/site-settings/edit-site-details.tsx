@@ -81,11 +81,11 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 						throw new Error( result.stderr );
 					}
 				} catch ( wpError ) {
-					console.error( 'Error updating WordPress version:', wpError );
+					console.error( 'Error changing WordPress version:', wpError );
 					const errorMessage = stripAnsi( ( wpError as Error )?.message );
-					setEditSiteError( __( 'Error updating WordPress version' ) );
+					setEditSiteError( __( 'Error changing WordPress version' ) );
 					getIpcApi().showErrorMessageBox( {
-						title: __( 'Error updating WordPress version' ),
+						title: __( 'Error changing WordPress version' ),
 						message: errorMessage,
 					} );
 					setSelectedWpVersion( currentWpVersion );

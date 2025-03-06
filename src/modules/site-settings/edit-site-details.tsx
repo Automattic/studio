@@ -4,9 +4,11 @@ import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useCallback, useState } from 'react';
 import stripAnsi from 'strip-ansi';
 import Button from 'src/components/button';
+import { ErrorInformation } from 'src/components/error-information';
 import Modal from 'src/components/modal';
 import TextControlComponent from 'src/components/text-control';
 import { useSiteDetails } from 'src/hooks/use-site-details';
+import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useRootSelector } from 'src/stores';
 import { wordpressVersionsSelectors } from 'src/stores/wordpress-versions-slice';
@@ -20,7 +22,7 @@ type EditSiteDetailsProps = {
 export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteDetailsProps ) {
 	const { __ } = useI18n();
 	const { updateSite, selectedSite, stopServer, startServer } = useSiteDetails();
-	const [ editSiteError, setEditSiteError ] = useState( '' );
+	const [ changeWpError, setChangeWpError ] = useState( '' );
 	const [ showModal, setShowModal ] = useState( false );
 	const [ isEditingSite, setIsEditingSite ] = useState( false );
 	const closeModal = useCallback( () => {
@@ -50,7 +52,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 		setSiteName( selectedSite.name );
 		setSelectedPhpVersion( selectedSite.phpVersion as SupportedPHPVersion );
 		setSelectedWpVersion( currentWpVersion );
-		setEditSiteError( '' );
+		setChangeWpError( '' );
 	}, [ currentWpVersion, selectedSite ] );
 
 	const onSiteEdit = async ( event: FormEvent ) => {
@@ -59,7 +61,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 			return;
 		}
 		setIsEditingSite( true );
-		setEditSiteError( '' );
+		setChangeWpError( '' );
 		try {
 			const running = selectedSite.running;
 
@@ -83,7 +85,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 				} catch ( wpError ) {
 					console.error( 'Error changing WordPress version:', wpError );
 					const errorMessage = stripAnsi( ( wpError as Error )?.message );
-					setEditSiteError( __( 'Error changing WordPress version' ) );
+					setChangeWpError( __( 'Error changing WordPress version' ) );
 					getIpcApi().showErrorMessageBox( {
 						title: __( 'Error changing WordPress version' ),
 						message: errorMessage,
@@ -107,7 +109,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 			closeModal();
 			resetFormState();
 		} catch ( e ) {
-			setEditSiteError( ( e as Error )?.message );
+			setChangeWpError( ( e as Error )?.message );
 		}
 		setIsEditingSite( false );
 	};
@@ -161,7 +163,9 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 							</div>
 						</div>
 
-						{ editSiteError && <div className="mt-4 text-red-500">{ editSiteError }</div> }
+						{ changeWpError && (
+							<ErrorInformation className="mt-4">{ changeWpError }</ErrorInformation>
+						) }
 
 						<div className="flex flex-row justify-end gap-x-5 mt-6">
 							<Button onClick={ closeModal } disabled={ isEditingSite } variant="tertiary">

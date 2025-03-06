@@ -136,12 +136,30 @@ a8cToTailwindColors[ `${ PREFIX }-gray-700` ] = '#757575'; // Gray 700
 
 module.exports = {
 	content: [ './src/**/*.{html,ejs,js,jsx,ts,tsx}' ],
+	darkMode: 'class',
 	theme: {
 		extend: {
 			colors: {
 				...a8cToTailwindColors,
-				chrome: 'rgba(30, 30, 30, 1)',
-				'chrome-inverted': '#fff',
+				chrome: {
+					DEFAULT: 'rgba(30, 30, 30, 1)',
+					dark: 'rgba(18, 18, 18, 1)'
+				},
+				'chrome-inverted': {
+					DEFAULT: '#fff',
+					dark: '#1e1e1e'
+				},
+				gray: {
+					100: '#f3f4f6',
+					200: '#e5e7eb',
+					300: '#d1d5db',
+					400: '#9ca3af',
+					500: '#6b7280',
+					600: '#4b5563',
+					700: '#374151',
+					800: '#1f2937',
+					900: '#111827',
+				},
 			},
 			spacing: {
 				chrome: '10px',

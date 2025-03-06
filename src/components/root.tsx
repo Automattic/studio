@@ -3,6 +3,7 @@ import App from 'src/components/app';
 import AuthProvider from 'src/components/auth-provider';
 import CrashTester from 'src/components/crash-tester';
 import ErrorBoundary from 'src/components/error-boundary';
+import { ThemeModeProvider } from 'src/hooks/use-theme-mode';
 import { SyncSitesProvider } from 'src/hooks/sync-sites/sync-sites-context';
 import { InstalledAppsProvider } from 'src/hooks/use-check-installed-apps';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
@@ -23,31 +24,33 @@ const Root = () => {
 			<CrashTester />
 			<ReduxProvider store={ store }>
 				<I18nDataProvider>
-					<AuthProvider>
-						<SnapshotProvider>
-							<SiteDetailsProvider>
-								<FeatureFlagsProvider>
-									<DemoSiteUpdateProvider>
-										<ThemeDetailsProvider>
-											<InstalledAppsProvider>
-												<OnboardingProvider>
-													<PromptUsageProvider>
-														<ImportExportProvider>
-															<ContentTabsProvider>
-																<SyncSitesProvider>
-																	<App />
-																</SyncSitesProvider>
-															</ContentTabsProvider>
-														</ImportExportProvider>
-													</PromptUsageProvider>
-												</OnboardingProvider>
-											</InstalledAppsProvider>
-										</ThemeDetailsProvider>
-									</DemoSiteUpdateProvider>
-								</FeatureFlagsProvider>
-							</SiteDetailsProvider>
-						</SnapshotProvider>
-					</AuthProvider>
+					<ThemeModeProvider>
+						<AuthProvider>
+							<SnapshotProvider>
+								<SiteDetailsProvider>
+									<FeatureFlagsProvider>
+										<DemoSiteUpdateProvider>
+											<ThemeDetailsProvider>
+												<InstalledAppsProvider>
+													<OnboardingProvider>
+														<PromptUsageProvider>
+															<ImportExportProvider>
+																<ContentTabsProvider>
+																	<SyncSitesProvider>
+																		<App />
+																	</SyncSitesProvider>
+																</ContentTabsProvider>
+															</ImportExportProvider>
+														</PromptUsageProvider>
+													</OnboardingProvider>
+												</InstalledAppsProvider>
+											</ThemeDetailsProvider>
+										</DemoSiteUpdateProvider>
+									</FeatureFlagsProvider>
+								</SiteDetailsProvider>
+							</SnapshotProvider>
+						</AuthProvider>
+					</ThemeModeProvider>
 				</I18nDataProvider>
 			</ReduxProvider>
 		</ErrorBoundary>

@@ -64,6 +64,10 @@ blockquote {
 	background: theme( 'colors.black' );
 }
 
+.dark .components-tab-panel__tabs-item.is-active::after {
+	background: theme( 'colors.white' );
+}
+
 /* Customize scrollbar area for the sites sidebar and tab panel */
 .sites-scrollbar::-webkit-scrollbar,
 .components-tab-panel__tab-content::-webkit-scrollbar,
@@ -83,6 +87,17 @@ blockquote {
 	background: #7f7f7f;
 	border-radius: 10px;
 	border: 2px solid white;
+}
+
+/* Dark mode scrollbar styles */
+.dark .sites-scrollbar::-webkit-scrollbar-thumb {
+	background: #4a4a4a;
+	border: 2px solid rgba(18, 18, 18, 1);
+}
+.dark .components-tab-panel__tab-content::-webkit-scrollbar-thumb,
+.dark .assistant-textarea::-webkit-scrollbar-thumb {
+	background: #4a4a4a;
+	border: 2px solid #1e1e1e;
 }
 
 /* Add hover effect to thumb appearance on the scrollbar */
@@ -143,6 +158,11 @@ blockquote {
 	padding: 0.25rem;
 	white-space: pre-wrap;
 	border-radius: 2px;
+}
+
+.dark .assistant-markdown code {
+	background-color: theme( 'colors.a8c-gray.80' );
+	color: #e0e0e0;
 }
 
 .assistant-markdown code.file-block {

@@ -1,6 +1,6 @@
-import { DropdownMenu, Icon, MenuGroup, MenuItem, Spinner } from '@wordpress/components';
+import { DropdownMenu, Icon, MenuGroup, MenuItem, Spinner, RadioControl } from '@wordpress/components';
 import { sprintf } from '@wordpress/i18n';
-import { moreVertical, trash } from '@wordpress/icons';
+import { moreVertical, trash, sun, moon } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useState, useEffect } from 'react';
 import Button from 'src/components/button';
@@ -17,6 +17,7 @@ import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
 import { usePromptUsage } from 'src/hooks/use-prompt-usage';
 import { useSnapshots } from 'src/hooks/use-snapshots';
+import { useThemeMode } from 'src/hooks/use-theme-mode';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
@@ -148,6 +149,31 @@ const SnapshotInfo = ( {
 		</div>
 	);
 };
+function ThemeModePicker() {
+	const { __ } = useI18n();
+	const { themeMode, setThemeMode } = useThemeMode();
+
+	return (
+		<div className="flex gap-3 flex-col">
+			<h2 className="a8c-label-semibold">{ __( 'Theme' ) }</h2>
+			<div className="flex flex-row items-center gap-3">
+				<RadioControl
+					selected={themeMode}
+					options={[
+						{ label: __( 'Light' ), value: 'light' },
+						{ label: __( 'Dark' ), value: 'dark' },
+						{ label: __( 'System' ), value: 'system' }
+					]}
+					onChange={(value) => setThemeMode(value as 'light' | 'dark' | 'system')}
+				/>
+				<div className="ml-auto">
+					<Icon icon={themeMode === 'dark' ? moon : sun} size={24} />
+				</div>
+			</div>
+		</div>
+	);
+}
+
 function PromptInfo() {
 	const { __ } = useI18n();
 	const { promptCount, promptLimit } = usePromptUsage();
@@ -260,7 +286,10 @@ export default function UserSettings() {
 								</Tooltip>
 							</div>
 							<div className="border-t border-[#F0F0F0] w-full"></div>
-							<LanguagePicker />
+							<div className="flex flex-col gap-6">
+								<LanguagePicker />
+								<ThemeModePicker />
+							</div>
 						</div>
 					) }
 					{ isAuthenticated && (
@@ -269,6 +298,7 @@ export default function UserSettings() {
 							<div className="border-t border-[#F0F0F0] w-full"></div>
 							<div className="flex flex-col gap-6">
 								<LanguagePicker />
+								<ThemeModePicker />
 								<SnapshotInfo
 									isDeleting={ loadingDeletingAllSnapshots }
 									isDisabled={

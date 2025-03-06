@@ -1159,3 +1159,18 @@ export async function isFullscreen( _event: IpcMainInvokeEvent ): Promise< boole
 	const window = await getMainWindow();
 	return window.isFullScreen();
 }
+
+export async function getUserPreference( _event: IpcMainInvokeEvent, key: string ): Promise< unknown > {
+	const userData = await loadUserData();
+	return userData.preferences?.[key];
+}
+
+export async function saveUserPreference( _event: IpcMainInvokeEvent, key: string, value: unknown ): Promise< boolean > {
+	const userData = await loadUserData();
+	if (!userData.preferences) {
+		userData.preferences = {};
+	}
+	userData.preferences[key] = value;
+	await saveUserData(userData);
+	return true;
+}

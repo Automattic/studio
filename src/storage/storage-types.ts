@@ -16,6 +16,10 @@ export interface UserData {
 	promptWindowsSpeedUpResult?: PromptWindowsSpeedUpResult;
 	connectedWpcomSites?: { [ userId: number ]: SyncSite[] };
 	sentryUserId?: string;
+	preferences?: {
+		themeMode?: 'light' | 'dark' | 'system';
+		[key: string]: unknown;
+	};
 }
 
 export interface PersistedUserData extends Omit< UserData, 'sites' > {

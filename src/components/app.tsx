@@ -13,6 +13,7 @@ import WindowsTitlebar from 'src/components/windows-titlebar';
 import { useLocalizationSupport } from 'src/hooks/use-localization-support';
 import { useOnboarding } from 'src/hooks/use-onboarding';
 import { useSidebarVisibility } from 'src/hooks/use-sidebar-visibility';
+import { useThemeMode } from 'src/hooks/use-theme-mode';
 import { isWindows } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -21,13 +22,14 @@ export default function App() {
 	useLocalizationSupport();
 	const { needsOnboarding } = useOnboarding();
 	const { isSidebarVisible, toggleSidebar } = useSidebarVisibility();
+	const { isDarkMode } = useThemeMode();
 
 	useEffect( () => {
 		getIpcApi().setupAppMenu( { needsOnboarding } );
 	}, [ needsOnboarding ] );
 
 	return (
-		<>
+		<div className={isDarkMode ? 'dark' : ''}>
 			{ needsOnboarding ? (
 				<VStack
 					className={ cx( 'h-screen backdrop-blur-3xl app-drag-region select-none' ) }
@@ -64,7 +66,7 @@ export default function App() {
 						/>
 						<main
 							data-testid="site-content"
-							className="bg-white h-full flex-grow rounded-chrome overflow-hidden z-10"
+							className="bg-white dark:bg-chrome-dark h-full flex-grow rounded-chrome overflow-hidden z-10"
 						>
 							<SiteContentTabs />
 						</main>
@@ -72,6 +74,6 @@ export default function App() {
 				</VStack>
 			) }
 			<UserSettings />
-		</>
+		</div>
 	);
 }

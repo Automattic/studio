@@ -1,11 +1,6 @@
 import http from 'http';
-import { platform } from 'os';
-import { promisify } from 'util';
 import httpProxy from 'http-proxy';
-import sudo from 'sudo-prompt';
 import { loadUserData } from 'src/storage/user-data';
-
-const sudoExec = promisify( sudo.exec );
 
 let proxyServer: http.Server | null = null;
 let isProxyRunning = false;
@@ -35,14 +30,7 @@ export async function startProxyServer(): Promise< boolean > {
 	if ( isProxyRunning ) return true;
 
 	try {
-		// First, try starting on a privileged port directly (might work if app has permissions)
-		const result = await startDomainProxy();
-		if ( result ) {
-			return true;
-		}
-
-		// If direct start fails and we're not skipping elevation, attempt with sudo/admin privileges
-		return await startProxyWithElevation();
+		return await startDomainProxy();
 	} catch ( error ) {
 		console.error( 'Failed to start proxy server:', error );
 		return false;
@@ -51,9 +39,8 @@ export async function startProxyServer(): Promise< boolean > {
 
 /**
  * Attempts to start the proxy server directly (without privilege elevation)
- * @param {number} port - The port to listen on (defaults to 80)
  */
-async function startDomainProxy( port: number = 80 ): Promise< boolean > {
+async function startDomainProxy(): Promise< boolean > {
 	try {
 		// Create proxy with additional options to preserve host header
 		const proxy = httpProxy.createProxyServer();
@@ -94,13 +81,13 @@ async function startDomainProxy( port: number = 80 ): Promise< boolean > {
 
 		await new Promise< void >( ( resolve, reject ) => {
 			proxyServer!
-				.listen( port, () => {
-					console.log( `Proxy server started on port ${ port }` );
+				.listen( 80, () => {
+					console.log( `Proxy server started on port 80` );
 					isProxyRunning = true;
 					resolve();
 				} )
 				.on( 'error', ( err ) => {
-					console.error( `Error starting proxy server on port ${ port }:`, err );
+					console.error( `Error starting proxy server on port 80:`, err );
 					reject( err );
 				} );
 		} );
@@ -108,51 +95,6 @@ async function startDomainProxy( port: number = 80 ): Promise< boolean > {
 		return true;
 	} catch ( error ) {
 		console.error( `Failed to start proxy server directly:`, error );
-		return false;
-	}
-}
-
-/**
- * Attempts to start the proxy server with elevated privileges
- */
-async function startProxyWithElevation(): Promise< boolean > {
-	const currentPlatform = platform();
-
-	try {
-		console.log( 'Attempting to start proxy server with elevated privileges' );
-		// First start the actual proxy on a non-privileged port (8880)
-		const proxyStarted = await startDomainProxy( 8880 );
-		if ( ! proxyStarted ) {
-			console.error( 'Failed to start proxy server on port 8880' );
-			return false;
-		}
-
-		// Then use netsh or iptables to forward from privileged port 80 to our proxy on 8880
-		const elevatedProxyCommands: Record< string, string > = {
-			win32:
-				'netsh interface portproxy add v4tov4 listenport=80 listenaddress=127.0.0.1 connectport=8880 connectaddress=127.0.0.1',
-			darwin:
-				'echo "rdr pass inet proto tcp from any to any port 80 -> 127.0.0.1 port 8880" | sudo pfctl -ef -',
-			linux: 'iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to-port 8880',
-		};
-		const command = elevatedProxyCommands[ currentPlatform ];
-		if ( ! command ) {
-			console.error( 'Elevated privileges not supported on this platform' );
-			return false;
-		}
-
-		try {
-			// @ts-expect-error promisify doesn't seem typed properly.
-			await sudoExec( command, { name: 'WordPress Studio Proxy' } );
-			console.log( 'Successfully set up port forwarding from port 80 to 8880' );
-			return true;
-		} catch ( error ) {
-			console.error( 'Failed to set up port forwarding:', error );
-			// Even though port forwarding failed, we still have a working proxy on 8880
-			return proxyStarted;
-		}
-	} catch ( error ) {
-		console.error( 'Failed to start proxy with elevated privileges:', error );
 		return false;
 	}
 }

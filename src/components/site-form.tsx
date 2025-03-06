@@ -491,11 +491,6 @@ export const SiteForm = ( {
 													'You will be prompted for administrator permission to modify your system hosts file.'
 												) }
 											</div>
-											<div className="text-a8c-gray-50 text-xs mt-1">
-												{ __(
-													'Note: You will need administrator privileges to enable direct domain access.'
-												) }
-											</div>
 										</div>
 									) }
 								</div>

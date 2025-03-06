@@ -139,7 +139,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 								></TextControlComponent>
 							</label>
 
-							<div className="flex flex-row gap-x-6">
+							<div className="flex flex-row gap-x-6 pb-2">
 								<label className="flex flex-1 flex-col gap-1.5 leading-4">
 									<span className="font-semibold">{ __( 'PHP version' ) }</span>
 									<SelectControl
@@ -151,6 +151,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 										} ) ) }
 										onChange={ ( version ) => setSelectedPhpVersion( version ) }
 										__next40pxDefaultSize
+										__nextHasNoMarginBottom
 									/>
 								</label>
 
@@ -163,6 +164,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 										options={ wordpressVersionOptions }
 										onChange={ setSelectedWpVersion }
 										__next40pxDefaultSize
+										__nextHasNoMarginBottom
 									/>
 								</label>
 							</div>

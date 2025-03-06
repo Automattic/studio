@@ -123,6 +123,10 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 					isDismissible
 					focusOnMount="firstContentElement"
 					onRequestClose={ closeModal }
+					className={ cx(
+						isEditingSite &&
+							'[&_[aria-label="Close"]_svg]:opacity-50 [&_[aria-label="Close"]]:cursor-not-allowed'
+					) }
 				>
 					<form onSubmit={ onSiteEdit }>
 						<div className="flex flex-col gap-6">

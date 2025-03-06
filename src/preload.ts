@@ -11,7 +11,6 @@ import {
 } from 'electron';
 import { LocaleData } from '@wordpress/i18n';
 import { IpcEvents } from 'src/ipc-utils';
-import { StatsGroup, StatsMetric } from 'src/lib/bump-stats/types';
 import { ExportOptions } from 'src/lib/import-export/export/types';
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';

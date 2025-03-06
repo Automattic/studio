@@ -4,7 +4,6 @@ import { createContext, useMemo, useState, useCallback, useContext } from 'react
 import { WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT_IN_HRS } from 'src/constants';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useSiteDetails } from 'src/hooks/use-site-details';
-import { STATS_GROUP, STATS_METRIC } from 'src/lib/bump-stats/types';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ExportEvents } from 'src/lib/import-export/export/events';
 import { generateBackupFilename } from 'src/lib/import-export/export/generate-backup-filename';

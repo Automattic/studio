@@ -2,7 +2,6 @@ import { renderHook, act } from '@testing-library/react';
 import { ImportExportProvider, useImportExport } from 'src/hooks/use-import-export';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useSiteDetails } from 'src/hooks/use-site-details';
-import { STATS_GROUP, STATS_METRIC } from 'src/lib/bump-stats/types';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ExportEventType, ExportEvents } from 'src/lib/import-export/export/events';
 import { ImportEventType, ImportEvents } from 'src/lib/import-export/import/events';
@@ -10,7 +9,6 @@ import { ImportEventType, ImportEvents } from 'src/lib/import-export/import/even
 jest.mock( 'src/lib/get-ipc-api' );
 jest.mock( 'src/hooks/use-ipc-listener' );
 jest.mock( 'src/hooks/use-site-details' );
-jest.mock( 'src/lib/bump-stats' );
 
 const SITE_ID = 'site-id-1';
 

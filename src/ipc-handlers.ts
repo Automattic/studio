@@ -21,7 +21,7 @@ import { ARCHIVER_OPTIONS, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
 import { bumpStat } from 'src/lib/bump-stats';
-import { STATS_GROUP, STATS_METRIC, StatsGroup, StatsMetric } from 'src/lib/bump-stats/types';
+import { STATS_GROUP, STATS_METRIC } from 'src/lib/bump-stats/types';
 import { calculateDirectorySize } from 'src/lib/calculate-directory-size';
 import { download } from 'src/lib/download';
 import { isEmptyDir, pathExists, isWordPressDirectory, sanitizeFolderName } from 'src/lib/fs-utils';

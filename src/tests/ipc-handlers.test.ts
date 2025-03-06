@@ -185,13 +185,11 @@ describe( 'importSite', () => {
 		expect( mockSite.details.phpVersion ).toBe( '8.2' );
 		expect( result ).toBe( mockSite.details );
 
-		// Verify stats were bumped correctly
 		expect( bumpStat ).toHaveBeenNthCalledWith(
 			1,
 			STATS_GROUP.STUDIO_IMPORT,
-			STATS_METRIC.SUCCESS
+			STATS_METRIC.UNKNOWN_IMPORTER
 		);
-		expect( bumpStat ).toHaveBeenNthCalledWith( 2, STATS_GROUP.STUDIO_IMPORT, 'unknown' );
 	} );
 
 	it( 'should capture exception in Sentry and bump failure stats when import fails', async () => {

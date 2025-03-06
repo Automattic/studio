@@ -42,13 +42,24 @@ blockquote {
 .components-tab-panel__tabs {
 	padding: 0 theme( 'spacing.4' );
 	border-bottom: 1px solid theme( 'colors.a8c-gray.5' );
+	background-color: theme( 'colors.white' );
 }
 
 .components-tab-panel__tabs-item {
 	height: 40px;
 	margin-bottom: -1px;
+	color: theme( 'colors.gray.700' );
 }
 
+.components-tab-panel__tabs-item:hover {
+	color: theme( 'colors.a8c-blueberry' );
+}
+
+.components-tab-panel__tabs-item.is-active {
+	color: theme( 'colors.black' );
+}
+
+/* Assistant tab star icon - light mode */
 .components-tab-panel__tabs--assistant::before {
 	content: url( 'data:image/svg+xml;utf8,<svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(%23clip0_2870_30744)"><path d="M13.7035 6.58213L10.8309 5.59124C9.69491 5.20089 8.79911 4.30509 8.40876 3.16908L7.41787 0.296515C7.28275 -0.0988382 6.71725 -0.0988382 6.58213 0.296515L5.59124 3.16908C5.20089 4.30509 4.30509 5.20089 3.16908 5.59124L0.296515 6.58213C-0.0988382 6.71725 -0.0988382 7.28275 0.296515 7.41787L3.16908 8.40876C4.30509 8.79911 5.20089 9.69491 5.59124 10.8309L6.58213 13.7035C6.71725 14.0988 7.28275 14.0988 7.41787 13.7035L8.40876 10.8309C8.79911 9.69491 9.69491 8.79911 10.8309 8.40876L13.7035 7.41787C14.0988 7.28275 14.0988 6.71725 13.7035 6.58213ZM10.3505 7.21269L8.91421 7.70813C8.3437 7.90331 7.8983 8.35371 7.70313 8.91921L7.20768 10.3555C7.13762 10.5557 6.85737 10.5557 6.79231 10.3555L6.29687 8.91921C6.1017 8.3487 5.6513 7.90331 5.08579 7.70813L3.64951 7.21269C3.44933 7.14263 3.44933 6.86238 3.64951 6.79232L5.08579 6.29687C5.6563 6.1017 6.1017 5.6513 6.29687 5.08579L6.79231 3.64951C6.86238 3.44933 7.14263 3.44933 7.20768 3.64951L7.70313 5.08579C7.8983 5.6563 8.3487 6.1017 8.91421 6.29687L10.3505 6.79232C10.5507 6.86238 10.5507 7.14263 10.3505 7.21269Z" fill="black"/></g><defs><clip-path id="clip0_2870_30744"><rect width="14" height="14" fill="white"/></clip-path></defs></svg>' );
 	display: inline-block;
@@ -64,8 +75,228 @@ blockquote {
 	background: theme( 'colors.black' );
 }
 
+/* Dark mode tab panel styles */
+.dark .components-tab-panel__tabs {
+	border-bottom: 1px solid theme( 'colors.gray.700' );
+	background-color: theme( 'colors.gray.900' );
+}
+
+.dark .components-tab-panel__tabs-item {
+	color: theme( 'colors.gray.400' );
+}
+
+.dark .components-tab-panel__tabs-item:hover {
+	color: theme( 'colors.blue.400' );
+}
+
+.dark .components-tab-panel__tabs-item.is-active {
+	color: theme( 'colors.white' );
+}
+
 .dark .components-tab-panel__tabs-item.is-active::after {
 	background: theme( 'colors.white' );
+}
+
+/* Assistant tab star icon - dark mode */
+.dark .components-tab-panel__tabs--assistant::before {
+	content: url( 'data:image/svg+xml;utf8,<svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(%23clip0_2870_30744)"><path d="M13.7035 6.58213L10.8309 5.59124C9.69491 5.20089 8.79911 4.30509 8.40876 3.16908L7.41787 0.296515C7.28275 -0.0988382 6.71725 -0.0988382 6.58213 0.296515L5.59124 3.16908C5.20089 4.30509 4.30509 5.20089 3.16908 5.59124L0.296515 6.58213C-0.0988382 6.71725 -0.0988382 7.28275 0.296515 7.41787L3.16908 8.40876C4.30509 8.79911 5.20089 9.69491 5.59124 10.8309L6.58213 13.7035C6.71725 14.0988 7.28275 14.0988 7.41787 13.7035L8.40876 10.8309C8.79911 9.69491 9.69491 8.79911 10.8309 8.40876L13.7035 7.41787C14.0988 7.28275 14.0988 6.71725 13.7035 6.58213ZM10.3505 7.21269L8.91421 7.70813C8.3437 7.90331 7.8983 8.35371 7.70313 8.91921L7.20768 10.3555C7.13762 10.5557 6.85737 10.5557 6.79231 10.3555L6.29687 8.91921C6.1017 8.3487 5.6513 7.90331 5.08579 7.70813L3.64951 7.21269C3.44933 7.14263 3.44933 6.86238 3.64951 6.79232L5.08579 6.29687C5.6563 6.1017 6.1017 5.6513 6.29687 5.08579L6.79231 3.64951C6.86238 3.44933 7.14263 3.44933 7.20768 3.64951L7.70313 5.08579C7.8983 5.6563 8.3487 6.1017 8.91421 6.29687L10.3505 6.79232C10.5507 6.86238 10.5507 7.14263 10.3505 7.21269Z" fill="white"/></g><defs><clip-path id="clip0_2870_30744"><rect width="14" height="14" fill="white"/></clip-path></defs></svg>' );
+}
+
+.dark .components-tab-panel__tabs--assistant:hover:not(:active)::before {
+	content: url( 'data:image/svg+xml;utf8,<svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(%23clip0_2870_30744)"><path d="M13.7035 6.58213L10.8309 5.59124C9.69491 5.20089 8.79911 4.30509 8.40876 3.16908L7.41787 0.296515C7.28275 -0.0988382 6.71725 -0.0988382 6.58213 0.296515L5.59124 3.16908C5.20089 4.30509 4.30509 5.20089 3.16908 5.59124L0.296515 6.58213C-0.0988382 6.71725 -0.0988382 7.28275 0.296515 7.41787L3.16908 8.40876C4.30509 8.79911 5.20089 9.69491 5.59124 10.8309L6.58213 13.7035C6.71725 14.0988 7.28275 14.0988 7.41787 13.7035L8.40876 10.8309C8.79911 9.69491 9.69491 8.79911 10.8309 8.40876L13.7035 7.41787C14.0988 7.28275 14.0988 6.71725 13.7035 6.58213ZM10.3505 7.21269L8.91421 7.70813C8.3437 7.90331 7.8983 8.35371 7.70313 8.91921L7.20768 10.3555C7.13762 10.5557 6.85737 10.5557 6.79231 10.3555L6.29687 8.91921C6.1017 8.3487 5.6513 7.90331 5.08579 7.70813L3.64951 7.21269C3.44933 7.14263 3.44933 6.86238 3.64951 6.79232L5.08579 6.29687C5.6563 6.1017 6.1017 5.6513 6.29687 5.08579L6.79231 3.64951C6.86238 3.44933 7.14263 3.44933 7.20768 3.64951L7.70313 5.08579C7.8983 5.6563 8.3487 6.1017 8.91421 6.29687L10.3505 6.79232C10.5507 6.86238 10.5507 7.14263 10.3505 7.21269Z" fill="%2360A5FA"/></g><defs><clip-path id="clip0_2870_30744"><rect width="14" height="14" fill="white"/></clip-path></defs></svg>' );
+}
+
+/* Global dark mode text color overrides */
+.dark .text-a8c-gray-70 {
+	color: theme( 'colors.gray.300' );
+}
+
+.dark .fill-a8c-gray-70 {
+	fill: theme( 'colors.gray.300' );
+}
+
+.dark .!fill-a8c-gray-70 {
+	fill: theme( 'colors.gray.300' ) !important;
+}
+
+.dark .a8c-subtitle {
+	color: theme( 'colors.gray.100' );
+}
+
+.dark .a8c-subtitle-small {
+	color: theme( 'colors.gray.200' );
+}
+
+.dark .fill-a8c-blueberry {
+	fill: theme( 'colors.blue.400' );
+}
+
+.dark .a8c-body, 
+.dark .a8c-body-small, 
+.dark .a8c-helper-text {
+	color: theme( 'colors.gray.300' );
+}
+
+.dark .bg-white {
+	background-color: theme( 'colors.gray.900' );
+}
+
+/* Fix for header link buttons in dark mode */
+.dark [data-testid="site-content-header"] .is-link {
+	color: theme( 'colors.gray.300' ) !important;
+}
+
+.dark [data-testid="site-content-header"] .is-link:hover:not(:disabled) {
+	color: theme( 'colors.blue.400' ) !important;
+}
+
+/* Fix for action button in dark mode */
+.dark .!text-a8c-green-50 {
+	color: theme( 'colors.green.400' ) !important;
+}
+
+.dark .!text-a8c-red-50 {
+	color: theme( 'colors.red.400' ) !important;
+}
+
+.dark .!shadow-a8c-red-50 {
+	box-shadow: inset 0 0 0 1px theme( 'colors.red.400' ) !important;
+}
+
+/* Fix for site header h1 */
+.dark [data-testid="site-content-header"] h1 {
+	color: theme( 'colors.white' );
+}
+
+/* Fix for unauthenticated message in assistant tab */
+.dark #message-unauthenticated {
+	color: theme( 'colors.gray.300' );
+}
+
+.dark #message-unauthenticated [data-testid="unauthenticated-header"] {
+	color: theme( 'colors.white' );
+}
+
+.dark [data-testid="guidelines-link"] {
+	color: theme( 'colors.gray.400' );
+}
+
+/* Modal dark mode styles */
+.dark .components-modal__frame,
+body.dark .components-modal__frame {
+	background-color: theme( 'colors.gray.800' ) !important;
+	color: theme( 'colors.gray.200' ) !important;
+}
+
+.dark .components-modal__header,
+body.dark .components-modal__header {
+	background-color: theme( 'colors.gray.800' ) !important;
+	border-bottom-color: theme( 'colors.gray.700' ) !important;
+}
+
+.dark .components-modal__header h1,
+body.dark .components-modal__header h1 {
+	color: theme( 'colors.white' ) !important;
+}
+
+.dark .components-modal__content,
+body.dark .components-modal__content {
+	background-color: theme( 'colors.gray.800' ) !important;
+	color: theme( 'colors.gray.200' ) !important;
+}
+
+.dark .components-modal__header .components-button,
+body.dark .components-modal__header .components-button {
+	color: theme( 'colors.gray.300' ) !important;
+}
+
+.dark .components-modal__header .components-button:hover,
+body.dark .components-modal__header .components-button:hover {
+	color: theme( 'colors.white' ) !important;
+}
+
+/* Form elements dark mode styles */
+.dark .components-text-control__input,
+body.dark .components-text-control__input {
+	background-color: theme( 'colors.gray.700' ) !important;
+	color: theme( 'colors.gray.200' ) !important;
+	border-color: theme( 'colors.gray.600' ) !important;
+}
+
+.dark .components-text-control__input::placeholder,
+body.dark .components-text-control__input::placeholder {
+	color: theme( 'colors.gray.400' ) !important;
+}
+
+/* Site form specific dark mode styles */
+.dark .text-a8c-gray-50,
+body.dark .text-a8c-gray-50 {
+	color: theme( 'colors.gray.400' );
+}
+
+.dark .local-path-icon .text-\[\#3C434A\],
+body.dark .local-path-icon .text-\[\#3C434A\] {
+	color: theme( 'colors.gray.300' ) !important;
+}
+
+.dark button[aria-label*="Select different local path"],
+.dark button[aria-label*="Select different file"],
+body.dark button[aria-label*="Select different local path"],
+body.dark button[aria-label*="Select different file"] {
+	border-color: theme( 'colors.gray.600' );
+}
+
+.dark .border-\[\#949494\],
+body.dark .border-\[\#949494\] {
+	border-color: theme( 'colors.gray.600' );
+}
+
+.dark .font-semibold,
+body.dark .font-semibold {
+	color: theme( 'colors.gray.100' );
+}
+
+/* Advanced settings styles */
+.dark .mb-0 button .text-\[13px\],
+body.dark .mb-0 button .text-\[13px\] {
+	color: theme( 'colors.gray.300' );
+}
+
+/* Dark mode adjustments for assistant tab */
+.dark .assistant-markdown blockquote {
+	background-color: theme( 'colors.gray.800' );
+}
+
+.dark .assistant-markdown blockquote > blockquote {
+	background-color: theme( 'colors.gray.700' );
+}
+
+.dark .assistant-markdown a {
+	color: theme( 'colors.blue.400' );
+}
+
+.dark .assistant-markdown a:hover,
+.dark .assistant-markdown a:focus {
+	color: theme( 'colors.blue.300' );
+}
+
+.dark .error-message {
+	color: theme( 'colors.red.400' );
+}
+
+/* Additional dark mode styles for tables */
+.dark .assistant-markdown table tr {
+	background-color: theme( 'colors.gray.800' );
+	border-top: 1px solid theme( 'colors.gray.700' );
+}
+
+.dark .assistant-markdown tr:nth-child( 2n ) {
+	background-color: theme( 'colors.gray.900' );
+}
+
+.dark .assistant-markdown td,
+.dark .assistant-markdown th {
+	border: 1px solid theme( 'colors.gray.700' );
 }
 
 /* Customize scrollbar area for the sites sidebar and tab panel */
@@ -134,6 +365,16 @@ blockquote {
 	text-decoration: underline;
 }
 
+.dark .assistant-markdown a {
+	color: theme( 'colors.blue.400' );
+}
+
+.dark .assistant-markdown a:hover,
+.dark .assistant-markdown a:focus {
+	color: theme( 'colors.blue.300' );
+	text-decoration: underline;
+}
+
 .assistant-markdown blockquote {
 	background-color: theme( 'colors.a8c-gray.0' );
 	border-radius: 2px;
@@ -174,9 +415,19 @@ blockquote {
 	cursor: pointer;
 }
 
+.dark .assistant-markdown code.file-block {
+	color: theme( 'colors.blue.400' );
+	fill: theme( 'colors.blue.400' );
+}
+
 .assistant-markdown code.file-block:hover {
 	color: theme( 'colors.a8c-blueberry-70' );
 	fill: theme( 'colors.a8c-blueberry-70' );
+}
+
+.dark .assistant-markdown code.file-block:hover {
+	color: theme( 'colors.blue.300' );
+	fill: theme( 'colors.blue.300' );
 }
 
 .assistant-markdown pre {
@@ -199,6 +450,15 @@ blockquote {
 .assistant-markdown h5,
 .assistant-markdown h6 {
 	margin: 1rem 0 0.5rem 0;
+}
+
+.dark .assistant-markdown h1,
+.dark .assistant-markdown h2,
+.dark .assistant-markdown h3,
+.dark .assistant-markdown h4,
+.dark .assistant-markdown h5,
+.dark .assistant-markdown h6 {
+	color: theme( 'colors.gray.100' );
 }
 
 .assistant-markdown h1 {
@@ -227,6 +487,10 @@ blockquote {
 	border: none;
 	border-top: 1px solid theme( 'colors.a8c-gray.5' );
 	margin: 1rem 0;
+}
+
+.dark .assistant-markdown hr {
+	border-top: 1px solid theme( 'colors.gray.700' );
 }
 
 .assistant-markdown ol {

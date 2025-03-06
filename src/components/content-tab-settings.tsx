@@ -16,10 +16,10 @@ interface ContentTabSettingsProps {
 function SettingsRow( { children, label }: PropsWithChildren< { label: string } > ) {
 	return (
 		<tr className="align-top">
-			<th className="text-nowrap text-a8c-gray-50 pb-4 ltr:pr-6 rtl:pl-6 ltr:text-left rtl:text-right font-normal">
+			<th className="text-nowrap text-a8c-gray-50 dark:text-gray-300 pb-4 ltr:pr-6 rtl:pl-6 ltr:text-left rtl:text-right font-normal">
 				{ label }
 			</th>
-			<td className="pb-4">{ children }</td>
+			<td className="pb-4 dark:text-gray-200">{ children }</td>
 		</tr>
 	);
 }
@@ -33,12 +33,12 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 	const password = storedPassword === '' ? 'password' : storedPassword;
 	const wpVersion = useGetWpVersion( selectedSite );
 	return (
-		<div className="p-8">
+		<div className="p-8 dark:bg-gray-900">
 			<table className="mb-2 m-w-full" cellPadding={ 0 } cellSpacing={ 0 }>
 				<tbody>
 					<tr>
 						<th colSpan={ 2 } className="pb-4 ltr:text-left rtl:text-right">
-							<h3 className="text-black text-sm font-semibold">
+							<h3 className="text-black dark:text-white text-sm font-semibold">
 								{ __( 'Site details' ) }
 								{ wpVersionsEnabled && <EditSiteDetails /> }
 							</h3>
@@ -46,7 +46,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 					</tr>
 					<SettingsRow label={ __( 'Site name' ) }>
 						<div className="flex">
-							<span className="line-clamp-1 break-all">{ selectedSite.name }</span>
+							<span className="line-clamp-1 break-all dark:text-gray-200">{ selectedSite.name }</span>
 							{ ! wpVersionsEnabled && <EditSite /> }
 						</div>
 					</SettingsRow>
@@ -80,7 +80,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 
 					<tr>
 						<th colSpan={ 2 } className="pb-4 ltr:text-left rtl:text-right">
-							<h3 className="text-black text-sm font-semibold mt-4">{ __( 'WP Admin' ) }</h3>
+							<h3 className="text-black dark:text-white text-sm font-semibold mt-4">{ __( 'WP Admin' ) }</h3>
 						</th>
 					</tr>
 					<SettingsRow label={ __( 'Username' ) }>

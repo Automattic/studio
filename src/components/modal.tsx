@@ -15,6 +15,10 @@ export default function Modal( { className, ...rest }: ComponentProps< typeof WP
 				'[&_[role="document"]>div:first-child_button]:rtl:right-2',
 				'[&_[role="document"]>div:first-child_button]:ltr:left-2',
 				'[&_[role="document"]>div:first-child_button]:ltr:right-0',
+				'dark:[&_.components-modal__header]:bg-gray-800 dark:[&_.components-modal__header]:border-gray-700',
+				'dark:[&_.components-modal__content]:bg-gray-800',
+				'dark:[&_.components-modal__frame]:bg-gray-800',
+				'dark:[&_h1]:text-white',
 				className
 			) }
 			{ ...rest }

@@ -44,12 +44,12 @@ const SiteFormError = ( { error, tipMessage = '', className = '' }: SiteFormErro
 				aria-atomic="true"
 				className={ cx(
 					'flex items-start gap-1 text-xs',
-					error ? 'text-red-500' : 'text-a8c-gray-50',
+					error ? 'text-red-500' : 'text-a8c-gray-50 dark:text-gray-300',
 					className
 				) }
 			>
 				<Icon
-					className={ cx( 'shrink-0 basis-4', error ? 'fill-red-500' : 'fill-a8c-gray-50' ) }
+					className={ cx( 'shrink-0 basis-4', error ? 'fill-red-500' : 'fill-a8c-gray-50 dark:fill-gray-300' ) }
 					icon={ error ? warning : tip }
 					width={ 16 }
 					height={ 16 }
@@ -83,7 +83,7 @@ function FormPathInputComponent( {
 				type="button"
 				aria-label={ `${ value }, ${ __( 'Select different local path' ) }` }
 				className={ cx(
-					'flex flex-row items-stretch rounded-sm border border-[#949494] focus:border-a8c-blueberry focus:shadow-[0_0_0_0.5px_black] focus:shadow-a8c-blueberry outline-none transition-shadow transition-linear duration-100 [&_.local-path-icon]:focus:border-l-a8c-blueberry [&:disabled]:cursor-not-allowed',
+					'flex flex-row items-stretch rounded-sm border border-[#949494] dark:border-gray-600 focus:border-a8c-blueberry focus:shadow-[0_0_0_0.5px_black] focus:shadow-a8c-blueberry dark:focus:shadow-[0_0_0_0.5px_white] outline-none transition-shadow transition-linear duration-100 [&_.local-path-icon]:focus:border-l-a8c-blueberry [&:disabled]:cursor-not-allowed',
 					error ? 'border-red-500 [&_.local-path-icon]:border-l-red-500' : ''
 				) }
 				data-testid="select-path-button"
@@ -99,7 +99,7 @@ function FormPathInputComponent( {
 					onChange={ () => {} }
 				/>
 				<div aria-hidden="true" className="local-path-icon flex items-center py-[9px] px-2.5">
-					<FolderIcon className="text-[#3C434A]" />
+					<FolderIcon className="text-[#3C434A] dark:text-gray-300" />
 				</div>
 			</button>
 			<SiteFormError
@@ -152,7 +152,7 @@ function FormImportComponent( {
 					type="button"
 					aria-label={ `${ value }, ${ __( 'Select different file' ) }` }
 					className={ cx(
-						'flex items-center flex-grow rounded-sm border border-[#949494] focus:border-a8c-blueberry focus:shadow-[0_0_0_0.5px_black] focus:shadow-a8c-blueberry outline-none transition-shadow transition-linear duration-100 [&_.local-path-icon]:focus:border-l-a8c-blueberry [&:disabled]:cursor-not-allowed',
+						'flex items-center flex-grow rounded-sm border border-[#949494] dark:border-gray-600 focus:border-a8c-blueberry focus:shadow-[0_0_0_0.5px_black] focus:shadow-a8c-blueberry dark:focus:shadow-[0_0_0_0.5px_white] outline-none transition-shadow transition-linear duration-100 [&_.local-path-icon]:focus:border-l-a8c-blueberry [&:disabled]:cursor-not-allowed',
 						error ? 'border-red-500 [&_.local-path-icon]:border-l-red-500' : '',
 						fileName ? 'border-r-0 rounded-r-none focus:border' : ''
 					) }
@@ -169,7 +169,7 @@ function FormImportComponent( {
 					/>
 					{ ! fileName && (
 						<div aria-hidden="true" className="local-path-icon flex items-center py-[12px] px-2.5">
-							<FolderIcon className="text-[#3C434A]" />
+							<FolderIcon className="text-[#3C434A] dark:text-gray-300" />
 						</div>
 					) }
 				</button>
@@ -177,7 +177,7 @@ function FormImportComponent( {
 					<Button variant="icon" onClick={ handleIconClick } isDestructive={ true }>
 						<div
 							aria-hidden="true"
-							className="flex items-center py-[10px] px-2.5 rounded-tr-sm rounded-br-sm border border-[#949494] border-l-0"
+							className="flex items-center py-[10px] px-2.5 rounded-tr-sm rounded-br-sm border border-[#949494] dark:border-gray-600 border-l-0"
 						>
 							<Icon size={ 20 } icon={ trash } />
 						</div>
@@ -261,7 +261,7 @@ export const SiteForm = ( {
 								{ __( 'Import a backup' ) }
 								<span className="font-normal">{ __( ' (optional)' ) }</span>
 							</label>
-							<span className="text-a8c-gray-50 text-xs">
+							<span className="text-a8c-gray-50 dark:text-gray-300 text-xs">
 								{ createInterpolateElement(
 									__(
 										'Import a Jetpack backup or a full-site backup in another format. <button>Learn more</button>'
@@ -329,7 +329,7 @@ export const SiteForm = ( {
 										<label onClick={ onSelectPath } className="font-semibold">
 											{ __( 'Local path' ) }
 										</label>
-										<span className="text-a8c-gray-50 text-xs">
+										<span className="text-a8c-gray-50 dark:text-gray-300 text-xs">
 											{ createInterpolateElement(
 												__(
 													'Select an empty directory or a directory with an existing WordPress site. <button>Learn more</button>'

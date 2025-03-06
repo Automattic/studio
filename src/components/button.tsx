@@ -61,6 +61,14 @@ const secondaryStyles = `
 [&.is-secondary:not(:focus)]:aria-disabled:shadow-a8c-gray-5
 [&.is-secondary:not(:focus)]:aria-disabled:hover:shadow-[inset_0_0_0_1px_black]
 [&.is-secondary:not(:focus)]:aria-disabled:hover:shadow-a8c-gray-5
+dark:[&.is-secondary]:text-white
+body.dark [&.is-secondary]:text-white
+dark:[&.is-secondary]:shadow-[inset_0_0_0_1px_white]
+body.dark [&.is-secondary]:shadow-[inset_0_0_0_1px_white]
+dark:[&.is-secondary]:shadow-gray-600
+body.dark [&.is-secondary]:shadow-gray-600
+dark:[&.is-secondary]:focus:shadow-gray-600
+body.dark [&.is-secondary]:focus:shadow-gray-600
 `.replace( /\n/g, ' ' );
 
 const outlinedStyles = `
@@ -91,6 +99,14 @@ const linkStyles = `
 [&.is-link]:hover:text-[#2145e6]
 [&.is-link]:active:text-black
 [&.is-link]:disabled:text-a8c-gray-50
+dark:[&.is-link]:text-blue-400
+body.dark [&.is-link]:text-blue-400
+dark:[&.is-link]:hover:text-blue-300
+body.dark [&.is-link]:hover:text-blue-300
+dark:[&.is-link]:active:text-white
+body.dark [&.is-link]:active:text-white
+dark:[&.is-link]:disabled:text-gray-500
+body.dark [&.is-link]:disabled:text-gray-500
 `.replace( /\n/g, ' ' );
 
 const iconStyles = `

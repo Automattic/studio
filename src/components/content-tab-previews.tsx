@@ -213,7 +213,7 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 								key={ snapshot.atomicSiteId }
 							/>
 						) ) }
-					<div className="sticky bottom-0 bg-white/[0.8] backdrop-blur-sm w-full px-8 py-6 mt-auto">
+					<div className="sticky bottom-0 bg-white dark:bg-gray-900/[0.8] backdrop-blur-sm w-full px-8 py-6 mt-auto">
 						<CreatePreviewButton
 							onClick={ () => archiveSite( selectedSite.id ) }
 							selectedSite={ selectedSite }

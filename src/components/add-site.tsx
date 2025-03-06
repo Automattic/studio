@@ -13,6 +13,8 @@ import { useImportExport } from 'src/hooks/use-import-export';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { generateSiteName } from 'src/lib/generate-site-name';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useThemeMode } from 'src/hooks/use-theme-mode';
+import { cx } from 'src/lib/cx';
 
 interface AddSiteProps {
 	className?: string;
@@ -43,6 +45,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 		sites,
 	} = useAddSite();
 	const { importState } = useImportExport();
+	const { isDarkMode } = useThemeMode();
 
 	const isAnySiteProcessing = sites.some(
 		( site ) => site.isAddingSite || importState[ site.id ]?.isNewSite
@@ -147,7 +150,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 					isDismissible
 					focusOnMount="firstContentElement"
 					onRequestClose={ closeModal }
-					className="max-h-[90%]"
+					className={ cx("max-h-[90%]", isDarkMode && 'dark') }
 				>
 					<div ref={ dropRef }>
 						{ isDraggingOver && <DragAndDropOverlay /> }

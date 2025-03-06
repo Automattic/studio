@@ -450,7 +450,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 				</div>
 			</div>
 
-			<div className="sticky bottom-0 bg-gray-50/[0.8] backdrop-blur-sm w-full px-8 pt-4 flex items-center">
+			<div className="sticky bottom-0 bg-gray-50/[0.8] dark:bg-gray-800/[0.8] backdrop-blur-sm w-full px-8 pt-4 flex items-center">
 				<div className="w-full flex flex-col items-center">
 					<AIInput
 						ref={ inputRef }

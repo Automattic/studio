@@ -23,7 +23,7 @@ export function SiteContentTabs() {
 	if ( ! selectedSite ) {
 		return (
 			<div className="w-full h-full flex items-center justify-center">
-				<p className="text-lg text-gray-600">{ __( 'Select a site to view details.' ) }</p>
+				<p className="text-lg text-gray-600 dark:text-gray-300">{ __( 'Select a site to view details.' ) }</p>
 			</div>
 		);
 	}
@@ -33,7 +33,7 @@ export function SiteContentTabs() {
 	}
 
 	return (
-		<div className="flex flex-col w-full h-full app-no-drag-region pt-8 overflow-y-auto">
+		<div className="flex flex-col w-full h-full app-no-drag-region pt-8 overflow-y-auto dark:bg-gray-900">
 			<Header />
 			<WelcomeMessagesProvider>
 				<TabPanel
@@ -48,7 +48,7 @@ export function SiteContentTabs() {
 						<div
 							className={ cx(
 								'h-full overflow-y-auto',
-								selectedTab === 'assistant' && 'bg-gray-50'
+								selectedTab === 'assistant' && 'bg-gray-50 dark:bg-gray-800'
 							) }
 							style={ {
 								scrollbarWidth: 'thin',

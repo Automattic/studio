@@ -34,7 +34,7 @@ const skeletonBg = 'animate-pulse bg-gradient-to-r from-[#F6F7F7] via-[#DCDCDE] 
 const ButtonSectionSkeleton = ( { title }: { title: string } ) => {
 	return (
 		<div className="w-full max-w-96">
-			<h2 className="a8c-subtitle-small mb-3">{ title }</h2>
+			<h2 className="a8c-subtitle-small mb-3 dark:text-gray-200">{ title }</h2>
 			<div className={ `w-full h-20 my-1 ${ skeletonBg }` }></div>
 		</div>
 	);
@@ -220,19 +220,20 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 	);
 
 	return (
-		<div className="p-8 flex max-w-3xl">
+		<div className="p-8 flex max-w-3xl dark:bg-gray-900">
 			<div className="w-52 ltr:mr-8 rtl:ml-8 flex-col justify-start items-start gap-8">
-				<h2 className="mb-3 a8c-subtitle-small">{ __( 'Theme' ) }</h2>
+				<h2 className="mb-3 a8c-subtitle-small dark:text-gray-200">{ __( 'Theme' ) }</h2>
 				<div
 					className={ cx(
 						'w-full min-h-40 max-h-64 rounded-sm border border-a8c-gray-5 bg-a8c-gray-0 mb-2 flex justify-center',
+						'dark:border-gray-700 dark:bg-gray-800',
 						loading && `h-64 ${ skeletonBg }`,
 						isThumbnailError && 'border-none',
-						! loading && siteRunning && 'hover:border-a8c-blueberry duration-300'
+						! loading && siteRunning && 'hover:border-a8c-blueberry duration-300 dark:hover:border-a8c-blueberry'
 					) }
 				>
 					{ isThumbnailError && ! loading && (
-						<div className="flex items-center justify-center w-full h-64 leading-5 text-a8c-gray-50">
+						<div className="flex items-center justify-center w-full h-64 leading-5 text-a8c-gray-50 dark:text-gray-400">
 							{ __( 'Preview unavailable' ) }
 						</div>
 					) }
@@ -254,7 +255,7 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 							>
 								<div
 									className={
-										'opacity-0 group-hover:opacity-90 group-hover:bg-white group-focus:opacity-90 group-focus:bg-white duration-300 absolute size-full flex justify-center items-center bg-white text-a8c-blueberry'
+										'opacity-0 group-hover:opacity-90 group-hover:bg-white group-focus:opacity-90 group-focus:bg-white duration-300 absolute size-full flex justify-center items-center bg-white text-a8c-blueberry dark:group-hover:bg-gray-800 dark:group-focus:bg-gray-800 dark:text-a8c-blueberry'
 									}
 								>
 									{ __( 'Open site' ) }
@@ -268,7 +269,7 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 				</div>
 				<div className="flex justify-between items-center w-full">
 					{ loading && <div className={ `w-[100px] min-h-4 ${ skeletonBg }` }></div> }
-					{ ! loading && ! isThumbnailError && <p>{ themeDetails?.name }</p> }
+					{ ! loading && ! isThumbnailError && <p className="dark:text-gray-200">{ themeDetails?.name }</p> }
 				</div>
 			</div>
 			<div className="flex flex-1 flex-col justify-start items-start gap-8">

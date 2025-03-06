@@ -130,9 +130,7 @@ export default async function startWPNow(
 		cwd: requestHandler.documentRoot,
 		recreateRuntime: async () => {
 			output?.log( 'Recreating and rotating PHP runtime' );
-			const { php, runtimeId } = await getPHPInstance( options, true, requestHandler );
-			await prepareDocumentRoot( php, options );
-			await prepareWordPress( php, options );
+			const { runtimeId } = await getPHPInstance( options, true, requestHandler );
 			return runtimeId;
 		},
 		maxRequests: 400,

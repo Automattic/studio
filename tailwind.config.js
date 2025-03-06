@@ -133,6 +133,9 @@ a8cToTailwindColors[ `${ PREFIX }-blueberry-5` ] = '#F7F8FE'; // WordPress Blue 
 a8cToTailwindColors[ `${ PREFIX }-blueberry` ] = '#3858E9'; // WordPress Blue
 a8cToTailwindColors[ `${ PREFIX }-blueberry-70` ] = '#1d35b4'; // WordPress Blue 70
 a8cToTailwindColors[ `${ PREFIX }-gray-700` ] = '#757575'; // Gray 700
+a8cToTailwindColors[ `${ PREFIX }-gray-400` ] = '#CCC'; // Gray 400
+a8cToTailwindColors[ `${ PREFIX }-gray-600` ] = '#949494'; // Gray 600
+a8cToTailwindColors[ `${ PREFIX }-gray-100` ] = '#f0f0f0'; // Gray 100
 
 module.exports = {
 	content: [ './src/**/*.{html,ejs,js,jsx,ts,tsx}' ],

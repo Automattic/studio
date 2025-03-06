@@ -21,7 +21,7 @@ import { ARCHIVER_OPTIONS, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
 import { bumpStat } from 'src/lib/bump-stats';
-import { STATS_GROUP, STATS_METRIC } from 'src/lib/bump-stats/types';
+import { getImporterMetric, StatsGroup, StatsMetric } from 'src/lib/bump-stats/types';
 import { calculateDirectorySize } from 'src/lib/calculate-directory-size';
 import { download } from 'src/lib/download';
 import { isEmptyDir, pathExists, isWordPressDirectory, sanitizeFolderName } from 'src/lib/fs-utils';
@@ -122,17 +122,14 @@ export async function importSite(
 		};
 		const result = await importBackup( backupFile, site.details, onEvent, defaultImporterOptions );
 
-		bumpStat(
-			STATS_GROUP.STUDIO_IMPORT,
-			( result.importerType as STATS_METRIC ) || STATS_METRIC.UNKNOWN_IMPORTER
-		);
+		bumpStat( StatsGroup.STUDIO_IMPORT, getImporterMetric( result.importerType ) );
 
 		if ( result?.meta?.phpVersion ) {
 			site.details.phpVersion = result.meta.phpVersion;
 		}
 		return site.details;
 	} catch ( e ) {
-		bumpStat( STATS_GROUP.STUDIO_IMPORT, STATS_METRIC.FAILURE );
+		bumpStat( StatsGroup.STUDIO_IMPORT, StatsMetric.FAILURE );
 		Sentry.captureException( e );
 		throw e;
 	}
@@ -690,20 +687,20 @@ export async function exportSite(
 
 		if ( result ) {
 			bumpStat(
-				STATS_GROUP.STUDIO_EXPORT,
+				StatsGroup.STUDIO_EXPORT,
 				options.includes.database &&
 					! options.includes.uploads &&
 					! options.includes.plugins &&
 					! options.includes.themes &&
 					! options.includes.muPlugins
-					? STATS_METRIC.DATABASE_ONLY
-					: STATS_METRIC.FULL_SITE
+					? StatsMetric.DATABASE_ONLY
+					: StatsMetric.FULL_SITE
 			);
 		}
 
 		return result;
 	} catch ( e ) {
-		bumpStat( STATS_GROUP.STUDIO_EXPORT, STATS_METRIC.FAILURE );
+		bumpStat( StatsGroup.STUDIO_EXPORT, StatsMetric.FAILURE );
 		Sentry.captureException( e );
 		throw e;
 	}

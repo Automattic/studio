@@ -7,7 +7,7 @@ import { normalize } from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { createSite, startServer, isFullscreen, importSite } from 'src/ipc-handlers';
 import { bumpStat } from 'src/lib/bump-stats';
-import { STATS_GROUP, STATS_METRIC } from 'src/lib/bump-stats/types';
+import { StatsGroup, StatsMetric } from 'src/lib/bump-stats/types';
 import { isEmptyDir, pathExists } from 'src/lib/fs-utils';
 import { importBackup, defaultImporterOptions } from 'src/lib/import-export/import/import-manager';
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
@@ -187,8 +187,8 @@ describe( 'importSite', () => {
 
 		expect( bumpStat ).toHaveBeenNthCalledWith(
 			1,
-			STATS_GROUP.STUDIO_IMPORT,
-			STATS_METRIC.UNKNOWN_IMPORTER
+			StatsGroup.STUDIO_IMPORT,
+			StatsMetric.UNKNOWN_IMPORTER
 		);
 	} );
 
@@ -212,6 +212,6 @@ describe( 'importSite', () => {
 		expect( Sentry.captureException ).toHaveBeenCalledWith( mockError );
 
 		// Verify failure stats were bumped
-		expect( bumpStat ).toHaveBeenCalledWith( STATS_GROUP.STUDIO_IMPORT, STATS_METRIC.FAILURE );
+		expect( bumpStat ).toHaveBeenCalledWith( StatsGroup.STUDIO_IMPORT, StatsMetric.FAILURE );
 	} );
 } );

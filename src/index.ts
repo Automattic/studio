@@ -15,7 +15,7 @@ import { PROTOCOL_PREFIX } from 'src/constants';
 import * as ipcHandlers from 'src/ipc-handlers';
 import { hasActiveSyncOperations } from 'src/lib/active-sync-operations';
 import { bumpAggregatedUniqueStat, bumpStat } from 'src/lib/bump-stats';
-import { STATS_GROUP } from 'src/lib/bump-stats/types';
+import { getPlatformMetric, StatsGroup } from 'src/lib/bump-stats/types';
 import {
 	listenCLICommands,
 	getCLIDataForMainInstance,
@@ -271,13 +271,17 @@ async function appBoot() {
 
 		// Bump stats for the first time the app runs - this is when no lastBumpStats are available
 		if ( ! userData.lastBumpStats ) {
-			bumpStat( STATS_GROUP.STUDIO_APP_LAUNCH, process.platform );
+			bumpStat( StatsGroup.STUDIO_APP_LAUNCH, getPlatformMetric( process.platform ) );
 		}
 
 		// Bump a stat on each app launch, approximates total app launches
-		bumpStat( STATS_GROUP.STUDIO_APP_LAUNCH_TOTAL, process.platform );
+		bumpStat( StatsGroup.STUDIO_APP_LAUNCH_TOTAL, getPlatformMetric( process.platform ) );
 		// Bump stat for unique weekly app launch, approximates weekly active users
-		bumpAggregatedUniqueStat( STATS_GROUP.STUDIO_APP_LAUNCH_UNIQUE, process.platform, 'weekly' );
+		bumpAggregatedUniqueStat(
+			StatsGroup.STUDIO_APP_LAUNCH_UNIQUE,
+			getPlatformMetric( process.platform ),
+			'weekly'
+		);
 
 		finishedInitialization = true;
 	} );

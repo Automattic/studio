@@ -33,7 +33,7 @@ export function PreviewSiteRow( {
 }: PreviewSiteRowProps ) {
 	const { __ } = useI18n();
 	const { url, date, isDeleting } = snapshot;
-	const { countDown, dateString, expireDateString, isExpired } = useExpirationDate( date );
+	const { countDown, expireDateString, isExpired } = useExpirationDate( date );
 	const { fetchSnapshotUsage, removeSnapshot } = useSnapshots();
 	const { isDemoSiteUpdating, hasDemoSiteError } = useUpdateDemoSite();
 	const isPreviewSiteUpdating = isDemoSiteUpdating( snapshot.atomicSiteId );
@@ -117,15 +117,7 @@ export function PreviewSiteRow( {
 							{ snapshot.name || sprintf( __( '%s Preview' ), selectedSite.name ) }
 						</div>
 					</div>
-					<Tooltip
-						text={ sprintf(
-							/* translators: %s: The preview site URL */
-							__( 'Open %s' ),
-							urlWithHTTPS
-						) }
-						disabled={ isExpired }
-						className="overflow-hidden"
-					>
+					<Tooltip text={ urlWithHTTPS } disabled={ isExpired } className="overflow-hidden">
 						<Button
 							variant="link"
 							disabled={ isExpired }
@@ -150,9 +142,7 @@ export function PreviewSiteRow( {
 								{ __( 'Updating' ) }
 							</div>
 						) : (
-							<Tooltip text={ dateString } disabled={ ! date }>
-								{ getLastUpdateTimeText() }
-							</Tooltip>
+							getLastUpdateTimeText()
 						) }
 					</div>
 					<div className="flex items-center">

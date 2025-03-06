@@ -220,14 +220,8 @@ const SyncConnectedSitesSection = ( {
 									<Badge className="bg-a8c-green-5 text-a8c-green-80">{ __( 'Production' ) }</Badge>
 								) }
 							</div>
-							<Tooltip
-								text={ sprintf(
-									/* translators: %s: The URL of the connected site */
-									__( 'Open %s' ),
-									connectedSite.url
-								) }
-								className="overflow-hidden"
-							>
+
+							<Tooltip text={ connectedSite.url } className="overflow-hidden">
 								<Button
 									variant="link"
 									className="!text-a8c-gray-70 hover:!text-a8c-blueberry max-w-[100%]"

@@ -114,7 +114,7 @@ const wordpressVersionsSlice = createSlice( {
 		selectWordPressVersionsWithLatest: ( state ) => [
 			{
 				isBeta: false,
-				label: __( 'Latest' ),
+				label: __( 'latest' ),
 				value: 'latest',
 			},
 			...state.versions,

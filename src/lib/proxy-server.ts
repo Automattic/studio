@@ -1,5 +1,6 @@
 import http from 'http';
 import { domainToASCII } from 'node:url';
+import * as Sentry from '@sentry/electron/main';
 import httpProxy from 'http-proxy';
 import { SiteServer } from 'src/site-server';
 import { loadUserData } from 'src/storage/user-data';
@@ -105,6 +106,7 @@ async function startDomainProxy(): Promise< boolean > {
 
 		return true;
 	} catch ( error ) {
+		Sentry.captureException( error );
 		console.error( `Failed to start proxy server directly:`, error );
 		return false;
 	}

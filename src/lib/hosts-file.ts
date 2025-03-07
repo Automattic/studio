@@ -3,6 +3,7 @@ import { domainToASCII } from 'node:url';
 import { platform, tmpdir } from 'os';
 import path from 'path';
 import { promisify } from 'util';
+import * as Sentry from '@sentry/electron/main';
 import sudo from 'sudo-prompt';
 
 const readFile = promisify( fs.readFile );
@@ -96,6 +97,7 @@ export const addDomainToHosts = async ( domain: string, port: number ): Promise<
 			await writeHostsFile( newContent );
 		}
 	} catch ( error ) {
+		Sentry.captureException( error );
 		console.error( `Error adding domain ${ domain } to hosts file:`, error );
 		throw error;
 	}
@@ -119,6 +121,7 @@ export const removeDomainFromHosts = async ( domain: string ): Promise< void > =
 			await writeHostsFile( newContent );
 		}
 	} catch ( error ) {
+		Sentry.captureException( error );
 		console.error( `Error removing domain ${ domain } from hosts file:`, error );
 		throw error;
 	}

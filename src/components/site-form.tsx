@@ -443,16 +443,9 @@ export const SiteForm = ( {
 												</div>
 											</div>
 										) }
-									</div>
 
-									{ setUseCustomDomain && setCustomDomain && (
-										<div
-											className={ cx(
-												isAdvancedSettingsVisible ? 'py-2' : 'p-2',
-												! isAdvancedSettingsVisible && 'hidden'
-											) }
-										>
-											<div className="flex items-center gap-2">
+										{ setUseCustomDomain && setCustomDomain && (
+											<div className="flex items-center gap-2 mt-4">
 												<input
 													type="checkbox"
 													id="use-custom-domain"
@@ -461,33 +454,28 @@ export const SiteForm = ( {
 												/>
 												<label htmlFor="use-custom-domain">{ __( 'Use custom domain' ) }</label>
 											</div>
-											<div className="text-a8c-gray-50 text-xs pt-2">
-												{ __(
-													'This will require your password to authorize changes to the hosts file.'
-												) }
-											</div>
-										</div>
-									) }
+										) }
 
-									{ useCustomDomain && setCustomDomain && (
-										<div
-											className={ cx(
-												'flex flex-col gap-2',
-												isAdvancedSettingsVisible ? 'py-2' : 'p-2',
-												! isAdvancedSettingsVisible && 'hidden'
-											) }
-										>
-											<label htmlFor="custom-domain" className="font-semibold">
-												{ __( 'Domain name' ) }
-											</label>
-											<TextControlComponent
-												id="custom-domain"
-												value={ customDomain !== null ? customDomain : generatedDomainName }
-												onChange={ setCustomDomain }
-											/>
-											{ customDomainError && <SiteFormError error={ customDomainError } /> }
-										</div>
-									) }
+										{ useCustomDomain && setCustomDomain && (
+											<div className="flex flex-col gap-2 mt-4">
+												<label htmlFor="custom-domain" className="font-semibold">
+													{ __( 'Domain name' ) }
+												</label>
+												<TextControlComponent
+													id="custom-domain"
+													value={ customDomain !== null ? customDomain : generatedDomainName }
+													onChange={ setCustomDomain }
+												/>
+												{ customDomainError && <SiteFormError error={ customDomainError } /> }
+											</div>
+										) }
+
+										{ setUseCustomDomain && setCustomDomain && (
+											<div className="text-a8c-gray-50 text-xs mt-2">
+												{ __( 'Your system password will be required to set up the domain.' ) }
+											</div>
+										) }
+									</div>
 								</div>
 							</>
 						) }

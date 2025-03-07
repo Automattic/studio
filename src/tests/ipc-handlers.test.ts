@@ -6,6 +6,8 @@ import fs from 'fs';
 import { normalize } from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { createSite, startServer, isFullscreen, importSite } from 'src/ipc-handlers';
+import { bumpStat } from 'src/lib/bump-stats';
+import { StatsGroup, StatsMetric } from 'src/lib/bump-stats/types';
 import { isEmptyDir, pathExists } from 'src/lib/fs-utils';
 import { importBackup, defaultImporterOptions } from 'src/lib/import-export/import/import-manager';
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
@@ -22,6 +24,7 @@ jest.mock( 'vendor/wp-now/src/download' );
 jest.mock( 'src/main-window' );
 jest.mock( '@sentry/electron/main' );
 jest.mock( 'src/lib/import-export/import/import-manager' );
+jest.mock( 'src/lib/bump-stats' );
 
 jest.mock( 'src/lib/port-finder', () => ( {
 	portFinder: {
@@ -139,6 +142,7 @@ describe( 'importSite', () => {
 
 	beforeEach( () => {
 		( importBackup as jest.Mock ).mockReset();
+		( bumpStat as jest.Mock ).mockReset();
 	} );
 
 	it( 'should throw error if site is not found', async () => {
@@ -152,7 +156,7 @@ describe( 'importSite', () => {
 		).rejects.toThrow( 'Site not found.' );
 	} );
 
-	it( 'should import backup successfully', async () => {
+	it( 'should import backup successfully and bump success stats', async () => {
 		const mockSite = {
 			details: {
 				id: 'test-site',
@@ -180,9 +184,15 @@ describe( 'importSite', () => {
 		);
 		expect( mockSite.details.phpVersion ).toBe( '8.2' );
 		expect( result ).toBe( mockSite.details );
+
+		expect( bumpStat ).toHaveBeenNthCalledWith(
+			1,
+			StatsGroup.STUDIO_IMPORT,
+			StatsMetric.UNKNOWN_IMPORTER
+		);
 	} );
 
-	it( 'should capture exception in Sentry when import fails', async () => {
+	it( 'should capture exception in Sentry and bump failure stats when import fails', async () => {
 		const mockError = new Error( 'Import failed' );
 		const mockSite = {
 			details: {
@@ -200,5 +210,8 @@ describe( 'importSite', () => {
 		).rejects.toThrow( 'Import failed' );
 
 		expect( Sentry.captureException ).toHaveBeenCalledWith( mockError );
+
+		// Verify failure stats were bumped
+		expect( bumpStat ).toHaveBeenCalledWith( StatsGroup.STUDIO_IMPORT, StatsMetric.FAILURE );
 	} );
 } );

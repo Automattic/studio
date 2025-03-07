@@ -15,6 +15,7 @@ import { SiteServer } from 'src/site-server';
 import { DEFAULT_PHP_VERSION } from 'vendor/wp-now/src/constants';
 export interface ImporterResult extends Omit< BackupContents, 'metaFile' > {
 	meta?: MetaFileData;
+	importerType?: string;
 }
 
 export interface Importer extends Partial< EventEmitter > {
@@ -114,6 +115,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 				wpContentDirectory: this.backup.wpContentDirectory,
 				wpConfig: this.backup.wpConfig,
 				meta: this.meta,
+				importerType: this.constructor.name,
 			};
 		} catch ( error ) {
 			this.emit( ImportEvents.IMPORT_ERROR, error );
@@ -294,6 +296,7 @@ export class SQLImporter extends BaseImporter {
 				wpConfig: this.backup.wpConfig,
 				wpContent: this.backup.wpContent,
 				wpContentDirectory: this.backup.wpContentDirectory,
+				importerType: this.constructor.name,
 			};
 		} catch ( error ) {
 			this.emit( ImportEvents.IMPORT_ERROR, error );

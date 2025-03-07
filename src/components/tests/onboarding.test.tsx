@@ -5,6 +5,7 @@ import { userEvent } from '@testing-library/user-event';
 import Onboarding from 'src/components/onboarding';
 import { useAddSite } from 'src/hooks/use-add-site';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
+import { useOffline } from 'src/hooks/use-offline';
 import { useOnboarding } from 'src/hooks/use-onboarding';
 import { FolderDialogResponse } from 'src/ipc-handlers';
 import { useAppDispatch, useRootSelector } from 'src/stores';
@@ -28,6 +29,10 @@ jest.mock( 'src/stores', () => ( {
 
 jest.mock( 'src/lib/app-globals', () => ( {
 	isMac: () => true,
+} ) );
+
+jest.mock( 'src/hooks/use-offline', () => ( {
+	useOffline: jest.fn().mockReturnValue( false ),
 } ) );
 
 const mockGenerateProposedSitePath =
@@ -340,5 +345,63 @@ describe( 'Onboarding Component', () => {
 
 		expect( screen.queryByText( 'WordPress version' ) ).not.toBeInTheDocument();
 		expect( screen.queryByText( 'PHP version' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'should disable WordPress version field when offline', () => {
+		( useOffline as jest.Mock ).mockReturnValue( true );
+		( useFeatureFlags as jest.Mock ).mockReturnValue( {
+			wpVersionsEnabled: true,
+		} );
+
+		render( <Onboarding /> );
+
+		const wpVersionSelect = screen.getByLabelText( 'WordPress version' );
+		expect( wpVersionSelect ).toBeDisabled();
+	} );
+
+	it( 'should enable WordPress version field when online', () => {
+		( useOffline as jest.Mock ).mockReturnValue( false );
+		( useFeatureFlags as jest.Mock ).mockReturnValue( {
+			wpVersionsEnabled: true,
+		} );
+
+		render( <Onboarding /> );
+
+		const wpVersionSelect = screen.getByLabelText( 'WordPress version' );
+		expect( wpVersionSelect ).not.toBeDisabled();
+	} );
+
+	it( 'should show tooltip with offline message when hovering over disabled WordPress version field', async () => {
+		( useOffline as jest.Mock ).mockReturnValue( true );
+		( useFeatureFlags as jest.Mock ).mockReturnValue( {
+			wpVersionsEnabled: true,
+		} );
+
+		render( <Onboarding /> );
+		const user = userEvent.setup();
+
+		const wpVersionSelect = screen.getByLabelText( 'WordPress version' );
+		await user.hover( wpVersionSelect );
+
+		expect(
+			screen.getByText( 'Changing WordPress version requires an internet connection.' )
+		).toBeInTheDocument();
+	} );
+
+	it( 'should not show tooltip when hovering over WordPress version field while online', async () => {
+		( useOffline as jest.Mock ).mockReturnValue( false );
+		( useFeatureFlags as jest.Mock ).mockReturnValue( {
+			wpVersionsEnabled: true,
+		} );
+
+		render( <Onboarding /> );
+		const user = userEvent.setup();
+
+		const wpVersionSelect = screen.getByLabelText( 'WordPress version' );
+		await user.hover( wpVersionSelect );
+
+		expect(
+			screen.queryByText( 'Changing WordPress version requires an internet connection.' )
+		).not.toBeInTheDocument();
 	} );
 } );

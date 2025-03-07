@@ -6,7 +6,10 @@ import stripAnsi from 'strip-ansi';
 import Button from 'src/components/button';
 import { ErrorInformation } from 'src/components/error-information';
 import Modal from 'src/components/modal';
+import offlineIcon from 'src/components/offline-icon';
 import TextControlComponent from 'src/components/text-control';
+import { Tooltip } from 'src/components/tooltip';
+import { useOffline } from 'src/hooks/use-offline';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -25,6 +28,8 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 	const [ isChangeWpError, setIsChangeWpError ] = useState( '' );
 	const [ showModal, setShowModal ] = useState( false );
 	const [ isEditingSite, setIsEditingSite ] = useState( false );
+	const isOffline = useOffline();
+	const offlineMessage = __( 'Changing WordPress version requires an internet connection.' );
 	const closeModal = useCallback( () => {
 		if ( isEditingSite ) {
 			return;
@@ -140,9 +145,13 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 							</label>
 
 							<div className="flex flex-row gap-x-6">
-								<label className="flex flex-1 flex-col gap-1.5 leading-4">
+								<label
+									htmlFor="php-version-select"
+									className="flex flex-1 flex-col gap-1.5 leading-4"
+								>
 									<span className="font-semibold">{ __( 'PHP version' ) }</span>
 									<SelectControl
+										id="php-version-select"
 										disabled={ isEditingSite }
 										value={ selectedPhpVersion }
 										options={ SupportedPHPVersions.map( ( version ) => ( {
@@ -155,17 +164,29 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 									/>
 								</label>
 
-								<label className="flex flex-1 flex-col gap-1.5 leading-4">
+								<label
+									htmlFor="wp-version-select"
+									className="flex flex-1 flex-col gap-1.5 leading-4"
+								>
 									<span className="font-semibold">{ __( 'WordPress version' ) }</span>
-									<SelectControl
-										className={ cx( isChangeWpError && 'error-select-control' ) }
-										disabled={ isEditingSite }
-										value={ selectedWpVersion }
-										options={ wordpressVersionOptions }
-										onChange={ setSelectedWpVersion }
-										__next40pxDefaultSize
-										__nextHasNoMarginBottom
-									/>
+									<Tooltip
+										disabled={ ! isOffline }
+										icon={ offlineIcon }
+										text={ offlineMessage }
+										placement="top-start"
+										className="flex flex-1 flex-col"
+									>
+										<SelectControl
+											id="wp-version-select"
+											className={ cx( isChangeWpError && 'error-select-control' ) }
+											disabled={ isEditingSite || isOffline }
+											value={ selectedWpVersion }
+											options={ wordpressVersionOptions }
+											onChange={ setSelectedWpVersion }
+											__next40pxDefaultSize
+											__nextHasNoMarginBottom
+										/>
+									</Tooltip>
 								</label>
 							</div>
 							{ isChangeWpError && (

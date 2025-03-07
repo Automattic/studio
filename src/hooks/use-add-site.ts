@@ -39,9 +39,11 @@ export function useAddSite() {
 		( value: string ) => {
 			setCustomDomain( value );
 			// Validate custom domain if enabled
-			const domainPattern = /^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9](?:\.[a-zA-Z]{2,})+$/;
+			const domainPattern = /^[a-z0-9][a-z0-9-]{0,61}[a-z0-9](?:\.[a-z]{2,})+$/i;
 			if ( useCustomDomain && value && ! domainPattern.test( value ) ) {
 				setCustomDomainError( __( 'Please enter a valid domain name' ) );
+			} else if ( useCustomDomain && value && value.length > 253 ) {
+				setCustomDomainError( __( 'The domain name is too long' ) );
 			} else {
 				setCustomDomainError( '' );
 			}

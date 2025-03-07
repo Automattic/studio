@@ -4,14 +4,13 @@ import path from 'path';
 import followRedirects, { FollowResponse } from 'follow-redirects';
 import fs from 'fs-extra';
 import { HttpProxyAgent, HttpsProxyAgent } from 'hpagent';
+import { getWordPressVersionUrl } from 'src/lib/get-wordpress-version-url';
 import unzipper from 'unzipper';
 import { DEFAULT_WORDPRESS_VERSION, SQLITE_FILENAME, SQLITE_URL, WP_CLI_URL } from './constants';
 import getSqlitePath from './get-sqlite-path';
 import getWordpressVersionsPath from './get-wordpress-versions-path';
 import getWpCliPath from './get-wp-cli-path';
 import { output } from './output';
-import { isValidWordPressVersion } from './wp-playground-wordpress';
-
 function httpsGet( url: string, callback: ( res: IncomingMessage & FollowResponse ) => void ) {
 	const proxy =
 		process.env.https_proxy ||
@@ -28,15 +27,6 @@ function httpsGet( url: string, callback: ( res: IncomingMessage & FollowRespons
 	}
 
 	https.get( url, { agent }, callback );
-}
-
-function getWordPressVersionUrl( version = DEFAULT_WORDPRESS_VERSION ) {
-	if ( ! isValidWordPressVersion( version ) ) {
-		throw new Error(
-			'Unrecognized WordPress version. Please use "latest" or numeric versions such as "6.2", "6.0.1", "6.2-beta1", or "6.2-RC1"'
-		);
-	}
-	return `https://wordpress.org/wordpress-${ version }.zip`;
 }
 
 interface DownloadFileAndUnzipResult {

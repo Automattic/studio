@@ -10,6 +10,7 @@ import TextControlComponent from 'src/components/text-control';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { getWordPressVersionUrl } from 'src/lib/get-wordpress-version-url';
 import { useRootSelector } from 'src/stores';
 import { wordpressVersionsSelectors } from 'src/stores/wordpress-versions-slice';
 import { DEFAULT_PHP_VERSION } from 'vendor/wp-now/src/constants';
@@ -74,9 +75,10 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 
 			if ( hasWpVersionChanged ) {
 				try {
+					const zipUrl = getWordPressVersionUrl( selectedWpVersion );
 					const result = await getIpcApi().executeWPCLiInline( {
 						siteId: selectedSite.id,
-						args: `core update --version=${ selectedWpVersion } --force`,
+						args: `core update ${ zipUrl } --force`,
 						skipPluginsAndThemes: true,
 					} );
 					if ( result.exitCode !== 0 ) {

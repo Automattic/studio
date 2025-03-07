@@ -46,7 +46,6 @@ async function startDomainProxy(): Promise< boolean > {
 		const proxy = httpProxy.createProxyServer();
 
 		proxy.on( 'error', ( err, req, res ) => {
-			console.error( 'Proxy error:', err );
 			if ( res && 'writeHead' in res ) {
 				res.writeHead( 500 );
 				res.end( 'Proxy error: ' + err.message );

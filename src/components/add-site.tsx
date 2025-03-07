@@ -108,7 +108,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 			setPhpVersion( DEFAULT_PHP_VERSION as SupportedPHPVersion );
 		}
 		setUseCustomDomain( false );
-		setCustomDomain( '' );
+		setCustomDomain( null );
 		setCustomDomainError( '' );
 	}, [
 		setSitePath,

@@ -1,4 +1,5 @@
 import http from 'http';
+import { domainToASCII } from 'node:url';
 import httpProxy from 'http-proxy';
 import { SiteServer } from 'src/site-server';
 import { loadUserData } from 'src/storage/user-data';
@@ -12,7 +13,9 @@ let isProxyRunning = false;
 async function getSiteByHost( domain: string ): Promise< SiteDetails | null > {
 	try {
 		const userData = await loadUserData();
-		const site = userData.sites.find( ( site ) => site.customDomain === domain );
+		const site = userData.sites.find(
+			( site ) => domainToASCII( site.customDomain ?? '' ) === domainToASCII( domain )
+		);
 		if ( site ) {
 			const server = SiteServer.get( site.id );
 			return server ? server.details : null;

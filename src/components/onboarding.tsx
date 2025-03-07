@@ -95,7 +95,7 @@ export default function Onboarding() {
 			setError( '' );
 			setDoesPathContainWordPress( isWordPress );
 			setUseCustomDomain( false );
-			setCustomDomain( '' );
+			setCustomDomain( null );
 			setCustomDomainError( '' );
 		};
 		run();

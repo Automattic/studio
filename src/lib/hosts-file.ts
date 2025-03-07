@@ -1,4 +1,5 @@
 import fs from 'fs';
+import { domainToASCII } from 'node:url';
 import { platform, tmpdir } from 'os';
 import path from 'path';
 import { promisify } from 'util';
@@ -78,16 +79,17 @@ function createHostsEntryPattern( domain: string ): RegExp {
 export const addDomainToHosts = async ( domain: string, port: number ): Promise< void > => {
 	try {
 		const hostsContent = await readHostsFile();
+		const encodedDomain = domainToASCII( domain );
 
 		const newContent = updateStudioBlock( hostsContent, ( entries ) => {
-			const pattern = createHostsEntryPattern( domain );
+			const pattern = createHostsEntryPattern( encodedDomain );
 
 			// No changes if domain already present
 			if ( entries.some( ( entry ) => entry.match( pattern ) ) ) {
 				return entries;
 			}
 
-			return [ ...entries, `127.0.0.1 ${ domain } # Port ${ port }` ];
+			return [ ...entries, `127.0.0.1 ${ encodedDomain } # Port ${ port }` ];
 		} );
 
 		if ( newContent !== hostsContent ) {
@@ -105,8 +107,9 @@ export const addDomainToHosts = async ( domain: string, port: number ): Promise<
 export const removeDomainFromHosts = async ( domain: string ): Promise< void > => {
 	try {
 		const hostsContent = await readHostsFile();
+		const encodedDomain = domainToASCII( domain );
 
-		const pattern = createHostsEntryPattern( domain );
+		const pattern = createHostsEntryPattern( encodedDomain );
 		const newContent = updateStudioBlock( hostsContent, ( entries ) =>
 			entries.filter( ( entry ) => ! entry.match( pattern ) )
 		);

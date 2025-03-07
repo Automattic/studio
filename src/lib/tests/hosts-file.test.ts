@@ -70,6 +70,33 @@ describe( 'hosts-file', () => {
 			);
 		} );
 
+		it( 'should add a new domain with special characters', async () => {
+			readFileCallbackMock.mockResolvedValueOnce( sampleHostsContent );
+
+			await addDomainToHosts( 'münchen.local', 8002 );
+
+			expect( readFile ).toHaveBeenCalled();
+			expect( writeFile ).toHaveBeenCalled();
+
+			const newContent = ( writeFile as unknown as jest.Mock ).mock.calls[ 0 ][ 1 ];
+
+			expect( newContent ).toEqual(
+				`127.0.0.1 localhost
+::1 localhost
+
+# Some comment
+
+# BEGIN WordPress Studio
+127.0.0.1 foo.wp.cloud # Port 8000
+127.0.0.1 bar.wp.cloud # Port 8001
+127.0.0.1 xn--mnchen-3ya.local # Port 8002
+# END WordPress Studio
+
+# Other entries
+192.168.1.1 router`
+			);
+		} );
+
 		it( 'should not add duplicate domains', async () => {
 			readFileCallbackMock.mockResolvedValueOnce( sampleHostsContent );
 			await addDomainToHosts( 'foo.wp.cloud', 8000 );

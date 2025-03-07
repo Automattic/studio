@@ -36,10 +36,10 @@ export function useAddSite() {
 	);
 
 	const handleCustomDomainChange = useCallback(
-		( value: string ) => {
+		( value: string | null ) => {
 			setCustomDomain( value );
 			// Validate custom domain if enabled
-			const domainPattern = /^[a-z0-9][a-z0-9-]{0,61}[a-z0-9](?:\.[a-z]{2,})+$/i;
+			const domainPattern = /^[\p{L}\p{N}][\p{L}\p{N}-]{0,61}[\p{L}\p{N}](?:\.[\p{L}\p{N}-]{2,})+$/u;
 			if ( useCustomDomain && value && ! domainPattern.test( value ) ) {
 				setCustomDomainError( __( 'Please enter a valid domain name' ) );
 			} else if ( useCustomDomain && value && value.length > 253 ) {

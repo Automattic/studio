@@ -87,7 +87,7 @@ export const addDomainToHosts = async ( domain: string, port: number ): Promise<
 				return entries;
 			}
 
-			return [ ...entries, `127.0.0.1 ${ domain } # Port ${ port } (WordPress Studio)` ];
+			return [ ...entries, `127.0.0.1 ${ domain } # Port ${ port }` ];
 		} );
 
 		if ( newContent !== hostsContent ) {

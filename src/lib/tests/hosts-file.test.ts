@@ -30,8 +30,8 @@ describe( 'hosts-file', () => {
 # Some comment
 
 # BEGIN WordPress Studio
-127.0.0.1 foo.wp.cloud # Port 8000 (WordPress Studio)
-127.0.0.1 bar.wp.cloud # Port 8001 (WordPress Studio)
+127.0.0.1 foo.wp.cloud # Port 8000
+127.0.0.1 bar.wp.cloud # Port 8001
 # END WordPress Studio
 
 # Other entries
@@ -60,9 +60,9 @@ describe( 'hosts-file', () => {
 # Some comment
 
 # BEGIN WordPress Studio
-127.0.0.1 foo.wp.cloud # Port 8000 (WordPress Studio)
-127.0.0.1 bar.wp.cloud # Port 8001 (WordPress Studio)
-127.0.0.1 new-domain.wp.cloud # Port 8002 (WordPress Studio)
+127.0.0.1 foo.wp.cloud # Port 8000
+127.0.0.1 bar.wp.cloud # Port 8001
+127.0.0.1 new-domain.wp.cloud # Port 8002
 # END WordPress Studio
 
 # Other entries
@@ -99,7 +99,7 @@ describe( 'hosts-file', () => {
 192.168.1.1 router
 
 # BEGIN WordPress Studio
-127.0.0.1 new-domain.wp.cloud # Port 8002 (WordPress Studio)
+127.0.0.1 new-domain.wp.cloud # Port 8002
 # END WordPress Studio` );
 		} );
 
@@ -144,7 +144,7 @@ describe( 'hosts-file', () => {
 ::1 localhost
 
 # BEGIN WordPress Studio
-127.0.0.1 foo.wp.cloud # Port 8000 (WordPress Studio)
+127.0.0.1 foo.wp.cloud # Port 8000
 # END WordPress Studio`;
 
 			readFileCallbackMock.mockResolvedValueOnce( contentWithSingleDomain );

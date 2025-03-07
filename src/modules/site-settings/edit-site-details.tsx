@@ -85,7 +85,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 				} catch ( wpError ) {
 					console.error( 'Error changing WordPress version:', wpError );
 					const errorMessage = stripAnsi( ( wpError as Error )?.message );
-					setIsChangeWpError( __( 'Error changing WordPress version' ) );
+					setIsChangeWpError( __( 'Error changing WordPress version.' ) );
 					getIpcApi().showErrorMessageBox( {
 						title: __( 'Error changing WordPress version' ),
 						message: errorMessage,
@@ -129,8 +129,8 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 					) }
 				>
 					<form onSubmit={ onSiteEdit }>
-						<div className="flex flex-col gap-6">
-							<label className="flex flex-col gap-1.5 leading-4">
+						<div className="flex flex-col">
+							<label className="flex flex-col gap-1.5 leading-4 mb-6">
 								<span className="font-semibold">{ __( 'Site name' ) }</span>
 								<TextControlComponent
 									disabled={ isEditingSite }
@@ -139,7 +139,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 								></TextControlComponent>
 							</label>
 
-							<div className="flex flex-row gap-x-6 pb-2">
+							<div className="flex flex-row gap-x-6">
 								<label className="flex flex-1 flex-col gap-1.5 leading-4">
 									<span className="font-semibold">{ __( 'PHP version' ) }</span>
 									<SelectControl
@@ -168,13 +168,12 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 									/>
 								</label>
 							</div>
+							{ isChangeWpError && (
+								<ErrorInformation className="mt-2">{ isChangeWpError }</ErrorInformation>
+							) }
 						</div>
 
-						{ isChangeWpError && (
-							<ErrorInformation className="mt-4">{ isChangeWpError }</ErrorInformation>
-						) }
-
-						<div className="flex flex-row justify-end gap-x-5 mt-6">
+						<div className="flex flex-row justify-end gap-x-5 mt-8">
 							<Button onClick={ closeModal } disabled={ isEditingSite } variant="tertiary">
 								{ __( 'Cancel' ) }
 							</Button>

@@ -52,7 +52,7 @@ async function startDomainProxy(): Promise< boolean > {
 		const proxy = httpProxy.createProxyServer();
 
 		proxy.on( 'error', ( err, req, res ) => {
-			if ( res && 'writeHead' in res ) {
+			if ( res && res instanceof http.ServerResponse ) {
 				res.writeHead( 500 );
 				res.end( 'Proxy error: ' + err.message );
 			}
@@ -79,7 +79,7 @@ async function startDomainProxy(): Promise< boolean > {
 
 			if ( ! site.running ) {
 				res.writeHead( 404 );
-				res.end( `The Studio site is currently stopped: ${ host }` );
+				res.end( `The Studio site is currently stopped: ${ site.name }` );
 				return;
 			}
 

@@ -56,26 +56,22 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 						</div>
 					</SettingsRow>
 					<SettingsRow label={ __( 'Local URL' ) }>
-						<div className="flex">
-							<CopyTextButton
-								text={ `http://${ domain }` }
-								label={ `${ domain }, ${ __( 'Copy site url to clipboard' ) }` }
-								copyConfirmation={ __( 'Copied!' ) }
-							>
-								{ domain }
-							</CopyTextButton>
-						</div>
+						<CopyTextButton
+							text={ `http://${ domain }` }
+							label={ `${ domain }, ${ __( 'Copy site url to clipboard' ) }` }
+							copyConfirmation={ __( 'Copied!' ) }
+						>
+							{ domain }
+						</CopyTextButton>
 					</SettingsRow>
 					<SettingsRow label={ __( 'Local path' ) }>
-						<div className="flex">
-							<CopyTextButton
-								text={ selectedSite.path }
-								label={ __( 'Copy local path to clipboard' ) }
-								copyConfirmation={ __( 'Copied!' ) }
-							>
-								<span className="line-clamp-1 break-all">{ selectedSite.path }</span>
-							</CopyTextButton>
-						</div>
+						<CopyTextButton
+							text={ selectedSite.path }
+							label={ __( 'Copy local path to clipboard' ) }
+							copyConfirmation={ __( 'Copied!' ) }
+						>
+							<span className="line-clamp-1 break-all">{ selectedSite.path }</span>
+						</CopyTextButton>
 					</SettingsRow>
 					<SettingsRow label={ __( 'WP Version' ) }>{ wpVersion }</SettingsRow>
 					<SettingsRow label={ __( 'PHP Version' ) }>

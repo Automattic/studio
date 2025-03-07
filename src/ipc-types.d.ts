@@ -19,6 +19,7 @@ interface StoppedSiteDetails {
 	path: string;
 	port: number;
 	phpVersion: string;
+	wpVersion?: string;
 	adminPassword?: string;
 	themeDetails?: {
 		name: string;

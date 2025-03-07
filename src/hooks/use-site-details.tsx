@@ -20,6 +20,7 @@ interface SiteDetailsContext {
 	createSite: (
 		path: string,
 		siteName?: string,
+		wpVersion?: string,
 		callback?: ( site: SiteDetails | void ) => Promise< void >
 	) => Promise< SiteDetails | void >;
 	startServer: ( id: string ) => Promise< void >;
@@ -33,22 +34,24 @@ interface SiteDetailsContext {
 	setUploadingSites: React.Dispatch< React.SetStateAction< { [ siteId: string ]: boolean } > >;
 }
 
-export const siteDetailsContext = createContext< SiteDetailsContext >( {
+const defaultContext: SiteDetailsContext = {
 	selectedSite: null,
-	data: [],
 	updateSite: async () => undefined,
+	data: [],
 	setSelectedSiteId: () => undefined,
 	createSite: async () => undefined,
 	startServer: async () => undefined,
 	stopServer: async () => undefined,
 	stopAllRunningSites: async () => undefined,
 	deleteSite: async () => undefined,
-	isDeleting: false,
 	loadingServer: {},
 	loadingSites: true,
+	isDeleting: false,
 	uploadingSites: {},
 	setUploadingSites: () => undefined,
-} );
+};
+
+export const siteDetailsContext = createContext< SiteDetailsContext >( defaultContext );
 
 interface SiteDetailsProviderProps {
 	children?: ReactNode;
@@ -188,6 +191,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		async (
 			path: string,
 			siteName?: string,
+			wpVersion?: string,
 			callback?: ( site: SiteDetails | void ) => Promise< void >
 		) => {
 			// Function to handle error messages and cleanup
@@ -228,7 +232,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			setSelectedSiteId( tempSiteId ); // Set the temporary ID as the selected site
 
 			try {
-				const data = await getIpcApi().createSite( path, siteName );
+				const data = await getIpcApi().createSite( path, siteName, wpVersion );
 				const newSite = data.find( ( site ) => site.path === path );
 				if ( ! newSite ) {
 					showError();

@@ -5,6 +5,40 @@ import { userEvent } from '@testing-library/user-event';
 import AddSite from 'src/components/add-site';
 import { FolderDialogResponse } from 'src/ipc-handlers';
 
+jest.mock( 'src/hooks/use-feature-flags', () => ( {
+	useFeatureFlags: jest.fn().mockReturnValue( { wpVersionsEnabled: true } ),
+} ) );
+
+jest.mock( 'src/stores', () => {
+	const mockDispatch = jest.fn();
+	return {
+		useAppDispatch: jest.fn().mockReturnValue( mockDispatch ),
+		useRootSelector: jest.fn().mockImplementation( ( selector ) => {
+			if (
+				typeof selector === 'object' &&
+				selector !== null &&
+				'name' in selector &&
+				selector.name === 'selectWordPressVersionsWithLatest'
+			) {
+				return [
+					{ isBeta: false, label: '6.4', value: '6.4.3' },
+					{ isBeta: false, label: '6.3', value: '6.3.3' },
+				];
+			}
+			return { status: 'succeeded' };
+		} ),
+	};
+} );
+
+jest.mock( 'src/stores/wordpress-versions-slice', () => ( {
+	wordpressVersionsSelectors: {
+		selectWordPressVersionsWithLatest: { name: 'selectWordPressVersionsWithLatest' },
+	},
+	wordpressVersionsThunks: {
+		fetchWordPressVersions: jest.fn(),
+	},
+} ) );
+
 const mockShowOpenFolderDialog =
 	jest.fn< ( dialogTitle: string ) => Promise< FolderDialogResponse | null > >();
 const mockGenerateProposedSitePath =
@@ -18,7 +52,7 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 	} ),
 } ) );
 
-const mockCreateSite = jest.fn< ( path: string ) => void >();
+const mockCreateSite = jest.fn< ( path: string, name?: string, wpVersion?: string ) => void >();
 jest.mock( 'src/hooks/use-site-details', () => ( {
 	useSiteDetails: () => ( {
 		createSite: mockCreateSite,
@@ -26,9 +60,27 @@ jest.mock( 'src/hooks/use-site-details', () => ( {
 	} ),
 } ) );
 
+beforeEach( () => {
+	jest.clearAllMocks();
+
+	mockShowOpenFolderDialog.mockResolvedValue( {
+		path: 'test',
+		name: 'test',
+		isEmpty: true,
+		isWordPress: false,
+	} );
+
+	mockGenerateProposedSitePath.mockResolvedValue( {
+		path: '/default_path/my-wordpress-website',
+		name: 'My WordPress Website',
+		isEmpty: true,
+		isWordPress: false,
+	} );
+} );
+
 describe( 'AddSite', () => {
 	beforeEach( () => {
-		jest.clearAllMocks(); // Clear mock call history between tests
+		jest.clearAllMocks();
 	} );
 
 	it( 'should dismiss the modal when the cancel button is activated via keyboard', async () => {
@@ -78,6 +130,7 @@ describe( 'AddSite', () => {
 			expect( mockCreateSite ).toHaveBeenCalledWith(
 				'test',
 				'My WordPress Website',
+				expect.any( String ),
 				expect.any( Function )
 			);
 		} );
@@ -209,10 +262,90 @@ describe( 'AddSite', () => {
 		await user.click( screen.getByTestId( 'select-path-button' ) );
 		await user.click( screen.getByDisplayValue( 'My WordPress Website' ) );
 		await user.type( screen.getByDisplayValue( 'My WordPress Website' ), ' mutated' );
-		// screen.debug( screen.getByRole( 'dialog' ) );
 
 		expect(
 			screen.getByDisplayValue( '/default_path/my-wordpress-website-mutated' )
 		).toBeVisible();
+	} );
+
+	it( 'should display WordPress version dropdown when feature flag is enabled', async () => {
+		const user = userEvent.setup();
+		mockGenerateProposedSitePath.mockResolvedValue( {
+			path: '/default_path/my-wordpress-website',
+			name: 'My WordPress Website',
+			isEmpty: true,
+			isWordPress: false,
+		} );
+
+		render( <AddSite /> );
+
+		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
+
+		expect( screen.getByText( 'WordPress version' ) ).toBeInTheDocument();
+
+		const comboboxes = screen.getAllByRole( 'combobox' );
+		expect( comboboxes.length ).toBeGreaterThanOrEqual( 2 );
+
+		const wpVersionDropdown = comboboxes[ 1 ];
+		expect( wpVersionDropdown ).toBeInTheDocument();
+
+		await user.selectOptions( wpVersionDropdown, '6.3.3' );
+
+		mockShowOpenFolderDialog.mockResolvedValue( {
+			path: 'test',
+			name: 'test',
+			isEmpty: true,
+			isWordPress: false,
+		} );
+		await user.click( screen.getByTestId( 'select-path-button' ) );
+		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+
+		await waitFor( () => {
+			expect( mockCreateSite ).toHaveBeenCalledWith(
+				'test',
+				'My WordPress Website',
+				'6.3.3',
+				expect.any( Function )
+			);
+		} );
+	} );
+
+	it( 'should allow selecting a different PHP version', async () => {
+		const user = userEvent.setup();
+		mockGenerateProposedSitePath.mockResolvedValue( {
+			path: '/default_path/my-wordpress-website',
+			name: 'My WordPress Website',
+			isEmpty: true,
+			isWordPress: false,
+		} );
+
+		render( <AddSite /> );
+
+		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
+
+		expect( screen.getByText( 'PHP version' ) ).toBeInTheDocument();
+
+		const comboboxes = screen.getAllByRole( 'combobox' );
+		expect( comboboxes.length ).toBeGreaterThanOrEqual( 2 );
+
+		const phpVersionDropdown = comboboxes[ 0 ];
+		expect( phpVersionDropdown ).toBeInTheDocument();
+
+		await user.selectOptions( phpVersionDropdown, '8.2' );
+
+		mockShowOpenFolderDialog.mockResolvedValue( {
+			path: 'test',
+			name: 'test',
+			isEmpty: true,
+			isWordPress: false,
+		} );
+		await user.click( screen.getByTestId( 'select-path-button' ) );
+		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+
+		await waitFor( () => {
+			expect( mockCreateSite ).toHaveBeenCalled();
+		} );
 	} );
 } );

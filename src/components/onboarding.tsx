@@ -41,6 +41,8 @@ export default function Onboarding() {
 		setSitePath,
 		setError,
 		setDoesPathContainWordPress,
+		setPhpVersion,
+		setWpVersion,
 		siteName,
 		sitePath,
 		error,
@@ -50,6 +52,8 @@ export default function Onboarding() {
 		handlePathSelectorClick,
 		setFileForImport,
 		fileForImport,
+		phpVersion,
+		wpVersion,
 	} = useAddSite();
 	const [ fileError, setFileError ] = useState( '' );
 
@@ -125,7 +129,10 @@ export default function Onboarding() {
 				<GradientBox />
 			</div>
 
-			<div className="w-1/2 bg-white p-[50px] flex flex-col relative" ref={ dropRef }>
+			<div
+				className="w-1/2 bg-white p-[50px] flex flex-col relative overflow-y-auto"
+				ref={ dropRef }
+			>
 				{ isDraggingOver && <DragAndDropOverlay /> }
 				<div className="h-[569px] flex flex-col justify-center items-start flex-[1_0_0%] gap-8">
 					<div className="flex flex-col items-start self-stretch gap-6 app-no-drag-region">
@@ -143,6 +150,11 @@ export default function Onboarding() {
 							setFileForImport={ setFileForImport }
 							onFileSelected={ handleImportFile }
 							fileError={ fileError }
+							allowVersionsChange
+							phpVersion={ phpVersion }
+							setPhpVersion={ setPhpVersion }
+							wpVersion={ wpVersion }
+							setWpVersion={ setWpVersion }
 						>
 							<div className="flex flex-row gap-x-5 mt-6 justify-end">
 								<Button type="submit" variant="primary">

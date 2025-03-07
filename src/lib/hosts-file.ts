@@ -10,7 +10,7 @@ const sudoExec = promisify( sudo.exec );
 
 // Host file paths for different operating systems
 const HOST_FILES: Record< string, string > = {
-	win32: 'C:\\Windows\\System32\\drivers\\etc\\hosts',
+	win32: path.resolve( process.env.SystemRoot ?? 'C:\\Windows', 'System32\\drivers\\etc\\hosts' ),
 	darwin: '/etc/hosts',
 	linux: '/etc/hosts',
 };

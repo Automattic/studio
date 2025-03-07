@@ -448,23 +448,24 @@ export const SiteForm = ( {
 									{ setUseCustomDomain && setCustomDomain && (
 										<div
 											className={ cx(
-												'flex items-center gap-2',
 												isAdvancedSettingsVisible ? 'py-2' : 'p-2',
 												! isAdvancedSettingsVisible && 'hidden'
 											) }
 										>
-											<input
-												type="checkbox"
-												id="use-custom-domain"
-												checked={ useCustomDomain }
-												onChange={ ( e ) => setUseCustomDomain( e.target.checked ) }
-											/>
-											<label htmlFor="use-custom-domain">{ __( 'Use custom domain' ) }</label>
-											<span className="text-a8c-gray-50 text-xs ml-2">
+											<div className="flex items-center gap-2">
+												<input
+													type="checkbox"
+													id="use-custom-domain"
+													checked={ useCustomDomain }
+													onChange={ ( e ) => setUseCustomDomain( e.target.checked ) }
+												/>
+												<label htmlFor="use-custom-domain">{ __( 'Use custom domain' ) }</label>
+											</div>
+											<div className="text-a8c-gray-50 text-xs pt-2">
 												{ __(
 													'This will require your password to authorize changes to the hosts file.'
 												) }
-											</span>
+											</div>
 										</div>
 									) }
 
@@ -486,11 +487,6 @@ export const SiteForm = ( {
 												placeholder={ generatedDomainName }
 											/>
 											{ customDomainError && <SiteFormError error={ customDomainError } /> }
-											<div className="text-a8c-gray-50 text-xs">
-												{ __(
-													'You will be prompted for administrator permission to modify your system hosts file.'
-												) }
-											</div>
 										</div>
 									) }
 								</div>

@@ -25,7 +25,7 @@ export function useAddSite() {
 	);
 	const [ wpVersion, setWpVersion ] = useState( DEFAULT_WORDPRESS_VERSION );
 	const [ useCustomDomain, setUseCustomDomain ] = useState( false );
-	const [ customDomain, setCustomDomain ] = useState( '' );
+	const [ customDomain, setCustomDomain ] = useState< string | null >( null );
 	const [ customDomainError, setCustomDomainError ] = useState( '' );
 
 	const siteWithPathAlreadyExists = useCallback(
@@ -44,6 +44,8 @@ export function useAddSite() {
 				setCustomDomainError( __( 'Please enter a valid domain name' ) );
 			} else if ( useCustomDomain && value && value.length > 253 ) {
 				setCustomDomainError( __( 'The domain name is too long' ) );
+			} else if ( useCustomDomain && value === '' ) {
+				setCustomDomainError( __( 'The domain name is required' ) );
 			} else {
 				setCustomDomainError( '' );
 			}
@@ -85,8 +87,7 @@ export function useAddSite() {
 	const handleAddSiteClick = useCallback( async () => {
 		try {
 			const path = sitePath ? sitePath : proposedSitePath;
-
-			let usedCustomDomain = useCustomDomain ? customDomain : undefined;
+			let usedCustomDomain = useCustomDomain && customDomain ? customDomain : undefined;
 			if ( useCustomDomain && ! customDomain ) {
 				usedCustomDomain = generateCustomDomainFromSiteName( siteName ?? '' );
 			}

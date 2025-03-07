@@ -61,7 +61,7 @@ interface SiteFormBaseProps {
 	fileError?: string;
 	useCustomDomain?: boolean;
 	setUseCustomDomain?: ( use: boolean ) => void;
-	customDomain?: string;
+	customDomain?: string | null;
 	setCustomDomain?: ( domain: string ) => void;
 	customDomainError?: string;
 }
@@ -271,7 +271,7 @@ export const SiteForm = ( {
 	allowVersionsChange = false,
 	useCustomDomain,
 	setUseCustomDomain,
-	customDomain,
+	customDomain = null,
 	setCustomDomain,
 	customDomainError,
 }: SiteFormProps ) => {
@@ -482,9 +482,8 @@ export const SiteForm = ( {
 											</label>
 											<TextControlComponent
 												id="custom-domain"
-												value={ customDomain ?? '' }
+												value={ customDomain !== null ? customDomain : generatedDomainName }
 												onChange={ setCustomDomain }
-												placeholder={ generatedDomainName }
 											/>
 											{ customDomainError && <SiteFormError error={ customDomainError } /> }
 										</div>

@@ -8,14 +8,14 @@ let isProxyRunning = false;
 /**
  * Gets the port number for a given domain by looking it up in user data
  */
-async function getPortForDomain( domain: string ): Promise< number | null > {
+async function getSiteByHost( domain: string ): Promise< SiteDetails | null > {
 	try {
 		const userData = await loadUserData();
 		// Find the site with the matching custom domain
 		const site = userData.sites.find(
 			( site ) => site.useCustomDomain && site.customDomain === domain
 		);
-		return site ? site.port : null;
+		return site ? site : null;
 	} catch ( error ) {
 		console.error( 'Error looking up domain in user data:', error );
 		return null;
@@ -63,17 +63,23 @@ async function startDomainProxy(): Promise< boolean > {
 				return;
 			}
 
-			const port = await getPortForDomain( host );
-			if ( ! port ) {
+			const site = await getSiteByHost( host );
+			if ( ! site ) {
 				console.log( `Domain not found: ${ host }` );
 				res.writeHead( 404 );
 				res.end( `Domain not found: ${ host }` );
 				return;
 			}
 
+			if ( ! site.running ) {
+				res.writeHead( 404 );
+				res.end( `The Studio site is currently stopped: ${ host }` );
+				return;
+			}
+
 			// Forward the request with the original host preserved
 			proxy.web( req, res, {
-				target: `http://localhost:${ port }`,
+				target: `http://localhost:${ site.port }`,
 				xfwd: true, // Pass along x-forwarded headers
 			} );
 		} );

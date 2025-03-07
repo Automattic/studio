@@ -38,7 +38,7 @@ export async function startProxyServer(): Promise< boolean > {
 }
 
 /**
- * Attempts to start the proxy server directly (without privilege elevation)
+ * Starts the proxy server for sites with custom domains
  */
 async function startDomainProxy(): Promise< boolean > {
 	try {

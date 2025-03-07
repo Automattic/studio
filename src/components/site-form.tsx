@@ -108,7 +108,6 @@ const SiteFormError = ( { error, tipMessage = '', className = '' }: SiteFormErro
 		)
 	);
 };
-
 function FormPathInputComponent( {
 	value,
 	onClick,
@@ -247,7 +246,6 @@ function FormImportComponent( {
 		</>
 	);
 }
-
 export const SiteForm = ( {
 	className,
 	children,

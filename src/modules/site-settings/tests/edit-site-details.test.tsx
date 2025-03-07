@@ -40,6 +40,7 @@ jest.mock( 'src/stores', () => ( {
 	useRootSelector: jest.fn().mockImplementation( () => {
 		// Mock the WordPress versions selector
 		return [
+			{ label: '6.8-beta1', value: '6.8-beta1' },
 			{ label: '6.4', value: '6.4' },
 			{ label: '6.3', value: '6.3' },
 			{ label: '6.2', value: '6.2' },
@@ -200,7 +201,7 @@ describe( 'EditSiteDetails', () => {
 		expect( mockStopServer ).toHaveBeenCalledWith( 'site-123' );
 		expect( mockExecuteWPCLiInline ).toHaveBeenCalledWith( {
 			siteId: 'site-123',
-			args: 'core update --version=6.4 --force',
+			args: 'core update https://wordpress.org/wordpress-6.4.zip --force',
 			skipPluginsAndThemes: true,
 		} );
 		expect( mockUpdateSite ).toHaveBeenCalledWith( {
@@ -211,6 +212,24 @@ describe( 'EditSiteDetails', () => {
 		} );
 		expect( mockStartServer ).toHaveBeenCalledWith( 'site-123' );
 		expect( defaultProps.onSave ).toHaveBeenCalled();
+	} );
+
+	it( 'should update WordPress version when changed to beta', async () => {
+		render( <EditSiteDetails { ...defaultProps } /> );
+		const user = userEvent.setup();
+
+		await user.click( screen.getByRole( 'button', { name: 'Edit site' } ) );
+
+		const wpVersionSelect = screen.getByLabelText( 'WordPress version' );
+		await user.selectOptions( wpVersionSelect, '6.8-beta1' );
+
+		await user.click( screen.getByRole( 'button', { name: 'Save' } ) );
+
+		expect( mockExecuteWPCLiInline ).toHaveBeenCalledWith( {
+			siteId: 'site-123',
+			args: 'core update https://wordpress.org/wordpress-6.8-beta1.zip --force',
+			skipPluginsAndThemes: true,
+		} );
 	} );
 
 	it( 'should show error when WordPress version update fails', async () => {

@@ -74,7 +74,6 @@ describe( 'createSite', () => {
 			port: 9999,
 			running: false,
 			customDomain: undefined,
-			useCustomDomain: false,
 		} );
 	} );
 

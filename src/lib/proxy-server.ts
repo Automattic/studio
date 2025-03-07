@@ -11,10 +11,7 @@ let isProxyRunning = false;
 async function getSiteByHost( domain: string ): Promise< SiteDetails | null > {
 	try {
 		const userData = await loadUserData();
-		// Find the site with the matching custom domain
-		const site = userData.sites.find(
-			( site ) => site.useCustomDomain && site.customDomain === domain
-		);
+		const site = userData.sites.find( ( site ) => site.customDomain === domain );
 		return site ? site : null;
 	} catch ( error ) {
 		console.error( 'Error looking up domain in user data:', error );

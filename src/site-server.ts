@@ -84,7 +84,7 @@ export class SiteServer {
 		}
 
 		// If we're using a custom domain, clean up the hosts file and unregister from proxy
-		if ( this.details.useCustomDomain && this.details.customDomain ) {
+		if ( this.details.customDomain ) {
 			try {
 				await removeDomainFromHosts( this.details.customDomain );
 				console.log( `Domain ${ this.details.customDomain } unregistered from proxy server` );
@@ -114,7 +114,7 @@ export class SiteServer {
 		} );
 		// Determine the URL to use - either custom domain or localhost with port
 		let absoluteUrl;
-		if ( this.details.useCustomDomain && this.details.customDomain ) {
+		if ( this.details.customDomain ) {
 			absoluteUrl = `http://${ this.details.customDomain }`;
 			// For custom domains, we still need to handle hosts file management elsewhere
 			// This happens in the ipc-handlers.ts file when starting the server
@@ -160,10 +160,7 @@ export class SiteServer {
 			path: site.path,
 			phpVersion: site.phpVersion,
 			wpVersion: site.wpVersion,
-			// These two fields are preserved from the original site details
-			// since we don't allow changing custom domain settings after creation
 			customDomain: this.details.customDomain,
-			useCustomDomain: this.details.useCustomDomain,
 		};
 	}
 

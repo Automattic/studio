@@ -131,8 +131,7 @@ describe( 'AddSite', () => {
 				'test',
 				'My WordPress Website',
 				expect.any( String ),
-				false,
-				'',
+				undefined,
 				expect.any( Function )
 			);
 		} );

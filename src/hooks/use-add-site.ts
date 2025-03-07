@@ -86,7 +86,7 @@ export function useAddSite() {
 		try {
 			const path = sitePath ? sitePath : proposedSitePath;
 
-			let usedCustomDomain = customDomain;
+			let usedCustomDomain = useCustomDomain ? customDomain : undefined;
 			if ( useCustomDomain && ! customDomain ) {
 				usedCustomDomain = generateCustomDomainFromSiteName( siteName ?? '' );
 			}
@@ -94,7 +94,6 @@ export function useAddSite() {
 				path,
 				siteName ?? '',
 				wpVersionsEnabled ? wpVersion : DEFAULT_WORDPRESS_VERSION,
-				useCustomDomain,
 				usedCustomDomain,
 				async ( newSite ) => {
 					if ( newSite ) {

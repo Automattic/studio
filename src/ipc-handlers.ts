@@ -135,7 +135,6 @@ export async function createSite(
 	path: string,
 	siteName?: string,
 	wpVersion?: string,
-	useCustomDomain?: boolean,
 	customDomain?: string
 ): Promise< SiteDetails[] > {
 	const userData = await loadUserData();
@@ -178,7 +177,6 @@ export async function createSite(
 		running: false,
 		phpVersion: DEFAULT_PHP_VERSION,
 		customDomain: customDomain,
-		useCustomDomain: Boolean( useCustomDomain ),
 	} as const;
 
 	const server = SiteServer.create( details );
@@ -396,7 +394,7 @@ export async function startServer(
 	await keepSqliteIntegrationUpdated( server.details.path );
 
 	// Handle custom domain if necessary
-	if ( server.details.useCustomDomain && server.details.customDomain ) {
+	if ( server.details.customDomain ) {
 		await addDomainToHosts( server.details.customDomain, server.details.port );
 		console.log(
 			`Domain ${ server.details.customDomain } added to hosts file for port ${ server.details.port }`

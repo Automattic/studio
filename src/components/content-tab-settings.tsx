@@ -32,10 +32,9 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 	const storedPassword = decodePassword( selectedSite.adminPassword ?? '' );
 	const password = storedPassword === '' ? 'password' : storedPassword;
 	const [ wpVersion, refreshWpVersion ] = useGetWpVersion( selectedSite );
-	const domain =
-		selectedSite.useCustomDomain && selectedSite.customDomain
-			? `${ selectedSite.customDomain }`
-			: `localhost:${ selectedSite.port }`;
+	const domain = selectedSite.customDomain
+		? `${ selectedSite.customDomain }`
+		: `localhost:${ selectedSite.port }`;
 	return (
 		<div className="p-8">
 			<table className="mb-2 m-w-full" cellPadding={ 0 } cellSpacing={ 0 }>

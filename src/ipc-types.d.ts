@@ -21,7 +21,6 @@ interface StoppedSiteDetails {
 	phpVersion: string;
 	wpVersion?: string;
 	customDomain?: string;
-	useCustomDomain?: boolean; // Set during site creation and can't be changed afterward
 	adminPassword?: string;
 	themeDetails?: {
 		name: string;

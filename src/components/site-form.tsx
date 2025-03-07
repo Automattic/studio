@@ -7,10 +7,13 @@ import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import Button from 'src/components/button';
 import FolderIcon from 'src/components/folder-icon';
+import offlineIcon from 'src/components/offline-icon';
 import TextControlComponent from 'src/components/text-control';
+import { Tooltip } from 'src/components/tooltip';
 import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
 import { useDocsLink } from 'src/hooks/use-docs-link';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
+import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useAppDispatch, useRootSelector } from 'src/stores';
@@ -268,6 +271,8 @@ export const SiteForm = ( {
 	const getDocsLink = useDocsLink();
 	const { wpVersionsEnabled } = useFeatureFlags();
 	const dispatch = useAppDispatch();
+	const isOffline = useOffline();
+	const offlineMessage = __( 'Changing WordPress version requires an internet connection.' );
 	const wpVersions = useRootSelector(
 		wordpressVersionsSelectors.selectWordPressVersionsWithLatest
 	);
@@ -395,8 +400,11 @@ export const SiteForm = ( {
 										{ wpVersionsEnabled && allowVersionsChange && (
 											<div className="grid grid-cols-2 gap-4 mt-4">
 												<div className="flex flex-col gap-1.5 leading-4">
-													<label className="font-semibold">{ __( 'PHP version' ) }</label>
+													<label className="font-semibold" htmlFor="php-version-select">
+														{ __( 'PHP version' ) }
+													</label>
 													<SelectControl
+														id="php-version-select"
 														value={ phpVersion }
 														options={ SupportedPHPVersionsList.map( ( version ) => {
 															return {
@@ -409,25 +417,37 @@ export const SiteForm = ( {
 													/>
 												</div>
 												<div className="flex flex-col gap-1.5 leading-4">
-													<label className="font-semibold">{ __( 'WordPress version' ) }</label>
-													<SelectControl
-														value={ wpVersion }
-														options={
-															wpVersions.length > 0
-																? wpVersions.map( ( { label, value } ) => ( {
-																		label,
-																		value,
-																  } ) )
-																: [
-																		{
-																			label: DEFAULT_WORDPRESS_VERSION,
-																			value: DEFAULT_WORDPRESS_VERSION,
-																		},
-																  ]
-														}
-														onChange={ setWpVersion }
-														__next40pxDefaultSize
-													/>
+													<label className="font-semibold" htmlFor="wp-version-select">
+														{ __( 'WordPress version' ) }
+													</label>
+													<Tooltip
+														disabled={ ! isOffline }
+														icon={ offlineIcon }
+														text={ offlineMessage }
+														placement="top-start"
+														className="flex flex-1 flex-col"
+													>
+														<SelectControl
+															id="wp-version-select"
+															value={ wpVersion }
+															options={
+																wpVersions.length > 0
+																	? wpVersions.map( ( { label, value } ) => ( {
+																			label,
+																			value,
+																	  } ) )
+																	: [
+																			{
+																				label: DEFAULT_WORDPRESS_VERSION,
+																				value: DEFAULT_WORDPRESS_VERSION,
+																			},
+																	  ]
+															}
+															onChange={ setWpVersion }
+															__next40pxDefaultSize
+															disabled={ isOffline }
+														/>
+													</Tooltip>
 												</div>
 											</div>
 										) }

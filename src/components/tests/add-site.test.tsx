@@ -3,6 +3,7 @@ import { jest } from '@jest/globals';
 import { render, waitFor, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import AddSite from 'src/components/add-site';
+import { useOffline } from 'src/hooks/use-offline';
 import { FolderDialogResponse } from 'src/ipc-handlers';
 
 jest.mock( 'src/hooks/use-feature-flags', () => ( {
@@ -58,6 +59,10 @@ jest.mock( 'src/hooks/use-site-details', () => ( {
 		createSite: mockCreateSite,
 		data: [],
 	} ),
+} ) );
+
+jest.mock( 'src/hooks/use-offline', () => ( {
+	useOffline: jest.fn().mockReturnValue( false ),
 } ) );
 
 beforeEach( () => {
@@ -347,5 +352,65 @@ describe( 'AddSite', () => {
 		await waitFor( () => {
 			expect( mockCreateSite ).toHaveBeenCalled();
 		} );
+	} );
+
+	it( 'should disable WordPress version field when offline', async () => {
+		( useOffline as jest.Mock ).mockReturnValue( true );
+
+		render( <AddSite /> );
+		const user = userEvent.setup();
+
+		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
+
+		const wpVersionSelect = screen.getByLabelText( 'WordPress version' );
+		expect( wpVersionSelect ).toBeDisabled();
+	} );
+
+	it( 'should enable WordPress version field when online', async () => {
+		( useOffline as jest.Mock ).mockReturnValue( false );
+
+		render( <AddSite /> );
+		const user = userEvent.setup();
+
+		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
+
+		const wpVersionSelect = screen.getByLabelText( 'WordPress version' );
+		expect( wpVersionSelect ).not.toBeDisabled();
+	} );
+
+	it( 'should show tooltip with offline message when hovering over disabled WordPress version field', async () => {
+		( useOffline as jest.Mock ).mockReturnValue( true );
+
+		render( <AddSite /> );
+		const user = userEvent.setup();
+
+		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
+
+		const wpVersionSelect = screen.getByLabelText( 'WordPress version' );
+		await user.hover( wpVersionSelect );
+
+		expect(
+			screen.getByText( 'Changing WordPress version requires an internet connection.' )
+		).toBeInTheDocument();
+	} );
+
+	it( 'should not show tooltip when hovering over WordPress version field while online', async () => {
+		( useOffline as jest.Mock ).mockReturnValue( false );
+
+		render( <AddSite /> );
+		const user = userEvent.setup();
+
+		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
+
+		const wpVersionSelect = screen.getByLabelText( 'WordPress version' );
+		await user.hover( wpVersionSelect );
+
+		expect(
+			screen.queryByText( 'Changing WordPress version requires an internet connection.' )
+		).not.toBeInTheDocument();
 	} );
 } );

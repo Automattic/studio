@@ -1,18 +1,24 @@
 import http from 'http';
 import httpProxy from 'http-proxy';
+import { SiteServer } from 'src/site-server';
 import { loadUserData } from 'src/storage/user-data';
 
 let proxyServer: http.Server | null = null;
 let isProxyRunning = false;
 
 /**
- * Gets the port number for a given domain by looking it up in user data
+ * Gets the site details for a given domain by looking it up in user data and SiteServer
  */
 async function getSiteByHost( domain: string ): Promise< SiteDetails | null > {
 	try {
 		const userData = await loadUserData();
 		const site = userData.sites.find( ( site ) => site.customDomain === domain );
-		return site ? site : null;
+		if ( site ) {
+			const server = SiteServer.get( site.id );
+			return server ? server.details : null;
+		}
+
+		return null;
 	} catch ( error ) {
 		console.error( 'Error looking up domain in user data:', error );
 		return null;

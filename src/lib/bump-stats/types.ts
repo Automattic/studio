@@ -24,6 +24,7 @@ export enum StatsMetric {
 	DARWIN = 'darwin',
 	LINUX = 'linux',
 	WINDOWS = 'win32',
+	UNKNOWN_PLATFORM = 'unknown-platform',
 	// Importer types
 	JETPACK_IMPORTER = 'JetpackImporter',
 	LOCAL_IMPORTER = 'LocalImporter',
@@ -44,7 +45,7 @@ export function getPlatformMetric( platform: typeof process.platform ): StatsMet
 		case 'win32':
 			return StatsMetric.WINDOWS;
 		default:
-			throw new Error( `Unsupported platform: ${ process.platform }` );
+			return StatsMetric.UNKNOWN_PLATFORM;
 	}
 }
 

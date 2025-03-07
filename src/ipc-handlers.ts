@@ -696,6 +696,8 @@ export async function exportSite(
 				StatsGroup.STUDIO_EXPORT,
 				isDatabaseOnly ? StatsMetric.DATABASE_ONLY : StatsMetric.FULL_SITE
 			);
+		} else {
+			bumpStat( StatsGroup.STUDIO_EXPORT, StatsMetric.FAILURE );
 		}
 
 		return result;

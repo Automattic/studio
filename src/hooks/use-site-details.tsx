@@ -22,6 +22,7 @@ interface SiteDetailsContext {
 		siteName?: string,
 		wpVersion?: string,
 		customDomain?: string,
+		useHttps?: boolean,
 		callback?: ( site: SiteDetails | void ) => Promise< void >
 	) => Promise< SiteDetails | void >;
 	startServer: ( id: string ) => Promise< void >;
@@ -194,6 +195,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			siteName?: string,
 			wpVersion?: string,
 			customDomain?: string,
+			useHttps?: boolean,
 			callback?: ( site: SiteDetails | void ) => Promise< void >
 		) => {
 			// Function to handle error messages and cleanup
@@ -234,7 +236,13 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			setSelectedSiteId( tempSiteId ); // Set the temporary ID as the selected site
 
 			try {
-				const data = await getIpcApi().createSite( path, siteName, wpVersion, customDomain );
+				const data = await getIpcApi().createSite(
+					path,
+					siteName,
+					wpVersion,
+					customDomain,
+					useHttps
+				);
 				const newSite = data.find( ( site ) => site.path === path );
 				if ( ! newSite ) {
 					showError();

@@ -54,6 +54,10 @@ import { SiteServer, createSiteWorkingDirectory } from 'src/site-server';
 import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from 'src/storage/paths';
 import { loadUserData, saveUserData } from 'src/storage/user-data';
 import { DEFAULT_PHP_VERSION } from 'vendor/wp-now/src/constants';
+import {
+	getHttpsServerOptionsForSite,
+	showCertificateTrustDialog,
+} from './lib/certificate-manager';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
 
@@ -141,7 +145,8 @@ export async function createSite(
 	path: string,
 	siteName?: string,
 	wpVersion?: string,
-	customDomain?: string
+	customDomain?: string,
+	useHttps?: boolean
 ): Promise< SiteDetails[] > {
 	const userData = await loadUserData();
 	const forceSetupSqlite = false;
@@ -183,6 +188,7 @@ export async function createSite(
 		running: false,
 		phpVersion: DEFAULT_PHP_VERSION,
 		customDomain: customDomain,
+		useHttps,
 	} as const;
 
 	const server = SiteServer.create( details );
@@ -415,6 +421,20 @@ export async function startServer(
 		console.log(
 			`Domain ${ server.details.customDomain } added to hosts file for port ${ server.details.port }`
 		);
+
+		// Generate certificates for HTTPS sites *before* the server starts
+		// This ensures the certs are ready when the proxy server needs them
+		if ( server.details.useHttps ) {
+			console.log(
+				`Generating certificates for ${ server.details.customDomain } during server start`
+			);
+			const httpsOptions = await getHttpsServerOptionsForSite( server.details );
+			server.details = {
+				...server.details,
+				tlsKey: httpsOptions.key,
+				tlsCert: httpsOptions.cert,
+			};
+		}
 	}
 
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
@@ -1166,6 +1186,10 @@ export function getWpContentSize( _event: IpcMainInvokeEvent, siteId: string ) {
 		throw new Error( 'Site not found.' );
 	}
 	return calculateDirectorySize( nodePath.join( site.details.path, 'wp-content' ) );
+}
+
+export function showCertificateTrustHelper( _event: IpcMainInvokeEvent ) {
+	return showCertificateTrustDialog();
 }
 export async function getFileContent( event: IpcMainInvokeEvent, filePath: string ) {
 	if ( ! fs.existsSync( filePath ) ) {

@@ -23,8 +23,13 @@ const api: IpcApi = {
 	exportSiteToPush: ( id: string ) => ipcRenderer.invoke( 'exportSiteToPush', id ),
 	deleteSite: ( id: string, deleteFiles?: boolean ) =>
 		ipcRenderer.invoke( 'deleteSite', id, deleteFiles ),
-	createSite: ( path: string, name?: string, wpVersion?: string, customDomain?: string ) =>
-		ipcRenderer.invoke( 'createSite', path, name, wpVersion, customDomain ),
+	createSite: (
+		path: string,
+		name?: string,
+		wpVersion?: string,
+		customDomain?: string,
+		useHttps?: boolean
+	) => ipcRenderer.invoke( 'createSite', path, name, wpVersion, customDomain, useHttps ),
 	updateSite: ( updatedSite: SiteDetails ) => ipcRenderer.invoke( 'updateSite', updatedSite ),
 	connectWpcomSites: ( ...args ) => ipcRenderer.invoke( 'connectWpcomSites', ...args ),
 	disconnectWpcomSites: ( ...args ) => ipcRenderer.invoke( 'disconnectWpcomSites', ...args ),
@@ -90,6 +95,7 @@ const api: IpcApi = {
 	setupAppMenu: ( config: { needsOnboarding: boolean } ) =>
 		ipcRenderer.invoke( 'setupAppMenu', config ),
 	popupAppMenu: () => ipcRenderer.invoke( 'popupAppMenu' ),
+	showCertificateTrustHelper: () => ipcRenderer.invoke( 'showCertificateTrustHelper' ),
 	promptWindowsSpeedUpSites: ( ...args: Parameters< typeof promptWindowsSpeedUpSites > ) =>
 		ipcRenderer.invoke( 'promptWindowsSpeedUpSites', ...args ),
 	setDefaultLocaleData: ( locale?: LocaleData ) =>

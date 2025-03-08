@@ -28,6 +28,7 @@ export function useAddSite() {
 	const [ useCustomDomain, setUseCustomDomain ] = useState( false );
 	const [ customDomain, setCustomDomain ] = useState< string | null >( null );
 	const [ customDomainError, setCustomDomainError ] = useState( '' );
+	const [ useHttps, setUseHttps ] = useState( false );
 
 	const siteWithPathAlreadyExists = useCallback(
 		( path: string ) => {
@@ -82,44 +83,51 @@ export function useAddSite() {
 			if ( useCustomDomain && ! customDomain ) {
 				usedCustomDomain = generateCustomDomainFromSiteName( siteName ?? '' );
 			}
-			await createSite( path, siteName ?? '', wpVersion, usedCustomDomain, async ( newSite ) => {
-				if ( newSite ) {
-					let updatedSite = { ...newSite };
+			await createSite(
+				path,
+				siteName ?? '',
+				wpVersion,
+				usedCustomDomain,
+				useCustomDomain ? useHttps : false,
+				async ( newSite ) => {
+					if ( newSite ) {
+						let updatedSite = { ...newSite };
 
-					if ( newSite.phpVersion !== phpVersion ) {
-						updatedSite = {
-							...updatedSite,
-							phpVersion,
-						};
-					}
+						if ( newSite.phpVersion !== phpVersion ) {
+							updatedSite = {
+								...updatedSite,
+								phpVersion,
+							};
+						}
 
-					if ( newSite.wpVersion !== wpVersion ) {
-						updatedSite = {
-							...updatedSite,
-							wpVersion,
-						};
-					}
+						if ( newSite.wpVersion !== wpVersion ) {
+							updatedSite = {
+								...updatedSite,
+								wpVersion,
+							};
+						}
 
-					if ( updatedSite !== newSite ) {
-						await updateSite( updatedSite );
-					}
+						if ( updatedSite !== newSite ) {
+							await updateSite( updatedSite );
+						}
 
-					if ( fileForImport ) {
-						await importFile( fileForImport, newSite, {
-							showImportNotification: false,
-							isNewSite: true,
+						if ( fileForImport ) {
+							await importFile( fileForImport, newSite, {
+								showImportNotification: false,
+								isNewSite: true,
+							} );
+							clearImportState( newSite.id );
+						} else {
+							await startServer( newSite.id );
+						}
+
+						getIpcApi().showNotification( {
+							title: newSite.name,
+							body: __( 'Your new site is up and running' ),
 						} );
-						clearImportState( newSite.id );
-					} else {
-						await startServer( newSite.id );
 					}
-
-					getIpcApi().showNotification( {
-						title: newSite.name,
-						body: __( 'Your new site is up and running' ),
-					} );
 				}
-			} );
+			);
 		} catch ( e ) {
 			Sentry.captureException( e );
 		}
@@ -138,6 +146,7 @@ export function useAddSite() {
 		phpVersion,
 		customDomain,
 		useCustomDomain,
+		useHttps,
 	] );
 
 	const handleSiteNameChange = useCallback(
@@ -213,6 +222,8 @@ export function useAddSite() {
 			setCustomDomain: handleCustomDomainChange,
 			customDomainError,
 			setCustomDomainError,
+			useHttps,
+			setUseHttps,
 		};
 	}, [
 		__,
@@ -236,5 +247,7 @@ export function useAddSite() {
 		handleCustomDomainChange,
 		customDomainError,
 		setCustomDomainError,
+		useHttps,
+		setUseHttps,
 	] );
 }

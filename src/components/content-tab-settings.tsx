@@ -33,6 +33,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 	const domain = selectedSite.customDomain
 		? `${ selectedSite.customDomain }`
 		: `localhost:${ selectedSite.port }`;
+	const protocol = selectedSite.customDomain && selectedSite.useHttps ? 'https' : 'http';
 	return (
 		<div className="p-8 ltr:pr-0 rtl:pl-0">
 			<div className="flex justify-between items-center mb-4">
@@ -63,7 +64,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 					</SettingsRow>
 					<SettingsRow label={ __( 'Local URL' ) }>
 						<CopyTextButton
-							text={ `http://${ domain }` }
+							text={ `${ protocol }://${ domain }` }
 							label={ `${ domain }, ${ __( 'Copy site url to clipboard' ) }` }
 							copyConfirmation={ __( 'Copied!' ) }
 						>
@@ -111,7 +112,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 					</SettingsRow>
 					<SettingsRow label={ __( 'Admin URL' ) }>
 						<CopyTextButton
-							text={ `http://${ domain }/wp-admin` }
+							text={ `${ protocol }://${ domain }/wp-admin` }
 							label={ `${ domain }/wp-admin, ${ __( 'Copy wp-admin url to clipboard' ) }` }
 							copyConfirmation={ __( 'Copied!' ) }
 						>

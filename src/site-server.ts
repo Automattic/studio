@@ -58,9 +58,12 @@ export async function stopAllServersOnQuit() {
 }
 
 function getAbsoluteUrl( details: SiteDetails ): string {
-	return details.customDomain
-		? `http://${ details.customDomain }`
-		: `http://localhost:${ details.port }`;
+	if ( details.customDomain ) {
+		const protocol = details.useHttps ? 'https' : 'http';
+		return `${ protocol }://${ details.customDomain }`;
+	}
+
+	return `http://localhost:${ details.port }`;
 }
 
 export class SiteServer {

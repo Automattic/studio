@@ -71,6 +71,8 @@ interface SiteFormProps {
 	customDomainError?: string;
 	phpVersion: AllowedPHPVersion;
 	setPhpVersion: ( version: AllowedPHPVersion ) => void;
+	useHttps?: boolean;
+	setUseHttps?: ( use: boolean ) => void;
 	wpVersion: string;
 	setWpVersion: ( version: string ) => void;
 }
@@ -261,6 +263,8 @@ export const SiteForm = ( {
 	customDomain = null,
 	setCustomDomain,
 	customDomainError,
+	useHttps,
+	setUseHttps,
 }: SiteFormProps ) => {
 	const { __, isRTL } = useI18n();
 	const getDocsLink = useDocsLink();
@@ -461,6 +465,12 @@ export const SiteForm = ( {
 											</div>
 										) }
 
+										{ setUseCustomDomain && setCustomDomain && (
+											<div className="text-a8c-gray-50 text-xs mt-2">
+												{ __( 'Your system password will be required to set up the domain.' ) }
+											</div>
+										) }
+
 										{ useCustomDomain && setCustomDomain && (
 											<div className="flex flex-col gap-2 mt-4">
 												<label htmlFor="custom-domain" className="font-semibold">
@@ -475,9 +485,34 @@ export const SiteForm = ( {
 											</div>
 										) }
 
-										{ setUseCustomDomain && setCustomDomain && (
+										{ useCustomDomain && setUseHttps && (
+											<div className="flex items-center gap-2 mt-4">
+												<input
+													type="checkbox"
+													id="use-https"
+													checked={ useHttps }
+													onChange={ ( e ) => setUseHttps( e.target.checked ) }
+												/>
+												<label htmlFor="use-https">{ __( 'Use HTTPs' ) }</label>
+											</div>
+										) }
+
+										{ setUseCustomDomain && setCustomDomain && useHttps && (
 											<div className="text-a8c-gray-50 text-xs mt-2">
-												{ __( 'Your system password will be required to set up the domain.' ) }
+												{ createInterpolateElement(
+													__(
+														'HTTPs will use auto-generated certificates trusted by your system. Your browser might show a security warning if the certificate is not trusted. <button>Learn how to trust certificates</button>'
+													),
+													{
+														button: (
+															<Button
+																variant="link"
+																className="text-xs"
+																onClick={ () => getIpcApi().showCertificateTrustHelper() }
+															/>
+														),
+													}
+												) }
 											</div>
 										) }
 									</div>

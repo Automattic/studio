@@ -120,7 +120,17 @@ function toDiskFormat( { sites, ...rest }: UserData ): PersistedUserData {
 	return {
 		version: 1,
 		sites: sites.map(
-			( { id, path, adminPassword, port, phpVersion, name, themeDetails, customDomain } ) => {
+			( {
+				id,
+				path,
+				adminPassword,
+				port,
+				phpVersion,
+				name,
+				themeDetails,
+				customDomain,
+				useHttps,
+			} ) => {
 				// No object spreading allowed. TypeScript's structural typing is too permissive and
 				// will permit us to persist properties that aren't in the type definition.
 				// Add each property explicitly instead.
@@ -132,6 +142,7 @@ function toDiskFormat( { sites, ...rest }: UserData ): PersistedUserData {
 					port,
 					phpVersion,
 					customDomain,
+					useHttps,
 					themeDetails: {
 						name: themeDetails?.name || '',
 						path: themeDetails?.path || '',

@@ -71,6 +71,9 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 							{ domain }
 						</CopyTextButton>
 					</SettingsRow>
+					<SettingsRow label={ __( 'SSL' ) }>
+						<span>{ selectedSite.useHttps ? __( 'Enabled' ) : __( 'Disabled' ) }</span>
+					</SettingsRow>
 					<SettingsRow label={ __( 'Local path' ) }>
 						<CopyTextButton
 							text={ selectedSite.path }

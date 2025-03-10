@@ -20,18 +20,26 @@ export default function Header() {
 					</h1>
 					<div className="flex mt-1 gap-x-4">
 						<Button
-							disabled={ ! site.running }
 							className="[&.is-link]:text-a8c-gray-70 [&.is-link]:hover:text-a8c-blueberry !px-0 h-0 leading-4"
-							onClick={ () => getIpcApi().openSiteURL( site.id, '/wp-admin' ) }
+							onClick={ async () => {
+								if ( ! site.running ) {
+									await startServer( site.id );
+								}
+								getIpcApi().openSiteURL( site.id, '/wp-admin' );
+							} }
 							variant="link"
 						>
 							{ __( 'WP admin' ) }
 							<ArrowIcon />
 						</Button>
 						<Button
-							disabled={ ! site.running }
 							className="[&.is-link]:text-a8c-gray-70 [&.is-link]:hover:text-a8c-blueberry !px-0 h-0 leading-4"
-							onClick={ () => getIpcApi().openSiteURL( site.id, '', { autoLogin: false } ) }
+							onClick={ async () => {
+								if ( ! site.running ) {
+									await startServer( site.id );
+								}
+								getIpcApi().openSiteURL( site.id, '', { autoLogin: false } );
+							} }
 							variant="link"
 						>
 							{

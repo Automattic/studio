@@ -132,6 +132,7 @@
 		"follow-redirects": "1.15.6",
 		"fs-extra": "11.1.1",
 		"hpagent": "1.2.0",
+		"http-proxy": "^1.18.1",
 		"node-fetch": "^2.7.0",
 		"react-markdown": "^9.0.1",
 		"react-redux": "^9.2.0",

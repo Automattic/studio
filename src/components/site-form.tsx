@@ -15,6 +15,7 @@ import { useDocsLink } from 'src/hooks/use-docs-link';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
+import { generateCustomDomainFromSiteName } from 'src/lib/generate-custom-domain';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useAppDispatch, useRootSelector } from 'src/stores';
 import {
@@ -61,6 +62,11 @@ interface SiteFormBaseProps {
 	setFileForImport?: ( file: File | null ) => void;
 	onFileSelected?: ( file: File ) => void;
 	fileError?: string;
+	useCustomDomain?: boolean;
+	setUseCustomDomain?: ( use: boolean ) => void;
+	customDomain?: string | null;
+	setCustomDomain?: ( domain: string ) => void;
+	customDomainError?: string;
 }
 
 // TODO: Add all this props to the SiteForm component once we have the versions selects in edit site page.
@@ -266,6 +272,11 @@ export const SiteForm = ( {
 	onFileSelected,
 	fileError,
 	allowVersionsChange = false,
+	useCustomDomain,
+	setUseCustomDomain,
+	customDomain = null,
+	setCustomDomain,
+	customDomainError,
 }: SiteFormProps ) => {
 	const { __, isRTL } = useI18n();
 	const getDocsLink = useDocsLink();
@@ -299,6 +310,7 @@ export const SiteForm = ( {
 	} else {
 		chevronIcon = chevronRight;
 	}
+	const generatedDomainName = generateCustomDomainFromSiteName( siteName );
 
 	return (
 		<form className={ className } onSubmit={ onSubmit }>
@@ -307,6 +319,7 @@ export const SiteForm = ( {
 					<span className="font-semibold">{ __( 'Site name' ) }</span>
 					<TextControlComponent onChange={ setSiteName } value={ siteName }></TextControlComponent>
 				</label>
+
 				{ setFileForImport && (
 					<>
 						<div className="flex flex-col gap-1.5 leading-4 mb-6">
@@ -357,16 +370,18 @@ export const SiteForm = ( {
 											{ __( 'Advanced settings' ) }
 										</div>
 									</Button>
-									{ error && (
+									{ ( error || customDomainError ) && (
 										<span className="text-red-500 text-[13px] leading-[16px] ml-2 flex items-center">
 											<Icon icon={ warning } size={ 16 } className="mr-1 fill-red-500" />
-											{ __( '1 error found' ) }
+											{ error && customDomainError
+												? __( '2 errors found' )
+												: __( '1 error found' ) }
 										</span>
 									) }
 								</div>
 								<div
 									className={ cx(
-										'transition-all duration-500 ease-in-out overflow-hidden',
+										'transition-all duration-500 ease-in-out overflow-hidden flex flex-col gap-2',
 										isAdvancedSettingsVisible ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
 									) }
 								>
@@ -449,6 +464,38 @@ export const SiteForm = ( {
 														/>
 													</Tooltip>
 												</div>
+											</div>
+										) }
+
+										{ setUseCustomDomain && setCustomDomain && (
+											<div className="flex items-center gap-2 mt-4">
+												<input
+													type="checkbox"
+													id="use-custom-domain"
+													checked={ useCustomDomain }
+													onChange={ ( e ) => setUseCustomDomain( e.target.checked ) }
+												/>
+												<label htmlFor="use-custom-domain">{ __( 'Use custom domain' ) }</label>
+											</div>
+										) }
+
+										{ useCustomDomain && setCustomDomain && (
+											<div className="flex flex-col gap-2 mt-4">
+												<label htmlFor="custom-domain" className="font-semibold">
+													{ __( 'Domain name' ) }
+												</label>
+												<TextControlComponent
+													id="custom-domain"
+													value={ customDomain !== null ? customDomain : generatedDomainName }
+													onChange={ setCustomDomain }
+												/>
+												{ customDomainError && <SiteFormError error={ customDomainError } /> }
+											</div>
+										) }
+
+										{ setUseCustomDomain && setCustomDomain && (
+											<div className="text-a8c-gray-50 text-xs mt-2">
+												{ __( 'Your system password will be required to set up the domain.' ) }
 											</div>
 										) }
 									</div>

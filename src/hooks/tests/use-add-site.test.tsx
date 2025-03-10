@@ -106,6 +106,7 @@ describe( 'useAddSite', () => {
 			'/test/path',
 			'',
 			'6.1.7',
+			undefined,
 			expect.any( Function )
 		);
 	} );
@@ -119,7 +120,7 @@ describe( 'useAddSite', () => {
 			phpVersion: '8.2',
 		};
 
-		mockCreateSite.mockImplementation( ( path, name, wpVersion, callback ) => {
+		mockCreateSite.mockImplementation( ( path, name, wpVersion, customDomain, callback ) => {
 			callback( newSite );
 			return Promise.resolve();
 		} );
@@ -151,7 +152,7 @@ describe( 'useAddSite', () => {
 			phpVersion: '8.2',
 		};
 
-		mockCreateSite.mockImplementation( ( path, name, version, callback ) => {
+		mockCreateSite.mockImplementation( ( path, name, version, customDomain, callback ) => {
 			callback( {
 				...newSite,
 				wpVersion: version,
@@ -211,6 +212,7 @@ describe( 'useAddSite', () => {
 			'/test/path',
 			'',
 			DEFAULT_WORDPRESS_VERSION,
+			undefined,
 			expect.any( Function )
 		);
 	} );

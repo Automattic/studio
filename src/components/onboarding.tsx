@@ -54,6 +54,12 @@ export default function Onboarding() {
 		fileForImport,
 		phpVersion,
 		wpVersion,
+		useCustomDomain,
+		setUseCustomDomain,
+		customDomain,
+		setCustomDomain,
+		customDomainError,
+		setCustomDomainError,
 	} = useAddSite();
 	const [ fileError, setFileError ] = useState( '' );
 
@@ -88,6 +94,9 @@ export default function Onboarding() {
 			setSitePath( '' );
 			setError( '' );
 			setDoesPathContainWordPress( isWordPress );
+			setUseCustomDomain( false );
+			setCustomDomain( null );
+			setCustomDomainError( '' );
 		};
 		run();
 		// eslint-disable-next-line react-hooks/exhaustive-deps
@@ -155,6 +164,11 @@ export default function Onboarding() {
 							setPhpVersion={ setPhpVersion }
 							wpVersion={ wpVersion }
 							setWpVersion={ setWpVersion }
+							useCustomDomain={ useCustomDomain }
+							setUseCustomDomain={ setUseCustomDomain }
+							customDomain={ customDomain }
+							setCustomDomain={ setCustomDomain }
+							customDomainError={ customDomainError }
 						>
 							<div className="flex flex-row gap-x-5 mt-6 justify-end">
 								<Button type="submit" variant="primary">

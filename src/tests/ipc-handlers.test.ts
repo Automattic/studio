@@ -76,6 +76,7 @@ describe( 'createSite', () => {
 			phpVersion: '8.2',
 			port: 9999,
 			running: false,
+			customDomain: undefined,
 		} );
 	} );
 

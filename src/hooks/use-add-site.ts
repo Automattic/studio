@@ -5,6 +5,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
+import { generateCustomDomainFromSiteName } from 'src/lib/generate-custom-domain';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
 
@@ -23,12 +24,34 @@ export function useAddSite() {
 		DEFAULT_PHP_VERSION as SupportedPHPVersion
 	);
 	const [ wpVersion, setWpVersion ] = useState( DEFAULT_WORDPRESS_VERSION );
+	const [ useCustomDomain, setUseCustomDomain ] = useState( false );
+	const [ customDomain, setCustomDomain ] = useState< string | null >( null );
+	const [ customDomainError, setCustomDomainError ] = useState( '' );
 
 	const siteWithPathAlreadyExists = useCallback(
 		( path: string ) => {
 			return sites.some( ( site ) => site.path.toLowerCase() === path.toLowerCase() );
 		},
 		[ sites ]
+	);
+
+	const handleCustomDomainChange = useCallback(
+		( value: string | null ) => {
+			setCustomDomain( value );
+			// Validate custom domain if enabled
+			const domainPattern =
+				/^(?!-)[\p{L}\p{N}][\p{L}\p{N}-]{0,61}[\p{L}\p{N}](?<!-)(?:\.(?!-)[\p{L}\p{N}-]{1,61}[\p{L}\p{N}](?<!-))+$/u;
+			if ( useCustomDomain && value && ! domainPattern.test( value ) ) {
+				setCustomDomainError( __( 'Please enter a valid domain name' ) );
+			} else if ( useCustomDomain && value && value.length > 253 ) {
+				setCustomDomainError( __( 'The domain name is too long' ) );
+			} else if ( useCustomDomain && value === '' ) {
+				setCustomDomainError( __( 'The domain name is required' ) );
+			} else {
+				setCustomDomainError( '' );
+			}
+		},
+		[ __, useCustomDomain, setCustomDomain, setCustomDomainError ]
 	);
 
 	const handlePathSelectorClick = useCallback( async () => {
@@ -65,10 +88,15 @@ export function useAddSite() {
 	const handleAddSiteClick = useCallback( async () => {
 		try {
 			const path = sitePath ? sitePath : proposedSitePath;
+			let usedCustomDomain = useCustomDomain && customDomain ? customDomain : undefined;
+			if ( useCustomDomain && ! customDomain ) {
+				usedCustomDomain = generateCustomDomainFromSiteName( siteName ?? '' );
+			}
 			await createSite(
 				path,
 				siteName ?? '',
 				wpVersionsEnabled ? wpVersion : DEFAULT_WORDPRESS_VERSION,
+				usedCustomDomain,
 				async ( newSite ) => {
 					if ( newSite ) {
 						let updatedSite = { ...newSite };
@@ -125,6 +153,8 @@ export function useAddSite() {
 		wpVersion,
 		phpVersion,
 		wpVersionsEnabled,
+		customDomain,
+		useCustomDomain,
 	] );
 
 	const handleSiteNameChange = useCallback(
@@ -194,6 +224,12 @@ export function useAddSite() {
 			setPhpVersion,
 			wpVersion,
 			setWpVersion,
+			useCustomDomain,
+			setUseCustomDomain,
+			customDomain,
+			setCustomDomain: handleCustomDomainChange,
+			customDomainError,
+			setCustomDomainError,
 		};
 	}, [
 		__,
@@ -211,5 +247,11 @@ export function useAddSite() {
 		fileForImport,
 		phpVersion,
 		wpVersion,
+		useCustomDomain,
+		setUseCustomDomain,
+		customDomain,
+		handleCustomDomainChange,
+		customDomainError,
+		setCustomDomainError,
 	] );
 }

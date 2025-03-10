@@ -20,6 +20,7 @@ interface StoppedSiteDetails {
 	port: number;
 	phpVersion: string;
 	wpVersion?: string;
+	customDomain?: string;
 	adminPassword?: string;
 	themeDetails?: {
 		name: string;

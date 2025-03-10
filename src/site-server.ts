@@ -4,6 +4,7 @@ import * as Sentry from '@sentry/electron/main';
 import fsExtra from 'fs-extra';
 import { parse } from 'shell-quote';
 import { pathExists, recursiveCopyDirectory, isEmptyDir } from 'src/lib/fs-utils';
+import { removeDomainFromHosts } from 'src/lib/hosts-file';
 import { decodePassword } from 'src/lib/passwords';
 import { phpGetThemeDetails } from 'src/lib/php-get-theme-details';
 import { portFinder } from 'src/lib/port-finder';
@@ -81,6 +82,17 @@ export class SiteServer {
 		if ( fs.existsSync( thumbnailPath ) ) {
 			await fs.promises.unlink( thumbnailPath );
 		}
+
+		// If we're using a custom domain, clean up the hosts file and unregister from proxy
+		if ( this.details.customDomain ) {
+			try {
+				await removeDomainFromHosts( this.details.customDomain );
+				console.log( `Domain ${ this.details.customDomain } unregistered from proxy server` );
+			} catch ( error ) {
+				console.error( 'Failed to clean up custom domain:', error );
+			}
+		}
+
 		await this.stop();
 		await this.wpCliExecutor?.stop();
 		deletedServers.push( this.details.id );
@@ -100,7 +112,16 @@ export class SiteServer {
 			siteTitle: this.details.name,
 			php: this.details.phpVersion,
 		} );
-		const absoluteUrl = `http://localhost:${ this.details.port }`;
+		// Determine the URL to use - either custom domain or localhost with port
+		let absoluteUrl;
+		if ( this.details.customDomain ) {
+			absoluteUrl = `http://${ this.details.customDomain }`;
+			// For custom domains, we still need to handle hosts file management elsewhere
+			// This happens in the ipc-handlers.ts file when starting the server
+		} else {
+			absoluteUrl = `http://localhost:${ this.details.port }`;
+		}
+
 		options.absoluteUrl = absoluteUrl;
 		options.siteLanguage = await getPreferredSiteLanguage( options.wordPressVersion );
 
@@ -131,12 +152,15 @@ export class SiteServer {
 	}
 
 	updateSiteDetails( site: SiteDetails ) {
+		// We no longer modify custom domain settings after site creation,
+		// so we preserve the existing custom domain settings and only update other fields
 		this.details = {
 			...this.details,
 			name: site.name,
 			path: site.path,
 			phpVersion: site.phpVersion,
 			wpVersion: site.wpVersion,
+			customDomain: this.details.customDomain,
 		};
 	}
 

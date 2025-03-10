@@ -27,6 +27,7 @@ import { download } from 'src/lib/download';
 import { isEmptyDir, pathExists, isWordPressDirectory, sanitizeFolderName } from 'src/lib/fs-utils';
 import { getImageData } from 'src/lib/get-image-data';
 import { getSyncBackupTempPath } from 'src/lib/get-sync-backup-temp-path';
+import { addDomainToHosts } from 'src/lib/hosts-file';
 import { exportBackup } from 'src/lib/import-export/export/export-manager';
 import { ExportOptions } from 'src/lib/import-export/export/types';
 import { ImportExportEventData } from 'src/lib/import-export/handle-events';
@@ -139,7 +140,8 @@ export async function createSite(
 	event: IpcMainInvokeEvent,
 	path: string,
 	siteName?: string,
-	wpVersion?: string
+	wpVersion?: string,
+	customDomain?: string
 ): Promise< SiteDetails[] > {
 	const userData = await loadUserData();
 	const forceSetupSqlite = false;
@@ -180,6 +182,7 @@ export async function createSite(
 		port,
 		running: false,
 		phpVersion: DEFAULT_PHP_VERSION,
+		customDomain: customDomain,
 	} as const;
 
 	const server = SiteServer.create( details );
@@ -395,6 +398,14 @@ export async function startServer(
 	}
 
 	await keepSqliteIntegrationUpdated( server.details.path );
+
+	// Handle custom domain if necessary
+	if ( server.details.customDomain ) {
+		await addDomainToHosts( server.details.customDomain, server.details.port );
+		console.log(
+			`Domain ${ server.details.customDomain } added to hosts file for port ${ server.details.port }`
+		);
+	}
 
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	try {

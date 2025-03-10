@@ -237,32 +237,23 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 						</div>
 					) }
 					{ ! loading && siteRunning && (
-						<Tooltip
-							text={ sprintf(
-								/* translators: siteUrl is the site URL */
-								__( 'Open %(siteUrl)s' ),
-								{ siteUrl: selectedSite.url }
-							) }
-							placement="top"
+						<button
+							aria-label={ __( 'Open site' ) }
+							className={ 'relative group focus-visible:outline-a8c-blueberry' }
+							onClick={ () =>
+								getIpcApi().openSiteURL( selectedSite.id, '', { autoLogin: false } )
+							}
 						>
-							<button
-								aria-label={ __( 'Open site' ) }
-								className={ 'relative group focus-visible:outline-a8c-blueberry' }
-								onClick={ () =>
-									getIpcApi().openSiteURL( selectedSite.id, '', { autoLogin: false } )
+							<div
+								className={
+									'opacity-0 group-hover:opacity-90 group-hover:bg-white group-focus:opacity-90 group-focus:bg-white duration-300 absolute size-full flex justify-center items-center bg-white text-a8c-blueberry'
 								}
 							>
-								<div
-									className={
-										'opacity-0 group-hover:opacity-90 group-hover:bg-white group-focus:opacity-90 group-focus:bg-white duration-300 absolute size-full flex justify-center items-center bg-white text-a8c-blueberry'
-									}
-								>
-									{ __( 'Open site' ) }
-									<ArrowIcon />
-								</div>
-								{ thumbnailImage }
-							</button>
-						</Tooltip>
+								{ __( 'Open site' ) }
+								<ArrowIcon />
+							</div>
+							{ thumbnailImage }
+						</button>
 					) }
 					{ ! loading && ! siteRunning && thumbnailImage }
 				</div>

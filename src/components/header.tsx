@@ -21,55 +21,27 @@ export default function Header() {
 						{ site ? site.name : null }
 					</h1>
 					<div className="flex mt-1 gap-x-4">
-						<Tooltip
-							text={
-								site.running
-									? sprintf(
-											/* translators: wpAdminUrl is the site's WP admin URL */
-											__( 'Open %(wpAdminUrl)s' ),
-											{ wpAdminUrl: `${ site.url }/wp-admin` }
-									  )
-									: undefined
-							}
+						<Button
 							disabled={ ! site.running }
-							placement="top-start"
+							className="[&.is-link]:text-a8c-gray-70 [&.is-link]:hover:text-a8c-blueberry !px-0 h-0 leading-4"
+							onClick={ () => getIpcApi().openSiteURL( site.id, '/wp-admin' ) }
+							variant="link"
 						>
-							<Button
-								disabled={ ! site.running }
-								className="[&.is-link]:text-a8c-gray-70 [&.is-link]:hover:text-a8c-blueberry !px-0 h-0 leading-4"
-								onClick={ () => getIpcApi().openSiteURL( site.id, '/wp-admin' ) }
-								variant="link"
-							>
-								{ __( 'WP admin' ) }
-								<ArrowIcon />
-							</Button>
-						</Tooltip>
-						<Tooltip
-							text={
-								site.running
-									? sprintf(
-											/* translators: siteUrl is the site URL */
-											__( 'Open %(siteUrl)s' ),
-											{ siteUrl: site.url }
-									  )
-									: undefined
-							}
+							{ __( 'WP admin' ) }
+							<ArrowIcon />
+						</Button>
+						<Button
 							disabled={ ! site.running }
-							placement="top-start"
+							className="[&.is-link]:text-a8c-gray-70 [&.is-link]:hover:text-a8c-blueberry !px-0 h-0 leading-4"
+							onClick={ () => getIpcApi().openSiteURL( site.id, '', { autoLogin: false } ) }
+							variant="link"
 						>
-							<Button
-								disabled={ ! site.running }
-								className="[&.is-link]:text-a8c-gray-70 [&.is-link]:hover:text-a8c-blueberry !px-0 h-0 leading-4"
-								onClick={ () => getIpcApi().openSiteURL( site.id, '', { autoLogin: false } ) }
-								variant="link"
-							>
-								{
-									// translators: "Open site" refers to the action, like "to open site"
-									__( 'Open site' )
-								}
-								<ArrowIcon />
-							</Button>
-						</Tooltip>
+							{
+								// translators: "Open site" refers to the action, like "to open site"
+								__( 'Open site' )
+							}
+							<ArrowIcon />
+						</Button>
 					</div>
 				</div>
 			) }

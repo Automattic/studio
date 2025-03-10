@@ -15,9 +15,11 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getWordPressVersionUrl } from 'src/lib/get-wordpress-version-url';
 import { useRootSelector } from 'src/stores';
 import { wordpressVersionsSelectors } from 'src/stores/wordpress-versions-slice';
-import { DEFAULT_PHP_VERSION, ALLOWED_PHP_VERSIONS } from 'vendor/wp-now/src/constants';
-
-type AllowedPHPVersion = ( typeof ALLOWED_PHP_VERSIONS )[ number ];
+import {
+	DEFAULT_PHP_VERSION,
+	ALLOWED_PHP_VERSIONS,
+	AllowedPHPVersion,
+} from 'vendor/wp-now/src/constants';
 
 type EditSiteDetailsProps = {
 	currentWpVersion: string;

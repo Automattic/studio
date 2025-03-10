@@ -8,10 +8,8 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import {
 	DEFAULT_PHP_VERSION,
 	DEFAULT_WORDPRESS_VERSION,
-	ALLOWED_PHP_VERSIONS,
+	AllowedPHPVersion,
 } from 'vendor/wp-now/src/constants';
-
-type AllowedPHPVersion = ( typeof ALLOWED_PHP_VERSIONS )[ number ];
 
 export function useAddSite() {
 	const { __ } = useI18n();

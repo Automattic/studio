@@ -49,6 +49,11 @@ export const DEFAULT_PHP_VERSION = '8.2';
 export const ALLOWED_PHP_VERSIONS = [ '8.4', '8.3', '8.2', '8.1', '8.0', '7.4' ];
 
 /**
+ * The type for the allowed PHP versions.
+ */
+export type AllowedPHPVersion = ( typeof ALLOWED_PHP_VERSIONS )[ number ];
+
+/**
  * The default WordPress version to use when running the WP Now server.
  */
 export const DEFAULT_WORDPRESS_VERSION = 'latest';

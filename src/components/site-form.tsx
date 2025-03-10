@@ -20,9 +20,11 @@ import {
 	wordpressVersionsSelectors,
 	wordpressVersionsThunks,
 } from 'src/stores/wordpress-versions-slice';
-import { DEFAULT_WORDPRESS_VERSION, ALLOWED_PHP_VERSIONS } from 'vendor/wp-now/src/constants';
-
-type AllowedPHPVersion = ( typeof ALLOWED_PHP_VERSIONS )[ number ];
+import {
+	DEFAULT_WORDPRESS_VERSION,
+	ALLOWED_PHP_VERSIONS,
+	AllowedPHPVersion,
+} from 'vendor/wp-now/src/constants';
 
 interface FormPathInputComponentProps {
 	value: string;

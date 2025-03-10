@@ -1,9 +1,7 @@
-import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import { SiteManagementActions } from 'src/components/site-management-actions';
-import { Tooltip } from 'src/components/tooltip';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 

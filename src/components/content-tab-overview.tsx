@@ -1,5 +1,5 @@
 import * as Sentry from '@sentry/electron/renderer';
-import { __, sprintf } from '@wordpress/i18n';
+import { __ } from '@wordpress/i18n';
 import {
 	archive,
 	code,
@@ -17,7 +17,6 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useState } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import { ButtonsSection, ButtonsSectionProps } from 'src/components/buttons-section';
-import { Tooltip } from 'src/components/tooltip';
 import { useCheckInstalledApps } from 'src/hooks/use-check-installed-apps';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useThemeDetails } from 'src/hooks/use-theme-details';
@@ -240,9 +239,7 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 						<button
 							aria-label={ __( 'Open site' ) }
 							className={ 'relative group focus-visible:outline-a8c-blueberry' }
-							onClick={ () =>
-								getIpcApi().openSiteURL( selectedSite.id, '', { autoLogin: false } )
-							}
+							onClick={ () => getIpcApi().openSiteURL( selectedSite.id, '', { autoLogin: false } ) }
 						>
 							<div
 								className={

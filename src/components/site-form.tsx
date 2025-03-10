@@ -1,16 +1,27 @@
-import { Icon } from '@wordpress/components';
+import { SupportedPHPVersion, SupportedPHPVersionsList } from '@php-wasm/universal';
+import { Icon, SelectControl } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { tip, warning, trash, chevronRight, chevronDown, chevronLeft } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { FormEvent, useRef, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import Button from 'src/components/button';
 import FolderIcon from 'src/components/folder-icon';
+import offlineIcon from 'src/components/offline-icon';
 import TextControlComponent from 'src/components/text-control';
+import { Tooltip } from 'src/components/tooltip';
 import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
 import { useDocsLink } from 'src/hooks/use-docs-link';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
+import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useAppDispatch, useRootSelector } from 'src/stores';
+import {
+	wordpressVersionsSelectors,
+	wordpressVersionsThunks,
+} from 'src/stores/wordpress-versions-slice';
+import { DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
 
 interface FormPathInputComponentProps {
 	value: string;
@@ -34,6 +45,44 @@ interface SiteFormErrorProps {
 	tipMessage?: string;
 	className?: string;
 }
+
+interface SiteFormBaseProps {
+	className?: string;
+	children?: React.ReactNode;
+	siteName: string;
+	setSiteName: ( name: string ) => void;
+	sitePath?: string;
+	onSelectPath?: () => void;
+	error: string;
+	doesPathContainWordPress?: boolean;
+	isPathInputDisabled?: boolean;
+	onSubmit: ( event: FormEvent ) => void;
+	fileForImport?: File | null;
+	setFileForImport?: ( file: File | null ) => void;
+	onFileSelected?: ( file: File ) => void;
+	fileError?: string;
+}
+
+// TODO: Add all this props to the SiteForm component once we have the versions selects in edit site page.
+interface SiteFormWithVersionsProps extends SiteFormBaseProps {
+	// TODO: allowVersionsChange should be removed once we have the versions selects in edit site page.
+	allowVersionsChange: true;
+	phpVersion: SupportedPHPVersion;
+	setPhpVersion: ( version: SupportedPHPVersion ) => void;
+	wpVersion: string;
+	setWpVersion: ( version: string ) => void;
+}
+
+// TODO: Remove this once we have the versions selects in edit site page.
+interface SiteFormWithoutVersionsProps extends SiteFormBaseProps {
+	allowVersionsChange?: false;
+	phpVersion?: never;
+	setPhpVersion?: never;
+	wpVersion?: never;
+	setWpVersion?: never;
+}
+
+type SiteFormProps = SiteFormWithVersionsProps | SiteFormWithoutVersionsProps;
 
 const SiteFormError = ( { error, tipMessage = '', className = '' }: SiteFormErrorProps ) => {
 	return (
@@ -92,7 +141,7 @@ function FormPathInputComponent( {
 			>
 				<TextControlComponent
 					aria-hidden="true"
-					disabled={ true }
+					tabIndex={ -1 }
 					className="[&_.components-text-control\_\_input]:bg-transparent [&_.components-text-control\_\_input]:border-none [&_input]:pointer-events-none w-full"
 					value={ value }
 					// eslint-disable-next-line @typescript-eslint/no-empty-function
@@ -160,7 +209,7 @@ function FormImportComponent( {
 				>
 					<TextControlComponent
 						aria-hidden="true"
-						disabled={ true }
+						tabIndex={ -1 }
 						placeholder={ placeholder }
 						className="flex-grow [&_.components-text-control\_\_input]:bg-transparent [&_.components-text-control\_\_input]:border-none [&_input]:pointer-events-none [&_.components-text-control\_\_input]:text-sm w-full [&_.components-text-control\_\_input]:truncate"
 						value={ fileName }
@@ -202,6 +251,10 @@ export const SiteForm = ( {
 	children,
 	siteName,
 	setSiteName,
+	phpVersion,
+	setPhpVersion,
+	wpVersion,
+	setWpVersion,
 	sitePath = '',
 	onSelectPath,
 	error,
@@ -212,24 +265,24 @@ export const SiteForm = ( {
 	setFileForImport,
 	onFileSelected,
 	fileError,
-}: {
-	className?: string;
-	children?: React.ReactNode;
-	siteName: string;
-	setSiteName: ( name: string ) => void;
-	sitePath?: string;
-	onSelectPath?: () => void;
-	error: string;
-	doesPathContainWordPress?: boolean;
-	isPathInputDisabled?: boolean;
-	onSubmit: ( event: FormEvent ) => void;
-	fileForImport?: File | null;
-	setFileForImport?: ( file: File | null ) => void;
-	onFileSelected?: ( file: File ) => void;
-	fileError?: string;
-} ) => {
+	allowVersionsChange = false,
+}: SiteFormProps ) => {
 	const { __, isRTL } = useI18n();
 	const getDocsLink = useDocsLink();
+	const { wpVersionsEnabled } = useFeatureFlags();
+	const dispatch = useAppDispatch();
+	const isOffline = useOffline();
+	const offlineMessage = __( 'Changing WordPress version requires an internet connection.' );
+	const wpVersions = useRootSelector(
+		wordpressVersionsSelectors.selectWordPressVersionsWithLatest
+	);
+	const wpVersionsStatus = useRootSelector( ( state ) => state.wordpressVersions.status );
+
+	useEffect( () => {
+		if ( wpVersionsEnabled && allowVersionsChange && wpVersionsStatus === 'idle' ) {
+			dispatch( wordpressVersionsThunks.fetchWordPressVersions() );
+		}
+	}, [ wpVersionsEnabled, allowVersionsChange, wpVersionsStatus, dispatch ] );
 
 	const [ isAdvancedSettingsVisible, setAdvancedSettingsVisible ] = useState( false );
 
@@ -313,19 +366,11 @@ export const SiteForm = ( {
 								</div>
 								<div
 									className={ cx(
-										'transition-height duration-500 ease-in-out overflow-hidden',
-										isAdvancedSettingsVisible
-											? 'max-h-96 opacity-100 mb-6'
-											: 'max-h-0 opacity-0 mb-0'
+										'transition-all duration-500 ease-in-out overflow-hidden',
+										isAdvancedSettingsVisible ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
 									) }
 								>
-									<div
-										className={ cx(
-											'flex flex-col gap-1.5 leading-4',
-											isAdvancedSettingsVisible ? 'py-2' : 'p-2',
-											! isAdvancedSettingsVisible && 'hidden'
-										) }
-									>
+									<div className={ cx( 'flex flex-col gap-1.5 leading-4 p-2' ) }>
 										<label onClick={ onSelectPath } className="font-semibold">
 											{ __( 'Local path' ) }
 										</label>
@@ -352,6 +397,60 @@ export const SiteForm = ( {
 											value={ sitePath }
 											onClick={ onSelectPath }
 										/>
+										{ wpVersionsEnabled && allowVersionsChange && (
+											<div className="grid grid-cols-2 gap-4 mt-4">
+												<div className="flex flex-col gap-1.5 leading-4">
+													<label className="font-semibold" htmlFor="php-version-select">
+														{ __( 'PHP version' ) }
+													</label>
+													<SelectControl
+														id="php-version-select"
+														value={ phpVersion }
+														options={ SupportedPHPVersionsList.map( ( version ) => {
+															return {
+																label: version,
+																value: version,
+															};
+														} ) }
+														onChange={ setPhpVersion as ( value: string ) => void }
+														__next40pxDefaultSize
+													/>
+												</div>
+												<div className="flex flex-col gap-1.5 leading-4">
+													<label className="font-semibold" htmlFor="wp-version-select">
+														{ __( 'WordPress version' ) }
+													</label>
+													<Tooltip
+														disabled={ ! isOffline }
+														icon={ offlineIcon }
+														text={ offlineMessage }
+														placement="top-start"
+														className="flex flex-1 flex-col"
+													>
+														<SelectControl
+															id="wp-version-select"
+															value={ wpVersion }
+															options={
+																wpVersions.length > 0
+																	? wpVersions.map( ( { label, value } ) => ( {
+																			label,
+																			value,
+																	  } ) )
+																	: [
+																			{
+																				label: DEFAULT_WORDPRESS_VERSION,
+																				value: DEFAULT_WORDPRESS_VERSION,
+																			},
+																	  ]
+															}
+															onChange={ setWpVersion }
+															__next40pxDefaultSize
+															disabled={ isOffline }
+														/>
+													</Tooltip>
+												</div>
+											</div>
+										) }
 									</div>
 								</div>
 							</>

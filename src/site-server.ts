@@ -16,7 +16,7 @@ import { getSiteThumbnailPath } from 'src/storage/paths';
 import { getWpNowConfig } from 'vendor/wp-now/src';
 import { WPNowMode } from 'vendor/wp-now/src/config';
 import { DEFAULT_PHP_VERSION, SQLITE_FILENAME } from 'vendor/wp-now/src/constants';
-import { getWordPressVersionPath } from 'vendor/wp-now/src/download';
+import { getWordPressVersionPath, downloadWordPress } from 'vendor/wp-now/src/download';
 
 const servers = new Map< string, SiteServer >();
 const deletedServers: string[] = [];
@@ -28,6 +28,20 @@ export async function createSiteWorkingDirectory(
 	if ( ( await pathExists( path ) ) && ! ( await isEmptyDir( path ) ) ) {
 		// We can only create into a clean directory
 		return false;
+	}
+
+	const wpVersionPath = getWordPressVersionPath( wpVersion );
+	const wpVersionExists = await pathExists( wpVersionPath );
+
+	if ( ! wpVersionExists ) {
+		try {
+			await downloadWordPress( wpVersion, { overwrite: false } );
+		} catch ( error ) {
+			console.error( `Failed to download WordPress version ${ wpVersion }:`, error );
+			throw new Error(
+				`Failed to download WordPress version ${ wpVersion }. Please try a different version.`
+			);
+		}
 	}
 
 	await purgeWpConfig( wpVersion );
@@ -122,6 +136,7 @@ export class SiteServer {
 			name: site.name,
 			path: site.path,
 			phpVersion: site.phpVersion,
+			wpVersion: site.wpVersion,
 		};
 	}
 

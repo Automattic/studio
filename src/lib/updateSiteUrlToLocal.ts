@@ -19,7 +19,16 @@ export const updateSiteUrlToLocal = async ( siteId: string ) => {
 	const oldUrl = currentSiteUrl.trim();
 	const urlWithoutProtocol = oldUrl.replace( /^https?:\/\//, '' );
 
-	const oldUrlVariants = [ `http://${ urlWithoutProtocol }`, `https://${ urlWithoutProtocol }` ];
+	const oldUrlVariants = [
+		`http://${ urlWithoutProtocol }`,
+		`https://${ urlWithoutProtocol }`,
+		// e.g. "posterUrl" for videos uses encoded URLs
+		`http%3A%2F%2F${ urlWithoutProtocol }`,
+		`https%3A%2F%2F${ urlWithoutProtocol }`,
+		// e.g. Elementor plugin uses escaped URLs
+		String.raw`http:\/\/${ urlWithoutProtocol }`,
+		String.raw`https:\/\/${ urlWithoutProtocol }`,
+	];
 
 	for ( const urlToReplace of oldUrlVariants ) {
 		const { stderr, exitCode } = await server.executeWpCliCommand(

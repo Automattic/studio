@@ -2,10 +2,50 @@ import { render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import EditSite from 'src/components/edit-site';
 
+jest.mock( 'src/hooks/use-feature-flags', () => ( {
+	useFeatureFlags: jest.fn().mockReturnValue( { wpVersionsEnabled: true } ),
+} ) );
+
+jest.mock( 'src/stores', () => {
+	const mockDispatch = jest.fn();
+	return {
+		useAppDispatch: jest.fn().mockReturnValue( mockDispatch ),
+		useRootSelector: jest.fn().mockImplementation( ( selector ) => {
+			if (
+				typeof selector === 'object' &&
+				selector !== null &&
+				'name' in selector &&
+				selector.name === 'selectWordPressVersionsWithLatest'
+			) {
+				return [
+					{ name: '6.4', version: '6.4' },
+					{ name: '6.3', version: '6.3' },
+				];
+			}
+			return { status: 'succeeded' };
+		} ),
+	};
+} );
+
+jest.mock( 'src/stores/wordpress-versions-slice', () => ( {
+	wordpressVersionsSelectors: {
+		selectWordPressVersionsWithLatest: { name: 'selectWordPressVersionsWithLatest' },
+	},
+	wordpressVersionsThunks: {
+		fetchWordPressVersions: jest.fn(),
+	},
+} ) );
+
 const mockUpdateSite = jest.fn();
 jest.mock( 'src/hooks/use-site-details', () => ( {
 	useSiteDetails: () => ( {
-		selectedSite: { name: 'Test Site', path: '/path/to/site', id: 'site-id' },
+		selectedSite: {
+			name: 'Test Site',
+			path: '/path/to/site',
+			id: 'site-id',
+			wpVersion: '6.4',
+			phpVersion: '8.0',
+		},
 		updateSite: mockUpdateSite,
 		data: [],
 	} ),
@@ -13,8 +53,8 @@ jest.mock( 'src/hooks/use-site-details', () => ( {
 
 describe( 'EditSite', () => {
 	beforeEach( () => {
-		render( <EditSite /> );
 		jest.clearAllMocks();
+		render( <EditSite /> );
 	} );
 
 	afterEach( () => {

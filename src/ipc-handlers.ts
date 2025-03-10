@@ -20,6 +20,8 @@ import archiver from 'archiver';
 import { ARCHIVER_OPTIONS, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
+import { bumpStat } from 'src/lib/bump-stats';
+import { getImporterMetric, StatsGroup, StatsMetric } from 'src/lib/bump-stats/types';
 import { calculateDirectorySize } from 'src/lib/calculate-directory-size';
 import { download } from 'src/lib/download';
 import { isEmptyDir, pathExists, isWordPressDirectory, sanitizeFolderName } from 'src/lib/fs-utils';
@@ -119,11 +121,15 @@ export async function importSite(
 			sendIpcEventToRendererWithWindow( parentWindow, 'on-import', data, id );
 		};
 		const result = await importBackup( backupFile, site.details, onEvent, defaultImporterOptions );
+
+		bumpStat( StatsGroup.STUDIO_IMPORT, getImporterMetric( result.importerType ) );
+
 		if ( result?.meta?.phpVersion ) {
 			site.details.phpVersion = result.meta.phpVersion;
 		}
 		return site.details;
 	} catch ( e ) {
+		bumpStat( StatsGroup.STUDIO_IMPORT, StatsMetric.FAILURE );
 		Sentry.captureException( e );
 		throw e;
 	}
@@ -132,7 +138,8 @@ export async function importSite(
 export async function createSite(
 	event: IpcMainInvokeEvent,
 	path: string,
-	siteName?: string
+	siteName?: string,
+	wpVersion?: string
 ): Promise< SiteDetails[] > {
 	const userData = await loadUserData();
 	const forceSetupSqlite = false;
@@ -154,7 +161,7 @@ export async function createSite(
 
 	if ( ( await pathExists( path ) ) && ( await isEmptyDir( path ) ) ) {
 		try {
-			await createSiteWorkingDirectory( path );
+			await createSiteWorkingDirectory( path, wpVersion );
 		} catch ( error ) {
 			// If site creation failed, remove the generated files and re-throw the
 			// error so it can be handled by the caller.
@@ -676,8 +683,27 @@ export async function exportSite(
 			const parentWindow = BrowserWindow.fromWebContents( event.sender );
 			sendIpcEventToRendererWithWindow( parentWindow, 'on-export', data, siteId );
 		};
-		return await exportBackup( options, onEvent );
+
+		const result = await exportBackup( options, onEvent );
+
+		if ( result ) {
+			const isDatabaseOnly =
+				options.includes.database &&
+				! options.includes.uploads &&
+				! options.includes.plugins &&
+				! options.includes.themes &&
+				! options.includes.muPlugins;
+			bumpStat(
+				StatsGroup.STUDIO_EXPORT,
+				isDatabaseOnly ? StatsMetric.DATABASE_ONLY : StatsMetric.FULL_SITE
+			);
+		} else {
+			bumpStat( StatsGroup.STUDIO_EXPORT, StatsMetric.FAILURE );
+		}
+
+		return result;
 	} catch ( e ) {
+		bumpStat( StatsGroup.STUDIO_EXPORT, StatsMetric.FAILURE );
 		Sentry.captureException( e );
 		throw e;
 	}

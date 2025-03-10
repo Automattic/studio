@@ -5,10 +5,14 @@ import stripAnsi from 'strip-ansi';
 import Button from 'src/components/button';
 import { ErrorInformation } from 'src/components/error-information';
 import Modal from 'src/components/modal';
+import offlineIcon from 'src/components/offline-icon';
 import TextControlComponent from 'src/components/text-control';
+import { Tooltip } from 'src/components/tooltip';
+import { useOffline } from 'src/hooks/use-offline';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { getWordPressVersionUrl } from 'src/lib/get-wordpress-version-url';
 import { useRootSelector } from 'src/stores';
 import { wordpressVersionsSelectors } from 'src/stores/wordpress-versions-slice';
 import { DEFAULT_PHP_VERSION, ALLOWED_PHP_VERSIONS } from 'vendor/wp-now/src/constants';
@@ -26,6 +30,8 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 	const [ isChangeWpError, setIsChangeWpError ] = useState( '' );
 	const [ showModal, setShowModal ] = useState( false );
 	const [ isEditingSite, setIsEditingSite ] = useState( false );
+	const isOffline = useOffline();
+	const offlineMessage = __( 'Changing WordPress version requires an internet connection.' );
 	const closeModal = useCallback( () => {
 		if ( isEditingSite ) {
 			return;
@@ -75,9 +81,10 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 
 			if ( hasWpVersionChanged ) {
 				try {
+					const zipUrl = getWordPressVersionUrl( selectedWpVersion );
 					const result = await getIpcApi().executeWPCLiInline( {
 						siteId: selectedSite.id,
-						args: `core update --version=${ selectedWpVersion } --force`,
+						args: `core update ${ zipUrl } --force`,
 						skipPluginsAndThemes: true,
 					} );
 					if ( result.exitCode !== 0 ) {
@@ -86,7 +93,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 				} catch ( wpError ) {
 					console.error( 'Error changing WordPress version:', wpError );
 					const errorMessage = stripAnsi( ( wpError as Error )?.message );
-					setIsChangeWpError( __( 'Error changing WordPress version' ) );
+					setIsChangeWpError( __( 'Error changing WordPress version.' ) );
 					getIpcApi().showErrorMessageBox( {
 						title: __( 'Error changing WordPress version' ),
 						message: errorMessage,
@@ -130,8 +137,8 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 					) }
 				>
 					<form onSubmit={ onSiteEdit }>
-						<div className="flex flex-col gap-6">
-							<label className="flex flex-col gap-1.5 leading-4">
+						<div className="flex flex-col">
+							<label className="flex flex-col gap-1.5 leading-4 mb-6">
 								<span className="font-semibold">{ __( 'Site name' ) }</span>
 								<TextControlComponent
 									disabled={ isEditingSite }
@@ -140,10 +147,14 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 								></TextControlComponent>
 							</label>
 
-							<div className="flex flex-row gap-x-6 pb-2">
-								<label className="flex flex-1 flex-col gap-1.5 leading-4">
+							<div className="flex flex-row gap-x-6">
+								<label
+									htmlFor="php-version-select"
+									className="flex flex-1 flex-col gap-1.5 leading-4"
+								>
 									<span className="font-semibold">{ __( 'PHP version' ) }</span>
 									<SelectControl
+										id="php-version-select"
 										disabled={ isEditingSite }
 										value={ selectedPhpVersion }
 										options={ ALLOWED_PHP_VERSIONS.map( ( version ) => ( {
@@ -156,26 +167,37 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 									/>
 								</label>
 
-								<label className="flex flex-1 flex-col gap-1.5 leading-4">
+								<label
+									htmlFor="wp-version-select"
+									className="flex flex-1 flex-col gap-1.5 leading-4"
+								>
 									<span className="font-semibold">{ __( 'WordPress version' ) }</span>
-									<SelectControl
-										className={ cx( isChangeWpError && 'error-select-control' ) }
-										disabled={ isEditingSite }
-										value={ selectedWpVersion }
-										options={ wordpressVersionOptions }
-										onChange={ setSelectedWpVersion }
-										__next40pxDefaultSize
-										__nextHasNoMarginBottom
-									/>
+									<Tooltip
+										disabled={ ! isOffline }
+										icon={ offlineIcon }
+										text={ offlineMessage }
+										placement="top-start"
+										className="flex flex-1 flex-col"
+									>
+										<SelectControl
+											id="wp-version-select"
+											className={ cx( isChangeWpError && 'error-select-control' ) }
+											disabled={ isEditingSite || isOffline }
+											value={ selectedWpVersion }
+											options={ wordpressVersionOptions }
+											onChange={ setSelectedWpVersion }
+											__next40pxDefaultSize
+											__nextHasNoMarginBottom
+										/>
+									</Tooltip>
 								</label>
 							</div>
+							{ isChangeWpError && (
+								<ErrorInformation className="mt-2">{ isChangeWpError }</ErrorInformation>
+							) }
 						</div>
 
-						{ isChangeWpError && (
-							<ErrorInformation className="mt-4">{ isChangeWpError }</ErrorInformation>
-						) }
-
-						<div className="flex flex-row justify-end gap-x-5 mt-6">
+						<div className="flex flex-row justify-end gap-x-5 mt-8">
 							<Button onClick={ closeModal } disabled={ isEditingSite } variant="tertiary">
 								{ __( 'Cancel' ) }
 							</Button>

@@ -1,9 +1,8 @@
 import * as Sentry from '@sentry/electron/main';
 import { isSameDay, isSameMonth, isSameWeek } from 'date-fns';
 import fetch from 'node-fetch';
+import { AggregateInterval, StatsGroup, StatsMetric } from 'src/lib/bump-stats/types';
 import { loadUserData, saveUserData } from 'src/storage/user-data';
-
-export type AggregateInterval = 'daily' | 'weekly' | 'monthly';
 
 // Bumps a stat if it hasn't been bumped within the current aggregate interval.
 // This allows us to approximate a 1-count-per-user stat without recording which
@@ -12,8 +11,8 @@ export type AggregateInterval = 'daily' | 'weekly' | 'monthly';
 // We don't want to block the thread to record the stat, so this function doesn't
 // await promises before returning.
 export function bumpAggregatedUniqueStat(
-	group: string,
-	stat: string,
+	group: StatsGroup,
+	stat: StatsMetric,
 	aggregateBy: AggregateInterval,
 	bumpInDev = false
 ) {
@@ -49,7 +48,7 @@ export function bumpAggregatedUniqueStat(
 }
 
 // Returns true if we attempted to bump the stat
-export function bumpStat( group: string, stat: string, bumpInDev = false ) {
+export function bumpStat( group: StatsGroup, stat: StatsMetric, bumpInDev = false ) {
 	if ( process.env.E2E || ( process.env.NODE_ENV === 'development' && ! bumpInDev ) ) {
 		console.info( `Would have bumped stat: ${ group }=${ stat }` );
 		return false;

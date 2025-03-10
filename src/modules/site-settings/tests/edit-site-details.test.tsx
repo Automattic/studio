@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
+import { useOffline } from 'src/hooks/use-offline';
 import EditSiteDetails from 'src/modules/site-settings/edit-site-details';
 
 // Mock the hooks and dependencies
@@ -40,11 +41,16 @@ jest.mock( 'src/stores', () => ( {
 	useRootSelector: jest.fn().mockImplementation( () => {
 		// Mock the WordPress versions selector
 		return [
+			{ label: '6.8-beta1', value: '6.8-beta1' },
 			{ label: '6.4', value: '6.4' },
 			{ label: '6.3', value: '6.3' },
 			{ label: '6.2', value: '6.2' },
 		];
 	} ),
+} ) );
+
+jest.mock( 'src/hooks/use-offline', () => ( {
+	useOffline: jest.fn().mockReturnValue( false ),
 } ) );
 
 describe( 'EditSiteDetails', () => {
@@ -200,7 +206,7 @@ describe( 'EditSiteDetails', () => {
 		expect( mockStopServer ).toHaveBeenCalledWith( 'site-123' );
 		expect( mockExecuteWPCLiInline ).toHaveBeenCalledWith( {
 			siteId: 'site-123',
-			args: 'core update --version=6.4 --force',
+			args: 'core update https://wordpress.org/wordpress-6.4.zip --force',
 			skipPluginsAndThemes: true,
 		} );
 		expect( mockUpdateSite ).toHaveBeenCalledWith( {
@@ -211,6 +217,24 @@ describe( 'EditSiteDetails', () => {
 		} );
 		expect( mockStartServer ).toHaveBeenCalledWith( 'site-123' );
 		expect( defaultProps.onSave ).toHaveBeenCalled();
+	} );
+
+	it( 'should update WordPress version when changed to beta', async () => {
+		render( <EditSiteDetails { ...defaultProps } /> );
+		const user = userEvent.setup();
+
+		await user.click( screen.getByRole( 'button', { name: 'Edit site' } ) );
+
+		const wpVersionSelect = screen.getByLabelText( 'WordPress version' );
+		await user.selectOptions( wpVersionSelect, '6.8-beta1' );
+
+		await user.click( screen.getByRole( 'button', { name: 'Save' } ) );
+
+		expect( mockExecuteWPCLiInline ).toHaveBeenCalledWith( {
+			siteId: 'site-123',
+			args: 'core update https://wordpress.org/wordpress-6.8-beta1.zip --force',
+			skipPluginsAndThemes: true,
+		} );
 	} );
 
 	it( 'should show error when WordPress version update fails', async () => {
@@ -233,7 +257,7 @@ describe( 'EditSiteDetails', () => {
 			} );
 		} );
 
-		expect( screen.getByText( 'Error changing WordPress version' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Error changing WordPress version.' ) ).toBeInTheDocument();
 	} );
 
 	it( 'should disable form controls when site is being edited', async () => {
@@ -265,5 +289,61 @@ describe( 'EditSiteDetails', () => {
 		await waitFor( () => {
 			expect( mockUpdateSite ).toHaveBeenCalled();
 		} );
+	} );
+
+	it( 'should disable WordPress version field when offline', async () => {
+		( useOffline as jest.Mock ).mockReturnValue( true );
+
+		render( <EditSiteDetails { ...defaultProps } /> );
+		const user = userEvent.setup();
+
+		await user.click( screen.getByRole( 'button', { name: 'Edit site' } ) );
+
+		const wpVersionSelect = screen.getByLabelText( 'WordPress version' );
+		expect( wpVersionSelect ).toBeDisabled();
+	} );
+
+	it( 'should enable WordPress version field when online', async () => {
+		( useOffline as jest.Mock ).mockReturnValue( false );
+
+		render( <EditSiteDetails { ...defaultProps } /> );
+		const user = userEvent.setup();
+
+		await user.click( screen.getByRole( 'button', { name: 'Edit site' } ) );
+
+		const wpVersionSelect = screen.getByLabelText( 'WordPress version' );
+		expect( wpVersionSelect ).not.toBeDisabled();
+	} );
+
+	it( 'should show tooltip with offline message when hovering over disabled WordPress version field', async () => {
+		( useOffline as jest.Mock ).mockReturnValue( true );
+
+		render( <EditSiteDetails { ...defaultProps } /> );
+		const user = userEvent.setup();
+
+		await user.click( screen.getByRole( 'button', { name: 'Edit site' } ) );
+
+		const wpVersionSelect = screen.getByLabelText( 'WordPress version' );
+		await user.hover( wpVersionSelect );
+
+		expect(
+			screen.getByText( 'Changing WordPress version requires an internet connection.' )
+		).toBeInTheDocument();
+	} );
+
+	it( 'should not show tooltip when hovering over WordPress version field while online', async () => {
+		( useOffline as jest.Mock ).mockReturnValue( false );
+
+		render( <EditSiteDetails { ...defaultProps } /> );
+		const user = userEvent.setup();
+
+		await user.click( screen.getByRole( 'button', { name: 'Edit site' } ) );
+
+		const wpVersionSelect = screen.getByLabelText( 'WordPress version' );
+		await user.hover( wpVersionSelect );
+
+		expect(
+			screen.queryByText( 'Changing WordPress version requires an internet connection.' )
+		).not.toBeInTheDocument();
 	} );
 } );

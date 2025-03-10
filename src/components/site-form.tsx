@@ -1,4 +1,3 @@
-import { SupportedPHPVersion, SupportedPHPVersionsList } from '@php-wasm/universal';
 import { Icon, SelectControl } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
@@ -21,7 +20,9 @@ import {
 	wordpressVersionsSelectors,
 	wordpressVersionsThunks,
 } from 'src/stores/wordpress-versions-slice';
-import { DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
+import { DEFAULT_WORDPRESS_VERSION, ALLOWED_PHP_VERSIONS } from 'vendor/wp-now/src/constants';
+
+type AllowedPHPVersion = ( typeof ALLOWED_PHP_VERSIONS )[ number ];
 
 interface FormPathInputComponentProps {
 	value: string;
@@ -67,8 +68,8 @@ interface SiteFormBaseProps {
 interface SiteFormWithVersionsProps extends SiteFormBaseProps {
 	// TODO: allowVersionsChange should be removed once we have the versions selects in edit site page.
 	allowVersionsChange: true;
-	phpVersion: SupportedPHPVersion;
-	setPhpVersion: ( version: SupportedPHPVersion ) => void;
+	phpVersion: AllowedPHPVersion;
+	setPhpVersion: ( version: AllowedPHPVersion ) => void;
 	wpVersion: string;
 	setWpVersion: ( version: string ) => void;
 }
@@ -406,12 +407,10 @@ export const SiteForm = ( {
 													<SelectControl
 														id="php-version-select"
 														value={ phpVersion }
-														options={ SupportedPHPVersionsList.map( ( version ) => {
-															return {
-																label: version,
-																value: version,
-															};
-														} ) }
+														options={ ALLOWED_PHP_VERSIONS.map( ( version ) => ( {
+															label: version,
+															value: version,
+														} ) ) }
 														onChange={ setPhpVersion as ( value: string ) => void }
 														__next40pxDefaultSize
 													/>

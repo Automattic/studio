@@ -117,7 +117,7 @@ describe( 'useAddSite', () => {
 		};
 
 		mockCreateSite.mockImplementation(
-			( path, name, wpVersion, customDomain, useHttps, callback ) => {
+			( path, name, wpVersion, customDomain, enableSSL, callback ) => {
 				callback( newSite );
 				return Promise.resolve();
 			}
@@ -151,7 +151,7 @@ describe( 'useAddSite', () => {
 		};
 
 		mockCreateSite.mockImplementation(
-			( path, name, version, customDomain, useHttps, callback ) => {
+			( path, name, version, customDomain, enableSSL, callback ) => {
 				callback( {
 					...newSite,
 					wpVersion: version,

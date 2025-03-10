@@ -381,8 +381,8 @@ export async function getHttpsServerOptionsForSite(
 
 	// Log the site details to help debug HTTPS issues
 	console.log(
-		`Generating certificate for domain: ${ site.customDomain }, HTTPS enabled: ${
-			site.useHttps ? 'Yes' : 'No'
+		`Generating certificate for domain: ${ site.customDomain }, SSL enabled: ${
+			site.enableSSL ? 'Yes' : 'No'
 		}`
 	);
 

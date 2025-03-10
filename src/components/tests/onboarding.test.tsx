@@ -105,8 +105,8 @@ describe( 'Onboarding Component', () => {
 			setCustomDomain: jest.fn(),
 			setCustomDomainError: jest.fn(),
 			customDomainError: '',
-			useHttps: false,
-			setUseHttps: jest.fn(),
+			enableSSL: false,
+			setEnableSSL: jest.fn(),
 		} );
 	} );
 
@@ -185,8 +185,8 @@ describe( 'Onboarding Component', () => {
 			setCustomDomain: jest.fn(),
 			setCustomDomainError: jest.fn(),
 			customDomainError: '',
-			useHttps: false,
-			setUseHttps: jest.fn(),
+			enableSSL: false,
+			setEnableSSL: jest.fn(),
 		} );
 
 		render( <Onboarding /> );
@@ -266,8 +266,8 @@ describe( 'Onboarding Component', () => {
 			setCustomDomain: jest.fn(),
 			setCustomDomainError: jest.fn(),
 			customDomainError: '',
-			useHttps: false,
-			setUseHttps: jest.fn(),
+			enableSSL: false,
+			setEnableSSL: jest.fn(),
 		} );
 
 		render( <Onboarding /> );
@@ -332,8 +332,8 @@ describe( 'Onboarding Component', () => {
 			setCustomDomain: jest.fn(),
 			setCustomDomainError: jest.fn(),
 			customDomainError: '',
-			useHttps: false,
-			setUseHttps: jest.fn(),
+			enableSSL: false,
+			setEnableSSL: jest.fn(),
 		} );
 
 		render( <Onboarding /> );

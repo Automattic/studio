@@ -73,6 +73,8 @@ interface SiteFormProps {
 	setPhpVersion: ( version: AllowedPHPVersion ) => void;
 	useHttps?: boolean;
 	setUseHttps?: ( use: boolean ) => void;
+	enableSSL?: boolean;
+	setEnableSSL?: ( use: boolean ) => void;
 	wpVersion: string;
 	setWpVersion: ( version: string ) => void;
 }
@@ -263,8 +265,8 @@ export const SiteForm = ( {
 	customDomain = null,
 	setCustomDomain,
 	customDomainError,
-	useHttps,
-	setUseHttps,
+	enableSSL,
+	setEnableSSL,
 }: SiteFormProps ) => {
 	const { __, isRTL } = useI18n();
 	const getDocsLink = useDocsLink();
@@ -485,23 +487,23 @@ export const SiteForm = ( {
 											</div>
 										) }
 
-										{ useCustomDomain && setUseHttps && (
+										{ useCustomDomain && setEnableSSL && (
 											<div className="flex items-center gap-2 mt-4">
 												<input
 													type="checkbox"
-													id="use-https"
-													checked={ useHttps }
-													onChange={ ( e ) => setUseHttps( e.target.checked ) }
+													id="enable-ssl"
+													checked={ enableSSL }
+													onChange={ ( e ) => setEnableSSL( e.target.checked ) }
 												/>
-												<label htmlFor="use-https">{ __( 'Use HTTPs' ) }</label>
+												<label htmlFor="enable-ssl">{ __( 'Enable SSL' ) }</label>
 											</div>
 										) }
 
-										{ setUseCustomDomain && setCustomDomain && useHttps && (
+										{ setUseCustomDomain && setCustomDomain && enableSSL && (
 											<div className="text-a8c-gray-50 text-xs mt-2">
 												{ createInterpolateElement(
 													__(
-														'HTTPs will use auto-generated certificates trusted by your system. Your browser might show a security warning if the certificate is not trusted. <button>Learn how to trust certificates</button>'
+														'SSL will use auto-generated certificates trusted by your system. Your browser might show a security warning if the certificate is not trusted. <button>Learn how to trust certificates</button>'
 													),
 													{
 														button: (

@@ -28,8 +28,8 @@ const api: IpcApi = {
 		name?: string,
 		wpVersion?: string,
 		customDomain?: string,
-		useHttps?: boolean
-	) => ipcRenderer.invoke( 'createSite', path, name, wpVersion, customDomain, useHttps ),
+		enableSSL?: boolean
+	) => ipcRenderer.invoke( 'createSite', path, name, wpVersion, customDomain, enableSSL ),
 	updateSite: ( updatedSite: SiteDetails ) => ipcRenderer.invoke( 'updateSite', updatedSite ),
 	connectWpcomSites: ( ...args ) => ipcRenderer.invoke( 'connectWpcomSites', ...args ),
 	disconnectWpcomSites: ( ...args ) => ipcRenderer.invoke( 'disconnectWpcomSites', ...args ),

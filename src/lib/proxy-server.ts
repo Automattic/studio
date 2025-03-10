@@ -83,11 +83,11 @@ async function handleProxyRequest(
 
 	// For debugging
 	console.log(
-		`Handling request for ${ host }, HTTPS: ${ isHttps }, site.useHttps: ${ site.useHttps }`
+		`Handling request for ${ host }, HTTPS: ${ isHttps }, site.enableSSL: ${ site.enableSSL }`
 	);
 
 	// If we're on HTTP and site has HTTPS enabled, redirect to HTTPS
-	if ( ! isHttps && site.useHttps ) {
+	if ( ! isHttps && site.enableSSL ) {
 		console.log( `Redirecting ${ host } to HTTPS` );
 		res.writeHead( 301, {
 			Location: `https://${ host }${ req.url }`,
@@ -189,7 +189,7 @@ export async function startProxyServer(): Promise< boolean > {
 							return;
 						}
 
-						console.log( `SNI: Found site: ${ site.name }, useHttps: ${ site.useHttps }` );
+						console.log( `SNI: Found site: ${ site.name }, enableSSL: ${ site.enableSSL }` );
 
 						// Use the certificates that were generated at server start time
 						// If they don't exist, this will fail

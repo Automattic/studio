@@ -59,7 +59,7 @@ export async function stopAllServersOnQuit() {
 
 function getAbsoluteUrl( details: SiteDetails ): string {
 	if ( details.customDomain ) {
-		const protocol = details.useHttps ? 'https' : 'http';
+		const protocol = details.enableSSL ? 'https' : 'http';
 		return `${ protocol }://${ details.customDomain }`;
 	}
 

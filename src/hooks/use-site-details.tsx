@@ -22,7 +22,7 @@ interface SiteDetailsContext {
 		siteName?: string,
 		wpVersion?: string,
 		customDomain?: string,
-		useHttps?: boolean,
+		enableSSL?: boolean,
 		callback?: ( site: SiteDetails | void ) => Promise< void >
 	) => Promise< SiteDetails | void >;
 	startServer: ( id: string ) => Promise< void >;
@@ -195,7 +195,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			siteName?: string,
 			wpVersion?: string,
 			customDomain?: string,
-			useHttps?: boolean,
+			enableSSL?: boolean,
 			callback?: ( site: SiteDetails | void ) => Promise< void >
 		) => {
 			// Function to handle error messages and cleanup
@@ -241,7 +241,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					siteName,
 					wpVersion,
 					customDomain,
-					useHttps
+					enableSSL
 				);
 				const newSite = data.find( ( site ) => site.path === path );
 				if ( ! newSite ) {

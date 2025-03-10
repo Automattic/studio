@@ -40,7 +40,7 @@ export function useAddSite() {
 			setCustomDomain( value );
 			// Validate custom domain if enabled
 			const domainPattern =
-				/^[\p{L}\p{N}][\p{L}\p{N}-]{0,61}[\p{L}\p{N}](?:\.[\p{L}\p{N}-]{2,})+$/u;
+				/^(?!-)[\p{L}\p{N}][\p{L}\p{N}-]{0,61}[\p{L}\p{N}](?<!-)(?:\.(?!-)[\p{L}\p{N}-]{1,61}[\p{L}\p{N}](?<!-))+$/u;
 			if ( useCustomDomain && value && ! domainPattern.test( value ) ) {
 				setCustomDomainError( __( 'Please enter a valid domain name' ) );
 			} else if ( useCustomDomain && value && value.length > 253 ) {

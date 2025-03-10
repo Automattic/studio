@@ -1,4 +1,3 @@
-import { SupportedPHPVersion, SupportedPHPVersions } from '@php-wasm/universal';
 import { SelectControl } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useCallback, useState } from 'react';
@@ -16,7 +15,11 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getWordPressVersionUrl } from 'src/lib/get-wordpress-version-url';
 import { useRootSelector } from 'src/stores';
 import { wordpressVersionsSelectors } from 'src/stores/wordpress-versions-slice';
-import { DEFAULT_PHP_VERSION } from 'vendor/wp-now/src/constants';
+import {
+	DEFAULT_PHP_VERSION,
+	ALLOWED_PHP_VERSIONS,
+	AllowedPHPVersion,
+} from 'vendor/wp-now/src/constants';
 
 type EditSiteDetailsProps = {
 	currentWpVersion: string;
@@ -38,8 +41,8 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 		setShowModal( false );
 	}, [ isEditingSite ] );
 	const [ siteName, setSiteName ] = useState( selectedSite?.name ?? '' );
-	const [ selectedPhpVersion, setSelectedPhpVersion ] = useState< SupportedPHPVersion >(
-		( selectedSite?.phpVersion as SupportedPHPVersion ) ?? DEFAULT_PHP_VERSION
+	const [ selectedPhpVersion, setSelectedPhpVersion ] = useState< AllowedPHPVersion >(
+		( selectedSite?.phpVersion as AllowedPHPVersion ) ?? DEFAULT_PHP_VERSION
 	);
 	const [ selectedWpVersion, setSelectedWpVersion ] = useState( currentWpVersion );
 	const wordpressVersions = useRootSelector( wordpressVersionsSelectors.selectWordPressVersions );
@@ -56,7 +59,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 			return;
 		}
 		setSiteName( selectedSite.name );
-		setSelectedPhpVersion( selectedSite.phpVersion as SupportedPHPVersion );
+		setSelectedPhpVersion( selectedSite.phpVersion as AllowedPHPVersion );
 		setSelectedWpVersion( currentWpVersion );
 		setIsChangeWpError( '' );
 	}, [ currentWpVersion, selectedSite ] );
@@ -156,11 +159,11 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 										id="php-version-select"
 										disabled={ isEditingSite }
 										value={ selectedPhpVersion }
-										options={ SupportedPHPVersions.map( ( version ) => ( {
+										options={ ALLOWED_PHP_VERSIONS.map( ( version ) => ( {
 											label: version,
 											value: version,
 										} ) ) }
-										onChange={ ( version ) => setSelectedPhpVersion( version ) }
+										onChange={ ( version: AllowedPHPVersion ) => setSelectedPhpVersion( version ) }
 										__next40pxDefaultSize
 										__nextHasNoMarginBottom
 									/>

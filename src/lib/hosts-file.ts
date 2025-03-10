@@ -68,7 +68,7 @@ export const writeHostsFile = async ( content: string ): Promise< void > => {
 /**
  * Create a regular expression matching the hosts entry for a given domain:
  *
- * 	127.0.0.1 foo.wp.cloud # Port 8000 (WordPress Studio)
+ * 	127.0.0.1 foo.wp.cloud # Port 8000
  */
 function createHostsEntryPattern( domain: string ): RegExp {
 	return new RegExp( `127\\.0\\.0\\.1\\s+${ domain.replace( /\./g, '\\.' ) }(\\s|$)`, 'i' );

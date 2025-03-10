@@ -198,20 +198,6 @@ async function appBoot() {
 		console.log( `System locale: ${ app.getSystemLocale() }` );
 		console.log( `Used language: ${ locale }` );
 
-		// Start the proxy server for custom domains
-		try {
-			const proxyStarted = await startProxyServer();
-			if ( proxyStarted ) {
-				console.log( 'Custom domain proxy server started successfully' );
-			} else {
-				console.warn(
-					'Failed to start custom domain proxy server - custom domains will require port numbers'
-				);
-			}
-		} catch ( error ) {
-			console.error( 'Error starting proxy server:', error );
-		}
-
 		// By default Electron automatically approves all permissions requests (e.g. notifications, webcam)
 		// We'll opt-in to permissions we specifically need instead.
 		session.defaultSession.setPermissionRequestHandler( ( webContents, permission, callback ) => {
@@ -278,6 +264,20 @@ async function appBoot() {
 		Sentry.setUser( { id: userData.sentryUserId } );
 
 		createMainWindow();
+
+		// Start the proxy server for custom domains
+		try {
+			const proxyStarted = await startProxyServer();
+			if ( proxyStarted ) {
+				console.log( 'Custom domain proxy server started successfully' );
+			} else {
+				console.warn(
+					'Failed to start custom domain proxy server - custom domains will require port numbers'
+				);
+			}
+		} catch ( error ) {
+			console.error( 'Error starting proxy server:', error );
+		}
 
 		// Handle CLI commands
 		listenCLICommands();

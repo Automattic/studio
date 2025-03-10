@@ -1,6 +1,8 @@
+import { dialog } from 'electron';
 import http from 'http';
 import { domainToASCII } from 'node:url';
 import * as Sentry from '@sentry/electron/main';
+import { __ } from '@wordpress/i18n';
 import httpProxy from 'http-proxy';
 import { SiteServer } from 'src/site-server';
 import { loadUserData } from 'src/storage/user-data';
@@ -30,24 +32,11 @@ async function getSiteByHost( domain: string ): Promise< SiteDetails | null > {
 }
 
 /**
- * Attempts to start the proxy server on port 80
- * This requires admin/root privileges
+ * Starts the proxy server for sites with custom domains
  */
 export async function startProxyServer(): Promise< boolean > {
 	if ( isProxyRunning ) return true;
 
-	try {
-		return await startDomainProxy();
-	} catch ( error ) {
-		console.error( 'Failed to start proxy server:', error );
-		return false;
-	}
-}
-
-/**
- * Starts the proxy server for sites with custom domains
- */
-async function startDomainProxy(): Promise< boolean > {
 	try {
 		// Create proxy with additional options to preserve host header
 		const proxy = httpProxy.createProxyServer();
@@ -99,6 +88,7 @@ async function startDomainProxy(): Promise< boolean > {
 					resolve();
 				} )
 				.on( 'error', ( err ) => {
+					console.log( err );
 					console.error( `Error starting proxy server on port 80:`, err );
 					reject( err );
 				} );
@@ -106,6 +96,18 @@ async function startDomainProxy(): Promise< boolean > {
 
 		return true;
 	} catch ( error ) {
+		if ( error instanceof Error && 'code' in error && error.code === 'EADDRINUSE' ) {
+			dialog.showMessageBox( {
+				type: 'error',
+				message: __( 'Failed to start custom domain proxy server' ),
+				detail: __(
+					'Another server is already running on port 80. For custom domains to work, please stop that server and then restart Studio.'
+				),
+				buttons: [ __( 'OK' ) ],
+			} );
+			return false;
+		}
+
 		Sentry.captureException( error );
 		console.error( `Failed to start proxy server directly:`, error );
 		return false;

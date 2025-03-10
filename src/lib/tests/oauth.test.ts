@@ -6,6 +6,7 @@ import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { getAuthenticationToken, onOpenUrlCallback } from 'src/lib/oauth';
 import { loadUserData, saveUserData } from 'src/storage/user-data';
 
+jest.mock( 'src/lib/certificate-manager', () => ( {} ) );
 jest.mock( 'src/ipc-utils' );
 jest.mock( 'src/storage/user-data' );
 jest.mock( 'wpcom' );

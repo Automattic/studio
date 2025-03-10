@@ -102,6 +102,7 @@ describe( 'useAddSite', () => {
 			'',
 			'6.1.7',
 			undefined,
+			false,
 			expect.any( Function )
 		);
 	} );
@@ -115,10 +116,12 @@ describe( 'useAddSite', () => {
 			phpVersion: '8.2',
 		};
 
-		mockCreateSite.mockImplementation( ( path, name, wpVersion, customDomain, callback ) => {
-			callback( newSite );
-			return Promise.resolve();
-		} );
+		mockCreateSite.mockImplementation(
+			( path, name, wpVersion, customDomain, useHttps, callback ) => {
+				callback( newSite );
+				return Promise.resolve();
+			}
+		);
 
 		const { result } = renderHook( () => useAddSite() );
 
@@ -147,13 +150,15 @@ describe( 'useAddSite', () => {
 			phpVersion: '8.2',
 		};
 
-		mockCreateSite.mockImplementation( ( path, name, version, customDomain, callback ) => {
-			callback( {
-				...newSite,
-				wpVersion: version,
-			} );
-			return Promise.resolve();
-		} );
+		mockCreateSite.mockImplementation(
+			( path, name, version, customDomain, useHttps, callback ) => {
+				callback( {
+					...newSite,
+					wpVersion: version,
+				} );
+				return Promise.resolve();
+			}
+		);
 
 		const { result } = renderHook( () => useAddSite() );
 

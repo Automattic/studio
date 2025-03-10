@@ -135,6 +135,7 @@ describe( 'AddSite', () => {
 				'My WordPress Website',
 				expect.any( String ),
 				undefined,
+				false,
 				expect.any( Function )
 			);
 		} );
@@ -311,6 +312,7 @@ describe( 'AddSite', () => {
 				'My WordPress Website',
 				'6.3.3',
 				undefined,
+				false,
 				expect.any( Function )
 			);
 		} );

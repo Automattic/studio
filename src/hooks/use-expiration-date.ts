@@ -19,7 +19,7 @@ function formatStringDate(
 			year: 'numeric',
 		},
 		long: {
-			day: '2-digit',
+			day: 'numeric',
 			month: 'short',
 			year: 'numeric',
 			hour: '2-digit',

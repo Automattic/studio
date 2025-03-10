@@ -220,24 +220,15 @@ const SyncConnectedSitesSection = ( {
 									<Badge className="bg-a8c-green-5 text-a8c-green-80">{ __( 'Production' ) }</Badge>
 								) }
 							</div>
-							<Tooltip
-								text={ sprintf(
-									/* translators: %s: The URL of the connected site */
-									__( 'Open %s' ),
-									connectedSite.url
-								) }
-								className="overflow-hidden"
+							<Button
+								variant="link"
+								className="!text-a8c-gray-70 hover:!text-a8c-blueberry max-w-[100%]"
+								onClick={ () => {
+									getIpcApi().openURL( connectedSite.url );
+								} }
 							>
-								<Button
-									variant="link"
-									className="!text-a8c-gray-70 hover:!text-a8c-blueberry max-w-[100%]"
-									onClick={ () => {
-										getIpcApi().openURL( connectedSite.url );
-									} }
-								>
-									<span className="truncate">{ connectedSite.url }</span> <ArrowIcon />
-								</Button>
-							</Tooltip>
+								<span className="truncate">{ connectedSite.url }</span> <ArrowIcon />
+							</Button>
 							<div className="flex gap-2 ps-4 ms-auto shrink-0">
 								{ isPulling && (
 									<div className="flex flex-col gap-2 min-w-44">

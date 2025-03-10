@@ -1,5 +1,5 @@
 import * as Sentry from '@sentry/electron/renderer';
-import { __, sprintf } from '@wordpress/i18n';
+import { __ } from '@wordpress/i18n';
 import {
 	archive,
 	code,
@@ -17,7 +17,6 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useState } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import { ButtonsSection, ButtonsSectionProps } from 'src/components/buttons-section';
-import { Tooltip } from 'src/components/tooltip';
 import { useCheckInstalledApps } from 'src/hooks/use-check-installed-apps';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useThemeDetails } from 'src/hooks/use-theme-details';
@@ -237,32 +236,21 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 						</div>
 					) }
 					{ ! loading && siteRunning && (
-						<Tooltip
-							text={ sprintf(
-								/* translators: siteUrl is the site URL */
-								__( 'Open %(siteUrl)s' ),
-								{ siteUrl: selectedSite.url }
-							) }
-							placement="top"
+						<button
+							aria-label={ __( 'Open site' ) }
+							className={ 'relative group focus-visible:outline-a8c-blueberry' }
+							onClick={ () => getIpcApi().openSiteURL( selectedSite.id, '', { autoLogin: false } ) }
 						>
-							<button
-								aria-label={ __( 'Open site' ) }
-								className={ 'relative group focus-visible:outline-a8c-blueberry' }
-								onClick={ () =>
-									getIpcApi().openSiteURL( selectedSite.id, '', { autoLogin: false } )
+							<div
+								className={
+									'opacity-0 group-hover:opacity-90 group-hover:bg-white group-focus:opacity-90 group-focus:bg-white duration-300 absolute size-full flex justify-center items-center bg-white text-a8c-blueberry'
 								}
 							>
-								<div
-									className={
-										'opacity-0 group-hover:opacity-90 group-hover:bg-white group-focus:opacity-90 group-focus:bg-white duration-300 absolute size-full flex justify-center items-center bg-white text-a8c-blueberry'
-									}
-								>
-									{ __( 'Open site' ) }
-									<ArrowIcon />
-								</div>
-								{ thumbnailImage }
-							</button>
-						</Tooltip>
+								{ __( 'Open site' ) }
+								<ArrowIcon />
+							</div>
+							{ thumbnailImage }
+						</button>
 					) }
 					{ ! loading && ! siteRunning && thumbnailImage }
 				</div>

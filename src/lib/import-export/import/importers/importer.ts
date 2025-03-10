@@ -151,13 +151,13 @@ abstract class BaseBackupImporter extends BaseImporter {
 				/^database(\/|\\)?.*/, // Match database dir and all contents
 				/^db\.php$/, // Exact match for db.php
 			];
-			// If there are no plugins in the backup, we need to keep the plugins directory.
+			// If there are no plugins in the backup, we need to keep the plugins directory and all its contents.
 			if ( this.backup.wpContent.plugins.length === 0 ) {
-				contentToKeep.push( /^plugins$/ );
+				contentToKeep.push( /^plugins(\/|\\)?.*/ );
 			}
 			// If there are no themes in the backup, we need to keep the themes directory.
 			if ( this.backup.wpContent.themes.length === 0 ) {
-				contentToKeep.push( /^themes$/ );
+				contentToKeep.push( /^themes(\/|\\)?.*/ );
 			}
 
 			const contents = await fsPromises.readdir( wpContentDir, { recursive: true } );

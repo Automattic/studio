@@ -21,7 +21,13 @@ import { ARCHIVER_OPTIONS, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
 import { bumpStat } from 'src/lib/bump-stats';
-import { getImporterMetric, StatsGroup, StatsMetric } from 'src/lib/bump-stats/types';
+import {
+	getImporterMetric,
+	StatsGroup,
+	StatsMetric,
+	getWordPressVersionMetric,
+	getPHPVersionMetric,
+} from 'src/lib/bump-stats/types';
 import { calculateDirectorySize } from 'src/lib/calculate-directory-size';
 import { download } from 'src/lib/download';
 import { isEmptyDir, pathExists, isWordPressDirectory, sanitizeFolderName } from 'src/lib/fs-utils';
@@ -54,6 +60,7 @@ import { SiteServer, createSiteWorkingDirectory } from 'src/site-server';
 import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from 'src/storage/paths';
 import { loadUserData, saveUserData } from 'src/storage/user-data';
 import { DEFAULT_PHP_VERSION } from 'vendor/wp-now/src/constants';
+import { getWordPressVersionUrl } from './lib/get-wordpress-version-url';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
 
@@ -205,6 +212,13 @@ export async function createSite(
 		}
 	}
 
+	if ( details.phpVersion ) {
+		bumpStat( StatsGroup.STUDIO_SITE_VERSIONS, getPHPVersionMetric( details.phpVersion ) );
+	}
+	if ( wpVersion ) {
+		bumpStat( StatsGroup.STUDIO_SITE_VERSIONS, getWordPressVersionMetric( wpVersion ) );
+	}
+
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-updating', { id: details.id } );
 
@@ -226,9 +240,15 @@ export async function updateSite(
 	userData.sites = updatedSites;
 
 	const server = SiteServer.get( updatedSite.id );
+	const hasPHPVersionChanged = server?.details.phpVersion !== updatedSite.phpVersion;
 	if ( server ) {
 		server.updateSiteDetails( updatedSite );
 	}
+
+	if ( hasPHPVersionChanged ) {
+		bumpStat( StatsGroup.STUDIO_SITE_VERSIONS, getPHPVersionMetric( updatedSite.phpVersion ) );
+	}
+
 	await saveUserData( userData );
 	return mergeSiteDetailsWithRunningDetails( userData.sites );
 }
@@ -899,6 +919,40 @@ export async function executeWPCLiInline(
 	return server.executeWpCliCommand( args, {
 		skipPluginsAndThemes,
 	} );
+}
+
+export async function changeWordPressVersion(
+	_event: IpcMainInvokeEvent,
+	{
+		siteId,
+		wpVersion,
+	}: {
+		siteId: string;
+		wpVersion: string;
+	}
+): Promise< WpCliResult > {
+	if ( SiteServer.isDeleted( siteId ) ) {
+		return {
+			stdout: '',
+			stderr: `Cannot change WordPress version on deleted site ${ siteId }`,
+			exitCode: 1,
+		};
+	}
+
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( 'Site not found.' );
+	}
+	const zipUrl = getWordPressVersionUrl( wpVersion );
+	const result = await server.executeWpCliCommand( `core update ${ zipUrl } --force`, {
+		skipPluginsAndThemes: true,
+	} );
+
+	if ( result.exitCode === 0 ) {
+		bumpStat( StatsGroup.STUDIO_SITE_VERSIONS, getWordPressVersionMetric( wpVersion ) );
+	}
+
+	return result;
 }
 
 export async function getThumbnailData( _event: IpcMainInvokeEvent, id: string ) {

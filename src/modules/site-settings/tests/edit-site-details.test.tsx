@@ -7,7 +7,7 @@ import EditSiteDetails from 'src/modules/site-settings/edit-site-details';
 const mockUpdateSite = jest.fn();
 const mockStopServer = jest.fn();
 const mockStartServer = jest.fn();
-const mockExecuteWPCLiInline = jest.fn();
+const mockChangeWordPressVersion = jest.fn();
 const mockShowErrorMessageBox = jest.fn();
 
 jest.mock( 'src/hooks/use-site-details', () => ( {
@@ -26,7 +26,7 @@ jest.mock( 'src/hooks/use-site-details', () => ( {
 
 jest.mock( 'src/lib/get-ipc-api', () => ( {
 	getIpcApi: () => ( {
-		executeWPCLiInline: mockExecuteWPCLiInline,
+		changeWordPressVersion: mockChangeWordPressVersion,
 		showErrorMessageBox: mockShowErrorMessageBox,
 	} ),
 } ) );
@@ -61,7 +61,7 @@ describe( 'EditSiteDetails', () => {
 
 	beforeEach( () => {
 		jest.clearAllMocks();
-		mockExecuteWPCLiInline.mockResolvedValue( { exitCode: 0 } );
+		mockChangeWordPressVersion.mockResolvedValue( { exitCode: 0 } );
 	} );
 
 	it( 'should render the edit button', () => {
@@ -204,10 +204,9 @@ describe( 'EditSiteDetails', () => {
 		await user.click( screen.getByRole( 'button', { name: 'Save' } ) );
 
 		expect( mockStopServer ).toHaveBeenCalledWith( 'site-123' );
-		expect( mockExecuteWPCLiInline ).toHaveBeenCalledWith( {
+		expect( mockChangeWordPressVersion ).toHaveBeenCalledWith( {
 			siteId: 'site-123',
-			args: 'core update https://wordpress.org/wordpress-6.4.zip --force',
-			skipPluginsAndThemes: true,
+			wpVersion: '6.4',
 		} );
 		expect( mockUpdateSite ).toHaveBeenCalledWith( {
 			id: 'site-123',
@@ -230,15 +229,14 @@ describe( 'EditSiteDetails', () => {
 
 		await user.click( screen.getByRole( 'button', { name: 'Save' } ) );
 
-		expect( mockExecuteWPCLiInline ).toHaveBeenCalledWith( {
+		expect( mockChangeWordPressVersion ).toHaveBeenCalledWith( {
 			siteId: 'site-123',
-			args: 'core update https://wordpress.org/wordpress-6.8-beta1.zip --force',
-			skipPluginsAndThemes: true,
+			wpVersion: '6.8-beta1',
 		} );
 	} );
 
 	it( 'should show error when WordPress version update fails', async () => {
-		mockExecuteWPCLiInline.mockResolvedValue( { exitCode: 1, stderr: 'Update failed' } );
+		mockChangeWordPressVersion.mockResolvedValue( { exitCode: 1, stderr: 'Update failed' } );
 
 		render( <EditSiteDetails { ...defaultProps } /> );
 		const user = userEvent.setup();

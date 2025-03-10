@@ -117,6 +117,8 @@ const api: IpcApi = {
 	getPathForFile: webUtils.getPathForFile,
 	getFileContent: ( filePath: string ) => ipcRenderer.invoke( 'getFileContent', filePath ),
 	isFullscreen: () => ipcRenderer.invoke( 'isFullscreen' ),
+	changeWordPressVersion: ( { siteId, wpVersion }: { siteId: string; wpVersion: string } ) =>
+		ipcRenderer.invoke( 'changeWordPressVersion', { siteId, wpVersion } ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

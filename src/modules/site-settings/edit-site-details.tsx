@@ -12,7 +12,6 @@ import { useOffline } from 'src/hooks/use-offline';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { getWordPressVersionUrl } from 'src/lib/get-wordpress-version-url';
 import { useRootSelector } from 'src/stores';
 import { wordpressVersionsSelectors } from 'src/stores/wordpress-versions-slice';
 import {
@@ -83,12 +82,11 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 
 			if ( hasWpVersionChanged ) {
 				try {
-					const zipUrl = getWordPressVersionUrl( selectedWpVersion );
-					const result = await getIpcApi().executeWPCLiInline( {
+					const result = await getIpcApi().changeWordPressVersion( {
 						siteId: selectedSite.id,
-						args: `core update ${ zipUrl } --force`,
-						skipPluginsAndThemes: true,
+						wpVersion: selectedWpVersion,
 					} );
+
 					if ( result.exitCode !== 0 ) {
 						throw new Error( result.stderr );
 					}

@@ -12,6 +12,7 @@ export enum StatsGroup {
 	STUDIO_APP_LAUNCH_UNIQUE = 'local-environment-launch-uniques',
 	STUDIO_IMPORT = 'studio-app-import',
 	STUDIO_EXPORT = 'studio-app-export',
+	STUDIO_SITE_VERSIONS = 'studio-site-versions',
 }
 
 export enum StatsMetric {
@@ -32,6 +33,9 @@ export enum StatsMetric {
 	PLAYGROUND_IMPORTER = 'PlaygroundImporter',
 	WPRESS_IMPORTER = 'WpressImporter',
 	UNKNOWN_IMPORTER = 'UnknownImporter',
+	// WordPress and PHP versions
+	WP_VERSION_PREFIX = 'wp-version-',
+	PHP_VERSION_PREFIX = 'php-version-',
 }
 
 export type AggregateInterval = 'daily' | 'weekly' | 'monthly';
@@ -64,4 +68,14 @@ export function getImporterMetric( importer?: string ): StatsMetric {
 		default:
 			return StatsMetric.UNKNOWN_IMPORTER;
 	}
+}
+
+export function getWordPressVersionMetric( version: string ): StatsMetric {
+	const sanitizedVersion = version.replace( /\./g, '-' ).toLowerCase();
+	return `${ StatsMetric.WP_VERSION_PREFIX }${ sanitizedVersion }` as unknown as StatsMetric;
+}
+
+export function getPHPVersionMetric( version: string ): StatsMetric {
+	const sanitizedVersion = version.replace( /\./g, '-' ).toLowerCase();
+	return `${ StatsMetric.PHP_VERSION_PREFIX }${ sanitizedVersion }` as unknown as StatsMetric;
 }

@@ -5,10 +5,23 @@ import { shell, IpcMainInvokeEvent } from 'electron';
 import fs from 'fs';
 import { normalize } from 'path';
 import * as Sentry from '@sentry/electron/main';
-import { createSite, startServer, isFullscreen, importSite } from 'src/ipc-handlers';
+import {
+	createSite,
+	startServer,
+	isFullscreen,
+	importSite,
+	updateSite,
+	changeWordPressVersion,
+} from 'src/ipc-handlers';
 import { bumpStat } from 'src/lib/bump-stats';
-import { StatsGroup, StatsMetric } from 'src/lib/bump-stats/types';
+import {
+	StatsGroup,
+	StatsMetric,
+	getWordPressVersionMetric,
+	getPHPVersionMetric,
+} from 'src/lib/bump-stats/types';
 import { isEmptyDir, pathExists } from 'src/lib/fs-utils';
+import { getWordPressVersionUrl } from 'src/lib/get-wordpress-version-url';
 import { importBackup, defaultImporterOptions } from 'src/lib/import-export/import/import-manager';
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 import { keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
@@ -25,6 +38,7 @@ jest.mock( 'src/main-window' );
 jest.mock( '@sentry/electron/main' );
 jest.mock( 'src/lib/import-export/import/import-manager' );
 jest.mock( 'src/lib/bump-stats' );
+jest.mock( 'src/lib/get-wordpress-version-url' );
 
 jest.mock( 'src/lib/port-finder', () => ( {
 	portFinder: {
@@ -40,7 +54,7 @@ jest.mock( 'src/lib/port-finder', () => ( {
 } ) );
 ( createSiteWorkingDirectory as jest.Mock ).mockResolvedValue( true );
 
-const mockUserData = {
+const mockUserData: { sites: SiteDetails[] } = {
 	sites: [],
 };
 ( fs as MockedFs ).__setFileContents(
@@ -78,6 +92,15 @@ describe( 'createSite', () => {
 			running: false,
 			customDomain: undefined,
 		} );
+
+		expect( bumpStat ).toHaveBeenCalledWith(
+			StatsGroup.STUDIO_SITE_VERSIONS,
+			getPHPVersionMetric( '8.2' )
+		);
+		expect( bumpStat ).toHaveBeenCalledWith(
+			StatsGroup.STUDIO_SITE_VERSIONS,
+			getWordPressVersionMetric( '6.4' )
+		);
 	} );
 
 	describe( 'when the site path started as an empty directory', () => {
@@ -93,6 +116,170 @@ describe( 'createSite', () => {
 				expect( shell.trashItem ).toHaveBeenCalledWith( '/test' );
 			} );
 		} );
+	} );
+} );
+
+describe( 'updateSite', () => {
+	it( 'should update a site and bump stats when PHP version changes', async () => {
+		const existingSite = {
+			id: 'test-site-id',
+			name: 'Test Site',
+			path: '/test',
+			phpVersion: '8.0',
+			port: 9999,
+			running: false,
+		};
+
+		const updatedSite = {
+			...existingSite,
+			phpVersion: '8.2',
+		};
+
+		mockUserData.sites = [ existingSite as unknown as SiteDetails ];
+
+		( SiteServer.get as jest.Mock ).mockReturnValue( {
+			details: existingSite,
+			updateSiteDetails: jest.fn(),
+		} );
+
+		await updateSite( mockIpcMainInvokeEvent, updatedSite as unknown as SiteDetails );
+
+		// Verify that stats are bumped for PHP version change
+		expect( bumpStat ).toHaveBeenCalledWith(
+			StatsGroup.STUDIO_SITE_VERSIONS,
+			getPHPVersionMetric( '8.2' )
+		);
+	} );
+
+	it( 'should not bump stats when PHP version does not change', async () => {
+		const existingSite = {
+			id: 'test-site-id',
+			name: 'Test Site',
+			path: '/test',
+			phpVersion: '8.2',
+			port: 9999,
+			running: false,
+		};
+
+		const updatedSite = {
+			...existingSite,
+			name: 'Updated Test Site',
+		};
+
+		mockUserData.sites = [ existingSite ] as unknown as SiteDetails[];
+
+		( SiteServer.get as jest.Mock ).mockReturnValue( {
+			details: existingSite,
+			updateSiteDetails: jest.fn(),
+		} );
+
+		await updateSite( mockIpcMainInvokeEvent, updatedSite as unknown as SiteDetails );
+
+		// Verify that stats are not bumped
+		expect( bumpStat ).not.toHaveBeenCalled();
+	} );
+} );
+
+describe( 'changeWordPressVersion', () => {
+	it( 'should change WordPress version and bump stats on success', async () => {
+		const siteId = 'test-site-id';
+		const wpVersion = '6.4';
+		const zipUrl = 'https://wordpress.org/wordpress-6.4.zip';
+
+		( getWordPressVersionUrl as jest.Mock ).mockReturnValue( zipUrl );
+
+		const mockServer = {
+			executeWpCliCommand: jest.fn().mockResolvedValue( {
+				stdout: 'WordPress updated successfully',
+				stderr: '',
+				exitCode: 0,
+			} ),
+		};
+
+		( SiteServer.get as jest.Mock ).mockReturnValue( mockServer );
+		( SiteServer.isDeleted as jest.Mock ).mockReturnValue( false );
+
+		const result = await changeWordPressVersion( mockIpcMainInvokeEvent, { siteId, wpVersion } );
+
+		expect( mockServer.executeWpCliCommand ).toHaveBeenCalledWith(
+			`core update ${ zipUrl } --force`,
+			{ skipPluginsAndThemes: true }
+		);
+
+		expect( result ).toEqual( {
+			stdout: 'WordPress updated successfully',
+			stderr: '',
+			exitCode: 0,
+		} );
+
+		// Verify that stats are bumped for WordPress version
+		expect( bumpStat ).toHaveBeenCalledWith(
+			StatsGroup.STUDIO_SITE_VERSIONS,
+			getWordPressVersionMetric( wpVersion )
+		);
+	} );
+
+	it( 'should not bump stats when WordPress update fails', async () => {
+		const siteId = 'test-site-id';
+		const wpVersion = '6.4';
+		const zipUrl = 'https://wordpress.org/wordpress-6.4.zip';
+
+		( getWordPressVersionUrl as jest.Mock ).mockReturnValue( zipUrl );
+
+		const mockServer = {
+			executeWpCliCommand: jest.fn().mockResolvedValue( {
+				stdout: '',
+				stderr: 'Error updating WordPress',
+				exitCode: 1,
+			} ),
+		};
+
+		( SiteServer.get as jest.Mock ).mockReturnValue( mockServer );
+		( SiteServer.isDeleted as jest.Mock ).mockReturnValue( false );
+
+		const result = await changeWordPressVersion( mockIpcMainInvokeEvent, { siteId, wpVersion } );
+
+		expect( result ).toEqual( {
+			stdout: '',
+			stderr: 'Error updating WordPress',
+			exitCode: 1,
+		} );
+
+		// Verify that stats are not bumped
+		expect( bumpStat ).not.toHaveBeenCalled();
+	} );
+
+	it( 'should return error when site is deleted', async () => {
+		const siteId = 'deleted-site-id';
+		const wpVersion = '6.4';
+
+		( SiteServer.isDeleted as jest.Mock ).mockReturnValue( true );
+
+		const result = await changeWordPressVersion( mockIpcMainInvokeEvent, { siteId, wpVersion } );
+
+		expect( result ).toEqual( {
+			stdout: '',
+			stderr: `Cannot change WordPress version on deleted site ${ siteId }`,
+			exitCode: 1,
+		} );
+
+		// Verify that stats are not bumped
+		expect( bumpStat ).not.toHaveBeenCalled();
+	} );
+
+	it( 'should throw error when site is not found', async () => {
+		const siteId = 'non-existent-site-id';
+		const wpVersion = '6.4';
+
+		( SiteServer.isDeleted as jest.Mock ).mockReturnValue( false );
+		( SiteServer.get as jest.Mock ).mockReturnValue( null );
+
+		await expect(
+			changeWordPressVersion( mockIpcMainInvokeEvent, { siteId, wpVersion } )
+		).rejects.toThrow( 'Site not found.' );
+
+		// Verify that stats are not bumped
+		expect( bumpStat ).not.toHaveBeenCalled();
 	} );
 } );
 

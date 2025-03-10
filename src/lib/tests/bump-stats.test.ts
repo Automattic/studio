@@ -1,7 +1,12 @@
 import { waitFor } from '@testing-library/react';
 import nock from 'nock';
 import { bumpAggregatedUniqueStat, bumpStat } from 'src/lib/bump-stats';
-import { StatsGroup, StatsMetric } from 'src/lib/bump-stats/types';
+import {
+	StatsGroup,
+	StatsMetric,
+	getWordPressVersionMetric,
+	getPHPVersionMetric,
+} from 'src/lib/bump-stats/types';
 import { loadUserData, saveUserData } from 'src/storage/user-data';
 
 jest.mock( 'src/storage/user-data' );
@@ -143,4 +148,24 @@ describe( 'bumpAggregatedUniqueStat', () => {
 			expect( saveUserData ).not.toHaveBeenCalled();
 		} );
 	}
+} );
+
+describe( 'getWordPressVersionMetric', () => {
+	test( 'should convert WordPress version to a valid metric', () => {
+		expect( getWordPressVersionMetric( '6.4' ) ).toEqual( `${ StatsMetric.WP_VERSION_PREFIX }6-4` );
+		expect( getWordPressVersionMetric( '6.4.1' ) ).toEqual(
+			`${ StatsMetric.WP_VERSION_PREFIX }6-4-1`
+		);
+		expect( getWordPressVersionMetric( 'latest' ) ).toEqual(
+			`${ StatsMetric.WP_VERSION_PREFIX }latest`
+		);
+	} );
+} );
+
+describe( 'getPHPVersionMetric', () => {
+	test( 'should convert PHP version to a valid metric', () => {
+		expect( getPHPVersionMetric( '8.2' ) ).toEqual( `${ StatsMetric.PHP_VERSION_PREFIX }8-2` );
+		expect( getPHPVersionMetric( '8.0' ) ).toEqual( `${ StatsMetric.PHP_VERSION_PREFIX }8-0` );
+		expect( getPHPVersionMetric( '7.4' ) ).toEqual( `${ StatsMetric.PHP_VERSION_PREFIX }7-4` );
+	} );
 } );

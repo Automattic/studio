@@ -17,7 +17,6 @@ let httpsProxyServer: https.Server | null = null;
 let isHttpProxyRunning = false;
 let isHttpsProxyRunning = false;
 
-// Create a shared proxy handler
 const proxy = httpProxy.createProxyServer();
 
 // Setup error handling for the proxy
@@ -59,7 +58,6 @@ async function handleProxyRequest(
 ) {
 	const host = req.headers.host?.split( ':' )[ 0 ]; // Remove port if present
 
-	// Look up the port directly from user data
 	if ( ! host ) {
 		console.log( 'No host header found' );
 		res.writeHead( 404 );
@@ -81,14 +79,8 @@ async function handleProxyRequest(
 		return;
 	}
 
-	// For debugging
-	console.log(
-		`Handling request for ${ host }, HTTPS: ${ isHttps }, site.enableSSL: ${ site.enableSSL }`
-	);
-
 	// If we're on HTTP and site has HTTPS enabled, redirect to HTTPS
 	if ( ! isHttps && site.enableSSL ) {
-		console.log( `Redirecting ${ host } to HTTPS` );
 		res.writeHead( 301, {
 			Location: `https://${ host }${ req.url }`,
 		} );
@@ -96,15 +88,11 @@ async function handleProxyRequest(
 		return;
 	}
 
-	// Forward the request with the original host preserved
 	const headers: Record< string, string > = {};
 
-	// If this is an HTTPS request, add the X-Forwarded-Proto header
 	if ( isHttps ) {
 		headers[ 'X-Forwarded-Proto' ] = 'https';
 	}
-
-	console.log( `Proxying request to port ${ site.port } for ${ host }` );
 
 	proxy.web( req, res, {
 		target: `http://localhost:${ site.port }`,
@@ -153,8 +141,6 @@ export async function startProxyServer(): Promise< boolean > {
 		if ( ! isHttpProxyRunning ) {
 			await checkPortInWindows( 80 );
 			httpProxyServer = http.createServer( ( req, res ) => handleProxyRequest( req, res, false ) );
-
-			// Start HTTP server
 			await new Promise< void >( ( resolve, reject ) => {
 				httpProxyServer!
 					.listen( 80, () => {
@@ -172,16 +158,12 @@ export async function startProxyServer(): Promise< boolean > {
 		// Start HTTPS server if not already running
 		if ( ! isHttpsProxyRunning ) {
 			await checkPortInWindows( 443 );
-			// Create a default HTTPS server with SNI callbacks for dynamic certificates
 			const defaultOptions = {
 				SNICallback: async (
 					servername: string,
 					cb: ( err: Error | null, ctx?: SecureContext ) => void
 				) => {
 					try {
-						console.log( `SNI callback for domain: ${ servername }` );
-
-						// Look up the site by host
 						const site = await getSiteByHost( servername );
 						if ( ! site || ! site.customDomain ) {
 							console.error( `SNI: Invalid hostname: ${ servername }` );
@@ -189,10 +171,6 @@ export async function startProxyServer(): Promise< boolean > {
 							return;
 						}
 
-						console.log( `SNI: Found site: ${ site.name }, enableSSL: ${ site.enableSSL }` );
-
-						// Use the certificates that were generated at server start time
-						// If they don't exist, this will fail
 						if ( ! site.tlsKey || ! site.tlsCert ) {
 							console.error(
 								`Site ${ site.id } (${ site.customDomain }) does not have certificates generated at server start`
@@ -201,7 +179,6 @@ export async function startProxyServer(): Promise< boolean > {
 							return;
 						}
 
-						// Create a secure context
 						const ctx = require( 'tls' ).createSecureContext( {
 							key: site.tlsKey,
 							cert: site.tlsCert,
@@ -220,7 +197,6 @@ export async function startProxyServer(): Promise< boolean > {
 				handleProxyRequest( req, res, true )
 			);
 
-			// Start HTTPS server
 			await new Promise< void >( ( resolve, reject ) => {
 				httpsProxyServer!
 					.listen( 443, () => {
@@ -298,7 +274,6 @@ export function stopProxyServer(): Promise< void > {
 			isHttpsProxyRunning = false;
 		}
 
-		// Resolve when all servers are stopped
 		Promise.all( promises ).then( () => resolve() );
 	} );
 }

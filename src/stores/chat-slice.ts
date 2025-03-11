@@ -4,6 +4,7 @@ import WPCOM from 'wpcom';
 import { z } from 'zod';
 import { LOCAL_STORAGE_CHAT_API_IDS_KEY, LOCAL_STORAGE_CHAT_MESSAGES_KEY } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { getSiteUrl } from 'src/lib/get-site-url';
 import { RootState } from 'src/stores';
 import { DEFAULT_PHP_VERSION } from 'vendor/wp-now/src/constants';
 
@@ -348,9 +349,7 @@ const chatSlice = createSlice( {
 			.addCase( updateFromSite.pending, ( state, action ) => {
 				const { site } = action.meta.arg;
 
-				state.currentURL = site.customDomain
-					? `http://${ site.customDomain }`
-					: `http://localhost:${ site.port }`;
+				state.currentURL = getSiteUrl( site );
 				state.phpVersion = site.phpVersion ?? DEFAULT_PHP_VERSION;
 				state.siteName = site.name;
 			} )

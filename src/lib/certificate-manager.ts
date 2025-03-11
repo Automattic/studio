@@ -16,8 +16,8 @@ const CA_CERT_PATH = path.join( CERT_DIRECTORY, 'studio-ca.crt' );
 const CA_KEY_PATH = path.join( CERT_DIRECTORY, 'studio-ca.key' );
 
 // Make sure the certificates directory exists
-if ( ! fs.existsSync( CERT_DIRECTORY ) ) {
-	fs.mkdirSync( CERT_DIRECTORY, { recursive: true } );
+if ( ! fs.existsSync( path.join( CERT_DIRECTORY, 'domains' ) ) ) {
+	fs.mkdirSync( path.join( CERT_DIRECTORY, 'domains' ), { recursive: true } );
 }
 
 /**
@@ -286,8 +286,9 @@ export async function generateSiteCertificate(
 	domain: string
 ): Promise< { cert: string; key: string } > {
 	try {
-		const siteCertPath = path.join( CERT_DIRECTORY, `${ domain }.crt` );
-		const siteKeyPath = path.join( CERT_DIRECTORY, `${ domain }.key` );
+		console.log( path.join( CERT_DIRECTORY, 'domains', `${ domain }.crt` ) );
+		const siteCertPath = path.join( CERT_DIRECTORY, 'domains', `${ domain }.crt` );
+		const siteKeyPath = path.join( CERT_DIRECTORY, 'domains', `${ domain }.key` );
 
 		// Check if site cert and key already exist
 		if ( fs.existsSync( siteCertPath ) && fs.existsSync( siteKeyPath ) ) {

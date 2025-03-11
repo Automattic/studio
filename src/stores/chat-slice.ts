@@ -348,7 +348,9 @@ const chatSlice = createSlice( {
 			.addCase( updateFromSite.pending, ( state, action ) => {
 				const { site } = action.meta.arg;
 
-				state.currentURL = `http://localhost:${ site.port }`;
+				state.currentURL = site.customDomain
+					? `http://${ site.customDomain }`
+					: `http://localhost:${ site.port }`;
 				state.phpVersion = site.phpVersion ?? DEFAULT_PHP_VERSION;
 				state.siteName = site.name;
 			} )

@@ -140,9 +140,13 @@ export async function showCertificateTrustDialog(): Promise< void > {
 	if ( response === 0 ) {
 		// Open certificate file
 		shellOpenExternalWrapper( `file://${ CA_CERT_PATH }` );
+		// Re-show the dialog after opening the file
+		await showCertificateTrustDialog();
 	} else if ( response === 1 ) {
 		// Try automatic installation
 		await trustRootCA( true );
+		// Re-show the dialog after attempting installation
+		await showCertificateTrustDialog();
 	}
 }
 

@@ -30,7 +30,8 @@
 		"test": "cross-env NODE_OPTIONS='--no-deprecation' jest",
 		"test:watch": "cross-env NODE_OPTIONS='--no-deprecation' jest --watch",
 		"e2e": "npx playwright install && npx playwright test",
-		"make-pot": "wp-babel-makepot \"./src/**/*.{js,jsx,ts,tsx}\" --ignore \"**/*.d.ts\" --base \"./src\" --dir \"./out/pots\" --output \"./out/pots/bundle-strings.pot\""
+		"make-pot": "wp-babel-makepot \"./src/**/*.{js,jsx,ts,tsx}\" --ignore \"**/*.d.ts\" --base \"./src\" --dir \"./out/pots\" --output \"./out/pots/bundle-strings.pot\"",
+		"build:cli": "webpack --config webpack.cli.config.ts"
 	},
 	"devDependencies": {
 		"@automattic/color-studio": "^2.5.0",
@@ -101,6 +102,7 @@
 		"ts-node": "^10.0.0",
 		"typescript": "~5.3.2",
 		"web-streams-polyfill": "^4.0.0",
+		"webpack-cli": "^6.0.1",
 		"webpack-dev-middleware": "5.3.4"
 	},
 	"dependencies": {
@@ -121,6 +123,7 @@
 		"@wp-playground/wordpress": "https://wpcomplaygroundpackages.wpcomstaging.com/packages/v1.0.27/@wp-playground-wordpress-1.0.27.tar.gz",
 		"archiver": "^6.0.1",
 		"atomically": "^2.0.3",
+		"commander": "^13.1.0",
 		"compressible": "2.0.18",
 		"compression": "1.7.4",
 		"cross-port-killer": "^1.4.0",
@@ -133,6 +136,7 @@
 		"fs-extra": "11.1.1",
 		"hpagent": "1.2.0",
 		"http-proxy": "^1.18.1",
+		"lockfile": "^1.0.4",
 		"node-fetch": "^2.7.0",
 		"react-markdown": "^9.0.1",
 		"react-redux": "^9.2.0",

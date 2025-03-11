@@ -17,6 +17,7 @@ import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { __, LocaleData, defaultI18n } from '@wordpress/i18n';
 import archiver from 'archiver';
+import { PreviewCommand } from 'src/commands/preview';
 import { ARCHIVER_OPTIONS, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
@@ -1195,4 +1196,36 @@ export async function checkSyncBackupSize(
 export async function isFullscreen( _event: IpcMainInvokeEvent ): Promise< boolean > {
 	const window = await getMainWindow();
 	return window.isFullScreen();
+}
+
+export async function createPreviewSite(
+	event: IpcMainInvokeEvent,
+	site: SiteDetails
+): Promise< void > {
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+	const previewCommand = new PreviewCommand( site.path );
+
+	previewCommand.on( 'error', ( error: string | null ) => {
+		if ( error ) {
+			sendIpcEventToRendererWithWindow( parentWindow, 'preview-error', {
+				siteId: site.id,
+				error,
+			} );
+		}
+	} );
+
+	previewCommand.on( 'output', ( output: string ) => {
+		sendIpcEventToRendererWithWindow( parentWindow, 'preview-output', {
+			siteId: site.id,
+			output,
+		} );
+	} );
+
+	previewCommand.on( 'success', () => {
+		sendIpcEventToRendererWithWindow( parentWindow, 'preview-success', {
+			siteId: site.id,
+		} );
+	} );
+
+	previewCommand.run();
 }

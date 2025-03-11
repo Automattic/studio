@@ -54,10 +54,7 @@ import { SiteServer, createSiteWorkingDirectory } from 'src/site-server';
 import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from 'src/storage/paths';
 import { loadUserData, saveUserData } from 'src/storage/user-data';
 import { DEFAULT_PHP_VERSION } from 'vendor/wp-now/src/constants';
-import {
-	getHttpsServerOptionsForSite,
-	showCertificateTrustDialog,
-} from './lib/certificate-manager';
+import { generateSiteCertificate, showCertificateTrustDialog } from './lib/certificate-manager';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
 
@@ -428,11 +425,12 @@ export async function startServer(
 			console.log(
 				`Generating certificates for ${ server.details.customDomain } during server start`
 			);
-			const httpsOptions = await getHttpsServerOptionsForSite( server.details );
+
+			const { cert, key } = await generateSiteCertificate( server.details.customDomain );
 			server.details = {
 				...server.details,
-				tlsKey: httpsOptions.key,
-				tlsCert: httpsOptions.cert,
+				tlsKey: key,
+				tlsCert: cert,
 			};
 		}
 	}

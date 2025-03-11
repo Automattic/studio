@@ -373,28 +373,3 @@ export async function generateSiteCertificate(
 		throw error;
 	}
 }
-
-/**
- * Create an HTTPS server options object for the given site
- */
-export async function getHttpsServerOptionsForSite(
-	site: SiteDetails
-): Promise< { cert: string; key: string } > {
-	if ( ! site.customDomain ) {
-		throw new Error( 'Cannot create HTTPS server options for site without custom domain' );
-	}
-
-	// Log the site details to help debug HTTPS issues
-	console.log(
-		`Generating certificate for domain: ${ site.customDomain }, SSL enabled: ${
-			site.enableSSL ? 'Yes' : 'No'
-		}`
-	);
-
-	const { cert, key } = await generateSiteCertificate( site.customDomain );
-
-	return {
-		cert,
-		key,
-	};
-}

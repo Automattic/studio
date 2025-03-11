@@ -213,7 +213,7 @@ const SyncConnectedSitesSection = ( {
 							key={ connectedSite.id }
 							className="flex items-center gap-2 min-h-14 border-b border-a8c-gray-0 px-8"
 						>
-							<div className="flex items-left min-w-20 me-6 shrink-0">
+							<div className="flex items-left min-w-[100px] me-4 shrink-0">
 								{ connectedSite.isStaging ? (
 									<Badge>{ __( 'Staging' ) }</Badge>
 								) : (
@@ -222,7 +222,7 @@ const SyncConnectedSitesSection = ( {
 							</div>
 							<Button
 								variant="link"
-								className="!text-a8c-gray-70 hover:!text-a8c-blueberry max-w-[100%]"
+								className="!text-a8c-gray-70 hover:!text-a8c-blueberry max-w-full overflow-hidden"
 								onClick={ () => {
 									getIpcApi().openURL( connectedSite.url );
 								} }

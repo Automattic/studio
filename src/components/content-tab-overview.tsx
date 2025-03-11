@@ -198,7 +198,7 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) {
 	const [ isThumbnailError, setIsThumbnailError ] = useState( false );
 	const { __ } = useI18n();
-	const { startServer } = useSiteDetails();
+	const { startServer, loadingServer } = useSiteDetails();
 	const {
 		selectedThemeDetails: themeDetails,
 		selectedThumbnail: thumbnailData,
@@ -208,6 +208,16 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 	} = useThemeDetails();
 
 	const loading = loadingThemeDetails || loadingThumbnails || initialLoading;
+	const isServerLoading = loadingServer[ selectedSite.id ];
+
+	const handleThumbnailClick = async () => {
+		if ( isServerLoading ) return;
+
+		if ( ! selectedSite.running ) {
+			await startServer( selectedSite.id );
+		}
+		getIpcApi().openSiteURL( selectedSite.id, '', { autoLogin: false } );
+	};
 
 	const thumbnailImage = (
 		<img
@@ -239,13 +249,12 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 					{ ! loading && (
 						<button
 							aria-label={ __( 'Open site' ) }
-							className={ 'relative group focus-visible:outline-a8c-blueberry' }
-							onClick={ async () => {
-								if ( ! selectedSite.running ) {
-									await startServer( selectedSite.id );
-								}
-								getIpcApi().openSiteURL( selectedSite.id, '', { autoLogin: false } );
-							} }
+							className={ cx(
+								'relative group focus-visible:outline-a8c-blueberry',
+								isServerLoading && 'cursor-not-allowed'
+							) }
+							onClick={ handleThumbnailClick }
+							disabled={ isServerLoading }
 						>
 							<div
 								className={

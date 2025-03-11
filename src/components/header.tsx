@@ -8,6 +8,26 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 export default function Header() {
 	const { __ } = useI18n();
 	const { selectedSite: site, startServer, stopServer, loadingServer } = useSiteDetails();
+	const isLoading = site?.id ? loadingServer[ site.id ] : false;
+
+	const handleWpAdminClick = async () => {
+		if ( ! site || isLoading ) return;
+
+		if ( ! site.running ) {
+			await startServer( site.id );
+		}
+		getIpcApi().openSiteURL( site.id, '/wp-admin' );
+	};
+
+	const handleOpenSiteClick = async () => {
+		if ( ! site || isLoading ) return;
+
+		if ( ! site.running ) {
+			await startServer( site.id );
+		}
+		getIpcApi().openSiteURL( site.id, '', { autoLogin: false } );
+	};
+
 	return (
 		<div
 			data-testid="site-content-header"
@@ -21,26 +41,18 @@ export default function Header() {
 					<div className="flex mt-1 gap-x-4">
 						<Button
 							className="[&.is-link]:text-a8c-gray-70 [&.is-link]:hover:text-a8c-blueberry !px-0 h-0 leading-4"
-							onClick={ async () => {
-								if ( ! site.running ) {
-									await startServer( site.id );
-								}
-								getIpcApi().openSiteURL( site.id, '/wp-admin' );
-							} }
+							onClick={ handleWpAdminClick }
 							variant="link"
+							disabled={ isLoading }
 						>
 							{ __( 'WP admin' ) }
 							<ArrowIcon />
 						</Button>
 						<Button
 							className="[&.is-link]:text-a8c-gray-70 [&.is-link]:hover:text-a8c-blueberry !px-0 h-0 leading-4"
-							onClick={ async () => {
-								if ( ! site.running ) {
-									await startServer( site.id );
-								}
-								getIpcApi().openSiteURL( site.id, '', { autoLogin: false } );
-							} }
+							onClick={ handleOpenSiteClick }
 							variant="link"
+							disabled={ isLoading }
 						>
 							{
 								// translators: "Open site" refers to the action, like "to open site"
@@ -53,7 +65,7 @@ export default function Header() {
 			) }
 			<SiteManagementActions
 				onStart={ startServer }
-				loading={ site?.id ? loadingServer[ site.id ] : false }
+				loading={ isLoading }
 				onStop={ stopServer }
 				selectedSite={ site }
 			/>

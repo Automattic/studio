@@ -142,7 +142,7 @@ function toDiskFormat( { sites, ...rest }: UserData ): PersistedUserData {
 					port,
 					phpVersion,
 					customDomain,
-					enableSSL: enableSSL,
+					enableSSL,
 					themeDetails: {
 						name: themeDetails?.name || '',
 						path: themeDetails?.path || '',

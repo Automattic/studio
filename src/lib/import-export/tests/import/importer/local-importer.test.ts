@@ -23,6 +23,7 @@ platformTestSuite( 'LocalImporter', ( { normalize } ) => {
 			themes: [
 				normalize( '/tmp/extracted/app/public/wp-content/themes/twentytwentyone/style.css' ),
 			],
+			fonts: [ normalize( '/tmp/extracted/app/public/wp-content/fonts/open-sans.woff2' ) ],
 		},
 		wpContentDirectory: normalize( 'app/public/wp-content' ),
 		metaFile: normalize( '/tmp/extracted/local-site.json' ),
@@ -76,7 +77,7 @@ platformTestSuite( 'LocalImporter', ( { normalize } ) => {
 			expect( result?.meta?.phpVersion ).toBe( '8.2' );
 
 			expect( fs.mkdir ).toHaveBeenCalled();
-			expect( fs.copyFile ).toHaveBeenCalledTimes( 4 ); // One for each wp-content file + wp-config
+			expect( fs.copyFile ).toHaveBeenCalledTimes( 5 ); // One for each wp-content file (including fonts) + wp-config
 			expect( fs.readFile ).toHaveBeenCalledWith(
 				normalize( '/tmp/extracted/local-site.json' ),
 				'utf-8'
@@ -93,7 +94,7 @@ platformTestSuite( 'LocalImporter', ( { normalize } ) => {
 			expect( result?.meta?.phpVersion ).toBe( undefined );
 
 			expect( fs.mkdir ).toHaveBeenCalled();
-			expect( fs.copyFile ).toHaveBeenCalledTimes( 4 );
+			expect( fs.copyFile ).toHaveBeenCalledTimes( 5 );
 			expect( fs.readFile ).not.toHaveBeenCalled();
 		} );
 
@@ -108,11 +109,44 @@ platformTestSuite( 'LocalImporter', ( { normalize } ) => {
 			).resolves.not.toThrow();
 
 			expect( fs.mkdir ).toHaveBeenCalled();
-			expect( fs.copyFile ).toHaveBeenCalledTimes( 4 );
+			expect( fs.copyFile ).toHaveBeenCalledTimes( 5 );
 			expect( fs.readFile ).toHaveBeenCalledWith(
 				normalize( '/tmp/extracted/local-site.json' ),
 				'utf-8'
 			);
+		} );
+
+		it( 'should properly import fonts directory', async () => {
+			const importer = new LocalImporter( mockBackupContents );
+			( fs.mkdir as jest.Mock ).mockResolvedValue( undefined );
+			( fs.copyFile as jest.Mock ).mockResolvedValue( undefined );
+
+			await importer.import( mockStudioSitePath, mockStudioSiteId );
+
+			// Verify font file was copied
+			expect( fs.copyFile ).toHaveBeenCalledWith(
+				normalize( '/tmp/extracted/app/public/wp-content/fonts/open-sans.woff2' ),
+				normalize( '/path/to/studio/site/wp-content/fonts/open-sans.woff2' )
+			);
+		} );
+
+		it( 'should handle missing fonts directory gracefully', async () => {
+			const backupWithoutFonts = {
+				...mockBackupContents,
+				wpContent: {
+					...mockBackupContents.wpContent,
+					fonts: [],
+				},
+			};
+			const importer = new LocalImporter( backupWithoutFonts );
+			( fs.mkdir as jest.Mock ).mockResolvedValue( undefined );
+			( fs.copyFile as jest.Mock ).mockResolvedValue( undefined );
+
+			await importer.import( mockStudioSitePath, mockStudioSiteId );
+
+			// Should still create other directories and copy other files
+			expect( fs.mkdir ).toHaveBeenCalled();
+			expect( fs.copyFile ).toHaveBeenCalledTimes( 4 ); // One less than with fonts
 		} );
 	} );
 } );

@@ -18,6 +18,7 @@ platformTestSuite( 'PlaygroundImporter', ( { normalize } ) => {
 			uploads: [ normalize( '/tmp/extracted/wp-content/uploads/2023/image.jpg' ) ],
 			plugins: [ normalize( '/tmp/extracted/wp-content/plugins/jetpack/jetpack.php' ) ],
 			themes: [ normalize( '/tmp/extracted/wp-content/themes/twentytwentyone/style.css' ) ],
+			fonts: [ normalize( '/tmp/extracted/wp-content/fonts/open-sans.woff2' ) ],
 		},
 		wpContentDirectory: normalize( 'wp-content' ),
 	};
@@ -65,7 +66,7 @@ platformTestSuite( 'PlaygroundImporter', ( { normalize } ) => {
 			await importer.import( mockStudioSitePath, mockStudioSiteId );
 
 			expect( fs.mkdir ).toHaveBeenCalled();
-			expect( fs.copyFile ).toHaveBeenCalledTimes( 4 ); // One for each wp-content file + wp-config
+			expect( fs.copyFile ).toHaveBeenCalledTimes( 5 ); // One for each wp-content file (including fonts) + wp-config
 		} );
 
 		it( 'should handle sqlite,copies them in the correct folder, and rename the urls', async () => {
@@ -85,6 +86,39 @@ platformTestSuite( 'PlaygroundImporter', ( { normalize } ) => {
 				normalize( '/path/to/studio/site/wp-content/database/.ht.sqlite' ),
 				{ overwrite: true }
 			);
+		} );
+
+		it( 'should properly import fonts directory', async () => {
+			const importer = new PlaygroundImporter( mockBackupContents );
+			( fs.mkdir as jest.Mock ).mockResolvedValue( undefined );
+			( fs.copyFile as jest.Mock ).mockResolvedValue( undefined );
+
+			await importer.import( mockStudioSitePath, mockStudioSiteId );
+
+			// Verify font file was copied
+			expect( fs.copyFile ).toHaveBeenCalledWith(
+				normalize( '/tmp/extracted/wp-content/fonts/open-sans.woff2' ),
+				normalize( '/path/to/studio/site/wp-content/fonts/open-sans.woff2' )
+			);
+		} );
+
+		it( 'should handle missing fonts directory gracefully', async () => {
+			const backupWithoutFonts = {
+				...mockBackupContents,
+				wpContent: {
+					...mockBackupContents.wpContent,
+					fonts: [],
+				},
+			};
+			const importer = new PlaygroundImporter( backupWithoutFonts );
+			( fs.mkdir as jest.Mock ).mockResolvedValue( undefined );
+			( fs.copyFile as jest.Mock ).mockResolvedValue( undefined );
+
+			await importer.import( mockStudioSitePath, mockStudioSiteId );
+
+			// Should still create other directories and copy other files
+			expect( fs.mkdir ).toHaveBeenCalled();
+			expect( fs.copyFile ).toHaveBeenCalledTimes( 4 ); // One less than with fonts
 		} );
 	} );
 } );

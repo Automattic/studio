@@ -15,7 +15,9 @@ export const updateSiteUrlToLocal = async ( siteId: string ) => {
 		return;
 	}
 
-	const studioUrl = `http://localhost:${ server.details.port }`;
+	const studioUrl = server.details.customDomain
+		? `http://${ server.details.customDomain }`
+		: `http://localhost:${ server.details.port }`;
 	const oldUrl = currentSiteUrl.trim();
 	const urlWithoutProtocol = oldUrl.replace( /^https?:\/\//, '' );
 

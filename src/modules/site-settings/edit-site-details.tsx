@@ -232,9 +232,9 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 					resetFormState();
 				} }
 				label={ __( 'Edit site' ) }
-				variant="link"
+				variant="secondary"
 			>
-				{ __( 'Edit' ) }
+				{ __( 'Edit site' ) }
 			</Button>
 		</>
 	);

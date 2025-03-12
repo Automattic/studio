@@ -66,7 +66,7 @@ platformTestSuite( 'PlaygroundImporter', ( { normalize } ) => {
 			await importer.import( mockStudioSitePath, mockStudioSiteId );
 
 			expect( fs.mkdir ).toHaveBeenCalled();
-			expect( fs.copyFile ).toHaveBeenCalledTimes( 5 ); // One for each wp-content file (including fonts) + wp-config
+			expect( fs.copyFile ).toHaveBeenCalledTimes( 5 ); // One for each wp-content file + wp-config.php
 		} );
 
 		it( 'should handle sqlite,copies them in the correct folder, and rename the urls', async () => {
@@ -118,7 +118,7 @@ platformTestSuite( 'PlaygroundImporter', ( { normalize } ) => {
 
 			// Should still create other directories and copy other files
 			expect( fs.mkdir ).toHaveBeenCalled();
-			expect( fs.copyFile ).toHaveBeenCalledTimes( 4 ); // One less than with fonts
+			expect( fs.copyFile ).toHaveBeenCalledTimes( 4 ); // One for each wp-content file + wp-config.php - fonts
 		} );
 	} );
 } );

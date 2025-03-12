@@ -16,7 +16,7 @@ platformTestSuite( 'JetpackImporter', ( { normalize } ) => {
 			normalize( '/tmp/extracted/sql/wp_options.sql' ),
 			normalize( '/tmp/extracted/sql/wp_posts.sql' ),
 		],
-		wpConfig: normalize( '/tmp/extraced/wp-config.php' ),
+		wpConfig: normalize( '/tmp/extracted/wp-config.php' ),
 		wpContent: {
 			uploads: [ normalize( '/tmp/extracted/wp-content/uploads/2023/image.jpg' ) ],
 			plugins: [ normalize( '/tmp/extracted/wp-content/plugins/jetpack/jetpack.php' ) ],
@@ -70,7 +70,7 @@ platformTestSuite( 'JetpackImporter', ( { normalize } ) => {
 			await importer.import( mockStudioSitePath, mockStudioSiteId );
 
 			expect( fs.mkdir ).toHaveBeenCalled();
-			expect( fs.copyFile ).toHaveBeenCalledTimes( 5 ); // One for each wp-content file + wp-config
+			expect( fs.copyFile ).toHaveBeenCalledTimes( 5 ); // One for each wp-content file + wp-config.php
 			expect( fs.readFile ).toHaveBeenCalledWith(
 				normalize( '/tmp/extracted/meta.json' ),
 				'utf-8'
@@ -115,7 +115,7 @@ platformTestSuite( 'JetpackImporter', ( { normalize } ) => {
 			await importer.import( mockStudioSitePath, mockStudioSiteId );
 
 			expect( fs.mkdir ).toHaveBeenCalled();
-			expect( fs.copyFile ).toHaveBeenCalledTimes( 5 );
+			expect( fs.copyFile ).toHaveBeenCalledTimes( 5 ); // One for each wp-content file + wp-config.php
 			expect( fs.readFile ).not.toHaveBeenCalled();
 		} );
 
@@ -130,7 +130,7 @@ platformTestSuite( 'JetpackImporter', ( { normalize } ) => {
 			).resolves.not.toThrow();
 
 			expect( fs.mkdir ).toHaveBeenCalled();
-			expect( fs.copyFile ).toHaveBeenCalledTimes( 5 );
+			expect( fs.copyFile ).toHaveBeenCalledTimes( 5 ); // One for each wp-content file + wp-config.php
 			expect( fs.readFile ).toHaveBeenCalledWith(
 				normalize( '/tmp/extracted/meta.json' ),
 				'utf-8'
@@ -167,7 +167,7 @@ platformTestSuite( 'JetpackImporter', ( { normalize } ) => {
 
 			// Should still create other directories and copy other files
 			expect( fs.mkdir ).toHaveBeenCalled();
-			expect( fs.copyFile ).toHaveBeenCalledTimes( 4 ); // One less than with fonts
+			expect( fs.copyFile ).toHaveBeenCalledTimes( 4 ); // One for each wp-content file + wp-config.php - fonts
 		} );
 	} );
 } );

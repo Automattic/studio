@@ -77,7 +77,7 @@ platformTestSuite( 'LocalImporter', ( { normalize } ) => {
 			expect( result?.meta?.phpVersion ).toBe( '8.2' );
 
 			expect( fs.mkdir ).toHaveBeenCalled();
-			expect( fs.copyFile ).toHaveBeenCalledTimes( 5 ); // One for each wp-content file (including fonts) + wp-config
+			expect( fs.copyFile ).toHaveBeenCalledTimes( 5 ); // One for each wp-content file + wp-config.php
 			expect( fs.readFile ).toHaveBeenCalledWith(
 				normalize( '/tmp/extracted/local-site.json' ),
 				'utf-8'
@@ -94,7 +94,7 @@ platformTestSuite( 'LocalImporter', ( { normalize } ) => {
 			expect( result?.meta?.phpVersion ).toBe( undefined );
 
 			expect( fs.mkdir ).toHaveBeenCalled();
-			expect( fs.copyFile ).toHaveBeenCalledTimes( 5 );
+			expect( fs.copyFile ).toHaveBeenCalledTimes( 5 ); // One for each wp-content file + wp-config.php
 			expect( fs.readFile ).not.toHaveBeenCalled();
 		} );
 
@@ -109,7 +109,7 @@ platformTestSuite( 'LocalImporter', ( { normalize } ) => {
 			).resolves.not.toThrow();
 
 			expect( fs.mkdir ).toHaveBeenCalled();
-			expect( fs.copyFile ).toHaveBeenCalledTimes( 5 );
+			expect( fs.copyFile ).toHaveBeenCalledTimes( 5 ); // One for each wp-content file + wp-config.php
 			expect( fs.readFile ).toHaveBeenCalledWith(
 				normalize( '/tmp/extracted/local-site.json' ),
 				'utf-8'
@@ -146,7 +146,7 @@ platformTestSuite( 'LocalImporter', ( { normalize } ) => {
 
 			// Should still create other directories and copy other files
 			expect( fs.mkdir ).toHaveBeenCalled();
-			expect( fs.copyFile ).toHaveBeenCalledTimes( 4 ); // One less than with fonts
+			expect( fs.copyFile ).toHaveBeenCalledTimes( 4 ); // One for each wp-content file + wp-config.php - fonts
 		} );
 	} );
 } );

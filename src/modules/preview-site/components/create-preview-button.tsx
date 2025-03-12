@@ -42,8 +42,6 @@ export function CreatePreviewButton( { onClick, selectedSite }: CreatePreviewBut
 	const coercedLatestWpVersion = semver.coerce( latestWpVersion );
 	const isWpVersionBelowDefault =
 		latestWpVersion &&
-		wpVersion !== '-' &&
-		wpVersion !== 'latest' &&
 		coercedWpVersion &&
 		coercedLatestWpVersion &&
 		semver.compare( coercedWpVersion, coercedLatestWpVersion ) < 0;

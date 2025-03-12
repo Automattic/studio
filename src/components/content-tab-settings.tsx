@@ -1,3 +1,5 @@
+import { DropdownMenu, MenuGroup, MenuItem } from '@wordpress/components';
+import { moreVertical } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren } from 'react';
 import { CopyTextButton } from 'src/components/copy-text-button';
@@ -35,7 +37,31 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 		<div className="p-8">
 			<div className="flex justify-between items-center mb-4">
 				<h3 className="text-black text-sm font-semibold">{ __( 'Site details' ) }</h3>
-				<EditSiteDetails currentWpVersion={ wpVersion } onSave={ refreshWpVersion } />
+				<div className="flex items-center">
+					<EditSiteDetails currentWpVersion={ wpVersion } onSave={ refreshWpVersion } />
+					<DropdownMenu
+						icon={ moreVertical }
+						label={ __( 'More options' ) }
+						className="p-1 flex items-center"
+					>
+						{ ( { onClose }: { onClose: () => void } ) => (
+							<MenuGroup>
+								<MenuItem
+									onClick={ () => {
+										onClose();
+										const deleteButton = document.querySelector( '[data-wp-c16t="true"]' );
+										if ( deleteButton instanceof HTMLElement ) {
+											deleteButton.click();
+										}
+									} }
+									isDestructive
+								>
+									{ __( 'Delete site' ) }
+								</MenuItem>
+							</MenuGroup>
+						) }
+					</DropdownMenu>
+				</div>
 			</div>
 			<table className="mb-2 m-w-full" cellPadding={ 0 } cellSpacing={ 0 }>
 				<tbody>

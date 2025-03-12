@@ -48,6 +48,7 @@ const config: ForgeConfig = {
 
 				certificateFile: 'certificate.pfx',
 				certificatePassword: process.env.WINDOWS_CODE_SIGNING_CERT_PASSWORD,
+				noMsi: false,
 			},
 			[ 'win32' ]
 		),

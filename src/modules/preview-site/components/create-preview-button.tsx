@@ -1,14 +1,19 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
+import semver from 'semver';
 import Button from 'src/components/button';
 import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
 import { DEMO_SITE_SIZE_LIMIT_GB } from 'src/constants';
 import { useArchiveErrorMessages } from 'src/hooks/use-archive-error-messages';
 import { useArchiveSite } from 'src/hooks/use-archive-site';
+import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSiteSize } from 'src/hooks/use-site-size';
 import { useSnapshots } from 'src/hooks/use-snapshots';
+import { useRootSelector } from 'src/stores';
+import { wordpressVersionsSelectors } from 'src/stores/wordpress-versions-slice';
+import { DEFAULT_PHP_VERSION } from 'vendor/wp-now/src/constants';
 
 interface CreatePreviewButtonProps {
 	onClick: () => void;
@@ -24,9 +29,24 @@ export function CreatePreviewButton( { onClick, selectedSite }: CreatePreviewBut
 	const { isOverLimit } = useSiteSize( selectedSite.id );
 	const isOffline = useOffline();
 	const errorMessages = useArchiveErrorMessages();
+	const [ wpVersion ] = useGetWpVersion( selectedSite );
+	const wpVersions = useRootSelector( wordpressVersionsSelectors.selectWordPressVersions );
 
 	const isCurrentSiteArchiving = archivingSiteId === selectedSite.id;
 	const isOtherSiteArchiving = isAnySiteArchiving && ! isCurrentSiteArchiving;
+
+	// Jurrasic Ninja will use the default version for PHP and latest or above for WordPress.
+	const latestWpVersion = wpVersions.find( ( version ) => version.isBeta === false )?.value;
+	const isPhpVersionDefault = selectedSite.phpVersion === DEFAULT_PHP_VERSION;
+	const coercedWpVersion = semver.coerce( wpVersion );
+	const coercedLatestWpVersion = semver.coerce( latestWpVersion );
+	const isWpVersionBelowDefault =
+		latestWpVersion &&
+		wpVersion !== '-' &&
+		wpVersion !== 'latest' &&
+		coercedWpVersion &&
+		coercedLatestWpVersion &&
+		semver.compare( coercedWpVersion, coercedLatestWpVersion ) < 0;
 
 	const isDisabled =
 		isAnySiteArchiving ||
@@ -58,6 +78,23 @@ export function CreatePreviewButton( { onClick, selectedSite }: CreatePreviewBut
 		DEMO_SITE_SIZE_LIMIT_GB
 	);
 
+	const versionMismatchMessages = [];
+	if ( ! isPhpVersionDefault || isWpVersionBelowDefault ) {
+		const versionChanges = [];
+		if ( ! isPhpVersionDefault ) {
+			versionChanges.push( sprintf( __( 'PHP %s' ), DEFAULT_PHP_VERSION ) );
+		}
+		if ( isWpVersionBelowDefault ) {
+			versionChanges.push( sprintf( __( 'WordPress %s' ), coercedLatestWpVersion ) );
+		}
+		versionMismatchMessages.push(
+			sprintf(
+				__( 'Your site is using an unsupported version. The preview site will use %s.' ),
+				versionChanges.join( __( ' and ' ) )
+			)
+		);
+	}
+
 	let tooltipContent;
 	if ( isOffline ) {
 		tooltipContent = {
@@ -74,6 +111,8 @@ export function CreatePreviewButton( { onClick, selectedSite }: CreatePreviewBut
 		tooltipContent = { text: errorMessages.rest_site_creation_blocked };
 	} else if ( isOverLimit ) {
 		tooltipContent = { text: overLimitMessage };
+	} else if ( versionMismatchMessages.length > 0 ) {
+		tooltipContent = { text: versionMismatchMessages.join( '' ) };
 	}
 
 	return (

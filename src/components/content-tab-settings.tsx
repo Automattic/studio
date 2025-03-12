@@ -36,7 +36,9 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 	return (
 		<div className="p-8">
 			<div className="flex justify-between items-center mb-4">
-				<h3 className="text-black text-sm font-semibold">{ __( 'Site details' ) }</h3>
+				<h3 role="heading" className="text-black text-sm font-semibold">
+					{ __( 'Site details' ) }
+				</h3>
 				<div className="flex items-center">
 					<EditSiteDetails currentWpVersion={ wpVersion } onSave={ refreshWpVersion } />
 					<DropdownMenu

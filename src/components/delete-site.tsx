@@ -18,7 +18,7 @@ type DeleteSiteProps = {
 const DeleteSite = ( { onClose }: DeleteSiteProps ) => {
 	const { __ } = useI18n();
 	const { selectedSite, deleteSite, isDeleting } = useSiteDetails();
-	const isOffline = true; // useOffline();
+	const isOffline = useOffline();
 
 	const offlineMessage = __(
 		'This site has active preview sites that cannot be deleted without an internet connection.'

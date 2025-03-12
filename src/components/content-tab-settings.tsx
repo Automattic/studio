@@ -1,4 +1,4 @@
-import { DropdownMenu, MenuGroup, MenuItem } from '@wordpress/components';
+import { DropdownMenu, MenuGroup } from '@wordpress/components';
 import { moreVertical } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren } from 'react';
@@ -46,18 +46,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 					>
 						{ ( { onClose }: { onClose: () => void } ) => (
 							<MenuGroup>
-								<MenuItem
-									onClick={ () => {
-										onClose();
-										const deleteButton = document.querySelector( '[data-wp-c16t="true"]' );
-										if ( deleteButton instanceof HTMLElement ) {
-											deleteButton.click();
-										}
-									} }
-									isDestructive
-								>
-									{ __( 'Delete site' ) }
-								</MenuItem>
+								<DeleteSite onClose={ onClose } />
 							</MenuGroup>
 						) }
 					</DropdownMenu>
@@ -129,7 +118,6 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 					</SettingsRow>
 				</tbody>
 			</table>
-			<DeleteSite />
 		</div>
 	);
 }

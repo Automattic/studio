@@ -1,7 +1,7 @@
 import * as Sentry from '@sentry/electron/renderer';
+import { MenuItem } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
-import Button from 'src/components/button';
 import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
 import { useOffline } from 'src/hooks/use-offline';
@@ -11,10 +11,14 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 
 const MAX_LENGTH_SITE_TITLE = 35;
 
-const DeleteSite = () => {
+type DeleteSiteProps = {
+	onClose: () => void;
+};
+
+const DeleteSite = ( { onClose }: DeleteSiteProps ) => {
 	const { __ } = useI18n();
 	const { selectedSite, deleteSite, isDeleting } = useSiteDetails();
-	const isOffline = useOffline();
+	const isOffline = true; // useOffline();
 
 	const offlineMessage = __(
 		'This site has active preview sites that cannot be deleted without an internet connection.'
@@ -77,21 +81,21 @@ const DeleteSite = () => {
 			disabled={ ! ( isOffline && snapshotsOnSite.length > 0 ) }
 			icon={ offlineIcon }
 			text={ offlineMessage }
+			placement="top-start"
 		>
-			<Button
-				aria-description={ isOffline && snapshotsOnSite.length > 0 ? offlineMessage : '' }
-				aria-disabled={ isSiteDeletionDisabled }
+			<MenuItem
 				onClick={ () => {
 					if ( isSiteDeletionDisabled ) {
 						return;
 					}
+					onClose();
 					handleDeleteSite();
 				} }
-				variant="link"
 				isDestructive
+				disabled={ isSiteDeletionDisabled }
 			>
 				{ __( 'Delete site' ) }
-			</Button>
+			</MenuItem>
 		</Tooltip>
 	);
 };

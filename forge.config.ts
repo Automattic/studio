@@ -45,10 +45,11 @@ const config: ForgeConfig = {
 				iconUrl: 'https://s0.wp.com/i/studio-app/studio-app-icon.ico?v=3',
 
 				setupExe: 'studio-setup.exe',
+				noMsi: false,
+				setupMsi: 'studio-setup.msi',
 
 				certificateFile: 'certificate.pfx',
 				certificatePassword: process.env.WINDOWS_CODE_SIGNING_CERT_PASSWORD,
-				noMsi: false,
 			},
 			[ 'win32' ]
 		),

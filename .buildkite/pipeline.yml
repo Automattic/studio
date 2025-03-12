@@ -246,6 +246,7 @@ steps:
       node scripts/package-appx.mjs
     artifact_paths:
       - out\**\studio-setup.exe
+      - out\**\studio-setup.msi
       - out\**\studio-update.nupkg
       - out\**\RELEASES
       - out\**\*.appx

@@ -113,10 +113,10 @@ const wordpressVersionsSlice = createSlice( {
 		selectWordPressVersions: ( state ) => state.versions,
 		selectWordPressVersionsWithLatest: ( state ) => {
 			const latestNonBeta = state.versions.find( ( version ) => ! version.isBeta );
-			const otherVersions = state.versions.filter( ( version ) => version !== latestNonBeta );
 			if ( ! latestNonBeta ) {
-				return otherVersions;
+				return state.versions;
 			}
+			const otherVersions = state.versions.filter( ( version ) => version !== latestNonBeta );
 			return [
 				{
 					isBeta: false,

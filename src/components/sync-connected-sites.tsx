@@ -95,7 +95,7 @@ const SyncConnectedSiteControls = ( {
 			text={ __( 'Pulling or pushing a site requires an internet connection.' ) }
 			placement="top-start"
 		>
-			<div className="flex gap-2 whitespace-nowrap h-5">
+			<div className="flex gap-2 h-5">
 				{ isAnySiteSyncing ? (
 					<Tooltip
 						text={
@@ -203,7 +203,7 @@ const SyncConnectedSitesList = ( { selectedSite }: SyncConnectedSitesListProps )
 	const { isKeyPulling, isKeyPushing, isKeyFinished, isKeyFailed } = useSyncStatesProgressInfo();
 
 	return (
-		<div className="grid grid-cols-[min-content_1fr_min-content]">
+		<div className="grid grid-cols-[fit-content_1fr_fit-content]">
 			{ connectedSites.map( ( connectedSite ) => {
 				const sitePullState = getPullState( selectedSite.id, connectedSite.id );
 				const isPulling = sitePullState && isKeyPulling( sitePullState.status.key );
@@ -227,6 +227,7 @@ const SyncConnectedSitesList = ( { selectedSite }: SyncConnectedSitesListProps )
 								<Badge className="bg-a8c-green-5 text-a8c-green-80">{ __( 'Production' ) }</Badge>
 							) }
 						</div>
+
 						<Button
 							variant="link"
 							className="!text-a8c-gray-70 hover:!text-a8c-blueberry max-w-full overflow-hidden"
@@ -236,7 +237,8 @@ const SyncConnectedSitesList = ( { selectedSite }: SyncConnectedSitesListProps )
 						>
 							<span className="truncate">{ connectedSite.url }</span> <ArrowIcon />
 						</Button>
-						<div className="flex gap-2 ms-auto shrink-0">
+
+						<div className="flex shrink-0 justify-self-end">
 							{ isPulling && (
 								<div className="flex flex-col gap-2 min-w-44">
 									<div className="a8c-body-small">{ sitePullState.status.message }</div>

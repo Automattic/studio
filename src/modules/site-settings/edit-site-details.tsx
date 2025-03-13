@@ -226,15 +226,15 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 			) }
 			<Button
 				disabled={ ! selectedSite }
-				className="!mx-4 shrink-0"
+				className="shrink-0"
 				onClick={ () => {
 					setShowModal( true );
 					resetFormState();
 				} }
 				label={ __( 'Edit site' ) }
-				variant="link"
+				variant="secondary"
 			>
-				{ __( 'Edit' ) }
+				{ __( 'Edit site' ) }
 			</Button>
 		</>
 	);

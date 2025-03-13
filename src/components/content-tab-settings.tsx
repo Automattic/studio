@@ -1,3 +1,5 @@
+import { DropdownMenu, MenuGroup } from '@wordpress/components';
+import { moreVertical } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren } from 'react';
 import { CopyTextButton } from 'src/components/copy-text-button';
@@ -32,17 +34,28 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 		? `${ selectedSite.customDomain }`
 		: `localhost:${ selectedSite.port }`;
 	return (
-		<div className="p-8">
+		<div className="p-8 pr-0">
+			<div className="flex justify-between items-center mb-4">
+				<h3 role="heading" className="text-black text-sm font-semibold">
+					{ __( 'Site details' ) }
+				</h3>
+				<div className="flex items-center">
+					<EditSiteDetails currentWpVersion={ wpVersion } onSave={ refreshWpVersion } />
+					<DropdownMenu
+						icon={ moreVertical }
+						label={ __( 'More options' ) }
+						className="p-1 flex items-center"
+					>
+						{ ( { onClose }: { onClose: () => void } ) => (
+							<MenuGroup>
+								<DeleteSite onClose={ onClose } />
+							</MenuGroup>
+						) }
+					</DropdownMenu>
+				</div>
+			</div>
 			<table className="mb-2 m-w-full" cellPadding={ 0 } cellSpacing={ 0 }>
 				<tbody>
-					<tr>
-						<th colSpan={ 2 } className="pb-4 ltr:text-left rtl:text-right">
-							<h3 className="text-black text-sm font-semibold">
-								{ __( 'Site details' ) }
-								<EditSiteDetails currentWpVersion={ wpVersion } onSave={ refreshWpVersion } />
-							</h3>
-						</th>
-					</tr>
 					<SettingsRow label={ __( 'Site name' ) }>
 						<div className="flex">
 							<span className="line-clamp-1 break-all">{ selectedSite.name }</span>
@@ -107,7 +120,6 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 					</SettingsRow>
 				</tbody>
 			</table>
-			<DeleteSite />
 		</div>
 	);
 }

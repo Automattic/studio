@@ -65,7 +65,7 @@ describe( 'ContentTabSettings', () => {
 	test( 'renders site details correctly', () => {
 		renderWithProvider( <ContentTabSettings selectedSite={ selectedSite } /> );
 
-		expect( screen.getByRole( 'heading', { name: 'Site details Edit' } ) ).toBeVisible();
+		expect( screen.getByRole( 'heading', { name: 'Site details' } ) ).toBeVisible();
 		expect( screen.getByText( 'Test Site' ) ).toBeVisible();
 		expect(
 			screen.getByRole( 'button', { name: 'localhost:8881, Copy site url to clipboard' } )
@@ -143,7 +143,9 @@ describe( 'ContentTabSettings', () => {
 			isDeleting: false,
 		} );
 		renderWithProvider( <ContentTabSettings selectedSite={ selectedSite } /> );
-		const deleteSiteButton = await screen.findByRole( 'button', { name: 'Delete site' } );
+		const dropdownButton = screen.getByRole( 'button', { name: 'More options' } );
+		await userEvent.click( dropdownButton );
+		const deleteSiteButton = screen.getByRole( 'menuitem', { name: 'Delete site' } );
 		expect( deleteSiteButton ).toHaveAttribute( 'aria-disabled', 'true' );
 		fireEvent.mouseOver( deleteSiteButton );
 		expect(

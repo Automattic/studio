@@ -4,7 +4,7 @@ import { platform, tmpdir } from 'os';
 import path from 'path';
 import { promisify } from 'util';
 import * as Sentry from '@sentry/electron/main';
-import sudo from 'sudo-prompt';
+import sudo from '@vscode/sudo-prompt';
 
 const readFile = promisify( fs.readFile );
 const writeFile = promisify( fs.writeFile );

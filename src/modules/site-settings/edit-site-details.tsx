@@ -1,6 +1,7 @@
 import { SelectControl } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useCallback, useState } from 'react';
+import semver from 'semver';
 import stripAnsi from 'strip-ansi';
 import Button from 'src/components/button';
 import { ErrorInformation } from 'src/components/error-information';
@@ -52,8 +53,25 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 		label: version.label,
 		value: version.value,
 	} ) );
+
 	if ( ! wordpressVersionOptions.some( ( version ) => version.value === currentWpVersion ) ) {
-		wordpressVersionOptions.push( { label: currentWpVersion, value: currentWpVersion } );
+		const customVersion = { label: currentWpVersion, value: currentWpVersion };
+		// find the index of the version that is less than the current version
+		const insertIndex = wordpressVersionOptions.findIndex( ( compareVersion ) => {
+			const currentVer = semver.coerce( currentWpVersion );
+			const compareVer = semver.coerce( compareVersion.value );
+			if ( ! currentVer || ! compareVer ) {
+				return false;
+			}
+			return semver.lt( compareVer, currentVer );
+		} );
+		// if the current version is less than all the versions in the list, add it to the end
+		if ( insertIndex === -1 ) {
+			wordpressVersionOptions.push( customVersion );
+		} else {
+			// otherwise, insert it at the found index
+			wordpressVersionOptions.splice( insertIndex, 0, customVersion );
+		}
 	}
 
 	const resetFormState = useCallback( () => {

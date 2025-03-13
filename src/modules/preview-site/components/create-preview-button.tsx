@@ -10,9 +10,9 @@ import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSiteSize } from 'src/hooks/use-site-size';
 import { useSnapshots } from 'src/hooks/use-snapshots';
+import { hasVersionMismatch } from 'src/modules/preview-site/utils/version-comparison';
 import { useRootSelector } from 'src/stores';
 import { wordpressVersionsSelectors } from 'src/stores/wordpress-versions-slice';
-import { compareVersions } from '../utils/version-comparison';
 
 interface CreatePreviewButtonProps {
 	onClick: () => void;
@@ -35,13 +35,11 @@ export function CreatePreviewButton( { onClick, selectedSite }: CreatePreviewBut
 	const isOtherSiteArchiving = isAnySiteArchiving && ! isCurrentSiteArchiving;
 
 	const latestWpVersion = wpVersions.find( ( version ) => version.isBeta === false )?.value;
-	const { phpVersionMismatch, wpVersionMismatch } = compareVersions( {
+	const shouldShowMismatchTooltip = hasVersionMismatch( {
 		wpVersion,
 		latestWpVersion,
 		phpVersion: selectedSite.phpVersion,
 	} );
-
-	const hasVersionMismatch = phpVersionMismatch || wpVersionMismatch;
 
 	const isDisabled =
 		isAnySiteArchiving ||
@@ -92,7 +90,7 @@ export function CreatePreviewButton( { onClick, selectedSite }: CreatePreviewBut
 		tooltipContent = { text: errorMessages.rest_site_creation_blocked };
 	} else if ( isOverLimit ) {
 		tooltipContent = { text: overLimitMessage };
-	} else if ( hasVersionMismatch ) {
+	} else if ( shouldShowMismatchTooltip ) {
 		tooltipContent = { text: versionMismatchMessage };
 	}
 

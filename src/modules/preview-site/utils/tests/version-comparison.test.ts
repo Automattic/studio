@@ -1,69 +1,58 @@
+import { hasVersionMismatch } from 'src/modules/preview-site/utils/version-comparison';
 import { DEFAULT_PHP_VERSION } from 'vendor/wp-now/src/constants';
-import { compareVersions } from '../version-comparison';
 
-describe( 'compareVersions', () => {
-	it( 'should return false for all mismatches when versions match', () => {
-		const result = compareVersions( {
-			wpVersion: '6.4.2',
-			latestWpVersion: '6.4.2',
+describe( 'hasVersionMismatch', () => {
+	it( 'should return true when WordPress version is older than latest', () => {
+		const result = hasVersionMismatch( {
+			wpVersion: '6.3',
+			latestWpVersion: '6.4',
+			phpVersion: '8.1',
+		} );
+		expect( result ).toBe( true );
+	} );
+
+	it( 'should return true when PHP version is default', () => {
+		const result = hasVersionMismatch( {
+			wpVersion: '6.4',
+			latestWpVersion: '6.4',
 			phpVersion: DEFAULT_PHP_VERSION,
 		} );
-
-		expect( result ).toEqual( {
-			phpVersionMismatch: false,
-			wpVersionMismatch: false,
-		} );
+		expect( result ).toBe( false );
 	} );
 
-	it( 'should detect PHP version mismatch', () => {
-		const result = compareVersions( {
-			wpVersion: '6.4.2',
-			latestWpVersion: '6.4.2',
-			phpVersion: '7.4',
+	it( 'should return false when versions are up to date', () => {
+		const result = hasVersionMismatch( {
+			wpVersion: '6.4',
+			latestWpVersion: '6.4',
+			phpVersion: '8.1',
 		} );
-
-		expect( result ).toEqual( {
-			phpVersionMismatch: true,
-			wpVersionMismatch: false,
-		} );
+		expect( result ).toBe( true );
 	} );
 
-	it( 'should detect WordPress version mismatch', () => {
-		const result = compareVersions( {
-			wpVersion: '6.3.1',
-			latestWpVersion: '6.4.2',
-			phpVersion: DEFAULT_PHP_VERSION,
+	it( 'should return false when WordPress version is newer than latest', () => {
+		const result = hasVersionMismatch( {
+			wpVersion: '6.5',
+			latestWpVersion: '6.4',
+			phpVersion: '8.1',
 		} );
-
-		expect( result ).toEqual( {
-			phpVersionMismatch: false,
-			wpVersionMismatch: true,
-		} );
+		expect( result ).toBe( true );
 	} );
 
-	it( 'should handle missing latest WordPress version', () => {
-		const result = compareVersions( {
-			wpVersion: '6.4.2',
+	it( 'should handle undefined latest WordPress version', () => {
+		const result = hasVersionMismatch( {
+			wpVersion: '6.4',
 			latestWpVersion: undefined,
-			phpVersion: DEFAULT_PHP_VERSION,
+			phpVersion: '8.1',
 		} );
-
-		expect( result ).toEqual( {
-			phpVersionMismatch: false,
-			wpVersionMismatch: false,
-		} );
+		expect( result ).toBe( true );
 	} );
 
 	it( 'should handle invalid WordPress versions', () => {
-		const result = compareVersions( {
+		const result = hasVersionMismatch( {
 			wpVersion: 'invalid',
-			latestWpVersion: '6.4.2',
-			phpVersion: DEFAULT_PHP_VERSION,
+			latestWpVersion: '6.4',
+			phpVersion: '8.1',
 		} );
-
-		expect( result ).toEqual( {
-			phpVersionMismatch: false,
-			wpVersionMismatch: false,
-		} );
+		expect( result ).toBe( true );
 	} );
 } );

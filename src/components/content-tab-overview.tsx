@@ -19,6 +19,7 @@ import { ArrowIcon } from 'src/components/arrow-icon';
 import { ButtonsSection, ButtonsSectionProps } from 'src/components/buttons-section';
 import { useCheckInstalledApps } from 'src/hooks/use-check-installed-apps';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
+import { useSiteDetails } from 'src/hooks/use-site-details';
 import { useThemeDetails } from 'src/hooks/use-theme-details';
 import { isMac } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
@@ -197,6 +198,7 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) {
 	const [ isThumbnailError, setIsThumbnailError ] = useState( false );
 	const { __ } = useI18n();
+	const { startServer, loadingServer } = useSiteDetails();
 	const {
 		selectedThemeDetails: themeDetails,
 		selectedThumbnail: thumbnailData,
@@ -206,7 +208,16 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 	} = useThemeDetails();
 
 	const loading = loadingThemeDetails || loadingThumbnails || initialLoading;
-	const siteRunning = selectedSite.running;
+	const isServerLoading = loadingServer[ selectedSite.id ];
+
+	const handleThumbnailClick = async () => {
+		if ( isServerLoading ) return;
+
+		if ( ! selectedSite.running ) {
+			await startServer( selectedSite.id );
+		}
+		getIpcApi().openSiteURL( selectedSite.id, '', { autoLogin: false } );
+	};
 
 	const thumbnailImage = (
 		<img
@@ -227,7 +238,7 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 						'w-full min-h-40 max-h-64 rounded-sm border border-a8c-gray-5 bg-a8c-gray-0 mb-2 flex justify-center',
 						loading && `h-64 ${ skeletonBg }`,
 						isThumbnailError && 'border-none',
-						! loading && siteRunning && 'hover:border-a8c-blueberry duration-300'
+						! loading && 'hover:border-a8c-blueberry duration-300'
 					) }
 				>
 					{ isThumbnailError && ! loading && (
@@ -235,11 +246,15 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 							{ __( 'Preview unavailable' ) }
 						</div>
 					) }
-					{ ! loading && siteRunning && (
+					{ ! loading && (
 						<button
 							aria-label={ __( 'Open site' ) }
-							className={ 'relative group focus-visible:outline-a8c-blueberry' }
-							onClick={ () => getIpcApi().openSiteURL( selectedSite.id, '', { autoLogin: false } ) }
+							className={ cx(
+								'relative group focus-visible:outline-a8c-blueberry',
+								isServerLoading && 'cursor-not-allowed'
+							) }
+							onClick={ handleThumbnailClick }
+							disabled={ isServerLoading }
 						>
 							<div
 								className={
@@ -252,7 +267,6 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 							{ thumbnailImage }
 						</button>
 					) }
-					{ ! loading && ! siteRunning && thumbnailImage }
 				</div>
 				<div className="flex justify-between items-center w-full">
 					{ loading && <div className={ `w-[100px] min-h-4 ${ skeletonBg }` }></div> }

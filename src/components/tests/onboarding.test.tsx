@@ -4,7 +4,6 @@ import { render, waitFor, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import Onboarding from 'src/components/onboarding';
 import { useAddSite } from 'src/hooks/use-add-site';
-import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useOffline } from 'src/hooks/use-offline';
 import { useOnboarding } from 'src/hooks/use-onboarding';
 import { FolderDialogResponse } from 'src/ipc-handlers';
@@ -60,10 +59,6 @@ describe( 'Onboarding Component', () => {
 
 	beforeEach( () => {
 		jest.clearAllMocks();
-
-		( useFeatureFlags as jest.Mock ).mockReturnValue( {
-			wpVersionsEnabled: false,
-		} );
 
 		( useAppDispatch as jest.Mock ).mockReturnValue( mockDispatch );
 
@@ -138,11 +133,7 @@ describe( 'Onboarding Component', () => {
 		expect( hookResult.wpVersion ).toBe( DEFAULT_WORDPRESS_VERSION );
 	} );
 
-	it( 'should dispatch an action when feature flag is enabled', async () => {
-		( useFeatureFlags as jest.Mock ).mockReturnValue( {
-			wpVersionsEnabled: true,
-		} );
-
+	it( 'should dispatch an action', async () => {
 		( useRootSelector as jest.Mock ).mockImplementation( ( selector ) => {
 			if ( selector === wordpressVersionsSelectors.selectWordPressVersionsWithLatest ) {
 				return [
@@ -199,11 +190,7 @@ describe( 'Onboarding Component', () => {
 		expect( useAddSite().setWpVersion ).toBe( mockSetWpVersion );
 	} );
 
-	it( 'should display WordPress and PHP version dropdowns when feature flag is enabled', async () => {
-		( useFeatureFlags as jest.Mock ).mockReturnValue( {
-			wpVersionsEnabled: true,
-		} );
-
+	it( 'should display WordPress and PHP version dropdowns', async () => {
 		( useRootSelector as jest.Mock ).mockImplementation( ( selector ) => {
 			if ( selector === wordpressVersionsSelectors.selectWordPressVersionsWithLatest ) {
 				return [
@@ -231,10 +218,6 @@ describe( 'Onboarding Component', () => {
 	} );
 
 	it( 'should allow selecting a different WordPress version', async () => {
-		( useFeatureFlags as jest.Mock ).mockReturnValue( {
-			wpVersionsEnabled: true,
-		} );
-
 		( useRootSelector as jest.Mock ).mockImplementation( ( selector ) => {
 			if ( selector === wordpressVersionsSelectors.selectWordPressVersionsWithLatest ) {
 				return [
@@ -302,10 +285,6 @@ describe( 'Onboarding Component', () => {
 	} );
 
 	it( 'should allow selecting a different PHP version', async () => {
-		( useFeatureFlags as jest.Mock ).mockReturnValue( {
-			wpVersionsEnabled: true,
-		} );
-
 		( useRootSelector as jest.Mock ).mockImplementation( ( selector ) => {
 			if ( selector === wordpressVersionsSelectors.selectWordPressVersionsWithLatest ) {
 				return [
@@ -360,22 +339,8 @@ describe( 'Onboarding Component', () => {
 		expect( mockSetPhpVersion ).toHaveBeenCalled();
 	} );
 
-	it( 'should not display version dropdowns when feature flag is disabled', () => {
-		( useFeatureFlags as jest.Mock ).mockReturnValue( {
-			wpVersionsEnabled: false,
-		} );
-
-		render( <Onboarding /> );
-
-		expect( screen.queryByText( 'WordPress version' ) ).not.toBeInTheDocument();
-		expect( screen.queryByText( 'PHP version' ) ).not.toBeInTheDocument();
-	} );
-
 	it( 'should disable WordPress version field when offline', () => {
 		( useOffline as jest.Mock ).mockReturnValue( true );
-		( useFeatureFlags as jest.Mock ).mockReturnValue( {
-			wpVersionsEnabled: true,
-		} );
 
 		render( <Onboarding /> );
 
@@ -385,9 +350,6 @@ describe( 'Onboarding Component', () => {
 
 	it( 'should enable WordPress version field when online', () => {
 		( useOffline as jest.Mock ).mockReturnValue( false );
-		( useFeatureFlags as jest.Mock ).mockReturnValue( {
-			wpVersionsEnabled: true,
-		} );
 
 		render( <Onboarding /> );
 
@@ -397,9 +359,6 @@ describe( 'Onboarding Component', () => {
 
 	it( 'should show tooltip with offline message when hovering over disabled WordPress version field', async () => {
 		( useOffline as jest.Mock ).mockReturnValue( true );
-		( useFeatureFlags as jest.Mock ).mockReturnValue( {
-			wpVersionsEnabled: true,
-		} );
 
 		render( <Onboarding /> );
 		const user = userEvent.setup();
@@ -414,9 +373,6 @@ describe( 'Onboarding Component', () => {
 
 	it( 'should not show tooltip when hovering over WordPress version field while online', async () => {
 		( useOffline as jest.Mock ).mockReturnValue( false );
-		( useFeatureFlags as jest.Mock ).mockReturnValue( {
-			wpVersionsEnabled: true,
-		} );
 
 		render( <Onboarding /> );
 		const user = userEvent.setup();

@@ -6,10 +6,6 @@ import AddSite from 'src/components/add-site';
 import { useOffline } from 'src/hooks/use-offline';
 import { FolderDialogResponse } from 'src/ipc-handlers';
 
-jest.mock( 'src/hooks/use-feature-flags', () => ( {
-	useFeatureFlags: jest.fn().mockReturnValue( { wpVersionsEnabled: true } ),
-} ) );
-
 jest.mock( 'src/stores', () => {
 	const mockDispatch = jest.fn();
 	return {

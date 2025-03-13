@@ -2,9 +2,6 @@ import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren } from 'react';
 import { CopyTextButton } from 'src/components/copy-text-button';
 import DeleteSite from 'src/components/delete-site';
-import EditPhpVersion from 'src/components/edit-php-version';
-import EditSite from 'src/components/edit-site';
-import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
 import { decodePassword } from 'src/lib/passwords';
 import EditSiteDetails from 'src/modules/site-settings/edit-site-details';
@@ -26,7 +23,6 @@ function SettingsRow( { children, label }: PropsWithChildren< { label: string } 
 
 export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) {
 	const { __ } = useI18n();
-	const { wpVersionsEnabled } = useFeatureFlags();
 	const username = 'admin';
 	// Empty strings account for legacy sites lacking a stored password.
 	const storedPassword = decodePassword( selectedSite.adminPassword ?? '' );
@@ -43,16 +39,13 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 						<th colSpan={ 2 } className="pb-4 ltr:text-left rtl:text-right">
 							<h3 className="text-black text-sm font-semibold">
 								{ __( 'Site details' ) }
-								{ wpVersionsEnabled && (
-									<EditSiteDetails currentWpVersion={ wpVersion } onSave={ refreshWpVersion } />
-								) }
+								<EditSiteDetails currentWpVersion={ wpVersion } onSave={ refreshWpVersion } />
 							</h3>
 						</th>
 					</tr>
 					<SettingsRow label={ __( 'Site name' ) }>
 						<div className="flex">
 							<span className="line-clamp-1 break-all">{ selectedSite.name }</span>
-							{ ! wpVersionsEnabled && <EditSite /> }
 						</div>
 					</SettingsRow>
 					<SettingsRow label={ __( 'Local URL' ) }>
@@ -77,7 +70,6 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 					<SettingsRow label={ __( 'PHP Version' ) }>
 						<div className="flex">
 							<span className="line-clamp-1 break-all">{ selectedSite.phpVersion }</span>
-							{ ! wpVersionsEnabled && <EditPhpVersion /> }
 						</div>
 					</SettingsRow>
 

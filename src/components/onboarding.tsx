@@ -159,7 +159,6 @@ export default function Onboarding() {
 							setFileForImport={ setFileForImport }
 							onFileSelected={ handleImportFile }
 							fileError={ fileError }
-							allowVersionsChange
 							phpVersion={ phpVersion }
 							setPhpVersion={ setPhpVersion }
 							wpVersion={ wpVersion }

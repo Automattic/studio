@@ -1,6 +1,5 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
-import semver from 'semver';
 import Button from 'src/components/button';
 import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
@@ -13,7 +12,7 @@ import { useSiteSize } from 'src/hooks/use-site-size';
 import { useSnapshots } from 'src/hooks/use-snapshots';
 import { useRootSelector } from 'src/stores';
 import { wordpressVersionsSelectors } from 'src/stores/wordpress-versions-slice';
-import { DEFAULT_PHP_VERSION } from 'vendor/wp-now/src/constants';
+import { compareVersions } from '../utils/version-comparison';
 
 interface CreatePreviewButtonProps {
 	onClick: () => void;
@@ -35,16 +34,14 @@ export function CreatePreviewButton( { onClick, selectedSite }: CreatePreviewBut
 	const isCurrentSiteArchiving = archivingSiteId === selectedSite.id;
 	const isOtherSiteArchiving = isAnySiteArchiving && ! isCurrentSiteArchiving;
 
-	// Jurrasic Ninja will use the default version for PHP and latest or above for WordPress.
 	const latestWpVersion = wpVersions.find( ( version ) => version.isBeta === false )?.value;
-	const isPhpVersionDefault = selectedSite.phpVersion === DEFAULT_PHP_VERSION;
-	const coercedWpVersion = semver.coerce( wpVersion );
-	const coercedLatestWpVersion = semver.coerce( latestWpVersion );
-	const isWpVersionBelowDefault =
-		latestWpVersion &&
-		coercedWpVersion &&
-		coercedLatestWpVersion &&
-		semver.compare( coercedWpVersion, coercedLatestWpVersion ) < 0;
+	const { phpVersionMismatch, wpVersionMismatch } = compareVersions( {
+		wpVersion,
+		latestWpVersion,
+		phpVersion: selectedSite.phpVersion,
+	} );
+
+	const hasVersionMismatch = phpVersionMismatch || wpVersionMismatch;
 
 	const isDisabled =
 		isAnySiteArchiving ||
@@ -95,7 +92,7 @@ export function CreatePreviewButton( { onClick, selectedSite }: CreatePreviewBut
 		tooltipContent = { text: errorMessages.rest_site_creation_blocked };
 	} else if ( isOverLimit ) {
 		tooltipContent = { text: overLimitMessage };
-	} else if ( ! isPhpVersionDefault || isWpVersionBelowDefault ) {
+	} else if ( hasVersionMismatch ) {
 		tooltipContent = { text: versionMismatchMessage };
 	}
 

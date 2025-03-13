@@ -54,6 +54,16 @@ async function fetchThemeList( siteId: string ): Promise< string[] > {
 	return stderr ? [] : parseWpCliOutput( stdout );
 }
 
+async function fetchSiteUrl( siteId: string ): Promise< string > {
+	const { stdout, stderr } = await getIpcApi().executeWPCLiInline( {
+		siteId,
+		args: 'option get siteurl',
+		skipPluginsAndThemes: true,
+	} );
+
+	return stderr ? '' : stdout.trim();
+}
+
 type UpdateFromSiteParams = {
 	site: SiteDetails;
 };
@@ -61,14 +71,16 @@ type UpdateFromSiteParams = {
 const updateFromSite = createAsyncThunk(
 	'chat/updateFromSite',
 	async ( { site }: UpdateFromSiteParams ) => {
-		const [ plugins, themes ] = await Promise.all( [
+		const [ plugins, themes, siteUrl ] = await Promise.all( [
 			fetchPluginList( site.id ),
 			fetchThemeList( site.id ),
+			fetchSiteUrl( site.id ),
 		] );
 
 		return {
 			plugins,
 			themes,
+			siteUrl,
 		};
 	}
 );
@@ -348,16 +360,16 @@ const chatSlice = createSlice( {
 			.addCase( updateFromSite.pending, ( state, action ) => {
 				const { site } = action.meta.arg;
 
-				state.currentURL = `http://localhost:${ site.port }`;
 				state.phpVersion = site.phpVersion ?? DEFAULT_PHP_VERSION;
 				state.siteName = site.name;
 			} )
 			.addCase( updateFromSite.fulfilled, ( state, action ) => {
-				const { plugins, themes } = action.payload;
+				const { plugins, themes, siteUrl } = action.payload;
 				const siteId = action.meta.arg.site.id;
 
 				state.pluginListDict[ siteId ] = plugins;
 				state.themeListDict[ siteId ] = themes;
+				state.currentURL = siteUrl;
 			} )
 			.addCase( fetchAssistant.pending, ( state, action ) => {
 				const { message, instanceId, isRetry } = action.meta.arg;

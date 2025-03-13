@@ -81,7 +81,7 @@ const DeleteSite = ( { onClose }: DeleteSiteProps ) => {
 			disabled={ ! ( isOffline && snapshotsOnSite.length > 0 ) }
 			icon={ offlineIcon }
 			text={ offlineMessage }
-			placement="top-start"
+			placement="left"
 		>
 			<MenuItem
 				aria-disabled={ isSiteDeletionDisabled }

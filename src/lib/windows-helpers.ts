@@ -1,7 +1,7 @@
 import { app, dialog } from 'electron';
 import path from 'path';
-import { __ } from '@wordpress/i18n';
 import sudo from '@vscode/sudo-prompt';
+import { __ } from '@wordpress/i18n';
 import { loadUserData, saveUserData } from 'src/storage/user-data';
 
 export async function promptWindowsSpeedUpSites( {

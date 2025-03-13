@@ -125,6 +125,11 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 				name: 'custom-mu-plugin.php',
 				isFile: () => true,
 			},
+			{
+				path: normalize( '/path/to/site/wp-content/fonts' ),
+				name: 'custom-font.woff2',
+				isFile: () => true,
+			},
 		];
 
 		( fsPromises.readdir as jest.Mock ).mockResolvedValue( mockFiles );
@@ -138,6 +143,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 				plugins: [ normalize( '/path/to/wp-content/plugins/plugin1' ) ],
 				themes: [ normalize( '/path/to/wp-content/themes/theme1' ) ],
 				muPlugins: [ normalize( '/path/to/wp-content/mu-plugins/custom-mu-plugin.php' ) ],
+				fonts: [ normalize( '/path/to/wp-content/fonts/custom-font.woff2' ) ],
 			},
 		};
 
@@ -157,6 +163,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 				themes: true,
 				database: true,
 				muPlugins: true,
+				fonts: true,
 			},
 			phpVersion: '8.4',
 		};
@@ -229,6 +236,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 				themes: false,
 				database: false,
 				muPlugins: false,
+				fonts: false,
 			},
 		};
 
@@ -263,6 +271,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 				themes: true,
 				database: false,
 				muPlugins: false,
+				fonts: true,
 			},
 		};
 
@@ -289,6 +298,11 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 			normalize( '/path/to/site/wp-content/themes/theme1/index.php' ),
 			{ name: normalize( 'wp-content/themes/theme1/index.php' ) }
 		);
+		expect( mockArchiver.file ).toHaveBeenNthCalledWith(
+			5,
+			normalize( '/path/to/site/wp-content/fonts/custom-font.woff2' ),
+			{ name: normalize( 'wp-content/fonts/custom-font.woff2' ) }
+		);
 	} );
 
 	it( 'should add (non-excluded) mu-plugins files to the archive', async () => {
@@ -300,6 +314,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 				themes: false,
 				database: false,
 				muPlugins: true,
+				fonts: false,
 			},
 		};
 
@@ -336,6 +351,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 				themes: false,
 				database: true,
 				muPlugins: false,
+				fonts: false,
 			},
 		};
 		( fsPromises.mkdtemp as jest.Mock ).mockResolvedValue( normalize( '/tmp/studio_export_123' ) );
@@ -364,6 +380,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 				themes: false,
 				database: true,
 				muPlugins: false,
+				fonts: false,
 			},
 			splitDatabaseDumpByTable: true,
 		};
@@ -445,6 +462,34 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 
 		await expect( exporter.export() ).rejects.toThrow(
 			'Could not get information about installed plugins to create meta.json file.'
+		);
+	} );
+
+	it( 'should add fonts files to the archive when fonts is included', async () => {
+		const options = {
+			...mockOptions,
+			includes: {
+				uploads: false,
+				plugins: false,
+				themes: false,
+				database: false,
+				muPlugins: false,
+				fonts: true,
+			},
+		};
+
+		const exporter = new DefaultExporter( options );
+		await exporter.export();
+
+		expect( mockArchiver.file ).toHaveBeenNthCalledWith(
+			1,
+			normalize( '/path/to/site/wp-config.php' ),
+			{ name: 'wp-config.php' }
+		);
+		expect( mockArchiver.file ).toHaveBeenNthCalledWith(
+			2,
+			normalize( '/path/to/site/wp-content/fonts/custom-font.woff2' ),
+			{ name: normalize( 'wp-content/fonts/custom-font.woff2' ) }
 		);
 	} );
 } );

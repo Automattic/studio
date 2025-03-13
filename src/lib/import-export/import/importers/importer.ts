@@ -182,6 +182,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 		const wpContent = this.backup.wpContent;
 		const wpContentSourceDir = this.backup.wpContentDirectory;
 		const wpContentDestDir = path.join( rootPath, 'wp-content' );
+
 		for ( const files of Object.values( wpContent ) ) {
 			for ( const file of files ) {
 				try {

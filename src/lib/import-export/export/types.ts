@@ -18,7 +18,7 @@ export interface BackupContents {
 	wpConfigFile?: string;
 }
 
-export type BackupContentsCategory = 'uploads' | 'plugins' | 'themes' | 'muPlugins';
+export type BackupContentsCategory = 'uploads' | 'plugins' | 'themes' | 'muPlugins' | 'fonts';
 
 export interface Exporter extends Partial< EventEmitter > {
 	canHandle(): Promise< boolean >;

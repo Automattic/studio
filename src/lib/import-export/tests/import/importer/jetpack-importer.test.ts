@@ -16,11 +16,12 @@ platformTestSuite( 'JetpackImporter', ( { normalize } ) => {
 			normalize( '/tmp/extracted/sql/wp_options.sql' ),
 			normalize( '/tmp/extracted/sql/wp_posts.sql' ),
 		],
-		wpConfig: normalize( '/tmp/extraced/wp-config.php' ),
+		wpConfig: normalize( '/tmp/extracted/wp-config.php' ),
 		wpContent: {
 			uploads: [ normalize( '/tmp/extracted/wp-content/uploads/2023/image.jpg' ) ],
 			plugins: [ normalize( '/tmp/extracted/wp-content/plugins/jetpack/jetpack.php' ) ],
 			themes: [ normalize( '/tmp/extracted/wp-content/themes/twentytwentyone/style.css' ) ],
+			fonts: [ normalize( '/tmp/extracted/wp-content/fonts/open-sans.woff2' ) ],
 		},
 		wpContentDirectory: 'wp-content',
 		metaFile: normalize( '/tmp/extracted/meta.json' ),
@@ -69,7 +70,7 @@ platformTestSuite( 'JetpackImporter', ( { normalize } ) => {
 			await importer.import( mockStudioSitePath, mockStudioSiteId );
 
 			expect( fs.mkdir ).toHaveBeenCalled();
-			expect( fs.copyFile ).toHaveBeenCalledTimes( 4 ); // One for each wp-content file + wp-config
+			expect( fs.copyFile ).toHaveBeenCalledTimes( 5 ); // One for each wp-content file + wp-config.php
 			expect( fs.readFile ).toHaveBeenCalledWith(
 				normalize( '/tmp/extracted/meta.json' ),
 				'utf-8'
@@ -114,7 +115,7 @@ platformTestSuite( 'JetpackImporter', ( { normalize } ) => {
 			await importer.import( mockStudioSitePath, mockStudioSiteId );
 
 			expect( fs.mkdir ).toHaveBeenCalled();
-			expect( fs.copyFile ).toHaveBeenCalledTimes( 4 );
+			expect( fs.copyFile ).toHaveBeenCalledTimes( 5 ); // One for each wp-content file + wp-config.php
 			expect( fs.readFile ).not.toHaveBeenCalled();
 		} );
 
@@ -129,11 +130,44 @@ platformTestSuite( 'JetpackImporter', ( { normalize } ) => {
 			).resolves.not.toThrow();
 
 			expect( fs.mkdir ).toHaveBeenCalled();
-			expect( fs.copyFile ).toHaveBeenCalledTimes( 4 );
+			expect( fs.copyFile ).toHaveBeenCalledTimes( 5 ); // One for each wp-content file + wp-config.php
 			expect( fs.readFile ).toHaveBeenCalledWith(
 				normalize( '/tmp/extracted/meta.json' ),
 				'utf-8'
 			);
+		} );
+
+		it( 'should properly import fonts directory', async () => {
+			const importer = new JetpackImporter( mockBackupContents );
+			( fs.mkdir as jest.Mock ).mockResolvedValue( undefined );
+			( fs.copyFile as jest.Mock ).mockResolvedValue( undefined );
+
+			await importer.import( mockStudioSitePath, mockStudioSiteId );
+
+			// Verify font file was copied
+			expect( fs.copyFile ).toHaveBeenCalledWith(
+				normalize( '/tmp/extracted/wp-content/fonts/open-sans.woff2' ),
+				normalize( '/path/to/studio/site/wp-content/fonts/open-sans.woff2' )
+			);
+		} );
+
+		it( 'should handle missing fonts directory gracefully', async () => {
+			const backupWithoutFonts = {
+				...mockBackupContents,
+				wpContent: {
+					...mockBackupContents.wpContent,
+					fonts: [],
+				},
+			};
+			const importer = new JetpackImporter( backupWithoutFonts );
+			( fs.mkdir as jest.Mock ).mockResolvedValue( undefined );
+			( fs.copyFile as jest.Mock ).mockResolvedValue( undefined );
+
+			await importer.import( mockStudioSitePath, mockStudioSiteId );
+
+			// Should still create other directories and copy other files
+			expect( fs.mkdir ).toHaveBeenCalled();
+			expect( fs.copyFile ).toHaveBeenCalledTimes( 4 ); // One for each wp-content file + wp-config.php - fonts
 		} );
 	} );
 } );

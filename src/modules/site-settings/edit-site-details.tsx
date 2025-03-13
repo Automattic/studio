@@ -45,7 +45,9 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 		( selectedSite?.phpVersion as AllowedPHPVersion ) ?? DEFAULT_PHP_VERSION
 	);
 	const [ selectedWpVersion, setSelectedWpVersion ] = useState( currentWpVersion );
-	const wordpressVersions = useRootSelector( wordpressVersionsSelectors.selectWordPressVersions );
+	const wordpressVersions = useRootSelector(
+		wordpressVersionsSelectors.selectWordPressVersionsWithLatest
+	);
 	const wordpressVersionOptions = wordpressVersions.map( ( version ) => ( {
 		label: version.label,
 		value: version.value,

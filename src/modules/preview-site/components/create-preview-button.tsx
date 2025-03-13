@@ -75,23 +75,9 @@ export function CreatePreviewButton( { onClick, selectedSite }: CreatePreviewBut
 		),
 		DEMO_SITE_SIZE_LIMIT_GB
 	);
-
-	const versionMismatchMessages = [];
-	if ( ! isPhpVersionDefault || isWpVersionBelowDefault ) {
-		const versionChanges = [];
-		if ( ! isPhpVersionDefault ) {
-			versionChanges.push( sprintf( __( 'PHP %s' ), DEFAULT_PHP_VERSION ) );
-		}
-		if ( isWpVersionBelowDefault ) {
-			versionChanges.push( sprintf( __( 'WordPress %s' ), coercedLatestWpVersion ) );
-		}
-		versionMismatchMessages.push(
-			sprintf(
-				__( 'Your site is using an unsupported version. The preview site will use %s.' ),
-				versionChanges.join( __( ' and ' ) )
-			)
-		);
-	}
+	const versionMismatchMessage = __(
+		'Your site is running versions not supported by preview sites and will automatically switch to supported WordPress and PHP versions.'
+	);
 
 	let tooltipContent;
 	if ( isOffline ) {
@@ -109,8 +95,8 @@ export function CreatePreviewButton( { onClick, selectedSite }: CreatePreviewBut
 		tooltipContent = { text: errorMessages.rest_site_creation_blocked };
 	} else if ( isOverLimit ) {
 		tooltipContent = { text: overLimitMessage };
-	} else if ( versionMismatchMessages.length > 0 ) {
-		tooltipContent = { text: versionMismatchMessages.join( '' ) };
+	} else if ( ! isPhpVersionDefault || isWpVersionBelowDefault ) {
+		tooltipContent = { text: versionMismatchMessage };
 	}
 
 	return (

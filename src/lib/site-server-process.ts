@@ -142,12 +142,33 @@ export default class SiteServerProcess {
 		}
 
 		return new Promise< void >( ( resolve, reject ) => {
-			process.once( 'exit', ( code ) => {
-				if ( code !== 0 ) {
-					reject( new Error( `Site server process exited with code ${ code } upon stopping` ) );
-					return;
+			const KILL_TIMEOUT = 5000;
+			let isResolved = false;
+
+			const forceKillTimeout = setTimeout( () => {
+				if ( isResolved ) return;
+
+				// Check if process and pid are still valid before attempting force kill
+				if ( process && process.pid ) {
+					require( 'process' ).kill( process.pid, 'SIGKILL' );
+				} else {
+					if ( ! isResolved ) {
+						isResolved = true;
+						resolve();
+					}
 				}
-				resolve();
+			}, KILL_TIMEOUT );
+
+			process.once( 'exit', ( code ) => {
+				clearTimeout( forceKillTimeout );
+				if ( ! isResolved ) {
+					isResolved = true;
+					if ( code !== 0 ) {
+						reject( new Error( `Site server process exited with code ${ code } upon stopping` ) );
+					} else {
+						resolve();
+					}
+				}
 			} );
 			process.kill();
 		} ).catch( ( error ) => {

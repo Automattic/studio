@@ -6,6 +6,9 @@ interface VersionComparisonResult {
 	wpVersionMismatch: boolean;
 }
 
+/**
+ * Compares the WordPress and PHP versions of the current site with the versions supported by Jurassic Ninja preview sites.
+ */
 export function compareVersions( {
 	wpVersion,
 	latestWpVersion,

@@ -149,6 +149,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 				/^mu-plugins(\/|\\)sqlite-database-integration(\/|\\)?.*/, // Match sqlite-database-integration dir and contents
 				/^database(\/|\\)?.*/, // Match database dir and all contents
 				/^db\.php$/, // Exact match for db.php
+				/^index\.php$/, // Exact match for index.php
 			];
 
 			const contents = await fsPromises.readdir( wpContentDir, { recursive: true } );

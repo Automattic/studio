@@ -5,6 +5,7 @@ import os from 'os';
 import path from 'path';
 import archiver from 'archiver';
 import { ARCHIVER_OPTIONS } from 'src/constants';
+import { getSiteUrl } from 'src/lib/get-site-url';
 import { ExportEvents } from 'src/lib/import-export/export/events';
 import {
 	exportDatabaseToFile,
@@ -273,7 +274,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 	private async createStudioJsonFile(): Promise< string > {
 		const wpVersion = await getWordPressVersionFromInstallation( this.options.site.path );
 		const studioJson: StudioJson = {
-			siteUrl: `http://localhost:${ this.options.site.port }`,
+			siteUrl: getSiteUrl( this.options.site ),
 			phpVersion: this.options.phpVersion,
 			wordpressVersion: wpVersion ? wpVersion : '',
 			plugins: [],

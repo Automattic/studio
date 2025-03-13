@@ -1,3 +1,4 @@
+import { getSiteUrl } from 'src/lib/get-site-url';
 import { SiteServer } from 'src/site-server';
 
 export const updateSiteUrlToLocal = async ( siteId: string ) => {
@@ -15,7 +16,7 @@ export const updateSiteUrlToLocal = async ( siteId: string ) => {
 		return;
 	}
 
-	const studioUrl = `http://localhost:${ server.details.port }`;
+	const studioUrl = getSiteUrl( server.details );
 	const oldUrl = currentSiteUrl.trim();
 	const urlWithoutProtocol = oldUrl.replace( /^https?:\/\//, '' );
 

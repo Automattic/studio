@@ -27,7 +27,7 @@ import { download } from 'src/lib/download';
 import { isEmptyDir, pathExists, isWordPressDirectory, sanitizeFolderName } from 'src/lib/fs-utils';
 import { getImageData } from 'src/lib/get-image-data';
 import { getSyncBackupTempPath } from 'src/lib/get-sync-backup-temp-path';
-import { addDomainToHosts } from 'src/lib/hosts-file';
+import { addDomainToHosts, replaceDomainInHosts } from 'src/lib/hosts-file';
 import { exportBackup } from 'src/lib/import-export/export/export-manager';
 import { ExportOptions } from 'src/lib/import-export/export/types';
 import { ImportExportEventData } from 'src/lib/import-export/handle-events';
@@ -220,6 +220,10 @@ export async function updateSite(
 	updatedSite: SiteDetails
 ): Promise< SiteDetails[] > {
 	const userData = await loadUserData();
+
+	const existingSite = userData.sites.find( ( site ) => site.id === updatedSite.id );
+	const oldDomain = existingSite?.customDomain;
+	const newDomain = updatedSite.customDomain;
 	const updatedSites = userData.sites.map( ( site ) =>
 		site.id === updatedSite.id ? updatedSite : site
 	);
@@ -228,6 +232,12 @@ export async function updateSite(
 	const server = SiteServer.get( updatedSite.id );
 	if ( server ) {
 		server.updateSiteDetails( updatedSite );
+
+		// Handle domain changes if the site is running (updates hosts and database)
+		if ( oldDomain !== newDomain ) {
+			replaceDomainInHosts( oldDomain, newDomain, server.details.port );
+			await updateSiteUrlToLocal( updatedSite.id );
+		}
 	}
 	await saveUserData( userData );
 	return mergeSiteDetailsWithRunningDetails( userData.sites );

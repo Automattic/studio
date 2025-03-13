@@ -12,12 +12,15 @@ export const updateSiteUrlToLocal = async ( siteId: string ) => {
 	} );
 
 	if ( ! currentSiteUrl ) {
-		console.error( 'Failed to fetch site URL after import' );
+		console.error( 'Failed to fetch site URL' );
 		return;
 	}
 
 	const studioUrl = getSiteUrl( server.details );
 	const oldUrl = currentSiteUrl.trim();
+	if ( studioUrl === oldUrl ) {
+		return;
+	}
 	const urlWithoutProtocol = oldUrl.replace( /^https?:\/\//, '' );
 
 	const oldUrlVariants = [

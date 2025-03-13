@@ -3,7 +3,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useMemo, useState } from 'react';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
-import { generateCustomDomainFromSiteName } from 'src/lib/generate-custom-domain';
+import { generateCustomDomainFromSiteName, validateDomainName } from 'src/lib/domains';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import {
 	DEFAULT_PHP_VERSION,
@@ -39,20 +39,9 @@ export function useAddSite() {
 	const handleCustomDomainChange = useCallback(
 		( value: string | null ) => {
 			setCustomDomain( value );
-			// Validate custom domain if enabled
-			const domainPattern =
-				/^(?!-)[\p{L}\p{N}][\p{L}\p{N}-]{0,61}[\p{L}\p{N}](?<!-)(?:\.(?!-)[\p{L}\p{N}-]{1,61}[\p{L}\p{N}](?<!-))+$/u;
-			if ( useCustomDomain && value && ! domainPattern.test( value ) ) {
-				setCustomDomainError( __( 'Please enter a valid domain name' ) );
-			} else if ( useCustomDomain && value && value.length > 253 ) {
-				setCustomDomainError( __( 'The domain name is too long' ) );
-			} else if ( useCustomDomain && value === '' ) {
-				setCustomDomainError( __( 'The domain name is required' ) );
-			} else {
-				setCustomDomainError( '' );
-			}
+			setCustomDomainError( validateDomainName( useCustomDomain, value ) );
 		},
-		[ __, useCustomDomain, setCustomDomain, setCustomDomainError ]
+		[ useCustomDomain, setCustomDomain, setCustomDomainError ]
 	);
 
 	const handlePathSelectorClick = useCallback( async () => {

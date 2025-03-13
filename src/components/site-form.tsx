@@ -13,7 +13,7 @@ import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
 import { useDocsLink } from 'src/hooks/use-docs-link';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
-import { generateCustomDomainFromSiteName } from 'src/lib/generate-custom-domain';
+import { generateCustomDomainFromSiteName } from 'src/lib/domains';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useAppDispatch, useRootSelector } from 'src/stores';
 import {

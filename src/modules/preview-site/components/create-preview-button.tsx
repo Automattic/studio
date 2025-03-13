@@ -76,7 +76,7 @@ export function CreatePreviewButton( { onClick, selectedSite }: CreatePreviewBut
 		DEMO_SITE_SIZE_LIMIT_GB
 	);
 	const versionMismatchMessage = __(
-		'Your site is running versions not supported by preview sites and will automatically switch to supported WordPress and PHP versions.'
+		'Your Studio site is running versions not supported by preview sites. The preview site will automatically switch to the supported WordPress and PHP versions.'
 	);
 
 	let tooltipContent;

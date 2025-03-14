@@ -100,9 +100,9 @@ export async function startProxyServer(): Promise< boolean > {
 			setTimeout( () => {
 				dialog.showMessageBox( {
 					type: 'error',
-					message: __( 'Failed to start custom domain proxy server' ),
+					message: __( 'Custom domain set up failed' ),
 					detail: __(
-						'Another server is already running on port 80. For custom domains to work, please stop that server and then restart Studio.'
+						'Studio needs to use port 80, but it’s in use by another app. Close any local development apps and restart Studio.'
 					),
 					buttons: [ __( 'OK' ) ],
 				} );

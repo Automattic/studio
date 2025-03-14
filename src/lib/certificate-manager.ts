@@ -104,50 +104,8 @@ export async function ensureRootCA(): Promise< { cert: string; key: string } > {
 	return { cert: certPem, key: keyPem };
 }
 
-/**
- * Shows dialog to help user manually trust the root CA certificate
- */
-export async function showCertificateTrustDialog(): Promise< void > {
-	const platform = process.platform;
-	let message = '';
-	let detail = '';
-
-	// For browsers to trust your local certificates, you need to add the root CA to your system's trust store
-
-	if ( platform === 'darwin' ) {
-		message = 'To make sites fully secure, you need to trust the WordPress Studio Certificate';
-		detail =
-			'Steps to trust certificate:\n\n1. Double-click the certificate file that will open\n2. In Keychain Access, find the certificate under "certificates"\n3. Double-click it, expand "Trust", and set "When using this certificate" to "Always Trust"\n4. Enter your password when prompted\n5. Restart your browsers';
-	} else if ( platform === 'win32' ) {
-		message = 'To make sites fully secure, you need to trust the WordPress Studio Certificate';
-		detail =
-			'Steps to trust certificate:\n\n1. Double-click the certificate file that will open\n2. Select "Install Certificate"\n3. Choose "Local Machine" and click Next\n4. Select "Place all certificates in the following store"\n5. Click "Browse" and select "Trusted Root Certification Authorities"\n6. Complete the wizard and restart your browsers';
-	} else {
-		message = 'To make sites fully secure, you need to trust the WordPress Studio Certificate';
-		detail =
-			'The exact steps depend on your Linux distribution, but typically involve:\n\n1. Adding the certificate to /usr/local/share/ca-certificates/\n2. Running sudo update-ca-certificates\n3. Restarting your browsers';
-	}
-
-	const { response } = await dialog.showMessageBox( {
-		type: 'info',
-		title: 'HTTPS Certificate Trust',
-		message,
-		detail,
-		buttons: [ 'Open Certificate File', 'Try Automatic Installation', 'Cancel' ],
-		defaultId: 0,
-	} );
-
-	if ( response === 0 ) {
-		// Open certificate file
-		shellOpenExternalWrapper( `file://${ CA_CERT_PATH }` );
-		// Re-show the dialog after opening the file
-		await showCertificateTrustDialog();
-	} else if ( response === 1 ) {
-		// Try automatic installation
-		await trustRootCA( true );
-		// Re-show the dialog after attempting installation
-		await showCertificateTrustDialog();
-	}
+export async function openCertificate() {
+	shellOpenExternalWrapper( `file://${ CA_CERT_PATH }` );
 }
 
 /**

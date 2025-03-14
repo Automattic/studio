@@ -3,7 +3,6 @@ import { __ } from '@wordpress/i18n';
 import { openAboutWindow } from 'src/about-menu/open-about-menu';
 import { BUG_REPORT_URL, FEATURE_REQUEST_URL } from 'src/constants';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
-import { showCertificateTrustDialog } from 'src/lib/certificate-manager';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { getMainWindow } from 'src/main-window';
@@ -178,13 +177,6 @@ function getAppMenu(
 					click: async () => {
 						const locale = await getUserLocaleWithFallback();
 						shellOpenExternalWrapper( getDocsLink( locale, 'studio' ) );
-					},
-				},
-				{ type: 'separator' },
-				{
-					label: __( 'Trust HTTPS Certificates' ),
-					click: () => {
-						showCertificateTrustDialog();
 					},
 				},
 				{ type: 'separator' },

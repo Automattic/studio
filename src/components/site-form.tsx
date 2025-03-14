@@ -498,25 +498,6 @@ export const SiteForm = ( {
 												<label htmlFor="enable-ssl">{ __( 'Enable SSL' ) }</label>
 											</div>
 										) }
-
-										{ setUseCustomDomain && setCustomDomain && enableSSL && (
-											<div className="text-a8c-gray-50 text-xs mt-2">
-												{ createInterpolateElement(
-													__(
-														'SSL will use auto-generated certificates trusted by your system. Your browser might show a security warning if the certificate is not trusted. <button>Learn how to trust certificates</button>'
-													),
-													{
-														button: (
-															<Button
-																variant="link"
-																className="text-xs"
-																onClick={ () => getIpcApi().showCertificateTrustHelper() }
-															/>
-														),
-													}
-												) }
-											</div>
-										) }
 									</div>
 								</div>
 							</>

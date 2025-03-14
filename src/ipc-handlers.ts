@@ -54,7 +54,10 @@ import { SiteServer, createSiteWorkingDirectory } from 'src/site-server';
 import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from 'src/storage/paths';
 import { loadUserData, saveUserData } from 'src/storage/user-data';
 import { DEFAULT_PHP_VERSION } from 'vendor/wp-now/src/constants';
-import { generateSiteCertificate, showCertificateTrustDialog } from './lib/certificate-manager';
+import {
+	generateSiteCertificate,
+	openCertificate as openCertificateDialog,
+} from './lib/certificate-manager';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
 
@@ -1186,9 +1189,10 @@ export function getWpContentSize( _event: IpcMainInvokeEvent, siteId: string ) {
 	return calculateDirectorySize( nodePath.join( site.details.path, 'wp-content' ) );
 }
 
-export function showCertificateTrustHelper( _event: IpcMainInvokeEvent ) {
-	return showCertificateTrustDialog();
+export function openCertificate( _event: IpcMainInvokeEvent ) {
+	return openCertificateDialog();
 }
+
 export async function getFileContent( event: IpcMainInvokeEvent, filePath: string ) {
 	if ( ! fs.existsSync( filePath ) ) {
 		throw new Error( `File not found: ${ filePath }` );

@@ -95,7 +95,7 @@ const api: IpcApi = {
 	setupAppMenu: ( config: { needsOnboarding: boolean } ) =>
 		ipcRenderer.invoke( 'setupAppMenu', config ),
 	popupAppMenu: () => ipcRenderer.invoke( 'popupAppMenu' ),
-	showCertificateTrustHelper: () => ipcRenderer.invoke( 'showCertificateTrustHelper' ),
+	openCertificate: () => ipcRenderer.invoke( 'openCertificate' ),
 	promptWindowsSpeedUpSites: ( ...args: Parameters< typeof promptWindowsSpeedUpSites > ) =>
 		ipcRenderer.invoke( 'promptWindowsSpeedUpSites', ...args ),
 	setDefaultLocaleData: ( locale?: LocaleData ) =>

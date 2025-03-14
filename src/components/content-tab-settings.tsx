@@ -1,10 +1,11 @@
-import { DropdownMenu, MenuGroup } from '@wordpress/components';
+import { DropdownMenu, MenuGroup, Button } from '@wordpress/components';
 import { moreVertical } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren } from 'react';
 import { CopyTextButton } from 'src/components/copy-text-button';
 import DeleteSite from 'src/components/delete-site';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 import { decodePassword } from 'src/lib/passwords';
 import EditSiteDetails from 'src/modules/site-settings/edit-site-details';
 
@@ -72,7 +73,34 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 						</CopyTextButton>
 					</SettingsRow>
 					<SettingsRow label={ __( 'SSL' ) }>
-						<span>{ selectedSite.enableSSL ? __( 'Enabled' ) : __( 'Disabled' ) }</span>
+						<div>
+							<span>{ selectedSite.enableSSL ? __( 'Enabled' ) : __( 'Disabled' ) }</span>{ ' ' }
+							{ selectedSite.enableSSL && (
+								<Button variant="link" onClick={ () => getIpcApi().openCertificate() }>
+									{ __( 'Trust Certificate' ) }
+								</Button>
+							) }
+						</div>
+						{ selectedSite.wpVersion && (
+							<div className="mt-1">
+								<span className="text-a8c-gray-50 mt-1">
+									{ __(
+										'You need to trust this certificate to prevent your browser from showing a secure connection warning.'
+									) }
+								</span>{ ' ' }
+								<Button
+									variant="link"
+									onClick={ () => {
+										getIpcApi().openURL(
+											'https://developer.wordpress.com/docs/developer-tools/studio/ssl-in-studio/'
+										);
+									} }
+								>
+									{ __( 'Learn how' ) }
+									<span aria-label={ __( '(opens in a new tab)' ) }>&#8599;</span>
+								</Button>
+							</div>
+						) }
 					</SettingsRow>
 					<SettingsRow label={ __( 'Local path' ) }>
 						<CopyTextButton

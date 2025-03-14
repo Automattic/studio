@@ -143,23 +143,17 @@ export default class SiteServerProcess {
 		}
 
 		return new Promise< void >( ( resolve, reject ) => {
-			let isResolved = false;
 			process.once( 'exit', ( code ) => {
-				if ( ! isResolved ) {
-					isResolved = true;
-					if ( code !== 0 ) {
-						reject( new Error( `Site server process exited with code ${ code } upon stopping` ) );
-					} else {
-						resolve();
-					}
+				if ( code !== 0 ) {
+					reject( new Error( `Site server process exited with code ${ code } upon stopping` ) );
+				} else {
+					resolve();
 				}
 			} );
-			// process.kill() returns false if we're not able to kill the process.
-			if ( ! process.kill() && ! isResolved ) {
+			if ( ! process.kill() ) {
 				if ( process.pid ) {
 					kill( process.pid, 'SIGKILL' );
 				} else {
-					isResolved = true;
 					resolve();
 				}
 			}

@@ -1,4 +1,5 @@
 import { app, utilityProcess, UtilityProcess } from 'electron';
+import { kill } from 'process';
 import { PHPRunOptions } from '@php-wasm/universal';
 import * as Sentry from '@sentry/electron/renderer';
 import { WPNowOptions } from 'vendor/wp-now/src/config';
@@ -142,25 +143,19 @@ export default class SiteServerProcess {
 		}
 
 		return new Promise< void >( ( resolve, reject ) => {
-			const KILL_TIMEOUT = 5000;
 			let isResolved = false;
 
-			const forceKillTimeout = setTimeout( () => {
+			const forceKillTimeout = () => {
 				if ( isResolved ) return;
-
-				// Check if process and pid are still valid before attempting force kill
-				if ( process && process.pid ) {
-					require( 'process' ).kill( process.pid, 'SIGKILL' );
+				if ( process.pid ) {
+					kill( process.pid, 'SIGKILL' );
 				} else {
-					if ( ! isResolved ) {
-						isResolved = true;
-						resolve();
-					}
+					isResolved = true;
+					resolve();
 				}
-			}, KILL_TIMEOUT );
+			};
 
 			process.once( 'exit', ( code ) => {
-				clearTimeout( forceKillTimeout );
 				if ( ! isResolved ) {
 					isResolved = true;
 					if ( code !== 0 ) {
@@ -170,7 +165,9 @@ export default class SiteServerProcess {
 					}
 				}
 			} );
-			process.kill();
+			if ( ! process.kill() ) {
+				forceKillTimeout();
+			}
 		} ).catch( ( error ) => {
 			Sentry.captureException( error );
 		} );

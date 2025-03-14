@@ -22,7 +22,7 @@ export const sitesEndpointSiteSchema = z.object( {
 		.optional(),
 	capabilities: z.object( {
 		manage_options: z.boolean(),
-	} ),
+	} ).optional(),
 	plan: z
 		.object( {
 			expired: z.boolean(),
@@ -60,7 +60,7 @@ function getSyncSupport( site: SitesEndpointSite, connectedSiteIds: number[] ): 
 	if ( site.is_deleted ) {
 		return 'deleted';
 	}
-	if ( ! site.capabilities.manage_options ) {
+	if ( ! site.capabilities?.manage_options ) {
 		return 'missing-permissions';
 	}
 	if ( isJetpackSite( site ) && ! hasSupportedPlan( site ) ) {

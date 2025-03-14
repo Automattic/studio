@@ -216,7 +216,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 										! siteName.trim()
 								) }
 							>
-								{ isEditingSite ? __( 'Updating versions…' ) : __( 'Save' ) }
+								{ isEditingSite ? __( 'Updating…' ) : __( 'Save' ) }
 							</Button>
 						</div>
 					</form>

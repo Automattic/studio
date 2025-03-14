@@ -34,7 +34,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 		? `${ selectedSite.customDomain }`
 		: `localhost:${ selectedSite.port }`;
 	return (
-		<div className="p-8 pr-0">
+		<div className="p-8 ltr:pr-0 rtl:pl-0">
 			<div className="flex justify-between items-center mb-4">
 				<h3 role="heading" className="text-black text-sm font-semibold">
 					{ __( 'Site details' ) }

@@ -30,7 +30,6 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 	private siteFiles: string[];
 	private readonly pathsToExclude = [
 		'wp-content/mu-plugins/sqlite-database-integration',
-		'wp-content/mu-plugins/0-32bit-integer-warnings.php',
 		'wp-content/mu-plugins/0-allowed-redirect-hosts.php',
 		'wp-content/mu-plugins/0-check-theme-availability.php',
 		'wp-content/mu-plugins/0-deactivate-jetpack-modules.php',

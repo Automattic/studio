@@ -117,7 +117,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 			},
 			{
 				path: normalize( '/path/to/site/wp-content/mu-plugins' ),
-				name: '0-32bit-integer-warnings.php',
+				name: '0-allowed-redirect-hosts.php',
 				isFile: () => true,
 			},
 			{
@@ -337,8 +337,8 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 			{ name: normalize( 'wp-content/mu-plugins/sqlite-database-integration/load.php' ) }
 		);
 		expect( mockArchiver.file ).not.toHaveBeenCalledWith(
-			normalize( '/path/to/site/wp-content/mu-plugins/0-32bit-integer-warnings.php' ),
-			{ name: normalize( 'wp-content/mu-plugins/0-32bit-integer-warnings.php' ) }
+			normalize( '/path/to/site/wp-content/mu-plugins/0-allowed-redirect-hosts.php' ),
+			{ name: normalize( 'wp-content/mu-plugins/0-allowed-redirect-hosts.php' ) }
 		);
 	} );
 

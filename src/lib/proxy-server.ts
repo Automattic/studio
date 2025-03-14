@@ -102,7 +102,7 @@ export async function startProxyServer(): Promise< boolean > {
 					type: 'error',
 					message: __( 'Custom domain set up failed' ),
 					detail: __(
-						'Studio needs to use port 80, but it’s in use by another app. Close any local development apps and restart Studio.'
+						'Studio needs to use port 80, but it’s already in use by another app. Close any local development apps and restart Studio.'
 					),
 					buttons: [ __( 'OK' ) ],
 				} );

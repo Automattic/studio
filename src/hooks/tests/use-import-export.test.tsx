@@ -211,7 +211,7 @@ describe( 'useImportExport hook', () => {
 		expect( result.current.exportState ).toEqual( {
 			[ SITE_ID ]: {
 				statusMessage: 'Backing up files...',
-				progress: 100,
+				progress: 95,
 			},
 		} );
 

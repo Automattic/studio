@@ -6,7 +6,7 @@ import fs from 'fs-extra';
 import { HttpProxyAgent, HttpsProxyAgent } from 'hpagent';
 import { getWordPressVersionUrl } from 'src/lib/get-wordpress-version-url';
 import unzipper from 'unzipper';
-import { SQLITE_DATABASE_INTEGRATION_RELEASE_URL } from '../../../src/lib/sqlite-database-integration-release';
+import { SQLITE_DATABASE_INTEGRATION_RELEASE_URL } from 'src/lib/sqlite-database-integration-release';
 import { DEFAULT_WORDPRESS_VERSION, SQLITE_FILENAME, WP_CLI_URL } from './constants';
 import getSqlitePath from './get-sqlite-path';
 import getWordpressVersionsPath from './get-wordpress-versions-path';

@@ -4,6 +4,7 @@ import fs, { createReadStream, createWriteStream } from 'fs';
 import fsPromises from 'fs/promises';
 import path from 'path';
 import { createInterface } from 'readline';
+import { SupportedPHPVersionsList } from '@php-wasm/universal';
 import { lstat, move } from 'fs-extra';
 import semver from 'semver';
 import { generateBackupFilename } from 'src/lib/import-export/export/generate-backup-filename';
@@ -13,8 +14,10 @@ import { serializePlugins } from 'src/lib/serialize-plugins';
 import { updateSiteUrlToLocal } from 'src/lib/updateSiteUrlToLocal';
 import { SiteServer } from 'src/site-server';
 import { DEFAULT_PHP_VERSION } from 'vendor/wp-now/src/constants';
+
 export interface ImporterResult extends Omit< BackupContents, 'metaFile' > {
 	meta?: MetaFileData;
+	importerType?: string;
 }
 
 export interface Importer extends Partial< EventEmitter > {
@@ -114,6 +117,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 				wpContentDirectory: this.backup.wpContentDirectory,
 				wpConfig: this.backup.wpConfig,
 				meta: this.meta,
+				importerType: this.constructor.name,
 			};
 		} catch ( error ) {
 			this.emit( ImportEvents.IMPORT_ERROR, error );
@@ -145,6 +149,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 				/^mu-plugins(\/|\\)sqlite-database-integration(\/|\\)?.*/, // Match sqlite-database-integration dir and contents
 				/^database(\/|\\)?.*/, // Match database dir and all contents
 				/^db\.php$/, // Exact match for db.php
+				/^index\.php$/, // Exact match for index.php
 			];
 
 			const contents = await fsPromises.readdir( wpContentDir, { recursive: true } );
@@ -177,6 +182,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 		const wpContent = this.backup.wpContent;
 		const wpContentSourceDir = this.backup.wpContentDirectory;
 		const wpContentDestDir = path.join( rootPath, 'wp-content' );
+
 		for ( const files of Object.values( wpContent ) ) {
 			for ( const file of files ) {
 				try {
@@ -204,6 +210,20 @@ abstract class BaseBackupImporter extends BaseImporter {
 		}
 		this.emit( ImportEvents.IMPORT_WP_CONTENT_COMPLETE );
 	}
+
+	protected parsePhpVersion( version: string | undefined ): string {
+		if ( ! version ) {
+			return DEFAULT_PHP_VERSION;
+		}
+		const phpVersion = semver.coerce( version );
+		if ( ! phpVersion ) {
+			return DEFAULT_PHP_VERSION;
+		}
+
+		const parsedVersion = `${ phpVersion.major }.${ phpVersion.minor }`;
+
+		return SupportedPHPVersionsList.includes( parsedVersion ) ? parsedVersion : DEFAULT_PHP_VERSION;
+	}
 }
 
 export class JetpackImporter extends BaseBackupImporter {
@@ -215,7 +235,11 @@ export class JetpackImporter extends BaseBackupImporter {
 		this.emit( ImportEvents.IMPORT_META_START );
 		try {
 			const metaContent = await fsPromises.readFile( metaFilePath, 'utf-8' );
-			return JSON.parse( metaContent );
+			const meta = JSON.parse( metaContent );
+			return {
+				phpVersion: this.parsePhpVersion( meta?.phpVersion ),
+				wordpressVersion: meta?.wordpressVersion || '',
+			};
 		} catch ( e ) {
 			return;
 		} finally {
@@ -234,11 +258,8 @@ export class LocalImporter extends BaseBackupImporter {
 		try {
 			const metaContent = await fsPromises.readFile( metaFilePath, 'utf-8' );
 			const meta = JSON.parse( metaContent );
-			const phpVersion = semver.coerce( meta?.services?.php?.version );
 			return {
-				phpVersion: phpVersion
-					? `${ phpVersion.major }.${ phpVersion.minor }`
-					: DEFAULT_PHP_VERSION,
+				phpVersion: this.parsePhpVersion( meta?.services?.php?.version ),
 				wordpressVersion: '',
 			};
 		} catch ( e ) {
@@ -294,6 +315,7 @@ export class SQLImporter extends BaseImporter {
 				wpConfig: this.backup.wpConfig,
 				wpContent: this.backup.wpContent,
 				wpContentDirectory: this.backup.wpContentDirectory,
+				importerType: this.constructor.name,
 			};
 		} catch ( error ) {
 			this.emit( ImportEvents.IMPORT_ERROR, error );

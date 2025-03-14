@@ -1,3 +1,20 @@
+1.3.7
+=====
+* Fixed issue with site crashing after rotatePHPRuntime and displaying hello wp-now #1019
+
+1.3.6
+=====
+* Fixed issue with resolving relative symlink paths #1009
+* Improved site path uniqueness validation on Windows #976
+
+1.3.5
+=====
+* Improved site name suggestions to ensure path uniqueness #972
+* Improved stats tracking of app usage #988
+* Added failed state when preview sites update fails #977
+* Fixed updating, export and push for sites with older SQLite database integration #966
+* Misc minor bug fixes and UI improvements
+
 1.3.4
 =====
 * Included mu-plugins in site exports #861

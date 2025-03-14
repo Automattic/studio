@@ -1,16 +1,30 @@
-import { Icon } from '@wordpress/components';
+import { Icon, SelectControl } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { tip, warning, trash, chevronRight, chevronDown, chevronLeft } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { FormEvent, useRef, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import Button from 'src/components/button';
 import FolderIcon from 'src/components/folder-icon';
+import offlineIcon from 'src/components/offline-icon';
 import TextControlComponent from 'src/components/text-control';
+import { Tooltip } from 'src/components/tooltip';
 import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
 import { useDocsLink } from 'src/hooks/use-docs-link';
+import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
+import { generateCustomDomainFromSiteName } from 'src/lib/generate-custom-domain';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useAppDispatch, useRootSelector } from 'src/stores';
+import {
+	wordpressVersionsSelectors,
+	wordpressVersionsThunks,
+} from 'src/stores/wordpress-versions-slice';
+import {
+	DEFAULT_WORDPRESS_VERSION,
+	ALLOWED_PHP_VERSIONS,
+	AllowedPHPVersion,
+} from 'vendor/wp-now/src/constants';
 
 interface FormPathInputComponentProps {
 	value: string;
@@ -33,6 +47,32 @@ interface SiteFormErrorProps {
 	error?: string;
 	tipMessage?: string;
 	className?: string;
+}
+
+interface SiteFormProps {
+	className?: string;
+	children?: React.ReactNode;
+	siteName: string;
+	setSiteName: ( name: string ) => void;
+	sitePath?: string;
+	onSelectPath?: () => void;
+	error: string;
+	doesPathContainWordPress?: boolean;
+	isPathInputDisabled?: boolean;
+	onSubmit: ( event: FormEvent ) => void;
+	fileForImport?: File | null;
+	setFileForImport?: ( file: File | null ) => void;
+	onFileSelected?: ( file: File ) => void;
+	fileError?: string;
+	useCustomDomain?: boolean;
+	setUseCustomDomain?: ( use: boolean ) => void;
+	customDomain?: string | null;
+	setCustomDomain?: ( domain: string ) => void;
+	customDomainError?: string;
+	phpVersion: AllowedPHPVersion;
+	setPhpVersion: ( version: AllowedPHPVersion ) => void;
+	wpVersion: string;
+	setWpVersion: ( version: string ) => void;
 }
 
 const SiteFormError = ( { error, tipMessage = '', className = '' }: SiteFormErrorProps ) => {
@@ -92,7 +132,7 @@ function FormPathInputComponent( {
 			>
 				<TextControlComponent
 					aria-hidden="true"
-					disabled={ true }
+					tabIndex={ -1 }
 					className="[&_.components-text-control\_\_input]:bg-transparent [&_.components-text-control\_\_input]:border-none [&_input]:pointer-events-none w-full"
 					value={ value }
 					// eslint-disable-next-line @typescript-eslint/no-empty-function
@@ -160,7 +200,7 @@ function FormImportComponent( {
 				>
 					<TextControlComponent
 						aria-hidden="true"
-						disabled={ true }
+						tabIndex={ -1 }
 						placeholder={ placeholder }
 						className="flex-grow [&_.components-text-control\_\_input]:bg-transparent [&_.components-text-control\_\_input]:border-none [&_input]:pointer-events-none [&_.components-text-control\_\_input]:text-sm w-full [&_.components-text-control\_\_input]:truncate"
 						value={ fileName }
@@ -202,6 +242,10 @@ export const SiteForm = ( {
 	children,
 	siteName,
 	setSiteName,
+	phpVersion,
+	setPhpVersion,
+	wpVersion,
+	setWpVersion,
 	sitePath = '',
 	onSelectPath,
 	error,
@@ -212,24 +256,27 @@ export const SiteForm = ( {
 	setFileForImport,
 	onFileSelected,
 	fileError,
-}: {
-	className?: string;
-	children?: React.ReactNode;
-	siteName: string;
-	setSiteName: ( name: string ) => void;
-	sitePath?: string;
-	onSelectPath?: () => void;
-	error: string;
-	doesPathContainWordPress?: boolean;
-	isPathInputDisabled?: boolean;
-	onSubmit: ( event: FormEvent ) => void;
-	fileForImport?: File | null;
-	setFileForImport?: ( file: File | null ) => void;
-	onFileSelected?: ( file: File ) => void;
-	fileError?: string;
-} ) => {
+	useCustomDomain,
+	setUseCustomDomain,
+	customDomain = null,
+	setCustomDomain,
+	customDomainError,
+}: SiteFormProps ) => {
 	const { __, isRTL } = useI18n();
 	const getDocsLink = useDocsLink();
+	const dispatch = useAppDispatch();
+	const isOffline = useOffline();
+	const offlineMessage = __( 'Changing WordPress version requires an internet connection.' );
+	const wpVersions = useRootSelector(
+		wordpressVersionsSelectors.selectWordPressVersionsWithLatest
+	);
+	const wpVersionsStatus = useRootSelector( ( state ) => state.wordpressVersions.status );
+
+	useEffect( () => {
+		if ( wpVersionsStatus === 'idle' ) {
+			dispatch( wordpressVersionsThunks.fetchWordPressVersions() );
+		}
+	}, [ wpVersionsStatus, dispatch ] );
 
 	const [ isAdvancedSettingsVisible, setAdvancedSettingsVisible ] = useState( false );
 
@@ -246,6 +293,7 @@ export const SiteForm = ( {
 	} else {
 		chevronIcon = chevronRight;
 	}
+	const generatedDomainName = generateCustomDomainFromSiteName( siteName );
 
 	return (
 		<form className={ className } onSubmit={ onSubmit }>
@@ -254,6 +302,7 @@ export const SiteForm = ( {
 					<span className="font-semibold">{ __( 'Site name' ) }</span>
 					<TextControlComponent onChange={ setSiteName } value={ siteName }></TextControlComponent>
 				</label>
+
 				{ setFileForImport && (
 					<>
 						<div className="flex flex-col gap-1.5 leading-4 mb-6">
@@ -304,28 +353,22 @@ export const SiteForm = ( {
 											{ __( 'Advanced settings' ) }
 										</div>
 									</Button>
-									{ error && (
+									{ ( error || customDomainError ) && (
 										<span className="text-red-500 text-[13px] leading-[16px] ml-2 flex items-center">
 											<Icon icon={ warning } size={ 16 } className="mr-1 fill-red-500" />
-											{ __( '1 error found' ) }
+											{ error && customDomainError
+												? __( '2 errors found' )
+												: __( '1 error found' ) }
 										</span>
 									) }
 								</div>
 								<div
 									className={ cx(
-										'transition-height duration-500 ease-in-out overflow-hidden',
-										isAdvancedSettingsVisible
-											? 'max-h-96 opacity-100 mb-6'
-											: 'max-h-0 opacity-0 mb-0'
+										'transition-all duration-500 ease-in-out overflow-hidden flex flex-col gap-2',
+										isAdvancedSettingsVisible ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
 									) }
 								>
-									<div
-										className={ cx(
-											'flex flex-col gap-1.5 leading-4',
-											isAdvancedSettingsVisible ? 'py-2' : 'p-2',
-											! isAdvancedSettingsVisible && 'hidden'
-										) }
-									>
+									<div className={ cx( 'flex flex-col gap-1.5 leading-4 py-2' ) }>
 										<label onClick={ onSelectPath } className="font-semibold">
 											{ __( 'Local path' ) }
 										</label>
@@ -352,6 +395,88 @@ export const SiteForm = ( {
 											value={ sitePath }
 											onClick={ onSelectPath }
 										/>
+										<div className="grid grid-cols-2 gap-4 mt-4">
+											<div className="flex flex-col gap-1.5 leading-4">
+												<label className="font-semibold" htmlFor="php-version-select">
+													{ __( 'PHP version' ) }
+												</label>
+												<SelectControl
+													id="php-version-select"
+													value={ phpVersion }
+													options={ ALLOWED_PHP_VERSIONS.map( ( version ) => ( {
+														label: version,
+														value: version,
+													} ) ) }
+													onChange={ setPhpVersion as ( value: string ) => void }
+													__next40pxDefaultSize
+												/>
+											</div>
+											<div className="flex flex-col gap-1.5 leading-4">
+												<label className="font-semibold" htmlFor="wp-version-select">
+													{ __( 'WordPress version' ) }
+												</label>
+												<Tooltip
+													disabled={ ! isOffline }
+													icon={ offlineIcon }
+													text={ offlineMessage }
+													placement="top-start"
+													className="flex flex-1 flex-col"
+												>
+													<SelectControl
+														id="wp-version-select"
+														value={ wpVersion }
+														options={
+															wpVersions.length > 0
+																? wpVersions.map( ( { label, value } ) => ( {
+																		label,
+																		value,
+																  } ) )
+																: [
+																		{
+																			label: DEFAULT_WORDPRESS_VERSION,
+																			value: DEFAULT_WORDPRESS_VERSION,
+																		},
+																  ]
+														}
+														onChange={ setWpVersion }
+														__next40pxDefaultSize
+														disabled={ isOffline }
+													/>
+												</Tooltip>
+											</div>
+										</div>
+
+										{ setUseCustomDomain && setCustomDomain && (
+											<div className="flex items-center gap-2 mt-4">
+												<input
+													type="checkbox"
+													id="use-custom-domain"
+													checked={ useCustomDomain }
+													onChange={ ( e ) => setUseCustomDomain( e.target.checked ) }
+												/>
+												<label htmlFor="use-custom-domain">{ __( 'Use custom domain' ) }</label>
+											</div>
+										) }
+
+										{ useCustomDomain && setCustomDomain && (
+											<div className="flex flex-col gap-2 mt-4">
+												<label htmlFor="custom-domain" className="font-semibold">
+													{ __( 'Domain name' ) }
+												</label>
+												<TextControlComponent
+													id="custom-domain"
+													value={ customDomain !== null ? customDomain : generatedDomainName }
+													onChange={ setCustomDomain }
+												/>
+												{ customDomainError && <SiteFormError error={ customDomainError } /> }
+											</div>
+										) }
+
+										{ setUseCustomDomain && setCustomDomain && (
+											<div className="text-a8c-gray-50 text-xs mt-2">
+												{ __( 'Your system password will be required to set up the domain.' ) }
+											</div>
+										) }
 									</div>
 								</div>
 							</>

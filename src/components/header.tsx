@@ -1,15 +1,33 @@
-import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import { SiteManagementActions } from 'src/components/site-management-actions';
-import { Tooltip } from 'src/components/tooltip';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
 export default function Header() {
 	const { __ } = useI18n();
 	const { selectedSite: site, startServer, stopServer, loadingServer } = useSiteDetails();
+	const isLoading = site?.id ? loadingServer[ site.id ] : false;
+
+	const handleWpAdminClick = async () => {
+		if ( ! site || isLoading ) return;
+
+		if ( ! site.running ) {
+			await startServer( site.id );
+		}
+		getIpcApi().openSiteURL( site.id, '/wp-admin' );
+	};
+
+	const handleOpenSiteClick = async () => {
+		if ( ! site || isLoading ) return;
+
+		if ( ! site.running ) {
+			await startServer( site.id );
+		}
+		getIpcApi().openSiteURL( site.id, '', { autoLogin: false } );
+	};
+
 	return (
 		<div
 			data-testid="site-content-header"
@@ -21,61 +39,33 @@ export default function Header() {
 						{ site ? site.name : null }
 					</h1>
 					<div className="flex mt-1 gap-x-4">
-						<Tooltip
-							text={
-								site.running
-									? sprintf(
-											/* translators: wpAdminUrl is the site's WP admin URL */
-											__( 'Open %(wpAdminUrl)s' ),
-											{ wpAdminUrl: `${ site.url }/wp-admin` }
-									  )
-									: undefined
-							}
-							disabled={ ! site.running }
-							placement="top-start"
+						<Button
+							className="[&.is-link]:text-a8c-gray-70 [&.is-link]:hover:text-a8c-blueberry !px-0 h-0 leading-4"
+							onClick={ handleWpAdminClick }
+							variant="link"
+							disabled={ isLoading }
 						>
-							<Button
-								disabled={ ! site.running }
-								className="[&.is-link]:text-a8c-gray-70 [&.is-link]:hover:text-a8c-blueberry !px-0 h-0 leading-4"
-								onClick={ () => getIpcApi().openSiteURL( site.id, '/wp-admin' ) }
-								variant="link"
-							>
-								{ __( 'WP admin' ) }
-								<ArrowIcon />
-							</Button>
-						</Tooltip>
-						<Tooltip
-							text={
-								site.running
-									? sprintf(
-											/* translators: siteUrl is the site URL */
-											__( 'Open %(siteUrl)s' ),
-											{ siteUrl: site.url }
-									  )
-									: undefined
-							}
-							disabled={ ! site.running }
-							placement="top-start"
+							{ __( 'WP admin' ) }
+							<ArrowIcon />
+						</Button>
+						<Button
+							className="[&.is-link]:text-a8c-gray-70 [&.is-link]:hover:text-a8c-blueberry !px-0 h-0 leading-4"
+							onClick={ handleOpenSiteClick }
+							variant="link"
+							disabled={ isLoading }
 						>
-							<Button
-								disabled={ ! site.running }
-								className="[&.is-link]:text-a8c-gray-70 [&.is-link]:hover:text-a8c-blueberry !px-0 h-0 leading-4"
-								onClick={ () => getIpcApi().openSiteURL( site.id, '', { autoLogin: false } ) }
-								variant="link"
-							>
-								{
-									// translators: "Open site" refers to the action, like "to open site"
-									__( 'Open site' )
-								}
-								<ArrowIcon />
-							</Button>
-						</Tooltip>
+							{
+								// translators: "Open site" refers to the action, like "to open site"
+								__( 'Open site' )
+							}
+							<ArrowIcon />
+						</Button>
 					</div>
 				</div>
 			) }
 			<SiteManagementActions
 				onStart={ startServer }
-				loading={ site?.id ? loadingServer[ site.id ] : false }
+				loading={ isLoading }
 				onStop={ stopServer }
 				selectedSite={ site }
 			/>

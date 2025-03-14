@@ -129,7 +129,7 @@ steps:
   - label: 🔨 Windows Dev Build
     key: dev-windows
     command: |
-      $env:IS_DEV_BUILD="true"
+      bash .buildkite/commands/install-node-dependencies.sh
       .buildkite/commands/build-for-windows-dev.ps1
       node scripts/package-appx.mjs
     artifact_paths:
@@ -139,7 +139,9 @@ steps:
       - out\**\*.appx
     agents:
       queue: windows
-    plugins: [$CI_TOOLKIT_PLUGIN]
+    env:
+      IS_DEV_BUILD: true
+    plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
     if: build.tag !~ /^v[0-9]+/
     notify:
       - github_commit_status:
@@ -236,8 +238,9 @@ steps:
     key: release-windows
     agents:
       queue: windows
-    plugins: [$CI_TOOLKIT_PLUGIN]
+    plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
     command: |
+      bash .buildkite/commands/install-node-dependencies.sh
       .buildkite/commands/build-for-windows-release.ps1
       node scripts/package-appx.mjs
     artifact_paths:

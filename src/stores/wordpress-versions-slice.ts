@@ -1,16 +1,19 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import * as Sentry from '@sentry/electron/renderer';
+import { __ } from '@wordpress/i18n';
 import { z, ZodError } from 'zod';
 
 const MINIMUM_WORDPRESS_VERSION = '5.9.9';
 
 const wordPressOfferSchema = z.object( {
 	version: z.string(),
-	response: z.enum( [ 'autoupdate', 'upgrade' ] ),
+	response: z.string(),
 } );
 
+type WordPressOffer = z.infer< typeof wordPressOfferSchema >;
+
 const wordPressApiResponseSchema = z.object( {
-	offers: z.array( wordPressOfferSchema ),
+	offers: z.array( z.any() ),
 } );
 
 const extractShortName = ( version: string ): string => {
@@ -33,7 +36,14 @@ export const fetchWordPressVersions = createAsyncThunk(
 
 			const shortNameOccurrences = new Map< string, number >();
 			const offers = data.offers
-				.filter( ( offer ) => offer.response === 'autoupdate' )
+				.map( ( offer ) => {
+					try {
+						return wordPressOfferSchema.parse( offer );
+					} catch ( error ) {
+						return null;
+					}
+				} )
+				.filter( ( offer ): offer is WordPressOffer => offer?.response === 'autoupdate' )
 				.map( ( { version } ) => {
 					const shortName = extractShortName( version );
 					shortNameOccurrences.set( shortName, ( shortNameOccurrences.get( shortName ) || 0 ) + 1 );
@@ -42,6 +52,7 @@ export const fetchWordPressVersions = createAsyncThunk(
 						shortName,
 					};
 				} );
+
 			return offers.map( ( { version, shortName } ) => {
 				const isBeta = version.includes( 'beta' ) || version.includes( 'RC' );
 				const occurrences = shortNameOccurrences.get( shortName ) || 0;
@@ -100,6 +111,21 @@ const wordpressVersionsSlice = createSlice( {
 	},
 	selectors: {
 		selectWordPressVersions: ( state ) => state.versions,
+		selectWordPressVersionsWithLatest: ( state ) => {
+			const latestNonBeta = state.versions.find( ( version ) => ! version.isBeta );
+			if ( ! latestNonBeta ) {
+				return state.versions;
+			}
+			const otherVersions = state.versions.filter( ( version ) => version !== latestNonBeta );
+			return [
+				{
+					isBeta: false,
+					label: `${ latestNonBeta.label } (${ __( 'latest' ) })`,
+					value: latestNonBeta.value,
+				},
+				...otherVersions,
+			];
+		},
 	},
 } );
 

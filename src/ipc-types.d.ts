@@ -19,6 +19,8 @@ interface StoppedSiteDetails {
 	path: string;
 	port: number;
 	phpVersion: string;
+	wpVersion?: string;
+	customDomain?: string;
 	adminPassword?: string;
 	themeDetails?: {
 		name: string;
@@ -83,7 +85,6 @@ interface AppGlobals {
 	appName: string;
 	arm64Translation: boolean;
 	terminalWpCliEnabled: boolean;
-	wpVersionsEnabled: boolean;
 }
 
 // Our IPC objects will be attached to the `window` global

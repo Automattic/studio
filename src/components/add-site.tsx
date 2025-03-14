@@ -1,3 +1,4 @@
+import { SupportedPHPVersion } from '@php-wasm/universal';
 import { speak } from '@wordpress/a11y';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
@@ -13,6 +14,7 @@ import { useImportExport } from 'src/hooks/use-import-export';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { generateSiteName } from 'src/lib/generate-site-name';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
 
 interface AddSiteProps {
 	className?: string;
@@ -28,6 +30,10 @@ export default function AddSite( { className }: AddSiteProps ) {
 		handleAddSiteClick,
 		siteName,
 		setSiteName,
+		phpVersion,
+		setPhpVersion,
+		wpVersion,
+		setWpVersion,
 		setProposedSitePath,
 		sitePath,
 		setSitePath,
@@ -41,6 +47,12 @@ export default function AddSite( { className }: AddSiteProps ) {
 		fileForImport,
 		setFileForImport,
 		sites,
+		useCustomDomain,
+		setUseCustomDomain,
+		customDomain,
+		setCustomDomain,
+		customDomainError,
+		setCustomDomainError,
 	} = useAddSite();
 	const { importState } = useImportExport();
 
@@ -55,8 +67,8 @@ export default function AddSite( { className }: AddSiteProps ) {
 	);
 
 	const initializeForm = useCallback( async () => {
-		const { name, path, isWordPress } =
-			( await getIpcApi().generateProposedSitePath( generateSiteName( sites ) ) ) || {};
+		const siteName = await generateSiteName( sites );
+		const { path, name, isWordPress } = await getIpcApi().generateProposedSitePath( siteName );
 		setNameSuggested( true );
 		setSiteName( name );
 		setProposedSitePath( path );
@@ -89,7 +101,21 @@ export default function AddSite( { className }: AddSiteProps ) {
 		setDoesPathContainWordPress( false );
 		setFileForImport( null );
 		setFileError( '' );
-	}, [ setSitePath, setDoesPathContainWordPress, setFileForImport ] );
+		setWpVersion( DEFAULT_WORDPRESS_VERSION );
+		setPhpVersion( DEFAULT_PHP_VERSION as SupportedPHPVersion );
+		setUseCustomDomain( false );
+		setCustomDomain( null );
+		setCustomDomainError( '' );
+	}, [
+		setSitePath,
+		setDoesPathContainWordPress,
+		setFileForImport,
+		setPhpVersion,
+		setWpVersion,
+		setUseCustomDomain,
+		setCustomDomain,
+		setCustomDomainError,
+	] );
 
 	const handleSubmit = useCallback(
 		async ( event: FormEvent ) => {
@@ -154,6 +180,10 @@ export default function AddSite( { className }: AddSiteProps ) {
 						<SiteForm
 							siteName={ siteName || '' }
 							setSiteName={ handleSiteNameChange }
+							phpVersion={ phpVersion }
+							setPhpVersion={ setPhpVersion }
+							wpVersion={ wpVersion }
+							setWpVersion={ setWpVersion }
 							sitePath={ sitePath }
 							onSelectPath={ handlePathSelectorClick }
 							error={ error }
@@ -163,12 +193,21 @@ export default function AddSite( { className }: AddSiteProps ) {
 							setFileForImport={ setFileForImport }
 							onFileSelected={ handleImportFile }
 							fileError={ fileError }
+							useCustomDomain={ useCustomDomain }
+							setUseCustomDomain={ setUseCustomDomain }
+							customDomain={ customDomain }
+							setCustomDomain={ setCustomDomain }
+							customDomainError={ customDomainError }
 						>
 							<div className="flex flex-row justify-end gap-x-5 mt-6">
 								<Button onClick={ closeModal } variant="tertiary">
 									{ __( 'Cancel' ) }
 								</Button>
-								<Button type="submit" variant="primary" disabled={ !! error || ! siteName?.trim() }>
+								<Button
+									type="submit"
+									variant="primary"
+									disabled={ !! error || !! customDomainError || ! siteName?.trim() }
+								>
 									{ __( 'Add site' ) }
 								</Button>
 							</div>

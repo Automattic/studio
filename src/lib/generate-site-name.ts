@@ -1,6 +1,7 @@
 import { __ } from '@wordpress/i18n';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 
-export function generateSiteName( usedSites: SiteDetails[] ): string {
+export async function generateSiteName( usedSites: SiteDetails[] ): Promise< string > {
 	const siteNames = [
 		__( 'My Bold Website' ),
 		__( 'My Bright Website' ),
@@ -26,22 +27,25 @@ export function generateSiteName( usedSites: SiteDetails[] ): string {
 
 	const defaultName = __( 'My WordPress Website' );
 
-	const isPathUnique = ( name: string ): boolean => {
-		const sanitizedPath = sanitizeFolderName( name );
-		return ! usedSites.some( ( site ) => site.path.toLowerCase().endsWith( '/' + sanitizedPath ) );
+	const isPathUnique = async ( name: string ): Promise< boolean > => {
+		const { isEmpty } = await getIpcApi().generateProposedSitePath( name );
+		return isEmpty;
 	};
 
 	const isNameUnique = ( name: string ): boolean => {
 		return ! usedSites.some( ( site ) => site.name === name );
 	};
 
-	if ( isNameUnique( defaultName ) && isPathUnique( defaultName ) ) {
+	if ( isNameUnique( defaultName ) && ( await isPathUnique( defaultName ) ) ) {
 		return defaultName;
 	}
 
-	const availableNames = siteNames.filter(
-		( name ) => isNameUnique( name ) && isPathUnique( name )
-	);
+	const availableNames = [];
+	for ( const name of siteNames ) {
+		if ( isNameUnique( name ) && ( await isPathUnique( name ) ) ) {
+			availableNames.push( name );
+		}
+	}
 
 	if ( availableNames.length > 0 ) {
 		return availableNames[ Math.floor( Math.random() * availableNames.length ) ];
@@ -50,7 +54,7 @@ export function generateSiteName( usedSites: SiteDetails[] ): string {
 	let siteNumber = 2;
 	let candidateName = `${ defaultName } ${ siteNumber }`;
 
-	while ( ! isNameUnique( candidateName ) || ! isPathUnique( candidateName ) ) {
+	while ( ! isNameUnique( candidateName ) || ! ( await isPathUnique( candidateName ) ) ) {
 		siteNumber++;
 		candidateName = `${ defaultName } ${ siteNumber }`;
 	}

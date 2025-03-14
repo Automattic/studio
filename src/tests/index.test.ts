@@ -106,6 +106,8 @@ describe( 'App initialization', () => {
 			expect( setupSpy.mock.invocationCallOrder[ 0 ] ).toBeLessThan(
 				( createMainWindow as jest.Mock ).mock.invocationCallOrder[ 0 ]
 			);
+
+			await mockedEvents.quit();
 		} );
 	} );
 
@@ -122,6 +124,8 @@ describe( 'App initialization', () => {
 			await mockedEvents.ready();
 			await mockedEvents.activate();
 			expect( createMainWindow ).toHaveBeenCalled();
+
+			await mockedEvents.quit();
 		} );
 	} );
 
@@ -153,6 +157,8 @@ describe( 'App initialization', () => {
 			expect( getMainWindow as jest.Mock ).toHaveBeenCalled();
 
 			Object.defineProperty( process, 'platform', { value: originalProcessPlatform } );
+
+			await mockedEvents.quit();
 		} );
 	} );
 } );

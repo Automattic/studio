@@ -272,3 +272,7 @@ blockquote {
 .error-message {
 	color: #D63638;
 }
+
+.error-select-control .components-input-control__backdrop {
+	border-color: theme( 'colors.red.500' )!important;
+}

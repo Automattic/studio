@@ -1,5 +1,5 @@
 import * as Sentry from '@sentry/electron/renderer';
-import { __, sprintf } from '@wordpress/i18n';
+import { __ } from '@wordpress/i18n';
 import {
 	archive,
 	code,
@@ -17,9 +17,9 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useState } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import { ButtonsSection, ButtonsSectionProps } from 'src/components/buttons-section';
-import { Tooltip } from 'src/components/tooltip';
 import { useCheckInstalledApps } from 'src/hooks/use-check-installed-apps';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
+import { useSiteDetails } from 'src/hooks/use-site-details';
 import { useThemeDetails } from 'src/hooks/use-theme-details';
 import { isMac } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
@@ -198,6 +198,7 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) {
 	const [ isThumbnailError, setIsThumbnailError ] = useState( false );
 	const { __ } = useI18n();
+	const { startServer, loadingServer } = useSiteDetails();
 	const {
 		selectedThemeDetails: themeDetails,
 		selectedThumbnail: thumbnailData,
@@ -207,7 +208,16 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 	} = useThemeDetails();
 
 	const loading = loadingThemeDetails || loadingThumbnails || initialLoading;
-	const siteRunning = selectedSite.running;
+	const isServerLoading = loadingServer[ selectedSite.id ];
+
+	const handleThumbnailClick = async () => {
+		if ( isServerLoading ) return;
+
+		if ( ! selectedSite.running ) {
+			await startServer( selectedSite.id );
+		}
+		getIpcApi().openSiteURL( selectedSite.id, '', { autoLogin: false } );
+	};
 
 	const thumbnailImage = (
 		<img
@@ -228,7 +238,7 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 						'w-full min-h-40 max-h-64 rounded-sm border border-a8c-gray-5 bg-a8c-gray-0 mb-2 flex justify-center',
 						loading && `h-64 ${ skeletonBg }`,
 						isThumbnailError && 'border-none',
-						! loading && siteRunning && 'hover:border-a8c-blueberry duration-300'
+						! loading && 'hover:border-a8c-blueberry duration-300'
 					) }
 				>
 					{ isThumbnailError && ! loading && (
@@ -236,35 +246,27 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 							{ __( 'Preview unavailable' ) }
 						</div>
 					) }
-					{ ! loading && siteRunning && (
-						<Tooltip
-							text={ sprintf(
-								/* translators: siteUrl is the site URL */
-								__( 'Open %(siteUrl)s' ),
-								{ siteUrl: selectedSite.url }
+					{ ! loading && (
+						<button
+							aria-label={ __( 'Open site' ) }
+							className={ cx(
+								'relative group focus-visible:outline-a8c-blueberry',
+								isServerLoading && 'cursor-not-allowed'
 							) }
-							placement="top"
+							onClick={ handleThumbnailClick }
+							disabled={ isServerLoading }
 						>
-							<button
-								aria-label={ __( 'Open site' ) }
-								className={ 'relative group focus-visible:outline-a8c-blueberry' }
-								onClick={ () =>
-									getIpcApi().openSiteURL( selectedSite.id, '', { autoLogin: false } )
+							<div
+								className={
+									'opacity-0 group-hover:opacity-90 group-hover:bg-white group-focus:opacity-90 group-focus:bg-white duration-300 absolute size-full flex justify-center items-center bg-white text-a8c-blueberry'
 								}
 							>
-								<div
-									className={
-										'opacity-0 group-hover:opacity-90 group-hover:bg-white group-focus:opacity-90 group-focus:bg-white duration-300 absolute size-full flex justify-center items-center bg-white text-a8c-blueberry'
-									}
-								>
-									{ __( 'Open site' ) }
-									<ArrowIcon />
-								</div>
-								{ thumbnailImage }
-							</button>
-						</Tooltip>
+								{ __( 'Open site' ) }
+								<ArrowIcon />
+							</div>
+							{ thumbnailImage }
+						</button>
 					) }
-					{ ! loading && ! siteRunning && thumbnailImage }
 				</div>
 				<div className="flex justify-between items-center w-full">
 					{ loading && <div className={ `w-[100px] min-h-4 ${ skeletonBg }` }></div> }

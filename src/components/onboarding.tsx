@@ -41,6 +41,8 @@ export default function Onboarding() {
 		setSitePath,
 		setError,
 		setDoesPathContainWordPress,
+		setPhpVersion,
+		setWpVersion,
 		siteName,
 		sitePath,
 		error,
@@ -50,6 +52,14 @@ export default function Onboarding() {
 		handlePathSelectorClick,
 		setFileForImport,
 		fileForImport,
+		phpVersion,
+		wpVersion,
+		useCustomDomain,
+		setUseCustomDomain,
+		customDomain,
+		setCustomDomain,
+		customDomainError,
+		setCustomDomainError,
 	} = useAddSite();
 	const [ fileError, setFileError ] = useState( '' );
 
@@ -77,14 +87,16 @@ export default function Onboarding() {
 
 	useEffect( () => {
 		const run = async () => {
-			const { path, name, isWordPress } = await getIpcApi().generateProposedSitePath(
-				generateSiteName( [] )
-			);
+			const siteName = await generateSiteName( [] );
+			const { path, name, isWordPress } = await getIpcApi().generateProposedSitePath( siteName );
 			setSiteName( name );
 			setProposedSitePath( path );
 			setSitePath( '' );
 			setError( '' );
 			setDoesPathContainWordPress( isWordPress );
+			setUseCustomDomain( false );
+			setCustomDomain( null );
+			setCustomDomainError( '' );
 		};
 		run();
 		// eslint-disable-next-line react-hooks/exhaustive-deps
@@ -126,7 +138,10 @@ export default function Onboarding() {
 				<GradientBox />
 			</div>
 
-			<div className="w-1/2 bg-white p-[50px] flex flex-col relative" ref={ dropRef }>
+			<div
+				className="w-1/2 bg-white p-[50px] flex flex-col relative overflow-y-auto"
+				ref={ dropRef }
+			>
 				{ isDraggingOver && <DragAndDropOverlay /> }
 				<div className="h-[569px] flex flex-col justify-center items-start flex-[1_0_0%] gap-8">
 					<div className="flex flex-col items-start self-stretch gap-6 app-no-drag-region">
@@ -144,6 +159,15 @@ export default function Onboarding() {
 							setFileForImport={ setFileForImport }
 							onFileSelected={ handleImportFile }
 							fileError={ fileError }
+							phpVersion={ phpVersion }
+							setPhpVersion={ setPhpVersion }
+							wpVersion={ wpVersion }
+							setWpVersion={ setWpVersion }
+							useCustomDomain={ useCustomDomain }
+							setUseCustomDomain={ setUseCustomDomain }
+							customDomain={ customDomain }
+							setCustomDomain={ setCustomDomain }
+							customDomainError={ customDomainError }
 						>
 							<div className="flex flex-row gap-x-5 mt-6 justify-end">
 								<Button type="submit" variant="primary">

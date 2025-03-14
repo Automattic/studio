@@ -15,6 +15,7 @@ import { PROTOCOL_PREFIX } from 'src/constants';
 import * as ipcHandlers from 'src/ipc-handlers';
 import { hasActiveSyncOperations } from 'src/lib/active-sync-operations';
 import { bumpAggregatedUniqueStat, bumpStat } from 'src/lib/bump-stats';
+import { getPlatformMetric, StatsGroup } from 'src/lib/bump-stats/types';
 import {
 	listenCLICommands,
 	getCLIDataForMainInstance,
@@ -24,6 +25,7 @@ import {
 } from 'src/lib/cli';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { onOpenUrlCallback } from 'src/lib/oauth';
+import { startProxyServer, stopProxyServer } from 'src/lib/proxy-server';
 import { getSentryReleaseInfo } from 'src/lib/sentry-release';
 import { setupLogging } from 'src/logging';
 import { createMainWindow, getMainWindow } from 'src/main-window';
@@ -264,19 +266,37 @@ async function appBoot() {
 
 		createMainWindow();
 
+		// Start the proxy server for custom domains
+		try {
+			const proxyStarted = await startProxyServer();
+			if ( proxyStarted ) {
+				console.log( 'Custom domain proxy server started successfully' );
+			} else {
+				console.warn(
+					'Failed to start custom domain proxy server - custom domains will require port numbers'
+				);
+			}
+		} catch ( error ) {
+			console.error( 'Error starting proxy server:', error );
+		}
+
 		// Handle CLI commands
 		listenCLICommands();
 		executeCLICommand();
 
 		// Bump stats for the first time the app runs - this is when no lastBumpStats are available
 		if ( ! userData.lastBumpStats ) {
-			bumpStat( 'studio-app-launch-first', process.platform );
+			bumpStat( StatsGroup.STUDIO_APP_LAUNCH, getPlatformMetric( process.platform ) );
 		}
 
 		// Bump a stat on each app launch, approximates total app launches
-		bumpStat( 'studio-app-launch-total', process.platform );
+		bumpStat( StatsGroup.STUDIO_APP_LAUNCH_TOTAL, getPlatformMetric( process.platform ) );
 		// Bump stat for unique weekly app launch, approximates weekly active users
-		bumpAggregatedUniqueStat( 'local-environment-launch-uniques', process.platform, 'weekly' );
+		bumpAggregatedUniqueStat(
+			StatsGroup.STUDIO_APP_LAUNCH_UNIQUE,
+			getPlatformMetric( process.platform ),
+			'weekly'
+		);
 
 		finishedInitialization = true;
 	} );
@@ -320,6 +340,7 @@ async function appBoot() {
 
 	app.on( 'quit', () => {
 		stopAllServersOnQuit();
+		stopProxyServer().catch( ( error ) => console.error( 'Error stopping proxy server:', error ) );
 	} );
 
 	app.on( 'activate', () => {

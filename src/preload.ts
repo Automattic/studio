@@ -23,7 +23,8 @@ const api: IpcApi = {
 	exportSiteToPush: ( id: string ) => ipcRenderer.invoke( 'exportSiteToPush', id ),
 	deleteSite: ( id: string, deleteFiles?: boolean ) =>
 		ipcRenderer.invoke( 'deleteSite', id, deleteFiles ),
-	createSite: ( path: string, name?: string ) => ipcRenderer.invoke( 'createSite', path, name ),
+	createSite: ( path: string, name?: string, wpVersion?: string, customDomain?: string ) =>
+		ipcRenderer.invoke( 'createSite', path, name, wpVersion, customDomain ),
 	updateSite: ( updatedSite: SiteDetails ) => ipcRenderer.invoke( 'updateSite', updatedSite ),
 	connectWpcomSites: ( ...args ) => ipcRenderer.invoke( 'connectWpcomSites', ...args ),
 	disconnectWpcomSites: ( ...args ) => ipcRenderer.invoke( 'disconnectWpcomSites', ...args ),

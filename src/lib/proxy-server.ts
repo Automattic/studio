@@ -97,14 +97,16 @@ export async function startProxyServer(): Promise< boolean > {
 		return true;
 	} catch ( error ) {
 		if ( error instanceof Error && 'code' in error && error.code === 'EADDRINUSE' ) {
-			dialog.showMessageBox( {
-				type: 'error',
-				message: __( 'Failed to start custom domain proxy server' ),
-				detail: __(
-					'Another server is already running on port 80. For custom domains to work, please stop that server and then restart Studio.'
-				),
-				buttons: [ __( 'OK' ) ],
-			} );
+			setTimeout( () => {
+				dialog.showMessageBox( {
+					type: 'error',
+					message: __( 'Failed to start custom domain proxy server' ),
+					detail: __(
+						'Another server is already running on port 80. For custom domains to work, please stop that server and then restart Studio.'
+					),
+					buttons: [ __( 'OK' ) ],
+				} );
+			}, 2000 );
 			return false;
 		}
 

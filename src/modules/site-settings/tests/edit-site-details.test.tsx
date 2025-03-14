@@ -279,7 +279,7 @@ describe( 'EditSiteDetails', () => {
 		await user.click( saveButton );
 
 		// Check that controls are disabled during save
-		expect( screen.getByRole( 'button', { name: 'Updating…' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Saving…' } ) ).toBeInTheDocument();
 		expect( screen.getByLabelText( 'Site name' ) ).toBeDisabled();
 		expect( screen.getByLabelText( 'PHP version' ) ).toBeDisabled();
 		expect( screen.getByLabelText( 'WordPress version' ) ).toBeDisabled();

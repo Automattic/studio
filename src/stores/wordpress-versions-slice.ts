@@ -112,10 +112,10 @@ const wordpressVersionsSlice = createSlice( {
 	selectors: {
 		selectWordPressVersions: ( state ) => state.versions,
 		selectWordPressVersionsWithLatest: ( state ) => {
-			let foundLatest = false;
+			let foundLatestStable = false;
 			return state.versions.map( ( version ) => {
-				if ( ! foundLatest && ! version.isBeta ) {
-					foundLatest = true;
+				if ( ! foundLatestStable && ! version.isBeta ) {
+					foundLatestStable = true;
 					return {
 						...version,
 						label: `${ version.label } (${ __( 'latest' ) })`,
@@ -123,6 +123,9 @@ const wordpressVersionsSlice = createSlice( {
 				}
 				return version;
 			} );
+		},
+		selectLatestStableVersion: ( state ) => {
+			return state.versions.find( ( version ) => ! version.isBeta );
 		},
 	},
 } );

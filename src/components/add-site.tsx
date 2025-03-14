@@ -68,16 +68,15 @@ export default function AddSite( { className }: AddSiteProps ) {
 		siteName
 	);
 
-	const wpVersions = useRootSelector(
-		wordpressVersionsSelectors.selectWordPressVersionsWithLatest
+	const latestStableVersion = useRootSelector(
+		wordpressVersionsSelectors.selectLatestStableVersion
 	);
 
 	const initializeForm = useCallback( async () => {
 		const siteName = await generateSiteName( sites );
 		const { path, name, isWordPress } = await getIpcApi().generateProposedSitePath( siteName );
-		const latestVersion = wpVersions.find( ( version ) => ! version.isBeta );
-		if ( latestVersion ) {
-			setWpVersion( latestVersion.value );
+		if ( latestStableVersion ) {
+			setWpVersion( latestStableVersion.value );
 		}
 		setNameSuggested( true );
 		setSiteName( name );
@@ -92,8 +91,8 @@ export default function AddSite( { className }: AddSiteProps ) {
 		setSitePath,
 		setError,
 		setDoesPathContainWordPress,
-		wpVersions,
 		setWpVersion,
+		latestStableVersion,
 	] );
 
 	useEffect( () => {

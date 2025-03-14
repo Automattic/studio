@@ -87,16 +87,15 @@ export default function Onboarding() {
 		},
 	} );
 
-	const wpVersions = useRootSelector(
-		wordpressVersionsSelectors.selectWordPressVersionsWithLatest
+	const latestStableVersion = useRootSelector(
+		wordpressVersionsSelectors.selectLatestStableVersion
 	);
 
 	useEffect( () => {
-		const latestVersion = wpVersions.find( ( version ) => ! version.isBeta );
-		if ( latestVersion ) {
-			setWpVersion( latestVersion.value );
+		if ( latestStableVersion ) {
+			setWpVersion( latestStableVersion.value );
 		}
-	}, [ wpVersions, setWpVersion ] );
+	}, [ latestStableVersion, setWpVersion ] );
 
 	useEffect( () => {
 		const run = async () => {

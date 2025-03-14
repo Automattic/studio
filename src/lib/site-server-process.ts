@@ -1,4 +1,5 @@
 import { app, utilityProcess, UtilityProcess } from 'electron';
+import { kill } from 'process';
 import { PHPRunOptions } from '@php-wasm/universal';
 import * as Sentry from '@sentry/electron/renderer';
 import { WPNowOptions } from 'vendor/wp-now/src/config';
@@ -145,11 +146,17 @@ export default class SiteServerProcess {
 			process.once( 'exit', ( code ) => {
 				if ( code !== 0 ) {
 					reject( new Error( `Site server process exited with code ${ code } upon stopping` ) );
-					return;
+				} else {
+					resolve();
 				}
-				resolve();
 			} );
-			process.kill();
+			if ( ! process.kill() ) {
+				if ( process.pid ) {
+					kill( process.pid, 'SIGKILL' );
+				} else {
+					resolve();
+				}
+			}
 		} ).catch( ( error ) => {
 			Sentry.captureException( error );
 		} );

@@ -23,7 +23,13 @@ export default class SettingsTab {
 	}
 
 	get deleteButton() {
-		return this.locator.getByRole( 'button', { name: 'Delete site' } );
+		// The delete button is a menu item rendered at the root level of the document,
+		// so we need to search for it using page.locator instead of locator.locator.
+		return this.page.getByRole( 'menuitem', { name: 'Delete site' } );
+	}
+
+	get optionsMenu() {
+		return this.locator.getByRole( 'button', { name: 'More options' } );
 	}
 
 	async copyWPAdminUrlToClipboard( electronApp: ElectronApplication ) {
@@ -37,6 +43,7 @@ export default class SettingsTab {
 	}
 
 	async openDeleteSiteModal() {
+		await this.optionsMenu.click();
 		await this.deleteButton.click();
 	}
 }

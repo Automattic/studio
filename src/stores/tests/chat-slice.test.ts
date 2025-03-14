@@ -373,9 +373,30 @@ describe( 'chat-slice', () => {
 
 		beforeEach( () => {
 			( getIpcApi as jest.Mock ).mockReturnValue( {
-				executeWPCLiInline: jest.fn().mockResolvedValue( {
-					stdout: JSON.stringify( [ { name: 'woocommerce' }, { name: 'jetpack' } ] ),
-					stderr: '',
+				executeWPCLiInline: jest.fn().mockImplementation( ( { args } ) => {
+					if ( args.includes( 'plugin list' ) ) {
+						return {
+							stdout: JSON.stringify( [ { name: 'woocommerce' }, { name: 'jetpack' } ] ),
+							stderr: '',
+						};
+					}
+
+					if ( args.includes( 'theme list' ) ) {
+						return {
+							stdout: JSON.stringify( [
+								{ name: 'twentytwentyfour' },
+								{ name: 'twentytwentythree' },
+							] ),
+							stderr: '',
+						};
+					}
+
+					if ( args.includes( 'option get siteurl' ) ) {
+						return {
+							stdout: 'http://localhost:8881',
+							stderr: '',
+						};
+					}
 				} ),
 			} );
 		} );
@@ -386,12 +407,16 @@ describe( 'chat-slice', () => {
 			expect( result.type ).toBe( 'chat/updateFromSite/fulfilled' );
 			expect( result.payload ).toEqual( {
 				plugins: [ 'woocommerce', 'jetpack' ],
-				themes: [ 'woocommerce', 'jetpack' ],
+				themes: [ 'twentytwentyfour', 'twentytwentythree' ],
+				siteUrl: 'http://localhost:8881',
 			} );
 
 			const state = store.getState();
 			expect( state.chat.pluginListDict[ mockSite.id ] ).toEqual( [ 'woocommerce', 'jetpack' ] );
-			expect( state.chat.themeListDict[ mockSite.id ] ).toEqual( [ 'woocommerce', 'jetpack' ] );
+			expect( state.chat.themeListDict[ mockSite.id ] ).toEqual( [
+				'twentytwentyfour',
+				'twentytwentythree',
+			] );
 			expect( state.chat.currentURL ).toBe( 'http://localhost:8881' );
 			expect( state.chat.phpVersion ).toBe( '8.0' );
 			expect( state.chat.siteName ).toBe( 'Test Site' );
@@ -411,6 +436,7 @@ describe( 'chat-slice', () => {
 			expect( result.payload ).toEqual( {
 				plugins: [],
 				themes: [],
+				siteUrl: '',
 			} );
 
 			const state = store.getState();
@@ -420,9 +446,13 @@ describe( 'chat-slice', () => {
 
 		it( 'should handle JSON parsing errors gracefully', async () => {
 			( getIpcApi as jest.Mock ).mockReturnValue( {
-				executeWPCLiInline: jest.fn().mockResolvedValue( {
-					stdout: 'Invalid JSON',
-					stderr: '',
+				executeWPCLiInline: jest.fn().mockImplementation( ( { args } ) => {
+					const isGettingSiteUrl = args.includes( 'option get siteurl' );
+
+					return {
+						stdout: isGettingSiteUrl ? '' : 'Invalid JSON',
+						stderr: '',
+					};
 				} ),
 			} );
 
@@ -432,11 +462,13 @@ describe( 'chat-slice', () => {
 			expect( result.payload ).toEqual( {
 				plugins: [],
 				themes: [],
+				siteUrl: '',
 			} );
 
 			const state = store.getState();
 			expect( state.chat.pluginListDict[ mockSite.id ] ).toEqual( [] );
 			expect( state.chat.themeListDict[ mockSite.id ] ).toEqual( [] );
+			expect( state.chat.currentURL ).toBe( '' );
 		} );
 	} );
 } );

@@ -6,9 +6,13 @@ import { Tooltip } from 'src/components/tooltip';
 import { DEMO_SITE_SIZE_LIMIT_GB } from 'src/constants';
 import { useArchiveErrorMessages } from 'src/hooks/use-archive-error-messages';
 import { useArchiveSite } from 'src/hooks/use-archive-site';
+import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSiteSize } from 'src/hooks/use-site-size';
 import { useSnapshots } from 'src/hooks/use-snapshots';
+import { hasVersionMismatch } from 'src/modules/preview-site/lib/version-comparison';
+import { useRootSelector } from 'src/stores';
+import { wordpressVersionsSelectors } from 'src/stores/wordpress-versions-slice';
 
 interface CreatePreviewButtonProps {
 	onClick: () => void;
@@ -24,9 +28,18 @@ export function CreatePreviewButton( { onClick, selectedSite }: CreatePreviewBut
 	const { isOverLimit } = useSiteSize( selectedSite.id );
 	const isOffline = useOffline();
 	const errorMessages = useArchiveErrorMessages();
+	const [ wpVersion ] = useGetWpVersion( selectedSite );
+	const wpVersions = useRootSelector( wordpressVersionsSelectors.selectWordPressVersions );
 
 	const isCurrentSiteArchiving = archivingSiteId === selectedSite.id;
 	const isOtherSiteArchiving = isAnySiteArchiving && ! isCurrentSiteArchiving;
+
+	const latestWpVersion = wpVersions.find( ( version ) => version.isBeta === false )?.value;
+	const shouldShowMismatchTooltip = hasVersionMismatch( {
+		wpVersion,
+		latestWpVersion,
+		phpVersion: selectedSite.phpVersion,
+	} );
 
 	const isDisabled =
 		isAnySiteArchiving ||
@@ -57,6 +70,9 @@ export function CreatePreviewButton( { onClick, selectedSite }: CreatePreviewBut
 		),
 		DEMO_SITE_SIZE_LIMIT_GB
 	);
+	const versionMismatchMessage = __(
+		'Your Studio site is running versions not supported by preview sites. The preview site will automatically switch to the supported WordPress and PHP versions.'
+	);
 
 	let tooltipContent;
 	if ( isOffline ) {
@@ -74,6 +90,8 @@ export function CreatePreviewButton( { onClick, selectedSite }: CreatePreviewBut
 		tooltipContent = { text: errorMessages.rest_site_creation_blocked };
 	} else if ( isOverLimit ) {
 		tooltipContent = { text: overLimitMessage };
+	} else if ( shouldShowMismatchTooltip ) {
+		tooltipContent = { text: versionMismatchMessage };
 	}
 
 	return (

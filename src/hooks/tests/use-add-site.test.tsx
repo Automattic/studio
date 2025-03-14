@@ -1,7 +1,6 @@
 // Run tests: yarn test -- src/hooks/tests/use-add-site.test.tsx
 import { renderHook, act } from '@testing-library/react';
 import { useAddSite } from 'src/hooks/use-add-site';
-import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
 
@@ -40,10 +39,6 @@ describe( 'useAddSite', () => {
 			data: [],
 			loadingSites: false,
 			startServer: mockStartServer,
-		} );
-
-		( useFeatureFlags as jest.Mock ).mockReturnValue( {
-			wpVersionsEnabled: true,
 		} );
 	} );
 
@@ -179,41 +174,5 @@ describe( 'useAddSite', () => {
 			...newSite,
 			wpVersion,
 		} );
-	} );
-
-	it( 'should use DEFAULT_WORDPRESS_VERSION when feature flag is disabled', async () => {
-		( useFeatureFlags as jest.Mock ).mockReturnValue( {
-			wpVersionsEnabled: false,
-		} );
-
-		mockCreateSite.mockImplementation( ( path, name, wpVersion, callback ) => {
-			callback( {
-				id: 'test-id',
-				name: name || 'Test Site',
-				path: path,
-				wpVersion: wpVersion,
-				phpVersion: '8.2',
-			} );
-			return Promise.resolve();
-		} );
-
-		const { result } = renderHook( () => useAddSite() );
-
-		act( () => {
-			result.current.setWpVersion( '6.1.7' );
-			result.current.setSitePath( '/test/path' );
-		} );
-
-		await act( async () => {
-			await result.current.handleAddSiteClick();
-		} );
-
-		expect( mockCreateSite ).toHaveBeenCalledWith(
-			'/test/path',
-			'',
-			DEFAULT_WORDPRESS_VERSION,
-			undefined,
-			expect.any( Function )
-		);
 	} );
 } );

@@ -12,7 +12,7 @@ jest.mock( 'fs', () => ( {
 	} ),
 } ) );
 
-jest.mock( 'sudo-prompt', () => {
+jest.mock( '@vscode/sudo-prompt', () => {
 	return {
 		exec: jest.fn( ( command, options, callback ) => {
 			callback( null, 'Mocked output' );

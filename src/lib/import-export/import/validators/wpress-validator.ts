@@ -7,7 +7,7 @@ import { Validator } from 'src/lib/import-export/import/validators/validator';
 export class WpressValidator extends EventEmitter implements Validator {
 	canHandle( fileList: string[] ): boolean {
 		const requiredFiles = [ 'database.sql', 'package.json' ];
-		const optionalDirs = [ 'uploads', 'plugins', 'themes' ];
+		const optionalDirs = [ 'uploads', 'plugins', 'themes', 'fonts' ];
 		return (
 			requiredFiles.every( ( file ) => fileList.includes( file ) ) &&
 			optionalDirs.some( ( dir ) => fileList.some( ( file ) => file.startsWith( dir + path.sep ) ) )
@@ -25,13 +25,14 @@ export class WpressValidator extends EventEmitter implements Validator {
 				plugins: [],
 				themes: [],
 				muPlugins: [],
+				fonts: [],
 			},
 			wpContentDirectory: '',
 		};
 		/* File rules:
 		 * - Accept .wpress
 		 * - Must include database.sql in the root
-		 * - Support optional directories: uploads, plugins, themes, mu-plugins
+		 * - Support optional directories: uploads, plugins, themes, mu-plugins, fonts
 		 * */
 
 		for ( const file of fileList ) {
@@ -46,6 +47,8 @@ export class WpressValidator extends EventEmitter implements Validator {
 				extractedBackup.wpContent.themes.push( fullPath );
 			} else if ( file.startsWith( 'mu-plugins' + path.sep ) ) {
 				extractedBackup.wpContent.muPlugins!.push( fullPath );
+			} else if ( file.startsWith( 'fonts' + path.sep ) ) {
+				extractedBackup.wpContent.fonts!.push( fullPath );
 			} else if ( file === 'package.json' ) {
 				extractedBackup.metaFile = fullPath;
 			}

@@ -1,7 +1,6 @@
 import * as Sentry from '@sentry/electron/renderer';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useMemo, useState } from 'react';
-import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { generateCustomDomainFromSiteName } from 'src/lib/generate-custom-domain';
@@ -14,7 +13,6 @@ import {
 
 export function useAddSite() {
 	const { __ } = useI18n();
-	const { wpVersionsEnabled } = useFeatureFlags();
 	const { createSite, data: sites, loadingSites, startServer, updateSite } = useSiteDetails();
 	const { importFile, clearImportState } = useImportExport();
 	const [ error, setError ] = useState( '' );
@@ -95,50 +93,44 @@ export function useAddSite() {
 			if ( useCustomDomain && ! customDomain ) {
 				usedCustomDomain = generateCustomDomainFromSiteName( siteName ?? '' );
 			}
-			await createSite(
-				path,
-				siteName ?? '',
-				wpVersionsEnabled ? wpVersion : DEFAULT_WORDPRESS_VERSION,
-				usedCustomDomain,
-				async ( newSite ) => {
-					if ( newSite ) {
-						let updatedSite = { ...newSite };
+			await createSite( path, siteName ?? '', wpVersion, usedCustomDomain, async ( newSite ) => {
+				if ( newSite ) {
+					let updatedSite = { ...newSite };
 
-						if ( newSite.phpVersion !== phpVersion ) {
-							updatedSite = {
-								...updatedSite,
-								phpVersion,
-							};
-						}
-
-						if ( wpVersionsEnabled && newSite.wpVersion !== wpVersion ) {
-							updatedSite = {
-								...updatedSite,
-								wpVersion,
-							};
-						}
-
-						if ( updatedSite !== newSite ) {
-							await updateSite( updatedSite );
-						}
-
-						if ( fileForImport ) {
-							await importFile( fileForImport, newSite, {
-								showImportNotification: false,
-								isNewSite: true,
-							} );
-							clearImportState( newSite.id );
-						} else {
-							await startServer( newSite.id );
-						}
-
-						getIpcApi().showNotification( {
-							title: newSite.name,
-							body: __( 'Your new site is up and running' ),
-						} );
+					if ( newSite.phpVersion !== phpVersion ) {
+						updatedSite = {
+							...updatedSite,
+							phpVersion,
+						};
 					}
+
+					if ( newSite.wpVersion !== wpVersion ) {
+						updatedSite = {
+							...updatedSite,
+							wpVersion,
+						};
+					}
+
+					if ( updatedSite !== newSite ) {
+						await updateSite( updatedSite );
+					}
+
+					if ( fileForImport ) {
+						await importFile( fileForImport, newSite, {
+							showImportNotification: false,
+							isNewSite: true,
+						} );
+						clearImportState( newSite.id );
+					} else {
+						await startServer( newSite.id );
+					}
+
+					getIpcApi().showNotification( {
+						title: newSite.name,
+						body: __( 'Your new site is up and running' ),
+					} );
 				}
-			);
+			} );
 		} catch ( e ) {
 			Sentry.captureException( e );
 		}
@@ -155,7 +147,6 @@ export function useAddSite() {
 		updateSite,
 		wpVersion,
 		phpVersion,
-		wpVersionsEnabled,
 		customDomain,
 		useCustomDomain,
 	] );

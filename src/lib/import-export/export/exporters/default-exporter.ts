@@ -30,7 +30,6 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 	private siteFiles: string[];
 	private readonly pathsToExclude = [
 		'wp-content/mu-plugins/sqlite-database-integration',
-		'wp-content/mu-plugins/0-32bit-integer-warnings.php',
 		'wp-content/mu-plugins/0-allowed-redirect-hosts.php',
 		'wp-content/mu-plugins/0-check-theme-availability.php',
 		'wp-content/mu-plugins/0-deactivate-jetpack-modules.php',
@@ -53,6 +52,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 				plugins: [],
 				themes: [],
 				muPlugins: [],
+				fonts: [],
 			},
 		};
 	}
@@ -158,7 +158,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 
 	private addWpContent(): void {
 		const categories = (
-			[ 'uploads', 'plugins', 'themes', 'muPlugins' ] as BackupContentsCategory[]
+			[ 'uploads', 'plugins', 'themes', 'muPlugins', 'fonts' ] as BackupContentsCategory[]
 		 ).filter( ( category ) => this.options.includes[ category ] );
 		this.emit( ExportEvents.WP_CONTENT_EXPORT_START );
 		for ( const category of categories ) {
@@ -173,6 +173,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 			plugins: this.backup.wpContent.plugins.length,
 			themes: this.backup.wpContent.themes.length,
 			muPlugins: this.backup.wpContent.muPlugins.length,
+			fonts: this.backup.wpContent.fonts.length,
 		} );
 	}
 
@@ -245,6 +246,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 				plugins: [],
 				themes: [],
 				muPlugins: [],
+				fonts: [],
 			},
 		};
 
@@ -259,7 +261,8 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 				if (
 					wpContentDirectory === 'uploads' ||
 					wpContentDirectory === 'plugins' ||
-					wpContentDirectory === 'themes'
+					wpContentDirectory === 'themes' ||
+					wpContentDirectory === 'fonts'
 				) {
 					backupContents.wpContent[ wpContentDirectory as BackupContentsCategory ].push( file );
 				} else if ( wpContentDirectory === 'mu-plugins' ) {

@@ -77,11 +77,10 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 
 		const hasWpVersionChanged = selectedWpVersion !== currentWpVersion;
 		const hasPhpVersionChanged = selectedPhpVersion !== selectedSite.phpVersion;
-		const needsRestart = selectedSite.running && ( hasWpVersionChanged || hasPhpVersionChanged );
-		setNeedsRestart( needsRestart );
+		setNeedsRestart( selectedSite.running && ( hasWpVersionChanged || hasPhpVersionChanged ) );
 
 		try {
-			if ( needsRestart ) {
+			if ( selectedSite.running && ( hasWpVersionChanged || hasPhpVersionChanged ) ) {
 				await stopServer( selectedSite.id );
 			}
 

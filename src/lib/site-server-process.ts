@@ -144,17 +144,6 @@ export default class SiteServerProcess {
 
 		return new Promise< void >( ( resolve, reject ) => {
 			let isResolved = false;
-
-			const forceKillTimeout = () => {
-				if ( isResolved ) return;
-				if ( process.pid ) {
-					kill( process.pid, 'SIGKILL' );
-				} else {
-					isResolved = true;
-					resolve();
-				}
-			};
-
 			process.once( 'exit', ( code ) => {
 				if ( ! isResolved ) {
 					isResolved = true;
@@ -165,8 +154,14 @@ export default class SiteServerProcess {
 					}
 				}
 			} );
-			if ( ! process.kill() ) {
-				forceKillTimeout();
+			// process.kill() returns false if we're not able to kill the process.
+			if ( ! process.kill() && ! isResolved ) {
+				if ( process.pid ) {
+					kill( process.pid, 'SIGKILL' );
+				} else {
+					isResolved = true;
+					resolve();
+				}
 			}
 		} ).catch( ( error ) => {
 			Sentry.captureException( error );

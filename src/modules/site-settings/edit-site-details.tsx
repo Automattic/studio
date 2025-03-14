@@ -32,6 +32,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 	const [ isChangeWpError, setIsChangeWpError ] = useState( '' );
 	const [ showModal, setShowModal ] = useState( false );
 	const [ isEditingSite, setIsEditingSite ] = useState( false );
+	const [ needsRestart, setNeedsRestart ] = useState( false );
 	const isOffline = useOffline();
 	const offlineMessage = __( 'Changing WordPress version requires an internet connection.' );
 	const closeModal = useCallback( () => {
@@ -73,12 +74,13 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 		}
 		setIsEditingSite( true );
 		setIsChangeWpError( '' );
-		try {
-			const running = selectedSite.running;
 
-			const hasWpVersionChanged = selectedWpVersion !== currentWpVersion;
-			const hasPhpVersionChanged = selectedPhpVersion !== selectedSite.phpVersion;
-			const needsRestart = running && ( hasWpVersionChanged || hasPhpVersionChanged );
+		const hasWpVersionChanged = selectedWpVersion !== currentWpVersion;
+		const hasPhpVersionChanged = selectedPhpVersion !== selectedSite.phpVersion;
+		const needsRestart = selectedSite.running && ( hasWpVersionChanged || hasPhpVersionChanged );
+		setNeedsRestart( needsRestart );
+
+		try {
 			if ( needsRestart ) {
 				await stopServer( selectedSite.id );
 			}
@@ -124,6 +126,14 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 			setIsChangeWpError( ( e as Error )?.message );
 		}
 		setIsEditingSite( false );
+		setNeedsRestart( false );
+	};
+
+	const getEditSiteButtonText = () => {
+		if ( ! isEditingSite ) {
+			return __( 'Save' );
+		}
+		return needsRestart ? __( 'Saving and restarting…' ) : __( 'Saving…' );
 	};
 
 	return (
@@ -218,7 +228,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 										! siteName.trim()
 								) }
 							>
-								{ isEditingSite ? __( 'Saving…' ) : __( 'Save' ) }
+								{ getEditSiteButtonText() }
 							</Button>
 						</div>
 					</form>

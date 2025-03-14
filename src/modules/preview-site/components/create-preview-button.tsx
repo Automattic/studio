@@ -10,7 +10,7 @@ import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSiteSize } from 'src/hooks/use-site-size';
 import { useSnapshots } from 'src/hooks/use-snapshots';
-import { hasVersionMismatch } from 'src/modules/preview-site/utils/version-comparison';
+import { hasVersionMismatch } from 'src/modules/preview-site/lib/version-comparison';
 import { useRootSelector } from 'src/stores';
 import { wordpressVersionsSelectors } from 'src/stores/wordpress-versions-slice';
 

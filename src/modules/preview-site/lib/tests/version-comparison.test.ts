@@ -1,4 +1,4 @@
-import { hasVersionMismatch } from 'src/modules/preview-site/utils/version-comparison';
+import { hasVersionMismatch } from 'src/modules/preview-site/lib/version-comparison';
 import { DEFAULT_PHP_VERSION } from 'vendor/wp-now/src/constants';
 
 describe( 'hasVersionMismatch', () => {

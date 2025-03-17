@@ -216,7 +216,7 @@ function SiteItem( {
 			} }
 		>
 			<div className="flex flex-col gap-0.5 min-w-0 items-start">
-				<div className={ cx( 'a8c-body truncate', ! isSyncable && 'text-a8c-gray-30' ) }>
+				<div className={ cx( 'a8c-body truncate w-full', ! isSyncable && 'text-a8c-gray-30' ) }>
 					{ site.name }
 				</div>
 				<Button

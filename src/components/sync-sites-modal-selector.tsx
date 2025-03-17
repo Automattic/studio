@@ -156,7 +156,7 @@ function ListSites( {
 	const sortedSites = getSortedSites( syncSites );
 
 	return (
-		<div className="flex flex-col overflow-y-auto h-full">
+		<div className="flex flex-col overflow-y-auto h-full pt-px">
 			{ sortedSites.map( ( site ) => (
 				<SiteItem
 					key={ site.id }
@@ -193,10 +193,12 @@ function SiteItem( {
 	return (
 		<div
 			className={ cx(
-				'flex py-3 px-8 items-center border-b border-a8c-gray-0 justify-between gap-4',
-				isSelected && 'bg-a8c-blueberry text-white',
+				'flex py-3 px-8 items-center border-b justify-between gap-4',
+				isSelected && 'bg-a8c-blueberry text-white border-a8c-blueberry',
+				! isSelected && 'border-a8c-gray-0',
 				! isSelected && isSyncable && 'hover:bg-a8c-blueberry-5',
-				isSyncable && 'focus:outline-none focus:ring-1 focus:ring-a8c-blueberry'
+				isSyncable &&
+					'focus:outline-none focus:ring-1 focus:ring-a8c-blueberry focus:relative focus:z-10'
 			) }
 			role={ isSyncable ? 'button' : undefined }
 			tabIndex={ isSyncable ? 0 : -1 }

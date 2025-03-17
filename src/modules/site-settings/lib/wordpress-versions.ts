@@ -13,8 +13,7 @@ export const addWpVersionToList = (
 		return;
 	}
 
-	// Find the index to insert the new version according to the semver version, newest first.
-	const indexToInsert = options.findIndex( ( compareVersion ) => {
+	const firstOlderVersionIndex = options.findIndex( ( compareVersion ) => {
 		const compareVer = semver.coerce( compareVersion.value );
 		if ( ! compareVer ) {
 			return false;
@@ -22,9 +21,9 @@ export const addWpVersionToList = (
 		return semver.gt( currentVer, compareVer );
 	} );
 
-	if ( indexToInsert === -1 ) {
+	if ( firstOlderVersionIndex === -1 ) {
 		options.push( customVersion );
 	} else {
-		options.splice( indexToInsert, 0, customVersion );
+		options.splice( firstOlderVersionIndex, 0, customVersion );
 	}
 };

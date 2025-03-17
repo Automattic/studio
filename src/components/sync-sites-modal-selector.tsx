@@ -213,7 +213,7 @@ function SiteItem( {
 				onClick();
 			} }
 		>
-			<div className="flex flex-col gap-0.5 overflow-hidden">
+			<div className="flex flex-col gap-0.5 min-w-0">
 				<div className={ cx( 'a8c-body truncate', ! isSyncable && 'text-a8c-gray-30' ) }>
 					{ site.name }
 				</div>
@@ -234,7 +234,7 @@ function SiteItem( {
 						}
 					} }
 				>
-					{ site.url.replace( /^https?:\/\//, '' ) }
+					<div className="truncate">{ site.url.replace( /^https?:\/\//, '' ) }</div>
 					<ArrowIcon />
 				</Button>
 			</div>

@@ -20,9 +20,11 @@ export const sitesEndpointSiteSchema = z.object( {
 			wpcom_staging_blog_ids: z.array( z.number() ),
 		} )
 		.optional(),
-	capabilities: z.object( {
-		manage_options: z.boolean(),
-	} ).optional(),
+	capabilities: z
+		.object( {
+			manage_options: z.boolean(),
+		} )
+		.optional(),
 	plan: z
 		.object( {
 			expired: z.boolean(),

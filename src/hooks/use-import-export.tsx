@@ -42,6 +42,7 @@ interface ImportExportContext {
 	) => Promise< void >;
 	clearImportState: ( siteId: string ) => void;
 	isSiteImporting: ( siteId: string ) => boolean;
+	isSiteExporting: ( siteId: string ) => boolean;
 	exportState: ExportProgressState;
 	exportFullSite: ( selectedSite: SiteDetails ) => Promise< string | undefined >;
 	exportDatabase: ( selectedSite: SiteDetails ) => Promise< string | undefined >;
@@ -52,6 +53,7 @@ const ImportExportContext = createContext< ImportExportContext >( {
 	importFile: async () => undefined,
 	clearImportState: () => undefined,
 	isSiteImporting: () => false,
+	isSiteExporting: () => false,
 	exportState: {},
 	exportFullSite: async () => undefined,
 	exportDatabase: async () => undefined,
@@ -301,6 +303,11 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 		[ exportState ]
 	);
 
+	const isSiteExporting = useCallback(
+		( siteId: string ) => !! exportState[ siteId ] && exportState[ siteId ].progress < 100,
+		[ exportState ]
+	);
+
 	const exportFullSite = useCallback(
 		async ( selectedSite: SiteDetails ): Promise< string | undefined > => {
 			const fileName = generateBackupFilename( selectedSite.name );
@@ -421,7 +428,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 					[ siteId ]: {
 						...currentProgress,
 						statusMessage: __( 'Backing up files...' ),
-						progress: Math.min( 100, 20 + entriesProgress * 80 ), // Backup creation takes progress from 20% to 100%
+						progress: Math.min( 95, 20 + entriesProgress * 80 ), // Backup creation takes progress from 20% to 95%
 					},
 				} ) );
 				break;
@@ -454,6 +461,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 			importFile,
 			clearImportState,
 			isSiteImporting,
+			isSiteExporting,
 			exportState,
 			exportFullSite,
 			exportDatabase,
@@ -463,6 +471,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 			importFile,
 			clearImportState,
 			isSiteImporting,
+			isSiteExporting,
 			exportState,
 			exportFullSite,
 			exportDatabase,

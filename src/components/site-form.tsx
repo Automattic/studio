@@ -267,8 +267,7 @@ export const SiteForm = ( {
 	const dispatch = useAppDispatch();
 	const isOffline = useOffline();
 
-	const errorCount = error && customDomainError ? 2 : error || customDomainError ? 1 : 0;
-	const hasErrors = errorCount > 0;
+	const errorCount = [ error, customDomainError ].filter( Boolean ).length;
 
 	const offlineMessage = __( 'Changing WordPress version requires an internet connection.' );
 	const wpVersions = useRootSelector(
@@ -358,7 +357,7 @@ export const SiteForm = ( {
 											{ __( 'Advanced settings' ) }
 										</div>
 									</Button>
-									{ hasErrors && (
+									{ errorCount > 0 && (
 										<span className="text-red-500 text-[13px] leading-[16px] ml-2 flex items-center">
 											<Icon icon={ warning } size={ 16 } className="mr-1 fill-red-500" />
 											{ sprintf(

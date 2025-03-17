@@ -39,7 +39,10 @@ export function createScreenshotWindow( captureUrl: string ) {
 			}
 		` );
 
-		await new Promise( ( resolve ) => setTimeout( resolve, 2000 ) );
+		// Oftentimes, web pages need a bit more time for images to load and layouts to settle
+		const LOAD_TIMEOUT = process.platform === 'win32' ? 2000 : 500;
+		await new Promise( ( resolve ) => setTimeout( resolve, LOAD_TIMEOUT ) );
+
 		return window.webContents.capturePage();
 	};
 

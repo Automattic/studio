@@ -1,6 +1,7 @@
 import { shell, dialog } from 'electron';
 import * as Sentry from '@sentry/electron/main';
 import { __ } from '@wordpress/i18n';
+import { getMainWindow } from 'src/main-window';
 
 // Determines if an error should be muted (not reported to Sentry) based on known "application not
 // found" error codes.
@@ -38,7 +39,8 @@ export const shellOpenExternalWrapper = async ( url: string ) => {
 			);
 		}
 
-		dialog.showMessageBox( {
+		const mainWindow = await getMainWindow();
+		dialog.showMessageBox( mainWindow, {
 			type: 'error',
 			message: title,
 			detail: message,

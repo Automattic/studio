@@ -30,7 +30,7 @@ export function createScreenshotWindow( captureUrl: string ) {
 		await window.loadURL( captureUrl );
 		await responseStatusCodePromise;
 		await window.webContents.insertCSS( `
-			body {
+			body, html {
 				overflow: hidden;
 				height: 100vh;
 			}
@@ -39,7 +39,7 @@ export function createScreenshotWindow( captureUrl: string ) {
 			}
 		` );
 
-		await new Promise( ( resolve ) => setTimeout( resolve, 500 ) );
+		await new Promise( ( resolve ) => setTimeout( resolve, 2000 ) );
 		return window.webContents.capturePage();
 	};
 

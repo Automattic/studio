@@ -199,7 +199,10 @@ export class SiteServer {
 			.mkdir( outDir, { recursive: true } )
 			.then( waitForCapture )
 			.then( ( image ) => fs.promises.writeFile( outPath, image.toPNG() ) )
-			.catch( Sentry.captureException )
+			.catch( ( error ) => {
+				fs.promises.unlink( outPath );
+				Sentry.captureException( error );
+			} )
 			.finally( () => window.destroy() );
 	}
 

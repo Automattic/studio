@@ -301,12 +301,11 @@ function Footer( {
 	const { __ } = useI18n();
 
 	return (
-		<div className="flex px-8 py-4 border-t border-a8c-gray-5 justify-between">
+		<div className="flex px-8 py-4 border-t border-a8c-gray-5 justify-between items-center">
 			<CreateButton
-				variant="secondary"
+				variant="link"
 				selectedSite={ selectedSite }
 				text={ __( 'Create a new WordPress.com site' ) }
-				className="!shadow-none !px-0"
 			/>
 			<div className="flex gap-4">
 				<Button variant="link" onClick={ onRequestClose }>

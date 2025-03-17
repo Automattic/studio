@@ -1,4 +1,4 @@
-import { DropdownMenu, Icon, MenuGroup, MenuItem, Spinner } from '@wordpress/components';
+import { DropdownMenu, Icon, MenuGroup, MenuItem, Spinner, TabPanel } from '@wordpress/components';
 import { sprintf } from '@wordpress/i18n';
 import { moreVertical, trash } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
@@ -235,10 +235,68 @@ export default function UserSettings() {
 		}
 	}, [ allSnapshots, deleteAllSnapshots, __ ] );
 
+	const renderAccountTab = () => {
+		return (
+			<div className="flex flex-col gap-6">
+				<UserInfo onLogout={ logout } user={ user } />
+			</div>
+		);
+	};
+
+	const renderPreferencesTab = () => {
+		return (
+			<div className="flex flex-col gap-6">
+				<LanguagePicker />
+			</div>
+		);
+	};
+
+	const renderUsageTab = () => {
+		return (
+			<div className="flex flex-col gap-6">
+				<SnapshotInfo
+					isDeleting={ loadingDeletingAllSnapshots }
+					isDisabled={
+						activeSnapshotCount === 0 ||
+						loadingDeletingAllSnapshots ||
+						isLoadingAllSnapshots ||
+						isLoadingSnapshotUsage ||
+						allSnapshots?.length === 0 ||
+						isOffline
+					}
+					siteCount={ activeSnapshotCount }
+					siteLimit={ snapshotQuota }
+					onRemoveSnapshots={ onRemoveSnapshots }
+				/>
+				<PromptInfo />
+			</div>
+		);
+	};
+
+	const tabs = [
+		{
+			name: 'account',
+			title: __( 'Account' ),
+		},
+		{
+			name: 'preferences',
+			title: __( 'Preferences' ),
+		},
+		{
+			name: 'usage',
+			title: __( 'Usage' ),
+		},
+	];
+
 	return (
 		<>
 			{ needsToOpenUserSettings && (
-				<Modal title={ __( 'Settings' ) } isDismissible onRequestClose={ resetLocalState }>
+				<Modal
+					title={ __( 'Settings' ) }
+					isDismissible
+					onRequestClose={ resetLocalState }
+					className="min-h-96 min-w-96"
+				>
 					{ ! isAuthenticated && (
 						<div className="flex flex-col gap-6">
 							<div className="justify-between items-center w-full h-auto flex">
@@ -264,27 +322,16 @@ export default function UserSettings() {
 						</div>
 					) }
 					{ isAuthenticated && (
-						<div className="gap-6 flex flex-col">
-							<UserInfo onLogout={ logout } user={ user } />
-							<div className="border-t border-[#F0F0F0] w-full"></div>
-							<div className="flex flex-col gap-6">
-								<LanguagePicker />
-								<SnapshotInfo
-									isDeleting={ loadingDeletingAllSnapshots }
-									isDisabled={
-										activeSnapshotCount === 0 ||
-										loadingDeletingAllSnapshots ||
-										isLoadingAllSnapshots ||
-										isLoadingSnapshotUsage ||
-										allSnapshots?.length === 0 ||
-										isOffline
-									}
-									siteCount={ activeSnapshotCount }
-									siteLimit={ snapshotQuota }
-									onRemoveSnapshots={ onRemoveSnapshots }
-								/>
-								<PromptInfo />
-							</div>
+						<div className="flex flex-col gap-6">
+							<TabPanel className="w-full" tabs={ tabs } orientation="horizontal">
+								{ ( { name } ) => (
+									<div className="mt-6 px-8">
+										{ name === 'account' && renderAccountTab() }
+										{ name === 'preferences' && renderPreferencesTab() }
+										{ name === 'usage' && renderUsageTab() }
+									</div>
+								) }
+							</TabPanel>
 						</div>
 					) }
 				</Modal>

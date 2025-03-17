@@ -1,6 +1,6 @@
 import { Icon, SelectControl } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf, _n } from '@wordpress/i18n';
 import { tip, warning, trash, chevronRight, chevronDown, chevronLeft } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useEffect, useRef, useState } from 'react';
@@ -266,6 +266,10 @@ export const SiteForm = ( {
 	const getDocsLink = useDocsLink();
 	const dispatch = useAppDispatch();
 	const isOffline = useOffline();
+
+	const errorCount = error && customDomainError ? 2 : error || customDomainError ? 1 : 0;
+	const hasErrors = errorCount > 0;
+
 	const offlineMessage = __( 'Changing WordPress version requires an internet connection.' );
 	const wpVersions = useRootSelector(
 		wordpressVersionsSelectors.selectWordPressVersionsWithLatest
@@ -354,12 +358,14 @@ export const SiteForm = ( {
 											{ __( 'Advanced settings' ) }
 										</div>
 									</Button>
-									{ ( error || shouldShowCustomDomainError ) && (
+									{ hasErrors && (
 										<span className="text-red-500 text-[13px] leading-[16px] ml-2 flex items-center">
 											<Icon icon={ warning } size={ 16 } className="mr-1 fill-red-500" />
-											{ error && shouldShowCustomDomainError
-												? __( '2 errors found' )
-												: __( '1 error found' ) }
+											{ sprintf(
+												/* translators: %d: number of errors found */
+												_n( '%d error found', '%d errors found', errorCount ),
+												errorCount
+											) }
 										</span>
 									) }
 								</div>

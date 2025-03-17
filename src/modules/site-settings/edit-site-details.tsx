@@ -20,6 +20,7 @@ import {
 	ALLOWED_PHP_VERSIONS,
 	AllowedPHPVersion,
 } from 'vendor/wp-now/src/constants';
+import { addWpVersionToList } from './lib/wordpress-versions';
 
 type EditSiteDetailsProps = {
 	currentWpVersion: string;
@@ -53,8 +54,9 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 		label: version.label,
 		value: version.value,
 	} ) );
+
 	if ( ! wordpressVersionOptions.some( ( version ) => version.value === currentWpVersion ) ) {
-		wordpressVersionOptions.push( { label: currentWpVersion, value: currentWpVersion } );
+		addWpVersionToList( currentWpVersion, wordpressVersionOptions );
 	}
 
 	const resetFormState = useCallback( () => {

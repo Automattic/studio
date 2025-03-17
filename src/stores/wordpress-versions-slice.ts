@@ -112,19 +112,20 @@ const wordpressVersionsSlice = createSlice( {
 	selectors: {
 		selectWordPressVersions: ( state ) => state.versions,
 		selectWordPressVersionsWithLatest: ( state ) => {
-			const latestNonBeta = state.versions.find( ( version ) => ! version.isBeta );
-			if ( ! latestNonBeta ) {
-				return state.versions;
-			}
-			const otherVersions = state.versions.filter( ( version ) => version !== latestNonBeta );
-			return [
-				{
-					isBeta: false,
-					label: `${ latestNonBeta.label } (${ __( 'latest' ) })`,
-					value: latestNonBeta.value,
-				},
-				...otherVersions,
-			];
+			let foundLatestStable = false;
+			return state.versions.map( ( version ) => {
+				if ( ! foundLatestStable && ! version.isBeta ) {
+					foundLatestStable = true;
+					return {
+						...version,
+						label: `${ version.label } (${ __( 'latest' ) })`,
+					};
+				}
+				return version;
+			} );
+		},
+		selectLatestStableVersion: ( state ) => {
+			return state.versions.find( ( version ) => ! version.isBeta );
 		},
 	},
 } );

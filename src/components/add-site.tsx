@@ -14,6 +14,8 @@ import { useImportExport } from 'src/hooks/use-import-export';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { generateSiteName } from 'src/lib/generate-site-name';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useRootSelector } from 'src/stores';
+import { wordpressVersionsSelectors } from 'src/stores/wordpress-versions-slice';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
 
 interface AddSiteProps {
@@ -66,9 +68,16 @@ export default function AddSite( { className }: AddSiteProps ) {
 		siteName
 	);
 
+	const latestStableVersion = useRootSelector(
+		wordpressVersionsSelectors.selectLatestStableVersion
+	);
+
 	const initializeForm = useCallback( async () => {
 		const siteName = await generateSiteName( sites );
 		const { path, name, isWordPress } = await getIpcApi().generateProposedSitePath( siteName );
+		if ( latestStableVersion ) {
+			setWpVersion( latestStableVersion.value );
+		}
 		setNameSuggested( true );
 		setSiteName( name );
 		setProposedSitePath( path );
@@ -82,6 +91,8 @@ export default function AddSite( { className }: AddSiteProps ) {
 		setSitePath,
 		setError,
 		setDoesPathContainWordPress,
+		setWpVersion,
+		latestStableVersion,
 	] );
 
 	useEffect( () => {

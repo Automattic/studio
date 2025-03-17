@@ -1,9 +1,11 @@
 import { render, act, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
+import { Provider } from 'react-redux';
 import MainSidebar from 'src/components/main-sidebar';
 import { SyncSitesProvider } from 'src/hooks/sync-sites';
 import { useAuth } from 'src/hooks/use-auth';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
+import { store } from 'src/stores';
 
 jest.mock( 'src/hooks/use-auth' );
 
@@ -59,9 +61,11 @@ jest.mock( 'src/hooks/use-site-details', () => ( {
 
 const renderWithProvider = ( children: React.ReactElement ) => {
 	return render(
-		<ContentTabsProvider>
-			<SyncSitesProvider>{ children }</SyncSitesProvider>
-		</ContentTabsProvider>
+		<Provider store={ store }>
+			<ContentTabsProvider>
+				<SyncSitesProvider>{ children }</SyncSitesProvider>
+			</ContentTabsProvider>
+		</Provider>
 	);
 };
 

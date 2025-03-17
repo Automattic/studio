@@ -4,6 +4,7 @@ import { domainToASCII } from 'node:url';
 import * as Sentry from '@sentry/electron/main';
 import { __ } from '@wordpress/i18n';
 import httpProxy from 'http-proxy';
+import { getMainWindow } from 'src/main-window';
 import { SiteServer } from 'src/site-server';
 import { loadUserData } from 'src/storage/user-data';
 
@@ -97,11 +98,12 @@ export async function startProxyServer(): Promise< boolean > {
 		return true;
 	} catch ( error ) {
 		if ( error instanceof Error && 'code' in error && error.code === 'EADDRINUSE' ) {
-			dialog.showMessageBox( {
+			const mainWindow = await getMainWindow();
+			dialog.showMessageBox( mainWindow, {
 				type: 'error',
-				message: __( 'Failed to start custom domain proxy server' ),
+				message: __( 'Custom domain set up failed' ),
 				detail: __(
-					'Another server is already running on port 80. For custom domains to work, please stop that server and then restart Studio.'
+					'Studio needs to use port 80, but it’s already in use by another app. Close any local development apps and restart Studio.'
 				),
 				buttons: [ __( 'OK' ) ],
 			} );

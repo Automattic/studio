@@ -195,9 +195,17 @@ function SiteItem( {
 			className={ cx(
 				'flex py-3 px-8 items-center border-b border-a8c-gray-0 justify-between gap-4',
 				isSelected && 'bg-a8c-blueberry text-white',
-				! isSelected && isSyncable && 'hover:bg-a8c-blueberry-5'
+				! isSelected && isSyncable && 'hover:bg-a8c-blueberry-5',
+				isSyncable && 'focus:outline-none focus:ring-1 focus:ring-a8c-blueberry'
 			) }
 			role={ isSyncable ? 'button' : undefined }
+			tabIndex={ isSyncable ? 0 : -1 }
+			onKeyDown={ ( e: React.KeyboardEvent ) => {
+				if ( e.code === 'Space' && isSyncable ) {
+					e.preventDefault();
+					onClick();
+				}
+			} }
 			onClick={ () => {
 				if ( ! isSyncable ) {
 					return;
@@ -218,6 +226,13 @@ function SiteItem( {
 							: '!text-a8c-gray-30 hover:!text-a8c-gray-30'
 					) }
 					onClick={ () => getIpcApi().openURL( site.url ) }
+					onKeyDown={ ( e: React.KeyboardEvent ) => {
+						if ( e.code === 'Space' ) {
+							e.preventDefault();
+							e.stopPropagation();
+							getIpcApi().openURL( site.url );
+						}
+					} }
 				>
 					{ site.url.replace( /^https?:\/\//, '' ) }
 					<ArrowIcon />

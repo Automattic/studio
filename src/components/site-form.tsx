@@ -370,7 +370,7 @@ export const SiteForm = ( {
 								<div
 									className={ cx(
 										'transition-all duration-500 ease-in-out overflow-hidden flex flex-col gap-2',
-										isAdvancedSettingsVisible ? 'max-h-100 opacity-100' : 'max-h-0 opacity-0'
+										isAdvancedSettingsVisible ? 'max-h-[450px] opacity-100' : 'max-h-0 opacity-0'
 									) }
 								>
 									<div className={ cx( 'flex flex-col gap-1.5 leading-4 py-2' ) }>

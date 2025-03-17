@@ -12,14 +12,23 @@ export function createScreenshotWindow( captureUrl: string ) {
 		webPreferences: { session: newSession },
 	} );
 
-	const finishedLoading = new Promise< void >( ( resolve ) => {
-		window.webContents.on( 'did-finish-load', () => resolve() );
+	const responseStatusCodePromise = new Promise< void >( ( resolve, reject ) => {
+		newSession.webRequest.onCompleted( ( details ) => {
+			if ( details.resourceType !== 'mainFrame' ) {
+				return;
+			}
+
+			if ( details.statusCode < 200 || details.statusCode >= 400 ) {
+				reject( new Error( `Page returned status code: ${ details.statusCode }` ) );
+			} else {
+				resolve();
+			}
+		} );
 	} );
 
-	window.loadURL( captureUrl );
-
 	const waitForCapture = async () => {
-		await finishedLoading;
+		await window.loadURL( captureUrl );
+		await responseStatusCodePromise;
 		await window.webContents.insertCSS( `
 			body {
 				overflow: hidden;

@@ -1,3 +1,15 @@
+1.3.8
+=====
+* Added ability to choose PHP and WordPress version
+* Added support for custom domains
+* Added support for importing and exporting fonts #1054
+* Upgraded Playground to 1.0.29 #1056
+* Fixed index.php being removed from wp-content during import #1052
+* Fixed incorrect site URL after pulling #992
+* Fixed handling of PHP version from Jetpack backup meta file #1024
+* Fixed server process hanging during stop operation #1067
+* Misc minor bug fixes and UI improvements #1027 #1036 #1071 #1068 #1041
+
 1.3.7
 =====
 * Fixed issue with site crashing after rotatePHPRuntime and displaying hello wp-now #1019

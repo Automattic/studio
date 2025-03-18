@@ -10,11 +10,12 @@ import { SiteForm } from 'src/components/site-form';
 import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
 import { useAddSite } from 'src/hooks/use-add-site';
 import { useDragAndDropFile } from 'src/hooks/use-drag-and-drop-file';
-import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { generateSiteName } from 'src/lib/generate-site-name';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useRootSelector } from 'src/stores';
+import { wordpressVersionsSelectors } from 'src/stores/wordpress-versions-slice';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
 
 interface AddSiteProps {
@@ -23,7 +24,6 @@ interface AddSiteProps {
 
 export default function AddSite( { className }: AddSiteProps ) {
 	const { __ } = useI18n();
-	const { wpVersionsEnabled } = useFeatureFlags();
 	const [ showModal, setShowModal ] = useState( false );
 	const [ nameSuggested, setNameSuggested ] = useState( false );
 	const [ fileError, setFileError ] = useState( '' );
@@ -68,9 +68,16 @@ export default function AddSite( { className }: AddSiteProps ) {
 		siteName
 	);
 
+	const latestStableVersion = useRootSelector(
+		wordpressVersionsSelectors.selectLatestStableVersion
+	);
+
 	const initializeForm = useCallback( async () => {
 		const siteName = await generateSiteName( sites );
 		const { path, name, isWordPress } = await getIpcApi().generateProposedSitePath( siteName );
+		if ( latestStableVersion ) {
+			setWpVersion( latestStableVersion.value );
+		}
 		setNameSuggested( true );
 		setSiteName( name );
 		setProposedSitePath( path );
@@ -84,6 +91,8 @@ export default function AddSite( { className }: AddSiteProps ) {
 		setSitePath,
 		setError,
 		setDoesPathContainWordPress,
+		setWpVersion,
+		latestStableVersion,
 	] );
 
 	useEffect( () => {
@@ -103,10 +112,8 @@ export default function AddSite( { className }: AddSiteProps ) {
 		setDoesPathContainWordPress( false );
 		setFileForImport( null );
 		setFileError( '' );
-		if ( wpVersionsEnabled ) {
-			setWpVersion( DEFAULT_WORDPRESS_VERSION );
-			setPhpVersion( DEFAULT_PHP_VERSION as SupportedPHPVersion );
-		}
+		setWpVersion( DEFAULT_WORDPRESS_VERSION );
+		setPhpVersion( DEFAULT_PHP_VERSION as SupportedPHPVersion );
 		setUseCustomDomain( false );
 		setCustomDomain( null );
 		setCustomDomainError( '' );
@@ -116,7 +123,6 @@ export default function AddSite( { className }: AddSiteProps ) {
 		setFileForImport,
 		setPhpVersion,
 		setWpVersion,
-		wpVersionsEnabled,
 		setUseCustomDomain,
 		setCustomDomain,
 		setCustomDomainError,
@@ -198,7 +204,6 @@ export default function AddSite( { className }: AddSiteProps ) {
 							setFileForImport={ setFileForImport }
 							onFileSelected={ handleImportFile }
 							fileError={ fileError }
-							allowVersionsChange
 							useCustomDomain={ useCustomDomain }
 							setUseCustomDomain={ setUseCustomDomain }
 							customDomain={ customDomain }

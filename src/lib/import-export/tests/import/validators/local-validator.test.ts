@@ -48,6 +48,7 @@ platformTestSuite( 'LocalValidator', ( { normalize } ) => {
 				'app/public/wp-content/plugins/jetpack/jetpack.php',
 				'app/public/wp-content/themes/twentytwentyone/style.css',
 				'app/public/wp-content/mu-plugins/hello.php',
+				'app/public/wp-content/fonts/open-sans.woff2',
 				'local-site.json',
 			];
 			const extractionDirectory = '/tmp/extracted';
@@ -66,6 +67,7 @@ platformTestSuite( 'LocalValidator', ( { normalize } ) => {
 						normalize( '/tmp/extracted/app/public/wp-content/themes/twentytwentyone/style.css' ),
 					],
 					muPlugins: [ normalize( '/tmp/extracted/app/public/wp-content/mu-plugins/hello.php' ) ],
+					fonts: [ normalize( '/tmp/extracted/app/public/wp-content/fonts/open-sans.woff2' ) ],
 				},
 				wpContentDirectory: normalize( 'app/public/wp-content' ),
 				metaFile: normalize( '/tmp/extracted/local-site.json' ),
@@ -83,6 +85,7 @@ platformTestSuite( 'LocalValidator', ( { normalize } ) => {
 				'app/public/wp-content/plugins/jetpack/jetpack.php',
 				'app/public/wp-content/themes/twentytwentyone/style.css',
 				'app/public/wp-content/mu-plugins/hello.php',
+				'app/public/wp-content/fonts/open-sans.woff2',
 				'local-site.json',
 			];
 			const extractionDirectory = '/tmp/extracted';
@@ -101,6 +104,7 @@ platformTestSuite( 'LocalValidator', ( { normalize } ) => {
 						normalize( '/tmp/extracted/app/public/wp-content/themes/twentytwentyone/style.css' ),
 					],
 					muPlugins: [ normalize( '/tmp/extracted/app/public/wp-content/mu-plugins/hello.php' ) ],
+					fonts: [ normalize( '/tmp/extracted/app/public/wp-content/fonts/open-sans.woff2' ) ],
 				},
 				wpContentDirectory: normalize( 'app/public/wp-content' ),
 				metaFile: normalize( '/tmp/extracted/local-site.json' ),

@@ -61,6 +61,7 @@ describe( 'useImportExport hook', () => {
 					plugins: true,
 					themes: true,
 					muPlugins: true,
+					fonts: true,
 				},
 				phpVersion: '8.0',
 			},
@@ -93,6 +94,7 @@ describe( 'useImportExport hook', () => {
 					plugins: true,
 					themes: true,
 					muPlugins: true,
+					fonts: true,
 				},
 				phpVersion: '8.0',
 			},
@@ -125,6 +127,7 @@ describe( 'useImportExport hook', () => {
 					plugins: false,
 					themes: false,
 					muPlugins: false,
+					fonts: false,
 				},
 				phpVersion: '8.0',
 			},
@@ -208,7 +211,7 @@ describe( 'useImportExport hook', () => {
 		expect( result.current.exportState ).toEqual( {
 			[ SITE_ID ]: {
 				statusMessage: 'Backing up files...',
-				progress: 100,
+				progress: 95,
 			},
 		} );
 

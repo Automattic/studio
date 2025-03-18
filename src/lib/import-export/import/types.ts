@@ -13,6 +13,7 @@ export interface WpContent {
 	plugins: string[];
 	themes: string[];
 	muPlugins?: string[];
+	fonts?: string[];
 }
 
 export interface BackupContents {

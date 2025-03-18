@@ -1,12 +1,14 @@
 // To run tests, execute `npm run test -- src/components/tests/content-tab-settings.test.tsx` from the root directory
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
+import { Provider } from 'react-redux';
 import { ContentTabSettings } from 'src/components/content-tab-settings';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { useSnapshots } from 'src/hooks/use-snapshots';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { store } from 'src/stores';
 
 jest.mock( 'src/hooks/use-get-wp-version' );
 jest.mock( 'src/hooks/use-snapshots' );
@@ -22,6 +24,17 @@ const selectedSite: SiteDetails = {
 	phpVersion: '8.0',
 	id: 'site-id',
 };
+
+function renderWithProvider( component: React.ReactElement ) {
+	return render( <Provider store={ store }>{ component }</Provider> );
+}
+
+function rerenderWithProvider(
+	rerender: ( component: React.ReactElement ) => void,
+	component: React.ReactElement
+) {
+	rerender( <Provider store={ store }>{ component }</Provider> );
+}
 
 describe( 'ContentTabSettings', () => {
 	const copyText = jest.fn();
@@ -50,7 +63,7 @@ describe( 'ContentTabSettings', () => {
 	} );
 
 	test( 'renders site details correctly', () => {
-		render( <ContentTabSettings selectedSite={ selectedSite } /> );
+		renderWithProvider( <ContentTabSettings selectedSite={ selectedSite } /> );
 
 		expect( screen.getByRole( 'heading', { name: 'Site details' } ) ).toBeVisible();
 		expect( screen.getByText( 'Test Site' ) ).toBeVisible();
@@ -68,7 +81,7 @@ describe( 'ContentTabSettings', () => {
 
 	test( 'allows copying the site path', async () => {
 		const user = userEvent.setup();
-		render( <ContentTabSettings selectedSite={ selectedSite } /> );
+		renderWithProvider( <ContentTabSettings selectedSite={ selectedSite } /> );
 
 		const localPathButton = screen.getByRole( 'button', { name: 'Copy local path to clipboard' } );
 		expect( localPathButton ).toBeVisible();
@@ -85,7 +98,7 @@ describe( 'ContentTabSettings', () => {
 			url: 'http://localhost:8881',
 			running: true,
 		};
-		render( <ContentTabSettings selectedSite={ selectedSiteRunning } /> );
+		renderWithProvider( <ContentTabSettings selectedSite={ selectedSiteRunning } /> );
 
 		const urlButton = screen.getByRole( 'button', {
 			name: 'localhost:8881, Copy site url to clipboard',
@@ -106,7 +119,7 @@ describe( 'ContentTabSettings', () => {
 
 	test( 'allows copying the site password', async () => {
 		const user = userEvent.setup();
-		render( <ContentTabSettings selectedSite={ selectedSite } /> );
+		renderWithProvider( <ContentTabSettings selectedSite={ selectedSite } /> );
 
 		const adminPasswordButton = screen.getByRole( 'button', {
 			name: 'Copy admin password to clipboard',
@@ -129,8 +142,10 @@ describe( 'ContentTabSettings', () => {
 			deleteSite: jest.fn(),
 			isDeleting: false,
 		} );
-		render( <ContentTabSettings selectedSite={ selectedSite } /> );
-		const deleteSiteButton = await screen.findByRole( 'button', { name: 'Delete site' } );
+		renderWithProvider( <ContentTabSettings selectedSite={ selectedSite } /> );
+		const dropdownButton = screen.getByRole( 'button', { name: 'More options' } );
+		await userEvent.click( dropdownButton );
+		const deleteSiteButton = screen.getByRole( 'menuitem', { name: 'Delete site' } );
 		expect( deleteSiteButton ).toHaveAttribute( 'aria-disabled', 'true' );
 		fireEvent.mouseOver( deleteSiteButton );
 		expect(
@@ -144,7 +159,7 @@ describe( 'ContentTabSettings', () => {
 		test( 'allows copying the default password', async () => {
 			const user = userEvent.setup();
 			const { adminPassword, ...selectedSiteLegacy }: SiteDetails = selectedSite;
-			render( <ContentTabSettings selectedSite={ selectedSiteLegacy } /> );
+			renderWithProvider( <ContentTabSettings selectedSite={ selectedSiteLegacy } /> );
 
 			const adminPasswordButton = screen.getByRole( 'button', {
 				name: 'Copy admin password to clipboard',
@@ -176,9 +191,11 @@ describe( 'ContentTabSettings', () => {
 				stopServer,
 			} );
 
-			const { rerender } = render( <ContentTabSettings selectedSite={ selectedSite } /> );
+			const { rerender } = renderWithProvider(
+				<ContentTabSettings selectedSite={ selectedSite } />
+			);
 			expect( screen.getByText( '8.0' ) ).toBeVisible();
-			await user.click( screen.getByRole( 'button', { name: 'Edit PHP version' } ) );
+			await user.click( screen.getByRole( 'button', { name: 'Edit site' } ) );
 			const dialog = screen.getByRole( 'dialog' );
 			expect( dialog ).toBeVisible();
 			await user.selectOptions(
@@ -196,7 +213,10 @@ describe( 'ContentTabSettings', () => {
 			expect( stopServer ).not.toHaveBeenCalled();
 			expect( startServer ).not.toHaveBeenCalled();
 
-			rerender( <ContentTabSettings selectedSite={ { ...selectedSite, phpVersion: '8.2' } } /> );
+			rerenderWithProvider(
+				rerender,
+				<ContentTabSettings selectedSite={ { ...selectedSite, phpVersion: '8.2' } } />
+			);
 			expect( screen.getByText( '8.2' ) ).toBeVisible();
 		} );
 
@@ -217,9 +237,11 @@ describe( 'ContentTabSettings', () => {
 				stopServer,
 			} );
 
-			const { rerender } = render( <ContentTabSettings selectedSite={ selectedSite } /> );
+			const { rerender } = renderWithProvider(
+				<ContentTabSettings selectedSite={ selectedSite } />
+			);
 			expect( screen.getByText( '8.0' ) ).toBeVisible();
-			await user.click( screen.getByRole( 'button', { name: 'Edit PHP version' } ) );
+			await user.click( screen.getByRole( 'button', { name: 'Edit site' } ) );
 			const dialog = screen.getByRole( 'dialog' );
 			expect( dialog ).toBeVisible();
 			await user.selectOptions(
@@ -237,7 +259,10 @@ describe( 'ContentTabSettings', () => {
 			expect( stopServer ).toHaveBeenCalled();
 			expect( startServer ).toHaveBeenCalled();
 
-			rerender( <ContentTabSettings selectedSite={ { ...selectedSite, phpVersion: '8.2' } } /> );
+			rerenderWithProvider(
+				rerender,
+				<ContentTabSettings selectedSite={ { ...selectedSite, phpVersion: '8.2' } } />
+			);
 			expect( screen.getByText( '8.2' ) ).toBeVisible();
 		} );
 	} );

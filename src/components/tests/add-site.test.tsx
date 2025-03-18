@@ -6,25 +6,22 @@ import AddSite from 'src/components/add-site';
 import { useOffline } from 'src/hooks/use-offline';
 import { FolderDialogResponse } from 'src/ipc-handlers';
 
-jest.mock( 'src/hooks/use-feature-flags', () => ( {
-	useFeatureFlags: jest.fn().mockReturnValue( { wpVersionsEnabled: true } ),
-} ) );
-
 jest.mock( 'src/stores', () => {
 	const mockDispatch = jest.fn();
 	return {
 		useAppDispatch: jest.fn().mockReturnValue( mockDispatch ),
 		useRootSelector: jest.fn().mockImplementation( ( selector ) => {
-			if (
-				typeof selector === 'object' &&
-				selector !== null &&
-				'name' in selector &&
-				selector.name === 'selectWordPressVersionsWithLatest'
-			) {
+			if ( ! ( typeof selector === 'object' && selector !== null ) ) {
+				return { status: 'succeeded' };
+			}
+			if ( 'name' in selector && selector.name === 'selectWordPressVersionsWithLatest' ) {
 				return [
 					{ isBeta: false, label: '6.4', value: '6.4.3' },
 					{ isBeta: false, label: '6.3', value: '6.3.3' },
 				];
+			}
+			if ( 'name' in selector && selector.name === 'selectLatestStableVersion' ) {
+				return { isBeta: false, label: '6.4', value: '6.4.3' };
 			}
 			return { status: 'succeeded' };
 		} ),
@@ -34,6 +31,7 @@ jest.mock( 'src/stores', () => {
 jest.mock( 'src/stores/wordpress-versions-slice', () => ( {
 	wordpressVersionsSelectors: {
 		selectWordPressVersionsWithLatest: { name: 'selectWordPressVersionsWithLatest' },
+		selectLatestStableVersion: { name: 'selectLatestStableVersion' },
 	},
 	wordpressVersionsThunks: {
 		fetchWordPressVersions: jest.fn(),
@@ -274,7 +272,7 @@ describe( 'AddSite', () => {
 		).toBeVisible();
 	} );
 
-	it( 'should display WordPress version dropdown when feature flag is enabled', async () => {
+	it( 'should display WordPress version dropdown', async () => {
 		const user = userEvent.setup();
 		mockGenerateProposedSitePath.mockResolvedValue( {
 			path: '/default_path/my-wordpress-website',

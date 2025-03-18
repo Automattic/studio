@@ -298,8 +298,7 @@ describe( 'wordpress-versions-slice', () => {
 			const versions = wordpressVersionsSelectors.selectWordPressVersionsWithLatest( state );
 
 			expect( versions ).toEqual( [
-				{ value: 'latest', isBeta: false, label: 'Latest' },
-				{ value: '6.1.0', isBeta: false, label: '6.1' },
+				{ value: '6.1.0', isBeta: false, label: '6.1 (latest)' },
 				{ value: '6.2.0', isBeta: false, label: '6.2' },
 				{ value: '6.3.0', isBeta: false, label: '6.3' },
 				{ value: '6.4.0', isBeta: false, label: '6.4' },

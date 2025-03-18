@@ -150,6 +150,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 				/^mu-plugins(\/|\\)sqlite-database-integration(\/|\\)?.*/, // Match sqlite-database-integration dir and contents
 				/^database(\/|\\)?.*/, // Match database dir and all contents
 				/^db\.php$/, // Exact match for db.php
+				/^index\.php$/, // Exact match for index.php
 			];
 			// If there are no plugins in the backup, we need to keep the plugins directory and all its contents.
 			if ( this.backup.wpContent.plugins.length === 0 ) {
@@ -190,6 +191,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 		const wpContent = this.backup.wpContent;
 		const wpContentSourceDir = this.backup.wpContentDirectory;
 		const wpContentDestDir = path.join( rootPath, 'wp-content' );
+
 		for ( const files of Object.values( wpContent ) ) {
 			for ( const file of files ) {
 				try {

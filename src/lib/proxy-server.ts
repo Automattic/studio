@@ -97,7 +97,12 @@ export async function startProxyServer(): Promise< boolean > {
 
 		return true;
 	} catch ( error ) {
-		if ( error instanceof Error && 'code' in error && error.code === 'EADDRINUSE' ) {
+		const errorCodes = [ 'EADDRINUSE', 'WSAEADDRINUSE' ];
+		if (
+			error instanceof Error &&
+			'code' in error &&
+			errorCodes.includes( error.code as string )
+		) {
 			const mainWindow = await getMainWindow();
 			dialog.showMessageBox( mainWindow, {
 				type: 'error',

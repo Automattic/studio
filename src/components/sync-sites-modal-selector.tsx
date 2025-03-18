@@ -15,6 +15,11 @@ import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
 const SearchControl = process.env.NODE_ENV === 'test' ? () => null : SearchControlWp;
 
+const focusConnectButton = () => {
+	const connectButton = document.querySelector( 'button#connect-button' ) as HTMLButtonElement;
+	connectButton?.focus();
+};
+
 export function SyncSitesModalSelector( {
 	isLoading,
 	onRequestClose,
@@ -206,6 +211,7 @@ function SiteItem( {
 				if ( ( e.code === 'Space' || e.code === 'Enter' ) && isSyncable ) {
 					e.preventDefault();
 					onClick();
+					focusConnectButton();
 				}
 			} }
 			onClick={ () => {
@@ -317,6 +323,12 @@ function Footer( {
 } ) {
 	const { __ } = useI18n();
 
+	useEffect( () => {
+		if ( ! disabled ) {
+			focusConnectButton();
+		}
+	}, [ disabled ] );
+
 	return (
 		<div className="flex px-8 py-4 border-t border-a8c-gray-5 justify-between items-center">
 			<CreateButton
@@ -328,7 +340,7 @@ function Footer( {
 				<Button variant="link" onClick={ onRequestClose }>
 					{ __( 'Cancel' ) }
 				</Button>
-				<Button variant="primary" disabled={ disabled } onClick={ onConnect }>
+				<Button id="connect-button" variant="primary" disabled={ disabled } onClick={ onConnect }>
 					{ __( 'Connect' ) }
 				</Button>
 			</div>

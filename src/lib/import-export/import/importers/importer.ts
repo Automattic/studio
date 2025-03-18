@@ -9,7 +9,7 @@ import { lstat, move } from 'fs-extra';
 import semver from 'semver';
 import { generateBackupFilename } from 'src/lib/import-export/export/generate-backup-filename';
 import { ImportEvents } from 'src/lib/import-export/import/events';
-import { BackupContents, MetaFileData } from 'src/lib/import-export/import/types';
+import { BackupContents, MetaFileData, WpContent } from 'src/lib/import-export/import/types';
 import { serializePlugins } from 'src/lib/serialize-plugins';
 import { updateSiteUrlToLocal } from 'src/lib/updateSiteUrlToLocal';
 import { SiteServer } from 'src/site-server';
@@ -140,7 +140,6 @@ abstract class BaseBackupImporter extends BaseImporter {
 
 	protected async moveExistingWpContentToTrash( rootPath: string ): Promise< void > {
 		const wpContentDir = path.join( rootPath, 'wp-content' );
-
 		try {
 			if ( ! fs.existsSync( wpContentDir ) ) {
 				return;
@@ -152,13 +151,14 @@ abstract class BaseBackupImporter extends BaseImporter {
 				/^db\.php$/, // Exact match for db.php
 				/^index\.php$/, // Exact match for index.php
 			];
-			// If there are no plugins in the backup, we need to keep the plugins directory and all its contents.
-			if ( this.backup.wpContent.plugins.length === 0 ) {
-				contentToKeep.push( /^plugins(\/|\\)?.*/ );
-			}
-			// If there are no themes in the backup, we need to keep the themes directory.
-			if ( this.backup.wpContent.themes.length === 0 ) {
-				contentToKeep.push( /^themes(\/|\\)?.*/ );
+
+			// If these directories aren't in the backup, they'll be deleted. Let's not do that.
+			const maybeKeepWpContentDirectories = [ 'plugins', 'themes', 'fonts', 'uploads' ];
+
+			for ( const directory of maybeKeepWpContentDirectories ) {
+				if ( this.backup.wpContent[ directory as keyof WpContent ]?.length === 0 ) {
+					contentToKeep.push( new RegExp( `^${ directory }(/|\\\\)?.*` ) );
+				}
 			}
 
 			const contents = await fsPromises.readdir( wpContentDir, { recursive: true } );

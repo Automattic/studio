@@ -203,7 +203,7 @@ function SiteItem( {
 			role={ isSyncable ? 'button' : undefined }
 			tabIndex={ isSyncable ? 0 : -1 }
 			onKeyDown={ ( e: React.KeyboardEvent ) => {
-				if ( e.code === 'Space' && isSyncable ) {
+				if ( ( e.code === 'Space' || e.code === 'Enter' ) && isSyncable ) {
 					e.preventDefault();
 					onClick();
 				}
@@ -229,7 +229,7 @@ function SiteItem( {
 					) }
 					onClick={ () => getIpcApi().openURL( site.url ) }
 					onKeyDown={ ( e: React.KeyboardEvent ) => {
-						if ( e.code === 'Space' ) {
+						if ( e.code === 'Space' || e.code === 'Enter' ) {
 							e.preventDefault();
 							e.stopPropagation();
 							getIpcApi().openURL( site.url );

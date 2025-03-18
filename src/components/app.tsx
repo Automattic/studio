@@ -23,7 +23,7 @@ export default function App() {
 	const { isSidebarVisible, toggleSidebar } = useSidebarVisibility();
 
 	useEffect( () => {
-		getIpcApi().setupAppMenu( { needsOnboarding } );
+		void getIpcApi().setupAppMenu( { needsOnboarding } );
 	}, [ needsOnboarding ] );
 
 	return (

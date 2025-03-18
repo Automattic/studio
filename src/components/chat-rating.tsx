@@ -28,7 +28,7 @@ export const ChatRating = ( { messageApiId, feedbackReceived, instanceId }: Chat
 			return;
 		}
 
-		dispatch(
+		void dispatch(
 			chatThunks.sendFeedback( { client, messageApiId, ratingValue: feedback, instanceId } )
 		);
 	};

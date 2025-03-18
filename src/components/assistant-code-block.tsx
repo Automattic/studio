@@ -138,14 +138,14 @@ function FileBlock( props: ContextProps & CodeBlockProps & { isDirectory?: boole
 		if ( ! siteId || ! filePath ) {
 			return;
 		}
-		getIpcApi().openFileInIDE( content, siteId );
+		void getIpcApi().openFileInIDE( content, siteId );
 	}, [ siteId, filePath, content ] );
 
 	const openFileInFinder = useCallback( () => {
 		if ( ! siteId || ! filePath ) {
 			return;
 		}
-		getIpcApi().openLocalPath( filePath );
+		void getIpcApi().openLocalPath( filePath );
 	}, [ siteId, filePath ] );
 
 	useEffect( () => {
@@ -158,6 +158,9 @@ function FileBlock( props: ContextProps & CodeBlockProps & { isDirectory?: boole
 				if ( path ) {
 					setFilePath( path );
 				}
+			} )
+			.catch( () => {
+				// Do nothing
 			} );
 	}, [ siteId, content ] );
 

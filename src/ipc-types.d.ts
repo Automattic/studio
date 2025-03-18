@@ -58,26 +58,27 @@ type InstalledApps = {
 	phpstorm: boolean | null;
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type Tail< T extends any[] > = ( ( ...args: T ) => any ) extends ( _: any, ...tail: infer U ) => any
-	? U
-	: never;
+type WithoutIpcEvent< T extends unknown[] > = T extends [ unknown, ...infer Rest ] ? Rest : [];
+type ToPromise< T > = T extends Promise< unknown > ? T : Promise< T >;
+type IpcHandlers = typeof import('./ipc-handlers');
 
 // IpcApi functions have the same signatures as the functions in ipc-handlers.ts, except
 // with the first parameter removed.
-type IpcApi = {
-	[ K in keyof typeof import('./ipc-handlers') ]: (
-		...args: Tail< Parameters< ( typeof import('./ipc-handlers') )[ K ] > >
-	) => ReturnType< ( typeof import('./ipc-handlers') )[ K ] >;
-} & {
-	/**
-	 * `webUtils.getPathForFile` is available only inside preload script, that's why this one
-	 * function is exception and need to be defined here manually.
-	 *
-	 * See https://www.electronjs.org/docs/latest/breaking-changes#planned-breaking-api-changes-320
-	 * for more details.
-	 */
+type IpcApi = Omit<
+	{
+		[ K in keyof IpcHandlers ]: (
+			...args: WithoutIpcEvent< Parameters< IpcHandlers[ K ] > >
+		) => ToPromise< ReturnType< IpcHandlers[ K ] > >;
+	},
+	'logRendererMessage'
+> & {
+	// `webUtils.getPathForFile` is available only inside preload script, that's why this one
+	// function is exception and need to be defined here manually. See
+	// https://www.electronjs.org/docs/latest/breaking-changes#planned-breaking-api-changes-320
 	getPathForFile: ( file: File ) => string;
+	logRendererMessage: (
+		...args: WithoutIpcEvent< Parameters< IpcHandlers[ 'logRendererMessage' ] > >
+	) => void;
 };
 
 interface AppGlobals {

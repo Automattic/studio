@@ -85,7 +85,7 @@ const api: IpcApi = {
 	showNotification: ( options: Electron.NotificationConstructorOptions ) =>
 		ipcRenderer.invoke( 'showNotification', options ),
 	// Use .send instead of .invoke because logging is fire-and-forget
-	logRendererMessage: ( level: LogLevel, ...args: any[] ) =>
+	logRendererMessage: ( level: LogLevel, ...args: unknown[] ) =>
 		ipcRenderer.send( 'logRendererMessage', level, ...args ),
 	setupAppMenu: ( config: { needsOnboarding: boolean } ) =>
 		ipcRenderer.invoke( 'setupAppMenu', config ),
@@ -114,7 +114,7 @@ const api: IpcApi = {
 	addSyncOperation: ( id: string ) => ipcRenderer.invoke( 'addSyncOperation', id ),
 	clearSyncOperation: ( id: string ) => ipcRenderer.invoke( 'clearSyncOperation', id ),
 	getWpContentSize: ( id: string ) => ipcRenderer.invoke( 'getWpContentSize', id ),
-	getPathForFile: webUtils.getPathForFile,
+	getPathForFile: ( file: File ) => webUtils.getPathForFile( file ),
 	getFileContent: ( filePath: string ) => ipcRenderer.invoke( 'getFileContent', filePath ),
 	isFullscreen: () => ipcRenderer.invoke( 'isFullscreen' ),
 };

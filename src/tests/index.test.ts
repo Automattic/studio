@@ -30,7 +30,7 @@ function mockElectron() {
 	const mockedEvents: Record< string, ( ...args: any[] ) => Promise< void > > = {};
 
 	jest.doMock( 'electron', () => {
-		const electron = jest.genMockFromModule( 'electron' ) as typeof import('electron');
+		const electron = jest.genMockFromModule( 'electron' );
 
 		return {
 			...electron,

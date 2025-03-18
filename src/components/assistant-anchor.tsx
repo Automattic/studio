@@ -31,7 +31,7 @@ export default function Anchor( props: JSX.IntrinsicElements[ 'a' ] & ExtraProps
 					await startServer( selectedSite?.id );
 				}
 
-				getIpcApi().openURL( href );
+				void getIpcApi().openURL( href );
 			} }
 		/>
 	);

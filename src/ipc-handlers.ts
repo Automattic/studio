@@ -74,9 +74,7 @@ async function sendThumbnailChangedEvent( event: IpcMainInvokeEvent, id: string 
 	} );
 }
 
-async function mergeSiteDetailsWithRunningDetails(
-	sites: SiteDetails[]
-): Promise< SiteDetails[] > {
+function mergeSiteDetailsWithRunningDetails( sites: SiteDetails[] ): SiteDetails[] {
 	return sites.map( ( site ) => {
 		const server = SiteServer.get( site.id );
 		if ( server ) {
@@ -101,7 +99,7 @@ export async function getSiteDetails( _event: IpcMainInvokeEvent ): Promise< Sit
 	return mergeSiteDetailsWithRunningDetails( sites );
 }
 
-export async function getInstalledApps( _event: IpcMainInvokeEvent ): Promise< InstalledApps > {
+export function getInstalledApps(): InstalledApps {
 	return {
 		vscode: isInstalled( 'vscode' ),
 		phpstorm: isInstalled( 'phpstorm' ),
@@ -167,7 +165,7 @@ export async function createSite(
 		} catch ( error ) {
 			// If site creation failed, remove the generated files and re-throw the
 			// error so it can be handled by the caller.
-			shell.trashItem( path );
+			await shell.trashItem( path );
 			throw error;
 		}
 	}
@@ -429,7 +427,7 @@ export async function startServer(
 	if ( server.details.running ) {
 		try {
 			await server.updateCachedThumbnail();
-			sendThumbnailChangedEvent( event, id );
+			await sendThumbnailChangedEvent( event, id );
 		} catch ( error ) {
 			console.error( `Failed to update thumbnail for server ${ id }:`, error );
 		}
@@ -540,7 +538,7 @@ export async function getUserLocale( _event: IpcMainInvokeEvent ): Promise< Supp
 	return getUserLocaleWithFallback();
 }
 
-export async function showUserSettings( event: IpcMainInvokeEvent ): Promise< void > {
+export function showUserSettings( event: IpcMainInvokeEvent ): void {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	sendIpcEventToRendererWithWindow( parentWindow, 'user-settings' );
 }
@@ -571,7 +569,7 @@ function archiveWordPressDirectory( {
 		archive.directory( `${ source }/wp-content`, 'wp-content' );
 		archive.file( `${ source }/wp-config.php`, { name: 'wp-config.php' } );
 
-		archive.finalize();
+		archive.finalize().catch( reject );
 	} );
 }
 
@@ -753,18 +751,18 @@ export function openSiteURL(
 		url.searchParams.append( 'playground-auto-login', 'true' );
 	}
 
-	shellOpenExternalWrapper( url.toString() );
+	void shellOpenExternalWrapper( url.toString() );
 }
 
 export function openURL( event: IpcMainInvokeEvent, url: string ) {
-	shellOpenExternalWrapper( url );
+	void shellOpenExternalWrapper( url );
 }
 
-export async function copyText( event: IpcMainInvokeEvent, text: string ) {
+export function copyText( event: IpcMainInvokeEvent, text: string ) {
 	return clipboard.writeText( text );
 }
 
-export async function getAppGlobals( _event: IpcMainInvokeEvent ): Promise< AppGlobals > {
+export function getAppGlobals(): AppGlobals {
 	return {
 		platform: process.platform,
 		appName: app.name,
@@ -773,7 +771,7 @@ export async function getAppGlobals( _event: IpcMainInvokeEvent ): Promise< AppG
 	};
 }
 
-export async function getWpVersion( _event: IpcMainInvokeEvent, id: string ) {
+export function getWpVersion( _event: IpcMainInvokeEvent, id: string ) {
 	const server = SiteServer.get( id );
 	if ( ! server ) {
 		return '-';
@@ -819,10 +817,10 @@ export async function generateProposedSitePath(
 }
 
 export async function openLocalPath( _event: IpcMainInvokeEvent, path: string ) {
-	shell.openPath( path );
+	await shell.openPath( path );
 }
 
-export async function showItemInFolder( _event: IpcMainInvokeEvent, path: string ) {
+export function showItemInFolder( _event: IpcMainInvokeEvent, path: string ) {
 	shell.showItemInFolder( path );
 }
 
@@ -849,7 +847,7 @@ export async function getThemeDetails( event: IpcMainInvokeEvent, id: string ) {
 			details: themeDetails,
 		} );
 
-		server.updateCachedThumbnail().then( () => sendThumbnailChangedEvent( event, id ) );
+		void server.updateCachedThumbnail().then( () => sendThumbnailChangedEvent( event, id ) );
 		server.details.themeDetails = themeDetails;
 		await updateSite( event, updatedSite );
 	}
@@ -901,7 +899,7 @@ export async function executeWPCLiInline(
 	} );
 }
 
-export async function getThumbnailData( _event: IpcMainInvokeEvent, id: string ) {
+export function getThumbnailData( _event: IpcMainInvokeEvent, id: string ) {
 	const path = getSiteThumbnailPath( id );
 	return getImageData( path );
 }
@@ -1014,7 +1012,7 @@ export async function showErrorMessageBox(
 	}
 }
 
-export async function showNotification(
+export function showNotification(
 	_event: IpcMainInvokeEvent,
 	options: Electron.NotificationConstructorOptions
 ) {
@@ -1153,7 +1151,7 @@ export function getWpContentSize( _event: IpcMainInvokeEvent, siteId: string ) {
 	}
 	return calculateDirectorySize( nodePath.join( site.details.path, 'wp-content' ) );
 }
-export async function getFileContent( event: IpcMainInvokeEvent, filePath: string ) {
+export function getFileContent( event: IpcMainInvokeEvent, filePath: string ) {
 	if ( ! fs.existsSync( filePath ) ) {
 		throw new Error( `File not found: ${ filePath }` );
 	}

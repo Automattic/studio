@@ -97,11 +97,11 @@ export default function AddSite( { className }: AddSiteProps ) {
 
 	useEffect( () => {
 		if ( showModal && ! nameSuggested && ! loadingSites ) {
-			initializeForm();
+			void initializeForm();
 		}
 	}, [ showModal, nameSuggested, loadingSites, initializeForm ] );
 
-	const openModal = useCallback( async () => {
+	const openModal = useCallback( () => {
 		setShowModal( true );
 	}, [] );
 
@@ -145,7 +145,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 	);
 
 	const handleImportFile = useCallback(
-		async ( file: File ) => {
+		( file: File ) => {
 			setFileForImport( file );
 			setFileError( '' );
 		},
@@ -190,7 +190,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 						{ isDraggingOver && <DragAndDropOverlay /> }
 						<SiteForm
 							siteName={ siteName || '' }
-							setSiteName={ handleSiteNameChange }
+							setSiteName={ ( name ) => void handleSiteNameChange( name ) }
 							phpVersion={ phpVersion }
 							setPhpVersion={ setPhpVersion }
 							wpVersion={ wpVersion }

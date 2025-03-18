@@ -43,7 +43,7 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 
 	useIpcListener( 'auth-updated', ( _event, payload ) => {
 		if ( 'error' in payload ) {
-			getIpcApi().showErrorMessageBox( {
+			void getIpcApi().showErrorMessageBox( {
 				title: __( 'Authentication error' ),
 				message: __( 'Please try again.' ),
 			} );
@@ -95,7 +95,7 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 				Sentry.captureException( err );
 			}
 		}
-		run();
+		void run();
 	}, [ locale ] );
 
 	// Memoize the context value to avoid unnecessary renders

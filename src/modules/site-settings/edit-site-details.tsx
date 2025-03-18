@@ -64,7 +64,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 			return;
 		}
 		setSiteName( selectedSite.name );
-		setSelectedPhpVersion( selectedSite.phpVersion as AllowedPHPVersion );
+		setSelectedPhpVersion( selectedSite.phpVersion );
 		setSelectedWpVersion( currentWpVersion );
 		setIsChangeWpError( '' );
 	}, [ currentWpVersion, selectedSite ] );

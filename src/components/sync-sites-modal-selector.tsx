@@ -215,14 +215,14 @@ function SiteItem( {
 				onClick();
 			} }
 		>
-			<div className="flex flex-col gap-0.5 min-w-0 items-start">
-				<div className={ cx( 'a8c-body truncate w-full', ! isSyncable && 'text-a8c-gray-30' ) }>
+			<div className="flex flex-col gap-0.5 min-w-0">
+				<div className={ cx( 'a8c-body truncate', ! isSyncable && 'text-a8c-gray-30' ) }>
 					{ site.name }
 				</div>
 				<Button
 					variant="link"
 					className={ cx(
-						'a8c-body-small truncate !p-0 w-full justify-start',
+						'a8c-body-small truncate !p-0 w-full !justify-start',
 						isSelected
 							? '!text-inherit hover:!text-inherit'
 							: '!text-a8c-gray-30 hover:!text-a8c-gray-30'

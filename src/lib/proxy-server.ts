@@ -83,24 +83,31 @@ export async function startProxyServer(): Promise< boolean > {
 		} );
 
 		// On Windows, we need to check if the port is in use before we can listen on it
-		await new Promise< void >( ( resolve, reject ) => {
-			const tester = createConnection( { port: 80 }, () => {
-				// If we can connect, port is in use
-				tester.end();
-				const error = new Error( 'Port 80 is in use' ) as NodeJS.ErrnoException;
-				error.code = 'EADDRINUSE';
-				reject( error );
-			} );
+		if ( process.platform === 'win32' ) {
+			await new Promise< void >( ( resolve, reject ) => {
+				const tester = createConnection( { port: 80 }, () => {
+					// If we can connect, port is in use
+					tester.end();
+					const error = new Error( 'Port 80 is in use' ) as NodeJS.ErrnoException;
+					error.code = 'EADDRINUSE';
+					reject( error );
+				} );
 
-			tester.on( 'error', ( err: NodeJS.ErrnoException ) => {
-				if ( err.code === 'ECONNREFUSED' ) {
-					// Port is available
-					resolve();
-				} else {
-					reject( err );
-				}
+				tester.setTimeout( 1000, () => {
+					tester.destroy();
+					reject( new Error( 'Port check timed out' ) );
+				} );
+
+				tester.on( 'error', ( err: NodeJS.ErrnoException ) => {
+					if ( err.code === 'ECONNREFUSED' ) {
+						// Port is available
+						resolve();
+					} else {
+						reject( err );
+					}
+				} );
 			} );
-		} );
+		}
 
 		await new Promise< void >( ( resolve, reject ) => {
 			proxyServer!

@@ -25,7 +25,6 @@ import {
 	setupPlatformLevelMuPlugins,
 } from '@wp-playground/wordpress';
 import fs from 'fs-extra';
-import { SymlinkManager } from '../../../src/lib/symlink-manager';
 import getWpNowConfig, { WPNowOptions, WPNowMode } from './config';
 import {
 	PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER,
@@ -202,41 +201,6 @@ export async function prepareWordPress( php: PHP, options: WPNowOptions ) {
 
 	await mountInternalMuPlugins( php );
 	await setupPlatformLevelMuPlugins( php );
-}
-
-/**
- * Start the symlink manager
- *
- * The symlink manager ensures that we mount the targets of symlinks so that they
- * work inside the php runtime. It also watches for changes to ensure symlinks
- * are managed correctly.
- *
- * @param php
- * @param projectPath
- * @param documentRoot
- */
-export async function startSymlinkManager( php: PHP, projectPath: string, documentRoot: string ) {
-	// Symlink manager is not yet supported on windows
-	// See: https://github.com/Automattic/studio/issues/548
-	if ( process.platform === 'win32' ) {
-		return;
-	}
-
-	const symlinkManager = new SymlinkManager( php, projectPath, documentRoot );
-	await symlinkManager.scanAndCreateSymlinks();
-	symlinkManager
-		.startWatching()
-		.catch( ( err ) => {
-			output?.error( 'Error while watching for file changes', err );
-		} )
-		.finally( () => {
-			output?.log( 'Stopped watching for file changes' );
-		} );
-
-	// Ensure that we stop watching for file changes when the runtime is exiting
-	php.addEventListener( 'runtime.beforedestroy', () => {
-		symlinkManager.stopWatching();
-	} );
 }
 
 async function runIndexMode( php: PHP, { documentRoot, projectPath }: WPNowOptions ) {

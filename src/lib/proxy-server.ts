@@ -132,7 +132,7 @@ export async function startProxyServer(): Promise< boolean > {
 			const mainWindow = await getMainWindow();
 			dialog.showMessageBox( mainWindow, {
 				type: 'error',
-				message: __( 'Studio failed to start a proxy server' ),
+				message: __( 'Studio failed to initialize custom domains' ),
 				detail: __(
 					'Studio needs to use port 80, but it’s already in use by another app. Close any local development apps and restart Studio.'
 				),

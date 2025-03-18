@@ -110,6 +110,7 @@ export default async function getWpNowConfig( args: CliOptions ): Promise< WPNow
 	const optionsFromCli: WPNowOptions = {
 		phpVersion: args.php as SupportedPHPVersion,
 		projectPath: args.path as string,
+		documentRoot: args.path as string,
 		wordPressVersion: args.wp as string,
 		port,
 		reset: args.reset as boolean,

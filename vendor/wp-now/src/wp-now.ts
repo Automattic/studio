@@ -1,6 +1,7 @@
+/* eslint-disable react-hooks/rules-of-hooks */
 import path from 'path';
 import { rootCertificates } from 'tls';
-import { createNodeFsMountHandler, loadNodeRuntime } from '@php-wasm/node';
+import { createNodeFsMountHandler, loadNodeRuntime, useHostFilesystem } from '@php-wasm/node';
 import {
 	MountHandler,
 	PHP,
@@ -200,7 +201,6 @@ export async function prepareWordPress( php: PHP, options: WPNowOptions ) {
 	}
 
 	await mountInternalMuPlugins( php );
-	await startSymlinkManager( php, options.projectPath, options.documentRoot );
 	await setupPlatformLevelMuPlugins( php );
 }
 
@@ -278,12 +278,8 @@ async function runWordPressDevelopMode(
 	} );
 }
 
-async function runWordPressMode( php: PHP, { documentRoot, projectPath }: WPNowOptions ) {
-	php.mkdir( documentRoot );
-	await php.mount(
-		documentRoot,
-		createNodeFsMountHandler( projectPath ) as unknown as MountHandler
-	);
+async function runWordPressMode( php: PHP, { documentRoot }: WPNowOptions ) {
+	useHostFilesystem( php );
 	await initWordPress( php, 'user-provided', documentRoot );
 }
 

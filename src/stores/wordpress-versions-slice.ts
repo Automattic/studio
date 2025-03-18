@@ -85,7 +85,6 @@ export const fetchWordPressVersions = createAsyncThunk(
 				const occurrences = shortNameOccurrences.get( shortName ) || 0;
 				return {
 					isBeta,
-					isNightly: isDevelopment,
 					label: isDevelopment ? 'nightly' : occurrences > 1 || isBeta ? version : shortName,
 					value: version,
 				};
@@ -101,7 +100,6 @@ export const fetchWordPressVersions = createAsyncThunk(
 
 interface WordPressVersion {
 	isBeta: boolean;
-	isNightly: boolean;
 	label: string;
 	value: string;
 }

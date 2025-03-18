@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import SiteServerProcess from 'src/lib/site-server-process';
 
-export const themeDetailsSchema = z.object( {
+const themeDetailsSchema = z.object( {
 	name: z.string().catch( '' ),
 	path: z.string(),
 	slug: z.string(),

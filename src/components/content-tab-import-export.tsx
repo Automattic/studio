@@ -24,26 +24,20 @@ interface ContentTabImportExportProps {
 
 export const ExportSite = ( {
 	selectedSite,
-	isAnySiteSyncing,
 	isThisSiteSyncing,
 }: {
 	selectedSite: SiteDetails;
-	isAnySiteSyncing: boolean;
 	isThisSiteSyncing: boolean;
 } ) => {
 	const { exportState, exportFullSite, exportDatabase, importState } = useImportExport();
 	const { [ selectedSite.id ]: currentProgress } = exportState;
 	const isImporting = importState[ selectedSite.id ]?.progress < 100;
-	const isExportDisabled = isImporting || isAnySiteSyncing;
+	const isExportDisabled = isImporting || isThisSiteSyncing;
 
 	let tooltipText;
 	if ( isThisSiteSyncing ) {
 		tooltipText = __(
 			'This Studio site is syncing. Please wait for the sync to finish before you export it.'
-		);
-	} else if ( isAnySiteSyncing ) {
-		tooltipText = __(
-			'Another Studio site is syncing. Please wait for the sync to finish before you export this site.'
 		);
 	} else if ( isImporting ) {
 		tooltipText = __(
@@ -104,25 +98,19 @@ const InitialImportButton = ( {
 	isInitial,
 	openFileSelector,
 	isSiteExporting,
-	isAnySiteSyncing,
 	isThisSiteSyncing,
 }: {
 	children: React.ReactNode;
 	isInitial: boolean;
 	openFileSelector: () => void;
 	isSiteExporting: boolean;
-	isAnySiteSyncing: boolean;
 	isThisSiteSyncing: boolean;
 } ) => {
-	const disabled = isSiteExporting || isAnySiteSyncing;
+	const disabled = isSiteExporting || isThisSiteSyncing;
 	let tooltipText;
 	if ( isThisSiteSyncing ) {
 		tooltipText = __(
 			'This Studio site is syncing. Please wait for the sync to finish before you import a backup.'
-		);
-	} else if ( isAnySiteSyncing ) {
-		tooltipText = __(
-			'Another Studio site is syncing. Please wait for the sync to finish before you import a backup.'
 		);
 	} else if ( isSiteExporting ) {
 		tooltipText = __(
@@ -152,11 +140,9 @@ const InitialImportButton = ( {
 
 const ImportSite = ( {
 	selectedSite,
-	isAnySiteSyncing,
 	isThisSiteSyncing,
 }: {
 	selectedSite: SiteDetails;
-	isAnySiteSyncing: boolean;
 	isThisSiteSyncing: boolean;
 } ) => {
 	const { __ } = useI18n();
@@ -215,12 +201,10 @@ const ImportSite = ( {
 	};
 
 	const startLoadingCursorClassName =
-		loadingServer[ selectedSite.id ] &&
-		! isAnySiteSyncing &&
-		'animate-pulse duration-100 cursor-wait';
+		loadingServer[ selectedSite.id ] && 'animate-pulse duration-100 cursor-wait';
 
-	const isImporting = currentProgress?.progress < 100 && ! isAnySiteSyncing;
-	const isImported = currentProgress?.progress === 100 && ! isDraggingOver && ! isAnySiteSyncing;
+	const isImporting = currentProgress?.progress < 100;
+	const isImported = currentProgress?.progress === 100 && ! isDraggingOver;
 	const isInitial = ! isImporting && ! isImported;
 	return (
 		<div className={ cx( 'flex flex-col w-full', startLoadingCursorClassName ) }>
@@ -245,7 +229,6 @@ const ImportSite = ( {
 					isInitial={ isInitial }
 					openFileSelector={ openFileSelector }
 					isSiteExporting={ isSiteExporting }
-					isAnySiteSyncing={ isAnySiteSyncing }
 					isThisSiteSyncing={ isThisSiteSyncing }
 				>
 					<div
@@ -308,9 +291,7 @@ const ImportSite = ( {
 
 export function ContentTabImportExport( { selectedSite }: ContentTabImportExportProps ) {
 	const [ isSupported, setIsSupported ] = useState< boolean | null >( null );
-	const { isAnySitePulling, isAnySitePushing, isSiteIdPulling, isSiteIdPushing, connectedSites } =
-		useSyncSites();
-	const isAnySiteSyncing = isAnySitePulling || isAnySitePushing;
+	const { isSiteIdPulling, isSiteIdPushing, connectedSites } = useSyncSites();
 	const isPulling = connectedSites.some( ( site ) => isSiteIdPulling( selectedSite.id, site.id ) );
 	const isPushing = connectedSites.some( ( site ) => isSiteIdPushing( selectedSite.id, site.id ) );
 	const isThisSiteSyncing = isPulling || isPushing;
@@ -343,16 +324,8 @@ export function ContentTabImportExport( { selectedSite }: ContentTabImportExport
 
 	return (
 		<div className="flex flex-col p-8 gap-8" data-testid="import-export-supported">
-			<ImportSite
-				selectedSite={ selectedSite }
-				isAnySiteSyncing={ isAnySiteSyncing }
-				isThisSiteSyncing={ isThisSiteSyncing }
-			/>
-			<ExportSite
-				selectedSite={ selectedSite }
-				isAnySiteSyncing={ isAnySiteSyncing }
-				isThisSiteSyncing={ isThisSiteSyncing }
-			/>
+			<ImportSite selectedSite={ selectedSite } isThisSiteSyncing={ isThisSiteSyncing } />
+			<ExportSite selectedSite={ selectedSite } isThisSiteSyncing={ isThisSiteSyncing } />
 		</div>
 	);
 }

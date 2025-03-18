@@ -285,14 +285,27 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			try {
 				updatedSite = await getIpcApi().startServer( id );
 			} catch ( error ) {
-				getIpcApi().showErrorMessageBox( {
-					title: __( 'Failed to start the site server' ),
-					message: __(
-						"Please verify your site's local path directory contains the standard WordPress installation files and try again. If this problem persists, please contact support."
-					),
-					error,
-					showOpenLogs: true,
-				} );
+				if (
+					error instanceof Error &&
+					error.message.includes( 'Studio failed to start the proxy server' )
+				) {
+					getIpcApi().showErrorMessageBox( {
+						title: __( 'Studio failed to initialize custom domains' ),
+						message: __(
+							'Studio needs to use port 80, but it’s already in use by another app. Close any local development apps and restart Studio.'
+						),
+						showOpenLogs: false,
+					} );
+				} else {
+					getIpcApi().showErrorMessageBox( {
+						title: __( 'Failed to start the site server' ),
+						message: __(
+							"Please verify your site's local path directory contains the standard WordPress installation files and try again. If this problem persists, please contact support."
+						),
+						error,
+						showOpenLogs: true,
+					} );
+				}
 				await getIpcApi().stopServer( id );
 			}
 

@@ -1,5 +1,6 @@
 import { dialog } from 'electron';
 import http from 'http';
+import { createConnection } from 'node:net';
 import { domainToASCII } from 'node:url';
 import * as Sentry from '@sentry/electron/main';
 import { __ } from '@wordpress/i18n';
@@ -81,6 +82,26 @@ export async function startProxyServer(): Promise< boolean > {
 			} );
 		} );
 
+		// On Windows, we need to check if the port is in use before we can listen on it
+		await new Promise< void >( ( resolve, reject ) => {
+			const tester = createConnection( { port: 80 }, () => {
+				// If we can connect, port is in use
+				tester.end();
+				const error = new Error( 'Port 80 is in use' ) as NodeJS.ErrnoException;
+				error.code = 'EADDRINUSE';
+				reject( error );
+			} );
+
+			tester.on( 'error', ( err: NodeJS.ErrnoException ) => {
+				if ( err.code === 'ECONNREFUSED' ) {
+					// Port is available
+					resolve();
+				} else {
+					reject( err );
+				}
+			} );
+		} );
+
 		await new Promise< void >( ( resolve, reject ) => {
 			proxyServer!
 				.listen( 80, () => {
@@ -97,12 +118,7 @@ export async function startProxyServer(): Promise< boolean > {
 
 		return true;
 	} catch ( error ) {
-		const errorCodes = [ 'EADDRINUSE', 'WSAEADDRINUSE' ];
-		if (
-			error instanceof Error &&
-			'code' in error &&
-			errorCodes.includes( error.code as string )
-		) {
+		if ( error instanceof Error && 'code' in error && error.code === 'EADDRINUSE' ) {
 			const mainWindow = await getMainWindow();
 			dialog.showMessageBox( mainWindow, {
 				type: 'error',

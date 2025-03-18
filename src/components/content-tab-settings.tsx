@@ -81,7 +81,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 								</Button>
 							) }
 						</div>
-						{ selectedSite.wpVersion && (
+						{ selectedSite.enableSSL && (
 							<div className="mt-1">
 								<span className="text-a8c-gray-50 mt-1">
 									{ __(

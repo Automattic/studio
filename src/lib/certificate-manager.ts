@@ -1,11 +1,64 @@
-import { dialog } from 'electron';
+import * as crypto from 'crypto';
+import { dialog, shell } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as Sentry from '@sentry/electron/main';
 import * as forge from 'node-forge';
 import sudo from 'sudo-prompt';
 import { getUserDataCertificatesPath } from 'src/storage/paths';
-import { shellOpenExternalWrapper } from './shell-open-external-wrapper';
+
+/**
+ * Generate name constraints in conformance with
+ * [RFC 5280 § 4.2.1.10](https://datatracker.ietf.org/doc/html/rfc5280#section-4.2.1.10),
+ * optimized for domain name constraints.
+ */
+function createNameConstraintsExtension( domains: string[] ) {
+	const asn1 = forge.asn1;
+
+	// Convert domains to GeneralSubtree sequences
+	const domainsToSequence = ( domains: Array< string > ) =>
+		domains.map( ( domain ) => {
+			// Create a GeneralName for the domain (dNSName, type 2)
+			const generalName = asn1.create( asn1.Class.CONTEXT_SPECIFIC, 2, false, domain );
+
+			// Create a GeneralSubtree containing the GeneralName
+			// According to the RFC: GeneralSubtree ::= SEQUENCE {
+			//   base GeneralName, minimum [0] BaseDistance DEFAULT 0, maximum [1] BaseDistance OPTIONAL }
+			return asn1.create(
+				asn1.Class.UNIVERSAL,
+				asn1.Type.SEQUENCE,
+				true,
+				[ generalName ]
+				// The minimum value is DEFAULT 0, so we can omit it for simplicity
+				// The maximum value is OPTIONAL and we don't need it
+			);
+		} );
+
+	// Build the NameConstraints structure
+	const nameConstraintsComponents: Array< forge.asn1.Asn1 > = [];
+
+	// Add permitted subtrees (tag 0)
+	nameConstraintsComponents.push(
+		asn1.create( asn1.Class.CONTEXT_SPECIFIC, 0, true, domainsToSequence( domains ) )
+	);
+
+	// Create the full NameConstraints structure
+	// NameConstraints ::= SEQUENCE { permittedSubtrees [0] GeneralSubtrees OPTIONAL,
+	//                                excludedSubtrees [1] GeneralSubtrees OPTIONAL }
+	const nameConstraintsValue = asn1.create(
+		asn1.Class.UNIVERSAL,
+		asn1.Type.SEQUENCE,
+		true,
+		nameConstraintsComponents
+	);
+
+	// Create the extension object
+	return {
+		id: '2.5.29.30', // nameConstraints OID
+		critical: true, // This extension should be marked critical
+		value: nameConstraintsValue,
+	};
+}
 
 // Certificate configuration
 const CA_NAME = 'WordPress Studio CA';
@@ -40,13 +93,18 @@ export async function ensureRootCA(): Promise< { cert: string; key: string } > {
 
 	// Create a certificate
 	const cert = forge.pki.createCertificate();
-	cert.publicKey = keys.publicKey;
-	cert.serialNumber = '01';
-	cert.validity.notBefore = new Date();
-	cert.validity.notAfter = new Date();
-	cert.validity.notAfter.setDate( cert.validity.notBefore.getDate() + CA_CERT_VALIDITY_DAYS );
 
-	// Set certificate attributes
+	// Set basic certificate fields
+	cert.publicKey = keys.publicKey;
+	cert.serialNumber = '01' + crypto.randomBytes( 19 ).toString( 'hex' ); // 40 hex characters
+
+	// Set validity period
+	const now = new Date();
+	cert.validity.notBefore = now;
+	cert.validity.notAfter = new Date( now.getTime() );
+	cert.validity.notAfter.setDate( now.getDate() + CA_CERT_VALIDITY_DAYS );
+
+	// Set subject and issuer attributes (self-signed)
 	const attrs = [
 		{ name: 'commonName', value: CA_NAME },
 		{ name: 'countryName', value: 'US' },
@@ -57,35 +115,30 @@ export async function ensureRootCA(): Promise< { cert: string; key: string } > {
 	cert.setIssuer( attrs );
 
 	// Set extensions
-	cert.setExtensions( [
+	const extensions = [
 		{
 			name: 'basicConstraints',
 			cA: true,
+			critical: true,
+			pathLenConstraint: 0, // Can only sign end entity certificates, not intermediate CAs
 		},
 		{
 			name: 'keyUsage',
+			critical: true,
 			keyCertSign: true,
-			digitalSignature: true,
-			nonRepudiation: true,
-			keyEncipherment: true,
-			dataEncipherment: true,
+			cRLSign: true,
 		},
 		{
 			name: 'extKeyUsage',
 			serverAuth: true,
 			clientAuth: true,
 		},
-		{
-			name: 'nsCertType',
-			client: true,
-			server: true,
-			email: true,
-			objsign: true,
-			sslCA: true,
-			emailCA: true,
-			objCA: true,
-		},
-	] );
+		// Add properly encoded nameConstraints extension
+		// Using "wp.local" instead of ".wp.local" for better OS compatibility
+		// while still enforcing the domain constraint
+		createNameConstraintsExtension( [ 'wp.local' ] ),
+	];
+	cert.setExtensions( extensions );
 
 	// Self-sign the certificate
 	cert.sign( keys.privateKey, forge.md.sha256.create() );
@@ -105,7 +158,7 @@ export async function ensureRootCA(): Promise< { cert: string; key: string } > {
 }
 
 export async function openCertificate() {
-	shellOpenExternalWrapper( `file://${ CA_CERT_PATH }` );
+	shell.showItemInFolder( CA_CERT_PATH );
 }
 
 /**
@@ -248,7 +301,6 @@ export async function generateSiteCertificate(
 	domain: string
 ): Promise< { cert: string; key: string } > {
 	try {
-		console.log( path.join( CERT_DIRECTORY, 'domains', `${ domain }.crt` ) );
 		const siteCertPath = path.join( CERT_DIRECTORY, 'domains', `${ domain }.crt` );
 		const siteKeyPath = path.join( CERT_DIRECTORY, 'domains', `${ domain }.key` );
 
@@ -270,11 +322,16 @@ export async function generateSiteCertificate(
 
 		// Create a certificate
 		const cert = forge.pki.createCertificate();
+
+		// Set basic certificate fields
 		cert.publicKey = keys.publicKey;
-		cert.serialNumber = Date.now().toString();
-		cert.validity.notBefore = new Date();
-		cert.validity.notAfter = new Date();
-		cert.validity.notAfter.setDate( cert.validity.notBefore.getDate() + SITE_CERT_VALIDITY_DAYS );
+		cert.serialNumber = '01' + crypto.randomBytes( 19 ).toString( 'hex' ); // 40 hex characters
+
+		// Set validity period
+		const now = new Date();
+		cert.validity.notBefore = now;
+		cert.validity.notAfter = new Date( now.getTime() );
+		cert.validity.notAfter.setDate( now.getDate() + SITE_CERT_VALIDITY_DAYS );
 
 		// Set certificate attributes
 		const attrs = [
@@ -286,17 +343,18 @@ export async function generateSiteCertificate(
 		cert.setSubject( attrs );
 		cert.setIssuer( caCertObj.subject.attributes );
 
-		// Set extensions with SAN (Subject Alternative Name)
+		// Set extensions
 		cert.setExtensions( [
 			{
 				name: 'basicConstraints',
 				cA: false,
+				critical: true,
 			},
 			{
 				name: 'keyUsage',
+				critical: true,
 				digitalSignature: true,
 				keyEncipherment: true,
-				dataEncipherment: true,
 			},
 			{
 				name: 'extKeyUsage',

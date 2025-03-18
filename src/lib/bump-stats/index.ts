@@ -61,6 +61,8 @@ export function bumpStat( group: StatsGroup, stat: StatsMetric, bumpInDev = fals
 			'Content-Type': 'application/json',
 		},
 		body: JSON.stringify( { group, stat } ),
+	} ).catch( () => {
+		// A failed request typically indicates a network issue, which we don't need to report
 	} );
 
 	return true;

@@ -25,7 +25,7 @@ import {
 } from 'src/lib/cli';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { onOpenUrlCallback } from 'src/lib/oauth';
-import { startProxyServer, stopProxyServer } from 'src/lib/proxy-server';
+import { stopProxyServer } from 'src/lib/proxy-server';
 import { getSentryReleaseInfo } from 'src/lib/sentry-release';
 import { setupLogging } from 'src/logging';
 import { createMainWindow, getMainWindow } from 'src/main-window';
@@ -265,20 +265,6 @@ async function appBoot() {
 		Sentry.setUser( { id: userData.sentryUserId } );
 
 		createMainWindow();
-
-		// Start the proxy server for custom domains
-		try {
-			const proxyStarted = await startProxyServer();
-			if ( proxyStarted ) {
-				console.log( 'Custom domain proxy server started successfully' );
-			} else {
-				console.warn(
-					'Failed to start custom domain proxy server - custom domains will require port numbers'
-				);
-			}
-		} catch ( error ) {
-			console.error( 'Error starting proxy server:', error );
-		}
 
 		// Handle CLI commands
 		listenCLICommands();

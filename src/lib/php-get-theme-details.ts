@@ -1,5 +1,14 @@
-import * as Sentry from '@sentry/electron/main';
+import { z } from 'zod';
 import SiteServerProcess from 'src/lib/site-server-process';
+
+const themeDetailsSchema = z.object( {
+	name: z.string().catch( '' ),
+	path: z.string(),
+	slug: z.string(),
+	isBlockTheme: z.boolean(),
+	supportsWidgets: z.boolean(),
+	supportsMenus: z.boolean(),
+} );
 
 export async function phpGetThemeDetails(
 	server: SiteServerProcess
@@ -8,13 +17,11 @@ export async function phpGetThemeDetails(
 		throw Error( 'PHP is not instantiated' );
 	}
 
-	let themeDetails = null;
 	const themeDetailsPhp = `<?php
 	require_once('${ server.php.documentRoot }/wp-load.php');
 	$theme = wp_get_theme();
 	echo json_encode([
 		'name' => $theme->get('Name'),
-		'uri' => $theme->get('ThemeURI'),
 		'path' => $theme->get_stylesheet_directory(),
 		'slug' => $theme->get_stylesheet(),
 		'isBlockTheme' => $theme->is_block_theme(),
@@ -22,16 +29,14 @@ export async function phpGetThemeDetails(
 		'supportsMenus' => get_registered_nav_menus() || current_theme_supports('menus'),
 	]);
 	`;
+
 	try {
-		themeDetails = await server.runPhp( {
+		const themeDetailsRaw = await server.runPhp( {
 			code: themeDetailsPhp,
 		} );
-		themeDetails = JSON.parse( themeDetails );
+		const themeDetailsParsed = JSON.parse( themeDetailsRaw );
+		return themeDetailsSchema.parse( themeDetailsParsed );
 	} catch ( error ) {
-		Sentry.captureException( error, {
-			extra: { themeDetails },
-		} );
-		themeDetails = null;
+		return undefined;
 	}
-	return themeDetails;
 }

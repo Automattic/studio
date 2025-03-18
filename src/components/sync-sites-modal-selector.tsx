@@ -222,7 +222,7 @@ function SiteItem( {
 				<Button
 					variant="link"
 					className={ cx(
-						'a8c-body-small truncate !p-0',
+						'a8c-body-small truncate !p-0 w-full justify-start',
 						isSelected
 							? '!text-inherit hover:!text-inherit'
 							: '!text-a8c-gray-30 hover:!text-a8c-gray-30'

@@ -150,6 +150,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 				/^database(\/|\\)?.*/, // Match database dir and all contents
 				/^db\.php$/, // Exact match for db.php
 				/^index\.php$/, // Exact match for index.php
+				/^languages(\/|\\)?.*/, // Match languages dir and all contents
 			];
 
 			// If these directories aren't in the backup, they'll be deleted. Let's not do that.

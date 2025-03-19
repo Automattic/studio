@@ -126,7 +126,7 @@ export async function startProxyServer(): Promise< boolean > {
 		return true;
 	} catch ( error ) {
 		if (
-			( error instanceof Error && isErrnoException( error ) && error.code === 'EADDRINUSE' ) ||
+			( isErrnoException( error ) && error.code === 'EADDRINUSE' ) ||
 			( error instanceof Error && error.message === 'EADDRINUSE' )
 		) {
 			const mainWindow = await getMainWindow();

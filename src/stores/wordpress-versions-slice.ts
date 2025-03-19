@@ -1,4 +1,4 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk, createSelector } from '@reduxjs/toolkit';
 import * as Sentry from '@sentry/electron/renderer';
 import { __ } from '@wordpress/i18n';
 import { z, ZodError } from 'zod';
@@ -111,22 +111,27 @@ const wordpressVersionsSlice = createSlice( {
 	},
 	selectors: {
 		selectWordPressVersions: ( state ) => state.versions,
-		selectWordPressVersionsWithLatest: ( state ) => {
-			let foundLatestStable = false;
-			return state.versions.map( ( version ) => {
-				if ( ! foundLatestStable && ! version.isBeta ) {
-					foundLatestStable = true;
-					return {
-						...version,
-						label: `${ version.label } (${ __( 'latest' ) })`,
-					};
-				}
-				return version;
-			} );
-		},
-		selectLatestStableVersion: ( state ) => {
-			return state.versions.find( ( version ) => ! version.isBeta );
-		},
+		selectWordPressVersionsWithLatest: createSelector(
+			[ ( state ) => state.versions ],
+			( versions: WordPressVersion[] ) => {
+				let foundLatestStable = false;
+				return versions.map( ( version: WordPressVersion ) => {
+					if ( ! foundLatestStable && ! version.isBeta ) {
+						foundLatestStable = true;
+						return {
+							...version,
+							label: `${ version.label } (${ __( 'latest' ) })`,
+						};
+					}
+					return version;
+				} );
+			}
+		),
+		selectLatestStableVersion: createSelector(
+			[ ( state ) => state.versions ],
+			( versions: WordPressVersion[] ) =>
+				versions.find( ( version: WordPressVersion ) => ! version.isBeta )
+		),
 	},
 } );
 

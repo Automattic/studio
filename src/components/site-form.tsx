@@ -409,6 +409,7 @@ export const SiteForm = ( {
 													} ) ) }
 													onChange={ setPhpVersion as ( value: string ) => void }
 													__next40pxDefaultSize
+													__nextHasNoMarginBottom
 												/>
 											</div>
 											<div className="flex flex-col gap-1.5 leading-4">
@@ -439,8 +440,9 @@ export const SiteForm = ( {
 																  ]
 														}
 														onChange={ setWpVersion }
-														__next40pxDefaultSize
 														disabled={ isOffline }
+														__next40pxDefaultSize
+														__nextHasNoMarginBottom
 													/>
 												</Tooltip>
 											</div>

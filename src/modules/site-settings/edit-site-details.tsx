@@ -11,6 +11,7 @@ import { Tooltip } from 'src/components/tooltip';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
+import { generateCustomDomainFromSiteName, validateDomainName } from 'src/lib/domains';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getWordPressVersionUrl } from 'src/lib/get-wordpress-version-url';
 import { useRootSelector } from 'src/stores';
@@ -47,6 +48,11 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 		( selectedSite?.phpVersion as AllowedPHPVersion ) ?? DEFAULT_PHP_VERSION
 	);
 	const [ selectedWpVersion, setSelectedWpVersion ] = useState( currentWpVersion );
+	const [ useCustomDomain, setUseCustomDomain ] = useState( Boolean( selectedSite?.customDomain ) );
+	const [ customDomain, setCustomDomain ] = useState< string | null >(
+		selectedSite?.customDomain ?? null
+	);
+	const [ customDomainError, setCustomDomainError ] = useState( '' );
 	const wordpressVersions = useRootSelector(
 		wordpressVersionsSelectors.selectWordPressVersionsWithLatest
 	);
@@ -58,6 +64,17 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 	if ( ! wordpressVersionOptions.some( ( version ) => version.value === currentWpVersion ) ) {
 		addWpVersionToList( currentWpVersion, wordpressVersionOptions );
 	}
+	const generatedDomainName = generateCustomDomainFromSiteName( siteName );
+	const isFormUnchanged =
+		!! selectedSite &&
+		selectedSite.name === siteName &&
+		selectedSite.phpVersion === selectedPhpVersion &&
+		currentWpVersion === selectedWpVersion &&
+		Boolean( selectedSite.customDomain ) === useCustomDomain &&
+		( ! useCustomDomain || selectedSite.customDomain === customDomain );
+
+	const hasValidationErrors =
+		! selectedSite || ! siteName.trim() || ( useCustomDomain && !! customDomainError );
 
 	const resetFormState = useCallback( () => {
 		if ( ! selectedSite ) {
@@ -66,6 +83,9 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 		setSiteName( selectedSite.name );
 		setSelectedPhpVersion( selectedSite.phpVersion as AllowedPHPVersion );
 		setSelectedWpVersion( currentWpVersion );
+		setUseCustomDomain( Boolean( selectedSite.customDomain ) );
+		setCustomDomain( selectedSite.customDomain ?? null );
+		setCustomDomainError( '' );
 		setIsChangeWpError( '' );
 	}, [ currentWpVersion, selectedSite ] );
 
@@ -112,10 +132,17 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 				}
 			}
 
+			// Determine custom domain setting
+			let usedCustomDomain = useCustomDomain && customDomain ? customDomain : undefined;
+			if ( useCustomDomain && ! customDomain ) {
+				usedCustomDomain = generateCustomDomainFromSiteName( siteName ?? '' );
+			}
+
 			await updateSite( {
 				...selectedSite,
 				name: siteName,
 				phpVersion: selectedPhpVersion,
+				customDomain: usedCustomDomain,
 			} );
 
 			if ( needsRestart ) {
@@ -137,6 +164,14 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 		}
 		return needsRestart ? __( 'Saving and restarting…' ) : __( 'Saving…' );
 	};
+
+	const handleCustomDomainChange = useCallback(
+		( value: string | null ) => {
+			setCustomDomain( value );
+			setCustomDomainError( validateDomainName( useCustomDomain, value ) );
+		},
+		[ useCustomDomain, setCustomDomain, setCustomDomainError ]
+	);
 
 	return (
 		<>
@@ -211,6 +246,39 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 							{ isChangeWpError && (
 								<ErrorInformation className="mt-2">{ isChangeWpError }</ErrorInformation>
 							) }
+
+							<div className="flex flex-col gap-2 mt-4">
+								<div className="flex items-center gap-2">
+									<input
+										type="checkbox"
+										id="use-custom-domain"
+										checked={ useCustomDomain }
+										onChange={ ( e ) => setUseCustomDomain( e.target.checked ) }
+										disabled={ isEditingSite }
+									/>
+									<label htmlFor="use-custom-domain">{ __( 'Use custom domain' ) }</label>
+								</div>
+
+								{ useCustomDomain && (
+									<div className="flex flex-col gap-2 mt-2">
+										<label htmlFor="custom-domain" className="font-semibold">
+											{ __( 'Domain name' ) }
+										</label>
+										<TextControlComponent
+											id="custom-domain"
+											value={ customDomain ?? generatedDomainName }
+											onChange={ handleCustomDomainChange }
+											disabled={ isEditingSite }
+										/>
+										{ customDomainError && (
+											<ErrorInformation className="mt-1">{ customDomainError }</ErrorInformation>
+										) }
+										<div className="text-a8c-gray-50 text-xs mt-1">
+											{ __( 'Your system password will be required to set up the domain.' ) }
+										</div>
+									</div>
+								) }
+							</div>
 						</div>
 
 						<div className="flex flex-row justify-end gap-x-5 mt-8">
@@ -221,14 +289,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 								type="submit"
 								variant="primary"
 								isBusy={ isEditingSite }
-								disabled={ Boolean(
-									isEditingSite ||
-										! selectedSite ||
-										( selectedSite?.name === siteName &&
-											selectedSite?.phpVersion === selectedPhpVersion &&
-											currentWpVersion === selectedWpVersion ) ||
-										! siteName.trim()
-								) }
+								disabled={ isEditingSite || isFormUnchanged || hasValidationErrors }
 							>
 								{ getEditSiteButtonText() }
 							</Button>

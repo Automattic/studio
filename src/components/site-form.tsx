@@ -13,7 +13,7 @@ import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
 import { useDocsLink } from 'src/hooks/use-docs-link';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
-import { generateCustomDomainFromSiteName } from 'src/lib/generate-custom-domain';
+import { generateCustomDomainFromSiteName } from 'src/lib/domains';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useAppDispatch, useRootSelector } from 'src/stores';
 import {
@@ -294,6 +294,7 @@ export const SiteForm = ( {
 		chevronIcon = chevronRight;
 	}
 	const generatedDomainName = generateCustomDomainFromSiteName( siteName );
+	const shouldShowCustomDomainError = customDomainError && useCustomDomain;
 
 	return (
 		<form className={ className } onSubmit={ onSubmit }>
@@ -353,10 +354,10 @@ export const SiteForm = ( {
 											{ __( 'Advanced settings' ) }
 										</div>
 									</Button>
-									{ ( error || customDomainError ) && (
+									{ ( error || shouldShowCustomDomainError ) && (
 										<span className="text-red-500 text-[13px] leading-[16px] ml-2 flex items-center">
 											<Icon icon={ warning } size={ 16 } className="mr-1 fill-red-500" />
-											{ error && customDomainError
+											{ error && shouldShowCustomDomainError
 												? __( '2 errors found' )
 												: __( '1 error found' ) }
 										</span>

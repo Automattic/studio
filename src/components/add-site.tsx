@@ -217,7 +217,9 @@ export default function AddSite( { className }: AddSiteProps ) {
 								<Button
 									type="submit"
 									variant="primary"
-									disabled={ !! error || !! customDomainError || ! siteName?.trim() }
+									disabled={
+										!! error || ( !! customDomainError && useCustomDomain ) || ! siteName?.trim()
+									}
 								>
 									{ __( 'Add site' ) }
 								</Button>

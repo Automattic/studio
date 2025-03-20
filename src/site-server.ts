@@ -57,6 +57,12 @@ export async function stopAllServersOnQuit() {
 	await Promise.all( [ ...servers.values() ].map( ( server ) => server.server?.stop() ) );
 }
 
+function getAbsoluteUrl( details: SiteDetails ): string {
+	return details.customDomain
+		? `http://${ details.customDomain }`
+		: `http://localhost:${ details.port }`;
+}
+
 export class SiteServer {
 	server?: SiteServerProcess;
 	wpCliExecutor?: WpCliProcess;
@@ -112,17 +118,8 @@ export class SiteServer {
 			siteTitle: this.details.name,
 			php: this.details.phpVersion,
 		} );
-		// Determine the URL to use - either custom domain or localhost with port
-		let absoluteUrl;
-		if ( this.details.customDomain ) {
-			absoluteUrl = `http://${ this.details.customDomain }`;
-			// For custom domains, we still need to handle hosts file management elsewhere
-			// This happens in the ipc-handlers.ts file when starting the server
-		} else {
-			absoluteUrl = `http://localhost:${ this.details.port }`;
-		}
 
-		options.absoluteUrl = absoluteUrl;
+		options.absoluteUrl = getAbsoluteUrl( this.details );
 		options.siteLanguage = await getPreferredSiteLanguage( options.wordPressVersion );
 
 		if ( options.mode !== WPNowMode.WORDPRESS ) {
@@ -152,16 +149,19 @@ export class SiteServer {
 	}
 
 	updateSiteDetails( site: SiteDetails ) {
-		// We no longer modify custom domain settings after site creation,
-		// so we preserve the existing custom domain settings and only update other fields
 		this.details = {
 			...this.details,
 			name: site.name,
 			path: site.path,
 			phpVersion: site.phpVersion,
 			wpVersion: site.wpVersion,
-			customDomain: this.details.customDomain,
+			customDomain: site.customDomain,
 		};
+
+		if ( this.server && this.details.running ) {
+			this.details.url = getAbsoluteUrl( this.details );
+			this.server.url = this.details.url;
+		}
 	}
 
 	async stop() {

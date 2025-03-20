@@ -85,6 +85,7 @@ interface AppGlobals {
 	appName: string;
 	arm64Translation: boolean;
 	terminalWpCliEnabled: boolean;
+	whatsNewSectionEnabled: boolean;
 }
 
 // Our IPC objects will be attached to the `window` global

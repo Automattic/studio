@@ -2,7 +2,6 @@ import http from 'http';
 import { createConnection } from 'node:net';
 import { domainToASCII } from 'node:url';
 import * as Sentry from '@sentry/electron/main';
-import { __ } from '@wordpress/i18n';
 import httpProxy from 'http-proxy';
 import { isErrnoException } from 'src/lib/is-errno-exception';
 import { SiteServer } from 'src/site-server';

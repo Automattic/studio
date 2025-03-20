@@ -11,7 +11,7 @@ import { generateBackupFilename } from 'src/lib/import-export/export/generate-ba
 import { ImportEvents } from 'src/lib/import-export/import/events';
 import { BackupContents, MetaFileData } from 'src/lib/import-export/import/types';
 import { serializePlugins } from 'src/lib/serialize-plugins';
-import { updateSiteUrlToLocal } from 'src/lib/updateSiteUrlToLocal';
+import { updateSiteUrlToLocal } from 'src/lib/update-site-url-to-local';
 import { SiteServer } from 'src/site-server';
 import { DEFAULT_PHP_VERSION } from 'vendor/wp-now/src/constants';
 

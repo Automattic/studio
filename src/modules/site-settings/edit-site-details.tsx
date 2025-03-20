@@ -276,7 +276,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 											Boolean( selectedSite?.customDomain ) === useCustomDomain &&
 											( ! useCustomDomain || selectedSite?.customDomain === customDomain ) ) ||
 										! siteName.trim() ||
-										customDomainError
+										( useCustomDomain && customDomainError )
 								) }
 							>
 								{ isEditingSite ? __( 'Saving…' ) : __( 'Save' ) }

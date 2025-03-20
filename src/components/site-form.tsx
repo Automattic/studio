@@ -294,6 +294,7 @@ export const SiteForm = ( {
 		chevronIcon = chevronRight;
 	}
 	const generatedDomainName = generateCustomDomainFromSiteName( siteName );
+	const shouldShowCustomDomainError = customDomainError && useCustomDomain;
 
 	return (
 		<form className={ className } onSubmit={ onSubmit }>
@@ -353,10 +354,10 @@ export const SiteForm = ( {
 											{ __( 'Advanced settings' ) }
 										</div>
 									</Button>
-									{ ( error || customDomainError ) && (
+									{ ( error || shouldShowCustomDomainError ) && (
 										<span className="text-red-500 text-[13px] leading-[16px] ml-2 flex items-center">
 											<Icon icon={ warning } size={ 16 } className="mr-1 fill-red-500" />
-											{ error && customDomainError
+											{ error && shouldShowCustomDomainError
 												? __( '2 errors found' )
 												: __( '1 error found' ) }
 										</span>

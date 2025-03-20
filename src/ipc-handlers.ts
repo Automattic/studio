@@ -407,17 +407,11 @@ export async function startServer(
 			`Domain ${ server.details.customDomain } added to hosts file for port ${ server.details.port }`
 		);
 
-		try {
-			const proxyStarted = await startProxyServer();
-			if ( ! proxyStarted ) {
-				console.warn(
-					'Failed to start custom domain proxy server - custom domains will require port numbers'
-				);
-			}
-			console.log( 'Custom domain proxy server started successfully' );
-		} catch ( error ) {
-			console.error( 'Error starting proxy server:', error );
-			throw error;
+		const proxyStarted = await startProxyServer();
+		if ( ! proxyStarted ) {
+			console.warn(
+				'Failed to start custom domain proxy server - custom domains will require port numbers'
+			);
 		}
 	}
 

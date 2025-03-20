@@ -1,10 +1,10 @@
 import * as crypto from 'crypto';
-import { dialog, shell } from 'electron';
+import { shell } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as Sentry from '@sentry/electron/main';
+import sudo from '@vscode/sudo-prompt';
 import * as forge from 'node-forge';
-import sudo from 'sudo-prompt';
 import { getUserDataCertificatesPath } from 'src/storage/paths';
 
 /**
@@ -164,47 +164,10 @@ export async function openCertificate() {
 /**
  * Trust the root CA certificate in the system trust store
  */
-async function trustRootCA( showResult = false ): Promise< void > {
+async function trustRootCA(): Promise< void > {
 	try {
 		const platform = process.platform;
-
-		if ( platform === 'darwin' ) {
-			// macOS - Use sudo to add to system keychain
-			await new Promise< void >( ( resolve, reject ) => {
-				sudo.exec(
-					`security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain "${ CA_CERT_PATH }"`,
-					{ name: 'WordPress Studio' },
-					( error ) => {
-						if ( error ) {
-							console.error( 'Error adding certificate to system trust store:', error );
-							if ( showResult ) {
-								dialog.showMessageBox( {
-									type: 'error',
-									title: 'Certificate Trust Failed',
-									message: 'Failed to install certificate automatically.',
-									detail:
-										'Try the manual installation process or restart the application with administrator privileges.',
-									buttons: [ 'OK' ],
-								} );
-							}
-							reject( error );
-						} else {
-							console.log( 'Root CA trusted in macOS keychain' );
-							if ( showResult ) {
-								dialog.showMessageBox( {
-									type: 'info',
-									title: 'Certificate Installed',
-									message: 'Root certificate has been installed successfully.',
-									detail: 'Please restart your browsers for the changes to take effect.',
-									buttons: [ 'OK' ],
-								} );
-							}
-							resolve();
-						}
-					}
-				);
-			} );
-		} else if ( platform === 'win32' ) {
+		if ( platform === 'win32' ) {
 			// Windows - Use certutil
 			await new Promise< void >( ( resolve, reject ) => {
 				sudo.exec(
@@ -213,80 +176,16 @@ async function trustRootCA( showResult = false ): Promise< void > {
 					( error ) => {
 						if ( error ) {
 							console.error( 'Error adding certificate to system trust store:', error );
-							if ( showResult ) {
-								dialog.showMessageBox( {
-									type: 'error',
-									title: 'Certificate Trust Failed',
-									message: 'Failed to install certificate automatically.',
-									detail:
-										'Try the manual installation process or restart the application with administrator privileges.',
-									buttons: [ 'OK' ],
-								} );
-							}
 							reject( error );
 						} else {
 							console.log( 'Root CA trusted in Windows certificate store' );
-							if ( showResult ) {
-								dialog.showMessageBox( {
-									type: 'info',
-									title: 'Certificate Installed',
-									message: 'Root certificate has been installed successfully.',
-									detail: 'Please restart your browsers for the changes to take effect.',
-									buttons: [ 'OK' ],
-								} );
-							}
 							resolve();
 						}
 					}
 				);
 			} );
-		} else if ( platform === 'linux' ) {
-			// Linux - Different approaches based on distribution
-			// This is a simplified approach that works on many systems
-			const copyCmd = `cp "${ CA_CERT_PATH }" /usr/local/share/ca-certificates/studio-ca.crt`;
-			const updateCmd = 'update-ca-certificates';
-
-			await new Promise< void >( ( resolve, reject ) => {
-				sudo.exec( `${ copyCmd } && ${ updateCmd }`, { name: 'WordPress Studio' }, ( error ) => {
-					if ( error ) {
-						console.error( 'Error adding certificate to system trust store:', error );
-						if ( showResult ) {
-							dialog.showMessageBox( {
-								type: 'error',
-								title: 'Certificate Trust Failed',
-								message: 'Failed to install certificate automatically.',
-								detail:
-									'Try the manual installation process or restart the application with administrator privileges.',
-								buttons: [ 'OK' ],
-							} );
-						}
-						reject( error );
-					} else {
-						console.log( 'Root CA trusted in Linux certificate store' );
-						if ( showResult ) {
-							dialog.showMessageBox( {
-								type: 'info',
-								title: 'Certificate Installed',
-								message: 'Root certificate has been installed successfully.',
-								detail: 'Please restart your browsers for the changes to take effect.',
-								buttons: [ 'OK' ],
-							} );
-						}
-						resolve();
-					}
-				} );
-			} );
 		} else {
 			console.error( 'Unsupported platform for certificate trust:', platform );
-			if ( showResult ) {
-				dialog.showMessageBox( {
-					type: 'error',
-					title: 'Unsupported Platform',
-					message: `Certificate installation not supported on ${ platform }`,
-					detail: 'You may need to manually trust the certificate in your browser.',
-					buttons: [ 'OK' ],
-				} );
-			}
 		}
 	} catch ( error ) {
 		Sentry.captureException( error );

@@ -153,7 +153,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 				/^languages(\/|\\)?.*/, // Match languages dir and all contents
 			];
 
-			// If these directories aren't in the backup, they'll be deleted. Let's not do that.
+			// Directories to preserve if they are not included in the backup.
 			const maybeKeepWpContentDirectories = [ 'plugins', 'themes', 'fonts', 'uploads' ];
 
 			for ( const directory of maybeKeepWpContentDirectories ) {

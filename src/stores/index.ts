@@ -2,6 +2,7 @@ import { combineReducers, configureStore, createListenerMiddleware } from '@redu
 import { useDispatch, useSelector } from 'react-redux';
 import { LOCAL_STORAGE_CHAT_API_IDS_KEY, LOCAL_STORAGE_CHAT_MESSAGES_KEY } from 'src/constants';
 import { reducer as chatReducer } from 'src/stores/chat-slice';
+import { wpComApi } from './api/wpcom-api';
 import {
 	reducer as wordpressVersionsReducer,
 	wordpressVersionsThunks,
@@ -10,6 +11,7 @@ import {
 export type RootState = {
 	chat: ReturnType< typeof chatReducer >;
 	wordpressVersions: ReturnType< typeof wordpressVersionsReducer >;
+	[ wpComApi.reducerPath ]: ReturnType< typeof wpComApi.reducer >;
 };
 
 const listenerMiddleware = createListenerMiddleware< RootState >();
@@ -45,12 +47,13 @@ listenerMiddleware.startListening( {
 export const rootReducer = combineReducers( {
 	chat: chatReducer,
 	wordpressVersions: wordpressVersionsReducer,
+	[ wpComApi.reducerPath ]: wpComApi.reducer,
 } );
 
 export const store = configureStore( {
 	reducer: rootReducer,
 	middleware: ( getDefaultMiddleware ) =>
-		getDefaultMiddleware().prepend( listenerMiddleware.middleware ),
+		getDefaultMiddleware().concat( wpComApi.middleware ).prepend( listenerMiddleware.middleware ),
 } );
 
 store.dispatch( wordpressVersionsThunks.fetchWordPressVersions() );

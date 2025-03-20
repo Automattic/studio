@@ -5,6 +5,7 @@ import WPCOM from 'wpcom';
 import { useI18nData } from 'src/hooks/use-i18n-data';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { setWpcomClient } from 'src/stores/api/wpcom-api';
 
 export interface AuthContextType {
 	client: WPCOM | undefined;
@@ -51,9 +52,11 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 		}
 
 		const { token } = payload;
+		const newClient = createWpcomClient( token.accessToken, locale );
 
 		setIsAuthenticated( true );
-		setClient( createWpcomClient( token.accessToken, locale ) );
+		setClient( newClient );
+		setWpcomClient( newClient );
 		setUser( {
 			id: token.id,
 			email: token.email,
@@ -66,6 +69,7 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 			await getIpcApi().clearAuthenticationToken();
 			setIsAuthenticated( false );
 			setClient( undefined );
+			setWpcomClient( undefined );
 			setUser( undefined );
 		} catch ( err ) {
 			console.error( err );
@@ -83,8 +87,11 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 					return;
 				}
 
+				const newClient = createWpcomClient( token.accessToken, locale );
+
 				setIsAuthenticated( true );
-				setClient( createWpcomClient( token.accessToken, locale ) );
+				setClient( newClient );
+				setWpcomClient( newClient );
 				setUser( {
 					id: token.id,
 					email: token.email,

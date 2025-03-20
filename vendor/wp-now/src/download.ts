@@ -4,7 +4,7 @@ import path from 'path';
 import followRedirects, { FollowResponse } from 'follow-redirects';
 import fs from 'fs-extra';
 import { HttpProxyAgent, HttpsProxyAgent } from 'hpagent';
-import { getWordPressVersionUrl } from 'src/lib/get-wordpress-version-url';
+import { getWordPressVersionUrl } from 'src/lib/wordpress-version-utils';
 import unzipper from 'unzipper';
 import { DEFAULT_WORDPRESS_VERSION, SQLITE_FILENAME, SQLITE_URL, WP_CLI_URL } from './constants';
 import getSqlitePath from './get-sqlite-path';

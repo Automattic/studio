@@ -61,9 +61,9 @@ describe( 'wordpress-versions-slice', () => {
 
 			// Verify the result includes both stable and development versions
 			expect( result.payload ).toEqual( [
-				{ value: '6.8-beta2-59979', isBeta: true, label: 'nightly' },
-				{ value: '6.4.0', isBeta: false, label: '6.4' },
-				{ value: '6.5.0-beta1', isBeta: true, label: '6.5.0-beta1' },
+				{ value: '6.8-beta2-59979', isBeta: true, isDevelopment: true, label: 'nightly' },
+				{ value: '6.4.0', isBeta: false, isDevelopment: false, label: '6.4' },
+				{ value: '6.5.0-beta1', isBeta: true, isDevelopment: false, label: '6.5.0-beta1' },
 			] );
 		} );
 
@@ -95,7 +95,7 @@ describe( 'wordpress-versions-slice', () => {
 
 			// Should only take the first development version
 			expect( result.payload ).toEqual( [
-				{ value: '6.8-alpha1-59979', isBeta: false, label: 'nightly' },
+				{ value: '6.8-alpha1-59979', isBeta: false, isDevelopment: true, label: 'nightly' },
 			] );
 		} );
 
@@ -178,18 +178,24 @@ describe( 'wordpress-versions-slice', () => {
 
 			expect( result.type ).toBe( 'wordpressVersions/fetchWordPressVersions/fulfilled' );
 			expect( result.payload ).toEqual( [
-				{ value: '6.4.0', isBeta: false, label: '6.4' },
-				{ value: '6.5.0-beta1', isBeta: true, label: '6.5.0-beta1' },
+				{ value: '6.4.0', isBeta: false, isDevelopment: false, label: '6.4' },
+				{ value: '6.5.0-beta1', isBeta: true, isDevelopment: false, label: '6.5.0-beta1' },
 			] );
 
 			const state = store.getState();
 			const versions = wordpressVersionsSelectors.selectWordPressVersions( state );
 
 			expect( versions ).toHaveLength( 2 );
-			expect( versions[ 0 ] ).toEqual( { value: '6.4.0', isBeta: false, label: '6.4' } );
+			expect( versions[ 0 ] ).toEqual( {
+				value: '6.4.0',
+				isBeta: false,
+				isDevelopment: false,
+				label: '6.4',
+			} );
 			expect( versions[ 1 ] ).toEqual( {
 				value: '6.5.0-beta1',
 				isBeta: true,
+				isDevelopment: false,
 				label: '6.5.0-beta1',
 			} );
 			expect( state.wordpressVersions.status ).toBe( 'succeeded' );
@@ -275,10 +281,16 @@ describe( 'wordpress-versions-slice', () => {
 			const versions = wordpressVersionsSelectors.selectWordPressVersions( state );
 
 			expect( versions ).toHaveLength( 2 );
-			expect( versions[ 0 ] ).toEqual( { value: '6.4.0', isBeta: false, label: '6.4' } );
+			expect( versions[ 0 ] ).toEqual( {
+				value: '6.4.0',
+				isBeta: false,
+				isDevelopment: false,
+				label: '6.4',
+			} );
 			expect( versions[ 1 ] ).toEqual( {
 				value: '6.5.0-beta1',
 				isBeta: true,
+				isDevelopment: false,
 				label: '6.5.0-beta1',
 			} );
 			expect( state.wordpressVersions.status ).toBe( 'succeeded' );
@@ -304,9 +316,9 @@ describe( 'wordpress-versions-slice', () => {
 
 			expect( versions ).toHaveLength( 3 );
 			expect( versions ).toEqual( [
-				{ value: '6.4.0', isBeta: false, label: '6.4' },
-				{ value: '6.5.0-beta1', isBeta: true, label: '6.5.0-beta1' },
-				{ value: '6.5.0-RC1', isBeta: true, label: '6.5.0-RC1' },
+				{ value: '6.4.0', isBeta: false, isDevelopment: false, label: '6.4' },
+				{ value: '6.5.0-beta1', isBeta: true, isDevelopment: false, label: '6.5.0-beta1' },
+				{ value: '6.5.0-RC1', isBeta: true, isDevelopment: false, label: '6.5.0-RC1' },
 			] );
 		} );
 
@@ -328,8 +340,8 @@ describe( 'wordpress-versions-slice', () => {
 
 			expect( versions ).toHaveLength( 2 );
 			expect( versions ).toEqual( [
-				{ value: '10.11.12', isBeta: false, label: '10.11' },
-				{ value: '6.5-dev', isBeta: false, label: '6.5' },
+				{ value: '10.11.12', isBeta: false, isDevelopment: false, label: '10.11' },
+				{ value: '6.5-dev', isBeta: false, isDevelopment: false, label: '6.5' },
 			] );
 		} );
 
@@ -370,10 +382,10 @@ describe( 'wordpress-versions-slice', () => {
 
 			expect( versions ).toHaveLength( 4 );
 			expect( versions ).toEqual( [
-				{ value: '6.7.2', isBeta: false, label: '6.7.2' },
-				{ value: '6.7.1', isBeta: false, label: '6.7.1' },
-				{ value: '6.6.2', isBeta: false, label: '6.6' },
-				{ value: '6.5.5', isBeta: false, label: '6.5' },
+				{ value: '6.7.2', isBeta: false, isDevelopment: false, label: '6.7.2' },
+				{ value: '6.7.1', isBeta: false, isDevelopment: false, label: '6.7.1' },
+				{ value: '6.6.2', isBeta: false, isDevelopment: false, label: '6.6' },
+				{ value: '6.5.5', isBeta: false, isDevelopment: false, label: '6.5' },
 			] );
 		} );
 	} );
@@ -400,11 +412,11 @@ describe( 'wordpress-versions-slice', () => {
 
 			expect( versions ).toHaveLength( 5 );
 			expect( versions ).toEqual( [
-				{ value: '6.1.0', isBeta: false, label: '6.1' },
-				{ value: '6.2.0', isBeta: false, label: '6.2' },
-				{ value: '6.3.0', isBeta: false, label: '6.3' },
-				{ value: '6.4.0', isBeta: false, label: '6.4' },
-				{ value: '6.5.0-beta1', isBeta: true, label: '6.5.0-beta1' },
+				{ value: '6.1.0', isBeta: false, isDevelopment: false, label: '6.1' },
+				{ value: '6.2.0', isBeta: false, isDevelopment: false, label: '6.2' },
+				{ value: '6.3.0', isBeta: false, isDevelopment: false, label: '6.3' },
+				{ value: '6.4.0', isBeta: false, isDevelopment: false, label: '6.4' },
+				{ value: '6.5.0-beta1', isBeta: true, isDevelopment: false, label: '6.5.0-beta1' },
 			] );
 		} );
 
@@ -428,11 +440,11 @@ describe( 'wordpress-versions-slice', () => {
 			const versions = wordpressVersionsSelectors.selectWordPressVersionsWithLatest( state );
 
 			expect( versions ).toEqual( [
-				{ value: '6.1.0', isBeta: false, label: '6.1 (latest)' },
-				{ value: '6.2.0', isBeta: false, label: '6.2' },
-				{ value: '6.3.0', isBeta: false, label: '6.3' },
-				{ value: '6.4.0', isBeta: false, label: '6.4' },
-				{ value: '6.5.0-beta1', isBeta: true, label: '6.5.0-beta1' },
+				{ value: '6.1.0', isBeta: false, isDevelopment: false, label: '6.1 (latest)' },
+				{ value: '6.2.0', isBeta: false, isDevelopment: false, label: '6.2' },
+				{ value: '6.3.0', isBeta: false, isDevelopment: false, label: '6.3' },
+				{ value: '6.4.0', isBeta: false, isDevelopment: false, label: '6.4' },
+				{ value: '6.5.0-beta1', isBeta: true, isDevelopment: false, label: '6.5.0-beta1' },
 			] );
 		} );
 	} );

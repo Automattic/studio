@@ -2,7 +2,7 @@ import { createSlice, createAsyncThunk, createSelector } from '@reduxjs/toolkit'
 import * as Sentry from '@sentry/electron/renderer';
 import { __ } from '@wordpress/i18n';
 import { z, ZodError } from 'zod';
-import { isWordPressDevVersion } from '../lib/version-utils';
+import { isWordPressDevVersion, isWordPressBetaVersion } from 'src/lib/wordpress-version-utils';
 
 const MINIMUM_WORDPRESS_VERSION = '5.9.9';
 
@@ -40,7 +40,7 @@ async function fetchWordPressApiData( channel: 'beta' | 'development', version?:
 	const baseUrl = 'https://api.wordpress.org/core/version-check/1.7/';
 	const params = new URLSearchParams( { channel } );
 
-	if ( version ) {
+	if ( channel === 'beta' && version ) {
 		params.append( 'version', version );
 	}
 
@@ -76,8 +76,7 @@ function generateVersionLabel( version: string, shortName: string, occurrences: 
 	if ( isWordPressDevVersion( version ) ) {
 		return 'nightly';
 	}
-	const isBeta = version.includes( 'beta' ) || version.includes( 'RC' );
-	return occurrences > 1 || isBeta ? version : shortName;
+	return occurrences > 1 || isWordPressBetaVersion( version ) ? version : shortName;
 }
 
 export const fetchWordPressVersions = createAsyncThunk(
@@ -92,16 +91,18 @@ export const fetchWordPressVersions = createAsyncThunk(
 			const shortNameOccurrences = new Map< string, number >();
 
 			const stableOffers = processWordPressOffers( stableData.offers, false, shortNameOccurrences );
-			const developmentOffers = processWordPressOffers(
+
+			const developmentOffer = processWordPressOffers(
 				developmentData.offers,
 				true,
 				shortNameOccurrences
-			).slice( 0, 1 );
+			)[ 0 ];
 
-			const allOffers = [ ...developmentOffers, ...stableOffers ];
+			const allOffers = developmentOffer ? [ developmentOffer, ...stableOffers ] : stableOffers;
 
 			return allOffers.map( ( { version, shortName } ) => ( {
-				isBeta: version.includes( 'beta' ) || version.includes( 'RC' ),
+				isBeta: isWordPressBetaVersion( version ),
+				isDevelopment: isWordPressDevVersion( version ),
 				label: generateVersionLabel(
 					version,
 					shortName,
@@ -120,6 +121,7 @@ export const fetchWordPressVersions = createAsyncThunk(
 
 interface WordPressVersion {
 	isBeta: boolean;
+	isDevelopment: boolean;
 	label: string;
 	value: string;
 }
@@ -163,7 +165,7 @@ const wordpressVersionsSlice = createSlice( {
 			( versions: WordPressVersion[] ) => {
 				let foundLatestStable = false;
 				return versions.map( ( version: WordPressVersion ) => {
-					if ( ! foundLatestStable && ! version.isBeta ) {
+					if ( ! foundLatestStable && ! version.isBeta && ! version.isDevelopment ) {
 						foundLatestStable = true;
 						return {
 							...version,
@@ -177,7 +179,9 @@ const wordpressVersionsSlice = createSlice( {
 		selectLatestStableVersion: createSelector(
 			[ ( state ) => state.versions ],
 			( versions: WordPressVersion[] ) =>
-				versions.find( ( version: WordPressVersion ) => ! version.isBeta )
+				versions.find(
+					( version: WordPressVersion ) => ! version.isBeta && ! version.isDevelopment
+				)
 		),
 	},
 } );

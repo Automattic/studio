@@ -12,7 +12,7 @@ import { useOffline } from 'src/hooks/use-offline';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { getWordPressVersionUrl } from 'src/lib/get-wordpress-version-url';
+import { getWordPressVersionUrl } from 'src/lib/wordpress-version-utils';
 import { useRootSelector } from 'src/stores';
 import { wordpressVersionsSelectors } from 'src/stores/wordpress-versions-slice';
 import {

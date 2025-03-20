@@ -826,14 +826,17 @@ export async function showItemInFolder( _event: IpcMainInvokeEvent, path: string
 	shell.showItemInFolder( path );
 }
 
-export async function getThemeDetails( event: IpcMainInvokeEvent, id: string ) {
+export async function getThemeDetails(
+	event: IpcMainInvokeEvent,
+	id: string
+): Promise< StartedSiteDetails[ 'themeDetails' ] > {
 	const server = SiteServer.get( id );
 	if ( ! server ) {
 		throw new Error( 'Site not found.' );
 	}
 
 	if ( ! server.details.running || ! server.server ) {
-		return null;
+		return undefined;
 	}
 	const themeDetails = await phpGetThemeDetails( server.server );
 

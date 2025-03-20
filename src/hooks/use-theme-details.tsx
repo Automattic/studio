@@ -77,7 +77,7 @@ export const ThemeDetailsProvider: React.FC< ThemeDetailsProviderProps > = ( { c
 		if ( ! selectedSite?.id || selectedSite.running === false ) {
 			return;
 		}
-		await getIpcApi()?.getThemeDetails?.( selectedSite.id );
+		await getIpcApi().getThemeDetails( selectedSite.id );
 	} );
 
 	useEffect( () => {
@@ -89,7 +89,7 @@ export const ThemeDetailsProvider: React.FC< ThemeDetailsProviderProps > = ( { c
 			for ( const site of sites ) {
 				if ( site.themeDetails ) {
 					newThemeDetails[ site.id ] = { ...site.themeDetails };
-					const thumbnailData = await getIpcApi()?.getThumbnailData?.( site.id );
+					const thumbnailData = await getIpcApi().getThumbnailData( site.id );
 					newThumbnailData[ site.id ] = thumbnailData ?? undefined;
 				}
 			}

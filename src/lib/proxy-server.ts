@@ -1,9 +1,12 @@
 import { dialog } from 'electron';
 import http from 'http';
+import { createConnection } from 'node:net';
 import { domainToASCII } from 'node:url';
 import * as Sentry from '@sentry/electron/main';
 import { __ } from '@wordpress/i18n';
 import httpProxy from 'http-proxy';
+import { isErrnoException } from 'src/lib/is-errno-exception';
+import { getMainWindow } from 'src/main-window';
 import { SiteServer } from 'src/site-server';
 import { loadUserData } from 'src/storage/user-data';
 
@@ -80,6 +83,32 @@ export async function startProxyServer(): Promise< boolean > {
 			} );
 		} );
 
+		// On Windows, node doesn't throw an error if port 80 is busy, so we use the net module to explicitly check
+		// if it's possible to establish a TCP connection to that port (meaning it's busy)
+		if ( process.platform === 'win32' ) {
+			await new Promise< void >( ( resolve, reject ) => {
+				const tester = createConnection( { port: 80 }, () => {
+					// If we can connect, port is in use
+					tester.end();
+					reject( new Error( 'EADDRINUSE' ) );
+				} );
+
+				tester.setTimeout( 1000, () => {
+					tester.destroy();
+					reject( new Error( 'EADDRINUSE' ) );
+				} );
+
+				tester.on( 'error', ( err ) => {
+					if ( isErrnoException( err ) && err.code === 'ECONNREFUSED' ) {
+						// Port is available
+						resolve();
+					} else {
+						reject( err );
+					}
+				} );
+			} );
+		}
+
 		await new Promise< void >( ( resolve, reject ) => {
 			proxyServer!
 				.listen( 80, () => {
@@ -96,12 +125,16 @@ export async function startProxyServer(): Promise< boolean > {
 
 		return true;
 	} catch ( error ) {
-		if ( error instanceof Error && 'code' in error && error.code === 'EADDRINUSE' ) {
-			dialog.showMessageBox( {
+		if (
+			( isErrnoException( error ) && error.code === 'EADDRINUSE' ) ||
+			( error instanceof Error && error.message === 'EADDRINUSE' )
+		) {
+			const mainWindow = await getMainWindow();
+			dialog.showMessageBox( mainWindow, {
 				type: 'error',
-				message: __( 'Failed to start custom domain proxy server' ),
+				message: __( 'Custom domain set up failed' ),
 				detail: __(
-					'Another server is already running on port 80. For custom domains to work, please stop that server and then restart Studio.'
+					'Studio needs to use port 80, but it’s already in use by another app. Close any local development apps and restart Studio.'
 				),
 				buttons: [ __( 'OK' ) ],
 			} );

@@ -2,7 +2,8 @@ import { app, autoUpdater, dialog } from 'electron';
 import * as Sentry from '@sentry/electron/main';
 import { sprintf, __ } from '@wordpress/i18n';
 import { AUTO_UPDATE_INTERVAL_MS } from 'src/constants';
-import { isDevRelease } from './lib/version-utils';
+import { isDevRelease } from 'src/lib/version-utils';
+import { getMainWindow } from 'src/main-window';
 
 type UpdpaterState =
 	| 'init'
@@ -152,7 +153,8 @@ function queueUpdateCheck() {
 
 async function showUpdateAvailableNotice() {
 	showManualCheckDialogs = false;
-	await dialog.showMessageBox( {
+	const mainWindow = await getMainWindow();
+	await dialog.showMessageBox( mainWindow, {
 		type: 'info',
 		buttons: [ __( 'OK' ) ],
 		title: __( 'New Version Available' ),
@@ -162,7 +164,8 @@ async function showUpdateAvailableNotice() {
 
 async function showUpdateUnavailableNotice() {
 	showManualCheckDialogs = false;
-	await dialog.showMessageBox( {
+	const mainWindow = await getMainWindow();
+	await dialog.showMessageBox( mainWindow, {
 		type: 'info',
 		buttons: [ __( 'OK' ) ],
 		title: __( 'Application Update' ),
@@ -171,7 +174,8 @@ async function showUpdateUnavailableNotice() {
 }
 
 async function showUpdateReadyToInstallNotice() {
-	const { response } = await dialog.showMessageBox( {
+	const mainWindow = await getMainWindow();
+	const { response } = await dialog.showMessageBox( mainWindow, {
 		type: 'info',
 		buttons: [ __( 'Restart' ), __( 'Later' ) ],
 		title: __( 'Application Update' ),
@@ -194,7 +198,7 @@ function isAppRunningFromDMG(): boolean {
 	return appPath.startsWith( '/Volumes/' ) || appPath.startsWith( '/private/var/folders' );
 }
 
-function showReadOnlyVolumeError( err: Error ) {
+async function showReadOnlyVolumeError( err: Error ) {
 	let detailMessage = '';
 	let detailPath = '';
 	if ( isAppRunningFromDMG() ) {
@@ -221,7 +225,8 @@ function showReadOnlyVolumeError( err: Error ) {
 		console.error( err );
 	}
 
-	dialog.showMessageBox( {
+	const mainWindow = await getMainWindow();
+	await dialog.showMessageBox( mainWindow, {
 		type: 'warning',
 		buttons: [ __( 'OK' ) ],
 		message: __( 'Error updating Studio' ),

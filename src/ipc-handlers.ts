@@ -239,9 +239,11 @@ export async function updateSite(
 	if ( server ) {
 		server.updateSiteDetails( updatedSite );
 
-		// Handle domain changes if the site is running (updates hosts and database)
+		// Handle domain changes and url changes (updates hosts and database)
 		if ( oldDomain !== newDomain ) {
 			updateDomainInHosts( oldDomain, newDomain, server.details.port );
+		}
+		if ( ( oldDomain && ! newDomain ) || updatedSite.enableSSL !== existingSite?.enableSSL ) {
 			await updateSiteUrlToLocal( updatedSite.id );
 		}
 	}

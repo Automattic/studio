@@ -159,6 +159,7 @@ export class SiteServer {
 			phpVersion: site.phpVersion,
 			wpVersion: site.wpVersion,
 			customDomain: site.customDomain,
+			enableSSL: site.enableSSL,
 		};
 
 		if ( this.server && this.details.running ) {

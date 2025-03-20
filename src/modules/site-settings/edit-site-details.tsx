@@ -53,6 +53,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 		selectedSite?.customDomain ?? null
 	);
 	const [ customDomainError, setCustomDomainError ] = useState( '' );
+	const [ enableSSL, setEnableSSL ] = useState( false );
 	const wordpressVersions = useRootSelector(
 		wordpressVersionsSelectors.selectWordPressVersionsWithLatest
 	);
@@ -65,13 +66,15 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 		addWpVersionToList( currentWpVersion, wordpressVersionOptions );
 	}
 	const generatedDomainName = generateCustomDomainFromSiteName( siteName );
+	const usedCustomDomain = ! useCustomDomain || selectedSite?.customDomain;
 	const isFormUnchanged =
 		!! selectedSite &&
 		selectedSite.name === siteName &&
 		selectedSite.phpVersion === selectedPhpVersion &&
 		currentWpVersion === selectedWpVersion &&
 		Boolean( selectedSite.customDomain ) === useCustomDomain &&
-		( ! useCustomDomain || selectedSite.customDomain === customDomain );
+		usedCustomDomain === customDomain &&
+		!! selectedSite.enableSSL === ( !! usedCustomDomain && enableSSL );
 
 	const hasValidationErrors =
 		! selectedSite || ! siteName.trim() || ( useCustomDomain && !! customDomainError );
@@ -87,6 +90,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 		setCustomDomain( selectedSite.customDomain ?? null );
 		setCustomDomainError( '' );
 		setIsChangeWpError( '' );
+		setEnableSSL( selectedSite.enableSSL ?? false );
 	}, [ currentWpVersion, selectedSite ] );
 
 	const onSiteEdit = async ( event: FormEvent ) => {
@@ -143,6 +147,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 				name: siteName,
 				phpVersion: selectedPhpVersion,
 				customDomain: usedCustomDomain,
+				enableSSL: !! usedCustomDomain && enableSSL,
 			} );
 
 			if ( needsRestart ) {
@@ -276,6 +281,18 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 										<div className="text-a8c-gray-50 text-xs mt-1">
 											{ __( 'Your system password will be required to set up the domain.' ) }
 										</div>
+									</div>
+								) }
+
+								{ useCustomDomain && (
+									<div className="flex items-center gap-2 mt-4">
+										<input
+											type="checkbox"
+											id="enable-ssl"
+											checked={ enableSSL }
+											onChange={ ( e ) => setEnableSSL( e.target.checked ) }
+										/>
+										<label htmlFor="enable-ssl">{ __( 'Enable SSL' ) }</label>
 									</div>
 								) }
 							</div>

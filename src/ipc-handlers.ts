@@ -403,13 +403,7 @@ export async function startServer(
 	// Handle custom domain if necessary
 	if ( server.details.customDomain ) {
 		await addDomainToHosts( server.details.customDomain, server.details.port );
-
-		const proxyStarted = await startProxyServer();
-		if ( ! proxyStarted ) {
-			console.warn(
-				'Failed to start custom domain proxy server - custom domains will require port numbers'
-			);
-		}
+		await startProxyServer();
 	}
 
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );

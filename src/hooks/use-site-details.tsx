@@ -288,7 +288,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 				if (
 					error instanceof Error &&
 					error.message.includes(
-						'Studio failed to start the proxy server because port 80 is already in use'
+						'Studio failed to start the proxy server because port 80 is already in use.'
 					)
 				) {
 					getIpcApi().showErrorMessageBox( {
@@ -297,6 +297,17 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 							'Studio needs to use port 80 to enable custom domains, but it’s already in use by another app. Close any local development apps and restart Studio.'
 						),
 						showOpenLogs: false,
+					} );
+				} else if (
+					error instanceof Error &&
+					error.message.includes( 'Studio failed to start the proxy server.' )
+				) {
+					getIpcApi().showErrorMessageBox( {
+						title: __( 'Studio failed to initialize custom domains' ),
+						message: __(
+							'Please restart Studio and try again. If this problem persists, please contact support.'
+						),
+						showOpenLogs: true,
 					} );
 				} else {
 					getIpcApi().showErrorMessageBox( {

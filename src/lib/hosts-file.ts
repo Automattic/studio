@@ -95,6 +95,7 @@ export const addDomainToHosts = async ( domain: string, port: number ): Promise<
 
 		if ( newContent !== hostsContent ) {
 			await writeHostsFile( newContent );
+			console.log( `Domain ${ domain } added to hosts file for port ${ port }` );
 		}
 	} catch ( error ) {
 		Sentry.captureException( error );

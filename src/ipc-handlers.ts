@@ -403,9 +403,6 @@ export async function startServer(
 	// Handle custom domain if necessary
 	if ( server.details.customDomain ) {
 		await addDomainToHosts( server.details.customDomain, server.details.port );
-		console.log(
-			`Domain ${ server.details.customDomain } added to hosts file for port ${ server.details.port }`
-		);
 
 		const proxyStarted = await startProxyServer();
 		if ( ! proxyStarted ) {

@@ -349,7 +349,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const { __ } = useI18n();
 	const lastMessage = messages.length === 0 ? undefined : messages[ messages.length - 1 ];
 	const hasFailedMessage = messages.some( ( msg ) => msg.failedMessage );
-	const { data } = useGetWelcomeMessagesQuery( undefined, {
+	const { data, isLoading } = useGetWelcomeMessagesQuery( undefined, {
 		skip: ! client || isOffline,
 	} );
 
@@ -434,6 +434,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 								examplePrompts={ data?.example_prompts ?? [] }
 								siteId={ selectedSite.id }
 								disabled={ disabled }
+								isLoading={ isLoading }
 							/>
 
 							<AuthenticatedView
@@ -456,7 +457,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 				<div className="w-full flex flex-col items-center">
 					<AIInput
 						ref={ inputRef }
-						disabled={ disabled }
+						disabled={ disabled || isLoading }
 						input={ chatInput }
 						setInput={ ( input ) => {
 							dispatch( chatActions.setChatInput( { siteId: selectedSite.id, input } ) );

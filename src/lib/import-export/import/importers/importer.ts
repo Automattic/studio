@@ -154,10 +154,15 @@ abstract class BaseBackupImporter extends BaseImporter {
 			];
 
 			// Directories to preserve if they are not included in the backup.
-			const maybeKeepWpContentDirectories = [ 'plugins', 'themes', 'fonts', 'uploads' ];
+			const maybeKeepWpContentDirectories: ( keyof WpContent )[] = [
+				'plugins',
+				'themes',
+				'fonts',
+				'uploads',
+			];
 
 			for ( const directory of maybeKeepWpContentDirectories ) {
-				if ( this.backup.wpContent[ directory as keyof WpContent ]?.length === 0 ) {
+				if ( this.backup.wpContent[ directory ]?.length === 0 ) {
 					contentToKeep.push( new RegExp( `^${ directory }(/|\\\\)?.*` ) );
 				}
 			}

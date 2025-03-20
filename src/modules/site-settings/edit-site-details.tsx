@@ -66,7 +66,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 		addWpVersionToList( currentWpVersion, wordpressVersionOptions );
 	}
 	const generatedDomainName = generateCustomDomainFromSiteName( siteName );
-	const usedCustomDomain = ! useCustomDomain || selectedSite?.customDomain;
+	const usedCustomDomain = ! useCustomDomain ? customDomain : undefined;
 	const isFormUnchanged =
 		!! selectedSite &&
 		selectedSite.name === siteName &&
@@ -75,7 +75,6 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 		Boolean( selectedSite.customDomain ) === useCustomDomain &&
 		usedCustomDomain === customDomain &&
 		!! selectedSite.enableSSL === ( !! usedCustomDomain && enableSSL );
-
 	const hasValidationErrors =
 		! selectedSite || ! siteName.trim() || ( useCustomDomain && !! customDomainError );
 

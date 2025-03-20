@@ -287,7 +287,9 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			} catch ( error ) {
 				if (
 					error instanceof Error &&
-					error.message.includes( 'Studio failed to start the proxy server' )
+					error.message.includes(
+						'Studio failed to start the proxy server because port 80 is already in use'
+					)
 				) {
 					getIpcApi().showErrorMessageBox( {
 						title: __( 'Studio failed to initialize custom domains' ),

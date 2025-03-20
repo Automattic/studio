@@ -127,7 +127,7 @@ export const removeDomainFromHosts = async ( domain: string ): Promise< void > =
 	}
 };
 
-export const replaceDomainInHosts = async (
+export const updateDomainInHosts = async (
 	oldDomain: string | undefined,
 	newDomain: string | undefined,
 	port: number

@@ -1,5 +1,5 @@
 import { readFile, writeFile } from 'fs';
-import { addDomainToHosts, removeDomainFromHosts, replaceDomainInHosts } from '../hosts-file';
+import { addDomainToHosts, removeDomainFromHosts, updateDomainInHosts } from '../hosts-file';
 
 const readFileCallbackMock = jest.fn();
 
@@ -192,12 +192,11 @@ describe( 'hosts-file', () => {
 		} );
 	} );
 
-	// Generate a few unit tests for the replaceDomainInHosts function
-	describe( 'replaceDomainInHosts', () => {
+	describe( 'updateDomainInHosts', () => {
 		it( 'should replace an existing domain with a new domain', async () => {
 			readFileCallbackMock.mockResolvedValueOnce( sampleHostsContent );
 
-			await replaceDomainInHosts( 'foo.wp.cloud', 'new-domain.wp.cloud', 8002 );
+			await updateDomainInHosts( 'foo.wp.cloud', 'new-domain.wp.cloud', 8002 );
 
 			expect( readFile ).toHaveBeenCalled();
 			expect( writeFile ).toHaveBeenCalled();
@@ -223,7 +222,7 @@ describe( 'hosts-file', () => {
 		it( 'should add a new domain if old domain is undefined', async () => {
 			readFileCallbackMock.mockResolvedValueOnce( sampleHostsContent );
 
-			await replaceDomainInHosts( undefined, 'new-domain.wp.cloud', 8002 );
+			await updateDomainInHosts( undefined, 'new-domain.wp.cloud', 8002 );
 
 			expect( readFile ).toHaveBeenCalled();
 			expect( writeFile ).toHaveBeenCalled();
@@ -250,7 +249,7 @@ describe( 'hosts-file', () => {
 		it( 'should remove the old domain if new domain is undefined', async () => {
 			readFileCallbackMock.mockResolvedValueOnce( sampleHostsContent );
 
-			await replaceDomainInHosts( 'foo.wp.cloud', undefined, 8000 );
+			await updateDomainInHosts( 'foo.wp.cloud', undefined, 8000 );
 
 			expect( readFile ).toHaveBeenCalled();
 			expect( writeFile ).toHaveBeenCalled();
@@ -275,7 +274,7 @@ describe( 'hosts-file', () => {
 		it( 'should not modify the hosts file if old and new domains are the same', async () => {
 			readFileCallbackMock.mockResolvedValueOnce( sampleHostsContent );
 
-			await replaceDomainInHosts( 'foo.wp.cloud', 'foo.wp.cloud', 8000 );
+			await updateDomainInHosts( 'foo.wp.cloud', 'foo.wp.cloud', 8000 );
 
 			expect( readFile ).not.toHaveBeenCalled();
 			expect( writeFile ).not.toHaveBeenCalled();

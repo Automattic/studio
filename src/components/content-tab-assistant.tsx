@@ -349,7 +349,9 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const { __ } = useI18n();
 	const lastMessage = messages.length === 0 ? undefined : messages[ messages.length - 1 ];
 	const hasFailedMessage = messages.some( ( msg ) => msg.failedMessage );
-	const { data } = useGetWelcomeMessagesQuery();
+	const { data } = useGetWelcomeMessagesQuery( undefined, {
+		skip: ! client || isOffline,
+	} );
 
 	const { selectedThemeDetails: themeDetails } = useThemeDetails();
 

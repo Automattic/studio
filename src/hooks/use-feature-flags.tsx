@@ -10,15 +10,18 @@ const featureFlagsSchema = z
 	.object( {
 		terminal_wp_cli_enabled: z.boolean().optional(),
 		quick_deploys_enabled: z.boolean().optional(),
+		whats_new_section_enabled: z.boolean().optional(),
 	} )
 	.catch( ( _ ) => ( {} ) );
 
 export interface FeatureFlagsContextType {
 	terminalWpCliEnabled: boolean;
+	whatsNewSectionEnabled: boolean;
 }
 
 export const FeatureFlagsContext = createContext< FeatureFlagsContextType >( {
 	terminalWpCliEnabled: false,
+	whatsNewSectionEnabled: false,
 } );
 
 interface FeatureFlagsProviderProps {
@@ -27,8 +30,10 @@ interface FeatureFlagsProviderProps {
 
 export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { children } ) => {
 	const terminalWpCliEnabledFromGlobals = getAppGlobals().terminalWpCliEnabled;
+	const whatsNewSectionEnabledFromGlobals = getAppGlobals().whatsNewSectionEnabled;
 	const [ featureFlags, setFeatureFlags ] = useState< FeatureFlagsContextType >( {
 		terminalWpCliEnabled: terminalWpCliEnabledFromGlobals,
+		whatsNewSectionEnabled: whatsNewSectionEnabledFromGlobals,
 	} );
 	const { isAuthenticated, client } = useAuth();
 
@@ -50,6 +55,8 @@ export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { c
 				setFeatureFlags( {
 					terminalWpCliEnabled:
 						Boolean( flags.terminal_wp_cli_enabled ) || terminalWpCliEnabledFromGlobals,
+					whatsNewSectionEnabled:
+						Boolean( flags.whats_new_section_enabled ) || whatsNewSectionEnabledFromGlobals,
 				} );
 			} catch ( error ) {
 				Sentry.captureException( error );
@@ -60,7 +67,12 @@ export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { c
 		return () => {
 			cancel = true;
 		};
-	}, [ isAuthenticated, client, terminalWpCliEnabledFromGlobals ] );
+	}, [
+		isAuthenticated,
+		client,
+		terminalWpCliEnabledFromGlobals,
+		whatsNewSectionEnabledFromGlobals,
+	] );
 
 	return (
 		<FeatureFlagsContext.Provider value={ featureFlags }>{ children }</FeatureFlagsContext.Provider>

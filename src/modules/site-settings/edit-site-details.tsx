@@ -62,6 +62,16 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 		wordpressVersionOptions.push( { label: currentWpVersion, value: currentWpVersion } );
 	}
 	const generatedDomainName = generateCustomDomainFromSiteName( siteName );
+	const isFormUnchanged =
+		!! selectedSite &&
+		selectedSite.name === siteName &&
+		selectedSite.phpVersion === selectedPhpVersion &&
+		currentWpVersion === selectedWpVersion &&
+		Boolean( selectedSite.customDomain ) === useCustomDomain &&
+		( ! useCustomDomain || selectedSite.customDomain === customDomain );
+
+	const hasValidationErrors =
+		! selectedSite || ! siteName.trim() || ( useCustomDomain && !! customDomainError );
 
 	const resetFormState = useCallback( () => {
 		if ( ! selectedSite ) {
@@ -267,17 +277,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 								type="submit"
 								variant="primary"
 								isBusy={ isEditingSite }
-								disabled={ Boolean(
-									isEditingSite ||
-										! selectedSite ||
-										( selectedSite?.name === siteName &&
-											selectedSite?.phpVersion === selectedPhpVersion &&
-											currentWpVersion === selectedWpVersion &&
-											Boolean( selectedSite?.customDomain ) === useCustomDomain &&
-											( ! useCustomDomain || selectedSite?.customDomain === customDomain ) ) ||
-										! siteName.trim() ||
-										( useCustomDomain && customDomainError )
-								) }
+								disabled={ isEditingSite || isFormUnchanged || hasValidationErrors }
 							>
 								{ isEditingSite ? __( 'Saving…' ) : __( 'Save' ) }
 							</Button>

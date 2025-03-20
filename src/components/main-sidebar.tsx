@@ -4,6 +4,7 @@ import { RunningSites } from 'src/components/running-sites';
 import SiteMenu from 'src/components/site-menu';
 import { isMac } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
+import { WhatsNewButton } from 'src/modules/whats-new-modal/whats-new-steps';
 
 interface MainSidebarProps {
 	className?: string;
@@ -33,6 +34,7 @@ export default function MainSidebar( { className }: MainSidebarProps ) {
 					<RunningSites />
 					<div className={ cx( isMac() ? 'mx-5' : 'mx-4' ) }>
 						<AddSite className="min-w-[168px] w-full mb-4" />
+						<WhatsNewButton className="min-w-[168px] w-full" />
 					</div>
 				</div>
 			</div>

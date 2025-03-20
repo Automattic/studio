@@ -39,7 +39,7 @@ const WhatsNewContent: React.FC< WhatsNewContentProps > = ( {
 		<div className="p-4">
 			<div className="flex flex-col md:flex-row">
 				<div className="flex-1 pr-0 md:pr-6">
-					<h2 className="text-xl font-bold mb-4">{ title }</h2>
+					<h2 className="text-xl mb-4">{ title }</h2>
 					<p className="text-gray-600 mb-6">{ description }</p>
 
 					<div className="space-y-3">

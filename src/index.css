@@ -3,6 +3,12 @@
 @tailwind utilities;
 @import '@wordpress/components/build-style/style.css';
 
+@layer utilities {
+	.interpolate-size-allow-keywords {
+		interpolate-size: allow-keywords;
+	}
+}
+
 body {
 	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }

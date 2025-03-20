@@ -14,8 +14,11 @@ import { cx } from 'src/lib/cx';
 import { generateCustomDomainFromSiteName, validateDomainName } from 'src/lib/domains';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getWordPressVersionUrl } from 'src/lib/get-wordpress-version-url';
-import { useRootSelector } from 'src/stores';
-import { wordpressVersionsSelectors } from 'src/stores/wordpress-versions-slice';
+import { useAppDispatch, useRootSelector } from 'src/stores';
+import {
+	wordpressVersionsSelectors,
+	wordpressVersionsThunks,
+} from 'src/stores/wordpress-versions-slice';
 import {
 	DEFAULT_PHP_VERSION,
 	ALLOWED_PHP_VERSIONS,
@@ -30,6 +33,7 @@ type EditSiteDetailsProps = {
 
 export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteDetailsProps ) {
 	const { __ } = useI18n();
+	const dispatch = useAppDispatch();
 	const { updateSite, selectedSite, stopServer, startServer } = useSiteDetails();
 	const [ isChangeWpError, setIsChangeWpError ] = useState( '' );
 	const [ showModal, setShowModal ] = useState( false );
@@ -301,6 +305,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 				disabled={ ! selectedSite }
 				className="shrink-0"
 				onClick={ () => {
+					dispatch( wordpressVersionsThunks.fetchWordPressVersions() );
 					setShowModal( true );
 					resetFormState();
 				} }

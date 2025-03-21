@@ -52,10 +52,9 @@ function createNameConstraintsExtension( domains: string[] ) {
 		nameConstraintsComponents
 	);
 
-	// Create the extension object
 	return {
 		id: '2.5.29.30', // nameConstraints OID
-		critical: true, // This extension should be marked critical
+		critical: true,
 		value: nameConstraintsValue,
 	};
 }
@@ -77,7 +76,7 @@ if ( ! fs.existsSync( path.join( CERT_DIRECTORY, 'domains' ) ) ) {
  * Generate a root CA certificate if it doesn't exist
  */
 export async function ensureRootCA(): Promise< { cert: string; key: string } > {
-	// Check if CA cert and key already exist
+	// If the certificate already exists, no need to generate a new one
 	if ( fs.existsSync( CA_CERT_PATH ) && fs.existsSync( CA_KEY_PATH ) ) {
 		return {
 			cert: fs.readFileSync( CA_CERT_PATH, 'utf8' ),
@@ -85,26 +84,17 @@ export async function ensureRootCA(): Promise< { cert: string; key: string } > {
 		};
 	}
 
-	// Generate a new CA certificate
 	console.log( 'Generating new root CA certificate...' );
 
-	// Generate a key pair
 	const keys = forge.pki.rsa.generateKeyPair( 2048 );
-
-	// Create a certificate
 	const cert = forge.pki.createCertificate();
 
-	// Set basic certificate fields
 	cert.publicKey = keys.publicKey;
 	cert.serialNumber = '01' + crypto.randomBytes( 19 ).toString( 'hex' ); // 40 hex characters
-
-	// Set validity period
 	const now = new Date();
 	cert.validity.notBefore = now;
 	cert.validity.notAfter = new Date( now.getTime() );
 	cert.validity.notAfter.setDate( now.getDate() + CA_CERT_VALIDITY_DAYS );
-
-	// Set subject and issuer attributes (self-signed)
 	const attrs = [
 		{ name: 'commonName', value: CA_NAME },
 		{ name: 'countryName', value: 'US' },
@@ -114,7 +104,6 @@ export async function ensureRootCA(): Promise< { cert: string; key: string } > {
 	cert.setSubject( attrs );
 	cert.setIssuer( attrs );
 
-	// Set extensions
 	const extensions = [
 		{
 			name: 'basicConstraints',
@@ -140,15 +129,11 @@ export async function ensureRootCA(): Promise< { cert: string; key: string } > {
 	// Self-sign the certificate
 	cert.sign( keys.privateKey, forge.md.sha256.create() );
 
-	// Convert to PEM format
 	const certPem = forge.pki.certificateToPem( cert );
 	const keyPem = forge.pki.privateKeyToPem( keys.privateKey );
-
-	// Save to files
 	fs.writeFileSync( CA_CERT_PATH, certPem );
 	fs.writeFileSync( CA_KEY_PATH, keyPem );
 
-	// Trust the CA certificate
 	await trustRootCA();
 
 	return { cert: certPem, key: keyPem };
@@ -200,7 +185,7 @@ export async function generateSiteCertificate(
 		const siteCertPath = path.join( CERT_DIRECTORY, 'domains', `${ domain }.crt` );
 		const siteKeyPath = path.join( CERT_DIRECTORY, 'domains', `${ domain }.key` );
 
-		// Check if site cert and key already exist
+		// If the certificate already exists, no need to generate a new one
 		if ( fs.existsSync( siteCertPath ) && fs.existsSync( siteKeyPath ) ) {
 			return {
 				cert: fs.readFileSync( siteCertPath, 'utf8' ),
@@ -208,28 +193,19 @@ export async function generateSiteCertificate(
 			};
 		}
 
-		// Ensure we have a root CA
 		const { cert: caCert, key: caKey } = await ensureRootCA();
 		const caPrivateKey = forge.pki.privateKeyFromPem( caKey );
 		const caCertObj = forge.pki.certificateFromPem( caCert );
 
-		// Generate a key pair for the site
 		const keys = forge.pki.rsa.generateKeyPair( 2048 );
-
-		// Create a certificate
 		const cert = forge.pki.createCertificate();
 
-		// Set basic certificate fields
 		cert.publicKey = keys.publicKey;
 		cert.serialNumber = '01' + crypto.randomBytes( 19 ).toString( 'hex' ); // 40 hex characters
-
-		// Set validity period
 		const now = new Date();
 		cert.validity.notBefore = now;
 		cert.validity.notAfter = new Date( now.getTime() );
 		cert.validity.notAfter.setDate( now.getDate() + SITE_CERT_VALIDITY_DAYS );
-
-		// Set certificate attributes
 		const attrs = [
 			{ name: 'commonName', value: domain },
 			{ name: 'countryName', value: 'US' },
@@ -239,7 +215,6 @@ export async function generateSiteCertificate(
 		cert.setSubject( attrs );
 		cert.setIssuer( caCertObj.subject.attributes );
 
-		// Set extensions
 		cert.setExtensions( [
 			{
 				name: 'basicConstraints',
@@ -270,11 +245,8 @@ export async function generateSiteCertificate(
 		// Sign with the CA's private key
 		cert.sign( caPrivateKey, forge.md.sha256.create() );
 
-		// Convert to PEM format
 		const certPem = forge.pki.certificateToPem( cert );
 		const keyPem = forge.pki.privateKeyToPem( keys.privateKey );
-
-		// Save to files
 		fs.writeFileSync( siteCertPath, certPem );
 		fs.writeFileSync( siteKeyPath, keyPem );
 

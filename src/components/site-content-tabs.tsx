@@ -1,6 +1,7 @@
 import { TabPanel } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { ContentTabAssistant } from 'src/components/content-tab-assistant';
+import { ContentTabDatabase } from 'src/components/content-tab-database';
 import { ContentTabImportExport } from 'src/components/content-tab-import-export';
 import { ContentTabOverview } from 'src/components/content-tab-overview';
 import { ContentTabPreviews } from 'src/components/content-tab-previews';
@@ -58,6 +59,7 @@ export function SiteContentTabs() {
 							{ name === 'overview' && <ContentTabOverview selectedSite={ selectedSite } /> }
 							{ name === 'previews' && <ContentTabPreviews selectedSite={ selectedSite } /> }
 							{ name === 'sync' && <ContentTabSync selectedSite={ selectedSite } /> }
+							{ name === 'database' && <ContentTabDatabase selectedSite={ selectedSite } /> }
 							{ name === 'settings' && <ContentTabSettings selectedSite={ selectedSite } /> }
 							{ name === 'assistant' && (
 								<ContentTabAssistant

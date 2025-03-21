@@ -17,6 +17,8 @@ import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { __, LocaleData, defaultI18n } from '@wordpress/i18n';
 import archiver from 'archiver';
+import Database from 'better-sqlite3';
+import { Database as DatabaseType } from 'better-sqlite3';
 import { ARCHIVER_OPTIONS, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
@@ -1209,4 +1211,25 @@ export async function checkSyncBackupSize(
 export async function isFullscreen( _event: IpcMainInvokeEvent ): Promise< boolean > {
 	const window = await getMainWindow();
 	return window.isFullScreen();
+}
+interface QueryResult {
+	[ key: string ]: unknown;
+}
+export async function executeQuery(
+	_event: IpcMainInvokeEvent,
+	databasePath: string,
+	query: string
+): Promise< QueryResult[] > {
+	let db: DatabaseType | null = null;
+	if ( ! db ) {
+		db = new Database( databasePath );
+		db.pragma( 'journal_mode = WAL' ); // For better performance
+	}
+	try {
+		const rows = db.prepare( query ).all() as QueryResult[];
+		return rows;
+	} catch ( err ) {
+		console.error( err );
+		throw err;
+	}
 }

@@ -2,7 +2,14 @@ import { TabPanel } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { createContext, ReactNode, useContext, useMemo, useState } from 'react';
 
-export type TabName = 'overview' | 'sync' | 'settings' | 'assistant' | 'import-export' | 'previews';
+export type TabName =
+	| 'overview'
+	| 'sync'
+	| 'settings'
+	| 'assistant'
+	| 'import-export'
+	| 'previews'
+	| 'database';
 type Tab = React.ComponentProps< typeof TabPanel >[ 'tabs' ][ number ] & {
 	name: TabName;
 };
@@ -37,6 +44,11 @@ function useTabs() {
 			},
 			{
 				order: 5,
+				name: 'database',
+				title: __( 'Database' ),
+			},
+			{
+				order: 6,
 				name: 'settings',
 				title: __( 'Settings' ),
 			}

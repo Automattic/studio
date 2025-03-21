@@ -82,7 +82,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 							) }
 						</div>
 						{ selectedSite.enableHttps && (
-							<div className="mt-1">
+							<div className="mt-1 max-w-96">
 								<span className="text-a8c-gray-50 mt-1">
 									{ __(
 										'You need to trust this certificate to prevent your browser from showing a secure connection warning.'

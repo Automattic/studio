@@ -285,14 +285,35 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			try {
 				updatedSite = await getIpcApi().startServer( id );
 			} catch ( error ) {
-				getIpcApi().showErrorMessageBox( {
-					title: __( 'Failed to start the site server' ),
-					message: __(
-						"Please verify your site's local path directory contains the standard WordPress installation files and try again. If this problem persists, please contact support."
-					),
-					error,
-					showOpenLogs: true,
-				} );
+				if ( error instanceof Error && error.message.includes( 'PROXY_ERROR_PORT_80_IN_USE' ) ) {
+					getIpcApi().showErrorMessageBox( {
+						title: __( 'Studio failed to initialize custom domains' ),
+						message: __(
+							'Studio needs to use port 80 to enable custom domains, but it’s already in use by another app. Close any local development apps and restart Studio.'
+						),
+						showOpenLogs: false,
+					} );
+				} else if (
+					error instanceof Error &&
+					error.message.includes( 'PROXY_ERROR_START_FAILED' )
+				) {
+					getIpcApi().showErrorMessageBox( {
+						title: __( 'Studio failed to initialize custom domains' ),
+						message: __(
+							'Please restart Studio and try again. If this problem persists, please contact support.'
+						),
+						showOpenLogs: true,
+					} );
+				} else {
+					getIpcApi().showErrorMessageBox( {
+						title: __( 'Failed to start the site server' ),
+						message: __(
+							"Please verify your site's local path directory contains the standard WordPress installation files and try again. If this problem persists, please contact support."
+						),
+						error,
+						showOpenLogs: true,
+					} );
+				}
 				await getIpcApi().stopServer( id );
 			}
 

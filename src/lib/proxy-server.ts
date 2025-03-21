@@ -1,12 +1,9 @@
-import { dialog } from 'electron';
 import http from 'http';
 import { createConnection } from 'node:net';
 import { domainToASCII } from 'node:url';
 import * as Sentry from '@sentry/electron/main';
-import { __ } from '@wordpress/i18n';
 import httpProxy from 'http-proxy';
 import { isErrnoException } from 'src/lib/is-errno-exception';
-import { getMainWindow } from 'src/main-window';
 import { SiteServer } from 'src/site-server';
 import { loadUserData } from 'src/storage/user-data';
 
@@ -117,8 +114,7 @@ export async function startProxyServer(): Promise< boolean > {
 					resolve();
 				} )
 				.on( 'error', ( err ) => {
-					console.log( err );
-					console.error( `Error starting proxy server on port 80:`, err );
+					console.error( `Error starting proxy server on port 80` );
 					reject( err );
 				} );
 		} );
@@ -129,21 +125,13 @@ export async function startProxyServer(): Promise< boolean > {
 			( isErrnoException( error ) && error.code === 'EADDRINUSE' ) ||
 			( error instanceof Error && error.message === 'EADDRINUSE' )
 		) {
-			const mainWindow = await getMainWindow();
-			dialog.showMessageBox( mainWindow, {
-				type: 'error',
-				message: __( 'Custom domain set up failed' ),
-				detail: __(
-					'Studio needs to use port 80, but it’s already in use by another app. Close any local development apps and restart Studio.'
-				),
-				buttons: [ __( 'OK' ) ],
-			} );
-			return false;
+			throw new Error( 'PROXY_ERROR_PORT_80_IN_USE' );
 		}
 
 		Sentry.captureException( error );
-		console.error( `Failed to start proxy server directly:`, error );
-		return false;
+		console.error( `Failed to start proxy server:`, error );
+
+		throw new Error( 'PROXY_ERROR_START_FAILED' );
 	}
 }
 

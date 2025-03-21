@@ -107,7 +107,7 @@ export async function ensureRootCA(): Promise< { cert: string; key: string } > {
 	cert.setSubject( attrs );
 	cert.setIssuer( attrs );
 
-	const extensions = [
+	cert.setExtensions( [
 		{
 			name: 'basicConstraints',
 			cA: true,
@@ -126,8 +126,7 @@ export async function ensureRootCA(): Promise< { cert: string; key: string } > {
 			clientAuth: true,
 		},
 		createNameConstraintsExtension( [ '.local' ] ),
-	];
-	cert.setExtensions( extensions );
+	] );
 
 	// Self-sign the certificate
 	cert.sign( keys.privateKey, forge.md.sha256.create() );

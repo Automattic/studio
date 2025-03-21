@@ -4,7 +4,7 @@ import { useOnboarding } from 'src/hooks/use-onboarding';
 
 interface UseWhatsNew {
 	showWhatsNew: boolean;
-	closeWhatsNewModal: () => void;
+	closeWhatsNew: () => void;
 }
 
 export function useWhatsNew(): UseWhatsNew {
@@ -12,13 +12,13 @@ export function useWhatsNew(): UseWhatsNew {
 	const { needsOnboarding } = useOnboarding();
 	const { isNewVersion, updateLastSeenVersion } = useLastSeenVersion();
 
-	const closeWhatsNewModal = async () => {
+	const closeWhatsNew = async () => {
 		setShowWhatsNew( false );
 		await updateLastSeenVersion();
 	};
 
 	return {
 		showWhatsNew: showWhatsNew && isNewVersion && ! needsOnboarding,
-		closeWhatsNewModal,
+		closeWhatsNew,
 	};
 }

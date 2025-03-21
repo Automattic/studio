@@ -24,7 +24,7 @@ export default function App() {
 	useLocalizationSupport();
 	const { needsOnboarding } = useOnboarding();
 	const { isSidebarVisible, toggleSidebar } = useSidebarVisibility();
-	const { showWhatsNew, closeWhatsNewModal } = useWhatsNew();
+	const { showWhatsNew, closeWhatsNew } = useWhatsNew();
 	const { whatsNewSectionEnabled } = useFeatureFlags();
 
 	useEffect( () => {
@@ -78,7 +78,7 @@ export default function App() {
 			) }
 			<UserSettings />
 			{ whatsNewSectionEnabled && (
-				<WhatsNewModal showModal={ showWhatsNew } onClose={ closeWhatsNewModal } />
+				<WhatsNewModal showModal={ showWhatsNew } onClose={ closeWhatsNew } />
 			) }
 		</>
 	);

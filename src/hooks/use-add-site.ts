@@ -90,42 +90,40 @@ export function useAddSite() {
 				usedCustomDomain,
 				useCustomDomain ? enableHttps : false,
 				async ( newSite ) => {
-					if ( newSite ) {
-						let updatedSite = { ...newSite };
+					let updatedSite = { ...newSite };
 
-						if ( newSite.phpVersion !== phpVersion ) {
-							updatedSite = {
-								...updatedSite,
-								phpVersion,
-							};
-						}
-
-						if ( newSite.wpVersion !== wpVersion ) {
-							updatedSite = {
-								...updatedSite,
-								wpVersion,
-							};
-						}
-
-						if ( updatedSite !== newSite ) {
-							await updateSite( updatedSite );
-						}
-
-						if ( fileForImport ) {
-							await importFile( fileForImport, newSite, {
-								showImportNotification: false,
-								isNewSite: true,
-							} );
-							clearImportState( newSite.id );
-						} else {
-							await startServer( newSite.id );
-						}
-
-						getIpcApi().showNotification( {
-							title: newSite.name,
-							body: __( 'Your new site is up and running' ),
-						} );
+					if ( newSite.phpVersion !== phpVersion ) {
+						updatedSite = {
+							...updatedSite,
+							phpVersion,
+						};
 					}
+
+					if ( newSite.wpVersion !== wpVersion ) {
+						updatedSite = {
+							...updatedSite,
+							wpVersion,
+						};
+					}
+
+					if ( updatedSite !== newSite ) {
+						await updateSite( updatedSite );
+					}
+
+					if ( fileForImport ) {
+						await importFile( fileForImport, newSite, {
+							showImportNotification: false,
+							isNewSite: true,
+						} );
+						clearImportState( newSite.id );
+					} else {
+						await startServer( newSite.id );
+					}
+
+					getIpcApi().showNotification( {
+						title: newSite.name,
+						body: __( 'Your new site is up and running' ),
+					} );
 				}
 			);
 		} catch ( e ) {

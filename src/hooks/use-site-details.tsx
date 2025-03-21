@@ -23,7 +23,7 @@ interface SiteDetailsContext {
 		wpVersion?: string,
 		customDomain?: string,
 		enableHttps?: boolean,
-		callback?: ( site: SiteDetails | void ) => Promise< void >
+		callback?: ( site: SiteDetails ) => Promise< void >
 	) => Promise< SiteDetails | void >;
 	startServer: ( id: string ) => Promise< void >;
 	stopServer: ( id: string ) => Promise< void >;
@@ -196,7 +196,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			wpVersion?: string,
 			customDomain?: string,
 			enableHttps?: boolean,
-			callback?: ( site: SiteDetails | void ) => Promise< void >
+			callback?: ( site: SiteDetails ) => Promise< void >
 		) => {
 			// Function to handle error messages and cleanup
 			const showError = ( error?: unknown ) => {

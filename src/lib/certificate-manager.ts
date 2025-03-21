@@ -122,7 +122,7 @@ export async function ensureRootCA(): Promise< { cert: string; key: string } > {
 			serverAuth: true,
 			clientAuth: true,
 		},
-		createNameConstraintsExtension( [ '.wp.local' ] ),
+		createNameConstraintsExtension( [ '.local' ] ),
 	];
 	cert.setExtensions( extensions );
 

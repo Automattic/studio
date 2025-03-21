@@ -133,6 +133,8 @@ export async function ensureRootCA(): Promise< { cert: string; key: string } > {
 	const keyPem = forge.pki.privateKeyToPem( keys.privateKey );
 	fs.writeFileSync( CA_CERT_PATH, certPem );
 	fs.writeFileSync( CA_KEY_PATH, keyPem );
+	fs.chmodSync( CA_CERT_PATH, 0o700 );
+	fs.chmodSync( CA_KEY_PATH, 0o700 );
 
 	await trustRootCA();
 

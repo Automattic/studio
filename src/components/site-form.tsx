@@ -267,7 +267,8 @@ export const SiteForm = ( {
 	const dispatch = useAppDispatch();
 	const isOffline = useOffline();
 
-	const errorCount = [ error, customDomainError ].filter( Boolean ).length;
+	const shouldShowCustomDomainError = useCustomDomain && customDomainError;
+	const errorCount = [ error, shouldShowCustomDomainError ].filter( Boolean ).length;
 
 	const offlineMessage = __( 'Changing WordPress version requires an internet connection.' );
 	const wpVersions = useRootSelector(
@@ -297,7 +298,6 @@ export const SiteForm = ( {
 		chevronIcon = chevronRight;
 	}
 	const generatedDomainName = generateCustomDomainFromSiteName( siteName );
-	const shouldShowCustomDomainError = customDomainError && useCustomDomain;
 
 	return (
 		<form className={ className } onSubmit={ onSubmit }>

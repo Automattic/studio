@@ -133,10 +133,7 @@ export async function ensureRootCA(): Promise< { cert: string; key: string } > {
 			serverAuth: true,
 			clientAuth: true,
 		},
-		// Add properly encoded nameConstraints extension
-		// Using "wp.local" instead of ".wp.local" for better OS compatibility
-		// while still enforcing the domain constraint
-		createNameConstraintsExtension( [ 'wp.local' ] ),
+		createNameConstraintsExtension( [ '.wp.local' ] ),
 	];
 	cert.setExtensions( extensions );
 

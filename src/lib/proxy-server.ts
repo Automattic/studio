@@ -2,7 +2,7 @@ import { dialog } from 'electron';
 import http from 'http';
 import https from 'https';
 import { createConnection } from 'node:net';
-import { SecureContext } from 'node:tls';
+import { SecureContext, createSecureContext } from 'node:tls';
 import { domainToASCII } from 'node:url';
 import * as Sentry from '@sentry/electron/main';
 import { __ } from '@wordpress/i18n';
@@ -54,7 +54,7 @@ async function getSiteByHost( domain: string ): Promise< SiteDetails | null > {
 async function handleProxyRequest(
 	req: http.IncomingMessage,
 	res: http.ServerResponse,
-	isHttps = false
+	isHttps: boolean
 ) {
 	const host = req.headers.host?.split( ':' )[ 0 ]; // Remove port if present
 
@@ -101,34 +101,36 @@ async function handleProxyRequest(
 	} );
 }
 
+/**
+ * On Windows, node doesn't throw an error if port is busy, so we use the net module to explicitly check
+ * if it's possible to establish a TCP connection to that port (meaning it's busy).
+ */
 export async function checkPortInWindows( port: number ): Promise< boolean > {
-	// On Windows, node doesn't throw an error if port is busy, so we use the net module to explicitly check
-	// if it's possible to establish a TCP connection to that port (meaning it's busy)
-	if ( process.platform === 'win32' ) {
-		await new Promise< void >( ( resolve, reject ) => {
-			const tester = createConnection( { port }, () => {
-				// If we can connect, port is in use
-				tester.end();
-				reject( new Error( 'EADDRINUSE' ) );
-			} );
-
-			tester.setTimeout( 1000, () => {
-				tester.destroy();
-				reject( new Error( 'EADDRINUSE' ) );
-			} );
-
-			tester.on( 'error', ( err ) => {
-				if ( isErrnoException( err ) && err.code === 'ECONNREFUSED' ) {
-					// Port is available
-					resolve();
-				} else {
-					reject( err );
-				}
-			} );
-		} );
+	if ( process.platform !== 'win32' ) {
+		return true;
 	}
 
-	return true;
+	return await new Promise< boolean >( ( resolve, reject ) => {
+		const tester = createConnection( { port }, () => {
+			// If we can connect, port is in use
+			tester.end();
+			reject( new Error( 'EADDRINUSE' ) );
+		} );
+
+		tester.setTimeout( 1000, () => {
+			tester.destroy();
+			reject( new Error( 'EADDRINUSE' ) );
+		} );
+
+		tester.on( 'error', ( err ) => {
+			if ( isErrnoException( err ) && err.code === 'ECONNREFUSED' ) {
+				// Port is available
+				resolve( true );
+			} else {
+				reject( err );
+			}
+		} );
+	} );
 }
 
 /**
@@ -158,11 +160,8 @@ export async function startProxyServer(): Promise< boolean > {
 		// Start HTTPS server if not already running
 		if ( ! isHttpsProxyRunning ) {
 			await checkPortInWindows( 443 );
-			const defaultOptions = {
-				SNICallback: async (
-					servername: string,
-					cb: ( err: Error | null, ctx?: SecureContext ) => void
-				) => {
+			const defaultOptions: https.ServerOptions = {
+				SNICallback: async ( servername, cb ) => {
 					try {
 						const site = await getSiteByHost( servername );
 						if ( ! site || ! site.customDomain ) {
@@ -179,10 +178,10 @@ export async function startProxyServer(): Promise< boolean > {
 							return;
 						}
 
-						const ctx = require( 'tls' ).createSecureContext( {
+						const ctx = createSecureContext( {
 							key: site.tlsKey,
 							cert: site.tlsCert,
-							version: 'TLSv1.2',
+							minVersion: 'TLSv1.2',
 						} );
 
 						cb( null, ctx );
@@ -238,44 +237,42 @@ export async function startProxyServer(): Promise< boolean > {
 /**
  * Stop the proxy servers
  */
-export function stopProxyServer(): Promise< void > {
-	return new Promise( ( resolve ) => {
-		const promises: Promise< void >[] = [];
+export async function stopProxyServer() {
+	const promises: Promise< void >[] = [];
 
-		// Stop HTTP proxy if running
-		if ( httpProxyServer ) {
-			promises.push(
-				new Promise< void >( ( resolve ) => {
-					httpProxyServer!.close( () => {
-						httpProxyServer = null;
-						isHttpProxyRunning = false;
-						console.log( 'HTTP Proxy server stopped' );
-						resolve();
-					} );
-				} )
-			);
-		} else {
-			isHttpProxyRunning = false;
-		}
+	// Stop HTTP proxy if running
+	if ( httpProxyServer ) {
+		promises.push(
+			new Promise< void >( ( resolve ) => {
+				httpProxyServer!.close( () => {
+					httpProxyServer = null;
+					isHttpProxyRunning = false;
+					console.log( 'HTTP Proxy server stopped' );
+					resolve();
+				} );
+			} )
+		);
+	} else {
+		isHttpProxyRunning = false;
+	}
 
-		// Stop HTTPS proxy if running
-		if ( httpsProxyServer ) {
-			promises.push(
-				new Promise< void >( ( resolve ) => {
-					httpsProxyServer!.close( () => {
-						httpsProxyServer = null;
-						isHttpsProxyRunning = false;
-						console.log( 'HTTPS Proxy server stopped' );
-						resolve();
-					} );
-				} )
-			);
-		} else {
-			isHttpsProxyRunning = false;
-		}
+	// Stop HTTPS proxy if running
+	if ( httpsProxyServer ) {
+		promises.push(
+			new Promise< void >( ( resolve ) => {
+				httpsProxyServer!.close( () => {
+					httpsProxyServer = null;
+					isHttpsProxyRunning = false;
+					console.log( 'HTTPS Proxy server stopped' );
+					resolve();
+				} );
+			} )
+		);
+	} else {
+		isHttpsProxyRunning = false;
+	}
 
-		Promise.all( promises ).then( () => resolve() );
-	} );
+	await Promise.all( promises );
 }
 
 /**

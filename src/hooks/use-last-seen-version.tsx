@@ -1,14 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
-interface UseLastSeenVersionResult {
+interface UseLastSeenVersion {
 	lastSeenVersion: string | undefined;
 	isNewVersion: boolean;
 	updateLastSeenVersion: () => Promise< void >;
 	isLoading: boolean;
 }
 
-export function useLastSeenVersion(): UseLastSeenVersionResult {
+export function useLastSeenVersion(): UseLastSeenVersion {
 	const [ lastSeenVersion, setLastSeenVersion ] = useState< string | undefined >( undefined );
 	const [ isLoading, setIsLoading ] = useState( true );
 	const currentVersion = window.appGlobals.appVersion;

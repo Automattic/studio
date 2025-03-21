@@ -13,7 +13,7 @@ import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
 import { generateCustomDomainFromSiteName, validateDomainName } from 'src/lib/domains';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { getWordPressVersionUrl } from 'src/lib/get-wordpress-version-url';
+import { getWordPressVersionUrl } from 'src/lib/wordpress-version-utils';
 import { useRootSelector } from 'src/stores';
 import { wordpressVersionsSelectors } from 'src/stores/wordpress-versions-slice';
 import {
@@ -124,7 +124,6 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 				} catch ( wpError ) {
 					console.error( 'Error changing WordPress version:', wpError );
 					const errorMessage = stripAnsi( ( wpError as Error )?.message );
-					setIsChangeWpError( __( 'Error changing WordPress version.' ) );
 					getIpcApi().showErrorMessageBox( {
 						title: __( 'Error changing WordPress version' ),
 						message: errorMessage,

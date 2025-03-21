@@ -1,14 +1,11 @@
-import { dialog } from 'electron';
 import http from 'http';
 import https from 'https';
 import { createConnection } from 'node:net';
-import { SecureContext, createSecureContext } from 'node:tls';
+import { createSecureContext } from 'node:tls';
 import { domainToASCII } from 'node:url';
 import * as Sentry from '@sentry/electron/main';
-import { __ } from '@wordpress/i18n';
 import httpProxy from 'http-proxy';
 import { isErrnoException } from 'src/lib/is-errno-exception';
-import { getMainWindow } from 'src/main-window';
 import { SiteServer } from 'src/site-server';
 import { loadUserData } from 'src/storage/user-data';
 
@@ -216,21 +213,13 @@ export async function startProxyServer(): Promise< boolean > {
 			( isErrnoException( error ) && error.code === 'EADDRINUSE' ) ||
 			( error instanceof Error && error.message === 'EADDRINUSE' )
 		) {
-			const mainWindow = await getMainWindow();
-			dialog.showMessageBox( mainWindow, {
-				type: 'error',
-				message: __( 'Custom domain set up failed' ),
-				detail: __(
-					'Studio needs to use port 80 and 443, but they are already in use by another app. Close any local development apps and restart Studio.'
-				),
-				buttons: [ __( 'OK' ) ],
-			} );
-			return false;
+			throw new Error( 'PROXY_ERROR_PORT_IN_USE' );
 		}
 
 		Sentry.captureException( error );
 		console.error( 'Failed to start proxy servers:', error );
-		return false;
+
+		throw new Error( 'PROXY_ERROR_START_FAILED' );
 	}
 }
 

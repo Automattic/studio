@@ -1,6 +1,6 @@
 import { Icon, SelectControl } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf, _n } from '@wordpress/i18n';
 import { tip, warning, trash, chevronRight, chevronDown, chevronLeft } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useEffect, useRef, useState } from 'react';
@@ -272,6 +272,10 @@ export const SiteForm = ( {
 	const getDocsLink = useDocsLink();
 	const dispatch = useAppDispatch();
 	const isOffline = useOffline();
+
+	const shouldShowCustomDomainError = useCustomDomain && customDomainError;
+	const errorCount = [ error, shouldShowCustomDomainError ].filter( Boolean ).length;
+
 	const offlineMessage = __( 'Changing WordPress version requires an internet connection.' );
 	const wpVersions = useRootSelector(
 		wordpressVersionsSelectors.selectWordPressVersionsWithLatest
@@ -300,7 +304,6 @@ export const SiteForm = ( {
 		chevronIcon = chevronRight;
 	}
 	const generatedDomainName = generateCustomDomainFromSiteName( siteName );
-	const shouldShowCustomDomainError = customDomainError && useCustomDomain;
 
 	return (
 		<form className={ className } onSubmit={ onSubmit }>
@@ -360,19 +363,21 @@ export const SiteForm = ( {
 											{ __( 'Advanced settings' ) }
 										</div>
 									</Button>
-									{ ( error || shouldShowCustomDomainError ) && (
+									{ errorCount > 0 && (
 										<span className="text-red-500 text-[13px] leading-[16px] ml-2 flex items-center">
 											<Icon icon={ warning } size={ 16 } className="mr-1 fill-red-500" />
-											{ error && shouldShowCustomDomainError
-												? __( '2 errors found' )
-												: __( '1 error found' ) }
+											{ sprintf(
+												/* translators: %d: number of errors found */
+												_n( '%d error found', '%d errors found', errorCount ),
+												errorCount
+											) }
 										</span>
 									) }
 								</div>
 								<div
 									className={ cx(
-										'transition-all duration-500 ease-in-out overflow-hidden flex flex-col gap-2',
-										isAdvancedSettingsVisible ? 'opacity-100' : 'max-h-0 opacity-0'
+										'transition-all duration-500 ease-in-out overflow-hidden flex flex-col gap-2 interpolate-size-allow-keywords',
+										isAdvancedSettingsVisible ? 'h-auto opacity-100' : 'h-0 opacity-0'
 									) }
 								>
 									<div className={ cx( 'flex flex-col gap-1.5 leading-4 py-2' ) }>

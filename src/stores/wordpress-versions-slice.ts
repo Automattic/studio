@@ -2,6 +2,7 @@ import { createSlice, createAsyncThunk, createSelector } from '@reduxjs/toolkit'
 import * as Sentry from '@sentry/electron/renderer';
 import { __ } from '@wordpress/i18n';
 import { z, ZodError } from 'zod';
+import { isWordPressDevVersion, isWordPressBetaVersion } from 'src/lib/wordpress-version-utils';
 
 const MINIMUM_WORDPRESS_VERSION = '5.9.9';
 
@@ -16,52 +17,99 @@ const wordPressApiResponseSchema = z.object( {
 	offers: z.array( z.any() ),
 } );
 
+type WordPressApiOffer = {
+	version: string;
+	response?: string;
+	[ key: string ]: unknown;
+};
+
+type ProcessedOffer = {
+	version: string;
+	shortName: string;
+};
+
 const extractShortName = ( version: string ): string => {
+	if ( isWordPressDevVersion( version ) ) {
+		return 'nightly';
+	}
 	const match = version.match( /^(\d+\.\d+)/ );
 	return match ? match[ 1 ] : version;
 };
+
+async function fetchWordPressApiData( channel: 'beta' | 'development', version?: string ) {
+	const baseUrl = 'https://api.wordpress.org/core/version-check/1.7/';
+	const params = new URLSearchParams( { channel } );
+
+	if ( channel === 'beta' && version ) {
+		params.append( 'version', version );
+	}
+
+	const response = await fetch( `${ baseUrl }?${ params }` );
+	if ( ! response.ok ) {
+		throw new Error( 'Failed to fetch WordPress versions' );
+	}
+	return wordPressApiResponseSchema.parse( await response.json() );
+}
+
+function processWordPressOffers(
+	offers: WordPressApiOffer[],
+	isDevelopment = false,
+	shortNameOccurrences: Map< string, number >
+): ProcessedOffer[] {
+	return offers
+		.map( ( offer ) => wordPressOfferSchema.safeParse( offer ) )
+		.filter( ( result ): result is { success: true; data: WordPressOffer } => result.success )
+		.filter( ( result ) =>
+			isDevelopment ? result.data.response === 'development' : result.data.response === 'autoupdate'
+		)
+		.map( ( { data } ) => {
+			const shortName = extractShortName( data.version );
+			shortNameOccurrences.set( shortName, ( shortNameOccurrences.get( shortName ) || 0 ) + 1 );
+			return {
+				version: data.version,
+				shortName,
+			};
+		} );
+}
+
+function generateVersionLabel( version: string, shortName: string, occurrences: number ): string {
+	if ( isWordPressDevVersion( version ) ) {
+		return 'nightly';
+	}
+	return occurrences > 1 || isWordPressBetaVersion( version ) ? version : shortName;
+}
 
 export const fetchWordPressVersions = createAsyncThunk(
 	'wordpressVersions/fetchWordPressVersions',
 	async () => {
 		try {
-			const response = await fetch(
-				`https://api.wordpress.org/core/version-check/1.7/?channel=beta&version=${ MINIMUM_WORDPRESS_VERSION }`
-			);
-			if ( ! response.ok ) {
-				throw new Error( 'Failed to fetch WordPress versions' );
-			}
-			const rawData = await response.json();
-			const data = wordPressApiResponseSchema.parse( rawData );
+			const [ stableData, developmentData ] = await Promise.all( [
+				fetchWordPressApiData( 'beta', MINIMUM_WORDPRESS_VERSION ),
+				fetchWordPressApiData( 'development' ),
+			] );
 
 			const shortNameOccurrences = new Map< string, number >();
-			const offers = data.offers
-				.map( ( offer ) => {
-					try {
-						return wordPressOfferSchema.parse( offer );
-					} catch ( error ) {
-						return null;
-					}
-				} )
-				.filter( ( offer ): offer is WordPressOffer => offer?.response === 'autoupdate' )
-				.map( ( { version } ) => {
-					const shortName = extractShortName( version );
-					shortNameOccurrences.set( shortName, ( shortNameOccurrences.get( shortName ) || 0 ) + 1 );
-					return {
-						version,
-						shortName,
-					};
-				} );
 
-			return offers.map( ( { version, shortName } ) => {
-				const isBeta = version.includes( 'beta' ) || version.includes( 'RC' );
-				const occurrences = shortNameOccurrences.get( shortName ) || 0;
-				return {
-					isBeta,
-					label: occurrences > 1 || isBeta ? version : shortName,
-					value: version,
-				};
-			} );
+			const stableOffers = processWordPressOffers( stableData.offers, false, shortNameOccurrences );
+
+			const developmentOffer = processWordPressOffers(
+				developmentData.offers,
+				true,
+				shortNameOccurrences
+			)[ 0 ];
+
+			const allOffers = developmentOffer ? [ developmentOffer, ...stableOffers ] : stableOffers;
+
+			return allOffers.map( ( { version, shortName } ) => ( {
+				isBeta: isWordPressBetaVersion( version ),
+				isDevelopment: isWordPressDevVersion( version ),
+				label: generateVersionLabel(
+					version,
+					shortName,
+					shortNameOccurrences.get( shortName ) || 0
+				),
+				value: version,
+			} ) );
 		} catch ( error ) {
 			if ( error instanceof ZodError ) {
 				Sentry.captureException( error );
@@ -73,6 +121,7 @@ export const fetchWordPressVersions = createAsyncThunk(
 
 interface WordPressVersion {
 	isBeta: boolean;
+	isDevelopment: boolean;
 	label: string;
 	value: string;
 }
@@ -116,7 +165,7 @@ const wordpressVersionsSlice = createSlice( {
 			( versions: WordPressVersion[] ) => {
 				let foundLatestStable = false;
 				return versions.map( ( version: WordPressVersion ) => {
-					if ( ! foundLatestStable && ! version.isBeta ) {
+					if ( ! foundLatestStable && ! version.isBeta && ! version.isDevelopment ) {
 						foundLatestStable = true;
 						return {
 							...version,
@@ -130,7 +179,9 @@ const wordpressVersionsSlice = createSlice( {
 		selectLatestStableVersion: createSelector(
 			[ ( state ) => state.versions ],
 			( versions: WordPressVersion[] ) =>
-				versions.find( ( version: WordPressVersion ) => ! version.isBeta )
+				versions.find(
+					( version: WordPressVersion ) => ! version.isBeta && ! version.isDevelopment
+				)
 		),
 	},
 } );

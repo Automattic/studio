@@ -42,6 +42,7 @@ import * as oauthClient from 'src/lib/oauth';
 import { createPassword } from 'src/lib/passwords';
 import { phpGetThemeDetails } from 'src/lib/php-get-theme-details';
 import { portFinder } from 'src/lib/port-finder';
+import { startProxyServer } from 'src/lib/proxy-server';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { sortSites } from 'src/lib/sort-sites';
 import { installSqliteIntegration, keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
@@ -420,10 +421,6 @@ export async function startServer(
 	// Handle custom domain if necessary
 	if ( server.details.customDomain ) {
 		await addDomainToHosts( server.details.customDomain, server.details.port );
-		console.log(
-			`Domain ${ server.details.customDomain } added to hosts file for port ${ server.details.port }`
-		);
-
 		// Generate certificates for HTTPS sites *before* the server starts
 		// This ensures the certs are ready when the proxy server needs them
 		if ( server.details.enableHttps ) {
@@ -438,6 +435,7 @@ export async function startServer(
 				tlsCert: cert,
 			};
 		}
+		await startProxyServer();
 	}
 
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );

@@ -262,8 +262,6 @@ describe( 'EditSiteDetails', () => {
 				message: 'Update failed',
 			} );
 		} );
-
-		expect( screen.getByText( 'Error changing WordPress version.' ) ).toBeInTheDocument();
 	} );
 
 	it( 'should disable form controls when site is being edited', async () => {

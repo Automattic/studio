@@ -9,7 +9,7 @@ import { lstat, move } from 'fs-extra';
 import semver from 'semver';
 import { generateBackupFilename } from 'src/lib/import-export/export/generate-backup-filename';
 import { ImportEvents } from 'src/lib/import-export/import/events';
-import { BackupContents, MetaFileData } from 'src/lib/import-export/import/types';
+import { BackupContents, MetaFileData, WpContent } from 'src/lib/import-export/import/types';
 import { serializePlugins } from 'src/lib/serialize-plugins';
 import { updateSiteUrlToLocal } from 'src/lib/update-site-url-to-local';
 import { SiteServer } from 'src/site-server';
@@ -150,7 +150,22 @@ abstract class BaseBackupImporter extends BaseImporter {
 				/^database(\/|\\)?.*/, // Match database dir and all contents
 				/^db\.php$/, // Exact match for db.php
 				/^index\.php$/, // Exact match for index.php
+				/^languages(\/|\\)?.*/, // Match languages dir and all contents
 			];
+
+			// Directories to preserve if they are not included in the backup.
+			const maybeKeepWpContentDirectories: ( keyof WpContent )[] = [
+				'plugins',
+				'themes',
+				'fonts',
+				'uploads',
+			];
+
+			for ( const directory of maybeKeepWpContentDirectories ) {
+				if ( this.backup.wpContent[ directory ]?.length === 0 ) {
+					contentToKeep.push( new RegExp( `^${ directory }(/|\\\\)?.*` ) );
+				}
+			}
 
 			const contents = await fsPromises.readdir( wpContentDir, { recursive: true } );
 

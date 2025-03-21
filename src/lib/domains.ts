@@ -29,5 +29,9 @@ export const validateDomainName = (
 		return __( 'The domain name is required' );
 	}
 
+	if ( useCustomDomain && domainName && ! domainName.endsWith( '.local' ) ) {
+		return __( 'The domain name must end with .local' );
+	}
+
 	return '';
 };

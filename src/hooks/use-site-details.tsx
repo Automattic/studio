@@ -22,7 +22,8 @@ interface SiteDetailsContext {
 		siteName?: string,
 		wpVersion?: string,
 		customDomain?: string,
-		callback?: ( site: SiteDetails | void ) => Promise< void >
+		enableHttps?: boolean,
+		callback?: ( site: SiteDetails ) => Promise< void >
 	) => Promise< SiteDetails | void >;
 	startServer: ( id: string ) => Promise< void >;
 	stopServer: ( id: string ) => Promise< void >;
@@ -194,7 +195,8 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			siteName?: string,
 			wpVersion?: string,
 			customDomain?: string,
-			callback?: ( site: SiteDetails | void ) => Promise< void >
+			enableHttps?: boolean,
+			callback?: ( site: SiteDetails ) => Promise< void >
 		) => {
 			// Function to handle error messages and cleanup
 			const showError = ( error?: unknown ) => {
@@ -234,7 +236,13 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			setSelectedSiteId( tempSiteId ); // Set the temporary ID as the selected site
 
 			try {
-				const data = await getIpcApi().createSite( path, siteName, wpVersion, customDomain );
+				const data = await getIpcApi().createSite(
+					path,
+					siteName,
+					wpVersion,
+					customDomain,
+					enableHttps
+				);
 				const newSite = data.find( ( site ) => site.path === path );
 				if ( ! newSite ) {
 					showError();
@@ -285,11 +293,11 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			try {
 				updatedSite = await getIpcApi().startServer( id );
 			} catch ( error ) {
-				if ( error instanceof Error && error.message.includes( 'PROXY_ERROR_PORT_80_IN_USE' ) ) {
+				if ( error instanceof Error && error.message.includes( 'PROXY_ERROR_PORT_IN_USE' ) ) {
 					getIpcApi().showErrorMessageBox( {
 						title: __( 'Studio failed to initialize custom domains' ),
 						message: __(
-							'Studio needs to use port 80 to enable custom domains, but it’s already in use by another app. Close any local development apps and restart Studio.'
+							'Studio needs to use port 80 and 443 to enable custom domains and SSL, but one of both of these ports are already in use by another app. Close any local development apps and restart Studio.'
 						),
 						showOpenLogs: false,
 					} );

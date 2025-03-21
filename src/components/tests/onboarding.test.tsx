@@ -28,6 +28,7 @@ jest.mock( 'src/stores', () => ( {
 
 jest.mock( 'src/lib/app-globals', () => ( {
 	isMac: () => true,
+	isWindows: () => false,
 } ) );
 
 jest.mock( 'src/hooks/use-offline', () => ( {
@@ -105,6 +106,8 @@ describe( 'Onboarding Component', () => {
 			setCustomDomain: jest.fn(),
 			setCustomDomainError: jest.fn(),
 			customDomainError: '',
+			enableHttps: false,
+			setEnableHttps: jest.fn(),
 		} );
 	} );
 
@@ -183,6 +186,8 @@ describe( 'Onboarding Component', () => {
 			setCustomDomain: jest.fn(),
 			setCustomDomainError: jest.fn(),
 			customDomainError: '',
+			enableHttps: false,
+			setEnableHttps: jest.fn(),
 		} );
 
 		render( <Onboarding /> );
@@ -262,6 +267,8 @@ describe( 'Onboarding Component', () => {
 			setCustomDomain: jest.fn(),
 			setCustomDomainError: jest.fn(),
 			customDomainError: '',
+			enableHttps: false,
+			setEnableHttps: jest.fn(),
 		} );
 
 		render( <Onboarding /> );
@@ -326,6 +333,8 @@ describe( 'Onboarding Component', () => {
 			setCustomDomain: jest.fn(),
 			setCustomDomainError: jest.fn(),
 			customDomainError: '',
+			enableHttps: false,
+			setEnableHttps: jest.fn(),
 		} );
 
 		render( <Onboarding /> );

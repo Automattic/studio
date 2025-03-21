@@ -9,6 +9,9 @@ const mockStopServer = jest.fn();
 const mockStartServer = jest.fn();
 const mockExecuteWPCLiInline = jest.fn();
 const mockShowErrorMessageBox = jest.fn();
+jest.mock( 'src/lib/app-globals', () => ( {
+	isWindows: () => false,
+} ) );
 
 jest.mock( 'src/hooks/use-site-details', () => ( {
 	useSiteDetails: () => ( {
@@ -166,6 +169,8 @@ describe( 'EditSiteDetails', () => {
 			name: 'New Site Name',
 			phpVersion: '8.0',
 			running: true,
+			customDomain: undefined,
+			enableHttps: false,
 		} );
 		expect( defaultProps.onSave ).toHaveBeenCalled();
 	} );
@@ -187,6 +192,8 @@ describe( 'EditSiteDetails', () => {
 			name: 'Test Site',
 			phpVersion: '8.2',
 			running: true,
+			customDomain: undefined,
+			enableHttps: false,
 		} );
 		expect( mockStartServer ).toHaveBeenCalledWith( 'site-123' );
 		expect( defaultProps.onSave ).toHaveBeenCalled();
@@ -214,6 +221,8 @@ describe( 'EditSiteDetails', () => {
 			name: 'Test Site',
 			phpVersion: '8.0',
 			running: true,
+			customDomain: undefined,
+			enableHttps: false,
 		} );
 		expect( mockStartServer ).toHaveBeenCalledWith( 'site-123' );
 		expect( defaultProps.onSave ).toHaveBeenCalled();

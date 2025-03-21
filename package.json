@@ -125,6 +125,7 @@
 		"@wp-playground/wordpress": "https://wpcomplaygroundpackages.wpcomstaging.com/packages/v1.0.29/@wp-playground-wordpress-1.0.29.tar.gz",
 		"archiver": "^6.0.1",
 		"atomically": "^2.0.3",
+		"commander": "^13.1.0",
 		"compressible": "2.0.18",
 		"compression": "1.7.4",
 		"cross-port-killer": "^1.4.0",

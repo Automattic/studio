@@ -14,6 +14,7 @@ import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useLocalizationSupport } from 'src/hooks/use-localization-support';
 import { useOnboarding } from 'src/hooks/use-onboarding';
 import { useSidebarVisibility } from 'src/hooks/use-sidebar-visibility';
+import { useWhatsNew } from 'src/hooks/use-whats-new';
 import { isWindows } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';

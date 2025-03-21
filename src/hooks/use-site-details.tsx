@@ -285,12 +285,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			try {
 				updatedSite = await getIpcApi().startServer( id );
 			} catch ( error ) {
-				if (
-					error instanceof Error &&
-					error.message.includes(
-						'Studio failed to start the proxy server because port 80 is already in use.'
-					)
-				) {
+				if ( error instanceof Error && error.message.includes( 'PROXY_ERROR_PORT_80_IN_USE' ) ) {
 					getIpcApi().showErrorMessageBox( {
 						title: __( 'Studio failed to initialize custom domains' ),
 						message: __(
@@ -300,7 +295,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					} );
 				} else if (
 					error instanceof Error &&
-					error.message.includes( 'Studio failed to start the proxy server.' )
+					error.message.includes( 'PROXY_ERROR_START_FAILED' )
 				) {
 					getIpcApi().showErrorMessageBox( {
 						title: __( 'Studio failed to initialize custom domains' ),

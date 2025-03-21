@@ -125,15 +125,13 @@ export async function startProxyServer(): Promise< boolean > {
 			( isErrnoException( error ) && error.code === 'EADDRINUSE' ) ||
 			( error instanceof Error && error.message === 'EADDRINUSE' )
 		) {
-			throw new Error(
-				'Studio failed to start the proxy server because port 80 is already in use.'
-			);
+			throw new Error( 'PROXY_ERROR_PORT_80_IN_USE' );
 		}
 
 		Sentry.captureException( error );
 		console.error( `Failed to start proxy server:`, error );
 
-		throw new Error( 'Studio failed to start the proxy server.' );
+		throw new Error( 'PROXY_ERROR_START_FAILED' );
 	}
 }
 

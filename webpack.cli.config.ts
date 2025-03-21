@@ -26,9 +26,6 @@ const config: Configuration = {
 		minimize: false,
 		splitChunks: false,
 	},
-	experiments: {
-		outputModule: true,
-	},
 };
 
 export default config;

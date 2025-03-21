@@ -90,7 +90,7 @@ export async function ensureRootCA(): Promise< { cert: string; key: string } > {
 	const cert = forge.pki.createCertificate();
 
 	cert.publicKey = keys.publicKey;
-	cert.serialNumber = '01' + crypto.randomBytes( 19 ).toString( 'hex' ); // 40 hex characters
+	cert.serialNumber = crypto.randomBytes( 20 ).toString( 'hex' );
 	const now = new Date();
 	cert.validity.notBefore = now;
 	cert.validity.notAfter = new Date( now.getTime() );
@@ -201,7 +201,7 @@ export async function generateSiteCertificate(
 		const cert = forge.pki.createCertificate();
 
 		cert.publicKey = keys.publicKey;
-		cert.serialNumber = '01' + crypto.randomBytes( 19 ).toString( 'hex' ); // 40 hex characters
+		cert.serialNumber = crypto.randomBytes( 20 ).toString( 'hex' );
 		const now = new Date();
 		cert.validity.notBefore = now;
 		cert.validity.notAfter = new Date( now.getTime() );

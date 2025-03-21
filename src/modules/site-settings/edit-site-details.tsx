@@ -10,6 +10,7 @@ import TextControlComponent from 'src/components/text-control';
 import { Tooltip } from 'src/components/tooltip';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSiteDetails } from 'src/hooks/use-site-details';
+import { isWindows } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { generateCustomDomainFromSiteName, validateDomainName } from 'src/lib/domains';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -294,7 +295,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 									</div>
 								) }
 
-								{ useCustomDomain && (
+								{ ! isWindows() && useCustomDomain && (
 									<div className="text-a8c-gray-50 text-xs mt-2">
 										{ __(
 											'You need to manually add the Studio certificate authority to your keychain and trust it.'

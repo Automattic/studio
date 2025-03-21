@@ -12,6 +12,7 @@ import { Tooltip } from 'src/components/tooltip';
 import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
 import { useDocsLink } from 'src/hooks/use-docs-link';
 import { useOffline } from 'src/hooks/use-offline';
+import { isWindows } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { generateCustomDomainFromSiteName } from 'src/lib/domains';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -504,7 +505,7 @@ export const SiteForm = ( {
 											</div>
 										) }
 
-										{ useCustomDomain && setEnableHttps && (
+										{ ! isWindows() && useCustomDomain && setEnableHttps && (
 											<div className="text-a8c-gray-50 text-xs mt-2">
 												{ __(
 													'You need to manually add the Studio root certificate authority to your keychain and trust it to enable HTTPS.'

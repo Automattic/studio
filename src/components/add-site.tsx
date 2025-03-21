@@ -55,8 +55,8 @@ export default function AddSite( { className }: AddSiteProps ) {
 		setCustomDomain,
 		customDomainError,
 		setCustomDomainError,
-		enableSSL,
-		setEnableSSL,
+		enableHttps,
+		setEnableHttps,
 	} = useAddSite();
 	const { importState } = useImportExport();
 
@@ -119,7 +119,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 		setUseCustomDomain( false );
 		setCustomDomain( null );
 		setCustomDomainError( '' );
-		setEnableSSL( false );
+		setEnableHttps( false );
 	}, [
 		setSitePath,
 		setDoesPathContainWordPress,
@@ -129,7 +129,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 		setUseCustomDomain,
 		setCustomDomain,
 		setCustomDomainError,
-		setEnableSSL,
+		setEnableHttps,
 	] );
 
 	const handleSubmit = useCallback(
@@ -213,8 +213,8 @@ export default function AddSite( { className }: AddSiteProps ) {
 							customDomain={ customDomain }
 							setCustomDomain={ setCustomDomain }
 							customDomainError={ customDomainError }
-							enableSSL={ enableSSL }
-							setEnableSSL={ setEnableSSL }
+							enableHttps={ enableHttps }
+							setEnableHttps={ setEnableHttps }
 						>
 							<div className="flex flex-row justify-end gap-x-5 mt-6">
 								<Button onClick={ closeModal } variant="tertiary">

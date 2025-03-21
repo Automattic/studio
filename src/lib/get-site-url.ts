@@ -1,6 +1,6 @@
 export function getSiteUrl( site: SiteDetails ) {
 	if ( site.customDomain ) {
-		const protocol = site.enableSSL ? 'https' : 'http';
+		const protocol = site.enableHttps ? 'https' : 'http';
 		return `${ protocol }://${ site.customDomain }`;
 	}
 

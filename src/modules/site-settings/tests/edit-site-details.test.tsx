@@ -167,7 +167,7 @@ describe( 'EditSiteDetails', () => {
 			phpVersion: '8.0',
 			running: true,
 			customDomain: undefined,
-			enableSSL: false,
+			enableHttps: false,
 		} );
 		expect( defaultProps.onSave ).toHaveBeenCalled();
 	} );
@@ -190,7 +190,7 @@ describe( 'EditSiteDetails', () => {
 			phpVersion: '8.2',
 			running: true,
 			customDomain: undefined,
-			enableSSL: false,
+			enableHttps: false,
 		} );
 		expect( mockStartServer ).toHaveBeenCalledWith( 'site-123' );
 		expect( defaultProps.onSave ).toHaveBeenCalled();
@@ -219,7 +219,7 @@ describe( 'EditSiteDetails', () => {
 			phpVersion: '8.0',
 			running: true,
 			customDomain: undefined,
-			enableSSL: false,
+			enableHttps: false,
 		} );
 		expect( mockStartServer ).toHaveBeenCalledWith( 'site-123' );
 		expect( defaultProps.onSave ).toHaveBeenCalled();

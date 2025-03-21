@@ -146,7 +146,7 @@ export async function createSite(
 	siteName?: string,
 	wpVersion?: string,
 	customDomain?: string,
-	enableSSL?: boolean
+	enableHttps?: boolean
 ): Promise< SiteDetails[] > {
 	const userData = await loadUserData();
 	const forceSetupSqlite = false;
@@ -188,7 +188,7 @@ export async function createSite(
 		running: false,
 		phpVersion: DEFAULT_PHP_VERSION,
 		customDomain,
-		enableSSL,
+		enableHttps,
 	} as const;
 
 	const server = SiteServer.create( details );
@@ -243,7 +243,7 @@ export async function updateSite(
 		if ( oldDomain !== newDomain ) {
 			updateDomainInHosts( oldDomain, newDomain, server.details.port );
 		}
-		if ( ( oldDomain && ! newDomain ) || updatedSite.enableSSL !== existingSite?.enableSSL ) {
+		if ( ( oldDomain && ! newDomain ) || updatedSite.enableHttps !== existingSite?.enableHttps ) {
 			await updateSiteUrlToLocal( updatedSite.id );
 		}
 	}
@@ -426,7 +426,7 @@ export async function startServer(
 
 		// Generate certificates for HTTPS sites *before* the server starts
 		// This ensures the certs are ready when the proxy server needs them
-		if ( server.details.enableSSL ) {
+		if ( server.details.enableHttps ) {
 			console.log(
 				`Generating certificates for ${ server.details.customDomain } during server start`
 			);

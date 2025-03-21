@@ -80,7 +80,7 @@ async function handleProxyRequest(
 	}
 
 	// If we're on HTTP and site has HTTPS enabled, redirect to HTTPS
-	if ( ! isHttps && site.enableSSL ) {
+	if ( ! isHttps && site.enableHttps ) {
 		res.writeHead( 301, {
 			Location: `https://${ host }${ req.url }`,
 		} );

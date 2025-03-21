@@ -28,7 +28,7 @@ export function useAddSite() {
 	const [ useCustomDomain, setUseCustomDomain ] = useState( false );
 	const [ customDomain, setCustomDomain ] = useState< string | null >( null );
 	const [ customDomainError, setCustomDomainError ] = useState( '' );
-	const [ enableSSL, setEnableSSL ] = useState( false );
+	const [ enableHttps, setEnableHttps ] = useState( false );
 
 	const siteWithPathAlreadyExists = useCallback(
 		( path: string ) => {
@@ -88,7 +88,7 @@ export function useAddSite() {
 				siteName ?? '',
 				wpVersion,
 				usedCustomDomain,
-				useCustomDomain ? enableSSL : false,
+				useCustomDomain ? enableHttps : false,
 				async ( newSite ) => {
 					if ( newSite ) {
 						let updatedSite = { ...newSite };
@@ -146,7 +146,7 @@ export function useAddSite() {
 		phpVersion,
 		customDomain,
 		useCustomDomain,
-		enableSSL,
+		enableHttps,
 	] );
 
 	const handleSiteNameChange = useCallback(
@@ -222,8 +222,8 @@ export function useAddSite() {
 			setCustomDomain: handleCustomDomainChange,
 			customDomainError,
 			setCustomDomainError,
-			enableSSL,
-			setEnableSSL,
+			enableHttps,
+			setEnableHttps,
 		};
 	}, [
 		__,
@@ -247,7 +247,7 @@ export function useAddSite() {
 		handleCustomDomainChange,
 		customDomainError,
 		setCustomDomainError,
-		enableSSL,
-		setEnableSSL,
+		enableHttps,
+		setEnableHttps,
 	] );
 }

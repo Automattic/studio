@@ -21,7 +21,7 @@ interface StoppedSiteDetails {
 	phpVersion: string;
 	wpVersion?: string;
 	customDomain?: string;
-	enableSSL?: boolean;
+	enableHttps?: boolean;
 	adminPassword?: string;
 	tlsKey?: string;
 	tlsCert?: string;

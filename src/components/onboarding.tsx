@@ -62,8 +62,8 @@ export default function Onboarding() {
 		setCustomDomain,
 		customDomainError,
 		setCustomDomainError,
-		enableSSL,
-		setEnableSSL,
+		enableHttps,
+		setEnableHttps,
 	} = useAddSite();
 	const [ fileError, setFileError ] = useState( '' );
 
@@ -111,7 +111,7 @@ export default function Onboarding() {
 			setUseCustomDomain( false );
 			setCustomDomain( null );
 			setCustomDomainError( '' );
-			setEnableSSL( false );
+			setEnableHttps( false );
 		};
 		run();
 		// eslint-disable-next-line react-hooks/exhaustive-deps
@@ -183,8 +183,8 @@ export default function Onboarding() {
 							customDomain={ customDomain }
 							setCustomDomain={ setCustomDomain }
 							customDomainError={ customDomainError }
-							enableSSL={ enableSSL }
-							setEnableSSL={ setEnableSSL }
+							enableHttps={ enableHttps }
+							setEnableHttps={ setEnableHttps }
 						>
 							<div className="flex flex-row gap-x-5 mt-6 justify-end">
 								<Button type="submit" variant="primary">

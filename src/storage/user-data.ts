@@ -129,7 +129,7 @@ function toDiskFormat( { sites, ...rest }: UserData ): PersistedUserData {
 				name,
 				themeDetails,
 				customDomain,
-				enableSSL,
+				enableHttps,
 			} ) => {
 				// No object spreading allowed. TypeScript's structural typing is too permissive and
 				// will permit us to persist properties that aren't in the type definition.
@@ -142,7 +142,7 @@ function toDiskFormat( { sites, ...rest }: UserData ): PersistedUserData {
 					port,
 					phpVersion,
 					customDomain,
-					enableSSL,
+					enableHttps,
 					themeDetails: {
 						name: themeDetails?.name || '',
 						path: themeDetails?.path || '',

@@ -73,8 +73,8 @@ interface SiteFormProps {
 	setPhpVersion: ( version: AllowedPHPVersion ) => void;
 	useHttps?: boolean;
 	setUseHttps?: ( use: boolean ) => void;
-	enableSSL?: boolean;
-	setEnableSSL?: ( use: boolean ) => void;
+	enableHttps?: boolean;
+	setEnableHttps?: ( use: boolean ) => void;
 	wpVersion: string;
 	setWpVersion: ( version: string ) => void;
 }
@@ -265,8 +265,8 @@ export const SiteForm = ( {
 	customDomain = null,
 	setCustomDomain,
 	customDomainError,
-	enableSSL,
-	setEnableSSL,
+	enableHttps,
+	setEnableHttps,
 }: SiteFormProps ) => {
 	const { __, isRTL } = useI18n();
 	const getDocsLink = useDocsLink();
@@ -487,15 +487,15 @@ export const SiteForm = ( {
 											</div>
 										) }
 
-										{ useCustomDomain && setEnableSSL && (
+										{ useCustomDomain && setEnableHttps && (
 											<div className="flex items-center gap-2 mt-4">
 												<input
 													type="checkbox"
-													id="enable-ssl"
-													checked={ enableSSL }
-													onChange={ ( e ) => setEnableSSL( e.target.checked ) }
+													id="enable-https"
+													checked={ enableHttps }
+													onChange={ ( e ) => setEnableHttps( e.target.checked ) }
 												/>
-												<label htmlFor="enable-ssl">{ __( 'Enable SSL' ) }</label>
+												<label htmlFor="enable-https">{ __( 'Enable HTTPS' ) }</label>
 											</div>
 										) }
 									</div>

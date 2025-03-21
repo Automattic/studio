@@ -53,7 +53,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 		selectedSite?.customDomain ?? null
 	);
 	const [ customDomainError, setCustomDomainError ] = useState( '' );
-	const [ enableSSL, setEnableSSL ] = useState( false );
+	const [ enableHttps, setEnableHttps ] = useState( false );
 	const wordpressVersions = useRootSelector(
 		wordpressVersionsSelectors.selectWordPressVersionsWithLatest
 	);
@@ -74,7 +74,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 		currentWpVersion === selectedWpVersion &&
 		Boolean( selectedSite.customDomain ) === useCustomDomain &&
 		usedCustomDomain === customDomain &&
-		!! selectedSite.enableSSL === ( !! usedCustomDomain && enableSSL );
+		!! selectedSite.enableHttps === ( !! usedCustomDomain && enableHttps );
 	const hasValidationErrors =
 		! selectedSite || ! siteName.trim() || ( useCustomDomain && !! customDomainError );
 
@@ -89,7 +89,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 		setCustomDomain( selectedSite.customDomain ?? null );
 		setCustomDomainError( '' );
 		setIsChangeWpError( '' );
-		setEnableSSL( selectedSite.enableSSL ?? false );
+		setEnableHttps( selectedSite.enableHttps ?? false );
 	}, [ currentWpVersion, selectedSite ] );
 
 	const onSiteEdit = async ( event: FormEvent ) => {
@@ -146,7 +146,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 				name: siteName,
 				phpVersion: selectedPhpVersion,
 				customDomain: usedCustomDomain,
-				enableSSL: !! usedCustomDomain && enableSSL,
+				enableHttps: !! usedCustomDomain && enableHttps,
 			} );
 
 			if ( needsRestart ) {
@@ -287,11 +287,11 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 									<div className="flex items-center gap-2 mt-4">
 										<input
 											type="checkbox"
-											id="enable-ssl"
-											checked={ enableSSL }
-											onChange={ ( e ) => setEnableSSL( e.target.checked ) }
+											id="enable-https"
+											checked={ enableHttps }
+											onChange={ ( e ) => setEnableHttps( e.target.checked ) }
 										/>
-										<label htmlFor="enable-ssl">{ __( 'Enable SSL' ) }</label>
+										<label htmlFor="enable-https">{ __( 'Enable HTTPS' ) }</label>
 									</div>
 								) }
 							</div>

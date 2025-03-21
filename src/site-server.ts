@@ -59,7 +59,7 @@ export async function stopAllServersOnQuit() {
 
 function getAbsoluteUrl( details: SiteDetails ): string {
 	if ( details.customDomain ) {
-		const protocol = details.enableSSL ? 'https' : 'http';
+		const protocol = details.enableHttps ? 'https' : 'http';
 		return `${ protocol }://${ details.customDomain }`;
 	}
 
@@ -159,7 +159,7 @@ export class SiteServer {
 			phpVersion: site.phpVersion,
 			wpVersion: site.wpVersion,
 			customDomain: site.customDomain,
-			enableSSL: site.enableSSL,
+			enableHttps: site.enableHttps,
 		};
 
 		if ( this.server && this.details.running ) {

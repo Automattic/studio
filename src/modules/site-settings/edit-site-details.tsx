@@ -293,6 +293,25 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 										<label htmlFor="enable-https">{ __( 'Enable HTTPS' ) }</label>
 									</div>
 								) }
+
+								{ useCustomDomain && (
+									<div className="text-a8c-gray-50 text-xs mt-2">
+										{ __(
+											'You need to manually add the Studio certificate authority to your keychain and trust it.'
+										) }{ ' ' }
+										<Button
+											variant="link"
+											onClick={ () => {
+												getIpcApi().openURL(
+													'https://developer.wordpress.com/docs/developer-tools/studio/ssl-in-studio/'
+												);
+											} }
+										>
+											{ __( 'Learn how' ) }
+											<span aria-label={ __( '(opens in a new tab)' ) }>&#8599;</span>
+										</Button>
+									</div>
+								) }
 							</div>
 						</div>
 

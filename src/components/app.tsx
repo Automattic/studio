@@ -11,6 +11,7 @@ import TopBar from 'src/components/top-bar';
 import UserSettings from 'src/components/user-settings';
 import WhatsNewModal from 'src/components/whats-new-modal';
 import WindowsTitlebar from 'src/components/windows-titlebar';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useLocalizationSupport } from 'src/hooks/use-localization-support';
 import { useOnboarding } from 'src/hooks/use-onboarding';
 import { useSidebarVisibility } from 'src/hooks/use-sidebar-visibility';
@@ -24,6 +25,7 @@ export default function App() {
 	const { needsOnboarding } = useOnboarding();
 	const { isSidebarVisible, toggleSidebar } = useSidebarVisibility();
 	const { showWhatsNew, closeWhatsNewModal } = useWhatsNew();
+	const { whatsNewSectionEnabled } = useFeatureFlags();
 
 	useEffect( () => {
 		getIpcApi().setupAppMenu( { needsOnboarding } );
@@ -75,7 +77,9 @@ export default function App() {
 				</VStack>
 			) }
 			<UserSettings />
-			<WhatsNewModal showModal={ showWhatsNew } onClose={ closeWhatsNewModal } />
+			{ whatsNewSectionEnabled && (
+				<WhatsNewModal showModal={ showWhatsNew } onClose={ closeWhatsNewModal } />
+			) }
 		</>
 	);
 }

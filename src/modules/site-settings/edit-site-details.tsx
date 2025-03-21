@@ -308,7 +308,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 											} }
 										>
 											{ __( 'Learn how' ) }
-											<span aria-label={ __( '(opens in a new tab)' ) }>&#8599;</span>
+											<span aria-label={ __( '(opens in a web browser)' ) }>&#8599;</span>
 										</Button>
 									</div>
 								) }

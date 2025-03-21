@@ -103,7 +103,6 @@ export async function ensureRootCA(): Promise< { cert: string; key: string } > {
 		{ name: 'commonName', value: CA_NAME },
 		{ name: 'countryName', value: 'US' },
 		{ name: 'organizationName', value: 'WordPress Studio' },
-		{ name: 'organizationalUnitName', value: 'Development' },
 	];
 	cert.setSubject( attrs );
 	cert.setIssuer( attrs );
@@ -217,7 +216,6 @@ export async function generateSiteCertificate(
 			{ name: 'commonName', value: domain },
 			{ name: 'countryName', value: 'US' },
 			{ name: 'organizationName', value: 'WordPress Studio' },
-			{ name: 'organizationalUnitName', value: 'Development Sites' },
 		];
 		cert.setSubject( attrs );
 		cert.setIssuer( caCertObj.subject.attributes );

@@ -67,9 +67,13 @@ const CERT_DIRECTORY = getUserDataCertificatesPath();
 const CA_CERT_PATH = path.join( CERT_DIRECTORY, 'studio-ca.crt' );
 const CA_KEY_PATH = path.join( CERT_DIRECTORY, 'studio-ca.key' );
 
-// Make sure the certificates directory exists
-if ( ! fs.existsSync( path.join( CERT_DIRECTORY, 'domains' ) ) ) {
-	fs.mkdirSync( path.join( CERT_DIRECTORY, 'domains' ), { recursive: true } );
+/**
+ * Initialize the certificates directory
+ */
+function initializeCertificatesDirectory() {
+	if ( ! fs.existsSync( path.join( CERT_DIRECTORY, 'domains' ) ) ) {
+		fs.mkdirSync( path.join( CERT_DIRECTORY, 'domains' ), { recursive: true } );
+	}
 }
 
 /**
@@ -131,6 +135,7 @@ export async function ensureRootCA(): Promise< { cert: string; key: string } > {
 
 	const certPem = forge.pki.certificateToPem( cert );
 	const keyPem = forge.pki.privateKeyToPem( keys.privateKey );
+	initializeCertificatesDirectory();
 	fs.writeFileSync( CA_CERT_PATH, certPem );
 	fs.writeFileSync( CA_KEY_PATH, keyPem );
 	fs.chmodSync( CA_CERT_PATH, 0o700 );
@@ -249,6 +254,7 @@ export async function generateSiteCertificate(
 
 		const certPem = forge.pki.certificateToPem( cert );
 		const keyPem = forge.pki.privateKeyToPem( keys.privateKey );
+		initializeCertificatesDirectory();
 		fs.writeFileSync( siteCertPath, certPem );
 		fs.writeFileSync( siteKeyPath, keyPem );
 

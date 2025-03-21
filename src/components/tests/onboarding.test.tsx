@@ -28,6 +28,7 @@ jest.mock( 'src/stores', () => ( {
 
 jest.mock( 'src/lib/app-globals', () => ( {
 	isMac: () => true,
+	isWindows: () => false,
 } ) );
 
 jest.mock( 'src/hooks/use-offline', () => ( {

@@ -6,6 +6,10 @@ import AddSite from 'src/components/add-site';
 import { useOffline } from 'src/hooks/use-offline';
 import { FolderDialogResponse } from 'src/ipc-handlers';
 
+jest.mock( 'src/lib/app-globals', () => ( {
+	isWindows: () => false,
+} ) );
+
 jest.mock( 'src/stores', () => {
 	const mockDispatch = jest.fn();
 	return {

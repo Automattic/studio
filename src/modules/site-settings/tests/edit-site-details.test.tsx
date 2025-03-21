@@ -9,6 +9,9 @@ const mockStopServer = jest.fn();
 const mockStartServer = jest.fn();
 const mockExecuteWPCLiInline = jest.fn();
 const mockShowErrorMessageBox = jest.fn();
+jest.mock( 'src/lib/app-globals', () => ( {
+	isWindows: () => false,
+} ) );
 
 jest.mock( 'src/hooks/use-site-details', () => ( {
 	useSiteDetails: () => ( {

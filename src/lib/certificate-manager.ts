@@ -1,10 +1,10 @@
-import * as crypto from 'crypto';
 import { shell } from 'electron';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as Sentry from '@sentry/electron/main';
+import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
+import Sentry from '@sentry/electron/main';
 import sudo from '@vscode/sudo-prompt';
-import * as forge from 'node-forge';
+import forge from 'node-forge';
 import { getUserDataCertificatesPath } from 'src/storage/paths';
 
 /**

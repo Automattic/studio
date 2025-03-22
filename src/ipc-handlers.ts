@@ -15,10 +15,9 @@ import fsPromises from 'fs/promises';
 import https from 'node:https';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
+import Database from 'better-sqlite3';
 import { __, LocaleData, defaultI18n } from '@wordpress/i18n';
 import archiver from 'archiver';
-import Database from 'better-sqlite3';
-import { Database as DatabaseType } from 'better-sqlite3';
 import { ARCHIVER_OPTIONS, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
@@ -58,9 +57,6 @@ import { loadUserData, saveUserData } from 'src/storage/user-data';
 import { DEFAULT_PHP_VERSION } from 'vendor/wp-now/src/constants';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
-
-// databaseId -> databasePath
-const databases = new Map<string, string>();
 
 const TEMP_DIR = nodePath.join( app.getPath( 'temp' ), 'com.wordpress.studio' ) + nodePath.sep;
 if ( ! fs.existsSync( TEMP_DIR ) ) {
@@ -657,8 +653,7 @@ export async function deleteSite( event: IpcMainInvokeEvent, id: string, deleteF
 	}
 	const userData = await loadUserData();
 	await server.delete();
-	removeDatabase( id );
-	
+
 	try {
 		// Move files to trash
 		if ( deleteFiles ) {
@@ -1218,91 +1213,147 @@ export async function isFullscreen( _event: IpcMainInvokeEvent ): Promise< boole
 	return window.isFullScreen();
 }
 
-// Database operations.
-let currentDatabase: DatabaseType | undefined;
-
 interface QueryResult {
 	[ key: string ]: unknown;
 }
 
-export async function openDatabase(
-	_event: IpcMainInvokeEvent,
-	databaseId: string,
-	databasePath: string
-) {
-	if ( currentDatabase ) {
-		currentDatabase.close();
-		currentDatabase = undefined;
-	}
-	currentDatabase = new Database( databasePath );
-	currentDatabase.pragma( 'journal_mode = WAL' );
-	databases.set( databaseId, databasePath );
-}
-
-export async function closeDatabase(
-	_event: IpcMainInvokeEvent,
-	databaseId: string
-) {
-	currentDatabase?.close();
-	databases.delete( databaseId );
-}
-
-export async function executeSelectQuery(
-	_event: IpcMainInvokeEvent,
-	databaseId: string,
-	databasePath: string,
-	query: string,
-	values?: unknown[]
-): Promise<QueryResult[]> {
-	if ( ! currentDatabase ) {
-		currentDatabase = new Database( databasePath );
-		currentDatabase.pragma( 'journal_mode = WAL' );
-		databases.set( databaseId, databasePath );
-	}
+// Add this function at the top level to check file permissions and set them if needed
+function ensureDatabaseFilePermissions( filePath: string ): void {
 	try {
-		const stmt = currentDatabase.prepare( query );
-		const results = values ? stmt.all( ...values ) : stmt.all();
-		return results as QueryResult[];
+		// Check if file exists
+		if ( ! fs.existsSync( filePath ) ) {
+			throw new Error( `Database file not found: ${ filePath }` );
+		}
+
+		// Get file stats
+		const stats = fs.statSync( filePath );
+
+		// Check if it's a file (not a directory)
+		if ( ! stats.isFile() ) {
+			throw new Error( `Path is not a file: ${ filePath }` );
+		}
+
+		// Set proper permissions (readable and writable by owner, readable by group)
+		const mode = fs.constants.S_IRUSR | fs.constants.S_IWUSR | fs.constants.S_IRGRP;
+		fs.chmodSync( filePath, mode );
+
+		// Check if we have read permissions
+		try {
+			fs.accessSync( filePath, fs.constants.R_OK );
+		} catch ( err ) {
+			throw new Error( `No read permission for database file: ${ filePath }` );
+		}
+
+		// Check if we have write permissions
+		try {
+			fs.accessSync( filePath, fs.constants.W_OK );
+		} catch ( err ) {
+			throw new Error( `No write permission for database file: ${ filePath }` );
+		}
+
+		// Check file ownership and permissions
+		if ( process.platform !== 'win32' ) {
+			const currentUser = process.getuid?.();
+			const currentGroup = process.getgid?.();
+
+			if ( currentUser !== undefined && currentGroup !== undefined ) {
+				// Check if we own the file or have group permissions
+				if ( stats.uid !== currentUser && stats.gid !== currentGroup ) {
+					// Check if others have write permission
+					if ( stats.mode & fs.constants.S_IWOTH ) {
+						console.warn( `Warning: Database file ${ filePath } is writable by others` );
+					}
+				}
+			}
+		}
 	} catch ( err ) {
-		console.error( err );
+		console.error( 'Database file permission check failed:', err );
 		throw err;
 	}
 }
 
+// Update executeModificationQuery to handle file locking
 export async function executeModificationQuery(
 	_event: IpcMainInvokeEvent,
 	databaseId: string,
 	databasePath: string,
 	query: string,
 	values?: unknown[]
-): Promise<{ changes: number; lastInsertRowid: number | bigint }> {
-	if ( ! currentDatabase ) {
-		currentDatabase = new Database( databasePath );
-		currentDatabase.pragma( 'journal_mode = WAL' );
-		databases.set( databaseId, databasePath );
-	}
+): Promise< { changes: number; lastInsertRowid: number | bigint } > {
 	try {
-		const stmt = currentDatabase.prepare(query);
-		const info = values ? stmt.run(...values) : stmt.run();
-		if ( ! info ) {
-			throw new Error('Failed to execute query - statement was undefined');
+		console.log( 'Starting database modification:', {
+			databasePath,
+			query,
+			values,
+			fileExists: fs.existsSync( databasePath ),
+			fileStats: fs.existsSync( databasePath ) ? fs.statSync( databasePath ) : null,
+		} );
+		console.log( 'Getting database connection for:', databasePath );
+		const db = new Database( databasePath );
+		db.pragma( 'journal_mode = WAL' );
+		const stmt = db.prepare( query );
+		console.log( 'Executing statement with values:', values );
+		const info = values ? stmt.run( ...values ) : stmt.run();
+		// Force write to disk and ensure no locks
+		db.prepare( 'PRAGMA wal_checkpoint(FULL)' ).run();
+		return info;
+	} catch ( err ) {
+		console.error( 'Error executing modification query:', err );
+		if ( err instanceof Error && err.message.includes( 'malformed' ) ) {
+			throw new Error( 'Database file is corrupted. Please try restoring from a backup.' );
 		}
-		return {
-			changes: info.changes,
-			lastInsertRowid: info.lastInsertRowid
-		};
-	} catch (err) {
 		throw err;
 	}
 }
 
-function removeDatabase( databaseId: string ) {
-	if ( databases.has( databaseId ) ) {
-		databases.delete( databaseId );
-	}
-	if ( currentDatabase ) {
-		currentDatabase.close();	
-		currentDatabase = undefined;
+// Update executeSelectQuery to include permission check and better error handling
+export async function executeSelectQuery(
+	_event: IpcMainInvokeEvent,
+	databaseId: string,
+	databasePath: string,
+	query: string,
+	values?: unknown[]
+): Promise< QueryResult[] > {
+	try {
+		console.log( 'Starting database select query:', {
+			databasePath,
+			query,
+			values,
+			fileExists: fs.existsSync( databasePath ),
+			fileStats: fs.existsSync( databasePath ) ? fs.statSync( databasePath ) : null,
+		} );
+
+		// Ensure proper file permissions
+		ensureDatabaseFilePermissions( databasePath );
+
+		// Validate query is a SELECT query
+		const normalizedQuery = query.trim().toLowerCase();
+		if ( ! normalizedQuery.startsWith( 'select' ) && ! normalizedQuery.startsWith( 'pragma' ) ) {
+			throw new Error( 'Invalid query type. Only SELECT and PRAGMA queries are allowed.' );
+		}
+		console.log( 'Getting database connection for:', databasePath );
+		const db = new Database( databasePath );
+		db.pragma( 'journal_mode = WAL' );
+
+		// Set busy timeout to handle locks
+		db.prepare( 'PRAGMA busy_timeout = 5000' ).run();
+
+		// Use a transaction for better consistency
+		const transaction = db.transaction( () => {
+			console.log( 'Preparing statement:', query );
+			const stmt = db.prepare( query );
+			console.log( 'Executing statement with values:', values );
+			const results = values ? stmt.all( ...values ) : stmt.all();
+			console.log( 'Query execution completed' );
+			return results;
+		} );
+
+		return transaction() as QueryResult[];
+	} catch ( err ) {
+		console.error( 'Error executing select query:', err );
+		if ( err instanceof Error && err.message.includes( 'malformed' ) ) {
+			throw new Error( 'Database file is corrupted. Please try restoring from a backup.' );
+		}
+		throw err;
 	}
 }
-

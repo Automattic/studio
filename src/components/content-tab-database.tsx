@@ -33,16 +33,13 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 	const [ tableFilter, setTableFilter ] = useState( '' );
 	const [ selectedRow, setSelectedRow ] = useState< Record< string, unknown > | null >( null );
 	const [ selectedColumn, setSelectedColumn ] = useState< TableColumn | null >( null );
+    // @TODO add a check to see if the database is still loading (no tables are available)
+
 	useEffect( () => {
-		if ( ! selectedSite ) {
+		if ( ! selectedSite?.id || ! selectedSite?.path ) {
 			return;
 		}
-		const openDatabase = async () => {
-			await getIpcApi().openDatabase(
-				selectedSite.id,
-				`${ selectedSite?.path }/wp-content/database/.ht.sqlite`
-			);
-		};
+
 		const fetchTables = async () => {
 			// First get all tables
 			const tables = ( await getIpcApi().executeSelectQuery(
@@ -87,12 +84,8 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 		setTableRows( null );
 		setSelectedRow( null );
 		setSelectedColumn( null );
-		openDatabase();
 		fetchTables();
-		return () => {
-			getIpcApi().closeDatabase( selectedSite.id );
-		};
-	}, [ selectedSite?.path ] );
+	}, [ selectedSite?.path, selectedSite?.id ] );
 
 	const fetchTableColumns = async ( table: Table ) => {
 		const columns = ( await getIpcApi().executeSelectQuery(
@@ -123,6 +116,7 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 			`${ selectedSite?.path }/wp-content/database/.ht.sqlite`,
 			`SELECT * FROM ${ table.name }`
 		) ) as unknown as { name: string; type: string }[];
+		console.log( 'Rows:', rows );
 		setTableRows( rows );
 	};
 
@@ -142,21 +136,57 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 	};
 
 	const handleSave = async () => {
-		const primaryKeyColumn = tableColumns?.find( ( column ) => column.pk === 1 )?.name;
-		const updateQuery = `UPDATE ${ selectedTable?.name } SET ${ selectedColumn?.name } = ? WHERE ${ primaryKeyColumn } = ?`;
-		const updateValues = [
-			selectedRow?.[ selectedColumn?.name as string ],
-			selectedRow?.[ primaryKeyColumn as string ],
-		];
-		const { changes, lastInsertRowid } = await getIpcApi().executeModificationQuery(
-			selectedSite?.id,
-			`${ selectedSite?.path }/wp-content/database/.ht.sqlite`,
-			updateQuery,
-			updateValues
-		);
-		if ( changes > 0 && selectedTable ) {
-			fetchTableRows( selectedTable );
-			setShowModal( false );
+		try {
+			if ( ! selectedTable || ! selectedColumn || ! selectedRow ) {
+				throw new Error( 'Missing required data for update' );
+			}
+
+			const primaryKeyColumn = tableColumns?.find( ( column ) => column.pk === 1 )?.name;
+			if ( ! primaryKeyColumn ) {
+				throw new Error( 'Could not find primary key column' );
+			}
+
+			// Validate the new value
+			const newValue = selectedRow[ selectedColumn.name as string ];
+			if ( newValue === undefined ) {
+				throw new Error( 'New value is undefined' );
+			}
+
+			// Validate the primary key value
+			const primaryKeyValue = selectedRow[ primaryKeyColumn as string ];
+			if ( primaryKeyValue === undefined ) {
+				throw new Error( 'Primary key value is undefined' );
+			}
+
+			const updateQuery = `UPDATE ${ selectedTable.name } SET ${ selectedColumn.name } = ? WHERE ${ primaryKeyColumn } = ?`;
+			const updateValues = [ newValue, primaryKeyValue ];
+
+			console.log( 'Executing update:', {
+				table: selectedTable.name,
+				column: selectedColumn.name,
+				newValue,
+				primaryKey: primaryKeyColumn,
+				primaryKeyValue
+			} );
+
+			const { changes, lastInsertRowid } = await getIpcApi().executeModificationQuery(
+				selectedSite?.id,
+				`${ selectedSite?.path }/wp-content/database/.ht.sqlite`,
+				updateQuery,
+				updateValues
+			);
+
+			if ( changes > 0 ) {
+				// Refresh the table data
+				await fetchTableRows( selectedTable );
+				setShowModal( false );
+			} else {
+				throw new Error( 'Update did not affect any rows. The row might not exist or the values might be incorrect.' );
+			}
+		} catch ( error ) {
+			console.error( 'Error updating database:', error );
+			// You might want to show this error to the user in a more user-friendly way
+			alert( error instanceof Error ? error.message : 'An error occurred while updating the database' );
 		}
 	};
 

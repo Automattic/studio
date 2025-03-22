@@ -129,9 +129,6 @@ const api: IpcApi = {
 		query: string,
 		values?: unknown[]
 	) => ipcRenderer.invoke( 'executeModificationQuery', databaseId, databasePath, query, values ),
-	openDatabase: ( databaseId: string, databasePath: string ) =>
-		ipcRenderer.invoke( 'openDatabase', databaseId, databasePath ),
-	closeDatabase: ( databaseId: string ) => ipcRenderer.invoke( 'closeDatabase', databaseId ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

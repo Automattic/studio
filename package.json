@@ -15,7 +15,7 @@
 	"scripts": {
 		"start": "electron-forge start",
 		"start-wayland": "electron-forge start -- --enable-features=UseOzonePlatform --ozone-platform=wayland .",
-		"postinstall": "patch-package && ts-node scripts/download-wp-server-files.ts && node ./scripts/download-available-site-translations.mjs",
+		"postinstall": "patch-package && ts-node scripts/download-wp-server-files.ts && node ./scripts/download-available-site-translations.mjs && npm run rebuild",
 		"package": "electron-forge package",
 		"make": "electron-forge make",
 		"make:macos-universal": "SKIP_DMG=true electron-forge make --arch=universal",
@@ -23,7 +23,7 @@
 		"make:macos-arm64": "SKIP_DMG=true FILE_ARCHITECTURE=arm64 electron-forge make --arch=arm64 --platform=darwin",
 		"make:dmg-universal": "FILE_ARCHITECTURE=universal node ./scripts/make-dmg.mjs",
 		"make:dmg-x64": "FILE_ARCHITECTURE=x64 node ./scripts/make-dmg.mjs",
-		"make:dmg-arm64": "FILE_ARCHITECTURE=arm64 node ./scripts/make-dmg.mjs",
+		"make:dmg-arm64": "FILE_ARCHITECTURE=arm64 node make-dmg.mjs",
 		"publish": "electron-forge publish",
 		"lint": "eslint --ext .ts,.tsx,.js,.jsx,.mjs .",
 		"format": "prettier . --write",
@@ -31,7 +31,7 @@
 		"test:watch": "cross-env NODE_OPTIONS='--no-deprecation' jest --watch",
 		"e2e": "npx playwright install && npx playwright test",
 		"make-pot": "wp-babel-makepot \"./src/**/*.{js,jsx,ts,tsx}\" --ignore \"**/*.d.ts\" --base \"./src\" --dir \"./out/pots\" --output \"./out/pots/bundle-strings.pot\"",
-		"rebuild": "electron-rebuild -f -w better-sqlite3"
+		"rebuild": "electron ./scripts/rebuild.js"
 	},
 	"devDependencies": {
 		"@automattic/color-studio": "^2.5.0",
@@ -41,8 +41,9 @@
 		"@electron-forge/maker-dmg": "7.6.0",
 		"@electron-forge/maker-squirrel": "7.6.0",
 		"@electron-forge/maker-zip": "7.6.0",
-		"@electron-forge/plugin-auto-unpack-natives": "7.6.0",
+		"@electron-forge/plugin-auto-unpack-natives": "^7.6.0",
 		"@electron-forge/plugin-webpack": "7.6.0",
+		"@electron/rebuild": "^3.7.1",
 		"@playwright/test": "^1.41.1",
 		"@sentry/react": "^7.94.1",
 		"@testing-library/jest-dom": "^6.2.1",
@@ -50,7 +51,7 @@
 		"@testing-library/user-event": "^14.5.2",
 		"@timfish/forge-externals-plugin": "^0.2.1",
 		"@types/archiver": "^6.0.2",
-		"@types/better-sqlite3": "^7.6.9",
+		"@types/better-sqlite3": "^7.6.12",
 		"@types/ejs": "^3.1.5",
 		"@types/follow-redirects": "^1.14.4",
 		"@types/jest": "^29.5.11",

@@ -68,8 +68,17 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
             } ) );
             setTables( tablesWithInfo );
 		};
+        /*
+         * Reset the selected table when the path (selected site) changes, 
+         * to ensure that the correct tables are displayed.
+         */
+        setSelectedTable( null );
+        setTableColumns( null );
+        setTableRows( null );
+        setSelectedRow( null );
+        setSelectedColumn( null );
 		fetchTables();
-	}, [ selectedSite ] );
+	}, [ selectedSite?.path ] );
 
 
     const fetchTableColumns = async ( table: Table ) => {
@@ -112,7 +121,8 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
             updateQuery,
             updateValues
         );
-        if ( changes > 0 ) {
+        if ( changes > 0 && selectedTable ) {
+            fetchTableRows( selectedTable );
             setShowModal( false );
         }
     };

@@ -1219,26 +1219,30 @@ interface QueryResult {
 // @TODO
 // Add separate function for CRUD operations
 // https://github.com/WiseLibs/better-sqlite3/blob/df8a6a408008379dd4a600ce77af5e7b5d7e2d83/docs/api.md
+
+// The database must be persisted.
+// We should also track the state of which database is open.
+const openDatabases = new Map<string, DatabaseType>();
+
 export async function executeSelectQuery(
 	_event: IpcMainInvokeEvent,
 	databasePath: string,
 	query: string,
 	values?: unknown[]
 ): Promise<QueryResult[]> {
-	let db: DatabaseType | null = null;
-	if (!db) {
-		db = new Database(databasePath);
-		db.pragma('journal_mode = WAL');
+	if (!openDatabases.has(databasePath)) {
+		openDatabases.set(databasePath, new Database(databasePath));
+		openDatabases.get(databasePath)?.pragma('journal_mode = WAL');
 	}
 	try {
-		const stmt = db.prepare(query);
-		const results = values ? stmt.all(...values) : stmt.all();
+		const stmt = openDatabases.get(databasePath)?.prepare(query);
+		const results = values ? stmt?.all(...values) : stmt?.all();
 		return results as QueryResult[];
 	} catch (err) {
 		console.error(err);
 		throw err;
 	} finally {
-		db.close();
+		openDatabases.get(databasePath)?.close();
 	}
 }
 
@@ -1248,20 +1252,29 @@ export async function executeModificationQuery(
 	query: string,
 	values?: unknown[]
 ): Promise<{ changes: number; lastInsertRowid: number | bigint }> {
-	const db = new Database(databasePath);
-	db.pragma('journal_mode = WAL');
+	if (!openDatabases.has(databasePath)) {
+		openDatabases.set(databasePath, new Database(databasePath));
+		openDatabases.get(databasePath)?.pragma('journal_mode = WAL');
+	}
 	return new Promise( ( resolve, reject ) => {
 		try {
-			const stmt = db.prepare(query);
-			const info = values ? stmt.run(...values) : stmt.run();
-			resolve( {
+			const stmt = openDatabases.get(databasePath)?.prepare(query);
+			const info = values ? stmt?.run(...values) : stmt?.run();
+			if (!info) {
+				throw new Error('Failed to execute query - statement was undefined');
+			}
+			resolve({
 				changes: info.changes,
 				lastInsertRowid: info.lastInsertRowid
-			} );
+			});
 		} catch (err) {
-			reject( err );
+			reject(err);
 		} finally {
-			db.close();
+			openDatabases.get(databasePath)?.close();
 		}
 	} );
 }
+
+// export async function closeDatabase( event: IpcMainInvokeEvent, databasePath: string ) {
+// 	openDatabases.get(databasePath)?.close();
+// }

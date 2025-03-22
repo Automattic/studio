@@ -1,8 +1,8 @@
 import { __ } from '@wordpress/i18n';
 import { useEffect, useState } from 'react';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { key, layout, Icon } from '@wordpress/icons';
-import { Button, SearchControl, TextareaControl } from '@wordpress/components';
+import { key, layout, Icon, update, chevronLeft, chevronRight } from '@wordpress/icons';
+import { Button, SearchControl, TextareaControl, Spinner } from '@wordpress/components';
 import Modal from 'src/components/modal';
 
 interface ContentTabDatabaseProps {
@@ -11,9 +11,7 @@ interface ContentTabDatabaseProps {
 
 interface Table {
 	name: string;
-	columns: number;
-	rows: number;
-	description: string;
+	sql: string;
 }
 
 interface TableColumn {
@@ -32,49 +30,40 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 	const [ tableRows, setTableRows ] = useState< Record< string, unknown >[] | null >( null );
 	const [ tableFilter, setTableFilter ] = useState( '' );
 	const [ selectedRow, setSelectedRow ] = useState< Record< string, unknown > | null >( null );
+	const [ rowCount, setRowCount ] = useState< number | null >( null );
 	const [ selectedColumn, setSelectedColumn ] = useState< TableColumn | null >( null );
-    // @TODO add a check to see if the database is still loading (no tables are available)
+	const [ isLoading, setIsLoading ] = useState( true );
+	const [ error, setError ] = useState< string | null >( null );
+	const [ currentPage, setCurrentPage ] = useState( 1 );
+	const [ rowsPerPage ] = useState( 20 );
 
-	useEffect( () => {
-		if ( ! selectedSite?.id || ! selectedSite?.path ) {
-			return;
-		}
-
-		const fetchTables = async () => {
+	const fetchTables = async () => {
+		try {
+			setError( null );
+			setIsLoading( true );
 			// First get all tables
 			const tables = ( await getIpcApi().executeSelectQuery(
 				selectedSite?.id,
 				`${ selectedSite?.path }/wp-content/database/.ht.sqlite`,
 				"SELECT name, sql FROM sqlite_master WHERE type='table' ORDER BY name"
 			) ) as unknown as { name: string; sql: string }[];
+			setTables( tables );
+		} catch ( err ) {
+			console.error( 'Error fetching tables:', err );
+			setError( err instanceof Error ? err.message : 'Failed to load database tables' );
+		} finally {
+			setIsLoading( false );
+		}
+	};
 
-			// Then get row count and column info for each table
-			const tablesWithInfo = await Promise.all(
-				tables.map( async ( table ) => {
-					// Get row count
-					const rowCount = ( await getIpcApi().executeSelectQuery(
-						selectedSite?.id,
-						`${ selectedSite?.path }/wp-content/database/.ht.sqlite`,
-						`SELECT COUNT(*) as count FROM ${ table.name }`
-					) ) as unknown as { count: number }[];
+	useEffect( () => {
+		setIsLoading( true );
 
-					// Get column info
-					const columnInfo = ( await getIpcApi().executeSelectQuery(
-						selectedSite?.id,
-						`${ selectedSite?.path }/wp-content/database/.ht.sqlite`,
-						`PRAGMA table_info( ${ table.name } )`
-					) ) as unknown as { name: string; type: string }[];
+		// @ TODO - is there a better way to check if the db is loaded aside from themeDetails?
+		if ( ! selectedSite?.id || ! selectedSite?.path || ! selectedSite?.themeDetails ) {
+			return;
+		}
 
-					return {
-						name: table.name,
-						columns: columnInfo.length,
-						rows: rowCount[ 0 ].count,
-						description: table.sql,
-					};
-				} )
-			);
-			setTables( tablesWithInfo );
-		};
 		/*
 		 * Reset the selected table when the path (selected site) changes,
 		 * to ensure that the correct tables are displayed.
@@ -85,7 +74,7 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 		setSelectedRow( null );
 		setSelectedColumn( null );
 		fetchTables();
-	}, [ selectedSite?.path, selectedSite?.id ] );
+	}, [ selectedSite?.path, selectedSite?.id, selectedSite?.themeDetails ] );
 
 	const fetchTableColumns = async ( table: Table ) => {
 		const columns = ( await getIpcApi().executeSelectQuery(
@@ -111,17 +100,27 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 	};
 
 	const fetchTableRows = async ( table: Table ) => {
+		const offset = ( currentPage - 1 ) * rowsPerPage;
 		const rows = ( await getIpcApi().executeSelectQuery(
 			selectedSite?.id,
 			`${ selectedSite?.path }/wp-content/database/.ht.sqlite`,
-			`SELECT * FROM ${ table.name }`
+			`SELECT * FROM ${ table.name } LIMIT ${ rowsPerPage } OFFSET ${ offset }`
 		) ) as unknown as { name: string; type: string }[];
-		console.log( 'Rows:', rows );
 		setTableRows( rows );
+		// Get row count
+		const rowCount = ( await getIpcApi().executeSelectQuery(
+			selectedSite?.id,
+			`${ selectedSite?.path }/wp-content/database/.ht.sqlite`,
+			`SELECT COUNT(*) as count FROM ${ table.name }`
+		) ) as unknown as { count: number }[];
+		setRowCount( rowCount[ 0 ].count );
+		setIsLoading( false );
 	};
 
 	const handleTableClick = ( table: Table ) => {
+		setIsLoading( true );
 		setSelectedTable( table );
+		setCurrentPage( 1 ); // Reset to first page when selecting a new table
 		fetchTableColumns( table );
 		fetchTableRows( table );
 	};
@@ -166,7 +165,7 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 				column: selectedColumn.name,
 				newValue,
 				primaryKey: primaryKeyColumn,
-				primaryKeyValue
+				primaryKeyValue,
 			} );
 
 			const { changes, lastInsertRowid } = await getIpcApi().executeModificationQuery(
@@ -181,14 +180,34 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 				await fetchTableRows( selectedTable );
 				setShowModal( false );
 			} else {
-				throw new Error( 'Update did not affect any rows. The row might not exist or the values might be incorrect.' );
+				throw new Error(
+					'Update did not affect any rows. The row might not exist or the values might be incorrect.'
+				);
 			}
 		} catch ( error ) {
 			console.error( 'Error updating database:', error );
-			// You might want to show this error to the user in a more user-friendly way
-			alert( error instanceof Error ? error.message : 'An error occurred while updating the database' );
 		}
 	};
+
+	const handlePreviousPage = () => {
+		if ( currentPage > 1 ) {
+			setCurrentPage( currentPage - 1 );
+		}
+	};
+
+	const handleNextPage = () => {
+		const totalPages = Math.ceil( ( rowCount || 0 ) / rowsPerPage );
+		if ( currentPage < totalPages ) {
+			setCurrentPage( currentPage + 1 );
+		}
+	};
+
+	// Add effect to fetch data when page changes
+	useEffect( () => {
+		if ( selectedTable ) {
+			fetchTableRows( selectedTable );
+		}
+	}, [ currentPage, selectedTable ] );
 
 	const filteredTables = tables.filter( ( table ) =>
 		table.name.toLowerCase().includes( tableFilter.toLowerCase() )
@@ -196,9 +215,11 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 
 	return (
 		<div className="flex flex-col p-8" data-testid="import-export-supported">
-			<div className="a8c-subtitle-small mb-4">{ __( 'Tables' ) }</div>
-			<div className="flex gap-8">
-				<div className="w-48 flex-shrink-0">
+			<div className="flex justify-between items-center mb-2">
+				<div className="a8c-subtitle-small">{ __( 'Tables' ) }</div>
+			</div>
+			<div className="flex gap-8 relative">
+				<div className="w-48 flex-shrink-0 sticky top-0">
 					<div className="flex flex-col gap-1">
 						<SearchControl
 							placeholder={ __( 'Filter tables...' ) }
@@ -207,74 +228,138 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 							__nextHasNoMarginBottom
 							size="compact"
 						/>
-						<ol className="list-none">
-							{ filteredTables.map( ( table ) => {
-								const isSelected = selectedTable?.name === table.name;
-								return (
-									<li key={ table.name }>
-										<Button
-											icon={ layout }
-											variant={ isSelected ? 'primary' : 'tertiary' }
-											disabled={ isSelected }
-											isPressed={ isSelected }
-											className="text-xs w-full justify-start [&.is-pressed:disabled]:text-white"
-											onClick={ () => handleTableClick( table ) }
-											iconSize={ 16 }
-										>
-											{ table.name }
-										</Button>
-									</li>
-								);
-							} ) }
-						</ol>
+						{ isLoading ? (
+							<div className="flex items-center justify-center py-4">
+								<Spinner />
+							</div>
+						) : error ? (
+							<div className="text-red-500 text-xs p-2">{ error }</div>
+						) : (
+							<ol className="list-none">
+								{ filteredTables.map( ( table ) => {
+									const isSelected = selectedTable?.name === table.name;
+									return (
+										<li key={ table.name }>
+											<Button
+												icon={ layout }
+												variant={ isSelected ? 'primary' : 'tertiary' }
+												disabled={ isSelected }
+												isPressed={ isSelected }
+												className="text-xs w-full justify-start [&.is-pressed:disabled]:text-white"
+												onClick={ () => handleTableClick( table ) }
+												iconSize={ 16 }
+											>
+												{ table.name }
+											</Button>
+										</li>
+									);
+								} ) }
+							</ol>
+						) }
 					</div>
 				</div>
 
-				<div className="flex-1 overflow-x-auto justify-start">
-					<div className="h-full flex items-start">
-						{ selectedTable ? (
-							<div className="w-full overflow-x-auto border">
-								<table className="min-w-full divide-y divide-gray-200">
-									<thead className="bg-gray-50">
-										<tr>
-											{ tableColumns?.map( ( column ) => (
-												<th
-													key={ column.name }
-													className="px-2 py-1 text-left text-xs lowercase tracking-wider font-normal"
-												>
-													<div className="flex items-center gap-1 text-xs">
-														{ column.pk === 1 ? <Icon icon={ key } size={ 16 } /> : null }
-														<span>{ column.name }</span>
-														<span className="text-gray-500">{ column.type }</span>
-													</div>
-												</th>
-											) ) }
-										</tr>
-									</thead>
-									<tbody className="bg-white divide-y divide-gray-200">
-										{ tableRows?.map( ( row, rowIndex ) => (
-											<tr key={ rowIndex } className="hover:bg-gray-50">
+				<div className="flex-1 min-w-0">
+					<div className="h-full flex flex-col">
+						{ isLoading ? (
+							<div className="flex items-center justify-center w-full h-full">
+								<Spinner />
+							</div>
+						) : error ? (
+							<div className="text-red-500 text-sm p-4">{ error }</div>
+						) : selectedTable ? (
+							<div className="flex flex-col">
+								<div className="overflow-x-auto">
+									<table className="table-fixed border divide-y divide-gray-200">
+										<thead className="bg-gray-50">
+											<tr>
 												{ tableColumns?.map( ( column ) => (
-													<td
-														key={ `row-${ rowIndex }-${ column.name }` }
-														tabIndex={ 0 }
-														onClick={ () => handleRowClick( row, column ) }
-														className="max-w-[150px] px-2 py-1 text-xs text-gray-900 truncate focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-blue-50"
+													<th
+														key={ column.name }
+														className="px-2 py-1 text-left text-xs lowercase tracking-wider font-normal whitespace-nowrap"
 													>
-														{ String( row[ column.name ] ) !== '' ? (
-															String( row[ column.name ] )
-														) : (
-															<span className="text-gray-500">null</span>
-														) }
-													</td>
+														<div className="flex items-center gap-1 text-xs">
+															{ column.pk === 1 ? <Icon icon={ key } size={ 16 } /> : null }
+															<span>{ column.name }</span>
+															<span className="text-gray-500">{ column.type }</span>
+														</div>
+													</th>
 												) ) }
 											</tr>
-										) ) }
-									</tbody>
-								</table>
+										</thead>
+										<tbody className="bg-white divide-y divide-gray-200">
+											{ tableRows?.length
+												? tableRows?.map( ( row, rowIndex ) => (
+														<tr key={ rowIndex } className="hover:bg-gray-50">
+															{ tableColumns?.map( ( column ) => (
+																<td
+																	key={ `row-${ rowIndex }-${ column.name }` }
+																	tabIndex={ 0 }
+																	onClick={ () => handleRowClick( row, column ) }
+																	className="px-2 py-1 text-xs text-left text-gray-900 truncate focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-blue-50 max-w-[200px]"
+																>
+																	{ String( row[ column.name ] ) !== '' ? (
+																		String( row[ column.name ] )
+																	) : (
+																		<span className="text-gray-500">null</span>
+																	) }
+																</td>
+															) ) }
+														</tr>
+												  ) )
+												: null }
+										</tbody>
+									</table>
+								</div>
 							</div>
 						) : (
 							<div className="text-gray-500">Select a table from the list to view its details</div>
+						) }
+						{ selectedTable && (
+							<div className="flex items-center gap-2 text-gray-500 py-1 text-xs italic whitespace-nowrap justify-between">
+								<span className="justify-start">
+									Total rows: { rowCount } | Page { currentPage } of{ ' ' }
+									{ Math.ceil( ( rowCount || 0 ) / rowsPerPage ) }
+								</span>
+								<div className="flex items-center gap-1">
+									<Button
+										icon={ <Icon icon={ chevronLeft } size={ 16 } /> }
+										variant="tertiary"
+										size="small"
+										onClick={ handlePreviousPage }
+										disabled={ currentPage === 1 || isLoading }
+										showTooltip
+										iconSize={ 16 }
+									>
+										{ __( 'Previous' ) }
+									</Button>
+									<Button
+										icon={ <Icon icon={ chevronRight } size={ 16 } /> }
+										variant="tertiary"
+										size="small"
+										onClick={ handleNextPage }
+										disabled={
+											currentPage >= Math.ceil( ( rowCount || 0 ) / rowsPerPage ) || isLoading
+										}
+										showTooltip
+										iconSize={ 16 }
+									>
+										{ __( 'Next' ) }
+									</Button>
+									<Button
+										icon={ <Icon icon={ update } size={ 16 } /> }
+										variant="tertiary"
+										size="small"
+										onClick={ () => fetchTableRows( selectedTable ) }
+										isBusy={ isLoading }
+										disabled={ isLoading }
+										showTooltip
+										iconSize={ 16 }
+									>
+										{ __( 'Refresh' ) }
+									</Button>
+								</div>
+							</div>
 						) }
 					</div>
 				</div>

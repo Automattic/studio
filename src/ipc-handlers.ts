@@ -1225,40 +1225,59 @@ export async function executeQuery(
 	query: string,
 	values?: unknown[]
 ): Promise< QueryResult[] > {
+
 	let db: DatabaseType | null = null;
 	if ( ! db ) {
 		db = new Database( databasePath );
 		db.pragma( 'journal_mode = WAL' ); // For better performance
 	}
 	try {
-		const stmt = db.prepare( query );
-		
-		// Check if this is a SELECT query
-		const isSelect = query.trim().toLowerCase().startsWith( 'select' );
-		
-		if ( values ) {
-			if ( isSelect ) {
-				// For SELECT queries, use all() to get results
-				return stmt.all( ...values ) as QueryResult[];
-			} else {
-				// For INSERT, UPDATE, DELETE, use run() and return empty array
-				const result = stmt.run( ...values );
-				console.log( result );
-				return [];
-			}
-		} else {
-			if ( isSelect ) {
-				// For SELECT queries without parameters
-				return stmt.all() as QueryResult[];
-			} else {
-				// For other queries without parameters
-				const result = stmt.run();
-				console.log(result);
-				return [];
-			}
-		}
+		const rows = db.prepare( query ).all() as QueryResult[];
+		return rows;
 	} catch ( err ) {
 		console.error( err );
 		throw err;
+	}
+// @fix this
+	// return;
+
+
+	// let db: DatabaseType | null = null;
+	// if ( ! db ) {
+	// 	db = new Database( databasePath );
+	// 	db.pragma( 'journal_mode = WAL' ); // For better performance
+	// }
+	// try {
+	// 	console.log( { query } );
+	// 	const stmt = db.prepare( query );
+		
+	// 	// Check if this is a SELECT query
+	// 	const isSelect = query.trim().toLowerCase().startsWith( 'select' ) || query.trim().toLowerCase().startsWith( 'pragma' );
+	// 	return stmt.all() as QueryResult[];
+	// 	console.log( { isSelect } );
+	// 	if ( values ) {
+	// 		if ( isSelect ) {
+	// 			// For SELECT queries, use all() to get results
+	// 			return stmt.all( ...values ) as QueryResult[];
+	// 		} else {
+	// 			// For INSERT, UPDATE, DELETE, use run() and return empty array
+	// 			const result = stmt.run( ...values );
+	// 			console.log( result );
+	// 			return [];
+	// 		}
+	// 	} else {
+	// 		if ( isSelect ) {
+	// 			// For SELECT queries without parameters
+	// 			return stmt.all() as QueryResult[];
+	// 		} else {
+	// 			// For other queries without parameters
+	// 			const result = stmt.run();
+	// 			console.log(result);
+	// 			return [];
+	// 		}
+	// 	}
+	// } catch ( err ) {
+	// 	console.error( err );
+	// 	throw err;
 	}
 }

@@ -119,6 +119,7 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
         table.name.toLowerCase().includes( tableFilter.toLowerCase() )
     );
 
+
 	return (
         <div className="flex flex-col p-8" data-testid="import-export-supported">
             <div className="a8c-subtitle-small mb-4">{ __( 'Tables' ) }</div>

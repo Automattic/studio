@@ -22,7 +22,7 @@ export default class DatabaseManager {
 		return DatabaseManager.instance;
 	}
 
-	getConnection( databaseId: string, databasePath: string ): DatabaseType {
+	getConnection( databaseId: string, databasePath: string ): Database.Database {
 		const existingConnection = this.connections.get( databaseId );
 
 		// If connection exists and path matches, return it

@@ -59,6 +59,9 @@ import { DEFAULT_PHP_VERSION } from 'vendor/wp-now/src/constants';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
 
+// databaseId -> databasePath
+const databases = new Map<string, string>();
+
 const TEMP_DIR = nodePath.join( app.getPath( 'temp' ), 'com.wordpress.studio' ) + nodePath.sep;
 if ( ! fs.existsSync( TEMP_DIR ) ) {
 	fs.mkdirSync( TEMP_DIR );
@@ -654,6 +657,8 @@ export async function deleteSite( event: IpcMainInvokeEvent, id: string, deleteF
 	}
 	const userData = await loadUserData();
 	await server.delete();
+	removeDatabase( id );
+	
 	try {
 		// Move files to trash
 		if ( deleteFiles ) {
@@ -1212,69 +1217,92 @@ export async function isFullscreen( _event: IpcMainInvokeEvent ): Promise< boole
 	const window = await getMainWindow();
 	return window.isFullScreen();
 }
+
+// Database operations.
+let currentDatabase: DatabaseType | undefined;
+
 interface QueryResult {
 	[ key: string ]: unknown;
 }
 
-// @TODO
-// Add separate function for CRUD operations
-// https://github.com/WiseLibs/better-sqlite3/blob/df8a6a408008379dd4a600ce77af5e7b5d7e2d83/docs/api.md
+export async function openDatabase(
+	_event: IpcMainInvokeEvent,
+	databaseId: string,
+	databasePath: string
+) {
+	if ( currentDatabase ) {
+		currentDatabase.close();
+		currentDatabase = undefined;
+	}
+	currentDatabase = new Database( databasePath );
+	currentDatabase.pragma( 'journal_mode = WAL' );
+	databases.set( databaseId, databasePath );
+}
 
-// The database must be persisted.
-// We should also track the state of which database is open.
-const openDatabases = new Map<string, DatabaseType>();
+export async function closeDatabase(
+	_event: IpcMainInvokeEvent,
+	databaseId: string
+) {
+	currentDatabase?.close();
+	databases.delete( databaseId );
+}
 
 export async function executeSelectQuery(
 	_event: IpcMainInvokeEvent,
+	databaseId: string,
 	databasePath: string,
 	query: string,
 	values?: unknown[]
 ): Promise<QueryResult[]> {
-	if (!openDatabases.has(databasePath)) {
-		openDatabases.set(databasePath, new Database(databasePath));
-		openDatabases.get(databasePath)?.pragma('journal_mode = WAL');
+	if ( ! currentDatabase ) {
+		currentDatabase = new Database( databasePath );
+		currentDatabase.pragma( 'journal_mode = WAL' );
+		databases.set( databaseId, databasePath );
 	}
 	try {
-		const stmt = openDatabases.get(databasePath)?.prepare(query);
-		const results = values ? stmt?.all(...values) : stmt?.all();
+		const stmt = currentDatabase.prepare( query );
+		const results = values ? stmt.all( ...values ) : stmt.all();
 		return results as QueryResult[];
-	} catch (err) {
-		console.error(err);
+	} catch ( err ) {
+		console.error( err );
 		throw err;
-	} finally {
-		openDatabases.get(databasePath)?.close();
 	}
 }
 
 export async function executeModificationQuery(
 	_event: IpcMainInvokeEvent,
+	databaseId: string,
 	databasePath: string,
 	query: string,
 	values?: unknown[]
 ): Promise<{ changes: number; lastInsertRowid: number | bigint }> {
-	if (!openDatabases.has(databasePath)) {
-		openDatabases.set(databasePath, new Database(databasePath));
-		openDatabases.get(databasePath)?.pragma('journal_mode = WAL');
+	if ( ! currentDatabase ) {
+		currentDatabase = new Database( databasePath );
+		currentDatabase.pragma( 'journal_mode = WAL' );
+		databases.set( databaseId, databasePath );
 	}
-	return new Promise( ( resolve, reject ) => {
-		try {
-			const stmt = openDatabases.get(databasePath)?.prepare(query);
-			const info = values ? stmt?.run(...values) : stmt?.run();
-			if (!info) {
-				throw new Error('Failed to execute query - statement was undefined');
-			}
-			resolve({
-				changes: info.changes,
-				lastInsertRowid: info.lastInsertRowid
-			});
-		} catch (err) {
-			reject(err);
-		} finally {
-			openDatabases.get(databasePath)?.close();
+	try {
+		const stmt = currentDatabase.prepare(query);
+		const info = values ? stmt.run(...values) : stmt.run();
+		if ( ! info ) {
+			throw new Error('Failed to execute query - statement was undefined');
 		}
-	} );
+		return {
+			changes: info.changes,
+			lastInsertRowid: info.lastInsertRowid
+		};
+	} catch (err) {
+		throw err;
+	}
 }
 
-// export async function closeDatabase( event: IpcMainInvokeEvent, databasePath: string ) {
-// 	openDatabases.get(databasePath)?.close();
-// }
+function removeDatabase( databaseId: string ) {
+	if ( databases.has( databaseId ) ) {
+		databases.delete( databaseId );
+	}
+	if ( currentDatabase ) {
+		currentDatabase.close();	
+		currentDatabase = undefined;
+	}
+}
+

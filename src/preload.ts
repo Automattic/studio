@@ -117,10 +117,21 @@ const api: IpcApi = {
 	getPathForFile: webUtils.getPathForFile,
 	getFileContent: ( filePath: string ) => ipcRenderer.invoke( 'getFileContent', filePath ),
 	isFullscreen: () => ipcRenderer.invoke( 'isFullscreen' ),
-	executeSelectQuery: ( databasePath: string, query: string, values?: unknown[] ) =>
-		ipcRenderer.invoke( 'executeSelectQuery', databasePath, query, values ),
-	executeModificationQuery: ( databasePath: string, query: string, values?: unknown[] ) =>
-		ipcRenderer.invoke( 'executeModificationQuery', databasePath, query, values ),
+	executeSelectQuery: (
+		databaseId: string,
+		databasePath: string,
+		query: string,
+		values?: unknown[]
+	) => ipcRenderer.invoke( 'executeSelectQuery', databaseId, databasePath, query, values ),
+	executeModificationQuery: (
+		databaseId: string,
+		databasePath: string,
+		query: string,
+		values?: unknown[]
+	) => ipcRenderer.invoke( 'executeModificationQuery', databaseId, databasePath, query, values ),
+	openDatabase: ( databaseId: string, databasePath: string ) =>
+		ipcRenderer.invoke( 'openDatabase', databaseId, databasePath ),
+	closeDatabase: ( databaseId: string ) => ipcRenderer.invoke( 'closeDatabase', databaseId ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

@@ -1215,10 +1215,15 @@ export async function isFullscreen( _event: IpcMainInvokeEvent ): Promise< boole
 interface QueryResult {
 	[ key: string ]: unknown;
 }
+
+// @TODO
+// Add separate function for CRUD operations
+// https://github.com/WiseLibs/better-sqlite3/blob/df8a6a408008379dd4a600ce77af5e7b5d7e2d83/docs/api.md
 export async function executeQuery(
 	_event: IpcMainInvokeEvent,
 	databasePath: string,
-	query: string
+	query: string,
+	values?: unknown[]
 ): Promise< QueryResult[] > {
 	let db: DatabaseType | null = null;
 	if ( ! db ) {
@@ -1226,8 +1231,32 @@ export async function executeQuery(
 		db.pragma( 'journal_mode = WAL' ); // For better performance
 	}
 	try {
-		const rows = db.prepare( query ).all() as QueryResult[];
-		return rows;
+		const stmt = db.prepare( query );
+		
+		// Check if this is a SELECT query
+		const isSelect = query.trim().toLowerCase().startsWith( 'select' );
+		
+		if ( values ) {
+			if ( isSelect ) {
+				// For SELECT queries, use all() to get results
+				return stmt.all( ...values ) as QueryResult[];
+			} else {
+				// For INSERT, UPDATE, DELETE, use run() and return empty array
+				const result = stmt.run( ...values );
+				console.log( result );
+				return [];
+			}
+		} else {
+			if ( isSelect ) {
+				// For SELECT queries without parameters
+				return stmt.all() as QueryResult[];
+			} else {
+				// For other queries without parameters
+				const result = stmt.run();
+				console.log(result);
+				return [];
+			}
+		}
 	} catch ( err ) {
 		console.error( err );
 		throw err;

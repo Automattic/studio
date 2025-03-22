@@ -5,7 +5,8 @@ import {
 } from 'react';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { key, layout, Icon } from '@wordpress/icons';
-import { Button } from '@wordpress/components';
+import { Button, SearchControl, TextareaControl } from '@wordpress/components';
+import Modal from 'src/components/modal';
 
 interface ContentTabDatabaseProps {
 	selectedSite: SiteDetails;
@@ -27,11 +28,15 @@ interface TableColumn {
 }
 
 export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) {
+    const [ showModal, setShowModal ] = useState( false );
 	const [ tables, setTables ] = useState< Table[] >( [] );
     const [ selectedTable, setSelectedTable ] = useState<Table | null>( null );
     const [ tableColumns, setTableColumns ] = useState< TableColumn[] | null >( null );
     const [ tableRows, setTableRows ] = useState< Record<string, unknown>[] | null >( null );
- 
+    const [ tableFilter, setTableFilter ] = useState( '' );
+    const [ selectedRow, setSelectedRow ] = useState< Record<string, unknown> | null >( null );
+    const [ selectedColumn, setSelectedColumn ] = useState< TableColumn | null >( null );
+
 	useEffect( () => {
         const fetchTables = async () => {
             // First get all tables
@@ -90,69 +95,136 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
         fetchTableRows( table );
     };
 
+    const handleRowClick = ( row: Record<string, unknown>, column: TableColumn ) => {
+        if ( column.pk === 1 ) {
+            return;
+        }
+        setSelectedRow( row );
+        setSelectedColumn( column );
+        setShowModal( true );
+    };
+
+    const handleSave = async () => {
+        const updateQuery = `UPDATE ${ selectedTable?.name } SET ${ selectedColumn?.name } = ? WHERE id = ?`;
+        const updateValues = [ selectedRow?.[ selectedColumn?.name as string ], selectedRow?.id ];
+        await getIpcApi().executeQuery(
+            `${ selectedSite?.path }/wp-content/database/.ht.sqlite`,
+            updateQuery,
+            updateValues
+        );
+        setShowModal( false );
+    };
+
+    const filteredTables = tables.filter( table => 
+        table.name.toLowerCase().includes( tableFilter.toLowerCase() )
+    );
+
 	return (
-        <div className="flex flex-col p-8 gap-8" data-testid="import-export-supported">
+        <div className="flex flex-col p-8" data-testid="import-export-supported">
+            <div className="a8c-subtitle-small mb-4">{ __( 'Tables' ) }</div>
             <div className="flex gap-8">
-                <div className="w-64 flex-shrink-0">
-                    <div className="a8c-subtitle-small mb-4">{ __( 'Tables' ) }</div>
+                <div className="w-48 flex-shrink-0">
                     <div className="flex flex-col gap-1">
+                        <SearchControl
+                            placeholder={ __( 'Filter tables...' ) }
+                            value={ tableFilter }
+                            onChange={ setTableFilter }
+                            __nextHasNoMarginBottom
+                            size="compact"
+                        />
                         <ol className="list-none">
-                            { tables.map( ( table ) => (
-                                <li 
-                                    key={table.name} 
-                                >
-                                    <Button icon={ layout } variant="tertiary" disabled={ selectedTable?.name === table.name} className="text-xs" onClick={ () => handleTableClick( table ) }>
-                                        { table.name } ( { table.rows } rows )
-                                    </Button>
-                                </li>
-                            ) ) }
+                            { filteredTables.map( ( table ) => {
+                                const isSelected = selectedTable?.name === table.name;
+                                return (
+                                    <li 
+                                        key={table.name} 
+                                    >
+                                        <Button
+                                            icon={ layout }
+                                            variant={ isSelected ? 'primary' : 'tertiary' }
+                                            disabled={ isSelected }
+                                            isPressed={ isSelected }
+                                            className="text-xs w-full justify-start [&.is-pressed:disabled]:text-white"
+                                            onClick={ () => handleTableClick( table ) }
+                                            iconSize={ 16 }
+                                        >
+                                            { table.name }
+                                        </Button>
+                                    </li>
+                                );
+                            } ) }
                         </ol>
                     </div>
                 </div>
 
                 <div className="flex-1 overflow-x-auto justify-start">
-                    <div className="h-full flex items-start mt-12">
-                        <div className="p-4 border rounded">
-                            { selectedTable ? (
-                                <div className="w-full overflow-x-auto">
-                                    <table className="min-w-full divide-y divide-gray-200">
-                                        <thead className="bg-gray-50">
-                                            <tr>
-                                                { tableColumns?.map((column) => (
-                                                    <th 
-                                                        key={ column.name }
-                                                        className="px-6 py-3 text-left text-xs lowercase tracking-wider font-normal"
-                                                    >
+                    <div className="h-full flex items-start">
+                        { selectedTable ? (
+                            <div className="w-full overflow-x-auto border">
+                                <table className="min-w-full divide-y divide-gray-200">
+                                    <thead className="bg-gray-50">
+                                        <tr>
+                                            { tableColumns?.map((column) => (
+                                                <th 
+                                                    key={ column.name }
+                                                    className="px-2 py-1 text-left text-xs lowercase tracking-wider font-normal"
+                                                >
+                                                    <div className="flex items-center gap-1 text-xs">
                                                         { column.pk === 1 ? <Icon icon={ key } size={ 16 } /> : null } 
-                                                        <span className="text-xs">{ column.name }</span>
-                                                        <span className="text-xs text-gray-500 ml-1">{ column.type }</span>
-                                                    </th>
-                                                ))}
+                                                        <span>{ column.name }</span>
+                                                        <span className="text-gray-500">{ column.type }</span>
+                                                    </div>
+                                                </th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody className="bg-white divide-y divide-gray-200">
+                                        { tableRows?.map( ( row, rowIndex ) => (
+                                            <tr key={ rowIndex } className="hover:bg-gray-50">
+                                                { tableColumns?.map( ( column ) => (
+                                                    <td 
+                                                        key={ `row-${ rowIndex }-${ column.name }`}
+                                                        tabIndex={0}
+                                                        onClick={ () => handleRowClick( row, column ) }
+                                                        className="max-w-[150px] px-2 py-1 text-xs text-gray-900 truncate focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-blue-50"
+                                                    >
+                                                        { String( row[ column.name ] ) !== '' ? String( row[ column.name ] ) : <span className="text-gray-500">null</span> }
+                                                    </td>
+                                                ) ) }
                                             </tr>
-                                        </thead>
-                                        <tbody className="bg-white divide-y divide-gray-200">
-                                            { tableRows?.map( ( row, rowIndex ) => (
-                                                <tr key={ rowIndex }>
-                                                    { tableColumns?.map( ( column ) => (
-                                                        <td 
-                                                            key={ `row-${ rowIndex }-${ column.name }`}
-                                                            className="px-6 py-4 whitespace-nowrap text-xs text-gray-900"
-                                                        >
-                                                            { String( row[ column.name ] ?? '' ) }
-                                                        </td>
-                                                    ) ) }
-                                                </tr>
-                                            ) ) }
-                                        </tbody>
-                                    </table>
-                                </div>
-                            ) : (
-                                <div className="text-gray-500">Select a table from the list to view its details</div>
-                            ) }
-                        </div>
+                                        ) ) }
+                                    </tbody>
+                                </table>
+                            </div>
+                        ) : (
+                            <div className="text-gray-500">Select a table from the list to view its details</div>
+                        ) }
                     </div>
                 </div>
             </div>
+            { showModal && (
+				<Modal
+                    size="medium"
+                    title={ `Editing ${ selectedColumn?.name } from ${ selectedTable?.name }` }
+                    isDismissible
+                    focusOnMount="firstContentElement"
+                    onRequestClose={ () => setShowModal( false ) }
+                    className="max-h-[90%]"
+                >
+                    <div>
+                        <TextareaControl
+                            value={ selectedRow?.[ selectedColumn?.name as string ] as string }
+                            onChange={ ( value ) => {
+                                setSelectedRow( { ...selectedRow, [ selectedColumn?.name as string ]: value } );
+                            } }
+                        />
+                        <div className="flex justify-end gap-2">
+                            <Button variant="primary" onClick={ () => handleSave() }>{ __( 'Save' ) }</Button>
+                            <Button variant="secondary" onClick={ () => setShowModal( false ) }>{ __( 'Cancel' ) }</Button>
+                        </div>
+                    </div>
+                </Modal>
+            )}
         </div>
     );
 }

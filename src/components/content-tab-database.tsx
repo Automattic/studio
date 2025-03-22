@@ -40,7 +40,7 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 	useEffect( () => {
         const fetchTables = async () => {
             // First get all tables
-            const tables = ( await getIpcApi().executeQuery(
+            const tables = ( await getIpcApi().executeSelectQuery(
                 `${ selectedSite?.path }/wp-content/database/.ht.sqlite`,
 				'SELECT name, sql FROM sqlite_master WHERE type=\'table\' ORDER BY name'
 			) as unknown ) as { name: string; sql: string }[];
@@ -48,13 +48,13 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
             // Then get row count and column info for each table
             const tablesWithInfo = await Promise.all( tables.map( async ( table ) => {
                 // Get row count
-                const rowCount = ( await getIpcApi().executeQuery(
+                const rowCount = ( await getIpcApi().executeSelectQuery(
                     `${ selectedSite?.path }/wp-content/database/.ht.sqlite`,
                     `SELECT COUNT(*) as count FROM ${ table.name }`
                 ) as unknown ) as { count: number }[];
 
                 // Get column info
-                const columnInfo = ( await getIpcApi().executeQuery(
+                const columnInfo = ( await getIpcApi().executeSelectQuery(
                     `${ selectedSite?.path }/wp-content/database/.ht.sqlite`,
                     `PRAGMA table_info( ${ table.name } )`
                 ) as unknown) as { name: string; type: string }[];
@@ -73,16 +73,15 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 
 
     const fetchTableColumns = async ( table: Table ) => {
-        const columns = ( await getIpcApi().executeQuery(
+        const columns = ( await getIpcApi().executeSelectQuery(
             `${ selectedSite?.path }/wp-content/database/.ht.sqlite`,
             `PRAGMA table_info( ${ table.name } )`
         ) as unknown) as { name: string; type: string; pk: number; dflt_value: string; notnull: number }[];
-        console.log( columns );
         setTableColumns( columns.map( ( column ) => ( { name: column.name, type: column.type, pk: column.pk as 0 | 1, dflt_value: column.dflt_value, notnull: column.notnull as 0 | 1 } ) ) );
     };
 
     const fetchTableRows = async ( table: Table ) => {
-        const rows = ( await getIpcApi().executeQuery(
+        const rows = ( await getIpcApi().executeSelectQuery(
             `${ selectedSite?.path }/wp-content/database/.ht.sqlite`,
             `SELECT * FROM ${ table.name }`
         ) as unknown) as { name: string; type: string }[];
@@ -105,14 +104,17 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
     };
 
     const handleSave = async () => {
-        const updateQuery = `UPDATE ${ selectedTable?.name } SET ${ selectedColumn?.name } = ? WHERE id = ?`;
-        const updateValues = [ selectedRow?.[ selectedColumn?.name as string ], selectedRow?.id ];
-        await getIpcApi().executeQuery(
+        const primaryKeyColumn = tableColumns?.find( column => column.pk === 1 )?.name;
+        const updateQuery = `UPDATE ${ selectedTable?.name } SET ${ selectedColumn?.name } = ? WHERE ${ primaryKeyColumn } = ?`;
+        const updateValues = [ selectedRow?.[ selectedColumn?.name as string ], selectedRow?.[ primaryKeyColumn as string ] ];
+                const { changes, lastInsertRowid } = await getIpcApi().executeModificationQuery(
             `${ selectedSite?.path }/wp-content/database/.ht.sqlite`,
             updateQuery,
             updateValues
         );
-        setShowModal( false );
+        if ( changes > 0 ) {
+            setShowModal( false );
+        }
     };
 
     const filteredTables = tables.filter( table => 

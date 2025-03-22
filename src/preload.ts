@@ -117,8 +117,10 @@ const api: IpcApi = {
 	getPathForFile: webUtils.getPathForFile,
 	getFileContent: ( filePath: string ) => ipcRenderer.invoke( 'getFileContent', filePath ),
 	isFullscreen: () => ipcRenderer.invoke( 'isFullscreen' ),
-	executeQuery: ( databasePath: string, query: string, values?: unknown[] ) =>
-		ipcRenderer.invoke( 'executeQuery', databasePath, query, values ),
+	executeSelectQuery: ( databasePath: string, query: string, values?: unknown[] ) =>
+		ipcRenderer.invoke( 'executeSelectQuery', databasePath, query, values ),
+	executeModificationQuery: ( databasePath: string, query: string, values?: unknown[] ) =>
+		ipcRenderer.invoke( 'executeModificationQuery', databasePath, query, values ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

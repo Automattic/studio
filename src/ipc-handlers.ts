@@ -1219,65 +1219,49 @@ interface QueryResult {
 // @TODO
 // Add separate function for CRUD operations
 // https://github.com/WiseLibs/better-sqlite3/blob/df8a6a408008379dd4a600ce77af5e7b5d7e2d83/docs/api.md
-export async function executeQuery(
+export async function executeSelectQuery(
 	_event: IpcMainInvokeEvent,
 	databasePath: string,
 	query: string,
 	values?: unknown[]
-): Promise< QueryResult[] > {
-
+): Promise<QueryResult[]> {
 	let db: DatabaseType | null = null;
-	if ( ! db ) {
-		db = new Database( databasePath );
-		db.pragma( 'journal_mode = WAL' ); // For better performance
+	if (!db) {
+		db = new Database(databasePath);
+		db.pragma('journal_mode = WAL');
 	}
 	try {
-		const rows = db.prepare( query ).all() as QueryResult[];
-		return rows;
-	} catch ( err ) {
-		console.error( err );
+		const stmt = db.prepare(query);
+		const results = values ? stmt.all(...values) : stmt.all();
+		return results as QueryResult[];
+	} catch (err) {
+		console.error(err);
 		throw err;
+	} finally {
+		db.close();
 	}
-// @fix this
-	// return;
+}
 
-
-	// let db: DatabaseType | null = null;
-	// if ( ! db ) {
-	// 	db = new Database( databasePath );
-	// 	db.pragma( 'journal_mode = WAL' ); // For better performance
-	// }
-	// try {
-	// 	console.log( { query } );
-	// 	const stmt = db.prepare( query );
-		
-	// 	// Check if this is a SELECT query
-	// 	const isSelect = query.trim().toLowerCase().startsWith( 'select' ) || query.trim().toLowerCase().startsWith( 'pragma' );
-	// 	return stmt.all() as QueryResult[];
-	// 	console.log( { isSelect } );
-	// 	if ( values ) {
-	// 		if ( isSelect ) {
-	// 			// For SELECT queries, use all() to get results
-	// 			return stmt.all( ...values ) as QueryResult[];
-	// 		} else {
-	// 			// For INSERT, UPDATE, DELETE, use run() and return empty array
-	// 			const result = stmt.run( ...values );
-	// 			console.log( result );
-	// 			return [];
-	// 		}
-	// 	} else {
-	// 		if ( isSelect ) {
-	// 			// For SELECT queries without parameters
-	// 			return stmt.all() as QueryResult[];
-	// 		} else {
-	// 			// For other queries without parameters
-	// 			const result = stmt.run();
-	// 			console.log(result);
-	// 			return [];
-	// 		}
-	// 	}
-	// } catch ( err ) {
-	// 	console.error( err );
-	// 	throw err;
-	}
+export async function executeModificationQuery(
+	_event: IpcMainInvokeEvent,
+	databasePath: string,
+	query: string,
+	values?: unknown[]
+): Promise<{ changes: number; lastInsertRowid: number | bigint }> {
+	const db = new Database(databasePath);
+	db.pragma('journal_mode = WAL');
+	return new Promise( ( resolve, reject ) => {
+		try {
+			const stmt = db.prepare(query);
+			const info = values ? stmt.run(...values) : stmt.run();
+			resolve( {
+				changes: info.changes,
+				lastInsertRowid: info.lastInsertRowid
+			} );
+		} catch (err) {
+			reject( err );
+		} finally {
+			db.close();
+		}
+	} );
 }

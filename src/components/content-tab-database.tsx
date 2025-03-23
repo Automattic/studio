@@ -1,8 +1,23 @@
 import { __ } from '@wordpress/i18n';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { key, layout, Icon, update, chevronLeft, chevronRight } from '@wordpress/icons';
-import { Button, SearchControl, TextareaControl, Spinner } from '@wordpress/components';
+import {
+	key,
+	layout,
+	Icon,
+	update,
+	chevronLeft,
+	chevronRight,
+	previous,
+	next,
+} from '@wordpress/icons';
+import {
+	Button,
+	SearchControl,
+	TextareaControl,
+	__experimentalInputControl as InputControl,
+	Spinner,
+} from '@wordpress/components';
 import Modal from 'src/components/modal';
 
 interface ContentTabDatabaseProps {
@@ -36,6 +51,7 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 	const [ error, setError ] = useState< string | null >( null );
 	const [ currentPage, setCurrentPage ] = useState( 1 );
 	const [ rowsPerPage ] = useState( 20 );
+	const tableContainerRef = useRef< HTMLDivElement >( null );
 
 	const fetchTables = async () => {
 		try {
@@ -115,6 +131,7 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 		) ) as unknown as { count: number }[];
 		setRowCount( rowCount[ 0 ].count );
 		setIsLoading( false );
+		scrollToTop();
 	};
 
 	const handleTableClick = ( table: Table ) => {
@@ -129,6 +146,7 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 		if ( column.pk === 1 ) {
 			return;
 		}
+		console.log( 'column', column );
 		setSelectedRow( row );
 		setSelectedColumn( column );
 		setShowModal( true );
@@ -189,9 +207,25 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 		}
 	};
 
+	const scrollToTop = () => {
+		tableContainerRef.current?.scrollTo( { top: 0, behavior: 'smooth' } );
+	};
+
+	const handleFirstPage = () => {
+		setCurrentPage( 1 );
+		scrollToTop();
+	};
+
+	const handleLastPage = () => {
+		const totalPages = Math.ceil( ( rowCount || 0 ) / rowsPerPage );
+		setCurrentPage( totalPages );
+		scrollToTop();
+	};
+
 	const handlePreviousPage = () => {
 		if ( currentPage > 1 ) {
 			setCurrentPage( currentPage - 1 );
+			scrollToTop();
 		}
 	};
 
@@ -199,6 +233,7 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 		const totalPages = Math.ceil( ( rowCount || 0 ) / rowsPerPage );
 		if ( currentPage < totalPages ) {
 			setCurrentPage( currentPage + 1 );
+			scrollToTop();
 		}
 	};
 
@@ -269,7 +304,10 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 							<div className="text-red-500 text-sm p-4">{ error }</div>
 						) : selectedTable ? (
 							<div className="flex flex-col">
-								<div className="overflow-x-auto">
+								<div
+									ref={ tableContainerRef }
+									className="overflow-x-auto max-h-[calc(100vh-300px)]"
+								>
 									<table className="table-fixed border divide-y divide-gray-200">
 										<thead className="bg-gray-50">
 											<tr>
@@ -323,19 +361,28 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 								</span>
 								<div className="flex items-center gap-1">
 									<Button
+										icon={ <Icon icon={ previous } size={ 16 } /> }
+										variant="secondary"
+										size="small"
+										onClick={ handleFirstPage }
+										disabled={ currentPage === 1 || isLoading }
+										showTooltip
+										iconSize={ 16 }
+										label={ __( 'First' ) }
+									/>
+									<Button
 										icon={ <Icon icon={ chevronLeft } size={ 16 } /> }
-										variant="tertiary"
+										variant="secondary"
 										size="small"
 										onClick={ handlePreviousPage }
 										disabled={ currentPage === 1 || isLoading }
 										showTooltip
 										iconSize={ 16 }
-									>
-										{ __( 'Previous' ) }
-									</Button>
+										label={ __( 'Previous' ) }
+									/>
 									<Button
 										icon={ <Icon icon={ chevronRight } size={ 16 } /> }
-										variant="tertiary"
+										variant="secondary"
 										size="small"
 										onClick={ handleNextPage }
 										disabled={
@@ -343,9 +390,20 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 										}
 										showTooltip
 										iconSize={ 16 }
-									>
-										{ __( 'Next' ) }
-									</Button>
+										label={ __( 'Next' ) }
+									/>
+									<Button
+										icon={ <Icon icon={ next } size={ 16 } /> }
+										variant="secondary"
+										size="small"
+										onClick={ handleLastPage }
+										disabled={
+											currentPage >= Math.ceil( ( rowCount || 0 ) / rowsPerPage ) || isLoading
+										}
+										showTooltip
+										iconSize={ 16 }
+										label={ __( 'Last' ) }
+									/>
 									<Button
 										icon={ <Icon icon={ update } size={ 16 } /> }
 										variant="tertiary"
@@ -374,12 +432,28 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 					className="max-h-[90%]"
 				>
 					<div>
-						<TextareaControl
-							value={ selectedRow?.[ selectedColumn?.name as string ] as string }
-							onChange={ ( value ) => {
-								setSelectedRow( { ...selectedRow, [ selectedColumn?.name as string ]: value } );
-							} }
-						/>
+						{ selectedColumn?.type === 'INTEGER' && (
+							<InputControl
+								className="mb-4"
+								type="number"
+								value={ String( selectedRow?.[ selectedColumn?.name as string ] ?? '' ) }
+								onChange={ ( value ) => {
+									setSelectedRow( {
+										...selectedRow,
+										[ selectedColumn?.name as string ]: parseInt( value || '0' ),
+									} );
+								} }
+							/>
+						) }
+						{ selectedColumn?.type === 'TEXT' && (
+							<TextareaControl
+								className="mb-4"
+								value={ selectedRow?.[ selectedColumn?.name as string ] as string }
+								onChange={ ( value ) => {
+									setSelectedRow( { ...selectedRow, [ selectedColumn?.name as string ]: value } );
+								} }
+							/>
+						) }
 						<div className="flex justify-end gap-2">
 							<Button variant="primary" onClick={ () => handleSave() }>
 								{ __( 'Save' ) }

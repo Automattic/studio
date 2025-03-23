@@ -15,9 +15,9 @@ import fsPromises from 'fs/promises';
 import https from 'node:https';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
-import Database from 'better-sqlite3';
 import { __, LocaleData, defaultI18n } from '@wordpress/i18n';
 import archiver from 'archiver';
+import SQLiteDatabase from 'better-sqlite3';
 import { ARCHIVER_OPTIONS, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
@@ -1289,7 +1289,7 @@ export async function executeModificationQuery(
 			fileStats: fs.existsSync( databasePath ) ? fs.statSync( databasePath ) : null,
 		} );
 		console.log( 'Getting database connection for:', databasePath );
-		const db = new Database( databasePath );
+		const db = new SQLiteDatabase( databasePath );
 		db.pragma( 'journal_mode = WAL' );
 		const stmt = db.prepare( query );
 		console.log( 'Executing statement with values:', values );
@@ -1332,7 +1332,7 @@ export async function executeSelectQuery(
 			throw new Error( 'Invalid query type. Only SELECT and PRAGMA queries are allowed.' );
 		}
 		console.log( 'Getting database connection for:', databasePath );
-		const db = new Database( databasePath );
+		const db = new SQLiteDatabase( databasePath );
 		db.pragma( 'journal_mode = WAL' );
 
 		// Set busy timeout to handle locks

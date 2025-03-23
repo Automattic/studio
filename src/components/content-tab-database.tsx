@@ -1,6 +1,11 @@
+import {
+	Button,
+	SearchControl,
+	TextareaControl,
+	__experimentalInputControl as InputControl,
+	Spinner,
+} from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
-import { useEffect, useState, useRef } from 'react';
-import { getIpcApi } from 'src/lib/get-ipc-api';
 import {
 	key,
 	layout,
@@ -11,14 +16,9 @@ import {
 	previous,
 	next,
 } from '@wordpress/icons';
-import {
-	Button,
-	SearchControl,
-	TextareaControl,
-	__experimentalInputControl as InputControl,
-	Spinner,
-} from '@wordpress/components';
+import { useEffect, useState, useRef } from 'react';
 import Modal from 'src/components/modal';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 
 interface ContentTabDatabaseProps {
 	selectedSite: SiteDetails;
@@ -90,7 +90,7 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 		setSelectedRow( null );
 		setSelectedColumn( null );
 		fetchTables();
-	}, [ selectedSite?.path, selectedSite?.id, selectedSite?.themeDetails ] );
+	}, [ selectedSite?.path, selectedSite?.id, selectedSite?.themeDetails, fetchTables ] );
 
 	const fetchTableColumns = async ( table: Table ) => {
 		const columns = ( await getIpcApi().executeSelectQuery(
@@ -186,7 +186,7 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 				primaryKeyValue,
 			} );
 
-			const { changes, lastInsertRowid } = await getIpcApi().executeModificationQuery(
+			const { changes } = await getIpcApi().executeModificationQuery(
 				selectedSite?.id,
 				`${ selectedSite?.path }/wp-content/database/.ht.sqlite`,
 				updateQuery,
@@ -242,7 +242,7 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 		if ( selectedTable ) {
 			fetchTableRows( selectedTable );
 		}
-	}, [ currentPage, selectedTable ] );
+	}, [ currentPage, selectedTable, fetchTableRows ] );
 
 	const filteredTables = tables.filter( ( table ) =>
 		table.name.toLowerCase().includes( tableFilter.toLowerCase() )

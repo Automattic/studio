@@ -10,14 +10,19 @@ import {
 	Notification,
 	SaveDialogOptions,
 } from 'electron';
-import fs from 'fs';
 import fsPromises from 'fs/promises';
 import https from 'node:https';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { __, LocaleData, defaultI18n } from '@wordpress/i18n';
 import archiver from 'archiver';
-import { ARCHIVER_OPTIONS, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
+import fs from 'fs-extra';
+import {
+	ARCHIVER_OPTIONS,
+	MAIN_MIN_WIDTH,
+	SIDEBAR_WIDTH,
+	STUDIO_DISABLE_WP_AUTO_UPDATES_PLUGIN,
+} from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
 import { bumpStat } from 'src/lib/bump-stats';
@@ -141,7 +146,7 @@ export async function createSite(
 	event: IpcMainInvokeEvent,
 	path: string,
 	siteName?: string,
-	wpVersion?: string,
+	wpVersion?: { version: string; isLatest: boolean },
 	customDomain?: string,
 	enableHttps?: boolean
 ): Promise< SiteDetails[] > {
@@ -165,7 +170,7 @@ export async function createSite(
 
 	if ( ( await pathExists( path ) ) && ( await isEmptyDir( path ) ) ) {
 		try {
-			await createSiteWorkingDirectory( path, wpVersion );
+			await createSiteWorkingDirectory( path, wpVersion?.version );
 		} catch ( error ) {
 			// If site creation failed, remove the generated files and re-throw the
 			// error so it can be handled by the caller.
@@ -206,6 +211,11 @@ export async function createSite(
 		} else {
 			await updateSiteUrl( server, getSiteUrl( details ) );
 		}
+	}
+
+	// If not using the latest WordPress version, copy our mu-plugin to disable auto-updates
+	if ( wpVersion?.version && ! wpVersion.isLatest ) {
+		await server.addMuPlugin( STUDIO_DISABLE_WP_AUTO_UPDATES_PLUGIN );
 	}
 
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
@@ -1228,4 +1238,28 @@ export async function getAllCustomDomains(): Promise< string[] > {
 	return userData.sites
 		.map( ( site ) => site.customDomain )
 		.filter( ( domain ): domain is string => domain !== undefined );
+}
+
+export async function addMuPlugin(
+	event: IpcMainInvokeEvent,
+	siteId: string,
+	pluginFileName: string
+): Promise< void > {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( 'Site not found.' );
+	}
+	await server.addMuPlugin( pluginFileName );
+}
+
+export async function removeMuPlugin(
+	event: IpcMainInvokeEvent,
+	siteId: string,
+	pluginFileName: string
+): Promise< void > {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( 'Site not found.' );
+	}
+	await server.removeMuPlugin( pluginFileName );
 }

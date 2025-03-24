@@ -66,7 +66,10 @@ describe( 'createSite', () => {
 		( isEmptyDir as jest.Mock ).mockResolvedValueOnce( true );
 		( pathExists as jest.Mock ).mockResolvedValueOnce( true );
 
-		const [ site ] = await createSite( mockIpcMainInvokeEvent, '/test', 'Test', '6.4' );
+		const [ site ] = await createSite( mockIpcMainInvokeEvent, '/test', 'Test', {
+			version: '6.4',
+			isLatest: false,
+		} );
 
 		expect( site ).toEqual( {
 			adminPassword: expect.any( String ),
@@ -88,7 +91,10 @@ describe( 'createSite', () => {
 				throw new Error( 'Intentional test error' );
 			} );
 
-			createSite( mockIpcMainInvokeEvent, '/test', 'Test', '6.4' ).catch( () => {
+			createSite( mockIpcMainInvokeEvent, '/test', 'Test', {
+				version: '6.4',
+				isLatest: false,
+			} ).catch( () => {
 				expect( shell.trashItem ).toHaveBeenCalledTimes( 1 );
 				expect( shell.trashItem ).toHaveBeenCalledWith( '/test' );
 			} );

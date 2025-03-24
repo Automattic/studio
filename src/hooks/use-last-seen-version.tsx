@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
-import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useCallback } from 'react';
+import { useAppDispatch, useRootSelector } from 'src/stores';
+import { appVersionSelectors, appVersionThunks } from 'src/stores/app-version-slice';
 
 interface UseLastSeenVersion {
 	lastSeenVersion: string | undefined;
@@ -8,31 +9,17 @@ interface UseLastSeenVersion {
 }
 
 export function useLastSeenVersion(): UseLastSeenVersion {
-	const [ lastSeenVersion, setLastSeenVersion ] = useState< string | undefined >( undefined );
+	const dispatch = useAppDispatch();
 	const currentVersion = window.appGlobals.appVersion;
-
-	useEffect( () => {
-		const fetchLastSeenVersion = async () => {
-			try {
-				const version = await getIpcApi().getLastSeenVersion();
-				setLastSeenVersion( version );
-			} catch ( error ) {
-				console.error( 'Failed to get last seen version:', error );
-			}
-		};
-		fetchLastSeenVersion();
-	}, [] );
-
+	const lastSeenVersion = useRootSelector( appVersionSelectors.selectLastSeenVersion );
+	const isNewVersion = useRootSelector( ( state ) =>
+		appVersionSelectors.selectIsNewVersion( state, currentVersion || '' )
+	);
 	const updateLastSeenVersion = useCallback( async () => {
-		try {
-			await getIpcApi().saveLastSeenVersion( currentVersion );
-			setLastSeenVersion( currentVersion );
-		} catch ( error ) {
-			console.error( 'Failed to save last seen version:', error );
+		if ( currentVersion ) {
+			await dispatch( appVersionThunks.saveLastSeenVersion( currentVersion ) );
 		}
-	}, [ currentVersion ] );
-
-	const isNewVersion = !! currentVersion && lastSeenVersion !== currentVersion;
+	}, [ dispatch, currentVersion ] );
 
 	return {
 		lastSeenVersion,

@@ -16,9 +16,11 @@ import {
 	previous,
 	next,
 } from '@wordpress/icons';
-import { useEffect, useState, useRef, useMemo } from 'react';
-import Modal from 'src/components/modal';
+import { useEffect, useState, useRef, useMemo, useReducer, useCallback } from 'react';
+import EditRecordModal from 'src/components/database/edit-record-modal';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+
+const WP_DATABASE_PATH = '/wp-content/database/.ht.sqlite';
 
 interface ContentTabDatabaseProps {
 	selectedSite: SiteDetails;
@@ -26,7 +28,6 @@ interface ContentTabDatabaseProps {
 
 interface Table {
 	name: string;
-	sql: string;
 }
 
 interface TableColumn {
@@ -37,180 +38,344 @@ interface TableColumn {
 	notnull: 0 | 1;
 }
 
-export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) {
-	// @TODO optimize state management:
-	// - use a single state for the table data, combine related state.
-	// - use reducers for complex state updates.
-    // - extract modal logic
-    // - create custom hooks for table fetching/table pagination
-    // - cache table results
-    // - error state managment
-    // - combine loading states
-    // - use memo for expensive operations
-    const [ showModal, setShowModal ] = useState( false );
-	const [ tables, setTables ] = useState< Table[] >( [] );
-	const [ selectedTable, setSelectedTable ] = useState< Table | null >( null );
-	const [ tableColumns, setTableColumns ] = useState< TableColumn[] | null >( null );
-	const [ tableRows, setTableRows ] = useState< Record< string, unknown >[] | null >( null );
-	const [ tableFilter, setTableFilter ] = useState( '' );
-	const [ selectedRow, setSelectedRow ] = useState< Record< string, unknown > | null >( null );
-	const [ rowCount, setRowCount ] = useState< number | null >( null );
-	const [ selectedColumn, setSelectedColumn ] = useState< TableColumn | null >( null );
-	const [ isLoading, setIsLoading ] = useState( true );
-	const [ error, setError ] = useState< string | null >( null );
-	const [ currentPage, setCurrentPage ] = useState( 1 );
-	const [ rowsPerPage ] = useState( 20 );
+type DatabaseValue = string | number | null;
+type DatabaseRow = Record< string, DatabaseValue >;
+
+interface SelectedItemState {
+	table: Table | null;
+	column: TableColumn | null;
+	row: DatabaseRow | null;
+}
+
+interface CurrentTableState {
+	tables: Table[];
+	columns: TableColumn[] | null;
+	rows: DatabaseRow[] | null;
+	rowCount: number | null;
+	filter: string;
+}
+
+interface PaginationState {
+	currentPage: number;
+	rowsPerPage: number;
+}
+
+interface UIState {
+	showModal: boolean;
+	isLoading: boolean;
+	error: string | null;
+}
+
+interface DatabaseState {
+	selected: SelectedItemState;
+	current: CurrentTableState;
+	pagination: PaginationState;
+	ui: UIState;
+}
+
+type DatabaseAction =
+	| { type: 'SET_TABLES'; payload: Table[] }
+	| { type: 'SET_SELECTED_TABLE'; payload: Table | null }
+	| { type: 'SET_TABLE_COLUMNS'; payload: TableColumn[] | null }
+	| { type: 'SET_TABLE_FILTER'; payload: string }
+	| { type: 'SET_TABLE_ROWS'; payload: DatabaseRow[] | null }
+	| { type: 'SET_ROW_COUNT'; payload: number | null }
+	| { type: 'SET_SELECTED_ROW'; payload: DatabaseRow | null }
+	| { type: 'SET_SELECTED_COLUMN'; payload: TableColumn | null }
+	| { type: 'SET_CURRENT_PAGE'; payload: number }
+	| { type: 'SET_SHOW_MODAL'; payload: boolean }
+	| { type: 'SET_LOADING'; payload: boolean }
+	| { type: 'SET_ERROR'; payload: string | null }
+	| { type: 'RESET_STATE' };
+
+const initialState: DatabaseState = {
+	selected: {
+		table: null,
+		column: null,
+		row: null,
+	},
+	current: {
+		tables: [],
+		columns: null,
+		rows: null,
+		rowCount: null,
+		filter: '',
+	},
+	pagination: {
+		currentPage: 1,
+		rowsPerPage: 20,
+	},
+	ui: {
+		showModal: false,
+		isLoading: true,
+		error: null,
+	},
+};
+
+function databaseReducer( state: DatabaseState, action: DatabaseAction ): DatabaseState {
+	switch ( action.type ) {
+		case 'SET_TABLES':
+			return { ...state, current: { ...state.current, tables: action.payload } };
+		case 'SET_SELECTED_TABLE':
+			return { ...state, selected: { ...state.selected, table: action.payload } };
+		case 'SET_TABLE_COLUMNS':
+			return { ...state, current: { ...state.current, columns: action.payload } };
+		case 'SET_TABLE_FILTER':
+			return { ...state, current: { ...state.current, filter: action.payload } };
+		case 'SET_TABLE_ROWS':
+			return { ...state, current: { ...state.current, rows: action.payload } };
+		case 'SET_ROW_COUNT':
+			return { ...state, current: { ...state.current, rowCount: action.payload } };
+		case 'SET_SELECTED_ROW':
+			return { ...state, selected: { ...state.selected, row: action.payload } };
+		case 'SET_SELECTED_COLUMN':
+			return { ...state, selected: { ...state.selected, column: action.payload } };
+		case 'SET_CURRENT_PAGE':
+			return { ...state, pagination: { ...state.pagination, currentPage: action.payload } };
+		case 'SET_SHOW_MODAL':
+			return { ...state, ui: { ...state.ui, showModal: action.payload } };
+		case 'SET_LOADING':
+			return { ...state, ui: { ...state.ui, isLoading: action.payload } };
+		case 'SET_ERROR':
+			return { ...state, ui: { ...state.ui, error: action.payload } };
+		case 'RESET_STATE':
+			return initialState;
+		default:
+			return state;
+	}
+}
+
+function useTableData( selectedSite: SiteDetails | undefined ) {
+	const [ state, dispatch ] = useReducer( databaseReducer, initialState );
 	const tableContainerRef = useRef< HTMLDivElement >( null );
 
-	const fetchTables = async () => {
+	const fetchTables = useCallback( async () => {
+        if ( ! selectedSite?.path ) {
+            return;
+        }
+        console.log( 'fetchTables', `${ selectedSite?.path }${ WP_DATABASE_PATH }` );
 		try {
-			setError( null );
-			setIsLoading( true );
-			// First get all tables
+			dispatch( { type: 'SET_ERROR', payload: null } );
+			dispatch( { type: 'SET_LOADING', payload: true } );
 			const tables = ( await getIpcApi().executeSelectQuery(
-				selectedSite?.id,
-				`${ selectedSite?.path }/wp-content/database/.ht.sqlite`,
-				"SELECT name, sql FROM sqlite_master WHERE type IN ('table','view') AND name NOT LIKE 'sqlite_%' ORDER BY name"
+				`${ selectedSite?.path }${ WP_DATABASE_PATH }`,
+				"SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE 'wp_%' ORDER BY name"
 			) ) as unknown as { name: string; sql: string }[];
-			setTables( tables );
+			dispatch( { type: 'SET_TABLES', payload: tables } );
 		} catch ( err ) {
 			console.error( 'Error fetching tables:', err );
-			setError( err instanceof Error ? err.message : 'Failed to load database tables' );
+			dispatch( {
+				type: 'SET_ERROR',
+				payload: err instanceof Error ? err.message : 'Failed to load database tables',
+			} );
 		} finally {
-			setIsLoading( false );
+			dispatch( { type: 'SET_LOADING', payload: false } );
 		}
-	};
+	}, [ selectedSite?.id, selectedSite?.path ] );
+
+	const fetchTableColumns = useCallback(
+		async ( table: Table ) => {
+            if ( ! selectedSite?.path ) {
+				return;
+			}
+			const columns = ( await getIpcApi().executeSelectQuery(
+				`${ selectedSite?.path }${ WP_DATABASE_PATH }`,
+				`PRAGMA table_info(${ table.name })`
+			) ) as unknown as {
+				name: string;
+				type: string;
+				pk: number;
+				dflt_value: string;
+				notnull: number;
+			}[];
+			dispatch( {
+				type: 'SET_TABLE_COLUMNS',
+				payload: columns.map( ( column ) => ( {
+					name: column.name,
+					type: column.type,
+					pk: column.pk as 0 | 1,
+					dflt_value: column.dflt_value,
+					notnull: column.notnull as 0 | 1,
+				} ) ),
+			} );
+		},
+		[ selectedSite?.id, selectedSite?.path ]
+	);
+
+	const fetchTableRows = useCallback(
+		async ( table: Table ) => {
+			if ( ! selectedSite?.path ) {
+				return;
+			}
+			const offset = ( state.pagination.currentPage - 1 ) * state.pagination.rowsPerPage;
+			const rows = ( await getIpcApi().executeSelectQuery(
+				`${ selectedSite?.path }${ WP_DATABASE_PATH }`,
+				`SELECT * FROM ${ table.name } LIMIT ${ state.pagination.rowsPerPage } OFFSET ${ offset }`
+			) ) as unknown as DatabaseRow[];
+			dispatch( { type: 'SET_TABLE_ROWS', payload: rows } );
+
+			const rowCount = ( await getIpcApi().executeSelectQuery(
+				`${ selectedSite?.path }${ WP_DATABASE_PATH }`,
+				`SELECT COUNT(*) as count FROM ${ table.name }`
+			) ) as unknown as { count: number }[];
+			dispatch( { type: 'SET_ROW_COUNT', payload: rowCount[ 0 ].count } );
+			dispatch( { type: 'SET_LOADING', payload: false } );
+			scrollToTop();
+		},
+		[
+			selectedSite?.id,
+			selectedSite?.path,
+			state.pagination.currentPage,
+			state.pagination.rowsPerPage,
+		]
+	);
+
+	const scrollToTop = useCallback( () => {
+		tableContainerRef.current?.scrollTo( { top: 0, behavior: 'smooth' } );
+	}, [] );
 
 	useEffect( () => {
-		setIsLoading( true );
+		dispatch( { type: 'SET_LOADING', payload: true } );
 
-		// @ TODO - is there a better way to check if the db is loaded aside from themeDetails?
 		if ( ! selectedSite?.id || ! selectedSite?.path || ! selectedSite?.themeDetails ) {
 			return;
 		}
 
-		/*
-		 * Reset the selected table when the path (selected site) changes,
-		 * to ensure that the correct tables are displayed.
-		 */
-		setSelectedTable( null );
-		setTableColumns( null );
-		setTableRows( null );
-		setSelectedRow( null );
-		setSelectedColumn( null );
 		fetchTables();
-	}, [ selectedSite?.path, selectedSite?.id, selectedSite?.themeDetails ] );
+		return () => {
+			dispatch( { type: 'RESET_STATE' } );
+		};
+	}, [ selectedSite?.path, selectedSite?.id, selectedSite?.themeDetails, fetchTables ] );
 
-	const fetchTableColumns = async ( table: Table ) => {
-		const columns = ( await getIpcApi().executeSelectQuery(
-			selectedSite?.id,
-			`${ selectedSite?.path }/wp-content/database/.ht.sqlite`,
-			`PRAGMA table_info( ${ table.name } )`
-		) ) as unknown as {
-			name: string;
-			type: string;
-			pk: number;
-			dflt_value: string;
-			notnull: number;
-		}[];
-		setTableColumns(
-			columns.map( ( column ) => ( {
-				name: column.name,
-				type: column.type,
-				pk: column.pk as 0 | 1,
-				dflt_value: column.dflt_value,
-				notnull: column.notnull as 0 | 1,
-			} ) )
-		);
+	useEffect( () => {
+		if ( state.selected.table ) {
+			fetchTableRows( state.selected.table );
+		}
+	}, [ state.pagination.currentPage, state.selected.table, fetchTableRows ] );
+
+	return {
+		state,
+		dispatch,
+		tableContainerRef,
+		fetchTables,
+		fetchTableColumns,
+		fetchTableRows,
+		scrollToTop,
 	};
+}
 
-	const fetchTableRows = async ( table: Table ) => {
-		const offset = ( currentPage - 1 ) * rowsPerPage;
-		const rows = ( await getIpcApi().executeSelectQuery(
-			selectedSite?.id,
-			`${ selectedSite?.path }/wp-content/database/.ht.sqlite`,
-			`SELECT * FROM ${ table.name } LIMIT ${ rowsPerPage } OFFSET ${ offset }`
-		) ) as unknown as { name: string; type: string }[];
-		setTableRows( rows );
-		// Get row count
-		const rowCount = ( await getIpcApi().executeSelectQuery(
-			selectedSite?.id,
-			`${ selectedSite?.path }/wp-content/database/.ht.sqlite`,
-			`SELECT COUNT(*) as count FROM ${ table.name }`
-		) ) as unknown as { count: number }[];
-		setRowCount( rowCount[ 0 ].count );
-		setIsLoading( false );
-		scrollToTop();
-	};
-
+function usePagination( state: DatabaseState, dispatch: React.Dispatch< DatabaseAction > ) {
 	const totalPages = useMemo(
-		() => Math.ceil( ( rowCount || 0 ) / rowsPerPage ),
-		[ rowCount, rowsPerPage ]
+		() => Math.ceil( ( state.current.rowCount || 0 ) / state.pagination.rowsPerPage ),
+		[ state.current.rowCount, state.pagination.rowsPerPage ]
 	);
 
-	const handleTableClick = ( table: Table ) => {
-		setIsLoading( true );
-		setSelectedTable( table );
-		setCurrentPage( 1 ); // Reset to first page when selecting a new table
-		fetchTableColumns( table );
-		fetchTableRows( table );
-	};
+	const handleFirstPage = useCallback( () => {
+		dispatch( { type: 'SET_CURRENT_PAGE', payload: 1 } );
+	}, [ dispatch ] );
 
-	const handleRowClick = ( row: Record< string, unknown >, column: TableColumn ) => {
-		if ( column.pk === 1 ) {
-			return;
+	const handleLastPage = useCallback( () => {
+		dispatch( { type: 'SET_CURRENT_PAGE', payload: totalPages } );
+	}, [ dispatch, totalPages ] );
+
+	const handlePreviousPage = useCallback( () => {
+		if ( state.pagination.currentPage > 1 ) {
+			dispatch( { type: 'SET_CURRENT_PAGE', payload: state.pagination.currentPage - 1 } );
 		}
-		console.log( 'column', column );
-		setSelectedRow( row );
-		setSelectedColumn( column );
-		setShowModal( true );
-	};
+	}, [ state.pagination.currentPage, dispatch ] );
 
-	const handleSave = async () => {
+	const handleNextPage = useCallback( () => {
+		if ( state.pagination.currentPage < totalPages ) {
+			dispatch( { type: 'SET_CURRENT_PAGE', payload: state.pagination.currentPage + 1 } );
+		}
+	}, [ state.pagination.currentPage, totalPages, dispatch ] );
+
+	return {
+		totalPages,
+		handleFirstPage,
+		handleLastPage,
+		handlePreviousPage,
+		handleNextPage,
+	};
+}
+
+function useTableSelection(
+	state: DatabaseState,
+	dispatch: React.Dispatch< DatabaseAction >,
+	fetchTableColumns: ( table: Table ) => Promise< void >,
+	fetchTableRows: ( table: Table ) => Promise< void >
+) {
+	const handleTableClick = useCallback(
+		( table: Table ) => {
+			dispatch( { type: 'SET_LOADING', payload: true } );
+			dispatch( { type: 'SET_SELECTED_TABLE', payload: table } );
+			dispatch( { type: 'SET_CURRENT_PAGE', payload: 1 } );
+			fetchTableColumns( table );
+			fetchTableRows( table );
+		},
+		[ dispatch, fetchTableColumns, fetchTableRows ]
+	);
+
+	const handleRowClick = useCallback(
+		( row: DatabaseRow, column: TableColumn ) => {
+			if ( column.pk === 1 ) {
+				return;
+			}
+			dispatch( { type: 'SET_SELECTED_ROW', payload: row } );
+			dispatch( { type: 'SET_SELECTED_COLUMN', payload: column } );
+			dispatch( { type: 'SET_SHOW_MODAL', payload: true } );
+		},
+		[ dispatch ]
+	);
+
+	return {
+		handleTableClick,
+		handleRowClick,
+	};
+}
+
+function useRowUpdate(
+	state: DatabaseState,
+	dispatch: React.Dispatch< DatabaseAction >,
+	selectedSite: SiteDetails | undefined,
+	fetchTableRows: ( table: Table ) => Promise< void >
+) {
+	const handleSave = useCallback( async () => {
+        if ( ! selectedSite?.path ) {
+            return;
+        }
 		try {
-			if ( ! selectedTable || ! selectedColumn || ! selectedRow ) {
+			if ( ! state.selected.table || ! state.selected.column || ! state.selected.row ) {
 				throw new Error( 'Missing required data for update' );
 			}
 
-			const primaryKeyColumn = tableColumns?.find( ( column ) => column.pk === 1 )?.name;
+			const primaryKeyColumn = state.current.columns?.find( ( column ) => column.pk === 1 )?.name;
 			if ( ! primaryKeyColumn ) {
 				throw new Error( 'Could not find primary key column' );
 			}
 
-			// Validate the new value
-			const newValue = selectedRow[ selectedColumn.name as string ];
+			const newValue = state.selected.row[ state.selected.column.name as string ];
 			if ( newValue === undefined ) {
 				throw new Error( 'New value is undefined' );
 			}
 
-			// Validate the primary key value
-			const primaryKeyValue = selectedRow[ primaryKeyColumn as string ];
+			const primaryKeyValue = state.selected.row[ primaryKeyColumn as string ];
 			if ( primaryKeyValue === undefined ) {
 				throw new Error( 'Primary key value is undefined' );
 			}
 
-			const updateQuery = `UPDATE ${ selectedTable.name } SET ${ selectedColumn.name } = ? WHERE ${ primaryKeyColumn } = ?`;
+			const updateQuery = `UPDATE ${ state.selected.table.name } SET ${ state.selected.column.name } = ? WHERE ${ primaryKeyColumn } = ?`;
 			const updateValues = [ newValue, primaryKeyValue ];
 
-			console.log( 'Executing update:', {
-				table: selectedTable.name,
-				column: selectedColumn.name,
-				newValue,
-				primaryKey: primaryKeyColumn,
-				primaryKeyValue,
-			} );
-
 			const { changes } = await getIpcApi().executeModificationQuery(
-				selectedSite?.id,
-				`${ selectedSite?.path }/wp-content/database/.ht.sqlite`,
+				`${ selectedSite?.path }${ WP_DATABASE_PATH }`,
 				updateQuery,
 				updateValues
 			);
 
 			if ( changes > 0 ) {
-				// Refresh the table data
-				await fetchTableRows( selectedTable );
-				setShowModal( false );
+				await fetchTableRows( state.selected.table );
+				dispatch( { type: 'SET_SHOW_MODAL', payload: false } );
 			} else {
 				throw new Error(
 					'Update did not affect any rows. The row might not exist or the values might be incorrect.'
@@ -219,45 +384,49 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 		} catch ( error ) {
 			console.error( 'Error updating database:', error );
 		}
-	};
+	}, [
+		state.selected.table,
+		state.selected.column,
+		state.selected.row,
+		state.current.columns,
+		selectedSite?.id,
+		selectedSite?.path,
+		dispatch,
+		fetchTableRows,
+	] );
 
-	const scrollToTop = () => {
-		tableContainerRef.current?.scrollTo( { top: 0, behavior: 'smooth' } );
-	};
+	return { handleSave };
+}
 
-	const handleFirstPage = () => {
-		setCurrentPage( 1 );
-		scrollToTop();
-	};
+export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) {
+	const {
+		state,
+		dispatch,
+		tableContainerRef,
+		fetchTables,
+		fetchTableColumns,
+		fetchTableRows,
+		scrollToTop,
+	} = useTableData( selectedSite );
 
-	const handleLastPage = () => {
-		setCurrentPage( totalPages );
-		scrollToTop();
-	};
+	const { totalPages, handleFirstPage, handleLastPage, handlePreviousPage, handleNextPage } =
+		usePagination( state, dispatch );
 
-	const handlePreviousPage = () => {
-		if ( currentPage > 1 ) {
-			setCurrentPage( currentPage - 1 );
-			scrollToTop();
-		}
-	};
+	const { handleTableClick, handleRowClick } = useTableSelection(
+		state,
+		dispatch,
+		fetchTableColumns,
+		fetchTableRows
+	);
 
-	const handleNextPage = () => {
-		if ( currentPage < totalPages ) {
-			setCurrentPage( currentPage + 1 );
-			scrollToTop();
-		}
-	};
+	const { handleSave } = useRowUpdate( state, dispatch, selectedSite, fetchTableRows );
 
-	// Add effect to fetch data when page changes
-	useEffect( () => {
-		if ( selectedTable ) {
-			fetchTableRows( selectedTable );
-		}
-	}, [ currentPage, selectedTable ] );
-
-	const filteredTables = tables.filter( ( table ) =>
-		table.name.toLowerCase().includes( tableFilter.toLowerCase() )
+	const filteredTables = useMemo(
+		() =>
+			state.current.tables.filter( ( table ) =>
+				table.name.toLowerCase().includes( state.current.filter.toLowerCase() )
+			),
+		[ state.current.tables, state.current.filter ]
 	);
 
 	return (
@@ -270,21 +439,21 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 					<div className="flex flex-col gap-1">
 						<SearchControl
 							placeholder={ __( 'Filter tables...' ) }
-							value={ tableFilter }
-							onChange={ setTableFilter }
+							value={ state.current.filter }
+							onChange={ ( value ) => dispatch( { type: 'SET_TABLE_FILTER', payload: value } ) }
 							__nextHasNoMarginBottom
 							size="compact"
 						/>
-						{ isLoading ? (
+						{ state.ui.isLoading ? (
 							<div className="flex items-center justify-center py-4">
 								<Spinner />
 							</div>
-						) : error ? (
-							<div className="text-red-500 text-xs p-2">{ error }</div>
+						) : state.ui.error ? (
+							<div className="text-red-500 text-xs p-2">{ state.ui.error }</div>
 						) : (
 							<ol className="list-none">
 								{ filteredTables.map( ( table ) => {
-									const isSelected = selectedTable?.name === table.name;
+									const isSelected = state.selected.table?.name === table.name;
 									return (
 										<li key={ table.name }>
 											<Button
@@ -308,13 +477,13 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 
 				<div className="flex-1 min-w-0">
 					<div className="h-full flex flex-col">
-						{ isLoading ? (
+						{ state.ui.isLoading ? (
 							<div className="flex items-center justify-center w-full h-full">
 								<Spinner />
 							</div>
-						) : error ? (
-							<div className="text-red-500 text-sm p-4">{ error }</div>
-						) : selectedTable ? (
+						) : state.ui.error ? (
+							<div className="text-red-500 text-sm p-4">{ state.ui.error }</div>
+						) : state.selected.table ? (
 							<div className="flex flex-col">
 								<div
 									ref={ tableContainerRef }
@@ -323,7 +492,7 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 									<table className="table-fixed border divide-y divide-gray-200">
 										<thead className="bg-gray-50">
 											<tr>
-												{ tableColumns?.map( ( column ) => (
+												{ state.current.columns?.map( ( column ) => (
 													<th
 														key={ column.name }
 														className="px-2 py-1 text-left text-xs lowercase tracking-wider font-normal whitespace-nowrap"
@@ -338,10 +507,10 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 											</tr>
 										</thead>
 										<tbody className="bg-white divide-y divide-gray-200">
-											{ tableRows?.length
-												? tableRows?.map( ( row, rowIndex ) => (
+											{ state.current.rows?.length
+												? state.current.rows?.map( ( row, rowIndex ) => (
 														<tr key={ rowIndex } className="hover:bg-gray-50">
-															{ tableColumns?.map( ( column ) => (
+															{ state.current.columns?.map( ( column ) => (
 																<td
 																	key={ `row-${ rowIndex }-${ column.name }` }
 																	tabIndex={ 0 }
@@ -365,11 +534,11 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 						) : (
 							<div className="text-gray-500">Select a table from the list to view its details</div>
 						) }
-						{ selectedTable && (
+						{ state.selected.table && (
 							<div className="flex items-center gap-2 text-gray-500 py-1 text-xs italic whitespace-nowrap justify-between">
 								<span className="justify-start">
-									Total rows: { rowCount } | Page { currentPage } of{ ' ' }
-									{ Math.ceil( ( rowCount || 0 ) / rowsPerPage ) }
+									Total rows: { state.current.rowCount } | Page { state.pagination.currentPage } of{ ' ' }
+									{ Math.ceil( ( state.current.rowCount || 0 ) / state.pagination.rowsPerPage ) }
 								</span>
 								<div className="flex items-center gap-1">
 									<Button
@@ -377,7 +546,7 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 										variant="secondary"
 										size="small"
 										onClick={ handleFirstPage }
-										disabled={ currentPage === 1 || isLoading }
+										disabled={ state.pagination.currentPage === 1 || state.ui.isLoading }
 										showTooltip
 										iconSize={ 16 }
 										label={ __( 'First' ) }
@@ -387,7 +556,7 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 										variant="secondary"
 										size="small"
 										onClick={ handlePreviousPage }
-										disabled={ currentPage === 1 || isLoading }
+										disabled={ state.pagination.currentPage === 1 || state.ui.isLoading }
 										showTooltip
 										iconSize={ 16 }
 										label={ __( 'Previous' ) }
@@ -398,7 +567,10 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 										size="small"
 										onClick={ handleNextPage }
 										disabled={
-											currentPage >= Math.ceil( ( rowCount || 0 ) / rowsPerPage ) || isLoading
+											state.pagination.currentPage >=
+												Math.ceil(
+													( state.current.rowCount || 0 ) / state.pagination.rowsPerPage
+												) || state.ui.isLoading
 										}
 										showTooltip
 										iconSize={ 16 }
@@ -410,7 +582,10 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 										size="small"
 										onClick={ handleLastPage }
 										disabled={
-											currentPage >= Math.ceil( ( rowCount || 0 ) / rowsPerPage ) || isLoading
+											state.pagination.currentPage >=
+												Math.ceil(
+													( state.current.rowCount || 0 ) / state.pagination.rowsPerPage
+												) || state.ui.isLoading
 										}
 										showTooltip
 										iconSize={ 16 }
@@ -420,9 +595,9 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 										icon={ <Icon icon={ update } size={ 16 } /> }
 										variant="tertiary"
 										size="small"
-										onClick={ () => fetchTableRows( selectedTable ) }
-										isBusy={ isLoading }
-										disabled={ isLoading }
+										onClick={ () => fetchTableRows( state.selected.table! ) }
+										isBusy={ state.ui.isLoading }
+										disabled={ state.ui.isLoading }
 										showTooltip
 										iconSize={ 16 }
 									>
@@ -434,48 +609,27 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 					</div>
 				</div>
 			</div>
-			{ showModal && (
-				<Modal
-					size="medium"
-					title={ `Editing ${ selectedColumn?.name } from ${ selectedTable?.name }` }
-					isDismissible
-					focusOnMount="firstContentElement"
-					onRequestClose={ () => setShowModal( false ) }
-					className="max-h-[90%]"
-				>
-					<div>
-						{ selectedColumn?.type === 'INTEGER' && (
-							<InputControl
-								className="mb-4"
-								type="number"
-								value={ String( selectedRow?.[ selectedColumn?.name as string ] ?? '' ) }
-								onChange={ ( value ) => {
-									setSelectedRow( {
-										...selectedRow,
-										[ selectedColumn?.name as string ]: parseInt( value || '0' ),
-									} );
-								} }
-							/>
-						) }
-						{ selectedColumn?.type === 'TEXT' && (
-							<TextareaControl
-								className="mb-4"
-								value={ selectedRow?.[ selectedColumn?.name as string ] as string }
-								onChange={ ( value ) => {
-									setSelectedRow( { ...selectedRow, [ selectedColumn?.name as string ]: value } );
-								} }
-							/>
-						) }
-						<div className="flex justify-end gap-2">
-							<Button variant="primary" onClick={ () => handleSave() }>
-								{ __( 'Save' ) }
-							</Button>
-							<Button variant="secondary" onClick={ () => setShowModal( false ) }>
-								{ __( 'Cancel' ) }
-							</Button>
-						</div>
-					</div>
-				</Modal>
+			{ state.ui.showModal && (
+				<EditRecordModal
+					table={ state.selected.table ?? { name: '' } }
+					column={ state.selected.column ?? { name: '', type: '' } }
+					row={ state.selected.row ?? {} }
+					onClose={ () => dispatch( { type: 'SET_SHOW_MODAL', payload: false } ) }
+					onSave={ () => handleSave() }
+					onChange={ ( value: string | number ) => {
+						const newValue =
+							state.selected.column?.type === 'INTEGER' ? parseInt( value as string, 10 ) : value;
+						dispatch( {
+							type: 'SET_SELECTED_ROW',
+							payload: state.selected.row
+								? {
+										...state.selected.row,
+										[ state.selected.column?.name as string ]: newValue,
+								  }
+								: null,
+						} );
+					} }
+				/>
 			) }
 		</div>
 	);

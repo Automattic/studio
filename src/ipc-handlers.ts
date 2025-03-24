@@ -1275,7 +1275,6 @@ function ensureDatabaseFilePermissions( filePath: string ): void {
 // Update executeModificationQuery to handle file locking
 export async function executeModificationQuery(
 	_event: IpcMainInvokeEvent,
-	databaseId: string,
 	databasePath: string,
 	query: string,
 	values?: unknown[]
@@ -1309,7 +1308,6 @@ export async function executeModificationQuery(
 // Update executeSelectQuery to include permission check and better error handling
 export async function executeSelectQuery(
 	_event: IpcMainInvokeEvent,
-	databaseId: string,
 	databasePath: string,
 	query: string,
 	values?: unknown[]

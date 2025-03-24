@@ -118,17 +118,15 @@ const api: IpcApi = {
 	getFileContent: ( filePath: string ) => ipcRenderer.invoke( 'getFileContent', filePath ),
 	isFullscreen: () => ipcRenderer.invoke( 'isFullscreen' ),
 	executeSelectQuery: (
-		databaseId: string,
 		databasePath: string,
 		query: string,
 		values?: unknown[]
-	) => ipcRenderer.invoke( 'executeSelectQuery', databaseId, databasePath, query, values ),
+	) => ipcRenderer.invoke( 'executeSelectQuery', databasePath, query, values ),
 	executeModificationQuery: (
-		databaseId: string,
 		databasePath: string,
 		query: string,
 		values?: unknown[]
-	) => ipcRenderer.invoke( 'executeModificationQuery', databaseId, databasePath, query, values ),
+	) => ipcRenderer.invoke( 'executeModificationQuery', databasePath, query, values ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

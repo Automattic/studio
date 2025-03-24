@@ -544,5 +544,28 @@ describe( 'WordPress Versions API', () => {
 				{ value: '6.1.0', isBeta: false, isDevelopment: false, isLatest: false, label: '6.1' },
 			] );
 		} );
+
+		it( 'should mark latest WordPress version', async () => {
+			( global.fetch as jest.Mock ).mockResolvedValueOnce( {
+				ok: true,
+				json: jest.fn().mockResolvedValueOnce( {
+					offers: [
+						{ version: '6.5.0-beta1', response: 'autoupdate' },
+						{ version: '6.4.0', response: 'autoupdate' },
+						{ version: '6.3.0', response: 'autoupdate' },
+						{ version: '6.2.0', response: 'autoupdate' },
+						{ version: '6.1.0', response: 'autoupdate' },
+					],
+				} ),
+			} );
+
+			const store = createTestStore();
+			const result = await store.dispatch(
+				wordpressVersionsApi.endpoints.getWordPressVersions.initiate( undefined )
+			);
+			const versions = result.data || [];
+
+			expect( versions.find( ( version ) => version.isLatest )?.value ).toEqual( '6.4.0' );
+		} );
 	} );
 } );

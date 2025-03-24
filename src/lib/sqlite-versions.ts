@@ -4,7 +4,6 @@ import fs from 'fs-extra';
 import semver from 'semver';
 import { getServerFilesPath } from 'src/storage/paths';
 import { SQLITE_FILENAME, SQLITE_FILENAME_LEGACY } from 'vendor/wp-now/src/constants';
-import { downloadSqliteIntegrationPlugin } from 'vendor/wp-now/src/download';
 import getSqlitePath from 'vendor/wp-now/src/get-sqlite-path';
 import { SQLITE_DATABASE_INTEGRATION_VERSION } from './sqlite-database-integration-release';
 
@@ -27,7 +26,6 @@ export async function isSqlLiteInstalled( installPath: string ) {
 export async function updateLatestSqliteVersion() {
 	const installedPath = getSqlitePath();
 	const shouldOverwrite = await isNewSqliteVersionAvailable();
-	await downloadSqliteIntegrationPlugin( { overwrite: shouldOverwrite } );
 	await removeLegacySqliteIntegrationPlugin( installedPath );
 }
 
@@ -135,7 +133,6 @@ export async function keepSqliteIntegrationUpdated( sitePath: string ) {
  * @param sitePath Path of the site.
  */
 export async function installSqliteIntegration( sitePath: string ) {
-	await downloadSqliteIntegrationPlugin();
 	const wpContentPath = path.join( sitePath, 'wp-content' );
 	const databasePath = path.join( wpContentPath, 'database' );
 

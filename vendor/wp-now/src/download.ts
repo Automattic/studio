@@ -178,39 +178,6 @@ export async function downloadWordPress(
 	}
 }
 
-export async function downloadSqliteIntegrationPlugin(
-	{ overwrite }: { overwrite: boolean } = { overwrite: false }
-) {
-	const finalFolder = getSqlitePath();
-	const tempFolder = path.join( os.tmpdir(), SQLITE_FILENAME );
-	const { downloaded, statusCode } = await downloadFileAndUnzip( {
-		url: SQLITE_DATABASE_INTEGRATION_RELEASE_URL,
-		destinationFolder: tempFolder,
-		checkFinalPath: finalFolder,
-		itemName: 'SQLite',
-		overwrite,
-	} );
-	if ( downloaded ) {
-		/**
-		 * The SQLite plugin is extracted into a folder
-		 * named sqlite-database-integration-VERSION,
-		 * so we need to find that folder and move it to the final folder.
-		 */
-		const nestedFolder = fs
-			.readdirSync( tempFolder )
-			.find( ( folder ) => folder.startsWith( `${ SQLITE_FILENAME }-` ) );
-		if ( ! nestedFolder ) {
-			throw new Error( 'SQLite folder not found' );
-		}
-		await fs.ensureDir( path.dirname( finalFolder ) );
-		await fs.move( path.join( tempFolder, nestedFolder ), finalFolder, {
-			overwrite: true,
-		} );
-	} else if ( 0 !== statusCode ) {
-		throw Error( 'An error ocurred when download SQLite' );
-	}
-}
-
 export async function downloadSQLiteCommand( downloadUrl: string, targetPath: string ) {
 	const tempFolder = path.join( os.tmpdir(), 'wp-cli-sqlite-command' );
 	const { downloaded, statusCode } = await downloadFileAndUnzip( {

@@ -38,7 +38,16 @@ interface TableColumn {
 }
 
 export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) {
-	const [ showModal, setShowModal ] = useState( false );
+	// @TODO optimize state management:
+	// - use a single state for the table data, combine related state.
+	// - use reducers for complex state updates.
+    // - extract modal logic
+    // - create custom hooks for table fetching/table pagination
+    // - cache table results
+    // - error state managment
+    // - combine loading states
+    // - use memo for expensive operations
+    const [ showModal, setShowModal ] = useState( false );
 	const [ tables, setTables ] = useState< Table[] >( [] );
 	const [ selectedTable, setSelectedTable ] = useState< Table | null >( null );
 	const [ tableColumns, setTableColumns ] = useState< TableColumn[] | null >( null );

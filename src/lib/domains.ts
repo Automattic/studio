@@ -37,7 +37,7 @@ export const getDomainNameValidationError = (
 		return __( 'The domain name is too long' );
 	}
 
-	if ( domainName && ! domainName.endsWith( '.local' ) ) {
+	if ( ! domainName.endsWith( '.local' ) ) {
 		return __( 'The domain name must end with .local' );
 	}
 

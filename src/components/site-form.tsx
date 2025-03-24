@@ -12,6 +12,7 @@ import { Tooltip } from 'src/components/tooltip';
 import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
 import { useDocsLink } from 'src/hooks/use-docs-link';
 import { useOffline } from 'src/hooks/use-offline';
+import { isWindows } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { generateCustomDomainFromSiteName } from 'src/lib/domains';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -71,6 +72,10 @@ interface SiteFormProps {
 	customDomainError?: string;
 	phpVersion: AllowedPHPVersion;
 	setPhpVersion: ( version: AllowedPHPVersion ) => void;
+	useHttps?: boolean;
+	setUseHttps?: ( use: boolean ) => void;
+	enableHttps?: boolean;
+	setEnableHttps?: ( use: boolean ) => void;
 	wpVersion: string;
 	setWpVersion: ( version: string ) => void;
 }
@@ -261,6 +266,8 @@ export const SiteForm = ( {
 	customDomain = null,
 	setCustomDomain,
 	customDomainError,
+	enableHttps,
+	setEnableHttps,
 }: SiteFormProps ) => {
 	const { __, isRTL } = useI18n();
 	const getDocsLink = useDocsLink();
@@ -466,6 +473,12 @@ export const SiteForm = ( {
 											</div>
 										) }
 
+										{ setUseCustomDomain && setCustomDomain && (
+											<div className="text-a8c-gray-50 text-xs mt-2">
+												{ __( 'Your system password will be required to set up the domain.' ) }
+											</div>
+										) }
+
 										{ useCustomDomain && setCustomDomain && (
 											<div className="flex flex-col gap-2 mt-4">
 												<label htmlFor="custom-domain" className="font-semibold">
@@ -480,9 +493,34 @@ export const SiteForm = ( {
 											</div>
 										) }
 
-										{ setUseCustomDomain && setCustomDomain && (
+										{ useCustomDomain && setEnableHttps && (
+											<div className="flex items-center gap-2 mt-4">
+												<input
+													type="checkbox"
+													id="enable-https"
+													checked={ enableHttps }
+													onChange={ ( e ) => setEnableHttps( e.target.checked ) }
+												/>
+												<label htmlFor="enable-https">{ __( 'Enable HTTPS' ) }</label>
+											</div>
+										) }
+
+										{ ! isWindows() && useCustomDomain && setEnableHttps && (
 											<div className="text-a8c-gray-50 text-xs mt-2">
-												{ __( 'Your system password will be required to set up the domain.' ) }
+												{ __(
+													'You need to manually add the Studio root certificate authority to your keychain and trust it to enable HTTPS.'
+												) }{ ' ' }
+												<Button
+													variant="link"
+													onClick={ () => {
+														getIpcApi().openURL(
+															'https://developer.wordpress.com/docs/developer-tools/studio/ssl-in-studio/'
+														);
+													} }
+												>
+													{ __( 'Learn how' ) }
+													<span aria-label={ __( '(opens in a web browser)' ) }>&#8599;</span>
+												</Button>
 											</div>
 										) }
 									</div>

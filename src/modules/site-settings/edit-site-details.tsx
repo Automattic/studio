@@ -10,6 +10,7 @@ import TextControlComponent from 'src/components/text-control';
 import { Tooltip } from 'src/components/tooltip';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSiteDetails } from 'src/hooks/use-site-details';
+import { isWindows } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { generateCustomDomainFromSiteName, getDomainNameValidationError } from 'src/lib/domains';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -54,6 +55,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 	);
 	const [ customDomainError, setCustomDomainError ] = useState( '' );
 	const [ existingDomainNames, setExistingDomainNames ] = useState< string[] >( [] );
+	const [ enableHttps, setEnableHttps ] = useState( false );
 
 	useEffect( () => {
 		getIpcApi()
@@ -81,14 +83,15 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 		addWpVersionToList( currentWpVersion, wordpressVersionOptions );
 	}
 	const generatedDomainName = generateCustomDomainFromSiteName( siteName );
+	const usedCustomDomain = ! useCustomDomain ? customDomain : undefined;
 	const isFormUnchanged =
 		!! selectedSite &&
 		selectedSite.name === siteName &&
 		selectedSite.phpVersion === selectedPhpVersion &&
 		currentWpVersion === selectedWpVersion &&
 		Boolean( selectedSite.customDomain ) === useCustomDomain &&
-		( ! useCustomDomain || selectedSite.customDomain === customDomain );
-
+		usedCustomDomain === customDomain &&
+		!! selectedSite.enableHttps === ( !! usedCustomDomain && enableHttps );
 	const hasValidationErrors =
 		! selectedSite || ! siteName.trim() || ( useCustomDomain && !! customDomainError );
 
@@ -103,6 +106,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 		setCustomDomain( selectedSite.customDomain ?? null );
 		setCustomDomainError( '' );
 		setIsChangeWpError( '' );
+		setEnableHttps( selectedSite.enableHttps ?? false );
 	}, [ currentWpVersion, selectedSite ] );
 
 	const onSiteEdit = async ( event: FormEvent ) => {
@@ -158,6 +162,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 				name: siteName,
 				phpVersion: selectedPhpVersion,
 				customDomain: usedCustomDomain,
+				enableHttps: !! usedCustomDomain && enableHttps,
 			} );
 
 			if ( needsRestart ) {
@@ -293,6 +298,37 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 										<div className="text-a8c-gray-50 text-xs mt-1">
 											{ __( 'Your system password will be required to set up the domain.' ) }
 										</div>
+									</div>
+								) }
+
+								{ useCustomDomain && (
+									<div className="flex items-center gap-2 mt-4">
+										<input
+											type="checkbox"
+											id="enable-https"
+											checked={ enableHttps }
+											onChange={ ( e ) => setEnableHttps( e.target.checked ) }
+										/>
+										<label htmlFor="enable-https">{ __( 'Enable HTTPS' ) }</label>
+									</div>
+								) }
+
+								{ ! isWindows() && useCustomDomain && (
+									<div className="text-a8c-gray-50 text-xs mt-2">
+										{ __(
+											'You need to manually add the Studio certificate authority to your keychain and trust it.'
+										) }{ ' ' }
+										<Button
+											variant="link"
+											onClick={ () => {
+												getIpcApi().openURL(
+													'https://developer.wordpress.com/docs/developer-tools/studio/ssl-in-studio/'
+												);
+											} }
+										>
+											{ __( 'Learn how' ) }
+											<span aria-label={ __( '(opens in a web browser)' ) }>&#8599;</span>
+										</Button>
 									</div>
 								) }
 							</div>

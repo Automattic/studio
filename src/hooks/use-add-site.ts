@@ -29,6 +29,7 @@ export function useAddSite() {
 	const [ customDomain, setCustomDomain ] = useState< string | null >( null );
 	const [ customDomainError, setCustomDomainError ] = useState( '' );
 	const [ existingDomainNames, setExistingDomainNames ] = useState< string[] >( [] );
+	const [ enableHttps, setEnableHttps ] = useState( false );
 
 	useEffect( () => {
 		getIpcApi()
@@ -96,8 +97,13 @@ export function useAddSite() {
 			if ( useCustomDomain && ! customDomain ) {
 				usedCustomDomain = generateCustomDomainFromSiteName( siteName ?? '' );
 			}
-			await createSite( path, siteName ?? '', wpVersion, usedCustomDomain, async ( newSite ) => {
-				if ( newSite ) {
+			await createSite(
+				path,
+				siteName ?? '',
+				wpVersion,
+				usedCustomDomain,
+				useCustomDomain ? enableHttps : false,
+				async ( newSite ) => {
 					let updatedSite = { ...newSite };
 
 					if ( newSite.phpVersion !== phpVersion ) {
@@ -133,7 +139,7 @@ export function useAddSite() {
 						body: __( 'Your new site is up and running' ),
 					} );
 				}
-			} );
+			);
 		} catch ( e ) {
 			Sentry.captureException( e );
 		}
@@ -152,6 +158,7 @@ export function useAddSite() {
 		phpVersion,
 		customDomain,
 		useCustomDomain,
+		enableHttps,
 	] );
 
 	const handleSiteNameChange = useCallback(
@@ -227,6 +234,8 @@ export function useAddSite() {
 			setCustomDomain: handleCustomDomainChange,
 			customDomainError,
 			setCustomDomainError,
+			enableHttps,
+			setEnableHttps,
 		};
 	}, [
 		__,
@@ -250,5 +259,7 @@ export function useAddSite() {
 		handleCustomDomainChange,
 		customDomainError,
 		setCustomDomainError,
+		enableHttps,
+		setEnableHttps,
 	] );
 }

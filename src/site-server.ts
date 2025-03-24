@@ -58,9 +58,12 @@ export async function stopAllServersOnQuit() {
 }
 
 function getAbsoluteUrl( details: SiteDetails ): string {
-	return details.customDomain
-		? `http://${ details.customDomain }`
-		: `http://localhost:${ details.port }`;
+	if ( details.customDomain ) {
+		const protocol = details.enableHttps ? 'https' : 'http';
+		return `${ protocol }://${ details.customDomain }`;
+	}
+
+	return `http://localhost:${ details.port }`;
 }
 
 export class SiteServer {
@@ -156,6 +159,7 @@ export class SiteServer {
 			phpVersion: site.phpVersion,
 			wpVersion: site.wpVersion,
 			customDomain: site.customDomain,
+			enableHttps: site.enableHttps,
 		};
 
 		if ( this.server && this.details.running ) {

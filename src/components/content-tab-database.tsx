@@ -16,7 +16,7 @@ import {
 	previous,
 	next,
 } from '@wordpress/icons';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import Modal from 'src/components/modal';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
@@ -61,7 +61,7 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 			const tables = ( await getIpcApi().executeSelectQuery(
 				selectedSite?.id,
 				`${ selectedSite?.path }/wp-content/database/.ht.sqlite`,
-				"SELECT name, sql FROM sqlite_master WHERE type='table' ORDER BY name"
+				"SELECT name, sql FROM sqlite_master WHERE type IN ('table','view') AND name NOT LIKE 'sqlite_%' ORDER BY name"
 			) ) as unknown as { name: string; sql: string }[];
 			setTables( tables );
 		} catch ( err ) {
@@ -90,7 +90,7 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 		setSelectedRow( null );
 		setSelectedColumn( null );
 		fetchTables();
-	}, [ selectedSite?.path, selectedSite?.id, selectedSite?.themeDetails, fetchTables ] );
+	}, [ selectedSite?.path, selectedSite?.id, selectedSite?.themeDetails ] );
 
 	const fetchTableColumns = async ( table: Table ) => {
 		const columns = ( await getIpcApi().executeSelectQuery(
@@ -133,6 +133,11 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 		setIsLoading( false );
 		scrollToTop();
 	};
+
+	const totalPages = useMemo(
+		() => Math.ceil( ( rowCount || 0 ) / rowsPerPage ),
+		[ rowCount, rowsPerPage ]
+	);
 
 	const handleTableClick = ( table: Table ) => {
 		setIsLoading( true );
@@ -217,7 +222,6 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 	};
 
 	const handleLastPage = () => {
-		const totalPages = Math.ceil( ( rowCount || 0 ) / rowsPerPage );
 		setCurrentPage( totalPages );
 		scrollToTop();
 	};
@@ -230,7 +234,6 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 	};
 
 	const handleNextPage = () => {
-		const totalPages = Math.ceil( ( rowCount || 0 ) / rowsPerPage );
 		if ( currentPage < totalPages ) {
 			setCurrentPage( currentPage + 1 );
 			scrollToTop();
@@ -242,7 +245,7 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 		if ( selectedTable ) {
 			fetchTableRows( selectedTable );
 		}
-	}, [ currentPage, selectedTable, fetchTableRows ] );
+	}, [ currentPage, selectedTable ] );
 
 	const filteredTables = tables.filter( ( table ) =>
 		table.name.toLowerCase().includes( tableFilter.toLowerCase() )

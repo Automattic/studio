@@ -53,7 +53,7 @@ export const rootReducer = combineReducers( {
 export const store = configureStore( {
 	reducer: rootReducer,
 	middleware: ( getDefaultMiddleware ) =>
-		getDefaultMiddleware().concat( wpcomApi.middleware ).prepend( listenerMiddleware.middleware ),
+		getDefaultMiddleware().prepend( listenerMiddleware.middleware ).concat( wpcomApi.middleware ),
 } );
 
 store.dispatch( wordpressVersionsThunks.fetchWordPressVersions() );

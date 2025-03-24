@@ -4,13 +4,10 @@ import { version } from '../package.json';
 
 const program = new Command();
 
-program.name( 'studio' ).description( 'WordPress.com Studio CLI' ).version( version );
-
 program
-	.command( 'go [folder]' )
-	.description(
-		'Start a new WordPress environment in the specified folder (defaults to current directory)'
-	)
+	.name( 'studio' )
+	.description( 'Studio by WordPress.com CLI' )
+	.version( version )
 	.option(
 		'--output-format [format]',
 		'Specify a non-standard output format',
@@ -20,10 +17,8 @@ program
 			}
 			return value;
 		}
-	)
-	.action( async ( folder: string = process.cwd(), options: { outputFormat?: 'json' } ) => {
-		const previewCreate = new PreviewCreateCommand( folder, options.outputFormat );
-		await previewCreate.run();
-	} );
+	);
+
+PreviewCreateCommand.register( program );
 
 program.parse( process.argv );

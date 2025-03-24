@@ -2,6 +2,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import archiver from 'archiver';
+import { Command } from 'commander/typings';
 import fetch from 'node-fetch';
 import { BaseCommand, OutputFormat } from 'cli/commands/base';
 
@@ -20,6 +21,18 @@ export class PreviewCreateCommand extends BaseCommand {
 		super( outputFormat );
 		this.folder = folder;
 		this.archivePath = path.join( os.tmpdir(), `${ this.folder }.zip` );
+	}
+
+	static register( program: Command ) {
+		program
+			.command( 'go [folder]' )
+			.description(
+				'Start a new WordPress environment in the specified folder (defaults to current directory)'
+			)
+			.action( async ( folder: string = process.cwd(), options: { outputFormat?: 'json' } ) => {
+				const previewCreate = new PreviewCreateCommand( folder, options.outputFormat );
+				await previewCreate.run();
+			} );
 	}
 
 	async run() {

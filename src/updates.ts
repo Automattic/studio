@@ -1,4 +1,4 @@
-import { app, autoUpdater, dialog, shell, Notification } from 'electron';
+import { app, autoUpdater, dialog, Notification } from 'electron';
 import * as Sentry from '@sentry/electron/main';
 import { sprintf, __ } from '@wordpress/i18n';
 import { AUTO_UPDATE_INTERVAL_MS } from 'src/constants';
@@ -255,16 +255,4 @@ function showReleaseNotesNotification() {
 	} );
 
 	activeNotification.show();
-}
-
-if ( process.env.NODE_ENV === 'development' ) {
-	setTimeout( () => {
-		updaterState = 'waiting-for-restart';
-		showReleaseNotesNotification();
-
-		// Wait before showing dialog
-		setTimeout( () => {
-			showUpdateReadyToInstallNotice();
-		}, 2000 );
-	}, 5000 );
 }

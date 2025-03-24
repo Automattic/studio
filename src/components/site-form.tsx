@@ -3,7 +3,7 @@ import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf, _n } from '@wordpress/i18n';
 import { tip, warning, trash, chevronRight, chevronDown, chevronLeft } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { FormEvent, useEffect, useRef, useState } from 'react';
+import { FormEvent, useRef, useState } from 'react';
 import Button from 'src/components/button';
 import FolderIcon from 'src/components/folder-icon';
 import offlineIcon from 'src/components/offline-icon';
@@ -16,11 +16,7 @@ import { isWindows } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { generateCustomDomainFromSiteName } from 'src/lib/domains';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { useAppDispatch, useRootSelector } from 'src/stores';
-import {
-	wordpressVersionsSelectors,
-	wordpressVersionsThunks,
-} from 'src/stores/wordpress-versions-slice';
+import { useGetWordPressVersionsQuery } from 'src/stores/wordpress-versions-api';
 import {
 	DEFAULT_WORDPRESS_VERSION,
 	ALLOWED_PHP_VERSIONS,
@@ -271,23 +267,15 @@ export const SiteForm = ( {
 }: SiteFormProps ) => {
 	const { __, isRTL } = useI18n();
 	const getDocsLink = useDocsLink();
-	const dispatch = useAppDispatch();
 	const isOffline = useOffline();
 
 	const shouldShowCustomDomainError = useCustomDomain && customDomainError;
 	const errorCount = [ error, shouldShowCustomDomainError ].filter( Boolean ).length;
 
 	const offlineMessage = __( 'Changing WordPress version requires an internet connection.' );
-	const wpVersions = useRootSelector(
-		wordpressVersionsSelectors.selectWordPressVersionsWithLatest
-	);
-	const wpVersionsStatus = useRootSelector( ( state ) => state.wordpressVersions.status );
 
-	useEffect( () => {
-		if ( wpVersionsStatus === 'idle' ) {
-			dispatch( wordpressVersionsThunks.fetchWordPressVersions() );
-		}
-	}, [ wpVersionsStatus, dispatch ] );
+	// Use RTK Query instead of the old slice
+	const { data: wpVersions = [] } = useGetWordPressVersionsQuery( undefined );
 
 	const [ isAdvancedSettingsVisible, setAdvancedSettingsVisible ] = useState( false );
 

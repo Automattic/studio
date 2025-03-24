@@ -1,0 +1,67 @@
+import { writeFileSync, existsSync, mkdirSync } from 'fs';
+import path from 'path';
+import type { Reporter, FullResult, TestCase, TestResult } from '@playwright/test/reporter';
+
+export type PerformanceResults = Record< string, number >;
+
+class PerformanceReporter implements Reporter {
+	private results: Record< string, PerformanceResults >;
+
+	constructor() {
+		this.results = {};
+	}
+
+	onTestEnd( test: TestCase, result: TestResult ): void {
+		for ( const attachment of result.attachments ) {
+			if ( attachment.name !== 'results' ) {
+				continue;
+			}
+
+			if ( ! attachment.body ) {
+				throw new Error( 'Empty results attachment' );
+			}
+
+			const testSuite = path.basename( test.location.file, '.test.js' );
+			const resultsId = testSuite;
+			const resultsPath = process.env.ARTIFACTS_PATH as string;
+			const resultsBody = attachment.body.toString();
+			const results = JSON.parse( resultsBody );
+
+			if ( ! existsSync( resultsPath ) ) {
+				mkdirSync( resultsPath, { recursive: true } );
+			}
+			writeFileSync(
+				path.join( resultsPath, `${ resultsId }-results.json` ),
+				JSON.stringify( results, null, 2 )
+			);
+
+			this.results[ testSuite ] = results;
+		}
+	}
+
+	onEnd( result: FullResult ) {
+		if ( result.status !== 'passed' ) {
+			return;
+		}
+
+		if ( process.env.CI ) {
+			return;
+		}
+
+		// Print the results.
+		for ( const [ testSuite, results ] of Object.entries( this.results ) ) {
+			const printableResults: Record< string, { value: string } > = {};
+
+			for ( const [ key, value ] of Object.entries( results ) ) {
+				printableResults[ key ] = { value: `${ value } ms` };
+			}
+
+			// eslint-disable-next-line no-console
+			console.log( `\n${ testSuite }\n` );
+			// eslint-disable-next-line no-console
+			console.table( printableResults );
+		}
+	}
+}
+
+export default PerformanceReporter;

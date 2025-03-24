@@ -49,7 +49,7 @@ export function openAboutWindow() {
 			const versionText = sprintf( __( 'Version %s' ), packageJson );
 			const studioByWpcomText = escapeSingleQuotes( __( 'Studio by WordPress.com' ) );
 			const shareFeedbackText = escapeSingleQuotes( __( 'Share Feedback' ) );
-			const releasesText = escapeSingleQuotes( __( 'Releases' ) );
+			const releasesText = escapeSingleQuotes( __( 'Release notes' ) );
 			const demoSitesText = escapeSingleQuotes( __( 'Preview sites powered by' ) );
 			const localSitesText = escapeSingleQuotes( __( 'Local sites powered by' ) );
 
@@ -57,7 +57,7 @@ export function openAboutWindow() {
 				document.getElementById('studio-by-wpcom').innerText = '${ studioByWpcomText }';
 				document.getElementById('version-text').innerText = '${ versionText }';
 				document.getElementById('share-feedback').innerText = '${ shareFeedbackText }';
-				document.getElementById('releases').innerText = '${ releasesText }';
+				document.getElementById('release-notes').innerText = '${ releasesText }';
 				document.getElementById('demo-sites').innerText = '${ demoSitesText }';
 				document.getElementById('local-sites').innerText = '${ localSitesText }';
 			`;

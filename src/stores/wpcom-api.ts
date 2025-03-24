@@ -1,4 +1,5 @@
-import { createApi } from '@reduxjs/toolkit/query/react';
+import { createApi, TypedUseQuery } from '@reduxjs/toolkit/query/react';
+import * as Sentry from '@sentry/electron/renderer';
 import { z } from 'zod';
 import { useOffline } from 'src/hooks/use-offline';
 import type { BaseQueryFn, FetchBaseQueryError } from '@reduxjs/toolkit/query';
@@ -46,16 +47,21 @@ export const wpcomApi = createApi( {
 				apiNamespace: 'wpcom/v2',
 			} ),
 			transformResponse: ( response: unknown ) => {
-				return welcomeMessageSchema.parse( response );
+				try {
+					return welcomeMessageSchema.parse( response );
+				} catch ( error ) {
+					Sentry.captureException( error );
+					throw error;
+				}
 			},
 			keepUnusedDataFor: 60 * 60,
 		} ),
 	} ),
 } );
 
-function withConnectionChecks< TArg, TResult >(
-	useQueryHook: ( arg: TArg, options?: { skip?: boolean } ) => TResult
-): ( arg: TArg, options?: { skip?: boolean } ) => TResult {
+function withConnectionChecks< TResult, TArg >(
+	useQueryHook: TypedUseQuery< TResult, TArg, typeof wpcomBaseQuery >
+): TypedUseQuery< TResult, TArg, typeof wpcomBaseQuery > {
 	return ( arg, options = {} ) => {
 		const isOffline = useOffline();
 		return useQueryHook( arg, {

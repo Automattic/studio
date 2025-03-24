@@ -99,8 +99,8 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 		setCustomDomain( selectedSite.customDomain ?? null );
 		setCustomDomainError( '' );
 		setErrorUpdatingWpVersion( null );
-		setEnableHttps( selectedSite.enableHttps ?? false );
-	}, [ selectedSite, getEffectiveWpVersion ] );
+		setEnableHttps( selectedSite.enableHttps ?? isCertificateTrusted );
+	}, [ selectedSite, getEffectiveWpVersion, isCertificateTrusted ] );
 
 	const onSiteEdit = async ( event: FormEvent ) => {
 		event.preventDefault();
@@ -156,7 +156,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 				phpVersion: selectedPhpVersion,
 				isWpAutoUpdating: selectedWpVersion === DEFAULT_WORDPRESS_VERSION,
 				customDomain: usedCustomDomain,
-				enableHttps: !! usedCustomDomain && enableHttps,
+				enableHttps: !! usedCustomDomain && ( isCertificateTrusted || enableHttps ),
 			} );
 
 			if ( needsRestart ) {

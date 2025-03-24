@@ -13,7 +13,6 @@ import { useCertificateTrust } from 'src/hooks/use-certificate-trust';
 import { useI18nData } from 'src/hooks/use-i18n-data';
 import { cx } from 'src/lib/cx';
 import { generateCustomDomainFromSiteName } from 'src/lib/domains';
-import { getDocsLink } from 'src/lib/get-docs-link';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import {
 	DEFAULT_WORDPRESS_VERSION,
@@ -278,7 +277,13 @@ export const SiteForm = ( {
 	const errorCount = [ error, shouldShowCustomDomainError ].filter( Boolean ).length;
 
 	const [ isAdvancedSettingsVisible, setAdvancedSettingsVisible ] = useState( false );
-
+	/*
+	useEffect( () => {
+		if ( useCustomDomain && enableHttps && ! isCertificateTrusted && ! isWindows() ) {
+			getIpcApi().openCertificate();
+		}
+	}, [ useCustomDomain, enableHttps, isCertificateTrusted ] );
+*/
 	const handleAdvancedSettingsClick = () => {
 		setAdvancedSettingsVisible( ! isAdvancedSettingsVisible );
 	};

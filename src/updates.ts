@@ -183,18 +183,15 @@ async function showUpdateReadyToInstallNotice() {
 		title: __( 'Update Ready' ),
 		body: __( 'Click to view release notes' ),
 		silent: false,
-		// Add an icon if you have one
-		// icon: path.join(__dirname, 'app-icon.png')
+
 	} );
 
 	activeNotification.on( 'click', () => {
 		shellOpenExternalWrapper( 'https://github.com/Automattic/studio/releases' );
 	} );
 
-	// Show the notification
 	activeNotification.show();
 
-	// Then show the regular dialog
 	const mainWindow = await getMainWindow();
 	const { response } = await dialog.showMessageBox( mainWindow, {
 		type: 'info',
@@ -255,10 +252,9 @@ async function showReadOnlyVolumeError( err: Error ) {
 	} );
 }
 
-// For development testing only
 if ( process.env.NODE_ENV === 'development' ) {
 	setTimeout( () => {
 		updaterState = 'waiting-for-restart';
 		showUpdateReadyToInstallNotice();
-	}, 5000 ); // Show after 5 seconds
+	}, 5000 );
 }

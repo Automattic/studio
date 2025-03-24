@@ -193,3 +193,7 @@ See [Localization](./localization.md) documentation.
 ## Versioning and Updates
 
 See [Versioning and Updates](./versioning-and-updates.md) documentation.
+
+## Design Docs
+
+ - [Custom Domains and SSL](./design-docs/custom-domains-and-ssl.md)

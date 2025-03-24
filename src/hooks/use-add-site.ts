@@ -31,7 +31,7 @@ export function useAddSite() {
 	const [ existingDomainNames, setExistingDomainNames ] = useState< string[] >( [] );
 	const [ enableHttps, setEnableHttps ] = useState( false );
 
-	useEffect( () => {
+	const loadAllCustomDomains = useCallback( () => {
 		getIpcApi()
 			.getAllCustomDomains()
 			.then( ( domains ) => {
@@ -236,6 +236,7 @@ export function useAddSite() {
 			setCustomDomainError,
 			enableHttps,
 			setEnableHttps,
+			loadAllCustomDomains,
 		};
 	}, [
 		__,
@@ -261,5 +262,6 @@ export function useAddSite() {
 		setCustomDomainError,
 		enableHttps,
 		setEnableHttps,
+		loadAllCustomDomains,
 	] );
 }

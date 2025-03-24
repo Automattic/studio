@@ -39,6 +39,7 @@ const extractShortName = ( version: string ): string => {
 export interface WordPressVersion {
 	isBeta: boolean;
 	isDevelopment: boolean;
+	isLatest: boolean;
 	label: string;
 	value: string;
 }

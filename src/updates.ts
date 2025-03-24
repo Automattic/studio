@@ -1,7 +1,7 @@
 import { app, autoUpdater, dialog, Notification } from 'electron';
 import * as Sentry from '@sentry/electron/main';
 import { sprintf, __ } from '@wordpress/i18n';
-import { AUTO_UPDATE_INTERVAL_MS } from 'src/constants';
+import { AUTO_UPDATE_INTERVAL_MS, RELEASE_NOTES_URL } from 'src/constants';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { isDevRelease } from 'src/lib/version-utils';
 import { getMainWindow } from 'src/main-window';
@@ -251,7 +251,7 @@ function showReleaseNotesNotification() {
 	} );
 
 	activeNotification.on( 'click', () => {
-		shellOpenExternalWrapper( 'https://github.com/Automattic/studio/releases' );
+		shellOpenExternalWrapper( RELEASE_NOTES_URL );
 	} );
 
 	activeNotification.show();

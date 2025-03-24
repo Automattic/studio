@@ -10,26 +10,34 @@ export const generateCustomDomainFromSiteName = ( siteName: string ): string => 
 	return `${ domainBase }.wp.local`;
 };
 
-export const validateDomainName = (
+export const getDomainNameValidationError = (
 	useCustomDomain: boolean,
-	domainName: string | null
+	domainName: string | null,
+	existingDomainNames: string[]
 ): string => {
-	// Validate custom domain if enabled
-	const domainPattern =
-		/^(?!-)[\p{L}\p{N}][\p{L}\p{N}-]{0,61}[\p{L}\p{N}](?<!-)(?:\.(?!-)[\p{L}\p{N}-]{1,61}[\p{L}\p{N}](?<!-))+$/u;
-	if ( useCustomDomain && domainName && ! domainPattern.test( domainName ) ) {
-		return __( 'Please enter a valid domain name' );
+	if ( ! useCustomDomain ) {
+		return '';
 	}
 
-	if ( useCustomDomain && domainName && domainName.length > 253 ) {
-		return __( 'The domain name is too long' );
-	}
-
-	if ( useCustomDomain && domainName === '' ) {
+	if ( ! domainName ) {
 		return __( 'The domain name is required' );
 	}
 
-	if ( useCustomDomain && domainName && ! domainName.endsWith( '.local' ) ) {
+	if ( existingDomainNames.includes( domainName ) ) {
+		return __( 'The domain name is already in use' );
+	}
+
+	const domainPattern =
+		/^(?!-)[\p{L}\p{N}][\p{L}\p{N}-]{0,61}[\p{L}\p{N}](?<!-)(?:\.(?!-)[\p{L}\p{N}-]{1,61}[\p{L}\p{N}](?<!-))+$/u;
+	if ( ! domainPattern.test( domainName ) ) {
+		return __( 'Please enter a valid domain name' );
+	}
+
+	if ( domainName.length > 253 ) {
+		return __( 'The domain name is too long' );
+	}
+
+	if ( ! domainName.endsWith( '.local' ) ) {
 		return __( 'The domain name must end with .local' );
 	}
 

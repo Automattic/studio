@@ -43,6 +43,8 @@ describe( 'ContentTabSettings', () => {
 	const copyText = jest.fn();
 	const openLocalPath = jest.fn();
 	const generateProposedSitePath = jest.fn();
+	const getAllCustomDomains = jest.fn().mockResolvedValue( [] );
+
 	beforeEach( () => {
 		jest.clearAllMocks();
 		( useGetWpVersion as jest.Mock ).mockReturnValue( [ '7.7.7', jest.fn() ] );
@@ -50,6 +52,7 @@ describe( 'ContentTabSettings', () => {
 			copyText,
 			openLocalPath,
 			generateProposedSitePath,
+			getAllCustomDomains,
 		} );
 
 		( useSnapshots as jest.Mock ).mockReturnValue( {

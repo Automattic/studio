@@ -64,6 +64,7 @@ export default function Onboarding() {
 		setCustomDomainError,
 		enableHttps,
 		setEnableHttps,
+		loadAllCustomDomains,
 	} = useAddSite();
 	const [ fileError, setFileError ] = useState( '' );
 
@@ -112,6 +113,7 @@ export default function Onboarding() {
 			setCustomDomain( null );
 			setCustomDomainError( '' );
 			setEnableHttps( false );
+			loadAllCustomDomains();
 		};
 		run();
 		// eslint-disable-next-line react-hooks/exhaustive-deps

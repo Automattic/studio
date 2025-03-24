@@ -57,6 +57,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 		setCustomDomainError,
 		enableHttps,
 		setEnableHttps,
+		loadAllCustomDomains,
 	} = useAddSite();
 	const { importState } = useImportExport();
 
@@ -86,6 +87,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 		setSitePath( '' );
 		setError( '' );
 		setDoesPathContainWordPress( isWordPress );
+		loadAllCustomDomains();
 	}, [
 		sites,
 		setSiteName,
@@ -95,6 +97,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 		setDoesPathContainWordPress,
 		setWpVersion,
 		latestStableVersion,
+		loadAllCustomDomains,
 	] );
 
 	useEffect( () => {

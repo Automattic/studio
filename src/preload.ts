@@ -117,6 +117,7 @@ const api: IpcApi = {
 		ipcRenderer.invoke( 'getAbsolutePathFromSite', siteId, relativePath ),
 	openFileInIDE: ( relativePath: string, siteId: string ) =>
 		ipcRenderer.invoke( 'openFileInIDE', relativePath, siteId ),
+	isCATrusted: () => ipcRenderer.invoke( 'isCATrusted' ),
 	isImportExportSupported: ( siteId: string ) =>
 		ipcRenderer.invoke( 'isImportExportSupported', siteId ),
 	checkSyncBackupSize: ( downloadUrl: string ) =>

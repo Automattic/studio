@@ -1,4 +1,5 @@
-import { SelectControl } from '@wordpress/components';
+import { SelectControl, Icon } from '@wordpress/components';
+import { warning } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import stripAnsi from 'strip-ansi';
@@ -8,6 +9,7 @@ import Modal from 'src/components/modal';
 import offlineIcon from 'src/components/offline-icon';
 import TextControlComponent from 'src/components/text-control';
 import { Tooltip } from 'src/components/tooltip';
+import { STUDIO_DISABLE_WP_AUTO_UPDATES_PLUGIN } from 'src/constants';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { isWindows } from 'src/lib/app-globals';
@@ -30,7 +32,8 @@ type EditSiteDetailsProps = {
 
 export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteDetailsProps ) {
 	const { __ } = useI18n();
-	const { updateSite, selectedSite, stopServer, startServer } = useSiteDetails();
+	const { updateSite, selectedSite, stopServer, startServer, addMuPlugin, removeMuPlugin } =
+		useSiteDetails();
 	const [ isChangeWpError, setIsChangeWpError ] = useState( '' );
 	const [ showModal, setShowModal ] = useState( false );
 	const [ isEditingSite, setIsEditingSite ] = useState( false );
@@ -73,11 +76,11 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 	const { data: wordpressVersions = [] } = useGetWordPressVersions( undefined, {
 		skip: ! showModal,
 	} );
-
 	const wordpressVersionOptions = wordpressVersions.map( ( version ) => ( {
 		label: version.label,
 		value: version.value,
 	} ) );
+	const latestStableVersion = wordpressVersions.find( ( version ) => version.isLatest );
 
 	if ( ! wordpressVersionOptions.some( ( version ) => version.value === currentWpVersion ) ) {
 		addWpVersionToList( currentWpVersion, wordpressVersionOptions );
@@ -137,6 +140,13 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 					} );
 					if ( result.exitCode !== 0 ) {
 						throw new Error( result.stderr );
+					}
+
+					// Handle the mu-plugin based on the selected version
+					if ( selectedWpVersion !== latestStableVersion?.value ) {
+						await addMuPlugin( selectedSite.id, STUDIO_DISABLE_WP_AUTO_UPDATES_PLUGIN );
+					} else {
+						await removeMuPlugin( selectedSite.id, STUDIO_DISABLE_WP_AUTO_UPDATES_PLUGIN );
 					}
 				} catch ( wpError ) {
 					console.error( 'Error changing WordPress version:', wpError );
@@ -244,7 +254,17 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 									htmlFor="wp-version-select"
 									className="flex flex-1 flex-col gap-1.5 leading-4"
 								>
-									<span className="font-semibold">{ __( 'WordPress version' ) }</span>
+									<span className="font-semibold flex items-center gap-2">
+										{ __( 'WordPress version' ) }
+										{ latestStableVersion && selectedWpVersion !== latestStableVersion.value && (
+											<Tooltip
+												text={ __( 'Auto-updates will be disabled for this site.' ) }
+												placement="top-start"
+											>
+												<Icon icon={ warning } className="text-[#ae5c00]" size={ 16 } />
+											</Tooltip>
+										) }
+									</span>
 									<Tooltip
 										disabled={ ! isOffline }
 										icon={ offlineIcon }

@@ -275,6 +275,7 @@ export const SiteForm = ( {
 	const offlineMessage = __( 'Changing WordPress version requires an internet connection.' );
 
 	const { data: wpVersions = [] } = useGetWordPressVersions();
+	const latestStableVersion = wpVersions.find( ( version ) => version.isLatest );
 
 	const [ isAdvancedSettingsVisible, setAdvancedSettingsVisible ] = useState( false );
 
@@ -413,8 +414,19 @@ export const SiteForm = ( {
 												/>
 											</div>
 											<div className="flex flex-col gap-1.5 leading-4">
-												<label className="font-semibold" htmlFor="wp-version-select">
+												<label
+													className="font-semibold flex items-center gap-2"
+													htmlFor="wp-version-select"
+												>
 													{ __( 'WordPress version' ) }
+													{ latestStableVersion && wpVersion !== latestStableVersion.value && (
+														<Tooltip
+															text={ __( 'Auto-updates will be disabled for this site.' ) }
+															placement="top-start"
+														>
+															<Icon icon={ warning } size={ 16 } />
+														</Tooltip>
+													) }
 												</label>
 												<Tooltip
 													disabled={ ! isOffline }

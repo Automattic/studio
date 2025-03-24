@@ -5,6 +5,8 @@ import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { generateCustomDomainFromSiteName, getDomainNameValidationError } from 'src/lib/domains';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useRootSelector } from 'src/stores';
+import { wordpressVersionsSelectors } from 'src/stores/wordpress-versions-slice';
 import {
 	DEFAULT_PHP_VERSION,
 	DEFAULT_WORDPRESS_VERSION,
@@ -30,6 +32,9 @@ export function useAddSite() {
 	const [ customDomainError, setCustomDomainError ] = useState( '' );
 	const [ existingDomainNames, setExistingDomainNames ] = useState< string[] >( [] );
 	const [ enableHttps, setEnableHttps ] = useState( false );
+	const latestStableWpVersion = useRootSelector(
+		wordpressVersionsSelectors.selectLatestStableVersion
+	);
 
 	const loadAllCustomDomains = useCallback( () => {
 		getIpcApi()
@@ -100,7 +105,7 @@ export function useAddSite() {
 			await createSite(
 				path,
 				siteName ?? '',
-				wpVersion,
+				{ version: wpVersion, isLatest: wpVersion === latestStableWpVersion?.value },
 				usedCustomDomain,
 				useCustomDomain ? enableHttps : false,
 				async ( newSite ) => {
@@ -164,6 +169,7 @@ export function useAddSite() {
 		customDomain,
 		useCustomDomain,
 		enableHttps,
+		latestStableWpVersion,
 	] );
 
 	const handleSiteNameChange = useCallback(

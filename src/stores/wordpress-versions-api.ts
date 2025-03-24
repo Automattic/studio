@@ -1,7 +1,7 @@
-import { createSlice, createAsyncThunk, createSelector } from '@reduxjs/toolkit';
+import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import * as Sentry from '@sentry/electron/renderer';
 import { __ } from '@wordpress/i18n';
-import { z, ZodError } from 'zod';
+import { z } from 'zod';
 import { isWordPressDevVersion, isWordPressBetaVersion } from 'src/lib/wordpress-version-utils';
 
 const MINIMUM_WORDPRESS_VERSION = '5.9.9';
@@ -36,19 +36,11 @@ const extractShortName = ( version: string ): string => {
 	return match ? match[ 1 ] : version;
 };
 
-async function fetchWordPressApiData( channel: 'beta' | 'development', version?: string ) {
-	const baseUrl = 'https://api.wordpress.org/core/version-check/1.7/';
-	const params = new URLSearchParams( { channel } );
-
-	if ( channel === 'beta' && version ) {
-		params.append( 'version', version );
-	}
-
-	const response = await fetch( `${ baseUrl }?${ params }` );
-	if ( ! response.ok ) {
-		throw new Error( 'Failed to fetch WordPress versions' );
-	}
-	return wordPressApiResponseSchema.parse( await response.json() );
+export interface WordPressVersion {
+	isBeta: boolean;
+	isDevelopment: boolean;
+	label: string;
+	value: string;
 }
 
 function processWordPressOffers(
@@ -79,117 +71,59 @@ function generateVersionLabel( version: string, shortName: string, occurrences: 
 	return occurrences > 1 || isWordPressBetaVersion( version ) ? version : shortName;
 }
 
-export const fetchWordPressVersions = createAsyncThunk(
-	'wordpressVersions/fetchWordPressVersions',
-	async () => {
-		try {
-			const [ stableData, developmentData ] = await Promise.all( [
-				fetchWordPressApiData( 'beta', MINIMUM_WORDPRESS_VERSION ),
-				fetchWordPressApiData( 'development' ),
-			] );
+export const wordpressVersionsApi = createApi( {
+	reducerPath: 'wordpressVersionsApi',
+	baseQuery: fetchBaseQuery( { baseUrl: 'https://api.wordpress.org' } ),
+	endpoints: ( builder ) => ( {
+		getWordPressVersions: builder.query< WordPressVersion[], void >( {
+			query: () => ( {
+				url: `/core/version-check/1.7/?channel=beta&version=${ MINIMUM_WORDPRESS_VERSION }`,
+			} ),
+			transformResponse: async ( response: unknown ) => {
+				try {
+					const stableData = wordPressApiResponseSchema.parse( response );
 
-			const shortNameOccurrences = new Map< string, number >();
+					const devResponse = await fetch(
+						'https://api.wordpress.org/core/version-check/1.7/?channel=development'
+					);
 
-			const stableOffers = processWordPressOffers( stableData.offers, false, shortNameOccurrences );
+					const developmentData = wordPressApiResponseSchema.parse( await devResponse.json() );
 
-			const developmentOffer = processWordPressOffers(
-				developmentData.offers,
-				true,
-				shortNameOccurrences
-			)[ 0 ];
+					const shortNameOccurrences = new Map< string, number >();
 
-			const allOffers = developmentOffer ? [ developmentOffer, ...stableOffers ] : stableOffers;
+					const stableOffers = processWordPressOffers(
+						stableData.offers,
+						false,
+						shortNameOccurrences
+					);
 
-			return allOffers.map( ( { version, shortName } ) => ( {
-				isBeta: isWordPressBetaVersion( version ),
-				isDevelopment: isWordPressDevVersion( version ),
-				label: generateVersionLabel(
-					version,
-					shortName,
-					shortNameOccurrences.get( shortName ) || 0
-				),
-				value: version,
-			} ) );
-		} catch ( error ) {
-			if ( error instanceof ZodError ) {
-				Sentry.captureException( error );
-			}
-			throw error;
-		}
-	}
-);
+					const developmentOffer = processWordPressOffers(
+						developmentData.offers,
+						true,
+						shortNameOccurrences
+					)[ 0 ];
 
-interface WordPressVersion {
-	isBeta: boolean;
-	isDevelopment: boolean;
-	label: string;
-	value: string;
-}
+					const allOffers = developmentOffer ? [ developmentOffer, ...stableOffers ] : stableOffers;
 
-interface WordPressVersionsState {
-	versions: WordPressVersion[];
-	status: 'idle' | 'loading' | 'succeeded' | 'failed';
-	error: string | null;
-}
-
-const initialState: WordPressVersionsState = {
-	versions: [],
-	status: 'idle',
-	error: null,
-};
-
-const wordpressVersionsSlice = createSlice( {
-	name: 'wordpressVersions',
-	initialState,
-	reducers: {},
-	extraReducers: ( builder ) => {
-		builder
-			.addCase( fetchWordPressVersions.pending, ( state ) => {
-				state.status = 'loading';
-			} )
-			.addCase( fetchWordPressVersions.fulfilled, ( state, action ) => {
-				state.status = 'succeeded';
-				state.versions = action.payload;
-				state.error = null;
-			} )
-			.addCase( fetchWordPressVersions.rejected, ( state, action ) => {
-				state.status = 'failed';
-				state.error =
-					action.error.message || 'Something went wrong when fetching the WordPress versions';
-			} );
-	},
-	selectors: {
-		selectWordPressVersions: ( state ) => state.versions,
-		selectWordPressVersionsWithLatest: createSelector(
-			[ ( state ) => state.versions ],
-			( versions: WordPressVersion[] ) => {
-				let foundLatestStable = false;
-				return versions.map( ( version: WordPressVersion ) => {
-					if ( ! foundLatestStable && ! version.isBeta && ! version.isDevelopment ) {
-						foundLatestStable = true;
-						return {
-							...version,
-							label: `${ version.label } (${ __( 'latest' ) })`,
-						};
+					return allOffers.map( ( { version, shortName } ) => ( {
+						isBeta: isWordPressBetaVersion( version ),
+						isDevelopment: isWordPressDevVersion( version ),
+						label: generateVersionLabel(
+							version,
+							shortName,
+							shortNameOccurrences.get( shortName ) || 0
+						),
+						value: version,
+					} ) );
+				} catch ( error ) {
+					if ( error instanceof z.ZodError ) {
+						Sentry.captureException( error );
 					}
-					return version;
-				} );
-			}
-		),
-		selectLatestStableVersion: createSelector(
-			[ ( state ) => state.versions ],
-			( versions: WordPressVersion[] ) =>
-				versions.find(
-					( version: WordPressVersion ) => ! version.isBeta && ! version.isDevelopment
-				)
-		),
-	},
+					throw error;
+				}
+			},
+		} ),
+	} ),
 } );
 
-export const wordpressVersionsActions = wordpressVersionsSlice.actions;
-export const wordpressVersionsSelectors = wordpressVersionsSlice.selectors;
-export const wordpressVersionsThunks = {
-	fetchWordPressVersions,
-};
-
-export const reducer = wordpressVersionsSlice.reducer;
+export const { useGetWordPressVersionsQuery } = wordpressVersionsApi;

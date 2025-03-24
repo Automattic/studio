@@ -1,7 +1,8 @@
-import { app, autoUpdater, dialog } from 'electron';
+import { app, autoUpdater, dialog, shell, Notification } from 'electron';
 import * as Sentry from '@sentry/electron/main';
 import { sprintf, __ } from '@wordpress/i18n';
 import { AUTO_UPDATE_INTERVAL_MS } from 'src/constants';
+import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { isDevRelease } from 'src/lib/version-utils';
 import { getMainWindow } from 'src/main-window';
 
@@ -21,6 +22,9 @@ let showManualCheckDialogs = false;
 
 const shouldPoll =
 	process.env.NODE_ENV === 'production' && app.isPackaged && ! isDevRelease( app.getVersion() );
+
+// Store notifications at module level to prevent garbage collection
+let activeNotification: Notification | null = null;
 
 export function setupUpdates() {
 	if ( process.env.E2E ) {
@@ -174,6 +178,23 @@ async function showUpdateUnavailableNotice() {
 }
 
 async function showUpdateReadyToInstallNotice() {
+	// Create and store the notification
+	activeNotification = new Notification( {
+		title: __( 'Update Ready' ),
+		body: __( 'Click to view release notes' ),
+		silent: false,
+		// Add an icon if you have one
+		// icon: path.join(__dirname, 'app-icon.png')
+	} );
+
+	activeNotification.on( 'click', () => {
+		shellOpenExternalWrapper( 'https://github.com/Automattic/studio/releases' );
+	} );
+
+	// Show the notification
+	activeNotification.show();
+
+	// Then show the regular dialog
 	const mainWindow = await getMainWindow();
 	const { response } = await dialog.showMessageBox( mainWindow, {
 		type: 'info',
@@ -232,4 +253,12 @@ async function showReadOnlyVolumeError( err: Error ) {
 		message: __( 'Error updating Studio' ),
 		detail: `${ detailMessage }\n\n${ detailPath }`,
 	} );
+}
+
+// For development testing only
+if ( process.env.NODE_ENV === 'development' ) {
+	setTimeout( () => {
+		updaterState = 'waiting-for-restart';
+		showUpdateReadyToInstallNotice();
+	}, 5000 ); // Show after 5 seconds
 }

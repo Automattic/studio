@@ -64,26 +64,29 @@ function processWordPressOffers(
 		} );
 }
 
-function generateVersionLabel( version: string, shortName: string, occurrences: number ): string {
+function generateVersionLabel(
+	version: string,
+	shortName: string,
+	occurrences: number,
+	isLatest: boolean
+): string {
 	if ( isWordPressDevVersion( version ) ) {
 		return 'nightly';
 	}
-	return occurrences > 1 || isWordPressBetaVersion( version ) ? version : shortName;
+	if ( isLatest ) {
+		return sprintf( __( '%s (latest)' ), version );
+	}
+	if ( occurrences > 1 || isWordPressBetaVersion( version ) ) {
+		return version;
+	}
+	return shortName;
 }
 
-function addLatestLabel( versions: WordPressVersion[] ): WordPressVersion[] {
-	let foundLatestStable = false;
-	return versions.map( ( version: WordPressVersion ) => {
-		if ( ! foundLatestStable && ! version.isBeta && ! version.isDevelopment ) {
-			foundLatestStable = true;
-			return {
-				...version,
-				// translators: %s: The version number. Example: "6.7.2 (latest)"
-				label: sprintf( __( '%s (latest)' ), version.label ),
-			};
-		}
-		return version;
-	} );
+function findLatestStable( versions: ProcessedOffer[] ): ProcessedOffer | undefined {
+	return versions.find(
+		( version: ProcessedOffer ) =>
+			! isWordPressBetaVersion( version.version ) && ! isWordPressDevVersion( version.version )
+	);
 }
 
 export const wordpressVersionsApi = createApi( {
@@ -119,19 +122,22 @@ export const wordpressVersionsApi = createApi( {
 					)[ 0 ];
 
 					const allOffers = developmentOffer ? [ developmentOffer, ...stableOffers ] : stableOffers;
-
-					return addLatestLabel(
-						allOffers.map( ( { version, shortName } ) => ( {
+					const latestVersion = findLatestStable( allOffers );
+					return allOffers.map( ( { version, shortName } ) => {
+						const isLatest = latestVersion?.version === version;
+						return {
 							isBeta: isWordPressBetaVersion( version ),
 							isDevelopment: isWordPressDevVersion( version ),
+							isLatest,
 							label: generateVersionLabel(
 								version,
 								shortName,
-								shortNameOccurrences.get( shortName ) || 0
+								shortNameOccurrences.get( shortName ) || 0,
+								isLatest
 							),
 							value: version,
-						} ) )
-					);
+						};
+					} );
 				} catch ( error ) {
 					if ( error instanceof z.ZodError ) {
 						Sentry.captureException( error );

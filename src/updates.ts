@@ -94,6 +94,12 @@ export function setupUpdates() {
 	autoUpdater.on( 'update-downloaded', async () => {
 		updaterState = 'waiting-for-restart';
 		console.log( 'Update has been downloaded' );
+
+		showReleaseNotesNotification();
+
+		// Wait a moment before showing the dialog
+		await new Promise( ( resolve ) => setTimeout( resolve, 2000 ) );
+
 		await showUpdateReadyToInstallNotice();
 	} );
 
@@ -178,20 +184,6 @@ async function showUpdateUnavailableNotice() {
 }
 
 async function showUpdateReadyToInstallNotice() {
-	// Create and store the notification
-	activeNotification = new Notification( {
-		title: __( 'Update Ready' ),
-		body: __( 'Click to view release notes' ),
-		silent: false,
-
-	} );
-
-	activeNotification.on( 'click', () => {
-		shellOpenExternalWrapper( 'https://github.com/Automattic/studio/releases' );
-	} );
-
-	activeNotification.show();
-
 	const mainWindow = await getMainWindow();
 	const { response } = await dialog.showMessageBox( mainWindow, {
 		type: 'info',
@@ -252,9 +244,27 @@ async function showReadOnlyVolumeError( err: Error ) {
 	} );
 }
 
+function showReleaseNotesNotification() {
+	activeNotification = new Notification( {
+		title: __( 'Studio update is ready' ),
+		body: __( 'Click to view release notes and read about most recent changes' ),
+	} );
+
+	activeNotification.on( 'click', () => {
+		shellOpenExternalWrapper( 'https://github.com/Automattic/studio/releases' );
+	} );
+
+	activeNotification.show();
+}
+
 if ( process.env.NODE_ENV === 'development' ) {
 	setTimeout( () => {
 		updaterState = 'waiting-for-restart';
-		showUpdateReadyToInstallNotice();
+		showReleaseNotesNotification();
+
+		// Wait before showing dialog
+		setTimeout( () => {
+			showUpdateReadyToInstallNotice();
+		}, 2000 );
 	}, 5000 );
 }

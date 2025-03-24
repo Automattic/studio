@@ -51,7 +51,7 @@ When a site with a custom domain is accessed, the proxy server handles the reque
 1. When a user enables a custom domain:
    - Domain is validated and added to the site configuration
    - An entry is added to the hosts file mapping the domain to 127.0.0.1
-   - If HTTPs is enabled and no root CA exists, one is created and stored on the system. For windows, the root CA is added to the system trust store. But For MacOS, the user is prompted to install the root CA manually.
+   - If HTTPS is enabled and no root CA exists, one is created and stored on the system. For windows, the root CA is added to the system trust store. But For MacOS, the user is prompted to install the root CA manually.
    - If HTTPS is enabled, site certificates are generated
 
 2. When a request arrives at the proxy server:

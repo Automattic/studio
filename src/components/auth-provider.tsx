@@ -5,7 +5,7 @@ import WPCOM from 'wpcom';
 import { useI18nData } from 'src/hooks/use-i18n-data';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { setWpcomClient } from 'src/stores/api/wpcom-api';
+import { setWpcomClient } from 'src/stores/wpcom-api';
 
 export interface AuthContextType {
 	client: WPCOM | undefined;

@@ -24,7 +24,6 @@ import { useThemeDetails } from 'src/hooks/use-theme-details';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useAppDispatch, useRootSelector } from 'src/stores';
-import { useGetWelcomeMessagesQuery } from 'src/stores/api/wpcom-api';
 import {
 	chatThunks,
 	generateMessage,
@@ -32,6 +31,7 @@ import {
 	chatActions,
 	chatSelectors,
 } from 'src/stores/chat-slice';
+import { useGetWelcomeMessages } from 'src/stores/wpcom-api';
 
 export const MIMIC_CONVERSATION_DELAY = 500;
 
@@ -349,9 +349,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const { __ } = useI18n();
 	const lastMessage = messages.length === 0 ? undefined : messages[ messages.length - 1 ];
 	const hasFailedMessage = messages.some( ( msg ) => msg.failedMessage );
-	const { data, isLoading } = useGetWelcomeMessagesQuery( undefined, {
-		skip: ! client || isOffline,
-	} );
+	const { data, isLoading } = useGetWelcomeMessages();
 
 	const { selectedThemeDetails: themeDetails } = useThemeDetails();
 
@@ -457,7 +455,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 				<div className="w-full flex flex-col items-center">
 					<AIInput
 						ref={ inputRef }
-						disabled={ disabled || isLoading }
+						disabled={ disabled }
 						input={ chatInput }
 						setInput={ ( input ) => {
 							dispatch( chatActions.setChatInput( { siteId: selectedSite.id, input } ) );

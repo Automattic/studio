@@ -30,8 +30,8 @@ jest.mock( 'src/lib/app-globals', () => ( {
 	} ),
 } ) );
 
-jest.mock( 'src/stores/api/wpcom-api', () => ( {
-	useGetWelcomeMessagesQuery: () => ( {
+jest.mock( 'src/stores/wpcom-api', () => ( {
+	useGetWelcomeMessages: () => ( {
 		data: {
 			messages: [ 'Welcome to our service!', 'How can I help you today?' ],
 			example_prompts: [
@@ -44,8 +44,8 @@ jest.mock( 'src/stores/api/wpcom-api', () => ( {
 		isError: false,
 		error: null,
 	} ),
-	wpComApi: {
-		reducerPath: 'wpComApi',
+	wpcomApi: {
+		reducerPath: 'wpcomApi',
 		reducer: () => ( {} ),
 		middleware: () => ( next: Dispatch ) => ( action: UnknownAction ) => next( action ),
 	},

@@ -57,6 +57,40 @@ const mockCreateSite = jest.fn();
 
 describe( 'Onboarding Component', () => {
 	const user = userEvent.setup();
+	const useAddSiteMockValue = {
+		setSiteName: jest.fn(),
+		setProposedSitePath: jest.fn(),
+		setSitePath: jest.fn(),
+		setError: jest.fn(),
+		setDoesPathContainWordPress: jest.fn(),
+		setPhpVersion: jest.fn(),
+		setWpVersion: jest.fn(),
+		siteName: 'My Site',
+		sitePath: '/path/to/my/site',
+		phpVersion: '8.0',
+		wpVersion: DEFAULT_WORDPRESS_VERSION,
+		error: '',
+		doesPathContainWordPress: false,
+		handleAddSiteClick: jest.fn(),
+		handleSiteNameChange: jest.fn(),
+		handlePathSelectorClick: jest.fn(),
+		onSelectPath: jest.fn(),
+		setFileForImport: jest.fn(),
+		fileForImport: null,
+		isAdvancedSettingsVisible: true,
+		handleSubmit: jest.fn( () => {
+			mockCreateSite( '/path/to/my/site', 'My Site', DEFAULT_WORDPRESS_VERSION );
+		} ),
+		setUseCustomDomain: jest.fn(),
+		useCustomDomain: false,
+		customDomain: '',
+		setCustomDomain: jest.fn(),
+		setCustomDomainError: jest.fn(),
+		customDomainError: '',
+		enableHttps: false,
+		setEnableHttps: jest.fn(),
+		loadAllCustomDomains: jest.fn(),
+	};
 
 	beforeEach( () => {
 		jest.clearAllMocks();
@@ -76,39 +110,7 @@ describe( 'Onboarding Component', () => {
 		( useOnboarding as jest.Mock ).mockReturnValue( {
 			needsOnboarding: true,
 		} );
-		( useAddSite as jest.Mock ).mockReturnValue( {
-			setSiteName: jest.fn(),
-			setProposedSitePath: jest.fn(),
-			setSitePath: jest.fn(),
-			setError: jest.fn(),
-			setDoesPathContainWordPress: jest.fn(),
-			setPhpVersion: jest.fn(),
-			setWpVersion: jest.fn(),
-			siteName: 'My Site',
-			sitePath: '/path/to/my/site',
-			phpVersion: '8.0',
-			wpVersion: DEFAULT_WORDPRESS_VERSION,
-			error: '',
-			doesPathContainWordPress: false,
-			handleAddSiteClick: jest.fn(),
-			handleSiteNameChange: jest.fn(),
-			handlePathSelectorClick: jest.fn(),
-			onSelectPath: jest.fn(),
-			setFileForImport: jest.fn(),
-			fileForImport: null,
-			isAdvancedSettingsVisible: true,
-			handleSubmit: jest.fn( () => {
-				mockCreateSite( '/path/to/my/site', 'My Site', DEFAULT_WORDPRESS_VERSION );
-			} ),
-			setUseCustomDomain: jest.fn(),
-			useCustomDomain: false,
-			customDomain: '',
-			setCustomDomain: jest.fn(),
-			setCustomDomainError: jest.fn(),
-			customDomainError: '',
-			enableHttps: false,
-			setEnableHttps: jest.fn(),
-		} );
+		( useAddSite as jest.Mock ).mockReturnValue( useAddSiteMockValue );
 	} );
 
 	it( 'renders onboarding screen correctly', () => {
@@ -160,34 +162,8 @@ describe( 'Onboarding Component', () => {
 		const mockSetWpVersion = jest.fn();
 
 		( useAddSite as jest.Mock ).mockReturnValue( {
-			setSiteName: jest.fn(),
-			setProposedSitePath: jest.fn(),
-			setSitePath: jest.fn(),
-			setError: jest.fn(),
-			setDoesPathContainWordPress: jest.fn(),
-			setPhpVersion: jest.fn(),
+			...useAddSiteMockValue,
 			setWpVersion: mockSetWpVersion,
-			siteName: 'My Site',
-			sitePath: '/path/to/my/site',
-			phpVersion: '8.0',
-			wpVersion: DEFAULT_WORDPRESS_VERSION,
-			error: '',
-			doesPathContainWordPress: false,
-			handleAddSiteClick: jest.fn(),
-			handleSiteNameChange: jest.fn(),
-			handlePathSelectorClick: jest.fn(),
-			onSelectPath: jest.fn(),
-			setFileForImport: jest.fn(),
-			fileForImport: null,
-			isAdvancedSettingsVisible: true,
-			setUseCustomDomain: jest.fn(),
-			useCustomDomain: false,
-			customDomain: '',
-			setCustomDomain: jest.fn(),
-			setCustomDomainError: jest.fn(),
-			customDomainError: '',
-			enableHttps: false,
-			setEnableHttps: jest.fn(),
 		} );
 
 		render( <Onboarding /> );
@@ -234,41 +210,15 @@ describe( 'Onboarding Component', () => {
 			return { status: 'succeeded' };
 		} );
 
-		const mockSetWpVersion = jest.fn();
 		const mockHandleAddSiteClick = jest.fn().mockImplementation( () => {
 			mockCreateSite( '/path/to/my/site', 'My Site', '6.3.3' );
 			return Promise.resolve();
 		} );
 
 		( useAddSite as jest.Mock ).mockReturnValue( {
-			setSiteName: jest.fn(),
-			setProposedSitePath: jest.fn(),
-			setSitePath: jest.fn(),
-			setError: jest.fn(),
-			setDoesPathContainWordPress: jest.fn(),
-			setPhpVersion: jest.fn(),
-			setWpVersion: mockSetWpVersion,
-			siteName: 'My Site',
-			sitePath: '/path/to/my/site',
-			phpVersion: '8.0',
-			wpVersion: '6.3.3', // Changed from default
-			error: '',
-			doesPathContainWordPress: false,
+			...useAddSiteMockValue,
 			handleAddSiteClick: mockHandleAddSiteClick,
-			handleSiteNameChange: jest.fn(),
-			handlePathSelectorClick: jest.fn(),
-			onSelectPath: jest.fn(),
-			setFileForImport: jest.fn(),
-			fileForImport: null,
-			isAdvancedSettingsVisible: true,
-			setUseCustomDomain: jest.fn(),
-			useCustomDomain: false,
-			customDomain: '',
-			setCustomDomain: jest.fn(),
-			setCustomDomainError: jest.fn(),
-			customDomainError: '',
-			enableHttps: false,
-			setEnableHttps: jest.fn(),
+			wpVersion: '6.3.3',
 		} );
 
 		render( <Onboarding /> );
@@ -335,6 +285,7 @@ describe( 'Onboarding Component', () => {
 			customDomainError: '',
 			enableHttps: false,
 			setEnableHttps: jest.fn(),
+			loadAllCustomDomains: jest.fn(),
 		} );
 
 		render( <Onboarding /> );

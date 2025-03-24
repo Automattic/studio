@@ -53,6 +53,7 @@ const api: IpcApi = {
 	openURL: ( url ) => ipcRendererSend( 'openURL', url ),
 	showOpenFolderDialog: ( title, defaultDialogPath ) =>
 		ipcRendererInvoke( 'showOpenFolderDialog', title, defaultDialogPath ),
+	isCATrusted: () => ipcRenderer.invoke( 'isCATrusted' ),
 	showSaveAsDialog: ( options ) => ipcRendererInvoke( 'showSaveAsDialog', options ),
 	saveUserLocale: ( locale ) => ipcRendererInvoke( 'saveUserLocale', locale ),
 	getSentryUserId: () => ipcRendererInvoke( 'getSentryUserId' ),

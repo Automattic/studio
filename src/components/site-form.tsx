@@ -4,16 +4,18 @@ import { __, sprintf, _n } from '@wordpress/i18n';
 import { tip, warning, trash, chevronRight, chevronDown, chevronLeft } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useRef, useState } from 'react';
+import { useDocsLink } from 'src/hooks/use-docs-link';
 import Button from 'src/components/button';
 import FolderIcon from 'src/components/folder-icon';
 import TextControlComponent from 'src/components/text-control';
 import { WPVersionSelector } from 'src/components/wp-version-selector';
 import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
+import { useCertificateTrust } from 'src/hooks/use-certificate-trust';
 import { useI18nData } from 'src/hooks/use-i18n-data';
+import { useOffline } from 'src/hooks/use-offline';
 import { isWindows } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { generateCustomDomainFromSiteName } from 'src/lib/domains';
-import { getDocsLink } from 'src/lib/get-docs-link';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import {
 	DEFAULT_WORDPRESS_VERSION,
@@ -265,12 +267,21 @@ export const SiteForm = ( {
 }: SiteFormProps ) => {
 	const { __, isRTL } = useI18n();
 	const { locale } = useI18nData();
+	const getDocsLink = useDocsLink();
+	const isOffline = useOffline();
+	const isCertificateTrusted = useCertificateTrust();
 
 	const shouldShowCustomDomainError = useCustomDomain && customDomainError;
 	const errorCount = [ error, shouldShowCustomDomainError ].filter( Boolean ).length;
 
 	const [ isAdvancedSettingsVisible, setAdvancedSettingsVisible ] = useState( false );
-
+	/*
+	useEffect( () => {
+		if ( useCustomDomain && enableHttps && ! isCertificateTrusted && ! isWindows() ) {
+			getIpcApi().openCertificate();
+		}
+	}, [ useCustomDomain, enableHttps, isCertificateTrusted ] );
+*/
 	const handleAdvancedSettingsClick = () => {
 		setAdvancedSettingsVisible( ! isAdvancedSettingsVisible );
 	};
@@ -463,24 +474,27 @@ export const SiteForm = ( {
 											</div>
 										) }
 
-										{ ! isWindows() && useCustomDomain && setEnableHttps && (
-											<div className="text-a8c-gray-50 text-xs mt-2">
-												{ __(
-													'You need to manually add the Studio root certificate authority to your keychain and trust it to enable HTTPS.'
-												) }{ ' ' }
-												<Button
-													variant="link"
-													onClick={ () => {
-														getIpcApi().openURL(
-															'https://developer.wordpress.com/docs/developer-tools/studio/ssl-in-studio/'
-														);
-													} }
-												>
-													{ __( 'Learn how' ) }
-													<span aria-label={ __( '(opens in a web browser)' ) }>&#8599;</span>
-												</Button>
-											</div>
-										) }
+										{ ! isCertificateTrusted &&
+											! isWindows() &&
+											useCustomDomain &&
+											setEnableHttps && (
+												<div className="text-a8c-gray-50 text-xs mt-2">
+													{ __(
+														'You need to manually add the Studio root certificate authority to your keychain and trust it to enable HTTPS.'
+													) }{ ' ' }
+													<Button
+														variant="link"
+														onClick={ () => {
+															getIpcApi().openURL(
+																'https://developer.wordpress.com/docs/developer-tools/studio/ssl-in-studio/'
+															);
+														} }
+													>
+														{ __( 'Learn how' ) }
+														<span aria-label={ __( '(opens in a web browser)' ) }>&#8599;</span>
+													</Button>
+												</div>
+											) }
 									</div>
 								</div>
 							</>

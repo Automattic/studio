@@ -1,11 +1,15 @@
 import { shell } from 'electron';
+import { execFile } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { promisify } from 'node:util';
 import * as Sentry from '@sentry/electron/main';
 import sudo from '@vscode/sudo-prompt';
 import forge from 'node-forge';
 import { getUserDataCertificatesPath } from 'src/storage/paths';
+
+const execFilePromise = promisify( execFile );
 
 /**
  * Generate name constraints in conformance with
@@ -149,10 +153,50 @@ export async function openCertificate() {
 }
 
 /**
+ * Checks if the root CA certificate is already trusted by the system
+ * @returns A promise that resolves to true if the certificate is trusted, false otherwise
+ */
+export async function isRootCATrusted(): Promise< boolean > {
+	if ( ! fs.existsSync( CA_CERT_PATH ) ) {
+		return false;
+	}
+
+	const platform = process.platform;
+	if ( platform === 'win32' ) {
+		try {
+			const { stdout } = await execFilePromise( 'certutil', [ '-store', 'ROOT', CA_NAME ] );
+			return stdout.includes( CA_NAME );
+		} catch ( error ) {
+			return false;
+		}
+	} else if ( platform === 'darwin' ) {
+		try {
+			const { stdout } = await execFilePromise( 'security', [
+				'find-certificate',
+				'-c',
+				CA_NAME,
+				'-p',
+			] );
+			return stdout.trim().length > 0;
+		} catch ( error ) {
+			return false;
+		}
+	}
+
+	return false;
+}
+
+/**
  * Trust the root CA certificate in the system trust store
  */
 async function trustRootCA(): Promise< void > {
 	try {
+		// If certificate is already trusted, no need to re-trust it
+		if ( await isRootCATrusted() ) {
+			console.log( 'Root CA is already trusted in the system store' );
+			return;
+		}
+
 		const platform = process.platform;
 		if ( platform === 'win32' ) {
 			// Windows - Use certutil
@@ -172,7 +216,7 @@ async function trustRootCA(): Promise< void > {
 				);
 			} );
 		} else {
-			console.error( 'Unsupported platform for certificate trust:', platform );
+			console.error( 'Unsupported platform for automatic certificate trust:', platform );
 		}
 	} catch ( error ) {
 		Sentry.captureException( error );

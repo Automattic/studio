@@ -7,6 +7,8 @@ import { ErrorInformation } from 'src/components/error-information';
 import Modal from 'src/components/modal';
 import TextControlComponent from 'src/components/text-control';
 import { WPVersionSelector } from 'src/components/wp-version-selector';
+import { useCertificateTrust } from 'src/hooks/use-certificate-trust';
+import { useOffline } from 'src/hooks/use-offline';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { isWindows } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
@@ -33,6 +35,9 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 	const [ isEditingSite, setIsEditingSite ] = useState( false );
 	const [ needsRestart, setNeedsRestart ] = useState( false );
 
+	const isOffline = useOffline();
+	const isCertificateTrusted = useCertificateTrust();
+	const offlineMessage = __( 'Changing WordPress version requires an internet connection.' );
 	const closeModal = useCallback( () => {
 		if ( isEditingSite ) {
 			return;
@@ -98,8 +103,8 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 		setCustomDomain( selectedSite.customDomain ?? null );
 		setCustomDomainError( '' );
 		setErrorUpdatingWpVersion( null );
-		setEnableHttps( selectedSite.enableHttps ?? false );
-	}, [ selectedSite, getEffectiveWpVersion ] );
+		setEnableHttps( selectedSite.enableHttps ?? isCertificateTrusted );
+	}, [ selectedSite, getEffectiveWpVersion, isCertificateTrusted ] );
 
 	const onSiteEdit = async ( event: FormEvent ) => {
 		event.preventDefault();
@@ -155,7 +160,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 				phpVersion: selectedPhpVersion,
 				isWpAutoUpdating: selectedWpVersion === DEFAULT_WORDPRESS_VERSION,
 				customDomain: usedCustomDomain,
-				enableHttps: !! usedCustomDomain && enableHttps,
+				enableHttps: !! usedCustomDomain && ( isCertificateTrusted || enableHttps ),
 			} );
 
 			if ( needsRestart ) {
@@ -291,7 +296,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 									</div>
 								) }
 
-								{ ! isWindows() && useCustomDomain && (
+								{ ! isCertificateTrusted && ! isWindows() && useCustomDomain && (
 									<div className="text-a8c-gray-50 text-xs mt-2">
 										{ __(
 											'You need to manually add the Studio certificate authority to your keychain and trust it.'

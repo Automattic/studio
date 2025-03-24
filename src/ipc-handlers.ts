@@ -27,7 +27,6 @@ import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ip
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
 import { bumpStat } from 'src/lib/bump-stats';
 import { getImporterMetric } from 'src/lib/bump-stats/lib';
-import { openCertificate as openCertificateDialog } from 'src/lib/certificate-manager';
 import { download } from 'src/lib/download';
 import { isEmptyDir, pathExists, sanitizeFolderName } from 'src/lib/fs-utils';
 import { getImageData } from 'src/lib/get-image-data';
@@ -55,12 +54,16 @@ import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
 import { executePreviewCliCommand } from 'src/modules/cli/lib/execute-preview-command';
+import { SupportedEditor } from 'src/modules/user-settings/lib/editor';
+import { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 import { SiteServer, createSiteWorkingDirectory } from 'src/site-server';
 import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from 'src/storage/paths';
 import { loadUserData, saveUserData } from 'src/storage/user-data';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
-import { SupportedEditor } from './modules/user-settings/lib/editor';
-import { SupportedTerminal } from './modules/user-settings/lib/terminal';
+import {
+	openCertificate as openCertificateDialog,
+	isRootCATrusted,
+} from './lib/certificate-manager';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
 
@@ -1260,7 +1263,11 @@ export function openCertificate( _event: IpcMainInvokeEvent ) {
 	return openCertificateDialog();
 }
 
-export function getFileContent( event: IpcMainInvokeEvent, filePath: string ) {
+export async function isCATrusted( _event: IpcMainInvokeEvent ): Promise< boolean > {
+	return isRootCATrusted();
+}
+
+export async function getFileContent( event: IpcMainInvokeEvent, filePath: string ) {
 	if ( ! fs.existsSync( filePath ) ) {
 		throw new Error( `File not found: ${ filePath }` );
 	}

@@ -1,3 +1,8 @@
 export function getSiteUrl( site: SiteDetails ) {
-	return site.customDomain ? `http://${ site.customDomain }` : `http://localhost:${ site.port }`;
+	if ( site.customDomain ) {
+		const protocol = site.enableHttps ? 'https' : 'http';
+		return `${ protocol }://${ site.customDomain }`;
+	}
+
+	return `http://localhost:${ site.port }`;
 }

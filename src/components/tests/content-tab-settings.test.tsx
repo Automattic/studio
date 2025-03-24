@@ -14,6 +14,9 @@ jest.mock( 'src/hooks/use-get-wp-version' );
 jest.mock( 'src/hooks/use-snapshots' );
 jest.mock( 'src/hooks/use-site-details' );
 jest.mock( 'src/lib/get-ipc-api' );
+jest.mock( 'src/lib/app-globals', () => ( {
+	isWindows: () => false,
+} ) );
 
 const selectedSite: SiteDetails = {
 	name: 'Test Site',
@@ -40,6 +43,8 @@ describe( 'ContentTabSettings', () => {
 	const copyText = jest.fn();
 	const openLocalPath = jest.fn();
 	const generateProposedSitePath = jest.fn();
+	const getAllCustomDomains = jest.fn().mockResolvedValue( [] );
+
 	beforeEach( () => {
 		jest.clearAllMocks();
 		( useGetWpVersion as jest.Mock ).mockReturnValue( [ '7.7.7', jest.fn() ] );
@@ -47,6 +52,7 @@ describe( 'ContentTabSettings', () => {
 			copyText,
 			openLocalPath,
 			generateProposedSitePath,
+			getAllCustomDomains,
 		} );
 
 		( useSnapshots as jest.Mock ).mockReturnValue( {
@@ -70,6 +76,8 @@ describe( 'ContentTabSettings', () => {
 		expect(
 			screen.getByRole( 'button', { name: 'localhost:8881, Copy site url to clipboard' } )
 		).toHaveTextContent( 'localhost:8881' );
+		expect( screen.getByText( 'HTTPS' ) ).toBeVisible();
+		expect( screen.getByText( 'Disabled' ) ).toBeVisible();
 		expect( screen.getByRole( 'button', { name: 'Copy local path to clipboard' } ) ).toBeVisible();
 		expect( screen.getByText( '7.7.7' ) ).toBeVisible();
 		expect(

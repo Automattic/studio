@@ -23,8 +23,13 @@ const api: IpcApi = {
 	exportSiteToPush: ( id: string ) => ipcRenderer.invoke( 'exportSiteToPush', id ),
 	deleteSite: ( id: string, deleteFiles?: boolean ) =>
 		ipcRenderer.invoke( 'deleteSite', id, deleteFiles ),
-	createSite: ( path: string, name?: string, wpVersion?: string, customDomain?: string ) =>
-		ipcRenderer.invoke( 'createSite', path, name, wpVersion, customDomain ),
+	createSite: (
+		path: string,
+		name?: string,
+		wpVersion?: string,
+		customDomain?: string,
+		enableHttps?: boolean
+	) => ipcRenderer.invoke( 'createSite', path, name, wpVersion, customDomain, enableHttps ),
 	updateSite: ( updatedSite: SiteDetails ) => ipcRenderer.invoke( 'updateSite', updatedSite ),
 	connectWpcomSites: ( ...args ) => ipcRenderer.invoke( 'connectWpcomSites', ...args ),
 	disconnectWpcomSites: ( ...args ) => ipcRenderer.invoke( 'disconnectWpcomSites', ...args ),
@@ -90,6 +95,7 @@ const api: IpcApi = {
 	setupAppMenu: ( config: { needsOnboarding: boolean } ) =>
 		ipcRenderer.invoke( 'setupAppMenu', config ),
 	popupAppMenu: () => ipcRenderer.invoke( 'popupAppMenu' ),
+	openCertificate: () => ipcRenderer.invoke( 'openCertificate' ),
 	promptWindowsSpeedUpSites: ( ...args: Parameters< typeof promptWindowsSpeedUpSites > ) =>
 		ipcRenderer.invoke( 'promptWindowsSpeedUpSites', ...args ),
 	setDefaultLocaleData: ( locale?: LocaleData ) =>
@@ -117,6 +123,7 @@ const api: IpcApi = {
 	getPathForFile: webUtils.getPathForFile,
 	getFileContent: ( filePath: string ) => ipcRenderer.invoke( 'getFileContent', filePath ),
 	isFullscreen: () => ipcRenderer.invoke( 'isFullscreen' ),
+	getAllCustomDomains: () => ipcRenderer.invoke( 'getAllCustomDomains' ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

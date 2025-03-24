@@ -5,11 +5,13 @@ import { reducer as chatReducer } from 'src/stores/chat-slice';
 import {
 	reducer as wordpressVersionsReducer,
 	wordpressVersionsThunks,
-} from './wordpress-versions-slice';
+} from 'src/stores/wordpress-versions-slice';
+import { wpcomApi } from 'src/stores/wpcom-api';
 
 export type RootState = {
 	chat: ReturnType< typeof chatReducer >;
 	wordpressVersions: ReturnType< typeof wordpressVersionsReducer >;
+	wpcomApi: ReturnType< typeof wpcomApi.reducer >;
 };
 
 const listenerMiddleware = createListenerMiddleware< RootState >();
@@ -45,12 +47,13 @@ listenerMiddleware.startListening( {
 export const rootReducer = combineReducers( {
 	chat: chatReducer,
 	wordpressVersions: wordpressVersionsReducer,
+	wpcomApi: wpcomApi.reducer,
 } );
 
 export const store = configureStore( {
 	reducer: rootReducer,
 	middleware: ( getDefaultMiddleware ) =>
-		getDefaultMiddleware().prepend( listenerMiddleware.middleware ),
+		getDefaultMiddleware().prepend( listenerMiddleware.middleware ).concat( wpcomApi.middleware ),
 } );
 
 store.dispatch( wordpressVersionsThunks.fetchWordPressVersions() );

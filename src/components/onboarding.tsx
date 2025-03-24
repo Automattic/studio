@@ -62,6 +62,9 @@ export default function Onboarding() {
 		setCustomDomain,
 		customDomainError,
 		setCustomDomainError,
+		enableHttps,
+		setEnableHttps,
+		loadAllCustomDomains,
 	} = useAddSite();
 	const [ fileError, setFileError ] = useState( '' );
 
@@ -109,6 +112,8 @@ export default function Onboarding() {
 			setUseCustomDomain( false );
 			setCustomDomain( null );
 			setCustomDomainError( '' );
+			setEnableHttps( false );
+			loadAllCustomDomains();
 		};
 		run();
 		// eslint-disable-next-line react-hooks/exhaustive-deps
@@ -155,7 +160,7 @@ export default function Onboarding() {
 				ref={ dropRef }
 			>
 				{ isDraggingOver && <DragAndDropOverlay /> }
-				<div className="h-[569px] flex flex-col justify-center items-start flex-[1_0_0%] gap-8">
+				<div className="flex flex-col justify-center items-start flex-[1_0_0%] gap-8">
 					<div className="flex flex-col items-start self-stretch gap-6 app-no-drag-region">
 						<h1 className="font-normal text-xl leading-5">{ __( 'Add your first site' ) }</h1>
 						<SiteForm
@@ -180,6 +185,8 @@ export default function Onboarding() {
 							customDomain={ customDomain }
 							setCustomDomain={ setCustomDomain }
 							customDomainError={ customDomainError }
+							enableHttps={ enableHttps }
+							setEnableHttps={ setEnableHttps }
 						>
 							<div className="flex flex-row gap-x-5 mt-6 justify-end">
 								<Button type="submit" variant="primary">

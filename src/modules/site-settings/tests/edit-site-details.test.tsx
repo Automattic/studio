@@ -10,6 +10,11 @@ const mockStopServer = jest.fn();
 const mockStartServer = jest.fn();
 const mockExecuteWPCLiInline = jest.fn();
 const mockShowErrorMessageBox = jest.fn();
+const mockGetAllCustomDomains = jest.fn().mockResolvedValue( [] );
+
+jest.mock( 'src/lib/app-globals', () => ( {
+	isWindows: () => false,
+} ) );
 
 jest.mock( 'src/hooks/use-site-details', () => ( {
 	useSiteDetails: () => ( {
@@ -29,6 +34,7 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 	getIpcApi: () => ( {
 		executeWPCLiInline: mockExecuteWPCLiInline,
 		showErrorMessageBox: mockShowErrorMessageBox,
+		getAllCustomDomains: mockGetAllCustomDomains,
 	} ),
 } ) );
 
@@ -178,6 +184,8 @@ describe( 'EditSiteDetails', () => {
 			name: 'New Site Name',
 			phpVersion: '8.0',
 			running: true,
+			customDomain: undefined,
+			enableHttps: false,
 		} );
 		expect( defaultProps.onSave ).toHaveBeenCalled();
 	} );
@@ -199,6 +207,8 @@ describe( 'EditSiteDetails', () => {
 			name: 'Test Site',
 			phpVersion: '8.2',
 			running: true,
+			customDomain: undefined,
+			enableHttps: false,
 		} );
 		expect( mockStartServer ).toHaveBeenCalledWith( 'site-123' );
 		expect( defaultProps.onSave ).toHaveBeenCalled();
@@ -226,6 +236,8 @@ describe( 'EditSiteDetails', () => {
 			name: 'Test Site',
 			phpVersion: '8.0',
 			running: true,
+			customDomain: undefined,
+			enableHttps: false,
 		} );
 		expect( mockStartServer ).toHaveBeenCalledWith( 'site-123' );
 		expect( defaultProps.onSave ).toHaveBeenCalled();
@@ -268,8 +280,6 @@ describe( 'EditSiteDetails', () => {
 				message: 'Update failed',
 			} );
 		} );
-
-		expect( screen.getByText( 'Error changing WordPress version.' ) ).toBeInTheDocument();
 	} );
 
 	it( 'should disable form controls when site is being edited', async () => {

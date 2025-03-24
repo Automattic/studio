@@ -71,6 +71,20 @@ function generateVersionLabel( version: string, shortName: string, occurrences: 
 	return occurrences > 1 || isWordPressBetaVersion( version ) ? version : shortName;
 }
 
+function addLatestLabel( versions: WordPressVersion[] ): WordPressVersion[] {
+	let foundLatestStable = false;
+	return versions.map( ( version: WordPressVersion ) => {
+		if ( ! foundLatestStable && ! version.isBeta && ! version.isDevelopment ) {
+			foundLatestStable = true;
+			return {
+				...version,
+				label: `${ version.label } (${ __( 'latest' ) })`,
+			};
+		}
+		return version;
+	} );
+}
+
 export const wordpressVersionsApi = createApi( {
 	reducerPath: 'wordpressVersionsApi',
 	baseQuery: fetchBaseQuery( { baseUrl: 'https://api.wordpress.org' } ),
@@ -105,16 +119,18 @@ export const wordpressVersionsApi = createApi( {
 
 					const allOffers = developmentOffer ? [ developmentOffer, ...stableOffers ] : stableOffers;
 
-					return allOffers.map( ( { version, shortName } ) => ( {
-						isBeta: isWordPressBetaVersion( version ),
-						isDevelopment: isWordPressDevVersion( version ),
-						label: generateVersionLabel(
-							version,
-							shortName,
-							shortNameOccurrences.get( shortName ) || 0
-						),
-						value: version,
-					} ) );
+					return addLatestLabel(
+						allOffers.map( ( { version, shortName } ) => ( {
+							isBeta: isWordPressBetaVersion( version ),
+							isDevelopment: isWordPressDevVersion( version ),
+							label: generateVersionLabel(
+								version,
+								shortName,
+								shortNameOccurrences.get( shortName ) || 0
+							),
+							value: version,
+						} ) )
+					);
 				} catch ( error ) {
 					if ( error instanceof z.ZodError ) {
 						Sentry.captureException( error );

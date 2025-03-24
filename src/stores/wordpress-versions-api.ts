@@ -1,6 +1,6 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import * as Sentry from '@sentry/electron/renderer';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { z } from 'zod';
 import { isWordPressDevVersion, isWordPressBetaVersion } from 'src/lib/wordpress-version-utils';
 
@@ -78,7 +78,8 @@ function addLatestLabel( versions: WordPressVersion[] ): WordPressVersion[] {
 			foundLatestStable = true;
 			return {
 				...version,
-				label: `${ version.label } (${ __( 'latest' ) })`,
+				// translators: %s: The version number. Example: "6.7.2 (latest)"
+				label: sprintf( __( '%s (latest)' ), version.label ),
 			};
 		}
 		return version;

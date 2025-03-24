@@ -1,6 +1,6 @@
 import { SelectControl } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
-import { FormEvent, useCallback, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useState } from 'react';
 import stripAnsi from 'strip-ansi';
 import Button from 'src/components/button';
 import { ErrorInformation } from 'src/components/error-information';
@@ -11,7 +11,7 @@ import { Tooltip } from 'src/components/tooltip';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
-import { generateCustomDomainFromSiteName, validateDomainName } from 'src/lib/domains';
+import { generateCustomDomainFromSiteName, getDomainNameValidationError } from 'src/lib/domains';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getWordPressVersionUrl } from 'src/lib/wordpress-version-utils';
 import { useRootSelector } from 'src/stores';
@@ -53,6 +53,22 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 		selectedSite?.customDomain ?? null
 	);
 	const [ customDomainError, setCustomDomainError ] = useState( '' );
+	const [ existingDomainNames, setExistingDomainNames ] = useState< string[] >( [] );
+
+	useEffect( () => {
+		getIpcApi()
+			.getAllCustomDomains()
+			.then( ( domains ) => {
+				const domainsWithoutSelectedSite = domains.filter(
+					( domain ) => domain !== selectedSite?.customDomain
+				);
+				setExistingDomainNames( domainsWithoutSelectedSite );
+			} )
+			.catch( () => {
+				// Do nothing
+			} );
+	}, [ selectedSite?.customDomain ] );
+
 	const wordpressVersions = useRootSelector(
 		wordpressVersionsSelectors.selectWordPressVersionsWithLatest
 	);
@@ -167,9 +183,11 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 	const handleCustomDomainChange = useCallback(
 		( value: string | null ) => {
 			setCustomDomain( value );
-			setCustomDomainError( validateDomainName( useCustomDomain, value ) );
+			setCustomDomainError(
+				getDomainNameValidationError( useCustomDomain, value, existingDomainNames )
+			);
 		},
-		[ useCustomDomain, setCustomDomain, setCustomDomainError ]
+		[ useCustomDomain, setCustomDomain, setCustomDomainError, existingDomainNames ]
 	);
 
 	return (

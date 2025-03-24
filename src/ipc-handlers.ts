@@ -1209,3 +1209,11 @@ export async function isFullscreen( _event: IpcMainInvokeEvent ): Promise< boole
 	const window = await getMainWindow();
 	return window.isFullScreen();
 }
+
+export async function getAllCustomDomains(): Promise< string[] > {
+	const userData = await loadUserData();
+
+	return userData.sites
+		.map( ( site ) => site.customDomain )
+		.filter( ( domain ): domain is string => domain !== undefined );
+}

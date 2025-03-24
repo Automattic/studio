@@ -1,9 +1,9 @@
 import * as Sentry from '@sentry/electron/renderer';
 import { useI18n } from '@wordpress/react-i18n';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
-import { generateCustomDomainFromSiteName, validateDomainName } from 'src/lib/domains';
+import { generateCustomDomainFromSiteName, getDomainNameValidationError } from 'src/lib/domains';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import {
 	DEFAULT_PHP_VERSION,
@@ -28,6 +28,18 @@ export function useAddSite() {
 	const [ useCustomDomain, setUseCustomDomain ] = useState( false );
 	const [ customDomain, setCustomDomain ] = useState< string | null >( null );
 	const [ customDomainError, setCustomDomainError ] = useState( '' );
+	const [ existingDomainNames, setExistingDomainNames ] = useState< string[] >( [] );
+
+	useEffect( () => {
+		getIpcApi()
+			.getAllCustomDomains()
+			.then( ( domains ) => {
+				setExistingDomainNames( domains );
+			} )
+			.catch( () => {
+				// Do nothing
+			} );
+	}, [] );
 
 	const siteWithPathAlreadyExists = useCallback(
 		( path: string ) => {
@@ -39,9 +51,11 @@ export function useAddSite() {
 	const handleCustomDomainChange = useCallback(
 		( value: string | null ) => {
 			setCustomDomain( value );
-			setCustomDomainError( validateDomainName( useCustomDomain, value ) );
+			setCustomDomainError(
+				getDomainNameValidationError( useCustomDomain, value, existingDomainNames )
+			);
 		},
-		[ useCustomDomain, setCustomDomain, setCustomDomainError ]
+		[ useCustomDomain, setCustomDomain, setCustomDomainError, existingDomainNames ]
 	);
 
 	const handlePathSelectorClick = useCallback( async () => {

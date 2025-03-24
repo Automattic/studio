@@ -434,6 +434,7 @@ describe( 'WordPress Versions API', () => {
 			} ),
 		} );
 
+		const store = createTestStore();
 		const result = await store.dispatch(
 			wordpressVersionsApi.endpoints.getWordPressVersions.initiate( undefined )
 		);
@@ -453,5 +454,95 @@ describe( 'WordPress Versions API', () => {
 			{ value: '6.6.2', isBeta: false, isDevelopment: false, isLatest: false, label: '6.6' },
 			{ value: '6.5.5', isBeta: false, isDevelopment: false, isLatest: false, label: '6.5' },
 		] );
+	} );
+
+	describe( 'selectors', () => {
+		it( 'should select WordPress versions with name property', async () => {
+			( global.fetch as jest.Mock ).mockResolvedValueOnce( {
+				ok: true,
+				json: jest.fn().mockResolvedValueOnce( {
+					offers: [
+						{ version: '6.5.0-beta1', response: 'autoupdate' },
+						{ version: '6.4.0', response: 'autoupdate' },
+						{ version: '6.3.0', response: 'autoupdate' },
+						{ version: '6.2.0', response: 'autoupdate' },
+						{ version: '6.1.0', response: 'autoupdate' },
+					],
+				} ),
+			} );
+
+			const result = await store.dispatch(
+				wordpressVersionsApi.endpoints.getWordPressVersions.initiate( undefined )
+			);
+			const versions = result.data || [];
+
+			expect( versions ).toHaveLength( 5 );
+			expect( versions ).toEqual( [
+				{
+					value: '6.5.0-beta1',
+					isBeta: true,
+					isDevelopment: false,
+					isLatest: false,
+					label: '6.5.0-beta1',
+				},
+				{
+					value: '6.4.0',
+					isBeta: false,
+					isDevelopment: false,
+					isLatest: true,
+					label: '6.4.0 (latest)',
+				},
+				{ value: '6.3.0', isBeta: false, isDevelopment: false, isLatest: false, label: '6.3' },
+				{ value: '6.2.0', isBeta: false, isDevelopment: false, isLatest: false, label: '6.2' },
+				{
+					value: '6.1.0',
+					isBeta: false,
+					isDevelopment: false,
+					isLatest: false,
+					label: '6.1',
+				},
+			] );
+		} );
+
+		it( 'should select WordPress versions with latest', async () => {
+			( global.fetch as jest.Mock ).mockResolvedValueOnce( {
+				ok: true,
+				json: jest.fn().mockResolvedValueOnce( {
+					offers: [
+						{ version: '6.5.0-beta1', response: 'autoupdate' },
+						{ version: '6.4.0', response: 'autoupdate' },
+						{ version: '6.3.0', response: 'autoupdate' },
+						{ version: '6.2.0', response: 'autoupdate' },
+						{ version: '6.1.0', response: 'autoupdate' },
+					],
+				} ),
+			} );
+
+			const store = createTestStore();
+			const result = await store.dispatch(
+				wordpressVersionsApi.endpoints.getWordPressVersions.initiate( undefined )
+			);
+			const versions = result.data || [];
+
+			expect( versions ).toEqual( [
+				{
+					value: '6.5.0-beta1',
+					isBeta: true,
+					isDevelopment: false,
+					isLatest: false,
+					label: '6.5.0-beta1',
+				},
+				{
+					value: '6.4.0',
+					isBeta: false,
+					isDevelopment: false,
+					isLatest: true,
+					label: '6.4.0 (latest)',
+				},
+				{ value: '6.3.0', isBeta: false, isDevelopment: false, isLatest: false, label: '6.3' },
+				{ value: '6.2.0', isBeta: false, isDevelopment: false, isLatest: false, label: '6.2' },
+				{ value: '6.1.0', isBeta: false, isDevelopment: false, isLatest: false, label: '6.1' },
+			] );
+		} );
 	} );
 } );

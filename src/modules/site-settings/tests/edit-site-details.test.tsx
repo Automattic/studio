@@ -2,7 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { useOffline } from 'src/hooks/use-offline';
 import EditSiteDetails from 'src/modules/site-settings/edit-site-details';
-import { wordpressVersionsThunks } from 'src/stores/wordpress-versions-slice';
+import { useGetWordPressVersionsQuery } from 'src/stores/wordpress-versions-api';
 
 // Mock the hooks and dependencies
 const mockUpdateSite = jest.fn();
@@ -44,27 +44,16 @@ jest.mock( '@wordpress/react-i18n', () => ( {
 	} ),
 } ) );
 
-const mockDispatch = jest.fn();
-jest.mock( 'src/stores', () => ( {
-	useAppDispatch: () => mockDispatch,
-	useRootSelector: jest.fn().mockImplementation( () => {
-		// Mock the WordPress versions selector
-		return [
+jest.mock( 'src/stores/wordpress-versions-api', () => ( {
+	useGetWordPressVersionsQuery: jest.fn( () => ( {
+		data: [
 			{ label: '6.8-beta1', value: '6.8-beta1' },
 			{ label: '6.4', value: '6.4' },
 			{ label: '6.3', value: '6.3' },
 			{ label: '6.2', value: '6.2' },
-		];
-	} ),
-} ) );
-
-jest.mock( 'src/stores/wordpress-versions-slice', () => ( {
-	wordpressVersionsSelectors: {
-		selectWordPressVersionsWithLatest: jest.fn(),
-	},
-	wordpressVersionsThunks: {
-		fetchWordPressVersions: jest.fn(),
-	},
+		],
+		isLoading: false,
+	} ) ),
 } ) );
 
 jest.mock( 'src/hooks/use-offline', () => ( {
@@ -374,7 +363,6 @@ describe( 'EditSiteDetails', () => {
 		const user = userEvent.setup();
 
 		await user.click( screen.getByRole( 'button', { name: 'Edit site' } ) );
-		expect( mockDispatch ).toHaveBeenCalled();
-		expect( wordpressVersionsThunks.fetchWordPressVersions ).toHaveBeenCalled();
+		expect( useGetWordPressVersionsQuery ).toHaveBeenCalled();
 	} );
 } );

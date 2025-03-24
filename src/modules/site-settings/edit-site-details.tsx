@@ -15,11 +15,7 @@ import { cx } from 'src/lib/cx';
 import { generateCustomDomainFromSiteName, getDomainNameValidationError } from 'src/lib/domains';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getWordPressVersionUrl } from 'src/lib/wordpress-version-utils';
-import { useAppDispatch, useRootSelector } from 'src/stores';
-import {
-	wordpressVersionsSelectors,
-	wordpressVersionsThunks,
-} from 'src/stores/wordpress-versions-slice';
+import { useGetWordPressVersionsQuery } from 'src/stores/wordpress-versions-api';
 import {
 	DEFAULT_PHP_VERSION,
 	ALLOWED_PHP_VERSIONS,
@@ -34,7 +30,6 @@ type EditSiteDetailsProps = {
 
 export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteDetailsProps ) {
 	const { __ } = useI18n();
-	const dispatch = useAppDispatch();
 	const { updateSite, selectedSite, stopServer, startServer } = useSiteDetails();
 	const [ isChangeWpError, setIsChangeWpError ] = useState( '' );
 	const [ showModal, setShowModal ] = useState( false );
@@ -75,9 +70,10 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 			} );
 	}, [ selectedSite?.customDomain ] );
 
-	const wordpressVersions = useRootSelector(
-		wordpressVersionsSelectors.selectWordPressVersionsWithLatest
-	);
+	const { data: wordpressVersions = [] } = useGetWordPressVersionsQuery( undefined, {
+		skip: ! showModal,
+	} );
+
 	const wordpressVersionOptions = wordpressVersions.map( ( version ) => ( {
 		label: version.label,
 		value: version.value,
@@ -358,7 +354,6 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 				disabled={ ! selectedSite }
 				className="shrink-0"
 				onClick={ () => {
-					dispatch( wordpressVersionsThunks.fetchWordPressVersions() );
 					setShowModal( true );
 					resetFormState();
 				} }

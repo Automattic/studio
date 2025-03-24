@@ -9,6 +9,8 @@ const mockStopServer = jest.fn();
 const mockStartServer = jest.fn();
 const mockExecuteWPCLiInline = jest.fn();
 const mockShowErrorMessageBox = jest.fn();
+const mockGetAllCustomDomains = jest.fn().mockResolvedValue( [] );
+
 jest.mock( 'src/lib/app-globals', () => ( {
 	isWindows: () => false,
 } ) );
@@ -31,6 +33,7 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 	getIpcApi: () => ( {
 		executeWPCLiInline: mockExecuteWPCLiInline,
 		showErrorMessageBox: mockShowErrorMessageBox,
+		getAllCustomDomains: mockGetAllCustomDomains,
 	} ),
 } ) );
 

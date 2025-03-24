@@ -22,6 +22,7 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 			isWordPress: false,
 		} ),
 		showNotification: jest.fn(),
+		getAllCustomDomains: jest.fn().mockResolvedValue( [] ),
 	} ),
 } ) );
 

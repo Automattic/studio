@@ -1,6 +1,8 @@
+import { UnknownAction } from '@reduxjs/toolkit';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { Provider } from 'react-redux';
+import { Dispatch } from 'redux';
 import {
 	ContentTabAssistant,
 	MIMIC_CONVERSATION_DELAY,
@@ -11,16 +13,12 @@ import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
 import { useOffline } from 'src/hooks/use-offline';
 import { usePromptUsage } from 'src/hooks/use-prompt-usage';
 import { ThemeDetailsProvider } from 'src/hooks/use-theme-details';
-import { useWelcomeMessages } from 'src/hooks/use-welcome-messages';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { store } from 'src/stores';
 import { generateMessage, chatActions } from 'src/stores/chat-slice';
-import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
-
-store.replaceReducer( testReducer );
+import { testActions } from 'src/stores/tests/utils/test-reducer';
 
 jest.mock( 'src/hooks/use-auth' );
-jest.mock( 'src/hooks/use-welcome-messages' );
 jest.mock( 'src/hooks/use-offline' );
 jest.mock( 'src/hooks/use-prompt-usage' );
 jest.mock( 'src/lib/get-ipc-api' );
@@ -32,14 +30,26 @@ jest.mock( 'src/lib/app-globals', () => ( {
 	} ),
 } ) );
 
-( useWelcomeMessages as jest.Mock ).mockReturnValue( {
-	messages: [ 'Welcome to our service!', 'How can I help you today?' ],
-	examplePrompts: [
-		'How to create a WordPress site',
-		'How to clear cache',
-		'How to install a plugin',
-	],
-} );
+jest.mock( 'src/stores/wpcom-api', () => ( {
+	useGetWelcomeMessages: () => ( {
+		data: {
+			messages: [ 'Welcome to our service!', 'How can I help you today?' ],
+			example_prompts: [
+				'How to create a WordPress site',
+				'How to clear cache',
+				'How to install a plugin',
+			],
+		},
+		isLoading: false,
+		isError: false,
+		error: null,
+	} ),
+	wpcomApi: {
+		reducerPath: 'wpcomApi',
+		reducer: () => ( {} ),
+		middleware: () => ( next: Dispatch ) => ( action: UnknownAction ) => next( action ),
+	},
+} ) );
 
 const runningSite = {
 	name: 'Test Site',

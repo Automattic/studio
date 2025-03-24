@@ -5,6 +5,11 @@ import { SCREENSHOT_HEIGHT, SCREENSHOT_WIDTH } from 'src/constants';
 export function createScreenshotWindow( captureUrl: string ) {
 	const newSession = session.fromPartition( crypto.randomUUID() );
 
+	// Accept unsafe HTTPS certificates
+	newSession.setCertificateVerifyProc( ( request, callback ) => {
+		callback( 0 );
+	} );
+
 	const window = new BrowserWindow( {
 		height: SCREENSHOT_HEIGHT,
 		width: SCREENSHOT_WIDTH,

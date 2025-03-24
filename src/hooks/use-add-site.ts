@@ -3,7 +3,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useMemo, useState } from 'react';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
-import { generateCustomDomainFromSiteName } from 'src/lib/generate-custom-domain';
+import { generateCustomDomainFromSiteName, validateDomainName } from 'src/lib/domains';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import {
 	DEFAULT_PHP_VERSION,
@@ -28,6 +28,7 @@ export function useAddSite() {
 	const [ useCustomDomain, setUseCustomDomain ] = useState( false );
 	const [ customDomain, setCustomDomain ] = useState< string | null >( null );
 	const [ customDomainError, setCustomDomainError ] = useState( '' );
+	const [ enableHttps, setEnableHttps ] = useState( false );
 
 	const siteWithPathAlreadyExists = useCallback(
 		( path: string ) => {
@@ -39,20 +40,9 @@ export function useAddSite() {
 	const handleCustomDomainChange = useCallback(
 		( value: string | null ) => {
 			setCustomDomain( value );
-			// Validate custom domain if enabled
-			const domainPattern =
-				/^(?!-)[\p{L}\p{N}][\p{L}\p{N}-]{0,61}[\p{L}\p{N}](?<!-)(?:\.(?!-)[\p{L}\p{N}-]{1,61}[\p{L}\p{N}](?<!-))+$/u;
-			if ( useCustomDomain && value && ! domainPattern.test( value ) ) {
-				setCustomDomainError( __( 'Please enter a valid domain name' ) );
-			} else if ( useCustomDomain && value && value.length > 253 ) {
-				setCustomDomainError( __( 'The domain name is too long' ) );
-			} else if ( useCustomDomain && value === '' ) {
-				setCustomDomainError( __( 'The domain name is required' ) );
-			} else {
-				setCustomDomainError( '' );
-			}
+			setCustomDomainError( validateDomainName( useCustomDomain, value ) );
 		},
-		[ __, useCustomDomain, setCustomDomain, setCustomDomainError ]
+		[ useCustomDomain, setCustomDomain, setCustomDomainError ]
 	);
 
 	const handlePathSelectorClick = useCallback( async () => {
@@ -93,8 +83,13 @@ export function useAddSite() {
 			if ( useCustomDomain && ! customDomain ) {
 				usedCustomDomain = generateCustomDomainFromSiteName( siteName ?? '' );
 			}
-			await createSite( path, siteName ?? '', wpVersion, usedCustomDomain, async ( newSite ) => {
-				if ( newSite ) {
+			await createSite(
+				path,
+				siteName ?? '',
+				wpVersion,
+				usedCustomDomain,
+				useCustomDomain ? enableHttps : false,
+				async ( newSite ) => {
 					let updatedSite = { ...newSite };
 
 					if ( newSite.phpVersion !== phpVersion ) {
@@ -130,7 +125,7 @@ export function useAddSite() {
 						body: __( 'Your new site is up and running' ),
 					} );
 				}
-			} );
+			);
 		} catch ( e ) {
 			Sentry.captureException( e );
 		}
@@ -149,6 +144,7 @@ export function useAddSite() {
 		phpVersion,
 		customDomain,
 		useCustomDomain,
+		enableHttps,
 	] );
 
 	const handleSiteNameChange = useCallback(
@@ -224,6 +220,8 @@ export function useAddSite() {
 			setCustomDomain: handleCustomDomainChange,
 			customDomainError,
 			setCustomDomainError,
+			enableHttps,
+			setEnableHttps,
 		};
 	}, [
 		__,
@@ -247,5 +245,7 @@ export function useAddSite() {
 		handleCustomDomainChange,
 		customDomainError,
 		setCustomDomainError,
+		enableHttps,
+		setEnableHttps,
 	] );
 }

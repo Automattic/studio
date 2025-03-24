@@ -8,6 +8,8 @@ export abstract class BaseCommand {
 		this.outputFormat = outputFormat;
 	}
 
+	abstract run(): Promise< boolean >;
+
 	protected reportProgress( status: keyof typeof this.STATUSES ) {
 		if ( this.outputFormat === 'json' ) {
 			console.log( JSON.stringify( { status } ) );

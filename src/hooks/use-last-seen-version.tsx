@@ -5,12 +5,10 @@ interface UseLastSeenVersion {
 	lastSeenVersion: string | undefined;
 	isNewVersion: boolean;
 	updateLastSeenVersion: () => Promise< void >;
-	isLoading: boolean;
 }
 
 export function useLastSeenVersion(): UseLastSeenVersion {
 	const [ lastSeenVersion, setLastSeenVersion ] = useState< string | undefined >( undefined );
-	const [ isLoading, setIsLoading ] = useState( true );
 	const currentVersion = window.appGlobals.appVersion;
 
 	useEffect( () => {
@@ -20,8 +18,6 @@ export function useLastSeenVersion(): UseLastSeenVersion {
 				setLastSeenVersion( version );
 			} catch ( error ) {
 				console.error( 'Failed to get last seen version:', error );
-			} finally {
-				setIsLoading( false );
 			}
 		};
 		fetchLastSeenVersion();
@@ -36,12 +32,11 @@ export function useLastSeenVersion(): UseLastSeenVersion {
 		}
 	}, [ currentVersion ] );
 
-	const isNewVersion = ! isLoading && !! currentVersion && lastSeenVersion !== currentVersion;
+	const isNewVersion = !! currentVersion && lastSeenVersion !== currentVersion;
 
 	return {
 		lastSeenVersion,
 		isNewVersion,
 		updateLastSeenVersion,
-		isLoading,
 	};
 }

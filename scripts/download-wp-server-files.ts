@@ -2,9 +2,9 @@ import os from 'os';
 import path from 'path';
 import extract from 'extract-zip';
 import fs from 'fs-extra';
+import { SQLITE_DATABASE_INTEGRATION_RELEASE_URL } from '../src/constants';
 import { download } from '../src/lib/download';
 import { getLatestSQLiteCommandRelease } from '../src/lib/sqlite-command-release';
-import { SQLITE_DATABASE_INTEGRATION_RELEASE_URL } from '../src/lib/sqlite-database-integration-release';
 const WP_SERVER_FILES_PATH = path.join( __dirname, '..', 'wp-files' );
 
 interface FileToDownload {

@@ -2,10 +2,10 @@ import path from 'path';
 import * as Sentry from '@sentry/electron/main';
 import fs from 'fs-extra';
 import semver from 'semver';
+import { SQLITE_DATABASE_INTEGRATION_VERSION } from 'src/constants';
 import { getServerFilesPath } from 'src/storage/paths';
 import { SQLITE_FILENAME, SQLITE_FILENAME_LEGACY } from 'vendor/wp-now/src/constants';
 import getSqlitePath from 'vendor/wp-now/src/get-sqlite-path';
-import { SQLITE_DATABASE_INTEGRATION_VERSION } from './sqlite-database-integration-release';
 
 export async function isSqlLiteInstalled( installPath: string ) {
 	// Check both standard and legacy (-main) paths

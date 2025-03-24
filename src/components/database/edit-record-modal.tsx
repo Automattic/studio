@@ -37,21 +37,16 @@ export default function EditRecordModal( {
 			onRequestClose={ onClose }
 			className="max-h-[90%]"
 		>
-			<div>
+			<div className="mb-4">
 				{ column?.type === 'INTEGER' && (
 					<InputControl
-						className="mb-4"
 						type="number"
 						value={ value.toString() }
 						onChange={ ( val ) => onChangeHandler( Number( val ) ) }
 					/>
 				) }
 				{ column?.type === 'TEXT' && (
-					<TextareaControl
-						className="mb-4"
-						value={ value.toString() }
-						onChange={ onChangeHandler }
-					/>
+					<TextareaControl value={ value.toString() } onChange={ onChangeHandler } />
 				) }
 				<div className="flex justify-end gap-2">
 					<Button variant="primary" onClick={ onSave }>

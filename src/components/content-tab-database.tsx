@@ -1,7 +1,6 @@
 import {
 	Button,
 	SearchControl,
-	TextareaControl,
 	__experimentalInputControl as InputControl,
 	Spinner,
 } from '@wordpress/components';
@@ -15,8 +14,11 @@ import {
 	chevronRight,
 	previous,
 	next,
+	chevronUp,
+	chevronDown,
+	keyboard,
 } from '@wordpress/icons';
-import { useEffect, useState, useRef, useMemo, useReducer, useCallback } from 'react';
+import { useEffect, useRef, useMemo, useReducer, useCallback } from 'react';
 import EditRecordModal from 'src/components/database/edit-record-modal';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
@@ -53,6 +55,7 @@ interface CurrentTableState {
 	rows: DatabaseRow[] | null;
 	rowCount: number | null;
 	filter: string;
+	customQuery: string;
 }
 
 interface PaginationState {
@@ -61,9 +64,15 @@ interface PaginationState {
 }
 
 interface UIState {
-	showModal: boolean;
+	showEditRecordModal: boolean;
+	showCustomQuery: boolean;
 	isLoading: boolean;
 	error: string | null;
+}
+
+interface SortState {
+	column: string | null;
+	direction: 'asc' | 'desc' | null;
 }
 
 interface DatabaseState {
@@ -71,6 +80,7 @@ interface DatabaseState {
 	current: CurrentTableState;
 	pagination: PaginationState;
 	ui: UIState;
+	sort: SortState;
 }
 
 type DatabaseAction =
@@ -84,8 +94,11 @@ type DatabaseAction =
 	| { type: 'SET_SELECTED_COLUMN'; payload: TableColumn | null }
 	| { type: 'SET_CURRENT_PAGE'; payload: number }
 	| { type: 'SET_SHOW_MODAL'; payload: boolean }
+	| { type: 'SET_SHOW_CUSTOM_QUERY'; payload: boolean }
+	| { type: 'SET_CUSTOM_QUERY'; payload: string }
 	| { type: 'SET_LOADING'; payload: boolean }
 	| { type: 'SET_ERROR'; payload: string | null }
+	| { type: 'SET_SORT'; payload: { column: string | null; direction: 'asc' | 'desc' | null } }
 	| { type: 'RESET_STATE' };
 
 const initialState: DatabaseState = {
@@ -100,15 +113,21 @@ const initialState: DatabaseState = {
 		rows: null,
 		rowCount: null,
 		filter: '',
+		customQuery: '',
 	},
 	pagination: {
 		currentPage: 1,
 		rowsPerPage: 20,
 	},
 	ui: {
-		showModal: false,
+		showEditRecordModal: false,
+		showCustomQuery: false,
 		isLoading: true,
 		error: null,
+	},
+	sort: {
+		column: null,
+		direction: null,
 	},
 };
 
@@ -133,11 +152,17 @@ function databaseReducer( state: DatabaseState, action: DatabaseAction ): Databa
 		case 'SET_CURRENT_PAGE':
 			return { ...state, pagination: { ...state.pagination, currentPage: action.payload } };
 		case 'SET_SHOW_MODAL':
-			return { ...state, ui: { ...state.ui, showModal: action.payload } };
+			return { ...state, ui: { ...state.ui, showEditRecordModal: action.payload } };
+		case 'SET_SHOW_CUSTOM_QUERY':
+			return { ...state, ui: { ...state.ui, showCustomQuery: action.payload } };
+		case 'SET_CUSTOM_QUERY':
+			return { ...state, current: { ...state.current, customQuery: action.payload } };
 		case 'SET_LOADING':
 			return { ...state, ui: { ...state.ui, isLoading: action.payload } };
 		case 'SET_ERROR':
 			return { ...state, ui: { ...state.ui, error: action.payload } };
+		case 'SET_SORT':
+			return { ...state, sort: action.payload };
 		case 'RESET_STATE':
 			return initialState;
 		default:
@@ -150,10 +175,9 @@ function useTableData( selectedSite: SiteDetails | undefined ) {
 	const tableContainerRef = useRef< HTMLDivElement >( null );
 
 	const fetchTables = useCallback( async () => {
-        if ( ! selectedSite?.path ) {
-            return;
-        }
-        console.log( 'fetchTables', `${ selectedSite?.path }${ WP_DATABASE_PATH }` );
+		if ( ! selectedSite?.path ) {
+			return;
+		}
 		try {
 			dispatch( { type: 'SET_ERROR', payload: null } );
 			dispatch( { type: 'SET_LOADING', payload: true } );
@@ -175,7 +199,7 @@ function useTableData( selectedSite: SiteDetails | undefined ) {
 
 	const fetchTableColumns = useCallback(
 		async ( table: Table ) => {
-            if ( ! selectedSite?.path ) {
+			if ( ! selectedSite?.path ) {
 				return;
 			}
 			const columns = ( await getIpcApi().executeSelectQuery(
@@ -208,9 +232,13 @@ function useTableData( selectedSite: SiteDetails | undefined ) {
 				return;
 			}
 			const offset = ( state.pagination.currentPage - 1 ) * state.pagination.rowsPerPage;
+			const sortClause =
+				state.sort.column && state.sort.direction
+					? `ORDER BY ${ state.sort.column } ${ state.sort.direction }`
+					: '';
 			const rows = ( await getIpcApi().executeSelectQuery(
 				`${ selectedSite?.path }${ WP_DATABASE_PATH }`,
-				`SELECT * FROM ${ table.name } LIMIT ${ state.pagination.rowsPerPage } OFFSET ${ offset }`
+				`SELECT * FROM ${ table.name } ${ sortClause } LIMIT ${ state.pagination.rowsPerPage } OFFSET ${ offset }`
 			) ) as unknown as DatabaseRow[];
 			dispatch( { type: 'SET_TABLE_ROWS', payload: rows } );
 
@@ -227,12 +255,60 @@ function useTableData( selectedSite: SiteDetails | undefined ) {
 			selectedSite?.path,
 			state.pagination.currentPage,
 			state.pagination.rowsPerPage,
+			state.sort.column,
+			state.sort.direction,
 		]
 	);
 
 	const scrollToTop = useCallback( () => {
 		tableContainerRef.current?.scrollTo( { top: 0, behavior: 'smooth' } );
 	}, [] );
+
+	const handleTableClick = useCallback(
+		async ( table: Table ) => {
+			try {
+				dispatch( { type: 'SET_LOADING', payload: true } );
+				// Reset sort state first
+				dispatch( { type: 'SET_SORT', payload: { column: null, direction: null } } );
+				dispatch( { type: 'SET_SELECTED_TABLE', payload: table } );
+				dispatch( { type: 'SET_CURRENT_PAGE', payload: 1 } );
+
+				// First fetch columns
+				await fetchTableColumns( table );
+			} catch ( error ) {
+				console.error( 'Error loading table data:', error );
+				dispatch( { type: 'SET_ERROR', payload: 'Failed to load table data' } );
+			} finally {
+				dispatch( { type: 'SET_LOADING', payload: false } );
+			}
+		},
+		[ dispatch, fetchTableColumns ]
+	);
+
+	const handleColumnSort = useCallback(
+		( column: TableColumn ) => {
+			// If clicking the same column
+			if ( state.sort.column === column.name ) {
+				// Cycle through: asc -> desc -> null
+				const newDirection =
+					state.sort.direction === 'asc' ? 'desc' : state.sort.direction === 'desc' ? null : 'asc';
+
+				dispatch( {
+					type: 'SET_SORT',
+					payload: newDirection
+						? { column: column.name, direction: newDirection }
+						: { column: null, direction: null },
+				} );
+			} else {
+				// Clicking a new column, start with ascending sort
+				dispatch( {
+					type: 'SET_SORT',
+					payload: { column: column.name, direction: 'asc' },
+				} );
+			}
+		},
+		[ state.sort, dispatch ]
+	);
 
 	useEffect( () => {
 		dispatch( { type: 'SET_LOADING', payload: true } );
@@ -247,11 +323,25 @@ function useTableData( selectedSite: SiteDetails | undefined ) {
 		};
 	}, [ selectedSite?.path, selectedSite?.id, selectedSite?.themeDetails, fetchTables ] );
 
+	// Add effect to handle table selection changes
 	useEffect( () => {
 		if ( state.selected.table ) {
 			fetchTableRows( state.selected.table );
 		}
-	}, [ state.pagination.currentPage, state.selected.table, fetchTableRows ] );
+	}, [ state.selected.table, fetchTableRows ] );
+
+	// Add effect to handle sort changes and pagination
+	useEffect( () => {
+		if ( state.selected.table && state.sort.column && state.sort.direction ) {
+			fetchTableRows( state.selected.table );
+		}
+	}, [
+		state.pagination.currentPage,
+		state.sort.column,
+		state.sort.direction,
+		state.selected.table,
+		fetchTableRows,
+	] );
 
 	return {
 		state,
@@ -261,6 +351,8 @@ function useTableData( selectedSite: SiteDetails | undefined ) {
 		fetchTableColumns,
 		fetchTableRows,
 		scrollToTop,
+		handleColumnSort,
+		handleTableClick,
 	};
 }
 
@@ -299,23 +391,7 @@ function usePagination( state: DatabaseState, dispatch: React.Dispatch< Database
 	};
 }
 
-function useTableSelection(
-	state: DatabaseState,
-	dispatch: React.Dispatch< DatabaseAction >,
-	fetchTableColumns: ( table: Table ) => Promise< void >,
-	fetchTableRows: ( table: Table ) => Promise< void >
-) {
-	const handleTableClick = useCallback(
-		( table: Table ) => {
-			dispatch( { type: 'SET_LOADING', payload: true } );
-			dispatch( { type: 'SET_SELECTED_TABLE', payload: table } );
-			dispatch( { type: 'SET_CURRENT_PAGE', payload: 1 } );
-			fetchTableColumns( table );
-			fetchTableRows( table );
-		},
-		[ dispatch, fetchTableColumns, fetchTableRows ]
-	);
-
+function useTableSelection( state: DatabaseState, dispatch: React.Dispatch< DatabaseAction > ) {
 	const handleRowClick = useCallback(
 		( row: DatabaseRow, column: TableColumn ) => {
 			if ( column.pk === 1 ) {
@@ -329,7 +405,6 @@ function useTableSelection(
 	);
 
 	return {
-		handleTableClick,
 		handleRowClick,
 	};
 }
@@ -341,9 +416,9 @@ function useRowUpdate(
 	fetchTableRows: ( table: Table ) => Promise< void >
 ) {
 	const handleSave = useCallback( async () => {
-        if ( ! selectedSite?.path ) {
-            return;
-        }
+		if ( ! selectedSite?.path ) {
+			return;
+		}
 		try {
 			if ( ! state.selected.table || ! state.selected.column || ! state.selected.row ) {
 				throw new Error( 'Missing required data for update' );
@@ -399,26 +474,15 @@ function useRowUpdate(
 }
 
 export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) {
-	const {
-		state,
-		dispatch,
-		tableContainerRef,
-		fetchTables,
-		fetchTableColumns,
-		fetchTableRows,
-		scrollToTop,
-	} = useTableData( selectedSite );
+	const { state, dispatch, tableContainerRef, fetchTableRows, handleColumnSort, handleTableClick } =
+		useTableData( selectedSite );
 
-	const { totalPages, handleFirstPage, handleLastPage, handlePreviousPage, handleNextPage } =
-		usePagination( state, dispatch );
-
-	const { handleTableClick, handleRowClick } = useTableSelection(
+	const { handleFirstPage, handleLastPage, handlePreviousPage, handleNextPage } = usePagination(
 		state,
-		dispatch,
-		fetchTableColumns,
-		fetchTableRows
+		dispatch
 	);
 
+	const { handleRowClick } = useTableSelection( state, dispatch );
 	const { handleSave } = useRowUpdate( state, dispatch, selectedSite, fetchTableRows );
 
 	const filteredTables = useMemo(
@@ -433,6 +497,105 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 		<div className="flex flex-col p-8" data-testid="import-export-supported">
 			<div className="flex justify-between items-center mb-2">
 				<div className="a8c-subtitle-small">{ __( 'Tables' ) }</div>
+				{ state.ui.showCustomQuery && (
+					<div className="flex items-center gap-2">
+						<InputControl
+							className="w-full min-w-96"
+							value={
+								!! state.current.customQuery
+									? String( state.current.customQuery )
+									: `SELECT ${ state.current.columns
+											?.slice( 0, 2 )
+											.map( ( column ) => column.name )
+											.join( ', ' ) } FROM ${ state.selected.table?.name } LIMIT 10`
+							}
+							onChange={ ( value ) => {
+								if ( typeof value === 'string' ) {
+									dispatch( { type: 'SET_CUSTOM_QUERY', payload: value } );
+								}
+							} }
+						/>
+						<Button
+							variant="secondary"
+							onClick={ async () => {
+								try {
+									dispatch( { type: 'SET_LOADING', payload: true } );
+									dispatch( { type: 'SET_ERROR', payload: null } );
+									const query =
+										state.current.customQuery ||
+										`SELECT ${ state.current.columns
+											?.slice( 0, 2 )
+											.map( ( column ) => column.name )
+											.join( ', ' ) } FROM ${ state.selected.table?.name } LIMIT 10`;
+									// Execute the custom query
+									const results = ( await getIpcApi().executeSelectQuery(
+										`${ selectedSite?.path }${ WP_DATABASE_PATH }`,
+										query
+									) ) as unknown as DatabaseRow[];
+
+									if ( results.length === 0 ) {
+										dispatch( { type: 'SET_TABLE_COLUMNS', payload: [] } );
+										dispatch( { type: 'SET_TABLE_ROWS', payload: [] } );
+										dispatch( { type: 'SET_ROW_COUNT', payload: 0 } );
+									} else {
+										// Extract column names from the first row
+										const columns = Object.keys( results[ 0 ] ).map( ( name ) => ( {
+											name,
+											type: 'TEXT', // Default type since we can't determine it from results
+											pk: 0 as const,
+											dflt_value: '',
+											notnull: 0 as const,
+										} ) );
+
+										dispatch( { type: 'SET_TABLE_COLUMNS', payload: columns } );
+										dispatch( { type: 'SET_TABLE_ROWS', payload: results } );
+										dispatch( { type: 'SET_ROW_COUNT', payload: results.length } );
+									}
+
+									// Reset pagination and sort
+									dispatch( { type: 'SET_CURRENT_PAGE', payload: 1 } );
+									dispatch( { type: 'SET_SORT', payload: { column: null, direction: null } } );
+								} catch ( error ) {
+									console.error( 'Error executing custom query:', error );
+									dispatch( {
+										type: 'SET_ERROR',
+										payload:
+											error instanceof Error ? error.message : 'Failed to execute custom query',
+									} );
+								} finally {
+									dispatch( { type: 'SET_LOADING', payload: false } );
+								}
+							} }
+						>
+							{ __( 'Run' ) }
+						</Button>
+						<Button
+							variant="secondary"
+							onClick={ () => {
+								dispatch( { type: 'SET_CUSTOM_QUERY', payload: '' } );
+								dispatch( { type: 'SET_SHOW_CUSTOM_QUERY', payload: false } );
+								// Reset the table back to the original selected table
+								if ( state.selected.table ) {
+									handleTableClick( state.selected.table );
+								}
+							} }
+						>
+							{ __( 'Close' ) }
+						</Button>
+					</div>
+				) }
+				{ state.selected.table && ! state.ui.showCustomQuery && (
+					<Button
+						variant="tertiary"
+						onClick={ () => {
+							dispatch( { type: 'SET_SHOW_CUSTOM_QUERY', payload: true } );
+						} }
+						icon={ <Icon icon={ keyboard } size={ 16 } /> }
+						className="text-xs"
+					>
+						{ __( 'Custom query' ) }
+					</Button>
+				) }
 			</div>
 			<div className="flex gap-8 relative">
 				<div className="w-48 flex-shrink-0 sticky top-0">
@@ -495,12 +658,20 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 												{ state.current.columns?.map( ( column ) => (
 													<th
 														key={ column.name }
-														className="px-2 py-1 text-left text-xs lowercase tracking-wider font-normal whitespace-nowrap"
+														className="px-2 py-1 text-left text-xs lowercase tracking-wider font-normal whitespace-nowrap cursor-pointer hover:bg-gray-100"
+														onClick={ () => handleColumnSort( column ) }
 													>
 														<div className="flex items-center gap-1 text-xs">
 															{ column.pk === 1 ? <Icon icon={ key } size={ 16 } /> : null }
 															<span>{ column.name }</span>
 															<span className="text-gray-500">{ column.type }</span>
+															{ state.sort.column === column.name && (
+																<Icon
+																	icon={ state.sort.direction === 'asc' ? chevronUp : chevronDown }
+																	size={ 16 }
+																	className="text-gray-500"
+																/>
+															) }
 														</div>
 													</th>
 												) ) }
@@ -591,6 +762,7 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 										iconSize={ 16 }
 										label={ __( 'Last' ) }
 									/>
+									{ /* TODO: Refresh the table rows for custom queries doesn't work */ }
 									<Button
 										icon={ <Icon icon={ update } size={ 16 } /> }
 										variant="tertiary"
@@ -609,7 +781,7 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 					</div>
 				</div>
 			</div>
-			{ state.ui.showModal && (
+			{ state.ui.showEditRecordModal && (
 				<EditRecordModal
 					table={ state.selected.table ?? { name: '' } }
 					column={ state.selected.column ?? { name: '', type: '' } }

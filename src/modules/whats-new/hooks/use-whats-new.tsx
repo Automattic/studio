@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useLastSeenVersion } from 'src/hooks/use-last-seen-version';
 import { useOnboarding } from 'src/hooks/use-onboarding';
+import { useLastSeenVersion } from 'src/modules/whats-new/hooks/use-last-seen-version';
 
 interface UseWhatsNew {
 	showWhatsNew: boolean;

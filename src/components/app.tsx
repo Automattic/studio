@@ -9,16 +9,15 @@ import Onboarding from 'src/components/onboarding';
 import { SiteContentTabs } from 'src/components/site-content-tabs';
 import TopBar from 'src/components/top-bar';
 import UserSettings from 'src/components/user-settings';
-import WhatsNewModal from 'src/components/whats-new-modal';
 import WindowsTitlebar from 'src/components/windows-titlebar';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useLocalizationSupport } from 'src/hooks/use-localization-support';
 import { useOnboarding } from 'src/hooks/use-onboarding';
 import { useSidebarVisibility } from 'src/hooks/use-sidebar-visibility';
-import { useWhatsNew } from 'src/hooks/use-whats-new';
 import { isWindows } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { WhatsNewModal, useWhatsNew } from 'src/modules/whats-new';
 
 export default function App() {
 	useLocalizationSupport();

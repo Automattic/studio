@@ -141,13 +141,6 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 					if ( result.exitCode !== 0 ) {
 						throw new Error( result.stderr );
 					}
-
-					// Handle the mu-plugin based on the selected version
-					if ( selectedWpVersion !== latestStableVersion?.value ) {
-						await addMuPlugin( selectedSite.id, STUDIO_DISABLE_WP_AUTO_UPDATES_PLUGIN );
-					} else {
-						await removeMuPlugin( selectedSite.id, STUDIO_DISABLE_WP_AUTO_UPDATES_PLUGIN );
-					}
 				} catch ( wpError ) {
 					console.error( 'Error changing WordPress version:', wpError );
 					const errorMessage = stripAnsi( ( wpError as Error )?.message );
@@ -158,6 +151,16 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 					setSelectedWpVersion( currentWpVersion );
 					setIsEditingSite( false );
 					return;
+				}
+
+				try {
+					if ( selectedWpVersion !== latestStableVersion?.value ) {
+						await addMuPlugin( selectedSite.id, STUDIO_DISABLE_WP_AUTO_UPDATES_PLUGIN );
+					} else {
+						await removeMuPlugin( selectedSite.id, STUDIO_DISABLE_WP_AUTO_UPDATES_PLUGIN );
+					}
+				} catch ( e ) {
+					console.error( 'Error adding or removing mu-plugin:', e );
 				}
 			}
 

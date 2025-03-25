@@ -144,7 +144,7 @@ describe( 'AddSite', () => {
 			expect( mockCreateSite ).toHaveBeenCalledWith(
 				'test',
 				'My WordPress Website',
-				expect.any( String ),
+				{ isLatest: true, version: '6.4.0' },
 				undefined,
 				false,
 				expect.any( Function )
@@ -327,7 +327,7 @@ describe( 'AddSite', () => {
 			expect( mockCreateSite ).toHaveBeenCalledWith(
 				'test',
 				'My WordPress Website',
-				'6.3.3',
+				{ isLatest: false, version: '6.3.3' },
 				undefined,
 				false,
 				expect.any( Function )

@@ -15,8 +15,7 @@ import { cx } from 'src/lib/cx';
 import { generateCustomDomainFromSiteName, getDomainNameValidationError } from 'src/lib/domains';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getWordPressVersionUrl } from 'src/lib/wordpress-version-utils';
-import { useRootSelector } from 'src/stores';
-import { wordpressVersionsSelectors } from 'src/stores/wordpress-versions-slice';
+import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 import {
 	DEFAULT_PHP_VERSION,
 	ALLOWED_PHP_VERSIONS,
@@ -71,9 +70,10 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 			} );
 	}, [ selectedSite?.customDomain ] );
 
-	const wordpressVersions = useRootSelector(
-		wordpressVersionsSelectors.selectWordPressVersionsWithLatest
-	);
+	const { data: wordpressVersions = [] } = useGetWordPressVersions( undefined, {
+		skip: ! showModal,
+	} );
+
 	const wordpressVersionOptions = wordpressVersions.map( ( version ) => ( {
 		label: version.label,
 		value: version.value,

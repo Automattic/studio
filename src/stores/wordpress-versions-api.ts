@@ -112,52 +112,53 @@ export const wordpressVersionsApi = createApi( {
 	endpoints: ( builder ) => ( {
 		getWordPressVersions: builder.query< WordPressVersion[], void >( {
 			queryFn: async () => {
+				let stableData, developmentData;
 				try {
-					const [ stableData, developmentData ] = await Promise.all( [
+					[ stableData, developmentData ] = await Promise.all( [
 						fetchWordPressApiData( 'beta', MINIMUM_WORDPRESS_VERSION ),
 						fetchWordPressApiData( 'development' ),
 					] );
-
-					const shortNameOccurrences = new Map< string, number >();
-
-					const stableOffers = processWordPressOffers(
-						stableData.offers,
-						false,
-						shortNameOccurrences
-					);
-
-					const developmentOffer = processWordPressOffers(
-						developmentData.offers,
-						true,
-						shortNameOccurrences
-					)[ 0 ];
-
-					const allOffers = developmentOffer ? [ developmentOffer, ...stableOffers ] : stableOffers;
-					const latestVersion = findLatestStable( allOffers );
-
-					return {
-						data: allOffers.map( ( { version, shortName } ) => {
-							const isLatest = latestVersion?.version === version;
-							return {
-								isBeta: isWordPressBetaVersion( version ),
-								isDevelopment: isWordPressDevVersion( version ),
-								isLatest,
-								label: generateVersionLabel(
-									version,
-									shortName,
-									shortNameOccurrences.get( shortName ) || 0,
-									isLatest
-								),
-								value: version,
-							};
-						} ),
-					};
 				} catch ( error ) {
 					if ( error instanceof z.ZodError ) {
 						Sentry.captureException( error );
 					}
 					throw error;
 				}
+
+				const shortNameOccurrences = new Map< string, number >();
+
+				const stableOffers = processWordPressOffers(
+					stableData.offers,
+					false,
+					shortNameOccurrences
+				);
+
+				const developmentOffer = processWordPressOffers(
+					developmentData.offers,
+					true,
+					shortNameOccurrences
+				)[ 0 ];
+
+				const allOffers = developmentOffer ? [ developmentOffer, ...stableOffers ] : stableOffers;
+				const latestVersion = findLatestStable( allOffers );
+
+				return {
+					data: allOffers.map( ( { version, shortName } ) => {
+						const isLatest = latestVersion?.version === version;
+						return {
+							isBeta: isWordPressBetaVersion( version ),
+							isDevelopment: isWordPressDevVersion( version ),
+							isLatest,
+							label: generateVersionLabel(
+								version,
+								shortName,
+								shortNameOccurrences.get( shortName ) || 0,
+								isLatest
+							),
+							value: version,
+						};
+					} ),
+				};
 			},
 		} ),
 	} ),

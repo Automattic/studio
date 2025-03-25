@@ -4,23 +4,28 @@ import path from 'path';
 import archiver from 'archiver';
 import { Command } from 'commander/typings';
 import fetch from 'node-fetch';
-import { BaseCommand, OutputFormat } from 'cli/commands/base';
+import { Logger, OutputFormat } from 'cli/logger';
+
+enum Status {
+	ARCHIVE_CREATED = 'ARCHIVE_CREATED',
+	ARCHIVE_UPLOADED = 'ARCHIVE_UPLOADED',
+	ARCHIVE_DELETED = 'ARCHIVE_DELETED',
+}
+
+interface CommandInterface {
+	run(): Promise< boolean >;
+}
 
 // This is DUMMY code for now. It's only meant as a reference for the actual implementation.
-export class PreviewCreateCommand extends BaseCommand {
+export class PreviewCreateCommand implements CommandInterface {
 	private folder: string;
 	private archivePath: string;
-
-	protected readonly STATUSES = {
-		ARCHIVE_CREATED: 'ARCHIVE_CREATED',
-		ARCHIVE_UPLOADED: 'ARCHIVE_UPLOADED',
-		ARCHIVE_DELETED: 'ARCHIVE_DELETED',
-	};
+	private logger: Logger< Status >;
 
 	constructor( folder: string, outputFormat: OutputFormat ) {
-		super( outputFormat );
 		this.folder = folder;
 		this.archivePath = path.join( os.tmpdir(), `${ this.folder }.zip` );
+		this.logger = new Logger< Status >( outputFormat );
 	}
 
 	static register( program: Command ) {
@@ -42,7 +47,7 @@ export class PreviewCreateCommand extends BaseCommand {
 		return true;
 	}
 
-	async archiveFolder() {
+	async archiveFolder(): Promise< archiver.Archiver > {
 		return new Promise( ( resolve, reject ) => {
 			const output = fs.createWriteStream( this.archivePath );
 
@@ -51,12 +56,12 @@ export class PreviewCreateCommand extends BaseCommand {
 			} );
 
 			output.on( 'close', () => {
-				this.reportProgress( this.STATUSES.ARCHIVE_CREATED );
+				this.logger.reportProgress( Status.ARCHIVE_CREATED );
 				resolve( archive );
 			} );
 
 			archive.on( 'error', ( err: Error ) => {
-				this.reportError( err.message );
+				this.logger.reportError( err.message );
 				reject( err );
 			} );
 
@@ -76,7 +81,7 @@ export class PreviewCreateCommand extends BaseCommand {
 				body: fs.createReadStream( this.archivePath ),
 			}
 		);
-		this.reportProgress( this.STATUSES.ARCHIVE_UPLOADED );
+		this.logger.reportProgress( Status.ARCHIVE_UPLOADED );
 		return response.json();
 	}
 

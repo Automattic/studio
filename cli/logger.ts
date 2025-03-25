@@ -1,16 +1,13 @@
 export type OutputFormat = undefined | 'json';
 
-export abstract class BaseCommand {
-	protected abstract readonly STATUSES: Record< string, string >;
+export class Logger< T extends string > {
 	protected readonly outputFormat: OutputFormat;
 
 	constructor( outputFormat: OutputFormat ) {
 		this.outputFormat = outputFormat;
 	}
 
-	abstract run(): Promise< boolean >;
-
-	protected reportProgress( status: keyof typeof this.STATUSES ) {
+	public reportProgress( status: T ) {
 		if ( this.outputFormat === 'json' ) {
 			console.log( JSON.stringify( { status } ) );
 		} else {
@@ -18,7 +15,7 @@ export abstract class BaseCommand {
 		}
 	}
 
-	protected reportError( error: string ) {
+	public reportError( error: string ) {
 		if ( this.outputFormat === 'json' ) {
 			console.error( JSON.stringify( { error } ) );
 		} else {

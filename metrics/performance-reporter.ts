@@ -22,7 +22,7 @@ class PerformanceReporter implements Reporter {
 			}
 
 			const testSuite = path.basename( test.location.file, '.test.js' );
-			const resultsId = testSuite;
+			const resultsId = process.env.RESULTS_ID || testSuite;
 			const resultsPath = process.env.ARTIFACTS_PATH as string;
 			const resultsBody = attachment.body.toString();
 			const results = JSON.parse( resultsBody );
@@ -30,10 +30,7 @@ class PerformanceReporter implements Reporter {
 			if ( ! existsSync( resultsPath ) ) {
 				mkdirSync( resultsPath, { recursive: true } );
 			}
-			writeFileSync(
-				path.join( resultsPath, `${ resultsId }-results.json` ),
-				JSON.stringify( results, null, 2 )
-			);
+			writeFileSync( path.join( resultsPath, `${ resultsId }-results.json` ), resultsBody );
 
 			this.results[ testSuite ] = results;
 		}

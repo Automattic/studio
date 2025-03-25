@@ -1,5 +1,5 @@
 module.exports = {
-	roots: [ '<rootDir>/src' ],
+	roots: [ '<rootDir>/src', '<rootDir>/cli' ],
 	preset: 'ts-jest',
 	transform: {
 		'^.+\\.(ts|tsx)$': [
@@ -19,6 +19,7 @@ module.exports = {
 	transformIgnorePatterns: [ 'node_modules/(?!(@php-wasm|@wp-playground)/)' ],
 	moduleNameMapper: {
 		'^(\\.{1,2}/.*)\\.js$': '$1',
+		'^cli/(.*)$': '<rootDir>/cli/$1',
 		'^src/(.*)$': '<rootDir>/src/$1',
 		'^vendor/(.*)$': '<rootDir>/vendor/$1',
 	},

@@ -68,7 +68,7 @@ describe( 'createSite', () => {
 
 		const [ site ] = await createSite( mockIpcMainInvokeEvent, '/test', 'Test', {
 			version: '6.4',
-			isLatest: false,
+			isLatest: true,
 		} );
 
 		expect( site ).toEqual( {
@@ -93,7 +93,7 @@ describe( 'createSite', () => {
 
 			createSite( mockIpcMainInvokeEvent, '/test', 'Test', {
 				version: '6.4',
-				isLatest: false,
+				isLatest: true,
 			} ).catch( () => {
 				expect( shell.trashItem ).toHaveBeenCalledTimes( 1 );
 				expect( shell.trashItem ).toHaveBeenCalledWith( '/test' );

@@ -3,7 +3,7 @@ import * as Sentry from '@sentry/electron/renderer';
 import { __, sprintf } from '@wordpress/i18n';
 import { z } from 'zod';
 import { isWordPressDevVersion, isWordPressBetaVersion } from 'src/lib/wordpress-version-utils';
-import { withOfflineCheck } from 'src/stores/tests/utils/with-offline-check';
+import { withOfflineCheck } from 'src/stores/utils/with-offline-check';
 
 const MINIMUM_WORDPRESS_VERSION = '5.9.9';
 

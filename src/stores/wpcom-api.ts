@@ -1,7 +1,7 @@
 import { createApi, TypedUseQuery } from '@reduxjs/toolkit/query/react';
 import * as Sentry from '@sentry/electron/renderer';
 import { z } from 'zod';
-import { withOfflineCheck } from 'src/stores/tests/utils/with-offline-check';
+import { withOfflineCheck } from 'src/stores/utils/with-offline-check';
 import type { BaseQueryFn, FetchBaseQueryError } from '@reduxjs/toolkit/query';
 import type WPCOM from 'wpcom';
 

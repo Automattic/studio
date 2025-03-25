@@ -262,7 +262,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 										{ latestStableVersion && selectedWpVersion !== latestStableVersion.value && (
 											<Tooltip
 												text={ __( 'Auto-updates will be disabled for this site.' ) }
-												placement="top-start"
+												placement="top"
 											>
 												<Icon icon={ warning } className="text-[#ae5c00]" size={ 16 } />
 											</Tooltip>

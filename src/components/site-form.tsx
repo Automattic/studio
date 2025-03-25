@@ -422,7 +422,7 @@ export const SiteForm = ( {
 													{ latestStableVersion && wpVersion !== latestStableVersion.value && (
 														<Tooltip
 															text={ __( 'Auto-updates will be disabled for this site.' ) }
-															placement="top-start"
+															placement="top"
 														>
 															<Icon icon={ warning } size={ 16 } />
 														</Tooltip>

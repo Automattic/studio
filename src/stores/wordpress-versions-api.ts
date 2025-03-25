@@ -45,6 +45,21 @@ export interface WordPressVersion {
 	value: string;
 }
 
+async function fetchWordPressApiData( channel: 'beta' | 'development', version?: string ) {
+	const baseUrl = 'https://api.wordpress.org/core/version-check/1.7/';
+	const params = new URLSearchParams( { channel } );
+
+	if ( channel === 'beta' && version ) {
+		params.append( 'version', version );
+	}
+
+	const response = await fetch( `${ baseUrl }?${ params }` );
+	if ( ! response.ok ) {
+		throw new Error( 'Failed to fetch WordPress versions' );
+	}
+	return wordPressApiResponseSchema.parse( await response.json() );
+}
+
 function processWordPressOffers(
 	offers: WordPressApiOffer[],
 	isDevelopment = false,
@@ -93,21 +108,15 @@ function findLatestStable( versions: ProcessedOffer[] ): ProcessedOffer | undefi
 
 export const wordpressVersionsApi = createApi( {
 	reducerPath: 'wordpressVersionsApi',
-	baseQuery: fetchBaseQuery( { baseUrl: 'https://api.wordpress.org' } ),
+	baseQuery: fetchBaseQuery(),
 	endpoints: ( builder ) => ( {
 		getWordPressVersions: builder.query< WordPressVersion[], void >( {
-			query: () => ( {
-				url: `/core/version-check/1.7/?channel=beta&version=${ MINIMUM_WORDPRESS_VERSION }`,
-			} ),
-			transformResponse: async ( response: unknown ) => {
+			queryFn: async () => {
 				try {
-					const stableData = wordPressApiResponseSchema.parse( response );
-
-					const devResponse = await fetch(
-						'https://api.wordpress.org/core/version-check/1.7/?channel=development'
-					);
-
-					const developmentData = wordPressApiResponseSchema.parse( await devResponse.json() );
+					const [ stableData, developmentData ] = await Promise.all( [
+						fetchWordPressApiData( 'beta', MINIMUM_WORDPRESS_VERSION ),
+						fetchWordPressApiData( 'development' ),
+					] );
 
 					const shortNameOccurrences = new Map< string, number >();
 
@@ -125,21 +134,24 @@ export const wordpressVersionsApi = createApi( {
 
 					const allOffers = developmentOffer ? [ developmentOffer, ...stableOffers ] : stableOffers;
 					const latestVersion = findLatestStable( allOffers );
-					return allOffers.map( ( { version, shortName } ) => {
-						const isLatest = latestVersion?.version === version;
-						return {
-							isBeta: isWordPressBetaVersion( version ),
-							isDevelopment: isWordPressDevVersion( version ),
-							isLatest,
-							label: generateVersionLabel(
-								version,
-								shortName,
-								shortNameOccurrences.get( shortName ) || 0,
-								isLatest
-							),
-							value: version,
-						};
-					} );
+
+					return {
+						data: allOffers.map( ( { version, shortName } ) => {
+							const isLatest = latestVersion?.version === version;
+							return {
+								isBeta: isWordPressBetaVersion( version ),
+								isDevelopment: isWordPressDevVersion( version ),
+								isLatest,
+								label: generateVersionLabel(
+									version,
+									shortName,
+									shortNameOccurrences.get( shortName ) || 0,
+									isLatest
+								),
+								value: version,
+							};
+						} ),
+					};
 				} catch ( error ) {
 					if ( error instanceof z.ZodError ) {
 						Sentry.captureException( error );

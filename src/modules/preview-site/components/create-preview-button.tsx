@@ -28,7 +28,7 @@ export function CreatePreviewButton( { onClick, selectedSite }: CreatePreviewBut
 	const isOffline = useOffline();
 	const errorMessages = useArchiveErrorMessages();
 	const [ wpVersion ] = useGetWpVersion( selectedSite );
-	const { data: wpVersions = [] } = useGetWordPressVersionsQuery( undefined );
+	const { data: wpVersions = [] } = useGetWordPressVersionsQuery();
 
 	const isCurrentSiteArchiving = archivingSiteId === selectedSite.id;
 	const isOtherSiteArchiving = isAnySiteArchiving && ! isCurrentSiteArchiving;

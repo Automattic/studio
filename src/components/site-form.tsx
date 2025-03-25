@@ -274,8 +274,7 @@ export const SiteForm = ( {
 
 	const offlineMessage = __( 'Changing WordPress version requires an internet connection.' );
 
-	// Use RTK Query instead of the old slice
-	const { data: wpVersions = [] } = useGetWordPressVersionsQuery( undefined );
+	const { data: wpVersions = [] } = useGetWordPressVersionsQuery();
 
 	const [ isAdvancedSettingsVisible, setAdvancedSettingsVisible ] = useState( false );
 

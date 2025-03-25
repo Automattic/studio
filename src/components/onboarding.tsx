@@ -89,7 +89,7 @@ export default function Onboarding() {
 		},
 	} );
 
-	const { data: versions = [] } = useGetWordPressVersionsQuery( undefined );
+	const { data: versions = [] } = useGetWordPressVersionsQuery();
 	const latestStableVersion = versions.find( ( version ) => version.isLatest );
 
 	useEffect( () => {

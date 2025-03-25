@@ -70,7 +70,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 		siteName
 	);
 
-	const { data: versions = [] } = useGetWordPressVersionsQuery( undefined );
+	const { data: versions = [] } = useGetWordPressVersionsQuery();
 	const latestStableVersion = versions.find( ( version ) => version.isLatest );
 
 	const initializeForm = useCallback( async () => {

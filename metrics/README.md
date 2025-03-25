@@ -7,10 +7,10 @@ This directory contains tools for measuring and tracking performance metrics in 
 To run the performance tests:
 
 ```bash
-// Package the application first
+# Package the application first
 npm run package
 
-// Run the performance tests
+# Run the performance tests
 npm run test:metrics
 ```
 
@@ -23,7 +23,21 @@ This will:
 
 The performance tests simulate key user workflows and measure the time they take to complete. Currently, we measure:
 
-- Site creation and startup time: How long it takes to create a new WordPress site and have it running
+- **siteCreation**: How long it takes to create a new WordPress site and have it running
+- **siteStartup**: How long it takes to restart an existing site
+
+## Comparing Performance Between Commits
+
+You can compare performance metrics between different commits or branches:
+
+```bash
+npm run test:metrics:compare <commit1> <commit2>
+```
+
+This tool is useful for:
+- Testing performance impact of code changes
+- Identifying performance regressions
+- Benchmarking improvements in new features
 
 ## Understanding the Results
 
@@ -35,3 +49,5 @@ The `performance-metrics.json` output file contains a summary of the results, ex
   "siteStartup": 3946
 }
 ```
+
+All measurements are in milliseconds (ms), and lower values indicate better performance.

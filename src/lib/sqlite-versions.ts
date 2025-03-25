@@ -25,27 +25,7 @@ export async function isSqlLiteInstalled( installPath: string ) {
  */
 export async function updateLatestSqliteVersion() {
 	const installedPath = getSqlitePath();
-	const shouldOverwrite = await isNewSqliteVersionAvailable();
 	await removeLegacySqliteIntegrationPlugin( installedPath );
-}
-
-/**
- * Checks if there's a new version of the SQLite integration available.
- *
- * @returns True if there's a new version available.
- */
-async function isNewSqliteVersionAvailable() {
-	const installedVersion = semver.coerce(
-		await getSqliteVersionFromInstallation( getSqlitePath() )
-	);
-	const latestVersion = semver.coerce( SQLITE_DATABASE_INTEGRATION_VERSION );
-	if ( ! installedVersion ) {
-		return true;
-	}
-	if ( ! latestVersion ) {
-		return false;
-	}
-	return semver.lt( installedVersion, latestVersion );
 }
 
 /**

@@ -43,6 +43,7 @@ import * as oauthClient from 'src/lib/oauth';
 import { createPassword } from 'src/lib/passwords';
 import { phpGetThemeDetails } from 'src/lib/php-get-theme-details';
 import { portFinder } from 'src/lib/port-finder';
+import { startProxyServer } from 'src/lib/proxy-server';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { sortSites } from 'src/lib/sort-sites';
 import { installSqliteIntegration, keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
@@ -55,6 +56,10 @@ import { SiteServer, createSiteWorkingDirectory } from 'src/site-server';
 import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from 'src/storage/paths';
 import { loadUserData, saveUserData } from 'src/storage/user-data';
 import { DEFAULT_PHP_VERSION } from 'vendor/wp-now/src/constants';
+import {
+	generateSiteCertificate,
+	openCertificate as openCertificateDialog,
+} from './lib/certificate-manager';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
 
@@ -142,7 +147,8 @@ export async function createSite(
 	path: string,
 	siteName?: string,
 	wpVersion?: string,
-	customDomain?: string
+	customDomain?: string,
+	enableHttps?: boolean
 ): Promise< SiteDetails[] > {
 	const userData = await loadUserData();
 	const forceSetupSqlite = false;
@@ -183,7 +189,8 @@ export async function createSite(
 		port,
 		running: false,
 		phpVersion: DEFAULT_PHP_VERSION,
-		customDomain: customDomain,
+		customDomain,
+		enableHttps,
 	} as const;
 
 	const server = SiteServer.create( details );
@@ -234,9 +241,11 @@ export async function updateSite(
 	if ( server ) {
 		server.updateSiteDetails( updatedSite );
 
-		// Handle domain changes if the site is running (updates hosts and database)
+		// Handle domain changes and url changes (updates hosts and database)
 		if ( oldDomain !== newDomain ) {
 			updateDomainInHosts( oldDomain, newDomain, server.details.port );
+		}
+		if ( ( oldDomain && ! newDomain ) || updatedSite.enableHttps !== existingSite?.enableHttps ) {
 			await updateSiteUrlToLocal( updatedSite.id );
 		}
 	}
@@ -413,9 +422,21 @@ export async function startServer(
 	// Handle custom domain if necessary
 	if ( server.details.customDomain ) {
 		await addDomainToHosts( server.details.customDomain, server.details.port );
-		console.log(
-			`Domain ${ server.details.customDomain } added to hosts file for port ${ server.details.port }`
-		);
+		// Generate certificates for HTTPS sites *before* the server starts
+		// This ensures the certs are ready when the proxy server needs them
+		if ( server.details.enableHttps ) {
+			console.log(
+				`Generating certificates for ${ server.details.customDomain } during server start`
+			);
+
+			const { cert, key } = await generateSiteCertificate( server.details.customDomain );
+			server.details = {
+				...server.details,
+				tlsKey: key,
+				tlsCert: cert,
+			};
+		}
+		await startProxyServer();
 	}
 
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
@@ -1169,6 +1190,11 @@ export function getWpContentSize( _event: IpcMainInvokeEvent, siteId: string ) {
 	}
 	return calculateDirectorySize( nodePath.join( site.details.path, 'wp-content' ) );
 }
+
+export function openCertificate( _event: IpcMainInvokeEvent ) {
+	return openCertificateDialog();
+}
+
 export async function getFileContent( event: IpcMainInvokeEvent, filePath: string ) {
 	if ( ! fs.existsSync( filePath ) ) {
 		throw new Error( `File not found: ${ filePath }` );
@@ -1359,4 +1385,11 @@ export async function executeSelectQuery(
 		}
 		throw err;
 	}
+
+export async function getAllCustomDomains(): Promise< string[] > {
+	const userData = await loadUserData();
+
+	return userData.sites
+		.map( ( site ) => site.customDomain )
+		.filter( ( domain ): domain is string => domain !== undefined );
 }

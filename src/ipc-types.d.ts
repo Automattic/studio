@@ -21,7 +21,10 @@ interface StoppedSiteDetails {
 	phpVersion: string;
 	wpVersion?: string;
 	customDomain?: string;
+	enableHttps?: boolean;
 	adminPassword?: string;
+	tlsKey?: string;
+	tlsCert?: string;
 	themeDetails?: {
 		name: string;
 		path: string;

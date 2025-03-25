@@ -6,6 +6,10 @@ import AddSite from 'src/components/add-site';
 import { useOffline } from 'src/hooks/use-offline';
 import { FolderDialogResponse } from 'src/ipc-handlers';
 
+jest.mock( 'src/lib/app-globals', () => ( {
+	isWindows: () => false,
+} ) );
+
 jest.mock( 'src/stores', () => {
 	const mockDispatch = jest.fn();
 	return {
@@ -42,12 +46,15 @@ const mockShowOpenFolderDialog =
 	jest.fn< ( dialogTitle: string ) => Promise< FolderDialogResponse | null > >();
 const mockGenerateProposedSitePath =
 	jest.fn< ( siteName: string ) => Promise< FolderDialogResponse > >();
+const mockGetAllCustomDomains = jest.fn< () => Promise< string[] > >().mockResolvedValue( [] );
+
 jest.mock( 'src/lib/get-ipc-api', () => ( {
 	__esModule: true,
 	default: jest.fn(),
 	getIpcApi: () => ( {
 		showOpenFolderDialog: mockShowOpenFolderDialog,
 		generateProposedSitePath: mockGenerateProposedSitePath,
+		getAllCustomDomains: mockGetAllCustomDomains,
 	} ),
 } ) );
 
@@ -135,6 +142,7 @@ describe( 'AddSite', () => {
 				'My WordPress Website',
 				expect.any( String ),
 				undefined,
+				false,
 				expect.any( Function )
 			);
 		} );
@@ -311,6 +319,7 @@ describe( 'AddSite', () => {
 				'My WordPress Website',
 				'6.3.3',
 				undefined,
+				false,
 				expect.any( Function )
 			);
 		} );

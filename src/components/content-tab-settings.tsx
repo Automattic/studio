@@ -1,10 +1,11 @@
-import { DropdownMenu, MenuGroup } from '@wordpress/components';
+import { DropdownMenu, MenuGroup, Button } from '@wordpress/components';
 import { moreVertical } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren } from 'react';
 import { CopyTextButton } from 'src/components/copy-text-button';
 import DeleteSite from 'src/components/delete-site';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 import { decodePassword } from 'src/lib/passwords';
 import EditSiteDetails from 'src/modules/site-settings/edit-site-details';
 
@@ -33,6 +34,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 	const domain = selectedSite.customDomain
 		? `${ selectedSite.customDomain }`
 		: `localhost:${ selectedSite.port }`;
+	const protocol = selectedSite.customDomain && selectedSite.enableHttps ? 'https' : 'http';
 	return (
 		<div className="p-8 ltr:pr-0 rtl:pl-0">
 			<div className="flex justify-between items-center mb-4">
@@ -63,12 +65,42 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 					</SettingsRow>
 					<SettingsRow label={ __( 'Local URL' ) }>
 						<CopyTextButton
-							text={ `http://${ domain }` }
+							text={ `${ protocol }://${ domain }` }
 							label={ `${ domain }, ${ __( 'Copy site url to clipboard' ) }` }
 							copyConfirmation={ __( 'Copied!' ) }
 						>
 							{ domain }
 						</CopyTextButton>
+					</SettingsRow>
+					<SettingsRow label={ __( 'HTTPS' ) }>
+						<div>
+							<span>{ selectedSite.enableHttps ? __( 'Enabled' ) : __( 'Disabled' ) }</span>{ ' ' }
+							{ selectedSite.enableHttps && (
+								<Button variant="link" onClick={ () => getIpcApi().openCertificate() }>
+									{ __( 'Trust Certificate' ) }
+								</Button>
+							) }
+						</div>
+						{ selectedSite.enableHttps && (
+							<div className="mt-1 max-w-96">
+								<span className="text-a8c-gray-50 mt-1">
+									{ __(
+										'You need to trust this certificate to prevent your browser from showing a secure connection warning.'
+									) }
+								</span>{ ' ' }
+								<Button
+									variant="link"
+									onClick={ () => {
+										getIpcApi().openURL(
+											'https://developer.wordpress.com/docs/developer-tools/studio/ssl-in-studio/'
+										);
+									} }
+								>
+									{ __( 'Learn how' ) }
+									<span aria-label={ __( '(opens in a web browser)' ) }>&#8599;</span>
+								</Button>
+							</div>
+						) }
 					</SettingsRow>
 					<SettingsRow label={ __( 'Local path' ) }>
 						<CopyTextButton
@@ -111,7 +143,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 					</SettingsRow>
 					<SettingsRow label={ __( 'Admin URL' ) }>
 						<CopyTextButton
-							text={ `http://${ domain }/wp-admin` }
+							text={ `${ protocol }://${ domain }/wp-admin` }
 							label={ `${ domain }/wp-admin, ${ __( 'Copy wp-admin url to clipboard' ) }` }
 							copyConfirmation={ __( 'Copied!' ) }
 						>

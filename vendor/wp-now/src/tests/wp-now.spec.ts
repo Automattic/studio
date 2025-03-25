@@ -1,8 +1,15 @@
-import startWPNow, { getThemeTemplate, inferMode } from '../wp-now';
+import crypto from 'crypto';
+import os from 'os';
+import path from 'path';
+import fs from 'fs-extra';
 import { startServer } from '../';
 import getWpNowConfig, { CliOptions, WPNowMode } from '../config';
-import fs from 'fs-extra';
-import path from 'path';
+import { downloadWpCli, downloadWordPress } from '../download';
+import { executeWPCli } from '../execute-wp-cli';
+import getWpCliTmpPath from '../get-wp-cli-tmp-path';
+import getWpNowTmpPath from '../get-wp-now-tmp-path';
+import { runCli } from '../run-cli';
+import startWPNow, { getThemeTemplate, inferMode } from '../wp-now';
 import {
 	isPluginDirectory,
 	isThemeDirectory,
@@ -10,13 +17,6 @@ import {
 	isWordPressDirectory,
 	isWordPressDevelopDirectory,
 } from '../wp-playground-wordpress';
-import { downloadSqliteIntegrationPlugin, downloadWpCli, downloadWordPress } from '../download';
-import os from 'os';
-import crypto from 'crypto';
-import getWpNowTmpPath from '../get-wp-now-tmp-path';
-import getWpCliTmpPath from '../get-wp-cli-tmp-path';
-import { executeWPCli } from '../execute-wp-cli';
-import { runCli } from '../run-cli';
 
 const exampleDir = __dirname + '/mode-examples';
 
@@ -198,10 +198,7 @@ describe( 'Test starting different modes', () => {
 	 */
 	beforeAll( async () => {
 		fs.rmSync( getWpNowTmpPath(), { recursive: true, force: true } );
-		await Promise.all( [
-			downloadWithTimer( 'wordpress', downloadWordPress ),
-			downloadWithTimer( 'sqlite', downloadSqliteIntegrationPlugin ),
-		] );
+		await downloadWithTimer( 'wordpress', downloadWordPress );
 	} );
 
 	/**

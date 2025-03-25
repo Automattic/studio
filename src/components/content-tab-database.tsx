@@ -3,6 +3,7 @@ import {
 	SearchControl,
 	__experimentalInputControl as InputControl,
 	Spinner,
+	SelectControl,
 } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import {
@@ -95,6 +96,7 @@ type DatabaseAction =
 	| { type: 'SET_SELECTED_ROW'; payload: DatabaseRow | null }
 	| { type: 'SET_SELECTED_COLUMN'; payload: TableColumn | null }
 	| { type: 'SET_CURRENT_PAGE'; payload: number }
+	| { type: 'SET_ROWS_PER_PAGE'; payload: number }
 	| { type: 'SET_SHOW_MODAL'; payload: boolean }
 	| { type: 'SET_SHOW_CUSTOM_QUERY'; payload: boolean }
 	| { type: 'SET_CUSTOM_QUERY'; payload: string }
@@ -103,7 +105,9 @@ type DatabaseAction =
 	| { type: 'SET_SORT'; payload: { column: string | null; direction: 'asc' | 'desc' | null } }
 	| { type: 'RESET_STATE' };
 
-// @TODO refactor the state.
+/*
+ * @TODO refactor the state.
+ */
 const initialState: DatabaseState = {
 	selected: {
 		table: null,
@@ -154,6 +158,8 @@ function databaseReducer( state: DatabaseState, action: DatabaseAction ): Databa
 			return { ...state, selected: { ...state.selected, column: action.payload } };
 		case 'SET_CURRENT_PAGE':
 			return { ...state, pagination: { ...state.pagination, currentPage: action.payload } };
+		case 'SET_ROWS_PER_PAGE':
+			return { ...state, pagination: { ...state.pagination, rowsPerPage: action.payload } };
 		case 'SET_SHOW_MODAL':
 			return { ...state, ui: { ...state.ui, showEditRecordModal: action.payload } };
 		case 'SET_SHOW_CUSTOM_QUERY':
@@ -736,6 +742,21 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 									{ Math.ceil( ( state.current.rowCount || 0 ) / state.pagination.rowsPerPage ) }
 								</span>
 								<div className="flex items-center gap-1">
+									<SelectControl
+										label={ __( 'Rows per page' ) }
+										value={ state.pagination.rowsPerPage.toString() as '10' | '20' | '50' | '100' }
+										onChange={ ( value ) =>
+											dispatch( { type: 'SET_ROWS_PER_PAGE', payload: parseInt( value, 10 ) } )
+										}
+										size="compact"
+										labelPosition="edge"
+										options={ [
+											{ label: '10', value: '10' },
+											{ label: '20', value: '20' },
+											{ label: '50', value: '50' },
+											{ label: '100', value: '100' },
+										] }
+									/>
 									<Button
 										icon={ <Icon icon={ previous } size={ 16 } /> }
 										variant="secondary"

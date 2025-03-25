@@ -163,20 +163,31 @@ export async function isRootCATrusted(): Promise< boolean > {
 
 	if ( process.platform === 'win32' ) {
 		try {
-			const { stdout } = await execFilePromise( 'certutil', [ '-store', 'ROOT', CA_NAME ] );
-			return stdout.includes( CA_NAME );
+			await execFilePromise( 'certutil', [
+				'-verify',
+				'-urlfetch',
+				'-purpose',
+				'sslserver',
+				CA_CERT_PATH,
+			] );
+
+			return true;
 		} catch ( error ) {
 			return false;
 		}
 	} else if ( process.platform === 'darwin' ) {
 		try {
-			const { stdout } = await execFilePromise( 'security', [
-				'find-certificate',
+			await execFilePromise( 'security', [
+				'verify-cert',
 				'-c',
-				CA_NAME,
+				CA_CERT_PATH,
 				'-p',
+				'ssl',
+				'-s',
+				CA_NAME,
 			] );
-			return stdout.trim().length > 0;
+
+			return true;
 		} catch ( error ) {
 			return false;
 		}

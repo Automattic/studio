@@ -277,13 +277,7 @@ export const SiteForm = ( {
 	const errorCount = [ error, shouldShowCustomDomainError ].filter( Boolean ).length;
 
 	const [ isAdvancedSettingsVisible, setAdvancedSettingsVisible ] = useState( false );
-	/*
-	useEffect( () => {
-		if ( useCustomDomain && enableHttps && ! isCertificateTrusted && ! isWindows() ) {
-			getIpcApi().openCertificate();
-		}
-	}, [ useCustomDomain, enableHttps, isCertificateTrusted ] );
-*/
+
 	const handleAdvancedSettingsClick = () => {
 		setAdvancedSettingsVisible( ! isAdvancedSettingsVisible );
 	};

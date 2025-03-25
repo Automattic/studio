@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 import { registerCommand as registerPreviewCreateCommand } from 'cli/commands/preview/create';
-import { version } from '../package.json';
+import { version } from 'cli/package.json';
 
 const program = new Command();
 

@@ -86,6 +86,7 @@ type IpcApi = {
 interface AppGlobals {
 	platform: NodeJS.Platform;
 	appName: string;
+	appVersion: string;
 	arm64Translation: boolean;
 	terminalWpCliEnabled: boolean;
 	whatsNewSectionEnabled: boolean;

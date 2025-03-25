@@ -724,10 +724,28 @@ export async function saveSnapshotsToStorage( event: IpcMainInvokeEvent, snapsho
 	} );
 }
 
+export async function saveLastSeenVersion(
+	_event: IpcMainInvokeEvent,
+	version: string
+): Promise< void > {
+	const userData = await loadUserData();
+	await saveUserData( {
+		...userData,
+		lastSeenVersion: version,
+	} );
+}
+
 export async function getSnapshots( _event: IpcMainInvokeEvent ): Promise< Snapshot[] > {
 	const userData = await loadUserData();
 	const { snapshots = [] } = userData;
 	return snapshots;
+}
+
+export async function getLastSeenVersion(
+	_event: IpcMainInvokeEvent
+): Promise< string | undefined > {
+	const userData = await loadUserData();
+	return userData.lastSeenVersion;
 }
 
 export function openSiteURL(
@@ -763,6 +781,7 @@ export async function getAppGlobals( _event: IpcMainInvokeEvent ): Promise< AppG
 	return {
 		platform: process.platform,
 		appName: app.name,
+		appVersion: app.getVersion(),
 		arm64Translation: app.runningUnderARM64Translation,
 		terminalWpCliEnabled: process.env.STUDIO_TERMINAL_WP_CLI === 'true',
 		whatsNewSectionEnabled: process.env.STUDIO_WHATS_NEW_SECTION === 'true',

@@ -14,28 +14,28 @@ export function WhatsNewModal() {
 		<Guide
 			onFinish={ () => setIsOpen( false ) }
 			contentLabel="What's New in Studio"
-			className="whats-new-modal !w-[312px] !h-[453px] overflow-hidden"
+			className="whats-new-modal !w-[312px] !h-[470px] overflow-hidden"
 			pages={ [
 				{
 					image: (
 						<img
 							src={ versionSwitchIllustration }
 							alt=""
-							className="h-[195px] w-full object-cover"
+							className="h-[173px] w-full object-cover mb-4"
 						/>
 					),
 					content: (
-						<div className="p-8">
-							<h2 className="text-2xl font-semibold mb-4">
+						<div className="px-8 py-4">
+							<h2 className="text-xl mb-4 text-gray-900">
 								{ __( 'Select WordPress and PHP versions in Studio' ) }
 							</h2>
-							<p className="text-gray-600 text-lg">
+							<p className="text-gray-900 text-m leading-s">
 								{ __(
 									'Select your preferred WordPress and PHP versions for existing sites or when creating a new one.'
 								) }
 							</p>
 							<div className="mt-4">
-								<a href="#" className="text-[#4741F4] hover:text-[#3732C5]">
+								<a href="#" className="text-a8c-blueberry text-m leading-s">
 									{ __( 'Learn more' ) }
 								</a>
 							</div>

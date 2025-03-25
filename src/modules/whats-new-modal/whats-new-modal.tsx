@@ -70,6 +70,7 @@ export function WhatsNewModal() {
 				image: <img src={ image } alt="" className="h-[173px] w-full object-cover mb-4" />,
 				content: <PageContent { ...pageContent } />,
 			} ) ) }
+			finishButtonText={ __( 'Done' ) }
 		/>
 	);
 }

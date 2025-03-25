@@ -24,6 +24,8 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 
 const WP_DATABASE_PATH = '/wp-content/database/.ht.sqlite';
 
+// @TODO look at types in https://github.com/AzouKr/sqlite-gui-node/blob/main/src/Utils/databaseFunctions.ts
+
 interface ContentTabDatabaseProps {
 	selectedSite: SiteDetails;
 }
@@ -101,6 +103,7 @@ type DatabaseAction =
 	| { type: 'SET_SORT'; payload: { column: string | null; direction: 'asc' | 'desc' | null } }
 	| { type: 'RESET_STATE' };
 
+// @TODO refactor the state.
 const initialState: DatabaseState = {
 	selected: {
 		table: null,
@@ -195,7 +198,7 @@ function useTableData( selectedSite: SiteDetails | undefined ) {
 		} finally {
 			dispatch( { type: 'SET_LOADING', payload: false } );
 		}
-	}, [ selectedSite?.id, selectedSite?.path ] );
+	}, [ selectedSite?.path ] );
 
 	const fetchTableColumns = useCallback(
 		async ( table: Table ) => {
@@ -223,7 +226,7 @@ function useTableData( selectedSite: SiteDetails | undefined ) {
 				} ) ),
 			} );
 		},
-		[ selectedSite?.id, selectedSite?.path ]
+		[ selectedSite?.path ]
 	);
 
 	const fetchTableRows = useCallback(
@@ -391,7 +394,7 @@ function usePagination( state: DatabaseState, dispatch: React.Dispatch< Database
 	};
 }
 
-function useTableSelection( state: DatabaseState, dispatch: React.Dispatch< DatabaseAction > ) {
+function useTableSelection( dispatch: React.Dispatch< DatabaseAction > ) {
 	const handleRowClick = useCallback(
 		( row: DatabaseRow, column: TableColumn ) => {
 			if ( column.pk === 1 ) {
@@ -440,7 +443,7 @@ function useRowUpdate(
 			}
 
 			const updateQuery = `UPDATE ${ state.selected.table.name } SET ${ state.selected.column.name } = ? WHERE ${ primaryKeyColumn } = ?`;
-			const updateValues = [ newValue, primaryKeyValue ];
+			const updateValues = [ newValue, primaryKeyValue ] as ( string | number )[];
 
 			const { changes } = await getIpcApi().executeModificationQuery(
 				`${ selectedSite?.path }${ WP_DATABASE_PATH }`,
@@ -482,7 +485,7 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 		dispatch
 	);
 
-	const { handleRowClick } = useTableSelection( state, dispatch );
+	const { handleRowClick } = useTableSelection( dispatch );
 	const { handleSave } = useRowUpdate( state, dispatch, selectedSite, fetchTableRows );
 
 	const filteredTables = useMemo(
@@ -502,7 +505,7 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 						<InputControl
 							className="w-full min-w-96"
 							value={
-								!! state.current.customQuery
+								state.current.customQuery
 									? String( state.current.customQuery )
 									: `SELECT ${ state.current.columns
 											?.slice( 0, 2 )
@@ -527,19 +530,39 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 											?.slice( 0, 2 )
 											.map( ( column ) => column.name )
 											.join( ', ' ) } FROM ${ state.selected.table?.name } LIMIT 10`;
-									// Execute the custom query
-									const results = ( await getIpcApi().executeSelectQuery(
-										`${ selectedSite?.path }${ WP_DATABASE_PATH }`,
-										query
-									) ) as unknown as DatabaseRow[];
 
-									if ( results.length === 0 ) {
+									// Check if this is a modification query (INSERT, UPDATE, DELETE)
+									const isModificationQuery = /^(INSERT|UPDATE|DELETE)/i.test( query.trim() );
+									// Execute the query with appropriate transaction handling
+									const results = isModificationQuery
+										? await getIpcApi().executeModificationQuery(
+												`${ selectedSite?.path }${ WP_DATABASE_PATH }`,
+												query,
+												[] // Empty array for values since we're not using parameterized queries yet
+										  )
+										: await getIpcApi().executeSelectQuery(
+												`${ selectedSite?.path }${ WP_DATABASE_PATH }`,
+												query
+										  );
+
+									if ( isModificationQuery ) {
+										// For modification queries, refresh the current table view
+										if ( state.selected.table ) {
+											await fetchTableRows( state.selected.table );
+										}
+										dispatch( { type: 'SET_SHOW_CUSTOM_QUERY', payload: false } );
+										return;
+									}
+
+									// Handle SELECT query results
+									const rows = results as unknown as DatabaseRow[];
+									if ( rows.length === 0 ) {
 										dispatch( { type: 'SET_TABLE_COLUMNS', payload: [] } );
 										dispatch( { type: 'SET_TABLE_ROWS', payload: [] } );
 										dispatch( { type: 'SET_ROW_COUNT', payload: 0 } );
 									} else {
 										// Extract column names from the first row
-										const columns = Object.keys( results[ 0 ] ).map( ( name ) => ( {
+										const columns = Object.keys( rows[ 0 ] ).map( ( name ) => ( {
 											name,
 											type: 'TEXT', // Default type since we can't determine it from results
 											pk: 0 as const,
@@ -548,8 +571,8 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 										} ) );
 
 										dispatch( { type: 'SET_TABLE_COLUMNS', payload: columns } );
-										dispatch( { type: 'SET_TABLE_ROWS', payload: results } );
-										dispatch( { type: 'SET_ROW_COUNT', payload: results.length } );
+										dispatch( { type: 'SET_TABLE_ROWS', payload: rows } );
+										dispatch( { type: 'SET_ROW_COUNT', payload: rows.length } );
 									}
 
 									// Reset pagination and sort

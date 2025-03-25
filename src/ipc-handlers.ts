@@ -1272,40 +1272,41 @@ function ensureDatabaseFilePermissions( filePath: string ): void {
 	}
 }
 
-// Update executeModificationQuery to handle file locking
+// Update executeModificationQuery to use a transaction for better data consistency and atomicity
 export async function executeModificationQuery(
 	_event: IpcMainInvokeEvent,
 	databasePath: string,
 	query: string,
-	values?: unknown[]
-): Promise< { changes: number; lastInsertRowid: number | bigint } > {
+	values?: ( string | number )[]
+): Promise< { changes: number } > {
 	try {
-		console.log( 'Starting database modification:', {
-			databasePath,
-			query,
-			values,
-			fileExists: fs.existsSync( databasePath ),
-			fileStats: fs.existsSync( databasePath ) ? fs.statSync( databasePath ) : null,
+		const db = new SQLiteDatabase( databasePath, {
+			verbose: console.log,
+			timeout: 5000,
+			fileMustExist: true,
 		} );
-		console.log( 'Getting database connection for:', databasePath );
-		const db = new SQLiteDatabase( databasePath );
 		db.pragma( 'journal_mode = WAL' );
-		const stmt = db.prepare( query );
-		console.log( 'Executing statement with values:', values );
-		const info = values ? stmt.run( ...values ) : stmt.run();
-		// Force write to disk and ensure no locks
-		db.prepare( 'PRAGMA wal_checkpoint(FULL)' ).run();
-		return info;
-	} catch ( err ) {
-		console.error( 'Error executing modification query:', err );
-		if ( err instanceof Error && err.message.includes( 'malformed' ) ) {
-			throw new Error( 'Database file is corrupted. Please try restoring from a backup.' );
-		}
-		throw err;
+
+		// Set busy timeout to handle locks
+		//db.prepare( 'PRAGMA busy_timeout = 5000' ).run();
+
+		// Create a transaction for the modification query
+		const transaction = db.transaction( () => {
+			const stmt = db.prepare( query );
+			console.log( 'Executing statement with values:', values );
+			const info = values ? stmt.run( ...values ) : stmt.run();
+			return info;
+		} );
+
+		// Execute the transaction
+		const info = transaction();
+		return { changes: info.changes };
+	} catch ( error ) {
+		console.error( 'Error executing modification query:', error );
+		throw error;
 	}
 }
 
-// Update executeSelectQuery to include permission check and better error handling
 export async function executeSelectQuery(
 	_event: IpcMainInvokeEvent,
 	databasePath: string,
@@ -1330,11 +1331,15 @@ export async function executeSelectQuery(
 			throw new Error( 'Invalid query type. Only SELECT and PRAGMA queries are allowed.' );
 		}
 		console.log( 'Getting database connection for:', databasePath );
-		const db = new SQLiteDatabase( databasePath );
+		const db = new SQLiteDatabase( databasePath, {
+			verbose: console.log,
+			timeout: 5000,
+			fileMustExist: true,
+		} );
 		db.pragma( 'journal_mode = WAL' );
 
 		// Set busy timeout to handle locks
-		db.prepare( 'PRAGMA busy_timeout = 5000' ).run();
+		//db.prepare( 'PRAGMA busy_timeout = 5000' ).run();
 
 		// Use a transaction for better consistency
 		const transaction = db.transaction( () => {

@@ -308,6 +308,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 											id="enable-https"
 											checked={ enableHttps }
 											onChange={ ( e ) => setEnableHttps( e.target.checked ) }
+											disabled={ isEditingSite }
 										/>
 										<label htmlFor="enable-https">{ __( 'Enable HTTPS' ) }</label>
 									</div>

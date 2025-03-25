@@ -5,12 +5,57 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import previewSitesIllustration from './assets/preview-sites-illustration.svg';
 import versionSwitchIllustration from './assets/version-switch-illustration.svg';
 
+interface WhatsNewPage {
+	image: string;
+	title: string;
+	description: string;
+	learnMoreUrl: string;
+}
+
+const WHATS_NEW_PAGES: WhatsNewPage[] = [
+	{
+		image: versionSwitchIllustration,
+		title: __( 'Select WordPress and PHP versions in Studio' ),
+		description: __(
+			'Select your preferred WordPress and PHP versions for existing sites or when creating a new one.'
+		),
+		learnMoreUrl: 'https://wordpress.com/blog/2025/03/17/studio-wordpress-php-versions/',
+	},
+	{
+		image: previewSitesIllustration,
+		title: __( 'Share your work easily with Preview sites' ),
+		description: __(
+			'Quickly generate a publicly accessible URL that you can share with clients and colleagues.'
+		),
+		learnMoreUrl: 'https://wordpress.com/blog/2025/02/24/studio-preview-sites/',
+	},
+	{
+		image: previewSitesIllustration, // TODO: Add correct illustration
+		title: __( 'Edit domain names for exisiting sites' ),
+		description: __(
+			'Torem ipsum dolor sit amet, consectetur adipiscing elit. Etiam eu turpis molestie, dictum est a, mattis tellus.'
+		),
+		learnMoreUrl: 'https://wordpress.com/blog/2025/02/24/studio-preview-sites/', // TODO: Add correct URL
+	},
+];
+
+const PageContent = ( { title, description, learnMoreUrl }: Omit< WhatsNewPage, 'image' > ) => (
+	<div className="px-8 py-4">
+		<h2 className="text-xl mb-4 text-gray-900">{ title }</h2>
+		<p className="text-gray-900 text-m leading-s">{ description }</p>
+		<div className="mt-4">
+			<button
+				onClick={ () => getIpcApi().openURL( learnMoreUrl ) }
+				className="text-a8c-blueberry text-m leading-s cursor-pointer"
+			>
+				{ __( 'Learn more' ) }
+			</button>
+		</div>
+	</div>
+);
+
 export function WhatsNewModal() {
 	const [ isOpen, setIsOpen ] = useState( true );
-
-	const handleClick = ( url: string ) => {
-		getIpcApi().openURL( url );
-	};
 
 	if ( ! isOpen ) {
 		return null;
@@ -21,104 +66,10 @@ export function WhatsNewModal() {
 			onFinish={ () => setIsOpen( false ) }
 			contentLabel={ __( "What's New in Studio" ) }
 			className="whats-new-modal !w-[312px] !h-[470px] overflow-hidden"
-			pages={ [
-				{
-					image: (
-						<img
-							src={ versionSwitchIllustration }
-							alt=""
-							className="h-[173px] w-full object-cover mb-4"
-						/>
-					),
-					content: (
-						<div className="px-8 py-4">
-							<h2 className="text-xl mb-4 text-gray-900">
-								{ __( 'Select WordPress and PHP versions in Studio' ) }
-							</h2>
-							<p className="text-gray-900 text-m leading-s">
-								{ __(
-									'Select your preferred WordPress and PHP versions for existing sites or when creating a new one.'
-								) }
-							</p>
-							<div className="mt-4">
-								<button
-									onClick={ () =>
-										handleClick(
-											'https://wordpress.com/blog/2025/03/17/studio-wordpress-php-versions/'
-										)
-									}
-									className="text-a8c-blueberry text-m leading-s cursor-pointer"
-								>
-									{ __( 'Learn more' ) }
-								</button>
-							</div>
-						</div>
-					),
-				},
-				{
-					image: (
-						<img
-							src={ previewSitesIllustration }
-							alt=""
-							className="h-[173px] w-full object-cover mb-4"
-						/>
-					),
-					content: (
-						<div className="px-8 py-4">
-							<h2 className="text-xl mb-4 text-gray-900">
-								{ __( 'Share your work easily with Preview sites' ) }
-							</h2>
-							<p className="text-gray-900 text-m leading-s">
-								{ __(
-									'Quickly generate a publicly accessible URL that you can share with clients and colleagues.'
-								) }
-							</p>
-							<div className="mt-4">
-								<button
-									onClick={ () =>
-										handleClick( 'https://wordpress.com/blog/2025/02/24/studio-preview-sites/' )
-									}
-									className="text-a8c-blueberry text-m leading-s cursor-pointer"
-								>
-									{ __( 'Learn more' ) }
-								</button>
-							</div>
-						</div>
-					),
-				},
-				{
-					image: (
-						<img
-							src={ previewSitesIllustration } //TODO: Add the correct illustration
-							alt=""
-							className="h-[173px] w-full object-cover mb-4"
-						/>
-					),
-					content: (
-						<div className="px-8 py-4">
-							<h2 className="text-xl mb-4 text-gray-900">
-								{ __( 'Edit domain names for exisiting sites' ) }
-							</h2>
-							<p className="text-gray-900 text-m leading-s">
-								{ __(
-									'Torem ipsum dolor sit amet, consectetur adipiscing elit. Etiam eu turpis molestie, dictum est a, mattis tellus.'
-								) }
-							</p>
-							<div className="mt-4">
-								<button
-									onClick={
-										() =>
-											handleClick( 'https://wordpress.com/blog/2025/02/24/studio-preview-sites/' ) //TODO: Add correct link
-									}
-									className="text-a8c-blueberry text-m leading-s cursor-pointer"
-								>
-									{ __( 'Learn more' ) }
-								</button>
-							</div>
-						</div>
-					),
-				},
-			] }
+			pages={ WHATS_NEW_PAGES.map( ( { image, ...pageContent } ) => ( {
+				image: <img src={ image } alt="" className="h-[173px] w-full object-cover mb-4" />,
+				content: <PageContent { ...pageContent } />,
+			} ) ) }
 		/>
 	);
 }

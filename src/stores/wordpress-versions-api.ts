@@ -49,6 +49,7 @@ function processWordPressOffers(
 	isDevelopment = false,
 	shortNameOccurrences: Map< string, number >
 ): ProcessedOffer[] {
+	// We extract the shortName (major.minor) for each version to later calculate duplicates. e.g. 6.4.1 -> 6.4
 	const extractShortName = ( version: string ): string => {
 		if ( isWordPressDevVersion( version ) ) {
 			return 'nightly';
@@ -85,6 +86,8 @@ function generateVersionLabel(
 	if ( isLatest ) {
 		return sprintf( __( '%s (latest)' ), version );
 	}
+	// If is beta or there are two or more versions with the same major.minor versions, we show the full version.
+	// 6.4.1 and 6.4.2 will have the same shortName (6.4), so we'll show the full version.
 	if ( occurrences > 1 || isWordPressBetaVersion( version ) ) {
 		return version;
 	}

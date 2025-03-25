@@ -1,10 +1,15 @@
 import { Guide } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { useState } from 'react';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 import versionSwitchIllustration from './assets/version-switch-illustration.svg';
 
 export function WhatsNewModal() {
 	const [ isOpen, setIsOpen ] = useState( true );
+
+	const handleClick = ( url: string ) => {
+		getIpcApi().openURL( url );
+	};
 
 	if ( ! isOpen ) {
 		return null;
@@ -35,9 +40,16 @@ export function WhatsNewModal() {
 								) }
 							</p>
 							<div className="mt-4">
-								<a href="#" className="text-a8c-blueberry text-m leading-s">
+								<button
+									onClick={ () =>
+										handleClick(
+											'https://wordpress.com/blog/2025/03/17/studio-wordpress-php-versions/'
+										)
+									}
+									className="text-a8c-blueberry text-m leading-s cursor-pointer"
+								>
 									{ __( 'Learn more' ) }
-								</a>
+								</button>
 							</div>
 						</div>
 					),

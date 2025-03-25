@@ -1,7 +1,7 @@
 import { SiteServer } from 'src/site-server';
 
 // Search the database for the old site URL and replace it with the new one
-export const updateSiteUrlTo = async ( server: SiteServer, newUrl: string ) => {
+export const updateSiteUrl = async ( server: SiteServer, newUrl: string ) => {
 	const { stdout: currentSiteUrl } = await server.executeWpCliCommand( `option get siteurl`, {
 		skipPluginsAndThemes: true,
 	} );

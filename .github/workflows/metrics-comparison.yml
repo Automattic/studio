@@ -32,7 +32,7 @@ jobs:
 
       - name: Compare performance with trunk
         if: github.event_name == 'pull_request'
-        run: cd scripts/compare-perf && npm install && npm run compare perf $GITHUB_SHA trunk --tests-branch $GITHUB_SHA
+        run: cd scripts/compare-perf && npm install && npm run compare -- perf $GITHUB_SHA trunk --tests-branch $GITHUB_SHA
 
       - name: Compare performance with base branch
         if: github.event_name == 'push'

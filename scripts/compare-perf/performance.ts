@@ -138,7 +138,7 @@ export async function runPerformanceTests(
 	 *                  could be commit SHA, branch name, tag, etc...
 	 */
 	if ( branches.length < 2 ) {
-		//	throw new Error( `Need at least two git refs to run` );
+		throw new Error( `Need at least two git refs to run` );
 	}
 
 	const baseDir = path.join( os.tmpdir(), 'studio-performance-tests' );

@@ -18,7 +18,7 @@ export function WhatsNewModal() {
 	return (
 		<Guide
 			onFinish={ () => setIsOpen( false ) }
-			contentLabel="What's New in Studio"
+			contentLabel={ __( "What's New in Studio" ) }
 			className="whats-new-modal !w-[312px] !h-[470px] overflow-hidden"
 			pages={ [
 				{

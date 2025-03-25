@@ -2,7 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { useOffline } from 'src/hooks/use-offline';
 import EditSiteDetails from 'src/modules/site-settings/edit-site-details';
-import { useGetWordPressVersionsQuery } from 'src/stores/wordpress-versions-api';
+import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 
 // Mock the hooks and dependencies
 const mockUpdateSite = jest.fn();
@@ -45,7 +45,7 @@ jest.mock( '@wordpress/react-i18n', () => ( {
 } ) );
 
 jest.mock( 'src/stores/wordpress-versions-api', () => ( {
-	useGetWordPressVersionsQuery: jest.fn( () => ( {
+	useGetWordPressVersions: jest.fn( () => ( {
 		data: [
 			{ label: '6.8-beta1', value: '6.8-beta1' },
 			{ label: '6.4', value: '6.4' },
@@ -363,6 +363,6 @@ describe( 'EditSiteDetails', () => {
 		const user = userEvent.setup();
 
 		await user.click( screen.getByRole( 'button', { name: 'Edit site' } ) );
-		expect( useGetWordPressVersionsQuery ).toHaveBeenCalled();
+		expect( useGetWordPressVersions ).toHaveBeenCalled();
 	} );
 } );

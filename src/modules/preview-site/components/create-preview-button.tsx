@@ -11,7 +11,7 @@ import { useOffline } from 'src/hooks/use-offline';
 import { useSiteSize } from 'src/hooks/use-site-size';
 import { useSnapshots } from 'src/hooks/use-snapshots';
 import { hasVersionMismatch } from 'src/modules/preview-site/lib/version-comparison';
-import { useGetWordPressVersionsQuery } from 'src/stores/wordpress-versions-api';
+import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 
 interface CreatePreviewButtonProps {
 	onClick: () => void;
@@ -28,7 +28,7 @@ export function CreatePreviewButton( { onClick, selectedSite }: CreatePreviewBut
 	const isOffline = useOffline();
 	const errorMessages = useArchiveErrorMessages();
 	const [ wpVersion ] = useGetWpVersion( selectedSite );
-	const { data: wpVersions = [] } = useGetWordPressVersionsQuery();
+	const { data: wpVersions = [] } = useGetWordPressVersions();
 
 	const isCurrentSiteArchiving = archivingSiteId === selectedSite.id;
 	const isOtherSiteArchiving = isAnySiteArchiving && ! isCurrentSiteArchiving;

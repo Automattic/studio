@@ -14,7 +14,7 @@ import { useImportExport } from 'src/hooks/use-import-export';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { generateSiteName } from 'src/lib/generate-site-name';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { useGetWordPressVersionsQuery } from 'src/stores/wordpress-versions-api';
+import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
 
 interface AddSiteProps {
@@ -70,7 +70,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 		siteName
 	);
 
-	const { data: versions = [] } = useGetWordPressVersionsQuery();
+	const { data: versions = [] } = useGetWordPressVersions();
 	const latestStableVersion = versions.find( ( version ) => version.isLatest );
 
 	const initializeForm = useCallback( async () => {

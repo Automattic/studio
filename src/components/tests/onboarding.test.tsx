@@ -7,7 +7,7 @@ import { useAddSite } from 'src/hooks/use-add-site';
 import { useOffline } from 'src/hooks/use-offline';
 import { useOnboarding } from 'src/hooks/use-onboarding';
 import { FolderDialogResponse } from 'src/ipc-handlers';
-import { useGetWordPressVersionsQuery } from 'src/stores/wordpress-versions-api';
+import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 import { DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
 
 jest.mock( 'src/hooks/use-onboarding', () => ( {
@@ -30,7 +30,7 @@ jest.mock( 'src/hooks/use-offline', () => ( {
 } ) );
 
 jest.mock( 'src/stores/wordpress-versions-api', () => ( {
-	useGetWordPressVersionsQuery: jest.fn( () => ( {
+	useGetWordPressVersions: jest.fn( () => ( {
 		data: [
 			{ isBeta: false, isDevelopment: false, isLatest: true, label: '6.3', value: '6.3.3' },
 			{ isBeta: false, isDevelopment: false, isLatest: false, label: '6.2', value: '6.2.0' },
@@ -133,7 +133,7 @@ describe( 'Onboarding Component', () => {
 		render( <Onboarding /> );
 
 		await waitFor( () => {
-			expect( useGetWordPressVersionsQuery ).toHaveBeenCalled();
+			expect( useGetWordPressVersions ).toHaveBeenCalled();
 		} );
 	} );
 

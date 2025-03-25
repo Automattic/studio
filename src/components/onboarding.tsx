@@ -11,7 +11,7 @@ import { useAddSite } from 'src/hooks/use-add-site';
 import { useDragAndDropFile } from 'src/hooks/use-drag-and-drop-file';
 import { generateSiteName } from 'src/lib/generate-site-name';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { useGetWordPressVersionsQuery } from 'src/stores/wordpress-versions-api';
+import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 
 const GradientBox = () => {
 	const { __ } = useI18n();
@@ -89,7 +89,7 @@ export default function Onboarding() {
 		},
 	} );
 
-	const { data: versions = [] } = useGetWordPressVersionsQuery();
+	const { data: versions = [] } = useGetWordPressVersions();
 	const latestStableVersion = versions.find( ( version ) => version.isLatest );
 
 	useEffect( () => {

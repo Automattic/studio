@@ -19,7 +19,7 @@ jest.mock( 'src/stores', () => {
 } );
 
 jest.mock( 'src/stores/wordpress-versions-api', () => ( {
-	useGetWordPressVersionsQuery: () => ( {
+	useGetWordPressVersions: () => ( {
 		data: [
 			{
 				value: '6.5.0-beta1',

@@ -16,7 +16,7 @@ import { isWindows } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { generateCustomDomainFromSiteName } from 'src/lib/domains';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { useGetWordPressVersionsQuery } from 'src/stores/wordpress-versions-api';
+import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 import {
 	DEFAULT_WORDPRESS_VERSION,
 	ALLOWED_PHP_VERSIONS,
@@ -274,7 +274,7 @@ export const SiteForm = ( {
 
 	const offlineMessage = __( 'Changing WordPress version requires an internet connection.' );
 
-	const { data: wpVersions = [] } = useGetWordPressVersionsQuery();
+	const { data: wpVersions = [] } = useGetWordPressVersions();
 
 	const [ isAdvancedSettingsVisible, setAdvancedSettingsVisible ] = useState( false );
 

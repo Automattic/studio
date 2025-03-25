@@ -15,7 +15,7 @@ import { cx } from 'src/lib/cx';
 import { generateCustomDomainFromSiteName, getDomainNameValidationError } from 'src/lib/domains';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getWordPressVersionUrl } from 'src/lib/wordpress-version-utils';
-import { useGetWordPressVersionsQuery } from 'src/stores/wordpress-versions-api';
+import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 import {
 	DEFAULT_PHP_VERSION,
 	ALLOWED_PHP_VERSIONS,
@@ -70,7 +70,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 			} );
 	}, [ selectedSite?.customDomain ] );
 
-	const { data: wordpressVersions = [] } = useGetWordPressVersionsQuery( undefined, {
+	const { data: wordpressVersions = [] } = useGetWordPressVersions( undefined, {
 		skip: ! showModal,
 	} );
 

@@ -13,7 +13,6 @@ import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
 import { useCertificateTrust } from 'src/hooks/use-certificate-trust';
 import { useI18nData } from 'src/hooks/use-i18n-data';
 import { useOffline } from 'src/hooks/use-offline';
-import { isWindows } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { generateCustomDomainFromSiteName } from 'src/lib/domains';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -468,27 +467,24 @@ export const SiteForm = ( {
 											</div>
 										) }
 
-										{ ! isCertificateTrusted &&
-											! isWindows() &&
-											useCustomDomain &&
-											setEnableHttps && (
-												<div className="text-a8c-gray-50 text-xs mt-2">
-													{ __(
-														'You need to manually add the Studio root certificate authority to your keychain and trust it to enable HTTPS.'
-													) }{ ' ' }
-													<Button
-														variant="link"
-														onClick={ () => {
-															getIpcApi().openURL(
-																'https://developer.wordpress.com/docs/developer-tools/studio/ssl-in-studio/'
-															);
-														} }
-													>
-														{ __( 'Learn how' ) }
-														<span aria-label={ __( '(opens in a web browser)' ) }>&#8599;</span>
-													</Button>
-												</div>
-											) }
+										{ ! isCertificateTrusted && useCustomDomain && setEnableHttps && (
+											<div className="text-a8c-gray-50 text-xs mt-2">
+												{ __(
+													'You need to manually add the Studio root certificate authority to your keychain and trust it to enable HTTPS.'
+												) }{ ' ' }
+												<Button
+													variant="link"
+													onClick={ () => {
+														getIpcApi().openURL(
+															'https://developer.wordpress.com/docs/developer-tools/studio/ssl-in-studio/'
+														);
+													} }
+												>
+													{ __( 'Learn how' ) }
+													<span aria-label={ __( '(opens in a web browser)' ) }>&#8599;</span>
+												</Button>
+											</div>
+										) }
 									</div>
 								</div>
 							</>

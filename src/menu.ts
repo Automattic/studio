@@ -192,6 +192,12 @@ function getAppMenu(
 					: [] ),
 				{ type: 'separator' },
 				{
+					label: __( "What's New" ),
+					click: async () => {
+						sendIpcEventToRenderer( 'show-whats-new' );
+					},
+				},
+				{
 					label: __( 'Report an Issue' ),
 					click: () => {
 						shellOpenExternalWrapper( BUG_REPORT_URL );

@@ -8,6 +8,7 @@ export interface IpcEvents {
 	'auth-updated': [ { token: StoredToken } | { error: unknown } ];
 	'on-export': [ ImportExportEventData, string ];
 	'on-import': [ ImportExportEventData, string ];
+	'show-whats-new': [ void ];
 	'sync-connect-site': [ { remoteSiteId: number; studioSiteId: string } ];
 	'test-render-failure': [ void ];
 	'theme-details-changed': [ { id: string; details: StartedSiteDetails[ 'themeDetails' ] } ];

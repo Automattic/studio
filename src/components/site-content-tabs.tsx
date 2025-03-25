@@ -57,7 +57,7 @@ export function SiteContentTabs() {
 						{ name === 'overview' && <ContentTabOverview selectedSite={ selectedSite } /> }
 						{ name === 'previews' && <ContentTabPreviews selectedSite={ selectedSite } /> }
 						{ name === 'sync' && <ContentTabSync selectedSite={ selectedSite } /> }
-            { name === 'database' && <ContentTabDatabase selectedSite={ selectedSite } /> }
+						{ name === 'database' && <ContentTabDatabase selectedSite={ selectedSite } /> }
 						{ name === 'settings' && <ContentTabSettings selectedSite={ selectedSite } /> }
 						{ name === 'assistant' && (
 							<ContentTabAssistant

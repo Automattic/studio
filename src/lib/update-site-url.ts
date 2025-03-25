@@ -1,12 +1,7 @@
-import { getSiteUrl } from 'src/lib/get-site-url';
 import { SiteServer } from 'src/site-server';
 
-export const updateSiteUrlToLocal = async ( siteId: string ) => {
-	const server = SiteServer.get( siteId );
-	if ( ! server ) {
-		throw new Error( 'Site not found.' );
-	}
-
+// Search the database for the old site URL and replace it with the new one
+export const updateSiteUrlTo = async ( server: SiteServer, newUrl: string ) => {
 	const { stdout: currentSiteUrl } = await server.executeWpCliCommand( `option get siteurl`, {
 		skipPluginsAndThemes: true,
 	} );
@@ -16,9 +11,8 @@ export const updateSiteUrlToLocal = async ( siteId: string ) => {
 		return;
 	}
 
-	const studioUrl = getSiteUrl( server.details );
 	const oldUrl = currentSiteUrl.trim();
-	if ( studioUrl === oldUrl ) {
+	if ( newUrl === oldUrl ) {
 		return;
 	}
 	const urlWithoutProtocol = oldUrl.replace( /^https?:\/\//, '' );
@@ -36,7 +30,7 @@ export const updateSiteUrlToLocal = async ( siteId: string ) => {
 
 	for ( const urlToReplace of oldUrlVariants ) {
 		const { stderr, exitCode } = await server.executeWpCliCommand(
-			`search-replace '${ urlToReplace }' '${ studioUrl }' --skip-columns=guid`,
+			`search-replace '${ urlToReplace }' '${ newUrl }' --skip-columns=guid`,
 			{ skipPluginsAndThemes: true }
 		);
 

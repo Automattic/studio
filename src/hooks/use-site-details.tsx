@@ -365,7 +365,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	}, [ data ] );
 
 	const addMuPlugin = useCallback( async ( siteId: string, pluginFileName: string ) => {
-		await await getIpcApi().addMuPlugin( siteId, pluginFileName );
+		await getIpcApi().addMuPlugin( siteId, pluginFileName );
 	}, [] );
 
 	const removeMuPlugin = useCallback( async ( siteId: string, pluginFileName: string ) => {

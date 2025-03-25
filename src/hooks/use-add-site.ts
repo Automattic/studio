@@ -5,8 +5,7 @@ import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { generateCustomDomainFromSiteName, getDomainNameValidationError } from 'src/lib/domains';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { useRootSelector } from 'src/stores';
-import { wordpressVersionsSelectors } from 'src/stores/wordpress-versions-slice';
+import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 import {
 	DEFAULT_PHP_VERSION,
 	DEFAULT_WORDPRESS_VERSION,
@@ -32,9 +31,8 @@ export function useAddSite() {
 	const [ customDomainError, setCustomDomainError ] = useState( '' );
 	const [ existingDomainNames, setExistingDomainNames ] = useState< string[] >( [] );
 	const [ enableHttps, setEnableHttps ] = useState( false );
-	const latestStableWpVersion = useRootSelector(
-		wordpressVersionsSelectors.selectLatestStableVersion
-	);
+	const { data: wordpressVersions = [] } = useGetWordPressVersions();
+	const latestStableVersion = wordpressVersions.find( ( version ) => version.isLatest );
 
 	const loadAllCustomDomains = useCallback( () => {
 		getIpcApi()
@@ -105,7 +103,7 @@ export function useAddSite() {
 			await createSite(
 				path,
 				siteName ?? '',
-				{ version: wpVersion, isLatest: wpVersion === latestStableWpVersion?.value },
+				{ version: wpVersion, isLatest: wpVersion === latestStableVersion?.value },
 				usedCustomDomain,
 				useCustomDomain ? enableHttps : false,
 				async ( newSite ) => {
@@ -169,7 +167,7 @@ export function useAddSite() {
 		customDomain,
 		useCustomDomain,
 		enableHttps,
-		latestStableWpVersion,
+		latestStableVersion,
 	] );
 
 	const handleSiteNameChange = useCallback(

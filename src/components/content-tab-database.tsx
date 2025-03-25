@@ -600,6 +600,7 @@ export function ContentTabDatabase( { selectedSite }: ContentTabDatabaseProps ) 
 								// Reset the table back to the original selected table
 								if ( state.selected.table ) {
 									handleTableClick( state.selected.table );
+									fetchTableRows( state.selected.table! );
 								}
 							} }
 						>

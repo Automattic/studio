@@ -1385,6 +1385,7 @@ export async function executeSelectQuery(
 		}
 		throw err;
 	}
+}
 
 export async function getAllCustomDomains(): Promise< string[] > {
 	const userData = await loadUserData();

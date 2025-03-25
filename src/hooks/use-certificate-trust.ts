@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useWindowListener } from 'src/hooks/use-window-listener';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
 /**
@@ -6,28 +7,28 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
  * @returns A boolean indicating if the certificate is trusted
  */
 export function useCertificateTrust(): boolean {
+	const isMounted = useRef( true );
 	const [ isTrusted, setIsTrusted ] = useState< boolean >( false );
 
-	useEffect( () => {
-		let isMounted = true;
-
-		const checkCertificateTrust = async () => {
-			try {
-				const trusted = await getIpcApi().isCATrusted();
-				if ( isMounted ) {
+	const checkCertificateTrust = useCallback( () => {
+		getIpcApi()
+			.isCATrusted()
+			.then( ( trusted ) => {
+				if ( isMounted.current ) {
 					setIsTrusted( trusted );
 				}
-			} catch ( error ) {
-				console.error( 'Error checking certificate trust status:', error );
-			}
-		};
+			} );
+	}, [ setIsTrusted ] );
 
+	useWindowListener( 'focus', checkCertificateTrust );
+
+	useEffect( () => {
+		isMounted.current = true;
 		checkCertificateTrust();
-
 		return () => {
-			isMounted = false;
+			isMounted.current = false;
 		};
-	}, [] );
+	}, [ checkCertificateTrust ] );
 
 	return isTrusted;
 }

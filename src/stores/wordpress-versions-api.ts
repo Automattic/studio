@@ -77,7 +77,7 @@ function processWordPressOffers(
 function generateVersionLabel(
 	version: string,
 	shortName: string,
-	occurrences: number,
+	shortNameOccurrences: number,
 	isLatest: boolean
 ): string {
 	if ( isWordPressDevVersion( version ) ) {
@@ -88,7 +88,7 @@ function generateVersionLabel(
 	}
 	// If is beta or there are two or more versions with the same major.minor versions, we show the full version.
 	// 6.4.1 and 6.4.2 will have the same shortName (6.4), so we'll show the full version.
-	if ( occurrences > 1 || isWordPressBetaVersion( version ) ) {
+	if ( shortNameOccurrences > 1 || isWordPressBetaVersion( version ) ) {
 		return version;
 	}
 	return shortName;

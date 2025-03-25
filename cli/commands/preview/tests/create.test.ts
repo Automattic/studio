@@ -1,80 +1,82 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { Command } from 'commander';
 import nock from 'nock';
-import { PreviewCreateCommand } from 'cli/commands/preview/create';
+import { registerCommand } from 'cli/commands/preview/create';
+import { Logger } from 'cli/logger';
 
 jest.mock( 'fs' );
+jest.mock( 'cli/logger' );
 
-describe( 'PreviewCreateCommand', () => {
-	let command: PreviewCreateCommand;
+describe( 'Preview Create Command', () => {
 	const mockFolder = '/test/folder';
 	const mockArchivePath = path.join( os.tmpdir(), `${ mockFolder }.zip` );
+	let program: Command;
+	let mockLogger: Logger< string >;
 
 	beforeEach( () => {
 		jest.clearAllMocks();
 		nock.cleanAll();
-		command = new PreviewCreateCommand( mockFolder, 'json' );
+
+		program = new Command();
+		mockLogger = {
+			reportProgress: jest.fn(),
+			reportError: jest.fn(),
+		} as unknown as Logger< string >;
+
+		( Logger as jest.Mock ).mockImplementation( () => mockLogger );
+		( fs.unlinkSync as jest.Mock ).mockImplementation( () => {} );
+
+		nock( 'https://public-api.wordpress.com' )
+			.post( '/rest/v1.1/jurassic-ninja/create-new-site-from-zip' )
+			.reply( 200, { success: true } );
 	} );
 
-	describe( 'run', () => {
-		it( 'should complete the preview creation process successfully', async () => {
-			const mockWriteStream = {
-				on: jest.fn( ( event, callback ) => {
-					if ( event === 'close' ) {
-						callback();
-					}
-				} ),
-			};
-			( fs.createWriteStream as jest.Mock ).mockReturnValue( mockWriteStream );
+	it( 'should complete the preview creation process successfully', async () => {
+		const mockWriteStream = {
+			on: jest.fn( ( event, callback ) => {
+				if ( event === 'close' ) {
+					callback();
+				}
+			} ),
+		};
+		( fs.createWriteStream as jest.Mock ).mockReturnValue( mockWriteStream );
 
-			nock( 'https://public-api.wordpress.com' )
-				.post( '/rest/v1.1/jurassic-ninja/create-new-site-from-zip' )
-				.reply( 200, { success: true } );
+		registerCommand( program );
+		await program.parseAsync( [ 'node', 'test', 'go', mockFolder ] );
 
-			( fs.unlinkSync as jest.Mock ).mockImplementation( () => {} );
-
-			const result = await command.run();
-
-			expect( result ).toBe( true );
-			expect( fs.createWriteStream ).toHaveBeenCalledWith( mockArchivePath );
-			expect( fs.unlinkSync ).toHaveBeenCalledWith( mockArchivePath );
-		} );
+		expect( fs.createWriteStream ).toHaveBeenCalledWith( mockArchivePath );
+		expect( fs.unlinkSync ).toHaveBeenCalledWith( mockArchivePath );
 	} );
 
-	describe( 'archiveFolder', () => {
-		it( 'should create an archive with the correct files', async () => {
-			const mockWriteStream = {
-				on: jest.fn( ( event, callback ) => {
-					if ( event === 'close' ) {
-						callback();
-					}
-				} ),
-			};
-			( fs.createWriteStream as jest.Mock ).mockReturnValue( mockWriteStream );
+	it( 'should use current directory when no folder is specified', async () => {
+		const mockWriteStream = {
+			on: jest.fn( ( event, callback ) => {
+				if ( event === 'close' ) {
+					callback();
+				}
+			} ),
+		};
+		( fs.createWriteStream as jest.Mock ).mockReturnValue( mockWriteStream );
 
-			await command.archiveFolder();
+		registerCommand( program );
+		await program.parseAsync( [ 'node', 'test', 'go' ] );
 
-			expect( fs.createWriteStream ).toHaveBeenCalledWith( mockArchivePath );
-		} );
+		const currentDirArchivePath = path.join( os.tmpdir(), `${ process.cwd() }.zip` );
+		expect( fs.createWriteStream ).toHaveBeenCalledWith( currentDirArchivePath );
+		expect( fs.unlinkSync ).toHaveBeenCalledWith( currentDirArchivePath );
 	} );
 
-	describe( 'uploadArchive', () => {
-		it( 'should upload the archive to the correct endpoint', async () => {
-			nock( 'https://public-api.wordpress.com' )
-				.post( '/rest/v1.1/jurassic-ninja/create-new-site-from-zip' )
-				.reply( 200, { success: true } );
-
-			await command.uploadArchive();
-
-			expect( nock.isDone() ).toBe( true );
+	it( 'should handle errors gracefully', async () => {
+		const mockError = new Error( 'Test error' );
+		( fs.createWriteStream as jest.Mock ).mockImplementation( () => {
+			throw mockError;
 		} );
-	} );
 
-	describe( 'cleanup', () => {
-		it( 'should delete the archive file', async () => {
-			await command.cleanup();
-			expect( fs.unlinkSync ).toHaveBeenCalledWith( mockArchivePath );
-		} );
+		registerCommand( program );
+		await program.parseAsync( [ 'node', 'test', 'go', mockFolder ] );
+
+		expect( mockLogger.reportError ).toHaveBeenCalledWith( mockError.message );
 	} );
 } );

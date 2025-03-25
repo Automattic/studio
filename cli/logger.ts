@@ -1,4 +1,4 @@
-export type OutputFormat = undefined | 'json';
+import { OutputFormat } from 'cli/types';
 
 export class Logger< T extends string > {
 	protected readonly outputFormat: OutputFormat;

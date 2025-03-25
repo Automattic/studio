@@ -7,43 +7,9 @@ import { withOfflineCheck } from 'src/stores/utils/with-offline-check';
 
 const MINIMUM_WORDPRESS_VERSION = '5.9.9';
 
-const wordPressOfferSchema = z.object( {
-	version: z.string(),
-	response: z.string(),
-} );
-
-type WordPressOffer = z.infer< typeof wordPressOfferSchema >;
-
 const wordPressApiResponseSchema = z.object( {
 	offers: z.array( z.any() ),
 } );
-
-type WordPressApiOffer = {
-	version: string;
-	response?: string;
-	[ key: string ]: unknown;
-};
-
-type ProcessedOffer = {
-	version: string;
-	shortName: string;
-};
-
-const extractShortName = ( version: string ): string => {
-	if ( isWordPressDevVersion( version ) ) {
-		return 'nightly';
-	}
-	const match = version.match( /^(\d+\.\d+)/ );
-	return match ? match[ 1 ] : version;
-};
-
-export interface WordPressVersion {
-	isBeta: boolean;
-	isDevelopment: boolean;
-	isLatest: boolean;
-	label: string;
-	value: string;
-}
 
 async function fetchWordPressApiData( channel: 'beta' | 'development', version?: string ) {
 	const baseUrl = 'https://api.wordpress.org/core/version-check/1.7/';
@@ -60,11 +26,37 @@ async function fetchWordPressApiData( channel: 'beta' | 'development', version?:
 	return wordPressApiResponseSchema.parse( await response.json() );
 }
 
+const wordPressOfferSchema = z.object( {
+	version: z.string(),
+	response: z.string(),
+} );
+
+type WordPressOffer = z.infer< typeof wordPressOfferSchema >;
+
+type WordPressApiOffer = {
+	version: string;
+	response?: string;
+	[ key: string ]: unknown;
+};
+
+type ProcessedOffer = {
+	version: string;
+	shortName: string;
+};
+
 function processWordPressOffers(
 	offers: WordPressApiOffer[],
 	isDevelopment = false,
 	shortNameOccurrences: Map< string, number >
 ): ProcessedOffer[] {
+	const extractShortName = ( version: string ): string => {
+		if ( isWordPressDevVersion( version ) ) {
+			return 'nightly';
+		}
+		const match = version.match( /^(\d+\.\d+)/ );
+		return match ? match[ 1 ] : version;
+	};
+
 	return offers
 		.map( ( offer ) => wordPressOfferSchema.safeParse( offer ) )
 		.filter( ( result ): result is { success: true; data: WordPressOffer } => result.success )
@@ -104,6 +96,14 @@ function findLatestStable( versions: ProcessedOffer[] ): ProcessedOffer | undefi
 		( version: ProcessedOffer ) =>
 			! isWordPressBetaVersion( version.version ) && ! isWordPressDevVersion( version.version )
 	);
+}
+
+interface WordPressVersion {
+	isBeta: boolean;
+	isDevelopment: boolean;
+	isLatest: boolean;
+	label: string;
+	value: string;
 }
 
 export const wordpressVersionsApi = createApi( {

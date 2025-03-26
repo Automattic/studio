@@ -59,7 +59,7 @@ export const store = configureStore( {
 			.concat( wpcomApi.middleware ),
 } );
 
-export const initializeStore = () => {
+export const initializeAppVersionData = () => {
 	store.dispatch( appVersionThunks.fetchLastSeenVersion() );
 };
 

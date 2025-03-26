@@ -18,7 +18,7 @@ import { isWindows } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { WhatsNewModal, useWhatsNew } from 'src/modules/whats-new';
-import { initializeStore } from 'src/stores';
+import { initializeAppVersionData } from 'src/stores';
 
 export default function App() {
 	useLocalizationSupport();
@@ -32,7 +32,7 @@ export default function App() {
 	}, [ needsOnboarding, whatsNewSectionEnabled ] );
 
 	useEffect( () => {
-		initializeStore();
+		initializeAppVersionData();
 	}, [] );
 
 	return (

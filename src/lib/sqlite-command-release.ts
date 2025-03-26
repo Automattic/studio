@@ -18,6 +18,8 @@ export async function getLatestSQLiteCommandRelease(): Promise< GithubRelease > 
 	if ( process.env.GITHUB_TOKEN ) {
 		console.log( '[sqlite-command] GITHUB_TOKEN available' );
 		headers.Authorization = `token ${ process.env.GITHUB_TOKEN }`;
+	} else {
+		console.log( '[sqlite-command] GITHUB_TOKEN not available' );
 	}
 
 	const response = await fetch( url, { headers } );

@@ -9,4 +9,11 @@ export default defineConfig( {
 	testDir: './tests',
 	testMatch: /.*\.test\.ts/,
 	reporter: [ [ 'list' ], [ './performance-reporter.ts' ] ],
+	outputDir: path.join( process.env.ARTIFACTS_PATH, 'test-results' ),
+	use: {
+		headless: true,
+		trace: 'on',
+		screenshot: 'on',
+		video: 'on',
+	},
 } );

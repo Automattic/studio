@@ -15,7 +15,7 @@ const formats = {
 };
 
 const ARTIFACTS_PATH = process.env.ARTIFACTS_PATH || path.join( process.cwd(), 'artifacts' );
-const RESULTS_FILE_SUFFIX = 'results.json';
+const RESULTS_FILE_SUFFIX = '.performance-results.json';
 
 interface PerformanceCommandOptions {
 	/**

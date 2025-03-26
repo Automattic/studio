@@ -27,8 +27,8 @@ export default function App() {
 	const { whatsNewSectionEnabled } = useFeatureFlags();
 
 	useEffect( () => {
-		getIpcApi().setupAppMenu( { needsOnboarding } );
-	}, [ needsOnboarding ] );
+		getIpcApi().setupAppMenu( { needsOnboarding, whatsNewSectionEnabled } );
+	}, [ needsOnboarding, whatsNewSectionEnabled ] );
 
 	return (
 		<>

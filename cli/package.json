@@ -9,6 +9,7 @@
 	"main": "index.js",
 	"dependencies": {
 		"form-data": "^4.0.2",
+		"ora": "^8.2.0",
 		"wpcom": "^5.4.2"
 	}
 }

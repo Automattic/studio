@@ -1,37 +1,69 @@
+import ora, { Ora } from 'ora';
 import { OutputFormat } from 'cli/types';
-
-interface LoggerMessage< T extends string > {
-	status: T;
-	args?: Record< string, unknown >;
-}
 
 export class Logger< T extends string > {
 	protected readonly outputFormat: OutputFormat;
+	private spinner: Ora;
+	private currentAction: T | null;
 
 	constructor( outputFormat: OutputFormat ) {
 		this.outputFormat = outputFormat;
+		this.spinner = ora();
+		this.currentAction = null;
 	}
 
-	public reportProgress( message: LoggerMessage< T > ) {
-		if ( this.outputFormat === 'json' ) {
-			console.log( JSON.stringify( message ) );
-		} else {
-			if ( message.args ) {
-				const argsString = Object.entries( message.args )
-					.map( ( [ key, value ] ) => `${ key }: ${ value }` )
-					.join( ', ' );
-				console.log( `${ message.status } (${ argsString })` );
-			} else {
-				console.log( message.status );
-			}
+	public reportStart( action: T, message: string ) {
+		if ( this.currentAction ) {
+			throw new Error( 'Cannot report start when an action is already in progress' );
 		}
+
+		if ( this.outputFormat === 'json' ) {
+			console.log( JSON.stringify( { action, status: 'inprogress', message } ) );
+			return;
+		}
+
+		this.currentAction = action;
+		this.spinner.start( message );
 	}
 
-	public reportError( error: string ) {
-		if ( this.outputFormat === 'json' ) {
-			console.error( JSON.stringify( { error } ) );
-		} else {
-			console.error( error );
+	public reportProgress( action: T, message: string ) {
+		if ( this.currentAction !== action ) {
+			throw new Error( 'Cannot report progress for an action that is not currently in progress' );
 		}
+
+		if ( this.outputFormat === 'json' ) {
+			console.log( JSON.stringify( { action, status: 'inprogress', message } ) );
+			return;
+		}
+
+		this.spinner.text = message;
+	}
+
+	public reportSuccess( action: T, message: string ) {
+		if ( this.currentAction !== action ) {
+			throw new Error( 'Cannot report success for an action that is not currently in progress' );
+		}
+
+		if ( this.outputFormat === 'json' ) {
+			console.log( JSON.stringify( { action, status: 'success', message } ) );
+			return;
+		}
+
+		this.spinner.succeed( message );
+		this.currentAction = null;
+	}
+
+	public reportError( action: T, message: string ) {
+		if ( this.currentAction !== action ) {
+			throw new Error( 'Cannot report error for an action that is not currently in progress' );
+		}
+
+		if ( this.outputFormat === 'json' ) {
+			console.error( JSON.stringify( { action, status: 'fail', message } ) );
+			return;
+		}
+
+		this.spinner.fail( message );
+		this.currentAction = null;
 	}
 }

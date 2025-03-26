@@ -8,7 +8,5 @@ export default defineConfig( {
 	...baseConfig,
 	testDir: './tests',
 	testMatch: /.*\.test\.ts/,
-	reporter: process.env.CI
-		? './performance-reporter.ts'
-		: [ [ 'list' ], [ './performance-reporter.ts' ] ],
+	reporter: [ [ 'list' ], [ './performance-reporter.ts' ] ],
 } );

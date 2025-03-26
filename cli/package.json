@@ -6,5 +6,9 @@
 	"version": "0.0.1",
 	"description": "Studio by WordPress.com CLI",
 	"license": "GPL-2.0-or-later",
-	"main": "index.js"
+	"main": "index.js",
+	"dependencies": {
+		"form-data": "^4.0.2",
+		"wpcom": "^5.4.2"
+	}
 }

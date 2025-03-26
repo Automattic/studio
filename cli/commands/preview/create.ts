@@ -1,9 +1,8 @@
 import fs from 'fs';
-import https from 'https';
 import os from 'os';
 import path from 'path';
 import archiver from 'archiver';
-import fetch from 'node-fetch';
+import WPCOM from 'wpcom';
 import { Logger } from 'cli/logger';
 import { OutputFormat, RegisterCommand } from 'cli/types';
 
@@ -15,6 +14,20 @@ enum LoggerStatus {
 	PREVIEW_SITE_URL = 'Preview site available at:',
 	ARCHIVE_DELETED = 'Temporary files cleaned up',
 	AUTH_REQUIRED = 'Authentication required. Please run the electron app and authenticate first.',
+	SITE_CREATING = 'Creating preview site...',
+	SITE_READY = 'Preview site is ready',
+}
+
+interface CreateSiteResponse {
+	domain_name: string;
+	atomic_site_id: number;
+}
+
+interface StatusResponse {
+	status: string;
+	domain_name: string;
+	atomic_site_id: number;
+	is_deleted: string;
 }
 
 export const registerCommand: RegisterCommand = ( program ) => {
@@ -47,25 +60,24 @@ async function runCommand( siteFolder: string, outputFormat: OutputFormat ): Pro
 			);
 		}
 
-		logger.reportProgress( LoggerStatus.ARCHIVE_CREATING );
+		logger.reportProgress( { status: LoggerStatus.ARCHIVE_CREATING } );
 		await createArchive( siteFolder, archivePath, logger );
 
-		logger.reportProgress( LoggerStatus.ARCHIVE_UPLOADING );
+		logger.reportProgress( { status: LoggerStatus.ARCHIVE_UPLOADING } );
 
-		// Attempt to get auth token
 		const token = await getAuthToken();
 		if ( ! token ) {
-			logger.reportProgress( LoggerStatus.AUTH_REQUIRED );
+			logger.reportProgress( { status: LoggerStatus.AUTH_REQUIRED } );
 			cleanup( archivePath, logger );
 			return false;
 		}
 
 		const response = await uploadArchive( archivePath, token, logger );
+		const { site_url, site_id } = response;
 
-		const { site_url } = response as { site_url?: string };
-		if ( site_url ) {
-			logger.reportProgress( LoggerStatus.PREVIEW_SITE_URL );
-			console.log( site_url );
+		if ( site_url && site_id ) {
+			await waitForSiteReady( site_id, token, logger );
+			logger.reportProgress( { status: LoggerStatus.PREVIEW_SITE_URL, args: { url: site_url } } );
 		}
 
 		cleanup( archivePath, logger );
@@ -76,12 +88,6 @@ async function runCommand( siteFolder: string, outputFormat: OutputFormat ): Pro
 	}
 }
 
-/**
- * Attempts to read the WordPress.com authentication token from the user data
- * stored by the Electron app.
- *
- * @returns The authentication token or null if not found or can't be read
- */
 async function getAuthToken(): Promise< string | null > {
 	const homeDir = os.homedir();
 	const appDataPath = path.join(
@@ -104,12 +110,6 @@ async function getAuthToken(): Promise< string | null > {
 	}
 }
 
-/**
- * Checks if the given path is a WordPress directory.
- *
- * @param projectPath The path to check
- * @returns Whether the path is a WordPress directory
- */
 function isWordPressDirectory( projectPath: string ): boolean {
 	return (
 		fs.existsSync( path.join( projectPath, 'wp-content' ) ) &&
@@ -118,12 +118,6 @@ function isWordPressDirectory( projectPath: string ): boolean {
 	);
 }
 
-/**
- * Checks if the given path has a wp-content directory.
- *
- * @param projectPath The path to check
- * @returns Whether the path has a wp-content directory
- */
 function hasWpContentDirectory( projectPath: string ): boolean {
 	return fs.existsSync( path.join( projectPath, 'wp-content' ) );
 }
@@ -141,7 +135,7 @@ async function createArchive(
 		} );
 
 		output.on( 'close', () => {
-			logger.reportProgress( LoggerStatus.ARCHIVE_CREATED );
+			logger.reportProgress( { status: LoggerStatus.ARCHIVE_CREATED } );
 			resolve( archive );
 		} );
 
@@ -169,88 +163,115 @@ async function uploadArchive(
 	archivePath: string,
 	token: string,
 	logger: Logger< LoggerStatus >
-): Promise< unknown > {
-	return new Promise( ( resolve, reject ) => {
-		// Read the file content
-		const fileContent = fs.readFileSync( archivePath );
-
-		// Create a boundary for multipart/form-data
-		const boundary = '----WebKitFormBoundary' + Math.random().toString( 16 ).substr( 2 );
-
-		// Start of form data
-		let formData = '';
-		formData += `--${ boundary }\r\n`;
-		formData +=
-			'Content-Disposition: form-data; name="import"; filename="local-env-site-1.zip"\r\n';
-		formData += 'Content-Type: application/zip\r\n\r\n';
-
-		// End of form data
-		const endFormData = `\r\n--${ boundary }--\r\n`;
-
-		// Create the request options
-		const options = {
-			hostname: 'public-api.wordpress.com',
-			path: '/wpcom/v2/jurassic-ninja/create-new-site-from-zip',
-			method: 'POST',
-			headers: {
-				Authorization: `Bearer ${ token }`,
-				'Content-Type': `multipart/form-data; boundary=${ boundary }`,
-				'Content-Length':
-					Buffer.byteLength( formData ) + fileContent.length + Buffer.byteLength( endFormData ),
+): Promise< { site_url?: string; site_id?: number } > {
+	const wpcom = new WPCOM( token );
+	const formData = [
+		[
+			'import',
+			fs.createReadStream( archivePath ),
+			{
+				filename: 'local-env-site-1.zip',
+				contentType: 'application/zip',
 			},
+		],
+	];
+
+	try {
+		const response = await wpcom.req.post< CreateSiteResponse >( {
+			path: '/jurassic-ninja/create-new-site-from-zip',
+			apiNamespace: 'wpcom/v2',
+			formData,
+		} );
+
+		logger.reportProgress( { status: LoggerStatus.ARCHIVE_UPLOADED } );
+		return {
+			site_url: response.domain_name,
+			site_id: response.atomic_site_id,
 		};
-
-		// Create the request
-		const req = https.request( options, ( res ) => {
-			if ( res.statusCode !== 200 ) {
-				reject( new Error( `Failed to upload archive: ${ res.statusMessage }` ) );
-				return;
-			}
-
-			let data = '';
-			res.on( 'data', ( chunk ) => {
-				data += chunk;
-			} );
-
-			res.on( 'end', () => {
-				logger.reportProgress( LoggerStatus.ARCHIVE_UPLOADED );
-				try {
-					const jsonResponse = JSON.parse( data );
-
-					// Check for domain_name (which is the site URL)
-					if ( jsonResponse.domain_name ) {
-						logger.reportProgress( LoggerStatus.PREVIEW_SITE_URL );
-						console.log( `https://${ jsonResponse.domain_name }` );
-					}
-
-					resolve( jsonResponse );
-				} catch ( e ) {
-					reject( new Error( 'Failed to parse response' ) );
-				}
-			} );
-		} );
-
-		req.on( 'error', ( e ) => {
-			reject( e );
-		} );
-
-		// Write the form data start
-		req.write( formData );
-
-		// Write the file content
-		req.write( fileContent );
-
-		// Write the form data end
-		req.write( endFormData );
-
-		// End the request
-		req.end();
-	} );
+	} catch ( error: unknown ) {
+		const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+		throw new Error( `Failed to upload archive: ${ errorMessage }` );
+	}
 }
 
 function cleanup( archivePath: string, logger: Logger< LoggerStatus > ): void {
 	if ( fs.existsSync( archivePath ) ) {
 		fs.unlinkSync( archivePath );
-		logger.reportProgress( LoggerStatus.ARCHIVE_DELETED );
+		logger.reportProgress( { status: LoggerStatus.ARCHIVE_DELETED } );
 	}
+}
+
+enum SnapshotStatus {
+	Pending = '0',
+	Processing = '1',
+	Active = '2',
+}
+
+async function checkSiteStatus(
+	siteId: number,
+	token: string,
+	logger: Logger< LoggerStatus >
+): Promise< boolean > {
+	const wpcom = new WPCOM( token );
+
+	try {
+		const response = await wpcom.req.get< StatusResponse >( '/jurassic-ninja/status', {
+			apiNamespace: 'wpcom/v2',
+			site_id: siteId,
+		} );
+
+		logger.reportProgress( {
+			status: LoggerStatus.SITE_CREATING,
+			args: {
+				status: response.status,
+				site_id: siteId,
+				response: JSON.stringify( response ),
+				url: response.domain_name,
+			},
+		} );
+
+		if ( response.status === SnapshotStatus.Active ) {
+			logger.reportProgress( { status: LoggerStatus.SITE_READY } );
+			return true;
+		}
+		return false;
+	} catch ( error: unknown ) {
+		const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+		logger.reportError( `Status check failed: ${ errorMessage }` );
+		return false;
+	}
+}
+
+async function waitForSiteReady(
+	siteId: number,
+	token: string,
+	logger: Logger< LoggerStatus >
+): Promise< void > {
+	logger.reportProgress( {
+		status: LoggerStatus.SITE_CREATING,
+		args: { message: 'Starting to wait for site to be ready', site_id: siteId },
+	} );
+
+	// Poll every 3 seconds for up to 5 minutes
+	const maxAttempts = 100;
+	let attempts = 0;
+
+	while ( attempts < maxAttempts ) {
+		const isReady = await checkSiteStatus( siteId, token, logger );
+		if ( isReady ) {
+			return;
+		}
+		logger.reportProgress( {
+			status: LoggerStatus.SITE_CREATING,
+			args: {
+				message: 'Site not ready yet, waiting 3 seconds...',
+				attempt: attempts + 1,
+				max_attempts: maxAttempts,
+			},
+		} );
+		await new Promise( ( resolve ) => setTimeout( resolve, 3000 ) );
+		attempts++;
+	}
+
+	throw new Error( 'Timeout waiting for preview site to be ready' );
 }

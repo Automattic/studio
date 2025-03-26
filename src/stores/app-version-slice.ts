@@ -57,6 +57,10 @@ const appVersionSlice = createSlice( {
 				}
 
 				try {
+					if ( semver.prerelease( currentVersion ) ) {
+						return false;
+					}
+
 					const cleanLastSeen = semver.valid( semver.coerce( lastSeenVersion ) );
 					const cleanCurrent = semver.valid( semver.coerce( currentVersion ) );
 

@@ -5,7 +5,7 @@ import { RunningSites } from 'src/components/running-sites';
 import SiteMenu from 'src/components/site-menu';
 import { isMac } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
-import { WhatsNewModal } from '../modules/whats-new-modal/whats-new-modal';
+import { WhatsNewModal } from '../modules/whats-new/whats-new-modal';
 
 interface MainSidebarProps {
 	className?: string;

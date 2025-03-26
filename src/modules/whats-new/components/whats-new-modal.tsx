@@ -19,6 +19,14 @@ interface WhatsNewModalProps {
 
 const WHATS_NEW_PAGES: WhatsNewPage[] = [
 	{
+		image: versionSwitchIllustration, // TODO: Add correct illustration for intro card
+		title: __( 'What is new in Studio this month?' ),
+		description: __(
+			'All these fun new features are waiting for you to discover them. Click on the cards below to learn more.'
+		),
+		learnMoreUrl: 'https://wordpress.com/blog/2025/03/17/studio-wordpress-php-versions/', // TODO: Add correct URL (Releases?)
+	},
+	{
 		image: versionSwitchIllustration,
 		title: __( 'Select WordPress and PHP versions in Studio' ),
 		description: __(

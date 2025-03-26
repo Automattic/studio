@@ -9,7 +9,7 @@ function realpath() {
 CONTENTS_DIR="$(command dirname "$(command dirname "$(command dirname "$(realpath "$0")")")")"
 BINARY_NAME="$(TERM=dumb command ls "$CONTENTS_DIR/MacOS/")"
 ELECTRON="$CONTENTS_DIR/MacOS/$BINARY_NAME"
-CLI="$CONTENTS_DIR/Resources/cli/index.js"
+CLI="$CONTENTS_DIR/Resources/cli/main.js"
 
 ELECTRON_RUN_AS_NODE=1 "$ELECTRON" "$CLI" "$@"
 

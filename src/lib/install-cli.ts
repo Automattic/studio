@@ -1,16 +1,15 @@
-import { app, dialog } from 'electron';
+import { dialog } from 'electron';
 import { mkdir, readlink, symlink, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import { __ } from '@wordpress/i18n';
 import { sudoExec } from 'src/lib/sudo-exec';
 import { getMainWindow } from 'src/main-window';
+import { getResourcesPath } from 'src/storage/paths';
 import packageJson from '../../package.json';
 
 const installedCLIPath = '/usr/local/bin/studio';
 
-const binPath = app.isPackaged
-	? path.resolve( app.getAppPath(), '../bin' )
-	: path.resolve( app.getAppPath(), 'bin' );
+const binPath = path.join( getResourcesPath(), 'bin' );
 const packagedPath = path.join( binPath, 'studio-cli.sh' );
 const installScriptPath = path.join( binPath, 'install-studio-cli.sh' );
 

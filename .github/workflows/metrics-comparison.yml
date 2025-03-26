@@ -33,7 +33,7 @@ jobs:
 
       - name: Compare performance with trunk
         if: github.event_name == 'pull_request'
-        run: cd scripts/compare-perf && npm install && npm run compare -- perf $GITHUB_SHA trunk --tests-branch $GITHUB_SHA
+        run: cd scripts/compare-perf && npm ci && npm run compare -- perf $GITHUB_SHA trunk --tests-branch $GITHUB_SHA
 
       - name: Compare performance with base branch
         if: github.event_name == 'push'
@@ -42,7 +42,7 @@ jobs:
         # it needs to be updated every time it becomes unsupported by the current performance tests.
         # It is used as a base comparison point to avoid fluctuation in the performance metrics.
         run: |
-          cd scripts/compare-perf && npm install && npm run compare -- perf $GITHUB_SHA c954cc2228eab819118ab6e84e22dd0223faacfe --tests-branch $GITHUB_SHA
+          cd scripts/compare-perf && npm ci && npm run compare -- perf $GITHUB_SHA c954cc2228eab819118ab6e84e22dd0223faacfe --tests-branch $GITHUB_SHA
       - name: Archive performance results
         if: success()
         uses: actions/upload-artifact@v4

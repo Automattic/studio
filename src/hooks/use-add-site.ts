@@ -130,14 +130,19 @@ export function useAddSite() {
 							isNewSite: true,
 						} );
 						clearImportState( newSite.id );
+
+						getIpcApi().showNotification( {
+							title: newSite.name,
+							body: __( 'Your new site was imported' ),
+						} );
 					} else {
+						getIpcApi().showNotification( {
+							title: newSite.name,
+							body: __( 'Your new site was created' ),
+						} );
+
 						await startServer( newSite.id );
 					}
-
-					getIpcApi().showNotification( {
-						title: newSite.name,
-						body: __( 'Your new site is up and running' ),
-					} );
 				}
 			);
 		} catch ( e ) {

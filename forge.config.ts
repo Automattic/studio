@@ -13,7 +13,9 @@ import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-nati
 import { WebpackPlugin } from '@electron-forge/plugin-webpack';
 import ForgeExternalsPlugin from '@timfish/forge-externals-plugin';
 import ejs from 'ejs';
+import webpack from 'webpack';
 import { isErrnoException } from './src/lib/is-errno-exception';
+import cliConfig from './webpack.cli.config';
 import mainConfig, { mainBaseConfig } from './webpack.main.config';
 import { rendererConfig } from './webpack.renderer.config';
 import type { ForgeConfig } from '@electron-forge/shared-types';
@@ -120,7 +122,7 @@ const config: ForgeConfig = {
 			fs.writeFileSync( './dist/index.html', renderedHtml );
 		},
 		prePackage: async () => {
-			console.log( "Ensuring latest WordPress zip isn't included in production build  ..." );
+			console.log( "Ensuring latest WordPress zip isn't included in production build ..." );
 
 			const zipPath = path.join( __dirname, 'wp-files', 'latest.zip' );
 			try {
@@ -128,6 +130,18 @@ const config: ForgeConfig = {
 			} catch ( err ) {
 				if ( isErrnoException( err ) && err.code !== 'ENOENT' ) throw err;
 			}
+
+			console.log( 'Building CLI ...' );
+			const compiler = webpack( cliConfig );
+
+			await new Promise< void >( ( resolve, reject ) => {
+				compiler.run( ( error ) => {
+					if ( error ) {
+						reject( error );
+					}
+					resolve();
+				} );
+			} );
 		},
 	},
 };

@@ -10,7 +10,17 @@ export async function getLatestSQLiteCommandRelease(): Promise< GithubRelease > 
 	const url = 'https://api.github.com/repos/automattic/wp-cli-sqlite-command/releases/latest';
 	console.log( '[sqlite-command] Fetching from:', url );
 
-	const response = await fetch( url );
+	const headers: HeadersInit = {
+		Accept: 'application/vnd.github.v3+json',
+		'User-Agent': 'wp-now-cli',
+	};
+
+	if ( process.env.GITHUB_TOKEN ) {
+		console.log( '[sqlite-command] GITHUB_TOKEN available' );
+		headers.Authorization = `token ${ process.env.GITHUB_TOKEN }`;
+	}
+
+	const response = await fetch( url, { headers } );
 	console.log( '[sqlite-command] Response status:', response.status );
 
 	if ( ! response.ok ) {

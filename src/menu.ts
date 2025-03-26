@@ -179,6 +179,12 @@ function getAppMenu(
 						shellOpenExternalWrapper( getDocsLink( locale, 'studio' ) );
 					},
 				},
+				{
+					label: __( "What's New" ),
+					click: async () => {
+						sendIpcEventToRenderer( 'show-whats-new' );
+					},
+				},
 				{ type: 'separator' },
 				...( process.platform === 'win32'
 					? [
@@ -191,12 +197,6 @@ function getAppMenu(
 					  ]
 					: [] ),
 				{ type: 'separator' },
-				{
-					label: __( "What's New" ),
-					click: async () => {
-						sendIpcEventToRenderer( 'show-whats-new' );
-					},
-				},
 				{
 					label: __( 'Report an Issue' ),
 					click: () => {

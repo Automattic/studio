@@ -6,6 +6,7 @@ interface UseLastSeenVersion {
 	lastSeenVersion: string | undefined;
 	isNewVersion: boolean;
 	updateLastSeenVersion: () => Promise< void >;
+	currentVersion: string | undefined;
 }
 
 export function useLastSeenVersion(): UseLastSeenVersion {
@@ -25,5 +26,6 @@ export function useLastSeenVersion(): UseLastSeenVersion {
 		lastSeenVersion,
 		isNewVersion,
 		updateLastSeenVersion,
+		currentVersion,
 	};
 }

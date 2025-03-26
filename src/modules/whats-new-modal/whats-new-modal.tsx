@@ -69,9 +69,15 @@ export function WhatsNewModal() {
 			className={ cx(
 				"whats-new-modal !w-[312px] !h-[470px] overflow-hidden [&_button[aria-label='Close']_svg]:fill-white"
 			) }
-			pages={ WHATS_NEW_PAGES.map( ( { image, ...pageContent } ) => ( {
-				image: <img src={ image } alt="" className="h-[173px] w-full object-cover mb-4" />,
-				content: <PageContent { ...pageContent } />,
+			pages={ WHATS_NEW_PAGES.map( ( { image, title, ...pageContent } ) => ( {
+				image: (
+					<img
+						src={ image }
+						alt={ __( `Illustration for ${ title }` ) }
+						className="h-[173px] w-full object-cover mb-4"
+					/>
+				),
+				content: <PageContent title={ title } { ...pageContent } />,
 			} ) ) }
 			finishButtonText={ __( 'Done' ) }
 		/>

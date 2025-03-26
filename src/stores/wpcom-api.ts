@@ -1,7 +1,7 @@
 import { createApi, TypedUseQuery } from '@reduxjs/toolkit/query/react';
 import * as Sentry from '@sentry/electron/renderer';
 import { z } from 'zod';
-import { useOffline } from 'src/hooks/use-offline';
+import { withOfflineCheck } from 'src/stores/utils/with-offline-check';
 import type { BaseQueryFn, FetchBaseQueryError } from '@reduxjs/toolkit/query';
 import type WPCOM from 'wpcom';
 
@@ -59,18 +59,19 @@ export const wpcomApi = createApi( {
 	} ),
 } );
 
-function withConnectionChecks< TResult, TArg >(
+function withWpcomClientCheck< TResult, TArg >(
 	useQueryHook: TypedUseQuery< TResult, TArg, typeof wpcomBaseQuery >
 ): TypedUseQuery< TResult, TArg, typeof wpcomBaseQuery > {
 	return ( arg, options = {} ) => {
-		const isOffline = useOffline();
 		return useQueryHook( arg, {
 			...options,
-			skip: ! wpcomClient || isOffline || options?.skip,
+			skip: ! wpcomClient || options?.skip,
 		} );
 	};
 }
 
 const { useGetWelcomeMessagesQuery } = wpcomApi;
 
-export const useGetWelcomeMessages = withConnectionChecks( useGetWelcomeMessagesQuery );
+export const useGetWelcomeMessages = withWpcomClientCheck(
+	withOfflineCheck( useGetWelcomeMessagesQuery )
+);

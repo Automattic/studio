@@ -26,6 +26,7 @@ import { calculateDirectorySize } from 'src/lib/calculate-directory-size';
 import { download } from 'src/lib/download';
 import { isEmptyDir, pathExists, isWordPressDirectory, sanitizeFolderName } from 'src/lib/fs-utils';
 import { getImageData } from 'src/lib/get-image-data';
+import { getSiteUrl } from 'src/lib/get-site-url';
 import { getSyncBackupTempPath } from 'src/lib/get-sync-backup-temp-path';
 import { exportBackup } from 'src/lib/import-export/export/export-manager';
 import { ExportOptions } from 'src/lib/import-export/export/types';
@@ -44,7 +45,7 @@ import { portFinder } from 'src/lib/port-finder';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { sortSites } from 'src/lib/sort-sites';
 import { installSqliteIntegration, keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
-import { updateSiteUrlToLocal } from 'src/lib/update-site-url-to-local';
+import { updateSiteUrl } from 'src/lib/update-site-url';
 import * as windowsHelpers from 'src/lib/windows-helpers';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
@@ -203,7 +204,7 @@ export async function createSite(
 		if ( ! ( await pathExists( nodePath.join( path, 'wp-config.php' ) ) ) ) {
 			await installSqliteIntegration( path );
 		} else {
-			await updateSiteUrlToLocal( details.id );
+			await updateSiteUrl( server, getSiteUrl( details ) );
 		}
 	}
 
@@ -723,10 +724,28 @@ export async function saveSnapshotsToStorage( event: IpcMainInvokeEvent, snapsho
 	} );
 }
 
+export async function saveLastSeenVersion(
+	_event: IpcMainInvokeEvent,
+	version: string
+): Promise< void > {
+	const userData = await loadUserData();
+	await saveUserData( {
+		...userData,
+		lastSeenVersion: version,
+	} );
+}
+
 export async function getSnapshots( _event: IpcMainInvokeEvent ): Promise< Snapshot[] > {
 	const userData = await loadUserData();
 	const { snapshots = [] } = userData;
 	return snapshots;
+}
+
+export async function getLastSeenVersion(
+	_event: IpcMainInvokeEvent
+): Promise< string | undefined > {
+	const userData = await loadUserData();
+	return userData.lastSeenVersion;
 }
 
 export function openSiteURL(
@@ -762,6 +781,7 @@ export async function getAppGlobals( _event: IpcMainInvokeEvent ): Promise< AppG
 	return {
 		platform: process.platform,
 		appName: app.name,
+		appVersion: app.getVersion(),
 		arm64Translation: app.runningUnderARM64Translation,
 		terminalWpCliEnabled: process.env.STUDIO_TERMINAL_WP_CLI === 'true',
 		whatsNewSectionEnabled: process.env.STUDIO_WHATS_NEW_SECTION === 'true',
@@ -1021,7 +1041,7 @@ export async function showNotification(
 
 export async function setupAppMenu(
 	_event: IpcMainInvokeEvent,
-	config: { needsOnboarding: boolean }
+	config: { needsOnboarding: boolean; whatsNewSectionEnabled?: boolean }
 ) {
 	await setupMenu( config );
 }

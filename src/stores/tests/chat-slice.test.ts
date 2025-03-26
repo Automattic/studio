@@ -6,6 +6,11 @@ import { chatThunks, generateMessage, chatActions, chatSelectors } from 'src/sto
 import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
 
 jest.mock( 'src/lib/get-ipc-api' );
+( getIpcApi as jest.Mock ).mockReturnValue( {
+	executeWPCLiInline: jest.fn(),
+	getLastSeenVersion: jest.fn().mockResolvedValue( '1.2.3' ),
+	saveLastSeenVersion: jest.fn().mockResolvedValue( undefined ),
+} );
 
 store.replaceReducer( testReducer );
 

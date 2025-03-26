@@ -14,32 +14,26 @@ jest.mock( 'src/stores', () => {
 	const mockDispatch = jest.fn();
 	return {
 		useAppDispatch: jest.fn().mockReturnValue( mockDispatch ),
-		useRootSelector: jest.fn().mockImplementation( ( selector ) => {
-			if ( ! ( typeof selector === 'object' && selector !== null ) ) {
-				return { status: 'succeeded' };
-			}
-			if ( 'name' in selector && selector.name === 'selectWordPressVersionsWithLatest' ) {
-				return [
-					{ isBeta: false, label: '6.4', value: '6.4.3' },
-					{ isBeta: false, label: '6.3', value: '6.3.3' },
-				];
-			}
-			if ( 'name' in selector && selector.name === 'selectLatestStableVersion' ) {
-				return { isBeta: false, label: '6.4', value: '6.4.3' };
-			}
-			return { status: 'succeeded' };
-		} ),
+		useRootSelector: jest.fn(),
 	};
 } );
 
-jest.mock( 'src/stores/wordpress-versions-slice', () => ( {
-	wordpressVersionsSelectors: {
-		selectWordPressVersionsWithLatest: { name: 'selectWordPressVersionsWithLatest' },
-		selectLatestStableVersion: { name: 'selectLatestStableVersion' },
-	},
-	wordpressVersionsThunks: {
-		fetchWordPressVersions: jest.fn(),
-	},
+jest.mock( 'src/stores/wordpress-versions-api', () => ( {
+	useGetWordPressVersions: () => ( {
+		data: [
+			{
+				value: '6.5.0-beta1',
+				isBeta: true,
+				isDevelopment: false,
+				isLatest: false,
+				label: '6.5.0-beta1',
+			},
+			{ value: '6.4.0', isBeta: false, isDevelopment: false, isLatest: true, label: '6.4' },
+			{ value: '6.3.3', isBeta: false, isDevelopment: false, isLatest: false, label: '6.3.3' },
+		],
+	} ),
+	selectWordPressVersionsWithLatest: jest.fn(),
+	selectLatestStableVersion: jest.fn(),
 } ) );
 
 const mockShowOpenFolderDialog =

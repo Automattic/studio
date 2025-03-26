@@ -5,12 +5,15 @@ import fsExtra from 'fs-extra';
 import { parse } from 'shell-quote';
 import { deleteSiteCertificate, generateSiteCertificate } from 'src/lib/certificate-manager';
 import { pathExists, recursiveCopyDirectory, isEmptyDir } from 'src/lib/fs-utils';
+import { getSiteUrl } from 'src/lib/get-site-url';
 import { addDomainToHosts, removeDomainFromHosts, updateDomainInHosts } from 'src/lib/hosts-file';
 import { decodePassword } from 'src/lib/passwords';
 import { phpGetThemeDetails } from 'src/lib/php-get-theme-details';
 import { portFinder } from 'src/lib/port-finder';
+import { startProxyServer } from 'src/lib/proxy-server';
 import { getPreferredSiteLanguage } from 'src/lib/site-language';
 import SiteServerProcess from 'src/lib/site-server-process';
+import { updateSiteUrl } from 'src/lib/update-site-url';
 import WpCliProcess, { MessageCanceled, WpCliResult } from 'src/lib/wp-cli-process';
 import { purgeWpConfig } from 'src/lib/wp-versions';
 import { createScreenshotWindow } from 'src/screenshot-window';
@@ -19,8 +22,6 @@ import { getWpNowConfig } from 'vendor/wp-now/src';
 import { WPNowMode } from 'vendor/wp-now/src/config';
 import { DEFAULT_PHP_VERSION, SQLITE_FILENAME } from 'vendor/wp-now/src/constants';
 import { getWordPressVersionPath, downloadWordPress } from 'vendor/wp-now/src/download';
-import { startProxyServer } from './lib/proxy-server';
-import { updateSiteUrlToLocal } from './lib/update-site-url-to-local';
 
 const servers = new Map< string, SiteServer >();
 const deletedServers: string[] = [];
@@ -207,7 +208,7 @@ export class SiteServer {
 			updateDomainInHosts( oldDomain, newDomain, this.details.port );
 		}
 		if ( ( oldDomain && ! newDomain ) || oldEnableHttps !== newEnableHttps ) {
-			await updateSiteUrlToLocal( this.details.id );
+			await updateSiteUrl( this, getSiteUrl( this.details ) );
 		}
 
 		if (

@@ -1,6 +1,7 @@
 import { Guide } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { useState } from 'react';
+import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import previewSitesIllustration from './assets/preview-sites-illustration.svg';
 import versionSwitchIllustration from './assets/version-switch-illustration.svg';
@@ -65,7 +66,9 @@ export function WhatsNewModal() {
 		<Guide
 			onFinish={ () => setIsOpen( false ) }
 			contentLabel={ __( "What's New in Studio" ) }
-			className="whats-new-modal !w-[312px] !h-[470px] overflow-hidden [&_button[aria-label='Close']_svg]:fill-white"
+			className={ cx(
+				"whats-new-modal !w-[312px] !h-[470px] overflow-hidden [&_button[aria-label='Close']_svg]:fill-white"
+			) }
 			pages={ WHATS_NEW_PAGES.map( ( { image, ...pageContent } ) => ( {
 				image: <img src={ image } alt="" className="h-[173px] w-full object-cover mb-4" />,
 				content: <PageContent { ...pageContent } />,

@@ -1,290 +1,226 @@
-import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { Command } from 'commander';
-import nock from 'nock';
-import { registerCommand } from 'cli/commands/preview/create';
 import { Logger } from 'cli/logger';
+import { uploadArchive, waitForSiteReady } from '../lib/api';
+import { createArchive, cleanup } from '../lib/archive';
+import { getAuthToken } from '../lib/auth';
+import { validateSiteFolder } from '../lib/validation';
 
-jest.mock( 'fs' );
+// Mock ora
+jest.mock( 'ora', () => {
+	return {
+		__esModule: true,
+		default: () => ( {
+			start: jest.fn().mockReturnThis(),
+			stop: jest.fn().mockReturnThis(),
+			succeed: jest.fn().mockReturnThis(),
+			fail: jest.fn().mockReturnThis(),
+		} ),
+	};
+} );
+
+// Import types from create.ts
+type LoggerAction = 'validate' | 'archive' | 'upload' | 'ready';
+
+jest.mock( '../lib/auth' );
+jest.mock( '../lib/validation' );
+jest.mock( '../lib/archive' );
+jest.mock( '../lib/api' );
 jest.mock( 'cli/logger' );
-
-// Mock archiver module
-const mockArchiver = {
-	on: jest.fn(),
-	pipe: jest.fn(),
-	directory: jest.fn(),
-	file: jest.fn(),
-	finalize: jest.fn(),
-};
-jest.mock( 'archiver', () => () => mockArchiver );
 
 describe( 'Preview Create Command', () => {
 	const mockFolder = '/test/folder';
 	const mockBasename = 'folder';
 	const mockDate = 1234567890;
 	const mockArchivePath = path.join( os.tmpdir(), `${ mockBasename }-${ mockDate }.zip` );
-	const mockSiteUrl = 'https://test-preview.example.com';
+	const mockSiteUrl = 'test-preview.example.com';
+	const mockSiteId = 12345;
 	const mockAuthToken = 'mock-auth-token';
+	const mockArchiver = {
+		on: jest.fn(),
+		pipe: jest.fn(),
+		directory: jest.fn(),
+		file: jest.fn(),
+		finalize: jest.fn(),
+	};
 	let program: Command;
-	let mockLogger: Logger< string >;
+	let mockLogger: Logger< LoggerAction >;
 
 	beforeEach( () => {
 		jest.clearAllMocks();
-		nock.cleanAll();
-
-		// Mock Date.now()
 		jest.spyOn( Date, 'now' ).mockReturnValue( mockDate );
-		// Mock path.basename
 		jest.spyOn( path, 'basename' ).mockReturnValue( mockBasename );
-		// Mock process.cwd()
 		jest.spyOn( process, 'cwd' ).mockReturnValue( mockFolder );
 
 		program = new Command();
 		mockLogger = {
-			reportProgress: jest.fn(),
+			reportStart: jest.fn(),
+			reportSuccess: jest.fn(),
 			reportError: jest.fn(),
-		} as unknown as Logger< string >;
+		} as unknown as Logger< LoggerAction >;
 
 		( Logger as jest.Mock ).mockImplementation( () => mockLogger );
-		( fs.unlinkSync as jest.Mock ).mockImplementation( () => {} );
-		( fs.existsSync as jest.Mock ).mockImplementation( ( filePath: string ) => {
-			// Mock a minimal WordPress setup (just wp-content)
-			if (
-				filePath.includes( mockFolder ) ||
-				filePath.includes( 'wp-content' ) ||
-				filePath.includes( mockArchivePath )
-			) {
-				return true;
-			}
-			// Mock auth token file
-			if ( filePath.includes( 'appdata-v1.json' ) ) {
-				return true;
-			}
-			return false;
-		} );
 
-		( fs.readFileSync as jest.Mock ).mockImplementation( ( filePath: string ) => {
-			if ( filePath.includes( 'appdata-v1.json' ) ) {
-				return JSON.stringify( { authToken: { accessToken: mockAuthToken } } );
-			}
-			if ( filePath.includes( mockArchivePath ) ) {
-				return Buffer.from( 'mock file content' );
-			}
-			return '';
-		} );
+		// Mock auth
+		( getAuthToken as jest.Mock ).mockResolvedValue( mockAuthToken );
 
-		// Mock successful API response with proper event emulation
-		const mockWriteStream: { on: jest.Mock } = {
-			on: jest.fn().mockImplementation( ( event, callback ) => {
-				if ( event === 'close' ) {
-					// Ensure the close callback is called after a short delay
-					setTimeout( callback, 0 );
-				}
-				return mockWriteStream;
-			} ),
-		};
-		( fs.createWriteStream as jest.Mock ).mockReturnValue( mockWriteStream );
+		// Mock validation
+		( validateSiteFolder as jest.Mock ).mockReturnValue( true );
 
-		nock( 'https://public-api.wordpress.com' )
-			.post( '/wpcom/v2/jurassic-ninja/create-new-site-from-zip', ( body ) => {
-				// Verify the request includes both the auth token and proper multipart form data
-				return (
-					body.includes(
-						'Content-Disposition: form-data; name="import"; filename="local-env-site-1.zip"'
-					) &&
-					body.includes( 'Content-Type: application/zip' ) &&
-					body.includes( 'mock file content' )
-				);
-			} )
-			.reply(
-				200,
-				{ site_url: mockSiteUrl },
-				{
-					'content-type': 'application/json',
-				}
-			);
+		// Mock archive
+		( createArchive as jest.Mock ).mockResolvedValue( mockArchiver );
+		( cleanup as jest.Mock ).mockImplementation( () => {} );
 
-		// Reset archiver mock
-		mockArchiver.on.mockImplementation( ( event, callback ) => {
-			if ( event === 'error' ) {
-				// Don't call error callback
-			} else if ( event === 'end' ) {
-				// Simulate successful archive creation
-				setTimeout( () => callback(), 0 );
-			}
-			return mockArchiver;
+		// Mock API
+		( uploadArchive as jest.Mock ).mockResolvedValue( {
+			site_url: mockSiteUrl,
+			site_id: mockSiteId,
 		} );
-		mockArchiver.pipe.mockReturnValue( mockArchiver );
-		mockArchiver.directory.mockReturnValue( mockArchiver );
-		mockArchiver.file.mockReturnValue( mockArchiver );
-		mockArchiver.finalize.mockImplementation( () => {
-			// Simulate successful archive creation
-			const mockWriteStream = {
-				on: jest.fn( ( event, callback ) => {
-					if ( event === 'close' ) {
-						setTimeout( () => callback(), 0 );
-					}
-				} ),
-			};
-			( fs.createWriteStream as jest.Mock ).mockReturnValue( mockWriteStream );
-			return Promise.resolve();
-		} );
+		( waitForSiteReady as jest.Mock ).mockResolvedValue( true );
 	} );
 
 	afterEach( () => {
 		jest.restoreAllMocks();
 	} );
 
-	it( 'should complete the preview creation process successfully', ( done ) => {
-		const mockWriteStream = {
-			on: jest.fn( ( event, callback ) => {
-				if ( event === 'close' ) {
-					callback();
-				}
-			} ),
-		};
-		( fs.createWriteStream as jest.Mock ).mockReturnValue( mockWriteStream );
-
-		// Mock console.log to capture output
-		const consoleLogSpy = jest.spyOn( console, 'log' ).mockImplementation();
-
+	it( 'should complete the preview creation process successfully', async () => {
+		const { registerCommand } = await import( '../create' );
 		registerCommand( program );
-		program.parseAsync( [ 'node', 'test', 'go', mockFolder ] ).then( () => {
-			try {
-				expect( fs.createWriteStream ).toHaveBeenCalledWith( mockArchivePath );
-				expect( mockLogger.reportProgress ).toHaveBeenCalledWith( 'Creating archive...' );
-				expect( mockLogger.reportProgress ).toHaveBeenCalledWith( 'Archive created' );
-				expect( mockLogger.reportProgress ).toHaveBeenCalledWith( 'Uploading archive...' );
-				expect( mockLogger.reportProgress ).toHaveBeenCalledWith( 'Archive uploaded' );
-				expect( mockLogger.reportProgress ).toHaveBeenCalledWith( 'Preview site available at:' );
-				expect( mockLogger.reportProgress ).toHaveBeenCalledWith( 'Temporary files cleaned up' );
-				expect( consoleLogSpy ).toHaveBeenCalledWith( mockSiteUrl );
-				expect( fs.unlinkSync ).toHaveBeenCalledWith( mockArchivePath );
-				done();
-			} catch ( error ) {
-				done( error );
-			}
-		} );
-	} );
 
-	it( 'should use current directory when no folder is specified', ( done ) => {
-		const mockWriteStream = {
-			on: jest.fn( ( event, callback ) => {
-				if ( event === 'close' ) {
-					callback();
-				}
-			} ),
-		};
-		( fs.createWriteStream as jest.Mock ).mockReturnValue( mockWriteStream );
-
-		registerCommand( program );
-		program.parseAsync( [ 'node', 'test', 'go' ] ).then( () => {
-			try {
-				// Should use process.cwd() when no folder is specified
-				expect( fs.createWriteStream ).toHaveBeenCalledWith( mockArchivePath );
-				expect( fs.unlinkSync ).toHaveBeenCalledWith( mockArchivePath );
-				done();
-			} catch ( error ) {
-				done( error );
-			}
-		} );
-	} );
-
-	it( 'should handle errors gracefully', async () => {
-		const mockError = new Error( 'Test error' );
-		( fs.createWriteStream as jest.Mock ).mockImplementation( () => {
-			throw mockError;
-		} );
-
-		registerCommand( program );
 		await program.parseAsync( [ 'node', 'test', 'go', mockFolder ] );
 
-		expect( mockLogger.reportError ).toHaveBeenCalledWith( mockError.message );
+		// Verify validation step
+		expect( validateSiteFolder ).toHaveBeenCalledWith( mockFolder );
+		expect( mockLogger.reportStart ).toHaveBeenCalledWith(
+			'validate' as LoggerAction,
+			'Validating...'
+		);
+		expect( mockLogger.reportSuccess ).toHaveBeenCalledWith(
+			'validate' as LoggerAction,
+			'Validation successful'
+		);
+
+		// Verify archive step
+		expect( createArchive ).toHaveBeenCalledWith( mockFolder, mockArchivePath );
+		expect( mockLogger.reportStart ).toHaveBeenCalledWith(
+			'archive' as LoggerAction,
+			'Creating archive...'
+		);
+		expect( mockLogger.reportSuccess ).toHaveBeenCalledWith(
+			'archive' as LoggerAction,
+			'Archive created'
+		);
+
+		// Verify upload step
+		expect( uploadArchive ).toHaveBeenCalledWith( mockArchivePath, mockAuthToken );
+		expect( mockLogger.reportStart ).toHaveBeenCalledWith(
+			'upload' as LoggerAction,
+			'Uploading archive...'
+		);
+		expect( mockLogger.reportSuccess ).toHaveBeenCalledWith(
+			'upload' as LoggerAction,
+			'Archive uploaded'
+		);
+
+		// Verify site ready step
+		expect( waitForSiteReady ).toHaveBeenCalledWith( mockSiteId, mockAuthToken );
+		expect( mockLogger.reportStart ).toHaveBeenCalledWith(
+			'ready' as LoggerAction,
+			'Creating preview site...'
+		);
+		expect( mockLogger.reportSuccess ).toHaveBeenCalledWith(
+			'ready' as LoggerAction,
+			`Preview site available at: https://${ mockSiteUrl }`
+		);
+
+		// Verify cleanup
+		expect( cleanup ).toHaveBeenCalledWith( mockArchivePath );
 	} );
 
-	it( 'should handle API errors gracefully', async () => {
-		nock.cleanAll();
-		nock( 'https://public-api.wordpress.com' )
-			.post( '/wpcom/v2/jurassic-ninja/create-new-site-from-zip' )
-			.reply( 500, { error: 'Server error' } );
-
-		const mockWriteStream = {
-			on: jest.fn( ( event, callback ) => {
-				if ( event === 'close' ) {
-					callback();
-				}
-			} ),
-		};
-		( fs.createWriteStream as jest.Mock ).mockReturnValue( mockWriteStream );
-
+	it( 'should use current directory when no folder is specified', async () => {
+		const { registerCommand } = await import( '../create' );
 		registerCommand( program );
-		await program.parseAsync( [ 'node', 'test', 'go', mockFolder ] );
 
-		expect( mockLogger.reportError ).toHaveBeenCalled();
+		await program.parseAsync( [ 'node', 'test', 'go' ] );
+
+		expect( validateSiteFolder ).toHaveBeenCalledWith( process.cwd() );
 	} );
 
-	it( 'should fail if the folder does not contain wp-content', async () => {
-		// Override existsSync to make wp-content check fail
-		( fs.existsSync as jest.Mock ).mockImplementation( ( filePath: string ) => {
-			if ( filePath.includes( 'wp-content' ) ) {
-				return false;
-			}
-			return true;
-		} );
+	it( 'should handle validation errors', async () => {
+		const mockError = new Error( 'Validation failed' );
+		( validateSiteFolder as jest.Mock ).mockReturnValue( mockError );
 
+		const { registerCommand } = await import( '../create' );
 		registerCommand( program );
+
 		await program.parseAsync( [ 'node', 'test', 'go', mockFolder ] );
 
 		expect( mockLogger.reportError ).toHaveBeenCalledWith(
-			expect.stringContaining( 'Please ensure it contains a wp-content directory' )
+			'validate' as LoggerAction,
+			mockError.message
 		);
+		expect( createArchive ).not.toHaveBeenCalled();
 	} );
 
-	it( 'should include wp-config.php if it exists', async () => {
-		const mockWriteStream = {
-			on: jest.fn( ( event, callback ) => {
-				if ( event === 'close' ) {
-					callback();
-				}
-			} ),
-		};
-		( fs.createWriteStream as jest.Mock ).mockReturnValue( mockWriteStream );
+	it( 'should handle missing auth token', async () => {
+		( getAuthToken as jest.Mock ).mockResolvedValue( null );
 
-		// Mock wp-config.php existence
-		( fs.existsSync as jest.Mock ).mockImplementation( ( filePath: string ) => {
-			if ( filePath.includes( 'wp-config.php' ) ) {
-				return true;
-			}
-			return (
-				filePath.includes( mockFolder ) ||
-				filePath.includes( 'wp-content' ) ||
-				filePath.includes( mockArchivePath ) ||
-				filePath.includes( 'appdata-v1.json' )
-			);
-		} );
-
+		const { registerCommand } = await import( '../create' );
 		registerCommand( program );
+
 		await program.parseAsync( [ 'node', 'test', 'go', mockFolder ] );
 
-		expect( mockArchiver.file ).toHaveBeenCalledWith( path.join( mockFolder, 'wp-config.php' ), {
-			name: 'wp-config.php',
-		} );
+		expect( mockLogger.reportError ).toHaveBeenCalledWith(
+			'validate' as LoggerAction,
+			'Authentication required. Please run the Studio app and authenticate first.'
+		);
+		expect( createArchive ).not.toHaveBeenCalled();
 	} );
 
-	it( 'should fail if authentication token is not found', async () => {
-		( fs.existsSync as jest.Mock ).mockImplementation( ( filePath: string ) => {
-			if ( filePath.includes( 'appdata-v1.json' ) ) {
-				return false;
-			}
-			return true;
-		} );
+	it( 'should handle archive creation errors', async () => {
+		const mockError = new Error( 'Archive creation failed' );
+		( createArchive as jest.Mock ).mockResolvedValue( mockError );
 
+		const { registerCommand } = await import( '../create' );
 		registerCommand( program );
+
 		await program.parseAsync( [ 'node', 'test', 'go', mockFolder ] );
 
-		expect( mockLogger.reportProgress ).toHaveBeenCalledWith(
-			'Authentication required. Please run the electron app and authenticate first.'
+		expect( mockLogger.reportError ).toHaveBeenCalledWith(
+			'archive' as LoggerAction,
+			mockError.message
+		);
+		expect( uploadArchive ).not.toHaveBeenCalled();
+	} );
+
+	it( 'should handle upload errors', async () => {
+		const mockError = new Error( 'Upload failed' );
+		( uploadArchive as jest.Mock ).mockResolvedValue( mockError );
+
+		const { registerCommand } = await import( '../create' );
+		registerCommand( program );
+
+		await program.parseAsync( [ 'node', 'test', 'go', mockFolder ] );
+
+		expect( mockLogger.reportError ).toHaveBeenCalledWith(
+			'upload' as LoggerAction,
+			mockError.message
+		);
+		expect( waitForSiteReady ).not.toHaveBeenCalled();
+	} );
+
+	it( 'should handle site readiness timeout', async () => {
+		( waitForSiteReady as jest.Mock ).mockResolvedValue( false );
+
+		const { registerCommand } = await import( '../create' );
+		registerCommand( program );
+
+		await program.parseAsync( [ 'node', 'test', 'go', mockFolder ] );
+
+		expect( mockLogger.reportError ).toHaveBeenCalledWith(
+			'ready' as LoggerAction,
+			'Failed to create preview site'
 		);
 	} );
 } );

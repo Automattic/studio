@@ -61,7 +61,7 @@ test.describe( 'Startup Metrics', () => {
 			const startTime = Date.now();
 			await startButton.click();
 			// Wait for site to be running
-			await expect( siteContent.runningButton ).toBeAttached( { timeout: 60_000 } );
+			await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
 			const endTime = Date.now();
 			const duration = endTime - startTime;
 

@@ -13,7 +13,7 @@ const binPath = path.join( getResourcesPath(), 'bin' );
 const packagedPath = path.join( binPath, 'studio-cli.sh' );
 const installScriptPath = path.join( binPath, 'install-studio-cli.sh' );
 
-export async function installCLIAction() {
+export async function installCLIWithConfirmation() {
 	try {
 		await installCLI();
 		const mainWindow = await getMainWindow();

@@ -190,7 +190,9 @@ export async function runPerformanceTests(
 
 	logAtIndent( 2, 'Installing dependencies and building' );
 
-	await runShellScript( config.setupTestRunner, testRunnerDir );
+	await runShellScript( config.setupTestRunner, testRunnerDir, {
+		GITHUB_TOKEN: process.env.GITHUB_TOKEN,
+	} );
 
 	logAtIndent( 1, 'Setting up test environments' );
 
@@ -216,7 +218,9 @@ export async function runPerformanceTests(
 		await simpleGit( buildDir ).raw( 'checkout', branch );
 
 		logAtIndent( 3, 'Installing dependencies and building' );
-		await runShellScript( config.setupCommand, buildDir );
+		await runShellScript( config.setupCommand, buildDir, {
+			GITHUB_TOKEN: process.env.GITHUB_TOKEN,
+		} );
 	}
 
 	logAtIndent( 0, 'Looking for test files' );

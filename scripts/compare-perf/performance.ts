@@ -99,7 +99,7 @@ async function runTestSuite(
 	// Run the test suite
 	await runShellScript( `${ config.testCommand } ${ testSuite }`, testRunnerDir, {
 		...process.env,
-		ARTIFACTS_PATH: ARTIFACTS_PATH,
+		ARTIFACTS_PATH,
 		RESULTS_ID: runKey,
 	} );
 }

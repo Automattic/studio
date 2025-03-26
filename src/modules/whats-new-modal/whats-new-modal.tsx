@@ -65,7 +65,7 @@ export function WhatsNewModal() {
 		<Guide
 			onFinish={ () => setIsOpen( false ) }
 			contentLabel={ __( "What's New in Studio" ) }
-			className="whats-new-modal !w-[312px] !h-[470px] overflow-hidden [&_.components-button_svg]:fill-white"
+			className="whats-new-modal !w-[312px] !h-[470px] overflow-hidden"
 			pages={ WHATS_NEW_PAGES.map( ( { image, ...pageContent } ) => ( {
 				image: <img src={ image } alt="" className="h-[173px] w-full object-cover mb-4" />,
 				content: <PageContent { ...pageContent } />,

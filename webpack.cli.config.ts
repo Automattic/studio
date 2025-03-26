@@ -1,6 +1,22 @@
 import path from 'path';
-import { type Configuration } from 'webpack';
+import CopyWebpackPlugin from 'copy-webpack-plugin';
+import fs from 'fs-extra';
+import { type Configuration, type Compiler, type WebpackPluginInstance } from 'webpack';
 import { rules } from './webpack.rules';
+
+class PermissionsPlugin implements WebpackPluginInstance {
+	apply( compiler: Compiler ): void {
+		compiler.hooks.afterEmit.tap( 'PermissionsPlugin', () => {
+			const binDir = path.resolve( __dirname, '.webpack/main/bin' );
+			if ( fs.existsSync( binDir ) ) {
+				fs.readdirSync( binDir ).forEach( ( file ) => {
+					const filePath = path.join( binDir, file );
+					fs.chmodSync( filePath, '755' ); // rwxr-xr-x
+				} );
+			}
+		} );
+	}
+}
 
 const config: Configuration = {
 	target: 'node',
@@ -26,6 +42,17 @@ const config: Configuration = {
 		minimize: false,
 		splitChunks: false,
 	},
+	plugins: [
+		new PermissionsPlugin(),
+		new CopyWebpackPlugin( {
+			patterns: [
+				{
+					from: path.join( __dirname, 'bin' ),
+					to: path.join( __dirname, 'dist', 'bin' ),
+				},
+			],
+		} ),
+	],
 };
 
 export default config;

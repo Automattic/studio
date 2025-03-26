@@ -59,7 +59,9 @@ export const store = configureStore( {
 			.concat( wpcomApi.middleware ),
 } );
 
-store.dispatch( appVersionThunks.fetchLastSeenVersion() );
+export const initializeStore = () => {
+	store.dispatch( appVersionThunks.fetchLastSeenVersion() );
+};
 
 export type AppDispatch = typeof store.dispatch;
 

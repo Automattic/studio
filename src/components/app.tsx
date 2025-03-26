@@ -18,6 +18,7 @@ import { isWindows } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { WhatsNewModal, useWhatsNew } from 'src/modules/whats-new';
+import { initializeStore } from 'src/stores';
 
 export default function App() {
 	useLocalizationSupport();
@@ -29,6 +30,10 @@ export default function App() {
 	useEffect( () => {
 		getIpcApi().setupAppMenu( { needsOnboarding, whatsNewSectionEnabled } );
 	}, [ needsOnboarding, whatsNewSectionEnabled ] );
+
+	useEffect( () => {
+		initializeStore();
+	}, [] );
 
 	return (
 		<>

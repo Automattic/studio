@@ -151,6 +151,7 @@ export class SiteServer {
 			adminPassword: decodePassword( this.details.adminPassword ?? '' ),
 			siteTitle: this.details.name,
 			php: this.details.phpVersion,
+			wp: this.details.wpVersion,
 		} );
 
 		options.absoluteUrl = getAbsoluteUrl( this.details );
@@ -177,6 +178,7 @@ export class SiteServer {
 			url: this.server.url,
 			port: this.server.options.port,
 			phpVersion: this.server.options.phpVersion ?? DEFAULT_PHP_VERSION,
+			wpVersion: this.details.wpVersion,
 			running: true,
 			autoStart: true,
 			themeDetails,

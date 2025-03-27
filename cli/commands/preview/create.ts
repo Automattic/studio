@@ -76,7 +76,8 @@ export const registerCommand: RegisterCommand = ( program ) => {
 		.description(
 			'Create a preview site from the specified folder (defaults to current directory)'
 		)
-		.action( async ( siteFolder: string = process.cwd(), options: { outputFormat?: 'json' } ) => {
+		.action( async ( siteFolder: string = process.cwd() ) => {
+			const options = program.opts();
 			await runCommand( siteFolder, options.outputFormat );
 		} );
 };

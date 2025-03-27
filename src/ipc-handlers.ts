@@ -17,12 +17,7 @@ import * as Sentry from '@sentry/electron/main';
 import { __, LocaleData, defaultI18n } from '@wordpress/i18n';
 import archiver from 'archiver';
 import fs from 'fs-extra';
-import {
-	ARCHIVER_OPTIONS,
-	MAIN_MIN_WIDTH,
-	SIDEBAR_WIDTH,
-	STUDIO_DISABLE_WP_AUTO_UPDATES_PLUGIN,
-} from 'src/constants';
+import { ARCHIVER_OPTIONS, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
 import { bumpStat } from 'src/lib/bump-stats';
@@ -189,6 +184,7 @@ export async function createSite(
 		port,
 		running: false,
 		phpVersion: DEFAULT_PHP_VERSION,
+		wpVersion: wpVersion?.isLatest ? 'latest' : wpVersion?.version,
 		customDomain,
 		enableHttps,
 	} as const;
@@ -211,11 +207,6 @@ export async function createSite(
 		} else {
 			await updateSiteUrl( server, getSiteUrl( details ) );
 		}
-	}
-
-	// If not using the latest WordPress version, copy our mu-plugin to disable auto-updates
-	if ( wpVersion?.version && ! wpVersion.isLatest ) {
-		await server.addMuPlugin( STUDIO_DISABLE_WP_AUTO_UPDATES_PLUGIN );
 	}
 
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
@@ -1238,28 +1229,4 @@ export async function getAllCustomDomains(): Promise< string[] > {
 	return userData.sites
 		.map( ( site ) => site.customDomain )
 		.filter( ( domain ): domain is string => domain !== undefined );
-}
-
-export async function addMuPlugin(
-	event: IpcMainInvokeEvent,
-	siteId: string,
-	pluginFileName: string
-): Promise< void > {
-	const server = SiteServer.get( siteId );
-	if ( ! server ) {
-		throw new Error( 'Site not found.' );
-	}
-	await server.addMuPlugin( pluginFileName );
-}
-
-export async function removeMuPlugin(
-	event: IpcMainInvokeEvent,
-	siteId: string,
-	pluginFileName: string
-): Promise< void > {
-	const server = SiteServer.get( siteId );
-	if ( ! server ) {
-		throw new Error( 'Site not found.' );
-	}
-	await server.removeMuPlugin( pluginFileName );
 }

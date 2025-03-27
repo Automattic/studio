@@ -126,10 +126,6 @@ const api: IpcApi = {
 	getFileContent: ( filePath: string ) => ipcRenderer.invoke( 'getFileContent', filePath ),
 	isFullscreen: () => ipcRenderer.invoke( 'isFullscreen' ),
 	getAllCustomDomains: () => ipcRenderer.invoke( 'getAllCustomDomains' ),
-	addMuPlugin: ( siteId: string, pluginFileName: string ) =>
-		ipcRenderer.invoke( 'addMuPlugin', siteId, pluginFileName ),
-	removeMuPlugin: ( siteId: string, pluginFileName: string ) =>
-		ipcRenderer.invoke( 'removeMuPlugin', siteId, pluginFileName ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

@@ -67,6 +67,3 @@ export const WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT =
 export const SQLITE_DATABASE_INTEGRATION_VERSION = 'v2.1.17-alpha.1';
 
 export const SQLITE_DATABASE_INTEGRATION_RELEASE_URL = `https://github.com/Automattic/sqlite-database-integration/archive/refs/tags/${ SQLITE_DATABASE_INTEGRATION_VERSION }.zip`;
-
-// WordPress Studio mu-plugins
-export const STUDIO_DISABLE_WP_AUTO_UPDATES_PLUGIN = 'studio-disable-auto-updates.php';

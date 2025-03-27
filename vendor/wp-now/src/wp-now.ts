@@ -192,7 +192,7 @@ export async function prepareWordPress( php: PHP, options: WPNowOptions ) {
 			break;
 	}
 
-	await mountInternalMuPlugins( php );
+	await mountInternalMuPlugins( php, options );
 	await startSymlinkManager( php, options.projectPath, options.documentRoot );
 	await setupPlatformLevelMuPlugins( php );
 }
@@ -447,7 +447,7 @@ export function getThemeTemplate( projectPath: string ) {
 	}
 }
 
-async function mountInternalMuPlugins( php: PHP ) {
+async function mountInternalMuPlugins( php: PHP, options: WPNowOptions ) {
 	php.mkdir( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER );
 
 	php.writeFile(
@@ -602,6 +602,20 @@ async function mountInternalMuPlugins( php: PHP ) {
 		});
 		`
 	);
+
+	// Only add the auto-updates disabling plugin for non-latest WordPress versions
+	if ( options?.wordPressVersion && options.wordPressVersion !== 'latest' ) {
+		php.writeFile(
+			path.posix.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-disable-auto-updates.php' ),
+			`<?php
+			// Disable auto-updates
+			add_filter( 'auto_update_core', '__return_false' );
+			add_filter( 'allow_dev_auto_core_updates', '__return_false' );
+			add_filter( 'allow_minor_auto_core_updates', '__return_false' );
+			add_filter( 'allow_major_auto_core_updates', '__return_false' );
+			`
+		);
+	}
 }
 
 async function mountSqlitePlugin( php: PHP, vfsDocumentRoot: string ) {

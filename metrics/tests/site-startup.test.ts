@@ -1,7 +1,6 @@
 import path from 'path';
 import { test, expect } from '@playwright/test';
 import { E2ESession } from '../../e2e/e2e-helpers';
-import MainSidebar from '../../e2e/page-objects/main-sidebar';
 import Onboarding from '../../e2e/page-objects/onboarding';
 import SiteContent from '../../e2e/page-objects/site-content';
 import { median } from '../utils';
@@ -55,20 +54,7 @@ test.describe( 'Startup Metrics', () => {
 			const startTime = Date.now();
 			await onboarding.continueButton.click();
 			siteContent = new SiteContent( session.mainWindow, siteName );
-
-			try {
-				await expect( siteContent.runningButton ).toBeAttached();
-			} finally {
-				// Capture a screenshot.
-				await session.mainWindow.screenshot( {
-					path: path.join(
-						process.env.ARTIFACTS_PATH ?? '',
-						'test-results',
-						'screenshot-' + Date.now() + '.png'
-					),
-				} );
-			}
-
+			await expect( siteContent.runningButton ).toBeAttached();
 			const endTime = Date.now();
 			const duration = endTime - startTime;
 			results.siteCreation = [ duration ];

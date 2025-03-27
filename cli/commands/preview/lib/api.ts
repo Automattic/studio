@@ -1,5 +1,6 @@
 import fs from 'fs';
 import WPCOM from 'wpcom';
+import { LoggerError } from 'cli/logger';
 
 export interface CreateSiteResponse {
 	domain_name: string;
@@ -24,8 +25,9 @@ const POLL_INTERVAL_MS = 3000;
 
 export async function uploadArchive(
 	archivePath: string,
-	token: string
-): Promise< { site_url?: string; site_id?: number } | Error > {
+	token: string,
+	action: string
+): Promise< { site_url: string; site_id: number } > {
 	const wpcom = new WPCOM( token );
 	const formData = [
 		[
@@ -51,7 +53,7 @@ export async function uploadArchive(
 		};
 	} catch ( error: unknown ) {
 		const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-		return new Error( `Failed to upload archive: ${ errorMessage }` );
+		throw new LoggerError( `Failed to upload archive: ${ errorMessage }`, action );
 	}
 }
 
@@ -70,7 +72,11 @@ async function checkSiteStatus( siteId: number, token: string ): Promise< boolea
 	}
 }
 
-export async function waitForSiteReady( siteId: number, token: string ): Promise< boolean > {
+export async function waitForSiteReady(
+	siteId: number,
+	token: string,
+	action: string
+): Promise< boolean > {
 	let attempts = 0;
 
 	while ( attempts < MAX_POLL_ATTEMPTS ) {
@@ -83,5 +89,8 @@ export async function waitForSiteReady( siteId: number, token: string ): Promise
 		await new Promise( ( resolve ) => setTimeout( resolve, POLL_INTERVAL_MS ) );
 	}
 
-	return false;
+	throw new LoggerError(
+		'Failed to create preview site: site did not become ready within timeout',
+		action
+	);
 }

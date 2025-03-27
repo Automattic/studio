@@ -1,12 +1,14 @@
 import fs from 'fs';
 import path from 'path';
 import archiver from 'archiver';
+import { LoggerError } from 'cli/logger';
 
 const ZIP_COMPRESSION_LEVEL = 9;
 
 export async function createArchive(
 	siteFolder: string,
-	archivePath: string
+	archivePath: string,
+	action: string
 ): Promise< archiver.Archiver > {
 	return new Promise( ( resolve, reject ) => {
 		const output = fs.createWriteStream( archivePath );
@@ -18,7 +20,7 @@ export async function createArchive(
 			resolve( archive );
 		} );
 		archive.on( 'error', ( err: Error ) => {
-			reject( err );
+			reject( new LoggerError( `Failed to create archive: ${ err.message }`, action ) );
 		} );
 
 		archive.pipe( output );

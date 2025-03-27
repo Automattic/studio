@@ -1,6 +1,17 @@
 import ora, { Ora } from 'ora';
 import { OutputFormat } from 'cli/types';
 
+export class LoggerError< T extends string > extends Error {
+	constructor(
+		message: string,
+		public action: T
+	) {
+		super( message );
+		this.name = 'LoggerError';
+		this.action = action;
+	}
+}
+
 export class Logger< T extends string > {
 	protected readonly outputFormat: OutputFormat;
 	private spinner: Ora;
@@ -53,17 +64,19 @@ export class Logger< T extends string > {
 		this.currentAction = null;
 	}
 
-	public reportError( action: T, message: string ) {
-		if ( this.currentAction !== action ) {
+	public reportError( error: LoggerError< T > ) {
+		if ( this.currentAction !== error.action ) {
 			throw new Error( 'Cannot report error for an action that is not currently in progress' );
 		}
 
 		if ( this.outputFormat === 'json' ) {
-			console.error( JSON.stringify( { action, status: 'fail', message } ) );
+			console.error(
+				JSON.stringify( { action: error.action, status: 'fail', message: error.message } )
+			);
 			return;
 		}
 
-		this.spinner.fail( message );
+		this.spinner.fail( error.message );
 		this.currentAction = null;
 	}
 }

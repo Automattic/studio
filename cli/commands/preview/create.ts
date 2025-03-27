@@ -4,7 +4,7 @@ import { uploadArchive, waitForSiteReady } from 'cli/commands/preview/lib/api';
 import { createArchive, cleanup } from 'cli/commands/preview/lib/archive';
 import { getAuthToken } from 'cli/commands/preview/lib/auth';
 import { validateSiteFolder } from 'cli/commands/preview/lib/validation';
-import { Logger } from 'cli/logger';
+import { Logger, LoggerError } from 'cli/logger';
 import { RegisterCommand, OutputFormat } from 'cli/types';
 
 enum LoggerAction {
@@ -21,53 +21,36 @@ async function runCommand( siteFolder: string, outputFormat?: OutputFormat ): Pr
 	);
 	const logger = new Logger< LoggerAction >( outputFormat );
 
-	logger.reportStart( LoggerAction.VALIDATE, 'Validating...' );
-	const isValidSiteFolder = validateSiteFolder( siteFolder );
-	if ( isValidSiteFolder instanceof Error ) {
-		logger.reportError( LoggerAction.VALIDATE, isValidSiteFolder.message );
-		return;
-	}
-	const token = await getAuthToken();
-	if ( ! token ) {
-		logger.reportError(
-			LoggerAction.VALIDATE,
-			'Authentication required. Please run the Studio app and authenticate first.'
+	try {
+		logger.reportStart( LoggerAction.VALIDATE, 'Validating...' );
+		validateSiteFolder( siteFolder, LoggerAction.VALIDATE );
+		const token = await getAuthToken( LoggerAction.VALIDATE );
+		logger.reportSuccess( LoggerAction.VALIDATE, 'Validation successful' );
+
+		logger.reportStart( LoggerAction.ARCHIVE, 'Creating archive...' );
+		await createArchive( siteFolder, archivePath, LoggerAction.ARCHIVE );
+		logger.reportSuccess( LoggerAction.ARCHIVE, 'Archive created' );
+
+		logger.reportStart( LoggerAction.UPLOAD, 'Uploading archive...' );
+		const uploadResponse = await uploadArchive( archivePath, token, LoggerAction.UPLOAD );
+		logger.reportSuccess( LoggerAction.UPLOAD, 'Archive uploaded' );
+
+		logger.reportStart( LoggerAction.READY, 'Creating preview site...' );
+		await waitForSiteReady( uploadResponse.site_id, token, LoggerAction.READY );
+		logger.reportSuccess(
+			LoggerAction.READY,
+			`Preview site available at: https://${ uploadResponse.site_url }`
 		);
-		return;
+	} catch ( error ) {
+		if ( error instanceof LoggerError ) {
+			logger.reportError( error );
+		} else {
+			const message = error instanceof Error ? error.message : String( error );
+			logger.reportError( new LoggerError( message, LoggerAction.VALIDATE ) );
+		}
+	} finally {
+		cleanup( archivePath );
 	}
-	logger.reportSuccess( LoggerAction.VALIDATE, 'Validation successful' );
-
-	logger.reportStart( LoggerAction.ARCHIVE, 'Creating archive...' );
-	const archive = await createArchive( siteFolder, archivePath );
-	if ( archive instanceof Error ) {
-		logger.reportError( LoggerAction.ARCHIVE, archive.message );
-		return;
-	}
-	logger.reportSuccess( LoggerAction.ARCHIVE, 'Archive created' );
-
-	logger.reportStart( LoggerAction.UPLOAD, 'Uploading archive...' );
-	const uploadResponse = await uploadArchive( archivePath, token );
-	if ( uploadResponse instanceof Error ) {
-		logger.reportError( LoggerAction.UPLOAD, uploadResponse.message );
-		return;
-	}
-	if ( ! uploadResponse.site_url || ! uploadResponse.site_id ) {
-		logger.reportError( LoggerAction.UPLOAD, 'Failed to upload archive' );
-		return;
-	}
-	logger.reportSuccess( LoggerAction.UPLOAD, 'Archive uploaded' );
-
-	logger.reportStart( LoggerAction.READY, 'Creating preview site...' );
-	const isSiteReady = await waitForSiteReady( uploadResponse.site_id, token );
-	if ( ! isSiteReady ) {
-		logger.reportError( LoggerAction.READY, 'Failed to create preview site' );
-		return;
-	}
-	cleanup( archivePath );
-	logger.reportSuccess(
-		LoggerAction.READY,
-		`Preview site available at: https://${ uploadResponse.site_url }`
-	);
 }
 
 export const registerCommand: RegisterCommand = ( program ) => {

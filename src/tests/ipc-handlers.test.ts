@@ -66,10 +66,7 @@ describe( 'createSite', () => {
 		( isEmptyDir as jest.Mock ).mockResolvedValueOnce( true );
 		( pathExists as jest.Mock ).mockResolvedValueOnce( true );
 
-		const [ site ] = await createSite( mockIpcMainInvokeEvent, '/test', 'Test', {
-			version: '6.4',
-			isLatest: true,
-		} );
+		const [ site ] = await createSite( mockIpcMainInvokeEvent, '/test', 'Test', '6.4' );
 
 		expect( site ).toEqual( {
 			adminPassword: expect.any( String ),
@@ -80,6 +77,8 @@ describe( 'createSite', () => {
 			port: 9999,
 			running: false,
 			customDomain: undefined,
+			enableHttps: undefined,
+			wpVersion: '6.4',
 		} );
 	} );
 
@@ -91,13 +90,12 @@ describe( 'createSite', () => {
 				throw new Error( 'Intentional test error' );
 			} );
 
-			createSite( mockIpcMainInvokeEvent, '/test', 'Test', {
-				version: '6.4',
-				isLatest: true,
-			} ).catch( () => {
-				expect( shell.trashItem ).toHaveBeenCalledTimes( 1 );
-				expect( shell.trashItem ).toHaveBeenCalledWith( '/test' );
-			} );
+			createSite( mockIpcMainInvokeEvent, '/test', 'Test', '6.4' )
+				.catch( () => '6.4' )
+				.catch( () => {
+					expect( shell.trashItem ).toHaveBeenCalledTimes( 1 );
+					expect( shell.trashItem ).toHaveBeenCalledWith( '/test' );
+				} );
 		} );
 	} );
 } );

@@ -48,7 +48,8 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 	const [ selectedPhpVersion, setSelectedPhpVersion ] = useState< AllowedPHPVersion >(
 		( selectedSite?.phpVersion as AllowedPHPVersion ) ?? DEFAULT_PHP_VERSION
 	);
-	const [ selectedWpVersion, setSelectedWpVersion ] = useState( currentWpVersion );
+	const siteWpVersion = selectedSite?.wpVersion === 'latest' ? 'latest' : currentWpVersion;
+	const [ selectedWpVersion, setSelectedWpVersion ] = useState( siteWpVersion );
 	const [ useCustomDomain, setUseCustomDomain ] = useState( Boolean( selectedSite?.customDomain ) );
 	const [ customDomain, setCustomDomain ] = useState< string | null >(
 		selectedSite?.customDomain ?? null
@@ -71,14 +72,20 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 			} );
 	}, [ selectedSite?.customDomain ] );
 
-	const { data: wordpressVersions = [] } = useGetWordPressVersions( undefined, {
-		skip: ! showModal,
-	} );
+	const { data: wordpressVersions = [] } = useGetWordPressVersions();
+
+	const latestVersion = wordpressVersions.find( ( version ) => version.value === 'latest' );
+	const betaVersions = wordpressVersions.filter(
+		( version ) => version.isBeta || version.isDevelopment
+	);
+	const stableVersions = wordpressVersions.filter(
+		( version ) => version !== latestVersion && ! version.isBeta && ! version.isDevelopment
+	);
+
 	const wordpressVersionOptions = wordpressVersions.map( ( version ) => ( {
 		label: version.label,
 		value: version.value,
 	} ) );
-	const latestStableVersion = wordpressVersions.find( ( version ) => version.isLatest );
 
 	if ( ! wordpressVersionOptions.some( ( version ) => version.value === currentWpVersion ) ) {
 		addWpVersionToList( currentWpVersion, wordpressVersionOptions );
@@ -89,7 +96,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 		!! selectedSite &&
 		selectedSite.name === siteName &&
 		selectedSite.phpVersion === selectedPhpVersion &&
-		currentWpVersion === selectedWpVersion &&
+		siteWpVersion === selectedWpVersion &&
 		Boolean( selectedSite.customDomain ) === useCustomDomain &&
 		usedCustomDomain === customDomain &&
 		!! selectedSite.enableHttps === ( !! usedCustomDomain && enableHttps );
@@ -102,13 +109,13 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 		}
 		setSiteName( selectedSite.name );
 		setSelectedPhpVersion( selectedSite.phpVersion as AllowedPHPVersion );
-		setSelectedWpVersion( currentWpVersion );
+		setSelectedWpVersion( siteWpVersion );
 		setUseCustomDomain( Boolean( selectedSite.customDomain ) );
 		setCustomDomain( selectedSite.customDomain ?? null );
 		setCustomDomainError( '' );
 		setIsChangeWpError( '' );
 		setEnableHttps( selectedSite.enableHttps ?? false );
-	}, [ currentWpVersion, selectedSite ] );
+	}, [ selectedSite, siteWpVersion ] );
 
 	const onSiteEdit = async ( event: FormEvent ) => {
 		event.preventDefault();
@@ -118,7 +125,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 		setIsEditingSite( true );
 		setIsChangeWpError( '' );
 
-		const hasWpVersionChanged = selectedWpVersion !== currentWpVersion;
+		const hasWpVersionChanged = selectedWpVersion !== siteWpVersion;
 		const hasPhpVersionChanged = selectedPhpVersion !== selectedSite.phpVersion;
 		const needsRestart = selectedSite.running && ( hasWpVersionChanged || hasPhpVersionChanged );
 		setNeedsRestart( needsRestart );
@@ -146,7 +153,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 						title: __( 'Error changing WordPress version' ),
 						message: errorMessage,
 					} );
-					setSelectedWpVersion( currentWpVersion );
+					setSelectedWpVersion( siteWpVersion );
 					setIsEditingSite( false );
 					return;
 				}
@@ -162,7 +169,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 				...selectedSite,
 				name: siteName,
 				phpVersion: selectedPhpVersion,
-				wpVersion: selectedWpVersion === latestStableVersion?.value ? 'latest' : selectedWpVersion,
+				wpVersion: selectedWpVersion,
 				customDomain: usedCustomDomain,
 				enableHttps: !! usedCustomDomain && enableHttps,
 			} );
@@ -248,9 +255,11 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 								>
 									<span className="font-semibold flex items-center gap-2">
 										{ __( 'WordPress version' ) }
-										{ latestStableVersion && selectedWpVersion !== latestStableVersion.value && (
+										{ selectedWpVersion !== 'latest' && (
 											<Tooltip
-												text={ __( 'Auto-updates will be disabled for this site.' ) }
+												text={ __(
+													'WordPress Core automatic updates will be disabled for this site.'
+												) }
 												placement="top"
 											>
 												<Icon icon={ warning } className="text-[#ae5c00]" size={ 16 } />
@@ -269,11 +278,45 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 											className={ cx( isChangeWpError && 'error-select-control' ) }
 											disabled={ isEditingSite || isOffline }
 											value={ selectedWpVersion }
-											options={ wordpressVersionOptions }
 											onChange={ setSelectedWpVersion }
 											__next40pxDefaultSize
 											__nextHasNoMarginBottom
-										/>
+										>
+											{ wordpressVersions.length > 0 ? (
+												<>
+													<optgroup label={ __( 'Auto Updated' ) }>
+														{ latestVersion && (
+															<option key={ latestVersion.value } value={ latestVersion.value }>
+																{ latestVersion.label }
+															</option>
+														) }
+													</optgroup>
+													<optgroup label={ __( 'Beta & Nightly' ) }>
+														{ betaVersions.map( ( { label, value } ) => (
+															<option key={ value } value={ value }>
+																{ label }
+															</option>
+														) ) }
+													</optgroup>
+													<optgroup label={ __( 'Stable' ) }>
+														{ stableVersions.map( ( { label, value } ) => (
+															<option key={ value } value={ value }>
+																{ label }
+															</option>
+														) ) }
+													</optgroup>
+													{ ! wordpressVersionOptions.some(
+														( version ) => version.value === selectedWpVersion
+													) && (
+														<optgroup label={ __( 'Custom' ) }>
+															<option value={ selectedWpVersion }>{ selectedWpVersion }</option>
+														</optgroup>
+													) }
+												</>
+											) : (
+												<option value={ siteWpVersion }>{ siteWpVersion }</option>
+											) }
+										</SelectControl>
 									</Tooltip>
 								</label>
 							</div>

@@ -26,7 +26,7 @@ const api: IpcApi = {
 	createSite: (
 		path: string,
 		name?: string,
-		wpVersion?: { version: string; isLatest: boolean },
+		wpVersion?: string,
 		customDomain?: string,
 		enableHttps?: boolean
 	) => ipcRenderer.invoke( 'createSite', path, name, wpVersion, customDomain, enableHttps ),

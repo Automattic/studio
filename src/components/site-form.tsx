@@ -275,7 +275,12 @@ export const SiteForm = ( {
 	const offlineMessage = __( 'Changing WordPress version requires an internet connection.' );
 
 	const { data: wpVersions = [] } = useGetWordPressVersions();
-	const latestStableVersion = wpVersions.find( ( version ) => version.isLatest );
+	const latestStableVersion = wpVersions.find( ( version ) => version.value === 'latest' );
+
+	const betaVersions = wpVersions.filter( ( version ) => version.isBeta || version.isDevelopment );
+	const stableVersions = wpVersions.filter(
+		( version ) => version !== latestStableVersion && ! version.isBeta && ! version.isDevelopment
+	);
 
 	const [ isAdvancedSettingsVisible, setAdvancedSettingsVisible ] = useState( false );
 
@@ -419,9 +424,11 @@ export const SiteForm = ( {
 													htmlFor="wp-version-select"
 												>
 													{ __( 'WordPress version' ) }
-													{ latestStableVersion && wpVersion !== latestStableVersion.value && (
+													{ wpVersion !== 'latest' && (
 														<Tooltip
-															text={ __( 'Auto-updates will be disabled for this site.' ) }
+															text={ __(
+																'WordPress Core automatic updates will be disabled for this site.'
+															) }
 															placement="top"
 														>
 															<Icon icon={ warning } size={ 16 } />
@@ -438,24 +445,44 @@ export const SiteForm = ( {
 													<SelectControl
 														id="wp-version-select"
 														value={ wpVersion }
-														options={
-															wpVersions.length > 0
-																? wpVersions.map( ( { label, value } ) => ( {
-																		label,
-																		value,
-																  } ) )
-																: [
-																		{
-																			label: DEFAULT_WORDPRESS_VERSION,
-																			value: DEFAULT_WORDPRESS_VERSION,
-																		},
-																  ]
-														}
 														onChange={ setWpVersion }
 														disabled={ isOffline }
 														__next40pxDefaultSize
 														__nextHasNoMarginBottom
-													/>
+													>
+														{ wpVersions.length > 0 ? (
+															<>
+																{ latestStableVersion && (
+																	<optgroup label={ __( 'Auto Updated' ) }>
+																		<option
+																			key={ latestStableVersion.value }
+																			value={ latestStableVersion.value }
+																		>
+																			{ latestStableVersion.label }
+																		</option>
+																	</optgroup>
+																) }
+																<optgroup label={ __( 'Beta & Nightly' ) }>
+																	{ betaVersions.map( ( { label, value } ) => (
+																		<option key={ value } value={ value }>
+																			{ label }
+																		</option>
+																	) ) }
+																</optgroup>
+																<optgroup label={ __( 'Stable' ) }>
+																	{ stableVersions.map( ( { label, value } ) => (
+																		<option key={ value } value={ value }>
+																			{ label }
+																		</option>
+																	) ) }
+																</optgroup>
+															</>
+														) : (
+															<option value={ DEFAULT_WORDPRESS_VERSION }>
+																{ DEFAULT_WORDPRESS_VERSION }
+															</option>
+														) }
+													</SelectControl>
 												</Tooltip>
 											</div>
 										</div>

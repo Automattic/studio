@@ -20,7 +20,7 @@ interface SiteDetailsContext {
 	createSite: (
 		path: string,
 		siteName?: string,
-		wpVersion?: { version: string; isLatest: boolean },
+		wpVersion?: string,
 		customDomain?: string,
 		enableHttps?: boolean,
 		callback?: ( site: SiteDetails ) => Promise< void >
@@ -193,7 +193,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		async (
 			path: string,
 			siteName?: string,
-			wpVersion?: { version: string; isLatest: boolean },
+			wpVersion?: string,
 			customDomain?: string,
 			enableHttps?: boolean,
 			callback?: ( site: SiteDetails ) => Promise< void >

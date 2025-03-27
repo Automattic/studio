@@ -28,16 +28,7 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 
 jest.mock( 'src/stores/wordpress-versions-api', () => ( {
 	useGetWordPressVersions: jest.fn().mockReturnValue( {
-		data: [
-			{
-				version: '6.1.7',
-				isLatest: true,
-			},
-			{
-				version: '6.2.0',
-				isLatest: false,
-			},
-		],
+		data: [ '6.1.7', '6.2.0' ],
 	} ),
 } ) );
 
@@ -116,7 +107,7 @@ describe( 'useAddSite', () => {
 		expect( mockCreateSite ).toHaveBeenCalledWith(
 			'/test/path',
 			'',
-			{ isLatest: false, version: '6.1.7' },
+			'6.1.7',
 			undefined,
 			false,
 			expect.any( Function )

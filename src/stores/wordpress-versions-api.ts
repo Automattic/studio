@@ -1,6 +1,6 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import * as Sentry from '@sentry/electron/renderer';
-import { __, sprintf } from '@wordpress/i18n';
+import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
 import { isWordPressDevVersion, isWordPressBetaVersion } from 'src/lib/wordpress-version-utils';
 import { withOfflineCheck } from 'src/stores/utils/with-offline-check';
@@ -10,6 +10,13 @@ const MINIMUM_WORDPRESS_VERSION = '5.9.9';
 const wordPressApiResponseSchema = z.object( {
 	offers: z.array( z.any() ),
 } );
+
+function findLatestStable( versions: ProcessedOffer[] ): ProcessedOffer | undefined {
+	return versions.find(
+		( version: ProcessedOffer ) =>
+			! isWordPressBetaVersion( version.version ) && ! isWordPressDevVersion( version.version )
+	);
+}
 
 async function fetchWordPressApiData( channel: 'beta' | 'development', version?: string ) {
 	const baseUrl = 'https://api.wordpress.org/core/version-check/1.7/';
@@ -77,15 +84,12 @@ function processWordPressOffers(
 function generateVersionLabel(
 	version: string,
 	shortName: string,
-	shortNameOccurrences: number,
-	isLatest: boolean
+	shortNameOccurrences: number
 ): string {
 	if ( isWordPressDevVersion( version ) ) {
 		return 'nightly';
 	}
-	if ( isLatest ) {
-		return sprintf( __( '%s (latest)' ), version );
-	}
+
 	// If is beta or there are two or more versions with the same major.minor versions, we show the full version.
 	// 6.4.1 and 6.4.2 will have the same shortName (6.4), so we'll show the full version.
 	if ( shortNameOccurrences > 1 || isWordPressBetaVersion( version ) ) {
@@ -94,17 +98,9 @@ function generateVersionLabel(
 	return shortName;
 }
 
-function findLatestStable( versions: ProcessedOffer[] ): ProcessedOffer | undefined {
-	return versions.find(
-		( version: ProcessedOffer ) =>
-			! isWordPressBetaVersion( version.version ) && ! isWordPressDevVersion( version.version )
-	);
-}
-
 interface WordPressVersion {
 	isBeta: boolean;
 	isDevelopment: boolean;
-	isLatest: boolean;
 	label: string;
 	value: string;
 }
@@ -143,24 +139,34 @@ export const wordpressVersionsApi = createApi( {
 				)[ 0 ];
 
 				const allOffers = developmentOffer ? [ developmentOffer, ...stableOffers ] : stableOffers;
-				const latestVersion = findLatestStable( allOffers );
+				const latestStable = findLatestStable( allOffers );
+
+				const versionsList = allOffers.map( ( { version, shortName } ) => ( {
+					isBeta: isWordPressBetaVersion( version ),
+					isDevelopment: isWordPressDevVersion( version ),
+					label: generateVersionLabel(
+						version,
+						shortName,
+						shortNameOccurrences.get( shortName ) || 0
+					),
+					value: version,
+				} ) );
+
+				if ( latestStable ) {
+					versionsList.unshift( {
+						isBeta: false,
+						isDevelopment: false,
+						label: generateVersionLabel(
+							latestStable.version,
+							latestStable.shortName,
+							shortNameOccurrences.get( latestStable.shortName ) || 0
+						),
+						value: 'latest',
+					} );
+				}
 
 				return {
-					data: allOffers.map( ( { version, shortName } ) => {
-						const isLatest = latestVersion?.version === version;
-						return {
-							isBeta: isWordPressBetaVersion( version ),
-							isDevelopment: isWordPressDevVersion( version ),
-							isLatest,
-							label: generateVersionLabel(
-								version,
-								shortName,
-								shortNameOccurrences.get( shortName ) || 0,
-								isLatest
-							),
-							value: version,
-						};
-					} ),
+					data: versionsList,
 				};
 			},
 		} ),

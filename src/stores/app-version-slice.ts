@@ -52,6 +52,12 @@ const appVersionSlice = createSlice( {
 		selectIsNewVersion: createSelector(
 			[ ( state ) => state.lastSeenVersion, ( _state, currentVersion: string ) => currentVersion ],
 			( lastSeenVersion, currentVersion ) => {
+				const forceNewVersion = false;
+
+				if ( forceNewVersion && currentVersion !== lastSeenVersion ) {
+					return true;
+				}
+
 				if ( ! currentVersion || ! lastSeenVersion ) {
 					return !! currentVersion && lastSeenVersion !== currentVersion;
 				}

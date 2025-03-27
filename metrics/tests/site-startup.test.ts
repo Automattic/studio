@@ -1,3 +1,4 @@
+import path from 'path';
 import { test, expect } from '@playwright/test';
 import { E2ESession } from '../../e2e/e2e-helpers';
 import MainSidebar from '../../e2e/page-objects/main-sidebar';
@@ -33,6 +34,18 @@ test.describe( 'Startup Metrics', () => {
 		} );
 
 		await session.cleanup();
+
+		const video = session.mainWindow.video();
+
+		if ( video ) {
+			await video.saveAs(
+				path.join(
+					process.env.ARTIFACTS_PATH ?? '',
+					'test-results',
+					'video-' + Date.now() + '.webm'
+				)
+			);
+		}
 	} );
 
 	test( 'measure site creation and startup performance', async () => {
@@ -51,7 +64,20 @@ test.describe( 'Startup Metrics', () => {
 			const startTime = Date.now();
 			await modal.addSiteButton.click();
 			siteContent = new SiteContent( session.mainWindow, siteName );
-			await expect( siteContent.runningButton ).toBeAttached( { timeout: 240_000 } );
+
+			try {
+				await expect( siteContent.runningButton ).toBeAttached();
+			} finally {
+				// Capture a screenshot.
+				await session.mainWindow.screenshot( {
+					path: path.join(
+						process.env.ARTIFACTS_PATH ?? '',
+						'test-results',
+						'screenshot-' + Date.now() + '.png'
+					),
+				} );
+			}
+
 			const endTime = Date.now();
 			const duration = endTime - startTime;
 			results.siteCreation = [ duration ];

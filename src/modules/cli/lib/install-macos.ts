@@ -1,6 +1,7 @@
 import { dialog } from 'electron';
 import { mkdir, readlink, symlink, unlink } from 'node:fs/promises';
 import path from 'node:path';
+import * as Sentry from '@sentry/electron';
 import { __ } from '@wordpress/i18n';
 import { sudoExec } from 'src/lib/sudo-exec';
 import { getMainWindow } from 'src/main-window';
@@ -23,6 +24,7 @@ export async function installCLIOnMacOSWithConfirmation() {
 			message: __( 'The CLI has been installed successfully.' ),
 		} );
 	} catch ( error ) {
+		Sentry.captureException( error );
 		console.error( 'Failed to install CLI', error );
 
 		const mainWindow = await getMainWindow();

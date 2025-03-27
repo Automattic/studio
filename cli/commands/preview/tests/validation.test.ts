@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { validateSiteFolder } from '../lib/validation';
+import { validateSiteFolder } from 'cli/commands/preview/lib/validation';
 
 jest.mock( 'fs' );
 jest.mock( 'path' );

@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import archiver from 'archiver';
-import { createArchive, cleanup } from '../lib/archive';
+import { createArchive, cleanup } from 'cli/commands/preview/lib/archive';
 
 jest.mock( 'fs' );
 jest.mock( 'path' );

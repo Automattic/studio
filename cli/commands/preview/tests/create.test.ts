@@ -1,11 +1,11 @@
 import os from 'os';
 import path from 'path';
 import { Command } from 'commander';
+import { uploadArchive, waitForSiteReady } from 'cli/commands/preview/lib/api';
+import { createArchive, cleanup } from 'cli/commands/preview/lib/archive';
+import { getAuthToken } from 'cli/commands/preview/lib/auth';
+import { validateSiteFolder } from 'cli/commands/preview/lib/validation';
 import { Logger } from 'cli/logger';
-import { uploadArchive, waitForSiteReady } from '../lib/api';
-import { createArchive, cleanup } from '../lib/archive';
-import { getAuthToken } from '../lib/auth';
-import { validateSiteFolder } from '../lib/validation';
 
 // Mock ora
 jest.mock( 'ora', () => {

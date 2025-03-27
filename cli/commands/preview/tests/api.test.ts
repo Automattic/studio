@@ -1,6 +1,6 @@
 import fs from 'fs';
 import wpcom from 'wpcom';
-import { uploadArchive, waitForSiteReady, SnapshotStatus } from '../lib/api';
+import { uploadArchive, waitForSiteReady, SnapshotStatus } from 'cli/commands/preview/lib/api';
 
 jest.mock( 'fs' );
 jest.mock( 'wpcom' );

@@ -6,6 +6,7 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 export const appVersionApi = createApi( {
 	reducerPath: 'appVersionApi',
 	baseQuery: fetchBaseQuery(),
+	tagTypes: [ 'LastSeenVersion' ],
 	endpoints: ( builder ) => ( {
 		getLastSeenVersion: builder.query< string | undefined, void >( {
 			queryFn: async () => {
@@ -17,6 +18,7 @@ export const appVersionApi = createApi( {
 					throw error;
 				}
 			},
+			providesTags: [ 'LastSeenVersion' ],
 		} ),
 		saveLastSeenVersion: builder.mutation< string, string >( {
 			queryFn: async ( version ) => {
@@ -28,6 +30,7 @@ export const appVersionApi = createApi( {
 					throw error;
 				}
 			},
+			invalidatesTags: [ 'LastSeenVersion' ],
 		} ),
 	} ),
 } );

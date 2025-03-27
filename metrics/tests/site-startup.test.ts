@@ -15,9 +15,6 @@ test.describe( 'Startup Metrics', () => {
 		await session.launch();
 
 		// Complete onboarding before tests
-		const onboarding = new Onboarding( session.mainWindow );
-		await expect( onboarding.heading ).toBeVisible();
-		await onboarding.continueButton.click();
 	} );
 
 	// eslint-disable-next-line no-empty-pattern
@@ -49,20 +46,14 @@ test.describe( 'Startup Metrics', () => {
 	} );
 
 	test( 'measure site creation and startup performance', async () => {
-		let modal;
 		let siteContent;
-
-		// Create a new site first (without timing)
-		await test.step( 'Create a new site', async () => {
-			const sidebar = new MainSidebar( session.mainWindow );
-			modal = await sidebar.openAddSiteModal();
-			await modal.siteNameInput.fill( siteName );
-		} );
 
 		// Measure site creation time (includes initial startup time)
 		await test.step( 'Measure site creation time', async () => {
+			const onboarding = new Onboarding( session.mainWindow );
+			await expect( onboarding.heading ).toBeVisible();
 			const startTime = Date.now();
-			await modal.addSiteButton.click();
+			await onboarding.continueButton.click();
 			siteContent = new SiteContent( session.mainWindow, siteName );
 
 			try {

@@ -8,35 +8,26 @@ export interface GithubRelease {
 
 export async function getLatestSQLiteCommandRelease(): Promise< GithubRelease > {
 	const url = 'https://api.github.com/repos/automattic/wp-cli-sqlite-command/releases/latest';
-	console.log( '[sqlite-command] Fetching from:', url );
 
 	const headers: HeadersInit = {
 		Accept: 'application/vnd.github.v3+json',
 		'User-Agent': 'wp-now-cli',
 	};
 
+	// GitHub API has rate limits:
+	// - 60 requests/hour for unauthenticated requests
+	// - 5,000 requests/hour with token authentication
+	// In CI environments, the IP-based rate limit is shared across runners,
+	// so we authenticate with GITHUB_TOKEN when available.
 	if ( process.env.GITHUB_TOKEN ) {
-		console.log( '[sqlite-command] GITHUB_TOKEN available' );
 		headers.Authorization = `token ${ process.env.GITHUB_TOKEN }`;
-	} else {
-		console.log( '[sqlite-command] GITHUB_TOKEN not available' );
 	}
 
 	const response = await fetch( url, { headers } );
-	console.log( '[sqlite-command] Response status:', response.status );
 
 	if ( ! response.ok ) {
-		const text = await response.text();
-		console.log( '[sqlite-command] Error response:', text );
 		throw new Error( `GitHub API request failed: ${ response.status } ${ response.statusText }` );
 	}
 
-	const data = await response.json();
-	console.log( '[sqlite-command] Release data:', {
-		tag_name: data.tag_name,
-		assets: data.assets?.length,
-		download_url: data.assets?.[ 0 ]?.browser_download_url,
-	} );
-
-	return data;
+	return await response.json();
 }

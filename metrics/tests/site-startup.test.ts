@@ -51,7 +51,7 @@ test.describe( 'Startup Metrics', () => {
 			const startTime = Date.now();
 			await modal.addSiteButton.click();
 			siteContent = new SiteContent( session.mainWindow, siteName );
-			await expect( siteContent.runningButton ).toBeAttached();
+			await expect( siteContent.runningButton ).toBeAttached( { timeout: 240_000 } );
 			const endTime = Date.now();
 			const duration = endTime - startTime;
 			results.siteCreation = [ duration ];

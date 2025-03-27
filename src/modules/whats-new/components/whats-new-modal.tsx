@@ -53,19 +53,19 @@ const WHATS_NEW_PAGES: WhatsNewPage[] = [
 ];
 
 const PageContent = ( { title, description, learnMoreUrl }: Omit< WhatsNewPage, 'image' > ) => (
-	<div className="px-8 py-4">
+	<div className="px-8 py-4 flex flex-col h-full">
 		<h2 className="text-xl mb-4 text-gray-900">{ title }</h2>
 		<p className="text-gray-900 text-m leading-s">{ description }</p>
-		{ learnMoreUrl && (
-			<div className="mt-4">
+		<div className={ cx( 'mt-4', ! learnMoreUrl && 'mt-[36px]' ) }>
+			{ learnMoreUrl && (
 				<button
 					onClick={ () => getIpcApi().openURL( learnMoreUrl ) }
 					className="text-a8c-blueberry text-m leading-s cursor-pointer"
 				>
 					{ __( 'Learn more' ) }
 				</button>
-			</div>
-		) }
+			) }
+		</div>
 	</div>
 );
 

@@ -10,7 +10,6 @@ export async function createArchive(
 ): Promise< archiver.Archiver > {
 	return new Promise( ( resolve, reject ) => {
 		const output = fs.createWriteStream( archivePath );
-
 		const archive = archiver( 'zip', {
 			zlib: { level: ZIP_COMPRESSION_LEVEL },
 		} );
@@ -18,7 +17,6 @@ export async function createArchive(
 		output.on( 'close', () => {
 			resolve( archive );
 		} );
-
 		archive.on( 'error', ( err: Error ) => {
 			reject( err );
 		} );

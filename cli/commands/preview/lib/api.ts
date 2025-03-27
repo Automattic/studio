@@ -71,21 +71,17 @@ async function checkSiteStatus( siteId: number, token: string ): Promise< boolea
 }
 
 export async function waitForSiteReady( siteId: number, token: string ): Promise< boolean > {
-	try {
-		let attempts = 0;
+	let attempts = 0;
 
-		while ( attempts < MAX_POLL_ATTEMPTS ) {
-			const isReady = await checkSiteStatus( siteId, token );
-			if ( isReady ) {
-				return true;
-			}
-
-			attempts++;
-			await new Promise( ( resolve ) => setTimeout( resolve, POLL_INTERVAL_MS ) );
+	while ( attempts < MAX_POLL_ATTEMPTS ) {
+		const isReady = await checkSiteStatus( siteId, token );
+		if ( isReady ) {
+			return true;
 		}
 
-		throw new Error( 'Timeout waiting for preview site to be ready' );
-	} catch {
-		return false;
+		attempts++;
+		await new Promise( ( resolve ) => setTimeout( resolve, POLL_INTERVAL_MS ) );
 	}
+
+	return false;
 }

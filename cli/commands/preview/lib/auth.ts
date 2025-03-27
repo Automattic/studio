@@ -19,7 +19,7 @@ export async function getAuthToken(): Promise< string | null > {
 	try {
 		const userData = JSON.parse( fs.readFileSync( appDataPath, 'utf8' ) );
 		return userData.authToken?.accessToken || null;
-	} catch ( error ) {
+	} catch {
 		return null;
 	}
 }

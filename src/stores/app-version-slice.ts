@@ -1,4 +1,5 @@
 import { createSlice, createAsyncThunk, createSelector } from '@reduxjs/toolkit';
+import * as semver from 'semver';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
 interface AppVersionState {
@@ -50,7 +51,38 @@ const appVersionSlice = createSlice( {
 		selectLastSeenVersion: ( state ) => state.lastSeenVersion,
 		selectIsNewVersion: createSelector(
 			[ ( state ) => state.lastSeenVersion, ( _state, currentVersion: string ) => currentVersion ],
-			( lastSeenVersion, currentVersion ) => !! currentVersion && lastSeenVersion !== currentVersion
+			( lastSeenVersion, currentVersion ) => {
+				if ( ! currentVersion || ! lastSeenVersion ) {
+					return !! currentVersion && lastSeenVersion !== currentVersion;
+				}
+
+				try {
+					if ( semver.prerelease( currentVersion ) ) {
+						return false;
+					}
+
+					const cleanLastSeen = semver.valid( semver.coerce( lastSeenVersion ) );
+					const cleanCurrent = semver.valid( semver.coerce( currentVersion ) );
+
+					if ( ! cleanLastSeen || ! cleanCurrent ) {
+						return false;
+					}
+
+					const lastSeenParts = semver.parse( cleanLastSeen );
+					const currentParts = semver.parse( cleanCurrent );
+
+					if ( ! lastSeenParts || ! currentParts ) {
+						return false;
+					}
+
+					return (
+						lastSeenParts.major !== currentParts.major || lastSeenParts.minor !== currentParts.minor
+					);
+				} catch ( error ) {
+					console.error( 'Error comparing versions:', error );
+					return lastSeenVersion !== currentVersion;
+				}
+			}
 		),
 	},
 } );

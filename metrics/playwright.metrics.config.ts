@@ -20,9 +20,9 @@ export default defineConfig( {
 		actionTimeout: 120_000, // 2 minutes.
 		headless: true,
 		// Enable only for debugging.
-		trace: 'on',
-		screenshot: 'on',
-		video: 'on',
+		trace: 'off',
+		screenshot: 'off',
+		video: 'off',
 	},
 	expect: {
 		timeout: 120_000, // 2 minutes.

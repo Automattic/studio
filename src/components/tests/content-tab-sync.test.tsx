@@ -241,25 +241,4 @@ describe( 'ContentTabSync', () => {
 		} );
 		expect( createNewSiteButton ).toBeInTheDocument();
 	} );
-
-	it( 'create new site opens the browser and closes the modal', () => {
-		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
-		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
-		const connectSiteButton = screen.getByRole( 'button', { name: /Connect site/i } );
-		fireEvent.click( connectSiteButton );
-
-		const createNewSiteButton = screen.getByRole( 'button', {
-			name: /Create a new WordPress.com site ↗/i,
-		} );
-		fireEvent.click( createNewSiteButton );
-		expect( getIpcApi().openURL ).toHaveBeenCalledWith(
-			`https://wordpress.com/setup/new-hosted-site?ref=studio&section=studio-sync&showDomainStep&studioSiteId=${ selectedSite.id }`
-		);
-		expect(
-			screen.queryByRole( 'button', {
-				name: /Create a new WordPress.com site ↗/i,
-			} )
-		).not.toBeInTheDocument();
-		expect( screen.queryByText( 'Connect a WordPress.com site' ) ).not.toBeInTheDocument();
-	} );
 } );

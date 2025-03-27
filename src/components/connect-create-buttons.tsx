@@ -17,7 +17,6 @@ interface ConnectButtonProps {
 interface CreateButtonProps {
 	variant: ButtonVariant;
 	selectedSite: SiteDetails;
-	onRequestClose: () => void;
 	text?: string;
 	className?: string;
 }
@@ -53,7 +52,6 @@ export const ConnectButton = ( {
 };
 
 export const CreateButton = ( {
-	onRequestClose,
 	variant,
 	selectedSite,
 	text = __( 'Create new site' ),
@@ -72,7 +70,6 @@ export const CreateButton = ( {
 					getIpcApi().openURL(
 						`https://wordpress.com/setup/new-hosted-site?ref=studio&section=studio-sync&showDomainStep&studioSiteId=${ selectedSite.id }`
 					);
-					onRequestClose();
 				} }
 				variant={ variant }
 				className={ cx( ! isOffline && '!text-a8c-blueberry !shadow-a8c-blueberry', className ) }

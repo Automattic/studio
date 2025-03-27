@@ -332,7 +332,6 @@ function Footer( {
 	return (
 		<div className="flex px-8 py-4 border-t border-a8c-gray-5 justify-between items-center">
 			<CreateButton
-				onRequestClose={ onRequestClose }
 				variant="link"
 				selectedSite={ selectedSite }
 				text={ __( 'Create a new WordPress.com site' ) }

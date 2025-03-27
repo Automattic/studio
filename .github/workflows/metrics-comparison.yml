@@ -46,16 +46,8 @@ jobs:
           cd scripts/compare-perf && npm ci && npm run compare -- perf $GITHUB_SHA c954cc2228eab819118ab6e84e22dd0223faacfe --tests-branch $GITHUB_SHA
 
       - name: Archive performance results
-        if: success()
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: performance-results
-          path: ${{ env.ARTIFACTS_PATH }}/*.performance-results*.json
-
-      - name: Archive debug artifacts (screenshots, HTML snapshots)
-        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
-        if: failure()
-        with:
-          name: failures-artifacts
           path: ${{ env.ARTIFACTS_PATH }}
-          if-no-files-found: ignore

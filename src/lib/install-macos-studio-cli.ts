@@ -7,13 +7,13 @@ import { getMainWindow } from 'src/main-window';
 import { getResourcesPath } from 'src/storage/paths';
 import packageJson from '../../package.json';
 
-const installedCLIPath = '/usr/local/bin/studio';
+const cliSymlinkPath = '/usr/local/bin/studio';
 
 const binPath = path.join( getResourcesPath(), 'bin' );
-const packagedPath = path.join( binPath, 'studio-cli.sh' );
-const installScriptPath = path.join( binPath, 'install-studio-cli.sh' );
+const cliTargetPath = path.join( binPath, 'studio-cli.sh' );
+const installMacosStudioCliSymlinkScript = path.join( binPath, 'install-macos-studio-cli-symlink.sh' );
 
-export async function installCLIWithConfirmation() {
+export async function installMacOsStudioCLI() {
 	try {
 		await installCLI();
 		const mainWindow = await getMainWindow();
@@ -36,38 +36,40 @@ export async function installCLIWithConfirmation() {
 	}
 }
 
-// Install the command line tool on macOS.
 async function installCLI(): Promise< void > {
 	if ( process.platform !== 'darwin' ) {
 		return;
 	}
 
-	const installedPath = await getResolvedInstallPath();
+	const currentSymlinkTargetPath = await getCurrentSymlinkTargetPath();
 
-	if ( installedPath === packagedPath ) {
+	// If the symlink already points to the correct path, do nothing
+	if ( currentSymlinkTargetPath === cliTargetPath ) {
 		return;
 	}
 
 	try {
-		const directoryPath = path.dirname( installedCLIPath );
+		// Try to create symlink
+		const directoryPath = path.dirname( cliSymlinkPath );
 
-		await unlink( installedCLIPath );
+		await unlink( cliSymlinkPath );
 		await mkdir( directoryPath, { recursive: true } );
-		await symlink( packagedPath, installedCLIPath );
+		await symlink( cliTargetPath, cliSymlinkPath );
 	} catch ( e ) {
-		await sudoExec( `/bin/sh "${ installScriptPath }"`, {
+		// If symlink fails (usually because of permission issues writing to /usr/local/bin), try to do the same with sudo
+		await sudoExec( `/bin/sh "${ installMacosStudioCliSymlinkScript }"`, {
 			name: packageJson.productName,
 			env: {
-				INSTALLED_CLI_PATH: installedCLIPath,
-				PACKAGED_PATH: packagedPath,
+				CLI_SYMLINK_PATH: cliSymlinkPath,
+				CLI_TARGET_PATH: cliTargetPath,
 			},
 		} );
 	}
 }
 
-async function getResolvedInstallPath(): Promise< string | null > {
+async function getCurrentSymlinkTargetPath(): Promise< string | null > {
 	try {
-		return await readlink( installedCLIPath );
+		return await readlink( cliSymlinkPath );
 	} catch {
 		return null;
 	}

@@ -53,6 +53,7 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 		} ),
 		promptWindowsSpeedUpSites: jest.fn(),
 		openURL: jest.fn(),
+		isCATrusted: jest.fn( () => Promise.resolve( true ) ),
 	} ),
 } ) );
 

@@ -36,6 +36,7 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 		executeWPCLiInline: mockExecuteWPCLiInline,
 		showErrorMessageBox: mockShowErrorMessageBox,
 		getAllCustomDomains: mockGetAllCustomDomains,
+		isCATrusted: jest.fn( () => Promise.resolve( true ) ),
 	} ),
 } ) );
 

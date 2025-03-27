@@ -1,6 +1,7 @@
 import os from 'os';
 import path from 'path';
 import { uploadArchive, waitForSiteReady } from 'cli/commands/preview/lib/api';
+import { addPreviewSiteToAppdata } from 'cli/commands/preview/lib/appdata';
 import { createArchive, cleanup } from 'cli/commands/preview/lib/archive';
 import { getAuthToken } from 'cli/commands/preview/lib/auth';
 import { validateSiteFolder } from 'cli/commands/preview/lib/validation';
@@ -12,6 +13,7 @@ enum LoggerAction {
 	ARCHIVE = 'archive',
 	UPLOAD = 'upload',
 	READY = 'ready',
+	APPDATA = 'appdata',
 }
 
 async function runCommand( siteFolder: string, outputFormat?: OutputFormat ): Promise< void > {
@@ -41,6 +43,15 @@ async function runCommand( siteFolder: string, outputFormat?: OutputFormat ): Pr
 			LoggerAction.READY,
 			`Preview site available at: https://${ uploadResponse.site_url }`
 		);
+
+		logger.reportStart( LoggerAction.APPDATA, 'Saving preview site to Studio...' );
+		await addPreviewSiteToAppdata(
+			uploadResponse.site_url,
+			uploadResponse.site_id,
+			siteFolder,
+			LoggerAction.APPDATA
+		);
+		logger.reportSuccess( LoggerAction.APPDATA, 'Preview site saved to Studio' );
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {
 			logger.reportError( error );

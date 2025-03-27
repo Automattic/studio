@@ -9,7 +9,7 @@ interface WhatsNewPage {
 	image: string;
 	title: string;
 	description: string;
-	learnMoreUrl: string;
+	learnMoreUrl?: string;
 }
 
 interface WhatsNewModalProps {
@@ -24,7 +24,6 @@ const WHATS_NEW_PAGES: WhatsNewPage[] = [
 		description: __(
 			'All these fun new features are waiting for you to discover them. Click on the cards below to learn more.'
 		),
-		learnMoreUrl: 'https://wordpress.com/blog/2025/03/17/studio-wordpress-php-versions/', // TODO: Add correct URL (Releases?)
 	},
 	{
 		image: versionSwitchIllustration,
@@ -57,14 +56,16 @@ const PageContent = ( { title, description, learnMoreUrl }: Omit< WhatsNewPage, 
 	<div className="px-8 py-4">
 		<h2 className="text-xl mb-4 text-gray-900">{ title }</h2>
 		<p className="text-gray-900 text-m leading-s">{ description }</p>
-		<div className="mt-4">
-			<button
-				onClick={ () => getIpcApi().openURL( learnMoreUrl ) }
-				className="text-a8c-blueberry text-m leading-s cursor-pointer"
-			>
-				{ __( 'Learn more' ) }
-			</button>
-		</div>
+		{ learnMoreUrl && (
+			<div className="mt-4">
+				<button
+					onClick={ () => getIpcApi().openURL( learnMoreUrl ) }
+					className="text-a8c-blueberry text-m leading-s cursor-pointer"
+				>
+					{ __( 'Learn more' ) }
+				</button>
+			</div>
+		) }
 	</div>
 );
 

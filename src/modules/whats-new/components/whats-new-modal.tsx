@@ -2,8 +2,8 @@ import { Guide } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import previewSitesIllustration from '../assets/preview-sites-illustration.svg';
-import versionSwitchIllustration from '../assets/version-switch-illustration.svg';
+import previewSitesIllustration from 'src/modules/whats-new/assets/preview-sites-illustration.svg';
+import versionSwitchIllustration from 'src/modules/whats-new/assets/version-switch-illustration.svg';
 
 interface WhatsNewPage {
 	image: string;

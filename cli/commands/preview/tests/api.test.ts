@@ -1,6 +1,20 @@
 import fs from 'fs';
 import wpcom from 'wpcom';
 import { uploadArchive, waitForSiteReady, SnapshotStatus } from 'cli/commands/preview/lib/api';
+import { LoggerError } from 'cli/logger';
+
+// Mock ora
+jest.mock( 'ora', () => {
+	return {
+		__esModule: true,
+		default: () => ( {
+			start: jest.fn().mockReturnThis(),
+			stop: jest.fn().mockReturnThis(),
+			succeed: jest.fn().mockReturnThis(),
+			fail: jest.fn().mockReturnThis(),
+		} ),
+	};
+} );
 
 jest.mock( 'fs' );
 jest.mock( 'wpcom' );
@@ -11,6 +25,7 @@ describe( 'API Module', () => {
 	const mockSiteUrl = 'test-site.wp.build';
 	const mockSiteId = 12345;
 	const mockReadStream = { pipe: jest.fn() };
+	const mockAction = 'test-action';
 
 	beforeEach( () => {
 		jest.clearAllMocks();
@@ -31,7 +46,7 @@ describe( 'API Module', () => {
 			};
 			( wpcom as jest.Mock ).mockReturnValue( mockWpcom );
 
-			const result = await uploadArchive( mockArchivePath, mockToken );
+			const result = await uploadArchive( mockArchivePath, mockToken, mockAction );
 
 			expect( wpcom ).toHaveBeenCalledWith( mockToken );
 			expect( mockWpcom.req.post ).toHaveBeenCalledWith( {
@@ -54,7 +69,7 @@ describe( 'API Module', () => {
 			} );
 		} );
 
-		it( 'should handle API errors', async () => {
+		it( 'should throw LoggerError for API errors', async () => {
 			const mockError = new Error( 'API error' );
 			const mockWpcom = {
 				req: {
@@ -63,10 +78,63 @@ describe( 'API Module', () => {
 			};
 			( wpcom as jest.Mock ).mockReturnValue( mockWpcom );
 
-			const result = await uploadArchive( mockArchivePath, mockToken );
+			await expect( uploadArchive( mockArchivePath, mockToken, mockAction ) ).rejects.toThrow(
+				LoggerError
+			);
+			await expect( uploadArchive( mockArchivePath, mockToken, mockAction ) ).rejects.toMatchObject(
+				{
+					message: expect.stringContaining( 'Failed to upload archive: API error' ),
+					action: mockAction,
+				}
+			);
+		} );
 
-			expect( result ).toBeInstanceOf( Error );
-			expect( ( result as Error ).message ).toBe( 'Failed to upload archive: API error' );
+		it( 'should throw LoggerError for invalid API response', async () => {
+			const invalidResponse = {
+				// Missing domain_name
+				atomic_site_id: mockSiteId,
+			};
+
+			const mockWpcom = {
+				req: {
+					post: jest.fn().mockResolvedValue( invalidResponse ),
+				},
+			};
+			( wpcom as jest.Mock ).mockReturnValue( mockWpcom );
+
+			await expect( uploadArchive( mockArchivePath, mockToken, mockAction ) ).rejects.toThrow(
+				LoggerError
+			);
+			await expect( uploadArchive( mockArchivePath, mockToken, mockAction ) ).rejects.toMatchObject(
+				{
+					message: 'Invalid API response',
+					action: mockAction,
+				}
+			);
+		} );
+
+		it( 'should throw LoggerError for response with wrong types', async () => {
+			const invalidResponse = {
+				domain_name: '', // Empty string, should fail validation
+				atomic_site_id: 'not-a-number', // Should be a number
+			};
+
+			const mockWpcom = {
+				req: {
+					post: jest.fn().mockResolvedValue( invalidResponse ),
+				},
+			};
+			( wpcom as jest.Mock ).mockReturnValue( mockWpcom );
+
+			await expect( uploadArchive( mockArchivePath, mockToken, mockAction ) ).rejects.toThrow(
+				LoggerError
+			);
+			await expect( uploadArchive( mockArchivePath, mockToken, mockAction ) ).rejects.toMatchObject(
+				{
+					message: 'Invalid API response',
+					action: mockAction,
+				}
+			);
 		} );
 	} );
 
@@ -83,33 +151,83 @@ describe( 'API Module', () => {
 		} );
 
 		it( 'should return true when site becomes active', async () => {
+			const pendingResponse = {
+				status: SnapshotStatus.Pending,
+				domain_name: mockSiteUrl,
+				atomic_site_id: mockSiteId,
+				is_deleted: 'false',
+			};
+
+			const activeResponse = {
+				status: SnapshotStatus.Active,
+				domain_name: mockSiteUrl,
+				atomic_site_id: mockSiteId,
+				is_deleted: 'false',
+			};
+
 			const mockWpcom = {
 				req: {
 					get: jest
 						.fn()
-						.mockResolvedValueOnce( { status: SnapshotStatus.Pending } )
-						.mockResolvedValueOnce( { status: SnapshotStatus.Active } ),
+						.mockResolvedValueOnce( pendingResponse )
+						.mockResolvedValueOnce( activeResponse ),
 				},
 			};
 			( wpcom as jest.Mock ).mockReturnValue( mockWpcom );
 
-			const result = await waitForSiteReady( mockSiteId, mockToken );
+			const result = await waitForSiteReady( mockSiteId, mockToken, mockAction );
 			expect( mockWpcom.req.get ).toHaveBeenCalledTimes( 2 );
 			expect( result ).toBe( true );
 		} );
 
-		it( 'should timeout after max attempts', async () => {
+		it( 'should throw LoggerError after max attempts', async () => {
+			const pendingResponse = {
+				status: SnapshotStatus.Pending,
+				domain_name: mockSiteUrl,
+				atomic_site_id: mockSiteId,
+				is_deleted: 'false',
+			};
+
 			const mockWpcom = {
 				req: {
-					get: jest.fn().mockResolvedValue( { status: SnapshotStatus.Pending } ),
+					get: jest.fn().mockResolvedValue( pendingResponse ),
 				},
 			};
 			( wpcom as jest.Mock ).mockReturnValue( mockWpcom );
 
-			const result = await waitForSiteReady( mockSiteId, mockToken );
+			await expect( waitForSiteReady( mockSiteId, mockToken, mockAction ) ).rejects.toThrow(
+				LoggerError
+			);
+			await expect( waitForSiteReady( mockSiteId, mockToken, mockAction ) ).rejects.toMatchObject( {
+				message: expect.stringContaining( 'Failed to create preview site' ),
+				action: mockAction,
+			} );
+			expect( mockWpcom.req.get ).toHaveBeenCalledTimes( 200 ); // 100 calls per test
+		} );
 
-			expect( result ).toBe( false );
-			expect( mockWpcom.req.get ).toHaveBeenCalledTimes( 100 );
+		it( 'should continue polling if API validation fails', async () => {
+			const invalidResponse = {}; // Empty response
+
+			const validResponse = {
+				status: SnapshotStatus.Active,
+				domain_name: mockSiteUrl,
+				atomic_site_id: mockSiteId,
+				is_deleted: 'false',
+			};
+
+			const mockWpcom = {
+				req: {
+					get: jest
+						.fn()
+						.mockResolvedValueOnce( invalidResponse )
+						.mockResolvedValueOnce( validResponse ),
+				},
+			};
+			( wpcom as jest.Mock ).mockReturnValue( mockWpcom );
+
+			const result = await waitForSiteReady( mockSiteId, mockToken, mockAction );
+			expect( mockWpcom.req.get ).toHaveBeenCalledTimes( 2 );
+			expect( result ).toBe( true );
 		} );
 	} );
 } );

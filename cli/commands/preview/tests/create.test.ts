@@ -5,7 +5,7 @@ import { uploadArchive, waitForSiteReady } from 'cli/commands/preview/lib/api';
 import { createArchive, cleanup } from 'cli/commands/preview/lib/archive';
 import { getAuthToken } from 'cli/commands/preview/lib/auth';
 import { validateSiteFolder } from 'cli/commands/preview/lib/validation';
-import { Logger } from 'cli/logger';
+import { Logger, LoggerError } from 'cli/logger';
 
 // Mock ora
 jest.mock( 'ora', () => {
@@ -27,7 +27,19 @@ jest.mock( '../lib/auth' );
 jest.mock( '../lib/validation' );
 jest.mock( '../lib/archive' );
 jest.mock( '../lib/api' );
-jest.mock( 'cli/logger' );
+jest.mock( 'cli/logger', () => {
+	const originalModule = jest.requireActual( 'cli/logger' );
+
+	// Return the real LoggerError class to ensure instanceof checks work correctly
+	return {
+		LoggerError: originalModule.LoggerError,
+		Logger: jest.fn().mockImplementation( () => ( {
+			reportStart: jest.fn(),
+			reportSuccess: jest.fn(),
+			reportError: jest.fn(),
+		} ) ),
+	};
+} );
 
 describe( 'Preview Create Command', () => {
 	const mockFolder = '/test/folder';
@@ -45,10 +57,17 @@ describe( 'Preview Create Command', () => {
 		finalize: jest.fn(),
 	};
 	let program: Command;
-	let mockLogger: Logger< LoggerAction >;
+	let mockLogger: {
+		reportStart: jest.Mock;
+		reportSuccess: jest.Mock;
+		reportError: jest.Mock;
+	};
+	// This will store the error object passed to reportError for validation
+	let mockErrorData: LoggerError< string > | null;
 
 	beforeEach( () => {
 		jest.clearAllMocks();
+		mockErrorData = null;
 		jest.spyOn( Date, 'now' ).mockReturnValue( mockDate );
 		jest.spyOn( path, 'basename' ).mockReturnValue( mockBasename );
 		jest.spyOn( process, 'cwd' ).mockReturnValue( mockFolder );
@@ -57,8 +76,11 @@ describe( 'Preview Create Command', () => {
 		mockLogger = {
 			reportStart: jest.fn(),
 			reportSuccess: jest.fn(),
-			reportError: jest.fn(),
-		} as unknown as Logger< LoggerAction >;
+			reportError: jest.fn().mockImplementation( ( error ) => {
+				// Store the error object for testing
+				mockErrorData = error;
+			} ),
+		};
 
 		( Logger as jest.Mock ).mockImplementation( () => mockLogger );
 
@@ -91,7 +113,7 @@ describe( 'Preview Create Command', () => {
 		await program.parseAsync( [ 'node', 'test', 'go', mockFolder ] );
 
 		// Verify validation step
-		expect( validateSiteFolder ).toHaveBeenCalledWith( mockFolder );
+		expect( validateSiteFolder ).toHaveBeenCalledWith( mockFolder, 'validate' );
 		expect( mockLogger.reportStart ).toHaveBeenCalledWith(
 			'validate' as LoggerAction,
 			'Validating...'
@@ -102,7 +124,7 @@ describe( 'Preview Create Command', () => {
 		);
 
 		// Verify archive step
-		expect( createArchive ).toHaveBeenCalledWith( mockFolder, mockArchivePath );
+		expect( createArchive ).toHaveBeenCalledWith( mockFolder, mockArchivePath, 'archive' );
 		expect( mockLogger.reportStart ).toHaveBeenCalledWith(
 			'archive' as LoggerAction,
 			'Creating archive...'
@@ -113,7 +135,7 @@ describe( 'Preview Create Command', () => {
 		);
 
 		// Verify upload step
-		expect( uploadArchive ).toHaveBeenCalledWith( mockArchivePath, mockAuthToken );
+		expect( uploadArchive ).toHaveBeenCalledWith( mockArchivePath, mockAuthToken, 'upload' );
 		expect( mockLogger.reportStart ).toHaveBeenCalledWith(
 			'upload' as LoggerAction,
 			'Uploading archive...'
@@ -124,7 +146,7 @@ describe( 'Preview Create Command', () => {
 		);
 
 		// Verify site ready step
-		expect( waitForSiteReady ).toHaveBeenCalledWith( mockSiteId, mockAuthToken );
+		expect( waitForSiteReady ).toHaveBeenCalledWith( mockSiteId, mockAuthToken, 'ready' );
 		expect( mockLogger.reportStart ).toHaveBeenCalledWith(
 			'ready' as LoggerAction,
 			'Creating preview site...'
@@ -144,83 +166,122 @@ describe( 'Preview Create Command', () => {
 
 		await program.parseAsync( [ 'node', 'test', 'go' ] );
 
-		expect( validateSiteFolder ).toHaveBeenCalledWith( process.cwd() );
+		expect( validateSiteFolder ).toHaveBeenCalledWith( process.cwd(), 'validate' );
 	} );
 
 	it( 'should handle validation errors', async () => {
-		const mockError = new Error( 'Validation failed' );
-		( validateSiteFolder as jest.Mock ).mockReturnValue( mockError );
+		const errorMessage = 'Validation failed';
+		( validateSiteFolder as jest.Mock ).mockImplementation( () => {
+			throw new LoggerError( errorMessage, 'validate' );
+		} );
 
 		const { registerCommand } = await import( '../create' );
 		registerCommand( program );
 
 		await program.parseAsync( [ 'node', 'test', 'go', mockFolder ] );
 
-		expect( mockLogger.reportError ).toHaveBeenCalledWith(
-			'validate' as LoggerAction,
-			mockError.message
-		);
+		expect( mockLogger.reportError ).toHaveBeenCalled();
+		expect( mockErrorData ).toHaveProperty( 'message', errorMessage );
+		expect( mockErrorData ).toHaveProperty( 'action', 'validate' );
 		expect( createArchive ).not.toHaveBeenCalled();
 	} );
 
-	it( 'should handle missing auth token', async () => {
-		( getAuthToken as jest.Mock ).mockResolvedValue( null );
+	it( 'should handle authentication errors', async () => {
+		const errorMessage =
+			'Authentication required. Please run the Studio app and authenticate first.';
+		( getAuthToken as jest.Mock ).mockImplementation( () => {
+			throw new LoggerError( errorMessage, 'validate' );
+		} );
 
 		const { registerCommand } = await import( '../create' );
 		registerCommand( program );
 
 		await program.parseAsync( [ 'node', 'test', 'go', mockFolder ] );
 
-		expect( mockLogger.reportError ).toHaveBeenCalledWith(
-			'validate' as LoggerAction,
-			'Authentication required. Please run the Studio app and authenticate first.'
-		);
+		expect( mockLogger.reportError ).toHaveBeenCalled();
+		expect( mockErrorData ).toHaveProperty( 'message', errorMessage );
+		expect( mockErrorData ).toHaveProperty( 'action', 'validate' );
 		expect( createArchive ).not.toHaveBeenCalled();
 	} );
 
 	it( 'should handle archive creation errors', async () => {
-		const mockError = new Error( 'Archive creation failed' );
-		( createArchive as jest.Mock ).mockResolvedValue( mockError );
+		const errorMessage = 'Archive creation failed';
+		( createArchive as jest.Mock ).mockImplementation( () => {
+			throw new LoggerError( errorMessage, 'archive' );
+		} );
 
 		const { registerCommand } = await import( '../create' );
 		registerCommand( program );
 
 		await program.parseAsync( [ 'node', 'test', 'go', mockFolder ] );
 
-		expect( mockLogger.reportError ).toHaveBeenCalledWith(
-			'archive' as LoggerAction,
-			mockError.message
-		);
+		expect( mockLogger.reportError ).toHaveBeenCalled();
+		expect( mockErrorData ).toHaveProperty( 'message', errorMessage );
+		expect( mockErrorData ).toHaveProperty( 'action', 'archive' );
 		expect( uploadArchive ).not.toHaveBeenCalled();
 	} );
 
 	it( 'should handle upload errors', async () => {
-		const mockError = new Error( 'Upload failed' );
-		( uploadArchive as jest.Mock ).mockResolvedValue( mockError );
+		const errorMessage = 'Upload failed';
+		( uploadArchive as jest.Mock ).mockImplementation( () => {
+			throw new LoggerError( errorMessage, 'upload' );
+		} );
 
 		const { registerCommand } = await import( '../create' );
 		registerCommand( program );
 
 		await program.parseAsync( [ 'node', 'test', 'go', mockFolder ] );
 
-		expect( mockLogger.reportError ).toHaveBeenCalledWith(
-			'upload' as LoggerAction,
-			mockError.message
-		);
+		expect( mockLogger.reportError ).toHaveBeenCalled();
+		expect( mockErrorData ).toHaveProperty( 'message', errorMessage );
+		expect( mockErrorData ).toHaveProperty( 'action', 'upload' );
 		expect( waitForSiteReady ).not.toHaveBeenCalled();
 	} );
 
-	it( 'should handle site readiness timeout', async () => {
-		( waitForSiteReady as jest.Mock ).mockResolvedValue( false );
+	it( 'should handle site readiness errors', async () => {
+		const errorMessage = 'Failed to create preview site';
+		( waitForSiteReady as jest.Mock ).mockImplementation( () => {
+			throw new LoggerError( errorMessage, 'ready' );
+		} );
 
 		const { registerCommand } = await import( '../create' );
 		registerCommand( program );
 
 		await program.parseAsync( [ 'node', 'test', 'go', mockFolder ] );
 
-		expect( mockLogger.reportError ).toHaveBeenCalledWith(
-			'ready' as LoggerAction,
-			'Failed to create preview site'
-		);
+		expect( mockLogger.reportError ).toHaveBeenCalled();
+		expect( mockErrorData ).toHaveProperty( 'message', errorMessage );
+		expect( mockErrorData ).toHaveProperty( 'action', 'ready' );
+	} );
+
+	it( 'should always clean up archive file even on error', async () => {
+		( uploadArchive as jest.Mock ).mockImplementation( () => {
+			throw new LoggerError( 'Upload failed', 'upload' );
+		} );
+
+		const { registerCommand } = await import( '../create' );
+		registerCommand( program );
+
+		await program.parseAsync( [ 'node', 'test', 'go', mockFolder ] );
+
+		expect( cleanup ).toHaveBeenCalledWith( mockArchivePath );
+	} );
+
+	it( 'should handle unexpected errors', async () => {
+		const errorMessage = 'Unexpected error';
+		const unexpectedError = new Error( errorMessage );
+		( validateSiteFolder as jest.Mock ).mockImplementation( () => {
+			throw unexpectedError;
+		} );
+
+		const { registerCommand } = await import( '../create' );
+		registerCommand( program );
+
+		await program.parseAsync( [ 'node', 'test', 'go', mockFolder ] );
+
+		expect( mockLogger.reportError ).toHaveBeenCalled();
+		expect( mockErrorData ).toHaveProperty( 'message', errorMessage );
+		expect( mockErrorData ).toHaveProperty( 'action', 'validate' );
+		expect( createArchive ).not.toHaveBeenCalled();
 	} );
 } );

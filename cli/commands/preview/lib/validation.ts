@@ -1,14 +1,7 @@
 import fs from 'fs';
 import path from 'path';
+import { isWordPressDirectory } from 'src/lib/fs-utils';
 import { LoggerError } from 'cli/logger';
-
-function isWordPressDirectory( projectPath: string ): boolean {
-	return (
-		fs.existsSync( path.join( projectPath, 'wp-content' ) ) &&
-		fs.existsSync( path.join( projectPath, 'wp-includes' ) ) &&
-		fs.existsSync( path.join( projectPath, 'wp-load.php' ) )
-	);
-}
 
 function hasWpContentDirectory( projectPath: string ): boolean {
 	return fs.existsSync( path.join( projectPath, 'wp-content' ) );

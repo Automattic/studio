@@ -3,6 +3,19 @@ import path from 'path';
 import archiver from 'archiver';
 import { createArchive, cleanup } from 'cli/commands/preview/lib/archive';
 
+// Mock ora
+jest.mock( 'ora', () => {
+	return {
+		__esModule: true,
+		default: () => ( {
+			start: jest.fn().mockReturnThis(),
+			stop: jest.fn().mockReturnThis(),
+			succeed: jest.fn().mockReturnThis(),
+			fail: jest.fn().mockReturnThis(),
+		} ),
+	};
+} );
+
 jest.mock( 'fs' );
 jest.mock( 'path' );
 jest.mock( 'archiver' );
@@ -12,6 +25,7 @@ describe( 'Archive Module', () => {
 	const mockArchivePath = '/mock/archive.zip';
 	const mockWpContentPath = '/mock/site/folder/wp-content';
 	const mockWpConfigPath = '/mock/site/folder/wp-config.php';
+	const mockAction = 'mockAction';
 
 	const mockArchiver = {
 		pipe: jest.fn(),
@@ -45,7 +59,7 @@ describe( 'Archive Module', () => {
 
 			mockArchiver.on.mockImplementation( () => mockArchiver );
 
-			const result = await createArchive( mockSiteFolder, mockArchivePath );
+			const result = await createArchive( mockSiteFolder, mockArchivePath, mockAction );
 
 			expect( fs.createWriteStream ).toHaveBeenCalledWith( mockArchivePath );
 			expect( archiver ).toHaveBeenCalledWith( 'zip', { zlib: { level: 9 } } );
@@ -71,7 +85,7 @@ describe( 'Archive Module', () => {
 
 			mockArchiver.on.mockImplementation( () => mockArchiver );
 
-			await createArchive( mockSiteFolder, mockArchivePath );
+			await createArchive( mockSiteFolder, mockArchivePath, mockAction );
 
 			expect( fs.existsSync ).toHaveBeenCalledWith( mockWpConfigPath );
 			expect( mockArchiver.file ).toHaveBeenCalledWith( mockWpConfigPath, {
@@ -91,7 +105,7 @@ describe( 'Archive Module', () => {
 				return mockArchiver;
 			} );
 
-			await expect( createArchive( mockSiteFolder, mockArchivePath ) ).rejects.toThrow(
+			await expect( createArchive( mockSiteFolder, mockArchivePath, mockAction ) ).rejects.toThrow(
 				'Archive error'
 			);
 		} );

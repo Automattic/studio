@@ -42,8 +42,9 @@ async function installCLI(): Promise< void > {
 	}
 
 	const currentSymlinkTargetPath = await getCurrentSymlinkTargetPath();
+	const isSymlinkUpToDate = currentSymlinkTargetPath === cliTargetPath;
 
-	if ( currentSymlinkTargetPath === cliTargetPath ) {
+	if ( isSymlinkUpToDate ) {
 		return;
 	}
 

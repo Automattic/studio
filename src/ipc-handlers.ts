@@ -10,13 +10,13 @@ import {
 	Notification,
 	SaveDialogOptions,
 } from 'electron';
+import fs from 'fs';
 import fsPromises from 'fs/promises';
 import https from 'node:https';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { __, LocaleData, defaultI18n } from '@wordpress/i18n';
 import archiver from 'archiver';
-import fs from 'fs-extra';
 import { ARCHIVER_OPTIONS, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';

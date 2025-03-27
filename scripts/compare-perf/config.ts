@@ -1,6 +1,7 @@
 import path from 'path';
 
 const metricsPath = path.resolve( __dirname, '../../metrics' );
+const artifactsPath = process.env.ARTIFACTS_PATH ?? path.join( metricsPath, 'artifacts' );
 
 const config = {
 	gitRepositoryURL: 'https://github.com/Automattic/studio.git',
@@ -9,7 +10,7 @@ const config = {
 	setupCommand: 'npm ci && IS_DEV_BUILD=true npm run package',
 	testsPath: 'metrics/tests',
 	testFileSuffix: '.test.ts',
-	artifactsPath: path.join( metricsPath, 'artifacts' ),
+	artifactsPath,
 	resultsFileSuffix: '.results.json',
 	summaryFileSuffix: '.summary.json',
 };

@@ -5,7 +5,7 @@ import { __ } from '@wordpress/i18n';
 import { sudoExec } from 'src/lib/sudo-exec';
 import { getMainWindow } from 'src/main-window';
 import { getResourcesPath } from 'src/storage/paths';
-import packageJson from '../../package.json';
+import packageJson from '../../../../package.json';
 
 const cliSymlinkSource = '/usr/local/bin/studio';
 

@@ -39,11 +39,11 @@ jobs:
       - name: Compare performance with base branch
         if: github.event_name == 'push'
         # The base hash used here need to be a commit that is compatible with the current performance tests.
-        # The current one is c954cc2228eab819118ab6e84e22dd0223faacfe
+        # The current one is 0840137210db6f627f7dc1d8cab79ed497e699a6
         # it needs to be updated every time it becomes unsupported by the current performance tests.
         # It is used as a base comparison point to avoid fluctuation in the performance metrics.
         run: |
-          cd scripts/compare-perf && npm ci && npm run compare -- perf $GITHUB_SHA c954cc2228eab819118ab6e84e22dd0223faacfe --tests-branch $GITHUB_SHA
+          cd scripts/compare-perf && npm ci && npm run compare -- perf $GITHUB_SHA 0840137210db6f627f7dc1d8cab79ed497e699a6 --tests-branch $GITHUB_SHA
 
       - name: Archive performance results
         if: ${{ !cancelled() }}

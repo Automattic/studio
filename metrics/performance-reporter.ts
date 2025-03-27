@@ -4,6 +4,10 @@ import type { Reporter, FullResult, TestCase, TestResult } from '@playwright/tes
 
 export type PerformanceResults = Record< string, number >;
 
+if ( ! process.env.ARTIFACTS_PATH ) {
+	throw new Error( 'ARTIFACTS_PATH is not set' );
+}
+
 class PerformanceReporter implements Reporter {
 	private results: Record< string, PerformanceResults >;
 
@@ -21,16 +25,17 @@ class PerformanceReporter implements Reporter {
 				throw new Error( 'Empty results attachment' );
 			}
 
-			const testSuite = path.basename( test.location.file, '.test.js' );
+			const testSuite = path.basename( test.location.file, '.test.ts' );
 			const resultsId = process.env.RESULTS_ID || testSuite;
 			const resultsPath = process.env.ARTIFACTS_PATH as string;
 			const resultsBody = attachment.body.toString();
+			const resultsFileSuffix = process.env.RESULTS_FILE_SUFFIX || '.results.json';
 			const results = JSON.parse( resultsBody );
 
 			if ( ! existsSync( resultsPath ) ) {
 				mkdirSync( resultsPath, { recursive: true } );
 			}
-			writeFileSync( path.join( resultsPath, `${ resultsId }-results.json` ), resultsBody );
+			writeFileSync( path.join( resultsPath, resultsId + resultsFileSuffix ), resultsBody );
 
 			this.results[ testSuite ] = results;
 		}

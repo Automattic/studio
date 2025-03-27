@@ -14,9 +14,6 @@ const formats = {
 	success: chalk.bold.green,
 };
 
-const ARTIFACTS_PATH = process.env.ARTIFACTS_PATH || path.join( process.cwd(), 'artifacts' );
-const RESULTS_FILE_SUFFIX = 'results.json';
-
 interface PerformanceCommandOptions {
 	/**
 	 * Run on CI.
@@ -99,7 +96,8 @@ async function runTestSuite(
 	// Run the test suite
 	await runShellScript( `${ config.testCommand } ${ testSuite }`, testRunnerDir, {
 		...process.env,
-		ARTIFACTS_PATH: ARTIFACTS_PATH,
+		ARTIFACTS_PATH: config.artifactsPath,
+		RESULTS_FILE_SUFFIX: config.resultsFileSuffix,
 		RESULTS_ID: runKey,
 	} );
 }
@@ -115,7 +113,7 @@ export async function runPerformanceTests(
 	options: PerformanceCommandOptions
 ) {
 	const runningInCI = !! process.env.CI || !! options.ci;
-	const TEST_ROUNDS = options.rounds || 1;
+	const testRounds = options.rounds || 1;
 
 	// The default value doesn't work because commander provides an array.
 	if ( branches.length === 0 ) {
@@ -190,7 +188,9 @@ export async function runPerformanceTests(
 
 	logAtIndent( 2, 'Installing dependencies and building' );
 
-	await runShellScript( config.setupTestRunner, testRunnerDir );
+	await runShellScript( config.setupTestRunner, testRunnerDir, {
+		GITHUB_TOKEN: process.env.GITHUB_TOKEN,
+	} );
 
 	logAtIndent( 1, 'Setting up test environments' );
 
@@ -216,7 +216,9 @@ export async function runPerformanceTests(
 		await simpleGit( buildDir ).raw( 'checkout', branch );
 
 		logAtIndent( 3, 'Installing dependencies and building' );
-		await runShellScript( config.setupCommand, buildDir );
+		await runShellScript( config.setupCommand, buildDir, {
+			GITHUB_TOKEN: process.env.GITHUB_TOKEN,
+		} );
 	}
 
 	logAtIndent( 0, 'Looking for test files' );
@@ -224,24 +226,25 @@ export async function runPerformanceTests(
 	const testSuites = getFilesFromDir( path.join( testRunnerDir, config.testsPath ) ).map(
 		( file: string ) => {
 			logAtIndent( 1, 'Found:', formats.success( file ) );
-			return path.basename( file, '.test.ts' );
+			return path.basename( file, config.testFileSuffix );
 		}
 	);
 
 	logAtIndent( 0, 'Running tests' );
 
 	for ( const testSuite of testSuites ) {
-		for ( let i = 1; i <= TEST_ROUNDS; i++ ) {
+		for ( let i = 1; i <= testRounds; i++ ) {
 			logAtIndent(
 				1,
 				// prettier-ignore
-				`Suite: ${ formats.success( testSuite ) } (round ${ i } of ${ TEST_ROUNDS })`
+				`Suite: ${ formats.success( testSuite ) } (round ${ i } of ${ testRounds })`
 			);
 
 			for ( const branch of branches ) {
 				logAtIndent( 2, 'Branch:', formats.success( branch ) );
 				const sanitizedBranchName = sanitizeBranchName( branch );
 				const runKey = `${ testSuite }_${ sanitizedBranchName }_round-${ i }`;
+
 				logAtIndent( 3, 'Running tests' );
 				await runTestSuite(
 					testSuite,
@@ -255,9 +258,10 @@ export async function runPerformanceTests(
 
 	logAtIndent( 0, 'Calculating results' );
 
-	const resultFiles = getFilesFromDir( ARTIFACTS_PATH ).filter( ( file: string ) =>
-		file.endsWith( RESULTS_FILE_SUFFIX )
+	const resultFiles = getFilesFromDir( config.artifactsPath ).filter( ( file: string ) =>
+		file.endsWith( config.resultsFileSuffix )
 	);
+
 	/** @type {Record<string,Record<string, Record<string, number>>>} */
 	const results: Record< string, Record< string, Record< string, number > > > = {};
 
@@ -291,7 +295,10 @@ export async function runPerformanceTests(
 				}
 			}
 		}
-		const calculatedResultsPath = path.join( ARTIFACTS_PATH, testSuite + RESULTS_FILE_SUFFIX );
+		const calculatedResultsPath = path.join(
+			config.artifactsPath,
+			testSuite + config.summaryFileSuffix
+		);
 
 		logAtIndent( 2, 'Saving curated results to:', formats.success( calculatedResultsPath ) );
 		fs.writeFileSync( calculatedResultsPath, JSON.stringify( results[ testSuite ], null, 2 ) );

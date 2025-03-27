@@ -22,9 +22,11 @@ test.describe( 'Startup Metrics', () => {
 	// eslint-disable-next-line no-empty-pattern
 	test.afterAll( async ( {}, testInfo ) => {
 		const medians = {};
+
 		Object.keys( results ).map( ( metric ) => {
 			medians[ metric ] = median( results[ metric ] );
 		} );
+
 		await testInfo.attach( 'results', {
 			body: JSON.stringify( medians, null, 2 ),
 			contentType: 'application/json',
@@ -34,53 +36,63 @@ test.describe( 'Startup Metrics', () => {
 	} );
 
 	test( 'measure site creation and startup performance', async () => {
+		let modal;
+		let siteContent;
+
 		// Create a new site first (without timing)
-		const sidebar = new MainSidebar( session.mainWindow );
-		const modal = await sidebar.openAddSiteModal();
-		await modal.siteNameInput.fill( siteName );
+		await test.step( 'Create a new site', async () => {
+			const sidebar = new MainSidebar( session.mainWindow );
+			modal = await sidebar.openAddSiteModal();
+			await modal.siteNameInput.fill( siteName );
+		} );
 
 		// Measure site creation time (includes initial startup time)
-		const startTime = Date.now();
-		await modal.addSiteButton.click();
-		const siteContent = new SiteContent( session.mainWindow, siteName );
-		await expect( siteContent.runningButton ).toBeAttached( { timeout: 60_000 } );
-		const endTime = Date.now();
-		const duration = endTime - startTime;
-		results.siteCreation = [ duration ];
+		await test.step( 'Measure site creation time', async () => {
+			const startTime = Date.now();
+			await modal.addSiteButton.click();
+			siteContent = new SiteContent( session.mainWindow, siteName );
+			await expect( siteContent.runningButton ).toBeAttached();
+			const endTime = Date.now();
+			const duration = endTime - startTime;
+			results.siteCreation = [ duration ];
+		} );
 
 		results.siteStartup = [];
 		// Measure server stop/start 5 times
 		for ( let i = 0; i < 5; i++ ) {
-			console.log( `Run ${ i + 1 }/5: Stopping and starting site` );
-			// Stop the site by clicking the Running button
-			await siteContent.runningButton.click();
-			const startButton = siteContent.locator.getByRole( 'button', { name: 'Start' } );
-			await expect( startButton ).toBeAttached( { timeout: 30_000 } );
+			await test.step( `Run ${ i + 1 }/5: Stopping and starting site`, async () => {
+				// Stop the site by clicking the Running button
+				await siteContent.runningButton.click();
+				const startButton = siteContent.locator.getByRole( 'button', { name: 'Start' } );
+				await expect( startButton ).toBeAttached();
 
-			// Start timer
-			const startTime = Date.now();
-			await startButton.click();
-			// Wait for site to be running
-			await expect( siteContent.runningButton ).toBeAttached( { timeout: 60_000 } );
-			const endTime = Date.now();
-			const duration = endTime - startTime;
+				// Start timer
+				const startTime = Date.now();
+				await startButton.click();
+				// Wait for site to be running
+				await expect( siteContent.runningButton ).toBeAttached();
+				const endTime = Date.now();
+				const duration = endTime - startTime;
 
-			// Log performance data for this run
-			console.log( `Run ${ i + 1 }/5: Restart took ${ duration }ms` );
-			results.siteStartup.push( duration );
+				// Log performance data for this run
+				console.log( `Run ${ i + 1 }/5: Restart took ${ duration }ms` );
+				results.siteStartup.push( duration );
 
-			// Wait a moment before next cycle
-			await session.mainWindow.waitForTimeout( 100 );
+				// Wait a moment before next cycle
+				await session.mainWindow.waitForTimeout( 100 );
+			} );
 		}
 
 		// Delete the site after test
-		const settingsTab = await siteContent.navigateToTab( 'Settings' );
-		await session.electronApp.evaluate( ( { dialog } ) => {
-			dialog.showMessageBox = async () => {
-				return { response: 0, checkboxChecked: true };
-			};
+		await test.step( 'Delete the site', async () => {
+			const settingsTab = await siteContent.navigateToTab( 'Settings' );
+			await session.electronApp.evaluate( ( { dialog } ) => {
+				dialog.showMessageBox = async () => {
+					return { response: 0, checkboxChecked: true };
+				};
+			} );
+			await settingsTab.openDeleteSiteModal();
+			await session.mainWindow.waitForTimeout( 200 ); // Wait for deletion
 		} );
-		await settingsTab.openDeleteSiteModal();
-		await session.mainWindow.waitForTimeout( 200 ); // Wait for deletion
 	} );
 } );

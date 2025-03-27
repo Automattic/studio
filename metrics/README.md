@@ -31,7 +31,7 @@ The performance tests simulate key user workflows and measure the time they take
 You can compare performance metrics between different commits or branches:
 
 ```bash
-npm run test:metrics:compare <commit1> <commit2>
+cd scripts/compare-perf && npm run compare -- perf <commit1> <commit2>
 ```
 
 This tool is useful for:

@@ -43,7 +43,6 @@ async function installCLI(): Promise< void > {
 
 	const currentSymlinkTargetPath = await getCurrentSymlinkTargetPath();
 
-	// If the symlink already points to the correct path, do nothing
 	if ( currentSymlinkTargetPath === cliTargetPath ) {
 		return;
 	}

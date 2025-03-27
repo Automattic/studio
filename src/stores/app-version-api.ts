@@ -1,0 +1,47 @@
+import { createSelector } from '@reduxjs/toolkit';
+import { BaseQueryFn } from '@reduxjs/toolkit/query';
+import { createApi, fetchBaseQuery, TypedUseQueryStateResult } from '@reduxjs/toolkit/query/react';
+import { getIpcApi } from 'src/lib/get-ipc-api';
+
+export const appVersionApi = createApi( {
+	reducerPath: 'appVersionApi',
+	baseQuery: fetchBaseQuery(),
+	endpoints: ( builder ) => ( {
+		getLastSeenVersion: builder.query< string | undefined, void >( {
+			queryFn: async () => {
+				try {
+					const version = await getIpcApi().getLastSeenVersion();
+					return { data: version };
+				} catch ( error ) {
+					console.error( 'Failed to get last seen version:', error );
+					throw error;
+				}
+			},
+		} ),
+		saveLastSeenVersion: builder.mutation< string, string >( {
+			queryFn: async ( version ) => {
+				try {
+					await getIpcApi().saveLastSeenVersion( version );
+					return { data: version };
+				} catch ( error ) {
+					console.error( 'Failed to save last seen version:', error );
+					throw error;
+				}
+			},
+		} ),
+	} ),
+} );
+
+export const { useGetLastSeenVersionQuery, useSaveLastSeenVersionMutation } = appVersionApi;
+
+type GetLastSeenVersionQueryResult = TypedUseQueryStateResult<
+	string | undefined,
+	void,
+	BaseQueryFn
+>;
+
+export const selectIsNewVersion = createSelector(
+	( res: GetLastSeenVersionQueryResult ) => res.data,
+	( res: GetLastSeenVersionQueryResult, currentVersion: string ) => currentVersion,
+	( data, currentVersion ) => !! currentVersion && data !== currentVersion
+);

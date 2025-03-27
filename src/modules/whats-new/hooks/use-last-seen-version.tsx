@@ -1,6 +1,9 @@
 import { useCallback } from 'react';
-import { useAppDispatch, useRootSelector } from 'src/stores';
-import { appVersionSelectors, appVersionThunks } from 'src/stores/app-version-slice';
+import {
+	useGetLastSeenVersionQuery,
+	useSaveLastSeenVersionMutation,
+	selectIsNewVersion,
+} from 'src/stores/app-version-api';
 
 interface UseLastSeenVersion {
 	lastSeenVersion: string | undefined;
@@ -9,17 +12,20 @@ interface UseLastSeenVersion {
 }
 
 export function useLastSeenVersion(): UseLastSeenVersion {
-	const dispatch = useAppDispatch();
 	const currentVersion = window.appGlobals.appVersion;
-	const lastSeenVersion = useRootSelector( appVersionSelectors.selectLastSeenVersion );
-	const isNewVersion = useRootSelector( ( state ) =>
-		appVersionSelectors.selectIsNewVersion( state, currentVersion || '' )
-	);
+	const { lastSeenVersion, isNewVersion } = useGetLastSeenVersionQuery( undefined, {
+		selectFromResult: ( result ) => ( {
+			lastSeenVersion: result.data,
+			isNewVersion: selectIsNewVersion( result, currentVersion || '' ),
+		} ),
+	} );
+	const [ saveLastSeenVersion ] = useSaveLastSeenVersionMutation();
+
 	const updateLastSeenVersion = useCallback( async () => {
 		if ( currentVersion ) {
-			await dispatch( appVersionThunks.saveLastSeenVersion( currentVersion ) );
+			await saveLastSeenVersion( currentVersion );
 		}
-	}, [ dispatch, currentVersion ] );
+	}, [ saveLastSeenVersion, currentVersion ] );
 
 	return {
 		lastSeenVersion,

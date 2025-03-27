@@ -92,7 +92,6 @@ export function SyncSitesModalSelector( {
 							return;
 						}
 						onConnect( selectedSiteId );
-						onRequestClose();
 					} }
 					disabled={ ! selectedSiteId }
 					selectedSite={ selectedSite }

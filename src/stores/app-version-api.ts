@@ -45,8 +45,10 @@ type GetLastSeenVersionQueryResult = TypedUseQueryStateResult<
 >;
 
 export const selectIsNewVersion = createSelector(
-	( res: GetLastSeenVersionQueryResult ) => res.data,
-	( res: GetLastSeenVersionQueryResult, currentVersion: string ) => currentVersion,
+	[
+		( res: GetLastSeenVersionQueryResult ) => res.data,
+		( res: GetLastSeenVersionQueryResult, currentVersion: string ) => currentVersion,
+	],
 	( lastSeenVersion, currentVersion ) => {
 		if ( ! currentVersion || ! lastSeenVersion ) {
 			return !! currentVersion && lastSeenVersion !== currentVersion;

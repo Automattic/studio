@@ -34,8 +34,6 @@ interface SiteDetailsContext {
 	isDeleting: boolean;
 	uploadingSites: { [ siteId: string ]: boolean };
 	setUploadingSites: React.Dispatch< React.SetStateAction< { [ siteId: string ]: boolean } > >;
-	addMuPlugin: ( siteId: string, pluginFileName: string ) => Promise< void >;
-	removeMuPlugin: ( siteId: string, pluginFileName: string ) => Promise< void >;
 }
 
 const defaultContext: SiteDetailsContext = {
@@ -53,8 +51,6 @@ const defaultContext: SiteDetailsContext = {
 	isDeleting: false,
 	uploadingSites: {},
 	setUploadingSites: () => undefined,
-	addMuPlugin: async () => undefined,
-	removeMuPlugin: async () => undefined,
 };
 
 export const siteDetailsContext = createContext< SiteDetailsContext >( defaultContext );
@@ -364,14 +360,6 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		setData( data.map( ( site ) => ( site.running ? { ...site, running: false } : site ) ) );
 	}, [ data ] );
 
-	const addMuPlugin = useCallback( async ( siteId: string, pluginFileName: string ) => {
-		await getIpcApi().addMuPlugin( siteId, pluginFileName );
-	}, [] );
-
-	const removeMuPlugin = useCallback( async ( siteId: string, pluginFileName: string ) => {
-		await getIpcApi().removeMuPlugin( siteId, pluginFileName );
-	}, [] );
-
 	const context = useMemo(
 		() => ( {
 			selectedSite: data.find( ( site ) => site.id === selectedSiteId ) || firstSite,
@@ -388,8 +376,6 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			loadingSites,
 			uploadingSites,
 			setUploadingSites,
-			addMuPlugin,
-			removeMuPlugin,
 		} ),
 		[
 			data,
@@ -406,8 +392,6 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			isDeleting,
 			loadingSites,
 			uploadingSites,
-			addMuPlugin,
-			removeMuPlugin,
 		]
 	);
 

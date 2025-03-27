@@ -9,7 +9,6 @@ import Modal from 'src/components/modal';
 import offlineIcon from 'src/components/offline-icon';
 import TextControlComponent from 'src/components/text-control';
 import { Tooltip } from 'src/components/tooltip';
-import { STUDIO_DISABLE_WP_AUTO_UPDATES_PLUGIN } from 'src/constants';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { isWindows } from 'src/lib/app-globals';
@@ -32,8 +31,7 @@ type EditSiteDetailsProps = {
 
 export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteDetailsProps ) {
 	const { __ } = useI18n();
-	const { updateSite, selectedSite, stopServer, startServer, addMuPlugin, removeMuPlugin } =
-		useSiteDetails();
+	const { updateSite, selectedSite, stopServer, startServer } = useSiteDetails();
 	const [ isChangeWpError, setIsChangeWpError ] = useState( '' );
 	const [ showModal, setShowModal ] = useState( false );
 	const [ isEditingSite, setIsEditingSite ] = useState( false );
@@ -152,16 +150,6 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 					setIsEditingSite( false );
 					return;
 				}
-
-				try {
-					if ( selectedWpVersion !== latestStableVersion?.value ) {
-						await addMuPlugin( selectedSite.id, STUDIO_DISABLE_WP_AUTO_UPDATES_PLUGIN );
-					} else {
-						await removeMuPlugin( selectedSite.id, STUDIO_DISABLE_WP_AUTO_UPDATES_PLUGIN );
-					}
-				} catch ( e ) {
-					console.error( 'Error adding or removing mu-plugin:', e );
-				}
 			}
 
 			// Determine custom domain setting
@@ -174,6 +162,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 				...selectedSite,
 				name: siteName,
 				phpVersion: selectedPhpVersion,
+				wpVersion: selectedWpVersion === latestStableVersion?.value ? 'latest' : selectedWpVersion,
 				customDomain: usedCustomDomain,
 				enableHttps: !! usedCustomDomain && enableHttps,
 			} );

@@ -17,7 +17,7 @@ import { updateSiteUrl } from 'src/lib/update-site-url';
 import WpCliProcess, { MessageCanceled, WpCliResult } from 'src/lib/wp-cli-process';
 import { purgeWpConfig } from 'src/lib/wp-versions';
 import { createScreenshotWindow } from 'src/screenshot-window';
-import { getSiteThumbnailPath, getResourcesPath } from 'src/storage/paths';
+import { getSiteThumbnailPath } from 'src/storage/paths';
 import { getWpNowConfig } from 'vendor/wp-now/src';
 import { WPNowMode } from 'vendor/wp-now/src/config';
 import { DEFAULT_PHP_VERSION, SQLITE_FILENAME } from 'vendor/wp-now/src/constants';
@@ -355,26 +355,5 @@ export class SiteServer {
 		] ).then( ( results ) => results.every( Boolean ) );
 
 		return anyIntegrationExists && configFilesExist;
-	}
-
-	async addMuPlugin( pluginFileName: string ): Promise< void > {
-		const muPluginsDir = nodePath.join( this.details.path, 'wp-content', 'mu-plugins' );
-		await fsExtra.ensureDir( muPluginsDir );
-		await fsExtra.copy(
-			nodePath.join( getResourcesPath(), 'wp-resources', 'mu-plugins', pluginFileName ),
-			nodePath.join( muPluginsDir, pluginFileName )
-		);
-	}
-
-	async removeMuPlugin( pluginFileName: string ): Promise< void > {
-		const muPluginPath = nodePath.join(
-			this.details.path,
-			'wp-content',
-			'mu-plugins',
-			pluginFileName
-		);
-		if ( await fsExtra.pathExists( muPluginPath ) ) {
-			await fsExtra.remove( muPluginPath );
-		}
 	}
 }

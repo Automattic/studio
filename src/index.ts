@@ -39,6 +39,7 @@ import { loadUserData, saveUserData } from 'src/storage/user-data';
 import { setupUpdates } from 'src/updates';
 // eslint-disable-next-line import/order
 import packageJson from '../package.json';
+import { installCLIOnWindows } from 'src/modules/cli/lib/install-windows';
 
 if ( ! isCLI() && ! process.env.IS_DEV_BUILD ) {
 	const { sentryRelease, isDevEnvironment } = getSentryReleaseInfo( app.getVersion() );
@@ -283,6 +284,11 @@ async function appBoot() {
 			getPlatformMetric( process.platform ),
 			'weekly'
 		);
+
+		// temporary hidden since in development yet
+		if ( process.env.NODE_ENV === 'development' ) {
+			await installCLIOnWindows();
+		}
 
 		finishedInitialization = true;
 	} );

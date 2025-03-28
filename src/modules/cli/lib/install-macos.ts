@@ -1,8 +1,8 @@
 import { dialog } from 'electron';
-import { mkdir, readlink, symlink, unlink } from 'node:fs/promises';
+import { mkdir, readlink, symlink, unlink, lstat } from 'node:fs/promises';
 import path from 'node:path';
 import * as Sentry from '@sentry/electron/main';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { sudoExec } from 'src/lib/sudo-exec';
 import { getMainWindow } from 'src/main-window';
 import { getResourcesPath } from 'src/storage/paths';
@@ -13,6 +13,11 @@ const cliSymlinkPath = '/usr/local/bin/studio';
 const binPath = path.join( getResourcesPath(), 'bin' );
 const cliPackagedPath = path.join( binPath, 'studio-cli.sh' );
 const installScriptPath = path.join( binPath, 'install-studio-cli.sh' );
+
+enum InstallError {
+	WrongPlatform = 'Studio CLI is only available on macOS',
+	FileAlreadyExists = 'Studio CLI symlink path already occupied by non-symlink',
+}
 
 export async function installCLIOnMacOSWithConfirmation() {
 	try {
@@ -27,13 +32,22 @@ export async function installCLIOnMacOSWithConfirmation() {
 		Sentry.captureException( error );
 		console.error( 'Failed to install CLI', error );
 
+		let message = __( 'Please ensure you grant Studio admin permissions when prompted.' );
+		if ( error instanceof Error && error.message === InstallError.FileAlreadyExists ) {
+			message = sprintf(
+				/* translators: 1: Installation path */
+				__(
+					'The installation path %1$s is already occupied by a file or directory. Please remove it and try again.'
+				),
+				cliSymlinkPath
+			);
+		}
+
 		const mainWindow = await getMainWindow();
 		await dialog.showMessageBox( mainWindow, {
 			type: 'error',
 			title: __( 'Failed to install CLI' ),
-			message: __(
-				'Please try again and ensure you grant Studio admin permissions when prompted.'
-			),
+			message,
 		} );
 	}
 }
@@ -42,11 +56,19 @@ export async function installCLIOnMacOSWithConfirmation() {
 // to the packaged Studio CLI JS file at `cliPackagedPath`.
 async function installCLI(): Promise< void > {
 	if ( process.platform !== 'darwin' ) {
-		return;
+		throw new Error( InstallError.WrongPlatform );
+	}
+
+	const fileType = await getFileType( cliSymlinkPath );
+
+	// Avoid overwriting an existing file if it's not a symlink.
+	if ( fileType === FileType.NonSymlink ) {
+		throw new Error( InstallError.FileAlreadyExists );
 	}
 
 	const currentSymlinkDestination = await getCurrentSymlinkDestination();
 
+	// The CLI is already installed.
 	if ( currentSymlinkDestination === cliPackagedPath ) {
 		return;
 	}
@@ -67,6 +89,21 @@ async function installCLI(): Promise< void > {
 				CLI_PACKAGED_PATH: cliPackagedPath,
 			},
 		} );
+	}
+}
+
+enum FileType {
+	NonExistent,
+	NonSymlink,
+	Symlink,
+}
+
+async function getFileType( filePath: string ): Promise< FileType > {
+	try {
+		const stats = await lstat( filePath );
+		return stats.isSymbolicLink() ? FileType.Symlink : FileType.NonSymlink;
+	} catch ( error ) {
+		return FileType.NonExistent;
 	}
 }
 

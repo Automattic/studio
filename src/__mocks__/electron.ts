@@ -6,6 +6,7 @@ export const ipcMain = {
 
 export const app = {
 	getFetch: jest.fn(),
+	getAppPath: jest.fn( () => '/path/to/app' ),
 	getPath: jest.fn( ( name ) => `/path/to/app/${ name }` ),
 	getName: jest.fn( () => 'App Name' ),
 	getLocale: jest.fn( () => 'en-US' ),

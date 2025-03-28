@@ -7,14 +7,15 @@ This directory contains tools for measuring and tracking performance metrics in 
 To run the performance tests:
 
 ```bash
-// Package the application first
+# Package the application first
 npm run package
 
-// Run the performance tests
+# Run the performance tests
 npm run test:metrics
 ```
 
 This will:
+
 1. Package the application (to ensure testing against the production build)
 2. Run the performance tests using Playwright
 3. Generate a performance reports in `artifacts/performance-metrics.json` at the project root and output the results to the console
@@ -23,7 +24,33 @@ This will:
 
 The performance tests simulate key user workflows and measure the time they take to complete. Currently, we measure:
 
-- Site creation and startup time: How long it takes to create a new WordPress site and have it running
+- **siteCreation**: How long it takes to create a new WordPress site and have it running
+- **siteStartup**: How long it takes to restart an existing site
+
+## Comparing Performance Between Commits
+
+You can compare performance metrics between different commits or branches:
+
+```bash
+cd scripts/compare-perf && npm run compare -- perf <commit1> <commit2>
+```
+
+This tool is useful for:
+
+- Testing performance impact of code changes
+- Identifying performance regressions
+- Benchmarking improvements in new features
+
+## CodeVitals Integration
+
+Performance metrics from the `trunk` branch are automatically sent to [CodeVitals](https://codevitals.dev/) for tracking and visualization. This helps in tracking performance trends over time and detecting regressions.
+
+The metrics are sent when:
+
+1. A workflow runs on the `trunk` branch
+2. The `CODEVITALS_AUTH_TOKEN` secret is available in the GitHub repository
+
+Note that the job sends the metrics for the current command and a reference commit as well. This allows CodeVitals to compare the performance metrics between the two commits and normalize the current commit's values to avoid the CI fluctuations.
 
 ## Understanding the Results
 
@@ -31,7 +58,9 @@ The `performance-metrics.json` output file contains a summary of the results, ex
 
 ```json
 {
-  "siteCreation": 6150,
-  "siteStartup": 3946
+	"siteCreation": 6150,
+	"siteStartup": 3946
 }
 ```
+
+All measurements are in milliseconds (ms), and lower values indicate better performance.

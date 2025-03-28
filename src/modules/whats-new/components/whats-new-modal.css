@@ -12,16 +12,6 @@
   height: 100%;
 }
 
-/* Ensure content area can shrink if needed */
-.whats-new-modal .components-guide__page-content {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  padding-bottom: 60px; /* Space for the footer */
-}
-
 /* Make the footer stick to the bottom */
 .whats-new-modal .components-guide__footer {
   position: absolute;

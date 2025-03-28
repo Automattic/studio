@@ -23,7 +23,7 @@ const WHATS_NEW_PAGES: WhatsNewPage[] = [
 		image: versionSwitchIllustration, // TODO: Add correct illustration for intro card
 		title: __( 'What is new in Studio?' ),
 		description: __(
-			'Discover the latest updates in Studio! Explore exciting new features designed to enhance your experience.'
+			'Discover the latest updates in Studio! Explore exciting new features designed to enhance your experience. Discover the latest updates in Studio! Explore exciting new features designed to enhance your experience'
 		),
 	},
 	{
@@ -46,7 +46,7 @@ const WHATS_NEW_PAGES: WhatsNewPage[] = [
 		image: previewSitesIllustration, // TODO: Add correct illustration
 		title: __( 'Choose a custom domain for your Studio site' ),
 		description: __(
-			'Easily identify your local Studio sites with custom domain names. Personalize and organize your workflow!'
+			'Easily identify your local Studio sites with custom domain names. Personalize and organize your workflow! Discover the latest updates in Studio! Explore exciting new features designed to enhance your experience'
 		),
 		learnMoreUrl:
 			'https://developer.wordpress.com/docs/developer-tools/studio/sites/#1-using-a-custom-domain ', // TODO: Add correct URL

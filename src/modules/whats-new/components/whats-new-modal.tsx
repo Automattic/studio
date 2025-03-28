@@ -45,7 +45,7 @@ const WHATS_NEW_PAGES: WhatsNewPage[] = [
 		image: previewSitesIllustration, // TODO: Add correct illustration
 		title: __( 'Choose a custom domain for your Studio site' ),
 		description: __(
-			'Torem ipsum dolor sit amet, consectetur adipiscing elit. Etiam eu turpis molestie, dictum est a, mattis tellus.'
+			'Easily identify your local Studio sites with custom domain names. Personalize and organize your workflow!'
 		),
 		learnMoreUrl:
 			'https://developer.wordpress.com/docs/developer-tools/studio/sites/#1-using-a-custom-domain ', // TODO: Add correct URL

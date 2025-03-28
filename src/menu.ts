@@ -2,13 +2,14 @@ import { Menu, type MenuItemConstructorOptions, app, BrowserWindow, autoUpdater 
 import { __ } from '@wordpress/i18n';
 import { openAboutWindow } from 'src/about-menu/open-about-menu';
 import { BUG_REPORT_URL, FEATURE_REQUEST_URL } from 'src/constants';
+import { getDocsLink } from 'src/hooks/use-docs-link';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
+import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { getMainWindow } from 'src/main-window';
+import { installCLIOnMacOSWithConfirmation } from 'src/modules/cli/lib/install-macos';
 import { isUpdateReadyToInstall, manualCheckForUpdates } from 'src/updates';
-import { getDocsLink } from './hooks/use-docs-link';
-import { getUserLocaleWithFallback } from './lib/locale-node';
 
 export async function setupMenu( config: { needsOnboarding: boolean } ) {
 	const mainWindow = await getMainWindow();
@@ -93,6 +94,14 @@ function getAppMenu(
 						sendIpcEventToRenderer( 'user-settings' );
 					},
 				},
+				...( process.platform === 'darwin' && process.env.NODE_ENV === 'development'
+					? [
+							{
+								label: __( 'Install CLI…' ),
+								click: installCLIOnMacOSWithConfirmation,
+							},
+					  ]
+					: [] ),
 				{ type: 'separator' },
 				...( process.platform === 'win32'
 					? []

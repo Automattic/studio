@@ -1,0 +1,62 @@
+/* Main container styles */
+.whats-new-modal .components-guide__container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* Make the page container take full height */
+.whats-new-modal .components-guide__page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* Ensure content area can shrink if needed */
+.whats-new-modal .components-guide__page-content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  padding-bottom: 60px; /* Space for the footer */
+}
+
+/* Make the footer stick to the bottom */
+.whats-new-modal .components-guide__footer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: white;
+}
+
+/* Default paragraph clamping for all pages */
+.whats-new-modal p {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+/* Special clamping for the intro page */
+.whats-new-intro-page p {
+  -webkit-line-clamp: 5;
+  line-clamp: 5;
+}
+
+/* Title styling for all pages */
+.whats-new-modal h2 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.components-button.components-guide__finish-button {
+	height: 40px;
+}

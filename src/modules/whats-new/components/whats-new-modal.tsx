@@ -93,7 +93,7 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 					/>
 				),
 				content: (
-					<div className={ index === 0 ? 'whats-new-intro-page' : '' }>
+					<div data-page-index={ index }>
 						<PageContent title={ title } { ...pageContent } />
 					</div>
 				),

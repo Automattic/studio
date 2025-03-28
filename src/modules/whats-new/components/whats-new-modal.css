@@ -52,21 +52,8 @@
 	height: 40px;
 }
 
-/* Remove line clamping for the intro page description */
-.whats-new-intro-page p {
-  -webkit-line-clamp: unset;
-  line-clamp: unset;
-}
-
-/* Adjust spacing for the intro page */
-.whats-new-intro-page div:last-child {
-  flex: 1;
-  display: flex;
-  align-items: flex-end;
-}
-
-/* Fix alignment for the intro page heading */
-.whats-new-intro-page h2 {
-  text-align: left;
-  width: 100%;
+/* Special styling for the first page */
+.whats-new-modal [data-page-index="0"] p {
+  -webkit-line-clamp: 5; /* Allow more lines on the first page */
+  line-clamp: 5;
 }

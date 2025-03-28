@@ -31,29 +31,32 @@
   background: white;
 }
 
-/* Prevent text overflow by adding ellipsis */
-.whats-new-modal h2,
+/* Default paragraph clamping for all pages */
 .whats-new-modal p {
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
-  -webkit-line-clamp: 3; /* Limit to 3 lines */
-  line-clamp: 3; /* Standard property for compatibility */
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
   -webkit-box-orient: vertical;
 }
 
-/* Allow title to show more */
+/* Special clamping for the intro page */
+.whats-new-intro-page p {
+  -webkit-line-clamp: 5;
+  line-clamp: 5;
+}
+
+/* Title styling for all pages */
 .whats-new-modal h2 {
-  -webkit-line-clamp: 2; /* Limit title to 2 lines */
-  line-clamp: 2; /* Standard property for compatibility */
-} 
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
 
 .components-button.components-guide__finish-button {
 	height: 40px;
-}
-
-/* Special styling for the first page */
-.whats-new-modal [data-page-index="0"] p {
-  -webkit-line-clamp: 5; /* Allow more lines on the first page */
-  line-clamp: 5;
 }

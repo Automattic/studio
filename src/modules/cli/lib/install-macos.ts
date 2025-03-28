@@ -8,10 +8,10 @@ import { getMainWindow } from 'src/main-window';
 import { getResourcesPath } from 'src/storage/paths';
 import packageJson from '../../../../package.json';
 
-const cliSymlinkSource = '/usr/local/bin/studio';
+const cliSymlinkPath = '/usr/local/bin/studio';
 
 const binPath = path.join( getResourcesPath(), 'bin' );
-const cliSymlinkTarget = path.join( binPath, 'studio-cli.sh' );
+const cliSymlinkDestination = path.join( binPath, 'studio-cli.sh' );
 const installScriptPath = path.join( binPath, 'install-studio-cli.sh' );
 
 export async function installCLIOnMacOSWithConfirmation() {
@@ -45,34 +45,34 @@ async function installCLI(): Promise< void > {
 		return;
 	}
 
-	const currentSymlinkTarget = await getCurrentSymlinkTarget();
+	const currentSymlinkDestination = await getCurrentSymlinkDestination();
 
-	if ( currentSymlinkTarget === cliSymlinkTarget ) {
+	if ( currentSymlinkDestination === cliSymlinkDestination ) {
 		return;
 	}
 
 	try {
-		const directoryPath = path.dirname( cliSymlinkSource );
+		const directoryPath = path.dirname( cliSymlinkPath );
 
-		await unlink( cliSymlinkSource );
+		await unlink( cliSymlinkPath );
 		await mkdir( directoryPath, { recursive: true } );
-		await symlink( cliSymlinkTarget, cliSymlinkSource );
+		await symlink( cliSymlinkDestination, cliSymlinkPath );
 	} catch ( e ) {
 		// `/usr/local/bin` is not typically writable by non-root users, so in most cases, we run
 		// this install script with admin privileges to create the symlink.
 		await sudoExec( `/bin/sh "${ installScriptPath }"`, {
 			name: packageJson.productName,
 			env: {
-				CLI_SYMLINK_SOURCE: cliSymlinkSource,
-				CLI_SYMLINK_TARGET: cliSymlinkTarget,
+				CLI_SYMLINK_PATH: cliSymlinkPath,
+				CLI_SYMLINK_DESTINATION: cliSymlinkDestination,
 			},
 		} );
 	}
 }
 
-async function getCurrentSymlinkTarget(): Promise< string | null > {
+async function getCurrentSymlinkDestination(): Promise< string | null > {
 	try {
-		return await readlink( cliSymlinkSource );
+		return await readlink( cliSymlinkPath );
 	} catch {
 		return null;
 	}

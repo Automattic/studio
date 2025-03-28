@@ -50,7 +50,7 @@ jobs:
       - name: Log performance metrics to CodeVitals
         #if: github.event_name == 'push' && github.ref == 'refs/heads/trunk' && !cancelled()
         run: |
-          cd scripts/compare-perf && npm run log-to-codevitals
+          npm ci && cd scripts/compare-perf && npm run log-to-codevitals
 
       - name: Archive performance results
         if: ${{ !cancelled() }}

@@ -28,6 +28,13 @@ export default function Header() {
 		getIpcApi().openSiteURL( site.id, '', { autoLogin: false } );
 	};
 
+	const handleOpenSimpleServer = async () => {
+		if ( isLoading || ! site ) {
+			return;
+		}
+		getIpcApi().openSimpleServer( site );
+	};
+
 	return (
 		<div
 			data-testid="site-content-header"
@@ -58,6 +65,15 @@ export default function Header() {
 								// translators: "Open site" refers to the action, like "to open site"
 								__( 'Open site' )
 							}
+							<ArrowIcon />
+						</Button>
+						<Button
+							className="[&.is-link]:text-a8c-gray-70 [&.is-link]:hover:text-a8c-blueberry !px-0 h-0 leading-4"
+							onClick={ handleOpenSimpleServer }
+							variant="link"
+							disabled={ isLoading }
+						>
+							{ __( 'Manage database' ) }
 							<ArrowIcon />
 						</Button>
 					</div>

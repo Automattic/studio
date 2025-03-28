@@ -124,6 +124,7 @@ const api: IpcApi = {
 	getFileContent: ( filePath: string ) => ipcRenderer.invoke( 'getFileContent', filePath ),
 	isFullscreen: () => ipcRenderer.invoke( 'isFullscreen' ),
 	getAllCustomDomains: () => ipcRenderer.invoke( 'getAllCustomDomains' ),
+	openSimpleServer: ( site: SiteDetails ) => ipcRenderer.invoke( 'openSimpleServer', site ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

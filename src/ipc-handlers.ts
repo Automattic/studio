@@ -59,6 +59,7 @@ import {
 	generateSiteCertificate,
 	openCertificate as openCertificateDialog,
 } from './lib/certificate-manager';
+import { simpleServer } from './lib/simple-server';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
 
@@ -1243,4 +1244,14 @@ export async function getAllCustomDomains(): Promise< string[] > {
 	return userData.sites
 		.map( ( site ) => site.customDomain )
 		.filter( ( domain ): domain is string => domain !== undefined );
+}
+
+export function openSimpleServer(
+	event: IpcMainInvokeEvent,
+	site: SiteDetails
+): Promise< string > {
+	return simpleServer.start( site ).then( ( port ) => {
+		shellOpenExternalWrapper( `http://localhost:${ port }` );
+		return `http://localhost:${ port }`;
+	} );
 }

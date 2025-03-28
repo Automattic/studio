@@ -86,4 +86,22 @@ describe( 'Header', () => {
 			} );
 		} );
 	} );
+
+	describe( 'Manage database button', () => {
+		it( 'should open the simple server when clicked', async () => {
+			const user = userEvent.setup();
+			const mockOpenSimpleServer = jest.fn();
+			mockGetIpcApi( { openSimpleServer: mockOpenSimpleServer } );
+			renderWithProvider( <Header /> );
+
+			await screen.findByText( 'test-1' );
+			const startButton = screen.getByRole( 'button', { name: 'Start' } );
+			await user.click( startButton );
+
+			const manageDatabaseButton = screen.getAllByRole( 'button', { name: /Manage database/i } );
+			await user.click( manageDatabaseButton[ 0 ] );
+
+			expect( mockOpenSimpleServer ).toHaveBeenCalled();
+		} );
+	} );
 } );

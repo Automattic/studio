@@ -5,12 +5,20 @@ import { shell, IpcMainInvokeEvent } from 'electron';
 import fs from 'fs';
 import { normalize } from 'path';
 import * as Sentry from '@sentry/electron/main';
-import { createSite, startServer, isFullscreen, importSite } from 'src/ipc-handlers';
+import {
+	createSite,
+	startServer,
+	isFullscreen,
+	importSite,
+	openSimpleServer,
+} from 'src/ipc-handlers';
 import { bumpStat } from 'src/lib/bump-stats';
 import { StatsGroup, StatsMetric } from 'src/lib/bump-stats/types';
 import { isEmptyDir, pathExists } from 'src/lib/fs-utils';
 import { importBackup, defaultImporterOptions } from 'src/lib/import-export/import/import-manager';
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
+import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
+import { simpleServer } from 'src/lib/simple-server';
 import { keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
 import { getMainWindow } from 'src/main-window';
 import { SiteServer, createSiteWorkingDirectory } from 'src/site-server';
@@ -25,6 +33,17 @@ jest.mock( 'src/main-window' );
 jest.mock( '@sentry/electron/main' );
 jest.mock( 'src/lib/import-export/import/import-manager' );
 jest.mock( 'src/lib/bump-stats' );
+
+jest.mock( 'src/lib/shell-open-external-wrapper', () => ( {
+	shellOpenExternalWrapper: jest.fn(),
+} ) );
+
+jest.mock( 'src/lib/simple-server', () => ( {
+	simpleServer: {
+		start: jest.fn(),
+		stop: jest.fn(),
+	},
+} ) );
 
 jest.mock( 'src/lib/port-finder', () => ( {
 	portFinder: {
@@ -214,5 +233,44 @@ describe( 'importSite', () => {
 
 		// Verify failure stats were bumped
 		expect( bumpStat ).toHaveBeenCalledWith( StatsGroup.STUDIO_IMPORT, StatsMetric.FAILURE );
+	} );
+} );
+
+describe( 'openSimpleServer', () => {
+	beforeEach( () => {
+		jest.clearAllMocks();
+		( simpleServer.start as jest.Mock ).mockResolvedValue( 3000 );
+	} );
+
+	it( 'should start the server and open the URL in browser', async () => {
+		await openSimpleServer( mockIpcMainInvokeEvent, {
+			id: 'test-site',
+			path: '/test-site',
+			running: true,
+			name: 'Test Site',
+			port: 3000,
+			phpVersion: '8.0',
+			url: 'http://localhost:3000',
+		} );
+		expect( simpleServer.start ).toHaveBeenCalled();
+		expect( shellOpenExternalWrapper ).toHaveBeenCalledWith( 'http://localhost:3000' );
+	} );
+
+	it( 'should handle server start errors', async () => {
+		const error = new Error( 'Server failed to start' );
+		( simpleServer.start as jest.Mock ).mockRejectedValue( error );
+
+		await expect(
+			openSimpleServer( mockIpcMainInvokeEvent, {
+				id: 'test-site',
+				path: '/test-site',
+				running: true,
+				name: 'Test Site',
+				port: 3000,
+				phpVersion: '8.0',
+				url: 'http://localhost:3000',
+			} )
+		).rejects.toThrow( error );
+		expect( shellOpenExternalWrapper ).not.toHaveBeenCalled();
 	} );
 } );

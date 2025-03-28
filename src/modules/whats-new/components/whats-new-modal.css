@@ -31,8 +31,6 @@
   background: white;
 }
 
-/* Title styling removed - now using Tailwind's line-clamp-2 */
-
 .components-button.components-guide__finish-button {
 	height: 40px;
 }

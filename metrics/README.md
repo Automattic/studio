@@ -15,6 +15,7 @@ npm run test:metrics
 ```
 
 This will:
+
 1. Package the application (to ensure testing against the production build)
 2. Run the performance tests using Playwright
 3. Generate a performance reports in `artifacts/performance-metrics.json` at the project root and output the results to the console
@@ -35,9 +36,21 @@ cd scripts/compare-perf && npm run compare -- perf <commit1> <commit2>
 ```
 
 This tool is useful for:
+
 - Testing performance impact of code changes
 - Identifying performance regressions
 - Benchmarking improvements in new features
+
+## CodeVitals Integration
+
+Performance metrics from the `trunk` branch are automatically sent to [CodeVitals](https://codevitals.dev/) for tracking and visualization. This helps in tracking performance trends over time and detecting regressions.
+
+The metrics are sent when:
+
+1. A workflow runs on the `trunk` branch
+2. The `CODEVITALS_AUTH_TOKEN` secret is available in the GitHub repository
+
+Note that the job sends the metrics for the current command and a reference commit as well. This allows CodeVitals to compare the performance metrics between the two commits and normalize the current commit's values to avoid the CI fluctuations.
 
 ## Understanding the Results
 
@@ -45,8 +58,8 @@ The `performance-metrics.json` output file contains a summary of the results, ex
 
 ```json
 {
-  "siteCreation": 6150,
-  "siteStartup": 3946
+	"siteCreation": 6150,
+	"siteStartup": 3946
 }
 ```
 

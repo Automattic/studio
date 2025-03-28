@@ -4,6 +4,7 @@ import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import previewSitesIllustration from 'src/modules/whats-new/assets/preview-sites-illustration.svg';
 import versionSwitchIllustration from 'src/modules/whats-new/assets/version-switch-illustration.svg';
+import './whats-new-modal.css';
 
 interface WhatsNewPage {
 	image: string;
@@ -22,7 +23,7 @@ const WHATS_NEW_PAGES: WhatsNewPage[] = [
 		image: versionSwitchIllustration, // TODO: Add correct illustration for intro card
 		title: __( 'What is new in Studio?' ),
 		description: __(
-			'Discover the latest updates in Studio! Explore exciting new features designed to enhance your experience.'
+			'Discover the latest updates in Studio! Explore exciting new features designed to enhance your experience long description text.'
 		),
 	},
 	{
@@ -45,7 +46,7 @@ const WHATS_NEW_PAGES: WhatsNewPage[] = [
 		image: previewSitesIllustration, // TODO: Add correct illustration
 		title: __( 'Choose a custom domain for your Studio site' ),
 		description: __(
-			'Easily identify your local Studio sites with custom domain names. Personalize and organize your workflow!'
+			'Easily identify your local Studio sites with custom domain names. Personalize and organize your workflow long description text!'
 		),
 		learnMoreUrl:
 			'https://developer.wordpress.com/docs/developer-tools/studio/sites/#1-using-a-custom-domain ', // TODO: Add correct URL
@@ -56,7 +57,7 @@ const PageContent = ( { title, description, learnMoreUrl }: Omit< WhatsNewPage, 
 	<div className="px-8 pt-4 pb-2 flex flex-col h-full">
 		<h2 className="text-xl mb-4 text-gray-900">{ title }</h2>
 		<p className="text-gray-900 text-m leading-s">{ description }</p>
-		<div className={ cx( 'mt-2 mb-4', ! learnMoreUrl && 'mt-[56px]' ) }>
+		<div className={ cx( 'mt-2 mb-4' ) }>
 			{ learnMoreUrl && (
 				<button
 					onClick={ () => getIpcApi().openURL( learnMoreUrl ) }

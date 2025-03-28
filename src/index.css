@@ -282,7 +282,3 @@ blockquote {
 .error-select-control .components-input-control__backdrop {
 	border-color: theme( 'colors.red.500' )!important;
 }
-
-.components-button.components-guide__finish-button {
-	height: 40px;
-}

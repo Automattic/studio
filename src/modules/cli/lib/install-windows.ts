@@ -48,16 +48,16 @@ const installPath = async () => {
 	try {
 		const currentPath = await getPathFromRegistry();
 
-	if ( isStudioCliInPath( currentPath ) ) {
-		return;
-	}
+		if ( isStudioCliInPath( currentPath ) ) {
+			return;
+		}
 
-	const updatedPath = currentPath
-		.split(';')
-		.map( p => p.trim() )
-		.filter(Boolean)
-		.concat( localAppBinPath )
-		.join(';');
+		const updatedPath = currentPath
+			.split(';')
+			.map( p => p.trim() )
+			.filter(Boolean)
+			.concat( localAppBinPath )
+			.join(';');
 
 		await setPathToRegistry( updatedPath );
 	} catch (error) {

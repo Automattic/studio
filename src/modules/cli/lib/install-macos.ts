@@ -11,7 +11,7 @@ import packageJson from '../../../../package.json';
 const cliSymlinkPath = '/usr/local/bin/studio';
 
 const binPath = path.join( getResourcesPath(), 'bin' );
-const cliSymlinkDestination = path.join( binPath, 'studio-cli.sh' );
+const cliPackagedPath = path.join( binPath, 'studio-cli.sh' );
 const installScriptPath = path.join( binPath, 'install-studio-cli.sh' );
 
 export async function installCLIOnMacOSWithConfirmation() {
@@ -38,8 +38,8 @@ export async function installCLIOnMacOSWithConfirmation() {
 	}
 }
 
-// This function installs the Studio CLI on macOS. It creates a symlink at `cliSymlinkSource`
-// pointing to the packaged Studio CLI JS file at `cliSymlinkTarget`.
+// This function installs the Studio CLI on macOS. It creates a symlink at `cliSymlinkPath` pointing
+// to the packaged Studio CLI JS file at `cliPackagedPath`.
 async function installCLI(): Promise< void > {
 	if ( process.platform !== 'darwin' ) {
 		return;
@@ -47,7 +47,7 @@ async function installCLI(): Promise< void > {
 
 	const currentSymlinkDestination = await getCurrentSymlinkDestination();
 
-	if ( currentSymlinkDestination === cliSymlinkDestination ) {
+	if ( currentSymlinkDestination === cliPackagedPath ) {
 		return;
 	}
 
@@ -56,7 +56,7 @@ async function installCLI(): Promise< void > {
 
 		await unlink( cliSymlinkPath );
 		await mkdir( directoryPath, { recursive: true } );
-		await symlink( cliSymlinkDestination, cliSymlinkPath );
+		await symlink( cliPackagedPath, cliSymlinkPath );
 	} catch ( e ) {
 		// `/usr/local/bin` is not typically writable by non-root users, so in most cases, we run
 		// this install script with admin privileges to create the symlink.
@@ -64,7 +64,7 @@ async function installCLI(): Promise< void > {
 			name: packageJson.productName,
 			env: {
 				CLI_SYMLINK_PATH: cliSymlinkPath,
-				CLI_SYMLINK_DESTINATION: cliSymlinkDestination,
+				CLI_PACKAGED_PATH: cliPackagedPath,
 			},
 		} );
 	}

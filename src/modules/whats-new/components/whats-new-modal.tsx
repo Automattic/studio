@@ -56,7 +56,7 @@ const PageContent = ( { title, description, learnMoreUrl }: Omit< WhatsNewPage, 
 	<div className="px-8 pt-4 pb-2 flex flex-col h-full">
 		<h2 className="text-xl mb-4 text-gray-900">{ title }</h2>
 		<p className="text-gray-900 text-m leading-s">{ description }</p>
-		<div className={ cx( 'mt-2 mb-4', ! learnMoreUrl && 'mt-[36px]' ) }>
+		<div className={ cx( 'mt-2 mb-4', ! learnMoreUrl && 'mt-[56px]' ) }>
 			{ learnMoreUrl && (
 				<button
 					onClick={ () => getIpcApi().openURL( learnMoreUrl ) }

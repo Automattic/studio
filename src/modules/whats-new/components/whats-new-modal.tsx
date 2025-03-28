@@ -57,7 +57,7 @@ const PageContent = ( { title, description, learnMoreUrl }: Omit< WhatsNewPage, 
 	<div className="px-8 pt-4 pb-2 flex flex-col h-full">
 		<h2 className="text-xl mb-4 text-gray-900">{ title }</h2>
 		<p className="text-gray-900 text-m leading-s">{ description }</p>
-		<div className={ cx( 'mt-2 mb-4', ! learnMoreUrl && 'mt-[56px]' ) }>
+		<div className="mt-2 mb-4">
 			{ learnMoreUrl && (
 				<button
 					onClick={ () => getIpcApi().openURL( learnMoreUrl ) }
@@ -84,7 +84,7 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 				'[&_*]:select-none',
 				'focus:outline-none'
 			) }
-			pages={ WHATS_NEW_PAGES.map( ( { image, title, ...pageContent } ) => ( {
+			pages={ WHATS_NEW_PAGES.map( ( { image, title, ...pageContent }, index ) => ( {
 				image: (
 					<img
 						src={ image }
@@ -92,7 +92,11 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 						className="h-[173px] w-full object-cover mb-4"
 					/>
 				),
-				content: <PageContent title={ title } { ...pageContent } />,
+				content: (
+					<div className={ index === 0 ? 'whats-new-intro-page' : '' }>
+						<PageContent title={ title } { ...pageContent } />
+					</div>
+				),
 			} ) ) }
 			finishButtonText={ __( 'Done' ) }
 		/>

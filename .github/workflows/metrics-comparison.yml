@@ -48,7 +48,7 @@ jobs:
 
       # Log performance metrics to CodeVitals when running on trunk
       - name: Log performance metrics to CodeVitals
-        #if: github.event_name == 'push' && github.ref == 'refs/heads/trunk' && !cancelled()
+        if: github.event_name == 'push' && github.ref == 'refs/heads/trunk' && !cancelled()
         run: |
           COMMITTED_AT=$(git show -s $GITHUB_SHA --format="%cI")
           npm ci && cd scripts/compare-perf && npm run log-to-codevitals -- $CODEVITALS_AUTH_TOKEN trunk $GITHUB_SHA c27db920b93947786da17271b859e90c6d64eaac $COMMITTED_AT

@@ -31,31 +31,7 @@
   background: white;
 }
 
-/* Default paragraph clamping for all pages */
-.whats-new-modal p {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  line-clamp: 3;
-  -webkit-box-orient: vertical;
-}
-
-/* Special clamping for the intro page */
-.whats-new-intro-page p {
-  -webkit-line-clamp: 5;
-  line-clamp: 5;
-}
-
-/* Title styling for all pages */
-.whats-new-modal h2 {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
-}
+/* Title styling removed - now using Tailwind's line-clamp-2 */
 
 .components-button.components-guide__finish-button {
 	height: 40px;

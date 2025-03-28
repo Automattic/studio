@@ -23,12 +23,12 @@ const WHATS_NEW_PAGES: WhatsNewPage[] = [
 		image: versionSwitchIllustration, // TODO: Add correct illustration for intro card
 		title: __( 'What is new in Studio?' ),
 		description: __(
-			'Discover the latest updates in Studio! Explore exciting new features designed to enhance your experience.'
+			'Discover the latest updates in Studio! Explore exciting new features designed to enhance your experience.Discover the latest updates in Studio! Explore exciting new features designed to enhance your experience'
 		),
 	},
 	{
 		image: versionSwitchIllustration,
-		title: __( 'Select WordPress and PHP versions in Studio' ),
+		title: __( 'Select WordPress and PHP versions in Studio bla bla bla bla' ),
 		description: __(
 			'Select your preferred WordPress and PHP versions for existing sites or when creating a new one.'
 		),
@@ -46,17 +46,29 @@ const WHATS_NEW_PAGES: WhatsNewPage[] = [
 		image: previewSitesIllustration, // TODO: Add correct illustration
 		title: __( 'Choose a custom domain for your Studio site' ),
 		description: __(
-			'Easily identify your local Studio sites with custom domain names. Personalize and organize your workflow!'
+			'Easily identify your local Studio sites with custom domain names. Personalize and organize your workflow! Discover the latest updates in Studio! Explore exciting new features designed to enhance your experience'
 		),
 		learnMoreUrl:
 			'https://developer.wordpress.com/docs/developer-tools/studio/sites/#1-using-a-custom-domain ', // TODO: Add correct URL
 	},
 ];
 
-const PageContent = ( { title, description, learnMoreUrl }: Omit< WhatsNewPage, 'image' > ) => (
+const PageContent = ( {
+	title,
+	description,
+	learnMoreUrl,
+	isIntroPage = false,
+}: Omit< WhatsNewPage, 'image' > & { isIntroPage?: boolean } ) => (
 	<div className="px-8 pt-4 pb-2 flex flex-col h-full">
-		<h2 className="text-xl mb-4 text-gray-900">{ title }</h2>
-		<p className="text-gray-900 text-m leading-s">{ description }</p>
+		<h2 className="text-xl mb-4 text-gray-900 line-clamp-2">{ title }</h2>
+		<p
+			className={ cx(
+				'text-gray-900 text-m leading-s',
+				isIntroPage ? 'line-clamp-5' : 'line-clamp-3'
+			) }
+		>
+			{ description }
+		</p>
 		<div className="mt-2 mb-4">
 			{ learnMoreUrl && (
 				<button
@@ -94,7 +106,7 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 				),
 				content: (
 					<div className={ index === 0 ? 'whats-new-intro-page' : '' }>
-						<PageContent title={ title } { ...pageContent } />
+						<PageContent title={ title } { ...pageContent } isIntroPage={ index === 0 } />
 					</div>
 				),
 			} ) ) }

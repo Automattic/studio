@@ -1,11 +1,20 @@
 import { app } from 'electron';
 import path from 'path';
+import { pathExistsSync } from 'fs-extra';
 
 export function getUserDataFilePath(): string {
 	return path.join( getAppDataPath(), getAppName(), 'appdata-v1.json' );
 }
 
 export function getServerFilesPath(): string {
+	const localServerFilesPath = path.join( __dirname, '..', '..', 'wp-files' );
+	/**
+	 * Locally, we might have a newer version of the server files in the project folder
+	 * so we can test the app with the latest version of the server files.
+	 */
+	if ( process.env.NODE_ENV === 'development' && pathExistsSync( localServerFilesPath ) ) {
+		return localServerFilesPath;
+	}
 	return path.join( getAppDataPath(), getAppName(), 'server-files' );
 }
 

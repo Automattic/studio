@@ -32,6 +32,9 @@ export async function updateLatestSqliteVersion() {
  * Checks if the SQLite integration version installed in a site is outdated compared to the version
  * installed locally in the server files.
  *
+ * A version is outdated if the installed version doesn't match the Studio version of the SQLite database
+ * integration plugin and it can be either greater or lower version.
+ *
  * @param sitePath Path of the site.
  *
  * @returns True if the SQLite integration is outdated.
@@ -48,7 +51,7 @@ export async function isSqliteInstallationOutdated( sitePath: string ): Promise<
 		return false;
 	}
 
-	return semver.lt( siteVersion, serverFilesVersion );
+	return ! semver.eq( siteVersion, serverFilesVersion );
 }
 
 export async function getSqliteVersionFromInstallation(

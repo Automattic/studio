@@ -12,7 +12,11 @@ export function getServerFilesPath(): string {
 	 * Locally, we might have a newer version of the server files in the project folder
 	 * so we can test the app with the latest version of the server files.
 	 */
-	if ( process.env.NODE_ENV === 'development' && pathExistsSync( localServerFilesPath ) ) {
+	if (
+		process.env.NODE_ENV === 'development' &&
+		pathExistsSync( localServerFilesPath ) &&
+		! process.env.CI
+	) {
 		return localServerFilesPath;
 	}
 	return path.join( getAppDataPath(), getAppName(), 'server-files' );

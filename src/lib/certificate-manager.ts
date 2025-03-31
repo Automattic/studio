@@ -262,3 +262,28 @@ export async function generateSiteCertificate(
 		throw error;
 	}
 }
+
+/**
+ * Delete the certificate files for a specific domain
+ */
+export function deleteSiteCertificate( domain: string ): boolean {
+	try {
+		const siteCertPath = path.join( CERT_DIRECTORY, 'domains', `${ domain }.crt` );
+		const siteKeyPath = path.join( CERT_DIRECTORY, 'domains', `${ domain }.key` );
+		let deletedFiles = false;
+		if ( fs.existsSync( siteCertPath ) ) {
+			fs.unlinkSync( siteCertPath );
+			deletedFiles = true;
+		}
+		if ( fs.existsSync( siteKeyPath ) ) {
+			fs.unlinkSync( siteKeyPath );
+			deletedFiles = true;
+		}
+
+		return deletedFiles;
+	} catch ( error ) {
+		Sentry.captureException( error );
+		console.error( `Failed to delete certificate for ${ domain }:`, error );
+		return false;
+	}
+}

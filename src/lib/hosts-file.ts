@@ -4,11 +4,10 @@ import { platform, tmpdir } from 'os';
 import path from 'path';
 import { promisify } from 'util';
 import * as Sentry from '@sentry/electron/main';
-import sudo from '@vscode/sudo-prompt';
+import { sudoExec } from 'src/lib/sudo-exec';
 
 const readFile = promisify( fs.readFile );
 const writeFile = promisify( fs.writeFile );
-const sudoExec = promisify( sudo.exec );
 
 // Host file paths for different operating systems
 const HOST_FILES: Record< string, string > = {
@@ -55,7 +54,6 @@ export const writeHostsFile = async ( content: string ): Promise< void > => {
 			platform() === 'win32'
 				? `type ${ tempPath } > ${ hostsPath }`
 				: `cat ${ tempPath } > ${ hostsPath }`;
-		// @ts-expect-error promisify doesn't seem typed properly.
 		await sudoExec( command, {
 			name: 'WordPress Studio',
 		} );

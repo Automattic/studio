@@ -59,3 +59,8 @@ export const WP_CLI_DEFAULT_RESPONSE_TIMEOUT = 5 * 60 * 1000; // 5min
 export const WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT_IN_HRS = 6;
 export const WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT =
 	WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT_IN_HRS * 60 * 60 * 1000; // 6hr
+
+// SQLite
+export const SQLITE_DATABASE_INTEGRATION_VERSION = 'v2.1.19-alpha';
+
+export const SQLITE_DATABASE_INTEGRATION_RELEASE_URL = `https://github.com/Automattic/sqlite-database-integration/archive/refs/tags/${ SQLITE_DATABASE_INTEGRATION_VERSION }.zip`;

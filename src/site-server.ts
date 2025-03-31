@@ -3,13 +3,17 @@ import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import fsExtra from 'fs-extra';
 import { parse } from 'shell-quote';
+import { deleteSiteCertificate, generateSiteCertificate } from 'src/lib/certificate-manager';
 import { pathExists, recursiveCopyDirectory, isEmptyDir } from 'src/lib/fs-utils';
-import { removeDomainFromHosts } from 'src/lib/hosts-file';
+import { getSiteUrl } from 'src/lib/get-site-url';
+import { addDomainToHosts, removeDomainFromHosts, updateDomainInHosts } from 'src/lib/hosts-file';
 import { decodePassword } from 'src/lib/passwords';
 import { phpGetThemeDetails } from 'src/lib/php-get-theme-details';
 import { portFinder } from 'src/lib/port-finder';
+import { startProxyServer } from 'src/lib/proxy-server';
 import { getPreferredSiteLanguage } from 'src/lib/site-language';
 import SiteServerProcess from 'src/lib/site-server-process';
+import { updateSiteUrl } from 'src/lib/update-site-url';
 import WpCliProcess, { MessageCanceled, WpCliResult } from 'src/lib/wp-cli-process';
 import { purgeWpConfig } from 'src/lib/wp-versions';
 import { createScreenshotWindow } from 'src/screenshot-window';
@@ -102,6 +106,13 @@ export class SiteServer {
 			}
 		}
 
+		if ( this.details.customDomain && this.details.enableHttps ) {
+			const certificateDeleted = deleteSiteCertificate( this.details.customDomain ?? '' );
+			if ( certificateDeleted ) {
+				console.log( `Certificates for ${ this.details.customDomain } have been deleted` );
+			}
+		}
+
 		await this.stop();
 		await this.wpCliExecutor?.stop();
 		deletedServers.push( this.details.id );
@@ -112,6 +123,26 @@ export class SiteServer {
 	async start() {
 		if ( this.details.running || this.server ) {
 			return;
+		}
+
+		// Handle custom domain if necessary
+		if ( this.details.customDomain ) {
+			await addDomainToHosts( this.details.customDomain, this.details.port );
+			// Generate certificates for HTTPS sites *before* the server starts
+			// This ensures the certs are ready when the proxy server needs them
+			if ( this.details.enableHttps ) {
+				console.log(
+					`Generating certificates for ${ this.details.customDomain } during server start`
+				);
+
+				const { cert, key } = await generateSiteCertificate( this.details.customDomain );
+				this.details = {
+					...this.details,
+					tlsKey: key,
+					tlsCert: cert,
+				};
+			}
+			await startProxyServer();
 		}
 
 		const options = await getWpNowConfig( {
@@ -151,7 +182,12 @@ export class SiteServer {
 		};
 	}
 
-	updateSiteDetails( site: SiteDetails ) {
+	async updateSiteDetails( site: SiteDetails ) {
+		const oldDomain = this.details.customDomain;
+		const newDomain = site.customDomain;
+		const oldEnableHttps = this.details.enableHttps;
+		const newEnableHttps = site.enableHttps;
+
 		this.details = {
 			...this.details,
 			name: site.name,
@@ -165,6 +201,34 @@ export class SiteServer {
 		if ( this.server && this.details.running ) {
 			this.details.url = getAbsoluteUrl( this.details );
 			this.server.url = this.details.url;
+		}
+
+		// Handle domain changes and url changes (updates hosts and database)
+		if ( oldDomain !== newDomain ) {
+			updateDomainInHosts( oldDomain, newDomain, this.details.port );
+		}
+		if ( ( oldDomain && ! newDomain ) || oldEnableHttps !== newEnableHttps ) {
+			await updateSiteUrl( this, getSiteUrl( this.details ) );
+		}
+
+		if (
+			oldDomain &&
+			oldEnableHttps &&
+			( oldDomain !== newDomain || oldEnableHttps !== newEnableHttps )
+		) {
+			deleteSiteCertificate( oldDomain );
+		}
+		if (
+			newDomain &&
+			newEnableHttps &&
+			( oldDomain !== newDomain || oldEnableHttps !== newEnableHttps )
+		) {
+			const { cert, key } = await generateSiteCertificate( newDomain );
+			this.details = {
+				...this.details,
+				tlsKey: key,
+				tlsCert: cert,
+			};
 		}
 	}
 

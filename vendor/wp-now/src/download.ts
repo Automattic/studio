@@ -6,8 +6,7 @@ import fs from 'fs-extra';
 import { HttpProxyAgent, HttpsProxyAgent } from 'hpagent';
 import { getWordPressVersionUrl } from 'src/lib/wordpress-version-utils';
 import unzipper from 'unzipper';
-import { DEFAULT_WORDPRESS_VERSION, SQLITE_FILENAME, SQLITE_URL, WP_CLI_URL } from './constants';
-import getSqlitePath from './get-sqlite-path';
+import { DEFAULT_WORDPRESS_VERSION, WP_CLI_URL } from './constants';
 import getWordpressVersionsPath from './get-wordpress-versions-path';
 import getWpCliPath from './get-wp-cli-path';
 import { output } from './output';
@@ -174,29 +173,6 @@ export async function downloadWordPress(
 		output?.log(
 			`WordPress ${ wordPressVersion } not found. Check https://wordpress.org/download/releases/ for available versions.`
 		);
-	}
-}
-
-export async function downloadSqliteIntegrationPlugin(
-	{ overwrite }: { overwrite: boolean } = { overwrite: false }
-) {
-	const finalFolder = getSqlitePath();
-	const tempFolder = path.join( os.tmpdir(), SQLITE_FILENAME );
-	const { downloaded, statusCode } = await downloadFileAndUnzip( {
-		url: SQLITE_URL,
-		destinationFolder: tempFolder,
-		checkFinalPath: finalFolder,
-		itemName: 'SQLite',
-		overwrite,
-	} );
-	if ( downloaded ) {
-		const nestedFolder = path.join( tempFolder, SQLITE_FILENAME );
-		await fs.ensureDir( path.dirname( finalFolder ) );
-		await fs.move( nestedFolder, finalFolder, {
-			overwrite: true,
-		} );
-	} else if ( 0 !== statusCode ) {
-		throw Error( 'An error ocurred when download SQLite' );
 	}
 }
 

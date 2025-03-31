@@ -6,7 +6,7 @@ const config: Configuration = {
 	target: 'node',
 	entry: './cli/index.ts',
 	output: {
-		filename: '[name].js',
+		filename: 'main.js',
 		path: path.join( __dirname, 'dist', 'cli' ),
 		libraryTarget: 'commonjs2',
 		chunkFormat: 'commonjs',

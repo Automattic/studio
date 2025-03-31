@@ -62,5 +62,6 @@ export const WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT =
 
 // SQLite
 export const SQLITE_DATABASE_INTEGRATION_VERSION = 'v2.1.19-alpha';
-export const LOCAL_SQLITE_DATABASE_PATH = '/wp-content/database/.ht.sqlite';
+export const LOCAL_SQLITE_DATABASE_FILENAME = '.ht.sqlite';
+export const LOCAL_SQLITE_DATABASE_PATH = `/wp-content/database/${ LOCAL_SQLITE_DATABASE_FILENAME }`;
 export const SQLITE_DATABASE_INTEGRATION_RELEASE_URL = `https://github.com/Automattic/sqlite-database-integration/archive/refs/tags/${ SQLITE_DATABASE_INTEGRATION_VERSION }.zip`;

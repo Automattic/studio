@@ -1,11 +1,13 @@
 import { DropdownMenu, MenuGroup, Button } from '@wordpress/components';
+import { createInterpolateElement } from '@wordpress/element';
+import { __, sprintf } from '@wordpress/i18n';
 import { moreVertical } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import { CopyTextButton } from 'src/components/copy-text-button';
 import DeleteSite from 'src/components/delete-site';
-import { LOCAL_SQLITE_DATABASE_PATH } from 'src/constants';
+import { LOCAL_SQLITE_DATABASE_PATH, LOCAL_SQLITE_DATABASE_FILENAME } from 'src/constants';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { decodePassword } from 'src/lib/passwords';
@@ -169,9 +171,36 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 					</tr>
 					<SettingsRow>
 						<div className="ltr:pr-8 rtl:pl-8">
-							{ __(
-								'Your WordPress site is connected to a local SQLite database. To view and manage your database, create backups, restore from backups, and more, you can open the local database file in an external SQLite-compatible database tool.'
-							) }
+							<p className="mb-2">
+								{ __(
+									'Your WordPress site is connected to a local SQLite database. To view and manage your database, create backups, restore from backups, and more, you can open the local database file in an external SQLite-compatible database tool.'
+								) }
+							</p>
+							<p className="mb-2">
+								{ createInterpolateElement(
+									sprintf(
+										// translators: %s is the local database file name.
+										__(
+											'Once you have installed an external SQLite-compatible database tool, open the local database and click on <span>%s</span>.'
+										),
+										LOCAL_SQLITE_DATABASE_FILENAME
+									),
+									{
+										span: <span className="italic text-a8c-gray-50 inline-block" />,
+									}
+								) }
+							</p>
+						</div>
+					</SettingsRow>
+					<SettingsRow label={ __( 'Local file' ) }>
+						<div className="flex items-center">
+							<Button
+								variant="link"
+								onClick={ () => getIpcApi().showItemInFolder( pathToDatabase ) }
+							>
+								{ __( 'Open local database' ) }
+							</Button>
+							<ArrowIcon />
 						</div>
 					</SettingsRow>
 					<SettingsRow label={ __( 'Local path' ) }>
@@ -182,17 +211,6 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 						>
 							<span className="line-clamp-1 break-all">{ pathToDatabase }</span>
 						</CopyTextButton>
-					</SettingsRow>
-					<SettingsRow label={ __( 'Local folder' ) }>
-						<div className="flex items-center">
-							<Button
-								variant="link"
-								onClick={ () => getIpcApi().showItemInFolder( pathToDatabase ) }
-							>
-								{ __( 'Open in file system' ) }
-							</Button>
-							<ArrowIcon />
-						</div>
 					</SettingsRow>
 				</tbody>
 			</table>

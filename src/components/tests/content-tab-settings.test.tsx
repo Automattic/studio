@@ -300,7 +300,7 @@ describe( 'ContentTabSettings', () => {
 		it( 'opens the file system when the button is clicked', async () => {
 			const user = userEvent.setup();
 			renderWithProvider( <ContentTabSettings selectedSite={ selectedSite } /> );
-			const openButton = screen.getByRole( 'button', { name: 'Open in file system' } );
+			const openButton = screen.getByRole( 'button', { name: 'Open local database' } );
 			expect( openButton ).toBeVisible();
 			await user.click( openButton );
 			expect( showItemInFolder ).toHaveBeenCalled();

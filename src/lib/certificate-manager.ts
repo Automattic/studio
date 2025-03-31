@@ -163,7 +163,8 @@ export async function isRootCATrusted(): Promise< boolean > {
 
 	if ( process.platform === 'win32' ) {
 		try {
-			await execFilePromise( 'certutil', [
+			// Execute certutil with more specific validation
+			const { stdout } = await execFilePromise( 'certutil', [
 				'-verify',
 				'-urlfetch',
 				'-purpose',
@@ -171,7 +172,12 @@ export async function isRootCATrusted(): Promise< boolean > {
 				CA_CERT_PATH,
 			] );
 
-			return true;
+			const hasValidPolicies =
+				stdout.includes( 'Verified Application Policies:' ) &&
+				stdout.includes( 'Server Authentication' );
+
+			// Only consider the certificate trusted if it has the Server Authentication policy.
+			return hasValidPolicies;
 		} catch ( error ) {
 			return false;
 		}

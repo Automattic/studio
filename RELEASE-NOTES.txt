@@ -1,6 +1,6 @@
 1.3.9
 =====
-* Added SSL support #1034, #1064, #1116
+* Added SSL support for custom domains #1034, #1064, #1116
 * Improved custom domain handling #1115, #1114, #1064
 * Added performance metrics and comparison tooling #1119, #1144
 * Enabled import/export while another site is syncing #1076

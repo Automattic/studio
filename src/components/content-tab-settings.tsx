@@ -2,8 +2,10 @@ import { DropdownMenu, MenuGroup, Button } from '@wordpress/components';
 import { moreVertical } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren } from 'react';
+import { ArrowIcon } from 'src/components/arrow-icon';
 import { CopyTextButton } from 'src/components/copy-text-button';
 import DeleteSite from 'src/components/delete-site';
+import { LOCAL_SQLITE_DATABASE_PATH } from 'src/constants';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { decodePassword } from 'src/lib/passwords';
@@ -13,13 +15,22 @@ interface ContentTabSettingsProps {
 	selectedSite: SiteDetails;
 }
 
-function SettingsRow( { children, label }: PropsWithChildren< { label: string } > ) {
+function SettingsRow( {
+	children,
+	label,
+}: PropsWithChildren< {
+	label?: string;
+} > ) {
 	return (
 		<tr className="align-top">
-			<th className="text-nowrap text-a8c-gray-50 pb-4 ltr:pr-6 rtl:pl-6 ltr:text-left rtl:text-right font-normal">
-				{ label }
-			</th>
-			<td className="pb-4">{ children }</td>
+			{ label && (
+				<th className="text-nowrap text-a8c-gray-50 pb-4 ltr:pr-6 rtl:pl-6 ltr:text-left rtl:text-right font-normal">
+					{ label }
+				</th>
+			) }
+			<td className="pb-4" colSpan={ ! label ? 2 : undefined }>
+				{ children }
+			</td>
 		</tr>
 	);
 }
@@ -35,6 +46,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 		? `${ selectedSite.customDomain }`
 		: `localhost:${ selectedSite.port }`;
 	const protocol = selectedSite.customDomain && selectedSite.enableHttps ? 'https' : 'http';
+	const pathToDatabase = `${ selectedSite.path }${ LOCAL_SQLITE_DATABASE_PATH }`;
 	return (
 		<div className="p-8 ltr:pr-0 rtl:pl-0">
 			<div className="flex justify-between items-center mb-4">
@@ -149,6 +161,38 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 						>
 							{ `${ domain }/wp-admin` }
 						</CopyTextButton>
+					</SettingsRow>
+					<tr>
+						<th colSpan={ 2 } className="pb-4 ltr:text-left rtl:text-right">
+							<h3 className="text-black text-sm font-semibold mt-4">{ __( 'Database' ) }</h3>
+						</th>
+					</tr>
+					<SettingsRow>
+						<div className="ltr:pr-8 rtl:pl-8">
+							{ __(
+								'Your WordPress site is connected to a local SQLite database. To view and manage your database, create backups, restore from backups, and more, you can open the local database file in an external SQLite-compatible database tool.'
+							) }
+						</div>
+					</SettingsRow>
+					<SettingsRow label={ __( 'Local path' ) }>
+						<CopyTextButton
+							text={ pathToDatabase }
+							label={ __( 'Copy local path to clipboard' ) }
+							copyConfirmation={ __( 'Copied!' ) }
+						>
+							<span className="line-clamp-1 break-all">{ pathToDatabase }</span>
+						</CopyTextButton>
+					</SettingsRow>
+					<SettingsRow label={ __( 'File system' ) }>
+						<div className="flex items-center">
+							<Button
+								variant="link"
+								onClick={ () => getIpcApi().showItemInFolder( pathToDatabase ) }
+							>
+								{ __( 'Open' ) }
+							</Button>
+							<ArrowIcon />
+						</div>
 					</SettingsRow>
 				</tbody>
 			</table>

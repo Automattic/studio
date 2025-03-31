@@ -177,19 +177,19 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 					<SettingsRow label={ __( 'Local path' ) }>
 						<CopyTextButton
 							text={ pathToDatabase }
-							label={ __( 'Copy local path to clipboard' ) }
+							label={ __( 'Copy local database path to clipboard' ) }
 							copyConfirmation={ __( 'Copied!' ) }
 						>
 							<span className="line-clamp-1 break-all">{ pathToDatabase }</span>
 						</CopyTextButton>
 					</SettingsRow>
-					<SettingsRow label={ __( 'File system' ) }>
+					<SettingsRow label={ __( 'Local folder' ) }>
 						<div className="flex items-center">
 							<Button
 								variant="link"
 								onClick={ () => getIpcApi().showItemInFolder( pathToDatabase ) }
 							>
-								{ __( 'Open' ) }
+								{ __( 'Open in file system' ) }
 							</Button>
 							<ArrowIcon />
 						</div>

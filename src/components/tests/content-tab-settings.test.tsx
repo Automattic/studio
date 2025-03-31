@@ -3,6 +3,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { ContentTabSettings } from 'src/components/content-tab-settings';
+import { LOCAL_SQLITE_DATABASE_PATH } from 'src/constants';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSiteDetails } from 'src/hooks/use-site-details';
@@ -43,6 +44,7 @@ describe( 'ContentTabSettings', () => {
 	const copyText = jest.fn();
 	const openLocalPath = jest.fn();
 	const generateProposedSitePath = jest.fn();
+	const showItemInFolder = jest.fn();
 	const getAllCustomDomains = jest.fn().mockResolvedValue( [] );
 
 	beforeEach( () => {
@@ -53,6 +55,7 @@ describe( 'ContentTabSettings', () => {
 			openLocalPath,
 			generateProposedSitePath,
 			getAllCustomDomains,
+			showItemInFolder,
 		} );
 
 		( useSnapshots as jest.Mock ).mockReturnValue( {
@@ -272,6 +275,35 @@ describe( 'ContentTabSettings', () => {
 				<ContentTabSettings selectedSite={ { ...selectedSite, phpVersion: '8.2' } } />
 			);
 			expect( screen.getByText( '8.2' ) ).toBeVisible();
+		} );
+	} );
+	describe( 'Database', () => {
+		it( 'copies the local database path to the clipboard', async () => {
+			const user = userEvent.setup();
+			const selectedSiteRunning: SiteDetails = {
+				...selectedSite,
+				path: '/path/to/site',
+			};
+			renderWithProvider( <ContentTabSettings selectedSite={ selectedSiteRunning } /> );
+
+			const databasePathButton = screen.getByRole( 'button', {
+				name: 'Copy local database path to clipboard',
+			} );
+			expect( databasePathButton ).toBeVisible();
+			await user.click( databasePathButton );
+			expect( copyText ).toHaveBeenCalledTimes( 1 );
+			expect( copyText ).toHaveBeenCalledWith(
+				`${ selectedSiteRunning.path }${ LOCAL_SQLITE_DATABASE_PATH }`
+			);
+		} );
+
+		it( 'opens the file system when the button is clicked', async () => {
+			const user = userEvent.setup();
+			renderWithProvider( <ContentTabSettings selectedSite={ selectedSite } /> );
+			const openButton = screen.getByRole( 'button', { name: 'Open in file system' } );
+			expect( openButton ).toBeVisible();
+			await user.click( openButton );
+			expect( showItemInFolder ).toHaveBeenCalled();
 		} );
 	} );
 } );

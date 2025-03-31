@@ -7,7 +7,6 @@ class SimpleServer {
 	private port: number | null = null;
 
 	async start( site: SiteDetails ): Promise< number > {
-		console.log( 'site', site );
 		if ( ! site.id || ! site.path ) {
 			throw new Error( 'Site ID is required' );
 		}

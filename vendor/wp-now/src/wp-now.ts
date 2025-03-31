@@ -609,7 +609,6 @@ async function mountInternalMuPlugins( php: PHP, options: WPNowOptions ) {
 			path.posix.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-disable-auto-updates.php' ),
 			`<?php
 			// Disable auto-updates
-			add_filter( 'auto_update_core', '__return_false' );
 			add_filter( 'allow_dev_auto_core_updates', '__return_false' );
 			add_filter( 'allow_minor_auto_core_updates', '__return_false' );
 			add_filter( 'allow_major_auto_core_updates', '__return_false' );

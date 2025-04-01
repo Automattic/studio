@@ -13,16 +13,19 @@ const SnapshotSchema = z.object( {
 	userId: z.number().optional(),
 } );
 
-const UserDataSchema = z.object( {
-	version: z.number().optional(),
-	sites: z.array( z.any() ).optional(),
-	snapshots: z.array( SnapshotSchema ).optional(),
-	authToken: z.any().optional(),
-	locale: z.string().optional(),
-} );
+const UserDataSchema = z
+	.object( {
+		snapshots: z.array( SnapshotSchema ).optional(),
+	} )
+	.passthrough();
 
 type Snapshot = z.infer< typeof SnapshotSchema >;
-type UserData = z.infer< typeof UserDataSchema >;
+type UserData = {
+	[ K: string ]: unknown;
+	snapshots?: Snapshot[];
+	sites?: Array< { id: string; path: string; name?: string } >;
+	authToken?: { id: number };
+};
 
 // ToDo: Improve this to support multiple platforms
 export function getAppdataPath(): string {
@@ -40,13 +43,9 @@ export async function readAppdata(): Promise< UserData > {
 	try {
 		const fileContent = fs.readFileSync( appDataPath, 'utf8' );
 		const userData = JSON.parse( fileContent );
-		const result = UserDataSchema.safeParse( userData );
+		const result = UserDataSchema.parse( userData );
 
-		if ( ! result.success ) {
-			throw new LoggerError( 'Invalid appdata format. Please run the Studio app again.' );
-		}
-
-		return result.data;
+		return result;
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {
 			throw error;
@@ -68,16 +67,12 @@ export async function saveAppdata( userData: UserData ): Promise< void > {
 	const appDataPath = getAppdataPath();
 
 	try {
-		// Check all required properties
 		if ( ! userData.version ) {
 			userData.version = 1;
 		}
 
-		// Create a deep copy to avoid reference issues
-		const dataToSave = JSON.parse( JSON.stringify( userData ) );
-		const fileContent = JSON.stringify( dataToSave, null, 2 ) + '\n';
+		const fileContent = JSON.stringify( userData, null, 2 ) + '\n';
 
-		// Write the file
 		fs.writeFileSync( appDataPath, fileContent, 'utf8' );
 	} catch ( error ) {
 		throw new LoggerError(

@@ -10,6 +10,10 @@ const resultsFiles = [
 		file: 'site-startup.summary.json',
 		metricsPrefix: '',
 	},
+	{
+		file: 'site-editor.summary.json',
+		metricsPrefix: 'site-editor-',
+	},
 ];
 
 const performanceResults = resultsFiles.map( ( { file } ) =>

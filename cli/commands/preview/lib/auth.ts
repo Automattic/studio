@@ -13,7 +13,7 @@ const AuthTokenSchema = z.object( {
 		.nullable(),
 } );
 
-export async function getAuthToken( action: string ): Promise< string > {
+export async function getAuthToken(): Promise< string > {
 	const homeDir = os.homedir();
 	const appDataPath = path.join(
 		homeDir,
@@ -25,8 +25,7 @@ export async function getAuthToken( action: string ): Promise< string > {
 
 	if ( ! fs.existsSync( appDataPath ) ) {
 		throw new LoggerError(
-			'Authentication required. Please run the Studio app and authenticate first.',
-			action
+			'Authentication required. Please run the Studio app and authenticate first.'
 		);
 	}
 
@@ -40,8 +39,7 @@ export async function getAuthToken( action: string ): Promise< string > {
 		if ( ! result.success ) {
 			// Format the error in a more user-friendly way
 			throw new LoggerError(
-				`Authentication data is invalid. Please run the Studio app and authenticate again.`,
-				action
+				`Authentication data is invalid. Please run the Studio app and authenticate again.`
 			);
 		}
 
@@ -49,8 +47,7 @@ export async function getAuthToken( action: string ): Promise< string > {
 
 		if ( ! authToken || ! authToken.accessToken ) {
 			throw new LoggerError(
-				'Authentication required. Please run the Studio app and authenticate first.',
-				action
+				'Authentication required. Please run the Studio app and authenticate first.'
 			);
 		}
 
@@ -62,21 +59,18 @@ export async function getAuthToken( action: string ): Promise< string > {
 
 		if ( error instanceof z.ZodError ) {
 			throw new LoggerError(
-				`Authentication token is invalid or missing. Please run the Studio app and authenticate again.`,
-				action
+				`Authentication token is invalid or missing. Please run the Studio app and authenticate again.`
 			);
 		}
 
 		if ( error instanceof SyntaxError ) {
 			throw new LoggerError(
-				'Authentication data is corrupted. Please run the Studio app and authenticate again.',
-				action
+				'Authentication data is corrupted. Please run the Studio app and authenticate again.'
 			);
 		}
 
 		throw new LoggerError(
-			'Authentication required. Please run the Studio app and authenticate first.',
-			action
+			'Authentication required. Please run the Studio app and authenticate first.'
 		);
 	}
 }

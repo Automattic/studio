@@ -30,11 +30,11 @@ export function getAppdataPath(): string {
 	return path.join( homeDir, 'Library', 'Application Support', 'Studio', 'appdata-v1.json' );
 }
 
-export async function readAppdata( action: string ): Promise< UserData > {
+export async function readAppdata(): Promise< UserData > {
 	const appDataPath = getAppdataPath();
 
 	if ( ! fs.existsSync( appDataPath ) ) {
-		throw new LoggerError( 'Appdata file not found. Please run the Studio app first.', action );
+		throw new LoggerError( 'Appdata file not found. Please run the Studio app first.' );
 	}
 
 	try {
@@ -43,7 +43,7 @@ export async function readAppdata( action: string ): Promise< UserData > {
 		const result = UserDataSchema.safeParse( userData );
 
 		if ( ! result.success ) {
-			throw new LoggerError( `Invalid appdata format. Please run the Studio app again.`, action );
+			throw new LoggerError( 'Invalid appdata format. Please run the Studio app again.' );
 		}
 
 		return result.data;
@@ -53,24 +53,18 @@ export async function readAppdata( action: string ): Promise< UserData > {
 		}
 
 		if ( error instanceof z.ZodError ) {
-			throw new LoggerError( `Invalid appdata format. Please run the Studio app again.`, action );
+			throw new LoggerError( 'Invalid appdata format. Please run the Studio app again.' );
 		}
 
 		if ( error instanceof SyntaxError ) {
-			throw new LoggerError(
-				'Appdata file is corrupted. Please run the Studio app again.',
-				action
-			);
+			throw new LoggerError( 'Appdata file is corrupted. Please run the Studio app again.' );
 		}
 
-		throw new LoggerError(
-			'Failed to read appdata file. Please run the Studio app again.',
-			action
-		);
+		throw new LoggerError( 'Failed to read appdata file. Please run the Studio app again.' );
 	}
 }
 
-export async function saveAppdata( userData: UserData, action: string ): Promise< void > {
+export async function saveAppdata( userData: UserData ): Promise< void > {
 	const appDataPath = getAppdataPath();
 
 	try {
@@ -87,8 +81,7 @@ export async function saveAppdata( userData: UserData, action: string ): Promise
 		fs.writeFileSync( appDataPath, fileContent, 'utf8' );
 	} catch ( error ) {
 		throw new LoggerError(
-			`Failed to save appdata file: ${ error instanceof Error ? error.message : String( error ) }`,
-			action
+			`Failed to save appdata file: ${ error instanceof Error ? error.message : String( error ) }`
 		);
 	}
 }
@@ -96,12 +89,11 @@ export async function saveAppdata( userData: UserData, action: string ): Promise
 export async function addPreviewSiteToAppdata(
 	previewUrl: string,
 	atomicSiteId: number,
-	siteFolder: string,
-	action: string
+	siteFolder: string
 ): Promise< void > {
 	try {
 		// Read the existing appdata
-		const userData = await readAppdata( action );
+		const userData = await readAppdata();
 		const site = userData.sites?.find( ( s ) => s.path === siteFolder );
 		if ( ! site ) {
 			return;
@@ -120,13 +112,12 @@ export async function addPreviewSiteToAppdata(
 			snapshot.userId = userData.authToken.id;
 		}
 		userData.snapshots.push( snapshot );
-		await saveAppdata( userData, action );
+		await saveAppdata( userData );
 	} catch ( error ) {
 		throw new LoggerError(
 			`Failed to add preview site to appdata: ${
 				error instanceof Error ? error.message : String( error )
-			}`,
-			action
+			}`
 		);
 	}
 }

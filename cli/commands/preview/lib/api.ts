@@ -32,8 +32,7 @@ const POLL_INTERVAL_MS = 3000;
 
 export async function uploadArchive(
 	archivePath: string,
-	token: string,
-	action: string
+	token: string
 ): Promise< { site_url: string; site_id: number } > {
 	const wpcom = new WPCOM( token );
 	const formData = [
@@ -58,7 +57,7 @@ export async function uploadArchive(
 		const result = CreateSiteResponseSchema.safeParse( rawResponse );
 
 		if ( ! result.success ) {
-			throw new LoggerError( 'Invalid API response', action );
+			throw new LoggerError( 'Invalid API response' );
 		}
 
 		const response = result.data;
@@ -73,11 +72,11 @@ export async function uploadArchive(
 		}
 
 		if ( error instanceof z.ZodError ) {
-			throw new LoggerError( 'Invalid API response format', action );
+			throw new LoggerError( 'Invalid API response format' );
 		}
 
 		const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-		throw new LoggerError( `Failed to upload archive: ${ errorMessage }`, action );
+		throw new LoggerError( `Failed to upload archive: ${ errorMessage }` );
 	}
 }
 
@@ -103,11 +102,7 @@ async function checkSiteStatus( siteId: number, token: string ): Promise< boolea
 	}
 }
 
-export async function waitForSiteReady(
-	siteId: number,
-	token: string,
-	action: string
-): Promise< boolean > {
+export async function waitForSiteReady( siteId: number, token: string ): Promise< boolean > {
 	let attempts = 0;
 
 	while ( attempts < MAX_POLL_ATTEMPTS ) {
@@ -121,7 +116,6 @@ export async function waitForSiteReady(
 	}
 
 	throw new LoggerError(
-		'Failed to create preview site: site did not become ready within timeout',
-		action
+		'Failed to create preview site: site did not become ready within timeout'
 	);
 }

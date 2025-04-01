@@ -25,39 +25,31 @@ async function runCommand( siteFolder: string, outputFormat?: OutputFormat ): Pr
 
 	try {
 		logger.reportStart( LoggerAction.VALIDATE, 'Validating...' );
-		validateSiteFolder( siteFolder, LoggerAction.VALIDATE );
-		const token = await getAuthToken( LoggerAction.VALIDATE );
-		logger.reportSuccess( LoggerAction.VALIDATE, 'Validation successful' );
+		validateSiteFolder( siteFolder );
+		const token = await getAuthToken();
+		logger.reportSuccess( 'Validation successful' );
 
 		logger.reportStart( LoggerAction.ARCHIVE, 'Creating archive...' );
-		await createArchive( siteFolder, archivePath, LoggerAction.ARCHIVE );
-		logger.reportSuccess( LoggerAction.ARCHIVE, 'Archive created' );
+		await createArchive( siteFolder, archivePath );
+		logger.reportSuccess( 'Archive created' );
 
 		logger.reportStart( LoggerAction.UPLOAD, 'Uploading archive...' );
-		const uploadResponse = await uploadArchive( archivePath, token, LoggerAction.UPLOAD );
-		logger.reportSuccess( LoggerAction.UPLOAD, 'Archive uploaded' );
+		const uploadResponse = await uploadArchive( archivePath, token );
+		logger.reportSuccess( 'Archive uploaded' );
 
 		logger.reportStart( LoggerAction.READY, 'Creating preview site...' );
-		await waitForSiteReady( uploadResponse.site_id, token, LoggerAction.READY );
-		logger.reportSuccess(
-			LoggerAction.READY,
-			`Preview site available at: https://${ uploadResponse.site_url }`
-		);
+		await waitForSiteReady( uploadResponse.site_id, token );
+		logger.reportSuccess( `Preview site available at: https://${ uploadResponse.site_url }` );
 
 		logger.reportStart( LoggerAction.APPDATA, 'Saving preview site to Studio...' );
-		await addPreviewSiteToAppdata(
-			uploadResponse.site_url,
-			uploadResponse.site_id,
-			siteFolder,
-			LoggerAction.APPDATA
-		);
-		logger.reportSuccess( LoggerAction.APPDATA, 'Preview site saved to Studio' );
+		await addPreviewSiteToAppdata( uploadResponse.site_url, uploadResponse.site_id, siteFolder );
+		logger.reportSuccess( 'Preview site saved to Studio' );
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {
 			logger.reportError( error );
 		} else {
 			const message = error instanceof Error ? error.message : String( error );
-			logger.reportError( new LoggerError( message, LoggerAction.VALIDATE ) );
+			logger.reportError( new LoggerError( message ) );
 		}
 	} finally {
 		cleanup( archivePath );

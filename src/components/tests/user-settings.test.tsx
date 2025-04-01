@@ -59,4 +59,37 @@ describe( 'UserSettings', () => {
 			} )
 		).toBeVisible();
 	} );
+
+	describe( 'Tab Navigation', () => {
+		beforeEach( () => {
+			( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
+		} );
+
+		it( 'switches between tabs correctly', async () => {
+			render( <UserSettings /> );
+
+			// Check initial tab
+			expect( screen.getByText( 'Account' ) ).toHaveAttribute( 'aria-selected', 'true' );
+			expect( screen.getByRole( 'tabpanel', { name: 'Account' } ) ).toHaveAttribute(
+				'id',
+				'tab-panel-1-account-view'
+			);
+
+			// Switch to Preferences tab
+			fireEvent.click( screen.getByText( 'Preferences' ) );
+			expect( screen.getByText( 'Preferences' ) ).toHaveAttribute( 'aria-selected', 'true' );
+			expect( screen.getByRole( 'tabpanel', { name: 'Preferences' } ) ).toHaveAttribute(
+				'id',
+				'tab-panel-1-preferences-view'
+			);
+
+			// Switch to Usage tab
+			fireEvent.click( screen.getByText( 'Usage' ) );
+			expect( screen.getByText( 'Usage' ) ).toHaveAttribute( 'aria-selected', 'true' );
+			expect( screen.getByRole( 'tabpanel', { name: 'Usage' } ) ).toHaveAttribute(
+				'id',
+				'tab-panel-1-usage-view'
+			);
+		} );
+	} );
 } );

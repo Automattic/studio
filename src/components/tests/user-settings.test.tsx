@@ -61,35 +61,25 @@ describe( 'UserSettings', () => {
 	} );
 
 	describe( 'Tab Navigation', () => {
-		beforeEach( () => {
-			( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
-		} );
-
 		it( 'switches between tabs correctly', async () => {
+			( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
+
 			render( <UserSettings /> );
 
 			// Check initial tab
 			expect( screen.getByText( 'Account' ) ).toHaveAttribute( 'aria-selected', 'true' );
-			expect( screen.getByRole( 'tabpanel', { name: 'Account' } ) ).toHaveAttribute(
-				'id',
-				'tab-panel-1-account-view'
-			);
+			expect( screen.getByText( 'Log out' ) ).toBeVisible();
 
 			// Switch to Preferences tab
 			fireEvent.click( screen.getByText( 'Preferences' ) );
 			expect( screen.getByText( 'Preferences' ) ).toHaveAttribute( 'aria-selected', 'true' );
-			expect( screen.getByRole( 'tabpanel', { name: 'Preferences' } ) ).toHaveAttribute(
-				'id',
-				'tab-panel-1-preferences-view'
-			);
+			expect( screen.getByText( 'Language' ) ).toBeVisible();
 
 			// Switch to Usage tab
 			fireEvent.click( screen.getByText( 'Usage' ) );
 			expect( screen.getByText( 'Usage' ) ).toHaveAttribute( 'aria-selected', 'true' );
-			expect( screen.getByRole( 'tabpanel', { name: 'Usage' } ) ).toHaveAttribute(
-				'id',
-				'tab-panel-1-usage-view'
-			);
+			expect( screen.getByText( 'Preview sites' ) ).toBeVisible();
+			expect( screen.getByText( 'AI assistant' ) ).toBeVisible();
 		} );
 	} );
 } );

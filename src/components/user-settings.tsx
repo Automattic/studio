@@ -191,7 +191,7 @@ export default function UserSettings() {
 	const [ needsToOpenUserSettings, setNeedsToOpenUserSettings ] = useState( false );
 
 	const isOffline = useOffline();
-	const offlineMessage = __( "You're currently offline." );
+	const offlineMessage = __( 'You’re currently offline.' );
 
 	const resetLocalState = useCallback( () => {
 		setNeedsToOpenUserSettings( false );

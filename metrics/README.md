@@ -26,6 +26,7 @@ The performance tests simulate key user workflows and measure the time they take
 
 - **siteCreation**: How long it takes to create a new WordPress site and have it running
 - **siteStartup**: How long it takes to restart an existing site
+- **siteEditorLoad**: How long it takes to load the site editor (from navigation until the first block appears)
 
 ## Comparing Performance Between Commits
 
@@ -59,7 +60,7 @@ The `performance-metrics.json` output file contains a summary of the results, ex
 ```json
 {
 	"siteCreation": 6150,
-	"siteStartup": 3946
+	"siteStartup": 3946,
 }
 ```
 

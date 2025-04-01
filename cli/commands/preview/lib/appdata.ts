@@ -87,7 +87,6 @@ export async function addPreviewSiteToAppdata(
 	siteFolder: string
 ): Promise< void > {
 	try {
-		// Read the existing appdata
 		const userData = await readAppdata();
 		const site = userData.sites?.find( ( s ) => s.path === siteFolder );
 		if ( ! site ) {

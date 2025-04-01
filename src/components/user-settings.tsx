@@ -191,7 +191,7 @@ export default function UserSettings() {
 	const [ needsToOpenUserSettings, setNeedsToOpenUserSettings ] = useState( false );
 
 	const isOffline = useOffline();
-	const offlineMessage = __( 'You’re currently offline.' );
+	const offlineMessage = __( "You're currently offline." );
 
 	const resetLocalState = useCallback( () => {
 		setNeedsToOpenUserSettings( false );
@@ -234,6 +234,32 @@ export default function UserSettings() {
 			setDeletedAllSnapshots( true );
 		}
 	}, [ allSnapshots, deleteAllSnapshots, __ ] );
+
+	const renderNonAuthenticatedAccountTab = () => {
+		return (
+			<div className="flex flex-col gap-6">
+				<div className="justify-between items-center w-full h-auto flex">
+					<WordPressLogo />
+					<Tooltip disabled={ ! isOffline } icon={ offlineIcon } text={ offlineMessage }>
+						<Button
+							aria-description={ isOffline ? offlineMessage : '' }
+							aria-disabled={ isOffline }
+							variant="primary"
+							onClick={ () => {
+								if ( isOffline ) {
+									return;
+								}
+								authenticate();
+							} }
+						>
+							{ __( 'Log in' ) }
+						</Button>
+					</Tooltip>
+				</div>
+				<div className="border-t border-[#F0F0F0] w-full"></div>
+			</div>
+		);
+	};
 
 	const renderAccountTab = () => {
 		return (
@@ -282,10 +308,14 @@ export default function UserSettings() {
 			name: 'preferences',
 			title: __( 'Preferences' ),
 		},
-		{
-			name: 'usage',
-			title: __( 'Usage' ),
-		},
+		...( isAuthenticated
+			? [
+					{
+						name: 'usage',
+						title: __( 'Usage' ),
+					},
+			  ]
+			: [] ),
 	];
 
 	return (
@@ -297,43 +327,18 @@ export default function UserSettings() {
 					onRequestClose={ resetLocalState }
 					className="min-h-96 min-w-96"
 				>
-					{ ! isAuthenticated && (
-						<div className="flex flex-col gap-6">
-							<div className="justify-between items-center w-full h-auto flex">
-								<WordPressLogo />
-								<Tooltip disabled={ ! isOffline } icon={ offlineIcon } text={ offlineMessage }>
-									<Button
-										aria-description={ isOffline ? offlineMessage : '' }
-										aria-disabled={ isOffline }
-										variant="primary"
-										onClick={ () => {
-											if ( isOffline ) {
-												return;
-											}
-											authenticate();
-										} }
-									>
-										{ __( 'Log in' ) }
-									</Button>
-								</Tooltip>
-							</div>
-							<div className="border-t border-[#F0F0F0] w-full"></div>
-							<LanguagePicker />
-						</div>
-					) }
-					{ isAuthenticated && (
-						<div className="flex flex-col gap-6">
-							<TabPanel className="w-full" tabs={ tabs } orientation="horizontal">
-								{ ( { name } ) => (
-									<div className="mt-6 px-8">
-										{ name === 'account' && renderAccountTab() }
-										{ name === 'preferences' && renderPreferencesTab() }
-										{ name === 'usage' && renderUsageTab() }
-									</div>
-								) }
-							</TabPanel>
-						</div>
-					) }
+					<div className="flex flex-col gap-6">
+						<TabPanel className="w-full" tabs={ tabs } orientation="horizontal">
+							{ ( { name } ) => (
+								<div className="mt-6 px-8">
+									{ name === 'account' &&
+										( isAuthenticated ? renderAccountTab() : renderNonAuthenticatedAccountTab() ) }
+									{ name === 'preferences' && renderPreferencesTab() }
+									{ name === 'usage' && renderUsageTab() }
+								</div>
+							) }
+						</TabPanel>
+					</div>
 				</Modal>
 			) }
 		</>

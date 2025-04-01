@@ -235,69 +235,53 @@ export default function UserSettings() {
 		}
 	}, [ allSnapshots, deleteAllSnapshots, __ ] );
 
-	const renderNonAuthenticatedAccountTab = () => {
-		return (
-			<div className="flex flex-col gap-6">
-				<div className="justify-between items-center w-full h-auto flex">
-					<WordPressLogo />
-					<Tooltip disabled={ ! isOffline } icon={ offlineIcon } text={ offlineMessage }>
-						<Button
-							aria-description={ isOffline ? offlineMessage : '' }
-							aria-disabled={ isOffline }
-							variant="primary"
-							onClick={ () => {
-								if ( isOffline ) {
-									return;
-								}
-								authenticate();
-							} }
-						>
-							{ __( 'Log in' ) }
-						</Button>
-					</Tooltip>
-				</div>
-				<div className="border-t border-[#F0F0F0] w-full"></div>
+	const NonAuthenticatedAccountTab = () => (
+		<>
+			<div className="justify-between items-center w-full h-auto flex">
+				<WordPressLogo />
+				<Tooltip disabled={ ! isOffline } icon={ offlineIcon } text={ offlineMessage }>
+					<Button
+						aria-description={ isOffline ? offlineMessage : '' }
+						aria-disabled={ isOffline }
+						variant="primary"
+						onClick={ () => {
+							if ( isOffline ) {
+								return;
+							}
+							authenticate();
+						} }
+					>
+						{ __( 'Log in' ) }
+					</Button>
+				</Tooltip>
 			</div>
-		);
-	};
+			<div className="border-t border-[#F0F0F0] w-full"></div>
+		</>
+	);
 
-	const renderAccountTab = () => {
-		return (
-			<div className="flex flex-col gap-6">
-				<UserInfo onLogout={ logout } user={ user } />
-			</div>
-		);
-	};
+	const AccountTab = () => <UserInfo onLogout={ logout } user={ user } />;
 
-	const renderPreferencesTab = () => {
-		return (
-			<div className="flex flex-col gap-6">
-				<LanguagePicker />
-			</div>
-		);
-	};
+	const PreferencesTab = () => <LanguagePicker />;
 
-	const renderUsageTab = () => {
-		return (
-			<div className="flex flex-col gap-6">
-				<SnapshotInfo
-					isDeleting={ loadingDeletingAllSnapshots }
-					isDisabled={
-						activeSnapshotCount === 0 ||
-						loadingDeletingAllSnapshots ||
-						isLoadingAllSnapshots ||
-						isLoadingSnapshotUsage ||
-						allSnapshots?.length === 0 ||
-						isOffline
-					}
-					siteCount={ activeSnapshotCount }
-					siteLimit={ snapshotQuota }
-					onRemoveSnapshots={ onRemoveSnapshots }
-				/>
-				<PromptInfo />
-			</div>
-		);
-	};
+	const UsageTab = () => (
+		<>
+			<SnapshotInfo
+				isDeleting={ loadingDeletingAllSnapshots }
+				isDisabled={
+					activeSnapshotCount === 0 ||
+					loadingDeletingAllSnapshots ||
+					isLoadingAllSnapshots ||
+					isLoadingSnapshotUsage ||
+					allSnapshots?.length === 0 ||
+					isOffline
+				}
+				siteCount={ activeSnapshotCount }
+				siteLimit={ snapshotQuota }
+				onRemoveSnapshots={ onRemoveSnapshots }
+			/>
+			<PromptInfo />
+		</>
+	);
 
 	const tabs = [
 		{
@@ -331,10 +315,12 @@ export default function UserSettings() {
 						<TabPanel className="w-full" tabs={ tabs } orientation="horizontal">
 							{ ( { name } ) => (
 								<div className="mt-6 px-8">
-									{ name === 'account' &&
-										( isAuthenticated ? renderAccountTab() : renderNonAuthenticatedAccountTab() ) }
-									{ name === 'preferences' && renderPreferencesTab() }
-									{ name === 'usage' && renderUsageTab() }
+									<div className="flex flex-col gap-6">
+										{ name === 'account' &&
+											( isAuthenticated ? <AccountTab /> : <NonAuthenticatedAccountTab /> ) }
+										{ name === 'preferences' && <PreferencesTab /> }
+										{ name === 'usage' && isAuthenticated && <UsageTab /> }
+									</div>
 								</div>
 							) }
 						</TabPanel>

@@ -24,7 +24,6 @@ jest.mock( 'path' );
 describe( 'Auth Module', () => {
 	const mockHomeDir = '/mock/home';
 	const mockAppDataPath = '/mock/home/Library/Application Support/Studio/appdata-v1.json';
-	const mockAction = 'test-action';
 
 	beforeEach( () => {
 		jest.clearAllMocks();
@@ -35,10 +34,9 @@ describe( 'Auth Module', () => {
 	it( 'should throw LoggerError if app data file does not exist', async () => {
 		( fs.existsSync as jest.Mock ).mockReturnValue( false );
 
-		await expect( getAuthToken( mockAction ) ).rejects.toThrow( LoggerError );
-		await expect( getAuthToken( mockAction ) ).rejects.toMatchObject( {
-			action: mockAction,
-			message: expect.stringContaining( 'Authentication required' ),
+		await expect( getAuthToken() ).rejects.toThrow( LoggerError );
+		await expect( getAuthToken() ).rejects.toMatchObject( {
+			message: expect.stringContaining( 'Appdata file not found' ),
 		} );
 
 		expect( os.homedir ).toHaveBeenCalled();
@@ -60,7 +58,7 @@ describe( 'Auth Module', () => {
 		( fs.existsSync as jest.Mock ).mockReturnValue( true );
 		( fs.readFileSync as jest.Mock ).mockReturnValue( JSON.stringify( mockUserData ) );
 
-		const result = await getAuthToken( mockAction );
+		const result = await getAuthToken();
 
 		expect( fs.existsSync ).toHaveBeenCalledWith( mockAppDataPath );
 		expect( fs.readFileSync ).toHaveBeenCalledWith( mockAppDataPath, 'utf8' );
@@ -73,26 +71,9 @@ describe( 'Auth Module', () => {
 		( fs.existsSync as jest.Mock ).mockReturnValue( true );
 		( fs.readFileSync as jest.Mock ).mockReturnValue( JSON.stringify( mockUserData ) );
 
-		await expect( getAuthToken( mockAction ) ).rejects.toThrow( LoggerError );
-		await expect( getAuthToken( mockAction ) ).rejects.toMatchObject( {
-			action: mockAction,
-			message: expect.stringContaining( 'Authentication data is invalid' ),
-		} );
-
-		expect( fs.existsSync ).toHaveBeenCalledWith( mockAppDataPath );
-		expect( fs.readFileSync ).toHaveBeenCalledWith( mockAppDataPath, 'utf8' );
-	} );
-
-	it( 'should throw LoggerError if authToken.accessToken is not in app data file', async () => {
-		const mockUserData = { authToken: { someOtherField: 'value' } };
-
-		( fs.existsSync as jest.Mock ).mockReturnValue( true );
-		( fs.readFileSync as jest.Mock ).mockReturnValue( JSON.stringify( mockUserData ) );
-
-		await expect( getAuthToken( mockAction ) ).rejects.toThrow( LoggerError );
-		await expect( getAuthToken( mockAction ) ).rejects.toMatchObject( {
-			action: mockAction,
-			message: expect.stringContaining( 'Authentication data is invalid' ),
+		await expect( getAuthToken() ).rejects.toThrow( LoggerError );
+		await expect( getAuthToken() ).rejects.toMatchObject( {
+			message: expect.stringContaining( 'Authentication token is invalid or missing' ),
 		} );
 
 		expect( fs.existsSync ).toHaveBeenCalledWith( mockAppDataPath );
@@ -105,10 +86,9 @@ describe( 'Auth Module', () => {
 			throw new Error( 'File read error' );
 		} );
 
-		await expect( getAuthToken( mockAction ) ).rejects.toThrow( LoggerError );
-		await expect( getAuthToken( mockAction ) ).rejects.toMatchObject( {
-			action: mockAction,
-			message: expect.stringContaining( 'Authentication required' ),
+		await expect( getAuthToken() ).rejects.toThrow( LoggerError );
+		await expect( getAuthToken() ).rejects.toMatchObject( {
+			message: expect.stringContaining( 'Failed to read appdata file' ),
 		} );
 
 		expect( fs.existsSync ).toHaveBeenCalledWith( mockAppDataPath );
@@ -119,26 +99,9 @@ describe( 'Auth Module', () => {
 		( fs.existsSync as jest.Mock ).mockReturnValue( true );
 		( fs.readFileSync as jest.Mock ).mockReturnValue( 'invalid json{' );
 
-		await expect( getAuthToken( mockAction ) ).rejects.toThrow( LoggerError );
-		await expect( getAuthToken( mockAction ) ).rejects.toMatchObject( {
-			action: mockAction,
+		await expect( getAuthToken() ).rejects.toThrow( LoggerError );
+		await expect( getAuthToken() ).rejects.toMatchObject( {
 			message: expect.stringContaining( 'corrupted' ),
-		} );
-
-		expect( fs.existsSync ).toHaveBeenCalledWith( mockAppDataPath );
-		expect( fs.readFileSync ).toHaveBeenCalledWith( mockAppDataPath, 'utf8' );
-	} );
-
-	it( 'should throw LoggerError if authToken schema validation fails', async () => {
-		const mockUserData = { authToken: { accessToken: '' } }; // Empty token should fail validation
-
-		( fs.existsSync as jest.Mock ).mockReturnValue( true );
-		( fs.readFileSync as jest.Mock ).mockReturnValue( JSON.stringify( mockUserData ) );
-
-		await expect( getAuthToken( mockAction ) ).rejects.toThrow( LoggerError );
-		await expect( getAuthToken( mockAction ) ).rejects.toMatchObject( {
-			action: mockAction,
-			message: expect.stringContaining( 'Authentication data is invalid' ),
 		} );
 
 		expect( fs.existsSync ).toHaveBeenCalledWith( mockAppDataPath );

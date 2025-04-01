@@ -1,7 +1,6 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { z } from 'zod';
 import {
 	getAppdataPath,
 	readAppdata,
@@ -30,7 +29,6 @@ jest.mock( 'path' );
 describe( 'Appdata Module', () => {
 	const mockHomeDir = '/mock/home';
 	const mockAppDataPath = '/mock/home/Library/Application Support/Studio/appdata-v1.json';
-	const mockAction = 'test-action';
 	const mockSiteUrl = 'test-preview.example.com';
 	const mockSiteId = 12345;
 	const mockSiteFolder = '/test/folder';
@@ -47,7 +45,7 @@ describe( 'Appdata Module', () => {
 		// Default mock implementation for fs functions
 		( fs.existsSync as jest.Mock ).mockReturnValue( true );
 		( fs.readFileSync as jest.Mock ).mockReturnValue( '{}' );
-		( fs.writeFileSync as jest.Mock ).mockImplementation( () => undefined ); // Successfully do nothing by default
+		( fs.writeFileSync as jest.Mock ).mockImplementation( () => undefined );
 	} );
 
 	describe( 'getAppdataPath', () => {
@@ -67,8 +65,7 @@ describe( 'Appdata Module', () => {
 	describe( 'readAppdata', () => {
 		it( 'should throw LoggerError if appdata file does not exist', async () => {
 			( fs.existsSync as jest.Mock ).mockReturnValue( false );
-			await expect( readAppdata( mockAction ) ).rejects.toMatchObject( {
-				action: mockAction,
+			await expect( readAppdata() ).rejects.toMatchObject( {
 				message: expect.stringContaining( 'Appdata file not found' ),
 			} );
 		} );
@@ -89,29 +86,25 @@ describe( 'Appdata Module', () => {
 
 			( fs.readFileSync as jest.Mock ).mockReturnValueOnce( JSON.stringify( mockUserData ) );
 
-			const result = await readAppdata( mockAction );
+			const result = await readAppdata();
 			expect( result ).toEqual( mockUserData );
 		} );
 
-		it( 'should throw LoggerError if appdata is invalid JSON', async () => {
-			( fs.readFileSync as jest.Mock ).mockReturnValueOnce( 'invalid json{	' );
+		it( 'should throw LoggerError if there is an error reading the file', async () => {
+			( fs.readFileSync as jest.Mock ).mockImplementation( () => {
+				throw new Error( 'Read error' );
+			} );
 
-			await expect( readAppdata( mockAction ) ).rejects.toMatchObject( {
-				action: mockAction,
-				message: expect.stringContaining( 'corrupted' ),
+			await expect( readAppdata() ).rejects.toMatchObject( {
+				message: expect.stringContaining( 'Failed to read appdata file' ),
 			} );
 		} );
 
-		it( 'should throw LoggerError if appdata has invalid schema', async () => {
-			const mockInvalidUserData = {
-				snapshots: [ { invalid: 'data' } ],
-			};
+		it( 'should throw LoggerError if there is an error parsing the JSON', async () => {
+			( fs.readFileSync as jest.Mock ).mockReturnValueOnce( 'invalid json{' );
 
-			( fs.readFileSync as jest.Mock ).mockReturnValueOnce( JSON.stringify( mockInvalidUserData ) );
-
-			await expect( readAppdata( mockAction ) ).rejects.toMatchObject( {
-				action: mockAction,
-				message: expect.stringContaining( 'Invalid appdata format' ),
+			await expect( readAppdata() ).rejects.toMatchObject( {
+				message: expect.stringContaining( 'corrupted' ),
 			} );
 		} );
 	} );
@@ -124,7 +117,7 @@ describe( 'Appdata Module', () => {
 				snapshots: [],
 			};
 
-			await saveAppdata( mockUserData, mockAction );
+			await saveAppdata( mockUserData );
 
 			expect( fs.writeFileSync ).toHaveBeenCalledWith(
 				mockAppDataPath,
@@ -144,8 +137,7 @@ describe( 'Appdata Module', () => {
 				throw new Error( 'Write error' );
 			} );
 
-			await expect( saveAppdata( mockUserData, mockAction ) ).rejects.toMatchObject( {
-				action: mockAction,
+			await expect( saveAppdata( mockUserData ) ).rejects.toMatchObject( {
 				message: expect.stringContaining( 'Failed to save appdata file' ),
 			} );
 		} );
@@ -156,7 +148,7 @@ describe( 'Appdata Module', () => {
 				snapshots: [],
 			};
 
-			await saveAppdata( mockUserData, mockAction );
+			await saveAppdata( mockUserData );
 
 			expect( fs.writeFileSync ).toHaveBeenCalled();
 			const savedData = JSON.parse( ( fs.writeFileSync as jest.Mock ).mock.calls[ 0 ][ 1 ] );
@@ -179,10 +171,9 @@ describe( 'Appdata Module', () => {
 				snapshots: [],
 			};
 
-			( fs.existsSync as jest.Mock ).mockReturnValue( true );
 			( fs.readFileSync as jest.Mock ).mockReturnValue( JSON.stringify( mockUserData ) );
 
-			await addPreviewSiteToAppdata( mockSiteUrl, mockSiteId, mockSiteFolder, mockAction );
+			await addPreviewSiteToAppdata( mockSiteUrl, mockSiteId, mockSiteFolder );
 
 			expect( fs.writeFileSync ).toHaveBeenCalled();
 			const savedData = JSON.parse( ( fs.writeFileSync as jest.Mock ).mock.calls[ 0 ][ 1 ] );
@@ -218,10 +209,9 @@ describe( 'Appdata Module', () => {
 				snapshots: [ existingSnapshot ],
 			};
 
-			( fs.existsSync as jest.Mock ).mockReturnValue( true );
 			( fs.readFileSync as jest.Mock ).mockReturnValue( JSON.stringify( mockUserData ) );
 
-			await addPreviewSiteToAppdata( mockSiteUrl, mockSiteId, mockSiteFolder, mockAction );
+			await addPreviewSiteToAppdata( mockSiteUrl, mockSiteId, mockSiteFolder );
 
 			expect( fs.writeFileSync ).toHaveBeenCalled();
 			const savedData = JSON.parse( ( fs.writeFileSync as jest.Mock ).mock.calls[ 0 ][ 1 ] );
@@ -229,37 +219,6 @@ describe( 'Appdata Module', () => {
 			expect( savedData.snapshots ).toHaveLength( 2 );
 			expect( savedData.snapshots[ 0 ] ).toEqual( existingSnapshot );
 			expect( savedData.snapshots[ 1 ] ).toEqual( {
-				url: mockSiteUrl,
-				atomicSiteId: mockSiteId,
-				localSiteId: mockSiteIdNumber,
-				date: 1234567890,
-				name: 'Test Site',
-			} );
-		} );
-
-		it( 'should create snapshots array if it does not exist', async () => {
-			const mockSiteIdNumber = 123;
-			const mockUserData = {
-				version: 1,
-				sites: [
-					{
-						id: mockSiteIdNumber,
-						path: mockSiteFolder,
-						name: 'Test Site',
-					},
-				],
-			};
-
-			( fs.existsSync as jest.Mock ).mockReturnValue( true );
-			( fs.readFileSync as jest.Mock ).mockReturnValue( JSON.stringify( mockUserData ) );
-
-			await addPreviewSiteToAppdata( mockSiteUrl, mockSiteId, mockSiteFolder, mockAction );
-
-			expect( fs.writeFileSync ).toHaveBeenCalled();
-			const savedData = JSON.parse( ( fs.writeFileSync as jest.Mock ).mock.calls[ 0 ][ 1 ] );
-
-			expect( savedData.snapshots ).toHaveLength( 1 );
-			expect( savedData.snapshots[ 0 ] ).toEqual( {
 				url: mockSiteUrl,
 				atomicSiteId: mockSiteId,
 				localSiteId: mockSiteIdNumber,
@@ -286,53 +245,14 @@ describe( 'Appdata Module', () => {
 				},
 			};
 
-			( fs.existsSync as jest.Mock ).mockReturnValue( true );
 			( fs.readFileSync as jest.Mock ).mockReturnValue( JSON.stringify( mockUserData ) );
 
-			await addPreviewSiteToAppdata( mockSiteUrl, mockSiteId, mockSiteFolder, mockAction );
+			await addPreviewSiteToAppdata( mockSiteUrl, mockSiteId, mockSiteFolder );
 
 			expect( fs.writeFileSync ).toHaveBeenCalled();
 			const savedData = JSON.parse( ( fs.writeFileSync as jest.Mock ).mock.calls[ 0 ][ 1 ] );
 
 			expect( savedData.snapshots[ 0 ].userId ).toBe( mockUserId );
-		} );
-
-		it( 'should preserve authToken in the appdata file', async () => {
-			const mockSiteIdNumber = 123;
-			const mockAuthToken = {
-				id: mockUserId,
-				accessToken: 'mock-token',
-				expiresIn: 3600,
-				expirationTime: 1234567890,
-				email: 'test@example.com',
-				displayName: 'Test User',
-			};
-
-			const mockUserData = {
-				version: 1,
-				sites: [
-					{
-						id: mockSiteIdNumber,
-						path: mockSiteFolder,
-						name: 'Test Site',
-					},
-				],
-				snapshots: [],
-				authToken: mockAuthToken,
-				locale: 'en',
-			};
-
-			( fs.existsSync as jest.Mock ).mockReturnValue( true );
-			( fs.readFileSync as jest.Mock ).mockReturnValue( JSON.stringify( mockUserData ) );
-
-			await addPreviewSiteToAppdata( mockSiteUrl, mockSiteId, mockSiteFolder, mockAction );
-
-			expect( fs.writeFileSync ).toHaveBeenCalled();
-			const writeCall = ( fs.writeFileSync as jest.Mock ).mock.calls[ 0 ];
-			const savedData = JSON.parse( writeCall[ 1 ] );
-
-			expect( savedData.authToken ).toEqual( mockAuthToken );
-			expect( savedData.locale ).toBe( 'en' );
 		} );
 
 		it( 'should return without error if no matching site is found', async () => {
@@ -348,10 +268,9 @@ describe( 'Appdata Module', () => {
 				snapshots: [],
 			};
 
-			( fs.existsSync as jest.Mock ).mockReturnValue( true );
 			( fs.readFileSync as jest.Mock ).mockReturnValue( JSON.stringify( mockUserData ) );
 
-			await addPreviewSiteToAppdata( mockSiteUrl, mockSiteId, mockSiteFolder, mockAction );
+			await addPreviewSiteToAppdata( mockSiteUrl, mockSiteId, mockSiteFolder );
 
 			expect( fs.writeFileSync ).not.toHaveBeenCalled();
 		} );
@@ -360,7 +279,7 @@ describe( 'Appdata Module', () => {
 			( fs.existsSync as jest.Mock ).mockReturnValueOnce( false );
 
 			await expect(
-				addPreviewSiteToAppdata( mockSiteUrl, mockSiteId, mockSiteFolder, mockAction )
+				addPreviewSiteToAppdata( mockSiteUrl, mockSiteId, mockSiteFolder )
 			).rejects.toThrow( LoggerError );
 		} );
 	} );

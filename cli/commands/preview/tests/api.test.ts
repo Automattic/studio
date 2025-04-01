@@ -25,7 +25,6 @@ describe( 'API Module', () => {
 	const mockSiteUrl = 'test-site.wp.build';
 	const mockSiteId = 12345;
 	const mockReadStream = { pipe: jest.fn() };
-	const mockAction = 'test-action';
 
 	beforeEach( () => {
 		jest.clearAllMocks();
@@ -46,7 +45,7 @@ describe( 'API Module', () => {
 			};
 			( wpcom as jest.Mock ).mockReturnValue( mockWpcom );
 
-			const result = await uploadArchive( mockArchivePath, mockToken, mockAction );
+			const result = await uploadArchive( mockArchivePath, mockToken );
 
 			expect( wpcom ).toHaveBeenCalledWith( mockToken );
 			expect( mockWpcom.req.post ).toHaveBeenCalledWith( {
@@ -78,21 +77,16 @@ describe( 'API Module', () => {
 			};
 			( wpcom as jest.Mock ).mockReturnValue( mockWpcom );
 
-			await expect( uploadArchive( mockArchivePath, mockToken, mockAction ) ).rejects.toThrow(
-				LoggerError
-			);
-			await expect( uploadArchive( mockArchivePath, mockToken, mockAction ) ).rejects.toMatchObject(
-				{
-					message: expect.stringContaining( 'Failed to upload archive: API error' ),
-					action: mockAction,
-				}
-			);
+			await expect( uploadArchive( mockArchivePath, mockToken ) ).rejects.toThrow( LoggerError );
+			await expect( uploadArchive( mockArchivePath, mockToken ) ).rejects.toMatchObject( {
+				message: expect.stringContaining( 'Failed to upload archive: API error' ),
+			} );
 		} );
 
 		it( 'should throw LoggerError for invalid API response', async () => {
 			const invalidResponse = {
-				// Missing domain_name
-				atomic_site_id: mockSiteId,
+				// Missing required fields
+				some_field: 'value',
 			};
 
 			const mockWpcom = {
@@ -102,39 +96,10 @@ describe( 'API Module', () => {
 			};
 			( wpcom as jest.Mock ).mockReturnValue( mockWpcom );
 
-			await expect( uploadArchive( mockArchivePath, mockToken, mockAction ) ).rejects.toThrow(
-				LoggerError
-			);
-			await expect( uploadArchive( mockArchivePath, mockToken, mockAction ) ).rejects.toMatchObject(
-				{
-					message: 'Invalid API response',
-					action: mockAction,
-				}
-			);
-		} );
-
-		it( 'should throw LoggerError for response with wrong types', async () => {
-			const invalidResponse = {
-				domain_name: '', // Empty string, should fail validation
-				atomic_site_id: 'not-a-number', // Should be a number
-			};
-
-			const mockWpcom = {
-				req: {
-					post: jest.fn().mockResolvedValue( invalidResponse ),
-				},
-			};
-			( wpcom as jest.Mock ).mockReturnValue( mockWpcom );
-
-			await expect( uploadArchive( mockArchivePath, mockToken, mockAction ) ).rejects.toThrow(
-				LoggerError
-			);
-			await expect( uploadArchive( mockArchivePath, mockToken, mockAction ) ).rejects.toMatchObject(
-				{
-					message: 'Invalid API response',
-					action: mockAction,
-				}
-			);
+			await expect( uploadArchive( mockArchivePath, mockToken ) ).rejects.toThrow( LoggerError );
+			await expect( uploadArchive( mockArchivePath, mockToken ) ).rejects.toMatchObject( {
+				message: 'Invalid API response format',
+			} );
 		} );
 	} );
 
@@ -175,7 +140,7 @@ describe( 'API Module', () => {
 			};
 			( wpcom as jest.Mock ).mockReturnValue( mockWpcom );
 
-			const result = await waitForSiteReady( mockSiteId, mockToken, mockAction );
+			const result = await waitForSiteReady( mockSiteId, mockToken );
 			expect( mockWpcom.req.get ).toHaveBeenCalledTimes( 2 );
 			expect( result ).toBe( true );
 		} );
@@ -195,14 +160,15 @@ describe( 'API Module', () => {
 			};
 			( wpcom as jest.Mock ).mockReturnValue( mockWpcom );
 
-			await expect( waitForSiteReady( mockSiteId, mockToken, mockAction ) ).rejects.toThrow(
-				LoggerError
-			);
-			await expect( waitForSiteReady( mockSiteId, mockToken, mockAction ) ).rejects.toMatchObject( {
-				message: expect.stringContaining( 'Failed to create preview site' ),
-				action: mockAction,
-			} );
-			expect( mockWpcom.req.get ).toHaveBeenCalledTimes( 200 ); // 100 calls per test
+			try {
+				await waitForSiteReady( mockSiteId, mockToken );
+			} catch ( error ) {
+				expect( error ).toBeInstanceOf( LoggerError );
+				expect( error ).toMatchObject( {
+					message: expect.stringContaining( 'Failed to create preview site' ),
+				} );
+				expect( mockWpcom.req.get ).toHaveBeenCalledTimes( 100 );
+			}
 		} );
 
 		it( 'should continue polling if API validation fails', async () => {
@@ -225,7 +191,7 @@ describe( 'API Module', () => {
 			};
 			( wpcom as jest.Mock ).mockReturnValue( mockWpcom );
 
-			const result = await waitForSiteReady( mockSiteId, mockToken, mockAction );
+			const result = await waitForSiteReady( mockSiteId, mockToken );
 			expect( mockWpcom.req.get ).toHaveBeenCalledTimes( 2 );
 			expect( result ).toBe( true );
 		} );

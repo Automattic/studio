@@ -44,7 +44,7 @@ This tool is useful for:
 
 ## CodeVitals Integration
 
-Performance metrics from the `trunk` branch are automatically sent to [CodeVitals](https://codevitals.dev/) for tracking and visualization. This helps in tracking performance trends over time and detecting regressions.
+Performance metrics from the `trunk` branch are automatically sent to [CodeVitals](https://www.codevitals.run/project/studio/) for tracking and visualization. This helps in tracking performance trends over time and detecting regressions.
 
 The metrics are sent when:
 

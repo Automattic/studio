@@ -51,6 +51,7 @@ export async function createSiteWorkingDirectory(
 
 	await purgeWpConfig( wpVersion );
 	await recursiveCopyDirectory( getWordPressVersionPath( wpVersion ), path );
+	await recursiveCopyDirectory( 'vendor/adminer', path + '/adminer' );
 
 	return true;
 }
@@ -181,6 +182,15 @@ export class SiteServer {
 			autoStart: true,
 			themeDetails,
 		};
+
+		// @TODO abstract
+		const adminerPath = nodePath.join( this.details.path, 'adminer' );
+		const exists = await pathExists( adminerPath );
+
+		if ( ! exists ) {
+			await recursiveCopyDirectory( 'vendor/adminer', adminerPath );
+			console.log( 'Adminer directory copied to site' );
+		}
 	}
 
 	async updateSiteDetails( site: SiteDetails ) {

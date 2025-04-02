@@ -28,6 +28,16 @@ export default function Header() {
 		getIpcApi().openSiteURL( site.id, '', { autoLogin: false } );
 	};
 
+	const handleOpenDatabaseClick = async () => {
+		if ( ! site || isLoading ) return;
+
+		if ( ! site.running ) {
+			await startServer( site.id );
+		}
+
+		getIpcApi().openSiteURL( site.id, '/adminer' );
+	};
+
 	return (
 		<div
 			data-testid="site-content-header"
@@ -58,6 +68,15 @@ export default function Header() {
 								// translators: "Open site" refers to the action, like "to open site"
 								__( 'Open site' )
 							}
+							<ArrowIcon />
+						</Button>
+						<Button
+							className="[&.is-link]:text-a8c-gray-70 [&.is-link]:hover:text-a8c-blueberry !px-0 h-0 leading-4"
+							onClick={ handleOpenDatabaseClick }
+							variant="link"
+							disabled={ isLoading }
+						>
+							{ __( 'Manage database' ) }
 							<ArrowIcon />
 						</Button>
 					</div>

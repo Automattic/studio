@@ -13,12 +13,14 @@ import { Tooltip } from 'src/components/tooltip';
 import { WordPressLogo } from 'src/components/wordpress-logo';
 import { WPCOM_PROFILE_URL } from 'src/constants';
 import { useAuth } from 'src/hooks/use-auth';
+import { useI18nData } from 'src/hooks/use-i18n-data';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
 import { usePromptUsage } from 'src/hooks/use-prompt-usage';
 import { useSnapshots } from 'src/hooks/use-snapshots';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { SupportedLocale } from 'src/lib/locale';
 
 const UserInfo = ( {
 	user,
@@ -260,7 +262,39 @@ export default function UserSettings() {
 
 	const AccountTab = () => <UserInfo onLogout={ logout } user={ user } />;
 
-	const PreferencesTab = () => <LanguagePicker />;
+	const PreferencesTab = () => {
+		const { __ } = useI18n();
+		const { locale: savedLocale, setLocale: setSavedLocale } = useI18nData();
+
+		const [ locale, setLocale ] = useState( savedLocale );
+
+		// Save all pending preferences
+		const savePreferences = () => {
+			// Apply each preference
+			setSavedLocale( locale );
+		};
+
+		// Reset pending changes
+		const cancelChanges = () => {
+			setLocale( savedLocale );
+		};
+
+		const hasChanges = locale !== savedLocale;
+
+		return (
+			<div className="flex flex-col gap-6">
+				<LanguagePicker value={ locale } onChange={ setLocale } />
+				<div className="flex justify-end gap-3 mt-4">
+					<Button variant="tertiary" onClick={ cancelChanges } disabled={ ! hasChanges }>
+						{ __( 'Cancel' ) }
+					</Button>
+					<Button variant="primary" onClick={ savePreferences } disabled={ ! hasChanges }>
+						{ __( 'Save' ) }
+					</Button>
+				</div>
+			</div>
+		);
+	};
 
 	const UsageTab = () => (
 		<>

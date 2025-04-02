@@ -310,7 +310,7 @@ export default function UserSettings() {
 					onRequestClose={ resetLocalState }
 					size="medium"
 					// `[&_[role='document']]:px-0` removes padding from modal content
-					className="min-h-96 [&_[role='document']]:px-0"
+					className="min-h-[350px] [&_[role='document']]:px-0"
 				>
 					<div className="flex flex-col gap-6">
 						<TabPanel className="w-full" tabs={ tabs } orientation="horizontal">

@@ -34,6 +34,7 @@ interface StoppedSiteDetails {
 		supportsMenus: boolean;
 	};
 	isAddingSite?: boolean;
+	wasRunning?: boolean;
 }
 
 interface StartedSiteDetails extends StoppedSiteDetails {
@@ -81,6 +82,15 @@ type IpcApi = {
 	 * for more details.
 	 */
 	getPathForFile: ( file: File ) => string;
+	getSiteDetails: () => Promise< SiteDetails[] >;
+	getUserData: () => Promise< PersistedUserData >;
+	createSite: (
+		path: string,
+		siteName?: string,
+		wpVersion?: string,
+		customDomain?: string,
+		enableHttps?: boolean
+	) => Promise< SiteDetails[] >;
 };
 
 interface AppGlobals {

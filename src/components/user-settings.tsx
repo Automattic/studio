@@ -20,7 +20,6 @@ import { usePromptUsage } from 'src/hooks/use-prompt-usage';
 import { useSnapshots } from 'src/hooks/use-snapshots';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { SupportedLocale } from 'src/lib/locale';
 
 const UserInfo = ( {
 	user,
@@ -282,9 +281,11 @@ export default function UserSettings() {
 		const hasChanges = locale !== savedLocale;
 
 		return (
-			<div className="flex flex-col gap-6">
+			<>
 				<LanguagePicker value={ locale } onChange={ setLocale } />
-				<div className="flex justify-end gap-3 mt-4">
+
+				{ /* Add future preferences here */ }
+				<div className="mt-auto pt-6 flex justify-end gap-3">
 					<Button variant="tertiary" onClick={ cancelChanges } disabled={ ! hasChanges }>
 						{ __( 'Cancel' ) }
 					</Button>
@@ -292,7 +293,7 @@ export default function UserSettings() {
 						{ __( 'Save' ) }
 					</Button>
 				</div>
-			</div>
+			</>
 		);
 	};
 
@@ -346,20 +347,16 @@ export default function UserSettings() {
 					// `[&_[role='document']]:px-0` removes padding from modal content
 					className="min-h-[350px] [&_[role='document']]:px-0"
 				>
-					<div className="flex flex-col gap-6">
-						<TabPanel className="w-full" tabs={ tabs } orientation="horizontal">
-							{ ( { name } ) => (
-								<div className="mt-6 px-8">
-									<div className="flex flex-col gap-6">
-										{ name === 'account' &&
-											( isAuthenticated ? <AccountTab /> : <NonAuthenticatedAccountTab /> ) }
-										{ name === 'preferences' && <PreferencesTab /> }
-										{ name === 'usage' && isAuthenticated && <UsageTab /> }
-									</div>
-								</div>
-							) }
-						</TabPanel>
-					</div>
+					<TabPanel className="w-full" tabs={ tabs } orientation="horizontal">
+						{ ( { name } ) => (
+							<div className="mt-6 px-8 flex flex-col gap-6">
+								{ name === 'account' &&
+									( isAuthenticated ? <AccountTab /> : <NonAuthenticatedAccountTab /> ) }
+								{ name === 'preferences' && <PreferencesTab /> }
+								{ name === 'usage' && isAuthenticated && <UsageTab /> }
+							</div>
+						) }
+					</TabPanel>
 				</Modal>
 			) }
 		</>

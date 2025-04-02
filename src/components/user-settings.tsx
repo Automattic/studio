@@ -344,8 +344,13 @@ export default function UserSettings() {
 					isDismissible
 					onRequestClose={ resetLocalState }
 					size="medium"
-					// `[&_[role='document']]:px-0` removes padding from modal content
-					className="min-h-[350px] [&_[role='document']]:px-0"
+					className={ cx(
+						'min-h-[350px]',
+						// Remove padding so that the Tabs are flush with the header
+						'[&_[role="document"]]:px-0',
+						// The modal header is 72px tall but we want to remove 8px from the top
+						'[&_[role="document"]]:mt-[64px]'
+					) }
 				>
 					<TabPanel className="w-full" tabs={ tabs } orientation="horizontal">
 						{ ( { name } ) => (

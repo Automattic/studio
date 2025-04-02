@@ -15,7 +15,6 @@ export default function Modal( { className, ...rest }: ComponentProps< typeof WP
 				'[&_[role="document"]>div:first-child_button]:rtl:right-2',
 				'[&_[role="document"]>div:first-child_button]:ltr:left-2',
 				'[&_[role="document"]>div:first-child_button]:ltr:right-0',
-				'[&_[role="document"]]:px-0', // Remove padding from modal content
 				className
 			) }
 			{ ...rest }

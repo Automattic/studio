@@ -246,7 +246,7 @@ export class SiteServer {
 			return;
 		}
 
-		const { running, url, ...rest } = this.details;
+		const { running, autoStart, url, ...rest } = this.details;
 		this.details = { running: false, autoStart: false, ...rest };
 	}
 

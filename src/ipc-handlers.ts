@@ -445,6 +445,7 @@ export async function stopServer(
 	}
 
 	await server.stop();
+	await updateSite( event, server.details );
 	return server.details;
 }
 

@@ -178,7 +178,7 @@ export class SiteServer {
 			port: this.server.options.port,
 			phpVersion: this.server.options.phpVersion ?? DEFAULT_PHP_VERSION,
 			running: true,
-			wasRunning: true,
+			autoStart: true,
 			themeDetails,
 		};
 	}
@@ -247,7 +247,7 @@ export class SiteServer {
 		}
 
 		const { running, url, ...rest } = this.details;
-		this.details = { running: false, wasRunning: false, ...rest };
+		this.details = { running: false, autoStart: false, ...rest };
 	}
 
 	async updateCachedThumbnail() {

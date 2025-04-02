@@ -324,7 +324,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	const autoStartSites = useCallback(
 		( sites: SiteDetails[] ) => {
 			for ( const site of sites ) {
-				if ( site.wasRunning ) {
+				if ( site.autoStart ) {
 					startServer( site.id );
 				}
 			}

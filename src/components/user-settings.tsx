@@ -255,7 +255,6 @@ export default function UserSettings() {
 					</Button>
 				</Tooltip>
 			</div>
-			<div className="border-t border-[#F0F0F0] w-full"></div>
 		</>
 	);
 

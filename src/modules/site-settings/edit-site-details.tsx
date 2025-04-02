@@ -57,6 +57,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 	const [ customDomainError, setCustomDomainError ] = useState( '' );
 	const [ existingDomainNames, setExistingDomainNames ] = useState< string[] >( [] );
 	const [ enableHttps, setEnableHttps ] = useState( false );
+	const isUpdating = selectedSite?.wpVersion && selectedSite?.wpVersion !== 'latest';
 
 	useEffect( () => {
 		getIpcApi()
@@ -82,14 +83,6 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 		( version ) => version !== latestVersion && ! version.isBeta && ! version.isDevelopment
 	);
 
-	const wordpressVersionOptions = wordpressVersions.map( ( version ) => ( {
-		label: version.label,
-		value: version.value,
-	} ) );
-
-	if ( ! wordpressVersionOptions.some( ( version ) => version.value === currentWpVersion ) ) {
-		addWpVersionToList( currentWpVersion, wordpressVersionOptions );
-	}
 	const generatedDomainName = generateCustomDomainFromSiteName( siteName );
 	const usedCustomDomain = ! useCustomDomain ? customDomain : undefined;
 	const isFormUnchanged =
@@ -305,11 +298,11 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 															</option>
 														) ) }
 													</optgroup>
-													{ ! wordpressVersionOptions.some(
-														( version ) => version.value === selectedWpVersion
+													{ ! wordpressVersions.some(
+														( version ) => version.value === siteWpVersion
 													) && (
 														<optgroup label={ __( 'Custom' ) }>
-															<option value={ selectedWpVersion }>{ selectedWpVersion }</option>
+															<option value={ siteWpVersion }>{ siteWpVersion }</option>
 														</optgroup>
 													) }
 												</>

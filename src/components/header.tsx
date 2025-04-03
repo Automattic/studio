@@ -35,7 +35,7 @@ export default function Header() {
 			await startServer( site.id );
 		}
 
-		getIpcApi().openSiteURL( site.id, '/adminer' );
+		getIpcApi().openSiteURL( site.id, '/adminer', { autoLogin: false } );
 	};
 
 	return (

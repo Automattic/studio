@@ -1,11 +1,9 @@
 <?php
 /**
- * Adminer configuration for WordPress Studio
- *
- * @TODO
- * - Create and use constants with site details so we can use them here.
- * - Add link to WordPress admin and WordPress site.
+ * Adminer configuration for WordPress Studio.
  */
+
+require_once( dirname( __FILE__ ) . '/config.php' );
 
 /**
  * Creates and returns the Adminer object with custom configuration.
@@ -33,7 +31,7 @@ function adminer_object() {
 		 * @return string
 		 */
 		public function database() {
-			return dirname( __DIR__ ) . '/wp-content/database/.ht.sqlite'; // @TODO abstract
+			return ADMINER_SQLITE_DATABASE_PATH;
 		}
 
 		/**
@@ -42,7 +40,7 @@ function adminer_object() {
 		 * @return string
 		 */
 		public function name() {
-			return 'Studio';
+			return 'WordPress Studio - ' . htmlspecialchars( ADMINER_WP_SITE_NAME, ENT_QUOTES, 'UTF-8' );
 		}
 
 		/**
@@ -58,12 +56,13 @@ function adminer_object() {
 
 		/**
 		 * Returns the server name display.
+     * Get server name displayed in breadcrumbs.
 		 *
 		 * @param string $server Server name.
 		 * @return string
 		 */
 		public function serverName( $server ) {
-			return 'My WordPress Site'; // @TODO use site name
+			return ADMINER_WP_SITE_NAME;
 		}
 
 		/**
@@ -74,7 +73,7 @@ function adminer_object() {
 		 */
 		public function databases( $flush = true ) {
 			if ( isset( $_GET['sqlite'] ) ) {
-				return array( dirname( __DIR__ ) . '/wp-content/database/.ht.sqlite' );
+				return array( ADMINER_SQLITE_DATABASE_PATH );
 			}
 			return get_databases( $flush );
 		}
@@ -104,7 +103,7 @@ function adminer_object() {
 		 * @return bool True to link favicon.ico.
 		 */
 		public function head( $dark = null ) {
-			$db_path = dirname( __DIR__ ) . '/wp-content/database/.ht.sqlite';
+			$db_path = ADMINER_SQLITE_DATABASE_PATH;
 
 			// This is matched by compile.php.
 			echo "<link rel='stylesheet' href='../externals/jush/jush.css'>\n";
@@ -121,6 +120,11 @@ function adminer_object() {
 					document.querySelector( '#logout' ).remove();
 				}
 
+        if ( document.querySelector( '#menu > h1:first-child' ) ) {
+					document.querySelector( '#menu > h1:first-child' ).innerHTML = 'WordPress Studio - <a href="<?php echo htmlspecialchars( ADMINER_WP_SITE_URL, ENT_QUOTES, 'UTF-8' ); ?>" target="_blank">' + '<?php echo htmlspecialchars( ADMINER_WP_SITE_NAME, ENT_QUOTES, 'UTF-8' ); ?>' + ' &#8663;</a>';
+				}
+
+        // Login form.
 				if ( ! document.querySelector( '#username' ) || ! document.querySelector( '[name="auth[password]"]' ) ) {
 					return;
 				}

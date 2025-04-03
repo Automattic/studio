@@ -20,6 +20,7 @@ import archiver from 'archiver';
 import { ARCHIVER_OPTIONS, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
+import { setupAdminer } from 'src/lib/adminer';
 import { bumpStat } from 'src/lib/bump-stats';
 import { getImporterMetric, StatsGroup, StatsMetric } from 'src/lib/bump-stats/types';
 import { calculateDirectorySize } from 'src/lib/calculate-directory-size';
@@ -414,6 +415,12 @@ export async function startServer(
 			throw new Error( 'Please try disabling plugins and themes that might be causing the issue.' );
 		}
 		throw error;
+	}
+
+	try {
+		await setupAdminer( server.details );
+	} catch ( error ) {
+		throw new Error( 'Failed to setup adminer: ' + ( error as Error ).message );
 	}
 
 	sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-changed', {

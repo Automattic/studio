@@ -105,6 +105,9 @@ vendor/*
 # Include the vendored copy of wp-now in our repo
 !vendor/wp-now
 
+# Include the vendored copy of adminer in our repo
+!vendor/adminer
+
 # Build output
 dist
 

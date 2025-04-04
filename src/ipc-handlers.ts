@@ -20,7 +20,7 @@ import archiver from 'archiver';
 import { ARCHIVER_OPTIONS, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
-import { setupAdminer } from 'src/lib/adminer';
+import { deleteAdminer, setupAdminer } from 'src/lib/adminer';
 import { bumpStat } from 'src/lib/bump-stats';
 import { getImporterMetric, StatsGroup, StatsMetric } from 'src/lib/bump-stats/types';
 import { calculateDirectorySize } from 'src/lib/calculate-directory-size';
@@ -645,6 +645,7 @@ export async function deleteSite( event: IpcMainInvokeEvent, id: string, deleteF
 	}
 	const userData = await loadUserData();
 	await server.delete();
+	await deleteAdminer( server.details );
 	try {
 		// Move files to trash
 		if ( deleteFiles ) {

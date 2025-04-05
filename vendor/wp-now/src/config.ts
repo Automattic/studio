@@ -9,6 +9,7 @@ import { portFinder } from './port-finder';
 import { isValidWordPressVersion } from './wp-playground-wordpress';
 import getWpNowPath from './get-wp-now-path';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from './constants';
+import { isWordPressDevVersion } from 'src/lib/wordpress-version-utils';
 
 export interface CliOptions {
 	php?: string;
@@ -135,7 +136,10 @@ export default async function getWpNowConfig( args: CliOptions ): Promise< WPNow
 	if ( ! options.absoluteUrl ) {
 		options.absoluteUrl = await getAbsoluteURL();
 	}
-	if ( ! isValidWordPressVersion( options.wordPressVersion ) ) {
+	if (
+		! isValidWordPressVersion( options.wordPressVersion ) &&
+		! isWordPressDevVersion( options.wordPressVersion )
+	) {
 		throw new Error(
 			'Unrecognized WordPress version. Please use "latest" or numeric versions such as "6.2", "6.0.1", "6.2-beta1", or "6.2-RC1"'
 		);

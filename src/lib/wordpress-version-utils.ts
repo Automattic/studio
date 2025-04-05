@@ -12,6 +12,7 @@ export function isWordPressBetaVersion( version: string ): boolean {
 }
 
 export function getWordPressVersionUrl( version = DEFAULT_WORDPRESS_VERSION ) {
+	console.log( 'version', version );
 	if ( isWordPressDevVersion( version ) ) {
 		return 'https://wordpress.org/nightly-builds/wordpress-latest.zip';
 	}

@@ -87,7 +87,7 @@ describe( 'EditSiteDetails', () => {
 		expect( screen.getByRole( 'dialog' ) ).toBeInTheDocument();
 		expect( screen.getByLabelText( 'Site name' ) ).toHaveValue( 'Test Site' );
 		expect( screen.getByLabelText( 'PHP version' ) ).toHaveValue( '8.0' );
-		expect( screen.getByLabelText( 'WordPress version' ) ).toHaveValue( 'latest' );
+		expect( screen.getByLabelText( 'WordPress version' ) ).toHaveValue( '6.8-beta1' );
 	} );
 
 	it( 'should close the modal when cancel button is clicked', async () => {

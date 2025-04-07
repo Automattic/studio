@@ -282,3 +282,15 @@ blockquote {
 .error-select-control .components-input-control__backdrop {
 	border-color: theme( 'colors.red.500' )!important;
 }
+
+.whats-new-modal .components-guide__footer {
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	background: white;
+  }
+  
+  .components-button.components-guide__finish-button {
+	  height: 40px;
+  }

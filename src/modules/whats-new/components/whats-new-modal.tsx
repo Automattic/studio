@@ -4,7 +4,7 @@ import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import previewSitesIllustration from 'src/modules/whats-new/assets/preview-sites-illustration.svg';
 import versionSwitchIllustration from 'src/modules/whats-new/assets/version-switch-illustration.svg';
-import './whats-new-modal.css';
+import 'src/index.css';
 
 interface WhatsNewPage {
 	image: string;
@@ -53,10 +53,22 @@ const WHATS_NEW_PAGES: WhatsNewPage[] = [
 	},
 ];
 
-const PageContent = ( { title, description, learnMoreUrl }: Omit< WhatsNewPage, 'image' > ) => (
+const PageContent = ( {
+	title,
+	description,
+	learnMoreUrl,
+	isIntroPage = false,
+}: Omit< WhatsNewPage, 'image' > & { isIntroPage?: boolean } ) => (
 	<div className="px-8 pt-4 pb-2 flex flex-col h-full">
-		<h2 className="text-xl mb-4 text-gray-900">{ title }</h2>
-		<p className="text-gray-900 text-m leading-s">{ description }</p>
+		<h2 className="text-xl mb-4 text-gray-900 line-clamp-2">{ title }</h2>
+		<p
+			className={ cx(
+				'text-gray-900 text-m leading-s',
+				isIntroPage ? 'line-clamp-5' : 'line-clamp-3'
+			) }
+		>
+			{ description }
+		</p>
 		<div className="mt-2 mb-4">
 			{ learnMoreUrl && (
 				<button
@@ -94,7 +106,7 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 				),
 				content: (
 					<div className={ index === 0 ? 'whats-new-intro-page' : '' }>
-						<PageContent title={ title } { ...pageContent } />
+						<PageContent title={ title } { ...pageContent } isIntroPage={ index === 0 } />
 					</div>
 				),
 			} ) ) }

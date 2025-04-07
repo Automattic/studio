@@ -26,6 +26,7 @@ The performance tests simulate key user workflows and measure the time they take
 
 - **siteCreation**: How long it takes to create a new WordPress site and have it running
 - **siteStartup**: How long it takes to restart an existing site
+- **siteEditorLoad**: How long it takes to load the site editor (from navigation until the first block appears)
 
 ## Comparing Performance Between Commits
 
@@ -43,7 +44,7 @@ This tool is useful for:
 
 ## CodeVitals Integration
 
-Performance metrics from the `trunk` branch are automatically sent to [CodeVitals](https://codevitals.dev/) for tracking and visualization. This helps in tracking performance trends over time and detecting regressions.
+Performance metrics from the `trunk` branch are automatically sent to [CodeVitals](https://www.codevitals.run/project/studio/) for tracking and visualization. This helps in tracking performance trends over time and detecting regressions.
 
 The metrics are sent when:
 
@@ -59,7 +60,7 @@ The `performance-metrics.json` output file contains a summary of the results, ex
 ```json
 {
 	"siteCreation": 6150,
-	"siteStartup": 3946
+	"siteStartup": 3946,
 }
 ```
 

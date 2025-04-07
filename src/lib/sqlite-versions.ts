@@ -37,8 +37,12 @@ export async function updateLatestSqliteVersion() {
  * @returns True if the SQLite integration is outdated.
  */
 export async function isSqliteInstallationOutdated( sitePath: string ): Promise< boolean > {
-	const serverFilesVersion = semver.coerce( SQLITE_DATABASE_INTEGRATION_VERSION );
-	const siteVersion = semver.coerce( await getSqliteVersionFromInstallation( sitePath ) );
+	const serverFilesVersion = semver.coerce( SQLITE_DATABASE_INTEGRATION_VERSION, {
+		includePrerelease: true,
+	} );
+	const siteVersion = semver.coerce( await getSqliteVersionFromInstallation( sitePath ), {
+		includePrerelease: true,
+	} );
 
 	if ( ! siteVersion ) {
 		return true;

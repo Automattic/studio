@@ -160,23 +160,6 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		} ) );
 	}, [] );
 
-	useEffect( () => {
-		let cancel = false;
-		setLoadingSites( true );
-		getIpcApi()
-			.getSiteDetails()
-			.then( ( data ) => {
-				if ( ! cancel ) {
-					setData( data );
-					setLoadingSites( false );
-				}
-			} );
-
-		return () => {
-			cancel = true;
-		};
-	}, [] );
-
 	const onDeleteSite = useCallback(
 		async ( id: string, removeLocal: boolean ) => {
 			const newSites = await deleteSite( id, removeLocal );
@@ -337,6 +320,35 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		},
 		[ toggleLoadingServerForSite ]
 	);
+
+	const autoStartSites = useCallback(
+		( sites: SiteDetails[] ) => {
+			for ( const site of sites ) {
+				if ( site.autoStart ) {
+					startServer( site.id );
+				}
+			}
+		},
+		[ startServer ]
+	);
+
+	useEffect( () => {
+		let cancel = false;
+		setLoadingSites( true );
+		getIpcApi()
+			.getSiteDetails()
+			.then( async ( data ) => {
+				if ( ! cancel ) {
+					setData( data );
+					setLoadingSites( false );
+					autoStartSites( data );
+				}
+			} );
+
+		return () => {
+			cancel = true;
+		};
+	}, [ autoStartSites ] );
 
 	const stopServer = useCallback(
 		async ( id: string ) => {

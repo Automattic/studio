@@ -169,7 +169,7 @@ function fromDiskFormat( { version, sites, ...rest }: PersistedUserData ): UserD
 			.map( ( { path, name, autoStart, ...restOfSite } ) => ( {
 				name: name || nodePath.basename( path ),
 				path,
-				running: false, // Sites start as not running, they will be auto-started if needed
+				running: false,
 				autoStart: autoStart || false,
 				...restOfSite,
 			} ) ),

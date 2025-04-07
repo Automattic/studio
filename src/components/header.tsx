@@ -76,7 +76,7 @@ export default function Header() {
 							variant="link"
 							disabled={ isLoading }
 						>
-							{ __( 'Manage database' ) }
+							{ __( 'Database' ) }
 							<ArrowIcon />
 						</Button>
 					</div>

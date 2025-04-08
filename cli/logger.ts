@@ -41,26 +41,24 @@ export class Logger< T extends string > {
 	}
 
 	public reportSuccess( message: string ) {
-		this.currentAction = null;
-
 		if ( this.outputFormat === 'json' ) {
 			console.log( JSON.stringify( { action: this.currentAction, status: 'success', message } ) );
-			return;
+		} else {
+			this.spinner.succeed( message );
 		}
 
-		this.spinner.succeed( message );
+		this.currentAction = null;
 	}
 
 	public reportError( error: LoggerError ) {
-		this.currentAction = null;
-
 		if ( this.outputFormat === 'json' ) {
 			console.error(
 				JSON.stringify( { action: this.currentAction, status: 'fail', message: error.message } )
 			);
-			return;
+		} else {
+			this.spinner.fail( error.message );
 		}
 
-		this.spinner.fail( error.message );
+		this.currentAction = null;
 	}
 }

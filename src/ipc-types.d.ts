@@ -34,6 +34,7 @@ interface StoppedSiteDetails {
 		supportsMenus: boolean;
 	};
 	isAddingSite?: boolean;
+	autoStart?: boolean;
 }
 
 interface StartedSiteDetails extends StoppedSiteDetails {

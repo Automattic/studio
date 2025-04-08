@@ -130,6 +130,7 @@ function toDiskFormat( { sites, ...rest }: UserData ): PersistedUserData {
 				themeDetails,
 				customDomain,
 				enableHttps,
+				autoStart,
 			} ) => {
 				// No object spreading allowed. TypeScript's structural typing is too permissive and
 				// will permit us to persist properties that aren't in the type definition.
@@ -143,6 +144,7 @@ function toDiskFormat( { sites, ...rest }: UserData ): PersistedUserData {
 					phpVersion,
 					customDomain,
 					enableHttps,
+					autoStart,
 					themeDetails: {
 						name: themeDetails?.name || '',
 						path: themeDetails?.path || '',
@@ -164,10 +166,11 @@ function fromDiskFormat( { version, sites, ...rest }: PersistedUserData ): UserD
 	return {
 		sites: sites
 			.filter( ( site ) => fs.existsSync( site.path ) ) // Remove sites the user has deleted from disk
-			.map( ( { path, name, ...restOfSite } ) => ( {
+			.map( ( { path, name, autoStart, ...restOfSite } ) => ( {
 				name: name || nodePath.basename( path ),
 				path,
 				running: false,
+				autoStart: autoStart || false,
 				...restOfSite,
 			} ) ),
 		...rest,

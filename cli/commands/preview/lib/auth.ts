@@ -18,12 +18,6 @@ export async function getAuthToken(): Promise< string > {
 			throw error;
 		}
 
-		if ( error instanceof z.ZodError ) {
-			throw new LoggerError(
-				`Authentication token is invalid or missing. Please run the Studio app and log in to WordPress.com again.`
-			);
-		}
-
 		throw new LoggerError(
 			'Authentication required. Please run the Studio app and log in to WordPress.com first.'
 		);

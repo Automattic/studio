@@ -2,9 +2,12 @@ import ora, { Ora } from 'ora';
 import { OutputFormat } from 'cli/types';
 
 export class LoggerError extends Error {
-	constructor( message: string ) {
+	previousError?: Error;
+
+	constructor( message: string, previousError?: Error ) {
 		super( message );
 		this.name = 'LoggerError';
+		this.previousError = previousError;
 	}
 }
 

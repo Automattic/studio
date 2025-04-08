@@ -23,8 +23,8 @@ const siteSchema = z
 
 const userDataSchema = z
 	.object( {
-		snapshots: z.array( snapshotSchema ).catch( [] ),
-		sites: z.array( siteSchema ).catch( [] ),
+		snapshots: z.array( snapshotSchema ).optional(),
+		sites: z.array( siteSchema ).optional(),
 		authToken: z
 			.object( {
 				accessToken: z.string().min( 1, 'Access token cannot be empty' ),
@@ -62,11 +62,11 @@ export async function readAppdata(): Promise< UserData > {
 		}
 
 		if ( error instanceof z.ZodError ) {
-			throw new LoggerError( 'Invalid appdata format. Please run the Studio app again.' );
+			throw new LoggerError( 'Invalid appdata format. Please run the Studio app again.', error );
 		}
 
 		if ( error instanceof SyntaxError ) {
-			throw new LoggerError( 'Appdata file is corrupted. Please run the Studio app again.' );
+			throw new LoggerError( 'Appdata file is corrupted. Please run the Studio app again.', error );
 		}
 
 		throw new LoggerError( 'Failed to read appdata file. Please run the Studio app again.' );
@@ -111,6 +111,9 @@ export async function addPreviewSiteToAppdata(
 		};
 		if ( userData.authToken?.id ) {
 			snapshot.userId = userData.authToken.id;
+		}
+		if ( ! userData.snapshots ) {
+			userData.snapshots = [];
 		}
 		userData.snapshots.push( snapshot );
 		await saveAppdata( userData );

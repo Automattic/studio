@@ -1040,7 +1040,7 @@ export async function showNotification(
 
 export async function setupAppMenu(
 	_event: IpcMainInvokeEvent,
-	config: { needsOnboarding: boolean; whatsNewSectionEnabled?: boolean }
+	config: { needsOnboarding: boolean }
 ) {
 	await setupMenu( config );
 }

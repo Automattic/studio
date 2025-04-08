@@ -198,6 +198,7 @@ function getAppMenu(
 								click: async () => {
 									sendIpcEventToRenderer( 'show-whats-new' );
 								},
+								enabled: ! needsOnboarding,
 							},
 					  ]
 					: [] ),

@@ -2,6 +2,7 @@ import { test, expect, chromium } from '@playwright/test';
 import { E2ESession } from '../../e2e/e2e-helpers';
 import Onboarding from '../../e2e/page-objects/onboarding';
 import SiteContent from '../../e2e/page-objects/site-content';
+import WhatsNewModal from '../../e2e/page-objects/whats-new-modal';
 import { median } from '../utils';
 
 test.describe( 'Site Editor Load Metrics', () => {
@@ -33,6 +34,13 @@ test.describe( 'Site Editor Load Metrics', () => {
 		const onboarding = new Onboarding( session.mainWindow );
 		await expect( onboarding.heading ).toBeVisible();
 		await onboarding.continueButton.click();
+
+		// Handle the What's New modal if it appears
+		const whatsNewModal = new WhatsNewModal( session.mainWindow );
+		if ( await whatsNewModal.locator.isVisible( { timeout: 5000 } ) ) {
+			await whatsNewModal.closeButton.click();
+		}
+
 		const siteContent = new SiteContent( session.mainWindow, siteName );
 		await expect( siteContent.runningButton ).toBeAttached();
 

@@ -1,11 +1,12 @@
+import { app } from 'electron';
 import { mkdir, writeFile } from 'fs/promises';
 import path from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { __ } from '@wordpress/i18n';
 import Registry from 'winreg'; // don't update winreg to 1.2.5 - https://github.com/fresc81/node-winreg/issues/65
 
-// `binDirPath` resolves to C:\Users\<USERNAME>\AppData\Local\studio\bin
-const binDirPath = path.resolve( path.dirname( app.getPath( 'exe' ) ), '../bin' );
+// `unversionedBinDirPath` resolves to C:\Users\<USERNAME>\AppData\Local\studio\bin
+const unversionedBinDirPath = path.resolve( path.dirname( app.getPath( 'exe' ) ), '../bin' );
 const PATH_KEY = 'Path';
 
 const currentUserRegistry = new Registry( {
@@ -41,7 +42,7 @@ const isStudioCliInPath = ( pathValue: string ): boolean => {
 	return pathValue
 		.split( ';' )
 		.map( ( item ) => item.trim().toLowerCase() )
-		.includes( binDirPath.toLowerCase() );
+		.includes( unversionedBinDirPath.toLowerCase() );
 };
 
 const installPath = async () => {
@@ -56,7 +57,7 @@ const installPath = async () => {
 			.split( ';' )
 			.map( ( p ) => p.trim() )
 			.filter( Boolean )
-			.concat( binDirPath )
+			.concat( unversionedBinDirPath )
 			.join( ';' );
 
 		await setPathInRegistry( updatedPath );
@@ -79,17 +80,17 @@ const installPath = async () => {
  */
 const installProxyBatFile = async () => {
 	try {
-		await mkdir( binDirPath, { recursive: true } );
+		await mkdir( unversionedBinDirPath, { recursive: true } );
 
 		const versionedCliPath = path.join(
 			path.dirname( app.getPath( 'exe' ) ),
 			'resources/bin/studio-cli.bat'
 		);
-		const relativeVersionedCliPath = path.relative( binDirPath, versionedCliPath );
+		const relativeVersionedCliPath = path.relative( unversionedBinDirPath, versionedCliPath );
 
 		const content = `@echo off\n"%~dp0\\${ relativeVersionedCliPath }" %*`;
 
-		await writeFile( path.join( binDirPath, 'studio.bat' ), content );
+		await writeFile( path.join( unversionedBinDirPath, 'studio.bat' ), content );
 	} catch ( error ) {
 		Sentry.captureException( error );
 		console.error( 'Failed to install CLI: Proxy Bat file', error );

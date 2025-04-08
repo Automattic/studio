@@ -2,18 +2,9 @@ import { z } from 'zod';
 import { LoggerError } from 'cli/logger';
 import { readAppdata } from './appdata';
 
-const AuthTokenSchema = z.object( {
-	authToken: z
-		.object( {
-			accessToken: z.string().min( 1, 'Access token cannot be empty' ),
-		} )
-		.nullable(),
-} );
-
 export async function getAuthToken(): Promise< string > {
 	try {
-		const userData = await readAppdata();
-		const { authToken } = AuthTokenSchema.parse( userData );
+		const { authToken } = await readAppdata();
 
 		if ( ! authToken || ! authToken.accessToken ) {
 			throw new LoggerError(

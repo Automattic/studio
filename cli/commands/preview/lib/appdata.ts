@@ -4,7 +4,7 @@ import path from 'path';
 import { z } from 'zod';
 import { LoggerError } from 'cli/logger';
 
-const SnapshotSchema = z.object( {
+const snapshotSchema = z.object( {
 	url: z.string(),
 	atomicSiteId: z.number(),
 	localSiteId: z.string(),
@@ -13,19 +13,29 @@ const SnapshotSchema = z.object( {
 	userId: z.number().optional(),
 } );
 
-const UserDataSchema = z
+const siteSchema = z
 	.object( {
-		snapshots: z.array( SnapshotSchema ).optional(),
+		id: z.string(),
+		path: z.string(),
+		name: z.string().optional(),
 	} )
 	.passthrough();
 
-type Snapshot = z.infer< typeof SnapshotSchema >;
-type UserData = {
-	[ K: string ]: unknown;
-	snapshots?: Snapshot[];
-	sites?: Array< { id: string; path: string; name?: string } >;
-	authToken?: { id: number };
-};
+const userDataSchema = z
+	.object( {
+		snapshots: z.array( snapshotSchema ).catch( [] ),
+		sites: z.array( siteSchema ).catch( [] ),
+		authToken: z
+			.object( {
+				accessToken: z.string().min( 1, 'Access token cannot be empty' ),
+				id: z.number(),
+			} )
+			.optional(),
+	} )
+	.passthrough();
+
+type Snapshot = z.infer< typeof snapshotSchema >;
+type UserData = z.infer< typeof userDataSchema >;
 
 // ToDo: Improve this to support multiple platforms
 export function getAppdataPath(): string {
@@ -43,7 +53,7 @@ export async function readAppdata(): Promise< UserData > {
 	try {
 		const fileContent = fs.readFileSync( appDataPath, 'utf8' );
 		const userData = JSON.parse( fileContent );
-		const result = UserDataSchema.parse( userData );
+		const result = userDataSchema.parse( userData );
 
 		return result;
 	} catch ( error ) {
@@ -91,9 +101,6 @@ export async function addPreviewSiteToAppdata(
 		const site = userData.sites?.find( ( s ) => s.path === siteFolder );
 		if ( ! site ) {
 			return;
-		}
-		if ( ! userData.snapshots ) {
-			userData.snapshots = [];
 		}
 		const snapshot: Snapshot = {
 			url: previewUrl,

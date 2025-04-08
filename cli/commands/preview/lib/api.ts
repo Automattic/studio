@@ -9,12 +9,12 @@ export enum SnapshotStatus {
 	Active = '2',
 }
 
-const CreateSiteResponseSchema = z.object( {
+const createSiteResponseSchema = z.object( {
 	domain_name: z.string().min( 1, 'Domain name is required' ),
 	atomic_site_id: z.number().int().positive( 'Site ID must be a positive integer' ),
 } );
 
-const StatusResponseSchema = z.object( {
+const statusResponseSchema = z.object( {
 	status: z.enum( [ SnapshotStatus.Pending, SnapshotStatus.Processing, SnapshotStatus.Active ], {
 		errorMap: () => ( { message: 'Invalid site status' } ),
 	} ),
@@ -49,7 +49,7 @@ export async function uploadArchive(
 			formData,
 		} );
 
-		const result = CreateSiteResponseSchema.parse( rawResponse );
+		const result = createSiteResponseSchema.parse( rawResponse );
 
 		return {
 			site_url: result.domain_name,
@@ -78,7 +78,7 @@ async function checkSiteStatus( siteId: number, token: string ): Promise< boolea
 			site_id: siteId,
 		} );
 
-		const result = StatusResponseSchema.parse( rawResponse );
+		const result = statusResponseSchema.parse( rawResponse );
 
 		return result.status === SnapshotStatus.Active;
 	} catch {

@@ -21,7 +21,7 @@ It is necessary to prepare the modal resources in advance when a new feature pro
 
 Let's work with designers and ensure the following resources are ready as soon as possible:
 
-- image (png or short gif; existing examples can be found in `src/modules/whats-new/assets`)
+- image (preferably SVG; existing examples can be found in `src/modules/whats-new/assets`)
 - short heading (max. 30 - 40 characters)
 - short description (max. 1 sentence, as the modal space is limited and needs to be concise for different locales)
 - optional external link for more information

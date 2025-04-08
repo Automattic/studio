@@ -59,11 +59,14 @@ async function installCLI(): Promise< void > {
 		throw new Error( InstallError.WrongPlatform );
 	}
 
-	const fileType = await getFileType( cliSymlinkPath );
+	try {
+		const stats = await lstat( cliSymlinkPath );
 
-	// Avoid overwriting an existing file if it's not a symlink.
-	if ( fileType === FileType.NonSymlink ) {
-		throw new Error( InstallError.FileAlreadyExists );
+		if ( ! stats.isSymbolicLink() ) {
+			throw new Error( InstallError.FileAlreadyExists );
+		}
+	} catch ( error ) {
+		// File does not exist, do nothing
 	}
 
 	const currentSymlinkDestination = await getCurrentSymlinkDestination();
@@ -89,21 +92,6 @@ async function installCLI(): Promise< void > {
 				CLI_PACKAGED_PATH: cliPackagedPath,
 			},
 		} );
-	}
-}
-
-enum FileType {
-	NonExistent,
-	NonSymlink,
-	Symlink,
-}
-
-async function getFileType( filePath: string ): Promise< FileType > {
-	try {
-		const stats = await lstat( filePath );
-		return stats.isSymbolicLink() ? FileType.Symlink : FileType.NonSymlink;
-	} catch ( error ) {
-		return FileType.NonExistent;
 	}
 }
 

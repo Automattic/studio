@@ -20,6 +20,8 @@ const config: Configuration = {
 		extensions: [ '.js', '.ts', '.json' ],
 		alias: {
 			cli: path.join( __dirname, 'cli' ),
+			src: path.resolve( __dirname, 'src/' ),
+			vendor: path.resolve( __dirname, 'vendor/' ),
 		},
 	},
 	optimization: {

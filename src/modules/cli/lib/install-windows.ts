@@ -4,8 +4,8 @@ import * as Sentry from '@sentry/electron/main';
 import { __ } from '@wordpress/i18n';
 import Registry from 'winreg'; // don't update winreg to 1.2.5 - https://github.com/fresc81/node-winreg/issues/65
 
-//Example of process.execPath - C:\Users\<USERNAME>\AppData\Local\studio\app-1.3.9-beta1\Studio.exe
-const localAppBinPath = path.resolve( process.execPath, '../../bin' );
+// `binDirPath` resolves to C:\Users\<USERNAME>\AppData\Local\studio\bin
+const binDirPath = path.resolve( path.dirname( app.getPath( 'exe' ) ), '../bin' );
 const PATH_KEY = 'Path';
 
 const currentUserRegistry = new Registry( {
@@ -25,7 +25,7 @@ const getPathFromRegistry = (): Promise< string > => {
 	} );
 };
 
-const setPathToRegistry = ( updatedPath: string ): Promise< void > => {
+const setPathInRegistry = ( updatedPath: string ): Promise< void > => {
 	return new Promise( ( resolve, reject ) => {
 		currentUserRegistry.set( PATH_KEY, Registry.REG_EXPAND_SZ, updatedPath, ( error ) => {
 			if ( error ) {
@@ -41,7 +41,7 @@ const isStudioCliInPath = ( pathValue: string ): boolean => {
 	return pathValue
 		.split( ';' )
 		.map( ( item ) => item.trim().toLowerCase() )
-		.includes( localAppBinPath.toLowerCase() );
+		.includes( binDirPath.toLowerCase() );
 };
 
 const installPath = async () => {
@@ -56,10 +56,10 @@ const installPath = async () => {
 			.split( ';' )
 			.map( ( p ) => p.trim() )
 			.filter( Boolean )
-			.concat( localAppBinPath )
+			.concat( binDirPath )
 			.join( ';' );
 
-		await setPathToRegistry( updatedPath );
+		await setPathInRegistry( updatedPath );
 	} catch ( error ) {
 		Sentry.captureException( error );
 		console.error( 'Failed to install CLI: PATH to Registry', error );
@@ -79,15 +79,17 @@ const installPath = async () => {
  */
 const installProxyBatFile = async () => {
 	try {
-		await mkdir( localAppBinPath, { recursive: true } );
+		await mkdir( binDirPath, { recursive: true } );
 
-		const appFolder = path.resolve( process.execPath, '..' );
-		const relativePath = 'resources/bin/studio-cli.bat';
-		const versionedPath = path.relative( localAppBinPath, path.join( appFolder, relativePath ) );
+		const versionedCliPath = path.join(
+			path.dirname( app.getPath( 'exe' ) ),
+			'resources/bin/studio-cli.bat'
+		);
+		const relativeVersionedCliPath = path.relative( binDirPath, versionedCliPath );
 
-		const content = `@echo off\n"%~dp0\\${ versionedPath }" %*`;
+		const content = `@echo off\n"%~dp0\\${ relativeVersionedCliPath }" %*`;
 
-		await writeFile( path.join( localAppBinPath, 'studio.bat' ), content );
+		await writeFile( path.join( binDirPath, 'studio.bat' ), content );
 	} catch ( error ) {
 		Sentry.captureException( error );
 		console.error( 'Failed to install CLI: Proxy Bat file', error );

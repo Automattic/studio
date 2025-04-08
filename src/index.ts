@@ -33,13 +33,13 @@ import {
 	migrateFromWpNowFolder,
 	needsToMigrateFromWpNowFolder,
 } from 'src/migrations/migrate-from-wp-now-folder';
+import { installCLIOnWindows } from 'src/modules/cli/lib/install-windows';
 import { setupWPServerFiles, updateWPServerFiles } from 'src/setup-wp-server-files';
 import { stopAllServersOnQuit } from 'src/site-server';
 import { loadUserData, saveUserData } from 'src/storage/user-data';
 import { setupUpdates } from 'src/updates';
 // eslint-disable-next-line import/order
 import packageJson from '../package.json';
-import { installCLIOnWindows } from 'src/modules/cli/lib/install-windows';
 
 if ( ! isCLI() && ! process.env.IS_DEV_BUILD ) {
 	const { sentryRelease, isDevEnvironment } = getSentryReleaseInfo( app.getVersion() );

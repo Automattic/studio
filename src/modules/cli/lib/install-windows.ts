@@ -1,40 +1,40 @@
+import { mkdir, writeFile } from 'fs/promises';
 import path from 'path';
-import Registry from 'winreg'; // don't update winreg to 1.2.5 - https://github.com/fresc81/node-winreg/issues/65
 import * as Sentry from '@sentry/electron/main';
 import { __ } from '@wordpress/i18n';
-import { mkdir, writeFile } from 'fs/promises'
+import Registry from 'winreg'; // don't update winreg to 1.2.5 - https://github.com/fresc81/node-winreg/issues/65
 
 //Example of process.execPath - C:\Users\<USERNAME>\AppData\Local\studio\app-1.3.9-beta1\Studio.exe
-const localAppBinPath = path.resolve(process.execPath, '../../bin');
+const localAppBinPath = path.resolve( process.execPath, '../../bin' );
 const PATH_KEY = 'Path';
 
-const currentUserRegistry = new Registry({
+const currentUserRegistry = new Registry( {
 	hive: Registry.HKCU,
 	key: '\\Environment',
-});
+} );
 
-const getPathFromRegistry = (): Promise<string> => {
-	return new Promise((resolve, reject) => {
-		currentUserRegistry.get( PATH_KEY, (error, item) => {
+const getPathFromRegistry = (): Promise< string > => {
+	return new Promise( ( resolve, reject ) => {
+		currentUserRegistry.get( PATH_KEY, ( error, item ) => {
 			if ( error ) {
 				return reject( error );
 			}
 
 			resolve( item?.value || '' );
-		});
-	});
+		} );
+	} );
 };
 
-const setPathToRegistry = ( updatedPath: string ): Promise<void> => {
-	return new Promise((resolve, reject) => {
+const setPathToRegistry = ( updatedPath: string ): Promise< void > => {
+	return new Promise( ( resolve, reject ) => {
 		currentUserRegistry.set( PATH_KEY, Registry.REG_EXPAND_SZ, updatedPath, ( error ) => {
 			if ( error ) {
 				return reject( error );
 			}
 
 			resolve();
-		});
-	});
+		} );
+	} );
 };
 
 const isStudioCliInPath = ( pathValue: string ): boolean => {
@@ -53,14 +53,14 @@ const installPath = async () => {
 		}
 
 		const updatedPath = currentPath
-			.split(';')
-			.map( p => p.trim() )
-			.filter(Boolean)
+			.split( ';' )
+			.map( ( p ) => p.trim() )
+			.filter( Boolean )
 			.concat( localAppBinPath )
-			.join(';');
+			.join( ';' );
 
 		await setPathToRegistry( updatedPath );
-	} catch (error) {
+	} catch ( error ) {
 		Sentry.captureException( error );
 		console.error( 'Failed to install CLI: PATH to Registry', error );
 	}
@@ -87,17 +87,14 @@ const installProxyBatFile = async () => {
 
 		const content = `@echo off\n"%~dp0\\${ versionedPath }" %*`;
 
-		await writeFile(
-			path.join( localAppBinPath, 'studio.bat' ),
-			content,
-		);
-	} catch (error) {
+		await writeFile( path.join( localAppBinPath, 'studio.bat' ), content );
+	} catch ( error ) {
 		Sentry.captureException( error );
 		console.error( 'Failed to install CLI: Proxy Bat file', error );
 	}
 };
 
-export const installCLIOnWindows = async () =>  {
+export const installCLIOnWindows = async () => {
 	if ( process.platform !== 'win32' ) {
 		return;
 	}

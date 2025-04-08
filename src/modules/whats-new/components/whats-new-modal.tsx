@@ -27,6 +27,14 @@ const WHATS_NEW_PAGES: WhatsNewPage[] = [
 		),
 	},
 	{
+		image: previewSitesIllustration, // TODO: Add correct illustration
+		title: __( 'Choose a custom domain with HTTPS support' ),
+		description: __(
+			'Easily identify your local Studio sites with custom domain names. Personalize and organize your workflow!'
+		),
+		learnMoreUrl: 'https://wordpress.com/blog/2025/03/31/studio-custom-domains-https/',
+	},
+	{
 		image: versionSwitchIllustration,
 		title: __( 'Select WordPress and PHP versions in Studio' ),
 		description: __(
@@ -41,15 +49,6 @@ const WHATS_NEW_PAGES: WhatsNewPage[] = [
 			'Quickly generate a publicly accessible URL that you can share with clients and colleagues.'
 		),
 		learnMoreUrl: 'https://wordpress.com/blog/2025/02/24/studio-preview-sites/',
-	},
-	{
-		image: previewSitesIllustration, // TODO: Add correct illustration
-		title: __( 'Choose a custom domain for your Studio site' ),
-		description: __(
-			'Easily identify your local Studio sites with custom domain names. Personalize and organize your workflow!'
-		),
-		learnMoreUrl:
-			'https://developer.wordpress.com/docs/developer-tools/studio/sites/#1-using-a-custom-domain ', // TODO: Add correct URL
 	},
 ];
 

@@ -1,6 +1,6 @@
 # What's New modal
 
-The What's New modal is a feature that allows users to view new features and updates in WordPress Studio.
+The What's New modal allows users to view new features and updates in WordPress Studio.
 
 It opens automatically on app start on each minor and major release. It does not open on patch releases.
 

@@ -18,3 +18,10 @@ All the modal resources (images, copy and links) are stored in the app (`src/mod
 ## Updating the items in the What's New modal
 
 It is necessary to prepare the modal resources in advance when a new feature project is starting. The aim is to ensure all the resources are available and translated already when the new feature gets released to public.
+
+Let's work with designers and ensure the following resources are ready as soon as possible:
+
+- image (png or short gif; existing examples can be found in `src/modules/whats-new/assets`)
+- short heading (max. 30 - 40 characters)
+- short description (max. 1 sentence, as the modal space is limited and needs to be concise for different locales)
+- optional external link for more information

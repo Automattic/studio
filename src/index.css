@@ -289,8 +289,13 @@ blockquote {
 	left: 0;
 	right: 0;
 	background: white;
-  }
-  
-  .components-button.components-guide__finish-button {
-	  height: 40px;
-  }
+}
+
+.components-button.components-guide__finish-button {
+	height: 40px;
+}
+
+.components-button.components-guide__back-button {
+	outline: none;
+	border: 1px solid theme( 'colors.a8c-blueberry' );
+}

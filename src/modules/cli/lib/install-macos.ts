@@ -17,6 +17,8 @@ const installScriptPath = path.join( binPath, 'install-studio-cli.sh' );
 enum InstallError {
 	WrongPlatform = 'Studio CLI is only available on macOS',
 	FileAlreadyExists = 'Studio CLI symlink path already occupied by non-symlink',
+	// Defined in @vscode/sudo-prompt
+	PermissionError = 'User did not grant permission.',
 }
 
 export async function installCLIOnMacOSWithConfirmation() {
@@ -32,15 +34,20 @@ export async function installCLIOnMacOSWithConfirmation() {
 		Sentry.captureException( error );
 		console.error( 'Failed to install CLI', error );
 
-		let message = __( 'Please ensure you grant Studio admin permissions when prompted.' );
-		if ( error instanceof Error && error.message === InstallError.FileAlreadyExists ) {
-			message = sprintf(
-				/* translators: 1: Installation path */
-				__(
-					'The installation path %1$s is already occupied by a file or directory. Please remove it and try again.'
-				),
-				cliSymlinkPath
-			);
+		let message = __( 'There was an unknown error. Please check the logs for more information.' );
+
+		if ( error instanceof Error ) {
+			if ( error.message === InstallError.FileAlreadyExists ) {
+				message = sprintf(
+					/* translators: 1: Installation path */
+					__(
+						'The installation path %1$s is already occupied by a file or directory. Please remove it and try again.'
+					),
+					cliSymlinkPath
+				);
+			} else if ( error.message === InstallError.PermissionError ) {
+				message = __( 'Please ensure you grant Studio admin permissions when prompted.' );
+			}
 		}
 
 		const mainWindow = await getMainWindow();

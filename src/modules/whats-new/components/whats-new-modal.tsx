@@ -1,5 +1,5 @@
 import { Guide } from '@wordpress/components';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import previewSitesIllustration from 'src/modules/whats-new/assets/preview-sites-illustration.svg';
@@ -99,7 +99,7 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 				image: (
 					<img
 						src={ image }
-						alt={ __( `Illustration for ${ title }` ) }
+						alt={ sprintf( __( 'Illustration for %s' ), title ) }
 						className="h-[173px] w-full object-cover mb-4"
 					/>
 				),

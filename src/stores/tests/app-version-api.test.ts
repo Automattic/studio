@@ -1,0 +1,136 @@
+import { configureStore } from '@reduxjs/toolkit';
+import { getIpcApi } from 'src/lib/get-ipc-api';
+import { appVersionApi, selectIsNewVersion } from '../app-version-api';
+
+jest.mock( 'src/lib/get-ipc-api', () => ( {
+	getIpcApi: jest.fn(),
+} ) );
+
+const mockIpcApi = {
+	getLastSeenVersion: jest.fn(),
+	saveLastSeenVersion: jest.fn(),
+};
+
+( getIpcApi as jest.Mock ).mockReturnValue( mockIpcApi );
+
+const createTestStore = () => {
+	return configureStore( {
+		reducer: {
+			[ appVersionApi.reducerPath ]: appVersionApi.reducer,
+		},
+		middleware: ( getDefaultMiddleware ) =>
+			getDefaultMiddleware().concat( appVersionApi.middleware ),
+	} );
+};
+
+describe( 'App Version API', () => {
+	beforeEach( () => {
+		jest.clearAllMocks();
+	} );
+
+	describe( 'getLastSeenVersion', () => {
+		it( 'should fetch the last seen version', async () => {
+			mockIpcApi.getLastSeenVersion.mockResolvedValueOnce( '1.2.0' );
+
+			const store = createTestStore();
+			const result = await store.dispatch(
+				appVersionApi.endpoints.getLastSeenVersion.initiate( undefined )
+			);
+
+			expect( mockIpcApi.getLastSeenVersion ).toHaveBeenCalledTimes( 1 );
+
+			expect( result.data ).toBe( '1.2.0' );
+		} );
+	} );
+
+	describe( 'saveLastSeenVersion', () => {
+		it( 'should save the last seen version', async () => {
+			mockIpcApi.saveLastSeenVersion.mockResolvedValueOnce( undefined );
+
+			const versionToSave = '1.3.0';
+			const store = createTestStore();
+			const result = await store.dispatch(
+				appVersionApi.endpoints.saveLastSeenVersion.initiate( versionToSave )
+			);
+
+			expect( mockIpcApi.saveLastSeenVersion ).toHaveBeenCalledTimes( 1 );
+			expect( mockIpcApi.saveLastSeenVersion ).toHaveBeenCalledWith( versionToSave );
+
+			expect( result.data ).toBe( versionToSave );
+		} );
+	} );
+
+	describe( 'selectIsNewVersion', () => {
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const createMockQueryResult = ( data: string | undefined ): any => ( {
+			data,
+			isLoading: false,
+			isSuccess: true,
+			isError: false,
+			error: undefined,
+		} );
+
+		it( 'should return true for a new major version', () => {
+			const lastSeenVersion = '1.2.0';
+			const currentVersion = '2.0.0';
+
+			const result = selectIsNewVersion( createMockQueryResult( lastSeenVersion ), currentVersion );
+
+			expect( result ).toBe( true );
+		} );
+
+		it( 'should return true for a new minor version', () => {
+			const lastSeenVersion = '1.2.0';
+			const currentVersion = '1.3.0';
+
+			const result = selectIsNewVersion( createMockQueryResult( lastSeenVersion ), currentVersion );
+
+			expect( result ).toBe( true );
+		} );
+
+		it( 'should return false for the same version', () => {
+			const lastSeenVersion = '1.2.0';
+			const currentVersion = '1.2.0';
+
+			const result = selectIsNewVersion( createMockQueryResult( lastSeenVersion ), currentVersion );
+
+			expect( result ).toBe( false );
+		} );
+
+		it( 'should return false for a new patch version', () => {
+			const lastSeenVersion = '1.2.0';
+			const currentVersion = '1.2.1';
+
+			const result = selectIsNewVersion( createMockQueryResult( lastSeenVersion ), currentVersion );
+
+			expect( result ).toBe( false );
+		} );
+
+		it( 'should return false for prerelease versions', () => {
+			const lastSeenVersion = '1.2.0';
+			const currentVersion = '1.3.0-beta1';
+
+			const result = selectIsNewVersion( createMockQueryResult( lastSeenVersion ), currentVersion );
+
+			expect( result ).toBe( false );
+		} );
+
+		it( 'should return true for undefined lastSeenVersion', () => {
+			const lastSeenVersion = undefined;
+			const currentVersion = '1.2.0';
+
+			const result = selectIsNewVersion( createMockQueryResult( lastSeenVersion ), currentVersion );
+
+			expect( result ).toBe( true );
+		} );
+
+		it( 'should return false for invalid version formats', () => {
+			const lastSeenVersion = 'invalid';
+			const currentVersion = 'also-invalid';
+
+			const result = selectIsNewVersion( createMockQueryResult( lastSeenVersion ), currentVersion );
+
+			expect( result ).toBe( false );
+		} );
+	} );
+} );

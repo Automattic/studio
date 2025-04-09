@@ -21,7 +21,7 @@ interface WhatsNewModalProps {
 const WHATS_NEW_PAGES: WhatsNewPage[] = [
 	{
 		image: versionSwitchIllustration, // TODO: Add correct illustration for intro card
-		title: __( 'What is new in Studi?' ),
+		title: __( 'What is new in Studio?' ),
 		description: __(
 			'Discover the latest updates in Studio! Explore exciting new features designed to enhance your experience.'
 		),

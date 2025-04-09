@@ -193,6 +193,7 @@ function getAppMenu(
 					click: async () => {
 						sendIpcEventToRenderer( 'show-whats-new' );
 					},
+					enabled: ! needsOnboarding,
 				},
 				{ type: 'separator' },
 				...( process.platform === 'win32'

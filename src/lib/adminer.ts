@@ -91,10 +91,10 @@ export async function updateAdminerConfig( siteDetails: SiteDetails ) {
 	const destinationConfigPath = nodePath.join( adminerPath, 'config.php' );
 	const userLocale = await getUserLocaleWithFallback();
 
-	// Copy the original config.php file to the adminer directory.
-	await fs.promises.copyFile( originalConfigPath, destinationConfigPath );
-
 	try {
+		// Copy the original config.php file to the adminer directory.
+		await fs.promises.copyFile( originalConfigPath, destinationConfigPath );
+		// Update the config.php file with the site details.
 		const config = await fs.promises.readFile( destinationConfigPath, 'utf8' );
 		const siteUrl = getSiteUrl( siteDetails );
 		await fs.promises.writeFile(

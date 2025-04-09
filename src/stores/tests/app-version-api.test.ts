@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { appVersionApi, selectIsNewVersion } from '../app-version-api';
+import { appVersionApi, selectIsNewVersion } from 'src/stores/app-version-api';
 
 jest.mock( 'src/lib/get-ipc-api', () => ( {
 	getIpcApi: jest.fn(),

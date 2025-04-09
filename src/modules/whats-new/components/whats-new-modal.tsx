@@ -24,31 +24,29 @@ const PageContent = ( {
 	description,
 	learnMoreUrl,
 	isIntroPage = false,
-}: Omit< WhatsNewPage, 'image' > & { isIntroPage?: boolean } ) => {
-	return (
-		<div className="px-8 pt-4 pb-2 flex flex-col h-full">
-			<h2 className="text-xl mb-4 text-gray-900 line-clamp-2">{ title }</h2>
-			<p
-				className={ cx(
-					'text-gray-900 text-m leading-s',
-					isIntroPage ? 'line-clamp-5' : 'line-clamp-3'
-				) }
-			>
-				{ description }
-			</p>
-			<div className="mt-2 mb-4">
-				{ learnMoreUrl && (
-					<button
-						onClick={ () => getIpcApi().openURL( learnMoreUrl ) }
-						className="text-a8c-blueberry text-m leading-s cursor-pointer"
-					>
-						{ __( 'Learn more' ) }
-					</button>
-				) }
-			</div>
+}: Omit< WhatsNewPage, 'image' > & { isIntroPage?: boolean } ) => (
+	<div className="px-8 pt-4 pb-2 flex flex-col h-full">
+		<h2 className="text-xl mb-4 text-gray-900 line-clamp-2">{ title }</h2>
+		<p
+			className={ cx(
+				'text-gray-900 text-m leading-s',
+				isIntroPage ? 'line-clamp-5' : 'line-clamp-3'
+			) }
+		>
+			{ description }
+		</p>
+		<div className="mt-2 mb-4">
+			{ learnMoreUrl && (
+				<button
+					onClick={ () => getIpcApi().openURL( learnMoreUrl ) }
+					className="text-a8c-blueberry text-m leading-s cursor-pointer"
+				>
+					{ __( 'Learn more' ) }
+				</button>
+			) }
 		</div>
-	);
-};
+	</div>
+);
 
 export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProps ) {
 	const whatsNewPages: WhatsNewPage[] = [

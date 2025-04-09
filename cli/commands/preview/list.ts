@@ -25,10 +25,10 @@ async function runCommand( siteFolder: string, outputFormat?: OutputFormat ): Pr
 	const logger = new Logger< LoggerAction >( outputFormat );
 
 	try {
-		logger.reportStart( LoggerAction.VALIDATE, 'Validating...' );
+		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating...' ) );
 		validateSiteFolder( siteFolder );
 		const token = await getAuthToken();
-		logger.reportSuccess( 'Validation successful' );
+		logger.reportSuccess( __( 'Validation successful' ) );
 
 		logger.reportStart( LoggerAction.LOAD, __( 'Loading snapshots...' ) );
 		const snapshots = await getSnapshots( token.id, siteFolder );
@@ -48,7 +48,7 @@ async function runCommand( siteFolder: string, outputFormat?: OutputFormat ): Pr
 		if ( error instanceof LoggerError ) {
 			logger.reportError( error );
 		} else {
-			const loggerError = new LoggerError( 'Failed to load snapshots' );
+			const loggerError = new LoggerError( __( 'Failed to load snapshots' ) );
 			logger.reportError( loggerError );
 		}
 	}
@@ -57,7 +57,9 @@ async function runCommand( siteFolder: string, outputFormat?: OutputFormat ): Pr
 export const registerCommand: RegisterCommand = ( program ) => {
 	program
 		.command( 'list [folder]' )
-		.description( 'List preview sites for the specified folder (defaults to current directory)' )
+		.description(
+			__( 'List preview sites for the specified folder (defaults to current directory)' )
+		)
 		.action( async ( siteFolder: string = process.cwd() ) => {
 			const options = program.opts();
 			await runCommand( siteFolder, options.outputFormat );

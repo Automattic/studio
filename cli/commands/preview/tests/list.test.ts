@@ -5,19 +5,6 @@ import { getAuthToken } from 'cli/commands/preview/lib/auth';
 import { validateSiteFolder } from 'cli/commands/preview/lib/validation';
 import { Logger } from 'cli/logger';
 
-// Mock ora
-jest.mock( 'ora', () => {
-	return {
-		__esModule: true,
-		default: () => ( {
-			start: jest.fn().mockReturnThis(),
-			stop: jest.fn().mockReturnThis(),
-			succeed: jest.fn().mockReturnThis(),
-			fail: jest.fn().mockReturnThis(),
-		} ),
-	};
-} );
-
 jest.mock( 'cli/commands/preview/lib/appdata' );
 jest.mock( 'cli/commands/preview/lib/auth' );
 jest.mock( 'cli/commands/preview/lib/validation' );

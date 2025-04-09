@@ -8,24 +8,11 @@ import { addPreviewSiteToAppdata } from 'cli/commands/preview/lib/snapshots';
 import { validateSiteFolder } from 'cli/commands/preview/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
 
-// Mock ora
-jest.mock( 'ora', () => {
-	return {
-		__esModule: true,
-		default: () => ( {
-			start: jest.fn().mockReturnThis(),
-			stop: jest.fn().mockReturnThis(),
-			succeed: jest.fn().mockReturnThis(),
-			fail: jest.fn().mockReturnThis(),
-		} ),
-	};
-} );
-
-jest.mock( '../lib/auth' );
-jest.mock( '../lib/validation' );
-jest.mock( '../lib/archive' );
-jest.mock( '../lib/api' );
-jest.mock( '../lib/snapshots' );
+jest.mock( 'cli/commands/preview/lib/auth' );
+jest.mock( 'cli/commands/preview/lib/validation' );
+jest.mock( 'cli/commands/preview/lib/archive' );
+jest.mock( 'cli/commands/preview/lib/api' );
+jest.mock( 'cli/commands/preview/lib/snapshots' );
 jest.mock( 'cli/logger', () => {
 	const originalModule = jest.requireActual( 'cli/logger' );
 

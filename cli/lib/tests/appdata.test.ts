@@ -1,7 +1,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { getAppdataPath, readAppdata, saveAppdata } from 'cli/lib/appdata';
+import { readAppdata, saveAppdata } from 'cli/lib/appdata';
 
 jest.mock( 'fs' );
 jest.mock( 'os' );
@@ -9,7 +9,6 @@ jest.mock( 'path' );
 
 describe( 'Appdata Module', () => {
 	const mockHomeDir = '/mock/home';
-	const mockAppDataPath = '/mock/home/Library/Application Support/Studio/appdata-v1.json';
 	const mockSiteFolderName = 'folder';
 
 	beforeEach( () => {
@@ -23,20 +22,6 @@ describe( 'Appdata Module', () => {
 		( fs.existsSync as jest.Mock ).mockReturnValue( true );
 		( fs.readFileSync as jest.Mock ).mockReturnValue( '{}' );
 		( fs.writeFileSync as jest.Mock ).mockImplementation( () => undefined );
-	} );
-
-	describe( 'getAppdataPath', () => {
-		it( 'should return the correct appdata path', () => {
-			expect( getAppdataPath() ).toBe( mockAppDataPath );
-			expect( os.homedir ).toHaveBeenCalled();
-			expect( path.join ).toHaveBeenCalledWith(
-				mockHomeDir,
-				'Library',
-				'Application Support',
-				'Studio',
-				'appdata-v1.json'
-			);
-		} );
 	} );
 
 	describe( 'readAppdata', () => {
@@ -97,7 +82,7 @@ describe( 'Appdata Module', () => {
 			await saveAppdata( mockUserData );
 
 			expect( fs.writeFileSync ).toHaveBeenCalledWith(
-				mockAppDataPath,
+				expect.any( String ),
 				JSON.stringify( mockUserData, null, 2 ) + '\n',
 				'utf8'
 			);

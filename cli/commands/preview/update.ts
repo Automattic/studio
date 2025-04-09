@@ -74,7 +74,7 @@ export const registerCommand: RegisterCommand = ( program ) => {
 		.description(
 			__( 'Update preview site for the specified folder (defaults to current directory)' )
 		)
-		.option( '-h, --host <host>', __( 'Host of the preview site to update' ) )
+		.requiredOption( '-h, --host <host>', __( 'Host of the preview site to update' ) )
 		.action( async ( siteFolder: string = process.cwd(), options ) => {
 			const parentOptions = program.opts();
 			await runCommand( siteFolder, options.host, parentOptions.outputFormat );

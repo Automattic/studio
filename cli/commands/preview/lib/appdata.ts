@@ -36,10 +36,17 @@ const userDataSchema = z
 	.passthrough();
 
 export type Snapshot = z.infer< typeof snapshotSchema >;
-export type UserData = z.infer< typeof userDataSchema >;
+type UserData = z.infer< typeof userDataSchema >;
 
-// ToDo: Improve this to support multiple platforms
 export function getAppdataPath(): string {
+	if ( process.platform === 'win32' ) {
+		if ( ! process.env.APPDATA ) {
+			throw new LoggerError( 'Appdata path not found.' );
+		}
+
+		return path.join( process.env.APPDATA, 'Studio', 'appdata-v1.json' );
+	}
+
 	const homeDir = os.homedir();
 	return path.join( homeDir, 'Library', 'Application Support', 'Studio', 'appdata-v1.json' );
 }

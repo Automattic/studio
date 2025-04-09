@@ -33,6 +33,7 @@ import {
 	migrateFromWpNowFolder,
 	needsToMigrateFromWpNowFolder,
 } from 'src/migrations/migrate-from-wp-now-folder';
+import { installCLIOnWindows } from 'src/modules/cli/lib/install-windows';
 import { setupWPServerFiles, updateWPServerFiles } from 'src/setup-wp-server-files';
 import { stopAllServersOnQuit } from 'src/site-server';
 import { loadUserData, saveUserData } from 'src/storage/user-data';
@@ -283,6 +284,11 @@ async function appBoot() {
 			getPlatformMetric( process.platform ),
 			'weekly'
 		);
+
+		// temporary hidden since in development yet
+		if ( process.env.NODE_ENV === 'development' ) {
+			await installCLIOnWindows();
+		}
 
 		finishedInitialization = true;
 	} );

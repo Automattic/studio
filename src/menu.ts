@@ -42,10 +42,7 @@ export async function popupMenu() {
 
 function getAppMenu(
 	mainWindow: BrowserWindow | null,
-	{
-		needsOnboarding = false,
-		whatsNewSectionEnabled = false,
-	}: { needsOnboarding?: boolean; whatsNewSectionEnabled?: boolean } = {}
+	{ needsOnboarding = false }: { needsOnboarding?: boolean } = {}
 ) {
 	const crashTestMenuItems: MenuItemConstructorOptions[] = [
 		{
@@ -191,17 +188,12 @@ function getAppMenu(
 						shellOpenExternalWrapper( getDocsLink( locale, 'studio' ) );
 					},
 				},
-				...( whatsNewSectionEnabled
-					? [
-							{
-								label: __( "What's New" ),
-								click: async () => {
-									sendIpcEventToRenderer( 'show-whats-new' );
-								},
-								enabled: ! needsOnboarding,
-							},
-					  ]
-					: [] ),
+				{
+					label: __( "What's New" ),
+					click: async () => {
+						sendIpcEventToRenderer( 'show-whats-new' );
+					},
+				},
 				{ type: 'separator' },
 				...( process.platform === 'win32'
 					? [

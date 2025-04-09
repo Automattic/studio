@@ -1,7 +1,7 @@
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { getSiteIdFromFolder, readAppdata, Snapshot } from 'cli/lib/appdata';
 import { getAuthToken } from 'cli/lib/auth';
 import { getSnapshotCliTable } from 'cli/lib/output';
+import { getSnapshotsFromAppdata } from 'cli/lib/snapshots';
 import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
 import { RegisterCommand, OutputFormat } from 'cli/types';
@@ -9,16 +9,6 @@ import { RegisterCommand, OutputFormat } from 'cli/types';
 export enum LoggerAction {
 	VALIDATE = 'validate',
 	LOAD = 'load',
-}
-
-async function getSnapshots( userId: number, siteFolder: string ): Promise< Snapshot[] > {
-	const siteId = await getSiteIdFromFolder( siteFolder );
-	const userData = await readAppdata();
-	const snapshots = userData.snapshots ?? [];
-
-	return snapshots
-		.filter( ( snapshot ) => snapshot.userId === userId )
-		.filter( ( snapshot ) => snapshot.localSiteId === siteId );
 }
 
 async function runCommand( siteFolder: string, outputFormat?: OutputFormat ): Promise< void > {
@@ -31,7 +21,7 @@ async function runCommand( siteFolder: string, outputFormat?: OutputFormat ): Pr
 		logger.reportSuccess( 'Validation successful' );
 
 		logger.reportStart( LoggerAction.LOAD, __( 'Loading snapshots...' ) );
-		const snapshots = await getSnapshots( token.id, siteFolder );
+		const snapshots = await getSnapshotsFromAppdata( token.id, siteFolder );
 
 		if ( snapshots.length === 0 ) {
 			logger.reportSuccess( __( 'No snapshots found' ) );

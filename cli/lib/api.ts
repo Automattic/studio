@@ -103,3 +103,25 @@ export async function waitForSiteReady( siteId: number, token: string ): Promise
 		'Failed to create preview site: site did not become ready within timeout'
 	);
 }
+
+export async function deleteSnapshot( atomicSiteId: number, token: string ): Promise< void > {
+	const wpcom = new WPCOM( token );
+
+	try {
+		await wpcom.req.post( {
+			path: '/jurassic-ninja/delete',
+			apiNamespace: 'wpcom/v2',
+			body: { site_id: atomicSiteId },
+		} );
+	} catch ( error ) {
+		if ( error instanceof Error ) {
+			if ( 'code' in error && error.code === 'rest_site_already_deleted' ) {
+				return;
+			}
+
+			throw new LoggerError( 'Failed to delete preview site', error );
+		}
+
+		throw new LoggerError( 'Failed to delete preview site' );
+	}
+}

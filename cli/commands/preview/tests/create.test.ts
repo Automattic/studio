@@ -52,24 +52,15 @@ describe( 'Preview Create Command', () => {
 
 		( Logger as jest.Mock ).mockReturnValue( mockLogger );
 
-		// Mock auth
 		( getAuthToken as jest.Mock ).mockResolvedValue( mockAuthToken );
-
-		// Mock validation
 		( validateSiteFolder as jest.Mock ).mockReturnValue( true );
-
-		// Mock archive
 		( createArchive as jest.Mock ).mockResolvedValue( mockArchiver );
 		( cleanup as jest.Mock ).mockImplementation( () => {} );
-
-		// Mock API
 		( uploadArchive as jest.Mock ).mockResolvedValue( {
 			site_url: mockSiteUrl,
 			site_id: mockSiteId,
 		} );
 		( waitForSiteReady as jest.Mock ).mockResolvedValue( true );
-
-		// Mock appdata
 		( addPreviewSiteToAppdata as jest.Mock ).mockResolvedValue( undefined );
 	} );
 
@@ -83,12 +74,10 @@ describe( 'Preview Create Command', () => {
 
 		await program.parseAsync( [ 'node', 'studio', 'go', mockFolder ] );
 
-		// Verify validation step
 		expect( validateSiteFolder ).toHaveBeenCalledWith( mockFolder );
 		expect( mockLogger.reportStart.mock.calls[ 0 ] ).toEqual( [ 'validate', 'Validating...' ] );
 		expect( mockLogger.reportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Validation successful' ] );
 
-		// Verify archive step
 		expect( createArchive ).toHaveBeenCalledWith( mockFolder, mockArchivePath );
 		expect( mockLogger.reportStart.mock.calls[ 1 ] ).toEqual( [
 			'archive',
@@ -96,7 +85,6 @@ describe( 'Preview Create Command', () => {
 		] );
 		expect( mockLogger.reportSuccess.mock.calls[ 1 ] ).toEqual( [ 'Archive created' ] );
 
-		// Verify upload step
 		expect( uploadArchive ).toHaveBeenCalledWith( mockArchivePath, mockAuthToken.accessToken );
 		expect( mockLogger.reportStart.mock.calls[ 2 ] ).toEqual( [
 			'upload',
@@ -104,7 +92,6 @@ describe( 'Preview Create Command', () => {
 		] );
 		expect( mockLogger.reportSuccess.mock.calls[ 2 ] ).toEqual( [ 'Archive uploaded' ] );
 
-		// Verify site ready step
 		expect( waitForSiteReady ).toHaveBeenCalledWith( mockSiteId, mockAuthToken.accessToken );
 		expect( mockLogger.reportStart.mock.calls[ 3 ] ).toEqual( [
 			'ready',
@@ -114,7 +101,6 @@ describe( 'Preview Create Command', () => {
 			`Preview site available at: https://${ mockSiteUrl }`,
 		] );
 
-		// Verify appdata step
 		expect( addPreviewSiteToAppdata ).toHaveBeenCalledWith( mockSiteUrl, mockSiteId, mockFolder );
 		expect( mockLogger.reportStart.mock.calls[ 4 ] ).toEqual( [
 			'appdata',
@@ -124,7 +110,6 @@ describe( 'Preview Create Command', () => {
 			'Preview site saved to Studio',
 		] );
 
-		// Verify cleanup
 		expect( cleanup ).toHaveBeenCalledWith( mockArchivePath );
 	} );
 

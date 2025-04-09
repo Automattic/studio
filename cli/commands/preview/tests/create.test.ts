@@ -60,7 +60,7 @@ describe( 'Preview Create Command', () => {
 		jest.spyOn( path, 'basename' ).mockReturnValue( mockBasename );
 		jest.spyOn( process, 'cwd' ).mockReturnValue( mockFolder );
 
-		program = new Command();
+		program = new Command( 'studio' );
 		mockLogger = {
 			reportStart: jest.fn(),
 			reportSuccess: jest.fn(),
@@ -98,7 +98,7 @@ describe( 'Preview Create Command', () => {
 		const { registerCommand } = await import( '../create' );
 		registerCommand( program );
 
-		await program.parseAsync( [ 'node', 'test', 'go', mockFolder ] );
+		await program.parseAsync( [ 'node', 'studio', 'go', mockFolder ] );
 
 		// Verify validation step
 		expect( validateSiteFolder ).toHaveBeenCalledWith( mockFolder );
@@ -149,7 +149,7 @@ describe( 'Preview Create Command', () => {
 		const { registerCommand } = await import( '../create' );
 		registerCommand( program );
 
-		await program.parseAsync( [ 'node', 'test', 'go' ] );
+		await program.parseAsync( [ 'node', 'studio', 'go' ] );
 
 		expect( validateSiteFolder ).toHaveBeenCalledWith( process.cwd() );
 	} );
@@ -163,7 +163,7 @@ describe( 'Preview Create Command', () => {
 		const { registerCommand } = await import( '../create' );
 		registerCommand( program );
 
-		await program.parseAsync( [ 'node', 'test', 'go', mockFolder ] );
+		await program.parseAsync( [ 'node', 'studio', 'go', mockFolder ] );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
@@ -180,7 +180,7 @@ describe( 'Preview Create Command', () => {
 		const { registerCommand } = await import( '../create' );
 		registerCommand( program );
 
-		await program.parseAsync( [ 'node', 'test', 'go', mockFolder ] );
+		await program.parseAsync( [ 'node', 'studio', 'go', mockFolder ] );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
@@ -196,7 +196,7 @@ describe( 'Preview Create Command', () => {
 		const { registerCommand } = await import( '../create' );
 		registerCommand( program );
 
-		await program.parseAsync( [ 'node', 'test', 'go', mockFolder ] );
+		await program.parseAsync( [ 'node', 'studio', 'go', mockFolder ] );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
@@ -212,7 +212,7 @@ describe( 'Preview Create Command', () => {
 		const { registerCommand } = await import( '../create' );
 		registerCommand( program );
 
-		await program.parseAsync( [ 'node', 'test', 'go', mockFolder ] );
+		await program.parseAsync( [ 'node', 'studio', 'go', mockFolder ] );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
@@ -228,7 +228,7 @@ describe( 'Preview Create Command', () => {
 		const { registerCommand } = await import( '../create' );
 		registerCommand( program );
 
-		await program.parseAsync( [ 'node', 'test', 'go', mockFolder ] );
+		await program.parseAsync( [ 'node', 'studio', 'go', mockFolder ] );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
@@ -244,7 +244,7 @@ describe( 'Preview Create Command', () => {
 		const { registerCommand } = await import( '../create' );
 		registerCommand( program );
 
-		await program.parseAsync( [ 'node', 'test', 'go', mockFolder ] );
+		await program.parseAsync( [ 'node', 'studio', 'go', mockFolder ] );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
@@ -258,7 +258,7 @@ describe( 'Preview Create Command', () => {
 		const { registerCommand } = await import( '../create' );
 		registerCommand( program );
 
-		await program.parseAsync( [ 'node', 'test', 'go', mockFolder ] );
+		await program.parseAsync( [ 'node', 'studio', 'go', mockFolder ] );
 
 		expect( cleanup ).toHaveBeenCalledWith( mockArchivePath );
 	} );

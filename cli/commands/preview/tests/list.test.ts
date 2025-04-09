@@ -44,7 +44,7 @@ describe( 'Preview List Command', () => {
 		jest.spyOn( path, 'basename' ).mockReturnValue( mockBasename );
 		jest.spyOn( process, 'cwd' ).mockReturnValue( mockFolder );
 
-		program = new Command();
+		program = new Command( 'studio' );
 		mockLogger = {
 			reportStart: jest.fn(),
 			reportSuccess: jest.fn(),
@@ -57,7 +57,7 @@ describe( 'Preview List Command', () => {
 		const { registerCommand } = await import( '../list' );
 		registerCommand( program );
 
-		await program.parseAsync( [ 'node', 'test', 'list', '/test/path' ] );
+		await program.parseAsync( [ 'node', 'studio', 'list', '/test/path' ] );
 
 		expect( mockLogger.reportStart ).toHaveBeenCalledWith( 'validate', 'Validating...' );
 		expect( mockLogger.reportSuccess ).toHaveBeenCalledWith( 'Validation successful' );
@@ -72,7 +72,7 @@ describe( 'Preview List Command', () => {
 			throw new Error( 'Invalid site folder' );
 		} );
 
-		await program.parseAsync( [ 'node', 'test', 'list', '/invalid/path' ] );
+		await program.parseAsync( [ 'node', 'studio', 'list', '/invalid/path' ] );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 	} );
@@ -82,7 +82,7 @@ describe( 'Preview List Command', () => {
 		registerCommand( program );
 		( readAppdata as jest.Mock ).mockResolvedValue( { snapshots: [] } );
 
-		await program.parseAsync( [ 'node', 'test', 'list', '/test/path' ] );
+		await program.parseAsync( [ 'node', 'studio', 'list', '/test/path' ] );
 
 		expect( mockLogger.reportSuccess ).toHaveBeenCalledWith( 'No snapshots found' );
 	} );

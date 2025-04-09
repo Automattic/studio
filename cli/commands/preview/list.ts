@@ -11,7 +11,7 @@ export enum LoggerAction {
 	LOAD = 'load',
 }
 
-async function getAllSnapshots( userId: number, siteFolder: string ): Promise< Snapshot[] > {
+async function getSnapshots( userId: number, siteFolder: string ): Promise< Snapshot[] > {
 	const siteId = await getSiteIdFromFolder( siteFolder );
 	const userData = await readAppdata();
 	const snapshots = userData.snapshots ?? [];
@@ -31,7 +31,7 @@ async function runCommand( siteFolder: string, outputFormat?: OutputFormat ): Pr
 		logger.reportSuccess( 'Validation successful' );
 
 		logger.reportStart( LoggerAction.LOAD, __( 'Loading snapshots...' ) );
-		const snapshots = await getAllSnapshots( token.id, siteFolder );
+		const snapshots = await getSnapshots( token.id, siteFolder );
 
 		if ( snapshots.length === 0 ) {
 			logger.reportSuccess( __( 'No snapshots found' ) );
@@ -57,7 +57,7 @@ async function runCommand( siteFolder: string, outputFormat?: OutputFormat ): Pr
 export const registerCommand: RegisterCommand = ( program ) => {
 	program
 		.command( 'list [folder]' )
-		.description( 'List preview sites' )
+		.description( 'List preview sites for the specified folder (defaults to current directory)' )
 		.action( async ( siteFolder: string = process.cwd() ) => {
 			const options = program.opts();
 			await runCommand( siteFolder, options.outputFormat );

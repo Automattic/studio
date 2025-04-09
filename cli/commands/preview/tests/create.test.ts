@@ -1,31 +1,18 @@
 import os from 'os';
 import path from 'path';
 import { Command } from 'commander';
-import { uploadArchive, waitForSiteReady } from 'cli/commands/preview/lib/api';
-import { addPreviewSiteToAppdata } from 'cli/commands/preview/lib/appdata';
-import { createArchive, cleanup } from 'cli/commands/preview/lib/archive';
-import { getAuthToken } from 'cli/commands/preview/lib/auth';
-import { validateSiteFolder } from 'cli/commands/preview/lib/validation';
+import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
+import { createArchive, cleanup } from 'cli/lib/archive';
+import { getAuthToken } from 'cli/lib/auth';
+import { addPreviewSiteToAppdata } from 'cli/lib/snapshots';
+import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
 
-// Mock ora
-jest.mock( 'ora', () => {
-	return {
-		__esModule: true,
-		default: () => ( {
-			start: jest.fn().mockReturnThis(),
-			stop: jest.fn().mockReturnThis(),
-			succeed: jest.fn().mockReturnThis(),
-			fail: jest.fn().mockReturnThis(),
-		} ),
-	};
-} );
-
-jest.mock( '../lib/auth' );
-jest.mock( '../lib/validation' );
-jest.mock( '../lib/archive' );
-jest.mock( '../lib/api' );
-jest.mock( '../lib/appdata' );
+jest.mock( 'cli/lib/auth' );
+jest.mock( 'cli/lib/validation' );
+jest.mock( 'cli/lib/archive' );
+jest.mock( 'cli/lib/api' );
+jest.mock( 'cli/lib/snapshots' );
 jest.mock( 'cli/logger', () => {
 	const originalModule = jest.requireActual( 'cli/logger' );
 
@@ -52,7 +39,7 @@ describe( 'Preview Create Command', () => {
 	const mockArchivePath = path.join( os.tmpdir(), `${ mockBasename }-${ mockDate }.zip` );
 	const mockSiteUrl = 'test-preview.example.com';
 	const mockSiteId = 12345;
-	const mockAuthToken = 'mock-auth-token';
+	const mockAuthToken = { accessToken: 'mock-auth-token', id: 123 };
 	const mockArchiver = {
 		on: jest.fn(),
 		pipe: jest.fn(),
@@ -73,7 +60,7 @@ describe( 'Preview Create Command', () => {
 		jest.spyOn( path, 'basename' ).mockReturnValue( mockBasename );
 		jest.spyOn( process, 'cwd' ).mockReturnValue( mockFolder );
 
-		program = new Command();
+		program = new Command( 'studio' );
 		mockLogger = {
 			reportStart: jest.fn(),
 			reportSuccess: jest.fn(),
@@ -111,7 +98,7 @@ describe( 'Preview Create Command', () => {
 		const { registerCommand } = await import( '../create' );
 		registerCommand( program );
 
-		await program.parseAsync( [ 'node', 'test', 'go', mockFolder ] );
+		await program.parseAsync( [ 'node', 'studio', 'go', mockFolder ] );
 
 		// Verify validation step
 		expect( validateSiteFolder ).toHaveBeenCalledWith( mockFolder );
@@ -127,7 +114,7 @@ describe( 'Preview Create Command', () => {
 		expect( mockLogger.reportSuccess.mock.calls[ 1 ] ).toEqual( [ 'Archive created' ] );
 
 		// Verify upload step
-		expect( uploadArchive ).toHaveBeenCalledWith( mockArchivePath, mockAuthToken );
+		expect( uploadArchive ).toHaveBeenCalledWith( mockArchivePath, mockAuthToken.accessToken );
 		expect( mockLogger.reportStart.mock.calls[ 2 ] ).toEqual( [
 			'upload',
 			'Uploading archive...',
@@ -135,7 +122,7 @@ describe( 'Preview Create Command', () => {
 		expect( mockLogger.reportSuccess.mock.calls[ 2 ] ).toEqual( [ 'Archive uploaded' ] );
 
 		// Verify site ready step
-		expect( waitForSiteReady ).toHaveBeenCalledWith( mockSiteId, mockAuthToken );
+		expect( waitForSiteReady ).toHaveBeenCalledWith( mockSiteId, mockAuthToken.accessToken );
 		expect( mockLogger.reportStart.mock.calls[ 3 ] ).toEqual( [
 			'ready',
 			'Creating preview site...',
@@ -162,7 +149,7 @@ describe( 'Preview Create Command', () => {
 		const { registerCommand } = await import( '../create' );
 		registerCommand( program );
 
-		await program.parseAsync( [ 'node', 'test', 'go' ] );
+		await program.parseAsync( [ 'node', 'studio', 'go' ] );
 
 		expect( validateSiteFolder ).toHaveBeenCalledWith( process.cwd() );
 	} );
@@ -176,7 +163,7 @@ describe( 'Preview Create Command', () => {
 		const { registerCommand } = await import( '../create' );
 		registerCommand( program );
 
-		await program.parseAsync( [ 'node', 'test', 'go', mockFolder ] );
+		await program.parseAsync( [ 'node', 'studio', 'go', mockFolder ] );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
@@ -193,7 +180,7 @@ describe( 'Preview Create Command', () => {
 		const { registerCommand } = await import( '../create' );
 		registerCommand( program );
 
-		await program.parseAsync( [ 'node', 'test', 'go', mockFolder ] );
+		await program.parseAsync( [ 'node', 'studio', 'go', mockFolder ] );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
@@ -209,7 +196,7 @@ describe( 'Preview Create Command', () => {
 		const { registerCommand } = await import( '../create' );
 		registerCommand( program );
 
-		await program.parseAsync( [ 'node', 'test', 'go', mockFolder ] );
+		await program.parseAsync( [ 'node', 'studio', 'go', mockFolder ] );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
@@ -225,7 +212,7 @@ describe( 'Preview Create Command', () => {
 		const { registerCommand } = await import( '../create' );
 		registerCommand( program );
 
-		await program.parseAsync( [ 'node', 'test', 'go', mockFolder ] );
+		await program.parseAsync( [ 'node', 'studio', 'go', mockFolder ] );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
@@ -241,7 +228,7 @@ describe( 'Preview Create Command', () => {
 		const { registerCommand } = await import( '../create' );
 		registerCommand( program );
 
-		await program.parseAsync( [ 'node', 'test', 'go', mockFolder ] );
+		await program.parseAsync( [ 'node', 'studio', 'go', mockFolder ] );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
@@ -257,7 +244,7 @@ describe( 'Preview Create Command', () => {
 		const { registerCommand } = await import( '../create' );
 		registerCommand( program );
 
-		await program.parseAsync( [ 'node', 'test', 'go', mockFolder ] );
+		await program.parseAsync( [ 'node', 'studio', 'go', mockFolder ] );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
@@ -271,7 +258,7 @@ describe( 'Preview Create Command', () => {
 		const { registerCommand } = await import( '../create' );
 		registerCommand( program );
 
-		await program.parseAsync( [ 'node', 'test', 'go', mockFolder ] );
+		await program.parseAsync( [ 'node', 'studio', 'go', mockFolder ] );
 
 		expect( cleanup ).toHaveBeenCalledWith( mockArchivePath );
 	} );

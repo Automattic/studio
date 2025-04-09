@@ -11,7 +11,7 @@ type PlatformConfig = {
 
 export const platforms: PlatformConfig[] = [
 	{
-		name: 'Unix',
+		name: 'Posix',
 		join: path.posix.join,
 		normalize: path.posix.normalize,
 		basename: path.posix.basename,

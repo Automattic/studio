@@ -1,10 +1,10 @@
 import os from 'os';
 import path from 'path';
-import { uploadArchive, waitForSiteReady } from 'cli/commands/preview/lib/api';
-import { addPreviewSiteToAppdata } from 'cli/commands/preview/lib/appdata';
-import { createArchive, cleanup } from 'cli/commands/preview/lib/archive';
-import { getAuthToken } from 'cli/commands/preview/lib/auth';
-import { validateSiteFolder } from 'cli/commands/preview/lib/validation';
+import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
+import { createArchive, cleanup } from 'cli/lib/archive';
+import { getAuthToken } from 'cli/lib/auth';
+import { addPreviewSiteToAppdata } from 'cli/lib/snapshots';
+import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
 import { RegisterCommand, OutputFormat } from 'cli/types';
 
@@ -34,11 +34,11 @@ async function runCommand( siteFolder: string, outputFormat?: OutputFormat ): Pr
 		logger.reportSuccess( 'Archive created' );
 
 		logger.reportStart( LoggerAction.UPLOAD, 'Uploading archive...' );
-		const uploadResponse = await uploadArchive( archivePath, token );
+		const uploadResponse = await uploadArchive( archivePath, token.accessToken );
 		logger.reportSuccess( 'Archive uploaded' );
 
 		logger.reportStart( LoggerAction.READY, 'Creating preview site...' );
-		await waitForSiteReady( uploadResponse.site_id, token );
+		await waitForSiteReady( uploadResponse.site_id, token.accessToken );
 		logger.reportSuccess( `Preview site available at: https://${ uploadResponse.site_url }` );
 
 		logger.reportStart( LoggerAction.APPDATA, 'Saving preview site to Studio...' );

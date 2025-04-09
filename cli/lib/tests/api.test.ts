@@ -1,20 +1,7 @@
 import fs from 'fs';
 import wpcom from 'wpcom';
-import { uploadArchive, waitForSiteReady, SnapshotStatus } from 'cli/commands/preview/lib/api';
+import { uploadArchive, waitForSiteReady, SnapshotStatus } from 'cli/lib/api';
 import { LoggerError } from 'cli/logger';
-
-// Mock ora
-jest.mock( 'ora', () => {
-	return {
-		__esModule: true,
-		default: () => ( {
-			start: jest.fn().mockReturnThis(),
-			stop: jest.fn().mockReturnThis(),
-			succeed: jest.fn().mockReturnThis(),
-			fail: jest.fn().mockReturnThis(),
-		} ),
-	};
-} );
 
 jest.mock( 'fs' );
 jest.mock( 'wpcom' );

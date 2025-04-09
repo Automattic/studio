@@ -9,7 +9,7 @@ import {
 	intervalToDuration,
 } from 'date-fns';
 import { HOUR_MS, DAY_MS } from 'src/constants';
-import { Snapshot } from 'cli/commands/preview/lib/appdata';
+import { Snapshot } from 'cli/lib/appdata';
 
 function formatDate( date: string | number | Date ) {
 	return format( date, 'MMM d, yyyy, HH:mm' );

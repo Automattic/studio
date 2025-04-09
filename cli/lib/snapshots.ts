@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { readAppdata, saveAppdata, snapshotSchema } from 'cli/commands/preview/lib/appdata';
+import { readAppdata, saveAppdata, snapshotSchema } from 'cli/lib/appdata';
 import { LoggerError } from 'cli/logger';
 
 export async function addPreviewSiteToAppdata(

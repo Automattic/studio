@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { isWordPressDirectory } from 'src/lib/fs-utils';
-import { validateSiteFolder } from 'cli/commands/preview/lib/validation';
+import { validateSiteFolder } from 'cli/lib/validation';
 import { LoggerError } from 'cli/logger';
 
 jest.mock( 'fs' );

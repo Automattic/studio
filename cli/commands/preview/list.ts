@@ -1,8 +1,8 @@
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { getSiteIdFromFolder, readAppdata, Snapshot } from 'cli/commands/preview/lib/appdata';
-import { getAuthToken } from 'cli/commands/preview/lib/auth';
-import { getSnapshotCliTable } from 'cli/commands/preview/lib/output';
-import { validateSiteFolder } from 'cli/commands/preview/lib/validation';
+import { getSiteIdFromFolder, readAppdata, Snapshot } from 'cli/lib/appdata';
+import { getAuthToken } from 'cli/lib/auth';
+import { getSnapshotCliTable } from 'cli/lib/output';
+import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
 import { RegisterCommand, OutputFormat } from 'cli/types';
 

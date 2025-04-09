@@ -1,7 +1,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { addPreviewSiteToAppdata } from 'cli/commands/preview/lib/snapshots';
+import { addPreviewSiteToAppdata } from 'cli/lib/snapshots';
 import { LoggerError } from 'cli/logger';
 
 jest.mock( 'fs' );

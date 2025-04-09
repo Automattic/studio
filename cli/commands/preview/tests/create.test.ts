@@ -1,18 +1,18 @@
 import os from 'os';
 import path from 'path';
 import { Command } from 'commander';
-import { uploadArchive, waitForSiteReady } from 'cli/commands/preview/lib/api';
-import { createArchive, cleanup } from 'cli/commands/preview/lib/archive';
-import { getAuthToken } from 'cli/commands/preview/lib/auth';
-import { addPreviewSiteToAppdata } from 'cli/commands/preview/lib/snapshots';
-import { validateSiteFolder } from 'cli/commands/preview/lib/validation';
+import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
+import { createArchive, cleanup } from 'cli/lib/archive';
+import { getAuthToken } from 'cli/lib/auth';
+import { addPreviewSiteToAppdata } from 'cli/lib/snapshots';
+import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
 
-jest.mock( 'cli/commands/preview/lib/auth' );
-jest.mock( 'cli/commands/preview/lib/validation' );
-jest.mock( 'cli/commands/preview/lib/archive' );
-jest.mock( 'cli/commands/preview/lib/api' );
-jest.mock( 'cli/commands/preview/lib/snapshots' );
+jest.mock( 'cli/lib/auth' );
+jest.mock( 'cli/lib/validation' );
+jest.mock( 'cli/lib/archive' );
+jest.mock( 'cli/lib/api' );
+jest.mock( 'cli/lib/snapshots' );
 jest.mock( 'cli/logger', () => {
 	const originalModule = jest.requireActual( 'cli/logger' );
 

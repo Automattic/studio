@@ -1,10 +1,10 @@
 import os from 'os';
 import path from 'path';
-import { uploadArchive, waitForSiteReady } from 'cli/commands/preview/lib/api';
-import { createArchive, cleanup } from 'cli/commands/preview/lib/archive';
-import { getAuthToken } from 'cli/commands/preview/lib/auth';
-import { addPreviewSiteToAppdata } from 'cli/commands/preview/lib/snapshots';
-import { validateSiteFolder } from 'cli/commands/preview/lib/validation';
+import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
+import { createArchive, cleanup } from 'cli/lib/archive';
+import { getAuthToken } from 'cli/lib/auth';
+import { addPreviewSiteToAppdata } from 'cli/lib/snapshots';
+import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
 import { RegisterCommand, OutputFormat } from 'cli/types';
 

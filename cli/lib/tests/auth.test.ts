@@ -1,7 +1,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { getAuthToken } from 'cli/commands/preview/lib/auth';
+import { getAuthToken } from 'cli/lib/auth';
 import { LoggerError } from 'cli/logger';
 
 jest.mock( 'fs' );

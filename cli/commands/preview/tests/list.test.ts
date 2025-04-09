@@ -1,13 +1,13 @@
 import path from 'path';
 import { Command } from 'commander';
-import { readAppdata, Snapshot, getSiteIdFromFolder } from 'cli/commands/preview/lib/appdata';
-import { getAuthToken } from 'cli/commands/preview/lib/auth';
-import { validateSiteFolder } from 'cli/commands/preview/lib/validation';
+import { readAppdata, Snapshot, getSiteIdFromFolder } from 'cli/lib/appdata';
+import { getAuthToken } from 'cli/lib/auth';
+import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger } from 'cli/logger';
 
-jest.mock( 'cli/commands/preview/lib/appdata' );
-jest.mock( 'cli/commands/preview/lib/auth' );
-jest.mock( 'cli/commands/preview/lib/validation' );
+jest.mock( 'cli/lib/appdata' );
+jest.mock( 'cli/lib/auth' );
+jest.mock( 'cli/lib/validation' );
 jest.mock( 'cli/logger' );
 
 describe( 'Preview List Command', () => {

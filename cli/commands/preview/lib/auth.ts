@@ -1,8 +1,12 @@
-import { z } from 'zod';
 import { LoggerError } from 'cli/logger';
 import { readAppdata } from './appdata';
 
-export async function getAuthToken(): Promise< string > {
+type AuthToken = {
+	accessToken: string;
+	id: number;
+};
+
+export async function getAuthToken(): Promise< AuthToken > {
 	try {
 		const { authToken } = await readAppdata();
 
@@ -12,7 +16,7 @@ export async function getAuthToken(): Promise< string > {
 			);
 		}
 
-		return authToken.accessToken;
+		return authToken;
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {
 			throw error;

@@ -53,8 +53,9 @@ describe( 'Auth Module', () => {
 
 	it( 'should return access token if it exists in app data file', async () => {
 		const mockAccessToken = 'mock-access-token-123';
+		const mockUserId = 123;
 		const mockUserData = {
-			authToken: { accessToken: mockAccessToken, id: 123 },
+			authToken: { accessToken: mockAccessToken, id: mockUserId },
 		};
 
 		( fs.existsSync as jest.Mock ).mockReturnValue( true );
@@ -64,7 +65,7 @@ describe( 'Auth Module', () => {
 
 		expect( fs.existsSync ).toHaveBeenCalledWith( mockAppDataPath );
 		expect( fs.readFileSync ).toHaveBeenCalledWith( mockAppDataPath, 'utf8' );
-		expect( result ).toBe( mockAccessToken );
+		expect( result ).toEqual( { accessToken: mockAccessToken, id: mockUserId } );
 	} );
 
 	it( 'should throw LoggerError if authToken is not in app data file', async () => {

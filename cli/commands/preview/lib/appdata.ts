@@ -4,7 +4,7 @@ import path from 'path';
 import { z } from 'zod';
 import { LoggerError } from 'cli/logger';
 
-const snapshotSchema = z.object( {
+export const snapshotSchema = z.object( {
 	url: z.string(),
 	atomicSiteId: z.number(),
 	localSiteId: z.string(),
@@ -30,12 +30,13 @@ const userDataSchema = z
 				accessToken: z.string().min( 1, 'Access token cannot be empty' ),
 				id: z.number(),
 			} )
+			.passthrough()
 			.optional(),
 	} )
 	.passthrough();
 
-type Snapshot = z.infer< typeof snapshotSchema >;
-type UserData = z.infer< typeof userDataSchema >;
+export type Snapshot = z.infer< typeof snapshotSchema >;
+export type UserData = z.infer< typeof userDataSchema >;
 
 // ToDo: Improve this to support multiple platforms
 export function getAppdataPath(): string {
@@ -91,37 +92,14 @@ export async function saveAppdata( userData: UserData ): Promise< void > {
 	}
 }
 
-export async function addPreviewSiteToAppdata(
-	previewUrl: string,
-	atomicSiteId: number,
-	siteFolder: string
-): Promise< void > {
-	try {
-		const userData = await readAppdata();
-		const site = userData.sites?.find( ( s ) => s.path === siteFolder );
-		if ( ! site ) {
-			return;
-		}
-		const snapshot: Snapshot = {
-			url: previewUrl,
-			atomicSiteId,
-			localSiteId: site.id,
-			date: Date.now(),
-			name: site.name,
-		};
-		if ( userData.authToken?.id ) {
-			snapshot.userId = userData.authToken.id;
-		}
-		if ( ! userData.snapshots ) {
-			userData.snapshots = [];
-		}
-		userData.snapshots.push( snapshot );
-		await saveAppdata( userData );
-	} catch ( error ) {
-		throw new LoggerError(
-			`Failed to add preview site to appdata: ${
-				error instanceof Error ? error.message : String( error )
-			}`
-		);
+export async function getSiteIdFromFolder( siteFolder: string ): Promise< string > {
+	const userData = await readAppdata();
+	const sites = userData.sites ?? [];
+	const site = sites.find( ( site ) => site.path === siteFolder );
+
+	if ( ! site ) {
+		throw new LoggerError( 'The specified folder is not added to Studio.' );
 	}
+
+	return site.id;
 }

@@ -1,5 +1,6 @@
 import { Command } from 'commander';
 import { registerCommand as registerPreviewCreateCommand } from 'cli/commands/preview/create';
+import { registerCommand as registerPreviewListCommand } from 'cli/commands/preview/list';
 import { version } from 'cli/package.json';
 
 const program = new Command();
@@ -20,5 +21,6 @@ program
 	);
 
 registerPreviewCreateCommand( program );
+registerPreviewListCommand( program );
 
 program.parse( process.argv );

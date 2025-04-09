@@ -2,9 +2,9 @@ import os from 'os';
 import path from 'path';
 import { Command } from 'commander';
 import { uploadArchive, waitForSiteReady } from 'cli/commands/preview/lib/api';
-import { addPreviewSiteToAppdata } from 'cli/commands/preview/lib/appdata';
 import { createArchive, cleanup } from 'cli/commands/preview/lib/archive';
 import { getAuthToken } from 'cli/commands/preview/lib/auth';
+import { addPreviewSiteToAppdata } from 'cli/commands/preview/lib/snapshots';
 import { validateSiteFolder } from 'cli/commands/preview/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
 
@@ -25,7 +25,7 @@ jest.mock( '../lib/auth' );
 jest.mock( '../lib/validation' );
 jest.mock( '../lib/archive' );
 jest.mock( '../lib/api' );
-jest.mock( '../lib/appdata' );
+jest.mock( '../lib/snapshots' );
 jest.mock( 'cli/logger', () => {
 	const originalModule = jest.requireActual( 'cli/logger' );
 
@@ -52,7 +52,7 @@ describe( 'Preview Create Command', () => {
 	const mockArchivePath = path.join( os.tmpdir(), `${ mockBasename }-${ mockDate }.zip` );
 	const mockSiteUrl = 'test-preview.example.com';
 	const mockSiteId = 12345;
-	const mockAuthToken = 'mock-auth-token';
+	const mockAuthToken = { accessToken: 'mock-auth-token', id: 123 };
 	const mockArchiver = {
 		on: jest.fn(),
 		pipe: jest.fn(),
@@ -127,7 +127,7 @@ describe( 'Preview Create Command', () => {
 		expect( mockLogger.reportSuccess.mock.calls[ 1 ] ).toEqual( [ 'Archive created' ] );
 
 		// Verify upload step
-		expect( uploadArchive ).toHaveBeenCalledWith( mockArchivePath, mockAuthToken );
+		expect( uploadArchive ).toHaveBeenCalledWith( mockArchivePath, mockAuthToken.accessToken );
 		expect( mockLogger.reportStart.mock.calls[ 2 ] ).toEqual( [
 			'upload',
 			'Uploading archive...',
@@ -135,7 +135,7 @@ describe( 'Preview Create Command', () => {
 		expect( mockLogger.reportSuccess.mock.calls[ 2 ] ).toEqual( [ 'Archive uploaded' ] );
 
 		// Verify site ready step
-		expect( waitForSiteReady ).toHaveBeenCalledWith( mockSiteId, mockAuthToken );
+		expect( waitForSiteReady ).toHaveBeenCalledWith( mockSiteId, mockAuthToken.accessToken );
 		expect( mockLogger.reportStart.mock.calls[ 3 ] ).toEqual( [
 			'ready',
 			'Creating preview site...',

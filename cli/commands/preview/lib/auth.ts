@@ -1,4 +1,3 @@
-import { z } from 'zod';
 import { LoggerError } from 'cli/logger';
 import { readAppdata } from './appdata';
 

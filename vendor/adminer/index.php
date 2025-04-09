@@ -148,7 +148,7 @@ function adminer_object() {
 					}
 
 					if ( document.querySelector( '#menu > h1:first-child' ) ) {
-						document.querySelector( '#menu > h1:first-child' ).innerHTML = 'WordPress Studio - <a href="<?php echo wp_studio_escape_html( ADMINER_WP_DATABASE_ADMIN_URL ); ?>?sqlite=&username="><?php echo wp_studio_escape_html( ADMINER_I18N['siteTables'] ); ?></a>';
+						document.querySelector( '#menu > h1:first-child' ).innerHTML = '<?php echo wp_studio_escape_html( ADMINER_WP_SITE_NAME ); ?> - <a href="<?php echo wp_studio_escape_html( ADMINER_WP_DATABASE_ADMIN_URL ); ?>?sqlite=&username="><?php echo wp_studio_escape_html( ADMINER_I18N['siteTables'] ); ?></a>';
 					}
 
 					// Login form - auto login.

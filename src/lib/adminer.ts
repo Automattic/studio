@@ -7,6 +7,12 @@ import { pathExists, recursiveCopyDirectory } from 'src/lib/fs-utils';
 import { getSiteUrl } from 'src/lib/get-site-url';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 
+/**
+ * Sets up the adminer files for the site.
+ *
+ * @param {SiteDetails} siteDetails - The site details.
+ * @returns {Promise<void>}
+ */
 export async function setupAdminer( siteDetails: SiteDetails ) {
 	try {
 		const adminerPath = nodePath.join( siteDetails.path, 'adminer' );
@@ -18,20 +24,22 @@ export async function setupAdminer( siteDetails: SiteDetails ) {
 
 		try {
 			const exists = await pathExists( adminerPath );
+			console.log( 'exists', exists );
 			if ( ! exists ) {
 				shouldUpdate = true;
 			} else {
-				const sourceVersion = await fs.promises
-					.readFile( sourceVersionPath, 'utf8' )
-					.then( ( v ) => v.trim() );
-				const destVersion = await fs.promises
-					.readFile( destVersionPath, 'utf8' )
-					.then( ( v ) => v.trim() )
-					.catch( () => '0.0.0' ); // If version file doesn't exist, assume old version
+				/*
+				 * Check if the version is the same.
+				 * This is to ensure that any code updates
+				 * are propagated to the site.
+				 */
+				const sourceVersion = await fs.promises.readFile( sourceVersionPath, 'utf8' );
+				const destVersion = await fs.promises.readFile( destVersionPath, 'utf8' );
 
-				shouldUpdate = sourceVersion !== destVersion;
-				if ( shouldUpdate ) {
-					console.log( `Updating adminer from version ${ destVersion } to ${ sourceVersion }` );
+				if ( typeof sourceVersion !== 'string' || typeof destVersion !== 'string' ) {
+					shouldUpdate = true;
+				} else {
+					shouldUpdate = sourceVersion.trim() !== destVersion.trim();
 				}
 			}
 		} catch ( error ) {
@@ -61,20 +69,9 @@ export async function setupAdminer( siteDetails: SiteDetails ) {
 			} catch ( copyError ) {
 				throw new Error( `Failed to copy adminer directory: ${ ( copyError as Error ).message }` );
 			}
-		}
 
-		// Update config.php with site details.
-		const configPath = nodePath.join( adminerPath, 'config.php' );
-		const userLocale = await getUserLocaleWithFallback();
-		try {
-			const config = await fs.promises.readFile( configPath, 'utf8' );
-			const siteUrl = getSiteUrl( siteDetails );
-			await fs.promises.writeFile(
-				configPath,
-				config.replace( '{ADMINER_WP_SITE_URL}', siteUrl ).replace( '{ADMINER_LOCALE}', userLocale )
-			);
-		} catch ( configError ) {
-			throw new Error( 'Failed to update adminer config.php: ' + ( configError as Error ).message );
+			// Update config.php with site details.
+			await updateAdminerConfig( siteDetails );
 		}
 	} catch ( error ) {
 		console.error( 'Error setting up adminer:', error );
@@ -82,6 +79,43 @@ export async function setupAdminer( siteDetails: SiteDetails ) {
 	}
 }
 
+/**
+ * Updates the adminer config.php file with the site details.
+ *
+ * @param {SiteDetails} siteDetails - The site details.
+ * @returns {Promise<void>}
+ */
+export async function updateAdminerConfig( siteDetails: SiteDetails ) {
+	const originalConfigPath = 'vendor/adminer/config.php';
+	const adminerPath = nodePath.join( siteDetails.path, 'adminer' );
+	const destinationConfigPath = nodePath.join( adminerPath, 'config.php' );
+	const userLocale = await getUserLocaleWithFallback();
+
+	// Copy the original config.php file to the adminer directory.
+	await fs.promises.copyFile( originalConfigPath, destinationConfigPath );
+
+	try {
+		const config = await fs.promises.readFile( destinationConfigPath, 'utf8' );
+		const siteUrl = getSiteUrl( siteDetails );
+		await fs.promises.writeFile(
+			destinationConfigPath,
+			config
+				.replace( '{ADMINER_WP_SITE_URL}', siteUrl )
+				.replace( '{ADMINER_LOCALE}', userLocale )
+				.replace( '{ADMINER_WP_SITE_NAME}', siteDetails.name )
+		);
+	} catch ( configError ) {
+		throw new Error( 'Failed to update adminer config.php: ' + ( configError as Error ).message );
+	}
+}
+
+/**
+ * Deletes the adminer files from the site.
+ * This is used when the site is deleted.
+ *
+ * @param {SiteDetails} siteDetails - The site details.
+ * @returns {Promise<void>}
+ */
 export async function deleteAdminer( siteDetails: SiteDetails ) {
 	const adminerPath = nodePath.join( siteDetails.path, 'adminer' );
 	try {

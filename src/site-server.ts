@@ -3,6 +3,7 @@ import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import fsExtra from 'fs-extra';
 import { parse } from 'shell-quote';
+import { updateAdminerConfig } from 'src/lib/adminer';
 import { deleteSiteCertificate, generateSiteCertificate } from 'src/lib/certificate-manager';
 import { pathExists, recursiveCopyDirectory, isEmptyDir } from 'src/lib/fs-utils';
 import { getSiteUrl } from 'src/lib/get-site-url';
@@ -186,6 +187,8 @@ export class SiteServer {
 	async updateSiteDetails( site: SiteDetails ) {
 		const oldDomain = this.details.customDomain;
 		const newDomain = site.customDomain;
+		const oldName = this.details.name;
+		const newName = site.name;
 		const oldEnableHttps = this.details.enableHttps;
 		const newEnableHttps = site.enableHttps;
 
@@ -230,6 +233,10 @@ export class SiteServer {
 				tlsKey: key,
 				tlsCert: cert,
 			};
+		}
+
+		if ( oldName !== newName ) {
+			await updateAdminerConfig( this.details );
 		}
 	}
 

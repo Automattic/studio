@@ -15,12 +15,10 @@ const binPath = path.join( getResourcesPath(), 'bin' );
 const cliPackagedPath = path.join( binPath, 'studio-cli.sh' );
 const installScriptPath = path.join( binPath, 'install-studio-cli.sh' );
 
-enum InstallError {
-	WrongPlatform = 'Studio CLI is only available on macOS',
-	FileAlreadyExists = 'Studio CLI symlink path already occupied by non-symlink',
-	// Defined in @vscode/sudo-prompt
-	PermissionError = 'User did not grant permission.',
-}
+const ERROR_WRONG_PLATFORM = 'Studio CLI is only available on macOS';
+const ERROR_FILE_ALREADY_EXISTS = 'Studio CLI symlink path already occupied by non-symlink';
+// Defined in @vscode/sudo-prompt
+const ERROR_PERMISSION = 'User did not grant permission.';
 
 export async function installCLIOnMacOSWithConfirmation() {
 	try {
@@ -38,7 +36,7 @@ export async function installCLIOnMacOSWithConfirmation() {
 		let message = __( 'There was an unknown error. Please check the logs for more information.' );
 
 		if ( error instanceof Error ) {
-			if ( error.message === InstallError.FileAlreadyExists ) {
+			if ( error.message === ERROR_FILE_ALREADY_EXISTS ) {
 				message = sprintf(
 					/* translators: 1: Installation path */
 					__(
@@ -46,7 +44,7 @@ export async function installCLIOnMacOSWithConfirmation() {
 					),
 					cliSymlinkPath
 				);
-			} else if ( error.message === InstallError.PermissionError ) {
+			} else if ( error.message === ERROR_PERMISSION ) {
 				message = __( 'Please ensure you grant Studio admin permissions when prompted.' );
 			}
 		}
@@ -64,14 +62,14 @@ export async function installCLIOnMacOSWithConfirmation() {
 // to the packaged Studio CLI JS file at `cliPackagedPath`.
 async function installCLI(): Promise< void > {
 	if ( process.platform !== 'darwin' ) {
-		throw new Error( InstallError.WrongPlatform );
+		throw new Error( ERROR_WRONG_PLATFORM );
 	}
 
 	try {
 		const stats = await lstat( cliSymlinkPath );
 
 		if ( ! stats.isSymbolicLink() ) {
-			throw new Error( InstallError.FileAlreadyExists );
+			throw new Error( ERROR_FILE_ALREADY_EXISTS );
 		}
 	} catch ( error ) {
 		if ( isErrnoException( error ) && error.code === 'ENOENT' ) {

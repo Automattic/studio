@@ -1,7 +1,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { readAppdata, saveAppdata } from 'cli/lib/appdata';
+import { readAppdata, saveAppdata, getAuthToken } from 'cli/lib/appdata';
 
 jest.mock( 'fs' );
 jest.mock( 'os' );
@@ -27,9 +27,7 @@ describe( 'Appdata Module', () => {
 	describe( 'readAppdata', () => {
 		it( 'should throw LoggerError if appdata file does not exist', async () => {
 			( fs.existsSync as jest.Mock ).mockReturnValue( false );
-			await expect( readAppdata() ).rejects.toMatchObject( {
-				message: expect.stringContaining( 'Appdata file not found' ),
-			} );
+			await expect( readAppdata() ).rejects.toThrow( 'Appdata file not found' );
 		} );
 
 		it( 'should return parsed appdata if it exists and is valid', async () => {
@@ -57,17 +55,13 @@ describe( 'Appdata Module', () => {
 				throw new Error( 'Read error' );
 			} );
 
-			await expect( readAppdata() ).rejects.toMatchObject( {
-				message: expect.stringContaining( 'Failed to read appdata file' ),
-			} );
+			await expect( readAppdata() ).rejects.toThrow( 'Failed to read appdata file' );
 		} );
 
 		it( 'should throw LoggerError if there is an error parsing the JSON', async () => {
 			( fs.readFileSync as jest.Mock ).mockReturnValueOnce( 'invalid json{' );
 
-			await expect( readAppdata() ).rejects.toMatchObject( {
-				message: expect.stringContaining( 'corrupted' ),
-			} );
+			await expect( readAppdata() ).rejects.toThrow( 'corrupted' );
 		} );
 	} );
 
@@ -99,9 +93,7 @@ describe( 'Appdata Module', () => {
 				throw new Error( 'Write error' );
 			} );
 
-			await expect( saveAppdata( mockUserData ) ).rejects.toMatchObject( {
-				message: expect.stringContaining( 'Failed to save appdata file' ),
-			} );
+			await expect( saveAppdata( mockUserData ) ).rejects.toThrow( 'Failed to save appdata file' );
 		} );
 
 		it( 'should add version 1 if version is not provided', async () => {
@@ -115,6 +107,54 @@ describe( 'Appdata Module', () => {
 			expect( fs.writeFileSync ).toHaveBeenCalled();
 			const savedData = JSON.parse( ( fs.writeFileSync as jest.Mock ).mock.calls[ 0 ][ 1 ] );
 			expect( savedData.version ).toBe( 1 );
+		} );
+	} );
+
+	describe( 'getAuthToken', () => {
+		it( 'should return auth token when it exists', async () => {
+			const mockAuthToken = {
+				accessToken: 'valid-token',
+				id: 123,
+			};
+
+			( fs.readFileSync as jest.Mock ).mockReturnValueOnce(
+				JSON.stringify( {
+					version: 1,
+					authToken: mockAuthToken,
+					sites: [],
+					snapshots: [],
+				} )
+			);
+
+			const result = await getAuthToken();
+			expect( result ).toEqual( mockAuthToken );
+		} );
+
+		it( 'should throw LoggerError when auth token is missing', async () => {
+			( fs.readFileSync as jest.Mock ).mockReturnValueOnce(
+				JSON.stringify( {
+					version: 1,
+					sites: [],
+					snapshots: [],
+				} )
+			);
+
+			await expect( getAuthToken() ).rejects.toThrow( 'Authentication required' );
+		} );
+
+		it( 'should throw LoggerError when access token is missing', async () => {
+			( fs.readFileSync as jest.Mock ).mockReturnValueOnce(
+				JSON.stringify( {
+					version: 1,
+					authToken: {
+						id: 123,
+					},
+					sites: [],
+					snapshots: [],
+				} )
+			);
+
+			await expect( getAuthToken() ).rejects.toThrow( 'Authentication required' );
 		} );
 	} );
 } );

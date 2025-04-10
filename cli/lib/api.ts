@@ -12,7 +12,7 @@ export enum SnapshotStatus {
 
 const createSiteResponseSchema = z.object( {
 	domain_name: z.string().min( 1, 'Domain name is required' ),
-	atomic_site_id: z.number().int().positive( 'Site ID must be a positive integer' ),
+	atomic_site_id: z.coerce.number().int().positive( 'Site ID must be a positive integer' ),
 } );
 
 const statusResponseSchema = z.object( {
@@ -29,10 +29,11 @@ const POLL_INTERVAL_MS = 3000;
 
 export async function uploadArchive(
 	archivePath: string,
-	token: string
+	token: string,
+	atomicSiteId?: number
 ): Promise< { site_url: string; site_id: number } > {
 	const wpcom = new WPCOM( token );
-	const formData = [
+	const formData: [ string, unknown, Record< string, string >? ][] = [
 		[
 			'import',
 			fs.createReadStream( archivePath ),
@@ -43,9 +44,16 @@ export async function uploadArchive(
 		],
 	];
 
+	if ( atomicSiteId !== undefined ) {
+		formData.push( [ 'site_id', atomicSiteId ] );
+	}
+
 	try {
 		const rawResponse = await wpcom.req.post( {
-			path: '/jurassic-ninja/create-new-site-from-zip',
+			path:
+				atomicSiteId !== undefined
+					? '/jurassic-ninja/update-site-from-zip'
+					: '/jurassic-ninja/create-new-site-from-zip',
 			apiNamespace: 'wpcom/v2',
 			formData,
 		} );
@@ -62,11 +70,10 @@ export async function uploadArchive(
 		}
 
 		if ( error instanceof z.ZodError ) {
-			throw new LoggerError( 'Invalid API response format' );
+			throw new LoggerError( __( 'Invalid API response format' ), error );
 		}
 
-		const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-		throw new LoggerError( `Failed to upload archive: ${ errorMessage }` );
+		throw new LoggerError( __( 'Failed to upload archive' ), error );
 	}
 }
 
@@ -115,14 +122,10 @@ export async function deleteSnapshot( atomicSiteId: number, token: string ): Pro
 			body: { site_id: atomicSiteId },
 		} );
 	} catch ( error ) {
-		if ( error instanceof Error ) {
-			if ( 'code' in error && error.code === 'rest_site_already_deleted' ) {
-				return;
-			}
-
-			throw new LoggerError( __( 'Failed to delete preview site' ), error );
+		if ( error instanceof Error && 'code' in error && error.code === 'rest_site_already_deleted' ) {
+			return;
 		}
 
-		throw new LoggerError( __( 'Failed to delete preview site' ) );
+		throw new LoggerError( __( 'Failed to delete preview site' ), error );
 	}
 }

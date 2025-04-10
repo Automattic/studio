@@ -92,25 +92,37 @@ describe( 'Archive Module', () => {
 			} );
 
 			await expect( createArchive( mockSiteFolder, mockArchivePath ) ).rejects.toThrow(
-				'Failed to create archive: Archive error'
+				'Failed to create archive'
 			);
 		} );
 	} );
 
 	describe( 'cleanup', () => {
-		it( 'should remove the archive file if it exists', () => {
+		beforeEach( () => {
+			jest.useFakeTimers();
+		} );
+
+		afterEach( () => {
+			jest.useRealTimers();
+		} );
+
+		it( 'should remove the archive file if it exists', async () => {
 			( fs.existsSync as jest.Mock ).mockReturnValue( true );
 
-			cleanup( mockArchivePath );
+			const cleanupPromise = cleanup( mockArchivePath );
+			jest.runAllTimers();
+			await cleanupPromise;
 
 			expect( fs.existsSync ).toHaveBeenCalledWith( mockArchivePath );
 			expect( fs.unlinkSync ).toHaveBeenCalledWith( mockArchivePath );
 		} );
 
-		it( 'should not attempt to remove the file if it does not exist', () => {
+		it( 'should not attempt to remove the file if it does not exist', async () => {
 			( fs.existsSync as jest.Mock ).mockReturnValue( false );
 
-			cleanup( mockArchivePath );
+			const cleanupPromise = cleanup( mockArchivePath );
+			jest.runAllTimers();
+			await cleanupPromise;
 
 			expect( fs.existsSync ).toHaveBeenCalledWith( mockArchivePath );
 			expect( fs.unlinkSync ).not.toHaveBeenCalled();

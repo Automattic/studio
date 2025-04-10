@@ -3,11 +3,24 @@ import { OutputFormat } from 'cli/types';
 
 export class LoggerError extends Error {
 	previousError?: Error;
+	private errorMessage: string;
 
-	constructor( message: string, previousError?: Error ) {
-		super( message );
+	constructor( message: string, previousError?: unknown ) {
+		super();
 		this.name = 'LoggerError';
-		this.previousError = previousError;
+		this.errorMessage = message;
+
+		if ( previousError instanceof Error ) {
+			this.previousError = previousError;
+		}
+	}
+
+	get message(): string {
+		if ( this.previousError ) {
+			return `${ this.errorMessage }: ${ this.previousError.message }`;
+		}
+
+		return this.errorMessage;
 	}
 }
 

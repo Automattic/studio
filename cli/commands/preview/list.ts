@@ -1,5 +1,5 @@
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { getAuthToken } from 'cli/lib/auth';
+import { getAuthToken } from 'cli/lib/appdata';
 import { getSnapshotCliTable } from 'cli/lib/output';
 import { getSnapshotsFromAppdata } from 'cli/lib/snapshots';
 import { validateSiteFolder } from 'cli/lib/validation';
@@ -38,7 +38,7 @@ async function runCommand( siteFolder: string, outputFormat?: OutputFormat ): Pr
 		if ( error instanceof LoggerError ) {
 			logger.reportError( error );
 		} else {
-			const loggerError = new LoggerError( __( 'Failed to load snapshots' ) );
+			const loggerError = new LoggerError( __( 'Failed to load snapshots' ), error );
 			logger.reportError( loggerError );
 		}
 	}

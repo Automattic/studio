@@ -1,12 +1,11 @@
 import path from 'path';
 import { Command } from 'commander';
-import { readAppdata, Snapshot, getSiteIdFromFolder } from 'cli/lib/appdata';
-import { getAuthToken } from 'cli/lib/auth';
+import { readAppdata, Snapshot, getSiteIdFromFolder, getAuthToken } from 'cli/lib/appdata';
 import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger } from 'cli/logger';
 
 jest.mock( 'cli/lib/appdata' );
-jest.mock( 'cli/lib/auth' );
+jest.mock( 'cli/lib/appdata' );
 jest.mock( 'cli/lib/validation' );
 jest.mock( 'cli/logger' );
 

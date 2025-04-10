@@ -30,7 +30,7 @@ function formatDurationUntilExpiry( lastUpdatedAt: number ) {
 	}
 
 	if ( endDate < now ) {
-		return 'Expired';
+		return __( 'Expired' );
 	}
 
 	return formatDuration(

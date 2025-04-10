@@ -31,6 +31,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 	const storedPassword = decodePassword( selectedSite.adminPassword ?? '' );
 	const password = storedPassword === '' ? 'password' : storedPassword;
 	const [ wpVersion, refreshWpVersion ] = useGetWpVersion( selectedSite );
+
 	const domain = selectedSite.customDomain
 		? `${ selectedSite.customDomain }`
 		: `localhost:${ selectedSite.port }`;

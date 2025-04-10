@@ -48,7 +48,6 @@ export async function executeWPCli(
 
 	//Set the SAPI name to cli before running the script
 	await php.setSapiName( 'cli' );
-
 	await prepareWordPress( php, options );
 
 	php.mkdir( '/tmp' );

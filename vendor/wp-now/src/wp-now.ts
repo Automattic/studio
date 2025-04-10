@@ -603,8 +603,7 @@ async function mountInternalMuPlugins( php: PHP, options: WPNowOptions ) {
 		`
 	);
 
-	// Only add the auto-updates disabling plugin for non-latest WordPress versions
-	if ( options?.wordPressVersion && options.wordPressVersion !== 'latest' ) {
+	if ( ! options.isWpAutoUpdating ) {
 		php.writeFile(
 			path.posix.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-disable-auto-updates.php' ),
 			`<?php

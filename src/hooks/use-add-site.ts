@@ -97,6 +97,7 @@ export function useAddSite() {
 			if ( useCustomDomain && ! customDomain ) {
 				usedCustomDomain = generateCustomDomainFromSiteName( siteName ?? '' );
 			}
+
 			await createSite(
 				path,
 				siteName ?? '',
@@ -110,13 +111,6 @@ export function useAddSite() {
 						updatedSite = {
 							...updatedSite,
 							phpVersion,
-						};
-					}
-
-					if ( newSite.wpVersion !== wpVersion ) {
-						updatedSite = {
-							...updatedSite,
-							wpVersion,
 						};
 					}
 

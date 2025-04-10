@@ -19,7 +19,7 @@ interface StoppedSiteDetails {
 	path: string;
 	port: number;
 	phpVersion: string;
-	wpVersion?: string;
+	isWpAutoUpdating?: boolean;
 	customDomain?: string;
 	enableHttps?: boolean;
 	adminPassword?: string;

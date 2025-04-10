@@ -126,7 +126,7 @@ function toDiskFormat( { sites, ...rest }: UserData ): PersistedUserData {
 				adminPassword,
 				port,
 				phpVersion,
-				wpVersion,
+				isWpAutoUpdating,
 				name,
 				themeDetails,
 				customDomain,
@@ -142,7 +142,7 @@ function toDiskFormat( { sites, ...rest }: UserData ): PersistedUserData {
 					adminPassword,
 					port,
 					phpVersion,
-					wpVersion,
+					isWpAutoUpdating,
 					customDomain,
 					enableHttps,
 					themeDetails: {

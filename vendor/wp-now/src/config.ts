@@ -21,6 +21,7 @@ export interface CliOptions {
 	adminPassword?: string;
 	siteTitle?: string;
 	mode?: WPNowMode;
+	isWpAutoUpdating?: boolean;
 }
 
 export const enum WPNowMode {
@@ -44,6 +45,7 @@ export interface WPNowOptions {
 	projectPath?: string;
 	wpContentPath?: string;
 	wordPressVersion?: string;
+	isWpAutoUpdating?: boolean;
 	numberOfPhpInstances?: number;
 	blueprintObject?: Blueprint;
 	reset?: boolean;
@@ -55,6 +57,7 @@ export interface WPNowOptions {
 export const DEFAULT_OPTIONS: WPNowOptions = {
 	phpVersion: DEFAULT_PHP_VERSION,
 	wordPressVersion: DEFAULT_WORDPRESS_VERSION,
+	isWpAutoUpdating: true,
 	documentRoot: '/var/www/html',
 	projectPath: process.cwd(),
 	mode: WPNowMode.AUTO,
@@ -171,6 +174,10 @@ export default async function getWpNowConfig( args: CliOptions ): Promise< WPNow
 	if ( args.siteTitle ) {
 		options.siteTitle = args.siteTitle;
 	}
+
+	options.isWpAutoUpdating =
+		typeof args.isWpAutoUpdating === 'boolean' ? args.isWpAutoUpdating : true;
+
 	return options;
 }
 

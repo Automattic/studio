@@ -2,13 +2,13 @@ import os from 'os';
 import path from 'path';
 import { Command } from 'commander';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
+import { getAuthToken } from 'cli/lib/appdata';
 import { createArchive } from 'cli/lib/archive';
-import { getAuthToken } from 'cli/lib/auth';
 import { addPreviewSiteToAppdata, getSnapshotsFromAppdata } from 'cli/lib/snapshots';
 import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
 
-jest.mock( 'cli/lib/auth' );
+jest.mock( 'cli/lib/appdata' );
 jest.mock( 'cli/lib/validation' );
 jest.mock( 'cli/lib/archive' );
 jest.mock( 'cli/lib/api' );

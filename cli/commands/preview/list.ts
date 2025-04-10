@@ -1,5 +1,5 @@
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { getAuthToken } from 'cli/lib/auth';
+import { getAuthToken } from 'cli/lib/appdata';
 import { getSnapshotCliTable } from 'cli/lib/output';
 import { getSnapshotsFromAppdata } from 'cli/lib/snapshots';
 import { validateSiteFolder } from 'cli/lib/validation';

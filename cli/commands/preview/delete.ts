@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { deleteSnapshot } from 'cli/lib/api';
-import { getAuthToken } from 'cli/lib/auth';
+import { getAuthToken } from 'cli/lib/appdata';
 import { deleteSnapshotFromAppdata, getSnapshotsFromAppdata } from 'cli/lib/snapshots';
 import { Logger, LoggerError } from 'cli/logger';
 import { RegisterCommand, OutputFormat } from 'cli/types';

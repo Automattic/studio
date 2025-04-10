@@ -107,6 +107,18 @@ export async function saveAppdata( userData: UserData ): Promise< void > {
 	}
 }
 
+export async function getAuthToken(): Promise< NonNullable< UserData[ 'authToken' ] > > {
+	const { authToken } = await readAppdata();
+
+	if ( ! authToken?.accessToken ) {
+		throw new LoggerError(
+			__( 'Authentication required. Please run the Studio app and log in to WordPress.com first.' )
+		);
+	}
+
+	return authToken;
+}
+
 export async function getSiteIdFromFolder( siteFolder: string ): Promise< string > {
 	const userData = await readAppdata();
 	const sites = userData.sites ?? [];

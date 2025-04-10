@@ -69,7 +69,7 @@ async function runCommand(
 			logger.reportError( loggerError );
 		}
 	} finally {
-		cleanup( archivePath );
+		void cleanup( archivePath );
 	}
 }
 

@@ -16,7 +16,7 @@ type WPVersionSelectorProps = {
 	onChange: ( version: string ) => void;
 	errorMessage?: string | null;
 	disabled?: boolean;
-	// Is used if you want to add a custom option to the list, for example the current version of a site
+	/** Is used if you want to add a custom option to the list, for example the current version of a site */
 	extraOptions?: { label: string; value: string }[];
 	/** Fallback options shown when available versions couldn't be fetched */
 	fallbackOptions: { label: string; value: string }[];

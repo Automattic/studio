@@ -26,6 +26,7 @@ const userDataSchema = z
 	.object( {
 		snapshots: z.array( snapshotSchema ).optional(),
 		sites: z.array( siteSchema ).optional(),
+		locale: z.string().optional(),
 		authToken: z
 			.object( {
 				accessToken: z.string().min( 1, __( 'Access token cannot be empty' ) ),

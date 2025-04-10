@@ -4,30 +4,37 @@ import { registerCommand as registerPreviewCreateCommand } from 'cli/commands/pr
 import { registerCommand as registerPreviewDeleteCommand } from 'cli/commands/preview/delete';
 import { registerCommand as registerPreviewListCommand } from 'cli/commands/preview/list';
 import { registerCommand as registerPreviewUpdateCommand } from 'cli/commands/preview/update';
+import { loadTranslations } from 'cli/lib/i18n';
 import { version } from 'cli/package.json';
 
-const program = new Command();
+async function main() {
+	await loadTranslations();
 
-program
-	.name( 'studio' )
-	.description( __( 'Studio by WordPress.com CLI' ) )
-	.version( version )
-	.addOption(
-		new Option( '--output-format [format]', __( 'Specify a non-standard output format' ) )
-			.argParser( ( value: string ) => {
-				if ( value !== 'json' ) {
-					throw new Error( __( 'The only custom output format supported is "json"' ) );
-				}
-				return value;
-			} )
-			.hideHelp()
-	);
+	const program = new Command();
 
-const previewCommand = program.command( 'preview' ).description( __( 'Manage preview sites' ) );
+	program
+		.name( 'studio' )
+		.description( __( 'Studio by WordPress.com CLI' ) )
+		.version( version )
+		.addOption(
+			new Option( '--output-format [format]', __( 'Specify a non-standard output format' ) )
+				.argParser( ( value: string ) => {
+					if ( value !== 'json' ) {
+						throw new Error( __( 'The only custom output format supported is "json"' ) );
+					}
+					return value;
+				} )
+				.hideHelp()
+		);
 
-registerPreviewCreateCommand( program );
-registerPreviewListCommand( previewCommand );
-registerPreviewDeleteCommand( previewCommand );
-registerPreviewUpdateCommand( previewCommand );
+	const previewCommand = program.command( 'preview' ).description( __( 'Manage preview sites' ) );
 
-program.parse( process.argv );
+	registerPreviewCreateCommand( program );
+	registerPreviewListCommand( previewCommand );
+	registerPreviewDeleteCommand( previewCommand );
+	registerPreviewUpdateCommand( previewCommand );
+
+	program.parse( process.argv );
+}
+
+main();

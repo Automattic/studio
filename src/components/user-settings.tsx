@@ -13,6 +13,7 @@ import { Tooltip } from 'src/components/tooltip';
 import { WordPressLogo } from 'src/components/wordpress-logo';
 import { WPCOM_PROFILE_URL } from 'src/constants';
 import { useAuth } from 'src/hooks/use-auth';
+import { useI18nData } from 'src/hooks/use-i18n-data';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
 import { usePromptUsage } from 'src/hooks/use-prompt-usage';
@@ -260,7 +261,41 @@ export default function UserSettings() {
 
 	const AccountTab = () => <UserInfo onLogout={ logout } user={ user } />;
 
-	const PreferencesTab = () => <LanguagePicker />;
+	const PreferencesTab = () => {
+		const { __ } = useI18n();
+		const { locale: savedLocale, setLocale: setSavedLocale } = useI18nData();
+
+		const [ locale, setLocale ] = useState( savedLocale );
+
+		// Save all pending preferences
+		const savePreferences = () => {
+			// Apply each preference
+			setSavedLocale( locale );
+		};
+
+		// Reset pending changes
+		const cancelChanges = () => {
+			setLocale( savedLocale );
+		};
+
+		const hasChanges = locale !== savedLocale;
+
+		return (
+			<>
+				<LanguagePicker value={ locale } onChange={ setLocale } />
+
+				{ /* Add future preferences here */ }
+				<div className="mt-auto pt-6 flex justify-end gap-3">
+					<Button variant="tertiary" onClick={ cancelChanges } disabled={ ! hasChanges }>
+						{ __( 'Cancel' ) }
+					</Button>
+					<Button variant="primary" onClick={ savePreferences } disabled={ ! hasChanges }>
+						{ __( 'Save' ) }
+					</Button>
+				</div>
+			</>
+		);
+	};
 
 	const UsageTab = () => (
 		<>
@@ -317,20 +352,16 @@ export default function UserSettings() {
 						'[&_[role="document"]]:mt-[64px]'
 					) }
 				>
-					<div className="flex flex-col gap-6">
-						<TabPanel className="w-full" tabs={ tabs } orientation="horizontal">
-							{ ( { name } ) => (
-								<div className="mt-6 px-8">
-									<div className="flex flex-col gap-6">
-										{ name === 'account' &&
-											( isAuthenticated ? <AccountTab /> : <NonAuthenticatedAccountTab /> ) }
-										{ name === 'preferences' && <PreferencesTab /> }
-										{ name === 'usage' && isAuthenticated && <UsageTab /> }
-									</div>
-								</div>
-							) }
-						</TabPanel>
-					</div>
+					<TabPanel className="w-full" tabs={ tabs } orientation="horizontal">
+						{ ( { name } ) => (
+							<div className="mt-6 px-8 flex flex-col gap-6">
+								{ name === 'account' &&
+									( isAuthenticated ? <AccountTab /> : <NonAuthenticatedAccountTab /> ) }
+								{ name === 'preferences' && <PreferencesTab /> }
+								{ name === 'usage' && isAuthenticated && <UsageTab /> }
+							</div>
+						) }
+					</TabPanel>
 				</Modal>
 			) }
 		</>

@@ -1,17 +1,20 @@
 import { SelectControl } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
-import { useI18nData } from 'src/hooks/use-i18n-data';
 import { SupportedLocale, supportedLocaleNames } from 'src/lib/locale';
 
-export const LanguagePicker = () => {
+interface LanguagePickerProps {
+	value: SupportedLocale;
+	onChange: ( value: SupportedLocale ) => void;
+}
+
+export const LanguagePicker = ( { value, onChange }: LanguagePickerProps ) => {
 	const { __ } = useI18n();
-	const { locale, setLocale } = useI18nData();
 	return (
 		<div className="flex gap-5 flex-col">
 			<h2 className="a8c-subtitle-small">{ __( 'Language' ) }</h2>
 			<SelectControl
-				value={ locale || 'en' }
-				onChange={ ( value ) => setLocale( value as SupportedLocale ) }
+				value={ value || 'en' }
+				onChange={ onChange }
 				options={ Object.entries( supportedLocaleNames ).map( ( [ locale, label ] ) => ( {
 					value: locale as SupportedLocale,
 					label,

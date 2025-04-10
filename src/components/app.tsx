@@ -16,11 +16,13 @@ import { useSidebarVisibility } from 'src/hooks/use-sidebar-visibility';
 import { isWindows } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { WhatsNewModal, useWhatsNew } from 'src/modules/whats-new';
 
 export default function App() {
 	useLocalizationSupport();
 	const { needsOnboarding } = useOnboarding();
 	const { isSidebarVisible, toggleSidebar } = useSidebarVisibility();
+	const { showWhatsNew, closeWhatsNew } = useWhatsNew();
 
 	useEffect( () => {
 		void getIpcApi().setupAppMenu( { needsOnboarding } );
@@ -72,6 +74,7 @@ export default function App() {
 				</VStack>
 			) }
 			<UserSettings />
+			<WhatsNewModal showModal={ showWhatsNew } onClose={ closeWhatsNew } />
 		</>
 	);
 }

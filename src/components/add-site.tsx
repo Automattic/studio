@@ -14,8 +14,7 @@ import { useImportExport } from 'src/hooks/use-import-export';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { generateSiteName } from 'src/lib/generate-site-name';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { useRootSelector } from 'src/stores';
-import { wordpressVersionsSelectors } from 'src/stores/wordpress-versions-slice';
+import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
 
 interface AddSiteProps {
@@ -55,6 +54,9 @@ export default function AddSite( { className }: AddSiteProps ) {
 		setCustomDomain,
 		customDomainError,
 		setCustomDomainError,
+		enableHttps,
+		setEnableHttps,
+		loadAllCustomDomains,
 	} = useAddSite();
 	const { importState } = useImportExport();
 
@@ -68,9 +70,8 @@ export default function AddSite( { className }: AddSiteProps ) {
 		siteName
 	);
 
-	const latestStableVersion = useRootSelector(
-		wordpressVersionsSelectors.selectLatestStableVersion
-	);
+	const { data: versions = [] } = useGetWordPressVersions();
+	const latestStableVersion = versions.find( ( version ) => version.isLatest );
 
 	const initializeForm = useCallback( async () => {
 		const siteName = await generateSiteName( sites );
@@ -84,6 +85,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 		setSitePath( '' );
 		setError( '' );
 		setDoesPathContainWordPress( isWordPress );
+		loadAllCustomDomains();
 	}, [
 		sites,
 		setSiteName,
@@ -93,6 +95,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 		setDoesPathContainWordPress,
 		setWpVersion,
 		latestStableVersion,
+		loadAllCustomDomains,
 	] );
 
 	useEffect( () => {
@@ -117,6 +120,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 		setUseCustomDomain( false );
 		setCustomDomain( null );
 		setCustomDomainError( '' );
+		setEnableHttps( false );
 	}, [
 		setSitePath,
 		setDoesPathContainWordPress,
@@ -126,6 +130,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 		setUseCustomDomain,
 		setCustomDomain,
 		setCustomDomainError,
+		setEnableHttps,
 	] );
 
 	const handleSubmit = useCallback(
@@ -209,6 +214,8 @@ export default function AddSite( { className }: AddSiteProps ) {
 							customDomain={ customDomain }
 							setCustomDomain={ setCustomDomain }
 							customDomainError={ customDomainError }
+							enableHttps={ enableHttps }
+							setEnableHttps={ setEnableHttps }
 						>
 							<div className="flex flex-row justify-end gap-x-5 mt-6">
 								<Button onClick={ closeModal } variant="tertiary">
@@ -217,7 +224,9 @@ export default function AddSite( { className }: AddSiteProps ) {
 								<Button
 									type="submit"
 									variant="primary"
-									disabled={ !! error || !! customDomainError || ! siteName?.trim() }
+									disabled={
+										!! error || ( !! customDomainError && useCustomDomain ) || ! siteName?.trim()
+									}
 								>
 									{ __( 'Add site' ) }
 								</Button>

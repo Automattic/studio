@@ -24,6 +24,7 @@ interface WelcomeComponentProps {
 	examplePrompts: string[];
 	siteId: string;
 	disabled?: boolean;
+	isLoading?: boolean;
 }
 
 export const WelcomeMessagePrompt = React.forwardRef< HTMLDivElement, WelcomeMessagePromptProps >(
@@ -74,7 +75,10 @@ export const ExampleMessagePrompt = ( {
 );
 
 const WelcomeComponent = React.forwardRef< HTMLDivElement, WelcomeComponentProps >(
-	( { onExampleClick, showExamplePrompts, messages, examplePrompts, siteId, disabled }, ref ) => {
+	(
+		{ onExampleClick, showExamplePrompts, messages, examplePrompts, siteId, disabled, isLoading },
+		ref
+	) => {
 		const [ showMore, setShowMore ] = useState( false );
 		const lastMessageRef = useRef< HTMLDivElement >( null );
 
@@ -91,6 +95,19 @@ const WelcomeComponent = React.forwardRef< HTMLDivElement, WelcomeComponentProps
 				lastMessageRef.current?.scrollIntoView( { behavior: 'smooth' } );
 			}, 100 );
 		};
+
+		if ( isLoading ) {
+			return (
+				<div ref={ ref } className="flex flex-col animate-pulse">
+					<div className="flex mt-2">
+						<div className="inline-block p-3 rounded border border-gray-300 lg:max-w-[70%] bg-gray-100 h-16 w-96" />
+					</div>
+					<div className="flex mt-2">
+						<div className="inline-block p-3 rounded border border-gray-300 lg:max-w-[70%] bg-gray-100 h-12 w-72" />
+					</div>
+				</div>
+			);
+		}
 
 		return (
 			<div ref={ ref }>

@@ -15,9 +15,10 @@
 		"strict": true,
 		"paths": {
 			"*": [ "node_modules/*" ],
+			"cli/*": [ "cli/*" ],
 			"src/*": [ "src/*" ],
 			"vendor/*": [ "vendor/*" ]
 		}
 	},
-	"include": [ "src/**/*", "./jest-setup.ts" ]
+	"include": [ "src/**/*", "cli/**/*", "./jest-setup.ts" ]
 }

@@ -26,8 +26,8 @@ import { calculateDirectorySize } from 'src/lib/calculate-directory-size';
 import { download } from 'src/lib/download';
 import { isEmptyDir, pathExists, isWordPressDirectory, sanitizeFolderName } from 'src/lib/fs-utils';
 import { getImageData } from 'src/lib/get-image-data';
+import { getSiteUrl } from 'src/lib/get-site-url';
 import { getSyncBackupTempPath } from 'src/lib/get-sync-backup-temp-path';
-import { addDomainToHosts } from 'src/lib/hosts-file';
 import { exportBackup } from 'src/lib/import-export/export/export-manager';
 import { ExportOptions } from 'src/lib/import-export/export/types';
 import { ImportExportEventData } from 'src/lib/import-export/handle-events';
@@ -45,7 +45,7 @@ import { portFinder } from 'src/lib/port-finder';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { sortSites } from 'src/lib/sort-sites';
 import { installSqliteIntegration, keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
-import { updateSiteUrlToLocal } from 'src/lib/updateSiteUrlToLocal';
+import { updateSiteUrl } from 'src/lib/update-site-url';
 import * as windowsHelpers from 'src/lib/windows-helpers';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
@@ -54,6 +54,7 @@ import { SiteServer, createSiteWorkingDirectory } from 'src/site-server';
 import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from 'src/storage/paths';
 import { loadUserData, saveUserData } from 'src/storage/user-data';
 import { DEFAULT_PHP_VERSION } from 'vendor/wp-now/src/constants';
+import { openCertificate as openCertificateDialog } from './lib/certificate-manager';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
 
@@ -139,7 +140,8 @@ export async function createSite(
 	path: string,
 	siteName?: string,
 	wpVersion?: string,
-	customDomain?: string
+	customDomain?: string,
+	enableHttps?: boolean
 ): Promise< SiteDetails[] > {
 	const userData = await loadUserData();
 	const forceSetupSqlite = false;
@@ -180,7 +182,8 @@ export async function createSite(
 		port,
 		running: false,
 		phpVersion: DEFAULT_PHP_VERSION,
-		customDomain: customDomain,
+		customDomain,
+		enableHttps,
 	} as const;
 
 	const server = SiteServer.create( details );
@@ -199,7 +202,7 @@ export async function createSite(
 		if ( ! ( await pathExists( nodePath.join( path, 'wp-config.php' ) ) ) ) {
 			await installSqliteIntegration( path );
 		} else {
-			await updateSiteUrlToLocal( details.id );
+			await updateSiteUrl( server, getSiteUrl( details ) );
 		}
 	}
 
@@ -225,7 +228,7 @@ export async function updateSite(
 
 	const server = SiteServer.get( updatedSite.id );
 	if ( server ) {
-		server.updateSiteDetails( updatedSite );
+		await server.updateSiteDetails( updatedSite );
 	}
 	await saveUserData( userData );
 	return mergeSiteDetailsWithRunningDetails( userData.sites );
@@ -397,14 +400,6 @@ export async function startServer(
 
 	await keepSqliteIntegrationUpdated( server.details.path );
 
-	// Handle custom domain if necessary
-	if ( server.details.customDomain ) {
-		await addDomainToHosts( server.details.customDomain, server.details.port );
-		console.log(
-			`Domain ${ server.details.customDomain } added to hosts file for port ${ server.details.port }`
-		);
-	}
-
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	try {
 		await server.start();
@@ -448,6 +443,7 @@ export async function stopServer(
 	}
 
 	await server.stop();
+	await updateSite( event, server.details );
 	return server.details;
 }
 
@@ -727,10 +723,28 @@ export async function saveSnapshotsToStorage( event: IpcMainInvokeEvent, snapsho
 	} );
 }
 
+export async function saveLastSeenVersion(
+	_event: IpcMainInvokeEvent,
+	version: string
+): Promise< void > {
+	const userData = await loadUserData();
+	await saveUserData( {
+		...userData,
+		lastSeenVersion: version,
+	} );
+}
+
 export async function getSnapshots( _event: IpcMainInvokeEvent ): Promise< Snapshot[] > {
 	const userData = await loadUserData();
 	const { snapshots = [] } = userData;
 	return snapshots;
+}
+
+export async function getLastSeenVersion(
+	_event: IpcMainInvokeEvent
+): Promise< string | undefined > {
+	const userData = await loadUserData();
+	return userData.lastSeenVersion;
 }
 
 export function openSiteURL(
@@ -766,6 +780,7 @@ export function getAppGlobals(): AppGlobals {
 	return {
 		platform: process.platform,
 		appName: app.name,
+		appVersion: app.getVersion(),
 		arm64Translation: app.runningUnderARM64Translation,
 		terminalWpCliEnabled: process.env.STUDIO_TERMINAL_WP_CLI === 'true',
 	};
@@ -824,14 +839,17 @@ export function showItemInFolder( _event: IpcMainInvokeEvent, path: string ) {
 	shell.showItemInFolder( path );
 }
 
-export async function getThemeDetails( event: IpcMainInvokeEvent, id: string ) {
+export async function getThemeDetails(
+	event: IpcMainInvokeEvent,
+	id: string
+): Promise< StartedSiteDetails[ 'themeDetails' ] > {
 	const server = SiteServer.get( id );
 	if ( ! server ) {
 		throw new Error( 'Site not found.' );
 	}
 
 	if ( ! server.details.running || ! server.server ) {
-		return null;
+		return undefined;
 	}
 	const themeDetails = await phpGetThemeDetails( server.server );
 
@@ -1151,6 +1169,11 @@ export function getWpContentSize( _event: IpcMainInvokeEvent, siteId: string ) {
 	}
 	return calculateDirectorySize( nodePath.join( site.details.path, 'wp-content' ) );
 }
+
+export function openCertificate( _event: IpcMainInvokeEvent ) {
+	return openCertificateDialog();
+}
+
 export function getFileContent( event: IpcMainInvokeEvent, filePath: string ) {
 	if ( ! fs.existsSync( filePath ) ) {
 		throw new Error( `File not found: ${ filePath }` );
@@ -1193,4 +1216,12 @@ export async function checkSyncBackupSize(
 export async function isFullscreen( _event: IpcMainInvokeEvent ): Promise< boolean > {
 	const window = await getMainWindow();
 	return window.isFullScreen();
+}
+
+export async function getAllCustomDomains(): Promise< string[] > {
+	const userData = await loadUserData();
+
+	return userData.sites
+		.map( ( site ) => site.customDomain )
+		.filter( ( domain ): domain is string => domain !== undefined );
 }

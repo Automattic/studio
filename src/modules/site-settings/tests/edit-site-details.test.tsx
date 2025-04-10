@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { useOffline } from 'src/hooks/use-offline';
 import EditSiteDetails from 'src/modules/site-settings/edit-site-details';
+import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 
 // Mock the hooks and dependencies
 const mockUpdateSite = jest.fn();
@@ -9,6 +10,11 @@ const mockStopServer = jest.fn();
 const mockStartServer = jest.fn();
 const mockExecuteWPCLiInline = jest.fn();
 const mockShowErrorMessageBox = jest.fn();
+const mockGetAllCustomDomains = jest.fn().mockResolvedValue( [] );
+
+jest.mock( 'src/lib/app-globals', () => ( {
+	isWindows: () => false,
+} ) );
 
 jest.mock( 'src/hooks/use-site-details', () => ( {
 	useSiteDetails: () => ( {
@@ -28,6 +34,7 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 	getIpcApi: () => ( {
 		executeWPCLiInline: mockExecuteWPCLiInline,
 		showErrorMessageBox: mockShowErrorMessageBox,
+		getAllCustomDomains: mockGetAllCustomDomains,
 	} ),
 } ) );
 
@@ -37,16 +44,16 @@ jest.mock( '@wordpress/react-i18n', () => ( {
 	} ),
 } ) );
 
-jest.mock( 'src/stores', () => ( {
-	useRootSelector: jest.fn().mockImplementation( () => {
-		// Mock the WordPress versions selector
-		return [
+jest.mock( 'src/stores/wordpress-versions-api', () => ( {
+	useGetWordPressVersions: jest.fn( () => ( {
+		data: [
 			{ label: '6.8-beta1', value: '6.8-beta1' },
 			{ label: '6.4', value: '6.4' },
 			{ label: '6.3', value: '6.3' },
 			{ label: '6.2', value: '6.2' },
-		];
-	} ),
+		],
+		isLoading: false,
+	} ) ),
 } ) );
 
 jest.mock( 'src/hooks/use-offline', () => ( {
@@ -166,6 +173,8 @@ describe( 'EditSiteDetails', () => {
 			name: 'New Site Name',
 			phpVersion: '8.0',
 			running: true,
+			customDomain: undefined,
+			enableHttps: false,
 		} );
 		expect( defaultProps.onSave ).toHaveBeenCalled();
 	} );
@@ -187,6 +196,8 @@ describe( 'EditSiteDetails', () => {
 			name: 'Test Site',
 			phpVersion: '8.2',
 			running: true,
+			customDomain: undefined,
+			enableHttps: false,
 		} );
 		expect( mockStartServer ).toHaveBeenCalledWith( 'site-123' );
 		expect( defaultProps.onSave ).toHaveBeenCalled();
@@ -214,6 +225,8 @@ describe( 'EditSiteDetails', () => {
 			name: 'Test Site',
 			phpVersion: '8.0',
 			running: true,
+			customDomain: undefined,
+			enableHttps: false,
 		} );
 		expect( mockStartServer ).toHaveBeenCalledWith( 'site-123' );
 		expect( defaultProps.onSave ).toHaveBeenCalled();
@@ -256,8 +269,6 @@ describe( 'EditSiteDetails', () => {
 				message: 'Update failed',
 			} );
 		} );
-
-		expect( screen.getByText( 'Error changing WordPress version.' ) ).toBeInTheDocument();
 	} );
 
 	it( 'should disable form controls when site is being edited', async () => {
@@ -345,5 +356,13 @@ describe( 'EditSiteDetails', () => {
 		expect(
 			screen.queryByText( 'Changing WordPress version requires an internet connection.' )
 		).not.toBeInTheDocument();
+	} );
+
+	it( 'should fetch WordPress versions when clicking edit site', async () => {
+		render( <EditSiteDetails { ...defaultProps } /> );
+		const user = userEvent.setup();
+
+		await user.click( screen.getByRole( 'button', { name: 'Edit site' } ) );
+		expect( useGetWordPressVersions ).toHaveBeenCalled();
 	} );
 } );

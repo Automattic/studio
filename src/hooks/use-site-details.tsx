@@ -22,7 +22,8 @@ interface SiteDetailsContext {
 		siteName?: string,
 		wpVersion?: string,
 		customDomain?: string,
-		callback?: ( site: SiteDetails | void ) => Promise< void >
+		enableHttps?: boolean,
+		callback?: ( site: SiteDetails ) => Promise< void >
 	) => Promise< SiteDetails | void >;
 	startServer: ( id: string ) => Promise< void >;
 	stopServer: ( id: string ) => Promise< void >;
@@ -159,23 +160,6 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		} ) );
 	}, [] );
 
-	useEffect( () => {
-		let cancel = false;
-		setLoadingSites( true );
-		getIpcApi()
-			.getSiteDetails()
-			.then( ( data ) => {
-				if ( ! cancel ) {
-					setData( data );
-					setLoadingSites( false );
-				}
-			} );
-
-		return () => {
-			cancel = true;
-		};
-	}, [] );
-
 	const onDeleteSite = useCallback(
 		async ( id: string, removeLocal: boolean ) => {
 			const newSites = await deleteSite( id, removeLocal );
@@ -194,7 +178,8 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			siteName?: string,
 			wpVersion?: string,
 			customDomain?: string,
-			callback?: ( site: SiteDetails | void ) => Promise< void >
+			enableHttps?: boolean,
+			callback?: ( site: SiteDetails ) => Promise< void >
 		) => {
 			// Function to handle error messages and cleanup
 			const showError = ( error?: unknown ) => {
@@ -234,7 +219,13 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			setSelectedSiteId( tempSiteId ); // Set the temporary ID as the selected site
 
 			try {
-				const data = await getIpcApi().createSite( path, siteName, wpVersion, customDomain );
+				const data = await getIpcApi().createSite(
+					path,
+					siteName,
+					wpVersion,
+					customDomain,
+					enableHttps
+				);
 				const newSite = data.find( ( site ) => site.path === path );
 				if ( ! newSite ) {
 					showError();
@@ -285,14 +276,35 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			try {
 				updatedSite = await getIpcApi().startServer( id );
 			} catch ( error ) {
-				getIpcApi().showErrorMessageBox( {
-					title: __( 'Failed to start the site server' ),
-					message: __(
-						"Please verify your site's local path directory contains the standard WordPress installation files and try again. If this problem persists, please contact support."
-					),
-					error,
-					showOpenLogs: true,
-				} );
+				if ( error instanceof Error && error.message.includes( 'PROXY_ERROR_PORT_IN_USE' ) ) {
+					getIpcApi().showErrorMessageBox( {
+						title: __( 'Studio failed to initialize custom domains' ),
+						message: __(
+							'Studio needs to use port 80 and 443 to enable custom domains and SSL, but one of both of these ports are already in use by another app. Close any local development apps and restart Studio.'
+						),
+						showOpenLogs: false,
+					} );
+				} else if (
+					error instanceof Error &&
+					error.message.includes( 'PROXY_ERROR_START_FAILED' )
+				) {
+					getIpcApi().showErrorMessageBox( {
+						title: __( 'Studio failed to initialize custom domains' ),
+						message: __(
+							'Please restart Studio and try again. If this problem persists, please contact support.'
+						),
+						showOpenLogs: true,
+					} );
+				} else {
+					getIpcApi().showErrorMessageBox( {
+						title: __( 'Failed to start the site server' ),
+						message: __(
+							"Please verify your site's local path directory contains the standard WordPress installation files and try again. If this problem persists, please contact support."
+						),
+						error,
+						showOpenLogs: true,
+					} );
+				}
 				await getIpcApi().stopServer( id );
 			}
 
@@ -308,6 +320,35 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		},
 		[ toggleLoadingServerForSite ]
 	);
+
+	const autoStartSites = useCallback(
+		( sites: SiteDetails[] ) => {
+			for ( const site of sites ) {
+				if ( site.autoStart ) {
+					startServer( site.id );
+				}
+			}
+		},
+		[ startServer ]
+	);
+
+	useEffect( () => {
+		let cancel = false;
+		setLoadingSites( true );
+		getIpcApi()
+			.getSiteDetails()
+			.then( async ( data ) => {
+				if ( ! cancel ) {
+					setData( data );
+					setLoadingSites( false );
+					autoStartSites( data );
+				}
+			} );
+
+		return () => {
+			cancel = true;
+		};
+	}, [ autoStartSites ] );
 
 	const stopServer = useCallback(
 		async ( id: string ) => {

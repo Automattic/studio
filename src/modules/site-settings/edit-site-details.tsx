@@ -1,6 +1,6 @@
 import { SelectControl } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
-import { FormEvent, useCallback, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useState } from 'react';
 import stripAnsi from 'strip-ansi';
 import Button from 'src/components/button';
 import { ErrorInformation } from 'src/components/error-information';
@@ -10,11 +10,12 @@ import TextControlComponent from 'src/components/text-control';
 import { Tooltip } from 'src/components/tooltip';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSiteDetails } from 'src/hooks/use-site-details';
+import { isWindows } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
+import { generateCustomDomainFromSiteName, getDomainNameValidationError } from 'src/lib/domains';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { getWordPressVersionUrl } from 'src/lib/get-wordpress-version-url';
-import { useRootSelector } from 'src/stores';
-import { wordpressVersionsSelectors } from 'src/stores/wordpress-versions-slice';
+import { getWordPressVersionUrl } from 'src/lib/wordpress-version-utils';
+import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 import {
 	DEFAULT_PHP_VERSION,
 	ALLOWED_PHP_VERSIONS,
@@ -47,9 +48,32 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 		( selectedSite?.phpVersion as AllowedPHPVersion ) ?? DEFAULT_PHP_VERSION
 	);
 	const [ selectedWpVersion, setSelectedWpVersion ] = useState( currentWpVersion );
-	const wordpressVersions = useRootSelector(
-		wordpressVersionsSelectors.selectWordPressVersionsWithLatest
+	const [ useCustomDomain, setUseCustomDomain ] = useState( Boolean( selectedSite?.customDomain ) );
+	const [ customDomain, setCustomDomain ] = useState< string | null >(
+		selectedSite?.customDomain ?? null
 	);
+	const [ customDomainError, setCustomDomainError ] = useState( '' );
+	const [ existingDomainNames, setExistingDomainNames ] = useState< string[] >( [] );
+	const [ enableHttps, setEnableHttps ] = useState( false );
+
+	useEffect( () => {
+		getIpcApi()
+			.getAllCustomDomains()
+			.then( ( domains ) => {
+				const domainsWithoutSelectedSite = domains.filter(
+					( domain ) => domain !== selectedSite?.customDomain
+				);
+				setExistingDomainNames( domainsWithoutSelectedSite );
+			} )
+			.catch( () => {
+				// Do nothing
+			} );
+	}, [ selectedSite?.customDomain ] );
+
+	const { data: wordpressVersions = [] } = useGetWordPressVersions( undefined, {
+		skip: ! showModal,
+	} );
+
 	const wordpressVersionOptions = wordpressVersions.map( ( version ) => ( {
 		label: version.label,
 		value: version.value,
@@ -58,6 +82,18 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 	if ( ! wordpressVersionOptions.some( ( version ) => version.value === currentWpVersion ) ) {
 		addWpVersionToList( currentWpVersion, wordpressVersionOptions );
 	}
+	const generatedDomainName = generateCustomDomainFromSiteName( siteName );
+	const usedCustomDomain = ! useCustomDomain ? customDomain : undefined;
+	const isFormUnchanged =
+		!! selectedSite &&
+		selectedSite.name === siteName &&
+		selectedSite.phpVersion === selectedPhpVersion &&
+		currentWpVersion === selectedWpVersion &&
+		Boolean( selectedSite.customDomain ) === useCustomDomain &&
+		usedCustomDomain === customDomain &&
+		!! selectedSite.enableHttps === ( !! usedCustomDomain && enableHttps );
+	const hasValidationErrors =
+		! selectedSite || ! siteName.trim() || ( useCustomDomain && !! customDomainError );
 
 	const resetFormState = useCallback( () => {
 		if ( ! selectedSite ) {
@@ -66,7 +102,11 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 		setSiteName( selectedSite.name );
 		setSelectedPhpVersion( selectedSite.phpVersion );
 		setSelectedWpVersion( currentWpVersion );
+		setUseCustomDomain( Boolean( selectedSite.customDomain ) );
+		setCustomDomain( selectedSite.customDomain ?? null );
+		setCustomDomainError( '' );
 		setIsChangeWpError( '' );
+		setEnableHttps( selectedSite.enableHttps ?? false );
 	}, [ currentWpVersion, selectedSite ] );
 
 	const onSiteEdit = async ( event: FormEvent ) => {
@@ -101,7 +141,6 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 				} catch ( wpError ) {
 					console.error( 'Error changing WordPress version:', wpError );
 					const errorMessage = stripAnsi( ( wpError as Error )?.message );
-					setIsChangeWpError( __( 'Error changing WordPress version.' ) );
 					getIpcApi().showErrorMessageBox( {
 						title: __( 'Error changing WordPress version' ),
 						message: errorMessage,
@@ -112,10 +151,18 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 				}
 			}
 
+			// Determine custom domain setting
+			let usedCustomDomain = useCustomDomain && customDomain ? customDomain : undefined;
+			if ( useCustomDomain && ! customDomain ) {
+				usedCustomDomain = generateCustomDomainFromSiteName( siteName ?? '' );
+			}
+
 			await updateSite( {
 				...selectedSite,
 				name: siteName,
 				phpVersion: selectedPhpVersion,
+				customDomain: usedCustomDomain,
+				enableHttps: !! usedCustomDomain && enableHttps,
 			} );
 
 			if ( needsRestart ) {
@@ -137,6 +184,16 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 		}
 		return needsRestart ? __( 'Saving and restarting…' ) : __( 'Saving…' );
 	};
+
+	const handleCustomDomainChange = useCallback(
+		( value: string | null ) => {
+			setCustomDomain( value );
+			setCustomDomainError(
+				getDomainNameValidationError( useCustomDomain, value, existingDomainNames )
+			);
+		},
+		[ useCustomDomain, setCustomDomain, setCustomDomainError, existingDomainNames ]
+	);
 
 	return (
 		<>
@@ -211,6 +268,71 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 							{ isChangeWpError && (
 								<ErrorInformation className="mt-2">{ isChangeWpError }</ErrorInformation>
 							) }
+
+							<div className="flex flex-col gap-2 mt-4">
+								<div className="flex items-center gap-2">
+									<input
+										type="checkbox"
+										id="use-custom-domain"
+										checked={ useCustomDomain }
+										onChange={ ( e ) => setUseCustomDomain( e.target.checked ) }
+										disabled={ isEditingSite }
+									/>
+									<label htmlFor="use-custom-domain">{ __( 'Use custom domain' ) }</label>
+								</div>
+
+								{ useCustomDomain && (
+									<div className="flex flex-col gap-2 mt-2">
+										<label htmlFor="custom-domain" className="font-semibold">
+											{ __( 'Domain name' ) }
+										</label>
+										<TextControlComponent
+											id="custom-domain"
+											value={ customDomain ?? generatedDomainName }
+											onChange={ handleCustomDomainChange }
+											disabled={ isEditingSite }
+										/>
+										{ customDomainError && (
+											<ErrorInformation className="mt-1">{ customDomainError }</ErrorInformation>
+										) }
+										<div className="text-a8c-gray-50 text-xs mt-1">
+											{ __( 'Your system password will be required to set up the domain.' ) }
+										</div>
+									</div>
+								) }
+
+								{ useCustomDomain && (
+									<div className="flex items-center gap-2 mt-4">
+										<input
+											type="checkbox"
+											id="enable-https"
+											checked={ enableHttps }
+											onChange={ ( e ) => setEnableHttps( e.target.checked ) }
+											disabled={ isEditingSite }
+										/>
+										<label htmlFor="enable-https">{ __( 'Enable HTTPS' ) }</label>
+									</div>
+								) }
+
+								{ ! isWindows() && useCustomDomain && (
+									<div className="text-a8c-gray-50 text-xs mt-2">
+										{ __(
+											'You need to manually add the Studio certificate authority to your keychain and trust it.'
+										) }{ ' ' }
+										<Button
+											variant="link"
+											onClick={ () => {
+												getIpcApi().openURL(
+													'https://developer.wordpress.com/docs/developer-tools/studio/ssl-in-studio/'
+												);
+											} }
+										>
+											{ __( 'Learn how' ) }
+											<span aria-label={ __( '(opens in a web browser)' ) }>&#8599;</span>
+										</Button>
+									</div>
+								) }
+							</div>
 						</div>
 
 						<div className="flex flex-row justify-end gap-x-5 mt-8">
@@ -221,14 +343,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 								type="submit"
 								variant="primary"
 								isBusy={ isEditingSite }
-								disabled={ Boolean(
-									isEditingSite ||
-										! selectedSite ||
-										( selectedSite?.name === siteName &&
-											selectedSite?.phpVersion === selectedPhpVersion &&
-											currentWpVersion === selectedWpVersion ) ||
-										! siteName.trim()
-								) }
+								disabled={ isEditingSite || isFormUnchanged || hasValidationErrors }
 							>
 								{ getEditSiteButtonText() }
 							</Button>

@@ -21,7 +21,10 @@ interface StoppedSiteDetails {
 	phpVersion: string;
 	wpVersion?: string;
 	customDomain?: string;
+	enableHttps?: boolean;
 	adminPassword?: string;
+	tlsKey?: string;
+	tlsCert?: string;
 	themeDetails?: {
 		name: string;
 		path: string;
@@ -31,6 +34,7 @@ interface StoppedSiteDetails {
 		supportsMenus: boolean;
 	};
 	isAddingSite?: boolean;
+	autoStart?: boolean;
 }
 
 interface StartedSiteDetails extends StoppedSiteDetails {
@@ -84,6 +88,7 @@ type IpcApi = Omit<
 interface AppGlobals {
 	platform: NodeJS.Platform;
 	appName: string;
+	appVersion: string;
 	arm64Translation: boolean;
 	terminalWpCliEnabled: boolean;
 }

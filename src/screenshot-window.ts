@@ -5,6 +5,11 @@ import { SCREENSHOT_HEIGHT, SCREENSHOT_WIDTH } from 'src/constants';
 export function createScreenshotWindow( captureUrl: string ) {
 	const newSession = session.fromPartition( crypto.randomUUID() );
 
+	// Accept unsafe HTTPS certificates
+	newSession.setCertificateVerifyProc( ( request, callback ) => {
+		callback( 0 );
+	} );
+
 	const window = new BrowserWindow( {
 		height: SCREENSHOT_HEIGHT,
 		width: SCREENSHOT_WIDTH,
@@ -12,16 +17,25 @@ export function createScreenshotWindow( captureUrl: string ) {
 		webPreferences: { session: newSession },
 	} );
 
-	const finishedLoading = new Promise< void >( ( resolve ) => {
-		window.webContents.on( 'did-finish-load', () => resolve() );
+	const responseStatusCodePromise = new Promise< void >( ( resolve, reject ) => {
+		newSession.webRequest.onCompleted( ( details ) => {
+			if ( details.resourceType !== 'mainFrame' ) {
+				return;
+			}
+
+			if ( details.statusCode < 200 || details.statusCode >= 400 ) {
+				reject( new Error( `Page returned status code: ${ details.statusCode }` ) );
+			} else {
+				resolve();
+			}
+		} );
 	} );
 
-	window.loadURL( captureUrl );
-
 	const waitForCapture = async () => {
-		await finishedLoading;
+		await window.loadURL( captureUrl );
+		await responseStatusCodePromise;
 		await window.webContents.insertCSS( `
-			body {
+			body, html {
 				overflow: hidden;
 				height: 100vh;
 			}
@@ -30,7 +44,10 @@ export function createScreenshotWindow( captureUrl: string ) {
 			}
 		` );
 
-		await new Promise( ( resolve ) => setTimeout( resolve, 500 ) );
+		// Oftentimes, web pages need a bit more time for images to load and layouts to settle
+		const LOAD_TIMEOUT = process.platform === 'win32' ? 2000 : 500;
+		await new Promise( ( resolve ) => setTimeout( resolve, LOAD_TIMEOUT ) );
+
 		return window.webContents.capturePage();
 	};
 

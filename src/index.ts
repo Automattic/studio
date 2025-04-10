@@ -25,7 +25,7 @@ import {
 } from 'src/lib/cli';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { onOpenUrlCallback } from 'src/lib/oauth';
-import { startProxyServer, stopProxyServer } from 'src/lib/proxy-server';
+import { stopProxyServer } from 'src/lib/proxy-server';
 import { getSentryReleaseInfo } from 'src/lib/sentry-release';
 import { setupLogging } from 'src/logging';
 import { createMainWindow, getMainWindow } from 'src/main-window';
@@ -33,6 +33,7 @@ import {
 	migrateFromWpNowFolder,
 	needsToMigrateFromWpNowFolder,
 } from 'src/migrations/migrate-from-wp-now-folder';
+import { installCLIOnWindows } from 'src/modules/cli/lib/install-windows';
 import { setupWPServerFiles, updateWPServerFiles } from 'src/setup-wp-server-files';
 import { stopAllServersOnQuit } from 'src/site-server';
 import { loadUserData, saveUserData } from 'src/storage/user-data';
@@ -266,20 +267,6 @@ async function appBoot() {
 
 		createMainWindow();
 
-		// Start the proxy server for custom domains
-		try {
-			const proxyStarted = await startProxyServer();
-			if ( proxyStarted ) {
-				console.log( 'Custom domain proxy server started successfully' );
-			} else {
-				console.warn(
-					'Failed to start custom domain proxy server - custom domains will require port numbers'
-				);
-			}
-		} catch ( error ) {
-			console.error( 'Error starting proxy server:', error );
-		}
-
 		// Handle CLI commands
 		listenCLICommands();
 		executeCLICommand();
@@ -297,6 +284,11 @@ async function appBoot() {
 			getPlatformMetric( process.platform ),
 			'weekly'
 		);
+
+		// temporary hidden since in development yet
+		if ( process.env.NODE_ENV === 'development' ) {
+			await installCLIOnWindows();
+		}
 
 		finishedInitialization = true;
 	} );

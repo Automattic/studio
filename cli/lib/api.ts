@@ -1,0 +1,128 @@
+import fs from 'fs';
+import { __ } from '@wordpress/i18n';
+import WPCOM from 'wpcom';
+import { z } from 'zod';
+import { LoggerError } from 'cli/logger';
+
+export enum SnapshotStatus {
+	Pending = '0',
+	Processing = '1',
+	Active = '2',
+}
+
+const createSiteResponseSchema = z.object( {
+	domain_name: z.string().min( 1, 'Domain name is required' ),
+	atomic_site_id: z.number().int().positive( 'Site ID must be a positive integer' ),
+} );
+
+const statusResponseSchema = z.object( {
+	status: z.enum( [ SnapshotStatus.Pending, SnapshotStatus.Processing, SnapshotStatus.Active ], {
+		errorMap: () => ( { message: 'Invalid site status' } ),
+	} ),
+	domain_name: z.string(),
+	atomic_site_id: z.number().int().positive(),
+	is_deleted: z.string(),
+} );
+
+const MAX_POLL_ATTEMPTS = 100;
+const POLL_INTERVAL_MS = 3000;
+
+export async function uploadArchive(
+	archivePath: string,
+	token: string
+): Promise< { site_url: string; site_id: number } > {
+	const wpcom = new WPCOM( token );
+	const formData = [
+		[
+			'import',
+			fs.createReadStream( archivePath ),
+			{
+				filename: 'local-env-site-1.zip',
+				contentType: 'application/zip',
+			},
+		],
+	];
+
+	try {
+		const rawResponse = await wpcom.req.post( {
+			path: '/jurassic-ninja/create-new-site-from-zip',
+			apiNamespace: 'wpcom/v2',
+			formData,
+		} );
+
+		const result = createSiteResponseSchema.parse( rawResponse );
+
+		return {
+			site_url: result.domain_name,
+			site_id: result.atomic_site_id,
+		};
+	} catch ( error ) {
+		if ( error instanceof LoggerError ) {
+			throw error;
+		}
+
+		if ( error instanceof z.ZodError ) {
+			throw new LoggerError( 'Invalid API response format' );
+		}
+
+		const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+		throw new LoggerError( `Failed to upload archive: ${ errorMessage }` );
+	}
+}
+
+async function checkSiteStatus( siteId: number, token: string ): Promise< boolean > {
+	const wpcom = new WPCOM( token );
+
+	try {
+		const rawResponse = await wpcom.req.get( '/jurassic-ninja/status', {
+			apiNamespace: 'wpcom/v2',
+			site_id: siteId,
+		} );
+
+		const result = statusResponseSchema.parse( rawResponse );
+
+		return result.status === SnapshotStatus.Active;
+	} catch {
+		return false;
+	}
+}
+
+export async function waitForSiteReady( siteId: number, token: string ): Promise< boolean > {
+	let attempts = 0;
+
+	while ( attempts < MAX_POLL_ATTEMPTS ) {
+		const isReady = await checkSiteStatus( siteId, token );
+		if ( isReady ) {
+			return true;
+		}
+
+		attempts++;
+		await new Promise( ( resolve ) => setTimeout( resolve, POLL_INTERVAL_MS ) );
+	}
+
+	throw new LoggerError(
+		'Failed to create preview site: site did not become ready within timeout'
+	);
+}
+
+export async function deleteSnapshot( atomicSiteId: number, token: string ): Promise< void > {
+	const wpcom = new WPCOM( token );
+
+	try {
+		await wpcom.req.post( {
+			path: '/jurassic-ninja/delete',
+			apiNamespace: 'wpcom/v2',
+			body: { site_id: atomicSiteId },
+		} );
+	} catch ( error ) {
+		if ( error instanceof Error ) {
+			if ( 'code' in error && error.code === 'rest_site_already_deleted' ) {
+				return;
+			}
+
+			throw new LoggerError( __( 'Failed to delete preview site' ), error );
+		}
+
+		throw new LoggerError( __( 'Failed to delete preview site' ) );
+	}
+}

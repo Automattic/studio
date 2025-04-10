@@ -92,7 +92,7 @@ describe( 'Archive Module', () => {
 			} );
 
 			await expect( createArchive( mockSiteFolder, mockArchivePath ) ).rejects.toThrow(
-				'Failed to create archive: Archive error'
+				'Failed to create archive'
 			);
 		} );
 	} );

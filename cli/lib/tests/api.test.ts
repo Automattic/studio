@@ -66,7 +66,7 @@ describe( 'API Module', () => {
 
 			await expect( uploadArchive( mockArchivePath, mockToken ) ).rejects.toThrow( LoggerError );
 			await expect( uploadArchive( mockArchivePath, mockToken ) ).rejects.toMatchObject( {
-				message: expect.stringContaining( 'Failed to upload archive: API error' ),
+				message: expect.stringContaining( 'Failed to upload archive' ),
 			} );
 		} );
 

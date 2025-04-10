@@ -49,6 +49,8 @@ export async function uploadArchive(
 	}
 
 	try {
+		throw new Error( 'test' );
+
 		const rawResponse = await wpcom.req.post( {
 			path:
 				atomicSiteId !== undefined
@@ -70,11 +72,10 @@ export async function uploadArchive(
 		}
 
 		if ( error instanceof z.ZodError ) {
-			throw new LoggerError( 'Invalid API response format', error );
+			throw new LoggerError( __( 'Invalid API response format' ), error );
 		}
 
-		const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-		throw new LoggerError( `Failed to upload archive: ${ errorMessage }` );
+		throw new LoggerError( __( 'Failed to upload archive' ), error );
 	}
 }
 
@@ -123,14 +124,10 @@ export async function deleteSnapshot( atomicSiteId: number, token: string ): Pro
 			body: { site_id: atomicSiteId },
 		} );
 	} catch ( error ) {
-		if ( error instanceof Error ) {
-			if ( 'code' in error && error.code === 'rest_site_already_deleted' ) {
-				return;
-			}
-
-			throw new LoggerError( __( 'Failed to delete preview site' ), error );
+		if ( error instanceof Error && 'code' in error && error.code === 'rest_site_already_deleted' ) {
+			return;
 		}
 
-		throw new LoggerError( __( 'Failed to delete preview site' ) );
+		throw new LoggerError( __( 'Failed to delete preview site' ), error );
 	}
 }

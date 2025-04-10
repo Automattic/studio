@@ -1,8 +1,8 @@
 import os from 'node:os';
 import path from 'node:path';
-import { __, _n } from '@wordpress/i18n';
+import { __, _n, sprintf } from '@wordpress/i18n';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
-import { createArchive } from 'cli/lib/archive';
+import { cleanup, createArchive } from 'cli/lib/archive';
 import { getAuthToken } from 'cli/lib/auth';
 import { addPreviewSiteToAppdata, getSnapshotsFromAppdata } from 'cli/lib/snapshots';
 import { validateSiteFolder } from 'cli/lib/validation';
@@ -39,32 +39,36 @@ async function runCommand(
 		}
 		logger.reportSuccess( __( 'Validation successful' ) );
 
-		logger.reportStart( LoggerAction.ARCHIVE, 'Creating archive...' );
+		logger.reportStart( LoggerAction.ARCHIVE, __( 'Creating archive...' ) );
 		await createArchive( siteFolder, archivePath );
-		logger.reportSuccess( 'Archive created' );
+		logger.reportSuccess( __( 'Archive created' ) );
 
-		logger.reportStart( LoggerAction.UPLOAD, 'Uploading archive...' );
+		logger.reportStart( LoggerAction.UPLOAD, __( 'Uploading archive...' ) );
 		const uploadResponse = await uploadArchive(
 			archivePath,
 			token.accessToken,
 			snapshotToUpdate.atomicSiteId
 		);
-		logger.reportSuccess( 'Archive uploaded' );
+		logger.reportSuccess( __( 'Archive uploaded' ) );
 
-		logger.reportStart( LoggerAction.READY, 'Updating preview site...' );
+		logger.reportStart( LoggerAction.READY, __( 'Updating preview site...' ) );
 		await waitForSiteReady( uploadResponse.site_id, token.accessToken );
-		logger.reportSuccess( `Preview site available at: https://${ uploadResponse.site_url }` );
+		logger.reportSuccess(
+			sprintf( __( 'Preview site available at: %s' ), `https://${ uploadResponse.site_url }` )
+		);
 
-		logger.reportStart( LoggerAction.APPDATA, 'Saving preview site to Studio...' );
+		logger.reportStart( LoggerAction.APPDATA, __( 'Saving preview site to Studio...' ) );
 		await addPreviewSiteToAppdata( uploadResponse.site_url, uploadResponse.site_id, siteFolder );
-		logger.reportSuccess( 'Preview site saved to Studio' );
+		logger.reportSuccess( __( 'Preview site saved to Studio' ) );
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {
 			logger.reportError( error );
 		} else {
-			const loggerError = new LoggerError( __( 'Failed to update preview site' ) );
+			const loggerError = new LoggerError( __( 'Failed to update preview site' ), error );
 			logger.reportError( loggerError );
 		}
+	} finally {
+		setImmediate( () => cleanup( archivePath ) );
 	}
 }
 

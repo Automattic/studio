@@ -1,5 +1,6 @@
 import os from 'os';
 import path from 'path';
+import { __ } from '@wordpress/i18n';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { createArchive, cleanup } from 'cli/lib/archive';
 import { getAuthToken } from 'cli/lib/auth';
@@ -48,11 +49,11 @@ async function runCommand( siteFolder: string, outputFormat?: OutputFormat ): Pr
 		if ( error instanceof LoggerError ) {
 			logger.reportError( error );
 		} else {
-			const message = error instanceof Error ? error.message : String( error );
-			logger.reportError( new LoggerError( message ) );
+			const loggerError = new LoggerError( __( 'Failed to create preview site' ), error );
+			logger.reportError( loggerError );
 		}
 	} finally {
-		cleanup( archivePath );
+		setImmediate( () => cleanup( archivePath ) );
 	}
 }
 

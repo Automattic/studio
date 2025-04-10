@@ -36,7 +36,7 @@ async function runCommand( host: string, outputFormat?: OutputFormat ): Promise<
 		if ( error instanceof LoggerError ) {
 			logger.reportError( error );
 		} else {
-			const loggerError = new LoggerError( __( 'Failed to delete preview site' ) );
+			const loggerError = new LoggerError( __( 'Failed to delete preview site' ), error );
 			logger.reportError( loggerError );
 		}
 	}

@@ -38,7 +38,7 @@ async function runCommand( siteFolder: string, outputFormat?: OutputFormat ): Pr
 		if ( error instanceof LoggerError ) {
 			logger.reportError( error );
 		} else {
-			const loggerError = new LoggerError( __( 'Failed to load snapshots' ) );
+			const loggerError = new LoggerError( __( 'Failed to load snapshots' ), error );
 			logger.reportError( loggerError );
 		}
 	}

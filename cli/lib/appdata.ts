@@ -1,6 +1,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
 import { LoggerError } from 'cli/logger';
 
@@ -41,7 +42,7 @@ type UserData = z.infer< typeof userDataSchema >;
 export function getAppdataPath(): string {
 	if ( process.platform === 'win32' ) {
 		if ( ! process.env.APPDATA ) {
-			throw new LoggerError( 'Appdata path not found.' );
+			throw new LoggerError( __( 'Appdata path not found.' ) );
 		}
 
 		return path.join( process.env.APPDATA, 'Studio', 'appdata-v1.json' );
@@ -55,7 +56,7 @@ export async function readAppdata(): Promise< UserData > {
 	const appDataPath = getAppdataPath();
 
 	if ( ! fs.existsSync( appDataPath ) ) {
-		throw new LoggerError( 'Appdata file not found. Please run the Studio app first.' );
+		throw new LoggerError( __( 'Appdata file not found. Please run the Studio app first.' ) );
 	}
 
 	try {
@@ -70,14 +71,23 @@ export async function readAppdata(): Promise< UserData > {
 		}
 
 		if ( error instanceof z.ZodError ) {
-			throw new LoggerError( 'Invalid appdata format. Please run the Studio app again.', error );
+			throw new LoggerError(
+				__( 'Invalid appdata format. Please run the Studio app again.' ),
+				error
+			);
 		}
 
 		if ( error instanceof SyntaxError ) {
-			throw new LoggerError( 'Appdata file is corrupted. Please run the Studio app again.', error );
+			throw new LoggerError(
+				__( 'Appdata file is corrupted. Please run the Studio app again.' ),
+				error
+			);
 		}
 
-		throw new LoggerError( 'Failed to read appdata file. Please run the Studio app again.' );
+		throw new LoggerError(
+			__( 'Failed to read appdata file. Please run the Studio app again.' ),
+			error
+		);
 	}
 }
 
@@ -93,9 +103,7 @@ export async function saveAppdata( userData: UserData ): Promise< void > {
 
 		fs.writeFileSync( appDataPath, fileContent, 'utf8' );
 	} catch ( error ) {
-		throw new LoggerError(
-			`Failed to save appdata file: ${ error instanceof Error ? error.message : String( error ) }`
-		);
+		throw new LoggerError( __( 'Failed to save appdata file' ), error );
 	}
 }
 
@@ -105,7 +113,7 @@ export async function getSiteIdFromFolder( siteFolder: string ): Promise< string
 	const site = sites.find( ( site ) => site.path === siteFolder );
 
 	if ( ! site ) {
-		throw new LoggerError( 'The specified folder is not added to Studio.' );
+		throw new LoggerError( __( 'The specified folder is not added to Studio.' ) );
 	}
 
 	return site.id;

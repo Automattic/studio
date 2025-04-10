@@ -68,7 +68,7 @@ async function runCommand(
 			logger.reportError( loggerError );
 		}
 	} finally {
-		setImmediate( () => cleanup( archivePath ) );
+		cleanup( archivePath );
 	}
 }
 

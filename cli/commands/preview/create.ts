@@ -53,7 +53,7 @@ async function runCommand( siteFolder: string, outputFormat?: OutputFormat ): Pr
 			logger.reportError( loggerError );
 		}
 	} finally {
-		setImmediate( () => cleanup( archivePath ) );
+		cleanup( archivePath );
 	}
 }
 

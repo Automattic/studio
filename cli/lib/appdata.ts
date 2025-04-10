@@ -108,15 +108,20 @@ export async function saveAppdata( userData: UserData ): Promise< void > {
 }
 
 export async function getAuthToken(): Promise< NonNullable< UserData[ 'authToken' ] > > {
-	const { authToken } = await readAppdata();
+	try {
+		const { authToken } = await readAppdata();
 
-	if ( ! authToken?.accessToken ) {
+		if ( ! authToken?.accessToken ) {
+			throw new Error( 'Authentication required' );
+		}
+
+		return authToken;
+	} catch ( error ) {
 		throw new LoggerError(
-			__( 'Authentication required. Please run the Studio app and log in to WordPress.com first.' )
+			__( 'Authentication required. Please run the Studio app and log in to WordPress.com first.' ),
+			error
 		);
 	}
-
-	return authToken;
 }
 
 export async function getSiteIdFromFolder( siteFolder: string ): Promise< string > {

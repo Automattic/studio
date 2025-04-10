@@ -49,8 +49,6 @@ export async function uploadArchive(
 	}
 
 	try {
-		throw new Error( 'test' );
-
 		const rawResponse = await wpcom.req.post( {
 			path:
 				atomicSiteId !== undefined

@@ -1,3 +1,4 @@
+import { __ } from '@wordpress/i18n';
 // eslint-disable-next-line import/no-named-as-default
 import Table from 'cli-table3';
 import {
@@ -46,7 +47,7 @@ function formatDurationUntilExpiry( lastUpdatedAt: number ) {
 
 export function getSnapshotCliTable( snapshots: Snapshot[] ) {
 	const table = new Table( {
-		head: [ 'URL', 'Site Name', 'Updated', 'Expires in' ],
+		head: [ __( 'URL' ), __( 'Site Name' ), __( 'Updated' ), __( 'Expires in' ) ],
 		style: {
 			head: [],
 			border: [],

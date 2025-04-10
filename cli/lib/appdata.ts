@@ -28,7 +28,7 @@ const userDataSchema = z
 		sites: z.array( siteSchema ).optional(),
 		authToken: z
 			.object( {
-				accessToken: z.string().min( 1, 'Access token cannot be empty' ),
+				accessToken: z.string().min( 1, __( 'Access token cannot be empty' ) ),
 				id: z.number(),
 			} )
 			.passthrough()

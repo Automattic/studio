@@ -1,3 +1,4 @@
+import { __ } from '@wordpress/i18n';
 import { Command, Option } from 'commander';
 import { registerCommand as registerPreviewCreateCommand } from 'cli/commands/preview/create';
 import { registerCommand as registerPreviewDeleteCommand } from 'cli/commands/preview/delete';
@@ -9,20 +10,20 @@ const program = new Command();
 
 program
 	.name( 'studio' )
-	.description( 'Studio by WordPress.com CLI' )
+	.description( __( 'Studio by WordPress.com CLI' ) )
 	.version( version )
 	.addOption(
-		new Option( '--output-format [format]', 'Specify a non-standard output format' )
+		new Option( '--output-format [format]', __( 'Specify a non-standard output format' ) )
 			.argParser( ( value: string ) => {
 				if ( value !== 'json' ) {
-					throw new Error( 'The only custom output format supported is "json"' );
+					throw new Error( __( 'The only custom output format supported is "json"' ) );
 				}
 				return value;
 			} )
 			.hideHelp()
 	);
 
-const previewCommand = program.command( 'preview' ).description( 'Manage preview sites' );
+const previewCommand = program.command( 'preview' ).description( __( 'Manage preview sites' ) );
 
 registerPreviewCreateCommand( program );
 registerPreviewListCommand( previewCommand );

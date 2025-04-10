@@ -1,7 +1,11 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { addPreviewSiteToAppdata } from 'cli/lib/snapshots';
+import {
+	addPreviewSiteToAppdata,
+	getSnapshotsFromAppdata,
+	deleteSnapshotFromAppdata,
+} from 'cli/lib/snapshots';
 import { LoggerError } from 'cli/logger';
 
 jest.mock( 'fs' );
@@ -157,6 +161,103 @@ describe( 'Snapshots Module', () => {
 			await expect(
 				addPreviewSiteToAppdata( mockSiteUrl, mockSiteId, mockSiteFolder )
 			).rejects.toThrow( LoggerError );
+		} );
+	} );
+
+	describe( 'getSnapshotsFromAppdata', () => {
+		it( 'should return snapshots filtered by userId', async () => {
+			const mockUserData = {
+				version: 1,
+				snapshots: [
+					{ userId: 9876, url: 'test1.com', atomicSiteId: 1, localSiteId: 'site1', date: 1000 },
+					{ userId: 1234, url: 'test2.com', atomicSiteId: 2, localSiteId: 'site2', date: 2000 },
+				],
+			};
+
+			( fs.readFileSync as jest.Mock ).mockReturnValue( JSON.stringify( mockUserData ) );
+
+			const snapshots = await getSnapshotsFromAppdata( 9876 );
+
+			expect( snapshots ).toHaveLength( 1 );
+			expect( snapshots[ 0 ] ).toEqual( mockUserData.snapshots[ 0 ] );
+		} );
+
+		it( 'should return snapshots filtered by userId and siteFolder', async () => {
+			const mockUserData = {
+				version: 1,
+				snapshots: [
+					{ userId: 9876, url: 'test1.com', atomicSiteId: 1, localSiteId: 'site1', date: 1000 },
+					{ userId: 9876, url: 'test2.com', atomicSiteId: 2, localSiteId: 'site2', date: 2000 },
+				],
+				sites: [ { id: 'site1', path: mockSiteFolder, name: 'Test Site' } ],
+			};
+
+			( fs.readFileSync as jest.Mock ).mockReturnValue( JSON.stringify( mockUserData ) );
+
+			const snapshots = await getSnapshotsFromAppdata( 9876, mockSiteFolder );
+
+			expect( snapshots ).toHaveLength( 1 );
+			expect( snapshots[ 0 ] ).toEqual( mockUserData.snapshots[ 0 ] );
+		} );
+
+		it( 'should return empty array if no snapshots exist', async () => {
+			const mockUserData = {
+				version: 1,
+				snapshots: [],
+			};
+
+			( fs.readFileSync as jest.Mock ).mockReturnValue( JSON.stringify( mockUserData ) );
+
+			const snapshots = await getSnapshotsFromAppdata( 9876 );
+
+			expect( snapshots ).toHaveLength( 0 );
+		} );
+	} );
+
+	describe( 'deleteSnapshotFromAppdata', () => {
+		it( 'should delete snapshot by url', async () => {
+			const mockUserData = {
+				version: 1,
+				snapshots: [
+					{ url: 'test1.com', atomicSiteId: 1, localSiteId: 'site1', date: 1000 },
+					{ url: 'test2.com', atomicSiteId: 2, localSiteId: 'site2', date: 2000 },
+				],
+			};
+
+			( fs.readFileSync as jest.Mock ).mockReturnValue( JSON.stringify( mockUserData ) );
+
+			await deleteSnapshotFromAppdata( 'test1.com' );
+
+			expect( fs.writeFileSync ).toHaveBeenCalled();
+			const savedData = JSON.parse( ( fs.writeFileSync as jest.Mock ).mock.calls[ 0 ][ 1 ] );
+			expect( savedData.snapshots ).toHaveLength( 1 );
+			expect( savedData.snapshots[ 0 ].url ).toBe( 'test2.com' );
+		} );
+
+		it( 'should not modify snapshots if url not found', async () => {
+			const mockUserData = {
+				version: 1,
+				snapshots: [ { url: 'test1.com', atomicSiteId: 1, localSiteId: 'site1', date: 1000 } ],
+			};
+
+			( fs.readFileSync as jest.Mock ).mockReturnValue( JSON.stringify( mockUserData ) );
+
+			await deleteSnapshotFromAppdata( 'nonexistent.com' );
+
+			expect( fs.writeFileSync ).not.toHaveBeenCalled();
+		} );
+
+		it( 'should handle empty snapshots array', async () => {
+			const mockUserData = {
+				version: 1,
+				snapshots: [],
+			};
+
+			( fs.readFileSync as jest.Mock ).mockReturnValue( JSON.stringify( mockUserData ) );
+
+			await deleteSnapshotFromAppdata( 'test1.com' );
+
+			expect( fs.writeFileSync ).not.toHaveBeenCalled();
 		} );
 	} );
 } );

@@ -27,7 +27,7 @@
 		"publish": "electron-forge publish",
 		"cli:build": "webpack --config webpack.cli.config.ts",
 		"cli:watch": "webpack --config webpack.cli.config.ts --watch",
-		"lint": "eslint --ext .ts,.tsx,.js,.jsx,.mjs .",
+		"lint": "eslint --ext .ts,.tsx,.js,.jsx,.mjs {cli,src}",
 		"format": "prettier . --write",
 		"test": "cross-env NODE_OPTIONS='--no-deprecation' jest",
 		"test:watch": "cross-env NODE_OPTIONS='--no-deprecation' jest --watch",

@@ -1,8 +1,9 @@
 import os from 'os';
 import path from 'path';
+import { __ } from '@wordpress/i18n';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
+import { getAuthToken } from 'cli/lib/appdata';
 import { createArchive, cleanup } from 'cli/lib/archive';
-import { getAuthToken } from 'cli/lib/auth';
 import { addPreviewSiteToAppdata } from 'cli/lib/snapshots';
 import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
@@ -48,8 +49,8 @@ async function runCommand( siteFolder: string, outputFormat?: OutputFormat ): Pr
 		if ( error instanceof LoggerError ) {
 			logger.reportError( error );
 		} else {
-			const message = error instanceof Error ? error.message : String( error );
-			logger.reportError( new LoggerError( message ) );
+			const loggerError = new LoggerError( __( 'Failed to create preview site' ), error );
+			logger.reportError( loggerError );
 		}
 	} finally {
 		cleanup( archivePath );

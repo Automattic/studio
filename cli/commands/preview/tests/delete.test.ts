@@ -1,10 +1,10 @@
 import { Command } from 'commander';
 import { deleteSnapshot } from 'cli/lib/api';
-import { getAuthToken } from 'cli/lib/auth';
+import { getAuthToken } from 'cli/lib/appdata';
 import { deleteSnapshotFromAppdata, getSnapshotsFromAppdata } from 'cli/lib/snapshots';
 import { Logger } from 'cli/logger';
 
-jest.mock( 'cli/lib/auth' );
+jest.mock( 'cli/lib/appdata' );
 jest.mock( 'cli/lib/snapshots' );
 jest.mock( 'cli/lib/api' );
 jest.mock( 'cli/logger' );

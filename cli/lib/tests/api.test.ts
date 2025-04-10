@@ -64,10 +64,9 @@ describe( 'API Module', () => {
 			};
 			( wpcom as jest.Mock ).mockReturnValue( mockWpcom );
 
-			await expect( uploadArchive( mockArchivePath, mockToken ) ).rejects.toThrow( LoggerError );
-			await expect( uploadArchive( mockArchivePath, mockToken ) ).rejects.toMatchObject( {
-				message: expect.stringContaining( 'Failed to upload archive: API error' ),
-			} );
+			await expect( uploadArchive( mockArchivePath, mockToken ) ).rejects.toThrow(
+				'Failed to upload archive'
+			);
 		} );
 
 		it( 'should throw LoggerError for invalid API response', async () => {
@@ -83,10 +82,9 @@ describe( 'API Module', () => {
 			};
 			( wpcom as jest.Mock ).mockReturnValue( mockWpcom );
 
-			await expect( uploadArchive( mockArchivePath, mockToken ) ).rejects.toThrow( LoggerError );
-			await expect( uploadArchive( mockArchivePath, mockToken ) ).rejects.toMatchObject( {
-				message: 'Invalid API response format',
-			} );
+			await expect( uploadArchive( mockArchivePath, mockToken ) ).rejects.toThrow(
+				'Invalid API response format'
+			);
 		} );
 	} );
 

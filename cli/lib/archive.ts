@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { __ } from '@wordpress/i18n';
 import archiver from 'archiver';
 import { LoggerError } from 'cli/logger';
 
@@ -18,8 +19,8 @@ export async function createArchive(
 		output.on( 'close', () => {
 			resolve( archive );
 		} );
-		archive.on( 'error', ( err: Error ) => {
-			reject( new LoggerError( `Failed to create archive: ${ err.message }` ) );
+		archive.on( 'error', ( error: Error ) => {
+			reject( new LoggerError( __( 'Failed to create archive' ), error ) );
 		} );
 
 		archive.pipe( output );
@@ -34,8 +35,14 @@ export async function createArchive(
 	} );
 }
 
-export function cleanup( archivePath: string ): void {
-	if ( fs.existsSync( archivePath ) ) {
-		fs.unlinkSync( archivePath );
-	}
+export async function cleanup( archivePath: string ): Promise< void > {
+	// Wrap the cleanup logic in a setTimeout to avoid race conditions
+	return new Promise( ( resolve ) => {
+		setTimeout( () => {
+			if ( fs.existsSync( archivePath ) ) {
+				fs.unlinkSync( archivePath );
+			}
+			resolve();
+		}, 0 );
+	} );
 }

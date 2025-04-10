@@ -19,40 +19,6 @@ interface WhatsNewModalProps {
 	onClose: () => void;
 }
 
-const WHATS_NEW_PAGES: WhatsNewPage[] = [
-	{
-		image: versionSwitchIllustration, // TODO: Add correct illustration for intro card
-		title: __( 'What is new in Studio?' ),
-		description: __(
-			'Discover the latest updates in Studio! Explore exciting new features designed to enhance your experience.'
-		),
-	},
-	{
-		image: customDomainIllustration,
-		title: __( 'Choose a custom domain with HTTPS support' ),
-		description: __(
-			'Easily identify your local Studio sites with custom domain names. Personalize and organize your workflow!'
-		),
-		learnMoreUrl: 'https://wordpress.com/blog/2025/03/31/studio-custom-domains-https/',
-	},
-	{
-		image: versionSwitchIllustration,
-		title: __( 'Select WordPress and PHP versions in Studio' ),
-		description: __(
-			'Select your preferred WordPress and PHP versions for existing sites or when creating a new one.'
-		),
-		learnMoreUrl: 'https://wordpress.com/blog/2025/03/17/studio-wordpress-php-versions/',
-	},
-	{
-		image: previewSitesIllustration,
-		title: __( 'Share your work easily with Preview sites' ),
-		description: __(
-			'Quickly generate a publicly accessible URL that you can share with clients and colleagues.'
-		),
-		learnMoreUrl: 'https://wordpress.com/blog/2025/02/24/studio-preview-sites/',
-	},
-];
-
 const PageContent = ( {
 	title,
 	description,
@@ -83,6 +49,40 @@ const PageContent = ( {
 );
 
 export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProps ) {
+	const whatsNewPages: WhatsNewPage[] = [
+		{
+			image: versionSwitchIllustration, // TODO: Add correct illustration for intro card
+			title: __( 'What is new in Studio?' ),
+			description: __(
+				'Discover the latest updates in Studio! Explore exciting new features designed to enhance your experience.'
+			),
+		},
+		{
+			image: customDomainIllustration,
+			title: __( 'Choose a custom domain with HTTPS support' ),
+			description: __(
+				'Easily identify your local Studio sites with custom domain names. Personalize and organize your workflow!'
+			),
+			learnMoreUrl: 'https://wordpress.com/blog/2025/03/31/studio-custom-domains-https/',
+		},
+		{
+			image: versionSwitchIllustration,
+			title: __( 'Select WordPress and PHP versions in Studio' ),
+			description: __(
+				'Select your preferred WordPress and PHP versions for existing sites or when creating a new one.'
+			),
+			learnMoreUrl: 'https://wordpress.com/blog/2025/03/17/studio-wordpress-php-versions/',
+		},
+		{
+			image: previewSitesIllustration,
+			title: __( 'Share your work easily with Preview sites' ),
+			description: __(
+				'Quickly generate a publicly accessible URL that you can share with clients and colleagues.'
+			),
+			learnMoreUrl: 'https://wordpress.com/blog/2025/02/24/studio-preview-sites/',
+		},
+	];
+
 	if ( ! showModal ) {
 		return null;
 	}
@@ -96,7 +96,7 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 				'[&_*]:select-none',
 				'focus:outline-none'
 			) }
-			pages={ WHATS_NEW_PAGES.map( ( { image, title, ...pageContent }, index ) => ( {
+			pages={ whatsNewPages.map( ( { image, title, ...pageContent }, index ) => ( {
 				image: (
 					<img
 						src={ image }

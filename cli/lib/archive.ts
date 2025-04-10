@@ -35,8 +35,14 @@ export async function createArchive(
 	} );
 }
 
-export function cleanup( archivePath: string ): void {
-	if ( fs.existsSync( archivePath ) ) {
-		fs.unlinkSync( archivePath );
-	}
+export async function cleanup( archivePath: string ): Promise< void > {
+	// Wrap the cleanup logic in a setTimeout to avoid race conditions
+	return new Promise( ( resolve ) => {
+		setTimeout( () => {
+			if ( fs.existsSync( archivePath ) ) {
+				fs.unlinkSync( archivePath );
+			}
+			resolve();
+		}, 0 );
+	} );
 }

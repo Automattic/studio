@@ -12,13 +12,13 @@ import { DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
 import { addWpVersionToList } from './add-wp-version-to-list';
 
 type WPVersionSelectorProps = {
-	siteWpVersion?: string;
-
 	selectedValue: string;
 	onChange: ( version: string ) => void;
 	errorMessage?: string | null;
 	disabled?: boolean;
+	// Is used if you want to add a custom option to the list, for example the current version of a site
 	extraOptions?: { label: string; value: string }[];
+	/** Fallback options shown when available versions couldn't be fetched */
 	fallbackOptions: { label: string; value: string }[];
 };
 
@@ -31,7 +31,6 @@ export const WPVersionSelector = ( {
 	fallbackOptions,
 }: WPVersionSelectorProps ) => {
 	const { __ } = useI18n();
-
 	const isOffline = useOffline();
 	const offlineMessage = __( 'Changing WordPress version requires an internet connection.' );
 	const { data: wpVersions = [] } = useGetWordPressVersions();
@@ -42,10 +41,8 @@ export const WPVersionSelector = ( {
 	let stableVersions: { label: string; value: string }[] = wpVersions.filter(
 		( version ) => ! version.isBeta && ! version.isDevelopment && version.value !== 'latest'
 	);
-
 	extraOptions?.forEach( ( extraOption ) => {
 		const alreadyExists = wpVersions.some( ( version ) => version.value === extraOption.value );
-
 		if ( alreadyExists ) {
 			return;
 		}

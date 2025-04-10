@@ -70,6 +70,7 @@ function getAbsoluteUrl( details: SiteDetails ): string {
 	return `http://localhost:${ details.port }`;
 }
 
+// We use SiteDetails for storing it in appdata-v1.json, so this meta was introduced for extra data which is not stored locally
 type SiteServerMeta = {
 	wpVersion?: string;
 };

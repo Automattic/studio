@@ -97,7 +97,6 @@ export function useAddSite() {
 			if ( useCustomDomain && ! customDomain ) {
 				usedCustomDomain = generateCustomDomainFromSiteName( siteName ?? '' );
 			}
-
 			await createSite(
 				path,
 				siteName ?? '',

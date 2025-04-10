@@ -43,8 +43,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 	const [ selectedPhpVersion, setSelectedPhpVersion ] = useState< AllowedPHPVersion >(
 		( selectedSite?.phpVersion as AllowedPHPVersion ) ?? DEFAULT_PHP_VERSION
 	);
-
-	const getAdjustedWpVersion = useCallback(
+	const getEffectiveWpVersion = useCallback(
 		() =>
 			// undefined means that this site was created before the isWpAutoUpdating option was introduced to Studio
 			[ undefined, true ].includes( selectedSite?.isWpAutoUpdating )
@@ -52,9 +51,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 				: currentWpVersion,
 		[ selectedSite, currentWpVersion ]
 	);
-
-	const [ selectedWpVersion, setSelectedWpVersion ] = useState( getAdjustedWpVersion() );
-
+	const [ selectedWpVersion, setSelectedWpVersion ] = useState( getEffectiveWpVersion() );
 	const [ useCustomDomain, setUseCustomDomain ] = useState( Boolean( selectedSite?.customDomain ) );
 	const [ customDomain, setCustomDomain ] = useState< string | null >(
 		selectedSite?.customDomain ?? null
@@ -83,7 +80,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 		!! selectedSite &&
 		selectedSite.name === siteName &&
 		selectedSite.phpVersion === selectedPhpVersion &&
-		getAdjustedWpVersion() === selectedWpVersion &&
+		getEffectiveWpVersion() === selectedWpVersion &&
 		Boolean( selectedSite.customDomain ) === useCustomDomain &&
 		usedCustomDomain === customDomain &&
 		!! selectedSite.enableHttps === ( !! usedCustomDomain && enableHttps );
@@ -96,13 +93,13 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 		}
 		setSiteName( selectedSite.name );
 		setSelectedPhpVersion( selectedSite.phpVersion as AllowedPHPVersion );
-		setSelectedWpVersion( getAdjustedWpVersion() );
+		setSelectedWpVersion( getEffectiveWpVersion() );
 		setUseCustomDomain( Boolean( selectedSite.customDomain ) );
 		setCustomDomain( selectedSite.customDomain ?? null );
 		setCustomDomainError( '' );
 		setErrorUpdatingWpVersion( null );
 		setEnableHttps( selectedSite.enableHttps ?? false );
-	}, [ selectedSite, getAdjustedWpVersion ] );
+	}, [ selectedSite, getEffectiveWpVersion ] );
 
 	const onSiteEdit = async ( event: FormEvent ) => {
 		event.preventDefault();
@@ -112,7 +109,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 		setIsEditingSite( true );
 		setErrorUpdatingWpVersion( null );
 
-		const hasWpVersionChanged = selectedWpVersion !== getAdjustedWpVersion();
+		const hasWpVersionChanged = selectedWpVersion !== getEffectiveWpVersion();
 		const hasPhpVersionChanged = selectedPhpVersion !== selectedSite.phpVersion;
 		const needsRestart = selectedSite.running && ( hasWpVersionChanged || hasPhpVersionChanged );
 		setNeedsRestart( needsRestart );
@@ -140,7 +137,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 						title: __( 'Error changing WordPress version' ),
 						message: errorMessage,
 					} );
-					setSelectedWpVersion( getAdjustedWpVersion() );
+					setSelectedWpVersion( getEffectiveWpVersion() );
 					setIsEditingSite( false );
 					return;
 				}

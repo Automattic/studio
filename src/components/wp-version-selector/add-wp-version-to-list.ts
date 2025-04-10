@@ -12,7 +12,6 @@ export const addWpVersionToList = ( newOption: Option, options: Option[] ): Opti
 
 	const firstOlderVersionIndex = options.findIndex( ( compareVersion ) => {
 		const compareVer = semver.coerce( compareVersion.value );
-
 		return compareVer && semver.gt( currentVer, compareVer );
 	} );
 

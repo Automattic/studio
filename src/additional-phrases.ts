@@ -6,17 +6,6 @@
 
 import { __ } from '@wordpress/i18n';
 
-/**
- * These translations are not used directly in code.
- */
-function _getAdditionalPhrases() {
-	// Navigation strings used in external components like Guide
-	const navigationStrings = {
-		next: __( 'Next' ),
-		previous: __( 'Previous' ),
-	};
-
-	return {
-		...navigationStrings,
-	};
-}
+// Navigation strings used in external components like Guide
+__( 'Next' );
+__( 'Previous' );

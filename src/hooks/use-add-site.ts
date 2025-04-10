@@ -131,12 +131,12 @@ export function useAddSite() {
 						} );
 						clearImportState( newSite.id );
 
-						getIpcApi().showNotification( {
+						void getIpcApi().showNotification( {
 							title: newSite.name,
 							body: __( 'Your new site was imported' ),
 						} );
 					} else {
-						getIpcApi().showNotification( {
+						void getIpcApi().showNotification( {
 							title: newSite.name,
 							body: __( 'Your new site was created' ),
 						} );

@@ -138,7 +138,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 				await updateSite( importedSite );
 
 				if ( showImportNotification ) {
-					getIpcApi().showNotification( {
+					void getIpcApi().showNotification( {
 						title: selectedSite.name,
 						body: __( 'Import completed' ),
 					} );
@@ -284,7 +284,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 					return;
 				}
 
-				getIpcApi().showNotification( {
+				void getIpcApi().showNotification( {
 					title: selectedSite.name,
 					body: __( 'Export completed' ),
 				} );

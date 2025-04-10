@@ -100,7 +100,7 @@ function NoAuthSyncTab() {
 									`${ WP_AUTHORIZE_ENDPOINT }?response_type=token&client_id=${ CLIENT_ID }&redirect_uri=${ PROTOCOL_PREFIX }%3A%2F%2Fauth&scope=${ SCOPES }&from-calypso=1`
 								);
 								const finalURL = `${ baseURL }?redirect_to=${ authURL }&client_id=${ CLIENT_ID }`;
-								getIpcApi().openURL( finalURL );
+								void getIpcApi().openURL( finalURL );
 							} }
 						>
 							{ __( 'Create a free account' ) }
@@ -132,7 +132,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 
 	useEffect( () => {
 		if ( isAuthenticated ) {
-			refetchSites();
+			void refetchSites();
 		}
 	}, [ isAuthenticated, refetchSites ] );
 
@@ -144,7 +144,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 		try {
 			await connectSite( newConnectedSite );
 		} catch ( error ) {
-			getIpcApi().showErrorMessageBox( {
+			void getIpcApi().showErrorMessageBox( {
 				title: __( 'Failed to connect to site' ),
 				message: __( 'Please try again.' ),
 			} );
@@ -190,13 +190,13 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 
 						const newConnectedSite = syncSites.find( ( site ) => site.id === siteId );
 						if ( ! newConnectedSite ) {
-							getIpcApi().showErrorMessageBox( {
+							void getIpcApi().showErrorMessageBox( {
 								title: __( 'Failed to connect to site' ),
 								message: __( 'Please try again.' ),
 							} );
 							return;
 						}
-						handleConnect( newConnectedSite );
+						void handleConnect( newConnectedSite );
 					} }
 					selectedSite={ selectedSite }
 				/>

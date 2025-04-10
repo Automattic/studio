@@ -91,7 +91,7 @@ const DeleteSite = ( { onClose }: DeleteSiteProps ) => {
 						return;
 					}
 					onClose();
-					handleDeleteSite();
+					void handleDeleteSite();
 				} }
 				isDestructive
 				disabled={ isSiteDeletionDisabled }

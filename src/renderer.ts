@@ -135,7 +135,7 @@ window.onunhandledrejection = ( event ) => {
 	);
 };
 
-Promise.all( [ getIpcApi().getAppGlobals(), getIpcApi().getSentryUserId() ] ).then(
+void Promise.all( [ getIpcApi().getAppGlobals(), getIpcApi().getSentryUserId() ] ).then(
 	( [ appGlobals, sentryUserId ] ) => {
 		// Ensure the app globals are available before any renderer code starts running
 		window.appGlobals = appGlobals;
@@ -170,7 +170,7 @@ Promise.all( [ getIpcApi().getAppGlobals(), getIpcApi().getSentryUserId() ] ).th
 				switch ( response ) {
 					case 0:
 						// Open Download link
-						getIpcApi().openURL( `https://developer.wordpress.com/studio/` );
+						void getIpcApi().openURL( `https://developer.wordpress.com/studio/` );
 						break;
 					case 1:
 						// User clicked Cancel
@@ -180,7 +180,7 @@ Promise.all( [ getIpcApi().getAppGlobals(), getIpcApi().getSentryUserId() ] ).th
 				}
 			};
 
-			showARM64MessageBox();
+			void showARM64MessageBox();
 		}
 
 		Sentry.setUser( { id: sentryUserId } );

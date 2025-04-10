@@ -113,7 +113,7 @@ export default function Onboarding() {
 			setEnableHttps( false );
 			loadAllCustomDomains();
 		};
-		run();
+		void run();
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [] );
 

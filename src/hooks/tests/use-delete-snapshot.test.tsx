@@ -134,7 +134,7 @@ describe( 'useSnapshots (delete functionality)', () => {
 				} );
 			} );
 		} );
-		waitFor( () => expect( result.current.snapshots ).toHaveLength( 0 ) );
+		await waitFor( () => expect( result.current.snapshots ).toHaveLength( 0 ) );
 	} );
 
 	it( 'handles failed status checks gracefully', async () => {

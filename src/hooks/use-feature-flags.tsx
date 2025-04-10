@@ -55,7 +55,7 @@ export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { c
 				console.error( error );
 			}
 		}
-		loadFeatureFlags();
+		void loadFeatureFlags();
 		return () => {
 			cancel = true;
 		};

@@ -206,7 +206,7 @@ export class SiteServer {
 
 		// Handle domain changes and url changes (updates hosts and database)
 		if ( oldDomain !== newDomain ) {
-			updateDomainInHosts( oldDomain, newDomain, this.details.port );
+			void updateDomainInHosts( oldDomain, newDomain, this.details.port );
 		}
 		if ( ( oldDomain && ! newDomain ) || oldEnableHttps !== newEnableHttps ) {
 			await updateSiteUrl( this, getSiteUrl( this.details ) );

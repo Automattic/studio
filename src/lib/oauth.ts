@@ -105,7 +105,7 @@ export function authenticate(): void {
 		REDIRECT_URI
 	) }&scope=${ encodeURIComponent( SCOPES ) }`;
 
-	shellOpenExternalWrapper( authUrl );
+	void shellOpenExternalWrapper( authUrl );
 }
 
 export async function onOpenUrlCallback( url: string ) {
@@ -116,16 +116,16 @@ export async function onOpenUrlCallback( url: string ) {
 		try {
 			const authResult = await handleAuthCallback( hash );
 			await storeToken( authResult );
-			sendIpcEventToRenderer( 'auth-updated', { token: authResult } );
+			void sendIpcEventToRenderer( 'auth-updated', { token: authResult } );
 		} catch ( error ) {
 			Sentry.captureException( error );
-			sendIpcEventToRenderer( 'auth-updated', { error } );
+			void sendIpcEventToRenderer( 'auth-updated', { error } );
 		}
 	} else if ( host === 'sync-connect-site' ) {
 		const remoteSiteId = parseInt( searchParams.get( 'remoteSiteId' ) ?? '' );
 		const studioSiteId = searchParams.get( 'studioSiteId' );
 		if ( remoteSiteId && studioSiteId ) {
-			sendIpcEventToRenderer( 'sync-connect-site', { remoteSiteId, studioSiteId } );
+			void sendIpcEventToRenderer( 'sync-connect-site', { remoteSiteId, studioSiteId } );
 		}
 	}
 }

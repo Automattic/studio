@@ -181,8 +181,8 @@ describe( 'useUpdateDemoSite', () => {
 
 		// Start updating both sites
 		await act( async () => {
-			result.current.updateDemoSite( mockSnapshot, mockLocalSite );
-			result.current.updateDemoSite( mockSnapshot2, mockLocalSite2 );
+			void result.current.updateDemoSite( mockSnapshot, mockLocalSite );
+			void result.current.updateDemoSite( mockSnapshot2, mockLocalSite2 );
 		} );
 
 		// Initially, both sites should be marked as updating

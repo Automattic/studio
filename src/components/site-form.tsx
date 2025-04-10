@@ -500,7 +500,7 @@ export const SiteForm = ( {
 												<Button
 													variant="link"
 													onClick={ () => {
-														getIpcApi().openURL(
+														void getIpcApi().openURL(
 															'https://developer.wordpress.com/docs/developer-tools/studio/ssl-in-studio/'
 														);
 													} }

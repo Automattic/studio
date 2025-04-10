@@ -210,7 +210,7 @@ export const useFetchWpComSites = ( connectedSiteIdsOnlyForSelectedSite: number[
 	}, [ client?.req, isAuthenticated, isOffline ] );
 
 	useEffect( () => {
-		fetchSites();
+		void fetchSites();
 	}, [ fetchSites ] );
 
 	const syncSitesWithSyncSupportForSelectedSite = useMemo(

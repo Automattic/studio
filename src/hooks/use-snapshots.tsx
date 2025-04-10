@@ -122,7 +122,7 @@ export const SnapshotProvider: React.FC< { children: ReactNode } > = ( { childre
 		if ( ! initiated ) {
 			return;
 		}
-		getIpcApi().saveSnapshotsToStorage( snapshots );
+		void getIpcApi().saveSnapshotsToStorage( snapshots );
 	}, [ snapshots, initiated ] );
 
 	useLayoutEffect( () => {
@@ -131,6 +131,9 @@ export const SnapshotProvider: React.FC< { children: ReactNode } > = ( { childre
 			.then( ( storedSnapshots ) => {
 				setSnapshots( storedSnapshots );
 				setInitiated( true );
+			} )
+			.catch( ( error ) => {
+				Sentry.captureException( error );
 			} );
 	}, [] );
 
@@ -223,7 +226,7 @@ export const SnapshotProvider: React.FC< { children: ReactNode } > = ( { childre
 			}
 			setAllSnapshots( sites );
 		};
-		fetchSnapshots();
+		void fetchSnapshots();
 	}, [ client, fetchAllSnapshots, activeSnapshotCount, initiated ] );
 
 	const deleteSnapshot = useCallback(
@@ -317,7 +320,7 @@ export const SnapshotProvider: React.FC< { children: ReactNode } > = ( { childre
 			setActiveSnapshotCount( site_count );
 			setSnapshotQuota( site_limit );
 		};
-		fetchStats();
+		void fetchStats();
 	}, [ client, fetchSnapshotUsage, initiated, snapshots.length ] );
 
 	useEffect( () => {
@@ -348,7 +351,7 @@ export const SnapshotProvider: React.FC< { children: ReactNode } > = ( { childre
 								isLoading: false,
 							} );
 							stopCreationProgress();
-							getIpcApi().showNotification( {
+							void getIpcApi().showNotification( {
 								title: snapshot.name,
 								body: sprintf( __( "Preview site '%s' has been created." ), snapshot.url ),
 							} );

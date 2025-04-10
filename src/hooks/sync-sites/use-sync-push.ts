@@ -66,9 +66,9 @@ export function useSyncPush( {
 			const statusKey = state.status?.key;
 
 			if ( isKeyFailed( statusKey ) || isKeyFinished( statusKey ) ) {
-				getIpcApi().clearSyncOperation( generateStateId( selectedSiteId, remoteSiteId ) );
+				void getIpcApi().clearSyncOperation( generateStateId( selectedSiteId, remoteSiteId ) );
 			} else {
-				getIpcApi().addSyncOperation( generateStateId( selectedSiteId, remoteSiteId ) );
+				void getIpcApi().addSyncOperation( generateStateId( selectedSiteId, remoteSiteId ) );
 			}
 		},
 		[ isKeyFailed, isKeyFinished, updateState ]
@@ -77,7 +77,7 @@ export function useSyncPush( {
 	const clearPushState = useCallback< ClearState >(
 		( selectedSiteId, remoteSiteId ) => {
 			clearState( selectedSiteId, remoteSiteId );
-			getIpcApi().clearSyncOperation( generateStateId( selectedSiteId, remoteSiteId ) );
+			void getIpcApi().clearSyncOperation( generateStateId( selectedSiteId, remoteSiteId ) );
 		},
 		[ clearState ]
 	);
@@ -101,7 +101,7 @@ export function useSyncPush( {
 			if ( response.success && response.status === 'finished' ) {
 				status = pushStatesProgressInfo.finished;
 				onPushSuccess?.( remoteSiteId, syncPushState.selectedSite.id );
-				getIpcApi().showNotification( {
+				void getIpcApi().showNotification( {
 					title: syncPushState.selectedSite.name,
 					body: syncPushState.isStaging
 						? __( 'Staging has been updated' )
@@ -109,7 +109,7 @@ export function useSyncPush( {
 				} );
 			} else if ( response.success && response.status === 'failed' ) {
 				status = pushStatesProgressInfo.failed;
-				getIpcApi().showErrorMessageBox( {
+				void getIpcApi().showErrorMessageBox( {
 					title: sprintf( __( 'Error pushing to %s' ), syncPushState.selectedSite.name ),
 					message:
 						response.error === 'Import timed out'
@@ -177,7 +177,7 @@ export function useSyncPush( {
 				updatePushState( selectedSite.id, remoteSiteId, {
 					status: pushStatesProgressInfo.failed,
 				} );
-				getIpcApi().showErrorMessageBox( {
+				void getIpcApi().showErrorMessageBox( {
 					title: sprintf( __( 'Error pushing to %s' ), connectedSite.name ),
 					message: __(
 						'An error occurred while pushing the site. If this problem persists, please contact support.'
@@ -192,7 +192,7 @@ export function useSyncPush( {
 				updatePushState( selectedSite.id, remoteSiteId, {
 					status: pushStatesProgressInfo.failed,
 				} );
-				getIpcApi().showErrorMessageBox( {
+				void getIpcApi().showErrorMessageBox( {
 					title: sprintf( __( 'Error pushing to %s' ), connectedSite.name ),
 					message: __(
 						'The site is too large to push. Please reduce the size of the site and try again.'
@@ -228,7 +228,7 @@ export function useSyncPush( {
 				updatePushState( selectedSite.id, remoteSiteId, {
 					status: pushStatesProgressInfo.failed,
 				} );
-				getIpcApi().showErrorMessageBox( {
+				void getIpcApi().showErrorMessageBox( {
 					title: sprintf( __( 'Error pushing to %s' ), connectedSite.name ),
 					message: getErrorFromResponse( error ),
 				} );
@@ -245,7 +245,7 @@ export function useSyncPush( {
 		Object.entries( pushStates ).forEach( ( [ key, state ] ) => {
 			if ( state.status.key === pushStatesProgressInfo.importing.key ) {
 				intervals[ key ] = setTimeout( () => {
-					getPushProgressInfo( state.remoteSiteId, state );
+					void getPushProgressInfo( state.remoteSiteId, state );
 				}, 2000 );
 			}
 		} );

@@ -21,7 +21,7 @@ export function useSiteSize( siteId: string ) {
 
 	// Check size when siteId changes
 	useEffect( () => {
-		checkSiteSize();
+		void checkSiteSize();
 	}, [ checkSiteSize ] );
 
 	// Check size when window gains focus

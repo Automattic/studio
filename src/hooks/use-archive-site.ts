@@ -42,7 +42,7 @@ export function useArchiveSite() {
 			startCreationProgress();
 			if ( ! client || ! user?.id ) {
 				// No-op if logged out
-				getIpcApi().showErrorMessageBox( {
+				void getIpcApi().showErrorMessageBox( {
 					title: __( 'Failed to archive site' ),
 					message: sprintf(
 						__( 'There was an authentication error. Please reauthenticate and try again.' )
@@ -69,7 +69,7 @@ export function useArchiveSite() {
 				archivePath = tempArchivePath;
 
 				if ( archiveSizeInBytes > DEMO_SITE_SIZE_LIMIT_BYTES ) {
-					getIpcApi().showErrorMessageBox( {
+					void getIpcApi().showErrorMessageBox( {
 						title: __( 'Adding preview site failed' ),
 						message: sprintf(
 							__(
@@ -79,7 +79,7 @@ export function useArchiveSite() {
 						),
 					} );
 					setUploadingSites( ( _uploadingSites ) => ( { ..._uploadingSites, [ siteId ]: false } ) );
-					getIpcApi().removeTemporalFile( archivePath );
+					void getIpcApi().removeTemporalFile( archivePath );
 					return;
 				}
 
@@ -147,10 +147,10 @@ export function useArchiveSite() {
 						Sentry.captureException( error );
 					}
 				} finally {
-					getIpcApi().removeTemporalFile( archivePath );
+					void getIpcApi().removeTemporalFile( archivePath );
 				}
 			} catch ( error ) {
-				getIpcApi().showErrorMessageBox( {
+				void getIpcApi().showErrorMessageBox( {
 					title: __( 'Archiving failed' ),
 					message: __( 'Error sharing site. Please try again.' ),
 					error,
@@ -159,7 +159,7 @@ export function useArchiveSite() {
 			} finally {
 				setUploadingSites( ( _uploadingSites ) => ( { ..._uploadingSites, [ siteId ]: false } ) );
 				if ( archivePath ) {
-					getIpcApi().removeTemporalFile( archivePath );
+					void getIpcApi().removeTemporalFile( archivePath );
 				}
 			}
 		},

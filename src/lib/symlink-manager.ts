@@ -63,30 +63,25 @@ export class SymlinkManager {
 	/**
 	 * Watches the project path for changes and update symlinks accordingly.
 	 */
-	startWatching() {
+	async startWatching() {
 		this.watcherAbortController = new AbortController();
 		const { signal } = this.watcherAbortController;
 		this.watcher = fs.watch( this.projectPath, { recursive: true, signal } );
 
-		return new Promise< void >( ( resolve, reject ) => {
-			( async () => {
-				try {
-					if ( ! this.watcher ) {
-						return resolve();
-					}
-					for await ( const change of this.watcher ) {
-						await this.handleFileChange( change );
-					}
-					resolve();
-				} catch ( err ) {
-					// AbortError is expected when the watcher is stopped intentionally
-					if ( err instanceof Error && err.name === 'AbortError' ) {
-						return resolve();
-					}
-					reject( err );
-				}
-			} )();
-		} );
+		try {
+			if ( ! this.watcher ) {
+				return;
+			}
+			for await ( const change of this.watcher ) {
+				await this.handleFileChange( change );
+			}
+		} catch ( err ) {
+			// AbortError is expected when the watcher is stopped intentionally
+			if ( err instanceof Error && err.name === 'AbortError' ) {
+				return;
+			}
+			throw err;
+		}
 	}
 
 	/**

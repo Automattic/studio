@@ -41,9 +41,9 @@ export function PreviewActionButtonsMenu( {
 		confirmButtonLabel: __( 'Update' ),
 	} );
 
-	const handleUpdatePreviewSite = async () => {
-		showUpdatePreviewConfirmation( () => {
-			updateDemoSite( snapshot, selectedSite );
+	const handleUpdatePreviewSite = () => {
+		void showUpdatePreviewConfirmation( () => {
+			void updateDemoSite( snapshot, selectedSite );
 		} );
 	};
 
@@ -56,9 +56,9 @@ export function PreviewActionButtonsMenu( {
 		confirmButtonLabel: __( 'Delete' ),
 	} );
 
-	const handleDeletePreviewSite = async () => {
-		showDeletePreviewConfirmation( () => {
-			deleteSnapshot( snapshot );
+	const handleDeletePreviewSite = () => {
+		void showDeletePreviewConfirmation( () => {
+			void deleteSnapshot( snapshot );
 		} );
 	};
 

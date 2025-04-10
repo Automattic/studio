@@ -184,7 +184,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			// Function to handle error messages and cleanup
 			const showError = ( error?: unknown ) => {
 				console.error( 'Failed to create site' );
-				getIpcApi().showErrorMessageBox( {
+				void getIpcApi().showErrorMessageBox( {
 					title: __( 'Failed to create site' ),
 					message: __(
 						'An error occurred while creating the site. Verify your selected local path is an empty directory or an existing WordPress folder and try again. If this problem persists, please contact support.'
@@ -277,7 +277,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 				updatedSite = await getIpcApi().startServer( id );
 			} catch ( error ) {
 				if ( error instanceof Error && error.message.includes( 'PROXY_ERROR_PORT_IN_USE' ) ) {
-					getIpcApi().showErrorMessageBox( {
+					void getIpcApi().showErrorMessageBox( {
 						title: __( 'Studio failed to initialize custom domains' ),
 						message: __(
 							'Studio needs to use port 80 and 443 to enable custom domains and SSL, but one of both of these ports are already in use by another app. Close any local development apps and restart Studio.'
@@ -288,7 +288,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					error instanceof Error &&
 					error.message.includes( 'PROXY_ERROR_START_FAILED' )
 				) {
-					getIpcApi().showErrorMessageBox( {
+					void getIpcApi().showErrorMessageBox( {
 						title: __( 'Studio failed to initialize custom domains' ),
 						message: __(
 							'Please restart Studio and try again. If this problem persists, please contact support.'
@@ -296,7 +296,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 						showOpenLogs: true,
 					} );
 				} else {
-					getIpcApi().showErrorMessageBox( {
+					void getIpcApi().showErrorMessageBox( {
 						title: __( 'Failed to start the site server' ),
 						message: __(
 							"Please verify your site's local path directory contains the standard WordPress installation files and try again. If this problem persists, please contact support."
@@ -325,7 +325,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		( sites: SiteDetails[] ) => {
 			for ( const site of sites ) {
 				if ( site.autoStart ) {
-					startServer( site.id );
+					void startServer( site.id );
 				}
 			}
 		},
@@ -343,6 +343,10 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					setLoadingSites( false );
 					autoStartSites( data );
 				}
+			} )
+			.catch( ( error ) => {
+				console.error( 'Error fetching site details:', error );
+				setLoadingSites( false );
 			} );
 
 		return () => {

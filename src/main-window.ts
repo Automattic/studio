@@ -26,7 +26,7 @@ let mainWindow: BrowserWindow | null;
 function setupDevTools( mainWindow: BrowserWindow | null, devToolsOpen?: boolean ) {
 	if ( devToolsOpen || ( process.env.NODE_ENV === 'development' && devToolsOpen === undefined ) ) {
 		mainWindow?.webContents.openDevTools();
-		installExtension( REACT_DEVELOPER_TOOLS );
+		void installExtension( REACT_DEVELOPER_TOOLS );
 	}
 }
 
@@ -50,7 +50,7 @@ async function removeSitesWithEmptyDirectories( userData: UserData ) {
 			sitesWithNonEmptyDirectories.push( site );
 		}
 	}
-	saveUserData( { ...userData, sites: sitesWithNonEmptyDirectories } );
+	void saveUserData( { ...userData, sites: sitesWithNonEmptyDirectories } );
 }
 
 export function createMainWindow(): BrowserWindow {
@@ -70,18 +70,18 @@ export function createMainWindow(): BrowserWindow {
 		...getOSWindowOptions(),
 	} );
 
-	mainWindow.loadURL( MAIN_WINDOW_WEBPACK_ENTRY );
+	void mainWindow.loadURL( MAIN_WINDOW_WEBPACK_ENTRY );
 
 	// Open the DevTools if the user had it open last time they used the app.
 	// During development the dev tools default to open.
-	loadUserData().then( ( userData ) => {
+	void loadUserData().then( ( userData ) => {
 		const { devToolsOpen, sites } = userData;
 		setupDevTools( mainWindow, devToolsOpen );
 		initializePortFinder( sites );
-		removeSitesWithEmptyDirectories( userData );
+		void removeSitesWithEmptyDirectories( userData );
 		for ( const site of sites ) {
-			moveDatabasesInSitu( site.path ).then( () => {
-				keepSqliteIntegrationUpdated( site.path );
+			void moveDatabasesInSitu( site.path ).then( () => {
+				void keepSqliteIntegrationUpdated( site.path );
 			} );
 		}
 	} );

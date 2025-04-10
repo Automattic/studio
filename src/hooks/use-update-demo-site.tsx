@@ -55,7 +55,7 @@ export const DemoSiteUpdateProvider: React.FC< DemoSiteUpdateProviderProps > = (
 				archivePath = tempArchivePath;
 
 				if ( archiveSizeInBytes > DEMO_SITE_SIZE_LIMIT_BYTES ) {
-					getIpcApi().showErrorMessageBox( {
+					void getIpcApi().showErrorMessageBox( {
 						title: __( 'Updating preview site failed' ),
 						message: sprintf(
 							__(
@@ -70,7 +70,7 @@ export const DemoSiteUpdateProvider: React.FC< DemoSiteUpdateProviderProps > = (
 						newSet.delete( snapshot.atomicSiteId );
 						return newSet;
 					} );
-					getIpcApi().removeTemporalFile( archivePath );
+					void getIpcApi().removeTemporalFile( archivePath );
 					return;
 				}
 
@@ -108,7 +108,7 @@ export const DemoSiteUpdateProvider: React.FC< DemoSiteUpdateProviderProps > = (
 				return response;
 			} catch ( error ) {
 				setErrorSites( ( prev ) => new Set( prev ).add( snapshot.atomicSiteId ) );
-				getIpcApi().showErrorMessageBox( {
+				void getIpcApi().showErrorMessageBox( {
 					title: __( 'Update failed' ),
 					message: sprintf(
 						__( "We couldn't update the %s preview site. Please try again." ),
@@ -124,7 +124,7 @@ export const DemoSiteUpdateProvider: React.FC< DemoSiteUpdateProviderProps > = (
 					return next;
 				} );
 				if ( archivePath ) {
-					getIpcApi().removeTemporalFile( archivePath );
+					void getIpcApi().removeTemporalFile( archivePath );
 				}
 			}
 		},

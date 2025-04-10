@@ -99,7 +99,7 @@ export default function TopBar( { onToggleSidebar }: TopBarProps ) {
 	const getDocsLink = useDocsLink();
 
 	const openDocs = () => {
-		getIpcApi().openURL( getDocsLink( 'studio' ) );
+		void getIpcApi().openURL( getDocsLink( 'studio' ) );
 	};
 
 	return (

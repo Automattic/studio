@@ -71,9 +71,9 @@ export function useSyncPull( {
 			const statusKey = state.status?.key;
 
 			if ( isKeyFailed( statusKey ) || isKeyFinished( statusKey ) ) {
-				getIpcApi().clearSyncOperation( generateStateId( selectedSiteId, remoteSiteId ) );
+				void getIpcApi().clearSyncOperation( generateStateId( selectedSiteId, remoteSiteId ) );
 			} else {
-				getIpcApi().addSyncOperation( generateStateId( selectedSiteId, remoteSiteId ) );
+				void getIpcApi().addSyncOperation( generateStateId( selectedSiteId, remoteSiteId ) );
 			}
 		},
 		[ isKeyFailed, isKeyFinished, updateState ]
@@ -82,7 +82,7 @@ export function useSyncPull( {
 	const clearPullState = useCallback< ClearState >(
 		( selectedSiteId, remoteSiteId ) => {
 			clearState( selectedSiteId, remoteSiteId );
-			getIpcApi().clearSyncOperation( generateStateId( selectedSiteId, remoteSiteId ) );
+			void getIpcApi().clearSyncOperation( generateStateId( selectedSiteId, remoteSiteId ) );
 		},
 		[ clearState ]
 	);
@@ -128,7 +128,7 @@ export function useSyncPull( {
 					status: pullStatesProgressInfo.failed,
 				} );
 
-				getIpcApi().showErrorMessageBox( {
+				void getIpcApi().showErrorMessageBox( {
 					title: sprintf( __( 'Error pulling from %s' ), connectedSite.name ),
 					message: __( 'Studio was unable to connect to WordPress.com. Please try again.' ),
 				} );
@@ -213,7 +213,7 @@ export function useSyncPull( {
 					status: pullStatesProgressInfo.finished,
 				} );
 
-				getIpcApi().showNotification( {
+				void getIpcApi().showNotification( {
 					title: selectedSite.name,
 					body: isStaging
 						? __( 'Studio site updated from Staging' )
@@ -227,7 +227,7 @@ export function useSyncPull( {
 				updatePullState( selectedSite.id, remoteSiteId, {
 					status: pullStatesProgressInfo.failed,
 				} );
-				getIpcApi().showErrorMessageBox( {
+				void getIpcApi().showErrorMessageBox( {
 					title: sprintf( __( 'Error pulling from %s' ), selectedSite.name ),
 					message: __( 'Failed to check backup file size. Please try again.' ),
 				} );
@@ -307,7 +307,7 @@ export function useSyncPull( {
 		Object.entries( pullStates ).forEach( ( [ key, state ] ) => {
 			if ( state.backupId && state.status.key === 'in-progress' ) {
 				intervals[ key ] = setTimeout( () => {
-					fetchAndUpdateBackup( state.remoteSiteId, state.selectedSite.id );
+					void fetchAndUpdateBackup( state.remoteSiteId, state.selectedSite.id );
 				}, 2000 );
 			}
 		} );

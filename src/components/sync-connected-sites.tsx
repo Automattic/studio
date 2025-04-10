@@ -77,12 +77,12 @@ const SyncConnectedSiteControls = ( {
 	} );
 	const handlePushSite = async ( connectedSite: SyncSite ) => {
 		if ( connectedSite.isStaging ) {
-			showPushStagingConfirmation( () => {
-				pushSite( connectedSite, selectedSite );
+			void showPushStagingConfirmation( () => {
+				void pushSite( connectedSite, selectedSite );
 			} );
 		} else {
-			showPushProductionConfirmation( () => {
-				pushSite( connectedSite, selectedSite );
+			void showPushProductionConfirmation( () => {
+				void pushSite( connectedSite, selectedSite );
 			} );
 		}
 	};
@@ -135,7 +135,7 @@ const SyncConnectedSiteControls = ( {
 									: __(
 											"Pulling will replace your Studio site's files and database with a copy from your production site."
 									  );
-								showPullConfirmation( () => pullSite( connectedSite, selectedSite ), {
+								void showPullConfirmation( () => pullSite( connectedSite, selectedSite ), {
 									detail,
 								} );
 							} }
@@ -231,7 +231,7 @@ const SyncConnectedSitesList = ( { selectedSite }: SyncConnectedSitesListProps )
 							variant="link"
 							className="!text-a8c-gray-70 hover:!text-a8c-blueberry max-w-full overflow-hidden"
 							onClick={ () => {
-								getIpcApi().openURL( connectedSite.url );
+								void getIpcApi().openURL( connectedSite.url );
 							} }
 						>
 							<span className="truncate">{ connectedSite.url }</span> <ArrowIcon />

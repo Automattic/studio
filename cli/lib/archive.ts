@@ -30,7 +30,7 @@ export async function createArchive(
 			archive.file( wpConfigPath, { name: 'wp-config.php' } );
 		}
 
-		archive.finalize();
+		archive.finalize().catch( reject );
 	} );
 }
 

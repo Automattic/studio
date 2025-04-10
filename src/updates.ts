@@ -75,7 +75,7 @@ export function setupUpdates() {
 
 		const isReadOnlyVolumeError = 'code' in err && err.code === 8;
 		if ( isReadOnlyVolumeError && process.platform === 'darwin' ) {
-			showReadOnlyVolumeError( err );
+			void showReadOnlyVolumeError( err );
 			return;
 		}
 

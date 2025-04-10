@@ -93,7 +93,7 @@ export function PreviewSiteRow( {
 	};
 
 	useEffect( () => {
-		fetchSnapshotUsage();
+		void fetchSnapshotUsage();
 	}, [ fetchSnapshotUsage ] );
 
 	const urlWithHTTPS = `https://${ url }`;

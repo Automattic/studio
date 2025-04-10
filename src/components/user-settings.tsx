@@ -204,7 +204,7 @@ export default function UserSettings() {
 	useEffect( () => {
 		if ( deletedAllSnapshots && ! loadingDeletingAllSnapshots ) {
 			setDeletedAllSnapshots( false );
-			getIpcApi().showNotification( {
+			void getIpcApi().showNotification( {
 				title: __( 'Delete Successful' ),
 				body: __( 'All preview sites have been deleted.' ),
 			} );

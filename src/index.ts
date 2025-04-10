@@ -64,13 +64,13 @@ let finishedInitialization = false;
 
 if ( gotTheLock && ! isInInstaller ) {
 	if ( isCLI() ) {
-		processCLICommand( { mainInstance: true, appBoot } );
+		void processCLICommand( { mainInstance: true, appBoot } );
 	} else {
-		appBoot();
+		void appBoot();
 	}
 } else if ( ! gotTheLock ) {
 	if ( isCLI() ) {
-		processCLICommand( { mainInstance: false } );
+		void processCLICommand( { mainInstance: false } );
 	} else {
 		app.quit();
 	}
@@ -165,7 +165,7 @@ async function appBoot() {
 	function setupCustomProtocolHandler() {
 		if ( process.platform === 'darwin' ) {
 			app.on( 'open-url', ( _event, url ) => {
-				onOpenUrlCallback( url );
+				void onOpenUrlCallback( url );
 			} );
 		} else {
 			// Handle custom protocol links on Windows and Linux
@@ -184,7 +184,7 @@ async function appBoot() {
 
 				const customProtocolParameter = argv?.find( ( arg ) => arg.startsWith( PROTOCOL_PREFIX ) );
 				if ( customProtocolParameter ) {
-					await onOpenUrlCallback( customProtocolParameter );
+					void onOpenUrlCallback( customProtocolParameter );
 				}
 			} );
 		}
@@ -269,7 +269,7 @@ async function appBoot() {
 
 		// Handle CLI commands
 		listenCLICommands();
-		executeCLICommand();
+		void executeCLICommand();
 
 		// Bump stats for the first time the app runs - this is when no lastBumpStats are available
 		if ( ! userData.lastBumpStats ) {
@@ -331,8 +331,10 @@ async function appBoot() {
 	} );
 
 	app.on( 'quit', () => {
-		stopAllServersOnQuit();
-		stopProxyServer().catch( ( error ) => console.error( 'Error stopping proxy server:', error ) );
+		void stopAllServersOnQuit();
+		void stopProxyServer().catch( ( error ) => {
+			console.error( 'Error stopping proxy server:', error );
+		} );
 	} );
 
 	app.on( 'activate', () => {

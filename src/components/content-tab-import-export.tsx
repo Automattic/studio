@@ -48,7 +48,7 @@ export const ExportSite = ( {
 	const handleExport = async ( exportFunction: typeof exportFullSite | typeof exportDatabase ) => {
 		const exportPath = await exportFunction( selectedSite );
 		if ( exportPath ) {
-			getIpcApi().showItemInFolder( exportPath );
+			void getIpcApi().showItemInFolder( exportPath );
 		}
 	};
 
@@ -166,7 +166,7 @@ const ImportSite = ( {
 			if ( isImporting ) {
 				return;
 			}
-			importConfirmation( () => importFile( file, selectedSite ) );
+			void importConfirmation( () => importFile( file, selectedSite ) );
 		},
 	} );
 	const inputFileRef = useRef< HTMLInputElement >( null );
@@ -178,7 +178,7 @@ const ImportSite = ( {
 		if ( ! file ) {
 			return;
 		}
-		importConfirmation( async () => {
+		void importConfirmation( async () => {
 			clearImportFileInput();
 			await importFile( file, selectedSite );
 		} );
@@ -188,7 +188,7 @@ const ImportSite = ( {
 			speak( __( 'Starting the server before opening the site link' ) );
 			await startServer( selectedSite.id );
 		}
-		getIpcApi().openSiteURL( selectedSite.id, '', { autoLogin: false } );
+		void getIpcApi().openSiteURL( selectedSite.id, '', { autoLogin: false } );
 	};
 	const clearImportFileInput = () => {
 		if ( inputFileRef.current ) {
@@ -301,6 +301,9 @@ export function ContentTabImportExport( { selectedSite }: ContentTabImportExport
 			.isImportExportSupported( selectedSite.id )
 			.then( ( result ) => {
 				setIsSupported( result );
+			} )
+			.catch( () => {
+				setIsSupported( false );
 			} );
 	}, [ selectedSite.id, selectedSite.running ] );
 

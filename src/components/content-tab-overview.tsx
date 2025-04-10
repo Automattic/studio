@@ -53,14 +53,14 @@ function CustomizeSection( {
 			label: __( 'Site Editor' ),
 			icon: desktop,
 			onClick: () => {
-				getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/site-editor.php' );
+				void getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/site-editor.php' );
 			},
 		},
 		{
 			label: __( 'Styles' ),
 			icon: styles,
 			onClick: () => {
-				getIpcApi().openSiteURL(
+				void getIpcApi().openSiteURL(
 					selectedSite.id,
 					'/wp-admin/site-editor.php?path=%2Fwp_global_styles'
 				);
@@ -70,28 +70,37 @@ function CustomizeSection( {
 			label: __( 'Patterns' ),
 			icon: symbolFilled,
 			onClick: () => {
-				getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/site-editor.php?path=%2Fpatterns' );
+				void getIpcApi().openSiteURL(
+					selectedSite.id,
+					'/wp-admin/site-editor.php?path=%2Fpatterns'
+				);
 			},
 		},
 		{
 			label: __( 'Navigation' ),
 			icon: navigation,
 			onClick: () => {
-				getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/site-editor.php?path=%2Fnavigation' );
+				void getIpcApi().openSiteURL(
+					selectedSite.id,
+					'/wp-admin/site-editor.php?path=%2Fnavigation'
+				);
 			},
 		},
 		{
 			label: __( 'Templates' ),
 			icon: layout,
 			onClick: () => {
-				getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/site-editor.php?path=%2Fwp_template' );
+				void getIpcApi().openSiteURL(
+					selectedSite.id,
+					'/wp-admin/site-editor.php?path=%2Fwp_template'
+				);
 			},
 		},
 		{
 			label: __( 'Pages' ),
 			icon: page,
 			onClick: () => {
-				getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/site-editor.php?path=%2Fpage' );
+				void getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/site-editor.php?path=%2Fpage' );
 			},
 		},
 	];
@@ -100,7 +109,9 @@ function CustomizeSection( {
 		{
 			label: __( 'Customizer' ),
 			icon: edit,
-			onClick: () => getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/customize.php' ),
+			onClick: () => {
+				void getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/customize.php' );
+			},
 		},
 	];
 
@@ -108,7 +119,9 @@ function CustomizeSection( {
 		classicThemeButtons.push( {
 			label: __( 'Menus' ),
 			icon: navigation,
-			onClick: () => getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/nav-menus.php' ),
+			onClick: () => {
+				void getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/nav-menus.php' );
+			},
 		} );
 	}
 
@@ -116,7 +129,9 @@ function CustomizeSection( {
 		classicThemeButtons.push( {
 			label: __( 'Widgets' ),
 			icon: widget,
-			onClick: () => getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/widgets.php' ),
+			onClick: () => {
+				void getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/widgets.php' );
+			},
 		} );
 	}
 
@@ -149,7 +164,7 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 			className: 'text-nowrap',
 			icon: archive,
 			onClick: () => {
-				getIpcApi().openLocalPath( selectedSite.path );
+				void getIpcApi().openLocalPath( selectedSite.path );
 			},
 		},
 	];
@@ -162,7 +177,7 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 			className: 'text-nowrap',
 			icon: code,
 			onClick: () => {
-				getIpcApi().openURL( `vscode://file/${ selectedSite.path }?windowId=_blank` );
+				void getIpcApi().openURL( `vscode://file/${ selectedSite.path }?windowId=_blank` );
 			},
 		} );
 	} else if ( installedApps.phpstorm ) {
@@ -173,7 +188,7 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 			className: 'text-nowrap',
 			icon: code,
 			onClick: () => {
-				getIpcApi().openURL( `phpstorm://open?file=${ selectedSite.path }` );
+				void getIpcApi().openURL( `phpstorm://open?file=${ selectedSite.path }` );
 			},
 		} );
 	}
@@ -216,7 +231,7 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 		if ( ! selectedSite.running ) {
 			await startServer( selectedSite.id );
 		}
-		getIpcApi().openSiteURL( selectedSite.id, '', { autoLogin: false } );
+		void getIpcApi().openSiteURL( selectedSite.id, '', { autoLogin: false } );
 	};
 
 	const thumbnailImage = (

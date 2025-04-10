@@ -2,6 +2,7 @@ import { Guide } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import customDomainIllustration from 'src/modules/whats-new/assets/custom-domains-illustration.svg';
 import previewSitesIllustration from 'src/modules/whats-new/assets/preview-sites-illustration.svg';
 import versionSwitchIllustration from 'src/modules/whats-new/assets/version-switch-illustration.svg';
 import 'src/index.css';
@@ -27,7 +28,7 @@ const WHATS_NEW_PAGES: WhatsNewPage[] = [
 		),
 	},
 	{
-		image: previewSitesIllustration, // TODO: Add correct illustration
+		image: customDomainIllustration,
 		title: __( 'Choose a custom domain with HTTPS support' ),
 		description: __(
 			'Easily identify your local Studio sites with custom domain names. Personalize and organize your workflow!'

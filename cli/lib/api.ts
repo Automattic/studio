@@ -1,4 +1,5 @@
 import fs from 'fs';
+import { __ } from '@wordpress/i18n';
 import WPCOM from 'wpcom';
 import { z } from 'zod';
 import { LoggerError } from 'cli/logger';
@@ -127,9 +128,9 @@ export async function deleteSnapshot( atomicSiteId: number, token: string ): Pro
 				return;
 			}
 
-			throw new LoggerError( 'Failed to delete preview site', error );
+			throw new LoggerError( __( 'Failed to delete preview site' ), error );
 		}
 
-		throw new LoggerError( 'Failed to delete preview site' );
+		throw new LoggerError( __( 'Failed to delete preview site' ) );
 	}
 }

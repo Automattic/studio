@@ -1,3 +1,4 @@
+import { __ } from '@wordpress/i18n';
 import { deleteSnapshot } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/auth';
 import { deleteSnapshotFromAppdata, getSnapshotsFromAppdata } from 'cli/lib/snapshots';
@@ -13,24 +14,29 @@ async function runCommand( host: string, outputFormat?: OutputFormat ): Promise<
 	const logger = new Logger< LoggerAction >( outputFormat );
 
 	try {
-		logger.reportStart( LoggerAction.VALIDATE, 'Validating...' );
+		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating...' ) );
 		const token = await getAuthToken();
 		const snapshots = await getSnapshotsFromAppdata( token.id );
 		const snapshotToDelete = snapshots.find( ( s ) => s.url === host );
 		if ( ! snapshotToDelete ) {
-			throw new LoggerError( 'Preview site not found' );
+			throw new LoggerError(
+				__(
+					'Preview site not found. ' +
+						'Use the `studio preview list` command to see available preview sites.'
+				)
+			);
 		}
-		logger.reportSuccess( 'Validation successful' );
+		logger.reportSuccess( __( 'Validation successful' ) );
 
-		logger.reportStart( LoggerAction.DELETE, 'Deleting...' );
+		logger.reportStart( LoggerAction.DELETE, __( 'Deleting...' ) );
 		await deleteSnapshot( snapshotToDelete.atomicSiteId, token.accessToken );
 		await deleteSnapshotFromAppdata( snapshotToDelete.url );
-		logger.reportSuccess( 'Deletion successful' );
+		logger.reportSuccess( __( 'Deletion successful' ) );
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {
 			logger.reportError( error );
 		} else {
-			const loggerError = new LoggerError( 'Failed to delete preview site' );
+			const loggerError = new LoggerError( __( 'Failed to delete preview site' ) );
 			logger.reportError( loggerError );
 		}
 	}
@@ -39,10 +45,10 @@ async function runCommand( host: string, outputFormat?: OutputFormat ): Promise<
 export const registerCommand: RegisterCommand = ( program ) => {
 	program
 		.command( 'delete <host>' )
-		.description( 'Delete a preview site' )
+		.description( __( 'Delete a preview site' ) )
 		.action( async ( host: string ) => {
 			const options = program.opts();
-			const normalizedHost = host.replace( /^https?:\/\//, '' );
+			const normalizedHost = host.toLowerCase().replace( /^https?:\/\//, '' );
 			await runCommand( normalizedHost, options.outputFormat );
 		} );
 };

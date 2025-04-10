@@ -2,6 +2,7 @@ import { __ } from '@wordpress/i18n';
 import { deleteSnapshot } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
 import { deleteSnapshotFromAppdata, getSnapshotsFromAppdata } from 'cli/lib/snapshots';
+import { normalizeHostname } from 'cli/lib/utils';
 import { Logger, LoggerError } from 'cli/logger';
 import { RegisterCommand, OutputFormat } from 'cli/types';
 
@@ -48,7 +49,7 @@ export const registerCommand: RegisterCommand = ( program ) => {
 		.description( __( 'Delete a preview site' ) )
 		.action( async ( host: string ) => {
 			const options = program.opts();
-			const normalizedHost = host.toLowerCase().replace( /^https?:\/\//, '' );
+			const normalizedHost = normalizeHostname( host );
 			await runCommand( normalizedHost, options.outputFormat );
 		} );
 };

@@ -5,6 +5,7 @@ import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
 import { cleanup, createArchive } from 'cli/lib/archive';
 import { addPreviewSiteToAppdata, getSnapshotsFromAppdata } from 'cli/lib/snapshots';
+import { normalizeHostname } from 'cli/lib/utils';
 import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
 import { RegisterCommand, OutputFormat } from 'cli/types';
@@ -81,6 +82,7 @@ export const registerCommand: RegisterCommand = ( program ) => {
 		.requiredOption( '-h, --host <host>', __( 'Host of the preview site to update' ) )
 		.action( async ( siteFolder: string = process.cwd(), options ) => {
 			const parentOptions = program.opts();
-			await runCommand( siteFolder, options.host, parentOptions.outputFormat );
+			const normalizedHost = normalizeHostname( options.host );
+			await runCommand( siteFolder, normalizedHost, parentOptions.outputFormat );
 		} );
 };

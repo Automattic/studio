@@ -87,7 +87,7 @@ describe( 'EditSiteDetails', () => {
 		expect( screen.getByRole( 'dialog' ) ).toBeInTheDocument();
 		expect( screen.getByLabelText( 'Site name' ) ).toHaveValue( 'Test Site' );
 		expect( screen.getByLabelText( 'PHP version' ) ).toHaveValue( '8.0' );
-		expect( screen.getByLabelText( 'WordPress version' ) ).toHaveValue( '6.8-beta1' );
+		expect( screen.getByLabelText( 'WordPress version' ) ).toHaveValue( 'latest' );
 	} );
 
 	it( 'should close the modal when cancel button is clicked', async () => {
@@ -193,7 +193,7 @@ describe( 'EditSiteDetails', () => {
 		expect( defaultProps.onSave ).toHaveBeenCalled();
 	} );
 
-	it( 'should update WordPress version when changed from latest to specific version', async () => {
+	it( 'should update isWpAutoUpdating to false when changed from latest to specific version', async () => {
 		render( <EditSiteDetails { ...defaultProps } /> );
 		const user = userEvent.setup();
 
@@ -211,7 +211,7 @@ describe( 'EditSiteDetails', () => {
 			skipPluginsAndThemes: true,
 		} );
 		expect( mockUpdateSite ).toHaveBeenCalled();
-		expect( mockUpdateSite.mock.calls[ 0 ][ 0 ].wpVersion ).toBe( '6.4' );
+		expect( mockUpdateSite.mock.calls[ 0 ][ 0 ].isWpAutoUpdating ).toBe( false );
 		expect( mockStartServer ).toHaveBeenCalledWith( 'site-123' );
 		expect( defaultProps.onSave ).toHaveBeenCalled();
 	} );

@@ -78,7 +78,7 @@ describe( 'createSite', () => {
 			running: false,
 			customDomain: undefined,
 			enableHttps: undefined,
-			wpVersion: '6.4',
+			isWpAutoUpdating: false,
 		} );
 	} );
 

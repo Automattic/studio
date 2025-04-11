@@ -92,7 +92,7 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 			onFinish={ onClose }
 			contentLabel={ __( "What's New in Studio" ) }
 			className={ cx(
-				"whats-new-modal !w-[312px] !h-[470px] overflow-hidden [&_button[aria-label='Close']_svg]:fill-white [&_.components-button.is-tertiary]:!outline-1 [&_.components-button.is-tertiary]:!outline-solid [&_.components-button.is-tertiary]:!outline-a8c-blueberry",
+				"whats-new-modal !w-[360px] !h-[470px] overflow-hidden [&_button[aria-label='Close']_svg]:fill-white [&_.components-button.is-tertiary]:!outline-1 [&_.components-button.is-tertiary]:!outline-solid [&_.components-button.is-tertiary]:!outline-a8c-blueberry",
 				'[&_*]:select-none',
 				'focus:outline-none'
 			) }

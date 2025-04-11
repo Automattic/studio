@@ -101,7 +101,7 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 					<img
 						src={ image }
 						alt={ sprintf( __( 'Illustration for %s' ), title ) }
-						className="h-[173px] w-full object-cover mb-4"
+						className="h-[195px] w-full object-cover mb-4"
 					/>
 				),
 				content: (

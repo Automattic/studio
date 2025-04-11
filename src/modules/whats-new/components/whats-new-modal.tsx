@@ -26,8 +26,8 @@ const PageContent = ( {
 	learnMoreUrl,
 	isIntroPage = false,
 }: Omit< WhatsNewPage, 'image' > & { isIntroPage?: boolean } ) => (
-	<div className="px-8 pt-4 pb-2 flex flex-col h-full">
-		<h2 className="text-xl mb-4 text-gray-900 line-clamp-2">{ title }</h2>
+	<div className="px-8 pt-3 pb-2 flex flex-col h-full">
+		<h2 className="text-xl mb-2 text-gray-900 line-clamp-2">{ title }</h2>
 		<p
 			className={ cx(
 				'text-gray-900 text-m leading-s',
@@ -102,7 +102,7 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 					<img
 						src={ image }
 						alt={ sprintf( __( 'Illustration for %s' ), title ) }
-						className="h-[195px] w-full object-cover mb-4"
+						className="h-[195px] w-full object-cover mb-3"
 					/>
 				),
 				content: (

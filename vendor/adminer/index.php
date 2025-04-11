@@ -50,7 +50,7 @@ function adminer_object() {
 
 		/**
 		 * Returns the server name display.
-         * Get server name displayed in breadcrumbs.
+		 * Get server name displayed in breadcrumbs.
 		 *
 		 * @param string $server Server name.
 		 * @return string

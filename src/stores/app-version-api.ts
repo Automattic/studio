@@ -52,9 +52,10 @@ export const selectIsNewVersion = createSelector(
 	( lastSeenVersion, currentVersion ) => {
 		const forceNewVersion = false;
 
-		if ( forceNewVersion && currentVersion !== lastSeenVersion ) {
-			return true;
+		if ( currentVersion === lastSeenVersion ) {
+			return false;
 		}
+
 		if ( ! currentVersion || ! lastSeenVersion ) {
 			return !! currentVersion && lastSeenVersion !== currentVersion;
 		}
@@ -79,7 +80,9 @@ export const selectIsNewVersion = createSelector(
 			}
 
 			return (
-				lastSeenParts.major !== currentParts.major || lastSeenParts.minor !== currentParts.minor
+				lastSeenParts.major !== currentParts.major ||
+				lastSeenParts.minor !== currentParts.minor ||
+				forceNewVersion
 			);
 		} catch ( error ) {
 			console.error( 'Error comparing versions:', error );

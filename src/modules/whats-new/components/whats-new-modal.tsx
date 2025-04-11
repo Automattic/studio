@@ -4,6 +4,7 @@ import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import customDomainIllustration from 'src/modules/whats-new/assets/custom-domains-illustration.svg';
 import previewSitesIllustration from 'src/modules/whats-new/assets/preview-sites-illustration.svg';
+import studioIllustration from 'src/modules/whats-new/assets/studio-illustration.svg';
 import versionSwitchIllustration from 'src/modules/whats-new/assets/version-switch-illustration.svg';
 import 'src/index.css';
 
@@ -25,8 +26,8 @@ const PageContent = ( {
 	learnMoreUrl,
 	isIntroPage = false,
 }: Omit< WhatsNewPage, 'image' > & { isIntroPage?: boolean } ) => (
-	<div className="px-8 pt-4 pb-2 flex flex-col h-full">
-		<h2 className="text-xl mb-4 text-gray-900 line-clamp-2">{ title }</h2>
+	<div className="px-8 pt-3 pb-2 flex flex-col h-full">
+		<h2 className="text-xl mb-2 text-gray-900 line-clamp-2">{ title }</h2>
 		<p
 			className={ cx(
 				'text-gray-900 text-m leading-s',
@@ -51,7 +52,7 @@ const PageContent = ( {
 export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProps ) {
 	const whatsNewPages: WhatsNewPage[] = [
 		{
-			image: versionSwitchIllustration, // TODO: Add correct illustration for intro card
+			image: studioIllustration,
 			title: __( 'What is new in Studio?' ),
 			description: __(
 				'Discover the latest updates in Studio! Explore exciting new features designed to enhance your experience.'
@@ -92,7 +93,7 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 			onFinish={ onClose }
 			contentLabel={ __( "What's New in Studio" ) }
 			className={ cx(
-				"whats-new-modal !w-[312px] !h-[470px] overflow-hidden [&_button[aria-label='Close']_svg]:fill-white [&_.components-button.is-tertiary]:!outline-1 [&_.components-button.is-tertiary]:!outline-solid [&_.components-button.is-tertiary]:!outline-a8c-blueberry",
+				"whats-new-modal !w-[360px] !h-[470px] overflow-hidden [&_button[aria-label='Close']_svg]:fill-white [&_.components-button.is-tertiary]:!outline-1 [&_.components-button.is-tertiary]:!outline-solid [&_.components-button.is-tertiary]:!outline-a8c-blueberry",
 				'[&_*]:select-none',
 				'focus:outline-none'
 			) }
@@ -101,7 +102,7 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 					<img
 						src={ image }
 						alt={ sprintf( __( 'Illustration for %s' ), title ) }
-						className="h-[173px] w-full object-cover mb-4"
+						className="h-[195px] w-full object-cover mb-3"
 					/>
 				),
 				content: (

@@ -4,6 +4,7 @@ import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import customDomainIllustration from 'src/modules/whats-new/assets/custom-domains-illustration.svg';
 import previewSitesIllustration from 'src/modules/whats-new/assets/preview-sites-illustration.svg';
+import studioIllustration from 'src/modules/whats-new/assets/studio-illustration.svg';
 import versionSwitchIllustration from 'src/modules/whats-new/assets/version-switch-illustration.svg';
 import 'src/index.css';
 
@@ -51,7 +52,7 @@ const PageContent = ( {
 export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProps ) {
 	const whatsNewPages: WhatsNewPage[] = [
 		{
-			image: versionSwitchIllustration, // TODO: Add correct illustration for intro card
+			image: studioIllustration,
 			title: __( 'What is new in Studio?' ),
 			description: __(
 				'Discover the latest updates in Studio! Explore exciting new features designed to enhance your experience.'

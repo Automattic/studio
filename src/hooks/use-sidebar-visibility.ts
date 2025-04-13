@@ -23,7 +23,6 @@ export function useSidebarVisibility( elementSelector: string = MIN_WIDTH_SELECT
 	useEffect( () => {
 		const handleResize = () => {
 			const el = document.querySelector( elementSelector );
-			console.log( { clientWidth: el?.clientWidth, scrollWidth: el?.scrollWidth } );
 			if (
 				! isLowerThanBreakpoint && // Only recalculate the sidebar is visible
 				el?.clientWidth &&

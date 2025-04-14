@@ -127,7 +127,7 @@ const releasesData = JSON.parse( await fs.readFile( releasesPath, 'utf8' ) );
 if ( isDevBuild ) {
 	console.log( 'Overriding latest dev release ...' );
 
-	if ( ! commitCount && commitCount !== 0 ) {
+	if ( commitCount !== 0 && ! commitCount ) {
 		// Without the commit count we can't determine what the zip filename will be.
 		// Are you sure you're running this script in a CI environment?
 		// You can develop locally by setting the GITHUB_SHA envvar before running this script.

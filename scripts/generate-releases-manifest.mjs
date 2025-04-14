@@ -45,7 +45,6 @@ import https from 'https';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import packageJson from '../package.json' assert { type: 'json' };
-import { getLatestTag, getCommitCount } from './lib/git-utils.mjs';
 
 const cdnURL = 'https://cdn.a8c-ci.services/studio';
 const baseName = 'studio';
@@ -53,15 +52,12 @@ const baseName = 'studio';
 const currentCommit = child_process.execSync( 'git rev-parse --short HEAD' ).toString().trim();
 const { version } = packageJson;
 const isDevBuild = process.env.IS_DEV_BUILD;
-const latestTag = getLatestTag();
-const commitCount = getCommitCount( latestTag );
 
 const __dirname = path.dirname( fileURLToPath( import.meta.url ) );
 
 console.log( `Version: ${ version }` );
 console.log( `Is dev build: ${ isDevBuild }` );
 console.log( `Current commit: ${ currentCommit }` );
-console.log( `Commit count since ${ latestTag || 'start' }: ${ commitCount }` );
 
 console.log( 'Downloading current manifest ...' );
 
@@ -126,13 +122,6 @@ const releasesData = JSON.parse( await fs.readFile( releasesPath, 'utf8' ) );
 
 if ( isDevBuild ) {
 	console.log( 'Overriding latest dev release ...' );
-
-	if ( commitCount !== 0 && ! commitCount ) {
-		// Without the commit count we can't determine what the zip filename will be.
-		// Are you sure you're running this script in a CI environment?
-		// You can develop locally by setting the GITHUB_SHA envvar before running this script.
-		throw new Error( 'Missing commit count' );
-	}
 
 	releasesData[ 'dev' ] = releasesData[ 'dev' ] ?? {};
 

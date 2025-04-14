@@ -33,11 +33,7 @@ import {
 	SQLITE_FILENAME,
 	SQLITE_PLUGIN_FOLDER,
 } from './constants';
-import {
-	downloadWordPress,
-	downloadSqliteIntegrationPlugin,
-	removeDownloadedMuPlugins,
-} from './download';
+import { downloadWordPress, removeDownloadedMuPlugins } from './download';
 import getSqlitePath from './get-sqlite-path';
 import getWordpressVersionsPath from './get-wordpress-versions-path';
 import { output } from './output';
@@ -94,10 +90,7 @@ export default async function startWPNow(
 		return { php, options };
 	}
 	output?.log( `wp: ${ options.wordPressVersion }` );
-	await Promise.all( [
-		downloadWordPress( options.wordPressVersion ),
-		downloadSqliteIntegrationPlugin(),
-	] );
+	await downloadWordPress( options.wordPressVersion );
 
 	if ( options.reset ) {
 		fs.removeSync( options.wpContentPath );

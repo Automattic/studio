@@ -15,6 +15,11 @@ import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
 const SearchControl = process.env.NODE_ENV === 'test' ? () => null : SearchControlWp;
 
+const focusConnectButton = () => {
+	const connectButton = document.querySelector( 'button#connect-button' ) as HTMLButtonElement;
+	connectButton?.focus();
+};
+
 export function SyncSitesModalSelector( {
 	isLoading,
 	onRequestClose,
@@ -87,7 +92,6 @@ export function SyncSitesModalSelector( {
 							return;
 						}
 						onConnect( selectedSiteId );
-						onRequestClose();
 					} }
 					disabled={ ! selectedSiteId }
 					selectedSite={ selectedSite }
@@ -156,7 +160,7 @@ function ListSites( {
 	const sortedSites = getSortedSites( syncSites );
 
 	return (
-		<div className="flex flex-col overflow-y-auto h-full">
+		<div className="flex flex-col overflow-y-auto h-full pt-px">
 			{ sortedSites.map( ( site ) => (
 				<SiteItem
 					key={ site.id }
@@ -193,11 +197,22 @@ function SiteItem( {
 	return (
 		<div
 			className={ cx(
-				'flex py-3 px-8 items-center border-b border-a8c-gray-0 justify-between gap-4',
-				isSelected && 'bg-a8c-blueberry text-white',
-				! isSelected && isSyncable && 'hover:bg-a8c-blueberry-5'
+				'flex py-3 px-8 items-center border-b justify-between gap-4',
+				isSelected && 'bg-a8c-blueberry text-white border-a8c-blueberry',
+				! isSelected && 'border-a8c-gray-0',
+				! isSelected && isSyncable && 'hover:bg-a8c-blueberry-5',
+				isSyncable &&
+					'focus:outline-none focus:ring-1 focus:ring-a8c-blueberry focus:relative focus:z-10'
 			) }
 			role={ isSyncable ? 'button' : undefined }
+			tabIndex={ isSyncable ? 0 : -1 }
+			onKeyDown={ ( e: React.KeyboardEvent ) => {
+				if ( ( e.code === 'Space' || e.code === 'Enter' ) && isSyncable ) {
+					e.preventDefault();
+					onClick();
+					focusConnectButton();
+				}
+			} }
 			onClick={ () => {
 				if ( ! isSyncable ) {
 					return;
@@ -205,21 +220,28 @@ function SiteItem( {
 				onClick();
 			} }
 		>
-			<div className="flex flex-col gap-0.5 overflow-hidden">
+			<div className="flex flex-col gap-0.5 min-w-0">
 				<div className={ cx( 'a8c-body truncate', ! isSyncable && 'text-a8c-gray-30' ) }>
 					{ site.name }
 				</div>
 				<Button
 					variant="link"
 					className={ cx(
-						'a8c-body-small truncate !p-0',
+						'a8c-body-small truncate !p-0 w-full !justify-start',
 						isSelected
 							? '!text-inherit hover:!text-inherit'
 							: '!text-a8c-gray-30 hover:!text-a8c-gray-30'
 					) }
 					onClick={ () => getIpcApi().openURL( site.url ) }
+					onKeyDown={ ( e: React.KeyboardEvent ) => {
+						if ( e.code === 'Space' || e.code === 'Enter' ) {
+							e.preventDefault();
+							e.stopPropagation();
+							getIpcApi().openURL( site.url );
+						}
+					} }
 				>
-					{ site.url.replace( /^https?:\/\//, '' ) }
+					<div className="truncate">{ site.url.replace( /^https?:\/\//, '' ) }</div>
 					<ArrowIcon />
 				</Button>
 			</div>
@@ -300,19 +322,24 @@ function Footer( {
 } ) {
 	const { __ } = useI18n();
 
+	useEffect( () => {
+		if ( ! disabled ) {
+			focusConnectButton();
+		}
+	}, [ disabled ] );
+
 	return (
-		<div className="flex px-8 py-4 border-t border-a8c-gray-5 justify-between">
+		<div className="flex px-8 py-4 border-t border-a8c-gray-5 justify-between items-center">
 			<CreateButton
-				variant="secondary"
+				variant="link"
 				selectedSite={ selectedSite }
 				text={ __( 'Create a new WordPress.com site' ) }
-				className="!shadow-none !px-0"
 			/>
 			<div className="flex gap-4">
 				<Button variant="link" onClick={ onRequestClose }>
 					{ __( 'Cancel' ) }
 				</Button>
-				<Button variant="primary" disabled={ disabled } onClick={ onConnect }>
+				<Button id="connect-button" variant="primary" disabled={ disabled } onClick={ onConnect }>
 					{ __( 'Connect' ) }
 				</Button>
 			</div>

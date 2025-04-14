@@ -6,46 +6,49 @@ import AddSite from 'src/components/add-site';
 import { useOffline } from 'src/hooks/use-offline';
 import { FolderDialogResponse } from 'src/ipc-handlers';
 
+jest.mock( 'src/lib/app-globals', () => ( {
+	isWindows: () => false,
+} ) );
+
 jest.mock( 'src/stores', () => {
 	const mockDispatch = jest.fn();
 	return {
 		useAppDispatch: jest.fn().mockReturnValue( mockDispatch ),
-		useRootSelector: jest.fn().mockImplementation( ( selector ) => {
-			if (
-				typeof selector === 'object' &&
-				selector !== null &&
-				'name' in selector &&
-				selector.name === 'selectWordPressVersionsWithLatest'
-			) {
-				return [
-					{ isBeta: false, label: '6.4', value: '6.4.3' },
-					{ isBeta: false, label: '6.3', value: '6.3.3' },
-				];
-			}
-			return { status: 'succeeded' };
-		} ),
+		useRootSelector: jest.fn(),
 	};
 } );
 
-jest.mock( 'src/stores/wordpress-versions-slice', () => ( {
-	wordpressVersionsSelectors: {
-		selectWordPressVersionsWithLatest: { name: 'selectWordPressVersionsWithLatest' },
-	},
-	wordpressVersionsThunks: {
-		fetchWordPressVersions: jest.fn(),
-	},
+jest.mock( 'src/stores/wordpress-versions-api', () => ( {
+	useGetWordPressVersions: () => ( {
+		data: [
+			{
+				value: '6.5.0-beta1',
+				isBeta: true,
+				isDevelopment: false,
+				isLatest: false,
+				label: '6.5.0-beta1',
+			},
+			{ value: '6.4.0', isBeta: false, isDevelopment: false, isLatest: true, label: '6.4' },
+			{ value: '6.3.3', isBeta: false, isDevelopment: false, isLatest: false, label: '6.3.3' },
+		],
+	} ),
+	selectWordPressVersionsWithLatest: jest.fn(),
+	selectLatestStableVersion: jest.fn(),
 } ) );
 
 const mockShowOpenFolderDialog =
 	jest.fn< ( dialogTitle: string ) => Promise< FolderDialogResponse | null > >();
 const mockGenerateProposedSitePath =
 	jest.fn< ( siteName: string ) => Promise< FolderDialogResponse > >();
+const mockGetAllCustomDomains = jest.fn< () => Promise< string[] > >().mockResolvedValue( [] );
+
 jest.mock( 'src/lib/get-ipc-api', () => ( {
 	__esModule: true,
 	default: jest.fn(),
 	getIpcApi: () => ( {
 		showOpenFolderDialog: mockShowOpenFolderDialog,
 		generateProposedSitePath: mockGenerateProposedSitePath,
+		getAllCustomDomains: mockGetAllCustomDomains,
 	} ),
 } ) );
 
@@ -133,6 +136,7 @@ describe( 'AddSite', () => {
 				'My WordPress Website',
 				expect.any( String ),
 				undefined,
+				false,
 				expect.any( Function )
 			);
 		} );
@@ -270,7 +274,7 @@ describe( 'AddSite', () => {
 		).toBeVisible();
 	} );
 
-	it( 'should display WordPress version dropdown when feature flag is enabled', async () => {
+	it( 'should display WordPress version dropdown', async () => {
 		const user = userEvent.setup();
 		mockGenerateProposedSitePath.mockResolvedValue( {
 			path: '/default_path/my-wordpress-website',
@@ -309,6 +313,7 @@ describe( 'AddSite', () => {
 				'My WordPress Website',
 				'6.3.3',
 				undefined,
+				false,
 				expect.any( Function )
 			);
 		} );

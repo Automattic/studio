@@ -63,7 +63,6 @@ const SyncConnectedSiteControls = ( {
 		confirmButtonLabel: __( 'Push' ),
 	} );
 	const showPushProductionConfirmation = useConfirmationDialog( {
-		localStorageKey: 'dontShowPushConfirmation',
 		message: __( 'Overwrite Production site' ),
 		detail: __(
 			'Pushing will replace the existing files and database with a copy from your local site.\n\n The production site will be backed-up before any changes are applied.'

@@ -110,11 +110,12 @@ function ButtonToRun( { running, id, name }: Pick< SiteDetails, 'running' | 'id'
 function SiteItem( { site }: { site: SiteDetails } ) {
 	const { selectedSite, setSelectedSiteId } = useSiteDetails();
 	const isSelected = site === selectedSite;
-	const { isSiteImporting } = useImportExport();
+	const { isSiteImporting, isSiteExporting } = useImportExport();
 	const { isSiteIdPulling } = useSyncSites();
 	const isImporting = isSiteImporting( site.id );
+	const isExporting = isSiteExporting( site.id );
 	const isPulling = isSiteIdPulling( site.id );
-	const showSpinner = site.isAddingSite || isImporting || isPulling;
+	const showSpinner = site.isAddingSite || isImporting || isPulling || isExporting;
 
 	let tooltipText;
 	if ( site.isAddingSite ) {

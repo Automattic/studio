@@ -1,6 +1,6 @@
 import { check, Icon } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { PropsWithChildren, useState, useEffect } from 'react';
+import { PropsWithChildren, useEffect } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import { ConnectButton } from 'src/components/connect-create-buttons';
@@ -117,11 +117,17 @@ export type OpenSitesSyncSelector = ( options?: { disconnectSiteId?: number } ) 
 
 export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } ) {
 	const { __ } = useI18n();
-	const { connectedSites, connectSite, disconnectSite, syncSites, isFetching, refetchSites } =
-		useSyncSites();
-	const [ isSyncSitesSelectorOpen, setIsSyncSitesSelectorOpen ] = useState<
-		boolean | { disconnectSiteId?: number }
-	>( false );
+	const {
+		connectedSites,
+		connectSite,
+		disconnectSite,
+		syncSites,
+		isFetching,
+		refetchSites,
+		isSyncSitesSelectorOpen,
+		setIsSyncSitesSelectorOpen,
+		closeSyncSitesSelector,
+	} = useSyncSites();
 	const { isAuthenticated } = useAuth();
 
 	useEffect( () => {
@@ -169,7 +175,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 			{ isSyncSitesSelectorOpen && (
 				<SyncSitesModalSelector
 					isLoading={ isFetching }
-					onRequestClose={ () => setIsSyncSitesSelectorOpen( false ) }
+					onRequestClose={ closeSyncSitesSelector }
 					syncSites={ syncSites }
 					onInitialRender={ refetchSites }
 					onConnect={ async ( siteId ) => {

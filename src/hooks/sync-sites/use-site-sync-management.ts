@@ -13,6 +13,7 @@ type DisconnectSite = ( siteId: number ) => Promise< void >;
 type UseSiteSyncManagementProps = {
 	connectedSites: ConnectedSites;
 	setConnectedSites: React.Dispatch< React.SetStateAction< ConnectedSites > >;
+	closeSyncSitesSelector: () => void;
 };
 
 export type UseSiteSyncManagement = {
@@ -28,6 +29,7 @@ export type UseSiteSyncManagement = {
 export const useSiteSyncManagement = ( {
 	connectedSites,
 	setConnectedSites,
+	closeSyncSitesSelector,
 }: UseSiteSyncManagementProps ): UseSiteSyncManagement => {
 	const { isAuthenticated } = useAuth();
 	const { syncSites, isFetching, refetchSites } = useFetchWpComSites(
@@ -68,7 +70,6 @@ export const useSiteSyncManagement = ( {
 					( id ) => syncSites.find( ( s ) => s.id === id ) ?? []
 				);
 				const sitesToConnect = [ site, ...stagingSites ];
-
 				const newConnectedSites = await getIpcApi().connectWpcomSites( [
 					{
 						sites: sitesToConnect,
@@ -78,12 +79,13 @@ export const useSiteSyncManagement = ( {
 				if ( localSiteIdToConnect === localSiteId ) {
 					setConnectedSites( newConnectedSites );
 				}
+				closeSyncSitesSelector();
 			} catch ( error ) {
 				console.error( 'Failed to connect site:', error );
 				throw error;
 			}
 		},
-		[ localSiteId, syncSites, setConnectedSites ]
+		[ localSiteId, syncSites, setConnectedSites, closeSyncSitesSelector ]
 	);
 
 	const disconnectSite = useCallback< DisconnectSite >(

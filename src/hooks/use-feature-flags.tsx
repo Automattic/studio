@@ -9,8 +9,6 @@ import { getAppGlobals } from 'src/lib/app-globals';
 const featureFlagsSchema = z
 	.object( {
 		terminal_wp_cli_enabled: z.boolean().optional(),
-		quick_deploys_enabled: z.boolean().optional(),
-		wp_versions_enabled: z.boolean().optional(),
 	} )
 	.catch( ( _ ) => ( {} ) );
 

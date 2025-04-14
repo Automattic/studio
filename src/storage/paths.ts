@@ -9,6 +9,10 @@ export function getServerFilesPath(): string {
 	return path.join( getAppDataPath(), getAppName(), 'server-files' );
 }
 
+export function getUserDataCertificatesPath(): string {
+	return path.join( getAppDataPath(), getAppName(), 'certificates' );
+}
+
 export const DEFAULT_SITE_PATH = path.join(
 	( process.env.E2E && process.env.E2E_HOME_PATH
 		? process.env.E2E_HOME_PATH
@@ -22,7 +26,7 @@ export function getSiteThumbnailPath( siteId: string ): string {
 
 export function getResourcesPath(): string {
 	if ( process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test' ) {
-		return process.cwd();
+		return app.getAppPath();
 	}
 
 	const exePath = path.dirname( app.getPath( 'exe' ) );

@@ -7,8 +7,7 @@ import { useAddSite } from 'src/hooks/use-add-site';
 import { useOffline } from 'src/hooks/use-offline';
 import { useOnboarding } from 'src/hooks/use-onboarding';
 import { FolderDialogResponse } from 'src/ipc-handlers';
-import { useAppDispatch, useRootSelector } from 'src/stores';
-import { wordpressVersionsSelectors } from 'src/stores/wordpress-versions-slice';
+import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 import { DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
 
 jest.mock( 'src/hooks/use-onboarding', () => ( {
@@ -21,17 +20,24 @@ jest.mock( 'src/hooks/use-add-site', () => ( {
 
 jest.mock( 'src/hooks/use-feature-flags' );
 
-jest.mock( 'src/stores', () => ( {
-	useAppDispatch: jest.fn(),
-	useRootSelector: jest.fn(),
-} ) );
-
 jest.mock( 'src/lib/app-globals', () => ( {
 	isMac: () => true,
+	isWindows: () => false,
 } ) );
 
 jest.mock( 'src/hooks/use-offline', () => ( {
 	useOffline: jest.fn().mockReturnValue( false ),
+} ) );
+
+jest.mock( 'src/stores/wordpress-versions-api', () => ( {
+	useGetWordPressVersions: jest.fn( () => ( {
+		data: [
+			{ isBeta: false, isDevelopment: false, isLatest: true, label: '6.3', value: '6.3.3' },
+			{ isBeta: false, isDevelopment: false, isLatest: false, label: '6.2', value: '6.2.0' },
+			{ isBeta: false, isDevelopment: false, isLatest: false, label: '6.1', value: '6.1.7' },
+		],
+		isLoading: false,
+	} ) ),
 } ) );
 
 const mockGenerateProposedSitePath =
@@ -50,62 +56,52 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 	} ),
 } ) );
 
-const mockDispatch = jest.fn();
-
 const mockCreateSite = jest.fn();
 
 describe( 'Onboarding Component', () => {
 	const user = userEvent.setup();
+	const useAddSiteMockValue = {
+		setSiteName: jest.fn(),
+		setProposedSitePath: jest.fn(),
+		setSitePath: jest.fn(),
+		setError: jest.fn(),
+		setDoesPathContainWordPress: jest.fn(),
+		setPhpVersion: jest.fn(),
+		setWpVersion: jest.fn(),
+		siteName: 'My Site',
+		sitePath: '/path/to/my/site',
+		phpVersion: '8.0',
+		wpVersion: DEFAULT_WORDPRESS_VERSION,
+		error: '',
+		doesPathContainWordPress: false,
+		handleAddSiteClick: jest.fn(),
+		handleSiteNameChange: jest.fn(),
+		handlePathSelectorClick: jest.fn(),
+		onSelectPath: jest.fn(),
+		setFileForImport: jest.fn(),
+		fileForImport: null,
+		isAdvancedSettingsVisible: true,
+		handleSubmit: jest.fn( () => {
+			mockCreateSite( '/path/to/my/site', 'My Site', DEFAULT_WORDPRESS_VERSION );
+		} ),
+		setUseCustomDomain: jest.fn(),
+		useCustomDomain: false,
+		customDomain: '',
+		setCustomDomain: jest.fn(),
+		setCustomDomainError: jest.fn(),
+		customDomainError: '',
+		enableHttps: false,
+		setEnableHttps: jest.fn(),
+		loadAllCustomDomains: jest.fn(),
+	};
 
 	beforeEach( () => {
 		jest.clearAllMocks();
 
-		( useAppDispatch as jest.Mock ).mockReturnValue( mockDispatch );
-
-		( useRootSelector as jest.Mock ).mockImplementation( ( selector ) => {
-			if ( selector === wordpressVersionsSelectors.selectWordPressVersionsWithLatest ) {
-				return [
-					{ isBeta: false, label: '6.1', value: '6.1.7' },
-					{ isBeta: false, label: '6.2', value: '6.2.0' },
-				];
-			}
-			return { status: 'succeeded' };
-		} );
-
 		( useOnboarding as jest.Mock ).mockReturnValue( {
 			needsOnboarding: true,
 		} );
-		( useAddSite as jest.Mock ).mockReturnValue( {
-			setSiteName: jest.fn(),
-			setProposedSitePath: jest.fn(),
-			setSitePath: jest.fn(),
-			setError: jest.fn(),
-			setDoesPathContainWordPress: jest.fn(),
-			setPhpVersion: jest.fn(),
-			setWpVersion: jest.fn(),
-			siteName: 'My Site',
-			sitePath: '/path/to/my/site',
-			phpVersion: '8.0',
-			wpVersion: DEFAULT_WORDPRESS_VERSION,
-			error: '',
-			doesPathContainWordPress: false,
-			handleAddSiteClick: jest.fn(),
-			handleSiteNameChange: jest.fn(),
-			handlePathSelectorClick: jest.fn(),
-			onSelectPath: jest.fn(),
-			setFileForImport: jest.fn(),
-			fileForImport: null,
-			isAdvancedSettingsVisible: true,
-			handleSubmit: jest.fn( () => {
-				mockCreateSite( '/path/to/my/site', 'My Site', DEFAULT_WORDPRESS_VERSION );
-			} ),
-			setUseCustomDomain: jest.fn(),
-			useCustomDomain: false,
-			customDomain: '',
-			setCustomDomain: jest.fn(),
-			setCustomDomainError: jest.fn(),
-			customDomainError: '',
-		} );
+		( useAddSite as jest.Mock ).mockReturnValue( useAddSiteMockValue );
 	} );
 
 	it( 'renders onboarding screen correctly', () => {
@@ -133,23 +129,11 @@ describe( 'Onboarding Component', () => {
 		expect( hookResult.wpVersion ).toBe( DEFAULT_WORDPRESS_VERSION );
 	} );
 
-	it( 'should dispatch an action', async () => {
-		( useRootSelector as jest.Mock ).mockImplementation( ( selector ) => {
-			if ( selector === wordpressVersionsSelectors.selectWordPressVersionsWithLatest ) {
-				return [
-					{ name: '6.1.7', version: '6.1.7' },
-					{ name: '6.2.0', version: '6.2.0' },
-				];
-			}
-			return { status: 'succeeded' };
-		} );
-
-		mockDispatch.mockImplementation( () => Promise.resolve() );
-
+	it( 'should fetch WordPress versions', async () => {
 		render( <Onboarding /> );
 
 		await waitFor( () => {
-			expect( useAppDispatch ).toHaveBeenCalled();
+			expect( useGetWordPressVersions ).toHaveBeenCalled();
 		} );
 	} );
 
@@ -157,32 +141,8 @@ describe( 'Onboarding Component', () => {
 		const mockSetWpVersion = jest.fn();
 
 		( useAddSite as jest.Mock ).mockReturnValue( {
-			setSiteName: jest.fn(),
-			setProposedSitePath: jest.fn(),
-			setSitePath: jest.fn(),
-			setError: jest.fn(),
-			setDoesPathContainWordPress: jest.fn(),
-			setPhpVersion: jest.fn(),
+			...useAddSiteMockValue,
 			setWpVersion: mockSetWpVersion,
-			siteName: 'My Site',
-			sitePath: '/path/to/my/site',
-			phpVersion: '8.0',
-			wpVersion: DEFAULT_WORDPRESS_VERSION,
-			error: '',
-			doesPathContainWordPress: false,
-			handleAddSiteClick: jest.fn(),
-			handleSiteNameChange: jest.fn(),
-			handlePathSelectorClick: jest.fn(),
-			onSelectPath: jest.fn(),
-			setFileForImport: jest.fn(),
-			fileForImport: null,
-			isAdvancedSettingsVisible: true,
-			setUseCustomDomain: jest.fn(),
-			useCustomDomain: false,
-			customDomain: '',
-			setCustomDomain: jest.fn(),
-			setCustomDomainError: jest.fn(),
-			customDomainError: '',
 		} );
 
 		render( <Onboarding /> );
@@ -191,17 +151,6 @@ describe( 'Onboarding Component', () => {
 	} );
 
 	it( 'should display WordPress and PHP version dropdowns', async () => {
-		( useRootSelector as jest.Mock ).mockImplementation( ( selector ) => {
-			if ( selector === wordpressVersionsSelectors.selectWordPressVersionsWithLatest ) {
-				return [
-					{ isBeta: false, label: 'latest', value: 'latest' },
-					{ isBeta: false, label: '6.4', value: '6.4.3' },
-					{ isBeta: false, label: '6.3', value: '6.3.3' },
-				];
-			}
-			return { status: 'succeeded' };
-		} );
-
 		render( <Onboarding /> );
 
 		expect( screen.getByText( 'WordPress version' ) ).toBeInTheDocument();
@@ -218,50 +167,15 @@ describe( 'Onboarding Component', () => {
 	} );
 
 	it( 'should allow selecting a different WordPress version', async () => {
-		( useRootSelector as jest.Mock ).mockImplementation( ( selector ) => {
-			if ( selector === wordpressVersionsSelectors.selectWordPressVersionsWithLatest ) {
-				return [
-					{ isBeta: false, label: 'latest', value: 'latest' },
-					{ isBeta: false, label: '6.4', value: '6.4.3' },
-					{ isBeta: false, label: '6.3', value: '6.3.3' },
-				];
-			}
-			return { status: 'succeeded' };
-		} );
-
-		const mockSetWpVersion = jest.fn();
 		const mockHandleAddSiteClick = jest.fn().mockImplementation( () => {
 			mockCreateSite( '/path/to/my/site', 'My Site', '6.3.3' );
 			return Promise.resolve();
 		} );
 
 		( useAddSite as jest.Mock ).mockReturnValue( {
-			setSiteName: jest.fn(),
-			setProposedSitePath: jest.fn(),
-			setSitePath: jest.fn(),
-			setError: jest.fn(),
-			setDoesPathContainWordPress: jest.fn(),
-			setPhpVersion: jest.fn(),
-			setWpVersion: mockSetWpVersion,
-			siteName: 'My Site',
-			sitePath: '/path/to/my/site',
-			phpVersion: '8.0',
-			wpVersion: '6.3.3', // Changed from default
-			error: '',
-			doesPathContainWordPress: false,
+			...useAddSiteMockValue,
 			handleAddSiteClick: mockHandleAddSiteClick,
-			handleSiteNameChange: jest.fn(),
-			handlePathSelectorClick: jest.fn(),
-			onSelectPath: jest.fn(),
-			setFileForImport: jest.fn(),
-			fileForImport: null,
-			isAdvancedSettingsVisible: true,
-			setUseCustomDomain: jest.fn(),
-			useCustomDomain: false,
-			customDomain: '',
-			setCustomDomain: jest.fn(),
-			setCustomDomainError: jest.fn(),
-			customDomainError: '',
+			wpVersion: '6.3.3',
 		} );
 
 		render( <Onboarding /> );
@@ -285,17 +199,6 @@ describe( 'Onboarding Component', () => {
 	} );
 
 	it( 'should allow selecting a different PHP version', async () => {
-		( useRootSelector as jest.Mock ).mockImplementation( ( selector ) => {
-			if ( selector === wordpressVersionsSelectors.selectWordPressVersionsWithLatest ) {
-				return [
-					{ isBeta: false, label: 'latest', value: 'latest' },
-					{ isBeta: false, label: '6.4', value: '6.4.3' },
-					{ isBeta: false, label: '6.3', value: '6.3.3' },
-				];
-			}
-			return { status: 'succeeded' };
-		} );
-
 		const mockSetPhpVersion = jest.fn();
 
 		( useAddSite as jest.Mock ).mockReturnValue( {
@@ -326,6 +229,9 @@ describe( 'Onboarding Component', () => {
 			setCustomDomain: jest.fn(),
 			setCustomDomainError: jest.fn(),
 			customDomainError: '',
+			enableHttps: false,
+			setEnableHttps: jest.fn(),
+			loadAllCustomDomains: jest.fn(),
 		} );
 
 		render( <Onboarding /> );

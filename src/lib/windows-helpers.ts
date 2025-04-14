@@ -2,6 +2,7 @@ import { app, dialog } from 'electron';
 import path from 'path';
 import sudo from '@vscode/sudo-prompt';
 import { __ } from '@wordpress/i18n';
+import { getMainWindow } from 'src/main-window';
 import { loadUserData, saveUserData } from 'src/storage/user-data';
 
 export async function promptWindowsSpeedUpSites( {
@@ -23,7 +24,8 @@ export async function promptWindowsSpeedUpSites( {
 
 	const buttons = [ AUTOMATIC_UPDATE, NOT_INTERESTED ];
 
-	const { response } = await dialog.showMessageBox( {
+	const mainWindow = await getMainWindow();
+	const { response } = await dialog.showMessageBox( mainWindow, {
 		type: 'question',
 		buttons,
 		title: __( 'Want to speed up site creation?' ),
@@ -43,7 +45,8 @@ export async function promptWindowsSpeedUpSites( {
 			try {
 				await excludeProcessInWindowsDefender();
 			} catch ( _error ) {
-				await dialog.showMessageBox( {
+				const mainWindow = await getMainWindow();
+				await dialog.showMessageBox( mainWindow, {
 					type: 'error',
 					title: __( 'Something went wrong' ),
 					message: __(

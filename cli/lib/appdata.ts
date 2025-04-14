@@ -34,6 +34,7 @@ const userDataSchema = z
 			} )
 			.passthrough()
 			.optional(),
+		lastBumpStats: z.record( z.string(), z.record( z.string(), z.number() ) ).optional(),
 	} )
 	.passthrough();
 

@@ -24,13 +24,13 @@ export function useSidebarVisibility( elementSelector: string = MIN_WIDTH_SELECT
 		const handleResize = () => {
 			const el = document.querySelector( elementSelector );
 			if (
-				! isLowerThanBreakpoint && // Only recalculate the sidebar is visible
+				! isLowerThanBreakpoint && // Only recalculate if the sidebar is visible
 				el?.clientWidth &&
 				el?.scrollWidth &&
 				el?.clientWidth < el?.scrollWidth
 			) {
 				// The new breakpoint is the width of the element to measure plus the sidebar plus the right padding
-				setDynamicBreakPoint( el?.clientWidth + SIDEBAR_WIDTH + 10 );
+				setDynamicBreakPoint( el.clientWidth + SIDEBAR_WIDTH + 10 );
 			}
 
 			setIsLowerThanBreakpoint( window.innerWidth < dynamicBreakPoint );

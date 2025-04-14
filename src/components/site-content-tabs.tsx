@@ -8,6 +8,7 @@ import { ContentTabSettings } from 'src/components/content-tab-settings';
 import { ContentTabSync } from 'src/components/content-tab-sync';
 import Header from 'src/components/header';
 import { SiteLoadingIndicator } from 'src/components/site-loading-indicator';
+import { MIN_WIDTH_CLASS_TO_MEASURE } from 'src/constants';
 import { TabName, useContentTabs } from 'src/hooks/use-content-tabs';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
@@ -35,7 +36,7 @@ export function SiteContentTabs() {
 		<div className="flex flex-col w-full h-full app-no-drag-region pt-8 overflow-y-auto">
 			<Header />
 			<TabPanel
-				className="mt-6 h-full flex flex-col overflow-hidden"
+				className={ `mt-6 h-full flex flex-col overflow-hidden ${ MIN_WIDTH_CLASS_TO_MEASURE }` }
 				tabs={ tabs }
 				orientation="horizontal"
 				onSelect={ ( tabName ) => setSelectedTab( tabName as TabName ) }

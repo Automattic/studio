@@ -98,11 +98,21 @@ describe( 'AddSite', () => {
 		render( <AddSite /> );
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
-		await userEvent.tab();
-		await userEvent.keyboard( '{Enter}' );
 
-		expect( mockCreateSite ).not.toHaveBeenCalled();
+		// Find the Cancel button
+		const cancelButton = screen.getByRole( 'button', { name: 'Cancel' } );
+		expect( cancelButton ).toBeInTheDocument();
+
+		// Tab until we reach the Cancel button
+		let currentButton;
+		do {
+			await user.tab();
+			currentButton = document.activeElement;
+		} while ( currentButton !== cancelButton );
+
+		await user.keyboard( '{Enter}' );
 		expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument();
+		expect( mockCreateSite ).not.toHaveBeenCalled();
 	} );
 
 	it( 'calls createSite with selected path when add site button is clicked', async () => {

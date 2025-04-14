@@ -1,15 +1,11 @@
 import { __, _n, sprintf } from '@wordpress/i18n';
+import { ListLoggerAction as LoggerAction } from 'cli/commands/preview/logger-actions';
 import { getAuthToken } from 'cli/lib/appdata';
 import { getSnapshotCliTable } from 'cli/lib/output';
 import { getSnapshotsFromAppdata } from 'cli/lib/snapshots';
 import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
 import { RegisterCommand, OutputFormat } from 'cli/types';
-
-export enum LoggerAction {
-	VALIDATE = 'validate',
-	LOAD = 'load',
-}
 
 async function runCommand( siteFolder: string, outputFormat?: OutputFormat ): Promise< void > {
 	const logger = new Logger< LoggerAction >( outputFormat );

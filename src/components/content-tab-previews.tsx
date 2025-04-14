@@ -27,6 +27,8 @@ import { PreviewSiteRow } from 'src/modules/preview-site/components/preview-site
 import { PreviewSitesTableHeader } from 'src/modules/preview-site/components/preview-sites-table-header';
 import { ProgressRow } from 'src/modules/preview-site/components/progress-row';
 import { useUpdateButtonTooltip } from 'src/modules/preview-site/hooks/use-update-button-tooltip';
+import { useAppDispatch, useRootSelector } from 'src/stores';
+import { previewSelectors, previewThunks } from 'src/stores/preview-slice';
 
 interface ContentTabPreviewsProps {
 	selectedSite: SiteDetails;
@@ -160,16 +162,18 @@ function NoPreviews( { selectedSite }: React.ComponentProps< typeof EmptyGeneric
 
 export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) {
 	const { __ } = useI18n();
-	const { snapshots, snapshotCreationBlocked, creationProgress } = useSnapshots();
+	const dispatch = useAppDispatch();
+	const { snapshotCreationBlocked } = useSnapshots();
 	const { isAuthenticated, user } = useAuth();
-	const { archiveSite, isUploadingSiteId } = useArchiveSite();
 	const { isOverLimit } = useSiteSize( selectedSite.id );
 	const { isDemoSiteUpdating } = useUpdateDemoSite();
-	const isUploading = isUploadingSiteId( selectedSite.id );
-	const snapshotsOnSite = snapshots.filter(
-		( snapshot ) => snapshot.localSiteId === selectedSite.id && snapshot.userId === user?.id
+	const operationInProgress = useRootSelector( ( state ) =>
+		previewSelectors.isOperationInProgressForSite( state, selectedSite.id )
 	);
-	const isSnapshotLoading = snapshotsOnSite.some( ( snapshot ) => snapshot.isLoading );
+	const snapshots = useRootSelector( ( state ) => previewSelectors.selectSnapshots( state ) );
+	const snapshotsOnSite = useRootSelector( ( state ) =>
+		previewSelectors.selectSnapshotsBySiteAndUser( state, selectedSite.id, user?.id ?? 0 )
+	);
 	const isAnyPreviewUpdating = snapshots.some( ( snapshot ) =>
 		isDemoSiteUpdating( snapshot.atomicSiteId )
 	);
@@ -188,7 +192,7 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 		return <NoAuth selectedSite={ selectedSite } />;
 	}
 
-	if ( ! snapshotsOnSite.length && ! isUploading && ! isSnapshotLoading ) {
+	if ( ! snapshotsOnSite.length && ! operationInProgress ) {
 		return <NoPreviews selectedSite={ selectedSite } />;
 	}
 
@@ -197,8 +201,11 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 			<div className="w-full flex flex-col flex-1">
 				<PreviewSitesTableHeader />
 				<div className="[&>*:not(:last-child)]:border-b [&>*]:border-a8c-gray-5">
-					{ ( isUploading || isSnapshotLoading ) && (
-						<ProgressRow text={ __( 'Creating preview site' ) } progress={ creationProgress } />
+					{ operationInProgress && (
+						<ProgressRow
+							text={ __( 'Creating preview site' ) }
+							progress={ operationInProgress.progress }
+						/>
 					) }
 					{ snapshotsOnSite
 						.filter( ( snapshot ) => ! snapshot.isLoading )
@@ -215,7 +222,14 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 						) ) }
 					<div className="sticky bottom-0 bg-white/[0.8] backdrop-blur-sm w-full px-8 py-6 mt-auto">
 						<CreatePreviewButton
-							onClick={ () => archiveSite( selectedSite.id ) }
+							onClick={ () => {
+								dispatch(
+									previewThunks.createSnapshot( {
+										siteFolder: selectedSite.path,
+										siteId: selectedSite.id,
+									} )
+								);
+							} }
 							selectedSite={ selectedSite }
 						/>
 					</div>

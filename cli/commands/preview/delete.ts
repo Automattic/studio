@@ -1,15 +1,11 @@
 import { __ } from '@wordpress/i18n';
+import { DeleteLoggerAction as LoggerAction } from 'cli/commands/preview/logger-actions';
 import { deleteSnapshot } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
 import { deleteSnapshotFromAppdata, getSnapshotsFromAppdata } from 'cli/lib/snapshots';
 import { normalizeHostname } from 'cli/lib/utils';
 import { Logger, LoggerError } from 'cli/logger';
 import { RegisterCommand, OutputFormat } from 'cli/types';
-
-export enum LoggerAction {
-	VALIDATE = 'validate',
-	DELETE = 'delete',
-}
 
 async function runCommand( host: string, outputFormat?: OutputFormat ): Promise< void > {
 	const logger = new Logger< LoggerAction >( outputFormat );

@@ -23,6 +23,7 @@ import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
 import { bumpStat } from 'src/lib/bump-stats';
 import { getImporterMetric, StatsGroup, StatsMetric } from 'src/lib/bump-stats/types';
 import { calculateDirectorySize } from 'src/lib/calculate-directory-size';
+import { openCertificate as openCertificateDialog } from 'src/lib/certificate-manager';
 import { download } from 'src/lib/download';
 import { isEmptyDir, pathExists, isWordPressDirectory, sanitizeFolderName } from 'src/lib/fs-utils';
 import { getImageData } from 'src/lib/get-image-data';
@@ -50,11 +51,11 @@ import * as windowsHelpers from 'src/lib/windows-helpers';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
+import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import { SiteServer, createSiteWorkingDirectory } from 'src/site-server';
 import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from 'src/storage/paths';
 import { loadUserData, saveUserData } from 'src/storage/user-data';
 import { DEFAULT_PHP_VERSION } from 'vendor/wp-now/src/constants';
-import { openCertificate as openCertificateDialog } from './lib/certificate-manager';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
 
@@ -1226,4 +1227,35 @@ export async function getAllCustomDomains(): Promise< string[] > {
 	return userData.sites
 		.map( ( site ) => site.customDomain )
 		.filter( ( domain ): domain is string => domain !== undefined );
+}
+
+export async function createSnapshot(
+	event: IpcMainInvokeEvent,
+	siteFolder: string
+): Promise< { operationId: crypto.UUID } > {
+	const operationId = crypto.randomUUID();
+	const cli = executeCliCommand( [ 'go', siteFolder ] );
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+
+	cli.on( 'data', ( data: unknown ) => {
+		sendIpcEventToRendererWithWindow( parentWindow, 'preview-output', {
+			operationId,
+			data,
+		} );
+	} );
+
+	cli.on( 'error', ( data: unknown ) => {
+		sendIpcEventToRendererWithWindow( parentWindow, 'preview-error', {
+			operationId,
+			data,
+		} );
+	} );
+
+	cli.on( 'success', () => {
+		sendIpcEventToRendererWithWindow( parentWindow, 'preview-success', {
+			operationId,
+		} );
+	} );
+
+	return { operationId };
 }

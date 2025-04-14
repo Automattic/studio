@@ -17,16 +17,23 @@ import { isWindows } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { WhatsNewModal, useWhatsNew } from 'src/modules/whats-new';
+import { useAppDispatch } from 'src/stores';
+import { previewThunks } from 'src/stores/preview-slice';
 
 export default function App() {
 	useLocalizationSupport();
 	const { needsOnboarding } = useOnboarding();
 	const { isSidebarVisible, toggleSidebar } = useSidebarVisibility();
 	const { showWhatsNew, closeWhatsNew } = useWhatsNew();
+	const dispatch = useAppDispatch();
 
 	useEffect( () => {
 		getIpcApi().setupAppMenu( { needsOnboarding } );
 	}, [ needsOnboarding ] );
+
+	useEffect( () => {
+		dispatch( previewThunks.getSnapshots() );
+	}, [ dispatch ] );
 
 	return (
 		<>

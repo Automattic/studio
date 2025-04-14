@@ -3,12 +3,14 @@ import { useDispatch, useSelector } from 'react-redux';
 import { LOCAL_STORAGE_CHAT_API_IDS_KEY, LOCAL_STORAGE_CHAT_MESSAGES_KEY } from 'src/constants';
 import { appVersionApi } from 'src/stores/app-version-api';
 import { reducer as chatReducer } from 'src/stores/chat-slice';
+import { reducer as previewReducer } from 'src/stores/preview-slice';
 import { wpcomApi } from 'src/stores/wpcom-api';
 import { wordpressVersionsApi } from './wordpress-versions-api';
 
 export type RootState = {
 	appVersionApi: ReturnType< typeof appVersionApi.reducer >;
 	chat: ReturnType< typeof chatReducer >;
+	preview: ReturnType< typeof previewReducer >;
 	wordpressVersionsApi: ReturnType< typeof wordpressVersionsApi.reducer >;
 	wpcomApi: ReturnType< typeof wpcomApi.reducer >;
 };
@@ -43,9 +45,21 @@ listenerMiddleware.startListening( {
 	},
 } );
 
+// Log changes to snapshot operations
+listenerMiddleware.startListening( {
+	predicate( action, currentState, previousState ) {
+		return currentState.preview.operations !== previousState.preview.operations;
+	},
+	effect( action, listenerApi ) {
+		const state = listenerApi.getState();
+		console.log( 'Snapshot operations:', state.preview.operations );
+	},
+} );
+
 export const rootReducer = combineReducers( {
 	appVersionApi: appVersionApi.reducer,
 	chat: chatReducer,
+	preview: previewReducer,
 	wordpressVersionsApi: wordpressVersionsApi.reducer,
 	wpcomApi: wpcomApi.reducer,
 } );

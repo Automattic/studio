@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { BrowserWindow } from 'electron';
 import { ImportExportEventData } from 'src/lib/import-export/handle-events';
 import { StoredToken } from 'src/lib/oauth';
@@ -8,6 +9,9 @@ export interface IpcEvents {
 	'auth-updated': [ { token: StoredToken } | { error: unknown } ];
 	'on-export': [ ImportExportEventData, string ];
 	'on-import': [ ImportExportEventData, string ];
+	'preview-error': [ { operationId: crypto.UUID; data: unknown } ];
+	'preview-output': [ { operationId: crypto.UUID; data: unknown } ];
+	'preview-success': [ { operationId: crypto.UUID } ];
 	'show-whats-new': [ void ];
 	'sync-connect-site': [ { remoteSiteId: number; studioSiteId: string } ];
 	'test-render-failure': [ void ];

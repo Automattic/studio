@@ -1,6 +1,7 @@
 import os from 'os';
 import path from 'path';
 import { __ } from '@wordpress/i18n';
+import { CreateLoggerAction as LoggerAction } from 'cli/commands/preview/logger-actions';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
 import { createArchive, cleanup } from 'cli/lib/archive';
@@ -8,14 +9,6 @@ import { addPreviewSiteToAppdata } from 'cli/lib/snapshots';
 import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
 import { RegisterCommand, OutputFormat } from 'cli/types';
-
-enum LoggerAction {
-	VALIDATE = 'validate',
-	ARCHIVE = 'archive',
-	UPLOAD = 'upload',
-	READY = 'ready',
-	APPDATA = 'appdata',
-}
 
 async function runCommand( siteFolder: string, outputFormat?: OutputFormat ): Promise< void > {
 	const archivePath = path.join(
@@ -54,6 +47,7 @@ async function runCommand( siteFolder: string, outputFormat?: OutputFormat ): Pr
 		}
 	} finally {
 		cleanup( archivePath );
+		process.exit( 0 );
 	}
 }
 

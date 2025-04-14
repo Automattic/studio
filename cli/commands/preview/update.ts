@@ -1,6 +1,7 @@
 import os from 'node:os';
 import path from 'node:path';
 import { __, _n, sprintf } from '@wordpress/i18n';
+import { UpdateLoggerAction as LoggerAction } from 'cli/commands/preview/logger-actions';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
 import { cleanup, createArchive } from 'cli/lib/archive';
@@ -9,14 +10,6 @@ import { normalizeHostname } from 'cli/lib/utils';
 import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
 import { RegisterCommand, OutputFormat } from 'cli/types';
-
-enum LoggerAction {
-	VALIDATE = 'validate',
-	ARCHIVE = 'archive',
-	UPLOAD = 'upload',
-	READY = 'ready',
-	APPDATA = 'appdata',
-}
 
 async function runCommand(
 	siteFolder: string,

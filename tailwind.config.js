@@ -1,7 +1,7 @@
 /** @type {import('tailwindcss').Config} */
 import palette from '@automattic/color-studio';
 import plugin from 'tailwindcss/plugin';
-import { WINDOWS_TITLEBAR_HEIGHT, MAIN_MIN_WIDTH } from './src/constants.ts';
+import { WINDOWS_TITLEBAR_HEIGHT, MAIN_MIN_WIDTH, APP_CHROME_SPACING } from './src/constants.ts';
 
 const BASE_FONT_SIZE = 16; // 1 rem
 const pxToRem = ( px ) => `${ px / BASE_FONT_SIZE }rem`;
@@ -147,7 +147,7 @@ module.exports = {
 				'chrome-inverted': '#fff',
 			},
 			spacing: {
-				chrome: '10px',
+				chrome: `${ APP_CHROME_SPACING }px`,
 				sidebar: '6px',
 				'sidebar-mac': '10px',
 				'titlebar-win': `${ WINDOWS_TITLEBAR_HEIGHT }px`,

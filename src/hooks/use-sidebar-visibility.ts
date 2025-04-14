@@ -1,5 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { DEFAULT_WIDTH, SIDEBAR_WIDTH, MIN_WIDTH_SELECTOR_TO_MEASURE } from 'src/constants';
+import {
+	DEFAULT_WIDTH,
+	SIDEBAR_WIDTH,
+	MIN_WIDTH_SELECTOR_TO_MEASURE,
+	APP_CHROME_SPACING,
+} from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
 const SIDEBAR_BREAKPOINT = DEFAULT_WIDTH;
@@ -30,7 +35,7 @@ export function useSidebarVisibility( elementSelector: string = MIN_WIDTH_SELECT
 				el?.clientWidth < el?.scrollWidth
 			) {
 				// The new breakpoint is the width of the element to measure plus the sidebar plus the right padding
-				setDynamicBreakPoint( el.clientWidth + SIDEBAR_WIDTH + 10 );
+				setDynamicBreakPoint( el.clientWidth + SIDEBAR_WIDTH + APP_CHROME_SPACING );
 			}
 
 			setIsLowerThanBreakpoint( window.innerWidth < dynamicBreakPoint );

@@ -89,7 +89,7 @@ export const WPVersionSelector = ( {
 						<>
 							<optgroup label={ __( 'Auto-updating' ) }>
 								<option key={ DEFAULT_WORDPRESS_VERSION } value={ DEFAULT_WORDPRESS_VERSION }>
-									{ __( 'Keep Latest Stable' ) }
+									{ __( 'Latest' ) }
 								</option>
 							</optgroup>
 							<optgroup label={ __( 'Beta & Nightly' ) }>

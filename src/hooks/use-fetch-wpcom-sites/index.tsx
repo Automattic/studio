@@ -14,6 +14,7 @@ export const sitesEndpointSiteSchema = z.object( {
 	URL: z.string(),
 	jetpack: z.boolean().optional(),
 	is_deleted: z.boolean(),
+	hosting_provider_guess: z.string().optional(),
 	options: z
 		.object( {
 			created_at: z.string(),
@@ -64,6 +65,9 @@ function getSyncSupport( site: SitesEndpointSite, connectedSiteIds: number[] ): 
 	}
 	if ( ! site.capabilities?.manage_options ) {
 		return 'missing-permissions';
+	}
+	if ( site.hosting_provider_guess === 'pressable' ) {
+		return 'syncable';
 	}
 	if ( isJetpackSite( site ) && ! hasSupportedPlan( site ) ) {
 		return 'jetpack-site';

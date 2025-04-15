@@ -18,10 +18,8 @@ export async function bumpAggregatedUniqueStat(
 	const lastBump = await getLastBump( group, stat );
 
 	if ( lastBump === null ) {
-		const didBump = bumpStat( group, stat, bumpInDev );
-		if ( didBump ) {
-			await updateLastBump( group, stat );
-		}
+		bumpStat( group, stat, bumpInDev );
+		await updateLastBump( group, stat );
 		return;
 	}
 

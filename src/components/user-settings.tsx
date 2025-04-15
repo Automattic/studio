@@ -69,7 +69,8 @@ const SnapshotInfo = ( {
 	isDeleting?: boolean;
 } ) => {
 	const { __ } = useI18n();
-	const { snapshotCreationBlocked } = useSnapshots();
+	const { data: snapshotUsage } = useGetSnapshotUsage();
+	const snapshotCreationBlocked = snapshotUsage?.siteCreationBlocked ?? false;
 	const menuItemStyles = cx(
 		'[&_span]:min-w-0 [&_span]:p-[1px]',
 		isDisabled &&

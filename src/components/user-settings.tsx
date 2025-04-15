@@ -337,7 +337,7 @@ export default function UserSettings() {
 			setNeedsToOpenUserSettings( false );
 		};
 
-		const savePreferences = () => {
+		const savePreferences = async () => {
 			setSavedLocale( locale );
 			await saveEditorPreference();
 			closeTheModal();

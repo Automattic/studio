@@ -267,15 +267,21 @@ export default function UserSettings() {
 
 		const [ locale, setLocale ] = useState( savedLocale );
 
+		const closeTheModal = () => {
+			setNeedsToOpenUserSettings( false );
+		};
+
 		// Save all pending preferences
 		const savePreferences = () => {
 			// Apply each preference
 			setSavedLocale( locale );
+			closeTheModal();
 		};
 
 		// Reset pending changes
 		const cancelChanges = () => {
 			setLocale( savedLocale );
+			closeTheModal();
 		};
 
 		const hasChanges = locale !== savedLocale;
@@ -285,8 +291,8 @@ export default function UserSettings() {
 				<LanguagePicker value={ locale } onChange={ setLocale } />
 
 				{ /* Add future preferences here */ }
-				<div className="mt-auto pt-6 pb-2 flex justify-end gap-3">
-					<Button variant="tertiary" onClick={ cancelChanges } disabled={ ! hasChanges }>
+				<div className="mt-auto pt-6 flex justify-end gap-3">
+					<Button variant="tertiary" onClick={ cancelChanges }>
 						{ __( 'Cancel' ) }
 					</Button>
 					<Button variant="primary" onClick={ savePreferences } disabled={ ! hasChanges }>

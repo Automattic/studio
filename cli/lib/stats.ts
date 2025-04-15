@@ -75,6 +75,6 @@ async function updateLastBump( group: StatsGroup, stat: StatsMetric ) {
 	const data = await readAppdata();
 	data.lastBumpStats ??= {};
 	data.lastBumpStats[ group ] ??= {};
-	data.lastBumpStats[ group ][ stat ] = Date.now();
+	( data.lastBumpStats[ group ] as Record< StatsMetric, number > )[ stat ] = Date.now();
 	await saveAppdata( data );
 }

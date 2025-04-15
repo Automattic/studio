@@ -13,6 +13,7 @@ import { Tooltip } from 'src/components/tooltip';
 import { WordPressLogo } from 'src/components/wordpress-logo';
 import { WPCOM_PROFILE_URL } from 'src/constants';
 import { useAuth } from 'src/hooks/use-auth';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useI18nData } from 'src/hooks/use-i18n-data';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
@@ -180,6 +181,8 @@ export default function UserSettings() {
 	const { __ } = useI18n();
 	const [ deletedAllSnapshots, setDeletedAllSnapshots ] = useState( false );
 	const { isAuthenticated, authenticate, logout, user } = useAuth();
+	const { preferredEditor } = useFeatureFlags();
+	const { locale: savedLocale, setLocale: setSavedLocale } = useI18nData();
 	const {
 		allSnapshots,
 		activeSnapshotCount,
@@ -192,7 +195,7 @@ export default function UserSettings() {
 	const [ needsToOpenUserSettings, setNeedsToOpenUserSettings ] = useState( false );
 
 	const isOffline = useOffline();
-	const offlineMessage = __( 'You’re currently offline.' );
+	const offlineMessage = __( "You're currently offline." );
 
 	const resetLocalState = useCallback( () => {
 		setNeedsToOpenUserSettings( false );
@@ -236,6 +239,65 @@ export default function UserSettings() {
 		}
 	}, [ allSnapshots, deleteAllSnapshots, __ ] );
 
+	if ( ! preferredEditor ) {
+		return (
+			<>
+				{ needsToOpenUserSettings && (
+					<Modal title={ __( 'Settings' ) } isDismissible onRequestClose={ resetLocalState }>
+						{ ! isAuthenticated && (
+							<div className="flex flex-col gap-6">
+								<div className="justify-between items-center w-full h-auto flex">
+									<WordPressLogo />
+									<Tooltip disabled={ ! isOffline } icon={ offlineIcon } text={ offlineMessage }>
+										<Button
+											aria-description={ isOffline ? offlineMessage : '' }
+											aria-disabled={ isOffline }
+											variant="primary"
+											onClick={ () => {
+												if ( isOffline ) {
+													return;
+												}
+												authenticate();
+											} }
+										>
+											{ __( 'Log in' ) }
+										</Button>
+									</Tooltip>
+								</div>
+								<div className="border-t border-[#F0F0F0] w-full"></div>
+								<LanguagePicker value={ savedLocale } onChange={ setSavedLocale } />
+							</div>
+						) }
+						{ isAuthenticated && (
+							<div className="gap-6 flex flex-col">
+								<UserInfo onLogout={ logout } user={ user } />
+								<div className="border-t border-[#F0F0F0] w-full"></div>
+								<div className="flex flex-col gap-6">
+									<LanguagePicker value={ savedLocale } onChange={ setSavedLocale } />
+									<SnapshotInfo
+										isDeleting={ loadingDeletingAllSnapshots }
+										isDisabled={
+											activeSnapshotCount === 0 ||
+											loadingDeletingAllSnapshots ||
+											isLoadingAllSnapshots ||
+											isLoadingSnapshotUsage ||
+											allSnapshots?.length === 0 ||
+											isOffline
+										}
+										siteCount={ activeSnapshotCount }
+										siteLimit={ snapshotQuota }
+										onRemoveSnapshots={ onRemoveSnapshots }
+									/>
+									<PromptInfo />
+								</div>
+							</div>
+						) }
+					</Modal>
+				) }
+			</>
+		);
+	}
+
 	const NonAuthenticatedAccountTab = () => (
 		<>
 			<div className="justify-between items-center w-full h-auto flex">
@@ -271,14 +333,11 @@ export default function UserSettings() {
 			setNeedsToOpenUserSettings( false );
 		};
 
-		// Save all pending preferences
 		const savePreferences = () => {
-			// Apply each preference
 			setSavedLocale( locale );
 			closeTheModal();
 		};
 
-		// Reset pending changes
 		const cancelChanges = () => {
 			setLocale( savedLocale );
 			closeTheModal();
@@ -289,8 +348,6 @@ export default function UserSettings() {
 		return (
 			<>
 				<LanguagePicker value={ locale } onChange={ setLocale } />
-
-				{ /* Add future preferences here */ }
 				<div className="mt-auto pt-6 flex justify-end gap-3">
 					<Button variant="tertiary" onClick={ cancelChanges }>
 						{ __( 'Cancel' ) }
@@ -352,9 +409,7 @@ export default function UserSettings() {
 					size="medium"
 					className={ cx(
 						'min-h-[350px]',
-						// Remove padding so that the Tabs are flush with the header
 						'[&_[role="document"]]:px-0',
-						// The modal header is 72px tall but we want to remove 8px from the top
 						'[&_[role="document"]]:mt-[64px]'
 					) }
 				>

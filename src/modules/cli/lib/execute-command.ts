@@ -1,4 +1,4 @@
-import { utilityProcess } from 'electron';
+import { fork } from 'node:child_process';
 import EventEmitter from 'node:events';
 import path from 'node:path';
 import { getResourcesPath } from 'src/storage/paths';
@@ -24,7 +24,8 @@ export function executeCliCommand( args: string[] ) {
 		process.env.NODE_ENV === 'development'
 			? path.join( getResourcesPath(), 'dist', 'cli', 'main.js' )
 			: path.join( getResourcesPath(), 'cli', 'main.js' );
-	const child = utilityProcess.fork( cliPath, [ ...args, '--output-format', 'json' ], {
+	// Using Electron's utilityProcess.fork API gave us issues with the child process never exiting
+	const child = fork( cliPath, [ ...args, '--output-format', 'json' ], {
 		stdio: 'pipe',
 	} );
 	const eventEmitter = new EventEmitter();

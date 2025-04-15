@@ -89,6 +89,7 @@ interface AppGlobals {
 	appName: string;
 	appVersion: string;
 	arm64Translation: boolean;
+	pressableSyncEnabled: boolean;
 	terminalWpCliEnabled: boolean;
 }
 

@@ -115,6 +115,8 @@ const api: IpcApi = {
 	getInstalledTerminals: () => ipcRendererInvoke( 'getInstalledTerminals' ),
 	getUserEditor: () => ipcRendererInvoke( 'getUserEditor' ),
 	saveUserEditor: ( editor ) => ipcRendererInvoke( 'saveUserEditor', editor ),
+	startEmailServer: () => ipcRenderer.invoke( 'startEmailServer' ),
+	stopEmailServer: () => ipcRenderer.invoke( 'stopEmailServer' ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

@@ -16,6 +16,10 @@ export default function Header() {
 		if ( ! site.running ) {
 			await startServer( site.id );
 		}
+
+		// TEST ONLY: start Email server if not running.
+		getIpcApi().startEmailServer();
+
 		getIpcApi().openSiteURL( site.id, '/wp-admin' );
 	};
 
@@ -25,6 +29,7 @@ export default function Header() {
 		if ( ! site.running ) {
 			await startServer( site.id );
 		}
+
 		getIpcApi().openSiteURL( site.id, '', { autoLogin: false } );
 	};
 

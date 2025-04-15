@@ -614,6 +614,27 @@ async function mountInternalMuPlugins( php: PHP, options: WPNowOptions ) {
 			`
 		);
 	}
+
+	// Intercept wp_mail and send email data via Electron service.
+	// @TODO If we need dynamic ports, think about bundling this in the site folder.
+	php.writeFile(
+		path.posix.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-wp-mail.php' ),
+		`<?php
+			add_filter( 'wp_mail', function( $args ) {
+				$response = wp_remote_post( 'http://localhost:7777/email', array(
+					'headers'       => array(
+          				'Content-Type'  => 'application/json',
+        			),
+					'body' => json_encode( array(
+						'to'      => $args['to'],
+						'subject' => $args['subject'],
+						'message' => $args['message'],
+						'headers' => $args['headers']
+	 				) )
+	 			) );
+    			return $args; // Let WordPress think the email was sent.
+		} );`
+	);
 }
 
 async function mountSqlitePlugin( php: PHP, vfsDocumentRoot: string ) {

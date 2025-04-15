@@ -61,6 +61,7 @@ import { loadUserData, saveUserData } from 'src/storage/user-data';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
 import { SupportedEditor } from './modules/user-settings/lib/editor';
 import { SupportedTerminal, DEFAULT_TERMINAL } from './modules/user-settings/lib/terminal';
+import { emailServer } from './lib/email-server';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
 
@@ -1337,4 +1338,16 @@ export async function deleteSnapshot(
 ): Promise< { operationId: crypto.UUID } > {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	return executePreviewCliCommand( [ 'preview', 'delete', hostname ], parentWindow );
+}
+
+export function startEmailServer(): Promise< void > {
+	return emailServer.start().then( ( port ) => {
+		console.log( `SMTP server started on port ${ port }` );
+	} );
+}
+
+export function stopEmailServer(): Promise< void > {
+	return emailServer.stop().then( () => {
+		console.log( 'SMTP server stopped' );
+	} );
 }

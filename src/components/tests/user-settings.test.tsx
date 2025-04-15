@@ -2,6 +2,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import UserSettings from 'src/components/user-settings';
 import { useAuth } from 'src/hooks/use-auth';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
 
@@ -26,6 +27,9 @@ describe( 'UserSettings', () => {
 	it( 'logs in when not authenticated', async () => {
 		const authenticate = jest.fn();
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: false, authenticate } );
+		( useFeatureFlags as jest.Mock ).mockReturnValue( {
+			preferredEditor: false,
+		} );
 		render( <UserSettings /> );
 		const loginButton = screen.getByRole( 'button', { name: 'Log in' } );
 		expect( loginButton ).toBeVisible();
@@ -36,6 +40,9 @@ describe( 'UserSettings', () => {
 	it( 'logs out if authenticated', async () => {
 		const logout = jest.fn();
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, logout } );
+		( useFeatureFlags as jest.Mock ).mockReturnValue( {
+			preferredEditor: false,
+		} );
 		render( <UserSettings /> );
 		const logoutButton = screen.getByRole( 'button', { name: 'Log out' } );
 		expect( logoutButton ).toBeVisible();
@@ -46,6 +53,9 @@ describe( 'UserSettings', () => {
 	it( 'disables log in button when offline', async () => {
 		const authenticate = jest.fn();
 		( useOffline as jest.Mock ).mockReturnValue( true );
+		( useFeatureFlags as jest.Mock ).mockReturnValue( {
+			preferredEditor: false,
+		} );
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: false, authenticate } );
 		render( <UserSettings /> );
 		const loginButton = screen.getByRole( 'button', { name: 'Log in' } );
@@ -55,7 +65,7 @@ describe( 'UserSettings', () => {
 		fireEvent.mouseOver( loginButton );
 		expect(
 			screen.getByRole( 'tooltip', {
-				name: 'You’re currently offline.',
+				name: "You're currently offline.",
 			} )
 		).toBeVisible();
 	} );
@@ -63,6 +73,9 @@ describe( 'UserSettings', () => {
 	describe( 'Tab Navigation', () => {
 		it( 'switches between tabs correctly', async () => {
 			( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
+			( useFeatureFlags as jest.Mock ).mockReturnValue( {
+				preferredEditor: true,
+			} );
 
 			render( <UserSettings /> );
 

@@ -2,6 +2,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { __ } from '@wordpress/i18n';
+import { StatsGroup, StatsMetric } from 'src/lib/bump-stats/types';
 import { z } from 'zod';
 import { LoggerError } from 'cli/logger';
 
@@ -34,7 +35,9 @@ const userDataSchema = z
 			} )
 			.passthrough()
 			.optional(),
-		lastBumpStats: z.record( z.string(), z.record( z.string(), z.number() ) ).optional(),
+		lastBumpStats: z
+			.record( z.nativeEnum( StatsGroup ), z.record( z.nativeEnum( StatsMetric ), z.number() ) )
+			.optional(),
 	} )
 	.passthrough();
 

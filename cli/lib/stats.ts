@@ -1,17 +1,7 @@
 import { isSameDay, isSameMonth, isSameWeek } from 'date-fns';
 import fetch from 'node-fetch';
+import { AggregateInterval, StatsGroup, StatsMetric } from 'src/lib/bump-stats/types';
 import { readAppdata, saveAppdata } from './appdata';
-
-export enum StatsGroup {
-	STUDIO_CLI_USAGE_UNIQUE = 'studio-cli-usage-unique',
-}
-
-export enum StatsMetric {
-	SUCCESS = 'success',
-	FAILURE = 'failure',
-}
-
-export type AggregateInterval = 'daily' | 'weekly' | 'monthly';
 
 // Bumps a stat if it hasn't been bumped within the current aggregate interval.
 // This allows us to approximate a 1-count-per-user stat without recording which
@@ -19,45 +9,43 @@ export type AggregateInterval = 'daily' | 'weekly' | 'monthly';
 //
 // We don't want to block the thread to record the stat, so this function doesn't
 // await promises before returning.
-export function bumpAggregatedUniqueStat(
+export async function bumpAggregatedUniqueStat(
 	group: StatsGroup,
 	stat: StatsMetric,
 	aggregateBy: AggregateInterval,
 	bumpInDev = false
 ) {
-	getLastBump( group, stat )
-		.then( ( lastBump ) => {
-			if ( lastBump === null ) {
-				// Bump the stat the first time it's seen
-				bumpStat( group, stat, bumpInDev );
-				return true;
-			}
+	const lastBump = await getLastBump( group, stat );
 
-			const now = Date.now();
+	if ( lastBump === null ) {
+		const didBump = bumpStat( group, stat, bumpInDev );
+		if ( didBump ) {
+			await updateLastBump( group, stat );
+		}
+		return;
+	}
 
-			if ( aggregateBy === 'daily' && isSameDay( lastBump, now ) ) {
-				return false;
-			}
-			if ( aggregateBy === 'weekly' && isSameWeek( lastBump, now ) ) {
-				return false;
-			}
-			if ( aggregateBy === 'monthly' && isSameMonth( lastBump, now ) ) {
-				return false;
-			}
+	const now = Date.now();
 
-			// Bump the stat for subsequent occurrences within the time interval
-			return bumpStat( group, stat, bumpInDev );
-		} )
-		.then( ( didBump ) => {
-			if ( didBump ) {
-				updateLastBump( group, stat );
-			}
-		} );
+	if ( aggregateBy === 'daily' && isSameDay( lastBump, now ) ) {
+		return;
+	}
+	if ( aggregateBy === 'weekly' && isSameWeek( lastBump, now ) ) {
+		return;
+	}
+	if ( aggregateBy === 'monthly' && isSameMonth( lastBump, now ) ) {
+		return;
+	}
+
+	const didBump = bumpStat( group, stat, bumpInDev );
+	if ( didBump ) {
+		await updateLastBump( group, stat );
+	}
 }
 
 // Returns true if we attempted to bump the stat
 export function bumpStat( group: StatsGroup, stat: StatsMetric, bumpInDev = false ) {
-	if ( process.env.E2E || ( process.env.NODE_ENV === 'development' && ! bumpInDev ) ) {
+	if ( process.env.NODE_ENV === 'development' && ! bumpInDev ) {
 		console.info( `Would have bumped stat: ${ group }=${ stat }` );
 		return false;
 	}
@@ -77,13 +65,13 @@ export function bumpStat( group: StatsGroup, stat: StatsMetric, bumpInDev = fals
 }
 
 // Returns UTC timestamp of the last time the stat was bumped, or null if it has never been bumped.
-async function getLastBump( group: string, stat: string ): Promise< number | null > {
+async function getLastBump( group: StatsGroup, stat: StatsMetric ): Promise< number | null > {
 	const { lastBumpStats } = await readAppdata();
 	return lastBumpStats?.[ group ]?.[ stat ] ?? null;
 }
 
 // Store this moment as the last time we bumped the state, in UTC time.
-async function updateLastBump( group: string, stat: string ) {
+async function updateLastBump( group: StatsGroup, stat: StatsMetric ) {
 	const data = await readAppdata();
 	data.lastBumpStats ??= {};
 	data.lastBumpStats[ group ] ??= {};

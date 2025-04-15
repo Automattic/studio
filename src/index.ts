@@ -15,7 +15,8 @@ import { PROTOCOL_PREFIX } from 'src/constants';
 import * as ipcHandlers from 'src/ipc-handlers';
 import { hasActiveSyncOperations } from 'src/lib/active-sync-operations';
 import { bumpAggregatedUniqueStat, bumpStat } from 'src/lib/bump-stats';
-import { getPlatformMetric, StatsGroup } from 'src/lib/bump-stats/types';
+import { getPlatformMetric } from 'src/lib/bump-stats/lib';
+import { StatsGroup } from 'src/lib/bump-stats/types';
 import {
 	listenCLICommands,
 	getCLIDataForMainInstance,

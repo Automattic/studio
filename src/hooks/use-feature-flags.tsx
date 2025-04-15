@@ -34,7 +34,6 @@ export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { c
 	const terminalWpCliEnabledFromGlobals = getAppGlobals().terminalWpCliEnabled;
 	const preferredEditorFromGlobals = getAppGlobals().preferredEditor;
 	const pressableSyncEnabledFromGlobals = getAppGlobals().pressableSyncEnabled;
-
 	const [ featureFlags, setFeatureFlags ] = useState< FeatureFlagsContextType >( {
 		terminalWpCliEnabled: terminalWpCliEnabledFromGlobals,
 		preferredEditor: preferredEditorFromGlobals,

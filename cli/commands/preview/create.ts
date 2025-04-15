@@ -47,7 +47,6 @@ async function runCommand( siteFolder: string, outputFormat?: OutputFormat ): Pr
 		}
 	} finally {
 		cleanup( archivePath );
-		process.exit( 0 );
 	}
 }
 

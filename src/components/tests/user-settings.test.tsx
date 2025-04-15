@@ -1,9 +1,11 @@
 // To run tests, execute `npm run test -- src/components/user-settings.test.tsx` from the root directory
 import { fireEvent, render, screen } from '@testing-library/react';
+import { Provider } from 'react-redux';
 import UserSettings from 'src/components/user-settings';
 import { useAuth } from 'src/hooks/use-auth';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
+import { store } from 'src/stores';
 
 jest.mock( 'src/hooks/use-feature-flags' );
 jest.mock( 'src/hooks/use-auth' );
@@ -12,6 +14,10 @@ jest.mock( 'src/hooks/use-ipc-listener' );
 afterEach( () => {
 	jest.clearAllMocks();
 } );
+
+function renderWithProvider( component: React.ReactElement ) {
+	return render( <Provider store={ store }>{ component }</Provider> );
+}
 
 describe( 'UserSettings', () => {
 	beforeEach( () => {
@@ -26,7 +32,7 @@ describe( 'UserSettings', () => {
 	it( 'logs in when not authenticated', async () => {
 		const authenticate = jest.fn();
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: false, authenticate } );
-		render( <UserSettings /> );
+		renderWithProvider( <UserSettings /> );
 		const loginButton = screen.getByRole( 'button', { name: 'Log in' } );
 		expect( loginButton ).toBeVisible();
 		fireEvent.click( loginButton );
@@ -36,7 +42,7 @@ describe( 'UserSettings', () => {
 	it( 'logs out if authenticated', async () => {
 		const logout = jest.fn();
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, logout } );
-		render( <UserSettings /> );
+		renderWithProvider( <UserSettings /> );
 		const logoutButton = screen.getByRole( 'button', { name: 'Log out' } );
 		expect( logoutButton ).toBeVisible();
 		fireEvent.click( logoutButton );
@@ -47,7 +53,7 @@ describe( 'UserSettings', () => {
 		const authenticate = jest.fn();
 		( useOffline as jest.Mock ).mockReturnValue( true );
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: false, authenticate } );
-		render( <UserSettings /> );
+		renderWithProvider( <UserSettings /> );
 		const loginButton = screen.getByRole( 'button', { name: 'Log in' } );
 		expect( loginButton ).toHaveAttribute( 'aria-disabled', 'true' );
 		fireEvent.click( loginButton );

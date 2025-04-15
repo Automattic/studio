@@ -36,7 +36,6 @@ export function executeCliCommand( args: string[] ) {
 	} );
 
 	child.stderr?.on( 'data', ( data: Buffer ) => {
-		console.log( 'stderr', data.toString( 'utf8' ) );
 		for ( const parsed of parseOutput( data ) ) {
 			eventEmitter.emit( 'error', parsed );
 		}

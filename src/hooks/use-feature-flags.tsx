@@ -9,15 +9,18 @@ import { getAppGlobals } from 'src/lib/app-globals';
 const featureFlagsSchema = z
 	.object( {
 		terminal_wp_cli_enabled: z.boolean().optional(),
+		preferred_editor: z.boolean().optional(),
 	} )
 	.catch( ( _ ) => ( {} ) );
 
 export interface FeatureFlagsContextType {
 	terminalWpCliEnabled: boolean;
+	preferredEditor: boolean;
 }
 
 export const FeatureFlagsContext = createContext< FeatureFlagsContextType >( {
 	terminalWpCliEnabled: false,
+	preferredEditor: false,
 } );
 
 interface FeatureFlagsProviderProps {
@@ -26,8 +29,10 @@ interface FeatureFlagsProviderProps {
 
 export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { children } ) => {
 	const terminalWpCliEnabledFromGlobals = getAppGlobals().terminalWpCliEnabled;
+	const preferredEditorFromGlobals = getAppGlobals().preferredEditor;
 	const [ featureFlags, setFeatureFlags ] = useState< FeatureFlagsContextType >( {
 		terminalWpCliEnabled: terminalWpCliEnabledFromGlobals,
+		preferredEditor: preferredEditorFromGlobals,
 	} );
 	const { isAuthenticated, client } = useAuth();
 
@@ -49,6 +54,7 @@ export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { c
 				setFeatureFlags( {
 					terminalWpCliEnabled:
 						Boolean( flags.terminal_wp_cli_enabled ) || terminalWpCliEnabledFromGlobals,
+					preferredEditor: Boolean( flags.preferred_editor ) || preferredEditorFromGlobals,
 				} );
 			} catch ( error ) {
 				Sentry.captureException( error );
@@ -59,7 +65,7 @@ export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { c
 		return () => {
 			cancel = true;
 		};
-	}, [ isAuthenticated, client, terminalWpCliEnabledFromGlobals ] );
+	}, [ isAuthenticated, client, terminalWpCliEnabledFromGlobals, preferredEditorFromGlobals ] );
 
 	return (
 		<FeatureFlagsContext.Provider value={ featureFlags }>{ children }</FeatureFlagsContext.Provider>

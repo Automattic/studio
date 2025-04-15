@@ -785,6 +785,7 @@ export async function getAppGlobals( _event: IpcMainInvokeEvent ): Promise< AppG
 		appVersion: app.getVersion(),
 		arm64Translation: app.runningUnderARM64Translation,
 		terminalWpCliEnabled: process.env.STUDIO_TERMINAL_WP_CLI === 'true',
+		preferredEditor: process.env.STUDIO_PREFERRED_EDITOR === 'true',
 	};
 }
 

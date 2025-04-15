@@ -13,8 +13,9 @@
 		"directory": "/"
 	},
 	"scripts": {
+		"prestart": "npm run cli:build",
 		"start": "electron-forge start",
-		"start-wayland": "electron-forge start -- --enable-features=UseOzonePlatform --ozone-platform=wayland .",
+		"start-wayland": "npm run prestart && electron-forge start -- --enable-features=UseOzonePlatform --ozone-platform=wayland .",
 		"postinstall": "patch-package && ts-node scripts/download-wp-server-files.ts && node ./scripts/download-available-site-translations.mjs",
 		"package": "electron-forge package",
 		"make": "electron-forge make",

@@ -1,5 +1,3 @@
-export const DEFAULT_EDITOR = 'none';
-
 export type SupportedEditor =
 	| 'vscode'
 	| 'phpstorm'
@@ -8,8 +6,7 @@ export type SupportedEditor =
 	| 'nova'
 	| 'webstorm'
 	| 'sublime'
-	| 'atom'
-	| 'none';
+	| 'atom';
 
 export const supportedEditorNames: Record< SupportedEditor, string > = {
 	vscode: 'Visual Studio Code',
@@ -20,5 +17,4 @@ export const supportedEditorNames: Record< SupportedEditor, string > = {
 	webstorm: 'WebStorm',
 	sublime: 'Sublime',
 	atom: 'Atom',
-	none: 'None',
 };

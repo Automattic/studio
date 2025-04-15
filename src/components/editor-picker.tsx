@@ -33,13 +33,12 @@ export const EditorPicker = ( { value, onChange }: EditorPickerProps ) => {
 
 	const options = Object.entries( supportedEditorNames ).map( ( [ editor, label ] ) => {
 		const editorKey = editor as SupportedEditor;
-		const isInstalled =
-			editorKey === 'none' || installedApps[ editorKey as keyof typeof installedApps ];
+		const isInstalled = installedApps[ editorKey as keyof typeof installedApps ];
 
 		return {
 			value: editorKey,
 			label,
-			disabled: editorKey !== 'none' && ! isInstalled,
+			disabled: ! isInstalled,
 		};
 	} );
 

@@ -45,17 +45,6 @@ listenerMiddleware.startListening( {
 	},
 } );
 
-// Log changes to snapshot operations
-listenerMiddleware.startListening( {
-	predicate( action, currentState, previousState ) {
-		return currentState.preview.operations !== previousState.preview.operations;
-	},
-	effect( action, listenerApi ) {
-		const state = listenerApi.getState();
-		console.log( 'Snapshot operations:', state.preview.operations );
-	},
-} );
-
 export const rootReducer = combineReducers( {
 	appVersionApi: appVersionApi.reducer,
 	chat: chatReducer,

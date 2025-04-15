@@ -15,11 +15,9 @@ import {
 	WP_AUTHORIZE_ENDPOINT,
 	LIMIT_OF_ZIP_SITES_PER_USER,
 } from 'src/constants';
-import { useArchiveSite } from 'src/hooks/use-archive-site';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSiteSize } from 'src/hooks/use-site-size';
-import { useSnapshots } from 'src/hooks/use-snapshots';
 import { useUpdateDemoSite } from 'src/hooks/use-update-demo-site';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { CreatePreviewButton } from 'src/modules/preview-site/components/create-preview-button';
@@ -29,6 +27,7 @@ import { ProgressRow } from 'src/modules/preview-site/components/progress-row';
 import { useUpdateButtonTooltip } from 'src/modules/preview-site/hooks/use-update-button-tooltip';
 import { useAppDispatch, useRootSelector } from 'src/stores';
 import { previewSelectors, previewThunks } from 'src/stores/preview-slice';
+import { useGetSnapshotUsage } from 'src/stores/wpcom-api';
 
 interface ContentTabPreviewsProps {
 	selectedSite: SiteDetails;
@@ -146,13 +145,20 @@ function NoAuth( { selectedSite }: React.ComponentProps< typeof EmptyGeneric > )
 }
 
 function NoPreviews( { selectedSite }: React.ComponentProps< typeof EmptyGeneric > ) {
-	const { archiveSite } = useArchiveSite();
+	const dispatch = useAppDispatch();
 
 	return (
 		<EmptyGeneric selectedSite={ selectedSite }>
 			<div className="mt-8">
 				<CreatePreviewButton
-					onClick={ () => archiveSite( selectedSite.id ) }
+					onClick={ () => {
+						dispatch(
+							previewThunks.createSnapshot( {
+								siteFolder: selectedSite.path,
+								siteId: selectedSite.id,
+							} )
+						);
+					} }
 					selectedSite={ selectedSite }
 				/>
 			</div>
@@ -163,7 +169,7 @@ function NoPreviews( { selectedSite }: React.ComponentProps< typeof EmptyGeneric
 export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) {
 	const { __ } = useI18n();
 	const dispatch = useAppDispatch();
-	const { snapshotCreationBlocked } = useSnapshots();
+	const { data: snapshotUsage } = useGetSnapshotUsage();
 	const { isAuthenticated, user } = useAuth();
 	const { isOverLimit } = useSiteSize( selectedSite.id );
 	const { isDemoSiteUpdating } = useUpdateDemoSite();
@@ -180,10 +186,10 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 	const isOffline = useOffline();
 
 	const isUpdateDisabled =
-		isAnyPreviewUpdating || snapshotCreationBlocked || isOverLimit || isOffline;
+		isAnyPreviewUpdating || snapshotUsage?.siteCreationBlocked || isOverLimit || isOffline;
 
 	const tooltipContent = useUpdateButtonTooltip( {
-		snapshotCreationBlocked,
+		snapshotCreationBlocked: snapshotUsage?.siteCreationBlocked ?? false,
 		isOverLimit,
 		isOffline,
 	} );

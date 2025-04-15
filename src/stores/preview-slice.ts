@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import { createSlice, createAsyncThunk, PayloadAction, createSelector } from '@reduxjs/toolkit';
-import { z } from 'zod';
-import { CreateLoggerAction as LoggerAction } from 'cli/commands/preview/logger-actions';
+import { CreateLoggerAction } from 'cli/commands/preview/logger-actions';
+import { LIMIT_OF_ZIP_SITES_PER_USER } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { RootState, store } from 'src/stores/index';
 
@@ -10,12 +10,14 @@ type SnapshotOperation = {
 	progress: number;
 	siteId: string;
 	status: 'pending' | 'fulfilled' | 'rejected';
+	type: 'create' | 'update' | 'delete';
 };
 
 type PreviewState = {
 	operations: Record< crypto.UUID, SnapshotOperation >;
 	snapshotProgress: number;
 	snapshots: Snapshot[];
+	snapshotQuota: number;
 };
 
 const getInitialState = (): PreviewState => {
@@ -23,22 +25,17 @@ const getInitialState = (): PreviewState => {
 		operations: {},
 		snapshotProgress: 0,
 		snapshots: [],
+		snapshotQuota: LIMIT_OF_ZIP_SITES_PER_USER,
 	};
 };
 
 const getSnapshots = createAsyncThunk( 'preview/getSnapshots', async () => {
-	console.log( 'getSnapshots' );
 	return await getIpcApi().getSnapshots();
 } );
 
-type CreateSnapshotParams = {
-	siteId: string;
-	siteFolder: string;
-};
-
 const createSnapshot = createAsyncThunk(
 	'preview/createSnapshot',
-	async ( { siteId, siteFolder }: CreateSnapshotParams ) => {
+	async ( { siteId, siteFolder }: { siteId: string; siteFolder: string } ) => {
 		const { operationId } = await getIpcApi().createSnapshot( siteFolder );
 		return { operationId, siteId };
 	}
@@ -69,11 +66,13 @@ const previewSlice = createSlice( {
 					progress: 0,
 					siteId: action.payload.siteId,
 					status: 'pending',
+					type: 'create',
 				};
 			} );
 	},
 	selectors: {
 		selectSnapshots: ( state ) => state.snapshots,
+		selectSnapshotsCount: ( state ) => state.snapshots.length,
 		isOperationInProgressForSite: ( state, siteId: string ) =>
 			Object.values( state.operations ).find( ( operation ) => operation.siteId === siteId ),
 	},
@@ -91,26 +90,20 @@ const selectSnapshotsBySiteAndUser = createSelector(
 		)
 );
 
-function getProgress( action: LoggerAction ) {
+function getProgress( action: CreateLoggerAction ) {
 	switch ( action ) {
-		case LoggerAction.VALIDATE:
+		case CreateLoggerAction.VALIDATE:
 			return 5;
-		case LoggerAction.ARCHIVE:
+		case CreateLoggerAction.ARCHIVE:
 			return 20;
-		case LoggerAction.UPLOAD:
+		case CreateLoggerAction.UPLOAD:
 			return 60;
-		case LoggerAction.READY:
+		case CreateLoggerAction.READY:
 			return 80;
-		case LoggerAction.APPDATA:
+		case CreateLoggerAction.APPDATA:
 			return 100;
 	}
 }
-
-const previewEventSchema = z.object( {
-	action: z.nativeEnum( LoggerAction ),
-	status: z.enum( [ 'inprogress', 'fail', 'success' ] ),
-	message: z.string(),
-} );
 
 function getOperation( operationId: crypto.UUID ) {
 	const state = store.getState();
@@ -124,8 +117,7 @@ window.ipcListener.subscribe( 'preview-output', ( event, payload ) => {
 	}
 
 	try {
-		const parsedData = previewEventSchema.parse( payload.data );
-		const progress = getProgress( parsedData.action );
+		const progress = getProgress( payload.data.action );
 		store.dispatch(
 			previewActions.updateOperation( {
 				operationId: payload.operationId,
@@ -144,11 +136,10 @@ window.ipcListener.subscribe( 'preview-error', ( event, payload ) => {
 	}
 
 	try {
-		const parsedData = previewEventSchema.parse( payload.data );
 		store.dispatch(
 			previewActions.updateOperation( {
 				operationId: payload.operationId,
-				operation: { status: 'rejected', error: parsedData.message },
+				operation: { status: 'rejected', error: payload.data.message },
 			} )
 		);
 	} catch ( error ) {

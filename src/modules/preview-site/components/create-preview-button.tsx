@@ -11,6 +11,7 @@ import { useOffline } from 'src/hooks/use-offline';
 import { useSiteSize } from 'src/hooks/use-site-size';
 import { useSnapshots } from 'src/hooks/use-snapshots';
 import { hasVersionMismatch } from 'src/modules/preview-site/lib/version-comparison';
+import { useRootSelector } from 'src/stores';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 
 interface CreatePreviewButtonProps {
@@ -21,8 +22,8 @@ interface CreatePreviewButtonProps {
 export function CreatePreviewButton( { onClick, selectedSite }: CreatePreviewButtonProps ) {
 	const { __, _n } = useI18n();
 	const { isAnySiteArchiving, archivingSiteId } = useArchiveSite();
-	const { activeSnapshotCount, snapshotQuota, isLoadingSnapshotUsage, snapshotCreationBlocked } =
-		useSnapshots();
+	const snapshotQuota = useRootSelector( ( state ) => state.preview.snapshotQuota );
+	const { activeSnapshotCount, snapshotCreationBlocked } = useSnapshots();
 	const isLimitUsed = activeSnapshotCount >= snapshotQuota;
 	const { isOverLimit } = useSiteSize( selectedSite.id );
 	const isOffline = useOffline();
@@ -41,12 +42,7 @@ export function CreatePreviewButton( { onClick, selectedSite }: CreatePreviewBut
 	} );
 
 	const isDisabled =
-		isAnySiteArchiving ||
-		isLoadingSnapshotUsage ||
-		isLimitUsed ||
-		isOffline ||
-		snapshotCreationBlocked ||
-		isOverLimit;
+		isAnySiteArchiving || isLimitUsed || isOffline || snapshotCreationBlocked || isOverLimit;
 
 	const currentSiteArchivingMessage = __(
 		'A preview of this site is being created. Please wait for it to finish before creating another.'

@@ -20,7 +20,10 @@ function* parseOutput( data: Buffer ): Generator< unknown, void, unknown > {
 }
 
 export function executeCliCommand( args: string[] ) {
-	const cliPath = path.join( getResourcesPath(), 'dist', 'cli', 'main.js' );
+	const cliPath =
+		process.env.NODE_ENV === 'development'
+			? path.join( getResourcesPath(), 'dist', 'cli', 'main.js' )
+			: path.join( getResourcesPath(), 'cli', 'main.js' );
 	const child = utilityProcess.fork( cliPath, [ ...args, '--output-format', 'json' ], {
 		stdio: 'pipe',
 	} );

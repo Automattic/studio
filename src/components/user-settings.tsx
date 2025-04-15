@@ -19,6 +19,9 @@ import { usePromptUsage } from 'src/hooks/use-prompt-usage';
 import { useSnapshots } from 'src/hooks/use-snapshots';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useRootSelector } from 'src/stores';
+import { previewSelectors } from 'src/stores/preview-slice';
+import { useGetSnapshotUsage } from 'src/stores/wpcom-api';
 
 const UserInfo = ( {
 	user,
@@ -179,15 +182,11 @@ export default function UserSettings() {
 	const { __ } = useI18n();
 	const [ deletedAllSnapshots, setDeletedAllSnapshots ] = useState( false );
 	const { isAuthenticated, authenticate, logout, user } = useAuth();
-	const {
-		allSnapshots,
-		activeSnapshotCount,
-		snapshotQuota,
-		isLoadingSnapshotUsage,
-		loadingDeletingAllSnapshots,
-		deleteAllSnapshots,
-		loadingServerSnapshots: isLoadingAllSnapshots,
-	} = useSnapshots();
+	const { loadingDeletingAllSnapshots, deleteAllSnapshots } = useSnapshots();
+	const allSnapshots = useRootSelector( previewSelectors.selectSnapshots );
+	const snapshotQuota = useRootSelector( ( state ) => state.preview.snapshotQuota );
+	const snapshotsCount = useRootSelector( previewSelectors.selectSnapshotsCount );
+	const { data: snapshotUsage, isLoading: isLoadingSnapshotUsage } = useGetSnapshotUsage();
 	const [ needsToOpenUserSettings, setNeedsToOpenUserSettings ] = useState( false );
 
 	const isOffline = useOffline();
@@ -272,14 +271,13 @@ export default function UserSettings() {
 								<SnapshotInfo
 									isDeleting={ loadingDeletingAllSnapshots }
 									isDisabled={
-										activeSnapshotCount === 0 ||
+										snapshotsCount === 0 ||
 										loadingDeletingAllSnapshots ||
-										isLoadingAllSnapshots ||
 										isLoadingSnapshotUsage ||
 										allSnapshots?.length === 0 ||
 										isOffline
 									}
-									siteCount={ activeSnapshotCount }
+									siteCount={ snapshotUsage?.siteCount ?? 0 }
 									siteLimit={ snapshotQuota }
 									onRemoveSnapshots={ onRemoveSnapshots }
 								/>

@@ -17,6 +17,8 @@ import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { __, LocaleData, defaultI18n } from '@wordpress/i18n';
 import archiver from 'archiver';
+import { z } from 'zod';
+import { CreateLoggerAction } from 'cli/commands/preview/logger-actions';
 import { ARCHIVER_OPTIONS, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
@@ -1229,6 +1231,21 @@ export async function getAllCustomDomains(): Promise< string[] > {
 		.filter( ( domain ): domain is string => domain !== undefined );
 }
 
+const createPreviewEventSchema = z.object( {
+	action: z.nativeEnum( CreateLoggerAction ),
+	status: z.enum( [ 'inprogress', 'fail', 'success' ] ),
+	message: z.string(),
+} );
+
+function parsePreviewEventData( data: unknown ) {
+	try {
+		return createPreviewEventSchema.parse( data );
+	} catch ( error ) {
+		console.error( 'Invalid preview event:', error );
+		return null;
+	}
+}
+
 export async function createSnapshot(
 	event: IpcMainInvokeEvent,
 	siteFolder: string
@@ -1238,17 +1255,25 @@ export async function createSnapshot(
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 
 	cli.on( 'data', ( data: unknown ) => {
-		sendIpcEventToRendererWithWindow( parentWindow, 'preview-output', {
-			operationId,
-			data,
-		} );
+		const parsed = parsePreviewEventData( data );
+
+		if ( parsed ) {
+			sendIpcEventToRendererWithWindow( parentWindow, 'preview-output', {
+				operationId,
+				data: parsed,
+			} );
+		}
 	} );
 
 	cli.on( 'error', ( data: unknown ) => {
-		sendIpcEventToRendererWithWindow( parentWindow, 'preview-error', {
-			operationId,
-			data,
-		} );
+		const parsed = parsePreviewEventData( data );
+
+		if ( parsed ) {
+			sendIpcEventToRendererWithWindow( parentWindow, 'preview-error', {
+				operationId,
+				data: parsed,
+			} );
+		}
 	} );
 
 	cli.on( 'success', () => {

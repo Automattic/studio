@@ -285,7 +285,7 @@ export default function UserSettings() {
 				<LanguagePicker value={ locale } onChange={ setLocale } />
 
 				{ /* Add future preferences here */ }
-				<div className="mt-auto pt-6 flex justify-end gap-3">
+				<div className="mt-auto pt-6 pb-2 flex justify-end gap-3">
 					<Button variant="tertiary" onClick={ cancelChanges } disabled={ ! hasChanges }>
 						{ __( 'Cancel' ) }
 					</Button>

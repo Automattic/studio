@@ -79,7 +79,14 @@ function getSyncSupport( site: SitesEndpointSite, connectedSiteIds: number[] ): 
 	if ( ! site.capabilities?.manage_options ) {
 		return 'missing-permissions';
 	}
+<<<<<<< HEAD
 	if ( isJetpackSite( site ) ) {
+=======
+	if ( site.hosting_provider_guess === 'pressable' ) {
+		return 'syncable';
+	}
+	if ( isJetpackSite( site ) && ! hasSupportedPlan( site ) ) {
+>>>>>>> e7139585 (Add hosting provider check for Pressable sites in wpcom site fetching logic)
 		return 'jetpack-site';
 	}
 	if ( ! hasSupportedPlan( site ) && ! isPressableSite( site ) ) {

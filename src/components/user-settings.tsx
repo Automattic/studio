@@ -55,10 +55,6 @@ const UserInfo = ( {
 	);
 };
 
-// =============================================
-// Snapshot Components
-// =============================================
-
 const SnapshotInfo = ( {
 	siteCount,
 	siteLimit,

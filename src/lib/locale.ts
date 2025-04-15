@@ -37,6 +37,9 @@ export function getLocaleData( locale: string ) {
 	return null;
 }
 
-export function isSupportedLocale( locale: string ): locale is SupportedLocale {
+export function isSupportedLocale( locale: string | undefined ): locale is SupportedLocale {
+	if ( ! locale ) {
+		return false;
+	}
 	return supportedLocales.includes( locale as SupportedLocale );
 }

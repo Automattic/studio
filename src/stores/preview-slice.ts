@@ -5,7 +5,7 @@ import { LIMIT_OF_ZIP_SITES_PER_USER } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { RootState, store } from 'src/stores/index';
 
-type SnapshotOperation = {
+export type SnapshotOperation = {
 	error: string | null;
 	progress: number;
 	siteId: string;

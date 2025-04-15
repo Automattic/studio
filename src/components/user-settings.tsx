@@ -1,8 +1,9 @@
-import { DropdownMenu, Icon, MenuGroup, MenuItem, Spinner } from '@wordpress/components';
+import { DropdownMenu, Icon, MenuGroup, MenuItem, Spinner, TabPanel } from '@wordpress/components';
 import { sprintf } from '@wordpress/i18n';
 import { moreVertical, trash } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useState, useEffect } from 'react';
+import { Snapshot } from 'cli/lib/appdata';
 import Button from 'src/components/button';
 import { Gravatar } from 'src/components/gravatar';
 import { LanguagePicker } from 'src/components/language-picker';
@@ -13,6 +14,8 @@ import { Tooltip } from 'src/components/tooltip';
 import { WordPressLogo } from 'src/components/wordpress-logo';
 import { WPCOM_PROFILE_URL } from 'src/constants';
 import { useAuth } from 'src/hooks/use-auth';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
+import { useI18nData } from 'src/hooks/use-i18n-data';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
 import { usePromptUsage } from 'src/hooks/use-prompt-usage';
@@ -148,6 +151,7 @@ const SnapshotInfo = ( {
 		</div>
 	);
 };
+
 function PromptInfo() {
 	const { __ } = useI18n();
 	const { promptCount, promptLimit } = usePromptUsage();
@@ -175,10 +179,120 @@ function PromptInfo() {
 	);
 }
 
+const NonAuthenticatedAccountTab = () => {
+	const { __ } = useI18n();
+	const { authenticate } = useAuth();
+	const isOffline = useOffline();
+	const offlineMessage = __( "You're currently offline." );
+
+	return (
+		<>
+			<div className="justify-between items-center w-full h-auto flex">
+				<WordPressLogo />
+				<Tooltip disabled={ ! isOffline } icon={ offlineIcon } text={ offlineMessage }>
+					<Button
+						aria-description={ isOffline ? offlineMessage : '' }
+						aria-disabled={ isOffline }
+						variant="primary"
+						onClick={ () => {
+							if ( isOffline ) {
+								return;
+							}
+							authenticate();
+						} }
+					>
+						{ __( 'Log in' ) }
+					</Button>
+				</Tooltip>
+			</div>
+		</>
+	);
+};
+
+const AccountTab = ( {
+	user,
+	logout,
+}: {
+	user?: { displayName: string; email: string };
+	logout: () => void;
+} ) => <UserInfo onLogout={ logout } user={ user } />;
+
+const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
+	const { __ } = useI18n();
+	const { locale: savedLocale, setLocale: setSavedLocale } = useI18nData();
+	const [ locale, setLocale ] = useState( savedLocale );
+
+	const savePreferences = () => {
+		setSavedLocale( locale );
+		onClose();
+	};
+
+	const cancelChanges = () => {
+		setLocale( savedLocale );
+		onClose();
+	};
+
+	const hasChanges = locale !== savedLocale;
+
+	return (
+		<>
+			<LanguagePicker value={ locale } onChange={ setLocale } />
+			<div className="mt-auto pt-6 flex justify-end gap-3">
+				<Button variant="tertiary" onClick={ cancelChanges }>
+					{ __( 'Cancel' ) }
+				</Button>
+				<Button variant="primary" onClick={ savePreferences } disabled={ ! hasChanges }>
+					{ __( 'Save' ) }
+				</Button>
+			</div>
+		</>
+	);
+};
+
+const UsageTab = ( {
+	loadingDeletingAllSnapshots,
+	activeSnapshotCount,
+	isLoadingAllSnapshots,
+	isLoadingSnapshotUsage,
+	allSnapshots,
+	isOffline,
+	snapshotQuota,
+	onRemoveSnapshots,
+}: {
+	loadingDeletingAllSnapshots: boolean;
+	activeSnapshotCount: number;
+	isLoadingAllSnapshots: boolean;
+	isLoadingSnapshotUsage: boolean;
+	allSnapshots: Pick< Snapshot, 'atomicSiteId' >[] | null;
+	isOffline: boolean;
+	snapshotQuota: number;
+	onRemoveSnapshots: () => void;
+} ) => (
+	<>
+		<SnapshotInfo
+			isDeleting={ loadingDeletingAllSnapshots }
+			isDisabled={
+				activeSnapshotCount === 0 ||
+				loadingDeletingAllSnapshots ||
+				isLoadingAllSnapshots ||
+				isLoadingSnapshotUsage ||
+				allSnapshots?.length === 0 ||
+				isOffline
+			}
+			siteCount={ activeSnapshotCount }
+			siteLimit={ snapshotQuota }
+			onRemoveSnapshots={ onRemoveSnapshots }
+		/>
+		<PromptInfo />
+	</>
+);
+
 export default function UserSettings() {
 	const { __ } = useI18n();
 	const [ deletedAllSnapshots, setDeletedAllSnapshots ] = useState( false );
 	const { isAuthenticated, authenticate, logout, user } = useAuth();
+	const { preferredEditor } = useFeatureFlags();
+	const { locale: savedLocale, setLocale: setSavedLocale } = useI18nData();
 	const {
 		allSnapshots,
 		activeSnapshotCount,
@@ -191,7 +305,7 @@ export default function UserSettings() {
 	const [ needsToOpenUserSettings, setNeedsToOpenUserSettings ] = useState( false );
 
 	const isOffline = useOffline();
-	const offlineMessage = __( 'You’re currently offline.' );
+	const offlineMessage = __( "You're currently offline." );
 
 	const resetLocalState = useCallback( () => {
 		setNeedsToOpenUserSettings( false );
@@ -235,58 +349,123 @@ export default function UserSettings() {
 		}
 	}, [ allSnapshots, deleteAllSnapshots, __ ] );
 
+	if ( ! preferredEditor ) {
+		return (
+			<>
+				{ needsToOpenUserSettings && (
+					<Modal title={ __( 'Settings' ) } isDismissible onRequestClose={ resetLocalState }>
+						{ ! isAuthenticated && (
+							<div className="flex flex-col gap-6">
+								<div className="justify-between items-center w-full h-auto flex">
+									<WordPressLogo />
+									<Tooltip disabled={ ! isOffline } icon={ offlineIcon } text={ offlineMessage }>
+										<Button
+											aria-description={ isOffline ? offlineMessage : '' }
+											aria-disabled={ isOffline }
+											variant="primary"
+											onClick={ () => {
+												if ( isOffline ) {
+													return;
+												}
+												authenticate();
+											} }
+										>
+											{ __( 'Log in' ) }
+										</Button>
+									</Tooltip>
+								</div>
+								<div className="border-t border-[#F0F0F0] w-full"></div>
+								<LanguagePicker value={ savedLocale } onChange={ setSavedLocale } />
+							</div>
+						) }
+						{ isAuthenticated && (
+							<div className="gap-6 flex flex-col">
+								<UserInfo onLogout={ logout } user={ user } />
+								<div className="border-t border-[#F0F0F0] w-full"></div>
+								<div className="flex flex-col gap-6">
+									<LanguagePicker value={ savedLocale } onChange={ setSavedLocale } />
+									<SnapshotInfo
+										isDeleting={ loadingDeletingAllSnapshots }
+										isDisabled={
+											activeSnapshotCount === 0 ||
+											loadingDeletingAllSnapshots ||
+											isLoadingAllSnapshots ||
+											isLoadingSnapshotUsage ||
+											allSnapshots?.length === 0 ||
+											isOffline
+										}
+										siteCount={ activeSnapshotCount }
+										siteLimit={ snapshotQuota }
+										onRemoveSnapshots={ onRemoveSnapshots }
+									/>
+									<PromptInfo />
+								</div>
+							</div>
+						) }
+					</Modal>
+				) }
+			</>
+		);
+	}
+
+	const tabs = [
+		{
+			name: 'account',
+			title: __( 'Account' ),
+		},
+		{
+			name: 'preferences',
+			title: __( 'Preferences' ),
+		},
+		...( isAuthenticated
+			? [
+					{
+						name: 'usage',
+						title: __( 'Usage' ),
+					},
+			  ]
+			: [] ),
+	];
+
 	return (
 		<>
 			{ needsToOpenUserSettings && (
-				<Modal title={ __( 'Settings' ) } isDismissible onRequestClose={ resetLocalState }>
-					{ ! isAuthenticated && (
-						<div className="flex flex-col gap-6">
-							<div className="justify-between items-center w-full h-auto flex">
-								<WordPressLogo />
-								<Tooltip disabled={ ! isOffline } icon={ offlineIcon } text={ offlineMessage }>
-									<Button
-										aria-description={ isOffline ? offlineMessage : '' }
-										aria-disabled={ isOffline }
-										variant="primary"
-										onClick={ () => {
-											if ( isOffline ) {
-												return;
-											}
-											authenticate();
-										} }
-									>
-										{ __( 'Log in' ) }
-									</Button>
-								</Tooltip>
-							</div>
-							<div className="border-t border-[#F0F0F0] w-full"></div>
-							<LanguagePicker />
-						</div>
+				<Modal
+					title={ __( 'Settings' ) }
+					isDismissible
+					onRequestClose={ resetLocalState }
+					size="medium"
+					className={ cx(
+						'min-h-[350px]',
+						'[&_[role="document"]]:px-0',
+						'[&_[role="document"]]:mt-[64px]'
 					) }
-					{ isAuthenticated && (
-						<div className="gap-6 flex flex-col">
-							<UserInfo onLogout={ logout } user={ user } />
-							<div className="border-t border-[#F0F0F0] w-full"></div>
-							<div className="flex flex-col gap-6">
-								<LanguagePicker />
-								<SnapshotInfo
-									isDeleting={ loadingDeletingAllSnapshots }
-									isDisabled={
-										activeSnapshotCount === 0 ||
-										loadingDeletingAllSnapshots ||
-										isLoadingAllSnapshots ||
-										isLoadingSnapshotUsage ||
-										allSnapshots?.length === 0 ||
-										isOffline
-									}
-									siteCount={ activeSnapshotCount }
-									siteLimit={ snapshotQuota }
-									onRemoveSnapshots={ onRemoveSnapshots }
-								/>
-								<PromptInfo />
+				>
+					<TabPanel className="w-full" tabs={ tabs } orientation="horizontal">
+						{ ( { name } ) => (
+							<div className="mt-6 px-8 flex flex-col gap-6">
+								{ name === 'account' &&
+									( isAuthenticated ? (
+										<AccountTab user={ user } logout={ logout } />
+									) : (
+										<NonAuthenticatedAccountTab />
+									) ) }
+								{ name === 'preferences' && <PreferencesTab onClose={ resetLocalState } /> }
+								{ name === 'usage' && isAuthenticated && (
+									<UsageTab
+										loadingDeletingAllSnapshots={ loadingDeletingAllSnapshots }
+										activeSnapshotCount={ activeSnapshotCount }
+										isLoadingAllSnapshots={ isLoadingAllSnapshots }
+										isLoadingSnapshotUsage={ isLoadingSnapshotUsage }
+										allSnapshots={ allSnapshots }
+										isOffline={ isOffline }
+										snapshotQuota={ snapshotQuota }
+										onRemoveSnapshots={ onRemoveSnapshots }
+									/>
+								) }
 							</div>
-						</div>
-					) }
+						) }
+					</TabPanel>
 				</Modal>
 			) }
 		</>

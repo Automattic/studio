@@ -9,15 +9,18 @@ import { getAppGlobals } from 'src/lib/app-globals';
 const featureFlagsSchema = z
 	.object( {
 		terminal_wp_cli_enabled: z.boolean().optional(),
+		pressable_sync_enabled: z.boolean().optional(),
 	} )
 	.catch( ( _ ) => ( {} ) );
 
 export interface FeatureFlagsContextType {
 	terminalWpCliEnabled: boolean;
+	pressableSyncEnabled: boolean;
 }
 
 export const FeatureFlagsContext = createContext< FeatureFlagsContextType >( {
 	terminalWpCliEnabled: false,
+	pressableSyncEnabled: false,
 } );
 
 interface FeatureFlagsProviderProps {
@@ -26,8 +29,10 @@ interface FeatureFlagsProviderProps {
 
 export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { children } ) => {
 	const terminalWpCliEnabledFromGlobals = getAppGlobals().terminalWpCliEnabled;
+	const pressableSyncEnabledFromGlobals = getAppGlobals().pressableSyncEnabled;
 	const [ featureFlags, setFeatureFlags ] = useState< FeatureFlagsContextType >( {
 		terminalWpCliEnabled: terminalWpCliEnabledFromGlobals,
+		pressableSyncEnabled: pressableSyncEnabledFromGlobals,
 	} );
 	const { isAuthenticated, client } = useAuth();
 
@@ -49,6 +54,8 @@ export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { c
 				setFeatureFlags( {
 					terminalWpCliEnabled:
 						Boolean( flags.terminal_wp_cli_enabled ) || terminalWpCliEnabledFromGlobals,
+					pressableSyncEnabled:
+						Boolean( flags.pressable_sync_enabled ) || pressableSyncEnabledFromGlobals,
 				} );
 			} catch ( error ) {
 				Sentry.captureException( error );
@@ -59,7 +66,12 @@ export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { c
 		return () => {
 			cancel = true;
 		};
-	}, [ isAuthenticated, client, terminalWpCliEnabledFromGlobals ] );
+	}, [
+		isAuthenticated,
+		client,
+		terminalWpCliEnabledFromGlobals,
+		pressableSyncEnabledFromGlobals,
+	] );
 
 	return (
 		<FeatureFlagsContext.Provider value={ featureFlags }>{ children }</FeatureFlagsContext.Provider>

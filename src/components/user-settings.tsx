@@ -20,9 +20,10 @@ import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
 import { usePromptUsage } from 'src/hooks/use-prompt-usage';
 import { useSnapshots } from 'src/hooks/use-snapshots';
+import { useTerminalOptions } from 'src/hooks/use-terminal-options';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-
+import { SupportedTerminal } from 'src/lib/supported-terminal';
 const UserInfo = ( {
 	user,
 	onLogout,
@@ -221,9 +222,20 @@ const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const { __ } = useI18n();
 	const { locale: savedLocale, setLocale: setSavedLocale } = useI18nData();
 	const [ locale, setLocale ] = useState( savedLocale );
+	const [ terminal, setTerminal ] = useState< SupportedTerminal >( 'terminal' );
+	const availableTerminals = useTerminalOptions();
 
-	const savePreferences = () => {
+	useEffect( () => {
+		const loadTerminal = async () => {
+			const savedTerminal = await getIpcApi().getUserTerminal();
+			setTerminal( savedTerminal || 'terminal' );
+		};
+		loadTerminal();
+	}, [] );
+
+	const savePreferences = async () => {
 		setSavedLocale( locale );
+		await getIpcApi().saveUserTerminal( terminal );
 		onClose();
 	};
 
@@ -237,6 +249,20 @@ const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	return (
 		<>
 			<LanguagePicker value={ locale } onChange={ setLocale } />
+			<div className="mt-6">
+				<h2 className="a8c-label-semibold mb-2">{ __( 'Terminal' ) }</h2>
+				<select
+					value={ terminal }
+					onChange={ ( e ) => setTerminal( e.target.value as SupportedTerminal ) }
+					className="w-full p-2 border rounded"
+				>
+					{ availableTerminals.map( ( term ) => (
+						<option key={ term } value={ term }>
+							{ term === 'terminal' ? 'Terminal' : 'iTerm' }
+						</option>
+					) ) }
+				</select>
+			</div>
 			<div className="mt-auto pt-6 flex justify-end gap-3">
 				<Button variant="tertiary" onClick={ cancelChanges }>
 					{ __( 'Cancel' ) }

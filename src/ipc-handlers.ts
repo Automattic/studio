@@ -940,29 +940,18 @@ function promiseExec( command: string, options: ExecOptions = {} ): Promise< voi
 	} );
 }
 
-export function openTerminalAtPath(
+export async function openTerminalAtPath(
 	_event: IpcMainInvokeEvent,
 	targetPath: string,
 	{ wpCliEnabled }: { wpCliEnabled?: boolean } = {}
 ) {
 	const platform = process.platform;
 	const cliPath = nodePath.join( getResourcesPath(), 'bin' );
-
 	const exePath = app.getPath( 'exe' );
 	const appDirectory = app.getAppPath();
 	const appPath = ! app.isPackaged ? `${ exePath } ${ appDirectory }` : exePath;
 
-	if ( platform === 'win32' ) {
-		const defaultShell = process.env.ComSpec || 'cmd.exe';
-		const env = wpCliEnabled
-			? { PATH: `${ cliPath };${ process.env.PATH }`, STUDIO_APP_PATH: appPath }
-			: {};
-
-		return promiseExec( `start "Command Prompt" ${ defaultShell }`, {
-			cwd: targetPath,
-			env: { ...process.env, ...env },
-		} );
-	} else if ( platform === 'darwin' ) {
+	if ( platform === 'darwin' ) {
 		const initScriptSteps = [];
 
 		if ( wpCliEnabled ) {
@@ -975,12 +964,37 @@ export function openTerminalAtPath(
 		const escapedPath = targetPath.replace( /"/g, '\\"' );
 		initScriptSteps.push( `cd \\"${ escapedPath }\\"`, 'clear' );
 
-		return promiseExec( `osascript << END
-activate application "Terminal"
-tell application "Terminal"
-	do script "${ initScriptSteps.join( ';' ) }"
+		const userData = await loadUserData();
+		const preferredTerminal = userData.supportedTerminal || 'terminal';
+
+		if ( preferredTerminal === 'iterm' ) {
+			return promiseExec( `osascript << END
+tell application "iTerm"
+    activate
+    create window with default profile
+    tell current session of current window
+        write text "${ initScriptSteps.join( ';' ) }"
+    end tell
 end tell
 END` );
+		} else {
+			return promiseExec( `osascript << END
+activate application "Terminal"
+tell application "Terminal"
+    do script "${ initScriptSteps.join( ';' ) }"
+end tell
+END` );
+		}
+	} else if ( platform === 'win32' ) {
+		const defaultShell = process.env.ComSpec || 'cmd.exe';
+		const env = wpCliEnabled
+			? { PATH: `${ cliPath };${ process.env.PATH }`, STUDIO_APP_PATH: appPath }
+			: {};
+
+		return promiseExec( `start "Command Prompt" ${ defaultShell }`, {
+			cwd: targetPath,
+			env: { ...process.env, ...env },
+		} );
 	} else if ( platform === 'linux' ) {
 		if ( wpCliEnabled ) {
 			return promiseExec(
@@ -1246,4 +1260,13 @@ export async function getAllCustomDomains(): Promise< string[] > {
 	return userData.sites
 		.map( ( site ) => site.customDomain )
 		.filter( ( domain ): domain is string => domain !== undefined );
+}
+
+export async function getInstalledTerminals(
+	_event: IpcMainInvokeEvent
+): Promise< InstalledTerminals > {
+	return {
+		terminal: true, // Terminal.app is always available on macOS
+		iterm: isInstalled( 'iterm' ),
+	};
 }

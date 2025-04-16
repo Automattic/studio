@@ -130,6 +130,7 @@ const api: IpcApi = {
 	saveUserTerminal: ( supportedTerminal: SupportedTerminal ) =>
 		ipcRenderer.invoke( 'saveUserTerminal', supportedTerminal ),
 	getUserTerminal: () => ipcRenderer.invoke( 'getUserTerminal' ),
+	getInstalledTerminals: () => ipcRenderer.invoke( 'getInstalledTerminals' ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

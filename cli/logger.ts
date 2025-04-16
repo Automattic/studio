@@ -27,7 +27,7 @@ export class LoggerError extends Error {
 export class Logger< T extends string > {
 	protected readonly outputFormat: OutputFormat;
 	private spinner: Ora;
-	private currentAction: T | null;
+	private currentAction: T | 'keyValuePair' | null;
 
 	constructor( outputFormat: OutputFormat ) {
 		this.outputFormat = outputFormat;
@@ -76,5 +76,11 @@ export class Logger< T extends string > {
 		}
 
 		this.currentAction = null;
+	}
+
+	public reportKeyValuePair( key: string, value: string ) {
+		if ( this.outputFormat === 'json' ) {
+			console.log( JSON.stringify( { action: 'keyValuePair', key, value } ) );
+		}
 	}
 }

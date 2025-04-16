@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { createSlice, createAsyncThunk, PayloadAction, createSelector } from '@reduxjs/toolkit';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { CreateLoggerAction } from 'cli/commands/preview/logger-actions';
 import { LIMIT_OF_ZIP_SITES_PER_USER } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -10,6 +10,8 @@ export type SnapshotOperation = {
 	detail: string;
 	error: string | null;
 	progress: number;
+	snapshotName?: string;
+	snapshotUrl?: string;
 	siteId: string;
 	status: 'pending' | 'fulfilled' | 'rejected';
 	type: 'create' | 'update' | 'delete';
@@ -53,9 +55,6 @@ const snapshotSlice = createSlice( {
 		) => {
 			Object.assign( state.operations[ action.payload.operationId ], action.payload.operation );
 		},
-		deleteOperation: ( state, action: PayloadAction< { operationId: crypto.UUID } > ) => {
-			delete state.operations[ action.payload.operationId ];
-		},
 	},
 	extraReducers: ( builder ) => {
 		builder
@@ -77,7 +76,9 @@ const snapshotSlice = createSlice( {
 		selectSnapshots: ( state ) => state.snapshots,
 		selectSnapshotsCount: ( state ) => state.snapshots.length,
 		isOperationInProgressForSite: ( state, siteId: string ) =>
-			Object.values( state.operations ).find( ( operation ) => operation.siteId === siteId ),
+			Object.values( state.operations )
+				.filter( ( operation ) => operation.status === 'pending' )
+				.find( ( operation ) => operation.siteId === siteId ),
 	},
 } );
 
@@ -128,6 +129,24 @@ window.ipcListener.subscribe( 'snapshot-output', ( event, payload ) => {
 	);
 } );
 
+window.ipcListener.subscribe( 'snapshot-key-value', ( event, payload ) => {
+	let operationUpdate: Partial< SnapshotOperation > = {};
+
+	if ( payload.data.key === 'name' ) {
+		operationUpdate = { snapshotName: payload.data.value };
+	}
+	if ( payload.data.key === 'url' ) {
+		operationUpdate = { snapshotUrl: payload.data.value };
+	}
+
+	store.dispatch(
+		snapshotActions.updateOperation( {
+			operationId: payload.operationId,
+			operation: operationUpdate,
+		} )
+	);
+} );
+
 window.ipcListener.subscribe( 'snapshot-error', ( event, payload ) => {
 	const operation = getOperation( payload.operationId );
 	if ( ! operation ) {
@@ -142,13 +161,23 @@ window.ipcListener.subscribe( 'snapshot-error', ( event, payload ) => {
 	);
 } );
 
-window.ipcListener.subscribe( 'snapshot-success', ( event, data ) => {
-	const operation = getOperation( data.operationId );
+window.ipcListener.subscribe( 'snapshot-success', ( event, payload ) => {
+	const operation = getOperation( payload.operationId );
 	if ( ! operation ) {
 		return;
 	}
 
-	store.dispatch( snapshotActions.deleteOperation( { operationId: data.operationId } ) );
+	getIpcApi().showNotification( {
+		title: operation.snapshotName,
+		body: sprintf( __( "Preview site '%s' has been created." ), operation.snapshotUrl ),
+	} );
+
+	store.dispatch(
+		snapshotActions.updateOperation( {
+			operationId: payload.operationId,
+			operation: { status: 'fulfilled' },
+		} )
+	);
 	store.dispatch( getSnapshots() );
 } );
 

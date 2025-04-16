@@ -1240,9 +1240,21 @@ const createSnapshotEventSchema = z.object( {
 	message: z.string(),
 } );
 
-function parseSnapshotEventData( data: unknown ) {
+const createSnapshotStdoutSchema = z.discriminatedUnion( 'action', [
+	createSnapshotEventSchema,
+	z.object( {
+		action: z.literal( 'keyValuePair' ),
+		key: z.string(),
+		value: z.string(),
+	} ),
+] );
+
+function parseSnapshotEventData< T extends z.ZodType >(
+	data: unknown,
+	schema: T
+): z.infer< T > | null {
 	try {
-		return createSnapshotEventSchema.parse( data );
+		return schema.parse( data );
 	} catch ( error ) {
 		console.error( 'Invalid snapshot event:', error );
 		return null;
@@ -1258,9 +1270,18 @@ export async function createSnapshot(
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 
 	cli.on( 'data', ( data: unknown ) => {
-		const parsed = parseSnapshotEventData( data );
+		const parsed = parseSnapshotEventData( data, createSnapshotStdoutSchema );
 
-		if ( parsed ) {
+		if ( ! parsed ) {
+			return;
+		}
+
+		if ( parsed.action === 'keyValuePair' ) {
+			sendIpcEventToRendererWithWindow( parentWindow, 'snapshot-key-value', {
+				operationId,
+				data: parsed,
+			} );
+		} else {
 			sendIpcEventToRendererWithWindow( parentWindow, 'snapshot-output', {
 				operationId,
 				data: parsed,
@@ -1269,7 +1290,7 @@ export async function createSnapshot(
 	} );
 
 	cli.on( 'error', ( data: unknown ) => {
-		const parsed = parseSnapshotEventData( data );
+		const parsed = parseSnapshotEventData( data, createSnapshotEventSchema );
 
 		if ( parsed ) {
 			sendIpcEventToRendererWithWindow( parentWindow, 'snapshot-error', {

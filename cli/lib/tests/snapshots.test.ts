@@ -72,6 +72,7 @@ describe( 'Snapshots Module', () => {
 			const existingSnapshot = {
 				url: 'existing.com',
 				atomicSiteId: mockAtomicSiteId,
+				name: 'Existing',
 				localSiteId: 'existing',
 				date: 1000000,
 			};
@@ -135,7 +136,7 @@ describe( 'Snapshots Module', () => {
 			expect( savedData.snapshots[ 0 ].userId ).toBe( mockUserId );
 		} );
 
-		it( 'should return without error if no matching site is found', async () => {
+		it( 'should throw an error if no matching site is found', async () => {
 			const mockUserData = {
 				version: 1,
 				sites: [
@@ -150,7 +151,9 @@ describe( 'Snapshots Module', () => {
 
 			( fs.readFileSync as jest.Mock ).mockReturnValue( JSON.stringify( mockUserData ) );
 
-			await addPreviewSiteToAppdata( mockSiteUrl, mockSiteId, mockSiteFolder );
+			await expect(
+				addPreviewSiteToAppdata( mockSiteUrl, mockSiteId, mockSiteFolder )
+			).rejects.toThrow( LoggerError );
 
 			expect( fs.writeFileSync ).not.toHaveBeenCalled();
 		} );
@@ -169,8 +172,22 @@ describe( 'Snapshots Module', () => {
 			const mockUserData = {
 				version: 1,
 				snapshots: [
-					{ userId: 9876, url: 'test1.com', atomicSiteId: 1, localSiteId: 'site1', date: 1000 },
-					{ userId: 1234, url: 'test2.com', atomicSiteId: 2, localSiteId: 'site2', date: 2000 },
+					{
+						userId: 9876,
+						url: 'test1.com',
+						name: 'Site 1',
+						atomicSiteId: 1,
+						localSiteId: 'site1',
+						date: 1000,
+					},
+					{
+						userId: 1234,
+						url: 'test2.com',
+						name: 'Site 2',
+						atomicSiteId: 2,
+						localSiteId: 'site2',
+						date: 2000,
+					},
 				],
 			};
 
@@ -186,8 +203,22 @@ describe( 'Snapshots Module', () => {
 			const mockUserData = {
 				version: 1,
 				snapshots: [
-					{ userId: 9876, url: 'test1.com', atomicSiteId: 1, localSiteId: 'site1', date: 1000 },
-					{ userId: 9876, url: 'test2.com', atomicSiteId: 2, localSiteId: 'site2', date: 2000 },
+					{
+						userId: 9876,
+						url: 'test1.com',
+						name: 'Site 1',
+						atomicSiteId: 1,
+						localSiteId: 'site1',
+						date: 1000,
+					},
+					{
+						userId: 9876,
+						url: 'test2.com',
+						name: 'Site 2',
+						atomicSiteId: 2,
+						localSiteId: 'site2',
+						date: 2000,
+					},
 				],
 				sites: [ { id: 'site1', path: mockSiteFolder, name: 'Test Site' } ],
 			};
@@ -219,8 +250,8 @@ describe( 'Snapshots Module', () => {
 			const mockUserData = {
 				version: 1,
 				snapshots: [
-					{ url: 'test1.com', atomicSiteId: 1, localSiteId: 'site1', date: 1000 },
-					{ url: 'test2.com', atomicSiteId: 2, localSiteId: 'site2', date: 2000 },
+					{ url: 'test1.com', name: 'Site 1', atomicSiteId: 1, localSiteId: 'site1', date: 1000 },
+					{ url: 'test2.com', name: 'Site 2', atomicSiteId: 2, localSiteId: 'site2', date: 2000 },
 				],
 			};
 
@@ -237,7 +268,15 @@ describe( 'Snapshots Module', () => {
 		it( 'should not modify snapshots if url not found', async () => {
 			const mockUserData = {
 				version: 1,
-				snapshots: [ { url: 'test1.com', atomicSiteId: 1, localSiteId: 'site1', date: 1000 } ],
+				snapshots: [
+					{
+						url: 'test1.com',
+						atomicSiteId: 1,
+						name: 'Site',
+						localSiteId: 'site1',
+						date: 1000,
+					},
+				],
 			};
 
 			( fs.readFileSync as jest.Mock ).mockReturnValue( JSON.stringify( mockUserData ) );

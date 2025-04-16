@@ -38,8 +38,15 @@ async function runCommand( siteFolder: string, outputFormat?: OutputFormat ): Pr
 		);
 
 		logger.reportStart( LoggerAction.APPDATA, __( 'Saving preview site to Studio...' ) );
-		await addPreviewSiteToAppdata( uploadResponse.site_url, uploadResponse.site_id, siteFolder );
+		const snapshot = await addPreviewSiteToAppdata(
+			uploadResponse.site_url,
+			uploadResponse.site_id,
+			siteFolder
+		);
 		logger.reportSuccess( __( 'Preview site saved to Studio' ) );
+
+		logger.reportKeyValuePair( 'name', snapshot.name );
+		logger.reportKeyValuePair( 'url', snapshot.url );
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {
 			logger.reportError( error );

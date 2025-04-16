@@ -11,7 +11,7 @@ export const snapshotSchema = z.object( {
 	atomicSiteId: z.number(),
 	localSiteId: z.string(),
 	date: z.number(),
-	name: z.string().optional(),
+	name: z.string(),
 	userId: z.number().optional(),
 } );
 
@@ -19,7 +19,7 @@ const siteSchema = z
 	.object( {
 		id: z.string(),
 		path: z.string(),
-		name: z.string().optional(),
+		name: z.string(),
 	} )
 	.passthrough();
 
@@ -129,7 +129,9 @@ export async function getAuthToken(): Promise< NonNullable< UserData[ 'authToken
 	}
 }
 
-export async function getSiteIdFromFolder( siteFolder: string ): Promise< string > {
+export async function getSiteFromFolder(
+	siteFolder: string
+): Promise< z.infer< typeof siteSchema > > {
 	const userData = await readAppdata();
 	const sites = userData.sites ?? [];
 	const site = sites.find( ( site ) => site.path === siteFolder );
@@ -138,5 +140,5 @@ export async function getSiteIdFromFolder( siteFolder: string ): Promise< string
 		throw new LoggerError( __( 'The specified folder is not added to Studio.' ) );
 	}
 
-	return site.id;
+	return site;
 }

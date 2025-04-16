@@ -5,10 +5,15 @@ import { ImportExportEventData } from 'src/lib/import-export/handle-events';
 import { StoredToken } from 'src/lib/oauth';
 import { getMainWindow } from 'src/main-window';
 
-type PreviewEventData = {
+type SnapshotEventData = {
 	action: CreateLoggerAction;
 	status: 'inprogress' | 'fail' | 'success';
 	message: string;
+};
+type SnapshotKeyValueEventData = {
+	action: 'keyValuePair';
+	key: string;
+	value: string;
 };
 
 export interface IpcEvents {
@@ -16,8 +21,9 @@ export interface IpcEvents {
 	'auth-updated': [ { token: StoredToken } | { error: unknown } ];
 	'on-export': [ ImportExportEventData, string ];
 	'on-import': [ ImportExportEventData, string ];
-	'snapshot-error': [ { operationId: crypto.UUID; data: PreviewEventData } ];
-	'snapshot-output': [ { operationId: crypto.UUID; data: PreviewEventData } ];
+	'snapshot-error': [ { operationId: crypto.UUID; data: SnapshotEventData } ];
+	'snapshot-output': [ { operationId: crypto.UUID; data: SnapshotEventData } ];
+	'snapshot-key-value': [ { operationId: crypto.UUID; data: SnapshotKeyValueEventData } ];
 	'snapshot-success': [ { operationId: crypto.UUID } ];
 	'show-whats-new': [ void ];
 	'sync-connect-site': [ { remoteSiteId: number; studioSiteId: string } ];

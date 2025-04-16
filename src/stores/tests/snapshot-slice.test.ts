@@ -108,7 +108,7 @@ describe( 'snapshot-slice', () => {
 
 			const state = store.getState();
 			expect( state.snapshot.operations[ operationId ] ).toEqual( {
-				detail: '',
+				detail: 'Creating archive...',
 				error: null,
 				progress: 0,
 				siteId,
@@ -169,31 +169,6 @@ describe( 'snapshot-slice', () => {
 				status: 'pending',
 				type: 'create',
 			} );
-		} );
-	} );
-
-	describe( 'deleteOperation', () => {
-		it( 'should remove operation from state', () => {
-			const operationId = '123e4567-e89b-12d3-a456-426614174000';
-			const siteId = 'test-site';
-
-			// First create an operation
-			store.dispatch(
-				snapshotTestActions.addOperation( operationId, {
-					detail: '',
-					error: null,
-					progress: 0,
-					siteId,
-					status: 'pending',
-					type: 'create',
-				} )
-			);
-
-			// Then delete it
-			store.dispatch( snapshotActions.deleteOperation( { operationId } ) );
-
-			const state = store.getState();
-			expect( state.snapshot.operations[ operationId ] ).toBeUndefined();
 		} );
 	} );
 

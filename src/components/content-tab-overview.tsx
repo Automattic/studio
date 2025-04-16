@@ -147,7 +147,6 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 		setTerminalName( terminal === 'iterm' ? __( 'iTerm' ) : __( 'Terminal' ) );
 	};
 
-	// Listen for terminal preference changes
 	useIpcListener( 'terminal-preference-changed', () => {
 		updateTerminalName();
 	} );

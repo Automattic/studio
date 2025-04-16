@@ -25,7 +25,7 @@ import {
 } from '@wp-playground/wordpress';
 import fs from 'fs-extra';
 import { SymlinkManager } from '../../../src/lib/symlink-manager';
-import getWpNowConfig, { WPNowOptions, WPNowMode } from './config';
+import { WPNowOptions, WPNowMode } from './config';
 import {
 	PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER,
 	PLAYGROUND_INTERNAL_PRELOAD_PATH,
@@ -689,31 +689,6 @@ async function installationSteps( php: PHP, options: WPNowOptions ) {
 
 	// Set up site details
 	await executeStep( 2 );
-}
-
-export async function moveDatabasesInSitu( projectPath: string ) {
-	const dbPhpPath = path.join( projectPath, 'wp-content', 'db.php' );
-	const hasDbPhpInSitu = fs.existsSync( dbPhpPath ) && fs.lstatSync( dbPhpPath ).isFile();
-
-	const { wpContentPath } = await getWpNowConfig( { path: projectPath } );
-	if (
-		wpContentPath &&
-		fs.existsSync( path.join( wpContentPath, 'database' ) ) &&
-		! hasDbPhpInSitu
-	) {
-		// Do not mount but move the files to projectPath once
-		const databasePath = path.join( projectPath, 'wp-content', 'database' );
-		fs.rmdirSync( databasePath );
-		fs.moveSync( path.join( wpContentPath, 'database' ), databasePath );
-
-		const sqlitePath = path.join( projectPath, 'wp-content', 'plugins', SQLITE_FILENAME );
-		fs.rmdirSync( sqlitePath );
-		fs.copySync( path.join( getSqlitePath() ), sqlitePath );
-
-		fs.rmdirSync( dbPhpPath );
-		fs.copySync( path.join( getSqlitePath(), 'db.copy' ), dbPhpPath );
-		fs.rmSync( wpContentPath, { recursive: true, force: true } );
-	}
 }
 
 /**

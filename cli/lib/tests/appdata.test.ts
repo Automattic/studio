@@ -38,6 +38,7 @@ describe( 'Appdata Module', () => {
 					{
 						url: 'example.com',
 						atomicSiteId: 123,
+						name: 'Example site',
 						localSiteId: 'site1',
 						date: 1234567,
 					},

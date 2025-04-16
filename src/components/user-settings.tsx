@@ -24,6 +24,7 @@ import { useTerminalOptions } from 'src/hooks/use-terminal-options';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { SupportedTerminal } from 'src/lib/supported-terminal';
+
 const UserInfo = ( {
 	user,
 	onLogout,

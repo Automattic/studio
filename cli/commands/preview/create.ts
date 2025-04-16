@@ -5,7 +5,7 @@ import { CreateLoggerAction as LoggerAction } from 'cli/commands/preview/logger-
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
 import { createArchive, cleanup } from 'cli/lib/archive';
-import { addPreviewSiteToAppdata } from 'cli/lib/snapshots';
+import { upsertPreviewSiteInAppdata } from 'cli/lib/snapshots';
 import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
 import { RegisterCommand, OutputFormat } from 'cli/types';
@@ -38,10 +38,10 @@ async function runCommand( siteFolder: string, outputFormat?: OutputFormat ): Pr
 		);
 
 		logger.reportStart( LoggerAction.APPDATA, __( 'Saving preview site to Studio...' ) );
-		const snapshot = await addPreviewSiteToAppdata(
-			uploadResponse.site_url,
+		const snapshot = await upsertPreviewSiteInAppdata(
+			siteFolder,
 			uploadResponse.site_id,
-			siteFolder
+			uploadResponse.site_url
 		);
 		logger.reportSuccess( __( 'Preview site saved to Studio' ) );
 

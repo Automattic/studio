@@ -17,10 +17,11 @@ export async function getSnapshotsFromAppdata(
 	return snapshots;
 }
 
-export async function addPreviewSiteToAppdata(
-	previewUrl: string,
+// Insert or update a snapshot entry (matching on atomicSiteId) in the appdata file.
+export async function upsertPreviewSiteInAppdata(
+	siteFolder: string,
 	atomicSiteId: number,
-	siteFolder: string
+	previewUrl: string
 ): Promise< Snapshot > {
 	try {
 		const userData = await readAppdata();
@@ -38,7 +39,17 @@ export async function addPreviewSiteToAppdata(
 		if ( ! userData.snapshots ) {
 			userData.snapshots = [];
 		}
-		userData.snapshots.push( snapshot );
+
+		const existingSnapshotIndex = userData.snapshots.findIndex(
+			( s ) => s.atomicSiteId === atomicSiteId
+		);
+
+		if ( existingSnapshotIndex > -1 ) {
+			userData.snapshots.splice( existingSnapshotIndex, 1, snapshot );
+		} else {
+			userData.snapshots.push( snapshot );
+		}
+
 		await saveAppdata( userData );
 		return snapshot;
 	} catch ( error ) {

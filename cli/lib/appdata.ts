@@ -25,8 +25,8 @@ const siteSchema = z
 
 const userDataSchema = z
 	.object( {
-		snapshots: z.array( snapshotSchema ).optional(),
 		sites: z.array( siteSchema ).optional(),
+		snapshots: z.array( snapshotSchema ).optional(),
 		locale: z.string().optional(),
 		authToken: z
 			.object( {

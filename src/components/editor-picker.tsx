@@ -32,27 +32,38 @@ export const EditorPicker = ( { value, onChange }: EditorPickerProps ) => {
 		fetchInstalledApps();
 	}, [] );
 
-	const options = Object.entries( supportedEditorNames ).map( ( [ editor, label ] ) => {
-		const editorKey = editor as SupportedEditor;
-		const isInstalled = installedApps[ editorKey as keyof typeof installedApps ];
+	const installedEditors = Object.entries( supportedEditorNames ).filter(
+		( [ editor ] ) => installedApps[ editor as keyof typeof installedApps ]
+	);
 
-		return {
-			value: editorKey,
-			label,
-			disabled: ! isInstalled,
-		};
-	} );
+	const uninstalledEditors = Object.entries( supportedEditorNames ).filter(
+		( [ editor ] ) => ! installedApps[ editor as keyof typeof installedApps ]
+	);
 
 	return (
 		<div className="flex gap-5 flex-col">
 			<h2 className="a8c-subtitle-small">{ __( 'Code Editor' ) }</h2>
 			<SelectControl
-				value={ value || 'none' }
-				onChange={ onChange }
-				options={ options }
+				value={ value }
+				onChange={ ( newValue ) => onChange( newValue as SupportedEditor ) }
 				__nextHasNoMarginBottom
 				className="mb-2"
-			/>
+			>
+				<optgroup label={ __( 'Installed' ) }>
+					{ installedEditors.map( ( [ editor, label ] ) => (
+						<option key={ editor } value={ editor }>
+							{ label }
+						</option>
+					) ) }
+				</optgroup>
+				<optgroup label={ __( 'Not installed' ) }>
+					{ uninstalledEditors.map( ( [ editor, label ] ) => (
+						<option key={ editor } value={ editor } disabled>
+							{ label }
+						</option>
+					) ) }
+				</optgroup>
+			</SelectControl>
 		</div>
 	);
 };

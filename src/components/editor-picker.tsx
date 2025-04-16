@@ -2,6 +2,7 @@ import { SelectControl } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { useEffect, useState } from 'react';
 import { SupportedEditor, supportedEditorNames } from 'src/lib/editor';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 
 interface EditorPickerProps {
 	value: SupportedEditor;

@@ -106,6 +106,7 @@ describe( 'preview-slice', () => {
 
 			const state = store.getState();
 			expect( state.preview.operations[ operationId ] ).toEqual( {
+				detail: '',
 				error: null,
 				progress: 0,
 				siteId,
@@ -138,6 +139,7 @@ describe( 'preview-slice', () => {
 			// First create an operation
 			store.dispatch(
 				previewTestActions.addOperation( operationId, {
+					detail: '',
 					error: null,
 					progress: 0,
 					siteId,
@@ -156,6 +158,7 @@ describe( 'preview-slice', () => {
 
 			const state = store.getState();
 			expect( state.preview.operations[ operationId ] ).toEqual( {
+				detail: '',
 				error: null,
 				progress: 50,
 				siteId,
@@ -173,6 +176,7 @@ describe( 'preview-slice', () => {
 			// First create an operation
 			store.dispatch(
 				previewTestActions.addOperation( operationId, {
+					detail: '',
 					error: null,
 					progress: 0,
 					siteId,
@@ -197,6 +201,7 @@ describe( 'preview-slice', () => {
 			// First create an operation
 			store.dispatch(
 				previewTestActions.addOperation( operationId, {
+					detail: '',
 					error: null,
 					progress: 0,
 					siteId,

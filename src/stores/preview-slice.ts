@@ -6,6 +6,7 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { RootState, store } from 'src/stores/index';
 
 export type SnapshotOperation = {
+	detail: string;
 	error: string | null;
 	progress: number;
 	siteId: string;
@@ -62,6 +63,7 @@ const previewSlice = createSlice( {
 			} )
 			.addCase( createSnapshot.fulfilled, ( state, action ) => {
 				state.operations[ action.payload.operationId ] = {
+					detail: '',
 					error: null,
 					progress: 0,
 					siteId: action.payload.siteId,
@@ -121,7 +123,10 @@ window.ipcListener.subscribe( 'preview-output', ( event, payload ) => {
 		store.dispatch(
 			previewActions.updateOperation( {
 				operationId: payload.operationId,
-				operation: { progress },
+				operation: {
+					detail: payload.data.action,
+					progress,
+				},
 			} )
 		);
 	} catch ( error ) {

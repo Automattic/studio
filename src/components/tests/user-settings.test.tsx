@@ -83,7 +83,7 @@ describe( 'UserSettings', () => {
 				preferredEditor: true,
 			} );
 
-			render( <UserSettings /> );
+			renderWithProvider( <UserSettings /> );
 
 			// Check initial tab
 			expect( screen.getByText( 'Account' ) ).toHaveAttribute( 'aria-selected', 'true' );

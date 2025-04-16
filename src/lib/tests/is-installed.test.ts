@@ -16,20 +16,9 @@ jest.mock( 'electron', () => ( {
 	},
 } ) );
 
-// Mock process.env for ProgramFiles
-const originalEnv = process.env;
-beforeAll( () => {
-	process.env = { ...originalEnv };
-} );
-
-afterAll( () => {
-	process.env = originalEnv;
-} );
-
 describe( 'isInstalled', () => {
 	let isInstalled: ( key: string ) => boolean;
 	let mockPaths: string[];
-	let getProgramFilesPath: () => string;
 
 	// Reset mocks before each test
 	beforeEach( () => {
@@ -47,7 +36,7 @@ describe( 'isInstalled', () => {
 				case 'home':
 					return '/mock/home/path';
 				case 'appData':
-					return process.platform === 'win32' ? 'C:\\mock\\AppData' : '/mock/home/path/.config';
+					return 'C:\\mock\\AppData';
 				default:
 					return '';
 			}
@@ -61,7 +50,6 @@ describe( 'isInstalled', () => {
 			jest.isolateModules( () => {
 				const module = require( '../is-installed' );
 				isInstalled = module.isInstalled;
-				getProgramFilesPath = module.getProgramFilesPath;
 			} );
 		} );
 
@@ -98,12 +86,10 @@ describe( 'isInstalled', () => {
 			jest.isolateModules( () => {
 				const module = require( '../is-installed' );
 				isInstalled = module.isInstalled;
-				getProgramFilesPath = module.getProgramFilesPath;
 			} );
 		} );
 
 		it( 'detects VS Code installed in Program Files', () => {
-			// Set ProgramFiles environment variable
 			process.env.ProgramFiles = 'D:\\Program Files';
 
 			mockPaths = [ 'D:\\Program Files\\Microsoft VS Code' ];
@@ -111,12 +97,11 @@ describe( 'isInstalled', () => {
 		} );
 
 		it( 'detects VS Code installed in AppData', () => {
-			mockPaths = [ path.join( 'C:\\mock\\AppData', 'Local\\Programs\\Microsoft VS Code' ) ];
+			mockPaths = [ 'C:\\mock\\AppData\\Local\\Programs\\Microsoft VS Code' ];
 			expect( isInstalled( 'vscode' ) ).toBe( true );
 		} );
 
 		it( 'detects PhpStorm with version-specific folder', () => {
-			// Set ProgramFiles environment variable
 			process.env.ProgramFiles = 'E:\\Program Files';
 
 			const jetbrainsDir = 'E:\\Program Files\\JetBrains';
@@ -135,7 +120,6 @@ describe( 'isInstalled', () => {
 		} );
 
 		it( 'falls back to default Program Files path when environment variable is not set', () => {
-			// Clear ProgramFiles environment variable
 			delete process.env.ProgramFiles;
 
 			mockPaths = [ 'C:\\Program Files\\Microsoft VS Code' ];

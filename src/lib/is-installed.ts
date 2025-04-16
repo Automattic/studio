@@ -56,33 +56,33 @@ const installationPaths: Record< string, PlatformPaths > = {
 	},
 	win32: {
 		vscode: [
-			path.join( getProgramFilesPath(), 'Microsoft VS Code' ),
-			path.join( app.getPath( 'appData' ), 'Local\\Programs\\Microsoft VS Code' ),
+			path.win32.join( getProgramFilesPath(), 'Microsoft VS Code' ),
+			path.win32.join( app.getPath( 'appData' ), 'Local\\Programs\\Microsoft VS Code' ),
 		],
 		phpstorm: [
-			path.join( getProgramFilesPath(), 'JetBrains\\PhpStorm' ),
-			path.join( app.getPath( 'appData' ), 'JetBrains\\PhpStorm' ),
+			path.win32.join( getProgramFilesPath(), 'JetBrains\\PhpStorm' ),
+			path.win32.join( app.getPath( 'appData' ), 'JetBrains\\PhpStorm' ),
 		],
 		cursor: [
-			path.join( getProgramFilesPath(), 'Cursor' ),
-			path.join( app.getPath( 'appData' ), 'Local\\Programs\\Cursor' ),
+			path.win32.join( getProgramFilesPath(), 'Cursor' ),
+			path.win32.join( app.getPath( 'appData' ), 'Local\\Programs\\Cursor' ),
 		],
 		windsurf: [
-			path.join( getProgramFilesPath(), 'Windsurf' ),
-			path.join( app.getPath( 'appData' ), 'Windsurf' ),
+			path.win32.join( getProgramFilesPath(), 'Windsurf' ),
+			path.win32.join( app.getPath( 'appData' ), 'Windsurf' ),
 		],
 		nova: [], // Nova is Mac-only
 		webstorm: [
-			path.join( getProgramFilesPath(), 'JetBrains\\WebStorm' ),
-			path.join( app.getPath( 'appData' ), 'JetBrains\\WebStorm' ),
+			path.win32.join( getProgramFilesPath(), 'JetBrains\\WebStorm' ),
+			path.win32.join( app.getPath( 'appData' ), 'JetBrains\\WebStorm' ),
 		],
 		sublime: [
-			path.join( getProgramFilesPath(), 'Sublime Text' ),
-			path.join( getProgramFilesPath(), 'Sublime Text 3' ),
+			path.win32.join( getProgramFilesPath(), 'Sublime Text' ),
+			path.win32.join( getProgramFilesPath(), 'Sublime Text 3' ),
 		],
 		atom: [
-			path.join( app.getPath( 'appData' ), 'atom' ),
-			path.join( getProgramFilesPath(), 'Atom' ),
+			path.win32.join( app.getPath( 'appData' ), 'atom' ),
+			path.win32.join( getProgramFilesPath(), 'Atom' ),
 		],
 	},
 };
@@ -104,14 +104,14 @@ if ( process.platform === 'darwin' ) {
 	// For JetBrains IDEs, check for version-specific folders
 	[ 'phpstorm', 'webstorm' ].forEach( ( ide ) => {
 		const basePaths = installationPaths.win32[ ide as InstalledApp ];
-		const jetbrainsDir = path.join( getProgramFilesPath(), 'JetBrains' );
+		const jetbrainsDir = path.win32.join( getProgramFilesPath(), 'JetBrains' );
 
 		if ( fs.existsSync( jetbrainsDir ) ) {
 			const entries = fs.readdirSync( jetbrainsDir );
 
 			entries.forEach( ( entry ) => {
 				if ( entry.toLowerCase().includes( ide ) ) {
-					basePaths.push( path.join( jetbrainsDir, entry ) );
+					basePaths.push( path.win32.join( jetbrainsDir, entry ) );
 				}
 			} );
 		}

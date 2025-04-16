@@ -292,11 +292,14 @@ export default function UserSettings() {
 	const { __ } = useI18n();
 	const [ deletedAllSnapshots, setDeletedAllSnapshots ] = useState( false );
 	const { isAuthenticated, authenticate, logout, user } = useAuth();
+
 	const { loadingDeletingAllSnapshots, deleteAllSnapshots } = useSnapshots();
 	const allSnapshots = useRootSelector( previewSelectors.selectSnapshots );
 	const snapshotQuota = useRootSelector( ( state ) => state.preview.snapshotQuota );
 	const snapshotsCount = useRootSelector( previewSelectors.selectSnapshotsCount );
 	const { data: snapshotUsage, isLoading: isLoadingSnapshotUsage } = useGetSnapshotUsage();
+	const definitiveSnapshotCount = snapshotUsage?.siteCount ?? snapshotsCount;
+
 	const [ needsToOpenUserSettings, setNeedsToOpenUserSettings ] = useState( false );
 	const { preferredEditor } = useFeatureFlags();
 	const { locale: savedLocale, setLocale: setSavedLocale } = useI18nData();
@@ -384,13 +387,13 @@ export default function UserSettings() {
 									<SnapshotInfo
 										isDeleting={ loadingDeletingAllSnapshots }
 										isDisabled={
-											snapshotsCount === 0 ||
+											definitiveSnapshotCount === 0 ||
 											loadingDeletingAllSnapshots ||
 											isLoadingSnapshotUsage ||
 											allSnapshots?.length === 0 ||
 											isOffline
 										}
-										siteCount={ snapshotUsage?.siteCount ?? snapshotsCount }
+										siteCount={ definitiveSnapshotCount }
 										siteLimit={ snapshotQuota }
 										onRemoveSnapshots={ onRemoveSnapshots }
 									/>
@@ -450,7 +453,7 @@ export default function UserSettings() {
 								{ name === 'usage' && isAuthenticated && (
 									<UsageTab
 										loadingDeletingAllSnapshots={ loadingDeletingAllSnapshots }
-										activeSnapshotCount={ snapshotUsage?.siteCount ?? snapshotsCount }
+										activeSnapshotCount={ definitiveSnapshotCount }
 										isLoadingSnapshotUsage={ isLoadingSnapshotUsage }
 										allSnapshots={ allSnapshots }
 										isOffline={ isOffline }

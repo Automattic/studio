@@ -26,7 +26,9 @@ export async function validateSiteFolder( siteFolder: string ): Promise< true > 
 	if ( wpContentSize > DEMO_SITE_SIZE_LIMIT_BYTES ) {
 		throw new LoggerError(
 			sprintf(
-				__( 'The site exceeds the maximum size of %dGB. Please remove some files and try again.' ),
+				__(
+					'Your site exceeds the %s GB size limit. Please, consider removing unnecessary media files, plugins, or themes from wp-content.'
+				),
 				DEMO_SITE_SIZE_LIMIT_GB
 			)
 		);

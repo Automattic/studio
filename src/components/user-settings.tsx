@@ -223,12 +223,14 @@ const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const { locale: savedLocale, setLocale: setSavedLocale } = useI18nData();
 	const [ locale, setLocale ] = useState( savedLocale );
 	const [ terminal, setTerminal ] = useState< SupportedTerminal >( 'terminal' );
+	const [ savedTerminal, setSavedTerminal ] = useState< SupportedTerminal >( 'terminal' );
 	const availableTerminals = useTerminalOptions();
 
 	useEffect( () => {
 		const loadTerminal = async () => {
-			const savedTerminal = await getIpcApi().getUserTerminal();
-			setTerminal( savedTerminal || 'terminal' );
+			const userTerminal = await getIpcApi().getUserTerminal();
+			setTerminal( userTerminal || 'terminal' );
+			setSavedTerminal( userTerminal || 'terminal' );
 		};
 		loadTerminal();
 	}, [] );
@@ -236,15 +238,17 @@ const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const savePreferences = async () => {
 		setSavedLocale( locale );
 		await getIpcApi().saveUserTerminal( terminal );
+		setSavedTerminal( terminal );
 		onClose();
 	};
 
 	const cancelChanges = () => {
 		setLocale( savedLocale );
+		setTerminal( savedTerminal );
 		onClose();
 	};
 
-	const hasChanges = locale !== savedLocale;
+	const hasChanges = locale !== savedLocale || terminal !== savedTerminal;
 
 	return (
 		<>

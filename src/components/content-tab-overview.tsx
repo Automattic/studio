@@ -14,7 +14,7 @@ import {
 	widget,
 } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import { ButtonsSection, ButtonsSectionProps } from 'src/components/buttons-section';
 import { useCheckInstalledApps } from 'src/hooks/use-check-installed-apps';
@@ -139,6 +139,16 @@ function CustomizeSection( {
 function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'selectedSite' > ) {
 	const { terminalWpCliEnabled } = useFeatureFlags();
 	const installedApps = useCheckInstalledApps();
+	const [ terminalName, setTerminalName ] = useState( __( 'Terminal' ) );
+
+	useEffect( () => {
+		const loadTerminalName = async () => {
+			const terminal = await getIpcApi().getUserTerminal();
+			setTerminalName( terminal === 'iterm' ? __( 'iTerm' ) : __( 'Terminal' ) );
+		};
+		loadTerminalName();
+	}, [] );
+
 	const buttonsArray: ButtonsSectionProps[ 'buttonsArray' ] = [
 		{
 			label: isMac()
@@ -178,7 +188,7 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 		} );
 	}
 	buttonsArray.push( {
-		label: __( 'Terminal' ),
+		label: terminalName,
 		className: 'text-nowrap',
 		icon: preformatted,
 		onClick: async () => {

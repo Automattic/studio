@@ -14,6 +14,7 @@ import { IpcEvents } from 'src/ipc-utils';
 import { ExportOptions } from 'src/lib/import-export/export/types';
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
+import { SupportedTerminal } from './lib/supported-terminal';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { LogLevel } from 'src/logging';
 
@@ -126,6 +127,9 @@ const api: IpcApi = {
 	getFileContent: ( filePath: string ) => ipcRenderer.invoke( 'getFileContent', filePath ),
 	isFullscreen: () => ipcRenderer.invoke( 'isFullscreen' ),
 	getAllCustomDomains: () => ipcRenderer.invoke( 'getAllCustomDomains' ),
+	saveUserTerminal: ( supportedTerminal: SupportedTerminal ) =>
+		ipcRenderer.invoke( 'saveUserTerminal', supportedTerminal ),
+	getUserTerminal: () => ipcRenderer.invoke( 'getUserTerminal' ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

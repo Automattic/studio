@@ -1,6 +1,6 @@
 import { StoredToken } from 'src/lib/oauth';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
-
+import type { SupportedTerminal } from 'src/lib/supported-terminal';
 export interface UserData {
 	sites: SiteDetails[];
 	snapshots: Snapshot[];
@@ -17,6 +17,7 @@ export interface UserData {
 	connectedWpcomSites?: { [ userId: number ]: SyncSite[] };
 	sentryUserId?: string;
 	lastSeenVersion?: string;
+	supportedTerminal?: SupportedTerminal;
 }
 
 export interface PersistedUserData extends Omit< UserData, 'sites' > {

@@ -56,6 +56,7 @@ import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from 'src/s
 import { loadUserData, saveUserData } from 'src/storage/user-data';
 import { DEFAULT_PHP_VERSION } from 'vendor/wp-now/src/constants';
 import { openCertificate as openCertificateDialog } from './lib/certificate-manager';
+import { SupportedTerminal } from './lib/supported-terminal';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
 
@@ -1216,6 +1217,22 @@ export async function checkSyncBackupSize(
 				reject( new Error( `Failed to check backup file size: ${ error.message }` ) );
 			} );
 	} );
+}
+
+export async function saveUserTerminal(
+	_event: IpcMainInvokeEvent,
+	supportedTerminal: SupportedTerminal
+) {
+	const userData = await loadUserData();
+	await saveUserData( {
+		...userData,
+		supportedTerminal: supportedTerminal,
+	} );
+}
+
+export async function getUserTerminal( _event: IpcMainInvokeEvent ): Promise< SupportedTerminal > {
+	const userData = await loadUserData();
+	return userData.supportedTerminal as SupportedTerminal;
 }
 
 export async function isFullscreen( _event: IpcMainInvokeEvent ): Promise< boolean > {

@@ -8,7 +8,7 @@ import { LoggerError } from 'cli/logger';
 jest.mock( 'fs' );
 jest.mock( 'path' );
 jest.mock( 'src/lib/fs-utils' );
-jest.mock( 'src/lib/calculate-directory-size', () => ( {
+jest.mock( 'common/lib/fs-utils', () => ( {
 	calculateDirectorySize: jest.fn(),
 } ) );
 
@@ -19,6 +19,7 @@ describe( 'Validation Module', () => {
 		jest.clearAllMocks();
 		( path.join as jest.Mock ).mockImplementation( ( ...args ) => args.join( '/' ) );
 		( fs.existsSync as jest.Mock ).mockReturnValue( true );
+		( isWordPressDirectory as jest.Mock ).mockReturnValue( true );
 		( calculateDirectorySize as jest.Mock ).mockResolvedValue( 1024 * 1024 * 1024 ); // 1GB
 	} );
 
@@ -52,7 +53,10 @@ describe( 'Validation Module', () => {
 	} );
 
 	it( 'should throw an error if the site exceeds size limit', async () => {
+		( fs.existsSync as jest.Mock ).mockReturnValue( true );
+		( isWordPressDirectory as jest.Mock ).mockReturnValue( true );
 		( calculateDirectorySize as jest.Mock ).mockResolvedValue( 3 * 1024 * 1024 * 1024 ); // 3GB
+
 		await expect( validateSiteFolder( mockSiteFolder ) ).rejects.toThrow( LoggerError );
 		await expect( validateSiteFolder( mockSiteFolder ) ).rejects.toThrow(
 			'The site exceeds the maximum size of 2GB. Please remove some files and try again.'
@@ -60,7 +64,10 @@ describe( 'Validation Module', () => {
 	} );
 
 	it( 'should return true for a valid WordPress site within size limit', async () => {
+		( fs.existsSync as jest.Mock ).mockReturnValue( true );
+		( isWordPressDirectory as jest.Mock ).mockReturnValue( true );
 		( calculateDirectorySize as jest.Mock ).mockResolvedValue( 1024 * 1024 * 1024 ); // 1GB
+
 		expect( await validateSiteFolder( mockSiteFolder ) ).toBe( true );
 	} );
 } );

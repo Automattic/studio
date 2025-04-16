@@ -19,7 +19,7 @@ jest.mock( 'electron', () => ( {
 } ) );
 
 describe( 'isInstalled', () => {
-	let isInstalled: ( key: keyof InstalledApps ) => boolean;
+	let isInstalled: ( key: string ) => boolean;
 	let mockPaths: string[];
 
 	// Reset mocks before each test

@@ -1234,7 +1234,7 @@ export async function getAllCustomDomains(): Promise< string[] > {
 		.filter( ( domain ): domain is string => domain !== undefined );
 }
 
-const createPreviewEventSchema = z.object( {
+const createSnapshotEventSchema = z.object( {
 	action: z.nativeEnum( CreateLoggerAction ),
 	status: z.enum( [ 'inprogress', 'fail', 'success' ] ),
 	message: z.string(),
@@ -1242,9 +1242,9 @@ const createPreviewEventSchema = z.object( {
 
 function parseSnapshotEventData( data: unknown ) {
 	try {
-		return createPreviewEventSchema.parse( data );
+		return createSnapshotEventSchema.parse( data );
 	} catch ( error ) {
-		console.error( 'Invalid preview event:', error );
+		console.error( 'Invalid snapshot event:', error );
 		return null;
 	}
 }

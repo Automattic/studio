@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { createSlice, createAsyncThunk, PayloadAction, createSelector } from '@reduxjs/toolkit';
+import { __ } from '@wordpress/i18n';
 import { CreateLoggerAction } from 'cli/commands/preview/logger-actions';
 import { LIMIT_OF_ZIP_SITES_PER_USER } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -63,7 +64,7 @@ const snapshotSlice = createSlice( {
 			} )
 			.addCase( createSnapshot.fulfilled, ( state, action ) => {
 				state.operations[ action.payload.operationId ] = {
-					detail: '',
+					detail: __( 'Creating archive...' ),
 					error: null,
 					progress: 0,
 					siteId: action.payload.siteId,
@@ -92,18 +93,18 @@ const selectSnapshotsBySiteAndUser = createSelector(
 		)
 );
 
-function getProgress( action: CreateLoggerAction ) {
+function getProgress( action: CreateLoggerAction ): [ string, number ] {
 	switch ( action ) {
 		case CreateLoggerAction.VALIDATE:
-			return 5;
+			return [ __( 'Creating archive...' ), 5 ];
 		case CreateLoggerAction.ARCHIVE:
-			return 20;
+			return [ __( 'Creating archive...' ), 20 ];
 		case CreateLoggerAction.UPLOAD:
-			return 60;
+			return [ __( 'Uploading archive...' ), 40 ];
 		case CreateLoggerAction.READY:
-			return 80;
+			return [ __( 'Creating preview site...' ), 60 ];
 		case CreateLoggerAction.APPDATA:
-			return 100;
+			return [ __( 'Saving preview site...' ), 95 ];
 	}
 }
 
@@ -118,14 +119,11 @@ window.ipcListener.subscribe( 'snapshot-output', ( event, payload ) => {
 		return;
 	}
 
-	const progress = getProgress( payload.data.action );
+	const [ detail, progress ] = getProgress( payload.data.action );
 	store.dispatch(
 		snapshotActions.updateOperation( {
 			operationId: payload.operationId,
-			operation: {
-				detail: payload.data.action,
-				progress,
-			},
+			operation: { detail, progress },
 		} )
 	);
 } );

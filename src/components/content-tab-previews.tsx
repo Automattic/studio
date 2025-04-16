@@ -167,7 +167,6 @@ function NoPreviews( { selectedSite }: React.ComponentProps< typeof EmptyGeneric
 }
 
 export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) {
-	const { __ } = useI18n();
 	const dispatch = useAppDispatch();
 	const { data: snapshotUsage } = useGetSnapshotUsage();
 	const { isAuthenticated, user } = useAuth();
@@ -209,7 +208,7 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 				<div className="[&>*:not(:last-child)]:border-b [&>*]:border-a8c-gray-5">
 					{ operationInProgress && (
 						<ProgressRow
-							text={ __( 'Creating preview site' ) }
+							text={ operationInProgress.detail }
 							progress={ operationInProgress.progress }
 						/>
 					) }

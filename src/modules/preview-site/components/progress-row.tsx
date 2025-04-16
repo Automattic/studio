@@ -1,5 +1,5 @@
 import { __ } from '@wordpress/i18n';
-import ProgressBar from 'src/components/progress-bar';
+import { ProgressBarWithAutoIncrement } from 'src/components/progress-bar';
 
 interface ProgressRowProps {
 	text: string;
@@ -13,7 +13,7 @@ export function ProgressRow( { text, progress }: ProgressRowProps ) {
 				<div className="w-[51%]">
 					<div className="w-[200px]">
 						<div className="text-a8c-gray-70 a8c-body mb-4">{ text }</div>
-						<ProgressBar value={ progress } maxValue={ 100 } />
+						<ProgressBarWithAutoIncrement value={ progress } increment={ 1 } maxValue={ 100 } />
 					</div>
 				</div>
 				<div className="flex ltr:ml-auto rtl:mr-auto">

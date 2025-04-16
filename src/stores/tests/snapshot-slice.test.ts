@@ -190,8 +190,8 @@ describe( 'snapshot-slice', () => {
 			);
 
 			const state = store.getState();
-			expect( snapshotSelectors.isOperationInProgressForSite( state, siteId ) ).toBeTruthy();
-			expect( snapshotSelectors.isOperationInProgressForSite( state, 'other-site' ) ).toBeFalsy();
+			expect( snapshotSelectors.selectActiveOperationForSite( state, siteId ) ).toBeTruthy();
+			expect( snapshotSelectors.selectActiveOperationForSite( state, 'other-site' ) ).toBeFalsy();
 		} );
 
 		it( 'should select snapshots by site and user', () => {

@@ -75,12 +75,18 @@ const snapshotSlice = createSlice( {
 	selectors: {
 		selectSnapshots: ( state ) => state.snapshots,
 		selectSnapshotsCount: ( state ) => state.snapshots.length,
-		isOperationInProgressForSite: ( state, siteId: string ) =>
+		selectActiveOperationForSite: ( state, siteId: string ) =>
 			Object.values( state.operations )
 				.filter( ( operation ) => operation.status === 'pending' )
 				.find( ( operation ) => operation.siteId === siteId ),
 	},
 } );
+
+const selectActiveOperationsForAnySite = createSelector(
+	[ ( state: RootState ) => state.snapshot.operations ],
+	( operations ) =>
+		Object.values( operations ).filter( ( operation ) => operation.status === 'pending' )
+);
 
 const selectSnapshotsBySiteAndUser = createSelector(
 	[
@@ -153,6 +159,11 @@ window.ipcListener.subscribe( 'snapshot-error', ( event, payload ) => {
 		return;
 	}
 
+	getIpcApi().showErrorMessageBox( {
+		title: __( 'Adding preview site failed' ),
+		message: payload.data.message,
+	} );
+
 	store.dispatch(
 		snapshotActions.updateOperation( {
 			operationId: payload.operationId,
@@ -184,6 +195,7 @@ window.ipcListener.subscribe( 'snapshot-success', ( event, payload ) => {
 export const snapshotActions = snapshotSlice.actions;
 export const snapshotSelectors = {
 	...snapshotSlice.selectors,
+	selectActiveOperationsForAnySite,
 	selectSnapshotsBySiteAndUser,
 };
 export const snapshotThunks = {

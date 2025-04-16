@@ -172,8 +172,8 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 	const { isAuthenticated, user } = useAuth();
 	const { isOverLimit } = useSiteSize( selectedSite.id );
 	const { isDemoSiteUpdating } = useUpdateDemoSite();
-	const operationInProgress = useRootSelector( ( state ) =>
-		snapshotSelectors.isOperationInProgressForSite( state, selectedSite.id )
+	const activeOperation = useRootSelector( ( state ) =>
+		snapshotSelectors.selectActiveOperationForSite( state, selectedSite.id )
 	);
 	const snapshots = useRootSelector( ( state ) => snapshotSelectors.selectSnapshots( state ) );
 	const snapshotsOnSite = useRootSelector( ( state ) =>
@@ -197,7 +197,7 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 		return <NoAuth selectedSite={ selectedSite } />;
 	}
 
-	if ( ! snapshotsOnSite.length && ! operationInProgress ) {
+	if ( ! snapshotsOnSite.length && ! activeOperation ) {
 		return <NoPreviews selectedSite={ selectedSite } />;
 	}
 
@@ -206,11 +206,8 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 			<div className="w-full flex flex-col flex-1">
 				<PreviewSitesTableHeader />
 				<div className="[&>*:not(:last-child)]:border-b [&>*]:border-a8c-gray-5">
-					{ operationInProgress && (
-						<ProgressRow
-							text={ operationInProgress.detail }
-							progress={ operationInProgress.progress }
-						/>
+					{ activeOperation && (
+						<ProgressRow text={ activeOperation.detail } progress={ activeOperation.progress } />
 					) }
 					{ snapshotsOnSite
 						.filter( ( snapshot ) => ! snapshot.isLoading )

@@ -64,6 +64,7 @@ function hasSupportedPlan( site: SitesEndpointSite ): boolean {
 	return site.plan?.features.active.includes( STUDIO_SYNC_FEATURE_NAME ) ?? false;
 }
 
+<<<<<<< HEAD
 function isJetpackSite( site: SitesEndpointSite ): boolean {
 	return !! site.jetpack && ! isAtomicSite( site ) && ! isPressableSite( site );
 }
@@ -73,6 +74,13 @@ function needsTransfer( site: SitesEndpointSite ): boolean {
 }
 
 function getSyncSupport( site: SitesEndpointSite, connectedSiteIds: number[] ): SyncSupport {
+=======
+function getSyncSupport(
+	site: SitesEndpointSite,
+	connectedSiteIds: number[],
+	pressableSyncEnabled: boolean
+): SyncSupport {
+>>>>>>> 03badf57 (Add feature flag to control Pressable site sync support)
 	if ( site.is_deleted ) {
 		return 'deleted';
 	}
@@ -80,9 +88,13 @@ function getSyncSupport( site: SitesEndpointSite, connectedSiteIds: number[] ): 
 		return 'missing-permissions';
 	}
 <<<<<<< HEAD
+<<<<<<< HEAD
 	if ( isJetpackSite( site ) ) {
 =======
 	if ( site.hosting_provider_guess === 'pressable' ) {
+=======
+	if ( pressableSyncEnabled && site.hosting_provider_guess === 'pressable' ) {
+>>>>>>> 03badf57 (Add feature flag to control Pressable site sync support)
 		return 'syncable';
 	}
 	if ( isJetpackSite( site ) && ! hasSupportedPlan( site ) ) {
@@ -119,7 +131,11 @@ export function transformSingleSiteResponse(
 	};
 }
 
-export function transformSitesResponse( sites: unknown[], connectedSiteIds: number[] ): SyncSite[] {
+export function transformSitesResponse(
+	sites: unknown[],
+	connectedSiteIds: number[],
+	pressableSyncEnabled: boolean
+): SyncSite[] {
 	const validatedSites = sites.reduce< SitesEndpointSite[] >( ( acc, rawSite ) => {
 		try {
 			const site = sitesEndpointSiteSchema.parse( rawSite );
@@ -140,7 +156,7 @@ export function transformSitesResponse( sites: unknown[], connectedSiteIds: numb
 			// The API returns the wrong value for the `is_wpcom_staging_site` prop while staging sites
 			// are being created. Hence the check in other sites' `wpcom_staging_blog_ids` arrays.
 			const isStaging = allStagingSiteIds.includes( site.ID );
-			const syncSupport = getSyncSupport( site, connectedSiteIds );
+			const syncSupport = getSyncSupport( site, connectedSiteIds, pressableSyncEnabled );
 
 			return transformSingleSiteResponse( site, syncSupport, isStaging );
 		} );
@@ -200,7 +216,8 @@ export const useFetchWpComSites = ( connectedSiteIdsOnlyForSelectedSite: number[
 			const parsedResponse = sitesEndpointResponseSchema.parse( response );
 			const syncSites = transformSitesResponse(
 				parsedResponse.sites,
-				allConnectedSites.map( ( { id } ) => id )
+				allConnectedSites.map( ( { id } ) => id ),
+				pressableSyncEnabled
 			);
 
 			// whenever array of syncSites changes, we need to update connectedSites to keep them updated with wordpress.com
@@ -244,8 +261,8 @@ export const useFetchWpComSites = ( connectedSiteIdsOnlyForSelectedSite: number[
 	}, [ fetchSites ] );
 
 	const syncSitesWithSyncSupportForSelectedSite = useMemo(
-		() => transformSitesResponse( rawSyncSites, memoizedConnectedSiteIds ),
-		[ rawSyncSites, memoizedConnectedSiteIds ]
+		() => transformSitesResponse( rawSyncSites, memoizedConnectedSiteIds, pressableSyncEnabled ),
+		[ rawSyncSites, memoizedConnectedSiteIds, pressableSyncEnabled ]
 	);
 
 	return {

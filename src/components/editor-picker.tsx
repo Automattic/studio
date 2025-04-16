@@ -45,7 +45,7 @@ export const EditorPicker = ( { value, onChange }: EditorPickerProps ) => {
 
 	return (
 		<div className="flex gap-5 flex-col">
-			<h2 className="a8c-subtitle-small">{ __( 'Editor' ) }</h2>
+			<h2 className="a8c-subtitle-small">{ __( 'Code Editor' ) }</h2>
 			<SelectControl
 				value={ value || 'none' }
 				onChange={ onChange }

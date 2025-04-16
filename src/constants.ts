@@ -1,3 +1,5 @@
+import { HOUR_MS } from 'common/constants';
+
 export const DEFAULT_WIDTH = 900;
 export const MAIN_MIN_HEIGHT = 600;
 export const SIDEBAR_WIDTH = 208;
@@ -45,10 +47,6 @@ export const CLIENT_ID = '95109';
 export const PROTOCOL_PREFIX = 'wpcom-local-dev';
 export const WP_AUTHORIZE_ENDPOINT = 'https://public-api.wordpress.com/oauth2/authorize';
 export const SCOPES = 'global';
-
-// Time-related constants
-export const HOUR_MS = 1000 * 60 * 60;
-export const DAY_MS = HOUR_MS * 24;
 
 // AI Assistant constants
 // IMPORTANT: When updating this value, we need to update the string located in `AIClearHistoryReminder` component.

@@ -1,10 +1,10 @@
 import path from 'path';
 import { Command } from 'commander';
-import { readAppdata, Snapshot, getSiteFromFolder, getAuthToken } from 'cli/lib/appdata';
+import { Snapshot } from 'common/types/snapshot';
+import { readAppdata, getSiteFromFolder, getAuthToken } from 'cli/lib/appdata';
 import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger } from 'cli/logger';
 
-jest.mock( 'cli/lib/appdata' );
 jest.mock( 'cli/lib/appdata' );
 jest.mock( 'cli/lib/validation' );
 jest.mock( 'cli/logger' );

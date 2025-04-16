@@ -1,7 +1,7 @@
 import * as Sentry from '@sentry/electron/main';
 import { isSameDay, isSameMonth, isSameWeek } from 'date-fns';
 import fetch from 'node-fetch';
-import { AggregateInterval, StatsGroup, StatsMetric } from 'src/lib/bump-stats/types';
+import { AggregateInterval, StatsGroup, StatsMetric } from 'common/types/stats';
 import { loadUserData, saveUserData } from 'src/storage/user-data';
 
 // Bumps a stat if it hasn't been bumped within the current aggregate interval.

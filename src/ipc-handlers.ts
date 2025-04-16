@@ -56,6 +56,7 @@ import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from 'src/s
 import { loadUserData, saveUserData } from 'src/storage/user-data';
 import { DEFAULT_PHP_VERSION } from 'vendor/wp-now/src/constants';
 import { openCertificate as openCertificateDialog } from './lib/certificate-manager';
+import { SupportedEditor } from './lib/editor';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
 
@@ -528,6 +529,14 @@ export async function saveUserLocale( _event: IpcMainInvokeEvent, locale: string
 	} );
 }
 
+export async function saveUserEditor( _event: IpcMainInvokeEvent, editor: SupportedEditor ) {
+	const userData = await loadUserData();
+	await saveUserData( {
+		...userData,
+		preferredEditor: editor,
+	} );
+}
+
 export async function getSentryUserId( _event: IpcMainInvokeEvent ): Promise< string | undefined > {
 	const userData = await loadUserData();
 	return userData.sentryUserId;
@@ -535,6 +544,11 @@ export async function getSentryUserId( _event: IpcMainInvokeEvent ): Promise< st
 
 export async function getUserLocale( _event: IpcMainInvokeEvent ): Promise< SupportedLocale > {
 	return getUserLocaleWithFallback();
+}
+
+export async function getUserEditor( _event: IpcMainInvokeEvent ): Promise< SupportedEditor > {
+	const userData = await loadUserData();
+	return userData.preferredEditor as SupportedEditor;
 }
 
 export async function showUserSettings( event: IpcMainInvokeEvent ): Promise< void > {

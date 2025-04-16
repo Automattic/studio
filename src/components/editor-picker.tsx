@@ -2,6 +2,7 @@ import { SelectControl } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { useEffect, useState } from 'react';
 import { SupportedEditor, supportedEditorNames } from 'src/lib/editor';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 
 interface EditorPickerProps {
 	value: SupportedEditor;
@@ -21,7 +22,7 @@ export const EditorPicker = ( { value, onChange }: EditorPickerProps ) => {
 	useEffect( () => {
 		const fetchInstalledApps = async () => {
 			try {
-				const apps = await window.ipcApi.getInstalledApps();
+				const apps = await getIpcApi().getInstalledApps();
 				setInstalledApps( apps );
 			} catch ( error ) {
 				console.error( 'Failed to fetch installed apps:', error );
@@ -33,13 +34,12 @@ export const EditorPicker = ( { value, onChange }: EditorPickerProps ) => {
 
 	const options = Object.entries( supportedEditorNames ).map( ( [ editor, label ] ) => {
 		const editorKey = editor as SupportedEditor;
-		const isInstalled =
-			editorKey === 'none' || installedApps[ editorKey as keyof typeof installedApps ];
+		const isInstalled = installedApps[ editorKey as keyof typeof installedApps ];
 
 		return {
 			value: editorKey,
 			label,
-			disabled: editorKey !== 'none' && ! isInstalled,
+			disabled: ! isInstalled,
 		};
 	} );
 

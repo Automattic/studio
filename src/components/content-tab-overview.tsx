@@ -153,30 +153,34 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 			},
 		},
 	];
-	if ( installedApps.vscode ) {
-		// Use VS Code as a default even if none of the editors are installed
-		buttonsArray.push( {
-			label:
-				// translators: "VS Code" is the brand name for an IDE and does not need to be translated
-				__( 'VS Code' ),
-			className: 'text-nowrap',
-			icon: code,
-			onClick: () => {
-				getIpcApi().openURL( `vscode://file/${ selectedSite.path }?windowId=_blank` );
-			},
-		} );
-	} else if ( installedApps.phpstorm ) {
-		buttonsArray.push( {
-			label:
-				// translators: "PhpStorm" is the brand name for an IDE and does not need to be translated
-				__( 'PhpStorm' ),
-			className: 'text-nowrap',
-			icon: code,
-			onClick: () => {
-				getIpcApi().openURL( `phpstorm://open?file=${ selectedSite.path }` );
-			},
-		} );
+
+	// Only add editor button if at least one supported editor is installed
+	if ( installedApps.vscode || installedApps.phpstorm ) {
+		if ( installedApps.vscode ) {
+			buttonsArray.push( {
+				label:
+					// translators: "VS Code" is the brand name for an IDE and does not need to be translated
+					__( 'VS Code' ),
+				className: 'text-nowrap',
+				icon: code,
+				onClick: () => {
+					getIpcApi().openURL( `vscode://file/${ selectedSite.path }?windowId=_blank` );
+				},
+			} );
+		} else if ( installedApps.phpstorm ) {
+			buttonsArray.push( {
+				label:
+					// translators: "PhpStorm" is the brand name for an IDE and does not need to be translated
+					__( 'PhpStorm' ),
+				className: 'text-nowrap',
+				icon: code,
+				onClick: () => {
+					getIpcApi().openURL( `phpstorm://open?file=${ selectedSite.path }` );
+				},
+			} );
+		}
 	}
+
 	buttonsArray.push( {
 		label: __( 'Terminal' ),
 		className: 'text-nowrap',

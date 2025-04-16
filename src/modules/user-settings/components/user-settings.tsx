@@ -1,7 +1,6 @@
 import { TabPanel } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useState, useEffect } from 'react';
-import { LanguagePicker } from 'src/components/language-picker';
 import Modal from 'src/components/modal';
 import { useAuth } from 'src/hooks/use-auth';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
@@ -12,6 +11,7 @@ import { useSnapshots } from 'src/hooks/use-snapshots';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { AccountTab } from 'src/modules/user-settings/components/account-tab';
+import { LanguagePicker } from 'src/modules/user-settings/components/language-picker';
 import { NonAuthenticatedAccountTab } from 'src/modules/user-settings/components/non-authenticated-account-tab';
 import { PreferencesTab } from 'src/modules/user-settings/components/preferences-tab';
 import { PromptInfo } from 'src/modules/user-settings/components/prompt-info';

@@ -19,6 +19,7 @@ import { ArrowIcon } from 'src/components/arrow-icon';
 import { ButtonsSection, ButtonsSectionProps } from 'src/components/buttons-section';
 import { useCheckInstalledApps } from 'src/hooks/use-check-installed-apps';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
+import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { useThemeDetails } from 'src/hooks/use-theme-details';
 import { isMac } from 'src/lib/app-globals';
@@ -141,12 +142,18 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 	const installedApps = useCheckInstalledApps();
 	const [ terminalName, setTerminalName ] = useState( __( 'Terminal' ) );
 
+	const updateTerminalName = async () => {
+		const terminal = await getIpcApi().getUserTerminal();
+		setTerminalName( terminal === 'iterm' ? __( 'iTerm' ) : __( 'Terminal' ) );
+	};
+
+	// Listen for terminal preference changes
+	useIpcListener( 'terminal-preference-changed', () => {
+		updateTerminalName();
+	} );
+
 	useEffect( () => {
-		const loadTerminalName = async () => {
-			const terminal = await getIpcApi().getUserTerminal();
-			setTerminalName( terminal === 'iterm' ? __( 'iTerm' ) : __( 'Terminal' ) );
-		};
-		loadTerminalName();
+		updateTerminalName();
 	}, [] );
 
 	const buttonsArray: ButtonsSectionProps[ 'buttonsArray' ] = [

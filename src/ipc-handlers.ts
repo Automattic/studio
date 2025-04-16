@@ -18,7 +18,7 @@ import * as Sentry from '@sentry/electron/main';
 import { __, LocaleData, defaultI18n } from '@wordpress/i18n';
 import archiver from 'archiver';
 import { ARCHIVER_OPTIONS, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
-import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
+import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
 import { bumpStat } from 'src/lib/bump-stats';
 import { getImporterMetric } from 'src/lib/bump-stats/lib';
@@ -1242,6 +1242,9 @@ export async function saveUserTerminal(
 		...userData,
 		supportedTerminal: supportedTerminal,
 	} );
+
+	// Notify renderer processes that the terminal preference has changed
+	sendIpcEventToRenderer( 'terminal-preference-changed' );
 }
 
 export async function getUserTerminal( _event: IpcMainInvokeEvent ): Promise< SupportedTerminal > {

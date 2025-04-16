@@ -87,6 +87,7 @@ describe( 'UserSettings', () => {
 			fireEvent.click( screen.getByText( 'Preferences' ) );
 			expect( screen.getByText( 'Preferences' ) ).toHaveAttribute( 'aria-selected', 'true' );
 			expect( screen.getByText( 'Language' ) ).toBeVisible();
+			expect( screen.getByText( 'Shell' ) ).toBeVisible();
 
 			// Switch to Usage tab
 			fireEvent.click( screen.getByText( 'Usage' ) );

@@ -44,6 +44,16 @@ const installationPaths: Record< string, PlatformPaths > = {
 		sublime: [ 'Sublime Text.app' ],
 		atom: [ 'Atom.app' ],
 	},
+	linux: {
+		vscode: [ '/usr/bin/code' ],
+		phpstorm: [ '/usr/bin/phpstorm' ],
+		cursor: [ '/usr/bin/cursor' ],
+		windsurf: [ '/usr/bin/windsurf' ],
+		nova: [],
+		webstorm: [ '/usr/bin/webstorm' ],
+		sublime: [ '/usr/bin/sublime' ],
+		atom: [ '/usr/bin/atom' ],
+	},
 	win32: {
 		vscode: [
 			path.join( getProgramFilesPath(), 'Microsoft VS Code' ),
@@ -75,20 +85,6 @@ const installationPaths: Record< string, PlatformPaths > = {
 			path.join( getProgramFilesPath(), 'Atom' ),
 		],
 	},
-	linux: {
-		vscode: [
-			'/usr/share/code',
-			path.join( app.getPath( 'home' ), '.local/share/code' ),
-			'/snap/code',
-		],
-		phpstorm: [ '/opt/phpstorm', path.join( app.getPath( 'home' ), 'PhpStorm' ) ],
-		cursor: [ '/opt/cursor', path.join( app.getPath( 'home' ), '.local/share/cursor' ) ],
-		windsurf: [ '/opt/windsurf', path.join( app.getPath( 'home' ), '.local/share/windsurf' ) ],
-		nova: [], // Nova is Mac-only
-		webstorm: [ '/opt/webstorm', path.join( app.getPath( 'home' ), 'WebStorm' ) ],
-		sublime: [ '/opt/sublime_text', '/usr/bin/sublime_text' ],
-		atom: [ '/usr/share/atom', path.join( app.getPath( 'home' ), '.atom' ) ],
-	},
 };
 
 if ( process.platform === 'darwin' ) {
@@ -104,16 +100,7 @@ if ( process.platform === 'darwin' ) {
 			];
 		}
 	} );
-}
-
-if ( process.platform === 'linux' ) {
-	Object.keys( installationPaths.linux ).forEach( ( ide ) => {
-		installationPaths.linux[ ide as InstalledApp ].push( `/usr/bin/${ ide }` );
-		installationPaths.linux[ ide as InstalledApp ].push( `/usr/local/bin/${ ide }` );
-	} );
-}
-
-if ( process.platform === 'win32' ) {
+} else if ( process.platform === 'win32' ) {
 	// For JetBrains IDEs, check for version-specific folders
 	[ 'phpstorm', 'webstorm' ].forEach( ( ide ) => {
 		const basePaths = installationPaths.win32[ ide as InstalledApp ];

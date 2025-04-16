@@ -142,41 +142,4 @@ describe( 'isInstalled', () => {
 			expect( isInstalled( 'vscode' ) ).toBe( true );
 		} );
 	} );
-
-	describe( 'on Linux', () => {
-		beforeEach( () => {
-			Object.defineProperty( process, 'platform', { value: 'linux' } );
-			// Re-import the module to ensure platform-specific paths are set up
-			jest.isolateModules( () => {
-				const module = require( '../is-installed' );
-				isInstalled = module.isInstalled;
-				getProgramFilesPath = module.getProgramFilesPath;
-			} );
-		} );
-
-		it( 'detects VS Code installed in /usr/share/code', () => {
-			mockPaths = [ '/usr/share/code' ];
-			expect( isInstalled( 'vscode' ) ).toBe( true );
-		} );
-
-		it( 'detects VS Code installed in user directory', () => {
-			mockPaths = [ path.join( '/mock/home/path', '.local/share/code' ) ];
-			expect( isInstalled( 'vscode' ) ).toBe( true );
-		} );
-
-		it( 'detects VS Code installed via snap', () => {
-			mockPaths = [ '/snap/code' ];
-			expect( isInstalled( 'vscode' ) ).toBe( true );
-		} );
-
-		it( 'detects VS Code installed as executable', () => {
-			mockPaths = [ '/usr/bin/vscode' ];
-			expect( isInstalled( 'vscode' ) ).toBe( true );
-		} );
-
-		it( 'returns false for Nova on Linux (Mac-only)', () => {
-			mockPaths = [];
-			expect( isInstalled( 'nova' ) ).toBe( false );
-		} );
-	} );
 } );

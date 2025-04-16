@@ -16,6 +16,22 @@ type PlatformPaths = {
 	[ K in InstalledApp ]: string[];
 };
 
+function getProgramFilesPath(): string {
+	if ( process.platform !== 'win32' ) {
+		return 'C:\\Program Files';
+	}
+
+	// This env var dinamically points to the Program Files path
+	// See https://stackoverflow.com/a/9608782
+	const programFiles = process.env.ProgramFiles;
+	if ( programFiles ) {
+		return programFiles;
+	}
+
+	// Fallback to default path if environment variable is not available
+	return 'C:\\Program Files';
+}
+
 // Define installation paths for each IDE by platform
 const installationPaths: Record< string, PlatformPaths > = {
 	darwin: {
@@ -30,25 +46,34 @@ const installationPaths: Record< string, PlatformPaths > = {
 	},
 	win32: {
 		vscode: [
-			'C:\\Program Files\\Microsoft VS Code',
+			path.join( getProgramFilesPath(), 'Microsoft VS Code' ),
 			path.join( app.getPath( 'appData' ), 'Local\\Programs\\Microsoft VS Code' ),
 		],
 		phpstorm: [
-			'C:\\Program Files\\JetBrains\\PhpStorm',
+			path.join( getProgramFilesPath(), 'JetBrains\\PhpStorm' ),
 			path.join( app.getPath( 'appData' ), 'JetBrains\\PhpStorm' ),
 		],
 		cursor: [
-			'C:\\Program Files\\Cursor',
+			path.join( getProgramFilesPath(), 'Cursor' ),
 			path.join( app.getPath( 'appData' ), 'Local\\Programs\\Cursor' ),
 		],
-		windsurf: [ 'C:\\Program Files\\Windsurf', path.join( app.getPath( 'appData' ), 'Windsurf' ) ],
+		windsurf: [
+			path.join( getProgramFilesPath(), 'Windsurf' ),
+			path.join( app.getPath( 'appData' ), 'Windsurf' ),
+		],
 		nova: [], // Nova is Mac-only
 		webstorm: [
-			'C:\\Program Files\\JetBrains\\WebStorm',
+			path.join( getProgramFilesPath(), 'JetBrains\\WebStorm' ),
 			path.join( app.getPath( 'appData' ), 'JetBrains\\WebStorm' ),
 		],
-		sublime: [ 'C:\\Program Files\\Sublime Text', 'C:\\Program Files\\Sublime Text 3' ],
-		atom: [ path.join( app.getPath( 'appData' ), 'atom' ), 'C:\\Program Files\\Atom' ],
+		sublime: [
+			path.join( getProgramFilesPath(), 'Sublime Text' ),
+			path.join( getProgramFilesPath(), 'Sublime Text 3' ),
+		],
+		atom: [
+			path.join( app.getPath( 'appData' ), 'atom' ),
+			path.join( getProgramFilesPath(), 'Atom' ),
+		],
 	},
 	linux: {
 		vscode: [
@@ -92,9 +117,9 @@ if ( process.platform === 'win32' ) {
 	// For JetBrains IDEs, check for version-specific folders
 	[ 'phpstorm', 'webstorm' ].forEach( ( ide ) => {
 		const basePaths = installationPaths.win32[ ide as InstalledApp ];
+		const jetbrainsDir = path.join( getProgramFilesPath(), 'JetBrains' );
 
-		if ( fs.existsSync( 'C:\\Program Files\\JetBrains' ) ) {
-			const jetbrainsDir = 'C:\\Program Files\\JetBrains';
+		if ( fs.existsSync( jetbrainsDir ) ) {
 			const entries = fs.readdirSync( jetbrainsDir );
 
 			entries.forEach( ( entry ) => {
@@ -110,6 +135,7 @@ export function isInstalled( key: InstalledApp ): boolean {
 	const platform = process.platform;
 	const paths = installationPaths[ platform ]?.[ key ] || [];
 
+	console.log( { app } );
 	// Return true if any of the possible paths exist
 	return paths.some( ( pathStr: string ) => pathStr && fs.existsSync( pathStr ) );
 }

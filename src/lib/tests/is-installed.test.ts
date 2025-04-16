@@ -16,9 +16,20 @@ jest.mock( 'electron', () => ( {
 	},
 } ) );
 
+// Mock process.env for ProgramFiles
+const originalEnv = process.env;
+beforeAll( () => {
+	process.env = { ...originalEnv };
+} );
+
+afterAll( () => {
+	process.env = originalEnv;
+} );
+
 describe( 'isInstalled', () => {
 	let isInstalled: ( key: string ) => boolean;
 	let mockPaths: string[];
+	let getProgramFilesPath: () => string;
 
 	// Reset mocks before each test
 	beforeEach( () => {
@@ -50,6 +61,7 @@ describe( 'isInstalled', () => {
 			jest.isolateModules( () => {
 				const module = require( '../is-installed' );
 				isInstalled = module.isInstalled;
+				getProgramFilesPath = module.getProgramFilesPath;
 			} );
 		} );
 
@@ -86,11 +98,15 @@ describe( 'isInstalled', () => {
 			jest.isolateModules( () => {
 				const module = require( '../is-installed' );
 				isInstalled = module.isInstalled;
+				getProgramFilesPath = module.getProgramFilesPath;
 			} );
 		} );
 
 		it( 'detects VS Code installed in Program Files', () => {
-			mockPaths = [ 'C:\\Program Files\\Microsoft VS Code' ];
+			// Set ProgramFiles environment variable
+			process.env.ProgramFiles = 'D:\\Program Files';
+
+			mockPaths = [ 'D:\\Program Files\\Microsoft VS Code' ];
 			expect( isInstalled( 'vscode' ) ).toBe( true );
 		} );
 
@@ -100,10 +116,13 @@ describe( 'isInstalled', () => {
 		} );
 
 		it( 'detects PhpStorm with version-specific folder', () => {
-			const jetbrainsDir = 'C:\\Program Files\\JetBrains';
+			// Set ProgramFiles environment variable
+			process.env.ProgramFiles = 'E:\\Program Files';
+
+			const jetbrainsDir = 'E:\\Program Files\\JetBrains';
 			const versionSpecificPath = path.join( jetbrainsDir, 'PhpStorm 2023.1' );
 
-			mockPaths = [ jetbrainsDir, versionSpecificPath, 'C:\\Program Files\\JetBrains\\PhpStorm' ];
+			mockPaths = [ jetbrainsDir, versionSpecificPath, 'E:\\Program Files\\JetBrains\\PhpStorm' ];
 
 			( fs.readdirSync as jest.Mock ).mockReturnValue( [ 'PhpStorm 2023.1', 'WebStorm 2023.1' ] );
 
@@ -114,6 +133,14 @@ describe( 'isInstalled', () => {
 			mockPaths = [];
 			expect( isInstalled( 'nova' ) ).toBe( false );
 		} );
+
+		it( 'falls back to default Program Files path when environment variable is not set', () => {
+			// Clear ProgramFiles environment variable
+			delete process.env.ProgramFiles;
+
+			mockPaths = [ 'C:\\Program Files\\Microsoft VS Code' ];
+			expect( isInstalled( 'vscode' ) ).toBe( true );
+		} );
 	} );
 
 	describe( 'on Linux', () => {
@@ -123,6 +150,7 @@ describe( 'isInstalled', () => {
 			jest.isolateModules( () => {
 				const module = require( '../is-installed' );
 				isInstalled = module.isInstalled;
+				getProgramFilesPath = module.getProgramFilesPath;
 			} );
 		} );
 

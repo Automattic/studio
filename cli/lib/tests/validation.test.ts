@@ -59,7 +59,7 @@ describe( 'Validation Module', () => {
 
 		await expect( validateSiteFolder( mockSiteFolder ) ).rejects.toThrow( LoggerError );
 		await expect( validateSiteFolder( mockSiteFolder ) ).rejects.toThrow(
-			'The site exceeds the maximum size of 2GB. Please remove some files and try again.'
+			'Your site exceeds the 2 GB size limit. Please, consider removing unnecessary media files, plugins, or themes from wp-content.'
 		);
 	} );
 

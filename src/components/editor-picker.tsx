@@ -21,7 +21,7 @@ export const EditorPicker = ( { value, onChange }: EditorPickerProps ) => {
 	useEffect( () => {
 		const fetchInstalledApps = async () => {
 			try {
-				const apps = await window.ipcApi.getInstalledApps();
+				const apps = await getIpcApi().getInstalledApps();
 				setInstalledApps( apps );
 			} catch ( error ) {
 				console.error( 'Failed to fetch installed apps:', error );

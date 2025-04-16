@@ -185,7 +185,12 @@ export const useFetchWpComSites = ( connectedSiteIdsOnlyForSelectedSite: number[
 					path: `/me/sites`,
 				},
 				{
+<<<<<<< HEAD
 					fields,
+=======
+					fields:
+						'name,ID,URL,plan,capabilities,is_wpcom_atomic,options,jetpack,is_deleted,hosting_provider_guess',
+>>>>>>> 3bb3891b (Add `hosting_provider_guess` field to wpcom sites API request)
 					filter: 'atomic,wpcom',
 					options: 'created_at,wpcom_staging_blog_ids',
 					site_activity: 'active',

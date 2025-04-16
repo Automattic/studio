@@ -135,7 +135,6 @@ export function isInstalled( key: InstalledApp ): boolean {
 	const platform = process.platform;
 	const paths = installationPaths[ platform ]?.[ key ] || [];
 
-	console.log( { app } );
 	// Return true if any of the possible paths exist
 	return paths.some( ( pathStr: string ) => pathStr && fs.existsSync( pathStr ) );
 }

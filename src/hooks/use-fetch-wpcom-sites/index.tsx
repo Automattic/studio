@@ -164,7 +164,8 @@ export const useFetchWpComSites = ( connectedSiteIdsOnlyForSelectedSite: number[
 					path: `/me/sites`,
 				},
 				{
-					fields: 'name,ID,URL,plan,capabilities,is_wpcom_atomic,options,jetpack,is_deleted',
+					fields:
+						'name,ID,URL,plan,capabilities,is_wpcom_atomic,options,jetpack,is_deleted,hosting_provider_guess',
 					filter: 'atomic,wpcom',
 					options: 'created_at,wpcom_staging_blog_ids',
 					site_activity: 'active',

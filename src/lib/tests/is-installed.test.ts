@@ -5,13 +5,11 @@ import { app } from 'electron';
 import fs from 'fs';
 import path from 'path';
 
-// Mock the fs module
 jest.mock( 'fs', () => ( {
 	existsSync: jest.fn(),
 	readdirSync: jest.fn(),
 } ) );
 
-// Mock the electron app module
 jest.mock( 'electron', () => ( {
 	app: {
 		getPath: jest.fn(),
@@ -47,7 +45,6 @@ describe( 'isInstalled', () => {
 
 	describe( 'on macOS (darwin)', () => {
 		beforeEach( () => {
-			// Mock process.platform to be 'darwin'
 			Object.defineProperty( process, 'platform', { value: 'darwin' } );
 			// Re-import the module to ensure platform-specific paths are set up
 			jest.isolateModules( () => {
@@ -84,7 +81,6 @@ describe( 'isInstalled', () => {
 
 	describe( 'on Windows (win32)', () => {
 		beforeEach( () => {
-			// Mock process.platform to be 'win32'
 			Object.defineProperty( process, 'platform', { value: 'win32' } );
 			// Re-import the module to ensure platform-specific paths are set up
 			jest.isolateModules( () => {
@@ -122,7 +118,6 @@ describe( 'isInstalled', () => {
 
 	describe( 'on Linux', () => {
 		beforeEach( () => {
-			// Mock process.platform to be 'linux'
 			Object.defineProperty( process, 'platform', { value: 'linux' } );
 			// Re-import the module to ensure platform-specific paths are set up
 			jest.isolateModules( () => {

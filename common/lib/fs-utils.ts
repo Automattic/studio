@@ -1,6 +1,12 @@
 import fs from 'fs';
 import path from 'path';
 
+/**
+ * Calculates the total size of a directory by recursively traversing its contents.
+ *
+ * @param directoryPath - The path to the directory to calculate the size of
+ * @returns A promise that resolves to the total size in bytes
+ */
 export function calculateDirectorySize( directoryPath: string ): Promise< number > {
 	return new Promise( ( resolve, reject ) => {
 		let totalSize = 0;

@@ -22,7 +22,7 @@ interface CreatePreviewButtonProps {
 export function CreatePreviewButton( { onClick, selectedSite }: CreatePreviewButtonProps ) {
 	const { __, _n } = useI18n();
 	const { isAnySiteArchiving, archivingSiteId } = useArchiveSite();
-	const snapshotQuota = useRootSelector( ( state ) => state.preview.snapshotQuota );
+	const snapshotQuota = useRootSelector( ( state ) => state.snapshot.snapshotQuota );
 	const { activeSnapshotCount, snapshotCreationBlocked } = useSnapshots();
 	const isLimitUsed = activeSnapshotCount >= snapshotQuota;
 	const { isOverLimit } = useSiteSize( selectedSite.id );

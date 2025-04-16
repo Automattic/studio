@@ -5,11 +5,11 @@ import { CreateLoggerAction } from 'cli/commands/preview/logger-actions';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { RootState, store } from 'src/stores';
 import {
-	previewActions,
-	previewSelectors,
-	previewThunks,
+	snapshotActions,
+	snapshotSelectors,
+	snapshotThunks,
 	SnapshotOperation,
-} from 'src/stores/preview-slice';
+} from 'src/stores/snapshot-slice';
 import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
 
 jest.mock( 'src/lib/get-ipc-api' );
@@ -18,43 +18,43 @@ jest.mock( 'src/lib/get-ipc-api' );
 	createSnapshot: jest.fn(),
 } );
 
-function previewTestReducer( state: RootState | undefined, action: UnknownAction ) {
-	if ( action.type === 'preview/addOperation' ) {
+function snapshotTestReducer( state: RootState | undefined, action: UnknownAction ) {
+	if ( action.type === 'snapshot/addOperation' ) {
 		const payload = action.payload as {
 			operationId: crypto.UUID;
 			operation: SnapshotOperation;
 		};
 
 		return produce( state!, ( draftState ) => {
-			draftState.preview.operations[ payload.operationId ] = payload.operation;
+			draftState.snapshot.operations[ payload.operationId ] = payload.operation;
 		} );
 	}
 
-	if ( action.type === 'preview/addSnapshot' ) {
+	if ( action.type === 'snapshot/addSnapshot' ) {
 		const payload = action.payload as {
 			snapshot: Snapshot;
 		};
 
 		return produce( state!, ( draftState ) => {
-			draftState.preview.snapshots.push( payload.snapshot );
+			draftState.snapshot.snapshots.push( payload.snapshot );
 		} );
 	}
 
 	return testReducer( state, action );
 }
 
-const previewTestActions = {
+const snapshotTestActions = {
 	addOperation: ( operationId: crypto.UUID, operation: SnapshotOperation ) => {
-		return { type: 'preview/addOperation', payload: { operationId, operation } };
+		return { type: 'snapshot/addOperation', payload: { operationId, operation } };
 	},
 	addSnapshot: ( snapshot: Snapshot ) => {
-		return { type: 'preview/addSnapshot', payload: { snapshot } };
+		return { type: 'snapshot/addSnapshot', payload: { snapshot } };
 	},
 };
 
-store.replaceReducer( previewTestReducer );
+store.replaceReducer( snapshotTestReducer );
 
-describe( 'preview-slice', () => {
+describe( 'snapshot-slice', () => {
 	beforeEach( () => {
 		jest.clearAllMocks();
 		store.dispatch( testActions.resetState() );
@@ -69,25 +69,25 @@ describe( 'preview-slice', () => {
 
 			( getIpcApi().getSnapshots as jest.Mock ).mockResolvedValue( mockSnapshots );
 
-			const result = await store.dispatch( previewThunks.getSnapshots() );
+			const result = await store.dispatch( snapshotThunks.getSnapshots() );
 
-			expect( result.type ).toBe( 'preview/getSnapshots/fulfilled' );
+			expect( result.type ).toBe( 'snapshot/getSnapshots/fulfilled' );
 			expect( result.payload ).toEqual( mockSnapshots );
 
 			const state = store.getState();
-			expect( state.preview.snapshots ).toEqual( mockSnapshots );
+			expect( state.snapshot.snapshots ).toEqual( mockSnapshots );
 		} );
 
 		it( 'should handle errors gracefully', async () => {
 			( getIpcApi().getSnapshots as jest.Mock ).mockRejectedValue( new Error( 'API Error' ) );
 
-			const result = await store.dispatch( previewThunks.getSnapshots() );
+			const result = await store.dispatch( snapshotThunks.getSnapshots() );
 
-			expect( result.type ).toBe( 'preview/getSnapshots/rejected' );
+			expect( result.type ).toBe( 'snapshot/getSnapshots/rejected' );
 			expect( ( result as { error: { message: string } } ).error.message ).toBe( 'API Error' );
 
 			const state = store.getState();
-			expect( state.preview.snapshots ).toEqual( [] );
+			expect( state.snapshot.snapshots ).toEqual( [] );
 		} );
 	} );
 
@@ -99,13 +99,15 @@ describe( 'preview-slice', () => {
 
 			( getIpcApi().createSnapshot as jest.Mock ).mockResolvedValue( { operationId } );
 
-			const result = await store.dispatch( previewThunks.createSnapshot( { siteId, siteFolder } ) );
+			const result = await store.dispatch(
+				snapshotThunks.createSnapshot( { siteId, siteFolder } )
+			);
 
-			expect( result.type ).toBe( 'preview/createSnapshot/fulfilled' );
+			expect( result.type ).toBe( 'snapshot/createSnapshot/fulfilled' );
 			expect( result.payload ).toEqual( { operationId, siteId } );
 
 			const state = store.getState();
-			expect( state.preview.operations[ operationId ] ).toEqual( {
+			expect( state.snapshot.operations[ operationId ] ).toEqual( {
 				detail: '',
 				error: null,
 				progress: 0,
@@ -121,13 +123,15 @@ describe( 'preview-slice', () => {
 
 			( getIpcApi().createSnapshot as jest.Mock ).mockRejectedValue( new Error( 'API Error' ) );
 
-			const result = await store.dispatch( previewThunks.createSnapshot( { siteId, siteFolder } ) );
+			const result = await store.dispatch(
+				snapshotThunks.createSnapshot( { siteId, siteFolder } )
+			);
 
-			expect( result.type ).toBe( 'preview/createSnapshot/rejected' );
+			expect( result.type ).toBe( 'snapshot/createSnapshot/rejected' );
 			expect( ( result as { error: { message: string } } ).error.message ).toBe( 'API Error' );
 
 			const state = store.getState();
-			expect( state.preview.operations ).toEqual( {} );
+			expect( state.snapshot.operations ).toEqual( {} );
 		} );
 	} );
 
@@ -138,7 +142,7 @@ describe( 'preview-slice', () => {
 
 			// First create an operation
 			store.dispatch(
-				previewTestActions.addOperation( operationId, {
+				snapshotTestActions.addOperation( operationId, {
 					detail: '',
 					error: null,
 					progress: 0,
@@ -150,14 +154,14 @@ describe( 'preview-slice', () => {
 
 			// Then update its progress
 			store.dispatch(
-				previewActions.updateOperation( {
+				snapshotActions.updateOperation( {
 					operationId,
 					operation: { progress: 50 },
 				} )
 			);
 
 			const state = store.getState();
-			expect( state.preview.operations[ operationId ] ).toEqual( {
+			expect( state.snapshot.operations[ operationId ] ).toEqual( {
 				detail: '',
 				error: null,
 				progress: 50,
@@ -175,7 +179,7 @@ describe( 'preview-slice', () => {
 
 			// First create an operation
 			store.dispatch(
-				previewTestActions.addOperation( operationId, {
+				snapshotTestActions.addOperation( operationId, {
 					detail: '',
 					error: null,
 					progress: 0,
@@ -186,10 +190,10 @@ describe( 'preview-slice', () => {
 			);
 
 			// Then delete it
-			store.dispatch( previewActions.deleteOperation( { operationId } ) );
+			store.dispatch( snapshotActions.deleteOperation( { operationId } ) );
 
 			const state = store.getState();
-			expect( state.preview.operations[ operationId ] ).toBeUndefined();
+			expect( state.snapshot.operations[ operationId ] ).toBeUndefined();
 		} );
 	} );
 
@@ -200,7 +204,7 @@ describe( 'preview-slice', () => {
 
 			// First create an operation
 			store.dispatch(
-				previewTestActions.addOperation( operationId, {
+				snapshotTestActions.addOperation( operationId, {
 					detail: '',
 					error: null,
 					progress: 0,
@@ -211,8 +215,8 @@ describe( 'preview-slice', () => {
 			);
 
 			const state = store.getState();
-			expect( previewSelectors.isOperationInProgressForSite( state, siteId ) ).toBeTruthy();
-			expect( previewSelectors.isOperationInProgressForSite( state, 'other-site' ) ).toBeFalsy();
+			expect( snapshotSelectors.isOperationInProgressForSite( state, siteId ) ).toBeTruthy();
+			expect( snapshotSelectors.isOperationInProgressForSite( state, 'other-site' ) ).toBeFalsy();
 		} );
 
 		it( 'should select snapshots by site and user', () => {
@@ -241,11 +245,11 @@ describe( 'preview-slice', () => {
 			];
 
 			for ( const snapshot of mockSnapshots ) {
-				store.dispatch( previewTestActions.addSnapshot( snapshot ) );
+				store.dispatch( snapshotTestActions.addSnapshot( snapshot ) );
 			}
 
 			const state = store.getState();
-			expect( previewSelectors.selectSnapshotsBySiteAndUser( state, 'site-1', 1 ) ).toEqual( [
+			expect( snapshotSelectors.selectSnapshotsBySiteAndUser( state, 'site-1', 1 ) ).toEqual( [
 				mockSnapshots[ 0 ],
 			] );
 		} );
@@ -253,7 +257,7 @@ describe( 'preview-slice', () => {
 
 	describe( 'progress values', () => {
 		it( 'should have correct progress values for each action', () => {
-			// These values should match the getProgress function in preview-slice.ts
+			// These values should match the getProgress function in snapshot-slice.ts
 			expect( CreateLoggerAction.VALIDATE ).toBe( 'validate' );
 			expect( CreateLoggerAction.ARCHIVE ).toBe( 'archive' );
 			expect( CreateLoggerAction.UPLOAD ).toBe( 'upload' );

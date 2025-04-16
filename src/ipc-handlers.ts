@@ -1240,7 +1240,7 @@ const createPreviewEventSchema = z.object( {
 	message: z.string(),
 } );
 
-function parsePreviewEventData( data: unknown ) {
+function parseSnapshotEventData( data: unknown ) {
 	try {
 		return createPreviewEventSchema.parse( data );
 	} catch ( error ) {
@@ -1258,10 +1258,10 @@ export async function createSnapshot(
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 
 	cli.on( 'data', ( data: unknown ) => {
-		const parsed = parsePreviewEventData( data );
+		const parsed = parseSnapshotEventData( data );
 
 		if ( parsed ) {
-			sendIpcEventToRendererWithWindow( parentWindow, 'preview-output', {
+			sendIpcEventToRendererWithWindow( parentWindow, 'snapshot-output', {
 				operationId,
 				data: parsed,
 			} );
@@ -1269,10 +1269,10 @@ export async function createSnapshot(
 	} );
 
 	cli.on( 'error', ( data: unknown ) => {
-		const parsed = parsePreviewEventData( data );
+		const parsed = parseSnapshotEventData( data );
 
 		if ( parsed ) {
-			sendIpcEventToRendererWithWindow( parentWindow, 'preview-error', {
+			sendIpcEventToRendererWithWindow( parentWindow, 'snapshot-error', {
 				operationId,
 				data: parsed,
 			} );
@@ -1280,7 +1280,7 @@ export async function createSnapshot(
 	} );
 
 	cli.on( 'success', () => {
-		sendIpcEventToRendererWithWindow( parentWindow, 'preview-success', {
+		sendIpcEventToRendererWithWindow( parentWindow, 'snapshot-success', {
 			operationId,
 		} );
 	} );

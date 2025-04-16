@@ -14,14 +14,14 @@ export type SnapshotOperation = {
 	type: 'create' | 'update' | 'delete';
 };
 
-type PreviewState = {
+type SnapshotState = {
 	operations: Record< crypto.UUID, SnapshotOperation >;
 	snapshotProgress: number;
 	snapshots: Snapshot[];
 	snapshotQuota: number;
 };
 
-const getInitialState = (): PreviewState => {
+const getInitialState = (): SnapshotState => {
 	return {
 		operations: {},
 		snapshotProgress: 0,
@@ -30,20 +30,20 @@ const getInitialState = (): PreviewState => {
 	};
 };
 
-const getSnapshots = createAsyncThunk( 'preview/getSnapshots', async () => {
+const getSnapshots = createAsyncThunk( 'snapshot/getSnapshots', async () => {
 	return await getIpcApi().getSnapshots();
 } );
 
 const createSnapshot = createAsyncThunk(
-	'preview/createSnapshot',
+	'snapshot/createSnapshot',
 	async ( { siteId, siteFolder }: { siteId: string; siteFolder: string } ) => {
 		const { operationId } = await getIpcApi().createSnapshot( siteFolder );
 		return { operationId, siteId };
 	}
 );
 
-const previewSlice = createSlice( {
-	name: 'preview',
+const snapshotSlice = createSlice( {
+	name: 'snapshot',
 	initialState: getInitialState(),
 	reducers: {
 		updateOperation: (
@@ -82,7 +82,7 @@ const previewSlice = createSlice( {
 
 const selectSnapshotsBySiteAndUser = createSelector(
 	[
-		( state: RootState ) => state.preview.snapshots,
+		( state: RootState ) => state.snapshot.snapshots,
 		( state: RootState, localSiteId: string ) => localSiteId,
 		( state: RootState, localSiteId: string, userId: number ) => userId,
 	],
@@ -109,66 +109,58 @@ function getProgress( action: CreateLoggerAction ) {
 
 function getOperation( operationId: crypto.UUID ) {
 	const state = store.getState();
-	return state.preview.operations[ operationId ];
+	return state.snapshot.operations[ operationId ];
 }
 
-window.ipcListener.subscribe( 'preview-output', ( event, payload ) => {
+window.ipcListener.subscribe( 'snapshot-output', ( event, payload ) => {
 	const operation = getOperation( payload.operationId );
 	if ( ! operation ) {
 		return;
 	}
 
-	try {
-		const progress = getProgress( payload.data.action );
-		store.dispatch(
-			previewActions.updateOperation( {
-				operationId: payload.operationId,
-				operation: {
-					detail: payload.data.action,
-					progress,
-				},
-			} )
-		);
-	} catch ( error ) {
-		console.error( 'Error parsing preview event:', error );
-	}
+	const progress = getProgress( payload.data.action );
+	store.dispatch(
+		snapshotActions.updateOperation( {
+			operationId: payload.operationId,
+			operation: {
+				detail: payload.data.action,
+				progress,
+			},
+		} )
+	);
 } );
 
-window.ipcListener.subscribe( 'preview-error', ( event, payload ) => {
+window.ipcListener.subscribe( 'snapshot-error', ( event, payload ) => {
 	const operation = getOperation( payload.operationId );
 	if ( ! operation ) {
 		return;
 	}
 
-	try {
-		store.dispatch(
-			previewActions.updateOperation( {
-				operationId: payload.operationId,
-				operation: { status: 'rejected', error: payload.data.message },
-			} )
-		);
-	} catch ( error ) {
-		console.error( 'Error parsing preview error:', error );
-	}
+	store.dispatch(
+		snapshotActions.updateOperation( {
+			operationId: payload.operationId,
+			operation: { status: 'rejected', error: payload.data.message },
+		} )
+	);
 } );
 
-window.ipcListener.subscribe( 'preview-success', ( event, data ) => {
+window.ipcListener.subscribe( 'snapshot-success', ( event, data ) => {
 	const operation = getOperation( data.operationId );
 	if ( ! operation ) {
 		return;
 	}
 
-	store.dispatch( previewActions.deleteOperation( { operationId: data.operationId } ) );
+	store.dispatch( snapshotActions.deleteOperation( { operationId: data.operationId } ) );
 	store.dispatch( getSnapshots() );
 } );
 
-export const previewActions = previewSlice.actions;
-export const previewSelectors = {
-	...previewSlice.selectors,
+export const snapshotActions = snapshotSlice.actions;
+export const snapshotSelectors = {
+	...snapshotSlice.selectors,
 	selectSnapshotsBySiteAndUser,
 };
-export const previewThunks = {
+export const snapshotThunks = {
 	getSnapshots,
 	createSnapshot,
 };
-export const reducer = previewSlice.reducer;
+export const reducer = snapshotSlice.reducer;

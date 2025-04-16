@@ -26,7 +26,7 @@ import { PreviewSitesTableHeader } from 'src/modules/preview-site/components/pre
 import { ProgressRow } from 'src/modules/preview-site/components/progress-row';
 import { useUpdateButtonTooltip } from 'src/modules/preview-site/hooks/use-update-button-tooltip';
 import { useAppDispatch, useRootSelector } from 'src/stores';
-import { previewSelectors, previewThunks } from 'src/stores/preview-slice';
+import { snapshotSelectors, snapshotThunks } from 'src/stores/snapshot-slice';
 import { useGetSnapshotUsage } from 'src/stores/wpcom-api';
 
 interface ContentTabPreviewsProps {
@@ -153,7 +153,7 @@ function NoPreviews( { selectedSite }: React.ComponentProps< typeof EmptyGeneric
 				<CreatePreviewButton
 					onClick={ () => {
 						dispatch(
-							previewThunks.createSnapshot( {
+							snapshotThunks.createSnapshot( {
 								siteFolder: selectedSite.path,
 								siteId: selectedSite.id,
 							} )
@@ -174,19 +174,19 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 	const { isOverLimit } = useSiteSize( selectedSite.id );
 	const { isDemoSiteUpdating } = useUpdateDemoSite();
 	const operationInProgress = useRootSelector( ( state ) =>
-		previewSelectors.isOperationInProgressForSite( state, selectedSite.id )
+		snapshotSelectors.isOperationInProgressForSite( state, selectedSite.id )
 	);
-	const snapshots = useRootSelector( ( state ) => previewSelectors.selectSnapshots( state ) );
+	const snapshots = useRootSelector( ( state ) => snapshotSelectors.selectSnapshots( state ) );
 	const snapshotsOnSite = useRootSelector( ( state ) =>
-		previewSelectors.selectSnapshotsBySiteAndUser( state, selectedSite.id, user?.id ?? 0 )
+		snapshotSelectors.selectSnapshotsBySiteAndUser( state, selectedSite.id, user?.id ?? 0 )
 	);
-	const isAnyPreviewUpdating = snapshots.some( ( snapshot ) =>
+	const isAnySnapshotUpdating = snapshots.some( ( snapshot ) =>
 		isDemoSiteUpdating( snapshot.atomicSiteId )
 	);
 	const isOffline = useOffline();
 
 	const isUpdateDisabled =
-		isAnyPreviewUpdating || snapshotUsage?.siteCreationBlocked || isOverLimit || isOffline;
+		isAnySnapshotUpdating || snapshotUsage?.siteCreationBlocked || isOverLimit || isOffline;
 
 	const tooltipContent = useUpdateButtonTooltip( {
 		snapshotCreationBlocked: snapshotUsage?.siteCreationBlocked ?? false,
@@ -230,7 +230,7 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 						<CreatePreviewButton
 							onClick={ () => {
 								dispatch(
-									previewThunks.createSnapshot( {
+									snapshotThunks.createSnapshot( {
 										siteFolder: selectedSite.path,
 										siteId: selectedSite.id,
 									} )

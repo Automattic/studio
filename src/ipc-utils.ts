@@ -16,9 +16,9 @@ export interface IpcEvents {
 	'auth-updated': [ { token: StoredToken } | { error: unknown } ];
 	'on-export': [ ImportExportEventData, string ];
 	'on-import': [ ImportExportEventData, string ];
-	'preview-error': [ { operationId: crypto.UUID; data: PreviewEventData } ];
-	'preview-output': [ { operationId: crypto.UUID; data: PreviewEventData } ];
-	'preview-success': [ { operationId: crypto.UUID } ];
+	'snapshot-error': [ { operationId: crypto.UUID; data: PreviewEventData } ];
+	'snapshot-output': [ { operationId: crypto.UUID; data: PreviewEventData } ];
+	'snapshot-success': [ { operationId: crypto.UUID } ];
 	'show-whats-new': [ void ];
 	'sync-connect-site': [ { remoteSiteId: number; studioSiteId: string } ];
 	'test-render-failure': [ void ];

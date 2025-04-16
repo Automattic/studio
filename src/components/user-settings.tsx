@@ -23,7 +23,7 @@ import { useSnapshots } from 'src/hooks/use-snapshots';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useRootSelector } from 'src/stores';
-import { previewSelectors } from 'src/stores/preview-slice';
+import { snapshotSelectors } from 'src/stores/snapshot-slice';
 import { useGetSnapshotUsage } from 'src/stores/wpcom-api';
 
 const UserInfo = ( {
@@ -294,9 +294,9 @@ export default function UserSettings() {
 	const { isAuthenticated, authenticate, logout, user } = useAuth();
 
 	const { loadingDeletingAllSnapshots, deleteAllSnapshots } = useSnapshots();
-	const allSnapshots = useRootSelector( previewSelectors.selectSnapshots );
-	const snapshotQuota = useRootSelector( ( state ) => state.preview.snapshotQuota );
-	const snapshotsCount = useRootSelector( previewSelectors.selectSnapshotsCount );
+	const allSnapshots = useRootSelector( snapshotSelectors.selectSnapshots );
+	const snapshotQuota = useRootSelector( ( state ) => state.snapshot.snapshotQuota );
+	const snapshotsCount = useRootSelector( snapshotSelectors.selectSnapshotsCount );
 	const { data: snapshotUsage, isLoading: isLoadingSnapshotUsage } = useGetSnapshotUsage();
 	const definitiveSnapshotCount = snapshotUsage?.siteCount ?? snapshotsCount;
 

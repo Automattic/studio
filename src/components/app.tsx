@@ -18,7 +18,7 @@ import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { WhatsNewModal, useWhatsNew } from 'src/modules/whats-new';
 import { useAppDispatch } from 'src/stores';
-import { previewThunks } from 'src/stores/preview-slice';
+import { snapshotThunks } from 'src/stores/snapshot-slice';
 
 export default function App() {
 	useLocalizationSupport();
@@ -32,7 +32,7 @@ export default function App() {
 	}, [ needsOnboarding ] );
 
 	useEffect( () => {
-		dispatch( previewThunks.getSnapshots() );
+		dispatch( snapshotThunks.getSnapshots() );
 	}, [ dispatch ] );
 
 	return (

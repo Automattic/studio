@@ -2,6 +2,7 @@ import * as Sentry from '@sentry/electron/renderer';
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { z } from 'zod';
 import { useAuth } from 'src/hooks/use-auth';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { reconcileConnectedSites } from 'src/hooks/use-fetch-wpcom-sites/reconcile-connected-sites';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -59,14 +60,18 @@ function hasSupportedPlan( site: SitesEndpointSite ): boolean {
 	return site.plan?.features.active.includes( STUDIO_SYNC_FEATURE_NAME ) ?? false;
 }
 
-function getSyncSupport( site: SitesEndpointSite, connectedSiteIds: number[] ): SyncSupport {
+function getSyncSupport(
+	site: SitesEndpointSite,
+	connectedSiteIds: number[],
+	pressableSyncEnabled: boolean
+): SyncSupport {
 	if ( site.is_deleted ) {
 		return 'deleted';
 	}
 	if ( ! site.capabilities?.manage_options ) {
 		return 'missing-permissions';
 	}
-	if ( site.hosting_provider_guess === 'pressable' ) {
+	if ( pressableSyncEnabled && site.hosting_provider_guess === 'pressable' ) {
 		return 'syncable';
 	}
 	if ( isJetpackSite( site ) && ! hasSupportedPlan( site ) ) {
@@ -102,7 +107,11 @@ export function transformSingleSiteResponse(
 	};
 }
 
-export function transformSitesResponse( sites: unknown[], connectedSiteIds: number[] ): SyncSite[] {
+export function transformSitesResponse(
+	sites: unknown[],
+	connectedSiteIds: number[],
+	pressableSyncEnabled: boolean
+): SyncSite[] {
 	const validatedSites = sites.reduce< SitesEndpointSite[] >( ( acc, rawSite ) => {
 		try {
 			const site = sitesEndpointSiteSchema.parse( rawSite );
@@ -123,7 +132,7 @@ export function transformSitesResponse( sites: unknown[], connectedSiteIds: numb
 			// The API returns the wrong value for the `is_wpcom_staging_site` prop while staging sites
 			// are being created. Hence the check in other sites' `wpcom_staging_blog_ids` arrays.
 			const isStaging = allStagingSiteIds.includes( site.ID );
-			const syncSupport = getSyncSupport( site, connectedSiteIds );
+			const syncSupport = getSyncSupport( site, connectedSiteIds, pressableSyncEnabled );
 
 			return transformSingleSiteResponse( site, syncSupport, isStaging );
 		} );
@@ -136,6 +145,7 @@ export const useFetchWpComSites = ( connectedSiteIdsOnlyForSelectedSite: number[
 	const { isAuthenticated, client } = useAuth();
 	const isFetchingSites = useRef( false );
 	const isOffline = useOffline();
+	const { pressableSyncEnabled } = useFeatureFlags();
 
 	const joinedConnectedSiteIds = connectedSiteIdsOnlyForSelectedSite.join( ',' );
 	// we need this trick to avoid unnecessary re-renders,
@@ -175,7 +185,8 @@ export const useFetchWpComSites = ( connectedSiteIdsOnlyForSelectedSite: number[
 			const parsedResponse = sitesEndpointResponseSchema.parse( response );
 			const syncSites = transformSitesResponse(
 				parsedResponse.sites,
-				allConnectedSites.map( ( { id } ) => id )
+				allConnectedSites.map( ( { id } ) => id ),
+				pressableSyncEnabled
 			);
 
 			// whenever array of syncSites changes, we need to update connectedSites to keep them updated with wordpress.com
@@ -212,15 +223,15 @@ export const useFetchWpComSites = ( connectedSiteIdsOnlyForSelectedSite: number[
 		} finally {
 			isFetchingSites.current = false;
 		}
-	}, [ client?.req, isAuthenticated, isOffline ] );
+	}, [ client?.req, isAuthenticated, isOffline, pressableSyncEnabled ] );
 
 	useEffect( () => {
 		fetchSites();
 	}, [ fetchSites ] );
 
 	const syncSitesWithSyncSupportForSelectedSite = useMemo(
-		() => transformSitesResponse( rawSyncSites, memoizedConnectedSiteIds ),
-		[ rawSyncSites, memoizedConnectedSiteIds ]
+		() => transformSitesResponse( rawSyncSites, memoizedConnectedSiteIds, pressableSyncEnabled ),
+		[ rawSyncSites, memoizedConnectedSiteIds, pressableSyncEnabled ]
 	);
 
 	return {

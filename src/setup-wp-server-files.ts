@@ -51,7 +51,10 @@ async function copyBundledLatestWPVersion() {
 async function copyBundledSqlite() {
 	const bundledSqlitePath = path.join( getResourcesPath(), 'wp-files', SQLITE_FILENAME );
 	const bundledSqliteVersion = semver.coerce(
-		await getSqliteVersionFromInstallation( bundledSqlitePath )
+		await getSqliteVersionFromInstallation( bundledSqlitePath ),
+		{
+			includePrerelease: true,
+		}
 	);
 	if ( ! bundledSqliteVersion ) {
 		return;
@@ -59,7 +62,10 @@ async function copyBundledSqlite() {
 	const installedSqlitePath = getSqlitePath();
 	const isSqliteInstalled = await fs.pathExists( installedSqlitePath );
 	const installedSqliteVersion = semver.coerce(
-		await getSqliteVersionFromInstallation( installedSqlitePath )
+		await getSqliteVersionFromInstallation( installedSqlitePath ),
+		{
+			includePrerelease: true,
+		}
 	);
 	const isBundledVersionNewer =
 		installedSqliteVersion && semver.gt( bundledSqliteVersion, installedSqliteVersion );

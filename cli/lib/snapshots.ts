@@ -1,11 +1,4 @@
-import { z } from 'zod';
-import {
-	getSiteIdFromFolder,
-	readAppdata,
-	saveAppdata,
-	snapshotSchema,
-	Snapshot,
-} from 'cli/lib/appdata';
+import { getSiteFromFolder, readAppdata, saveAppdata, Snapshot } from 'cli/lib/appdata';
 import { LoggerError } from 'cli/logger';
 
 export async function getSnapshotsFromAppdata(
@@ -17,25 +10,23 @@ export async function getSnapshotsFromAppdata(
 	snapshots = snapshots.filter( ( snapshot ) => snapshot.userId === userId );
 
 	if ( siteFolder ) {
-		const siteId = await getSiteIdFromFolder( siteFolder );
-		snapshots = snapshots.filter( ( snapshot ) => snapshot.localSiteId === siteId );
+		const site = await getSiteFromFolder( siteFolder );
+		snapshots = snapshots.filter( ( snapshot ) => snapshot.localSiteId === site.id );
 	}
 
 	return snapshots;
 }
 
-export async function addPreviewSiteToAppdata(
-	previewUrl: string,
+// Insert or update a snapshot entry (matching on atomicSiteId) in the appdata file.
+export async function upsertPreviewSiteInAppdata(
+	siteFolder: string,
 	atomicSiteId: number,
-	siteFolder: string
-): Promise< void > {
+	previewUrl: string
+): Promise< Snapshot > {
 	try {
 		const userData = await readAppdata();
-		const site = userData.sites?.find( ( s ) => s.path === siteFolder );
-		if ( ! site ) {
-			return;
-		}
-		const snapshot: z.infer< typeof snapshotSchema > = {
+		const site = await getSiteFromFolder( siteFolder );
+		const snapshot: Snapshot = {
 			url: previewUrl,
 			atomicSiteId,
 			localSiteId: site.id,
@@ -48,8 +39,19 @@ export async function addPreviewSiteToAppdata(
 		if ( ! userData.snapshots ) {
 			userData.snapshots = [];
 		}
-		userData.snapshots.push( snapshot );
+
+		const existingSnapshotIndex = userData.snapshots.findIndex(
+			( s ) => s.atomicSiteId === atomicSiteId
+		);
+
+		if ( existingSnapshotIndex > -1 ) {
+			userData.snapshots.splice( existingSnapshotIndex, 1, snapshot );
+		} else {
+			userData.snapshots.push( snapshot );
+		}
+
 		await saveAppdata( userData );
+		return snapshot;
 	} catch ( error ) {
 		throw new LoggerError(
 			`Failed to add preview site to appdata: ${

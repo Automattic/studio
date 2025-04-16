@@ -26,7 +26,7 @@ async function runCommand( siteFolder: string, outputFormat?: OutputFormat ): Pr
 
 	try {
 		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating...' ) );
-		validateSiteFolder( siteFolder );
+		await validateSiteFolder( siteFolder );
 		const token = await getAuthToken();
 		logger.reportSuccess( __( 'Validation successful' ) );
 

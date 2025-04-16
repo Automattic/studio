@@ -2,8 +2,8 @@ import { TooltipProps } from '@wordpress/components/build-types/tooltip/types';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useMemo } from 'react';
+import { DEMO_SITE_SIZE_LIMIT_GB } from 'common/constants';
 import offlineIcon from 'src/components/offline-icon';
-import { DEMO_SITE_SIZE_LIMIT_GB } from 'src/constants';
 import { useArchiveErrorMessages } from 'src/hooks/use-archive-error-messages';
 
 export function useUpdateButtonTooltip( {

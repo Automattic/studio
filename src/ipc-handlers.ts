@@ -109,6 +109,13 @@ export async function getInstalledApps( _event: IpcMainInvokeEvent ): Promise< I
 	return {
 		vscode: isInstalled( 'vscode' ),
 		phpstorm: isInstalled( 'phpstorm' ),
+		nova: isInstalled( 'nova' ),
+		webstorm: isInstalled( 'webstorm' ),
+		sublime: isInstalled( 'sublime' ),
+		atom: isInstalled( 'atom' ),
+		windsurf: isInstalled( 'windsurf' ),
+		cursor: isInstalled( 'cursor' ),
+		iterm: isInstalled( 'iterm' ),
 	};
 }
 

@@ -4,6 +4,13 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 const initState = {
 	vscode: false,
 	phpstorm: false,
+	nova: false,
+	webstorm: false,
+	sublime: false,
+	atom: false,
+	windsurf: false,
+	cursor: false,
+	iterm: false,
 };
 const checkInstalledAppsContext = createContext< InstalledApps >( initState );
 

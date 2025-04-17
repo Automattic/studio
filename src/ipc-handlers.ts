@@ -17,8 +17,6 @@ import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { __, LocaleData, defaultI18n } from '@wordpress/i18n';
 import archiver from 'archiver';
-import { z } from 'zod';
-import { CreateLoggerAction } from 'cli/commands/preview/logger-actions';
 import { calculateDirectorySize } from 'common/lib/fs-utils';
 import { ARCHIVER_OPTIONS, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
@@ -54,7 +52,7 @@ import * as windowsHelpers from 'src/lib/windows-helpers';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
-import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
+import { executePreviewCliCommand } from 'src/modules/cli/lib/execute-preview-command';
 import { SiteServer, createSiteWorkingDirectory } from 'src/site-server';
 import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from 'src/storage/paths';
 import { loadUserData, saveUserData } from 'src/storage/user-data';
@@ -1248,77 +1246,22 @@ export async function getAllCustomDomains(): Promise< string[] > {
 		.filter( ( domain ): domain is string => domain !== undefined );
 }
 
-const createSnapshotEventSchema = z.object( {
-	action: z.nativeEnum( CreateLoggerAction ),
-	status: z.enum( [ 'inprogress', 'fail', 'success' ] ),
-	message: z.string(),
-} );
-
-const createSnapshotStdoutSchema = z.discriminatedUnion( 'action', [
-	createSnapshotEventSchema,
-	z.object( {
-		action: z.literal( 'keyValuePair' ),
-		key: z.string(),
-		value: z.string(),
-	} ),
-] );
-
-function parseSnapshotEventData< T extends z.ZodType >(
-	data: unknown,
-	schema: T
-): z.infer< T > | null {
-	try {
-		return schema.parse( data );
-	} catch ( error ) {
-		console.error( 'Invalid snapshot event:', error );
-		return null;
-	}
-}
-
 export async function createSnapshot(
 	event: IpcMainInvokeEvent,
 	siteFolder: string
 ): Promise< { operationId: crypto.UUID } > {
-	const operationId = crypto.randomUUID();
-	const cli = executeCliCommand( [ 'go', siteFolder ] );
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+	return executePreviewCliCommand( [ 'go', siteFolder ], parentWindow );
+}
 
-	cli.on( 'data', ( data: unknown ) => {
-		const parsed = parseSnapshotEventData( data, createSnapshotStdoutSchema );
-
-		if ( ! parsed ) {
-			return;
-		}
-
-		if ( parsed.action === 'keyValuePair' ) {
-			sendIpcEventToRendererWithWindow( parentWindow, 'snapshot-key-value', {
-				operationId,
-				data: parsed,
-			} );
-		} else {
-			sendIpcEventToRendererWithWindow( parentWindow, 'snapshot-output', {
-				operationId,
-				data: parsed,
-			} );
-		}
-	} );
-
-	cli.on( 'error', ( data: unknown ) => {
-		const parsed = parseSnapshotEventData( data, createSnapshotEventSchema );
-
-		if ( parsed ) {
-			sendIpcEventToRendererWithWindow( parentWindow, 'snapshot-error', {
-				operationId,
-				data: parsed,
-			} );
-		}
-	} );
-
-	cli.on( 'success', () => {
-		sendIpcEventToRendererWithWindow( parentWindow, 'snapshot-success', {
-			operationId,
-		} );
-	} );
-
-	return { operationId };
+export async function updateSnapshot(
+	event: IpcMainInvokeEvent,
+	siteFolder: string,
+	hostname: string
+): Promise< { operationId: crypto.UUID } > {
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+	return executePreviewCliCommand(
+		[ 'preview', 'update', siteFolder, '-h', hostname ],
+		parentWindow
+	);
 }

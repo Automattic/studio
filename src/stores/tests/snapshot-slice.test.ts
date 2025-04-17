@@ -190,8 +190,10 @@ describe( 'snapshot-slice', () => {
 			);
 
 			const state = store.getState();
-			expect( snapshotSelectors.selectActiveOperationForSite( state, siteId ) ).toBeTruthy();
-			expect( snapshotSelectors.selectActiveOperationForSite( state, 'other-site' ) ).toBeFalsy();
+			expect( snapshotSelectors.selectActiveCreateOperationForSite( state, siteId ) ).toBeTruthy();
+			expect(
+				snapshotSelectors.selectActiveCreateOperationForSite( state, 'other-site' )
+			).toBeFalsy();
 		} );
 
 		it( 'should select snapshots by site and user', () => {

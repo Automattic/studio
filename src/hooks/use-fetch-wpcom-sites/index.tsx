@@ -61,10 +61,13 @@ function isAtomicSite( site: SitesEndpointSite ): boolean {
 }
 
 function hasSupportedPlan( site: SitesEndpointSite ): boolean {
-	return site.plan?.features.active.includes( STUDIO_SYNC_FEATURE_NAME ) ?? false;
+	return (
+		( isPressableSite( site ) ||
+			site.plan?.features.active.includes( STUDIO_SYNC_FEATURE_NAME ) ) ??
+		false
+	);
 }
 
-<<<<<<< HEAD
 function isJetpackSite( site: SitesEndpointSite ): boolean {
 	return !! site.jetpack && ! isAtomicSite( site ) && ! isPressableSite( site );
 }
@@ -74,31 +77,13 @@ function needsTransfer( site: SitesEndpointSite ): boolean {
 }
 
 function getSyncSupport( site: SitesEndpointSite, connectedSiteIds: number[] ): SyncSupport {
-=======
-function getSyncSupport(
-	site: SitesEndpointSite,
-	connectedSiteIds: number[],
-	pressableSyncEnabled: boolean
-): SyncSupport {
->>>>>>> 03badf57 (Add feature flag to control Pressable site sync support)
 	if ( site.is_deleted ) {
 		return 'deleted';
 	}
 	if ( ! site.capabilities?.manage_options ) {
 		return 'missing-permissions';
 	}
-<<<<<<< HEAD
-<<<<<<< HEAD
 	if ( isJetpackSite( site ) ) {
-=======
-	if ( site.hosting_provider_guess === 'pressable' ) {
-=======
-	if ( pressableSyncEnabled && site.hosting_provider_guess === 'pressable' ) {
->>>>>>> 03badf57 (Add feature flag to control Pressable site sync support)
-		return 'syncable';
-	}
-	if ( isJetpackSite( site ) && ! hasSupportedPlan( site ) ) {
->>>>>>> e7139585 (Add hosting provider check for Pressable sites in wpcom site fetching logic)
 		return 'jetpack-site';
 	}
 	if ( ! hasSupportedPlan( site ) && ! isPressableSite( site ) ) {
@@ -131,11 +116,7 @@ export function transformSingleSiteResponse(
 	};
 }
 
-export function transformSitesResponse(
-	sites: unknown[],
-	connectedSiteIds: number[],
-	pressableSyncEnabled: boolean
-): SyncSite[] {
+export function transformSitesResponse( sites: unknown[], connectedSiteIds: number[] ): SyncSite[] {
 	const validatedSites = sites.reduce< SitesEndpointSite[] >( ( acc, rawSite ) => {
 		try {
 			const site = sitesEndpointSiteSchema.parse( rawSite );
@@ -156,7 +137,7 @@ export function transformSitesResponse(
 			// The API returns the wrong value for the `is_wpcom_staging_site` prop while staging sites
 			// are being created. Hence the check in other sites' `wpcom_staging_blog_ids` arrays.
 			const isStaging = allStagingSiteIds.includes( site.ID );
-			const syncSupport = getSyncSupport( site, connectedSiteIds, pressableSyncEnabled );
+			const syncSupport = getSyncSupport( site, connectedSiteIds );
 
 			return transformSingleSiteResponse( site, syncSupport, isStaging );
 		} );
@@ -201,12 +182,7 @@ export const useFetchWpComSites = ( connectedSiteIdsOnlyForSelectedSite: number[
 					path: `/me/sites`,
 				},
 				{
-<<<<<<< HEAD
 					fields,
-=======
-					fields:
-						'name,ID,URL,plan,capabilities,is_wpcom_atomic,options,jetpack,is_deleted,hosting_provider_guess',
->>>>>>> 3bb3891b (Add `hosting_provider_guess` field to wpcom sites API request)
 					filter: 'atomic,wpcom',
 					options: 'created_at,wpcom_staging_blog_ids',
 					site_activity: 'active',
@@ -216,8 +192,7 @@ export const useFetchWpComSites = ( connectedSiteIdsOnlyForSelectedSite: number[
 			const parsedResponse = sitesEndpointResponseSchema.parse( response );
 			const syncSites = transformSitesResponse(
 				parsedResponse.sites,
-				allConnectedSites.map( ( { id } ) => id ),
-				pressableSyncEnabled
+				allConnectedSites.map( ( { id } ) => id )
 			);
 
 			// whenever array of syncSites changes, we need to update connectedSites to keep them updated with wordpress.com
@@ -261,8 +236,8 @@ export const useFetchWpComSites = ( connectedSiteIdsOnlyForSelectedSite: number[
 	}, [ fetchSites ] );
 
 	const syncSitesWithSyncSupportForSelectedSite = useMemo(
-		() => transformSitesResponse( rawSyncSites, memoizedConnectedSiteIds, pressableSyncEnabled ),
-		[ rawSyncSites, memoizedConnectedSiteIds, pressableSyncEnabled ]
+		() => transformSitesResponse( rawSyncSites, memoizedConnectedSiteIds ),
+		[ rawSyncSites, memoizedConnectedSiteIds ]
 	);
 
 	return {

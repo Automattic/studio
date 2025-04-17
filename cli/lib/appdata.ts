@@ -120,7 +120,7 @@ export async function getAuthToken(): Promise< NonNullable< UserData[ 'authToken
 	}
 }
 
-export async function getSiteFromAppData(
+export async function getSiteByFolder(
 	siteFolder: string
 ): Promise< z.infer< typeof siteSchema > > {
 	const userData = await readAppdata();

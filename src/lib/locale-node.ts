@@ -5,7 +5,7 @@ import {
 	isSupportedLocale,
 	SupportedLocale,
 	supportedLocales,
-} from 'src/lib/locale';
+} from 'common/lib/locale';
 import { loadUserData } from 'src/storage/user-data';
 
 export function getSupportedLocale() {

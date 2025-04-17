@@ -1,5 +1,5 @@
 // To run tests, execute `npm run test -- src/components/user-settings.test.tsx` from the root directory
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import UserSettings from 'src/components/user-settings';
 import { useAuth } from 'src/hooks/use-auth';
@@ -11,6 +11,16 @@ import { store } from 'src/stores';
 jest.mock( 'src/hooks/use-feature-flags' );
 jest.mock( 'src/hooks/use-auth' );
 jest.mock( 'src/hooks/use-ipc-listener' );
+jest.mock( 'src/lib/get-ipc-api', () => ( {
+	getIpcApi: jest.fn().mockReturnValue( {
+		getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
+		getInstalledTerminals: jest.fn().mockResolvedValue( {
+			terminal: true,
+			iterm: false,
+		} ),
+		getInstalledApps: jest.fn().mockResolvedValue( [ 'vscode', 'phpstorm' ] ),
+	} ),
+} ) );
 
 afterEach( () => {
 	jest.clearAllMocks();
@@ -91,13 +101,17 @@ describe( 'UserSettings', () => {
 
 			// Switch to Preferences tab
 			fireEvent.click( screen.getByText( 'Preferences' ) );
-			expect( screen.getByText( 'Preferences' ) ).toHaveAttribute( 'aria-selected', 'true' );
+			await waitFor( () => {
+				expect( screen.getByText( 'Preferences' ) ).toHaveAttribute( 'aria-selected', 'true' );
+			} );
 			expect( screen.getByText( 'Language' ) ).toBeVisible();
 			expect( screen.getByText( 'Shell' ) ).toBeVisible();
 
 			// Switch to Usage tab
 			fireEvent.click( screen.getByText( 'Usage' ) );
-			expect( screen.getByText( 'Usage' ) ).toHaveAttribute( 'aria-selected', 'true' );
+			await waitFor( () => {
+				expect( screen.getByText( 'Usage' ) ).toHaveAttribute( 'aria-selected', 'true' );
+			} );
 			expect( screen.getByText( 'Preview sites' ) ).toBeVisible();
 			expect( screen.getByText( 'AI assistant' ) ).toBeVisible();
 		} );

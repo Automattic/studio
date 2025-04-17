@@ -48,6 +48,7 @@ describe( 'ShortcutsSection', () => {
 		const openURLMock = jest.fn();
 		mockGetIpcApi.mockReturnValue( {
 			openURL: openURLMock,
+			getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
 		} );
 
 		const { getByText } = render( <ContentTabOverview selectedSite={ selectedSite } /> );
@@ -70,6 +71,7 @@ describe( 'ShortcutsSection', () => {
 		const openURLMock = jest.fn();
 		mockGetIpcApi.mockReturnValue( {
 			openURL: openURLMock,
+			getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
 		} );
 
 		const { getByText } = render( <ContentTabOverview selectedSite={ selectedSite } /> );
@@ -93,6 +95,7 @@ describe( 'ShortcutsSection', () => {
 		const openURLMock = jest.fn();
 		mockGetIpcApi.mockReturnValue( {
 			openURL: openURLMock,
+			getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
 		} );
 
 		const { getByText } = render( <ContentTabOverview selectedSite={ selectedSite } /> );
@@ -107,7 +110,6 @@ describe( 'ShortcutsSection', () => {
 	it( 'opens terminal when terminal is available and the button is clicked', async () => {
 		// Mock the `useCheckInstalledApps` hook to simulate terminal being available
 		( useCheckInstalledApps as jest.Mock ).mockReturnValue( {
-			terminal: true,
 			vscode: false,
 			phpstorm: false,
 		} );
@@ -116,6 +118,7 @@ describe( 'ShortcutsSection', () => {
 		const openTerminalAtPathMock = jest.fn();
 		mockGetIpcApi.mockReturnValue( {
 			openTerminalAtPath: openTerminalAtPathMock,
+			getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
 		} );
 
 		// Render the component
@@ -136,7 +139,6 @@ describe( 'ShortcutsSection', () => {
 	it( 'opens terminal with wp-cli integration if feature flag is enabled', async () => {
 		// Mock the `useCheckInstalledApps` hook to simulate terminal being available
 		( useCheckInstalledApps as jest.Mock ).mockReturnValue( {
-			terminal: true,
 			vscode: false,
 			phpstorm: false,
 		} );
@@ -148,6 +150,7 @@ describe( 'ShortcutsSection', () => {
 		const openTerminalAtPathMock = jest.fn();
 		mockGetIpcApi.mockReturnValue( {
 			openTerminalAtPath: openTerminalAtPathMock,
+			getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
 		} );
 
 		// Render the component

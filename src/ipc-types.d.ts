@@ -58,8 +58,15 @@ interface Snapshot {
 }
 
 type InstalledApps = {
-	vscode: boolean | null;
-	phpstorm: boolean | null;
+	vscode: boolean;
+	phpstorm: boolean;
+	nova: boolean;
+	webstorm: boolean;
+	sublime: boolean;
+	atom: boolean;
+	windsurf: boolean;
+	cursor: boolean;
+	iterm: boolean;
 };
 
 type InstalledTerminals = {

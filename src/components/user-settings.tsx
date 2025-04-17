@@ -5,6 +5,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useState, useEffect } from 'react';
 import { Snapshot } from 'cli/lib/appdata';
 import Button from 'src/components/button';
+import { EditorPicker } from 'src/components/editor-picker';
 import { Gravatar } from 'src/components/gravatar';
 import { LanguagePicker } from 'src/components/language-picker';
 import Modal from 'src/components/modal';
@@ -14,14 +15,17 @@ import { Tooltip } from 'src/components/tooltip';
 import { WordPressLogo } from 'src/components/wordpress-logo';
 import { WPCOM_PROFILE_URL } from 'src/constants';
 import { useAuth } from 'src/hooks/use-auth';
+import { useEditorData } from 'src/hooks/use-editor-data';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useI18nData } from 'src/hooks/use-i18n-data';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
 import { usePromptUsage } from 'src/hooks/use-prompt-usage';
 import { useSnapshots } from 'src/hooks/use-snapshots';
+import { useTerminalData } from 'src/hooks/use-terminal-data';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { TerminalPicker } from './terminal-picker';
 
 const UserInfo = ( {
 	user,
@@ -221,22 +225,42 @@ const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const { __ } = useI18n();
 	const { locale: savedLocale, setLocale: setSavedLocale } = useI18nData();
 	const [ locale, setLocale ] = useState( savedLocale );
+	const { editor, handleEditorChange, saveEditorPreference, resetEditor, hasEditorChanges } =
+		useEditorData();
+	const {
+		terminal,
+		handleTerminalChange,
+		saveTerminalPreference,
+		resetTerminal,
+		hasTerminalChanges,
+		availableTerminals,
+	} = useTerminalData();
 
-	const savePreferences = () => {
+	const savePreferences = async () => {
 		setSavedLocale( locale );
+		await saveEditorPreference();
+		await saveTerminalPreference();
 		onClose();
 	};
 
 	const cancelChanges = () => {
 		setLocale( savedLocale );
+		resetEditor();
+		resetTerminal();
 		onClose();
 	};
 
-	const hasChanges = locale !== savedLocale;
+	const hasChanges = locale !== savedLocale || hasEditorChanges || hasTerminalChanges;
 
 	return (
 		<>
 			<LanguagePicker value={ locale } onChange={ setLocale } />
+			<EditorPicker value={ editor } onChange={ handleEditorChange } />
+			<TerminalPicker
+				value={ terminal }
+				onChange={ handleTerminalChange }
+				availableTerminals={ availableTerminals }
+			/>
 			<div className="mt-auto pt-6 flex justify-end gap-3">
 				<Button variant="tertiary" onClick={ cancelChanges }>
 					{ __( 'Cancel' ) }

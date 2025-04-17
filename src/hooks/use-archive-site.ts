@@ -2,7 +2,7 @@ import * as Sentry from '@sentry/electron/renderer';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useMemo } from 'react';
-import { DEMO_SITE_SIZE_LIMIT_BYTES, DEMO_SITE_SIZE_LIMIT_GB } from 'src/constants';
+import { DEMO_SITE_SIZE_LIMIT_BYTES, DEMO_SITE_SIZE_LIMIT_GB } from 'common/constants';
 import { useSyncSites } from 'src/hooks/sync-sites';
 import { useArchiveErrorMessages } from 'src/hooks/use-archive-error-messages';
 import { useAuth } from 'src/hooks/use-auth';

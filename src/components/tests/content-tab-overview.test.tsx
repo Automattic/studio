@@ -4,6 +4,15 @@ import { ContentTabOverview } from 'src/components/content-tab-overview';
 import { useThemeDetails } from 'src/hooks/use-theme-details';
 
 jest.mock( 'src/hooks/use-theme-details' );
+jest.mock( 'src/lib/get-ipc-api', () => ( {
+	getIpcApi: jest.fn().mockReturnValue( {
+		getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
+		getInstalledTerminals: jest.fn().mockResolvedValue( {
+			terminal: true,
+			iterm: false,
+		} ),
+	} ),
+} ) );
 
 const runningSite: StartedSiteDetails = {
 	name: 'Test Site',

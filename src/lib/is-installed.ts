@@ -10,7 +10,8 @@ type InstalledApp =
 	| 'nova'
 	| 'webstorm'
 	| 'sublime'
-	| 'atom';
+	| 'atom'
+	| 'iterm';
 
 type PlatformPaths = {
 	[ K in InstalledApp ]: string[];
@@ -43,6 +44,7 @@ const installationPaths: Record< string, PlatformPaths > = {
 		webstorm: [ 'WebStorm.app' ],
 		sublime: [ 'Sublime Text.app' ],
 		atom: [ 'Atom.app' ],
+		iterm: [ 'iTerm.app' ],
 	},
 	linux: {
 		vscode: [ '/usr/bin/code' ],
@@ -53,6 +55,7 @@ const installationPaths: Record< string, PlatformPaths > = {
 		webstorm: [ '/usr/bin/webstorm' ],
 		sublime: [ '/usr/bin/sublime' ],
 		atom: [ '/usr/bin/atom' ],
+		iterm: [],
 	},
 	win32: {
 		vscode: [
@@ -84,6 +87,7 @@ const installationPaths: Record< string, PlatformPaths > = {
 			path.win32.join( app.getPath( 'appData' ), 'atom' ),
 			path.win32.join( getProgramFilesPath(), 'Atom' ),
 		],
+		iterm: [],
 	},
 };
 
@@ -120,7 +124,7 @@ if ( process.platform === 'darwin' ) {
 
 export function isInstalled( key: InstalledApp ): boolean {
 	const platform = process.platform;
-	const paths = installationPaths[ platform ]?.[ key ] || [];
+	const paths = installationPaths[ platform ]?.[ key ];
 
 	// Return true if any of the possible paths exist
 	return paths.some( ( pathStr: string ) => pathStr && fs.existsSync( pathStr ) );

@@ -59,8 +59,8 @@ async function runCommand( siteFolder: string, outputFormat?: OutputFormat ): Pr
 	}
 }
 
-export const registerCommand: RegisterCommand = ( command, rootCommand = command ) => {
-	command
+export const registerCommand: RegisterCommand = ( parentCommand, rootCommand = parentCommand ) => {
+	parentCommand
 		.command( 'go [folder]' )
 		.description(
 			__( 'Create a preview site from the specified folder (defaults to current directory)' )

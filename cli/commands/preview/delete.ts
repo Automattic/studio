@@ -39,8 +39,8 @@ async function runCommand( host: string, outputFormat?: OutputFormat ): Promise<
 	}
 }
 
-export const registerCommand: RegisterCommand = ( command, rootCommand = command ) => {
-	command
+export const registerCommand: RegisterCommand = ( parentCommand, rootCommand = parentCommand ) => {
+	parentCommand
 		.command( 'delete <host>' )
 		.description( __( 'Delete a preview site' ) )
 		.action( async ( host: string ) => {

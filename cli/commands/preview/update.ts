@@ -73,8 +73,8 @@ async function runCommand(
 	}
 }
 
-export const registerCommand: RegisterCommand = ( command, rootCommand = command ) => {
-	command
+export const registerCommand: RegisterCommand = ( parentCommand, rootCommand = parentCommand ) => {
+	parentCommand
 		.command( 'update [folder]' )
 		.description(
 			__( 'Update preview site for the specified folder (defaults to current directory)' )

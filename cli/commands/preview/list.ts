@@ -40,8 +40,8 @@ async function runCommand( siteFolder: string, outputFormat?: OutputFormat ): Pr
 	}
 }
 
-export const registerCommand: RegisterCommand = ( command, rootCommand = command ) => {
-	command
+export const registerCommand: RegisterCommand = ( parentCommand, rootCommand = parentCommand ) => {
+	parentCommand
 		.command( 'list [folder]' )
 		.description(
 			__( 'List preview sites for the specified folder (defaults to current directory)' )

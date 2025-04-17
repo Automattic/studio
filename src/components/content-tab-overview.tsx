@@ -196,7 +196,6 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 			} );
 		}
 	}
-
 	buttonsArray.push( {
 		label: terminalName,
 		className: 'text-nowrap',

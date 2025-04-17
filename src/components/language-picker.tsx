@@ -1,6 +1,6 @@
 import { SelectControl } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
-import { SupportedLocale, supportedLocaleNames } from 'src/lib/locale';
+import { SupportedLocale, supportedLocaleNames } from 'common/lib/locale';
 
 interface LanguagePickerProps {
 	value: SupportedLocale;

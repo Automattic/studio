@@ -6,7 +6,7 @@ import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
 import { createArchive, cleanup } from 'cli/lib/archive';
 import { upsertPreviewSiteInAppdata } from 'cli/lib/snapshots';
-import { validateSiteFolder } from 'cli/lib/validation';
+import { validateSiteFolder, validateSiteSize } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
 import { RegisterCommand, OutputFormat } from 'cli/types';
 
@@ -19,7 +19,8 @@ async function runCommand( siteFolder: string, outputFormat?: OutputFormat ): Pr
 
 	try {
 		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating...' ) );
-		await validateSiteFolder( siteFolder );
+		validateSiteFolder( siteFolder );
+		await validateSiteSize( siteFolder );
 		const token = await getAuthToken();
 		logger.reportSuccess( __( 'Validation successful' ) );
 

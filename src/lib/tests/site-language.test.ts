@@ -3,6 +3,8 @@
  */
 import { app } from 'electron';
 import { getPreferredSiteLanguage } from 'src/lib/site-language';
+import * as storagePaths from 'src/storage/paths';
+jest.spyOn( storagePaths, 'getResourcesPath' ).mockReturnValue( process.cwd() );
 
 jest.unmock( 'fs-extra' );
 

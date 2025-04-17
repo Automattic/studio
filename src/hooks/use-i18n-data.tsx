@@ -1,9 +1,9 @@
 import { createI18n, I18n, defaultI18n } from '@wordpress/i18n';
 import { I18nProvider } from '@wordpress/react-i18n';
 import { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
+import { SupportedLocale, getLocaleData } from 'common/lib/locale';
 import { useOnboarding } from 'src/hooks/use-onboarding';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { SupportedLocale, getLocaleData } from 'src/lib/locale';
 
 interface I18nDataContext {
 	setLocale: ( localeKey: SupportedLocale ) => void;

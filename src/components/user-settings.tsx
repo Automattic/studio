@@ -3,7 +3,7 @@ import { sprintf } from '@wordpress/i18n';
 import { moreVertical, trash } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useState, useEffect } from 'react';
-import { Snapshot } from 'cli/lib/appdata';
+import { Snapshot } from 'common/types/snapshot';
 import Button from 'src/components/button';
 import { EditorPicker } from 'src/components/editor-picker';
 import { Gravatar } from 'src/components/gravatar';
@@ -229,16 +229,15 @@ const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const { __ } = useI18n();
 	const { locale: savedLocale, setLocale: setSavedLocale } = useI18nData();
 	const [ locale, setLocale ] = useState( savedLocale );
-
 	const { editor, handleEditorChange, saveEditorPreference, resetEditor, hasEditorChanges } =
 		useEditorData();
-
 	const {
 		terminal,
 		handleTerminalChange,
 		saveTerminalPreference,
 		resetTerminal,
 		hasTerminalChanges,
+		availableTerminals,
 	} = useTerminalData();
 
 	const savePreferences = async () => {
@@ -261,7 +260,11 @@ const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 		<>
 			<LanguagePicker value={ locale } onChange={ setLocale } />
 			<EditorPicker value={ editor } onChange={ handleEditorChange } />
-			<TerminalPicker value={ terminal } onChange={ handleTerminalChange } />
+			<TerminalPicker
+				value={ terminal }
+				onChange={ handleTerminalChange }
+				availableTerminals={ availableTerminals }
+			/>
 			<div className="mt-auto pt-6 flex justify-end gap-3">
 				<Button variant="tertiary" onClick={ cancelChanges }>
 					{ __( 'Cancel' ) }

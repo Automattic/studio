@@ -3,7 +3,7 @@ import { sprintf } from '@wordpress/i18n';
 import { moreVertical, trash } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useState, useEffect } from 'react';
-import { Snapshot } from 'cli/lib/appdata';
+import { Snapshot } from 'common/types/snapshot';
 import Button from 'src/components/button';
 import { EditorPicker } from 'src/components/editor-picker';
 import { Gravatar } from 'src/components/gravatar';

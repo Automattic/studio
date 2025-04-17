@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { existsSync } from 'fs-extra';
 
 /**
  * Calculates the total size of a directory by recursively traversing its contents.
@@ -39,4 +40,12 @@ export function calculateDirectorySize( directoryPath: string ): Promise< number
 			.then( () => resolve( totalSize ) )
 			.catch( reject );
 	} );
+}
+
+export function isWordPressDirectory( projectPath: string ): boolean {
+	return (
+		existsSync( path.join( projectPath, 'wp-content' ) ) &&
+		existsSync( path.join( projectPath, 'wp-includes' ) ) &&
+		existsSync( path.join( projectPath, 'wp-load.php' ) )
+	);
 }

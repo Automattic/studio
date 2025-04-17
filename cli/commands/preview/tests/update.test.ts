@@ -72,7 +72,7 @@ describe( 'Preview Update Command', () => {
 
 	it( 'should complete the preview update process successfully', async () => {
 		const { registerCommand } = await import( '../update' );
-		registerCommand( program, undefined );
+		registerCommand( program );
 
 		await program.parseAsync( [ 'node', 'studio', 'update', mockFolder, '--host', mockSiteUrl ] );
 
@@ -123,7 +123,7 @@ describe( 'Preview Update Command', () => {
 
 	it( 'should use current directory when no folder is specified', async () => {
 		const { registerCommand } = await import( '../update' );
-		registerCommand( program, undefined );
+		registerCommand( program );
 
 		await program.parseAsync( [ 'node', 'studio', 'update', '--host', mockSiteUrl ] );
 
@@ -137,7 +137,7 @@ describe( 'Preview Update Command', () => {
 		} );
 
 		const { registerCommand } = await import( '../update' );
-		registerCommand( program, undefined );
+		registerCommand( program );
 
 		await program.parseAsync( [ 'node', 'studio', 'update', mockFolder, '--host', mockSiteUrl ] );
 
@@ -154,7 +154,7 @@ describe( 'Preview Update Command', () => {
 		} );
 
 		const { registerCommand } = await import( '../update' );
-		registerCommand( program, undefined );
+		registerCommand( program );
 
 		await program.parseAsync( [ 'node', 'studio', 'update', mockFolder, '--host', mockSiteUrl ] );
 
@@ -167,7 +167,7 @@ describe( 'Preview Update Command', () => {
 		( getSnapshotsFromAppdata as jest.Mock ).mockResolvedValue( [] );
 
 		const { registerCommand } = await import( '../update' );
-		registerCommand( program, undefined );
+		registerCommand( program );
 
 		await program.parseAsync( [ 'node', 'studio', 'update', mockFolder, '--host', mockSiteUrl ] );
 
@@ -183,7 +183,7 @@ describe( 'Preview Update Command', () => {
 		} );
 
 		const { registerCommand } = await import( '../update' );
-		registerCommand( program, undefined );
+		registerCommand( program );
 
 		await program.parseAsync( [ 'node', 'studio', 'update', mockFolder, '--host', mockSiteUrl ] );
 
@@ -199,7 +199,7 @@ describe( 'Preview Update Command', () => {
 		} );
 
 		const { registerCommand } = await import( '../update' );
-		registerCommand( program, undefined );
+		registerCommand( program );
 
 		await program.parseAsync( [ 'node', 'studio', 'update', mockFolder, '--host', mockSiteUrl ] );
 
@@ -215,7 +215,7 @@ describe( 'Preview Update Command', () => {
 		} );
 
 		const { registerCommand } = await import( '../update' );
-		registerCommand( program, undefined );
+		registerCommand( program );
 
 		await program.parseAsync( [ 'node', 'studio', 'update', mockFolder, '--host', mockSiteUrl ] );
 
@@ -231,7 +231,7 @@ describe( 'Preview Update Command', () => {
 		} );
 
 		const { registerCommand } = await import( '../update' );
-		registerCommand( program, undefined );
+		registerCommand( program );
 
 		await program.parseAsync( [ 'node', 'studio', 'update', mockFolder, '--host', mockSiteUrl ] );
 

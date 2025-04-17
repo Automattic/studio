@@ -59,7 +59,7 @@ describe( 'Preview List Command', () => {
 
 	it( 'should successfully list snapshots', async () => {
 		const { registerCommand } = await import( '../list' );
-		registerCommand( program, undefined );
+		registerCommand( program );
 
 		await program.parseAsync( [ 'node', 'studio', 'list', '/test/path' ] );
 
@@ -71,7 +71,7 @@ describe( 'Preview List Command', () => {
 
 	it( 'should handle validation errors', async () => {
 		const { registerCommand } = await import( '../list' );
-		registerCommand( program, undefined );
+		registerCommand( program );
 		( validateSiteFolder as jest.Mock ).mockImplementation( () => {
 			throw new Error( 'Invalid site folder' );
 		} );
@@ -83,7 +83,7 @@ describe( 'Preview List Command', () => {
 
 	it( 'should handle no snapshots found', async () => {
 		const { registerCommand } = await import( '../list' );
-		registerCommand( program, undefined );
+		registerCommand( program );
 		( readAppdata as jest.Mock ).mockResolvedValue( { snapshots: [] } );
 
 		await program.parseAsync( [ 'node', 'studio', 'list', '/test/path' ] );

@@ -70,7 +70,7 @@ describe( 'Preview Create Command', () => {
 
 	it( 'should complete the preview creation process successfully', async () => {
 		const { registerCommand } = await import( '../create' );
-		registerCommand( program, undefined );
+		registerCommand( program );
 
 		await program.parseAsync( [ 'node', 'studio', 'go', mockFolder ] );
 
@@ -119,7 +119,7 @@ describe( 'Preview Create Command', () => {
 
 	it( 'should use current directory when no folder is specified', async () => {
 		const { registerCommand } = await import( '../create' );
-		registerCommand( program, undefined );
+		registerCommand( program );
 
 		await program.parseAsync( [ 'node', 'studio', 'go' ] );
 
@@ -133,7 +133,7 @@ describe( 'Preview Create Command', () => {
 		} );
 
 		const { registerCommand } = await import( '../create' );
-		registerCommand( program, undefined );
+		registerCommand( program );
 
 		await program.parseAsync( [ 'node', 'studio', 'go', mockFolder ] );
 
@@ -150,7 +150,7 @@ describe( 'Preview Create Command', () => {
 		} );
 
 		const { registerCommand } = await import( '../create' );
-		registerCommand( program, undefined );
+		registerCommand( program );
 
 		await program.parseAsync( [ 'node', 'studio', 'go', mockFolder ] );
 
@@ -166,7 +166,7 @@ describe( 'Preview Create Command', () => {
 		} );
 
 		const { registerCommand } = await import( '../create' );
-		registerCommand( program, undefined );
+		registerCommand( program );
 
 		await program.parseAsync( [ 'node', 'studio', 'go', mockFolder ] );
 
@@ -182,7 +182,7 @@ describe( 'Preview Create Command', () => {
 		} );
 
 		const { registerCommand } = await import( '../create' );
-		registerCommand( program, undefined );
+		registerCommand( program );
 
 		await program.parseAsync( [ 'node', 'studio', 'go', mockFolder ] );
 
@@ -198,7 +198,7 @@ describe( 'Preview Create Command', () => {
 		} );
 
 		const { registerCommand } = await import( '../create' );
-		registerCommand( program, undefined );
+		registerCommand( program );
 
 		await program.parseAsync( [ 'node', 'studio', 'go', mockFolder ] );
 
@@ -214,7 +214,7 @@ describe( 'Preview Create Command', () => {
 		} );
 
 		const { registerCommand } = await import( '../create' );
-		registerCommand( program, undefined );
+		registerCommand( program );
 
 		await program.parseAsync( [ 'node', 'studio', 'go', mockFolder ] );
 
@@ -228,7 +228,7 @@ describe( 'Preview Create Command', () => {
 		} );
 
 		const { registerCommand } = await import( '../create' );
-		registerCommand( program, undefined );
+		registerCommand( program );
 
 		await program.parseAsync( [ 'node', 'studio', 'go', mockFolder ] );
 

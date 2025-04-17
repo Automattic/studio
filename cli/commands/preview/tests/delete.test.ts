@@ -47,7 +47,7 @@ describe( 'Preview Delete Command', () => {
 
 	it( 'should successfully delete a snapshot', async () => {
 		const { registerCommand } = await import( '../delete' );
-		registerCommand( program, undefined );
+		registerCommand( program );
 
 		await program.parseAsync( [ 'node', 'studio', 'delete', mockHost ] );
 
@@ -64,7 +64,7 @@ describe( 'Preview Delete Command', () => {
 
 	it( 'should handle snapshot not found error', async () => {
 		const { registerCommand } = await import( '../delete' );
-		registerCommand( program, undefined );
+		registerCommand( program );
 		( getSnapshotsFromAppdata as jest.Mock ).mockResolvedValue( [] );
 
 		await program.parseAsync( [ 'node', 'studio', 'delete', 'nonexistent.com' ] );
@@ -76,7 +76,7 @@ describe( 'Preview Delete Command', () => {
 
 	it( 'should handle API deletion error', async () => {
 		const { registerCommand } = await import( '../delete' );
-		registerCommand( program, undefined );
+		registerCommand( program );
 		( deleteSnapshot as jest.Mock ).mockRejectedValue( new Error( 'API error' ) );
 
 		await program.parseAsync( [ 'node', 'studio', 'delete', mockHost ] );
@@ -87,7 +87,7 @@ describe( 'Preview Delete Command', () => {
 
 	it( 'should handle local deletion error', async () => {
 		const { registerCommand } = await import( '../delete' );
-		registerCommand( program, undefined );
+		registerCommand( program );
 		( deleteSnapshotFromAppdata as jest.Mock ).mockRejectedValue(
 			new Error( 'Local deletion error' )
 		);

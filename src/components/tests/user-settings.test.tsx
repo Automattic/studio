@@ -16,6 +16,7 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 			terminal: true,
 			iterm: false,
 		} ),
+		getInstalledApps: jest.fn().mockResolvedValue( [ 'vscode', 'phpstorm' ] ),
 	} ),
 } ) );
 

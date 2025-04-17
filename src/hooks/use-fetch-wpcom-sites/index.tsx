@@ -52,35 +52,49 @@ export const sitesEndpointResponseSchema = z.object( {
 
 const STUDIO_SYNC_FEATURE_NAME = 'studio-sync';
 
-function isJetpackSite( site: SitesEndpointSite ): boolean {
-	return !! site.jetpack && ! site.is_wpcom_atomic;
+function isPressableSite( site: SitesEndpointSite ): boolean {
+	return site.hosting_provider_guess === 'pressable';
+}
+
+function isAtomicSite( site: SitesEndpointSite ): boolean {
+	return site.is_wpcom_atomic;
 }
 
 function hasSupportedPlan( site: SitesEndpointSite ): boolean {
-	return site.plan?.features.active.includes( STUDIO_SYNC_FEATURE_NAME ) ?? false;
+	return (
+		( isPressableSite( site ) ||
+			site.plan?.features.active.includes( STUDIO_SYNC_FEATURE_NAME ) ) ??
+		false
+	);
 }
 
-function getSyncSupport(
-	site: SitesEndpointSite,
-	connectedSiteIds: number[],
-	pressableSyncEnabled: boolean
-): SyncSupport {
+function isJetpackSite( site: SitesEndpointSite ): boolean {
+	return (
+		!! site.jetpack &&
+		! isAtomicSite( site ) &&
+		! isPressableSite( site ) &&
+		! hasSupportedPlan( site )
+	);
+}
+
+function needsTransfer( site: SitesEndpointSite ): boolean {
+	return ! isJetpackSite( site ) && ! isPressableSite( site ) && ! isAtomicSite( site );
+}
+
+function getSyncSupport( site: SitesEndpointSite, connectedSiteIds: number[] ): SyncSupport {
 	if ( site.is_deleted ) {
 		return 'deleted';
 	}
 	if ( ! site.capabilities?.manage_options ) {
 		return 'missing-permissions';
 	}
-	if ( pressableSyncEnabled && site.hosting_provider_guess === 'pressable' ) {
-		return 'syncable';
-	}
-	if ( isJetpackSite( site ) && ! hasSupportedPlan( site ) ) {
+	if ( isJetpackSite( site ) ) {
 		return 'jetpack-site';
 	}
 	if ( ! hasSupportedPlan( site ) ) {
 		return 'unsupported';
 	}
-	if ( ! site.is_wpcom_atomic ) {
+	if ( needsTransfer( site ) ) {
 		return 'needs-transfer';
 	}
 	if ( connectedSiteIds.some( ( id ) => id === site.ID ) ) {
@@ -107,11 +121,7 @@ export function transformSingleSiteResponse(
 	};
 }
 
-export function transformSitesResponse(
-	sites: unknown[],
-	connectedSiteIds: number[],
-	pressableSyncEnabled: boolean
-): SyncSite[] {
+export function transformSitesResponse( sites: unknown[], connectedSiteIds: number[] ): SyncSite[] {
 	const validatedSites = sites.reduce< SitesEndpointSite[] >( ( acc, rawSite ) => {
 		try {
 			const site = sitesEndpointSiteSchema.parse( rawSite );
@@ -132,7 +142,7 @@ export function transformSitesResponse(
 			// The API returns the wrong value for the `is_wpcom_staging_site` prop while staging sites
 			// are being created. Hence the check in other sites' `wpcom_staging_blog_ids` arrays.
 			const isStaging = allStagingSiteIds.includes( site.ID );
-			const syncSupport = getSyncSupport( site, connectedSiteIds, pressableSyncEnabled );
+			const syncSupport = getSyncSupport( site, connectedSiteIds );
 
 			return transformSingleSiteResponse( site, syncSupport, isStaging );
 		} );
@@ -168,14 +178,16 @@ export const useFetchWpComSites = ( connectedSiteIdsOnlyForSelectedSite: number[
 		try {
 			const allConnectedSites = await getIpcApi().getConnectedWpcomSites();
 
+			const baseFields = 'name,ID,URL,plan,capabilities,is_wpcom_atomic,options,jetpack,is_deleted';
+			const fields = pressableSyncEnabled ? `${ baseFields },hosting_provider_guess` : baseFields;
+
 			const response = await client.req.get(
 				{
 					apiNamespace: 'rest/v1.2',
 					path: `/me/sites`,
 				},
 				{
-					fields:
-						'name,ID,URL,plan,capabilities,is_wpcom_atomic,options,jetpack,is_deleted,hosting_provider_guess',
+					fields,
 					filter: 'atomic,wpcom',
 					options: 'created_at,wpcom_staging_blog_ids',
 					site_activity: 'active',
@@ -185,8 +197,7 @@ export const useFetchWpComSites = ( connectedSiteIdsOnlyForSelectedSite: number[
 			const parsedResponse = sitesEndpointResponseSchema.parse( response );
 			const syncSites = transformSitesResponse(
 				parsedResponse.sites,
-				allConnectedSites.map( ( { id } ) => id ),
-				pressableSyncEnabled
+				allConnectedSites.map( ( { id } ) => id )
 			);
 
 			// whenever array of syncSites changes, we need to update connectedSites to keep them updated with wordpress.com
@@ -230,8 +241,8 @@ export const useFetchWpComSites = ( connectedSiteIdsOnlyForSelectedSite: number[
 	}, [ fetchSites ] );
 
 	const syncSitesWithSyncSupportForSelectedSite = useMemo(
-		() => transformSitesResponse( rawSyncSites, memoizedConnectedSiteIds, pressableSyncEnabled ),
-		[ rawSyncSites, memoizedConnectedSiteIds, pressableSyncEnabled ]
+		() => transformSitesResponse( rawSyncSites, memoizedConnectedSiteIds ),
+		[ rawSyncSites, memoizedConnectedSiteIds ]
 	);
 
 	return {

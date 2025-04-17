@@ -57,7 +57,7 @@ import { loadUserData, saveUserData } from 'src/storage/user-data';
 import { DEFAULT_PHP_VERSION } from 'vendor/wp-now/src/constants';
 import { openCertificate as openCertificateDialog } from './lib/certificate-manager';
 import { SupportedEditor } from './lib/editor';
-import { SupportedTerminal } from './lib/supported-terminal';
+import { SupportedTerminal } from './lib/terminal';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
 

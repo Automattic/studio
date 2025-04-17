@@ -256,9 +256,9 @@ const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 		<>
 			<LanguagePicker value={ locale } onChange={ setLocale } />
 			<EditorPicker value={ editor } onChange={ handleEditorChange } />
-			<TerminalPicker 
-				value={ terminal } 
-				onChange={ handleTerminalChange } 
+			<TerminalPicker
+				value={ terminal }
+				onChange={ handleTerminalChange }
 				availableTerminals={ availableTerminals }
 			/>
 			<div className="mt-auto pt-6 flex justify-end gap-3">

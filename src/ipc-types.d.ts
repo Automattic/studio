@@ -62,6 +62,11 @@ type InstalledApps = {
 	phpstorm: boolean | null;
 };
 
+type InstalledTerminals = {
+	terminal: boolean;
+	iterm: boolean;
+};
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Tail< T extends any[] > = ( ( ...args: T ) => any ) extends ( _: any, ...tail: infer U ) => any
 	? U

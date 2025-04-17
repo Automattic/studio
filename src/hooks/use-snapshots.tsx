@@ -45,12 +45,12 @@ interface SnapshotContextType {
 	stopCreationProgress: () => void;
 }
 
-export enum SnapshotStatus {
+enum SnapshotStatus {
 	Deleted = '1',
 	Active = '2',
 }
 
-export interface SnapshotStatusResponse {
+interface SnapshotStatusResponse {
 	is_deleted: string;
 	domain_name: string;
 	atomic_site_id: string;

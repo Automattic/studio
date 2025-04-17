@@ -1,6 +1,6 @@
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import { CLEAR_HISTORY_REMINDER_TIME } from 'common/constants';
 import AIClearHistoryReminder from 'src/components/ai-clear-history-reminder';
+import { CLEAR_HISTORY_REMINDER_TIME } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { Message } from 'src/stores/chat-slice';
 

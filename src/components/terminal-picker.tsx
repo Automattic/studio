@@ -1,6 +1,5 @@
 import { SelectControl } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
-import { useEffect, useState } from 'react';
 import { SupportedTerminal, supportedTerminalNames } from 'src/lib/terminal';
 
 interface TerminalPickerProps {
@@ -10,37 +9,18 @@ interface TerminalPickerProps {
 
 export const TerminalPicker = ( { value, onChange }: TerminalPickerProps ) => {
 	const { __ } = useI18n();
-	const [ installedTerminals, setInstalledTerminals ] = useState< {
-		iterm: boolean | null;
-		terminal: boolean | null;
-	} >( {
-		iterm: null,
-		terminal: null,
-	} );
 
-	useEffect( () => {
-		const fetchInstalledTerminals = async () => {
-			try {
-				const terminals = { iterm: true, terminal: true }; // TODO:: Fetch installed terminals from the API
-				setInstalledTerminals( terminals );
-			} catch ( error ) {
-				console.error( 'Failed to fetch installed terminals:', error );
-			}
-		};
-
-		fetchInstalledTerminals();
-	}, [] );
-
-	const options = Object.entries( supportedTerminalNames ).map( ( [ terminal, label ] ) => {
-		const terminalKey = terminal as SupportedTerminal;
-		const isInstalled = installedTerminals[ terminalKey as keyof typeof installedTerminals ];
-
-		return {
-			value: terminalKey,
-			label,
-			disabled: ! isInstalled,
-		};
-	} );
+	const options = Object.entries( supportedTerminalNames )
+		.filter( ( [ terminal ] ) => {
+			// Only include options that match 'terminal' or 'iterm'
+			return terminal === 'terminal' || terminal === 'iterm';
+		} )
+		.map( ( [ terminal, label ] ) => {
+			return {
+				value: terminal as SupportedTerminal,
+				label,
+			};
+		} );
 
 	return (
 		<div className="flex gap-5 flex-col">

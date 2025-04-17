@@ -295,6 +295,17 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 						),
 						showOpenLogs: true,
 					} );
+				} else if (
+					error instanceof Error &&
+					error.message.includes( 'Cannot allocate Wasm memory for new instanc' )
+				) {
+					getIpcApi().showErrorMessageBox( {
+						title: __( 'Not enough memory to start the site server' ),
+						message: __(
+							'Please stop some of your running sites and try again. If this problem persists, try closing other apps that might be using memory and try again.'
+						),
+						showOpenLogs: true,
+					} );
 				} else {
 					getIpcApi().showErrorMessageBox( {
 						title: __( 'Failed to start the site server' ),

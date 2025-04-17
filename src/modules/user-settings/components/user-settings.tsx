@@ -92,7 +92,6 @@ export default function UserSettings() {
 											definitiveSnapshotCount === 0 ||
 											isDeletingAllSnapshots ||
 											isLoadingSnapshotUsage ||
-											snapshotsByUser?.length === 0 ||
 											isOffline
 										}
 										siteCount={ definitiveSnapshotCount }

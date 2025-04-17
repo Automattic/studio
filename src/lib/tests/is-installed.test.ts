@@ -26,7 +26,10 @@ describe( 'isInstalled', () => {
 
 		// Mock fs.existsSync to check against our mockPaths array
 		( fs.existsSync as jest.Mock ).mockImplementation( ( testPath: string ) => {
-			return mockPaths.includes( testPath );
+			// Normalize both the test path and mock paths to use forward slashes
+			const normalizedTestPath = testPath.replace( /\\/g, '/' );
+			const normalizedMockPaths = mockPaths.map( ( p ) => p.replace( /\\/g, '/' ) );
+			return normalizedMockPaths.includes( normalizedTestPath );
 		} );
 
 		// Mock app.getPath

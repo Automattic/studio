@@ -1,10 +1,10 @@
-// To run tests, execute `npm run test -- src/components/tests/user-settings.test.tsx` from the root directory
+// To run tests, execute `npm run test -- src/modules/user-settings/components/tests/user-settings.test.tsx` from the root directory
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import UserSettings from 'src/components/user-settings';
 import { useAuth } from 'src/hooks/use-auth';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
+import { UserSettings } from 'src/modules/user-settings';
 
 jest.mock( 'src/hooks/use-feature-flags' );
 jest.mock( 'src/hooks/use-auth' );

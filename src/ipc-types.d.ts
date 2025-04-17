@@ -66,7 +66,6 @@ type InstalledApps = {
 	atom: boolean;
 	windsurf: boolean;
 	cursor: boolean;
-	iterm: boolean;
 };
 
 type InstalledTerminals = {

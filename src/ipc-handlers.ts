@@ -115,7 +115,6 @@ export async function getInstalledApps( _event: IpcMainInvokeEvent ): Promise< I
 		atom: isInstalled( 'atom' ),
 		windsurf: isInstalled( 'windsurf' ),
 		cursor: isInstalled( 'cursor' ),
-		iterm: isInstalled( 'iterm' ),
 	};
 }
 

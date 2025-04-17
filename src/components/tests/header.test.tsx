@@ -1,10 +1,12 @@
 import { render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
+import { Provider } from 'react-redux';
 import Header from 'src/components/header';
 import { SyncSitesProvider } from 'src/hooks/sync-sites';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { SiteDetailsProvider } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { store } from 'src/stores';
 
 jest.mock( 'src/lib/get-ipc-api' );
 
@@ -30,21 +32,24 @@ function mockGetIpcApi( mocks: Record< string, jest.Mock > ) {
 	} );
 }
 
-afterEach( () => {
-	jest.clearAllMocks();
-	jest.restoreAllMocks();
-} );
-
-describe( 'Header', () => {
-	const renderWithProvider = ( children: React.ReactElement ) => {
-		return render(
+const renderWithProvider = ( children: React.ReactElement ) => {
+	return render(
+		<Provider store={ store }>
 			<ContentTabsProvider>
 				<SyncSitesProvider>
 					<SiteDetailsProvider>{ children }</SiteDetailsProvider>
 				</SyncSitesProvider>
 			</ContentTabsProvider>
-		);
-	};
+		</Provider>
+	);
+};
+
+describe( 'Header', () => {
+	afterEach( () => {
+		jest.clearAllMocks();
+		jest.restoreAllMocks();
+	} );
+
 	it( 'should start site servers', async () => {
 		const user = userEvent.setup();
 		mockGetIpcApi( {} );

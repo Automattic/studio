@@ -35,7 +35,6 @@ const snapshotTestActions = {
 store.replaceReducer( snapshotTestReducer );
 
 jest.mock( 'src/hooks/use-get-wp-version' );
-jest.mock( 'src/hooks/use-snapshots' );
 jest.mock( 'src/hooks/use-site-details' );
 jest.mock( 'src/lib/get-ipc-api' );
 jest.mock( 'src/lib/app-globals', () => ( {

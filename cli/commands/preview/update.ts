@@ -73,14 +73,15 @@ async function runCommand(
 	}
 }
 
-export const registerCommand: RegisterCommand = ( program, outputFormat ) => {
-	program
+export const registerCommand: RegisterCommand = ( command, rootCommand = command ) => {
+	command
 		.command( 'update [folder]' )
 		.description(
 			__( 'Update preview site for the specified folder (defaults to current directory)' )
 		)
 		.requiredOption( '-h, --host <host>', __( 'Host of the preview site to update' ) )
 		.action( async ( siteFolder: string = process.cwd(), options ) => {
+			const outputFormat = rootCommand.opts().outputFormat;
 			const normalizedHost = normalizeHostname( options.host );
 			await runCommand( siteFolder, normalizedHost, outputFormat );
 		} );

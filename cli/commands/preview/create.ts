@@ -59,13 +59,14 @@ async function runCommand( siteFolder: string, outputFormat?: OutputFormat ): Pr
 	}
 }
 
-export const registerCommand: RegisterCommand = ( program, outputFormat ) => {
-	program
+export const registerCommand: RegisterCommand = ( command, rootCommand = command ) => {
+	command
 		.command( 'go [folder]' )
 		.description(
 			__( 'Create a preview site from the specified folder (defaults to current directory)' )
 		)
 		.action( async ( siteFolder: string = process.cwd() ) => {
+			const outputFormat = rootCommand.opts().outputFormat;
 			await runCommand( siteFolder, outputFormat );
 		} );
 };

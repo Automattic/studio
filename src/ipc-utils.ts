@@ -16,6 +16,7 @@ export interface IpcEvents {
 	'thumbnail-changed': [ { id: string; imageData: string | null } ];
 	'user-settings': [ void ];
 	'window-fullscreen-change': [ boolean ];
+	'user-preference-changed': [ void ];
 }
 
 export async function sendIpcEventToRenderer< T extends keyof IpcEvents >(

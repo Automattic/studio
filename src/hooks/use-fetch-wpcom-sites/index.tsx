@@ -61,11 +61,7 @@ function isAtomicSite( site: SitesEndpointSite ): boolean {
 }
 
 function hasSupportedPlan( site: SitesEndpointSite ): boolean {
-	return (
-		( isPressableSite( site ) ||
-			site.plan?.features.active.includes( STUDIO_SYNC_FEATURE_NAME ) ) ??
-		false
-	);
+	return site.plan?.features.active.includes( STUDIO_SYNC_FEATURE_NAME ) ?? false;
 }
 
 function isJetpackSite( site: SitesEndpointSite ): boolean {

@@ -536,6 +536,9 @@ export async function saveUserEditor( _event: IpcMainInvokeEvent, editor: Suppor
 		...userData,
 		preferredEditor: editor,
 	} );
+
+	// Notify renderer processes that the terminal preference has changed
+	sendIpcEventToRenderer( 'user-preference-changed' );
 }
 
 export async function getSentryUserId( _event: IpcMainInvokeEvent ): Promise< string | undefined > {

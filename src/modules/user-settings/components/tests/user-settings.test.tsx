@@ -9,6 +9,15 @@ import { UserSettings } from 'src/modules/user-settings';
 jest.mock( 'src/hooks/use-feature-flags' );
 jest.mock( 'src/hooks/use-auth' );
 jest.mock( 'src/hooks/use-ipc-listener' );
+jest.mock( 'src/lib/get-ipc-api', () => ( {
+	getIpcApi: jest.fn().mockReturnValue( {
+		getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
+		getInstalledTerminals: jest.fn().mockResolvedValue( {
+			terminal: true,
+			iterm: false,
+		} ),
+	} ),
+} ) );
 
 afterEach( () => {
 	jest.clearAllMocks();
@@ -87,6 +96,7 @@ describe( 'UserSettings', () => {
 			fireEvent.click( screen.getByText( 'Preferences' ) );
 			expect( screen.getByText( 'Preferences' ) ).toHaveAttribute( 'aria-selected', 'true' );
 			expect( screen.getByText( 'Language' ) ).toBeVisible();
+			expect( screen.getByText( 'Shell' ) ).toBeVisible();
 
 			// Switch to Usage tab
 			fireEvent.click( screen.getByText( 'Usage' ) );

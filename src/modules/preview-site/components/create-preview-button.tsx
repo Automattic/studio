@@ -1,9 +1,9 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
+import { DEMO_SITE_SIZE_LIMIT_GB } from 'common/constants';
 import Button from 'src/components/button';
 import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
-import { DEMO_SITE_SIZE_LIMIT_GB } from 'src/constants';
 import { useArchiveErrorMessages } from 'src/hooks/use-archive-error-messages';
 import { useArchiveSite } from 'src/hooks/use-archive-site';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';

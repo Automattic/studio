@@ -17,8 +17,9 @@
 			"*": [ "node_modules/*" ],
 			"cli/*": [ "cli/*" ],
 			"src/*": [ "src/*" ],
-			"vendor/*": [ "vendor/*" ]
+			"vendor/*": [ "vendor/*" ],
+			"common/*": [ "common/*" ]
 		}
 	},
-	"include": [ "src/**/*", "cli/**/*", "./jest-setup.ts" ]
+	"include": [ "src/**/*", "cli/**/*", "common/**/*", "./jest-setup.ts" ]
 }

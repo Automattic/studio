@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 
 type PlatformPaths = {
-	[ K in keyof InstalledApps ]: string[];
+	[ K in keyof InstalledApps | keyof InstalledTerminals ]: string[];
 };
 
 function getProgramFilesPath(): string {
@@ -34,6 +34,7 @@ const installationPaths: Record< string, PlatformPaths > = {
 		sublime: [ 'Sublime Text.app' ],
 		atom: [ 'Atom.app' ],
 		iterm: [ 'iTerm.app' ],
+		terminal: [ 'Terminal.app' ],
 	},
 	linux: {
 		vscode: [ '/usr/bin/code' ],
@@ -45,6 +46,7 @@ const installationPaths: Record< string, PlatformPaths > = {
 		sublime: [ '/usr/bin/sublime' ],
 		atom: [ '/usr/bin/atom' ],
 		iterm: [],
+		terminal: [],
 	},
 	win32: {
 		vscode: [
@@ -77,6 +79,7 @@ const installationPaths: Record< string, PlatformPaths > = {
 			path.win32.join( getProgramFilesPath(), 'Atom' ),
 		],
 		iterm: [],
+		terminal: [],
 	},
 };
 
@@ -111,7 +114,7 @@ if ( process.platform === 'darwin' ) {
 	} );
 }
 
-export function isInstalled( key: keyof InstalledApps ): boolean {
+export function isInstalled( key: keyof InstalledApps | keyof InstalledTerminals ): boolean {
 	const platform = process.platform;
 	const paths = installationPaths[ platform ]?.[ key ];
 

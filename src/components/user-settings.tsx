@@ -11,6 +11,7 @@ import { LanguagePicker } from 'src/components/language-picker';
 import Modal from 'src/components/modal';
 import offlineIcon from 'src/components/offline-icon';
 import ProgressBar from 'src/components/progress-bar';
+import { TerminalPicker } from 'src/components/terminal-picker';
 import { Tooltip } from 'src/components/tooltip';
 import { WordPressLogo } from 'src/components/wordpress-logo';
 import { WPCOM_PROFILE_URL } from 'src/constants';
@@ -22,6 +23,7 @@ import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
 import { usePromptUsage } from 'src/hooks/use-prompt-usage';
 import { useSnapshots } from 'src/hooks/use-snapshots';
+import { useTerminalData } from 'src/hooks/use-terminal-data';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useRootSelector } from 'src/stores';
@@ -231,24 +233,35 @@ const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const { editor, handleEditorChange, saveEditorPreference, resetEditor, hasEditorChanges } =
 		useEditorData();
 
+	const {
+		terminal,
+		handleTerminalChange,
+		saveTerminalPreference,
+		resetTerminal,
+		hasTerminalChanges,
+	} = useTerminalData();
+
 	const savePreferences = async () => {
 		setSavedLocale( locale );
 		await saveEditorPreference();
+		await saveTerminalPreference();
 		onClose();
 	};
 
 	const cancelChanges = () => {
 		setLocale( savedLocale );
 		resetEditor();
+		resetTerminal();
 		onClose();
 	};
 
-	const hasChanges = locale !== savedLocale || hasEditorChanges;
+	const hasChanges = locale !== savedLocale || hasEditorChanges || hasTerminalChanges;
 
 	return (
 		<>
 			<LanguagePicker value={ locale } onChange={ setLocale } />
 			<EditorPicker value={ editor } onChange={ handleEditorChange } />
+			<TerminalPicker value={ terminal } onChange={ handleTerminalChange } />
 			<div className="mt-auto pt-6 flex justify-end gap-3">
 				<Button variant="tertiary" onClick={ cancelChanges }>
 					{ __( 'Cancel' ) }

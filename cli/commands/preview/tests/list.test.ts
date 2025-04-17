@@ -1,7 +1,11 @@
 import path from 'path';
 import { Command } from 'commander';
+<<<<<<< HEAD
 import { Snapshot } from 'common/types/snapshot';
 import { readAppdata, getSiteFromFolder, getAuthToken } from 'cli/lib/appdata';
+=======
+import { readAppdata, Snapshot, getSiteFromAppData, getAuthToken } from 'cli/lib/appdata';
+>>>>>>> 8fdad0ce (chore: naming and export)
 import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger } from 'cli/logger';
 
@@ -41,7 +45,7 @@ describe( 'Preview List Command', () => {
 		( readAppdata as jest.Mock ).mockResolvedValue( { snapshots: mockSnapshots } );
 		( getAuthToken as jest.Mock ).mockResolvedValue( mockAuthToken );
 		( validateSiteFolder as jest.Mock ).mockReturnValue( true );
-		( getSiteFromFolder as jest.Mock ).mockResolvedValue( mockSite );
+		( getSiteFromAppData as jest.Mock ).mockResolvedValue( mockSite );
 
 		jest.clearAllMocks();
 		jest.spyOn( Date, 'now' ).mockReturnValue( mockDate );

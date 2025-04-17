@@ -5,22 +5,26 @@ import { SupportedTerminal, supportedTerminalNames } from 'src/lib/terminal';
 interface TerminalPickerProps {
 	value: SupportedTerminal;
 	onChange: ( value: SupportedTerminal ) => void;
+	availableTerminals?: SupportedTerminal[];
 }
 
-export const TerminalPicker = ( { value, onChange }: TerminalPickerProps ) => {
+export const TerminalPicker = ( {
+	value,
+	onChange,
+	availableTerminals = [ 'terminal' ],
+}: TerminalPickerProps ) => {
 	const { __ } = useI18n();
 
-	const options = Object.entries( supportedTerminalNames )
-		.filter( ( [ terminal ] ) => {
-			// Only include options that match 'terminal' or 'iterm'
-			return terminal === 'terminal' || terminal === 'iterm';
-		} )
-		.map( ( [ terminal, label ] ) => {
-			return {
-				value: terminal as SupportedTerminal,
-				label,
-			};
-		} );
+	const options = Object.entries( supportedTerminalNames ).map( ( [ terminal, label ] ) => {
+		const terminalKey = terminal as SupportedTerminal;
+		const isAvailable = availableTerminals.includes( terminalKey );
+
+		return {
+			value: terminalKey,
+			label,
+			disabled: ! isAvailable,
+		};
+	} );
 
 	return (
 		<div className="flex gap-5 flex-col">

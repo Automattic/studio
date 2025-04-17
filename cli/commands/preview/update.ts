@@ -52,8 +52,15 @@ async function runCommand(
 		);
 
 		logger.reportStart( LoggerAction.APPDATA, __( 'Saving preview site to Studio...' ) );
-		await upsertPreviewSiteInAppdata( siteFolder, uploadResponse.site_id, uploadResponse.site_url );
+		const snapshot = await upsertPreviewSiteInAppdata(
+			siteFolder,
+			uploadResponse.site_id,
+			uploadResponse.site_url
+		);
 		logger.reportSuccess( __( 'Preview site saved to Studio' ) );
+
+		logger.reportKeyValuePair( 'name', snapshot.name );
+		logger.reportKeyValuePair( 'url', snapshot.url );
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {
 			logger.reportError( error );
@@ -66,7 +73,7 @@ async function runCommand(
 	}
 }
 
-export const registerCommand: RegisterCommand = ( program ) => {
+export const registerCommand: RegisterCommand = ( program, outputFormat ) => {
 	program
 		.command( 'update [folder]' )
 		.description(
@@ -74,8 +81,7 @@ export const registerCommand: RegisterCommand = ( program ) => {
 		)
 		.requiredOption( '-h, --host <host>', __( 'Host of the preview site to update' ) )
 		.action( async ( siteFolder: string = process.cwd(), options ) => {
-			const parentOptions = program.opts();
 			const normalizedHost = normalizeHostname( options.host );
-			await runCommand( siteFolder, normalizedHost, parentOptions.outputFormat );
+			await runCommand( siteFolder, normalizedHost, outputFormat );
 		} );
 };

@@ -33,11 +33,12 @@ async function main() {
 		);
 
 	const previewCommand = program.command( 'preview' ).description( __( 'Manage preview sites' ) );
+	const outputFormat = program.opts().outputFormat;
 
-	registerPreviewCreateCommand( program );
-	registerPreviewListCommand( previewCommand );
-	registerPreviewDeleteCommand( previewCommand );
-	registerPreviewUpdateCommand( previewCommand );
+	registerPreviewCreateCommand( program, outputFormat );
+	registerPreviewListCommand( previewCommand, outputFormat );
+	registerPreviewDeleteCommand( previewCommand, outputFormat );
+	registerPreviewUpdateCommand( previewCommand, outputFormat );
 
 	program.parse( process.argv );
 }

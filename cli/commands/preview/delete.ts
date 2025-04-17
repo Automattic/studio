@@ -39,13 +39,12 @@ async function runCommand( host: string, outputFormat?: OutputFormat ): Promise<
 	}
 }
 
-export const registerCommand: RegisterCommand = ( program ) => {
+export const registerCommand: RegisterCommand = ( program, outputFormat ) => {
 	program
 		.command( 'delete <host>' )
 		.description( __( 'Delete a preview site' ) )
 		.action( async ( host: string ) => {
-			const options = program.opts();
 			const normalizedHost = normalizeHostname( host );
-			await runCommand( normalizedHost, options.outputFormat );
+			await runCommand( normalizedHost, outputFormat );
 		} );
 };

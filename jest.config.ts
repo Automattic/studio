@@ -22,6 +22,7 @@ module.exports = {
 		'^cli/(.*)$': '<rootDir>/cli/$1',
 		'^src/(.*)$': '<rootDir>/src/$1',
 		'^vendor/(.*)$': '<rootDir>/vendor/$1',
+		'^common/(.*)$': '<rootDir>/common/$1',
 	},
 	testEnvironment: 'jsdom',
 	globals: {

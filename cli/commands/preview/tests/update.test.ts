@@ -4,7 +4,7 @@ import { Command } from 'commander';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
 import { createArchive } from 'cli/lib/archive';
-import { addPreviewSiteToAppdata, getSnapshotsFromAppdata } from 'cli/lib/snapshots';
+import { upsertPreviewSiteInAppdata, getSnapshotsFromAppdata } from 'cli/lib/snapshots';
 import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
 
@@ -63,7 +63,7 @@ describe( 'Preview Update Command', () => {
 			site_id: mockAtomicSiteId,
 		} );
 		( waitForSiteReady as jest.Mock ).mockResolvedValue( true );
-		( addPreviewSiteToAppdata as jest.Mock ).mockResolvedValue( undefined );
+		( upsertPreviewSiteInAppdata as jest.Mock ).mockResolvedValue( undefined );
 	} );
 
 	afterEach( () => {
@@ -107,10 +107,10 @@ describe( 'Preview Update Command', () => {
 			`Preview site available at: https://${ mockSiteUrl }`,
 		] );
 
-		expect( addPreviewSiteToAppdata ).toHaveBeenCalledWith(
-			mockSiteUrl,
+		expect( upsertPreviewSiteInAppdata ).toHaveBeenCalledWith(
+			mockFolder,
 			mockAtomicSiteId,
-			mockFolder
+			mockSiteUrl
 		);
 		expect( mockLogger.reportStart.mock.calls[ 4 ] ).toEqual( [
 			'appdata',
@@ -221,12 +221,12 @@ describe( 'Preview Update Command', () => {
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
-		expect( addPreviewSiteToAppdata ).not.toHaveBeenCalled();
+		expect( upsertPreviewSiteInAppdata ).not.toHaveBeenCalled();
 	} );
 
 	it( 'should handle appdata errors', async () => {
 		const errorMessage = 'Failed to save to appdata';
-		( addPreviewSiteToAppdata as jest.Mock ).mockImplementation( () => {
+		( upsertPreviewSiteInAppdata as jest.Mock ).mockImplementation( () => {
 			throw new LoggerError( errorMessage );
 		} );
 

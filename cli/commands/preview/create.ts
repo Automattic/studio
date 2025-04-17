@@ -4,7 +4,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
 import { createArchive, cleanup } from 'cli/lib/archive';
-import { addPreviewSiteToAppdata } from 'cli/lib/snapshots';
+import { upsertPreviewSiteInAppdata } from 'cli/lib/snapshots';
 import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
 import { RegisterCommand, OutputFormat } from 'cli/types';
@@ -26,7 +26,7 @@ async function runCommand( siteFolder: string, outputFormat?: OutputFormat ): Pr
 
 	try {
 		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating...' ) );
-		validateSiteFolder( siteFolder );
+		await validateSiteFolder( siteFolder );
 		const token = await getAuthToken();
 		logger.reportSuccess( __( 'Validation successful' ) );
 
@@ -45,7 +45,7 @@ async function runCommand( siteFolder: string, outputFormat?: OutputFormat ): Pr
 		);
 
 		logger.reportStart( LoggerAction.APPDATA, __( 'Saving preview site to Studio...' ) );
-		await addPreviewSiteToAppdata( uploadResponse.site_url, uploadResponse.site_id, siteFolder );
+		await upsertPreviewSiteInAppdata( siteFolder, uploadResponse.site_id, uploadResponse.site_url );
 		logger.reportSuccess( __( 'Preview site saved to Studio' ) );
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {

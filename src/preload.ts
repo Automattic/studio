@@ -14,6 +14,7 @@ import { IpcEvents } from 'src/ipc-utils';
 import { ExportOptions } from 'src/lib/import-export/export/types';
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
+import { SupportedEditor } from './lib/editor';
 import { SupportedTerminal } from './lib/supported-terminal';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { LogLevel } from 'src/logging';
@@ -131,6 +132,8 @@ const api: IpcApi = {
 		ipcRenderer.invoke( 'saveUserTerminal', supportedTerminal ),
 	getUserTerminal: () => ipcRenderer.invoke( 'getUserTerminal' ),
 	getInstalledTerminals: () => ipcRenderer.invoke( 'getInstalledTerminals' ),
+	getUserEditor: () => ipcRenderer.invoke( 'getUserEditor' ),
+	saveUserEditor: ( editor: SupportedEditor ) => ipcRenderer.invoke( 'saveUserEditor', editor ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

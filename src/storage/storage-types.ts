@@ -1,3 +1,4 @@
+import { SupportedEditor } from 'src/lib/editor';
 import { StoredToken } from 'src/lib/oauth';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { SupportedTerminal } from 'src/lib/supported-terminal';
@@ -18,6 +19,7 @@ export interface UserData {
 	sentryUserId?: string;
 	lastSeenVersion?: string;
 	supportedTerminal?: SupportedTerminal;
+	preferredEditor?: SupportedEditor;
 }
 
 export interface PersistedUserData extends Omit< UserData, 'sites' > {

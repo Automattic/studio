@@ -17,13 +17,13 @@ import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { __, LocaleData, defaultI18n } from '@wordpress/i18n';
 import archiver from 'archiver';
+import { calculateDirectorySize } from 'common/lib/fs-utils';
 import { ARCHIVER_OPTIONS, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
 import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
 import { bumpStat } from 'src/lib/bump-stats';
 import { getImporterMetric } from 'src/lib/bump-stats/lib';
 import { StatsGroup, StatsMetric } from 'src/lib/bump-stats/types';
-import { calculateDirectorySize } from 'src/lib/calculate-directory-size';
 import { download } from 'src/lib/download';
 import { isEmptyDir, pathExists, isWordPressDirectory, sanitizeFolderName } from 'src/lib/fs-utils';
 import { getImageData } from 'src/lib/get-image-data';
@@ -56,6 +56,7 @@ import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from 'src/s
 import { loadUserData, saveUserData } from 'src/storage/user-data';
 import { DEFAULT_PHP_VERSION } from 'vendor/wp-now/src/constants';
 import { openCertificate as openCertificateDialog } from './lib/certificate-manager';
+import { SupportedEditor } from './lib/editor';
 import { SupportedTerminal } from './lib/supported-terminal';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
@@ -529,6 +530,14 @@ export async function saveUserLocale( _event: IpcMainInvokeEvent, locale: string
 	} );
 }
 
+export async function saveUserEditor( _event: IpcMainInvokeEvent, editor: SupportedEditor ) {
+	const userData = await loadUserData();
+	await saveUserData( {
+		...userData,
+		preferredEditor: editor,
+	} );
+}
+
 export async function getSentryUserId( _event: IpcMainInvokeEvent ): Promise< string | undefined > {
 	const userData = await loadUserData();
 	return userData.sentryUserId;
@@ -536,6 +545,11 @@ export async function getSentryUserId( _event: IpcMainInvokeEvent ): Promise< st
 
 export async function getUserLocale( _event: IpcMainInvokeEvent ): Promise< SupportedLocale > {
 	return getUserLocaleWithFallback();
+}
+
+export async function getUserEditor( _event: IpcMainInvokeEvent ): Promise< SupportedEditor > {
+	const userData = await loadUserData();
+	return userData.preferredEditor as SupportedEditor;
 }
 
 export async function showUserSettings( event: IpcMainInvokeEvent ): Promise< void > {

@@ -7,7 +7,6 @@ import offlineIcon from 'src/components/offline-icon';
 import { Tooltip, TooltipProps } from 'src/components/tooltip';
 import { useConfirmationDialog } from 'src/hooks/use-confirmation-dialog';
 import { useOffline } from 'src/hooks/use-offline';
-import { useSnapshots } from 'src/hooks/use-snapshots';
 import { useAppDispatch } from 'src/stores';
 import { snapshotActions, snapshotThunks } from 'src/stores/snapshot-slice';
 import { RenamePreviewModal } from './rename-preview-modal';
@@ -29,7 +28,6 @@ export function PreviewActionButtonsMenu( {
 }: PreviewActionButtonsMenuProps ) {
 	const { __ } = useI18n();
 	const dispatch = useAppDispatch();
-	const { deleteSnapshot } = useSnapshots();
 	const isOffline = useOffline();
 	const [ showRenameModal, setShowRenameModal ] = useState( false );
 
@@ -64,7 +62,11 @@ export function PreviewActionButtonsMenu( {
 
 	const handleDeletePreviewSite = async () => {
 		showDeletePreviewConfirmation( () => {
-			deleteSnapshot( snapshot );
+			dispatch(
+				snapshotThunks.deleteSnapshot( {
+					hostname: snapshot.url,
+				} )
+			);
 		} );
 	};
 

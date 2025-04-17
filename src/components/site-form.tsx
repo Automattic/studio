@@ -10,11 +10,12 @@ import offlineIcon from 'src/components/offline-icon';
 import TextControlComponent from 'src/components/text-control';
 import { Tooltip } from 'src/components/tooltip';
 import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
-import { useDocsLink } from 'src/hooks/use-docs-link';
+import { useI18nData } from 'src/hooks/use-i18n-data';
 import { useOffline } from 'src/hooks/use-offline';
 import { isWindows } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { generateCustomDomainFromSiteName } from 'src/lib/domains';
+import { getDocsLink } from 'src/lib/get-docs-link';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 import {
@@ -266,7 +267,7 @@ export const SiteForm = ( {
 	setEnableHttps,
 }: SiteFormProps ) => {
 	const { __, isRTL } = useI18n();
-	const getDocsLink = useDocsLink();
+	const { locale } = useI18nData();
 	const isOffline = useOffline();
 
 	const shouldShowCustomDomainError = useCustomDomain && customDomainError;
@@ -318,7 +319,9 @@ export const SiteForm = ( {
 											<Button
 												variant="link"
 												className="text-xs"
-												onClick={ () => getIpcApi().openURL( getDocsLink( 'importExport' ) ) }
+												onClick={ () =>
+													getIpcApi().openURL( getDocsLink( locale, 'importExport' ) )
+												}
 											/>
 										),
 									}
@@ -382,7 +385,9 @@ export const SiteForm = ( {
 														<Button
 															variant="link"
 															className="text-xs"
-															onClick={ () => getIpcApi().openURL( getDocsLink( 'sites' ) ) }
+															onClick={ () =>
+																getIpcApi().openURL( getDocsLink( locale, 'sites' ) )
+															}
 														/>
 													),
 												}

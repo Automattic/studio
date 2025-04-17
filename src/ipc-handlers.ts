@@ -1246,6 +1246,10 @@ export async function getAllCustomDomains(): Promise< string[] > {
 		.filter( ( domain ): domain is string => domain !== undefined );
 }
 
+export async function getRandomUUID(): Promise< crypto.UUID > {
+	return crypto.randomUUID();
+}
+
 export async function createSnapshot(
 	event: IpcMainInvokeEvent,
 	siteFolder: string
@@ -1264,4 +1268,12 @@ export async function updateSnapshot(
 		[ 'preview', 'update', siteFolder, '-h', hostname ],
 		parentWindow
 	);
+}
+
+export async function deleteSnapshot(
+	event: IpcMainInvokeEvent,
+	hostname: string
+): Promise< { operationId: crypto.UUID } > {
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+	return executePreviewCliCommand( [ 'preview', 'delete', hostname ], parentWindow );
 }

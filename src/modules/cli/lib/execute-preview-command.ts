@@ -1,17 +1,17 @@
 import crypto from 'crypto';
 import { z } from 'zod';
-import { CreateLoggerAction } from 'cli/commands/preview/logger-actions';
+import { PreviewCommandLoggerAction } from 'common/logger-actions';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 
-const createSnapshotEventSchema = z.object( {
-	action: z.nativeEnum( CreateLoggerAction ),
+const snapshotEventSchema = z.object( {
+	action: z.nativeEnum( PreviewCommandLoggerAction ),
 	status: z.enum( [ 'inprogress', 'fail', 'success' ] ),
 	message: z.string(),
 } );
 
 const createSnapshotStdoutSchema = z.discriminatedUnion( 'action', [
-	createSnapshotEventSchema,
+	snapshotEventSchema,
 	z.object( {
 		action: z.literal( 'keyValuePair' ),
 		key: z.string(),
@@ -59,7 +59,7 @@ export async function executePreviewCliCommand(
 	} );
 
 	cliEventEmitter.on( 'error', ( data: unknown ) => {
-		const parsed = parseSnapshotEventData( data, createSnapshotEventSchema );
+		const parsed = parseSnapshotEventData( data, snapshotEventSchema );
 
 		if ( parsed ) {
 			sendIpcEventToRendererWithWindow( parentWindow, 'snapshot-error', {

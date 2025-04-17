@@ -2,7 +2,7 @@ import { DropdownMenu, Icon, MenuGroup, MenuItem, Spinner, TabPanel } from '@wor
 import { sprintf } from '@wordpress/i18n';
 import { moreVertical, trash } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useState } from 'react';
 import { Snapshot } from 'cli/lib/appdata';
 import Button from 'src/components/button';
 import { EditorPicker } from 'src/components/editor-picker';
@@ -22,12 +22,11 @@ import { useI18nData } from 'src/hooks/use-i18n-data';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
 import { usePromptUsage } from 'src/hooks/use-prompt-usage';
-import { useSnapshots } from 'src/hooks/use-snapshots';
 import { useTerminalData } from 'src/hooks/use-terminal-data';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { useRootSelector } from 'src/stores';
-import { snapshotSelectors } from 'src/stores/snapshot-slice';
+import { useRootSelector, useAppDispatch } from 'src/stores';
+import { snapshotSelectors, snapshotThunks } from 'src/stores/snapshot-slice';
 import { useGetSnapshotUsage } from 'src/stores/wpcom-api';
 
 const UserInfo = ( {
@@ -311,15 +310,16 @@ const UsageTab = ( {
 
 export default function UserSettings() {
 	const { __ } = useI18n();
-	const [ deletedAllSnapshots, setDeletedAllSnapshots ] = useState( false );
+	const dispatch = useAppDispatch();
 	const { isAuthenticated, authenticate, logout, user } = useAuth();
 
-	const { loadingDeletingAllSnapshots, deleteAllSnapshots } = useSnapshots();
-	const allSnapshots = useRootSelector( snapshotSelectors.selectSnapshots );
+	const [ isDeletingAllSnapshots, setIsDeletingAllSnapshots ] = useState( false );
+	const snapshotsByUser = useRootSelector( ( state ) =>
+		snapshotSelectors.selectSnapshotsByUser( state, user?.id ?? 0 )
+	);
 	const snapshotQuota = useRootSelector( ( state ) => state.snapshot.snapshotQuota );
-	const snapshotsCount = useRootSelector( snapshotSelectors.selectSnapshotsCount );
 	const { data: snapshotUsage, isLoading: isLoadingSnapshotUsage } = useGetSnapshotUsage();
-	const definitiveSnapshotCount = snapshotUsage?.siteCount ?? snapshotsCount;
+	const definitiveSnapshotCount = snapshotUsage?.siteCount ?? snapshotsByUser?.length ?? 0;
 
 	const [ needsToOpenUserSettings, setNeedsToOpenUserSettings ] = useState( false );
 	const { preferredEditor } = useFeatureFlags();
@@ -336,21 +336,7 @@ export default function UserSettings() {
 		setNeedsToOpenUserSettings( ! needsToOpenUserSettings );
 	} );
 
-	useEffect( () => {
-		if ( deletedAllSnapshots && ! loadingDeletingAllSnapshots ) {
-			setDeletedAllSnapshots( false );
-			getIpcApi().showNotification( {
-				title: __( 'Delete Successful' ),
-				body: __( 'All preview sites have been deleted.' ),
-			} );
-		}
-	}, [ __, loadingDeletingAllSnapshots, deletedAllSnapshots ] );
-
 	const onRemoveSnapshots = useCallback( async () => {
-		if ( ! allSnapshots || allSnapshots.length === 0 ) {
-			return;
-		}
-
 		const CANCEL_BUTTON_INDEX = 0;
 		const DELETE_BUTTON_INDEX = 1;
 
@@ -365,10 +351,11 @@ export default function UserSettings() {
 		} );
 
 		if ( response === DELETE_BUTTON_INDEX ) {
-			await deleteAllSnapshots( allSnapshots );
-			setDeletedAllSnapshots( true );
+			setIsDeletingAllSnapshots( true );
+			await dispatch( snapshotThunks.deleteAllSnapshotsForUser( { userId: user!.id } ) );
+			setIsDeletingAllSnapshots( false );
 		}
-	}, [ allSnapshots, deleteAllSnapshots, __ ] );
+	}, [ __, dispatch, user ] );
 
 	if ( ! preferredEditor ) {
 		return (
@@ -406,12 +393,12 @@ export default function UserSettings() {
 								<div className="flex flex-col gap-6">
 									<LanguagePicker value={ savedLocale } onChange={ setSavedLocale } />
 									<SnapshotInfo
-										isDeleting={ loadingDeletingAllSnapshots }
+										isDeleting={ isDeletingAllSnapshots }
 										isDisabled={
 											definitiveSnapshotCount === 0 ||
-											loadingDeletingAllSnapshots ||
+											isDeletingAllSnapshots ||
 											isLoadingSnapshotUsage ||
-											allSnapshots?.length === 0 ||
+											snapshotsByUser?.length === 0 ||
 											isOffline
 										}
 										siteCount={ definitiveSnapshotCount }
@@ -473,10 +460,10 @@ export default function UserSettings() {
 								{ name === 'preferences' && <PreferencesTab onClose={ resetLocalState } /> }
 								{ name === 'usage' && isAuthenticated && (
 									<UsageTab
-										loadingDeletingAllSnapshots={ loadingDeletingAllSnapshots }
+										loadingDeletingAllSnapshots={ isDeletingAllSnapshots }
 										activeSnapshotCount={ definitiveSnapshotCount }
 										isLoadingSnapshotUsage={ isLoadingSnapshotUsage }
-										allSnapshots={ allSnapshots }
+										allSnapshots={ snapshotsByUser }
 										isOffline={ isOffline }
 										snapshotQuota={ snapshotQuota }
 										onRemoveSnapshots={ onRemoveSnapshots }

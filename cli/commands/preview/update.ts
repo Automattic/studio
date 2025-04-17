@@ -1,7 +1,7 @@
 import os from 'node:os';
 import path from 'node:path';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { UpdateLoggerAction as LoggerAction } from 'cli/commands/preview/logger-actions';
+import { PreviewCommandLoggerAction as LoggerAction } from 'common/logger-actions';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
 import { cleanup, createArchive } from 'cli/lib/archive';

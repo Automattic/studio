@@ -145,6 +145,7 @@ function NoAuth( { selectedSite }: React.ComponentProps< typeof EmptyGeneric > )
 
 function NoPreviews( { selectedSite }: React.ComponentProps< typeof EmptyGeneric > ) {
 	const dispatch = useAppDispatch();
+	const { user } = useAuth();
 
 	return (
 		<EmptyGeneric selectedSite={ selectedSite }>
@@ -159,6 +160,7 @@ function NoPreviews( { selectedSite }: React.ComponentProps< typeof EmptyGeneric
 						);
 					} }
 					selectedSite={ selectedSite }
+					user={ user }
 				/>
 			</div>
 		</EmptyGeneric>
@@ -228,6 +230,7 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 								);
 							} }
 							selectedSite={ selectedSite }
+							user={ user }
 						/>
 					</div>
 				</div>

@@ -9,13 +9,12 @@ import { TooltipProps, Tooltip } from 'src/components/tooltip';
 import { UPDATED_MESSAGE_DURATION_MS } from 'src/constants';
 import { useExpirationDate } from 'src/hooks/use-expiration-date';
 import { useFormatLocalizedTimestamps } from 'src/hooks/use-format-localized-timestamps';
-import { useSnapshots } from 'src/hooks/use-snapshots';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { DeleteProgressRow } from 'src/modules/preview-site/components/delete-progress-row';
 import { PreviewActionButtonsMenu } from 'src/modules/preview-site/components/preview-action-buttons-menu';
-import { useRootSelector } from 'src/stores';
-import { snapshotSelectors } from 'src/stores/snapshot-slice';
+import { useAppDispatch, useRootSelector } from 'src/stores';
+import { snapshotActions, snapshotSelectors } from 'src/stores/snapshot-slice';
 
 interface PreviewSiteRowProps {
 	snapshot: Snapshot;
@@ -33,11 +32,14 @@ export function PreviewSiteRow( {
 	showUpdateTooltip = false,
 }: PreviewSiteRowProps ) {
 	const { __ } = useI18n();
-	const { url, date, isDeleting } = snapshot;
+	const { url, date } = snapshot;
 	const { countDown, dateString, expireDateString, isExpired } = useExpirationDate( date );
-	const { fetchSnapshotUsage, removeSnapshot } = useSnapshots();
+	const dispatch = useAppDispatch();
 	const updateOperation = useRootSelector( ( state ) =>
 		snapshotSelectors.selectUpdateOperationForSnapshot( state, snapshot.atomicSiteId )
+	);
+	const deleteOperation = useRootSelector( ( state ) =>
+		snapshotSelectors.selectDeleteOperationForSnapshot( state, snapshot.url )
 	);
 	const isPreviewSiteUpdating = updateOperation?.status === 'pending';
 	const hasError = updateOperation?.status === 'rejected';
@@ -95,13 +97,9 @@ export function PreviewSiteRow( {
 		return sprintf( __( '%s ago' ), timeDistance );
 	};
 
-	useEffect( () => {
-		fetchSnapshotUsage();
-	}, [ fetchSnapshotUsage ] );
-
 	const urlWithHTTPS = `https://${ url }`;
 
-	if ( isDeleting ) {
+	if ( deleteOperation ) {
 		return <DeleteProgressRow />;
 	}
 
@@ -157,7 +155,13 @@ export function PreviewSiteRow( {
 						{ isExpired ? (
 							<Button
 								variant="link"
-								onClick={ () => removeSnapshot( snapshot ) }
+								onClick={ () => {
+									dispatch(
+										snapshotActions.deleteSnapshotLocally( {
+											atomicSiteId: snapshot.atomicSiteId,
+										} )
+									);
+								} }
 								className={ '!text-a8c-blueberry hover:!text-a8c-red-50' }
 							>
 								{ __( 'Clear' ) }

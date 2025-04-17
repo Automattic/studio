@@ -1,0 +1,12 @@
+// Store the actions in a separate file to avoid Webpack issues when importing them in the Studio
+// source code
+
+export enum PreviewCommandLoggerAction {
+	VALIDATE = 'validate',
+	ARCHIVE = 'archive',
+	LOAD = 'load',
+	DELETE = 'delete',
+	UPLOAD = 'upload',
+	READY = 'ready',
+	APPDATA = 'appdata',
+}

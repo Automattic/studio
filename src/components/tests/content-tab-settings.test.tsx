@@ -1,14 +1,38 @@
 // To run tests, execute `npm run test -- src/components/tests/content-tab-settings.test.tsx` from the root directory
+import { UnknownAction } from '@reduxjs/toolkit';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
+import { produce } from 'immer';
 import { Provider } from 'react-redux';
 import { ContentTabSettings } from 'src/components/content-tab-settings';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSiteDetails } from 'src/hooks/use-site-details';
-import { useSnapshots } from 'src/hooks/use-snapshots';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { store } from 'src/stores';
+import { RootState, store } from 'src/stores';
+import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
+
+function snapshotTestReducer( state: RootState | undefined, action: UnknownAction ) {
+	if ( action.type === 'snapshot/addSnapshot' ) {
+		const payload = action.payload as {
+			snapshot: Snapshot;
+		};
+
+		return produce( state!, ( draftState ) => {
+			draftState.snapshot.snapshots.push( payload.snapshot );
+		} );
+	}
+
+	return testReducer( state, action );
+}
+
+const snapshotTestActions = {
+	addSnapshot: ( snapshot: Snapshot ) => {
+		return { type: 'snapshot/addSnapshot', payload: { snapshot } };
+	},
+};
+
+store.replaceReducer( snapshotTestReducer );
 
 jest.mock( 'src/hooks/use-get-wp-version' );
 jest.mock( 'src/hooks/use-snapshots' );
@@ -44,6 +68,14 @@ describe( 'ContentTabSettings', () => {
 	const openLocalPath = jest.fn();
 	const generateProposedSitePath = jest.fn();
 	const getAllCustomDomains = jest.fn().mockResolvedValue( [] );
+	const mockSnapshot = {
+		localSiteId: selectedSite.id,
+		url: 'http://localhost:8881',
+		date: Date.now(),
+		name: 'Test Snapshot',
+		sequence: 1,
+		atomicSiteId: 1,
+	};
 
 	beforeEach( () => {
 		jest.clearAllMocks();
@@ -55,9 +87,7 @@ describe( 'ContentTabSettings', () => {
 			getAllCustomDomains,
 		} );
 
-		( useSnapshots as jest.Mock ).mockReturnValue( {
-			snapshots: [],
-		} );
+		store.dispatch( testActions.resetState() );
 
 		( useSiteDetails as jest.Mock ).mockReturnValue( {
 			selectedSite,
@@ -142,9 +172,7 @@ describe( 'ContentTabSettings', () => {
 		( useOffline as jest.Mock ).mockReturnValue( true );
 
 		// Mock snapshots to include a snapshot for the selected site
-		( useSnapshots as jest.Mock ).mockReturnValue( {
-			snapshots: [ { localSiteId: selectedSite.id } ],
-		} );
+		store.dispatch( snapshotTestActions.addSnapshot( mockSnapshot ) );
 		( useSiteDetails as jest.Mock ).mockReturnValue( {
 			selectedSite: selectedSite,
 			deleteSite: jest.fn(),
@@ -187,9 +215,7 @@ describe( 'ContentTabSettings', () => {
 			const startServer = jest.fn();
 			const stopServer = jest.fn();
 
-			( useSnapshots as jest.Mock ).mockReturnValue( {
-				snapshots: [ { localSiteId: selectedSite.id } ],
-			} );
+			store.dispatch( snapshotTestActions.addSnapshot( mockSnapshot ) );
 
 			// Mock snapshots to include a snapshot for the selected site
 			( useSiteDetails as jest.Mock ).mockReturnValue( {
@@ -235,9 +261,7 @@ describe( 'ContentTabSettings', () => {
 			const startServer = jest.fn();
 			const stopServer = jest.fn();
 			// Mock snapshots to include a snapshot for the selected site
-			( useSnapshots as jest.Mock ).mockReturnValue( {
-				snapshots: [ { localSiteId: selectedSite.id } ],
-			} );
+			store.dispatch( snapshotTestActions.addSnapshot( mockSnapshot ) );
 			( useSiteDetails as jest.Mock ).mockReturnValue( {
 				selectedSite: { ...selectedSite, running: true } as SiteDetails,
 				updateSite,

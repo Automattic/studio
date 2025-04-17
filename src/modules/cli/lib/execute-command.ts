@@ -48,7 +48,7 @@ export function executeCliCommand( args: string[] ) {
 	} );
 
 	child.on( 'exit', ( code: number | null ) => {
-		console.log( 'Preview site creation completed with code', code );
+		console.log( 'Preview site command completed with code', code );
 
 		if ( code === 0 ) {
 			eventEmitter.emit( 'success' );

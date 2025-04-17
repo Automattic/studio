@@ -50,6 +50,8 @@ const api: IpcApi = {
 	createSnapshot: ( siteFolder: string ) => ipcRenderer.invoke( 'createSnapshot', siteFolder ),
 	updateSnapshot: ( siteFolder: string, hostname: string ) =>
 		ipcRenderer.invoke( 'updateSnapshot', siteFolder, hostname ),
+	deleteSnapshot: ( hostname: string ) => ipcRenderer.invoke( 'deleteSnapshot', hostname ),
+	getRandomUUID: () => ipcRenderer.invoke( 'getRandomUUID' ),
 	getLastSeenVersion: () => ipcRenderer.invoke( 'getLastSeenVersion' ),
 	saveLastSeenVersion: ( version: string ) => ipcRenderer.invoke( 'saveLastSeenVersion', version ),
 	getSiteDetails: () => ipcRenderer.invoke( 'getSiteDetails' ),

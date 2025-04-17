@@ -1,4 +1,4 @@
-// To run tests, execute `npm run test -- src/components/user-settings.test.tsx` from the root directory
+// To run tests, execute `npm run test -- src/components/tests/user-settings.test.tsx` from the root directory
 import { fireEvent, render, screen } from '@testing-library/react';
 import UserSettings from 'src/components/user-settings';
 import { useAuth } from 'src/hooks/use-auth';

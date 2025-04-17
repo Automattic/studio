@@ -9,6 +9,15 @@ import { useOffline } from 'src/hooks/use-offline';
 jest.mock( 'src/hooks/use-feature-flags' );
 jest.mock( 'src/hooks/use-auth' );
 jest.mock( 'src/hooks/use-ipc-listener' );
+jest.mock( 'src/lib/get-ipc-api', () => ( {
+	getIpcApi: jest.fn().mockReturnValue( {
+		getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
+		getInstalledTerminals: jest.fn().mockResolvedValue( {
+			terminal: true,
+			iterm: false,
+		} ),
+	} ),
+} ) );
 
 afterEach( () => {
 	jest.clearAllMocks();

@@ -1,4 +1,4 @@
-import { SupportedLocale } from 'src/lib/locale';
+import { SupportedLocale } from 'common/lib/locale';
 
 const BASE_DOCS_URL = 'https://developer.wordpress.com' as const;
 

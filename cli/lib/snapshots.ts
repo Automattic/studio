@@ -1,6 +1,6 @@
-import { getSiteFromFolder, readAppdata, saveAppdata, Snapshot } from 'cli/lib/appdata';
+import { Snapshot } from 'common/types/snapshot';
+import { getSiteFromFolder, readAppdata, saveAppdata } from 'cli/lib/appdata';
 import { LoggerError } from 'cli/logger';
-
 export async function getSnapshotsFromAppdata(
 	userId: number,
 	siteFolder?: string

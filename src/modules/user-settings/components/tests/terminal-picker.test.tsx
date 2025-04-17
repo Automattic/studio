@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import { TerminalPicker } from 'src/components/terminal-picker';
+import { TerminalPicker } from 'src/modules/user-settings/components/terminal-picker';
 
 describe( 'TerminalPicker', () => {
 	const mockOnChange = jest.fn();

@@ -1,47 +1,37 @@
 import { __ } from '@wordpress/i18n';
-import { Command, Option } from 'commander';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
-import { registerCommand as registerPreviewCreateCommand } from 'cli/commands/preview/create';
-import { registerCommand as registerPreviewDeleteCommand } from 'cli/commands/preview/delete';
-import { registerCommand as registerPreviewListCommand } from 'cli/commands/preview/list';
-import { registerCommand as registerPreviewUpdateCommand } from 'cli/commands/preview/update';
+import yargs, { Argv } from 'yargs';
+import { hideBin } from 'yargs/helpers';
+import { registerPreviewCommands } from 'cli/commands/preview';
 import { loadTranslations } from 'cli/lib/i18n';
 import { bumpAggregatedUniqueStat } from 'cli/lib/stats';
 import { version } from 'cli/package.json';
+import { GlobalOptions, OutputFormat } from 'cli/types';
 
 async function main() {
 	await loadTranslations();
 
-	const studioCommand = new Command();
-
-	studioCommand
-		.name( 'studio' )
-		.description( __( 'Studio by WordPress.com CLI' ) )
+	const argv: Argv< GlobalOptions > = yargs( hideBin( process.argv ) )
+		.scriptName( 'studio' )
+		.usage( __( 'Studio by WordPress.com CLI' ) )
 		.version( version )
-		.hook( 'preAction', () => {
-			bumpAggregatedUniqueStat( StatsGroup.STUDIO_CLI_USAGE_UNIQUE, StatsMetric.SUCCESS, 'weekly' );
-		} )
-		.addOption(
-			new Option( '--output-format [format]', __( 'Specify a non-standard output format' ) )
-				.argParser( ( value: string ) => {
-					if ( value !== 'json' ) {
-						throw new Error( __( 'The only custom output format supported is "json"' ) );
-					}
-					return value;
-				} )
-				.hideHelp()
-		);
+		.middleware( async () =>
+			bumpAggregatedUniqueStat( StatsGroup.STUDIO_CLI_USAGE_UNIQUE, StatsMetric.SUCCESS, 'weekly' )
+		)
+		.option( 'output-format', {
+			type: 'string',
+			hidden: true,
+			coerce: ( value: string ): OutputFormat => {
+				if ( value !== 'json' ) {
+					throw new Error( __( 'The only custom output format supported is "json"' ) );
+				}
+				return value;
+			},
+		} );
 
-	const previewCommand = studioCommand
-		.command( 'preview' )
-		.description( __( 'Manage preview sites' ) );
+	registerPreviewCommands( argv ).strict().help();
 
-	registerPreviewCreateCommand( studioCommand );
-	registerPreviewListCommand( previewCommand, studioCommand );
-	registerPreviewDeleteCommand( previewCommand, studioCommand );
-	registerPreviewUpdateCommand( previewCommand, studioCommand );
-
-	studioCommand.parse( process.argv );
+	await argv.argv;
 }
 
 main();

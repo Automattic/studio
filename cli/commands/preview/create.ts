@@ -8,7 +8,7 @@ import { createArchive, cleanup } from 'cli/lib/archive';
 import { saveSnapshotToAppdata } from 'cli/lib/snapshots';
 import { validateSiteFolder, validateSiteSize } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
-import { RegisterCommand, OutputFormat } from 'cli/types';
+import { OutputFormat, StudioArgv } from 'cli/types';
 
 async function runCommand( siteFolder: string, outputFormat?: OutputFormat ): Promise< void > {
 	const archivePath = path.join(
@@ -60,14 +60,21 @@ async function runCommand( siteFolder: string, outputFormat?: OutputFormat ): Pr
 	}
 }
 
-export const registerCommand: RegisterCommand = ( parentCommand, rootCommand = parentCommand ) => {
-	parentCommand
-		.command( 'go [folder]' )
-		.description(
-			__( 'Create a preview site from the specified folder (defaults to current directory)' )
-		)
-		.action( async ( siteFolder: string = process.cwd() ) => {
-			const outputFormat = rootCommand.opts().outputFormat;
-			await runCommand( siteFolder, outputFormat );
-		} );
+export const registerCommand = ( yargs: StudioArgv ) => {
+	return yargs.command( {
+		command: 'go [folder]',
+		describe: __(
+			'Create a preview site from the specified folder (defaults to current directory)'
+		),
+		builder: ( yargs ) => {
+			return yargs.positional( 'folder', {
+				type: 'string',
+				default: process.cwd(),
+				description: __( 'The folder to create a preview from' ),
+			} );
+		},
+		handler: async ( argv ) => {
+			await runCommand( argv.folder, argv.outputFormat );
+		},
+	} );
 };

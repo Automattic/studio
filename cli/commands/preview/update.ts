@@ -2,6 +2,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { PreviewCommandLoggerAction as LoggerAction } from 'common/logger-actions';
+import { Argv } from 'yargs';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
 import { cleanup, createArchive } from 'cli/lib/archive';
@@ -9,7 +10,7 @@ import { getSnapshotsFromAppdata, updateSnapshotDateInAppdata } from 'cli/lib/sn
 import { normalizeHostname } from 'cli/lib/utils';
 import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
-import { RegisterCommand, OutputFormat } from 'cli/types';
+import { GlobalOptions, OutputFormat } from 'cli/types';
 
 async function runCommand(
 	siteFolder: string,
@@ -69,16 +70,26 @@ async function runCommand(
 	}
 }
 
-export const registerCommand: RegisterCommand = ( parentCommand, rootCommand = parentCommand ) => {
-	parentCommand
-		.command( 'update [folder]' )
-		.description(
-			__( 'Update preview site for the specified folder (defaults to current directory)' )
-		)
-		.requiredOption( '-h, --host <host>', __( 'Host of the preview site to update' ) )
-		.action( async ( siteFolder: string = process.cwd(), options ) => {
-			const outputFormat = rootCommand.opts().outputFormat;
-			const normalizedHost = normalizeHostname( options.host );
-			await runCommand( siteFolder, normalizedHost, outputFormat );
-		} );
+export const registerCommand = ( yargs: Argv< GlobalOptions > ) => {
+	return yargs.command( {
+		command: 'update [folder]',
+		describe: __( 'Update preview site for the specified folder (defaults to current directory)' ),
+		builder: ( yargs: Argv< GlobalOptions > ) => {
+			return yargs
+				.positional( 'folder', {
+					type: 'string',
+					default: process.cwd(),
+					description: __( 'The folder to update the preview from' ),
+				} )
+				.option( 'host', {
+					type: 'string',
+					demandOption: true,
+					description: __( 'Host of the preview site to update' ),
+				} );
+		},
+		handler: async ( argv ) => {
+			const normalizedHost = normalizeHostname( argv.host );
+			await runCommand( argv.folder, normalizedHost, argv.outputFormat );
+		},
+	} );
 };

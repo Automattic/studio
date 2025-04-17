@@ -152,9 +152,11 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 	const updateEditorName = useCallback( async () => {
 		const editor = await getIpcApi().getUserEditor();
 		if ( editor === 'vscode' && installedApps.vscode ) {
+			// translators: "VS Code" is the brand name for an IDE and does not need to be translated
 			setEditorName( __( 'VS Code' ) );
 			setHasEditor( true );
 		} else if ( editor === 'phpstorm' && installedApps.phpstorm ) {
+			// translators: "PhpStorm" is the brand name for an IDE and does not need to be translated
 			setEditorName( __( 'PhpStorm' ) );
 			setHasEditor( true );
 		} else {

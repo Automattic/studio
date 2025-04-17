@@ -3,11 +3,12 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { Dispatch } from 'redux';
+import { CLEAR_HISTORY_REMINDER_TIME } from 'common/constants';
 import {
 	ContentTabAssistant,
 	MIMIC_CONVERSATION_DELAY,
 } from 'src/components/content-tab-assistant';
-import { LOCAL_STORAGE_CHAT_MESSAGES_KEY, CLEAR_HISTORY_REMINDER_TIME } from 'src/constants';
+import { LOCAL_STORAGE_CHAT_MESSAGES_KEY } from 'src/constants';
 import { useAuth } from 'src/hooks/use-auth';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
 import { useOffline } from 'src/hooks/use-offline';

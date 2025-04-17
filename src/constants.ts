@@ -1,5 +1,3 @@
-import { HOUR_MS } from 'common/constants';
-
 export const DEFAULT_WIDTH = 900;
 export const MAIN_MIN_HEIGHT = 600;
 export const SIDEBAR_WIDTH = 208;
@@ -47,11 +45,6 @@ export const CLIENT_ID = '95109';
 export const PROTOCOL_PREFIX = 'wpcom-local-dev';
 export const WP_AUTHORIZE_ENDPOINT = 'https://public-api.wordpress.com/oauth2/authorize';
 export const SCOPES = 'global';
-
-// AI Assistant constants
-// IMPORTANT: When updating this value, we need to update the string located in `AIClearHistoryReminder` component.
-// Reference: https://github.com/Automattic/studio/blob/3dd5c58cdb7998e458d191e508e8e859177225a9/src/components/ai-clear-history-reminder.tsx#L78
-export const CLEAR_HISTORY_REMINDER_TIME = 2 * HOUR_MS; // In milliseconds
 
 // WP-CLI
 export const WP_CLI_DEFAULT_RESPONSE_TIMEOUT = 5 * 60 * 1000; // 5min

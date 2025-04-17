@@ -5,6 +5,7 @@ import { PreviewCommandLoggerAction } from 'common/logger-actions';
 import { LIMIT_OF_ZIP_SITES_PER_USER } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { RootState, store } from 'src/stores/index';
+import { wpcomApi } from 'src/stores/wpcom-api';
 
 type BaseOperation = {
 	error: string | null;
@@ -128,6 +129,12 @@ const deleteAllSnapshotsForUser = createAsyncThunk(
 	}
 );
 
+type DeleteAllSnapshotsForSiteFulfilled = ( typeof deleteAllSnapshotsForSite )[ 'fulfilled' ];
+type DeleteAllSnapshotsForUserFulfilled = ( typeof deleteAllSnapshotsForUser )[ 'fulfilled' ];
+type DeleteAllSnapshotsFulfilledAction =
+	| ReturnType< DeleteAllSnapshotsForSiteFulfilled >
+	| ReturnType< DeleteAllSnapshotsForUserFulfilled >;
+
 const snapshotSlice = createSlice( {
 	name: 'snapshot',
 	initialState: getInitialState(),
@@ -189,25 +196,30 @@ const snapshotSlice = createSlice( {
 					type: 'delete',
 				};
 			} )
-			.addCase( deleteAllSnapshotsForSite.fulfilled, ( state, action ) => {
-				state.operations[ action.payload.bulkOperationId ] = {
-					error: null,
-					operationIds: action.payload.operations.map( ( [ _, operationId ] ) => operationId ),
-					progress: 0,
-					status: 'pending',
-					type: 'bulk',
-				};
-
-				action.payload.operations.forEach( ( [ url, operationId ] ) => {
-					state.operations[ operationId ] = {
+			.addMatcher(
+				( action ): action is DeleteAllSnapshotsFulfilledAction =>
+					action.type === 'deleteAllSnapshotsForSite.fulfilled' ||
+					action.type === 'deleteAllSnapshotsForUser.fulfilled',
+				( state, action ) => {
+					state.operations[ action.payload.bulkOperationId ] = {
 						error: null,
+						operationIds: action.payload.operations.map( ( [ _, operationId ] ) => operationId ),
 						progress: 0,
-						snapshotUrl: url,
 						status: 'pending',
-						type: 'delete',
+						type: 'bulk',
 					};
-				} );
-			} );
+
+					action.payload.operations.forEach( ( [ url, operationId ] ) => {
+						state.operations[ operationId ] = {
+							error: null,
+							progress: 0,
+							snapshotUrl: url,
+							status: 'pending',
+							type: 'delete',
+						};
+					} );
+				}
+			);
 	},
 	selectors: {
 		selectActiveCreateOperationForSite: ( state, siteId: string ): CreateOperation | undefined =>
@@ -427,6 +439,7 @@ window.ipcListener.subscribe( 'snapshot-success', ( event, payload ) => {
 		} )
 	);
 	store.dispatch( getSnapshots() );
+	store.dispatch( wpcomApi.util.invalidateTags( [ 'SnapshotUsage' ] ) );
 } );
 
 export const snapshotActions = snapshotSlice.actions;

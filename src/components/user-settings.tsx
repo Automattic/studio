@@ -352,10 +352,10 @@ export default function UserSettings() {
 
 		if ( response === DELETE_BUTTON_INDEX ) {
 			setIsDeletingAllSnapshots( true );
-			await dispatch( snapshotThunks.deleteAllSnapshotsForUser( { userId: user!.id } ) );
+			await dispatch( snapshotThunks.deleteAllSnapshotsForUser( { userId: user?.id ?? 0 } ) );
 			setIsDeletingAllSnapshots( false );
 		}
-	}, [ __, dispatch, user ] );
+	}, [ __, dispatch, user?.id ] );
 
 	if ( ! preferredEditor ) {
 		return (

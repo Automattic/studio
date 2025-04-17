@@ -60,6 +60,7 @@ function parseResponse< TSchema extends z.ZodTypeAny >( response: unknown, schem
 export const wpcomApi = createApi( {
 	reducerPath: 'wpcomApi',
 	baseQuery: wpcomBaseQuery,
+	tagTypes: [ 'SnapshotUsage' ],
 	endpoints: ( builder ) => ( {
 		getWelcomeMessages: builder.query< WelcomeMessageResponse, void >( {
 			query: () => ( {
@@ -76,6 +77,7 @@ export const wpcomApi = createApi( {
 			} ),
 			transformResponse: ( response: unknown ) => parseResponse( response, snapshotUsageSchema ),
 			keepUnusedDataFor: 60 * 60,
+			providesTags: [ { type: 'SnapshotUsage' } ],
 		} ),
 	} ),
 } );

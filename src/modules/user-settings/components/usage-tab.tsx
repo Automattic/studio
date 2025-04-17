@@ -1,4 +1,4 @@
-import { Snapshot } from 'cli/lib/appdata';
+import { Snapshot } from 'common/types/snapshot';
 import { PromptInfo } from './prompt-info';
 import { SnapshotInfo } from './snapshot-info';
 

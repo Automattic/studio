@@ -1,1 +1,1 @@
-export * from './components';
+export { default as UserSettings } from './components/user-settings';

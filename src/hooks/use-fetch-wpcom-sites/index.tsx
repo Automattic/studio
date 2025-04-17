@@ -80,10 +80,10 @@ function getSyncSupport( site: SitesEndpointSite, connectedSiteIds: number[] ): 
 		return 'missing-permissions';
 	}
 	if ( isJetpackSite( site ) ) {
-		return 'jetpack-site';
+		return 'unsupported';
 	}
 	if ( ! hasSupportedPlan( site ) && ! isPressableSite( site ) ) {
-		return 'unsupported';
+		return 'needs-upgrade';
 	}
 	if ( needsTransfer( site ) ) {
 		return 'needs-transfer';

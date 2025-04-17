@@ -65,12 +65,7 @@ function hasSupportedPlan( site: SitesEndpointSite ): boolean {
 }
 
 function isJetpackSite( site: SitesEndpointSite ): boolean {
-	return (
-		!! site.jetpack &&
-		! isAtomicSite( site ) &&
-		! isPressableSite( site ) &&
-		! hasSupportedPlan( site )
-	);
+	return !! site.jetpack && ! isAtomicSite( site ) && ! isPressableSite( site );
 }
 
 function needsTransfer( site: SitesEndpointSite ): boolean {

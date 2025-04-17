@@ -65,8 +65,8 @@ describe( 'Preview List Command', () => {
 
 		expect( mockLogger.reportStart ).toHaveBeenCalledWith( 'validate', 'Validating...' );
 		expect( mockLogger.reportSuccess ).toHaveBeenCalledWith( 'Validation successful' );
-		expect( mockLogger.reportStart ).toHaveBeenCalledWith( 'load', 'Loading snapshots...' );
-		expect( mockLogger.reportSuccess ).toHaveBeenCalledWith( 'Found 1 snapshot' );
+		expect( mockLogger.reportStart ).toHaveBeenCalledWith( 'load', 'Loading previews...' );
+		expect( mockLogger.reportSuccess ).toHaveBeenCalledWith( 'Found 1 preview' );
 	} );
 
 	it( 'should handle validation errors', async () => {
@@ -88,6 +88,6 @@ describe( 'Preview List Command', () => {
 
 		await program.parseAsync( [ 'node', 'studio', 'list', '/test/path' ] );
 
-		expect( mockLogger.reportSuccess ).toHaveBeenCalledWith( 'No snapshots found' );
+		expect( mockLogger.reportSuccess ).toHaveBeenCalledWith( 'No previews found' );
 	} );
 } );

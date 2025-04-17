@@ -36,11 +36,11 @@ export function PreviewSiteRow( {
 	const { url, date, isDeleting } = snapshot;
 	const { countDown, dateString, expireDateString, isExpired } = useExpirationDate( date );
 	const { fetchSnapshotUsage, removeSnapshot } = useSnapshots();
-	const activeUpdateOperation = useRootSelector( ( state ) =>
+	const updateOperation = useRootSelector( ( state ) =>
 		snapshotSelectors.selectUpdateOperationForSnapshot( state, snapshot.atomicSiteId )
 	);
-	const isPreviewSiteUpdating = activeUpdateOperation?.status === 'pending';
-	const hasError = activeUpdateOperation?.status === 'rejected';
+	const isPreviewSiteUpdating = updateOperation?.status === 'pending';
+	const hasError = updateOperation?.status === 'rejected';
 	const { formatRelativeTime } = useFormatLocalizedTimestamps();
 	const [ showUpdatedMessage, setShowUpdatedMessage ] = useState( false );
 	const wasUpdating = useRef( false );

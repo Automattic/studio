@@ -16,6 +16,7 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 			terminal: true,
 			iterm: false,
 		} ),
+		getInstalledApps: jest.fn().mockResolvedValue( [ 'vscode', 'phpstorm' ] ),
 	} ),
 } ) );
 
@@ -94,13 +95,17 @@ describe( 'UserSettings', () => {
 
 			// Switch to Preferences tab
 			fireEvent.click( screen.getByText( 'Preferences' ) );
-			expect( screen.getByText( 'Preferences' ) ).toHaveAttribute( 'aria-selected', 'true' );
+			await waitFor( () => {
+				expect( screen.getByText( 'Preferences' ) ).toHaveAttribute( 'aria-selected', 'true' );
+			} );
 			expect( screen.getByText( 'Language' ) ).toBeVisible();
 			expect( screen.getByText( 'Shell' ) ).toBeVisible();
 
 			// Switch to Usage tab
 			fireEvent.click( screen.getByText( 'Usage' ) );
-			expect( screen.getByText( 'Usage' ) ).toHaveAttribute( 'aria-selected', 'true' );
+			await waitFor( () => {
+				expect( screen.getByText( 'Usage' ) ).toHaveAttribute( 'aria-selected', 'true' );
+			} );
 			expect( screen.getByText( 'Preview sites' ) ).toBeVisible();
 			expect( screen.getByText( 'AI assistant' ) ).toBeVisible();
 		} );

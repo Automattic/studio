@@ -1,5 +1,5 @@
 // This file can be used in React and Node
-import { localeDataDictionary } from 'src/translations';
+import { localeDataDictionary } from 'common/translations';
 
 export const DEFAULT_LOCALE = 'en';
 

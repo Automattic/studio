@@ -3,7 +3,7 @@
  */
 import { app } from 'electron';
 import { createI18n } from '@wordpress/i18n';
-import { getLocaleData } from 'src/lib/locale';
+import { getLocaleData } from 'common/lib/locale';
 import { getSupportedLocale } from 'src/lib/locale-node';
 
 function mockAppLocale( language: string ) {

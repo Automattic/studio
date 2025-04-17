@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
+import { SupportedLocale } from 'common/lib/locale';
 import { useI18nData } from 'src/hooks/use-i18n-data';
-import { SupportedLocale } from 'src/lib/locale';
 
 const BASE_DOCS_URL = 'https://developer.wordpress.com' as const;
 

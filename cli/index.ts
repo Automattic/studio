@@ -9,11 +9,12 @@ import { version } from 'cli/package.json';
 import { OutputFormat, StudioArgv } from 'cli/types';
 
 async function main() {
-	await loadTranslations();
+	const locale = await loadTranslations();
 
 	const studioArgv: StudioArgv = yargs( hideBin( process.argv ) )
 		.scriptName( 'studio' )
 		.usage( __( 'Studio by WordPress.com CLI' ) )
+		.locale( locale )
 		.version( version )
 		.middleware( async () =>
 			bumpAggregatedUniqueStat( StatsGroup.STUDIO_CLI_USAGE_UNIQUE, StatsMetric.SUCCESS, 'weekly' )

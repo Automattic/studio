@@ -50,6 +50,7 @@ export default class SiteServerProcess {
 				}
 			};
 
+			const ramSize = 128;
 			this.process = utilityProcess
 				.fork( SITE_SERVER_PROCESS_MODULE_PATH, [ JSON.stringify( this.options ) ], {
 					serviceName: 'studio-site-server',
@@ -60,6 +61,9 @@ export default class SiteServerProcess {
 						STUDIO_APP_DATA_PATH: app.getPath( 'appData' ),
 						STUDIO_APP_LOGS_PATH: app.getPath( 'logs' ),
 					},
+					execArgv: [
+						`--js-flags="--max-old-space-size=${ ramSize } --max-heap-size=${ ramSize }"`,
+					],
 				} )
 				.on( 'spawn', spawnListener )
 				.on( 'exit', exitListener );

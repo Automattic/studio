@@ -17,6 +17,9 @@ if ( process.env.STUDIO_APP_LOGS_PATH ) {
 }
 
 const options = JSON.parse( process.argv[ 2 ] ) as WPNowOptions;
+console.log( 'Process memory limit:', process.argv, process.execArgv );
+console.log( 'Heap limits:', require( 'v8' ).getHeapStatistics() );
+
 let server: WPNowServer;
 
 const handlers: Handlers = {

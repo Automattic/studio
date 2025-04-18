@@ -297,7 +297,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					} );
 				} else if (
 					error instanceof Error &&
-					error.message.includes( 'Cannot allocate Wasm memory for new instanc' )
+					error.message.includes( 'Cannot allocate Wasm memory for new instance' )
 				) {
 					getIpcApi().showErrorMessageBox( {
 						title: __( 'Not enough memory to start the site server' ),

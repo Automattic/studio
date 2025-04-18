@@ -62,7 +62,7 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 			image: studioIllustration,
 			title: __( 'Introducing Studio by WordPress.com CLI' ),
 			description: __(
-				'Run commands and manage preview sites from your terminal! Use the `studio` command and create, list, update, and delete preview sites with our new CLI tool.'
+				'Run studio command in your terminal to create, list, update, and delete preview sites with our new CLI tool.'
 			),
 			learnMoreUrl: 'https://wordpress.com/blog/2025/04/01/studio-cli/',
 		},

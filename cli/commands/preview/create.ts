@@ -10,7 +10,10 @@ import { validateSiteFolder, validateSiteSize } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
 import { OutputFormat, StudioArgv } from 'cli/types';
 
-async function runCommand( siteFolder: string, outputFormat?: OutputFormat ): Promise< void > {
+export async function runCommand(
+	siteFolder: string,
+	outputFormat?: OutputFormat
+): Promise< void > {
 	const archivePath = path.join(
 		os.tmpdir(),
 		`${ path.basename( siteFolder ) }-${ Date.now() }.zip`

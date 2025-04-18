@@ -1,35 +1,35 @@
-import path from 'path';
-import { Command } from 'commander';
-import { Snapshot } from 'common/types/snapshot';
-import { readAppdata, getSiteByFolder, getAuthToken } from 'cli/lib/appdata';
+import { getAuthToken } from 'cli/lib/appdata';
+import { getSnapshotsFromAppdata } from 'cli/lib/snapshots';
 import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger } from 'cli/logger';
 
 jest.mock( 'cli/lib/appdata' );
+jest.mock( 'cli/lib/snapshots' );
 jest.mock( 'cli/lib/validation' );
 jest.mock( 'cli/logger' );
 
 describe( 'Preview List Command', () => {
 	const mockFolder = '/test/folder';
-	const mockBasename = 'folder';
-	const mockDate = 1234567890;
 	const mockAuthToken = { accessToken: 'mock-auth-token', id: 123 };
-	const mockSnapshots: Snapshot[] = [
+	const mockSnapshots = [
 		{
-			url: 'https://example.com',
+			url: 'test1.example.com',
 			atomicSiteId: 123,
 			localSiteId: '456',
 			date: Date.now(),
-			name: 'Test Snapshot',
-			userId: 123,
+			name: 'Test Snapshot 1',
+			userId: 789,
+		},
+		{
+			url: 'test2.example.com',
+			atomicSiteId: 124,
+			localSiteId: '457',
+			date: Date.now(),
+			name: 'Test Snapshot 2',
+			userId: 789,
 		},
 	];
-	const mockSite = {
-		id: '456',
-		name: 'Test Site',
-		path: '/test/site',
-	};
-	let program: Command;
+
 	let mockLogger: {
 		reportStart: jest.Mock;
 		reportSuccess: jest.Mock;
@@ -38,56 +38,56 @@ describe( 'Preview List Command', () => {
 
 	beforeEach( () => {
 		jest.clearAllMocks();
-		( readAppdata as jest.Mock ).mockResolvedValue( { snapshots: mockSnapshots } );
-		( getAuthToken as jest.Mock ).mockResolvedValue( mockAuthToken );
-		( validateSiteFolder as jest.Mock ).mockReturnValue( true );
-		( getSiteByFolder as jest.Mock ).mockResolvedValue( mockSite );
-
-		jest.clearAllMocks();
-		jest.spyOn( Date, 'now' ).mockReturnValue( mockDate );
-		jest.spyOn( path, 'basename' ).mockReturnValue( mockBasename );
 		jest.spyOn( process, 'cwd' ).mockReturnValue( mockFolder );
 
-		program = new Command( 'studio' );
 		mockLogger = {
 			reportStart: jest.fn(),
 			reportSuccess: jest.fn(),
 			reportError: jest.fn(),
 		};
+
 		( Logger as jest.Mock ).mockReturnValue( mockLogger );
+		( validateSiteFolder as jest.Mock ).mockReturnValue( true );
+		( getAuthToken as jest.Mock ).mockResolvedValue( mockAuthToken );
+		( getSnapshotsFromAppdata as jest.Mock ).mockResolvedValue( mockSnapshots );
 	} );
 
-	it( 'should successfully list snapshots', async () => {
-		const { registerCommand } = await import( '../list' );
-		registerCommand( program );
+	afterEach( () => {
+		jest.restoreAllMocks();
+	} );
 
-		await program.parseAsync( [ 'node', 'studio', 'list', '/test/path' ] );
+	it( 'should list preview sites successfully', async () => {
+		const { runCommand } = await import( '../list' );
+		await runCommand( mockFolder );
 
-		expect( mockLogger.reportStart ).toHaveBeenCalledWith( 'validate', 'Validating...' );
-		expect( mockLogger.reportSuccess ).toHaveBeenCalledWith( 'Validation successful' );
-		expect( mockLogger.reportStart ).toHaveBeenCalledWith( 'load', 'Loading previews...' );
-		expect( mockLogger.reportSuccess ).toHaveBeenCalledWith( 'Found 1 preview' );
+		expect( validateSiteFolder ).toHaveBeenCalledWith( mockFolder );
+		expect( getSnapshotsFromAppdata ).toHaveBeenCalledWith( mockAuthToken.id, mockFolder );
+		expect( mockLogger.reportStart.mock.calls[ 0 ] ).toEqual( [ 'validate', 'Validating...' ] );
+		expect( mockLogger.reportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Validation successful' ] );
+		expect( mockLogger.reportStart.mock.calls[ 1 ] ).toEqual( [ 'load', 'Loading previews...' ] );
+		expect( mockLogger.reportSuccess.mock.calls[ 1 ] ).toEqual( [ 'Found 2 previews' ] );
 	} );
 
 	it( 'should handle validation errors', async () => {
-		const { registerCommand } = await import( '../list' );
-		registerCommand( program );
+		const { runCommand } = await import( '../list' );
 		( validateSiteFolder as jest.Mock ).mockImplementation( () => {
 			throw new Error( 'Invalid site folder' );
 		} );
 
-		await program.parseAsync( [ 'node', 'studio', 'list', '/invalid/path' ] );
+		await runCommand( mockFolder );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 	} );
 
 	it( 'should handle no snapshots found', async () => {
-		const { registerCommand } = await import( '../list' );
-		registerCommand( program );
-		( readAppdata as jest.Mock ).mockResolvedValue( { snapshots: [] } );
+		const { runCommand } = await import( '../list' );
+		( getSnapshotsFromAppdata as jest.Mock ).mockResolvedValue( [] );
 
-		await program.parseAsync( [ 'node', 'studio', 'list', '/test/path' ] );
+		await runCommand( mockFolder );
 
-		expect( mockLogger.reportSuccess ).toHaveBeenCalledWith( 'No previews found' );
+		expect( mockLogger.reportStart.mock.calls[ 0 ] ).toEqual( [ 'validate', 'Validating...' ] );
+		expect( mockLogger.reportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Validation successful' ] );
+		expect( mockLogger.reportStart.mock.calls[ 1 ] ).toEqual( [ 'load', 'Loading previews...' ] );
+		expect( mockLogger.reportSuccess.mock.calls[ 1 ] ).toEqual( [ 'No previews found' ] );
 	} );
 } );

@@ -1,17 +1,17 @@
 import { __ } from '@wordpress/i18n';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
-import yargs, { Argv } from 'yargs';
+import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import { registerPreviewCommands } from 'cli/commands/preview';
 import { loadTranslations } from 'cli/lib/i18n';
 import { bumpAggregatedUniqueStat } from 'cli/lib/stats';
 import { version } from 'cli/package.json';
-import { GlobalOptions, OutputFormat } from 'cli/types';
+import { OutputFormat, StudioArgv } from 'cli/types';
 
 async function main() {
 	await loadTranslations();
 
-	const argv: Argv< GlobalOptions > = yargs( hideBin( process.argv ) )
+	const studioArgv: StudioArgv = yargs( hideBin( process.argv ) )
 		.scriptName( 'studio' )
 		.usage( __( 'Studio by WordPress.com CLI' ) )
 		.version( version )
@@ -29,9 +29,9 @@ async function main() {
 			},
 		} );
 
-	registerPreviewCommands( argv ).strict().help();
+	registerPreviewCommands( studioArgv ).strict().help();
 
-	await argv.argv;
+	await studioArgv.argv;
 }
 
 main();

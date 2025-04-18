@@ -12,7 +12,7 @@ import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
 import { GlobalOptions, OutputFormat } from 'cli/types';
 
-async function runCommand(
+export async function runCommand(
 	siteFolder: string,
 	host: string,
 	outputFormat?: OutputFormat

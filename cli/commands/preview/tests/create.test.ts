@@ -1,6 +1,5 @@
 import os from 'os';
 import path from 'path';
-import { Command } from 'commander';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
 import { createArchive, cleanup } from 'cli/lib/archive';
@@ -30,7 +29,6 @@ describe( 'Preview Create Command', () => {
 		file: jest.fn(),
 		finalize: jest.fn(),
 	};
-	let program: Command;
 	let mockLogger: {
 		reportStart: jest.Mock;
 		reportSuccess: jest.Mock;
@@ -43,7 +41,6 @@ describe( 'Preview Create Command', () => {
 		jest.spyOn( path, 'basename' ).mockReturnValue( mockBasename );
 		jest.spyOn( process, 'cwd' ).mockReturnValue( mockFolder );
 
-		program = new Command( 'studio' );
 		mockLogger = {
 			reportStart: jest.fn(),
 			reportSuccess: jest.fn(),
@@ -69,10 +66,8 @@ describe( 'Preview Create Command', () => {
 	} );
 
 	it( 'should complete the preview creation process successfully', async () => {
-		const { registerCommand } = await import( '../create' );
-		registerCommand( program );
-
-		await program.parseAsync( [ 'node', 'studio', 'go', mockFolder ] );
+		const { runCommand } = await import( '../create' );
+		await runCommand( mockFolder );
 
 		expect( validateSiteFolder ).toHaveBeenCalledWith( mockFolder );
 		expect( mockLogger.reportStart.mock.calls[ 0 ] ).toEqual( [ 'validate', 'Validating...' ] );
@@ -118,10 +113,8 @@ describe( 'Preview Create Command', () => {
 	} );
 
 	it( 'should use current directory when no folder is specified', async () => {
-		const { registerCommand } = await import( '../create' );
-		registerCommand( program );
-
-		await program.parseAsync( [ 'node', 'studio', 'go' ] );
+		const { runCommand } = await import( '../create' );
+		await runCommand( process.cwd() );
 
 		expect( validateSiteFolder ).toHaveBeenCalledWith( process.cwd() );
 	} );
@@ -132,10 +125,8 @@ describe( 'Preview Create Command', () => {
 			throw new LoggerError( errorMessage );
 		} );
 
-		const { registerCommand } = await import( '../create' );
-		registerCommand( program );
-
-		await program.parseAsync( [ 'node', 'studio', 'go', mockFolder ] );
+		const { runCommand } = await import( '../create' );
+		await runCommand( mockFolder );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
@@ -149,10 +140,8 @@ describe( 'Preview Create Command', () => {
 			throw new LoggerError( errorMessage );
 		} );
 
-		const { registerCommand } = await import( '../create' );
-		registerCommand( program );
-
-		await program.parseAsync( [ 'node', 'studio', 'go', mockFolder ] );
+		const { runCommand } = await import( '../create' );
+		await runCommand( mockFolder );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
@@ -165,10 +154,8 @@ describe( 'Preview Create Command', () => {
 			throw new LoggerError( errorMessage );
 		} );
 
-		const { registerCommand } = await import( '../create' );
-		registerCommand( program );
-
-		await program.parseAsync( [ 'node', 'studio', 'go', mockFolder ] );
+		const { runCommand } = await import( '../create' );
+		await runCommand( mockFolder );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
@@ -181,10 +168,8 @@ describe( 'Preview Create Command', () => {
 			throw new LoggerError( errorMessage );
 		} );
 
-		const { registerCommand } = await import( '../create' );
-		registerCommand( program );
-
-		await program.parseAsync( [ 'node', 'studio', 'go', mockFolder ] );
+		const { runCommand } = await import( '../create' );
+		await runCommand( mockFolder );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
@@ -197,10 +182,8 @@ describe( 'Preview Create Command', () => {
 			throw new LoggerError( errorMessage );
 		} );
 
-		const { registerCommand } = await import( '../create' );
-		registerCommand( program );
-
-		await program.parseAsync( [ 'node', 'studio', 'go', mockFolder ] );
+		const { runCommand } = await import( '../create' );
+		await runCommand( mockFolder );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
@@ -213,10 +196,8 @@ describe( 'Preview Create Command', () => {
 			throw new LoggerError( errorMessage );
 		} );
 
-		const { registerCommand } = await import( '../create' );
-		registerCommand( program );
-
-		await program.parseAsync( [ 'node', 'studio', 'go', mockFolder ] );
+		const { runCommand } = await import( '../create' );
+		await runCommand( mockFolder );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
@@ -227,10 +208,8 @@ describe( 'Preview Create Command', () => {
 			throw new LoggerError( 'Upload failed' );
 		} );
 
-		const { registerCommand } = await import( '../create' );
-		registerCommand( program );
-
-		await program.parseAsync( [ 'node', 'studio', 'go', mockFolder ] );
+		const { runCommand } = await import( '../create' );
+		await runCommand( mockFolder );
 
 		expect( cleanup ).toHaveBeenCalledWith( mockArchivePath );
 	} );

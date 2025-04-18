@@ -8,7 +8,7 @@ import { normalizeHostname } from 'cli/lib/utils';
 import { Logger, LoggerError } from 'cli/logger';
 import { GlobalOptions, OutputFormat } from 'cli/types';
 
-async function runCommand( host: string, outputFormat?: OutputFormat ): Promise< void > {
+export async function runCommand( host: string, outputFormat?: OutputFormat ): Promise< void > {
 	const logger = new Logger< LoggerAction >( outputFormat );
 
 	try {

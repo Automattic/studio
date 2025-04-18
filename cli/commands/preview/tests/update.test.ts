@@ -1,6 +1,5 @@
 import os from 'os';
 import path from 'path';
-import { Command } from 'commander';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
 import { createArchive } from 'cli/lib/archive';
@@ -32,7 +31,6 @@ describe( 'Preview Update Command', () => {
 		userId: 123,
 	};
 
-	let program: Command;
 	let mockLogger: {
 		reportStart: jest.Mock;
 		reportSuccess: jest.Mock;
@@ -45,7 +43,6 @@ describe( 'Preview Update Command', () => {
 		jest.spyOn( path, 'basename' ).mockReturnValue( mockBasename );
 		jest.spyOn( process, 'cwd' ).mockReturnValue( mockFolder );
 
-		program = new Command( 'studio' );
 		mockLogger = {
 			reportStart: jest.fn(),
 			reportSuccess: jest.fn(),
@@ -71,10 +68,8 @@ describe( 'Preview Update Command', () => {
 	} );
 
 	it( 'should complete the preview update process successfully', async () => {
-		const { registerCommand } = await import( '../update' );
-		registerCommand( program );
-
-		await program.parseAsync( [ 'node', 'studio', 'update', mockFolder, '--host', mockSiteUrl ] );
+		const { runCommand } = await import( '../update' );
+		await runCommand( mockFolder, mockSiteUrl );
 
 		expect( validateSiteFolder ).toHaveBeenCalledWith( mockFolder );
 		expect( mockLogger.reportStart.mock.calls[ 0 ] ).toEqual( [ 'validate', 'Validating...' ] );
@@ -118,10 +113,8 @@ describe( 'Preview Update Command', () => {
 	} );
 
 	it( 'should use current directory when no folder is specified', async () => {
-		const { registerCommand } = await import( '../update' );
-		registerCommand( program );
-
-		await program.parseAsync( [ 'node', 'studio', 'update', '--host', mockSiteUrl ] );
+		const { runCommand } = await import( '../update' );
+		await runCommand( process.cwd(), mockSiteUrl );
 
 		expect( validateSiteFolder ).toHaveBeenCalledWith( process.cwd() );
 	} );
@@ -132,10 +125,8 @@ describe( 'Preview Update Command', () => {
 			throw new LoggerError( errorMessage );
 		} );
 
-		const { registerCommand } = await import( '../update' );
-		registerCommand( program );
-
-		await program.parseAsync( [ 'node', 'studio', 'update', mockFolder, '--host', mockSiteUrl ] );
+		const { runCommand } = await import( '../update' );
+		await runCommand( mockFolder, mockSiteUrl );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
@@ -149,10 +140,8 @@ describe( 'Preview Update Command', () => {
 			throw new LoggerError( errorMessage );
 		} );
 
-		const { registerCommand } = await import( '../update' );
-		registerCommand( program );
-
-		await program.parseAsync( [ 'node', 'studio', 'update', mockFolder, '--host', mockSiteUrl ] );
+		const { runCommand } = await import( '../update' );
+		await runCommand( mockFolder, mockSiteUrl );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
@@ -162,10 +151,8 @@ describe( 'Preview Update Command', () => {
 	it( 'should handle snapshot not found errors', async () => {
 		( getSnapshotsFromAppdata as jest.Mock ).mockResolvedValue( [] );
 
-		const { registerCommand } = await import( '../update' );
-		registerCommand( program );
-
-		await program.parseAsync( [ 'node', 'studio', 'update', mockFolder, '--host', mockSiteUrl ] );
+		const { runCommand } = await import( '../update' );
+		await runCommand( mockFolder, mockSiteUrl );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
@@ -178,10 +165,8 @@ describe( 'Preview Update Command', () => {
 			throw new LoggerError( errorMessage );
 		} );
 
-		const { registerCommand } = await import( '../update' );
-		registerCommand( program );
-
-		await program.parseAsync( [ 'node', 'studio', 'update', mockFolder, '--host', mockSiteUrl ] );
+		const { runCommand } = await import( '../update' );
+		await runCommand( mockFolder, mockSiteUrl );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
@@ -194,10 +179,8 @@ describe( 'Preview Update Command', () => {
 			throw new LoggerError( errorMessage );
 		} );
 
-		const { registerCommand } = await import( '../update' );
-		registerCommand( program );
-
-		await program.parseAsync( [ 'node', 'studio', 'update', mockFolder, '--host', mockSiteUrl ] );
+		const { runCommand } = await import( '../update' );
+		await runCommand( mockFolder, mockSiteUrl );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
@@ -210,10 +193,8 @@ describe( 'Preview Update Command', () => {
 			throw new LoggerError( errorMessage );
 		} );
 
-		const { registerCommand } = await import( '../update' );
-		registerCommand( program );
-
-		await program.parseAsync( [ 'node', 'studio', 'update', mockFolder, '--host', mockSiteUrl ] );
+		const { runCommand } = await import( '../update' );
+		await runCommand( mockFolder, mockSiteUrl );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
@@ -226,12 +207,21 @@ describe( 'Preview Update Command', () => {
 			throw new LoggerError( errorMessage );
 		} );
 
-		const { registerCommand } = await import( '../update' );
-		registerCommand( program );
-
-		await program.parseAsync( [ 'node', 'studio', 'update', mockFolder, '--host', mockSiteUrl ] );
+		const { runCommand } = await import( '../update' );
+		await runCommand( mockFolder, mockSiteUrl );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
+	} );
+
+	it( 'should always clean up archive file even on error', async () => {
+		( uploadArchive as jest.Mock ).mockImplementation( () => {
+			throw new LoggerError( 'Upload failed' );
+		} );
+
+		const { runCommand } = await import( '../update' );
+		await runCommand( mockFolder, mockSiteUrl );
+
+		expect( cleanup ).toHaveBeenCalledWith( mockArchivePath );
 	} );
 } );

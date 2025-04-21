@@ -66,7 +66,7 @@ export const WPVersionSelector = ( {
 						text={ __( 'WordPress Core automatic updates will be disabled for this site.' ) }
 						placement="top"
 					>
-						<Icon icon={ warning } className="text-[#ae5c00]" size={ 16 } />
+						<Icon icon={ warning } size={ 16 } />
 					</Tooltip>
 				) }
 			</span>

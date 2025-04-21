@@ -156,7 +156,7 @@ export default function UserSettings() {
 				>
 					<TabPanel className="w-full" tabs={ tabs } orientation="horizontal">
 						{ ( { name } ) => (
-							<div className="mt-6 px-8 flex flex-col gap-6">
+							<div className="mt-6 px-8 flex gap-4 flex-col">
 								{ name === 'account' &&
 									( isAuthenticated ? (
 										<AccountTab user={ user } logout={ logout } />

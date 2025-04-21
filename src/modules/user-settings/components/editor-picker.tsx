@@ -41,13 +41,13 @@ export const EditorPicker = ( { value, onChange }: EditorPickerProps ) => {
 	);
 
 	return (
-		<div className="flex gap-5 flex-col">
-			<h2 className="a8c-subtitle-small">{ __( 'Code Editor' ) }</h2>
+		<div className="flex gap-1.5 flex-col">
+			<h2 className="a8c-subtitle-small">{ __( 'Code editor' ) }</h2>
 			<SelectControl
 				value={ value }
 				onChange={ ( newValue ) => onChange( newValue as SupportedEditor ) }
 				__nextHasNoMarginBottom
-				className="mb-2"
+				__next40pxDefaultSize
 			>
 				<optgroup label={ __( 'Installed' ) }>
 					{ installedEditors.map( ( [ editor, label ] ) => (

@@ -49,7 +49,7 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 				onChange={ handleTerminalChange }
 				availableTerminals={ availableTerminals }
 			/>
-			<div className="mt-auto pt-6 flex justify-end gap-3">
+			<div className="mt-auto pt-2 flex justify-end gap-3">
 				<Button variant="tertiary" onClick={ cancelChanges }>
 					{ __( 'Cancel' ) }
 				</Button>

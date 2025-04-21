@@ -27,14 +27,14 @@ export const TerminalPicker = ( {
 	} );
 
 	return (
-		<div className="flex gap-5 flex-col">
+		<div className="flex gap-1.5 flex-col">
 			<h2 className="a8c-subtitle-small">{ __( 'Shell' ) }</h2>
 			<SelectControl
 				value={ value }
 				onChange={ onChange }
 				options={ options }
 				__nextHasNoMarginBottom
-				className="mb-2"
+				__next40pxDefaultSize
 			/>
 		</div>
 	);

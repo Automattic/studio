@@ -11,11 +11,12 @@ import {
 import path from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { __ } from '@wordpress/i18n';
+import { StatsGroup } from 'common/types/stats';
 import { PROTOCOL_PREFIX } from 'src/constants';
 import * as ipcHandlers from 'src/ipc-handlers';
 import { hasActiveSyncOperations } from 'src/lib/active-sync-operations';
 import { bumpAggregatedUniqueStat, bumpStat } from 'src/lib/bump-stats';
-import { getPlatformMetric, StatsGroup } from 'src/lib/bump-stats/types';
+import { getPlatformMetric } from 'src/lib/bump-stats/lib';
 import {
 	listenCLICommands,
 	getCLIDataForMainInstance,
@@ -30,9 +31,12 @@ import { getSentryReleaseInfo } from 'src/lib/sentry-release';
 import { setupLogging } from 'src/logging';
 import { createMainWindow, getMainWindow } from 'src/main-window';
 import {
-	migrateFromWpNowFolder,
 	needsToMigrateFromWpNowFolder,
+	migrateFromWpNowFolder,
 } from 'src/migrations/migrate-from-wp-now-folder';
+import { migrateAllDatabasesInSitu } from 'src/migrations/move-databases-in-situ';
+import { removeSitesWithEmptyDirectories } from 'src/migrations/remove-sites-with-empty-dirs';
+import { installCLIOnWindows } from 'src/modules/cli/lib/install-windows';
 import { setupWPServerFiles, updateWPServerFiles } from 'src/setup-wp-server-files';
 import { stopAllServersOnQuit } from 'src/site-server';
 import { loadUserData, saveUserData } from 'src/storage/user-data';
@@ -73,6 +77,19 @@ if ( gotTheLock && ! isInInstaller ) {
 	} else {
 		app.quit();
 	}
+}
+
+async function setupSentryUserId() {
+	const userData = await loadUserData();
+
+	if ( ! userData.sentryUserId ) {
+		userData.sentryUserId = crypto.randomUUID();
+		console.log( Date.now(), 'Saving sentry user ID', userData.sentryUserId );
+		await saveUserData( userData );
+	}
+
+	console.log( 'Setting Sentry user ID:', userData.sentryUserId );
+	Sentry.setUser( { id: userData.sentryUserId } );
 }
 
 async function appBoot() {
@@ -254,15 +271,11 @@ async function appBoot() {
 			await migrateFromWpNowFolder();
 		}
 
-		const userData = await loadUserData();
+		await setupSentryUserId();
 
-		if ( ! userData.sentryUserId ) {
-			userData.sentryUserId = crypto.randomUUID();
-			await saveUserData( userData );
-		}
+		await removeSitesWithEmptyDirectories();
 
-		console.log( 'Setting Sentry user ID:', userData.sentryUserId );
-		Sentry.setUser( { id: userData.sentryUserId } );
+		await migrateAllDatabasesInSitu();
 
 		createMainWindow();
 
@@ -270,6 +283,7 @@ async function appBoot() {
 		listenCLICommands();
 		executeCLICommand();
 
+		const userData = await loadUserData();
 		// Bump stats for the first time the app runs - this is when no lastBumpStats are available
 		if ( ! userData.lastBumpStats ) {
 			bumpStat( StatsGroup.STUDIO_APP_LAUNCH, getPlatformMetric( process.platform ) );
@@ -283,6 +297,11 @@ async function appBoot() {
 			getPlatformMetric( process.platform ),
 			'weekly'
 		);
+
+		// temporary hidden since in development yet
+		if ( process.env.NODE_ENV === 'development' ) {
+			await installCLIOnWindows();
+		}
 
 		finishedInitialization = true;
 	} );

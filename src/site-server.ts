@@ -189,6 +189,7 @@ export class SiteServer {
 			phpVersion: this.server.options.phpVersion ?? DEFAULT_PHP_VERSION,
 			isWpAutoUpdating: this.details.isWpAutoUpdating,
 			running: true,
+			autoStart: true,
 			themeDetails,
 		};
 	}
@@ -256,8 +257,8 @@ export class SiteServer {
 			return;
 		}
 
-		const { running, url, ...rest } = this.details;
-		this.details = { running: false, ...rest };
+		const { running, autoStart, url, ...rest } = this.details;
+		this.details = { running: false, autoStart: false, ...rest };
 	}
 
 	async updateCachedThumbnail() {

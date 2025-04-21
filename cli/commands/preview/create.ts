@@ -1,89 +1,73 @@
-import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import archiver from 'archiver';
-import fetch from 'node-fetch';
-import { Logger } from 'cli/logger';
-import { OutputFormat, RegisterCommand } from 'cli/types';
+import { __, sprintf } from '@wordpress/i18n';
+import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
+import { getAuthToken } from 'cli/lib/appdata';
+import { createArchive, cleanup } from 'cli/lib/archive';
+import { upsertPreviewSiteInAppdata } from 'cli/lib/snapshots';
+import { validateSiteFolder, validateSiteSize } from 'cli/lib/validation';
+import { Logger, LoggerError } from 'cli/logger';
+import { RegisterCommand, OutputFormat } from 'cli/types';
 
-enum LoggerStatus {
-	ARCHIVE_CREATED = 'ARCHIVE_CREATED',
-	ARCHIVE_UPLOADED = 'ARCHIVE_UPLOADED',
-	ARCHIVE_DELETED = 'ARCHIVE_DELETED',
+enum LoggerAction {
+	VALIDATE = 'validate',
+	ARCHIVE = 'archive',
+	UPLOAD = 'upload',
+	READY = 'ready',
+	APPDATA = 'appdata',
 }
 
-// This is DUMMY code for now. It's only meant as a reference for the actual implementation.
+async function runCommand( siteFolder: string, outputFormat?: OutputFormat ): Promise< void > {
+	const archivePath = path.join(
+		os.tmpdir(),
+		`${ path.basename( siteFolder ) }-${ Date.now() }.zip`
+	);
+	const logger = new Logger< LoggerAction >( outputFormat );
+
+	try {
+		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating...' ) );
+		validateSiteFolder( siteFolder );
+		await validateSiteSize( siteFolder );
+		const token = await getAuthToken();
+		logger.reportSuccess( __( 'Validation successful' ) );
+
+		logger.reportStart( LoggerAction.ARCHIVE, __( 'Creating archive...' ) );
+		await createArchive( siteFolder, archivePath );
+		logger.reportSuccess( __( 'Archive created' ) );
+
+		logger.reportStart( LoggerAction.UPLOAD, __( 'Uploading archive...' ) );
+		const uploadResponse = await uploadArchive( archivePath, token.accessToken );
+		logger.reportSuccess( __( 'Archive uploaded' ) );
+
+		logger.reportStart( LoggerAction.READY, __( 'Creating preview site...' ) );
+		await waitForSiteReady( uploadResponse.site_id, token.accessToken );
+		logger.reportSuccess(
+			sprintf( __( 'Preview site available at: %s' ), `https://${ uploadResponse.site_url }` )
+		);
+
+		logger.reportStart( LoggerAction.APPDATA, __( 'Saving preview site to Studio...' ) );
+		await upsertPreviewSiteInAppdata( siteFolder, uploadResponse.site_id, uploadResponse.site_url );
+		logger.reportSuccess( __( 'Preview site saved to Studio' ) );
+	} catch ( error ) {
+		if ( error instanceof LoggerError ) {
+			logger.reportError( error );
+		} else {
+			const loggerError = new LoggerError( __( 'Failed to create preview site' ), error );
+			logger.reportError( loggerError );
+		}
+	} finally {
+		cleanup( archivePath );
+	}
+}
+
 export const registerCommand: RegisterCommand = ( program ) => {
 	program
 		.command( 'go [folder]' )
 		.description(
-			'Start a new WordPress environment in the specified folder (defaults to current directory)'
+			__( 'Create a preview site from the specified folder (defaults to current directory)' )
 		)
-		.action( async ( siteFolder: string = process.cwd(), options: { outputFormat?: 'json' } ) => {
+		.action( async ( siteFolder: string = process.cwd() ) => {
+			const options = program.opts();
 			await runCommand( siteFolder, options.outputFormat );
 		} );
 };
-
-async function runCommand( siteFolder: string, outputFormat: OutputFormat ): Promise< boolean > {
-	const archivePath = path.join( os.tmpdir(), `${ siteFolder }.zip` );
-	const logger = new Logger< LoggerStatus >( outputFormat );
-
-	try {
-		await createArchive( siteFolder, archivePath, logger );
-		await uploadArchive( archivePath, logger );
-		cleanup( archivePath );
-		return true;
-	} catch ( error ) {
-		logger.reportError( error instanceof Error ? error.message : 'Unknown error occurred' );
-		return false;
-	}
-}
-
-async function createArchive(
-	siteFolder: string,
-	archivePath: string,
-	logger: Logger< LoggerStatus >
-): Promise< archiver.Archiver > {
-	return new Promise( ( resolve, reject ) => {
-		const output = fs.createWriteStream( archivePath );
-
-		const archive = archiver( 'zip', {
-			zlib: { level: 9 },
-		} );
-
-		output.on( 'close', () => {
-			logger.reportProgress( LoggerStatus.ARCHIVE_CREATED );
-			resolve( archive );
-		} );
-
-		archive.on( 'error', ( err: Error ) => {
-			logger.reportError( err.message );
-			reject( err );
-		} );
-
-		archive.pipe( output );
-		archive.directory( `${ siteFolder }/wp-content`, 'wp-content' );
-		archive.file( `${ siteFolder }/wp-config.php`, { name: 'wp-config.php' } );
-
-		archive.finalize();
-	} );
-}
-
-async function uploadArchive(
-	archivePath: string,
-	logger: Logger< LoggerStatus >
-): Promise< unknown > {
-	const response = await fetch(
-		'https://public-api.wordpress.com/rest/v1.1/jurassic-ninja/create-new-site-from-zip',
-		{
-			method: 'POST',
-			body: fs.createReadStream( archivePath ),
-		}
-	);
-	logger.reportProgress( LoggerStatus.ARCHIVE_UPLOADED );
-	return response.json();
-}
-
-function cleanup( archivePath: string ): void {
-	fs.unlinkSync( archivePath );
-}

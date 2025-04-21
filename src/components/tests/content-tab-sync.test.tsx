@@ -59,6 +59,9 @@ describe( 'ContentTabSync', () => {
 			isSiteIdPulling: jest.fn(),
 			isSiteIdPushing: jest.fn(),
 			clearTimeout: jest.fn(),
+			isSyncSitesSelectorOpen: false,
+			setIsSyncSitesSelectorOpen: jest.fn(),
+			closeSyncSitesSelector: jest.fn(),
 		} );
 	} );
 
@@ -100,6 +103,13 @@ describe( 'ContentTabSync', () => {
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 		const connectSiteButton = screen.getByRole( 'button', { name: /Connect site/i } );
 		fireEvent.click( connectSiteButton );
+
+		( useSyncSites as jest.Mock ).mockReturnValue( {
+			...useSyncSites(),
+			isSyncSitesSelectorOpen: true,
+		} );
+
+		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 		expect( screen.getByText( 'Connect a WordPress.com site' ) ).toBeInTheDocument();
 	} );
 
@@ -228,5 +238,24 @@ describe( 'ContentTabSync', () => {
 			name: 'https://developer-staging.wordpress.com/studio/ ↗',
 		} );
 		expect( stagingUrl ).toHaveLength( 1 );
+	} );
+
+	it( 'opens the modal and displays the create new site button', () => {
+		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
+		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
+		const connectSiteButton = screen.getByRole( 'button', { name: /Connect site/i } );
+		fireEvent.click( connectSiteButton );
+
+		expect( useSyncSites().setIsSyncSitesSelectorOpen ).toHaveBeenCalledWith( true );
+		( useSyncSites as jest.Mock ).mockReturnValue( {
+			...useSyncSites(),
+			isSyncSitesSelectorOpen: true,
+		} );
+
+		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
+		const createNewSiteButton = screen.getByRole( 'button', {
+			name: /Create a new WordPress.com site ↗/i,
+		} );
+		expect( createNewSiteButton ).toBeInTheDocument();
 	} );
 } );

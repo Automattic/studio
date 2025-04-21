@@ -34,6 +34,7 @@ interface StoppedSiteDetails {
 		supportsMenus: boolean;
 	};
 	isAddingSite?: boolean;
+	autoStart?: boolean;
 }
 
 interface StartedSiteDetails extends StoppedSiteDetails {
@@ -59,6 +60,11 @@ interface Snapshot {
 type InstalledApps = {
 	vscode: boolean | null;
 	phpstorm: boolean | null;
+};
+
+type InstalledTerminals = {
+	terminal: boolean;
+	iterm: boolean;
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -88,8 +94,9 @@ interface AppGlobals {
 	appName: string;
 	appVersion: string;
 	arm64Translation: boolean;
+	pressableSyncEnabled: boolean;
 	terminalWpCliEnabled: boolean;
-	whatsNewSectionEnabled: boolean;
+	preferredEditor: boolean;
 }
 
 // Our IPC objects will be attached to the `window` global

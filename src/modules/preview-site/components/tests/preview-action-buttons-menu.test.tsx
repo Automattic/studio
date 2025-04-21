@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useSnapshots } from 'src/hooks/use-snapshots';
 import { PreviewActionButtonsMenu } from '../preview-action-buttons-menu';
@@ -103,11 +103,19 @@ describe( 'PreviewActionButtonsMenu Rename', () => {
 
 		await user.click( screen.getByLabelText( 'Preview actions' ) );
 		await user.click( screen.getByText( 'Rename' ) );
+		expect( screen.getByRole( 'button', { name: 'Close' } ) ).toBeInTheDocument();
+
 		await user.click( screen.getByRole( 'button', { name: 'Close' } ) );
 
-		expect(
-			screen.queryByRole( 'heading', { name: 'Rename preview link' } )
-		).not.toBeInTheDocument();
+		expect( useSnapshots().updateSnapshot ).not.toHaveBeenCalled();
+
+		// Wait for the modal to be fully closed after the exit animation
+		await waitFor( () => {
+			expect(
+				screen.queryByRole( 'heading', { name: 'Rename preview link' } )
+			).not.toBeInTheDocument();
+		} );
+
 		expect( useSnapshots().updateSnapshot ).not.toHaveBeenCalled();
 	} );
 } );

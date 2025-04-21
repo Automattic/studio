@@ -1,9 +1,9 @@
 import { useI18n } from '@wordpress/react-i18n';
-import { intervalToDuration, formatDuration, addDays, Duration, addHours } from 'date-fns';
-import { HOUR_MS, DAY_MS } from 'src/constants';
+import { intervalToDuration, formatDuration, addDays, DurationUnit, addHours } from 'date-fns';
+import { HOUR_MS, DAY_MS } from 'common/constants';
+import { SupportedLocale } from 'common/lib/locale';
 import { useI18nData } from 'src/hooks/use-i18n-data';
 import { formatDistance } from 'src/lib/date';
-import { SupportedLocale } from 'src/lib/locale';
 
 type FormatKey = 'short' | 'long';
 
@@ -39,7 +39,7 @@ export function useExpirationDate( snapshotDate: number ) {
 	const endDate = addDays( snapshotDate, MAX_DAYS );
 	const difference = endDate.getTime() - now.getTime();
 	let isExpired = false;
-	let format: ( keyof Duration )[] = [ 'days', 'hours' ];
+	let format: DurationUnit[] = [ 'days', 'hours' ];
 	if ( difference < 0 ) {
 		isExpired = true;
 	} else if ( difference < HOUR_MS ) {

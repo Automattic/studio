@@ -54,7 +54,7 @@ import { popupMenu, setupMenu } from 'src/menu';
 import { SiteServer, createSiteWorkingDirectory } from 'src/site-server';
 import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from 'src/storage/paths';
 import { loadUserData, saveUserData } from 'src/storage/user-data';
-import { DEFAULT_PHP_VERSION } from 'vendor/wp-now/src/constants';
+import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
 import { openCertificate as openCertificateDialog } from './lib/certificate-manager';
 import { SupportedEditor } from './lib/editor';
 import { SupportedTerminal } from './lib/terminal';
@@ -187,11 +187,12 @@ export async function createSite(
 		port,
 		running: false,
 		phpVersion: DEFAULT_PHP_VERSION,
+		isWpAutoUpdating: wpVersion === DEFAULT_WORDPRESS_VERSION,
 		customDomain,
 		enableHttps,
 	} as const;
 
-	const server = SiteServer.create( details );
+	const server = SiteServer.create( details, { wpVersion } );
 
 	if ( isWordPressDirectory( path ) ) {
 		// If the directory contains a WordPress installation, and user wants to force SQLite

@@ -113,13 +113,6 @@ export function useAddSite() {
 						};
 					}
 
-					if ( newSite.wpVersion !== wpVersion ) {
-						updatedSite = {
-							...updatedSite,
-							wpVersion,
-						};
-					}
-
 					if ( updatedSite !== newSite ) {
 						await updateSite( updatedSite );
 					}

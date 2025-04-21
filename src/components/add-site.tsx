@@ -71,7 +71,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 	);
 
 	const { data: versions = [] } = useGetWordPressVersions();
-	const latestStableVersion = versions.find( ( version ) => version.isLatest );
+	const latestStableVersion = versions.find( ( version ) => version.value === 'latest' );
 
 	const initializeForm = useCallback( async () => {
 		const siteName = await generateSiteName( sites );

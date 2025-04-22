@@ -2,7 +2,10 @@ import { __ } from '@wordpress/i18n';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
-import { registerPreviewCommands } from 'cli/commands/preview';
+import { registerCommand as registerCreateCommand } from 'cli/commands/preview/create';
+import { registerCommand as registerDeleteCommand } from 'cli/commands/preview/delete';
+import { registerCommand as registerListCommand } from 'cli/commands/preview/list';
+import { registerCommand as registerUpdateCommand } from 'cli/commands/preview/update';
 import { loadTranslations } from 'cli/lib/i18n';
 import { bumpAggregatedUniqueStat } from 'cli/lib/stats';
 import { version } from 'cli/package.json';
@@ -30,7 +33,23 @@ async function main() {
 			},
 		} );
 
-	registerPreviewCommands( studioArgv ).strict().help();
+	registerCreateCommand( studioArgv );
+
+	studioArgv
+		.command( {
+			command: 'preview',
+			describe: __( 'Manage preview sites' ),
+			builder: ( yargs ) => {
+				registerListCommand( yargs );
+				registerDeleteCommand( yargs );
+				registerUpdateCommand( yargs );
+				return yargs.demandCommand( 1, __( 'You need to specify a preview command' ) );
+			},
+			handler: () => {},
+		} )
+		.demandCommand( 1, __( 'You need to specify a command' ) )
+		.strict()
+		.help();
 
 	await studioArgv.argv;
 }

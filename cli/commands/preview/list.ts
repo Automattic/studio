@@ -45,7 +45,7 @@ export async function runCommand(
 
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
-		command: 'list [folder]',
+		command: 'list [folder=cwd]',
 		describe: __( 'List preview sites for the specified folder (defaults to current directory)' ),
 		builder: ( yargs ) => {
 			return yargs.positional( 'folder', {

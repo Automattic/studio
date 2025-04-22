@@ -38,9 +38,11 @@ type DeleteOperation = BaseOperation & {
 	type: 'delete';
 };
 
-type BulkOperation = BaseOperation & {
+type BulkOperation = Omit< BaseOperation, 'progress' > & {
 	operationIds: crypto.UUID[];
+	siteId?: string;
 	type: 'bulk';
+	userId?: number;
 };
 
 export type SnapshotOperation = CreateOperation | UpdateOperation | DeleteOperation | BulkOperation;
@@ -200,13 +202,20 @@ const snapshotSlice = createSlice( {
 			.addMatcher(
 				isAnyOf( deleteAllSnapshotsForSite.fulfilled, deleteAllSnapshotsForUser.fulfilled ),
 				( state, action ) => {
-					state.operations[ action.payload.bulkOperationId ] = {
+					const bulkOperation: BulkOperation = {
 						error: null,
 						operationIds: action.payload.operations.map( ( [ _, operationId ] ) => operationId ),
-						progress: 0,
 						status: 'pending',
 						type: 'bulk',
 					};
+
+					if ( 'siteId' in action.meta.arg ) {
+						bulkOperation.siteId = action.meta.arg.siteId;
+					} else if ( 'userId' in action.meta.arg ) {
+						bulkOperation.userId = action.meta.arg.userId;
+					}
+
+					state.operations[ action.payload.bulkOperationId ] = bulkOperation;
 
 					action.payload.operations.forEach( ( [ url, operationId ] ) => {
 						state.operations[ operationId ] = {
@@ -221,6 +230,11 @@ const snapshotSlice = createSlice( {
 			);
 	},
 	selectors: {
+		selectActiveBulkOperationForUser: ( state, userId: number ): BulkOperation | undefined =>
+			Object.values( state.operations ).find(
+				( operation ): operation is BulkOperation =>
+					operation.status === 'pending' && operation.type === 'bulk' && operation.userId === userId
+			),
 		selectActiveCreateOperationForSite: ( state, siteId: string ): CreateOperation | undefined =>
 			Object.values( state.operations ).find(
 				( operation ): operation is CreateOperation =>

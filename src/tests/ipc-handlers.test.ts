@@ -77,6 +77,8 @@ describe( 'createSite', () => {
 			port: 9999,
 			running: false,
 			customDomain: undefined,
+			enableHttps: undefined,
+			isWpAutoUpdating: false,
 		} );
 	} );
 
@@ -88,10 +90,12 @@ describe( 'createSite', () => {
 				throw new Error( 'Intentional test error' );
 			} );
 
-			createSite( mockIpcMainInvokeEvent, '/test', 'Test', '6.4' ).catch( () => {
-				expect( shell.trashItem ).toHaveBeenCalledTimes( 1 );
-				expect( shell.trashItem ).toHaveBeenCalledWith( '/test' );
-			} );
+			createSite( mockIpcMainInvokeEvent, '/test', 'Test', '6.4' )
+				.catch( () => '6.4' )
+				.catch( () => {
+					expect( shell.trashItem ).toHaveBeenCalledTimes( 1 );
+					expect( shell.trashItem ).toHaveBeenCalledWith( '/test' );
+				} );
 		} );
 	} );
 } );

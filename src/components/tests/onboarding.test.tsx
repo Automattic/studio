@@ -32,9 +32,9 @@ jest.mock( 'src/hooks/use-offline', () => ( {
 jest.mock( 'src/stores/wordpress-versions-api', () => ( {
 	useGetWordPressVersions: jest.fn( () => ( {
 		data: [
-			{ isBeta: false, isDevelopment: false, isLatest: true, label: '6.3', value: '6.3.3' },
-			{ isBeta: false, isDevelopment: false, isLatest: false, label: '6.2', value: '6.2.0' },
-			{ isBeta: false, isDevelopment: false, isLatest: false, label: '6.1', value: '6.1.7' },
+			{ isBeta: false, isDevelopment: false, label: '6.3', value: '6.3.3' },
+			{ isBeta: false, isDevelopment: false, label: '6.2', value: '6.2.0' },
+			{ isBeta: false, isDevelopment: false, label: '6.1', value: '6.1.7' },
 		],
 		isLoading: false,
 	} ) ),

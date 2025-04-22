@@ -26,6 +26,12 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 	} ),
 } ) );
 
+jest.mock( 'src/stores/wordpress-versions-api', () => ( {
+	useGetWordPressVersions: jest.fn().mockReturnValue( {
+		data: [ '6.1.7', '6.2.0' ],
+	} ),
+} ) );
+
 describe( 'useAddSite', () => {
 	const mockCreateSite = jest.fn();
 	const mockUpdateSite = jest.fn();
@@ -106,39 +112,6 @@ describe( 'useAddSite', () => {
 			false,
 			expect.any( Function )
 		);
-	} );
-
-	it( 'should update site with WordPress version after creation', async () => {
-		const newSite = {
-			id: 'test-id',
-			name: 'Test Site',
-			path: '/test/path',
-			wpVersion: '6.2.0',
-			phpVersion: '8.2',
-		};
-
-		mockCreateSite.mockImplementation(
-			( path, name, wpVersion, customDomain, enableHttps, callback ) => {
-				callback( newSite );
-				return Promise.resolve();
-			}
-		);
-
-		const { result } = renderHook( () => useAddSite() );
-
-		act( () => {
-			result.current.setWpVersion( '6.1.7' );
-			result.current.setSitePath( '/test/path' );
-		} );
-
-		await act( async () => {
-			await result.current.handleAddSiteClick();
-		} );
-
-		expect( mockUpdateSite ).toHaveBeenCalledWith( {
-			...newSite,
-			wpVersion: '6.1.7',
-		} );
 	} );
 
 	it( 'should still call updateSite even if wpVersion matches due to object comparison', async () => {

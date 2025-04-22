@@ -240,7 +240,12 @@ async function runWordPressDevelopMode(
 	} );
 }
 
-async function runWordPressMode( php: PHP, { documentRoot }: WPNowOptions ) {
+async function runWordPressMode( php: PHP, { documentRoot, projectPath }: WPNowOptions ) {
+	php.mkdir( documentRoot );
+	await php.mount(
+		documentRoot,
+		createNodeFsMountHandler( projectPath ) as unknown as MountHandler
+	);
 	await initWordPress( php, 'user-provided', documentRoot );
 }
 

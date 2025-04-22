@@ -170,14 +170,13 @@ function NoPreviews( { selectedSite }: React.ComponentProps< typeof EmptyGeneric
 export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) {
 	const dispatch = useAppDispatch();
 	const { data: snapshotUsage } = useGetSnapshotUsage();
-	const { __ } = useI18n();
 	const { isAuthenticated, user } = useAuth();
 	const { isOverLimit } = useSiteSize( selectedSite.id );
-	const activeOperation = useRootSelector( ( state ) => {
-		return snapshotSelectors.selectActiveCreateOperationForSite( state, selectedSite.id );
-	} );
+	const activeOperation = useRootSelector( ( state ) =>
+		snapshotSelectors.selectActiveCreateOperationForSite( state, selectedSite.id )
+	);
 	const snapshotsOnSite = useRootSelector( ( state ) =>
-		snapshotSelectors.selectSnapshotsBySite( state, selectedSite.id )
+		snapshotSelectors.selectSnapshotsBySiteAndUser( state, selectedSite.id, user?.id ?? 0 )
 	);
 	const isAnySnapshotUpdating = useRootSelector( snapshotSelectors.selectIsAnySnapshotUpdating );
 	const isOffline = useOffline();

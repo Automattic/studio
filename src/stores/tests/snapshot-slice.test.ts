@@ -37,7 +37,28 @@ function snapshotTestReducer( state: RootState | undefined, action: UnknownActio
 		};
 
 		return produce( state!, ( draftState ) => {
-			draftState.snapshot.snapshots.push( payload.snapshot );
+			if ( ! draftState.userData ) {
+				draftState.userData = {
+					sites: [],
+					snapshots: [],
+					isLoading: false,
+					error: null,
+				};
+			} else if ( ! draftState.userData.snapshots ) {
+				draftState.userData.snapshots = [];
+			}
+			draftState.userData.snapshots.push( payload.snapshot );
+		} );
+	}
+
+	if ( action.type === 'test/initializeUserData' ) {
+		return produce( state!, ( draftState ) => {
+			draftState.userData = {
+				sites: [],
+				snapshots: [],
+				isLoading: false,
+				error: null,
+			};
 		} );
 	}
 
@@ -50,6 +71,13 @@ const snapshotTestActions = {
 	},
 	addSnapshot: ( snapshot: Snapshot ) => {
 		return { type: 'snapshot/addSnapshot', payload: { snapshot } };
+	},
+};
+
+const extendedTestActions = {
+	...testActions,
+	initializeUserData: () => {
+		return { type: 'test/initializeUserData' };
 	},
 };
 
@@ -193,6 +221,9 @@ describe( 'snapshot-slice', () => {
 					userId: 2,
 				},
 			];
+
+			// First make sure userData exists with a snapshots array
+			store.dispatch( extendedTestActions.initializeUserData() );
 
 			for ( const snapshot of mockSnapshots ) {
 				store.dispatch( snapshotTestActions.addSnapshot( snapshot ) );

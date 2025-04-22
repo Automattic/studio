@@ -3,6 +3,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useEffect, useState } from 'react';
 import { SupportedEditor, supportedEditorNames } from 'src/lib/editor';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { SettingsFormField } from './settings-form-field';
 
 interface EditorPickerProps {
 	value: SupportedEditor;
@@ -41,8 +42,7 @@ export const EditorPicker = ( { value, onChange }: EditorPickerProps ) => {
 	);
 
 	return (
-		<div className="flex gap-1.5 flex-col">
-			<label className="font-semibold">{ __( 'Code editor' ) }</label>
+		<SettingsFormField label={ __( 'Code editor' ) }>
 			<SelectControl
 				value={ value }
 				onChange={ ( newValue ) => onChange( newValue as SupportedEditor ) }
@@ -64,6 +64,6 @@ export const EditorPicker = ( { value, onChange }: EditorPickerProps ) => {
 					) ) }
 				</optgroup>
 			</SelectControl>
-		</div>
+		</SettingsFormField>
 	);
 };

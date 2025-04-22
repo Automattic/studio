@@ -1,6 +1,7 @@
 import { SelectControl } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { SupportedTerminal, supportedTerminalNames } from 'src/lib/terminal';
+import { SettingsFormField } from './settings-form-field';
 
 interface TerminalPickerProps {
 	value: SupportedTerminal;
@@ -27,8 +28,7 @@ export const TerminalPicker = ( {
 	} );
 
 	return (
-		<div className="flex gap-1.5 flex-col">
-			<label className="font-semibold">{ __( 'Shell' ) }</label>
+		<SettingsFormField label={ __( 'Shell' ) }>
 			<SelectControl
 				value={ value }
 				onChange={ onChange }
@@ -36,6 +36,6 @@ export const TerminalPicker = ( {
 				__nextHasNoMarginBottom
 				__next40pxDefaultSize
 			/>
-		</div>
+		</SettingsFormField>
 	);
 };

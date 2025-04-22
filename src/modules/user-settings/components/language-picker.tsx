@@ -1,6 +1,7 @@
 import { SelectControl } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { SupportedLocale, supportedLocaleNames } from 'common/lib/locale';
+import { SettingsFormField } from './settings-form-field';
 
 interface LanguagePickerProps {
 	value: SupportedLocale;
@@ -10,8 +11,7 @@ interface LanguagePickerProps {
 export const LanguagePicker = ( { value, onChange }: LanguagePickerProps ) => {
 	const { __ } = useI18n();
 	return (
-		<div className="flex gap-1.5 flex-col">
-			<label className="font-semibold">{ __( 'Language' ) }</label>
+		<SettingsFormField label={ __( 'Language' ) }>
 			<SelectControl
 				value={ value || 'en' }
 				onChange={ onChange }
@@ -22,6 +22,6 @@ export const LanguagePicker = ( { value, onChange }: LanguagePickerProps ) => {
 				__nextHasNoMarginBottom
 				__next40pxDefaultSize
 			/>
-		</div>
+		</SettingsFormField>
 	);
 };

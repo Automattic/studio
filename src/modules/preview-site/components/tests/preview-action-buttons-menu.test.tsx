@@ -3,9 +3,10 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { produce } from 'immer';
 import { Provider } from 'react-redux';
+import { Snapshot } from 'common/types/snapshot';
+import { PreviewActionButtonsMenu } from 'src/modules/preview-site/components/preview-action-buttons-menu';
 import { store, RootState } from 'src/stores';
 import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
-import { PreviewActionButtonsMenu } from '../preview-action-buttons-menu';
 
 function snapshotTestReducer( state: RootState | undefined, action: UnknownAction ) {
 	if ( action.type === 'snapshot/addSnapshot' ) {

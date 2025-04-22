@@ -8,6 +8,7 @@ import {
 } from '@reduxjs/toolkit';
 import { __, sprintf } from '@wordpress/i18n';
 import { PreviewCommandLoggerAction } from 'common/logger-actions';
+import { Snapshot } from 'common/types/snapshot';
 import { LIMIT_OF_ZIP_SITES_PER_USER } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { RootState, store } from 'src/stores/index';

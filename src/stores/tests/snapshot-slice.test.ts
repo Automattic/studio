@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { UnknownAction } from '@reduxjs/toolkit';
 import { produce } from 'immer';
 import { PreviewCommandLoggerAction } from 'common/logger-actions';
+import { Snapshot } from 'common/types/snapshot';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { RootState, store } from 'src/stores';
 import {
@@ -201,6 +202,7 @@ describe( 'snapshot-slice', () => {
 				{
 					atomicSiteId: 1,
 					date: Date.now(),
+					name: 'Snapshot 1',
 					localSiteId: 'site-1',
 					url: 'https://example.com',
 					userId: 1,
@@ -208,6 +210,7 @@ describe( 'snapshot-slice', () => {
 				{
 					atomicSiteId: 2,
 					date: Date.now(),
+					name: 'Snapshot 2',
 					localSiteId: 'site-2',
 					url: 'https://example.com',
 					userId: 1,
@@ -215,6 +218,7 @@ describe( 'snapshot-slice', () => {
 				{
 					atomicSiteId: 3,
 					date: Date.now(),
+					name: 'Snapshot 3',
 					localSiteId: 'site-1',
 					url: 'https://example.com',
 					userId: 2,

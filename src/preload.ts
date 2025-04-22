@@ -10,6 +10,7 @@ import {
 	webUtils,
 } from 'electron';
 import { LocaleData } from '@wordpress/i18n';
+import { Snapshot } from 'common/types/snapshot';
 import { IpcEvents } from 'src/ipc-utils';
 import { ExportOptions } from 'src/lib/import-export/export/types';
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';

@@ -3,6 +3,7 @@ import { sprintf } from '@wordpress/i18n';
 import { Icon, published, warning } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useEffect, useState, useRef } from 'react';
+import { Snapshot } from 'common/types/snapshot';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import { TooltipProps, Tooltip } from 'src/components/tooltip';

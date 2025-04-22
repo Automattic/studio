@@ -45,7 +45,9 @@ const getNextSequenceNumber = ( siteId: string, snapshots: Snapshot[], userId: n
 		.map( ( s ) => s.sequence ?? 0 )
 		.filter( ( n ) => ! isNaN( n ) );
 
-	return existingSequences.length > 0 ? Math.max( ...existingSequences ) + 1 : 1;
+	return existingSequences.length > 0
+		? Math.max( ...existingSequences ) + 1
+		: siteSnapshots.length + 1;
 };
 
 export async function saveSnapshotToAppdata(
@@ -61,7 +63,7 @@ export async function saveSnapshotToAppdata(
 		userData.snapshots = [];
 	}
 
-	const nextSequence = getNextSequenceNumber( site.id, userData.snapshots, authToken.id );
+	const nextSequenceNumber = getNextSequenceNumber( site.id, userData.snapshots, authToken.id );
 	const snapshot: Snapshot = {
 		url: previewUrl,
 		atomicSiteId,
@@ -71,9 +73,9 @@ export async function saveSnapshotToAppdata(
 			/* translators: 1: Site name 2: Sequence number (e.g. "My Site Name Preview 1") */
 			__( '%1$s Preview %2$d' ),
 			site.name,
-			nextSequence
+			nextSequenceNumber
 		),
-		sequence: nextSequence,
+		sequence: nextSequenceNumber,
 		userId: authToken.id,
 	};
 

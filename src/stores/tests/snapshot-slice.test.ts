@@ -61,37 +61,6 @@ describe( 'snapshot-slice', () => {
 		store.dispatch( testActions.resetState() );
 	} );
 
-	describe( 'getSnapshots', () => {
-		it( 'should update snapshots when fulfilled', async () => {
-			const mockSnapshots = [
-				{ id: '1', localSiteId: 'site-1', userId: 1 },
-				{ id: '2', localSiteId: 'site-2', userId: 1 },
-			];
-
-			( getIpcApi().getSnapshots as jest.Mock ).mockResolvedValue( mockSnapshots );
-
-			const result = await store.dispatch( snapshotThunks.getSnapshots() );
-
-			expect( result.type ).toBe( 'snapshot/getSnapshots/fulfilled' );
-			expect( result.payload ).toEqual( mockSnapshots );
-
-			const state = store.getState();
-			expect( state.snapshot.snapshots ).toEqual( mockSnapshots );
-		} );
-
-		it( 'should handle errors gracefully', async () => {
-			( getIpcApi().getSnapshots as jest.Mock ).mockRejectedValue( new Error( 'API Error' ) );
-
-			const result = await store.dispatch( snapshotThunks.getSnapshots() );
-
-			expect( result.type ).toBe( 'snapshot/getSnapshots/rejected' );
-			expect( ( result as { error: { message: string } } ).error.message ).toBe( 'API Error' );
-
-			const state = store.getState();
-			expect( state.snapshot.snapshots ).toEqual( [] );
-		} );
-	} );
-
 	describe( 'createSnapshot', () => {
 		it( 'should create operation when fulfilled', async () => {
 			const siteId = 'test-site';

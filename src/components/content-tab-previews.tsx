@@ -3,7 +3,6 @@ import { __, sprintf } from '@wordpress/i18n';
 import { check, Icon } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren } from 'react';
-import { useSelector } from 'react-redux';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import offlineIcon from 'src/components/offline-icon';
@@ -25,9 +24,8 @@ import { PreviewSiteRow } from 'src/modules/preview-site/components/preview-site
 import { PreviewSitesTableHeader } from 'src/modules/preview-site/components/preview-sites-table-header';
 import { ProgressRow } from 'src/modules/preview-site/components/progress-row';
 import { useUpdateButtonTooltip } from 'src/modules/preview-site/hooks/use-update-button-tooltip';
-import { useAppDispatch, useRootSelector, RootState } from 'src/stores';
+import { useAppDispatch, useRootSelector } from 'src/stores';
 import { snapshotSelectors, snapshotThunks } from 'src/stores/snapshot-slice';
-import { selectSnapshots } from 'src/stores/user-data-slice';
 import { useGetSnapshotUsage } from 'src/stores/wpcom-api';
 
 interface ContentTabPreviewsProps {
@@ -176,12 +174,10 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 	const { isAuthenticated, user } = useAuth();
 	const { isOverLimit } = useSiteSize( selectedSite.id );
 	const activeOperation = useRootSelector( ( state ) => {
-		console.log( 'state', state );
 		return snapshotSelectors.selectActiveCreateOperationForSite( state, selectedSite.id );
 	} );
-	const snapshots = useSelector( ( state: RootState ) => selectSnapshots( state, user?.id ?? 0 ) );
-	const snapshotsOnSite = snapshots.filter(
-		( snapshot ) => snapshot.localSiteId === selectedSite.id
+	const snapshotsOnSite = useRootSelector( ( state ) =>
+		snapshotSelectors.selectSnapshotsBySite( state, selectedSite.id )
 	);
 	const isAnySnapshotUpdating = useRootSelector( snapshotSelectors.selectIsAnySnapshotUpdating );
 	const isOffline = useOffline();

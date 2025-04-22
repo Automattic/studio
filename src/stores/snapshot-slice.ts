@@ -63,10 +63,6 @@ const getInitialState = (): SnapshotState => {
 	};
 };
 
-const getSnapshots = createAsyncThunk( 'snapshot/getSnapshots', async () => {
-	return await getIpcApi().getSnapshots();
-} );
-
 const createSnapshot = createAsyncThunk(
 	'snapshot/createSnapshot',
 	async ( { siteId, siteFolder }: { siteId: string; siteFolder: string } ) => {
@@ -82,13 +78,12 @@ const updateSnapshot = createAsyncThunk(
 		thunkAPI
 	) => {
 		const state = thunkAPI.getState() as RootState;
-		const snapshot = state.snapshot.snapshots.find(
-			( snapshot ) => snapshot.atomicSiteId === atomicSiteId
-		);
-		if ( ! snapshot ) {
+		const found = state.userData.snapshots.find( ( snap ) => snap.atomicSiteId === atomicSiteId );
+		if ( ! found ) {
 			throw new Error( 'Snapshot not found' );
 		}
-		const { operationId } = await getIpcApi().updateSnapshot( siteFolder, snapshot.url );
+		const snapshotUrl = found.url;
+		const { operationId } = await getIpcApi().updateSnapshot( siteFolder, snapshotUrl );
 		return { operationId };
 	}
 );
@@ -165,10 +160,6 @@ const snapshotSlice = createSlice( {
 	},
 	extraReducers: ( builder ) => {
 		builder
-			.addCase( getSnapshots.fulfilled, ( state, action ) => {
-				state.isLoaded = true;
-				state.snapshots = action.payload;
-			} )
 			.addCase( createSnapshot.fulfilled, ( state, action ) => {
 				state.operations[ action.payload.operationId ] = {
 					detail: __( 'Creating archive...' ),
@@ -268,7 +259,7 @@ const selectActiveOperationsForAnySite = createSelector(
 
 const selectSnapshotsBySite = createSelector(
 	[
-		( state: RootState ) => state.snapshot.snapshots,
+		( state: RootState ) => state.userData.snapshots,
 		( state: RootState, localSiteId: string ) => localSiteId,
 	],
 	( snapshots = [], localSiteId ) =>
@@ -277,7 +268,7 @@ const selectSnapshotsBySite = createSelector(
 
 const selectSnapshotsByUser = createSelector(
 	[
-		( state: RootState ) => state.snapshot.snapshots,
+		( state: RootState ) => state.userData.snapshots,
 		( state: RootState, userId: number ) => userId,
 	],
 	( snapshots = [], userId ) => snapshots.filter( ( snapshot ) => snapshot.userId === userId )
@@ -285,7 +276,7 @@ const selectSnapshotsByUser = createSelector(
 
 const selectSnapshotsBySiteAndUser = createSelector(
 	[
-		( state: RootState ) => state.snapshot.snapshots,
+		( state: RootState ) => state.userData.snapshots,
 		( state: RootState, localSiteId: string ) => localSiteId,
 		( state: RootState, localSiteId: string, userId: number ) => userId,
 	],
@@ -475,8 +466,6 @@ window.ipcListener.subscribe( 'snapshot-success', ( event, payload ) => {
 		}
 	}
 
-	store.dispatch( getSnapshots() );
-
 	// Wait for changes to take effect on the back-end before invalidating the cache.
 	setTimeout( () => {
 		store.dispatch( wpcomApi.util.invalidateTags( [ 'SnapshotUsage' ] ) );
@@ -492,7 +481,6 @@ export const snapshotSelectors = {
 	selectSnapshotsBySiteAndUser,
 };
 export const snapshotThunks = {
-	getSnapshots,
 	createSnapshot,
 	updateSnapshot,
 	deleteSnapshot,

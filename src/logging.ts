@@ -27,7 +27,7 @@ export function setupLogging( {
 	}
 
 	const isWindows = platform() === 'win32';
-	
+
 	logStream = FileStreamRotator.getStream( {
 		filename: path.join( logDir, 'studio-%DATE%' ),
 		date_format: 'YYYYMMDD',
@@ -36,17 +36,17 @@ export function setupLogging( {
 		max_logs: '10',
 		audit_file: path.join( logDir, 'log-rotator.json' ),
 		extension: '.log',
-		create_symlink: !isWindows, // Only create symlinks on non-Windows platforms
+		create_symlink: ! isWindows, // Only create symlinks on non-Windows platforms
 		audit_hash_type: 'sha256',
 		verbose: true, // file-stream-rotator itself will log to console too
 	} );
 
 	// On Windows, we'll use the most recent log file as the current log file
-	if (isWindows) {
-		const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
-		currentLogFile = path.join(logDir, `studio-${today}.0.log`);
+	if ( isWindows ) {
+		const today = new Date().toISOString().split( 'T' )[ 0 ].replace( /-/g, '' );
+		currentLogFile = path.join( logDir, `studio-${ today }.0.log` );
 	} else {
-		currentLogFile = path.join(logDir, 'current.log');
+		currentLogFile = path.join( logDir, 'current.log' );
 	}
 
 	const makeLogger =

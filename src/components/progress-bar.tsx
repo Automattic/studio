@@ -42,20 +42,23 @@ export function ProgressBarWithAutoIncrement( {
 		if ( value > animatedValue ) {
 			setAnimatedValue( value );
 		}
+		// We only want to run this effect when the `value` prop changes.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [ value ] );
 
 	useEffect( () => {
 		const maximumAutoIncrementValue = maxValue * 0.95;
 
-		const interval = setInterval( () => {
+		// This effect reruns every time `animatedValue` changes, so setting a timeout has the same
+		// effect as setting an interval.
+		const timeoutId = setTimeout( () => {
 			if ( animatedValue < maximumAutoIncrementValue ) {
 				setAnimatedValue( animatedValue + increment );
 			}
 		}, 1000 );
 
 		return () => {
-			clearInterval( interval );
+			clearTimeout( timeoutId );
 		};
 	}, [ animatedValue, maxValue, increment ] );
 

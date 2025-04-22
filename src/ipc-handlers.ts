@@ -56,7 +56,7 @@ import { executePreviewCliCommand } from 'src/modules/cli/lib/execute-preview-co
 import { SiteServer, createSiteWorkingDirectory } from 'src/site-server';
 import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from 'src/storage/paths';
 import { loadUserData, saveUserData } from 'src/storage/user-data';
-import { DEFAULT_PHP_VERSION } from 'vendor/wp-now/src/constants';
+import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
 import { SupportedEditor } from './lib/editor';
 import { SupportedTerminal } from './lib/terminal';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
@@ -188,11 +188,12 @@ export async function createSite(
 		port,
 		running: false,
 		phpVersion: DEFAULT_PHP_VERSION,
+		isWpAutoUpdating: wpVersion === DEFAULT_WORDPRESS_VERSION,
 		customDomain,
 		enableHttps,
 	} as const;
 
-	const server = SiteServer.create( details );
+	const server = SiteServer.create( details, { wpVersion } );
 
 	if ( isWordPressDirectory( path ) ) {
 		// If the directory contains a WordPress installation, and user wants to force SQLite

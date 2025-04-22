@@ -16,16 +16,16 @@ async function runCommand( siteFolder: string, outputFormat?: OutputFormat ): Pr
 		const token = await getAuthToken();
 		logger.reportSuccess( __( 'Validation successful' ) );
 
-		logger.reportStart( LoggerAction.LOAD, __( 'Loading snapshots...' ) );
+		logger.reportStart( LoggerAction.LOAD, __( 'Loading previews...' ) );
 		const snapshots = await getSnapshotsFromAppdata( token.id, siteFolder );
 
 		if ( snapshots.length === 0 ) {
-			logger.reportSuccess( __( 'No snapshots found' ) );
+			logger.reportSuccess( __( 'No previews found' ) );
 			return;
 		}
 
 		logger.reportSuccess(
-			sprintf( _n( 'Found %d snapshot', 'Found %d snapshots', snapshots.length ), snapshots.length )
+			sprintf( _n( 'Found %d preview', 'Found %d previews', snapshots.length ), snapshots.length )
 		);
 
 		const table = getSnapshotCliTable( snapshots );
@@ -34,7 +34,7 @@ async function runCommand( siteFolder: string, outputFormat?: OutputFormat ): Pr
 		if ( error instanceof LoggerError ) {
 			logger.reportError( error );
 		} else {
-			const loggerError = new LoggerError( __( 'Failed to load snapshots' ), error );
+			const loggerError = new LoggerError( __( 'Failed to load previews' ), error );
 			logger.reportError( loggerError );
 		}
 	}

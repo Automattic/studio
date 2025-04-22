@@ -25,11 +25,10 @@ jest.mock( 'src/stores/wordpress-versions-api', () => ( {
 				value: '6.5.0-beta1',
 				isBeta: true,
 				isDevelopment: false,
-				isLatest: false,
 				label: '6.5.0-beta1',
 			},
-			{ value: '6.4.0', isBeta: false, isDevelopment: false, isLatest: true, label: '6.4' },
-			{ value: '6.3.3', isBeta: false, isDevelopment: false, isLatest: false, label: '6.3.3' },
+			{ value: '6.4.0', isBeta: false, isDevelopment: false, label: '6.4' },
+			{ value: '6.3.3', isBeta: false, isDevelopment: false, label: '6.3.3' },
 		],
 	} ),
 	selectWordPressVersionsWithLatest: jest.fn(),
@@ -144,7 +143,7 @@ describe( 'AddSite', () => {
 			expect( mockCreateSite ).toHaveBeenCalledWith(
 				'test',
 				'My WordPress Website',
-				expect.any( String ),
+				'latest',
 				undefined,
 				false,
 				expect.any( Function )

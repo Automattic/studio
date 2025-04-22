@@ -6,18 +6,15 @@ import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useRef, useState } from 'react';
 import Button from 'src/components/button';
 import FolderIcon from 'src/components/folder-icon';
-import offlineIcon from 'src/components/offline-icon';
 import TextControlComponent from 'src/components/text-control';
-import { Tooltip } from 'src/components/tooltip';
+import { WPVersionSelector } from 'src/components/wp-version-selector';
 import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
 import { useI18nData } from 'src/hooks/use-i18n-data';
-import { useOffline } from 'src/hooks/use-offline';
 import { isWindows } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { generateCustomDomainFromSiteName } from 'src/lib/domains';
 import { getDocsLink } from 'src/lib/get-docs-link';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 import {
 	DEFAULT_WORDPRESS_VERSION,
 	ALLOWED_PHP_VERSIONS,
@@ -268,14 +265,9 @@ export const SiteForm = ( {
 }: SiteFormProps ) => {
 	const { __, isRTL } = useI18n();
 	const { locale } = useI18nData();
-	const isOffline = useOffline();
 
 	const shouldShowCustomDomainError = useCustomDomain && customDomainError;
 	const errorCount = [ error, shouldShowCustomDomainError ].filter( Boolean ).length;
-
-	const offlineMessage = __( 'Changing WordPress version requires an internet connection.' );
-
-	const { data: wpVersions = [] } = useGetWordPressVersions();
 
 	const [ isAdvancedSettingsVisible, setAdvancedSettingsVisible ] = useState( false );
 
@@ -417,40 +409,14 @@ export const SiteForm = ( {
 													__nextHasNoMarginBottom
 												/>
 											</div>
-											<div className="flex flex-col gap-1.5 leading-4">
-												<label className="font-semibold" htmlFor="wp-version-select">
-													{ __( 'WordPress version' ) }
-												</label>
-												<Tooltip
-													disabled={ ! isOffline }
-													icon={ offlineIcon }
-													text={ offlineMessage }
-													placement="top-start"
-													className="flex flex-1 flex-col"
-												>
-													<SelectControl
-														id="wp-version-select"
-														value={ wpVersion }
-														options={
-															wpVersions.length > 0
-																? wpVersions.map( ( { label, value } ) => ( {
-																		label,
-																		value,
-																  } ) )
-																: [
-																		{
-																			label: DEFAULT_WORDPRESS_VERSION,
-																			value: DEFAULT_WORDPRESS_VERSION,
-																		},
-																  ]
-														}
-														onChange={ setWpVersion }
-														disabled={ isOffline }
-														__next40pxDefaultSize
-														__nextHasNoMarginBottom
-													/>
-												</Tooltip>
-											</div>
+
+											<WPVersionSelector
+												selectedValue={ wpVersion }
+												onChange={ setWpVersion }
+												fallbackOptions={ [
+													{ label: __( 'Latest' ), value: DEFAULT_WORDPRESS_VERSION },
+												] }
+											/>
 										</div>
 
 										{ setUseCustomDomain && setCustomDomain && (

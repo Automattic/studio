@@ -38,9 +38,11 @@ type DeleteOperation = BaseOperation & {
 	type: 'delete';
 };
 
-type BulkOperation = BaseOperation & {
+type BulkOperation = Omit< BaseOperation, 'progress' > & {
 	operationIds: crypto.UUID[];
+	siteId?: string;
 	type: 'bulk';
+	userId?: number;
 };
 
 export type SnapshotOperation = CreateOperation | UpdateOperation | DeleteOperation | BulkOperation;
@@ -48,7 +50,6 @@ export type SnapshotOperation = CreateOperation | UpdateOperation | DeleteOperat
 type SnapshotState = {
 	isLoaded: boolean;
 	operations: Record< crypto.UUID, SnapshotOperation >;
-	snapshotProgress: number;
 	snapshots: Snapshot[];
 	snapshotQuota: number;
 };
@@ -57,7 +58,6 @@ const getInitialState = (): SnapshotState => {
 	return {
 		isLoaded: false,
 		operations: {},
-		snapshotProgress: 0,
 		snapshots: [],
 		snapshotQuota: LIMIT_OF_ZIP_SITES_PER_USER,
 	};
@@ -200,13 +200,20 @@ const snapshotSlice = createSlice( {
 			.addMatcher(
 				isAnyOf( deleteAllSnapshotsForSite.fulfilled, deleteAllSnapshotsForUser.fulfilled ),
 				( state, action ) => {
-					state.operations[ action.payload.bulkOperationId ] = {
+					const bulkOperation: BulkOperation = {
 						error: null,
 						operationIds: action.payload.operations.map( ( [ _, operationId ] ) => operationId ),
-						progress: 0,
 						status: 'pending',
 						type: 'bulk',
 					};
+
+					if ( 'siteId' in action.meta.arg ) {
+						bulkOperation.siteId = action.meta.arg.siteId;
+					} else if ( 'userId' in action.meta.arg ) {
+						bulkOperation.userId = action.meta.arg.userId;
+					}
+
+					state.operations[ action.payload.bulkOperationId ] = bulkOperation;
 
 					action.payload.operations.forEach( ( [ url, operationId ] ) => {
 						state.operations[ operationId ] = {
@@ -221,6 +228,11 @@ const snapshotSlice = createSlice( {
 			);
 	},
 	selectors: {
+		selectActiveBulkOperationForUser: ( state, userId: number ): BulkOperation | undefined =>
+			Object.values( state.operations ).find(
+				( operation ): operation is BulkOperation =>
+					operation.status === 'pending' && operation.type === 'bulk' && operation.userId === userId
+			),
 		selectActiveCreateOperationForSite: ( state, siteId: string ): CreateOperation | undefined =>
 			Object.values( state.operations ).find(
 				( operation ): operation is CreateOperation =>
@@ -363,30 +375,43 @@ window.ipcListener.subscribe( 'snapshot-key-value', ( event, payload ) => {
 	);
 } );
 
-window.ipcListener.subscribe( 'snapshot-error', ( event, payload ) => {
-	const operation = getOperation( payload.operationId );
-	if ( ! operation ) {
+function errorEventHandler( operationId: crypto.UUID, message: string ) {
+	const operation = getOperation( operationId );
+	if ( ! operation || operation.status !== 'pending' ) {
 		return;
 	}
 
 	if ( operation.type === 'create' ) {
 		getIpcApi().showErrorMessageBox( {
 			title: __( 'Adding preview site failed' ),
-			message: payload.data.message,
+			message: message,
 		} );
 	} else if ( operation.type === 'update' ) {
 		getIpcApi().showErrorMessageBox( {
 			title: __( 'Updating preview site failed' ),
-			message: payload.data.message,
+			message: message,
+		} );
+	} else if ( operation.type === 'delete' ) {
+		getIpcApi().showErrorMessageBox( {
+			title: __( 'Deleting preview site failed' ),
+			message: message,
 		} );
 	}
 
 	store.dispatch(
 		snapshotActions.updateOperation( {
-			operationId: payload.operationId,
-			operation: { status: 'rejected', error: payload.data.message },
+			operationId: operationId,
+			operation: { status: 'rejected', error: message },
 		} )
 	);
+}
+
+window.ipcListener.subscribe( 'snapshot-error', ( event, payload ) => {
+	errorEventHandler( payload.operationId, payload.data.message );
+} );
+
+window.ipcListener.subscribe( 'snapshot-fatal-error', ( event, payload ) => {
+	errorEventHandler( payload.operationId, payload.data.message );
 } );
 
 window.ipcListener.subscribe( 'snapshot-success', ( event, payload ) => {
@@ -415,28 +440,28 @@ window.ipcListener.subscribe( 'snapshot-success', ( event, payload ) => {
 	}
 
 	if ( operation.type === 'create' ) {
-		getIpcApi().showNotification( {
-			title: operation.snapshotName,
-			body: sprintf( __( "Preview site '%s' has been created." ), operation.snapshotUrl ),
-		} );
-
 		store.dispatch(
 			wpcomApi.util.updateQueryData( 'getSnapshotUsage', undefined, ( data ) => {
 				data.siteCount += 1;
 			} )
 		);
+
+		getIpcApi().showNotification( {
+			title: operation.snapshotName,
+			body: sprintf( __( "Preview site '%s' has been created." ), operation.snapshotUrl ),
+		} );
 	} else if ( operation.type === 'update' ) {
 		getIpcApi().showNotification( {
 			title: operation.snapshotName,
 			body: sprintf( __( "Preview site '%s' has been updated." ), operation.snapshotUrl ),
 		} );
-
+	} else if ( operation.type === 'delete' ) {
 		store.dispatch(
 			wpcomApi.util.updateQueryData( 'getSnapshotUsage', undefined, ( data ) => {
 				data.siteCount -= 1;
 			} )
 		);
-	} else if ( operation.type === 'delete' ) {
+
 		if ( ! bulkOperation ) {
 			getIpcApi().showNotification( {
 				title: operation.snapshotName,

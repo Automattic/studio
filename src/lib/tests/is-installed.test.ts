@@ -19,20 +19,16 @@ describe( 'isInstalled', () => {
 	let isInstalled: ( key: string ) => boolean;
 	let mockPaths: string[];
 
-	// Reset mocks before each test
 	beforeEach( () => {
 		jest.resetAllMocks();
 		mockPaths = [];
 
-		// Mock fs.existsSync to check against our mockPaths array
 		( fs.existsSync as jest.Mock ).mockImplementation( ( testPath: string ) => {
-			// Normalize both the test path and mock paths to use forward slashes
 			const normalizedTestPath = testPath.replace( /\\/g, '/' );
 			const normalizedMockPaths = mockPaths.map( ( p ) => p.replace( /\\/g, '/' ) );
 			return normalizedMockPaths.includes( normalizedTestPath );
 		} );
 
-		// Mock app.getPath
 		( app.getPath as jest.Mock ).mockImplementation( ( name: string ) => {
 			switch ( name ) {
 				case 'home':

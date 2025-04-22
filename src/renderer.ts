@@ -27,7 +27,6 @@
  */
 
 import * as Sentry from '@sentry/electron/renderer';
-import { init as reactInit } from '@sentry/react';
 import { __ } from '@wordpress/i18n';
 import { createElement, StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -92,8 +91,7 @@ Sentry.init(
 
 			return breadcrumb;
 		},
-	},
-	reactInit
+	}
 );
 
 const makeLogger =

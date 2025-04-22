@@ -2,6 +2,7 @@ import * as Sentry from '@sentry/electron/renderer';
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { z } from 'zod';
 import { useAuth } from 'src/hooks/use-auth';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { reconcileConnectedSites } from 'src/hooks/use-fetch-wpcom-sites/reconcile-connected-sites';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -14,6 +15,7 @@ export const sitesEndpointSiteSchema = z.object( {
 	URL: z.string(),
 	jetpack: z.boolean().optional(),
 	is_deleted: z.boolean(),
+	hosting_provider_guess: z.string().optional(),
 	options: z
 		.object( {
 			created_at: z.string(),
@@ -50,12 +52,24 @@ export const sitesEndpointResponseSchema = z.object( {
 
 const STUDIO_SYNC_FEATURE_NAME = 'studio-sync';
 
-function isJetpackSite( site: SitesEndpointSite ): boolean {
-	return !! site.jetpack && ! site.is_wpcom_atomic;
+function isPressableSite( site: SitesEndpointSite ): boolean {
+	return site.hosting_provider_guess === 'pressable';
+}
+
+function isAtomicSite( site: SitesEndpointSite ): boolean {
+	return site.is_wpcom_atomic;
 }
 
 function hasSupportedPlan( site: SitesEndpointSite ): boolean {
 	return site.plan?.features.active.includes( STUDIO_SYNC_FEATURE_NAME ) ?? false;
+}
+
+function isJetpackSite( site: SitesEndpointSite ): boolean {
+	return !! site.jetpack && ! isAtomicSite( site ) && ! isPressableSite( site );
+}
+
+function needsTransfer( site: SitesEndpointSite ): boolean {
+	return ! isJetpackSite( site ) && ! isPressableSite( site ) && ! isAtomicSite( site );
 }
 
 function getSyncSupport( site: SitesEndpointSite, connectedSiteIds: number[] ): SyncSupport {
@@ -65,13 +79,13 @@ function getSyncSupport( site: SitesEndpointSite, connectedSiteIds: number[] ): 
 	if ( ! site.capabilities?.manage_options ) {
 		return 'missing-permissions';
 	}
-	if ( isJetpackSite( site ) && ! hasSupportedPlan( site ) ) {
+	if ( isJetpackSite( site ) ) {
 		return 'jetpack-site';
 	}
-	if ( ! hasSupportedPlan( site ) ) {
+	if ( ! hasSupportedPlan( site ) && ! isPressableSite( site ) ) {
 		return 'unsupported';
 	}
-	if ( ! site.is_wpcom_atomic ) {
+	if ( needsTransfer( site ) ) {
 		return 'needs-transfer';
 	}
 	if ( connectedSiteIds.some( ( id ) => id === site.ID ) ) {
@@ -132,6 +146,7 @@ export const useFetchWpComSites = ( connectedSiteIdsOnlyForSelectedSite: number[
 	const { isAuthenticated, client } = useAuth();
 	const isFetchingSites = useRef( false );
 	const isOffline = useOffline();
+	const { pressableSyncEnabled } = useFeatureFlags();
 
 	const joinedConnectedSiteIds = connectedSiteIdsOnlyForSelectedSite.join( ',' );
 	// we need this trick to avoid unnecessary re-renders,
@@ -154,13 +169,16 @@ export const useFetchWpComSites = ( connectedSiteIdsOnlyForSelectedSite: number[
 		try {
 			const allConnectedSites = await getIpcApi().getConnectedWpcomSites();
 
+			const baseFields = 'name,ID,URL,plan,capabilities,is_wpcom_atomic,options,jetpack,is_deleted';
+			const fields = pressableSyncEnabled ? `${ baseFields },hosting_provider_guess` : baseFields;
+
 			const response = await client.req.get(
 				{
 					apiNamespace: 'rest/v1.2',
 					path: `/me/sites`,
 				},
 				{
-					fields: 'name,ID,URL,plan,capabilities,is_wpcom_atomic,options,jetpack,is_deleted',
+					fields,
 					filter: 'atomic,wpcom',
 					options: 'created_at,wpcom_staging_blog_ids',
 					site_activity: 'active',
@@ -207,7 +225,7 @@ export const useFetchWpComSites = ( connectedSiteIdsOnlyForSelectedSite: number[
 		} finally {
 			isFetchingSites.current = false;
 		}
-	}, [ client?.req, isAuthenticated, isOffline ] );
+	}, [ client?.req, isAuthenticated, isOffline, pressableSyncEnabled ] );
 
 	useEffect( () => {
 		fetchSites();

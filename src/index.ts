@@ -28,6 +28,7 @@ import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { onOpenUrlCallback } from 'src/lib/oauth';
 import { stopProxyServer } from 'src/lib/proxy-server';
 import { getSentryReleaseInfo } from 'src/lib/sentry-release';
+import { startUserDataWatcher, stopUserDataWatcher } from 'src/lib/user-data-watcher';
 import { setupLogging } from 'src/logging';
 import { createMainWindow, getMainWindow } from 'src/main-window';
 import {
@@ -278,6 +279,7 @@ async function appBoot() {
 		await migrateAllDatabasesInSitu();
 
 		createMainWindow();
+		startUserDataWatcher();
 
 		// Handle CLI commands
 		listenCLICommands();
@@ -346,6 +348,7 @@ async function appBoot() {
 	app.on( 'quit', () => {
 		stopAllServersOnQuit();
 		stopProxyServer().catch( ( error ) => console.error( 'Error stopping proxy server:', error ) );
+		stopUserDataWatcher();
 	} );
 
 	app.on( 'activate', () => {

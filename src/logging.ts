@@ -38,7 +38,7 @@ export function setupLogging( {
 		verbose: true, // file-stream-rotator itself will log to console too
 	} );
 
-	logStream.on( 'open', ( logFile: string ) => {
+	logStream?.on( 'open', ( logFile: string ) => {
 		currentLogFile = logFile;
 	} );
 

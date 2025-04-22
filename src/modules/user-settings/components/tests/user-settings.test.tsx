@@ -12,7 +12,6 @@ import { useGetSnapshotUsage } from 'src/stores/wpcom-api';
 jest.mock( 'src/hooks/use-feature-flags' );
 jest.mock( 'src/hooks/use-auth' );
 jest.mock( 'src/hooks/use-ipc-listener' );
-// Mock wpcomApi with a proper reducer to avoid Redux initialization errors
 jest.mock( 'src/stores/wpcom-api', () => {
 	type NextFn = ( action: unknown ) => unknown;
 	type ActionType = unknown;
@@ -79,7 +78,6 @@ describe( 'UserSettings', () => {
 		} );
 
 		renderWithProvider( <UserSettings /> );
-		// Verify refetch is called when settings modal is opened
 		expect( refetchMock ).toHaveBeenCalledTimes( 1 );
 	} );
 

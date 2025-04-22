@@ -144,7 +144,13 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 
 	const updateTerminalName = async () => {
 		const terminal = await getIpcApi().getUserTerminal();
-		setTerminalName( terminal === 'iterm' ? __( 'iTerm' ) : __( 'Terminal' ) );
+		if ( terminal === 'iterm' ) {
+			setTerminalName( __( 'iTerm' ) );
+		} else if ( terminal === 'warp' ) {
+			setTerminalName( __( 'Warp' ) );
+		} else {
+			setTerminalName( __( 'Terminal' ) );
+		}
 	};
 
 	useIpcListener( 'user-preference-changed', () => {

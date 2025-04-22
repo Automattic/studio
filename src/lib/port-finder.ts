@@ -1,4 +1,5 @@
 import http from 'http';
+import net from 'net';
 import killPort from 'cross-port-killer';
 
 const DEFAULT_PORT = 8881;
@@ -26,16 +27,28 @@ class PortFinder {
 
 	#isPortFree(): Promise< boolean > {
 		return new Promise( ( resolve ) => {
-			const server = http.createServer();
+			// First try to connect to the port
+			const socket = new net.Socket();
+			socket.on( 'error', () => {
+				// If we can't connect, try to bind to the port
+				const server = http.createServer();
+				server
+					.listen( this.#searchPort, () => {
+						server.close();
+						setTimeout( () => {
+							resolve( true );
+						}, 50 ); // Add a small delay to ensure port is released
+					} )
+					.on( 'error', () => {
+						resolve( false );
+					} );
+			} );
 
-			server
-				.listen( this.#searchPort, () => {
-					server.close();
-					resolve( true );
-				} )
-				.on( 'error', () => {
-					resolve( false );
-				} );
+			// Try to connect to the port
+			socket.connect( this.#searchPort, 'localhost', () => {
+				socket.destroy();
+				resolve( false );
+			} );
 		} );
 	}
 
@@ -92,6 +105,20 @@ class PortFinder {
 					this.#openPort = DEFAULT_PORT;
 				} );
 		}
+	}
+
+	/**
+	 * Checks if a specific port is available.
+	 *
+	 * @param {number} port - The port number to check.
+	 * @returns {Promise<boolean>} A promise that resolves to true if the port is available, false otherwise.
+	 **/
+	public async isPortAvailable( port: number ): Promise< boolean > {
+		const localPort = this.#searchPort;
+		this.#searchPort = port;
+		const result = await this.#isPortFree();
+		this.#searchPort = localPort;
+		return result;
 	}
 }
 

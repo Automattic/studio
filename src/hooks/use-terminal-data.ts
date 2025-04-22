@@ -36,6 +36,9 @@ export function useTerminalData() {
 			if ( installed.iterm ) {
 				available.push( 'iterm' );
 			}
+			if ( installed.warp ) {
+				available.push( 'warp' );
+			}
 			setAvailableTerminals( available );
 		};
 		loadTerminals();

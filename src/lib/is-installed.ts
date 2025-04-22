@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 
 let appPaths: Record< keyof InstalledApps, string[] >;
-let terminalPaths: Record< 'iterm', string[] >;
+let terminalPaths: Record< 'iterm' | 'warp', string[] >;
 
 if ( process.platform === 'darwin' ) {
 	const systemApplications = '/Applications';
@@ -25,6 +25,10 @@ if ( process.platform === 'darwin' ) {
 			path.join( systemApplications, 'iTerm.app' ),
 			path.join( userApplications, 'iTerm.app' ),
 		],
+		warp: [
+			path.join( systemApplications, 'Warp.app' ),
+			path.join( userApplications, 'Warp.app' ),
+		],
 	};
 } else if ( process.platform === 'linux' ) {
 	appPaths = {
@@ -33,14 +37,18 @@ if ( process.platform === 'darwin' ) {
 	};
 	terminalPaths = {
 		iterm: [], // iTerm is macOS only
+		warp: [ '/usr/bin/warp' ], // Check for Warp in Linux
 	};
 } else if ( process.platform === 'win32' ) {
+	const localAppData = app.getPath( 'appData' );
+	
 	appPaths = {
-		vscode: [ path.join( app.getPath( 'appData' ), 'Code' ) ],
+		vscode: [ path.join( localAppData, 'Code' ) ],
 		phpstorm: [ '' ], // Disable phpStorm for Windows
 	};
 	terminalPaths = {
 		iterm: [], // iTerm is macOS only
+		warp: [ path.join( localAppData, 'Warp' ) ], // Check for Warp in Windows
 	};
 }
 

@@ -148,11 +148,7 @@ export default function UserSettings() {
 					isDismissible
 					onRequestClose={ resetLocalState }
 					size="medium"
-					className={ cx(
-						'min-h-[350px]',
-						'[&_[role="document"]]:px-0',
-						'[&_[role="document"]]:mt-[64px]'
-					) }
+					className={ cx( 'min-h-[350px]', '[&_[role="document"]]:px-0' ) }
 				>
 					<TabPanel className="w-full" tabs={ tabs } orientation="horizontal">
 						{ ( { name } ) => (

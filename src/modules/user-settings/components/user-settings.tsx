@@ -17,22 +17,24 @@ import { PreferencesTab } from 'src/modules/user-settings/components/preferences
 import { PromptInfo } from 'src/modules/user-settings/components/prompt-info';
 import { SnapshotInfo } from 'src/modules/user-settings/components/snapshot-info';
 import { UsageTab } from 'src/modules/user-settings/components/usage-tab';
+import { useRootSelector } from 'src/stores';
+import { snapshotSelectors } from 'src/stores/snapshot-slice';
+import { useGetSnapshotUsage } from 'src/stores/wpcom-api';
 
 export default function UserSettings() {
 	const { __ } = useI18n();
 	const [ deletedAllSnapshots, setDeletedAllSnapshots ] = useState( false );
-	const { isAuthenticated, authenticate, logout, user } = useAuth();
+	const { isAuthenticated, logout, user } = useAuth();
 	const { preferredEditor } = useFeatureFlags();
 	const { locale: savedLocale, setLocale: setSavedLocale } = useI18nData();
-	const {
-		allSnapshots,
-		activeSnapshotCount,
-		snapshotQuota,
-		isLoadingSnapshotUsage,
-		loadingDeletingAllSnapshots,
-		deleteAllSnapshots,
-		loadingServerSnapshots: isLoadingAllSnapshots,
-	} = useSnapshots();
+
+	const { loadingDeletingAllSnapshots, deleteAllSnapshots } = useSnapshots();
+	const allSnapshots = useRootSelector( snapshotSelectors.selectSnapshots );
+	const snapshotQuota = useRootSelector( ( state ) => state.snapshot.snapshotQuota );
+	const snapshotsCount = useRootSelector( snapshotSelectors.selectSnapshotsCount );
+	const { data: snapshotUsage, isLoading: isLoadingSnapshotUsage } = useGetSnapshotUsage();
+	const definitiveSnapshotCount = snapshotUsage?.siteCount ?? snapshotsCount;
+
 	const [ needsToOpenUserSettings, setNeedsToOpenUserSettings ] = useState( false );
 
 	const isOffline = useOffline();
@@ -100,14 +102,13 @@ export default function UserSettings() {
 									<SnapshotInfo
 										isDeleting={ loadingDeletingAllSnapshots }
 										isDisabled={
-											activeSnapshotCount === 0 ||
+											definitiveSnapshotCount === 0 ||
 											loadingDeletingAllSnapshots ||
-											isLoadingAllSnapshots ||
 											isLoadingSnapshotUsage ||
 											allSnapshots?.length === 0 ||
 											isOffline
 										}
-										siteCount={ activeSnapshotCount }
+										siteCount={ definitiveSnapshotCount }
 										siteLimit={ snapshotQuota }
 										onRemoveSnapshots={ onRemoveSnapshots }
 									/>
@@ -167,8 +168,7 @@ export default function UserSettings() {
 								{ name === 'usage' && isAuthenticated && (
 									<UsageTab
 										loadingDeletingAllSnapshots={ loadingDeletingAllSnapshots }
-										activeSnapshotCount={ activeSnapshotCount }
-										isLoadingAllSnapshots={ isLoadingAllSnapshots }
+										activeSnapshotCount={ definitiveSnapshotCount }
 										isLoadingSnapshotUsage={ isLoadingSnapshotUsage }
 										allSnapshots={ allSnapshots }
 										isOffline={ isOffline }

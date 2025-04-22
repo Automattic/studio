@@ -48,6 +48,7 @@ const api: IpcApi = {
 	saveSnapshotsToStorage: ( snapshots: Snapshot[] ) =>
 		ipcRenderer.invoke( 'saveSnapshotsToStorage', snapshots ),
 	getSnapshots: () => ipcRenderer.invoke( 'getSnapshots' ),
+	createSnapshot: ( siteFolder: string ) => ipcRenderer.invoke( 'createSnapshot', siteFolder ),
 	getLastSeenVersion: () => ipcRenderer.invoke( 'getLastSeenVersion' ),
 	saveLastSeenVersion: ( version: string ) => ipcRenderer.invoke( 'saveLastSeenVersion', version ),
 	getSiteDetails: () => ipcRenderer.invoke( 'getSiteDetails' ),

@@ -29,6 +29,7 @@ const config: Configuration = {
 		minimize: false,
 		splitChunks: false,
 	},
+	stats: 'minimal',
 };
 
 export default config;

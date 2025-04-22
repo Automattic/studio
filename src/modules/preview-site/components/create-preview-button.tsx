@@ -5,12 +5,13 @@ import Button from 'src/components/button';
 import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
 import { useArchiveErrorMessages } from 'src/hooks/use-archive-error-messages';
-import { useArchiveSite } from 'src/hooks/use-archive-site';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSiteSize } from 'src/hooks/use-site-size';
 import { useSnapshots } from 'src/hooks/use-snapshots';
 import { hasVersionMismatch } from 'src/modules/preview-site/lib/version-comparison';
+import { useRootSelector } from 'src/stores';
+import { snapshotSelectors } from 'src/stores/snapshot-slice';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 
 interface CreatePreviewButtonProps {
@@ -20,9 +21,14 @@ interface CreatePreviewButtonProps {
 
 export function CreatePreviewButton( { onClick, selectedSite }: CreatePreviewButtonProps ) {
 	const { __, _n } = useI18n();
-	const { isAnySiteArchiving, archivingSiteId } = useArchiveSite();
-	const { activeSnapshotCount, snapshotQuota, isLoadingSnapshotUsage, snapshotCreationBlocked } =
-		useSnapshots();
+	const activeOperationsForAnySite = useRootSelector(
+		snapshotSelectors.selectActiveOperationsForAnySite
+	);
+	const activeOperationsForCurrentSite = useRootSelector( ( state ) =>
+		snapshotSelectors.selectActiveOperationForSite( state, selectedSite.id )
+	);
+	const snapshotQuota = useRootSelector( ( state ) => state.snapshot.snapshotQuota );
+	const { activeSnapshotCount, snapshotCreationBlocked } = useSnapshots();
 	const isLimitUsed = activeSnapshotCount >= snapshotQuota;
 	const { isOverLimit } = useSiteSize( selectedSite.id );
 	const isOffline = useOffline();
@@ -30,7 +36,8 @@ export function CreatePreviewButton( { onClick, selectedSite }: CreatePreviewBut
 	const [ wpVersion ] = useGetWpVersion( selectedSite );
 	const { data: wpVersions = [] } = useGetWordPressVersions();
 
-	const isCurrentSiteArchiving = archivingSiteId === selectedSite.id;
+	const isAnySiteArchiving = !! activeOperationsForAnySite.length;
+	const isCurrentSiteArchiving = !! activeOperationsForCurrentSite;
 	const isOtherSiteArchiving = isAnySiteArchiving && ! isCurrentSiteArchiving;
 
 	const latestWpVersion = wpVersions.find( ( version ) => version.value === 'latest' )?.value;
@@ -41,12 +48,7 @@ export function CreatePreviewButton( { onClick, selectedSite }: CreatePreviewBut
 	} );
 
 	const isDisabled =
-		isAnySiteArchiving ||
-		isLoadingSnapshotUsage ||
-		isLimitUsed ||
-		isOffline ||
-		snapshotCreationBlocked ||
-		isOverLimit;
+		isAnySiteArchiving || isLimitUsed || isOffline || snapshotCreationBlocked || isOverLimit;
 
 	const currentSiteArchivingMessage = __(
 		'A preview of this site is being created. Please wait for it to finish before creating another.'

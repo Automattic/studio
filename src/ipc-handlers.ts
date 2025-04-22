@@ -17,6 +17,8 @@ import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { __, LocaleData, defaultI18n } from '@wordpress/i18n';
 import archiver from 'archiver';
+import { z } from 'zod';
+import { CreateLoggerAction } from 'cli/commands/preview/logger-actions';
 import { calculateDirectorySize, isWordPressDirectory } from 'common/lib/fs-utils';
 import { SupportedLocale } from 'common/lib/locale';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
@@ -25,6 +27,7 @@ import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ip
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
 import { bumpStat } from 'src/lib/bump-stats';
 import { getImporterMetric } from 'src/lib/bump-stats/lib';
+import { openCertificate as openCertificateDialog } from 'src/lib/certificate-manager';
 import { download } from 'src/lib/download';
 import { isEmptyDir, pathExists, sanitizeFolderName } from 'src/lib/fs-utils';
 import { getImageData } from 'src/lib/get-image-data';
@@ -51,11 +54,11 @@ import * as windowsHelpers from 'src/lib/windows-helpers';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
+import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import { SiteServer, createSiteWorkingDirectory } from 'src/site-server';
 import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from 'src/storage/paths';
 import { loadUserData, saveUserData } from 'src/storage/user-data';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
-import { openCertificate as openCertificateDialog } from './lib/certificate-manager';
 import { SupportedEditor } from './lib/editor';
 import { SupportedTerminal } from './lib/terminal';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
@@ -1287,4 +1290,79 @@ export async function getInstalledTerminals(
 		terminal: true, // Terminal.app is always available on macOS
 		iterm: isInstalled( 'iterm' ),
 	};
+}
+
+const createSnapshotEventSchema = z.object( {
+	action: z.nativeEnum( CreateLoggerAction ),
+	status: z.enum( [ 'inprogress', 'fail', 'success' ] ),
+	message: z.string(),
+} );
+
+const createSnapshotStdoutSchema = z.discriminatedUnion( 'action', [
+	createSnapshotEventSchema,
+	z.object( {
+		action: z.literal( 'keyValuePair' ),
+		key: z.string(),
+		value: z.string(),
+	} ),
+] );
+
+function parseSnapshotEventData< T extends z.ZodType >(
+	data: unknown,
+	schema: T
+): z.infer< T > | null {
+	try {
+		return schema.parse( data );
+	} catch ( error ) {
+		console.error( 'Invalid snapshot event:', error );
+		return null;
+	}
+}
+
+export async function createSnapshot(
+	event: IpcMainInvokeEvent,
+	siteFolder: string
+): Promise< { operationId: crypto.UUID } > {
+	const operationId = crypto.randomUUID();
+	const cli = executeCliCommand( [ 'go', siteFolder ] );
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+
+	cli.on( 'data', ( data: unknown ) => {
+		const parsed = parseSnapshotEventData( data, createSnapshotStdoutSchema );
+
+		if ( ! parsed ) {
+			return;
+		}
+
+		if ( parsed.action === 'keyValuePair' ) {
+			sendIpcEventToRendererWithWindow( parentWindow, 'snapshot-key-value', {
+				operationId,
+				data: parsed,
+			} );
+		} else {
+			sendIpcEventToRendererWithWindow( parentWindow, 'snapshot-output', {
+				operationId,
+				data: parsed,
+			} );
+		}
+	} );
+
+	cli.on( 'error', ( data: unknown ) => {
+		const parsed = parseSnapshotEventData( data, createSnapshotEventSchema );
+
+		if ( parsed ) {
+			sendIpcEventToRendererWithWindow( parentWindow, 'snapshot-error', {
+				operationId,
+				data: parsed,
+			} );
+		}
+	} );
+
+	cli.on( 'success', () => {
+		sendIpcEventToRendererWithWindow( parentWindow, 'snapshot-success', {
+			operationId,
+		} );
+	} );
+
+	return { operationId };
 }

@@ -5,7 +5,6 @@ import { SnapshotInfo } from './snapshot-info';
 export const UsageTab = ( {
 	loadingDeletingAllSnapshots,
 	activeSnapshotCount,
-	isLoadingAllSnapshots,
 	isLoadingSnapshotUsage,
 	allSnapshots,
 	isOffline,
@@ -14,7 +13,6 @@ export const UsageTab = ( {
 }: {
 	loadingDeletingAllSnapshots: boolean;
 	activeSnapshotCount: number;
-	isLoadingAllSnapshots: boolean;
 	isLoadingSnapshotUsage: boolean;
 	allSnapshots: Pick< Snapshot, 'atomicSiteId' >[] | null;
 	isOffline: boolean;
@@ -27,7 +25,6 @@ export const UsageTab = ( {
 			isDisabled={
 				activeSnapshotCount === 0 ||
 				loadingDeletingAllSnapshots ||
-				isLoadingAllSnapshots ||
 				isLoadingSnapshotUsage ||
 				allSnapshots?.length === 0 ||
 				isOffline

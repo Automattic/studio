@@ -12,9 +12,9 @@ import { version } from 'cli/package.json';
 async function main() {
 	await loadTranslations();
 
-	const program = new Command();
+	const studioCommand = new Command();
 
-	program
+	studioCommand
 		.name( 'studio' )
 		.description( __( 'Studio by WordPress.com CLI' ) )
 		.version( version )
@@ -32,14 +32,16 @@ async function main() {
 				.hideHelp()
 		);
 
-	const previewCommand = program.command( 'preview' ).description( __( 'Manage preview sites' ) );
+	const previewCommand = studioCommand
+		.command( 'preview' )
+		.description( __( 'Manage preview sites' ) );
 
-	registerPreviewCreateCommand( program );
-	registerPreviewListCommand( previewCommand );
-	registerPreviewDeleteCommand( previewCommand );
-	registerPreviewUpdateCommand( previewCommand );
+	registerPreviewCreateCommand( studioCommand );
+	registerPreviewListCommand( previewCommand, studioCommand );
+	registerPreviewDeleteCommand( previewCommand, studioCommand );
+	registerPreviewUpdateCommand( previewCommand, studioCommand );
 
-	program.parse( process.argv );
+	studioCommand.parse( process.argv );
 }
 
 main();

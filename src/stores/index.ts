@@ -3,12 +3,14 @@ import { useDispatch, useSelector } from 'react-redux';
 import { LOCAL_STORAGE_CHAT_API_IDS_KEY, LOCAL_STORAGE_CHAT_MESSAGES_KEY } from 'src/constants';
 import { appVersionApi } from 'src/stores/app-version-api';
 import { reducer as chatReducer } from 'src/stores/chat-slice';
+import { reducer as snapshotReducer } from 'src/stores/snapshot-slice';
 import { wpcomApi } from 'src/stores/wpcom-api';
 import { wordpressVersionsApi } from './wordpress-versions-api';
 
 export type RootState = {
 	appVersionApi: ReturnType< typeof appVersionApi.reducer >;
 	chat: ReturnType< typeof chatReducer >;
+	snapshot: ReturnType< typeof snapshotReducer >;
 	wordpressVersionsApi: ReturnType< typeof wordpressVersionsApi.reducer >;
 	wpcomApi: ReturnType< typeof wpcomApi.reducer >;
 };
@@ -46,6 +48,7 @@ listenerMiddleware.startListening( {
 export const rootReducer = combineReducers( {
 	appVersionApi: appVersionApi.reducer,
 	chat: chatReducer,
+	snapshot: snapshotReducer,
 	wordpressVersionsApi: wordpressVersionsApi.reducer,
 	wpcomApi: wpcomApi.reducer,
 } );

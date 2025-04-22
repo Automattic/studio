@@ -15,11 +15,9 @@ import {
 	WP_AUTHORIZE_ENDPOINT,
 	LIMIT_OF_ZIP_SITES_PER_USER,
 } from 'src/constants';
-import { useArchiveSite } from 'src/hooks/use-archive-site';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSiteSize } from 'src/hooks/use-site-size';
-import { useSnapshots } from 'src/hooks/use-snapshots';
 import { useUpdateDemoSite } from 'src/hooks/use-update-demo-site';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { CreatePreviewButton } from 'src/modules/preview-site/components/create-preview-button';
@@ -27,6 +25,9 @@ import { PreviewSiteRow } from 'src/modules/preview-site/components/preview-site
 import { PreviewSitesTableHeader } from 'src/modules/preview-site/components/preview-sites-table-header';
 import { ProgressRow } from 'src/modules/preview-site/components/progress-row';
 import { useUpdateButtonTooltip } from 'src/modules/preview-site/hooks/use-update-button-tooltip';
+import { useAppDispatch, useRootSelector } from 'src/stores';
+import { snapshotSelectors, snapshotThunks } from 'src/stores/snapshot-slice';
+import { useGetSnapshotUsage } from 'src/stores/wpcom-api';
 
 interface ContentTabPreviewsProps {
 	selectedSite: SiteDetails;
@@ -144,13 +145,20 @@ function NoAuth( { selectedSite }: React.ComponentProps< typeof EmptyGeneric > )
 }
 
 function NoPreviews( { selectedSite }: React.ComponentProps< typeof EmptyGeneric > ) {
-	const { archiveSite } = useArchiveSite();
+	const dispatch = useAppDispatch();
 
 	return (
 		<EmptyGeneric selectedSite={ selectedSite }>
 			<div className="mt-8">
 				<CreatePreviewButton
-					onClick={ () => archiveSite( selectedSite.id ) }
+					onClick={ () => {
+						dispatch(
+							snapshotThunks.createSnapshot( {
+								siteFolder: selectedSite.path,
+								siteId: selectedSite.id,
+							} )
+						);
+					} }
 					selectedSite={ selectedSite }
 				/>
 			</div>
@@ -159,27 +167,28 @@ function NoPreviews( { selectedSite }: React.ComponentProps< typeof EmptyGeneric
 }
 
 export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) {
-	const { __ } = useI18n();
-	const { snapshots, snapshotCreationBlocked, creationProgress } = useSnapshots();
+	const dispatch = useAppDispatch();
+	const { data: snapshotUsage } = useGetSnapshotUsage();
 	const { isAuthenticated, user } = useAuth();
-	const { archiveSite, isUploadingSiteId } = useArchiveSite();
 	const { isOverLimit } = useSiteSize( selectedSite.id );
 	const { isDemoSiteUpdating } = useUpdateDemoSite();
-	const isUploading = isUploadingSiteId( selectedSite.id );
-	const snapshotsOnSite = snapshots.filter(
-		( snapshot ) => snapshot.localSiteId === selectedSite.id && snapshot.userId === user?.id
+	const activeOperation = useRootSelector( ( state ) =>
+		snapshotSelectors.selectActiveOperationForSite( state, selectedSite.id )
 	);
-	const isSnapshotLoading = snapshotsOnSite.some( ( snapshot ) => snapshot.isLoading );
-	const isAnyPreviewUpdating = snapshots.some( ( snapshot ) =>
+	const snapshots = useRootSelector( ( state ) => snapshotSelectors.selectSnapshots( state ) );
+	const snapshotsOnSite = useRootSelector( ( state ) =>
+		snapshotSelectors.selectSnapshotsBySiteAndUser( state, selectedSite.id, user?.id ?? 0 )
+	);
+	const isAnySnapshotUpdating = snapshots.some( ( snapshot ) =>
 		isDemoSiteUpdating( snapshot.atomicSiteId )
 	);
 	const isOffline = useOffline();
 
 	const isUpdateDisabled =
-		isAnyPreviewUpdating || snapshotCreationBlocked || isOverLimit || isOffline;
+		isAnySnapshotUpdating || snapshotUsage?.siteCreationBlocked || isOverLimit || isOffline;
 
 	const tooltipContent = useUpdateButtonTooltip( {
-		snapshotCreationBlocked,
+		snapshotCreationBlocked: snapshotUsage?.siteCreationBlocked ?? false,
 		isOverLimit,
 		isOffline,
 	} );
@@ -188,7 +197,7 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 		return <NoAuth selectedSite={ selectedSite } />;
 	}
 
-	if ( ! snapshotsOnSite.length && ! isUploading && ! isSnapshotLoading ) {
+	if ( ! snapshotsOnSite.length && ! activeOperation ) {
 		return <NoPreviews selectedSite={ selectedSite } />;
 	}
 
@@ -197,8 +206,8 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 			<div className="w-full flex flex-col flex-1">
 				<PreviewSitesTableHeader />
 				<div className="[&>*:not(:last-child)]:border-b [&>*]:border-a8c-gray-5">
-					{ ( isUploading || isSnapshotLoading ) && (
-						<ProgressRow text={ __( 'Creating preview site' ) } progress={ creationProgress } />
+					{ activeOperation && (
+						<ProgressRow text={ activeOperation.detail } progress={ activeOperation.progress } />
 					) }
 					{ snapshotsOnSite
 						.filter( ( snapshot ) => ! snapshot.isLoading )
@@ -215,7 +224,14 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 						) ) }
 					<div className="sticky bottom-0 bg-white/[0.8] backdrop-blur-sm w-full px-8 py-6 mt-auto">
 						<CreatePreviewButton
-							onClick={ () => archiveSite( selectedSite.id ) }
+							onClick={ () => {
+								dispatch(
+									snapshotThunks.createSnapshot( {
+										siteFolder: selectedSite.path,
+										siteId: selectedSite.id,
+									} )
+								);
+							} }
 							selectedSite={ selectedSite }
 						/>
 					</div>

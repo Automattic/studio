@@ -25,6 +25,7 @@ import { useThemeDetails } from 'src/hooks/use-theme-details';
 import { isMac } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { supportedTerminalNames } from 'src/lib/terminal';
 
 interface ContentTabOverviewProps {
 	selectedSite: SiteDetails;
@@ -144,13 +145,7 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 
 	const updateTerminalName = async () => {
 		const terminal = await getIpcApi().getUserTerminal();
-		if ( terminal === 'iterm' ) {
-			setTerminalName( __( 'iTerm' ) );
-		} else if ( terminal === 'warp' ) {
-			setTerminalName( __( 'Warp' ) );
-		} else {
-			setTerminalName( __( 'Terminal' ) );
-		}
+		setTerminalName( __( supportedTerminalNames[ terminal ] ) );
 	};
 
 	useIpcListener( 'user-preference-changed', () => {

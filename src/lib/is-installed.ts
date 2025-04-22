@@ -41,7 +41,7 @@ if ( process.platform === 'darwin' ) {
 	};
 } else if ( process.platform === 'win32' ) {
 	const localAppData = app.getPath( 'appData' );
-	
+
 	appPaths = {
 		vscode: [ path.join( localAppData, 'Code' ) ],
 		phpstorm: [ '' ], // Disable phpStorm for Windows

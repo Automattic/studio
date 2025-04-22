@@ -78,21 +78,19 @@ const getExtraSentryBreadcrumbs = ( targetElement: HTMLElement ) => {
 	return '';
 };
 
-Sentry.init(
-	{
-		debug: true,
-		beforeBreadcrumb( breadcrumb, hint ) {
-			const targetElement = hint?.event?.target;
+Sentry.init( {
+	debug: true,
+	beforeBreadcrumb( breadcrumb, hint ) {
+		const targetElement = hint?.event?.target;
 
-			if ( breadcrumb.category === 'ui.click' && targetElement ) {
-				breadcrumb.message =
-					( breadcrumb.message || '' ) + getExtraSentryBreadcrumbs( targetElement );
-			}
+		if ( breadcrumb.category === 'ui.click' && targetElement ) {
+			breadcrumb.message =
+				( breadcrumb.message || '' ) + getExtraSentryBreadcrumbs( targetElement );
+		}
 
-			return breadcrumb;
-		},
-	}
-);
+		return breadcrumb;
+	},
+} );
 
 const makeLogger =
 	( level: 'info' | 'warn' | 'erro', originalLogger: typeof console.log ) =>

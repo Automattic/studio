@@ -1,5 +1,11 @@
 import crypto from 'crypto';
-import { createSlice, createAsyncThunk, PayloadAction, createSelector } from '@reduxjs/toolkit';
+import {
+	createAsyncThunk,
+	createSelector,
+	createSlice,
+	isAnyOf,
+	PayloadAction,
+} from '@reduxjs/toolkit';
 import { __, sprintf } from '@wordpress/i18n';
 import { PreviewCommandLoggerAction } from 'common/logger-actions';
 import { LIMIT_OF_ZIP_SITES_PER_USER } from 'src/constants';
@@ -129,12 +135,6 @@ const deleteAllSnapshotsForUser = createAsyncThunk(
 	}
 );
 
-type DeleteAllSnapshotsForSiteFulfilled = ( typeof deleteAllSnapshotsForSite )[ 'fulfilled' ];
-type DeleteAllSnapshotsForUserFulfilled = ( typeof deleteAllSnapshotsForUser )[ 'fulfilled' ];
-type DeleteAllSnapshotsFulfilledAction =
-	| ReturnType< DeleteAllSnapshotsForSiteFulfilled >
-	| ReturnType< DeleteAllSnapshotsForUserFulfilled >;
-
 const snapshotSlice = createSlice( {
 	name: 'snapshot',
 	initialState: getInitialState(),
@@ -197,10 +197,10 @@ const snapshotSlice = createSlice( {
 				};
 			} )
 			.addMatcher(
-				( action ): action is DeleteAllSnapshotsFulfilledAction =>
-					action.type === 'deleteAllSnapshotsForSite.fulfilled' ||
-					action.type === 'deleteAllSnapshotsForUser.fulfilled',
+				isAnyOf( deleteAllSnapshotsForSite.fulfilled, deleteAllSnapshotsForUser.fulfilled ),
 				( state, action ) => {
+					console.log( action.type, action.payload );
+
 					state.operations[ action.payload.bulkOperationId ] = {
 						error: null,
 						operationIds: action.payload.operations.map( ( [ _, operationId ] ) => operationId ),
@@ -396,8 +396,24 @@ window.ipcListener.subscribe( 'snapshot-success', ( event, payload ) => {
 		return;
 	}
 
+	store.dispatch(
+		snapshotActions.updateOperation( {
+			operationId: payload.operationId,
+			operation: { status: 'fulfilled' },
+		} )
+	);
+
 	const [ bulkOperationId, bulkOperation ] = getAssociatedBulkOperation( payload.operationId );
 	const bulkOperationIsFulfilled = bulkOperation && isBulkOperationFulfilled( bulkOperation );
+
+	if ( bulkOperationId && bulkOperationIsFulfilled ) {
+		store.dispatch(
+			snapshotActions.updateOperation( {
+				operationId: bulkOperationId,
+				operation: { status: 'fulfilled' },
+			} )
+		);
+	}
 
 	if ( operation.type === 'create' ) {
 		getIpcApi().showNotification( {
@@ -410,36 +426,25 @@ window.ipcListener.subscribe( 'snapshot-success', ( event, payload ) => {
 			body: sprintf( __( "Preview site '%s' has been updated." ), operation.snapshotUrl ),
 		} );
 	} else if ( operation.type === 'delete' ) {
-		if ( bulkOperation && bulkOperationIsFulfilled ) {
-			getIpcApi().showNotification( {
-				title: __( 'Delete Successful' ),
-				body: __( 'All preview sites have been deleted.' ),
-			} );
-		} else {
+		if ( ! bulkOperation ) {
 			getIpcApi().showNotification( {
 				title: operation.snapshotName,
 				body: sprintf( __( "Preview site '%s' has been deleted." ), operation.snapshotUrl ),
 			} );
+		} else if ( bulkOperationIsFulfilled ) {
+			getIpcApi().showNotification( {
+				title: __( 'Delete Successful' ),
+				body: __( 'All preview sites have been deleted.' ),
+			} );
 		}
 	}
 
-	if ( bulkOperationId && bulkOperationIsFulfilled ) {
-		store.dispatch(
-			snapshotActions.updateOperation( {
-				operationId: bulkOperationId,
-				operation: { status: 'fulfilled' },
-			} )
-		);
-	}
-
-	store.dispatch(
-		snapshotActions.updateOperation( {
-			operationId: payload.operationId,
-			operation: { status: 'fulfilled' },
-		} )
-	);
 	store.dispatch( getSnapshots() );
-	store.dispatch( wpcomApi.util.invalidateTags( [ 'SnapshotUsage' ] ) );
+
+	// Wait for changes to take effect on the back-end before invalidating the cache.
+	setTimeout( () => {
+		store.dispatch( wpcomApi.util.invalidateTags( [ 'SnapshotUsage' ] ) );
+	}, 2000 );
 } );
 
 export const snapshotActions = snapshotSlice.actions;

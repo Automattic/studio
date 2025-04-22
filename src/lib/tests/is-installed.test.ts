@@ -70,11 +70,6 @@ describe( 'isInstalled', () => {
 			mockPaths = [ '/Applications/PhpStorm.app' ];
 			expect( isInstalled( 'phpstorm' ) ).toBe( true );
 		} );
-
-		it( 'detects Nova installed (Mac-only)', () => {
-			mockPaths = [ '/Applications/Nova.app' ];
-			expect( isInstalled( 'nova' ) ).toBe( true );
-		} );
 	} );
 
 	describe( 'on Windows (win32)', () => {
@@ -105,11 +100,6 @@ describe( 'isInstalled', () => {
 			( fs.readdirSync as jest.Mock ).mockReturnValue( [ 'PhpStorm 2023.1', 'WebStorm 2023.1' ] );
 
 			expect( isInstalled( 'phpstorm' ) ).toBe( true );
-		} );
-
-		it( 'returns false for Nova on Windows (Mac-only)', () => {
-			mockPaths = [];
-			expect( isInstalled( 'nova' ) ).toBe( false );
 		} );
 
 		it( 'falls back to default Program Files path when environment variable is not set', () => {

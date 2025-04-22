@@ -199,8 +199,6 @@ const snapshotSlice = createSlice( {
 			.addMatcher(
 				isAnyOf( deleteAllSnapshotsForSite.fulfilled, deleteAllSnapshotsForUser.fulfilled ),
 				( state, action ) => {
-					console.log( action.type, action.payload );
-
 					state.operations[ action.payload.bulkOperationId ] = {
 						error: null,
 						operationIds: action.payload.operations.map( ( [ _, operationId ] ) => operationId ),

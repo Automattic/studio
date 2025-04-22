@@ -1,4 +1,5 @@
 import { app } from 'electron';
+import fs from 'fs';
 import path from 'path';
 import * as FileStreamRotator from 'file-stream-rotator';
 
@@ -107,5 +108,5 @@ export function getLogsFilePath(): string {
 	if ( ! currentLogFile ) {
 		throw new Error( 'Logging system not initialized' );
 	}
-	return currentLogFile;
+	return fs.realpathSync( currentLogFile );
 }

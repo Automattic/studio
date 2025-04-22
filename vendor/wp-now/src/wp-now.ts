@@ -201,6 +201,11 @@ export async function prepareWordPress( php: PHP, options: WPNowOptions ) {
 
 	await mountInternalMuPlugins( php );
 	await setupPlatformLevelMuPlugins( php );
+	/**
+	 * Allow Playground to access the host filesystem.
+	 * This enables WP-now to follow symlinks that are outside of the document root.
+	 */
+	useHostFilesystem( php );
 }
 
 async function runIndexMode( php: PHP, { documentRoot, projectPath }: WPNowOptions ) {
@@ -243,7 +248,6 @@ async function runWordPressDevelopMode(
 }
 
 async function runWordPressMode( php: PHP, { documentRoot }: WPNowOptions ) {
-	useHostFilesystem( php );
 	await initWordPress( php, 'user-provided', documentRoot );
 }
 

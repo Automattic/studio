@@ -25,8 +25,6 @@ import {
 	setupPlatformLevelMuPlugins,
 } from '@wp-playground/wordpress';
 import fs from 'fs-extra';
-import getWpNowConfig, { WPNowOptions, WPNowMode } from './config';
-import { SymlinkManager } from '../../../src/lib/symlink-manager';
 import { WPNowOptions, WPNowMode } from './config';
 import {
 	PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER,
@@ -105,7 +103,7 @@ export default async function startWPNow(
 
 	if ( options.blueprintObject ) {
 		output?.log( `blueprint steps: ${ options.blueprintObject.steps.length }` );
-		const compiled = compileBlueprint( options.blueprintObject, {
+		const compiled = await compileBlueprint( options.blueprintObject, {
 			onStepCompleted: ( result, step: StepDefinition ) => {
 				output?.log( `Blueprint step completed: ${ step.step }` );
 			},
@@ -194,7 +192,7 @@ export async function prepareWordPress( php: PHP, options: WPNowOptions ) {
 			break;
 	}
 
-	await mountInternalMuPlugins( php );
+	await mountInternalMuPlugins( php, options );
 	await setupPlatformLevelMuPlugins( php );
 	/**
 	 * Allow Playground to access the host filesystem.

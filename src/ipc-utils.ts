@@ -1,12 +1,12 @@
 import crypto from 'crypto';
 import { BrowserWindow } from 'electron';
-import { CreateLoggerAction } from 'cli/commands/preview/logger-actions';
+import { PreviewCommandLoggerAction } from 'common/logger-actions';
 import { ImportExportEventData } from 'src/lib/import-export/handle-events';
 import { StoredToken } from 'src/lib/oauth';
 import { getMainWindow } from 'src/main-window';
 
 type SnapshotEventData = {
-	action: CreateLoggerAction;
+	action: PreviewCommandLoggerAction;
 	status: 'inprogress' | 'fail' | 'success';
 	message: string;
 };

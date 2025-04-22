@@ -1,5 +1,6 @@
 // Run tests: yarn test -- src/hooks/tests/use-add-site.test.tsx
 import { renderHook, act } from '@testing-library/react';
+import nock from 'nock';
 import { useAddSite } from 'src/hooks/use-add-site';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
@@ -26,12 +27,6 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 	} ),
 } ) );
 
-jest.mock( 'src/stores/wordpress-versions-api', () => ( {
-	useGetWordPressVersions: jest.fn().mockReturnValue( {
-		data: [ '6.1.7', '6.2.0' ],
-	} ),
-} ) );
-
 describe( 'useAddSite', () => {
 	const mockCreateSite = jest.fn();
 	const mockUpdateSite = jest.fn();
@@ -47,6 +42,33 @@ describe( 'useAddSite', () => {
 			loadingSites: false,
 			startServer: mockStartServer,
 		} );
+
+		nock( 'https://api.wordpress.org' )
+			.get( '/core/version-check/1.7/' )
+			.query( { channel: 'beta', version: '5.9.9' } )
+			.reply( 200, {
+				offers: [
+					{
+						version: '6.1.7',
+						response: 'autoupdate',
+					},
+					{
+						version: '6.2.0',
+						response: 'autoupdate',
+					},
+				],
+			} );
+
+		nock( 'https://api.wordpress.org' )
+			.get( '/core/version-check/1.7/' )
+			.query( { channel: 'development' } )
+			.reply( 200, {
+				offers: [],
+			} );
+	} );
+
+	afterEach( () => {
+		nock.cleanAll();
 	} );
 
 	it( 'should initialize with default WordPress version', () => {

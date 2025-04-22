@@ -4,13 +4,6 @@ import { useExpirationDate } from 'src/hooks/use-expiration-date';
 import { store } from 'src/stores';
 import { PreviewSiteRow } from '../preview-site-row';
 
-jest.mock( 'src/hooks/use-snapshots', () => ( {
-	useSnapshots: jest.fn().mockReturnValue( {
-		removeSnapshot: jest.fn(),
-		fetchSnapshotUsage: jest.fn(),
-	} ),
-} ) );
-
 jest.mock( 'src/hooks/use-expiration-date', () => ( {
 	useExpirationDate: jest.fn().mockReturnValue( {
 		countDown: '5 days',

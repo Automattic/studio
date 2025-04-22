@@ -1,7 +1,8 @@
 import crypto from 'crypto';
 import { UnknownAction } from '@reduxjs/toolkit';
 import { produce } from 'immer';
-import { CreateLoggerAction } from 'cli/commands/preview/logger-actions';
+import { PreviewCommandLoggerAction } from 'common/logger-actions';
+import { Snapshot } from 'common/types/snapshot';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { RootState, store } from 'src/stores';
 import {
@@ -201,6 +202,7 @@ describe( 'snapshot-slice', () => {
 				{
 					atomicSiteId: 1,
 					date: Date.now(),
+					name: 'Snapshot 1',
 					localSiteId: 'site-1',
 					url: 'https://example.com',
 					userId: 1,
@@ -208,6 +210,7 @@ describe( 'snapshot-slice', () => {
 				{
 					atomicSiteId: 2,
 					date: Date.now(),
+					name: 'Snapshot 2',
 					localSiteId: 'site-2',
 					url: 'https://example.com',
 					userId: 1,
@@ -215,6 +218,7 @@ describe( 'snapshot-slice', () => {
 				{
 					atomicSiteId: 3,
 					date: Date.now(),
+					name: 'Snapshot 3',
 					localSiteId: 'site-1',
 					url: 'https://example.com',
 					userId: 2,
@@ -235,11 +239,11 @@ describe( 'snapshot-slice', () => {
 	describe( 'progress values', () => {
 		it( 'should have correct progress values for each action', () => {
 			// These values should match the getProgress function in snapshot-slice.ts
-			expect( CreateLoggerAction.VALIDATE ).toBe( 'validate' );
-			expect( CreateLoggerAction.ARCHIVE ).toBe( 'archive' );
-			expect( CreateLoggerAction.UPLOAD ).toBe( 'upload' );
-			expect( CreateLoggerAction.READY ).toBe( 'ready' );
-			expect( CreateLoggerAction.APPDATA ).toBe( 'appdata' );
+			expect( PreviewCommandLoggerAction.VALIDATE ).toBe( 'validate' );
+			expect( PreviewCommandLoggerAction.ARCHIVE ).toBe( 'archive' );
+			expect( PreviewCommandLoggerAction.UPLOAD ).toBe( 'upload' );
+			expect( PreviewCommandLoggerAction.READY ).toBe( 'ready' );
+			expect( PreviewCommandLoggerAction.APPDATA ).toBe( 'appdata' );
 		} );
 	} );
 } );

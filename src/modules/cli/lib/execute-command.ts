@@ -1,6 +1,7 @@
 import { fork } from 'node:child_process';
 import EventEmitter from 'node:events';
 import path from 'node:path';
+import * as Sentry from '@sentry/electron/main';
 import { getResourcesPath } from 'src/storage/paths';
 
 function* parseOutput( data: Buffer ): Generator< unknown, void, unknown > {
@@ -38,18 +39,18 @@ export function executeCliCommand( args: string[] ) {
 
 	child.stderr?.on( 'data', ( data: Buffer ) => {
 		for ( const parsed of parseOutput( data ) ) {
+			Sentry.captureException( parsed );
 			eventEmitter.emit( 'error', parsed );
 		}
 	} );
 
 	child.on( 'error', ( error ) => {
 		console.error( 'Child process error:', error );
+		Sentry.captureException( error );
 		eventEmitter.emit( 'error', error );
 	} );
 
 	child.on( 'exit', ( code: number | null ) => {
-		console.log( 'Preview site creation completed with code', code );
-
 		if ( code === 0 ) {
 			eventEmitter.emit( 'success' );
 		} else {

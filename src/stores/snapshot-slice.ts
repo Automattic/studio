@@ -1,10 +1,18 @@
 import crypto from 'crypto';
-import { createSlice, createAsyncThunk, PayloadAction, createSelector } from '@reduxjs/toolkit';
+import {
+	createAsyncThunk,
+	createSelector,
+	createSlice,
+	isAnyOf,
+	PayloadAction,
+} from '@reduxjs/toolkit';
 import { __, sprintf } from '@wordpress/i18n';
-import { CreateLoggerAction } from 'cli/commands/preview/logger-actions';
+import { PreviewCommandLoggerAction } from 'common/logger-actions';
+import { Snapshot } from 'common/types/snapshot';
 import { LIMIT_OF_ZIP_SITES_PER_USER } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { RootState, store } from 'src/stores/index';
+import { wpcomApi } from 'src/stores/wpcom-api';
 
 type BaseOperation = {
 	error: string | null;
@@ -25,7 +33,17 @@ type UpdateOperation = BaseOperation & {
 	atomicSiteId: number;
 };
 
-export type SnapshotOperation = CreateOperation | UpdateOperation;
+type DeleteOperation = BaseOperation & {
+	snapshotUrl: string;
+	type: 'delete';
+};
+
+type BulkOperation = BaseOperation & {
+	operationIds: crypto.UUID[];
+	type: 'bulk';
+};
+
+export type SnapshotOperation = CreateOperation | UpdateOperation | DeleteOperation | BulkOperation;
 
 type SnapshotState = {
 	isLoaded: boolean;
@@ -71,7 +89,50 @@ const updateSnapshot = createAsyncThunk(
 			throw new Error( 'Snapshot not found' );
 		}
 		const { operationId } = await getIpcApi().updateSnapshot( siteFolder, snapshot.url );
-		return { atomicSiteId: snapshot.atomicSiteId, operationId };
+		return { operationId };
+	}
+);
+
+const deleteSnapshot = createAsyncThunk(
+	'snapshot/deleteSnapshot',
+	async ( { hostname }: { hostname: string } ) => {
+		const { operationId } = await getIpcApi().deleteSnapshot( hostname );
+		return { operationId };
+	}
+);
+
+async function deleteMultipleSnapshots(
+	snapshots: Snapshot[]
+): Promise< [ string, crypto.UUID ][] > {
+	return await Promise.all(
+		snapshots.map( async ( snapshot ): Promise< [ string, crypto.UUID ] > => {
+			const { operationId } = await getIpcApi().deleteSnapshot( snapshot.url );
+			return [ snapshot.url, operationId ];
+		} )
+	);
+}
+
+const deleteAllSnapshotsForSite = createAsyncThunk(
+	'snapshot/deleteAllSnapshotsForSite',
+	async ( { siteId }: { siteId: string }, thunkAPI ) => {
+		const state = thunkAPI.getState() as RootState;
+		const snapshots = snapshotSelectors.selectSnapshotsBySite( state, siteId );
+		const operations = await deleteMultipleSnapshots( snapshots );
+		const bulkOperationId = await getIpcApi().getRandomUUID();
+
+		return { operations, bulkOperationId };
+	}
+);
+
+const deleteAllSnapshotsForUser = createAsyncThunk(
+	'snapshot/deleteAllSnapshotsForUser',
+	async ( { userId }: { userId: number }, thunkAPI ) => {
+		const state = thunkAPI.getState() as RootState;
+		const snapshots = snapshotSelectors.selectSnapshotsByUser( state, userId );
+		const operations = await deleteMultipleSnapshots( snapshots );
+		const bulkOperationId = await getIpcApi().getRandomUUID();
+
+		return { operations, bulkOperationId };
 	}
 );
 
@@ -79,6 +140,11 @@ const snapshotSlice = createSlice( {
 	name: 'snapshot',
 	initialState: getInitialState(),
 	reducers: {
+		deleteSnapshotLocally: ( state, action: PayloadAction< { atomicSiteId: number } > ) => {
+			state.snapshots = state.snapshots.filter(
+				( snapshot ) => snapshot.atomicSiteId !== action.payload.atomicSiteId
+			);
+		},
 		updateOperation: (
 			state,
 			action: PayloadAction< { operationId: crypto.UUID; operation: Partial< SnapshotOperation > } >
@@ -115,13 +181,44 @@ const snapshotSlice = createSlice( {
 			} )
 			.addCase( updateSnapshot.fulfilled, ( state, action ) => {
 				state.operations[ action.payload.operationId ] = {
-					atomicSiteId: action.payload.atomicSiteId,
+					atomicSiteId: action.meta.arg.atomicSiteId,
 					error: null,
 					progress: 0,
 					status: 'pending',
 					type: 'update',
 				};
-			} );
+			} )
+			.addCase( deleteSnapshot.fulfilled, ( state, action ) => {
+				state.operations[ action.payload.operationId ] = {
+					error: null,
+					progress: 0,
+					snapshotUrl: action.meta.arg.hostname,
+					status: 'pending',
+					type: 'delete',
+				};
+			} )
+			.addMatcher(
+				isAnyOf( deleteAllSnapshotsForSite.fulfilled, deleteAllSnapshotsForUser.fulfilled ),
+				( state, action ) => {
+					state.operations[ action.payload.bulkOperationId ] = {
+						error: null,
+						operationIds: action.payload.operations.map( ( [ _, operationId ] ) => operationId ),
+						progress: 0,
+						status: 'pending',
+						type: 'bulk',
+					};
+
+					action.payload.operations.forEach( ( [ url, operationId ] ) => {
+						state.operations[ operationId ] = {
+							error: null,
+							progress: 0,
+							snapshotUrl: url,
+							status: 'pending',
+							type: 'delete',
+						};
+					} );
+				}
+			);
 	},
 	selectors: {
 		selectActiveCreateOperationForSite: ( state, siteId: string ): CreateOperation | undefined =>
@@ -139,12 +236,15 @@ const snapshotSlice = createSlice( {
 				( operation ): operation is UpdateOperation =>
 					operation.type === 'update' && operation.atomicSiteId === atomicSiteId
 			),
+		selectDeleteOperationForSnapshot: ( state, snapshotUrl: string ): DeleteOperation | undefined =>
+			Object.values( state.operations ).find(
+				( operation ): operation is DeleteOperation =>
+					operation.type === 'delete' && operation.snapshotUrl === snapshotUrl
+			),
 		selectIsAnySnapshotUpdating: ( state ) =>
 			Object.values( state.operations ).some(
 				( operation ) => operation.type === 'update' && operation.status === 'pending'
 			),
-		selectSnapshots: ( state ) => state.snapshots,
-		selectSnapshotsCount: ( state ) => state.snapshots.length,
 	},
 } );
 
@@ -152,6 +252,23 @@ const selectActiveOperationsForAnySite = createSelector(
 	[ ( state: RootState ) => state.snapshot.operations ],
 	( operations ) =>
 		Object.values( operations ).filter( ( operation ) => operation.status === 'pending' )
+);
+
+const selectSnapshotsBySite = createSelector(
+	[
+		( state: RootState ) => state.snapshot.snapshots,
+		( state: RootState, localSiteId: string ) => localSiteId,
+	],
+	( snapshots = [], localSiteId ) =>
+		snapshots.filter( ( snapshot ) => snapshot.localSiteId === localSiteId )
+);
+
+const selectSnapshotsByUser = createSelector(
+	[
+		( state: RootState ) => state.snapshot.snapshots,
+		( state: RootState, userId: number ) => userId,
+	],
+	( snapshots = [], userId ) => snapshots.filter( ( snapshot ) => snapshot.userId === userId )
 );
 
 const selectSnapshotsBySiteAndUser = createSelector(
@@ -166,18 +283,20 @@ const selectSnapshotsBySiteAndUser = createSelector(
 		)
 );
 
-function getProgress( action: CreateLoggerAction ): [ string, number ] {
+function getCreateProgress( action: PreviewCommandLoggerAction ): [ string, number ] {
 	switch ( action ) {
-		case CreateLoggerAction.VALIDATE:
+		case PreviewCommandLoggerAction.VALIDATE:
 			return [ __( 'Creating archive...' ), 5 ];
-		case CreateLoggerAction.ARCHIVE:
+		case PreviewCommandLoggerAction.ARCHIVE:
 			return [ __( 'Creating archive...' ), 20 ];
-		case CreateLoggerAction.UPLOAD:
+		case PreviewCommandLoggerAction.UPLOAD:
 			return [ __( 'Uploading archive...' ), 40 ];
-		case CreateLoggerAction.READY:
+		case PreviewCommandLoggerAction.READY:
 			return [ __( 'Creating preview site...' ), 60 ];
-		case CreateLoggerAction.APPDATA:
+		case PreviewCommandLoggerAction.APPDATA:
 			return [ __( 'Saving preview site...' ), 95 ];
+		default:
+			return [ '', 0 ];
 	}
 }
 
@@ -186,13 +305,38 @@ function getOperation( operationId: crypto.UUID ) {
 	return state.snapshot.operations[ operationId ];
 }
 
+function getAssociatedBulkOperation(
+	targetOperationId: crypto.UUID
+): [ crypto.UUID, BulkOperation ] | [] {
+	const state = store.getState();
+	const entries = Object.entries( state.snapshot.operations ) as [
+		crypto.UUID,
+		SnapshotOperation,
+	][];
+
+	for ( const [ operationId, operation ] of entries ) {
+		if ( operation.type === 'bulk' && operation.operationIds.includes( targetOperationId ) ) {
+			return [ operationId, operation ];
+		}
+	}
+
+	return [];
+}
+
+function isBulkOperationFulfilled( bulkOperation: BulkOperation ) {
+	return bulkOperation.operationIds.every( ( operationId ) => {
+		const operation = getOperation( operationId );
+		return operation?.status === 'fulfilled';
+	} );
+}
+
 window.ipcListener.subscribe( 'snapshot-output', ( event, payload ) => {
 	const operation = getOperation( payload.operationId );
 	if ( ! operation ) {
 		return;
 	}
 
-	const [ detail, progress ] = getProgress( payload.data.action );
+	const [ detail, progress ] = getCreateProgress( payload.data.action );
 	store.dispatch(
 		snapshotActions.updateOperation( {
 			operationId: payload.operationId,
@@ -251,36 +395,83 @@ window.ipcListener.subscribe( 'snapshot-success', ( event, payload ) => {
 		return;
 	}
 
-	if ( operation.type === 'create' ) {
-		getIpcApi().showNotification( {
-			title: operation.snapshotName,
-			body: sprintf( __( "Preview site '%s' has been created." ), operation.snapshotUrl ),
-		} );
-	} else if ( operation.type === 'update' ) {
-		getIpcApi().showNotification( {
-			title: operation.snapshotName,
-			body: sprintf( __( "Preview site '%s' has been updated." ), operation.snapshotUrl ),
-		} );
-	}
-
 	store.dispatch(
 		snapshotActions.updateOperation( {
 			operationId: payload.operationId,
 			operation: { status: 'fulfilled' },
 		} )
 	);
+
+	const [ bulkOperationId, bulkOperation ] = getAssociatedBulkOperation( payload.operationId );
+	const bulkOperationIsFulfilled = bulkOperation && isBulkOperationFulfilled( bulkOperation );
+
+	if ( bulkOperationId && bulkOperationIsFulfilled ) {
+		store.dispatch(
+			snapshotActions.updateOperation( {
+				operationId: bulkOperationId,
+				operation: { status: 'fulfilled' },
+			} )
+		);
+	}
+
+	if ( operation.type === 'create' ) {
+		getIpcApi().showNotification( {
+			title: operation.snapshotName,
+			body: sprintf( __( "Preview site '%s' has been created." ), operation.snapshotUrl ),
+		} );
+
+		store.dispatch(
+			wpcomApi.util.updateQueryData( 'getSnapshotUsage', undefined, ( data ) => {
+				data.siteCount += 1;
+			} )
+		);
+	} else if ( operation.type === 'update' ) {
+		getIpcApi().showNotification( {
+			title: operation.snapshotName,
+			body: sprintf( __( "Preview site '%s' has been updated." ), operation.snapshotUrl ),
+		} );
+
+		store.dispatch(
+			wpcomApi.util.updateQueryData( 'getSnapshotUsage', undefined, ( data ) => {
+				data.siteCount -= 1;
+			} )
+		);
+	} else if ( operation.type === 'delete' ) {
+		if ( ! bulkOperation ) {
+			getIpcApi().showNotification( {
+				title: operation.snapshotName,
+				body: sprintf( __( "Preview site '%s' has been deleted." ), operation.snapshotUrl ),
+			} );
+		} else if ( bulkOperationIsFulfilled ) {
+			getIpcApi().showNotification( {
+				title: __( 'Delete Successful' ),
+				body: __( 'All preview sites have been deleted.' ),
+			} );
+		}
+	}
+
 	store.dispatch( getSnapshots() );
+
+	// Wait for changes to take effect on the back-end before invalidating the cache.
+	setTimeout( () => {
+		store.dispatch( wpcomApi.util.invalidateTags( [ 'SnapshotUsage' ] ) );
+	}, 8000 );
 } );
 
 export const snapshotActions = snapshotSlice.actions;
 export const snapshotSelectors = {
 	...snapshotSlice.selectors,
 	selectActiveOperationsForAnySite,
+	selectSnapshotsBySite,
+	selectSnapshotsByUser,
 	selectSnapshotsBySiteAndUser,
 };
 export const snapshotThunks = {
 	getSnapshots,
 	createSnapshot,
 	updateSnapshot,
+	deleteSnapshot,
+	deleteAllSnapshotsForSite,
+	deleteAllSnapshotsForUser,
 };
 export const reducer = snapshotSlice.reducer;

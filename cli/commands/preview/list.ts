@@ -1,5 +1,5 @@
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { ListLoggerAction as LoggerAction } from 'cli/commands/preview/logger-actions';
+import { PreviewCommandLoggerAction as LoggerAction } from 'common/logger-actions';
 import { getAuthToken } from 'cli/lib/appdata';
 import { getSnapshotCliTable } from 'cli/lib/output';
 import { getSnapshotsFromAppdata } from 'cli/lib/snapshots';

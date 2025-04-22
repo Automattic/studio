@@ -1,6 +1,7 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { DEMO_SITE_SIZE_LIMIT_GB } from 'common/constants';
+import { AuthContextType } from 'src/components/auth-provider';
 import Button from 'src/components/button';
 import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
@@ -8,18 +9,19 @@ import { useArchiveErrorMessages } from 'src/hooks/use-archive-error-messages';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSiteSize } from 'src/hooks/use-site-size';
-import { useSnapshots } from 'src/hooks/use-snapshots';
 import { hasVersionMismatch } from 'src/modules/preview-site/lib/version-comparison';
 import { useRootSelector } from 'src/stores';
 import { snapshotSelectors } from 'src/stores/snapshot-slice';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
+import { useGetSnapshotUsage } from 'src/stores/wpcom-api';
 
 interface CreatePreviewButtonProps {
 	onClick: () => void;
 	selectedSite: SiteDetails;
+	user: AuthContextType[ 'user' ];
 }
 
-export function CreatePreviewButton( { onClick, selectedSite }: CreatePreviewButtonProps ) {
+export function CreatePreviewButton( { onClick, selectedSite, user }: CreatePreviewButtonProps ) {
 	const { __, _n } = useI18n();
 	const activeOperationsForAnySite = useRootSelector(
 		snapshotSelectors.selectActiveOperationsForAnySite
@@ -28,7 +30,12 @@ export function CreatePreviewButton( { onClick, selectedSite }: CreatePreviewBut
 		snapshotSelectors.selectActiveCreateOperationForSite( state, selectedSite.id )
 	);
 	const snapshotQuota = useRootSelector( ( state ) => state.snapshot.snapshotQuota );
-	const { activeSnapshotCount, snapshotCreationBlocked } = useSnapshots();
+	const { data: snapshotUsage } = useGetSnapshotUsage();
+	const snapshotCreationBlocked = snapshotUsage?.siteCreationBlocked ?? false;
+	const snapshotsByUser = useRootSelector( ( state ) =>
+		snapshotSelectors.selectSnapshotsByUser( state, user?.id ?? 0 )
+	);
+	const activeSnapshotCount = snapshotsByUser?.length ?? 0;
 	const isLimitUsed = activeSnapshotCount >= snapshotQuota;
 	const { isOverLimit } = useSiteSize( selectedSite.id );
 	const isOffline = useOffline();

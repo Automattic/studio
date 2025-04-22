@@ -6,8 +6,9 @@ import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSiteDetails } from 'src/hooks/use-site-details';
-import { useSnapshots } from 'src/hooks/use-snapshots';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useRootSelector } from 'src/stores';
+import { snapshotSelectors } from 'src/stores/snapshot-slice';
 
 const MAX_LENGTH_SITE_TITLE = 35;
 
@@ -24,9 +25,8 @@ const DeleteSite = ( { onClose }: DeleteSiteProps ) => {
 		'This site has active preview sites that cannot be deleted without an internet connection.'
 	);
 
-	const { snapshots } = useSnapshots();
-	const snapshotsOnSite = snapshots.filter(
-		( snapshot ) => snapshot.localSiteId === selectedSite?.id
+	const snapshotsOnSite = useRootSelector( ( state ) =>
+		snapshotSelectors.selectSnapshotsBySite( state, selectedSite?.id ?? '' )
 	);
 
 	const handleDeleteSite = async () => {

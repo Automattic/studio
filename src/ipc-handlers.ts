@@ -17,10 +17,9 @@ import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { __, LocaleData, defaultI18n } from '@wordpress/i18n';
 import archiver from 'archiver';
-import { z } from 'zod';
-import { CreateLoggerAction } from 'cli/commands/preview/logger-actions';
 import { calculateDirectorySize, isWordPressDirectory } from 'common/lib/fs-utils';
 import { SupportedLocale } from 'common/lib/locale';
+import { Snapshot } from 'common/types/snapshot';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
 import { ARCHIVER_OPTIONS, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
 import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
@@ -741,7 +740,7 @@ export async function saveSnapshotsToStorage( event: IpcMainInvokeEvent, snapsho
 	const userData = await loadUserData();
 	await saveUserData( {
 		...userData,
-		snapshots: snapshots.map( ( { isLoading, ...restSnapshots } ) => restSnapshots ),
+		snapshots,
 	} );
 }
 
@@ -1292,6 +1291,10 @@ export async function getInstalledTerminals(
 	};
 }
 
+export async function getRandomUUID(): Promise< crypto.UUID > {
+	return crypto.randomUUID();
+}
+
 export async function createSnapshot(
 	event: IpcMainInvokeEvent,
 	siteFolder: string
@@ -1310,4 +1313,12 @@ export async function updateSnapshot(
 		[ 'preview', 'update', siteFolder, '-h', hostname ],
 		parentWindow
 	);
+}
+
+export async function deleteSnapshot(
+	event: IpcMainInvokeEvent,
+	hostname: string
+): Promise< { operationId: crypto.UUID } > {
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+	return executePreviewCliCommand( [ 'preview', 'delete', hostname ], parentWindow );
 }

@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 
 let appPaths: Record< keyof InstalledApps, string[] >;
-let terminalPaths: Record< 'iterm' | 'warp', string[] >;
+let terminalPaths: Record< 'iterm' | 'warp' | 'ghostty', string[] >;
 
 if ( process.platform === 'darwin' ) {
 	const systemApplications = '/Applications';
@@ -29,6 +29,10 @@ if ( process.platform === 'darwin' ) {
 			path.join( systemApplications, 'Warp.app' ),
 			path.join( userApplications, 'Warp.app' ),
 		],
+		ghostty: [
+			path.join( systemApplications, 'Ghostty.app' ),
+			path.join( userApplications, 'Ghostty.app' ),
+		],
 	};
 } else if ( process.platform === 'linux' ) {
 	appPaths = {
@@ -38,6 +42,7 @@ if ( process.platform === 'darwin' ) {
 	terminalPaths = {
 		iterm: [], // iTerm is macOS only
 		warp: [ '/usr/bin/warp' ], // Check for Warp in Linux
+		ghostty: [], // Ghostty is macOS only
 	};
 } else if ( process.platform === 'win32' ) {
 	const localAppData = app.getPath( 'appData' );
@@ -49,6 +54,7 @@ if ( process.platform === 'darwin' ) {
 	terminalPaths = {
 		iterm: [], // iTerm is macOS only
 		warp: [ path.join( localAppData, 'Warp' ) ], // Check for Warp in Windows
+		ghostty: [], // Ghostty is macOS only
 	};
 }
 

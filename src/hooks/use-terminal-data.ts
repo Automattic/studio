@@ -39,6 +39,9 @@ export function useTerminalData() {
 			if ( installed.warp ) {
 				available.push( 'warp' );
 			}
+			if ( installed.ghostty ) {
+				available.push( 'ghostty' );
+			}
 			setAvailableTerminals( available );
 		};
 		loadTerminals();

@@ -54,6 +54,7 @@ type InstalledTerminals = {
 	terminal: boolean;
 	iterm: boolean;
 	warp: boolean;
+	ghostty: boolean;
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

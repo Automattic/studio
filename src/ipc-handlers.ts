@@ -986,6 +986,8 @@ export async function openTerminalAtPath(
 
 		if ( preferredTerminal === ( 'warp' as SupportedTerminal ) ) {
 			return promiseExec( `open -a Warp "${ targetPath }"` );
+		} else if ( preferredTerminal === ( 'ghostty' as SupportedTerminal ) ) {
+			return promiseExec( `open -a Ghostty "${ targetPath }"` );
 		} else if ( preferredTerminal === 'iterm' ) {
 			return promiseExec( `osascript << END
 tell application "iTerm"
@@ -1299,6 +1301,7 @@ export async function getInstalledTerminals(
 		terminal: true, // Terminal.app is always available on macOS
 		iterm: isInstalled( 'iterm' ),
 		warp: isInstalled( 'warp' ),
+		ghostty: isInstalled( 'ghostty' ),
 	};
 }
 

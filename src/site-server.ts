@@ -172,6 +172,13 @@ export class SiteServer {
 			);
 		}
 
+		const isPortAvailable = await portFinder.isPortAvailable( this.details.port );
+		if ( ! isPortAvailable ) {
+			throw new Error(
+				`Port ${ this.details.port } is not available. error code: ERROR_PORT_IN_USE`
+			);
+		}
+
 		console.log( `Starting server for '${ this.details.name }'` );
 		this.server = new SiteServerProcess( options );
 		await this.server.start();

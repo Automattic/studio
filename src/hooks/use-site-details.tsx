@@ -295,6 +295,15 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 						),
 						showOpenLogs: true,
 					} );
+				} else if ( error instanceof Error && error.message.includes( 'ERROR_PORT_IN_USE' ) ) {
+					const port = error.message.match( /\d+/ );
+					getIpcApi().showErrorMessageBox( {
+						title: __( 'Failed to start the site server' ),
+						message: __(
+							`The site server failed to start because the port is already in use. Please close any local development apps that may be using port ${ port } and try again.`
+						),
+						showOpenLogs: false,
+					} );
 				} else {
 					getIpcApi().showErrorMessageBox( {
 						title: __( 'Failed to start the site server' ),

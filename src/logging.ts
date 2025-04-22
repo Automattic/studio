@@ -1,6 +1,7 @@
 import { app } from 'electron';
 import path from 'path';
 import * as FileStreamRotator from 'file-stream-rotator';
+import { platform } from 'os';
 
 let logStream: ReturnType< typeof FileStreamRotator.getStream > | null = null;
 let currentLogFile = '';
@@ -25,6 +26,8 @@ export function setupLogging( {
 		app.setAppLogsPath();
 	}
 
+	const isWindows = platform() === 'win32';
+	
 	logStream = FileStreamRotator.getStream( {
 		filename: path.join( logDir, 'studio-%DATE%' ),
 		date_format: 'YYYYMMDD',
@@ -33,12 +36,18 @@ export function setupLogging( {
 		max_logs: '10',
 		audit_file: path.join( logDir, 'log-rotator.json' ),
 		extension: '.log',
-		create_symlink: true,
+		create_symlink: !isWindows, // Only create symlinks on non-Windows platforms
 		audit_hash_type: 'sha256',
 		verbose: true, // file-stream-rotator itself will log to console too
 	} );
 
-	currentLogFile = path.join( logDir, 'current.log' );
+	// On Windows, we'll use the most recent log file as the current log file
+	if (isWindows) {
+		const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
+		currentLogFile = path.join(logDir, `studio-${today}.0.log`);
+	} else {
+		currentLogFile = path.join(logDir, 'current.log');
+	}
 
 	const makeLogger =
 		( level: LogLevel, originalLogger: typeof console.log ) =>

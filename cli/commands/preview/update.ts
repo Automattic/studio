@@ -1,22 +1,15 @@
 import os from 'node:os';
 import path from 'node:path';
 import { __, _n, sprintf } from '@wordpress/i18n';
+import { PreviewCommandLoggerAction as LoggerAction } from 'common/logger-actions';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
 import { cleanup, createArchive } from 'cli/lib/archive';
-import { addPreviewSiteToAppdata, getSnapshotsFromAppdata } from 'cli/lib/snapshots';
+import { upsertPreviewSiteInAppdata, getSnapshotsFromAppdata } from 'cli/lib/snapshots';
 import { normalizeHostname } from 'cli/lib/utils';
 import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
 import { RegisterCommand, OutputFormat } from 'cli/types';
-
-enum LoggerAction {
-	VALIDATE = 'validate',
-	ARCHIVE = 'archive',
-	UPLOAD = 'upload',
-	READY = 'ready',
-	APPDATA = 'appdata',
-}
 
 async function runCommand(
 	siteFolder: string,
@@ -59,8 +52,15 @@ async function runCommand(
 		);
 
 		logger.reportStart( LoggerAction.APPDATA, __( 'Saving preview site to Studio...' ) );
-		await addPreviewSiteToAppdata( uploadResponse.site_url, uploadResponse.site_id, siteFolder );
+		const snapshot = await upsertPreviewSiteInAppdata(
+			siteFolder,
+			uploadResponse.site_id,
+			uploadResponse.site_url
+		);
 		logger.reportSuccess( __( 'Preview site saved to Studio' ) );
+
+		logger.reportKeyValuePair( 'name', snapshot.name );
+		logger.reportKeyValuePair( 'url', snapshot.url );
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {
 			logger.reportError( error );
@@ -73,16 +73,16 @@ async function runCommand(
 	}
 }
 
-export const registerCommand: RegisterCommand = ( program ) => {
-	program
+export const registerCommand: RegisterCommand = ( parentCommand, rootCommand = parentCommand ) => {
+	parentCommand
 		.command( 'update [folder]' )
 		.description(
 			__( 'Update preview site for the specified folder (defaults to current directory)' )
 		)
 		.requiredOption( '-h, --host <host>', __( 'Host of the preview site to update' ) )
 		.action( async ( siteFolder: string = process.cwd(), options ) => {
-			const parentOptions = program.opts();
+			const outputFormat = rootCommand.opts().outputFormat;
 			const normalizedHost = normalizeHostname( options.host );
-			await runCommand( siteFolder, normalizedHost, parentOptions.outputFormat );
+			await runCommand( siteFolder, normalizedHost, outputFormat );
 		} );
 };

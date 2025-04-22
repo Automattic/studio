@@ -1,13 +1,31 @@
+import crypto from 'crypto';
 import { BrowserWindow } from 'electron';
+import { PreviewCommandLoggerAction } from 'common/logger-actions';
 import { ImportExportEventData } from 'src/lib/import-export/handle-events';
 import { StoredToken } from 'src/lib/oauth';
 import { getMainWindow } from 'src/main-window';
+
+type SnapshotEventData = {
+	action: PreviewCommandLoggerAction;
+	status: 'inprogress' | 'fail' | 'success';
+	message: string;
+};
+type SnapshotKeyValueEventData = {
+	action: 'keyValuePair';
+	key: string;
+	value: string;
+};
 
 export interface IpcEvents {
 	'add-site': [ void ];
 	'auth-updated': [ { token: StoredToken } | { error: unknown } ];
 	'on-export': [ ImportExportEventData, string ];
 	'on-import': [ ImportExportEventData, string ];
+	'snapshot-error': [ { operationId: crypto.UUID; data: SnapshotEventData } ];
+	'snapshot-fatal-error': [ { operationId: crypto.UUID; data: { message: string } } ];
+	'snapshot-output': [ { operationId: crypto.UUID; data: SnapshotEventData } ];
+	'snapshot-key-value': [ { operationId: crypto.UUID; data: SnapshotKeyValueEventData } ];
+	'snapshot-success': [ { operationId: crypto.UUID } ];
 	'show-whats-new': [ void ];
 	'sync-connect-site': [ { remoteSiteId: number; studioSiteId: string } ];
 	'test-render-failure': [ void ];
@@ -16,6 +34,7 @@ export interface IpcEvents {
 	'thumbnail-changed': [ { id: string; imageData: string | null } ];
 	'user-settings': [ void ];
 	'window-fullscreen-change': [ boolean ];
+	'user-preference-changed': [ void ];
 }
 
 export async function sendIpcEventToRenderer< T extends keyof IpcEvents >(

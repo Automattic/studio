@@ -90,7 +90,7 @@ export default function Onboarding() {
 	} );
 
 	const { data: versions = [] } = useGetWordPressVersions();
-	const latestStableVersion = versions.find( ( version ) => version.isLatest );
+	const latestStableVersion = versions.find( ( version ) => version.value === 'latest' );
 
 	useEffect( () => {
 		if ( latestStableVersion ) {

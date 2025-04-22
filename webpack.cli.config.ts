@@ -22,12 +22,14 @@ const config: Configuration = {
 			cli: path.join( __dirname, 'cli' ),
 			src: path.resolve( __dirname, 'src/' ),
 			vendor: path.resolve( __dirname, 'vendor/' ),
+			common: path.resolve( __dirname, 'common/' ),
 		},
 	},
 	optimization: {
 		minimize: false,
 		splitChunks: false,
 	},
+	stats: 'minimal',
 };
 
 export default config;

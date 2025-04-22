@@ -141,8 +141,8 @@ const getSortedSites = ( sites: SyncSite[] ) => {
 		deleted: 3,
 		'missing-permissions': 4,
 		'needs-transfer': 5,
-		unsupported: 6,
-		'jetpack-site': 7,
+		'needs-upgrade': 6,
+		unsupported: 7,
 	};
 
 	return [ ...sites ].sort( ( a, b ) => order[ a.syncSupport ] - order[ b.syncSupport ] );
@@ -190,9 +190,9 @@ function SiteItem( {
 	const isSyncable = site.syncSupport === 'syncable';
 	const isNeedsTransfer = site.syncSupport === 'needs-transfer';
 	const isMissingPermissions = site.syncSupport === 'missing-permissions';
-	const isUnsupported = site.syncSupport === 'unsupported';
+	const needsUpgrade = site.syncSupport === 'needs-upgrade';
 	const isDeleted = site.syncSupport === 'deleted';
-	const isJetpackSite = site.syncSupport === 'jetpack-site';
+	const isUnsupported = site.syncSupport === 'unsupported';
 
 	return (
 		<div
@@ -270,7 +270,7 @@ function SiteItem( {
 					{ __( 'Already connected' ) }
 				</div>
 			) }
-			{ isUnsupported && (
+			{ needsUpgrade && (
 				<div className="a8c-body-small text-a8c-gray-30 shrink-0 text-right">
 					<Button
 						variant="link"
@@ -302,7 +302,7 @@ function SiteItem( {
 					{ __( 'Deleted' ) }
 				</div>
 			) }
-			{ isJetpackSite && (
+			{ isUnsupported && (
 				<div className="a8c-body-small text-a8c-gray-30 shrink-0">{ __( 'Unsupported site' ) }</div>
 			) }
 		</div>

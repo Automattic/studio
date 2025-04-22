@@ -1,12 +1,15 @@
 import fs from 'fs';
 import path from 'path';
-import { isWordPressDirectory } from 'src/lib/fs-utils';
-import { validateSiteFolder } from 'cli/lib/validation';
+import { calculateDirectorySize, isWordPressDirectory } from 'common/lib/fs-utils';
+import { validateSiteFolder, validateSiteSize } from 'cli/lib/validation';
 import { LoggerError } from 'cli/logger';
 
 jest.mock( 'fs' );
 jest.mock( 'path' );
-jest.mock( 'src/lib/fs-utils' );
+jest.mock( 'common/lib/fs-utils', () => ( {
+	calculateDirectorySize: jest.fn(),
+	isWordPressDirectory: jest.fn(),
+} ) );
 
 describe( 'Validation Module', () => {
 	const mockSiteFolder = '/mock/site';
@@ -14,34 +17,58 @@ describe( 'Validation Module', () => {
 	beforeEach( () => {
 		jest.clearAllMocks();
 		( path.join as jest.Mock ).mockImplementation( ( ...args ) => args.join( '/' ) );
-	} );
-
-	it( 'should throw LoggerError if site folder does not exist', () => {
-		( fs.existsSync as jest.Mock ).mockReturnValue( false );
-
-		expect( () => validateSiteFolder( mockSiteFolder ) ).toThrow( LoggerError );
-		expect( () => validateSiteFolder( mockSiteFolder ) ).toThrow(
-			`Folder not found: ${ mockSiteFolder }`
-		);
-	} );
-
-	it( 'should return true for a valid WordPress directory', () => {
 		( fs.existsSync as jest.Mock ).mockReturnValue( true );
 		( isWordPressDirectory as jest.Mock ).mockReturnValue( true );
-
-		const result = validateSiteFolder( mockSiteFolder );
-		expect( result ).toBe( true );
-		expect( isWordPressDirectory ).toHaveBeenCalledWith( mockSiteFolder );
+		( calculateDirectorySize as jest.Mock ).mockResolvedValue( 1024 * 1024 * 1024 ); // 1GB
 	} );
 
-	it( 'should throw LoggerError for an invalid WordPress directory', () => {
-		( fs.existsSync as jest.Mock ).mockReturnValue( true );
-		( isWordPressDirectory as jest.Mock ).mockReturnValue( false );
+	describe( 'validateSiteFolder', () => {
+		it( 'should throw LoggerError if site folder does not exist', () => {
+			( fs.existsSync as jest.Mock ).mockReturnValue( false );
 
-		expect( () => validateSiteFolder( mockSiteFolder ) ).toThrow( LoggerError );
-		expect( () => validateSiteFolder( mockSiteFolder ) ).toThrow(
-			/Please ensure it contains a wp-content directory/
-		);
-		expect( isWordPressDirectory ).toHaveBeenCalledWith( mockSiteFolder );
+			expect( () => validateSiteFolder( mockSiteFolder ) ).toThrow( LoggerError );
+			expect( () => validateSiteFolder( mockSiteFolder ) ).toThrow(
+				`Folder not found: ${ mockSiteFolder }`
+			);
+		} );
+
+		it( 'should return true for a valid WordPress directory', () => {
+			( fs.existsSync as jest.Mock ).mockReturnValue( true );
+			( isWordPressDirectory as jest.Mock ).mockReturnValue( true );
+
+			const result = validateSiteFolder( mockSiteFolder );
+			expect( result ).toBe( true );
+			expect( isWordPressDirectory ).toHaveBeenCalledWith( mockSiteFolder );
+		} );
+
+		it( 'should throw LoggerError for an invalid WordPress directory', () => {
+			( fs.existsSync as jest.Mock ).mockReturnValue( true );
+			( isWordPressDirectory as jest.Mock ).mockReturnValue( false );
+
+			expect( () => validateSiteFolder( mockSiteFolder ) ).toThrow( LoggerError );
+			expect( () => validateSiteFolder( mockSiteFolder ) ).toThrow(
+				/Please ensure it contains a wp-content directory/
+			);
+			expect( isWordPressDirectory ).toHaveBeenCalledWith( mockSiteFolder );
+		} );
+	} );
+
+	describe( 'validateSiteSize', () => {
+		it( 'should throw an error if the site exceeds size limit', async () => {
+			( calculateDirectorySize as jest.Mock ).mockResolvedValue( 3 * 1024 * 1024 * 1024 ); // 3GB
+
+			await expect( validateSiteSize( mockSiteFolder ) ).rejects.toThrow( LoggerError );
+			await expect( validateSiteSize( mockSiteFolder ) ).rejects.toThrow(
+				'Your site exceeds the 2 GB size limit. Please, consider removing unnecessary media files, plugins, or themes from wp-content.'
+			);
+			expect( calculateDirectorySize ).toHaveBeenCalledWith( mockSiteFolder + '/wp-content' );
+		} );
+
+		it( 'should return true for a valid WordPress site within size limit', async () => {
+			( calculateDirectorySize as jest.Mock ).mockResolvedValue( 1024 * 1024 * 1024 ); // 1GB
+
+			expect( await validateSiteSize( mockSiteFolder ) ).toBe( true );
+			expect( calculateDirectorySize ).toHaveBeenCalledWith( mockSiteFolder + '/wp-content' );
+		} );
 	} );
 } );

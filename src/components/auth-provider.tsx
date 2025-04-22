@@ -12,7 +12,7 @@ export interface AuthContextType {
 	isAuthenticated: boolean;
 	authenticate: () => void; // Adjust based on the actual implementation
 	logout: () => Promise< void >; // Adjust based on the actual implementation
-	user?: { id: number | null; email: string; displayName: string };
+	user?: { id: number; email: string; displayName: string };
 }
 
 interface AuthProviderProps {

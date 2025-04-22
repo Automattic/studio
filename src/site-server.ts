@@ -70,11 +70,19 @@ function getAbsoluteUrl( details: SiteDetails ): string {
 	return `http://localhost:${ details.port }`;
 }
 
+// We use SiteDetails for storing it in appdata-v1.json, so this meta was introduced for extra data which is not stored locally
+type SiteServerMeta = {
+	wpVersion?: string;
+};
+
 export class SiteServer {
 	server?: SiteServerProcess;
 	wpCliExecutor?: WpCliProcess;
 
-	private constructor( public details: SiteDetails ) {}
+	private constructor(
+		public details: SiteDetails,
+		public meta: SiteServerMeta
+	) {}
 
 	static get( id: string ): SiteServer | undefined {
 		return servers.get( id );
@@ -84,8 +92,8 @@ export class SiteServer {
 		return deletedServers.includes( id );
 	}
 
-	static create( details: StoppedSiteDetails ): SiteServer {
-		const server = new SiteServer( details );
+	static create( details: StoppedSiteDetails, meta: SiteServerMeta = {} ): SiteServer {
+		const server = new SiteServer( details, meta );
 		servers.set( details.id, server );
 		return server;
 	}
@@ -151,6 +159,8 @@ export class SiteServer {
 			adminPassword: decodePassword( this.details.adminPassword ?? '' ),
 			siteTitle: this.details.name,
 			php: this.details.phpVersion,
+			wp: this.meta.wpVersion,
+			isWpAutoUpdating: this.details.isWpAutoUpdating,
 		} );
 
 		options.absoluteUrl = getAbsoluteUrl( this.details );
@@ -159,6 +169,13 @@ export class SiteServer {
 		if ( options.mode !== WPNowMode.WORDPRESS ) {
 			throw new Error(
 				`Site server started with Playground's '${ options.mode }' mode. Studio only supports 'wordpress' mode.`
+			);
+		}
+
+		const isPortAvailable = await portFinder.isPortAvailable( this.details.port );
+		if ( ! isPortAvailable ) {
+			throw new Error(
+				`Port ${ this.details.port } is not available. error code: ERROR_PORT_IN_USE`
 			);
 		}
 
@@ -177,6 +194,7 @@ export class SiteServer {
 			url: this.server.url,
 			port: this.server.options.port,
 			phpVersion: this.server.options.phpVersion ?? DEFAULT_PHP_VERSION,
+			isWpAutoUpdating: this.details.isWpAutoUpdating,
 			running: true,
 			autoStart: true,
 			themeDetails,
@@ -194,7 +212,7 @@ export class SiteServer {
 			name: site.name,
 			path: site.path,
 			phpVersion: site.phpVersion,
-			wpVersion: site.wpVersion,
+			isWpAutoUpdating: site.isWpAutoUpdating,
 			customDomain: site.customDomain,
 			enableHttps: site.enableHttps,
 		};

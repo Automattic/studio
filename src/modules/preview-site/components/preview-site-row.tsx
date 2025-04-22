@@ -3,18 +3,19 @@ import { sprintf } from '@wordpress/i18n';
 import { Icon, published, warning } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useEffect, useState, useRef } from 'react';
+import { Snapshot } from 'common/types/snapshot';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import { TooltipProps, Tooltip } from 'src/components/tooltip';
 import { UPDATED_MESSAGE_DURATION_MS } from 'src/constants';
 import { useExpirationDate } from 'src/hooks/use-expiration-date';
 import { useFormatLocalizedTimestamps } from 'src/hooks/use-format-localized-timestamps';
-import { useSnapshots } from 'src/hooks/use-snapshots';
-import { useUpdateDemoSite } from 'src/hooks/use-update-demo-site';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { DeleteProgressRow } from 'src/modules/preview-site/components/delete-progress-row';
 import { PreviewActionButtonsMenu } from 'src/modules/preview-site/components/preview-action-buttons-menu';
+import { useAppDispatch, useRootSelector } from 'src/stores';
+import { snapshotActions, snapshotSelectors } from 'src/stores/snapshot-slice';
 
 interface PreviewSiteRowProps {
 	snapshot: Snapshot;
@@ -32,18 +33,25 @@ export function PreviewSiteRow( {
 	showUpdateTooltip = false,
 }: PreviewSiteRowProps ) {
 	const { __ } = useI18n();
-	const { url, date, isDeleting } = snapshot;
+	const { url, date } = snapshot;
 	const { countDown, dateString, expireDateString, isExpired } = useExpirationDate( date );
-	const { fetchSnapshotUsage, removeSnapshot } = useSnapshots();
-	const { isDemoSiteUpdating, hasDemoSiteError } = useUpdateDemoSite();
-	const isPreviewSiteUpdating = isDemoSiteUpdating( snapshot.atomicSiteId );
-	const hasError = hasDemoSiteError( snapshot.atomicSiteId );
+	const dispatch = useAppDispatch();
+	const updateOperation = useRootSelector( ( state ) =>
+		snapshotSelectors.selectUpdateOperationForSnapshot( state, snapshot.atomicSiteId )
+	);
+	const deleteOperation = useRootSelector( ( state ) =>
+		snapshotSelectors.selectDeleteOperationForSnapshot( state, snapshot.url )
+	);
 	const { formatRelativeTime } = useFormatLocalizedTimestamps();
 	const [ showUpdatedMessage, setShowUpdatedMessage ] = useState( false );
 	const wasUpdating = useRef( false );
 
 	useEffect( () => {
-		if ( isPreviewSiteUpdating ) {
+		if ( ! updateOperation ) {
+			return;
+		}
+
+		if ( updateOperation.status === 'pending' ) {
 			wasUpdating.current = true;
 			setShowUpdatedMessage( false );
 			return;
@@ -54,7 +62,7 @@ export function PreviewSiteRow( {
 		}
 		wasUpdating.current = false;
 
-		if ( ! hasError ) {
+		if ( updateOperation.status === 'fulfilled' ) {
 			setShowUpdatedMessage( true );
 		}
 
@@ -63,7 +71,7 @@ export function PreviewSiteRow( {
 		}, UPDATED_MESSAGE_DURATION_MS );
 
 		return () => clearTimeout( timeoutId );
-	}, [ hasError, isPreviewSiteUpdating ] );
+	}, [ updateOperation ] );
 
 	const getLastUpdateTimeText = () => {
 		if ( ! date ) {
@@ -79,7 +87,7 @@ export function PreviewSiteRow( {
 			);
 		}
 
-		if ( hasError ) {
+		if ( updateOperation?.status === 'rejected' ) {
 			return (
 				<div className="flex items-center">
 					<Icon icon={ warning } className="!mt-0 mr-1 fill-a8c-red-50" />
@@ -92,13 +100,9 @@ export function PreviewSiteRow( {
 		return sprintf( __( '%s ago' ), timeDistance );
 	};
 
-	useEffect( () => {
-		void fetchSnapshotUsage();
-	}, [ fetchSnapshotUsage ] );
-
 	const urlWithHTTPS = `https://${ url }`;
 
-	if ( isDeleting ) {
+	if ( deleteOperation?.status === 'pending' ) {
 		return <DeleteProgressRow />;
 	}
 
@@ -134,7 +138,7 @@ export function PreviewSiteRow( {
 				</div>
 				<div className="flex ltr:ml-auto rtl:mr-auto">
 					<div className="w-[150px] text-a8c-gray-700 flex items-center pl-4">
-						{ isPreviewSiteUpdating ? (
+						{ updateOperation?.status === 'pending' ? (
 							<div className="flex items-center text-gray-900">
 								<Spinner className="!mt-0 !mx-2" />
 								{ __( 'Updating' ) }
@@ -154,7 +158,13 @@ export function PreviewSiteRow( {
 						{ isExpired ? (
 							<Button
 								variant="link"
-								onClick={ () => removeSnapshot( snapshot ) }
+								onClick={ () => {
+									dispatch(
+										snapshotActions.deleteSnapshotLocally( {
+											atomicSiteId: snapshot.atomicSiteId,
+										} )
+									);
+								} }
 								className={ '!text-a8c-blueberry hover:!text-a8c-red-50' }
 							>
 								{ __( 'Clear' ) }

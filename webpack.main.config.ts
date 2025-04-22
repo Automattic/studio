@@ -100,8 +100,10 @@ export const mainBaseConfig: Configuration = {
 	resolve: {
 		extensions: [ '.js', '.ts', '.jsx', '.tsx', '.css', '.json' ],
 		alias: {
+			cli: path.join( __dirname, 'cli/' ),
 			src: path.resolve( __dirname, 'src/' ),
 			vendor: path.resolve( __dirname, 'vendor/' ),
+			common: path.resolve( __dirname, 'common/' ),
 		},
 	},
 };

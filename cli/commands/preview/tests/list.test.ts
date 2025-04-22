@@ -1,10 +1,10 @@
 import path from 'path';
 import { Command } from 'commander';
-import { readAppdata, Snapshot, getSiteIdFromFolder, getAuthToken } from 'cli/lib/appdata';
+import { Snapshot } from 'common/types/snapshot';
+import { readAppdata, getSiteByFolder, getAuthToken } from 'cli/lib/appdata';
 import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger } from 'cli/logger';
 
-jest.mock( 'cli/lib/appdata' );
 jest.mock( 'cli/lib/appdata' );
 jest.mock( 'cli/lib/validation' );
 jest.mock( 'cli/logger' );
@@ -24,6 +24,11 @@ describe( 'Preview List Command', () => {
 			userId: 123,
 		},
 	];
+	const mockSite = {
+		id: '456',
+		name: 'Test Site',
+		path: '/test/site',
+	};
 	let program: Command;
 	let mockLogger: {
 		reportStart: jest.Mock;
@@ -36,7 +41,7 @@ describe( 'Preview List Command', () => {
 		( readAppdata as jest.Mock ).mockResolvedValue( { snapshots: mockSnapshots } );
 		( getAuthToken as jest.Mock ).mockResolvedValue( mockAuthToken );
 		( validateSiteFolder as jest.Mock ).mockReturnValue( true );
-		( getSiteIdFromFolder as jest.Mock ).mockResolvedValue( mockSnapshots[ 0 ].localSiteId );
+		( getSiteByFolder as jest.Mock ).mockResolvedValue( mockSite );
 
 		jest.clearAllMocks();
 		jest.spyOn( Date, 'now' ).mockReturnValue( mockDate );
@@ -60,8 +65,8 @@ describe( 'Preview List Command', () => {
 
 		expect( mockLogger.reportStart ).toHaveBeenCalledWith( 'validate', 'Validating...' );
 		expect( mockLogger.reportSuccess ).toHaveBeenCalledWith( 'Validation successful' );
-		expect( mockLogger.reportStart ).toHaveBeenCalledWith( 'load', 'Loading snapshots...' );
-		expect( mockLogger.reportSuccess ).toHaveBeenCalledWith( 'Found 1 snapshot' );
+		expect( mockLogger.reportStart ).toHaveBeenCalledWith( 'load', 'Loading previews...' );
+		expect( mockLogger.reportSuccess ).toHaveBeenCalledWith( 'Found 1 preview' );
 	} );
 
 	it( 'should handle validation errors', async () => {
@@ -83,6 +88,6 @@ describe( 'Preview List Command', () => {
 
 		await program.parseAsync( [ 'node', 'studio', 'list', '/test/path' ] );
 
-		expect( mockLogger.reportSuccess ).toHaveBeenCalledWith( 'No snapshots found' );
+		expect( mockLogger.reportSuccess ).toHaveBeenCalledWith( 'No previews found' );
 	} );
 } );

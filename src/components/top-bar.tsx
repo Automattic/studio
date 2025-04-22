@@ -6,8 +6,9 @@ import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
 import { WordPressLogo } from 'src/components/wordpress-logo';
 import { useAuth } from 'src/hooks/use-auth';
-import { useDocsLink } from 'src/hooks/use-docs-link';
+import { useI18nData } from 'src/hooks/use-i18n-data';
 import { useOffline } from 'src/hooks/use-offline';
+import { getDocsLink } from 'src/lib/get-docs-link';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
 interface TopBarProps {
@@ -96,10 +97,10 @@ function Authentication() {
 }
 
 export default function TopBar( { onToggleSidebar }: TopBarProps ) {
-	const getDocsLink = useDocsLink();
+	const { locale } = useI18nData();
 
 	const openDocs = () => {
-		void getIpcApi().openURL( getDocsLink( 'studio' ) );
+		void getIpcApi().openURL( getDocsLink( locale, 'studio' ) );
 	};
 
 	return (

@@ -2,41 +2,37 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { __ } from '@wordpress/i18n';
+import { snapshotSchema } from 'common/types/snapshot';
+import { StatsGroup, StatsMetric } from 'common/types/stats';
 import { z } from 'zod';
 import { LoggerError } from 'cli/logger';
-
-export const snapshotSchema = z.object( {
-	url: z.string(),
-	atomicSiteId: z.number(),
-	localSiteId: z.string(),
-	date: z.number(),
-	name: z.string().optional(),
-	userId: z.number().optional(),
-} );
 
 const siteSchema = z
 	.object( {
 		id: z.string(),
 		path: z.string(),
-		name: z.string().optional(),
+		name: z.string(),
 	} )
 	.passthrough();
 
 const userDataSchema = z
 	.object( {
-		snapshots: z.array( snapshotSchema ).optional(),
 		sites: z.array( siteSchema ).optional(),
+		snapshots: z.array( snapshotSchema ).optional(),
+		locale: z.string().optional(),
 		authToken: z
 			.object( {
-				accessToken: z.string().min( 1, 'Access token cannot be empty' ),
+				accessToken: z.string().min( 1, __( 'Access token cannot be empty' ) ),
 				id: z.number(),
 			} )
 			.passthrough()
 			.optional(),
+		lastBumpStats: z
+			.record( z.nativeEnum( StatsGroup ), z.record( z.nativeEnum( StatsMetric ), z.number() ) )
+			.optional(),
 	} )
 	.passthrough();
 
-export type Snapshot = z.infer< typeof snapshotSchema >;
 type UserData = z.infer< typeof userDataSchema >;
 
 export function getAppdataPath(): string {
@@ -124,7 +120,9 @@ export async function getAuthToken(): Promise< NonNullable< UserData[ 'authToken
 	}
 }
 
-export async function getSiteIdFromFolder( siteFolder: string ): Promise< string > {
+export async function getSiteByFolder(
+	siteFolder: string
+): Promise< z.infer< typeof siteSchema > > {
 	const userData = await readAppdata();
 	const sites = userData.sites ?? [];
 	const site = sites.find( ( site ) => site.path === siteFolder );
@@ -133,5 +131,5 @@ export async function getSiteIdFromFolder( siteFolder: string ): Promise< string
 		throw new LoggerError( __( 'The specified folder is not added to Studio.' ) );
 	}
 
-	return site.id;
+	return site;
 }

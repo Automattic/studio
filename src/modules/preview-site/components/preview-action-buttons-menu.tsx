@@ -3,12 +3,13 @@ import { __ } from '@wordpress/i18n';
 import { moreVertical } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useState } from 'react';
+import { Snapshot } from 'common/types/snapshot';
 import offlineIcon from 'src/components/offline-icon';
 import { Tooltip, TooltipProps } from 'src/components/tooltip';
 import { useConfirmationDialog } from 'src/hooks/use-confirmation-dialog';
 import { useOffline } from 'src/hooks/use-offline';
-import { useSnapshots } from 'src/hooks/use-snapshots';
-import { useUpdateDemoSite } from 'src/hooks/use-update-demo-site';
+import { useAppDispatch } from 'src/stores';
+import { snapshotActions, snapshotThunks } from 'src/stores/snapshot-slice';
 import { RenamePreviewModal } from './rename-preview-modal';
 
 interface PreviewActionButtonsMenuProps {
@@ -27,8 +28,7 @@ export function PreviewActionButtonsMenu( {
 	showUpdateTooltip = false,
 }: PreviewActionButtonsMenuProps ) {
 	const { __ } = useI18n();
-	const { deleteSnapshot, updateSnapshot } = useSnapshots();
-	const { updateDemoSite } = useUpdateDemoSite();
+	const dispatch = useAppDispatch();
 	const isOffline = useOffline();
 	const [ showRenameModal, setShowRenameModal ] = useState( false );
 
@@ -43,7 +43,12 @@ export function PreviewActionButtonsMenu( {
 
 	const handleUpdatePreviewSite = () => {
 		void showUpdatePreviewConfirmation( () => {
-			void updateDemoSite( snapshot, selectedSite );
+			void dispatch(
+				snapshotThunks.updateSnapshot( {
+					atomicSiteId: snapshot.atomicSiteId,
+					siteFolder: selectedSite.path,
+				} )
+			);
 		} );
 	};
 
@@ -58,15 +63,22 @@ export function PreviewActionButtonsMenu( {
 
 	const handleDeletePreviewSite = () => {
 		void showDeletePreviewConfirmation( () => {
-			void deleteSnapshot( snapshot );
+			void dispatch(
+				snapshotThunks.deleteSnapshot( {
+					hostname: snapshot.url,
+				} )
+			);
 		} );
 	};
 
 	const handleRename = ( newName: string ) => {
-		updateSnapshot( {
-			...snapshot,
-			name: newName,
-		} );
+		dispatch(
+			snapshotActions.updateSnapshot( {
+				atomicSiteId: snapshot.atomicSiteId,
+				snapshot: { name: newName },
+			} )
+		);
+
 		setShowRenameModal( false );
 	};
 

@@ -25,11 +25,10 @@ jest.mock( 'src/stores/wordpress-versions-api', () => ( {
 				value: '6.5.0-beta1',
 				isBeta: true,
 				isDevelopment: false,
-				isLatest: false,
 				label: '6.5.0-beta1',
 			},
-			{ value: '6.4.0', isBeta: false, isDevelopment: false, isLatest: true, label: '6.4' },
-			{ value: '6.3.3', isBeta: false, isDevelopment: false, isLatest: false, label: '6.3.3' },
+			{ value: '6.4.0', isBeta: false, isDevelopment: false, label: '6.4' },
+			{ value: '6.3.3', isBeta: false, isDevelopment: false, label: '6.3.3' },
 		],
 	} ),
 	selectWordPressVersionsWithLatest: jest.fn(),
@@ -98,11 +97,21 @@ describe( 'AddSite', () => {
 		render( <AddSite /> );
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
-		await userEvent.tab();
-		await userEvent.keyboard( '{Enter}' );
 
-		expect( mockCreateSite ).not.toHaveBeenCalled();
+		// Find the Cancel button
+		const cancelButton = screen.getByRole( 'button', { name: 'Cancel' } );
+		expect( cancelButton ).toBeInTheDocument();
+
+		// Tab until we reach the Cancel button
+		let currentButton;
+		do {
+			await user.tab();
+			currentButton = document.activeElement;
+		} while ( currentButton !== cancelButton );
+
+		await user.keyboard( '{Enter}' );
 		expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument();
+		expect( mockCreateSite ).not.toHaveBeenCalled();
 	} );
 
 	it( 'calls createSite with selected path when add site button is clicked', async () => {
@@ -134,7 +143,7 @@ describe( 'AddSite', () => {
 			expect( mockCreateSite ).toHaveBeenCalledWith(
 				'test',
 				'My WordPress Website',
-				expect.any( String ),
+				'latest',
 				undefined,
 				false,
 				expect.any( Function )
@@ -219,18 +228,24 @@ describe( 'AddSite', () => {
 		render( <AddSite /> );
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
-		await user.click( screen.getByDisplayValue( 'My WordPress Website' ) );
-		await user.type( screen.getByDisplayValue( 'My WordPress Website' ), ' mutated' );
+		expect( screen.getByRole( 'dialog' ) ).toBeVisible();
 
-		expect( screen.getByDisplayValue( 'My WordPress Website mutated' ) ).toBeVisible();
+		const siteNameInput = screen.getByDisplayValue( 'My WordPress Website' );
+		await user.click( siteNameInput );
+		await user.type( siteNameInput, ' changed' );
+
+		expect( screen.getByDisplayValue( 'My WordPress Website changed' ) ).toBeVisible();
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 		expect(
-			screen.getByDisplayValue( '/default_path/my-wordpress-website-mutated' )
+			screen.getByDisplayValue( '/default_path/my-wordpress-website-changed' )
 		).toBeVisible();
 
-		await userEvent.keyboard( '{Escape}' );
+		await user.keyboard( '{Escape}' );
+		await waitFor( () => {
+			expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument();
+		} );
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
-
+		expect( screen.getByRole( 'dialog' ) ).toBeVisible();
 		expect( screen.getByDisplayValue( 'My WordPress Website' ) ).toBeVisible();
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 		expect( screen.getByDisplayValue( '/default_path/my-wordpress-website' ) ).toBeVisible();

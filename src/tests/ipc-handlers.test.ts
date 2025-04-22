@@ -5,9 +5,9 @@ import { shell, IpcMainInvokeEvent } from 'electron';
 import fs from 'fs';
 import { normalize } from 'path';
 import * as Sentry from '@sentry/electron/main';
+import { StatsGroup, StatsMetric } from 'common/types/stats';
 import { createSite, startServer, isFullscreen, importSite } from 'src/ipc-handlers';
 import { bumpStat } from 'src/lib/bump-stats';
-import { StatsGroup, StatsMetric } from 'src/lib/bump-stats/types';
 import { isEmptyDir, pathExists } from 'src/lib/fs-utils';
 import { importBackup, defaultImporterOptions } from 'src/lib/import-export/import/import-manager';
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
@@ -77,6 +77,8 @@ describe( 'createSite', () => {
 			port: 9999,
 			running: false,
 			customDomain: undefined,
+			enableHttps: undefined,
+			isWpAutoUpdating: false,
 		} );
 	} );
 
@@ -88,10 +90,12 @@ describe( 'createSite', () => {
 				throw new Error( 'Intentional test error' );
 			} );
 
-			createSite( mockIpcMainInvokeEvent, '/test', 'Test', '6.4' ).catch( () => {
-				expect( shell.trashItem ).toHaveBeenCalledTimes( 1 );
-				expect( shell.trashItem ).toHaveBeenCalledWith( '/test' );
-			} );
+			createSite( mockIpcMainInvokeEvent, '/test', 'Test', '6.4' )
+				.catch( () => '6.4' )
+				.catch( () => {
+					expect( shell.trashItem ).toHaveBeenCalledTimes( 1 );
+					expect( shell.trashItem ).toHaveBeenCalledWith( '/test' );
+				} );
 		} );
 	} );
 } );

@@ -16,10 +16,11 @@ import { Tooltip, DynamicTooltip } from 'src/components/tooltip';
 import { WordPressLogoCircle } from 'src/components/wordpress-logo-circle';
 import { useSyncSites } from 'src/hooks/sync-sites';
 import { useConfirmationDialog } from 'src/hooks/use-confirmation-dialog';
-import { useDocsLink } from 'src/hooks/use-docs-link';
+import { useI18nData } from 'src/hooks/use-i18n-data';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSyncStatesProgressInfo } from 'src/hooks/use-sync-states-progress-info';
 import { cx } from 'src/lib/cx';
+import { getDocsLink } from 'src/lib/get-docs-link';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
@@ -314,7 +315,7 @@ const SyncConnectedSiteSection = ( {
 	openSitesSyncSelector,
 }: SyncConnectedSiteSectionProps ) => {
 	const { __ } = useI18n();
-	const getDocsLink = useDocsLink();
+	const { locale } = useI18nData();
 	const { clearPullState, isSiteIdPulling, isSiteIdPushing } = useSyncSites();
 	const isOffline = useOffline();
 
@@ -399,7 +400,7 @@ const SyncConnectedSiteSection = ( {
 								button: (
 									<Button
 										variant="link"
-										onClick={ () => getIpcApi().openURL( getDocsLink( 'sync' ) ) }
+										onClick={ () => getIpcApi().openURL( getDocsLink( locale, 'sync' ) ) }
 									/>
 								),
 							}

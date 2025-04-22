@@ -1,5 +1,8 @@
+import { __ } from '@wordpress/i18n';
 // eslint-disable-next-line import/no-named-as-default
 import Table from 'cli-table3';
+import { HOUR_MS, DAY_MS } from 'common/constants';
+import { Snapshot } from 'common/types/snapshot';
 import {
 	addDays,
 	addHours,
@@ -8,8 +11,6 @@ import {
 	formatDuration,
 	intervalToDuration,
 } from 'date-fns';
-import { HOUR_MS, DAY_MS } from 'src/constants';
-import { Snapshot } from 'cli/lib/appdata';
 
 function formatDate( date: string | number | Date ) {
 	return format( date, 'MMM d, yyyy, HH:mm' );
@@ -29,7 +30,7 @@ function formatDurationUntilExpiry( lastUpdatedAt: number ) {
 	}
 
 	if ( endDate < now ) {
-		return 'Expired';
+		return __( 'Expired' );
 	}
 
 	return formatDuration(
@@ -46,7 +47,7 @@ function formatDurationUntilExpiry( lastUpdatedAt: number ) {
 
 export function getSnapshotCliTable( snapshots: Snapshot[] ) {
 	const table = new Table( {
-		head: [ 'URL', 'Site Name', 'Updated', 'Expires in' ],
+		head: [ __( 'URL' ), __( 'Site Name' ), __( 'Updated' ), __( 'Expires in' ) ],
 		style: {
 			head: [],
 			border: [],

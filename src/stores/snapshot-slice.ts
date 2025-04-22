@@ -419,11 +419,23 @@ window.ipcListener.subscribe( 'snapshot-success', ( event, payload ) => {
 			title: operation.snapshotName,
 			body: sprintf( __( "Preview site '%s' has been created." ), operation.snapshotUrl ),
 		} );
+
+		store.dispatch(
+			wpcomApi.util.updateQueryData( 'getSnapshotUsage', undefined, ( data ) => {
+				data.siteCount += 1;
+			} )
+		);
 	} else if ( operation.type === 'update' ) {
 		getIpcApi().showNotification( {
 			title: operation.snapshotName,
 			body: sprintf( __( "Preview site '%s' has been updated." ), operation.snapshotUrl ),
 		} );
+
+		store.dispatch(
+			wpcomApi.util.updateQueryData( 'getSnapshotUsage', undefined, ( data ) => {
+				data.siteCount -= 1;
+			} )
+		);
 	} else if ( operation.type === 'delete' ) {
 		if ( ! bulkOperation ) {
 			getIpcApi().showNotification( {
@@ -443,7 +455,7 @@ window.ipcListener.subscribe( 'snapshot-success', ( event, payload ) => {
 	// Wait for changes to take effect on the back-end before invalidating the cache.
 	setTimeout( () => {
 		store.dispatch( wpcomApi.util.invalidateTags( [ 'SnapshotUsage' ] ) );
-	}, 2000 );
+	}, 8000 );
 } );
 
 export const snapshotActions = snapshotSlice.actions;

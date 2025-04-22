@@ -1262,7 +1262,7 @@ export async function saveUserTerminal(
 	} );
 
 	// Notify renderer processes that the terminal preference has changed
-	sendIpcEventToRenderer( 'user-preference-changed' );
+	await sendIpcEventToRenderer( 'user-preference-changed' );
 }
 
 export async function getUserTerminal( _event: IpcMainInvokeEvent ): Promise< SupportedTerminal > {

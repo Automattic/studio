@@ -382,17 +382,17 @@ function errorEventHandler( operationId: crypto.UUID, message: string ) {
 	}
 
 	if ( operation.type === 'create' ) {
-		getIpcApi().showErrorMessageBox( {
+		void getIpcApi().showErrorMessageBox( {
 			title: __( 'Adding preview site failed' ),
 			message: message,
 		} );
 	} else if ( operation.type === 'update' ) {
-		getIpcApi().showErrorMessageBox( {
+		void getIpcApi().showErrorMessageBox( {
 			title: __( 'Updating preview site failed' ),
 			message: message,
 		} );
 	} else if ( operation.type === 'delete' ) {
-		getIpcApi().showErrorMessageBox( {
+		void getIpcApi().showErrorMessageBox( {
 			title: __( 'Deleting preview site failed' ),
 			message: message,
 		} );
@@ -446,12 +446,12 @@ window.ipcListener.subscribe( 'snapshot-success', ( event, payload ) => {
 			} )
 		);
 
-		getIpcApi().showNotification( {
+		void getIpcApi().showNotification( {
 			title: operation.snapshotName,
 			body: sprintf( __( "Preview site '%s' has been created." ), operation.snapshotUrl ),
 		} );
 	} else if ( operation.type === 'update' ) {
-		getIpcApi().showNotification( {
+		void getIpcApi().showNotification( {
 			title: operation.snapshotName,
 			body: sprintf( __( "Preview site '%s' has been updated." ), operation.snapshotUrl ),
 		} );
@@ -463,19 +463,19 @@ window.ipcListener.subscribe( 'snapshot-success', ( event, payload ) => {
 		);
 
 		if ( ! bulkOperation ) {
-			getIpcApi().showNotification( {
+			void getIpcApi().showNotification( {
 				title: operation.snapshotName,
 				body: sprintf( __( "Preview site '%s' has been deleted." ), operation.snapshotUrl ),
 			} );
 		} else if ( bulkOperationIsFulfilled ) {
-			getIpcApi().showNotification( {
+			void getIpcApi().showNotification( {
 				title: __( 'Delete Successful' ),
 				body: __( 'All preview sites have been deleted.' ),
 			} );
 		}
 	}
 
-	store.dispatch( getSnapshots() );
+	void store.dispatch( getSnapshots() );
 
 	// Wait for changes to take effect on the back-end before invalidating the cache.
 	setTimeout( () => {

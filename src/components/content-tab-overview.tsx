@@ -163,11 +163,11 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 	};
 
 	useIpcListener( 'user-preference-changed', () => {
-		updateTerminalName();
+		void updateTerminalName();
 	} );
 
 	useEffect( () => {
-		updateTerminalName();
+		void updateTerminalName();
 	}, [] );
 
 	const buttonsArray: ButtonsSectionProps[ 'buttonsArray' ] = [

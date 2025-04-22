@@ -19,7 +19,11 @@ async function main() {
 		.description( __( 'Studio by WordPress.com CLI' ) )
 		.version( version )
 		.hook( 'preAction', () => {
-			bumpAggregatedUniqueStat( StatsGroup.STUDIO_CLI_USAGE_UNIQUE, StatsMetric.SUCCESS, 'weekly' );
+			void bumpAggregatedUniqueStat(
+				StatsGroup.STUDIO_CLI_USAGE_UNIQUE,
+				StatsMetric.SUCCESS,
+				'weekly'
+			);
 		} )
 		.addOption(
 			new Option( '--output-format [format]', __( 'Specify a non-standard output format' ) )
@@ -44,4 +48,4 @@ async function main() {
 	studioCommand.parse( process.argv );
 }
 
-main();
+void main();

@@ -25,7 +25,7 @@ export function useTerminalData() {
 			setSavedTerminalValue( terminal );
 			setTerminal( terminal );
 		};
-		loadSavedTerminal();
+		void loadSavedTerminal();
 	}, [] );
 
 	// Load available terminals
@@ -38,7 +38,7 @@ export function useTerminalData() {
 			}
 			setAvailableTerminals( available );
 		};
-		loadTerminals();
+		void loadTerminals();
 	}, [] );
 
 	const handleTerminalChange = ( newTerminal: SupportedTerminal ) => {

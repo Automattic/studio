@@ -32,7 +32,7 @@ export default function App() {
 	}, [ needsOnboarding ] );
 
 	useEffect( () => {
-		dispatch( snapshotThunks.getSnapshots() );
+		void dispatch( snapshotThunks.getSnapshots() );
 	}, [ dispatch ] );
 
 	return (

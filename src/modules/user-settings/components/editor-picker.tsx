@@ -21,16 +21,14 @@ export const EditorPicker = ( { value, onChange }: EditorPickerProps ) => {
 	} );
 
 	useEffect( () => {
-		const fetchInstalledApps = async () => {
-			try {
-				const apps = await getIpcApi().getInstalledApps();
+		getIpcApi()
+			.getInstalledApps()
+			.then( ( apps ) => {
 				setInstalledApps( apps );
-			} catch ( error ) {
+			} )
+			.catch( ( error ) => {
 				console.error( 'Failed to fetch installed apps:', error );
-			}
-		};
-
-		fetchInstalledApps();
+			} );
 	}, [] );
 
 	const installedEditors = Object.entries( supportedEditorNames ).filter(

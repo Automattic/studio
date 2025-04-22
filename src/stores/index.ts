@@ -54,9 +54,9 @@ listenerMiddleware.startListening( {
 			currentState.snapshot.snapshots !== previousState.snapshot.snapshots
 		);
 	},
-	effect( action, listenerApi ) {
+	async effect( action, listenerApi ) {
 		const state = listenerApi.getState();
-		getIpcApi().saveSnapshotsToStorage( state.snapshot.snapshots );
+		await getIpcApi().saveSnapshotsToStorage( state.snapshot.snapshots );
 	},
 } );
 

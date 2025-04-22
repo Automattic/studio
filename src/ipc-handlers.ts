@@ -739,7 +739,7 @@ export async function saveSnapshotsToStorage( event: IpcMainInvokeEvent, snapsho
 	const userData = await loadUserData();
 	await saveUserData( {
 		...userData,
-		snapshots: snapshots.map( ( { isLoading, ...restSnapshots } ) => restSnapshots ),
+		snapshots,
 	} );
 }
 

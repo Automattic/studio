@@ -50,8 +50,6 @@ interface Snapshot {
 	atomicSiteId: number;
 	localSiteId: string;
 	date: number;
-	isLoading?: boolean;
-	isDeleting?: boolean;
 	name?: string;
 	sequence?: number;
 	userId?: number;

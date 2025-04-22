@@ -22,6 +22,7 @@ export interface IpcEvents {
 	'on-export': [ ImportExportEventData, string ];
 	'on-import': [ ImportExportEventData, string ];
 	'snapshot-error': [ { operationId: crypto.UUID; data: SnapshotEventData } ];
+	'snapshot-fatal-error': [ { operationId: crypto.UUID; data: { message: string } } ];
 	'snapshot-output': [ { operationId: crypto.UUID; data: SnapshotEventData } ];
 	'snapshot-key-value': [ { operationId: crypto.UUID; data: SnapshotKeyValueEventData } ];
 	'snapshot-success': [ { operationId: crypto.UUID } ];

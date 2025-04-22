@@ -375,35 +375,43 @@ window.ipcListener.subscribe( 'snapshot-key-value', ( event, payload ) => {
 	);
 } );
 
-window.ipcListener.subscribe( 'snapshot-error', ( event, payload ) => {
-	const operation = getOperation( payload.operationId );
-	if ( ! operation ) {
+function errorEventHandler( operationId: crypto.UUID, message: string ) {
+	const operation = getOperation( operationId );
+	if ( ! operation || operation.status !== 'pending' ) {
 		return;
 	}
 
 	if ( operation.type === 'create' ) {
 		getIpcApi().showErrorMessageBox( {
 			title: __( 'Adding preview site failed' ),
-			message: payload.data.message,
+			message: message,
 		} );
 	} else if ( operation.type === 'update' ) {
 		getIpcApi().showErrorMessageBox( {
 			title: __( 'Updating preview site failed' ),
-			message: payload.data.message,
+			message: message,
 		} );
 	} else if ( operation.type === 'delete' ) {
 		getIpcApi().showErrorMessageBox( {
 			title: __( 'Deleting preview site failed' ),
-			message: payload.data.message,
+			message: message,
 		} );
 	}
 
 	store.dispatch(
 		snapshotActions.updateOperation( {
-			operationId: payload.operationId,
-			operation: { status: 'rejected', error: payload.data.message },
+			operationId: operationId,
+			operation: { status: 'rejected', error: message },
 		} )
 	);
+}
+
+window.ipcListener.subscribe( 'snapshot-error', ( event, payload ) => {
+	errorEventHandler( payload.operationId, payload.data.message );
+} );
+
+window.ipcListener.subscribe( 'snapshot-fatal-error', ( event, payload ) => {
+	errorEventHandler( payload.operationId, payload.data.message );
 } );
 
 window.ipcListener.subscribe( 'snapshot-success', ( event, payload ) => {

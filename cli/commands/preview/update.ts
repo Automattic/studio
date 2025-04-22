@@ -72,7 +72,7 @@ export async function runCommand(
 
 export const registerCommand = ( yargs: Argv< GlobalOptions > ) => {
 	return yargs.command( {
-		command: 'update [folder=cwd]',
+		command: 'update [folder]',
 		describe: __( 'Update preview site for the specified folder (defaults to current directory)' ),
 		builder: ( yargs: Argv< GlobalOptions > ) => {
 			return yargs

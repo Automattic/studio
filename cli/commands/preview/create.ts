@@ -65,7 +65,7 @@ export async function runCommand(
 
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
-		command: 'go [folder=cwd]',
+		command: 'go [folder]',
 		describe: __(
 			'Create a preview site from the specified folder (defaults to current directory)'
 		),

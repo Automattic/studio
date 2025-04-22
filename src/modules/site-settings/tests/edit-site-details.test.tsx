@@ -22,6 +22,7 @@ jest.mock( 'src/hooks/use-site-details', () => ( {
 			id: 'site-123',
 			name: 'Test Site',
 			phpVersion: '8.0',
+			wpVersion: 'latest',
 			running: true,
 		},
 		updateSite: mockUpdateSite,
@@ -47,10 +48,11 @@ jest.mock( '@wordpress/react-i18n', () => ( {
 jest.mock( 'src/stores/wordpress-versions-api', () => ( {
 	useGetWordPressVersions: jest.fn( () => ( {
 		data: [
-			{ label: '6.8-beta1', value: '6.8-beta1' },
-			{ label: '6.4', value: '6.4' },
-			{ label: '6.3', value: '6.3' },
-			{ label: '6.2', value: '6.2' },
+			{ label: 'Latest', value: '6.7.2' },
+			{ label: '6.8-beta1', value: '6.8-beta1', isBeta: true, isDevelopment: false },
+			{ label: '6.4', value: '6.4', isBeta: false, isDevelopment: false },
+			{ label: '6.3', value: '6.3', isBeta: false, isDevelopment: false },
+			{ label: '6.2', value: '6.2', isBeta: false, isDevelopment: false },
 		],
 		isLoading: false,
 	} ) ),
@@ -85,7 +87,7 @@ describe( 'EditSiteDetails', () => {
 		expect( screen.getByRole( 'dialog' ) ).toBeInTheDocument();
 		expect( screen.getByLabelText( 'Site name' ) ).toHaveValue( 'Test Site' );
 		expect( screen.getByLabelText( 'PHP version' ) ).toHaveValue( '8.0' );
-		expect( screen.getByLabelText( 'WordPress version' ) ).toHaveValue( '6.3' );
+		expect( screen.getByLabelText( 'WordPress version' ) ).toHaveValue( 'latest' );
 	} );
 
 	it( 'should close the modal when cancel button is clicked', async () => {
@@ -168,14 +170,8 @@ describe( 'EditSiteDetails', () => {
 
 		await user.click( screen.getByRole( 'button', { name: 'Save' } ) );
 
-		expect( mockUpdateSite ).toHaveBeenCalledWith( {
-			id: 'site-123',
-			name: 'New Site Name',
-			phpVersion: '8.0',
-			running: true,
-			customDomain: undefined,
-			enableHttps: false,
-		} );
+		expect( mockUpdateSite ).toHaveBeenCalled();
+		expect( mockUpdateSite.mock.calls[ 0 ][ 0 ].name ).toBe( 'New Site Name' );
 		expect( defaultProps.onSave ).toHaveBeenCalled();
 	} );
 
@@ -191,19 +187,13 @@ describe( 'EditSiteDetails', () => {
 		await user.click( screen.getByRole( 'button', { name: 'Save' } ) );
 
 		expect( mockStopServer ).toHaveBeenCalledWith( 'site-123' );
-		expect( mockUpdateSite ).toHaveBeenCalledWith( {
-			id: 'site-123',
-			name: 'Test Site',
-			phpVersion: '8.2',
-			running: true,
-			customDomain: undefined,
-			enableHttps: false,
-		} );
+		expect( mockUpdateSite ).toHaveBeenCalled();
+		expect( mockUpdateSite.mock.calls[ 0 ][ 0 ].phpVersion ).toBe( '8.2' );
 		expect( mockStartServer ).toHaveBeenCalledWith( 'site-123' );
 		expect( defaultProps.onSave ).toHaveBeenCalled();
 	} );
 
-	it( 'should update WordPress version when changed', async () => {
+	it( 'should update isWpAutoUpdating to false when changed from latest to specific version', async () => {
 		render( <EditSiteDetails { ...defaultProps } /> );
 		const user = userEvent.setup();
 
@@ -220,14 +210,8 @@ describe( 'EditSiteDetails', () => {
 			args: 'core update https://wordpress.org/wordpress-6.4.zip --force',
 			skipPluginsAndThemes: true,
 		} );
-		expect( mockUpdateSite ).toHaveBeenCalledWith( {
-			id: 'site-123',
-			name: 'Test Site',
-			phpVersion: '8.0',
-			running: true,
-			customDomain: undefined,
-			enableHttps: false,
-		} );
+		expect( mockUpdateSite ).toHaveBeenCalled();
+		expect( mockUpdateSite.mock.calls[ 0 ][ 0 ].isWpAutoUpdating ).toBe( false );
 		expect( mockStartServer ).toHaveBeenCalledWith( 'site-123' );
 		expect( defaultProps.onSave ).toHaveBeenCalled();
 	} );

@@ -17,15 +17,16 @@ import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { __, LocaleData, defaultI18n } from '@wordpress/i18n';
 import archiver from 'archiver';
-import { calculateDirectorySize } from 'common/lib/fs-utils';
+import { calculateDirectorySize, isWordPressDirectory } from 'common/lib/fs-utils';
+import { SupportedLocale } from 'common/lib/locale';
+import { StatsGroup, StatsMetric } from 'common/types/stats';
 import { ARCHIVER_OPTIONS, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
 import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
 import { bumpStat } from 'src/lib/bump-stats';
 import { getImporterMetric } from 'src/lib/bump-stats/lib';
-import { StatsGroup, StatsMetric } from 'src/lib/bump-stats/types';
 import { download } from 'src/lib/download';
-import { isEmptyDir, pathExists, isWordPressDirectory, sanitizeFolderName } from 'src/lib/fs-utils';
+import { isEmptyDir, pathExists, sanitizeFolderName } from 'src/lib/fs-utils';
 import { getImageData } from 'src/lib/get-image-data';
 import { getSiteUrl } from 'src/lib/get-site-url';
 import { getSyncBackupTempPath } from 'src/lib/get-sync-backup-temp-path';
@@ -36,7 +37,6 @@ import { defaultImporterOptions, importBackup } from 'src/lib/import-export/impo
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 import { isErrnoException } from 'src/lib/is-errno-exception';
 import { isInstalled } from 'src/lib/is-installed';
-import { SupportedLocale } from 'src/lib/locale';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { StoredToken } from 'src/lib/oauth';
 import * as oauthClient from 'src/lib/oauth';
@@ -54,7 +54,7 @@ import { popupMenu, setupMenu } from 'src/menu';
 import { SiteServer, createSiteWorkingDirectory } from 'src/site-server';
 import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from 'src/storage/paths';
 import { loadUserData, saveUserData } from 'src/storage/user-data';
-import { DEFAULT_PHP_VERSION } from 'vendor/wp-now/src/constants';
+import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
 import { openCertificate as openCertificateDialog } from './lib/certificate-manager';
 import { SupportedEditor } from './lib/editor';
 import { SupportedTerminal } from './lib/terminal';
@@ -187,11 +187,12 @@ export async function createSite(
 		port,
 		running: false,
 		phpVersion: DEFAULT_PHP_VERSION,
+		isWpAutoUpdating: wpVersion === DEFAULT_WORDPRESS_VERSION,
 		customDomain,
 		enableHttps,
 	} as const;
 
-	const server = SiteServer.create( details );
+	const server = SiteServer.create( details, { wpVersion } );
 
 	if ( isWordPressDirectory( path ) ) {
 		// If the directory contains a WordPress installation, and user wants to force SQLite

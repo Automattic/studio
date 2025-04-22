@@ -1,4 +1,4 @@
-import { normalizeHostname } from '../utils';
+import { normalizeHostname } from 'cli/lib/utils';
 
 describe( 'normalizeHostname', () => {
 	it( 'should normalize a basic hostname', () => {

@@ -11,12 +11,12 @@ import {
 import path from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { __ } from '@wordpress/i18n';
+import { StatsGroup } from 'common/types/stats';
 import { PROTOCOL_PREFIX } from 'src/constants';
 import * as ipcHandlers from 'src/ipc-handlers';
 import { hasActiveSyncOperations } from 'src/lib/active-sync-operations';
 import { bumpAggregatedUniqueStat, bumpStat } from 'src/lib/bump-stats';
 import { getPlatformMetric } from 'src/lib/bump-stats/lib';
-import { StatsGroup } from 'src/lib/bump-stats/types';
 import {
 	listenCLICommands,
 	getCLIDataForMainInstance,

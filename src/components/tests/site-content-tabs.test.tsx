@@ -36,6 +36,7 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 		getConnectedWpcomSites: jest.fn().mockResolvedValue( [] ),
 		updateConnectedWpcomSites: jest.fn(),
 		getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
+		getUserEditor: jest.fn().mockResolvedValue( 'vscode' ),
 	} ),
 } ) );
 

@@ -28,7 +28,7 @@ export const TerminalPicker = ( {
 
 	return (
 		<div className="flex gap-1.5 flex-col">
-			<h2 className="a8c-subtitle-small">{ __( 'Shell' ) }</h2>
+			<label className="font-semibold">{ __( 'Shell' ) }</label>
 			<SelectControl
 				value={ value }
 				onChange={ onChange }

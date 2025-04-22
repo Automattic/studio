@@ -42,7 +42,7 @@ export const EditorPicker = ( { value, onChange }: EditorPickerProps ) => {
 
 	return (
 		<div className="flex gap-1.5 flex-col">
-			<h2 className="a8c-subtitle-small">{ __( 'Code editor' ) }</h2>
+			<label className="font-semibold">{ __( 'Code editor' ) }</label>
 			<SelectControl
 				value={ value }
 				onChange={ ( newValue ) => onChange( newValue as SupportedEditor ) }

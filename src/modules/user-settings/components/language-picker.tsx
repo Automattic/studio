@@ -11,7 +11,7 @@ export const LanguagePicker = ( { value, onChange }: LanguagePickerProps ) => {
 	const { __ } = useI18n();
 	return (
 		<div className="flex gap-1.5 flex-col">
-			<h2 className="a8c-subtitle-small">{ __( 'Language' ) }</h2>
+			<label className="font-semibold">{ __( 'Language' ) }</label>
 			<SelectControl
 				value={ value || 'en' }
 				onChange={ onChange }

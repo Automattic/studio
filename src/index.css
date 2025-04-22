@@ -3,6 +3,12 @@
 @tailwind utilities;
 @import '@wordpress/components/build-style/style.css';
 
+@layer utilities {
+	.interpolate-size-allow-keywords {
+		interpolate-size: allow-keywords;
+	}
+}
+
 body {
 	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
@@ -275,4 +281,17 @@ blockquote {
 
 .error-select-control .components-input-control__backdrop {
 	border-color: theme( 'colors.red.500' )!important;
+}
+
+.whats-new-modal .components-guide__footer {
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	background: white;
+}
+
+.components-button.components-guide__back-button {
+	outline: none;
+	border: 1px solid theme( 'colors.a8c-blueberry' );
 }

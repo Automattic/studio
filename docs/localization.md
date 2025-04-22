@@ -6,7 +6,7 @@ into the app is somewhat manual at the moment.
 
 ## Supported Languages
 
-We currently support the magnificent 16 languages defined in `src/lib/locale.ts`, 
+We currently support the magnificent 16 languages defined in `common/lib/locale.ts`, 
 as well as Polish, Vietnamese and Ukrainian.
 If you want to add support for another language you will need to add it to the
 `supportedLocales` array.
@@ -47,5 +47,5 @@ they will be left as English in the app.
    7. Leave the other fields as default and click **Export**.
 
 #### Step 2: Add Translations to Project:
-   1. Unzip the exported strings and add them to the `src/translations`. Overwrite
+   1. Unzip the exported strings and add them to the `common/translations`. Overwrite
    the files in there with your new files.

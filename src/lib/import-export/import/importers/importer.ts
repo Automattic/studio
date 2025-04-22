@@ -7,11 +7,12 @@ import { createInterface } from 'readline';
 import { SupportedPHPVersionsList } from '@php-wasm/universal';
 import { lstat, move } from 'fs-extra';
 import semver from 'semver';
+import { getSiteUrl } from 'src/lib/get-site-url';
 import { generateBackupFilename } from 'src/lib/import-export/export/generate-backup-filename';
 import { ImportEvents } from 'src/lib/import-export/import/events';
-import { BackupContents, MetaFileData } from 'src/lib/import-export/import/types';
+import { BackupContents, MetaFileData, WpContent } from 'src/lib/import-export/import/types';
 import { serializePlugins } from 'src/lib/serialize-plugins';
-import { updateSiteUrlToLocal } from 'src/lib/updateSiteUrlToLocal';
+import { updateSiteUrl } from 'src/lib/update-site-url';
 import { SiteServer } from 'src/site-server';
 import { DEFAULT_PHP_VERSION } from 'vendor/wp-now/src/constants';
 
@@ -75,7 +76,7 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 			}
 		}
 
-		await updateSiteUrlToLocal( siteId );
+		await updateSiteUrl( server, getSiteUrl( server.details ) );
 		this.emit( ImportEvents.IMPORT_DATABASE_COMPLETE );
 	}
 
@@ -150,7 +151,22 @@ abstract class BaseBackupImporter extends BaseImporter {
 				/^database(\/|\\)?.*/, // Match database dir and all contents
 				/^db\.php$/, // Exact match for db.php
 				/^index\.php$/, // Exact match for index.php
+				/^languages(\/|\\)?.*/, // Match languages dir and all contents
 			];
+
+			// Directories to preserve if they are not included in the backup.
+			const maybeKeepWpContentDirectories: ( keyof WpContent )[] = [
+				'plugins',
+				'themes',
+				'fonts',
+				'uploads',
+			];
+
+			for ( const directory of maybeKeepWpContentDirectories ) {
+				if ( this.backup.wpContent[ directory ]?.length === 0 ) {
+					contentToKeep.push( new RegExp( `^${ directory }(/|\\\\)?.*` ) );
+				}
+			}
 
 			const contents = await fsPromises.readdir( wpContentDir, { recursive: true } );
 
@@ -291,7 +307,7 @@ export class PlaygroundImporter extends BaseBackupImporter {
 				overwrite: true,
 			} );
 		}
-		await updateSiteUrlToLocal( siteId );
+		await updateSiteUrl( server, getSiteUrl( server.details ) );
 
 		this.emit( ImportEvents.IMPORT_DATABASE_COMPLETE );
 	}

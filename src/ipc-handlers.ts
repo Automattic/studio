@@ -17,17 +17,19 @@ import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { __, LocaleData, defaultI18n } from '@wordpress/i18n';
 import archiver from 'archiver';
+import { calculateDirectorySize, isWordPressDirectory } from 'common/lib/fs-utils';
+import { SupportedLocale } from 'common/lib/locale';
+import { StatsGroup, StatsMetric } from 'common/types/stats';
 import { ARCHIVER_OPTIONS, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
-import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
+import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
 import { bumpStat } from 'src/lib/bump-stats';
-import { getImporterMetric, StatsGroup, StatsMetric } from 'src/lib/bump-stats/types';
-import { calculateDirectorySize } from 'src/lib/calculate-directory-size';
+import { getImporterMetric } from 'src/lib/bump-stats/lib';
 import { download } from 'src/lib/download';
-import { isEmptyDir, pathExists, isWordPressDirectory, sanitizeFolderName } from 'src/lib/fs-utils';
+import { isEmptyDir, pathExists, sanitizeFolderName } from 'src/lib/fs-utils';
 import { getImageData } from 'src/lib/get-image-data';
+import { getSiteUrl } from 'src/lib/get-site-url';
 import { getSyncBackupTempPath } from 'src/lib/get-sync-backup-temp-path';
-import { addDomainToHosts } from 'src/lib/hosts-file';
 import { exportBackup } from 'src/lib/import-export/export/export-manager';
 import { ExportOptions } from 'src/lib/import-export/export/types';
 import { ImportExportEventData } from 'src/lib/import-export/handle-events';
@@ -35,7 +37,6 @@ import { defaultImporterOptions, importBackup } from 'src/lib/import-export/impo
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 import { isErrnoException } from 'src/lib/is-errno-exception';
 import { isInstalled } from 'src/lib/is-installed';
-import { SupportedLocale } from 'src/lib/locale';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { StoredToken } from 'src/lib/oauth';
 import * as oauthClient from 'src/lib/oauth';
@@ -45,7 +46,7 @@ import { portFinder } from 'src/lib/port-finder';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { sortSites } from 'src/lib/sort-sites';
 import { installSqliteIntegration, keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
-import { updateSiteUrlToLocal } from 'src/lib/updateSiteUrlToLocal';
+import { updateSiteUrl } from 'src/lib/update-site-url';
 import * as windowsHelpers from 'src/lib/windows-helpers';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
@@ -53,7 +54,10 @@ import { popupMenu, setupMenu } from 'src/menu';
 import { SiteServer, createSiteWorkingDirectory } from 'src/site-server';
 import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from 'src/storage/paths';
 import { loadUserData, saveUserData } from 'src/storage/user-data';
-import { DEFAULT_PHP_VERSION } from 'vendor/wp-now/src/constants';
+import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
+import { openCertificate as openCertificateDialog } from './lib/certificate-manager';
+import { SupportedEditor } from './lib/editor';
+import { SupportedTerminal } from './lib/terminal';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
 
@@ -141,7 +145,8 @@ export async function createSite(
 	path: string,
 	siteName?: string,
 	wpVersion?: string,
-	customDomain?: string
+	customDomain?: string,
+	enableHttps?: boolean
 ): Promise< SiteDetails[] > {
 	const userData = await loadUserData();
 	const forceSetupSqlite = false;
@@ -182,10 +187,12 @@ export async function createSite(
 		port,
 		running: false,
 		phpVersion: DEFAULT_PHP_VERSION,
-		customDomain: customDomain,
+		isWpAutoUpdating: wpVersion === DEFAULT_WORDPRESS_VERSION,
+		customDomain,
+		enableHttps,
 	} as const;
 
-	const server = SiteServer.create( details );
+	const server = SiteServer.create( details, { wpVersion } );
 
 	if ( isWordPressDirectory( path ) ) {
 		// If the directory contains a WordPress installation, and user wants to force SQLite
@@ -201,7 +208,7 @@ export async function createSite(
 		if ( ! ( await pathExists( nodePath.join( path, 'wp-config.php' ) ) ) ) {
 			await installSqliteIntegration( path );
 		} else {
-			await updateSiteUrlToLocal( details.id );
+			await updateSiteUrl( server, getSiteUrl( details ) );
 		}
 	}
 
@@ -227,7 +234,7 @@ export async function updateSite(
 
 	const server = SiteServer.get( updatedSite.id );
 	if ( server ) {
-		server.updateSiteDetails( updatedSite );
+		await server.updateSiteDetails( updatedSite );
 	}
 	await saveUserData( userData );
 	return mergeSiteDetailsWithRunningDetails( userData.sites );
@@ -399,14 +406,6 @@ export async function startServer(
 
 	await keepSqliteIntegrationUpdated( server.details.path );
 
-	// Handle custom domain if necessary
-	if ( server.details.customDomain ) {
-		await addDomainToHosts( server.details.customDomain, server.details.port );
-		console.log(
-			`Domain ${ server.details.customDomain } added to hosts file for port ${ server.details.port }`
-		);
-	}
-
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	try {
 		await server.start();
@@ -450,6 +449,7 @@ export async function stopServer(
 	}
 
 	await server.stop();
+	await updateSite( event, server.details );
 	return server.details;
 }
 
@@ -531,6 +531,14 @@ export async function saveUserLocale( _event: IpcMainInvokeEvent, locale: string
 	} );
 }
 
+export async function saveUserEditor( _event: IpcMainInvokeEvent, editor: SupportedEditor ) {
+	const userData = await loadUserData();
+	await saveUserData( {
+		...userData,
+		preferredEditor: editor,
+	} );
+}
+
 export async function getSentryUserId( _event: IpcMainInvokeEvent ): Promise< string | undefined > {
 	const userData = await loadUserData();
 	return userData.sentryUserId;
@@ -538,6 +546,11 @@ export async function getSentryUserId( _event: IpcMainInvokeEvent ): Promise< st
 
 export async function getUserLocale( _event: IpcMainInvokeEvent ): Promise< SupportedLocale > {
 	return getUserLocaleWithFallback();
+}
+
+export async function getUserEditor( _event: IpcMainInvokeEvent ): Promise< SupportedEditor > {
+	const userData = await loadUserData();
+	return userData.preferredEditor as SupportedEditor;
 }
 
 export async function showUserSettings( event: IpcMainInvokeEvent ): Promise< void > {
@@ -729,10 +742,28 @@ export async function saveSnapshotsToStorage( event: IpcMainInvokeEvent, snapsho
 	} );
 }
 
+export async function saveLastSeenVersion(
+	_event: IpcMainInvokeEvent,
+	version: string
+): Promise< void > {
+	const userData = await loadUserData();
+	await saveUserData( {
+		...userData,
+		lastSeenVersion: version,
+	} );
+}
+
 export async function getSnapshots( _event: IpcMainInvokeEvent ): Promise< Snapshot[] > {
 	const userData = await loadUserData();
 	const { snapshots = [] } = userData;
 	return snapshots;
+}
+
+export async function getLastSeenVersion(
+	_event: IpcMainInvokeEvent
+): Promise< string | undefined > {
+	const userData = await loadUserData();
+	return userData.lastSeenVersion;
 }
 
 export function openSiteURL(
@@ -768,8 +799,11 @@ export async function getAppGlobals( _event: IpcMainInvokeEvent ): Promise< AppG
 	return {
 		platform: process.platform,
 		appName: app.name,
+		appVersion: app.getVersion(),
 		arm64Translation: app.runningUnderARM64Translation,
+		pressableSyncEnabled: process.env.STUDIO_PRESSABLE_SYNC === 'true',
 		terminalWpCliEnabled: process.env.STUDIO_TERMINAL_WP_CLI === 'true',
+		preferredEditor: process.env.STUDIO_PREFERRED_EDITOR === 'true',
 	};
 }
 
@@ -826,14 +860,17 @@ export async function showItemInFolder( _event: IpcMainInvokeEvent, path: string
 	shell.showItemInFolder( path );
 }
 
-export async function getThemeDetails( event: IpcMainInvokeEvent, id: string ) {
+export async function getThemeDetails(
+	event: IpcMainInvokeEvent,
+	id: string
+): Promise< StartedSiteDetails[ 'themeDetails' ] > {
 	const server = SiteServer.get( id );
 	if ( ! server ) {
 		throw new Error( 'Site not found.' );
 	}
 
 	if ( ! server.details.running || ! server.server ) {
-		return null;
+		return undefined;
 	}
 	const themeDetails = await phpGetThemeDetails( server.server );
 
@@ -918,29 +955,18 @@ function promiseExec( command: string, options: ExecOptions = {} ): Promise< voi
 	} );
 }
 
-export function openTerminalAtPath(
+export async function openTerminalAtPath(
 	_event: IpcMainInvokeEvent,
 	targetPath: string,
 	{ wpCliEnabled }: { wpCliEnabled?: boolean } = {}
 ) {
 	const platform = process.platform;
 	const cliPath = nodePath.join( getResourcesPath(), 'bin' );
-
 	const exePath = app.getPath( 'exe' );
 	const appDirectory = app.getAppPath();
 	const appPath = ! app.isPackaged ? `${ exePath } ${ appDirectory }` : exePath;
 
-	if ( platform === 'win32' ) {
-		const defaultShell = process.env.ComSpec || 'cmd.exe';
-		const env = wpCliEnabled
-			? { PATH: `${ cliPath };${ process.env.PATH }`, STUDIO_APP_PATH: appPath }
-			: {};
-
-		return promiseExec( `start "Command Prompt" ${ defaultShell }`, {
-			cwd: targetPath,
-			env: { ...process.env, ...env },
-		} );
-	} else if ( platform === 'darwin' ) {
+	if ( platform === 'darwin' ) {
 		const initScriptSteps = [];
 
 		if ( wpCliEnabled ) {
@@ -953,12 +979,37 @@ export function openTerminalAtPath(
 		const escapedPath = targetPath.replace( /"/g, '\\"' );
 		initScriptSteps.push( `cd \\"${ escapedPath }\\"`, 'clear' );
 
-		return promiseExec( `osascript << END
-activate application "Terminal"
-tell application "Terminal"
-	do script "${ initScriptSteps.join( ';' ) }"
+		const userData = await loadUserData();
+		const preferredTerminal = userData.supportedTerminal || 'terminal';
+
+		if ( preferredTerminal === 'iterm' ) {
+			return promiseExec( `osascript << END
+tell application "iTerm"
+    activate
+    create window with default profile
+    tell current session of current window
+        write text "${ initScriptSteps.join( ';' ) }"
+    end tell
 end tell
 END` );
+		} else {
+			return promiseExec( `osascript << END
+activate application "Terminal"
+tell application "Terminal"
+    do script "${ initScriptSteps.join( ';' ) }"
+end tell
+END` );
+		}
+	} else if ( platform === 'win32' ) {
+		const defaultShell = process.env.ComSpec || 'cmd.exe';
+		const env = wpCliEnabled
+			? { PATH: `${ cliPath };${ process.env.PATH }`, STUDIO_APP_PATH: appPath }
+			: {};
+
+		return promiseExec( `start "Command Prompt" ${ defaultShell }`, {
+			cwd: targetPath,
+			env: { ...process.env, ...env },
+		} );
 	} else if ( platform === 'linux' ) {
 		if ( wpCliEnabled ) {
 			return promiseExec(
@@ -1153,6 +1204,11 @@ export function getWpContentSize( _event: IpcMainInvokeEvent, siteId: string ) {
 	}
 	return calculateDirectorySize( nodePath.join( site.details.path, 'wp-content' ) );
 }
+
+export function openCertificate( _event: IpcMainInvokeEvent ) {
+	return openCertificateDialog();
+}
+
 export async function getFileContent( event: IpcMainInvokeEvent, filePath: string ) {
 	if ( ! fs.existsSync( filePath ) ) {
 		throw new Error( `File not found: ${ filePath }` );
@@ -1192,7 +1248,43 @@ export async function checkSyncBackupSize(
 	} );
 }
 
+export async function saveUserTerminal(
+	_event: IpcMainInvokeEvent,
+	supportedTerminal: SupportedTerminal
+) {
+	const userData = await loadUserData();
+	await saveUserData( {
+		...userData,
+		supportedTerminal: supportedTerminal,
+	} );
+
+	// Notify renderer processes that the terminal preference has changed
+	sendIpcEventToRenderer( 'user-preference-changed' );
+}
+
+export async function getUserTerminal( _event: IpcMainInvokeEvent ): Promise< SupportedTerminal > {
+	const userData = await loadUserData();
+	return userData.supportedTerminal as SupportedTerminal;
+}
+
 export async function isFullscreen( _event: IpcMainInvokeEvent ): Promise< boolean > {
 	const window = await getMainWindow();
 	return window.isFullScreen();
+}
+
+export async function getAllCustomDomains(): Promise< string[] > {
+	const userData = await loadUserData();
+
+	return userData.sites
+		.map( ( site ) => site.customDomain )
+		.filter( ( domain ): domain is string => domain !== undefined );
+}
+
+export async function getInstalledTerminals(
+	_event: IpcMainInvokeEvent
+): Promise< InstalledTerminals > {
+	return {
+		terminal: true, // Terminal.app is always available on macOS
+		iterm: isInstalled( 'iterm' ),
+	};
 }

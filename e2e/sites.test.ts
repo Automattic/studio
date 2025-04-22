@@ -6,6 +6,7 @@ import { E2ESession } from './e2e-helpers';
 import MainSidebar from './page-objects/main-sidebar';
 import Onboarding from './page-objects/onboarding';
 import SiteContent from './page-objects/site-content';
+import WhatsNewModal from './page-objects/whats-new-modal';
 
 const skipTestOnWindows = process.platform === 'win32' ? test.skip : test;
 
@@ -22,6 +23,12 @@ test.describe( 'Servers', () => {
 		const onboarding = new Onboarding( session.mainWindow );
 		await expect( onboarding.heading ).toBeVisible();
 		await onboarding.continueButton.click();
+
+		const whatsNewModal = new WhatsNewModal( session.mainWindow );
+		if ( await whatsNewModal.locator.isVisible( { timeout: 5000 } ) ) {
+			await whatsNewModal.closeButton.click();
+		}
+
 		const siteContent = new SiteContent( session.mainWindow, defaultSiteName );
 		await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 60_000 } );
 	} );

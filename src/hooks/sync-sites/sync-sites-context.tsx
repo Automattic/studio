@@ -18,10 +18,15 @@ type UpdateSiteTimestamp = (
 	type: 'pull' | 'push'
 ) => Promise< void >;
 
+type IsSyncSitesSelectorOpen = boolean | { disconnectSiteId?: number };
+
 export type SyncSitesContextType = Omit< UseSyncPull, 'pullStates' > &
 	Omit< UseSyncPush, 'pushStates' > &
 	Omit< UseSiteSyncManagement, 'loadConnectedSites' > & {
 		getLastSyncTimeText: GetLastSyncTimeText;
+		isSyncSitesSelectorOpen: IsSyncSitesSelectorOpen;
+		setIsSyncSitesSelectorOpen: ( open: IsSyncSitesSelectorOpen ) => void;
+		closeSyncSitesSelector: () => void;
 	};
 
 const SyncSitesContext = createContext< SyncSitesContextType | undefined >( undefined );
@@ -30,6 +35,9 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 	const { formatRelativeTime } = useFormatLocalizedTimestamps();
 	const [ pullStates, setPullStates ] = useState< PullStates >( {} );
 	const [ connectedSites, setConnectedSites ] = useState< SyncSite[] >( [] );
+	const [ isSyncSitesSelectorOpen, setIsSyncSitesSelectorOpen ] =
+		useState< IsSyncSitesSelectorOpen >( false );
+	const closeSyncSitesSelector = useCallback( () => setIsSyncSitesSelectorOpen( false ), [] );
 
 	const getLastSyncTimeText = useCallback< GetLastSyncTimeText >(
 		( timestamp, type ) => {
@@ -96,7 +104,11 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 	);
 
 	const { connectSite, disconnectSite, syncSites, isFetching, refetchSites } =
-		useSiteSyncManagement( { connectedSites, setConnectedSites } );
+		useSiteSyncManagement( {
+			connectedSites,
+			setConnectedSites,
+			closeSyncSitesSelector,
+		} );
 
 	useListenDeepLinkConnection( { connectSite, refetchSites } );
 
@@ -120,6 +132,9 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 				isSiteIdPushing,
 				clearPushState,
 				getLastSyncTimeText,
+				isSyncSitesSelectorOpen,
+				setIsSyncSitesSelectorOpen,
+				closeSyncSitesSelector,
 			} }
 		>
 			{ children }

@@ -1,15 +1,28 @@
-import { dialog } from 'electron';
 import http from 'http';
+import https from 'https';
+import { createConnection } from 'node:net';
+import { createSecureContext } from 'node:tls';
 import { domainToASCII } from 'node:url';
 import * as Sentry from '@sentry/electron/main';
-import { __ } from '@wordpress/i18n';
 import httpProxy from 'http-proxy';
-import { getMainWindow } from 'src/main-window';
+import { isErrnoException } from 'src/lib/is-errno-exception';
 import { SiteServer } from 'src/site-server';
 import { loadUserData } from 'src/storage/user-data';
 
-let proxyServer: http.Server | null = null;
-let isProxyRunning = false;
+let httpProxyServer: http.Server | null = null;
+let httpsProxyServer: https.Server | null = null;
+let isHttpProxyRunning = false;
+let isHttpsProxyRunning = false;
+
+const proxy = httpProxy.createProxyServer();
+
+// Setup error handling for the proxy
+proxy.on( 'error', ( err, req, res ) => {
+	if ( res && res instanceof http.ServerResponse ) {
+		res.writeHead( 500 );
+		res.end( 'Proxy error: ' + err.message );
+	}
+} );
 
 /**
  * Gets the site details for a given domain by looking it up in user data and SiteServer
@@ -33,112 +46,227 @@ async function getSiteByHost( domain: string ): Promise< SiteDetails | null > {
 }
 
 /**
- * Starts the proxy server for sites with custom domains
+ * Common handler for both HTTP and HTTPS requests
  */
-export async function startProxyServer(): Promise< boolean > {
-	if ( isProxyRunning ) return true;
+async function handleProxyRequest(
+	req: http.IncomingMessage,
+	res: http.ServerResponse,
+	isHttps: boolean
+) {
+	const host = req.headers.host?.split( ':' )[ 0 ]; // Remove port if present
 
-	try {
-		// Create proxy with additional options to preserve host header
-		const proxy = httpProxy.createProxyServer();
-
-		proxy.on( 'error', ( err, req, res ) => {
-			if ( res && res instanceof http.ServerResponse ) {
-				res.writeHead( 500 );
-				res.end( 'Proxy error: ' + err.message );
-			}
-		} );
-
-		proxyServer = http.createServer( async ( req, res ) => {
-			const host = req.headers.host?.split( ':' )[ 0 ]; // Remove port if present
-
-			// Look up the port directly from user data
-			if ( ! host ) {
-				console.log( 'No host header found' );
-				res.writeHead( 404 );
-				res.end( 'No host header found' );
-				return;
-			}
-
-			const site = await getSiteByHost( host );
-			if ( ! site ) {
-				console.log( `Domain not found: ${ host }` );
-				res.writeHead( 404 );
-				res.end( `Domain not found: ${ host }` );
-				return;
-			}
-
-			if ( ! site.running ) {
-				res.writeHead( 404 );
-				res.end( `The Studio site is currently stopped: ${ site.name }` );
-				return;
-			}
-
-			// Forward the request with the original host preserved
-			proxy.web( req, res, {
-				target: `http://localhost:${ site.port }`,
-				xfwd: true, // Pass along x-forwarded headers
-			} );
-		} );
-
-		await new Promise< void >( ( resolve, reject ) => {
-			proxyServer!
-				.listen( 80, () => {
-					console.log( `Proxy server started on port 80` );
-					isProxyRunning = true;
-					resolve();
-				} )
-				.on( 'error', ( err ) => {
-					console.log( err );
-					console.error( `Error starting proxy server on port 80:`, err );
-					reject( err );
-				} );
-		} );
-
-		return true;
-	} catch ( error ) {
-		if ( error instanceof Error && 'code' in error && error.code === 'EADDRINUSE' ) {
-			const mainWindow = await getMainWindow();
-			dialog.showMessageBox( mainWindow, {
-				type: 'error',
-				message: __( 'Custom domain set up failed' ),
-				detail: __(
-					'Studio needs to use port 80, but it’s already in use by another app. Close any local development apps and restart Studio.'
-				),
-				buttons: [ __( 'OK' ) ],
-			} );
-			return false;
-		}
-
-		Sentry.captureException( error );
-		console.error( `Failed to start proxy server directly:`, error );
-		return false;
+	if ( ! host ) {
+		console.log( 'No host header found' );
+		res.writeHead( 404 );
+		res.end( 'No host header found' );
+		return;
 	}
+
+	const site = await getSiteByHost( host );
+	if ( ! site ) {
+		console.log( `Domain not found: ${ host }` );
+		res.writeHead( 404 );
+		res.end( `Domain not found: ${ host }` );
+		return;
+	}
+
+	if ( ! site.running ) {
+		res.writeHead( 404 );
+		res.end( `The Studio site is currently stopped: ${ site.name }` );
+		return;
+	}
+
+	// If we're on HTTP and site has HTTPS enabled, redirect to HTTPS
+	if ( ! isHttps && site.enableHttps ) {
+		res.writeHead( 301, {
+			Location: `https://${ host }${ req.url }`,
+		} );
+		res.end();
+		return;
+	}
+
+	const headers: Record< string, string > = {};
+
+	if ( isHttps ) {
+		headers[ 'X-Forwarded-Proto' ] = 'https';
+	}
+
+	proxy.web( req, res, {
+		target: `http://localhost:${ site.port }`,
+		xfwd: true, // Pass along x-forwarded headers
+		headers,
+	} );
 }
 
 /**
- * Stop the proxy server
+ * On Windows, node doesn't throw an error if port is busy, so we use the net module to explicitly check
+ * if it's possible to establish a TCP connection to that port (meaning it's busy).
  */
-export function stopProxyServer(): Promise< void > {
-	return new Promise( ( resolve ) => {
-		if ( ! proxyServer ) {
-			isProxyRunning = false;
-			resolve();
-			return;
-		}
+export async function checkPortInWindows( port: number ): Promise< boolean > {
+	if ( process.platform !== 'win32' ) {
+		return true;
+	}
 
-		proxyServer.close( () => {
-			proxyServer = null;
-			isProxyRunning = false;
-			console.log( 'Proxy server stopped' );
-			resolve();
+	return await new Promise< boolean >( ( resolve, reject ) => {
+		const tester = createConnection( { port }, () => {
+			// If we can connect, port is in use
+			tester.end();
+			reject( new Error( 'EADDRINUSE' ) );
+		} );
+
+		tester.setTimeout( 1000, () => {
+			tester.destroy();
+			reject( new Error( 'EADDRINUSE' ) );
+		} );
+
+		tester.on( 'error', ( err ) => {
+			if ( isErrnoException( err ) && err.code === 'ECONNREFUSED' ) {
+				// Port is available
+				resolve( true );
+			} else {
+				reject( err );
+			}
 		} );
 	} );
 }
 
 /**
- * Check if the proxy server is running
+ * Attempts to start the proxy servers on ports 80 and 443
+ * This requires admin/root privileges
+ */
+export async function startProxyServer(): Promise< boolean > {
+	try {
+		// Start HTTP server if not already running
+		if ( ! isHttpProxyRunning ) {
+			await checkPortInWindows( 80 );
+			httpProxyServer = http.createServer( ( req, res ) => handleProxyRequest( req, res, false ) );
+			await new Promise< void >( ( resolve, reject ) => {
+				httpProxyServer!
+					.listen( 80, () => {
+						console.log( `HTTP Proxy server started on port 80` );
+						isHttpProxyRunning = true;
+						resolve();
+					} )
+					.on( 'error', ( err ) => {
+						console.error( `Error starting HTTP proxy server on port 80:`, err );
+						reject( err );
+					} );
+			} );
+		}
+
+		// Start HTTPS server if not already running
+		if ( ! isHttpsProxyRunning ) {
+			await checkPortInWindows( 443 );
+			const defaultOptions: https.ServerOptions = {
+				SNICallback: async ( servername, cb ) => {
+					try {
+						const site = await getSiteByHost( servername );
+						if ( ! site || ! site.customDomain ) {
+							console.error( `SNI: Invalid hostname: ${ servername }` );
+							cb( new Error( `Invalid hostname: ${ servername }` ) );
+							return;
+						}
+
+						if ( ! site.tlsKey || ! site.tlsCert ) {
+							console.error(
+								`Site ${ site.id } (${ site.customDomain }) does not have certificates generated at server start`
+							);
+							cb( new Error( `No certificates available for ${ servername }` ) );
+							return;
+						}
+
+						const ctx = createSecureContext( {
+							key: site.tlsKey,
+							cert: site.tlsCert,
+							minVersion: 'TLSv1.2',
+						} );
+
+						cb( null, ctx );
+					} catch ( error ) {
+						console.error( `SNI callback error for ${ servername }:`, error );
+						cb( error as Error );
+					}
+				},
+			};
+
+			httpsProxyServer = https.createServer( defaultOptions, ( req, res ) =>
+				handleProxyRequest( req, res, true )
+			);
+
+			await new Promise< void >( ( resolve, reject ) => {
+				httpsProxyServer!
+					.listen( 443, () => {
+						console.log( `HTTPS Proxy server started on port 443` );
+						isHttpsProxyRunning = true;
+						resolve();
+					} )
+					.on( 'error', ( err ) => {
+						console.error( `Error starting HTTPS proxy server on port 443:`, err );
+						reject( err );
+					} );
+			} );
+		}
+
+		return true;
+	} catch ( error ) {
+		if (
+			( isErrnoException( error ) && error.code === 'EADDRINUSE' ) ||
+			( error instanceof Error && error.message === 'EADDRINUSE' )
+		) {
+			throw new Error( 'PROXY_ERROR_PORT_IN_USE' );
+		}
+
+		Sentry.captureException( error );
+		console.error( 'Failed to start proxy servers:', error );
+
+		throw new Error( 'PROXY_ERROR_START_FAILED' );
+	}
+}
+
+/**
+ * Stop the proxy servers
+ */
+export async function stopProxyServer() {
+	const promises: Promise< void >[] = [];
+
+	// Stop HTTP proxy if running
+	if ( httpProxyServer ) {
+		promises.push(
+			new Promise< void >( ( resolve ) => {
+				httpProxyServer!.close( () => {
+					httpProxyServer = null;
+					isHttpProxyRunning = false;
+					console.log( 'HTTP Proxy server stopped' );
+					resolve();
+				} );
+			} )
+		);
+	} else {
+		isHttpProxyRunning = false;
+	}
+
+	// Stop HTTPS proxy if running
+	if ( httpsProxyServer ) {
+		promises.push(
+			new Promise< void >( ( resolve ) => {
+				httpsProxyServer!.close( () => {
+					httpsProxyServer = null;
+					isHttpsProxyRunning = false;
+					console.log( 'HTTPS Proxy server stopped' );
+					resolve();
+				} );
+			} )
+		);
+	} else {
+		isHttpsProxyRunning = false;
+	}
+
+	await Promise.all( promises );
+}
+
+/**
+ * Check if the proxy servers are running
  */
 export function isProxyServerRunning(): boolean {
-	return isProxyRunning;
+	return isHttpProxyRunning || isHttpsProxyRunning;
 }

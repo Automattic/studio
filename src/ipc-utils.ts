@@ -8,6 +8,7 @@ export interface IpcEvents {
 	'auth-updated': [ { token: StoredToken } | { error: unknown } ];
 	'on-export': [ ImportExportEventData, string ];
 	'on-import': [ ImportExportEventData, string ];
+	'show-whats-new': [ void ];
 	'sync-connect-site': [ { remoteSiteId: number; studioSiteId: string } ];
 	'test-render-failure': [ void ];
 	'theme-details-changed': [ { id: string; details: StartedSiteDetails[ 'themeDetails' ] } ];
@@ -15,6 +16,7 @@ export interface IpcEvents {
 	'thumbnail-changed': [ { id: string; imageData: string | null } ];
 	'user-settings': [ void ];
 	'window-fullscreen-change': [ boolean ];
+	'user-preference-changed': [ void ];
 }
 
 export async function sendIpcEventToRenderer< T extends keyof IpcEvents >(

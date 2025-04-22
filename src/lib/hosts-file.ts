@@ -4,11 +4,10 @@ import { platform, tmpdir } from 'os';
 import path from 'path';
 import { promisify } from 'util';
 import * as Sentry from '@sentry/electron/main';
-import sudo from '@vscode/sudo-prompt';
+import { sudoExec } from 'src/lib/sudo-exec';
 
 const readFile = promisify( fs.readFile );
 const writeFile = promisify( fs.writeFile );
-const sudoExec = promisify( sudo.exec );
 
 // Host file paths for different operating systems
 const HOST_FILES: Record< string, string > = {
@@ -55,7 +54,6 @@ export const writeHostsFile = async ( content: string ): Promise< void > => {
 			platform() === 'win32'
 				? `type ${ tempPath } > ${ hostsPath }`
 				: `cat ${ tempPath } > ${ hostsPath }`;
-		// @ts-expect-error promisify doesn't seem typed properly.
 		await sudoExec( command, {
 			name: 'WordPress Studio',
 		} );
@@ -95,6 +93,7 @@ export const addDomainToHosts = async ( domain: string, port: number ): Promise<
 
 		if ( newContent !== hostsContent ) {
 			await writeHostsFile( newContent );
+			console.log( `Domain ${ domain } added to hosts file for port ${ port }` );
 		}
 	} catch ( error ) {
 		Sentry.captureException( error );
@@ -123,6 +122,48 @@ export const removeDomainFromHosts = async ( domain: string ): Promise< void > =
 	} catch ( error ) {
 		Sentry.captureException( error );
 		console.error( `Error removing domain ${ domain } from hosts file:`, error );
+		throw error;
+	}
+};
+
+export const updateDomainInHosts = async (
+	oldDomain: string | undefined,
+	newDomain: string | undefined,
+	port: number
+): Promise< void > => {
+	if ( oldDomain === newDomain ) {
+		return;
+	}
+
+	if ( ! oldDomain && newDomain ) {
+		await addDomainToHosts( newDomain, port );
+		return;
+	}
+
+	if ( oldDomain && ! newDomain ) {
+		await removeDomainFromHosts( oldDomain );
+		return;
+	}
+
+	try {
+		const hostsContent = await readHostsFile();
+		const encodedOldDomain = domainToASCII( oldDomain as string );
+		const encodedNewDomain = domainToASCII( newDomain as string );
+		const oldPattern = createHostsEntryPattern( encodedOldDomain );
+		const newContent = updateStudioBlock( hostsContent, ( entries ) => {
+			const filtered = entries.filter( ( entry ) => ! entry.match( oldPattern ) );
+			return [ ...filtered, `127.0.0.1 ${ encodedNewDomain } # Port ${ port }` ];
+		} );
+
+		if ( newContent !== hostsContent ) {
+			await writeHostsFile( newContent );
+		}
+	} catch ( error ) {
+		Sentry.captureException( error );
+		console.error(
+			`Error replacing domain ${ oldDomain } with ${ newDomain } in hosts file:`,
+			error
+		);
 		throw error;
 	}
 };

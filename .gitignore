@@ -111,6 +111,9 @@ dist
 # Playwright traces
 test-results
 
+# Metrics traces
+artifacts
+
 # Editor config files
 .cursorrules
 .cursor/

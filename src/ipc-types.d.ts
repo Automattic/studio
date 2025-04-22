@@ -19,9 +19,12 @@ interface StoppedSiteDetails {
 	path: string;
 	port: number;
 	phpVersion: string;
-	wpVersion?: string;
+	isWpAutoUpdating?: boolean;
 	customDomain?: string;
+	enableHttps?: boolean;
 	adminPassword?: string;
+	tlsKey?: string;
+	tlsCert?: string;
 	themeDetails?: {
 		name: string;
 		path: string;
@@ -31,6 +34,7 @@ interface StoppedSiteDetails {
 		supportsMenus: boolean;
 	};
 	isAddingSite?: boolean;
+	autoStart?: boolean;
 }
 
 interface StartedSiteDetails extends StoppedSiteDetails {
@@ -58,6 +62,11 @@ type InstalledApps = {
 	phpstorm: boolean | null;
 };
 
+type InstalledTerminals = {
+	terminal: boolean;
+	iterm: boolean;
+};
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Tail< T extends any[] > = ( ( ...args: T ) => any ) extends ( _: any, ...tail: infer U ) => any
 	? U
@@ -83,8 +92,11 @@ type IpcApi = {
 interface AppGlobals {
 	platform: NodeJS.Platform;
 	appName: string;
+	appVersion: string;
 	arm64Translation: boolean;
+	pressableSyncEnabled: boolean;
 	terminalWpCliEnabled: boolean;
+	preferredEditor: boolean;
 }
 
 // Our IPC objects will be attached to the `window` global

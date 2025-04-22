@@ -3,13 +3,17 @@ import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import fsExtra from 'fs-extra';
 import { parse } from 'shell-quote';
+import { deleteSiteCertificate, generateSiteCertificate } from 'src/lib/certificate-manager';
 import { pathExists, recursiveCopyDirectory, isEmptyDir } from 'src/lib/fs-utils';
-import { removeDomainFromHosts } from 'src/lib/hosts-file';
+import { getSiteUrl } from 'src/lib/get-site-url';
+import { addDomainToHosts, removeDomainFromHosts, updateDomainInHosts } from 'src/lib/hosts-file';
 import { decodePassword } from 'src/lib/passwords';
 import { phpGetThemeDetails } from 'src/lib/php-get-theme-details';
 import { portFinder } from 'src/lib/port-finder';
+import { startProxyServer } from 'src/lib/proxy-server';
 import { getPreferredSiteLanguage } from 'src/lib/site-language';
 import SiteServerProcess from 'src/lib/site-server-process';
+import { updateSiteUrl } from 'src/lib/update-site-url';
 import WpCliProcess, { MessageCanceled, WpCliResult } from 'src/lib/wp-cli-process';
 import { purgeWpConfig } from 'src/lib/wp-versions';
 import { createScreenshotWindow } from 'src/screenshot-window';
@@ -57,11 +61,28 @@ export async function stopAllServersOnQuit() {
 	await Promise.all( [ ...servers.values() ].map( ( server ) => server.server?.stop() ) );
 }
 
+function getAbsoluteUrl( details: SiteDetails ): string {
+	if ( details.customDomain ) {
+		const protocol = details.enableHttps ? 'https' : 'http';
+		return `${ protocol }://${ details.customDomain }`;
+	}
+
+	return `http://localhost:${ details.port }`;
+}
+
+// We use SiteDetails for storing it in appdata-v1.json, so this meta was introduced for extra data which is not stored locally
+type SiteServerMeta = {
+	wpVersion?: string;
+};
+
 export class SiteServer {
 	server?: SiteServerProcess;
 	wpCliExecutor?: WpCliProcess;
 
-	private constructor( public details: SiteDetails ) {}
+	private constructor(
+		public details: SiteDetails,
+		public meta: SiteServerMeta
+	) {}
 
 	static get( id: string ): SiteServer | undefined {
 		return servers.get( id );
@@ -71,8 +92,8 @@ export class SiteServer {
 		return deletedServers.includes( id );
 	}
 
-	static create( details: StoppedSiteDetails ): SiteServer {
-		const server = new SiteServer( details );
+	static create( details: StoppedSiteDetails, meta: SiteServerMeta = {} ): SiteServer {
+		const server = new SiteServer( details, meta );
 		servers.set( details.id, server );
 		return server;
 	}
@@ -93,6 +114,13 @@ export class SiteServer {
 			}
 		}
 
+		if ( this.details.customDomain && this.details.enableHttps ) {
+			const certificateDeleted = deleteSiteCertificate( this.details.customDomain ?? '' );
+			if ( certificateDeleted ) {
+				console.log( `Certificates for ${ this.details.customDomain } have been deleted` );
+			}
+		}
+
 		await this.stop();
 		await this.wpCliExecutor?.stop();
 		deletedServers.push( this.details.id );
@@ -105,24 +133,37 @@ export class SiteServer {
 			return;
 		}
 
+		// Handle custom domain if necessary
+		if ( this.details.customDomain ) {
+			await addDomainToHosts( this.details.customDomain, this.details.port );
+			// Generate certificates for HTTPS sites *before* the server starts
+			// This ensures the certs are ready when the proxy server needs them
+			if ( this.details.enableHttps ) {
+				console.log(
+					`Generating certificates for ${ this.details.customDomain } during server start`
+				);
+
+				const { cert, key } = await generateSiteCertificate( this.details.customDomain );
+				this.details = {
+					...this.details,
+					tlsKey: key,
+					tlsCert: cert,
+				};
+			}
+			await startProxyServer();
+		}
+
 		const options = await getWpNowConfig( {
 			path: this.details.path,
 			port: this.details.port,
 			adminPassword: decodePassword( this.details.adminPassword ?? '' ),
 			siteTitle: this.details.name,
 			php: this.details.phpVersion,
+			wp: this.meta.wpVersion,
+			isWpAutoUpdating: this.details.isWpAutoUpdating,
 		} );
-		// Determine the URL to use - either custom domain or localhost with port
-		let absoluteUrl;
-		if ( this.details.customDomain ) {
-			absoluteUrl = `http://${ this.details.customDomain }`;
-			// For custom domains, we still need to handle hosts file management elsewhere
-			// This happens in the ipc-handlers.ts file when starting the server
-		} else {
-			absoluteUrl = `http://localhost:${ this.details.port }`;
-		}
 
-		options.absoluteUrl = absoluteUrl;
+		options.absoluteUrl = getAbsoluteUrl( this.details );
 		options.siteLanguage = await getPreferredSiteLanguage( options.wordPressVersion );
 
 		if ( options.mode !== WPNowMode.WORDPRESS ) {
@@ -146,22 +187,61 @@ export class SiteServer {
 			url: this.server.url,
 			port: this.server.options.port,
 			phpVersion: this.server.options.phpVersion ?? DEFAULT_PHP_VERSION,
+			isWpAutoUpdating: this.details.isWpAutoUpdating,
 			running: true,
+			autoStart: true,
 			themeDetails,
 		};
 	}
 
-	updateSiteDetails( site: SiteDetails ) {
-		// We no longer modify custom domain settings after site creation,
-		// so we preserve the existing custom domain settings and only update other fields
+	async updateSiteDetails( site: SiteDetails ) {
+		const oldDomain = this.details.customDomain;
+		const newDomain = site.customDomain;
+		const oldEnableHttps = this.details.enableHttps;
+		const newEnableHttps = site.enableHttps;
+
 		this.details = {
 			...this.details,
 			name: site.name,
 			path: site.path,
 			phpVersion: site.phpVersion,
-			wpVersion: site.wpVersion,
-			customDomain: this.details.customDomain,
+			isWpAutoUpdating: site.isWpAutoUpdating,
+			customDomain: site.customDomain,
+			enableHttps: site.enableHttps,
 		};
+
+		if ( this.server && this.details.running ) {
+			this.details.url = getAbsoluteUrl( this.details );
+			this.server.url = this.details.url;
+		}
+
+		// Handle domain changes and url changes (updates hosts and database)
+		if ( oldDomain !== newDomain ) {
+			updateDomainInHosts( oldDomain, newDomain, this.details.port );
+		}
+		if ( ( oldDomain && ! newDomain ) || oldEnableHttps !== newEnableHttps ) {
+			await updateSiteUrl( this, getSiteUrl( this.details ) );
+		}
+
+		if (
+			oldDomain &&
+			oldEnableHttps &&
+			( oldDomain !== newDomain || oldEnableHttps !== newEnableHttps )
+		) {
+			deleteSiteCertificate( oldDomain );
+		}
+		if (
+			newDomain &&
+			newEnableHttps &&
+			( oldDomain !== newDomain || oldEnableHttps !== newEnableHttps )
+		) {
+			const { cert, key } = await generateSiteCertificate( newDomain );
+			this.details = {
+				...this.details,
+				tlsKey: key,
+				tlsCert: cert,
+			};
+		}
 	}
 
 	async stop() {
@@ -177,8 +257,8 @@ export class SiteServer {
 			return;
 		}
 
-		const { running, url, ...rest } = this.details;
-		this.details = { running: false, ...rest };
+		const { running, autoStart, url, ...rest } = this.details;
+		this.details = { running: false, autoStart: false, ...rest };
 	}
 
 	async updateCachedThumbnail() {

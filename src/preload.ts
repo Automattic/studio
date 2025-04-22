@@ -14,6 +14,8 @@ import { IpcEvents } from 'src/ipc-utils';
 import { ExportOptions } from 'src/lib/import-export/export/types';
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
+import { SupportedEditor } from './lib/editor';
+import { SupportedTerminal } from './lib/terminal';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { LogLevel } from 'src/logging';
 
@@ -23,8 +25,13 @@ const api: IpcApi = {
 	exportSiteToPush: ( id: string ) => ipcRenderer.invoke( 'exportSiteToPush', id ),
 	deleteSite: ( id: string, deleteFiles?: boolean ) =>
 		ipcRenderer.invoke( 'deleteSite', id, deleteFiles ),
-	createSite: ( path: string, name?: string, wpVersion?: string, customDomain?: string ) =>
-		ipcRenderer.invoke( 'createSite', path, name, wpVersion, customDomain ),
+	createSite: (
+		path: string,
+		name?: string,
+		wpVersion?: string,
+		customDomain?: string,
+		enableHttps?: boolean
+	) => ipcRenderer.invoke( 'createSite', path, name, wpVersion, customDomain, enableHttps ),
 	updateSite: ( updatedSite: SiteDetails ) => ipcRenderer.invoke( 'updateSite', updatedSite ),
 	connectWpcomSites: ( ...args ) => ipcRenderer.invoke( 'connectWpcomSites', ...args ),
 	disconnectWpcomSites: ( ...args ) => ipcRenderer.invoke( 'disconnectWpcomSites', ...args ),
@@ -41,6 +48,8 @@ const api: IpcApi = {
 	saveSnapshotsToStorage: ( snapshots: Snapshot[] ) =>
 		ipcRenderer.invoke( 'saveSnapshotsToStorage', snapshots ),
 	getSnapshots: () => ipcRenderer.invoke( 'getSnapshots' ),
+	getLastSeenVersion: () => ipcRenderer.invoke( 'getLastSeenVersion' ),
+	saveLastSeenVersion: ( version: string ) => ipcRenderer.invoke( 'saveLastSeenVersion', version ),
 	getSiteDetails: () => ipcRenderer.invoke( 'getSiteDetails' ),
 	openSiteURL: (
 		id: string,
@@ -90,6 +99,7 @@ const api: IpcApi = {
 	setupAppMenu: ( config: { needsOnboarding: boolean } ) =>
 		ipcRenderer.invoke( 'setupAppMenu', config ),
 	popupAppMenu: () => ipcRenderer.invoke( 'popupAppMenu' ),
+	openCertificate: () => ipcRenderer.invoke( 'openCertificate' ),
 	promptWindowsSpeedUpSites: ( ...args: Parameters< typeof promptWindowsSpeedUpSites > ) =>
 		ipcRenderer.invoke( 'promptWindowsSpeedUpSites', ...args ),
 	setDefaultLocaleData: ( locale?: LocaleData ) =>
@@ -117,6 +127,13 @@ const api: IpcApi = {
 	getPathForFile: webUtils.getPathForFile,
 	getFileContent: ( filePath: string ) => ipcRenderer.invoke( 'getFileContent', filePath ),
 	isFullscreen: () => ipcRenderer.invoke( 'isFullscreen' ),
+	getAllCustomDomains: () => ipcRenderer.invoke( 'getAllCustomDomains' ),
+	saveUserTerminal: ( supportedTerminal: SupportedTerminal ) =>
+		ipcRenderer.invoke( 'saveUserTerminal', supportedTerminal ),
+	getUserTerminal: () => ipcRenderer.invoke( 'getUserTerminal' ),
+	getInstalledTerminals: () => ipcRenderer.invoke( 'getInstalledTerminals' ),
+	getUserEditor: () => ipcRenderer.invoke( 'getUserEditor' ),
+	saveUserEditor: ( editor: SupportedEditor ) => ipcRenderer.invoke( 'saveUserEditor', editor ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

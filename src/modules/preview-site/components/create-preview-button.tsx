@@ -1,9 +1,9 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
+import { DEMO_SITE_SIZE_LIMIT_GB } from 'common/constants';
 import Button from 'src/components/button';
 import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
-import { DEMO_SITE_SIZE_LIMIT_GB } from 'src/constants';
 import { useArchiveErrorMessages } from 'src/hooks/use-archive-error-messages';
 import { useArchiveSite } from 'src/hooks/use-archive-site';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
@@ -11,8 +11,7 @@ import { useOffline } from 'src/hooks/use-offline';
 import { useSiteSize } from 'src/hooks/use-site-size';
 import { useSnapshots } from 'src/hooks/use-snapshots';
 import { hasVersionMismatch } from 'src/modules/preview-site/lib/version-comparison';
-import { useRootSelector } from 'src/stores';
-import { wordpressVersionsSelectors } from 'src/stores/wordpress-versions-slice';
+import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 
 interface CreatePreviewButtonProps {
 	onClick: () => void;
@@ -29,12 +28,12 @@ export function CreatePreviewButton( { onClick, selectedSite }: CreatePreviewBut
 	const isOffline = useOffline();
 	const errorMessages = useArchiveErrorMessages();
 	const [ wpVersion ] = useGetWpVersion( selectedSite );
-	const wpVersions = useRootSelector( wordpressVersionsSelectors.selectWordPressVersions );
+	const { data: wpVersions = [] } = useGetWordPressVersions();
 
 	const isCurrentSiteArchiving = archivingSiteId === selectedSite.id;
 	const isOtherSiteArchiving = isAnySiteArchiving && ! isCurrentSiteArchiving;
 
-	const latestWpVersion = wpVersions.find( ( version ) => version.isBeta === false )?.value;
+	const latestWpVersion = wpVersions.find( ( version ) => version.value === 'latest' )?.value;
 	const shouldShowMismatchTooltip = hasVersionMismatch( {
 		wpVersion,
 		latestWpVersion,

@@ -1,25 +1,19 @@
 import { Icon, SelectControl } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf, _n } from '@wordpress/i18n';
 import { tip, warning, trash, chevronRight, chevronDown, chevronLeft } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { FormEvent, useEffect, useRef, useState } from 'react';
+import { FormEvent, useRef, useState } from 'react';
 import Button from 'src/components/button';
 import FolderIcon from 'src/components/folder-icon';
-import offlineIcon from 'src/components/offline-icon';
 import TextControlComponent from 'src/components/text-control';
-import { Tooltip } from 'src/components/tooltip';
+import { WPVersionSelector } from 'src/components/wp-version-selector';
 import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
 import { useDocsLink } from 'src/hooks/use-docs-link';
-import { useOffline } from 'src/hooks/use-offline';
+import { isWindows } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
-import { generateCustomDomainFromSiteName } from 'src/lib/generate-custom-domain';
+import { generateCustomDomainFromSiteName } from 'src/lib/domains';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { useAppDispatch, useRootSelector } from 'src/stores';
-import {
-	wordpressVersionsSelectors,
-	wordpressVersionsThunks,
-} from 'src/stores/wordpress-versions-slice';
 import {
 	DEFAULT_WORDPRESS_VERSION,
 	ALLOWED_PHP_VERSIONS,
@@ -71,6 +65,10 @@ interface SiteFormProps {
 	customDomainError?: string;
 	phpVersion: AllowedPHPVersion;
 	setPhpVersion: ( version: AllowedPHPVersion ) => void;
+	useHttps?: boolean;
+	setUseHttps?: ( use: boolean ) => void;
+	enableHttps?: boolean;
+	setEnableHttps?: ( use: boolean ) => void;
 	wpVersion: string;
 	setWpVersion: ( version: string ) => void;
 }
@@ -261,22 +259,14 @@ export const SiteForm = ( {
 	customDomain = null,
 	setCustomDomain,
 	customDomainError,
+	enableHttps,
+	setEnableHttps,
 }: SiteFormProps ) => {
 	const { __, isRTL } = useI18n();
 	const getDocsLink = useDocsLink();
-	const dispatch = useAppDispatch();
-	const isOffline = useOffline();
-	const offlineMessage = __( 'Changing WordPress version requires an internet connection.' );
-	const wpVersions = useRootSelector(
-		wordpressVersionsSelectors.selectWordPressVersionsWithLatest
-	);
-	const wpVersionsStatus = useRootSelector( ( state ) => state.wordpressVersions.status );
 
-	useEffect( () => {
-		if ( wpVersionsStatus === 'idle' ) {
-			dispatch( wordpressVersionsThunks.fetchWordPressVersions() );
-		}
-	}, [ wpVersionsStatus, dispatch ] );
+	const shouldShowCustomDomainError = useCustomDomain && customDomainError;
+	const errorCount = [ error, shouldShowCustomDomainError ].filter( Boolean ).length;
 
 	const [ isAdvancedSettingsVisible, setAdvancedSettingsVisible ] = useState( false );
 
@@ -353,19 +343,21 @@ export const SiteForm = ( {
 											{ __( 'Advanced settings' ) }
 										</div>
 									</Button>
-									{ ( error || customDomainError ) && (
+									{ errorCount > 0 && (
 										<span className="text-red-500 text-[13px] leading-[16px] ml-2 flex items-center">
 											<Icon icon={ warning } size={ 16 } className="mr-1 fill-red-500" />
-											{ error && customDomainError
-												? __( '2 errors found' )
-												: __( '1 error found' ) }
+											{ sprintf(
+												/* translators: %d: number of errors found */
+												_n( '%d error found', '%d errors found', errorCount ),
+												errorCount
+											) }
 										</span>
 									) }
 								</div>
 								<div
 									className={ cx(
-										'transition-all duration-500 ease-in-out overflow-hidden flex flex-col gap-2',
-										isAdvancedSettingsVisible ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+										'transition-all duration-500 ease-in-out overflow-hidden flex flex-col gap-2 interpolate-size-allow-keywords',
+										isAdvancedSettingsVisible ? 'h-auto opacity-100' : 'h-0 opacity-0'
 									) }
 								>
 									<div className={ cx( 'flex flex-col gap-1.5 leading-4 py-2' ) }>
@@ -409,41 +401,17 @@ export const SiteForm = ( {
 													} ) ) }
 													onChange={ setPhpVersion as ( value: string ) => void }
 													__next40pxDefaultSize
+													__nextHasNoMarginBottom
 												/>
 											</div>
-											<div className="flex flex-col gap-1.5 leading-4">
-												<label className="font-semibold" htmlFor="wp-version-select">
-													{ __( 'WordPress version' ) }
-												</label>
-												<Tooltip
-													disabled={ ! isOffline }
-													icon={ offlineIcon }
-													text={ offlineMessage }
-													placement="top-start"
-													className="flex flex-1 flex-col"
-												>
-													<SelectControl
-														id="wp-version-select"
-														value={ wpVersion }
-														options={
-															wpVersions.length > 0
-																? wpVersions.map( ( { label, value } ) => ( {
-																		label,
-																		value,
-																  } ) )
-																: [
-																		{
-																			label: DEFAULT_WORDPRESS_VERSION,
-																			value: DEFAULT_WORDPRESS_VERSION,
-																		},
-																  ]
-														}
-														onChange={ setWpVersion }
-														__next40pxDefaultSize
-														disabled={ isOffline }
-													/>
-												</Tooltip>
-											</div>
+
+											<WPVersionSelector
+												selectedValue={ wpVersion }
+												onChange={ setWpVersion }
+												fallbackOptions={ [
+													{ label: __( 'Latest' ), value: DEFAULT_WORDPRESS_VERSION },
+												] }
+											/>
 										</div>
 
 										{ setUseCustomDomain && setCustomDomain && (
@@ -455,6 +423,12 @@ export const SiteForm = ( {
 													onChange={ ( e ) => setUseCustomDomain( e.target.checked ) }
 												/>
 												<label htmlFor="use-custom-domain">{ __( 'Use custom domain' ) }</label>
+											</div>
+										) }
+
+										{ setUseCustomDomain && setCustomDomain && (
+											<div className="text-a8c-gray-50 text-xs mt-2">
+												{ __( 'Your system password will be required to set up the domain.' ) }
 											</div>
 										) }
 
@@ -472,9 +446,34 @@ export const SiteForm = ( {
 											</div>
 										) }
 
-										{ setUseCustomDomain && setCustomDomain && (
+										{ useCustomDomain && setEnableHttps && (
+											<div className="flex items-center gap-2 mt-4">
+												<input
+													type="checkbox"
+													id="enable-https"
+													checked={ enableHttps }
+													onChange={ ( e ) => setEnableHttps( e.target.checked ) }
+												/>
+												<label htmlFor="enable-https">{ __( 'Enable HTTPS' ) }</label>
+											</div>
+										) }
+
+										{ ! isWindows() && useCustomDomain && setEnableHttps && (
 											<div className="text-a8c-gray-50 text-xs mt-2">
-												{ __( 'Your system password will be required to set up the domain.' ) }
+												{ __(
+													'You need to manually add the Studio root certificate authority to your keychain and trust it to enable HTTPS.'
+												) }{ ' ' }
+												<Button
+													variant="link"
+													onClick={ () => {
+														getIpcApi().openURL(
+															'https://developer.wordpress.com/docs/developer-tools/studio/ssl-in-studio/'
+														);
+													} }
+												>
+													{ __( 'Learn how' ) }
+													<span aria-label={ __( '(opens in a web browser)' ) }>&#8599;</span>
+												</Button>
 											</div>
 										) }
 									</div>

@@ -21,7 +21,6 @@ import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { usePromptUsage } from 'src/hooks/use-prompt-usage';
 import { useThemeDetails } from 'src/hooks/use-theme-details';
-import { useWelcomeMessages } from 'src/hooks/use-welcome-messages';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useAppDispatch, useRootSelector } from 'src/stores';
@@ -32,6 +31,7 @@ import {
 	chatActions,
 	chatSelectors,
 } from 'src/stores/chat-slice';
+import { useGetWelcomeMessages } from 'src/stores/wpcom-api';
 
 export const MIMIC_CONVERSATION_DELAY = 500;
 
@@ -345,11 +345,11 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		chatSelectors.selectIsLoading( state, instanceId )
 	);
 	const { userCanSendMessage } = usePromptUsage();
-	const { messages: welcomeMessages, examplePrompts } = useWelcomeMessages();
 	const isOffline = useOffline();
 	const { __ } = useI18n();
 	const lastMessage = messages.length === 0 ? undefined : messages[ messages.length - 1 ];
 	const hasFailedMessage = messages.some( ( msg ) => msg.failedMessage );
+	const { data, isLoading } = useGetWelcomeMessages();
 
 	const { selectedThemeDetails: themeDetails } = useThemeDetails();
 
@@ -428,10 +428,11 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 									inputRef.current?.focus();
 								} }
 								showExamplePrompts={ messages.length === 0 }
-								messages={ welcomeMessages }
-								examplePrompts={ examplePrompts }
+								messages={ data?.messages ?? [] }
+								examplePrompts={ data?.example_prompts ?? [] }
 								siteId={ selectedSite.id }
 								disabled={ disabled }
+								isLoading={ isLoading }
 							/>
 
 							<AuthenticatedView

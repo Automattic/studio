@@ -9,6 +9,7 @@ import { portFinder } from './port-finder';
 import { isValidWordPressVersion } from './wp-playground-wordpress';
 import getWpNowPath from './get-wp-now-path';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from './constants';
+import { isWordPressDevVersion } from 'src/lib/wordpress-version-utils';
 
 export interface CliOptions {
 	php?: string;
@@ -20,6 +21,7 @@ export interface CliOptions {
 	adminPassword?: string;
 	siteTitle?: string;
 	mode?: WPNowMode;
+	isWpAutoUpdating?: boolean;
 }
 
 export const enum WPNowMode {
@@ -43,6 +45,7 @@ export interface WPNowOptions {
 	projectPath?: string;
 	wpContentPath?: string;
 	wordPressVersion?: string;
+	isWpAutoUpdating?: boolean;
 	numberOfPhpInstances?: number;
 	blueprintObject?: Blueprint;
 	reset?: boolean;
@@ -54,6 +57,7 @@ export interface WPNowOptions {
 export const DEFAULT_OPTIONS: WPNowOptions = {
 	phpVersion: DEFAULT_PHP_VERSION,
 	wordPressVersion: DEFAULT_WORDPRESS_VERSION,
+	isWpAutoUpdating: true,
 	documentRoot: '/var/www/html',
 	projectPath: process.cwd(),
 	mode: WPNowMode.AUTO,
@@ -136,7 +140,10 @@ export default async function getWpNowConfig( args: CliOptions ): Promise< WPNow
 	if ( ! options.absoluteUrl ) {
 		options.absoluteUrl = await getAbsoluteURL();
 	}
-	if ( ! isValidWordPressVersion( options.wordPressVersion ) ) {
+	if (
+		! isValidWordPressVersion( options.wordPressVersion ) &&
+		! isWordPressDevVersion( options.wordPressVersion )
+	) {
 		throw new Error(
 			'Unrecognized WordPress version. Please use "latest" or numeric versions such as "6.2", "6.0.1", "6.2-beta1", or "6.2-RC1"'
 		);
@@ -168,6 +175,10 @@ export default async function getWpNowConfig( args: CliOptions ): Promise< WPNow
 	if ( args.siteTitle ) {
 		options.siteTitle = args.siteTitle;
 	}
+
+	options.isWpAutoUpdating =
+		typeof args.isWpAutoUpdating === 'boolean' ? args.isWpAutoUpdating : true;
+
 	return options;
 }
 

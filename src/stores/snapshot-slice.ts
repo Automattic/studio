@@ -391,6 +391,11 @@ window.ipcListener.subscribe( 'snapshot-error', ( event, payload ) => {
 			title: __( 'Updating preview site failed' ),
 			message: payload.data.message,
 		} );
+	} else if ( operation.type === 'delete' ) {
+		getIpcApi().showErrorMessageBox( {
+			title: __( 'Deleting preview site failed' ),
+			message: payload.data.message,
+		} );
 	}
 
 	store.dispatch(

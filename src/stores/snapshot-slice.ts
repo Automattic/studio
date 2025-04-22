@@ -50,7 +50,6 @@ export type SnapshotOperation = CreateOperation | UpdateOperation | DeleteOperat
 type SnapshotState = {
 	isLoaded: boolean;
 	operations: Record< crypto.UUID, SnapshotOperation >;
-	snapshotProgress: number;
 	snapshots: Snapshot[];
 	snapshotQuota: number;
 };
@@ -59,7 +58,6 @@ const getInitialState = (): SnapshotState => {
 	return {
 		isLoaded: false,
 		operations: {},
-		snapshotProgress: 0,
 		snapshots: [],
 		snapshotQuota: LIMIT_OF_ZIP_SITES_PER_USER,
 	};

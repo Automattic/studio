@@ -1,7 +1,7 @@
 import { app } from 'electron';
+import { platform } from 'os';
 import path from 'path';
 import * as FileStreamRotator from 'file-stream-rotator';
-import { platform } from 'os';
 
 let logStream: ReturnType< typeof FileStreamRotator.getStream > | null = null;
 let currentLogFile = '';

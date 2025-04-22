@@ -25,7 +25,7 @@ export function CreatePreviewButton( { onClick, selectedSite }: CreatePreviewBut
 		snapshotSelectors.selectActiveOperationsForAnySite
 	);
 	const activeOperationsForCurrentSite = useRootSelector( ( state ) =>
-		snapshotSelectors.selectActiveOperationForSite( state, selectedSite.id )
+		snapshotSelectors.selectActiveCreateOperationForSite( state, selectedSite.id )
 	);
 	const snapshotQuota = useRootSelector( ( state ) => state.snapshot.snapshotQuota );
 	const { activeSnapshotCount, snapshotCreationBlocked } = useSnapshots();

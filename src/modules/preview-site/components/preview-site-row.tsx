@@ -10,11 +10,12 @@ import { UPDATED_MESSAGE_DURATION_MS } from 'src/constants';
 import { useExpirationDate } from 'src/hooks/use-expiration-date';
 import { useFormatLocalizedTimestamps } from 'src/hooks/use-format-localized-timestamps';
 import { useSnapshots } from 'src/hooks/use-snapshots';
-import { useUpdateDemoSite } from 'src/hooks/use-update-demo-site';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { DeleteProgressRow } from 'src/modules/preview-site/components/delete-progress-row';
 import { PreviewActionButtonsMenu } from 'src/modules/preview-site/components/preview-action-buttons-menu';
+import { useRootSelector } from 'src/stores';
+import { snapshotSelectors } from 'src/stores/snapshot-slice';
 
 interface PreviewSiteRowProps {
 	snapshot: Snapshot;
@@ -35,9 +36,11 @@ export function PreviewSiteRow( {
 	const { url, date, isDeleting } = snapshot;
 	const { countDown, dateString, expireDateString, isExpired } = useExpirationDate( date );
 	const { fetchSnapshotUsage, removeSnapshot } = useSnapshots();
-	const { isDemoSiteUpdating, hasDemoSiteError } = useUpdateDemoSite();
-	const isPreviewSiteUpdating = isDemoSiteUpdating( snapshot.atomicSiteId );
-	const hasError = hasDemoSiteError( snapshot.atomicSiteId );
+	const updateOperation = useRootSelector( ( state ) =>
+		snapshotSelectors.selectUpdateOperationForSnapshot( state, snapshot.atomicSiteId )
+	);
+	const isPreviewSiteUpdating = updateOperation?.status === 'pending';
+	const hasError = updateOperation?.status === 'rejected';
 	const { formatRelativeTime } = useFormatLocalizedTimestamps();
 	const [ showUpdatedMessage, setShowUpdatedMessage ] = useState( false );
 	const wasUpdating = useRef( false );

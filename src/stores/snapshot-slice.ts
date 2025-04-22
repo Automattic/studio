@@ -6,18 +6,29 @@ import { LIMIT_OF_ZIP_SITES_PER_USER } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { RootState, store } from 'src/stores/index';
 
-export type SnapshotOperation = {
-	detail: string;
+type BaseOperation = {
 	error: string | null;
 	progress: number;
 	snapshotName?: string;
 	snapshotUrl?: string;
-	siteId: string;
 	status: 'pending' | 'fulfilled' | 'rejected';
-	type: 'create' | 'update' | 'delete';
 };
 
+type CreateOperation = BaseOperation & {
+	type: 'create';
+	detail: string;
+	siteId: string;
+};
+
+type UpdateOperation = BaseOperation & {
+	type: 'update';
+	atomicSiteId: number;
+};
+
+export type SnapshotOperation = CreateOperation | UpdateOperation;
+
 type SnapshotState = {
+	isLoaded: boolean;
 	operations: Record< crypto.UUID, SnapshotOperation >;
 	snapshotProgress: number;
 	snapshots: Snapshot[];
@@ -26,6 +37,7 @@ type SnapshotState = {
 
 const getInitialState = (): SnapshotState => {
 	return {
+		isLoaded: false,
 		operations: {},
 		snapshotProgress: 0,
 		snapshots: [],
@@ -45,6 +57,24 @@ const createSnapshot = createAsyncThunk(
 	}
 );
 
+const updateSnapshot = createAsyncThunk(
+	'snapshot/updateSnapshot',
+	async (
+		{ atomicSiteId, siteFolder }: { atomicSiteId: number; siteFolder: string },
+		thunkAPI
+	) => {
+		const state = thunkAPI.getState() as RootState;
+		const snapshot = state.snapshot.snapshots.find(
+			( snapshot ) => snapshot.atomicSiteId === atomicSiteId
+		);
+		if ( ! snapshot ) {
+			throw new Error( 'Snapshot not found' );
+		}
+		const { operationId } = await getIpcApi().updateSnapshot( siteFolder, snapshot.url );
+		return { atomicSiteId: snapshot.atomicSiteId, operationId };
+	}
+);
+
 const snapshotSlice = createSlice( {
 	name: 'snapshot',
 	initialState: getInitialState(),
@@ -55,10 +85,22 @@ const snapshotSlice = createSlice( {
 		) => {
 			Object.assign( state.operations[ action.payload.operationId ], action.payload.operation );
 		},
+		updateSnapshot: (
+			state,
+			action: PayloadAction< { atomicSiteId: number; snapshot: Partial< Snapshot > } >
+		) => {
+			const snapshot = state.snapshots.find(
+				( snapshot ) => snapshot.atomicSiteId === action.payload.atomicSiteId
+			);
+			if ( snapshot ) {
+				Object.assign( snapshot, action.payload.snapshot );
+			}
+		},
 	},
 	extraReducers: ( builder ) => {
 		builder
 			.addCase( getSnapshots.fulfilled, ( state, action ) => {
+				state.isLoaded = true;
 				state.snapshots = action.payload;
 			} )
 			.addCase( createSnapshot.fulfilled, ( state, action ) => {
@@ -70,15 +112,39 @@ const snapshotSlice = createSlice( {
 					status: 'pending',
 					type: 'create',
 				};
+			} )
+			.addCase( updateSnapshot.fulfilled, ( state, action ) => {
+				state.operations[ action.payload.operationId ] = {
+					atomicSiteId: action.payload.atomicSiteId,
+					error: null,
+					progress: 0,
+					status: 'pending',
+					type: 'update',
+				};
 			} );
 	},
 	selectors: {
+		selectActiveCreateOperationForSite: ( state, siteId: string ): CreateOperation | undefined =>
+			Object.values( state.operations ).find(
+				( operation ): operation is CreateOperation =>
+					operation.status === 'pending' &&
+					operation.type === 'create' &&
+					operation.siteId === siteId
+			),
+		selectUpdateOperationForSnapshot: (
+			state,
+			atomicSiteId: number
+		): UpdateOperation | undefined =>
+			Object.values( state.operations ).find(
+				( operation ): operation is UpdateOperation =>
+					operation.type === 'update' && operation.atomicSiteId === atomicSiteId
+			),
+		selectIsAnySnapshotUpdating: ( state ) =>
+			Object.values( state.operations ).some(
+				( operation ) => operation.type === 'update' && operation.status === 'pending'
+			),
 		selectSnapshots: ( state ) => state.snapshots,
 		selectSnapshotsCount: ( state ) => state.snapshots.length,
-		selectActiveOperationForSite: ( state, siteId: string ) =>
-			Object.values( state.operations )
-				.filter( ( operation ) => operation.status === 'pending' )
-				.find( ( operation ) => operation.siteId === siteId ),
 	},
 } );
 
@@ -159,10 +225,17 @@ window.ipcListener.subscribe( 'snapshot-error', ( event, payload ) => {
 		return;
 	}
 
-	getIpcApi().showErrorMessageBox( {
-		title: __( 'Adding preview site failed' ),
-		message: payload.data.message,
-	} );
+	if ( operation.type === 'create' ) {
+		getIpcApi().showErrorMessageBox( {
+			title: __( 'Adding preview site failed' ),
+			message: payload.data.message,
+		} );
+	} else if ( operation.type === 'update' ) {
+		getIpcApi().showErrorMessageBox( {
+			title: __( 'Updating preview site failed' ),
+			message: payload.data.message,
+		} );
+	}
 
 	store.dispatch(
 		snapshotActions.updateOperation( {
@@ -178,10 +251,17 @@ window.ipcListener.subscribe( 'snapshot-success', ( event, payload ) => {
 		return;
 	}
 
-	getIpcApi().showNotification( {
-		title: operation.snapshotName,
-		body: sprintf( __( "Preview site '%s' has been created." ), operation.snapshotUrl ),
-	} );
+	if ( operation.type === 'create' ) {
+		getIpcApi().showNotification( {
+			title: operation.snapshotName,
+			body: sprintf( __( "Preview site '%s' has been created." ), operation.snapshotUrl ),
+		} );
+	} else if ( operation.type === 'update' ) {
+		getIpcApi().showNotification( {
+			title: operation.snapshotName,
+			body: sprintf( __( "Preview site '%s' has been updated." ), operation.snapshotUrl ),
+		} );
+	}
 
 	store.dispatch(
 		snapshotActions.updateOperation( {
@@ -201,5 +281,6 @@ export const snapshotSelectors = {
 export const snapshotThunks = {
 	getSnapshots,
 	createSnapshot,
+	updateSnapshot,
 };
 export const reducer = snapshotSlice.reducer;

@@ -7,14 +7,6 @@ export type SupportedEditorConfig = {
 	url: ( path: string ) => string;
 };
 
-export const supportedEditorNames: Record< SupportedEditor, string > = {
-	vscode: 'Visual Studio Code',
-	phpstorm: 'PhpStorm',
-	cursor: 'Cursor',
-	windsurf: 'Windsurf',
-	webstorm: 'WebStorm',
-};
-
 export const supportedEditorConfig: Record< SupportedEditor, SupportedEditorConfig > = {
 	vscode: {
 		// translators: "VS Code" is the brand name for an IDE and does not need to be translated

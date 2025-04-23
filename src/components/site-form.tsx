@@ -12,6 +12,7 @@ import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
 import { useI18nData } from 'src/hooks/use-i18n-data';
 import { cx } from 'src/lib/cx';
 import { generateCustomDomainFromSiteName } from 'src/lib/domains';
+import { getDocsLink } from 'src/lib/get-docs-link';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
 import {

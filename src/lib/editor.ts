@@ -1,3 +1,5 @@
+import { __ } from '@wordpress/i18n';
+
 export type SupportedEditor = 'vscode' | 'phpstorm' | 'cursor' | 'windsurf' | 'webstorm';
 
 export type SupportedEditorConfig = {
@@ -15,23 +17,28 @@ export const supportedEditorNames: Record< SupportedEditor, string > = {
 
 export const supportedEditorConfig: Record< SupportedEditor, SupportedEditorConfig > = {
 	vscode: {
-		label: 'VS Code',
+		// translators: "VS Code" is the brand name for an IDE and does not need to be translated
+		label: __( 'VS Code' ),
 		url: ( path: string ) => `vscode://file/${ path }?windowId=_blank`,
 	},
 	phpstorm: {
-		label: 'PhpStorm',
+		// translators: "PhpStorm" is the brand name for an IDE and does not need to be translated
+		label: __( 'PhpStorm' ),
 		url: ( path: string ) => `phpstorm://open?file=${ path }`,
 	},
 	webstorm: {
-		label: 'WebStorm',
+		// translators: "WebStorm" is the brand name for an IDE and does not need to be translated
+		label: __( 'WebStorm' ),
 		url: ( path: string ) => `webstorm://open?file=${ path }`,
 	},
 	windsurf: {
-		label: 'WindSurf',
+		// translators: "Windsurf" is the brand name for an IDE and does not need to be translated
+		label: __( 'WindSurf' ),
 		url: ( path: string ) => `windsurf://file/${ path }?windowId=_blank`,
 	},
 	cursor: {
-		label: 'Cursor',
+		// translators: "Cursor" is the brand name for an IDE and does not need to be translated
+		label: __( 'Cursor' ),
 		url: ( path: string ) => `cursor://file/${ path }?windowId=_blank`,
 	},
 };

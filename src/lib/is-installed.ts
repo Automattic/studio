@@ -27,14 +27,12 @@ function getLocalProgramsPath(): string {
 		return app.getPath( 'appData' );
 	}
 
-	// On Windows, we can get the Local\Programs folder by using LOCALAPPDATA
 	const localAppData = process.env.LOCALAPPDATA;
 	if ( localAppData ) {
-		return path.join( localAppData, 'Local', 'Programs' );
+		return path.win32.join( localAppData, 'Local', 'Programs' );
 	}
 
-	// Fallback to electron's appData path if environment variable is not available
-	return path.join( app.getPath( 'appData' ), 'Local', 'Programs' );
+	return path.win32.join( app.getPath( 'appData' ), 'Local', 'Programs' );
 }
 
 // Define installation paths for each IDE by platform

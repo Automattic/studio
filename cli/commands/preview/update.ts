@@ -5,7 +5,7 @@ import { PreviewCommandLoggerAction as LoggerAction } from 'common/logger-action
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
 import { cleanup, createArchive } from 'cli/lib/archive';
-import { upsertPreviewSiteInAppdata, getSnapshotsFromAppdata } from 'cli/lib/snapshots';
+import { getSnapshotsFromAppdata, updateSnapshotDateInAppdata } from 'cli/lib/snapshots';
 import { normalizeHostname } from 'cli/lib/utils';
 import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
@@ -52,11 +52,7 @@ async function runCommand(
 		);
 
 		logger.reportStart( LoggerAction.APPDATA, __( 'Saving preview site to Studio...' ) );
-		const snapshot = await upsertPreviewSiteInAppdata(
-			siteFolder,
-			uploadResponse.site_id,
-			uploadResponse.site_url
-		);
+		const snapshot = await updateSnapshotDateInAppdata( uploadResponse.site_id );
 		logger.reportSuccess( __( 'Preview site saved to Studio' ) );
 
 		logger.reportKeyValuePair( 'name', snapshot.name );

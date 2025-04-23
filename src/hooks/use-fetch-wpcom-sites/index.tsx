@@ -72,7 +72,7 @@ function needsTransfer( site: SitesEndpointSite ): boolean {
 	return ! isJetpackSite( site ) && ! isPressableSite( site ) && ! isAtomicSite( site );
 }
 
-function getSyncSupport( site: SitesEndpointSite, connectedSiteIds: number[] ): SyncSupport {
+export function getSyncSupport( site: SitesEndpointSite, connectedSiteIds: number[] ): SyncSupport {
 	if ( site.is_deleted ) {
 		return 'deleted';
 	}

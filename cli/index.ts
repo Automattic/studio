@@ -1,7 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
 import yargs from 'yargs';
-import { hideBin } from 'yargs/helpers';
 import { registerCommand as registerCreateCommand } from 'cli/commands/preview/create';
 import { registerCommand as registerDeleteCommand } from 'cli/commands/preview/delete';
 import { registerCommand as registerListCommand } from 'cli/commands/preview/list';
@@ -14,7 +13,7 @@ import { OutputFormat, StudioArgv } from 'cli/types';
 async function main() {
 	const locale = await loadTranslations();
 
-	const studioArgv: StudioArgv = yargs( hideBin( process.argv ) )
+	const studioArgv: StudioArgv = yargs( process.argv.slice( 2 ) )
 		.scriptName( 'studio' )
 		.usage( __( 'Studio by WordPress.com CLI' ) )
 		.locale( locale )
@@ -37,7 +36,9 @@ async function main() {
 			registerListCommand( previewYargs );
 			registerDeleteCommand( previewYargs );
 			registerUpdateCommand( previewYargs );
-		} );
+		} )
+		.demandCommand( 1, __( 'You must provide a valid command' ) )
+		.strict();
 
 	await studioArgv.argv;
 }

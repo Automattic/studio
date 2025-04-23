@@ -1306,7 +1306,7 @@ export async function createSnapshot(
 	siteFolder: string
 ): Promise< { operationId: crypto.UUID } > {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	return executePreviewCliCommand( [ 'go', siteFolder ], parentWindow );
+	return executePreviewCliCommand( [ 'preview', 'create', siteFolder ], parentWindow );
 }
 
 export async function updateSnapshot(

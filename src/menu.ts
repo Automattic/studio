@@ -91,7 +91,7 @@ function getAppMenu(
 						sendIpcEventToRenderer( 'user-settings' );
 					},
 				},
-				...( process.platform === 'darwin' && process.env.NODE_ENV === 'development'
+				...( process.platform === 'darwin'
 					? [
 							{
 								label: __( 'Install CLI…' ),

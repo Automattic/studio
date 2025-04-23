@@ -298,10 +298,7 @@ async function appBoot() {
 			'weekly'
 		);
 
-		// temporary hidden since in development yet
-		if ( process.env.NODE_ENV === 'development' ) {
-			await installCLIOnWindows();
-		}
+		await installCLIOnWindows();
 
 		finishedInitialization = true;
 	} );

@@ -13,12 +13,13 @@ import { WordPressShortLogo } from 'src/components/wordpress-short-logo';
 import { CLIENT_ID, PROTOCOL_PREFIX, SCOPES, WP_AUTHORIZE_ENDPOINT } from 'src/constants';
 import { useSyncSites } from 'src/hooks/sync-sites';
 import { useAuth } from 'src/hooks/use-auth';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
-
 function SiteSyncDescription( { children }: PropsWithChildren ) {
 	const { __ } = useI18n();
+	const { pressableSyncEnabled } = useFeatureFlags();
 	return (
 		<div className="flex justify-between max-w-3xl gap-4">
 			<div className="flex flex-col p-8">
@@ -27,9 +28,13 @@ function SiteSyncDescription( { children }: PropsWithChildren ) {
 					<WordPressShortLogo className="ms-2 h-5" />
 				</div>
 				<div className="max-w-[40ch] text-a8c-gray-70 a8c-body">
-					{ __(
-						'Connect any Jetpack-activated site, including your WordPress.com or Pressable sites, or create a new one. Then, share your work with the world.'
-					) }
+					{ pressableSyncEnabled
+						? __(
+								'Connect your existing WordPress.com or Jetpack-activated Pressable sites, or create a new one. Then, share your work with the world.'
+						  )
+						: __(
+								'Connect an existing WordPress.com site, or create a new one and share your site with the world.'
+						  ) }
 				</div>
 				<div className="mt-6">
 					{ [

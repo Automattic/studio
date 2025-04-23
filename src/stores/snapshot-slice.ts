@@ -7,6 +7,7 @@ import {
 	PayloadAction,
 } from '@reduxjs/toolkit';
 import { __, sprintf } from '@wordpress/i18n';
+import fastDeepEqual from 'fast-deep-equal';
 import { PreviewCommandLoggerAction } from 'common/logger-actions';
 import { Snapshot } from 'common/types/snapshot';
 import { LIMIT_OF_ZIP_SITES_PER_USER } from 'src/constants';
@@ -141,8 +142,10 @@ const snapshotSlice = createSlice( {
 			);
 		},
 		setSnapshots: ( state, action: PayloadAction< Snapshot[] > ) => {
-			state.snapshots = action.payload;
-			state.isLoaded = true;
+			if ( ! fastDeepEqual( state.snapshots, action.payload ) ) {
+				state.snapshots = action.payload;
+				state.isLoaded = true;
+			}
 		},
 		updateOperation: (
 			state,

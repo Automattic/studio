@@ -1,6 +1,6 @@
 import { TabPanel } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Modal from 'src/components/modal';
 import { useAuth } from 'src/hooks/use-auth';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
@@ -34,7 +34,11 @@ export default function UserSettings() {
 		snapshotSelectors.selectSnapshotsByUser( state, user?.id ?? 0 )
 	);
 	const snapshotQuota = useRootSelector( ( state ) => state.snapshot.snapshotQuota );
-	const { data: snapshotUsage, isLoading: isLoadingSnapshotUsage } = useGetSnapshotUsage();
+	const {
+		data: snapshotUsage,
+		isLoading: isLoadingSnapshotUsage,
+		refetch: refetchSnapshotUsage,
+	} = useGetSnapshotUsage();
 	const definitiveSnapshotCount = snapshotUsage?.siteCount ?? snapshotsByUser?.length ?? 0;
 
 	const [ needsToOpenUserSettings, setNeedsToOpenUserSettings ] = useState( false );
@@ -67,6 +71,12 @@ export default function UserSettings() {
 			await dispatch( snapshotThunks.deleteAllSnapshotsForUser( { userId: user?.id ?? 0 } ) );
 		}
 	}, [ __, dispatch, user?.id ] );
+
+	useEffect( () => {
+		if ( needsToOpenUserSettings ) {
+			refetchSnapshotUsage();
+		}
+	}, [ snapshotsByUser.length, needsToOpenUserSettings, refetchSnapshotUsage ] );
 
 	if ( ! preferredEditor ) {
 		return (

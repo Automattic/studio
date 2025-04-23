@@ -60,9 +60,9 @@ function getAppMenu(
 	];
 
 	const devTools: MenuItemConstructorOptions[] = [
-		{ role: 'reload' },
-		{ role: 'forceReload' },
-		{ role: 'toggleDevTools' },
+		{ label: __( 'Reload' ), role: 'reload' },
+		{ label: __( 'Force Reload' ), role: 'forceReload' },
+		{ label: __( 'Toggle DevTools' ), role: 'toggleDevTools' },
 		{ type: 'separator' },
 	];
 
@@ -102,18 +102,19 @@ function getAppMenu(
 				{ type: 'separator' },
 				...( process.platform === 'win32'
 					? []
-					: [ { role: 'services' } as MenuItemConstructorOptions ] ),
+					: [ { label: __( 'Services' ), role: 'services' } as MenuItemConstructorOptions ] ),
 				{ type: 'separator' },
 				...( process.platform === 'win32'
 					? []
-					: [ { role: 'hide' } as MenuItemConstructorOptions ] ),
+					: [ { label: __( 'Hide' ), role: 'hide' } as MenuItemConstructorOptions ] ),
 				{ type: 'separator' },
 				...( process.env.NODE_ENV === 'development' ? crashTestMenuItems : [] ),
 				{ type: 'separator' },
-				{ role: 'quit' },
+				{ label: __( 'Quit' ), role: 'quit' },
 			],
 		},
 		{
+			label: __( 'File' ),
 			role: 'fileMenu',
 			submenu: [
 				{
@@ -142,18 +143,32 @@ function getAppMenu(
 			? []
 			: [
 					{
+						label: __( 'Edit' ),
 						role: 'editMenu',
 					} as MenuItemConstructorOptions,
 			  ] ),
 		{
+			label: __( 'View' ),
 			role: 'viewMenu',
 			submenu: [
 				...( process.env.NODE_ENV === 'development' ? devTools : [] ),
-				{ role: 'resetZoom' },
-				{ role: 'zoomIn' },
-				{ role: 'zoomOut' },
+				{
+					label: __( 'Actual Size' ),
+					role: 'resetZoom',
+				},
+				{
+					label: __( 'Zoom In' ),
+					role: 'zoomIn',
+				},
+				{
+					label: __( 'Zoom Out' ),
+					role: 'zoomOut',
+				},
 				{ type: 'separator' },
-				{ role: 'togglefullscreen' },
+				{
+					label: __( 'Toggle Fullscreen' ),
+					role: 'togglefullscreen',
+				},
 				{ type: 'separator' },
 				{
 					label: __( 'Float on Top of All Other Windows' ),
@@ -171,14 +186,19 @@ function getAppMenu(
 			? []
 			: [
 					{
+						label: __( 'Window' ),
 						role: 'windowMenu',
 						// We can't remove all of the items which aren't relevant to us (anything for
 						// managing multiple window instances), but this seems to remove as many of
 						// them as we can.
-						submenu: [ { role: 'minimize' }, { role: 'zoom' } ],
+						submenu: [
+							{ label: __( 'Minimize' ), role: 'minimize' },
+							{ label: __( 'Zoom' ), role: 'zoom' },
+						],
 					} as MenuItemConstructorOptions,
 			  ] ),
 		{
+			label: __( 'Help' ),
 			role: 'help',
 			submenu: [
 				{

@@ -1,12 +1,4 @@
-export type SupportedEditor =
-	| 'vscode'
-	| 'phpstorm'
-	| 'cursor'
-	| 'windsurf'
-	| 'nova'
-	| 'webstorm'
-	| 'sublime'
-	| 'atom';
+export type SupportedEditor = 'vscode' | 'phpstorm' | 'cursor' | 'windsurf' | 'webstorm';
 
 export type SupportedEditorConfig = {
 	label: string;
@@ -18,13 +10,10 @@ export const supportedEditorNames: Record< SupportedEditor, string > = {
 	phpstorm: 'PhpStorm',
 	cursor: 'Cursor',
 	windsurf: 'Windsurf',
-	nova: 'Nova',
 	webstorm: 'WebStorm',
-	sublime: 'Sublime',
-	atom: 'Atom',
 };
 
-export const supportedEditorConfig: Record< string, SupportedEditorConfig > = {
+export const supportedEditorConfig: Record< SupportedEditor, SupportedEditorConfig > = {
 	vscode: {
 		label: 'VS Code',
 		url: ( path: string ) => `vscode://file/${ path }?windowId=_blank`,

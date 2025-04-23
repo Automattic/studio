@@ -139,14 +139,38 @@ function getAppMenu(
 					  ] ),
 			],
 		},
-		...( process.platform === 'win32'
-			? []
-			: [
-					{
-						label: __( 'Edit' ),
-						role: 'editMenu',
-					} as MenuItemConstructorOptions,
-			  ] ),
+		{
+			label: __( 'Edit' ),
+			role: 'editMenu',
+			submenu: [
+				{
+					label: __( 'Undo' ),
+					role: 'undo',
+				},
+				{
+					label: __( 'Redo' ),
+					role: 'redo',
+				},
+				{ type: 'separator' },
+				{ label: __( 'Cut' ), role: 'cut' },
+				{ label: __( 'Copy' ), role: 'copy' },
+				{ label: __( 'Paste' ), role: 'paste' },
+				{
+					label: __( 'Paste and Match Style' ),
+					role: 'pasteAndMatchStyle',
+				},
+				{ label: __( 'Delete' ), role: 'delete' },
+				{ label: __( 'Select All' ), role: 'selectAll' },
+				{ type: 'separator' },
+				{
+					label: __( 'Speech' ),
+					submenu: [
+						{ label: __( 'Start Speaking' ), role: 'startSpeaking' },
+						{ label: __( 'Stop Speaking' ), role: 'stopSpeaking' },
+					],
+				},
+			],
+		},
 		{
 			label: __( 'View' ),
 			role: 'viewMenu',

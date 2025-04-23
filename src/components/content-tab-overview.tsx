@@ -185,7 +185,7 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 	];
 
 	if ( editorName ) {
-		const editor = supportedEditorConfig[ editorName ] ?? null;
+		const editor = supportedEditorConfig[ editorName as keyof typeof supportedEditorConfig ];
 		if ( editor ) {
 			buttonsArray.push( {
 				label: editor.label,

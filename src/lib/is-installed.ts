@@ -29,7 +29,7 @@ function getLocalProgramsPath(): string {
 
 	const localAppData = process.env.LOCALAPPDATA;
 	if ( localAppData ) {
-		return path.win32.join( localAppData, 'Local', 'Programs' );
+		return path.win32.join( path.dirname(localAppData), 'Local', 'Programs' );
 	}
 
 	return path.win32.join( app.getPath( 'appData' ), 'Local', 'Programs' );

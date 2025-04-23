@@ -37,7 +37,6 @@ function getAppDataPath(): string {
 	return app.getPath( 'appData' );
 }
 
-console.log(getAppDataPath());
 // Define installation paths for each IDE by platform
 const installationPaths: Record< string, PlatformPaths > = {
 	darwin: {

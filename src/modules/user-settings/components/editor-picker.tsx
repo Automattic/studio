@@ -1,7 +1,7 @@
 import { SelectControl } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { useEffect, useState } from 'react';
-import { SupportedEditor, supportedEditorNames } from 'src/lib/editor';
+import { SupportedEditor, supportedEditorConfig } from 'src/lib/editor';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { SettingsFormField } from './settings-form-field';
 
@@ -33,11 +33,11 @@ export const EditorPicker = ( { value, onChange }: EditorPickerProps ) => {
 		fetchInstalledApps();
 	}, [] );
 
-	const installedEditors = Object.entries( supportedEditorNames ).filter(
+	const installedEditors = Object.entries( supportedEditorConfig ).filter(
 		( [ editor ] ) => installedApps[ editor as keyof typeof installedApps ]
 	);
 
-	const uninstalledEditors = Object.entries( supportedEditorNames ).filter(
+	const uninstalledEditors = Object.entries( supportedEditorConfig ).filter(
 		( [ editor ] ) => ! installedApps[ editor as keyof typeof installedApps ]
 	);
 
@@ -49,15 +49,15 @@ export const EditorPicker = ( { value, onChange }: EditorPickerProps ) => {
 				__nextHasNoMarginBottom
 				__next40pxDefaultSize
 			>
-				{ installedEditors.map( ( [ editor, label ] ) => (
-					<option key={ editor } value={ editor }>
-						{ label }
+				{ installedEditors.map( ( [ editorKey, editorConfig ] ) => (
+					<option key={ editorKey } value={ editorKey }>
+						{ editorConfig.label }
 					</option>
 				) ) }
 				<optgroup label={ __( 'Not installed' ) }>
-					{ uninstalledEditors.map( ( [ editor, label ] ) => (
-						<option key={ editor } value={ editor } disabled>
-							{ label }
+					{ uninstalledEditors.map( ( [ editorKey, editorConfig ] ) => (
+						<option key={ editorKey } value={ editorKey } disabled>
+							{ editorConfig.label }
 						</option>
 					) ) }
 				</optgroup>

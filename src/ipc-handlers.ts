@@ -197,34 +197,46 @@ export async function createSite(
 		enableHttps,
 	} as const;
 
-	const server = SiteServer.create( details, { wpVersion } );
+	try {
+		const server = SiteServer.create( details, { wpVersion } );
 
-	if ( isWordPressDirectory( path ) ) {
-		// If the directory contains a WordPress installation, and user wants to force SQLite
-		// integration, let's rename the wp-config.php file to allow WP Now to create a new one
-		// and initialize things properly.
-		if ( forceSetupSqlite && ( await pathExists( nodePath.join( path, 'wp-config.php' ) ) ) ) {
-			fs.renameSync(
-				nodePath.join( path, 'wp-config.php' ),
-				nodePath.join( path, 'wp-config-studio.php' )
-			);
+		if ( isWordPressDirectory( path ) ) {
+			// If the directory contains a WordPress installation, and user wants to force SQLite
+			// integration, let's rename the wp-config.php file to allow WP Now to create a new one
+			// and initialize things properly.
+			if ( forceSetupSqlite && ( await pathExists( nodePath.join( path, 'wp-config.php' ) ) ) ) {
+				fs.renameSync(
+					nodePath.join( path, 'wp-config.php' ),
+					nodePath.join( path, 'wp-config-studio.php' )
+				);
+			}
+
+			if ( ! ( await pathExists( nodePath.join( path, 'wp-config.php' ) ) ) ) {
+				await installSqliteIntegration( path );
+			} else {
+				await updateSiteUrl( server, getSiteUrl( details ) );
+			}
 		}
 
-		if ( ! ( await pathExists( nodePath.join( path, 'wp-config.php' ) ) ) ) {
-			await installSqliteIntegration( path );
-		} else {
-			await updateSiteUrl( server, getSiteUrl( details ) );
+		const parentWindow = BrowserWindow.fromWebContents( event.sender );
+		sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-updating', { id: details.id } );
+
+		userData.sites.push( server.details );
+		sortSites( userData.sites );
+		await saveUserData( userData );
+
+		return mergeSiteDetailsWithRunningDetails( userData.sites );
+	} catch ( error ) {
+		if (
+			error instanceof Error &&
+			error.message.includes( 'Cannot allocate Wasm memory for new instance' )
+		) {
+			Sentry.captureException( error );
+			console.error( 'Site failed to allocate Wasm memory:', error );
+			throw new Error( 'WASM_ERROR_NOT_ENOUGH_MEMORY' );
 		}
+		throw error;
 	}
-
-	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-updating', { id: details.id } );
-
-	userData.sites.push( server.details );
-	sortSites( userData.sites );
-	await saveUserData( userData );
-
-	return mergeSiteDetailsWithRunningDetails( userData.sites );
 }
 
 export async function updateSite(

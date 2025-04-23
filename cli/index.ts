@@ -36,6 +36,7 @@ async function main() {
 			registerListCommand( previewYargs );
 			registerDeleteCommand( previewYargs );
 			registerUpdateCommand( previewYargs );
+			previewYargs.demandCommand( 1, __( 'You must provide a valid command' ) );
 		} )
 		.demandCommand( 1, __( 'You must provide a valid command' ) )
 		.strict();

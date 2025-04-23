@@ -534,15 +534,15 @@ export async function saveUserLocale( _event: IpcMainInvokeEvent, locale: string
 	} );
 }
 
-export async function saveUserEditor( _event: IpcMainInvokeEvent, editor: SupportedEditor ) {
+export async function saveUserEditor( event: IpcMainInvokeEvent, editor: SupportedEditor ) {
 	const userData = await loadUserData();
 	await saveUserData( {
 		...userData,
 		preferredEditor: editor,
 	} );
 
-	// Notify renderer processes that the terminal preference has changed
-	sendIpcEventToRenderer( 'user-preference-changed' );
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+	sendIpcEventToRendererWithWindow( parentWindow, 'user-preference-changed' );
 }
 
 export async function getSentryUserId( _event: IpcMainInvokeEvent ): Promise< string | undefined > {

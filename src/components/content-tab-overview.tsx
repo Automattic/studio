@@ -177,13 +177,13 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 	}, [ setEditorName, installedApps ] );
 
 	useIpcListener( 'user-preference-changed', () => {
-		updateTerminalName();
-		updateEditorName();
+		void updateTerminalName();
+		void updateEditorName();
 	} );
 
 	useEffect( () => {
-		updateTerminalName();
-		updateEditorName();
+		void updateTerminalName();
+		void updateEditorName();
 	}, [ updateTerminalName, updateEditorName ] );
 
 	const buttonsArray: ButtonsSectionProps[ 'buttonsArray' ] = [
@@ -208,9 +208,9 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 			icon: code,
 			onClick: () => {
 				if ( editorName === __( 'VS Code' ) ) {
-					getIpcApi().openURL( `vscode://file/${ selectedSite.path }?windowId=_blank` );
+					void getIpcApi().openURL( `vscode://file/${ selectedSite.path }?windowId=_blank` );
 				} else if ( editorName === __( 'PhpStorm' ) ) {
-					getIpcApi().openURL( `phpstorm://open?file=${ selectedSite.path }` );
+					void getIpcApi().openURL( `phpstorm://open?file=${ selectedSite.path }` );
 				}
 			},
 		} );

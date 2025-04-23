@@ -72,7 +72,7 @@ function needsTransfer( site: SitesEndpointSite ): boolean {
 	return ! isJetpackSite( site ) && ! isPressableSite( site ) && ! isAtomicSite( site );
 }
 
-function getSyncSupport( site: SitesEndpointSite, connectedSiteIds: number[] ): SyncSupport {
+export function getSyncSupport( site: SitesEndpointSite, connectedSiteIds: number[] ): SyncSupport {
 	if ( site.is_deleted ) {
 		return 'deleted';
 	}
@@ -80,10 +80,10 @@ function getSyncSupport( site: SitesEndpointSite, connectedSiteIds: number[] ): 
 		return 'missing-permissions';
 	}
 	if ( isJetpackSite( site ) ) {
-		return 'jetpack-site';
+		return 'unsupported';
 	}
 	if ( ! hasSupportedPlan( site ) && ! isPressableSite( site ) ) {
-		return 'unsupported';
+		return 'needs-upgrade';
 	}
 	if ( needsTransfer( site ) ) {
 		return 'needs-transfer';

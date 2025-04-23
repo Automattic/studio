@@ -7,6 +7,7 @@ jest.mock( 'src/hooks/use-theme-details' );
 jest.mock( 'src/lib/get-ipc-api', () => ( {
 	getIpcApi: jest.fn().mockReturnValue( {
 		getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
+		getUserEditor: jest.fn().mockResolvedValue( 'vscode' ),
 		getInstalledTerminals: jest.fn().mockResolvedValue( {
 			terminal: true,
 			iterm: false,

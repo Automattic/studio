@@ -27,7 +27,9 @@ export default function UserSettings() {
 	const { preferredEditor } = useFeatureFlags();
 	const { locale: savedLocale, setLocale: setSavedLocale } = useI18nData();
 
-	const [ isDeletingAllSnapshots, setIsDeletingAllSnapshots ] = useState( false );
+	const activeBulkOperationForUser = useRootSelector( ( state ) =>
+		snapshotSelectors.selectActiveBulkOperationForUser( state, user?.id ?? 0 )
+	);
 	const snapshotsByUser = useRootSelector( ( state ) =>
 		snapshotSelectors.selectSnapshotsByUser( state, user?.id ?? 0 )
 	);
@@ -62,9 +64,7 @@ export default function UserSettings() {
 		} );
 
 		if ( response === DELETE_BUTTON_INDEX ) {
-			setIsDeletingAllSnapshots( true );
 			await dispatch( snapshotThunks.deleteAllSnapshotsForUser( { userId: user?.id ?? 0 } ) );
-			setIsDeletingAllSnapshots( false );
 		}
 	}, [ __, dispatch, user?.id ] );
 
@@ -87,10 +87,10 @@ export default function UserSettings() {
 								<div className="flex flex-col gap-6">
 									<LanguagePicker value={ savedLocale } onChange={ setSavedLocale } />
 									<SnapshotInfo
-										isDeleting={ isDeletingAllSnapshots }
+										isDeleting={ !! activeBulkOperationForUser }
 										isDisabled={
 											definitiveSnapshotCount === 0 ||
-											isDeletingAllSnapshots ||
+											!! activeBulkOperationForUser ||
 											isLoadingSnapshotUsage ||
 											isOffline
 										}
@@ -135,15 +135,11 @@ export default function UserSettings() {
 					isDismissible
 					onRequestClose={ resetLocalState }
 					size="medium"
-					className={ cx(
-						'min-h-[350px]',
-						'[&_[role="document"]]:px-0',
-						'[&_[role="document"]]:mt-[64px]'
-					) }
+					className={ cx( 'min-h-[350px]', '[&_[role="document"]]:px-0' ) }
 				>
 					<TabPanel className="w-full" tabs={ tabs } orientation="horizontal">
 						{ ( { name } ) => (
-							<div className="mt-6 px-8 flex flex-col gap-6">
+							<div className="mt-6 px-8 flex gap-4 flex-col">
 								{ name === 'account' &&
 									( isAuthenticated ? (
 										<AccountTab user={ user } logout={ logout } />
@@ -153,7 +149,7 @@ export default function UserSettings() {
 								{ name === 'preferences' && <PreferencesTab onClose={ resetLocalState } /> }
 								{ name === 'usage' && isAuthenticated && (
 									<UsageTab
-										loadingDeletingAllSnapshots={ isDeletingAllSnapshots }
+										loadingDeletingAllSnapshots={ !! activeBulkOperationForUser }
 										activeSnapshotCount={ definitiveSnapshotCount }
 										isLoadingSnapshotUsage={ isLoadingSnapshotUsage }
 										allSnapshots={ snapshotsByUser }

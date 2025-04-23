@@ -3,7 +3,7 @@ export type SyncSupport =
 	| 'syncable'
 	| 'needs-transfer'
 	| 'already-connected'
-	| 'jetpack-site'
+	| 'needs-upgrade'
 	| 'deleted'
 	| 'missing-permissions';
 

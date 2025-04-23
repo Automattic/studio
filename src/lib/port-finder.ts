@@ -1,4 +1,5 @@
 import http from 'http';
+import net from 'net';
 import killPort from 'cross-port-killer';
 
 const DEFAULT_PORT = 8881;
@@ -24,18 +25,30 @@ class PortFinder {
 		return ++this.#searchPort;
 	}
 
-	#isPortFree(): Promise< boolean > {
+	#isPortFree( portToCheck: number ): Promise< boolean > {
 		return new Promise( ( resolve ) => {
-			const server = http.createServer();
+			// First try to connect to the port
+			const socket = new net.Socket();
+			socket.on( 'error', () => {
+				// If we can't connect, try to bind to the port
+				const server = http.createServer();
+				server
+					.listen( portToCheck, () => {
+						server.close();
+						setTimeout( () => {
+							resolve( true );
+						}, 50 ); // Add a small delay to ensure port is released
+					} )
+					.on( 'error', () => {
+						resolve( false );
+					} );
+			} );
 
-			server
-				.listen( this.#searchPort, () => {
-					server.close();
-					resolve( true );
-				} )
-				.on( 'error', () => {
-					resolve( false );
-				} );
+			// Try to connect to the port
+			socket.connect( portToCheck, 'localhost', () => {
+				socket.destroy();
+				resolve( false );
+			} );
 		} );
 	}
 
@@ -46,14 +59,15 @@ class PortFinder {
 	 */
 	public async getOpenPort( portToStart?: number ): Promise< number > {
 		this.#searchPort = portToStart ? portToStart : this.#openPort ?? DEFAULT_PORT;
-		if ( portToStart && ( await this.#isPortFree() ) ) {
+
+		if ( portToStart && ( await this.#isPortFree( this.#searchPort ) ) ) {
 			const port = this.#searchPort;
 			this.#openPort = this.#incrementPort();
 			return port;
 		}
 		let isPortUnavailable = this.#unavailablePorts?.includes( this.#searchPort );
 
-		while ( isPortUnavailable || ! ( await this.#isPortFree() ) ) {
+		while ( isPortUnavailable || ! ( await this.#isPortFree( this.#searchPort ) ) ) {
 			this.#incrementPort();
 			isPortUnavailable = this.#unavailablePorts?.includes( this.#searchPort );
 		}
@@ -92,6 +106,16 @@ class PortFinder {
 					this.#openPort = DEFAULT_PORT;
 				} );
 		}
+	}
+
+	/**
+	 * Checks if a specific port is available.
+	 *
+	 * @param {number} portToCheck - The port number to check.
+	 * @returns {Promise<boolean>} A promise that resolves to true if the port is available, false otherwise.
+	 **/
+	public async isPortAvailable( portToCheck: number ): Promise< boolean > {
+		return await this.#isPortFree( portToCheck );
 	}
 }
 

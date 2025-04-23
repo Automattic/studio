@@ -46,8 +46,11 @@ interface StartedSiteDetails extends StoppedSiteDetails {
 type SiteDetails = StartedSiteDetails | StoppedSiteDetails;
 
 type InstalledApps = {
-	vscode: boolean | null;
-	phpstorm: boolean | null;
+	vscode: boolean;
+	phpstorm: boolean;
+	webstorm: boolean;
+	windsurf: boolean;
+	cursor: boolean;
 };
 
 type InstalledTerminals = {

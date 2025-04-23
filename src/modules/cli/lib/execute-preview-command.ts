@@ -38,7 +38,7 @@ export async function executePreviewCliCommand(
 	const operationId = crypto.randomUUID();
 	const cliEventEmitter = executeCliCommand( args );
 
-	cliEventEmitter.on( 'data', ( data: unknown ) => {
+	cliEventEmitter.on( 'data', ( { data } ) => {
 		const parsed = parseSnapshotEventData( data, createSnapshotStdoutSchema );
 
 		if ( ! parsed ) {
@@ -58,8 +58,8 @@ export async function executePreviewCliCommand(
 		}
 	} );
 
-	cliEventEmitter.on( 'error', ( data: unknown ) => {
-		const parsed = parseSnapshotEventData( data, snapshotEventSchema );
+	cliEventEmitter.on( 'error', ( { error } ) => {
+		const parsed = parseSnapshotEventData( error, snapshotEventSchema );
 
 		if ( parsed ) {
 			sendIpcEventToRendererWithWindow( parentWindow, 'snapshot-error', {
@@ -67,6 +67,13 @@ export async function executePreviewCliCommand(
 				data: parsed,
 			} );
 		}
+	} );
+
+	cliEventEmitter.on( 'fatal-error', ( { error } ) => {
+		sendIpcEventToRendererWithWindow( parentWindow, 'snapshot-fatal-error', {
+			operationId,
+			data: { message: error.message },
+		} );
 	} );
 
 	cliEventEmitter.on( 'success', () => {

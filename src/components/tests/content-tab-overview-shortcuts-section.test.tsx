@@ -37,7 +37,7 @@ describe( 'ShortcutsSection', () => {
 		} );
 	} );
 
-	it( 'opens site in VS Code when VS Code is installed and the button is clicked', async () => {
+	it( 'opens site in VS Code when the user select VS Code and clicked the button', async () => {
 		// Mock the `useCheckInstalledApps` hook to simulate VS Code being installed
 		( useCheckInstalledApps as jest.Mock ).mockReturnValue( {
 			vscode: true,
@@ -48,35 +48,12 @@ describe( 'ShortcutsSection', () => {
 		const openURLMock = jest.fn();
 		mockGetIpcApi.mockReturnValue( {
 			openURL: openURLMock,
+			getUserEditor: jest.fn().mockResolvedValue( 'vscode' ),
 			getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
 		} );
 
-		const { getByText } = render( <ContentTabOverview selectedSite={ selectedSite } /> );
-
-		const vscodeButton = getByText( 'VS Code' );
-		fireEvent.click( vscodeButton );
-
-		await waitFor( () =>
-			expect( openURLMock ).toHaveBeenCalledWith( expect.stringContaining( 'vscode://' ) )
-		);
-	} );
-	it( 'opens site in VS Code when VS Code and PhpStorm are both installed', async () => {
-		// Mock the `useCheckInstalledApps` hook to simulate VS Code being installed
-		( useCheckInstalledApps as jest.Mock ).mockReturnValue( {
-			vscode: true,
-			phpstorm: true,
-		} );
-
-		// Mock the IPC API
-		const openURLMock = jest.fn();
-		mockGetIpcApi.mockReturnValue( {
-			openURL: openURLMock,
-			getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
-		} );
-
-		const { getByText } = render( <ContentTabOverview selectedSite={ selectedSite } /> );
-
-		const vscodeButton = getByText( 'VS Code' );
+		const { getByLabelText } = render( <ContentTabOverview selectedSite={ selectedSite } /> );
+		const vscodeButton = await waitFor( () => getByLabelText( 'VS Code' ) );
 		fireEvent.click( vscodeButton );
 
 		await waitFor( () =>
@@ -95,12 +72,14 @@ describe( 'ShortcutsSection', () => {
 		const openURLMock = jest.fn();
 		mockGetIpcApi.mockReturnValue( {
 			openURL: openURLMock,
+			getUserEditor: jest.fn().mockResolvedValue( 'phpstorm' ), // User prefers PhpStorm
 			getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
 		} );
 
-		const { getByText } = render( <ContentTabOverview selectedSite={ selectedSite } /> );
+		const { getByLabelText } = render( <ContentTabOverview selectedSite={ selectedSite } /> );
 
-		const phpStormButton = getByText( 'PhpStorm' );
+		// Wait for component to finish rendering and async operations to complete
+		const phpStormButton = await waitFor( () => getByLabelText( 'PhpStorm' ) );
 		fireEvent.click( phpStormButton );
 
 		await waitFor( () =>
@@ -118,14 +97,14 @@ describe( 'ShortcutsSection', () => {
 		const openTerminalAtPathMock = jest.fn();
 		mockGetIpcApi.mockReturnValue( {
 			openTerminalAtPath: openTerminalAtPathMock,
+			getUserEditor: jest.fn().mockResolvedValue( null ),
 			getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
 		} );
 
-		// Render the component
-		const { getByText } = render( <ContentTabOverview selectedSite={ selectedSite } /> );
+		const { getByLabelText } = render( <ContentTabOverview selectedSite={ selectedSite } /> );
 
-		// Find the terminal button and click it
-		const terminalButton = getByText( 'Terminal' );
+		// Wait for component to finish rendering and async operations to complete
+		const terminalButton = await waitFor( () => getByLabelText( 'Terminal' ) );
 		fireEvent.click( terminalButton );
 
 		// Assert that the terminal was opened
@@ -150,14 +129,13 @@ describe( 'ShortcutsSection', () => {
 		const openTerminalAtPathMock = jest.fn();
 		mockGetIpcApi.mockReturnValue( {
 			openTerminalAtPath: openTerminalAtPathMock,
+			getUserEditor: jest.fn().mockResolvedValue( null ),
 			getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
 		} );
 
-		// Render the component
-		const { getByText } = render( <ContentTabOverview selectedSite={ selectedSite } /> );
+		const { getByLabelText } = render( <ContentTabOverview selectedSite={ selectedSite } /> );
 
-		// Find the terminal button and click it
-		const terminalButton = getByText( 'Terminal' );
+		const terminalButton = await waitFor( () => getByLabelText( 'Terminal' ) );
 		fireEvent.click( terminalButton );
 
 		// Assert that the terminal was opened
@@ -166,5 +144,28 @@ describe( 'ShortcutsSection', () => {
 				wpCliEnabled: true,
 			} );
 		} );
+	} );
+
+	it( 'does not show editor buttons when no editors are installed', async () => {
+		// Mock the `useCheckInstalledApps` hook to simulate no editors installed
+		( useCheckInstalledApps as jest.Mock ).mockReturnValue( {
+			vscode: false,
+			phpstorm: false,
+		} );
+
+		// Mock the IPC API
+		mockGetIpcApi.mockReturnValue( {
+			openLocalPath: jest.fn(),
+			getUserEditor: jest.fn().mockResolvedValue( null ),
+			getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
+		} );
+
+		const { queryByLabelText, findByLabelText } = render(
+			<ContentTabOverview selectedSite={ selectedSite } />
+		);
+
+		await findByLabelText( 'Terminal' );
+		expect( queryByLabelText( 'VS Code' ) ).toBeNull();
+		expect( queryByLabelText( 'PhpStorm' ) ).toBeNull();
 	} );
 } );

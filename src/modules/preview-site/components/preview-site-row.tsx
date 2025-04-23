@@ -42,14 +42,16 @@ export function PreviewSiteRow( {
 	const deleteOperation = useRootSelector( ( state ) =>
 		snapshotSelectors.selectDeleteOperationForSnapshot( state, snapshot.url )
 	);
-	const isPreviewSiteUpdating = updateOperation?.status === 'pending';
-	const hasError = updateOperation?.status === 'rejected';
 	const { formatRelativeTime } = useFormatLocalizedTimestamps();
 	const [ showUpdatedMessage, setShowUpdatedMessage ] = useState( false );
 	const wasUpdating = useRef( false );
 
 	useEffect( () => {
-		if ( isPreviewSiteUpdating ) {
+		if ( ! updateOperation ) {
+			return;
+		}
+
+		if ( updateOperation.status === 'pending' ) {
 			wasUpdating.current = true;
 			setShowUpdatedMessage( false );
 			return;
@@ -60,7 +62,7 @@ export function PreviewSiteRow( {
 		}
 		wasUpdating.current = false;
 
-		if ( ! hasError ) {
+		if ( updateOperation.status === 'fulfilled' ) {
 			setShowUpdatedMessage( true );
 		}
 
@@ -69,7 +71,7 @@ export function PreviewSiteRow( {
 		}, UPDATED_MESSAGE_DURATION_MS );
 
 		return () => clearTimeout( timeoutId );
-	}, [ hasError, isPreviewSiteUpdating ] );
+	}, [ updateOperation ] );
 
 	const getLastUpdateTimeText = () => {
 		if ( ! date ) {
@@ -85,7 +87,7 @@ export function PreviewSiteRow( {
 			);
 		}
 
-		if ( hasError ) {
+		if ( updateOperation?.status === 'rejected' ) {
 			return (
 				<div className="flex items-center">
 					<Icon icon={ warning } className="!mt-0 mr-1 fill-a8c-red-50" />
@@ -100,7 +102,7 @@ export function PreviewSiteRow( {
 
 	const urlWithHTTPS = `https://${ url }`;
 
-	if ( deleteOperation ) {
+	if ( deleteOperation?.status === 'pending' ) {
 		return <DeleteProgressRow />;
 	}
 
@@ -136,7 +138,7 @@ export function PreviewSiteRow( {
 				</div>
 				<div className="flex ltr:ml-auto rtl:mr-auto">
 					<div className="w-[150px] text-a8c-gray-700 flex items-center pl-4">
-						{ isPreviewSiteUpdating ? (
+						{ updateOperation?.status === 'pending' ? (
 							<div className="flex items-center text-gray-900">
 								<Spinner className="!mt-0 !mx-2" />
 								{ __( 'Updating' ) }

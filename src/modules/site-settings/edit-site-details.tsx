@@ -8,7 +8,6 @@ import Modal from 'src/components/modal';
 import TextControlComponent from 'src/components/text-control';
 import { WPVersionSelector } from 'src/components/wp-version-selector';
 import { useCertificateTrust } from 'src/hooks/use-certificate-trust';
-import { useOffline } from 'src/hooks/use-offline';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
 import { generateCustomDomainFromSiteName, getDomainNameValidationError } from 'src/lib/domains';
@@ -34,9 +33,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 	const [ isEditingSite, setIsEditingSite ] = useState( false );
 	const [ needsRestart, setNeedsRestart ] = useState( false );
 
-	const isOffline = useOffline();
 	const isCertificateTrusted = useCertificateTrust();
-	const offlineMessage = __( 'Changing WordPress version requires an internet connection.' );
 	const closeModal = useCallback( () => {
 		if ( isEditingSite ) {
 			return;

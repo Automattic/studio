@@ -62,18 +62,26 @@ The project follows a modular architecture with both global and feature-specific
 
 #### Global Directories
 
-- `src/components/` - Reusable UI components used across the application
-- `src/hooks/` - Global React hooks
-- `src/lib/` - Utility functions and helper libraries
-- `src/stores/` - Global state management (Redux stores)
-- `src/api/` - API interfaces and implementations
+| Directory | Description |
+|-----------|-------------|
+| `cli/`            | Root directory for CLI code |
+| `common/`         | Shared code between CLI and Studio (constants, types, utility functions, etc) |
+| `src/`            | Root directory for Studio code |
+| `src/components/` | Reusable UI components used across the application |
+| `src/hooks/`      | Global React hooks |
+| `src/lib/`        | Utility functions and helper libraries |
+| `src/stores/`     | Global state management (Redux stores) |
+| `src/api/`        | API interfaces and implementations |
 
 #### Important Entry Points
 
-- `scripts/` - Scripts for building and testing the app
-- `src/index.ts` - The entry point for the main process
-- `src/renderer.ts` - The entry point for the "renderer," the code running in the Chromium window
-- `vendor/wp-now` - The modified `wp-now` source code
+| File | Description |
+|------|-------------|
+| `cli/index.ts`    | The entry point for the CLI bundle |
+| `scripts/`        | Scripts for building and testing the app |
+| `src/index.ts`    | The entry point for the main process |
+| `src/renderer.ts` | The entry point for the "renderer," the code running in the Chromium window |
+| `vendor/wp-now`   | The modified `wp-now` source code |
 
 #### Feature Modules
 

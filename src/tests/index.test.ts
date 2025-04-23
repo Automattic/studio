@@ -18,10 +18,6 @@ jest.mock( 'src/setup-wp-server-files', () => ( {
 	updateWPServerFiles: jest.fn( () => Promise.resolve() ),
 } ) );
 
-type MockedFs = typeof fs & {
-	__setFileContents: ( path: string, contents: string ) => void;
-};
-
 const mockUserData = {
 	sites: [],
 };

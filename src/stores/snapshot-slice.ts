@@ -49,7 +49,7 @@ type BulkOperation = Omit< BaseOperation, 'progress' > & {
 export type SnapshotOperation = CreateOperation | UpdateOperation | DeleteOperation | BulkOperation;
 
 type SnapshotState = {
-	isLoaded: boolean;
+	isInitialSnapshotsLoaded: boolean;
 	operations: Record< crypto.UUID, SnapshotOperation >;
 	snapshots: Snapshot[];
 	snapshotQuota: number;
@@ -57,7 +57,7 @@ type SnapshotState = {
 
 const getInitialState = (): SnapshotState => {
 	return {
-		isLoaded: false,
+		isInitialSnapshotsLoaded: false,
 		operations: {},
 		snapshots: [],
 		snapshotQuota: LIMIT_OF_ZIP_SITES_PER_USER,
@@ -83,8 +83,7 @@ const updateSnapshot = createAsyncThunk(
 		if ( ! found ) {
 			throw new Error( 'Snapshot not found' );
 		}
-		const snapshotUrl = found.url;
-		const { operationId } = await getIpcApi().updateSnapshot( siteFolder, snapshotUrl );
+		const { operationId } = await getIpcApi().updateSnapshot( siteFolder, found.url );
 		return { operationId };
 	}
 );
@@ -144,7 +143,7 @@ const snapshotSlice = createSlice( {
 		setSnapshots: ( state, action: PayloadAction< Snapshot[] > ) => {
 			if ( ! fastDeepEqual( state.snapshots, action.payload ) ) {
 				state.snapshots = action.payload;
-				state.isLoaded = true;
+				state.isInitialSnapshotsLoaded = true;
 			}
 		},
 		updateOperation: (
@@ -294,7 +293,6 @@ const selectSnapshotsBySiteAndUser = createSelector(
 );
 
 window.ipcListener.subscribe( 'user-data-updated', ( _, payload ) => {
-	console.log( 'user-data-updated', payload );
 	store.dispatch( snapshotSlice.actions.setSnapshots( payload.snapshots ) );
 } );
 

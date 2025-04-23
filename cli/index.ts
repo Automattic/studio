@@ -19,7 +19,7 @@ async function main() {
 		.usage( __( 'Studio by WordPress.com CLI' ) )
 		.locale( locale )
 		.version( version )
-		.middleware( async () =>
+		.middleware( () =>
 			bumpAggregatedUniqueStat( StatsGroup.STUDIO_CLI_USAGE_UNIQUE, StatsMetric.SUCCESS, 'weekly' )
 		)
 		.option( 'output-format', {
@@ -31,25 +31,13 @@ async function main() {
 				}
 				return value;
 			},
-		} );
-
-	registerCreateCommand( studioArgv );
-
-	studioArgv
-		.command( {
-			command: 'preview',
-			describe: __( 'Manage preview sites' ),
-			builder: ( yargs ) => {
-				registerListCommand( yargs );
-				registerDeleteCommand( yargs );
-				registerUpdateCommand( yargs );
-				return yargs.demandCommand( 1, __( 'You need to specify a preview command' ) );
-			},
-			handler: () => {},
 		} )
-		.demandCommand( 1, __( 'You need to specify a command' ) )
-		.strict()
-		.help();
+		.command( 'preview', 'Preview commands', ( previewYargs ) => {
+			registerCreateCommand( previewYargs );
+			registerListCommand( previewYargs );
+			registerDeleteCommand( previewYargs );
+			registerUpdateCommand( previewYargs );
+		} );
 
 	await studioArgv.argv;
 }

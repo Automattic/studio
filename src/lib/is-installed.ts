@@ -29,9 +29,10 @@ function getLocalProgramsPath(): string {
 
 	const localAppData = process.env.LOCALAPPDATA;
 	if ( localAppData ) {
-		return path.win32.join( path.dirname(localAppData), 'Local', 'Programs' );
+		return path.win32.join( localAppData, 'Programs' );
 	}
 
+	// Fallback to electron's appData path if environment variable is not available
 	return path.win32.join( app.getPath( 'appData' ), 'Local', 'Programs' );
 }
 
@@ -80,6 +81,8 @@ const installationPaths: Record< string, PlatformPaths > = {
 		terminal: [],
 	},
 };
+
+console.log( installationPaths );
 
 if ( process.platform === 'darwin' ) {
 	const systemApplications = '/Applications';

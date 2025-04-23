@@ -7,6 +7,7 @@ import {
 	PayloadAction,
 } from '@reduxjs/toolkit';
 import { __, sprintf } from '@wordpress/i18n';
+import fastDeepEqual from 'fast-deep-equal';
 import { PreviewCommandLoggerAction } from 'common/logger-actions';
 import { Snapshot } from 'common/types/snapshot';
 import { LIMIT_OF_ZIP_SITES_PER_USER } from 'src/constants';
@@ -78,7 +79,7 @@ const updateSnapshot = createAsyncThunk(
 		thunkAPI
 	) => {
 		const state = thunkAPI.getState() as RootState;
-		const found = state.userData.snapshots.find( ( snap ) => snap.atomicSiteId === atomicSiteId );
+		const found = state.snapshot.snapshots.find( ( snap ) => snap.atomicSiteId === atomicSiteId );
 		if ( ! found ) {
 			throw new Error( 'Snapshot not found' );
 		}
@@ -139,6 +140,12 @@ const snapshotSlice = createSlice( {
 			state.snapshots = state.snapshots.filter(
 				( snapshot ) => snapshot.atomicSiteId !== action.payload.atomicSiteId
 			);
+		},
+		setSnapshots: ( state, action: PayloadAction< Snapshot[] > ) => {
+			if ( ! fastDeepEqual( state.snapshots, action.payload ) ) {
+				state.snapshots = action.payload;
+				state.isLoaded = true;
+			}
 		},
 		updateOperation: (
 			state,
@@ -259,7 +266,7 @@ const selectActiveOperationsForAnySite = createSelector(
 
 const selectSnapshotsBySite = createSelector(
 	[
-		( state: RootState ) => state.userData.snapshots,
+		( state: RootState ) => state.snapshot.snapshots,
 		( state: RootState, localSiteId: string ) => localSiteId,
 	],
 	( snapshots = [], localSiteId ) =>
@@ -268,7 +275,7 @@ const selectSnapshotsBySite = createSelector(
 
 const selectSnapshotsByUser = createSelector(
 	[
-		( state: RootState ) => state.userData.snapshots,
+		( state: RootState ) => state.snapshot.snapshots,
 		( state: RootState, userId: number ) => userId,
 	],
 	( snapshots = [], userId ) => snapshots.filter( ( snapshot ) => snapshot.userId === userId )
@@ -276,7 +283,7 @@ const selectSnapshotsByUser = createSelector(
 
 const selectSnapshotsBySiteAndUser = createSelector(
 	[
-		( state: RootState ) => state.userData.snapshots,
+		( state: RootState ) => state.snapshot.snapshots,
 		( state: RootState, localSiteId: string ) => localSiteId,
 		( state: RootState, localSiteId: string, userId: number ) => userId,
 	],
@@ -285,6 +292,11 @@ const selectSnapshotsBySiteAndUser = createSelector(
 			( snapshot ) => snapshot.localSiteId === localSiteId && snapshot.userId === userId
 		)
 );
+
+window.ipcListener.subscribe( 'user-data-updated', ( _, payload ) => {
+	console.log( 'user-data-updated', payload );
+	store.dispatch( snapshotSlice.actions.setSnapshots( payload.snapshots ) );
+} );
 
 function getCreateProgress( action: PreviewCommandLoggerAction ): [ string, number ] {
 	switch ( action ) {

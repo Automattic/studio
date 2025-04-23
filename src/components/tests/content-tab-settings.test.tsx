@@ -20,7 +20,7 @@ function snapshotTestReducer( state: RootState | undefined, action: UnknownActio
 		};
 
 		return produce( state!, ( draftState ) => {
-			draftState.userData.snapshots.push( payload.snapshot );
+			draftState.snapshot.snapshots.push( payload.snapshot );
 		} );
 	}
 

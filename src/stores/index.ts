@@ -5,7 +5,6 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { appVersionApi } from 'src/stores/app-version-api';
 import { reducer as chatReducer } from 'src/stores/chat-slice';
 import { reducer as snapshotReducer } from 'src/stores/snapshot-slice';
-import { userDataReducer } from 'src/stores/user-data-slice';
 import { wpcomApi } from 'src/stores/wpcom-api';
 import { wordpressVersionsApi } from './wordpress-versions-api';
 
@@ -13,7 +12,6 @@ export type RootState = {
 	appVersionApi: ReturnType< typeof appVersionApi.reducer >;
 	chat: ReturnType< typeof chatReducer >;
 	snapshot: ReturnType< typeof snapshotReducer >;
-	userData: ReturnType< typeof userDataReducer >;
 	wordpressVersionsApi: ReturnType< typeof wordpressVersionsApi.reducer >;
 	wpcomApi: ReturnType< typeof wpcomApi.reducer >;
 };
@@ -66,7 +64,6 @@ export const rootReducer = combineReducers( {
 	appVersionApi: appVersionApi.reducer,
 	chat: chatReducer,
 	snapshot: snapshotReducer,
-	userData: userDataReducer,
 	wordpressVersionsApi: wordpressVersionsApi.reducer,
 	wpcomApi: wpcomApi.reducer,
 } );

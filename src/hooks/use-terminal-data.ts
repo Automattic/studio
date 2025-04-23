@@ -32,16 +32,17 @@ export function useTerminalData() {
 	useEffect( () => {
 		const loadTerminals = async () => {
 			const installed = await getIpcApi().getInstalledTerminals();
+
+			// Start with 'terminal' which is always available
 			const available: SupportedTerminal[] = [ 'terminal' ];
-			if ( installed.iterm ) {
-				available.push( 'iterm' );
-			}
-			if ( installed.warp ) {
-				available.push( 'warp' );
-			}
-			if ( installed.ghostty ) {
-				available.push( 'ghostty' );
-			}
+
+			// Add each installed terminal to the available list
+			Object.entries( installed ).forEach( ( [ key, isInstalled ] ) => {
+				if ( key !== 'terminal' && isInstalled ) {
+					available.push( key as SupportedTerminal );
+				}
+			} );
+
 			setAvailableTerminals( available );
 		};
 		loadTerminals();

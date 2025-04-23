@@ -11,7 +11,6 @@ import { WPVersionSelector } from 'src/components/wp-version-selector';
 import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
 import { useCertificateTrust } from 'src/hooks/use-certificate-trust';
 import { useI18nData } from 'src/hooks/use-i18n-data';
-import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
 import { generateCustomDomainFromSiteName } from 'src/lib/domains';
 import { getDocsLink } from 'src/lib/get-docs-link';
@@ -266,7 +265,6 @@ export const SiteForm = ( {
 }: SiteFormProps ) => {
 	const { __, isRTL } = useI18n();
 	const { locale } = useI18nData();
-	const isOffline = useOffline();
 	const isCertificateTrusted = useCertificateTrust();
 
 	const shouldShowCustomDomainError = useCustomDomain && customDomainError;

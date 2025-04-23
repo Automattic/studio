@@ -175,6 +175,8 @@ function getAppMenu(
 			label: __( 'View' ),
 			role: 'viewMenu',
 			submenu: [
+				{ label: __( 'Show Tab Bar' ), role: 'toggleTabBar' },
+				{ label: __( 'Show All Tabs' ), role: 'showAllTabs' },
 				...( process.env.NODE_ENV === 'development' ? devTools : [] ),
 				{
 					label: __( 'Actual Size' ),
@@ -218,13 +220,11 @@ function getAppMenu(
 						submenu: [
 							{ label: __( 'Minimize' ), role: 'minimize' },
 							{ label: __( 'Zoom' ), role: 'zoom' },
+							{ type: 'separator' },
 							{ label: __( 'Show Previous Tab' ), role: 'selectPreviousTab' },
 							{ label: __( 'Show Next Tab' ), role: 'selectNextTab' },
-							{ type: 'separator' },
 							{ label: __( 'Move Tab to New Window' ), role: 'moveTabToNewWindow' },
 							{ label: __( 'Merge All Windows' ), role: 'mergeAllWindows' },
-							{ label: __( 'Show Tab Bar' ), role: 'toggleTabBar' },
-							{ label: __( 'Show All Tabs' ), role: 'showAllTabs' },
 						],
 					} as MenuItemConstructorOptions,
 			  ] ),

@@ -1,6 +1,8 @@
+import { __, sprintf } from '@wordpress/i18n';
 import { Snapshot } from 'common/types/snapshot';
-import { getSiteByFolder, readAppdata, saveAppdata } from 'cli/lib/appdata';
+import { getAuthToken, getSiteByFolder, readAppdata, saveAppdata } from 'cli/lib/appdata';
 import { LoggerError } from 'cli/logger';
+
 export async function getSnapshotsFromAppdata(
 	userId: number,
 	siteFolder?: string
@@ -17,48 +19,69 @@ export async function getSnapshotsFromAppdata(
 	return snapshots;
 }
 
-// Insert or update a snapshot entry (matching on atomicSiteId) in the appdata file.
-export async function upsertPreviewSiteInAppdata(
+export async function updateSnapshotDateInAppdata( atomicSiteId: number ): Promise< Snapshot > {
+	const userData = await readAppdata();
+	if ( ! userData.snapshots ) {
+		userData.snapshots = [];
+	}
+
+	const snapshot = userData.snapshots.find( ( s ) => s.atomicSiteId === atomicSiteId );
+
+	if ( ! snapshot ) {
+		throw new LoggerError( __( 'Failed to find existing preview site in appdata' ) );
+	}
+
+	snapshot.date = Date.now();
+	await saveAppdata( userData );
+	return snapshot;
+}
+
+const getNextSequenceNumber = ( siteId: string, snapshots: Snapshot[], userId: number ): number => {
+	const siteSnapshots = snapshots.filter(
+		( s ) => s.localSiteId === siteId && s.userId === userId
+	);
+
+	const existingSequences = siteSnapshots
+		.map( ( s ) => s.sequence ?? 0 )
+		.filter( ( n ) => ! isNaN( n ) );
+
+	return existingSequences.length > 0
+		? Math.max( ...existingSequences ) + 1
+		: siteSnapshots.length + 1;
+};
+
+export async function saveSnapshotToAppdata(
 	siteFolder: string,
 	atomicSiteId: number,
 	previewUrl: string
 ): Promise< Snapshot > {
-	try {
-		const userData = await readAppdata();
-		const site = await getSiteByFolder( siteFolder );
-		const snapshot: Snapshot = {
-			url: previewUrl,
-			atomicSiteId,
-			localSiteId: site.id,
-			date: Date.now(),
-			name: site.name,
-		};
-		if ( userData.authToken?.id ) {
-			snapshot.userId = userData.authToken.id;
-		}
-		if ( ! userData.snapshots ) {
-			userData.snapshots = [];
-		}
+	const userData = await readAppdata();
+	const authToken = await getAuthToken();
+	const site = await getSiteByFolder( siteFolder );
 
-		const existingSnapshotIndex = userData.snapshots.findIndex(
-			( s ) => s.atomicSiteId === atomicSiteId
-		);
-
-		if ( existingSnapshotIndex > -1 ) {
-			userData.snapshots.splice( existingSnapshotIndex, 1, snapshot );
-		} else {
-			userData.snapshots.push( snapshot );
-		}
-
-		await saveAppdata( userData );
-		return snapshot;
-	} catch ( error ) {
-		throw new LoggerError(
-			`Failed to add preview site to appdata: ${
-				error instanceof Error ? error.message : String( error )
-			}`
-		);
+	if ( ! userData.snapshots ) {
+		userData.snapshots = [];
 	}
+
+	const nextSequenceNumber = getNextSequenceNumber( site.id, userData.snapshots, authToken.id );
+	const snapshot: Snapshot = {
+		url: previewUrl,
+		atomicSiteId,
+		localSiteId: site.id,
+		date: Date.now(),
+		name: sprintf(
+			/* translators: 1: Site name 2: Sequence number (e.g. "My Site Name Preview 1") */
+			__( '%1$s Preview %2$d' ),
+			site.name,
+			nextSequenceNumber
+		),
+		sequence: nextSequenceNumber,
+		userId: authToken.id,
+	};
+
+	userData.snapshots.push( snapshot );
+	await saveAppdata( userData );
+	return snapshot;
 }
 
 export async function deleteSnapshotFromAppdata( snapshotUrl: string ): Promise< void > {

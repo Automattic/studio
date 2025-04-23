@@ -32,7 +32,7 @@ async function main() {
 				return value;
 			},
 		} )
-		.command( 'preview', 'Preview commands', ( previewYargs ) => {
+		.command( 'preview', __( 'Manage preview sites' ), ( previewYargs ) => {
 			registerCreateCommand( previewYargs );
 			registerListCommand( previewYargs );
 			registerDeleteCommand( previewYargs );

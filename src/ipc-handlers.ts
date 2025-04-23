@@ -1286,16 +1286,14 @@ export async function getAllCustomDomains(): Promise< string[] > {
 		.filter( ( domain ): domain is string => domain !== undefined );
 }
 
-export async function getInstalledTerminals(
-	_event: IpcMainInvokeEvent
-): Promise< InstalledTerminals > {
+export function getInstalledTerminals(): InstalledTerminals {
 	return {
 		terminal: true, // Terminal.app is always available on macOS
 		iterm: isInstalled( 'iterm' ),
 	};
 }
 
-export async function getRandomUUID(): Promise< crypto.UUID > {
+export function getRandomUUID(): crypto.UUID {
 	return crypto.randomUUID();
 }
 

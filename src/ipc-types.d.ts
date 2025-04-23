@@ -45,21 +45,12 @@ interface StartedSiteDetails extends StoppedSiteDetails {
 
 type SiteDetails = StartedSiteDetails | StoppedSiteDetails;
 
-interface Snapshot {
-	url: string;
-	atomicSiteId: number;
-	localSiteId: string;
-	date: number;
-	isLoading?: boolean;
-	isDeleting?: boolean;
-	name?: string;
-	sequence?: number;
-	userId?: number;
-}
-
 type InstalledApps = {
-	vscode: boolean | null;
-	phpstorm: boolean | null;
+	vscode: boolean;
+	phpstorm: boolean;
+	webstorm: boolean;
+	windsurf: boolean;
+	cursor: boolean;
 };
 
 type InstalledTerminals = {

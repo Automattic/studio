@@ -1,6 +1,7 @@
 import os from 'os';
 import path from 'path';
 import { __, sprintf } from '@wordpress/i18n';
+import { PreviewCommandLoggerAction as LoggerAction } from 'common/logger-actions';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
 import { createArchive, cleanup } from 'cli/lib/archive';
@@ -8,14 +9,6 @@ import { upsertPreviewSiteInAppdata } from 'cli/lib/snapshots';
 import { validateSiteFolder, validateSiteSize } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
 import { RegisterCommand, OutputFormat } from 'cli/types';
-
-enum LoggerAction {
-	VALIDATE = 'validate',
-	ARCHIVE = 'archive',
-	UPLOAD = 'upload',
-	READY = 'ready',
-	APPDATA = 'appdata',
-}
 
 async function runCommand( siteFolder: string, outputFormat?: OutputFormat ): Promise< void > {
 	const archivePath = path.join(
@@ -46,8 +39,15 @@ async function runCommand( siteFolder: string, outputFormat?: OutputFormat ): Pr
 		);
 
 		logger.reportStart( LoggerAction.APPDATA, __( 'Saving preview site to Studio...' ) );
-		await upsertPreviewSiteInAppdata( siteFolder, uploadResponse.site_id, uploadResponse.site_url );
+		const snapshot = await upsertPreviewSiteInAppdata(
+			siteFolder,
+			uploadResponse.site_id,
+			uploadResponse.site_url
+		);
 		logger.reportSuccess( __( 'Preview site saved to Studio' ) );
+
+		logger.reportKeyValuePair( 'name', snapshot.name );
+		logger.reportKeyValuePair( 'url', snapshot.url );
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {
 			logger.reportError( error );
@@ -60,14 +60,14 @@ async function runCommand( siteFolder: string, outputFormat?: OutputFormat ): Pr
 	}
 }
 
-export const registerCommand: RegisterCommand = ( program ) => {
-	program
+export const registerCommand: RegisterCommand = ( parentCommand, rootCommand = parentCommand ) => {
+	parentCommand
 		.command( 'go [folder]' )
 		.description(
 			__( 'Create a preview site from the specified folder (defaults to current directory)' )
 		)
 		.action( async ( siteFolder: string = process.cwd() ) => {
-			const options = program.opts();
-			await runCommand( siteFolder, options.outputFormat );
+			const outputFormat = rootCommand.opts().outputFormat;
+			await runCommand( siteFolder, outputFormat );
 		} );
 };

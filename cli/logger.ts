@@ -27,7 +27,7 @@ export class LoggerError extends Error {
 export class Logger< T extends string > {
 	protected readonly outputFormat: OutputFormat;
 	private spinner: Ora;
-	private currentAction: T | null;
+	private currentAction: T | 'keyValuePair' | null;
 
 	constructor( outputFormat: OutputFormat ) {
 		this.outputFormat = outputFormat;
@@ -66,7 +66,11 @@ export class Logger< T extends string > {
 		this.currentAction = null;
 	}
 
-	public reportError( error: LoggerError ) {
+	public reportError( error: LoggerError, isFatal = true ) {
+		if ( isFatal ) {
+			process.exitCode = 1;
+		}
+
 		if ( this.outputFormat === 'json' ) {
 			console.error(
 				JSON.stringify( { action: this.currentAction, status: 'fail', message: error.message } )
@@ -76,5 +80,11 @@ export class Logger< T extends string > {
 		}
 
 		this.currentAction = null;
+	}
+
+	public reportKeyValuePair( key: string, value: string ) {
+		if ( this.outputFormat === 'json' ) {
+			console.log( JSON.stringify( { action: 'keyValuePair', key, value } ) );
+		}
 	}
 }

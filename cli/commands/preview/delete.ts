@@ -1,15 +1,11 @@
 import { __ } from '@wordpress/i18n';
+import { PreviewCommandLoggerAction as LoggerAction } from 'common/logger-actions';
 import { deleteSnapshot } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
 import { deleteSnapshotFromAppdata, getSnapshotsFromAppdata } from 'cli/lib/snapshots';
 import { normalizeHostname } from 'cli/lib/utils';
 import { Logger, LoggerError } from 'cli/logger';
 import { RegisterCommand, OutputFormat } from 'cli/types';
-
-export enum LoggerAction {
-	VALIDATE = 'validate',
-	DELETE = 'delete',
-}
 
 async function runCommand( host: string, outputFormat?: OutputFormat ): Promise< void > {
 	const logger = new Logger< LoggerAction >( outputFormat );
@@ -43,13 +39,13 @@ async function runCommand( host: string, outputFormat?: OutputFormat ): Promise<
 	}
 }
 
-export const registerCommand: RegisterCommand = ( program ) => {
-	program
+export const registerCommand: RegisterCommand = ( parentCommand, rootCommand = parentCommand ) => {
+	parentCommand
 		.command( 'delete <host>' )
 		.description( __( 'Delete a preview site' ) )
 		.action( async ( host: string ) => {
-			const options = program.opts();
+			const outputFormat = rootCommand.opts().outputFormat;
 			const normalizedHost = normalizeHostname( host );
-			await runCommand( normalizedHost, options.outputFormat );
+			await runCommand( normalizedHost, outputFormat );
 		} );
 };

@@ -1,15 +1,11 @@
 import { __, _n, sprintf } from '@wordpress/i18n';
+import { PreviewCommandLoggerAction as LoggerAction } from 'common/logger-actions';
 import { getAuthToken } from 'cli/lib/appdata';
 import { getSnapshotCliTable } from 'cli/lib/output';
 import { getSnapshotsFromAppdata } from 'cli/lib/snapshots';
 import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
 import { RegisterCommand, OutputFormat } from 'cli/types';
-
-export enum LoggerAction {
-	VALIDATE = 'validate',
-	LOAD = 'load',
-}
 
 async function runCommand( siteFolder: string, outputFormat?: OutputFormat ): Promise< void > {
 	const logger = new Logger< LoggerAction >( outputFormat );
@@ -44,14 +40,14 @@ async function runCommand( siteFolder: string, outputFormat?: OutputFormat ): Pr
 	}
 }
 
-export const registerCommand: RegisterCommand = ( program ) => {
-	program
+export const registerCommand: RegisterCommand = ( parentCommand, rootCommand = parentCommand ) => {
+	parentCommand
 		.command( 'list [folder]' )
 		.description(
 			__( 'List preview sites for the specified folder (defaults to current directory)' )
 		)
 		.action( async ( siteFolder: string = process.cwd() ) => {
-			const options = program.opts();
-			await runCommand( siteFolder, options.outputFormat );
+			const outputFormat = rootCommand.opts().outputFormat;
+			await runCommand( siteFolder, outputFormat );
 		} );
 };

@@ -1,10 +1,12 @@
 // To run tests, execute `npm run test -- src/modules/user-settings/components/tests/user-settings.test.tsx` from the root directory
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { Provider } from 'react-redux';
 import { useAuth } from 'src/hooks/use-auth';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
 import { UserSettings } from 'src/modules/user-settings';
+import { store } from 'src/stores';
 
 jest.mock( 'src/hooks/use-feature-flags' );
 jest.mock( 'src/hooks/use-auth' );
@@ -24,6 +26,10 @@ afterEach( () => {
 	jest.clearAllMocks();
 } );
 
+function renderWithProvider( component: React.ReactElement ) {
+	return render( <Provider store={ store }>{ component }</Provider> );
+}
+
 describe( 'UserSettings', () => {
 	beforeEach( () => {
 		// Triggers IPC listener to show modal
@@ -40,7 +46,7 @@ describe( 'UserSettings', () => {
 		( useFeatureFlags as jest.Mock ).mockReturnValue( {
 			preferredEditor: false,
 		} );
-		render( <UserSettings /> );
+		renderWithProvider( <UserSettings /> );
 		const loginButton = screen.getByRole( 'button', { name: 'Log in' } );
 		expect( loginButton ).toBeVisible();
 		fireEvent.click( loginButton );
@@ -53,7 +59,7 @@ describe( 'UserSettings', () => {
 		( useFeatureFlags as jest.Mock ).mockReturnValue( {
 			preferredEditor: false,
 		} );
-		render( <UserSettings /> );
+		renderWithProvider( <UserSettings /> );
 		const logoutButton = screen.getByRole( 'button', { name: 'Log out' } );
 		expect( logoutButton ).toBeVisible();
 		fireEvent.click( logoutButton );
@@ -67,7 +73,7 @@ describe( 'UserSettings', () => {
 			preferredEditor: false,
 		} );
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: false, authenticate } );
-		render( <UserSettings /> );
+		renderWithProvider( <UserSettings /> );
 		const loginButton = screen.getByRole( 'button', { name: 'Log in' } );
 		expect( loginButton ).toHaveAttribute( 'aria-disabled', 'true' );
 		fireEvent.click( loginButton );
@@ -87,7 +93,7 @@ describe( 'UserSettings', () => {
 				preferredEditor: true,
 			} );
 
-			render( <UserSettings /> );
+			renderWithProvider( <UserSettings /> );
 
 			// Check initial tab
 			expect( screen.getByText( 'Account' ) ).toHaveAttribute( 'aria-selected', 'true' );

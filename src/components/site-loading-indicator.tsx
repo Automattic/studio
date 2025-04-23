@@ -17,7 +17,7 @@ export function SiteLoadingIndicator( { selectedSite }: { selectedSite: SiteDeta
 				{ isImporting ? (
 					<ProgressBar value={ currentProgress.progress } maxValue={ 100 } />
 				) : (
-					<ProgressBarWithAutoIncrement initialValue={ 10 } increment={ 10 } maxValue={ 100 } />
+					<ProgressBarWithAutoIncrement value={ 10 } increment={ 10 } maxValue={ 100 } />
 				) }
 				<div className="text-a8c-gray-70 a8c-body mt-4">{ statusMessage }</div>
 			</div>

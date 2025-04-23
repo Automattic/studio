@@ -6,8 +6,8 @@ import offlineIcon from 'src/components/offline-icon';
 import ProgressBar from 'src/components/progress-bar';
 import { Tooltip } from 'src/components/tooltip';
 import { useOffline } from 'src/hooks/use-offline';
-import { useSnapshots } from 'src/hooks/use-snapshots';
 import { cx } from 'src/lib/cx';
+import { useGetSnapshotUsage } from 'src/stores/wpcom-api';
 
 export const SnapshotInfo = ( {
 	siteCount,
@@ -23,7 +23,8 @@ export const SnapshotInfo = ( {
 	isDeleting?: boolean;
 } ) => {
 	const { __ } = useI18n();
-	const { snapshotCreationBlocked } = useSnapshots();
+	const { data: snapshotUsage } = useGetSnapshotUsage();
+	const snapshotCreationBlocked = snapshotUsage?.siteCreationBlocked ?? false;
 	const menuItemStyles = cx(
 		'[&_span]:min-w-0 [&_span]:p-[1px]',
 		isDisabled &&

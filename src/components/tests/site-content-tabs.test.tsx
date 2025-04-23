@@ -20,12 +20,6 @@ jest.mock( 'src/hooks/use-auth', () => ( {
 		authenticate: jest.fn(),
 	} ),
 } ) );
-jest.mock( 'src/hooks/use-archive-site', () => ( {
-	useArchiveSite: () => ( {
-		archiveSite: jest.fn(),
-		isUploadingSiteId: jest.fn(),
-	} ),
-} ) );
 jest.mock( 'src/lib/app-globals', () => ( {
 	...jest.requireActual( '../../lib/app-globals' ),
 	getAppGlobals: jest.fn().mockReturnValue( { locale: ' en' } ),

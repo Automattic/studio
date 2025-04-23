@@ -1,13 +1,12 @@
 import { TabPanel } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useState } from 'react';
 import Modal from 'src/components/modal';
 import { useAuth } from 'src/hooks/use-auth';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useI18nData } from 'src/hooks/use-i18n-data';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
-import { useSnapshots } from 'src/hooks/use-snapshots';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { AccountTab } from 'src/modules/user-settings/components/account-tab';
@@ -17,22 +16,27 @@ import { PreferencesTab } from 'src/modules/user-settings/components/preferences
 import { PromptInfo } from 'src/modules/user-settings/components/prompt-info';
 import { SnapshotInfo } from 'src/modules/user-settings/components/snapshot-info';
 import { UsageTab } from 'src/modules/user-settings/components/usage-tab';
+import { useRootSelector, useAppDispatch } from 'src/stores';
+import { snapshotSelectors, snapshotThunks } from 'src/stores/snapshot-slice';
+import { useGetSnapshotUsage } from 'src/stores/wpcom-api';
 
 export default function UserSettings() {
 	const { __ } = useI18n();
-	const [ deletedAllSnapshots, setDeletedAllSnapshots ] = useState( false );
-	const { isAuthenticated, authenticate, logout, user } = useAuth();
+	const dispatch = useAppDispatch();
+	const { isAuthenticated, logout, user } = useAuth();
 	const { preferredEditor } = useFeatureFlags();
 	const { locale: savedLocale, setLocale: setSavedLocale } = useI18nData();
-	const {
-		allSnapshots,
-		activeSnapshotCount,
-		snapshotQuota,
-		isLoadingSnapshotUsage,
-		loadingDeletingAllSnapshots,
-		deleteAllSnapshots,
-		loadingServerSnapshots: isLoadingAllSnapshots,
-	} = useSnapshots();
+
+	const activeBulkOperationForUser = useRootSelector( ( state ) =>
+		snapshotSelectors.selectActiveBulkOperationForUser( state, user?.id ?? 0 )
+	);
+	const snapshotsByUser = useRootSelector( ( state ) =>
+		snapshotSelectors.selectSnapshotsByUser( state, user?.id ?? 0 )
+	);
+	const snapshotQuota = useRootSelector( ( state ) => state.snapshot.snapshotQuota );
+	const { data: snapshotUsage, isLoading: isLoadingSnapshotUsage } = useGetSnapshotUsage();
+	const definitiveSnapshotCount = snapshotUsage?.siteCount ?? snapshotsByUser?.length ?? 0;
+
 	const [ needsToOpenUserSettings, setNeedsToOpenUserSettings ] = useState( false );
 
 	const isOffline = useOffline();
@@ -45,21 +49,7 @@ export default function UserSettings() {
 		setNeedsToOpenUserSettings( ! needsToOpenUserSettings );
 	} );
 
-	useEffect( () => {
-		if ( deletedAllSnapshots && ! loadingDeletingAllSnapshots ) {
-			setDeletedAllSnapshots( false );
-			getIpcApi().showNotification( {
-				title: __( 'Delete Successful' ),
-				body: __( 'All preview sites have been deleted.' ),
-			} );
-		}
-	}, [ __, loadingDeletingAllSnapshots, deletedAllSnapshots ] );
-
 	const onRemoveSnapshots = useCallback( async () => {
-		if ( ! allSnapshots || allSnapshots.length === 0 ) {
-			return;
-		}
-
 		const CANCEL_BUTTON_INDEX = 0;
 		const DELETE_BUTTON_INDEX = 1;
 
@@ -74,10 +64,9 @@ export default function UserSettings() {
 		} );
 
 		if ( response === DELETE_BUTTON_INDEX ) {
-			await deleteAllSnapshots( allSnapshots );
-			setDeletedAllSnapshots( true );
+			await dispatch( snapshotThunks.deleteAllSnapshotsForUser( { userId: user?.id ?? 0 } ) );
 		}
-	}, [ allSnapshots, deleteAllSnapshots, __ ] );
+	}, [ __, dispatch, user?.id ] );
 
 	if ( ! preferredEditor ) {
 		return (
@@ -98,16 +87,14 @@ export default function UserSettings() {
 								<div className="flex flex-col gap-6">
 									<LanguagePicker value={ savedLocale } onChange={ setSavedLocale } />
 									<SnapshotInfo
-										isDeleting={ loadingDeletingAllSnapshots }
+										isDeleting={ !! activeBulkOperationForUser }
 										isDisabled={
-											activeSnapshotCount === 0 ||
-											loadingDeletingAllSnapshots ||
-											isLoadingAllSnapshots ||
+											definitiveSnapshotCount === 0 ||
+											!! activeBulkOperationForUser ||
 											isLoadingSnapshotUsage ||
-											allSnapshots?.length === 0 ||
 											isOffline
 										}
-										siteCount={ activeSnapshotCount }
+										siteCount={ definitiveSnapshotCount }
 										siteLimit={ snapshotQuota }
 										onRemoveSnapshots={ onRemoveSnapshots }
 									/>
@@ -148,15 +135,11 @@ export default function UserSettings() {
 					isDismissible
 					onRequestClose={ resetLocalState }
 					size="medium"
-					className={ cx(
-						'min-h-[350px]',
-						'[&_[role="document"]]:px-0',
-						'[&_[role="document"]]:mt-[64px]'
-					) }
+					className={ cx( 'min-h-[350px]', '[&_[role="document"]]:px-0' ) }
 				>
 					<TabPanel className="w-full" tabs={ tabs } orientation="horizontal">
 						{ ( { name } ) => (
-							<div className="mt-6 px-8 flex flex-col gap-6">
+							<div className="mt-6 px-8 flex gap-4 flex-col">
 								{ name === 'account' &&
 									( isAuthenticated ? (
 										<AccountTab user={ user } logout={ logout } />
@@ -166,11 +149,10 @@ export default function UserSettings() {
 								{ name === 'preferences' && <PreferencesTab onClose={ resetLocalState } /> }
 								{ name === 'usage' && isAuthenticated && (
 									<UsageTab
-										loadingDeletingAllSnapshots={ loadingDeletingAllSnapshots }
-										activeSnapshotCount={ activeSnapshotCount }
-										isLoadingAllSnapshots={ isLoadingAllSnapshots }
+										loadingDeletingAllSnapshots={ !! activeBulkOperationForUser }
+										activeSnapshotCount={ definitiveSnapshotCount }
 										isLoadingSnapshotUsage={ isLoadingSnapshotUsage }
-										allSnapshots={ allSnapshots }
+										allSnapshots={ snapshotsByUser }
 										isOffline={ isOffline }
 										snapshotQuota={ snapshotQuota }
 										onRemoveSnapshots={ onRemoveSnapshots }

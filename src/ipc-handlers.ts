@@ -19,12 +19,14 @@ import { __, LocaleData, defaultI18n } from '@wordpress/i18n';
 import archiver from 'archiver';
 import { calculateDirectorySize, isWordPressDirectory } from 'common/lib/fs-utils';
 import { SupportedLocale } from 'common/lib/locale';
+import { Snapshot } from 'common/types/snapshot';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
 import { ARCHIVER_OPTIONS, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
 import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
 import { bumpStat } from 'src/lib/bump-stats';
 import { getImporterMetric } from 'src/lib/bump-stats/lib';
+import { openCertificate as openCertificateDialog } from 'src/lib/certificate-manager';
 import { download } from 'src/lib/download';
 import { isEmptyDir, pathExists, sanitizeFolderName } from 'src/lib/fs-utils';
 import { getImageData } from 'src/lib/get-image-data';
@@ -51,11 +53,11 @@ import * as windowsHelpers from 'src/lib/windows-helpers';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
+import { executePreviewCliCommand } from 'src/modules/cli/lib/execute-preview-command';
 import { SiteServer, createSiteWorkingDirectory } from 'src/site-server';
 import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from 'src/storage/paths';
 import { loadUserData, saveUserData } from 'src/storage/user-data';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
-import { openCertificate as openCertificateDialog } from './lib/certificate-manager';
 import { SupportedEditor } from './lib/editor';
 import { SupportedTerminal } from './lib/terminal';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
@@ -109,6 +111,9 @@ export async function getInstalledApps( _event: IpcMainInvokeEvent ): Promise< I
 	return {
 		vscode: isInstalled( 'vscode' ),
 		phpstorm: isInstalled( 'phpstorm' ),
+		webstorm: isInstalled( 'webstorm' ),
+		windsurf: isInstalled( 'windsurf' ),
+		cursor: isInstalled( 'cursor' ),
 	};
 }
 
@@ -741,7 +746,7 @@ export async function saveSnapshotsToStorage( event: IpcMainInvokeEvent, snapsho
 	const userData = await loadUserData();
 	await saveUserData( {
 		...userData,
-		snapshots: snapshots.map( ( { isLoading, ...restSnapshots } ) => restSnapshots ),
+		snapshots,
 	} );
 }
 
@@ -1290,4 +1295,36 @@ export async function getInstalledTerminals(
 		terminal: true, // Terminal.app is always available on macOS
 		iterm: isInstalled( 'iterm' ),
 	};
+}
+
+export async function getRandomUUID(): Promise< crypto.UUID > {
+	return crypto.randomUUID();
+}
+
+export async function createSnapshot(
+	event: IpcMainInvokeEvent,
+	siteFolder: string
+): Promise< { operationId: crypto.UUID } > {
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+	return executePreviewCliCommand( [ 'go', siteFolder ], parentWindow );
+}
+
+export async function updateSnapshot(
+	event: IpcMainInvokeEvent,
+	siteFolder: string,
+	hostname: string
+): Promise< { operationId: crypto.UUID } > {
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+	return executePreviewCliCommand(
+		[ 'preview', 'update', siteFolder, '-h', hostname ],
+		parentWindow
+	);
+}
+
+export async function deleteSnapshot(
+	event: IpcMainInvokeEvent,
+	hostname: string
+): Promise< { operationId: crypto.UUID } > {
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+	return executePreviewCliCommand( [ 'preview', 'delete', hostname ], parentWindow );
 }

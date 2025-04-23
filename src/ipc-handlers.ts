@@ -17,15 +17,18 @@ import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { __, LocaleData, defaultI18n } from '@wordpress/i18n';
 import archiver from 'archiver';
-import { calculateDirectorySize } from 'common/lib/fs-utils';
+import { calculateDirectorySize, isWordPressDirectory } from 'common/lib/fs-utils';
+import { SupportedLocale } from 'common/lib/locale';
+import { Snapshot } from 'common/types/snapshot';
+import { StatsGroup, StatsMetric } from 'common/types/stats';
 import { ARCHIVER_OPTIONS, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
-import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
+import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
 import { bumpStat } from 'src/lib/bump-stats';
 import { getImporterMetric } from 'src/lib/bump-stats/lib';
-import { StatsGroup, StatsMetric } from 'src/lib/bump-stats/types';
+import { openCertificate as openCertificateDialog } from 'src/lib/certificate-manager';
 import { download } from 'src/lib/download';
-import { isEmptyDir, pathExists, isWordPressDirectory, sanitizeFolderName } from 'src/lib/fs-utils';
+import { isEmptyDir, pathExists, sanitizeFolderName } from 'src/lib/fs-utils';
 import { getImageData } from 'src/lib/get-image-data';
 import { getSiteUrl } from 'src/lib/get-site-url';
 import { getSyncBackupTempPath } from 'src/lib/get-sync-backup-temp-path';
@@ -36,7 +39,6 @@ import { defaultImporterOptions, importBackup } from 'src/lib/import-export/impo
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 import { isErrnoException } from 'src/lib/is-errno-exception';
 import { isInstalled } from 'src/lib/is-installed';
-import { SupportedLocale } from 'src/lib/locale';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { StoredToken } from 'src/lib/oauth';
 import * as oauthClient from 'src/lib/oauth';
@@ -51,12 +53,13 @@ import * as windowsHelpers from 'src/lib/windows-helpers';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
+import { executePreviewCliCommand } from 'src/modules/cli/lib/execute-preview-command';
 import { SiteServer, createSiteWorkingDirectory } from 'src/site-server';
 import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from 'src/storage/paths';
 import { loadUserData, saveUserData } from 'src/storage/user-data';
-import { DEFAULT_PHP_VERSION } from 'vendor/wp-now/src/constants';
-import { openCertificate as openCertificateDialog } from './lib/certificate-manager';
+import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
 import { SupportedEditor } from './lib/editor';
+import { SupportedTerminal } from './lib/terminal';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
 
@@ -108,6 +111,9 @@ export async function getInstalledApps( _event: IpcMainInvokeEvent ): Promise< I
 	return {
 		vscode: isInstalled( 'vscode' ),
 		phpstorm: isInstalled( 'phpstorm' ),
+		webstorm: isInstalled( 'webstorm' ),
+		windsurf: isInstalled( 'windsurf' ),
+		cursor: isInstalled( 'cursor' ),
 	};
 }
 
@@ -186,11 +192,12 @@ export async function createSite(
 		port,
 		running: false,
 		phpVersion: DEFAULT_PHP_VERSION,
+		isWpAutoUpdating: wpVersion === DEFAULT_WORDPRESS_VERSION,
 		customDomain,
 		enableHttps,
 	} as const;
 
-	const server = SiteServer.create( details );
+	const server = SiteServer.create( details, { wpVersion } );
 
 	if ( isWordPressDirectory( path ) ) {
 		// If the directory contains a WordPress installation, and user wants to force SQLite
@@ -535,6 +542,9 @@ export async function saveUserEditor( _event: IpcMainInvokeEvent, editor: Suppor
 		...userData,
 		preferredEditor: editor,
 	} );
+
+	// Notify renderer processes that the terminal preference has changed
+	sendIpcEventToRenderer( 'user-preference-changed' );
 }
 
 export async function getSentryUserId( _event: IpcMainInvokeEvent ): Promise< string | undefined > {
@@ -736,7 +746,7 @@ export async function saveSnapshotsToStorage( event: IpcMainInvokeEvent, snapsho
 	const userData = await loadUserData();
 	await saveUserData( {
 		...userData,
-		snapshots: snapshots.map( ( { isLoading, ...restSnapshots } ) => restSnapshots ),
+		snapshots,
 	} );
 }
 
@@ -953,29 +963,18 @@ function promiseExec( command: string, options: ExecOptions = {} ): Promise< voi
 	} );
 }
 
-export function openTerminalAtPath(
+export async function openTerminalAtPath(
 	_event: IpcMainInvokeEvent,
 	targetPath: string,
 	{ wpCliEnabled }: { wpCliEnabled?: boolean } = {}
 ) {
 	const platform = process.platform;
 	const cliPath = nodePath.join( getResourcesPath(), 'bin' );
-
 	const exePath = app.getPath( 'exe' );
 	const appDirectory = app.getAppPath();
 	const appPath = ! app.isPackaged ? `${ exePath } ${ appDirectory }` : exePath;
 
-	if ( platform === 'win32' ) {
-		const defaultShell = process.env.ComSpec || 'cmd.exe';
-		const env = wpCliEnabled
-			? { PATH: `${ cliPath };${ process.env.PATH }`, STUDIO_APP_PATH: appPath }
-			: {};
-
-		return promiseExec( `start "Command Prompt" ${ defaultShell }`, {
-			cwd: targetPath,
-			env: { ...process.env, ...env },
-		} );
-	} else if ( platform === 'darwin' ) {
+	if ( platform === 'darwin' ) {
 		const initScriptSteps = [];
 
 		if ( wpCliEnabled ) {
@@ -988,12 +987,37 @@ export function openTerminalAtPath(
 		const escapedPath = targetPath.replace( /"/g, '\\"' );
 		initScriptSteps.push( `cd \\"${ escapedPath }\\"`, 'clear' );
 
-		return promiseExec( `osascript << END
-activate application "Terminal"
-tell application "Terminal"
-	do script "${ initScriptSteps.join( ';' ) }"
+		const userData = await loadUserData();
+		const preferredTerminal = userData.supportedTerminal || 'terminal';
+
+		if ( preferredTerminal === 'iterm' ) {
+			return promiseExec( `osascript << END
+tell application "iTerm"
+    activate
+    create window with default profile
+    tell current session of current window
+        write text "${ initScriptSteps.join( ';' ) }"
+    end tell
 end tell
 END` );
+		} else {
+			return promiseExec( `osascript << END
+activate application "Terminal"
+tell application "Terminal"
+    do script "${ initScriptSteps.join( ';' ) }"
+end tell
+END` );
+		}
+	} else if ( platform === 'win32' ) {
+		const defaultShell = process.env.ComSpec || 'cmd.exe';
+		const env = wpCliEnabled
+			? { PATH: `${ cliPath };${ process.env.PATH }`, STUDIO_APP_PATH: appPath }
+			: {};
+
+		return promiseExec( `start "Command Prompt" ${ defaultShell }`, {
+			cwd: targetPath,
+			env: { ...process.env, ...env },
+		} );
 	} else if ( platform === 'linux' ) {
 		if ( wpCliEnabled ) {
 			return promiseExec(
@@ -1232,6 +1256,25 @@ export async function checkSyncBackupSize(
 	} );
 }
 
+export async function saveUserTerminal(
+	_event: IpcMainInvokeEvent,
+	supportedTerminal: SupportedTerminal
+) {
+	const userData = await loadUserData();
+	await saveUserData( {
+		...userData,
+		supportedTerminal: supportedTerminal,
+	} );
+
+	// Notify renderer processes that the terminal preference has changed
+	sendIpcEventToRenderer( 'user-preference-changed' );
+}
+
+export async function getUserTerminal( _event: IpcMainInvokeEvent ): Promise< SupportedTerminal > {
+	const userData = await loadUserData();
+	return userData.supportedTerminal as SupportedTerminal;
+}
+
 export async function isFullscreen( _event: IpcMainInvokeEvent ): Promise< boolean > {
 	const window = await getMainWindow();
 	return window.isFullScreen();
@@ -1243,4 +1286,45 @@ export async function getAllCustomDomains(): Promise< string[] > {
 	return userData.sites
 		.map( ( site ) => site.customDomain )
 		.filter( ( domain ): domain is string => domain !== undefined );
+}
+
+export async function getInstalledTerminals(
+	_event: IpcMainInvokeEvent
+): Promise< InstalledTerminals > {
+	return {
+		terminal: true, // Terminal.app is always available on macOS
+		iterm: isInstalled( 'iterm' ),
+	};
+}
+
+export async function getRandomUUID(): Promise< crypto.UUID > {
+	return crypto.randomUUID();
+}
+
+export async function createSnapshot(
+	event: IpcMainInvokeEvent,
+	siteFolder: string
+): Promise< { operationId: crypto.UUID } > {
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+	return executePreviewCliCommand( [ 'go', siteFolder ], parentWindow );
+}
+
+export async function updateSnapshot(
+	event: IpcMainInvokeEvent,
+	siteFolder: string,
+	hostname: string
+): Promise< { operationId: crypto.UUID } > {
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+	return executePreviewCliCommand(
+		[ 'preview', 'update', siteFolder, '-h', hostname ],
+		parentWindow
+	);
+}
+
+export async function deleteSnapshot(
+	event: IpcMainInvokeEvent,
+	hostname: string
+): Promise< { operationId: crypto.UUID } > {
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+	return executePreviewCliCommand( [ 'preview', 'delete', hostname ], parentWindow );
 }

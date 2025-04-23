@@ -3,6 +3,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useEffect, useState } from 'react';
 import { SupportedEditor, supportedEditorNames } from 'src/lib/editor';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { SettingsFormField } from './settings-form-field';
 
 interface EditorPickerProps {
 	value: SupportedEditor;
@@ -32,27 +33,35 @@ export const EditorPicker = ( { value, onChange }: EditorPickerProps ) => {
 		fetchInstalledApps();
 	}, [] );
 
-	const options = Object.entries( supportedEditorNames ).map( ( [ editor, label ] ) => {
-		const editorKey = editor as SupportedEditor;
-		const isInstalled = installedApps[ editorKey as keyof typeof installedApps ];
+	const installedEditors = Object.entries( supportedEditorNames ).filter(
+		( [ editor ] ) => installedApps[ editor as keyof typeof installedApps ]
+	);
 
-		return {
-			value: editorKey,
-			label,
-			disabled: ! isInstalled,
-		};
-	} );
+	const uninstalledEditors = Object.entries( supportedEditorNames ).filter(
+		( [ editor ] ) => ! installedApps[ editor as keyof typeof installedApps ]
+	);
 
 	return (
-		<div className="flex gap-5 flex-col">
-			<h2 className="a8c-subtitle-small">{ __( 'Editor' ) }</h2>
+		<SettingsFormField label={ __( 'Code editor' ) }>
 			<SelectControl
-				value={ value || 'none' }
-				onChange={ onChange }
-				options={ options }
+				value={ value }
+				onChange={ ( newValue ) => onChange( newValue as SupportedEditor ) }
 				__nextHasNoMarginBottom
-				className="mb-2"
-			/>
-		</div>
+				__next40pxDefaultSize
+			>
+				{ installedEditors.map( ( [ editor, label ] ) => (
+					<option key={ editor } value={ editor }>
+						{ label }
+					</option>
+				) ) }
+				<optgroup label={ __( 'Not installed' ) }>
+					{ uninstalledEditors.map( ( [ editor, label ] ) => (
+						<option key={ editor } value={ editor } disabled>
+							{ label }
+						</option>
+					) ) }
+				</optgroup>
+			</SelectControl>
+		</SettingsFormField>
 	);
 };

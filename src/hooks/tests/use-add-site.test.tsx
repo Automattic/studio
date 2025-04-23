@@ -1,5 +1,6 @@
 // Run tests: yarn test -- src/hooks/tests/use-add-site.test.tsx
 import { renderHook, act } from '@testing-library/react';
+import nock from 'nock';
 import { useAddSite } from 'src/hooks/use-add-site';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
@@ -41,6 +42,33 @@ describe( 'useAddSite', () => {
 			loadingSites: false,
 			startServer: mockStartServer,
 		} );
+
+		nock( 'https://api.wordpress.org' )
+			.get( '/core/version-check/1.7/' )
+			.query( { channel: 'beta', version: '5.9.9' } )
+			.reply( 200, {
+				offers: [
+					{
+						version: '6.1.7',
+						response: 'autoupdate',
+					},
+					{
+						version: '6.2.0',
+						response: 'autoupdate',
+					},
+				],
+			} );
+
+		nock( 'https://api.wordpress.org' )
+			.get( '/core/version-check/1.7/' )
+			.query( { channel: 'development' } )
+			.reply( 200, {
+				offers: [],
+			} );
+	} );
+
+	afterEach( () => {
+		nock.cleanAll();
 	} );
 
 	it( 'should initialize with default WordPress version', () => {
@@ -106,39 +134,6 @@ describe( 'useAddSite', () => {
 			false,
 			expect.any( Function )
 		);
-	} );
-
-	it( 'should update site with WordPress version after creation', async () => {
-		const newSite = {
-			id: 'test-id',
-			name: 'Test Site',
-			path: '/test/path',
-			wpVersion: '6.2.0',
-			phpVersion: '8.2',
-		};
-
-		mockCreateSite.mockImplementation(
-			( path, name, wpVersion, customDomain, enableHttps, callback ) => {
-				callback( newSite );
-				return Promise.resolve();
-			}
-		);
-
-		const { result } = renderHook( () => useAddSite() );
-
-		act( () => {
-			result.current.setWpVersion( '6.1.7' );
-			result.current.setSitePath( '/test/path' );
-		} );
-
-		await act( async () => {
-			await result.current.handleAddSiteClick();
-		} );
-
-		expect( mockUpdateSite ).toHaveBeenCalledWith( {
-			...newSite,
-			wpVersion: '6.1.7',
-		} );
 	} );
 
 	it( 'should still call updateSite even if wpVersion matches due to object comparison', async () => {

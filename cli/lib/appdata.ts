@@ -2,18 +2,10 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { __ } from '@wordpress/i18n';
-import { StatsGroup, StatsMetric } from 'src/lib/bump-stats/types';
+import { snapshotSchema } from 'common/types/snapshot';
+import { StatsGroup, StatsMetric } from 'common/types/stats';
 import { z } from 'zod';
 import { LoggerError } from 'cli/logger';
-
-export const snapshotSchema = z.object( {
-	url: z.string(),
-	atomicSiteId: z.number(),
-	localSiteId: z.string(),
-	date: z.number(),
-	name: z.string(),
-	userId: z.number().optional(),
-} );
 
 const siteSchema = z
 	.object( {
@@ -41,7 +33,6 @@ const userDataSchema = z
 	} )
 	.passthrough();
 
-export type Snapshot = z.infer< typeof snapshotSchema >;
 type UserData = z.infer< typeof userDataSchema >;
 
 export function getAppdataPath(): string {
@@ -129,7 +120,7 @@ export async function getAuthToken(): Promise< NonNullable< UserData[ 'authToken
 	}
 }
 
-export async function getSiteFromFolder(
+export async function getSiteByFolder(
 	siteFolder: string
 ): Promise< z.infer< typeof siteSchema > > {
 	const userData = await readAppdata();

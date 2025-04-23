@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { Command, Option } from 'commander';
-import { StatsGroup, StatsMetric } from 'src/lib/bump-stats/types';
+import { StatsGroup, StatsMetric } from 'common/types/stats';
 import { registerCommand as registerPreviewCreateCommand } from 'cli/commands/preview/create';
 import { registerCommand as registerPreviewDeleteCommand } from 'cli/commands/preview/delete';
 import { registerCommand as registerPreviewListCommand } from 'cli/commands/preview/list';
@@ -12,9 +12,9 @@ import { version } from 'cli/package.json';
 async function main() {
 	await loadTranslations();
 
-	const program = new Command();
+	const studioCommand = new Command();
 
-	program
+	studioCommand
 		.name( 'studio' )
 		.description( __( 'Studio by WordPress.com CLI' ) )
 		.version( version )
@@ -32,14 +32,16 @@ async function main() {
 				.hideHelp()
 		);
 
-	const previewCommand = program.command( 'preview' ).description( __( 'Manage preview sites' ) );
+	const previewCommand = studioCommand
+		.command( 'preview' )
+		.description( __( 'Manage preview sites' ) );
 
-	registerPreviewCreateCommand( program );
-	registerPreviewListCommand( previewCommand );
-	registerPreviewDeleteCommand( previewCommand );
-	registerPreviewUpdateCommand( previewCommand );
+	registerPreviewCreateCommand( studioCommand );
+	registerPreviewListCommand( previewCommand, studioCommand );
+	registerPreviewDeleteCommand( previewCommand, studioCommand );
+	registerPreviewUpdateCommand( previewCommand, studioCommand );
 
-	program.parse( process.argv );
+	studioCommand.parse( process.argv );
 }
 
 main();

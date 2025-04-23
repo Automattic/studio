@@ -1,4 +1,4 @@
-import { StatsMetric } from 'src/lib/bump-stats/types';
+import { StatsMetric } from 'common/types/stats';
 import {
 	JetpackImporter,
 	LocalImporter,

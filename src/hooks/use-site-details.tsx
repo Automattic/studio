@@ -8,9 +8,10 @@ import {
 	useMemo,
 	useState,
 } from 'react';
-import { useSnapshots } from 'src/hooks/use-snapshots';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { sortSites } from 'src/lib/sort-sites';
+import { useAppDispatch } from 'src/stores';
+import { snapshotThunks } from 'src/stores/snapshot-slice';
 
 interface SiteDetailsContext {
 	selectedSite: SiteDetails | null;
@@ -87,7 +88,7 @@ function useSelectedSite( firstSiteId: string | null ) {
 
 function useDeleteSite() {
 	const [ isLoading, setIsLoading ] = useState< Record< string, boolean > >( {} );
-	const { deleteSnapshot, snapshots } = useSnapshots();
+	const dispatch = useAppDispatch();
 
 	const deleteSite = useCallback(
 		async ( siteId: string, removeLocal: boolean ): Promise< SiteDetails[] | undefined > => {
@@ -95,9 +96,8 @@ function useDeleteSite() {
 				return;
 			}
 
-			const siteSnapshots = snapshots.filter( ( snapshot ) => snapshot.localSiteId === siteId );
-			const allSiteRemovePromises = Promise.allSettled(
-				siteSnapshots.map( ( snapshot ) => deleteSnapshot( snapshot, removeLocal ) )
+			const allSiteRemovePromises = dispatch(
+				snapshotThunks.deleteAllSnapshotsForSite( { siteId } )
 			);
 
 			try {
@@ -131,7 +131,7 @@ function useDeleteSite() {
 				setIsLoading( ( loading ) => ( { ...loading, [ siteId ]: false } ) );
 			}
 		},
-		[ deleteSnapshot, snapshots ]
+		[ dispatch ]
 	);
 	return { deleteSite, isLoading };
 }
@@ -297,7 +297,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					} );
 				} else if (
 					error instanceof Error &&
-					error.message.includes( 'Cannot allocate Wasm memory for new instance' )
+					error.message.includes( 'WASM_ERROR_NOT_ENOUGH_MEMORY' )
 				) {
 					getIpcApi().showErrorMessageBox( {
 						title: __( 'Not enough memory to start the site server' ),
@@ -305,6 +305,15 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 							'Please stop some of your running sites first. If this problem persists, try closing other apps that might be using memory and try again.'
 						),
 						showOpenLogs: true,
+					} );
+				} else if ( error instanceof Error && error.message.includes( 'ERROR_PORT_IN_USE' ) ) {
+					const port = error.message.match( /\d+/ );
+					getIpcApi().showErrorMessageBox( {
+						title: __( 'Failed to start the site server' ),
+						message: __(
+							`The site server failed to start because the port is already in use. Please close any local development apps that may be using port ${ port } and try again.`
+						),
+						showOpenLogs: false,
 					} );
 				} else {
 					getIpcApi().showErrorMessageBox( {

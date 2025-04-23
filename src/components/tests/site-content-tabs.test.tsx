@@ -20,12 +20,6 @@ jest.mock( 'src/hooks/use-auth', () => ( {
 		authenticate: jest.fn(),
 	} ),
 } ) );
-jest.mock( 'src/hooks/use-archive-site', () => ( {
-	useArchiveSite: () => ( {
-		archiveSite: jest.fn(),
-		isUploadingSiteId: jest.fn(),
-	} ),
-} ) );
 jest.mock( 'src/lib/app-globals', () => ( {
 	...jest.requireActual( '../../lib/app-globals' ),
 	getAppGlobals: jest.fn().mockReturnValue( { locale: ' en' } ),
@@ -35,6 +29,8 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 	getIpcApi: jest.fn().mockReturnValue( {
 		getConnectedWpcomSites: jest.fn().mockResolvedValue( [] ),
 		updateConnectedWpcomSites: jest.fn(),
+		getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
+		getUserEditor: jest.fn().mockResolvedValue( 'vscode' ),
 	} ),
 } ) );
 

@@ -2,8 +2,8 @@ import { Menu, type MenuItemConstructorOptions, app, BrowserWindow, autoUpdater 
 import { __ } from '@wordpress/i18n';
 import { openAboutWindow } from 'src/about-menu/open-about-menu';
 import { BUG_REPORT_URL, FEATURE_REQUEST_URL } from 'src/constants';
-import { getDocsLink } from 'src/hooks/use-docs-link';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
+import { getDocsLink } from 'src/lib/get-docs-link';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';

@@ -8,7 +8,6 @@ import MainSidebar from 'src/components/main-sidebar';
 import Onboarding from 'src/components/onboarding';
 import { SiteContentTabs } from 'src/components/site-content-tabs';
 import TopBar from 'src/components/top-bar';
-import UserSettings from 'src/components/user-settings';
 import WindowsTitlebar from 'src/components/windows-titlebar';
 import { useLocalizationSupport } from 'src/hooks/use-localization-support';
 import { useOnboarding } from 'src/hooks/use-onboarding';
@@ -16,17 +15,25 @@ import { useSidebarVisibility } from 'src/hooks/use-sidebar-visibility';
 import { isWindows } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { UserSettings } from 'src/modules/user-settings';
 import { WhatsNewModal, useWhatsNew } from 'src/modules/whats-new';
+import { useAppDispatch } from 'src/stores';
+import { snapshotThunks } from 'src/stores/snapshot-slice';
 
 export default function App() {
 	useLocalizationSupport();
 	const { needsOnboarding } = useOnboarding();
 	const { isSidebarVisible, toggleSidebar } = useSidebarVisibility();
 	const { showWhatsNew, closeWhatsNew } = useWhatsNew();
+	const dispatch = useAppDispatch();
 
 	useEffect( () => {
 		getIpcApi().setupAppMenu( { needsOnboarding } );
 	}, [ needsOnboarding ] );
+
+	useEffect( () => {
+		dispatch( snapshotThunks.getSnapshots() );
+	}, [ dispatch ] );
 
 	return (
 		<>

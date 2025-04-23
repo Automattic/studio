@@ -10,11 +10,13 @@ import {
 	webUtils,
 } from 'electron';
 import { LocaleData } from '@wordpress/i18n';
+import { Snapshot } from 'common/types/snapshot';
 import { IpcEvents } from 'src/ipc-utils';
 import { ExportOptions } from 'src/lib/import-export/export/types';
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { SupportedEditor } from './lib/editor';
+import { SupportedTerminal } from './lib/terminal';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { LogLevel } from 'src/logging';
 
@@ -47,6 +49,11 @@ const api: IpcApi = {
 	saveSnapshotsToStorage: ( snapshots: Snapshot[] ) =>
 		ipcRenderer.invoke( 'saveSnapshotsToStorage', snapshots ),
 	getSnapshots: () => ipcRenderer.invoke( 'getSnapshots' ),
+	createSnapshot: ( siteFolder: string ) => ipcRenderer.invoke( 'createSnapshot', siteFolder ),
+	updateSnapshot: ( siteFolder: string, hostname: string ) =>
+		ipcRenderer.invoke( 'updateSnapshot', siteFolder, hostname ),
+	deleteSnapshot: ( hostname: string ) => ipcRenderer.invoke( 'deleteSnapshot', hostname ),
+	getRandomUUID: () => ipcRenderer.invoke( 'getRandomUUID' ),
 	getLastSeenVersion: () => ipcRenderer.invoke( 'getLastSeenVersion' ),
 	saveLastSeenVersion: ( version: string ) => ipcRenderer.invoke( 'saveLastSeenVersion', version ),
 	getSiteDetails: () => ipcRenderer.invoke( 'getSiteDetails' ),
@@ -127,6 +134,10 @@ const api: IpcApi = {
 	getFileContent: ( filePath: string ) => ipcRenderer.invoke( 'getFileContent', filePath ),
 	isFullscreen: () => ipcRenderer.invoke( 'isFullscreen' ),
 	getAllCustomDomains: () => ipcRenderer.invoke( 'getAllCustomDomains' ),
+	saveUserTerminal: ( supportedTerminal: SupportedTerminal ) =>
+		ipcRenderer.invoke( 'saveUserTerminal', supportedTerminal ),
+	getUserTerminal: () => ipcRenderer.invoke( 'getUserTerminal' ),
+	getInstalledTerminals: () => ipcRenderer.invoke( 'getInstalledTerminals' ),
 	getUserEditor: () => ipcRenderer.invoke( 'getUserEditor' ),
 	saveUserEditor: ( editor: SupportedEditor ) => ipcRenderer.invoke( 'saveUserEditor', editor ),
 };

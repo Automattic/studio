@@ -1,13 +1,8 @@
 import { render, screen } from '@testing-library/react';
+import { Provider } from 'react-redux';
 import { useExpirationDate } from 'src/hooks/use-expiration-date';
+import { store } from 'src/stores';
 import { PreviewSiteRow } from '../preview-site-row';
-
-jest.mock( 'src/hooks/use-snapshots', () => ( {
-	useSnapshots: jest.fn().mockReturnValue( {
-		removeSnapshot: jest.fn(),
-		fetchSnapshotUsage: jest.fn(),
-	} ),
-} ) );
 
 jest.mock( 'src/hooks/use-expiration-date', () => ( {
 	useExpirationDate: jest.fn().mockReturnValue( {
@@ -21,6 +16,10 @@ jest.mock( 'src/hooks/use-format-localized-timestamps', () => ( {
 		formatRelativeTime: jest.fn().mockReturnValue( '2 hours' ),
 	} ),
 } ) );
+
+function renderWithProvider( component: React.ReactElement ) {
+	return render( <Provider store={ store }>{ component }</Provider> );
+}
 
 describe( 'PreviewSiteRow', () => {
 	const mockSnapshot = {
@@ -46,7 +45,7 @@ describe( 'PreviewSiteRow', () => {
 	} );
 
 	it( 'renders PreviewActionButtonsMenu when preview site is not expired', () => {
-		render(
+		renderWithProvider(
 			<PreviewSiteRow
 				snapshot={ mockSnapshot }
 				selectedSite={ mockSelectedSite }
@@ -64,7 +63,7 @@ describe( 'PreviewSiteRow', () => {
 			isExpired: true,
 		} );
 
-		render(
+		renderWithProvider(
 			<PreviewSiteRow
 				snapshot={ mockSnapshot }
 				selectedSite={ mockSelectedSite }
@@ -82,7 +81,7 @@ describe( 'PreviewSiteRow', () => {
 			isExpired: true,
 		} );
 
-		render(
+		renderWithProvider(
 			<PreviewSiteRow
 				snapshot={ mockSnapshot }
 				selectedSite={ mockSelectedSite }

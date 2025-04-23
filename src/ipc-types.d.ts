@@ -19,7 +19,7 @@ interface StoppedSiteDetails {
 	path: string;
 	port: number;
 	phpVersion: string;
-	wpVersion?: string;
+	isWpAutoUpdating?: boolean;
 	customDomain?: string;
 	enableHttps?: boolean;
 	adminPassword?: string;
@@ -45,21 +45,17 @@ interface StartedSiteDetails extends StoppedSiteDetails {
 
 type SiteDetails = StartedSiteDetails | StoppedSiteDetails;
 
-interface Snapshot {
-	url: string;
-	atomicSiteId: number;
-	localSiteId: string;
-	date: number;
-	isLoading?: boolean;
-	isDeleting?: boolean;
-	name?: string;
-	sequence?: number;
-	userId?: number;
-}
-
 type InstalledApps = {
-	vscode: boolean | null;
-	phpstorm: boolean | null;
+	vscode: boolean;
+	phpstorm: boolean;
+	webstorm: boolean;
+	windsurf: boolean;
+	cursor: boolean;
+};
+
+type InstalledTerminals = {
+	terminal: boolean;
+	iterm: boolean;
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

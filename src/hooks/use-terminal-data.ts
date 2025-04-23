@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 import { SupportedTerminal, DEFAULT_TERMINAL } from 'src/lib/terminal';
 
 /**
@@ -8,10 +9,13 @@ export function useTerminalData() {
 	const [ terminal, setTerminal ] = useState< SupportedTerminal >( DEFAULT_TERMINAL );
 	const [ savedTerminalValue, setSavedTerminalValue ] =
 		useState< SupportedTerminal >( DEFAULT_TERMINAL );
+	const [ availableTerminals, setAvailableTerminals ] = useState< SupportedTerminal[] >( [
+		'terminal',
+	] );
 
 	const getSavedTerminal = async () => {
-		// TODO::Get the actual terminal from the IPC API
-		return DEFAULT_TERMINAL;
+		const userTerminal = await getIpcApi().getUserTerminal();
+		return userTerminal || DEFAULT_TERMINAL;
 	};
 
 	// Load the saved terminal value
@@ -24,13 +28,26 @@ export function useTerminalData() {
 		loadSavedTerminal();
 	}, [] );
 
+	// Load available terminals
+	useEffect( () => {
+		const loadTerminals = async () => {
+			const installed = await getIpcApi().getInstalledTerminals();
+			const available: SupportedTerminal[] = [ 'terminal' ];
+			if ( installed.iterm ) {
+				available.push( 'iterm' );
+			}
+			setAvailableTerminals( available );
+		};
+		loadTerminals();
+	}, [] );
+
 	const handleTerminalChange = ( newTerminal: SupportedTerminal ) => {
 		setTerminal( newTerminal );
 	};
 
 	const saveTerminalPreference = async () => {
-		//TODO:: Save the terminal preference to the IPC API
-		alert( terminal );
+		await getIpcApi().saveUserTerminal( terminal );
+		setSavedTerminalValue( terminal );
 	};
 
 	const resetTerminal = () => {
@@ -42,6 +59,7 @@ export function useTerminalData() {
 	return {
 		terminal,
 		savedTerminalValue,
+		availableTerminals,
 		handleTerminalChange,
 		saveTerminalPreference,
 		resetTerminal,

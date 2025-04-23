@@ -1,13 +1,11 @@
 import { useEffect, useState } from 'react';
 
-const ProgressBar = ( {
-	value,
-	maxValue,
-}: {
+type ProgressBarProps = {
 	value: number;
 	maxValue: number;
-	autoProgress?: boolean;
-} ) => {
+};
+
+const ProgressBar = ( { value, maxValue }: ProgressBarProps ) => {
 	// Calculate width percentage of the filled part
 	const fillPercentage = Math.max( 0, Math.min( 100, ( value / maxValue ) * 100 ) );
 
@@ -27,26 +25,42 @@ const ProgressBar = ( {
 
 export default ProgressBar;
 
+type ProgressBarWithAutoIncrementProps = {
+	maxValue: number;
+	value: number;
+	increment?: number;
+};
+
 export function ProgressBarWithAutoIncrement( {
 	maxValue,
-	initialValue,
+	value,
 	increment = 2,
-}: {
-	maxValue: number;
-	initialValue: number;
-	increment?: number;
-} ) {
-	const [ value, setValue ] = useState( initialValue );
+}: ProgressBarWithAutoIncrementProps ) {
+	const [ animatedValue, setAnimatedValue ] = useState( value );
 
 	useEffect( () => {
-		const interval = setInterval( () => {
-			if ( value < maxValue ) {
-				setValue( value + increment );
+		if ( value > animatedValue ) {
+			setAnimatedValue( value );
+		}
+		// We only want to run this effect when the `value` prop changes.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [ value ] );
+
+	useEffect( () => {
+		const maximumAutoIncrementValue = maxValue * 0.95;
+
+		// This effect reruns every time `animatedValue` changes, so setting a timeout has the same
+		// effect as setting an interval.
+		const timeoutId = setTimeout( () => {
+			if ( animatedValue < maximumAutoIncrementValue ) {
+				setAnimatedValue( animatedValue + increment );
 			}
 		}, 1000 );
 
-		return () => clearInterval( interval );
-	}, [ value, maxValue, increment ] );
+		return () => {
+			clearTimeout( timeoutId );
+		};
+	}, [ animatedValue, maxValue, increment ] );
 
-	return <ProgressBar value={ value } maxValue={ maxValue } />;
+	return <ProgressBar value={ animatedValue } maxValue={ maxValue } />;
 }

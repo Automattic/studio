@@ -33,10 +33,8 @@ export function useTerminalData() {
 		const loadTerminals = async () => {
 			const installed = await getIpcApi().getInstalledTerminals();
 
-			// Start with 'terminal' which is always available
 			const available: SupportedTerminal[] = [ 'terminal' ];
 
-			// Add each installed terminal to the available list
 			Object.entries( installed ).forEach( ( [ key, isInstalled ] ) => {
 				if ( key !== 'terminal' && isInstalled ) {
 					available.push( key as SupportedTerminal );

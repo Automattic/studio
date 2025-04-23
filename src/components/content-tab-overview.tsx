@@ -142,7 +142,6 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 	const installedApps = useCheckInstalledApps();
 	const [ terminalName, setTerminalName ] = useState( __( 'Terminal' ) );
 	const [ editorName, setEditorName ] = useState( '' );
-	const [ hasEditor, setHasEditor ] = useState( false );
 
 	const updateTerminalName = useCallback( async () => {
 		const terminal = await getIpcApi().getUserTerminal();
@@ -154,15 +153,13 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 		if ( editor === 'vscode' && installedApps.vscode ) {
 			// translators: "VS Code" is the brand name for an IDE and does not need to be translated
 			setEditorName( __( 'VS Code' ) );
-			setHasEditor( true );
 		} else if ( editor === 'phpstorm' && installedApps.phpstorm ) {
 			// translators: "PhpStorm" is the brand name for an IDE and does not need to be translated
 			setEditorName( __( 'PhpStorm' ) );
-			setHasEditor( true );
 		} else {
-			setHasEditor( false );
+			setEditorName( '' );
 		}
-	}, [ setEditorName, setHasEditor, installedApps ] );
+	}, [ setEditorName, installedApps ] );
 
 	useIpcListener( 'user-preference-changed', () => {
 		updateTerminalName();
@@ -189,7 +186,7 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 		},
 	];
 
-	if ( hasEditor && editorName ) {
+	if ( editorName ) {
 		buttonsArray.push( {
 			label: editorName,
 			className: 'text-nowrap',

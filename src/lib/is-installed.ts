@@ -61,15 +61,15 @@ const installationPaths: Record< string, PlatformPaths > = {
 	win32: {
 		vscode: [
 			path.win32.join( getProgramFilesPath(), 'Microsoft VS Code' ),
-			path.win32.join(getAppDataPath(), 'Local\\Programs\\Microsoft VS Code' ),
+			path.win32.join( getAppDataPath(), 'Local\\Programs\\Microsoft VS Code' ),
 		],
 		phpstorm: [
 			path.win32.join( getProgramFilesPath(), 'JetBrains\\PhpStorm' ),
-			path.win32.join( getAppDataPath(), 'Local\\Programs\\JetBrains\\PhpStorm' ),
+			path.win32.join( getAppDataPath(), 'Local\\Programs\\PhpStorm' ),
 		],
 		cursor: [
 			path.win32.join( getProgramFilesPath(), 'Cursor' ),
-			path.win32.join(getAppDataPath(), 'Local\\Programs\\cursor' ),
+			path.win32.join( getAppDataPath(), 'Local\\Programs\\cursor' ),
 		],
 		windsurf: [
 			path.win32.join( getProgramFilesPath(), 'Windsurf' ),
@@ -77,7 +77,7 @@ const installationPaths: Record< string, PlatformPaths > = {
 		],
 		webstorm: [
 			path.win32.join( getProgramFilesPath(), 'JetBrains\\WebStorm' ),
-			path.win32.join( getAppDataPath(), 'Local\\Programs\\JetBrains\\WebStorm' ),
+			path.win32.join( getAppDataPath(), 'Local\\Programs\\WebStorm' ),
 		],
 		iterm: [],
 		terminal: [],

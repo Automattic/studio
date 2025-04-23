@@ -22,19 +22,19 @@ function getProgramFilesPath(): string {
 	return 'C:\\Program Files';
 }
 
-function getAppDataPath(): string {
+function getLocalProgramsPath(): string {
 	if ( process.platform !== 'win32' ) {
 		return app.getPath( 'appData' );
 	}
 
-	// On Windows, we can get the AppData folder by going up one directory from LOCALAPPDATA
+	// On Windows, we can get the Local\Programs folder by using LOCALAPPDATA
 	const localAppData = process.env.LOCALAPPDATA;
 	if ( localAppData ) {
-		return path.dirname( localAppData );
+		return path.join( localAppData, 'Local', 'Programs' );
 	}
 
 	// Fallback to electron's appData path if environment variable is not available
-	return app.getPath( 'appData' );
+	return path.join( app.getPath( 'appData' ), 'Local', 'Programs' );
 }
 
 // Define installation paths for each IDE by platform
@@ -60,23 +60,23 @@ const installationPaths: Record< string, PlatformPaths > = {
 	win32: {
 		vscode: [
 			path.win32.join( getProgramFilesPath(), 'Microsoft VS Code' ),
-			path.win32.join( getAppDataPath(), 'Local\\Programs\\Microsoft VS Code' ),
+			path.win32.join( getLocalProgramsPath(), 'Microsoft VS Code' ),
 		],
 		phpstorm: [
 			path.win32.join( getProgramFilesPath(), 'JetBrains\\PhpStorm' ),
-			path.win32.join( getAppDataPath(), 'Local\\Programs\\PhpStorm' ),
+			path.win32.join( getLocalProgramsPath(), 'PhpStorm' ),
 		],
 		cursor: [
 			path.win32.join( getProgramFilesPath(), 'Cursor' ),
-			path.win32.join( getAppDataPath(), 'Local\\Programs\\cursor' ),
+			path.win32.join( getLocalProgramsPath(), 'cursor' ),
 		],
 		windsurf: [
 			path.win32.join( getProgramFilesPath(), 'Windsurf' ),
-			path.win32.join( getAppDataPath(), 'Local\\Programs\\Windsurf' ),
+			path.win32.join( getLocalProgramsPath(), 'Windsurf' ),
 		],
 		webstorm: [
 			path.win32.join( getProgramFilesPath(), 'JetBrains\\WebStorm' ),
-			path.win32.join( getAppDataPath(), 'Local\\Programs\\WebStorm' ),
+			path.win32.join( getLocalProgramsPath(), 'WebStorm' ),
 		],
 		iterm: [],
 		terminal: [],

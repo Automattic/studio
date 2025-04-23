@@ -5,9 +5,12 @@ import { getSnapshotCliTable } from 'cli/lib/output';
 import { getSnapshotsFromAppdata } from 'cli/lib/snapshots';
 import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
-import { RegisterCommand, OutputFormat } from 'cli/types';
+import { OutputFormat, StudioArgv } from 'cli/types';
 
-async function runCommand( siteFolder: string, outputFormat?: OutputFormat ): Promise< void > {
+export async function runCommand(
+	siteFolder: string,
+	outputFormat?: OutputFormat
+): Promise< void > {
 	const logger = new Logger< LoggerAction >( outputFormat );
 
 	try {
@@ -40,14 +43,19 @@ async function runCommand( siteFolder: string, outputFormat?: OutputFormat ): Pr
 	}
 }
 
-export const registerCommand: RegisterCommand = ( parentCommand, rootCommand = parentCommand ) => {
-	parentCommand
-		.command( 'list [folder]' )
-		.description(
-			__( 'List preview sites for the specified folder (defaults to current directory)' )
-		)
-		.action( async ( siteFolder: string = process.cwd() ) => {
-			const outputFormat = rootCommand.opts().outputFormat;
-			await runCommand( siteFolder, outputFormat );
-		} );
+export const registerCommand = ( yargs: StudioArgv ) => {
+	return yargs.command( {
+		command: 'list [folder]',
+		describe: __( 'List preview sites for the specified folder (defaults to current directory)' ),
+		builder: ( yargs ) => {
+			return yargs.positional( 'folder', {
+				type: 'string',
+				default: process.cwd(),
+				description: __( 'The folder to list previews for' ),
+			} );
+		},
+		handler: async ( argv ) => {
+			await runCommand( argv.folder, argv.outputFormat );
+		},
+	} );
 };

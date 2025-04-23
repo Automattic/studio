@@ -24,6 +24,19 @@ function getLocaleFromEnvironment(): SupportedLocale | undefined {
 	return isSupportedLocale( locale ) ? locale : undefined;
 }
 
+function mapToYargsLocale( locale: SupportedLocale ): string {
+	switch ( locale ) {
+		case 'pt-br':
+			return 'pt_BR';
+		case 'zh-cn':
+			return 'zh_CN';
+		case 'zh-tw':
+			return 'zh_TW';
+		default:
+			return locale;
+	}
+}
+
 export async function loadTranslations() {
 	const appdataLocale = await getLocaleFromAppdata();
 	const envLocale = getLocaleFromEnvironment();
@@ -35,4 +48,6 @@ export async function loadTranslations() {
 	} else {
 		defaultI18n.resetLocaleData();
 	}
+
+	return mapToYargsLocale( locale );
 }

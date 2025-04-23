@@ -72,6 +72,8 @@ export function PreviewActionButtonsMenu( {
 	};
 
 	const handleRename = ( newName: string ) => {
+		console.log( 'handleRename', newName );
+
 		dispatch(
 			snapshotActions.updateSnapshot( {
 				atomicSiteId: snapshot.atomicSiteId,

@@ -58,6 +58,7 @@ listenerMiddleware.startListening( {
 	},
 	effect( action, listenerApi ) {
 		const state = listenerApi.getState();
+		console.log( 'Saving snapshots to storage', state.snapshot.snapshots );
 		getIpcApi().saveSnapshotsToStorage( state.snapshot.snapshots );
 	},
 } );

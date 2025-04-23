@@ -28,7 +28,7 @@ export async function updateSnapshotDateInAppdata( atomicSiteId: number ): Promi
 	const snapshot = userData.snapshots.find( ( s ) => s.atomicSiteId === atomicSiteId );
 
 	if ( ! snapshot ) {
-		throw new LoggerError( __( 'Preview site with not found in appdata' ) );
+		throw new LoggerError( __( 'Failed to find existing preview site in appdata' ) );
 	}
 
 	snapshot.date = Date.now();

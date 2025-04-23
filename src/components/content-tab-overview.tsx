@@ -14,7 +14,7 @@ import {
 	widget,
 } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import { ButtonsSection, ButtonsSectionProps } from 'src/components/buttons-section';
 import { useCheckInstalledApps } from 'src/hooks/use-check-installed-apps';
@@ -141,19 +141,35 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 	const { terminalWpCliEnabled } = useFeatureFlags();
 	const installedApps = useCheckInstalledApps();
 	const [ terminalName, setTerminalName ] = useState( __( 'Terminal' ) );
+	const [ editorName, setEditorName ] = useState( '' );
 
-	const updateTerminalName = async () => {
+	const updateTerminalName = useCallback( async () => {
 		const terminal = await getIpcApi().getUserTerminal();
 		setTerminalName( terminal === 'iterm' ? __( 'iTerm' ) : __( 'Terminal' ) );
-	};
+	}, [ setTerminalName ] );
+
+	const updateEditorName = useCallback( async () => {
+		const editor = await getIpcApi().getUserEditor();
+		if ( editor === 'vscode' && installedApps.vscode ) {
+			// translators: "VS Code" is the brand name for an IDE and does not need to be translated
+			setEditorName( __( 'VS Code' ) );
+		} else if ( editor === 'phpstorm' && installedApps.phpstorm ) {
+			// translators: "PhpStorm" is the brand name for an IDE and does not need to be translated
+			setEditorName( __( 'PhpStorm' ) );
+		} else {
+			setEditorName( '' );
+		}
+	}, [ setEditorName, installedApps ] );
 
 	useIpcListener( 'user-preference-changed', () => {
 		updateTerminalName();
+		updateEditorName();
 	} );
 
 	useEffect( () => {
 		updateTerminalName();
-	}, [] );
+		updateEditorName();
+	}, [ updateTerminalName, updateEditorName ] );
 
 	const buttonsArray: ButtonsSectionProps[ 'buttonsArray' ] = [
 		{
@@ -170,31 +186,19 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 		},
 	];
 
-	// Only add editor button if at least one supported editor is installed
-	if ( installedApps.vscode || installedApps.phpstorm ) {
-		if ( installedApps.vscode ) {
-			buttonsArray.push( {
-				label:
-					// translators: "VS Code" is the brand name for an IDE and does not need to be translated
-					__( 'VS Code' ),
-				className: 'text-nowrap',
-				icon: code,
-				onClick: () => {
+	if ( editorName ) {
+		buttonsArray.push( {
+			label: editorName,
+			className: 'text-nowrap',
+			icon: code,
+			onClick: () => {
+				if ( editorName === __( 'VS Code' ) ) {
 					getIpcApi().openURL( `vscode://file/${ selectedSite.path }?windowId=_blank` );
-				},
-			} );
-		} else if ( installedApps.phpstorm ) {
-			buttonsArray.push( {
-				label:
-					// translators: "PhpStorm" is the brand name for an IDE and does not need to be translated
-					__( 'PhpStorm' ),
-				className: 'text-nowrap',
-				icon: code,
-				onClick: () => {
+				} else if ( editorName === __( 'PhpStorm' ) ) {
 					getIpcApi().openURL( `phpstorm://open?file=${ selectedSite.path }` );
-				},
-			} );
-		}
+				}
+			},
+		} );
 	}
 	buttonsArray.push( {
 		label: terminalName,

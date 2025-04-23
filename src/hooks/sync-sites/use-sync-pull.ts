@@ -265,6 +265,7 @@ export function useSyncPull( {
 				const response = await client.req.get< {
 					status: 'in-progress' | 'finished' | 'failed';
 					download_url: string;
+					backup_id: string;
 				} >( `/sites/${ remoteSiteId }/studio-app/sync/backup`, {
 					apiNamespace: 'wpcom/v2',
 					backup_id: backupId,
@@ -291,6 +292,8 @@ export function useSyncPull( {
 					updatePullState( selectedSiteId, remoteSiteId, {
 						status: statusWithProgress,
 						downloadUrl,
+						// after every response we should update the backupId according with response.backup_id, since dotcom initially returns job_id and then switches to real backup_id, and then to archive_id
+						backupId: response.backup_id,
 					} );
 				}
 			} catch ( error ) {

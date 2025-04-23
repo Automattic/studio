@@ -41,7 +41,7 @@ export function SiteContentTabs() {
 				orientation="horizontal"
 				onSelect={ ( tabName ) => setSelectedTab( tabName as TabName ) }
 				initialTabName={ selectedTab }
-				key={ selectedTab }
+				key={ selectedTab + selectedSite.id }
 			>
 				{ ( { name } ) => (
 					<div
@@ -58,13 +58,7 @@ export function SiteContentTabs() {
 						{ name === 'previews' && <ContentTabPreviews selectedSite={ selectedSite } /> }
 						{ name === 'sync' && <ContentTabSync selectedSite={ selectedSite } /> }
 						{ name === 'settings' && <ContentTabSettings selectedSite={ selectedSite } /> }
-						{ name === 'assistant' && (
-							<ContentTabAssistant
-								// TODO: Remove this key once https://github.com/Automattic/dotcom-forge/issues/10219 is fixed
-								key={ selectedTab + selectedSite.id }
-								selectedSite={ selectedSite }
-							/>
-						) }
+						{ name === 'assistant' && <ContentTabAssistant selectedSite={ selectedSite } /> }
 						{ name === 'import-export' && <ContentTabImportExport selectedSite={ selectedSite } /> }
 					</div>
 				) }

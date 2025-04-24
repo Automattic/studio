@@ -298,9 +298,10 @@ window.ipcListener.subscribe( 'user-data-updated', ( _, payload ) => {
 		store.dispatch( snapshotSlice.actions.setSnapshots( snapshots ) );
 
 		// Optimistically update the snapshot usage count
+		const countDiff = snapshots.length - state.snapshot.snapshots.length;
 		store.dispatch(
 			wpcomApi.util.updateQueryData( 'getSnapshotUsage', undefined, ( data ) => {
-				data.siteCount = snapshots.length;
+				data.siteCount += countDiff;
 			} )
 		);
 

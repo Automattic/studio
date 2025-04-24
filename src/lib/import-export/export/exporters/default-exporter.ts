@@ -38,6 +38,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		'wp-content/mu-plugins/0-wp-config-constants-polyfill.php',
 		'wp-content/mu-plugins/0-sqlite.php',
 		'wp-content/mu-plugins/0-thumbnails.php',
+		'wp-content/plugins/node_modules/',
 	];
 
 	constructor( options: ExportOptions ) {
@@ -223,10 +224,18 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		return directoryContents.reduce< string[] >( ( files: string[], directoryContent ) => {
 			const filePath = path.join( directoryContent.path, directoryContent.name );
 			const relativePath = path.relative( this.options.site.path, filePath );
+
+			// Check for exact path exclusions
 			const isExcluded = this.pathsToExclude.some( ( pathToExclude ) =>
 				relativePath.startsWith( path.normalize( pathToExclude ) )
 			);
-			if ( isExcluded ) {
+
+			// Check for node_modules within any plugin directory
+			const isPluginNodeModules =
+				relativePath.startsWith( 'wp-content/plugins/' ) &&
+				relativePath.includes( '/node_modules/' );
+
+			if ( isExcluded || isPluginNodeModules ) {
 				return files;
 			}
 			if ( directoryContent.isFile() ) {

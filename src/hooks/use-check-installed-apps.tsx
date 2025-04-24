@@ -1,41 +1,14 @@
-import { createContext, useContext, useEffect, useState } from 'react';
-import { getIpcApi } from 'src/lib/get-ipc-api';
-
-const initState = {
-	vscode: false,
-	phpstorm: false,
-	webstorm: false,
-	windsurf: false,
-	cursor: false,
-	iterm: false,
-};
-const checkInstalledAppsContext = createContext< InstalledApps >( initState );
-
-interface InstalledAppsProviderProps {
-	children?: React.ReactNode;
-}
+import { useEffect } from 'react';
+import { useAppDispatch, useRootSelector } from 'src/stores';
+import { fetchInstalledApps, selectInstalledApps } from 'src/stores/installed-apps-slice';
 
 export function useCheckInstalledApps() {
-	return useContext( checkInstalledAppsContext );
-}
+	const dispatch = useAppDispatch();
+	const installedApps = useRootSelector( selectInstalledApps );
 
-export function InstalledAppsProvider( { children }: InstalledAppsProviderProps ) {
-	const { Provider } = checkInstalledAppsContext;
-
-	const [ installedApps, setInstalledApps ] = useState< InstalledApps >( initState );
 	useEffect( () => {
-		let cancel = false;
-		getIpcApi()
-			.getInstalledApps()
-			.then( ( installedApps ) => {
-				if ( ! cancel ) {
-					setInstalledApps( installedApps );
-				}
-			} );
+		dispatch( fetchInstalledApps() );
+	}, [ dispatch ] );
 
-		return () => {
-			cancel = true;
-		};
-	}, [] );
-	return <Provider value={ installedApps }>{ children }</Provider>;
+	return installedApps;
 }

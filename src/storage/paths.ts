@@ -38,6 +38,12 @@ export function getResourcesPath(): string {
 	return path.join( exePath, 'resources' );
 }
 
+export function getCliPath(): string {
+	return process.env.NODE_ENV === 'development'
+		? path.join( getResourcesPath(), 'dist', 'cli', 'main.js' )
+		: path.join( getResourcesPath(), 'cli', 'main.js' );
+}
+
 function inChildProcess() {
 	return process.env.STUDIO_IN_CHILD_PROCESS === 'true';
 }

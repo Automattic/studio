@@ -82,7 +82,6 @@ const installationPaths: Record< string, PlatformPaths > = {
 	},
 };
 
-console.log( installationPaths );
 
 if ( process.platform === 'darwin' ) {
 	const systemApplications = '/Applications';

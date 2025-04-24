@@ -138,7 +138,7 @@ function FileBlock( props: ContextProps & CodeBlockProps & { isDirectory?: boole
 		if ( ! siteId || ! filePath ) {
 			return;
 		}
-		void getIpcApi().openFileInIDE( content, siteId );
+		getIpcApi().openFileInIDE( content, siteId );
 	}, [ siteId, filePath, content ] );
 
 	const openFileInFinder = useCallback( () => {

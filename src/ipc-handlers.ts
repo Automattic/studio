@@ -1155,11 +1155,11 @@ export async function openFileInIDE(
 
 	if ( isInstalled( 'vscode' ) ) {
 		// Open site first to ensure the file is opened within the site context
-		await shell.openExternal( `vscode://file/${ server.details.path }?windowId=_blank` );
-		await shell.openExternal( `vscode://file/${ path }` );
+		await shellOpenExternalWrapper( `vscode://file/${ server.details.path }?windowId=_blank` );
+		await shellOpenExternalWrapper( `vscode://file/${ path }` );
 	} else if ( isInstalled( 'phpstorm' ) ) {
 		// Open site first to ensure the file is opened within the site context
-		await shell.openExternal( `phpstorm://open?file=${ path }` );
+		await shellOpenExternalWrapper( `phpstorm://open?file=${ path }` );
 	}
 }
 

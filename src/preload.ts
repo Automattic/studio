@@ -94,7 +94,7 @@ const api: IpcApi = {
 	getAbsolutePathFromSite: ( siteId, relativePath ) =>
 		ipcRendererInvoke( 'getAbsolutePathFromSite', siteId, relativePath ),
 	openFileInIDE: ( relativePath, siteId ) =>
-		ipcRendererInvoke( 'openFileInIDE', relativePath, siteId ),
+		ipcRendererSend( 'openFileInIDE', relativePath, siteId ),
 	isImportExportSupported: ( siteId ) => ipcRendererInvoke( 'isImportExportSupported', siteId ),
 	checkSyncBackupSize: ( downloadUrl ) => ipcRendererInvoke( 'checkSyncBackupSize', downloadUrl ),
 	downloadSyncBackup: ( remoteSiteId, downloadUrl ) =>

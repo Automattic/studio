@@ -67,14 +67,15 @@ type NonInvokeHandlers =
 	| 'addSyncOperation'
 	| 'clearSyncOperation'
 	| 'logRendererMessage'
+	| 'openCertificate'
+	| 'openFileInIDE'
 	| 'openLocalPath'
 	| 'openSiteURL'
 	| 'openURL'
 	| 'popupAppMenu'
 	| 'showErrorMessageBox'
 	| 'showItemInFolder'
-	| 'showNotification'
-	| 'openCertificate';
+	| 'showNotification';
 
 // IpcApi functions have the same signatures as the functions in ipc-handlers.ts, except
 // with the first parameter removed.

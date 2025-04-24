@@ -102,9 +102,7 @@ function CustomizeSection( {
 		{
 			label: __( 'Customizer' ),
 			icon: edit,
-			onClick: () => {
-				getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/customize.php' );
-			},
+			onClick: () => getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/customize.php' ),
 		},
 	];
 
@@ -112,9 +110,7 @@ function CustomizeSection( {
 		classicThemeButtons.push( {
 			label: __( 'Menus' ),
 			icon: navigation,
-			onClick: () => {
-				getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/nav-menus.php' );
-			},
+			onClick: () => getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/nav-menus.php' ),
 		} );
 	}
 
@@ -122,9 +118,7 @@ function CustomizeSection( {
 		classicThemeButtons.push( {
 			label: __( 'Widgets' ),
 			icon: widget,
-			onClick: () => {
-				getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/widgets.php' );
-			},
+			onClick: () => getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/widgets.php' ),
 		} );
 	}
 

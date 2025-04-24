@@ -213,7 +213,7 @@ export function useSyncPull( {
 					status: pullStatesProgressInfo.finished,
 				} );
 
-				void getIpcApi().showNotification( {
+				getIpcApi().showNotification( {
 					title: selectedSite.name,
 					body: isStaging
 						? __( 'Studio site updated from Staging' )

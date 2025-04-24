@@ -32,7 +32,7 @@ export default function WindowsTitlebar( {
 			<Button
 				variant="icon"
 				onClick={ () => {
-					void getIpcApi().popupAppMenu();
+					getIpcApi().popupAppMenu();
 				} }
 				className="!px-3 !py-2 app-no-drag-region"
 			>

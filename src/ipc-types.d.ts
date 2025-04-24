@@ -64,15 +64,16 @@ type IpcHandlers = typeof import('./ipc-handlers');
 
 // Define which handlers use `ipcRenderer.send` in `src/preload.ts`
 type NonPromiseHandlers =
-	| 'logRendererMessage'
-	| 'showNotification'
-	| 'openSiteURL'
-	| 'openURL'
-	| 'showErrorMessageBox'
 	| 'addSyncOperation'
 	| 'clearSyncOperation'
+	| 'logRendererMessage'
 	| 'openLocalPath'
-	| 'showItemInFolder';
+	| 'openSiteURL'
+	| 'openURL'
+	| 'popupAppMenu'
+	| 'showErrorMessageBox'
+	| 'showItemInFolder'
+	| 'showNotification';
 
 // IpcApi functions have the same signatures as the functions in ipc-handlers.ts, except
 // with the first parameter removed.

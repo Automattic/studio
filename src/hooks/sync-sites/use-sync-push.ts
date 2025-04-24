@@ -101,7 +101,7 @@ export function useSyncPush( {
 			if ( response.success && response.status === 'finished' ) {
 				status = pushStatesProgressInfo.finished;
 				onPushSuccess?.( remoteSiteId, syncPushState.selectedSite.id );
-				void getIpcApi().showNotification( {
+				getIpcApi().showNotification( {
 					title: syncPushState.selectedSite.name,
 					body: syncPushState.isStaging
 						? __( 'Staging has been updated' )

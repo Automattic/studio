@@ -447,12 +447,12 @@ window.ipcListener.subscribe( 'snapshot-success', ( event, payload ) => {
 			} )
 		);
 
-		void getIpcApi().showNotification( {
+		getIpcApi().showNotification( {
 			title: operation.snapshotName,
 			body: sprintf( __( "Preview site '%s' has been created." ), operation.snapshotUrl ),
 		} );
 	} else if ( operation.type === 'update' ) {
-		void getIpcApi().showNotification( {
+		getIpcApi().showNotification( {
 			title: operation.snapshotName,
 			body: sprintf( __( "Preview site '%s' has been updated." ), operation.snapshotUrl ),
 		} );
@@ -464,12 +464,12 @@ window.ipcListener.subscribe( 'snapshot-success', ( event, payload ) => {
 		);
 
 		if ( ! bulkOperation ) {
-			void getIpcApi().showNotification( {
+			getIpcApi().showNotification( {
 				title: operation.snapshotName,
 				body: sprintf( __( "Preview site '%s' has been deleted." ), operation.snapshotUrl ),
 			} );
 		} else if ( bulkOperationIsFulfilled ) {
-			void getIpcApi().showNotification( {
+			getIpcApi().showNotification( {
 				title: __( 'Delete Successful' ),
 				body: __( 'All preview sites have been deleted.' ),
 			} );

@@ -70,7 +70,7 @@ const api: IpcApi = {
 	logRendererMessage: ( level, ...args ) =>
 		ipcRenderer.send( 'logRendererMessage', level, ...args ),
 	setupAppMenu: ( config ) => ipcRenderer.invoke( 'setupAppMenu', config ),
-	popupAppMenu: () => ipcRenderer.invoke( 'popupAppMenu' ),
+	popupAppMenu: () => ipcRenderer.send( 'popupAppMenu' ),
 	openCertificate: () => ipcRenderer.invoke( 'openCertificate' ),
 	promptWindowsSpeedUpSites: ( ...args ) =>
 		ipcRenderer.invoke( 'promptWindowsSpeedUpSites', ...args ),

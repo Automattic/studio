@@ -34,7 +34,9 @@ describe( 'isInstalled', () => {
 				case 'home':
 					return '/mock/home/path';
 				case 'appData':
-					return process.platform === 'win32' ? 'C:\\mock\\AppData' : '/mock/home/path/.config';
+					return process.platform === 'win32'
+						? 'C:\\Users\\TestUser\\AppData\\Roaming'
+						: '/mock/home/path/.config';
 				default:
 					return '';
 			}
@@ -76,6 +78,7 @@ describe( 'isInstalled', () => {
 		beforeEach( () => {
 			Object.defineProperty( process, 'platform', { value: 'win32' } );
 			process.env.ProgramFiles = 'D:\\Program Files';
+			process.env.LOCALAPPDATA = 'C:\\Users\\TestUser\\AppData\\Local';
 			// Re-import the module after setting the environment variable
 			jest.isolateModules( () => {
 				const module = require( '../is-installed' );
@@ -85,26 +88,27 @@ describe( 'isInstalled', () => {
 
 		it( 'detects VS Code installed in Program Files', () => {
 			mockPaths = [ 'D:\\Program Files\\Microsoft VS Code' ];
-
 			expect( isInstalled( 'vscode' ) ).toBe( true );
 		} );
 
-		it( 'detects VS Code installed in AppData', () => {
-			mockPaths = [ 'C:\\mock\\AppData\\Local\\Programs\\Microsoft VS Code' ];
+		it( 'detects VS Code installed in Local Programs', () => {
+			mockPaths = [ 'C:\\Users\\TestUser\\AppData\\Local\\Programs\\Microsoft VS Code' ];
 			expect( isInstalled( 'vscode' ) ).toBe( true );
 		} );
 
 		it( 'detects PhpStorm with version-specific folder', () => {
 			mockPaths = [ 'D:\\Program Files\\JetBrains', 'D:\\Program Files\\JetBrains\\PhpStorm' ];
-
 			( fs.readdirSync as jest.Mock ).mockReturnValue( [ 'PhpStorm 2023.1', 'WebStorm 2023.1' ] );
+			expect( isInstalled( 'phpstorm' ) ).toBe( true );
+		} );
 
+		it( 'detects PhpStorm in Local Programs', () => {
+			mockPaths = [ 'C:\\Users\\TestUser\\AppData\\Local\\Programs\\PhpStorm' ];
 			expect( isInstalled( 'phpstorm' ) ).toBe( true );
 		} );
 
 		it( 'falls back to default Program Files path when environment variable is not set', () => {
 			delete process.env.ProgramFiles;
-
 			// Re-import the module after setting the environment variable
 			jest.isolateModules( () => {
 				const module = require( '../is-installed' );
@@ -112,6 +116,18 @@ describe( 'isInstalled', () => {
 			} );
 
 			mockPaths = [ 'C:\\Program Files\\Microsoft VS Code' ];
+			expect( isInstalled( 'vscode' ) ).toBe( true );
+		} );
+
+		it( 'falls back to electron appData path when LOCALAPPDATA is not set', () => {
+			delete process.env.LOCALAPPDATA;
+			// Re-import the module after setting the environment variable
+			jest.isolateModules( () => {
+				const module = require( '../is-installed' );
+				isInstalled = module.isInstalled;
+			} );
+
+			mockPaths = [ 'C:\\Users\\TestUser\\AppData\\Roaming\\Local\\Programs\\Microsoft VS Code' ];
 			expect( isInstalled( 'vscode' ) ).toBe( true );
 		} );
 	} );

@@ -1,6 +1,6 @@
 import { TabPanel } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Modal from 'src/components/modal';
 import { useAuth } from 'src/hooks/use-auth';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';

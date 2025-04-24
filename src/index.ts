@@ -28,6 +28,7 @@ import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { onOpenUrlCallback } from 'src/lib/oauth';
 import { stopProxyServer } from 'src/lib/proxy-server';
 import { getSentryReleaseInfo } from 'src/lib/sentry-release';
+import { startUserDataWatcher, stopUserDataWatcher } from 'src/lib/user-data-watcher';
 import { setupLogging } from 'src/logging';
 import { createMainWindow, getMainWindow } from 'src/main-window';
 import {
@@ -37,6 +38,7 @@ import {
 import { migrateAllDatabasesInSitu } from 'src/migrations/move-databases-in-situ';
 import { removeSitesWithEmptyDirectories } from 'src/migrations/remove-sites-with-empty-dirs';
 import { installCLIOnWindows } from 'src/modules/cli/lib/install-windows';
+import { isCLIFeatureEnabled } from 'src/modules/cli/lib/is-cli-feature-enabled';
 import { setupWPServerFiles, updateWPServerFiles } from 'src/setup-wp-server-files';
 import { stopAllServersOnQuit } from 'src/site-server';
 import { loadUserData, saveUserData } from 'src/storage/user-data';
@@ -278,6 +280,7 @@ async function appBoot() {
 		await migrateAllDatabasesInSitu();
 
 		createMainWindow();
+		startUserDataWatcher();
 
 		// Handle CLI commands
 		listenCLICommands();
@@ -298,8 +301,7 @@ async function appBoot() {
 			'weekly'
 		);
 
-		// temporary hidden since in development yet
-		if ( process.env.NODE_ENV === 'development' ) {
+		if ( isCLIFeatureEnabled() ) {
 			await installCLIOnWindows();
 		}
 
@@ -346,6 +348,7 @@ async function appBoot() {
 	app.on( 'quit', () => {
 		stopAllServersOnQuit();
 		stopProxyServer().catch( ( error ) => console.error( 'Error stopping proxy server:', error ) );
+		stopUserDataWatcher();
 	} );
 
 	app.on( 'activate', () => {

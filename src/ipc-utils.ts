@@ -4,6 +4,7 @@ import { PreviewCommandLoggerAction } from 'common/logger-actions';
 import { ImportExportEventData } from 'src/lib/import-export/handle-events';
 import { StoredToken } from 'src/lib/oauth';
 import { getMainWindow } from 'src/main-window';
+import type { UserData } from 'src/storage/storage-types';
 
 type SnapshotEventData = {
 	action: PreviewCommandLoggerAction;
@@ -35,6 +36,8 @@ export interface IpcEvents {
 	'user-settings': [ void ];
 	'window-fullscreen-change': [ boolean ];
 	'user-preference-changed': [ void ];
+	'user-data-updated': [ UserData ];
+	'user-data-error': [ string ];
 }
 
 export async function sendIpcEventToRenderer< T extends keyof IpcEvents >(

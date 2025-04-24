@@ -1,4 +1,9 @@
-import { Command } from 'commander';
+import { Argv } from 'yargs';
 
 export type OutputFormat = undefined | 'json';
-export type RegisterCommand = ( parentCommand: Command, rootCommand?: Command ) => void;
+
+export interface GlobalOptions {
+	outputFormat?: OutputFormat;
+}
+
+export type StudioArgv = Argv< GlobalOptions >;

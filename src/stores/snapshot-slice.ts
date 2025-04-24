@@ -297,6 +297,13 @@ window.ipcListener.subscribe( 'user-data-updated', ( _, payload ) => {
 	if ( ! fastDeepEqual( state.snapshot.snapshots, snapshots ) ) {
 		store.dispatch( snapshotSlice.actions.setSnapshots( snapshots ) );
 
+		// Optimistically update the snapshot usage count
+		store.dispatch(
+			wpcomApi.util.updateQueryData( 'getSnapshotUsage', undefined, ( data ) => {
+				data.siteCount = snapshots.length;
+			} )
+		);
+
 		// Wait for changes to take effect on the back-end before invalidating the query
 		setTimeout( () => {
 			store.dispatch( wpcomApi.util.invalidateTags( [ 'SnapshotUsage' ] ) );
@@ -449,12 +456,6 @@ window.ipcListener.subscribe( 'snapshot-success', ( event, payload ) => {
 	}
 
 	if ( operation.type === 'create' ) {
-		store.dispatch(
-			wpcomApi.util.updateQueryData( 'getSnapshotUsage', undefined, ( data ) => {
-				data.siteCount += 1;
-			} )
-		);
-
 		getIpcApi().showNotification( {
 			title: operation.snapshotName,
 			body: sprintf( __( "Preview site '%s' has been created." ), operation.snapshotUrl ),
@@ -465,12 +466,6 @@ window.ipcListener.subscribe( 'snapshot-success', ( event, payload ) => {
 			body: sprintf( __( "Preview site '%s' has been updated." ), operation.snapshotUrl ),
 		} );
 	} else if ( operation.type === 'delete' ) {
-		store.dispatch(
-			wpcomApi.util.updateQueryData( 'getSnapshotUsage', undefined, ( data ) => {
-				data.siteCount -= 1;
-			} )
-		);
-
 		if ( ! bulkOperation ) {
 			getIpcApi().showNotification( {
 				title: operation.snapshotName,

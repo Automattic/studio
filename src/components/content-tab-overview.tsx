@@ -26,6 +26,7 @@ import { isMac } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { supportedEditorConfig } from 'src/lib/editor';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { supportedTerminalNames } from 'src/lib/terminal';
 
 interface ContentTabOverviewProps {
 	selectedSite: SiteDetails;
@@ -146,7 +147,8 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 
 	const updateTerminalName = useCallback( async () => {
 		const terminal = await getIpcApi().getUserTerminal();
-		setTerminalName( terminal === 'iterm' ? __( 'iTerm' ) : __( 'Terminal' ) );
+
+		setTerminalName( __( supportedTerminalNames[ terminal ] ) );
 	}, [ setTerminalName ] );
 
 	const updateEditorName = useCallback( async () => {

@@ -32,10 +32,15 @@ export function useTerminalData() {
 	useEffect( () => {
 		const loadTerminals = async () => {
 			const installed = await getIpcApi().getInstalledTerminals();
+
 			const available: SupportedTerminal[] = [ 'terminal' ];
-			if ( installed.iterm ) {
-				available.push( 'iterm' );
-			}
+
+			Object.entries( installed ).forEach( ( [ key, isInstalled ] ) => {
+				if ( key !== 'terminal' && isInstalled ) {
+					available.push( key as SupportedTerminal );
+				}
+			} );
+
 			setAvailableTerminals( available );
 		};
 		loadTerminals();

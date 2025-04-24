@@ -141,10 +141,8 @@ const snapshotSlice = createSlice( {
 			);
 		},
 		setSnapshots: ( state, action: PayloadAction< Snapshot[] > ) => {
-			if ( ! fastDeepEqual( state.snapshots, action.payload ) ) {
-				state.snapshots = action.payload;
-				state.isInitialSnapshotsLoaded = true;
-			}
+			state.snapshots = action.payload;
+			state.isInitialSnapshotsLoaded = true;
 		},
 		updateOperation: (
 			state,
@@ -293,7 +291,17 @@ const selectSnapshotsBySiteAndUser = createSelector(
 );
 
 window.ipcListener.subscribe( 'user-data-updated', ( _, payload ) => {
-	store.dispatch( snapshotSlice.actions.setSnapshots( payload.snapshots ) );
+	const state = store.getState();
+	const snapshots = payload.snapshots;
+
+	if ( ! fastDeepEqual( state.snapshot.snapshots, snapshots ) ) {
+		store.dispatch( snapshotSlice.actions.setSnapshots( snapshots ) );
+
+		// Wait for changes to take effect on the back-end before invalidating the query
+		setTimeout( () => {
+			store.dispatch( wpcomApi.util.invalidateTags( [ 'SnapshotUsage' ] ) );
+		}, 8000 );
+	}
 } );
 
 function getCreateProgress( action: PreviewCommandLoggerAction ): [ string, number ] {
@@ -475,11 +483,6 @@ window.ipcListener.subscribe( 'snapshot-success', ( event, payload ) => {
 			} );
 		}
 	}
-
-	// Wait for changes to take effect on the back-end before invalidating the cache.
-	setTimeout( () => {
-		store.dispatch( wpcomApi.util.invalidateTags( [ 'SnapshotUsage' ] ) );
-	}, 8000 );
 } );
 
 export const snapshotActions = snapshotSlice.actions;

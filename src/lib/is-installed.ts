@@ -83,7 +83,10 @@ const installationPaths: Record< string, PlatformPaths > = {
 		],
 		iterm: [],
 		terminal: [],
-		warp: [ path.win32.join( app.getPath( 'appData' ), 'Warp' ) ],
+		warp: [
+			path.win32.join( getLocalProgramsPath(), 'Warp' ),
+			path.win32.join( getProgramFilesPath(), 'Warp' ),
+		],
 		ghostty: [],
 	},
 };

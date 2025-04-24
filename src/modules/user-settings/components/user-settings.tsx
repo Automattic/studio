@@ -34,11 +34,7 @@ export default function UserSettings() {
 		snapshotSelectors.selectSnapshotsByUser( state, user?.id ?? 0 )
 	);
 	const snapshotQuota = useRootSelector( ( state ) => state.snapshot.snapshotQuota );
-	const {
-		data: snapshotUsage,
-		isLoading: isLoadingSnapshotUsage,
-		refetch: refetchSnapshotUsage,
-	} = useGetSnapshotUsage();
+	const { data: snapshotUsage, isLoading: isLoadingSnapshotUsage } = useGetSnapshotUsage();
 	const definitiveSnapshotCount = snapshotUsage?.siteCount ?? snapshotsByUser?.length ?? 0;
 
 	const [ needsToOpenUserSettings, setNeedsToOpenUserSettings ] = useState( false );
@@ -71,12 +67,6 @@ export default function UserSettings() {
 			await dispatch( snapshotThunks.deleteAllSnapshotsForUser( { userId: user?.id ?? 0 } ) );
 		}
 	}, [ __, dispatch, user?.id ] );
-
-	useEffect( () => {
-		if ( needsToOpenUserSettings ) {
-			refetchSnapshotUsage();
-		}
-	}, [ snapshotsByUser.length, needsToOpenUserSettings, refetchSnapshotUsage ] );
 
 	if ( ! preferredEditor ) {
 		return (

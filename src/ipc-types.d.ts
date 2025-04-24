@@ -78,9 +78,12 @@ type NonInvokeHandlers =
 // IpcApi functions have the same signatures as the functions in ipc-handlers.ts, except
 // with the first parameter removed.
 type IpcApi = {
+	// `void` is satisfied by `Promise<any>`, which means that if a method in the
+	// `NonInvokeHandlers` list returns a promise, it wouldn't raise a type error. That's why we use
+	// `undefined` instead. We make this work in `preload.ts` with the help of a utility function.
 	[ K in keyof IpcHandlers ]: (
 		...args: WithoutIpcEvent< Parameters< IpcHandlers[ K ] > >
-	) => K extends NonInvokeHandlers ? void : ToPromise< ReturnType< IpcHandlers[ K ] > >;
+	) => K extends NonInvokeHandlers ? undefined : ToPromise< ReturnType< IpcHandlers[ K ] > >;
 } & {
 	// `webUtils.getPathForFile` is available only inside preload script, that's why this one
 	// function is exception and need to be defined here manually. See

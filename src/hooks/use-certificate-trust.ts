@@ -11,6 +11,11 @@ export function useCertificateTrust(): boolean {
 	const [ isTrusted, setIsTrusted ] = useState< boolean >( false );
 
 	const checkCertificateTrust = useCallback( () => {
+		// If the certificate is already trusted, don't check it again
+		if ( isTrusted ) {
+			return;
+		}
+
 		getIpcApi()
 			.isCATrusted()
 			.then( ( trusted ) => {

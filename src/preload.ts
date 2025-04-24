@@ -84,7 +84,7 @@ const api: IpcApi = {
 	logRendererMessage: ( level, ...args ) => ipcRendererSend( 'logRendererMessage', level, ...args ),
 	setupAppMenu: ( config ) => ipcRendererInvoke( 'setupAppMenu', config ),
 	popupAppMenu: () => ipcRendererSend( 'popupAppMenu' ),
-	openCertificate: () => ipcRendererInvoke( 'openCertificate' ),
+	openCertificate: () => ipcRendererSend( 'openCertificate' ),
 	promptWindowsSpeedUpSites: ( ...args ) =>
 		ipcRendererInvoke( 'promptWindowsSpeedUpSites', ...args ),
 	setDefaultLocaleData: ( locale ) => ipcRendererInvoke( 'setDefaultLocaleData', locale ),

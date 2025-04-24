@@ -132,7 +132,7 @@ const config: ForgeConfig = {
 			}
 
 			console.log( 'Building CLI ...' );
-			const compiler = webpack( cliConfig );
+			const compiler = webpack( { ...cliConfig, mode: 'production' } );
 
 			await new Promise< void >( ( resolve, reject ) => {
 				compiler.run( ( error ) => {

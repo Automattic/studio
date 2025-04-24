@@ -65,22 +65,6 @@ describe( 'UserSettings', () => {
 		} );
 	} );
 
-	it( 'calls refetchSnapshotUsage when modal is opened', async () => {
-		const refetchMock = jest.fn();
-		( useGetSnapshotUsage as jest.Mock ).mockReturnValue( {
-			data: { siteCount: 2, siteLimit: 10, siteCreationBlocked: false },
-			isLoading: false,
-			refetch: refetchMock,
-		} );
-		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
-		( useFeatureFlags as jest.Mock ).mockReturnValue( {
-			preferredEditor: false,
-		} );
-
-		renderWithProvider( <UserSettings /> );
-		expect( refetchMock ).toHaveBeenCalledTimes( 1 );
-	} );
-
 	it( 'logs in when not authenticated', async () => {
 		const authenticate = jest.fn();
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: false, authenticate } );

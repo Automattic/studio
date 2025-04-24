@@ -988,7 +988,11 @@ export async function openTerminalAtPath(
 		const userData = await loadUserData();
 		const preferredTerminal = userData.supportedTerminal || 'terminal';
 
-		if ( preferredTerminal === 'iterm' ) {
+		if ( preferredTerminal === ( 'warp' as SupportedTerminal ) ) {
+			return promiseExec( `open -a Warp "${ targetPath }"` );
+		} else if ( preferredTerminal === ( 'ghostty' as SupportedTerminal ) ) {
+			return promiseExec( `open -a Ghostty "${ targetPath }"` );
+		} else if ( preferredTerminal === 'iterm' ) {
 			return promiseExec( `osascript << END
 tell application "iTerm"
     activate
@@ -1007,10 +1011,18 @@ end tell
 END` );
 		}
 	} else if ( platform === 'win32' ) {
+		const userData = await loadUserData();
+		const preferredTerminal = userData.supportedTerminal;
 		const defaultShell = process.env.ComSpec || 'cmd.exe';
 		const env = wpCliEnabled
 			? { PATH: `${ cliPath };${ process.env.PATH }`, STUDIO_APP_PATH: appPath }
 			: {};
+
+		if ( preferredTerminal === ( 'warp' as SupportedTerminal ) ) {
+			return promiseExec( `start "" "warp" "--cwd=${ targetPath }"`, {
+				env: { ...process.env, ...env },
+			} );
+		}
 
 		return promiseExec( `start "Command Prompt" ${ defaultShell }`, {
 			cwd: targetPath,
@@ -1290,6 +1302,8 @@ export function getInstalledTerminals(): InstalledTerminals {
 	return {
 		terminal: true, // Terminal.app is always available on macOS
 		iterm: isInstalled( 'iterm' ),
+		warp: isInstalled( 'warp' ),
+		ghostty: isInstalled( 'ghostty' ),
 	};
 }
 

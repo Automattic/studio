@@ -22,6 +22,20 @@ function getProgramFilesPath(): string {
 	return 'C:\\Program Files';
 }
 
+function getLocalProgramsPath(): string {
+	if ( process.platform !== 'win32' ) {
+		return app.getPath( 'appData' );
+	}
+
+	const localAppData = process.env.LOCALAPPDATA;
+	if ( localAppData ) {
+		return path.win32.join( localAppData, 'Programs' );
+	}
+
+	// Fallback to electron's appData path if environment variable is not available
+	return path.win32.join( app.getPath( 'appData' ), 'Local', 'Programs' );
+}
+
 // Define installation paths for each IDE by platform
 const installationPaths: Record< string, PlatformPaths > = {
 	darwin: {
@@ -32,6 +46,8 @@ const installationPaths: Record< string, PlatformPaths > = {
 		webstorm: [ 'WebStorm.app' ],
 		iterm: [ 'iTerm.app' ],
 		terminal: [ 'Terminal.app' ],
+		warp: [ 'Warp.app' ],
+		ghostty: [ 'Ghostty.app' ],
 	},
 	linux: {
 		vscode: [ '/usr/bin/code' ],
@@ -41,30 +57,37 @@ const installationPaths: Record< string, PlatformPaths > = {
 		webstorm: [ '/usr/bin/webstorm' ],
 		iterm: [],
 		terminal: [],
+		warp: [ '/usr/bin/warp' ],
+		ghostty: [],
 	},
 	win32: {
 		vscode: [
 			path.win32.join( getProgramFilesPath(), 'Microsoft VS Code' ),
-			path.win32.join( app.getPath( 'appData' ), 'Local\\Programs\\Microsoft VS Code' ),
+			path.win32.join( getLocalProgramsPath(), 'Microsoft VS Code' ),
 		],
 		phpstorm: [
 			path.win32.join( getProgramFilesPath(), 'JetBrains\\PhpStorm' ),
-			path.win32.join( app.getPath( 'appData' ), 'JetBrains\\PhpStorm' ),
+			path.win32.join( getLocalProgramsPath(), 'PhpStorm' ),
 		],
 		cursor: [
 			path.win32.join( getProgramFilesPath(), 'Cursor' ),
-			path.win32.join( app.getPath( 'appData' ), 'Local\\Programs\\Cursor' ),
+			path.win32.join( getLocalProgramsPath(), 'cursor' ),
 		],
 		windsurf: [
 			path.win32.join( getProgramFilesPath(), 'Windsurf' ),
-			path.win32.join( app.getPath( 'appData' ), 'Windsurf' ),
+			path.win32.join( getLocalProgramsPath(), 'Windsurf' ),
 		],
 		webstorm: [
 			path.win32.join( getProgramFilesPath(), 'JetBrains\\WebStorm' ),
-			path.win32.join( app.getPath( 'appData' ), 'JetBrains\\WebStorm' ),
+			path.win32.join( getLocalProgramsPath(), 'WebStorm' ),
 		],
 		iterm: [],
 		terminal: [],
+		warp: [
+			path.win32.join( getLocalProgramsPath(), 'Warp' ),
+			path.win32.join( getProgramFilesPath(), 'Warp' ),
+		],
+		ghostty: [],
 	},
 };
 
@@ -73,9 +96,10 @@ if ( process.platform === 'darwin' ) {
 	const userApplications = path.join( app.getPath( 'home' ), 'Applications' );
 
 	Object.keys( installationPaths.darwin ).forEach( ( ide ) => {
-		const appName = installationPaths.darwin[ ide as keyof InstalledApps ][ 0 ];
+		const appName =
+			installationPaths.darwin[ ide as keyof InstalledApps | keyof InstalledTerminals ][ 0 ];
 		if ( appName ) {
-			installationPaths.darwin[ ide as keyof InstalledApps ] = [
+			installationPaths.darwin[ ide as keyof InstalledApps | keyof InstalledTerminals ] = [
 				path.join( systemApplications, appName ),
 				path.join( userApplications, appName ),
 			];
@@ -84,7 +108,8 @@ if ( process.platform === 'darwin' ) {
 } else if ( process.platform === 'win32' ) {
 	// For JetBrains IDEs, check for version-specific folders
 	[ 'phpstorm', 'webstorm' ].forEach( ( ide ) => {
-		const basePaths = installationPaths.win32[ ide as keyof InstalledApps ];
+		const basePaths =
+			installationPaths.win32[ ide as keyof InstalledApps | keyof InstalledTerminals ];
 		const jetbrainsDir = path.win32.join( getProgramFilesPath(), 'JetBrains' );
 
 		if ( fs.existsSync( jetbrainsDir ) ) {

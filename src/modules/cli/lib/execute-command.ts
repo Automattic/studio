@@ -1,8 +1,7 @@
 import { fork } from 'node:child_process';
 import EventEmitter from 'node:events';
-import path from 'node:path';
 import * as Sentry from '@sentry/electron/main';
-import { getResourcesPath } from 'src/storage/paths';
+import { getCliPath } from 'src/storage/paths';
 
 type CliCommandEventMap = {
 	data: { data: unknown };
@@ -45,12 +44,9 @@ function* parseOutput( data: Buffer ): Generator< unknown, void, unknown > {
 }
 
 export function executeCliCommand( args: string[] ): CliCommandEventEmitter {
-	const cliPath =
-		process.env.NODE_ENV === 'development'
-			? path.join( getResourcesPath(), 'dist', 'cli', 'main.js' )
-			: path.join( getResourcesPath(), 'cli', 'main.js' );
+	const cliPath = getCliPath();
 	// Using Electron's utilityProcess.fork API gave us issues with the child process never exiting
-	const child = fork( cliPath, [ ...args, '--output-format', 'json' ], {
+	const child = fork( cliPath, [ ...args, '--output-format', 'json', '--avoid-telemetry' ], {
 		stdio: 'pipe',
 	} );
 	const eventEmitter = new CliCommandEventEmitter();

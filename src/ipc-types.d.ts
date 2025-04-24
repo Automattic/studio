@@ -56,6 +56,8 @@ type InstalledApps = {
 type InstalledTerminals = {
 	terminal: boolean;
 	iterm: boolean;
+	warp: boolean;
+	ghostty: boolean;
 };
 
 type WithoutIpcEvent< T extends unknown[] > = T extends [ unknown, ...infer Rest ] ? Rest : [];

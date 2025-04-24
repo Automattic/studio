@@ -82,7 +82,6 @@ const installationPaths: Record< string, PlatformPaths > = {
 	},
 };
 
-
 if ( process.platform === 'darwin' ) {
 	const systemApplications = '/Applications';
 	const userApplications = path.join( app.getPath( 'home' ), 'Applications' );

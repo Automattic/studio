@@ -559,7 +559,7 @@ export async function getUserEditor( _event: IpcMainInvokeEvent ): Promise< Supp
 	return userData.preferredEditor as SupportedEditor;
 }
 
-export function showUserSettings( event: IpcMainInvokeEvent ): void {
+export function showUserSettings( event: IpcMainInvokeEvent ) {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	sendIpcEventToRendererWithWindow( parentWindow, 'user-settings' );
 }

@@ -167,8 +167,6 @@ export async function isRootCATrusted(): Promise< boolean > {
 			const { stdout } = await execFilePromise( 'certutil', [
 				'-verify',
 				'-urlfetch',
-				'-purpose',
-				'sslserver',
 				CA_CERT_PATH,
 			] );
 

@@ -17,11 +17,28 @@ class EmailServer {
 
 		// @TODO: service should be configurable via Studio settings.
 		// @TODO: check if we can use WPCOM endpoint for sending emails.
+
+		const testAccount = await nodemailer.createTestAccount();
+
+		// const transporter = nodemailer.createTransport( {
+		// 	service: 'gmail', // Or your SMTP provider
+		// 	auth: {
+		// 		user: '', // Your email address.
+		// 		pass: '', // Your App Password if using Gmail.
+		// 	},
+		// } );
+
+		// @TODO: we can use this as a default until config is added.
+		// We have to show the testAccount details to the user.
+		// The login to https://ethereal.email/messages with the details to get all caught emails.
+		console.log( 'Email server testAccount', testAccount );
 		const transporter = nodemailer.createTransport( {
-			service: 'gmail', // Or your SMTP provider
+			host: 'smtp.ethereal.email',
+			port: 587,
+			secure: false,
 			auth: {
-				user: '', // Your email address.
-				pass: '', // Your App Password if using Gmail.
+				user: testAccount.user,
+				pass: testAccount.pass,
 			},
 		} );
 
@@ -33,17 +50,23 @@ class EmailServer {
 			const { to, subject, message, headers } = req.body;
 			transporter.sendMail(
 				{
-					from: 'WordPress <[email protected]>',
+					from: 'WordPress <studio-test@wordpress.com>',
 					to,
 					subject,
-					html: message,
-					headers,
+					html: `<div>${ message }</div>`,
 				},
-				( err ) => {
-					if ( err ) console.error( 'Email failed:', err );
+				( err, info ) => {
+					if ( err ) {
+						console.error( 'Email failed:', err );
+					}
+					console.log( 'Message sent: %s', info?.messageId );
+					console.log( 'Preview URL: %s', nodemailer.getTestMessageUrl( info ) );
 				}
 			);
-			res.send( 'SMTP Server is running on port ' + this.port );
+			res.send(
+				'Email sent with the following details: ' +
+					JSON.stringify( { to, subject, message, headers } )
+			);
 		} );
 
 		// Start server

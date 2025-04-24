@@ -57,6 +57,7 @@
 		"@types/follow-redirects": "^1.14.4",
 		"@types/jest": "^29.5.11",
 		"@types/node-fetch": "^2.6.12",
+		"@types/nodemailer": "^6.4.17",
 		"@types/react": "^18.2.42",
 		"@types/react-dom": "^18.2.17",
 		"@types/semver": "^7.5.8",

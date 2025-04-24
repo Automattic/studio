@@ -98,9 +98,9 @@ const deleteSnapshot = createAsyncThunk(
 
 async function deleteMultipleSnapshots(
 	snapshots: Snapshot[]
-): Promise< [ string, crypto.UUID ][] > {
+): Promise< [ url: string, operationId: crypto.UUID ][] > {
 	return await Promise.all(
-		snapshots.map( async ( snapshot ): Promise< [ string, crypto.UUID ] > => {
+		snapshots.map( async ( snapshot ) => {
 			const { operationId } = await getIpcApi().deleteSnapshot( snapshot.url );
 			return [ snapshot.url, operationId ];
 		} )

@@ -70,7 +70,9 @@ type NonPromiseHandlers =
 	| 'openURL'
 	| 'showErrorMessageBox'
 	| 'addSyncOperation'
-	| 'clearSyncOperation';
+	| 'clearSyncOperation'
+	| 'openLocalPath'
+	| 'showItemInFolder';
 
 // IpcApi functions have the same signatures as the functions in ipc-handlers.ts, except
 // with the first parameter removed.

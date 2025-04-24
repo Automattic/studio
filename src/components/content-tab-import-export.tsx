@@ -49,7 +49,7 @@ export const ExportSite = ( {
 	const handleExport = async ( exportFunction: typeof exportFullSite | typeof exportDatabase ) => {
 		const exportPath = await exportFunction( selectedSite );
 		if ( exportPath ) {
-			void getIpcApi().showItemInFolder( exportPath );
+			getIpcApi().showItemInFolder( exportPath );
 		}
 	};
 

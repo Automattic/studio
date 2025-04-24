@@ -145,7 +145,7 @@ function FileBlock( props: ContextProps & CodeBlockProps & { isDirectory?: boole
 		if ( ! siteId || ! filePath ) {
 			return;
 		}
-		void getIpcApi().openLocalPath( filePath );
+		getIpcApi().openLocalPath( filePath );
 	}, [ siteId, filePath ] );
 
 	useEffect( () => {

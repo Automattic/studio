@@ -72,30 +72,21 @@ function CustomizeSection( {
 			label: __( 'Patterns' ),
 			icon: symbolFilled,
 			onClick: () => {
-				getIpcApi().openSiteURL(
-					selectedSite.id,
-					'/wp-admin/site-editor.php?path=%2Fpatterns'
-				);
+				getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/site-editor.php?path=%2Fpatterns' );
 			},
 		},
 		{
 			label: __( 'Navigation' ),
 			icon: navigation,
 			onClick: () => {
-				getIpcApi().openSiteURL(
-					selectedSite.id,
-					'/wp-admin/site-editor.php?path=%2Fnavigation'
-				);
+				getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/site-editor.php?path=%2Fnavigation' );
 			},
 		},
 		{
 			label: __( 'Templates' ),
 			icon: layout,
 			onClick: () => {
-				getIpcApi().openSiteURL(
-					selectedSite.id,
-					'/wp-admin/site-editor.php?path=%2Fwp_template'
-				);
+				getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/site-editor.php?path=%2Fwp_template' );
 			},
 		},
 		{
@@ -194,7 +185,7 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 			className: 'text-nowrap',
 			icon: archive,
 			onClick: () => {
-				void getIpcApi().openLocalPath( selectedSite.path );
+				getIpcApi().openLocalPath( selectedSite.path );
 			},
 		},
 	];

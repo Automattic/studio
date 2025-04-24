@@ -52,8 +52,8 @@ const api: IpcApi = {
 	getWpVersion: ( id ) => ipcRenderer.invoke( 'getWpVersion', id ),
 	generateProposedSitePath: ( siteName ) =>
 		ipcRenderer.invoke( 'generateProposedSitePath', siteName ),
-	openLocalPath: ( path ) => ipcRenderer.invoke( 'openLocalPath', path ),
-	showItemInFolder: ( path ) => ipcRenderer.invoke( 'showItemInFolder', path ),
+	openLocalPath: ( path ) => ipcRenderer.send( 'openLocalPath', path ),
+	showItemInFolder: ( path ) => ipcRenderer.send( 'showItemInFolder', path ),
 	getThemeDetails: ( id ) => ipcRenderer.invoke( 'getThemeDetails', id ),
 	getThumbnailData: ( id ) => ipcRenderer.invoke( 'getThumbnailData', id ),
 	getInstalledApps: () => ipcRenderer.invoke( 'getInstalledApps' ),

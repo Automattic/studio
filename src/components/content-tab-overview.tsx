@@ -207,7 +207,7 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 				className: 'text-nowrap',
 				icon: code,
 				onClick: () => {
-					getIpcApi().openURL( editor.url( selectedSite.path ) );
+					void getIpcApi().openURL( editor.url( selectedSite.path ) );
 				},
 			} );
 		}

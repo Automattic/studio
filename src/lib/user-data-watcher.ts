@@ -13,8 +13,8 @@ export async function startUserDataWatcher() {
 
 	const filePath = getUserDataFilePath();
 
-	const fsEventHandler = ( eventType: string ) => {
-		loadAndUpdateUserData();
+	const fsEventHandler = async ( eventType: string ) => {
+		await loadAndUpdateUserData();
 		if ( eventType === 'rename' && watcher ) {
 			watcher.close();
 			watcher = fs.watch( filePath, fsEventHandler );
@@ -26,10 +26,10 @@ export async function startUserDataWatcher() {
 	const mainWindow = await getMainWindow();
 	if ( mainWindow.webContents.isLoading() ) {
 		mainWindow.webContents.once( 'did-finish-load', () => {
-			loadAndUpdateUserData();
+			void loadAndUpdateUserData();
 		} );
 	} else {
-		loadAndUpdateUserData();
+		void loadAndUpdateUserData();
 	}
 }
 

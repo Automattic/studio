@@ -279,7 +279,7 @@ async function appBoot() {
 		await migrateAllDatabasesInSitu();
 
 		createMainWindow();
-		startUserDataWatcher();
+		await startUserDataWatcher();
 
 		// Handle CLI commands
 		listenCLICommands();
@@ -346,7 +346,7 @@ async function appBoot() {
 	} );
 
 	app.on( 'quit', () => {
-		stopAllServersOnQuit();
+		void stopAllServersOnQuit();
 		stopProxyServer().catch( ( error ) => console.error( 'Error stopping proxy server:', error ) );
 		stopUserDataWatcher();
 	} );

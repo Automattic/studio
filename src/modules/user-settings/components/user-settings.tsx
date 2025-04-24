@@ -74,7 +74,7 @@ export default function UserSettings() {
 
 	useEffect( () => {
 		if ( needsToOpenUserSettings ) {
-			refetchSnapshotUsage();
+			void refetchSnapshotUsage();
 		}
 	}, [ snapshotsByUser.length, needsToOpenUserSettings, refetchSnapshotUsage ] );
 

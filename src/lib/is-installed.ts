@@ -22,6 +22,20 @@ function getProgramFilesPath(): string {
 	return 'C:\\Program Files';
 }
 
+function getLocalProgramsPath(): string {
+	if ( process.platform !== 'win32' ) {
+		return app.getPath( 'appData' );
+	}
+
+	const localAppData = process.env.LOCALAPPDATA;
+	if ( localAppData ) {
+		return path.win32.join( localAppData, 'Programs' );
+	}
+
+	// Fallback to electron's appData path if environment variable is not available
+	return path.win32.join( app.getPath( 'appData' ), 'Local', 'Programs' );
+}
+
 // Define installation paths for each IDE by platform
 const installationPaths: Record< string, PlatformPaths > = {
 	darwin: {
@@ -45,23 +59,23 @@ const installationPaths: Record< string, PlatformPaths > = {
 	win32: {
 		vscode: [
 			path.win32.join( getProgramFilesPath(), 'Microsoft VS Code' ),
-			path.win32.join( app.getPath( 'appData' ), 'Local\\Programs\\Microsoft VS Code' ),
+			path.win32.join( getLocalProgramsPath(), 'Microsoft VS Code' ),
 		],
 		phpstorm: [
 			path.win32.join( getProgramFilesPath(), 'JetBrains\\PhpStorm' ),
-			path.win32.join( app.getPath( 'appData' ), 'JetBrains\\PhpStorm' ),
+			path.win32.join( getLocalProgramsPath(), 'PhpStorm' ),
 		],
 		cursor: [
 			path.win32.join( getProgramFilesPath(), 'Cursor' ),
-			path.win32.join( app.getPath( 'appData' ), 'Local\\Programs\\Cursor' ),
+			path.win32.join( getLocalProgramsPath(), 'cursor' ),
 		],
 		windsurf: [
 			path.win32.join( getProgramFilesPath(), 'Windsurf' ),
-			path.win32.join( app.getPath( 'appData' ), 'Windsurf' ),
+			path.win32.join( getLocalProgramsPath(), 'Windsurf' ),
 		],
 		webstorm: [
 			path.win32.join( getProgramFilesPath(), 'JetBrains\\WebStorm' ),
-			path.win32.join( app.getPath( 'appData' ), 'JetBrains\\WebStorm' ),
+			path.win32.join( getLocalProgramsPath(), 'WebStorm' ),
 		],
 		iterm: [],
 		terminal: [],

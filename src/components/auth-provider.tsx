@@ -44,7 +44,7 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 
 	useIpcListener( 'auth-updated', ( _event, payload ) => {
 		if ( 'error' in payload ) {
-			void getIpcApi().showErrorMessageBox( {
+			getIpcApi().showErrorMessageBox( {
 				title: __( 'Authentication error' ),
 				message: __( 'Please try again.' ),
 			} );

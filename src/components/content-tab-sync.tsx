@@ -105,7 +105,7 @@ function NoAuthSyncTab() {
 									`${ WP_AUTHORIZE_ENDPOINT }?response_type=token&client_id=${ CLIENT_ID }&redirect_uri=${ PROTOCOL_PREFIX }%3A%2F%2Fauth&scope=${ SCOPES }&from-calypso=1`
 								);
 								const finalURL = `${ baseURL }?redirect_to=${ authURL }&client_id=${ CLIENT_ID }`;
-								void getIpcApi().openURL( finalURL );
+								getIpcApi().openURL( finalURL );
 							} }
 						>
 							{ __( 'Create a free account' ) }
@@ -149,7 +149,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 		try {
 			await connectSite( newConnectedSite );
 		} catch ( error ) {
-			void getIpcApi().showErrorMessageBox( {
+			getIpcApi().showErrorMessageBox( {
 				title: __( 'Failed to connect to site' ),
 				message: __( 'Please try again.' ),
 			} );
@@ -195,7 +195,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 
 						const newConnectedSite = syncSites.find( ( site ) => site.id === siteId );
 						if ( ! newConnectedSite ) {
-							void getIpcApi().showErrorMessageBox( {
+							getIpcApi().showErrorMessageBox( {
 								title: __( 'Failed to connect to site' ),
 								message: __( 'Please try again.' ),
 							} );

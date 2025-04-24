@@ -16,7 +16,7 @@ export default function Header() {
 		if ( ! site.running ) {
 			await startServer( site.id );
 		}
-		void getIpcApi().openSiteURL( site.id, '/wp-admin' );
+		getIpcApi().openSiteURL( site.id, '/wp-admin' );
 	};
 
 	const handleOpenSiteClick = async () => {
@@ -25,7 +25,7 @@ export default function Header() {
 		if ( ! site.running ) {
 			await startServer( site.id );
 		}
-		void getIpcApi().openSiteURL( site.id, '', { autoLogin: false } );
+		getIpcApi().openSiteURL( site.id, '', { autoLogin: false } );
 	};
 
 	return (

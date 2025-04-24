@@ -232,7 +232,7 @@ const SyncConnectedSitesList = ( { selectedSite }: SyncConnectedSitesListProps )
 							variant="link"
 							className="!text-a8c-gray-70 hover:!text-a8c-blueberry max-w-full overflow-hidden"
 							onClick={ () => {
-								void getIpcApi().openURL( connectedSite.url );
+								getIpcApi().openURL( connectedSite.url );
 							} }
 						>
 							<span className="truncate">{ connectedSite.url }</span> <ArrowIcon />

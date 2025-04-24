@@ -133,7 +133,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 				} catch ( wpError ) {
 					console.error( 'Error changing WordPress version:', wpError );
 					const errorMessage = stripAnsi( ( wpError as Error )?.message );
-					void getIpcApi().showErrorMessageBox( {
+					getIpcApi().showErrorMessageBox( {
 						title: __( 'Error changing WordPress version' ),
 						message: errorMessage,
 					} );
@@ -299,7 +299,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 										<Button
 											variant="link"
 											onClick={ () => {
-												void getIpcApi().openURL(
+												getIpcApi().openURL(
 													'https://developer.wordpress.com/docs/developer-tools/studio/ssl-in-studio/'
 												);
 											} }

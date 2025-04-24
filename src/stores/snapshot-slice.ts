@@ -383,17 +383,17 @@ function errorEventHandler( operationId: crypto.UUID, message: string ) {
 	}
 
 	if ( operation.type === 'create' ) {
-		void getIpcApi().showErrorMessageBox( {
+		getIpcApi().showErrorMessageBox( {
 			title: __( 'Adding preview site failed' ),
 			message: message,
 		} );
 	} else if ( operation.type === 'update' ) {
-		void getIpcApi().showErrorMessageBox( {
+		getIpcApi().showErrorMessageBox( {
 			title: __( 'Updating preview site failed' ),
 			message: message,
 		} );
 	} else if ( operation.type === 'delete' ) {
-		void getIpcApi().showErrorMessageBox( {
+		getIpcApi().showErrorMessageBox( {
 			title: __( 'Deleting preview site failed' ),
 			message: message,
 		} );

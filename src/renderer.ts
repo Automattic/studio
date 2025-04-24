@@ -170,7 +170,7 @@ void Promise.all( [ getIpcApi().getAppGlobals(), getIpcApi().getSentryUserId() ]
 				switch ( response ) {
 					case 0:
 						// Open Download link
-						void getIpcApi().openURL( `https://developer.wordpress.com/studio/` );
+						getIpcApi().openURL( `https://developer.wordpress.com/studio/` );
 						break;
 					case 1:
 						// User clicked Cancel

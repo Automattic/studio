@@ -91,7 +91,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 								<Button
 									variant="link"
 									onClick={ () => {
-										void getIpcApi().openURL(
+										getIpcApi().openURL(
 											'https://developer.wordpress.com/docs/developer-tools/studio/ssl-in-studio/'
 										);
 									} }

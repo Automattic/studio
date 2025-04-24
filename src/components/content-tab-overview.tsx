@@ -55,14 +55,14 @@ function CustomizeSection( {
 			label: __( 'Site Editor' ),
 			icon: desktop,
 			onClick: () => {
-				void getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/site-editor.php' );
+				getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/site-editor.php' );
 			},
 		},
 		{
 			label: __( 'Styles' ),
 			icon: styles,
 			onClick: () => {
-				void getIpcApi().openSiteURL(
+				getIpcApi().openSiteURL(
 					selectedSite.id,
 					'/wp-admin/site-editor.php?path=%2Fwp_global_styles'
 				);
@@ -72,7 +72,7 @@ function CustomizeSection( {
 			label: __( 'Patterns' ),
 			icon: symbolFilled,
 			onClick: () => {
-				void getIpcApi().openSiteURL(
+				getIpcApi().openSiteURL(
 					selectedSite.id,
 					'/wp-admin/site-editor.php?path=%2Fpatterns'
 				);
@@ -82,7 +82,7 @@ function CustomizeSection( {
 			label: __( 'Navigation' ),
 			icon: navigation,
 			onClick: () => {
-				void getIpcApi().openSiteURL(
+				getIpcApi().openSiteURL(
 					selectedSite.id,
 					'/wp-admin/site-editor.php?path=%2Fnavigation'
 				);
@@ -92,7 +92,7 @@ function CustomizeSection( {
 			label: __( 'Templates' ),
 			icon: layout,
 			onClick: () => {
-				void getIpcApi().openSiteURL(
+				getIpcApi().openSiteURL(
 					selectedSite.id,
 					'/wp-admin/site-editor.php?path=%2Fwp_template'
 				);
@@ -102,7 +102,7 @@ function CustomizeSection( {
 			label: __( 'Pages' ),
 			icon: page,
 			onClick: () => {
-				void getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/site-editor.php?path=%2Fpage' );
+				getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/site-editor.php?path=%2Fpage' );
 			},
 		},
 	];
@@ -112,7 +112,7 @@ function CustomizeSection( {
 			label: __( 'Customizer' ),
 			icon: edit,
 			onClick: () => {
-				void getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/customize.php' );
+				getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/customize.php' );
 			},
 		},
 	];
@@ -122,7 +122,7 @@ function CustomizeSection( {
 			label: __( 'Menus' ),
 			icon: navigation,
 			onClick: () => {
-				void getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/nav-menus.php' );
+				getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/nav-menus.php' );
 			},
 		} );
 	}
@@ -132,7 +132,7 @@ function CustomizeSection( {
 			label: __( 'Widgets' ),
 			icon: widget,
 			onClick: () => {
-				void getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/widgets.php' );
+				getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/widgets.php' );
 			},
 		} );
 	}
@@ -207,7 +207,7 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 				className: 'text-nowrap',
 				icon: code,
 				onClick: () => {
-					void getIpcApi().openURL( editor.url( selectedSite.path ) );
+					getIpcApi().openURL( editor.url( selectedSite.path ) );
 				},
 			} );
 		}
@@ -251,7 +251,7 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 		if ( ! selectedSite.running ) {
 			await startServer( selectedSite.id );
 		}
-		void getIpcApi().openSiteURL( selectedSite.id, '', { autoLogin: false } );
+		getIpcApi().openSiteURL( selectedSite.id, '', { autoLogin: false } );
 	};
 
 	const thumbnailImage = (

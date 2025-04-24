@@ -2,144 +2,106 @@
 // https://www.electronjs.org/docs/latest/tutorial/process-model#preload-scripts
 
 import '@sentry/electron/preload';
-import {
-	IpcRendererEvent,
-	SaveDialogOptions,
-	contextBridge,
-	ipcRenderer,
-	webUtils,
-} from 'electron';
-import { LocaleData } from '@wordpress/i18n';
-import { Snapshot } from 'common/types/snapshot';
+import { IpcRendererEvent, contextBridge, ipcRenderer, webUtils } from 'electron';
 import { IpcEvents } from 'src/ipc-utils';
-import { ExportOptions } from 'src/lib/import-export/export/types';
-import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
-import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
-import { SupportedEditor } from './lib/editor';
-import { SupportedTerminal } from './lib/terminal';
-import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
-import type { LogLevel } from 'src/logging';
 
 const api: IpcApi = {
-	archiveSite: ( id: string, format: 'zip' | 'tar' ) =>
-		ipcRenderer.invoke( 'archiveSite', id, format ),
-	exportSiteToPush: ( id: string ) => ipcRenderer.invoke( 'exportSiteToPush', id ),
-	deleteSite: ( id: string, deleteFiles?: boolean ) =>
-		ipcRenderer.invoke( 'deleteSite', id, deleteFiles ),
-	createSite: (
-		path: string,
-		name?: string,
-		wpVersion?: string,
-		customDomain?: string,
-		enableHttps?: boolean
-	) => ipcRenderer.invoke( 'createSite', path, name, wpVersion, customDomain, enableHttps ),
-	updateSite: ( updatedSite: SiteDetails ) => ipcRenderer.invoke( 'updateSite', updatedSite ),
+	archiveSite: ( id, format ) => ipcRenderer.invoke( 'archiveSite', id, format ),
+	exportSiteToPush: ( id ) => ipcRenderer.invoke( 'exportSiteToPush', id ),
+	deleteSite: ( id, deleteFiles ) => ipcRenderer.invoke( 'deleteSite', id, deleteFiles ),
+	createSite: ( path, name, wpVersion, customDomain, enableHttps ) =>
+		ipcRenderer.invoke( 'createSite', path, name, wpVersion, customDomain, enableHttps ),
+	updateSite: ( updatedSite ) => ipcRenderer.invoke( 'updateSite', updatedSite ),
 	connectWpcomSites: ( ...args ) => ipcRenderer.invoke( 'connectWpcomSites', ...args ),
 	disconnectWpcomSites: ( ...args ) => ipcRenderer.invoke( 'disconnectWpcomSites', ...args ),
 	updateConnectedWpcomSites: ( ...args ) =>
 		ipcRenderer.invoke( 'updateConnectedWpcomSites', ...args ),
-	updateSingleConnectedWpcomSite: ( updatedSite: SyncSite ) =>
+	updateSingleConnectedWpcomSite: ( updatedSite ) =>
 		ipcRenderer.invoke( 'updateSingleConnectedWpcomSite', updatedSite ),
 	authenticate: () => ipcRenderer.invoke( 'authenticate' ),
-	exportSite: ( options: ExportOptions, siteId: string ) =>
-		ipcRenderer.invoke( 'exportSite', options, siteId ),
+	exportSite: ( options, siteId ) => ipcRenderer.invoke( 'exportSite', options, siteId ),
 	isAuthenticated: () => ipcRenderer.invoke( 'isAuthenticated' ),
 	getAuthenticationToken: () => ipcRenderer.invoke( 'getAuthenticationToken' ),
 	clearAuthenticationToken: () => ipcRenderer.invoke( 'clearAuthenticationToken' ),
-	saveSnapshotsToStorage: ( snapshots: Snapshot[] ) =>
+	saveSnapshotsToStorage: ( snapshots ) =>
 		ipcRenderer.invoke( 'saveSnapshotsToStorage', snapshots ),
 	getSnapshots: () => ipcRenderer.invoke( 'getSnapshots' ),
-	createSnapshot: ( siteFolder: string ) => ipcRenderer.invoke( 'createSnapshot', siteFolder ),
-	updateSnapshot: ( siteFolder: string, hostname: string ) =>
+	createSnapshot: ( siteFolder ) => ipcRenderer.invoke( 'createSnapshot', siteFolder ),
+	updateSnapshot: ( siteFolder, hostname ) =>
 		ipcRenderer.invoke( 'updateSnapshot', siteFolder, hostname ),
-	deleteSnapshot: ( hostname: string ) => ipcRenderer.invoke( 'deleteSnapshot', hostname ),
+	deleteSnapshot: ( hostname ) => ipcRenderer.invoke( 'deleteSnapshot', hostname ),
 	getRandomUUID: () => ipcRenderer.invoke( 'getRandomUUID' ),
 	getLastSeenVersion: () => ipcRenderer.invoke( 'getLastSeenVersion' ),
-	saveLastSeenVersion: ( version: string ) => ipcRenderer.invoke( 'saveLastSeenVersion', version ),
+	saveLastSeenVersion: ( version ) => ipcRenderer.invoke( 'saveLastSeenVersion', version ),
 	getSiteDetails: () => ipcRenderer.invoke( 'getSiteDetails' ),
-	openSiteURL: (
-		id: string,
-		relativeURL = '',
-		{ autoLogin = true }: { autoLogin?: boolean } = {}
-	) => ipcRenderer.invoke( 'openSiteURL', id, relativeURL, { autoLogin } ),
-	openURL: ( url: string ) => ipcRenderer.invoke( 'openURL', url ),
-	showOpenFolderDialog: ( title: string, defaultDialogPath: string ) =>
+	openSiteURL: ( id, relativeURL = '', { autoLogin = true } = {} ) =>
+		ipcRenderer.send( 'openSiteURL', id, relativeURL, { autoLogin } ),
+	openURL: ( url ) => ipcRenderer.send( 'openURL', url ),
+	showOpenFolderDialog: ( title, defaultDialogPath ) =>
 		ipcRenderer.invoke( 'showOpenFolderDialog', title, defaultDialogPath ),
-	showSaveAsDialog: ( options: SaveDialogOptions ) =>
-		ipcRenderer.invoke( 'showSaveAsDialog', options ),
-	saveUserLocale: ( locale: string ) => ipcRenderer.invoke( 'saveUserLocale', locale ),
+	showSaveAsDialog: ( options ) => ipcRenderer.invoke( 'showSaveAsDialog', options ),
+	saveUserLocale: ( locale ) => ipcRenderer.invoke( 'saveUserLocale', locale ),
 	getSentryUserId: () => ipcRenderer.invoke( 'getSentryUserId' ),
 	getUserLocale: () => ipcRenderer.invoke( 'getUserLocale' ),
 	showUserSettings: () => ipcRenderer.invoke( 'showUserSettings' ),
-	startServer: ( id: string ) => ipcRenderer.invoke( 'startServer', id ),
-	stopServer: ( id: string ) => ipcRenderer.invoke( 'stopServer', id ),
-	copyText: ( text: string ) => ipcRenderer.invoke( 'copyText', text ),
+	startServer: ( id ) => ipcRenderer.invoke( 'startServer', id ),
+	stopServer: ( id ) => ipcRenderer.invoke( 'stopServer', id ),
+	copyText: ( text ) => ipcRenderer.invoke( 'copyText', text ),
 	getAppGlobals: () => ipcRenderer.invoke( 'getAppGlobals' ),
-	removeTemporalFile: ( path: string ) => ipcRenderer.invoke( 'removeTemporalFile', path ),
-	getWpVersion: ( id: string ) => ipcRenderer.invoke( 'getWpVersion', id ),
-	generateProposedSitePath: ( siteName: string ) =>
+	removeTemporalFile: ( path ) => ipcRenderer.invoke( 'removeTemporalFile', path ),
+	getWpVersion: ( id ) => ipcRenderer.invoke( 'getWpVersion', id ),
+	generateProposedSitePath: ( siteName ) =>
 		ipcRenderer.invoke( 'generateProposedSitePath', siteName ),
-	openLocalPath: ( path: string ) => ipcRenderer.invoke( 'openLocalPath', path ),
-	showItemInFolder: ( path: string ) => ipcRenderer.invoke( 'showItemInFolder', path ),
-	getThemeDetails: ( id: string ) => ipcRenderer.invoke( 'getThemeDetails', id ),
-	getThumbnailData: ( id: string ) => ipcRenderer.invoke( 'getThumbnailData', id ),
+	openLocalPath: ( path ) => ipcRenderer.invoke( 'openLocalPath', path ),
+	showItemInFolder: ( path ) => ipcRenderer.invoke( 'showItemInFolder', path ),
+	getThemeDetails: ( id ) => ipcRenderer.invoke( 'getThemeDetails', id ),
+	getThumbnailData: ( id ) => ipcRenderer.invoke( 'getThumbnailData', id ),
 	getInstalledApps: () => ipcRenderer.invoke( 'getInstalledApps' ),
-	importSite: ( { id, backupFile }: { id: string; backupFile: BackupArchiveInfo } ) =>
-		ipcRenderer.invoke( 'importSite', { id, backupFile } ),
-	executeWPCLiInline: ( options: { siteId: string; args: string } ) =>
-		ipcRenderer.invoke( 'executeWPCLiInline', options ),
+	importSite: ( { id, backupFile } ) => ipcRenderer.invoke( 'importSite', { id, backupFile } ),
+	executeWPCLiInline: ( options ) => ipcRenderer.invoke( 'executeWPCLiInline', options ),
 	getOnboardingData: () => ipcRenderer.invoke( 'getOnboardingData' ),
-	saveOnboarding: ( onboardingCompleted: boolean ) =>
+	saveOnboarding: ( onboardingCompleted ) =>
 		ipcRenderer.invoke( 'saveOnboarding', onboardingCompleted ),
-	openTerminalAtPath: ( targetPath: string, extraParams: { wpCliEnabled?: boolean } = {} ) =>
+	openTerminalAtPath: ( targetPath, extraParams = {} ) =>
 		ipcRenderer.invoke( 'openTerminalAtPath', targetPath, extraParams ),
-	showMessageBox: ( options: Electron.MessageBoxOptions ) =>
-		ipcRenderer.invoke( 'showMessageBox', options ),
-	showErrorMessageBox: ( options: { title: string; message: string; error?: unknown } ) =>
-		ipcRenderer.invoke( 'showErrorMessageBox', options ),
-	showNotification: ( options: Electron.NotificationConstructorOptions ) =>
-		ipcRenderer.invoke( 'showNotification', options ),
-	// Use .send instead of .invoke because logging is fire-and-forget
-	logRendererMessage: ( level: LogLevel, ...args: unknown[] ) =>
+	showMessageBox: ( options ) => ipcRenderer.invoke( 'showMessageBox', options ),
+	showErrorMessageBox: ( options ) => ipcRenderer.send( 'showErrorMessageBox', options ),
+	showNotification: ( options ) => ipcRenderer.send( 'showNotification', options ),
+	logRendererMessage: ( level, ...args ) =>
 		ipcRenderer.send( 'logRendererMessage', level, ...args ),
-	setupAppMenu: ( config: { needsOnboarding: boolean } ) =>
-		ipcRenderer.invoke( 'setupAppMenu', config ),
+	setupAppMenu: ( config ) => ipcRenderer.invoke( 'setupAppMenu', config ),
 	popupAppMenu: () => ipcRenderer.invoke( 'popupAppMenu' ),
 	openCertificate: () => ipcRenderer.invoke( 'openCertificate' ),
-	promptWindowsSpeedUpSites: ( ...args: Parameters< typeof promptWindowsSpeedUpSites > ) =>
+	promptWindowsSpeedUpSites: ( ...args ) =>
 		ipcRenderer.invoke( 'promptWindowsSpeedUpSites', ...args ),
-	setDefaultLocaleData: ( locale?: LocaleData ) =>
-		ipcRenderer.invoke( 'setDefaultLocaleData', locale ),
+	setDefaultLocaleData: ( locale ) => ipcRenderer.invoke( 'setDefaultLocaleData', locale ),
 	resetDefaultLocaleData: () => ipcRenderer.invoke( 'resetDefaultLocaleData' ),
-	toggleMinWindowWidth: ( isSidebarVisible: boolean ) =>
+	toggleMinWindowWidth: ( isSidebarVisible ) =>
 		ipcRenderer.invoke( 'toggleMinWindowWidth', isSidebarVisible ),
-	getAbsolutePathFromSite: ( siteId: string, relativePath: string ) =>
+	getAbsolutePathFromSite: ( siteId, relativePath ) =>
 		ipcRenderer.invoke( 'getAbsolutePathFromSite', siteId, relativePath ),
-	openFileInIDE: ( relativePath: string, siteId: string ) =>
+	openFileInIDE: ( relativePath, siteId ) =>
 		ipcRenderer.invoke( 'openFileInIDE', relativePath, siteId ),
-	isImportExportSupported: ( siteId: string ) =>
-		ipcRenderer.invoke( 'isImportExportSupported', siteId ),
-	checkSyncBackupSize: ( downloadUrl: string ) =>
-		ipcRenderer.invoke( 'checkSyncBackupSize', downloadUrl ),
-	downloadSyncBackup: ( remoteSiteId: number, downloadUrl: string ) =>
+	isImportExportSupported: ( siteId ) => ipcRenderer.invoke( 'isImportExportSupported', siteId ),
+	checkSyncBackupSize: ( downloadUrl ) => ipcRenderer.invoke( 'checkSyncBackupSize', downloadUrl ),
+	downloadSyncBackup: ( remoteSiteId, downloadUrl ) =>
 		ipcRenderer.invoke( 'downloadSyncBackup', remoteSiteId, downloadUrl ),
-	removeSyncBackup: ( remoteSiteId: number ) =>
-		ipcRenderer.invoke( 'removeSyncBackup', remoteSiteId ),
-	getConnectedWpcomSites: ( localSiteId?: string ) =>
+	removeSyncBackup: ( remoteSiteId ) => ipcRenderer.invoke( 'removeSyncBackup', remoteSiteId ),
+	getConnectedWpcomSites: ( localSiteId ) =>
 		ipcRenderer.invoke( 'getConnectedWpcomSites', localSiteId ),
-	addSyncOperation: ( id: string ) => ipcRenderer.invoke( 'addSyncOperation', id ),
-	clearSyncOperation: ( id: string ) => ipcRenderer.invoke( 'clearSyncOperation', id ),
-	getWpContentSize: ( id: string ) => ipcRenderer.invoke( 'getWpContentSize', id ),
-	getPathForFile: ( file: File ) => webUtils.getPathForFile( file ),
-	getFileContent: ( filePath: string ) => ipcRenderer.invoke( 'getFileContent', filePath ),
+	addSyncOperation: ( id ) => ipcRenderer.send( 'addSyncOperation', id ),
+	clearSyncOperation: ( id ) => ipcRenderer.send( 'clearSyncOperation', id ),
+	getWpContentSize: ( id ) => ipcRenderer.invoke( 'getWpContentSize', id ),
+	getPathForFile: ( file ) => webUtils.getPathForFile( file ),
+	getFileContent: ( filePath ) => ipcRenderer.invoke( 'getFileContent', filePath ),
 	isFullscreen: () => ipcRenderer.invoke( 'isFullscreen' ),
 	getAllCustomDomains: () => ipcRenderer.invoke( 'getAllCustomDomains' ),
-	saveUserTerminal: ( supportedTerminal: SupportedTerminal ) =>
+	saveUserTerminal: ( supportedTerminal ) =>
 		ipcRenderer.invoke( 'saveUserTerminal', supportedTerminal ),
 	getUserTerminal: () => ipcRenderer.invoke( 'getUserTerminal' ),
 	getInstalledTerminals: () => ipcRenderer.invoke( 'getInstalledTerminals' ),
 	getUserEditor: () => ipcRenderer.invoke( 'getUserEditor' ),
-	saveUserEditor: ( editor: SupportedEditor ) => ipcRenderer.invoke( 'saveUserEditor', editor ),
+	saveUserEditor: ( editor ) => ipcRenderer.invoke( 'saveUserEditor', editor ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

@@ -62,23 +62,27 @@ type WithoutIpcEvent< T extends unknown[] > = T extends [ unknown, ...infer Rest
 type ToPromise< T > = T extends Promise< unknown > ? T : Promise< T >;
 type IpcHandlers = typeof import('./ipc-handlers');
 
+// Define which handlers use `ipcRenderer.send` in `src/preload.ts`
+type NonPromiseHandlers =
+	| 'logRendererMessage'
+	| 'showNotification'
+	| 'openSiteURL'
+	| 'openURL'
+	| 'showErrorMessageBox'
+	| 'addSyncOperation'
+	| 'clearSyncOperation';
+
 // IpcApi functions have the same signatures as the functions in ipc-handlers.ts, except
 // with the first parameter removed.
-type IpcApi = Omit<
-	{
-		[ K in keyof IpcHandlers ]: (
-			...args: WithoutIpcEvent< Parameters< IpcHandlers[ K ] > >
-		) => ToPromise< ReturnType< IpcHandlers[ K ] > >;
-	},
-	'logRendererMessage'
-> & {
+type IpcApi = {
+	[ K in keyof IpcHandlers ]: (
+		...args: WithoutIpcEvent< Parameters< IpcHandlers[ K ] > >
+	) => K extends NonPromiseHandlers ? void : ToPromise< ReturnType< IpcHandlers[ K ] > >;
+} & {
 	// `webUtils.getPathForFile` is available only inside preload script, that's why this one
 	// function is exception and need to be defined here manually. See
 	// https://www.electronjs.org/docs/latest/breaking-changes#planned-breaking-api-changes-320
 	getPathForFile: ( file: File ) => string;
-	logRendererMessage: (
-		...args: WithoutIpcEvent< Parameters< IpcHandlers[ 'logRendererMessage' ] > >
-	) => void;
 };
 
 interface AppGlobals {

@@ -71,9 +71,9 @@ export function useSyncPull( {
 			const statusKey = state.status?.key;
 
 			if ( isKeyFailed( statusKey ) || isKeyFinished( statusKey ) ) {
-				void getIpcApi().clearSyncOperation( generateStateId( selectedSiteId, remoteSiteId ) );
+				getIpcApi().clearSyncOperation( generateStateId( selectedSiteId, remoteSiteId ) );
 			} else {
-				void getIpcApi().addSyncOperation( generateStateId( selectedSiteId, remoteSiteId ) );
+				getIpcApi().addSyncOperation( generateStateId( selectedSiteId, remoteSiteId ) );
 			}
 		},
 		[ isKeyFailed, isKeyFinished, updateState ]
@@ -82,7 +82,7 @@ export function useSyncPull( {
 	const clearPullState = useCallback< ClearState >(
 		( selectedSiteId, remoteSiteId ) => {
 			clearState( selectedSiteId, remoteSiteId );
-			void getIpcApi().clearSyncOperation( generateStateId( selectedSiteId, remoteSiteId ) );
+			getIpcApi().clearSyncOperation( generateStateId( selectedSiteId, remoteSiteId ) );
 		},
 		[ clearState ]
 	);
@@ -128,7 +128,7 @@ export function useSyncPull( {
 					status: pullStatesProgressInfo.failed,
 				} );
 
-				void getIpcApi().showErrorMessageBox( {
+				getIpcApi().showErrorMessageBox( {
 					title: sprintf( __( 'Error pulling from %s' ), connectedSite.name ),
 					message: __( 'Studio was unable to connect to WordPress.com. Please try again.' ),
 				} );
@@ -227,7 +227,7 @@ export function useSyncPull( {
 				updatePullState( selectedSite.id, remoteSiteId, {
 					status: pullStatesProgressInfo.failed,
 				} );
-				void getIpcApi().showErrorMessageBox( {
+				getIpcApi().showErrorMessageBox( {
 					title: sprintf( __( 'Error pulling from %s' ), selectedSite.name ),
 					message: __( 'Failed to check backup file size. Please try again.' ),
 				} );

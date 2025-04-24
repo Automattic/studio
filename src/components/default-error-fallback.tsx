@@ -50,7 +50,7 @@ const RightPanel = () => {
 	const { __ } = useI18n();
 	const { locale } = useI18nData();
 	const openLocalizedSupport = () => {
-		void getIpcApi().openURL( `https://wordpress.com/${ locale }/support` );
+		getIpcApi().openURL( `https://wordpress.com/${ locale }/support` );
 	};
 	return (
 		<div className="flex flex-col justify-center h-full">

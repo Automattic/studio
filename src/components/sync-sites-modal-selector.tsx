@@ -237,7 +237,7 @@ function SiteItem( {
 						if ( e.code === 'Space' || e.code === 'Enter' ) {
 							e.preventDefault();
 							e.stopPropagation();
-							void getIpcApi().openURL( site.url );
+							getIpcApi().openURL( site.url );
 						}
 					} }
 				>

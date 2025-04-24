@@ -50,7 +50,7 @@ listenerMiddleware.startListening( {
 listenerMiddleware.startListening( {
 	predicate( action, currentState, previousState ) {
 		return (
-			previousState.snapshot.isLoaded &&
+			previousState.snapshot.isInitialSnapshotsLoaded &&
 			currentState.snapshot.snapshots !== previousState.snapshot.snapshots
 		);
 	},

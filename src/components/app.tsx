@@ -17,23 +17,16 @@ import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { UserSettings } from 'src/modules/user-settings';
 import { WhatsNewModal, useWhatsNew } from 'src/modules/whats-new';
-import { useAppDispatch } from 'src/stores';
-import { snapshotThunks } from 'src/stores/snapshot-slice';
 
 export default function App() {
 	useLocalizationSupport();
 	const { needsOnboarding } = useOnboarding();
 	const { isSidebarVisible, toggleSidebar } = useSidebarVisibility();
 	const { showWhatsNew, closeWhatsNew } = useWhatsNew();
-	const dispatch = useAppDispatch();
 
 	useEffect( () => {
 		void getIpcApi().setupAppMenu( { needsOnboarding } );
 	}, [ needsOnboarding ] );
-
-	useEffect( () => {
-		void dispatch( snapshotThunks.getSnapshots() );
-	}, [ dispatch ] );
 
 	return (
 		<>

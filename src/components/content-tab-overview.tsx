@@ -24,6 +24,7 @@ import { useSiteDetails } from 'src/hooks/use-site-details';
 import { useThemeDetails } from 'src/hooks/use-theme-details';
 import { isMac } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
+import { supportedEditorConfig } from 'src/lib/editor';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
 interface ContentTabOverviewProps {
@@ -165,12 +166,9 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 
 	const updateEditorName = useCallback( async () => {
 		const editor = await getIpcApi().getUserEditor();
-		if ( editor === 'vscode' && installedApps.vscode ) {
-			// translators: "VS Code" is the brand name for an IDE and does not need to be translated
-			setEditorName( __( 'VS Code' ) );
-		} else if ( editor === 'phpstorm' && installedApps.phpstorm ) {
-			// translators: "PhpStorm" is the brand name for an IDE and does not need to be translated
-			setEditorName( __( 'PhpStorm' ) );
+
+		if ( editor && installedApps[ editor as keyof typeof installedApps ] ) {
+			setEditorName( editor );
 		} else {
 			setEditorName( '' );
 		}
@@ -202,18 +200,17 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 	];
 
 	if ( editorName ) {
-		buttonsArray.push( {
-			label: editorName,
-			className: 'text-nowrap',
-			icon: code,
-			onClick: () => {
-				if ( editorName === __( 'VS Code' ) ) {
-					void getIpcApi().openURL( `vscode://file/${ selectedSite.path }?windowId=_blank` );
-				} else if ( editorName === __( 'PhpStorm' ) ) {
-					void getIpcApi().openURL( `phpstorm://open?file=${ selectedSite.path }` );
-				}
-			},
-		} );
+		const editor = supportedEditorConfig[ editorName as keyof typeof supportedEditorConfig ];
+		if ( editor ) {
+			buttonsArray.push( {
+				label: editor.label,
+				className: 'text-nowrap',
+				icon: code,
+				onClick: () => {
+					getIpcApi().openURL( editor.url( selectedSite.path ) );
+				},
+			} );
+		}
 	}
 	buttonsArray.push( {
 		label: terminalName,

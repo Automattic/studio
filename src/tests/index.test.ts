@@ -12,6 +12,7 @@ jest.mock( 'src/main-window' );
 jest.mock( 'src/updates' );
 jest.mock( 'src/lib/bump-stats' );
 jest.mock( 'src/lib/cli' );
+jest.mock( 'src/lib/user-data-watcher' );
 jest.mock( 'src/setup-wp-server-files', () => ( {
 	setupWPServerFiles: jest.fn( () => Promise.resolve() ),
 	updateWPServerFiles: jest.fn( () => Promise.resolve() ),
@@ -25,6 +26,11 @@ const mockUserData = {
 	JSON.stringify( mockUserData )
 );
 ( fs as MockedFs ).__setFileContents( normalize( '/path/to/app/temp/com.wordpress.studio/' ), '' );
+
+const mockWatcher = {
+	close: jest.fn(),
+};
+fs.watch = jest.fn().mockReturnValue( mockWatcher ) as unknown as typeof fs.watch;
 
 function mockElectron() {
 	const mockedEvents: Record< string, ( ...args: any[] ) => Promise< void > > = {};

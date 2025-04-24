@@ -7,10 +7,35 @@ import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
 import { UserSettings } from 'src/modules/user-settings';
 import { store } from 'src/stores';
+import { useGetSnapshotUsage } from 'src/stores/wpcom-api';
 
 jest.mock( 'src/hooks/use-feature-flags' );
 jest.mock( 'src/hooks/use-auth' );
 jest.mock( 'src/hooks/use-ipc-listener' );
+jest.mock( 'src/stores/wpcom-api', () => {
+	type NextFn = ( action: unknown ) => unknown;
+	type ActionType = unknown;
+
+	const createApi = () => ( {
+		reducer: () => ( {} ),
+		reducerPath: 'wpcomApi',
+		middleware: () => ( next: NextFn ) => ( action: ActionType ) => next( action ),
+		endpoints: {},
+		injectEndpoints: jest.fn(),
+		util: {},
+	} );
+
+	return {
+		wpcomApi: createApi(),
+		setWpcomClient: jest.fn(),
+		useGetWelcomeMessages: jest.fn(),
+		useGetSnapshotUsage: jest.fn().mockReturnValue( {
+			data: { siteCount: 2, siteLimit: 10, siteCreationBlocked: false },
+			isLoading: false,
+			refetch: jest.fn(),
+		} ),
+	};
+} );
 jest.mock( 'src/lib/get-ipc-api', () => ( {
 	getIpcApi: jest.fn().mockReturnValue( {
 		getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
@@ -38,6 +63,22 @@ describe( 'UserSettings', () => {
 				callback();
 			}
 		} );
+	} );
+
+	it( 'calls refetchSnapshotUsage when modal is opened', async () => {
+		const refetchMock = jest.fn();
+		( useGetSnapshotUsage as jest.Mock ).mockReturnValue( {
+			data: { siteCount: 2, siteLimit: 10, siteCreationBlocked: false },
+			isLoading: false,
+			refetch: refetchMock,
+		} );
+		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
+		( useFeatureFlags as jest.Mock ).mockReturnValue( {
+			preferredEditor: false,
+		} );
+
+		renderWithProvider( <UserSettings /> );
+		expect( refetchMock ).toHaveBeenCalledTimes( 1 );
 	} );
 
 	it( 'logs in when not authenticated', async () => {

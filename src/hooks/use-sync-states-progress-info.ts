@@ -12,6 +12,11 @@ export type PushStateProgressInfo = {
 	message: string;
 };
 
+export type PullStateProgressInfoValues = Record<
+	PullStateProgressInfo[ 'key' ],
+	PullStateProgressInfo
+>;
+
 export function useSyncStatesProgressInfo() {
 	const { __ } = useI18n();
 	const pullStatesProgressInfo = useMemo( () => {
@@ -47,7 +52,7 @@ export function useSyncStatesProgressInfo() {
 				progress: 0,
 				message: __( 'Cancelled' ),
 			},
-		} as const;
+		} satisfies PullStateProgressInfoValues;
 	}, [ __ ] );
 
 	const pushStatesProgressInfo = useMemo( () => {

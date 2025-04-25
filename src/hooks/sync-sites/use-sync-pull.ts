@@ -15,6 +15,7 @@ import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import {
 	PullStateProgressInfo,
+	PullStateProgressInfoValues,
 	useSyncStatesProgressInfo,
 } from 'src/hooks/use-sync-states-progress-info';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -38,6 +39,12 @@ type UseSyncPullProps = {
 	pullStates: PullStates;
 	setPullStates: React.Dispatch< React.SetStateAction< PullStates > >;
 	onPullSuccess?: OnPullSuccess;
+};
+
+type SyncBackupResponse = {
+	status: 'in-progress' | 'finished' | 'failed';
+	download_url: string;
+	percent: number;
 };
 
 export type UseSyncPull = {
@@ -262,20 +269,15 @@ export function useSyncPull( {
 			}
 
 			try {
-				const response = await client.req.get< {
-					status: 'in-progress' | 'finished' | 'failed';
-					download_url: string;
-				} >( `/sites/${ remoteSiteId }/studio-app/sync/backup`, {
-					apiNamespace: 'wpcom/v2',
-					backup_id: backupId,
-				} );
+				const response = await client.req.get< SyncBackupResponse >(
+					`/sites/${ remoteSiteId }/studio-app/sync/backup`,
+					{
+						apiNamespace: 'wpcom/v2',
+						backup_id: backupId,
+					}
+				);
 
 				const hasBackupCompleted = response.status === 'finished';
-				const frontendStatus = hasBackupCompleted
-					? pullStatesProgressInfo.downloading.key
-					: response.status;
-				const statusWithProgress =
-					pullStatesProgressInfo[ frontendStatus ] || pullStatesProgressInfo.failed;
 				const downloadUrl = hasBackupCompleted ? response.download_url : null;
 
 				if ( downloadUrl ) {
@@ -288,6 +290,12 @@ export function useSyncPull( {
 						} );
 					}
 				} else {
+					const statusWithProgress = getBackupStatusWithProgress(
+						hasBackupCompleted,
+						pullStatesProgressInfo,
+						response
+					);
+
 					updatePullState( selectedSiteId, remoteSiteId, {
 						status: statusWithProgress,
 						downloadUrl,
@@ -337,4 +345,22 @@ export function useSyncPull( {
 	);
 
 	return { pullStates, getPullState, pullSite, isAnySitePulling, isSiteIdPulling, clearPullState };
+}
+function getBackupStatusWithProgress(
+	hasBackupCompleted: boolean,
+	pullStatesProgressInfo: PullStateProgressInfoValues,
+	response: SyncBackupResponse
+) {
+	const frontendStatus = hasBackupCompleted
+		? pullStatesProgressInfo.downloading.key
+		: response.status;
+	let newProgressInfo: PullStateProgressInfo | null = null;
+	if ( response.status === 'in-progress' ) {
+		newProgressInfo = pullStatesProgressInfo[ frontendStatus ];
+		newProgressInfo.progress = response.percent;
+	}
+	const statusWithProgress =
+		newProgressInfo || pullStatesProgressInfo[ frontendStatus ] || pullStatesProgressInfo.failed;
+
+	return statusWithProgress;
 }

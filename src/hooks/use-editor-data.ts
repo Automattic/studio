@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { SupportedEditor } from 'src/lib/editor';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { SupportedEditor } from 'src/modules/user-settings/lib/editor';
 
 export function useEditorData() {
 	const [ editor, setEditor ] = useState< SupportedEditor >( 'vscode' );

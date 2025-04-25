@@ -58,8 +58,8 @@ import { SiteServer, createSiteWorkingDirectory } from 'src/site-server';
 import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from 'src/storage/paths';
 import { loadUserData, saveUserData } from 'src/storage/user-data';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
-import { SupportedEditor } from './lib/editor';
-import { SupportedTerminal } from './lib/terminal';
+import { SupportedEditor } from './modules/user-settings/lib/editor';
+import { SupportedTerminal, DEFAULT_TERMINAL } from './modules/user-settings/lib/terminal';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
 
@@ -1281,7 +1281,7 @@ export async function saveUserTerminal(
 
 export async function getUserTerminal( _event: IpcMainInvokeEvent ): Promise< SupportedTerminal > {
 	const userData = await loadUserData();
-	return userData.supportedTerminal as SupportedTerminal;
+	return userData.supportedTerminal || DEFAULT_TERMINAL;
 }
 
 export async function isFullscreen( _event: IpcMainInvokeEvent ): Promise< boolean > {

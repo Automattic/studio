@@ -58,3 +58,19 @@ export const WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT =
 export const SQLITE_DATABASE_INTEGRATION_VERSION = 'v2.1.17-alpha.1';
 
 export const SQLITE_DATABASE_INTEGRATION_RELEASE_URL = `https://github.com/Automattic/sqlite-database-integration/archive/refs/tags/${ SQLITE_DATABASE_INTEGRATION_VERSION }.zip`;
+
+// IPC handlers that don't return anything (i.e. that are called with `ipcRenderer.send`)
+export const IPC_VOID_HANDLERS = < const >[
+	'addSyncOperation',
+	'clearSyncOperation',
+	'logRendererMessage',
+	'openCertificate',
+	'openFileInIDE',
+	'openLocalPath',
+	'openSiteURL',
+	'openURL',
+	'popupAppMenu',
+	'showErrorMessageBox',
+	'showItemInFolder',
+	'showNotification',
+];

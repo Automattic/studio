@@ -147,22 +147,22 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 	const [ terminalName, setTerminalName ] = useState( supportedTerminalNames[ terminal ] );
 	const [ editorName, setEditorName ] = useState( editor );
 
-	const handleEditorChange = ( newEditor: SupportedEditor ) => {
+	const updateEditorName = ( newEditor: SupportedEditor ) => {
 		setEditorName( newEditor );
 	};
 
-	const handleTerminalChange = ( newTerminal: SupportedTerminal ) => {
+	const updateTerminalName = ( newTerminal: SupportedTerminal ) => {
 		setTerminalName( supportedTerminalNames[ newTerminal ] );
 	};
 
 	useEffect( () => {
-		handleEditorChange( editor );
-		handleTerminalChange( terminal );
+		updateEditorName( editor );
+		updateTerminalName( terminal );
 	}, [ editor, terminal ] );
 
 	useIpcListener( 'user-preference-changed', async () => {
-		handleEditorChange( await getSavedEditor() );
-		handleTerminalChange( await getSavedTerminal() );
+		updateEditorName( await getSavedEditor() );
+		updateTerminalName( await getSavedTerminal() );
 	} );
 
 	const buttonsArray: ButtonsSectionProps[ 'buttonsArray' ] = [

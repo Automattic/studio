@@ -987,7 +987,7 @@ export async function openTerminalAtPath(
 		initScriptSteps.push( `cd \\"${ escapedPath }\\"`, 'clear' );
 
 		const userData = await loadUserData();
-		const preferredTerminal = userData.preferredEditor || 'terminal';
+		const preferredTerminal = userData.preferredTerminal || 'terminal';
 
 		if ( preferredTerminal === ( 'warp' as SupportedTerminal ) ) {
 			return promiseExec( `open -a Warp "${ targetPath }"` );

@@ -115,6 +115,7 @@ const api: IpcApi = {
 	getInstalledTerminals: () => ipcRendererInvoke( 'getInstalledTerminals' ),
 	getUserEditor: () => ipcRendererInvoke( 'getUserEditor' ),
 	saveUserEditor: ( editor ) => ipcRendererInvoke( 'saveUserEditor', editor ),
+	handleNewSite: ( newSite ) => ipcRendererInvoke( 'handleNewSite', newSite ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

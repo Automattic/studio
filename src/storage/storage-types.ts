@@ -21,6 +21,7 @@ export interface UserData {
 	lastSeenVersion?: string;
 	supportedTerminal?: SupportedTerminal;
 	preferredEditor?: SupportedEditor;
+	newSites?: NewSiteDetails[];
 }
 
 export interface PersistedUserData extends Omit< UserData, 'sites' > {

@@ -1,6 +1,12 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { Snapshot } from 'common/types/snapshot';
-import { getAuthToken, getSiteByFolder, readAppdata, saveAppdata } from 'cli/lib/appdata';
+import {
+	getAuthToken,
+	getNewSiteAppData,
+	getSiteByFolder,
+	readAppdata,
+	saveAppdata,
+} from 'cli/lib/appdata';
 import { LoggerError } from 'cli/logger';
 
 export async function getSnapshotsFromAppdata(
@@ -13,6 +19,9 @@ export async function getSnapshotsFromAppdata(
 
 	if ( siteFolder ) {
 		const site = await getSiteByFolder( siteFolder );
+		if ( ! site ) {
+			throw new LoggerError( __( 'Site not found in appdata' ) );
+		}
 		snapshots = snapshots.filter( ( snapshot ) => snapshot.localSiteId === site.id );
 	}
 
@@ -57,7 +66,15 @@ export async function saveSnapshotToAppdata(
 ): Promise< Snapshot > {
 	const userData = await readAppdata();
 	const authToken = await getAuthToken();
-	const site = await getSiteByFolder( siteFolder );
+	let site = await getSiteByFolder( siteFolder );
+
+	if ( ! site ) {
+		site = getNewSiteAppData( siteFolder );
+		if ( ! userData.newSites ) {
+			userData.newSites = [];
+		}
+		userData.newSites.push( site );
+	}
 
 	if ( ! userData.snapshots ) {
 		userData.snapshots = [];

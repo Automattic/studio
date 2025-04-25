@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -16,8 +17,16 @@ const siteSchema = z
 	} )
 	.passthrough();
 
+const newSiteSchema = z
+	.object( {
+		id: z.string(),
+		path: z.string(),
+	} )
+	.passthrough();
+
 const userDataSchema = z
 	.object( {
+		newSites: z.array( newSiteSchema ).optional(),
 		sites: z.array( siteSchema ).optional(),
 		snapshots: z.array( snapshotSchema ).optional(),
 		locale: z.string().optional(),
@@ -128,14 +137,24 @@ export async function getAuthToken(): Promise< NonNullable< UserData[ 'authToken
 
 export async function getSiteByFolder(
 	siteFolder: string
-): Promise< z.infer< typeof siteSchema > > {
+): Promise< z.infer< typeof siteSchema > | null > {
 	const userData = await readAppdata();
 	const sites = userData.sites ?? [];
 	const site = sites.find( ( site ) => site.path === siteFolder );
 
 	if ( ! site ) {
-		throw new LoggerError( __( 'The specified folder is not added to Studio.' ) );
+		return null;
 	}
 
 	return site;
+}
+
+export function getNewSiteAppData( siteFolder: string ): z.infer< typeof siteSchema > {
+	const newSite = {
+		id: crypto.randomUUID(),
+		path: siteFolder,
+		name: path.basename( siteFolder ),
+	};
+
+	return newSite;
 }

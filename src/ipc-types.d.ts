@@ -45,6 +45,12 @@ interface StartedSiteDetails extends StoppedSiteDetails {
 
 type SiteDetails = StartedSiteDetails | StoppedSiteDetails;
 
+type NewSiteDetails = {
+	id: string;
+	path: string;
+	name: string;
+};
+
 type InstalledApps = {
 	vscode: boolean;
 	phpstorm: boolean;

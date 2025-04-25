@@ -147,7 +147,6 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 
 	const updateTerminalName = useCallback( async () => {
 		const terminal = await getIpcApi().getUserTerminal();
-
 		setTerminalName( supportedTerminalNames[ terminal ] );
 	}, [ setTerminalName ] );
 

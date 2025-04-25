@@ -1282,7 +1282,7 @@ export async function saveUserTerminal(
 
 export async function getUserTerminal( _event: IpcMainInvokeEvent ): Promise< SupportedTerminal > {
 	const userData = await loadUserData();
-	return ( userData.supportedTerminal as SupportedTerminal ) || DEFAULT_TERMINAL;
+	return userData.supportedTerminal || DEFAULT_TERMINAL;
 }
 
 export async function isFullscreen( _event: IpcMainInvokeEvent ): Promise< boolean > {

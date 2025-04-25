@@ -4,11 +4,11 @@ export type SupportedTerminal = 'terminal' | 'iterm' | 'warp' | 'ghostty';
 
 export const supportedTerminalNames: Record< SupportedTerminal, string > = {
 	terminal: __( 'Terminal' ),
-	// translators: "iTerm" is the brand name for an IDE and does not need to be translated
+	// translators: "iTerm" is the brand name for a terminal app and does not need to be translated
 	iterm: __( 'iTerm' ),
-	// translators: "Warp" is the brand name for an IDE and does not need to be translated
+	// translators: "Warp" is the brand name for a terminal app and does not need to be translated
 	warp: __( 'Warp' ),
-	// translators: "Ghostty" is the brand name for an IDE and does not need to be translated
+	// translators: "Ghostty" is the brand name for a terminal app and does not need to be translated
 	ghostty: __( 'Ghostty' ),
 };
 

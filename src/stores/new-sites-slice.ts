@@ -52,7 +52,7 @@ window.ipcListener.subscribe( 'user-data-updated', ( _, payload ) => {
 	const newSites = payload.newSites;
 
 	if ( ! state.newSites.isProcessing && newSites ) {
-		store.dispatch( handleNewSite( newSites ) );
+		void store.dispatch( handleNewSite( newSites ) );
 	}
 } );
 

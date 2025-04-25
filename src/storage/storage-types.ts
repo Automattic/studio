@@ -1,6 +1,6 @@
 import { Snapshot } from 'common/types/snapshot';
-import { SupportedEditor } from 'src/lib/editor';
 import { StoredToken } from 'src/lib/oauth';
+import { SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 export interface UserData {

@@ -24,8 +24,8 @@ import { useSiteDetails } from 'src/hooks/use-site-details';
 import { useThemeDetails } from 'src/hooks/use-theme-details';
 import { isMac } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
-import { supportedEditorConfig } from 'src/lib/editor';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
 import { supportedTerminalNames } from 'src/modules/user-settings/lib/terminal';
 
 interface ContentTabOverviewProps {

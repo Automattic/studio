@@ -69,6 +69,6 @@ export function useTerminalData() {
 		saveTerminalPreference,
 		resetTerminal,
 		hasTerminalChanges,
-		getSavedTerminal
+		getSavedTerminal,
 	};
 }

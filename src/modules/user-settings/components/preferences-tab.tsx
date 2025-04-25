@@ -13,8 +13,7 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const { locale: savedLocale, setLocale: setSavedLocale } = useI18nData();
 	const [ locale, setLocale ] = useState( savedLocale );
 
-	const { editor, handleEditorChange, saveEditorPreference, resetEditor } =
-		useEditorData();
+	const { editor, handleEditorChange, saveEditorPreference, resetEditor } = useEditorData();
 	const {
 		terminal,
 		handleTerminalChange,

@@ -45,6 +45,6 @@ export function useEditorData() {
 		saveEditorPreference,
 		resetEditor,
 		hasEditorChanges,
-		getSavedEditor
+		getSavedEditor,
 	};
 }

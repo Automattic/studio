@@ -2,7 +2,7 @@ import { Snapshot } from 'common/types/snapshot';
 import { SupportedEditor } from 'src/lib/editor';
 import { StoredToken } from 'src/lib/oauth';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
-import type { SupportedTerminal } from 'src/lib/terminal';
+import type { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 export interface UserData {
 	sites: SiteDetails[];
 	snapshots: Snapshot[];

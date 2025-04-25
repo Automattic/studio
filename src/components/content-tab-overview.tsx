@@ -26,7 +26,7 @@ import { isMac } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { supportedEditorConfig } from 'src/lib/editor';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { supportedTerminalNames } from 'src/lib/terminal';
+import { supportedTerminalNames } from 'src/modules/user-settings/lib/terminal';
 
 interface ContentTabOverviewProps {
 	selectedSite: SiteDetails;

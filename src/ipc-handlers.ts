@@ -1341,15 +1341,7 @@ export async function deleteSnapshot(
 }
 
 export async function handleNewSite( event: IpcMainInvokeEvent, newSite: NewSiteDetails ) {
-	await createSite(
-		event,
-		newSite.path,
-		undefined, // siteName - Let Studio generate a name
-		undefined,
-		undefined,
-		undefined,
-		newSite.id
-	);
+	await createSite( event, newSite.path, undefined, undefined, undefined, undefined, newSite.id );
 
 	const userData = await loadUserData();
 	await saveUserData( {

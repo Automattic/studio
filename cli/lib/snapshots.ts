@@ -2,7 +2,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { Snapshot } from 'common/types/snapshot';
 import {
 	getAuthToken,
-	getNewSiteAppData,
+	getNewSitePartial,
 	getSiteByFolder,
 	readAppdata,
 	saveAppdata,
@@ -19,9 +19,6 @@ export async function getSnapshotsFromAppdata(
 
 	if ( siteFolder ) {
 		const site = await getSiteByFolder( siteFolder );
-		if ( ! site ) {
-			throw new LoggerError( __( 'Site not found in appdata' ) );
-		}
 		snapshots = snapshots.filter( ( snapshot ) => snapshot.localSiteId === site.id );
 	}
 
@@ -66,10 +63,14 @@ export async function saveSnapshotToAppdata(
 ): Promise< Snapshot > {
 	const userData = await readAppdata();
 	const authToken = await getAuthToken();
-	let site = await getSiteByFolder( siteFolder );
-
-	if ( ! site ) {
-		site = getNewSiteAppData( siteFolder );
+	let site;
+	try {
+		site = await getSiteByFolder( siteFolder );
+	} catch ( error ) {
+		if ( ! ( error instanceof LoggerError ) ) {
+			throw error;
+		}
+		site = getNewSitePartial( siteFolder );
 		if ( ! userData.newSites ) {
 			userData.newSites = [];
 		}

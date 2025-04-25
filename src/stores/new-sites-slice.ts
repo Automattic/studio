@@ -1,6 +1,6 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { RootState, store } from 'src/stores/index';
+import { store } from 'src/stores/index';
 
 interface NewSitesState {
 	isProcessing: boolean;
@@ -18,30 +18,41 @@ const newSitesSlice = createSlice( {
 			state.isProcessing = action.payload;
 		},
 	},
+	extraReducers: ( builder ) => {
+		builder
+			.addCase( handleNewSite.pending, ( state ) => {
+				state.isProcessing = true;
+			} )
+			.addCase( handleNewSite.fulfilled, ( state ) => {
+				state.isProcessing = false;
+			} )
+			.addCase( handleNewSite.rejected, ( state ) => {
+				state.isProcessing = false;
+			} );
+	},
+} );
+
+const handleNewSite = createAsyncThunk( 'newSites/handleNewSite', ( sites: NewSiteDetails[] ) => {
+	return Promise.all(
+		sites.map( async ( site ) => {
+			try {
+				await getIpcApi().handleNewSite( site );
+			} catch ( error ) {
+				console.error(
+					`[New Sites Slice] Failed to create site for folder: ${ site.path }`,
+					error
+				);
+			}
+		} )
+	);
 } );
 
 window.ipcListener.subscribe( 'user-data-updated', ( _, payload ) => {
-	const state = store.getState() as RootState & { newSites?: NewSitesState };
-
+	const state = store.getState();
 	const newSites = payload.newSites;
 
-	if ( ! state.newSites?.isProcessing && newSites && newSites.length > 0 ) {
-		store.dispatch( newSitesSlice.actions.setIsProcessing( true ) );
-
-		Promise.all(
-			newSites.map( async ( site: NewSiteDetails ) => {
-				try {
-					await getIpcApi().handleNewSite( site );
-				} catch ( error ) {
-					console.error(
-						`[New Sites Slice] Failed to create site for folder: ${ site.path }`,
-						error
-					);
-				}
-			} )
-		).finally( () => {
-			store.dispatch( newSitesSlice.actions.setIsProcessing( false ) );
-		} );
+	if ( ! state.newSites.isProcessing && newSites ) {
+		store.dispatch( handleNewSite( newSites ) );
 	}
 } );
 

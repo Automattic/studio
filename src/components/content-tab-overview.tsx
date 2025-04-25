@@ -26,7 +26,7 @@ import { isMac } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
-import { supportedTerminalNames } from 'src/modules/user-settings/lib/terminal';
+import { supportedTerminalNames, DEFAULT_TERMINAL } from 'src/modules/user-settings/lib/terminal';
 
 interface ContentTabOverviewProps {
 	selectedSite: SiteDetails;
@@ -142,13 +142,12 @@ function CustomizeSection( {
 function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'selectedSite' > ) {
 	const { terminalWpCliEnabled } = useFeatureFlags();
 	const installedApps = useCheckInstalledApps();
-	const [ terminalName, setTerminalName ] = useState( __( 'Terminal' ) );
+	const [ terminalName, setTerminalName ] = useState( supportedTerminalNames[ DEFAULT_TERMINAL ] );
 	const [ editorName, setEditorName ] = useState( '' );
 
 	const updateTerminalName = useCallback( async () => {
 		const terminal = await getIpcApi().getUserTerminal();
-
-		setTerminalName( __( supportedTerminalNames[ terminal ] ) );
+		setTerminalName( supportedTerminalNames[ terminal ] );
 	}, [ setTerminalName ] );
 
 	const updateEditorName = useCallback( async () => {

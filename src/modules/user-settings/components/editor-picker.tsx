@@ -1,8 +1,8 @@
 import { SelectControl } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { useEffect, useState } from 'react';
-import { SupportedEditor, supportedEditorConfig } from 'src/lib/editor';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { SupportedEditor, supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
 import { SettingsFormField } from './settings-form-field';
 
 interface EditorPickerProps {

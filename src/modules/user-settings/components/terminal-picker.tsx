@@ -1,6 +1,6 @@
 import { SelectControl } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
-import { SupportedTerminal, supportedTerminalNames } from 'src/lib/terminal';
+import { SupportedTerminal, supportedTerminalNames } from 'src/modules/user-settings/lib/terminal';
 import { SettingsFormField } from './settings-form-field';
 
 interface TerminalPickerProps {

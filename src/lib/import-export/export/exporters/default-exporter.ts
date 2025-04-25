@@ -229,12 +229,11 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 				relativePath.startsWith( path.normalize( pathToExclude ) )
 			);
 
-			// Check for node_modules within any plugin directory
-			const isPluginNodeModules =
-				relativePath.startsWith( 'wp-content/plugins/' ) &&
-				relativePath.includes( '/node_modules/' );
+			// Check for node_modules and .git directories anywhere
+			const isNodeModulesDirectory = relativePath.includes( 'node_modules' );
+			const isGitDirectory = relativePath.includes( '.git' );
 
-			if ( isExcluded || isPluginNodeModules ) {
+			if ( isExcluded || isNodeModulesDirectory || isGitDirectory ) {
 				return files;
 			}
 			if ( directoryContent.isFile() ) {

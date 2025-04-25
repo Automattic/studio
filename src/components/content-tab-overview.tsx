@@ -14,19 +14,20 @@ import {
 	widget,
 } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import { ButtonsSection, ButtonsSectionProps } from 'src/components/buttons-section';
-import { useCheckInstalledApps } from 'src/hooks/use-check-installed-apps';
+import { useEditorData } from 'src/hooks/use-editor-data';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useSiteDetails } from 'src/hooks/use-site-details';
+import { useTerminalData } from 'src/hooks/use-terminal-data';
 import { useThemeDetails } from 'src/hooks/use-theme-details';
 import { isMac } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
-import { supportedTerminalNames, DEFAULT_TERMINAL } from 'src/modules/user-settings/lib/terminal';
+import { SupportedEditor, supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
+import { SupportedTerminal, supportedTerminalNames } from 'src/modules/user-settings/lib/terminal';
 
 interface ContentTabOverviewProps {
 	selectedSite: SiteDetails;
@@ -141,34 +142,28 @@ function CustomizeSection( {
 
 function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'selectedSite' > ) {
 	const { terminalWpCliEnabled } = useFeatureFlags();
-	const installedApps = useCheckInstalledApps();
-	const [ terminalName, setTerminalName ] = useState( supportedTerminalNames[ DEFAULT_TERMINAL ] );
-	const [ editorName, setEditorName ] = useState( '' );
+	const { terminal, getSavedTerminal } = useTerminalData();
+	const { editor, getSavedEditor } = useEditorData();
+	const [ terminalName, setTerminalName ] = useState( supportedTerminalNames[ terminal ] );
+	const [ editorName, setEditorName ] = useState( editor );
 
-	const updateTerminalName = useCallback( async () => {
-		const terminal = await getIpcApi().getUserTerminal();
-		setTerminalName( supportedTerminalNames[ terminal ] );
-	}, [ setTerminalName ] );
+	const handleEditorChange = ( newEditor: SupportedEditor ) => {
+		setEditorName( newEditor );
+	};
 
-	const updateEditorName = useCallback( async () => {
-		const editor = await getIpcApi().getUserEditor();
-
-		if ( editor && installedApps[ editor as keyof typeof installedApps ] ) {
-			setEditorName( editor );
-		} else {
-			setEditorName( '' );
-		}
-	}, [ setEditorName, installedApps ] );
-
-	useIpcListener( 'user-preference-changed', () => {
-		void updateTerminalName();
-		void updateEditorName();
-	} );
+	const handleTerminalChange = ( newTerminal: SupportedTerminal ) => {
+		setTerminalName( supportedTerminalNames[ newTerminal ] );
+	};
 
 	useEffect( () => {
-		void updateTerminalName();
-		void updateEditorName();
-	}, [ updateTerminalName, updateEditorName ] );
+		handleEditorChange( editor );
+		handleTerminalChange( terminal );
+	}, [ editor, terminal ] );
+
+	useIpcListener( 'user-preference-changed', async () => {
+		handleEditorChange( await getSavedEditor() );
+		handleTerminalChange( await getSavedTerminal() );
+	} );
 
 	const buttonsArray: ButtonsSectionProps[ 'buttonsArray' ] = [
 		{

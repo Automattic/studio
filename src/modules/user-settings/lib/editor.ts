@@ -2,6 +2,8 @@ import { __ } from '@wordpress/i18n';
 
 export type SupportedEditor = 'vscode' | 'phpstorm' | 'cursor' | 'windsurf' | 'webstorm';
 
+export const DEFAULT_EDITOR = 'vscode';
+
 export type SupportedEditorConfig = {
 	label: string;
 	url: ( path: string ) => string;

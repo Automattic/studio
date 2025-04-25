@@ -1,6 +1,7 @@
 import { check, Icon } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren, useEffect } from 'react';
+import { CLIENT_ID, PROTOCOL_PREFIX, SCOPES, WP_AUTHORIZE_ENDPOINT } from 'common/constants';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import { ConnectButton } from 'src/components/connect-create-buttons';
@@ -10,7 +11,6 @@ import { SyncSitesModalSelector } from 'src/components/sync-sites-modal-selector
 import { SyncTabImage } from 'src/components/sync-tab-image';
 import { Tooltip } from 'src/components/tooltip';
 import { WordPressShortLogo } from 'src/components/wordpress-short-logo';
-import { CLIENT_ID, PROTOCOL_PREFIX, SCOPES, WP_AUTHORIZE_ENDPOINT } from 'src/constants';
 import { useSyncSites } from 'src/hooks/sync-sites';
 import { useAuth } from 'src/hooks/use-auth';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';

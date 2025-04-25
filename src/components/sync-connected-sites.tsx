@@ -204,7 +204,7 @@ const SyncConnectedSitesList = ( { selectedSite }: SyncConnectedSitesListProps )
 	const { isKeyPulling, isKeyPushing, isKeyFinished, isKeyFailed } = useSyncStatesProgressInfo();
 
 	return (
-		<div className="grid grid-cols-[auto_1fr_max-content]">
+		<div className="grid grid-cols-[max-content_1fr_max-content]">
 			{ connectedSites.map( ( connectedSite ) => {
 				const sitePullState = getPullState( selectedSite.id, connectedSite.id );
 				const isPulling = sitePullState && isKeyPulling( sitePullState.status.key );

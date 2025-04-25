@@ -12,6 +12,9 @@ import { LoggerError } from 'cli/logger';
 jest.mock( 'fs' );
 jest.mock( 'os' );
 jest.mock( 'path' );
+jest.mock( 'crypto', () => ( {
+	randomUUID: jest.fn().mockReturnValue( 'mock-uuid-1234' ),
+} ) );
 
 describe( 'Snapshots Module', () => {
 	const mockHomeDir = '/mock/home';
@@ -120,7 +123,7 @@ describe( 'Snapshots Module', () => {
 			} );
 		} );
 
-		it( 'should throw an error if no matching site is found', async () => {
+		it( 'should create a new site if no matching site is found', async () => {
 			const mockUserData = {
 				version: 1,
 				sites: [
@@ -131,15 +134,78 @@ describe( 'Snapshots Module', () => {
 					},
 				],
 				snapshots: [],
+				authToken: {
+					id: mockUserId,
+					accessToken: 'mock-token',
+				},
 			};
 
 			( fs.readFileSync as jest.Mock ).mockReturnValue( JSON.stringify( mockUserData ) );
+			( path.basename as jest.Mock ).mockReturnValueOnce( mockSiteFolderName );
 
-			await expect(
-				saveSnapshotToAppdata( mockSiteFolder, mockAtomicSiteId, mockSiteUrl )
-			).rejects.toThrow( LoggerError );
+			await saveSnapshotToAppdata( mockSiteFolder, mockAtomicSiteId, mockSiteUrl );
 
-			expect( fs.writeFileSync ).not.toHaveBeenCalled();
+			expect( fs.writeFileSync ).toHaveBeenCalled();
+			const savedData = JSON.parse( ( fs.writeFileSync as jest.Mock ).mock.calls[ 0 ][ 1 ] );
+
+			// Check that a new site was created
+			expect( savedData.newSites ).toHaveLength( 1 );
+			expect( savedData.newSites[ 0 ] ).toEqual( {
+				id: 'mock-uuid-1234',
+				path: mockSiteFolder,
+				name: mockSiteFolderName,
+			} );
+
+			// Check that a snapshot was created for the new site
+			expect( savedData.snapshots ).toHaveLength( 1 );
+			expect( savedData.snapshots[ 0 ] ).toEqual( {
+				url: mockSiteUrl,
+				atomicSiteId: mockAtomicSiteId,
+				localSiteId: 'mock-uuid-1234',
+				date: 1234567890,
+				name: `${ mockSiteFolderName } Preview 1`,
+				userId: mockUserId,
+				sequence: 1,
+			} );
+		} );
+
+		it( 'should append to newSites array if it already exists', async () => {
+			const existingNewSite = {
+				id: 'existing-new-site',
+				path: '/existing/path',
+				name: 'Existing New Site',
+			};
+
+			const mockUserData = {
+				version: 1,
+				sites: [],
+				newSites: [ existingNewSite ],
+				snapshots: [],
+				authToken: {
+					id: mockUserId,
+					accessToken: 'mock-token',
+				},
+			};
+
+			( fs.readFileSync as jest.Mock ).mockReturnValue( JSON.stringify( mockUserData ) );
+			( path.basename as jest.Mock ).mockReturnValueOnce( mockSiteFolderName );
+
+			await saveSnapshotToAppdata( mockSiteFolder, mockAtomicSiteId, mockSiteUrl );
+
+			expect( fs.writeFileSync ).toHaveBeenCalled();
+			const savedData = JSON.parse( ( fs.writeFileSync as jest.Mock ).mock.calls[ 0 ][ 1 ] );
+
+			// Check that the new site was added to existing newSites array
+			expect( savedData.newSites ).toHaveLength( 2 );
+			expect( savedData.newSites[ 0 ] ).toEqual( existingNewSite );
+			expect( savedData.newSites[ 1 ] ).toEqual( {
+				id: 'mock-uuid-1234',
+				path: mockSiteFolder,
+				name: mockSiteFolderName,
+			} );
+
+			// Check that a snapshot was created for the new site
+			expect( savedData.snapshots ).toHaveLength( 1 );
 		} );
 
 		it( 'should handle errors correctly', async () => {
@@ -148,6 +214,34 @@ describe( 'Snapshots Module', () => {
 			await expect(
 				saveSnapshotToAppdata( mockSiteFolder, mockAtomicSiteId, mockSiteUrl )
 			).rejects.toThrow( LoggerError );
+		} );
+
+		it( 'should only create a new site when getSiteByFolder throws a LoggerError', async () => {
+			const mockUserData = {
+				version: 1,
+				sites: [],
+				snapshots: [],
+				authToken: {
+					id: mockUserId,
+					accessToken: 'mock-token',
+				},
+			};
+
+			( fs.readFileSync as jest.Mock ).mockReturnValue( JSON.stringify( mockUserData ) );
+
+			// Mock fs.existsSync to throw a different error first, then a LoggerError
+			const fsExistsSyncMock = fs.existsSync as jest.Mock;
+			fsExistsSyncMock
+				.mockImplementationOnce( () => {
+					throw new Error( 'Some other error' );
+				} )
+				.mockReturnValueOnce( true );
+
+			await expect(
+				saveSnapshotToAppdata( mockSiteFolder, mockAtomicSiteId, mockSiteUrl )
+			).rejects.toThrow( 'Some other error' );
+
+			expect( fs.writeFileSync ).not.toHaveBeenCalled();
 		} );
 	} );
 

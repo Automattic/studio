@@ -16,26 +16,37 @@ export const TerminalPicker = ( {
 }: TerminalPickerProps ) => {
 	const { __ } = useI18n();
 
-	const options = Object.entries( supportedTerminalNames ).map( ( [ terminal, label ] ) => {
-		const terminalKey = terminal as SupportedTerminal;
-		const isAvailable = availableTerminals.includes( terminalKey );
+	const availableTerminalEntries = Object.entries( supportedTerminalNames ).filter(
+		( [ terminal ] ) => availableTerminals.includes( terminal as SupportedTerminal )
+	);
 
-		return {
-			value: terminalKey,
-			label,
-			disabled: ! isAvailable,
-		};
-	} );
+	const unavailableTerminalEntries = Object.entries( supportedTerminalNames ).filter(
+		( [ terminal ] ) => ! availableTerminals.includes( terminal as SupportedTerminal )
+	);
 
 	return (
 		<SettingsFormField label={ __( 'Shell' ) }>
 			<SelectControl
 				value={ value }
-				onChange={ onChange }
-				options={ options }
+				onChange={ ( newValue ) => onChange( newValue as SupportedTerminal ) }
 				__nextHasNoMarginBottom
 				__next40pxDefaultSize
-			/>
+			>
+				{ availableTerminalEntries.map( ( [ terminal, label ] ) => (
+					<option key={ terminal } value={ terminal }>
+						{ label }
+					</option>
+				) ) }
+				{ unavailableTerminalEntries.length > 0 && (
+					<optgroup label={ __( 'Not installed' ) }>
+						{ unavailableTerminalEntries.map( ( [ terminal, label ] ) => (
+							<option key={ terminal } value={ terminal } disabled>
+								{ label }
+							</option>
+						) ) }
+					</optgroup>
+				) }
+			</SelectControl>
 		</SettingsFormField>
 	);
 };

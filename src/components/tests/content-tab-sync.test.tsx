@@ -40,8 +40,9 @@ describe( 'ContentTabSync', () => {
 		jest.resetAllMocks();
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: false, authenticate: jest.fn() } );
 		( getIpcApi as jest.Mock ).mockReturnValue( {
-			openURL: jest.fn(),
+			authenticate: jest.fn(),
 			generateProposedSitePath: jest.fn(),
+			openURL: jest.fn(),
 			showMessageBox: jest.fn(),
 			updateConnectedWpcomSites: jest.fn(),
 		} );
@@ -87,7 +88,7 @@ describe( 'ContentTabSync', () => {
 		expect( freeAccountButton ).toBeInTheDocument();
 
 		fireEvent.click( freeAccountButton );
-		expect( getIpcApi().openURL ).toHaveBeenCalled();
+		expect( getIpcApi().authenticate ).toHaveBeenCalled();
 	} );
 
 	it( 'displays connect site button to authenticated user', () => {

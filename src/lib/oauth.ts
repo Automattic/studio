@@ -1,12 +1,11 @@
 import * as Sentry from '@sentry/electron/main';
 import wpcom from 'wpcom';
 import { z } from 'zod';
-import { PROTOCOL_PREFIX, WP_AUTHORIZE_ENDPOINT, CLIENT_ID, SCOPES } from 'src/constants';
+import { CLIENT_ID } from 'common/constants';
+import { getAuthenticationUrl } from 'common/lib/oauth';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
-import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { loadUserData, saveUserData } from 'src/storage/user-data';
 
-const REDIRECT_URI = `${ PROTOCOL_PREFIX }://auth`;
 const authTokenSchema = z.object( {
 	accessToken: z.string(),
 	expiresIn: z.number(),
@@ -43,6 +42,11 @@ async function storeToken( token: StoredToken ) {
 	} catch ( error ) {
 		console.error( 'Failed to store token', error );
 	}
+}
+
+export function getSignUpUrl() {
+	const authUrl = encodeURIComponent( getAuthenticationUrl() );
+	return `https://wordpress.com/log-in/link?redirect_to=${ authUrl }&client_id=${ CLIENT_ID }`;
 }
 
 export async function clearAuthenticationToken() {
@@ -98,14 +102,6 @@ async function handleAuthCallback( hash: string ): Promise< StoredToken > {
 		email: response.email,
 		displayName: response.display_name,
 	} );
-}
-
-export function authenticate(): void {
-	const authUrl = `${ WP_AUTHORIZE_ENDPOINT }?response_type=token&client_id=${ CLIENT_ID }&redirect_uri=${ encodeURIComponent(
-		REDIRECT_URI
-	) }&scope=${ encodeURIComponent( SCOPES ) }`;
-
-	void shellOpenExternalWrapper( authUrl );
 }
 
 export async function onOpenUrlCallback( url: string ) {

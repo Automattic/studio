@@ -11,8 +11,9 @@ import {
 import path from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { __ } from '@wordpress/i18n';
+import { PROTOCOL_PREFIX } from 'common/constants';
 import { StatsGroup } from 'common/types/stats';
-import { PROTOCOL_PREFIX, IPC_VOID_HANDLERS } from 'src/constants';
+import { IPC_VOID_HANDLERS } from 'src/constants';
 import * as ipcHandlers from 'src/ipc-handlers';
 import { hasActiveSyncOperations } from 'src/lib/active-sync-operations';
 import { bumpAggregatedUniqueStat, bumpStat } from 'src/lib/bump-stats';

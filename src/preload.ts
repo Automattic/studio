@@ -33,7 +33,7 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'updateConnectedWpcomSites', ...args ),
 	updateSingleConnectedWpcomSite: ( updatedSite ) =>
 		ipcRendererInvoke( 'updateSingleConnectedWpcomSite', updatedSite ),
-	authenticate: () => ipcRendererInvoke( 'authenticate' ),
+	authenticate: ( isSignup ) => ipcRendererSend( 'authenticate', isSignup ),
 	exportSite: ( options, siteId ) => ipcRendererInvoke( 'exportSite', options, siteId ),
 	isAuthenticated: () => ipcRendererInvoke( 'isAuthenticated' ),
 	getAuthenticationToken: () => ipcRendererInvoke( 'getAuthenticationToken' ),

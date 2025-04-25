@@ -6,7 +6,7 @@ This design document describes the requirements, architecture, and data models f
 
 ## Context
 
-WordPress Studio Sync enables developers to pull a live site down for local development (including themes, plugins, media, and the database) and then push changes back up without manual exports or FTP. It supports both WordPress.com and Pressable sites with a Jetpack connection.
+WordPress Studio Sync enables developers to pull a live site down for local development (including themes, plugins, media, and the database) and then push changes back without manual exports or FTP. It supports both WordPress.com and Pressable sites with a Jetpack connection.
 
 ## Terminology
 

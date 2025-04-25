@@ -987,13 +987,13 @@ export async function openTerminalAtPath(
 		initScriptSteps.push( `cd \\"${ escapedPath }\\"`, 'clear' );
 
 		const userData = await loadUserData();
-		const preferredTerminal = userData.supportedTerminal || 'terminal';
+		const preferredTerminal = userData.preferredEditor || 'terminal';
 
 		if ( preferredTerminal === ( 'warp' as SupportedTerminal ) ) {
 			return promiseExec( `open -a Warp "${ targetPath }"` );
 		} else if ( preferredTerminal === ( 'ghostty' as SupportedTerminal ) ) {
 			return promiseExec( `open -a Ghostty "${ targetPath }"` );
-		} else if ( preferredTerminal === 'iterm' ) {
+		} else if ( preferredTerminal === ( 'iterm' as SupportedTerminal ) ) {
 			return promiseExec( `osascript << END
 tell application "iTerm"
     activate
@@ -1013,7 +1013,7 @@ END` );
 		}
 	} else if ( platform === 'win32' ) {
 		const userData = await loadUserData();
-		const preferredTerminal = userData.supportedTerminal;
+		const preferredTerminal = userData.preferredTerminal;
 		const defaultShell = process.env.ComSpec || 'cmd.exe';
 		const env = wpCliEnabled
 			? { PATH: `${ cliPath };${ process.env.PATH }`, STUDIO_APP_PATH: appPath }

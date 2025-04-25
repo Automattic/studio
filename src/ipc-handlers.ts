@@ -42,6 +42,7 @@ import { isErrnoException } from 'src/lib/is-errno-exception';
 import { isInstalled } from 'src/lib/is-installed';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import * as oauthClient from 'src/lib/oauth';
+import { getSignUpUrl } from 'src/lib/oauth';
 import { createPassword } from 'src/lib/passwords';
 import { phpGetThemeDetails } from 'src/lib/php-get-theme-details';
 import { portFinder } from 'src/lib/port-finder';
@@ -686,8 +687,8 @@ export function logRendererMessage(
 	writeLogToFile( level, processId, ...args );
 }
 
-export function authenticate() {
-	const authUrl = getAuthenticationUrl();
+export function authenticate( event: IpcMainInvokeEvent, isSignup = false ) {
+	const authUrl = isSignup ? getSignUpUrl() : getAuthenticationUrl();
 	void shellOpenExternalWrapper( authUrl );
 }
 

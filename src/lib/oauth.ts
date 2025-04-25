@@ -1,6 +1,8 @@
 import * as Sentry from '@sentry/electron/main';
 import wpcom from 'wpcom';
 import { z } from 'zod';
+import { CLIENT_ID } from 'common/constants';
+import { getAuthenticationUrl } from 'common/lib/oauth';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { loadUserData, saveUserData } from 'src/storage/user-data';
 
@@ -40,6 +42,11 @@ async function storeToken( token: StoredToken ) {
 	} catch ( error ) {
 		console.error( 'Failed to store token', error );
 	}
+}
+
+export function getSignUpUrl() {
+	const authUrl = encodeURIComponent( getAuthenticationUrl() );
+	return `https://wordpress.com/log-in/link?redirect_to=${ authUrl }&client_id=${ CLIENT_ID }`;
 }
 
 export async function clearAuthenticationToken() {

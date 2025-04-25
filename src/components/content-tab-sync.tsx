@@ -1,7 +1,6 @@
 import { check, Icon } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren, useEffect } from 'react';
-import { CLIENT_ID, PROTOCOL_PREFIX, SCOPES, WP_AUTHORIZE_ENDPOINT } from 'common/constants';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import { ConnectButton } from 'src/components/connect-create-buttons';
@@ -100,12 +99,7 @@ function NoAuthSyncTab() {
 								if ( isOffline ) {
 									return;
 								}
-								const baseURL = 'https://wordpress.com/log-in/link';
-								const authURL = encodeURIComponent(
-									`${ WP_AUTHORIZE_ENDPOINT }?response_type=token&client_id=${ CLIENT_ID }&redirect_uri=${ PROTOCOL_PREFIX }%3A%2F%2Fauth&scope=${ SCOPES }&from-calypso=1`
-								);
-								const finalURL = `${ baseURL }?redirect_to=${ authURL }&client_id=${ CLIENT_ID }`;
-								getIpcApi().openURL( finalURL );
+								getIpcApi().authenticate( true );
 							} }
 						>
 							{ __( 'Create a free account' ) }

@@ -73,4 +73,5 @@ export const IPC_VOID_HANDLERS = < const >[
 	'showErrorMessageBox',
 	'showItemInFolder',
 	'showNotification',
+	'authenticate',
 ];

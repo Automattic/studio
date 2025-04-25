@@ -7,7 +7,6 @@ import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
 import { UserSettings } from 'src/modules/user-settings';
 import { store } from 'src/stores';
-import { useGetSnapshotUsage } from 'src/stores/wpcom-api';
 
 jest.mock( 'src/hooks/use-feature-flags' );
 jest.mock( 'src/hooks/use-auth' );

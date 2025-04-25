@@ -52,7 +52,6 @@ export const sitesEndpointResponseSchema = z.object( {
 } );
 
 const STUDIO_SYNC_FEATURE_NAME = 'studio-sync';
-const A8C_SITE_OWNER_ID = 26957695;
 
 function isPressableSite( site: SitesEndpointSite ): boolean {
 	return site.hosting_provider_guess === 'pressable';

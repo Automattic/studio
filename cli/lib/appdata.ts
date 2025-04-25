@@ -114,8 +114,7 @@ export async function getAuthToken(): Promise< NonNullable< UserData[ 'authToken
 		return authToken;
 	} catch ( error ) {
 		throw new LoggerError(
-			__( 'Authentication required. Please run the Studio app and log in to WordPress.com first.' ),
-			error
+			__( 'Authentication required. Please run the Studio app and log in to WordPress.com first.' )
 		);
 	}
 }

@@ -71,8 +71,8 @@ type IpcVoidHandlers = ( typeof import('./constants') )[ 'IPC_VOID_HANDLERS' ][ 
 // with the first parameter removed.
 type IpcApi = {
 	// `void` is satisfied by `Promise<any>`, which means that if a method in the
-	// `NonInvokeHandlers` list returns an `ipcRenderer.invoke` call, it wouldn't raise a type
-	// error. We use `undefined` instead because we want to be intentional about using
+	// `IpcVoidHandlers` list returns an `ipcRenderer.invoke` call, it wouldn't raise a type
+	// error. We use `undefined` instead because we need to be intentional about using
 	// `ipcRenderer.invoke` vs `ipcRenderer.send`. We make this work in `preload.ts` with the help
 	// of a utility function.
 	[ K in keyof IpcHandlers ]: (

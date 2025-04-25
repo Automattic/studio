@@ -1301,7 +1301,6 @@ export async function getAllCustomDomains(): Promise< string[] > {
 export function getInstalledTerminals(): InstalledTerminals {
 	return {
 		terminal: true, // Terminal.app is always available on macOS
-		cmd: true, // Command Prompt is always available on Windows
 		iterm: isInstalled( 'iterm' ),
 		warp: isInstalled( 'warp' ),
 		ghostty: isInstalled( 'ghostty' ),

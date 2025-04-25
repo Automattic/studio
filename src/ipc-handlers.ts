@@ -19,6 +19,7 @@ import { __, LocaleData, defaultI18n } from '@wordpress/i18n';
 import archiver from 'archiver';
 import { calculateDirectorySize, isWordPressDirectory } from 'common/lib/fs-utils';
 import { SupportedLocale } from 'common/lib/locale';
+import { getAuthenticationUrl } from 'common/lib/oauth';
 import { Snapshot } from 'common/types/snapshot';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
 import { ARCHIVER_OPTIONS, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
@@ -40,7 +41,6 @@ import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 import { isErrnoException } from 'src/lib/is-errno-exception';
 import { isInstalled } from 'src/lib/is-installed';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
-import { StoredToken } from 'src/lib/oauth';
 import * as oauthClient from 'src/lib/oauth';
 import { createPassword } from 'src/lib/passwords';
 import { phpGetThemeDetails } from 'src/lib/php-get-theme-details';
@@ -686,13 +686,12 @@ export function logRendererMessage(
 	writeLogToFile( level, processId, ...args );
 }
 
-export function authenticate( _event: IpcMainInvokeEvent ) {
-	oauthClient.authenticate();
+export function authenticate() {
+	const authUrl = getAuthenticationUrl();
+	void shellOpenExternalWrapper( authUrl );
 }
 
-export async function getAuthenticationToken(
-	_event: IpcMainInvokeEvent
-): Promise< StoredToken | null > {
+export async function getAuthenticationToken() {
 	return oauthClient.getAuthenticationToken();
 }
 

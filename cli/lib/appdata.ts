@@ -1,7 +1,8 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
+import { getAuthenticationUrl } from 'common/lib/oauth';
 import { snapshotSchema } from 'common/types/snapshot';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
 import { z } from 'zod';
@@ -113,8 +114,14 @@ export async function getAuthToken(): Promise< NonNullable< UserData[ 'authToken
 
 		return authToken;
 	} catch ( error ) {
+		const authUrl = getAuthenticationUrl();
+
 		throw new LoggerError(
-			__( 'Authentication required. Please run the Studio app and log in to WordPress.com first.' )
+			sprintf(
+				// translators: %s is a URL to log in to WordPress.com
+				__( 'Authentication required. Please log in to WordPress.com first:\n%s' ),
+				authUrl
+			)
 		);
 	}
 }

@@ -107,6 +107,7 @@ export function transformSingleSiteResponse(
 		name: site.name,
 		url: site.URL,
 		isStaging,
+		isPressable: isPressableSite( site ),
 		stagingSiteIds: site.options?.wpcom_staging_blog_ids ?? [],
 		syncSupport,
 		lastPullTimestamp: null,

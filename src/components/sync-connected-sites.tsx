@@ -10,6 +10,7 @@ import Button from 'src/components/button';
 import { OpenSitesSyncSelector } from 'src/components/content-tab-sync';
 import { CircleRedCrossIcon } from 'src/components/icons/circle-red-cross';
 import offlineIcon from 'src/components/offline-icon';
+import { PressableLogo } from 'src/components/pressable-logo';
 import ProgressBar from 'src/components/progress-bar';
 import { SyncPullPushClear } from 'src/components/sync-pull-push-clear';
 import { Tooltip, DynamicTooltip } from 'src/components/tooltip';
@@ -203,7 +204,7 @@ const SyncConnectedSitesList = ( { selectedSite }: SyncConnectedSitesListProps )
 	const { isKeyPulling, isKeyPushing, isKeyFinished, isKeyFailed } = useSyncStatesProgressInfo();
 
 	return (
-		<div className="grid grid-cols-[max-content_1fr_max-content]">
+		<div className="grid grid-cols-[auto_1fr_max-content]">
 			{ connectedSites.map( ( connectedSite ) => {
 				const sitePullState = getPullState( selectedSite.id, connectedSite.id );
 				const isPulling = sitePullState && isKeyPulling( sitePullState.status.key );
@@ -217,16 +218,20 @@ const SyncConnectedSitesList = ( { selectedSite }: SyncConnectedSitesListProps )
 
 				return (
 					<div
-						className="col-span-3 grid grid-cols-subgrid min-h-14 px-8 gap-4 justify-items-start items-center border-b border-a8c-gray-0"
+						className={ `col-span-3 grid min-h-14 px-8 gap-4 justify-items-start items-center border-b border-a8c-gray-0 ${
+							connectedSite.isPressable ? 'grid-cols-[1fr_auto]' : 'grid-cols-subgrid'
+						}` }
 						key={ connectedSite.id }
 					>
-						<div className="shrink-0">
-							{ connectedSite.isStaging ? (
-								<Badge>{ __( 'Staging' ) }</Badge>
-							) : (
-								<Badge className="bg-a8c-green-5 text-a8c-green-80">{ __( 'Production' ) }</Badge>
-							) }
-						</div>
+						{ ! connectedSite.isPressable && (
+							<div className="shrink-0">
+								{ connectedSite.isStaging ? (
+									<Badge>{ __( 'Staging' ) }</Badge>
+								) : (
+									<Badge className="bg-a8c-green-5 text-a8c-green-80">{ __( 'Production' ) }</Badge>
+								) }
+							</div>
+						) }
 
 						<Button
 							variant="link"
@@ -362,10 +367,17 @@ const SyncConnectedSiteSection = ( {
 		isSiteIdPushing( selectedSite.id, site.id )
 	);
 
+	let logo = <WordPressLogoCircle />;
+	if ( hasConnectionErrors ) {
+		logo = <CircleRedCrossIcon />;
+	} else if ( mainSite?.isPressable ) {
+		logo = <PressableLogo />;
+	}
+
 	return (
 		<div key={ section.id } className="flex flex-col gap-2 mb-6">
 			<div className="flex items-center gap-2 py-2.5 border-b border-a8c-gray-0 px-8">
-				{ hasConnectionErrors ? <CircleRedCrossIcon /> : <WordPressLogoCircle /> }
+				{ logo }
 				<div className={ cx( 'a8c-label-semibold', hasConnectionErrors && 'error-message' ) }>
 					{ section.name }
 				</div>

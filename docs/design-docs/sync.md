@@ -55,6 +55,6 @@ It will run the import process to extract the backup file and save the data in t
 
 ### Push
 
-When the user clicks "Push," Studio will create a Jetpack backup of the local site. Studio sends a request to the WPcom API to start uploading the backup file, and then an active listener starts to wait until the restore process is complete.
+When the user clicks "Push," Studio will create a Jetpack backup of the local site. Studio sends a request to the WPcom API to start uploading the backup file, and then an active listener waits until the restore process is complete.
 
 The backend will send an email after the Push has finished.

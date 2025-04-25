@@ -1269,12 +1269,12 @@ export async function checkSyncBackupSize(
 
 export async function saveUserTerminal(
 	_event: IpcMainInvokeEvent,
-	supportedTerminal: SupportedTerminal
+	preferredTerminal: SupportedTerminal
 ) {
 	const userData = await loadUserData();
 	await saveUserData( {
 		...userData,
-		supportedTerminal: supportedTerminal,
+		preferredTerminal: preferredTerminal,
 	} );
 
 	// Notify renderer processes that the terminal preference has changed
@@ -1283,7 +1283,7 @@ export async function saveUserTerminal(
 
 export async function getUserTerminal( _event: IpcMainInvokeEvent ): Promise< SupportedTerminal > {
 	const userData = await loadUserData();
-	return userData.supportedTerminal || DEFAULT_TERMINAL;
+	return userData.preferredTerminal as SupportedTerminal;
 }
 
 export async function isFullscreen( _event: IpcMainInvokeEvent ): Promise< boolean > {

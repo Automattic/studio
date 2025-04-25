@@ -6,5 +6,3 @@ export const DAY_MS = HOUR_MS * 24;
 // OAuth constants
 export const CLIENT_ID = '95109';
 export const PROTOCOL_PREFIX = 'wpcom-local-dev';
-export const WP_AUTHORIZE_ENDPOINT = 'https://public-api.wordpress.com/oauth2/authorize';
-export const SCOPES = 'global';

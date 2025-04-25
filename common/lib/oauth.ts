@@ -1,9 +1,13 @@
-import { PROTOCOL_PREFIX, WP_AUTHORIZE_ENDPOINT, CLIENT_ID, SCOPES } from 'common/constants';
+import { PROTOCOL_PREFIX, CLIENT_ID } from 'common/constants';
 
+const SCOPES = 'global';
 const REDIRECT_URI = `${ PROTOCOL_PREFIX }://auth`;
 
 export function getAuthenticationUrl(): string {
-	return `${ WP_AUTHORIZE_ENDPOINT }?response_type=token&client_id=${ CLIENT_ID }&redirect_uri=${ encodeURIComponent(
-		REDIRECT_URI
-	) }&scope=${ encodeURIComponent( SCOPES ) }`;
+	const url = new URL( 'https://public-api.wordpress.com/oauth2/authorize' );
+	url.searchParams.set( 'response_type', 'token' );
+	url.searchParams.set( 'client_id', CLIENT_ID );
+	url.searchParams.set( 'redirect_uri', REDIRECT_URI );
+	url.searchParams.set( 'scope', SCOPES );
+	return url.toString();
 }

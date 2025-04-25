@@ -21,6 +21,6 @@ describe( 'TerminalPicker', () => {
 		const select = screen.getByRole( 'combobox' );
 		fireEvent.change( select, { target: { value: 'iterm' } } );
 
-		expect( mockOnChange ).toHaveBeenCalledWith( 'iterm', expect.anything() );
+		expect( mockOnChange ).toHaveBeenCalledWith( 'iterm' );
 	} );
 } );

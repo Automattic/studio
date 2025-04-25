@@ -55,7 +55,6 @@ type InstalledApps = {
 
 type InstalledTerminals = {
 	terminal: boolean;
-	cmd: boolean;
 	iterm: boolean;
 	warp: boolean;
 	ghostty: boolean;

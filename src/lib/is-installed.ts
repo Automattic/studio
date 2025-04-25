@@ -46,7 +46,6 @@ const installationPaths: Record< string, PlatformPaths > = {
 		webstorm: [ 'WebStorm.app' ],
 		iterm: [ 'iTerm.app' ],
 		terminal: [ 'Terminal.app' ],
-		cmd: [],
 		warp: [ 'Warp.app' ],
 		ghostty: [ 'Ghostty.app' ],
 	},
@@ -58,7 +57,6 @@ const installationPaths: Record< string, PlatformPaths > = {
 		webstorm: [ '/usr/bin/webstorm' ],
 		iterm: [],
 		terminal: [],
-		cmd: [],
 		warp: [ '/usr/bin/warp' ],
 		ghostty: [],
 	},
@@ -85,7 +83,6 @@ const installationPaths: Record< string, PlatformPaths > = {
 		],
 		iterm: [],
 		terminal: [],
-		cmd: [], // Command Prompt is part of system32 and always available
 		warp: [
 			path.win32.join( getLocalProgramsPath(), 'Warp' ),
 			path.win32.join( getProgramFilesPath(), 'Warp' ),

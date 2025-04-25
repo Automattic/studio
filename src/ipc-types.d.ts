@@ -65,19 +65,7 @@ type ToPromise< T > = T extends Promise< unknown > ? T : Promise< T >;
 type IpcHandlers = typeof import('./ipc-handlers');
 
 // Define which handlers use `ipcRenderer.send` instead of `ipcRenderer.invoke` in `src/preload.ts`
-type NonInvokeHandlers =
-	| 'addSyncOperation'
-	| 'clearSyncOperation'
-	| 'logRendererMessage'
-	| 'openCertificate'
-	| 'openFileInIDE'
-	| 'openLocalPath'
-	| 'openSiteURL'
-	| 'openURL'
-	| 'popupAppMenu'
-	| 'showErrorMessageBox'
-	| 'showItemInFolder'
-	| 'showNotification';
+type IpcVoidHandlers = ( typeof import('./constants') )[ 'IPC_VOID_HANDLERS' ][ number ];
 
 // IpcApi functions have the same signatures as the functions in ipc-handlers.ts, except
 // with the first parameter removed.
@@ -89,7 +77,7 @@ type IpcApi = {
 	// of a utility function.
 	[ K in keyof IpcHandlers ]: (
 		...args: WithoutIpcEvent< Parameters< IpcHandlers[ K ] > >
-	) => K extends NonInvokeHandlers ? undefined : ToPromise< ReturnType< IpcHandlers[ K ] > >;
+	) => K extends IpcVoidHandlers ? undefined : ToPromise< ReturnType< IpcHandlers[ K ] > >;
 } & {
 	// `webUtils.getPathForFile` is available only inside preload script, that's why this one
 	// function is exception and need to be defined here manually. See

@@ -55,7 +55,7 @@ function getAppMenu(
 		{
 			label: __( 'Test Render Failure (dev only)' ),
 			click: async () => {
-				sendIpcEventToRenderer( 'test-render-failure' );
+				void sendIpcEventToRenderer( 'test-render-failure' );
 			},
 		},
 	];
@@ -89,7 +89,7 @@ function getAppMenu(
 					label: __( 'Settings…' ),
 					accelerator: 'CommandOrControl+,',
 					click: async () => {
-						sendIpcEventToRenderer( 'user-settings' );
+						void sendIpcEventToRenderer( 'user-settings' );
 					},
 				},
 				...( process.platform === 'darwin' && isCLIFeatureEnabled()
@@ -122,7 +122,7 @@ function getAppMenu(
 					label: __( 'Add Site…' ),
 					accelerator: 'CommandOrControl+N',
 					click: async () => {
-						sendIpcEventToRenderer( 'add-site' );
+						void sendIpcEventToRenderer( 'add-site' );
 					},
 					enabled: ! needsOnboarding,
 				},
@@ -237,13 +237,13 @@ function getAppMenu(
 					label: __( 'Studio Help' ),
 					click: async () => {
 						const locale = await getUserLocaleWithFallback();
-						shellOpenExternalWrapper( getDocsLink( locale, 'studio' ) );
+						void shellOpenExternalWrapper( getDocsLink( locale, 'studio' ) );
 					},
 				},
 				{
 					label: __( "What's New" ),
 					click: async () => {
-						sendIpcEventToRenderer( 'show-whats-new' );
+						void sendIpcEventToRenderer( 'show-whats-new' );
 					},
 					enabled: ! needsOnboarding,
 				},
@@ -253,7 +253,7 @@ function getAppMenu(
 							{
 								label: __( 'How can I make Studio faster?' ),
 								click: () => {
-									promptWindowsSpeedUpSites( { skipIfAlreadyPrompted: false } );
+									void promptWindowsSpeedUpSites( { skipIfAlreadyPrompted: false } );
 								},
 							},
 					  ]
@@ -262,13 +262,13 @@ function getAppMenu(
 				{
 					label: __( 'Report an Issue' ),
 					click: () => {
-						shellOpenExternalWrapper( BUG_REPORT_URL );
+						void shellOpenExternalWrapper( BUG_REPORT_URL );
 					},
 				},
 				{
 					label: __( 'Propose a Feature' ),
 					click: () => {
-						shellOpenExternalWrapper( FEATURE_REQUEST_URL );
+						void shellOpenExternalWrapper( FEATURE_REQUEST_URL );
 					},
 				},
 			],

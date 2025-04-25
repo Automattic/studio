@@ -80,9 +80,7 @@ async function sendThumbnailChangedEvent( event: IpcMainInvokeEvent, id: string 
 	} );
 }
 
-async function mergeSiteDetailsWithRunningDetails(
-	sites: SiteDetails[]
-): Promise< SiteDetails[] > {
+function mergeSiteDetailsWithRunningDetails( sites: SiteDetails[] ): SiteDetails[] {
 	return sites.map( ( site ) => {
 		const server = SiteServer.get( site.id );
 		if ( server ) {
@@ -107,7 +105,7 @@ export async function getSiteDetails( _event: IpcMainInvokeEvent ): Promise< Sit
 	return mergeSiteDetailsWithRunningDetails( sites );
 }
 
-export async function getInstalledApps( _event: IpcMainInvokeEvent ): Promise< InstalledApps > {
+export function getInstalledApps(): InstalledApps {
 	return {
 		vscode: isInstalled( 'vscode' ),
 		phpstorm: isInstalled( 'phpstorm' ),
@@ -177,7 +175,7 @@ export async function createSite(
 		} catch ( error ) {
 			// If site creation failed, remove the generated files and re-throw the
 			// error so it can be handled by the caller.
-			shell.trashItem( path );
+			await shell.trashItem( path );
 			throw error;
 		}
 	}
@@ -433,7 +431,7 @@ export async function startServer(
 	if ( server.details.running ) {
 		try {
 			await server.updateCachedThumbnail();
-			sendThumbnailChangedEvent( event, id );
+			await sendThumbnailChangedEvent( event, id );
 		} catch ( error ) {
 			console.error( `Failed to update thumbnail for server ${ id }:`, error );
 		}
@@ -536,15 +534,15 @@ export async function saveUserLocale( _event: IpcMainInvokeEvent, locale: string
 	} );
 }
 
-export async function saveUserEditor( _event: IpcMainInvokeEvent, editor: SupportedEditor ) {
+export async function saveUserEditor( event: IpcMainInvokeEvent, editor: SupportedEditor ) {
 	const userData = await loadUserData();
 	await saveUserData( {
 		...userData,
 		preferredEditor: editor,
 	} );
 
-	// Notify renderer processes that the terminal preference has changed
-	sendIpcEventToRenderer( 'user-preference-changed' );
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+	sendIpcEventToRendererWithWindow( parentWindow, 'user-preference-changed' );
 }
 
 export async function getSentryUserId( _event: IpcMainInvokeEvent ): Promise< string | undefined > {
@@ -561,7 +559,7 @@ export async function getUserEditor( _event: IpcMainInvokeEvent ): Promise< Supp
 	return userData.preferredEditor as SupportedEditor;
 }
 
-export async function showUserSettings( event: IpcMainInvokeEvent ): Promise< void > {
+export function showUserSettings( event: IpcMainInvokeEvent ) {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	sendIpcEventToRendererWithWindow( parentWindow, 'user-settings' );
 }
@@ -592,7 +590,7 @@ function archiveWordPressDirectory( {
 		archive.directory( `${ source }/wp-content`, 'wp-content' );
 		archive.file( `${ source }/wp-config.php`, { name: 'wp-config.php' } );
 
-		archive.finalize();
+		archive.finalize().catch( reject );
 	} );
 }
 
@@ -792,18 +790,18 @@ export function openSiteURL(
 		url.searchParams.append( 'playground-auto-login', 'true' );
 	}
 
-	shellOpenExternalWrapper( url.toString() );
+	void shellOpenExternalWrapper( url.toString() );
 }
 
 export function openURL( event: IpcMainInvokeEvent, url: string ) {
-	shellOpenExternalWrapper( url );
+	void shellOpenExternalWrapper( url );
 }
 
-export async function copyText( event: IpcMainInvokeEvent, text: string ) {
+export function copyText( event: IpcMainInvokeEvent, text: string ) {
 	return clipboard.writeText( text );
 }
 
-export async function getAppGlobals( _event: IpcMainInvokeEvent ): Promise< AppGlobals > {
+export function getAppGlobals(): AppGlobals {
 	return {
 		platform: process.platform,
 		appName: app.name,
@@ -815,7 +813,7 @@ export async function getAppGlobals( _event: IpcMainInvokeEvent ): Promise< AppG
 	};
 }
 
-export async function getWpVersion( _event: IpcMainInvokeEvent, id: string ) {
+export function getWpVersion( _event: IpcMainInvokeEvent, id: string ) {
 	const server = SiteServer.get( id );
 	if ( ! server ) {
 		return '-';
@@ -861,10 +859,10 @@ export async function generateProposedSitePath(
 }
 
 export async function openLocalPath( _event: IpcMainInvokeEvent, path: string ) {
-	shell.openPath( path );
+	await shell.openPath( path );
 }
 
-export async function showItemInFolder( _event: IpcMainInvokeEvent, path: string ) {
+export function showItemInFolder( _event: IpcMainInvokeEvent, path: string ) {
 	shell.showItemInFolder( path );
 }
 
@@ -894,7 +892,7 @@ export async function getThemeDetails(
 			details: themeDetails,
 		} );
 
-		server.updateCachedThumbnail().then( () => sendThumbnailChangedEvent( event, id ) );
+		void server.updateCachedThumbnail().then( () => sendThumbnailChangedEvent( event, id ) );
 		server.details.themeDetails = themeDetails;
 		await updateSite( event, updatedSite );
 	}
@@ -946,7 +944,7 @@ export async function executeWPCLiInline(
 	} );
 }
 
-export async function getThumbnailData( _event: IpcMainInvokeEvent, id: string ) {
+export function getThumbnailData( _event: IpcMainInvokeEvent, id: string ) {
 	const path = getSiteThumbnailPath( id );
 	return getImageData( path );
 }
@@ -1085,7 +1083,7 @@ export async function showErrorMessageBox(
 	}
 }
 
-export async function showNotification(
+export function showNotification(
 	_event: IpcMainInvokeEvent,
 	options: Electron.NotificationConstructorOptions
 ) {
@@ -1169,11 +1167,11 @@ export async function openFileInIDE(
 
 	if ( isInstalled( 'vscode' ) ) {
 		// Open site first to ensure the file is opened within the site context
-		await shell.openExternal( `vscode://file/${ server.details.path }?windowId=_blank` );
-		await shell.openExternal( `vscode://file/${ path }` );
+		await shellOpenExternalWrapper( `vscode://file/${ server.details.path }?windowId=_blank` );
+		await shellOpenExternalWrapper( `vscode://file/${ path }` );
 	} else if ( isInstalled( 'phpstorm' ) ) {
 		// Open site first to ensure the file is opened within the site context
-		await shell.openExternal( `phpstorm://open?file=${ path }` );
+		await shellOpenExternalWrapper( `phpstorm://open?file=${ path }` );
 	}
 }
 
@@ -1229,7 +1227,7 @@ export function openCertificate( _event: IpcMainInvokeEvent ) {
 	return openCertificateDialog();
 }
 
-export async function getFileContent( event: IpcMainInvokeEvent, filePath: string ) {
+export function getFileContent( event: IpcMainInvokeEvent, filePath: string ) {
 	if ( ! fs.existsSync( filePath ) ) {
 		throw new Error( `File not found: ${ filePath }` );
 	}
@@ -1279,7 +1277,7 @@ export async function saveUserTerminal(
 	} );
 
 	// Notify renderer processes that the terminal preference has changed
-	sendIpcEventToRenderer( 'user-preference-changed' );
+	await sendIpcEventToRenderer( 'user-preference-changed' );
 }
 
 export async function getUserTerminal( _event: IpcMainInvokeEvent ): Promise< SupportedTerminal > {
@@ -1300,9 +1298,7 @@ export async function getAllCustomDomains(): Promise< string[] > {
 		.filter( ( domain ): domain is string => domain !== undefined );
 }
 
-export async function getInstalledTerminals(
-	_event: IpcMainInvokeEvent
-): Promise< InstalledTerminals > {
+export function getInstalledTerminals(): InstalledTerminals {
 	return {
 		terminal: true, // Terminal.app is always available on macOS
 		iterm: isInstalled( 'iterm' ),
@@ -1311,7 +1307,7 @@ export async function getInstalledTerminals(
 	};
 }
 
-export async function getRandomUUID(): Promise< crypto.UUID > {
+export function getRandomUUID(): crypto.UUID {
 	return crypto.randomUUID();
 }
 

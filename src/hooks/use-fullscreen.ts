@@ -7,7 +7,7 @@ export function useFullscreen() {
 
 	useEffect( () => {
 		let mounted = true;
-		getIpcApi()
+		void getIpcApi()
 			.isFullscreen()
 			.then( ( fullscreen ) => {
 				if ( mounted ) {

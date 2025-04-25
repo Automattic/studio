@@ -152,7 +152,7 @@ function NoPreviews( { selectedSite }: React.ComponentProps< typeof EmptyGeneric
 			<div className="mt-8">
 				<CreatePreviewButton
 					onClick={ () => {
-						dispatch(
+						void dispatch(
 							snapshotThunks.createSnapshot( {
 								siteFolder: selectedSite.path,
 								siteId: selectedSite.id,
@@ -221,7 +221,7 @@ export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) 
 					<div className="sticky bottom-0 bg-white/[0.8] backdrop-blur-sm w-full px-8 py-6 mt-auto">
 						<CreatePreviewButton
 							onClick={ () => {
-								dispatch(
+								void dispatch(
 									snapshotThunks.createSnapshot( {
 										siteFolder: selectedSite.path,
 										siteId: selectedSite.id,

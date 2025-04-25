@@ -162,13 +162,13 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 	}, [ setEditorName, installedApps ] );
 
 	useIpcListener( 'user-preference-changed', () => {
-		updateTerminalName();
-		updateEditorName();
+		void updateTerminalName();
+		void updateEditorName();
 	} );
 
 	useEffect( () => {
-		updateTerminalName();
-		updateEditorName();
+		void updateTerminalName();
+		void updateEditorName();
 	}, [ updateTerminalName, updateEditorName ] );
 
 	const buttonsArray: ButtonsSectionProps[ 'buttonsArray' ] = [

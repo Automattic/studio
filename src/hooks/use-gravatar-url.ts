@@ -20,7 +20,7 @@ export function useGravatarUrl( email?: string, isBlack = false, detailedDefault
 
 	useEffect( () => {
 		if ( email ) {
-			sha256( email ).then( ( emailHash ) =>
+			void sha256( email ).then( ( emailHash ) =>
 				setGravatarUrl(
 					`https://www.gravatar.com/avatar/${ emailHash }?d=${ encodeURI( fallbackImageUri ) }`
 				)

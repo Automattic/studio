@@ -334,7 +334,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		( sites: SiteDetails[] ) => {
 			for ( const site of sites ) {
 				if ( site.autoStart ) {
-					startServer( site.id );
+					void startServer( site.id );
 				}
 			}
 		},
@@ -352,6 +352,10 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					setLoadingSites( false );
 					autoStartSites( data );
 				}
+			} )
+			.catch( ( error ) => {
+				console.error( 'Error fetching site details:', error );
+				setLoadingSites( false );
 			} );
 
 		return () => {

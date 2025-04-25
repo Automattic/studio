@@ -21,7 +21,7 @@ export function useEditorData() {
 			setSavedEditorValue( editor );
 			setEditor( editor );
 		};
-		loadSavedEditor();
+		void loadSavedEditor();
 	}, [] );
 
 	const handleEditorChange = ( newEditor: SupportedEditor ) => {

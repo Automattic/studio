@@ -25,7 +25,7 @@ export function InstalledAppsProvider( { children }: InstalledAppsProviderProps 
 	const [ installedApps, setInstalledApps ] = useState< InstalledApps >( initState );
 	useEffect( () => {
 		let cancel = false;
-		getIpcApi()
+		void getIpcApi()
 			.getInstalledApps()
 			.then( ( installedApps ) => {
 				if ( ! cancel ) {

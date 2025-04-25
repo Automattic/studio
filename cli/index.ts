@@ -54,4 +54,4 @@ async function main() {
 	await studioArgv.argv;
 }
 
-main();
+void main();

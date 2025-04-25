@@ -81,7 +81,14 @@ function AIClearHistoryReminder( {
 					'This conversation is over two hours old. <button>Clear the history</button> if you have something new to ask.'
 				),
 				{
-					button: <Button variant="link" onClick={ onClearHistory } />,
+					button: (
+						<Button
+							variant="link"
+							onClick={ () => {
+								void onClearHistory();
+							} }
+						/>
+					),
 				}
 			) }
 		</div>

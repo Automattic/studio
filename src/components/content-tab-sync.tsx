@@ -137,7 +137,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 
 	useEffect( () => {
 		if ( isAuthenticated ) {
-			refetchSites();
+			void refetchSites();
 		}
 	}, [ isAuthenticated, refetchSites ] );
 
@@ -201,7 +201,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 							} );
 							return;
 						}
-						handleConnect( newConnectedSite );
+						void handleConnect( newConnectedSite );
 					} }
 					selectedSite={ selectedSite }
 				/>

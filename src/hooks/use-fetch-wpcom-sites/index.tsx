@@ -232,7 +232,7 @@ export const useFetchWpComSites = ( connectedSiteIdsOnlyForSelectedSite: number[
 	}, [ client?.req, isAuthenticated, isOffline, pressableSyncEnabled ] );
 
 	useEffect( () => {
-		fetchSites();
+		void fetchSites();
 	}, [ fetchSites ] );
 
 	const syncSitesWithSyncSupportForSelectedSite = useMemo(

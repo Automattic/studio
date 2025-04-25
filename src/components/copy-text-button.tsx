@@ -37,7 +37,7 @@ export function CopyTextButton( {
 	const [ timeoutId, setTimeoutId ] = useState< NodeJS.Timeout | null >( null );
 
 	const onClick = useCallback( () => {
-		getIpcApi().copyText( text );
+		void getIpcApi().copyText( text );
 		onCopied?.();
 		setShowCopied( true );
 		if ( timeoutId ) {

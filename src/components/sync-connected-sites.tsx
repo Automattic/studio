@@ -78,12 +78,12 @@ const SyncConnectedSiteControls = ( {
 	} );
 	const handlePushSite = async ( connectedSite: SyncSite ) => {
 		if ( connectedSite.isStaging ) {
-			showPushStagingConfirmation( () => {
-				pushSite( connectedSite, selectedSite );
+			void showPushStagingConfirmation( () => {
+				void pushSite( connectedSite, selectedSite );
 			} );
 		} else {
-			showPushProductionConfirmation( () => {
-				pushSite( connectedSite, selectedSite );
+			void showPushProductionConfirmation( () => {
+				void pushSite( connectedSite, selectedSite );
 			} );
 		}
 	};
@@ -136,7 +136,7 @@ const SyncConnectedSiteControls = ( {
 									: __(
 											"Pulling will replace your Studio site's files and database with a copy from your production site."
 									  );
-								showPullConfirmation( () => pullSite( connectedSite, selectedSite ), {
+								void showPullConfirmation( () => pullSite( connectedSite, selectedSite ), {
 									detail,
 								} );
 							} }

@@ -1,17 +1,17 @@
 import { useState, useEffect } from 'react';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { SupportedEditor } from 'src/modules/user-settings/lib/editor';
+import { DEFAULT_EDITOR, SupportedEditor } from 'src/modules/user-settings/lib/editor';
 
 export function useEditorData() {
-	const [ editor, setEditor ] = useState< SupportedEditor >( 'vscode' );
-	const [ savedEditorValue, setSavedEditorValue ] = useState< SupportedEditor >( 'vscode' );
+	const [ editor, setEditor ] = useState< SupportedEditor >( DEFAULT_EDITOR );
+	const [ savedEditorValue, setSavedEditorValue ] = useState< SupportedEditor >( DEFAULT_EDITOR );
 
 	const getSavedEditor = async () => {
 		try {
 			const savedEditor = await getIpcApi().getUserEditor();
-			return savedEditor;
+			return savedEditor || DEFAULT_EDITOR;
 		} catch ( error ) {
-			return 'vscode';
+			return DEFAULT_EDITOR;
 		}
 	};
 
@@ -45,5 +45,6 @@ export function useEditorData() {
 		saveEditorPreference,
 		resetEditor,
 		hasEditorChanges,
+		getSavedEditor
 	};
 }

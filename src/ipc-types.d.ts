@@ -45,11 +45,7 @@ interface StartedSiteDetails extends StoppedSiteDetails {
 
 type SiteDetails = StartedSiteDetails | StoppedSiteDetails;
 
-type NewSiteDetails = {
-	id: string;
-	path: string;
-	name: string;
-};
+type NewSiteDetails = Pick< SiteDetails, 'id' | 'path' | 'name' >;
 
 type InstalledApps = {
 	vscode: boolean;

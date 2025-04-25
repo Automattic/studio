@@ -14,40 +14,52 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 
 describe( 'newSitesSlice', () => {
 	describe( 'reducers', () => {
-		it( 'should set isProcessing when setIsProcessing action is dispatched', () => {
-			const initialState = { isProcessing: false };
+		it( 'should add site IDs to processingSiteIds when addProcessingSites is dispatched', () => {
+			const initialState = { processingSiteIds: [] };
 
-			const action = { type: 'newSites/setIsProcessing', payload: true };
+			const action = {
+				type: 'newSites/addProcessingSites',
+				payload: [ 'site-1', 'site-2' ],
+			};
 			const nextState = reducer( initialState, action );
 
-			expect( nextState.isProcessing ).toBe( true );
+			expect( nextState.processingSiteIds ).toEqual( [ 'site-1', 'site-2' ] );
 		} );
 
-		it( 'should set isProcessing to true when handleNewSite.pending is dispatched', () => {
-			const initialState = { isProcessing: false };
+		it( 'should deduplicate site IDs when adding to processingSiteIds', () => {
+			const initialState = { processingSiteIds: [ 'site-1', 'site-3' ] };
 
-			const action = { type: 'newSites/handleNewSite/pending' };
+			const action = {
+				type: 'newSites/addProcessingSites',
+				payload: [ 'site-1', 'site-2' ],
+			};
 			const nextState = reducer( initialState, action );
 
-			expect( nextState.isProcessing ).toBe( true );
+			expect( nextState.processingSiteIds ).toEqual( [ 'site-1', 'site-3', 'site-2' ] );
 		} );
 
-		it( 'should set isProcessing to false when handleNewSite.fulfilled is dispatched', () => {
-			const initialState = { isProcessing: true };
+		it( 'should remove site IDs from processingSiteIds when removeProcessingSites is dispatched', () => {
+			const initialState = { processingSiteIds: [ 'site-1', 'site-2', 'site-3' ] };
 
-			const action = { type: 'newSites/handleNewSite/fulfilled' };
+			const action = {
+				type: 'newSites/removeProcessingSites',
+				payload: [ 'site-1', 'site-3' ],
+			};
 			const nextState = reducer( initialState, action );
 
-			expect( nextState.isProcessing ).toBe( false );
+			expect( nextState.processingSiteIds ).toEqual( [ 'site-2' ] );
 		} );
 
-		it( 'should set isProcessing to false when handleNewSite.rejected is dispatched', () => {
-			const initialState = { isProcessing: true };
+		it( 'should handle removing site IDs that do not exist in processingSiteIds', () => {
+			const initialState = { processingSiteIds: [ 'site-1', 'site-2' ] };
 
-			const action = { type: 'newSites/handleNewSite/rejected' };
+			const action = {
+				type: 'newSites/removeProcessingSites',
+				payload: [ 'site-3', 'site-4' ],
+			};
 			const nextState = reducer( initialState, action );
 
-			expect( nextState.isProcessing ).toBe( false );
+			expect( nextState.processingSiteIds ).toEqual( [ 'site-1', 'site-2' ] );
 		} );
 	} );
 } );

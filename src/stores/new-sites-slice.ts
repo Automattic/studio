@@ -3,56 +3,67 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { store } from 'src/stores/index';
 
 interface NewSitesState {
-	isProcessing: boolean;
+	processingSiteIds: string[];
 }
 
 const initialState: NewSitesState = {
-	isProcessing: false,
+	processingSiteIds: [],
 };
 
 const newSitesSlice = createSlice( {
 	name: 'newSites',
 	initialState,
 	reducers: {
-		setIsProcessing: ( state, action: PayloadAction< boolean > ) => {
-			state.isProcessing = action.payload;
+		addProcessingSites: ( state, action: PayloadAction< string[] > ) => {
+			state.processingSiteIds = [ ...new Set( [ ...state.processingSiteIds, ...action.payload ] ) ];
 		},
-	},
-	extraReducers: ( builder ) => {
-		builder
-			.addCase( handleNewSite.pending, ( state ) => {
-				state.isProcessing = true;
-			} )
-			.addCase( handleNewSite.fulfilled, ( state ) => {
-				state.isProcessing = false;
-			} )
-			.addCase( handleNewSite.rejected, ( state ) => {
-				state.isProcessing = false;
-			} );
+		removeProcessingSites: ( state, action: PayloadAction< string[] > ) => {
+			state.processingSiteIds = state.processingSiteIds.filter(
+				( id ) => ! action.payload.includes( id )
+			);
+		},
 	},
 } );
 
-const handleNewSite = createAsyncThunk( 'newSites/handleNewSite', ( sites: NewSiteDetails[] ) => {
-	return Promise.all(
-		sites.map( async ( site ) => {
-			try {
-				await getIpcApi().handleNewSite( site );
-			} catch ( error ) {
-				console.error(
-					`[New Sites Slice] Failed to create site for folder: ${ site.path }`,
-					error
-				);
-			}
-		} )
-	);
-} );
+export const { addProcessingSites, removeProcessingSites } = newSitesSlice.actions;
+
+const handleNewSite = createAsyncThunk(
+	'newSites/handleNewSite',
+	async ( sites: NewSiteDetails[], { dispatch } ) => {
+		const siteIds = sites.map( ( site ) => site.id );
+		dispatch( addProcessingSites( siteIds ) );
+
+		try {
+			await Promise.all(
+				sites.map( async ( site ) => {
+					try {
+						await getIpcApi().handleNewSite( site );
+					} catch ( error ) {
+						console.error(
+							`[New Sites Slice] Failed to create site for folder: ${ site.path }`,
+							error
+						);
+					}
+				} )
+			);
+		} finally {
+			dispatch( removeProcessingSites( siteIds ) );
+		}
+	}
+);
 
 window.ipcListener.subscribe( 'user-data-updated', ( _, payload ) => {
 	const state = store.getState();
 	const newSites = payload.newSites;
 
-	if ( ! state.newSites.isProcessing && newSites ) {
-		void store.dispatch( handleNewSite( newSites ) );
+	if ( newSites?.length ) {
+		const sitesToProcess = newSites.filter(
+			( site ) => ! state.newSites.processingSiteIds.includes( site.id )
+		);
+
+		if ( sitesToProcess.length ) {
+			void store.dispatch( handleNewSite( sitesToProcess ) );
+		}
 	}
 } );
 

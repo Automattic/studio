@@ -142,27 +142,17 @@ function CustomizeSection( {
 
 function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'selectedSite' > ) {
 	const { terminalWpCliEnabled } = useFeatureFlags();
-	const { terminal, getSavedTerminal } = useTerminalData();
-	const { editor, getSavedEditor } = useEditorData();
-	const [ terminalName, setTerminalName ] = useState( supportedTerminalNames[ terminal ] );
-	const [ editorName, setEditorName ] = useState( editor );
-
-	const updateEditorName = ( newEditor: SupportedEditor ) => {
-		setEditorName( newEditor );
-	};
-
-	const updateTerminalName = ( newTerminal: SupportedTerminal ) => {
-		setTerminalName( supportedTerminalNames[ newTerminal ] );
-	};
+	const { terminal, handleTerminalChange, getSavedTerminal } = useTerminalData();
+	const { editor, handleEditorChange, getSavedEditor } = useEditorData();
 
 	useEffect( () => {
-		updateEditorName( editor );
-		updateTerminalName( terminal );
-	}, [ editor, terminal ] );
+		handleEditorChange( editor );
+		handleTerminalChange( terminal );
+	}, [ editor, handleEditorChange, handleTerminalChange, terminal ] );
 
 	useIpcListener( 'user-preference-changed', async () => {
-		updateEditorName( await getSavedEditor() );
-		updateTerminalName( await getSavedTerminal() );
+		handleEditorChange( await getSavedEditor() );
+		handleTerminalChange( await getSavedTerminal() );
 	} );
 
 	const buttonsArray: ButtonsSectionProps[ 'buttonsArray' ] = [
@@ -180,19 +170,19 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 		},
 	];
 
-	if ( editorName ) {
-		const editor = supportedEditorConfig[ editorName as keyof typeof supportedEditorConfig ];
-		if ( editor ) {
-			buttonsArray.push( {
-				label: editor.label,
-				className: 'text-nowrap',
-				icon: code,
-				onClick: () => {
-					getIpcApi().openURL( editor.url( selectedSite.path ) );
-				},
-			} );
-		}
+	const editorConfig = supportedEditorConfig[ editor ];
+	if ( editorConfig ) {
+		buttonsArray.push( {
+			label: editorConfig.label,
+			className: 'text-nowrap',
+			icon: code,
+			onClick: () => {
+				getIpcApi().openURL( editorConfig.url( selectedSite.path ) );
+			},
+		} );
 	}
+
+	const terminalName = supportedTerminalNames[ terminal ];
 	buttonsArray.push( {
 		label: terminalName,
 		className: 'text-nowrap',

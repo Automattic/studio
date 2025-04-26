@@ -1342,12 +1342,12 @@ export async function deleteSnapshot(
 
 export function startEmailServer(): Promise< void > {
 	return emailServer.start().then( ( port ) => {
-		console.log( `SMTP server started on port ${ port }` );
+		console.log( `Email server started on port ${ port }` );
 	} );
 }
 
 export function stopEmailServer(): Promise< void > {
 	return emailServer.stop().then( () => {
-		console.log( 'SMTP server stopped' );
+		console.log( 'Email server stopped' );
 	} );
 }

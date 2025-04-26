@@ -1340,14 +1340,12 @@ export async function deleteSnapshot(
 	return executePreviewCliCommand( [ 'preview', 'delete', hostname ], parentWindow );
 }
 
-export function startEmailServer(): Promise< void > {
-	return emailServer.start().then( ( port ) => {
-		console.log( `Email server started on port ${ port }` );
-	} );
+export async function startEmailServer(): Promise< void > {
+	const port = await emailServer.start();
+	console.log( `Email server started on port ${ port }` );
 }
 
-export function stopEmailServer(): Promise< void > {
-	return emailServer.stop().then( () => {
-		console.log( 'Email server stopped' );
-	} );
+export async function stopEmailServer(): Promise< void > {
+	await emailServer.stop();
+	console.log( 'Email server stopped' );
 }

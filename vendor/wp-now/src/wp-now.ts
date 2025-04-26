@@ -447,6 +447,13 @@ export function getThemeTemplate( projectPath: string ) {
 	}
 }
 
+/**
+ * Mount the internal mu-plugins.
+ * NOTE: Don't forget to remove the internal mu-plugins in `removeDownloadedMuPlugins`.
+ *
+ * @param php
+ * @param options
+ */
 async function mountInternalMuPlugins( php: PHP, options: WPNowOptions ) {
 	php.mkdir( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER );
 
@@ -626,10 +633,13 @@ async function mountInternalMuPlugins( php: PHP, options: WPNowOptions ) {
           				'Content-Type'  => 'application/json',
         			),
 					'body' => json_encode( array(
-						'to'      => $args['to'],
-						'subject' => $args['subject'],
-						'message' => $args['message'],
-						'headers' => $args['headers']
+						'to'         => $args['to'],
+						'site_title' => get_bloginfo( 'name' ),
+						'site_url'   => get_bloginfo( 'url' ),
+						'site_email' => get_bloginfo( 'admin_email' ),
+						'subject'    => $args['subject'],
+						'message'    => $args['message'],
+						'headers'    => $args['headers']
 	 				) )
 	 			) );
     			return $args; // Let WordPress think the email was sent.

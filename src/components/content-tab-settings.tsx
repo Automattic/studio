@@ -1,7 +1,10 @@
 import { DropdownMenu, MenuGroup, Button } from '@wordpress/components';
+import { createInterpolateElement } from '@wordpress/element';
+import { __ } from '@wordpress/i18n';
 import { moreVertical } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren } from 'react';
+import { ArrowIcon } from 'src/components/arrow-icon';
 import { CopyTextButton } from 'src/components/copy-text-button';
 import DeleteSite from 'src/components/delete-site';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
@@ -13,13 +16,22 @@ interface ContentTabSettingsProps {
 	selectedSite: SiteDetails;
 }
 
-function SettingsRow( { children, label }: PropsWithChildren< { label: string } > ) {
+function SettingsRow( {
+	children,
+	label,
+}: PropsWithChildren< {
+	label?: string;
+} > ) {
 	return (
 		<tr className="align-top">
-			<th className="text-nowrap text-a8c-gray-50 pb-4 ltr:pr-6 rtl:pl-6 ltr:text-left rtl:text-right font-normal">
-				{ label }
-			</th>
-			<td className="pb-4">{ children }</td>
+			{ label && (
+				<th className="text-nowrap text-a8c-gray-50 pb-4 ltr:pr-6 rtl:pl-6 ltr:text-left rtl:text-right font-normal">
+					{ label }
+				</th>
+			) }
+			<td className="pb-4" colSpan={ ! label ? 2 : undefined }>
+				{ children }
+			</td>
 		</tr>
 	);
 }
@@ -148,6 +160,56 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 							copyConfirmation={ __( 'Copied!' ) }
 						>
 							{ `${ domain }/wp-admin` }
+						</CopyTextButton>
+					</SettingsRow>
+					<tr>
+						<th colSpan={ 2 } className="pb-4 ltr:text-left rtl:text-right">
+							<h3 className="text-black text-sm font-semibold mt-4">{ __( 'Email settings' ) }</h3>
+						</th>
+					</tr>
+					<SettingsRow>
+						{ /* @TODO layout imap and POP options */ }
+						{ /* @TODO users should be able to add their own smpt server, e.g., gmail */ }
+						<div className="ltr:pr-8 rtl:pl-8">
+							<p className="mb-2">
+								{ createInterpolateElement(
+									__(
+										'By default, your Studio sites send emails to a free email catching service. This service is free and temporary To read email, go to <a>Ethereal</a><arrow /> and login with the following credentials:'
+									),
+									{
+										a: (
+											<a
+												className="text-a8c-gray-50 underline"
+												href="https://ethereal.email/login"
+												target="_blank"
+												rel="noreferrer"
+											/>
+										),
+										arrow: <ArrowIcon />,
+									}
+								) }
+							</p>
+						</div>
+					</SettingsRow>
+					{ /* @TODO all this should come from the createTransport response in the email server */ }
+					<SettingsRow label={ __( 'Host' ) }>smtp.ethereal.email</SettingsRow>
+					<SettingsRow label={ __( 'Port' ) }>587</SettingsRow>
+					<SettingsRow label={ __( 'Account' ) }>
+						<CopyTextButton
+							copyConfirmation={ __( 'Copied!' ) }
+							label={ __( 'Copy test account password to clipboard' ) }
+							text={ password || '' }
+						>
+							zfx2oups3ynlu2pk@ethereal.email
+						</CopyTextButton>
+					</SettingsRow>
+					<SettingsRow label={ __( 'Admin URL' ) }>
+						<CopyTextButton
+							copyConfirmation={ __( 'Copied!' ) }
+							label={ __( 'Copy test account password to clipboard' ) }
+							text={ password || '' }
+						>
+							************
 						</CopyTextButton>
 					</SettingsRow>
 				</tbody>

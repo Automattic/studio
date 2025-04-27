@@ -100,7 +100,7 @@ async function handleProxyRequest(
 
 /**
  * On Windows, node doesn't throw an error if port is busy, so we use portFinder to check
- * if the port is available.
+ * if the port is available. If not, we throw an error to indicate that the port is in use.
  */
 export async function checkPortInWindows( port: number ): Promise< boolean > {
 	if ( process.platform !== 'win32' ) {

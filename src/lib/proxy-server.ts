@@ -113,7 +113,7 @@ export async function checkPortInWindows( port: number ): Promise< boolean > {
 		throw new Error( 'EADDRINUSE' );
 	}
 
-	return true;
+	return portAvailable;
 }
 
 /**

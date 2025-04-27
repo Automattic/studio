@@ -1,6 +1,5 @@
 import http from 'http';
 import https from 'https';
-import { createConnection } from 'node:net';
 import { createSecureContext } from 'node:tls';
 import { domainToASCII } from 'node:url';
 import * as Sentry from '@sentry/electron/main';
@@ -8,6 +7,7 @@ import httpProxy from 'http-proxy';
 import { isErrnoException } from 'src/lib/is-errno-exception';
 import { SiteServer } from 'src/site-server';
 import { loadUserData } from 'src/storage/user-data';
+import { portFinder } from 'src/lib/port-finder';
 
 let httpProxyServer: http.Server | null = null;
 let httpsProxyServer: https.Server | null = null;
@@ -99,35 +99,25 @@ async function handleProxyRequest(
 }
 
 /**
- * On Windows, node doesn't throw an error if port is busy, so we use the net module to explicitly check
- * if it's possible to establish a TCP connection to that port (meaning it's busy).
+ * On Windows, node doesn't throw an error if port is busy, so we use portFinder to check
+ * if the port is available.
  */
 export async function checkPortInWindows( port: number ): Promise< boolean > {
 	if ( process.platform !== 'win32' ) {
 		return true;
 	}
 
-	return await new Promise< boolean >( ( resolve, reject ) => {
-		const tester = createConnection( { port }, () => {
-			// If we can connect, port is in use
-			tester.end();
-			reject( new Error( 'EADDRINUSE' ) );
-		} );
+	try {
+		const portAvailable = await portFinder.isPortAvailable( port );
 
-		tester.setTimeout( 1000, () => {
-			tester.destroy();
-			reject( new Error( 'EADDRINUSE' ) );
-		} );
+		if ( ! portAvailable ) {
+			throw new Error( 'EADDRINUSE' );
+		}
 
-		tester.on( 'error', ( err ) => {
-			if ( isErrnoException( err ) && err.code === 'ECONNREFUSED' ) {
-				// Port is available
-				resolve( true );
-			} else {
-				reject( err );
-			}
-		} );
-	} );
+		return true;
+	} catch ( error ) {
+		throw error;
+	}
 }
 
 /**

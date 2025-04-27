@@ -26,8 +26,8 @@ import { useThemeDetails } from 'src/hooks/use-theme-details';
 import { isMac } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { SupportedEditor, supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
-import { SupportedTerminal, supportedTerminalNames } from 'src/modules/user-settings/lib/terminal';
+import { supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
+import { supportedTerminalNames } from 'src/modules/user-settings/lib/terminal';
 
 interface ContentTabOverviewProps {
 	selectedSite: SiteDetails;

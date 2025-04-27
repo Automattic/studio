@@ -987,13 +987,13 @@ export async function openTerminalAtPath(
 		initScriptSteps.push( `cd \\"${ escapedPath }\\"`, 'clear' );
 
 		const userData = await loadUserData();
-		const preferredTerminal = userData.preferredTerminal || 'terminal';
+		const preferredTerminal = ( userData.preferredTerminal || 'terminal' ) as SupportedTerminal;
 
-		if ( preferredTerminal === ( 'warp' as SupportedTerminal ) ) {
+		if ( preferredTerminal === 'warp' ) {
 			return promiseExec( `open -a Warp "${ targetPath }"` );
-		} else if ( preferredTerminal === ( 'ghostty' as SupportedTerminal ) ) {
+		} else if ( preferredTerminal === 'ghostty' ) {
 			return promiseExec( `open -a Ghostty "${ targetPath }"` );
-		} else if ( preferredTerminal === ( 'iterm' as SupportedTerminal ) ) {
+		} else if ( preferredTerminal === 'iterm' ) {
 			return promiseExec( `osascript << END
 tell application "iTerm"
     activate

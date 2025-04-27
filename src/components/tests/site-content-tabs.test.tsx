@@ -77,7 +77,6 @@ describe( 'SiteContentTabs', () => {
 		expect( screen.queryByRole( 'tab', { name: 'Assistant', selected: false } ) ).toBeVisible();
 		expect( screen.queryByRole( 'tab', { name: 'Backup', selected: false } ) ).toBeNull();
 	} );
-
 	it( 'should render a "No Site" screen if selected site is absent', async () => {
 		( useSiteDetails as jest.Mock ).mockReturnValue( {
 			undefined,

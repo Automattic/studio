@@ -50,6 +50,7 @@ describe( 'ShortcutsSection', () => {
 			openURL: openURLMock,
 			getUserEditor: jest.fn().mockResolvedValue( 'vscode' ),
 			getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
+			getInstalledTerminals: jest.fn().mockResolvedValue( [ 'terminal' ] ),
 		} );
 
 		const { getByLabelText } = render( <ContentTabOverview selectedSite={ selectedSite } /> );
@@ -74,6 +75,7 @@ describe( 'ShortcutsSection', () => {
 			openURL: openURLMock,
 			getUserEditor: jest.fn().mockResolvedValue( 'phpstorm' ), // User prefers PhpStorm
 			getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
+			getInstalledTerminals: jest.fn().mockResolvedValue( [ 'terminal' ] ),
 		} );
 
 		const { getByLabelText } = render( <ContentTabOverview selectedSite={ selectedSite } /> );
@@ -99,6 +101,7 @@ describe( 'ShortcutsSection', () => {
 			openTerminalAtPath: openTerminalAtPathMock,
 			getUserEditor: jest.fn().mockResolvedValue( null ),
 			getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
+			getInstalledTerminals: jest.fn().mockResolvedValue( [ 'terminal' ] ),
 		} );
 
 		const { getByLabelText } = render( <ContentTabOverview selectedSite={ selectedSite } /> );
@@ -131,6 +134,7 @@ describe( 'ShortcutsSection', () => {
 			openTerminalAtPath: openTerminalAtPathMock,
 			getUserEditor: jest.fn().mockResolvedValue( null ),
 			getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
+			getInstalledTerminals: jest.fn().mockResolvedValue( [ 'terminal' ] ),
 		} );
 
 		const { getByLabelText } = render( <ContentTabOverview selectedSite={ selectedSite } /> );
@@ -157,7 +161,8 @@ describe( 'ShortcutsSection', () => {
 		mockGetIpcApi.mockReturnValue( {
 			openLocalPath: jest.fn(),
 			getUserEditor: jest.fn().mockResolvedValue( null ),
-			getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
+			getUserTerminal: jest.fn().mockResolvedValue( null ),
+			getInstalledTerminals: jest.fn().mockResolvedValue( [] ),
 		} );
 
 		const { queryByLabelText, findByLabelText } = render(
@@ -165,7 +170,8 @@ describe( 'ShortcutsSection', () => {
 		);
 
 		await findByLabelText( 'Terminal' );
-		expect( queryByLabelText( 'VS Code' ) ).toBeNull();
+		await findByLabelText( 'VS Code' );
+
 		expect( queryByLabelText( 'PhpStorm' ) ).toBeNull();
 	} );
 } );

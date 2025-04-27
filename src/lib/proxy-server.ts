@@ -107,17 +107,13 @@ export async function checkPortInWindows( port: number ): Promise< boolean > {
 		return true;
 	}
 
-	try {
-		const portAvailable = await portFinder.isPortAvailable( port );
+	const portAvailable = await portFinder.isPortAvailable( port );
 
-		if ( ! portAvailable ) {
-			throw new Error( 'EADDRINUSE' );
-		}
-
-		return true;
-	} catch ( error ) {
-		throw error;
+	if ( ! portAvailable ) {
+		throw new Error( 'EADDRINUSE' );
 	}
+
+	return true;
 }
 
 /**

@@ -143,3 +143,15 @@ declare global {
 }
 
 contextBridge.exposeInMainWorld( 'ipcListener', { subscribe } );
+
+declare global {
+	interface Window {
+		studio: {
+			platform: NodeJS.Platform;
+		};
+	}
+}
+
+contextBridge.exposeInMainWorld( 'studio', {
+	platform: process.platform,
+} );

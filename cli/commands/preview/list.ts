@@ -1,8 +1,7 @@
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { PreviewCommandLoggerAction as LoggerAction } from 'common/logger-actions';
 import { getAuthToken } from 'cli/lib/appdata';
-import { getSnapshotCliTable } from 'cli/lib/output';
-import { getSnapshotsFromAppdata } from 'cli/lib/snapshots';
+import { getSnapshotCliTable, getSnapshotsFromAppdata } from 'cli/lib/snapshots';
 import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
 import { OutputFormat, StudioArgv } from 'cli/types';

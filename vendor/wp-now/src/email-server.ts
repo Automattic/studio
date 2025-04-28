@@ -10,7 +10,7 @@ export interface EmailSettings {
 	pop3?: { host: string; port: number; secure: boolean };
 	web?: string;
 }
-
+// @TODO: probably should be a singleton.
 export class EmailServer {
 	public settings?: EmailSettings | null = null;
 	initialized: boolean;
@@ -30,7 +30,7 @@ export class EmailServer {
 		this.initialized = true;
 		return this;
 	}
-
+	// @TODO: check if the ethereal.email is available long-term. If not, we might have to regenerate.
 	async getEmailSettings(): Promise< EmailSettings > {
 		try {
 			if ( this.settings?.user && this.settings?.pass ) {

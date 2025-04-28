@@ -13,12 +13,15 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const { locale: savedLocale, setLocale: setSavedLocale } = useI18nData();
 	const [ locale, setLocale ] = useState( savedLocale );
 
-	const { editor, handleEditorChange, saveEditorPreference, resetEditor } = useEditorData();
+	const { editor, handleEditorChange, saveEditorPreference, resetEditor, hasEditorChanges } =
+		useEditorData();
+
 	const {
 		terminal,
 		handleTerminalChange,
 		saveTerminalPreference,
 		resetTerminal,
+		hasTerminalChanges,
 		availableTerminals,
 	} = useTerminalData();
 
@@ -36,6 +39,8 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 		onClose();
 	};
 
+	const hasChanges = locale !== savedLocale || hasEditorChanges || hasTerminalChanges;
+
 	return (
 		<>
 			<LanguagePicker value={ locale } onChange={ setLocale } />
@@ -49,7 +54,7 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 				<Button variant="tertiary" onClick={ cancelChanges }>
 					{ __( 'Cancel' ) }
 				</Button>
-				<Button variant="primary" onClick={ savePreferences }>
+				<Button variant="primary" onClick={ savePreferences } disabled={ ! hasChanges }>
 					{ __( 'Save' ) }
 				</Button>
 			</div>

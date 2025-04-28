@@ -1,4 +1,4 @@
-import { reducer } from 'src/stores/new-sites-slice';
+import { newSitesActions, reducer } from 'src/stores/new-sites-slice';
 
 // Mock ipcListener
 window.ipcListener = {
@@ -17,10 +17,7 @@ describe( 'newSitesSlice', () => {
 		it( 'should add site IDs to processingSiteIds when addProcessingSites is dispatched', () => {
 			const initialState = { processingSiteIds: [] };
 
-			const action = {
-				type: 'newSites/addProcessingSites',
-				payload: [ 'site-1', 'site-2' ],
-			};
+			const action = newSitesActions.addProcessingSites( [ 'site-1', 'site-2' ] );
 			const nextState = reducer( initialState, action );
 
 			expect( nextState.processingSiteIds ).toEqual( [ 'site-1', 'site-2' ] );
@@ -29,10 +26,7 @@ describe( 'newSitesSlice', () => {
 		it( 'should deduplicate site IDs when adding to processingSiteIds', () => {
 			const initialState = { processingSiteIds: [ 'site-1', 'site-3' ] };
 
-			const action = {
-				type: 'newSites/addProcessingSites',
-				payload: [ 'site-1', 'site-2' ],
-			};
+			const action = newSitesActions.addProcessingSites( [ 'site-1', 'site-2' ] );
 			const nextState = reducer( initialState, action );
 
 			expect( nextState.processingSiteIds ).toEqual( [ 'site-1', 'site-3', 'site-2' ] );
@@ -41,10 +35,7 @@ describe( 'newSitesSlice', () => {
 		it( 'should remove site IDs from processingSiteIds when removeProcessingSites is dispatched', () => {
 			const initialState = { processingSiteIds: [ 'site-1', 'site-2', 'site-3' ] };
 
-			const action = {
-				type: 'newSites/removeProcessingSites',
-				payload: [ 'site-1', 'site-3' ],
-			};
+			const action = newSitesActions.removeProcessingSites( [ 'site-1', 'site-3' ] );
 			const nextState = reducer( initialState, action );
 
 			expect( nextState.processingSiteIds ).toEqual( [ 'site-2' ] );
@@ -53,10 +44,7 @@ describe( 'newSitesSlice', () => {
 		it( 'should handle removing site IDs that do not exist in processingSiteIds', () => {
 			const initialState = { processingSiteIds: [ 'site-1', 'site-2' ] };
 
-			const action = {
-				type: 'newSites/removeProcessingSites',
-				payload: [ 'site-3', 'site-4' ],
-			};
+			const action = newSitesActions.removeProcessingSites( [ 'site-3', 'site-4' ] );
 			const nextState = reducer( initialState, action );
 
 			expect( nextState.processingSiteIds ).toEqual( [ 'site-1', 'site-2' ] );

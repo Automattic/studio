@@ -25,13 +25,13 @@ const newSitesSlice = createSlice( {
 	},
 } );
 
-export const { addProcessingSites, removeProcessingSites } = newSitesSlice.actions;
+export const newSitesActions = newSitesSlice.actions;
 
 const handleNewSite = createAsyncThunk(
 	'newSites/handleNewSite',
 	async ( sites: NewSiteDetails[], { dispatch } ) => {
 		const siteIds = sites.map( ( site ) => site.id );
-		dispatch( addProcessingSites( siteIds ) );
+		dispatch( newSitesActions.addProcessingSites( siteIds ) );
 
 		try {
 			await Promise.all(
@@ -47,7 +47,7 @@ const handleNewSite = createAsyncThunk(
 				} )
 			);
 		} finally {
-			dispatch( removeProcessingSites( siteIds ) );
+			dispatch( newSitesActions.removeProcessingSites( siteIds ) );
 		}
 	}
 );

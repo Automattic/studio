@@ -27,6 +27,7 @@ export const FEATURE_REQUEST_URL =
 export const WPCOM_PROFILE_URL = 'https://wordpress.com/me';
 export const LOCAL_STORAGE_CHAT_MESSAGES_KEY = 'ai_chat_messages';
 export const LOCAL_STORAGE_CHAT_API_IDS_KEY = 'ai_chat_ids';
+export const DEFAULT_TERMINAL = 'terminal';
 
 //Import file constants
 

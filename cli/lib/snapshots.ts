@@ -1,6 +1,12 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { Snapshot } from 'common/types/snapshot';
-import { getAuthToken, getSiteByFolder, readAppdata, saveAppdata } from 'cli/lib/appdata';
+import {
+	getAuthToken,
+	getNewSitePartial,
+	getSiteByFolder,
+	readAppdata,
+	saveAppdata,
+} from 'cli/lib/appdata';
 import { LoggerError } from 'cli/logger';
 
 export async function getSnapshotsFromAppdata(
@@ -57,7 +63,19 @@ export async function saveSnapshotToAppdata(
 ): Promise< Snapshot > {
 	const userData = await readAppdata();
 	const authToken = await getAuthToken();
-	const site = await getSiteByFolder( siteFolder );
+	let site;
+	try {
+		site = await getSiteByFolder( siteFolder );
+	} catch ( error ) {
+		if ( ! ( error instanceof LoggerError ) ) {
+			throw error;
+		}
+		site = getNewSitePartial( siteFolder );
+		if ( ! userData.newSites ) {
+			userData.newSites = [];
+		}
+		userData.newSites.push( site );
+	}
 
 	if ( ! userData.snapshots ) {
 		userData.snapshots = [];

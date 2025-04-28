@@ -150,7 +150,8 @@ export async function createSite(
 	siteName?: string,
 	wpVersion?: string,
 	customDomain?: string,
-	enableHttps?: boolean
+	enableHttps?: boolean,
+	siteId?: string
 ): Promise< SiteDetails[] > {
 	const userData = await loadUserData();
 	const forceSetupSqlite = false;
@@ -184,7 +185,7 @@ export async function createSite(
 	const port = await portFinder.getOpenPort();
 
 	const details = {
-		id: crypto.randomUUID(),
+		id: siteId || crypto.randomUUID(),
 		name: siteName || nodePath.basename( path ),
 		path,
 		adminPassword: createPassword(),
@@ -1337,4 +1338,14 @@ export async function deleteSnapshot(
 ): Promise< { operationId: crypto.UUID } > {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	return executePreviewCliCommand( [ 'preview', 'delete', hostname ], parentWindow );
+}
+
+export async function handleNewSite( event: IpcMainInvokeEvent, newSite: NewSiteDetails ) {
+	await createSite( event, newSite.path, undefined, undefined, undefined, undefined, newSite.id );
+
+	const userData = await loadUserData();
+	await saveUserData( {
+		...userData,
+		newSites: userData.newSites?.filter( ( s ) => s.id !== newSite.id ),
+	} );
 }

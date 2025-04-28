@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -18,6 +19,7 @@ const siteSchema = z
 
 const userDataSchema = z
 	.object( {
+		newSites: z.array( siteSchema ).optional(),
 		sites: z.array( siteSchema ).optional(),
 		snapshots: z.array( snapshotSchema ).optional(),
 		locale: z.string().optional(),
@@ -138,4 +140,14 @@ export async function getSiteByFolder(
 	}
 
 	return site;
+}
+
+export function getNewSitePartial( siteFolder: string ): z.infer< typeof siteSchema > {
+	const newSite = {
+		id: crypto.randomUUID(),
+		path: siteFolder,
+		name: path.basename( siteFolder ),
+	};
+
+	return newSite;
 }

@@ -20,8 +20,7 @@ export function useEditorData() {
 			const installedEditors = await getIpcApi().getInstalledApps();
 			if ( installedEditors.vscode ) {
 				return 'vscode';
-			}
-			if ( installedEditors.phpstorm ) {
+			} else if ( installedEditors.phpstorm ) {
 				return 'phpstorm';
 			}
 

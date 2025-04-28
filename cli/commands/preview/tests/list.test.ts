@@ -64,7 +64,10 @@ describe( 'Preview List Command', () => {
 		expect( getSnapshotsFromAppdata ).toHaveBeenCalledWith( mockAuthToken.id, mockFolder );
 		expect( mockLogger.reportStart.mock.calls[ 0 ] ).toEqual( [ 'validate', 'Validating...' ] );
 		expect( mockLogger.reportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Validation successful' ] );
-		expect( mockLogger.reportStart.mock.calls[ 1 ] ).toEqual( [ 'load', 'Loading previews...' ] );
+		expect( mockLogger.reportStart.mock.calls[ 1 ] ).toEqual( [
+			'load',
+			'Loading preview sites...',
+		] );
 		expect( mockLogger.reportSuccess.mock.calls[ 1 ] ).toEqual( [ 'Found 2 preview sites' ] );
 	} );
 
@@ -87,7 +90,10 @@ describe( 'Preview List Command', () => {
 
 		expect( mockLogger.reportStart.mock.calls[ 0 ] ).toEqual( [ 'validate', 'Validating...' ] );
 		expect( mockLogger.reportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Validation successful' ] );
-		expect( mockLogger.reportStart.mock.calls[ 1 ] ).toEqual( [ 'load', 'Loading previews...' ] );
-		expect( mockLogger.reportSuccess.mock.calls[ 1 ] ).toEqual( [ 'No previews found' ] );
+		expect( mockLogger.reportStart.mock.calls[ 1 ] ).toEqual( [
+			'load',
+			'Loading preview sites...',
+		] );
+		expect( mockLogger.reportSuccess.mock.calls[ 1 ] ).toEqual( [ 'No preview sites found' ] );
 	} );
 } );

@@ -73,7 +73,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 			return yargs.positional( 'folder', {
 				type: 'string',
 				default: process.cwd(),
-				description: __( 'The folder to create a preview from' ),
+				description: __( 'The folder to create a preview site from' ),
 			} );
 		},
 		handler: async ( argv ) => {

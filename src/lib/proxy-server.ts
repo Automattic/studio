@@ -192,7 +192,7 @@ export async function startProxyServer(): Promise< boolean > {
 		return true;
 	} catch ( error ) {
 		if ( error instanceof Error && error.message === 'PROXY_ERROR_PORT_IN_USE' ) {
-			throw new Error( 'PROXY_ERROR_PORT_IN_USE' );
+			throw error;
 		}
 
 		Sentry.captureException( error );

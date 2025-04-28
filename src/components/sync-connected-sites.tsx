@@ -17,6 +17,7 @@ import { WordPressLogoCircle } from 'src/components/wordpress-logo-circle';
 import { useSyncSites } from 'src/hooks/sync-sites';
 import { useConfirmationDialog } from 'src/hooks/use-confirmation-dialog';
 import { useI18nData } from 'src/hooks/use-i18n-data';
+import { useImportExport } from 'src/hooks/use-import-export';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSyncStatesProgressInfo } from 'src/hooks/use-sync-states-progress-info';
 import { cx } from 'src/lib/cx';
@@ -200,6 +201,7 @@ const SyncConnectedSitesList = ( { selectedSite }: SyncConnectedSitesListProps )
 	const { __ } = useI18n();
 	const { clearPullState, getPullState, getPushState, clearPushState, connectedSites } =
 		useSyncSites();
+	const { importState } = useImportExport();
 	const { isKeyPulling, isKeyPushing, isKeyFinished, isKeyFailed } = useSyncStatesProgressInfo();
 
 	return (
@@ -241,7 +243,10 @@ const SyncConnectedSitesList = ( { selectedSite }: SyncConnectedSitesListProps )
 						<div className="flex shrink-0 justify-self-end">
 							{ isPulling && (
 								<div className="flex flex-col gap-2 min-w-44">
-									<div className="a8c-body-small">{ sitePullState.status.message }</div>
+									<div className="a8c-body-small">
+										{ importState[ connectedSite.localSiteId ]?.statusMessage ||
+											sitePullState.status.message }
+									</div>
 									<ProgressBar value={ sitePullState.status.progress } maxValue={ 100 } />
 								</div>
 							) }

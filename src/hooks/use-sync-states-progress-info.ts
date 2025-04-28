@@ -17,19 +17,24 @@ export type PullStateProgressInfoValues = Record<
 	PullStateProgressInfo
 >;
 
+export const IN_PROGRESS_INITIAL_VALUE = 30;
+const DOWNLOADING_INITIAL_VALUE = 60;
+export const IN_PROGRESS_TO_DOWNLOADING_STEP =
+	DOWNLOADING_INITIAL_VALUE - IN_PROGRESS_INITIAL_VALUE;
+
 export function useSyncStatesProgressInfo() {
 	const { __ } = useI18n();
 	const pullStatesProgressInfo = useMemo( () => {
 		return {
 			'in-progress': {
 				key: 'in-progress',
-				progress: 30,
+				progress: IN_PROGRESS_INITIAL_VALUE,
 				message: __( 'Initializing backup…' ),
 			},
 			downloading: {
 				// On backend this key is called backup 'finished'
 				key: 'downloading',
-				progress: 60,
+				progress: DOWNLOADING_INITIAL_VALUE,
 				message: __( 'Downloading backup…' ),
 			},
 			importing: {

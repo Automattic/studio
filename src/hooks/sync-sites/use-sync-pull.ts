@@ -14,6 +14,8 @@ import { useAuth } from 'src/hooks/use-auth';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import {
+	IN_PROGRESS_INITIAL_VALUE,
+	IN_PROGRESS_TO_DOWNLOADING_STEP,
 	PullStateProgressInfo,
 	PullStateProgressInfoValues,
 	useSyncStatesProgressInfo,
@@ -357,7 +359,8 @@ function getBackupStatusWithProgress(
 	let newProgressInfo: PullStateProgressInfo | null = null;
 	if ( response.status === 'in-progress' ) {
 		newProgressInfo = pullStatesProgressInfo[ frontendStatus ];
-		newProgressInfo.progress = response.percent;
+		newProgressInfo.progress =
+			IN_PROGRESS_INITIAL_VALUE + IN_PROGRESS_TO_DOWNLOADING_STEP * ( response.percent / 100 );
 	}
 	const statusWithProgress =
 		newProgressInfo || pullStatesProgressInfo[ frontendStatus ] || pullStatesProgressInfo.failed;

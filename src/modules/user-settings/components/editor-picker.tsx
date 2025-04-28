@@ -47,6 +47,7 @@ export const EditorPicker = ( { value, onChange }: EditorPickerProps ) => {
 				__nextHasNoMarginBottom
 				__next40pxDefaultSize
 			>
+				{ value === '' && <option value={ '' }>{ __( 'Select' ) }</option> }
 				{ installedEditors.map( ( [ editorKey, editorConfig ] ) => (
 					<option key={ editorKey } value={ editorKey }>
 						{ editorConfig.label }

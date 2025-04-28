@@ -6,7 +6,7 @@ import { SupportedEditor, supportedEditorConfig } from 'src/modules/user-setting
 import { SettingsFormField } from './settings-form-field';
 
 interface EditorPickerProps {
-	value: SupportedEditor;
+	value: SupportedEditor | string;
 	onChange: ( value: SupportedEditor ) => void;
 }
 

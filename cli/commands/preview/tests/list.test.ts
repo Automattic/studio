@@ -58,14 +58,14 @@ describe( 'Preview List Command', () => {
 
 	it( 'should list preview sites successfully', async () => {
 		const { runCommand } = await import( '../list' );
-		await runCommand( mockFolder );
+		await runCommand( mockFolder, 'table' );
 
 		expect( validateSiteFolder ).toHaveBeenCalledWith( mockFolder );
 		expect( getSnapshotsFromAppdata ).toHaveBeenCalledWith( mockAuthToken.id, mockFolder );
 		expect( mockLogger.reportStart.mock.calls[ 0 ] ).toEqual( [ 'validate', 'Validating...' ] );
 		expect( mockLogger.reportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Validation successful' ] );
 		expect( mockLogger.reportStart.mock.calls[ 1 ] ).toEqual( [ 'load', 'Loading previews...' ] );
-		expect( mockLogger.reportSuccess.mock.calls[ 1 ] ).toEqual( [ 'Found 2 previews' ] );
+		expect( mockLogger.reportSuccess.mock.calls[ 1 ] ).toEqual( [ 'Found 2 preview sites' ] );
 	} );
 
 	it( 'should handle validation errors', async () => {
@@ -74,7 +74,7 @@ describe( 'Preview List Command', () => {
 			throw new Error( 'Invalid site folder' );
 		} );
 
-		await runCommand( mockFolder );
+		await runCommand( mockFolder, 'table' );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 	} );
@@ -83,7 +83,7 @@ describe( 'Preview List Command', () => {
 		const { runCommand } = await import( '../list' );
 		( getSnapshotsFromAppdata as jest.Mock ).mockResolvedValue( [] );
 
-		await runCommand( mockFolder );
+		await runCommand( mockFolder, 'table' );
 
 		expect( mockLogger.reportStart.mock.calls[ 0 ] ).toEqual( [ 'validate', 'Validating...' ] );
 		expect( mockLogger.reportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Validation successful' ] );

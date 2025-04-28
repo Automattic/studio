@@ -79,7 +79,7 @@ export const registerCommand = ( yargs: Argv< GlobalOptions > ) => {
 				.positional( 'folder', {
 					type: 'string',
 					default: process.cwd(),
-					description: __( 'The folder to update the preview from' ),
+					description: __( 'The folder to update the preview site from' ),
 				} )
 				.option( 'host', {
 					alias: 'H',

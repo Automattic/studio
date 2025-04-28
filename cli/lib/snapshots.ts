@@ -188,3 +188,12 @@ export function getSnapshotCliTable( snapshots: Snapshot[] ) {
 
 	return table;
 }
+
+export function getSnapshotCliJson( snapshots: Snapshot[] ) {
+	return snapshots.map( ( snapshot ) => ( {
+		url: `https://${ snapshot.url }`,
+		name: snapshot.name,
+		date: format( snapshot.date, 'yyyy-MM-dd HH:mm' ),
+		expiresIn: formatDurationUntilExpiry( snapshot.date ),
+	} ) );
+}

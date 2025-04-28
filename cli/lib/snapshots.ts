@@ -166,6 +166,7 @@ export function getSnapshotCliTable( snapshots: Snapshot[] ) {
 	const table = new Table( {
 		head: [ __( 'URL' ), __( 'Site Name' ), __( 'Updated' ), __( 'Expires in' ) ],
 		wordWrap: true,
+		wrapOnWordBoundary: false,
 		colWidths,
 		style: {
 			head: [],
@@ -175,9 +176,10 @@ export function getSnapshotCliTable( snapshots: Snapshot[] ) {
 
 	snapshots.forEach( ( snapshot ) => {
 		const durationUntilExpiry = formatDurationUntilExpiry( snapshot.date );
+		const url = `https://${ snapshot.url }`;
 
 		table.push( [
-			`https://${ snapshot.url }`,
+			{ href: url, content: url },
 			snapshot.name,
 			format( snapshot.date, 'yyyy-MM-dd HH:mm' ),
 			durationUntilExpiry,

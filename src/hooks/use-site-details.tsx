@@ -281,7 +281,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					getIpcApi().showErrorMessageBox( {
 						title: __( 'Studio failed to initialize custom domains' ),
 						message: __(
-							'Studio needs to use port 80 and 443 to enable custom domains and SSL, but one of both of these ports are already in use by another app. Close any local development apps and restart Studio.'
+							'Studio needs to use port 80 and 443 to enable custom domains and SSL, but one of these ports are already in use by another app. Close any local development apps and restart Studio.'
 						),
 						showOpenLogs: false,
 					} );

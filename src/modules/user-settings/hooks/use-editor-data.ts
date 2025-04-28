@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
+import { DEFAULT_EDITOR } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { DEFAULT_EDITOR, SupportedEditor } from 'src/modules/user-settings/lib/editor';
+import { SupportedEditor } from 'src/modules/user-settings/lib/editor';
 
 export function useEditorData() {
 	const [ editor, setEditor ] = useState< SupportedEditor >( DEFAULT_EDITOR );

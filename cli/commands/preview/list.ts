@@ -32,7 +32,10 @@ export async function runCommand(
 		}
 
 		logger.reportSuccess(
-			sprintf( _n( 'Found %d preview', 'Found %d previews', snapshots.length ), snapshots.length )
+			sprintf(
+				_n( 'Found %d preview site', 'Found %d preview sites', snapshots.length ),
+				snapshots.length
+			)
 		);
 
 		if ( format === 'table' ) {

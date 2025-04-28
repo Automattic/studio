@@ -47,6 +47,8 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 		? `${ selectedSite.customDomain }`
 		: `localhost:${ selectedSite.port }`;
 	const protocol = selectedSite.customDomain && selectedSite.enableHttps ? 'https' : 'http';
+	const { emailSettings } = selectedSite;
+
 	return (
 		<div className="p-8 ltr:pr-0 rtl:pl-0">
 			<div className="flex justify-between items-center mb-4">
@@ -180,9 +182,13 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 										a: (
 											<a
 												className="text-a8c-gray-50 underline"
-												href="https://ethereal.email/login"
+												href="`${ emailSettings?.web }/login }`"
 												target="_blank"
 												rel="noreferrer"
+												onClick={ ( e ) => {
+													e.preventDefault();
+													getIpcApi().openURL( `${ emailSettings?.web }/login` );
+												} }
 											/>
 										),
 										arrow: <ArrowIcon />,
@@ -192,22 +198,38 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 						</div>
 					</SettingsRow>
 					{ /* @TODO all this should come from the createTransport response in the email server */ }
-					<SettingsRow label={ __( 'Host' ) }>smtp.ethereal.email</SettingsRow>
-					<SettingsRow label={ __( 'Port' ) }>587</SettingsRow>
+					<SettingsRow label={ __( 'Host' ) }>
+						<CopyTextButton
+							copyConfirmation={ __( 'Copied!' ) }
+							label={ __( 'Copy test SMTP host to clipboard' ) }
+							text={ emailSettings?.smtp?.host || '' }
+						>
+							{ emailSettings?.smtp?.host }
+						</CopyTextButton>
+					</SettingsRow>
+					<SettingsRow label={ __( 'Port' ) }>
+						<CopyTextButton
+							copyConfirmation={ __( 'Copied!' ) }
+							label={ __( 'Copy test SMTP port to clipboard' ) }
+							text={ emailSettings?.smtp?.port?.toString() || '' }
+						>
+							{ emailSettings?.smtp?.port }
+						</CopyTextButton>
+					</SettingsRow>
 					<SettingsRow label={ __( 'Account' ) }>
 						<CopyTextButton
 							copyConfirmation={ __( 'Copied!' ) }
 							label={ __( 'Copy test account password to clipboard' ) }
-							text={ password || '' }
+							text={ emailSettings?.user || '' }
 						>
-							zfx2oups3ynlu2pk@ethereal.email
+							{ emailSettings?.user }
 						</CopyTextButton>
 					</SettingsRow>
 					<SettingsRow label={ __( 'Admin URL' ) }>
 						<CopyTextButton
 							copyConfirmation={ __( 'Copied!' ) }
 							label={ __( 'Copy test account password to clipboard' ) }
-							text={ password || '' }
+							text={ emailSettings?.pass || '' }
 						>
 							************
 						</CopyTextButton>

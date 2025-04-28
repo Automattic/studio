@@ -59,9 +59,9 @@ import { SiteServer, createSiteWorkingDirectory } from 'src/site-server';
 import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from 'src/storage/paths';
 import { loadUserData, saveUserData } from 'src/storage/user-data';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
+import { EmailServer, EmailSettings } from 'vendor/wp-now/src/email-server';
 import { SupportedEditor } from './modules/user-settings/lib/editor';
 import { SupportedTerminal, DEFAULT_TERMINAL } from './modules/user-settings/lib/terminal';
-import { emailServer } from './lib/email-server';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
 
@@ -94,13 +94,20 @@ function mergeSiteDetailsWithRunningDetails( sites: SiteDetails[] ): SiteDetails
 
 export async function getSiteDetails( _event: IpcMainInvokeEvent ): Promise< SiteDetails[] > {
 	const userData = await loadUserData();
-
 	const { sites } = userData;
 
 	// Ensure we have an instance of a server for each site we know about
 	for ( const site of sites ) {
 		if ( ! SiteServer.get( site.id ) && ! site.running ) {
 			SiteServer.create( site );
+		}
+
+		// @TODO: abstract.
+		// @TODO: probably doesn't need to be a class instance.
+		if ( SiteServer.get( site.id ) && ! site.emailSettings ) {
+			const emailServer = new EmailServer();
+			await emailServer.initialize();
+			site.emailSettings = emailServer.settings;
 		}
 	}
 
@@ -184,6 +191,12 @@ export async function createSite(
 
 	const port = await portFinder.getOpenPort();
 
+	// @TODO: abstract.
+	// @TODO: probably doesn't need to be a class instance.
+	const emailServer = new EmailServer();
+	await emailServer.initialize();
+	const emailSettings = emailServer.settings;
+
 	const details = {
 		id: crypto.randomUUID(),
 		name: siteName || nodePath.basename( path ),
@@ -195,6 +208,7 @@ export async function createSite(
 		isWpAutoUpdating: wpVersion === DEFAULT_WORDPRESS_VERSION,
 		customDomain,
 		enableHttps,
+		emailSettings,
 	} as const;
 
 	const server = SiteServer.create( details, { wpVersion } );
@@ -1340,12 +1354,3 @@ export async function deleteSnapshot(
 	return executePreviewCliCommand( [ 'preview', 'delete', hostname ], parentWindow );
 }
 
-export async function startEmailServer(): Promise< void > {
-	const port = await emailServer.start();
-	console.log( `Email server started on port ${ port }` );
-}
-
-export async function stopEmailServer(): Promise< void > {
-	await emailServer.stop();
-	console.log( 'Email server stopped' );
-}

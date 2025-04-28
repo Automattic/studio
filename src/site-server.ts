@@ -166,6 +166,12 @@ export class SiteServer {
 		options.absoluteUrl = getAbsoluteUrl( this.details );
 		options.siteLanguage = await getPreferredSiteLanguage( options.wordPressVersion );
 
+		options.emailUsername = this.details.emailSettings?.user;
+		options.emailPassword = this.details.emailSettings?.pass;
+		options.emailHost = this.details.emailSettings?.smtp.host;
+		options.emailPort = this.details.emailSettings?.smtp.port;
+		options.emailSecure = this.details.emailSettings?.smtp.secure;
+
 		if ( options.mode !== WPNowMode.WORDPRESS ) {
 			throw new Error(
 				`Site server started with Playground's '${ options.mode }' mode. Studio only supports 'wordpress' mode.`
@@ -178,8 +184,7 @@ export class SiteServer {
 				`Port ${ this.details.port } is not available. error code: ERROR_PORT_IN_USE`
 			);
 		}
-
-		console.log( `Starting server for '${ this.details.name }'` );
+		console.log( '>>>>>>>>>>>>>>>>>>!!!! this.details', this.details );
 		this.server = new SiteServerProcess( options );
 		await this.server.start();
 

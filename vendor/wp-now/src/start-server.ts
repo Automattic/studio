@@ -1,14 +1,14 @@
 import fs from 'fs';
-import { WPNowOptions } from './config';
-import { HTTPMethod } from '@php-wasm/universal';
-import express from 'express';
-import compression from 'compression';
+import { HTTPMethod, PHP } from '@php-wasm/universal';
 import compressible from 'compressible';
-import { portFinder } from './port-finder';
-import { PHP } from '@php-wasm/universal';
-import startWPNow from './wp-now';
-import { output } from './output';
+import compression from 'compression';
+import express from 'express';
 import { addTrailingSlash } from './add-trailing-slash';
+import { WPNowOptions } from './config';
+import { EmailServer } from './email-server';
+import { output } from './output';
+import { portFinder } from './port-finder';
+import startWPNow from './wp-now';
 
 const requestBodyToBytes = async ( req ): Promise< Uint8Array > =>
 	await new Promise( ( resolve ) => {
@@ -38,7 +38,7 @@ export async function startServer( options: WPNowOptions = {} ): Promise< WPNowS
 	if ( ! fs.existsSync( options.projectPath ) ) {
 		throw new Error( `The given path "${ options.projectPath }" does not exist.` );
 	}
-
+	console.log( '>>>>>>>>>>>>>>>>>> Starting server with options', options );
 	const app = express();
 	app.use( compression( { filter: shouldCompress } ) );
 	app.use( addTrailingSlash( '/wp-admin' ) );
@@ -71,6 +71,13 @@ export async function startServer( options: WPNowOptions = {} ): Promise< WPNowS
 			return res.redirect( redirectUrl );
 		}
 		next();
+	} );
+
+	// Email server route handler.
+	await EmailServer.registerRoutes( app, {
+		user: options.emailUsername,
+		pass: options.emailPassword,
+		smtp: { host: options.emailHost, port: options.emailPort, secure: options.emailSecure },
 	} );
 
 	// Handle requests

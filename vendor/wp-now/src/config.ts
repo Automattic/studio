@@ -1,16 +1,15 @@
-import { SupportedPHPVersion, SupportedPHPVersionsList } from '@php-wasm/universal';
 import crypto from 'crypto';
-import fs from 'fs-extra';
 import path from 'path';
+import { SupportedPHPVersion, SupportedPHPVersionsList } from '@php-wasm/universal';
 import { Blueprint } from '@wp-playground/blueprints';
-import { getCodeSpaceURL, isGitHubCodespace } from './github-codespaces';
-import { inferMode } from './wp-now';
-import { portFinder } from './port-finder';
-import { isValidWordPressVersion } from './wp-playground-wordpress';
-import getWpNowPath from './get-wp-now-path';
-import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from './constants';
+import fs from 'fs-extra';
 import { isWordPressDevVersion } from 'src/lib/wordpress-version-utils';
-
+import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from './constants';
+import getWpNowPath from './get-wp-now-path';
+import { getCodeSpaceURL, isGitHubCodespace } from './github-codespaces';
+import { portFinder } from './port-finder';
+import { inferMode } from './wp-now';
+import { isValidWordPressVersion } from './wp-playground-wordpress';
 export interface CliOptions {
 	php?: string;
 	path?: string;
@@ -52,6 +51,11 @@ export interface WPNowOptions {
 	adminPassword?: string;
 	siteTitle?: string;
 	siteLanguage?: string;
+	emailUsername?: string;
+	emailPassword?: string;
+	emailHost?: string;
+	emailPort?: number;
+	emailSecure?: boolean;
 }
 
 export const DEFAULT_OPTIONS: WPNowOptions = {
@@ -75,8 +79,8 @@ export interface WPEnvOptions {
 	themes: string[];
 	port: number;
 	testsPort: number;
-	config: Object;
-	mappings: Object;
+	config: object;
+	mappings: object;
 }
 
 let absoluteUrlFromBlueprint = '';

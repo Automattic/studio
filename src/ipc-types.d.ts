@@ -10,7 +10,6 @@ declare const COMMIT_HASH: string | undefined;
 interface ShowNotificationOptions extends Electron.NotificationConstructorOptions {
 	showIcon: boolean;
 }
-
 interface StoppedSiteDetails {
 	running: false;
 
@@ -35,6 +34,7 @@ interface StoppedSiteDetails {
 	};
 	isAddingSite?: boolean;
 	autoStart?: boolean;
+	emailSettings?: EmailSettings;
 }
 
 interface StartedSiteDetails extends StoppedSiteDetails {

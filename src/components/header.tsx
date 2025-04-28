@@ -17,9 +17,6 @@ export default function Header() {
 			await startServer( site.id );
 		}
 
-		// TEST ONLY: start Email server if not running.
-		getIpcApi().startEmailServer();
-
 		getIpcApi().openSiteURL( site.id, '/wp-admin' );
 	};
 

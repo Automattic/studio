@@ -32,6 +32,7 @@ import {
 	PLAYGROUND_INTERNAL_SHARED_FOLDER,
 	SQLITE_FILENAME,
 	SQLITE_PLUGIN_FOLDER,
+	DEFAULT_EMAIL_SERVER_ROUTE,
 } from './constants';
 import { downloadWordPress, removeDownloadedMuPlugins } from './download';
 import getSqlitePath from './get-sqlite-path';
@@ -628,7 +629,9 @@ async function mountInternalMuPlugins( php: PHP, options: WPNowOptions ) {
 		path.posix.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-wp-mail.php' ),
 		`<?php
 			add_filter( 'wp_mail', function( $args ) {
-				$response = wp_remote_post( 'http://localhost:7777/email', array(
+				$host             = get_site_url(null, '', 'http');
+				$email_server_url = $host . '/${ DEFAULT_EMAIL_SERVER_ROUTE }';
+				$response         = wp_remote_post( $email_server_url, array(
 					'headers'       => array(
           				'Content-Type'  => 'application/json',
         			),

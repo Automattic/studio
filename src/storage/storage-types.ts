@@ -1,6 +1,7 @@
 import { Snapshot } from 'common/types/snapshot';
 import { StoredToken } from 'src/lib/oauth';
 import { SupportedEditor } from 'src/modules/user-settings/lib/editor';
+import { EmailSettings } from 'vendor/wp-now/src/email-server';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 export interface UserData {
@@ -21,6 +22,7 @@ export interface UserData {
 	lastSeenVersion?: string;
 	supportedTerminal?: SupportedTerminal;
 	preferredEditor?: SupportedEditor;
+	emailSettings?: EmailSettings;
 }
 
 export interface PersistedUserData extends Omit< UserData, 'sites' > {

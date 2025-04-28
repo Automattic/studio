@@ -38,6 +38,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		'wp-content/mu-plugins/0-wp-config-constants-polyfill.php',
 		'wp-content/mu-plugins/0-sqlite.php',
 		'wp-content/mu-plugins/0-thumbnails.php',
+		'wp-content/mu-plugins/0-wp-mail.php',
 	];
 
 	constructor( options: ExportOptions ) {

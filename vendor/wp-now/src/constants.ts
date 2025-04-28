@@ -58,3 +58,8 @@ export const DEFAULT_WORDPRESS_VERSION = 'latest';
  */
 export const WP_CLI_URL =
 	'https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar';
+
+/**
+ * The default route for the email server.
+ */
+export const DEFAULT_EMAIL_SERVER_ROUTE = 'wp-studio-email-server';

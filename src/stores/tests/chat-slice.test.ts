@@ -91,11 +91,6 @@ describe( 'chat-slice', () => {
 				chatApiId: 123,
 				messageApiId: 42,
 			} );
-
-			expect( state.chat.promptUsage ).toEqual( {
-				maxQuota: '100',
-				remainingQuota: '99',
-			} );
 		} );
 
 		it( 'should update failed message when retrying', async () => {
@@ -136,11 +131,6 @@ describe( 'chat-slice', () => {
 				role: 'assistant',
 				chatApiId: 123,
 				messageApiId: 42,
-			} );
-
-			expect( state.chat.promptUsage ).toEqual( {
-				maxQuota: '100',
-				remainingQuota: '99',
 			} );
 		} );
 

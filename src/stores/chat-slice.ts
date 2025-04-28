@@ -4,7 +4,8 @@ import WPCOM from 'wpcom';
 import { z } from 'zod';
 import { LOCAL_STORAGE_CHAT_API_IDS_KEY, LOCAL_STORAGE_CHAT_MESSAGES_KEY } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { RootState } from 'src/stores';
+import { AppDispatch, RootState } from 'src/stores';
+import { assistantQuotaSchema, wpcomApi } from 'src/stores/wpcom-api';
 import { DEFAULT_PHP_VERSION } from 'vendor/wp-now/src/constants';
 
 export type Message = {
@@ -101,8 +102,9 @@ const assistantResponseSchema = z.object( {
 } );
 
 const assistantHeadersSchema = z.object( {
-	'x-quota-max': z.string().default( '' ),
-	'x-quota-remaining': z.string().default( '' ),
+	'x-quota-max': z.coerce.number(),
+	'x-quota-remaining': z.coerce.number(),
+	'x-quota-reset': z.string().datetime( { offset: true } ),
 } );
 
 type FetchAssistantResponseData = z.infer< typeof assistantResponseSchema >;
@@ -116,7 +118,12 @@ type FetchAssistantParams = {
 	siteId: string;
 };
 
-const fetchAssistant = createAsyncThunk(
+const createFetchAssistantThunk = createAsyncThunk.withTypes< {
+	state: RootState;
+	dispatch: AppDispatch;
+} >();
+
+const fetchAssistant = createFetchAssistantThunk(
 	'chat/fetchAssistant',
 	async ( { client, instanceId, siteId }: FetchAssistantParams, thunkAPI ) => {
 		const state = thunkAPI.getState() as RootState;
@@ -168,6 +175,17 @@ const fetchAssistant = createAsyncThunk(
 				}
 			);
 		} );
+
+		thunkAPI.dispatch(
+			wpcomApi.util.updateQueryData( 'getAssistantQuota', undefined, () => {
+				return assistantQuotaSchema.parse( {
+					max_quota: headers[ 'x-quota-max' ],
+					remaining_quota: headers[ 'x-quota-remaining' ],
+					quota_reset_date: headers[ 'x-quota-reset' ],
+				} );
+			} )
+		);
+		thunkAPI.dispatch( wpcomApi.util.invalidateTags( [ 'AssistantQuota' ] ) );
 
 		return {
 			chatApiId: data.id,
@@ -225,10 +243,6 @@ export interface ChatState {
 	chatApiIdDict: { [ key: string ]: number | undefined };
 	chatInputBySite: { [ key: string ]: string };
 	isLoadingDict: Record< string, boolean >;
-	promptUsage: {
-		maxQuota: string;
-		remainingQuota: string;
-	};
 }
 
 const getInitialState = (): ChatState => {
@@ -262,10 +276,6 @@ const getInitialState = (): ChatState => {
 		chatApiIdDict: parsedStoredChatIds,
 		chatInputBySite: {},
 		isLoadingDict: {},
-		promptUsage: {
-			maxQuota: '',
-			remainingQuota: '',
-		},
 	};
 };
 
@@ -419,11 +429,6 @@ const chatSlice = createSlice( {
 				if ( message.chatApiId ) {
 					state.chatApiIdDict[ instanceId ] = message.chatApiId;
 				}
-
-				state.promptUsage = {
-					maxQuota: action.payload.maxQuota,
-					remainingQuota: action.payload.remainingQuota,
-				};
 			} )
 			.addCase( sendFeedback.pending, ( state, action ) => {
 				const { instanceId, messageApiId } = action.meta.arg;

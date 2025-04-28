@@ -4,7 +4,6 @@ import { createSecureContext } from 'node:tls';
 import { domainToASCII } from 'node:url';
 import * as Sentry from '@sentry/electron/main';
 import httpProxy from 'http-proxy';
-import { isErrnoException } from 'src/lib/is-errno-exception';
 import { portFinder } from 'src/lib/port-finder';
 import { SiteServer } from 'src/site-server';
 import { loadUserData } from 'src/storage/user-data';

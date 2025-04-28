@@ -102,15 +102,11 @@ async function handleProxyRequest(
  * On Windows, node doesn't throw an error if port is busy, so we use portFinder to check
  * if the port is available.
  */
-export async function checkPortInWindows( port: number ): Promise< boolean > {
-	if ( process.platform !== 'win32' ) {
-		return true;
-	}
-
+export async function checkIfPortIsFree( port: number ): Promise< boolean > {
 	const portAvailable = await portFinder.isPortAvailable( port );
 
 	if ( ! portAvailable ) {
-		throw new Error( 'EADDRINUSE' );
+		throw new Error( 'PROXY_ERROR_PORT_IN_USE' );
 	}
 
 	return portAvailable;
@@ -124,7 +120,7 @@ export async function startProxyServer(): Promise< boolean > {
 	try {
 		// Start HTTP server if not already running
 		if ( ! isHttpProxyRunning ) {
-			await checkPortInWindows( 80 );
+			await checkIfPortIsFree( 80 );
 			httpProxyServer = http.createServer( ( req, res ) => handleProxyRequest( req, res, false ) );
 			await new Promise< void >( ( resolve, reject ) => {
 				httpProxyServer!
@@ -142,7 +138,7 @@ export async function startProxyServer(): Promise< boolean > {
 
 		// Start HTTPS server if not already running
 		if ( ! isHttpsProxyRunning ) {
-			await checkPortInWindows( 443 );
+			await checkIfPortIsFree( 443 );
 			const defaultOptions: https.ServerOptions = {
 				SNICallback: async ( servername, cb ) => {
 					try {
@@ -195,10 +191,7 @@ export async function startProxyServer(): Promise< boolean > {
 
 		return true;
 	} catch ( error ) {
-		if (
-			( isErrnoException( error ) && error.code === 'EADDRINUSE' ) ||
-			( error instanceof Error && error.message === 'EADDRINUSE' )
-		) {
+		if ( error instanceof Error && error.message === 'PROXY_ERROR_PORT_IN_USE' ) {
 			throw new Error( 'PROXY_ERROR_PORT_IN_USE' );
 		}
 

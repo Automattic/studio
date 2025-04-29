@@ -17,10 +17,10 @@ import lockfile from 'lockfile';
 import {
 	getAppdataDirectory,
 	getAuthToken,
-	getNewSitePartial,
 	getSiteByFolder,
 	readAppdata,
 	saveAppdata,
+	getOrCreateSiteByFolder,
 } from 'cli/lib/appdata';
 import { LoggerError } from 'cli/logger';
 
@@ -70,8 +70,11 @@ export async function getSnapshotsFromAppdata(
 	return snapshots;
 }
 
-export async function updateSnapshotDateInAppdata( atomicSiteId: number ): Promise< Snapshot > {
-	const userData = await readAppdata();
+export async function updateSnapshotInAppdata(
+	atomicSiteId: number,
+	siteFolder: string
+): Promise< Snapshot > {
+	const { site, userData } = await getOrCreateSiteByFolder( siteFolder );
 	if ( ! userData.snapshots ) {
 		userData.snapshots = [];
 	}
@@ -81,6 +84,7 @@ export async function updateSnapshotDateInAppdata( atomicSiteId: number ): Promi
 		throw new LoggerError( __( 'Failed to find existing preview site in appdata' ) );
 	}
 
+	snapshot.localSiteId = site.id;
 	snapshot.date = Date.now();
 	await saveAppdata( userData );
 
@@ -106,21 +110,8 @@ export async function saveSnapshotToAppdata(
 	atomicSiteId: number,
 	previewUrl: string
 ): Promise< Snapshot > {
-	const userData = await readAppdata();
+	const { site, userData } = await getOrCreateSiteByFolder( siteFolder );
 	const authToken = await getAuthToken();
-	let site;
-	try {
-		site = await getSiteByFolder( siteFolder );
-	} catch ( error ) {
-		if ( ! ( error instanceof LoggerError ) ) {
-			throw error;
-		}
-		site = getNewSitePartial( siteFolder );
-		if ( ! userData.newSites ) {
-			userData.newSites = [];
-		}
-		userData.newSites.push( site );
-	}
 
 	if ( ! userData.snapshots ) {
 		userData.snapshots = [];

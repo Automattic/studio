@@ -7,7 +7,7 @@ import { addDays } from 'date-fns';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
 import { cleanup, createArchive } from 'cli/lib/archive';
-import { getSnapshotsFromAppdata, updateSnapshotDateInAppdata } from 'cli/lib/snapshots';
+import { getSnapshotsFromAppdata, updateSnapshotInAppdata } from 'cli/lib/snapshots';
 import { normalizeHostname } from 'cli/lib/utils';
 import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
@@ -57,7 +57,7 @@ export async function runCommand( siteFolder: string, host: string ): Promise< v
 		);
 
 		logger.reportStart( LoggerAction.APPDATA, __( 'Saving preview site to Studio...' ) );
-		const snapshot = await updateSnapshotDateInAppdata( uploadResponse.site_id );
+		const snapshot = await updateSnapshotInAppdata( uploadResponse.site_id, siteFolder );
 		logger.reportSuccess( __( 'Preview site saved to Studio' ) );
 
 		logger.reportKeyValuePair( 'name', snapshot.name );

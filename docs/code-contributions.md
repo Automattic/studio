@@ -206,3 +206,4 @@ See [Versioning and Updates](./versioning-and-updates.md) documentation.
 
  - [Custom Domains and SSL](./design-docs/custom-domains-and-ssl.md)
  - [What's New modal](./design-docs/whats-new-modal.md)
+ - [Sync](./design-docs/sync.md)

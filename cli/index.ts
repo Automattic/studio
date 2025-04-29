@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { __ } from '@wordpress/i18n';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
 import yargs from 'yargs';
@@ -31,6 +32,13 @@ async function main() {
 		.option( 'avoid-telemetry', {
 			type: 'boolean',
 			hidden: true,
+		} )
+		.option( 'path', {
+			type: 'string',
+			default: process.cwd(),
+			defaultDescription: __( 'Current directory' ),
+			description: __( 'Path to the WordPress files' ),
+			coerce: ( value ) => path.resolve( process.cwd(), value ),
 		} )
 		.middleware( async ( argv ) => {
 			if ( ! argv.avoidTelemetry ) {

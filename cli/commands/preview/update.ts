@@ -72,25 +72,18 @@ export async function runCommand(
 
 export const registerCommand = ( yargs: Argv< GlobalOptions > ) => {
 	return yargs.command( {
-		command: 'update [folder]',
-		describe: __( 'Update preview site for the specified folder (defaults to current directory)' ),
-		builder: ( yargs: Argv< GlobalOptions > ) => {
-			return yargs
-				.positional( 'folder', {
-					type: 'string',
-					default: process.cwd(),
-					description: __( 'The folder to update the preview site from' ),
-				} )
-				.option( 'host', {
-					alias: 'H',
-					type: 'string',
-					demandOption: true,
-					description: __( 'Host of the preview site to update' ),
-				} );
+		command: 'update <host>',
+		describe: __( 'Update preview site' ),
+		builder: ( yargs ) => {
+			return yargs.positional( 'host', {
+				type: 'string',
+				description: __( 'Hostname of the preview site to update' ),
+				demandOption: true,
+			} );
 		},
 		handler: async ( argv ) => {
 			const normalizedHost = normalizeHostname( argv.host );
-			await runCommand( argv.folder, normalizedHost, argv.outputFormat );
+			await runCommand( argv.path, normalizedHost, argv.outputFormat );
 		},
 	} );
 };

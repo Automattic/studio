@@ -30,9 +30,9 @@ The first iteration of the CLI shipped commands to create, read, update, and del
     - The renderer process uses "logger action" definitions from the `common` folder to determine command progress based on incoming IPC events.
 
 3. Studio reacts when the CLI modifies preview sites:
-    - `src/lib/user-data-watcher.ts` watches the `appdata-v1.json` file and emits `user-data-updated` IPC renderer events.
+    - `src/lib/user-data-watcher.ts` watches the Studio config file and emits `user-data-updated` IPC renderer events.
     - State handlers (primarily Redux slices) listen to `user-data-updated` events and update the state accordingly.
-    - Because state changes trigger writes to the `appdata-v1.json` file, event handlers have to first run a deep diff on the incoming payload to ensure that the data has truly changed. Without this, there'd be infinite watch/write loops.
+    - Because state changes trigger writes to the Studio config file, event handlers have to first run a deep diff on the incoming payload to ensure that the data has truly changed. Without this, there'd be infinite watch/write loops.
 
 ## Implementation details
 

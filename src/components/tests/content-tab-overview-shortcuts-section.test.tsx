@@ -207,7 +207,7 @@ describe( 'ShortcutsSection', () => {
 		expect( queryByLabelText( 'VS Code' ) ).toBeNull();
 	} );
 
-	it( 'shows users preffered editor', async () => {
+	it( 'shows users preferred editor', async () => {
 		// Mock the IPC API
 		mockGetIpcApi.mockReturnValue( {
 			openLocalPath: jest.fn(),

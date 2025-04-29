@@ -58,3 +58,9 @@ It will run the import process to extract the backup file and save the data in t
 When the user clicks "Push," Studio will create a Jetpack backup of the local site. Studio then uploads the file to the WPcom API and polls until the restore process is complete. The former site will be completely replaced by the new one.
 
 An email notification will be sent from the backend after the Push has finished.
+
+## Limitations
+
+Currently, Studio Sync does not support selective syncing of specific site elements, such as syncing only a single plugin, specific folder, or table. All sync operations involve the entire site, including the full database and wp-content files.
+
+The limit for Jetpack Backup when pushing is 2GB.

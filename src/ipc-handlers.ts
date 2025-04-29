@@ -556,9 +556,11 @@ export async function getUserLocale( _event: IpcMainInvokeEvent ): Promise< Supp
 	return getUserLocaleWithFallback();
 }
 
-export async function getUserEditor( _event: IpcMainInvokeEvent ): Promise< SupportedEditor > {
+export async function getUserEditor(
+	_event: IpcMainInvokeEvent
+): Promise< SupportedEditor | undefined > {
 	const userData = await loadUserData();
-	return userData.preferredEditor as SupportedEditor;
+	return userData.preferredEditor;
 }
 
 export function showUserSettings( event: IpcMainInvokeEvent ) {

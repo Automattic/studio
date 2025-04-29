@@ -26,7 +26,7 @@ import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useEditorData } from 'src/modules/user-settings/hooks/use-editor-data';
 import { useTerminalData } from 'src/modules/user-settings/hooks/use-terminal-data';
-import { SupportedEditor, supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
+import { supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
 import { supportedTerminalNames } from 'src/modules/user-settings/lib/terminal';
 
 interface ContentTabOverviewProps {
@@ -170,7 +170,7 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 		},
 	];
 
-	const editorConfig = editor ? supportedEditorConfig[ editor as SupportedEditor ] : false;
+	const editorConfig = editor ? supportedEditorConfig[ editor ] : false;
 	if ( editorConfig ) {
 		buttonsArray.push( {
 			label: editorConfig.label,

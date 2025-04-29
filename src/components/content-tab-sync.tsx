@@ -16,51 +16,42 @@ import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
-function SiteSyncDescription( {
-	children,
-	displayOnlyChildren = false,
-}: PropsWithChildren< { displayOnlyChildren: boolean } > ) {
+function SiteSyncDescription( { children }: PropsWithChildren ) {
 	const { __ } = useI18n();
 	const { pressableSyncEnabled } = useFeatureFlags();
 	return (
 		<div className="flex justify-between max-w-3xl gap-4">
 			<div className="flex flex-col p-8">
-				{ ! displayOnlyChildren && (
-					<>
-						<div className="flex items-center mb-1">
-							<div className="a8c-subtitle">{ __( 'Sync with' ) }</div>
-							<WordPressShortLogo className="ms-2 h-5" />
+				<div className="flex items-center mb-1">
+					<div className="a8c-subtitle">{ __( 'Sync with' ) }</div>
+					<WordPressShortLogo className="ms-2 h-5" />
+				</div>
+				<div className="max-w-[40ch] text-a8c-gray-70 a8c-body">
+					{ pressableSyncEnabled
+						? __(
+								'Connect your existing WordPress.com or Jetpack-activated Pressable sites, or create a new one. Then, share your work with the world.'
+						  )
+						: __(
+								'Connect an existing WordPress.com site, or create a new one and share your site with the world.'
+						  ) }
+				</div>
+				<div className="mt-6">
+					{ [
+						__( 'Push and pull changes from your live site.' ),
+						__( 'Supports staging and production sites.' ),
+						__( 'Sync database and file changes.' ),
+					].map( ( text ) => (
+						<div key={ text } className="text-a8c-gray-70 a8c-body flex items-center">
+							<Icon className="fill-a8c-blueberry me-2 shrink-0" icon={ check } />
+							{ text }
 						</div>
-						<div className="max-w-[40ch] text-a8c-gray-70 a8c-body">
-							{ pressableSyncEnabled
-								? __(
-										'Connect your existing WordPress.com or Jetpack-activated Pressable sites, or create a new one. Then, share your work with the world.'
-								  )
-								: __(
-										'Connect an existing WordPress.com site, or create a new one and share your site with the world.'
-								  ) }
-						</div>
-						<div className="mt-6">
-							{ [
-								__( 'Push and pull changes from your live site.' ),
-								__( 'Supports staging and production sites.' ),
-								__( 'Sync database and file changes.' ),
-							].map( ( text ) => (
-								<div key={ text } className="text-a8c-gray-70 a8c-body flex items-center">
-									<Icon className="fill-a8c-blueberry me-2 shrink-0" icon={ check } />
-									{ text }
-								</div>
-							) ) }
-						</div>
-					</>
-				) }
+					) ) }
+				</div>
 				{ children }
 			</div>
-			{ ! displayOnlyChildren && (
-				<div className="flex flex-col shrink-0 items-end p-4 rtl:order-first">
-					<SyncTabImage />
-				</div>
-			) }
+			<div className="flex flex-col shrink-0 items-end p-4 rtl:order-first">
+				<SyncTabImage />
+			</div>
 		</div>
 	);
 }
@@ -137,7 +128,6 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 		closeSyncSitesSelector,
 	} = useSyncSites();
 	const { isAuthenticated } = useAuth();
-
 	const { pressableSyncEnabled } = useFeatureFlags();
 
 	useEffect( () => {
@@ -163,19 +153,29 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 
 	return (
 		<div className="flex flex-col gap-4 h-full">
-			{ connectedSites.length > 0 && (
-				<SyncConnectedSites
-					connectedSites={ connectedSites }
-					selectedSite={ selectedSite }
-					openSitesSyncSelector={ ( options ) => setIsSyncSitesSelectorOpen( options || true ) }
-					disconnectSite={ ( id: number ) => disconnectSite( id ) }
-				/>
-			) }
-			{ ( pressableSyncEnabled || connectedSites.length === 0 ) && (
-				<SiteSyncDescription displayOnlyChildren={ pressableSyncEnabled }>
+			{ connectedSites.length > 0 ? (
+				<>
+					<SyncConnectedSites
+						connectedSites={ connectedSites }
+						selectedSite={ selectedSite }
+						openSitesSyncSelector={ ( options ) => setIsSyncSitesSelectorOpen( options || true ) }
+						disconnectSite={ ( id: number ) => disconnectSite( id ) }
+					/>
+					{ pressableSyncEnabled && (
+						<div className="flex justify-between max-w-3xl px-8 pt-4 pb-8">
+							<ConnectButton
+								variant="secondary"
+								connectSite={ () => setIsSyncSitesSelectorOpen( true ) }
+								disableConnectButtonStyle={ true }
+							/>
+						</div>
+					) }
+				</>
+			) : (
+				<SiteSyncDescription>
 					<div className="mt-8">
 						<ConnectButton
-							variant={ pressableSyncEnabled ? 'secondary' : 'primary' }
+							variant="primary"
 							connectSite={ () => setIsSyncSitesSelectorOpen( true ) }
 							disableConnectButtonStyle={ true }
 						/>

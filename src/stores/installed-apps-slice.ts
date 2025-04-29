@@ -1,39 +1,39 @@
-import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
+import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
 type InstalledAppsState = InstalledApps & InstalledTerminals;
 
-const initialState: InstalledAppsState = {
+// Default state where all apps are set to false
+const defaultInstalledAppsState: InstalledAppsState = {
 	vscode: false,
 	phpstorm: false,
 	webstorm: false,
 	windsurf: false,
 	cursor: false,
-	iterm: false,
 	terminal: false,
+	iterm: false,
+	ghostty: false,
+	warp: false,
 };
 
-export const fetchInstalledApps = createAsyncThunk(
-	'installedApps/fetchInstalledApps',
-	async () => {
-		const installedApps = await getIpcApi().getInstalledApps();
-		return installedApps;
-	}
-);
-
-const installedAppsSlice = createSlice( {
-	name: 'installedApps',
-	initialState,
-	reducers: {},
-	extraReducers: ( builder ) => {
-		builder.addCase( fetchInstalledApps.fulfilled, ( state, action ) => {
-			// Update the state with the fetched installed apps
-			Object.assign( state, action.payload );
-		} );
-	},
+export const installedAppsApi = createApi( {
+	reducerPath: 'installedAppsApi',
+	baseQuery: fetchBaseQuery(),
+	tagTypes: [ 'InstalledApps' ],
+	endpoints: ( builder ) => ( {
+		getInstalledApps: builder.query< InstalledAppsState, void >( {
+			queryFn: async () => {
+				try {
+					const installedApps = await getIpcApi().getInstalledApps();
+					return { data: installedApps as InstalledAppsState };
+				} catch ( error ) {
+					console.error( 'Failed to get installed apps:', error );
+					throw error;
+				}
+			},
+			providesTags: [ 'InstalledApps' ],
+		} ),
+	} ),
 } );
 
-export const installedAppsActions = installedAppsSlice.actions;
-export const reducer = installedAppsSlice.reducer;
-export const selectInstalledApps = ( state: { installedApps: InstalledApps } ) =>
-	state.installedApps;
+export const { useGetInstalledAppsQuery } = installedAppsApi;

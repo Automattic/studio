@@ -153,7 +153,7 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 	const updateEditorName = useCallback( async () => {
 		const editor = await getIpcApi().getUserEditor();
 
-		if ( editor && installedApps[ editor as keyof typeof installedApps ] ) {
+		if ( editor && installedApps && installedApps[ editor as keyof typeof installedApps ] ) {
 			setEditorName( editor );
 		} else {
 			setEditorName( '' );

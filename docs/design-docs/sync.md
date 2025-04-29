@@ -47,7 +47,7 @@ Users can connect multiple sites to Studio independently of their hosting provid
 
 ### Pull
 
-When the user clicks "Pull," we make a request to the WPcom API to start the Jetpack Backup process. We actively listen until the process is ready to download the backup file.
+When the user clicks "Pull," we make a request to the WPcom API to run a Jetpack Backup and generate a download link. We poll the API until the process is ready to download the backup file.
 
 Studio will download the backup file and save it on the local machine in a temporary folder.
 

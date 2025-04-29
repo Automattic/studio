@@ -40,7 +40,7 @@ Compatible sites:
 
 Only WPcom sites with a Business or eCommerce plan can be connected. If a site with the Business plan does not have hosting features enabled, we will ask the user to do so before using Studio sync feature. Additionally, Pressable sites with a valid Jetpack connection can also be connected to Studio.
 
-When connecting the WPcom production site, we will also automatically connect its staging site, if one exists.
+WordPress.com production and staging sites are grouped when users connect a production site, meaning they can easily sync with both sites from Studio.
 For Pressable sites, we cannot identify if a site is a production or staging.
 
 Users can connect multiple sites to Studio independently of their hosting provider.

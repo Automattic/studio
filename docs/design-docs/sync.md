@@ -29,9 +29,9 @@ The backup format is a tar.gz file that contains the site data. It follows the f
 
 ## High level implementation
 
-### Connection
+### Sync Connection
 
-Users need to connect a remote site to their local Studio site. When users click on "Connect site," a modal will open to select the remote site. The list of sites is fetched from the WPcom API at /me/sites and will include all their simple, atomic, and Jetpack sites.
+In order to sync, users must first connect a remote site to their local Studio site. When users click on "Connect site" in Studio, a modal will open to select the remote site. The list of sites is fetched from the WPcom API at `/me/sites` and will include all their simple, atomic, and Jetpack sites.
 
 Compatible sites:
 

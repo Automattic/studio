@@ -1,22 +1,16 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
-export interface InstalledApps {
-	vscode: boolean;
-	phpstorm: boolean;
-	webstorm: boolean;
-	windsurf: boolean;
-	cursor: boolean;
-	iterm: boolean;
-}
+type InstalledAppsState = InstalledApps & InstalledTerminals;
 
-const initialState: InstalledApps = {
+const initialState: InstalledAppsState = {
 	vscode: false,
 	phpstorm: false,
 	webstorm: false,
 	windsurf: false,
 	cursor: false,
 	iterm: false,
+	terminal: false,
 };
 
 export const fetchInstalledApps = createAsyncThunk(

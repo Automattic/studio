@@ -211,6 +211,8 @@ const SyncConnectedSitesList = ( { selectedSite }: SyncConnectedSitesListProps )
 				const isPulling = sitePullState && isKeyPulling( sitePullState.status.key );
 				const isPullError = sitePullState && isKeyFailed( sitePullState.status.key );
 				const hasPullFinished = sitePullState && isKeyFinished( sitePullState.status.key );
+				const sitePullStatusMessage =
+					importState[ connectedSite.localSiteId ]?.statusMessage || sitePullState?.status.message;
 
 				const pushState = getPushState( selectedSite.id, connectedSite.id );
 				const isPushing = pushState && isKeyPushing( pushState.status.key );
@@ -243,10 +245,7 @@ const SyncConnectedSitesList = ( { selectedSite }: SyncConnectedSitesListProps )
 						<div className="flex shrink-0 justify-self-end">
 							{ isPulling && (
 								<div className="flex flex-col gap-2 min-w-44">
-									<div className="a8c-body-small">
-										{ importState[ connectedSite.localSiteId ]?.statusMessage ||
-											sitePullState.status.message }
-									</div>
+									<div className="a8c-body-small">{ sitePullStatusMessage }</div>
 									<ProgressBar value={ sitePullState.status.progress } maxValue={ 100 } />
 								</div>
 							) }

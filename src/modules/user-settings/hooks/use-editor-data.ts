@@ -3,8 +3,8 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { SupportedEditor } from 'src/modules/user-settings/lib/editor';
 
 export function useEditorData() {
-	const [ editor, setEditor ] = useState< SupportedEditor | string >( '' );
-	const [ savedEditorValue, setSavedEditorValue ] = useState< SupportedEditor | string >( '' );
+	const [ editor, setEditor ] = useState< SupportedEditor | undefined >();
+	const [ savedEditorValue, setSavedEditorValue ] = useState< SupportedEditor | undefined >();
 
 	const getSavedEditor = async () => {
 		try {
@@ -24,9 +24,9 @@ export function useEditorData() {
 				return 'phpstorm';
 			}
 
-			return '';
+			return undefined;
 		} catch ( error ) {
-			return '';
+			return undefined;
 		}
 	};
 
@@ -39,12 +39,14 @@ export function useEditorData() {
 		void loadSavedEditor();
 	}, [] );
 
-	const handleEditorChange = ( newEditor: SupportedEditor | string ) => {
+	const handleEditorChange = ( newEditor: SupportedEditor | undefined ) => {
 		setEditor( newEditor );
 	};
 
 	const saveEditorPreference = async () => {
-		await getIpcApi().saveUserEditor( editor as SupportedEditor );
+		if ( editor ) {
+			await getIpcApi().saveUserEditor( editor );
+		}
 	};
 
 	const resetEditor = () => {

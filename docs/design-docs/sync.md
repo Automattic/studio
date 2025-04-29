@@ -22,10 +22,10 @@ WordPress Studio Sync enables developers to pull a live site down for local deve
 
 The backup format is a tar.gz file that contains the site data. It follows the format of the Jetpack Backup, which consists of:
 
-- wp-content folder
-- sql folder with a .sql file for each database table
-- wp-config.php file
-- meta.json file
+- `wp-content/` folder
+- `sql/` folder with a `.sql` file for each database table
+- `wp-config.php` file
+- `meta.json` file
 
 ## High level implementation
 
@@ -41,7 +41,7 @@ Compatible sites:
 Only WPcom sites with a Business or eCommerce plan can be connected. If a site with the Business plan does not have hosting features enabled, we will ask the user to do so before using Studio sync feature. Additionally, Pressable sites with a valid Jetpack connection can also be connected to Studio.
 
 WordPress.com production and staging sites are grouped when users connect a production site, meaning they can easily sync with both sites from Studio.
-For Pressable sites, we cannot identify if a site is a production or staging.
+For Pressable sites, we currently cannot identify if a site is a production or staging.
 
 Users can connect multiple sites to Studio independently of their hosting provider.
 

@@ -1,7 +1,10 @@
+import interpolateComponents from '@automattic/interpolate-components';
 import { Guide } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
+import { ReactNode } from 'react';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import cliIllustration from 'src/modules/whats-new/assets/cli-illustration.svg';
 import customDomainIllustration from 'src/modules/whats-new/assets/custom-domains-illustration.svg';
 import previewSitesIllustration from 'src/modules/whats-new/assets/preview-sites-illustration.svg';
 import studioIllustration from 'src/modules/whats-new/assets/studio-illustration.svg';
@@ -11,7 +14,7 @@ import 'src/index.css';
 interface WhatsNewPage {
 	image: string;
 	title: string;
-	description: string;
+	description: ReactNode;
 	learnMoreUrl?: string;
 }
 
@@ -59,15 +62,21 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 			),
 		},
 		{
-			image: studioIllustration,
+			image: cliIllustration,
 			title: __( 'Introducing Studio CLI' ),
-			description: sprintf(
+			description: interpolateComponents( {
 				/* translators: %s is the name of the Studio CLI command ("studio") */
-				__(
-					'Run the %s command in your terminal to create, list, update, and delete preview sites with our new CLI tool.'
+				mixedString: sprintf(
+					/* translators: %s is the name of the Studio CLI command ("studio") */
+					__(
+						'Run the %s command in your terminal to create, list, update, and delete preview sites with our new CLI tool.'
+					),
+					'{{code}}studio{{/code}}'
 				),
-				'<code>studio</code>'
-			),
+				components: {
+					code: <code />,
+				},
+			} ),
 			learnMoreUrl: 'https://wordpress.com/blog/2025/04/01/studio-cli/',
 		},
 		{

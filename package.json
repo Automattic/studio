@@ -110,6 +110,7 @@
 	},
 	"dependencies": {
 		"@automattic/generate-password": "^0.1.0",
+		"@automattic/interpolate-components": "^1.2.1",
 		"@formatjs/intl-locale": "^3.4.5",
 		"@formatjs/intl-localematcher": "^0.5.4",
 		"@php-wasm/node": "https://wpcomplaygroundpackages.wpcomstaging.com/packages/v1.0.30/@php-wasm-node-1.0.30.tar.gz",

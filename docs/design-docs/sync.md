@@ -49,7 +49,7 @@ Users can connect multiple sites to Studio independently of their hosting provid
 
 When the user clicks "Pull," we make a request to the WPcom API to start the Jetpack Backup process. We actively listen until the process is ready to download the backup file.
 
-The studio will download the backup file and save it on the local machine in a temporary folder.
+Studio will download the backup file and save it on the local machine in a temporary folder.
 
 It will run the import process to extract the backup file and save the data in the local database by executing the WP-CLI sqlite import command. The former site will be completely replaced by the new one.
 

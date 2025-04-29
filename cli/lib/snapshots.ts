@@ -1,7 +1,7 @@
 import { __, sprintf } from '@wordpress/i18n';
 // eslint-disable-next-line import/no-named-as-default
 import Table from 'cli-table3';
-import { HOUR_MS, DAY_MS } from 'common/constants';
+import { HOUR_MS, DAY_MS, DEMO_SITE_EXPIRATION_DAYS } from 'common/constants';
 import { Snapshot } from 'common/types/snapshot';
 import {
 	addDays,
@@ -127,9 +127,8 @@ export async function deleteSnapshotFromAppdata( snapshotUrl: string ): Promise<
 }
 
 function formatDurationUntilExpiry( lastUpdatedAt: number ) {
-	const MAX_AGE_IN_DAYS = 7;
 	const now = new Date();
-	const endDate = addDays( lastUpdatedAt, MAX_AGE_IN_DAYS );
+	const endDate = addDays( lastUpdatedAt, DEMO_SITE_EXPIRATION_DAYS );
 	const difference = endDate.getTime() - now.getTime();
 	let format: DurationUnit[] = [ 'days', 'hours' ];
 

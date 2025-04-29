@@ -10,18 +10,14 @@ import { getSnapshotsFromAppdata, updateSnapshotDateInAppdata } from 'cli/lib/sn
 import { normalizeHostname } from 'cli/lib/utils';
 import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
-import { GlobalOptions, OutputFormat } from 'cli/types';
+import { GlobalOptions } from 'cli/types';
 
-export async function runCommand(
-	siteFolder: string,
-	host: string,
-	outputFormat?: OutputFormat
-): Promise< void > {
+export async function runCommand( siteFolder: string, host: string ): Promise< void > {
 	const archivePath = path.join(
 		os.tmpdir(),
 		`${ path.basename( siteFolder ) }-${ Date.now() }.zip`
 	);
-	const logger = new Logger< LoggerAction >( outputFormat );
+	const logger = new Logger< LoggerAction >();
 
 	try {
 		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating...' ) );
@@ -83,7 +79,7 @@ export const registerCommand = ( yargs: Argv< GlobalOptions > ) => {
 		},
 		handler: async ( argv ) => {
 			const normalizedHost = normalizeHostname( argv.host );
-			await runCommand( argv.path, normalizedHost, argv.outputFormat );
+			await runCommand( argv.path, normalizedHost );
 		},
 	} );
 };

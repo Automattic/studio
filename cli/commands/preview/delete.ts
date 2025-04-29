@@ -1,15 +1,14 @@
 import { __ } from '@wordpress/i18n';
 import { PreviewCommandLoggerAction as LoggerAction } from 'common/logger-actions';
-import { Argv } from 'yargs';
 import { deleteSnapshot } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
 import { deleteSnapshotFromAppdata, getSnapshotsFromAppdata } from 'cli/lib/snapshots';
 import { normalizeHostname } from 'cli/lib/utils';
 import { Logger, LoggerError } from 'cli/logger';
-import { GlobalOptions, OutputFormat } from 'cli/types';
+import { StudioArgv } from 'cli/types';
 
-export async function runCommand( host: string, outputFormat?: OutputFormat ): Promise< void > {
-	const logger = new Logger< LoggerAction >( outputFormat );
+export async function runCommand( host: string ): Promise< void > {
+	const logger = new Logger< LoggerAction >();
 
 	try {
 		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating...' ) );
@@ -40,7 +39,7 @@ export async function runCommand( host: string, outputFormat?: OutputFormat ): P
 	}
 }
 
-export const registerCommand = ( yargs: Argv< GlobalOptions > ) => {
+export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: 'delete <host>',
 		describe: __( 'Delete a preview site' ),
@@ -53,7 +52,7 @@ export const registerCommand = ( yargs: Argv< GlobalOptions > ) => {
 		},
 		handler: async ( argv ) => {
 			const normalizedHost = normalizeHostname( argv.host );
-			await runCommand( normalizedHost, argv.outputFormat );
+			await runCommand( normalizedHost );
 		},
 	} );
 };

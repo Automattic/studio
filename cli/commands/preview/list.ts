@@ -8,14 +8,10 @@ import {
 } from 'cli/lib/snapshots';
 import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
-import { OutputFormat, StudioArgv } from 'cli/types';
+import { StudioArgv } from 'cli/types';
 
-export async function runCommand(
-	siteFolder: string,
-	format: 'table' | 'json',
-	outputFormat?: OutputFormat
-): Promise< void > {
-	const logger = new Logger< LoggerAction >( outputFormat );
+export async function runCommand( siteFolder: string, format: 'table' | 'json' ): Promise< void > {
+	const logger = new Logger< LoggerAction >();
 
 	try {
 		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating...' ) );
@@ -67,7 +63,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 			} );
 		},
 		handler: async ( argv ) => {
-			await runCommand( argv.path, argv.format as 'table' | 'json', argv.outputFormat );
+			await runCommand( argv.path, argv.format as 'table' | 'json' );
 		},
 	} );
 };

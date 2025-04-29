@@ -1,8 +1,7 @@
 import { SelectControl } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
-import { useEffect, useState } from 'react';
-import { getIpcApi } from 'src/lib/get-ipc-api';
 import { SupportedEditor, supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
+import { useGetInstalledAppsQuery } from 'src/stores/installed-apps-api';
 import { SettingsFormField } from './settings-form-field';
 
 interface EditorPickerProps {
@@ -12,31 +11,16 @@ interface EditorPickerProps {
 
 export const EditorPicker = ( { value, onChange }: EditorPickerProps ) => {
 	const { __ } = useI18n();
-	const [ installedApps, setInstalledApps ] = useState< {
-		vscode: boolean | null;
-		phpstorm: boolean | null;
-	} >( {
-		vscode: null,
-		phpstorm: null,
-	} );
+	const { data: installedApps } = useGetInstalledAppsQuery();
 
-	useEffect( () => {
-		getIpcApi()
-			.getInstalledApps()
-			.then( ( apps ) => {
-				setInstalledApps( apps );
-			} )
-			.catch( ( error ) => {
-				console.error( 'Failed to fetch installed apps:', error );
-			} );
-	}, [] );
+	console.log( installedApps );
 
 	const installedEditors = Object.entries( supportedEditorConfig ).filter(
-		( [ editor ] ) => installedApps[ editor as keyof typeof installedApps ]
+		( [ editor ] ) => installedApps && installedApps[ editor as keyof typeof installedApps ]
 	);
 
 	const uninstalledEditors = Object.entries( supportedEditorConfig ).filter(
-		( [ editor ] ) => ! installedApps[ editor as keyof typeof installedApps ]
+		( [ editor ] ) => ! installedApps || ! installedApps[ editor as keyof typeof installedApps ]
 	);
 
 	return (

@@ -17,7 +17,6 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useState, useEffect, useCallback } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import { ButtonsSection, ButtonsSectionProps } from 'src/components/buttons-section';
-import { useCheckInstalledApps } from 'src/hooks/use-check-installed-apps';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useSiteDetails } from 'src/hooks/use-site-details';
@@ -27,6 +26,7 @@ import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
 import { supportedTerminalNames, DEFAULT_TERMINAL } from 'src/modules/user-settings/lib/terminal';
+import { useGetInstalledAppsQuery } from 'src/stores/installed-apps-api';
 
 interface ContentTabOverviewProps {
 	selectedSite: SiteDetails;
@@ -141,7 +141,7 @@ function CustomizeSection( {
 
 function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'selectedSite' > ) {
 	const { terminalWpCliEnabled } = useFeatureFlags();
-	const installedApps = useCheckInstalledApps();
+	const { data: installedApps } = useGetInstalledAppsQuery();
 	const [ terminalName, setTerminalName ] = useState( supportedTerminalNames[ DEFAULT_TERMINAL ] );
 	const [ editorName, setEditorName ] = useState( '' );
 

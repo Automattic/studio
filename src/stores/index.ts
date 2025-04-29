@@ -4,7 +4,7 @@ import { LOCAL_STORAGE_CHAT_API_IDS_KEY, LOCAL_STORAGE_CHAT_MESSAGES_KEY } from 
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { appVersionApi } from 'src/stores/app-version-api';
 import { reducer as chatReducer } from 'src/stores/chat-slice';
-import { installedAppsApi } from 'src/stores/installed-apps-slice';
+import { installedAppsApi } from 'src/stores/installed-apps-api';
 import { reducer as newSitesReducer } from 'src/stores/new-sites-slice';
 import { reducer as snapshotReducer } from 'src/stores/snapshot-slice';
 import { wpcomApi } from 'src/stores/wpcom-api';

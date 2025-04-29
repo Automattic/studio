@@ -138,7 +138,8 @@ export async function getSiteByFolder(
 ): Promise< z.infer< typeof siteSchema > > {
 	const userData = await readAppdata();
 	const sites = userData.sites ?? [];
-	const site = sites.find( ( site ) => site.path === siteFolder );
+	const newSites = userData.newSites ?? [];
+	const site = [ ...sites, ...newSites ].find( ( site ) => site.path === siteFolder );
 
 	if ( ! site ) {
 		throw new LoggerError( __( 'The specified folder is not added to Studio.' ) );

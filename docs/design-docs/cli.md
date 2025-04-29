@@ -42,9 +42,15 @@ On macOS, we install the CLI by creating a symlink at `/usr/local/bin/studio` po
 
 On Windows, we modify the `%PATH%` environment variable programmatically. On startup, we ensure that `C:\Users\fredrik\AppData\Local\studio\bin` is present in the `%PATH%` list.
 
+Modifying the `$PATH` environment variable programmatically on macOS is much more challenging, which is why we opted for a manual installation procedure. Roughly, we would need to determine which shell the user uses and write a snippet to the shell-specific config file (that may or may not already exist) to modify the `PATH` environment variable.
+
+### Why bundle the CLI?
+
+Node apps don't technically need to be bundled, but we chose this approach with the CLI to minimize the amount of code we ship in the installer. If we didn't bundle the CLI files, we would need to figure out a way to ship a `node_modules` folder containing only the dependencies needed by the CLI (and ideally no superfluous files inside those dependencies, either).
+
 ### Studio calling the CLI
 
-In the first CLI iteration, Studio forks CLI child processes when creating, updating, and deleting preview sites. The CLI communicates with Studio through stdio. This approach has both pros and cons.
+Studio forks CLI child processes to execute certain operations. In the first CLI iteration, Studio does this when creating, updating, and deleting preview sites. The CLI communicates with Studio through stdio. This approach has both pros and cons.
 
 The biggest upside is that when the CLI becomes capable of running Studio sites, we can move the Playground dependencies entirely to the CLI and avoid bundling them twice (which would increase the size of the app by several hundred MBs). Moreover, it consolidates the business logic and creates increased incentives for developers to focus on the CLI when shipping new features.
 

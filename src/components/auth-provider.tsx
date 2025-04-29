@@ -102,7 +102,7 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 				Sentry.captureException( err );
 			}
 		}
-		run();
+		void run();
 	}, [ locale ] );
 
 	// Memoize the context value to avoid unnecessary renders

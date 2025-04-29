@@ -11,6 +11,30 @@ import { store } from 'src/stores';
 jest.mock( 'src/hooks/use-feature-flags' );
 jest.mock( 'src/hooks/use-auth' );
 jest.mock( 'src/hooks/use-ipc-listener' );
+jest.mock( 'src/stores/wpcom-api', () => {
+	type NextFn = ( action: unknown ) => unknown;
+	type ActionType = unknown;
+
+	const createApi = () => ( {
+		reducer: () => ( {} ),
+		reducerPath: 'wpcomApi',
+		middleware: () => ( next: NextFn ) => ( action: ActionType ) => next( action ),
+		endpoints: {},
+		injectEndpoints: jest.fn(),
+		util: {},
+	} );
+
+	return {
+		wpcomApi: createApi(),
+		setWpcomClient: jest.fn(),
+		useGetWelcomeMessages: jest.fn(),
+		useGetSnapshotUsage: jest.fn().mockReturnValue( {
+			data: { siteCount: 2, siteLimit: 10, siteCreationBlocked: false },
+			isLoading: false,
+			refetch: jest.fn(),
+		} ),
+	};
+} );
 jest.mock( 'src/lib/get-ipc-api', () => ( {
 	getIpcApi: jest.fn().mockReturnValue( {
 		getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),

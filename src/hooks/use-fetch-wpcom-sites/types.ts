@@ -3,7 +3,7 @@ export type SyncSupport =
 	| 'syncable'
 	| 'needs-transfer'
 	| 'already-connected'
-	| 'jetpack-site'
+	| 'needs-upgrade'
 	| 'deleted'
 	| 'missing-permissions';
 
@@ -13,6 +13,7 @@ export type SyncSite = {
 	name: string;
 	url: string;
 	isStaging: boolean;
+	isPressable: boolean;
 	stagingSiteIds: number[];
 	syncSupport: SyncSupport;
 	lastPullTimestamp: string | null;

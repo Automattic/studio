@@ -106,7 +106,7 @@ describe( 'ContentTabAssistant', () => {
 
 	const getInput = () => screen.getByTestId( 'ai-input-textarea' );
 
-	const getGuidelinesLink = () => screen.getByTestId( 'guidelines-link' ) as HTMLAnchorElement;
+	const getGuidelinesLink = () => screen.getByTestId( 'guidelines-link' );
 
 	beforeEach( () => {
 		jest.clearAllMocks();

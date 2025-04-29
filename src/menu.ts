@@ -9,6 +9,7 @@ import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { getMainWindow } from 'src/main-window';
 import { installCLIOnMacOSWithConfirmation } from 'src/modules/cli/lib/install-macos';
+import { isCLIFeatureEnabled } from 'src/modules/cli/lib/is-cli-feature-enabled';
 import { isUpdateReadyToInstall, manualCheckForUpdates } from 'src/updates';
 
 export async function setupMenu( config: { needsOnboarding: boolean } ) {
@@ -54,15 +55,15 @@ function getAppMenu(
 		{
 			label: __( 'Test Render Failure (dev only)' ),
 			click: async () => {
-				sendIpcEventToRenderer( 'test-render-failure' );
+				void sendIpcEventToRenderer( 'test-render-failure' );
 			},
 		},
 	];
 
 	const devTools: MenuItemConstructorOptions[] = [
-		{ role: 'reload' },
-		{ role: 'forceReload' },
-		{ role: 'toggleDevTools' },
+		{ label: __( 'Reload' ), role: 'reload' },
+		{ label: __( 'Force Reload' ), role: 'forceReload' },
+		{ label: __( 'Toggle DevTools' ), role: 'toggleDevTools' },
 		{ type: 'separator' },
 	];
 
@@ -88,10 +89,10 @@ function getAppMenu(
 					label: __( 'Settings…' ),
 					accelerator: 'CommandOrControl+,',
 					click: async () => {
-						sendIpcEventToRenderer( 'user-settings' );
+						void sendIpcEventToRenderer( 'user-settings' );
 					},
 				},
-				...( process.platform === 'darwin' && process.env.NODE_ENV === 'development'
+				...( process.platform === 'darwin' && isCLIFeatureEnabled()
 					? [
 							{
 								label: __( 'Install CLI…' ),
@@ -102,25 +103,26 @@ function getAppMenu(
 				{ type: 'separator' },
 				...( process.platform === 'win32'
 					? []
-					: [ { role: 'services' } as MenuItemConstructorOptions ] ),
+					: [ { label: __( 'Services' ), role: 'services' } as MenuItemConstructorOptions ] ),
 				{ type: 'separator' },
 				...( process.platform === 'win32'
 					? []
-					: [ { role: 'hide' } as MenuItemConstructorOptions ] ),
+					: [ { label: __( 'Hide' ), role: 'hide' } as MenuItemConstructorOptions ] ),
 				{ type: 'separator' },
 				...( process.env.NODE_ENV === 'development' ? crashTestMenuItems : [] ),
 				{ type: 'separator' },
-				{ role: 'quit' },
+				{ label: __( 'Quit' ), role: 'quit' },
 			],
 		},
 		{
+			label: __( 'File' ),
 			role: 'fileMenu',
 			submenu: [
 				{
 					label: __( 'Add Site…' ),
 					accelerator: 'CommandOrControl+N',
 					click: async () => {
-						sendIpcEventToRenderer( 'add-site' );
+						void sendIpcEventToRenderer( 'add-site' );
 					},
 					enabled: ! needsOnboarding,
 				},
@@ -138,22 +140,62 @@ function getAppMenu(
 					  ] ),
 			],
 		},
-		...( process.platform === 'win32'
-			? []
-			: [
-					{
-						role: 'editMenu',
-					} as MenuItemConstructorOptions,
-			  ] ),
 		{
+			label: __( 'Edit' ),
+			role: 'editMenu',
+			submenu: [
+				{
+					label: __( 'Undo' ),
+					role: 'undo',
+				},
+				{
+					label: __( 'Redo' ),
+					role: 'redo',
+				},
+				{ type: 'separator' },
+				{ label: __( 'Cut' ), role: 'cut' },
+				{ label: __( 'Copy' ), role: 'copy' },
+				{ label: __( 'Paste' ), role: 'paste' },
+				{
+					label: __( 'Paste and Match Style' ),
+					role: 'pasteAndMatchStyle',
+				},
+				{ label: __( 'Delete' ), role: 'delete' },
+				{ label: __( 'Select All' ), role: 'selectAll' },
+				{ type: 'separator' },
+				{
+					label: __( 'Speech' ),
+					submenu: [
+						{ label: __( 'Start Speaking' ), role: 'startSpeaking' },
+						{ label: __( 'Stop Speaking' ), role: 'stopSpeaking' },
+					],
+				},
+			],
+		},
+		{
+			label: __( 'View' ),
 			role: 'viewMenu',
 			submenu: [
+				{ label: __( 'Show Tab Bar' ), role: 'toggleTabBar' },
+				{ label: __( 'Show All Tabs' ), role: 'showAllTabs' },
 				...( process.env.NODE_ENV === 'development' ? devTools : [] ),
-				{ role: 'resetZoom' },
-				{ role: 'zoomIn' },
-				{ role: 'zoomOut' },
+				{
+					label: __( 'Actual Size' ),
+					role: 'resetZoom',
+				},
+				{
+					label: __( 'Zoom In' ),
+					role: 'zoomIn',
+				},
+				{
+					label: __( 'Zoom Out' ),
+					role: 'zoomOut',
+				},
 				{ type: 'separator' },
-				{ role: 'togglefullscreen' },
+				{
+					label: __( 'Toggle Fullscreen' ),
+					role: 'togglefullscreen',
+				},
 				{ type: 'separator' },
 				{
 					label: __( 'Float on Top of All Other Windows' ),
@@ -171,27 +213,37 @@ function getAppMenu(
 			? []
 			: [
 					{
+						label: __( 'Window' ),
 						role: 'windowMenu',
 						// We can't remove all of the items which aren't relevant to us (anything for
 						// managing multiple window instances), but this seems to remove as many of
 						// them as we can.
-						submenu: [ { role: 'minimize' }, { role: 'zoom' } ],
+						submenu: [
+							{ label: __( 'Minimize' ), role: 'minimize' },
+							{ label: __( 'Zoom' ), role: 'zoom' },
+							{ type: 'separator' },
+							{ label: __( 'Show Previous Tab' ), role: 'selectPreviousTab' },
+							{ label: __( 'Show Next Tab' ), role: 'selectNextTab' },
+							{ label: __( 'Move Tab to New Window' ), role: 'moveTabToNewWindow' },
+							{ label: __( 'Merge All Windows' ), role: 'mergeAllWindows' },
+						],
 					} as MenuItemConstructorOptions,
 			  ] ),
 		{
+			label: __( 'Help' ),
 			role: 'help',
 			submenu: [
 				{
 					label: __( 'Studio Help' ),
 					click: async () => {
 						const locale = await getUserLocaleWithFallback();
-						shellOpenExternalWrapper( getDocsLink( locale, 'studio' ) );
+						void shellOpenExternalWrapper( getDocsLink( locale, 'studio' ) );
 					},
 				},
 				{
 					label: __( "What's New" ),
 					click: async () => {
-						sendIpcEventToRenderer( 'show-whats-new' );
+						void sendIpcEventToRenderer( 'show-whats-new' );
 					},
 					enabled: ! needsOnboarding,
 				},
@@ -201,7 +253,7 @@ function getAppMenu(
 							{
 								label: __( 'How can I make Studio faster?' ),
 								click: () => {
-									promptWindowsSpeedUpSites( { skipIfAlreadyPrompted: false } );
+									void promptWindowsSpeedUpSites( { skipIfAlreadyPrompted: false } );
 								},
 							},
 					  ]
@@ -210,13 +262,13 @@ function getAppMenu(
 				{
 					label: __( 'Report an Issue' ),
 					click: () => {
-						shellOpenExternalWrapper( BUG_REPORT_URL );
+						void shellOpenExternalWrapper( BUG_REPORT_URL );
 					},
 				},
 				{
 					label: __( 'Propose a Feature' ),
 					click: () => {
-						shellOpenExternalWrapper( FEATURE_REQUEST_URL );
+						void shellOpenExternalWrapper( FEATURE_REQUEST_URL );
 					},
 				},
 			],

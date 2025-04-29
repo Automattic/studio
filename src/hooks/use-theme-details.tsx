@@ -100,7 +100,7 @@ export const ThemeDetailsProvider: React.FC< ThemeDetailsProviderProps > = ( { c
 			}
 		};
 		if ( sites.length > 0 && ! loadingSites && ! initialLoad && isCurrent ) {
-			run();
+			void run();
 		}
 		return () => {
 			isCurrent = false;

@@ -16,6 +16,7 @@ export const sitesEndpointSiteSchema = z.object( {
 	jetpack: z.boolean().optional(),
 	is_deleted: z.boolean(),
 	hosting_provider_guess: z.string().optional(),
+	is_a8c: z.boolean().optional(),
 	options: z
 		.object( {
 			created_at: z.string(),
@@ -72,7 +73,7 @@ function needsTransfer( site: SitesEndpointSite ): boolean {
 	return ! isJetpackSite( site ) && ! isPressableSite( site ) && ! isAtomicSite( site );
 }
 
-function getSyncSupport( site: SitesEndpointSite, connectedSiteIds: number[] ): SyncSupport {
+export function getSyncSupport( site: SitesEndpointSite, connectedSiteIds: number[] ): SyncSupport {
 	if ( site.is_deleted ) {
 		return 'deleted';
 	}
@@ -80,10 +81,10 @@ function getSyncSupport( site: SitesEndpointSite, connectedSiteIds: number[] ): 
 		return 'missing-permissions';
 	}
 	if ( isJetpackSite( site ) ) {
-		return 'jetpack-site';
+		return 'unsupported';
 	}
 	if ( ! hasSupportedPlan( site ) && ! isPressableSite( site ) ) {
-		return 'unsupported';
+		return 'needs-upgrade';
 	}
 	if ( needsTransfer( site ) ) {
 		return 'needs-transfer';
@@ -105,6 +106,7 @@ export function transformSingleSiteResponse(
 		name: site.name,
 		url: site.URL,
 		isStaging,
+		isPressable: isPressableSite( site ),
 		stagingSiteIds: site.options?.wpcom_staging_blog_ids ?? [],
 		syncSupport,
 		lastPullTimestamp: null,
@@ -128,6 +130,7 @@ export function transformSitesResponse( sites: unknown[], connectedSiteIds: numb
 	} );
 
 	return validatedSites
+		.filter( ( site ) => ! site.is_a8c )
 		.filter( ( site ) => ! site.is_deleted || connectedSiteIds.some( ( id ) => id === site.ID ) )
 		.map( ( site ) => {
 			// The API returns the wrong value for the `is_wpcom_staging_site` prop while staging sites
@@ -169,7 +172,8 @@ export const useFetchWpComSites = ( connectedSiteIdsOnlyForSelectedSite: number[
 		try {
 			const allConnectedSites = await getIpcApi().getConnectedWpcomSites();
 
-			const baseFields = 'name,ID,URL,plan,capabilities,is_wpcom_atomic,options,jetpack,is_deleted';
+			const baseFields =
+				'name,ID,URL,plan,capabilities,is_wpcom_atomic,options,jetpack,is_deleted,is_a8c';
 			const fields = pressableSyncEnabled ? `${ baseFields },hosting_provider_guess` : baseFields;
 
 			const response = await client.req.get(
@@ -228,7 +232,7 @@ export const useFetchWpComSites = ( connectedSiteIdsOnlyForSelectedSite: number[
 	}, [ client?.req, isAuthenticated, isOffline, pressableSyncEnabled ] );
 
 	useEffect( () => {
-		fetchSites();
+		void fetchSites();
 	}, [ fetchSites ] );
 
 	const syncSitesWithSyncSupportForSelectedSite = useMemo(

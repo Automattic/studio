@@ -7,6 +7,7 @@ import {
 	PayloadAction,
 } from '@reduxjs/toolkit';
 import { __, sprintf } from '@wordpress/i18n';
+import fastDeepEqual from 'fast-deep-equal';
 import { PreviewCommandLoggerAction } from 'common/logger-actions';
 import { Snapshot } from 'common/types/snapshot';
 import { LIMIT_OF_ZIP_SITES_PER_USER } from 'src/constants';
@@ -38,34 +39,30 @@ type DeleteOperation = BaseOperation & {
 	type: 'delete';
 };
 
-type BulkOperation = BaseOperation & {
+type BulkOperation = Omit< BaseOperation, 'progress' > & {
 	operationIds: crypto.UUID[];
+	siteId?: string;
 	type: 'bulk';
+	userId?: number;
 };
 
 export type SnapshotOperation = CreateOperation | UpdateOperation | DeleteOperation | BulkOperation;
 
 type SnapshotState = {
-	isLoaded: boolean;
+	isInitialSnapshotsLoaded: boolean;
 	operations: Record< crypto.UUID, SnapshotOperation >;
-	snapshotProgress: number;
 	snapshots: Snapshot[];
 	snapshotQuota: number;
 };
 
 const getInitialState = (): SnapshotState => {
 	return {
-		isLoaded: false,
+		isInitialSnapshotsLoaded: false,
 		operations: {},
-		snapshotProgress: 0,
 		snapshots: [],
 		snapshotQuota: LIMIT_OF_ZIP_SITES_PER_USER,
 	};
 };
-
-const getSnapshots = createAsyncThunk( 'snapshot/getSnapshots', async () => {
-	return await getIpcApi().getSnapshots();
-} );
 
 const createSnapshot = createAsyncThunk(
 	'snapshot/createSnapshot',
@@ -82,13 +79,11 @@ const updateSnapshot = createAsyncThunk(
 		thunkAPI
 	) => {
 		const state = thunkAPI.getState() as RootState;
-		const snapshot = state.snapshot.snapshots.find(
-			( snapshot ) => snapshot.atomicSiteId === atomicSiteId
-		);
-		if ( ! snapshot ) {
+		const found = state.snapshot.snapshots.find( ( snap ) => snap.atomicSiteId === atomicSiteId );
+		if ( ! found ) {
 			throw new Error( 'Snapshot not found' );
 		}
-		const { operationId } = await getIpcApi().updateSnapshot( siteFolder, snapshot.url );
+		const { operationId } = await getIpcApi().updateSnapshot( siteFolder, found.url );
 		return { operationId };
 	}
 );
@@ -103,9 +98,9 @@ const deleteSnapshot = createAsyncThunk(
 
 async function deleteMultipleSnapshots(
 	snapshots: Snapshot[]
-): Promise< [ string, crypto.UUID ][] > {
+): Promise< [ url: string, operationId: crypto.UUID ][] > {
 	return await Promise.all(
-		snapshots.map( async ( snapshot ): Promise< [ string, crypto.UUID ] > => {
+		snapshots.map( async ( snapshot ) => {
 			const { operationId } = await getIpcApi().deleteSnapshot( snapshot.url );
 			return [ snapshot.url, operationId ];
 		} )
@@ -145,6 +140,10 @@ const snapshotSlice = createSlice( {
 				( snapshot ) => snapshot.atomicSiteId !== action.payload.atomicSiteId
 			);
 		},
+		setSnapshots: ( state, action: PayloadAction< Snapshot[] > ) => {
+			state.snapshots = action.payload;
+			state.isInitialSnapshotsLoaded = true;
+		},
 		updateOperation: (
 			state,
 			action: PayloadAction< { operationId: crypto.UUID; operation: Partial< SnapshotOperation > } >
@@ -165,10 +164,6 @@ const snapshotSlice = createSlice( {
 	},
 	extraReducers: ( builder ) => {
 		builder
-			.addCase( getSnapshots.fulfilled, ( state, action ) => {
-				state.isLoaded = true;
-				state.snapshots = action.payload;
-			} )
 			.addCase( createSnapshot.fulfilled, ( state, action ) => {
 				state.operations[ action.payload.operationId ] = {
 					detail: __( 'Creating archive...' ),
@@ -200,13 +195,20 @@ const snapshotSlice = createSlice( {
 			.addMatcher(
 				isAnyOf( deleteAllSnapshotsForSite.fulfilled, deleteAllSnapshotsForUser.fulfilled ),
 				( state, action ) => {
-					state.operations[ action.payload.bulkOperationId ] = {
+					const bulkOperation: BulkOperation = {
 						error: null,
 						operationIds: action.payload.operations.map( ( [ _, operationId ] ) => operationId ),
-						progress: 0,
 						status: 'pending',
 						type: 'bulk',
 					};
+
+					if ( 'siteId' in action.meta.arg ) {
+						bulkOperation.siteId = action.meta.arg.siteId;
+					} else if ( 'userId' in action.meta.arg ) {
+						bulkOperation.userId = action.meta.arg.userId;
+					}
+
+					state.operations[ action.payload.bulkOperationId ] = bulkOperation;
 
 					action.payload.operations.forEach( ( [ url, operationId ] ) => {
 						state.operations[ operationId ] = {
@@ -221,6 +223,11 @@ const snapshotSlice = createSlice( {
 			);
 	},
 	selectors: {
+		selectActiveBulkOperationForUser: ( state, userId: number ): BulkOperation | undefined =>
+			Object.values( state.operations ).find(
+				( operation ): operation is BulkOperation =>
+					operation.status === 'pending' && operation.type === 'bulk' && operation.userId === userId
+			),
 		selectActiveCreateOperationForSite: ( state, siteId: string ): CreateOperation | undefined =>
 			Object.values( state.operations ).find(
 				( operation ): operation is CreateOperation =>
@@ -282,6 +289,28 @@ const selectSnapshotsBySiteAndUser = createSelector(
 			( snapshot ) => snapshot.localSiteId === localSiteId && snapshot.userId === userId
 		)
 );
+
+window.ipcListener.subscribe( 'user-data-updated', ( _, payload ) => {
+	const state = store.getState();
+	const snapshots = payload.snapshots;
+
+	if ( ! fastDeepEqual( state.snapshot.snapshots, snapshots ) ) {
+		store.dispatch( snapshotSlice.actions.setSnapshots( snapshots ) );
+
+		// Optimistically update the snapshot usage count
+		const countDiff = snapshots.length - state.snapshot.snapshots.length;
+		store.dispatch(
+			wpcomApi.util.updateQueryData( 'getSnapshotUsage', undefined, ( data ) => {
+				data.siteCount += countDiff;
+			} )
+		);
+
+		// Wait for changes to take effect on the back-end before invalidating the query
+		setTimeout( () => {
+			store.dispatch( wpcomApi.util.invalidateTags( [ 'SnapshotUsage' ] ) );
+		}, 8000 );
+	}
+} );
 
 function getCreateProgress( action: PreviewCommandLoggerAction ): [ string, number ] {
 	switch ( action ) {
@@ -363,30 +392,43 @@ window.ipcListener.subscribe( 'snapshot-key-value', ( event, payload ) => {
 	);
 } );
 
-window.ipcListener.subscribe( 'snapshot-error', ( event, payload ) => {
-	const operation = getOperation( payload.operationId );
-	if ( ! operation ) {
+function errorEventHandler( operationId: crypto.UUID, message: string ) {
+	const operation = getOperation( operationId );
+	if ( ! operation || operation.status !== 'pending' ) {
 		return;
 	}
 
 	if ( operation.type === 'create' ) {
 		getIpcApi().showErrorMessageBox( {
 			title: __( 'Adding preview site failed' ),
-			message: payload.data.message,
+			message: message,
 		} );
 	} else if ( operation.type === 'update' ) {
 		getIpcApi().showErrorMessageBox( {
 			title: __( 'Updating preview site failed' ),
-			message: payload.data.message,
+			message: message,
+		} );
+	} else if ( operation.type === 'delete' ) {
+		getIpcApi().showErrorMessageBox( {
+			title: __( 'Deleting preview site failed' ),
+			message: message,
 		} );
 	}
 
 	store.dispatch(
 		snapshotActions.updateOperation( {
-			operationId: payload.operationId,
-			operation: { status: 'rejected', error: payload.data.message },
+			operationId: operationId,
+			operation: { status: 'rejected', error: message },
 		} )
 	);
+}
+
+window.ipcListener.subscribe( 'snapshot-error', ( event, payload ) => {
+	errorEventHandler( payload.operationId, payload.data.message );
+} );
+
+window.ipcListener.subscribe( 'snapshot-fatal-error', ( event, payload ) => {
+	errorEventHandler( payload.operationId, payload.data.message );
 } );
 
 window.ipcListener.subscribe( 'snapshot-success', ( event, payload ) => {
@@ -419,23 +461,11 @@ window.ipcListener.subscribe( 'snapshot-success', ( event, payload ) => {
 			title: operation.snapshotName,
 			body: sprintf( __( "Preview site '%s' has been created." ), operation.snapshotUrl ),
 		} );
-
-		store.dispatch(
-			wpcomApi.util.updateQueryData( 'getSnapshotUsage', undefined, ( data ) => {
-				data.siteCount += 1;
-			} )
-		);
 	} else if ( operation.type === 'update' ) {
 		getIpcApi().showNotification( {
 			title: operation.snapshotName,
 			body: sprintf( __( "Preview site '%s' has been updated." ), operation.snapshotUrl ),
 		} );
-
-		store.dispatch(
-			wpcomApi.util.updateQueryData( 'getSnapshotUsage', undefined, ( data ) => {
-				data.siteCount -= 1;
-			} )
-		);
 	} else if ( operation.type === 'delete' ) {
 		if ( ! bulkOperation ) {
 			getIpcApi().showNotification( {
@@ -449,13 +479,6 @@ window.ipcListener.subscribe( 'snapshot-success', ( event, payload ) => {
 			} );
 		}
 	}
-
-	store.dispatch( getSnapshots() );
-
-	// Wait for changes to take effect on the back-end before invalidating the cache.
-	setTimeout( () => {
-		store.dispatch( wpcomApi.util.invalidateTags( [ 'SnapshotUsage' ] ) );
-	}, 8000 );
 } );
 
 export const snapshotActions = snapshotSlice.actions;
@@ -467,7 +490,6 @@ export const snapshotSelectors = {
 	selectSnapshotsBySiteAndUser,
 };
 export const snapshotThunks = {
-	getSnapshots,
 	createSnapshot,
 	updateSnapshot,
 	deleteSnapshot,

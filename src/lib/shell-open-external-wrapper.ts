@@ -40,7 +40,7 @@ export const shellOpenExternalWrapper = async ( url: string ) => {
 		}
 
 		const mainWindow = await getMainWindow();
-		dialog.showMessageBox( mainWindow, {
+		void dialog.showMessageBox( mainWindow, {
 			type: 'error',
 			message: title,
 			detail: message,

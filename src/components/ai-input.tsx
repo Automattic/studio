@@ -253,7 +253,7 @@ const UnforwardedAIInput = (
 								isDestructive
 								data-testid="clear-conversation-button"
 								onClick={ () => {
-									handleClearConversation();
+									void handleClearConversation();
 									onClose();
 								} }
 							>

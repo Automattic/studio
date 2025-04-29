@@ -4,6 +4,10 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 const initState = {
 	vscode: false,
 	phpstorm: false,
+	webstorm: false,
+	windsurf: false,
+	cursor: false,
+	iterm: false,
 };
 const checkInstalledAppsContext = createContext< InstalledApps >( initState );
 
@@ -21,7 +25,7 @@ export function InstalledAppsProvider( { children }: InstalledAppsProviderProps 
 	const [ installedApps, setInstalledApps ] = useState< InstalledApps >( initState );
 	useEffect( () => {
 		let cancel = false;
-		getIpcApi()
+		void getIpcApi()
 			.getInstalledApps()
 			.then( ( installedApps ) => {
 				if ( ! cancel ) {

@@ -2,15 +2,19 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import {
-	upsertPreviewSiteInAppdata,
-	getSnapshotsFromAppdata,
 	deleteSnapshotFromAppdata,
+	getSnapshotsFromAppdata,
+	saveSnapshotToAppdata,
+	updateSnapshotDateInAppdata,
 } from 'cli/lib/snapshots';
 import { LoggerError } from 'cli/logger';
 
 jest.mock( 'fs' );
 jest.mock( 'os' );
 jest.mock( 'path' );
+jest.mock( 'crypto', () => ( {
+	randomUUID: jest.fn().mockReturnValue( 'mock-uuid-1234' ),
+} ) );
 
 describe( 'Snapshots Module', () => {
 	const mockHomeDir = '/mock/home';
@@ -33,79 +37,8 @@ describe( 'Snapshots Module', () => {
 		( fs.writeFileSync as jest.Mock ).mockImplementation( () => undefined );
 	} );
 
-	describe( 'upsertPreviewSiteInAppdata', () => {
-		it( 'should add a new preview site to appdata', async () => {
-			const mockSiteId = 'abc123';
-			const mockUserData = {
-				version: 1,
-				sites: [
-					{
-						id: mockSiteId,
-						path: mockSiteFolder,
-						name: 'Test Site',
-					},
-				],
-				snapshots: [],
-			};
-
-			( fs.readFileSync as jest.Mock ).mockReturnValue( JSON.stringify( mockUserData ) );
-
-			await upsertPreviewSiteInAppdata( mockSiteFolder, mockAtomicSiteId, mockSiteUrl );
-
-			expect( fs.writeFileSync ).toHaveBeenCalled();
-			const savedData = JSON.parse( ( fs.writeFileSync as jest.Mock ).mock.calls[ 0 ][ 1 ] );
-
-			expect( savedData.snapshots ).toHaveLength( 1 );
-			expect( savedData.snapshots[ 0 ] ).toEqual( {
-				url: mockSiteUrl,
-				atomicSiteId: mockAtomicSiteId,
-				localSiteId: mockSiteId,
-				date: 1234567890,
-				name: 'Test Site',
-			} );
-		} );
-
-		it( 'should append to existing snapshots', async () => {
-			const mockSiteId = 'abc123';
-			const existingSnapshot = {
-				url: 'existing.com',
-				atomicSiteId: mockAtomicSiteId,
-				name: 'Existing',
-				localSiteId: 'existing',
-				date: 1000000,
-			};
-
-			const mockUserData = {
-				version: 1,
-				sites: [
-					{
-						id: mockSiteId,
-						path: mockSiteFolder,
-						name: 'Test Site',
-					},
-				],
-				snapshots: [ existingSnapshot ],
-			};
-
-			( fs.readFileSync as jest.Mock ).mockReturnValue( JSON.stringify( mockUserData ) );
-
-			await upsertPreviewSiteInAppdata( mockSiteFolder, mockAtomicSiteId + 1, mockSiteUrl );
-
-			expect( fs.writeFileSync ).toHaveBeenCalled();
-			const savedData = JSON.parse( ( fs.writeFileSync as jest.Mock ).mock.calls[ 0 ][ 1 ] );
-
-			expect( savedData.snapshots ).toHaveLength( 2 );
-			expect( savedData.snapshots[ 0 ] ).toEqual( existingSnapshot );
-			expect( savedData.snapshots[ 1 ] ).toEqual( {
-				url: mockSiteUrl,
-				atomicSiteId: mockAtomicSiteId + 1,
-				localSiteId: mockSiteId,
-				date: 1234567890,
-				name: 'Test Site',
-			} );
-		} );
-
-		it( 'should add userId from authToken if available', async () => {
+	describe( 'saveSnapshotToAppdata', () => {
+		it( 'should add a new preview site to appdata with sequence number', async () => {
 			const mockSiteId = 'abc123';
 			const mockUserData = {
 				version: 1,
@@ -125,15 +58,72 @@ describe( 'Snapshots Module', () => {
 
 			( fs.readFileSync as jest.Mock ).mockReturnValue( JSON.stringify( mockUserData ) );
 
-			await upsertPreviewSiteInAppdata( mockSiteFolder, mockAtomicSiteId, mockSiteUrl );
+			await saveSnapshotToAppdata( mockSiteFolder, mockAtomicSiteId, mockSiteUrl );
 
 			expect( fs.writeFileSync ).toHaveBeenCalled();
 			const savedData = JSON.parse( ( fs.writeFileSync as jest.Mock ).mock.calls[ 0 ][ 1 ] );
 
-			expect( savedData.snapshots[ 0 ].userId ).toBe( mockUserId );
+			expect( savedData.snapshots ).toHaveLength( 1 );
+			expect( savedData.snapshots[ 0 ] ).toEqual( {
+				url: mockSiteUrl,
+				atomicSiteId: mockAtomicSiteId,
+				localSiteId: mockSiteId,
+				date: 1234567890,
+				name: 'Test Site Preview 1',
+				userId: mockUserId,
+				sequence: 1,
+			} );
 		} );
 
-		it( 'should throw an error if no matching site is found', async () => {
+		it( 'should append to existing snapshots with incremented sequence number', async () => {
+			const mockSiteId = 'abc123';
+			const existingSnapshot = {
+				url: 'existing.com',
+				atomicSiteId: mockAtomicSiteId,
+				name: 'Existing',
+				localSiteId: mockSiteId,
+				date: 1000000,
+				userId: mockUserId,
+				sequence: 1,
+			};
+
+			const mockUserData = {
+				version: 1,
+				sites: [
+					{
+						id: mockSiteId,
+						path: mockSiteFolder,
+						name: 'Test Site',
+					},
+				],
+				snapshots: [ existingSnapshot ],
+				authToken: {
+					id: mockUserId,
+					accessToken: 'mock-token',
+				},
+			};
+
+			( fs.readFileSync as jest.Mock ).mockReturnValue( JSON.stringify( mockUserData ) );
+
+			await saveSnapshotToAppdata( mockSiteFolder, mockAtomicSiteId + 1, mockSiteUrl );
+
+			expect( fs.writeFileSync ).toHaveBeenCalled();
+			const savedData = JSON.parse( ( fs.writeFileSync as jest.Mock ).mock.calls[ 0 ][ 1 ] );
+
+			expect( savedData.snapshots ).toHaveLength( 2 );
+			expect( savedData.snapshots[ 0 ] ).toEqual( existingSnapshot );
+			expect( savedData.snapshots[ 1 ] ).toEqual( {
+				url: mockSiteUrl,
+				atomicSiteId: mockAtomicSiteId + 1,
+				localSiteId: mockSiteId,
+				date: 1234567890,
+				name: 'Test Site Preview 2',
+				userId: mockUserId,
+				sequence: 2,
+			} );
+		} );
+
+		it( 'should create a new site if no matching site is found', async () => {
 			const mockUserData = {
 				version: 1,
 				sites: [
@@ -144,62 +134,157 @@ describe( 'Snapshots Module', () => {
 					},
 				],
 				snapshots: [],
+				authToken: {
+					id: mockUserId,
+					accessToken: 'mock-token',
+				},
 			};
 
 			( fs.readFileSync as jest.Mock ).mockReturnValue( JSON.stringify( mockUserData ) );
+			( path.basename as jest.Mock ).mockReturnValueOnce( mockSiteFolderName );
 
-			await expect(
-				upsertPreviewSiteInAppdata( mockSiteFolder, mockAtomicSiteId, mockSiteUrl )
-			).rejects.toThrow( LoggerError );
+			await saveSnapshotToAppdata( mockSiteFolder, mockAtomicSiteId, mockSiteUrl );
 
-			expect( fs.writeFileSync ).not.toHaveBeenCalled();
+			expect( fs.writeFileSync ).toHaveBeenCalled();
+			const savedData = JSON.parse( ( fs.writeFileSync as jest.Mock ).mock.calls[ 0 ][ 1 ] );
+
+			// Check that a new site was created
+			expect( savedData.newSites ).toHaveLength( 1 );
+			expect( savedData.newSites[ 0 ] ).toEqual( {
+				id: 'mock-uuid-1234',
+				path: mockSiteFolder,
+				name: mockSiteFolderName,
+			} );
+
+			// Check that a snapshot was created for the new site
+			expect( savedData.snapshots ).toHaveLength( 1 );
+			expect( savedData.snapshots[ 0 ] ).toEqual( {
+				url: mockSiteUrl,
+				atomicSiteId: mockAtomicSiteId,
+				localSiteId: 'mock-uuid-1234',
+				date: 1234567890,
+				name: `${ mockSiteFolderName } Preview 1`,
+				userId: mockUserId,
+				sequence: 1,
+			} );
+		} );
+
+		it( 'should append to newSites array if it already exists', async () => {
+			const existingNewSite = {
+				id: 'existing-new-site',
+				path: '/existing/path',
+				name: 'Existing New Site',
+			};
+
+			const mockUserData = {
+				version: 1,
+				sites: [],
+				newSites: [ existingNewSite ],
+				snapshots: [],
+				authToken: {
+					id: mockUserId,
+					accessToken: 'mock-token',
+				},
+			};
+
+			( fs.readFileSync as jest.Mock ).mockReturnValue( JSON.stringify( mockUserData ) );
+			( path.basename as jest.Mock ).mockReturnValueOnce( mockSiteFolderName );
+
+			await saveSnapshotToAppdata( mockSiteFolder, mockAtomicSiteId, mockSiteUrl );
+
+			expect( fs.writeFileSync ).toHaveBeenCalled();
+			const savedData = JSON.parse( ( fs.writeFileSync as jest.Mock ).mock.calls[ 0 ][ 1 ] );
+
+			// Check that the new site was added to existing newSites array
+			expect( savedData.newSites ).toHaveLength( 2 );
+			expect( savedData.newSites[ 0 ] ).toEqual( existingNewSite );
+			expect( savedData.newSites[ 1 ] ).toEqual( {
+				id: 'mock-uuid-1234',
+				path: mockSiteFolder,
+				name: mockSiteFolderName,
+			} );
+
+			// Check that a snapshot was created for the new site
+			expect( savedData.snapshots ).toHaveLength( 1 );
 		} );
 
 		it( 'should handle errors correctly', async () => {
 			( fs.existsSync as jest.Mock ).mockReturnValueOnce( false );
 
 			await expect(
-				upsertPreviewSiteInAppdata( mockSiteFolder, mockAtomicSiteId, mockSiteUrl )
+				saveSnapshotToAppdata( mockSiteFolder, mockAtomicSiteId, mockSiteUrl )
 			).rejects.toThrow( LoggerError );
 		} );
 
-		it( 'should update existing snapshot with matching atomicSiteId', async () => {
+		it( 'should only create a new site when getSiteByFolder throws a LoggerError', async () => {
+			const mockUserData = {
+				version: 1,
+				sites: [],
+				snapshots: [],
+				authToken: {
+					id: mockUserId,
+					accessToken: 'mock-token',
+				},
+			};
+
+			( fs.readFileSync as jest.Mock ).mockReturnValue( JSON.stringify( mockUserData ) );
+
+			// Mock fs.existsSync to throw a different error first, then a LoggerError
+			const fsExistsSyncMock = fs.existsSync as jest.Mock;
+			fsExistsSyncMock
+				.mockImplementationOnce( () => {
+					throw new Error( 'Some other error' );
+				} )
+				.mockReturnValueOnce( true );
+
+			await expect(
+				saveSnapshotToAppdata( mockSiteFolder, mockAtomicSiteId, mockSiteUrl )
+			).rejects.toThrow( 'Some other error' );
+
+			expect( fs.writeFileSync ).not.toHaveBeenCalled();
+		} );
+	} );
+
+	describe( 'updateSnapshotDateInAppdata', () => {
+		it( 'should update the date of an existing snapshot', async () => {
 			const mockSiteId = 'abc123';
 			const mockUserData = {
 				version: 1,
-				sites: [
-					{
-						id: mockSiteId,
-						path: mockSiteFolder,
-						name: 'Test Site',
-					},
-				],
 				snapshots: [
 					{
-						url: 'old-url.com',
+						url: 'test.com',
 						atomicSiteId: mockAtomicSiteId,
 						localSiteId: mockSiteId,
 						date: 1000000,
-						name: 'Test Site',
+						name: 'Test Site Preview 1',
+						userId: mockUserId,
+						sequence: 1,
 					},
 				],
 			};
 
 			( fs.readFileSync as jest.Mock ).mockReturnValue( JSON.stringify( mockUserData ) );
 
-			await upsertPreviewSiteInAppdata( mockSiteFolder, mockAtomicSiteId, 'hello.wp.build' );
+			const updatedSnapshot = await updateSnapshotDateInAppdata( mockAtomicSiteId );
 
 			expect( fs.writeFileSync ).toHaveBeenCalled();
 			const savedData = JSON.parse( ( fs.writeFileSync as jest.Mock ).mock.calls[ 0 ][ 1 ] );
 
-			expect( savedData.snapshots ).toHaveLength( 1 );
-			expect( savedData.snapshots[ 0 ] ).toEqual( {
-				url: 'hello.wp.build',
-				atomicSiteId: mockAtomicSiteId,
-				localSiteId: mockSiteId,
-				date: 1234567890,
-				name: 'Test Site',
-			} );
+			expect( savedData.snapshots[ 0 ].date ).toBe( 1234567890 );
+			expect( updatedSnapshot ).toEqual( savedData.snapshots[ 0 ] );
+		} );
+
+		it( 'should throw an error if snapshot not found', async () => {
+			const mockUserData = {
+				version: 1,
+				snapshots: [],
+			};
+
+			( fs.readFileSync as jest.Mock ).mockReturnValue( JSON.stringify( mockUserData ) );
+
+			await expect( updateSnapshotDateInAppdata( mockAtomicSiteId ) ).rejects.toThrow(
+				LoggerError
+			);
 		} );
 	} );
 
@@ -211,18 +296,20 @@ describe( 'Snapshots Module', () => {
 					{
 						userId: 9876,
 						url: 'test1.com',
-						name: 'Site 1',
+						name: 'Site 1 Preview 1',
 						atomicSiteId: 1,
 						localSiteId: 'site1',
 						date: 1000,
+						sequence: 1,
 					},
 					{
 						userId: 1234,
 						url: 'test2.com',
-						name: 'Site 2',
+						name: 'Site 2 Preview 1',
 						atomicSiteId: 2,
 						localSiteId: 'site2',
 						date: 2000,
+						sequence: 1,
 					},
 				],
 			};
@@ -242,18 +329,20 @@ describe( 'Snapshots Module', () => {
 					{
 						userId: 9876,
 						url: 'test1.com',
-						name: 'Site 1',
+						name: 'Site 1 Preview 1',
 						atomicSiteId: 1,
 						localSiteId: 'site1',
 						date: 1000,
+						sequence: 1,
 					},
 					{
 						userId: 9876,
 						url: 'test2.com',
-						name: 'Site 2',
+						name: 'Site 2 Preview 1',
 						atomicSiteId: 2,
 						localSiteId: 'site2',
 						date: 2000,
+						sequence: 1,
 					},
 				],
 				sites: [ { id: 'site1', path: mockSiteFolder, name: 'Test Site' } ],
@@ -286,8 +375,22 @@ describe( 'Snapshots Module', () => {
 			const mockUserData = {
 				version: 1,
 				snapshots: [
-					{ url: 'test1.com', name: 'Site 1', atomicSiteId: 1, localSiteId: 'site1', date: 1000 },
-					{ url: 'test2.com', name: 'Site 2', atomicSiteId: 2, localSiteId: 'site2', date: 2000 },
+					{
+						url: 'test1.com',
+						name: 'Site 1 Preview 1',
+						atomicSiteId: 1,
+						localSiteId: 'site1',
+						date: 1000,
+						sequence: 1,
+					},
+					{
+						url: 'test2.com',
+						name: 'Site 2 Preview 1',
+						atomicSiteId: 2,
+						localSiteId: 'site2',
+						date: 2000,
+						sequence: 1,
+					},
 				],
 			};
 
@@ -308,9 +411,10 @@ describe( 'Snapshots Module', () => {
 					{
 						url: 'test1.com',
 						atomicSiteId: 1,
-						name: 'Site',
+						name: 'Site Preview 1',
 						localSiteId: 'site1',
 						date: 1000,
+						sequence: 1,
 					},
 				],
 			};

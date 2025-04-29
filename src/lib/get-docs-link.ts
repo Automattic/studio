@@ -1,6 +1,6 @@
 import { SupportedLocale } from 'common/lib/locale';
 
-const BASE_DOCS_URL = 'https://developer.wordpress.com' as const;
+const BASE_DOCS_URL = 'https://developer.wordpress.com';
 
 const DOCS_LINKS = {
 	studio: '/docs/developer-tools/studio/',

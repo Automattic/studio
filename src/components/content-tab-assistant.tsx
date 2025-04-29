@@ -354,7 +354,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const { selectedThemeDetails: themeDetails } = useThemeDetails();
 
 	useEffect( () => {
-		dispatch( chatThunks.updateFromSite( { site: selectedSite } ) );
+		void dispatch( chatThunks.updateFromSite( { site: selectedSite } ) );
 	}, [ dispatch, selectedSite ] );
 
 	useEffect( () => {
@@ -376,7 +376,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 			const newMessageId = isRetry ? messages.length - 1 : messages.length;
 			const message = generateMessage( chatMessage, 'user', newMessageId, chatApiId );
 
-			dispatch(
+			void dispatch(
 				chatThunks.fetchAssistant( {
 					client,
 					instanceId,

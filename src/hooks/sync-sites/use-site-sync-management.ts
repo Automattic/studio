@@ -55,7 +55,7 @@ export const useSiteSyncManagement = ( {
 
 	useEffect( () => {
 		if ( isAuthenticated ) {
-			loadConnectedSites();
+			void loadConnectedSites();
 		}
 	}, [ isAuthenticated, syncSites, loadConnectedSites ] );
 

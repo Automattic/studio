@@ -89,7 +89,7 @@ export function PromptUsageProvider( { children }: PromptUsageProps ) {
 		if ( ! client ) {
 			return;
 		}
-		fetchPromptUsage();
+		void fetchPromptUsage();
 	}, [ fetchPromptUsage, client ] );
 
 	useEffect( () => {

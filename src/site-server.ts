@@ -172,6 +172,13 @@ export class SiteServer {
 			);
 		}
 
+		const isPortAvailable = await portFinder.isPortAvailable( this.details.port );
+		if ( ! isPortAvailable ) {
+			throw new Error(
+				`Port ${ this.details.port } is not available. error code: ERROR_PORT_IN_USE`
+			);
+		}
+
 		console.log( `Starting server for '${ this.details.name }'` );
 		this.server = new SiteServerProcess( options );
 		await this.server.start();
@@ -217,7 +224,7 @@ export class SiteServer {
 
 		// Handle domain changes and url changes (updates hosts and database)
 		if ( oldDomain !== newDomain ) {
-			updateDomainInHosts( oldDomain, newDomain, this.details.port );
+			void updateDomainInHosts( oldDomain, newDomain, this.details.port );
 		}
 		if ( ( oldDomain && ! newDomain ) || oldEnableHttps !== newEnableHttps ) {
 			await updateSiteUrl( this, getSiteUrl( this.details ) );

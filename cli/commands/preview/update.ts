@@ -2,16 +2,17 @@ import os from 'node:os';
 import path from 'node:path';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { PreviewCommandLoggerAction as LoggerAction } from 'common/logger-actions';
+import { Argv } from 'yargs';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
 import { cleanup, createArchive } from 'cli/lib/archive';
-import { upsertPreviewSiteInAppdata, getSnapshotsFromAppdata } from 'cli/lib/snapshots';
+import { getSnapshotsFromAppdata, updateSnapshotDateInAppdata } from 'cli/lib/snapshots';
 import { normalizeHostname } from 'cli/lib/utils';
 import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
-import { RegisterCommand, OutputFormat } from 'cli/types';
+import { GlobalOptions, OutputFormat } from 'cli/types';
 
-async function runCommand(
+export async function runCommand(
 	siteFolder: string,
 	host: string,
 	outputFormat?: OutputFormat
@@ -52,11 +53,7 @@ async function runCommand(
 		);
 
 		logger.reportStart( LoggerAction.APPDATA, __( 'Saving preview site to Studio...' ) );
-		const snapshot = await upsertPreviewSiteInAppdata(
-			siteFolder,
-			uploadResponse.site_id,
-			uploadResponse.site_url
-		);
+		const snapshot = await updateSnapshotDateInAppdata( uploadResponse.site_id );
 		logger.reportSuccess( __( 'Preview site saved to Studio' ) );
 
 		logger.reportKeyValuePair( 'name', snapshot.name );
@@ -69,20 +66,31 @@ async function runCommand(
 			logger.reportError( loggerError );
 		}
 	} finally {
-		cleanup( archivePath );
+		void cleanup( archivePath );
 	}
 }
 
-export const registerCommand: RegisterCommand = ( parentCommand, rootCommand = parentCommand ) => {
-	parentCommand
-		.command( 'update [folder]' )
-		.description(
-			__( 'Update preview site for the specified folder (defaults to current directory)' )
-		)
-		.requiredOption( '-h, --host <host>', __( 'Host of the preview site to update' ) )
-		.action( async ( siteFolder: string = process.cwd(), options ) => {
-			const outputFormat = rootCommand.opts().outputFormat;
-			const normalizedHost = normalizeHostname( options.host );
-			await runCommand( siteFolder, normalizedHost, outputFormat );
-		} );
+export const registerCommand = ( yargs: Argv< GlobalOptions > ) => {
+	return yargs.command( {
+		command: 'update [folder]',
+		describe: __( 'Update preview site for the specified folder (defaults to current directory)' ),
+		builder: ( yargs: Argv< GlobalOptions > ) => {
+			return yargs
+				.positional( 'folder', {
+					type: 'string',
+					default: process.cwd(),
+					description: __( 'The folder to update the preview site from' ),
+				} )
+				.option( 'host', {
+					alias: 'H',
+					type: 'string',
+					demandOption: true,
+					description: __( 'Host of the preview site to update' ),
+				} );
+		},
+		handler: async ( argv ) => {
+			const normalizedHost = normalizeHostname( argv.host );
+			await runCommand( argv.folder, normalizedHost, argv.outputFormat );
+		},
+	} );
 };

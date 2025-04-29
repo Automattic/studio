@@ -1,4 +1,5 @@
 import { __ } from '@wordpress/i18n';
+import fastDeepEqual from 'fast-deep-equal';
 import {
 	ReactNode,
 	createContext,
@@ -280,7 +281,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					getIpcApi().showErrorMessageBox( {
 						title: __( 'Studio failed to initialize custom domains' ),
 						message: __(
-							'Studio needs to use port 80 and 443 to enable custom domains and SSL, but one of both of these ports are already in use by another app. Close any local development apps and restart Studio.'
+							'Studio needs to use port 80 and 443 to enable custom domains and SSL, but one of these ports are already in use by another app. Close any local development apps and restart Studio.'
 						),
 						showOpenLogs: false,
 					} );
@@ -294,6 +295,15 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 							'Please restart Studio and try again. If this problem persists, please contact support.'
 						),
 						showOpenLogs: true,
+					} );
+				} else if ( error instanceof Error && error.message.includes( 'ERROR_PORT_IN_USE' ) ) {
+					const port = error.message.match( /\d+/ );
+					getIpcApi().showErrorMessageBox( {
+						title: __( 'Failed to start the site server' ),
+						message: __(
+							`The site server failed to start because the port is already in use. Please close any local development apps that may be using port ${ port } and try again.`
+						),
+						showOpenLogs: false,
 					} );
 				} else {
 					getIpcApi().showErrorMessageBox( {
@@ -325,12 +335,25 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		( sites: SiteDetails[] ) => {
 			for ( const site of sites ) {
 				if ( site.autoStart ) {
-					startServer( site.id );
+					void startServer( site.id );
 				}
 			}
 		},
 		[ startServer ]
 	);
+
+	useEffect( () => {
+		const unsubscribe = window.ipcListener.subscribe( 'user-data-updated', async ( _, payload ) => {
+			if ( ! fastDeepEqual( payload.newSites, payload.sites ) ) {
+				const updatedSites = await getIpcApi().getSiteDetails();
+				setData( updatedSites );
+			}
+		} );
+
+		return () => {
+			unsubscribe();
+		};
+	}, [] );
 
 	useEffect( () => {
 		let cancel = false;
@@ -343,6 +366,10 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					setLoadingSites( false );
 					autoStartSites( data );
 				}
+			} )
+			.catch( ( error ) => {
+				console.error( 'Error fetching site details:', error );
+				setLoadingSites( false );
 			} );
 
 		return () => {

@@ -34,8 +34,7 @@ async function moveDatabasesInSitu( projectPath: string ) {
 export async function migrateAllDatabasesInSitu() {
 	const userData = await loadUserData();
 	for ( const site of userData.sites ) {
-		moveDatabasesInSitu( site.path ).then( () => {
-			keepSqliteIntegrationUpdated( site.path );
-		} );
+		await moveDatabasesInSitu( site.path );
+		await keepSqliteIntegrationUpdated( site.path );
 	}
 }

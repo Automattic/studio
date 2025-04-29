@@ -14,7 +14,7 @@ import {
 	widget,
 } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import { ButtonsSection, ButtonsSectionProps } from 'src/components/buttons-section';
 import { useCheckInstalledApps } from 'src/hooks/use-check-installed-apps';
@@ -25,6 +25,8 @@ import { useThemeDetails } from 'src/hooks/use-theme-details';
 import { isMac } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
+import { supportedTerminalNames, DEFAULT_TERMINAL } from 'src/modules/user-settings/lib/terminal';
 
 interface ContentTabOverviewProps {
 	selectedSite: SiteDetails;
@@ -140,20 +142,33 @@ function CustomizeSection( {
 function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'selectedSite' > ) {
 	const { terminalWpCliEnabled } = useFeatureFlags();
 	const installedApps = useCheckInstalledApps();
-	const [ terminalName, setTerminalName ] = useState( __( 'Terminal' ) );
+	const [ terminalName, setTerminalName ] = useState( supportedTerminalNames[ DEFAULT_TERMINAL ] );
+	const [ editorName, setEditorName ] = useState( '' );
 
-	const updateTerminalName = async () => {
+	const updateTerminalName = useCallback( async () => {
 		const terminal = await getIpcApi().getUserTerminal();
-		setTerminalName( terminal === 'iterm' ? __( 'iTerm' ) : __( 'Terminal' ) );
-	};
+		setTerminalName( supportedTerminalNames[ terminal ] );
+	}, [ setTerminalName ] );
+
+	const updateEditorName = useCallback( async () => {
+		const editor = await getIpcApi().getUserEditor();
+
+		if ( editor && installedApps[ editor as keyof typeof installedApps ] ) {
+			setEditorName( editor );
+		} else {
+			setEditorName( '' );
+		}
+	}, [ setEditorName, installedApps ] );
 
 	useIpcListener( 'user-preference-changed', () => {
-		updateTerminalName();
+		void updateTerminalName();
+		void updateEditorName();
 	} );
 
 	useEffect( () => {
-		updateTerminalName();
-	}, [] );
+		void updateTerminalName();
+		void updateEditorName();
+	}, [ updateTerminalName, updateEditorName ] );
 
 	const buttonsArray: ButtonsSectionProps[ 'buttonsArray' ] = [
 		{
@@ -170,28 +185,15 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 		},
 	];
 
-	// Only add editor button if at least one supported editor is installed
-	if ( installedApps.vscode || installedApps.phpstorm ) {
-		if ( installedApps.vscode ) {
+	if ( editorName ) {
+		const editor = supportedEditorConfig[ editorName as keyof typeof supportedEditorConfig ];
+		if ( editor ) {
 			buttonsArray.push( {
-				label:
-					// translators: "VS Code" is the brand name for an IDE and does not need to be translated
-					__( 'VS Code' ),
+				label: editor.label,
 				className: 'text-nowrap',
 				icon: code,
 				onClick: () => {
-					getIpcApi().openURL( `vscode://file/${ selectedSite.path }?windowId=_blank` );
-				},
-			} );
-		} else if ( installedApps.phpstorm ) {
-			buttonsArray.push( {
-				label:
-					// translators: "PhpStorm" is the brand name for an IDE and does not need to be translated
-					__( 'PhpStorm' ),
-				className: 'text-nowrap',
-				icon: code,
-				onClick: () => {
-					getIpcApi().openURL( `phpstorm://open?file=${ selectedSite.path }` );
+					getIpcApi().openURL( editor.url( selectedSite.path ) );
 				},
 			} );
 		}

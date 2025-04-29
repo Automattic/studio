@@ -158,6 +158,9 @@ function FileBlock( props: ContextProps & CodeBlockProps & { isDirectory?: boole
 				if ( path ) {
 					setFilePath( path );
 				}
+			} )
+			.catch( () => {
+				// Do nothing
 			} );
 	}, [ siteId, content ] );
 

@@ -43,12 +43,6 @@ export const ARCHIVER_OPTIONS = {
 	},
 };
 
-// OAuth constants
-export const CLIENT_ID = '95109';
-export const PROTOCOL_PREFIX = 'wpcom-local-dev';
-export const WP_AUTHORIZE_ENDPOINT = 'https://public-api.wordpress.com/oauth2/authorize';
-export const SCOPES = 'global';
-
 // AI Assistant constants
 // IMPORTANT: When updating this value, we need to update the string located in `AIClearHistoryReminder` component.
 // Reference: https://github.com/Automattic/studio/blob/3dd5c58cdb7998e458d191e508e8e859177225a9/src/components/ai-clear-history-reminder.tsx#L78
@@ -64,3 +58,20 @@ export const WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT =
 export const SQLITE_DATABASE_INTEGRATION_VERSION = 'v2.1.17-alpha.1';
 
 export const SQLITE_DATABASE_INTEGRATION_RELEASE_URL = `https://github.com/Automattic/sqlite-database-integration/archive/refs/tags/${ SQLITE_DATABASE_INTEGRATION_VERSION }.zip`;
+
+// IPC handlers that don't return anything (i.e. that are called with `ipcRenderer.send`)
+export const IPC_VOID_HANDLERS = < const >[
+	'addSyncOperation',
+	'clearSyncOperation',
+	'logRendererMessage',
+	'openCertificate',
+	'openFileInIDE',
+	'openLocalPath',
+	'openSiteURL',
+	'openURL',
+	'popupAppMenu',
+	'showErrorMessageBox',
+	'showItemInFolder',
+	'showNotification',
+	'authenticate',
+];

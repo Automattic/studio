@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { SupportedTerminal, DEFAULT_TERMINAL } from 'src/lib/terminal';
+import { SupportedTerminal, DEFAULT_TERMINAL } from 'src/modules/user-settings/lib/terminal';
 
 /**
  * Hook to manage terminal preferences
@@ -25,20 +25,25 @@ export function useTerminalData() {
 			setSavedTerminalValue( terminal );
 			setTerminal( terminal );
 		};
-		loadSavedTerminal();
+		void loadSavedTerminal();
 	}, [] );
 
 	// Load available terminals
 	useEffect( () => {
 		const loadTerminals = async () => {
 			const installed = await getIpcApi().getInstalledTerminals();
+
 			const available: SupportedTerminal[] = [ 'terminal' ];
-			if ( installed.iterm ) {
-				available.push( 'iterm' );
-			}
+
+			Object.entries( installed ).forEach( ( [ key, isInstalled ] ) => {
+				if ( key !== 'terminal' && isInstalled ) {
+					available.push( key as SupportedTerminal );
+				}
+			} );
+
 			setAvailableTerminals( available );
 		};
-		loadTerminals();
+		void loadTerminals();
 	}, [] );
 
 	const handleTerminalChange = ( newTerminal: SupportedTerminal ) => {

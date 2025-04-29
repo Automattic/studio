@@ -5,12 +5,15 @@ import { PreviewCommandLoggerAction as LoggerAction } from 'common/logger-action
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
 import { createArchive, cleanup } from 'cli/lib/archive';
-import { upsertPreviewSiteInAppdata } from 'cli/lib/snapshots';
+import { saveSnapshotToAppdata } from 'cli/lib/snapshots';
 import { validateSiteFolder, validateSiteSize } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
-import { RegisterCommand, OutputFormat } from 'cli/types';
+import { OutputFormat, StudioArgv } from 'cli/types';
 
-async function runCommand( siteFolder: string, outputFormat?: OutputFormat ): Promise< void > {
+export async function runCommand(
+	siteFolder: string,
+	outputFormat?: OutputFormat
+): Promise< void > {
 	const archivePath = path.join(
 		os.tmpdir(),
 		`${ path.basename( siteFolder ) }-${ Date.now() }.zip`
@@ -39,7 +42,7 @@ async function runCommand( siteFolder: string, outputFormat?: OutputFormat ): Pr
 		);
 
 		logger.reportStart( LoggerAction.APPDATA, __( 'Saving preview site to Studio...' ) );
-		const snapshot = await upsertPreviewSiteInAppdata(
+		const snapshot = await saveSnapshotToAppdata(
 			siteFolder,
 			uploadResponse.site_id,
 			uploadResponse.site_url
@@ -56,18 +59,25 @@ async function runCommand( siteFolder: string, outputFormat?: OutputFormat ): Pr
 			logger.reportError( loggerError );
 		}
 	} finally {
-		cleanup( archivePath );
+		void cleanup( archivePath );
 	}
 }
 
-export const registerCommand: RegisterCommand = ( parentCommand, rootCommand = parentCommand ) => {
-	parentCommand
-		.command( 'go [folder]' )
-		.description(
-			__( 'Create a preview site from the specified folder (defaults to current directory)' )
-		)
-		.action( async ( siteFolder: string = process.cwd() ) => {
-			const outputFormat = rootCommand.opts().outputFormat;
-			await runCommand( siteFolder, outputFormat );
-		} );
+export const registerCommand = ( yargs: StudioArgv ) => {
+	return yargs.command( {
+		command: 'create [folder]',
+		describe: __(
+			'Create a preview site from the specified folder (defaults to current directory)'
+		),
+		builder: ( yargs ) => {
+			return yargs.positional( 'folder', {
+				type: 'string',
+				default: process.cwd(),
+				description: __( 'The folder to create a preview site from' ),
+			} );
+		},
+		handler: async ( argv ) => {
+			await runCommand( argv.folder, argv.outputFormat );
+		},
+	} );
 };

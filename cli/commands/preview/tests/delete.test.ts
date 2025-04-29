@@ -1,28 +1,26 @@
-import { Command } from 'commander';
 import { deleteSnapshot } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
-import { deleteSnapshotFromAppdata, getSnapshotsFromAppdata } from 'cli/lib/snapshots';
-import { Logger } from 'cli/logger';
+import { getSnapshotsFromAppdata, deleteSnapshotFromAppdata } from 'cli/lib/snapshots';
+import { Logger, LoggerError } from 'cli/logger';
 
+jest.mock( 'cli/lib/api' );
 jest.mock( 'cli/lib/appdata' );
 jest.mock( 'cli/lib/snapshots' );
-jest.mock( 'cli/lib/api' );
 jest.mock( 'cli/logger' );
 
 describe( 'Preview Delete Command', () => {
-	const mockHost = 'example.com';
+	const mockSiteUrl = 'test-preview.example.com';
+	const mockAtomicSiteId = 12345;
 	const mockAuthToken = { accessToken: 'mock-auth-token', id: 123 };
-	const mockSnapshots = [
-		{
-			url: 'example.com',
-			atomicSiteId: 123,
-			localSiteId: '456',
-			date: Date.now(),
-			name: 'Test Snapshot',
-			userId: 123,
-		},
-	];
-	let program: Command;
+	const mockSnapshot = {
+		url: mockSiteUrl,
+		atomicSiteId: mockAtomicSiteId,
+		localSiteId: '456',
+		date: Date.now(),
+		name: 'Test Snapshot',
+		userId: 123,
+	};
+
 	let mockLogger: {
 		reportStart: jest.Mock;
 		reportSuccess: jest.Mock;
@@ -31,70 +29,89 @@ describe( 'Preview Delete Command', () => {
 
 	beforeEach( () => {
 		jest.clearAllMocks();
-		( getAuthToken as jest.Mock ).mockResolvedValue( mockAuthToken );
-		( getSnapshotsFromAppdata as jest.Mock ).mockResolvedValue( mockSnapshots );
-		( deleteSnapshot as jest.Mock ).mockResolvedValue( undefined );
-		( deleteSnapshotFromAppdata as jest.Mock ).mockResolvedValue( undefined );
 
-		program = new Command( 'studio' );
 		mockLogger = {
 			reportStart: jest.fn(),
 			reportSuccess: jest.fn(),
 			reportError: jest.fn(),
 		};
+
 		( Logger as jest.Mock ).mockReturnValue( mockLogger );
+		( getAuthToken as jest.Mock ).mockResolvedValue( mockAuthToken );
+		( getSnapshotsFromAppdata as jest.Mock ).mockResolvedValue( [ mockSnapshot ] );
+		( deleteSnapshot as jest.Mock ).mockResolvedValue( undefined );
+		( deleteSnapshotFromAppdata as jest.Mock ).mockResolvedValue( undefined );
 	} );
 
-	it( 'should successfully delete a snapshot', async () => {
-		const { registerCommand } = await import( '../delete' );
-		registerCommand( program );
-
-		await program.parseAsync( [ 'node', 'studio', 'delete', mockHost ] );
-
-		expect( mockLogger.reportStart ).toHaveBeenCalledWith( 'validate', 'Validating...' );
-		expect( mockLogger.reportSuccess ).toHaveBeenCalledWith( 'Validation successful' );
-		expect( mockLogger.reportStart ).toHaveBeenCalledWith( 'delete', 'Deleting...' );
-		expect( mockLogger.reportSuccess ).toHaveBeenCalledWith( 'Deletion successful' );
-		expect( deleteSnapshot ).toHaveBeenCalledWith(
-			mockSnapshots[ 0 ].atomicSiteId,
-			mockAuthToken.accessToken
-		);
-		expect( deleteSnapshotFromAppdata ).toHaveBeenCalledWith( mockSnapshots[ 0 ].url );
+	afterEach( () => {
+		jest.restoreAllMocks();
 	} );
 
-	it( 'should handle snapshot not found error', async () => {
-		const { registerCommand } = await import( '../delete' );
-		registerCommand( program );
+	it( 'should complete the preview deletion process successfully', async () => {
+		const { runCommand } = await import( '../delete' );
+		await runCommand( mockSiteUrl );
+
+		expect( getAuthToken ).toHaveBeenCalled();
+		expect( getSnapshotsFromAppdata ).toHaveBeenCalledWith( mockAuthToken.id );
+		expect( deleteSnapshot ).toHaveBeenCalledWith( mockAtomicSiteId, mockAuthToken.accessToken );
+		expect( deleteSnapshotFromAppdata ).toHaveBeenCalledWith( mockSiteUrl );
+
+		expect( mockLogger.reportStart.mock.calls[ 0 ] ).toEqual( [ 'validate', 'Validating...' ] );
+		expect( mockLogger.reportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Validation successful' ] );
+		expect( mockLogger.reportStart.mock.calls[ 1 ] ).toEqual( [ 'delete', 'Deleting...' ] );
+		expect( mockLogger.reportSuccess.mock.calls[ 1 ] ).toEqual( [ 'Deletion successful' ] );
+	} );
+
+	it( 'should handle authentication errors', async () => {
+		const errorMessage =
+			'Authentication required. Please run the Studio app and authenticate first.';
+		( getAuthToken as jest.Mock ).mockImplementation( () => {
+			throw new LoggerError( errorMessage );
+		} );
+
+		const { runCommand } = await import( '../delete' );
+		await runCommand( mockSiteUrl );
+
+		expect( mockLogger.reportError ).toHaveBeenCalled();
+		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
+		expect( deleteSnapshot ).not.toHaveBeenCalled();
+	} );
+
+	it( 'should handle snapshot not found errors', async () => {
 		( getSnapshotsFromAppdata as jest.Mock ).mockResolvedValue( [] );
 
-		await program.parseAsync( [ 'node', 'studio', 'delete', 'nonexistent.com' ] );
+		const { runCommand } = await import( '../delete' );
+		await runCommand( mockSiteUrl );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
+		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
 		expect( deleteSnapshot ).not.toHaveBeenCalled();
+	} );
+
+	it( 'should handle delete preview site errors', async () => {
+		const errorMessage = 'Failed to delete preview site';
+		( deleteSnapshot as jest.Mock ).mockImplementation( () => {
+			throw new LoggerError( errorMessage );
+		} );
+
+		const { runCommand } = await import( '../delete' );
+		await runCommand( mockSiteUrl );
+
+		expect( mockLogger.reportError ).toHaveBeenCalled();
+		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
 		expect( deleteSnapshotFromAppdata ).not.toHaveBeenCalled();
 	} );
 
-	it( 'should handle API deletion error', async () => {
-		const { registerCommand } = await import( '../delete' );
-		registerCommand( program );
-		( deleteSnapshot as jest.Mock ).mockRejectedValue( new Error( 'API error' ) );
+	it( 'should handle delete snapshot errors', async () => {
+		const errorMessage = 'Failed to delete snapshot';
+		( deleteSnapshotFromAppdata as jest.Mock ).mockImplementation( () => {
+			throw new LoggerError( errorMessage );
+		} );
 
-		await program.parseAsync( [ 'node', 'studio', 'delete', mockHost ] );
-
-		expect( mockLogger.reportError ).toHaveBeenCalled();
-		expect( deleteSnapshotFromAppdata ).not.toHaveBeenCalled();
-	} );
-
-	it( 'should handle local deletion error', async () => {
-		const { registerCommand } = await import( '../delete' );
-		registerCommand( program );
-		( deleteSnapshotFromAppdata as jest.Mock ).mockRejectedValue(
-			new Error( 'Local deletion error' )
-		);
-
-		await program.parseAsync( [ 'node', 'studio', 'delete', mockHost ] );
+		const { runCommand } = await import( '../delete' );
+		await runCommand( mockSiteUrl );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
-		expect( deleteSnapshot ).toHaveBeenCalled();
+		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
 	} );
 } );

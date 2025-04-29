@@ -7,6 +7,7 @@ export const snapshotSchema = z.object( {
 	date: z.number(),
 	name: z.string(),
 	userId: z.number().optional(),
+	sequence: z.number().optional(),
 } );
 
 export type Snapshot = z.infer< typeof snapshotSchema >;

@@ -1,4 +1,5 @@
 import path from 'path';
+import CopyWebpackPlugin from 'copy-webpack-plugin';
 import { type Configuration } from 'webpack';
 import { rules } from './webpack.rules';
 
@@ -30,6 +31,17 @@ const config: Configuration = {
 		splitChunks: false,
 	},
 	stats: 'minimal',
+	plugins: [
+		new CopyWebpackPlugin( {
+			patterns: [
+				// Copy yargs locales from node_modules to dist/cli/locales so they can be used by the CLI at runtime
+				{
+					from: path.resolve( __dirname, 'node_modules/yargs/locales' ),
+					to: path.resolve( __dirname, 'dist', 'locales' ),
+				},
+			],
+		} ),
+	],
 };
 
 export default config;

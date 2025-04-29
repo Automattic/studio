@@ -10,15 +10,15 @@ import { SyncSitesModalSelector } from 'src/components/sync-sites-modal-selector
 import { SyncTabImage } from 'src/components/sync-tab-image';
 import { Tooltip } from 'src/components/tooltip';
 import { WordPressShortLogo } from 'src/components/wordpress-short-logo';
-import { CLIENT_ID, PROTOCOL_PREFIX, SCOPES, WP_AUTHORIZE_ENDPOINT } from 'src/constants';
 import { useSyncSites } from 'src/hooks/sync-sites';
 import { useAuth } from 'src/hooks/use-auth';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
-
 function SiteSyncDescription( { children }: PropsWithChildren ) {
 	const { __ } = useI18n();
+	const { pressableSyncEnabled } = useFeatureFlags();
 	return (
 		<div className="flex justify-between max-w-3xl gap-4">
 			<div className="flex flex-col p-8">
@@ -27,9 +27,13 @@ function SiteSyncDescription( { children }: PropsWithChildren ) {
 					<WordPressShortLogo className="ms-2 h-5" />
 				</div>
 				<div className="max-w-[40ch] text-a8c-gray-70 a8c-body">
-					{ __(
-						'Connect an existing WordPress.com site, or create a new one and share your site with the world.'
-					) }
+					{ pressableSyncEnabled
+						? __(
+								'Connect your existing WordPress.com or Jetpack-activated Pressable sites, or create a new one. Then, share your work with the world.'
+						  )
+						: __(
+								'Connect an existing WordPress.com site, or create a new one and share your site with the world.'
+						  ) }
 				</div>
 				<div className="mt-6">
 					{ [
@@ -95,12 +99,7 @@ function NoAuthSyncTab() {
 								if ( isOffline ) {
 									return;
 								}
-								const baseURL = 'https://wordpress.com/log-in/link';
-								const authURL = encodeURIComponent(
-									`${ WP_AUTHORIZE_ENDPOINT }?response_type=token&client_id=${ CLIENT_ID }&redirect_uri=${ PROTOCOL_PREFIX }%3A%2F%2Fauth&scope=${ SCOPES }&from-calypso=1`
-								);
-								const finalURL = `${ baseURL }?redirect_to=${ authURL }&client_id=${ CLIENT_ID }`;
-								getIpcApi().openURL( finalURL );
+								getIpcApi().authenticate( true );
 							} }
 						>
 							{ __( 'Create a free account' ) }
@@ -132,7 +131,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 
 	useEffect( () => {
 		if ( isAuthenticated ) {
-			refetchSites();
+			void refetchSites();
 		}
 	}, [ isAuthenticated, refetchSites ] );
 
@@ -196,7 +195,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 							} );
 							return;
 						}
-						handleConnect( newConnectedSite );
+						void handleConnect( newConnectedSite );
 					} }
 					selectedSite={ selectedSite }
 				/>

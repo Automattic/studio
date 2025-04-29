@@ -4,6 +4,7 @@ import { PreviewCommandLoggerAction } from 'common/logger-actions';
 import { ImportExportEventData } from 'src/lib/import-export/handle-events';
 import { StoredToken } from 'src/lib/oauth';
 import { getMainWindow } from 'src/main-window';
+import type { UserData } from 'src/storage/storage-types';
 
 type SnapshotEventData = {
 	action: PreviewCommandLoggerAction;
@@ -22,6 +23,7 @@ export interface IpcEvents {
 	'on-export': [ ImportExportEventData, string ];
 	'on-import': [ ImportExportEventData, string ];
 	'snapshot-error': [ { operationId: crypto.UUID; data: SnapshotEventData } ];
+	'snapshot-fatal-error': [ { operationId: crypto.UUID; data: { message: string } } ];
 	'snapshot-output': [ { operationId: crypto.UUID; data: SnapshotEventData } ];
 	'snapshot-key-value': [ { operationId: crypto.UUID; data: SnapshotKeyValueEventData } ];
 	'snapshot-success': [ { operationId: crypto.UUID } ];
@@ -34,6 +36,8 @@ export interface IpcEvents {
 	'user-settings': [ void ];
 	'window-fullscreen-change': [ boolean ];
 	'user-preference-changed': [ void ];
+	'user-data-updated': [ UserData ];
+	'user-data-error': [ string ];
 }
 
 export async function sendIpcEventToRenderer< T extends keyof IpcEvents >(

@@ -51,6 +51,15 @@ const wrapper = ( { children }: { children: ReactNode } ) => (
 );
 
 describe( 'useSiteDetails', () => {
+	beforeAll( () => {
+		Object.defineProperty( window, 'ipcListener', {
+			value: {
+				subscribe: jest.fn().mockReturnValue( () => {} ),
+			},
+			writable: true,
+		} );
+	} );
+
 	beforeEach( () => {
 		jest.clearAllMocks();
 		( getIpcApi as jest.Mock ).mockReturnValue( {

@@ -4,7 +4,7 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 export function useGetWpVersion( site: SiteDetails ) {
 	const [ wpVersion, setWpVersion ] = useState( '-' );
 	const refreshWpVersion = useCallback( () => {
-		getIpcApi().getWpVersion( site.id ).then( setWpVersion );
+		void getIpcApi().getWpVersion( site.id ).then( setWpVersion );
 	}, [ site.id ] );
 	useEffect( () => {
 		refreshWpVersion();

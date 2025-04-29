@@ -245,7 +245,7 @@ export function useSyncPush( {
 		Object.entries( pushStates ).forEach( ( [ key, state ] ) => {
 			if ( state.status.key === pushStatesProgressInfo.importing.key ) {
 				intervals[ key ] = setTimeout( () => {
-					getPushProgressInfo( state.remoteSiteId, state );
+					void getPushProgressInfo( state.remoteSiteId, state );
 				}, 2000 );
 			}
 		} );

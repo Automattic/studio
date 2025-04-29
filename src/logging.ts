@@ -33,12 +33,14 @@ export function setupLogging( {
 		max_logs: '10',
 		audit_file: path.join( logDir, 'log-rotator.json' ),
 		extension: '.log',
-		create_symlink: true,
+		create_symlink: false,
 		audit_hash_type: 'sha256',
 		verbose: true, // file-stream-rotator itself will log to console too
 	} );
 
-	currentLogFile = path.join( logDir, 'current.log' );
+	logStream?.on( 'open', ( logFile: string ) => {
+		currentLogFile = logFile;
+	} );
 
 	const makeLogger =
 		( level: LogLevel, originalLogger: typeof console.log ) =>

@@ -17,18 +17,6 @@ const snapshotEventSchema = z.discriminatedUnion( 'action', [
 	} ),
 ] );
 
-function parseSnapshotEventData< T extends z.ZodType >(
-	data: unknown,
-	schema: T
-): z.infer< T > | null {
-	try {
-		return schema.parse( data );
-	} catch ( error ) {
-		console.error( 'Invalid snapshot event:', error );
-		return null;
-	}
-}
-
 export async function executePreviewCliCommand(
 	args: string[],
 	parentWindow: Electron.BrowserWindow | null
@@ -37,26 +25,27 @@ export async function executePreviewCliCommand(
 	const cliEventEmitter = executeCliCommand( args );
 
 	cliEventEmitter.on( 'data', ( { data } ) => {
-		const parsed = parseSnapshotEventData( data, snapshotEventSchema );
+		const parsed = snapshotEventSchema.safeParse( data );
 
-		if ( ! parsed ) {
+		if ( ! parsed.success ) {
+			console.error( 'Invalid snapshot event:', parsed.error );
 			return;
 		}
 
-		if ( parsed.action === 'keyValuePair' ) {
+		if ( parsed.data.action === 'keyValuePair' ) {
 			sendIpcEventToRendererWithWindow( parentWindow, 'snapshot-key-value', {
 				operationId,
-				data: parsed,
+				data: parsed.data,
 			} );
-		} else if ( parsed.status === 'fail' ) {
+		} else if ( parsed.data.status === 'fail' ) {
 			sendIpcEventToRendererWithWindow( parentWindow, 'snapshot-error', {
 				operationId,
-				data: parsed,
+				data: parsed.data,
 			} );
 		} else {
 			sendIpcEventToRendererWithWindow( parentWindow, 'snapshot-output', {
 				operationId,
-				data: parsed,
+				data: parsed.data,
 			} );
 		}
 	} );

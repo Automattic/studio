@@ -14,7 +14,7 @@ WordPress Studio Sync enables developers to pull a live site down for local deve
 - **Push**: Copying changes from a local machine to a remote (staging or production) site.
 - **Pull**: Copying changes from a remote site down to a local machine.
 - **Staging site**: A staging site is hosted on WordPress.com and is connected to its production site. WordPress.com staging sites can sync with production sites and vice versa; however, that is a different feature managed entirely in the wp.com Hosting Features web interface.
-- **Production site**: A production site is hosted on WordPress.com and is used to store the synced site. We consider all Pressable sites as production sites.
+- **Production site**: A production site is hosted on WordPress.com and is used to store the synced site. We don't mark Pressable sites as production or staging sites due to technical limitations.
 - **Jetpack Backup**: A feature of WordPress.com that allows users to back up their sites and serves as the format used to share site data for the sync feature.
 - **Sync connection**: A Sync connection is a relationship between a local machine and a remote site. That information lives in appData `connectedWpcomSites` array.
 

@@ -182,6 +182,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 					</div>
 				</SiteSyncDescription>
 			) }
+
 			{ isSyncSitesSelectorOpen && (
 				<SyncSitesModalSelector
 					isLoading={ isFetching }

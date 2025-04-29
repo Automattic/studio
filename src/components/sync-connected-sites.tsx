@@ -195,12 +195,15 @@ const SyncConnectedSiteControls = ( {
 
 type SyncConnectedSitesListProps = {
 	selectedSite: SiteDetails;
+	connectedSites: SyncSite[];
 };
 
-const SyncConnectedSitesList = ( { selectedSite }: SyncConnectedSitesListProps ) => {
+const SyncConnectedSitesList = ( {
+	selectedSite,
+	connectedSites,
+}: SyncConnectedSitesListProps ) => {
 	const { __ } = useI18n();
-	const { clearPullState, getPullState, getPushState, clearPushState, connectedSites } =
-		useSyncSites();
+	const { clearPullState, getPullState, getPushState, clearPushState } = useSyncSites();
 	const { isKeyPulling, isKeyPushing, isKeyFinished, isKeyFailed } = useSyncStatesProgressInfo();
 
 	return (
@@ -428,7 +431,12 @@ const SyncConnectedSiteSection = ( {
 				</div>
 			) }
 
-			{ ! hasConnectionErrors && <SyncConnectedSitesList selectedSite={ selectedSite } /> }
+			{ ! hasConnectionErrors && (
+				<SyncConnectedSitesList
+					selectedSite={ selectedSite }
+					connectedSites={ section.connectedSites }
+				/>
+			) }
 		</div>
 	);
 };

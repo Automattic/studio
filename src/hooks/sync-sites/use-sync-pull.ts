@@ -307,7 +307,7 @@ export function useSyncPull( {
 		Object.entries( pullStates ).forEach( ( [ key, state ] ) => {
 			if ( state.backupId && state.status.key === 'in-progress' ) {
 				intervals[ key ] = setTimeout( () => {
-					fetchAndUpdateBackup( state.remoteSiteId, state.selectedSite.id );
+					void fetchAndUpdateBackup( state.remoteSiteId, state.selectedSite.id );
 				}, 2000 );
 			}
 		} );

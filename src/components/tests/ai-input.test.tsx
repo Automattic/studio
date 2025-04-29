@@ -27,8 +27,7 @@ describe( 'AIInput Component', () => {
 		isAssistantThinking: false,
 	};
 
-	const getInput = () =>
-		screen.getByPlaceholderText( 'What would you like to learn?' ) as HTMLTextAreaElement;
+	const getInput = () => screen.getByPlaceholderText( 'What would you like to learn?' );
 
 	beforeEach( () => {
 		handleSend = jest.fn();

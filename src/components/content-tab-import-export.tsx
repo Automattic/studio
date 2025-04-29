@@ -167,7 +167,7 @@ const ImportSite = ( {
 			if ( isImporting ) {
 				return;
 			}
-			importConfirmation( () => importFile( file, selectedSite ) );
+			void importConfirmation( () => importFile( file, selectedSite ) );
 		},
 	} );
 	const inputFileRef = useRef< HTMLInputElement >( null );
@@ -179,7 +179,7 @@ const ImportSite = ( {
 		if ( ! file ) {
 			return;
 		}
-		importConfirmation( async () => {
+		void importConfirmation( async () => {
 			clearImportFileInput();
 			await importFile( file, selectedSite );
 		} );
@@ -302,6 +302,9 @@ export function ContentTabImportExport( { selectedSite }: ContentTabImportExport
 			.isImportExportSupported( selectedSite.id )
 			.then( ( result ) => {
 				setIsSupported( result );
+			} )
+			.catch( () => {
+				setIsSupported( false );
 			} );
 	}, [ selectedSite.id, selectedSite.running ] );
 

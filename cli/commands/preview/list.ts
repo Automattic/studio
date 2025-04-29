@@ -1,14 +1,18 @@
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { PreviewCommandLoggerAction as LoggerAction } from 'common/logger-actions';
 import { getAuthToken } from 'cli/lib/appdata';
-import { getSnapshotCliTable } from 'cli/lib/output';
-import { getSnapshotsFromAppdata } from 'cli/lib/snapshots';
+import {
+	getSnapshotCliJson,
+	getSnapshotCliTable,
+	getSnapshotsFromAppdata,
+} from 'cli/lib/snapshots';
 import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
 import { OutputFormat, StudioArgv } from 'cli/types';
 
 export async function runCommand(
 	siteFolder: string,
+	format: 'table' | 'json',
 	outputFormat?: OutputFormat
 ): Promise< void > {
 	const logger = new Logger< LoggerAction >( outputFormat );
@@ -19,25 +23,32 @@ export async function runCommand(
 		const token = await getAuthToken();
 		logger.reportSuccess( __( 'Validation successful' ) );
 
-		logger.reportStart( LoggerAction.LOAD, __( 'Loading previews...' ) );
+		logger.reportStart( LoggerAction.LOAD, __( 'Loading preview sites...' ) );
 		const snapshots = await getSnapshotsFromAppdata( token.id, siteFolder );
 
 		if ( snapshots.length === 0 ) {
-			logger.reportSuccess( __( 'No previews found' ) );
+			logger.reportSuccess( __( 'No preview sites found' ) );
 			return;
 		}
 
 		logger.reportSuccess(
-			sprintf( _n( 'Found %d preview', 'Found %d previews', snapshots.length ), snapshots.length )
+			sprintf(
+				_n( 'Found %d preview site', 'Found %d preview sites', snapshots.length ),
+				snapshots.length
+			)
 		);
 
-		const table = getSnapshotCliTable( snapshots );
-		console.log( table.toString() );
+		if ( format === 'table' ) {
+			const table = getSnapshotCliTable( snapshots );
+			console.log( table.toString() );
+		} else {
+			console.log( JSON.stringify( getSnapshotCliJson( snapshots ), null, 2 ) );
+		}
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {
 			logger.reportError( error );
 		} else {
-			const loggerError = new LoggerError( __( 'Failed to load previews' ), error );
+			const loggerError = new LoggerError( __( 'Failed to load preview sites' ), error );
 			logger.reportError( loggerError );
 		}
 	}
@@ -48,14 +59,21 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		command: 'list [folder]',
 		describe: __( 'List preview sites for the specified folder (defaults to current directory)' ),
 		builder: ( yargs ) => {
-			return yargs.positional( 'folder', {
-				type: 'string',
-				default: process.cwd(),
-				description: __( 'The folder to list previews for' ),
-			} );
+			return yargs
+				.positional( 'folder', {
+					type: 'string',
+					default: process.cwd(),
+					description: __( 'The folder to list preview sites for' ),
+				} )
+				.option( 'format', {
+					type: 'string',
+					choices: [ 'table', 'json' ],
+					default: 'table',
+					description: __( 'Output format' ),
+				} );
 		},
 		handler: async ( argv ) => {
-			await runCommand( argv.folder, argv.outputFormat );
+			await runCommand( argv.folder, argv.format as 'table' | 'json', argv.outputFormat );
 		},
 	} );
 };

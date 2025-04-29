@@ -1,11 +1,10 @@
 import http from 'http';
 import https from 'https';
-import { createConnection } from 'node:net';
 import { createSecureContext } from 'node:tls';
 import { domainToASCII } from 'node:url';
 import * as Sentry from '@sentry/electron/main';
 import httpProxy from 'http-proxy';
-import { isErrnoException } from 'src/lib/is-errno-exception';
+import { portFinder } from 'src/lib/port-finder';
 import { SiteServer } from 'src/site-server';
 import { loadUserData } from 'src/storage/user-data';
 
@@ -99,35 +98,17 @@ async function handleProxyRequest(
 }
 
 /**
- * On Windows, node doesn't throw an error if port is busy, so we use the net module to explicitly check
- * if it's possible to establish a TCP connection to that port (meaning it's busy).
+ * On Windows, node doesn't throw an error if port is busy, so we use portFinder to check
+ * if the port is available.
  */
-export async function checkPortInWindows( port: number ): Promise< boolean > {
-	if ( process.platform !== 'win32' ) {
-		return true;
+export async function checkIfPortIsFree( port: number ): Promise< boolean > {
+	const portAvailable = await portFinder.isPortAvailable( port );
+
+	if ( ! portAvailable ) {
+		throw new Error( 'PROXY_ERROR_PORT_IN_USE' );
 	}
 
-	return await new Promise< boolean >( ( resolve, reject ) => {
-		const tester = createConnection( { port }, () => {
-			// If we can connect, port is in use
-			tester.end();
-			reject( new Error( 'EADDRINUSE' ) );
-		} );
-
-		tester.setTimeout( 1000, () => {
-			tester.destroy();
-			reject( new Error( 'EADDRINUSE' ) );
-		} );
-
-		tester.on( 'error', ( err ) => {
-			if ( isErrnoException( err ) && err.code === 'ECONNREFUSED' ) {
-				// Port is available
-				resolve( true );
-			} else {
-				reject( err );
-			}
-		} );
-	} );
+	return portAvailable;
 }
 
 /**
@@ -138,7 +119,7 @@ export async function startProxyServer(): Promise< boolean > {
 	try {
 		// Start HTTP server if not already running
 		if ( ! isHttpProxyRunning ) {
-			await checkPortInWindows( 80 );
+			await checkIfPortIsFree( 80 );
 			httpProxyServer = http.createServer( ( req, res ) => handleProxyRequest( req, res, false ) );
 			await new Promise< void >( ( resolve, reject ) => {
 				httpProxyServer!
@@ -156,7 +137,7 @@ export async function startProxyServer(): Promise< boolean > {
 
 		// Start HTTPS server if not already running
 		if ( ! isHttpsProxyRunning ) {
-			await checkPortInWindows( 443 );
+			await checkIfPortIsFree( 443 );
 			const defaultOptions: https.ServerOptions = {
 				SNICallback: async ( servername, cb ) => {
 					try {
@@ -209,11 +190,8 @@ export async function startProxyServer(): Promise< boolean > {
 
 		return true;
 	} catch ( error ) {
-		if (
-			( isErrnoException( error ) && error.code === 'EADDRINUSE' ) ||
-			( error instanceof Error && error.message === 'EADDRINUSE' )
-		) {
-			throw new Error( 'PROXY_ERROR_PORT_IN_USE' );
+		if ( error instanceof Error && error.message === 'PROXY_ERROR_PORT_IN_USE' ) {
+			throw error;
 		}
 
 		Sentry.captureException( error );

@@ -11,8 +11,9 @@ import {
 import path from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { __ } from '@wordpress/i18n';
+import { PROTOCOL_PREFIX } from 'common/constants';
 import { StatsGroup } from 'common/types/stats';
-import { PROTOCOL_PREFIX } from 'src/constants';
+import { IPC_VOID_HANDLERS } from 'src/constants';
 import * as ipcHandlers from 'src/ipc-handlers';
 import { hasActiveSyncOperations } from 'src/lib/active-sync-operations';
 import { bumpAggregatedUniqueStat, bumpStat } from 'src/lib/bump-stats';
@@ -38,6 +39,7 @@ import {
 import { migrateAllDatabasesInSitu } from 'src/migrations/move-databases-in-situ';
 import { removeSitesWithEmptyDirectories } from 'src/migrations/remove-sites-with-empty-dirs';
 import { installCLIOnWindows } from 'src/modules/cli/lib/install-windows';
+import { isCLIFeatureEnabled } from 'src/modules/cli/lib/is-cli-feature-enabled';
 import { setupWPServerFiles, updateWPServerFiles } from 'src/setup-wp-server-files';
 import { stopAllServersOnQuit } from 'src/site-server';
 import { loadUserData, saveUserData } from 'src/storage/user-data';
@@ -68,13 +70,13 @@ let finishedInitialization = false;
 
 if ( gotTheLock && ! isInInstaller ) {
 	if ( isCLI() ) {
-		processCLICommand( { mainInstance: true, appBoot } );
+		void processCLICommand( { mainInstance: true, appBoot } );
 	} else {
-		appBoot();
+		void appBoot();
 	}
 } else if ( ! gotTheLock ) {
 	if ( isCLI() ) {
-		processCLICommand( { mainInstance: false } );
+		void processCLICommand( { mainInstance: false } );
 	} else {
 		app.quit();
 	}
@@ -147,29 +149,27 @@ async function appBoot() {
 	}
 
 	function setupIpc() {
-		for ( const [ key, handler ] of Object.entries( ipcHandlers ) ) {
-			if ( typeof handler === 'function' && key !== 'logRendererMessage' ) {
-				ipcMain.handle( key, function ( event, ...args ) {
+		const ipcHandlerEntries = Object.entries( ipcHandlers ) as [
+			keyof typeof ipcHandlers,
+			( ...args: unknown[] ) => unknown,
+		][];
+
+		for ( const [ key, handler ] of ipcHandlerEntries ) {
+			if ( IPC_VOID_HANDLERS.find( ( handler ) => handler === key ) ) {
+				ipcMain.on( key, function ( event, ...args: unknown[] ) {
 					try {
 						validateIpcSender( event );
-
-						// Invoke the handler. Param types have already been type checked by code in ipc-types.d.ts,
-						// so we can safetly ignore the handler function's param types here.
-						return ( handler as any )( event, ...args ); // eslint-disable-line @typescript-eslint/no-explicit-any
+						handler( event, ...args );
 					} catch ( error ) {
 						console.error( error );
 						throw error;
 					}
 				} );
-			}
-
-			// logRendererMessage is handled specially because it uses the (hopefully more efficient)
-			// fire-and-forget .send method instead of .invoke
-			if ( typeof handler === 'function' && key === 'logRendererMessage' ) {
-				ipcMain.on( key, function ( event, level, ...args ) {
+			} else {
+				ipcMain.handle( key, function ( event, ...args: unknown[] ) {
 					try {
 						validateIpcSender( event );
-						( handler as typeof ipcHandlers.logRendererMessage )( event, level as never, ...args );
+						return handler( event, ...args );
 					} catch ( error ) {
 						console.error( error );
 						throw error;
@@ -182,7 +182,7 @@ async function appBoot() {
 	function setupCustomProtocolHandler() {
 		if ( process.platform === 'darwin' ) {
 			app.on( 'open-url', ( _event, url ) => {
-				onOpenUrlCallback( url );
+				void onOpenUrlCallback( url );
 			} );
 		} else {
 			// Handle custom protocol links on Windows and Linux
@@ -201,7 +201,7 @@ async function appBoot() {
 
 				const customProtocolParameter = argv?.find( ( arg ) => arg.startsWith( PROTOCOL_PREFIX ) );
 				if ( customProtocolParameter ) {
-					await onOpenUrlCallback( customProtocolParameter );
+					void onOpenUrlCallback( customProtocolParameter );
 				}
 			} );
 		}
@@ -279,11 +279,11 @@ async function appBoot() {
 		await migrateAllDatabasesInSitu();
 
 		createMainWindow();
-		startUserDataWatcher();
+		await startUserDataWatcher();
 
 		// Handle CLI commands
 		listenCLICommands();
-		executeCLICommand();
+		void executeCLICommand();
 
 		const userData = await loadUserData();
 		// Bump stats for the first time the app runs - this is when no lastBumpStats are available
@@ -300,8 +300,7 @@ async function appBoot() {
 			'weekly'
 		);
 
-		// temporary hidden since in development yet
-		if ( process.env.NODE_ENV === 'development' ) {
+		if ( isCLIFeatureEnabled() ) {
 			await installCLIOnWindows();
 		}
 
@@ -346,7 +345,7 @@ async function appBoot() {
 	} );
 
 	app.on( 'quit', () => {
-		stopAllServersOnQuit();
+		void stopAllServersOnQuit();
 		stopProxyServer().catch( ( error ) => console.error( 'Error stopping proxy server:', error ) );
 		stopUserDataWatcher();
 	} );

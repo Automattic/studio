@@ -16,7 +16,7 @@ export const sitesEndpointSiteSchema = z.object( {
 	jetpack: z.boolean().optional(),
 	is_deleted: z.boolean(),
 	hosting_provider_guess: z.string().optional(),
-	site_owner: z.number().optional(),
+	is_a8c: z.boolean().optional(),
 	options: z
 		.object( {
 			created_at: z.string(),
@@ -52,7 +52,6 @@ export const sitesEndpointResponseSchema = z.object( {
 } );
 
 const STUDIO_SYNC_FEATURE_NAME = 'studio-sync';
-const A8C_SITE_OWNER_ID = 26957695;
 
 function isPressableSite( site: SitesEndpointSite ): boolean {
 	return site.hosting_provider_guess === 'pressable';
@@ -107,6 +106,7 @@ export function transformSingleSiteResponse(
 		name: site.name,
 		url: site.URL,
 		isStaging,
+		isPressable: isPressableSite( site ),
 		stagingSiteIds: site.options?.wpcom_staging_blog_ids ?? [],
 		syncSupport,
 		lastPullTimestamp: null,
@@ -130,7 +130,7 @@ export function transformSitesResponse( sites: unknown[], connectedSiteIds: numb
 	} );
 
 	return validatedSites
-		.filter( ( site ) => site.site_owner !== A8C_SITE_OWNER_ID )
+		.filter( ( site ) => ! site.is_a8c )
 		.filter( ( site ) => ! site.is_deleted || connectedSiteIds.some( ( id ) => id === site.ID ) )
 		.map( ( site ) => {
 			// The API returns the wrong value for the `is_wpcom_staging_site` prop while staging sites
@@ -173,7 +173,7 @@ export const useFetchWpComSites = ( connectedSiteIdsOnlyForSelectedSite: number[
 			const allConnectedSites = await getIpcApi().getConnectedWpcomSites();
 
 			const baseFields =
-				'name,ID,URL,plan,capabilities,is_wpcom_atomic,options,jetpack,is_deleted,site_owner';
+				'name,ID,URL,plan,capabilities,is_wpcom_atomic,options,jetpack,is_deleted,is_a8c';
 			const fields = pressableSyncEnabled ? `${ baseFields },hosting_provider_guess` : baseFields;
 
 			const response = await client.req.get(
@@ -232,7 +232,7 @@ export const useFetchWpComSites = ( connectedSiteIdsOnlyForSelectedSite: number[
 	}, [ client?.req, isAuthenticated, isOffline, pressableSyncEnabled ] );
 
 	useEffect( () => {
-		fetchSites();
+		void fetchSites();
 	}, [ fetchSites ] );
 
 	const syncSitesWithSyncSupportForSelectedSite = useMemo(

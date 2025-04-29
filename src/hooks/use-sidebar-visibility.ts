@@ -55,7 +55,7 @@ export function useSidebarVisibility( elementSelector: string = MIN_WIDTH_SELECT
 	}, [ isLowerThanBreakpoint ] );
 
 	const toggleSidebar = useCallback( () => {
-		getIpcApi().toggleMinWindowWidth( isSidebarVisible );
+		void getIpcApi().toggleMinWindowWidth( isSidebarVisible );
 		setIsSidebarVisible( ! isSidebarVisible );
 	}, [ isSidebarVisible ] );
 

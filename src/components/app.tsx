@@ -25,7 +25,7 @@ export default function App() {
 	const { showWhatsNew, closeWhatsNew } = useWhatsNew();
 
 	useEffect( () => {
-		getIpcApi().setupAppMenu( { needsOnboarding } );
+		void getIpcApi().setupAppMenu( { needsOnboarding } );
 	}, [ needsOnboarding ] );
 
 	return (

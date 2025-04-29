@@ -17,7 +17,7 @@ describe( 'Archive Module', () => {
 		pipe: jest.fn(),
 		directory: jest.fn(),
 		file: jest.fn(),
-		finalize: jest.fn(),
+		finalize: jest.fn().mockResolvedValue( undefined ),
 		on: jest.fn(),
 	};
 
@@ -91,8 +91,10 @@ describe( 'Archive Module', () => {
 				return mockArchiver;
 			} );
 
+			mockArchiver.finalize.mockRejectedValue( mockError );
+
 			await expect( createArchive( mockSiteFolder, mockArchivePath ) ).rejects.toThrow(
-				'Failed to create archive'
+				'Archive error'
 			);
 		} );
 	} );

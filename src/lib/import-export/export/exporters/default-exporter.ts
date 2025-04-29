@@ -223,10 +223,17 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		return directoryContents.reduce< string[] >( ( files: string[], directoryContent ) => {
 			const filePath = path.join( directoryContent.path, directoryContent.name );
 			const relativePath = path.relative( this.options.site.path, filePath );
+
+			// Check for exact path exclusions
 			const isExcluded = this.pathsToExclude.some( ( pathToExclude ) =>
 				relativePath.startsWith( path.normalize( pathToExclude ) )
 			);
-			if ( isExcluded ) {
+
+			// Check for node_modules and .git directories anywhere
+			const isNodeModulesDirectory = relativePath.includes( 'node_modules' );
+			const isGitDirectory = relativePath.includes( '.git' );
+
+			if ( isExcluded || isNodeModulesDirectory || isGitDirectory ) {
 				return files;
 			}
 			if ( directoryContent.isFile() ) {

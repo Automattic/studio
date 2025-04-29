@@ -5,6 +5,7 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { appVersionApi } from 'src/stores/app-version-api';
 import { reducer as chatReducer } from 'src/stores/chat-slice';
 import { reducer as installedAppsReducer } from 'src/stores/installed-apps-slice';
+import { reducer as newSitesReducer } from 'src/stores/new-sites-slice';
 import { reducer as snapshotReducer } from 'src/stores/snapshot-slice';
 import { wpcomApi } from 'src/stores/wpcom-api';
 import { wordpressVersionsApi } from './wordpress-versions-api';
@@ -13,6 +14,7 @@ export type RootState = {
 	appVersionApi: ReturnType< typeof appVersionApi.reducer >;
 	chat: ReturnType< typeof chatReducer >;
 	installedApps: ReturnType< typeof installedAppsReducer >;
+	newSites: ReturnType< typeof newSitesReducer >;
 	snapshot: ReturnType< typeof snapshotReducer >;
 	wordpressVersionsApi: ReturnType< typeof wordpressVersionsApi.reducer >;
 	wpcomApi: ReturnType< typeof wpcomApi.reducer >;
@@ -56,9 +58,9 @@ listenerMiddleware.startListening( {
 			currentState.snapshot.snapshots !== previousState.snapshot.snapshots
 		);
 	},
-	effect( action, listenerApi ) {
+	async effect( action, listenerApi ) {
 		const state = listenerApi.getState();
-		getIpcApi().saveSnapshotsToStorage( state.snapshot.snapshots );
+		await getIpcApi().saveSnapshotsToStorage( state.snapshot.snapshots );
 	},
 } );
 
@@ -66,6 +68,7 @@ export const rootReducer = combineReducers( {
 	appVersionApi: appVersionApi.reducer,
 	chat: chatReducer,
 	installedApps: installedAppsReducer,
+	newSites: newSitesReducer,
 	snapshot: snapshotReducer,
 	wordpressVersionsApi: wordpressVersionsApi.reducer,
 	wpcomApi: wpcomApi.reducer,

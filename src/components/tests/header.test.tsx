@@ -10,6 +10,15 @@ import { store } from 'src/stores';
 
 jest.mock( 'src/lib/get-ipc-api' );
 
+beforeAll( () => {
+	Object.defineProperty( window, 'ipcListener', {
+		value: {
+			subscribe: jest.fn().mockReturnValue( () => {} ),
+		},
+		writable: true,
+	} );
+} );
+
 const mockedGetIpcApi = getIpcApi as jest.Mock;
 const mockedSites = [
 	{

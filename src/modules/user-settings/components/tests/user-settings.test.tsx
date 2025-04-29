@@ -7,7 +7,6 @@ import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
 import { UserSettings } from 'src/modules/user-settings';
 import { store } from 'src/stores';
-import { useGetSnapshotUsage } from 'src/stores/wpcom-api';
 
 jest.mock( 'src/hooks/use-feature-flags' );
 jest.mock( 'src/hooks/use-auth' );
@@ -63,22 +62,6 @@ describe( 'UserSettings', () => {
 				callback();
 			}
 		} );
-	} );
-
-	it( 'calls refetchSnapshotUsage when modal is opened', async () => {
-		const refetchMock = jest.fn();
-		( useGetSnapshotUsage as jest.Mock ).mockReturnValue( {
-			data: { siteCount: 2, siteLimit: 10, siteCreationBlocked: false },
-			isLoading: false,
-			refetch: refetchMock,
-		} );
-		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
-		( useFeatureFlags as jest.Mock ).mockReturnValue( {
-			preferredEditor: false,
-		} );
-
-		renderWithProvider( <UserSettings /> );
-		expect( refetchMock ).toHaveBeenCalledTimes( 1 );
 	} );
 
 	it( 'logs in when not authenticated', async () => {

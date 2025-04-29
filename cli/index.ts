@@ -18,9 +18,6 @@ async function main() {
 		.usage( __( 'Studio by WordPress.com CLI' ) )
 		.locale( locale )
 		.version( version )
-		.middleware( () =>
-			bumpAggregatedUniqueStat( StatsGroup.STUDIO_CLI_USAGE_UNIQUE, StatsMetric.SUCCESS, 'weekly' )
-		)
 		.option( 'output-format', {
 			type: 'string',
 			hidden: true,
@@ -30,6 +27,19 @@ async function main() {
 				}
 				return value;
 			},
+		} )
+		.option( 'avoid-telemetry', {
+			type: 'boolean',
+			hidden: true,
+		} )
+		.middleware( async ( argv ) => {
+			if ( ! argv.avoidTelemetry ) {
+				await bumpAggregatedUniqueStat(
+					StatsGroup.STUDIO_CLI_USAGE_UNIQUE,
+					StatsMetric.SUCCESS,
+					'weekly'
+				);
+			}
 		} )
 		.command( 'preview', __( 'Manage preview sites' ), ( previewYargs ) => {
 			registerCreateCommand( previewYargs );
@@ -44,4 +54,4 @@ async function main() {
 	await studioArgv.argv;
 }
 
-main();
+void main();

@@ -41,7 +41,7 @@ export function bumpAggregatedUniqueStat(
 		} )
 		.then( ( didBump ) => {
 			if ( didBump ) {
-				updateLastBump( group, stat );
+				void updateLastBump( group, stat );
 			}
 		} )
 		.catch( ( err ) => Sentry.captureException( err ) );

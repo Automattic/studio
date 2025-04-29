@@ -42,8 +42,8 @@ export function PreviewActionButtonsMenu( {
 	} );
 
 	const handleUpdatePreviewSite = () => {
-		showUpdatePreviewConfirmation( () => {
-			dispatch(
+		void showUpdatePreviewConfirmation( () => {
+			void dispatch(
 				snapshotThunks.updateSnapshot( {
 					atomicSiteId: snapshot.atomicSiteId,
 					siteFolder: selectedSite.path,
@@ -61,9 +61,9 @@ export function PreviewActionButtonsMenu( {
 		confirmButtonLabel: __( 'Delete' ),
 	} );
 
-	const handleDeletePreviewSite = async () => {
-		showDeletePreviewConfirmation( () => {
-			dispatch(
+	const handleDeletePreviewSite = () => {
+		void showDeletePreviewConfirmation( () => {
+			void dispatch(
 				snapshotThunks.deleteSnapshot( {
 					hostname: snapshot.url,
 				} )

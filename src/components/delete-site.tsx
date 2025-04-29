@@ -55,7 +55,7 @@ const DeleteSite = ( { onClose }: DeleteSiteProps ) => {
 			try {
 				await deleteSite( selectedSite.id, checkboxChecked );
 			} catch ( error ) {
-				await getIpcApi().showErrorMessageBox( {
+				getIpcApi().showErrorMessageBox( {
 					title: __( 'Deletion failed' ),
 					message: sprintf(
 						__( "We couldn't delete the site '%s'. Please try again" ),
@@ -91,7 +91,7 @@ const DeleteSite = ( { onClose }: DeleteSiteProps ) => {
 						return;
 					}
 					onClose();
-					handleDeleteSite();
+					void handleDeleteSite();
 				} }
 				isDestructive
 				disabled={ isSiteDeletionDisabled }

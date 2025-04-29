@@ -32,23 +32,23 @@ export const I18nDataProvider = ( { children }: { children: React.ReactNode } ) 
 			// Note we need to update this in both the renderer and main processes.
 			if ( translations ) {
 				defaultI18n.setLocaleData( translations );
-				getIpcApi().setDefaultLocaleData( translations );
+				void getIpcApi().setDefaultLocaleData( translations );
 			} else {
 				// In case we don't find translations, we reset the locale data to
 				// fallback to the default translations.
 				defaultI18n.resetLocaleData();
-				getIpcApi().resetDefaultLocaleData();
+				void getIpcApi().resetDefaultLocaleData();
 			}
 			// App menu is reloaded to ensure the items show the translated strings.
-			getIpcApi().setupAppMenu( { needsOnboarding } );
+			void getIpcApi().setupAppMenu( { needsOnboarding } );
 		},
 		[ needsOnboarding ]
 	);
 
 	useEffect( () => {
 		if ( initialized ) {
-			initI18n( locale );
-			getIpcApi().saveUserLocale( locale );
+			void initI18n( locale );
+			void getIpcApi().saveUserLocale( locale );
 			return;
 		}
 
@@ -57,7 +57,7 @@ export const I18nDataProvider = ( { children }: { children: React.ReactNode } ) 
 			setLocale( userLocale );
 			setInitialized( true );
 		}
-		setUserLocale();
+		void setUserLocale();
 	}, [ initI18n, locale, initialized ] );
 
 	const contextValue = useMemo(

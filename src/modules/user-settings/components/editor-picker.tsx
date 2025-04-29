@@ -1,8 +1,8 @@
 import { SelectControl } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { useEffect, useState } from 'react';
-import { SupportedEditor, supportedEditorConfig } from 'src/lib/editor';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { SupportedEditor, supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
 import { SettingsFormField } from './settings-form-field';
 
 interface EditorPickerProps {
@@ -21,16 +21,14 @@ export const EditorPicker = ( { value, onChange }: EditorPickerProps ) => {
 	} );
 
 	useEffect( () => {
-		const fetchInstalledApps = async () => {
-			try {
-				const apps = await getIpcApi().getInstalledApps();
+		getIpcApi()
+			.getInstalledApps()
+			.then( ( apps ) => {
 				setInstalledApps( apps );
-			} catch ( error ) {
+			} )
+			.catch( ( error ) => {
 				console.error( 'Failed to fetch installed apps:', error );
-			}
-		};
-
-		fetchInstalledApps();
+			} );
 	}, [] );
 
 	const installedEditors = Object.entries( supportedEditorConfig ).filter(

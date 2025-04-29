@@ -163,34 +163,25 @@ export class BackupHandlerWpress extends EventEmitter implements BackupHandler {
 	 * @returns {Promise<void>} - A promise that resolves when the extraction is complete.
 	 */
 	async extractFiles( file: BackupArchiveInfo, extractionDirectory: string ): Promise< void > {
-		return new Promise( ( resolve, reject ) => {
-			( async () => {
-				try {
-					try {
-						await fs.promises.access( file.path, constants.F_OK );
-					} catch ( error ) {
-						throw new Error( `Input file at location "${ file.path }" could not be found.` );
-					}
+		try {
+			await fs.promises.access( file.path, constants.F_OK );
+		} catch ( error ) {
+			throw new Error( `Input file at location "${ file.path }" could not be found.` );
+		}
 
-					await fse.emptyDir( extractionDirectory );
+		await fse.emptyDir( extractionDirectory );
 
-					const inputFile = await fs.promises.open( file.path, 'r' );
+		const inputFile = await fs.promises.open( file.path, 'r' );
 
-					let header;
-					while ( ( header = await readHeader( inputFile ) ) !== null ) {
-						if ( ! header ) {
-							break;
-						}
+		let header;
+		while ( ( header = await readHeader( inputFile ) ) !== null ) {
+			if ( ! header ) {
+				break;
+			}
 
-						await readBlockToFile( inputFile, header, extractionDirectory );
-					}
+			await readBlockToFile( inputFile, header, extractionDirectory );
+		}
 
-					await inputFile.close();
-					resolve();
-				} catch ( err ) {
-					reject( err );
-				}
-			} )();
-		} );
+		await inputFile.close();
 	}
 }

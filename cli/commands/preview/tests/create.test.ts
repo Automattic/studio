@@ -27,7 +27,7 @@ describe( 'Preview Create Command', () => {
 		pipe: jest.fn(),
 		directory: jest.fn(),
 		file: jest.fn(),
-		finalize: jest.fn(),
+		finalize: jest.fn().mockResolvedValue( undefined ),
 	};
 	let mockLogger: {
 		reportStart: jest.Mock;

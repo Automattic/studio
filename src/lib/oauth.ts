@@ -1,12 +1,11 @@
 import * as Sentry from '@sentry/electron/main';
 import wpcom from 'wpcom';
 import { z } from 'zod';
-import { PROTOCOL_PREFIX, WP_AUTHORIZE_ENDPOINT, CLIENT_ID, SCOPES } from 'src/constants';
+import { CLIENT_ID } from 'common/constants';
+import { getAuthenticationUrl } from 'common/lib/oauth';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
-import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { loadUserData, saveUserData } from 'src/storage/user-data';
 
-const REDIRECT_URI = `${ PROTOCOL_PREFIX }://auth`;
 const authTokenSchema = z.object( {
 	accessToken: z.string(),
 	expiresIn: z.number(),
@@ -43,6 +42,11 @@ async function storeToken( token: StoredToken ) {
 	} catch ( error ) {
 		console.error( 'Failed to store token', error );
 	}
+}
+
+export function getSignUpUrl() {
+	const authUrl = encodeURIComponent( getAuthenticationUrl() );
+	return `https://wordpress.com/log-in/link?redirect_to=${ authUrl }&client_id=${ CLIENT_ID }`;
 }
 
 export async function clearAuthenticationToken() {
@@ -100,14 +104,6 @@ async function handleAuthCallback( hash: string ): Promise< StoredToken > {
 	} );
 }
 
-export function authenticate(): void {
-	const authUrl = `${ WP_AUTHORIZE_ENDPOINT }?response_type=token&client_id=${ CLIENT_ID }&redirect_uri=${ encodeURIComponent(
-		REDIRECT_URI
-	) }&scope=${ encodeURIComponent( SCOPES ) }`;
-
-	shellOpenExternalWrapper( authUrl );
-}
-
 export async function onOpenUrlCallback( url: string ) {
 	const urlObject = new URL( url );
 	const { host, hash, searchParams } = urlObject;
@@ -116,16 +112,16 @@ export async function onOpenUrlCallback( url: string ) {
 		try {
 			const authResult = await handleAuthCallback( hash );
 			await storeToken( authResult );
-			sendIpcEventToRenderer( 'auth-updated', { token: authResult } );
+			void sendIpcEventToRenderer( 'auth-updated', { token: authResult } );
 		} catch ( error ) {
 			Sentry.captureException( error );
-			sendIpcEventToRenderer( 'auth-updated', { error } );
+			void sendIpcEventToRenderer( 'auth-updated', { error } );
 		}
 	} else if ( host === 'sync-connect-site' ) {
 		const remoteSiteId = parseInt( searchParams.get( 'remoteSiteId' ) ?? '' );
 		const studioSiteId = searchParams.get( 'studioSiteId' );
 		if ( remoteSiteId && studioSiteId ) {
-			sendIpcEventToRenderer( 'sync-connect-site', { remoteSiteId, studioSiteId } );
+			void sendIpcEventToRenderer( 'sync-connect-site', { remoteSiteId, studioSiteId } );
 		}
 	}
 }

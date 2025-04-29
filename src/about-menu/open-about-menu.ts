@@ -27,11 +27,9 @@ export function openAboutWindow() {
 		},
 	} );
 
-	aboutWindow.loadFile( aboutPath );
-
 	// Open external links in the default browser
 	aboutWindow.webContents.setWindowOpenHandler( ( { url } ) => {
-		shellOpenExternalWrapper( url );
+		void shellOpenExternalWrapper( url );
 
 		return { action: 'deny' };
 	} );
@@ -67,7 +65,10 @@ export function openAboutWindow() {
 			} );
 		}
 	} );
+
 	aboutWindow.on( 'closed', () => {
 		aboutWindow = null;
 	} );
+
+	void aboutWindow.loadFile( aboutPath );
 }

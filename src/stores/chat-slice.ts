@@ -25,6 +25,11 @@ export type Message = {
 	feedbackReceived?: boolean;
 };
 
+const createTypedAsyncThunk = createAsyncThunk.withTypes< {
+	state: RootState;
+	dispatch: AppDispatch;
+} >();
+
 const parseWpCliOutput = ( stdout: string ): string[] => {
 	try {
 		const data = JSON.parse( stdout );
@@ -69,7 +74,7 @@ type UpdateFromSiteParams = {
 	site: SiteDetails;
 };
 
-const updateFromSite = createAsyncThunk(
+const updateFromSite = createTypedAsyncThunk(
 	'chat/updateFromSite',
 	async ( { site }: UpdateFromSiteParams ) => {
 		const [ plugins, themes, siteUrl ] = await Promise.all( [
@@ -118,15 +123,10 @@ type FetchAssistantParams = {
 	siteId: string;
 };
 
-const createFetchAssistantThunk = createAsyncThunk.withTypes< {
-	state: RootState;
-	dispatch: AppDispatch;
-} >();
-
-const fetchAssistant = createFetchAssistantThunk(
+const fetchAssistant = createTypedAsyncThunk(
 	'chat/fetchAssistant',
 	async ( { client, instanceId, siteId }: FetchAssistantParams, thunkAPI ) => {
-		const state = thunkAPI.getState() as RootState;
+		const state = thunkAPI.getState();
 		const context = {
 			current_url: state.chat.currentURL,
 			number_of_sites: state.chat.numberOfSites,
@@ -189,10 +189,8 @@ const fetchAssistant = createFetchAssistantThunk(
 
 		return {
 			chatApiId: data.id,
-			maxQuota: headers[ 'x-quota-max' ],
 			message: data.choices[ 0 ].message.content,
 			messageApiId: data.choices[ 0 ].message.id,
-			remainingQuota: headers[ 'x-quota-remaining' ],
 		};
 	}
 );
@@ -204,10 +202,10 @@ type SendFeedbackParams = {
 	ratingValue: number;
 };
 
-const sendFeedback = createAsyncThunk(
+const sendFeedback = createTypedAsyncThunk(
 	'chat/sendFeedback',
 	async ( { client, messageApiId, ratingValue, instanceId }: SendFeedbackParams, thunkAPI ) => {
-		const state = thunkAPI.getState() as RootState;
+		const state = thunkAPI.getState();
 		const chatApiId = state.chat.chatApiIdDict[ instanceId ];
 
 		try {

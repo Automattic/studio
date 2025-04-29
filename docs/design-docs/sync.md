@@ -16,7 +16,7 @@ WordPress Studio Sync enables developers to pull a live site down for local deve
 - **Staging site**: A staging site is hosted on WordPress.com and is connected to its production site. WordPress.com staging sites can sync with production sites and vice versa; however, that is a different feature managed entirely in the wp.com Hosting Features web interface.
 - **Production site**: A production site is hosted on WordPress.com and is used to store the synced site. We consider all Pressable sites as production sites.
 - **Jetpack Backup**: A feature of WordPress.com that allows users to back up their sites and serves as the format used to share site data for the sync feature.
-- **Connection**: A connection is a relationship between a local machine and a remote site. That information lives in appData `connectedWpcomSites` array.
+- **Sync connection**: A Sync connection is a relationship between a local machine and a remote site. That information lives in appData `connectedWpcomSites` array.
 
 ### Backup format
 

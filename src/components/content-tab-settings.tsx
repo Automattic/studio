@@ -36,17 +36,17 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 		: `localhost:${ selectedSite.port }`;
 	const protocol = selectedSite.customDomain && selectedSite.enableHttps ? 'https' : 'http';
 	return (
-		<div className="p-8 ltr:pr-0 rtl:pl-0">
+		<div className="p-8 ltr:pr-4 rtl:pl-4">
 			<div className="flex justify-between items-center mb-4">
 				<h3 role="heading" className="text-black text-sm font-semibold">
 					{ __( 'Site details' ) }
 				</h3>
-				<div className="flex items-center">
+				<div className="flex items-center gap-1">
 					<EditSiteDetails currentWpVersion={ wpVersion } onSave={ refreshWpVersion } />
 					<DropdownMenu
 						icon={ moreVertical }
 						label={ __( 'More options' ) }
-						className="p-1 flex items-center"
+						className="flex items-center"
 					>
 						{ ( { onClose }: { onClose: () => void } ) => (
 							<MenuGroup>

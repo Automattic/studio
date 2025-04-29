@@ -1317,7 +1317,7 @@ export async function createSnapshot(
 	siteFolder: string
 ): Promise< { operationId: crypto.UUID } > {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	return executePreviewCliCommand( [ 'preview', 'create', siteFolder ], parentWindow );
+	return executePreviewCliCommand( [ 'preview', 'create', '--path', siteFolder ], parentWindow );
 }
 
 export async function updateSnapshot(
@@ -1327,7 +1327,7 @@ export async function updateSnapshot(
 ): Promise< { operationId: crypto.UUID } > {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	return executePreviewCliCommand(
-		[ 'preview', 'update', siteFolder, '-h', hostname ],
+		[ 'preview', 'update', '--path', siteFolder, hostname ],
 		parentWindow
 	);
 }

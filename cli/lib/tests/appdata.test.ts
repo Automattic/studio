@@ -7,7 +7,7 @@ import {
 	saveAppdata,
 	getAuthToken,
 	getNewSitePartial,
-	getSiteByFolder,
+	getOrCreateSiteByFolder,
 } from 'cli/lib/appdata';
 
 jest.mock( 'fs' );
@@ -186,35 +186,40 @@ describe( 'Appdata Module', () => {
 		} );
 	} );
 
-	describe( 'getSiteByFolder', () => {
-		it( 'should find a site in sites', async () => {
-			const folderPath = '/test/site/path';
-			const site = { id: 'site-1', path: folderPath, name: 'Site 1' };
+	describe( 'getOrCreateSiteByFolder', () => {
+		it( 'should return an existing site if present', async () => {
+			const folderPath = '/existing/site/path';
+			const existingSite = {
+				id: 'existing-id',
+				path: folderPath,
+				name: 'existing-site',
+			};
 			( readFile as jest.Mock ).mockReturnValueOnce(
-				JSON.stringify( { version: 1, sites: [ site ], newSites: [], snapshots: [] } )
+				JSON.stringify( { sites: [], newSites: [ existingSite ], snapshots: [] } )
 			);
-			const result = await getSiteByFolder( folderPath );
-			expect( result ).toEqual( site );
+			const { site, userData } = await getOrCreateSiteByFolder( folderPath );
+			expect( site ).toEqual( {
+				id: 'mock-uuid-1234',
+				path: folderPath,
+				name: mockSiteFolderName,
+			} );
+			expect( userData.newSites ).toContainEqual( site );
+			expect( writeFile ).toHaveBeenCalled();
 		} );
 
-		it( 'should find a site in newSites', async () => {
-			const folderPath = '/test/newsite/path';
-			const newSite = { id: 'site-2', path: folderPath, name: 'New Site' };
+		it( 'should create and return a new site if not present', async () => {
+			const folderPath = '/new/site/path';
 			( readFile as jest.Mock ).mockReturnValueOnce(
-				JSON.stringify( { version: 1, sites: [], newSites: [ newSite ], snapshots: [] } )
+				JSON.stringify( { sites: [], newSites: [], snapshots: [] } )
 			);
-			const result = await getSiteByFolder( folderPath );
-			expect( result ).toEqual( newSite );
-		} );
-
-		it( 'should throw if site is not found in either sites or newSites', async () => {
-			const folderPath = '/not/found/path';
-			( readFile as jest.Mock ).mockReturnValueOnce(
-				JSON.stringify( { version: 1, sites: [], newSites: [], snapshots: [] } )
-			);
-			await expect( getSiteByFolder( folderPath ) ).rejects.toThrow(
-				'The specified folder is not added to Studio.'
-			);
+			const { site, userData } = await getOrCreateSiteByFolder( folderPath );
+			expect( site ).toEqual( {
+				id: 'mock-uuid-1234',
+				path: folderPath,
+				name: mockSiteFolderName,
+			} );
+			expect( userData.newSites ).toContainEqual( site );
+			expect( writeFile ).toHaveBeenCalled();
 		} );
 	} );
 } );

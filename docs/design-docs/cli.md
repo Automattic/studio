@@ -2,7 +2,7 @@
 
 ## About this doc
 
-This document outlines the design and implementation details for the Studio CLI utility. It covers the high-level approach, data flow, risks, and mitigation strategies for this feature.
+This document outlines the design and implementation details for the Studio CLI utility. It covers the high-level approach, data flows, and implementation details for this feature.
 
 ## Context
 

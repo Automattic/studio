@@ -1,5 +1,11 @@
+import { createSelector } from '@reduxjs/toolkit';
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import {
+	SupportedEditorConfig,
+	SupportedEditor,
+	supportedEditorConfig,
+} from 'src/modules/user-settings/lib/editor';
 
 export type InstalledAppsState = InstalledApps & InstalledTerminals;
 
@@ -10,7 +16,7 @@ export const installedAppsApi = createApi( {
 	endpoints: ( builder ) => ( {
 		getInstalledApps: builder.query< InstalledAppsState, void >( {
 			queryFn: async () => {
-				const installedApps = await getIpcApi().getInstalledApps();
+				const installedApps = await getIpcApi().getInstalledAppsAndTerminals();
 				return { data: installedApps };
 			},
 			providesTags: [ 'InstalledApps' ],

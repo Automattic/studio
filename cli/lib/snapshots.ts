@@ -60,8 +60,6 @@ export async function getSnapshotsFromAppdata(
 }
 
 export async function updateSnapshotDateInAppdata( atomicSiteId: number ): Promise< Snapshot > {
-	await lock( UPDATE_SNAPSHOTS_LOCKFILE_PATH, { wait: 1000 } );
-
 	const userData = await readAppdata();
 	if ( ! userData.snapshots ) {
 		userData.snapshots = [];
@@ -74,7 +72,6 @@ export async function updateSnapshotDateInAppdata( atomicSiteId: number ): Promi
 
 	snapshot.date = Date.now();
 	await saveAppdata( userData );
-	await unlock( UPDATE_SNAPSHOTS_LOCKFILE_PATH );
 
 	return snapshot;
 }
@@ -140,6 +137,7 @@ export async function saveSnapshotToAppdata(
 }
 
 export async function deleteSnapshotFromAppdata( snapshotUrl: string ): Promise< void > {
+	await lock( UPDATE_SNAPSHOTS_LOCKFILE_PATH, { wait: 1000 } );
 	const userData = await readAppdata();
 	if ( ! userData.snapshots ) {
 		return;
@@ -150,6 +148,7 @@ export async function deleteSnapshotFromAppdata( snapshotUrl: string ): Promise<
 	}
 	userData.snapshots.splice( snapshotIndex, 1 );
 	await saveAppdata( userData );
+	await unlock( UPDATE_SNAPSHOTS_LOCKFILE_PATH );
 }
 
 function formatDurationUntilExpiry( lastUpdatedAt: number ) {

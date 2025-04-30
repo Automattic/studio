@@ -2,7 +2,6 @@ import os from 'node:os';
 import path from 'node:path';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { PreviewCommandLoggerAction as LoggerAction } from 'common/logger-actions';
-import { Argv } from 'yargs';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
 import { cleanup, createArchive } from 'cli/lib/archive';
@@ -10,7 +9,7 @@ import { getSnapshotsFromAppdata, updateSnapshotDateInAppdata } from 'cli/lib/sn
 import { normalizeHostname } from 'cli/lib/utils';
 import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
-import { GlobalOptions } from 'cli/types';
+import { StudioArgv } from 'cli/types';
 
 export async function runCommand( siteFolder: string, host: string ): Promise< void > {
 	const archivePath = path.join(
@@ -66,7 +65,7 @@ export async function runCommand( siteFolder: string, host: string ): Promise< v
 	}
 }
 
-export const registerCommand = ( yargs: Argv< GlobalOptions > ) => {
+export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: 'update <host>',
 		describe: __( 'Update preview site' ),

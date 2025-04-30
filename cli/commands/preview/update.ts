@@ -5,7 +5,7 @@ import { DEMO_SITE_EXPIRATION_DAYS } from 'common/constants';
 import { PreviewCommandLoggerAction as LoggerAction } from 'common/logger-actions';
 import { addDays } from 'date-fns';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
-import { getAuthToken } from 'cli/lib/appdata';
+import { getAuthToken, getSiteByFolder } from 'cli/lib/appdata';
 import { cleanup, createArchive } from 'cli/lib/archive';
 import { getSnapshotsFromAppdata, updateSnapshotInAppdata } from 'cli/lib/snapshots';
 import { normalizeHostname } from 'cli/lib/utils';
@@ -13,7 +13,11 @@ import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
-export async function runCommand( siteFolder: string, host: string ): Promise< void > {
+export async function runCommand(
+	siteFolder: string,
+	host: string,
+	overwrite?: boolean
+): Promise< void > {
 	const archivePath = path.join(
 		os.tmpdir(),
 		`${ path.basename( siteFolder ) }-${ Date.now() }.zip`
@@ -25,9 +29,19 @@ export async function runCommand( siteFolder: string, host: string ): Promise< v
 		validateSiteFolder( siteFolder );
 		const token = await getAuthToken();
 		const snapshots = await getSnapshotsFromAppdata( token.id );
+		const { id: currentSiteId } = await getSiteByFolder( siteFolder );
+
 		const snapshotToUpdate = snapshots.find( ( s ) => s.url === host );
 		if ( ! snapshotToUpdate ) {
 			throw new LoggerError( 'Preview site not found' );
+		}
+
+		if ( snapshotToUpdate.localSiteId !== currentSiteId && ! overwrite ) {
+			throw new LoggerError(
+				__(
+					'The specified folder does not match the original site for this preview. If you want to overwrite, run the command with --overwrite.'
+				)
+			);
 		}
 
 		const now = new Date();
@@ -79,15 +93,22 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		command: 'update <host>',
 		describe: __( 'Update preview site' ),
 		builder: ( yargs ) => {
-			return yargs.positional( 'host', {
-				type: 'string',
-				description: __( 'Hostname of the preview site to update' ),
-				demandOption: true,
-			} );
+			return yargs
+				.positional( 'host', {
+					type: 'string',
+					description: __( 'Hostname of the preview site to update' ),
+					demandOption: true,
+				} )
+				.option( 'overwrite', {
+					alias: 'o',
+					type: 'boolean',
+					default: false,
+					description: __( 'Allow updating a preview site from a different folder' ),
+				} );
 		},
 		handler: async ( argv ) => {
 			const normalizedHost = normalizeHostname( argv.host );
-			await runCommand( argv.path, normalizedHost );
+			await runCommand( argv.path, normalizedHost, argv.overwrite );
 		},
 	} );
 };

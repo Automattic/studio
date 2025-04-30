@@ -8,13 +8,7 @@ import Button from 'src/components/button';
 import offlineIcon from 'src/components/offline-icon';
 import { ScreenshotDemoSite } from 'src/components/screenshot-demo-site';
 import { Tooltip } from 'src/components/tooltip';
-import {
-	CLIENT_ID,
-	PROTOCOL_PREFIX,
-	SCOPES,
-	WP_AUTHORIZE_ENDPOINT,
-	LIMIT_OF_ZIP_SITES_PER_USER,
-} from 'src/constants';
+import { LIMIT_OF_ZIP_SITES_PER_USER } from 'src/constants';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSiteSize } from 'src/hooks/use-site-size';
@@ -125,12 +119,7 @@ function NoAuth( { selectedSite }: React.ComponentProps< typeof EmptyGeneric > )
 								if ( isOffline ) {
 									return;
 								}
-								const baseURL = 'https://wordpress.com/log-in/link';
-								const authURL = encodeURIComponent(
-									`${ WP_AUTHORIZE_ENDPOINT }?response_type=token&client_id=${ CLIENT_ID }&redirect_uri=${ PROTOCOL_PREFIX }%3A%2F%2Fauth&scope=${ SCOPES }&from-calypso=1`
-								);
-								const finalURL = `${ baseURL }?redirect_to=${ authURL }&client_id=${ CLIENT_ID }`;
-								getIpcApi().openURL( finalURL );
+								getIpcApi().authenticate( true );
 							} }
 						>
 							{ __( 'Create a free account' ) }

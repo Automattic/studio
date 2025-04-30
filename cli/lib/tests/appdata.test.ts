@@ -1,11 +1,14 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { readAppdata, saveAppdata, getAuthToken } from 'cli/lib/appdata';
+import { readAppdata, saveAppdata, getAuthToken, getNewSitePartial } from 'cli/lib/appdata';
 
 jest.mock( 'fs' );
 jest.mock( 'os' );
 jest.mock( 'path' );
+jest.mock( 'crypto', () => ( {
+	randomUUID: jest.fn().mockReturnValue( 'mock-uuid-1234' ),
+} ) );
 
 describe( 'Appdata Module', () => {
 	const mockHomeDir = '/mock/home';
@@ -156,6 +159,23 @@ describe( 'Appdata Module', () => {
 			);
 
 			await expect( getAuthToken() ).rejects.toThrow( 'Authentication required' );
+		} );
+	} );
+
+	describe( 'getNewSitePartial', () => {
+		it( 'should create a new site object with random UUID', () => {
+			const folderPath = '/test/site/path';
+			const baseName = 'sitename';
+
+			( path.basename as jest.Mock ).mockReturnValueOnce( baseName );
+
+			const result = getNewSitePartial( folderPath );
+
+			expect( result ).toEqual( {
+				id: 'mock-uuid-1234',
+				path: folderPath,
+				name: baseName,
+			} );
 		} );
 	} );
 } );

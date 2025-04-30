@@ -1,4 +1,5 @@
 import { __ } from '@wordpress/i18n';
+import fastDeepEqual from 'fast-deep-equal';
 import {
 	ReactNode,
 	createContext,
@@ -280,7 +281,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					getIpcApi().showErrorMessageBox( {
 						title: __( 'Studio failed to initialize custom domains' ),
 						message: __(
-							'Studio needs to use port 80 and 443 to enable custom domains and SSL, but one of both of these ports are already in use by another app. Close any local development apps and restart Studio.'
+							'Studio needs to use port 80 and 443 to enable custom domains and SSL, but one of these ports are already in use by another app. Close any local development apps and restart Studio.'
 						),
 						showOpenLogs: false,
 					} );
@@ -292,6 +293,17 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 						title: __( 'Studio failed to initialize custom domains' ),
 						message: __(
 							'Please restart Studio and try again. If this problem persists, please contact support.'
+						),
+						showOpenLogs: true,
+					} );
+				} else if (
+					error instanceof Error &&
+					error.message.includes( 'WASM_ERROR_NOT_ENOUGH_MEMORY' )
+				) {
+					getIpcApi().showErrorMessageBox( {
+						title: __( 'Not enough memory to start the site server' ),
+						message: __(
+							'Please stop some of your running sites first. If this problem persists, try closing other apps that might be using memory and try again.'
 						),
 						showOpenLogs: true,
 					} );
@@ -340,6 +352,19 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		},
 		[ startServer ]
 	);
+
+	useEffect( () => {
+		const unsubscribe = window.ipcListener.subscribe( 'user-data-updated', async ( _, payload ) => {
+			if ( ! fastDeepEqual( payload.newSites, payload.sites ) ) {
+				const updatedSites = await getIpcApi().getSiteDetails();
+				setData( updatedSites );
+			}
+		} );
+
+		return () => {
+			unsubscribe();
+		};
+	}, [] );
 
 	useEffect( () => {
 		let cancel = false;

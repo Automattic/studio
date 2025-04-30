@@ -19,9 +19,10 @@ import { __, LocaleData, defaultI18n } from '@wordpress/i18n';
 import archiver from 'archiver';
 import { calculateDirectorySize, isWordPressDirectory } from 'common/lib/fs-utils';
 import { SupportedLocale } from 'common/lib/locale';
+import { getAuthenticationUrl } from 'common/lib/oauth';
 import { Snapshot } from 'common/types/snapshot';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
-import { ARCHIVER_OPTIONS, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
+import { ARCHIVER_OPTIONS, DEFAULT_TERMINAL, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
 import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
 import { bumpStat } from 'src/lib/bump-stats';
@@ -40,8 +41,8 @@ import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 import { isErrnoException } from 'src/lib/is-errno-exception';
 import { isInstalled } from 'src/lib/is-installed';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
-import { StoredToken } from 'src/lib/oauth';
 import * as oauthClient from 'src/lib/oauth';
+import { getSignUpUrl } from 'src/lib/oauth';
 import { createPassword } from 'src/lib/passwords';
 import { phpGetThemeDetails } from 'src/lib/php-get-theme-details';
 import { portFinder } from 'src/lib/port-finder';
@@ -59,7 +60,7 @@ import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from 'src/s
 import { loadUserData, saveUserData } from 'src/storage/user-data';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
 import { SupportedEditor } from './modules/user-settings/lib/editor';
-import { SupportedTerminal, DEFAULT_TERMINAL } from './modules/user-settings/lib/terminal';
+import { SupportedTerminal } from './modules/user-settings/lib/terminal';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
 
@@ -149,7 +150,8 @@ export async function createSite(
 	siteName?: string,
 	wpVersion?: string,
 	customDomain?: string,
-	enableHttps?: boolean
+	enableHttps?: boolean,
+	siteId?: string
 ): Promise< SiteDetails[] > {
 	const userData = await loadUserData();
 	const forceSetupSqlite = false;
@@ -183,7 +185,7 @@ export async function createSite(
 	const port = await portFinder.getOpenPort();
 
 	const details = {
-		id: crypto.randomUUID(),
+		id: siteId || crypto.randomUUID(),
 		name: siteName || nodePath.basename( path ),
 		path,
 		adminPassword: createPassword(),
@@ -419,6 +421,11 @@ export async function startServer(
 			error.message.includes( '"unreachable" WASM instruction executed' )
 		) {
 			throw new Error( 'Please try disabling plugins and themes that might be causing the issue.' );
+		} else if (
+			error instanceof Error &&
+			error.message.includes( 'Cannot allocate Wasm memory for new instance' )
+		) {
+			throw new Error( 'WASM_ERROR_NOT_ENOUGH_MEMORY' );
 		}
 		throw error;
 	}
@@ -554,9 +561,11 @@ export async function getUserLocale( _event: IpcMainInvokeEvent ): Promise< Supp
 	return getUserLocaleWithFallback();
 }
 
-export async function getUserEditor( _event: IpcMainInvokeEvent ): Promise< SupportedEditor > {
+export async function getUserEditor(
+	_event: IpcMainInvokeEvent
+): Promise< SupportedEditor | undefined > {
 	const userData = await loadUserData();
-	return userData.preferredEditor as SupportedEditor;
+	return userData.preferredEditor;
 }
 
 export function showUserSettings( event: IpcMainInvokeEvent ) {
@@ -686,13 +695,12 @@ export function logRendererMessage(
 	writeLogToFile( level, processId, ...args );
 }
 
-export function authenticate( _event: IpcMainInvokeEvent ) {
-	oauthClient.authenticate();
+export function authenticate( event: IpcMainInvokeEvent, isSignup = false ) {
+	const authUrl = isSignup ? getSignUpUrl() : getAuthenticationUrl();
+	void shellOpenExternalWrapper( authUrl );
 }
 
-export async function getAuthenticationToken(
-	_event: IpcMainInvokeEvent
-): Promise< StoredToken | null > {
+export async function getAuthenticationToken() {
 	return oauthClient.getAuthenticationToken();
 }
 
@@ -986,11 +994,11 @@ export async function openTerminalAtPath(
 		initScriptSteps.push( `cd \\"${ escapedPath }\\"`, 'clear' );
 
 		const userData = await loadUserData();
-		const preferredTerminal = userData.supportedTerminal || 'terminal';
+		const preferredTerminal = ( userData.preferredTerminal || 'terminal' ) as SupportedTerminal;
 
-		if ( preferredTerminal === ( 'warp' as SupportedTerminal ) ) {
+		if ( preferredTerminal === 'warp' ) {
 			return promiseExec( `open -a Warp "${ targetPath }"` );
-		} else if ( preferredTerminal === ( 'ghostty' as SupportedTerminal ) ) {
+		} else if ( preferredTerminal === 'ghostty' ) {
 			return promiseExec( `open -a Ghostty "${ targetPath }"` );
 		} else if ( preferredTerminal === 'iterm' ) {
 			return promiseExec( `osascript << END
@@ -1012,7 +1020,7 @@ END` );
 		}
 	} else if ( platform === 'win32' ) {
 		const userData = await loadUserData();
-		const preferredTerminal = userData.supportedTerminal;
+		const preferredTerminal = userData.preferredTerminal;
 		const defaultShell = process.env.ComSpec || 'cmd.exe';
 		const env = wpCliEnabled
 			? { PATH: `${ cliPath };${ process.env.PATH }`, STUDIO_APP_PATH: appPath }
@@ -1268,12 +1276,12 @@ export async function checkSyncBackupSize(
 
 export async function saveUserTerminal(
 	_event: IpcMainInvokeEvent,
-	supportedTerminal: SupportedTerminal
+	preferredTerminal: SupportedTerminal
 ) {
 	const userData = await loadUserData();
 	await saveUserData( {
 		...userData,
-		supportedTerminal: supportedTerminal,
+		preferredTerminal: preferredTerminal,
 	} );
 
 	// Notify renderer processes that the terminal preference has changed
@@ -1282,7 +1290,7 @@ export async function saveUserTerminal(
 
 export async function getUserTerminal( _event: IpcMainInvokeEvent ): Promise< SupportedTerminal > {
 	const userData = await loadUserData();
-	return userData.supportedTerminal || DEFAULT_TERMINAL;
+	return ( userData.preferredTerminal || DEFAULT_TERMINAL ) as SupportedTerminal;
 }
 
 export async function isFullscreen( _event: IpcMainInvokeEvent ): Promise< boolean > {
@@ -1337,4 +1345,14 @@ export async function deleteSnapshot(
 ): Promise< { operationId: crypto.UUID } > {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	return executePreviewCliCommand( [ 'preview', 'delete', hostname ], parentWindow );
+}
+
+export async function handleNewSite( event: IpcMainInvokeEvent, newSite: NewSiteDetails ) {
+	await createSite( event, newSite.path, undefined, undefined, undefined, undefined, newSite.id );
+
+	const userData = await loadUserData();
+	await saveUserData( {
+		...userData,
+		newSites: userData.newSites?.filter( ( s ) => s.id !== newSite.id ),
+	} );
 }

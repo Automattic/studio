@@ -60,6 +60,7 @@ blockquote {
 	display: inline-block;
 	width: 14px;
 	height: 14px;
+	top: 16px;
 }
 
 .components-tab-panel__tabs--assistant:hover:not(:active)::before {

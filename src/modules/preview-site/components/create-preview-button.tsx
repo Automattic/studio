@@ -5,7 +5,6 @@ import { AuthContextType } from 'src/components/auth-provider';
 import Button from 'src/components/button';
 import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
-import { useArchiveErrorMessages } from 'src/hooks/use-archive-error-messages';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSiteSize } from 'src/hooks/use-site-size';
@@ -39,7 +38,6 @@ export function CreatePreviewButton( { onClick, selectedSite, user }: CreatePrev
 	const isLimitUsed = activeSnapshotCount >= snapshotQuota;
 	const { isOverLimit } = useSiteSize( selectedSite.id );
 	const isOffline = useOffline();
-	const errorMessages = useArchiveErrorMessages();
 	const [ wpVersion ] = useGetWpVersion( selectedSite );
 	const { data: wpVersions = [] } = useGetWordPressVersions();
 
@@ -81,6 +79,7 @@ export function CreatePreviewButton( { onClick, selectedSite, user }: CreatePrev
 	const versionMismatchMessage = __(
 		'Your Studio site is running versions not supported by preview sites. The preview site will automatically switch to the supported WordPress and PHP versions.'
 	);
+	const snapshotCreationBlockedMessage = __( 'Preview sites are not available for your account.' );
 
 	let tooltipContent;
 	if ( isOffline ) {
@@ -95,7 +94,7 @@ export function CreatePreviewButton( { onClick, selectedSite, user }: CreatePrev
 	} else if ( isOtherSiteArchiving ) {
 		tooltipContent = { text: otherSiteArchivingMessage };
 	} else if ( snapshotCreationBlocked ) {
-		tooltipContent = { text: errorMessages.rest_site_creation_blocked };
+		tooltipContent = { text: snapshotCreationBlockedMessage };
 	} else if ( isOverLimit ) {
 		tooltipContent = { text: overLimitMessage };
 	} else if ( shouldShowMismatchTooltip ) {

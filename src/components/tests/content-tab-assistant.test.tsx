@@ -11,16 +11,15 @@ import { LOCAL_STORAGE_CHAT_MESSAGES_KEY, CLEAR_HISTORY_REMINDER_TIME } from 'sr
 import { useAuth } from 'src/hooks/use-auth';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
 import { useOffline } from 'src/hooks/use-offline';
-import { usePromptUsage } from 'src/hooks/use-prompt-usage';
 import { ThemeDetailsProvider } from 'src/hooks/use-theme-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { store } from 'src/stores';
 import { generateMessage, chatActions } from 'src/stores/chat-slice';
 import { testActions } from 'src/stores/tests/utils/test-reducer';
+import { useGetAssistantQuota, useGetWelcomeMessages } from 'src/stores/wpcom-api';
 
 jest.mock( 'src/hooks/use-auth' );
 jest.mock( 'src/hooks/use-offline' );
-jest.mock( 'src/hooks/use-prompt-usage' );
 jest.mock( 'src/lib/get-ipc-api' );
 jest.mock( 'src/hooks/use-get-wp-version' );
 
@@ -31,19 +30,8 @@ jest.mock( 'src/lib/app-globals', () => ( {
 } ) );
 
 jest.mock( 'src/stores/wpcom-api', () => ( {
-	useGetWelcomeMessages: () => ( {
-		data: {
-			messages: [ 'Welcome to our service!', 'How can I help you today?' ],
-			example_prompts: [
-				'How to create a WordPress site',
-				'How to clear cache',
-				'How to install a plugin',
-			],
-		},
-		isLoading: false,
-		isError: false,
-		error: null,
-	} ),
+	useGetWelcomeMessages: jest.fn(),
+	useGetAssistantQuota: jest.fn(),
 	wpcomApi: {
 		reducerPath: 'wpcomApi',
 		reducer: () => ( {} ),
@@ -98,6 +86,7 @@ describe( 'ContentTabAssistant', () => {
 			{
 				'x-quota-max': '100',
 				'x-quota-remaining': '99',
+				'x-quota-reset': '2025-05-01T00:00:00+00:00',
 			}
 		);
 	} );
@@ -122,7 +111,19 @@ describe( 'ContentTabAssistant', () => {
 			authenticate,
 		} );
 		( useOffline as jest.Mock ).mockReturnValue( false );
-		( usePromptUsage as jest.Mock ).mockReturnValue( { userCanSendMessage: true } );
+		( useGetWelcomeMessages as jest.Mock ).mockReturnValue( {
+			data: {
+				messages: [ 'Welcome to our service!', 'How can I help you today?' ],
+				example_prompts: [
+					'How to create a WordPress site',
+					'How to clear cache',
+					'How to install a plugin',
+				],
+			},
+		} );
+		( useGetAssistantQuota as jest.Mock ).mockReturnValue( {
+			data: { userCanSendMessage: true },
+		} );
 		( getIpcApi as jest.Mock ).mockReturnValue( {
 			showMessageBox: jest.fn().mockResolvedValue( { response: 0, checkboxChecked: false } ),
 			executeWPCLiInline: jest.fn().mockResolvedValue( { stdout: '', stderr: 'Error' } ),
@@ -169,7 +170,7 @@ describe( 'ContentTabAssistant', () => {
 			const storedMessages = JSON.parse(
 				localStorage.getItem( LOCAL_STORAGE_CHAT_MESSAGES_KEY ) || '[]'
 			);
-			expect( storedMessages[ runningSite.id ] ).toHaveLength( 4 );
+			expect( storedMessages[ runningSite.id ] ).toHaveLength( 3 );
 			expect( storedMessages[ runningSite.id ][ 2 ].content ).toBe( 'New message' );
 		} );
 	} );
@@ -426,9 +427,8 @@ describe( 'ContentTabAssistant', () => {
 			{ timeout: MIMIC_CONVERSATION_DELAY + 2000 }
 		);
 
-		( usePromptUsage as jest.Mock ).mockReturnValue( {
-			userCanSendMessage: false,
-			daysUntilReset: 4,
+		( useGetAssistantQuota as jest.Mock ).mockReturnValue( {
+			data: { userCanSendMessage: false, daysUntilReset: 4 },
 		} );
 		rerender( <ContextWrapper selectedSite={ runningSite } /> );
 		expect(

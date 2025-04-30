@@ -16,6 +16,7 @@ const mockConnectedWpcomSites = [
 		name: 'My simple business site',
 		url: 'https://developer.wordpress.com/studio/',
 		isStaging: false,
+		isPressable: false,
 		stagingSiteIds: [ 7 ],
 		syncSupport: 'syncable',
 		lastPullTimestamp: null,
@@ -27,6 +28,7 @@ const mockConnectedWpcomSites = [
 		name: 'Staging: My simple business site',
 		url: 'https://developer-staging.wordpress.com/studio/',
 		isStaging: true,
+		isPressable: false,
 		stagingSiteIds: [],
 		syncSupport: 'syncable',
 		lastPullTimestamp: null,
@@ -41,6 +43,7 @@ const mockSyncSites = [
 		name: 'My simple store',
 		url: 'https://developer.wordpress.com/studio/store',
 		isStaging: false,
+		isPressable: false,
 		stagingSiteIds: [ 9 ],
 		syncSupport: 'syncable',
 		lastPullTimestamp: null,
@@ -52,6 +55,7 @@ const mockSyncSites = [
 		name: 'Staging: My simple test store',
 		url: 'https://developer-staging.wordpress.com/studio/test-store',
 		isStaging: true,
+		isPressable: false,
 		stagingSiteIds: [],
 		syncSupport: 'syncable',
 		lastPullTimestamp: null,
@@ -119,6 +123,7 @@ describe( 'useSyncSites management', () => {
 		await waitFor( async () => {
 			await result.current.connectSite( {
 				...siteToConnect,
+				isPressable: false,
 				syncSupport: 'syncable',
 			} );
 		} );

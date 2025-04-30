@@ -62,7 +62,7 @@ afterEach( () => {
 } );
 
 describe( 'createSite', () => {
-	it( 'should create a site', async () => {
+	it( 'should create a site with generated ID when siteId is not provided', async () => {
 		( isEmptyDir as jest.Mock ).mockResolvedValueOnce( true );
 		( pathExists as jest.Mock ).mockResolvedValueOnce( true );
 
@@ -71,6 +71,35 @@ describe( 'createSite', () => {
 		expect( site ).toEqual( {
 			adminPassword: expect.any( String ),
 			id: expect.any( String ),
+			name: 'Test',
+			path: '/test',
+			phpVersion: '8.2',
+			port: 9999,
+			running: false,
+			customDomain: undefined,
+			enableHttps: undefined,
+			isWpAutoUpdating: false,
+		} );
+	} );
+
+	it( 'should create a site with provided siteId', async () => {
+		( isEmptyDir as jest.Mock ).mockResolvedValueOnce( true );
+		( pathExists as jest.Mock ).mockResolvedValueOnce( true );
+
+		const customSiteId = 'custom-site-id-123';
+		const [ site ] = await createSite(
+			mockIpcMainInvokeEvent,
+			'/test',
+			'Test',
+			'6.4',
+			undefined,
+			undefined,
+			customSiteId
+		);
+
+		expect( site ).toEqual( {
+			adminPassword: expect.any( String ),
+			id: customSiteId,
 			name: 'Test',
 			path: '/test',
 			phpVersion: '8.2',

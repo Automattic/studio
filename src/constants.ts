@@ -11,7 +11,7 @@ export const MIN_WIDTH_SELECTOR_TO_MEASURE = `.${ MIN_WIDTH_CLASS_TO_MEASURE }`;
 export const SCREENSHOT_WIDTH = 1040;
 export const SCREENSHOT_HEIGHT = 1248;
 export const LIMIT_OF_ZIP_SITES_PER_USER = 10;
-export const LIMIT_OF_PROMPTS_PER_USER = 200;
+export const LIMIT_OF_PROMPTS_PER_USER = 1000;
 export const UPDATED_MESSAGE_DURATION_MS = 60000; // 1 minute
 export const SYNC_PUSH_SIZE_LIMIT_GB = 2;
 export const SYNC_PUSH_SIZE_LIMIT_BYTES = SYNC_PUSH_SIZE_LIMIT_GB * 1024 * 1024 * 1024; // 2GB
@@ -27,6 +27,7 @@ export const FEATURE_REQUEST_URL =
 export const WPCOM_PROFILE_URL = 'https://wordpress.com/me';
 export const LOCAL_STORAGE_CHAT_MESSAGES_KEY = 'ai_chat_messages';
 export const LOCAL_STORAGE_CHAT_API_IDS_KEY = 'ai_chat_ids';
+export const DEFAULT_TERMINAL = 'terminal';
 
 //Import file constants
 
@@ -42,12 +43,6 @@ export const ARCHIVER_OPTIONS = {
 		gzipOptions: { level: 9 },
 	},
 };
-
-// OAuth constants
-export const CLIENT_ID = '95109';
-export const PROTOCOL_PREFIX = 'wpcom-local-dev';
-export const WP_AUTHORIZE_ENDPOINT = 'https://public-api.wordpress.com/oauth2/authorize';
-export const SCOPES = 'global';
 
 // AI Assistant constants
 // IMPORTANT: When updating this value, we need to update the string located in `AIClearHistoryReminder` component.
@@ -79,4 +74,5 @@ export const IPC_VOID_HANDLERS = < const >[
 	'showErrorMessageBox',
 	'showItemInFolder',
 	'showNotification',
+	'authenticate',
 ];

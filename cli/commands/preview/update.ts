@@ -1,7 +1,9 @@
 import os from 'node:os';
 import path from 'node:path';
 import { __, _n, sprintf } from '@wordpress/i18n';
+import { DEMO_SITE_EXPIRATION_DAYS } from 'common/constants';
 import { PreviewCommandLoggerAction as LoggerAction } from 'common/logger-actions';
+import { addDays } from 'date-fns';
 import { Argv } from 'yargs';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
@@ -32,6 +34,13 @@ export async function runCommand(
 		if ( ! snapshotToUpdate ) {
 			throw new LoggerError( 'Preview site not found' );
 		}
+
+		const now = new Date();
+		const endDate = addDays( snapshotToUpdate.date, DEMO_SITE_EXPIRATION_DAYS );
+		if ( endDate < now ) {
+			throw new LoggerError( __( 'Cannot update an expired preview site.' ) );
+		}
+
 		logger.reportSuccess( __( 'Validation successful' ) );
 
 		logger.reportStart( LoggerAction.ARCHIVE, __( 'Creating archive...' ) );
@@ -79,7 +88,7 @@ export const registerCommand = ( yargs: Argv< GlobalOptions > ) => {
 				.positional( 'folder', {
 					type: 'string',
 					default: process.cwd(),
-					description: __( 'The folder to update the preview from' ),
+					description: __( 'The folder to update the preview site from' ),
 				} )
 				.option( 'host', {
 					alias: 'H',

@@ -7,6 +7,7 @@ import { Provider } from 'react-redux';
 import { ContentTabOverview } from 'src/components/content-tab-overview';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useThemeDetails } from 'src/hooks/use-theme-details';
+import { getInstalledAppsAndTerminals } from 'src/ipc-handlers';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { RootState, store } from 'src/stores';
 import { InstalledAppsState } from 'src/stores/installed-apps-api';
@@ -42,11 +43,11 @@ function installedAppsTestReducer( state: RootState, action: UnknownAction ) {
 						status: QueryStatus.fulfilled,
 						data: payload.installedApps,
 						error: undefined,
-						originalArgs: undefined,
 						requestId: 'test-request-id',
 						endpointName: 'getInstalledApps',
 						startedTimeStamp: 0,
 						fulfilledTimeStamp: 0,
+						originalArgs: undefined as never,
 					},
 				};
 			}
@@ -95,7 +96,7 @@ describe( 'ShortcutsSection', () => {
 			openURL: openURLMock,
 			getUserEditor: jest.fn().mockResolvedValue( 'vscode' ),
 			getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
-			getInstalledApps: jest.fn().mockResolvedValue( {
+			getInstalledAppsAndTerminals: jest.fn().mockResolvedValue( {
 				vscode: true,
 				phpstorm: false,
 				webstorm: false,
@@ -130,7 +131,7 @@ describe( 'ShortcutsSection', () => {
 			openURL: openURLMock,
 			getUserEditor: jest.fn().mockResolvedValue( 'phpstorm' ), // User prefers PhpStorm
 			getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
-			getInstalledApps: jest.fn().mockResolvedValue( {
+			getInstalledAppsAndTerminals: jest.fn().mockResolvedValue( {
 				vscode: false,
 				phpstorm: true,
 				webstorm: false,
@@ -163,7 +164,7 @@ describe( 'ShortcutsSection', () => {
 			openTerminalAtPath: openTerminalAtPathMock,
 			getUserEditor: jest.fn().mockResolvedValue( null ),
 			getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
-			getInstalledApps: jest.fn().mockResolvedValue( {
+			getInstalledAppsAndTerminals: jest.fn().mockResolvedValue( {
 				vscode: false,
 				phpstorm: false,
 				webstorm: false,
@@ -204,7 +205,7 @@ describe( 'ShortcutsSection', () => {
 			openTerminalAtPath: openTerminalAtPathMock,
 			getUserEditor: jest.fn().mockResolvedValue( null ),
 			getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
-			getInstalledApps: jest.fn().mockResolvedValue( {
+			getInstalledAppsAndTerminals: jest.fn().mockResolvedValue( {
 				vscode: false,
 				phpstorm: false,
 				webstorm: false,
@@ -238,7 +239,7 @@ describe( 'ShortcutsSection', () => {
 			openLocalPath: jest.fn(),
 			getUserEditor: jest.fn().mockResolvedValue( null ),
 			getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
-			getInstalledApps: jest.fn().mockResolvedValue( {
+			getInstalledAppsAndTerminals: jest.fn().mockResolvedValue( {
 				vscode: false,
 				phpstorm: false,
 				webstorm: false,

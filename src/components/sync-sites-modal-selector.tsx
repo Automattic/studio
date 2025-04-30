@@ -123,6 +123,7 @@ function SearchSites( {
 	setSearchQuery: ( value: string ) => void;
 } ) {
 	const { __ } = useI18n();
+	const { pressableSyncEnabled } = useFeatureFlags();
 	return (
 		<div className="flex flex-col px-8 pb-6 border-b border-a8c-gray-5">
 			<SearchControl
@@ -136,7 +137,9 @@ function SearchSites( {
 				__nextHasNoMarginBottom={ true }
 			/>
 			<p className="a8c-helper-text text-gray-500">
-				{ __( 'Syncing is supported for sites on the Business plan or above.' ) }
+				{ pressableSyncEnabled
+					? __( 'Syncing is supported for WP.com sites on the Business plan or above.' )
+					: __( 'Syncing is supported for sites on the Business plan or above.' ) }
 			</p>
 		</div>
 	);

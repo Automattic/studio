@@ -6,14 +6,18 @@ import {
 	SupportedEditor,
 	supportedEditorConfig,
 } from 'src/modules/user-settings/lib/editor';
-import { SupportedTerminal, supportedTerminalNames } from 'src/modules/user-settings/lib/terminal';
+import {
+	SupportedTerminal,
+	supportedTerminalNames,
+	DEFAULT_TERMINAL,
+} from 'src/modules/user-settings/lib/terminal';
 
 export type InstalledAppsState = InstalledApps & InstalledTerminals;
 
 export const installedAppsApi = createApi( {
 	reducerPath: 'installedAppsApi',
 	baseQuery: fetchBaseQuery(),
-	tagTypes: [ 'InstalledApps' ],
+	tagTypes: [ 'InstalledApps', 'UserPreferences' ],
 	endpoints: ( builder ) => ( {
 		getInstalledApps: builder.query< InstalledAppsState, void >( {
 			queryFn: async () => {
@@ -22,10 +26,44 @@ export const installedAppsApi = createApi( {
 			},
 			providesTags: [ 'InstalledApps' ],
 		} ),
+		getUserEditor: builder.query< SupportedEditor, void >( {
+			queryFn: async () => {
+				const editor = await getIpcApi().getUserEditor();
+				return { data: editor };
+			},
+			providesTags: [ 'UserPreferences' ],
+		} ),
+		getUserTerminal: builder.query< SupportedTerminal, void >( {
+			queryFn: async () => {
+				const terminal = await getIpcApi().getUserTerminal();
+				return { data: terminal || DEFAULT_TERMINAL };
+			},
+			providesTags: [ 'UserPreferences' ],
+		} ),
+		saveUserEditor: builder.mutation< void, SupportedEditor >( {
+			queryFn: async ( editor ) => {
+				await getIpcApi().saveUserEditor( editor );
+				return { data: undefined };
+			},
+			invalidatesTags: [ 'UserPreferences' ],
+		} ),
+		saveUserTerminal: builder.mutation< void, SupportedTerminal >( {
+			queryFn: async ( terminal ) => {
+				await getIpcApi().saveUserTerminal( terminal );
+				return { data: undefined };
+			},
+			invalidatesTags: [ 'UserPreferences' ],
+		} ),
 	} ),
 } );
 
-export const { useGetInstalledAppsQuery } = installedAppsApi;
+export const {
+	useGetInstalledAppsQuery,
+	useGetUserEditorQuery,
+	useGetUserTerminalQuery,
+	useSaveUserEditorMutation,
+	useSaveUserTerminalMutation,
+} = installedAppsApi;
 
 export const selectInstalledEditors = createSelector(
 	[ ( data?: InstalledAppsState ) => data ],

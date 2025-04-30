@@ -26,7 +26,11 @@ import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
 import { supportedTerminalNames, DEFAULT_TERMINAL } from 'src/modules/user-settings/lib/terminal';
-import { useGetInstalledAppsQuery } from 'src/stores/installed-apps-api';
+import {
+	useGetInstalledAppsQuery,
+	useGetUserEditorQuery,
+	useGetUserTerminalQuery,
+} from 'src/stores/installed-apps-api';
 
 interface ContentTabOverviewProps {
 	selectedSite: SiteDetails;
@@ -142,33 +146,12 @@ function CustomizeSection( {
 function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'selectedSite' > ) {
 	const { terminalWpCliEnabled } = useFeatureFlags();
 	const { data: installedApps } = useGetInstalledAppsQuery();
-	const [ terminalName, setTerminalName ] = useState( supportedTerminalNames[ DEFAULT_TERMINAL ] );
-	const [ editorName, setEditorName ] = useState( '' );
+	const { data: editor = 'vscode' } = useGetUserEditorQuery();
+	const { data: terminal = DEFAULT_TERMINAL } = useGetUserTerminalQuery();
 
-	const updateTerminalName = useCallback( async () => {
-		const terminal = await getIpcApi().getUserTerminal();
-		setTerminalName( supportedTerminalNames[ terminal ] );
-	}, [ setTerminalName ] );
-
-	const updateEditorName = useCallback( async () => {
-		const editor = await getIpcApi().getUserEditor();
-
-		if ( editor && installedApps && installedApps[ editor as keyof typeof installedApps ] ) {
-			setEditorName( editor );
-		} else {
-			setEditorName( '' );
-		}
-	}, [ setEditorName, installedApps ] );
-
-	useIpcListener( 'user-preference-changed', () => {
-		void updateTerminalName();
-		void updateEditorName();
-	} );
-
-	useEffect( () => {
-		void updateTerminalName();
-		void updateEditorName();
-	}, [ updateTerminalName, updateEditorName ] );
+	const terminalName = supportedTerminalNames[ terminal ];
+	const editorName =
+		editor && installedApps && installedApps[ editor as keyof typeof installedApps ] ? editor : '';
 
 	const buttonsArray: ButtonsSectionProps[ 'buttonsArray' ] = [
 		{

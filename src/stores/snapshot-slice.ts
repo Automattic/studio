@@ -152,7 +152,10 @@ const snapshotSlice = createSlice( {
 		},
 		updateSnapshot: (
 			state,
-			action: PayloadAction< { atomicSiteId: number; snapshot: Partial< Snapshot > } >
+			action: PayloadAction< {
+				atomicSiteId: number;
+				snapshot: Partial< Omit< Snapshot, 'atomicSiteId' > >;
+			} >
 		) => {
 			const snapshot = state.snapshots.find(
 				( snapshot ) => snapshot.atomicSiteId === action.payload.atomicSiteId

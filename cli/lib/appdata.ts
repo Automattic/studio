@@ -3,6 +3,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { __, sprintf } from '@wordpress/i18n';
+import { readFile, writeFile } from 'atomically';
 import { getAuthenticationUrl } from 'common/lib/oauth';
 import { snapshotSchema } from 'common/types/snapshot';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
@@ -38,17 +39,21 @@ const userDataSchema = z
 
 type UserData = z.infer< typeof userDataSchema >;
 
-export function getAppdataPath(): string {
+export function getAppdataDirectory(): string {
 	if ( process.platform === 'win32' ) {
 		if ( ! process.env.APPDATA ) {
 			throw new LoggerError( __( 'Appdata path not found.' ) );
 		}
 
-		return path.join( process.env.APPDATA, 'Studio', 'appdata-v1.json' );
+		return path.join( process.env.APPDATA, 'Studio' );
 	}
 
-	const homeDir = os.homedir();
-	return path.join( homeDir, 'Library', 'Application Support', 'Studio', 'appdata-v1.json' );
+	return path.join( os.homedir(), 'Library', 'Application Support', 'Studio' );
+}
+
+export function getAppdataPath(): string {
+	const appdataDir = getAppdataDirectory();
+	return path.join( appdataDir, 'appdata-v1.json' );
 }
 
 export async function readAppdata(): Promise< UserData > {
@@ -59,7 +64,7 @@ export async function readAppdata(): Promise< UserData > {
 	}
 
 	try {
-		const fileContent = fs.readFileSync( appDataPath, 'utf8' );
+		const fileContent = await readFile( appDataPath, { encoding: 'utf8' } );
 		const userData = JSON.parse( fileContent );
 		const result = userDataSchema.parse( userData );
 
@@ -100,7 +105,7 @@ export async function saveAppdata( userData: UserData ): Promise< void > {
 
 		const fileContent = JSON.stringify( userData, null, 2 ) + '\n';
 
-		fs.writeFileSync( appDataPath, fileContent, 'utf8' );
+		await writeFile( appDataPath, fileContent, { encoding: 'utf8' } );
 	} catch ( error ) {
 		throw new LoggerError( __( 'Failed to save appdata file' ), error );
 	}

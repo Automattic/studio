@@ -77,7 +77,7 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 					code: <code />,
 				},
 			} ),
-			learnMoreUrl: 'https://wordpress.com/blog/2025/04/01/studio-cli/',
+			learnMoreUrl: 'https://developer.wordpress.com/docs/developer-tools/studio/cli/',
 		},
 		{
 			image: customDomainIllustration,

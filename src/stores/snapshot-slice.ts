@@ -301,7 +301,10 @@ window.ipcListener.subscribe( 'user-data-updated', ( _, payload ) => {
 		const countDiff = snapshots.length - state.snapshot.snapshots.length;
 		store.dispatch(
 			wpcomApi.util.updateQueryData( 'getSnapshotUsage', undefined, ( data ) => {
-				data.siteCount += countDiff;
+				// There's a risk that more sites are deleted locally than the count returned by the
+				// API, because expired sites are preserved locally. Therefore, we need to ensure
+				// the count is non-negative.
+				data.siteCount = Math.max( 0, data.siteCount + countDiff );
 			} )
 		);
 

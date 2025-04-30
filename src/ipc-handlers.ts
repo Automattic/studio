@@ -415,17 +415,19 @@ export async function startServer(
 	try {
 		await server.start();
 	} catch ( error ) {
+		if (
+			error instanceof Error &&
+			error.message.includes( 'Cannot allocate Wasm memory for new instance' )
+		) {
+			throw new Error( 'WASM_ERROR_NOT_ENOUGH_MEMORY' );
+		}
+
 		Sentry.captureException( error );
 		if (
 			error instanceof Error &&
 			error.message.includes( '"unreachable" WASM instruction executed' )
 		) {
 			throw new Error( 'Please try disabling plugins and themes that might be causing the issue.' );
-		} else if (
-			error instanceof Error &&
-			error.message.includes( 'Cannot allocate Wasm memory for new instance' )
-		) {
-			throw new Error( 'WASM_ERROR_NOT_ENOUGH_MEMORY' );
 		}
 		throw error;
 	}

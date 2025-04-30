@@ -8,17 +8,14 @@ import { createArchive, cleanup } from 'cli/lib/archive';
 import { saveSnapshotToAppdata } from 'cli/lib/snapshots';
 import { validateSiteFolder, validateSiteSize } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
-import { OutputFormat, StudioArgv } from 'cli/types';
+import { StudioArgv } from 'cli/types';
 
-export async function runCommand(
-	siteFolder: string,
-	outputFormat?: OutputFormat
-): Promise< void > {
+export async function runCommand( siteFolder: string ): Promise< void > {
 	const archivePath = path.join(
 		os.tmpdir(),
 		`${ path.basename( siteFolder ) }-${ Date.now() }.zip`
 	);
-	const logger = new Logger< LoggerAction >( outputFormat );
+	const logger = new Logger< LoggerAction >();
 
 	try {
 		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating...' ) );
@@ -68,7 +65,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		command: 'create',
 		describe: __( 'Create a preview site' ),
 		handler: async ( argv ) => {
-			await runCommand( argv.path, argv.outputFormat );
+			await runCommand( argv.path );
 		},
 	} );
 };

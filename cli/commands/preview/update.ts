@@ -4,7 +4,6 @@ import { __, _n, sprintf } from '@wordpress/i18n';
 import { DEMO_SITE_EXPIRATION_DAYS } from 'common/constants';
 import { PreviewCommandLoggerAction as LoggerAction } from 'common/logger-actions';
 import { addDays } from 'date-fns';
-import { Argv } from 'yargs';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
 import { cleanup, createArchive } from 'cli/lib/archive';
@@ -12,18 +11,14 @@ import { getSnapshotsFromAppdata, updateSnapshotDateInAppdata } from 'cli/lib/sn
 import { normalizeHostname } from 'cli/lib/utils';
 import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
-import { GlobalOptions, OutputFormat } from 'cli/types';
+import { StudioArgv } from 'cli/types';
 
-export async function runCommand(
-	siteFolder: string,
-	host: string,
-	outputFormat?: OutputFormat
-): Promise< void > {
+export async function runCommand( siteFolder: string, host: string ): Promise< void > {
 	const archivePath = path.join(
 		os.tmpdir(),
 		`${ path.basename( siteFolder ) }-${ Date.now() }.zip`
 	);
-	const logger = new Logger< LoggerAction >( outputFormat );
+	const logger = new Logger< LoggerAction >();
 
 	try {
 		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating...' ) );
@@ -79,7 +74,7 @@ export async function runCommand(
 	}
 }
 
-export const registerCommand = ( yargs: Argv< GlobalOptions > ) => {
+export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: 'update <host>',
 		describe: __( 'Update preview site' ),
@@ -92,7 +87,7 @@ export const registerCommand = ( yargs: Argv< GlobalOptions > ) => {
 		},
 		handler: async ( argv ) => {
 			const normalizedHost = normalizeHostname( argv.host );
-			await runCommand( argv.path, normalizedHost, argv.outputFormat );
+			await runCommand( argv.path, normalizedHost );
 		},
 	} );
 };

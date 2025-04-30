@@ -1,5 +1,4 @@
 import ora, { Ora } from 'ora';
-import { OutputFormat } from 'cli/types';
 
 export class LoggerError extends Error {
 	previousError?: Error;
@@ -25,12 +24,10 @@ export class LoggerError extends Error {
 }
 
 export class Logger< T extends string > {
-	protected readonly outputFormat: OutputFormat;
 	private spinner: Ora;
 	private currentAction: T | 'keyValuePair' | null;
 
-	constructor( outputFormat: OutputFormat ) {
-		this.outputFormat = outputFormat;
+	constructor() {
 		this.spinner = ora();
 		this.currentAction = null;
 	}
@@ -38,18 +35,16 @@ export class Logger< T extends string > {
 	public reportStart( action: T, message: string ) {
 		this.currentAction = action;
 
-		if ( this.outputFormat === 'json' ) {
-			console.log( JSON.stringify( { action, status: 'inprogress', message } ) );
+		if ( process.send ) {
+			process.send( { action, status: 'inprogress', message } );
 			return;
 		}
 		this.spinner.start( message );
 	}
 
 	public reportProgress( message: string ) {
-		if ( this.outputFormat === 'json' ) {
-			console.log(
-				JSON.stringify( { action: this.currentAction, status: 'inprogress', message } )
-			);
+		if ( process.send ) {
+			process.send( { action: this.currentAction, status: 'inprogress', message } );
 			return;
 		}
 
@@ -57,8 +52,8 @@ export class Logger< T extends string > {
 	}
 
 	public reportSuccess( message: string ) {
-		if ( this.outputFormat === 'json' ) {
-			console.log( JSON.stringify( { action: this.currentAction, status: 'success', message } ) );
+		if ( process.send ) {
+			process.send( { action: this.currentAction, status: 'success', message } );
 		} else {
 			this.spinner.succeed( message );
 		}
@@ -71,10 +66,8 @@ export class Logger< T extends string > {
 			process.exitCode = 1;
 		}
 
-		if ( this.outputFormat === 'json' ) {
-			console.error(
-				JSON.stringify( { action: this.currentAction, status: 'fail', message: error.message } )
-			);
+		if ( process.send ) {
+			process.send( { action: this.currentAction, status: 'fail', message: error.message } );
 		} else {
 			this.spinner.fail( error.message );
 		}
@@ -83,8 +76,8 @@ export class Logger< T extends string > {
 	}
 
 	public reportKeyValuePair( key: string, value: string ) {
-		if ( this.outputFormat === 'json' ) {
-			console.log( JSON.stringify( { action: 'keyValuePair', key, value } ) );
+		if ( process.send ) {
+			process.send( { action: 'keyValuePair', key, value } );
 		}
 	}
 }

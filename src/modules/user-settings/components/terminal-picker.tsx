@@ -1,28 +1,26 @@
 import { SelectControl } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
-import { SupportedTerminal, supportedTerminalNames } from 'src/modules/user-settings/lib/terminal';
+import { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
+import {
+	useGetInstalledAppsQuery,
+	selectInstalledTerminals,
+	selectUninstalledTerminals,
+} from 'src/stores/installed-apps-api';
 import { SettingsFormField } from './settings-form-field';
 
 interface TerminalPickerProps {
 	value: SupportedTerminal;
 	onChange: ( value: SupportedTerminal ) => void;
-	availableTerminals?: SupportedTerminal[];
 }
 
-export const TerminalPicker = ( {
-	value,
-	onChange,
-	availableTerminals = [ 'terminal' ],
-}: TerminalPickerProps ) => {
+export const TerminalPicker = ( { value, onChange }: TerminalPickerProps ) => {
 	const { __ } = useI18n();
-
-	const availableTerminalEntries = Object.entries( supportedTerminalNames ).filter(
-		( [ terminal ] ) => availableTerminals.includes( terminal as SupportedTerminal )
-	);
-
-	const unavailableTerminalEntries = Object.entries( supportedTerminalNames ).filter(
-		( [ terminal ] ) => ! availableTerminals.includes( terminal as SupportedTerminal )
-	);
+	const { installedTerminals, uninstalledTerminals } = useGetInstalledAppsQuery( undefined, {
+		selectFromResult: ( result ) => ( {
+			installedTerminals: selectInstalledTerminals( result.data ),
+			uninstalledTerminals: selectUninstalledTerminals( result.data ),
+		} ),
+	} );
 
 	return (
 		<SettingsFormField label={ __( 'Shell' ) }>
@@ -32,14 +30,14 @@ export const TerminalPicker = ( {
 				__nextHasNoMarginBottom
 				__next40pxDefaultSize
 			>
-				{ availableTerminalEntries.map( ( [ terminal, label ] ) => (
+				{ installedTerminals.map( ( [ terminal, label ] ) => (
 					<option key={ terminal } value={ terminal }>
 						{ label }
 					</option>
 				) ) }
-				{ unavailableTerminalEntries.length > 0 && (
+				{ uninstalledTerminals.length > 0 && (
 					<optgroup label={ __( 'Not installed' ) }>
-						{ unavailableTerminalEntries.map( ( [ terminal, label ] ) => (
+						{ uninstalledTerminals.map( ( [ terminal, label ] ) => (
 							<option key={ terminal } value={ terminal } disabled>
 								{ label }
 							</option>

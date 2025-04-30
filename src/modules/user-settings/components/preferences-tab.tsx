@@ -21,7 +21,6 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 		saveTerminalPreference,
 		resetTerminal,
 		hasTerminalChanges,
-		availableTerminals,
 	} = useTerminalData();
 
 	const savePreferences = async () => {
@@ -44,11 +43,7 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 		<>
 			<LanguagePicker value={ locale } onChange={ setLocale } />
 			<EditorPicker value={ editor } onChange={ handleEditorChange } />
-			<TerminalPicker
-				value={ terminal }
-				onChange={ handleTerminalChange }
-				availableTerminals={ availableTerminals }
-			/>
+			<TerminalPicker value={ terminal } onChange={ handleTerminalChange } />
 			<div className="mt-auto pt-2 flex justify-end gap-3">
 				<Button variant="tertiary" onClick={ cancelChanges }>
 					{ __( 'Cancel' ) }

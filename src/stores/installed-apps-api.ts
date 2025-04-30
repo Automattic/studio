@@ -6,6 +6,7 @@ import {
 	SupportedEditor,
 	supportedEditorConfig,
 } from 'src/modules/user-settings/lib/editor';
+import { SupportedTerminal, supportedTerminalNames } from 'src/modules/user-settings/lib/terminal';
 
 export type InstalledAppsState = InstalledApps & InstalledTerminals;
 
@@ -50,3 +51,21 @@ export const selectUninstalledEditors = createSelector(
 	}
 );
 
+export const selectInstalledTerminals = createSelector(
+	[ ( data?: InstalledAppsState ) => data ],
+	( installedApps ) => {
+		const entries = Object.entries( supportedTerminalNames ) as [ SupportedTerminal, string ][];
+
+		console.log( 'selectInstalledTerminals', entries, installedApps );
+		return entries.filter( ( [ terminal ] ) => installedApps && installedApps[ terminal ] );
+	}
+);
+
+export const selectUninstalledTerminals = createSelector(
+	[ ( data?: InstalledAppsState ) => data ],
+	( installedApps ) => {
+		const entries = Object.entries( supportedTerminalNames ) as [ SupportedTerminal, string ][];
+
+		return entries.filter( ( [ terminal ] ) => ! installedApps || ! installedApps[ terminal ] );
+	}
+);

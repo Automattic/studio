@@ -65,19 +65,10 @@ export async function runCommand(
 
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
-		command: 'create [folder]',
-		describe: __(
-			'Create a preview site from the specified folder (defaults to current directory)'
-		),
-		builder: ( yargs ) => {
-			return yargs.positional( 'folder', {
-				type: 'string',
-				default: process.cwd(),
-				description: __( 'The folder to create a preview site from' ),
-			} );
-		},
+		command: 'create',
+		describe: __( 'Create a preview site' ),
 		handler: async ( argv ) => {
-			await runCommand( argv.folder, argv.outputFormat );
+			await runCommand( argv.path, argv.outputFormat );
 		},
 	} );
 };

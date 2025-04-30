@@ -44,10 +44,10 @@ export const registerCommand = ( yargs: Argv< GlobalOptions > ) => {
 	return yargs.command( {
 		command: 'delete <host>',
 		describe: __( 'Delete a preview site' ),
-		builder: ( yargs: Argv< GlobalOptions > ) => {
+		builder: ( yargs ) => {
 			return yargs.positional( 'host', {
 				type: 'string',
-				description: __( 'The hostname of the preview site to delete' ),
+				description: __( 'Hostname of the preview site to delete' ),
 				demandOption: true,
 			} );
 		},

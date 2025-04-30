@@ -56,24 +56,18 @@ export async function runCommand(
 
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
-		command: 'list [folder]',
-		describe: __( 'List preview sites for the specified folder (defaults to current directory)' ),
+		command: 'list',
+		describe: __( 'List preview sites' ),
 		builder: ( yargs ) => {
-			return yargs
-				.positional( 'folder', {
-					type: 'string',
-					default: process.cwd(),
-					description: __( 'The folder to list preview sites for' ),
-				} )
-				.option( 'format', {
-					type: 'string',
-					choices: [ 'table', 'json' ],
-					default: 'table',
-					description: __( 'Output format' ),
-				} );
+			return yargs.option( 'format', {
+				type: 'string',
+				choices: [ 'table', 'json' ],
+				default: 'table',
+				description: __( 'Output format' ),
+			} );
 		},
 		handler: async ( argv ) => {
-			await runCommand( argv.folder, argv.format as 'table' | 'json', argv.outputFormat );
+			await runCommand( argv.path, argv.format as 'table' | 'json', argv.outputFormat );
 		},
 	} );
 };

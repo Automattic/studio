@@ -29,17 +29,18 @@ export async function runCommand( siteFolder: string, host: string ): Promise< v
 		if ( ! snapshotToUpdate ) {
 			throw new LoggerError( 'Preview site not found' );
 		}
-		logger.reportSuccess( __( 'Validation successful' ) );
-
-		logger.reportStart( LoggerAction.ARCHIVE, __( 'Creating archive...' ) );
-		await createArchive( siteFolder, archivePath );
-		logger.reportSuccess( __( 'Archive created' ) );
 
 		const now = new Date();
 		const endDate = addDays( snapshotToUpdate.date, DEMO_SITE_EXPIRATION_DAYS );
 		if ( endDate < now ) {
 			throw new LoggerError( __( 'Cannot update an expired preview site.' ) );
 		}
+
+		logger.reportSuccess( __( 'Validation successful' ) );
+
+		logger.reportStart( LoggerAction.ARCHIVE, __( 'Creating archive...' ) );
+		await createArchive( siteFolder, archivePath );
+		logger.reportSuccess( __( 'Archive created' ) );
 
 		logger.reportStart( LoggerAction.UPLOAD, __( 'Uploading archive...' ) );
 		const uploadResponse = await uploadArchive(

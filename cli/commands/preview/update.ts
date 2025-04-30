@@ -1,7 +1,9 @@
 import os from 'node:os';
 import path from 'node:path';
 import { __, _n, sprintf } from '@wordpress/i18n';
+import { DEMO_SITE_EXPIRATION_DAYS } from 'common/constants';
 import { PreviewCommandLoggerAction as LoggerAction } from 'common/logger-actions';
+import { addDays } from 'date-fns';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
 import { cleanup, createArchive } from 'cli/lib/archive';
@@ -27,6 +29,13 @@ export async function runCommand( siteFolder: string, host: string ): Promise< v
 		if ( ! snapshotToUpdate ) {
 			throw new LoggerError( 'Preview site not found' );
 		}
+
+		const now = new Date();
+		const endDate = addDays( snapshotToUpdate.date, DEMO_SITE_EXPIRATION_DAYS );
+		if ( endDate < now ) {
+			throw new LoggerError( __( 'Cannot update an expired preview site.' ) );
+		}
+
 		logger.reportSuccess( __( 'Validation successful' ) );
 
 		logger.reportStart( LoggerAction.ARCHIVE, __( 'Creating archive...' ) );

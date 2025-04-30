@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
+import { DEFAULT_TERMINAL } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { SupportedTerminal, DEFAULT_TERMINAL } from 'src/modules/user-settings/lib/terminal';
+import { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 
 /**
  * Hook to manage terminal preferences
@@ -69,5 +70,6 @@ export function useTerminalData() {
 		saveTerminalPreference,
 		resetTerminal,
 		hasTerminalChanges,
+		getSavedTerminal,
 	};
 }

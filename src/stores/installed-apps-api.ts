@@ -19,3 +19,28 @@ export const installedAppsApi = createApi( {
 } );
 
 export const { useGetInstalledAppsQuery } = installedAppsApi;
+
+export const selectInstalledEditors = createSelector(
+	[ ( data?: InstalledAppsState ) => data ],
+	( installedApps ) => {
+		const entries = Object.entries( supportedEditorConfig ) as [
+			SupportedEditor,
+			SupportedEditorConfig,
+		][];
+
+		return entries.filter( ( [ editor ] ) => installedApps && installedApps[ editor ] );
+	}
+);
+
+export const selectUninstalledEditors = createSelector(
+	[ ( data?: InstalledAppsState ) => data ],
+	( installedApps ) => {
+		const entries = Object.entries( supportedEditorConfig ) as [
+			SupportedEditor,
+			SupportedEditorConfig,
+		][];
+
+		return entries.filter( ( [ editor ] ) => ! installedApps || ! installedApps[ editor ] );
+	}
+);
+

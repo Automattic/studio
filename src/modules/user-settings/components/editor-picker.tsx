@@ -13,8 +13,6 @@ export const EditorPicker = ( { value, onChange }: EditorPickerProps ) => {
 	const { __ } = useI18n();
 	const { data: installedApps } = useGetInstalledAppsQuery();
 
-	console.log( installedApps );
-
 	const installedEditors = Object.entries( supportedEditorConfig ).filter(
 		( [ editor ] ) => installedApps && installedApps[ editor as keyof typeof installedApps ]
 	);

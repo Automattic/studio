@@ -8,6 +8,7 @@ import Button from 'src/components/button';
 import { CreateButton } from 'src/components/connect-create-buttons';
 import Modal from 'src/components/modal';
 import offlineIcon from 'src/components/offline-icon';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -39,6 +40,7 @@ export function SyncSitesModalSelector( {
 	const [ selectedSiteId, setSelectedSiteId ] = useState< number | null >( null );
 	const [ searchQuery, setSearchQuery ] = useState< string >( '' );
 	const isOffline = useOffline();
+	const { pressableSyncEnabled } = useFeatureFlags();
 	const filteredSites = syncSites.filter( ( site ) => {
 		const searchQueryLower = searchQuery.toLowerCase();
 		return (
@@ -58,7 +60,11 @@ export function SyncSitesModalSelector( {
 		<Modal
 			className="w-3/5 min-w-[550px] h-full max-h-[84vh] [&>div]:!p-0"
 			onRequestClose={ onRequestClose }
-			title={ __( 'Connect a WordPress.com site' ) }
+			title={
+				pressableSyncEnabled
+					? __( 'Connect a WP.com or Pressable site' )
+					: __( 'Connect a WordPress.com site' )
+			}
 		>
 			<div className="relative">
 				<SearchSites searchQuery={ searchQuery } setSearchQuery={ setSearchQuery } />

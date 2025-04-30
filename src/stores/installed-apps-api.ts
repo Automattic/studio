@@ -3,18 +3,6 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 
 export type InstalledAppsState = InstalledApps & InstalledTerminals;
 
-export const installedAppsInitialState: InstalledAppsState = {
-	vscode: false,
-	phpstorm: false,
-	webstorm: false,
-	windsurf: false,
-	cursor: false,
-	terminal: false,
-	iterm: false,
-	ghostty: false,
-	warp: false,
-};
-
 export const installedAppsApi = createApi( {
 	reducerPath: 'installedAppsApi',
 	baseQuery: fetchBaseQuery(),

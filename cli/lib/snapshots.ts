@@ -43,6 +43,17 @@ function lock( path: string, options: lockfile.Options ) {
 
 const unlock = promisify( lockfile.unlock );
 
+function withLock< Args extends unknown[], Return >( fn: ( ...args: Args ) => Promise< Return > ) {
+	return async ( ...args: Args ) => {
+		try {
+			await lock( UPDATE_SNAPSHOTS_LOCKFILE_PATH, { wait: 1000 } );
+			return await fn( ...args );
+		} finally {
+			await unlock( UPDATE_SNAPSHOTS_LOCKFILE_PATH );
+		}
+	};
+}
+
 export async function getSnapshotsFromAppdata(
 	userId: number,
 	siteFolder?: string
@@ -136,8 +147,7 @@ export async function saveSnapshotToAppdata(
 	return snapshot;
 }
 
-export async function deleteSnapshotFromAppdata( snapshotUrl: string ): Promise< void > {
-	await lock( UPDATE_SNAPSHOTS_LOCKFILE_PATH, { wait: 1000 } );
+export const deleteSnapshotFromAppdata = withLock( async ( snapshotUrl: string ) => {
 	const userData = await readAppdata();
 	if ( ! userData.snapshots ) {
 		return;
@@ -148,8 +158,7 @@ export async function deleteSnapshotFromAppdata( snapshotUrl: string ): Promise<
 	}
 	userData.snapshots.splice( snapshotIndex, 1 );
 	await saveAppdata( userData );
-	await unlock( UPDATE_SNAPSHOTS_LOCKFILE_PATH );
-}
+} );
 
 function formatDurationUntilExpiry( lastUpdatedAt: number ) {
 	const now = new Date();

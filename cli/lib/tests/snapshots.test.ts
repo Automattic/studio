@@ -1,6 +1,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { readFile, writeFile } from 'atomically';
 import {
 	deleteSnapshotFromAppdata,
 	getSnapshotsFromAppdata,
@@ -11,9 +12,20 @@ import { LoggerError } from 'cli/logger';
 
 jest.mock( 'fs' );
 jest.mock( 'os' );
-jest.mock( 'path' );
+jest.mock( 'path', () => ( {
+	join: jest.fn().mockImplementation( ( ...args ) => args.join( '/' ) ),
+	basename: jest.fn(),
+} ) );
+jest.mock( 'atomically', () => ( {
+	readFile: jest.fn(),
+	writeFile: jest.fn(),
+} ) );
 jest.mock( 'crypto', () => ( {
 	randomUUID: jest.fn().mockReturnValue( 'mock-uuid-1234' ),
+} ) );
+jest.mock( 'lockfile', () => ( {
+	lock: jest.fn().mockImplementation( ( path, options, callback ) => callback( null ) ),
+	unlock: jest.fn().mockImplementation( ( path, callback ) => callback( null ) ),
 } ) );
 
 describe( 'Snapshots Module', () => {
@@ -27,14 +39,13 @@ describe( 'Snapshots Module', () => {
 	beforeEach( () => {
 		jest.clearAllMocks();
 		( os.homedir as jest.Mock ).mockReturnValue( mockHomeDir );
-		( path.join as jest.Mock ).mockImplementation( ( ...args ) => args.join( '/' ) );
 		( path.basename as jest.Mock ).mockReturnValue( mockSiteFolderName );
 		jest.spyOn( Date, 'now' ).mockReturnValue( 1234567890 );
 
 		// Default mock implementation for fs functions
 		( fs.existsSync as jest.Mock ).mockReturnValue( true );
-		( fs.readFileSync as jest.Mock ).mockReturnValue( '{}' );
-		( fs.writeFileSync as jest.Mock ).mockImplementation( () => undefined );
+		( readFile as jest.Mock ).mockResolvedValue( '{}' );
+		( writeFile as jest.Mock ).mockResolvedValue( undefined );
 	} );
 
 	describe( 'saveSnapshotToAppdata', () => {
@@ -56,12 +67,12 @@ describe( 'Snapshots Module', () => {
 				},
 			};
 
-			( fs.readFileSync as jest.Mock ).mockReturnValue( JSON.stringify( mockUserData ) );
+			( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( mockUserData ) );
 
 			await saveSnapshotToAppdata( mockSiteFolder, mockAtomicSiteId, mockSiteUrl );
 
-			expect( fs.writeFileSync ).toHaveBeenCalled();
-			const savedData = JSON.parse( ( fs.writeFileSync as jest.Mock ).mock.calls[ 0 ][ 1 ] );
+			expect( writeFile ).toHaveBeenCalled();
+			const savedData = JSON.parse( ( writeFile as jest.Mock ).mock.calls[ 0 ][ 1 ] );
 
 			expect( savedData.snapshots ).toHaveLength( 1 );
 			expect( savedData.snapshots[ 0 ] ).toEqual( {
@@ -103,12 +114,12 @@ describe( 'Snapshots Module', () => {
 				},
 			};
 
-			( fs.readFileSync as jest.Mock ).mockReturnValue( JSON.stringify( mockUserData ) );
+			( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( mockUserData ) );
 
 			await saveSnapshotToAppdata( mockSiteFolder, mockAtomicSiteId + 1, mockSiteUrl );
 
-			expect( fs.writeFileSync ).toHaveBeenCalled();
-			const savedData = JSON.parse( ( fs.writeFileSync as jest.Mock ).mock.calls[ 0 ][ 1 ] );
+			expect( writeFile ).toHaveBeenCalled();
+			const savedData = JSON.parse( ( writeFile as jest.Mock ).mock.calls[ 0 ][ 1 ] );
 
 			expect( savedData.snapshots ).toHaveLength( 2 );
 			expect( savedData.snapshots[ 0 ] ).toEqual( existingSnapshot );
@@ -140,13 +151,13 @@ describe( 'Snapshots Module', () => {
 				},
 			};
 
-			( fs.readFileSync as jest.Mock ).mockReturnValue( JSON.stringify( mockUserData ) );
+			( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( mockUserData ) );
 			( path.basename as jest.Mock ).mockReturnValueOnce( mockSiteFolderName );
 
 			await saveSnapshotToAppdata( mockSiteFolder, mockAtomicSiteId, mockSiteUrl );
 
-			expect( fs.writeFileSync ).toHaveBeenCalled();
-			const savedData = JSON.parse( ( fs.writeFileSync as jest.Mock ).mock.calls[ 0 ][ 1 ] );
+			expect( writeFile ).toHaveBeenCalled();
+			const savedData = JSON.parse( ( writeFile as jest.Mock ).mock.calls[ 0 ][ 1 ] );
 
 			// Check that a new site was created
 			expect( savedData.newSites ).toHaveLength( 1 );
@@ -187,13 +198,13 @@ describe( 'Snapshots Module', () => {
 				},
 			};
 
-			( fs.readFileSync as jest.Mock ).mockReturnValue( JSON.stringify( mockUserData ) );
+			( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( mockUserData ) );
 			( path.basename as jest.Mock ).mockReturnValueOnce( mockSiteFolderName );
 
 			await saveSnapshotToAppdata( mockSiteFolder, mockAtomicSiteId, mockSiteUrl );
 
-			expect( fs.writeFileSync ).toHaveBeenCalled();
-			const savedData = JSON.parse( ( fs.writeFileSync as jest.Mock ).mock.calls[ 0 ][ 1 ] );
+			expect( writeFile ).toHaveBeenCalled();
+			const savedData = JSON.parse( ( writeFile as jest.Mock ).mock.calls[ 0 ][ 1 ] );
 
 			// Check that the new site was added to existing newSites array
 			expect( savedData.newSites ).toHaveLength( 2 );
@@ -227,7 +238,7 @@ describe( 'Snapshots Module', () => {
 				},
 			};
 
-			( fs.readFileSync as jest.Mock ).mockReturnValue( JSON.stringify( mockUserData ) );
+			( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( mockUserData ) );
 
 			// Mock fs.existsSync to throw a different error first, then a LoggerError
 			const fsExistsSyncMock = fs.existsSync as jest.Mock;
@@ -241,7 +252,7 @@ describe( 'Snapshots Module', () => {
 				saveSnapshotToAppdata( mockSiteFolder, mockAtomicSiteId, mockSiteUrl )
 			).rejects.toThrow( 'Some other error' );
 
-			expect( fs.writeFileSync ).not.toHaveBeenCalled();
+			expect( writeFile ).not.toHaveBeenCalled();
 		} );
 	} );
 
@@ -263,12 +274,12 @@ describe( 'Snapshots Module', () => {
 				],
 			};
 
-			( fs.readFileSync as jest.Mock ).mockReturnValue( JSON.stringify( mockUserData ) );
+			( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( mockUserData ) );
 
 			const updatedSnapshot = await updateSnapshotDateInAppdata( mockAtomicSiteId );
 
-			expect( fs.writeFileSync ).toHaveBeenCalled();
-			const savedData = JSON.parse( ( fs.writeFileSync as jest.Mock ).mock.calls[ 0 ][ 1 ] );
+			expect( writeFile ).toHaveBeenCalled();
+			const savedData = JSON.parse( ( writeFile as jest.Mock ).mock.calls[ 0 ][ 1 ] );
 
 			expect( savedData.snapshots[ 0 ].date ).toBe( 1234567890 );
 			expect( updatedSnapshot ).toEqual( savedData.snapshots[ 0 ] );
@@ -280,7 +291,7 @@ describe( 'Snapshots Module', () => {
 				snapshots: [],
 			};
 
-			( fs.readFileSync as jest.Mock ).mockReturnValue( JSON.stringify( mockUserData ) );
+			( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( mockUserData ) );
 
 			await expect( updateSnapshotDateInAppdata( mockAtomicSiteId ) ).rejects.toThrow(
 				LoggerError
@@ -314,7 +325,7 @@ describe( 'Snapshots Module', () => {
 				],
 			};
 
-			( fs.readFileSync as jest.Mock ).mockReturnValue( JSON.stringify( mockUserData ) );
+			( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( mockUserData ) );
 
 			const snapshots = await getSnapshotsFromAppdata( 9876 );
 
@@ -348,7 +359,7 @@ describe( 'Snapshots Module', () => {
 				sites: [ { id: 'site1', path: mockSiteFolder, name: 'Test Site' } ],
 			};
 
-			( fs.readFileSync as jest.Mock ).mockReturnValue( JSON.stringify( mockUserData ) );
+			( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( mockUserData ) );
 
 			const snapshots = await getSnapshotsFromAppdata( 9876, mockSiteFolder );
 
@@ -362,7 +373,7 @@ describe( 'Snapshots Module', () => {
 				snapshots: [],
 			};
 
-			( fs.readFileSync as jest.Mock ).mockReturnValue( JSON.stringify( mockUserData ) );
+			( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( mockUserData ) );
 
 			const snapshots = await getSnapshotsFromAppdata( 9876 );
 
@@ -394,12 +405,12 @@ describe( 'Snapshots Module', () => {
 				],
 			};
 
-			( fs.readFileSync as jest.Mock ).mockReturnValue( JSON.stringify( mockUserData ) );
+			( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( mockUserData ) );
 
 			await deleteSnapshotFromAppdata( 'test1.com' );
 
-			expect( fs.writeFileSync ).toHaveBeenCalled();
-			const savedData = JSON.parse( ( fs.writeFileSync as jest.Mock ).mock.calls[ 0 ][ 1 ] );
+			expect( writeFile ).toHaveBeenCalled();
+			const savedData = JSON.parse( ( writeFile as jest.Mock ).mock.calls[ 0 ][ 1 ] );
 			expect( savedData.snapshots ).toHaveLength( 1 );
 			expect( savedData.snapshots[ 0 ].url ).toBe( 'test2.com' );
 		} );
@@ -419,11 +430,11 @@ describe( 'Snapshots Module', () => {
 				],
 			};
 
-			( fs.readFileSync as jest.Mock ).mockReturnValue( JSON.stringify( mockUserData ) );
+			( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( mockUserData ) );
 
 			await deleteSnapshotFromAppdata( 'nonexistent.com' );
 
-			expect( fs.writeFileSync ).not.toHaveBeenCalled();
+			expect( writeFile ).not.toHaveBeenCalled();
 		} );
 
 		it( 'should handle empty snapshots array', async () => {
@@ -432,11 +443,11 @@ describe( 'Snapshots Module', () => {
 				snapshots: [],
 			};
 
-			( fs.readFileSync as jest.Mock ).mockReturnValue( JSON.stringify( mockUserData ) );
+			( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( mockUserData ) );
 
 			await deleteSnapshotFromAppdata( 'test1.com' );
 
-			expect( fs.writeFileSync ).not.toHaveBeenCalled();
+			expect( writeFile ).not.toHaveBeenCalled();
 		} );
 	} );
 } );

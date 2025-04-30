@@ -2,7 +2,13 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { readFile, writeFile } from 'atomically';
-import { readAppdata, saveAppdata, getAuthToken, getNewSitePartial } from 'cli/lib/appdata';
+import {
+	readAppdata,
+	saveAppdata,
+	getAuthToken,
+	getNewSitePartial,
+	getSiteByFolder,
+} from 'cli/lib/appdata';
 
 jest.mock( 'fs' );
 jest.mock( 'os' );
@@ -177,6 +183,38 @@ describe( 'Appdata Module', () => {
 				path: folderPath,
 				name: baseName,
 			} );
+		} );
+	} );
+
+	describe( 'getSiteByFolder', () => {
+		it( 'should find a site in sites', async () => {
+			const folderPath = '/test/site/path';
+			const site = { id: 'site-1', path: folderPath, name: 'Site 1' };
+			( readFile as jest.Mock ).mockReturnValueOnce(
+				JSON.stringify( { version: 1, sites: [ site ], newSites: [], snapshots: [] } )
+			);
+			const result = await getSiteByFolder( folderPath );
+			expect( result ).toEqual( site );
+		} );
+
+		it( 'should find a site in newSites', async () => {
+			const folderPath = '/test/newsite/path';
+			const newSite = { id: 'site-2', path: folderPath, name: 'New Site' };
+			( readFile as jest.Mock ).mockReturnValueOnce(
+				JSON.stringify( { version: 1, sites: [], newSites: [ newSite ], snapshots: [] } )
+			);
+			const result = await getSiteByFolder( folderPath );
+			expect( result ).toEqual( newSite );
+		} );
+
+		it( 'should throw if site is not found in either sites or newSites', async () => {
+			const folderPath = '/not/found/path';
+			( readFile as jest.Mock ).mockReturnValueOnce(
+				JSON.stringify( { version: 1, sites: [], newSites: [], snapshots: [] } )
+			);
+			await expect( getSiteByFolder( folderPath ) ).rejects.toThrow(
+				'The specified folder is not added to Studio.'
+			);
 		} );
 	} );
 } );

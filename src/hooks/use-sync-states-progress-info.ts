@@ -21,6 +21,8 @@ export const IN_PROGRESS_INITIAL_VALUE = 30;
 const DOWNLOADING_INITIAL_VALUE = 60;
 export const IN_PROGRESS_TO_DOWNLOADING_STEP =
 	DOWNLOADING_INITIAL_VALUE - IN_PROGRESS_INITIAL_VALUE;
+export const IMPORTING_INITIAL_VALUE = 80;
+export const IMPORTING_TO_FINISHED_STEP = 100 - IMPORTING_INITIAL_VALUE;
 
 export function useSyncStatesProgressInfo() {
 	const { __ } = useI18n();
@@ -39,7 +41,7 @@ export function useSyncStatesProgressInfo() {
 			},
 			importing: {
 				key: 'importing',
-				progress: 80,
+				progress: IMPORTING_INITIAL_VALUE,
 				message: __( 'Importing backup…' ),
 			},
 			finished: {

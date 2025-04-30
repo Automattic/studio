@@ -1,6 +1,6 @@
 import { Icon } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
-import { sprintf } from '@wordpress/i18n';
+import { I18n, sprintf } from '@wordpress/i18n';
 import { cloudUpload, cloudDownload } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useMemo } from 'react';
@@ -17,9 +17,14 @@ import { WordPressLogoCircle } from 'src/components/wordpress-logo-circle';
 import { useSyncSites } from 'src/hooks/sync-sites';
 import { useConfirmationDialog } from 'src/hooks/use-confirmation-dialog';
 import { useI18nData } from 'src/hooks/use-i18n-data';
-import { useImportExport } from 'src/hooks/use-import-export';
+import { ImportProgressState, useImportExport } from 'src/hooks/use-import-export';
 import { useOffline } from 'src/hooks/use-offline';
-import { useSyncStatesProgressInfo } from 'src/hooks/use-sync-states-progress-info';
+import {
+	IMPORTING_INITIAL_VALUE,
+	IMPORTING_TO_FINISHED_STEP,
+	PullStateProgressInfo,
+	useSyncStatesProgressInfo,
+} from 'src/hooks/use-sync-states-progress-info';
 import { cx } from 'src/lib/cx';
 import { getDocsLink } from 'src/lib/get-docs-link';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -197,6 +202,27 @@ type SyncConnectedSitesListProps = {
 	selectedSite: SiteDetails;
 };
 
+const getStatusWithProgress = (
+	__: I18n[ '__' ],
+	sitePullState?: PullStateProgressInfo,
+	importState?: ImportProgressState[ string ]
+) => {
+	if ( ! importState && sitePullState ) {
+		return { message: sitePullState.message, progress: sitePullState.progress };
+	}
+	if ( importState ) {
+		if ( importState.progress === 100 ) {
+			return { message: __( 'Applying final details' ), progress: 99 };
+		}
+		return {
+			message: importState.statusMessage,
+			progress:
+				IMPORTING_INITIAL_VALUE + IMPORTING_TO_FINISHED_STEP * ( importState.progress / 100 ),
+		};
+	}
+	return { message: '', progress: 0 };
+};
+
 const SyncConnectedSitesList = ( { selectedSite }: SyncConnectedSitesListProps ) => {
 	const { __ } = useI18n();
 	const { clearPullState, getPullState, getPushState, clearPushState, connectedSites } =
@@ -211,8 +237,12 @@ const SyncConnectedSitesList = ( { selectedSite }: SyncConnectedSitesListProps )
 				const isPulling = sitePullState && isKeyPulling( sitePullState.status.key );
 				const isPullError = sitePullState && isKeyFailed( sitePullState.status.key );
 				const hasPullFinished = sitePullState && isKeyFinished( sitePullState.status.key );
-				const sitePullStatusMessage =
-					importState[ connectedSite.localSiteId ]?.statusMessage || sitePullState?.status.message;
+				const { message: sitePullStatusMessage, progress: sitePullStatusProgress } =
+					getStatusWithProgress(
+						__,
+						sitePullState?.status,
+						importState[ connectedSite.localSiteId ]
+					);
 
 				const pushState = getPushState( selectedSite.id, connectedSite.id );
 				const isPushing = pushState && isKeyPushing( pushState.status.key );
@@ -246,7 +276,7 @@ const SyncConnectedSitesList = ( { selectedSite }: SyncConnectedSitesListProps )
 							{ isPulling && (
 								<div className="flex flex-col gap-2 min-w-44">
 									<div className="a8c-body-small">{ sitePullStatusMessage }</div>
-									<ProgressBar value={ sitePullState.status.progress } maxValue={ 100 } />
+									<ProgressBar value={ sitePullStatusProgress } maxValue={ 100 } />
 								</div>
 							) }
 							{ isPullError && (

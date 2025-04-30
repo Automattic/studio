@@ -250,9 +250,11 @@ describe( 'Preview Update Command', () => {
 
 	it( 'should throw error if folder does not match original site and no overwrite flag', async () => {
 		const { runCommand } = await import( '../update' );
-		jest
-			.spyOn( await import( 'cli/lib/appdata' ), 'getSiteByFolder' )
-			.mockResolvedValueOnce( { id: 'different-id', path: '/other/path', name: 'Other Site' } );
+		( getSiteByFolder as jest.Mock ).mockResolvedValueOnce( {
+			id: 'different-id',
+			path: '/other/path',
+			name: 'Other Site',
+		} );
 		await runCommand( mockFolder, mockSiteUrl, false );
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
 		expect( createArchive ).not.toHaveBeenCalled();
@@ -260,9 +262,11 @@ describe( 'Preview Update Command', () => {
 
 	it( 'should allow update if overwrite flag is set even if folder does not match', async () => {
 		const { runCommand } = await import( '../update' );
-		jest
-			.spyOn( await import( 'cli/lib/appdata' ), 'getSiteByFolder' )
-			.mockResolvedValueOnce( { id: 'different-id', path: '/other/path', name: 'Other Site' } );
+		( getSiteByFolder as jest.Mock ).mockResolvedValueOnce( {
+			id: 'different-id',
+			path: '/other/path',
+			name: 'Other Site',
+		} );
 		await runCommand( mockFolder, mockSiteUrl, true );
 		expect( createArchive ).toHaveBeenCalledWith( mockFolder, mockArchivePath );
 	} );

@@ -264,7 +264,7 @@ function SiteItem( {
 					<ArrowIcon />
 				</Button>
 			</div>
-			{ isSyncable && (
+			{ isSyncable && ! isPressable && (
 				<div className="flex gap-2">
 					<Badge
 						className={ cx(

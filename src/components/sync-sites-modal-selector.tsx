@@ -8,6 +8,7 @@ import Button from 'src/components/button';
 import { CreateButton } from 'src/components/connect-create-buttons';
 import Modal from 'src/components/modal';
 import offlineIcon from 'src/components/offline-icon';
+import { PressableLogo } from 'src/components/pressable-logo';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
@@ -88,6 +89,7 @@ export function SyncSitesModalSelector( {
 							syncSites={ filteredSites }
 							selectedSiteId={ selectedSiteId }
 							onSelectSite={ setSelectedSiteId }
+							pressableSyncEnabled={ pressableSyncEnabled }
 						/>
 					) }
 				</div>
@@ -158,10 +160,12 @@ function ListSites( {
 	syncSites,
 	selectedSiteId,
 	onSelectSite,
+	pressableSyncEnabled,
 }: {
 	syncSites: SyncSite[];
 	selectedSiteId: null | number;
 	onSelectSite: ( id: number ) => void;
+	pressableSyncEnabled: boolean;
 } ) {
 	const sortedSites = getSortedSites( syncSites );
 
@@ -173,6 +177,7 @@ function ListSites( {
 					site={ site }
 					isSelected={ site.id === selectedSiteId }
 					onClick={ () => onSelectSite( site.id ) }
+					pressableSyncEnabled={ pressableSyncEnabled }
 				/>
 			) ) }
 		</div>
@@ -183,10 +188,12 @@ function SiteItem( {
 	site,
 	isSelected,
 	onClick,
+	pressableSyncEnabled,
 }: {
 	site: SyncSite;
 	isSelected: boolean;
 	onClick: () => void;
+	pressableSyncEnabled: boolean;
 } ) {
 	const { __ } = useI18n();
 	if ( site.isStaging ) {
@@ -199,6 +206,7 @@ function SiteItem( {
 	const needsUpgrade = site.syncSupport === 'needs-upgrade';
 	const isDeleted = site.syncSupport === 'deleted';
 	const isUnsupported = site.syncSupport === 'unsupported';
+	const isPressable = site.isPressable;
 
 	return (
 		<div
@@ -247,6 +255,11 @@ function SiteItem( {
 						}
 					} }
 				>
+					{ pressableSyncEnabled && isPressable && (
+						<span className="me-1.5">
+							<PressableLogo size={ 12 } />
+						</span>
+					) }
 					<div className="truncate">{ site.url.replace( /^https?:\/\//, '' ) }</div>
 					<ArrowIcon />
 				</Button>

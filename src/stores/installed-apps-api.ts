@@ -56,7 +56,6 @@ export const selectInstalledTerminals = createSelector(
 	( installedApps ) => {
 		const entries = Object.entries( supportedTerminalNames ) as [ SupportedTerminal, string ][];
 
-		console.log( 'selectInstalledTerminals', entries, installedApps );
 		return entries.filter( ( [ terminal ] ) => installedApps && installedApps[ terminal ] );
 	}
 );

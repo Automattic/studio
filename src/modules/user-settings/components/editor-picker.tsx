@@ -11,7 +11,12 @@ interface EditorPickerProps {
 
 export const EditorPicker = ( { value, onChange }: EditorPickerProps ) => {
 	const { __ } = useI18n();
-	const { data: installedApps } = useGetInstalledAppsQuery();
+	const { installedEditors, uninstalledEditors } = useGetInstalledAppsQuery( undefined, {
+		selectFromResult: ( result ) => ( {
+			installedEditors: selectInstalledEditors( result.data ),
+			uninstalledEditors: selectUninstalledEditors( result.data ),
+		} ),
+	} );
 
 	const installedEditors = Object.entries( supportedEditorConfig ).filter(
 		( [ editor ] ) => installedApps && installedApps[ editor as keyof typeof installedApps ]

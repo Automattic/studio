@@ -2,7 +2,13 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { readFile, writeFile } from 'atomically';
-import { readAppdata, saveAppdata, getAuthToken, getNewSitePartial } from 'cli/lib/appdata';
+import {
+	readAppdata,
+	saveAppdata,
+	getAuthToken,
+	getNewSitePartial,
+	getSiteByFolder,
+} from 'cli/lib/appdata';
 
 jest.mock( 'fs' );
 jest.mock( 'os' );
@@ -181,8 +187,6 @@ describe( 'Appdata Module', () => {
 	} );
 
 	describe( 'getSiteByFolder', () => {
-		const getSiteByFolder = require( '../appdata' ).getSiteByFolder;
-
 		it( 'should find a site in sites', async () => {
 			const folderPath = '/test/site/path';
 			const site = { id: 'site-1', path: folderPath, name: 'Site 1' };

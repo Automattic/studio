@@ -6,17 +6,17 @@ export function isMac() {
 	if ( process.env.NODE_ENV === 'test' ) {
 		return true;
 	}
-	return getAppGlobals().platform === 'darwin';
+	return window.platform === 'darwin';
 }
 
 export function isWindows() {
-	return getAppGlobals().platform === 'win32';
+	return window.platform === 'win32';
 }
 
 export function isLinux() {
 	if ( process.env.NODE_ENV === 'test' ) {
 		return false;
 	}
-	const platform = process ? process.platform : getAppGlobals().platform;
+	const platform = process ? process.platform : window.platform;
 	return platform === 'linux';
 }

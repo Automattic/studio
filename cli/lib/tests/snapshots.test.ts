@@ -281,6 +281,13 @@ describe( 'Snapshots Module', () => {
 						sequence: 1,
 					},
 				],
+				sites: [
+					{
+						id: mockSiteId,
+						path: mockSiteFolder,
+						name: 'Test Site',
+					},
+				],
 			};
 
 			( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( mockUserData ) );

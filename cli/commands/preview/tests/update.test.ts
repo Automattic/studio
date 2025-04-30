@@ -2,7 +2,7 @@ import os from 'os';
 import path from 'path';
 import { DEMO_SITE_EXPIRATION_DAYS } from 'common/constants';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
-import { getAuthToken } from 'cli/lib/appdata';
+import { getAuthToken, getSiteByFolder } from 'cli/lib/appdata';
 import { createArchive, cleanup } from 'cli/lib/archive';
 import { updateSnapshotInAppdata, getSnapshotsFromAppdata } from 'cli/lib/snapshots';
 import { validateSiteFolder } from 'cli/lib/validation';
@@ -11,6 +11,7 @@ import { Logger, LoggerError } from 'cli/logger';
 jest.mock( 'cli/lib/appdata', () => ( {
 	getAppdataDirectory: jest.fn().mockReturnValue( '/test/appdata' ),
 	getAuthToken: jest.fn(),
+	getSiteByFolder: jest.fn(),
 } ) );
 jest.mock( 'cli/lib/validation' );
 jest.mock( 'cli/lib/archive' );
@@ -65,7 +66,7 @@ describe( 'Preview Update Command', () => {
 		} );
 		( waitForSiteReady as jest.Mock ).mockResolvedValue( true );
 		( updateSnapshotInAppdata as jest.Mock ).mockResolvedValue( undefined );
-		( require( 'cli/lib/appdata' ).getSiteByFolder as jest.Mock ).mockResolvedValue( {
+		( getSiteByFolder as jest.Mock ).mockResolvedValue( {
 			id: mockSnapshot.localSiteId,
 			path: mockFolder,
 			name: 'Test Site',

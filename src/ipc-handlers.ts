@@ -1303,15 +1303,6 @@ export async function getAllCustomDomains(): Promise< string[] > {
 		.filter( ( domain ): domain is string => domain !== undefined );
 }
 
-export function getInstalledTerminals(): InstalledTerminals {
-	return {
-		terminal: true, // Terminal.app is always available on macOS
-		iterm: isInstalled( 'iterm' ),
-		warp: isInstalled( 'warp' ),
-		ghostty: isInstalled( 'ghostty' ),
-	};
-}
-
 export function getRandomUUID(): crypto.UUID {
 	return crypto.randomUUID();
 }

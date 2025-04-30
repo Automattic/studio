@@ -112,7 +112,6 @@ const api: IpcApi = {
 	saveUserTerminal: ( supportedTerminal ) =>
 		ipcRendererInvoke( 'saveUserTerminal', supportedTerminal ),
 	getUserTerminal: () => ipcRendererInvoke( 'getUserTerminal' ),
-	getInstalledTerminals: () => ipcRendererInvoke( 'getInstalledTerminals' ),
 	getUserEditor: () => ipcRendererInvoke( 'getUserEditor' ),
 	saveUserEditor: ( editor ) => ipcRendererInvoke( 'saveUserEditor', editor ),
 	handleNewSite: ( newSite ) => ipcRendererInvoke( 'handleNewSite', newSite ),

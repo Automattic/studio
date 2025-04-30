@@ -295,7 +295,7 @@ window.ipcListener.subscribe( 'user-data-updated', ( _, payload ) => {
 	const snapshots = payload.snapshots;
 
 	if ( ! fastDeepEqual( state.snapshot.snapshots, snapshots ) ) {
-		store.dispatch( snapshotActions.setSnapshots( { snapshots } ) );
+		store.dispatch( snapshotSlice.actions.setSnapshots( { snapshots } ) );
 
 		// Optimistically update the snapshot usage count
 		const countDiff = snapshots.length - state.snapshot.snapshots.length;

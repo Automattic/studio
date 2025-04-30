@@ -130,10 +130,10 @@ const deleteAllSnapshotsForUser = createAsyncThunk(
 	}
 );
 
-export const setSnapshots = createAction< {
-	initiatedByUserDataWatcher: boolean;
-	snapshots: Snapshot[];
-} >( 'snapshot/setSnapshots' );
+export const updateSnapshotLocally = createAction< {
+	atomicSiteId: number;
+	snapshot: Partial< Omit< Snapshot, 'atomicSiteId' > >;
+} >( 'snapshot/updateSnapshot' );
 
 const snapshotSlice = createSlice( {
 	name: 'snapshot',
@@ -144,31 +144,25 @@ const snapshotSlice = createSlice( {
 				( snapshot ) => snapshot.atomicSiteId !== action.payload.atomicSiteId
 			);
 		},
+		setSnapshots: ( state, action: PayloadAction< { snapshots: Snapshot[] } > ) => {
+			state.snapshots = action.payload.snapshots;
+		},
 		updateOperation: (
 			state,
 			action: PayloadAction< { operationId: crypto.UUID; operation: Partial< SnapshotOperation > } >
 		) => {
 			Object.assign( state.operations[ action.payload.operationId ], action.payload.operation );
 		},
-		updateSnapshot: (
-			state,
-			action: PayloadAction< {
-				atomicSiteId: number;
-				snapshot: Partial< Omit< Snapshot, 'atomicSiteId' > >;
-			} >
-		) => {
-			const snapshot = state.snapshots.find(
-				( snapshot ) => snapshot.atomicSiteId === action.payload.atomicSiteId
-			);
-			if ( snapshot ) {
-				Object.assign( snapshot, action.payload.snapshot );
-			}
-		},
 	},
 	extraReducers: ( builder ) => {
 		builder
-			.addCase( setSnapshots, ( state, action ) => {
-				state.snapshots = action.payload.snapshots;
+			.addCase( updateSnapshotLocally, ( state, action ) => {
+				const snapshot = state.snapshots.find(
+					( snapshot ) => snapshot.atomicSiteId === action.payload.atomicSiteId
+				);
+				if ( snapshot ) {
+					Object.assign( snapshot, action.payload.snapshot );
+				}
 			} )
 			.addCase( createSnapshot.fulfilled, ( state, action ) => {
 				state.operations[ action.payload.operationId ] = {
@@ -301,12 +295,7 @@ window.ipcListener.subscribe( 'user-data-updated', ( _, payload ) => {
 	const snapshots = payload.snapshots;
 
 	if ( ! fastDeepEqual( state.snapshot.snapshots, snapshots ) ) {
-		store.dispatch(
-			setSnapshots( {
-				initiatedByUserDataWatcher: true,
-				snapshots,
-			} )
-		);
+		store.dispatch( snapshotActions.setSnapshots( { snapshots } ) );
 
 		// Optimistically update the snapshot usage count
 		const countDiff = snapshots.length - state.snapshot.snapshots.length;
@@ -492,7 +481,10 @@ window.ipcListener.subscribe( 'snapshot-success', ( event, payload ) => {
 	}
 } );
 
-export const snapshotActions = snapshotSlice.actions;
+export const snapshotActions = {
+	...snapshotSlice.actions,
+	updateSnapshotLocally,
+};
 export const snapshotSelectors = {
 	...snapshotSlice.selectors,
 	selectActiveOperationsForAnySite,

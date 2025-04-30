@@ -115,7 +115,7 @@
 		"@php-wasm/node": "https://wpcomplaygroundpackages.wpcomstaging.com/packages/v1.0.30/@php-wasm-node-1.0.30.tar.gz",
 		"@php-wasm/scopes": "https://wpcomplaygroundpackages.wpcomstaging.com/packages/v1.0.30/@php-wasm-scopes-1.0.30.tar.gz",
 		"@php-wasm/universal": "https://wpcomplaygroundpackages.wpcomstaging.com/packages/v1.0.30/@php-wasm-universal-1.0.30.tar.gz",
-		"@reduxjs/toolkit": "^2.5.1",
+		"@reduxjs/toolkit": "^2.7.0",
 		"@rive-app/react-canvas": "^4.12.0",
 		"@sentry/electron": "^6.5.0",
 		"@sentry/webpack-plugin": "^3.3.0",

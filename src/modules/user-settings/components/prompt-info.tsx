@@ -1,13 +1,17 @@
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import ProgressBar from 'src/components/progress-bar';
+import { LIMIT_OF_PROMPTS_PER_USER } from 'src/constants';
 import { useOffline } from 'src/hooks/use-offline';
-import { usePromptUsage } from 'src/hooks/use-prompt-usage';
+import { useGetAssistantQuota } from 'src/stores/wpcom-api';
 
 export function PromptInfo() {
 	const { __ } = useI18n();
-	const { promptCount, promptLimit } = usePromptUsage();
 	const isOffline = useOffline();
+
+	const { data: assistantQuota } = useGetAssistantQuota();
+	const promptCount = assistantQuota?.promptCount ?? 0;
+	const promptLimit = assistantQuota?.promptLimit ?? LIMIT_OF_PROMPTS_PER_USER;
 
 	return (
 		<div className="flex gap-3 flex-col">

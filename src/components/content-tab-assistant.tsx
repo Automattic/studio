@@ -19,7 +19,6 @@ import WelcomeComponent from 'src/components/welcome-message-prompt';
 import { AI_GUIDELINES_URL, LIMIT_OF_PROMPTS_PER_USER } from 'src/constants';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
-import { usePromptUsage } from 'src/hooks/use-prompt-usage';
 import { useThemeDetails } from 'src/hooks/use-theme-details';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -31,7 +30,7 @@ import {
 	chatActions,
 	chatSelectors,
 } from 'src/stores/chat-slice';
-import { useGetWelcomeMessages } from 'src/stores/wpcom-api';
+import { useGetAssistantQuota, useGetWelcomeMessages } from 'src/stores/wpcom-api';
 
 export const MIMIC_CONVERSATION_DELAY = 500;
 
@@ -67,7 +66,8 @@ const ErrorNotice = ( {
 };
 
 const UsageLimitReached = () => {
-	const { daysUntilReset } = usePromptUsage();
+	const { data: assistantQuota } = useGetAssistantQuota();
+	const daysUntilReset = assistantQuota?.daysUntilReset ?? 0;
 
 	// Determine if the reset is today
 	const resetMessage =
@@ -344,7 +344,8 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const isAssistantThinking = useRootSelector( ( state ) =>
 		chatSelectors.selectIsLoading( state, instanceId )
 	);
-	const { userCanSendMessage } = usePromptUsage();
+	const { data: assistantQuota } = useGetAssistantQuota();
+	const userCanSendMessage = assistantQuota?.userCanSendMessage ?? true;
 	const isOffline = useOffline();
 	const { __ } = useI18n();
 	const lastMessage = messages.length === 0 ? undefined : messages[ messages.length - 1 ];

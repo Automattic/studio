@@ -10,7 +10,6 @@ import { FeatureFlagsProvider } from 'src/hooks/use-feature-flags';
 import { I18nDataProvider } from 'src/hooks/use-i18n-data';
 import { ImportExportProvider } from 'src/hooks/use-import-export';
 import { OnboardingProvider } from 'src/hooks/use-onboarding';
-import { PromptUsageProvider } from 'src/hooks/use-prompt-usage';
 import { SiteDetailsProvider } from 'src/hooks/use-site-details';
 import { ThemeDetailsProvider } from 'src/hooks/use-theme-details';
 import { store } from 'src/stores';
@@ -27,15 +26,13 @@ const Root = () => {
 								<ThemeDetailsProvider>
 									<InstalledAppsProvider>
 										<OnboardingProvider>
-											<PromptUsageProvider>
-												<ImportExportProvider>
-													<ContentTabsProvider>
-														<SyncSitesProvider>
-															<App />
-														</SyncSitesProvider>
-													</ContentTabsProvider>
-												</ImportExportProvider>
-											</PromptUsageProvider>
+											<ImportExportProvider>
+												<ContentTabsProvider>
+													<SyncSitesProvider>
+														<App />
+													</SyncSitesProvider>
+												</ContentTabsProvider>
+											</ImportExportProvider>
 										</OnboardingProvider>
 									</InstalledAppsProvider>
 								</ThemeDetailsProvider>

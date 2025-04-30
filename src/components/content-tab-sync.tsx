@@ -152,9 +152,9 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 	};
 
 	return (
-		<div className="flex flex-col gap-4 h-full">
+		<div className="flex flex-col h-full overflow-y-auto">
 			{ connectedSites.length > 0 ? (
-				<>
+				<div className="h-full relative">
 					<SyncConnectedSites
 						connectedSites={ connectedSites }
 						selectedSite={ selectedSite }
@@ -162,15 +162,15 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 						disconnectSite={ ( id: number ) => disconnectSite( id ) }
 					/>
 					{ pressableSyncEnabled && (
-						<div className="flex justify-between max-w-3xl px-8 pt-4 pb-8">
+						<div className="sticky bottom-0 bg-white/[0.8] backdrop-blur-sm w-full px-8 py-6 mt-auto">
 							<ConnectButton
-								variant="secondary"
+								variant="primary"
 								connectSite={ () => setIsSyncSitesSelectorOpen( true ) }
 								disableConnectButtonStyle={ true }
 							/>
 						</div>
 					) }
-				</>
+				</div>
 			) : (
 				<SiteSyncDescription>
 					<div className="mt-8">

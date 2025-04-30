@@ -487,7 +487,7 @@ export function SyncConnectedSites( {
 	}, [ connectedSites ] );
 
 	return (
-		<div className="flex flex-col flex-1 pt-8 overflow-y-auto">
+		<div className="flex flex-col flex-1 pt-8">
 			{ siteSections.map( ( section ) => (
 				<SyncConnectedSiteSection
 					key={ section.id }

@@ -1,5 +1,6 @@
 import os from 'os';
 import path from 'path';
+import { DEMO_SITE_EXPIRATION_DAYS } from 'common/constants';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
 import { createArchive, cleanup } from 'cli/lib/archive';
@@ -223,5 +224,18 @@ describe( 'Preview Update Command', () => {
 		await runCommand( mockFolder, mockSiteUrl );
 
 		expect( cleanup ).toHaveBeenCalledWith( mockArchivePath );
+	} );
+
+	it( 'should not allow updating an expired preview site', async () => {
+		const { runCommand } = await import( '../update' );
+		const expiredDate = mockDate - ( DEMO_SITE_EXPIRATION_DAYS + 1 ) * 24 * 60 * 60 * 1000;
+		const expiredSnapshot = { ...mockSnapshot, date: expiredDate };
+		( getSnapshotsFromAppdata as jest.Mock ).mockResolvedValue( [ expiredSnapshot ] );
+
+		await runCommand( mockFolder, mockSiteUrl );
+
+		expect( mockLogger.reportError ).toHaveBeenCalled();
+		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
+		expect( createArchive ).not.toHaveBeenCalled();
 	} );
 } );

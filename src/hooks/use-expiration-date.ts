@@ -1,6 +1,6 @@
 import { useI18n } from '@wordpress/react-i18n';
 import { intervalToDuration, formatDuration, addDays, DurationUnit, addHours } from 'date-fns';
-import { HOUR_MS, DAY_MS } from 'common/constants';
+import { HOUR_MS, DAY_MS, DEMO_SITE_EXPIRATION_DAYS } from 'common/constants';
 import { SupportedLocale } from 'common/lib/locale';
 import { useI18nData } from 'src/hooks/use-i18n-data';
 import { formatDistance } from 'src/lib/date';
@@ -34,9 +34,8 @@ function formatStringDate(
 export function useExpirationDate( snapshotDate: number ) {
 	const { __ } = useI18n();
 	const { locale } = useI18nData();
-	const MAX_DAYS = 7;
 	const now = new Date();
-	const endDate = addDays( snapshotDate, MAX_DAYS );
+	const endDate = addDays( snapshotDate, DEMO_SITE_EXPIRATION_DAYS );
 	const difference = endDate.getTime() - now.getTime();
 	let isExpired = false;
 	let format: DurationUnit[] = [ 'days', 'hours' ];

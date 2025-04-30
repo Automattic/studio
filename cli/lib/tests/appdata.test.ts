@@ -190,7 +190,7 @@ describe( 'Appdata Module', () => {
 		it( 'should find a site in sites', async () => {
 			const folderPath = '/test/site/path';
 			const site = { id: 'site-1', path: folderPath, name: 'Site 1' };
-			( fs.readFileSync as jest.Mock ).mockReturnValueOnce(
+			( readFile as jest.Mock ).mockReturnValueOnce(
 				JSON.stringify( { version: 1, sites: [ site ], newSites: [], snapshots: [] } )
 			);
 			const result = await getSiteByFolder( folderPath );
@@ -200,7 +200,7 @@ describe( 'Appdata Module', () => {
 		it( 'should find a site in newSites', async () => {
 			const folderPath = '/test/newsite/path';
 			const newSite = { id: 'site-2', path: folderPath, name: 'New Site' };
-			( fs.readFileSync as jest.Mock ).mockReturnValueOnce(
+			( readFile as jest.Mock ).mockReturnValueOnce(
 				JSON.stringify( { version: 1, sites: [], newSites: [ newSite ], snapshots: [] } )
 			);
 			const result = await getSiteByFolder( folderPath );
@@ -209,7 +209,7 @@ describe( 'Appdata Module', () => {
 
 		it( 'should throw if site is not found in either sites or newSites', async () => {
 			const folderPath = '/not/found/path';
-			( fs.readFileSync as jest.Mock ).mockReturnValueOnce(
+			( readFile as jest.Mock ).mockReturnValueOnce(
 				JSON.stringify( { version: 1, sites: [], newSites: [], snapshots: [] } )
 			);
 			await expect( getSiteByFolder( folderPath ) ).rejects.toThrow(

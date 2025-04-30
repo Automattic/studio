@@ -3,6 +3,7 @@ import path from 'node:path';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { DEMO_SITE_EXPIRATION_DAYS } from 'common/constants';
 import { PreviewCommandLoggerAction as LoggerAction } from 'common/logger-actions';
+import { Snapshot } from 'common/types/snapshot';
 import { addDays } from 'date-fns';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { getAuthToken, getSiteByFolder } from 'cli/lib/appdata';
@@ -13,10 +14,38 @@ import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
+function getSnapshotToUpdate(
+	snapshots: Snapshot[],
+	host: string,
+	currentSiteId: string,
+	overwrite: boolean
+) {
+	const snapshotToUpdate = snapshots.find( ( s ) => s.url === host );
+	if ( ! snapshotToUpdate ) {
+		throw new LoggerError( 'Preview site not found' );
+	}
+
+	if ( snapshotToUpdate.localSiteId !== currentSiteId && ! overwrite ) {
+		throw new LoggerError(
+			__(
+				'The specified folder does not match the original site for this preview. If you want to overwrite, run the command with --overwrite.'
+			)
+		);
+	}
+
+	const now = new Date();
+	const endDate = addDays( snapshotToUpdate.date, DEMO_SITE_EXPIRATION_DAYS );
+	if ( endDate < now ) {
+		throw new LoggerError( __( 'Cannot update an expired preview site.' ) );
+	}
+
+	return snapshotToUpdate;
+}
+
 export async function runCommand(
 	siteFolder: string,
 	host: string,
-	overwrite?: boolean
+	overwrite: boolean
 ): Promise< void > {
 	const archivePath = path.join(
 		os.tmpdir(),
@@ -31,18 +60,7 @@ export async function runCommand(
 		const snapshots = await getSnapshotsFromAppdata( token.id );
 		const { id: currentSiteId } = await getSiteByFolder( siteFolder );
 
-		const snapshotToUpdate = snapshots.find( ( s ) => s.url === host );
-		if ( ! snapshotToUpdate ) {
-			throw new LoggerError( 'Preview site not found' );
-		}
-
-		if ( snapshotToUpdate.localSiteId !== currentSiteId && ! overwrite ) {
-			throw new LoggerError(
-				__(
-					'The specified folder does not match the original site for this preview. If you want to overwrite, run the command with --overwrite.'
-				)
-			);
-		}
+		const snapshotToUpdate = getSnapshotToUpdate( snapshots, host, currentSiteId, overwrite );
 
 		const now = new Date();
 		const endDate = addDays( snapshotToUpdate.date, DEMO_SITE_EXPIRATION_DAYS );

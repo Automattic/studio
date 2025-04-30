@@ -74,7 +74,8 @@ export async function updateSnapshotInAppdata(
 	atomicSiteId: number,
 	siteFolder: string
 ): Promise< Snapshot > {
-	const { site, userData } = await getOrCreateSiteByFolder( siteFolder );
+	const site = await getOrCreateSiteByFolder( siteFolder );
+	const userData = await readAppdata();
 	if ( ! userData.snapshots ) {
 		userData.snapshots = [];
 	}
@@ -110,7 +111,8 @@ export async function saveSnapshotToAppdata(
 	atomicSiteId: number,
 	previewUrl: string
 ): Promise< Snapshot > {
-	const { site, userData } = await getOrCreateSiteByFolder( siteFolder );
+	const site = await getOrCreateSiteByFolder( siteFolder );
+	const userData = await readAppdata();
 	const authToken = await getAuthToken();
 
 	if ( ! userData.snapshots ) {

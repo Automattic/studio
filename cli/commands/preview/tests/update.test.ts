@@ -79,7 +79,7 @@ describe( 'Preview Update Command', () => {
 
 	it( 'should complete the preview update process successfully', async () => {
 		const { runCommand } = await import( '../update' );
-		await runCommand( mockFolder, mockSiteUrl );
+		await runCommand( mockFolder, mockSiteUrl, false );
 
 		expect( validateSiteFolder ).toHaveBeenCalledWith( mockFolder );
 		expect( mockLogger.reportStart.mock.calls[ 0 ] ).toEqual( [ 'validate', 'Validating...' ] );
@@ -124,7 +124,7 @@ describe( 'Preview Update Command', () => {
 
 	it( 'should use current directory when no folder is specified', async () => {
 		const { runCommand } = await import( '../update' );
-		await runCommand( process.cwd(), mockSiteUrl );
+		await runCommand( process.cwd(), mockSiteUrl, false );
 
 		expect( validateSiteFolder ).toHaveBeenCalledWith( process.cwd() );
 	} );
@@ -136,7 +136,7 @@ describe( 'Preview Update Command', () => {
 		} );
 
 		const { runCommand } = await import( '../update' );
-		await runCommand( mockFolder, mockSiteUrl );
+		await runCommand( mockFolder, mockSiteUrl, false );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
@@ -151,7 +151,7 @@ describe( 'Preview Update Command', () => {
 		} );
 
 		const { runCommand } = await import( '../update' );
-		await runCommand( mockFolder, mockSiteUrl );
+		await runCommand( mockFolder, mockSiteUrl, false );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
@@ -162,7 +162,7 @@ describe( 'Preview Update Command', () => {
 		( getSnapshotsFromAppdata as jest.Mock ).mockResolvedValue( [] );
 
 		const { runCommand } = await import( '../update' );
-		await runCommand( mockFolder, mockSiteUrl );
+		await runCommand( mockFolder, mockSiteUrl, false );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
@@ -176,7 +176,7 @@ describe( 'Preview Update Command', () => {
 		} );
 
 		const { runCommand } = await import( '../update' );
-		await runCommand( mockFolder, mockSiteUrl );
+		await runCommand( mockFolder, mockSiteUrl, false );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
@@ -190,7 +190,7 @@ describe( 'Preview Update Command', () => {
 		} );
 
 		const { runCommand } = await import( '../update' );
-		await runCommand( mockFolder, mockSiteUrl );
+		await runCommand( mockFolder, mockSiteUrl, false );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
@@ -204,7 +204,7 @@ describe( 'Preview Update Command', () => {
 		} );
 
 		const { runCommand } = await import( '../update' );
-		await runCommand( mockFolder, mockSiteUrl );
+		await runCommand( mockFolder, mockSiteUrl, false );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
@@ -218,7 +218,7 @@ describe( 'Preview Update Command', () => {
 		} );
 
 		const { runCommand } = await import( '../update' );
-		await runCommand( mockFolder, mockSiteUrl );
+		await runCommand( mockFolder, mockSiteUrl, false );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
@@ -230,7 +230,7 @@ describe( 'Preview Update Command', () => {
 		} );
 
 		const { runCommand } = await import( '../update' );
-		await runCommand( mockFolder, mockSiteUrl );
+		await runCommand( mockFolder, mockSiteUrl, false );
 
 		expect( cleanup ).toHaveBeenCalledWith( mockArchivePath );
 	} );
@@ -241,7 +241,7 @@ describe( 'Preview Update Command', () => {
 		const expiredSnapshot = { ...mockSnapshot, date: expiredDate };
 		( getSnapshotsFromAppdata as jest.Mock ).mockResolvedValue( [ expiredSnapshot ] );
 
-		await runCommand( mockFolder, mockSiteUrl );
+		await runCommand( mockFolder, mockSiteUrl, false );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );

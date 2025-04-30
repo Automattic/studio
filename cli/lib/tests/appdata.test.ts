@@ -187,7 +187,22 @@ describe( 'Appdata Module', () => {
 	} );
 
 	describe( 'getOrCreateSiteByFolder', () => {
-		it( 'should return an existing site if present', async () => {
+		it( 'should return an existing site if present on sites', async () => {
+			const folderPath = '/existing/site/path';
+			const existingSite = {
+				id: 'existing-id',
+				path: folderPath,
+				name: 'existing-site',
+			};
+			( readFile as jest.Mock ).mockReturnValueOnce(
+				JSON.stringify( { sites: [ existingSite ], newSites: [], snapshots: [] } )
+			);
+			const site = await getOrCreateSiteByFolder( folderPath );
+			expect( site ).toEqual( existingSite );
+			expect( writeFile ).not.toHaveBeenCalled();
+		} );
+
+		it( 'should return an existing site if present on newSites', async () => {
 			const folderPath = '/existing/site/path';
 			const existingSite = {
 				id: 'existing-id',
@@ -197,14 +212,9 @@ describe( 'Appdata Module', () => {
 			( readFile as jest.Mock ).mockReturnValueOnce(
 				JSON.stringify( { sites: [], newSites: [ existingSite ], snapshots: [] } )
 			);
-			const { site, userData } = await getOrCreateSiteByFolder( folderPath );
-			expect( site ).toEqual( {
-				id: 'mock-uuid-1234',
-				path: folderPath,
-				name: mockSiteFolderName,
-			} );
-			expect( userData.newSites ).toContainEqual( site );
-			expect( writeFile ).toHaveBeenCalled();
+			const site = await getOrCreateSiteByFolder( folderPath );
+			expect( site ).toEqual( existingSite );
+			expect( writeFile ).not.toHaveBeenCalled();
 		} );
 
 		it( 'should create and return a new site if not present', async () => {
@@ -212,13 +222,12 @@ describe( 'Appdata Module', () => {
 			( readFile as jest.Mock ).mockReturnValueOnce(
 				JSON.stringify( { sites: [], newSites: [], snapshots: [] } )
 			);
-			const { site, userData } = await getOrCreateSiteByFolder( folderPath );
+			const site = await getOrCreateSiteByFolder( folderPath );
 			expect( site ).toEqual( {
 				id: 'mock-uuid-1234',
 				path: folderPath,
 				name: mockSiteFolderName,
 			} );
-			expect( userData.newSites ).toContainEqual( site );
 			expect( writeFile ).toHaveBeenCalled();
 		} );
 	} );

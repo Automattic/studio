@@ -151,12 +151,31 @@ describe( 'Snapshots Module', () => {
 				},
 			};
 
-			( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( mockUserData ) );
+			let hasWrittenNewSite = false;
+			( readFile as jest.Mock ).mockImplementation( async () => {
+				if ( hasWrittenNewSite ) {
+					return JSON.stringify( {
+						...mockUserData,
+						newSites: [
+							{
+								id: 'mock-uuid-1234',
+								path: mockSiteFolder,
+								name: mockSiteFolderName,
+							},
+						],
+					} );
+				}
+				return JSON.stringify( mockUserData );
+			} );
+
+			( writeFile as jest.Mock ).mockImplementation( async () => {
+				hasWrittenNewSite = true;
+			} );
 			( path.basename as jest.Mock ).mockReturnValueOnce( mockSiteFolderName );
 
 			await saveSnapshotToAppdata( mockSiteFolder, mockAtomicSiteId, mockSiteUrl );
 
-			expect( writeFile ).toHaveBeenCalled();
+			expect( writeFile ).toHaveBeenCalledTimes( 2 );
 			const savedData = JSON.parse( ( writeFile as jest.Mock ).mock.calls[ 1 ][ 1 ] );
 
 			// Check that a new site was created
@@ -198,12 +217,32 @@ describe( 'Snapshots Module', () => {
 				},
 			};
 
-			( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( mockUserData ) );
+			let hasWrittenNewSite = false;
+			( readFile as jest.Mock ).mockImplementation( async () => {
+				if ( hasWrittenNewSite ) {
+					return JSON.stringify( {
+						...mockUserData,
+						newSites: [
+							existingNewSite,
+							{
+								id: 'mock-uuid-1234',
+								path: mockSiteFolder,
+								name: mockSiteFolderName,
+							},
+						],
+					} );
+				}
+				return JSON.stringify( mockUserData );
+			} );
+
+			( writeFile as jest.Mock ).mockImplementation( async () => {
+				hasWrittenNewSite = true;
+			} );
 			( path.basename as jest.Mock ).mockReturnValueOnce( mockSiteFolderName );
 
 			await saveSnapshotToAppdata( mockSiteFolder, mockAtomicSiteId, mockSiteUrl );
 
-			expect( writeFile ).toHaveBeenCalled();
+			expect( writeFile ).toHaveBeenCalledTimes( 2 );
 			const savedData = JSON.parse( ( writeFile as jest.Mock ).mock.calls[ 1 ][ 1 ] );
 
 			// Check that the new site was added to existing newSites array

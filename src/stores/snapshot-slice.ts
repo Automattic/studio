@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import {
+	createAction,
 	createAsyncThunk,
 	createSelector,
 	createSlice,
@@ -49,7 +50,6 @@ type BulkOperation = Omit< BaseOperation, 'progress' > & {
 export type SnapshotOperation = CreateOperation | UpdateOperation | DeleteOperation | BulkOperation;
 
 type SnapshotState = {
-	isInitialSnapshotsLoaded: boolean;
 	operations: Record< crypto.UUID, SnapshotOperation >;
 	snapshots: Snapshot[];
 	snapshotQuota: number;
@@ -57,7 +57,6 @@ type SnapshotState = {
 
 const getInitialState = (): SnapshotState => {
 	return {
-		isInitialSnapshotsLoaded: false,
 		operations: {},
 		snapshots: [],
 		snapshotQuota: LIMIT_OF_ZIP_SITES_PER_USER,
@@ -131,6 +130,11 @@ const deleteAllSnapshotsForUser = createAsyncThunk(
 	}
 );
 
+export const setSnapshots = createAction< {
+	initiatedByUserDataWatcher: boolean;
+	snapshots: Snapshot[];
+} >( 'snapshot/setSnapshots' );
+
 const snapshotSlice = createSlice( {
 	name: 'snapshot',
 	initialState: getInitialState(),
@@ -139,10 +143,6 @@ const snapshotSlice = createSlice( {
 			state.snapshots = state.snapshots.filter(
 				( snapshot ) => snapshot.atomicSiteId !== action.payload.atomicSiteId
 			);
-		},
-		setSnapshots: ( state, action: PayloadAction< Snapshot[] > ) => {
-			state.snapshots = action.payload;
-			state.isInitialSnapshotsLoaded = true;
 		},
 		updateOperation: (
 			state,
@@ -167,6 +167,9 @@ const snapshotSlice = createSlice( {
 	},
 	extraReducers: ( builder ) => {
 		builder
+			.addCase( setSnapshots, ( state, action ) => {
+				state.snapshots = action.payload.snapshots;
+			} )
 			.addCase( createSnapshot.fulfilled, ( state, action ) => {
 				state.operations[ action.payload.operationId ] = {
 					detail: __( 'Creating archive...' ),
@@ -298,7 +301,12 @@ window.ipcListener.subscribe( 'user-data-updated', ( _, payload ) => {
 	const snapshots = payload.snapshots;
 
 	if ( ! fastDeepEqual( state.snapshot.snapshots, snapshots ) ) {
-		store.dispatch( snapshotSlice.actions.setSnapshots( snapshots ) );
+		store.dispatch(
+			setSnapshots( {
+				initiatedByUserDataWatcher: true,
+				snapshots,
+			} )
+		);
 
 		// Optimistically update the snapshot usage count
 		const countDiff = snapshots.length - state.snapshot.snapshots.length;

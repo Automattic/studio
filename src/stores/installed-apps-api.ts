@@ -22,14 +22,8 @@ export const installedAppsApi = createApi( {
 	endpoints: ( builder ) => ( {
 		getInstalledApps: builder.query< InstalledAppsState, void >( {
 			queryFn: async () => {
-				try {
-					const installedApps = await getIpcApi().getInstalledApps();
-					return { data: installedApps as InstalledAppsState };
-				} catch ( error ) {
-					return {
-						data: installedAppsInitialState,
-					};
-				}
+				const installedApps = await getIpcApi().getInstalledApps();
+				return { data: installedApps };
 			},
 			providesTags: [ 'InstalledApps' ],
 		} ),

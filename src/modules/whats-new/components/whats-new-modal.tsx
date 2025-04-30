@@ -65,7 +65,6 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 			image: cliIllustration,
 			title: __( 'Introducing Studio CLI' ),
 			description: interpolateComponents( {
-				/* translators: %s is the name of the Studio CLI command ("studio") */
 				mixedString: sprintf(
 					/* translators: %s is the name of the Studio CLI command ("studio") */
 					__(

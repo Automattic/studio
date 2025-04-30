@@ -252,7 +252,7 @@ describe( 'Preview Update Command', () => {
 		jest
 			.spyOn( await import( 'cli/lib/appdata' ), 'getSiteByFolder' )
 			.mockResolvedValueOnce( { id: 'different-id', path: '/other/path', name: 'Other Site' } );
-		await runCommand( mockFolder, mockSiteUrl, undefined, false );
+		await runCommand( mockFolder, mockSiteUrl, false );
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
 		expect( createArchive ).not.toHaveBeenCalled();
 	} );
@@ -262,8 +262,7 @@ describe( 'Preview Update Command', () => {
 		jest
 			.spyOn( await import( 'cli/lib/appdata' ), 'getSiteByFolder' )
 			.mockResolvedValueOnce( { id: 'different-id', path: '/other/path', name: 'Other Site' } );
-		await runCommand( mockFolder, mockSiteUrl, undefined, true );
-		// Should proceed to createArchive
+		await runCommand( mockFolder, mockSiteUrl, true );
 		expect( createArchive ).toHaveBeenCalledWith( mockFolder, mockArchivePath );
 	} );
 } );

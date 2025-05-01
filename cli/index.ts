@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { __ } from '@wordpress/i18n';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
 import yargs from 'yargs';
@@ -8,7 +9,7 @@ import { registerCommand as registerUpdateCommand } from 'cli/commands/preview/u
 import { loadTranslations } from 'cli/lib/i18n';
 import { bumpAggregatedUniqueStat } from 'cli/lib/stats';
 import { version } from 'cli/package.json';
-import { OutputFormat, StudioArgv } from 'cli/types';
+import { StudioArgv } from 'cli/types';
 
 async function main() {
 	const locale = await loadTranslations();
@@ -18,19 +19,16 @@ async function main() {
 		.usage( __( 'Studio by WordPress.com CLI' ) )
 		.locale( locale )
 		.version( version )
-		.option( 'output-format', {
-			type: 'string',
-			hidden: true,
-			coerce: ( value: string ): OutputFormat => {
-				if ( value !== 'json' ) {
-					throw new Error( __( 'The only custom output format supported is "json"' ) );
-				}
-				return value;
-			},
-		} )
 		.option( 'avoid-telemetry', {
 			type: 'boolean',
 			hidden: true,
+		} )
+		.option( 'path', {
+			type: 'string',
+			default: process.cwd(),
+			defaultDescription: __( 'Current directory' ),
+			description: __( 'Path to the WordPress files' ),
+			coerce: ( value ) => path.resolve( process.cwd(), value ),
 		} )
 		.middleware( async ( argv ) => {
 			if ( ! argv.avoidTelemetry ) {

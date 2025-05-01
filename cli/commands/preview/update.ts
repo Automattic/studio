@@ -3,37 +3,64 @@ import path from 'node:path';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { DEMO_SITE_EXPIRATION_DAYS } from 'common/constants';
 import { PreviewCommandLoggerAction as LoggerAction } from 'common/logger-actions';
+import { Snapshot } from 'common/types/snapshot';
 import { addDays } from 'date-fns';
-import { Argv } from 'yargs';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
-import { getAuthToken } from 'cli/lib/appdata';
+import { getAuthToken, getSiteByFolder } from 'cli/lib/appdata';
 import { cleanup, createArchive } from 'cli/lib/archive';
-import { getSnapshotsFromAppdata, updateSnapshotDateInAppdata } from 'cli/lib/snapshots';
+import { getSnapshotsFromAppdata, updateSnapshotInAppdata } from 'cli/lib/snapshots';
 import { normalizeHostname } from 'cli/lib/utils';
 import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
-import { GlobalOptions, OutputFormat } from 'cli/types';
+import { StudioArgv } from 'cli/types';
+
+function getSnapshotToUpdate(
+	snapshots: Snapshot[],
+	host: string,
+	currentSiteId: string,
+	overwrite: boolean
+) {
+	const snapshotToUpdate = snapshots.find( ( s ) => s.url === host );
+	if ( ! snapshotToUpdate ) {
+		throw new LoggerError( 'Preview site not found' );
+	}
+
+	if ( snapshotToUpdate.localSiteId !== currentSiteId && ! overwrite ) {
+		throw new LoggerError(
+			__(
+				'The specified folder does not match the original site for this preview. If you want to overwrite, run the command with --overwrite.'
+			)
+		);
+	}
+
+	const now = new Date();
+	const endDate = addDays( snapshotToUpdate.date, DEMO_SITE_EXPIRATION_DAYS );
+	if ( endDate < now ) {
+		throw new LoggerError( __( 'Cannot update an expired preview site.' ) );
+	}
+
+	return snapshotToUpdate;
+}
 
 export async function runCommand(
 	siteFolder: string,
 	host: string,
-	outputFormat?: OutputFormat
+	overwrite: boolean
 ): Promise< void > {
 	const archivePath = path.join(
 		os.tmpdir(),
 		`${ path.basename( siteFolder ) }-${ Date.now() }.zip`
 	);
-	const logger = new Logger< LoggerAction >( outputFormat );
+	const logger = new Logger< LoggerAction >();
 
 	try {
 		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating...' ) );
 		validateSiteFolder( siteFolder );
 		const token = await getAuthToken();
 		const snapshots = await getSnapshotsFromAppdata( token.id );
-		const snapshotToUpdate = snapshots.find( ( s ) => s.url === host );
-		if ( ! snapshotToUpdate ) {
-			throw new LoggerError( 'Preview site not found' );
-		}
+		const { id: currentSiteId } = await getSiteByFolder( siteFolder );
+
+		const snapshotToUpdate = getSnapshotToUpdate( snapshots, host, currentSiteId, overwrite );
 
 		const now = new Date();
 		const endDate = addDays( snapshotToUpdate.date, DEMO_SITE_EXPIRATION_DAYS );
@@ -41,7 +68,7 @@ export async function runCommand(
 			throw new LoggerError( __( 'Cannot update an expired preview site.' ) );
 		}
 
-		logger.reportSuccess( __( 'Validation successful' ) );
+		logger.reportSuccess( __( 'Validation successful' ), true );
 
 		logger.reportStart( LoggerAction.ARCHIVE, __( 'Creating archive...' ) );
 		await createArchive( siteFolder, archivePath );
@@ -62,7 +89,7 @@ export async function runCommand(
 		);
 
 		logger.reportStart( LoggerAction.APPDATA, __( 'Saving preview site to Studio...' ) );
-		const snapshot = await updateSnapshotDateInAppdata( uploadResponse.site_id );
+		const snapshot = await updateSnapshotInAppdata( uploadResponse.site_id, siteFolder );
 		logger.reportSuccess( __( 'Preview site saved to Studio' ) );
 
 		logger.reportKeyValuePair( 'name', snapshot.name );
@@ -79,27 +106,27 @@ export async function runCommand(
 	}
 }
 
-export const registerCommand = ( yargs: Argv< GlobalOptions > ) => {
+export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
-		command: 'update [folder]',
-		describe: __( 'Update preview site for the specified folder (defaults to current directory)' ),
-		builder: ( yargs: Argv< GlobalOptions > ) => {
+		command: 'update <host>',
+		describe: __( 'Update preview site' ),
+		builder: ( yargs ) => {
 			return yargs
-				.positional( 'folder', {
+				.positional( 'host', {
 					type: 'string',
-					default: process.cwd(),
-					description: __( 'The folder to update the preview site from' ),
-				} )
-				.option( 'host', {
-					alias: 'H',
-					type: 'string',
+					description: __( 'Hostname of the preview site to update' ),
 					demandOption: true,
-					description: __( 'Host of the preview site to update' ),
+				} )
+				.option( 'overwrite', {
+					alias: 'o',
+					type: 'boolean',
+					default: false,
+					description: __( 'Allow updating a preview site from a different folder' ),
 				} );
 		},
 		handler: async ( argv ) => {
 			const normalizedHost = normalizeHostname( argv.host );
-			await runCommand( argv.folder, normalizedHost, argv.outputFormat );
+			await runCommand( argv.path, normalizedHost, argv.overwrite );
 		},
 	} );
 };

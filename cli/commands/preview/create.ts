@@ -8,24 +8,21 @@ import { createArchive, cleanup } from 'cli/lib/archive';
 import { saveSnapshotToAppdata } from 'cli/lib/snapshots';
 import { validateSiteFolder, validateSiteSize } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
-import { OutputFormat, StudioArgv } from 'cli/types';
+import { StudioArgv } from 'cli/types';
 
-export async function runCommand(
-	siteFolder: string,
-	outputFormat?: OutputFormat
-): Promise< void > {
+export async function runCommand( siteFolder: string ): Promise< void > {
 	const archivePath = path.join(
 		os.tmpdir(),
 		`${ path.basename( siteFolder ) }-${ Date.now() }.zip`
 	);
-	const logger = new Logger< LoggerAction >( outputFormat );
+	const logger = new Logger< LoggerAction >();
 
 	try {
 		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating...' ) );
 		validateSiteFolder( siteFolder );
 		await validateSiteSize( siteFolder );
 		const token = await getAuthToken();
-		logger.reportSuccess( __( 'Validation successful' ) );
+		logger.reportSuccess( __( 'Validation successful' ), true );
 
 		logger.reportStart( LoggerAction.ARCHIVE, __( 'Creating archive...' ) );
 		await createArchive( siteFolder, archivePath );
@@ -65,19 +62,10 @@ export async function runCommand(
 
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
-		command: 'create [folder]',
-		describe: __(
-			'Create a preview site from the specified folder (defaults to current directory)'
-		),
-		builder: ( yargs ) => {
-			return yargs.positional( 'folder', {
-				type: 'string',
-				default: process.cwd(),
-				description: __( 'The folder to create a preview site from' ),
-			} );
-		},
+		command: 'create',
+		describe: __( 'Create a preview site' ),
 		handler: async ( argv ) => {
-			await runCommand( argv.folder, argv.outputFormat );
+			await runCommand( argv.path );
 		},
 	} );
 };

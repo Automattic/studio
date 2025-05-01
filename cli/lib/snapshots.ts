@@ -1,3 +1,5 @@
+import path from 'node:path';
+import { promisify } from 'node:util';
 import { __, sprintf } from '@wordpress/i18n';
 // eslint-disable-next-line import/no-named-as-default
 import Table from 'cli-table3';
@@ -11,21 +13,53 @@ import {
 	formatDuration,
 	intervalToDuration,
 } from 'date-fns';
+import lockfile from 'lockfile';
 import {
+	getAppdataDirectory,
 	getAuthToken,
-	getNewSitePartial,
 	getSiteByFolder,
 	readAppdata,
 	saveAppdata,
+	getOrCreateSiteByFolder,
 } from 'cli/lib/appdata';
 import { LoggerError } from 'cli/logger';
+
+const UPDATE_SNAPSHOTS_LOCKFILE_PATH = path.join(
+	getAppdataDirectory(),
+	'studio-update-snapshots.lock'
+);
+
+function lock( path: string, options: lockfile.Options ) {
+	return new Promise< void >( ( resolve, reject ) => {
+		lockfile.lock( path, options, ( err ) => {
+			if ( err ) {
+				reject( err );
+			} else {
+				resolve();
+			}
+		} );
+	} );
+}
+
+const unlock = promisify( lockfile.unlock );
+
+function withLock< Args extends unknown[], Return >( fn: ( ...args: Args ) => Promise< Return > ) {
+	return async ( ...args: Args ) => {
+		try {
+			await lock( UPDATE_SNAPSHOTS_LOCKFILE_PATH, { wait: 1000 } );
+			return await fn( ...args );
+		} finally {
+			await unlock( UPDATE_SNAPSHOTS_LOCKFILE_PATH );
+		}
+	};
+}
 
 export async function getSnapshotsFromAppdata(
 	userId: number,
 	siteFolder?: string
 ): Promise< Snapshot[] > {
 	const userData = await readAppdata();
-	let snapshots = userData.snapshots ?? [];
+	let snapshots = userData.snapshots;
 	snapshots = snapshots.filter( ( snapshot ) => snapshot.userId === userId );
 
 	if ( siteFolder ) {
@@ -36,20 +70,21 @@ export async function getSnapshotsFromAppdata(
 	return snapshots;
 }
 
-export async function updateSnapshotDateInAppdata( atomicSiteId: number ): Promise< Snapshot > {
+export async function updateSnapshotInAppdata(
+	atomicSiteId: number,
+	siteFolder: string
+): Promise< Snapshot > {
+	const site = await getOrCreateSiteByFolder( siteFolder );
 	const userData = await readAppdata();
-	if ( ! userData.snapshots ) {
-		userData.snapshots = [];
-	}
-
 	const snapshot = userData.snapshots.find( ( s ) => s.atomicSiteId === atomicSiteId );
-
 	if ( ! snapshot ) {
 		throw new LoggerError( __( 'Failed to find existing preview site in appdata' ) );
 	}
 
+	snapshot.localSiteId = site.id;
 	snapshot.date = Date.now();
 	await saveAppdata( userData );
+
 	return snapshot;
 }
 
@@ -72,25 +107,9 @@ export async function saveSnapshotToAppdata(
 	atomicSiteId: number,
 	previewUrl: string
 ): Promise< Snapshot > {
+	const site = await getOrCreateSiteByFolder( siteFolder );
 	const userData = await readAppdata();
 	const authToken = await getAuthToken();
-	let site;
-	try {
-		site = await getSiteByFolder( siteFolder );
-	} catch ( error ) {
-		if ( ! ( error instanceof LoggerError ) ) {
-			throw error;
-		}
-		site = getNewSitePartial( siteFolder );
-		if ( ! userData.newSites ) {
-			userData.newSites = [];
-		}
-		userData.newSites.push( site );
-	}
-
-	if ( ! userData.snapshots ) {
-		userData.snapshots = [];
-	}
 
 	const nextSequenceNumber = getNextSequenceNumber( site.id, userData.snapshots, authToken.id );
 	const snapshot: Snapshot = {
@@ -113,17 +132,20 @@ export async function saveSnapshotToAppdata(
 	return snapshot;
 }
 
-export async function deleteSnapshotFromAppdata( snapshotUrl: string ): Promise< void > {
+export const deleteSnapshotFromAppdata = withLock( async ( snapshotUrl: string ) => {
 	const userData = await readAppdata();
-	if ( ! userData.snapshots ) {
-		return;
-	}
 	const snapshotIndex = userData.snapshots.findIndex( ( s ) => s.url === snapshotUrl );
 	if ( snapshotIndex === -1 ) {
 		return;
 	}
 	userData.snapshots.splice( snapshotIndex, 1 );
 	await saveAppdata( userData );
+} );
+
+export function isSnapshotExpired( snapshot: Snapshot ) {
+	const now = new Date();
+	const endDate = addDays( snapshot.date, DEMO_SITE_EXPIRATION_DAYS );
+	return endDate < now;
 }
 
 function formatDurationUntilExpiry( lastUpdatedAt: number ) {

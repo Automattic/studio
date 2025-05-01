@@ -50,11 +50,7 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	return (
 		<>
 			<LanguagePicker value={ locale } onChange={ setLocale } />
-			<EditorPicker
-				value={ currentEditor }
-				onChange={ setCurrentEditor }
-				disabled={ editor === undefined }
-			/>
+			<EditorPicker value={ currentEditor } onChange={ setCurrentEditor } />
 			<TerminalPicker value={ currentTerminal } onChange={ setCurrentTerminal } />
 			<div className="mt-auto pt-2 flex justify-end gap-3">
 				<Button variant="tertiary" onClick={ cancelChanges }>

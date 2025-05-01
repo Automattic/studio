@@ -22,7 +22,7 @@ export async function runCommand( siteFolder: string ): Promise< void > {
 		validateSiteFolder( siteFolder );
 		await validateSiteSize( siteFolder );
 		const token = await getAuthToken();
-		logger.reportSuccess( __( 'Validation successful' ) );
+		logger.reportSuccess( __( 'Validation successful' ), true );
 
 		logger.reportStart( LoggerAction.ARCHIVE, __( 'Creating archive...' ) );
 		await createArchive( siteFolder, archivePath );

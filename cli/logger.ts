@@ -25,11 +25,10 @@ export class LoggerError extends Error {
 
 export class Logger< T extends string > {
 	private spinner: Ora;
-	private currentAction: T | 'keyValuePair' | null;
+	private currentAction: T | 'keyValuePair' | null = null;
 
 	constructor() {
 		this.spinner = ora();
-		this.currentAction = null;
 	}
 
 	public reportStart( action: T, message: string ) {
@@ -51,9 +50,11 @@ export class Logger< T extends string > {
 		this.spinner.text = message;
 	}
 
-	public reportSuccess( message: string ) {
+	public reportSuccess( message: string, shouldClearSpinner = false ) {
 		if ( process.send ) {
 			process.send( { action: this.currentAction, status: 'success', message } );
+		} else if ( shouldClearSpinner ) {
+			this.spinner.clear();
 		} else {
 			this.spinner.succeed( message );
 		}

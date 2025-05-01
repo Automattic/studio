@@ -47,6 +47,7 @@ describe( 'Appdata Module', () => {
 		it( 'should return parsed appdata if it exists and is valid', async () => {
 			const mockUserData = {
 				version: 1,
+				newSites: [],
 				sites: [],
 				snapshots: [
 					{
@@ -82,6 +83,7 @@ describe( 'Appdata Module', () => {
 		it( 'should save the userData to the appdata file', async () => {
 			const mockUserData = {
 				version: 1,
+				newSites: [],
 				sites: [],
 				snapshots: [],
 			};
@@ -98,6 +100,7 @@ describe( 'Appdata Module', () => {
 		it( 'should throw LoggerError if there is an error saving the file', async () => {
 			const mockUserData = {
 				version: 1,
+				newSites: [],
 				sites: [],
 				snapshots: [],
 			};
@@ -111,6 +114,7 @@ describe( 'Appdata Module', () => {
 
 		it( 'should add version 1 if version is not provided', async () => {
 			const mockUserData = {
+				newSites: [],
 				sites: [],
 				snapshots: [],
 			};

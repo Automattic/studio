@@ -59,7 +59,7 @@ export async function getSnapshotsFromAppdata(
 	siteFolder?: string
 ): Promise< Snapshot[] > {
 	const userData = await readAppdata();
-	let snapshots = userData.snapshots ?? [];
+	let snapshots = userData.snapshots;
 	snapshots = snapshots.filter( ( snapshot ) => snapshot.userId === userId );
 
 	if ( siteFolder ) {
@@ -76,10 +76,6 @@ export async function updateSnapshotInAppdata(
 ): Promise< Snapshot > {
 	const site = await getOrCreateSiteByFolder( siteFolder );
 	const userData = await readAppdata();
-	if ( ! userData.snapshots ) {
-		userData.snapshots = [];
-	}
-
 	const snapshot = userData.snapshots.find( ( s ) => s.atomicSiteId === atomicSiteId );
 	if ( ! snapshot ) {
 		throw new LoggerError( __( 'Failed to find existing preview site in appdata' ) );
@@ -115,10 +111,6 @@ export async function saveSnapshotToAppdata(
 	const userData = await readAppdata();
 	const authToken = await getAuthToken();
 
-	if ( ! userData.snapshots ) {
-		userData.snapshots = [];
-	}
-
 	const nextSequenceNumber = getNextSequenceNumber( site.id, userData.snapshots, authToken.id );
 	const snapshot: Snapshot = {
 		url: previewUrl,
@@ -142,9 +134,6 @@ export async function saveSnapshotToAppdata(
 
 export const deleteSnapshotFromAppdata = withLock( async ( snapshotUrl: string ) => {
 	const userData = await readAppdata();
-	if ( ! userData.snapshots ) {
-		return;
-	}
 	const snapshotIndex = userData.snapshots.findIndex( ( s ) => s.url === snapshotUrl );
 	if ( snapshotIndex === -1 ) {
 		return;
@@ -152,6 +141,12 @@ export const deleteSnapshotFromAppdata = withLock( async ( snapshotUrl: string )
 	userData.snapshots.splice( snapshotIndex, 1 );
 	await saveAppdata( userData );
 } );
+
+export function isSnapshotExpired( snapshot: Snapshot ) {
+	const now = new Date();
+	const endDate = addDays( snapshot.date, DEMO_SITE_EXPIRATION_DAYS );
+	return endDate < now;
+}
 
 function formatDurationUntilExpiry( lastUpdatedAt: number ) {
 	const now = new Date();

@@ -21,7 +21,7 @@ import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { useThemeDetails } from 'src/hooks/use-theme-details';
-import { isMac } from 'src/lib/app-globals';
+import { isWindows } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useEditorData } from 'src/modules/user-settings/hooks/use-editor-data';
@@ -157,11 +157,11 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 
 	const buttonsArray: ButtonsSectionProps[ 'buttonsArray' ] = [
 		{
-			label: isMac()
-				? // translators: name of app used to navigate files and folders on macOS
-				  __( 'Finder' )
-				: // translators: name of app used to navigate files and folders on Windows
-				  __( 'File explorer' ),
+			label: isWindows()
+				? // translators: name of app used to navigate files and folders on Windows
+				  __( 'File explorer' )
+				: // translators: name of app used to navigate files and folders on macOS
+				  __( 'Finder' ),
 			className: 'text-nowrap',
 			icon: archive,
 			onClick: () => {
@@ -182,7 +182,14 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 		} );
 	}
 
-	const terminalName = supportedTerminalNames[ terminal ];
+	let terminalName = supportedTerminalNames[ terminal ];
+	if ( terminal === 'terminal' ) {
+		terminalName = isWindows()
+			? // translators: name of the default terminal application on Windows
+			  __( 'Command Prompt' )
+			: // translators: name of the default terminal application on macOS
+			  __( 'Terminal' );
+	}
 	buttonsArray.push( {
 		label: terminalName,
 		className: 'text-nowrap',

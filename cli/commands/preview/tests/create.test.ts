@@ -193,7 +193,7 @@ describe( 'Preview Create Command', () => {
 		expect( saveSnapshotToAppdata ).not.toHaveBeenCalled();
 	} );
 
-	it( 'should handle appdata errors', async () => {
+	it( 'should handle Studio config file errors', async () => {
 		const errorMessage = 'Failed to save to appdata';
 		( saveSnapshotToAppdata as jest.Mock ).mockImplementation( () => {
 			throw new LoggerError( errorMessage );

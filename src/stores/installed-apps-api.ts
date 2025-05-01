@@ -22,10 +22,25 @@ export const installedAppsApi = createApi( {
 			},
 			providesTags: [ 'InstalledApps' ],
 		} ),
-		getUserEditor: builder.query< SupportedEditor, void >( {
+		getUserEditor: builder.query< SupportedEditor | null, void >( {
 			queryFn: async () => {
 				const editor = await getIpcApi().getUserEditor();
-				return { data: editor || 'vscode' };
+				// Respect user preference if it is set
+				if ( editor ) {
+					return { data: editor };
+				}
+
+				// If no user preference is set, check for installed editors
+				// and set the default to the first one found
+				// This is a fallback to ensure we keep existing behavior
+				const installedEditors = await getIpcApi().getInstalledAppsAndTerminals();
+				if ( installedEditors.vscode ) {
+					return { data: 'vscode' };
+				} else if ( installedEditors.phpstorm ) {
+					return { data: 'phpstorm' };
+				}
+
+				return { data: null };
 			},
 			providesTags: [ 'UserPreferences' ],
 		} ),

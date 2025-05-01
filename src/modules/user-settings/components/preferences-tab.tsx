@@ -5,6 +5,7 @@ import { useI18nData } from 'src/hooks/use-i18n-data';
 import { EditorPicker } from 'src/modules/user-settings/components/editor-picker';
 import { LanguagePicker } from 'src/modules/user-settings/components/language-picker';
 import { TerminalPicker } from 'src/modules/user-settings/components/terminal-picker';
+import { SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import {
 	useGetUserEditorQuery,
 	useGetUserTerminalQuery,
@@ -17,24 +18,28 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const { locale: savedLocale, setLocale: setSavedLocale } = useI18nData();
 	const [ locale, setLocale ] = useState( savedLocale );
 
-	const { data: editor = 'vscode' } = useGetUserEditorQuery();
+	const { data: editor } = useGetUserEditorQuery();
 	const { data: terminal = 'terminal' } = useGetUserTerminalQuery();
 	const [ saveEditor ] = useSaveUserEditorMutation();
 	const [ saveTerminal ] = useSaveUserTerminalMutation();
 
-	const [ currentEditor, setCurrentEditor ] = useState( editor );
+	const [ currentEditor, setCurrentEditor ] = useState< SupportedEditor | undefined >(
+		editor ?? undefined
+	);
 	const [ currentTerminal, setCurrentTerminal ] = useState( terminal );
 
 	const savePreferences = async () => {
 		setSavedLocale( locale );
-		await saveEditor( currentEditor );
+		if ( currentEditor ) {
+			await saveEditor( currentEditor );
+		}
 		await saveTerminal( currentTerminal );
 		onClose();
 	};
 
 	const cancelChanges = () => {
 		setLocale( savedLocale );
-		setCurrentEditor( editor );
+		setCurrentEditor( editor ?? undefined );
 		setCurrentTerminal( terminal );
 		onClose();
 	};
@@ -45,7 +50,11 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	return (
 		<>
 			<LanguagePicker value={ locale } onChange={ setLocale } />
-			<EditorPicker value={ currentEditor } onChange={ setCurrentEditor } />
+			<EditorPicker
+				value={ currentEditor }
+				onChange={ setCurrentEditor }
+				disabled={ editor === undefined }
+			/>
 			<TerminalPicker value={ currentTerminal } onChange={ setCurrentTerminal } />
 			<div className="mt-auto pt-2 flex justify-end gap-3">
 				<Button variant="tertiary" onClick={ cancelChanges }>

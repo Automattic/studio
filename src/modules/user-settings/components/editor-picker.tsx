@@ -11,9 +11,10 @@ import { SettingsFormField } from './settings-form-field';
 interface EditorPickerProps {
 	value: SupportedEditor | undefined;
 	onChange: ( value: SupportedEditor ) => void;
+	disabled?: boolean;
 }
 
-export const EditorPicker = ( { value, onChange }: EditorPickerProps ) => {
+export const EditorPicker = ( { value, onChange, disabled }: EditorPickerProps ) => {
 	const { __ } = useI18n();
 	const { installedEditors, uninstalledEditors } = useGetInstalledAppsQuery( undefined, {
 		selectFromResult: ( result ) => ( {
@@ -29,6 +30,7 @@ export const EditorPicker = ( { value, onChange }: EditorPickerProps ) => {
 				onChange={ ( newValue ) => onChange( newValue as SupportedEditor ) }
 				__nextHasNoMarginBottom
 				__next40pxDefaultSize
+				disabled={ disabled }
 			>
 				{ ! value && <option value={ '' }>{ __( 'Select' ) }</option> }
 				{ installedEditors.map( ( [ editorKey, editorConfig ] ) => (

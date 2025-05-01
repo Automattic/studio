@@ -6,7 +6,7 @@ import { PreviewCommandLoggerAction as LoggerAction } from 'common/logger-action
 import { Snapshot } from 'common/types/snapshot';
 import { addDays } from 'date-fns';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
-import { getAuthToken, getOrCreateSiteByFolder } from 'cli/lib/appdata';
+import { getAuthToken, getOrCreateSiteByFolder, getSiteByFolder } from 'cli/lib/appdata';
 import { cleanup, createArchive } from 'cli/lib/archive';
 import { getSnapshotsFromAppdata, updateSnapshotInAppdata } from 'cli/lib/snapshots';
 import { normalizeHostname } from 'cli/lib/utils';
@@ -14,12 +14,22 @@ import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
-function getSnapshotToUpdate(
+async function getSnapshotToUpdate(
 	snapshots: Snapshot[],
 	host: string,
-	currentSiteId: string,
+	siteFolder: string,
 	overwrite: boolean
 ) {
+	let currentSiteId: string;
+
+	if ( overwrite ) {
+		const site = await getOrCreateSiteByFolder( siteFolder );
+		currentSiteId = site.id;
+	} else {
+		const site = await getSiteByFolder( siteFolder );
+		currentSiteId = site.id;
+	}
+
 	const snapshotToUpdate = snapshots.find( ( s ) => s.url === host );
 	if ( ! snapshotToUpdate ) {
 		throw new LoggerError( 'Preview site not found' );
@@ -31,12 +41,6 @@ function getSnapshotToUpdate(
 				'The specified folder does not match the original site for this preview. If you want to overwrite, run the command with --overwrite.'
 			)
 		);
-	}
-
-	const now = new Date();
-	const endDate = addDays( snapshotToUpdate.date, DEMO_SITE_EXPIRATION_DAYS );
-	if ( endDate < now ) {
-		throw new LoggerError( __( 'Cannot update an expired preview site.' ) );
 	}
 
 	return snapshotToUpdate;
@@ -58,9 +62,7 @@ export async function runCommand(
 		validateSiteFolder( siteFolder );
 		const token = await getAuthToken();
 		const snapshots = await getSnapshotsFromAppdata( token.id );
-		const { id: currentSiteId } = await getOrCreateSiteByFolder( siteFolder );
-
-		const snapshotToUpdate = getSnapshotToUpdate( snapshots, host, currentSiteId, overwrite );
+		const snapshotToUpdate = await getSnapshotToUpdate( snapshots, host, siteFolder, overwrite );
 
 		const now = new Date();
 		const endDate = addDays( snapshotToUpdate.date, DEMO_SITE_EXPIRATION_DAYS );

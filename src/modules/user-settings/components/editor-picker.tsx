@@ -9,8 +9,8 @@ import {
 import { SettingsFormField } from './settings-form-field';
 
 interface EditorPickerProps {
-	value: SupportedEditor;
-	onChange: ( value: SupportedEditor ) => void;
+	value: SupportedEditor | undefined;
+	onChange: ( value: SupportedEditor | undefined ) => void;
 }
 
 export const EditorPicker = ( { value, onChange }: EditorPickerProps ) => {
@@ -30,6 +30,7 @@ export const EditorPicker = ( { value, onChange }: EditorPickerProps ) => {
 				__nextHasNoMarginBottom
 				__next40pxDefaultSize
 			>
+				{ ! value && <option value={ '' }>{ __( 'Select' ) }</option> }
 				{ installedEditors.map( ( [ editorKey, editorConfig ] ) => (
 					<option key={ editorKey } value={ editorKey }>
 						{ editorConfig.label }

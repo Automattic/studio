@@ -14,11 +14,10 @@ import {
 	widget,
 } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import { ButtonsSection, ButtonsSectionProps } from 'src/components/buttons-section';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
-import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { useThemeDetails } from 'src/hooks/use-theme-details';
 import { isMac } from 'src/lib/app-globals';
@@ -145,13 +144,10 @@ function CustomizeSection( {
 
 function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'selectedSite' > ) {
 	const { terminalWpCliEnabled } = useFeatureFlags();
-	const { data: installedApps } = useGetInstalledAppsQuery();
 	const { data: editor = 'vscode' } = useGetUserEditorQuery();
 	const { data: terminal = DEFAULT_TERMINAL } = useGetUserTerminalQuery();
 
-	const terminalName = supportedTerminalNames[ terminal ];
-	const editorName =
-		editor && installedApps && installedApps[ editor as keyof typeof installedApps ] ? editor : '';
+	const terminalName = supportedTerminalNames[ terminal as keyof typeof supportedTerminalNames ];
 
 	const buttonsArray: ButtonsSectionProps[ 'buttonsArray' ] = [
 		{
@@ -168,19 +164,18 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 		},
 	];
 
-	if ( editorName ) {
-		const editor = supportedEditorConfig[ editorName as keyof typeof supportedEditorConfig ];
-		if ( editor ) {
-			buttonsArray.push( {
-				label: editor.label,
-				className: 'text-nowrap',
-				icon: code,
-				onClick: () => {
-					getIpcApi().openURL( editor.url( selectedSite.path ) );
-				},
-			} );
-		}
+	const editorConfig = editor ? supportedEditorConfig[ editor ] : false;
+	if ( editorConfig ) {
+		buttonsArray.push( {
+			label: editorConfig.label,
+			className: 'text-nowrap',
+			icon: code,
+			onClick: () => {
+				getIpcApi().openURL( editorConfig.url( selectedSite.path ) );
+			},
+		} );
 	}
+
 	buttonsArray.push( {
 		label: terminalName,
 		className: 'text-nowrap',

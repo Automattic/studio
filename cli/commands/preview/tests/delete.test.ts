@@ -3,8 +3,11 @@ import { getAuthToken } from 'cli/lib/appdata';
 import { getSnapshotsFromAppdata, deleteSnapshotFromAppdata } from 'cli/lib/snapshots';
 import { Logger, LoggerError } from 'cli/logger';
 
+jest.mock( 'cli/lib/appdata', () => ( {
+	getAppdataDirectory: jest.fn().mockReturnValue( '/test/appdata' ),
+	getAuthToken: jest.fn(),
+} ) );
 jest.mock( 'cli/lib/api' );
-jest.mock( 'cli/lib/appdata' );
 jest.mock( 'cli/lib/snapshots' );
 jest.mock( 'cli/logger' );
 

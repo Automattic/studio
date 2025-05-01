@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import {
+	createAction,
 	createAsyncThunk,
 	createSelector,
 	createSlice,
@@ -49,7 +50,6 @@ type BulkOperation = Omit< BaseOperation, 'progress' > & {
 export type SnapshotOperation = CreateOperation | UpdateOperation | DeleteOperation | BulkOperation;
 
 type SnapshotState = {
-	isInitialSnapshotsLoaded: boolean;
 	operations: Record< crypto.UUID, SnapshotOperation >;
 	snapshots: Snapshot[];
 	snapshotQuota: number;
@@ -57,7 +57,6 @@ type SnapshotState = {
 
 const getInitialState = (): SnapshotState => {
 	return {
-		isInitialSnapshotsLoaded: false,
 		operations: {},
 		snapshots: [],
 		snapshotQuota: LIMIT_OF_ZIP_SITES_PER_USER,
@@ -131,6 +130,11 @@ const deleteAllSnapshotsForUser = createAsyncThunk(
 	}
 );
 
+export const updateSnapshotLocally = createAction< {
+	atomicSiteId: number;
+	snapshot: Partial< Omit< Snapshot, 'atomicSiteId' > >;
+} >( 'snapshot/updateSnapshot' );
+
 const snapshotSlice = createSlice( {
 	name: 'snapshot',
 	initialState: getInitialState(),
@@ -140,9 +144,8 @@ const snapshotSlice = createSlice( {
 				( snapshot ) => snapshot.atomicSiteId !== action.payload.atomicSiteId
 			);
 		},
-		setSnapshots: ( state, action: PayloadAction< Snapshot[] > ) => {
-			state.snapshots = action.payload;
-			state.isInitialSnapshotsLoaded = true;
+		setSnapshots: ( state, action: PayloadAction< { snapshots: Snapshot[] } > ) => {
+			state.snapshots = action.payload.snapshots;
 		},
 		updateOperation: (
 			state,
@@ -150,20 +153,17 @@ const snapshotSlice = createSlice( {
 		) => {
 			Object.assign( state.operations[ action.payload.operationId ], action.payload.operation );
 		},
-		updateSnapshot: (
-			state,
-			action: PayloadAction< { atomicSiteId: number; snapshot: Partial< Snapshot > } >
-		) => {
-			const snapshot = state.snapshots.find(
-				( snapshot ) => snapshot.atomicSiteId === action.payload.atomicSiteId
-			);
-			if ( snapshot ) {
-				Object.assign( snapshot, action.payload.snapshot );
-			}
-		},
 	},
 	extraReducers: ( builder ) => {
 		builder
+			.addCase( updateSnapshotLocally, ( state, action ) => {
+				const snapshot = state.snapshots.find(
+					( snapshot ) => snapshot.atomicSiteId === action.payload.atomicSiteId
+				);
+				if ( snapshot ) {
+					Object.assign( snapshot, action.payload.snapshot );
+				}
+			} )
 			.addCase( createSnapshot.fulfilled, ( state, action ) => {
 				state.operations[ action.payload.operationId ] = {
 					detail: __( 'Creating archive...' ),
@@ -295,13 +295,16 @@ window.ipcListener.subscribe( 'user-data-updated', ( _, payload ) => {
 	const snapshots = payload.snapshots;
 
 	if ( ! fastDeepEqual( state.snapshot.snapshots, snapshots ) ) {
-		store.dispatch( snapshotSlice.actions.setSnapshots( snapshots ) );
+		store.dispatch( snapshotSlice.actions.setSnapshots( { snapshots } ) );
 
 		// Optimistically update the snapshot usage count
 		const countDiff = snapshots.length - state.snapshot.snapshots.length;
 		store.dispatch(
 			wpcomApi.util.updateQueryData( 'getSnapshotUsage', undefined, ( data ) => {
-				data.siteCount += countDiff;
+				// There's a risk that more sites are deleted locally than the count returned by the
+				// API, because expired sites are preserved locally. Therefore, we need to ensure
+				// the count is non-negative.
+				data.siteCount = Math.max( 0, data.siteCount + countDiff );
 			} )
 		);
 
@@ -481,7 +484,10 @@ window.ipcListener.subscribe( 'snapshot-success', ( event, payload ) => {
 	}
 } );
 
-export const snapshotActions = snapshotSlice.actions;
+export const snapshotActions = {
+	...snapshotSlice.actions,
+	updateSnapshotLocally,
+};
 export const snapshotSelectors = {
 	...snapshotSlice.selectors,
 	selectActiveOperationsForAnySite,

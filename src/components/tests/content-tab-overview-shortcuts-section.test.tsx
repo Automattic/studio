@@ -7,7 +7,6 @@ import { Provider } from 'react-redux';
 import { ContentTabOverview } from 'src/components/content-tab-overview';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useThemeDetails } from 'src/hooks/use-theme-details';
-import { getInstalledAppsAndTerminals } from 'src/ipc-handlers';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { RootState, store } from 'src/stores';
 import { InstalledAppsState } from 'src/stores/installed-apps-api';
@@ -257,6 +256,78 @@ describe( 'ShortcutsSection', () => {
 		);
 
 		await findByLabelText( 'Terminal' );
+
+		expect( queryByLabelText( 'VS Code' ) ).toBeNull();
+		expect( queryByLabelText( 'PhpStorm' ) ).toBeNull();
+	} );
+
+	it( 'shows VS Code editor button when VS Code and phpStorm both editors are installed', async () => {
+		// Mock the IPC API
+		mockGetIpcApi.mockReturnValue( {
+			openLocalPath: jest.fn(),
+			getUserEditor: jest.fn().mockResolvedValue( null ),
+			getUserTerminal: jest.fn().mockResolvedValue( null ),
+			getInstalledTerminals: jest.fn().mockResolvedValue( [] ),
+			getInstalledApps: jest.fn().mockResolvedValue( {
+				vscode: true,
+				phpstorm: true,
+			} ),
+		} );
+
+		const { queryByLabelText, findByLabelText } = render(
+			<ContentTabOverview selectedSite={ selectedSite } />
+		);
+
+		await findByLabelText( 'Terminal' );
+		await findByLabelText( 'VS Code' );
+
+		expect( queryByLabelText( 'PhpStorm' ) ).toBeNull();
+	} );
+
+	it( 'shows phpStorm editor button when VS Code is not installed but phpStorm is', async () => {
+		// Mock the IPC API
+		mockGetIpcApi.mockReturnValue( {
+			openLocalPath: jest.fn(),
+			getUserEditor: jest.fn().mockResolvedValue( null ),
+			getUserTerminal: jest.fn().mockResolvedValue( null ),
+			getInstalledTerminals: jest.fn().mockResolvedValue( [] ),
+			getInstalledApps: jest.fn().mockResolvedValue( {
+				vscode: false,
+				phpstorm: true,
+			} ),
+		} );
+
+		const { queryByLabelText, findByLabelText } = render(
+			<ContentTabOverview selectedSite={ selectedSite } />
+		);
+
+		await findByLabelText( 'Terminal' );
+		await findByLabelText( 'PhpStorm' );
+
+		expect( queryByLabelText( 'VS Code' ) ).toBeNull();
+	} );
+
+	it( 'shows users preferred editor', async () => {
+		// Mock the IPC API
+		mockGetIpcApi.mockReturnValue( {
+			openLocalPath: jest.fn(),
+			getUserEditor: jest.fn().mockResolvedValue( 'cursor' ),
+			getUserTerminal: jest.fn().mockResolvedValue( null ),
+			getInstalledTerminals: jest.fn().mockResolvedValue( [] ),
+			getInstalledApps: jest.fn().mockResolvedValue( {
+				vscode: true,
+				phpstorm: true,
+				cursor: true,
+			} ),
+		} );
+
+		const { queryByLabelText, findByLabelText } = render(
+			<ContentTabOverview selectedSite={ selectedSite } />
+		);
+
+		await findByLabelText( 'Terminal' );
+		await findByLabelText( 'Cursor' );
+
 		expect( queryByLabelText( 'VS Code' ) ).toBeNull();
 		expect( queryByLabelText( 'PhpStorm' ) ).toBeNull();
 	} );

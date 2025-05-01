@@ -7,7 +7,10 @@ import { saveSnapshotToAppdata } from 'cli/lib/snapshots';
 import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
 
-jest.mock( 'cli/lib/appdata' );
+jest.mock( 'cli/lib/appdata', () => ( {
+	getAppdataDirectory: jest.fn().mockReturnValue( '/test/appdata' ),
+	getAuthToken: jest.fn(),
+} ) );
 jest.mock( 'cli/lib/validation' );
 jest.mock( 'cli/lib/archive' );
 jest.mock( 'cli/lib/api' );

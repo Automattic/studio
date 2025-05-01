@@ -13,8 +13,8 @@ WordPress Studio Sync enables developers to pull a live site down for local deve
 - **Sync**: Replicating files and database content between a local machine and a remote site in any direction.
 - **Push**: Copying changes from a local machine to a remote (staging or production) site.
 - **Pull**: Copying changes from a remote site down to a local machine.
-- **Staging site**: A staging site is hosted on WordPress.com and is connected to its production site. It is used to test the sync feature and serves as the source of truth for this feature. WordPress.com staging sites can sync with production sites and vice versa.
-- **Production site**: A production site is hosted on WordPress.com and is used to store the synced site. We consider all Pressable sites as production sites.
+- **Staging site**: A staging site is hosted on WordPress.com and is connected to its production site. WordPress.com staging sites can sync with production sites and vice versa.
+- **Production site**: A production site hosted on WordPress.com or any Pressable site.
 - **Jetpack Backup**: A feature of WordPress.com that allows users to back up their sites and serves as the format used to share site data for the sync feature.
 - **Connection**: A connection is a relationship between a local machine and a remote site. That information lives in appData `connectedWpcomSites` array.
 
@@ -22,16 +22,16 @@ WordPress Studio Sync enables developers to pull a live site down for local deve
 
 The backup format is a tar.gz file that contains the site data. It follows the format of the Jetpack Backup, which consists of:
 
-- wp-content folder
-- sql folder with a .sql file for each database table
-- wp-config.php file
-- meta.json file
+- `wp-content/` folder
+- `sql/` folder with a `.sql` file for each database table
+- `wp-config.php` file
+- `meta.json` file
 
 ## High level implementation
 
 ### Connection
 
-Users need to connect a remote site to their local Studio site. When users click on "Connect site," a modal will open to select the remote site. The list of sites is fetched from the WPcom API at /me/sites and will include all their simple, atomic, and Jetpack sites.
+Users need to connect a remote site to their local Studio site. When users click on "Connect site," a modal will open to select the remote site. The list of sites is fetched from the WPcom API at `/me/sites` and will include all their simple, atomic, and Jetpack sites.
 
 Compatible sites:
 
@@ -41,7 +41,7 @@ Compatible sites:
 Only WPcom sites with a Business or eCommerce plan can be connected. If a site with the Business plan does not have hosting features enabled, we will ask the user to do so before using Studio sync feature. Additionally, Pressable sites with a valid Jetpack connection can also be connected to Studio.
 
 When connecting the WPcom production site, we will also automatically connect its staging site, if one exists.
-For Pressable sites, we cannot identify if a site is a production or staging.
+For Pressable sites, we currently cannot identify if a site is a production or staging.
 
 Users can connect multiple sites to Studio independently of their hosting provider.
 

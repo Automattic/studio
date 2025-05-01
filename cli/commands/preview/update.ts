@@ -6,7 +6,7 @@ import { PreviewCommandLoggerAction as LoggerAction } from 'common/logger-action
 import { Snapshot } from 'common/types/snapshot';
 import { addDays } from 'date-fns';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
-import { getAuthToken, getSiteByFolder } from 'cli/lib/appdata';
+import { getAuthToken, getOrCreateSiteByFolder } from 'cli/lib/appdata';
 import { cleanup, createArchive } from 'cli/lib/archive';
 import { getSnapshotsFromAppdata, updateSnapshotInAppdata } from 'cli/lib/snapshots';
 import { normalizeHostname } from 'cli/lib/utils';
@@ -58,7 +58,7 @@ export async function runCommand(
 		validateSiteFolder( siteFolder );
 		const token = await getAuthToken();
 		const snapshots = await getSnapshotsFromAppdata( token.id );
-		const { id: currentSiteId } = await getSiteByFolder( siteFolder );
+		const { id: currentSiteId } = await getOrCreateSiteByFolder( siteFolder );
 
 		const snapshotToUpdate = getSnapshotToUpdate( snapshots, host, currentSiteId, overwrite );
 

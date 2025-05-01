@@ -20,9 +20,9 @@ const siteSchema = z
 
 const userDataSchema = z
 	.object( {
-		newSites: z.array( siteSchema ).optional(),
-		sites: z.array( siteSchema ).optional(),
-		snapshots: z.array( snapshotSchema ).optional(),
+		newSites: z.array( siteSchema ).default( () => [] ),
+		sites: z.array( siteSchema ).default( () => [] ),
+		snapshots: z.array( snapshotSchema ).default( () => [] ),
 		locale: z.string().optional(),
 		authToken: z
 			.object( {
@@ -66,9 +66,7 @@ export async function readAppdata(): Promise< UserData > {
 	try {
 		const fileContent = await readFile( appDataPath, { encoding: 'utf8' } );
 		const userData = JSON.parse( fileContent );
-		const result = userDataSchema.parse( userData );
-
-		return result;
+		return userDataSchema.parse( userData );
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {
 			throw error;
@@ -137,9 +135,9 @@ export async function getSiteByFolder(
 	siteFolder: string
 ): Promise< z.infer< typeof siteSchema > > {
 	const userData = await readAppdata();
-	const sites = userData.sites ?? [];
-	const newSites = userData.newSites ?? [];
-	const site = [ ...sites, ...newSites ].find( ( site ) => site.path === siteFolder );
+	const site = [ ...userData.sites, ...userData.newSites ].find(
+		( site ) => site.path === siteFolder
+	);
 
 	if ( ! site ) {
 		throw new LoggerError( __( 'The specified folder is not added to Studio.' ) );

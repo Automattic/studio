@@ -83,7 +83,7 @@ describe( 'Preview Update Command', () => {
 
 		expect( validateSiteFolder ).toHaveBeenCalledWith( mockFolder );
 		expect( mockLogger.reportStart.mock.calls[ 0 ] ).toEqual( [ 'validate', 'Validating...' ] );
-		expect( mockLogger.reportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Validation successful' ] );
+		expect( mockLogger.reportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Validation successful', true ] );
 
 		expect( createArchive ).toHaveBeenCalledWith( mockFolder, mockArchivePath );
 		expect( mockLogger.reportStart.mock.calls[ 1 ] ).toEqual( [

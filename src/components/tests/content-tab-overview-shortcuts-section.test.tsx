@@ -5,6 +5,10 @@ import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useThemeDetails } from 'src/hooks/use-theme-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
+jest.mock( 'src/lib/app-globals', () => ( {
+	isWindows: jest.fn().mockReturnValue( false ),
+} ) );
+
 const selectedSite: StartedSiteDetails = {
 	name: 'Test Site',
 	port: 8881,

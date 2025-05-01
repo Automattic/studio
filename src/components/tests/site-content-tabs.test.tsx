@@ -23,6 +23,7 @@ jest.mock( 'src/hooks/use-auth', () => ( {
 jest.mock( 'src/lib/app-globals', () => ( {
 	...jest.requireActual( '../../lib/app-globals' ),
 	getAppGlobals: jest.fn().mockReturnValue( { locale: ' en' } ),
+	isWindows: jest.fn().mockReturnValue( false ),
 } ) );
 jest.mock( 'src/lib/get-ipc-api', () => ( {
 	...jest.requireActual( '../../lib/get-ipc-api' ),

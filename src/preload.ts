@@ -119,7 +119,6 @@ const api: IpcApi = {
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );
-contextBridge.exposeInMainWorld( 'platform', process.platform );
 
 const subscribe = < T extends keyof IpcEvents >(
 	channel: T,
@@ -141,7 +140,6 @@ declare global {
 		ipcListener: {
 			subscribe: typeof subscribe;
 		};
-		platform: NodeJS.Platform;
 	}
 }
 

@@ -24,12 +24,8 @@ import { isMac } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
-import { supportedTerminalNames, DEFAULT_TERMINAL } from 'src/modules/user-settings/lib/terminal';
-import {
-	useGetInstalledAppsQuery,
-	useGetUserEditorQuery,
-	useGetUserTerminalQuery,
-} from 'src/stores/installed-apps-api';
+import { supportedTerminalNames } from 'src/modules/user-settings/lib/terminal';
+import { useGetUserEditorQuery, useGetUserTerminalQuery } from 'src/stores/installed-apps-api';
 
 interface ContentTabOverviewProps {
 	selectedSite: SiteDetails;
@@ -144,8 +140,8 @@ function CustomizeSection( {
 
 function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'selectedSite' > ) {
 	const { terminalWpCliEnabled } = useFeatureFlags();
-	const { data: editor = 'vscode' } = useGetUserEditorQuery();
-	const { data: terminal = DEFAULT_TERMINAL } = useGetUserTerminalQuery();
+	const { data: editor } = useGetUserEditorQuery();
+	const { data: terminal } = useGetUserTerminalQuery();
 
 	const terminalName = supportedTerminalNames[ terminal as keyof typeof supportedTerminalNames ];
 

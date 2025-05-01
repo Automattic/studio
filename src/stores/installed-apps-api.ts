@@ -6,11 +6,7 @@ import {
 	SupportedEditor,
 	supportedEditorConfig,
 } from 'src/modules/user-settings/lib/editor';
-import {
-	SupportedTerminal,
-	supportedTerminalNames,
-	DEFAULT_TERMINAL,
-} from 'src/modules/user-settings/lib/terminal';
+import { SupportedTerminal, supportedTerminalNames } from 'src/modules/user-settings/lib/terminal';
 
 export type InstalledAppsState = InstalledApps & InstalledTerminals;
 
@@ -29,14 +25,14 @@ export const installedAppsApi = createApi( {
 		getUserEditor: builder.query< SupportedEditor, void >( {
 			queryFn: async () => {
 				const editor = await getIpcApi().getUserEditor();
-				return { data: editor };
+				return { data: editor || 'vscode' };
 			},
 			providesTags: [ 'UserPreferences' ],
 		} ),
 		getUserTerminal: builder.query< SupportedTerminal, void >( {
 			queryFn: async () => {
 				const terminal = await getIpcApi().getUserTerminal();
-				return { data: terminal || DEFAULT_TERMINAL };
+				return { data: terminal || 'terminal' };
 			},
 			providesTags: [ 'UserPreferences' ],
 		} ),

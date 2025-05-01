@@ -10,7 +10,7 @@ import { SettingsFormField } from './settings-form-field';
 
 interface EditorPickerProps {
 	value: SupportedEditor | undefined;
-	onChange: ( value: SupportedEditor | undefined ) => void;
+	onChange: ( value: SupportedEditor ) => void;
 }
 
 export const EditorPicker = ( { value, onChange }: EditorPickerProps ) => {

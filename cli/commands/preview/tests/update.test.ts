@@ -211,7 +211,7 @@ describe( 'Preview Update Command', () => {
 		expect( updateSnapshotInAppdata ).not.toHaveBeenCalled();
 	} );
 
-	it( 'should handle Studio config file errors', async () => {
+	it( 'should handle appdata errors', async () => {
 		const errorMessage = 'Failed to save to appdata';
 		( updateSnapshotInAppdata as jest.Mock ).mockImplementation( () => {
 			throw new LoggerError( errorMessage );

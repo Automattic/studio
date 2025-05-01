@@ -32,11 +32,13 @@ export const TerminalPicker = ( {
 				__nextHasNoMarginBottom
 				__next40pxDefaultSize
 			>
-				{ availableTerminalEntries.map( ( [ terminal, label ] ) => (
-					<option key={ terminal } value={ terminal }>
-						{ label }
-					</option>
-				) ) }
+				<optgroup label={ __( 'Available terminals' ) }>
+					{ availableTerminalEntries.map( ( [ terminal, label ] ) => (
+						<option key={ terminal } value={ terminal }>
+							{ label }
+						</option>
+					) ) }
+				</optgroup>
 				{ unavailableTerminalEntries.length > 0 && (
 					<optgroup label={ __( 'Not installed' ) }>
 						{ unavailableTerminalEntries.map( ( [ terminal, label ] ) => (

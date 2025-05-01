@@ -157,3 +157,24 @@ export function getNewSitePartial( siteFolder: string ): z.infer< typeof siteSch
 
 	return newSite;
 }
+
+export async function getOrCreateSiteByFolder(
+	siteFolder: string
+): Promise< z.infer< typeof siteSchema > > {
+	let site;
+	try {
+		site = await getSiteByFolder( siteFolder );
+	} catch ( error ) {
+		if ( ! ( error instanceof LoggerError ) ) {
+			throw error;
+		}
+		const userData = await readAppdata();
+		site = getNewSitePartial( siteFolder );
+		if ( ! userData.newSites ) {
+			userData.newSites = [];
+		}
+		userData.newSites.push( site );
+		await saveAppdata( userData );
+	}
+	return site;
+}

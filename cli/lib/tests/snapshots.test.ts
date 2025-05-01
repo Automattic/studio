@@ -6,7 +6,7 @@ import {
 	deleteSnapshotFromAppdata,
 	getSnapshotsFromAppdata,
 	saveSnapshotToAppdata,
-	updateSnapshotDateInAppdata,
+	updateSnapshotInAppdata,
 } from 'cli/lib/snapshots';
 import { LoggerError } from 'cli/logger';
 
@@ -151,13 +151,32 @@ describe( 'Snapshots Module', () => {
 				},
 			};
 
-			( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( mockUserData ) );
+			let hasWrittenNewSite = false;
+			( readFile as jest.Mock ).mockImplementation( async () => {
+				if ( hasWrittenNewSite ) {
+					return JSON.stringify( {
+						...mockUserData,
+						newSites: [
+							{
+								id: 'mock-uuid-1234',
+								path: mockSiteFolder,
+								name: mockSiteFolderName,
+							},
+						],
+					} );
+				}
+				return JSON.stringify( mockUserData );
+			} );
+
+			( writeFile as jest.Mock ).mockImplementation( async () => {
+				hasWrittenNewSite = true;
+			} );
 			( path.basename as jest.Mock ).mockReturnValueOnce( mockSiteFolderName );
 
 			await saveSnapshotToAppdata( mockSiteFolder, mockAtomicSiteId, mockSiteUrl );
 
-			expect( writeFile ).toHaveBeenCalled();
-			const savedData = JSON.parse( ( writeFile as jest.Mock ).mock.calls[ 0 ][ 1 ] );
+			expect( writeFile ).toHaveBeenCalledTimes( 2 );
+			const savedData = JSON.parse( ( writeFile as jest.Mock ).mock.calls[ 1 ][ 1 ] );
 
 			// Check that a new site was created
 			expect( savedData.newSites ).toHaveLength( 1 );
@@ -198,13 +217,33 @@ describe( 'Snapshots Module', () => {
 				},
 			};
 
-			( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( mockUserData ) );
+			let hasWrittenNewSite = false;
+			( readFile as jest.Mock ).mockImplementation( async () => {
+				if ( hasWrittenNewSite ) {
+					return JSON.stringify( {
+						...mockUserData,
+						newSites: [
+							existingNewSite,
+							{
+								id: 'mock-uuid-1234',
+								path: mockSiteFolder,
+								name: mockSiteFolderName,
+							},
+						],
+					} );
+				}
+				return JSON.stringify( mockUserData );
+			} );
+
+			( writeFile as jest.Mock ).mockImplementation( async () => {
+				hasWrittenNewSite = true;
+			} );
 			( path.basename as jest.Mock ).mockReturnValueOnce( mockSiteFolderName );
 
 			await saveSnapshotToAppdata( mockSiteFolder, mockAtomicSiteId, mockSiteUrl );
 
-			expect( writeFile ).toHaveBeenCalled();
-			const savedData = JSON.parse( ( writeFile as jest.Mock ).mock.calls[ 0 ][ 1 ] );
+			expect( writeFile ).toHaveBeenCalledTimes( 2 );
+			const savedData = JSON.parse( ( writeFile as jest.Mock ).mock.calls[ 1 ][ 1 ] );
 
 			// Check that the new site was added to existing newSites array
 			expect( savedData.newSites ).toHaveLength( 2 );
@@ -217,6 +256,15 @@ describe( 'Snapshots Module', () => {
 
 			// Check that a snapshot was created for the new site
 			expect( savedData.snapshots ).toHaveLength( 1 );
+			expect( savedData.snapshots[ 0 ] ).toEqual( {
+				url: mockSiteUrl,
+				atomicSiteId: mockAtomicSiteId,
+				localSiteId: 'mock-uuid-1234',
+				date: 1234567890,
+				name: `${ mockSiteFolderName } Preview 1`,
+				userId: mockUserId,
+				sequence: 1,
+			} );
 		} );
 
 		it( 'should handle errors correctly', async () => {
@@ -256,7 +304,7 @@ describe( 'Snapshots Module', () => {
 		} );
 	} );
 
-	describe( 'updateSnapshotDateInAppdata', () => {
+	describe( 'updateSnapshotInAppdata', () => {
 		it( 'should update the date of an existing snapshot', async () => {
 			const mockSiteId = 'abc123';
 			const mockUserData = {
@@ -272,17 +320,25 @@ describe( 'Snapshots Module', () => {
 						sequence: 1,
 					},
 				],
+				sites: [
+					{
+						id: mockSiteId,
+						path: mockSiteFolder,
+						name: 'Test Site',
+					},
+				],
 			};
 
 			( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( mockUserData ) );
 
-			const updatedSnapshot = await updateSnapshotDateInAppdata( mockAtomicSiteId );
+			const updatedSnapshot = await updateSnapshotInAppdata( mockAtomicSiteId, mockSiteFolder );
 
 			expect( writeFile ).toHaveBeenCalled();
 			const savedData = JSON.parse( ( writeFile as jest.Mock ).mock.calls[ 0 ][ 1 ] );
 
 			expect( savedData.snapshots[ 0 ].date ).toBe( 1234567890 );
 			expect( updatedSnapshot ).toEqual( savedData.snapshots[ 0 ] );
+			expect( updatedSnapshot.date ).toBe( 1234567890 );
 		} );
 
 		it( 'should throw an error if snapshot not found', async () => {
@@ -293,7 +349,7 @@ describe( 'Snapshots Module', () => {
 
 			( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( mockUserData ) );
 
-			await expect( updateSnapshotDateInAppdata( mockAtomicSiteId ) ).rejects.toThrow(
+			await expect( updateSnapshotInAppdata( mockAtomicSiteId, mockSiteFolder ) ).rejects.toThrow(
 				LoggerError
 			);
 		} );

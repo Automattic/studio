@@ -22,8 +22,11 @@ export function useCertificateTrust(): boolean {
 				if ( isMounted.current ) {
 					setIsTrusted( trusted );
 				}
+			} )
+			.catch( ( error ) => {
+				console.error( 'Failed to check certificate trust:', error );
 			} );
-	}, [ setIsTrusted ] );
+	}, [ setIsTrusted, isTrusted ] );
 
 	useWindowListener( 'focus', checkCertificateTrust );
 

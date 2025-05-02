@@ -1,12 +1,12 @@
 import { useI18n } from '@wordpress/react-i18n';
 import { useState } from 'react';
 import Button from 'src/components/button';
-import { useEditorData } from 'src/hooks/use-editor-data';
 import { useI18nData } from 'src/hooks/use-i18n-data';
-import { useTerminalData } from 'src/hooks/use-terminal-data';
 import { EditorPicker } from 'src/modules/user-settings/components/editor-picker';
 import { LanguagePicker } from 'src/modules/user-settings/components/language-picker';
 import { TerminalPicker } from 'src/modules/user-settings/components/terminal-picker';
+import { useEditorData } from 'src/modules/user-settings/hooks/use-editor-data';
+import { useTerminalData } from 'src/modules/user-settings/hooks/use-terminal-data';
 
 export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const { __ } = useI18n();
@@ -15,6 +15,7 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 
 	const { editor, handleEditorChange, saveEditorPreference, resetEditor, hasEditorChanges } =
 		useEditorData();
+
 	const {
 		terminal,
 		handleTerminalChange,

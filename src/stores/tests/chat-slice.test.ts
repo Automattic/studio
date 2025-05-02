@@ -3,7 +3,13 @@ import { LOCAL_STORAGE_CHAT_API_IDS_KEY, LOCAL_STORAGE_CHAT_MESSAGES_KEY } from 
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { store } from 'src/stores';
 import { chatThunks, generateMessage, chatActions, chatSelectors } from 'src/stores/chat-slice';
-import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
+import {
+	getDispatchedActions,
+	resetDispatchedActions,
+	testActions,
+	testReducer,
+} from 'src/stores/tests/utils/test-reducer';
+import { wpcomApi } from 'src/stores/wpcom-api';
 
 jest.mock( 'src/lib/get-ipc-api' );
 ( getIpcApi as jest.Mock ).mockReturnValue( {
@@ -34,6 +40,7 @@ const mockClientReqPostUsingCallback = jest.fn().mockImplementation( ( params, c
 		{
 			'x-quota-max': '100',
 			'x-quota-remaining': '99',
+			'x-quota-reset': '2025-05-01T00:00:00Z',
 		}
 	);
 } );
@@ -55,6 +62,7 @@ describe( 'chat-slice', () => {
 		jest.clearAllMocks();
 		localStorage.clear();
 		store.dispatch( testActions.resetState() );
+		resetDispatchedActions();
 	} );
 
 	describe( 'fetchAssistant', () => {
@@ -74,10 +82,8 @@ describe( 'chat-slice', () => {
 			expect( result.type ).toBe( 'chat/fetchAssistant/fulfilled' );
 			expect( result.payload ).toEqual( {
 				chatApiId: 123,
-				maxQuota: '100',
 				message: 'Test assistant response',
 				messageApiId: 42,
-				remainingQuota: '99',
 			} );
 
 			const state = store.getState();
@@ -92,10 +98,9 @@ describe( 'chat-slice', () => {
 				messageApiId: 42,
 			} );
 
-			expect( state.chat.promptUsage ).toEqual( {
-				maxQuota: '100',
-				remainingQuota: '99',
-			} );
+			expect( getDispatchedActions() ).toContainEqual(
+				wpcomApi.util.invalidateTags( [ 'AssistantQuota' ] )
+			);
 		} );
 
 		it( 'should update failed message when retrying', async () => {
@@ -117,10 +122,8 @@ describe( 'chat-slice', () => {
 			expect( result.type ).toBe( 'chat/fetchAssistant/fulfilled' );
 			expect( result.payload ).toEqual( {
 				chatApiId: 123,
-				maxQuota: '100',
 				message: 'Test assistant response',
 				messageApiId: 42,
-				remainingQuota: '99',
 			} );
 
 			const state = store.getState();
@@ -136,11 +139,6 @@ describe( 'chat-slice', () => {
 				role: 'assistant',
 				chatApiId: 123,
 				messageApiId: 42,
-			} );
-
-			expect( state.chat.promptUsage ).toEqual( {
-				maxQuota: '100',
-				remainingQuota: '99',
 			} );
 		} );
 

@@ -109,12 +109,13 @@ const api: IpcApi = {
 	getFileContent: ( filePath ) => ipcRendererInvoke( 'getFileContent', filePath ),
 	isFullscreen: () => ipcRendererInvoke( 'isFullscreen' ),
 	getAllCustomDomains: () => ipcRendererInvoke( 'getAllCustomDomains' ),
-	saveUserTerminal: ( supportedTerminal ) =>
-		ipcRendererInvoke( 'saveUserTerminal', supportedTerminal ),
+	saveUserTerminal: ( preferredTerminal ) =>
+		ipcRendererInvoke( 'saveUserTerminal', preferredTerminal ),
 	getUserTerminal: () => ipcRendererInvoke( 'getUserTerminal' ),
 	getInstalledTerminals: () => ipcRendererInvoke( 'getInstalledTerminals' ),
 	getUserEditor: () => ipcRendererInvoke( 'getUserEditor' ),
 	saveUserEditor: ( editor ) => ipcRendererInvoke( 'saveUserEditor', editor ),
+	handleNewSite: ( newSite ) => ipcRendererInvoke( 'handleNewSite', newSite ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

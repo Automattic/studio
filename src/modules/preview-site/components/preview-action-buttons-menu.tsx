@@ -73,7 +73,7 @@ export function PreviewActionButtonsMenu( {
 
 	const handleRename = ( newName: string ) => {
 		dispatch(
-			snapshotActions.updateSnapshot( {
+			snapshotActions.updateSnapshotLocally( {
 				atomicSiteId: snapshot.atomicSiteId,
 				snapshot: { name: newName },
 			} )

@@ -4,7 +4,6 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useMemo } from 'react';
 import { DEMO_SITE_SIZE_LIMIT_GB } from 'common/constants';
 import offlineIcon from 'src/components/offline-icon';
-import { useArchiveErrorMessages } from 'src/hooks/use-archive-error-messages';
 
 export function useUpdateButtonTooltip( {
 	snapshotCreationBlocked,
@@ -16,10 +15,10 @@ export function useUpdateButtonTooltip( {
 	isOffline: boolean;
 } ): Pick< TooltipProps, 'text' > {
 	const { __ } = useI18n();
-	const errorMessages = useArchiveErrorMessages();
+
 	return useMemo( () => {
 		if ( snapshotCreationBlocked ) {
-			return { text: errorMessages.rest_site_creation_blocked };
+			return { text: __( 'Preview sites are not available for your account.' ) };
 		}
 
 		if ( isOffline ) {
@@ -41,11 +40,5 @@ export function useUpdateButtonTooltip( {
 		}
 
 		return {};
-	}, [
-		snapshotCreationBlocked,
-		isOffline,
-		isOverLimit,
-		errorMessages.rest_site_creation_blocked,
-		__,
-	] );
+	}, [ snapshotCreationBlocked, isOffline, isOverLimit, __ ] );
 }

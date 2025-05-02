@@ -22,7 +22,7 @@ import { SupportedLocale } from 'common/lib/locale';
 import { getAuthenticationUrl } from 'common/lib/oauth';
 import { Snapshot } from 'common/types/snapshot';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
-import { ARCHIVER_OPTIONS, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
+import { ARCHIVER_OPTIONS, DEFAULT_TERMINAL, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
 import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
 import { bumpStat } from 'src/lib/bump-stats';
@@ -60,7 +60,7 @@ import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from 'src/s
 import { loadUserData, saveUserData } from 'src/storage/user-data';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
 import { SupportedEditor } from './modules/user-settings/lib/editor';
-import { SupportedTerminal, DEFAULT_TERMINAL } from './modules/user-settings/lib/terminal';
+import { SupportedTerminal } from './modules/user-settings/lib/terminal';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
 
@@ -150,7 +150,8 @@ export async function createSite(
 	siteName?: string,
 	wpVersion?: string,
 	customDomain?: string,
-	enableHttps?: boolean
+	enableHttps?: boolean,
+	siteId?: string
 ): Promise< SiteDetails[] > {
 	const userData = await loadUserData();
 	const forceSetupSqlite = false;
@@ -184,7 +185,7 @@ export async function createSite(
 	const port = await portFinder.getOpenPort();
 
 	const details = {
-		id: crypto.randomUUID(),
+		id: siteId || crypto.randomUUID(),
 		name: siteName || nodePath.basename( path ),
 		path,
 		adminPassword: createPassword(),
@@ -414,6 +415,21 @@ export async function startServer(
 	try {
 		await server.start();
 	} catch ( error ) {
+		/**
+		 * We don't want to track WASM memory errors in Sentry
+		 * because they are caused by the user's system not having enough memory
+		 * and aren't a bug in Studio.
+		 *
+		 * When the error is thrown, we show a user-friendly message
+		 * to the user, with instructions on how to provide more memory to Studio.
+		 */
+		if (
+			error instanceof Error &&
+			error.message.includes( 'Cannot allocate Wasm memory for new instance' )
+		) {
+			throw new Error( 'WASM_ERROR_NOT_ENOUGH_MEMORY' );
+		}
+
 		Sentry.captureException( error );
 		if (
 			error instanceof Error &&
@@ -555,9 +571,11 @@ export async function getUserLocale( _event: IpcMainInvokeEvent ): Promise< Supp
 	return getUserLocaleWithFallback();
 }
 
-export async function getUserEditor( _event: IpcMainInvokeEvent ): Promise< SupportedEditor > {
+export async function getUserEditor(
+	_event: IpcMainInvokeEvent
+): Promise< SupportedEditor | undefined > {
 	const userData = await loadUserData();
-	return userData.preferredEditor as SupportedEditor;
+	return userData.preferredEditor;
 }
 
 export function showUserSettings( event: IpcMainInvokeEvent ) {
@@ -986,11 +1004,11 @@ export async function openTerminalAtPath(
 		initScriptSteps.push( `cd \\"${ escapedPath }\\"`, 'clear' );
 
 		const userData = await loadUserData();
-		const preferredTerminal = userData.supportedTerminal || 'terminal';
+		const preferredTerminal = ( userData.preferredTerminal || 'terminal' ) as SupportedTerminal;
 
-		if ( preferredTerminal === ( 'warp' as SupportedTerminal ) ) {
+		if ( preferredTerminal === 'warp' ) {
 			return promiseExec( `open -a Warp "${ targetPath }"` );
-		} else if ( preferredTerminal === ( 'ghostty' as SupportedTerminal ) ) {
+		} else if ( preferredTerminal === 'ghostty' ) {
 			return promiseExec( `open -a Ghostty "${ targetPath }"` );
 		} else if ( preferredTerminal === 'iterm' ) {
 			return promiseExec( `osascript << END
@@ -1012,7 +1030,7 @@ END` );
 		}
 	} else if ( platform === 'win32' ) {
 		const userData = await loadUserData();
-		const preferredTerminal = userData.supportedTerminal;
+		const preferredTerminal = userData.preferredTerminal;
 		const defaultShell = process.env.ComSpec || 'cmd.exe';
 		const env = wpCliEnabled
 			? { PATH: `${ cliPath };${ process.env.PATH }`, STUDIO_APP_PATH: appPath }
@@ -1268,12 +1286,12 @@ export async function checkSyncBackupSize(
 
 export async function saveUserTerminal(
 	_event: IpcMainInvokeEvent,
-	supportedTerminal: SupportedTerminal
+	preferredTerminal: SupportedTerminal
 ) {
 	const userData = await loadUserData();
 	await saveUserData( {
 		...userData,
-		supportedTerminal: supportedTerminal,
+		preferredTerminal: preferredTerminal,
 	} );
 
 	// Notify renderer processes that the terminal preference has changed
@@ -1282,7 +1300,7 @@ export async function saveUserTerminal(
 
 export async function getUserTerminal( _event: IpcMainInvokeEvent ): Promise< SupportedTerminal > {
 	const userData = await loadUserData();
-	return userData.supportedTerminal || DEFAULT_TERMINAL;
+	return ( userData.preferredTerminal || DEFAULT_TERMINAL ) as SupportedTerminal;
 }
 
 export async function isFullscreen( _event: IpcMainInvokeEvent ): Promise< boolean > {
@@ -1316,7 +1334,7 @@ export async function createSnapshot(
 	siteFolder: string
 ): Promise< { operationId: crypto.UUID } > {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	return executePreviewCliCommand( [ 'preview', 'create', siteFolder ], parentWindow );
+	return executePreviewCliCommand( [ 'preview', 'create', '--path', siteFolder ], parentWindow );
 }
 
 export async function updateSnapshot(
@@ -1326,7 +1344,7 @@ export async function updateSnapshot(
 ): Promise< { operationId: crypto.UUID } > {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	return executePreviewCliCommand(
-		[ 'preview', 'update', siteFolder, '-h', hostname ],
+		[ 'preview', 'update', '--path', siteFolder, hostname ],
 		parentWindow
 	);
 }
@@ -1337,4 +1355,14 @@ export async function deleteSnapshot(
 ): Promise< { operationId: crypto.UUID } > {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	return executePreviewCliCommand( [ 'preview', 'delete', hostname ], parentWindow );
+}
+
+export async function handleNewSite( event: IpcMainInvokeEvent, newSite: NewSiteDetails ) {
+	await createSite( event, newSite.path, undefined, undefined, undefined, undefined, newSite.id );
+
+	const userData = await loadUserData();
+	await saveUserData( {
+		...userData,
+		newSites: userData.newSites?.filter( ( s ) => s.id !== newSite.id ),
+	} );
 }

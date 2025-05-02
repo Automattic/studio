@@ -19,8 +19,9 @@ export interface UserData {
 	connectedWpcomSites?: { [ userId: number ]: SyncSite[] };
 	sentryUserId?: string;
 	lastSeenVersion?: string;
-	supportedTerminal?: SupportedTerminal;
+	preferredTerminal?: SupportedTerminal;
 	preferredEditor?: SupportedEditor;
+	newSites?: NewSiteDetails[];
 }
 
 export interface PersistedUserData extends Omit< UserData, 'sites' > {

@@ -33,6 +33,9 @@ jest.mock( 'src/stores/wpcom-api', () => {
 			isLoading: false,
 			refetch: jest.fn(),
 		} ),
+		useGetAssistantQuota: jest.fn().mockReturnValue( {
+			data: { userCanSendMessage: true },
+		} ),
 	};
 } );
 jest.mock( 'src/lib/get-ipc-api', () => ( {

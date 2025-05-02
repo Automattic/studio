@@ -4,32 +4,18 @@ import { PreviewCommandLoggerAction } from 'common/logger-actions';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 
-const snapshotEventSchema = z.object( {
-	action: z.nativeEnum( PreviewCommandLoggerAction ),
-	status: z.enum( [ 'inprogress', 'fail', 'success' ] ),
-	message: z.string(),
-} );
-
-const createSnapshotStdoutSchema = z.discriminatedUnion( 'action', [
-	snapshotEventSchema,
+const snapshotEventSchema = z.discriminatedUnion( 'action', [
+	z.object( {
+		action: z.nativeEnum( PreviewCommandLoggerAction ),
+		status: z.enum( [ 'inprogress', 'fail', 'success' ] ),
+		message: z.string(),
+	} ),
 	z.object( {
 		action: z.literal( 'keyValuePair' ),
 		key: z.string(),
 		value: z.string(),
 	} ),
 ] );
-
-function parseSnapshotEventData< T extends z.ZodType >(
-	data: unknown,
-	schema: T
-): z.infer< T > | null {
-	try {
-		return schema.parse( data );
-	} catch ( error ) {
-		console.error( 'Invalid snapshot event:', error );
-		return null;
-	}
-}
 
 export async function executePreviewCliCommand(
 	args: string[],
@@ -39,37 +25,32 @@ export async function executePreviewCliCommand(
 	const cliEventEmitter = executeCliCommand( args );
 
 	cliEventEmitter.on( 'data', ( { data } ) => {
-		const parsed = parseSnapshotEventData( data, createSnapshotStdoutSchema );
+		const parsed = snapshotEventSchema.safeParse( data );
 
-		if ( ! parsed ) {
+		if ( ! parsed.success ) {
+			console.error( 'Invalid snapshot event:', parsed.error );
 			return;
 		}
 
-		if ( parsed.action === 'keyValuePair' ) {
+		if ( parsed.data.action === 'keyValuePair' ) {
 			sendIpcEventToRendererWithWindow( parentWindow, 'snapshot-key-value', {
 				operationId,
-				data: parsed,
+				data: parsed.data,
+			} );
+		} else if ( parsed.data.status === 'fail' ) {
+			sendIpcEventToRendererWithWindow( parentWindow, 'snapshot-error', {
+				operationId,
+				data: parsed.data,
 			} );
 		} else {
 			sendIpcEventToRendererWithWindow( parentWindow, 'snapshot-output', {
 				operationId,
-				data: parsed,
+				data: parsed.data,
 			} );
 		}
 	} );
 
 	cliEventEmitter.on( 'error', ( { error } ) => {
-		const parsed = parseSnapshotEventData( error, snapshotEventSchema );
-
-		if ( parsed ) {
-			sendIpcEventToRendererWithWindow( parentWindow, 'snapshot-error', {
-				operationId,
-				data: parsed,
-			} );
-		}
-	} );
-
-	cliEventEmitter.on( 'fatal-error', ( { error } ) => {
 		sendIpcEventToRendererWithWindow( parentWindow, 'snapshot-fatal-error', {
 			operationId,
 			data: { message: error.message },

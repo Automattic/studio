@@ -13,6 +13,22 @@ let httpsProxyServer: https.Server | null = null;
 let isHttpProxyRunning = false;
 let isHttpsProxyRunning = false;
 
+const locks = new Map< () => Promise< unknown >, Promise< unknown > >();
+
+// Ensures that only one instance of the function is running at a time
+function sequential< Args extends unknown[], Return >(
+	fn: ( ...args: Args ) => Promise< Return >
+) {
+	return async ( ...args: Args ) => {
+		const lock = locks.get( fn ) ?? Promise.resolve();
+		await Promise.allSettled( [ lock ] );
+		locks.delete( fn );
+		const promise = fn( ...args );
+		locks.set( fn, promise );
+		return await promise;
+	};
+}
+
 const proxy = httpProxy.createProxyServer();
 
 // Setup error handling for the proxy
@@ -115,7 +131,7 @@ export async function checkIfPortIsFree( port: number ): Promise< boolean > {
  * Attempts to start the proxy servers on ports 80 and 443
  * This requires admin/root privileges
  */
-export async function startProxyServer(): Promise< boolean > {
+export const startProxyServer = sequential( async (): Promise< boolean > => {
 	try {
 		// Start HTTP server if not already running
 		if ( ! isHttpProxyRunning ) {
@@ -199,7 +215,7 @@ export async function startProxyServer(): Promise< boolean > {
 
 		throw new Error( 'PROXY_ERROR_START_FAILED' );
 	}
-}
+} );
 
 /**
  * Stop the proxy servers

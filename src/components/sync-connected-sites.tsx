@@ -195,12 +195,15 @@ const SyncConnectedSiteControls = ( {
 
 type SyncConnectedSitesListProps = {
 	selectedSite: SiteDetails;
+	connectedSites: SyncSite[];
 };
 
-const SyncConnectedSitesList = ( { selectedSite }: SyncConnectedSitesListProps ) => {
+const SyncConnectedSitesList = ( {
+	selectedSite,
+	connectedSites,
+}: SyncConnectedSitesListProps ) => {
 	const { __ } = useI18n();
-	const { clearPullState, getPullState, getPushState, clearPushState, connectedSites } =
-		useSyncSites();
+	const { clearPullState, getPullState, getPushState, clearPushState } = useSyncSites();
 	const { isKeyPulling, isKeyPushing, isKeyFinished, isKeyFailed } = useSyncStatesProgressInfo();
 
 	return (
@@ -376,7 +379,7 @@ const SyncConnectedSiteSection = ( {
 
 	return (
 		<div key={ section.id } className="flex flex-col gap-2 mb-6">
-			<div className="flex items-center gap-2 py-2.5 border-b border-a8c-gray-0 px-8">
+			<div className="flex items-center gap-2 border-b border-a8c-gray-0 px-8 pb-2.5">
 				{ logo }
 				<div className={ cx( 'a8c-label-semibold', hasConnectionErrors && 'error-message' ) }>
 					{ section.name }
@@ -428,7 +431,12 @@ const SyncConnectedSiteSection = ( {
 				</div>
 			) }
 
-			{ ! hasConnectionErrors && <SyncConnectedSitesList selectedSite={ selectedSite } /> }
+			{ ! hasConnectionErrors && (
+				<SyncConnectedSitesList
+					selectedSite={ selectedSite }
+					connectedSites={ section.connectedSites }
+				/>
+			) }
 		</div>
 	);
 };
@@ -479,7 +487,7 @@ export function SyncConnectedSites( {
 	}, [ connectedSites ] );
 
 	return (
-		<div className="flex flex-col flex-1 pt-8 overflow-y-auto">
+		<div className="flex flex-col flex-1 pt-8">
 			{ siteSections.map( ( section ) => (
 				<SyncConnectedSiteSection
 					key={ section.id }

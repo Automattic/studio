@@ -13,19 +13,32 @@ let httpsProxyServer: https.Server | null = null;
 let isHttpProxyRunning = false;
 let isHttpsProxyRunning = false;
 
-const locks = new Map< () => Promise< unknown >, Promise< unknown > >();
+const sequentialLocks = new Map< () => Promise< unknown >, Set< Promise< unknown > > >();
 
 // Ensures that only one instance of the function is running at a time
 function sequential< Args extends unknown[], Return >(
 	fn: ( ...args: Args ) => Promise< Return >
 ) {
 	return async ( ...args: Args ) => {
-		const lock = locks.get( fn ) ?? Promise.resolve();
-		await Promise.allSettled( [ lock ] );
-		locks.delete( fn );
-		const promise = fn( ...args );
-		locks.set( fn, promise );
-		return await promise;
+		const locks = sequentialLocks.get( fn ) ?? new Set();
+		if ( ! sequentialLocks.has( fn ) ) {
+			sequentialLocks.set( fn, locks );
+		}
+
+		const settledPromise = Promise.allSettled( [ ...locks ] );
+		// Push the settled promise to the queue to ensure that subsequent calls wait their turn
+		locks.add( settledPromise );
+		await settledPromise;
+
+		const fnPromise = fn( ...args );
+
+		try {
+			locks.add( fnPromise );
+			return await fnPromise;
+		} finally {
+			locks.delete( settledPromise );
+			locks.delete( fnPromise );
+		}
 	};
 }
 

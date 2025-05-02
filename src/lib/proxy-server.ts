@@ -15,7 +15,7 @@ let isHttpsProxyRunning = false;
 
 const sequentialLocks = new Map< () => Promise< unknown >, Set< Promise< unknown > > >();
 
-// Ensures that only one instance of the function is running at a time
+// Ensures that calls to the provided function are executed sequentially
 function sequential< Args extends unknown[], Return >(
 	fn: ( ...args: Args ) => Promise< Return >
 ) {

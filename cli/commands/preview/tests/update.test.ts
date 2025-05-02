@@ -1,13 +1,18 @@
 import os from 'os';
 import path from 'path';
+import { DEMO_SITE_EXPIRATION_DAYS } from 'common/constants';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
-import { getAuthToken } from 'cli/lib/appdata';
+import { getAuthToken, getSiteByFolder } from 'cli/lib/appdata';
 import { createArchive, cleanup } from 'cli/lib/archive';
-import { updateSnapshotDateInAppdata, getSnapshotsFromAppdata } from 'cli/lib/snapshots';
+import { updateSnapshotInAppdata, getSnapshotsFromAppdata } from 'cli/lib/snapshots';
 import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
 
-jest.mock( 'cli/lib/appdata' );
+jest.mock( 'cli/lib/appdata', () => ( {
+	getAppdataDirectory: jest.fn().mockReturnValue( '/test/appdata' ),
+	getAuthToken: jest.fn(),
+	getSiteByFolder: jest.fn(),
+} ) );
 jest.mock( 'cli/lib/validation' );
 jest.mock( 'cli/lib/archive' );
 jest.mock( 'cli/lib/api' );
@@ -60,7 +65,12 @@ describe( 'Preview Update Command', () => {
 			site_id: mockAtomicSiteId,
 		} );
 		( waitForSiteReady as jest.Mock ).mockResolvedValue( true );
-		( updateSnapshotDateInAppdata as jest.Mock ).mockResolvedValue( undefined );
+		( updateSnapshotInAppdata as jest.Mock ).mockResolvedValue( undefined );
+		( getSiteByFolder as jest.Mock ).mockResolvedValue( {
+			id: mockSnapshot.localSiteId,
+			path: mockFolder,
+			name: 'Test Site',
+		} );
 	} );
 
 	afterEach( () => {
@@ -69,11 +79,11 @@ describe( 'Preview Update Command', () => {
 
 	it( 'should complete the preview update process successfully', async () => {
 		const { runCommand } = await import( '../update' );
-		await runCommand( mockFolder, mockSiteUrl );
+		await runCommand( mockFolder, mockSiteUrl, false );
 
 		expect( validateSiteFolder ).toHaveBeenCalledWith( mockFolder );
 		expect( mockLogger.reportStart.mock.calls[ 0 ] ).toEqual( [ 'validate', 'Validating...' ] );
-		expect( mockLogger.reportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Validation successful' ] );
+		expect( mockLogger.reportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Validation successful', true ] );
 
 		expect( createArchive ).toHaveBeenCalledWith( mockFolder, mockArchivePath );
 		expect( mockLogger.reportStart.mock.calls[ 1 ] ).toEqual( [
@@ -102,7 +112,7 @@ describe( 'Preview Update Command', () => {
 			`Preview site available at: https://${ mockSiteUrl }`,
 		] );
 
-		expect( updateSnapshotDateInAppdata ).toHaveBeenCalledWith( mockAtomicSiteId );
+		expect( updateSnapshotInAppdata ).toHaveBeenCalledWith( mockAtomicSiteId, mockFolder );
 		expect( mockLogger.reportStart.mock.calls[ 4 ] ).toEqual( [
 			'appdata',
 			'Saving preview site to Studio...',
@@ -114,7 +124,7 @@ describe( 'Preview Update Command', () => {
 
 	it( 'should use current directory when no folder is specified', async () => {
 		const { runCommand } = await import( '../update' );
-		await runCommand( process.cwd(), mockSiteUrl );
+		await runCommand( process.cwd(), mockSiteUrl, false );
 
 		expect( validateSiteFolder ).toHaveBeenCalledWith( process.cwd() );
 	} );
@@ -126,7 +136,7 @@ describe( 'Preview Update Command', () => {
 		} );
 
 		const { runCommand } = await import( '../update' );
-		await runCommand( mockFolder, mockSiteUrl );
+		await runCommand( mockFolder, mockSiteUrl, false );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
@@ -141,7 +151,7 @@ describe( 'Preview Update Command', () => {
 		} );
 
 		const { runCommand } = await import( '../update' );
-		await runCommand( mockFolder, mockSiteUrl );
+		await runCommand( mockFolder, mockSiteUrl, false );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
@@ -152,7 +162,7 @@ describe( 'Preview Update Command', () => {
 		( getSnapshotsFromAppdata as jest.Mock ).mockResolvedValue( [] );
 
 		const { runCommand } = await import( '../update' );
-		await runCommand( mockFolder, mockSiteUrl );
+		await runCommand( mockFolder, mockSiteUrl, false );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
@@ -166,7 +176,7 @@ describe( 'Preview Update Command', () => {
 		} );
 
 		const { runCommand } = await import( '../update' );
-		await runCommand( mockFolder, mockSiteUrl );
+		await runCommand( mockFolder, mockSiteUrl, false );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
@@ -180,7 +190,7 @@ describe( 'Preview Update Command', () => {
 		} );
 
 		const { runCommand } = await import( '../update' );
-		await runCommand( mockFolder, mockSiteUrl );
+		await runCommand( mockFolder, mockSiteUrl, false );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
@@ -194,21 +204,21 @@ describe( 'Preview Update Command', () => {
 		} );
 
 		const { runCommand } = await import( '../update' );
-		await runCommand( mockFolder, mockSiteUrl );
+		await runCommand( mockFolder, mockSiteUrl, false );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
-		expect( updateSnapshotDateInAppdata ).not.toHaveBeenCalled();
+		expect( updateSnapshotInAppdata ).not.toHaveBeenCalled();
 	} );
 
 	it( 'should handle appdata errors', async () => {
 		const errorMessage = 'Failed to save to appdata';
-		( updateSnapshotDateInAppdata as jest.Mock ).mockImplementation( () => {
+		( updateSnapshotInAppdata as jest.Mock ).mockImplementation( () => {
 			throw new LoggerError( errorMessage );
 		} );
 
 		const { runCommand } = await import( '../update' );
-		await runCommand( mockFolder, mockSiteUrl );
+		await runCommand( mockFolder, mockSiteUrl, false );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
@@ -220,8 +230,44 @@ describe( 'Preview Update Command', () => {
 		} );
 
 		const { runCommand } = await import( '../update' );
-		await runCommand( mockFolder, mockSiteUrl );
+		await runCommand( mockFolder, mockSiteUrl, false );
 
 		expect( cleanup ).toHaveBeenCalledWith( mockArchivePath );
+	} );
+
+	it( 'should not allow updating an expired preview site', async () => {
+		const { runCommand } = await import( '../update' );
+		const expiredDate = mockDate - ( DEMO_SITE_EXPIRATION_DAYS + 1 ) * 24 * 60 * 60 * 1000;
+		const expiredSnapshot = { ...mockSnapshot, date: expiredDate };
+		( getSnapshotsFromAppdata as jest.Mock ).mockResolvedValue( [ expiredSnapshot ] );
+
+		await runCommand( mockFolder, mockSiteUrl, false );
+
+		expect( mockLogger.reportError ).toHaveBeenCalled();
+		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
+		expect( createArchive ).not.toHaveBeenCalled();
+	} );
+
+	it( 'should throw error if folder does not match original site and no overwrite flag', async () => {
+		const { runCommand } = await import( '../update' );
+		( getSiteByFolder as jest.Mock ).mockResolvedValueOnce( {
+			id: 'different-id',
+			path: '/other/path',
+			name: 'Other Site',
+		} );
+		await runCommand( mockFolder, mockSiteUrl, false );
+		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
+		expect( createArchive ).not.toHaveBeenCalled();
+	} );
+
+	it( 'should allow update if overwrite flag is set even if folder does not match', async () => {
+		const { runCommand } = await import( '../update' );
+		( getSiteByFolder as jest.Mock ).mockResolvedValueOnce( {
+			id: 'different-id',
+			path: '/other/path',
+			name: 'Other Site',
+		} );
+		await runCommand( mockFolder, mockSiteUrl, true );
+		expect( createArchive ).toHaveBeenCalledWith( mockFolder, mockArchivePath );
 	} );
 } );

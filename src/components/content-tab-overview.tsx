@@ -14,10 +14,9 @@ import {
 	widget,
 } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import { ButtonsSection, ButtonsSectionProps } from 'src/components/buttons-section';
-import { useCheckInstalledApps } from 'src/hooks/use-check-installed-apps';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useSiteDetails } from 'src/hooks/use-site-details';
@@ -25,8 +24,10 @@ import { useThemeDetails } from 'src/hooks/use-theme-details';
 import { isMac } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useEditorData } from 'src/modules/user-settings/hooks/use-editor-data';
+import { useTerminalData } from 'src/modules/user-settings/hooks/use-terminal-data';
 import { supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
-import { supportedTerminalNames, DEFAULT_TERMINAL } from 'src/modules/user-settings/lib/terminal';
+import { supportedTerminalNames } from 'src/modules/user-settings/lib/terminal';
 
 interface ContentTabOverviewProps {
 	selectedSite: SiteDetails;
@@ -141,34 +142,18 @@ function CustomizeSection( {
 
 function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'selectedSite' > ) {
 	const { terminalWpCliEnabled } = useFeatureFlags();
-	const installedApps = useCheckInstalledApps();
-	const [ terminalName, setTerminalName ] = useState( supportedTerminalNames[ DEFAULT_TERMINAL ] );
-	const [ editorName, setEditorName ] = useState( '' );
-
-	const updateTerminalName = useCallback( async () => {
-		const terminal = await getIpcApi().getUserTerminal();
-		setTerminalName( supportedTerminalNames[ terminal ] );
-	}, [ setTerminalName ] );
-
-	const updateEditorName = useCallback( async () => {
-		const editor = await getIpcApi().getUserEditor();
-
-		if ( editor && installedApps[ editor as keyof typeof installedApps ] ) {
-			setEditorName( editor );
-		} else {
-			setEditorName( '' );
-		}
-	}, [ setEditorName, installedApps ] );
-
-	useIpcListener( 'user-preference-changed', () => {
-		void updateTerminalName();
-		void updateEditorName();
-	} );
+	const { terminal, handleTerminalChange, getSavedTerminal } = useTerminalData();
+	const { editor, handleEditorChange, getSavedEditor } = useEditorData();
 
 	useEffect( () => {
-		void updateTerminalName();
-		void updateEditorName();
-	}, [ updateTerminalName, updateEditorName ] );
+		handleEditorChange( editor );
+		handleTerminalChange( terminal );
+	}, [ editor, handleEditorChange, handleTerminalChange, terminal ] );
+
+	useIpcListener( 'user-preference-changed', async () => {
+		handleEditorChange( await getSavedEditor() );
+		handleTerminalChange( await getSavedTerminal() );
+	} );
 
 	const buttonsArray: ButtonsSectionProps[ 'buttonsArray' ] = [
 		{
@@ -185,19 +170,19 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 		},
 	];
 
-	if ( editorName ) {
-		const editor = supportedEditorConfig[ editorName as keyof typeof supportedEditorConfig ];
-		if ( editor ) {
-			buttonsArray.push( {
-				label: editor.label,
-				className: 'text-nowrap',
-				icon: code,
-				onClick: () => {
-					getIpcApi().openURL( editor.url( selectedSite.path ) );
-				},
-			} );
-		}
+	const editorConfig = editor ? supportedEditorConfig[ editor ] : false;
+	if ( editorConfig ) {
+		buttonsArray.push( {
+			label: editorConfig.label,
+			className: 'text-nowrap',
+			icon: code,
+			onClick: () => {
+				getIpcApi().openURL( editorConfig.url( selectedSite.path ) );
+			},
+		} );
 	}
+
+	const terminalName = supportedTerminalNames[ terminal ];
 	buttonsArray.push( {
 		label: terminalName,
 		className: 'text-nowrap',

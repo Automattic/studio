@@ -112,7 +112,7 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 			pages={ whatsNewPages.map( ( { image, title, ...pageContent }, index ) => ( {
 				image: (
 					<div className="relative">
-						<div className="absolute top-[13px] left-[13px] rtl:left-auto rtl:right-[13px] bg-a8c-gray-90 text-a8c-gray-5 text-xs px-2 py-1 rounded">
+						<div className="absolute top-[13px] left-[13px] rtl:left-auto rtl:right-[13px] bg-a8c-gray-90 text-a8c-gray-5 text-xs px-2 py-1 rounded-sm">
 							{ __( "What's new" ) }
 						</div>
 						<img

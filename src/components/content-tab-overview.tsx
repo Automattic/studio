@@ -24,7 +24,7 @@ import { isMac } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
-import { supportedTerminalNames } from 'src/modules/user-settings/lib/terminal';
+import { getTerminalName } from 'src/modules/user-settings/lib/terminal';
 import { useGetUserEditorQuery, useGetUserTerminalQuery } from 'src/stores/installed-apps-api';
 
 interface ContentTabOverviewProps {
@@ -143,7 +143,7 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 	const { data: editor } = useGetUserEditorQuery();
 	const { data: terminal } = useGetUserTerminalQuery();
 
-	const terminalName = supportedTerminalNames[ terminal as keyof typeof supportedTerminalNames ];
+	const terminalName = getTerminalName( terminal );
 
 	const buttonsArray: ButtonsSectionProps[ 'buttonsArray' ] = [
 		{

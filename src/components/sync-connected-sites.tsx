@@ -214,7 +214,7 @@ const getStatusWithProgress = (
 	}
 	if ( importState ) {
 		if ( importState.progress === 100 ) {
-			return { message: __( 'Applying final details' ), progress: 99 };
+			return { message: __( 'Applying final details…' ), progress: 99 };
 		}
 		return {
 			message: importState.statusMessage,

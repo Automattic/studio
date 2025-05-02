@@ -25,8 +25,8 @@ The first iteration of the CLI shipped commands to create, read, update, and del
 
 2. When Studio instantiates the CLI:
     - The node.js `child_process` module is used to fork a process that runs the CLI.
-    - Studio passes the `--output-format json` option that makes the CLI print progress and errors in JSON.
-    - `stdout` and `stderr` output is parsed and validated. The results are emitted as IPC events to the renderer process.
+    - When running in forked mode, the CLI process uses the `process.send` API to communicate back to Studio.
+    - IPC messages received from the CLI are parsed and validated. The results are emitted as Electron IPC events to the renderer process.
     - The renderer process uses "logger action" definitions from the `common` folder to determine command progress based on incoming IPC events.
 
 3. Studio reacts when the CLI modifies preview sites:
@@ -50,8 +50,10 @@ Node apps don't technically need to be bundled, but we chose this approach with 
 
 ### Studio calling the CLI
 
-Studio forks CLI child processes to execute certain operations. In the first CLI iteration, Studio does this when creating, updating, and deleting preview sites. The CLI communicates with Studio through stdio. This approach has both pros and cons.
+Studio instantiates CLI child processes to execute certain operations. In the first CLI iteration, Studio does this when creating, updating, and deleting preview sites. The CLI communicates with Studio through node IPC calls (using the `process.send` API).
 
-The biggest upside is that when the CLI becomes capable of running Studio sites, we can move the Playground dependencies entirely to the CLI and avoid bundling them twice (which would increase the size of the app by several hundred MBs). Moreover, it consolidates the business logic and creates increased incentives for developers to focus on the CLI when shipping new features.
+This approach of forking CLI processes to run business logic has both pros and cons.
 
-The main downside is that it decreases control in the Studio code, particularly when it comes to error handling. We mitigate this by creating as clear a structure as possible around stdio.
+The biggest pro is that when the CLI becomes capable of running Studio sites, we can move the Playground dependencies entirely to the CLI and avoid bundling them twice (which would increase the size of the app by several hundred MBs). Moreover, it consolidates the business logic and creates increased incentives for developers to focus on the CLI when shipping new features.
+
+The biggest con is that it decreases control in the Studio code, particularly when it comes to error handling. We mitigate this by creating as clear a structure as possible around the `process.send` IPC calls.

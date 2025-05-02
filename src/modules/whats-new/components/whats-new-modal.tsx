@@ -129,6 +129,8 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 				),
 			} ) ) }
 			finishButtonText={ __( 'Done' ) }
+			nextButtonText={ __( 'Next' ) }
+			previousButtonText={ __( 'Previous' ) }
 		/>
 	);
 }

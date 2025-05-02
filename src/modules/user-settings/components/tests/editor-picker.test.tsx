@@ -172,7 +172,12 @@ describe( 'EditorPicker', () => {
 
 		renderWithProvider( <EditorPicker value={ undefined } onChange={ mockOnChange } /> );
 
-		const select = await waitFor( () => screen.getByRole( 'combobox' ) );
+		await waitFor( () => {
+			const select = screen.getByRole( 'combobox' );
+			expect( select ).not.toBeDisabled();
+		} );
+
+		const select = screen.getByRole( 'combobox' );
 		const options = select.querySelectorAll( 'option' );
 		// First option should be enabled (Select)
 		expect( options[ 0 ] ).not.toBeDisabled();

@@ -34,7 +34,7 @@ export const EditorPicker = ( { value, onChange }: EditorPickerProps ) => {
 		return (
 			<p className="text-gray-500">
 				{ /* translators: "Visual Studio Code" is a trademarked brand name by Microsoft. Do not translate brand names. */ }
-				{ createInterpolateElement( __( 'We recommend using <a>Visual Studio Code</a>.' ), {
+				{ createInterpolateElement( __( 'We recommend using <a>Visual Studio Code ↗ </a>.' ), {
 					a: (
 						<Button
 							onClick={ () => getIpcApi().openURL( 'https://code.visualstudio.com/' ) }

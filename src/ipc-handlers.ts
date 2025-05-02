@@ -415,6 +415,14 @@ export async function startServer(
 	try {
 		await server.start();
 	} catch ( error ) {
+		/**
+		 * We don't want to track WASM memory errors in Sentry
+		 * because they are caused by the user's system not having enough memory
+		 * and aren't a bug in Studio.
+		 *
+		 * When the error is thrown, we show a user-friendly message
+		 * to the user, with instructions on how to provide more memory to Studio.
+		 */
 		if (
 			error instanceof Error &&
 			error.message.includes( 'Cannot allocate Wasm memory for new instance' )

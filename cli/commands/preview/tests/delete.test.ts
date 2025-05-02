@@ -3,8 +3,11 @@ import { getAuthToken } from 'cli/lib/appdata';
 import { getSnapshotsFromAppdata, deleteSnapshotFromAppdata } from 'cli/lib/snapshots';
 import { Logger, LoggerError } from 'cli/logger';
 
+jest.mock( 'cli/lib/appdata', () => ( {
+	getAppdataDirectory: jest.fn().mockReturnValue( '/test/appdata' ),
+	getAuthToken: jest.fn(),
+} ) );
 jest.mock( 'cli/lib/api' );
-jest.mock( 'cli/lib/appdata' );
 jest.mock( 'cli/lib/snapshots' );
 jest.mock( 'cli/logger' );
 
@@ -57,7 +60,7 @@ describe( 'Preview Delete Command', () => {
 		expect( deleteSnapshotFromAppdata ).toHaveBeenCalledWith( mockSiteUrl );
 
 		expect( mockLogger.reportStart.mock.calls[ 0 ] ).toEqual( [ 'validate', 'Validating...' ] );
-		expect( mockLogger.reportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Validation successful' ] );
+		expect( mockLogger.reportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Validation successful', true ] );
 		expect( mockLogger.reportStart.mock.calls[ 1 ] ).toEqual( [ 'delete', 'Deleting...' ] );
 		expect( mockLogger.reportSuccess.mock.calls[ 1 ] ).toEqual( [ 'Deletion successful' ] );
 	} );

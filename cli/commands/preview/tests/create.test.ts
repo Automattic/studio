@@ -7,7 +7,10 @@ import { saveSnapshotToAppdata } from 'cli/lib/snapshots';
 import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
 
-jest.mock( 'cli/lib/appdata' );
+jest.mock( 'cli/lib/appdata', () => ( {
+	getAppdataDirectory: jest.fn().mockReturnValue( '/test/appdata' ),
+	getAuthToken: jest.fn(),
+} ) );
 jest.mock( 'cli/lib/validation' );
 jest.mock( 'cli/lib/archive' );
 jest.mock( 'cli/lib/api' );
@@ -71,7 +74,7 @@ describe( 'Preview Create Command', () => {
 
 		expect( validateSiteFolder ).toHaveBeenCalledWith( mockFolder );
 		expect( mockLogger.reportStart.mock.calls[ 0 ] ).toEqual( [ 'validate', 'Validating...' ] );
-		expect( mockLogger.reportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Validation successful' ] );
+		expect( mockLogger.reportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Validation successful', true ] );
 
 		expect( createArchive ).toHaveBeenCalledWith( mockFolder, mockArchivePath );
 		expect( mockLogger.reportStart.mock.calls[ 1 ] ).toEqual( [

@@ -27,7 +27,6 @@
  */
 
 import * as Sentry from '@sentry/electron/renderer';
-import { init as reactInit } from '@sentry/react';
 import { __ } from '@wordpress/i18n';
 import { createElement, StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -79,22 +78,19 @@ const getExtraSentryBreadcrumbs = ( targetElement: HTMLElement ) => {
 	return '';
 };
 
-Sentry.init(
-	{
-		debug: true,
-		beforeBreadcrumb( breadcrumb, hint ) {
-			const targetElement = hint?.event?.target;
+Sentry.init( {
+	debug: true,
+	beforeBreadcrumb( breadcrumb, hint ) {
+		const targetElement = hint?.event?.target;
 
-			if ( breadcrumb.category === 'ui.click' && targetElement ) {
-				breadcrumb.message =
-					( breadcrumb.message || '' ) + getExtraSentryBreadcrumbs( targetElement );
-			}
+		if ( breadcrumb.category === 'ui.click' && targetElement ) {
+			breadcrumb.message =
+				( breadcrumb.message || '' ) + getExtraSentryBreadcrumbs( targetElement );
+		}
 
-			return breadcrumb;
-		},
+		return breadcrumb;
 	},
-	reactInit
-);
+} );
 
 const makeLogger =
 	( level: 'info' | 'warn' | 'erro', originalLogger: typeof console.log ) =>

@@ -15,6 +15,7 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 
 	const { editor, handleEditorChange, saveEditorPreference, resetEditor, hasEditorChanges } =
 		useEditorData();
+
 	const {
 		terminal,
 		handleTerminalChange,

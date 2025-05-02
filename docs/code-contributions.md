@@ -30,11 +30,12 @@ npm install
 Once all required dependencies are installed, you can run the app with the following command:
 
 ```bash
-npm install
 npm start
 ```
 
-The app automatically launches with the Chromium developer tools opened by default. The code is split into two processes:
+This command starts the app in dev mode and opens it automatically, with the Chromium developer tools opened by default. Studio uses [Electron Forge](https://www.electronforge.io/) for running the app in dev mode, building, and packaging.
+
+As with any Electron app, the code is split into two processes:
 
 1. **Renderer Process** (reloads automatically):
    - All React components and UI code in `src/components/`, `src/modules/*/components/`
@@ -55,6 +56,19 @@ A good rule of thumb: if the code interacts with the operating system, file syst
 
 > [!TIP]
 > If you encounter `Error: Cannot find module 'appdmg'` error, ensure that `python-setuptools` are installed in your environment according to the previous steps.
+
+### Running the CLI
+
+The CLI is built separately from the Electron app. There are two commands to be aware of:
+
+- `npm run cli:build` runs a one-time build.
+- `npm run cli:watch` watches the source files and rebuilds automatically.
+
+Both commands output a `dist/cli/main.js` file. To test the newly built CLI code, run the following command:
+
+```
+node dist/cli/main.js
+```
 
 ### Project Structure
 
@@ -206,3 +220,4 @@ See [Versioning and Updates](./versioning-and-updates.md) documentation.
 
  - [Custom Domains and SSL](./design-docs/custom-domains-and-ssl.md)
  - [What's New modal](./design-docs/whats-new-modal.md)
+ - [Sync](./design-docs/sync.md)

@@ -1,17 +1,19 @@
+import interpolateComponents from '@automattic/interpolate-components';
 import { Guide } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
+import { ReactNode } from 'react';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import cliIllustration from 'src/modules/whats-new/assets/cli-illustration.svg';
 import customDomainIllustration from 'src/modules/whats-new/assets/custom-domains-illustration.svg';
 import previewSitesIllustration from 'src/modules/whats-new/assets/preview-sites-illustration.svg';
-import studioIllustration from 'src/modules/whats-new/assets/studio-illustration.svg';
 import versionSwitchIllustration from 'src/modules/whats-new/assets/version-switch-illustration.svg';
 import 'src/index.css';
 
 interface WhatsNewPage {
 	image: string;
 	title: string;
-	description: string;
+	description: ReactNode;
 	learnMoreUrl?: string;
 }
 
@@ -52,11 +54,21 @@ const PageContent = ( {
 export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProps ) {
 	const whatsNewPages: WhatsNewPage[] = [
 		{
-			image: studioIllustration,
-			title: __( 'What is new in Studio?' ),
-			description: __(
-				'Discover the latest updates in Studio! Explore exciting new features designed to enhance your experience.'
-			),
+			image: cliIllustration,
+			title: __( 'Introducing Studio CLI' ),
+			description: interpolateComponents( {
+				mixedString: sprintf(
+					/* translators: %s is the name of the Studio CLI command ("studio") */
+					__(
+						'Run the %s command in your terminal to create, list, update, and delete preview sites with our new CLI tool.'
+					),
+					'{{code}}studio{{/code}}'
+				),
+				components: {
+					code: <code />,
+				},
+			} ),
+			learnMoreUrl: 'https://developer.wordpress.com/docs/developer-tools/studio/cli/',
 		},
 		{
 			image: customDomainIllustration,
@@ -99,11 +111,16 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 			) }
 			pages={ whatsNewPages.map( ( { image, title, ...pageContent }, index ) => ( {
 				image: (
-					<img
-						src={ image }
-						alt={ sprintf( __( 'Illustration for %s' ), title ) }
-						className="h-[195px] w-full object-cover mb-3"
-					/>
+					<div className="relative">
+						<div className="absolute top-[13px] left-[13px] rtl:left-auto rtl:right-[13px] bg-a8c-gray-90 text-a8c-gray-5 text-xs px-2 py-1 rounded-sm">
+							{ __( "What's new" ) }
+						</div>
+						<img
+							src={ image }
+							alt={ sprintf( __( 'Illustration for %s' ), title ) }
+							className="h-[195px] w-full object-cover mb-3"
+						/>
+					</div>
 				),
 				content: (
 					<div className={ index === 0 ? 'whats-new-intro-page' : '' }>

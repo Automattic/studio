@@ -296,6 +296,17 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 						),
 						showOpenLogs: true,
 					} );
+				} else if (
+					error instanceof Error &&
+					error.message.includes( 'WASM_ERROR_NOT_ENOUGH_MEMORY' )
+				) {
+					getIpcApi().showErrorMessageBox( {
+						title: __( 'Not enough memory to start the site server' ),
+						message: __(
+							'Please stop some of your running sites first. If this problem persists, try closing other apps that might be using memory and try again.'
+						),
+						showOpenLogs: true,
+					} );
 				} else if ( error instanceof Error && error.message.includes( 'ERROR_PORT_IN_USE' ) ) {
 					const port = error.message.match( /\d+/ );
 					getIpcApi().showErrorMessageBox( {

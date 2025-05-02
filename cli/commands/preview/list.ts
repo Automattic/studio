@@ -5,23 +5,20 @@ import {
 	getSnapshotCliJson,
 	getSnapshotCliTable,
 	getSnapshotsFromAppdata,
+	isSnapshotExpired,
 } from 'cli/lib/snapshots';
 import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
-import { OutputFormat, StudioArgv } from 'cli/types';
+import { StudioArgv } from 'cli/types';
 
-export async function runCommand(
-	siteFolder: string,
-	format: 'table' | 'json',
-	outputFormat?: OutputFormat
-): Promise< void > {
-	const logger = new Logger< LoggerAction >( outputFormat );
+export async function runCommand( siteFolder: string, format: 'table' | 'json' ): Promise< void > {
+	const logger = new Logger< LoggerAction >();
 
 	try {
 		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating...' ) );
 		validateSiteFolder( siteFolder );
 		const token = await getAuthToken();
-		logger.reportSuccess( __( 'Validation successful' ) );
+		logger.reportSuccess( __( 'Validation successful' ), true );
 
 		logger.reportStart( LoggerAction.LOAD, __( 'Loading preview sites...' ) );
 		const snapshots = await getSnapshotsFromAppdata( token.id, siteFolder );
@@ -31,12 +28,23 @@ export async function runCommand(
 			return;
 		}
 
-		logger.reportSuccess(
-			sprintf(
-				_n( 'Found %d preview site', 'Found %d preview sites', snapshots.length ),
-				snapshots.length
-			)
+		const expiredSnapshots = snapshots.filter( isSnapshotExpired );
+		const snapshotsMessage = sprintf(
+			_n( 'Found %d preview site', 'Found %d preview sites', snapshots.length ),
+			snapshots.length
 		);
+
+		if ( expiredSnapshots.length > 0 ) {
+			const expiredSnapshotsMessage = sprintf(
+				/* translators: This string is appended to "Found %d preview sites" if there are expired preview sites */
+				_n( '(%d expired)', '(%d expired)', expiredSnapshots.length ),
+				expiredSnapshots.length
+			);
+
+			logger.reportSuccess( `${ snapshotsMessage } ${ expiredSnapshotsMessage }` );
+		} else {
+			logger.reportSuccess( snapshotsMessage );
+		}
 
 		if ( format === 'table' ) {
 			const table = getSnapshotCliTable( snapshots );
@@ -56,24 +64,18 @@ export async function runCommand(
 
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
-		command: 'list [folder]',
-		describe: __( 'List preview sites for the specified folder (defaults to current directory)' ),
+		command: 'list',
+		describe: __( 'List preview sites' ),
 		builder: ( yargs ) => {
-			return yargs
-				.positional( 'folder', {
-					type: 'string',
-					default: process.cwd(),
-					description: __( 'The folder to list preview sites for' ),
-				} )
-				.option( 'format', {
-					type: 'string',
-					choices: [ 'table', 'json' ],
-					default: 'table',
-					description: __( 'Output format' ),
-				} );
+			return yargs.option( 'format', {
+				type: 'string',
+				choices: [ 'table', 'json' ],
+				default: 'table',
+				description: __( 'Output format' ),
+			} );
 		},
 		handler: async ( argv ) => {
-			await runCommand( argv.folder, argv.format as 'table' | 'json', argv.outputFormat );
+			await runCommand( argv.path, argv.format as 'table' | 'json' );
 		},
 	} );
 };

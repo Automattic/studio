@@ -6,8 +6,8 @@ import { SupportedEditor, supportedEditorConfig } from 'src/modules/user-setting
 import { SettingsFormField } from './settings-form-field';
 
 interface EditorPickerProps {
-	value: SupportedEditor;
-	onChange: ( value: SupportedEditor ) => void;
+	value: SupportedEditor | undefined;
+	onChange: ( value: SupportedEditor | undefined ) => void;
 }
 
 export const EditorPicker = ( { value, onChange }: EditorPickerProps ) => {
@@ -47,11 +47,14 @@ export const EditorPicker = ( { value, onChange }: EditorPickerProps ) => {
 				__nextHasNoMarginBottom
 				__next40pxDefaultSize
 			>
-				{ installedEditors.map( ( [ editorKey, editorConfig ] ) => (
-					<option key={ editorKey } value={ editorKey }>
-						{ editorConfig.label }
-					</option>
-				) ) }
+				{ ! value && <option value={ '' }>{ __( 'Select' ) }</option> }
+				<optgroup label={ __( 'Available editors' ) }>
+					{ installedEditors.map( ( [ editorKey, editorConfig ] ) => (
+						<option key={ editorKey } value={ editorKey }>
+							{ editorConfig.label }
+						</option>
+					) ) }
+				</optgroup>
 				<optgroup label={ __( 'Not installed' ) }>
 					{ uninstalledEditors.map( ( [ editorKey, editorConfig ] ) => (
 						<option key={ editorKey } value={ editorKey } disabled>

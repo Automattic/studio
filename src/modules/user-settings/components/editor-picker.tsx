@@ -48,11 +48,13 @@ export const EditorPicker = ( { value, onChange }: EditorPickerProps ) => {
 				__next40pxDefaultSize
 			>
 				{ ! value && <option value={ '' }>{ __( 'Select' ) }</option> }
-				{ installedEditors.map( ( [ editorKey, editorConfig ] ) => (
-					<option key={ editorKey } value={ editorKey }>
-						{ editorConfig.label }
-					</option>
-				) ) }
+				<optgroup label={ __( 'Available editors' ) }>
+					{ installedEditors.map( ( [ editorKey, editorConfig ] ) => (
+						<option key={ editorKey } value={ editorKey }>
+							{ editorConfig.label }
+						</option>
+					) ) }
+				</optgroup>
 				<optgroup label={ __( 'Not installed' ) }>
 					{ uninstalledEditors.map( ( [ editorKey, editorConfig ] ) => (
 						<option key={ editorKey } value={ editorKey } disabled>

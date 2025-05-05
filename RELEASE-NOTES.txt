@@ -2,12 +2,12 @@
 =====
 * Added a CLI tool that allows managing preview sites #1314
 * Dynamically determine sidebar breakpoint based on tab width #1196
-* Updated wordpress-components, Sentry, Electron, nokogiri and wp-babel makepot dependencies #1195, #1238, #1233, #1237, #1301
+* Updated Sentry, Electron and other dependencies #1195, #1238, #1233, #1237, #1301
 * Fixed issue with opening logs on Windows #1245
 * Fixed and improved selecting WP version #1189
 * Added check if port is open before starting servers #1236, and #1281
 * Improved starting multiple sites with custom domains #1313
-* Filter out Automattic sites from the sync sites listing #1254 and #1262
+* Filtered out Automattic sites from the sync sites listing #1254 and #1262
 * Updated the progress from percentage from the backup response #1278
 * Excluded `node_modules` and `.git` paths from site export and sync #1264
 * Allowed translation of topbar system menu items #1257

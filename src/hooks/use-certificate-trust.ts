@@ -7,7 +7,6 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
  * @returns A boolean indicating if the certificate is trusted
  */
 export function useCertificateTrust(): boolean {
-	const isMounted = useRef( true );
 	const [ isTrusted, setIsTrusted ] = useState< boolean >( false );
 
 	const checkCertificateTrust = useCallback( () => {

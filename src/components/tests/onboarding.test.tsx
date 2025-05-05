@@ -40,6 +40,10 @@ jest.mock( 'src/stores/wordpress-versions-api', () => ( {
 	} ) ),
 } ) );
 
+jest.mock( 'src/hooks/use-certificate-trust', () => ( {
+	useCertificateTrust: jest.fn().mockReturnValue( true ),
+} ) );
+
 const mockGenerateProposedSitePath =
 	jest.fn< ( siteName: string ) => Promise< FolderDialogResponse > >();
 

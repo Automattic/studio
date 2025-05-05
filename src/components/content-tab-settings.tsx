@@ -78,7 +78,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 						<div>
 							<span>{ selectedSite.enableHttps ? __( 'Enabled' ) : __( 'Disabled' ) }</span>{ ' ' }
 							{ ! isCertificateTrusted && selectedSite.enableHttps && (
-								<Button variant="link" onClick={ () => getIpcApi().openCertificate() }>
+								<Button variant="link" onClick={ () => getIpcApi().trustCertificate() }>
 									{ __( 'Trust Certificate' ) }
 								</Button>
 							) }

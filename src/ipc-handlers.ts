@@ -30,6 +30,7 @@ import { getImporterMetric } from 'src/lib/bump-stats/lib';
 import {
 	openCertificate as openCertificateDialog,
 	isRootCATrusted,
+	trustRootCA,
 } from 'src/lib/certificate-manager';
 import { download } from 'src/lib/download';
 import { isEmptyDir, pathExists, sanitizeFolderName } from 'src/lib/fs-utils';
@@ -1268,6 +1269,16 @@ export function openCertificate( _event: IpcMainInvokeEvent ) {
 
 export async function isCATrusted(): Promise< boolean > {
 	return isRootCATrusted();
+}
+
+export async function trustCertificate(): Promise< void > {
+	const platform = process.platform;
+	if ( platform === 'win32' ) {
+		// On Windows, we can install the certificate automatically.
+		return trustRootCA();
+	}
+
+	return openCertificateDialog();
 }
 
 export async function getFileContent( event: IpcMainInvokeEvent, filePath: string ) {

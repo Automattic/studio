@@ -164,11 +164,7 @@ export async function isRootCATrusted(): Promise< boolean > {
 	if ( process.platform === 'win32' ) {
 		try {
 			// Execute certutil with more specific validation
-			const { stdout } = await execFilePromise( 'certutil', [
-				'-verify',
-				'-urlfetch',
-				CA_CERT_PATH,
-			] );
+			const { stdout } = await execFilePromise( 'certutil', [ '-verify', CA_CERT_PATH ] );
 
 			const hasValidPolicies =
 				stdout.includes( 'Verified Application Policies:' ) &&

@@ -25,7 +25,7 @@ export const TerminalPicker = ( {
 	);
 
 	return (
-		<SettingsFormField label={ __( 'Shell' ) }>
+		<SettingsFormField label={ __( 'Terminal application' ) }>
 			<SelectControl
 				value={ value }
 				onChange={ ( newValue ) => onChange( newValue as SupportedTerminal ) }

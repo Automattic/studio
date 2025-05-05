@@ -1,35 +1,27 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useWindowListener } from 'src/hooks/use-window-listener';
-import { getIpcApi } from 'src/lib/get-ipc-api';
+import { checkCertificateTrust, selectIsRootCATrusted } from 'src/store/slices/certificate-trust';
+import { useAppDispatch, useRootSelector } from 'src/stores';
 
 /**
  * Custom hook that checks if the Studio CA certificate is trusted on the system
  * @returns A boolean indicating if the certificate is trusted
  */
 export function useCertificateTrust(): boolean {
-	const [ isTrusted, setIsTrusted ] = useState< boolean >( false );
+	const dispatch = useAppDispatch();
+	const isTrusted = useRootSelector( selectIsRootCATrusted );
 
-	const checkCertificateTrust = useCallback( () => {
-		// If the certificate is already trusted, don't check it again
-		if ( isTrusted ) {
-			return;
+	const checkTrust = useCallback( () => {
+		if ( ! isTrusted ) {
+			void dispatch( checkCertificateTrust() );
 		}
+	}, [ dispatch, isTrusted ] );
 
-		getIpcApi()
-			.isCATrusted()
-			.then( ( trusted ) => {
-				setIsTrusted( trusted );
-			} )
-			.catch( ( error ) => {
-				console.error( 'Failed to check certificate trust:', error );
-			} );
-	}, [ isTrusted ] );
-
-	useWindowListener( 'focus', checkCertificateTrust );
+	useWindowListener( 'focus', checkTrust );
 
 	useEffect( () => {
-		checkCertificateTrust();
-	}, [ checkCertificateTrust ] );
+		checkTrust();
+	}, [ checkTrust ] );
 
 	return isTrusted;
 }

@@ -7,6 +7,7 @@ import {
 import { useDispatch, useSelector } from 'react-redux';
 import { LOCAL_STORAGE_CHAT_API_IDS_KEY, LOCAL_STORAGE_CHAT_MESSAGES_KEY } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import certificateTrustReducer from 'src/store/slices/certificate-trust';
 import { appVersionApi } from 'src/stores/app-version-api';
 import { reducer as chatReducer } from 'src/stores/chat-slice';
 import { installedAppsApi } from 'src/stores/installed-apps-api';
@@ -23,6 +24,7 @@ export type RootState = {
 	snapshot: ReturnType< typeof snapshotReducer >;
 	wordpressVersionsApi: ReturnType< typeof wordpressVersionsApi.reducer >;
 	wpcomApi: ReturnType< typeof wpcomApi.reducer >;
+	certificateTrust: ReturnType< typeof certificateTrustReducer >;
 };
 
 const listenerMiddleware = createListenerMiddleware< RootState >();
@@ -72,6 +74,7 @@ export const rootReducer = combineReducers( {
 	snapshot: snapshotReducer,
 	wordpressVersionsApi: wordpressVersionsApi.reducer,
 	wpcomApi: wpcomApi.reducer,
+	certificateTrust: certificateTrustReducer,
 } );
 
 export const store = configureStore( {

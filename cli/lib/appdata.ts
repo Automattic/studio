@@ -59,7 +59,7 @@ export function getAppdataPath(): string {
 	return path.join( appdataDir, 'appdata-v1.json' );
 }
 
-export async function readAppdata( withLock = false ): Promise< UserData > {
+export async function readAppdata( getLock = false ): Promise< UserData > {
 	const appDataPath = getAppdataPath();
 
 	if ( ! fs.existsSync( appDataPath ) ) {
@@ -67,7 +67,7 @@ export async function readAppdata( withLock = false ): Promise< UserData > {
 	}
 
 	try {
-		if ( withLock ) {
+		if ( getLock ) {
 			await lock( LOCKFILE_PATH, { wait: 1000, stale: 1000 } );
 		}
 

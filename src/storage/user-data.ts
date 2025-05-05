@@ -86,12 +86,12 @@ function legacyPopulateSnapshotUserIds( data: UserData ): void {
 	}
 }
 
-export async function loadUserData( withLock = false ): Promise< UserData > {
+export async function loadUserData( getLock = false ): Promise< UserData > {
 	migrateUserDataOldName();
 	const filePath = getUserDataFilePath();
 
 	try {
-		if ( withLock ) {
+		if ( getLock ) {
 			await lock( { wait: 1000, stale: 1000 } );
 		}
 
@@ -130,7 +130,7 @@ export async function loadUserData( withLock = false ): Promise< UserData > {
 	}
 }
 
-export async function saveUserData( data: UserData, withLock = false ): Promise< void > {
+export async function saveUserData( data: UserData, hasLock = false ): Promise< void > {
 	const filePath = getUserDataFilePath();
 
 	const asString = JSON.stringify( toDiskFormat( data ), null, 2 ) + '\n';
@@ -145,7 +145,7 @@ export async function saveUserData( data: UserData, withLock = false ): Promise<
 			await fs.promises.writeFile( filePath, asString, 'utf-8' );
 		}
 	} finally {
-		if ( withLock ) {
+		if ( hasLock ) {
 			await unlock();
 		}
 	}

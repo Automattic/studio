@@ -1263,7 +1263,7 @@ export function openCertificate( _event: IpcMainInvokeEvent ) {
 	return openCertificateDialog();
 }
 
-export async function isCATrusted( _event: IpcMainInvokeEvent ): Promise< boolean > {
+export async function isCATrusted(): Promise< boolean > {
 	return isRootCATrusted();
 }
 

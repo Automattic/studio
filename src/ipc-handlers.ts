@@ -27,6 +27,10 @@ import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ip
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
 import { bumpStat } from 'src/lib/bump-stats';
 import { getImporterMetric } from 'src/lib/bump-stats/lib';
+import {
+	openCertificate as openCertificateDialog,
+	isRootCATrusted,
+} from 'src/lib/certificate-manager';
 import { download } from 'src/lib/download';
 import { isEmptyDir, pathExists, sanitizeFolderName } from 'src/lib/fs-utils';
 import { getImageData } from 'src/lib/get-image-data';
@@ -60,10 +64,6 @@ import { SiteServer, createSiteWorkingDirectory } from 'src/site-server';
 import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from 'src/storage/paths';
 import { loadUserData, saveUserData } from 'src/storage/user-data';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
-import {
-	openCertificate as openCertificateDialog,
-	isRootCATrusted,
-} from './lib/certificate-manager';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
 

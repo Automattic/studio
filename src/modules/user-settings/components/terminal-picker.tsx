@@ -15,6 +15,7 @@ export const TerminalPicker = ( {
 	availableTerminals = [ 'terminal' ],
 }: TerminalPickerProps ) => {
 	const { __ } = useI18n();
+	console.log( 'value', value );
 
 	const availableTerminalEntries = Object.entries( supportedTerminalNames ).filter(
 		( [ terminal ] ) => availableTerminals.includes( terminal as SupportedTerminal )

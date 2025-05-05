@@ -36,4 +36,23 @@ module.exports = {
 	globalSetup: '<rootDir>/jest-global-setup.ts',
 	setupFilesAfterEnv: [ '<rootDir>/jest-setup.ts' ],
 	watchPlugins: [ 'jest-watch-typeahead/filename', 'jest-watch-typeahead/testname' ],
+	// Coverage configuration
+	collectCoverage: true,
+	coverageDirectory: 'coverage',
+	coverageReporters: ['json', 'lcov', 'text', 'clover'],
+	coveragePathIgnorePatterns: [
+		'/node_modules/',
+		'/tests/',
+		'/vendor/',
+		'jest-global-setup.ts',
+		'jest-setup.ts'
+	],
+	coverageThreshold: {
+		global: {
+			statements: 0,
+			branches: 0,
+			functions: 0,
+			lines: 0
+		}
+	}
 };

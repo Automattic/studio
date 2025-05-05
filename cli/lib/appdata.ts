@@ -8,7 +8,10 @@ import { getAuthenticationUrl } from 'common/lib/oauth';
 import { snapshotSchema } from 'common/types/snapshot';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
 import { z } from 'zod';
+import { lock, unlock } from 'cli/lib/utils';
 import { LoggerError } from 'cli/logger';
+
+const LOCKFILE_PATH = path.join( getAppdataDirectory(), 'appdata-v1.lock' );
 
 const siteSchema = z
 	.object( {
@@ -56,7 +59,7 @@ export function getAppdataPath(): string {
 	return path.join( appdataDir, 'appdata-v1.json' );
 }
 
-export async function readAppdata(): Promise< UserData > {
+export async function readAppdata( withLock = false ): Promise< UserData > {
 	const appDataPath = getAppdataPath();
 
 	if ( ! fs.existsSync( appDataPath ) ) {
@@ -64,6 +67,10 @@ export async function readAppdata(): Promise< UserData > {
 	}
 
 	try {
+		if ( withLock ) {
+			await lock( LOCKFILE_PATH, { wait: 1000, stale: 1000 } );
+		}
+
 		const fileContent = await readFile( appDataPath, { encoding: 'utf8' } );
 		const userData = JSON.parse( fileContent );
 		return userDataSchema.parse( userData );
@@ -93,19 +100,22 @@ export async function readAppdata(): Promise< UserData > {
 	}
 }
 
-export async function saveAppdata( userData: UserData ): Promise< void > {
-	const appDataPath = getAppdataPath();
-
+export async function saveAppdata( userData: UserData, hasLock = false ): Promise< void > {
 	try {
 		if ( ! userData.version ) {
 			userData.version = 1;
 		}
 
+		const appDataPath = getAppdataPath();
 		const fileContent = JSON.stringify( userData, null, 2 ) + '\n';
 
 		await writeFile( appDataPath, fileContent, { encoding: 'utf8' } );
 	} catch ( error ) {
 		throw new LoggerError( __( 'Failed to save Studio config file' ), error );
+	} finally {
+		if ( hasLock ) {
+			await unlock( LOCKFILE_PATH );
+		}
 	}
 }
 
@@ -166,10 +176,10 @@ export async function getOrCreateSiteByFolder(
 		if ( ! ( error instanceof LoggerError ) ) {
 			throw error;
 		}
-		const userData = await readAppdata();
+		const userData = await readAppdata( true );
 		site = getNewSitePartial( siteFolder );
 		userData.newSites.push( site );
-		await saveAppdata( userData );
+		await saveAppdata( userData, true );
 	}
 	return site;
 }

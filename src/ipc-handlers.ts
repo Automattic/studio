@@ -57,7 +57,7 @@ import { popupMenu, setupMenu } from 'src/menu';
 import { executePreviewCliCommand } from 'src/modules/cli/lib/execute-preview-command';
 import { SiteServer, createSiteWorkingDirectory } from 'src/site-server';
 import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from 'src/storage/paths';
-import { loadUserData, saveUserData } from 'src/storage/user-data';
+import { loadUserData, saveUserData, unlock as unlockUserData } from 'src/storage/user-data';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
 import { SupportedEditor } from './modules/user-settings/lib/editor';
 import { SupportedTerminal } from './modules/user-settings/lib/terminal';
@@ -153,7 +153,7 @@ export async function createSite(
 	enableHttps?: boolean,
 	siteId?: string
 ): Promise< SiteDetails[] > {
-	const userData = await loadUserData();
+	const userData = await loadUserData( true );
 	const forceSetupSqlite = false;
 	// We only recursively create the directory if the user has not selected a
 	// path from the dialog (and thus they use the "default" or suggested path).
@@ -162,12 +162,14 @@ export async function createSite(
 	}
 
 	if ( ! ( await isEmptyDir( path ) ) && ! isWordPressDirectory( path ) ) {
+		await unlockUserData();
 		// Form validation should've prevented a non-empty directory from being selected
 		throw new Error( 'The selected directory is not empty nor an existing WordPress site.' );
 	}
 
 	const allPaths = userData?.sites?.map( ( site ) => site.path ) || [];
 	if ( allPaths.includes( path ) ) {
+		await unlockUserData();
 		return userData.sites;
 	}
 
@@ -178,6 +180,7 @@ export async function createSite(
 			// If site creation failed, remove the generated files and re-throw the
 			// error so it can be handled by the caller.
 			await shell.trashItem( path );
+			await unlockUserData();
 			throw error;
 		}
 	}
@@ -222,7 +225,7 @@ export async function createSite(
 
 	userData.sites.push( server.details );
 	sortSites( userData.sites );
-	await saveUserData( userData );
+	await saveUserData( userData, true );
 
 	return mergeSiteDetailsWithRunningDetails( userData.sites );
 }
@@ -248,10 +251,11 @@ export async function updateSite(
 type WpcomSitesToConnect = { sites: SyncSite[]; localSiteId: string }[];
 
 export async function connectWpcomSites( event: IpcMainInvokeEvent, list: WpcomSitesToConnect ) {
-	const userData = await loadUserData();
+	const userData = await loadUserData( true );
 	const currentUserId = userData.authToken?.id;
 
 	if ( ! currentUserId ) {
+		await unlockUserData();
 		throw new Error( 'User not authenticated' );
 	}
 
@@ -278,7 +282,7 @@ export async function connectWpcomSites( event: IpcMainInvokeEvent, list: WpcomS
 		} );
 	} );
 
-	await saveUserData( userData );
+	await saveUserData( userData, true );
 
 	return connections.filter( ( conn ) =>
 		list.some( ( { localSiteId } ) => conn.localSiteId === localSiteId )
@@ -291,10 +295,11 @@ export async function disconnectWpcomSites(
 	event: IpcMainInvokeEvent,
 	list: WpcomSitesToDisconnect
 ) {
-	const userData = await loadUserData();
+	const userData = await loadUserData( true );
 	const currentUserId = userData.authToken?.id;
 
 	if ( ! currentUserId ) {
+		await unlockUserData();
 		throw new Error( 'User not authenticated' );
 	}
 
@@ -302,6 +307,7 @@ export async function disconnectWpcomSites(
 
 	// Totally unreal case, added it to help TS parse the code below. And if this error happens, we definitely have something wrong.
 	if ( ! Array.isArray( connectedWpcomSites?.[ currentUserId ] ) ) {
+		await unlockUserData();
 		throw new Error(
 			'Something went wrong, since you are trying to disconnect something, but there are no stored connections yet'
 		);
@@ -315,7 +321,7 @@ export async function disconnectWpcomSites(
 		connectedWpcomSites[ currentUserId ] = updatedConnections;
 	} );
 
-	await saveUserData( userData );
+	await saveUserData( userData, true );
 
 	return connectedWpcomSites[ currentUserId ].filter( ( conn ) =>
 		list.some( ( { localSiteId } ) => conn.localSiteId === localSiteId )
@@ -326,16 +332,18 @@ export async function updateConnectedWpcomSites(
 	event: IpcMainInvokeEvent,
 	updatedSites: SyncSite[]
 ) {
-	const userData = await loadUserData();
+	const userData = await loadUserData( true );
 	const currentUserId = userData.authToken?.id;
 
 	if ( ! currentUserId ) {
+		await unlockUserData();
 		throw new Error( 'User not authenticated' );
 	}
 
 	const connections = userData.connectedWpcomSites?.[ currentUserId ] || [];
 
 	if ( ! connections.length ) {
+		await unlockUserData();
 		return;
 	}
 
@@ -349,23 +357,25 @@ export async function updateConnectedWpcomSites(
 		}
 	} );
 
-	await saveUserData( userData );
+	await saveUserData( userData, true );
 }
 
 export async function updateSingleConnectedWpcomSite(
 	event: IpcMainInvokeEvent,
 	updatedSite: SyncSite
 ) {
-	const userData = await loadUserData();
+	const userData = await loadUserData( true );
 	const currentUserId = userData.authToken?.id;
 
 	if ( ! currentUserId ) {
+		await unlockUserData();
 		throw new Error( 'User not authenticated' );
 	}
 
 	const connections = userData.connectedWpcomSites?.[ currentUserId ] || [];
 
 	if ( ! connections.length ) {
+		await unlockUserData();
 		return;
 	}
 
@@ -375,7 +385,9 @@ export async function updateSingleConnectedWpcomSite(
 
 	if ( index !== -1 ) {
 		connections[ index ] = updatedSite;
-		await saveUserData( userData );
+		await saveUserData( userData, true );
+	} else {
+		await unlockUserData();
 	}
 }
 
@@ -544,19 +556,13 @@ export async function showOpenFolderDialog(
 }
 
 export async function saveUserLocale( _event: IpcMainInvokeEvent, locale: string ) {
-	const userData = await loadUserData();
-	await saveUserData( {
-		...userData,
-		locale,
-	} );
+	const userData = await loadUserData( true );
+	await saveUserData( { ...userData, locale }, true );
 }
 
 export async function saveUserEditor( event: IpcMainInvokeEvent, editor: SupportedEditor ) {
-	const userData = await loadUserData();
-	await saveUserData( {
-		...userData,
-		preferredEditor: editor,
-	} );
+	const userData = await loadUserData( true );
+	await saveUserData( { ...userData, preferredEditor: editor }, true );
 
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	sendIpcEventToRendererWithWindow( parentWindow, 'user-preference-changed' );
@@ -678,7 +684,7 @@ export async function deleteSite( event: IpcMainInvokeEvent, id: string, deleteF
 	if ( ! server ) {
 		throw new Error( 'Site not found.' );
 	}
-	const userData = await loadUserData();
+	const userData = await loadUserData( true );
 	await server.delete();
 	try {
 		// Move files to trash
@@ -690,8 +696,7 @@ export async function deleteSite( event: IpcMainInvokeEvent, id: string, deleteF
 		Sentry.captureException( error );
 	}
 	const newSites = userData.sites.filter( ( site ) => site.id !== id );
-	const newUserData = { ...userData, sites: newSites };
-	await saveUserData( newUserData );
+	await saveUserData( { ...userData, sites: newSites }, true );
 	return mergeSiteDetailsWithRunningDetails( newSites );
 }
 
@@ -759,22 +764,16 @@ export async function exportSite(
 }
 
 export async function saveSnapshotsToStorage( event: IpcMainInvokeEvent, snapshots: Snapshot[] ) {
-	const userData = await loadUserData();
-	await saveUserData( {
-		...userData,
-		snapshots,
-	} );
+	const userData = await loadUserData( true );
+	await saveUserData( { ...userData, snapshots }, true );
 }
 
 export async function saveLastSeenVersion(
 	_event: IpcMainInvokeEvent,
 	version: string
 ): Promise< void > {
-	const userData = await loadUserData();
-	await saveUserData( {
-		...userData,
-		lastSeenVersion: version,
-	} );
+	const userData = await loadUserData( true );
+	await saveUserData( { ...userData, lastSeenVersion: version }, true );
 }
 
 export async function getSnapshots( _event: IpcMainInvokeEvent ): Promise< Snapshot[] > {
@@ -927,11 +926,8 @@ export async function saveOnboarding(
 	_event: IpcMainInvokeEvent,
 	onboardingCompleted: boolean
 ): Promise< void > {
-	const userData = await loadUserData();
-	await saveUserData( {
-		...userData,
-		onboardingCompleted,
-	} );
+	const userData = await loadUserData( true );
+	await saveUserData( { ...userData, onboardingCompleted }, true );
 }
 
 export async function executeWPCLiInline(
@@ -1288,11 +1284,8 @@ export async function saveUserTerminal(
 	_event: IpcMainInvokeEvent,
 	preferredTerminal: SupportedTerminal
 ) {
-	const userData = await loadUserData();
-	await saveUserData( {
-		...userData,
-		preferredTerminal: preferredTerminal,
-	} );
+	const userData = await loadUserData( true );
+	await saveUserData( { ...userData, preferredTerminal: preferredTerminal }, true );
 
 	// Notify renderer processes that the terminal preference has changed
 	await sendIpcEventToRenderer( 'user-preference-changed' );
@@ -1360,9 +1353,7 @@ export async function deleteSnapshot(
 export async function handleNewSite( event: IpcMainInvokeEvent, newSite: NewSiteDetails ) {
 	await createSite( event, newSite.path, undefined, undefined, undefined, undefined, newSite.id );
 
-	const userData = await loadUserData();
-	await saveUserData( {
-		...userData,
-		newSites: userData.newSites?.filter( ( s ) => s.id !== newSite.id ),
-	} );
+	const userData = await loadUserData( true );
+	const newSites = userData.newSites?.filter( ( s ) => s.id !== newSite.id );
+	await saveUserData( { ...userData, newSites }, true );
 }

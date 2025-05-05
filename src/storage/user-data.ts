@@ -1,14 +1,41 @@
 import { app } from 'electron';
 import fs from 'fs';
-import nodePath from 'path';
+import nodePath from 'node:path';
 import { SupportedPHPVersion, SupportedPHPVersions } from '@php-wasm/universal';
 import * as Sentry from '@sentry/electron/main';
 import * as atomically from 'atomically';
+import lockfile from 'lockfile';
 import { isErrnoException } from 'src/lib/is-errno-exception';
 import { sanitizeUnstructuredData, sanitizeUserpath } from 'src/lib/sanitize-for-logging';
 import { sortSites } from 'src/lib/sort-sites';
-import { getUserDataFilePath } from 'src/storage/paths';
+import { getResourcesPath, getUserDataFilePath } from 'src/storage/paths';
 import type { PersistedUserData, UserData } from 'src/storage/storage-types';
+
+const LOCKFILE_PATH = nodePath.join( getResourcesPath(), 'appdata-v1.lock' );
+
+function lock( options: lockfile.Options ) {
+	return new Promise< void >( ( resolve, reject ) => {
+		lockfile.lock( LOCKFILE_PATH, options, ( err ) => {
+			if ( err ) {
+				reject( err );
+			} else {
+				resolve();
+			}
+		} );
+	} );
+}
+
+export function unlock() {
+	return new Promise< void >( ( resolve, reject ) => {
+		lockfile.unlock( LOCKFILE_PATH, ( err ) => {
+			if ( err ) {
+				reject( err );
+			} else {
+				resolve();
+			}
+		} );
+	} );
+}
 
 // Before persisting the PHP version of sites, the default PHP version used was 8.0.
 // In case we can't retrieve the PHP version from site details, we assume it was created
@@ -59,11 +86,15 @@ function legacyPopulateSnapshotUserIds( data: UserData ): void {
 	}
 }
 
-export async function loadUserData(): Promise< UserData > {
+export async function loadUserData( withLock = false ): Promise< UserData > {
 	migrateUserDataOldName();
 	const filePath = getUserDataFilePath();
 
 	try {
+		if ( withLock ) {
+			await lock( { wait: 1000, stale: 1000 } );
+		}
+
 		const asString = await fs.promises.readFile( filePath, 'utf-8' );
 		try {
 			const parsed = JSON.parse( asString );
@@ -99,7 +130,7 @@ export async function loadUserData(): Promise< UserData > {
 	}
 }
 
-export async function saveUserData( data: UserData ): Promise< void > {
+export async function saveUserData( data: UserData, withLock = false ): Promise< void > {
 	const filePath = getUserDataFilePath();
 
 	const asString = JSON.stringify( toDiskFormat( data ), null, 2 ) + '\n';
@@ -112,6 +143,10 @@ export async function saveUserData( data: UserData ): Promise< void > {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		if ( ( error as any )?.code === 'EXDEV' ) {
 			await fs.promises.writeFile( filePath, asString, 'utf-8' );
+		}
+	} finally {
+		if ( withLock ) {
+			await unlock();
 		}
 	}
 }

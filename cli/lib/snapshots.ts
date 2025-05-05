@@ -1,5 +1,3 @@
-import path from 'node:path';
-import { promisify } from 'node:util';
 import { __, sprintf } from '@wordpress/i18n';
 // eslint-disable-next-line import/no-named-as-default
 import Table from 'cli-table3';
@@ -13,9 +11,7 @@ import {
 	formatDuration,
 	intervalToDuration,
 } from 'date-fns';
-import lockfile from 'lockfile';
 import {
-	getAppdataDirectory,
 	getAuthToken,
 	getSiteByFolder,
 	readAppdata,
@@ -23,36 +19,6 @@ import {
 	getOrCreateSiteByFolder,
 } from 'cli/lib/appdata';
 import { LoggerError } from 'cli/logger';
-
-const UPDATE_SNAPSHOTS_LOCKFILE_PATH = path.join(
-	getAppdataDirectory(),
-	'studio-update-snapshots.lock'
-);
-
-function lock( path: string, options: lockfile.Options ) {
-	return new Promise< void >( ( resolve, reject ) => {
-		lockfile.lock( path, options, ( err ) => {
-			if ( err ) {
-				reject( err );
-			} else {
-				resolve();
-			}
-		} );
-	} );
-}
-
-const unlock = promisify( lockfile.unlock );
-
-function withLock< Args extends unknown[], Return >( fn: ( ...args: Args ) => Promise< Return > ) {
-	return async ( ...args: Args ) => {
-		try {
-			await lock( UPDATE_SNAPSHOTS_LOCKFILE_PATH, { wait: 1000 } );
-			return await fn( ...args );
-		} finally {
-			await unlock( UPDATE_SNAPSHOTS_LOCKFILE_PATH );
-		}
-	};
-}
 
 export async function getSnapshotsFromAppdata(
 	userId: number,
@@ -75,7 +41,7 @@ export async function updateSnapshotInAppdata(
 	siteFolder: string
 ): Promise< Snapshot > {
 	const site = await getOrCreateSiteByFolder( siteFolder );
-	const userData = await readAppdata();
+	const userData = await readAppdata( true );
 	const snapshot = userData.snapshots.find( ( s ) => s.atomicSiteId === atomicSiteId );
 	if ( ! snapshot ) {
 		throw new LoggerError( __( 'Failed to find existing preview site in appdata' ) );
@@ -83,7 +49,7 @@ export async function updateSnapshotInAppdata(
 
 	snapshot.localSiteId = site.id;
 	snapshot.date = Date.now();
-	await saveAppdata( userData );
+	await saveAppdata( userData, true );
 
 	return snapshot;
 }
@@ -108,7 +74,7 @@ export async function saveSnapshotToAppdata(
 	previewUrl: string
 ): Promise< Snapshot > {
 	const site = await getOrCreateSiteByFolder( siteFolder );
-	const userData = await readAppdata();
+	const userData = await readAppdata( true );
 	const authToken = await getAuthToken();
 
 	const nextSequenceNumber = getNextSequenceNumber( site.id, userData.snapshots, authToken.id );
@@ -128,19 +94,19 @@ export async function saveSnapshotToAppdata(
 	};
 
 	userData.snapshots.push( snapshot );
-	await saveAppdata( userData );
+	await saveAppdata( userData, true );
 	return snapshot;
 }
 
-export const deleteSnapshotFromAppdata = withLock( async ( snapshotUrl: string ) => {
-	const userData = await readAppdata();
+export const deleteSnapshotFromAppdata = async ( snapshotUrl: string ) => {
+	const userData = await readAppdata( true );
 	const snapshotIndex = userData.snapshots.findIndex( ( s ) => s.url === snapshotUrl );
 	if ( snapshotIndex === -1 ) {
 		return;
 	}
 	userData.snapshots.splice( snapshotIndex, 1 );
-	await saveAppdata( userData );
-} );
+	await saveAppdata( userData, true );
+};
 
 export function isSnapshotExpired( snapshot: Snapshot ) {
 	const now = new Date();

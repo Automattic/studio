@@ -11,7 +11,7 @@ describe( 'TerminalPicker', () => {
 	it( 'renders correctly with initial props', () => {
 		render( <TerminalPicker value="terminal" onChange={ mockOnChange } /> );
 
-		expect( screen.getByText( 'Shell' ) ).toBeVisible();
+		expect( screen.getByText( 'Terminal application' ) ).toBeVisible();
 		expect( screen.getByRole( 'combobox' ) ).toBeVisible();
 	} );
 

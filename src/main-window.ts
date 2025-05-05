@@ -62,15 +62,15 @@ export function createMainWindow(): BrowserWindow {
 	} );
 
 	mainWindow.webContents.on( 'devtools-opened', async () => {
-		const data = await loadUserData();
+		const data = await loadUserData( true );
 		data.devToolsOpen = true;
-		await saveUserData( data );
+		await saveUserData( data, true );
 	} );
 
 	mainWindow.webContents.on( 'devtools-closed', async () => {
-		const data = await loadUserData();
+		const data = await loadUserData( true );
 		data.devToolsOpen = false;
-		await saveUserData( data );
+		await saveUserData( data, true );
 	} );
 
 	mainWindow.on( 'closed', () => {

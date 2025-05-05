@@ -34,11 +34,8 @@ async function getToken(): Promise< StoredToken | null > {
 
 async function storeToken( token: StoredToken ) {
 	try {
-		const userData = await loadUserData();
-		await saveUserData( {
-			...userData,
-			authToken: token,
-		} );
+		const userData = await loadUserData( true );
+		await saveUserData( { ...userData, authToken: token }, true );
 	} catch ( error ) {
 		console.error( 'Failed to store token', error );
 	}
@@ -51,11 +48,8 @@ export function getSignUpUrl() {
 
 export async function clearAuthenticationToken() {
 	try {
-		const userData = await loadUserData();
-		await saveUserData( {
-			...userData,
-			authToken: undefined,
-		} );
+		const userData = await loadUserData( true );
+		await saveUserData( { ...userData, authToken: undefined }, true );
 	} catch ( error ) {
 		return;
 	}

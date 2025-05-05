@@ -2,7 +2,7 @@ import { isEmptyDir } from 'src/lib/fs-utils';
 import { saveUserData, loadUserData } from 'src/storage/user-data';
 
 export async function removeSitesWithEmptyDirectories() {
-	const userData = await loadUserData();
+	const userData = await loadUserData( true );
 	const sitesWithNonEmptyDirectories: SiteDetails[] = [];
 	const storedSites = userData.sites || [];
 	for ( const site of storedSites ) {
@@ -14,5 +14,5 @@ export async function removeSitesWithEmptyDirectories() {
 			sitesWithNonEmptyDirectories.push( site );
 		}
 	}
-	await saveUserData( { ...userData, sites: sitesWithNonEmptyDirectories } );
+	await saveUserData( { ...userData, sites: sitesWithNonEmptyDirectories }, true );
 }

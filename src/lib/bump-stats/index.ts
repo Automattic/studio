@@ -76,9 +76,9 @@ async function getLastBump( group: string, stat: string ): Promise< number | nul
 
 // Store this moment as the last time we bumped the state, in UTC time.
 async function updateLastBump( group: string, stat: string ) {
-	const data = await loadUserData();
+	const data = await loadUserData( true );
 	data.lastBumpStats ??= {};
 	data.lastBumpStats[ group ] ??= {};
 	data.lastBumpStats[ group ][ stat ] = Date.now();
-	await saveUserData( data );
+	await saveUserData( data, true );
 }

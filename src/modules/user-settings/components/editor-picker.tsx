@@ -1,6 +1,7 @@
 import { Button, SelectControl } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { useI18n } from '@wordpress/react-i18n';
+import { PropsWithChildren } from 'react';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import {
@@ -26,6 +27,17 @@ export const EditorPicker = ( { value, onChange }: EditorPickerProps ) => {
 
 	const hasEditorInstalled = installedEditors.length > 0;
 
+	const VisualStudioCodeLink = ( props: PropsWithChildren ) => {
+		return (
+			<Button
+				onClick={ () => getIpcApi().openURL( 'https://code.visualstudio.com/' ) }
+				variant="link"
+			>
+				{ props.children } ↗
+			</Button>
+		);
+	};
+
 	const renderEditorRecommendation = () => {
 		if ( hasEditorInstalled ) {
 			return null;
@@ -34,13 +46,8 @@ export const EditorPicker = ( { value, onChange }: EditorPickerProps ) => {
 		return (
 			<p className="text-gray-500">
 				{ /* translators: "Visual Studio Code" is a trademarked brand name by Microsoft. Do not translate brand names. */ }
-				{ createInterpolateElement( __( 'We recommend using <a>Visual Studio Code ↗ </a>.' ), {
-					a: (
-						<Button
-							onClick={ () => getIpcApi().openURL( 'https://code.visualstudio.com/' ) }
-							variant="link"
-						/>
-					),
+				{ createInterpolateElement( __( 'We recommend using <a>Visual Studio Code</a>.' ), {
+					a: <VisualStudioCodeLink />,
 				} ) }
 			</p>
 		);

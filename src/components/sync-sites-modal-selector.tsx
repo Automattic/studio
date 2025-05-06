@@ -3,9 +3,9 @@ import { __, sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useState, useEffect } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
-import { Badge } from 'src/components/badge';
 import Button from 'src/components/button';
 import { CreateButton } from 'src/components/connect-create-buttons';
+import { EnvironmentBadge } from 'src/components/environment-badge';
 import Modal from 'src/components/modal';
 import offlineIcon from 'src/components/offline-icon';
 import { PressableLogo } from 'src/components/pressable-logo';
@@ -272,21 +272,9 @@ function SiteItem( {
 				<div className="flex gap-2">
 					{ ! isPressable && (
 						<>
-							<Badge
-								className={ cx(
-									isSelected
-										? 'bg-white text-a8c-blueberry text-a8c-blueberry'
-										: 'bg-a8c-green-5 text-a8c-green-80'
-								) }
-							>
-								{ __( 'Production' ) }
-							</Badge>
+							<EnvironmentBadge type="production" selected={ isSelected } />
 							{ site.stagingSiteIds.length > 0 && (
-								<Badge
-									className={ cx( isSelected && 'bg-white text-a8c-blueberry text-a8c-blueberry' ) }
-								>
-									{ __( 'Staging' ) }
-								</Badge>
+								<EnvironmentBadge type="staging" selected={ isSelected } />
 							) }
 						</>
 					) }
@@ -294,22 +282,10 @@ function SiteItem( {
 					{ isPressable && environmentType && (
 						<>
 							{ environmentType === 'production' && (
-								<Badge
-									className={ cx(
-										isSelected
-											? 'bg-white text-a8c-blueberry text-a8c-blueberry'
-											: 'bg-a8c-green-5 text-a8c-green-80'
-									) }
-								>
-									{ __( 'Production' ) }
-								</Badge>
+								<EnvironmentBadge type="production" selected={ isSelected } />
 							) }
 							{ environmentType === 'staging' && (
-								<Badge
-									className={ cx( isSelected && 'bg-white text-a8c-blueberry text-a8c-blueberry' ) }
-								>
-									{ __( 'Staging' ) }
-								</Badge>
+								<EnvironmentBadge type="staging" selected={ isSelected } />
 							) }
 						</>
 					) }

@@ -256,19 +256,36 @@ const SyncConnectedSitesList = ( {
 				return (
 					<div
 						className={ `col-span-3 grid min-h-14 px-8 gap-4 justify-items-start items-center border-b border-a8c-gray-0 ${
-							connectedSite.isPressable ? 'grid-cols-[1fr_auto]' : 'grid-cols-subgrid'
+							connectedSite.isPressable && ! connectedSite.environment_type
+								? 'grid-cols-[1fr_auto]'
+								: 'grid-cols-subgrid'
 						}` }
 						key={ connectedSite.id }
 					>
-						{ ! connectedSite.isPressable && (
-							<div className="shrink-0">
-								{ connectedSite.isStaging ? (
-									<Badge>{ __( 'Staging' ) }</Badge>
-								) : (
-									<Badge className="bg-a8c-green-5 text-a8c-green-80">{ __( 'Production' ) }</Badge>
-								) }
-							</div>
-						) }
+						<div className="shrink-0">
+							{ connectedSite.isPressable ? (
+								<>
+									{ connectedSite.environment_type === 'staging' && (
+										<Badge>{ __( 'Staging' ) }</Badge>
+									) }
+									{ connectedSite.environment_type === 'production' && (
+										<Badge className="bg-a8c-green-5 text-a8c-green-80">
+											{ __( 'Production' ) }
+										</Badge>
+									) }
+								</>
+							) : (
+								<>
+									{ connectedSite.isStaging ? (
+										<Badge>{ __( 'Staging' ) }</Badge>
+									) : (
+										<Badge className="bg-a8c-green-5 text-a8c-green-80">
+											{ __( 'Production' ) }
+										</Badge>
+									) }
+								</>
+							) }
+						</div>
 
 						<Button
 							variant="link"

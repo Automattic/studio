@@ -9,7 +9,6 @@ import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { getMainWindow } from 'src/main-window';
 import { installCLIOnMacOSWithConfirmation } from 'src/modules/cli/lib/install-macos';
-import { isCLIFeatureEnabled } from 'src/modules/cli/lib/is-cli-feature-enabled';
 import { isUpdateReadyToInstall, manualCheckForUpdates } from 'src/updates';
 
 export async function setupMenu( config: { needsOnboarding: boolean } ) {
@@ -92,7 +91,7 @@ function getAppMenu(
 						void sendIpcEventToRenderer( 'user-settings' );
 					},
 				},
-				...( process.platform === 'darwin' && isCLIFeatureEnabled()
+				...( process.platform === 'darwin'
 					? [
 							{
 								label: __( 'Install CLI…' ),

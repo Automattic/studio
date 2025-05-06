@@ -8,12 +8,6 @@ import { chatActions, generateMessage } from 'src/stores/chat-slice';
 import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
 
 jest.mock( 'src/lib/get-ipc-api' );
-jest.mock( 'src/hooks/use-check-installed-apps', () => ( {
-	useCheckInstalledApps: jest.fn().mockReturnValue( {
-		vscode: true,
-		phpstorm: false,
-	} ),
-} ) );
 jest.mock( 'src/hooks/use-site-details' );
 
 store.replaceReducer( testReducer );

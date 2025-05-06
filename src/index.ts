@@ -39,7 +39,6 @@ import {
 import { migrateAllDatabasesInSitu } from 'src/migrations/move-databases-in-situ';
 import { removeSitesWithEmptyDirectories } from 'src/migrations/remove-sites-with-empty-dirs';
 import { installCLIOnWindows } from 'src/modules/cli/lib/install-windows';
-import { isCLIFeatureEnabled } from 'src/modules/cli/lib/is-cli-feature-enabled';
 import { setupWPServerFiles, updateWPServerFiles } from 'src/setup-wp-server-files';
 import { stopAllServersOnQuit } from 'src/site-server';
 import { loadUserData, saveUserData } from 'src/storage/user-data';
@@ -300,9 +299,7 @@ async function appBoot() {
 			'weekly'
 		);
 
-		if ( isCLIFeatureEnabled() ) {
-			await installCLIOnWindows();
-		}
+		await installCLIOnWindows();
 
 		finishedInitialization = true;
 	} );

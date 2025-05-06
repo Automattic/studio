@@ -41,11 +41,6 @@ jest.mock( 'src/stores/wpcom-api', () => {
 jest.mock( 'src/lib/get-ipc-api', () => ( {
 	getIpcApi: jest.fn().mockReturnValue( {
 		getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
-		getInstalledTerminals: jest.fn().mockResolvedValue( {
-			terminal: true,
-			iterm: false,
-		} ),
-		getInstalledApps: jest.fn().mockResolvedValue( [ 'vscode', 'phpstorm' ] ),
 	} ),
 } ) );
 
@@ -132,7 +127,7 @@ describe( 'UserSettings', () => {
 				expect( screen.getByText( 'Preferences' ) ).toHaveAttribute( 'aria-selected', 'true' );
 			} );
 			expect( screen.getByText( 'Language' ) ).toBeVisible();
-			expect( screen.getByText( 'Shell' ) ).toBeVisible();
+			expect( screen.getByText( 'Terminal application' ) ).toBeVisible();
 
 			// Switch to Usage tab
 			fireEvent.click( screen.getByText( 'Usage' ) );

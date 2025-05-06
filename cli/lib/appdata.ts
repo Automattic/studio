@@ -168,9 +168,6 @@ export async function getOrCreateSiteByFolder(
 		}
 		const userData = await readAppdata();
 		site = getNewSitePartial( siteFolder );
-		if ( ! userData.newSites ) {
-			userData.newSites = [];
-		}
 		userData.newSites.push( site );
 		await saveAppdata( userData );
 	}

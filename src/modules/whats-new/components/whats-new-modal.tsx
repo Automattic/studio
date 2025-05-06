@@ -7,7 +7,6 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import cliIllustration from 'src/modules/whats-new/assets/cli-illustration.svg';
 import customDomainIllustration from 'src/modules/whats-new/assets/custom-domains-illustration.svg';
 import previewSitesIllustration from 'src/modules/whats-new/assets/preview-sites-illustration.svg';
-import studioIllustration from 'src/modules/whats-new/assets/studio-illustration.svg';
 import versionSwitchIllustration from 'src/modules/whats-new/assets/version-switch-illustration.svg';
 import 'src/index.css';
 
@@ -54,13 +53,6 @@ const PageContent = ( {
 
 export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProps ) {
 	const whatsNewPages: WhatsNewPage[] = [
-		{
-			image: studioIllustration,
-			title: __( 'What is new in Studio?' ),
-			description: __(
-				'Discover the latest updates in Studio! Explore exciting new features designed to enhance your experience.'
-			),
-		},
 		{
 			image: cliIllustration,
 			title: __( 'Introducing Studio CLI' ),
@@ -119,11 +111,16 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 			) }
 			pages={ whatsNewPages.map( ( { image, title, ...pageContent }, index ) => ( {
 				image: (
-					<img
-						src={ image }
-						alt={ sprintf( __( 'Illustration for %s' ), title ) }
-						className="h-[195px] w-full object-cover mb-3"
-					/>
+					<div className="relative">
+						<div className="absolute top-[13px] left-[13px] rtl:left-auto rtl:right-[13px] bg-a8c-gray-90 text-a8c-gray-5 text-xs px-2 py-1 rounded-sm">
+							{ __( "What's new" ) }
+						</div>
+						<img
+							src={ image }
+							alt={ sprintf( __( 'Illustration for %s' ), title ) }
+							className="h-[195px] w-full object-cover mb-3"
+						/>
+					</div>
 				),
 				content: (
 					<div className={ index === 0 ? 'whats-new-intro-page' : '' }>
@@ -132,6 +129,8 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 				),
 			} ) ) }
 			finishButtonText={ __( 'Done' ) }
+			nextButtonText={ __( 'Next' ) }
+			previousButtonText={ __( 'Previous' ) }
 		/>
 	);
 }

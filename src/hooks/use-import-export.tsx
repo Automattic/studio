@@ -18,7 +18,7 @@ import {
 	BackupExtractProgressEventData,
 } from 'src/lib/import-export/import/types';
 
-type ImportProgressState = {
+export type ImportProgressState = {
 	[ siteId: string ]: {
 		statusMessage: string;
 		progress: number;

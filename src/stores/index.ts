@@ -9,6 +9,7 @@ import { LOCAL_STORAGE_CHAT_API_IDS_KEY, LOCAL_STORAGE_CHAT_MESSAGES_KEY } from 
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { appVersionApi } from 'src/stores/app-version-api';
 import { reducer as chatReducer } from 'src/stores/chat-slice';
+import { installedAppsApi } from 'src/stores/installed-apps-api';
 import { reducer as newSitesReducer } from 'src/stores/new-sites-slice';
 import { reducer as snapshotReducer, updateSnapshotLocally } from 'src/stores/snapshot-slice';
 import { wpcomApi } from 'src/stores/wpcom-api';
@@ -18,6 +19,7 @@ export type RootState = {
 	appVersionApi: ReturnType< typeof appVersionApi.reducer >;
 	chat: ReturnType< typeof chatReducer >;
 	newSites: ReturnType< typeof newSitesReducer >;
+	installedAppsApi: ReturnType< typeof installedAppsApi.reducer >;
 	snapshot: ReturnType< typeof snapshotReducer >;
 	wordpressVersionsApi: ReturnType< typeof wordpressVersionsApi.reducer >;
 	wpcomApi: ReturnType< typeof wpcomApi.reducer >;
@@ -66,6 +68,7 @@ export const rootReducer = combineReducers( {
 	appVersionApi: appVersionApi.reducer,
 	chat: chatReducer,
 	newSites: newSitesReducer,
+	installedAppsApi: installedAppsApi.reducer,
 	snapshot: snapshotReducer,
 	wordpressVersionsApi: wordpressVersionsApi.reducer,
 	wpcomApi: wpcomApi.reducer,
@@ -77,6 +80,7 @@ export const store = configureStore( {
 		getDefaultMiddleware()
 			.prepend( listenerMiddleware.middleware )
 			.concat( appVersionApi.middleware )
+			.concat( installedAppsApi.middleware )
 			.concat( wordpressVersionsApi.middleware )
 			.concat( wpcomApi.middleware ),
 } );

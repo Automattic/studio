@@ -1,7 +1,10 @@
 // To run tests, execute `npm run test -- src/components/tests/content-tab-overview.test.tsx` from the root directory
 import { render, screen } from '@testing-library/react';
+import { Provider } from 'react-redux';
 import { ContentTabOverview } from 'src/components/content-tab-overview';
 import { useThemeDetails } from 'src/hooks/use-theme-details';
+import { store } from 'src/stores';
+import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
 
 jest.mock( 'src/lib/app-globals', () => ( {
 	isWindows: jest.fn().mockReturnValue( false ),
@@ -12,12 +15,10 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 	getIpcApi: jest.fn().mockReturnValue( {
 		getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
 		getUserEditor: jest.fn().mockResolvedValue( 'vscode' ),
-		getInstalledTerminals: jest.fn().mockResolvedValue( {
-			terminal: true,
-			iterm: false,
-		} ),
 	} ),
 } ) );
+
+store.replaceReducer( testReducer );
 
 const runningSite: StartedSiteDetails = {
 	name: 'Test Site',
@@ -50,6 +51,7 @@ const blockThemeButtonLabels = [
 describe( 'ContentTabOverview', () => {
 	beforeEach( () => {
 		jest.clearAllMocks();
+		store.dispatch( testActions.resetState() );
 	} );
 
 	const renderWithThemeDetails = ( {
@@ -71,7 +73,11 @@ describe( 'ContentTabOverview', () => {
 			},
 			selectedLoadingThemeDetails: false,
 		} );
-		render( <ContentTabOverview selectedSite={ selectedSite } /> );
+		render(
+			<Provider store={ store }>
+				<ContentTabOverview selectedSite={ selectedSite } />
+			</Provider>
+		);
 	};
 
 	describe( 'with block theme', () => {

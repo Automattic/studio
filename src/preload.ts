@@ -70,7 +70,7 @@ const api: IpcApi = {
 	showItemInFolder: ( path ) => ipcRendererSend( 'showItemInFolder', path ),
 	getThemeDetails: ( id ) => ipcRendererInvoke( 'getThemeDetails', id ),
 	getThumbnailData: ( id ) => ipcRendererInvoke( 'getThumbnailData', id ),
-	getInstalledApps: () => ipcRendererInvoke( 'getInstalledApps' ),
+	getInstalledAppsAndTerminals: () => ipcRendererInvoke( 'getInstalledAppsAndTerminals' ),
 	importSite: ( { id, backupFile } ) => ipcRendererInvoke( 'importSite', { id, backupFile } ),
 	executeWPCLiInline: ( options ) => ipcRendererInvoke( 'executeWPCLiInline', options ),
 	getOnboardingData: () => ipcRendererInvoke( 'getOnboardingData' ),
@@ -112,7 +112,6 @@ const api: IpcApi = {
 	saveUserTerminal: ( preferredTerminal ) =>
 		ipcRendererInvoke( 'saveUserTerminal', preferredTerminal ),
 	getUserTerminal: () => ipcRendererInvoke( 'getUserTerminal' ),
-	getInstalledTerminals: () => ipcRendererInvoke( 'getInstalledTerminals' ),
 	getUserEditor: () => ipcRendererInvoke( 'getUserEditor' ),
 	saveUserEditor: ( editor ) => ipcRendererInvoke( 'saveUserEditor', editor ),
 	handleNewSite: ( newSite ) => ipcRendererInvoke( 'handleNewSite', newSite ),

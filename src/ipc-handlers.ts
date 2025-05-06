@@ -106,13 +106,17 @@ export async function getSiteDetails( _event: IpcMainInvokeEvent ): Promise< Sit
 	return mergeSiteDetailsWithRunningDetails( sites );
 }
 
-export function getInstalledApps(): InstalledApps {
+export function getInstalledAppsAndTerminals(): InstalledApps {
 	return {
 		vscode: isInstalled( 'vscode' ),
 		phpstorm: isInstalled( 'phpstorm' ),
 		webstorm: isInstalled( 'webstorm' ),
 		windsurf: isInstalled( 'windsurf' ),
 		cursor: isInstalled( 'cursor' ),
+		terminal: true, // Terminal.app is always available on macOS
+		iterm: isInstalled( 'iterm' ),
+		warp: isInstalled( 'warp' ),
+		ghostty: isInstalled( 'ghostty' ),
 	};
 }
 
@@ -415,17 +419,27 @@ export async function startServer(
 	try {
 		await server.start();
 	} catch ( error ) {
+		/**
+		 * We don't want to track WASM memory errors in Sentry
+		 * because they are caused by the user's system not having enough memory
+		 * and aren't a bug in Studio.
+		 *
+		 * When the error is thrown, we show a user-friendly message
+		 * to the user, with instructions on how to provide more memory to Studio.
+		 */
+		if (
+			error instanceof Error &&
+			error.message.includes( 'Cannot allocate Wasm memory for new instance' )
+		) {
+			throw new Error( 'WASM_ERROR_NOT_ENOUGH_MEMORY' );
+		}
+
 		Sentry.captureException( error );
 		if (
 			error instanceof Error &&
 			error.message.includes( '"unreachable" WASM instruction executed' )
 		) {
 			throw new Error( 'Please try disabling plugins and themes that might be causing the issue.' );
-		} else if (
-			error instanceof Error &&
-			error.message.includes( 'Cannot allocate Wasm memory for new instance' )
-		) {
-			throw new Error( 'WASM_ERROR_NOT_ENOUGH_MEMORY' );
 		}
 		throw error;
 	}
@@ -1304,15 +1318,6 @@ export async function getAllCustomDomains(): Promise< string[] > {
 	return userData.sites
 		.map( ( site ) => site.customDomain )
 		.filter( ( domain ): domain is string => domain !== undefined );
-}
-
-export function getInstalledTerminals(): InstalledTerminals {
-	return {
-		terminal: true, // Terminal.app is always available on macOS
-		iterm: isInstalled( 'iterm' ),
-		warp: isInstalled( 'warp' ),
-		ghostty: isInstalled( 'ghostty' ),
-	};
 }
 
 export function getRandomUUID(): crypto.UUID {

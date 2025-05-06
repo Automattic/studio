@@ -1,43 +1,27 @@
 import { SelectControl } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
-import { useEffect, useState } from 'react';
-import { getIpcApi } from 'src/lib/get-ipc-api';
-import { SupportedEditor, supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
+import { SupportedEditor } from 'src/modules/user-settings/lib/editor';
+import {
+	useGetInstalledAppsQuery,
+	selectInstalledEditors,
+	selectUninstalledEditors,
+} from 'src/stores/installed-apps-api';
 import { SettingsFormField } from './settings-form-field';
 
 interface EditorPickerProps {
 	value: SupportedEditor | undefined;
-	onChange: ( value: SupportedEditor | undefined ) => void;
+	onChange: ( value: SupportedEditor ) => void;
+	disabled?: boolean;
 }
 
-export const EditorPicker = ( { value, onChange }: EditorPickerProps ) => {
+export const EditorPicker = ( { value, onChange, disabled }: EditorPickerProps ) => {
 	const { __ } = useI18n();
-	const [ installedApps, setInstalledApps ] = useState< {
-		vscode: boolean | null;
-		phpstorm: boolean | null;
-	} >( {
-		vscode: null,
-		phpstorm: null,
+	const { installedEditors, uninstalledEditors } = useGetInstalledAppsQuery( undefined, {
+		selectFromResult: ( result ) => ( {
+			installedEditors: selectInstalledEditors( result.data ),
+			uninstalledEditors: selectUninstalledEditors( result.data ),
+		} ),
 	} );
-
-	useEffect( () => {
-		getIpcApi()
-			.getInstalledApps()
-			.then( ( apps ) => {
-				setInstalledApps( apps );
-			} )
-			.catch( ( error ) => {
-				console.error( 'Failed to fetch installed apps:', error );
-			} );
-	}, [] );
-
-	const installedEditors = Object.entries( supportedEditorConfig ).filter(
-		( [ editor ] ) => installedApps[ editor as keyof typeof installedApps ]
-	);
-
-	const uninstalledEditors = Object.entries( supportedEditorConfig ).filter(
-		( [ editor ] ) => ! installedApps[ editor as keyof typeof installedApps ]
-	);
 
 	return (
 		<SettingsFormField label={ __( 'Code editor' ) }>
@@ -46,13 +30,16 @@ export const EditorPicker = ( { value, onChange }: EditorPickerProps ) => {
 				onChange={ ( newValue ) => onChange( newValue as SupportedEditor ) }
 				__nextHasNoMarginBottom
 				__next40pxDefaultSize
+				disabled={ disabled }
 			>
 				{ ! value && <option value={ '' }>{ __( 'Select' ) }</option> }
-				{ installedEditors.map( ( [ editorKey, editorConfig ] ) => (
-					<option key={ editorKey } value={ editorKey }>
-						{ editorConfig.label }
-					</option>
-				) ) }
+				<optgroup label={ __( 'Available editors' ) }>
+					{ installedEditors.map( ( [ editorKey, editorConfig ] ) => (
+						<option key={ editorKey } value={ editorKey }>
+							{ editorConfig.label }
+						</option>
+					) ) }
+				</optgroup>
 				<optgroup label={ __( 'Not installed' ) }>
 					{ uninstalledEditors.map( ( [ editorKey, editorConfig ] ) => (
 						<option key={ editorKey } value={ editorKey } disabled>

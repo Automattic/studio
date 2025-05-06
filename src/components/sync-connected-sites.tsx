@@ -1,6 +1,6 @@
 import { Icon } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
-import { sprintf } from '@wordpress/i18n';
+import { I18n, sprintf } from '@wordpress/i18n';
 import { cloudUpload, cloudDownload } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useMemo } from 'react';
@@ -18,8 +18,14 @@ import { WordPressLogoCircle } from 'src/components/wordpress-logo-circle';
 import { useSyncSites } from 'src/hooks/sync-sites';
 import { useConfirmationDialog } from 'src/hooks/use-confirmation-dialog';
 import { useI18nData } from 'src/hooks/use-i18n-data';
+import { ImportProgressState, useImportExport } from 'src/hooks/use-import-export';
 import { useOffline } from 'src/hooks/use-offline';
-import { useSyncStatesProgressInfo } from 'src/hooks/use-sync-states-progress-info';
+import {
+	IMPORTING_INITIAL_VALUE,
+	IMPORTING_TO_FINISHED_STEP,
+	PullStateProgressInfo,
+	useSyncStatesProgressInfo,
+} from 'src/hooks/use-sync-states-progress-info';
 import { cx } from 'src/lib/cx';
 import { getDocsLink } from 'src/lib/get-docs-link';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -195,12 +201,37 @@ const SyncConnectedSiteControls = ( {
 
 type SyncConnectedSitesListProps = {
 	selectedSite: SiteDetails;
+	connectedSites: SyncSite[];
 };
 
-const SyncConnectedSitesList = ( { selectedSite }: SyncConnectedSitesListProps ) => {
+const getStatusWithProgress = (
+	__: I18n[ '__' ],
+	sitePullState?: PullStateProgressInfo,
+	importState?: ImportProgressState[ string ]
+) => {
+	if ( ! importState && sitePullState ) {
+		return { message: sitePullState.message, progress: sitePullState.progress };
+	}
+	if ( importState ) {
+		if ( importState.progress === 100 ) {
+			return { message: __( 'Applying final details…' ), progress: 99 };
+		}
+		return {
+			message: importState.statusMessage,
+			progress:
+				IMPORTING_INITIAL_VALUE + IMPORTING_TO_FINISHED_STEP * ( importState.progress / 100 ),
+		};
+	}
+	return { message: '', progress: 0 };
+};
+
+const SyncConnectedSitesList = ( {
+	selectedSite,
+	connectedSites,
+}: SyncConnectedSitesListProps ) => {
 	const { __ } = useI18n();
-	const { clearPullState, getPullState, getPushState, clearPushState, connectedSites } =
-		useSyncSites();
+	const { clearPullState, getPullState, getPushState, clearPushState } = useSyncSites();
+	const { importState } = useImportExport();
 	const { isKeyPulling, isKeyPushing, isKeyFinished, isKeyFailed } = useSyncStatesProgressInfo();
 
 	return (
@@ -210,6 +241,12 @@ const SyncConnectedSitesList = ( { selectedSite }: SyncConnectedSitesListProps )
 				const isPulling = sitePullState && isKeyPulling( sitePullState.status.key );
 				const isPullError = sitePullState && isKeyFailed( sitePullState.status.key );
 				const hasPullFinished = sitePullState && isKeyFinished( sitePullState.status.key );
+				const { message: sitePullStatusMessage, progress: sitePullStatusProgress } =
+					getStatusWithProgress(
+						__,
+						sitePullState?.status,
+						importState[ connectedSite.localSiteId ]
+					);
 
 				const pushState = getPushState( selectedSite.id, connectedSite.id );
 				const isPushing = pushState && isKeyPushing( pushState.status.key );
@@ -246,8 +283,8 @@ const SyncConnectedSitesList = ( { selectedSite }: SyncConnectedSitesListProps )
 						<div className="flex shrink-0 justify-self-end">
 							{ isPulling && (
 								<div className="flex flex-col gap-2 min-w-44">
-									<div className="a8c-body-small">{ sitePullState.status.message }</div>
-									<ProgressBar value={ sitePullState.status.progress } maxValue={ 100 } />
+									<div className="a8c-body-small">{ sitePullStatusMessage }</div>
+									<ProgressBar value={ sitePullStatusProgress } maxValue={ 100 } />
 								</div>
 							) }
 							{ isPullError && (
@@ -376,7 +413,7 @@ const SyncConnectedSiteSection = ( {
 
 	return (
 		<div key={ section.id } className="flex flex-col gap-2 mb-6">
-			<div className="flex items-center gap-2 py-2.5 border-b border-a8c-gray-0 px-8">
+			<div className="flex items-center gap-2 border-b border-a8c-gray-0 px-8 pb-2.5">
 				{ logo }
 				<div className={ cx( 'a8c-label-semibold', hasConnectionErrors && 'error-message' ) }>
 					{ section.name }
@@ -428,7 +465,12 @@ const SyncConnectedSiteSection = ( {
 				</div>
 			) }
 
-			{ ! hasConnectionErrors && <SyncConnectedSitesList selectedSite={ selectedSite } /> }
+			{ ! hasConnectionErrors && (
+				<SyncConnectedSitesList
+					selectedSite={ selectedSite }
+					connectedSites={ section.connectedSites }
+				/>
+			) }
 		</div>
 	);
 };
@@ -479,7 +521,7 @@ export function SyncConnectedSites( {
 	}, [ connectedSites ] );
 
 	return (
-		<div className="flex flex-col flex-1 pt-8 overflow-y-auto">
+		<div className="flex flex-col flex-1 pt-8">
 			{ siteSections.map( ( section ) => (
 				<SyncConnectedSiteSection
 					key={ section.id }

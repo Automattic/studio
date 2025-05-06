@@ -794,20 +794,23 @@ export async function getLastSeenVersion(
 	return userData.lastSeenVersion;
 }
 
-export function openSiteURL(
+export async function openSiteURL(
 	event: IpcMainInvokeEvent,
 	id: string,
 	relativeURL = '',
 	{ autoLogin = true }: { autoLogin?: boolean } = {}
 ) {
 	const site = SiteServer.get( id );
-	if ( ! site ) {
-		throw new Error( 'Site not found.' );
+	if ( ! site?.server?.url ) {
+		await showMessageBox( event, {
+			type: 'error',
+			message: __( 'Failed to open link' ),
+			detail: __( 'Please ensure your site files have not been moved or deleted.' ),
+		} );
+		return;
 	}
-	if ( ! site.server?.url ) {
-		throw new Error( 'Site server URL not found.' );
-	}
-	const url = new URL( site.server.url + relativeURL );
+
+	const url = new URL( relativeURL, site.server.url );
 	if ( autoLogin ) {
 		url.searchParams.append( 'playground-auto-login', 'true' );
 	}
@@ -1064,10 +1067,7 @@ END` );
 	}
 }
 
-export async function showMessageBox(
-	event: IpcMainInvokeEvent,
-	options: Electron.MessageBoxOptions
-) {
+export function showMessageBox( event: IpcMainInvokeEvent, options: Electron.MessageBoxOptions ) {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	if ( parentWindow && ! parentWindow.isDestroyed() && ! event.sender.isDestroyed() ) {
 		return dialog.showMessageBox( parentWindow, options );

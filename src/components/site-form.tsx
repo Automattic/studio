@@ -363,7 +363,7 @@ export const SiteForm = ( {
 										isAdvancedSettingsVisible ? 'h-auto opacity-100' : 'h-0 opacity-0'
 									) }
 								>
-									<div className={ cx( 'flex flex-col gap-1.5 leading-4 py-2' ) }>
+									<div className={ cx( 'flex flex-col gap-1.5 leading-4 py-4' ) }>
 										<label onClick={ onSelectPath } className="font-semibold">
 											{ __( 'Local path' ) }
 										</label>

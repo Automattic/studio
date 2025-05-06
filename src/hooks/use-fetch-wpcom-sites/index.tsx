@@ -16,6 +16,7 @@ export const sitesEndpointSiteSchema = z.object( {
 	jetpack: z.boolean().optional(),
 	is_deleted: z.boolean(),
 	hosting_provider_guess: z.string().optional(),
+	environment_type: z.string().optional(),
 	is_a8c: z.boolean().optional(),
 	options: z
 		.object( {
@@ -107,6 +108,7 @@ export function transformSingleSiteResponse(
 		url: site.URL,
 		isStaging,
 		isPressable: isPressableSite( site ),
+		environment_type: site.environment_type,
 		stagingSiteIds: site.options?.wpcom_staging_blog_ids ?? [],
 		syncSupport,
 		lastPullTimestamp: null,
@@ -174,7 +176,9 @@ export const useFetchWpComSites = ( connectedSiteIdsOnlyForSelectedSite: number[
 
 			const baseFields =
 				'name,ID,URL,plan,capabilities,is_wpcom_atomic,options,jetpack,is_deleted,is_a8c';
-			const fields = pressableSyncEnabled ? `${ baseFields },hosting_provider_guess` : baseFields;
+			const fields = pressableSyncEnabled
+				? `${ baseFields },hosting_provider_guess,environment_type`
+				: baseFields;
 
 			const response = await client.req.get(
 				{

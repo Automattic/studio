@@ -8,6 +8,10 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { store } from 'src/stores';
 import { testReducer } from 'src/stores/tests/utils/test-reducer';
 
+jest.mock( 'src/lib/app-globals', () => ( {
+	isWindows: jest.fn().mockReturnValue( false ),
+} ) );
+
 const selectedSite: StartedSiteDetails = {
 	name: 'Test Site',
 	port: 8881,

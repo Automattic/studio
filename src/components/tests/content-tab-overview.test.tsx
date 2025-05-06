@@ -6,6 +6,10 @@ import { useThemeDetails } from 'src/hooks/use-theme-details';
 import { store } from 'src/stores';
 import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
 
+jest.mock( 'src/lib/app-globals', () => ( {
+	isWindows: jest.fn().mockReturnValue( false ),
+} ) );
+
 jest.mock( 'src/hooks/use-theme-details' );
 jest.mock( 'src/lib/get-ipc-api', () => ( {
 	getIpcApi: jest.fn().mockReturnValue( {

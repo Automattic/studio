@@ -20,11 +20,11 @@ import { ButtonsSection, ButtonsSectionProps } from 'src/components/buttons-sect
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { useThemeDetails } from 'src/hooks/use-theme-details';
-import { isMac } from 'src/lib/app-globals';
+import { isWindows } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
-import { getTerminalName } from 'src/modules/user-settings/lib/terminal';
+import { getTerminalName, supportedTerminalNames } from 'src/modules/user-settings/lib/terminal';
 import { useGetUserEditorQuery, useGetUserTerminalQuery } from 'src/stores/installed-apps-api';
 
 interface ContentTabOverviewProps {
@@ -143,15 +143,13 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 	const { data: editor } = useGetUserEditorQuery();
 	const { data: terminal } = useGetUserTerminalQuery();
 
-	const terminalName = getTerminalName( terminal );
-
 	const buttonsArray: ButtonsSectionProps[ 'buttonsArray' ] = [
 		{
-			label: isMac()
-				? // translators: name of app used to navigate files and folders on macOS
-				  __( 'Finder' )
-				: // translators: name of app used to navigate files and folders on Windows
-				  __( 'File explorer' ),
+			label: isWindows()
+				? // translators: name of app used to navigate files and folders on Windows
+				  __( 'File explorer' )
+				: // translators: name of app used to navigate files and folders on macOS
+				  __( 'Finder' ),
 			className: 'text-nowrap',
 			icon: archive,
 			onClick: () => {
@@ -172,6 +170,14 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 		} );
 	}
 
+	let terminalName = getTerminalName( terminal );
+	if ( terminal === 'terminal' ) {
+		terminalName = isWindows()
+			? // translators: name of the default terminal application on Windows
+			  __( 'Command Prompt' )
+			: // translators: name of the default terminal application on macOS
+			  __( 'Terminal' );
+	}
 	buttonsArray.push( {
 		label: terminalName,
 		className: 'text-nowrap',

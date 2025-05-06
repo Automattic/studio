@@ -3,7 +3,7 @@ import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf, _n } from '@wordpress/i18n';
 import { tip, warning, trash, chevronRight, chevronDown, chevronLeft } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { FormEvent, useRef, useState } from 'react';
+import { FormEvent, useRef, useState, useEffect } from 'react';
 import Button from 'src/components/button';
 import FolderIcon from 'src/components/folder-icon';
 import TextControlComponent from 'src/components/text-control';
@@ -266,6 +266,13 @@ export const SiteForm = ( {
 	const { __, isRTL } = useI18n();
 	const { locale } = useI18nData();
 	const isCertificateTrusted = useCertificateTrust();
+
+	// If the custom domain is enabled and the root certificate is trusted, enable HTTPS
+	useEffect( () => {
+		if ( useCustomDomain && isCertificateTrusted && setEnableHttps ) {
+			setEnableHttps( true );
+		}
+	}, [ useCustomDomain, isCertificateTrusted, setEnableHttps ] );
 
 	const shouldShowCustomDomainError = useCustomDomain && customDomainError;
 	const errorCount = [ error, shouldShowCustomDomainError ].filter( Boolean ).length;

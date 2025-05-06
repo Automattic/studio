@@ -198,12 +198,6 @@ describe( 'ShortcutsSection', () => {
 			openLocalPath: jest.fn(),
 			getUserEditor: jest.fn().mockResolvedValue( 'cursor' ),
 			getUserTerminal: jest.fn().mockResolvedValue( null ),
-			getInstalledTerminals: jest.fn().mockResolvedValue( [] ),
-			getInstalledApps: jest.fn().mockResolvedValue( {
-				vscode: true,
-				phpstorm: true,
-				cursor: true,
-			} ),
 		} );
 
 		const { queryByLabelText, findByLabelText } = renderWithProvider(

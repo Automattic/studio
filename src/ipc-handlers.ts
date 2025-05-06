@@ -986,6 +986,17 @@ function promiseExec( command: string, options: ExecOptions = {} ): Promise< voi
 	} );
 }
 
+export async function openAppAtPath(
+	_event: IpcMainInvokeEvent,
+	bundleId: string,
+	targetPath: string
+) {
+	const platform = process.platform;
+	if ( platform === 'darwin' ) {
+		return promiseExec( `open -b ${ bundleId } "${ targetPath }"` );
+	}
+}
+
 export async function openTerminalAtPath(
 	_event: IpcMainInvokeEvent,
 	targetPath: string,

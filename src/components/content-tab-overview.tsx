@@ -20,11 +20,11 @@ import { ButtonsSection, ButtonsSectionProps } from 'src/components/buttons-sect
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { useThemeDetails } from 'src/hooks/use-theme-details';
-import { isWindows } from 'src/lib/app-globals';
+import { isMac, isWindows } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
-import { getTerminalName, supportedTerminalNames } from 'src/modules/user-settings/lib/terminal';
+import { getTerminalName } from 'src/modules/user-settings/lib/terminal';
 import { useGetUserEditorQuery, useGetUserTerminalQuery } from 'src/stores/installed-apps-api';
 
 interface ContentTabOverviewProps {
@@ -164,8 +164,12 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 			label: editorConfig.label,
 			className: 'text-nowrap',
 			icon: code,
-			onClick: () => {
-				getIpcApi().openURL( editorConfig.url( selectedSite.path ) );
+			onClick: async () => {
+				if ( isMac() ) {
+					await getIpcApi().openAppAtPath( editorConfig.bundleId, selectedSite.path );
+				} else {
+					getIpcApi().openURL( editorConfig.url( selectedSite.path ) );
+				}
 			},
 		} );
 	}

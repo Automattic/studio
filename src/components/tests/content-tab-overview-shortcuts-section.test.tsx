@@ -4,12 +4,14 @@ import { Provider } from 'react-redux';
 import { ContentTabOverview } from 'src/components/content-tab-overview';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useThemeDetails } from 'src/hooks/use-theme-details';
+import { isMac } from 'src/lib/app-globals';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { store } from 'src/stores';
 import { testReducer } from 'src/stores/tests/utils/test-reducer';
 
 jest.mock( 'src/lib/app-globals', () => ( {
 	isWindows: jest.fn().mockReturnValue( false ),
+	isMac: jest.fn().mockReturnValue( false ),
 } ) );
 
 const selectedSite: StartedSiteDetails = {
@@ -55,8 +57,10 @@ describe( 'ShortcutsSection', () => {
 	it( 'opens site in VS Code when the user select VS Code and clicked the button', async () => {
 		// Mock the IPC API with getInstalledApps returning the installed apps
 		const openURLMock = jest.fn();
+		const openAppAtPathMock = jest.fn();
 		mockGetIpcApi.mockReturnValue( {
 			openURL: openURLMock,
+			openAppAtPath: openAppAtPathMock,
 			getUserEditor: jest.fn().mockResolvedValue( 'vscode' ),
 			getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
 			getInstalledAppsAndTerminals: jest.fn().mockResolvedValue( {
@@ -88,10 +92,12 @@ describe( 'ShortcutsSection', () => {
 	} );
 
 	it( 'opens site in PhpStorm when PhpStorm is installed and the button is clicked, only available on MacOS', async () => {
+		( isMac as jest.Mock ).mockReturnValue( true );
+
 		// Mock the IPC API with getInstalledApps returning the installed apps
-		const openURLMock = jest.fn();
+		const openAppAtPathMock = jest.fn();
 		mockGetIpcApi.mockReturnValue( {
-			openURL: openURLMock,
+			openAppAtPath: openAppAtPathMock,
 			getUserEditor: jest.fn().mockResolvedValue( 'phpstorm' ), // User prefers PhpStorm
 			getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
 			getInstalledAppsAndTerminals: jest.fn().mockResolvedValue( {
@@ -116,7 +122,7 @@ describe( 'ShortcutsSection', () => {
 		fireEvent.click( phpStormButton );
 
 		await waitFor( () =>
-			expect( openURLMock ).toHaveBeenCalledWith( expect.stringContaining( 'phpstorm://' ) )
+			expect( openAppAtPathMock ).toHaveBeenCalledWith( 'com.jetbrains.PhpStorm', '/path/to/site' )
 		);
 	} );
 

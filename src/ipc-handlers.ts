@@ -805,7 +805,7 @@ export async function openSiteURL(
 		await showMessageBox( event, {
 			type: 'error',
 			message: __( 'Site server URL not found.' ),
-			detail: __( 'Please try again later.' ),
+			detail: __( 'Please ensure your site files have not been moved or deleted.' ),
 		} );
 		return;
 	}

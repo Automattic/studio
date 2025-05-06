@@ -25,7 +25,7 @@ export const supportedEditorConfig: Record< SupportedEditor, SupportedEditorConf
 	},
 	windsurf: {
 		// translators: "Windsurf" is the brand name for an IDE and does not need to be translated
-		label: __( 'WindSurf' ),
+		label: __( 'Windsurf' ),
 		url: ( path: string ) => `windsurf://file/${ path }?windowId=_blank`,
 	},
 	cursor: {

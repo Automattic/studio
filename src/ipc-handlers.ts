@@ -106,7 +106,7 @@ export async function getSiteDetails( _event: IpcMainInvokeEvent ): Promise< Sit
 	return mergeSiteDetailsWithRunningDetails( sites );
 }
 
-export function getInstalledAppsAndTerminals(): InstalledApps & InstalledTerminals {
+export function getInstalledAppsAndTerminals(): InstalledApps {
 	return {
 		vscode: isInstalled( 'vscode' ),
 		phpstorm: isInstalled( 'phpstorm' ),

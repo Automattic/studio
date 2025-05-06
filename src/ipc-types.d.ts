@@ -53,9 +53,6 @@ type InstalledApps = {
 	webstorm: boolean;
 	windsurf: boolean;
 	cursor: boolean;
-};
-
-type InstalledTerminals = {
 	terminal: boolean;
 	iterm: boolean;
 	warp: boolean;

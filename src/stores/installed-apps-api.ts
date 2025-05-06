@@ -8,14 +8,12 @@ import {
 } from 'src/modules/user-settings/lib/editor';
 import { SupportedTerminal, supportedTerminalNames } from 'src/modules/user-settings/lib/terminal';
 
-export type InstalledAppsState = InstalledApps & InstalledTerminals;
-
 export const installedAppsApi = createApi( {
 	reducerPath: 'installedAppsApi',
 	baseQuery: fetchBaseQuery(),
 	tagTypes: [ 'InstalledApps', 'UserPreferences' ],
 	endpoints: ( builder ) => ( {
-		getInstalledApps: builder.query< InstalledAppsState, void >( {
+		getInstalledApps: builder.query< InstalledApps, void >( {
 			queryFn: async () => {
 				const installedApps = await getIpcApi().getInstalledAppsAndTerminals();
 				return { data: installedApps };
@@ -77,7 +75,7 @@ export const {
 } = installedAppsApi;
 
 export const selectInstalledEditors = createSelector(
-	[ ( data?: InstalledAppsState ) => data ],
+	[ ( data?: InstalledApps ) => data ],
 	( installedApps ) => {
 		const entries = Object.entries( supportedEditorConfig ) as [
 			SupportedEditor,
@@ -89,7 +87,7 @@ export const selectInstalledEditors = createSelector(
 );
 
 export const selectUninstalledEditors = createSelector(
-	[ ( data?: InstalledAppsState ) => data ],
+	[ ( data?: InstalledApps ) => data ],
 	( installedApps ) => {
 		const entries = Object.entries( supportedEditorConfig ) as [
 			SupportedEditor,
@@ -101,7 +99,7 @@ export const selectUninstalledEditors = createSelector(
 );
 
 export const selectInstalledTerminals = createSelector(
-	[ ( data?: InstalledAppsState ) => data ],
+	[ ( data?: InstalledApps ) => data ],
 	( installedApps ) => {
 		const entries = Object.entries( supportedTerminalNames ) as [ SupportedTerminal, string ][];
 
@@ -110,7 +108,7 @@ export const selectInstalledTerminals = createSelector(
 );
 
 export const selectUninstalledTerminals = createSelector(
-	[ ( data?: InstalledAppsState ) => data ],
+	[ ( data?: InstalledApps ) => data ],
 	( installedApps ) => {
 		const entries = Object.entries( supportedTerminalNames ) as [ SupportedTerminal, string ][];
 

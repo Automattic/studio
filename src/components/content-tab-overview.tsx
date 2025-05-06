@@ -165,11 +165,7 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 			className: 'text-nowrap',
 			icon: code,
 			onClick: async () => {
-				if ( isMac() ) {
-					await getIpcApi().openAppAtPath( editorConfig.bundleId, selectedSite.path );
-				} else {
-					getIpcApi().openURL( editorConfig.url( selectedSite.path ) );
-				}
+				await getIpcApi().openAppAtPath( editorConfig.bundleId, selectedSite.path );
 			},
 		} );
 	}

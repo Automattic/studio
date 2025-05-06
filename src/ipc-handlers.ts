@@ -23,6 +23,7 @@ import { getAuthenticationUrl } from 'common/lib/oauth';
 import { Snapshot } from 'common/types/snapshot';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
 import { ARCHIVER_OPTIONS, DEFAULT_TERMINAL, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
+import { openURL } from 'src/ipc-handlers';
 import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
 import { bumpStat } from 'src/lib/bump-stats';
@@ -55,11 +56,11 @@ import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
 import { executePreviewCliCommand } from 'src/modules/cli/lib/execute-preview-command';
+import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import { SiteServer, createSiteWorkingDirectory } from 'src/site-server';
 import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from 'src/storage/paths';
 import { loadUserData, saveUserData } from 'src/storage/user-data';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
-import { SupportedEditor } from './modules/user-settings/lib/editor';
 import { SupportedTerminal } from './modules/user-settings/lib/terminal';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
@@ -994,6 +995,19 @@ export async function openAppAtPath(
 	const platform = process.platform;
 	if ( platform === 'darwin' ) {
 		return promiseExec( `open -b ${ bundleId } "${ targetPath }"` );
+	}
+	if ( platform === 'win32' ) {
+		const editor = Object.values( supportedEditorConfig ).find( ( e ) => e.bundleId === bundleId );
+		if ( ! editor || ! editor.winCommand ) {
+			throw new Error( 'Editor not supported on Windows' );
+		}
+		try {
+			return await promiseExec( `"${ editor.winCommand }" "${ targetPath }"` );
+		} catch ( err ) {
+			// Fallback: open via URL protocol
+			const url = editor.url( targetPath );
+			return openURL( _event, url );
+		}
 	}
 }
 

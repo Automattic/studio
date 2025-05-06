@@ -210,7 +210,7 @@ function SiteItem( {
 	const isDeleted = site.syncSupport === 'deleted';
 	const isUnsupported = site.syncSupport === 'unsupported';
 	const isPressable = site.isPressable;
-	const environmentType = site.environment_type;
+	const environmentType = site.environmentType;
 
 	return (
 		<div

@@ -256,18 +256,18 @@ const SyncConnectedSitesList = ( {
 				return (
 					<div
 						className={ `col-span-3 grid min-h-14 px-8 gap-4 justify-items-start items-center border-b border-a8c-gray-0 ${
-							connectedSite.isPressable && ! connectedSite.environment_type
+							connectedSite.isPressable && ! connectedSite.environmentType
 								? 'grid-cols-[1fr_auto]'
 								: 'grid-cols-subgrid'
 						}` }
 						key={ connectedSite.id }
 					>
-						{ connectedSite.isPressable && connectedSite.environment_type && (
+						{ connectedSite.isPressable && connectedSite.environmentType && (
 							<div className="shrink-0">
-								{ connectedSite.environment_type === 'staging' && (
+								{ connectedSite.environmentType === 'staging' && (
 									<EnvironmentBadge type="staging" />
 								) }
-								{ connectedSite.environment_type === 'production' && (
+								{ connectedSite.environmentType === 'production' && (
 									<EnvironmentBadge type="production" />
 								) }
 							</div>

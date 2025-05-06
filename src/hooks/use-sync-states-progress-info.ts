@@ -73,8 +73,8 @@ export function useSyncStatesProgressInfo() {
 		return {
 			creatingBackup: {
 				key: 'creatingBackup',
-				progress: 30,
-				message: __( 'Creating backup…' ),
+				progress: 0,
+				message: __( 'Starting export…' ),
 			},
 			uploading: {
 				key: 'uploading',

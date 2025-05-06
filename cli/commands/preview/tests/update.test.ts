@@ -2,7 +2,7 @@ import os from 'os';
 import path from 'path';
 import { DEMO_SITE_EXPIRATION_DAYS } from 'common/constants';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
-import { getAuthToken, getSiteByFolder } from 'cli/lib/appdata';
+import { getAuthToken, getOrCreateSiteByFolder, getSiteByFolder } from 'cli/lib/appdata';
 import { createArchive, cleanup } from 'cli/lib/archive';
 import { updateSnapshotInAppdata, getSnapshotsFromAppdata } from 'cli/lib/snapshots';
 import { validateSiteFolder } from 'cli/lib/validation';
@@ -12,6 +12,7 @@ jest.mock( 'cli/lib/appdata', () => ( {
 	getAppdataDirectory: jest.fn().mockReturnValue( '/test/appdata' ),
 	getAuthToken: jest.fn(),
 	getSiteByFolder: jest.fn(),
+	getOrCreateSiteByFolder: jest.fn(),
 } ) );
 jest.mock( 'cli/lib/validation' );
 jest.mock( 'cli/lib/archive' );
@@ -83,7 +84,7 @@ describe( 'Preview Update Command', () => {
 
 		expect( validateSiteFolder ).toHaveBeenCalledWith( mockFolder );
 		expect( mockLogger.reportStart.mock.calls[ 0 ] ).toEqual( [ 'validate', 'Validating...' ] );
-		expect( mockLogger.reportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Validation successful' ] );
+		expect( mockLogger.reportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Validation successful', true ] );
 
 		expect( createArchive ).toHaveBeenCalledWith( mockFolder, mockArchivePath );
 		expect( mockLogger.reportStart.mock.calls[ 1 ] ).toEqual( [
@@ -262,7 +263,7 @@ describe( 'Preview Update Command', () => {
 
 	it( 'should allow update if overwrite flag is set even if folder does not match', async () => {
 		const { runCommand } = await import( '../update' );
-		( getSiteByFolder as jest.Mock ).mockResolvedValueOnce( {
+		( getOrCreateSiteByFolder as jest.Mock ).mockResolvedValueOnce( {
 			id: 'different-id',
 			path: '/other/path',
 			name: 'Other Site',

@@ -98,7 +98,7 @@ const installProxyBatFile = async () => {
 };
 
 export const installCLIOnWindows = async () => {
-	if ( process.platform !== 'win32' ) {
+	if ( process.platform !== 'win32' || process.env.NODE_ENV === 'development' ) {
 		return;
 	}
 

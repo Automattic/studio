@@ -41,12 +41,13 @@ describe( 'Appdata Module', () => {
 	describe( 'readAppdata', () => {
 		it( 'should throw LoggerError if appdata file does not exist', async () => {
 			( fs.existsSync as jest.Mock ).mockReturnValue( false );
-			await expect( readAppdata() ).rejects.toThrow( 'Appdata file not found' );
+			await expect( readAppdata() ).rejects.toThrow( 'Studio config file not found' );
 		} );
 
 		it( 'should return parsed appdata if it exists and is valid', async () => {
 			const mockUserData = {
 				version: 1,
+				newSites: [],
 				sites: [],
 				snapshots: [
 					{
@@ -68,7 +69,7 @@ describe( 'Appdata Module', () => {
 		it( 'should throw LoggerError if there is an error reading the file', async () => {
 			( readFile as jest.Mock ).mockRejectedValue( new Error( 'Read error' ) );
 
-			await expect( readAppdata() ).rejects.toThrow( 'Failed to read appdata file' );
+			await expect( readAppdata() ).rejects.toThrow( 'Failed to read Studio config file' );
 		} );
 
 		it( 'should throw LoggerError if there is an error parsing the JSON', async () => {
@@ -82,6 +83,7 @@ describe( 'Appdata Module', () => {
 		it( 'should save the userData to the appdata file', async () => {
 			const mockUserData = {
 				version: 1,
+				newSites: [],
 				sites: [],
 				snapshots: [],
 			};
@@ -98,17 +100,21 @@ describe( 'Appdata Module', () => {
 		it( 'should throw LoggerError if there is an error saving the file', async () => {
 			const mockUserData = {
 				version: 1,
+				newSites: [],
 				sites: [],
 				snapshots: [],
 			};
 
 			( writeFile as jest.Mock ).mockRejectedValue( new Error( 'Write error' ) );
 
-			await expect( saveAppdata( mockUserData ) ).rejects.toThrow( 'Failed to save appdata file' );
+			await expect( saveAppdata( mockUserData ) ).rejects.toThrow(
+				'Failed to save Studio config file'
+			);
 		} );
 
 		it( 'should add version 1 if version is not provided', async () => {
 			const mockUserData = {
+				newSites: [],
 				sites: [],
 				snapshots: [],
 			};

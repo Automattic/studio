@@ -66,7 +66,7 @@ describe( 'Preview List Command', () => {
 		expect( validateSiteFolder ).toHaveBeenCalledWith( mockFolder );
 		expect( getSnapshotsFromAppdata ).toHaveBeenCalledWith( mockAuthToken.id, mockFolder );
 		expect( mockLogger.reportStart.mock.calls[ 0 ] ).toEqual( [ 'validate', 'Validating...' ] );
-		expect( mockLogger.reportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Validation successful' ] );
+		expect( mockLogger.reportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Validation successful', true ] );
 		expect( mockLogger.reportStart.mock.calls[ 1 ] ).toEqual( [
 			'load',
 			'Loading preview sites...',
@@ -92,7 +92,7 @@ describe( 'Preview List Command', () => {
 		await runCommand( mockFolder, 'table' );
 
 		expect( mockLogger.reportStart.mock.calls[ 0 ] ).toEqual( [ 'validate', 'Validating...' ] );
-		expect( mockLogger.reportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Validation successful' ] );
+		expect( mockLogger.reportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Validation successful', true ] );
 		expect( mockLogger.reportStart.mock.calls[ 1 ] ).toEqual( [
 			'load',
 			'Loading preview sites...',

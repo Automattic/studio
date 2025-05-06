@@ -23,7 +23,7 @@ export async function runCommand( host: string ): Promise< void > {
 				)
 			);
 		}
-		logger.reportSuccess( __( 'Validation successful' ) );
+		logger.reportSuccess( __( 'Validation successful' ), true );
 
 		logger.reportStart( LoggerAction.DELETE, __( 'Deleting...' ) );
 		await deleteSnapshot( snapshotToDelete.atomicSiteId, token.accessToken );

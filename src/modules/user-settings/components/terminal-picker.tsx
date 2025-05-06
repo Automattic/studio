@@ -23,18 +23,20 @@ export const TerminalPicker = ( { value, onChange }: TerminalPickerProps ) => {
 	} );
 
 	return (
-		<SettingsFormField label={ __( 'Shell' ) }>
+		<SettingsFormField label={ __( 'Terminal application' ) }>
 			<SelectControl
 				value={ value }
 				onChange={ ( newValue ) => onChange( newValue as SupportedTerminal ) }
 				__nextHasNoMarginBottom
 				__next40pxDefaultSize
 			>
-				{ installedTerminals.map( ( [ terminal, label ] ) => (
-					<option key={ terminal } value={ terminal }>
-						{ label }
-					</option>
-				) ) }
+				<optgroup label={ __( 'Available terminals' ) }>
+					{ installedTerminals.map( ( [ terminal, label ] ) => (
+						<option key={ terminal } value={ terminal }>
+							{ label }
+						</option>
+					) ) }
+				</optgroup>
 				{ uninstalledTerminals.length > 0 && (
 					<optgroup label={ __( 'Not installed' ) }>
 						{ uninstalledTerminals.map( ( [ terminal, label ] ) => (

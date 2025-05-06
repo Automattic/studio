@@ -195,6 +195,10 @@ const snapshotSlice = createSlice( {
 			.addMatcher(
 				isAnyOf( deleteAllSnapshotsForSite.fulfilled, deleteAllSnapshotsForUser.fulfilled ),
 				( state, action ) => {
+					if ( ! action.payload.operations.length ) {
+						return;
+					}
+
 					const bulkOperation: BulkOperation = {
 						error: null,
 						operationIds: action.payload.operations.map( ( [ _, operationId ] ) => operationId ),
@@ -355,10 +359,10 @@ function getAssociatedBulkOperation(
 	return [];
 }
 
-function isBulkOperationFulfilled( bulkOperation: BulkOperation ) {
+function isBulkOperationSettled( bulkOperation: BulkOperation ) {
 	return bulkOperation.operationIds.every( ( operationId ) => {
 		const operation = getOperation( operationId );
-		return operation?.status === 'fulfilled';
+		return operation && operation.status !== 'pending';
 	} );
 }
 
@@ -448,9 +452,9 @@ window.ipcListener.subscribe( 'snapshot-success', ( event, payload ) => {
 	);
 
 	const [ bulkOperationId, bulkOperation ] = getAssociatedBulkOperation( payload.operationId );
-	const bulkOperationIsFulfilled = bulkOperation && isBulkOperationFulfilled( bulkOperation );
+	const bulkOperationIsSettled = bulkOperation && isBulkOperationSettled( bulkOperation );
 
-	if ( bulkOperationId && bulkOperationIsFulfilled ) {
+	if ( bulkOperationId && bulkOperationIsSettled ) {
 		store.dispatch(
 			snapshotActions.updateOperation( {
 				operationId: bulkOperationId,
@@ -475,7 +479,7 @@ window.ipcListener.subscribe( 'snapshot-success', ( event, payload ) => {
 				title: operation.snapshotName,
 				body: sprintf( __( "Preview site '%s' has been deleted." ), operation.snapshotUrl ),
 			} );
-		} else if ( bulkOperationIsFulfilled ) {
+		} else if ( bulkOperationIsSettled ) {
 			getIpcApi().showNotification( {
 				title: __( 'Delete Successful' ),
 				body: __( 'All preview sites have been deleted.' ),

@@ -1,0 +1,65 @@
+diff --git a/node_modules/@wordpress/components/build-module/guide/index.js b/node_modules/@wordpress/components/build-module/guide/index.js
+index 17df1a7..5bbce41 100644
+--- a/node_modules/@wordpress/components/build-module/guide/index.js
++++ b/node_modules/@wordpress/components/build-module/guide/index.js
+@@ -54,6 +54,8 @@ function Guide({
+   className,
+   contentLabel,
+   finishButtonText = __('Finish'),
++  nextButtonText = __('Next'),
++  previousButtonText = __('Previous'),
+   onFinish,
+   pages = []
+ }) {
+@@ -128,13 +130,13 @@ function Guide({
+           variant: "tertiary",
+           onClick: goBack,
+           __next40pxDefaultSize: true,
+-          children: __('Previous')
++          children: previousButtonText
+         }), canGoForward && /*#__PURE__*/_jsx(Button, {
+           className: "components-guide__forward-button",
+           variant: "primary",
+           onClick: goForward,
+           __next40pxDefaultSize: true,
+-          children: __('Next')
++          children: nextButtonText
+         }), !canGoForward && /*#__PURE__*/_jsx(Button, {
+           className: "components-guide__finish-button",
+           variant: "primary",
+diff --git a/node_modules/@wordpress/components/build-types/guide/index.d.ts b/node_modules/@wordpress/components/build-types/guide/index.d.ts
+index 6b00a78..181454c 100644
+--- a/node_modules/@wordpress/components/build-types/guide/index.d.ts
++++ b/node_modules/@wordpress/components/build-types/guide/index.d.ts
+@@ -31,6 +31,6 @@ import type { GuideProps } from './types';
+  * }
+  * ```
+  */
+-declare function Guide({ children, className, contentLabel, finishButtonText, onFinish, pages, }: GuideProps): import("react").JSX.Element | null;
++declare function Guide({ children, className, contentLabel, finishButtonText, nextButtonText, previousButtonText, onFinish, pages, }: GuideProps): import("react").JSX.Element | null;
+ export default Guide;
+ //# sourceMappingURL=index.d.ts.map
+\ No newline at end of file
+diff --git a/node_modules/@wordpress/components/build-types/guide/types.d.ts b/node_modules/@wordpress/components/build-types/guide/types.d.ts
+index e9a3e0c..59a6527 100644
+--- a/node_modules/@wordpress/components/build-types/guide/types.d.ts
++++ b/node_modules/@wordpress/components/build-types/guide/types.d.ts
+@@ -37,6 +37,18 @@ export type GuideProps = {
+      * @default 'Finish'
+      */
+     finishButtonText?: string;
++    /**
++     * Use this to customize the label of the _Next_ button shown on each page of the guide.
++     *
++     * @default 'Next'
++     */
++    nextButtonText?: string;
++    /**
++     * Use this to customize the label of the _Previous_ button shown on each page of the guide except the first.
++     *
++     * @default 'Previous'
++     */
++    previousButtonText?: string;
+     /**
+      * A function which is called when the guide is finished.
+      */

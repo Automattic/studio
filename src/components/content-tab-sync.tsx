@@ -128,6 +128,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 		closeSyncSitesSelector,
 	} = useSyncSites();
 	const { isAuthenticated } = useAuth();
+	const { pressableSyncEnabled } = useFeatureFlags();
 
 	useEffect( () => {
 		if ( isAuthenticated ) {
@@ -151,14 +152,25 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 	};
 
 	return (
-		<div className="flex flex-col gap-4 h-full">
+		<div className="flex flex-col h-full overflow-y-auto">
 			{ connectedSites.length > 0 ? (
-				<SyncConnectedSites
-					connectedSites={ connectedSites }
-					selectedSite={ selectedSite }
-					openSitesSyncSelector={ ( options ) => setIsSyncSitesSelectorOpen( options || true ) }
-					disconnectSite={ ( id: number ) => disconnectSite( id ) }
-				/>
+				<div className="h-full relative">
+					<SyncConnectedSites
+						connectedSites={ connectedSites }
+						selectedSite={ selectedSite }
+						openSitesSyncSelector={ ( options ) => setIsSyncSitesSelectorOpen( options || true ) }
+						disconnectSite={ ( id: number ) => disconnectSite( id ) }
+					/>
+					{ pressableSyncEnabled && (
+						<div className="sticky bottom-0 bg-white/[0.8] backdrop-blur-sm w-full px-8 py-6 mt-auto">
+							<ConnectButton
+								variant="primary"
+								connectSite={ () => setIsSyncSitesSelectorOpen( true ) }
+								disableConnectButtonStyle={ true }
+							/>
+						</div>
+					) }
+				</div>
 			) : (
 				<SiteSyncDescription>
 					<div className="mt-8">

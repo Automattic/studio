@@ -58,7 +58,7 @@ describe( 'TerminalPicker', () => {
 
 		// Wait for the component to render with the mocked data
 		await waitFor( () => {
-			expect( screen.getByText( 'Shell' ) ).toBeVisible();
+			expect( screen.getByText( 'Terminal application' ) ).toBeVisible();
 			expect( screen.getByRole( 'combobox' ) ).toBeVisible();
 		} );
 	} );

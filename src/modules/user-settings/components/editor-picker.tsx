@@ -33,20 +33,20 @@ export const EditorPicker = ( { value, onChange, disabled }: EditorPickerProps )
 				disabled={ disabled }
 			>
 				{ ! value && <option value={ '' }>{ __( 'Select' ) }</option> }
-				{ installedEditors.map( ( [ editorKey, editorConfig ] ) => (
-					<option key={ editorKey } value={ editorKey }>
-						{ editorConfig.label }
-					</option>
-				) ) }
-				{ uninstalledEditors.length > 0 && (
-					<optgroup label={ __( 'Not installed' ) }>
-						{ uninstalledEditors.map( ( [ editorKey, editorConfig ] ) => (
-							<option key={ editorKey } value={ editorKey } disabled>
-								{ editorConfig.label }
-							</option>
-						) ) }
-					</optgroup>
-				) }
+				<optgroup label={ __( 'Available editors' ) }>
+					{ installedEditors.map( ( [ editorKey, editorConfig ] ) => (
+						<option key={ editorKey } value={ editorKey }>
+							{ editorConfig.label }
+						</option>
+					) ) }
+				</optgroup>
+				<optgroup label={ __( 'Not installed' ) }>
+					{ uninstalledEditors.map( ( [ editorKey, editorConfig ] ) => (
+						<option key={ editorKey } value={ editorKey } disabled>
+							{ editorConfig.label }
+						</option>
+					) ) }
+				</optgroup>
 			</SelectControl>
 		</SettingsFormField>
 	);

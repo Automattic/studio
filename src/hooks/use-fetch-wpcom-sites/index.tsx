@@ -16,7 +16,7 @@ export const sitesEndpointSiteSchema = z.object( {
 	jetpack: z.boolean().optional(),
 	is_deleted: z.boolean(),
 	hosting_provider_guess: z.string().optional(),
-	environment_type: z.string().optional(),
+	environment_type: z.string().nullable().optional(),
 	is_a8c: z.boolean().optional(),
 	options: z
 		.object( {

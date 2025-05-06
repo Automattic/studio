@@ -262,26 +262,26 @@ const SyncConnectedSitesList = ( {
 						}` }
 						key={ connectedSite.id }
 					>
-						<div className="shrink-0">
-							{ connectedSite.isPressable ? (
-								<>
-									{ connectedSite.environment_type === 'staging' && (
-										<EnvironmentBadge type="staging" />
-									) }
-									{ connectedSite.environment_type === 'production' && (
-										<EnvironmentBadge type="production" />
-									) }
-								</>
-							) : (
-								<>
-									{ connectedSite.isStaging ? (
-										<EnvironmentBadge type="staging" />
-									) : (
-										<EnvironmentBadge type="production" />
-									) }
-								</>
-							) }
-						</div>
+						{ connectedSite.isPressable && connectedSite.environment_type && (
+							<div className="shrink-0">
+								{ connectedSite.environment_type === 'staging' && (
+									<EnvironmentBadge type="staging" />
+								) }
+								{ connectedSite.environment_type === 'production' && (
+									<EnvironmentBadge type="production" />
+								) }
+							</div>
+						) }
+
+						{ ! connectedSite.isPressable && (
+							<div className="shrink-0">
+								{ connectedSite.isStaging ? (
+									<EnvironmentBadge type="staging" />
+								) : (
+									<EnvironmentBadge type="production" />
+								) }
+							</div>
+						) }
 
 						<Button
 							variant="link"

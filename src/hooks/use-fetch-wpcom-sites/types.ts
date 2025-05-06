@@ -14,7 +14,7 @@ export type SyncSite = {
 	url: string;
 	isStaging: boolean;
 	isPressable: boolean;
-	environment_type?: string;
+	environment_type?: string | null;
 	stagingSiteIds: number[];
 	syncSupport: SyncSupport;
 	lastPullTimestamp: string | null;

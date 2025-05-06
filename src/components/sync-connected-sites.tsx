@@ -231,7 +231,7 @@ const SyncConnectedSitesList = ( {
 }: SyncConnectedSitesListProps ) => {
 	const { __ } = useI18n();
 	const { clearPullState, getPullState, getPushState, clearPushState } = useSyncSites();
-	const { importState } = useImportExport();
+	const { importState, exportState } = useImportExport();
 	const { isKeyPulling, isKeyPushing, isKeyFinished, isKeyFailed } = useSyncStatesProgressInfo();
 
 	return (
@@ -252,6 +252,13 @@ const SyncConnectedSitesList = ( {
 				const isPushing = pushState && isKeyPushing( pushState.status.key );
 				const isPushError = pushState && isKeyFailed( pushState.status.key );
 				const hasPushFinished = pushState && isKeyFinished( pushState.status.key );
+
+				console.log( {
+					pushStateMessage: pushState?.status?.message,
+					exportStateMessage: exportState[ selectedSite?.id ]?.statusMessage,
+					exportStateProgress: exportState[ selectedSite?.id ]?.progress,
+					exportState,
+				} );
 
 				return (
 					<div

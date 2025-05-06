@@ -210,6 +210,7 @@ function SiteItem( {
 	const isDeleted = site.syncSupport === 'deleted';
 	const isUnsupported = site.syncSupport === 'unsupported';
 	const isPressable = site.isPressable;
+	const environmentType = site.environment_type;
 
 	return (
 		<div
@@ -267,23 +268,50 @@ function SiteItem( {
 					<ArrowIcon />
 				</Button>
 			</div>
-			{ isSyncable && ! isPressable && (
+			{ isSyncable && (
 				<div className="flex gap-2">
-					<Badge
-						className={ cx(
-							isSelected
-								? 'bg-white text-a8c-blueberry text-a8c-blueberry'
-								: 'bg-a8c-green-5 text-a8c-green-80'
-						) }
-					>
-						{ __( 'Production' ) }
-					</Badge>
-					{ site.stagingSiteIds.length > 0 && (
-						<Badge
-							className={ cx( isSelected && 'bg-white text-a8c-blueberry text-a8c-blueberry' ) }
-						>
-							{ __( 'Staging' ) }
-						</Badge>
+					{ ! isPressable && (
+						<>
+							<Badge
+								className={ cx(
+									isSelected
+										? 'bg-white text-a8c-blueberry text-a8c-blueberry'
+										: 'bg-a8c-green-5 text-a8c-green-80'
+								) }
+							>
+								{ __( 'Production' ) }
+							</Badge>
+							{ site.stagingSiteIds.length > 0 && (
+								<Badge
+									className={ cx( isSelected && 'bg-white text-a8c-blueberry text-a8c-blueberry' ) }
+								>
+									{ __( 'Staging' ) }
+								</Badge>
+							) }
+						</>
+					) }
+
+					{ isPressable && environmentType && (
+						<>
+							{ environmentType === 'production' && (
+								<Badge
+									className={ cx(
+										isSelected
+											? 'bg-white text-a8c-blueberry text-a8c-blueberry'
+											: 'bg-a8c-green-5 text-a8c-green-80'
+									) }
+								>
+									{ __( 'Production' ) }
+								</Badge>
+							) }
+							{ environmentType === 'staging' && (
+								<Badge
+									className={ cx( isSelected && 'bg-white text-a8c-blueberry text-a8c-blueberry' ) }
+								>
+									{ __( 'Staging' ) }
+								</Badge>
+							) }
+						</>
 					) }
 				</div>
 			) }

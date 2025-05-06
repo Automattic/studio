@@ -804,7 +804,7 @@ export async function openSiteURL(
 	if ( ! site?.server?.url ) {
 		await showMessageBox( event, {
 			type: 'error',
-			message: __( 'Could not open link' ),
+			message: __( 'Failed to open link' ),
 			detail: __( 'Please ensure your site files have not been moved or deleted.' ),
 		} );
 		return;

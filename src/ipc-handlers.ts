@@ -1274,7 +1274,6 @@ export async function isCATrusted(): Promise< boolean > {
 export async function trustCertificate(): Promise< void > {
 	const platform = process.platform;
 	if ( platform === 'win32' ) {
-		// On Windows, we can install the certificate automatically.
 		return trustRootCA();
 	}
 

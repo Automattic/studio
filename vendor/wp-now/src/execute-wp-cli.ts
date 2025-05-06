@@ -38,7 +38,9 @@ export async function executeWPCli(
 		mode: WPNowMode.CLI,
 	} );
 
-	const id = await loadNodeRuntime( options.phpVersion );
+	const id = await loadNodeRuntime( options.phpVersion, {
+		followSymlinks: true,
+	} );
 	const php = new PHP( id );
 	php.mkdir( options.documentRoot );
 	await php.mount(

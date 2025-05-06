@@ -106,13 +106,17 @@ export async function getSiteDetails( _event: IpcMainInvokeEvent ): Promise< Sit
 	return mergeSiteDetailsWithRunningDetails( sites );
 }
 
-export function getInstalledApps(): InstalledApps {
+export function getInstalledAppsAndTerminals(): InstalledApps {
 	return {
 		vscode: isInstalled( 'vscode' ),
 		phpstorm: isInstalled( 'phpstorm' ),
 		webstorm: isInstalled( 'webstorm' ),
 		windsurf: isInstalled( 'windsurf' ),
 		cursor: isInstalled( 'cursor' ),
+		terminal: true, // Terminal.app is always available on macOS
+		iterm: isInstalled( 'iterm' ),
+		warp: isInstalled( 'warp' ),
+		ghostty: isInstalled( 'ghostty' ),
 	};
 }
 
@@ -1314,15 +1318,6 @@ export async function getAllCustomDomains(): Promise< string[] > {
 	return userData.sites
 		.map( ( site ) => site.customDomain )
 		.filter( ( domain ): domain is string => domain !== undefined );
-}
-
-export function getInstalledTerminals(): InstalledTerminals {
-	return {
-		terminal: true, // Terminal.app is always available on macOS
-		iterm: isInstalled( 'iterm' ),
-		warp: isInstalled( 'warp' ),
-		ghostty: isInstalled( 'ghostty' ),
-	};
 }
 
 export function getRandomUUID(): crypto.UUID {

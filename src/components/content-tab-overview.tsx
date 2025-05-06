@@ -14,20 +14,18 @@ import {
 	widget,
 } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import { ButtonsSection, ButtonsSectionProps } from 'src/components/buttons-section';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
-import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { useThemeDetails } from 'src/hooks/use-theme-details';
 import { isMac } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { useEditorData } from 'src/modules/user-settings/hooks/use-editor-data';
-import { useTerminalData } from 'src/modules/user-settings/hooks/use-terminal-data';
 import { supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
-import { supportedTerminalNames } from 'src/modules/user-settings/lib/terminal';
+import { getTerminalName } from 'src/modules/user-settings/lib/terminal';
+import { useGetUserEditorQuery, useGetUserTerminalQuery } from 'src/stores/installed-apps-api';
 
 interface ContentTabOverviewProps {
 	selectedSite: SiteDetails;
@@ -142,18 +140,10 @@ function CustomizeSection( {
 
 function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'selectedSite' > ) {
 	const { terminalWpCliEnabled } = useFeatureFlags();
-	const { terminal, handleTerminalChange, getSavedTerminal } = useTerminalData();
-	const { editor, handleEditorChange, getSavedEditor } = useEditorData();
+	const { data: editor } = useGetUserEditorQuery();
+	const { data: terminal } = useGetUserTerminalQuery();
 
-	useEffect( () => {
-		handleEditorChange( editor );
-		handleTerminalChange( terminal );
-	}, [ editor, handleEditorChange, handleTerminalChange, terminal ] );
-
-	useIpcListener( 'user-preference-changed', async () => {
-		handleEditorChange( await getSavedEditor() );
-		handleTerminalChange( await getSavedTerminal() );
-	} );
+	const terminalName = getTerminalName( terminal );
 
 	const buttonsArray: ButtonsSectionProps[ 'buttonsArray' ] = [
 		{
@@ -182,7 +172,6 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 		} );
 	}
 
-	const terminalName = supportedTerminalNames[ terminal ];
 	buttonsArray.push( {
 		label: terminalName,
 		className: 'text-nowrap',

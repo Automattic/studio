@@ -1,9 +1,12 @@
 import { act, render, screen } from '@testing-library/react';
+import { Provider } from 'react-redux';
 import { SiteContentTabs } from 'src/components/site-content-tabs';
 import { SyncSitesProvider } from 'src/hooks/sync-sites';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useSiteDetails } from 'src/hooks/use-site-details';
+import { store } from 'src/stores';
+import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
 
 const selectedSite = {
 	id: 'site-id-1',
@@ -31,21 +34,25 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 		updateConnectedWpcomSites: jest.fn(),
 		getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
 		getUserEditor: jest.fn().mockResolvedValue( 'vscode' ),
-		getInstalledTerminals: jest.fn().mockResolvedValue( [] ),
 	} ),
 } ) );
+
+store.replaceReducer( testReducer );
 
 ( useFeatureFlags as jest.Mock ).mockReturnValue( {} );
 
 describe( 'SiteContentTabs', () => {
 	beforeEach( () => {
 		jest.clearAllMocks(); // Clear mock call history between tests
+		store.dispatch( testActions.resetState() );
 	} );
 	const renderWithProvider = ( component: React.ReactElement ) => {
 		return render(
-			<ContentTabsProvider>
-				<SyncSitesProvider>{ component }</SyncSitesProvider>
-			</ContentTabsProvider>
+			<Provider store={ store }>
+				<ContentTabsProvider>
+					<SyncSitesProvider>{ component }</SyncSitesProvider>
+				</ContentTabsProvider>
+			</Provider>
 		);
 	};
 	it( 'should render tabs correctly if selected site exists', async () => {

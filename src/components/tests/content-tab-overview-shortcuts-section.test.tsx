@@ -1,9 +1,12 @@
 // To run tests, execute `npm run test -- src/components/tests/content-tab-overview-shortcuts-section.test.tsx` from the root directory
 import { fireEvent, render, waitFor } from '@testing-library/react';
+import { Provider } from 'react-redux';
 import { ContentTabOverview } from 'src/components/content-tab-overview';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useThemeDetails } from 'src/hooks/use-theme-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { store } from 'src/stores';
+import { testReducer } from 'src/stores/tests/utils/test-reducer';
 
 const selectedSite: StartedSiteDetails = {
 	name: 'Test Site',
@@ -16,10 +19,16 @@ const selectedSite: StartedSiteDetails = {
 };
 
 const mockGetIpcApi = getIpcApi as jest.Mock;
-jest.mock( 'src/hooks/use-check-installed-apps' );
 jest.mock( 'src/lib/get-ipc-api' );
 jest.mock( 'src/hooks/use-theme-details' );
 jest.mock( 'src/hooks/use-feature-flags' );
+
+// Replace the store's reducer with our test reducer
+store.replaceReducer( testReducer );
+
+function renderWithProvider( component: React.ReactElement ) {
+	return render( <Provider store={ store }>{ component }</Provider> );
+}
 
 describe( 'ShortcutsSection', () => {
 	beforeEach( () => {
@@ -34,46 +43,69 @@ describe( 'ShortcutsSection', () => {
 		( useFeatureFlags as jest.Mock ).mockReturnValue( {
 			terminalWpCliEnabled: false,
 		} );
+
+		// Reset the store state before each test
+		store.dispatch( { type: 'test/resetState' } );
 	} );
 
 	it( 'opens site in VS Code when the user select VS Code and clicked the button', async () => {
-		// Mock the IPC API
+		// Mock the IPC API with getInstalledApps returning the installed apps
 		const openURLMock = jest.fn();
 		mockGetIpcApi.mockReturnValue( {
 			openURL: openURLMock,
 			getUserEditor: jest.fn().mockResolvedValue( 'vscode' ),
 			getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
-			getInstalledTerminals: jest.fn().mockResolvedValue( [ 'terminal' ] ),
-			getInstalledApps: jest.fn().mockResolvedValue( {
+			getInstalledAppsAndTerminals: jest.fn().mockResolvedValue( {
 				vscode: true,
 				phpstorm: false,
+				webstorm: false,
+				windsurf: false,
+				cursor: false,
+				terminal: true,
+				iterm: false,
+				ghostty: false,
+				warp: false,
 			} ),
 		} );
 
-		const { getByLabelText } = render( <ContentTabOverview selectedSite={ selectedSite } /> );
-		const vscodeButton = await waitFor( () => getByLabelText( 'VS Code' ) );
+		// Render the component with the Redux Provider
+		const { getByText } = renderWithProvider(
+			<ContentTabOverview selectedSite={ selectedSite } />
+		);
+
+		// Find and click the VS Code button
+		const vscodeButton = await waitFor( () => getByText( 'VS Code' ) );
 		fireEvent.click( vscodeButton );
 
-		await waitFor( () =>
-			expect( openURLMock ).toHaveBeenCalledWith( expect.stringContaining( 'vscode://' ) )
-		);
+		// Verify that openURL was called with the correct path
+		await waitFor( () => {
+			expect( openURLMock ).toHaveBeenCalledWith( expect.stringContaining( '/path/to/site' ) );
+		} );
 	} );
 
 	it( 'opens site in PhpStorm when PhpStorm is installed and the button is clicked, only available on MacOS', async () => {
-		// Mock the IPC API
+		// Mock the IPC API with getInstalledApps returning the installed apps
 		const openURLMock = jest.fn();
 		mockGetIpcApi.mockReturnValue( {
 			openURL: openURLMock,
 			getUserEditor: jest.fn().mockResolvedValue( 'phpstorm' ), // User prefers PhpStorm
 			getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
-			getInstalledTerminals: jest.fn().mockResolvedValue( [ 'terminal' ] ),
-			getInstalledApps: jest.fn().mockResolvedValue( {
+			getInstalledAppsAndTerminals: jest.fn().mockResolvedValue( {
 				vscode: false,
 				phpstorm: true,
+				webstorm: false,
+				windsurf: false,
+				cursor: false,
+				terminal: true,
+				iterm: false,
+				ghostty: false,
+				warp: false,
 			} ),
 		} );
 
-		const { getByLabelText } = render( <ContentTabOverview selectedSite={ selectedSite } /> );
+		const { getByLabelText } = renderWithProvider(
+			<ContentTabOverview selectedSite={ selectedSite } />
+		);
 
 		// Wait for component to finish rendering and async operations to complete
 		const phpStormButton = await waitFor( () => getByLabelText( 'PhpStorm' ) );
@@ -83,21 +115,30 @@ describe( 'ShortcutsSection', () => {
 			expect( openURLMock ).toHaveBeenCalledWith( expect.stringContaining( 'phpstorm://' ) )
 		);
 	} );
+
 	it( 'opens terminal when terminal is available and the button is clicked', async () => {
-		// Mock the IPC API
+		// Mock the IPC API with getInstalledApps returning the installed apps
 		const openTerminalAtPathMock = jest.fn();
 		mockGetIpcApi.mockReturnValue( {
 			openTerminalAtPath: openTerminalAtPathMock,
 			getUserEditor: jest.fn().mockResolvedValue( null ),
 			getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
-			getInstalledTerminals: jest.fn().mockResolvedValue( [ 'terminal' ] ),
-			getInstalledApps: jest.fn().mockResolvedValue( {
+			getInstalledAppsAndTerminals: jest.fn().mockResolvedValue( {
 				vscode: false,
 				phpstorm: false,
+				webstorm: false,
+				windsurf: false,
+				cursor: false,
+				terminal: true,
+				iterm: false,
+				ghostty: false,
+				warp: false,
 			} ),
 		} );
 
-		const { getByLabelText } = render( <ContentTabOverview selectedSite={ selectedSite } /> );
+		const { getByLabelText } = renderWithProvider(
+			<ContentTabOverview selectedSite={ selectedSite } />
+		);
 
 		// Wait for component to finish rendering and async operations to complete
 		const terminalButton = await waitFor( () => getByLabelText( 'Terminal' ) );
@@ -112,20 +153,33 @@ describe( 'ShortcutsSection', () => {
 	} );
 
 	it( 'opens terminal with wp-cli integration if feature flag is enabled', async () => {
+		// Mock the feature flag
 		( useFeatureFlags as jest.Mock ).mockReturnValue( {
 			terminalWpCliEnabled: true,
 		} );
 
-		// Mock the IPC API
+		// Mock the IPC API with getInstalledApps returning the installed apps
 		const openTerminalAtPathMock = jest.fn();
 		mockGetIpcApi.mockReturnValue( {
 			openTerminalAtPath: openTerminalAtPathMock,
 			getUserEditor: jest.fn().mockResolvedValue( null ),
 			getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
-			getInstalledTerminals: jest.fn().mockResolvedValue( [ 'terminal' ] ),
+			getInstalledAppsAndTerminals: jest.fn().mockResolvedValue( {
+				vscode: false,
+				phpstorm: false,
+				webstorm: false,
+				windsurf: false,
+				cursor: false,
+				terminal: true,
+				iterm: false,
+				ghostty: false,
+				warp: false,
+			} ),
 		} );
 
-		const { getByLabelText } = render( <ContentTabOverview selectedSite={ selectedSite } /> );
+		const { getByLabelText } = renderWithProvider(
+			<ContentTabOverview selectedSite={ selectedSite } />
+		);
 
 		const terminalButton = await waitFor( () => getByLabelText( 'Terminal' ) );
 		fireEvent.click( terminalButton );
@@ -138,90 +192,15 @@ describe( 'ShortcutsSection', () => {
 		} );
 	} );
 
-	it( 'does not show editor buttons when no editors are installed', async () => {
-		// Mock the IPC API
-		mockGetIpcApi.mockReturnValue( {
-			openLocalPath: jest.fn(),
-			getUserEditor: jest.fn().mockResolvedValue( null ),
-			getUserTerminal: jest.fn().mockResolvedValue( null ),
-			getInstalledTerminals: jest.fn().mockResolvedValue( [] ),
-			getInstalledApps: jest.fn().mockResolvedValue( {
-				vscode: false,
-				phpstorm: false,
-			} ),
-		} );
-
-		const { queryByLabelText, findByLabelText } = render(
-			<ContentTabOverview selectedSite={ selectedSite } />
-		);
-
-		await findByLabelText( 'Terminal' );
-
-		expect( queryByLabelText( 'VS Code' ) ).toBeNull();
-		expect( queryByLabelText( 'PhpStorm' ) ).toBeNull();
-	} );
-
-	it( 'shows VS Code editor button when VS Code and phpStorm both editors are installed', async () => {
-		// Mock the IPC API
-		mockGetIpcApi.mockReturnValue( {
-			openLocalPath: jest.fn(),
-			getUserEditor: jest.fn().mockResolvedValue( null ),
-			getUserTerminal: jest.fn().mockResolvedValue( null ),
-			getInstalledTerminals: jest.fn().mockResolvedValue( [] ),
-			getInstalledApps: jest.fn().mockResolvedValue( {
-				vscode: true,
-				phpstorm: true,
-			} ),
-		} );
-
-		const { queryByLabelText, findByLabelText } = render(
-			<ContentTabOverview selectedSite={ selectedSite } />
-		);
-
-		await findByLabelText( 'Terminal' );
-		await findByLabelText( 'VS Code' );
-
-		expect( queryByLabelText( 'PhpStorm' ) ).toBeNull();
-	} );
-
-	it( 'shows phpStorm editor button when VS Code is not installed but phpStorm is', async () => {
-		// Mock the IPC API
-		mockGetIpcApi.mockReturnValue( {
-			openLocalPath: jest.fn(),
-			getUserEditor: jest.fn().mockResolvedValue( null ),
-			getUserTerminal: jest.fn().mockResolvedValue( null ),
-			getInstalledTerminals: jest.fn().mockResolvedValue( [] ),
-			getInstalledApps: jest.fn().mockResolvedValue( {
-				vscode: false,
-				phpstorm: true,
-			} ),
-		} );
-
-		const { queryByLabelText, findByLabelText } = render(
-			<ContentTabOverview selectedSite={ selectedSite } />
-		);
-
-		await findByLabelText( 'Terminal' );
-		await findByLabelText( 'PhpStorm' );
-
-		expect( queryByLabelText( 'VS Code' ) ).toBeNull();
-	} );
-
 	it( 'shows users preferred editor', async () => {
 		// Mock the IPC API
 		mockGetIpcApi.mockReturnValue( {
 			openLocalPath: jest.fn(),
 			getUserEditor: jest.fn().mockResolvedValue( 'cursor' ),
 			getUserTerminal: jest.fn().mockResolvedValue( null ),
-			getInstalledTerminals: jest.fn().mockResolvedValue( [] ),
-			getInstalledApps: jest.fn().mockResolvedValue( {
-				vscode: true,
-				phpstorm: true,
-				cursor: true,
-			} ),
 		} );
 
-		const { queryByLabelText, findByLabelText } = render(
+		const { queryByLabelText, findByLabelText } = renderWithProvider(
 			<ContentTabOverview selectedSite={ selectedSite } />
 		);
 

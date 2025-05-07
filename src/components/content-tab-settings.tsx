@@ -38,20 +38,6 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 		: `localhost:${ selectedSite.port }`;
 	const protocol = selectedSite.customDomain && selectedSite.enableHttps ? 'https' : 'http';
 
-	const handleTrustCertificate = async () => {
-		const result = await getIpcApi().trustCertificate();
-		if ( ! result ) {
-			// show error message using electron dialog
-			await getIpcApi().showErrorMessageBox( {
-				title: __( 'Certificate Trust Failed' ),
-				message: __(
-					'Studio was unable to trust the certificate automatically. You may need to trust it manually using certificate manager.'
-				),
-				showOpenLogs: true,
-			} );
-		}
-	};
-
 	return (
 		<div className="p-8 ltr:pr-4 rtl:pl-4">
 			<div className="flex justify-between items-center mb-4">
@@ -93,7 +79,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 						<div>
 							<span>{ selectedSite.enableHttps ? __( 'Enabled' ) : __( 'Disabled' ) }</span>{ ' ' }
 							{ ! isCertificateTrusted && selectedSite.enableHttps && (
-								<Button variant="link" onClick={ handleTrustCertificate }>
+								<Button variant="link" onClick={ () => getIpcApi().trustCertificate() }>
 									{ __( 'Trust Certificate' ) }
 								</Button>
 							) }

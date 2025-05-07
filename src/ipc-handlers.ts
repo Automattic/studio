@@ -1271,15 +1271,23 @@ export async function isCATrusted(): Promise< boolean > {
 	return isRootCATrusted();
 }
 
-export async function trustCertificate(): Promise< boolean > {
+export async function trustCertificate( event: IpcMainInvokeEvent ): Promise< void > {
 	const platform = process.platform;
 	if ( platform === 'win32' ) {
-		return trustRootCA();
+		const result = await trustRootCA();
+		if ( ! result ) {
+			// show error message using electron dialog
+			await showErrorMessageBox( event, {
+				title: __( 'Certificate Trust Failed' ),
+				message: __(
+					'Studio was unable to trust the certificate automatically. You may need to trust it manually using certificate manager.'
+				),
+				showOpenLogs: true,
+			} );
+		}
 	}
 
-	void openCertificateDialog();
-
-	return true;
+	await openCertificateDialog();
 }
 
 export async function getFileContent( event: IpcMainInvokeEvent, filePath: string ) {

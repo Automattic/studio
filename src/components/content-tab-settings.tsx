@@ -8,7 +8,7 @@ import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { decodePassword } from 'src/lib/passwords';
 import EditSiteDetails from 'src/modules/site-settings/edit-site-details';
-import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
+import { certificateTrustApi, useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
 
 interface ContentTabSettingsProps {
 	selectedSite: SiteDetails;
@@ -27,7 +27,7 @@ function SettingsRow( { children, label }: PropsWithChildren< { label: string } 
 
 export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) {
 	const { __ } = useI18n();
-	const { data: isCertificateTrusted } = useCheckCertificateTrustQuery();
+	const { data: isCertificateTrusted, refetch: refetchCertificateTrust } = useCheckCertificateTrustQuery();
 	const username = 'admin';
 	// Empty strings account for legacy sites lacking a stored password.
 	const storedPassword = decodePassword( selectedSite.adminPassword ?? '' );
@@ -37,6 +37,15 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 		? `${ selectedSite.customDomain }`
 		: `localhost:${ selectedSite.port }`;
 	const protocol = selectedSite.customDomain && selectedSite.enableHttps ? 'https' : 'http';
+
+	const handleTrustCertificate = async () => {
+		await getIpcApi().trustCertificate();
+
+		// Invalidate the query to refresh the data
+		certificateTrustApi.util.invalidateTags( [ 'CertificateTrust' ] );
+
+		await refetchCertificateTrust();
+	};
 
 	return (
 		<div className="p-8 ltr:pr-4 rtl:pl-4">
@@ -79,7 +88,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 						<div>
 							<span>{ selectedSite.enableHttps ? __( 'Enabled' ) : __( 'Disabled' ) }</span>{ ' ' }
 							{ ! isCertificateTrusted && selectedSite.enableHttps && (
-								<Button variant="link" onClick={ () => getIpcApi().trustCertificate() }>
+								<Button variant="link" onClick={ handleTrustCertificate }>
 									{ __( 'Trust Certificate' ) }
 								</Button>
 							) }

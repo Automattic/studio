@@ -26,7 +26,7 @@ export type ImportProgressState = {
 	};
 };
 
-type ExportProgressState = {
+export type ExportProgressState = {
 	[ siteId: string ]: {
 		statusMessage: string;
 		progress: number;

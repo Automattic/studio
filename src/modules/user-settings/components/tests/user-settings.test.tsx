@@ -65,9 +65,6 @@ describe( 'UserSettings', () => {
 	it( 'logs in when not authenticated', async () => {
 		const authenticate = jest.fn();
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: false, authenticate } );
-		( useFeatureFlags as jest.Mock ).mockReturnValue( {
-			preferredEditor: false,
-		} );
 		renderWithProvider( <UserSettings /> );
 		const loginButton = screen.getByRole( 'button', { name: 'Log in' } );
 		expect( loginButton ).toBeVisible();
@@ -78,9 +75,6 @@ describe( 'UserSettings', () => {
 	it( 'logs out if authenticated', async () => {
 		const logout = jest.fn();
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, logout } );
-		( useFeatureFlags as jest.Mock ).mockReturnValue( {
-			preferredEditor: false,
-		} );
 		renderWithProvider( <UserSettings /> );
 		const logoutButton = screen.getByRole( 'button', { name: 'Log out' } );
 		expect( logoutButton ).toBeVisible();
@@ -91,9 +85,6 @@ describe( 'UserSettings', () => {
 	it( 'disables log in button when offline', async () => {
 		const authenticate = jest.fn();
 		( useOffline as jest.Mock ).mockReturnValue( true );
-		( useFeatureFlags as jest.Mock ).mockReturnValue( {
-			preferredEditor: false,
-		} );
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: false, authenticate } );
 		renderWithProvider( <UserSettings /> );
 		const loginButton = screen.getByRole( 'button', { name: 'Log in' } );
@@ -111,9 +102,6 @@ describe( 'UserSettings', () => {
 	describe( 'Tab Navigation', () => {
 		it( 'switches between tabs correctly', async () => {
 			( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
-			( useFeatureFlags as jest.Mock ).mockReturnValue( {
-				preferredEditor: true,
-			} );
 
 			renderWithProvider( <UserSettings /> );
 

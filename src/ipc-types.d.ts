@@ -91,7 +91,6 @@ interface AppGlobals {
 	arm64Translation: boolean;
 	pressableSyncEnabled: boolean;
 	terminalWpCliEnabled: boolean;
-	preferredEditor: boolean;
 }
 
 // Our IPC objects will be attached to the `window` global

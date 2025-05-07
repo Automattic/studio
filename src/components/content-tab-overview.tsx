@@ -53,9 +53,9 @@ function CustomizeSection( {
 	const { startServer, loadingServer } = useSiteDetails();
 	const isLoading = selectedSite?.id ? loadingServer[ selectedSite.id ] : false;
 
-	const handleCustomizeClick = (url: string) => async () => {
+	const handleCustomizeClick = ( url: string ) => async () => {
 		if ( isLoading ) return;
-		if ( !selectedSite.running ) {
+		if ( ! selectedSite.running ) {
 			await startServer( selectedSite.id );
 		}
 		getIpcApi().openSiteURL( selectedSite.id, url );
@@ -70,9 +70,7 @@ function CustomizeSection( {
 		{
 			label: __( 'Styles' ),
 			icon: styles,
-			onClick: handleCustomizeClick(
-				'/wp-admin/site-editor.php?path=%2Fwp_global_styles'
-			),
+			onClick: handleCustomizeClick( '/wp-admin/site-editor.php?path=%2Fwp_global_styles' ),
 		},
 		{
 			label: __( 'Patterns' ),

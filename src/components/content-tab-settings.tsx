@@ -8,6 +8,7 @@ import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { decodePassword } from 'src/lib/passwords';
 import EditSiteDetails from 'src/modules/site-settings/edit-site-details';
+import { useAppDispatch } from 'src/stores';
 import {
 	certificateTrustApi,
 	useCheckCertificateTrustQuery,
@@ -29,6 +30,7 @@ function SettingsRow( { children, label }: PropsWithChildren< { label: string } 
 }
 
 export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) {
+	const dispatch = useAppDispatch();
 	const { __ } = useI18n();
 	const { data: isCertificateTrusted, refetch: refetchCertificateTrust } =
 		useCheckCertificateTrustQuery();
@@ -46,9 +48,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 		await getIpcApi().trustCertificate();
 
 		// Invalidate the query to refresh the data
-		certificateTrustApi.util.invalidateTags( [ 'CertificateTrust' ] );
-
-		await refetchCertificateTrust();
+		await dispatch( certificateTrustApi.util.invalidateTags( [ 'CertificateTrust' ] ) );
 	};
 
 	return (

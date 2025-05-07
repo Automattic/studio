@@ -1276,7 +1276,6 @@ export async function trustCertificate( event: IpcMainInvokeEvent ): Promise< vo
 	if ( platform === 'win32' ) {
 		const result = await trustRootCA();
 		if ( ! result ) {
-			// show error message using electron dialog
 			await showErrorMessageBox( event, {
 				title: __( 'Certificate Trust Failed' ),
 				message: __(

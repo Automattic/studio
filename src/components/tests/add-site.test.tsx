@@ -6,8 +6,8 @@ import AddSite from 'src/components/add-site';
 import { useOffline } from 'src/hooks/use-offline';
 import { FolderDialogResponse } from 'src/ipc-handlers';
 
-jest.mock( 'src/hooks/use-certificate-trust', () => ( {
-	useCertificateTrust: jest.fn().mockReturnValue( true ),
+jest.mock( 'src/stores/certificate-trust-api', () => ( {
+	useCheckCertificateTrustQuery: jest.fn().mockReturnValue( { data: true } ),
 } ) );
 
 jest.mock( 'src/lib/app-globals', () => ( {

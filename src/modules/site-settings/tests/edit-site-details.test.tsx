@@ -59,8 +59,8 @@ jest.mock( 'src/stores/wordpress-versions-api', () => ( {
 	} ) ),
 } ) );
 
-jest.mock( 'src/hooks/use-certificate-trust', () => ( {
-	useCertificateTrust: jest.fn().mockReturnValue( true ),
+jest.mock( 'src/stores/certificate-trust-api', () => ( {
+	useCheckCertificateTrustQuery: jest.fn().mockReturnValue( { data: true } ),
 } ) );
 
 jest.mock( 'src/hooks/use-offline', () => ( {

@@ -7,12 +7,12 @@ import { ErrorInformation } from 'src/components/error-information';
 import Modal from 'src/components/modal';
 import TextControlComponent from 'src/components/text-control';
 import { WPVersionSelector } from 'src/components/wp-version-selector';
-import { useCertificateTrust } from 'src/hooks/use-certificate-trust';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
 import { generateCustomDomainFromSiteName, getDomainNameValidationError } from 'src/lib/domains';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getWordPressVersionUrl } from 'src/lib/wordpress-version-utils';
+import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
 import {
 	DEFAULT_PHP_VERSION,
 	ALLOWED_PHP_VERSIONS,
@@ -33,7 +33,9 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 	const [ isEditingSite, setIsEditingSite ] = useState( false );
 	const [ needsRestart, setNeedsRestart ] = useState( false );
 
-	const isCertificateTrusted = useCertificateTrust();
+	const { data: isCertificateTrusted } = useCheckCertificateTrustQuery( undefined, {
+		refetchOnFocus: true,
+	} );
 	const closeModal = useCallback( () => {
 		if ( isEditingSite ) {
 			return;

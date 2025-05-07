@@ -7,8 +7,8 @@ import {
 import { useDispatch, useSelector } from 'react-redux';
 import { LOCAL_STORAGE_CHAT_API_IDS_KEY, LOCAL_STORAGE_CHAT_MESSAGES_KEY } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import certificateTrustReducer from 'src/store/slices/certificate-trust';
 import { appVersionApi } from 'src/stores/app-version-api';
+import { certificateTrustApi } from 'src/stores/certificate-trust-api';
 import { reducer as chatReducer } from 'src/stores/chat-slice';
 import { installedAppsApi } from 'src/stores/installed-apps-api';
 import { reducer as newSitesReducer } from 'src/stores/new-sites-slice';
@@ -24,7 +24,7 @@ export type RootState = {
 	snapshot: ReturnType< typeof snapshotReducer >;
 	wordpressVersionsApi: ReturnType< typeof wordpressVersionsApi.reducer >;
 	wpcomApi: ReturnType< typeof wpcomApi.reducer >;
-	certificateTrust: ReturnType< typeof certificateTrustReducer >;
+	certificateTrustApi: ReturnType< typeof certificateTrustApi.reducer >;
 };
 
 const listenerMiddleware = createListenerMiddleware< RootState >();
@@ -74,7 +74,7 @@ export const rootReducer = combineReducers( {
 	snapshot: snapshotReducer,
 	wordpressVersionsApi: wordpressVersionsApi.reducer,
 	wpcomApi: wpcomApi.reducer,
-	certificateTrust: certificateTrustReducer,
+	certificateTrustApi: certificateTrustApi.reducer,
 } );
 
 export const store = configureStore( {
@@ -85,7 +85,8 @@ export const store = configureStore( {
 			.concat( appVersionApi.middleware )
 			.concat( installedAppsApi.middleware )
 			.concat( wordpressVersionsApi.middleware )
-			.concat( wpcomApi.middleware ),
+			.concat( wpcomApi.middleware )
+			.concat( certificateTrustApi.middleware ),
 } );
 
 export type AppDispatch = typeof store.dispatch;

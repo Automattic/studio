@@ -658,10 +658,7 @@ export async function exportSiteToPush( event: IpcMainInvokeEvent, id: string ) 
 		splitDatabaseDumpByTable: true,
 	};
 	// eslint-disable-next-line @typescript-eslint/no-empty-function
-	const onEvent = ( data: ImportExportEventData ) => {
-		const parentWindow = BrowserWindow.fromWebContents( event.sender );
-		sendIpcEventToRendererWithWindow( parentWindow, 'on-export', data, id );
-	};
+	const onEvent = () => {};
 	await exportBackup( exportOptions, onEvent );
 	const stats = fs.statSync( archivePath );
 	const archiveContent = fs.readFileSync( archivePath );

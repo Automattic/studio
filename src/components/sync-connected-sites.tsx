@@ -5,9 +5,9 @@ import { cloudUpload, cloudDownload } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useMemo } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
-import { Badge } from 'src/components/badge';
 import Button from 'src/components/button';
 import { OpenSitesSyncSelector } from 'src/components/content-tab-sync';
+import { EnvironmentBadge } from 'src/components/environment-badge';
 import { CircleRedCrossIcon } from 'src/components/icons/circle-red-cross';
 import offlineIcon from 'src/components/offline-icon';
 import { PressableLogo } from 'src/components/pressable-logo';
@@ -256,16 +256,29 @@ const SyncConnectedSitesList = ( {
 				return (
 					<div
 						className={ `col-span-3 grid min-h-14 px-8 gap-4 justify-items-start items-center border-b border-a8c-gray-0 ${
-							connectedSite.isPressable ? 'grid-cols-[1fr_auto]' : 'grid-cols-subgrid'
+							connectedSite.isPressable && ! connectedSite.environmentType
+								? 'grid-cols-[1fr_auto]'
+								: 'grid-cols-subgrid'
 						}` }
 						key={ connectedSite.id }
 					>
+						{ connectedSite.isPressable && connectedSite.environmentType && (
+							<div className="shrink-0">
+								{ connectedSite.environmentType === 'staging' && (
+									<EnvironmentBadge type="staging" />
+								) }
+								{ connectedSite.environmentType === 'production' && (
+									<EnvironmentBadge type="production" />
+								) }
+							</div>
+						) }
+
 						{ ! connectedSite.isPressable && (
 							<div className="shrink-0">
 								{ connectedSite.isStaging ? (
-									<Badge>{ __( 'Staging' ) }</Badge>
+									<EnvironmentBadge type="staging" />
 								) : (
-									<Badge className="bg-a8c-green-5 text-a8c-green-80">{ __( 'Production' ) }</Badge>
+									<EnvironmentBadge type="production" />
 								) }
 							</div>
 						) }

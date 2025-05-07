@@ -3,9 +3,9 @@ import { __, sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useState, useEffect } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
-import { Badge } from 'src/components/badge';
 import Button from 'src/components/button';
 import { CreateButton } from 'src/components/connect-create-buttons';
+import { EnvironmentBadge } from 'src/components/environment-badge';
 import Modal from 'src/components/modal';
 import offlineIcon from 'src/components/offline-icon';
 import { PressableLogo } from 'src/components/pressable-logo';
@@ -210,6 +210,7 @@ function SiteItem( {
 	const isDeleted = site.syncSupport === 'deleted';
 	const isUnsupported = site.syncSupport === 'unsupported';
 	const isPressable = site.isPressable;
+	const environmentType = site.environmentType;
 
 	return (
 		<div
@@ -267,23 +268,26 @@ function SiteItem( {
 					<ArrowIcon />
 				</Button>
 			</div>
-			{ isSyncable && ! isPressable && (
+			{ isSyncable && (
 				<div className="flex gap-2">
-					<Badge
-						className={ cx(
-							isSelected
-								? 'bg-white text-a8c-blueberry text-a8c-blueberry'
-								: 'bg-a8c-green-5 text-a8c-green-80'
-						) }
-					>
-						{ __( 'Production' ) }
-					</Badge>
-					{ site.stagingSiteIds.length > 0 && (
-						<Badge
-							className={ cx( isSelected && 'bg-white text-a8c-blueberry text-a8c-blueberry' ) }
-						>
-							{ __( 'Staging' ) }
-						</Badge>
+					{ ! isPressable && (
+						<>
+							<EnvironmentBadge type="production" selected={ isSelected } />
+							{ site.stagingSiteIds.length > 0 && (
+								<EnvironmentBadge type="staging" selected={ isSelected } />
+							) }
+						</>
+					) }
+
+					{ isPressable && environmentType && (
+						<>
+							{ environmentType === 'production' && (
+								<EnvironmentBadge type="production" selected={ isSelected } />
+							) }
+							{ environmentType === 'staging' && (
+								<EnvironmentBadge type="staging" selected={ isSelected } />
+							) }
+						</>
 					) }
 				</div>
 			) }

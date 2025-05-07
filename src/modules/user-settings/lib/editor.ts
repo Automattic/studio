@@ -30,7 +30,7 @@ export const supportedEditorConfig: Record< SupportedEditor, SupportedEditorConf
 		bundleId: 'com.jetbrains.PhpStorm',
 		winCommand: 'phpstorm64.exe',
 		winPaths: [
-			'%LOCALAPPDATA%\\JetBrains\\Toolbox\\apps\\PhpStorm\\ch-0\\*\\bin\\phpstorm64.exe',
+			'%LOCALAPPDATA%\\Programs\\PhpStorm\\bin\\phpstorm64.exe',
 			'%PROGRAMFILES%\\JetBrains\\PhpStorm\\bin\\phpstorm64.exe',
 		],
 	},
@@ -41,7 +41,7 @@ export const supportedEditorConfig: Record< SupportedEditor, SupportedEditorConf
 		bundleId: 'com.jetbrains.WebStorm',
 		winCommand: 'webstorm64.exe',
 		winPaths: [
-			'%LOCALAPPDATA%\\JetBrains\\Toolbox\\apps\\WebStorm\\ch-0\\*\\bin\\webstorm64.exe',
+			'%LOCALAPPDATA%\\Programs\\WebStorm\\bin\\webstorm64.exe',
 			'%PROGRAMFILES%\\JetBrains\\WebStorm\\bin\\webstorm64.exe',
 		],
 	},

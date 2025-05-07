@@ -1271,13 +1271,15 @@ export async function isCATrusted(): Promise< boolean > {
 	return isRootCATrusted();
 }
 
-export async function trustCertificate(): Promise< void > {
+export async function trustCertificate(): Promise< boolean > {
 	const platform = process.platform;
 	if ( platform === 'win32' ) {
 		return trustRootCA();
 	}
 
-	return openCertificateDialog();
+	void openCertificateDialog();
+
+	return true;
 }
 
 export async function getFileContent( event: IpcMainInvokeEvent, filePath: string ) {

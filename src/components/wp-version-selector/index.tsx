@@ -64,7 +64,7 @@ export const WPVersionSelector = ( {
 				{ selectedValue !== 'latest' && (
 					<Tooltip
 						text={ __( 'WordPress Core automatic updates will be disabled for this site.' ) }
-						placement="top"
+						placement="left"
 					>
 						<Icon icon={ warning } size={ 16 } />
 					</Tooltip>

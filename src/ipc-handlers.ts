@@ -65,7 +65,6 @@ import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/sr
 import {
 	supportedEditorConfig,
 	SupportedEditor,
-	winFindEditorPath,
 } from './modules/user-settings/lib/editor';
 import { SupportedTerminal } from './modules/user-settings/lib/terminal';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
@@ -1091,7 +1090,7 @@ export async function openAppAtPath(
 	}
 
 	if ( platform === 'win32' ) {
-		const editorPath = await winFindEditorPath( editor.label );
+		const editorPath = await winFindEditorPath( editorKey );
 		if ( ! editorPath ) {
 			throw new Error( `Editor ${ editor.label } not found or not supported on Windows` );
 		}
@@ -1101,6 +1100,67 @@ export async function openAppAtPath(
 
 	throw new Error( `Platform ${ platform } is not supported` );
 }
+
+/**
+ * Expands Windows environment variables in a path
+ */
+function winExpandPath( path: string ): string {
+	return path.replace( /%([^%]+)%/g, ( _, n ) => process.env[ n ] || '' );
+}
+
+/**
+ * Finds the executable path for a given editor on Windows
+ */
+async function winFindEditorPath( editorKey: SupportedEditor ): Promise< string | null > {
+	const editor = supportedEditorConfig[ editorKey ];
+	if ( ! editor || ! editor.winPaths ) {
+		return null;
+	}
+
+	for ( const possiblePath of editor.winPaths ) {
+		const expandedPath = winExpandPath( possiblePath );
+
+		// Handle wildcards in paths (for JetBrains Toolbox installations)
+		if ( expandedPath.includes( '*' ) ) {
+			const basePath = nodePath.dirname( expandedPath );
+			const pattern = nodePath.basename( expandedPath );
+
+			try {
+				const files = await fs.promises.readdir( basePath );
+				const matchingFiles = files.filter( ( f ) =>
+					f.match( new RegExp( pattern.replace( '*', '.*' ) ) )
+				);
+
+				for ( const file of matchingFiles ) {
+					const fullPath = nodePath.join( basePath, file );
+					if (
+						await fs.promises
+							.access( fullPath )
+							.then( () => true )
+							.catch( () => false )
+					) {
+						return fullPath;
+					}
+				}
+			} catch ( error ) {
+				// Skip if directory doesn't exist
+				continue;
+			}
+		} else {
+			if (
+				await fs.promises
+					.access( expandedPath )
+					.then( () => true )
+					.catch( () => false )
+			) {
+				return expandedPath;
+			}
+		}
+	}
+
+	return null;
+}
+
 
 export function showMessageBox( event: IpcMainInvokeEvent, options: Electron.MessageBoxOptions ) {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );

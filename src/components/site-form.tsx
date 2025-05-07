@@ -265,9 +265,7 @@ export const SiteForm = ( {
 }: SiteFormProps ) => {
 	const { __, isRTL } = useI18n();
 	const { locale } = useI18nData();
-	const { data: isCertificateTrusted } = useCheckCertificateTrustQuery( undefined, {
-		refetchOnFocus: true,
-	} );
+	const { data: isCertificateTrusted } = useCheckCertificateTrustQuery();
 
 	// If the custom domain is enabled and the root certificate is trusted, enable HTTPS
 	useEffect( () => {

@@ -33,9 +33,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 	const [ isEditingSite, setIsEditingSite ] = useState( false );
 	const [ needsRestart, setNeedsRestart ] = useState( false );
 
-	const { data: isCertificateTrusted } = useCheckCertificateTrustQuery( undefined, {
-		refetchOnFocus: true,
-	} );
+	const { data: isCertificateTrusted } = useCheckCertificateTrustQuery();
 	const closeModal = useCallback( () => {
 		if ( isEditingSite ) {
 			return;

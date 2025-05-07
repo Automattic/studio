@@ -4,6 +4,7 @@ import {
 	createListenerMiddleware,
 	isAnyOf,
 } from '@reduxjs/toolkit';
+import { setupListeners } from '@reduxjs/toolkit/query';
 import { useDispatch, useSelector } from 'react-redux';
 import { LOCAL_STORAGE_CHAT_API_IDS_KEY, LOCAL_STORAGE_CHAT_MESSAGES_KEY } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -88,6 +89,9 @@ export const store = configureStore( {
 			.concat( wpcomApi.middleware )
 			.concat( certificateTrustApi.middleware ),
 } );
+
+// Enable the refetchOnFocus behavior
+setupListeners( store.dispatch );
 
 export type AppDispatch = typeof store.dispatch;
 

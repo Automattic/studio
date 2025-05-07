@@ -5,6 +5,7 @@ export const certificateTrustApi = createApi( {
 	reducerPath: 'certificateTrustApi',
 	baseQuery: fetchBaseQuery(),
 	tagTypes: [ 'CertificateTrust' ],
+	refetchOnFocus: true,
 	endpoints: ( builder ) => ( {
 		checkCertificateTrust: builder.query< boolean, void >( {
 			queryFn: async () => {

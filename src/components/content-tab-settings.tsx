@@ -27,9 +27,7 @@ function SettingsRow( { children, label }: PropsWithChildren< { label: string } 
 
 export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) {
 	const { __ } = useI18n();
-	const { data: isCertificateTrusted } = useCheckCertificateTrustQuery( undefined, {
-		refetchOnFocus: true,
-	} );
+	const { data: isCertificateTrusted } = useCheckCertificateTrustQuery();
 	const username = 'admin';
 	// Empty strings account for legacy sites lacking a stored password.
 	const storedPassword = decodePassword( selectedSite.adminPassword ?? '' );

@@ -3,7 +3,6 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useState } from 'react';
 import Modal from 'src/components/modal';
 import { useAuth } from 'src/hooks/use-auth';
-import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useI18nData } from 'src/hooks/use-i18n-data';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
@@ -24,7 +23,6 @@ export default function UserSettings() {
 	const { __ } = useI18n();
 	const dispatch = useAppDispatch();
 	const { isAuthenticated, logout, user } = useAuth();
-	const { preferredEditor } = useFeatureFlags();
 	const { locale: savedLocale, setLocale: setSavedLocale } = useI18nData();
 
 	const activeBulkOperationForUser = useRootSelector( ( state ) =>
@@ -67,46 +65,6 @@ export default function UserSettings() {
 			await dispatch( snapshotThunks.deleteAllSnapshotsForUser( { userId: user?.id ?? 0 } ) );
 		}
 	}, [ __, dispatch, user?.id ] );
-
-	if ( ! preferredEditor ) {
-		return (
-			<>
-				{ needsToOpenUserSettings && (
-					<Modal title={ __( 'Settings' ) } isDismissible onRequestClose={ resetLocalState }>
-						{ ! isAuthenticated && (
-							<div className="flex flex-col gap-6">
-								<NonAuthenticatedAccountTab />
-								<div className="border-t border-[#F0F0F0] w-full"></div>
-								<LanguagePicker value={ savedLocale } onChange={ setSavedLocale } />
-							</div>
-						) }
-						{ isAuthenticated && (
-							<div className="gap-6 flex flex-col">
-								<AccountTab user={ user } logout={ logout } />
-								<div className="border-t border-[#F0F0F0] w-full"></div>
-								<div className="flex flex-col gap-6">
-									<LanguagePicker value={ savedLocale } onChange={ setSavedLocale } />
-									<SnapshotInfo
-										isDeleting={ !! activeBulkOperationForUser }
-										isDisabled={
-											definitiveSnapshotCount === 0 ||
-											!! activeBulkOperationForUser ||
-											isLoadingSnapshotUsage ||
-											isOffline
-										}
-										siteCount={ definitiveSnapshotCount }
-										siteLimit={ snapshotQuota }
-										onRemoveSnapshots={ onRemoveSnapshots }
-									/>
-									<PromptInfo />
-								</div>
-							</div>
-						) }
-					</Modal>
-				) }
-			</>
-		);
-	}
 
 	const tabs = [
 		{

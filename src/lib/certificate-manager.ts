@@ -190,13 +190,14 @@ export async function isRootCATrusted(): Promise< boolean > {
 
 /**
  * Trust the root CA certificate in the system trust store
+ * @throws { Error } If the certificate trust operation fails
  */
-export async function trustRootCA(): Promise< boolean > {
+export async function trustRootCA(): Promise< void > {
 	try {
 		// If certificate is already trusted, no need to re-trust it
 		if ( await isRootCATrusted() ) {
 			console.log( 'Root CA is already trusted in the system store' );
-			return true;
+			return;
 		}
 
 		const platform = process.platform;
@@ -217,16 +218,13 @@ export async function trustRootCA(): Promise< boolean > {
 					}
 				);
 			} );
-
-			return true;
 		} else {
 			console.error( 'Unsupported platform for automatic certificate trust:', platform );
-			return false;
 		}
 	} catch ( error ) {
 		Sentry.captureException( error );
 		console.error( 'Failed to trust root CA:', error );
-		return false;
+		throw error;
 	}
 }
 

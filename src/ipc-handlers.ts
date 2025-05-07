@@ -1274,8 +1274,9 @@ export async function isCATrusted(): Promise< boolean > {
 export async function trustCertificate( event: IpcMainInvokeEvent ): Promise< void > {
 	const platform = process.platform;
 	if ( platform === 'win32' ) {
-		const result = await trustRootCA();
-		if ( ! result ) {
+		try {
+			await trustRootCA();
+		} catch ( error ) {
 			await showErrorMessageBox( event, {
 				title: __( 'Certificate Trust Failed' ),
 				message: __(
@@ -1284,9 +1285,9 @@ export async function trustCertificate( event: IpcMainInvokeEvent ): Promise< vo
 				showOpenLogs: true,
 			} );
 		}
+	} else {
+		await openCertificateDialog();
 	}
-
-	await openCertificateDialog();
 }
 
 export async function getFileContent( event: IpcMainInvokeEvent, filePath: string ) {

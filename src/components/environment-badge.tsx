@@ -26,12 +26,9 @@ export function EnvironmentBadge( { type, selected }: EnvironmentBadgeProps ) {
 	};
 
 	const getLabel = () => {
-		if ( type === 'production' ) {
-			return __( 'Production' );
-		} else if ( type === 'staging' ) {
+		if ( type === 'staging' ) {
 			return __( 'Staging' );
 		}
-
 		return __( 'Production' );
 	};
 

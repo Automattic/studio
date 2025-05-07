@@ -34,6 +34,8 @@ export const ExportSite = ( {
 	const { [ selectedSite.id ]: currentProgress } = exportState;
 	const isImporting = importState[ selectedSite.id ]?.progress < 100;
 	const isExportDisabled = isImporting || isThisSiteSyncing;
+	const shouldDisplayProgress =
+		currentProgress && currentProgress.progress < 100 && ! isThisSiteSyncing;
 
 	let tooltipText;
 	if ( isThisSiteSyncing ) {
@@ -61,7 +63,7 @@ export const ExportSite = ( {
 					{ __( 'Export your entire site or only the database.' ) }
 				</p>
 			</div>
-			{ currentProgress ? (
+			{ shouldDisplayProgress ? (
 				<div className="flex flex-col gap-4 max-w-[300px]">
 					<ProgressBar value={ currentProgress.progress } maxValue={ 100 } />
 					<div className="text-a8c-gray-70 a8c-body">{ currentProgress.statusMessage }</div>

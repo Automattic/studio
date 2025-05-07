@@ -17,9 +17,9 @@ If you want to add support for another language you will need to add it to the
 
 #### Step 1: Extract Strings:
 
-   1. Run `npm run make-pot` to get the text out of the source
-   files.
-   
+   1. Remove `out/pots/` directory if it exists.
+   2. Run `npm run make-pot` to get the text out of the source files.
+
    This will create a `*.pot` file for each module, as well as a bundle
    of all translatable strings in `out/pots/bundle-strings.pot`.
 

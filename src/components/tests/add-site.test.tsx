@@ -45,6 +45,7 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 	__esModule: true,
 	default: jest.fn(),
 	getIpcApi: () => ( {
+		isCATrusted: jest.fn( () => Promise.resolve( true ) ),
 		showOpenFolderDialog: mockShowOpenFolderDialog,
 		generateProposedSitePath: mockGenerateProposedSitePath,
 		getAllCustomDomains: mockGetAllCustomDomains,

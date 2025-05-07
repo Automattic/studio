@@ -23,12 +23,14 @@ import { getAuthenticationUrl } from 'common/lib/oauth';
 import { Snapshot } from 'common/types/snapshot';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
 import { ARCHIVER_OPTIONS, DEFAULT_TERMINAL, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
-import { openURL } from 'src/ipc-handlers';
 import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
 import { bumpStat } from 'src/lib/bump-stats';
 import { getImporterMetric } from 'src/lib/bump-stats/lib';
-import { openCertificate as openCertificateDialog } from 'src/lib/certificate-manager';
+import {
+	openCertificate as openCertificateDialog,
+	isRootCATrusted,
+} from 'src/lib/certificate-manager';
 import { download } from 'src/lib/download';
 import { isEmptyDir, pathExists, sanitizeFolderName } from 'src/lib/fs-utils';
 import { getImageData } from 'src/lib/get-image-data';
@@ -1274,7 +1276,11 @@ export function openCertificate( _event: IpcMainInvokeEvent ) {
 	return openCertificateDialog();
 }
 
-export function getFileContent( event: IpcMainInvokeEvent, filePath: string ) {
+export async function isCATrusted(): Promise< boolean > {
+	return isRootCATrusted();
+}
+
+export async function getFileContent( event: IpcMainInvokeEvent, filePath: string ) {
 	if ( ! fs.existsSync( filePath ) ) {
 		throw new Error( `File not found: ${ filePath }` );
 	}

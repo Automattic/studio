@@ -85,6 +85,7 @@ describe( 'ContentTabSettings', () => {
 			openLocalPath,
 			generateProposedSitePath,
 			getAllCustomDomains,
+			isCATrusted: jest.fn( () => Promise.resolve( true ) ),
 		} );
 
 		store.dispatch( testActions.resetState() );

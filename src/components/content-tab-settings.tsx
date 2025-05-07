@@ -4,6 +4,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren } from 'react';
 import { CopyTextButton } from 'src/components/copy-text-button';
 import DeleteSite from 'src/components/delete-site';
+import { useCertificateTrust } from 'src/hooks/use-certificate-trust';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { decodePassword } from 'src/lib/passwords';
@@ -26,6 +27,7 @@ function SettingsRow( { children, label }: PropsWithChildren< { label: string } 
 
 export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) {
 	const { __ } = useI18n();
+	const isCertificateTrusted = useCertificateTrust();
 	const username = 'admin';
 	// Empty strings account for legacy sites lacking a stored password.
 	const storedPassword = decodePassword( selectedSite.adminPassword ?? '' );
@@ -75,13 +77,13 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 					<SettingsRow label={ __( 'HTTPS' ) }>
 						<div>
 							<span>{ selectedSite.enableHttps ? __( 'Enabled' ) : __( 'Disabled' ) }</span>{ ' ' }
-							{ selectedSite.enableHttps && (
+							{ ! isCertificateTrusted && selectedSite.enableHttps && (
 								<Button variant="link" onClick={ () => getIpcApi().openCertificate() }>
 									{ __( 'Trust Certificate' ) }
 								</Button>
 							) }
 						</div>
-						{ selectedSite.enableHttps && (
+						{ ! isCertificateTrusted && selectedSite.enableHttps && (
 							<div className="mt-1 max-w-96">
 								<span className="text-a8c-gray-50 mt-1">
 									{ __(

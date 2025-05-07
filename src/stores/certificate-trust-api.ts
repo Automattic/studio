@@ -1,4 +1,4 @@
-import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import { createApi, fetchBaseQuery, FetchBaseQueryError } from '@reduxjs/toolkit/query/react';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
 export const certificateTrustApi = createApi( {
@@ -14,7 +14,11 @@ export const certificateTrustApi = createApi( {
 					return { data: isTrusted };
 				} catch ( error ) {
 					console.error( 'Failed to check certificate trust:', error );
-					return { data: false };
+					const errorMessage =
+						error instanceof Error ? error.message : 'Failed to check certificate trust';
+					return {
+						error: { data: false, error: errorMessage } as FetchBaseQueryError,
+					};
 				}
 			},
 			providesTags: [ 'CertificateTrust' ],

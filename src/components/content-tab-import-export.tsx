@@ -34,8 +34,7 @@ export const ExportSite = ( {
 	const { [ selectedSite.id ]: currentProgress } = exportState;
 	const isImporting = importState[ selectedSite.id ]?.progress < 100;
 	const isExportDisabled = isImporting || isThisSiteSyncing;
-	const shouldDisplayProgress =
-		currentProgress && currentProgress.progress < 100 && ! isThisSiteSyncing;
+	const shouldDisplayProgress = currentProgress && ! isThisSiteSyncing;
 
 	let tooltipText;
 	if ( isThisSiteSyncing ) {

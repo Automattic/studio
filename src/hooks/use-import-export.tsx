@@ -44,6 +44,7 @@ interface ImportExportContext {
 	isSiteImporting: ( siteId: string ) => boolean;
 	isSiteExporting: ( siteId: string ) => boolean;
 	exportState: ExportProgressState;
+	clearExportState: ( siteId: string ) => void;
 	exportFullSite: ( selectedSite: SiteDetails ) => Promise< string | undefined >;
 	exportDatabase: ( selectedSite: SiteDetails ) => Promise< string | undefined >;
 }
@@ -55,6 +56,7 @@ const ImportExportContext = createContext< ImportExportContext >( {
 	isSiteImporting: () => false,
 	isSiteExporting: () => false,
 	exportState: {},
+	clearExportState: () => undefined,
 	exportFullSite: async () => undefined,
 	exportDatabase: async () => undefined,
 } );
@@ -303,6 +305,12 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 		[ exportState ]
 	);
 
+	const clearExportState = useCallback( ( siteId: string ) => {
+		setExportState( ( { [ siteId ]: currentProgress, ...rest } ) => ( {
+			...rest,
+		} ) );
+	}, [] );
+
 	const isSiteExporting = useCallback(
 		( siteId: string ) => !! exportState[ siteId ] && exportState[ siteId ].progress < 100,
 		[ exportState ]
@@ -463,6 +471,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 			isSiteImporting,
 			isSiteExporting,
 			exportState,
+			clearExportState,
 			exportFullSite,
 			exportDatabase,
 		} ),
@@ -473,6 +482,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 			isSiteImporting,
 			isSiteExporting,
 			exportState,
+			clearExportState,
 			exportFullSite,
 			exportDatabase,
 		]

@@ -11,6 +11,7 @@ import {
 	usePullPushStates,
 } from 'src/hooks/sync-sites/use-pull-push-states';
 import { useAuth } from 'src/hooks/use-auth';
+import { useImportExport } from 'src/hooks/use-import-export';
 import {
 	useSyncStatesProgressInfo,
 	PushStateProgressInfo,
@@ -57,6 +58,7 @@ export function useSyncPush( {
 		getState: getPushState,
 		clearState,
 	} = usePullPushStates< SyncPushState >( pushStates, setPushStates );
+	const { clearExportState } = useImportExport();
 	const { pushStatesProgressInfo, isKeyPushing, isKeyFinished, isKeyFailed } =
 		useSyncStatesProgressInfo();
 
@@ -107,6 +109,7 @@ export function useSyncPush( {
 						? __( 'Staging has been updated' )
 						: __( 'Production has been updated' ),
 				} );
+				clearExportState( syncPushState.selectedSite.id );
 			} else if ( response.success && response.status === 'failed' ) {
 				status = pushStatesProgressInfo.failed;
 				getIpcApi().showErrorMessageBox( {
@@ -121,6 +124,7 @@ export function useSyncPush( {
 							  ),
 					showOpenLogs: true,
 				} );
+				clearExportState( syncPushState.selectedSite.id );
 			}
 			// Update state in any case to keep polling push state
 			updatePushState( syncPushState.selectedSite.id, syncPushState.remoteSiteId, {
@@ -129,6 +133,7 @@ export function useSyncPush( {
 		},
 		[
 			__,
+			clearExportState,
 			client,
 			onPushSuccess,
 			pushStatesProgressInfo.failed,

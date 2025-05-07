@@ -3,17 +3,13 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useState } from 'react';
 import Modal from 'src/components/modal';
 import { useAuth } from 'src/hooks/use-auth';
-import { useI18nData } from 'src/hooks/use-i18n-data';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { AccountTab } from 'src/modules/user-settings/components/account-tab';
-import { LanguagePicker } from 'src/modules/user-settings/components/language-picker';
 import { NonAuthenticatedAccountTab } from 'src/modules/user-settings/components/non-authenticated-account-tab';
 import { PreferencesTab } from 'src/modules/user-settings/components/preferences-tab';
-import { PromptInfo } from 'src/modules/user-settings/components/prompt-info';
-import { SnapshotInfo } from 'src/modules/user-settings/components/snapshot-info';
 import { UsageTab } from 'src/modules/user-settings/components/usage-tab';
 import { useRootSelector, useAppDispatch } from 'src/stores';
 import { snapshotSelectors, snapshotThunks } from 'src/stores/snapshot-slice';
@@ -23,7 +19,6 @@ export default function UserSettings() {
 	const { __ } = useI18n();
 	const dispatch = useAppDispatch();
 	const { isAuthenticated, logout, user } = useAuth();
-	const { locale: savedLocale, setLocale: setSavedLocale } = useI18nData();
 
 	const activeBulkOperationForUser = useRootSelector( ( state ) =>
 		snapshotSelectors.selectActiveBulkOperationForUser( state, user?.id ?? 0 )

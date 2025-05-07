@@ -324,10 +324,17 @@ const SyncConnectedSitesList = ( {
 								</SyncPullPushClear>
 							) }
 							{ pushState?.status && isPushing && (
-								<div className="flex flex-col gap-2 min-w-44">
-									<div className="a8c-body-small">{ pushState.status.message }</div>
-									<ProgressBar value={ pushState.status.progress } maxValue={ 100 } />
-								</div>
+								<Tooltip
+									text={ __(
+										'Pushing is in progress. We will send you an email when it is completed.'
+									) }
+									placement="top-start"
+								>
+									<div className="flex flex-col gap-2 min-w-44">
+										<div className="a8c-body-small">{ pushState.status.message }</div>
+										<ProgressBar value={ pushState.status.progress } maxValue={ 100 } />
+									</div>
+								</Tooltip>
 							) }
 
 							{ pushState?.status && hasPushFinished && (

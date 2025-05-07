@@ -58,11 +58,15 @@ import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
 import { executePreviewCliCommand } from 'src/modules/cli/lib/execute-preview-command';
-import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import { SiteServer, createSiteWorkingDirectory } from 'src/site-server';
 import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from 'src/storage/paths';
 import { loadUserData, saveUserData } from 'src/storage/user-data';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
+import {
+	supportedEditorConfig,
+	SupportedEditor,
+	winFindEditorPath,
+} from './modules/user-settings/lib/editor';
 import { SupportedTerminal } from './modules/user-settings/lib/terminal';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
@@ -989,30 +993,6 @@ function promiseExec( command: string, options: ExecOptions = {} ): Promise< voi
 	} );
 }
 
-export async function openAppAtPath(
-	_event: IpcMainInvokeEvent,
-	bundleId: string,
-	targetPath: string
-) {
-	const platform = process.platform;
-	if ( platform === 'darwin' ) {
-		return promiseExec( `open -b ${ bundleId } "${ targetPath }"` );
-	}
-	if ( platform === 'win32' ) {
-		const editor = Object.values( supportedEditorConfig ).find( ( e ) => e.bundleId === bundleId );
-		if ( ! editor || ! editor.winCommand ) {
-			throw new Error( 'Editor not supported on Windows' );
-		}
-		try {
-			return await promiseExec( `"${ editor.winCommand }" "${ targetPath }"` );
-		} catch ( err ) {
-			// Fallback: open via URL protocol
-			const url = editor.url( targetPath );
-			return openURL( _event, url );
-		}
-	}
-}
-
 export async function openTerminalAtPath(
 	_event: IpcMainInvokeEvent,
 	targetPath: string,
@@ -1092,6 +1072,34 @@ END` );
 		console.error( 'Unsupported platform:', platform );
 		return;
 	}
+}
+
+export async function openAppAtPath(
+	_event: IpcMainInvokeEvent,
+	editorKey: SupportedEditor,
+	filePath: string
+): Promise< void > {
+	const platform = process.platform;
+	const editor = supportedEditorConfig[ editorKey ];
+
+	if ( ! editor ) {
+		throw new Error( `Editor ${ editorKey } not found or not supported` );
+	}
+
+	if ( platform === 'darwin' ) {
+		return promiseExec( `open -b ${ editor.bundleId } "${ filePath }"` );
+	}
+
+	if ( platform === 'win32' ) {
+		const editorPath = await winFindEditorPath( editor.label );
+		if ( ! editorPath ) {
+			throw new Error( `Editor ${ editor.label } not found or not supported on Windows` );
+		}
+
+		return promiseExec( `"${ editorPath }" "${ filePath }"` );
+	}
+
+	throw new Error( `Platform ${ platform } is not supported` );
 }
 
 export function showMessageBox( event: IpcMainInvokeEvent, options: Electron.MessageBoxOptions ) {

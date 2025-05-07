@@ -159,13 +159,13 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 	];
 
 	const editorConfig = editor ? supportedEditorConfig[ editor ] : false;
-	if ( editorConfig ) {
+	if ( editor && editorConfig ) {
 		buttonsArray.push( {
 			label: editorConfig.label,
 			className: 'text-nowrap',
 			icon: code,
 			onClick: async () => {
-				await getIpcApi().openAppAtPath( editorConfig.bundleId, selectedSite.path );
+				await getIpcApi().openAppAtPath( editor, selectedSite.path );
 			},
 		} );
 	}

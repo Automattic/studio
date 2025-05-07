@@ -122,7 +122,7 @@ describe( 'ShortcutsSection', () => {
 		fireEvent.click( phpStormButton );
 
 		await waitFor( () =>
-			expect( openAppAtPathMock ).toHaveBeenCalledWith( 'com.jetbrains.PhpStorm', '/path/to/site' )
+			expect( openAppAtPathMock ).toHaveBeenCalledWith( 'phpstorm', '/path/to/site' )
 		);
 	} );
 

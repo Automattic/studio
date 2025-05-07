@@ -1089,7 +1089,8 @@ export async function openAppAtPath(
 	if ( platform === 'win32' ) {
 		const editorPath = await winFindEditorPath( editorKey );
 		if ( ! editorPath ) {
-			throw new Error( `Editor ${ editor.label } not found or not supported on Windows` );
+			// Fall back to using openURL if no editor path is found
+			return openURL( _event, editor.url( filePath ) );
 		}
 
 		return promiseExec( `"${ editorPath }" "${ filePath }"` );

@@ -22,4 +22,3 @@ export const certificateTrustApi = createApi( {
 } );
 
 export const { useCheckCertificateTrustQuery } = certificateTrustApi;
-export default certificateTrustApi.reducer;

@@ -75,6 +75,12 @@ export const EditorPicker = ( { value, onChange, disabled }: EditorPickerProps )
 							{ editorConfig.label }
 						</option>
 					) ) }
+
+					{ installedEditors.length === 0 && (
+						<option value={ '' } disabled>
+							{ __( 'None' ) }
+						</option>
+					) }
 				</optgroup>
 				<optgroup label={ __( 'Not installed' ) }>
 					{ uninstalledEditors.map( ( [ editorKey, editorConfig ] ) => (

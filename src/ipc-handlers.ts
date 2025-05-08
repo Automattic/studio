@@ -58,12 +58,12 @@ import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
 import { executePreviewCliCommand } from 'src/modules/cli/lib/execute-preview-command';
+import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
+import { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 import { SiteServer, createSiteWorkingDirectory } from 'src/site-server';
 import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from 'src/storage/paths';
 import { loadUserData, saveUserData } from 'src/storage/user-data';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
-import { supportedEditorConfig, SupportedEditor } from './modules/user-settings/lib/editor';
-import { SupportedTerminal } from './modules/user-settings/lib/terminal';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
 

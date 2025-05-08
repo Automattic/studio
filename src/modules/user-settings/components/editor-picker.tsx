@@ -35,6 +35,7 @@ export const EditorPicker = ( { value, onChange, disabled }: EditorPickerProps )
 					)
 				}
 				variant="link"
+				className="text-xs"
 			>
 				{ props.children } ↗
 			</Button>
@@ -47,7 +48,7 @@ export const EditorPicker = ( { value, onChange, disabled }: EditorPickerProps )
 		}
 
 		return (
-			<p className="text-gray-500">
+			<p className="text-gray-500 text-xs">
 				{ createInterpolateElement(
 					__( 'You can find a list of supported code editors <a>here</a>.' ),
 					{

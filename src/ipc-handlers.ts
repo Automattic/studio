@@ -1025,7 +1025,7 @@ export async function openTerminalAtPath(
 		initScriptSteps.push( `cd \\"${ escapedPath }\\"`, 'clear' );
 
 		const userData = await loadUserData();
-		const preferredTerminal = ( userData.preferredTerminal || 'terminal' ) as SupportedTerminal;
+		const preferredTerminal = userData.preferredTerminal || DEFAULT_TERMINAL;
 
 		if ( preferredTerminal === 'warp' ) {
 			return promiseExec( `open -a Warp "${ targetPath }"` );
@@ -1341,7 +1341,7 @@ export async function saveUserTerminal(
 
 export async function getUserTerminal( _event: IpcMainInvokeEvent ): Promise< SupportedTerminal > {
 	const userData = await loadUserData();
-	return ( userData.preferredTerminal || DEFAULT_TERMINAL ) as SupportedTerminal;
+	return userData.preferredTerminal || DEFAULT_TERMINAL;
 }
 
 export async function isFullscreen( _event: IpcMainInvokeEvent ): Promise< boolean > {
@@ -1355,10 +1355,6 @@ export async function getAllCustomDomains(): Promise< string[] > {
 	return userData.sites
 		.map( ( site ) => site.customDomain )
 		.filter( ( domain ): domain is string => domain !== undefined );
-}
-
-export function getRandomUUID(): crypto.UUID {
-	return crypto.randomUUID();
 }
 
 export async function createSnapshot(

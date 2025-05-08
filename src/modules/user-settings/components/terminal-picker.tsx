@@ -24,9 +24,9 @@ export const TerminalPicker = ( { value, onChange }: TerminalPickerProps ) => {
 
 	return (
 		<SettingsFormField label={ __( 'Terminal application' ) }>
-			<SelectControl
+			<SelectControl< SupportedTerminal >
 				value={ value }
-				onChange={ ( newValue ) => onChange( newValue as SupportedTerminal ) }
+				onChange={ ( newValue ) => onChange( newValue ) }
 				__nextHasNoMarginBottom
 				__next40pxDefaultSize
 			>

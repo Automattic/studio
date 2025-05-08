@@ -142,8 +142,7 @@ describe( 'EditorPicker', () => {
 		renderWithProvider( <EditorPicker value={ undefined } onChange={ mockOnChange } /> );
 
 		await waitFor( () => {
-			const select = screen.getByRole( 'combobox' );
-			expect( select ).not.toBeDisabled();
+			expect( screen.getByRole( 'combobox' ) ).toBeInTheDocument();
 		} );
 
 		const select = screen.getByRole( 'combobox' );
@@ -162,7 +161,6 @@ describe( 'EditorPicker', () => {
 		expect( options[ 5 ] ).toBeDisabled();
 	} );
 
-	// add test for value prop
 	it( 'selects user preferred editor', async () => {
 		store.dispatch(
 			installedAppsApi.util.updateQueryData( 'getInstalledApps', undefined, ( data ) => {

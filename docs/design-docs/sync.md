@@ -13,8 +13,8 @@ WordPress Studio Sync enables developers to pull a live site down for local deve
 - **Sync**: Replicating files and database content between a local machine and a remote site in any direction.
 - **Push**: Copying changes from a local machine to a remote (staging or production) site.
 - **Pull**: Copying changes from a remote site down to a local machine.
-- **Staging site**: A staging site is hosted on WordPress.com and is connected to its production site. WordPress.com staging sites can sync with production sites and vice versa. However, that is a different feature managed entirely in the wp.com Hosting Features web interface.
-- **Production site**: A production site hosted on WordPress.com or any Pressable site. For Pressable sites, we currently cannot identify if a site is a production or staging and we don't display any tag or label for them.
+- **Staging site**: A staging site hosted on WordPress.com or a Pressable site with the environment type set to `staging`. WordPress.com staging sites can sync with production sites and vice versa. However, that is a different feature managed entirely in the WordPress.com Hosting Features web interface.
+- **Production site**: A production site hosted on WordPress.com or a Pressable site with the environment type set to `production`.
 - **Jetpack Backup**: A feature of WordPress.com that allows users to back up their sites and serves as the format used to share site data for the sync feature.
 - **Sync connection**: A Sync connection is a relationship between a local machine and a remote site. That information lives in appData `connectedWpcomSites` array.
 
@@ -41,7 +41,8 @@ Compatible sites:
 Only WPcom sites with a Business or eCommerce plan can be connected. If a site with the Business plan does not have hosting features enabled, we will ask the user to do so before using Studio sync feature. Additionally, Pressable sites with a valid Jetpack connection can also be connected to Studio.
 
 WordPress.com production and staging sites are grouped when users connect a production site, meaning they can easily sync with both sites from Studio.
-For Pressable sites, we currently cannot identify if a site is a production or staging.
+
+Pressable production and staging sites are not grouped together on the Studio side. They are displayed as separate connected sites.
 
 Users can connect multiple sites to Studio independently of their hosting provider.
 

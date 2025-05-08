@@ -60,6 +60,7 @@ import { popupMenu, setupMenu } from 'src/menu';
 import { executePreviewCliCommand } from 'src/modules/cli/lib/execute-preview-command';
 import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
+import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
 import { SiteServer, createSiteWorkingDirectory } from 'src/site-server';
 import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from 'src/storage/paths';
 import { loadUserData, saveUserData } from 'src/storage/user-data';
@@ -1093,49 +1094,6 @@ export async function openAppAtPath(
 	}
 
 	throw new Error( `Platform ${ platform } is not supported` );
-}
-
-/**
- * Finds the executable path for a given editor on Windows
- */
-async function winFindEditorPath( editorKey: SupportedEditor ): Promise< string | null > {
-	const editor = supportedEditorConfig[ editorKey ];
-	if ( ! editor || ! editor.winPaths ) {
-		return null;
-	}
-
-	for ( const possiblePath of editor.winPaths ) {
-		const expandedPath = possiblePath.replace( /%([^%]+)%/g, ( _, n ) => process.env[ n ] || '' );
-
-		// Handle wildcards in paths (for JetBrains Toolbox installations)
-		if ( expandedPath.includes( '*' ) ) {
-			const basePath = nodePath.dirname( expandedPath );
-			const pattern = nodePath.basename( expandedPath );
-
-			try {
-				const files = await fs.promises.readdir( basePath );
-				const matchingFiles = files.filter( ( file ) =>
-					file.match( new RegExp( pattern.replace( '*', '.*' ) ) )
-				);
-
-				for ( const file of matchingFiles ) {
-					const fullPath = nodePath.join( basePath, file );
-					if ( fs.existsSync( fullPath ) ) {
-						return fullPath;
-					}
-				}
-			} catch ( error ) {
-				// Skip if directory doesn't exist
-				continue;
-			}
-		} else {
-			if ( fs.existsSync( expandedPath ) ) {
-				return expandedPath;
-			}
-		}
-	}
-
-	return null;
 }
 
 export function showMessageBox( event: IpcMainInvokeEvent, options: Electron.MessageBoxOptions ) {

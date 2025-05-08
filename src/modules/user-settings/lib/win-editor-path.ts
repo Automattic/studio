@@ -17,18 +17,18 @@ export async function winFindEditorPath( editorKey: SupportedEditor ): Promise< 
 
 		// Handle wildcards in paths
 		if ( expandedPath.includes( '*' ) ) {
-			const pathParts = expandedPath.split('*');
-			const basePath = nodePath.dirname( pathParts[0] );
-			const pattern = nodePath.basename( pathParts[0] );
+			const pathParts = expandedPath.split( '*' );
+			const basePath = nodePath.dirname( pathParts[ 0 ] );
+			const pattern = nodePath.basename( pathParts[ 0 ] );
 
 			try {
 				const files = fs.readdirSync( basePath );
 				const matchingFiles = files.filter( ( file ) =>
-					file.match( new RegExp( pattern + '.*') )
+					file.match( new RegExp( pattern + '.*' ) )
 				);
 
 				for ( const file of matchingFiles ) {
-					const fullPath = nodePath.join( basePath, file, pathParts[1] );
+					const fullPath = nodePath.join( basePath, file, pathParts[ 1 ] );
 					if ( fs.existsSync( fullPath ) ) {
 						return fullPath;
 					}

@@ -1120,12 +1120,7 @@ async function winFindEditorPath( editorKey: SupportedEditor ): Promise< string 
 
 				for ( const file of matchingFiles ) {
 					const fullPath = nodePath.join( basePath, file );
-					if (
-						await fs.promises
-							.access( fullPath )
-							.then( () => true )
-							.catch( () => false )
-					) {
+					if ( fs.existsSync( fullPath ) ) {
 						return fullPath;
 					}
 				}
@@ -1134,12 +1129,7 @@ async function winFindEditorPath( editorKey: SupportedEditor ): Promise< string 
 				continue;
 			}
 		} else {
-			if (
-				await fs.promises
-					.access( expandedPath )
-					.then( () => true )
-					.catch( () => false )
-			) {
+			if ( fs.existsSync( expandedPath ) ) {
 				return expandedPath;
 			}
 		}

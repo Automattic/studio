@@ -50,51 +50,47 @@ function CustomizeSection( {
 	themeDetails?: SiteDetails[ 'themeDetails' ];
 	loading?: boolean;
 } ) {
+	const { startServer, loadingServer } = useSiteDetails();
+	const isLoading = selectedSite?.id ? loadingServer[ selectedSite.id ] : false;
+
+	const handleCustomizeClick = ( url: string ) => async () => {
+		if ( isLoading ) return;
+		if ( ! selectedSite.running ) {
+			await startServer( selectedSite.id );
+		}
+		getIpcApi().openSiteURL( selectedSite.id, url );
+	};
+
 	const blockThemeButtons: ButtonsSectionProps[ 'buttonsArray' ] = [
 		{
 			label: __( 'Site Editor' ),
 			icon: desktop,
-			onClick: () => {
-				getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/site-editor.php' );
-			},
+			onClick: handleCustomizeClick( '/wp-admin/site-editor.php' ),
 		},
 		{
 			label: __( 'Styles' ),
 			icon: styles,
-			onClick: () => {
-				getIpcApi().openSiteURL(
-					selectedSite.id,
-					'/wp-admin/site-editor.php?path=%2Fwp_global_styles'
-				);
-			},
+			onClick: handleCustomizeClick( '/wp-admin/site-editor.php?path=%2Fwp_global_styles' ),
 		},
 		{
 			label: __( 'Patterns' ),
 			icon: symbolFilled,
-			onClick: () => {
-				getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/site-editor.php?path=%2Fpatterns' );
-			},
+			onClick: handleCustomizeClick( '/wp-admin/site-editor.php?path=%2Fpatterns' ),
 		},
 		{
 			label: __( 'Navigation' ),
 			icon: navigation,
-			onClick: () => {
-				getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/site-editor.php?path=%2Fnavigation' );
-			},
+			onClick: handleCustomizeClick( '/wp-admin/site-editor.php?path=%2Fnavigation' ),
 		},
 		{
 			label: __( 'Templates' ),
 			icon: layout,
-			onClick: () => {
-				getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/site-editor.php?path=%2Fwp_template' );
-			},
+			onClick: handleCustomizeClick( '/wp-admin/site-editor.php?path=%2Fwp_template' ),
 		},
 		{
 			label: __( 'Pages' ),
 			icon: page,
-			onClick: () => {
-				getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/site-editor.php?path=%2Fpage' );
-			},
+			onClick: handleCustomizeClick( '/wp-admin/site-editor.php?path=%2Fpage' ),
 		},
 	];
 
@@ -102,7 +98,7 @@ function CustomizeSection( {
 		{
 			label: __( 'Customizer' ),
 			icon: edit,
-			onClick: () => getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/customize.php' ),
+			onClick: handleCustomizeClick( '/wp-admin/customize.php' ),
 		},
 	];
 
@@ -110,7 +106,7 @@ function CustomizeSection( {
 		classicThemeButtons.push( {
 			label: __( 'Menus' ),
 			icon: navigation,
-			onClick: () => getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/nav-menus.php' ),
+			onClick: handleCustomizeClick( '/wp-admin/nav-menus.php' ),
 		} );
 	}
 
@@ -118,7 +114,7 @@ function CustomizeSection( {
 		classicThemeButtons.push( {
 			label: __( 'Widgets' ),
 			icon: widget,
-			onClick: () => getIpcApi().openSiteURL( selectedSite.id, '/wp-admin/widgets.php' ),
+			onClick: handleCustomizeClick( '/wp-admin/widgets.php' ),
 		} );
 	}
 
@@ -126,7 +122,7 @@ function CustomizeSection( {
 
 	const processedButtons = buttonsArray.map( ( button ) => ( {
 		...button,
-		disabled: ! selectedSite.running,
+		disabled: isLoading,
 	} ) );
 
 	const sectionHeading = __( 'Customize' );

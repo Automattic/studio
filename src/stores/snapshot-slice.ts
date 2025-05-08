@@ -319,7 +319,7 @@ window.ipcListener.subscribe( 'user-data-updated', ( _, payload ) => {
 	}
 } );
 
-function getCreateProgress( action: PreviewCommandLoggerAction ): [ string, number ] {
+function getOperationProgress( action: PreviewCommandLoggerAction ): [ string, number ] {
 	switch ( action ) {
 		case PreviewCommandLoggerAction.VALIDATE:
 			return [ __( 'Creating archive...' ), 5 ];
@@ -367,7 +367,7 @@ window.ipcListener.subscribe( 'snapshot-output', ( event, payload ) => {
 		return;
 	}
 
-	const [ detail, progress ] = getCreateProgress( payload.data.action );
+	const [ detail, progress ] = getOperationProgress( payload.data.action );
 	store.dispatch(
 		snapshotActions.updateOperation( {
 			operationId: payload.operationId,

@@ -30,6 +30,7 @@ import { getImporterMetric } from 'src/lib/bump-stats/lib';
 import {
 	openCertificate as openCertificateDialog,
 	isRootCATrusted,
+	trustRootCA,
 } from 'src/lib/certificate-manager';
 import { download } from 'src/lib/download';
 import { isEmptyDir, pathExists, sanitizeFolderName } from 'src/lib/fs-utils';
@@ -838,7 +839,6 @@ export function getAppGlobals(): AppGlobals {
 		arm64Translation: app.runningUnderARM64Translation,
 		pressableSyncEnabled: process.env.STUDIO_PRESSABLE_SYNC === 'true',
 		terminalWpCliEnabled: process.env.STUDIO_TERMINAL_WP_CLI === 'true',
-		preferredEditor: process.env.STUDIO_PREFERRED_EDITOR === 'true',
 	};
 }
 
@@ -1015,7 +1015,7 @@ export async function openTerminalAtPath(
 		initScriptSteps.push( `cd \\"${ escapedPath }\\"`, 'clear' );
 
 		const userData = await loadUserData();
-		const preferredTerminal = ( userData.preferredTerminal || 'terminal' ) as SupportedTerminal;
+		const preferredTerminal = userData.preferredTerminal || DEFAULT_TERMINAL;
 
 		if ( preferredTerminal === 'warp' ) {
 			return promiseExec( `open -a Warp "${ targetPath }"` );
@@ -1282,6 +1282,25 @@ export async function isCATrusted(): Promise< boolean > {
 	return isRootCATrusted();
 }
 
+export async function trustCertificate( event: IpcMainInvokeEvent ): Promise< void > {
+	const platform = process.platform;
+	if ( platform === 'win32' ) {
+		try {
+			await trustRootCA();
+		} catch ( error ) {
+			await showErrorMessageBox( event, {
+				title: __( 'Certificate Trust Failed' ),
+				message: __(
+					'Studio was unable to trust the certificate automatically. You may need to trust it manually using certificate manager.'
+				),
+				showOpenLogs: true,
+			} );
+		}
+	} else {
+		await openCertificateDialog();
+	}
+}
+
 export async function getFileContent( event: IpcMainInvokeEvent, filePath: string ) {
 	if ( ! fs.existsSync( filePath ) ) {
 		throw new Error( `File not found: ${ filePath }` );
@@ -1337,7 +1356,7 @@ export async function saveUserTerminal(
 
 export async function getUserTerminal( _event: IpcMainInvokeEvent ): Promise< SupportedTerminal > {
 	const userData = await loadUserData();
-	return ( userData.preferredTerminal || DEFAULT_TERMINAL ) as SupportedTerminal;
+	return userData.preferredTerminal || DEFAULT_TERMINAL;
 }
 
 export async function isFullscreen( _event: IpcMainInvokeEvent ): Promise< boolean > {
@@ -1351,10 +1370,6 @@ export async function getAllCustomDomains(): Promise< string[] > {
 	return userData.sites
 		.map( ( site ) => site.customDomain )
 		.filter( ( domain ): domain is string => domain !== undefined );
-}
-
-export function getRandomUUID(): crypto.UUID {
-	return crypto.randomUUID();
 }
 
 export async function createSnapshot(

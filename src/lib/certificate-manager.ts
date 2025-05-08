@@ -190,8 +190,9 @@ export async function isRootCATrusted(): Promise< boolean > {
 
 /**
  * Trust the root CA certificate in the system trust store
+ * @throws { Error } If the certificate trust operation fails
  */
-async function trustRootCA(): Promise< void > {
+export async function trustRootCA(): Promise< void > {
 	try {
 		// If certificate is already trusted, no need to re-trust it
 		if ( await isRootCATrusted() ) {
@@ -223,6 +224,7 @@ async function trustRootCA(): Promise< void > {
 	} catch ( error ) {
 		Sentry.captureException( error );
 		console.error( 'Failed to trust root CA:', error );
+		throw error;
 	}
 }
 

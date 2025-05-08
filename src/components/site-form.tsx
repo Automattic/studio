@@ -9,12 +9,12 @@ import FolderIcon from 'src/components/folder-icon';
 import TextControlComponent from 'src/components/text-control';
 import { WPVersionSelector } from 'src/components/wp-version-selector';
 import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
-import { useCertificateTrust } from 'src/hooks/use-certificate-trust';
 import { useI18nData } from 'src/hooks/use-i18n-data';
 import { cx } from 'src/lib/cx';
 import { generateCustomDomainFromSiteName } from 'src/lib/domains';
 import { getDocsLink } from 'src/lib/get-docs-link';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
 import {
 	DEFAULT_WORDPRESS_VERSION,
 	ALLOWED_PHP_VERSIONS,
@@ -265,7 +265,7 @@ export const SiteForm = ( {
 }: SiteFormProps ) => {
 	const { __, isRTL } = useI18n();
 	const { locale } = useI18nData();
-	const isCertificateTrusted = useCertificateTrust();
+	const { data: isCertificateTrusted } = useCheckCertificateTrustQuery();
 
 	// If the custom domain is enabled and the root certificate is trusted, enable HTTPS
 	useEffect( () => {

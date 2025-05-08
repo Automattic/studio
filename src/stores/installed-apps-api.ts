@@ -45,7 +45,7 @@ export const installedAppsApi = createApi( {
 		getUserTerminal: builder.query< SupportedTerminal, void >( {
 			queryFn: async () => {
 				const terminal = await getIpcApi().getUserTerminal();
-				return { data: terminal || 'terminal' };
+				return { data: terminal };
 			},
 			providesTags: [ 'UserPreferences' ],
 		} ),

@@ -44,7 +44,6 @@ const api: IpcApi = {
 	updateSnapshot: ( siteFolder, hostname ) =>
 		ipcRendererInvoke( 'updateSnapshot', siteFolder, hostname ),
 	deleteSnapshot: ( hostname ) => ipcRendererInvoke( 'deleteSnapshot', hostname ),
-	getRandomUUID: () => ipcRendererInvoke( 'getRandomUUID' ),
 	getLastSeenVersion: () => ipcRendererInvoke( 'getLastSeenVersion' ),
 	saveLastSeenVersion: ( version ) => ipcRendererInvoke( 'saveLastSeenVersion', version ),
 	getSiteDetails: () => ipcRendererInvoke( 'getSiteDetails' ),
@@ -54,6 +53,7 @@ const api: IpcApi = {
 	showOpenFolderDialog: ( title, defaultDialogPath ) =>
 		ipcRendererInvoke( 'showOpenFolderDialog', title, defaultDialogPath ),
 	isCATrusted: () => ipcRenderer.invoke( 'isCATrusted' ),
+	trustCertificate: () => ipcRenderer.invoke( 'trustCertificate' ),
 	showSaveAsDialog: ( options ) => ipcRendererInvoke( 'showSaveAsDialog', options ),
 	saveUserLocale: ( locale ) => ipcRendererInvoke( 'saveUserLocale', locale ),
 	getSentryUserId: () => ipcRendererInvoke( 'getSentryUserId' ),

@@ -207,7 +207,7 @@ describe( 'ShortcutsSection', () => {
 		mockGetIpcApi.mockReturnValue( {
 			openLocalPath: jest.fn(),
 			getUserEditor: jest.fn().mockResolvedValue( 'cursor' ),
-			getUserTerminal: jest.fn().mockResolvedValue( null ),
+			getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
 		} );
 
 		const { queryByLabelText, findByLabelText } = renderWithProvider(

@@ -34,6 +34,7 @@ describe( 'EditorPicker', () => {
 				ghostty: false,
 			} ),
 			getUserEditor: jest.fn().mockResolvedValue( undefined ),
+			openURL: jest.fn(),
 		} );
 	} );
 

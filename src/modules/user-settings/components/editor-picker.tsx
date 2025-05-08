@@ -1,5 +1,8 @@
-import { SelectControl } from '@wordpress/components';
+import { Button, SelectControl } from '@wordpress/components';
+import { createInterpolateElement } from '@wordpress/element';
 import { useI18n } from '@wordpress/react-i18n';
+import { PropsWithChildren } from 'react';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 import { SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import {
 	useGetInstalledAppsQuery,
@@ -22,6 +25,38 @@ export const EditorPicker = ( { value, onChange, disabled }: EditorPickerProps )
 			uninstalledEditors: selectUninstalledEditors( result.data ),
 		} ),
 	} );
+
+	const ReadMoreLink = ( props: PropsWithChildren ) => {
+		return (
+			<Button
+				onClick={ () =>
+					getIpcApi().openURL(
+						'https://developer.wordpress.com/docs/developer-tools/studio/sites/#site-overview'
+					)
+				}
+				variant="link"
+			>
+				{ props.children } ↗
+			</Button>
+		);
+	};
+
+	const renderHelp = () => {
+		if ( installedEditors.length > 0 ) {
+			return null;
+		}
+
+		return (
+			<p className="text-gray-500">
+				{ createInterpolateElement(
+					__( 'You can find a list of supported code editors <a>here</a>.' ),
+					{
+						a: <ReadMoreLink />,
+					}
+				) }
+			</p>
+		);
+	};
 
 	return (
 		<SettingsFormField label={ __( 'Code editor' ) }>
@@ -48,6 +83,7 @@ export const EditorPicker = ( { value, onChange, disabled }: EditorPickerProps )
 					) ) }
 				</optgroup>
 			</SelectControl>
+			{ renderHelp() }
 		</SettingsFormField>
 	);
 };

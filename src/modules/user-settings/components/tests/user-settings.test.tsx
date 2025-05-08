@@ -2,7 +2,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { useAuth } from 'src/hooks/use-auth';
-import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
 import { UserSettings } from 'src/modules/user-settings';

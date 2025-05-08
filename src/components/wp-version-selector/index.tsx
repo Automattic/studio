@@ -59,7 +59,7 @@ export const WPVersionSelector = ( {
 
 	return (
 		<label className="flex flex-1 flex-col gap-1.5 leading-4">
-			<span className="font-semibold flex items-center gap-2">
+			<span className="font-semibold flex items-center gap-0.5">
 				{ __( 'WordPress version' ) }
 				{ selectedValue !== 'latest' && (
 					<Tooltip

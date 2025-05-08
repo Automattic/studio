@@ -142,7 +142,9 @@ describe( 'EditorPicker', () => {
 		renderWithProvider( <EditorPicker value={ undefined } onChange={ mockOnChange } /> );
 
 		await waitFor( () => {
-			expect( screen.getByRole( 'combobox' ) ).toBeInTheDocument();
+			const select = screen.getByRole( 'combobox' );
+			expect( select ).not.toBeDisabled();
+			expect( screen.getByText( 'VS Code' ) ).toBeInTheDocument();
 		} );
 
 		const select = screen.getByRole( 'combobox' );

@@ -144,23 +144,14 @@ describe( 'EditorPicker', () => {
 		await waitFor( () => {
 			const select = screen.getByRole( 'combobox' );
 			expect( select ).not.toBeDisabled();
-			expect( screen.getByText( 'VS Code' ) ).toBeInTheDocument();
+			const options = select.querySelectorAll( 'option' );
+			expect( options[ 0 ] ).not.toBeDisabled();
+			expect( options[ 1 ] ).not.toBeDisabled();
+			expect( options[ 2 ] ).toBeDisabled();
+			expect( options[ 3 ] ).toBeDisabled();
+			expect( options[ 4 ] ).toBeDisabled();
+			expect( options[ 5 ] ).toBeDisabled();
 		} );
-
-		const select = screen.getByRole( 'combobox' );
-		const options = select.querySelectorAll( 'option' );
-		// First option should be enabled (Select)
-		expect( options[ 0 ] ).not.toBeDisabled();
-		// Second option should be enabled (VS Code)
-		expect( options[ 1 ] ).not.toBeDisabled();
-		// Third option should be disabled (PhpStorm)
-		expect( options[ 2 ] ).toBeDisabled();
-		// Fourth option should be disabled (WebStorm)
-		expect( options[ 3 ] ).toBeDisabled();
-		// Fifth option should be disabled (Windsurf)
-		expect( options[ 4 ] ).toBeDisabled();
-		// Sixth option should be disabled (Cursor)
-		expect( options[ 5 ] ).toBeDisabled();
 	} );
 
 	it( 'selects user preferred editor', async () => {

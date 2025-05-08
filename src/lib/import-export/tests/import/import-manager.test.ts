@@ -81,7 +81,7 @@ describe( 'importManager', () => {
 			name: 'Site Name',
 			path: '/path/to/site',
 			port: 9999,
-			phpVersion: '7.4',
+			phpVersion: '8.3',
 			running: false,
 		};
 

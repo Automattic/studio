@@ -48,7 +48,7 @@ describe( 'PreviewActionButtonsMenu Rename', () => {
 		id: '456',
 		name: 'Test Site',
 		path: '/test/path',
-		phpVersion: '8.0',
+		phpVersion: '8.3',
 		port: 9999,
 		running: false,
 	};

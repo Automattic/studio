@@ -75,7 +75,7 @@ describe( 'Onboarding Component', () => {
 		setWpVersion: jest.fn(),
 		siteName: 'My Site',
 		sitePath: '/path/to/my/site',
-		phpVersion: '8.0',
+		phpVersion: '8.3',
 		wpVersion: DEFAULT_WORDPRESS_VERSION,
 		error: '',
 		doesPathContainWordPress: false,

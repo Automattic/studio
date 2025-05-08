@@ -17,7 +17,7 @@ const selectedSite: SiteDetails = {
 	name: 'Test Site',
 	running: false,
 	path: '/test-site',
-	phpVersion: '8.0',
+	phpVersion: '8.3',
 	adminPassword: btoa( 'test-password' ),
 	port: 9999,
 };

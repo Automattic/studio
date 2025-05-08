@@ -21,7 +21,7 @@ jest.mock( 'src/hooks/use-site-details', () => ( {
 		selectedSite: {
 			id: 'site-123',
 			name: 'Test Site',
-			phpVersion: '8.0',
+			phpVersion: '8.3',
 			wpVersion: 'latest',
 			running: true,
 		},
@@ -91,7 +91,7 @@ describe( 'EditSiteDetails', () => {
 
 		expect( screen.getByRole( 'dialog' ) ).toBeInTheDocument();
 		expect( screen.getByLabelText( 'Site name' ) ).toHaveValue( 'Test Site' );
-		expect( screen.getByLabelText( 'PHP version' ) ).toHaveValue( '8.0' );
+		expect( screen.getByLabelText( 'PHP version' ) ).toHaveValue( '8.3' );
 		expect( screen.getByLabelText( 'WordPress version' ) ).toHaveValue( 'latest' );
 	} );
 

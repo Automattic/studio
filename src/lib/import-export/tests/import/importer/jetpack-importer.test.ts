@@ -62,7 +62,7 @@ platformTestSuite( 'JetpackImporter', ( { normalize } ) => {
 			( fs.copyFile as jest.Mock ).mockResolvedValue( undefined );
 			( fs.readFile as jest.Mock ).mockResolvedValue(
 				JSON.stringify( {
-					phpVersion: '7.4',
+					phpVersion: '8.3',
 					wordpressVersion: '5.8',
 				} )
 			);
@@ -86,11 +86,11 @@ platformTestSuite( 'JetpackImporter', ( { normalize } ) => {
 			const expectedCommand =
 				'sqlite import studio-backup-sql-2024-08-01-12-00-00.sql --require=/tmp/sqlite-command/command.php';
 			expect( siteServer?.executeWpCliCommand ).toHaveBeenNthCalledWith( 1, expectedCommand, {
-				targetPhpVersion: '8.2',
+				targetPhpVersion: '8.3',
 				skipPluginsAndThemes: true,
 			} );
 			expect( siteServer?.executeWpCliCommand ).toHaveBeenNthCalledWith( 2, expectedCommand, {
-				targetPhpVersion: '8.2',
+				targetPhpVersion: '8.3',
 				skipPluginsAndThemes: true,
 			} );
 

@@ -73,7 +73,7 @@ describe( 'createSite', () => {
 			id: expect.any( String ),
 			name: 'Test',
 			path: '/test',
-			phpVersion: '8.2',
+			phpVersion: '8.3',
 			port: 9999,
 			running: false,
 			customDomain: undefined,
@@ -102,7 +102,7 @@ describe( 'createSite', () => {
 			id: customSiteId,
 			name: 'Test',
 			path: '/test',
-			phpVersion: '8.2',
+			phpVersion: '8.3',
 			port: 9999,
 			running: false,
 			customDomain: undefined,
@@ -194,14 +194,14 @@ describe( 'importSite', () => {
 		const mockSite = {
 			details: {
 				id: 'test-site',
-				phpVersion: '8.0',
+				phpVersion: '8.3',
 			},
 			updateSiteDetails: jest.fn(),
 		};
 		( SiteServer.get as jest.Mock ).mockReturnValue( mockSite );
 		( importBackup as jest.Mock ).mockResolvedValue( {
 			meta: {
-				phpVersion: '8.2',
+				phpVersion: '8.3',
 			},
 		} );
 
@@ -216,7 +216,7 @@ describe( 'importSite', () => {
 			expect.any( Function ),
 			defaultImporterOptions
 		);
-		expect( mockSite.details.phpVersion ).toBe( '8.2' );
+		expect( mockSite.details.phpVersion ).toBe( '8.3' );
 		expect( result ).toBe( mockSite.details );
 
 		expect( bumpStat ).toHaveBeenNthCalledWith(

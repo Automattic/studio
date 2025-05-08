@@ -44,7 +44,7 @@ const runningSite = {
 	port: 8881,
 	path: '/path/to/site',
 	running: true,
-	phpVersion: '8.0',
+	phpVersion: '8.3',
 	id: 'site-id',
 	url: 'http://example.com',
 };

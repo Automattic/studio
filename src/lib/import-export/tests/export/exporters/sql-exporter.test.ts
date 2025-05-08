@@ -24,7 +24,7 @@ platformTestSuite( 'SqlExporter', ( { normalize } ) => {
 				name: '123',
 				path: '/path/to/site',
 				port: 9999,
-				phpVersion: '7.4',
+				phpVersion: '8.3',
 			},
 			backupFile: normalize( '/path/to/backup.sql' ),
 			includes: {
@@ -35,7 +35,7 @@ platformTestSuite( 'SqlExporter', ( { normalize } ) => {
 				muPlugins: false,
 				fonts: false,
 			},
-			phpVersion: '7.4',
+			phpVersion: '8.3',
 		};
 
 		// Reset all mock implementations

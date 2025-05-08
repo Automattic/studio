@@ -1083,7 +1083,7 @@ export async function openAppAtPath(
 	}
 
 	if ( platform === 'darwin' ) {
-		return promiseExec( `open -b ${ editor.bundleId } "${ filePath }"` );
+		return promiseExec( `open -b ${ editor.macOSBundleId } "${ filePath }"` );
 	}
 
 	if ( platform === 'win32' ) {

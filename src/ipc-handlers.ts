@@ -30,6 +30,7 @@ import { getImporterMetric } from 'src/lib/bump-stats/lib';
 import {
 	openCertificate as openCertificateDialog,
 	isRootCATrusted,
+	trustRootCA,
 } from 'src/lib/certificate-manager';
 import { download } from 'src/lib/download';
 import { isEmptyDir, pathExists, sanitizeFolderName } from 'src/lib/fs-utils';
@@ -1264,6 +1265,25 @@ export function openCertificate( _event: IpcMainInvokeEvent ) {
 
 export async function isCATrusted(): Promise< boolean > {
 	return isRootCATrusted();
+}
+
+export async function trustCertificate( event: IpcMainInvokeEvent ): Promise< void > {
+	const platform = process.platform;
+	if ( platform === 'win32' ) {
+		try {
+			await trustRootCA();
+		} catch ( error ) {
+			await showErrorMessageBox( event, {
+				title: __( 'Certificate Trust Failed' ),
+				message: __(
+					'Studio was unable to trust the certificate automatically. You may need to trust it manually using certificate manager.'
+				),
+				showOpenLogs: true,
+			} );
+		}
+	} else {
+		await openCertificateDialog();
+	}
 }
 
 export async function getFileContent( event: IpcMainInvokeEvent, filePath: string ) {

@@ -1100,13 +1100,6 @@ export async function openAppAtPath(
 }
 
 /**
- * Expands Windows environment variables in a path
- */
-function winExpandPath( path: string ): string {
-	return path.replace( /%([^%]+)%/g, ( _, n ) => process.env[ n ] || '' );
-}
-
-/**
  * Finds the executable path for a given editor on Windows
  */
 async function winFindEditorPath( editorKey: SupportedEditor ): Promise< string | null > {
@@ -1116,7 +1109,7 @@ async function winFindEditorPath( editorKey: SupportedEditor ): Promise< string 
 	}
 
 	for ( const possiblePath of editor.winPaths ) {
-		const expandedPath = winExpandPath( possiblePath );
+		const expandedPath = possiblePath.replace( /%([^%]+)%/g, ( _, n ) => process.env[ n ] || '' );
 
 		// Handle wildcards in paths (for JetBrains Toolbox installations)
 		if ( expandedPath.includes( '*' ) ) {

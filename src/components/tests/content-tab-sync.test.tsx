@@ -22,7 +22,7 @@ const selectedSite: SiteDetails = {
 	path: '/path/to/site',
 	adminPassword: btoa( 'test-password' ),
 	running: false,
-	phpVersion: '8.0',
+	phpVersion: '8.3',
 	id: 'site-id',
 };
 

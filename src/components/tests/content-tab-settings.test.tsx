@@ -48,7 +48,7 @@ const selectedSite: SiteDetails = {
 	path: '/path/to/site',
 	adminPassword: btoa( 'test-password' ),
 	running: false,
-	phpVersion: '8.0',
+	phpVersion: '8.3',
 	id: 'site-id',
 };
 
@@ -229,7 +229,7 @@ describe( 'ContentTabSettings', () => {
 			const { rerender } = renderWithProvider(
 				<ContentTabSettings selectedSite={ selectedSite } />
 			);
-			expect( screen.getByText( '8.0' ) ).toBeVisible();
+			expect( screen.getByText( '8.3' ) ).toBeVisible();
 			await user.click( screen.getByRole( 'button', { name: 'Edit site' } ) );
 			const dialog = screen.getByRole( 'dialog' );
 			expect( dialog ).toBeVisible();
@@ -273,7 +273,7 @@ describe( 'ContentTabSettings', () => {
 			const { rerender } = renderWithProvider(
 				<ContentTabSettings selectedSite={ selectedSite } />
 			);
-			expect( screen.getByText( '8.0' ) ).toBeVisible();
+			expect( screen.getByText( '8.3' ) ).toBeVisible();
 			await user.click( screen.getByRole( 'button', { name: 'Edit site' } ) );
 			const dialog = screen.getByRole( 'dialog' );
 			expect( dialog ).toBeVisible();

@@ -6,7 +6,7 @@ describe( 'hasVersionMismatch', () => {
 		const result = hasVersionMismatch( {
 			wpVersion: '6.3',
 			latestWpVersion: '6.4',
-			phpVersion: '8.1',
+			phpVersion: '8.2',
 		} );
 		expect( result ).toBe( true );
 	} );
@@ -24,7 +24,7 @@ describe( 'hasVersionMismatch', () => {
 		const result = hasVersionMismatch( {
 			wpVersion: '6.4',
 			latestWpVersion: '6.4',
-			phpVersion: '8.1',
+			phpVersion: '8.2',
 		} );
 		expect( result ).toBe( true );
 	} );
@@ -33,7 +33,7 @@ describe( 'hasVersionMismatch', () => {
 		const result = hasVersionMismatch( {
 			wpVersion: '6.5',
 			latestWpVersion: '6.4',
-			phpVersion: '8.1',
+			phpVersion: '8.2',
 		} );
 		expect( result ).toBe( true );
 	} );
@@ -42,7 +42,7 @@ describe( 'hasVersionMismatch', () => {
 		const result = hasVersionMismatch( {
 			wpVersion: '6.4',
 			latestWpVersion: undefined,
-			phpVersion: '8.1',
+			phpVersion: '8.2',
 		} );
 		expect( result ).toBe( true );
 	} );
@@ -51,7 +51,7 @@ describe( 'hasVersionMismatch', () => {
 		const result = hasVersionMismatch( {
 			wpVersion: 'invalid',
 			latestWpVersion: '6.4',
-			phpVersion: '8.1',
+			phpVersion: '8.2',
 		} );
 		expect( result ).toBe( true );
 	} );

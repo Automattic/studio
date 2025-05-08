@@ -17,7 +17,7 @@ const selectedSite: SiteDetails = {
 	name: 'Test Site',
 	running: false,
 	path: '/test-site',
-	phpVersion: '8.0',
+	phpVersion: '8.3',
 	adminPassword: btoa( 'test-password' ),
 	port: 9999,
 };
@@ -63,7 +63,7 @@ describe( 'useImportExport hook', () => {
 					muPlugins: true,
 					fonts: true,
 				},
-				phpVersion: '8.0',
+				phpVersion: '8.3',
 			},
 			SITE_ID
 		);
@@ -96,7 +96,7 @@ describe( 'useImportExport hook', () => {
 					muPlugins: true,
 					fonts: true,
 				},
-				phpVersion: '8.0',
+				phpVersion: '8.3',
 			},
 			SITE_ID
 		);
@@ -129,7 +129,7 @@ describe( 'useImportExport hook', () => {
 					muPlugins: false,
 					fonts: false,
 				},
-				phpVersion: '8.0',
+				phpVersion: '8.3',
 			},
 			SITE_ID
 		);

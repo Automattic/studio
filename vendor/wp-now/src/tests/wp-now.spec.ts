@@ -36,7 +36,7 @@ test( 'getWpNowConfig with default options', async () => {
 	};
 	const options = await getWpNowConfig( rawOptions );
 
-	expect( options.phpVersion ).toBe( '8.0' );
+	expect( options.phpVersion ).toBe( '8.3' );
 	expect( options.wordPressVersion ).toBe( 'latest' );
 	expect( options.documentRoot ).toBe( '/var/www/html' );
 	expect( options.mode ).toBe( WPNowMode.INDEX );
@@ -605,7 +605,7 @@ describe( 'Test starting different modes', () => {
 		test( 'php should receive the correct yargs arguments', async () => {
 			process.argv = [ 'node', 'wp-now', 'php', '--', '--version' ];
 			await runCli();
-			expect( output ).toMatch( /PHP 8\.0(.*)\(cli\)/i );
+			expect( output ).toMatch( /PHP 8\.3(.*)\(cli\)/i );
 			expect( processExitMock ).toHaveBeenCalledWith( 0 );
 		} );
 
@@ -620,7 +620,7 @@ describe( 'Test starting different modes', () => {
 			const filePath = path.join( phpExampleDir, 'php-version.php' );
 			process.argv = [ 'node', 'wp-now', 'php', filePath ];
 			await runCli();
-			expect( output ).toMatch( /8\.0/i );
+			expect( output ).toMatch( /8\.3/i );
 			expect( processExitMock ).toHaveBeenCalledWith( 0 );
 		} );
 

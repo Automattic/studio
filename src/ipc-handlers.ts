@@ -1078,10 +1078,6 @@ export async function openAppAtPath(
 	const platform = process.platform;
 	const editor = supportedEditorConfig[ editorKey ];
 
-	if ( ! editor ) {
-		throw new Error( `Editor ${ editorKey } not found or not supported` );
-	}
-
 	if ( platform === 'darwin' ) {
 		return promiseExec( `open -b ${ editor.macOSBundleId } "${ filePath }"` );
 	}

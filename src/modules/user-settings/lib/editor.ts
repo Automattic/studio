@@ -57,8 +57,8 @@ export const supportedEditorConfig: Record< SupportedEditor, SupportedEditorConf
 		url: ( path: string ) => `cursor://file/${ path }?windowId=_blank`,
 		macOSBundleId: 'com.todesktop.230313mzl4w4u92',
 		winPaths: [
-			'%LOCALAPPDATA%\\Programs\\Cursor\\Cursor.exe',
-			'%PROGRAMFILES%\\Cursor\\Cursor.exe',
+			'%LOCALAPPDATA%\\Programs\\cursor\\Cursor.exe',
+			'%PROGRAMFILES%\\cursor\\Cursor.exe',
 		],
 	},
 };

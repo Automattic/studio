@@ -28,7 +28,7 @@ export const supportedEditorConfig: Record< SupportedEditor, SupportedEditorConf
 		macOSBundleId: 'com.jetbrains.PhpStorm',
 		winPaths: [
 			'%LOCALAPPDATA%\\Programs\\PhpStorm\\bin\\phpstorm64.exe',
-			'%PROGRAMFILES%\\JetBrains\\PhpStorm\\bin\\phpstorm64.exe',
+			'%PROGRAMFILES%\\JetBrains\\PhpStorm*\\bin\\phpstorm64.exe',
 		],
 	},
 	webstorm: {
@@ -38,7 +38,7 @@ export const supportedEditorConfig: Record< SupportedEditor, SupportedEditorConf
 		macOSBundleId: 'com.jetbrains.WebStorm',
 		winPaths: [
 			'%LOCALAPPDATA%\\Programs\\WebStorm\\bin\\webstorm64.exe',
-			'%PROGRAMFILES%\\JetBrains\\WebStorm\\bin\\webstorm64.exe',
+			'%PROGRAMFILES%\\JetBrains\\WebStorm*\\bin\\webstorm64.exe',
 		],
 	},
 	windsurf: {

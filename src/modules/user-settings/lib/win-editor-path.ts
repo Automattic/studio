@@ -12,21 +12,23 @@ export async function winFindEditorPath( editorKey: SupportedEditor ): Promise< 
 	}
 
 	for ( const possiblePath of editor.winPaths ) {
+		// Expand Windows environment variables in path
 		const expandedPath = possiblePath.replace( /%([^%]+)%/g, ( _, n ) => process.env[ n ] || '' );
 
-		// Handle wildcards in paths (for JetBrains Toolbox installations)
+		// Handle wildcards in paths
 		if ( expandedPath.includes( '*' ) ) {
-			const basePath = nodePath.dirname( expandedPath );
-			const pattern = nodePath.basename( expandedPath );
+			const pathParts = expandedPath.split('*');
+			const basePath = nodePath.dirname( pathParts[0] );
+			const pattern = nodePath.basename( pathParts[0] );
 
 			try {
-				const files = await fs.promises.readdir( basePath );
+				const files = fs.readdirSync( basePath );
 				const matchingFiles = files.filter( ( file ) =>
-					file.match( new RegExp( pattern.replace( '*', '.*' ) ) )
+					file.match( new RegExp( pattern + '.*') )
 				);
 
 				for ( const file of matchingFiles ) {
-					const fullPath = nodePath.join( basePath, file );
+					const fullPath = nodePath.join( basePath, file, pathParts[1] );
 					if ( fs.existsSync( fullPath ) ) {
 						return fullPath;
 					}

@@ -1071,7 +1071,7 @@ END` );
 }
 
 export async function openAppAtPath(
-	_event: IpcMainInvokeEvent,
+	event: IpcMainInvokeEvent,
 	editorKey: SupportedEditor,
 	filePath: string
 ): Promise< void > {
@@ -1090,7 +1090,7 @@ export async function openAppAtPath(
 		const editorPath = await winFindEditorPath( editorKey );
 		if ( ! editorPath ) {
 			// Fall back to using openURL if no editor path is found
-			return openURL( _event, editor.url( filePath ) );
+			return openURL( event, editor.url( filePath ) );
 		}
 
 		return promiseExec( `"${ editorPath }" "${ filePath }"` );
@@ -1118,8 +1118,8 @@ async function winFindEditorPath( editorKey: SupportedEditor ): Promise< string 
 
 			try {
 				const files = await fs.promises.readdir( basePath );
-				const matchingFiles = files.filter( ( f ) =>
-					f.match( new RegExp( pattern.replace( '*', '.*' ) ) )
+				const matchingFiles = files.filter( ( file ) =>
+					file.match( new RegExp( pattern.replace( '*', '.*' ) ) )
 				);
 
 				for ( const file of matchingFiles ) {

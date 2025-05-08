@@ -1,0 +1,35 @@
+diff --git a/node_modules/@php-wasm/universal/index.js b/node_modules/@php-wasm/universal/index.js
+index cf98128..36139f2 100644
+--- a/node_modules/@php-wasm/universal/index.js
++++ b/node_modules/@php-wasm/universal/index.js
+@@ -1312,20 +1312,22 @@ F = new WeakMap(), g = new WeakMap(), y = new WeakMap(), _ = new WeakMap(), w =
+     httpStatusCode: e.status
+   };
+ }, N = new WeakSet(), X = function(t) {
+-  if (this[__private__dont__use].ccall(
+-    "wasm_set_request_uri",
+-    null,
+-    [STRING],
+-    [t]
+-  ), t.includes("?")) {
+-    const e = t.substring(t.indexOf("?") + 1);
++	this[__private__dont__use].ccall(
++		"wasm_set_request_uri",
++		null,
++		[STRING],
++		[t]
++	  )
++    let e = ''
++    if (t.includes("?")) {
++      e = t.substring(t.indexOf("?") + 1);
++	}
+     this[__private__dont__use].ccall(
+       "wasm_set_query_string",
+       null,
+       [STRING],
+       [e]
+     );
+-  }
+ }, j = new WeakSet(), Q = function(t) {
+   this[__private__dont__use].ccall(
+     "wasm_set_request_host",

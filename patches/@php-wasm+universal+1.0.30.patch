@@ -12,7 +12,7 @@ index 8adeb7c..c650c31 100644
  `),p instanceof File&&(i.push("Content-Type: application/octet-stream"),i.push(`\r
  `)),i.push(`\r
 diff --git a/node_modules/@php-wasm/universal/index.js b/node_modules/@php-wasm/universal/index.js
-index cf98128..36139f2 100644
+index cf98128..ad00879 100644
 --- a/node_modules/@php-wasm/universal/index.js
 +++ b/node_modules/@php-wasm/universal/index.js
 @@ -1312,20 +1312,22 @@ F = new WeakMap(), g = new WeakMap(), y = new WeakMap(), _ = new WeakMap(), w =
@@ -31,10 +31,10 @@ index cf98128..36139f2 100644
 +		null,
 +		[STRING],
 +		[t]
-+	  )
-+    let e = ''
-+    if (t.includes("?")) {
-+      e = t.substring(t.indexOf("?") + 1);
++	);
++	let e = '';
++	if (t.includes("?")) {
++		e = t.substring(t.indexOf("?") + 1);
 +	}
      this[__private__dont__use].ccall(
        "wasm_set_query_string",

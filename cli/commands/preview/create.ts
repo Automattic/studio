@@ -46,7 +46,7 @@ export async function runCommand( siteFolder: string ): Promise< void > {
 		);
 		logger.reportSuccess( __( 'Preview site saved to Studio' ) );
 
-		logger.reportKeyValuePair( 'name', snapshot.name );
+		logger.reportKeyValuePair( 'name', snapshot.name ?? '' );
 		logger.reportKeyValuePair( 'url', snapshot.url );
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {

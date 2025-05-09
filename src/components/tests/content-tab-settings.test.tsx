@@ -99,8 +99,12 @@ describe( 'ContentTabSettings', () => {
 		} );
 	} );
 
-	test( 'renders site details correctly', () => {
+	test( 'renders site details correctly', async () => {
 		renderWithProvider( <ContentTabSettings selectedSite={ selectedSite } /> );
+
+		await waitFor( () => {
+			expect( getAllCustomDomains ).toHaveBeenCalled();
+		} );
 
 		expect( screen.getByRole( 'heading', { name: 'Site details' } ) ).toBeVisible();
 		expect( screen.getByText( 'Test Site' ) ).toBeVisible();
@@ -122,6 +126,10 @@ describe( 'ContentTabSettings', () => {
 		const user = userEvent.setup();
 		renderWithProvider( <ContentTabSettings selectedSite={ selectedSite } /> );
 
+		await waitFor( () => {
+			expect( getAllCustomDomains ).toHaveBeenCalled();
+		} );
+
 		const localPathButton = screen.getByRole( 'button', { name: 'Copy local path to clipboard' } );
 		expect( localPathButton ).toBeVisible();
 		await user.click( localPathButton );
@@ -138,6 +146,10 @@ describe( 'ContentTabSettings', () => {
 			running: true,
 		};
 		renderWithProvider( <ContentTabSettings selectedSite={ selectedSiteRunning } /> );
+
+		await waitFor( () => {
+			expect( getAllCustomDomains ).toHaveBeenCalled();
+		} );
 
 		const urlButton = screen.getByRole( 'button', {
 			name: 'localhost:8881, Copy site url to clipboard',
@@ -160,6 +172,10 @@ describe( 'ContentTabSettings', () => {
 		const user = userEvent.setup();
 		renderWithProvider( <ContentTabSettings selectedSite={ selectedSite } /> );
 
+		await waitFor( () => {
+			expect( getAllCustomDomains ).toHaveBeenCalled();
+		} );
+
 		const adminPasswordButton = screen.getByRole( 'button', {
 			name: 'Copy admin password to clipboard',
 		} );
@@ -180,6 +196,11 @@ describe( 'ContentTabSettings', () => {
 			isDeleting: false,
 		} );
 		renderWithProvider( <ContentTabSettings selectedSite={ selectedSite } /> );
+
+		await waitFor( () => {
+			expect( getAllCustomDomains ).toHaveBeenCalled();
+		} );
+
 		const dropdownButton = screen.getByRole( 'button', { name: 'More options' } );
 		await userEvent.click( dropdownButton );
 		const deleteSiteButton = screen.getByRole( 'menuitem', { name: 'Delete site' } );

@@ -5,7 +5,7 @@ export const snapshotSchema = z.object( {
 	atomicSiteId: z.number(),
 	localSiteId: z.string(),
 	date: z.number(),
-	name: z.string(),
+	name: z.string().optional(),
 	userId: z.number().optional(),
 	sequence: z.number().optional(),
 } );

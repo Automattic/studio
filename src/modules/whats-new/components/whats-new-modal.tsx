@@ -2,7 +2,9 @@ import interpolateComponents from '@automattic/interpolate-components';
 import { Guide } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
 import { ReactNode } from 'react';
+import { useI18nData } from 'src/hooks/use-i18n-data';
 import { cx } from 'src/lib/cx';
+import { getDocsLink } from 'src/lib/get-docs-link';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import cliIllustration from 'src/modules/whats-new/assets/cli-illustration.svg';
 import customDomainIllustration from 'src/modules/whats-new/assets/custom-domains-illustration.svg';
@@ -52,6 +54,7 @@ const PageContent = ( {
 );
 
 export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProps ) {
+	const { locale } = useI18nData();
 	const whatsNewPages: WhatsNewPage[] = [
 		{
 			image: cliIllustration,
@@ -68,7 +71,7 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 					code: <code />,
 				},
 			} ),
-			learnMoreUrl: 'https://developer.wordpress.com/docs/developer-tools/studio/cli/',
+			learnMoreUrl: getDocsLink( locale, 'cli' ),
 		},
 		{
 			image: customDomainIllustration,

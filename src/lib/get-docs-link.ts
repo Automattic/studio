@@ -7,6 +7,7 @@ const DOCS_LINKS = {
 	importExport: '/docs/developer-tools/studio/import-export/',
 	sites: '/docs/developer-tools/studio/sites/',
 	sync: '/docs/developer-tools/studio/sync/',
+	cli: '/docs/developer-tools/studio/cli/',
 };
 
 const AVAILABLE_DOCS_TRANSLATIONS: SupportedLocale[] = [ 'es' ];

@@ -11,7 +11,7 @@ export async function runCommand( host: string ): Promise< void > {
 	const logger = new Logger< LoggerAction >();
 
 	try {
-		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating...' ) );
+		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating…' ) );
 		const token = await getAuthToken();
 		const snapshots = await getSnapshotsFromAppdata( token.id );
 		const snapshotToDelete = snapshots.find( ( s ) => s.url === host );
@@ -25,7 +25,7 @@ export async function runCommand( host: string ): Promise< void > {
 		}
 		logger.reportSuccess( __( 'Validation successful' ), true );
 
-		logger.reportStart( LoggerAction.DELETE, __( 'Deleting...' ) );
+		logger.reportStart( LoggerAction.DELETE, __( 'Deleting…' ) );
 		await deleteSnapshot( snapshotToDelete.atomicSiteId, token.accessToken );
 		await deleteSnapshotFromAppdata( snapshotToDelete.url );
 		logger.reportSuccess( __( 'Deletion successful' ) );

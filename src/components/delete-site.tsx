@@ -70,7 +70,7 @@ const DeleteSite = ( { onClose }: DeleteSiteProps ) => {
 
 	const getTrimmedSiteTitle = ( name: string ) =>
 		name.length > MAX_LENGTH_SITE_TITLE
-			? `${ name.substring( 0, MAX_LENGTH_SITE_TITLE - 3 ) }...`
+			? `${ name.substring( 0, MAX_LENGTH_SITE_TITLE - 3 ) }…`
 			: name;
 
 	const isSiteDeletionDisabled =

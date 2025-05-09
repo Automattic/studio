@@ -176,7 +176,7 @@ describe( 'ContentTabImportExport Export', () => {
 	test( 'should display progress when exporting', async () => {
 		( useImportExport as jest.Mock ).mockReturnValue( {
 			importState: {},
-			exportState: { 'site-id-1': { progress: 5, statusMessage: 'Starting export...' } },
+			exportState: { 'site-id-1': { progress: 5, statusMessage: 'Starting export…' } },
 		} );
 
 		renderWithProvider( <ContentTabImportExport selectedSite={ selectedSite } /> );
@@ -184,7 +184,7 @@ describe( 'ContentTabImportExport Export', () => {
 			expect( screen.getByTestId( 'import-export-supported' ) ).toBeVisible();
 		} );
 
-		expect( screen.getByText( 'Starting export...' ) ).toBeVisible();
+		expect( screen.getByText( 'Starting export…' ) ).toBeVisible();
 		expect( screen.getByRole( 'progressbar', { value: { now: 5 } } ) ).toBeVisible();
 	} );
 

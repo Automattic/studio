@@ -78,7 +78,7 @@ describe( 'snapshot-slice', () => {
 
 			const state = store.getState();
 			expect( state.snapshot.operations[ operationId ] ).toEqual( {
-				detail: 'Creating archive...',
+				detail: 'Creating archive…',
 				error: null,
 				progress: 0,
 				siteId,

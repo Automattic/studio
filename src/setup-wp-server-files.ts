@@ -43,7 +43,7 @@ async function copyBundledLatestWPVersion() {
 				overwrite: true,
 			} );
 		}
-		console.log( `Copying bundled WP version ${ bundledWPVersion } as 'latest' version...` );
+		console.log( `Copying bundled WP version ${ bundledWPVersion } as 'latest' version…` );
 		await recursiveCopyDirectory( bundledWPVersionPath, latestWPVersionPath );
 	}
 }
@@ -70,7 +70,7 @@ async function copyBundledSqlite() {
 	const isBundledVersionNewer =
 		installedSqliteVersion && semver.gt( bundledSqliteVersion, installedSqliteVersion );
 	if ( ! isSqliteInstalled || isBundledVersionNewer ) {
-		console.log( `Copying bundled SQLite version ${ bundledSqliteVersion }...` );
+		console.log( `Copying bundled SQLite version ${ bundledSqliteVersion }…` );
 		await recursiveCopyDirectory( bundledSqlitePath, getSqlitePath() );
 	}
 }
@@ -98,7 +98,7 @@ async function copyBundledSQLiteCommand() {
 		installedSqliteCommandVersion &&
 		semver.gt( bundledSqliteCommandVersion, installedSqliteCommandVersion );
 	if ( ! isSqliteCommandInstalled || isBundledVersionNewer ) {
-		console.log( `Copying bundled SQLite command version ${ bundledSqliteCommandVersion }...` );
+		console.log( `Copying bundled SQLite command version ${ bundledSqliteCommandVersion }…` );
 		await recursiveCopyDirectory( bundledSqliteCommandPath, installedSqliteCommandPath );
 	}
 }

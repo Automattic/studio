@@ -1,6 +1,6 @@
 // To run tests, execute `npm run test -- src/lib/tests/translate-link.test.ts` from the root directory
 
-import { translateLink } from 'src/lib/translate-link';
+import { DOCS_LINKS, translateLink } from 'src/lib/translate-link';
 
 describe( 'translateLink', () => {
 	it( 'should return the original URL when locale is en', () => {
@@ -41,5 +41,42 @@ describe( 'translateLink', () => {
 		const untranslatedUrl = 'https://wordpress.com/blog/2025/05/09/fake-url/';
 		expect( translateLink( 'es', untranslatedUrl ) ).toBe( untranslatedUrl );
 		expect( translateLink( 'ja', untranslatedUrl ) ).toBe( untranslatedUrl );
+	} );
+	describe( 'translateLink for docs', () => {
+		it( 'should return English URLs when locale is en', () => {
+			expect( translateLink( 'en', DOCS_LINKS.studio ) ).toBe(
+				'https://developer.wordpress.com/docs/developer-tools/studio/'
+			);
+			expect( translateLink( 'en', DOCS_LINKS.importExport ) ).toBe(
+				'https://developer.wordpress.com/docs/developer-tools/studio/import-export/'
+			);
+		} );
+
+		it( 'should return English URLs when locale is not in available translations', () => {
+			expect( translateLink( 'uk', DOCS_LINKS.sites ) ).toBe(
+				'https://developer.wordpress.com/docs/developer-tools/studio/sites/'
+			);
+			expect( translateLink( 'fr', DOCS_LINKS.sync ) ).toBe(
+				'https://developer.wordpress.com/docs/developer-tools/studio/sync/'
+			);
+		} );
+
+		it( 'should return Spanish URLs when locale is es', () => {
+			expect( translateLink( 'es', DOCS_LINKS.studio ) ).toBe(
+				'https://developer.wordpress.com/es/docs/developer-tools/studio/'
+			);
+			expect( translateLink( 'es', DOCS_LINKS.importExport ) ).toBe(
+				'https://developer.wordpress.com/es/docs/developer-tools/studio/import-export/'
+			);
+			expect( translateLink( 'es', DOCS_LINKS.sites ) ).toBe(
+				'https://developer.wordpress.com/es/docs/developer-tools/studio/sites/'
+			);
+			expect( translateLink( 'es', DOCS_LINKS.sync ) ).toBe(
+				'https://developer.wordpress.com/es/docs/developer-tools/studio/sync/'
+			);
+			expect( translateLink( 'es', DOCS_LINKS.cli ) ).toBe(
+				'https://developer.wordpress.com/es/docs/developer-tools/studio/cli/'
+			);
+		} );
 	} );
 } );

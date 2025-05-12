@@ -166,7 +166,7 @@ const snapshotSlice = createSlice( {
 			} )
 			.addCase( createSnapshot.fulfilled, ( state, action ) => {
 				state.operations[ action.payload.operationId ] = {
-					detail: __( 'Creating archive...' ),
+					detail: __( 'Creating archive…' ),
 					error: null,
 					progress: 0,
 					siteId: action.payload.siteId,
@@ -322,15 +322,15 @@ window.ipcListener.subscribe( 'user-data-updated', ( _, payload ) => {
 function getOperationProgress( action: PreviewCommandLoggerAction ): [ string, number ] {
 	switch ( action ) {
 		case PreviewCommandLoggerAction.VALIDATE:
-			return [ __( 'Creating archive...' ), 5 ];
+			return [ __( 'Creating archive…' ), 5 ];
 		case PreviewCommandLoggerAction.ARCHIVE:
-			return [ __( 'Creating archive...' ), 20 ];
+			return [ __( 'Creating archive…' ), 20 ];
 		case PreviewCommandLoggerAction.UPLOAD:
-			return [ __( 'Uploading archive...' ), 40 ];
+			return [ __( 'Uploading archive…' ), 40 ];
 		case PreviewCommandLoggerAction.READY:
-			return [ __( 'Creating preview site...' ), 60 ];
+			return [ __( 'Creating preview site…' ), 60 ];
 		case PreviewCommandLoggerAction.APPDATA:
-			return [ __( 'Saving preview site...' ), 95 ];
+			return [ __( 'Saving preview site…' ), 95 ];
 		default:
 			return [ '', 0 ];
 	}

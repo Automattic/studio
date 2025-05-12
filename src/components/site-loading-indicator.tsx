@@ -8,7 +8,7 @@ export function SiteLoadingIndicator( { selectedSite }: { selectedSite: SiteDeta
 	const { [ selectedSite.id ]: currentProgress } = importState;
 	const isImporting = !! currentProgress?.progress;
 
-	const statusMessage = isImporting ? currentProgress.statusMessage : __( 'Creating site...' );
+	const statusMessage = isImporting ? currentProgress.statusMessage : __( 'Creating site…' );
 
 	return (
 		<div className="flex flex-col w-full h-full app-no-drag-region pt-8 overflow-y-auto justify-center items-center">

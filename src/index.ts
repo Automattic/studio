@@ -219,6 +219,7 @@ async function appBoot() {
 
 	app.on( 'ready', async () => {
 		const locale = await getUserLocaleWithFallback();
+		await launchExtensionBackgroundWorkers();
 
 		console.log( `App version: ${ app.getVersion() }` );
 		console.log( `Built from commit: ${ COMMIT_HASH ?? 'undefined' }` );

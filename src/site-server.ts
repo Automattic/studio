@@ -41,6 +41,7 @@ export async function createSiteWorkingDirectory(
 
 	if ( ! wpVersionExists ) {
 		try {
+			// This will handle downloading and verifying checksums
 			await downloadWordPress( wpVersion, { overwrite: false } );
 		} catch ( error ) {
 			console.error( `Failed to download WordPress version ${ wpVersion }:`, error );
@@ -48,38 +49,6 @@ export async function createSiteWorkingDirectory(
 				`Failed to download WordPress version ${ wpVersion }. Please try a different version.`
 			);
 		}
-	}
-
-	// Add checksum verification before proceeding
-	try {
-		console.log( `Verifying checksums for WordPress version ${ wpVersion }...` );
-		const result = await executeWPCli( wpVersionPath, [
-			'core',
-			'verify-checksums',
-			'--skip-plugins',
-			'--skip-themes',
-		] );
-		console.log( 'Checksum verification result:', {
-			stdout: result.stdout,
-			stderr: result.stderr,
-			exitCode: result.exitCode,
-		} );
-
-		if ( result.exitCode !== 0 ) {
-			console.log(
-				`Checksums don't match for WordPress ${ wpVersion }, downloading a fresh copy...`
-			);
-			await fsExtra.remove( wpVersionPath );
-			await downloadWordPress( wpVersion, { overwrite: true } );
-			throw new Error(
-				`WordPress version ${ wpVersion } appears to be corrupted. Please try creating the site again.`
-			);
-		}
-	} catch ( error ) {
-		console.error( `Failed to verify WordPress checksums:`, error );
-		throw new Error(
-			`Failed to verify WordPress version ${ wpVersion }. Please try again or use a different version.`
-		);
 	}
 
 	await purgeWpConfig( wpVersion );

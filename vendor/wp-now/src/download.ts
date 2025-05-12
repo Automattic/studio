@@ -7,9 +7,11 @@ import { HttpProxyAgent, HttpsProxyAgent } from 'hpagent';
 import { getWordPressVersionUrl } from 'src/lib/wordpress-version-utils';
 import unzipper from 'unzipper';
 import { DEFAULT_WORDPRESS_VERSION, WP_CLI_URL } from './constants';
+import { executeWPCli } from './execute-wp-cli';
 import getWordpressVersionsPath from './get-wordpress-versions-path';
 import getWpCliPath from './get-wp-cli-path';
 import { output } from './output';
+
 function httpsGet( url: string, callback: ( res: IncomingMessage & FollowResponse ) => void ) {
 	const proxy =
 		process.env.https_proxy ||
@@ -169,6 +171,45 @@ export async function downloadWordPress(
 		await fs.move( path.join( tempFolder, 'wordpress' ), finalFolder, {
 			overwrite: true,
 		} );
+
+		// After successful download, verify checksums
+		try {
+			console.log( `Verifying checksums for WordPress version ${ wordPressVersion }...` );
+			const result = await executeWPCli( getWordPressVersionPath( wordPressVersion ), [
+				'core',
+				'verify-checksums',
+				'--skip-plugins',
+				'--skip-themes',
+			] );
+
+			if ( result.exitCode !== 0 ) {
+				console.log(
+					`Checksums don't match for WordPress ${ wordPressVersion }, retrying download...`
+				);
+				await fs.remove( getWordPressVersionPath( wordPressVersion ) );
+				// Retry download one more time
+				await downloadWordPress( wordPressVersion, { overwrite: true } );
+
+				// Verify checksums again after retry
+				const retryResult = await executeWPCli( getWordPressVersionPath( wordPressVersion ), [
+					'core',
+					'verify-checksums',
+					'--skip-plugins',
+					'--skip-themes',
+				] );
+
+				if ( retryResult.exitCode !== 0 ) {
+					throw new Error(
+						`WordPress version ${ wordPressVersion } appears to be corrupted after multiple download attempts.`
+					);
+				}
+			}
+		} catch ( error ) {
+			console.error( `Failed to verify WordPress checksums:`, error );
+			throw new Error(
+				`Failed to verify WordPress version ${ wordPressVersion }. Please try again or use a different version.`
+			);
+		}
 	} else if ( 404 === statusCode ) {
 		output?.log(
 			`WordPress ${ wordPressVersion } not found. Check https://wordpress.org/download/releases/ for available versions.`

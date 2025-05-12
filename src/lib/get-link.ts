@@ -5,23 +5,23 @@ type TranslatedLink = Partial< Record< SupportedLocale, string > > & { en: strin
 
 const DOCS_LINKS = {
 	studio: {
-		en: `https://developer.wordpress.com/docs/developer-tools/studio/`,
-		es: `https://developer.wordpress.com/es/docs/developer-tools/studio/`,
+		en: 'https://developer.wordpress.com/docs/developer-tools/studio/',
+		es: 'https://developer.wordpress.com/es/docs/herramientas-para-desarrolladores/studio/',
 	},
 	importExport: {
-		en: `https://developer.wordpress.com/docs/developer-tools/studio/import-export/`,
-		es: `https://developer.wordpress.com/es/docs/developer-tools/studio/import-export/`,
+		en: 'https://developer.wordpress.com/docs/developer-tools/studio/import-export/',
+		es: 'https://developer.wordpress.com/es/docs/herramientas-para-desarrolladores/studio/importar-exportar/',
 	},
 	sites: {
-		en: `https://developer.wordpress.com/docs/developer-tools/studio/sites/`,
-		es: `https://developer.wordpress.com/es/docs/developer-tools/studio/sites/`,
+		en: 'https://developer.wordpress.com/docs/developer-tools/studio/sites/',
+		es: 'https://developer.wordpress.com/es/docs/herramientas-para-desarrolladores/studio/sitios/',
 	},
 	sync: {
-		en: `https://developer.wordpress.com/docs/developer-tools/studio/sync/`,
-		es: `https://developer.wordpress.com/es/docs/developer-tools/studio/sync/`,
+		en: 'https://developer.wordpress.com/docs/developer-tools/studio/sync/',
+		es: 'https://developer.wordpress.com/es/docs/herramientas-para-desarrolladores/studio/sync/',
 	},
 	cli: {
-		en: `https://developer.wordpress.com/docs/developer-tools/studio/cli/`,
+		en: 'https://developer.wordpress.com/docs/developer-tools/studio/cli/',
 	},
 } satisfies Record< string, TranslatedLink >;
 

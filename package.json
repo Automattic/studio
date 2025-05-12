@@ -32,7 +32,7 @@
 		"format": "prettier . --write",
 		"test": "cross-env NODE_OPTIONS='--no-deprecation' jest",
 		"test:watch": "cross-env NODE_OPTIONS='--no-deprecation' jest --watch",
-		"e2e": "npx playwright install && npx playwright test --debug",
+		"e2e": "npx playwright install && npx playwright test",
 		"test:metrics": "npx playwright test --config=./metrics/playwright.metrics.config.ts",
 		"make-pot": "wp-babel-makepot \"{./src,./cli}/**/*.{js,jsx,ts,tsx}\" --ignore \"**/*.d.ts\" --base \".\" --dir \"./out/pots\" --output \"./out/pots/bundle-strings.pot\""
 	},

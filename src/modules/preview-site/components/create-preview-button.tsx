@@ -1,5 +1,6 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
+import { addDays } from 'date-fns';
 import { DEMO_SITE_SIZE_LIMIT_GB } from 'common/constants';
 import { AuthContextType } from 'src/components/auth-provider';
 import Button from 'src/components/button';
@@ -34,7 +35,14 @@ export function CreatePreviewButton( { onClick, selectedSite, user }: CreatePrev
 	const snapshotsByUser = useRootSelector( ( state ) =>
 		snapshotSelectors.selectSnapshotsByUser( state, user?.id ?? 0 )
 	);
-	const activeSnapshotCount = snapshotsByUser?.length ?? 0;
+
+	const activeSnapshotCount =
+		snapshotsByUser?.filter( ( snapshot ) => {
+			const now = new Date();
+			const endDate = addDays( snapshot.date, 7 );
+			return endDate > now;
+		} ).length ?? 0;
+
 	const isLimitUsed = activeSnapshotCount >= snapshotQuota;
 	const { isOverLimit } = useSiteSize( selectedSite.id );
 	const isOffline = useOffline();

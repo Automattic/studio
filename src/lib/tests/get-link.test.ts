@@ -31,28 +31,28 @@ describe( 'getLink', () => {
 	} );
 	describe( 'getLink for docs', () => {
 		it( 'should return English URLs when locale is en', () => {
-			expect( getLink( 'en', 'studio' ) ).toBe(
+			expect( getLink( 'en', 'docsStudio' ) ).toBe(
 				'https://developer.wordpress.com/docs/developer-tools/studio/'
 			);
-			expect( getLink( 'en', 'importExport' ) ).toBe(
+			expect( getLink( 'en', 'docsImportExport' ) ).toBe(
 				'https://developer.wordpress.com/docs/developer-tools/studio/import-export/'
 			);
 		} );
 
 		it( 'should return English URLs when locale is not in available translations', () => {
-			expect( getLink( 'uk', 'sites' ) ).toBe(
+			expect( getLink( 'uk', 'docsSites' ) ).toBe(
 				'https://developer.wordpress.com/docs/developer-tools/studio/sites/'
 			);
-			expect( getLink( 'fr', 'sync' ) ).toBe(
+			expect( getLink( 'fr', 'docsSync' ) ).toBe(
 				'https://developer.wordpress.com/docs/developer-tools/studio/sync/'
 			);
 		} );
 
 		it( 'should return Spanish URLs when locale is es', () => {
-			expect( getLink( 'es', 'studio' ) ).toBe(
+			expect( getLink( 'es', 'docsStudio' ) ).toBe(
 				'https://developer.wordpress.com/es/docs/herramientas-para-desarrolladores/studio/'
 			);
-			expect( getLink( 'es', 'sync' ) ).toBe(
+			expect( getLink( 'es', 'docsSync' ) ).toBe(
 				'https://developer.wordpress.com/es/docs/herramientas-para-desarrolladores/studio/sync/'
 			);
 		} );

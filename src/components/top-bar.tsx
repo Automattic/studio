@@ -99,7 +99,7 @@ export default function TopBar( { onToggleSidebar }: TopBarProps ) {
 	const { locale } = useI18nData();
 
 	const openDocs = () => {
-		getIpcApi().openURL( getLink( locale, 'studio' ) );
+		getIpcApi().openURL( getLink( locale, 'docsStudio' ) );
 	};
 
 	return (

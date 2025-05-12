@@ -462,7 +462,7 @@ const SyncConnectedSiteSection = ( {
 								button: (
 									<Button
 										variant="link"
-										onClick={ () => getIpcApi().openURL( getLink( locale, 'sync' ) ) }
+										onClick={ () => getIpcApi().openURL( getLink( locale, 'docsSync' ) ) }
 									/>
 								),
 							}

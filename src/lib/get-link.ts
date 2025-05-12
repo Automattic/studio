@@ -4,26 +4,26 @@ import { SupportedLocale } from 'common/lib/locale';
 type TranslatedLink = Partial< Record< SupportedLocale, string > > & { en: string };
 
 const DOCS_LINKS = {
-	studio: {
+	docsStudio: {
 		en: 'https://developer.wordpress.com/docs/developer-tools/studio/',
 		es: 'https://developer.wordpress.com/es/docs/herramientas-para-desarrolladores/studio/',
 	},
-	importExport: {
+	docsImportExport: {
 		en: 'https://developer.wordpress.com/docs/developer-tools/studio/import-export/',
 		es: 'https://developer.wordpress.com/es/docs/herramientas-para-desarrolladores/studio/importar-exportar/',
 	},
-	sites: {
+	docsSites: {
 		en: 'https://developer.wordpress.com/docs/developer-tools/studio/sites/',
 		es: 'https://developer.wordpress.com/es/docs/herramientas-para-desarrolladores/studio/sitios/',
 	},
-	sync: {
+	docsSync: {
 		en: 'https://developer.wordpress.com/docs/developer-tools/studio/sync/',
 		es: 'https://developer.wordpress.com/es/docs/herramientas-para-desarrolladores/studio/sync/',
 	},
-	cli: {
+	docsCli: {
 		en: 'https://developer.wordpress.com/docs/developer-tools/studio/cli/',
 	},
-} satisfies Record< string, TranslatedLink >;
+} satisfies Record< `docs${ string }`, TranslatedLink >;
 
 const BLOG_LINKS = {
 	blogPhpVersions: {

@@ -319,7 +319,9 @@ export const SiteForm = ( {
 											<Button
 												variant="link"
 												className="text-xs"
-												onClick={ () => getIpcApi().openURL( getLink( locale, 'importExport' ) ) }
+												onClick={ () =>
+													getIpcApi().openURL( getLink( locale, 'docsImportExport' ) )
+												}
 											/>
 										),
 									}
@@ -383,7 +385,9 @@ export const SiteForm = ( {
 														<Button
 															variant="link"
 															className="text-xs"
-															onClick={ () => getIpcApi().openURL( getLink( locale, 'sites' ) ) }
+															onClick={ () =>
+																getIpcApi().openURL( getLink( locale, 'docsSites' ) )
+															}
 														/>
 													),
 												}

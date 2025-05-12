@@ -236,7 +236,7 @@ function getAppMenu(
 					label: __( 'Studio Help' ),
 					click: async () => {
 						const locale = await getUserLocaleWithFallback();
-						void shellOpenExternalWrapper( getLink( locale, 'studio' ) );
+						void shellOpenExternalWrapper( getLink( locale, 'docsStudio' ) );
 					},
 				},
 				{

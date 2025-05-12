@@ -219,7 +219,7 @@ const ImportSite = ( {
 						button: (
 							<Button
 								variant="link"
-								onClick={ () => getIpcApi().openURL( getLink( locale, 'importExport' ) ) }
+								onClick={ () => getIpcApi().openURL( getLink( locale, 'docsImportExport' ) ) }
 							/>
 						),
 					}

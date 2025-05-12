@@ -71,7 +71,7 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 					code: <code />,
 				},
 			} ),
-			learnMoreUrl: getLink( locale, 'cli' ),
+			learnMoreUrl: getLink( locale, 'docsCli' ),
 		},
 		{
 			image: customDomainIllustration,

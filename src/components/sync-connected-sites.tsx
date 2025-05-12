@@ -28,7 +28,7 @@ import {
 } from 'src/hooks/use-sync-states-progress-info';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { translateLink, DOCS_LINKS } from 'src/lib/translate-link';
+import { translateLink } from 'src/lib/translate-link';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
 interface ConnectedSiteSection {
@@ -462,9 +462,7 @@ const SyncConnectedSiteSection = ( {
 								button: (
 									<Button
 										variant="link"
-										onClick={ () =>
-											getIpcApi().openURL( translateLink( locale, DOCS_LINKS.sync ) )
-										}
+										onClick={ () => getIpcApi().openURL( translateLink( locale, 'sync' ) ) }
 									/>
 								),
 							}

@@ -9,7 +9,7 @@ import { useAuth } from 'src/hooks/use-auth';
 import { useI18nData } from 'src/hooks/use-i18n-data';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { translateLink, DOCS_LINKS } from 'src/lib/translate-link';
+import { translateLink } from 'src/lib/translate-link';
 interface TopBarProps {
 	onToggleSidebar: () => void;
 }
@@ -99,7 +99,7 @@ export default function TopBar( { onToggleSidebar }: TopBarProps ) {
 	const { locale } = useI18nData();
 
 	const openDocs = () => {
-		getIpcApi().openURL( translateLink( locale, DOCS_LINKS.studio ) );
+		getIpcApi().openURL( translateLink( locale, 'studio' ) );
 	};
 
 	return (

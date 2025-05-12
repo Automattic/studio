@@ -17,7 +17,7 @@ import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { DOCS_LINKS, translateLink } from 'src/lib/translate-link';
+import { translateLink } from 'src/lib/translate-link';
 
 interface ContentTabImportExportProps {
 	selectedSite: SiteDetails;
@@ -219,9 +219,7 @@ const ImportSite = ( {
 						button: (
 							<Button
 								variant="link"
-								onClick={ () =>
-									getIpcApi().openURL( translateLink( locale, DOCS_LINKS.importExport ) )
-								}
+								onClick={ () => getIpcApi().openURL( translateLink( locale, 'importExport' ) ) }
 							/>
 						),
 					}

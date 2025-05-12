@@ -5,7 +5,7 @@ import { ReactNode } from 'react';
 import { useI18nData } from 'src/hooks/use-i18n-data';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { BLOG_LINKS, DOCS_LINKS, translateLink } from 'src/lib/translate-link';
+import { translateLink } from 'src/lib/translate-link';
 import cliIllustration from 'src/modules/whats-new/assets/cli-illustration.svg';
 import customDomainIllustration from 'src/modules/whats-new/assets/custom-domains-illustration.svg';
 import previewSitesIllustration from 'src/modules/whats-new/assets/preview-sites-illustration.svg';
@@ -71,7 +71,7 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 					code: <code />,
 				},
 			} ),
-			learnMoreUrl: translateLink( locale, DOCS_LINKS.cli ),
+			learnMoreUrl: translateLink( locale, 'cli' ),
 		},
 		{
 			image: customDomainIllustration,
@@ -79,7 +79,7 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 			description: __(
 				'Easily identify your local Studio sites with custom domain names. Personalize and organize your workflow!'
 			),
-			learnMoreUrl: translateLink( locale, BLOG_LINKS[ 'custom-domains-https' ] ),
+			learnMoreUrl: translateLink( locale, 'blogCustomDomainsHttps' ),
 		},
 		{
 			image: versionSwitchIllustration,
@@ -87,7 +87,7 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 			description: __(
 				'Select your preferred WordPress and PHP versions for existing sites or when creating a new one.'
 			),
-			learnMoreUrl: translateLink( locale, BLOG_LINKS[ 'php-versions' ] ),
+			learnMoreUrl: translateLink( locale, 'blogPhpVersions' ),
 		},
 		{
 			image: previewSitesIllustration,
@@ -95,10 +95,7 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 			description: __(
 				'Quickly generate a publicly accessible URL that you can share with clients and colleagues.'
 			),
-			learnMoreUrl: translateLink(
-				locale,
-				'https://wordpress.com/blog/2025/02/24/studio-preview-sites/'
-			),
+			learnMoreUrl: translateLink( locale, 'blogPreviewSites' ),
 		},
 	];
 

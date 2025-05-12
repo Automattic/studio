@@ -37,7 +37,7 @@ test.describe( 'Site Editor Load Metrics', () => {
 
 		// Handle the What's New modal if it appears
 		const whatsNewModal = new WhatsNewModal( session.mainWindow );
-		if ( await whatsNewModal.locator.isVisible( { timeout: 20000 } ) ) {
+		if ( await whatsNewModal.locator.isVisible( { timeout: 30000 } ) ) {
 			await whatsNewModal.closeButton.click();
 		}
 

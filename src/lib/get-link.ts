@@ -45,7 +45,7 @@ const BLOG_LINKS = {
 		es: 'https://wordpress.com/es/blog/2025/03/31/studio-custom-domains-https/',
 		'pt-br': 'https://wordpress.com/pt-br/blog/2025/04/03/estudio-dominios-personalizados-https/',
 	},
-} satisfies Record< string, TranslatedLink >;
+} satisfies Record< `blog${ string }`, TranslatedLink >;
 
 const LINKS = {
 	...BLOG_LINKS,

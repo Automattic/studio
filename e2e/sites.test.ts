@@ -25,7 +25,7 @@ test.describe( 'Servers', () => {
 		await onboarding.continueButton.click();
 
 		const whatsNewModal = new WhatsNewModal( session.mainWindow );
-		if ( await whatsNewModal.locator.isVisible( { timeout: 5000 } ) ) {
+		if ( await whatsNewModal.locator.isVisible( { timeout: 10000 } ) ) {
 			await whatsNewModal.closeButton.click();
 		}
 

@@ -22,7 +22,6 @@ import { getWpNowConfig } from 'vendor/wp-now/src';
 import { WPNowMode } from 'vendor/wp-now/src/config';
 import { DEFAULT_PHP_VERSION, SQLITE_FILENAME } from 'vendor/wp-now/src/constants';
 import { getWordPressVersionPath, downloadWordPress } from 'vendor/wp-now/src/download';
-import { executeWPCli } from 'vendor/wp-now/src/execute-wp-cli';
 
 const servers = new Map< string, SiteServer >();
 const deletedServers: string[] = [];

@@ -44,7 +44,7 @@ import fs from 'fs/promises';
 import https from 'https';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import packageJson from '../package.json' assert { type: 'json' };
+import packageJson from '../package.json' with { type: 'json' };
 
 const cdnURL = 'https://cdn.a8c-ci.services/studio';
 const baseName = 'studio';

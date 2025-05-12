@@ -8,9 +8,8 @@ import { WordPressLogo } from 'src/components/wordpress-logo';
 import { useAuth } from 'src/hooks/use-auth';
 import { useI18nData } from 'src/hooks/use-i18n-data';
 import { useOffline } from 'src/hooks/use-offline';
-import { getDocsLink } from 'src/lib/get-docs-link';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-
+import { translateLink, DOCS_LINKS } from 'src/lib/translate-link';
 interface TopBarProps {
 	onToggleSidebar: () => void;
 }
@@ -100,7 +99,7 @@ export default function TopBar( { onToggleSidebar }: TopBarProps ) {
 	const { locale } = useI18nData();
 
 	const openDocs = () => {
-		getIpcApi().openURL( getDocsLink( locale, 'studio' ) );
+		getIpcApi().openURL( translateLink( locale, DOCS_LINKS.studio ) );
 	};
 
 	return (

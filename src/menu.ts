@@ -3,9 +3,9 @@ import { __ } from '@wordpress/i18n';
 import { openAboutWindow } from 'src/about-menu/open-about-menu';
 import { BUG_REPORT_URL, FEATURE_REQUEST_URL } from 'src/constants';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
-import { getDocsLink } from 'src/lib/get-docs-link';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
+import { DOCS_LINKS, translateLink } from 'src/lib/translate-link';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { getMainWindow } from 'src/main-window';
 import { installCLIOnMacOSWithConfirmation } from 'src/modules/cli/lib/install-macos';
@@ -236,7 +236,7 @@ function getAppMenu(
 					label: __( 'Studio Help' ),
 					click: async () => {
 						const locale = await getUserLocaleWithFallback();
-						void shellOpenExternalWrapper( getDocsLink( locale, 'studio' ) );
+						void shellOpenExternalWrapper( translateLink( locale, DOCS_LINKS.studio ) );
 					},
 				},
 				{

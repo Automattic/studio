@@ -52,9 +52,10 @@ const LINKS = {
 	...DOCS_LINKS,
 } as const satisfies Record< string, TranslatedLink >;
 
-type LinkKey = keyof typeof LINKS;
-
-export function translateLink( locale: SupportedLocale, linkKey: LinkKey ): string {
+/**
+ * Returns the link for the given locale if it exists, otherwise, returns the English link.
+ */
+export function getLink( locale: SupportedLocale, linkKey: keyof typeof LINKS ): string {
 	const links = LINKS[ linkKey ];
 	if ( locale in links ) {
 		return links[ locale as keyof typeof links ];

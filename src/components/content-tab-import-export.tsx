@@ -122,7 +122,7 @@ const InitialImportButton = ( {
 		<Tooltip className="w-full" text={ tooltipText } disabled={ ! disabled }>
 			<Button
 				variant="icon"
-				className={ `w-full
+				className={ `w-full 
 				${
 					disabled
 						? '[&>div.border-zinc-300]:border-gray-400 cursor-not-allowed opacity-50'

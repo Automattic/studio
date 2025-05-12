@@ -387,9 +387,9 @@ describe( 'ContentTabSync', () => {
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
 		expect( screen.getByText( fakePressableProductionSite.name ) ).toBeInTheDocument();
-		expect( screen.getAllByText( 'Production' ) ).toHaveLength( 1 );
-
 		expect( screen.getByText( fakePressableStagingSite.name ) ).toBeInTheDocument();
-		expect( screen.getAllByText( 'Staging' ) ).toHaveLength( 1 );
+
+		expect( screen.getByText( 'Production' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Staging' ) ).toBeInTheDocument();
 	} );
 } );
